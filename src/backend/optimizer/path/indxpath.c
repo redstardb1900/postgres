@@ -61,7 +61,7 @@ typedef struct
 {
 	Path	   *path;			/* IndexPath、BitmapAndPath 或 BitmapOrPath */
 	List	   *quals;			/* 它使用的 WHERE 子句 */
-	List	   *preds;			/* 其部分索引的谓词 index(es) */
+	List	   *preds;			/* 其部分索引的谓词 */
 	Bitmapset  *clauseids;		/* 限定条件加谓词，表示为一个 bitmapset */
 	bool		unclassifiable; /* 限定条件加谓词是否多到无法处理？ */
 } PathClauseUsage;
@@ -343,7 +343,7 @@ create_index_paths(PlannerInfo *root, RelOptInfo *rel)
 										rel->lateral_relids, 1.0, 0);
 		add_path(rel, (Path *) bpath);
 
-		/* 创建一条部分位图堆路径 */
+		/* 创建一条并行部分位图堆路径 */
 		if (rel->consider_parallel && rel->lateral_relids == NULL)
 			create_partial_bitmap_paths(root, rel, bitmapqual);
 	}
@@ -661,7 +661,7 @@ get_join_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	/* 应当已经找到一些，否则调用方传入了荒唐的 relid */
 	Assert(clauseset.nonempty);
 
-	/* 用收集到的这组子句建立索引 path(s) */
+	/* 用收集到的这组子句建立索引路径 */
 	get_index_paths(root, rel, index, &clauseset, bitindexpaths);
 
 	/*
@@ -855,7 +855,7 @@ build_index_paths(PlannerInfo *root, RelOptInfo *rel,
 	int			indexcol;
 
 	/*
-	 * 检查索引是否支持所要的扫描 type(s)
+	 * 检查索引是否支持所要的扫描类型
 	 */
 	switch (scantype)
 	{
@@ -3099,7 +3099,7 @@ match_pathkeys_to_index(IndexOptInfo *index, List *pathkeys,
 			return;
 
 		/*
-		 * 试着把等价类成员 expression(s) 匹配到索引。注意会考虑子
+		 * 试着把等价类成员表达式匹配到索引。注意会考虑子
 		 * EC 成员，但仅当它们属于目标
 		 * 关系时。（与普通成员不同，同一表达式可以是
 		 * 不止一个 EC 的子成员。因此，同一索引可以被
@@ -3322,7 +3322,7 @@ check_index_predicates(PlannerInfo *root, RelOptInfo *rel)
 
 	/*
 	 * 构造一份为证明
-	 * index(es) 可用而可以假定为真的子句列表。该关系的限制子句
+	 * 这些索引可用而可以假定为真的子句列表。该关系的限制子句
 	 * 总是可用，任何 "可移到" 这个
 	 * 关系的连接子句也可用。另外，可以考虑任何可由等价类导出的连接子句（按定义它们必须
 	 * "可移到" 这个关系）。
@@ -3345,7 +3345,7 @@ check_index_predicates(PlannerInfo *root, RelOptInfo *rel)
 	 * 加上任何可由等值关系导出的连接子句。为 generate_join_implied_equalities 计算正确的
 	 * relid 集合略为棘手，
 	 * 因为该关系可能是子关系而不是真正的基关系，此时
-	 * 必须从 all_query_rels 中减去其父项的 relid(s)。
+	 * 必须从 all_query_rels 中减去其父项的 relid。
 	 * 另外，不得考虑只有在
 	 * 能把该关系置空的外连接之后才能计算的子句。
 	 */

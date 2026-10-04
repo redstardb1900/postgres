@@ -18,13 +18,13 @@
 #include "libpq/libpq-be.h"
 #include "libpq/sasl.h"
 
-/* Number of iterations when generating new secrets */
+/* 生成新秘密时的迭代次数 */
 extern PGDLLIMPORT int scram_sha_256_iterations;
 
-/* SASL implementation callbacks */
+/* SASL 实现回调 */
 extern PGDLLIMPORT const pg_be_sasl_mech pg_be_scram_mech;
 
-/* Routines to handle and check SCRAM-SHA-256 secret */
+/* 处理并检查 SCRAM-SHA-256 秘密的例程 */
 extern char *pg_be_scram_build_secret(const char *password);
 extern bool parse_scram_secret(const char *secret,
 							   int *iterations,

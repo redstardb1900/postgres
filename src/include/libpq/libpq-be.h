@@ -43,7 +43,7 @@
 
 #ifndef ENABLE_GSS
 /*
- * Define a fake structure compatible with GSSAPI on Unix.
+ * 定义一个与 Unix 上 GSSAPI 兼容的假结构。
  */
 typedef struct
 {
@@ -70,123 +70,123 @@ typedef enum CAC_state
 
 
 /*
- * GSSAPI specific state information
+ * GSSAPI 专用的状态信息
  */
 #if defined(ENABLE_GSS) | defined(ENABLE_SSPI)
 typedef struct
 {
-	gss_buffer_desc outbuf;		/* GSSAPI output token buffer */
+	gss_buffer_desc outbuf;		/* GSSAPI 输出 token 缓冲区 */
 #ifdef ENABLE_GSS
-	gss_cred_id_t cred;			/* GSSAPI connection cred's */
-	gss_ctx_id_t ctx;			/* GSSAPI connection context */
-	gss_name_t	name;			/* GSSAPI client name */
-	char	   *princ;			/* GSSAPI Principal used for auth, NULL if
-								 * GSSAPI auth was not used */
-	bool		auth;			/* GSSAPI Authentication used */
-	bool		enc;			/* GSSAPI encryption in use */
-	bool		delegated_creds;	/* GSSAPI Delegated credentials */
+	gss_cred_id_t cred;			/* GSSAPI 连接凭证 */
+	gss_ctx_id_t ctx;			/* GSSAPI 连接上下文 */
+	gss_name_t	name;			/* GSSAPI 客户端名 */
+	char	   *princ;			/* 用于认证的 GSSAPI Principal；若未使用
+								 * GSSAPI 认证则为 NULL */
+	bool		auth;			/* 使用了 GSSAPI 认证 */
+	bool		enc;			/* 正在使用 GSSAPI 加密 */
+	bool		delegated_creds;	/* GSSAPI 委托的凭证 */
 #endif
 } pg_gssinfo;
 #endif
 
 /*
- * ClientConnectionInfo includes the fields describing the client connection
- * that are copied over to parallel workers as nothing from Port does that.
- * The same rules apply for allocations here as for Port (everything must be
- * malloc'd or palloc'd in TopMemoryContext).
+ * ClientConnectionInfo 包含描述客户端连接的字段，这些字段
+ * 会复制给并行工作进程，因为 Port 里没有任何东西会那样做。
+ * 这里的分配规则与 Port 相同（一切都必须 malloc，或在
+ * TopMemoryContext 中 palloc）。
  *
- * If you add a struct member here, remember to also handle serialization in
- * SerializeClientConnectionInfo() and co.
+ * 若在此增加结构体成员，记得同时处理
+ * SerializeClientConnectionInfo() 及其相关函数中的序列化。
  */
 typedef struct ClientConnectionInfo
 {
 	/*
-	 * Authenticated identity.  The meaning of this identifier is dependent on
-	 * auth_method; it is the identity (if any) that the user presented during
-	 * the authentication cycle, before they were assigned a database role.
-	 * (It is effectively the "SYSTEM-USERNAME" of a pg_ident usermap --
-	 * though the exact string in use may be different, depending on pg_hba
-	 * options.)
-	 *
-	 * authn_id is NULL if the user has not actually been authenticated, for
-	 * example if the "trust" auth method is in use.
-	 */
+ * 已认证的身份。这个标识符的含义取决于 auth_method；它是
+ * 用户在认证过程中、被赋予数据库角色之前所出示的身份
+ * （若有的话）。（它实际上是 pg_ident 用户映射的
+ * "SYSTEM-USERNAME"，不过实际使用的字符串可能不同，
+ * 取决于 pg_hba 选项。）
+ *
+ * 若用户实际上并未被认证，例如使用 "trust" 认证方法，
+ * 则 authn_id 为 NULL。
+ *
+ */
 	const char *authn_id;
 
 	/*
-	 * The HBA method that determined the above authn_id.  This only has
-	 * meaning if authn_id is not NULL; otherwise it's undefined.
-	 */
+ * 决定上述 authn_id 的 HBA 方法。仅当 authn_id 不为
+ * NULL 时才有意义；否则它是未定义的。
+ */
 	UserAuth	auth_method;
 } ClientConnectionInfo;
 
 /*
- * This is used by the postmaster in its communication with frontends.  It
- * contains all state information needed during this communication before the
- * backend is run.  The Port structure is kept in malloc'd memory and is
- * still available when a backend is running (see MyProcPort).  The data
- * it points to must also be malloc'd, or else palloc'd in TopMemoryContext,
- * so that it survives into PostgresMain execution!
+ * postmaster 用它与前端通信。它包含运行后端之前这次通信
+ * 所需的全部状态。Port 结构放在 malloc 的内存中，后端
+ * 运行时仍可用（见 MyProcPort）。它指向的数据也必须用
+ * malloc 分配，或在 TopMemoryContext 里 palloc，以便
+ * 存活到 PostgresMain 执行阶段！
  *
- * remote_hostname is set if we did a successful reverse lookup of the
- * client's IP address during connection setup.
- * remote_hostname_resolv tracks the state of hostname verification:
- *	+1 = remote_hostname is known to resolve to client's IP address
- *	-1 = remote_hostname is known NOT to resolve to client's IP address
- *	 0 = we have not done the forward DNS lookup yet
- *	-2 = there was an error in name resolution
- * If reverse lookup of the client IP address fails, remote_hostname will be
- * left NULL while remote_hostname_resolv is set to -2.  If reverse lookup
- * succeeds but forward lookup fails, remote_hostname_resolv is also set to -2
- * (the case is distinguishable because remote_hostname isn't NULL).  In
- * either of the -2 cases, remote_hostname_errcode saves the lookup return
- * code for possible later use with gai_strerror.
+ * 连接建立期间若对客户端 IP 的反向查找成功，则设置
+ * remote_hostname。remote_hostname_resolv 跟踪主机名
+ * 验证状态：+1 = 已知解析到客户端 IP；-1 = 已知不会
+ * 解析到该 IP；0 = 尚未做正向 DNS 查找；-2 = 解析出错。
+ * 反向查找失败时 remote_hostname 保持 NULL，同时
+ * remote_hostname_resolv 为 -2。反向成功但正向失败时
+ * 也为 -2（可区分，因为 remote_hostname 非 NULL）。
+ * 这两种 -2 情况下，remote_hostname_errcode 保存返回码，
+ * 供稍后配合 gai_strerror 使用。
+ *
+ *
+ *
+ *
+ *
  */
 
 typedef struct Port
 {
-	pgsocket	sock;			/* File descriptor */
-	bool		noblock;		/* is the socket in non-blocking mode? */
-	ProtocolVersion proto;		/* FE/BE protocol version */
-	SockAddr	laddr;			/* local addr (postmaster) */
-	SockAddr	raddr;			/* remote addr (client) */
-	char	   *remote_host;	/* name (or ip addr) of remote host */
-	char	   *remote_hostname;	/* name (not ip addr) of remote host, if
-									 * available */
-	int			remote_hostname_resolv; /* see above */
-	int			remote_hostname_errcode;	/* see above */
-	char	   *remote_port;	/* text rep of remote port */
-	CAC_state	canAcceptConnections;	/* postmaster connection status */
+	pgsocket	sock;			/* 文件描述符 */
+	bool		noblock;		/* 套接字是否处于非阻塞模式？ */
+	ProtocolVersion proto;		/* 前端/后端协议版本 */
+	SockAddr	laddr;			/* 本地地址（postmaster） */
+	SockAddr	raddr;			/* 远程地址（客户端） */
+	char	   *remote_host;	/* 远程主机的名字（或 IP 地址） */
+	char	   *remote_hostname;	/* 远程主机名（不是 IP 地址），
+									 * 若有的话 */
+	int			remote_hostname_resolv; /* 见上文 */
+	int			remote_hostname_errcode;	/* 见上文 */
+	char	   *remote_port;	/* 远程端口的文本表示 */
+	CAC_state	canAcceptConnections;	/* postmaster 连接状态 */
 
 	/*
-	 * Information that needs to be saved from the startup packet and passed
-	 * into backend execution.  "char *" fields are NULL if not set.
-	 * guc_options points to a List of alternating option names and values.
-	 */
+ * 需要从启动包保存并传入后端执行的信息。"char *"
+ * 字段未设置时为 NULL。guc_options 指向一个 List，
+ * 其中选项名和值交替存放。
+ */
 	char	   *database_name;
 	char	   *user_name;
 	char	   *cmdline_options;
 	List	   *guc_options;
 
 	/*
-	 * The startup packet application name, only used here for the "connection
-	 * authorized" log message. We shouldn't use this post-startup, instead
-	 * the GUC should be used as application can change it afterward.
-	 */
+ * 启动包中的应用名，这里只用于 "connection authorized"
+ * 日志消息。启动之后不应使用它，而应使用 GUC，因为
+ * 应用之后可以更改它。
+ */
 	char	   *application_name;
 
 	/*
-	 * Information that needs to be held during the authentication cycle.
-	 */
+ * 认证过程期间需要保存的信息。
+ */
 	HbaLine    *hba;
 
 	/*
-	 * TCP keepalive and user timeout settings.
-	 *
-	 * default values are 0 if AF_UNIX or not yet known; current values are 0
-	 * if AF_UNIX or using the default. Also, -1 in a default value means we
-	 * were unable to find out the default (getsockopt failed).
-	 */
+ * TCP 保活和用户超时设置。
+ *
+ * 默认值在 AF_UNIX 或尚未得知时为 0；当前值在 AF_UNIX
+ * 或使用默认值时为 0。另外，默认值为 -1 表示我们无法
+ * 查出默认值（getsockopt 失败）。
+ */
 	int			default_keepalives_idle;
 	int			default_keepalives_interval;
 	int			default_keepalives_count;
@@ -197,32 +197,32 @@ typedef struct Port
 	int			tcp_user_timeout;
 
 	/*
-	 * GSSAPI structures.
-	 */
+ * GSSAPI 结构。
+ */
 #if defined(ENABLE_GSS) || defined(ENABLE_SSPI)
 
 	/*
-	 * If GSSAPI is supported and used on this connection, store GSSAPI
-	 * information.  Even when GSSAPI is not compiled in, store a NULL pointer
-	 * to keep struct offsets the same (for extension ABI compatibility).
-	 */
+ * 若本连接支持并使用了 GSSAPI，则存放 GSSAPI 信息。
+ * 即使没有编译进 GSSAPI，也存放一个 NULL 指针，以保持
+ * 结构体偏移相同（为了扩展 ABI 兼容）。
+ */
 	pg_gssinfo *gss;
 #else
 	void	   *gss;
 #endif
 
 	/*
-	 * SSL structures.
-	 */
+ * SSL 结构。
+ */
 	bool		ssl_in_use;
 	char	   *peer_cn;
 	char	   *peer_dn;
 	bool		peer_cert_valid;
 
 	/*
-	 * OpenSSL structures. (Keep these last so that the locations of other
-	 * fields are the same whether or not you build with SSL enabled.)
-	 */
+ * OpenSSL 结构。（把它们放在最后，这样无论是否启用 SSL
+ * 构建，其他字段的位置都相同。）
+ */
 #ifdef USE_OPENSSL
 	SSL		   *ssl;
 	X509	   *peer;
@@ -231,14 +231,14 @@ typedef struct Port
 
 #ifdef USE_SSL
 /*
- *	Hardcoded DH parameters, used in ephemeral DH keying.  (See also
- *	README.SSL for more details on EDH.)
+ * 临时 DH 密钥交换使用的硬编码 DH 参数。（关于 EDH 的
+ * 更多细节见 README.SSL。）
  *
- *	This is the 2048-bit DH parameter from RFC 3526.  The generation of the
- *	prime is specified in RFC 2412 Appendix E, which also discusses the
- *	design choice of the generator.  Note that when loaded with OpenSSL
- *	this causes DH_check() to fail on DH_NOT_SUITABLE_GENERATOR, where
- *	leaking a bit is preferred.
+ * 这是 RFC 3526 中的 2048 位 DH 参数。素数的生成在
+ * RFC 2412 附录 E 中规定，那里也讨论了生成元的设计
+ * 选择。注意，用 OpenSSL 加载时，这会使 DH_check() 因
+ * DH_NOT_SUITABLE_GENERATOR 失败，此时宁可泄漏一个位。
+ *
  */
 #define FILE_DH2048 \
 "-----BEGIN DH PARAMETERS-----\n\
@@ -251,46 +251,46 @@ fDKQXkYuNs474553LBgOhgObJ4Oi7Aeij7XFXfBvTFLJ3ivL9pVYFxg5lUl86pVq\n\
 -----END DH PARAMETERS-----\n"
 
 /*
- * These functions are implemented by the glue code specific to each
- * SSL implementation (e.g. be-secure-openssl.c)
+ * 这些函数由各 SSL 实现专用的粘合代码实现
+ * （例如 be-secure-openssl.c）。
  */
 
 /*
- * Initialize global SSL context.
+ * 初始化全局 SSL 上下文。
  *
- * If isServerStart is true, report any errors as FATAL (so we don't return).
- * Otherwise, log errors at LOG level and return -1 to indicate trouble,
- * preserving the old SSL state if any.  Returns 0 if OK.
+ * 若 isServerStart 为真，把任何错误报告为 FATAL（这样
+ * 我们就不会返回）。否则以 LOG 级别记录错误并返回 -1
+ * 表示有麻烦，若已有旧 SSL 状态则保留它。成功则返回 0。
  */
 extern int	be_tls_init(bool isServerStart);
 
 /*
- * Destroy global SSL context, if any.
+ * 销毁全局 SSL 上下文，若有的话。
  */
 extern void be_tls_destroy(void);
 
 /*
- * Attempt to negotiate SSL connection.
+ * 尝试协商 SSL 连接。
  */
 extern int	be_tls_open_server(Port *port);
 
 /*
- * Close SSL connection.
+ * 关闭 SSL 连接。
  */
 extern void be_tls_close(Port *port);
 
 /*
- * Read data from a secure connection.
+ * 从安全连接读取数据。
  */
 extern ssize_t be_tls_read(Port *port, void *ptr, size_t len, int *waitfor);
 
 /*
- * Write data to a secure connection.
+ * 向安全连接写入数据。
  */
 extern ssize_t be_tls_write(Port *port, void *ptr, size_t len, int *waitfor);
 
 /*
- * Return information about the SSL connection.
+ * 返回关于 SSL 连接的信息。
  */
 extern int	be_tls_get_cipher_bits(Port *port);
 extern const char *be_tls_get_version(Port *port);
@@ -300,21 +300,21 @@ extern void be_tls_get_peer_issuer_name(Port *port, char *ptr, size_t len);
 extern void be_tls_get_peer_serial(Port *port, char *ptr, size_t len);
 
 /*
- * Get the server certificate hash for SCRAM channel binding type
- * tls-server-end-point.
+ * 取得 SCRAM 信道绑定类型 tls-server-end-point 所用的
+ * 服务器证书哈希。
  *
- * The result is a palloc'd hash of the server certificate with its
- * size, and NULL if there is no certificate available.
+ * 结果是服务器证书经 palloc 分配的哈希及其大小；若没有
+ * 可用证书则为 NULL。
  *
- * This is not supported with old versions of OpenSSL that don't have
- * the X509_get_signature_nid() function.
+ * 缺少 X509_get_signature_nid() 函数的旧版 OpenSSL
+ * 不支持这一点。
  */
 #if defined(USE_OPENSSL) && (defined(HAVE_X509_GET_SIGNATURE_NID) || defined(HAVE_X509_GET_SIGNATURE_INFO))
 #define HAVE_BE_TLS_GET_CERTIFICATE_HASH
 extern char *be_tls_get_certificate_hash(Port *port, size_t *len);
 #endif
 
-/* init hook for SSL, the default sets the password callback if appropriate */
+/* SSL 的初始化钩子；默认实现会在适当时设置口令回调 */
 #ifdef USE_OPENSSL
 typedef void (*openssl_tls_init_hook_typ) (SSL_CTX *context, bool isServerStart);
 extern PGDLLIMPORT openssl_tls_init_hook_typ openssl_tls_init_hook;
@@ -324,14 +324,14 @@ extern PGDLLIMPORT openssl_tls_init_hook_typ openssl_tls_init_hook;
 
 #ifdef ENABLE_GSS
 /*
- * Return information about the GSSAPI authenticated connection
+ * 返回关于 GSSAPI 已认证连接的信息
  */
 extern bool be_gssapi_get_auth(Port *port);
 extern bool be_gssapi_get_enc(Port *port);
 extern const char *be_gssapi_get_princ(Port *port);
 extern bool be_gssapi_get_delegation(Port *port);
 
-/* Read and write to a GSSAPI-encrypted connection. */
+/* 对 GSSAPI 加密的连接进行读写。 */
 extern ssize_t be_gssapi_read(Port *port, void *ptr, size_t len);
 extern ssize_t be_gssapi_write(Port *port, void *ptr, size_t len);
 #endif							/* ENABLE_GSS */
@@ -339,7 +339,7 @@ extern ssize_t be_gssapi_write(Port *port, void *ptr, size_t len);
 extern PGDLLIMPORT ProtocolVersion FrontendProtocol;
 extern PGDLLIMPORT ClientConnectionInfo MyClientConnectionInfo;
 
-/* TCP keepalives configuration. These are no-ops on an AF_UNIX socket. */
+/* TCP 保活配置。在 AF_UNIX 套接字上这些是空操作。 */
 
 extern int	pq_getkeepalivesidle(Port *port);
 extern int	pq_getkeepalivesinterval(Port *port);

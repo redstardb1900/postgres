@@ -33,7 +33,7 @@ typedef struct
 	SockAddr	addr;
 } AddrInfo;
 
-/* Configure the UNIX socket location for the well known port. */
+/* 为众所周知的端口配置 UNIX 套接字位置。 */
 
 #define UNIXSOCK_PATH(path, port, sockdir) \
 	   (AssertMacro(sockdir), \
@@ -42,20 +42,20 @@ typedef struct
 				 (sockdir), (port)))
 
 /*
- * The maximum workable length of a socket path is what will fit into
- * struct sockaddr_un.  This is usually only 100 or so bytes :-(.
+ * 套接字路径可用的最大长度是能放进 struct sockaddr_un
+ * 的长度。这通常只有 100 来个字节 :-(。
  *
- * For consistency, always pass a MAXPGPATH-sized buffer to UNIXSOCK_PATH(),
- * then complain if the resulting string is >= UNIXSOCK_PATH_BUFLEN bytes.
- * (Because the standard API for getaddrinfo doesn't allow it to complain in
- * a useful way when the socket pathname is too long, we have to test for
- * this explicitly, instead of just letting the subroutine return an error.)
+ * 为了一致，总是向 UNIXSOCK_PATH() 传入 MAXPGPATH 大小
+ * 的缓冲区，然后若结果字符串 >= UNIXSOCK_PATH_BUFLEN
+ * 字节就报错。（因为 getaddrinfo 的标准 API 在套接字
+ * 路径名太长时无法以有用的方式报错，我们必须显式测试，
+ * 而不是只让该子程序返回一个错误。）
  */
 #define UNIXSOCK_PATH_BUFLEN sizeof(((struct sockaddr_un *) NULL)->sun_path)
 
 /*
- * A host that looks either like an absolute path or starts with @ is
- * interpreted as a Unix-domain socket address.
+ * 看起来像绝对路径、或以 @ 开头的主机，被解释为
+ * Unix 域套接字地址。
  */
 static inline bool
 is_unixsock_path(const char *path)
@@ -64,18 +64,18 @@ is_unixsock_path(const char *path)
 }
 
 /*
- * These manipulate the frontend/backend protocol version number.
+ * 这些宏操作前端/后端协议版本号。
  *
- * The major number should be incremented for incompatible changes.  The minor
- * number should be incremented for compatible changes (eg. additional
- * functionality).
+ * 不兼容的变更应增加主版本号。兼容的变更（例如增加
+ * 功能）应增加次版本号。
  *
- * If a backend supports version m.n of the protocol it must actually support
- * versions m.[0..n].  Backend support for version m-1 can be dropped after a
- * `reasonable' length of time.
+ * 若后端支持协议版本 m.n，它实际上必须支持
+ * m.[0..n]。经过一段 "合理" 的时间后，可以去掉对
+ * 版本 m-1 的后端支持。
  *
- * A frontend isn't required to support anything other than the current
- * version.
+ * 前端除当前版本外不要求支持任何其他版本。
+ *
+ *
  */
 
 #define PG_PROTOCOL_MAJOR(v)	((v) >> 16)
@@ -83,22 +83,22 @@ is_unixsock_path(const char *path)
 #define PG_PROTOCOL(m,n)	(((m) << 16) | (n))
 
 /*
- * The earliest and latest frontend/backend protocol version supported.
- * (Only protocol version 3 is currently supported)
+ * 所支持的最早和最晚的前端/后端协议版本。
+ * （目前只支持协议版本 3）
  */
 
 #define PG_PROTOCOL_EARLIEST	PG_PROTOCOL(3,0)
 #define PG_PROTOCOL_LATEST		PG_PROTOCOL(3,0)
 
-typedef uint32 ProtocolVersion; /* FE/BE protocol version number */
+typedef uint32 ProtocolVersion; /* 前端/后端协议版本号 */
 
 typedef ProtocolVersion MsgType;
 
 
 /*
- * Packet lengths are 4 bytes in network byte order.
+ * 包长度是网络字节序的 4 字节。
  *
- * The initial length is omitted from the packet layouts appearing below.
+ * 下面出现的包布局省略了开头的长度。
  */
 
 typedef uint32 PacketLen;
@@ -106,56 +106,56 @@ typedef uint32 PacketLen;
 extern PGDLLIMPORT bool Db_user_namespace;
 
 /*
- * In protocol 3.0 and later, the startup packet length is not fixed, but
- * we set an arbitrary limit on it anyway.  This is just to prevent simple
- * denial-of-service attacks via sending enough data to run the server
- * out of memory.
+ * 在协议 3.0 及以后，启动包长度不固定，但我们仍然
+ * 对它设置一个任意上限。这只是为了防止通过发送足够
+ * 多的数据把服务器耗到内存不足这种简单的拒绝服务攻击。
+ *
  */
 #define MAX_STARTUP_PACKET_LENGTH 10000
 
 
-/* These are the authentication request codes sent by the backend. */
+/* 这些是后端发送的认证请求码。 */
 
-#define AUTH_REQ_OK			0	/* User is authenticated  */
-#define AUTH_REQ_KRB4		1	/* Kerberos V4. Not supported any more. */
-#define AUTH_REQ_KRB5		2	/* Kerberos V5. Not supported any more. */
-#define AUTH_REQ_PASSWORD	3	/* Password */
-#define AUTH_REQ_CRYPT		4	/* crypt password. Not supported any more. */
-#define AUTH_REQ_MD5		5	/* md5 password */
-/* 6 is available.  It was used for SCM creds, not supported any more. */
-#define AUTH_REQ_GSS		7	/* GSSAPI without wrap() */
-#define AUTH_REQ_GSS_CONT	8	/* Continue GSS exchanges */
-#define AUTH_REQ_SSPI		9	/* SSPI negotiate without wrap() */
-#define AUTH_REQ_SASL	   10	/* Begin SASL authentication */
-#define AUTH_REQ_SASL_CONT 11	/* Continue SASL authentication */
-#define AUTH_REQ_SASL_FIN  12	/* Final SASL message */
-#define AUTH_REQ_MAX	   AUTH_REQ_SASL_FIN	/* maximum AUTH_REQ_* value */
+#define AUTH_REQ_OK			0	/* 用户已通过认证 */
+#define AUTH_REQ_KRB4		1	/* Kerberos V4。已不再支持。 */
+#define AUTH_REQ_KRB5		2	/* Kerberos V5。已不再支持。 */
+#define AUTH_REQ_PASSWORD	3	/* 口令 */
+#define AUTH_REQ_CRYPT		4	/* crypt 口令。已不再支持。 */
+#define AUTH_REQ_MD5		5	/* md5 口令 */
+/* 6 可用。它曾用于 SCM 凭证，现已不再支持。 */
+#define AUTH_REQ_GSS		7	/* 不带 wrap() 的 GSSAPI */
+#define AUTH_REQ_GSS_CONT	8	/* 继续 GSS 交换 */
+#define AUTH_REQ_SSPI		9	/* 不带 wrap() 的 SSPI 协商 */
+#define AUTH_REQ_SASL	   10	/* 开始 SASL 认证 */
+#define AUTH_REQ_SASL_CONT 11	/* 继续 SASL 认证 */
+#define AUTH_REQ_SASL_FIN  12	/* 最终 SASL 消息 */
+#define AUTH_REQ_MAX	   AUTH_REQ_SASL_FIN	/* 最大的 AUTH_REQ_* 值 */
 
 typedef uint32 AuthRequest;
 
 
 /*
- * A client can also send a cancel-current-operation request to the postmaster.
- * This is uglier than sending it directly to the client's backend, but it
- * avoids depending on out-of-band communication facilities.
+ * 客户端也可以向 postmaster 发送取消当前操作的请求。
+ * 这比直接发给客户端的后端更难看，但避免了依赖
+ * 带外通信设施。
  *
- * The cancel request code must not match any protocol version number
- * we're ever likely to use.  This random choice should do.
+ * 取消请求码不得与我们可能使用的任何协议版本号
+ * 匹配。这个随机选择应该可以。
  */
 #define CANCEL_REQUEST_CODE PG_PROTOCOL(1234,5678)
 
 typedef struct CancelRequestPacket
 {
-	/* Note that each field is stored in network byte order! */
-	MsgType		cancelRequestCode;	/* code to identify a cancel request */
-	uint32		backendPID;		/* PID of client's backend */
-	uint32		cancelAuthCode; /* secret key to authorize cancel */
+	/* 注意每个字段都以网络字节序存储！ */
+	MsgType		cancelRequestCode;	/* 标识取消请求的代码 */
+	uint32		backendPID;		/* 客户端后端的 PID */
+	uint32		cancelAuthCode; /* 授权取消的秘密键 */
 } CancelRequestPacket;
 
 
 /*
- * A client can also start by sending a SSL or GSSAPI negotiation request to
- * get a secure channel.
+ * 客户端也可以一开始就发送 SSL 或 GSSAPI 协商请求，
+ * 以获得安全信道。
  */
 #define NEGOTIATE_SSL_CODE PG_PROTOCOL(1234,5679)
 #define NEGOTIATE_GSS_CODE PG_PROTOCOL(1234,5680)

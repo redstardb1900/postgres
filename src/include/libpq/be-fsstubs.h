@@ -15,15 +15,15 @@
 #define BE_FSSTUBS_H
 
 /*
- * These are not fmgr-callable, but are available to C code.
- * Probably these should have had the underscore-free names,
- * but too late now...
+ * 这些不能作为 fmgr 调用，但可供 C 代码使用。
+ * 也许它们本该用没有下划线的名字，
+ * 但现在已经太晚了...
  */
 extern int	lo_read(int fd, char *buf, int len);
 extern int	lo_write(int fd, const char *buf, int len);
 
 /*
- * Cleanup LOs at xact commit/abort
+ * 在事务提交或中止时清理大对象
  */
 extern void AtEOXact_LargeObject(bool isCommit);
 extern void AtEOSubXact_LargeObject(bool isCommit, SubTransactionId mySubid,

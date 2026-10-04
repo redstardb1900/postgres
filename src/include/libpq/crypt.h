@@ -16,13 +16,13 @@
 #include "datatype/timestamp.h"
 
 /*
- * Types of password hashes or secrets.
+ * 口令哈希或秘密的类型。
  *
- * Plaintext passwords can be passed in by the user, in a CREATE/ALTER USER
- * command. They will be encrypted to MD5 or SCRAM-SHA-256 format, before
- * storing on-disk, so only MD5 and SCRAM-SHA-256 passwords should appear
- * in pg_authid.rolpassword. They are also the allowed values for the
- * password_encryption GUC.
+ * 用户可以在 CREATE/ALTER USER 命令中传入明文口令。
+ * 存盘之前它们会被加密成 MD5 或 SCRAM-SHA-256 格式，
+ * 因此 pg_authid.rolpassword 中只应出现 MD5 和
+ * SCRAM-SHA-256 口令。它们也是 password_encryption
+ * GUC 的允许取值。
  */
 typedef enum PasswordType
 {

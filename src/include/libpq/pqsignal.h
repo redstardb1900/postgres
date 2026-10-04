@@ -16,7 +16,7 @@
 #include <signal.h>
 
 #ifdef WIN32
-/* Emulate POSIX sigset_t APIs on Windows */
+/* 在 Windows 上模拟 POSIX sigset_t APIs */
 typedef int sigset_t;
 
 #define SA_RESTART				1
@@ -25,7 +25,7 @@ typedef int sigset_t;
 struct sigaction
 {
 	void		(*sa_handler) (int);
-	/* sa_sigaction not yet implemented */
+	/* sa_sigaction 尚未实现 */
 	sigset_t	sa_mask;
 	int			sa_flags;
 };

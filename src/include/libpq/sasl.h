@@ -21,18 +21,18 @@
 #include "lib/stringinfo.h"
 #include "libpq/libpq-be.h"
 
-/* Status codes for message exchange */
+/* 消息交换的状态码 */
 #define PG_SASL_EXCHANGE_CONTINUE		0
 #define PG_SASL_EXCHANGE_SUCCESS		1
 #define PG_SASL_EXCHANGE_FAILURE		2
 
 /*
- * Backend SASL mechanism callbacks.
+ * 后端 SASL 机制的回调。
  *
- * To implement a backend mechanism, declare a pg_be_sasl_mech struct with
- * appropriate callback implementations.  Then pass the mechanism to
- * CheckSASLAuth() during ClientAuthentication(), once the server has decided
- * which authentication method to use.
+ * 要实现一种后端机制，声明一个带有适当回调实现的
+ * pg_be_sasl_mech 结构。然后在服务器决定使用哪种
+ * 认证方法之后，于 ClientAuthentication() 期间把该
+ * 机制传给 CheckSASLAuth()。
  */
 typedef struct pg_be_sasl_mech
 {
@@ -129,7 +129,7 @@ typedef struct pg_be_sasl_mech
 							 const char **logdetail);
 } pg_be_sasl_mech;
 
-/* Common implementation for auth.c */
+/* auth.c 的公共实现 */
 extern int	CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port,
 						  char *shadow_pass, const char **logdetail);
 

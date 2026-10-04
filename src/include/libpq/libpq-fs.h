@@ -15,7 +15,7 @@
 #define LIBPQ_FS_H
 
 /*
- *	Read/write mode flags for inversion (large object) calls
+ * inversion（大对象）调用的读/写模式标志
  */
 
 #define INV_WRITE		0x00020000

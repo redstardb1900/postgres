@@ -32,16 +32,16 @@ extern void pq_sendfloat4(StringInfo buf, float4 f);
 extern void pq_sendfloat8(StringInfo buf, float8 f);
 
 /*
- * Append a [u]int8 to a StringInfo buffer, which already has enough space
- * preallocated.
+ * 向已经预分配了足够空间的 StringInfo 缓冲区追加一个
+ * [u]int8。
  *
- * The use of pg_restrict allows the compiler to optimize the code based on
- * the assumption that buf, buf->len, buf->data and *buf->data don't
- * overlap. Without the annotation buf->len etc cannot be kept in a register
- * over subsequent pq_writeintN calls.
+ * 使用 pg_restrict 让编译器可以基于 buf、buf->len、
+ * buf->data 和 *buf->data 互不重叠这一假设来优化代码。
+ * 没有这个标注，buf->len 等就无法在随后的 pq_writeintN
+ * 调用期间保存在寄存器里。
  *
- * The use of StringInfoData * rather than StringInfo is due to MSVC being
- * overly picky and demanding a * before a restrict.
+ * 使用 StringInfoData * 而不是 StringInfo，是因为 MSVC
+ * 过于挑剔，要求在 restrict 前面有一个 *。
  */
 static inline void
 pq_writeint8(StringInfoData *pg_restrict buf, uint8 i)
@@ -54,8 +54,8 @@ pq_writeint8(StringInfoData *pg_restrict buf, uint8 i)
 }
 
 /*
- * Append a [u]int16 to a StringInfo buffer, which already has enough space
- * preallocated.
+ * 向已经预分配了足够空间的 StringInfo 缓冲区追加一个
+ * [u]int16。
  */
 static inline void
 pq_writeint16(StringInfoData *pg_restrict buf, uint16 i)
@@ -68,8 +68,8 @@ pq_writeint16(StringInfoData *pg_restrict buf, uint16 i)
 }
 
 /*
- * Append a [u]int32 to a StringInfo buffer, which already has enough space
- * preallocated.
+ * 向已经预分配了足够空间的 StringInfo 缓冲区追加一个
+ * [u]int32。
  */
 static inline void
 pq_writeint32(StringInfoData *pg_restrict buf, uint32 i)
@@ -82,8 +82,8 @@ pq_writeint32(StringInfoData *pg_restrict buf, uint32 i)
 }
 
 /*
- * Append a [u]int64 to a StringInfo buffer, which already has enough space
- * preallocated.
+ * 向已经预分配了足够空间的 StringInfo 缓冲区追加一个
+ * [u]int64。
  */
 static inline void
 pq_writeint64(StringInfoData *pg_restrict buf, uint64 i)
@@ -96,14 +96,14 @@ pq_writeint64(StringInfoData *pg_restrict buf, uint64 i)
 }
 
 /*
- * Append a null-terminated text string (with conversion) to a buffer with
- * preallocated space.
+ * 向已预分配空间的缓冲区追加一个以空字符结尾的文本串
+ * （带转换）。
  *
- * NB: The pre-allocated space needs to be sufficient for the string after
- * converting to client encoding.
+ * 注意：预分配的空间必须足以放下转换成客户端编码之后
+ * 的字符串。
  *
- * NB: passed text string must be null-terminated, and so is the data
- * sent to the frontend.
+ * 注意：传入的文本串必须以空字符结尾，发给前端的数据
+ * 也同样如此。
  */
 static inline void
 pq_writestring(StringInfoData *pg_restrict buf, const char *pg_restrict str)
@@ -112,7 +112,7 @@ pq_writestring(StringInfoData *pg_restrict buf, const char *pg_restrict str)
 	char	   *p;
 
 	p = pg_server_to_client(str, slen);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换已经完成？ */
 		slen = strlen(p);
 
 	Assert(buf->len + slen + 1 <= buf->maxlen);
@@ -124,7 +124,7 @@ pq_writestring(StringInfoData *pg_restrict buf, const char *pg_restrict str)
 		pfree(p);
 }
 
-/* append a binary [u]int8 to a StringInfo buffer */
+/* 向 StringInfo 缓冲区追加一个二进制 [u]int8 */
 static inline void
 pq_sendint8(StringInfo buf, uint8 i)
 {
@@ -132,7 +132,7 @@ pq_sendint8(StringInfo buf, uint8 i)
 	pq_writeint8(buf, i);
 }
 
-/* append a binary [u]int16 to a StringInfo buffer */
+/* 向 StringInfo 缓冲区追加一个二进制 [u]int16 */
 static inline void
 pq_sendint16(StringInfo buf, uint16 i)
 {
@@ -140,7 +140,7 @@ pq_sendint16(StringInfo buf, uint16 i)
 	pq_writeint16(buf, i);
 }
 
-/* append a binary [u]int32 to a StringInfo buffer */
+/* 向 StringInfo 缓冲区追加一个二进制 [u]int32 */
 static inline void
 pq_sendint32(StringInfo buf, uint32 i)
 {
@@ -148,7 +148,7 @@ pq_sendint32(StringInfo buf, uint32 i)
 	pq_writeint32(buf, i);
 }
 
-/* append a binary [u]int64 to a StringInfo buffer */
+/* 向 StringInfo 缓冲区追加一个二进制 [u]int64 */
 static inline void
 pq_sendint64(StringInfo buf, uint64 i)
 {
@@ -156,7 +156,7 @@ pq_sendint64(StringInfo buf, uint64 i)
 	pq_writeint64(buf, i);
 }
 
-/* append a binary byte to a StringInfo buffer */
+/* 向 StringInfo 缓冲区追加一个二进制字节 */
 static inline void
 pq_sendbyte(StringInfo buf, uint8 byt)
 {
@@ -164,9 +164,9 @@ pq_sendbyte(StringInfo buf, uint8 byt)
 }
 
 /*
- * Append a binary integer to a StringInfo buffer
+ * 向 StringInfo 缓冲区追加一个二进制整数
  *
- * This function is deprecated; prefer use of the functions above.
+ * 本函数已弃用；请优先使用上面的函数。
  */
 static inline void
 pq_sendint(StringInfo buf, uint32 i, int b)

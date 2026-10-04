@@ -11,21 +11,21 @@
 #ifndef HBA_H
 #define HBA_H
 
-#include "libpq/pqcomm.h"	/* pgrminclude ignore */	/* needed for NetBSD */
+#include "libpq/pqcomm.h"	/* pgrminclude ignore */	/* NetBSD 需要 */
 #include "nodes/pg_list.h"
 #include "regex/regex.h"
 
 
 /*
- * The following enum represents the authentication methods that
- * are supported by PostgreSQL.
+ * 下面的枚举表示 PostgreSQL 支持的认证方法。
  *
- * Note: keep this in sync with the UserAuthName array in hba.c.
+ * 注意：与 hba.c 中的 UserAuthName 数组保持同步。
+ *
  */
 typedef enum UserAuth
 {
 	uaReject,
-	uaImplicitReject,			/* Not a user-visible option */
+	uaImplicitReject,			/* 不是用户可见的选项 */
 	uaTrust,
 	uaIdent,
 	uaPassword,
@@ -39,11 +39,11 @@ typedef enum UserAuth
 	uaCert,
 	uaRADIUS,
 	uaPeer
-#define USER_AUTH_LAST uaPeer	/* Must be last value of this enum */
+#define USER_AUTH_LAST uaPeer	/* 必须是该枚举的最后一个值 */
 } UserAuth;
 
 /*
- * Data structures representing pg_hba.conf entries
+ * 表示 pg_hba.conf 条目的数据结构
  */
 
 typedef enum IPCompareMethod
@@ -78,11 +78,11 @@ typedef enum ClientCertName
 } ClientCertName;
 
 /*
- * A single string token lexed from an authentication configuration file
- * (pg_ident.conf or pg_hba.conf), together with whether the token has
- * been quoted.  If "string" begins with a slash, it may optionally
- * contain a regular expression (currently used for pg_ident.conf when
- * building IdentLines and for pg_hba.conf when building HbaLines).
+ * 从认证配置文件（pg_ident.conf 或 pg_hba.conf）词法分析
+ * 得到的单个字符串词元，以及该词元是否被加了引号。
+ * 若 "string" 以斜杠开头，它可以选择包含一个正则表达式
+ * （目前在构造 IdentLines 时用于 pg_ident.conf，在构造
+ * HbaLines 时用于 pg_hba.conf）。
  */
 typedef struct AuthToken
 {
@@ -100,9 +100,9 @@ typedef struct HbaLine
 	List	   *databases;
 	List	   *roles;
 	struct sockaddr_storage addr;
-	int			addrlen;		/* zero if we don't have a valid addr */
+	int			addrlen;		/* 若没有有效地址则为零 */
 	struct sockaddr_storage mask;
-	int			masklen;		/* zero if we don't have a valid mask */
+	int			masklen;		/* 若没有有效掩码则为零 */
 	IPCompareMethod ip_cmp_method;
 	char	   *hostname;
 	UserAuth	auth_method;
@@ -147,24 +147,24 @@ typedef struct IdentLine
 } IdentLine;
 
 /*
- * TokenizedAuthLine represents one line lexed from an authentication
- * configuration file.  Each item in the "fields" list is a sub-list of
- * AuthTokens.  We don't emit a TokenizedAuthLine for empty or all-comment
- * lines, so "fields" is never NIL (nor are any of its sub-lists).
+ * TokenizedAuthLine 表示从认证配置文件词法分析出的一行。
+ * "fields" 列表中的每一项都是 AuthTokens 的子列表。空行或
+ * 整行都是注释的行不会发出 TokenizedAuthLine，因此 "fields"
+ * 从不为 NIL（其子列表也都不是）。
  *
- * Exception: if an error occurs during tokenization, we might have
- * fields == NIL, in which case err_msg != NULL.
+ * 例外：若词法分析期间出错，fields 可能为 NIL，此时
+ * err_msg 不为 NULL。
  */
 typedef struct TokenizedAuthLine
 {
-	List	   *fields;			/* List of lists of AuthTokens */
-	char	   *file_name;		/* File name of origin */
-	int			line_num;		/* Line number */
-	char	   *raw_line;		/* Raw line text */
-	char	   *err_msg;		/* Error message if any */
+	List	   *fields;			/* AuthTokens 列表的列表 */
+	char	   *file_name;		/* 来源文件名 */
+	int			line_num;		/* 行号 */
+	char	   *raw_line;		/* 原始行文本 */
+	char	   *err_msg;		/* 若有错误则是错误消息 */
 } TokenizedAuthLine;
 
-/* kluge to avoid including libpq/libpq-be.h here */
+/* 避免在此包含 libpq/libpq-be.h 的权宜之计 */
 typedef struct Port hbaPort;
 
 extern bool load_hba(void);

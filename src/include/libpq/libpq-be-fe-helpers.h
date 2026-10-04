@@ -31,10 +31,10 @@
 #define LIBPQ_BE_FE_HELPERS_H
 
 /*
- * Despite the name, BUILDING_DLL is set only when building code directly part
- * of the backend. Which also is where libpq isn't allowed to be
- * used. Obviously this doesn't protect against libpq-fe.h getting included
- * otherwise, but perhaps still protects against a few mistakes...
+ * 尽管名字如此，BUILDING_DLL 只在编译直接属于后端的代码时
+ * 设置。那里也不允许使用 libpq。这显然挡不住 libpq-fe.h
+ * 在其他情况下被包含，但也许仍能防止一些失误...
+ *
  */
 #ifdef BUILDING_DLL
 #error "libpq may not be used code directly built into the backend"
@@ -54,12 +54,12 @@ static inline PGresult *libpqsrv_get_result(PGconn *conn, uint32 wait_event_info
 
 
 /*
- * PQconnectdb() wrapper that reserves a file descriptor and processes
- * interrupts during connection establishment.
+ * PQconnectdb() 的包装，在建立连接期间保留一个文件描述符
+ * 并处理中断。
  *
- * Throws an error if AcquireExternalFD() fails, but does not throw if
- * connection establishment itself fails. Callers need to use PQstatus() to
- * check if connection establishment succeeded.
+ * 若 AcquireExternalFD() 失败则抛出错误，但连接建立本身
+ * 失败时不抛出。调用者需要用 PQstatus() 检查连接是否
+ * 建立成功。
  */
 static inline PGconn *
 libpqsrv_connect(const char *conninfo, uint32 wait_event_info)
@@ -76,9 +76,9 @@ libpqsrv_connect(const char *conninfo, uint32 wait_event_info)
 }
 
 /*
- * Like libpqsrv_connect(), except that this is a wrapper for
- * PQconnectdbParams().
-  */
+ * 同 libpqsrv_connect()，但这是 PQconnectdbParams() 的包装。
+ *
+ */
 static inline PGconn *
 libpqsrv_connect_params(const char *const *keywords,
 						const char *const *values,
@@ -97,21 +97,21 @@ libpqsrv_connect_params(const char *const *keywords,
 }
 
 /*
- * PQfinish() wrapper that additionally releases the reserved file descriptor.
+ * PQfinish() 的包装，另外会释放保留的文件描述符。
  *
- * It is allowed to call this with a NULL pgconn iff NULL was returned by
- * libpqsrv_connect*.
+ * 若 libpqsrv_connect* 返回了 NULL，则允许用 NULL 的 pgconn
+ * 调用本函数。
  */
 static inline void
 libpqsrv_disconnect(PGconn *conn)
 {
 	/*
-	 * If no connection was established, we haven't reserved an FD for it (or
-	 * already released it). This rule makes it easier to write PG_CATCH()
-	 * handlers for this facility's users.
-	 *
-	 * See also libpqsrv_connect_internal().
-	 */
+ * 若没有建立连接，我们就没有为其保留文件描述符（或已经
+ * 释放了）。这条规则让本设施的使用者更容易编写 PG_CATCH()
+ * 处理函数。
+ *
+ * 另见 libpqsrv_connect_internal()。
+ */
 	if (conn == NULL)
 		return;
 
@@ -120,23 +120,23 @@ libpqsrv_disconnect(PGconn *conn)
 }
 
 
-/* internal helper functions follow */
+/* 以下是内部辅助函数 */
 
 
 /*
- * Helper function for all connection establishment functions.
+ * 所有建立连接函数的辅助函数。
  */
 static inline void
 libpqsrv_connect_prepare(void)
 {
 	/*
-	 * We must obey fd.c's limit on non-virtual file descriptors.  Assume that
-	 * a PGconn represents one long-lived FD.  (Doing this here also ensures
-	 * that VFDs are closed if needed to make room.)
-	 */
+ * 我们必须遵守 fd.c 对非虚拟文件描述符的限制。假定一个
+ * PGconn 代表一个长期存在的文件描述符。（在这里做这件事
+ * 也能确保必要时关闭 VFDs 以腾出位置。）
+ */
 	if (!AcquireExternalFD())
 	{
-#ifndef WIN32					/* can't write #if within ereport() macro */
+#ifndef WIN32					/* 无法在 ereport() 宏内部写 #if */
 		ereport(ERROR,
 				(errcode(ERRCODE_SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION),
 				 errmsg("could not establish connection"),
@@ -153,15 +153,15 @@ libpqsrv_connect_prepare(void)
 }
 
 /*
- * Helper function for all connection establishment functions.
+ * 所有建立连接函数的辅助函数。
  */
 static inline void
 libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 {
 	/*
-	 * With conn == NULL libpqsrv_disconnect() wouldn't release the FD. So do
-	 * that here.
-	 */
+ * conn == NULL 时 libpqsrv_disconnect() 不会释放文件描述符。
+ * 因此在这里释放。
+ */
 	if (conn == NULL)
 	{
 		ReleaseExternalFD();
@@ -169,25 +169,25 @@ libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 	}
 
 	/*
-	 * Can't wait without a socket. Note that we don't want to close the libpq
-	 * connection yet, so callers can emit a useful error.
-	 */
+ * 没有套接字就无法等待。注意我们还不想关闭 libpq 连接，
+ * 以便调用者能发出有用的错误。
+ */
 	if (PQstatus(conn) == CONNECTION_BAD)
 		return;
 
 	/*
-	 * WaitLatchOrSocket() can conceivably fail, handle that case here instead
-	 * of requiring all callers to do so.
-	 */
+ * WaitLatchOrSocket() 有可能失败，在这里处理这种情况，
+ * 而不是要求所有调用者都去处理。
+ */
 	PG_TRY();
 	{
 		PostgresPollingStatusType status;
 
 		/*
-		 * Poll connection until we have OK or FAILED status.
-		 *
-		 * Per spec for PQconnectPoll, first wait till socket is write-ready.
-		 */
+ * 轮询连接，直到状态为 OK 或 FAILED。
+ *
+ * 按 PQconnectPoll 的约定，首先等到套接字可写。
+ */
 		status = PGRES_POLLING_WRITING;
 		while (status != PGRES_POLLING_OK && status != PGRES_POLLING_FAILED)
 		{
@@ -199,9 +199,9 @@ libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 #ifdef WIN32
 
 			/*
-			 * Windows needs a different test while waiting for
-			 * connection-made
-			 */
+ * 等待连接建立时，Windows 需要不同的测试。
+ *
+ */
 			else if (PQstatus(conn) == CONNECTION_STARTED)
 				io_flag = WL_SOCKET_CONNECTED;
 #endif
@@ -214,14 +214,14 @@ libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 								   0,
 								   wait_event_info);
 
-			/* Interrupted? */
+			/* 被中断了？ */
 			if (rc & WL_LATCH_SET)
 			{
 				ResetLatch(MyLatch);
 				CHECK_FOR_INTERRUPTS();
 			}
 
-			/* If socket is ready, advance the libpq state machine */
+			/* 若套接字就绪，推进 libpq 状态机 */
 			if (rc & io_flag)
 				status = PQconnectPoll(conn);
 		}
@@ -229,10 +229,10 @@ libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 	PG_CATCH();
 	{
 		/*
-		 * If an error is thrown here, the callers won't call
-		 * libpqsrv_disconnect() with a conn, so release resources
-		 * immediately.
-		 */
+ * 若这里抛出错误，调用者不会带着 conn 调用
+ * libpqsrv_disconnect()，因此立即释放资源。
+ *
+ */
 		ReleaseExternalFD();
 		PQfinish(conn);
 
@@ -242,14 +242,14 @@ libpqsrv_connect_internal(PGconn *conn, uint32 wait_event_info)
 }
 
 /*
- * PQexec() wrapper that processes interrupts.
+ * 处理中断的 PQexec() 包装。
  *
- * Unless PQsetnonblocking(conn, 1) is in effect, this can't process
- * interrupts while pushing the query text to the server.  Consider that
- * setting if query strings can be long relative to TCP buffer size.
+ * 除非 PQsetnonblocking(conn, 1) 生效，否则在把查询文本
+ * 推向服务器时无法处理中断。若查询串相对 TCP 缓冲区
+ * 可能很长，请考虑该设置。
  *
- * This has the preconditions of PQsendQuery(), not those of PQexec().  Most
- * notably, PQexec() would silently discard any prior query results.
+ * 它具有 PQsendQuery() 的前提条件，而不是 PQexec() 的。
+ * 尤其是，PQexec() 会默默丢弃任何先前的查询结果。
  */
 static inline PGresult *
 libpqsrv_exec(PGconn *conn, const char *query, uint32 wait_event_info)
@@ -260,9 +260,9 @@ libpqsrv_exec(PGconn *conn, const char *query, uint32 wait_event_info)
 }
 
 /*
- * PQexecParams() wrapper that processes interrupts.
+ * 处理中断的 PQexecParams() 包装。
  *
- * See notes at libpqsrv_exec().
+ * 见 libpqsrv_exec() 处的说明。
  */
 static inline PGresult *
 libpqsrv_exec_params(PGconn *conn,
@@ -282,30 +282,30 @@ libpqsrv_exec_params(PGconn *conn,
 }
 
 /*
- * Like PQexec(), loop over PQgetResult() until it returns NULL or another
- * terminal state.  Return the last non-NULL result or the terminal state.
+ * 同 PQexec()，循环调用 PQgetResult()，直到它返回 NULL 或
+ * 另一终态。返回最后一个非 NULL 结果或该终态。
  */
 static inline PGresult *
 libpqsrv_get_result_last(PGconn *conn, uint32 wait_event_info)
 {
 	PGresult   *volatile lastResult = NULL;
 
-	/* In what follows, do not leak any PGresults on an error. */
+	/* 以下过程中，出错时不要泄漏任何 PGresults。 */
 	PG_TRY();
 	{
 		for (;;)
 		{
-			/* Wait for, and collect, the next PGresult. */
+			/* 等待并收集下一个 PGresult。 */
 			PGresult   *result;
 
 			result = libpqsrv_get_result(conn, wait_event_info);
 			if (result == NULL)
-				break;			/* query is complete, or failure */
+				break;			/* 查询完成，或失败 */
 
 			/*
-			 * Emulate PQexec()'s behavior of returning the last result when
-			 * there are many.
-			 */
+ * 仿照 PQexec() 的行为：有多个结果时返回最后一个。
+ *
+ */
 			PQclear(lastResult);
 			lastResult = result;
 
@@ -327,15 +327,15 @@ libpqsrv_get_result_last(PGconn *conn, uint32 wait_event_info)
 }
 
 /*
- * Perform the equivalent of PQgetResult(), but watch for interrupts.
+ * 做与 PQgetResult() 等价的事，但留意中断。
  */
 static inline PGresult *
 libpqsrv_get_result(PGconn *conn, uint32 wait_event_info)
 {
 	/*
-	 * Collect data until PQgetResult is ready to get the result without
-	 * blocking.
-	 */
+ * 收集数据，直到 PQgetResult 可以不阻塞地取得结果。
+ *
+ */
 	while (PQisBusy(conn))
 	{
 		int			rc;
@@ -347,22 +347,22 @@ libpqsrv_get_result(PGconn *conn, uint32 wait_event_info)
 							   0,
 							   wait_event_info);
 
-		/* Interrupted? */
+		/* 被中断了？ */
 		if (rc & WL_LATCH_SET)
 		{
 			ResetLatch(MyLatch);
 			CHECK_FOR_INTERRUPTS();
 		}
 
-		/* Consume whatever data is available from the socket */
+		/* 消费套接字上已有的任何数据 */
 		if (PQconsumeInput(conn) == 0)
 		{
-			/* trouble; expect PQgetResult() to return NULL */
+			/* 出了问题；预期 PQgetResult() 返回 NULL */
 			break;
 		}
 	}
 
-	/* Now we can collect and return the next PGresult */
+	/* 现在可以收集并返回下一个 PGresult */
 	return PQgetResult(conn);
 }
 

@@ -22,10 +22,10 @@
 
 
 /*
- * Callers of pq_getmessage() must supply a maximum expected message size.
- * By convention, if there's not any specific reason to use another value,
- * use PQ_SMALL_MESSAGE_LIMIT for messages that shouldn't be too long, and
- * PQ_LARGE_MESSAGE_LIMIT for messages that can be long.
+ * pq_getmessage() 的调用者必须提供预期的最大消息大小。
+ * 按约定，若没有具体理由使用别的值，对不应太长的消息
+ * 使用 PQ_SMALL_MESSAGE_LIMIT，对可以很长的消息使用
+ * PQ_LARGE_MESSAGE_LIMIT。
  */
 #define PQ_SMALL_MESSAGE_LIMIT	10000
 #define PQ_LARGE_MESSAGE_LIMIT	(MaxAllocSize - 1)
@@ -52,11 +52,11 @@ extern const PGDLLIMPORT PQcommMethods *PqCommMethods;
 	(PqCommMethods->putmessage_noblock(msgtype, s, len))
 
 /*
- * External functions.
+ * 外部函数。
  */
 
 /*
- * prototypes for functions in pqcomm.c
+ * pqcomm.c 中函数的原型
  */
 extern PGDLLIMPORT WaitEventSet *FeBeWaitSet;
 
@@ -85,7 +85,7 @@ extern int	pq_putmessage_v2(char msgtype, const char *s, size_t len);
 extern bool pq_check_connection(void);
 
 /*
- * prototypes for functions in be-secure.c
+ * be-secure.c 中函数的原型
  */
 extern PGDLLIMPORT char *ssl_library;
 extern PGDLLIMPORT char *ssl_cert_file;
@@ -111,7 +111,7 @@ extern ssize_t secure_raw_read(Port *port, void *ptr, size_t len);
 extern ssize_t secure_raw_write(Port *port, const void *ptr, size_t len);
 
 /*
- * prototypes for functions in be-secure-gssapi.c
+ * be-secure-gssapi.c 中函数的原型
  */
 #ifdef ENABLE_GSS
 extern ssize_t secure_open_gssapi(Port *port);
@@ -134,7 +134,7 @@ enum ssl_protocol_versions
 };
 
 /*
- * prototypes for functions in be-secure-common.c
+ * be-secure-common.c 中函数的原型
  */
 extern int	run_ssl_passphrase_command(const char *prompt, bool is_server_start,
 									   char *buf, int size);

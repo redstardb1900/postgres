@@ -950,6 +950,81 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0035-comment-lib-termfix.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/include/libpq/auth.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/be-fsstubs.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/crypt.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/hba.h",
+   "kind": "c_comment",
+   "note": "comment-only; pgrminclude marker kept"
+  },
+  {
+   "pattern": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/libpq-be.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/libpq-fs.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/libpq.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/pqcomm.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/pqformat.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/pqsignal.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/include/libpq/sasl.h",
+   "kind": "c_comment",
+   "note": "pgindent blocks preserved"
+  },
+  {
+   "pattern": "src/include/libpq/scram.h",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/Makefile",
+   "kind": "makefile_comment",
+   "note": "header prose and historical-reason line"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0036-comment-libpq-headers.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3407,7 +3482,202 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/include/libpq/auth.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/be-fsstubs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 2,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/crypt.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/hba.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 15,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgrminclude ignore",
+    "include guard"
+   ],
+   "note": "comment-only; pgrminclude marker kept"
+  },
+  {
+   "path": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 33,
+   "translated": 31,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/libpq-be.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 54,
+   "translated": 47,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "preprocessor guard comments",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/libpq-fs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/libpq.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 6,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "GUCs sentinel",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/pqcomm.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 29,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/pqformat.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 12,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/pqsignal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 2,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "WIN32 guard comment",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/include/libpq/sasl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 3,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks",
+    "include guard"
+   ],
+   "note": "pgindent blocks preserved"
+  },
+  {
+   "path": "src/include/libpq/scram.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/Makefile",
+   "kind": "makefile_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 2,
+   "preserved": 8,
+   "preserved_reasons": [
+    "structural header lines and IDENTIFICATION path"
+   ],
+   "note": "header prose and historical-reason line"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0036-comment-libpq-headers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, the lib Makefile header, and 10 include/lib headers. Batch 0035 adjusts terminology in five already-translated backend/lib files. bloomfilter.h, integerset.h, knapsack.h and stringinfo.h unchanged (copyright, license or pgindent blocks). meson.build copyright-only. 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, and 13 include/libpq headers. Batch 0035 adjusts terminology in five backend/lib files. Backend libpq .c files are not translated yet. 194 platform candidates still unapproved."
 }

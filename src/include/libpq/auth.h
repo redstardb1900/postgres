@@ -24,14 +24,14 @@ extern void ClientAuthentication(Port *port);
 extern void sendAuthRequest(Port *port, AuthRequest areq, const char *extradata,
 							int extralen);
 
-/* Hook for plugins to get control in ClientAuthentication() */
+/* 供插件在 ClientAuthentication() 中取得控制权的钩子 */
 typedef void (*ClientAuthentication_hook_type) (Port *, int);
 extern PGDLLIMPORT ClientAuthentication_hook_type ClientAuthentication_hook;
 
-/* hook type for password manglers */
+/* 口令变换器的钩子类型 */
 typedef char *(*auth_password_hook_typ) (char *input);
 
-/* Default LDAP password mutator hook, can be overridden by a shared library */
+/* 默认 LDAP 口令变换钩子，可被共享库覆盖 */
 extern PGDLLIMPORT auth_password_hook_typ ldap_password_hook;
 
 #endif							/* AUTH_H */

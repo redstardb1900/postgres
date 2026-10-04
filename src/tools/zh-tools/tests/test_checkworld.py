@@ -27,9 +27,9 @@ t/001_start_stop.pl .. ok
 t/002_status.pl ...... skipped: needs something
 t/003_promote.pl ..... Dubious, test returned 1 (wstat 256, 0x100)
 Failed 1/3 subtests
-t/004_logrotate.pl ... 
+t/004_logrotate.pl ...\x20
 Dubious, test returned 29 (wstat 7424, 0x1d00)
-No subtests run 
+No subtests run\x20
 Files=4, Tests=20, 12 wallclock secs
 Result: FAIL
 make[1]: Leaving directory '/b/src/bin/pg_ctl'

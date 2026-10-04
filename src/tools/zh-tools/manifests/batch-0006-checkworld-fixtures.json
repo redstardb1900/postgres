@@ -1,0 +1,43 @@
+{
+ "schema_version": 1,
+ "batch_id": "0006-checkworld-fixtures",
+ "title": "zh: fix check-world test fixtures",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "df6fba0ad2828c875620f49894d9efa4567b0da0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/tests/test_checkworld.py",
+   "kind": "tool",
+   "note": "fixture whitespace only"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0006-checkworld-fixtures.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0006-checkworld-fixtures.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_checkworld.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "the two prove lines that must end in a space (progress line without status, 'No subtests run ') now spell it as \\x20 so no source line has trailing whitespace; parsed fixture text is unchanged"
+  }
+ ],
+ "notes": "git diff --check REL_16_11..HEAD reported trailing whitespace in the LOG fixture; no behaviour change."
+}

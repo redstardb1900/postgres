@@ -276,14 +276,14 @@ socket_close(int code, Datum arg)
 		secure_close(MyProcPort);
 
 		/*
-		 * 以前我们在这里显式 close()，但让套接字一直开到
-		 * 进程死掉似乎更好。这样若客户端在意，就可以做
-		 * 一次 "同步关闭" —— 等到传输层报告连接关闭，
-		 * 就可以确信后端已经退出。
-		 * 我们确实把 sock 设为 PGINVALID_SOCKET，以阻止任何
+		 * 以前我们在这里显式 close()，但让套接字一直
+		 * 开到进程死掉似乎更好。这样客户端若在意，
+		 * 就可以做一次 "同步关闭"：等到传输层报告
+		 * 连接关闭，就可以确信后端
+		 * 已经退出。
 		 *
-		 * 进一步的 I/O，
-		 * 不过。
+		 * 我们确实把 sock 设为 PGINVALID_SOCKET，以阻止
+		 * 任何进一步的 I/O。
 		 */
 		MyProcPort->sock = PGINVALID_SOCKET;
 	}
@@ -347,8 +347,8 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 	if (family == AF_UNIX)
 	{
 		/*
-		 * 由 portNumber 和 unixSocketDir 创建 unixSocketPath，并锁定
-		 * 该文件路径
+		 * 由 portNumber 和 unixSocketDir 创建 unixSocketPath，
+		 * 并对该路径做 socket 锁文件互锁
 		 */
 		UNIXSOCK_PATH(unixSocketPath, portNumber, unixSocketDir);
 		if (strlen(unixSocketPath) >= UNIXSOCK_PATH_BUFLEN)
@@ -761,7 +761,7 @@ StreamConnection(pgsocket server_fd, Port *port)
 		 * 大到能一次发出整个 Postgres 发送缓冲区，否则
 		 * 性能会受影响。若需要发送非常大的消息，Postgres 发送缓冲区
 		 * 可以加大，但那种情况下我们不会尝试
-		 * 加大操作系统缓冲区，因此有些任意地
+		 * 加大操作系统缓冲区，因此多少有些随意地
 		 * 确保操作系统缓冲区至少为 PQ_SEND_BUFFER_SIZE * 4。
 		 * （以当前默认值，那是 32kB。）
 		 *

@@ -1,0 +1,80 @@
+{
+ "schema_version": 1,
+ "batch_id": "0045-comment-termfix-pqcomm-dshash",
+ "title": "zh: fix pqcomm socket_close and dshash partition lock wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "06a6ba8c44fdbcc9d93367b8a26fa05524babd77",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "note": "restore socket_close paragraphs; socket lock file; SO_SNDBUF wording"
+  },
+  {
+   "pattern": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "note": "partition lock wording"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0045-comment-termfix-pqcomm-dshash.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 175,
+   "translated": 161,
+   "preserved": 14,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "INTERFACE ROUTINES pgindent block",
+    "translator comments",
+    "preprocessor markers"
+   ],
+   "note": "restore socket_close paragraphs; socket lock file; SO_SNDBUF wording"
+  },
+  {
+   "path": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 93,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "partition lock wording"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0045-comment-termfix-pqcomm-dshash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

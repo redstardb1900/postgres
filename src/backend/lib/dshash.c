@@ -90,8 +90,8 @@ typedef struct dshash_table_control
 	int			lwlock_tranche_id;
 
 	/*
-	 * 以下成员仅在持有全部区画锁时才写入。
-	 * 持有任一区画锁时即可读取。
+	 * 以下成员仅在持有全部分区锁时才写入。
+	 * 持有任一分区锁时即可读取。
 	 */
 
 	/* 以 2 的幂表示的桶数（8 = 256 个桶）。 */
@@ -288,7 +288,7 @@ dshash_attach(dsa_area *area, const dshash_parameters *params,
 
 	/*
 	 * 这些稍后会由 ensure_valid_bucket_pointers() 设为正确
-	 * 值，那时我们将持有区画锁以与并发调整大小联锁。
+	 * 值，那时我们将持有分区锁以与并发调整大小联锁。
  *
  */
 	hash_table->buckets = NULL;
@@ -616,7 +616,7 @@ dshash_seq_next(dshash_seq_status *status)
 	dsa_pointer next_item_pointer;
 
 	/*
-	 * 尚未持有任何区画锁。需要确定哈希表的大小，
+	 * 尚未持有任何分区锁。需要确定哈希表的大小，
 	 * 自我们上次查看以来它可能已被调整大小。由于
 	 * 我们按分区顺序迭代，可以先无条件锁定分区 0。
 	 *
@@ -729,7 +729,7 @@ dshash_delete_current(dshash_seq_status *status)
 
 /*
  * 把哈希表内部状态的调试信息打印到
- * stderr。调用者不得持有任何区画锁。
+ * stderr。调用者不得持有任何分区锁。
  */
 void
 dshash_dump(dshash_table *hash_table)
@@ -809,7 +809,7 @@ delete_item(dshash_table *hash_table, dshash_table_item *item)
  * 如有必要，把哈希表增长到所请求的桶数。所请求的
  * 大小必须是某个先前观察到的大小的两倍。
  *
- * 必须在未持有任何区画锁时调用。
+ * 必须在未持有任何分区锁时调用。
  */
 static void
 resize(dshash_table *hash_table, size_t new_size_log2)

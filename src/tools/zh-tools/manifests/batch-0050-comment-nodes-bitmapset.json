@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0050-comment-nodes-bitmapset",
+ "title": "zh: translate bitmapset comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "302aa5c17eaf8648d42f453b408e4d1f0ec13e9e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "note": "bitmap set package"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0050-comment-nodes-bitmapset.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 109,
+   "translated": 107,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent block"
+   ],
+   "note": "bitmap set package"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0050-comment-nodes-bitmapset.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

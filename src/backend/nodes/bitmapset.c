@@ -51,7 +51,7 @@
 
 #define HAS_MULTIPLE_ONES(x)	((bitmapword) RIGHTMOST_ONE(x) != (x))
 
-/* Select appropriate bit-twiddling functions for bitmap word size */
+/* 按位图字长选择合适的位操作函数 */
 #if BITS_PER_BITMAPWORD == 32
 #define bmw_leftmost_one_pos(w)		pg_leftmost_one_pos32(w)
 #define bmw_rightmost_one_pos(w)	pg_rightmost_one_pos32(w)
@@ -68,7 +68,7 @@ static bool bms_is_empty_internal(const Bitmapset *a);
 
 
 /*
- * bms_copy - make a palloc'd copy of a bitmapset
+ * bms_copy - 制作位图集的 palloc 副本
  */
 Bitmapset *
 bms_copy(const Bitmapset *a)
@@ -85,10 +85,10 @@ bms_copy(const Bitmapset *a)
 }
 
 /*
- * bms_equal - are two bitmapsets equal?
+ * bms_equal - 两个位图集是否相等？
  *
- * This is logical not physical equality; in particular, a NULL pointer will
- * be reported as equal to a palloc'd value containing no members.
+ * 这是逻辑相等，而不是物理相等；特别是，NULL 指针会
+ * 被报告为与一个不含成员的 palloc 值相等。
  */
 bool
 bms_equal(const Bitmapset *a, const Bitmapset *b)
@@ -99,7 +99,7 @@ bms_equal(const Bitmapset *a, const Bitmapset *b)
 	int			longlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 	{
 		if (b == NULL)
@@ -108,7 +108,7 @@ bms_equal(const Bitmapset *a, const Bitmapset *b)
 	}
 	else if (b == NULL)
 		return false;
-	/* Identify shorter and longer input */
+	/* 区分较短与较长的输入 */
 	if (a->nwords <= b->nwords)
 	{
 		shorter = a;
@@ -119,7 +119,7 @@ bms_equal(const Bitmapset *a, const Bitmapset *b)
 		shorter = b;
 		longer = a;
 	}
-	/* And process */
+	/* 然后处理 */
 	shortlen = shorter->nwords;
 	for (i = 0; i < shortlen; i++)
 	{
@@ -136,12 +136,12 @@ bms_equal(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_compare - qsort-style comparator for bitmapsets
+ * bms_compare - 供 qsort 使用的位图集比较器
  *
- * This guarantees to report values as equal iff bms_equal would say they are
- * equal.  Otherwise, the highest-numbered bit that is set in one value but
- * not the other determines the result.  (This rule means that, for example,
- * {6} is greater than {5}, which seems plausible.)
+ * 这保证：当且仅当 bms_equal 会判定它们相等时，才报告
+ * 相等。否则，由只在其中一个值中置位的最高编号位
+ * 决定结果。（按此规则，例如
+ * {6} 大于 {5}，这看起来合理。）
  */
 int
 bms_compare(const Bitmapset *a, const Bitmapset *b)
@@ -149,12 +149,12 @@ bms_compare(const Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return (b == NULL) ? 0 : -1;
 	else if (b == NULL)
 		return +1;
-	/* Handle cases where one input is longer than the other */
+	/* 处理一个输入比另一个更长的情况 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = shortlen; i < a->nwords; i++)
 	{
@@ -166,7 +166,7 @@ bms_compare(const Bitmapset *a, const Bitmapset *b)
 		if (b->words[i] != 0)
 			return -1;
 	}
-	/* Process words in common */
+	/* 处理公共的字 */
 	i = shortlen;
 	while (--i >= 0)
 	{
@@ -180,7 +180,7 @@ bms_compare(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_make_singleton - build a bitmapset containing a single member
+ * bms_make_singleton - 构建只含单个成员的位图集
  */
 Bitmapset *
 bms_make_singleton(int x)
@@ -201,9 +201,9 @@ bms_make_singleton(int x)
 }
 
 /*
- * bms_free - free a bitmapset
+ * bms_free - 释放一个位图集
  *
- * Same as pfree except for allowing NULL input
+ * 与 pfree 相同，但允许 NULL 输入
  */
 void
 bms_free(Bitmapset *a)
@@ -214,13 +214,13 @@ bms_free(Bitmapset *a)
 
 
 /*
- * These operations all make a freshly palloc'd result,
- * leaving their inputs untouched
+ * 这些操作都会做出一份新 palloc 的结果，
+ * 而不改动其输入
  */
 
 
 /*
- * bms_union - set union
+ * bms_union - 集合并
  */
 Bitmapset *
 bms_union(const Bitmapset *a, const Bitmapset *b)
@@ -230,12 +230,12 @@ bms_union(const Bitmapset *a, const Bitmapset *b)
 	int			otherlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return bms_copy(b);
 	if (b == NULL)
 		return bms_copy(a);
-	/* Identify shorter and longer input; copy the longer one */
+	/* 区分较短与较长的输入；复制较长的那个 */
 	if (a->nwords <= b->nwords)
 	{
 		result = bms_copy(b);
@@ -246,7 +246,7 @@ bms_union(const Bitmapset *a, const Bitmapset *b)
 		result = bms_copy(a);
 		other = b;
 	}
-	/* And union the shorter input into the result */
+	/* 并把较短的输入并入结果 */
 	otherlen = other->nwords;
 	for (i = 0; i < otherlen; i++)
 		result->words[i] |= other->words[i];
@@ -254,7 +254,7 @@ bms_union(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_intersect - set intersection
+ * bms_intersect - 集合交
  */
 Bitmapset *
 bms_intersect(const Bitmapset *a, const Bitmapset *b)
@@ -264,10 +264,10 @@ bms_intersect(const Bitmapset *a, const Bitmapset *b)
 	int			resultlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL || b == NULL)
 		return NULL;
-	/* Identify shorter and longer input; copy the shorter one */
+	/* 区分较短与较长的输入；复制较短的那个 */
 	if (a->nwords <= b->nwords)
 	{
 		result = bms_copy(a);
@@ -278,11 +278,11 @@ bms_intersect(const Bitmapset *a, const Bitmapset *b)
 		result = bms_copy(b);
 		other = a;
 	}
-	/* And intersect the longer input with the result */
+	/* 并把较长的输入与结果求交 */
 	resultlen = result->nwords;
 	for (i = 0; i < resultlen; i++)
 		result->words[i] &= other->words[i];
-	/* If we computed an empty result, we must return NULL */
+	/* 若算出空结果，必须返回 NULL */
 	if (bms_is_empty_internal(result))
 	{
 		pfree(result);
@@ -292,7 +292,7 @@ bms_intersect(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_difference - set difference (ie, A without members of B)
+ * bms_difference - 集合差（即 A 去掉 B 的成员）
  */
 Bitmapset *
 bms_difference(const Bitmapset *a, const Bitmapset *b)
@@ -301,32 +301,32 @@ bms_difference(const Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return NULL;
 	if (b == NULL)
 		return bms_copy(a);
 
 	/*
-	 * In Postgres' usage, an empty result is a very common case, so it's
-	 * worth optimizing for that by testing bms_nonempty_difference().  This
-	 * saves us a palloc/pfree cycle compared to checking after-the-fact.
+	 * 在 PostgreSQL 的用法中，空结果非常常见，因此
+	 * 值得先调用 bms_nonempty_difference() 做优化。这样
+	 * 比起事后再检查，能省掉一轮 palloc/pfree。
 	 */
 	if (!bms_nonempty_difference(a, b))
 		return NULL;
 
-	/* Copy the left input */
+	/* 复制左侧输入 */
 	result = bms_copy(a);
-	/* And remove b's bits from result */
+	/* 并从结果中去掉 b 的位 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 		result->words[i] &= ~b->words[i];
-	/* Need not check for empty result, since we handled that case above */
+	/* 不必检查空结果，因为上面已经处理过该情况 */
 	return result;
 }
 
 /*
- * bms_is_subset - is A a subset of B?
+ * bms_is_subset - A 是否为 B 的子集？
  */
 bool
 bms_is_subset(const Bitmapset *a, const Bitmapset *b)
@@ -335,19 +335,19 @@ bms_is_subset(const Bitmapset *a, const Bitmapset *b)
 	int			longlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
-		return true;			/* empty set is a subset of anything */
+		return true;			/* 空集是任何集合的子集 */
 	if (b == NULL)
 		return false;
-	/* Check common words */
+	/* 检查公共字 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 	{
 		if ((a->words[i] & ~b->words[i]) != 0)
 			return false;
 	}
-	/* Check extra words */
+	/* 检查多余的字 */
 	if (a->nwords > b->nwords)
 	{
 		longlen = a->nwords;
@@ -361,9 +361,9 @@ bms_is_subset(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_subset_compare - compare A and B for equality/subset relationships
+ * bms_subset_compare - 比较 A 与 B 的相等/子集关系
  *
- * This is more efficient than testing bms_is_subset in both directions.
+ * 这比双向调用 bms_is_subset 更高效。
  */
 BMS_Comparison
 bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
@@ -373,7 +373,7 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 	int			longlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 	{
 		if (b == NULL)
@@ -382,8 +382,8 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 	}
 	if (b == NULL)
 		return BMS_SUBSET2;
-	/* Check common words */
-	result = BMS_EQUAL;			/* status so far */
+	/* 检查公共字 */
+	result = BMS_EQUAL;			/* 到目前为止的状态 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 	{
@@ -392,20 +392,20 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 
 		if ((aword & ~bword) != 0)
 		{
-			/* a is not a subset of b */
+			/* a 不是 b 的子集 */
 			if (result == BMS_SUBSET1)
 				return BMS_DIFFERENT;
 			result = BMS_SUBSET2;
 		}
 		if ((bword & ~aword) != 0)
 		{
-			/* b is not a subset of a */
+			/* b 不是 a 的子集 */
 			if (result == BMS_SUBSET2)
 				return BMS_DIFFERENT;
 			result = BMS_SUBSET1;
 		}
 	}
-	/* Check extra words */
+	/* 检查多余的字 */
 	if (a->nwords > b->nwords)
 	{
 		longlen = a->nwords;
@@ -413,7 +413,7 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 		{
 			if (a->words[i] != 0)
 			{
-				/* a is not a subset of b */
+				/* a 不是 b 的子集 */
 				if (result == BMS_SUBSET1)
 					return BMS_DIFFERENT;
 				result = BMS_SUBSET2;
@@ -427,7 +427,7 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 		{
 			if (b->words[i] != 0)
 			{
-				/* b is not a subset of a */
+				/* b 不是 a 的子集 */
 				if (result == BMS_SUBSET2)
 					return BMS_DIFFERENT;
 				result = BMS_SUBSET1;
@@ -438,7 +438,7 @@ bms_subset_compare(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_is_member - is X a member of A?
+ * bms_is_member - X 是否为 A 的成员？
  */
 bool
 bms_is_member(int x, const Bitmapset *a)
@@ -446,7 +446,7 @@ bms_is_member(int x, const Bitmapset *a)
 	int			wordnum,
 				bitnum;
 
-	/* XXX better to just return false for x<0 ? */
+	/* XXX：对 x<0 直接返回 false 是否更好？ */
 	if (x < 0)
 		elog(ERROR, "negative bitmapset member not allowed");
 	if (a == NULL)
@@ -462,9 +462,9 @@ bms_is_member(int x, const Bitmapset *a)
 
 /*
  * bms_member_index
- *		determine 0-based index of member x in the bitmap
+ *		确定成员 x 在位图中从 0 开始的下标
  *
- * Returns (-1) when x is not a member.
+ * 当 x 不是成员时返回 (-1)。
  */
 int
 bms_member_index(Bitmapset *a, int x)
@@ -475,28 +475,28 @@ bms_member_index(Bitmapset *a, int x)
 	int			result = 0;
 	bitmapword	mask;
 
-	/* return -1 if not a member of the bitmap */
+	/* 若不是位图成员则返回 -1 */
 	if (!bms_is_member(x, a))
 		return -1;
 
 	wordnum = WORDNUM(x);
 	bitnum = BITNUM(x);
 
-	/* count bits in preceding words */
+	/* 统计前面各字中的位数 */
 	for (i = 0; i < wordnum; i++)
 	{
 		bitmapword	w = a->words[i];
 
-		/* No need to count the bits in a zero word */
+		/* 零字中的位不必计数 */
 		if (w != 0)
 			result += bmw_popcount(w);
 	}
 
 	/*
-	 * Now add bits of the last word, but only those before the item. We can
-	 * do that by applying a mask and then using popcount again. To get
-	 * 0-based index, we want to count only preceding bits, not the item
-	 * itself, so we subtract 1.
+	 * 再加上最后一个字的位，但只计该项之前的位。可以
+	 * 先套用掩码，然后再用 popcount。要得到
+	 * 从 0 开始的下标，我们只想统计前面的位，不计该项
+	 * 本身，因此减去 1。
 	 */
 	mask = ((bitmapword) 1 << bitnum) - 1;
 	result += bmw_popcount(a->words[wordnum] & mask);
@@ -505,7 +505,7 @@ bms_member_index(Bitmapset *a, int x)
 }
 
 /*
- * bms_overlap - do sets overlap (ie, have a nonempty intersection)?
+ * bms_overlap - 两个集合是否重叠（即交集非空）？
  */
 bool
 bms_overlap(const Bitmapset *a, const Bitmapset *b)
@@ -513,10 +513,10 @@ bms_overlap(const Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL || b == NULL)
 		return false;
-	/* Check words in common */
+	/* 检查公共的字 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 	{
@@ -527,7 +527,7 @@ bms_overlap(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_overlap_list - does a set overlap an integer list?
+ * bms_overlap_list - 一个集合是否与整数列表重叠？
  */
 bool
 bms_overlap_list(const Bitmapset *a, const List *b)
@@ -556,9 +556,9 @@ bms_overlap_list(const Bitmapset *a, const List *b)
 }
 
 /*
- * bms_nonempty_difference - do sets have a nonempty difference?
+ * bms_nonempty_difference - 两个集合的差是否非空？
  *
- * i.e., are any members set in 'a' that are not also set in 'b'.
+ * 即 'a' 中是否有成员未同时置位于 'b'。
  */
 bool
 bms_nonempty_difference(const Bitmapset *a, const Bitmapset *b)
@@ -566,19 +566,19 @@ bms_nonempty_difference(const Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return false;
 	if (b == NULL)
 		return true;
-	/* Check words in common */
+	/* 检查公共的字 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 	{
 		if ((a->words[i] & ~b->words[i]) != 0)
 			return true;
 	}
-	/* Check extra words in a */
+	/* 检查 a 中多余的字 */
 	for (; i < a->nwords; i++)
 	{
 		if (a->words[i] != 0)
@@ -588,9 +588,9 @@ bms_nonempty_difference(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_singleton_member - return the sole integer member of set
+ * bms_singleton_member - 返回集合中唯一的整数成员
  *
- * Raises error if |a| is not 1.
+ * 若 |a| 不是 1 则报错。
  */
 int
 bms_singleton_member(const Bitmapset *a)
@@ -622,13 +622,13 @@ bms_singleton_member(const Bitmapset *a)
 /*
  * bms_get_singleton_member
  *
- * Test whether the given set is a singleton.
- * If so, set *member to the value of its sole member, and return true.
- * If not, return false, without changing *member.
+ * 测试给定集合是否为单元素集合。
+ * 若是，把 *member 设为该唯一成员的值，并返回 true。
+ * 若否，返回 false，且不修改 *member。
  *
- * This is more convenient and faster than calling bms_membership() and then
- * bms_singleton_member(), if we don't care about distinguishing empty sets
- * from multiple-member sets.
+ * 若我们不关心区分空集
+ * 与多成员集合，这比先调用 bms_membership() 再调用
+ * bms_singleton_member() 更方便也更快。
  */
 bool
 bms_get_singleton_member(const Bitmapset *a, int *member)
@@ -659,7 +659,7 @@ bms_get_singleton_member(const Bitmapset *a, int *member)
 }
 
 /*
- * bms_num_members - count members of set
+ * bms_num_members - 统计集合的成员数
  */
 int
 bms_num_members(const Bitmapset *a)
@@ -675,7 +675,7 @@ bms_num_members(const Bitmapset *a)
 	{
 		bitmapword	w = a->words[wordnum];
 
-		/* No need to count the bits in a zero word */
+		/* 零字中的位不必计数 */
 		if (w != 0)
 			result += bmw_popcount(w);
 	}
@@ -683,9 +683,9 @@ bms_num_members(const Bitmapset *a)
 }
 
 /*
- * bms_membership - does a set have zero, one, or multiple members?
+ * bms_membership - 集合有零个、一个还是多个成员？
  *
- * This is faster than making an exact count with bms_num_members().
+ * 这比用 bms_num_members() 做精确计数更快。
  */
 BMS_Membership
 bms_membership(const Bitmapset *a)
@@ -712,11 +712,11 @@ bms_membership(const Bitmapset *a)
 }
 
 /*
- * bms_is_empty_internal - is a set empty?
+ * bms_is_empty_internal - 集合是否为空？
  *
- * This is now used only locally, to detect cases where a function has
- * computed an empty set that we must now get rid of.  Hence, we can
- * assume the input isn't NULL.
+ * 现在只在本地使用，用来发现某个函数
+ * 算出了我们必须丢掉的空集。因此可以
+ * 假定输入不是 NULL。
  */
 static bool
 bms_is_empty_internal(const Bitmapset *a)
@@ -737,19 +737,19 @@ bms_is_empty_internal(const Bitmapset *a)
 
 
 /*
- * These operations all "recycle" their non-const inputs, ie, either
- * return the modified input or pfree it if it can't hold the result.
+ * 这些操作都会 "回收" 其非 const 输入，即要么
+ * 返回修改后的输入，要么在无法容纳结果时将其 pfree。
  *
- * These should generally be used in the style
+ * 一般应按如下风格使用
  *
  *		foo = bms_add_member(foo, x);
  */
 
 
 /*
- * bms_add_member - add a specified member to set
+ * bms_add_member - 向集合加入指定成员
  *
- * Input set is modified or recycled!
+ * 输入集合会被修改或回收！
  */
 Bitmapset *
 bms_add_member(Bitmapset *a, int x)
@@ -764,7 +764,7 @@ bms_add_member(Bitmapset *a, int x)
 	wordnum = WORDNUM(x);
 	bitnum = BITNUM(x);
 
-	/* enlarge the set if necessary */
+	/* 必要时扩大集合 */
 	if (wordnum >= a->nwords)
 	{
 		int			oldnwords = a->nwords;
@@ -772,7 +772,7 @@ bms_add_member(Bitmapset *a, int x)
 
 		a = (Bitmapset *) repalloc(a, BITMAPSET_SIZE(wordnum + 1));
 		a->nwords = wordnum + 1;
-		/* zero out the enlarged portion */
+		/* 把扩大出来的部分清零 */
 		for (i = oldnwords; i < a->nwords; i++)
 			a->words[i] = 0;
 	}
@@ -782,11 +782,11 @@ bms_add_member(Bitmapset *a, int x)
 }
 
 /*
- * bms_del_member - remove a specified member from set
+ * bms_del_member - 从集合中去掉指定成员
  *
- * No error if x is not currently a member of set
+ * 若 x 当前不是集合成员，也不报错
  *
- * Input set is modified in-place!
+ * 输入集合会被就地修改！
  */
 Bitmapset *
 bms_del_member(Bitmapset *a, int x)
@@ -802,7 +802,7 @@ bms_del_member(Bitmapset *a, int x)
 	bitnum = BITNUM(x);
 	if (wordnum < a->nwords)
 		a->words[wordnum] &= ~((bitmapword) 1 << bitnum);
-	/* If we computed an empty result, we must return NULL */
+	/* 若算出空结果，必须返回 NULL */
 	if (bms_is_empty_internal(a))
 	{
 		pfree(a);
@@ -812,7 +812,7 @@ bms_del_member(Bitmapset *a, int x)
 }
 
 /*
- * bms_add_members - like bms_union, but left input is recycled
+ * bms_add_members - 类似 bms_union，但左侧输入会被回收
  */
 Bitmapset *
 bms_add_members(Bitmapset *a, const Bitmapset *b)
@@ -822,12 +822,12 @@ bms_add_members(Bitmapset *a, const Bitmapset *b)
 	int			otherlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return bms_copy(b);
 	if (b == NULL)
 		return a;
-	/* Identify shorter and longer input; copy the longer one if needed */
+	/* 区分较短与较长的输入；必要时复制较长的那个 */
 	if (a->nwords < b->nwords)
 	{
 		result = bms_copy(b);
@@ -838,7 +838,7 @@ bms_add_members(Bitmapset *a, const Bitmapset *b)
 		result = a;
 		other = b;
 	}
-	/* And union the shorter input into the result */
+	/* 并把较短的输入并入结果 */
 	otherlen = other->nwords;
 	for (i = 0; i < otherlen; i++)
 		result->words[i] |= other->words[i];
@@ -849,11 +849,11 @@ bms_add_members(Bitmapset *a, const Bitmapset *b)
 
 /*
  * bms_add_range
- *		Add members in the range of 'lower' to 'upper' to the set.
+ *		把 'lower' 到 'upper' 范围内的成员加入集合。
  *
- * Note this could also be done by calling bms_add_member in a loop, however,
- * using this function will be faster when the range is large as we work at
- * the bitmapword level rather than at bit level.
+ * 这也可以在循环里调用 bms_add_member 完成，不过
+ * 范围较大时用本函数更快，因为我们在
+ * 位图字一级而不是位一级工作。
  */
 Bitmapset *
 bms_add_range(Bitmapset *a, int lower, int upper)
@@ -864,7 +864,7 @@ bms_add_range(Bitmapset *a, int lower, int upper)
 				ushiftbits,
 				wordnum;
 
-	/* do nothing if nothing is called for, without further checking */
+	/* 若无需做任何事，则不再进一步检查 */
 	if (upper < lower)
 		return a;
 
@@ -883,10 +883,10 @@ bms_add_range(Bitmapset *a, int lower, int upper)
 		int			oldnwords = a->nwords;
 		int			i;
 
-		/* ensure we have enough words to store the upper bit */
+		/* 确保有足够的字来存放上界位 */
 		a = (Bitmapset *) repalloc(a, BITMAPSET_SIZE(uwordnum + 1));
 		a->nwords = uwordnum + 1;
-		/* zero out the enlarged portion */
+		/* 把扩大出来的部分清零 */
 		for (i = oldnwords; i < a->nwords; i++)
 			a->words[i] = 0;
 	}
@@ -897,8 +897,8 @@ bms_add_range(Bitmapset *a, int lower, int upper)
 	ushiftbits = BITS_PER_BITMAPWORD - (BITNUM(upper) + 1);
 
 	/*
-	 * Special case when lwordnum is the same as uwordnum we must perform the
-	 * upper and lower masking on the word.
+	 * 当 lwordnum 与 uwordnum 相同时的特殊情况，必须对
+	 * 该字同时做上界与下界掩码。
 	 */
 	if (lwordnum == uwordnum)
 	{
@@ -907,14 +907,14 @@ bms_add_range(Bitmapset *a, int lower, int upper)
 	}
 	else
 	{
-		/* turn on lbitnum and all bits left of it */
+		/* 打开 lbitnum 及其左侧所有位 */
 		a->words[wordnum++] |= ~(bitmapword) (((bitmapword) 1 << lbitnum) - 1);
 
-		/* turn on all bits for any intermediate words */
+		/* 打开所有中间字的全部位 */
 		while (wordnum < uwordnum)
 			a->words[wordnum++] = ~(bitmapword) 0;
 
-		/* turn on upper's bit and all bits right of it. */
+		/* 打开 upper 的那一位及其右侧所有位。 */
 		a->words[uwordnum] |= (~(bitmapword) 0) >> ushiftbits;
 	}
 
@@ -922,7 +922,7 @@ bms_add_range(Bitmapset *a, int lower, int upper)
 }
 
 /*
- * bms_int_members - like bms_intersect, but left input is recycled
+ * bms_int_members - 类似 bms_intersect，但左侧输入会被回收
  */
 Bitmapset *
 bms_int_members(Bitmapset *a, const Bitmapset *b)
@@ -930,7 +930,7 @@ bms_int_members(Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return NULL;
 	if (b == NULL)
@@ -938,13 +938,13 @@ bms_int_members(Bitmapset *a, const Bitmapset *b)
 		pfree(a);
 		return NULL;
 	}
-	/* Intersect b into a; we need never copy */
+	/* 把 b 交入 a；从不需要复制 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 		a->words[i] &= b->words[i];
 	for (; i < a->nwords; i++)
 		a->words[i] = 0;
-	/* If we computed an empty result, we must return NULL */
+	/* 若算出空结果，必须返回 NULL */
 	if (bms_is_empty_internal(a))
 	{
 		pfree(a);
@@ -954,7 +954,7 @@ bms_int_members(Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_del_members - like bms_difference, but left input is recycled
+ * bms_del_members - 类似 bms_difference，但左侧输入会被回收
  */
 Bitmapset *
 bms_del_members(Bitmapset *a, const Bitmapset *b)
@@ -962,16 +962,16 @@ bms_del_members(Bitmapset *a, const Bitmapset *b)
 	int			shortlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return NULL;
 	if (b == NULL)
 		return a;
-	/* Remove b's bits from a; we need never copy */
+	/* 从 a 中去掉 b 的位；从不需要复制 */
 	shortlen = Min(a->nwords, b->nwords);
 	for (i = 0; i < shortlen; i++)
 		a->words[i] &= ~b->words[i];
-	/* If we computed an empty result, we must return NULL */
+	/* 若算出空结果，必须返回 NULL */
 	if (bms_is_empty_internal(a))
 	{
 		pfree(a);
@@ -981,7 +981,7 @@ bms_del_members(Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * bms_join - like bms_union, but *both* inputs are recycled
+ * bms_join - 类似 bms_union，但两个输入都会被回收
  */
 Bitmapset *
 bms_join(Bitmapset *a, Bitmapset *b)
@@ -991,12 +991,12 @@ bms_join(Bitmapset *a, Bitmapset *b)
 	int			otherlen;
 	int			i;
 
-	/* Handle cases where either input is NULL */
+	/* 处理任一输入为 NULL 的情况 */
 	if (a == NULL)
 		return b;
 	if (b == NULL)
 		return a;
-	/* Identify shorter and longer input; use longer one as result */
+	/* 区分较短与较长的输入；用较长的那个作为结果 */
 	if (a->nwords < b->nwords)
 	{
 		result = b;
@@ -1007,33 +1007,33 @@ bms_join(Bitmapset *a, Bitmapset *b)
 		result = a;
 		other = b;
 	}
-	/* And union the shorter input into the result */
+	/* 并把较短的输入并入结果 */
 	otherlen = other->nwords;
 	for (i = 0; i < otherlen; i++)
 		result->words[i] |= other->words[i];
-	if (other != result)		/* pure paranoia */
+	if (other != result)		/* 纯粹是防御性检查 */
 		pfree(other);
 	return result;
 }
 
 /*
- * bms_next_member - find next member of a set
+ * bms_next_member - 找出集合的下一个成员
  *
- * Returns smallest member greater than "prevbit", or -2 if there is none.
- * "prevbit" must NOT be less than -1, or the behavior is unpredictable.
+ * 返回大于 "prevbit" 的最小成员，若没有则返回 -2。
+ * "prevbit" 不得小于 -1，否则行为难以预料。
  *
- * This is intended as support for iterating through the members of a set.
- * The typical pattern is
+ * 这是为遍历集合成员提供的支持。
+ * 典型写法是
  *
  *			x = -1;
  *			while ((x = bms_next_member(inputset, x)) >= 0)
- *				process member x;
+ *				处理成员 x;
  *
- * Notice that when there are no more members, we return -2, not -1 as you
- * might expect.  The rationale for that is to allow distinguishing the
- * loop-not-started state (x == -1) from the loop-completed state (x == -2).
- * It makes no difference in simple loop usage, but complex iteration logic
- * might need such an ability.
+ * 注意，没有更多成员时我们返回 -2，而不是你
+ * 可能预期的 -1。理由是便于区分
+ * 循环尚未开始的状态（x == -1）与循环已结束的状态（x == -2）。
+ * 对简单循环用法没有区别，但复杂的迭代逻辑
+ * 也许需要这种能力。
  */
 int
 bms_next_member(const Bitmapset *a, int prevbit)
@@ -1051,7 +1051,7 @@ bms_next_member(const Bitmapset *a, int prevbit)
 	{
 		bitmapword	w = a->words[wordnum];
 
-		/* ignore bits before prevbit */
+		/* 忽略 prevbit 之前的位 */
 		w &= mask;
 
 		if (w != 0)
@@ -1063,35 +1063,35 @@ bms_next_member(const Bitmapset *a, int prevbit)
 			return result;
 		}
 
-		/* in subsequent words, consider all bits */
+		/* 在后续字中考虑所有位 */
 		mask = (~(bitmapword) 0);
 	}
 	return -2;
 }
 
 /*
- * bms_prev_member - find prev member of a set
+ * bms_prev_member - 找出集合的前一个成员
  *
- * Returns largest member less than "prevbit", or -2 if there is none.
- * "prevbit" must NOT be more than one above the highest possible bit that can
- * be set at the Bitmapset at its current size.
+ * 返回小于 "prevbit" 的最大成员，若没有则返回 -2。
+ * "prevbit" 不得比 Bitmapset 按当前大小所能
+ * 置位的最高位再高一位。
  *
- * To ease finding the highest set bit for the initial loop, the special
- * prevbit value of -1 can be passed to have the function find the highest
- * valued member in the set.
+ * 为便于在初始循环中找到最高置位，可以传入特殊的
+ * prevbit 值 -1，让函数找出集合中
+ * 取值最大的成员。
  *
- * This is intended as support for iterating through the members of a set in
- * reverse.  The typical pattern is
+ * 这是为反向遍历集合成员提供的支持。
+ * 典型写法是
  *
  *			x = -1;
  *			while ((x = bms_prev_member(inputset, x)) >= 0)
- *				process member x;
+ *				处理成员 x;
  *
- * Notice that when there are no more members, we return -2, not -1 as you
- * might expect.  The rationale for that is to allow distinguishing the
- * loop-not-started state (x == -1) from the loop-completed state (x == -2).
- * It makes no difference in simple loop usage, but complex iteration logic
- * might need such an ability.
+ * 注意，没有更多成员时我们返回 -2，而不是你
+ * 可能预期的 -1。理由是便于区分
+ * 循环尚未开始的状态（x == -1）与循环已结束的状态（x == -2）。
+ * 对简单循环用法没有区别，但复杂的迭代逻辑
+ * 也许需要这种能力。
  */
 
 int
@@ -1102,13 +1102,13 @@ bms_prev_member(const Bitmapset *a, int prevbit)
 	bitmapword	mask;
 
 	/*
-	 * If set is NULL or if there are no more bits to the right then we've
-	 * nothing to do.
+	 * 若集合为 NULL，或右侧已没有更多位，则
+	 * 无事可做。
 	 */
 	if (a == NULL || prevbit == 0)
 		return -2;
 
-	/* transform -1 to the highest possible bit we could have set */
+	/* 把 -1 变换为我们可能置过的最高位 */
 	if (prevbit == -1)
 		prevbit = a->nwords * BITS_PER_BITMAPWORD - 1;
 	else
@@ -1120,7 +1120,7 @@ bms_prev_member(const Bitmapset *a, int prevbit)
 	{
 		bitmapword	w = a->words[wordnum];
 
-		/* mask out bits left of prevbit */
+		/* 屏蔽掉 prevbit 左侧的位 */
 		w &= mask;
 
 		if (w != 0)
@@ -1132,19 +1132,19 @@ bms_prev_member(const Bitmapset *a, int prevbit)
 			return result;
 		}
 
-		/* in subsequent words, consider all bits */
+		/* 在后续字中考虑所有位 */
 		mask = (~(bitmapword) 0);
 	}
 	return -2;
 }
 
 /*
- * bms_hash_value - compute a hash key for a Bitmapset
+ * bms_hash_value - 计算 Bitmapset 的哈希键
  *
- * Note: we must ensure that any two bitmapsets that are bms_equal() will
- * hash to the same value; in practice this means that trailing all-zero
- * words must not affect the result.  Hence we strip those before applying
- * hash_any().
+ * 注意：必须保证任意两个 bms_equal() 的位图集
+ * 哈希到同一值；实践中这意味着尾部全零
+ * 字不得影响结果。因此在调用
+ * hash_any() 之前先去掉那些字。
  */
 uint32
 bms_hash_value(const Bitmapset *a)
@@ -1152,22 +1152,22 @@ bms_hash_value(const Bitmapset *a)
 	int			lastword;
 
 	if (a == NULL)
-		return 0;				/* All empty sets hash to 0 */
+		return 0;				/* 所有空集的哈希值都是 0 */
 	for (lastword = a->nwords; --lastword >= 0;)
 	{
 		if (a->words[lastword] != 0)
 			break;
 	}
 	if (lastword < 0)
-		return 0;				/* All empty sets hash to 0 */
+		return 0;				/* 所有空集的哈希值都是 0 */
 	return DatumGetUInt32(hash_any((const unsigned char *) a->words,
 								   (lastword + 1) * sizeof(bitmapword)));
 }
 
 /*
- * bitmap_hash - hash function for keys that are (pointers to) Bitmapsets
+ * bitmap_hash - 键为（指向）Bitmapset 的指针时所用的哈希函数
  *
- * Note: don't forget to specify bitmap_match as the match function!
+ * 注意：别忘了把 bitmap_match 指定为匹配函数！
  */
 uint32
 bitmap_hash(const void *key, Size keysize)
@@ -1177,7 +1177,7 @@ bitmap_hash(const void *key, Size keysize)
 }
 
 /*
- * bitmap_match - match function to use with bitmap_hash
+ * bitmap_match - 与 bitmap_hash 配合使用的匹配函数
  */
 int
 bitmap_match(const void *key1, const void *key2, Size keysize)

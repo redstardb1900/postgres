@@ -1,0 +1,119 @@
+{
+ "schema_version": 1,
+ "batch_id": "0019-readme-iso-brin",
+ "title": "zh: translate isolation, BRIN, barrier, tuplock and FSM READMEs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "715e5470d834e2372475bcf7f9a5a75165e43481",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/test/isolation/README",
+   "kind": "readme",
+   "note": "isolation tester spec and blocking markers"
+  },
+  {
+   "pattern": "src/backend/access/brin/README",
+   "kind": "readme",
+   "note": "BRIN access method and revmap"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/README.barrier",
+   "kind": "readme",
+   "note": "memory barriers; code samples kept"
+  },
+  {
+   "pattern": "src/backend/access/heap/README.tuplock",
+   "kind": "readme",
+   "note": "tuple locks and MultiXact; conflict table kept"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/README",
+   "kind": "readme",
+   "note": "FSM tree; diagrams and formula kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0019-readme-iso-brin.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/test/isolation/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "isolation tester spec and blocking markers"
+  },
+  {
+   "path": "src/backend/access/brin/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "BRIN access method and revmap"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README.barrier",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "memory barriers; code samples kept"
+  },
+  {
+   "path": "src/backend/access/heap/README.tuplock",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tuple locks and MultiXact; conflict table kept"
+  },
+  {
+   "path": "src/backend/storage/freespace/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FSM tree; diagrams and formula kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0019-readme-iso-brin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Ninth README batch: 5 files. Spec syntax, SQL, C samples, conflict table, FSM diagrams and formulas kept. vacuum->清理, fork->分支, lwlock->轻量级锁."
+}

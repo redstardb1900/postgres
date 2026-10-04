@@ -650,6 +650,36 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0018-readme-ssl-perl.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/test/isolation/README",
+   "kind": "readme",
+   "note": "isolation tester spec and blocking markers"
+  },
+  {
+   "pattern": "src/backend/access/brin/README",
+   "kind": "readme",
+   "note": "BRIN access method and revmap"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/README.barrier",
+   "kind": "readme",
+   "note": "memory barriers; code samples kept"
+  },
+  {
+   "pattern": "src/backend/access/heap/README.tuplock",
+   "kind": "readme",
+   "note": "tuple locks and MultiXact; conflict table kept"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/README",
+   "kind": "readme",
+   "note": "FSM tree; diagrams and formula kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0019-readme-iso-brin.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2447,7 +2477,67 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/test/isolation/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "isolation tester spec and blocking markers"
+  },
+  {
+   "path": "src/backend/access/brin/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "BRIN access method and revmap"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README.barrier",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "memory barriers; code samples kept"
+  },
+  {
+   "path": "src/backend/access/heap/README.tuplock",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "tuple locks and MultiXact; conflict table kept"
+  },
+  {
+   "path": "src/backend/storage/freespace/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FSM tree; diagrams and formula kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0019-readme-iso-brin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 66 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 71 of 88 include files translated."
 }

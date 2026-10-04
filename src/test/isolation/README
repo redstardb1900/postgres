@@ -1,215 +1,163 @@
 src/test/isolation/README
 
-Isolation tests
-===============
+隔离测试
+========
 
-This directory contains a set of tests for concurrent behaviors in
-PostgreSQL.  These tests require running multiple interacting transactions,
-which requires management of multiple concurrent connections, and therefore
-can't be tested using the normal pg_regress program.  The name "isolation"
-comes from the fact that the original motivation was to test the
-serializable isolation level; but tests for other sorts of concurrent
-behaviors have been added as well.
+本目录包含一组针对 PostgreSQL 并发行为的测试。这些测试需要运行多个
+相互配合的事务，因而要管理多条并发连接，无法用普通的 pg_regress
+程序来测。“isolation”这个名字源于最初的动机是测试可串行化隔离级别；
+但之后也加入了其他类型并发行为的测试。
 
-You can run the tests against the current build tree by typing
+可以在当前构建树上运行测试：
     make check
-Alternatively, you can run against an existing installation by typing
+也可以对着已有安装运行：
     make installcheck
-(This will contact a server at the default port expected by libpq.
-You can set PGPORT and so forth in your environment to control this.)
+（这会连到 libpq 默认端口上的服务器。可用环境变量 PGPORT 等控制。）
 
-To run just specific test(s) against an installed server,
-you can do something like
+若只对已安装服务器跑特定测试，可以类似这样：
     ./pg_isolation_regress fk-contention fk-deadlock
-(look into the specs/ subdirectory to see the available tests).
+（可用的测试见 specs/ 子目录）。
 
-Certain tests require the server's max_prepared_transactions parameter to be
-set to at least 3; therefore they are not run by default.  To include them in
-the test run, use
+某些测试要求服务器的 max_prepared_transactions 至少为 3，因此默认
+不跑。要纳入这些测试，请用
     make check-prepared-txns
-or
+或
     make installcheck-prepared-txns
-after making sure the server configuration is correct (see TEMP_CONFIG
-to adjust this in the "check" case).
+并先确认服务器配置正确（“check”情形可用 TEMP_CONFIG 调整）。
 
-To define tests with overlapping transactions, we use test specification
-files with a custom syntax, which is described in the next section.  To add
-a new test, place a spec file in the specs/ subdirectory, add the expected
-output in the expected/ subdirectory, and add the test's name to the
-isolation_schedule file.
+要定义事务交错的测试，我们使用自定义语法的测试规格文件，下一节说明。
+要添加新测试，把 spec 文件放到 specs/ 子目录，把期望输出放到
+expected/ 子目录，并把测试名加入 isolation_schedule 文件。
 
-isolationtester is a program that uses libpq to open multiple connections,
-and executes a test specified by a spec file. A libpq connection string
-specifies the server and database to connect to; defaults derived from
-environment variables are used otherwise.
+isolationtester 用 libpq 打开多条连接，并执行 spec 文件指定的测试。
+libpq 连接串指定要连的服务器和数据库；否则使用环境变量导出的默认值。
 
-pg_isolation_regress is a tool similar to pg_regress, but instead of using
-psql to execute a test, it uses isolationtester.  It accepts all the same
-command-line arguments as pg_regress.
+pg_isolation_regress 是类似 pg_regress 的工具，但不用 psql 执行测试，
+而用 isolationtester。它接受与 pg_regress 相同的全部命令行参数。
 
-By default, isolationtester will wait at most 360 seconds (6 minutes)
-for any one test step to complete.  If you need to adjust this, set
-the environment variable PG_TEST_TIMEOUT_DEFAULT to half the desired
-timeout in seconds.
+默认情况下，isolationtester 对任一步骤最多等待 360 秒（6 分钟）。
+若需调整，把环境变量 PG_TEST_TIMEOUT_DEFAULT 设为期望超时秒数的一半。
 
 
-Test specification
-==================
+测试规格
+========
 
-Each isolation test is defined by a specification file, stored in the specs
-subdirectory.  A test specification defines some SQL "steps", groups them
-into "sessions" (where all the steps of one session will be run in the
-same backend), and specifies the "permutations" or orderings of the steps
-that are to be run.
+每个隔离测试由 specs 子目录中的规格文件定义。测试规格定义若干 SQL
+“步骤”，把它们分组到“会话”（同一会话的全部步骤在同一后端中运行），
+并指定这些步骤要运行的“排列”（即顺序）。
 
-A test specification consists of four parts, in this order:
+测试规格按此顺序由四部分组成：
 
 setup { <SQL> }
 
-  The given SQL block is executed once (per permutation) before running
-  the test.  Create any test tables or other required objects here.  This
-  part is optional.  Multiple setup blocks are allowed if needed; each is
-  run separately, in the given order.  (The reason for allowing multiple
-  setup blocks is that each block is run as a single PQexec submission,
-  and some statements such as VACUUM cannot be combined with others in such
-  a block.)
+  给定的 SQL 块在运行测试前执行一次（每个排列一次）。在此创建测试表
+  或其他所需对象。本部分可选。需要时允许有多个 setup 块；各自按给定
+  顺序单独运行。（允许多个 setup 块的原因是：每个块作为一次 PQexec
+  提交，而 VACUUM 等语句不能与其他语句合在这样一个块里。）
 
 teardown { <SQL> }
 
-  The teardown SQL block is executed once after the test is finished. Use
-  this to clean up in preparation for the next permutation, e.g dropping
-  any test tables created by setup. This part is optional.
+  teardown SQL 块在测试结束后执行一次。用来为下一个排列做清理，例如
+  删除 setup 创建的测试表。本部分可选。
 
 session <name>
 
-  There are normally several "session" parts in a spec file. Each
-  session is executed in its own connection. A session part consists
-  of three parts: setup, teardown and one or more "steps". The per-session
-  setup and teardown parts have the same syntax as the per-test setup and
-  teardown described above, but they are executed in each session. The setup
-  part might, for example, contain a "BEGIN" command to begin a transaction.
+  spec 文件里通常有若干 “session” 部分。每个会话在自己的连接中执行。
+  一个会话部分由三块组成：setup、teardown 以及一个或多个“步骤”。
+  每会话的 setup/teardown 语法与上面每测试的 setup/teardown 相同，
+  但在每个会话中执行。setup 部分例如可以包含 “BEGIN” 来开始事务。
 
-  Each step has the syntax
+  每个步骤的语法是
 
   step <name> { <SQL> }
 
-  where <name> is a name identifying this step, and <SQL> is a SQL statement
-  (or statements, separated by semicolons) that is executed in the step.
-  Step names must be unique across the whole spec file.
+  其中 <name> 是标识该步骤的名字，<SQL> 是该步骤执行的一条（或多条，
+  用分号分隔）SQL 语句。步骤名在整个 spec 文件中必须唯一。
 
 permutation <step name> ...
 
-  A permutation line specifies a list of steps that are run in that order.
-  Any number of permutation lines can appear.  If no permutation lines are
-  given, the test program automatically runs all possible interleavings
-  of the steps from each session (running the steps of any one session in
-  order).  Note that the list of steps in a manually specified
-  "permutation" line doesn't actually have to be a permutation of the
-  available steps; it could for instance repeat some steps more than once,
-  or leave others out.  Also, each step name can be annotated with some
-  parenthesized markers, which are described below.
+  一条 permutation 行指定按该顺序运行的步骤列表。可以出现任意多条
+  permutation 行。若未给出 permutation 行，测试程序会自动运行各会话
+  步骤的全部可能交错（同一会话内的步骤仍按顺序）。注意：手工指定的
+  “permutation” 行里的步骤列表其实不必是可用步骤的一个排列；例如可以
+  重复某些步骤，或省略另一些。另外，每个步骤名可以标注若干括号标记，
+  见下文。
 
-Session and step names are SQL identifiers, either plain or double-quoted.
-A difference from standard SQL is that no case-folding occurs, so that
-FOO and "FOO" are the same name while FOO and Foo are different,
-whether you quote them or not.  You must use quotes if you want to use
-an isolation test keyword (such as "permutation") as a name.
+会话名和步骤名是 SQL 标识符，可以是普通标识符或双引号引起来的。与标准
+SQL 的差异是：不做大小写折叠，因此 FOO 与 "FOO" 是同一名字，而 FOO
+与 Foo 不同，无论是否加引号。若要把隔离测试关键字（例如 "permutation"）
+用作名字，必须加引号。
 
-A # character begins a comment, which extends to the end of the line.
-(This does not work inside <SQL> blocks, however.  Use the usual SQL
-comment conventions there.)
+# 字符开始注释，一直到行尾。（这在 <SQL> 块内不起作用。那里请用通常
+的 SQL 注释约定。）
 
-There is no way to include a "}" character in an <SQL> block.
+无法在 <SQL> 块中包含 “}” 字符。
 
-For each permutation of the session steps (whether these are manually
-specified in the spec file, or automatically generated), the isolation
-tester runs the main setup part, then per-session setup parts, then
-the selected session steps, then per-session teardown, then the main
-teardown script.  Each selected step is sent to the connection associated
-with its session.  The main setup and teardown scripts are run in a
-separate "control" session.
+对会话步骤的每个排列（无论是 spec 文件中手工指定的，还是自动生成的），
+隔离测试器先跑主 setup，再跑每会话 setup，再跑选中的会话步骤，再跑每
+会话 teardown，最后跑主 teardown 脚本。每个选中的步骤发到其会话对应的
+连接。主 setup 和 teardown 脚本在单独的“控制”会话中运行。
 
 
-Support for blocking commands
-=============================
+对阻塞命令的支持
+================
 
-Each step may contain commands that block until further action has been taken
-(most likely, some other session runs a step that unblocks it or causes a
-deadlock).  A test that uses this ability must manually specify valid
-permutations, i.e. those that would not expect a blocked session to execute a
-command.  If a test fails to follow that rule, isolationtester will cancel it
-after 2 * PG_TEST_TIMEOUT_DEFAULT seconds.  If the cancel doesn't work,
-isolationtester will exit uncleanly after a total of 4 *
-PG_TEST_TIMEOUT_DEFAULT.  Testing invalid permutations should be avoided
-because they can make the isolation tests take a very long time to run, and
-they serve no useful testing purpose.
+每个步骤都可以包含会阻塞、直到采取进一步动作才继续的命令（最常见的是
+另一个会话跑某步来解除阻塞，或造成死锁）。使用这种能力的测试必须手工
+指定有效排列，即那些不会指望一个已阻塞会话再去执行命令的排列。若测试
+未遵守该规则，isolationtester 会在 2 * PG_TEST_TIMEOUT_DEFAULT 秒后
+取消它。若取消无效，isolationtester 会在总共 4 * PG_TEST_TIMEOUT_DEFAULT
+后不干净地退出。应避免测试无效排列，因为它们会让隔离测试跑很久，且没
+有有用的测试目的。
 
-Note that isolationtester recognizes that a command has blocked by looking
-to see if it is shown as waiting in the pg_locks view; therefore, only
-blocks on heavyweight locks will be detected.
+注意：isolationtester 通过查看命令是否在 pg_locks 视图中显示为等待，
+来识别命令已阻塞；因此只有重量级锁上的阻塞会被检测到。
 
 
-Dealing with race conditions
-============================
+处理竞态
+========
 
-In some cases, the isolationtester's output for a test script may vary
-due to timing issues.  One way to deal with that is to create variant
-expected-files, which follow the usual PG convention that variants for
-foo.spec are named foo_1.out, foo_2.out, etc.  However, this method is
-discouraged since the extra files are a nuisance for maintenance.
-Instead, it's usually possible to stabilize the test output by applying
-special markers to some of the step names listed in a permutation line.
+有时，isolationtester 对某测试脚本的输出会因时序问题而变化。一种处理
+办法是创建变体期望文件，遵循通常的 PG 约定：foo.spec 的变体名为
+foo_1.out、foo_2.out 等。不过不鼓励这种方法，因为额外文件维护起来麻烦。
+通常更好的做法是：给 permutation 行中列出的某些步骤名加上特殊标记，
+来稳定测试输出。
 
-The general form of a permutation entry is
+permutation 条目的一般形式是
 
 	<step name> [ ( <marker> [ , <marker> ... ] ) ]
 
-where each marker defines a "blocking condition".  The step will not be
-reported as completed before all the blocking conditions are satisfied.
-The possible markers are:
+每个标记定义一个“阻塞条件”。在所有阻塞条件满足之前，该步骤不会被报告
+为已完成。可能的标记有：
 
 	*
 	<other step name>
 	<other step name> notices <n>
 
-An asterisk marker, such as mystep(*), forces the isolationtester to
-report the step as "waiting" as soon as it's been launched, regardless of
-whether it would have been detected as waiting later.  This is useful for
-stabilizing cases that are sometimes reported as waiting and other times
-reported as immediately completing, depending on the relative speeds of
-the step and the isolationtester's status-monitoring queries.
+星号标记，例如 mystep(*)，迫使 isolationtester 在步骤一经启动就报告
+为“waiting”，无论稍后是否会被检测为等待。这用于稳定这类情形：有时报告
+为等待，有时报告为立即完成，取决于该步骤与 isolationtester 状态监视
+查询的相对速度。
 
-A marker consisting solely of a step name indicates that this step may
-not be reported as completing until that other step has completed.
-This allows stabilizing cases where two queries might be seen to complete
-in either order.  Note that this step can be *launched* before the other
-step has completed.  (If the other step is used more than once in the
-current permutation, this step cannot complete while any of those
-instances is active.)
+仅由步骤名组成的标记表示：在该另一步骤完成之前，本步骤不得被报告为
+完成。这用于稳定两个查询可能以任一顺序被看到完成的情形。注意本步骤
+可以在另一步骤完成之前就被*启动*。（若另一步骤在当前排列中使用超过
+一次，则这些实例任一仍活动时，本步骤都不能完成。）
 
-A marker of the form "<other step name> notices <n>" (where <n> is a
-positive integer) indicates that this step may not be reported as
-completing until the other step's session has returned at least <n>
-NOTICE messages, counting from when this step is launched.  This is useful
-for stabilizing cases where a step can return NOTICE messages before it
-actually completes, and those messages must be synchronized with the
-completions of other steps.
+形如 “<other step name> notices <n>” 的标记（<n> 为正整数）表示：在
+另一步骤的会话至少返回 <n> 条 NOTICE 消息之前（从本步骤启动时起计），
+本步骤不得被报告为完成。这用于稳定这类情形：某步骤在真正完成前就能
+返回 NOTICE 消息，而这些消息必须与其他步骤的完成同步。
 
-Notice that these markers can only delay reporting of the completion
-of a step, not the launch of a step.  The isolationtester will launch
-the next step in a permutation as soon as (A) all prior steps of the
-same session are done, and (B) the immediately preceding step in the
-permutation is done or deemed blocked.  For this purpose, "deemed
-blocked" means that it has been seen to be waiting on a database lock,
-or that it is complete but the report of its completion is delayed by
-one of these markers.
+注意：这些标记只能推迟步骤完成的报告，不能推迟步骤的启动。
+isolationtester 会在以下条件满足时立即启动排列中的下一步：（A）同一
+会话的所有先前步骤已完成，且（B）排列中紧邻的前一步已完成或被视为
+阻塞。就此而言，“被视为阻塞”表示：已看到它在等待数据库锁，或者它已
+完成但其完成报告被这些标记之一推迟。
 
-In some cases it is important not to launch a step until after the
-completion of a step in another session that could have been deemed
-blocked.  An example is that if step s1 in session A is issuing a
-cancel for step s2 in session B, we'd better not launch B's next step
-till we're sure s1 is done.  If s1 is blockable, trouble could ensue.
-The best way to prevent that is to create an empty step in session A
-and run it, without any markers, just before the next session B step.
-The empty step cannot be launched until s1 is done, and in turn the
-next session B step cannot be launched until the empty step finishes.
+有时重要的是：不要在另会话中一个可能被视为阻塞的步骤完成之前启动某步。
+例如，若会话 A 的步骤 s1 正在取消会话 B 的步骤 s2，最好在确认 s1 完成
+之前不要启动 B 的下一步。若 s1 可能阻塞，就会出问题。最好的防止办法
+是在会话 A 中建一个空步骤，不加任何标记，正好在会话 B 的下一步之前
+运行。空步骤在 s1 完成前不能启动，而会话 B 的下一步又要等空步骤完成
+才能启动。

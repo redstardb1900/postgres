@@ -1,66 +1,50 @@
-Locking tuples
---------------
+src/backend/access/heap/README.tuplock
 
-Locking tuples is not as easy as locking tables or other database objects.
-The problem is that transactions might want to lock large numbers of tuples at
-any one time, so it's not possible to keep the locks objects in shared memory.
-To work around this limitation, we use a two-level mechanism.  The first level
-is implemented by storing locking information in the tuple header: a tuple is
-marked as locked by setting the current transaction's XID as its XMAX, and
-setting additional infomask bits to distinguish this case from the more normal
-case of having deleted the tuple.  When multiple transactions concurrently
-lock a tuple, a MultiXact is used; see below.  This mechanism can accommodate
-arbitrarily large numbers of tuples being locked simultaneously.
+锁定元组
+--------
 
-When it is necessary to wait for a tuple-level lock to be released, the basic
-delay is provided by XactLockTableWait or MultiXactIdWait on the contents of
-the tuple's XMAX.  However, that mechanism will release all waiters
-concurrently, so there would be a race condition as to which waiter gets the
-tuple, potentially leading to indefinite starvation of some waiters.  The
-possibility of share-locking makes the problem much worse --- a steady stream
-of share-lockers can easily block an exclusive locker forever.  To provide
-more reliable semantics about who gets a tuple-level lock first, we use the
-standard lock manager, which implements the second level mentioned above.  The
-protocol for waiting for a tuple-level lock is really
+锁定元组不像锁定表或其他数据库对象那么容易。问题是事务可能一次想锁定
+大量元组，因此不可能把锁对象放在共享内存里。为绕过这一限制，我们使用
+两级机制。第一级通过把加锁信息存在元组头中实现：把当前事务的 XID 设
+为元组的 XMAX，并设置额外的 infomask 位，以把这种情况与更常见的已删除
+该元组的情况区分开。当多个事务并发锁定同一元组时，使用 MultiXact；
+见下文。这一机制可以容纳任意多的元组同时被锁定。
+
+当需要等待元组级锁释放时，基本延迟由对元组 XMAX 内容的
+XactLockTableWait 或 MultiXactIdWait 提供。不过该机制会同时释放所有
+等待者，因此谁先拿到元组会有竞态，可能导致部分等待者无限饥饿。共享锁
+让问题更糟——稳定的共享加锁者流可以轻易永远挡住独占加锁者。为提供更
+可靠的“谁先获得元组级锁”语义，我们使用标准锁管理器，即上面所说的
+第二级。等待元组级锁的协议实际上是
 
      LockTuple()
      XactLockTableWait()
-     mark tuple as locked by me
+     把元组标记为由我锁定
      UnlockTuple()
 
-When there are multiple waiters, arbitration of who is to get the lock next
-is provided by LockTuple().  However, at most one tuple-level lock will
-be held or awaited per backend at any time, so we don't risk overflow
-of the lock table.  Note that incoming share-lockers are required to
-do LockTuple as well, if there is any conflict, to ensure that they don't
-starve out waiting exclusive-lockers.  However, if there is not any active
-conflict for a tuple, we don't incur any extra overhead.
+当有多个等待者时，由 LockTuple() 仲裁下一个获得锁的是谁。不过每个后端
+在任一时刻最多持有或等待一把元组级锁，因此我们不会有锁表溢出的风险。
+注意：若存在任何冲突，新来的共享加锁者也必须做 LockTuple，以确保他们
+不会饿死正在等待的独占加锁者。但若元组上没有任何活动冲突，我们不引入
+额外开销。
 
-We make an exception to the above rule for those lockers that already hold
-some lock on a tuple and attempt to acquire a stronger one on it.  In that
-case, we skip the LockTuple() call even when there are conflicts, provided
-that the target tuple is being locked, updated or deleted by multiple sessions
-concurrently.  Failing to skip the lock would risk a deadlock, e.g., between a
-session that was first to record its weaker lock in the tuple header and would
-be waiting on the LockTuple() call to upgrade to the stronger lock level, and
-another session that has already done LockTuple() and is waiting for the first
-session transaction to release its tuple header-level lock.
+对已经持有某元组上某种锁、并试图在其上获取更强锁的加锁者，我们对上述
+规则做例外。那种情况下，即便有冲突也跳过 LockTuple() 调用，前提是目标
+元组正被多个会话并发锁定、更新或删除。若不跳过该锁，就有死锁风险，例如：
+先在元组头中记录较弱锁、却在 LockTuple() 上等待以升级到更强锁级别的
+会话，与已经做完 LockTuple()、正在等待第一个会话事务释放其元组头级锁
+的另一会话。
 
-We provide four levels of tuple locking strength: SELECT FOR UPDATE obtains an
-exclusive lock which prevents any kind of modification of the tuple. This is
-the lock level that is implicitly taken by DELETE operations, and also by
-UPDATE operations if they modify any of the tuple's key fields. SELECT FOR NO
-KEY UPDATE likewise obtains an exclusive lock, but only prevents tuple removal
-and modifications which might alter the tuple's key. This is the lock that is
-implicitly taken by UPDATE operations which leave all key fields unchanged.
-SELECT FOR SHARE obtains a shared lock which prevents any kind of tuple
-modification. Finally, SELECT FOR KEY SHARE obtains a shared lock which only
-prevents tuple removal and modifications of key fields. This lock level is
-just strong enough to implement RI checks, i.e. it ensures that tuples do not
-go away from under a check, without blocking transactions that want to update
-the tuple without changing its key.
+我们提供四级元组锁定强度：SELECT FOR UPDATE 获得独占锁，阻止对元组的
+任何修改。这是 DELETE 操作隐式获取的锁级别，也是 UPDATE 在修改元组任一
+键字段时隐式获取的级别。SELECT FOR NO KEY UPDATE 同样获得独占锁，但只
+阻止元组移除以及可能改变元组键的修改。这是保持全部键字段不变的 UPDATE
+操作隐式获取的锁。SELECT FOR SHARE 获得共享锁，阻止任何种类的元组修改。
+最后，SELECT FOR KEY SHARE 获得共享锁，只阻止元组移除和键字段的修改。
+这一锁级别刚好足以实现引用完整性检查，即确保元组不会在检查进行时消失，
+同时不阻挡想更新元组但不改其键的事务。
 
-The conflict table is:
+冲突表是：
 
                   UPDATE       NO KEY UPDATE    SHARE        KEY SHARE
 UPDATE           conflict        conflict      conflict      conflict
@@ -68,136 +52,112 @@ NO KEY UPDATE    conflict        conflict      conflict
 SHARE            conflict        conflict
 KEY SHARE        conflict
 
-When there is a single locker in a tuple, we can just store the locking info
-in the tuple itself.  We do this by storing the locker's Xid in XMAX, and
-setting infomask bits specifying the locking strength.  See "Infomask Bits"
-below for details on the bit patterns we use.
+当元组上只有一个加锁者时，我们可以把加锁信息直接存在元组本身。做法是
+把加锁者的 Xid 存在 XMAX，并设置指定锁定强度的 infomask 位。所用位模式
+详见下文 “Infomask 位”。
 
-MultiXacts
-----------
+MultiXact
+---------
 
-A tuple header provides very limited space for storing information about tuple
-locking and updates: there is room only for a single Xid and a small number of
-infomask bits.  Whenever we need to store more than one lock, we replace the
-first locker's Xid with a new MultiXactId.  Each MultiXact provides extended
-locking data; it comprises an array of Xids plus some flags bits for each one.
-The flags are currently used to store the locking strength of each member
-transaction.  (The flags also distinguish a pure locker from an updater.)
+元组头为存储元组锁定和更新信息提供的空间非常有限：只够一个 Xid 和少量
+infomask 位。每当需要存储不止一把锁时，我们用新的 MultiXactId 替换第一
+个加锁者的 Xid。每个 MultiXact 提供扩展的加锁数据；它由一组 Xid 加上
+每个 Xid 的若干标志位组成。标志目前用来存储每个成员事务的锁定强度。
+（标志也区分纯粹的加锁者和更新者。）
 
-In earlier PostgreSQL releases, a MultiXact always meant that the tuple was
-locked in shared mode by multiple transactions.  This is no longer the case; a
-MultiXact may contain an update or delete Xid.  (Keep in mind that tuple locks
-in a transaction do not conflict with other tuple locks in the same
-transaction, so it's possible to have otherwise conflicting locks in a
-MultiXact if they belong to the same transaction).
+在更早的 PostgreSQL 发行版中，MultiXact 总是意味着元组被多个事务以共享
+模式锁定。现在不再如此；MultiXact 可以包含一个更新或删除 Xid。（记住：
+同一事务内的元组锁彼此不冲突，因此若属于同一事务，MultiXact 中可以有
+否则会冲突的锁）。
 
-Note that each lock is attributed to the subtransaction that acquires it.
-This means that a subtransaction that aborts is seen as though it releases the
-locks it acquired; concurrent transactions can then proceed without having to
-wait for the main transaction to finish.  It also means that a subtransaction
-can upgrade to a stronger lock level than an earlier transaction had, and if
-the subxact aborts, the earlier, weaker lock is kept.
+注意每把锁归属于获取它的子事务。这意味着中止的子事务被视为释放了它获取
+的锁；并发事务随后可以继续，而不必等主事务结束。这也意味着子事务可以
+升级到比更早事务更强的锁级别，若子事务中止，则保留更早的较弱锁。
 
-The possibility of having an update within a MultiXact means that they must
-persist across crashes and restarts: a future reader of the tuple needs to
-figure out whether the update committed or aborted.  So we have a requirement
-that pg_multixact needs to retain pages of its data until we're certain that
-the MultiXacts in them are no longer of interest.
+MultiXact 中可能有更新，意味着它们必须在崩溃和重启后仍然存在：将来的
+元组读者需要判断该更新是提交了还是中止了。因此我们要求 pg_multixact
+必须保留其数据页，直到我们确定其中的 MultiXact 不再有用。
 
-VACUUM is in charge of removing old MultiXacts at the time of tuple freezing.
-The lower bound used by vacuum (that is, the value below which all multixacts
-are removed) is stored as pg_class.relminmxid for each table; the minimum of
-all such values is stored in pg_database.datminmxid.  The minimum across
-all databases, in turn, is recorded in checkpoint records, and CHECKPOINT
-removes pg_multixact/ segments older than that value once the checkpoint
-record has been flushed.
+VACUUM 负责在元组冻结时移除旧 MultiXact。清理使用的下界（即低于该值
+的所有 multixact 都被移除）作为每表的 pg_class.relminmxid 存储；所有这些
+值的最小值存在 pg_database.datminmxid。跨所有数据库的最小值则记录在
+检查点记录中，CHECKPOINT 在检查点记录刷盘后移除旧于该值的
+pg_multixact/ 段。
 
-Infomask Bits
--------------
+Infomask 位
+-----------
 
-The following infomask bits are applicable:
+适用的 infomask 位如下：
 
 - HEAP_XMAX_INVALID
-  Any tuple with this bit set does not have a valid value stored in XMAX.
+  设置了此位的任何元组，其 XMAX 中没有有效值。
 
 - HEAP_XMAX_IS_MULTI
-  This bit is set if the tuple's Xmax is a MultiXactId (as opposed to a
-  regular TransactionId).
+  若元组的 Xmax 是 MultiXactId（而不是普通 TransactionId），则设置此位。
 
 - HEAP_XMAX_LOCK_ONLY
-  This bit is set when the XMAX is a locker only; that is, if it's a
-  multixact, it does not contain an update among its members.  It's set when
-  the XMAX is a plain Xid that locked the tuple, as well.
+  当 XMAX 只是加锁者时设置此位；也就是说，若它是 multixact，其成员中
+  不包含更新。当 XMAX 是锁定该元组的普通 Xid 时也设置。
 
 - HEAP_XMAX_KEYSHR_LOCK
 - HEAP_XMAX_SHR_LOCK
 - HEAP_XMAX_EXCL_LOCK
-  These bits indicate the strength of the lock acquired; they are useful when
-  the XMAX is not a MultiXactId.  If it's a multi, the info is to be found in
-  the member flags.  If HEAP_XMAX_IS_MULTI is not set and HEAP_XMAX_LOCK_ONLY
-  is set, then one of these *must* be set as well.
+  这些位表示获取的锁强度；当 XMAX 不是 MultiXactId 时有用。若是 multi，
+  信息在成员标志中。若 HEAP_XMAX_IS_MULTI 未设置且 HEAP_XMAX_LOCK_ONLY
+  已设置，则其中之一*必须*也设置。
 
-  Note that HEAP_XMAX_EXCL_LOCK does not distinguish FOR NO KEY UPDATE from
-  FOR UPDATE; this is implemented by the HEAP_KEYS_UPDATED bit.
+  注意 HEAP_XMAX_EXCL_LOCK 不区分 FOR NO KEY UPDATE 与 FOR UPDATE；
+  这由 HEAP_KEYS_UPDATED 位实现。
 
 - HEAP_KEYS_UPDATED
-  This bit lives in t_infomask2.  If set, indicates that the operation(s) done
-  by the XMAX compromise the tuple key, such as a SELECT FOR UPDATE, an UPDATE
-  that modifies the columns of the key, or a DELETE.  It's set regardless of
-  whether the XMAX is a TransactionId or a MultiXactId.
+  此位在 t_infomask2 中。若设置，表示 XMAX 所做的操作损害了元组键，
+  例如 SELECT FOR UPDATE、修改键列的 UPDATE，或 DELETE。无论 XMAX 是
+  TransactionId 还是 MultiXactId 都会设置。
 
-We currently never set the HEAP_XMAX_COMMITTED when the HEAP_XMAX_IS_MULTI bit
-is set.
+当 HEAP_XMAX_IS_MULTI 位已设置时，我们目前从不设置 HEAP_XMAX_COMMITTED。
 
-Locking to write inplace-updated tables
----------------------------------------
+写入原地更新表时的加锁
+----------------------
 
-If IsInplaceUpdateRelation() returns true for a table, the table is a system
-catalog that receives systable_inplace_update_begin() calls.  Preparing a
-heap_update() of these tables follows additional locking rules, to ensure we
-don't lose the effects of an inplace update.  In particular, consider a moment
-when a backend has fetched the old tuple to modify, not yet having called
-heap_update().  Another backend's inplace update starting then can't conclude
-until the heap_update() places its new tuple in a buffer.  We enforce that
-using locktags as follows.  While DDL code is the main audience, the executor
-follows these rules to make e.g. "MERGE INTO pg_class" safer.  Locking rules
-are per-catalog:
+若 IsInplaceUpdateRelation() 对某表返回 true，该表是会收到
+systable_inplace_update_begin() 调用的系统目录。准备对这些表做
+heap_update() 时要遵循额外的加锁规则，以确保不丢失原地更新的效果。
+特别是，考虑这样一个时刻：某后端已取出要修改的旧元组，尚未调用
+heap_update()。从这时开始的另一后端原地更新，不能在 heap_update()
+把其新元组放入缓冲区之前结束。我们用 locktag 如下强制这一点。虽然
+DDL 代码是主要受众，执行器也遵守这些规则，以使例如 “MERGE INTO
+pg_class” 更安全。加锁规则按目录区分：
 
-  pg_class systable_inplace_update_begin() callers: before the call, acquire a
-  lock on the relation in mode ShareUpdateExclusiveLock or stricter.  If the
-  update targets a row of RELKIND_INDEX (but not RELKIND_PARTITIONED_INDEX),
-  that lock must be on the table.  Locking the index rel is not necessary.
-  (This allows VACUUM to overwrite per-index pg_class while holding a lock on
-  the table alone.) systable_inplace_update_begin() acquires and releases
-  LOCKTAG_TUPLE in InplaceUpdateTupleLock, an alias for ExclusiveLock, on each
-  tuple it overwrites.
+  pg_class 的 systable_inplace_update_begin() 调用者：调用前，以
+  ShareUpdateExclusiveLock 或更严模式获取该关系上的锁。若更新目标是
+  RELKIND_INDEX 行（但不是 RELKIND_PARTITIONED_INDEX），该锁必须加在
+  表上。不必锁定索引关系。（这允许 VACUUM 只持有表上的锁就能覆盖每
+  索引的 pg_class。）systable_inplace_update_begin() 对它覆盖的每个
+  元组以 InplaceUpdateTupleLock（ExclusiveLock 的别名）获取并释放
+  LOCKTAG_TUPLE。
 
-  pg_class heap_update() callers: before copying the tuple to modify, take a
-  lock on the tuple, a ShareUpdateExclusiveLock on the relation, or a
-  ShareRowExclusiveLock or stricter on the relation.
+  pg_class 的 heap_update() 调用者：在复制要修改的元组之前，获取该
+  元组上的锁、该关系上的 ShareUpdateExclusiveLock，或该关系上
+  ShareRowExclusiveLock 或更严的锁。
 
-  SearchSysCacheLocked1() is one convenient way to acquire the tuple lock.
-  Most heap_update() callers already hold a suitable lock on the relation for
-  other reasons and can skip the tuple lock.  If you do acquire the tuple
-  lock, release it immediately after the update.
+  SearchSysCacheLocked1() 是获取元组锁的一种便捷方式。大多数
+  heap_update() 调用者已因其他原因持有关系上合适的锁，可以跳过元组锁。
+  若确实获取了元组锁，在更新后立即释放。
 
 
-  pg_database: before copying the tuple to modify, all updaters of pg_database
-  rows acquire LOCKTAG_TUPLE.  (Few updaters acquire LOCKTAG_OBJECT on the
-  database OID, so it wasn't worth extending that as a second option.)
+  pg_database：在复制要修改的元组之前，所有 pg_database 行的更新者
+  都获取 LOCKTAG_TUPLE。（很少有更新者在数据库 OID 上获取
+  LOCKTAG_OBJECT，因此不值得把它扩展为第二种选项。）
 
-Ideally, DDL might want to perform permissions checks before LockTuple(), as
-we do with RangeVarGetRelidExtended() callbacks.  We typically don't bother.
-LOCKTAG_TUPLE acquirers release it after each row, so the potential
-inconvenience is lower.
+理想情况下，DDL 可能希望像 RangeVarGetRelidExtended() 回调那样，在
+LockTuple() 之前做权限检查。我们通常不费这个劲。LOCKTAG_TUPLE 获取者
+在每行之后就释放，潜在不便更低。
 
-Reading inplace-updated columns
--------------------------------
+读取原地更新的列
+----------------
 
-Inplace updates create an exception to the rule that tuple data won't change
-under a reader holding a pin.  A reader of a heap_fetch() result tuple may
-witness a torn read.  Current inplace-updated fields are aligned and are no
-wider than four bytes, and current readers don't need consistency across
-fields.  Hence, they get by with just fetching each field once.  XXX such a
-caller may also read a value that has not reached WAL; see
-systable_inplace_update_finish().
+原地更新打破了“持有钉住的读者看到的元组数据不会改变”这一规则。
+heap_fetch() 结果元组的读者可能见证撕裂读。当前原地更新的字段是对齐
+的且不超过四字节，当前读者也不需要跨字段一致性。因此他们只需每个字段
+取一次即可。XXX 这样的调用者也可能读到尚未到达 WAL 的值；见
+systable_inplace_update_finish()。

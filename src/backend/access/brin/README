@@ -1,189 +1,147 @@
-Block Range Indexes (BRIN)
-==========================
+src/backend/access/brin/README
 
-BRIN indexes intend to enable very fast scanning of extremely large tables.
+块范围索引（BRIN）
+==================
 
-The essential idea of a BRIN index is to keep track of summarizing values in
-consecutive groups of heap pages (page ranges); for example, the minimum and
-maximum values for datatypes with a btree opclass, or the bounding box for
-geometric types.  These values can be used to avoid scanning such pages
-during a table scan, depending on query quals.
+BRIN 索引旨在让对极大表的扫描非常快。
 
-The cost of this is having to update the stored summary values of each page
-range as tuples are inserted into them.
+BRIN 索引的核心思想是跟踪连续堆页组（页范围）上的摘要值；例如，对带
+btree 操作符类的数据类型记录最小值和最大值，对几何类型记录包围盒。
+根据查询条件，这些值可用来在表扫描时跳过这些页。
 
-
-Access Method Design
---------------------
-
-Since item pointers are not stored inside indexes of this type, it is not
-possible to support the amgettuple interface.  Instead, we only provide
-amgetbitmap support.  The amgetbitmap routine returns a lossy TIDBitmap
-comprising all pages in those page ranges that match the query
-qualifications.  The recheck step in the BitmapHeapScan node prunes tuples
-that are not visible according to the query qualifications.
-
-An operator class must have the following entries:
-
-- generic support procedures (pg_amproc), identical to all opclasses:
-  * "opcinfo" (BRIN_PROCNUM_OPCINFO) initializes a structure for index
-    creation or scanning
-  * "addValue" (BRIN_PROCNUM_ADDVALUE) takes an index tuple and a heap item,
-    and possibly changes the index tuple so that it includes the heap item
-    values
-  * "consistent" (BRIN_PROCNUM_CONSISTENT) takes an index tuple and query
-    quals, and returns whether the index tuple values match the query quals.
-  * "union" (BRIN_PROCNUM_UNION) takes two index tuples and modifies the first
-    one so that it represents the union of the two.
-Procedure numbers up to 10 are reserved for future expansion.
-
-Additionally, each opclass needs additional support functions:
-- Minmax-style operator classes:
-  * Proc numbers 11-14 are used for the functions implementing inequality
-    operators for the type, in this order: less than, less or equal,
-    greater or equal, greater than.
-
-Opclasses using a different design will require different additional procedure
-numbers.
-
-Operator classes also need to have operator (pg_amop) entries so that the
-optimizer can choose the index to execute queries.
-- Minmax-style operator classes:
-  * The same operators as btree (<=, <, =, >=, >)
-
-Each index tuple stores some NULL bits and some opclass-specified values, which
-are stored in a single null bitmask of length twice the number of columns.  The
-generic NULL bits indicate, for each column:
-  * bt_hasnulls: Whether there's any NULL value at all in the page range
-  * bt_allnulls: Whether all values are NULLs in the page range
-
-The opclass-specified values are:
-- Minmax-style operator classes
-  * minimum value across all tuples in the range
-  * maximum value across all tuples in the range
-
-Note that the addValue and Union support procedures  must be careful to
-datumCopy() the values they want to store in the in-memory BRIN tuple, and
-must pfree() the old copies when replacing older ones.  Since some values
-referenced from the tuple persist and others go away, there is no
-well-defined lifetime for a memory context that would make this automatic.
+代价是：当元组插入到页范围中时，必须更新该范围已存储的摘要值。
 
 
-The Range Map
--------------
+访问方法设计
+------------
 
-To find the index tuple for a particular page range, we have an internal
-structure we call the range map, or "revmap" for short.  This stores one TID
-per page range, which is the address of the index tuple summarizing that
-range.  Since the map entries are fixed size, it is possible to compute the
-address of the range map entry for any given heap page by simple arithmetic.
+由于此类索引内部不存储项指针，无法支持 amgettuple 接口。我们只提供
+amgetbitmap 支持。amgetbitmap 例程返回一个有损 TIDBitmap，涵盖所有
+与查询条件匹配的页范围中的全部页。BitmapHeapScan 节点中的再检查步骤
+会裁掉按查询条件不可见的元组。
 
-When a new heap tuple is inserted in a summarized page range, we compare the
-existing index tuple with the new heap tuple.  If the heap tuple is outside
-the summarization data given by the index tuple for any indexed column (or
-if the new heap tuple contains null values but the index tuple indicates
-there are no nulls), the index is updated with the new values.  In many
-cases it is possible to update the index tuple in-place, but if the new
-index tuple is larger than the old one and there's not enough space in the
-page, it is necessary to create a new index tuple with the new values.  The
-range map can be updated quickly to point to it; the old index tuple is
-removed.
+操作符类必须有以下条目：
 
-If the range map points to an invalid TID, the corresponding page range is
-considered to be not summarized.  When tuples are added to unsummarized
-pages, nothing needs to happen.
+- 通用支持过程（pg_amproc），所有操作符类相同：
+  * "opcinfo"（BRIN_PROCNUM_OPCINFO）为索引创建或扫描初始化结构
+  * "addValue"（BRIN_PROCNUM_ADDVALUE）接受一个索引元组和一个堆项，
+    并可能修改索引元组，使其包含该堆项的值
+  * "consistent"（BRIN_PROCNUM_CONSISTENT）接受一个索引元组和查询
+    条件，返回索引元组的值是否匹配查询条件。
+  * "union"（BRIN_PROCNUM_UNION）接受两个索引元组，并修改第一个，
+    使其表示二者的并。
+过程编号到 10 为止预留给将来扩展。
 
-To scan a table following a BRIN index, we scan the range map sequentially.
-This yields index tuples in ascending page range order.  Query quals are
-matched to each index tuple; if they match, each page within the page range
-is returned as part of the output TID bitmap.  If there's no match, they are
-skipped.  Range map entries returning invalid index TIDs, that is
-unsummarized page ranges, are also returned in the TID bitmap.
+此外，每个操作符类还需要额外的支持函数：
+- Minmax 风格的操作符类：
+  * 过程编号 11–14 用于实现该类型不等式操作符的函数，顺序为：小于、
+    小于等于、大于等于、大于。
 
-The revmap is stored in the first few blocks of the index main fork,
-immediately following the metapage.  Whenever the revmap needs to be
-extended by another page, existing tuples in that page are moved to some
-other page.
+采用不同设计的操作符类会需要不同的额外过程编号。
 
-Heap tuples can be removed from anywhere without restriction.  It might be
-useful to mark the corresponding index tuple somehow, if the heap tuple is
-one of the constraining values of the summary data (i.e. either min or max
-in the case of a btree-opclass-bearing datatype), so that in the future we
-are aware of the need to re-execute summarization on that range, leading to
-a possible tightening of the summary values.
+操作符类还需要有操作符（pg_amop）条目，以便规划器能选择该索引来执行
+查询。
+- Minmax 风格的操作符类：
+  * 与 btree 相同的操作符（<=、<、=、>=、>）
 
-Summarization
--------------
+每个索引元组存储一些 NULL 位和一些由操作符类指定的值，它们存在一个
+长度为列数两倍的单一空位掩码中。通用 NULL 位对每列表示：
+  * bt_hasnulls：该页范围中是否存在任何 NULL 值
+  * bt_allnulls：该页范围中是否全部为 NULL
 
-At index creation time, the whole table is scanned; for each page range the
-summarizing values of each indexed column and nulls bitmap are collected and
-stored in the index.  The partially-filled page range at the end of the
-table is also summarized.
+操作符类指定的值是：
+- Minmax 风格的操作符类
+  * 该范围内所有元组上的最小值
+  * 该范围内所有元组上的最大值
 
-As new tuples get inserted at the end of the table, they may update the
-index tuple that summarizes the partial page range at the end.  Eventually
-that page range is complete and new tuples belong in a new page range that
-hasn't yet been summarized.  Those insertions do not create a new index
-entry; instead, the page range remains unsummarized until later.
-
-Whenever VACUUM is run on the table, all unsummarized page ranges are
-summarized.  This action can also be invoked by the user via
-brin_summarize_new_values().  Both these procedures scan all the
-unsummarized ranges, and create a summary tuple.  Again, this includes the
-partially-filled page range at the end of the table.
-
-Vacuuming
----------
-
-Since no heap TIDs are stored in a BRIN index, it's not necessary to scan the
-index when heap tuples are removed.  It might be that some summary values can
-be tightened if heap tuples have been deleted; but this would represent an
-optimization opportunity only, not a correctness issue.  It's simpler to
-represent this as the need to re-run summarization on the affected page range
-rather than "subtracting" values from the existing one.  This is not
-currently implemented.
-
-Note that if there are no indexes on the table other than the BRIN index,
-usage of maintenance_work_mem by vacuum can be decreased significantly, because
-no detailed index scan needs to take place (and thus it's not necessary for
-vacuum to save TIDs to remove).  It's unlikely that BRIN would be the only
-indexes in a table, though, because primary keys can be btrees only, and so
-we don't implement this optimization.
+注意：addValue 和 Union 支持过程必须对它们要存入内存中 BRIN 元组的值
+做 datumCopy()，并在替换旧副本时 pfree() 旧副本。因为从元组引用的
+一些值会持续存在、另一些会消失，没有定义良好的内存上下文生存期能让
+这件事自动发生。
 
 
-Optimizer
----------
+范围映射
+--------
 
-The optimizer selects the index based on the operator class' pg_amop
-entries for the column.
+为找到特定页范围的索引元组，我们有一个内部结构，称为范围映射，简称
+“revmap”。它对每个页范围存一个 TID，即汇总该范围的索引元组地址。
+由于映射条目大小固定，任意给定堆页的范围映射条目地址都可用简单算术
+算出。
+
+当新堆元组插入到已摘要的页范围中时，我们把现有索引元组与新堆元组比较。
+若堆元组在任一被索引列上落在索引元组给出的摘要数据之外（或新堆元组
+含空值而索引元组表明没有空值），则用新值更新索引。很多情况下可以原地
+更新索引元组，但若新索引元组比旧的大且页内空间不够，就必须用新值创建
+新的索引元组。范围映射可以很快更新为指向它；旧索引元组被移除。
+
+若范围映射指向无效 TID，则对应页范围视为未摘要。向未摘要页添加元组时，
+无需做任何事。
+
+按 BRIN 索引扫描表时，我们顺序扫描范围映射。这按页范围升序给出索引
+元组。查询条件与每个索引元组匹配；若匹配，该页范围内的每一页都作为
+输出 TID 位图的一部分返回。若不匹配则跳过。返回无效索引 TID 的范围
+映射条目，即未摘要页范围，也会加入 TID 位图。
+
+revmap 存在索引主分支的前几个块中，紧接在元页之后。每当 revmap 需要
+再扩展一页时，该页上已有的元组会移到其他页。
+
+堆元组可以从任何位置无限制地移除。若被移除的堆元组是摘要数据的约束值
+之一（对带 btree 操作符类的数据类型即最小或最大），给对应索引元组做
+某种标记可能有用，以便将来知道需要对该范围重新执行摘要，从而可能收紧
+摘要值。
+
+摘要
+----
+
+创建索引时扫描整表；对每个页范围收集各被索引列的摘要值和空位掩码，
+并存入索引。表末尾未填满的页范围也会被摘要。
+
+当新元组插入到表末尾时，它们可能更新摘要表末部分页范围的那个索引元组。
+最终该页范围填满，新元组属于尚未摘要的新页范围。这些插入并不创建新的
+索引条目；该页范围保持未摘要，直到以后。
+
+每当对该表运行 VACUUM 时，所有未摘要页范围都会被摘要。用户也可以通过
+brin_summarize_new_values() 调用同一动作。这两种过程都扫描全部未摘要
+范围并创建摘要元组。同样，这包括表末尾未填满的页范围。
+
+清理
+----
+
+因为 BRIN 索引不存储堆 TID，堆元组被移除时不必扫描索引。若堆元组已
+删除，某些摘要值也许可以收紧；但这只是优化机会，不是正确性问题。更
+简单的做法是把它表示为需要在受影响页范围上重新跑摘要，而不是从现有
+摘要中“减去”值。目前未实现。
+
+注意：若表上除 BRIN 索引外没有其他索引，清理对 maintenance_work_mem
+的用量可以显著下降，因为不需要做详细的索引扫描（因而清理也不必保存
+待删除的 TID）。不过 BRIN 不大可能是表上唯一的索引，因为主键只能是
+btree，所以我们不实现这一优化。
 
 
-Future improvements
--------------------
+规划器
+------
 
-* Different-size page ranges?
-  In the current design, each "index entry" in a BRIN index covers the same
-  number of pages.  There's no hard reason for this; it might make sense to
-  allow the index to self-tune so that some index entries cover smaller page
-  ranges, if this allows the summary values to be more compact.  This would incur
-  larger BRIN overhead for the index itself, but might allow better pruning of
-  page ranges during scan.  In the limit of one index tuple per page, the index
-  itself would occupy too much space, even though we would be able to skip
-  reading the most heap pages, because the summary values are tight; in the
-  opposite limit of a single tuple that summarizes the whole table, we wouldn't
-  be able to prune anything even though the index is very small.  This can
-  probably be made to work by using the range map as an index in itself.
+规划器根据该列操作符类的 pg_amop 条目选择索引。
 
-* More compact representation for TIDBitmap?
-  TIDBitmap is the structure used to represent bitmap scans.  The
-  representation of lossy page ranges is not optimal for our purposes, because
-  it uses a Bitmapset to represent pages in the range; since we're going to return
-  all pages in a large range, it might be more convenient to allow for a
-  struct that uses start and end page numbers to represent the range, instead.
 
-* Better vacuuming?
-  It might be useful to enable passing more useful info to BRIN indexes during
-  vacuuming about tuples that are deleted, i.e. do not require the callback to
-  pass each tuple's TID.  For instance we might need a callback that passes a
-  block number instead of a TID.  That would help determine when to re-run
-  summarization on blocks that have seen lots of tuple deletions.
+将来的改进
+----------
+
+* 不同大小的页范围？
+  当前设计中，BRIN 索引的每个“索引条目”覆盖相同数量的页。没有硬性
+  理由必须如此；若能让摘要值更紧凑，允许索引自调，使某些索引条目覆盖
+  更小的页范围，也许有意义。这会增加索引本身的 BRIN 开销，但扫描时
+  可能更好地裁掉页范围。极限是每页一个索引元组，索引本身会占太多空间，
+  尽管因为摘要值很紧我们能跳过最多的堆页；相反极限是单个元组摘要整张
+  表，索引很小却裁不掉任何东西。也许可以把范围映射本身当作索引来让这
+  件事可行。
+
+* TIDBitmap 更紧凑的表示？
+  TIDBitmap 是用来表示位图扫描的结构。有损页范围的表示对我们的目的
+  并不最优，因为它用 Bitmapset 表示范围内的页；既然我们要返回大范围
+  中的全部页，也许更方便允许用起止页号表示范围的结构，而不是位图。
+
+* 更好的清理？
+  清理时向 BRIN 索引传递关于已删除元组的更有用信息也许有用，即不要求
+  回调传入每个元组的 TID。例如我们可能需要传入块号而不是 TID 的回调。
+  这有助于判断何时对删除了很多元组的块重新跑摘要。

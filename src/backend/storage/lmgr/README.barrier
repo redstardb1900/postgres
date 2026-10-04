@@ -1,191 +1,153 @@
-Memory Barriers
-===============
+src/backend/storage/lmgr/README.barrier
 
-Modern CPUs make extensive use of pipe-lining and out-of-order execution,
-meaning that the CPU is often executing more than one instruction at a
-time, and not necessarily in the order that the source code would suggest.
-Furthermore, even before the CPU gets a chance to reorder operations, the
-compiler may (and often does) reorganize the code for greater efficiency,
-particularly at higher optimization levels.  Optimizing compilers and
-out-of-order execution are both critical for good performance, but they
-can lead to surprising results when multiple processes access the same
-memory space.
+内存屏障
+========
 
-Example
-=======
+现代 CPU 大量使用流水线和乱序执行，意味着 CPU 常常同时执行不止一条
+指令，且顺序不一定是源码所暗示的。此外，甚至在 CPU 有机会重排操作
+之前，编译器就可能（而且经常会）为更高效率重组代码，尤其在较高优化
+级别下。优化编译器和乱序执行对良好性能都至关重要，但当多个进程访问
+同一块内存时，它们可能导致出人意料的结果。
 
-Suppose x is a pointer to a structure stored in shared memory, and that the
-entire structure has been initialized to zero bytes.  One backend executes
-the following code fragment:
+例子
+====
+
+假设 x 是指向共享内存中某结构的指针，且整个结构已初始化为零字节。
+一个后端执行以下代码片段：
 
     x->foo = 1;
     x->bar = 1;
 
-Meanwhile, at approximately the same time, another backend executes this
-code fragment:
+与此大致同时，另一个后端执行这段代码：
 
     bar = x->bar;
     foo = x->foo;
 
-The second backend might end up with foo = 1 and bar = 1 (if it executes
-both statements after the first backend), or with foo = 0 and bar = 0 (if
-it executes both statements before the first backend), or with foo = 1 and
-bar = 0 (if the first backend executes the first statement, the second
-backend executes both statements, and then the first backend executes the
-second statement).
+第二个后端可能得到 foo = 1 且 bar = 1（若它在第一个后端之后执行两条
+语句），或 foo = 0 且 bar = 0（若它在第一个后端之前执行两条语句），
+或 foo = 1 且 bar = 0（若第一个后端执行第一条语句，第二个后端执行
+两条语句，然后第一个后端执行第二条语句）。
 
-Surprisingly, however, the second backend could also end up with foo = 0
-and bar = 1.  The compiler might swap the order of the two stores performed
-by the first backend, or the two loads performed by the second backend.
-Even if it doesn't, on a machine with weak memory ordering (such as PowerPC
-or ARM) the CPU might choose to execute either the loads or the stores
-out of order.  This surprising result can lead to bugs.
+然而出人意料的是，第二个后端也可能得到 foo = 0 且 bar = 1。编译器
+可能交换第一个后端的两次存储的顺序，或第二个后端的两次加载的顺序。
+即便它不交换，在弱内存序机器上（例如 PowerPC 或 ARM），CPU 也可能
+选择乱序执行加载或存储。这种意外结果可能导致缺陷。
 
-A common pattern where this actually does result in a bug is when adding items
-onto a queue.  The writer does this:
+真正因此出缺陷的常见模式是向队列追加项。写者这样做：
 
     q->items[q->num_items] = new_item;
     ++q->num_items;
 
-The reader does this:
+读者这样做：
 
     num_items = q->num_items;
     for (i = 0; i < num_items; ++i)
-        /* do something with q->items[i] */
+        /* 对 q->items[i] 做些事 */
 
-This code turns out to be unsafe, because the writer might increment
-q->num_items before it finishes storing the new item into the appropriate slot.
-More subtly, the reader might prefetch the contents of the q->items array
-before reading q->num_items.  Thus, there's still a bug here *even if the
-writer does everything in the order we expect*.  We need the writer to update
-the array before bumping the item counter, and the reader to examine the item
-counter before examining the array.
+这段代码其实不安全，因为写者可能在把新项存入相应槽位完成之前就递增
+q->num_items。更微妙的是，读者可能在读取 q->num_items 之前就预取
+q->items 数组的内容。因此，*即便写者按我们期望的顺序做完一切*，这里
+仍有缺陷。我们需要写者先更新数组再递增计数，读者先查看项计数再查看
+数组。
 
-Note that these types of highly counterintuitive bugs can *only* occur when
-multiple processes are interacting with the same memory segment.  A given
-process always perceives its *own* writes to memory in program order.
+注意：这类高度反直觉的缺陷*只会*在多个进程与同一内存段交互时发生。
+给定进程总是按程序顺序感知它*自己*对内存的写。
 
-Avoiding Memory Ordering Bugs
-=============================
+避免内存序缺陷
+==============
 
-The simplest (and often best) way to avoid memory ordering bugs is to
-protect the data structures involved with an lwlock.  For more details, see
-src/backend/storage/lmgr/README.  For instance, in the above example, the
-writer could acquire an lwlock in exclusive mode before appending to the
-queue, and each reader could acquire the same lock in shared mode before
-reading it.  If the data structure is not heavily trafficked, this solution is
-generally entirely adequate.
+避免内存序缺陷最简单（也常常最好）的办法，是用轻量级锁保护相关数据
+结构。更多细节见 src/backend/storage/lmgr/README。例如在上面的例子
+中，写者可以在追加到队列前以独占模式获取轻量级锁，每个读者可以在
+读取前以共享模式获取同一把锁。若该数据结构流量不大，这种方案通常
+完全够用。
 
-However, in some cases, it is desirable to avoid the overhead of acquiring
-and releasing locks.  In this case, memory barriers may be used to ensure
-that the apparent order of execution is as the programmer desires.   In
-PostgreSQL backend code, the pg_memory_barrier() macro may be used to achieve
-this result.  In the example above, we can prevent the reader from seeing a
-garbage value by having the writer do this:
+但在某些情况下，希望避免获取和释放锁的开销。这时可用内存屏障来确保
+表观执行顺序符合程序员的期望。在 PostgreSQL 后端代码中，可用
+pg_memory_barrier() 宏达到这一效果。在上面的例子中，我们可以让写者
+这样做，以防止读者看到垃圾值：
 
     q->items[q->num_items] = new_item;
     pg_memory_barrier();
     ++q->num_items;
 
-And by having the reader do this:
+并让读者这样做：
 
     num_items = q->num_items;
     pg_memory_barrier();
     for (i = 0; i < num_items; ++i)
-        /* do something with q->items[i] */
+        /* 对 q->items[i] 做些事 */
 
-The pg_memory_barrier() macro will (1) prevent the compiler from rearranging
-the code in such a way as to allow the memory accesses to occur out of order
-and (2) generate any code (often, inline assembly) that is needed to prevent
-the CPU from executing the memory accesses out of order.  Specifically, the
-barrier prevents loads and stores written after the barrier from being
-performed before the barrier, and vice-versa.
+pg_memory_barrier() 宏会（1）阻止编译器以允许内存访问乱序发生的方式
+重排代码，以及（2）生成防止 CPU 乱序执行内存访问所需的任何代码
+（常常是内联汇编）。具体而言，屏障阻止写在屏障之后的加载和存储在
+屏障之前执行，反之亦然。
 
-Although this code will work, it is needlessly inefficient.  On systems with
-strong memory ordering (such as x86), the CPU never reorders loads with other
-loads, nor stores with other stores.  It can, however, allow a load to be
-performed before a subsequent store.  To avoid emitting unnecessary memory
-instructions, we provide two additional primitives: pg_read_barrier(), and
-pg_write_barrier().  When a memory barrier is being used to separate two
-loads, use pg_read_barrier(); when it is separating two stores, use
-pg_write_barrier(); when it is a separating a load and a store (in either
-order), use pg_memory_barrier().  pg_memory_barrier() can always substitute
-for either a read or a write barrier, but is typically more expensive, and
-therefore should be used only when needed.
+虽然这段代码能工作，但没必要地低效。在强内存序系统上（例如 x86），
+CPU 从不把加载与其他加载重排，也不把存储与其他存储重排。不过它可能
+允许一次加载在随后的存储之前执行。为避免发出不必要的内存指令，我们
+提供另外两个原语：pg_read_barrier() 和 pg_write_barrier()。当内存
+屏障用来分隔两次加载时，用 pg_read_barrier()；分隔两次存储时，用
+pg_write_barrier()；分隔一次加载和一次存储（任一顺序）时，用
+pg_memory_barrier()。pg_memory_barrier() 总能替代读屏障或写屏障，
+但通常更贵，因此只应在需要时使用。
 
-With these guidelines in mind, the writer can do this:
+按这些准则，写者可以这样做：
 
     q->items[q->num_items] = new_item;
     pg_write_barrier();
     ++q->num_items;
 
-And the reader can do this:
+读者可以这样做：
 
     num_items = q->num_items;
     pg_read_barrier();
     for (i = 0; i < num_items; ++i)
-        /* do something with q->items[i] */
+        /* 对 q->items[i] 做些事 */
 
-On machines with strong memory ordering, these weaker barriers will simply
-prevent compiler rearrangement, without emitting any actual machine code.
-On machines with weak memory ordering, they will prevent compiler
-reordering and also emit whatever hardware barrier may be required.  Even
-on machines with weak memory ordering, a read or write barrier may be able
-to use a less expensive instruction than a full barrier.
+在强内存序机器上，这些较弱的屏障只阻止编译器重排，而不发出任何实际
+机器码。在弱内存序机器上，它们既阻止编译器重排，也发出可能需要的
+硬件屏障。即便在弱内存序机器上，读或写屏障也可能使用比完整屏障更便宜
+的指令。
 
-Weaknesses of Memory Barriers
-=============================
+内存屏障的弱点
+==============
 
-While memory barriers are a powerful tool, and much cheaper than locks, they
-are also much less capable than locks.  Here are some of the problems.
+内存屏障是强大的工具，也比锁便宜得多，但能力也远不如锁。问题如下。
 
-1. Concurrent writers are unsafe.  In the above example of a queue, using
-memory barriers doesn't make it safe for two processes to add items to the
-same queue at the same time.  If more than one process can write to the queue,
-a spinlock or lwlock must be used to synchronize access. The readers can
-perhaps proceed without any lock, but the writers may not.
+1. 并发写者不安全。在上面的队列例子中，使用内存屏障并不能让两个进程
+同时向同一队列添加项变得安全。若不止一个进程能写队列，必须用自旋锁
+或轻量级锁来同步访问。读者或许可以不加锁继续，写者不行。
 
-Even very simple write operations often require additional synchronization.
-For example, it's not safe for multiple writers to simultaneously execute
-this code (supposing x is a pointer into shared memory):
+即便非常简单的写操作也常常需要额外同步。例如，多个写者同时执行这段
+代码并不安全（假定 x 是指向共享内存的指针）：
 
     x->foo++;
 
-Although this may compile down to a single machine-language instruction,
-the CPU will execute that instruction by reading the current value of foo,
-adding one to it, and then storing the result back to the original address.
-If two CPUs try to do this simultaneously, both may do their reads before
-either one does their writes.  Such a case could be made safe by using an
-atomic variable and an atomic add.  See port/atomics.h.
+虽然这可能编译成单条机器指令，CPU 执行该指令时会读取 foo 的当前值，
+加一，再把结果存回原地址。若两个 CPU 同时这样做，二者都可能在任何
+一方写入之前完成读取。这种情况可以用原子变量和原子加来做安全。见
+port/atomics.h。
 
-2. Eight-byte loads and stores aren't necessarily atomic.  We assume in
-various places in the source code that an aligned four-byte load or store is
-atomic, and that other processes therefore won't see a half-set value.
-Sadly, the same can't be said for eight-byte value: on some platforms, an
-aligned eight-byte load or store will generate two four-byte operations.  If
-you need an atomic eight-byte read or write, you must either serialize access
-with a lock or use an atomic variable.
+2. 八字节加载和存储不一定原子。我们在源码多处假定对齐的四字节加载
+或存储是原子的，因而其他进程不会看到半设置的值。遗憾的是，八字节值
+不能这么说：在某些平台上，对齐的八字节加载或存储会生成两次四字节
+操作。若需要原子的八字节读或写，必须用锁串行化访问，或使用原子变量。
 
-3. No ordering guarantees.  While memory barriers ensure that any given
-process performs loads and stores to shared memory in order, they don't
-guarantee synchronization.  In the queue example above, we can use memory
-barriers to be sure that readers won't see garbage, but there's nothing to
-say whether a given reader will run before or after a given writer.  If this
-matters in a given situation, some other mechanism must be used instead of
-or in addition to memory barriers.
+3. 没有顺序保证。内存屏障确保任一给定进程对共享内存的加载和存储按
+顺序进行，但不保证同步。在上面的队列例子中，我们可以用内存屏障确保
+读者看不到垃圾，但无法说明给定读者会在给定写者之前还是之后运行。若
+某情形下这很重要，必须用其他机制代替或补充内存屏障。
 
-4. Barrier proliferation.  Many algorithms that at first seem appealing
-require multiple barriers.  If the number of barriers required is more than
-one or two, you may be better off just using a lock.  Keep in mind that, on
-some platforms, a barrier may be implemented by acquiring and releasing a
-backend-private spinlock.  This may be better than a centralized lock under
-contention, but it may also be slower in the uncontended case.
+4. 屏障泛滥。许多初看很吸引人的算法需要多个屏障。若所需屏障数超过
+一两个，也许还不如直接用锁。记住：在某些平台上，屏障可能通过获取并
+释放一把后端私有自旋锁来实现。在争用下这可能比集中式锁更好，但在无
+争用情形下也可能更慢。
 
-Further Reading
-===============
+进一步阅读
+==========
 
-Much of the documentation about memory barriers appears to be quite
-Linux-specific.  The following papers may be helpful:
+关于内存屏障的许多文档似乎相当 Linux 专用。以下论文可能有帮助：
 
 Memory Ordering in Modern Microprocessors, by Paul E. McKenney
 * http://www.rdrop.com/users/paulmck/scalability/paper/ordering.2007.09.19a.pdf
@@ -193,5 +155,5 @@ Memory Ordering in Modern Microprocessors, by Paul E. McKenney
 Memory Barriers: a Hardware View for Software Hackers, by Paul E. McKenney
 * http://www.rdrop.com/users/paulmck/scalability/paper/whymb.2010.06.07c.pdf
 
-The Linux kernel also has some useful documentation on this topic.  Start
-with Documentation/memory-barriers.txt
+Linux 内核在这个主题上也有一些有用文档。从
+Documentation/memory-barriers.txt 开始。

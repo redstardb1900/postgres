@@ -46,34 +46,34 @@ static Expr *process_duplicate_ors(List *orlist);
 
 /*
  * negate_clause
- *	  Negate a Boolean expression.
+ *	    对一个布尔表达式取反。
  *
- * Input is a clause to be negated (e.g., the argument of a NOT clause).
- * Returns a new clause equivalent to the negation of the given clause.
+ * 输入是要被否定的子句（例如 NOT 子句的参数）。
+ * 返回一个等价于给定子句之否定的新子句。
  *
- * Although this can be invoked on its own, it's mainly intended as a helper
- * for eval_const_expressions(), and that context drives several design
- * decisions.  In particular, if the input is already AND/OR flat, we must
- * preserve that property.  We also don't bother to recurse in situations
- * where we can assume that lower-level executions of eval_const_expressions
- * would already have simplified sub-clauses of the input.
+ * 虽然这可以单独调用，它主要是作为
+ * eval_const_expressions() 的辅助函数，那个上下文驱动了若干设计
+ * 决定。尤其是，若输入已经是 AND/OR 平坦的，我们必须
+ * 保持该性质。在可以假定更低层执行的 eval_const_expressions
+ * 已经简化了输入的子子句的情况下，我们也不费心递归。
+ * 这与简单的 make_notclause() 的区别是，这
  *
- * The difference between this and a simple make_notclause() is that this
- * tries to get rid of the NOT node by logical simplification.  It's clearly
- * always a win if the NOT node can be eliminated altogether.  However, our
- * use of DeMorgan's laws could result in having more NOT nodes rather than
- * fewer.  We do that unconditionally anyway, because in WHERE clauses it's
- * important to expose as much top-level AND/OR structure as possible.
- * Also, eliminating an intermediate NOT may allow us to flatten two levels
- * of AND or OR together that we couldn't have otherwise.  Finally, one of
- * the motivations for doing this is to ensure that logically equivalent
- * expressions will be seen as physically equal(), so we should always apply
- * the same transformations.
+ * 试图用逻辑简化去掉 NOT 节点。若 NOT 节点能被整个去掉，
+ * 那显然总是赚的。不过，我们
+ * 使用 DeMorgan 定律可能导致 NOT 节点变多而不是
+ * 变少。我们反正无条件这么做，因为在 WHERE 子句里，
+ * 尽可能暴露顶层 AND/OR 结构很重要。
+ * 另外，去掉一个中间的 NOT 也许能让我们把两层
+ * AND 或 OR 展平到一起，否则做不到。
+ * 最后，做这件事的动机之一
+ * 是确保逻辑等价的
+ * 表达式会被看成物理上 equal()，因此我们应当总是应用
+ * 同样的变换。
  */
 Node *
 negate_clause(Node *node)
 {
-	if (node == NULL)			/* should not happen */
+	if (node == NULL)			/* 不应当发生 */
 		elog(ERROR, "can't negate an empty subexpression");
 	switch (nodeTag(node))
 	{
@@ -81,17 +81,17 @@ negate_clause(Node *node)
 			{
 				Const	   *c = (Const *) node;
 
-				/* NOT NULL is still NULL */
+				/* NOT NULL 仍然是 NULL */
 				if (c->constisnull)
 					return makeBoolConst(false, true);
-				/* otherwise pretty easy */
+				/* 否则相当容易 */
 				return makeBoolConst(!DatumGetBool(c->constvalue), false);
 			}
 			break;
 		case T_OpExpr:
 			{
 				/*
-				 * Negate operator if possible: (NOT (< A B)) => (>= A B)
+				 * 若可能，对操作符取反：(NOT (< A B)) => (>= A B)
 				 */
 				OpExpr	   *opexpr = (OpExpr *) node;
 				Oid			negator = get_negator(opexpr->opno);
@@ -115,8 +115,8 @@ negate_clause(Node *node)
 		case T_ScalarArrayOpExpr:
 			{
 				/*
-				 * Negate a ScalarArrayOpExpr if its operator has a negator;
-				 * for example x = ANY (list) becomes x <> ALL (list)
+				 * 若 ScalarArrayOpExpr 的操作符有否定符，就对它取反；
+				 * 例如 x = ANY (list) 变成 x <> ALL (list)
 				 */
 				ScalarArrayOpExpr *saopexpr = (ScalarArrayOpExpr *) node;
 				Oid			negator = get_negator(saopexpr->opno);
@@ -187,8 +187,8 @@ negate_clause(Node *node)
 					case NOT_EXPR:
 
 						/*
-						 * NOT underneath NOT: they cancel.  We assume the
-						 * input is already simplified, so no need to recurse.
+						 * NOT 下面还有 NOT：它们抵消。我们假定
+						 * 输入已经简化过，因此不必递归。
 						 */
 						return (Node *) linitial(expr->args);
 					default:
@@ -203,9 +203,9 @@ negate_clause(Node *node)
 				NullTest   *expr = (NullTest *) node;
 
 				/*
-				 * In the rowtype case, the two flavors of NullTest are *not*
-				 * logical inverses, so we can't simplify.  But it does work
-				 * for scalar datatypes.
+				 * 在行类型情形下，两种 NullTest *并不是*
+				 * 逻辑反面，因此没法简化。但对
+				 * 标量数据类型是可以的。
 				 */
 				if (!expr->argisrow)
 				{
@@ -261,8 +261,8 @@ negate_clause(Node *node)
 	}
 
 	/*
-	 * Otherwise we don't know how to simplify this, so just tack on an
-	 * explicit NOT node.
+	 * 否则我们不知道如何简化这个，因此就贴上一个
+	 * 显式 NOT 节点。
 	 */
 	return (Node *) make_notclause((Expr *) node);
 }
@@ -270,42 +270,42 @@ negate_clause(Node *node)
 
 /*
  * canonicalize_qual
- *	  Convert a qualification expression to the most useful form.
+ *	    把限定表达式转换成最有用的形式。
  *
- * This is primarily intended to be used on top-level WHERE (or JOIN/ON)
- * clauses.  It can also be used on top-level CHECK constraints, for which
- * pass is_check = true.  DO NOT call it on any expression that is not known
- * to be one or the other, as it might apply inappropriate simplifications.
+ * 这主要是为了用在顶层 WHERE（或 JOIN/ON）
+ * 子句上。也可以用在顶层 CHECK 约束上，那种情况
+ * 传入 is_check = true。不要对任何并不知道
+ * 是这两者之一的表达式调用它，因为它也许会应用不适当的简化。
  *
- * The name of this routine is a holdover from a time when it would try to
- * force the expression into canonical AND-of-ORs or OR-of-ANDs form.
- * Eventually, we recognized that that had more theoretical purity than
- * actual usefulness, and so now the transformation doesn't involve any
- * notion of reaching a canonical form.
+ * 这个例程的名字是从它曾试图
+ * 把表达式强制成规范的 AND 套 OR 或 OR 套 ANDs 形式的时代留下来的。
+ * 后来我们认识到那的理论纯粹性多于
+ * 实际用处，因此现在的变换不涉及任何
+ * 达到规范形式的概念。
  *
- * NOTE: we assume the input has already been through eval_const_expressions
- * and therefore possesses AND/OR flatness.  Formerly this function included
- * its own flattening logic, but that requires a useless extra pass over the
- * tree.
+ * 注意：我们假定输入已经过 eval_const_expressions，
+ * 因此具有 AND/OR 平坦性。以前这个函数包含
+ * 自己的展平逻辑，但那需要多做一趟无用的
+ * 树遍历。
  *
- * Returns the modified qualification.
+ * 返回修改后的限定条件。
  */
 Expr *
 canonicalize_qual(Expr *qual, bool is_check)
 {
 	Expr	   *newqual;
 
-	/* Quick exit for empty qual */
+	/* 空限定条件时快速退出 */
 	if (qual == NULL)
 		return NULL;
 
-	/* This should not be invoked on quals in implicit-AND format */
+	/* 不应当对隐式 AND 格式的限定条件调用这个 */
 	Assert(!IsA(qual, List));
 
 	/*
-	 * Pull up redundant subclauses in OR-of-AND trees.  We do this only
-	 * within the top-level AND/OR structure; there's no point in looking
-	 * deeper.  Also remove any NULL constants in the top-level structure.
+	 * 上拉 OR 套 AND 树里的冗余子子句。我们只在
+	 * 顶层 AND/OR 结构内做这件事；再往
+	 * 深处看没有意义。也去掉顶层结构里的任何 NULL 常量。
 	 */
 	newqual = find_duplicate_ors(qual, is_check);
 
@@ -315,10 +315,10 @@ canonicalize_qual(Expr *qual, bool is_check)
 
 /*
  * pull_ands
- *	  Recursively flatten nested AND clauses into a single and-clause list.
+ *	    递归把嵌套的 AND 子句展平成单个 and 子句列表。
  *
- * Input is the arglist of an AND clause.
- * Returns the rebuilt arglist (note original list structure is not touched).
+ * 输入是一个 AND 子句的参数列表。
+ * 返回重建的参数列表（注意原来的列表结构不被触碰）。
  */
 static List *
 pull_ands(List *andlist)
@@ -341,10 +341,10 @@ pull_ands(List *andlist)
 
 /*
  * pull_ors
- *	  Recursively flatten nested OR clauses into a single or-clause list.
+ *	    递归把嵌套的 OR 子句展平成单个 or 子句列表。
  *
- * Input is the arglist of an OR clause.
- * Returns the rebuilt arglist (note original list structure is not touched).
+ * 输入是一个 OR 子句的参数列表。
+ * 返回重建的参数列表（注意原来的列表结构不被触碰）。
  */
 static List *
 pull_ors(List *orlist)
@@ -389,19 +389,19 @@ pull_ors(List *orlist)
 
 /*
  * find_duplicate_ors
- *	  Given a qualification tree with the NOTs pushed down, search for
- *	  OR clauses to which the inverse OR distributive law might apply.
- *	  Only the top-level AND/OR structure is searched.
+ *	    给定一棵 NOTs 已下推的限定条件树，搜索
+ *	    逆 OR 分配律也许适用的 OR 子句。
+ *	    只搜索顶层 AND/OR 结构。
  *
- * While at it, we remove any NULL constants within the top-level AND/OR
- * structure, eg in a WHERE clause, "x OR NULL::boolean" is reduced to "x".
- * In general that would change the result, so eval_const_expressions can't
- * do it; but at top level of WHERE, we don't need to distinguish between
- * FALSE and NULL results, so it's valid to treat NULL::boolean the same
- * as FALSE and then simplify AND/OR accordingly.  Conversely, in a top-level
- * CHECK constraint, we may treat a NULL the same as TRUE.
+ * 顺便去掉顶层 AND/OR
+ * 结构里的任何 NULL 常量，例如在 WHERE 子句里，"x OR NULL::boolean" 收成 "x"。
+ * 一般而言那会改变结果，因此 eval_const_expressions 不能
+ * 这么做；但在 WHERE 的顶层，我们不必区分
+ * FALSE 和 NULL 结果，因此把 NULL::boolean 当成
+ * FALSE 再相应地简化 AND/OR 是有效的。反过来，在顶层
+ * CHECK 约束里，我们可以把 NULL 当成 TRUE。
  *
- * Returns the modified qualification.  AND/OR flatness is preserved.
+ * 返回修改后的限定条件。AND/OR 平坦性得以保持。
  */
 static Expr *
 find_duplicate_ors(Expr *qual, bool is_check)
@@ -411,32 +411,32 @@ find_duplicate_ors(Expr *qual, bool is_check)
 		List	   *orlist = NIL;
 		ListCell   *temp;
 
-		/* Recurse */
+		/* 递归 */
 		foreach(temp, ((BoolExpr *) qual)->args)
 		{
 			Expr	   *arg = (Expr *) lfirst(temp);
 
 			arg = find_duplicate_ors(arg, is_check);
 
-			/* Get rid of any constant inputs */
+			/* 去掉任何常量输入 */
 			if (arg && IsA(arg, Const))
 			{
 				Const	   *carg = (Const *) arg;
 
 				if (is_check)
 				{
-					/* Within OR in CHECK, drop constant FALSE */
+					/* 在 CHECK 里的 OR 中，丢掉常量 FALSE */
 					if (!carg->constisnull && !DatumGetBool(carg->constvalue))
 						continue;
-					/* Constant TRUE or NULL, so OR reduces to TRUE */
+					/* 常量 TRUE 或 NULL，因此 OR 收成 TRUE */
 					return (Expr *) makeBoolConst(true, false);
 				}
 				else
 				{
-					/* Within OR in WHERE, drop constant FALSE or NULL */
+					/* 在 WHERE 里的 OR 中，丢掉常量 FALSE 或 NULL */
 					if (carg->constisnull || !DatumGetBool(carg->constvalue))
 						continue;
-					/* Constant TRUE, so OR reduces to TRUE */
+					/* 常量 TRUE，因此 OR 收成 TRUE */
 					return arg;
 				}
 			}
@@ -444,10 +444,10 @@ find_duplicate_ors(Expr *qual, bool is_check)
 			orlist = lappend(orlist, arg);
 		}
 
-		/* Flatten any ORs pulled up to just below here */
+		/* 展平任何被上拉到紧挨此处之下的 OR */
 		orlist = pull_ors(orlist);
 
-		/* Now we can look for duplicate ORs */
+		/* 现在可以寻找重复的 OR */
 		return process_duplicate_ors(orlist);
 	}
 	else if (is_andclause(qual))
@@ -455,32 +455,32 @@ find_duplicate_ors(Expr *qual, bool is_check)
 		List	   *andlist = NIL;
 		ListCell   *temp;
 
-		/* Recurse */
+		/* 递归 */
 		foreach(temp, ((BoolExpr *) qual)->args)
 		{
 			Expr	   *arg = (Expr *) lfirst(temp);
 
 			arg = find_duplicate_ors(arg, is_check);
 
-			/* Get rid of any constant inputs */
+			/* 去掉任何常量输入 */
 			if (arg && IsA(arg, Const))
 			{
 				Const	   *carg = (Const *) arg;
 
 				if (is_check)
 				{
-					/* Within AND in CHECK, drop constant TRUE or NULL */
+					/* 在 CHECK 里的 AND 中，丢掉常量 TRUE 或 NULL */
 					if (carg->constisnull || DatumGetBool(carg->constvalue))
 						continue;
-					/* Constant FALSE, so AND reduces to FALSE */
+					/* 常量 FALSE，因此 AND 收成 FALSE */
 					return arg;
 				}
 				else
 				{
-					/* Within AND in WHERE, drop constant TRUE */
+					/* 在 WHERE 里的 AND 中，丢掉常量 TRUE */
 					if (!carg->constisnull && DatumGetBool(carg->constvalue))
 						continue;
-					/* Constant FALSE or NULL, so AND reduces to FALSE */
+					/* 常量 FALSE 或 NULL，因此 AND 收成 FALSE */
 					return (Expr *) makeBoolConst(false, false);
 				}
 			}
@@ -488,18 +488,18 @@ find_duplicate_ors(Expr *qual, bool is_check)
 			andlist = lappend(andlist, arg);
 		}
 
-		/* Flatten any ANDs introduced just below here */
+		/* 展平任何刚在此处之下引入的 ANDs */
 		andlist = pull_ands(andlist);
 
-		/* AND of no inputs reduces to TRUE */
+		/* 没有输入的 AND 收成 TRUE */
 		if (andlist == NIL)
 			return (Expr *) makeBoolConst(true, false);
 
-		/* Single-expression AND just reduces to that expression */
+		/* 单表达式的 AND 就收成那个表达式 */
 		if (list_length(andlist) == 1)
 			return (Expr *) linitial(andlist);
 
-		/* Else we still need an AND node */
+		/* 否则仍需要一个 AND 节点 */
 		return make_andclause(andlist);
 	}
 	else
@@ -508,11 +508,11 @@ find_duplicate_ors(Expr *qual, bool is_check)
 
 /*
  * process_duplicate_ors
- *	  Given a list of exprs which are ORed together, try to apply
- *	  the inverse OR distributive law.
+ *	    给定一份被 ORed 在一起的表达式列表，试着应用
+ *	    逆 OR 分配律。
  *
- * Returns the resulting expression (could be an AND clause, an OR
- * clause, or maybe even a single subexpression).
+ * 返回结果表达式（可能是 AND 子句、OR
+ * 子句，甚至也许是单个子表达式）。
  */
 static Expr *
 process_duplicate_ors(List *orlist)
@@ -523,19 +523,19 @@ process_duplicate_ors(List *orlist)
 	List	   *neworlist;
 	ListCell   *temp;
 
-	/* OR of no inputs reduces to FALSE */
+	/* 没有输入的 OR 收成 FALSE */
 	if (orlist == NIL)
 		return (Expr *) makeBoolConst(false, false);
 
-	/* Single-expression OR just reduces to that expression */
+	/* 单表达式的 OR 就收成那个表达式 */
 	if (list_length(orlist) == 1)
 		return (Expr *) linitial(orlist);
 
 	/*
-	 * Choose the shortest AND clause as the reference list --- obviously, any
-	 * subclause not in this clause isn't in all the clauses. If we find a
-	 * clause that's not an AND, we can treat it as a one-element AND clause,
-	 * which necessarily wins as shortest.
+	 * 选最短的 AND 子句作为参考列表——显然，任何
+	 * 不在这个子句里的子子句就不会在全部分句里。若找到一个
+	 * 不是 AND 的子句，可以把它当作单元素 AND 子句，
+	 * 它必然作为最短者胜出。
 	 */
 	foreach(temp, orlist)
 	{
@@ -560,13 +560,13 @@ process_duplicate_ors(List *orlist)
 	}
 
 	/*
-	 * Just in case, eliminate any duplicates in the reference list.
+	 * 以防万一，去掉参考列表里的任何重复。
 	 */
 	reference = list_union(NIL, reference);
 
 	/*
-	 * Check each element of the reference list to see if it's in all the OR
-	 * clauses.  Build a new list of winning clauses.
+	 * 检查参考列表的每个元素，看它是否在全部 OR
+	 * 子句里。建立一份获胜子句的新列表。
 	 */
 	winners = NIL;
 	foreach(temp, reference)
@@ -602,20 +602,20 @@ process_duplicate_ors(List *orlist)
 	}
 
 	/*
-	 * If no winners, we can't transform the OR
+	 * 若没有获胜者，就不能变换这个 OR
 	 */
 	if (winners == NIL)
 		return make_orclause(orlist);
 
 	/*
-	 * Generate new OR list consisting of the remaining sub-clauses.
+	 * 生成由剩余子子句组成的新 OR 列表。
 	 *
-	 * If any clause degenerates to empty, then we have a situation like (A
-	 * AND B) OR (A), which can be reduced to just A --- that is, the
-	 * additional conditions in other arms of the OR are irrelevant.
+	 * 若任何子句退化成空，则我们有 (A
+	 * AND B) OR (A) 这样的情形，可以收成只剩 A——也就是说，
+	 * OR 其他分支里的附加条件无关紧要。
 	 *
-	 * Note that because we use list_difference, any multiple occurrences of a
-	 * winning clause in an AND sub-clause will be removed automatically.
+	 * 注意因为我们用 list_difference，AND 子子句里获胜子句的任何多次出现
+	 * 都会被自动去掉。
 	 */
 	neworlist = NIL;
 	foreach(temp, orlist)
@@ -636,7 +636,7 @@ process_duplicate_ors(List *orlist)
 			}
 			else
 			{
-				neworlist = NIL;	/* degenerate case, see above */
+				neworlist = NIL;	/* 退化情形，见上 */
 				break;
 			}
 		}
@@ -646,17 +646,17 @@ process_duplicate_ors(List *orlist)
 				neworlist = lappend(neworlist, clause);
 			else
 			{
-				neworlist = NIL;	/* degenerate case, see above */
+				neworlist = NIL;	/* 退化情形，见上 */
 				break;
 			}
 		}
 	}
 
 	/*
-	 * Append reduced OR to the winners list, if it's not degenerate, handling
-	 * the special case of one element correctly (can that really happen?).
-	 * Also be careful to maintain AND/OR flatness in case we pulled up a
-	 * sub-sub-OR-clause.
+	 * 若归约后的 OR 没有退化，就把它追加到获胜者列表，并正确处理
+	 * 单元素的特殊情形（那真的会发生吗？）。
+	 * 若上拉了一个
+	 * 子子 OR 子句，也要小心保持 AND/OR 平坦。
 	 */
 	if (neworlist != NIL)
 	{
@@ -667,8 +667,8 @@ process_duplicate_ors(List *orlist)
 	}
 
 	/*
-	 * And return the constructed AND clause, again being wary of a single
-	 * element and AND/OR flatness.
+	 * 并返回构造出的 AND 子句，同样要当心单个
+	 * 元素和 AND/OR 平坦性。
 	 */
 	if (list_length(winners) == 1)
 		return (Expr *) linitial(winners);

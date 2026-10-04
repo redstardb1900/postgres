@@ -1,0 +1,116 @@
+{
+ "schema_version": 1,
+ "batch_id": "0078-comment-optimizer-prep-small",
+ "title": "zh: translate prepagg prepqual preptlist prepunion comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "db2e174df57162f339f657af53007e61c0a28848",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/prep/prepagg.c",
+   "kind": "c_comment",
+   "note": "aggregate preprocessing"
+  },
+  {
+   "pattern": "src/backend/optimizer/prep/prepqual.c",
+   "kind": "c_comment",
+   "note": "qualification preprocessing"
+  },
+  {
+   "pattern": "src/backend/optimizer/prep/preptlist.c",
+   "kind": "c_comment",
+   "note": "target list preprocessing"
+  },
+  {
+   "pattern": "src/backend/optimizer/prep/prepunion.c",
+   "kind": "c_comment",
+   "note": "set-operation planning"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0078-comment-optimizer-prep-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/prep/prepagg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 43,
+   "translated": 42,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "aggregate preprocessing"
+  },
+  {
+   "path": "src/backend/optimizer/prep/prepqual.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 50,
+   "translated": 46,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent DeMorgan block",
+    "fall-through else",
+    "pgindent inverse OR block"
+   ],
+   "note": "qualification preprocessing"
+  },
+  {
+   "path": "src/backend/optimizer/prep/preptlist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "target list preprocessing"
+  },
+  {
+   "path": "src/backend/optimizer/prep/prepunion.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 116,
+   "translated": 114,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "translator set-operation comment"
+   ],
+   "note": "set-operation planning"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0078-comment-optimizer-prep-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0078 translates src/backend/optimizer/prep/prepagg.c, prepqual.c, preptlist.c, and prepunion.c."
+}

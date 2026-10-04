@@ -66,45 +66,45 @@ static int	find_compatible_trans(PlannerInfo *root, Aggref *newagg,
 static Datum GetAggInitVal(Datum textInitVal, Oid transtype);
 
 /* -----------------
- * Resolve the transition type of all Aggrefs, and determine which Aggrefs
- * can share aggregate or transition state.
+ * 解析全部 Aggref 的转换类型，并判断哪些 Aggref
+ * 可以共享聚合或转换状态。
  *
- * Information about the aggregates and transition functions are collected
- * in the root->agginfos and root->aggtransinfos lists.  The 'aggtranstype',
- * 'aggno', and 'aggtransno' fields of each Aggref are filled in.
+ * 关于聚合和转换函数的信息收集在
+ * root->agginfos 和 root->aggtransinfos 列表里。每个 Aggref 的 'aggtranstype'、
+ * 'aggno' 和 'aggtransno' 字段会被填上。
  *
- * NOTE: This modifies the Aggrefs in the input expression in-place!
+ * 注意：这会就地修改输入表达式里的 Aggref！
  *
- * We try to optimize by detecting duplicate aggregate functions so that
- * their state and final values are re-used, rather than needlessly being
- * re-calculated independently.  We also detect aggregates that are not
- * the same, but which can share the same transition state.
+ * 我们试着通过检测重复的聚合函数来优化，使
+ * 它们的状态和最终值被复用，而不是无谓地
+ * 被独立重新计算。我们也检测并不
+ * 相同、但可以共享同一转换状态的聚合。
  *
- * Scenarios:
+ * 情形：
  *
- * 1. Identical aggregate function calls appear in the query:
+ * 1. 查询里出现相同的聚合函数调用：
  *
- *	  SELECT SUM(x) FROM ... HAVING SUM(x) > 0
+ *	    SELECT SUM(x) FROM ... HAVING SUM(x) > 0
  *
- *	  Since these aggregates are identical, we only need to calculate
- *	  the value once.  Both aggregates will share the same 'aggno' value.
+ *	    由于这些聚合相同，我们只需要计算
+ *	    一次值。两个聚合会共享同一个 'aggno' 值。
  *
- * 2. Two different aggregate functions appear in the query, but the
- *	  aggregates have the same arguments, transition functions and
- *	  initial values (and, presumably, different final functions):
+ * 2. 查询里出现两个不同的聚合函数，但这些
+ *	    聚合有相同的参数、转换函数和
+ *	    初始值（并且想必有不同的最终函数）：
  *
- *	  SELECT AVG(x), STDDEV(x) FROM ...
+ *	    SELECT AVG(x), STDDEV(x) FROM ...
  *
- *	  In this case we must create a new AggInfo for the varying aggregate,
- *	  and we need to call the final functions separately, but we need
- *	  only run the transition function once.  (This requires that the
- *	  final functions be nondestructive of the transition state, but
- *	  that's required anyway for other reasons.)
+ *	    这种情况下必须为变化的聚合建立一个新的 AggInfo，
+ *	    并且需要分别调用最终函数，但只需要
+ *	    跑一次转换函数。（这需要最终函数
+ *	    不破坏转换状态，但
+ *	    反正出于其他原因也需要如此。）
  *
- * For either of these optimizations to be valid, all aggregate properties
- * used in the transition phase must be the same, including any modifiers
- * such as ORDER BY, DISTINCT and FILTER, and the arguments mustn't
- * contain any volatile functions.
+ * 要使这两种优化都有效，转换阶段使用的全部聚合属性
+ * 都必须相同，包括任何修饰符，
+ * 例如 ORDER BY、DISTINCT 和 FILTER，并且参数不得
+ * 含有任何易变函数。
  * -----------------
  */
 void
@@ -143,9 +143,9 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	Assert(aggref->agglevelsup == 0);
 
 	/*
-	 * Fetch info about the aggregate from pg_aggregate.  Note it's correct to
-	 * ignore the moving-aggregate variant, since what we're concerned with
-	 * here is aggregates not window functions.
+	 * 从 pg_aggregate 取出关于该聚合的信息。注意忽略
+	 * 移动聚合变体是对的，因为我们关心的
+	 * 是聚合而不是窗口函数。
 	 */
 	aggTuple = SearchSysCache1(AGGFNOID,
 							   ObjectIdGetDatum(aggref->aggfnoid));
@@ -162,13 +162,13 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	aggtransspace = aggform->aggtransspace;
 
 	/*
-	 * Resolve the possibly-polymorphic aggregate transition type.
+	 * 解析可能多态的聚合转换类型。
 	 */
 
-	/* extract argument types (ignoring any ORDER BY expressions) */
+	/* 抽出参数类型（忽略任何 ORDER BY 表达式） */
 	numArguments = get_aggregate_argtypes(aggref, inputTypes);
 
-	/* resolve actual type of transition state, if polymorphic */
+	/* 若多态，解析转换状态的实际类型 */
 	aggtranstype = resolve_aggregate_transtype(aggref->aggfnoid,
 											   aggtranstype,
 											   inputTypes,
@@ -176,9 +176,9 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	aggref->aggtranstype = aggtranstype;
 
 	/*
-	 * If transition state is of same type as first aggregated input, assume
-	 * it's the same typmod (same width) as well.  This works for cases like
-	 * MAX/MIN and is probably somewhat reasonable otherwise.
+	 * 若转换状态与第一个被聚合的输入类型相同，就假定
+	 * 它的 typmod（宽度）也相同。这对
+	 * MAX/MIN 这类情形有效，其他情况下大概也还算合理。
 	 */
 	aggtranstypmod = -1;
 	if (aggref->args)
@@ -190,22 +190,22 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	}
 
 	/*
-	 * If finalfn is marked read-write, we can't share transition states; but
-	 * it is okay to share states for AGGMODIFY_SHAREABLE aggs.
+	 * 若 finalfn 标成可读写，就不能共享转换状态；但
+	 * 对 AGGMODIFY_SHAREABLE 的聚合，共享状态是可以的。
 	 *
-	 * In principle, in a partial aggregate, we could share the transition
-	 * state even if the final function is marked as read-write, because the
-	 * partial aggregate doesn't execute the final function.  But it's too
-	 * early to know whether we're going perform a partial aggregate.
+	 * 原则上，在部分聚合里，即使最终函数标成可读写，
+	 * 我们也可以共享转换
+	 * 状态，因为部分聚合不执行最终函数。但现在
+	 * 还太早，不知道我们是否会做部分聚合。
 	 */
 	shareable = (aggform->aggfinalmodify != AGGMODIFY_READ_WRITE);
 
-	/* get info about the output value's datatype */
+	/* 取得输出值数据类型的信息 */
 	get_typlenbyval(aggref->aggtype,
 					&resulttypeLen,
 					&resulttypeByVal);
 
-	/* get initial value */
+	/* 取得初始值 */
 	textInitVal = SysCacheGetAttr(AGGFNOID, aggTuple,
 								  Anum_pg_aggregate_agginitval,
 								  &initValueIsNull);
@@ -217,8 +217,8 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	ReleaseSysCache(aggTuple);
 
 	/*
-	 * 1. See if this is identical to another aggregate function call that
-	 * we've seen already.
+	 * 1. 看这是否与我们已经见过的另一个聚合函数调用
+	 * 相同。
 	 */
 	aggno = find_compatible_agg(root, aggref, &same_input_transnos);
 	if (aggno != -1)
@@ -240,9 +240,9 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 		root->agginfos = lappend(root->agginfos, agginfo);
 
 		/*
-		 * Count it, and check for cases requiring ordered input.  Note that
-		 * ordered-set aggs always have nonempty aggorder.  Any ordered-input
-		 * case also defeats partial aggregation.
+		 * 计数，并检查需要有序输入的情形。注意
+		 * 有序集聚合的 aggorder 总是非空。任何有序输入
+		 * 情形也会使部分聚合失效。
 		 */
 		if (aggref->aggorder != NIL || aggref->aggdistinct != NIL)
 		{
@@ -255,8 +255,8 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 						&transtypeByVal);
 
 		/*
-		 * 2. See if this aggregate can share transition state with another
-		 * aggregate that we've initialized already.
+		 * 2. 看这个聚合能否与另一个
+		 * 我们已经初始化的聚合共享转换状态。
 		 */
 		transno = find_compatible_trans(root, aggref, shareable,
 										aggtransfn, aggtranstype,
@@ -287,23 +287,23 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 			root->aggtransinfos = lappend(root->aggtransinfos, transinfo);
 
 			/*
-			 * Check whether partial aggregation is feasible, unless we
-			 * already found out that we can't do it.
+			 * 检查部分聚合是否可行，除非我们已经
+			 * 发现做不到。
 			 */
 			if (!root->hasNonPartialAggs)
 			{
 				/*
-				 * If there is no combine function, then partial aggregation
-				 * is not possible.
+				 * 若没有合并函数，则部分聚合
+				 * 不可能。
 				 */
 				if (!OidIsValid(transinfo->combinefn_oid))
 					root->hasNonPartialAggs = true;
 
 				/*
-				 * If we have any aggs with transtype INTERNAL then we must
-				 * check whether they have serialization/deserialization
-				 * functions; if not, we can't serialize partial-aggregation
-				 * results.
+				 * 若有任何 transtype 为 INTERNAL 的聚合，就必须
+				 * 检查它们是否有序列化/反序列化
+				 * 函数；若没有，就没法序列化部分聚合
+				 * 结果。
 				 */
 				else if (transinfo->aggtranstype == INTERNALOID)
 				{
@@ -313,16 +313,16 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 						root->hasNonSerialAggs = true;
 
 					/*
-					 * array_agg_serialize and array_agg_deserialize make use
-					 * of the aggregate non-byval input type's send and
-					 * receive functions.  There's a chance that the type
-					 * being aggregated has one or both of these functions
-					 * missing.  In this case we must not allow the
-					 * aggregate's serial and deserial functions to be used.
-					 * It would be nice not to have special case this and
-					 * instead provide some sort of supporting function within
-					 * the aggregate to do this, but for now, that seems like
-					 * overkill for this one case.
+					 * array_agg_serialize 和 array_agg_deserialize 使用
+					 * 聚合的非传值输入类型的 send 和
+					 * receive 函数。被聚合的类型
+					 * 有可能缺少其中一个或两个这些
+					 * 函数。这种情况下不得允许使用
+					 * 该聚合的 serial 和 deserial 函数。
+					 * 最好不要为此做特殊处理，而是
+					 * 在聚合内部提供某种支撑函数
+					 * 来做这件事，但目前，对这一个情形来说那似乎
+					 * 是用力过猛。
 					 */
 					if ((transinfo->serialfn_oid == F_ARRAY_AGG_SERIALIZE ||
 						 transinfo->deserialfn_oid == F_ARRAY_AGG_DESERIALIZE) &&
@@ -335,7 +335,7 @@ preprocess_aggref(Aggref *aggref, PlannerInfo *root)
 	}
 
 	/*
-	 * Fill in the fields in the Aggref (aggtranstype was set above already)
+	 * 填上 Aggref 里的字段（aggtranstype 上面已经设过）
 	 */
 	aggref->aggno = aggno;
 	aggref->aggtransno = transno;
@@ -353,9 +353,9 @@ preprocess_aggrefs_walker(Node *node, PlannerInfo *root)
 		preprocess_aggref(aggref, root);
 
 		/*
-		 * We assume that the parser checked that there are no aggregates (of
-		 * this level anyway) in the aggregated arguments, direct arguments,
-		 * or filter clause.  Hence, we need not recurse into any of them.
+		 * 我们假定解析器已经检查过被聚合的参数、直接参数
+		 * 或过滤子句里没有（至少这一层的）聚合。
+		 * 因此不必递归进其中任何一个。
 		 */
 		return false;
 	}
@@ -366,16 +366,16 @@ preprocess_aggrefs_walker(Node *node, PlannerInfo *root)
 
 
 /*
- * find_compatible_agg - search for a previously initialized per-Agg struct
+ * find_compatible_agg - 搜索先前初始化的按聚合结构
  *
- * Searches the previously looked at aggregates to find one which is compatible
- * with this one, with the same input parameters.  If no compatible aggregate
- * can be found, returns -1.
+ * 在先前看过的聚合里搜索与这个兼容、
+ * 且输入参数相同的一个。若找不到兼容的聚合，
+ * 返回 -1。
  *
- * As a side-effect, this also collects a list of existing, shareable per-Trans
- * structs with matching inputs.  If no identical Aggref is found, the list is
- * passed later to find_compatible_trans, to see if we can at least reuse
- * the state value of another aggregate.
+ * 作为副作用，这也收集一份输入匹配的、现有可共享按转换
+ * 结构的列表。若找不到相同的 Aggref，这份列表以后
+ * 会传给 find_compatible_trans，看至少能否复用
+ * 另一个聚合的状态值。
  */
 static int
 find_compatible_agg(PlannerInfo *root, Aggref *newagg,
@@ -386,18 +386,18 @@ find_compatible_agg(PlannerInfo *root, Aggref *newagg,
 
 	*same_input_transnos = NIL;
 
-	/* we mustn't reuse the aggref if it contains volatile function calls */
+	/* 若该 aggref 含有易变函数调用，就不得复用它 */
 	if (contain_volatile_functions((Node *) newagg))
 		return -1;
 
 	/*
-	 * Search through the list of already seen aggregates.  If we find an
-	 * existing identical aggregate call, then we can re-use that one.  While
-	 * searching, we'll also collect a list of Aggrefs with the same input
-	 * parameters.  If no matching Aggref is found, the caller can potentially
-	 * still re-use the transition state of one of them.  (At this stage we
-	 * just compare the parsetrees; whether different aggregates share the
-	 * same transition function will be checked later.)
+	 * 搜索已经见过的聚合列表。若找到一个
+	 * 现有的相同聚合调用，就可以复用那个。搜索时
+	 * 也会收集一份输入参数相同的 Aggref 列表。
+	 * 若找不到匹配的 Aggref，调用方仍可能
+	 * 复用其中一个的转换状态。（在这个阶段我们
+	 * 只比较解析树；不同聚合是否共享
+	 * 同一转换函数要到以后再检查。）
 	 */
 	aggno = -1;
 	foreach(lc, root->agginfos)
@@ -409,7 +409,7 @@ find_compatible_agg(PlannerInfo *root, Aggref *newagg,
 
 		existingRef = linitial_node(Aggref, agginfo->aggrefs);
 
-		/* all of the following must be the same or it's no match */
+		/* 下面这些都必须相同，否则就不算匹配 */
 		if (newagg->inputcollid != existingRef->inputcollid ||
 			newagg->aggtranstype != existingRef->aggtranstype ||
 			newagg->aggstar != existingRef->aggstar ||
@@ -421,7 +421,7 @@ find_compatible_agg(PlannerInfo *root, Aggref *newagg,
 			!equal(newagg->aggfilter, existingRef->aggfilter))
 			continue;
 
-		/* if it's the same aggregate function then report exact match */
+		/* 若是同一个聚合函数，就报告精确匹配 */
 		if (newagg->aggfnoid == existingRef->aggfnoid &&
 			newagg->aggtype == existingRef->aggtype &&
 			newagg->aggcollid == existingRef->aggcollid &&
@@ -433,11 +433,11 @@ find_compatible_agg(PlannerInfo *root, Aggref *newagg,
 		}
 
 		/*
-		 * Not identical, but it had the same inputs.  If the final function
-		 * permits sharing, return its transno to the caller, in case we can
-		 * re-use its per-trans state.  (If there's already sharing going on,
-		 * we might report a transno more than once.  find_compatible_trans is
-		 * cheap enough that it's not worth spending cycles to avoid that.)
+		 * 不相同，但输入相同。若最终函数
+		 * 允许共享，就把其 transno 返回给调用方，以防我们可以
+		 * 复用它的按转换状态。（若已经在共享，
+		 * 我们也许会多次报告同一个 transno。find_compatible_trans 足够
+		 * 便宜，不值得花周期去避免那个。）
 		 */
 		if (agginfo->shareable)
 			*same_input_transnos = lappend_int(*same_input_transnos,
@@ -448,12 +448,12 @@ find_compatible_agg(PlannerInfo *root, Aggref *newagg,
 }
 
 /*
- * find_compatible_trans - search for a previously initialized per-Trans
- * struct
+ * find_compatible_trans - 搜索先前初始化的按转换
+ * 结构
  *
- * Searches the list of transnos for a per-Trans struct with the same
- * transition function and initial condition. (The inputs have already been
- * verified to match.)
+ * 在 transno 列表里搜索转换函数和初始条件相同的按转换结构。
+ * （输入已经
+ * 验证过匹配。）
  */
 static int
 find_compatible_trans(PlannerInfo *root, Aggref *newagg, bool shareable,
@@ -466,7 +466,7 @@ find_compatible_trans(PlannerInfo *root, Aggref *newagg, bool shareable,
 {
 	ListCell   *lc;
 
-	/* If this aggregate can't share transition states, give up */
+	/* 若这个聚合不能共享转换状态，就放弃 */
 	if (!shareable)
 		return -1;
 
@@ -478,35 +478,35 @@ find_compatible_trans(PlannerInfo *root, Aggref *newagg, bool shareable,
 											   transno);
 
 		/*
-		 * if the transfns or transition state types are not the same then the
-		 * state can't be shared.
+		 * 若转换函数或转换状态类型不相同，则
+		 * 状态不能共享。
 		 */
 		if (aggtransfn != pertrans->transfn_oid ||
 			aggtranstype != pertrans->aggtranstype)
 			continue;
 
 		/*
-		 * The serialization and deserialization functions must match, if
-		 * present, as we're unable to share the trans state for aggregates
-		 * which will serialize or deserialize into different formats.
-		 * Remember that these will be InvalidOid if they're not required for
-		 * this agg node.
+		 * 序列化和反序列化函数若存在就必须匹配，
+		 * 因为我们没法共享那些会序列化或反序列化成不同格式的聚合的
+		 * 转换状态。
+		 * 记住，若这个聚合节点不需要它们，这些将是
+		 * InvalidOid。
 		 */
 		if (aggserialfn != pertrans->serialfn_oid ||
 			aggdeserialfn != pertrans->deserialfn_oid)
 			continue;
 
 		/*
-		 * Combine function must also match.  We only care about the combine
-		 * function with partial aggregates, but it's too early in the
-		 * planning to know if we will do partial aggregation, so be
-		 * conservative.
+		 * 合并函数也必须匹配。我们只在部分聚合时关心合并
+		 * 函数，但规划阶段现在还太早，
+		 * 不知道会不会做部分聚合，因此
+		 * 保守处理。
 		 */
 		if (aggcombinefn != pertrans->combinefn_oid)
 			continue;
 
 		/*
-		 * Check that the initial condition matches, too.
+		 * 也检查初始条件是否匹配。
 		 */
 		if (initValueIsNull && pertrans->initValueIsNull)
 			return transno;
@@ -538,24 +538,24 @@ GetAggInitVal(Datum textInitVal, Oid transtype)
 
 /*
  * get_agg_clause_costs
- *	  Process the PlannerInfo's 'aggtransinfos' and 'agginfos' lists
- *	  accumulating the cost information about them.
+ *	    处理 PlannerInfo 的 'aggtransinfos' 和 'agginfos' 列表，
+ *	    累积关于它们的代价信息。
  *
- * 'aggsplit' tells us the expected partial-aggregation mode, which affects
- * the cost estimates.
+ * 'aggsplit' 告诉我们预期的部分聚合模式，这会影响
+ * 代价估计。
  *
- * NOTE that the costs are ADDED to those already in *costs ... so the caller
- * is responsible for zeroing the struct initially.
+ * 注意：代价是 ADDED 到 *costs 里已有的那些之上……因此调用方
+ * 负责一开始把该结构体清零。
  *
- * For each AggTransInfo, we add the cost of an aggregate transition using
- * either the transfn or combinefn depending on the 'aggsplit' value.  We also
- * account for the costs of any aggfilters and any serializations and
- * deserializations of the transition state and also estimate the total space
- * needed for the transition states as if each aggregate's state was stored in
- * memory concurrently (as would be done in a HashAgg plan).
+ * 对每个 AggTransInfo，根据 'aggsplit' 的值使用 transfn 或 combinefn，
+ * 加上一次聚合转换的代价。我们也
+ * 计入任何 aggfilter 的代价，以及转换状态的任何序列化和
+ * 反序列化，并估计所需的总空间，
+ * 就好像每个聚合的状态都同时存放在
+ * 内存里（像 HashAgg 计划那样）。
  *
- * For each AggInfo in the 'agginfos' list we add the cost of running the
- * final function and the direct args, if any.
+ * 对 'agginfos' 列表里的每个 AggInfo，我们加上运行
+ * 最终函数和直接参数（若有）的代价。
  */
 void
 get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs)
@@ -567,12 +567,12 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 		AggTransInfo *transinfo = lfirst_node(AggTransInfo, lc);
 
 		/*
-		 * Add the appropriate component function execution costs to
-		 * appropriate totals.
+		 * 把适当的组成函数执行代价加到
+		 * 适当的合计里。
 		 */
 		if (DO_AGGSPLIT_COMBINE(aggsplit))
 		{
-			/* charge for combining previously aggregated states */
+			/* 计入合并先前已聚合状态的费用 */
 			add_function_cost(root, transinfo->combinefn_oid, NULL,
 							  &costs->transCost);
 		}
@@ -589,12 +589,12 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 							  &costs->finalCost);
 
 		/*
-		 * These costs are incurred only by the initial aggregate node, so we
-		 * mustn't include them again at upper levels.
+		 * 这些代价只由最初的聚合节点承担，因此
+		 * 不得在上层再次计入它们。
 		 */
 		if (!DO_AGGSPLIT_COMBINE(aggsplit))
 		{
-			/* add the input expressions' cost to per-input-row costs */
+			/* 把输入表达式的代价加到每输入行代价里 */
 			QualCost	argcosts;
 
 			cost_qual_eval_node(&argcosts, (Node *) transinfo->args, root);
@@ -602,11 +602,11 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 			costs->transCost.per_tuple += argcosts.per_tuple;
 
 			/*
-			 * Add any filter's cost to per-input-row costs.
+			 * 把任何过滤器的代价加到每输入行代价里。
 			 *
-			 * XXX Ideally we should reduce input expression costs according
-			 * to filter selectivity, but it's not clear it's worth the
-			 * trouble.
+			 * XXX 理想情况下应当按过滤器选择率减少输入表达式代价，
+			 * 但不清楚是否
+			 * 值得费这个劲。
 			 */
 			if (transinfo->aggfilter)
 			{
@@ -618,25 +618,25 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 		}
 
 		/*
-		 * If the transition type is pass-by-value then it doesn't add
-		 * anything to the required size of the hashtable.  If it is
-		 * pass-by-reference then we have to add the estimated size of the
-		 * value itself, plus palloc overhead.
+		 * 若转换类型是传值的，它就不会给
+		 * 哈希表所需大小增加任何东西。若是
+		 * 传引用的，就必须加上该值本身的估计大小，
+		 * 外加 palloc 开销。
 		 */
 		if (!transinfo->transtypeByVal)
 		{
 			int32		avgwidth;
 
-			/* Use average width if aggregate definition gave one */
+			/* 若聚合定义给了平均宽度，就用它 */
 			if (transinfo->aggtransspace > 0)
 				avgwidth = transinfo->aggtransspace;
 			else if (transinfo->transfn_oid == F_ARRAY_APPEND)
 			{
 				/*
-				 * If the transition function is array_append(), it'll use an
-				 * expanded array as transvalue, which will occupy at least
-				 * ALLOCSET_SMALL_INITSIZE and possibly more.  Use that as the
-				 * estimate for lack of a better idea.
+				 * 若转换函数是 array_append()，它会用
+				 * 展开数组作为 transvalue，那至少会占用
+				 * ALLOCSET_SMALL_INITSIZE，也许更多。在没有更好主意时，用那个作为
+				 * 估计。
 				 */
 				avgwidth = ALLOCSET_SMALL_INITSIZE;
 			}
@@ -651,13 +651,13 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 		else if (transinfo->aggtranstype == INTERNALOID)
 		{
 			/*
-			 * INTERNAL transition type is a special case: although INTERNAL
-			 * is pass-by-value, it's almost certainly being used as a pointer
-			 * to some large data structure.  The aggregate definition can
-			 * provide an estimate of the size.  If it doesn't, then we assume
-			 * ALLOCSET_DEFAULT_INITSIZE, which is a good guess if the data is
-			 * being kept in a private memory context, as is done by
-			 * array_agg() for instance.
+			 * INTERNAL 转换类型是特例：虽然 INTERNAL
+			 * 是传值的，它几乎肯定被用作指向
+			 * 某个大数据结构的指针。聚合定义可以
+			 * 提供大小估计。若没有，我们就假定
+			 * ALLOCSET_DEFAULT_INITSIZE，若数据保存在
+			 * 私有内存上下文里，这是个不错的猜测，例如
+			 * array_agg() 就是这么做的。
 			 */
 			if (transinfo->aggtransspace > 0)
 				costs->transitionSpace += transinfo->aggtransspace;
@@ -672,8 +672,8 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 		Aggref	   *aggref = linitial_node(Aggref, agginfo->aggrefs);
 
 		/*
-		 * Add the appropriate component function execution costs to
-		 * appropriate totals.
+		 * 把适当的组成函数执行代价加到
+		 * 适当的合计里。
 		 */
 		if (!DO_AGGSPLIT_SKIPFINAL(aggsplit) &&
 			OidIsValid(agginfo->finalfn_oid))
@@ -681,8 +681,8 @@ get_agg_clause_costs(PlannerInfo *root, AggSplit aggsplit, AggClauseCosts *costs
 							  &costs->finalCost);
 
 		/*
-		 * If there are direct arguments, treat their evaluation cost like the
-		 * cost of the finalfn.
+		 * 若有直接参数，就把它们的求值代价当作
+		 * finalfn 的代价来处理。
 		 */
 		if (aggref->aggdirectargs)
 		{

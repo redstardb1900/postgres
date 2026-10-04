@@ -53,12 +53,12 @@ static List *expand_insert_targetlist(PlannerInfo *root, List *tlist,
 
 /*
  * preprocess_targetlist
- *	  Driver for preprocessing the parse tree targetlist.
+ *	    预处理解析树目标列表的驱动函数。
  *
- * The preprocessed targetlist is returned in root->processed_tlist.
- * Also, if this is an UPDATE, we return a list of target column numbers
- * in root->update_colnos.  (Resnos in processed_tlist will be consecutive,
- * so do not look at that to find out which columns are targets!)
+ * 预处理后的目标列表放在 root->processed_tlist 里返回。
+ * 另外，若这是 UPDATE，我们在 root->update_colnos 里返回一份目标列号
+ * 列表。（processed_tlist 里的 resno 将是连续的，
+ * 因此不要靠那个来判断哪些列是目标！）
  */
 void
 preprocess_targetlist(PlannerInfo *root)
@@ -73,17 +73,17 @@ preprocess_targetlist(PlannerInfo *root)
 	ListCell   *lc;
 
 	/*
-	 * If there is a result relation, open it so we can look for missing
-	 * columns and so on.  We assume that previous code already acquired at
-	 * least AccessShareLock on the relation, so we need no lock here.
+	 * 若有结果关系，就打开它，以便寻找缺少的
+	 * 列等等。我们假定前面的代码已经至少取得了该关系上的
+	 * AccessShareLock，因此这里不需要锁。
 	 */
 	if (result_relation)
 	{
 		target_rte = rt_fetch(result_relation, range_table);
 
 		/*
-		 * Sanity check: it'd better be a real relation not, say, a subquery.
-		 * Else parser or rewriter messed up.
+		 * 健全性检查：它最好是真正的关系，而不是比如说子查询。
+		 * 否则就是解析器或重写器弄乱了。
 		 */
 		if (target_rte->rtekind != RTE_RELATION)
 			elog(ERROR, "result relation must be a regular relation");
@@ -94,13 +94,13 @@ preprocess_targetlist(PlannerInfo *root)
 		Assert(command_type == CMD_SELECT);
 
 	/*
-	 * In an INSERT, the executor expects the targetlist to match the exact
-	 * order of the target table's attributes, including entries for
-	 * attributes not mentioned in the source query.
+	 * 在 INSERT 里，执行器预期目标列表精确匹配
+	 * 目标表属性的顺序，包括源查询里没提到的
+	 * 属性的项。
 	 *
-	 * In an UPDATE, we don't rearrange the tlist order, but we need to make a
-	 * separate list of the target attribute numbers, in tlist order, and then
-	 * renumber the processed_tlist entries to be consecutive.
+	 * 在 UPDATE 里，我们不重排 tlist 顺序，但需要按 tlist 顺序做一份
+	 * 目标属性号的单独列表，然后
+	 * 把 processed_tlist 项重新编号成连续的。
 	 */
 	tlist = parse->targetList;
 	if (command_type == CMD_INSERT)
@@ -109,18 +109,18 @@ preprocess_targetlist(PlannerInfo *root)
 		root->update_colnos = extract_update_targetlist_colnos(tlist);
 
 	/*
-	 * For non-inherited UPDATE/DELETE/MERGE, register any junk column(s)
-	 * needed to allow the executor to identify the rows to be updated or
-	 * deleted.  In the inheritance case, we do nothing now, leaving this to
-	 * be dealt with when expand_inherited_rtentry() makes the leaf target
-	 * relations.  (But there might not be any leaf target relations, in which
-	 * case we must do this in distribute_row_identity_vars().)
+	 * 对非继承的 UPDATE/DELETE/MERGE，登记执行器识别要更新或
+	 * 删除的行所需的任何杂项列。
+	 * 在继承情形下，现在什么都不做，留给
+	 * expand_inherited_rtentry() 建立叶子目标
+	 * 关系时处理。（但也许没有任何叶子目标关系，那种
+	 * 情况下必须在 distribute_row_identity_vars() 里做这件事。）
 	 */
 	if ((command_type == CMD_UPDATE || command_type == CMD_DELETE ||
 		 command_type == CMD_MERGE) &&
 		!target_rte->inh)
 	{
-		/* row-identity logic expects to add stuff to processed_tlist */
+		/* 行身份逻辑预期会往 processed_tlist 里加东西 */
 		root->processed_tlist = tlist;
 		add_row_identity_columns(root, result_relation,
 								 target_rte, target_relation);
@@ -128,20 +128,20 @@ preprocess_targetlist(PlannerInfo *root)
 	}
 
 	/*
-	 * For MERGE we also need to handle the target list for each INSERT and
-	 * UPDATE action separately.  In addition, we examine the qual of each
-	 * action and add any Vars there (other than those of the target rel) to
-	 * the subplan targetlist.
+	 * 对 MERGE，也需要分别处理每个 INSERT 和
+	 * UPDATE 动作的目标列表。另外，我们检查每个
+	 * 动作的限定条件，并把那里的任何 Var（目标关系的那些除外）加进
+	 * 子计划目标列表。
 	 */
 	if (command_type == CMD_MERGE)
 	{
 		ListCell   *l;
 
 		/*
-		 * For MERGE, handle targetlist of each MergeAction separately. Give
-		 * the same treatment to MergeAction->targetList as we would have
-		 * given to a regular INSERT.  For UPDATE, collect the column numbers
-		 * being modified.
+		 * 对 MERGE，分别处理每个 MergeAction 的目标列表。对
+		 * MergeAction->targetList 给予与普通
+		 * INSERT 相同的处理。对 UPDATE，收集
+		 * 正在被修改的列号。
 		 */
 		foreach(l, parse->mergeActionList)
 		{
@@ -158,10 +158,10 @@ preprocess_targetlist(PlannerInfo *root)
 					extract_update_targetlist_colnos(action->targetList);
 
 			/*
-			 * Add resjunk entries for any Vars and PlaceHolderVars used in
-			 * each action's targetlist and WHEN condition that belong to
-			 * relations other than the target.  We don't expect to see any
-			 * aggregates or window functions here.
+			 * 为每个动作的目标列表和 WHEN 条件里属于
+			 * 目标以外关系的任何 Var 和 PlaceHolderVars 加上 resjunk 项。
+			 * 我们不预期在这里看到任何
+			 * 聚合或窗口函数。
 			 */
 			vars = pull_var_clause((Node *)
 								   list_concat_copy((List *) action->qual,
@@ -173,10 +173,10 @@ preprocess_targetlist(PlannerInfo *root)
 				TargetEntry *tle;
 
 				if (IsA(var, Var) && var->varno == result_relation)
-					continue;	/* don't need it */
+					continue;	/* 不需要它 */
 
 				if (tlist_member((Expr *) var, tlist))
-					continue;	/* already got it */
+					continue;	/* 已经有了 */
 
 				tle = makeTargetEntry((Expr *) var,
 									  list_length(tlist) + 1,
@@ -188,19 +188,19 @@ preprocess_targetlist(PlannerInfo *root)
 	}
 
 	/*
-	 * Add necessary junk columns for rowmarked rels.  These values are needed
-	 * for locking of rels selected FOR UPDATE/SHARE, and to do EvalPlanQual
-	 * rechecking.  See comments for PlanRowMark in plannodes.h.  If you
-	 * change this stanza, see also expand_inherited_rtentry(), which has to
-	 * be able to add on junk columns equivalent to these.
+	 * 为做了行标记的关系加上必要的杂项列。
+	 * 锁定被选来做 FOR UPDATE/SHARE 的关系，以及做 EvalPlanQual
+	 * 复查，都需要这些值。见 plannodes.h 里 PlanRowMark 的注释。若你
+	 * 改这一段，也要看 expand_inherited_rtentry()，它必须
+	 * 能加上与这些等价的杂项列。
 	 *
-	 * (Someday it might be useful to fold these resjunk columns into the
-	 * row-identity-column management used for UPDATE/DELETE.  Today is not
-	 * that day, however.  One notable issue is that it seems important that
-	 * the whole-row Vars made here use the real table rowtype, not RECORD, so
-	 * that conversion to/from child relations' rowtypes will happen.  Also,
-	 * since these entries don't potentially bloat with more and more child
-	 * relations, there's not really much need for column sharing.)
+	 * （也许有一天把这些 resjunk 列折进行身份列
+	 * 管理会有用，那是给 UPDATE/DELETE 用的。不过今天
+	 * 还不是那天。一个显著问题是，这里做的整行 Var
+	 * 使用真实表行类型而不是 RECORD，这似乎很重要，
+	 * 这样才会发生与子关系行类型之间的转换。另外，
+	 * 由于这些项不会因越来越多的子
+	 * 关系而膨胀，列共享其实没有多大必要。）
 	 */
 	foreach(lc, root->rowMarks)
 	{
@@ -209,13 +209,13 @@ preprocess_targetlist(PlannerInfo *root)
 		char		resname[32];
 		TargetEntry *tle;
 
-		/* child rels use the same junk attrs as their parents */
+		/* 子关系使用与其父项相同的杂项属性 */
 		if (rc->rti != rc->prti)
 			continue;
 
 		if (rc->allMarkTypes & ~(1 << ROW_MARK_COPY))
 		{
-			/* Need to fetch TID */
+			/* 需要取出 TID */
 			var = makeVar(rc->rti,
 						  SelfItemPointerAttributeNumber,
 						  TIDOID,
@@ -231,7 +231,7 @@ preprocess_targetlist(PlannerInfo *root)
 		}
 		if (rc->allMarkTypes & (1 << ROW_MARK_COPY))
 		{
-			/* Need the whole row as a junk var */
+			/* 需要把整行作为杂项 var */
 			var = makeWholeRowVar(rt_fetch(rc->rti, range_table),
 								  rc->rti,
 								  0,
@@ -244,7 +244,7 @@ preprocess_targetlist(PlannerInfo *root)
 			tlist = lappend(tlist, tle);
 		}
 
-		/* If parent of inheritance tree, always fetch the tableoid too. */
+		/* 若是继承树的父项，也总是取出 tableoid。 */
 		if (rc->isParent)
 		{
 			var = makeVar(rc->rti,
@@ -263,11 +263,11 @@ preprocess_targetlist(PlannerInfo *root)
 	}
 
 	/*
-	 * If the query has a RETURNING list, add resjunk entries for any Vars
-	 * used in RETURNING that belong to other relations.  We need to do this
-	 * to make these Vars available for the RETURNING calculation.  Vars that
-	 * belong to the result rel don't need to be added, because they will be
-	 * made to refer to the actual heap tuple.
+	 * 若查询有 RETURNING 列表，就为 RETURNING 里属于其他关系的任何 Var
+	 * 加上 resjunk 项。需要这么做，
+	 * 以使这些 Var 可用于 RETURNING 计算。属于
+	 * 结果关系的 Var 不必加，因为它们会被
+	 * 改成引用实际的堆元组。
 	 */
 	if (parse->returningList && list_length(parse->rtable) > 1)
 	{
@@ -285,10 +285,10 @@ preprocess_targetlist(PlannerInfo *root)
 
 			if (IsA(var, Var) &&
 				var->varno == result_relation)
-				continue;		/* don't need it */
+				continue;		/* 不需要它 */
 
 			if (tlist_member((Expr *) var, tlist))
-				continue;		/* already got it */
+				continue;		/* 已经有了 */
 
 			tle = makeTargetEntry((Expr *) var,
 								  list_length(tlist) + 1,
@@ -308,17 +308,17 @@ preprocess_targetlist(PlannerInfo *root)
 
 /*
  * extract_update_targetlist_colnos
- * 		Extract a list of the target-table column numbers that
- * 		an UPDATE's targetlist wants to assign to, then renumber.
+ * 				抽出 UPDATE 的目标列表想要赋值的目标表列号
+ * 				列表，然后重新编号。
  *
- * The convention in the parser and rewriter is that the resnos in an
- * UPDATE's non-resjunk TLE entries are the target column numbers
- * to assign to.  Here, we extract that info into a separate list, and
- * then convert the tlist to the sequential-numbering convention that's
- * used by all other query types.
+ * 解析器和重写器的约定是，UPDATE 的非 resjunk TLE 项里的 resno
+ * 就是要赋值的目标列号。
+ * 这里我们把该信息抽成一份单独的列表，然后
+ * 把 tlist 转换成所有其他查询类型都使用的
+ * 顺序编号约定。
  *
- * This is also applied to the tlist associated with INSERT ... ON CONFLICT
- * ... UPDATE, although not till much later in planning.
+ * 这也应用到与 INSERT ... ON CONFLICT
+ * ... UPDATE 关联的 tlist，尽管要到规划后期才做。
  */
 List *
 extract_update_targetlist_colnos(List *tlist)
@@ -341,18 +341,18 @@ extract_update_targetlist_colnos(List *tlist)
 
 /*****************************************************************************
  *
- *		TARGETLIST EXPANSION
+ *			TARGETLIST EXPANSION
  *
  *****************************************************************************/
 
 /*
  * expand_insert_targetlist
- *	  Given a target list as generated by the parser and a result relation,
- *	  add targetlist entries for any missing attributes, and ensure the
- *	  non-junk attributes appear in proper field order.
+ *	    给定解析器生成的目标列表和结果关系，
+ *	    为任何缺少的属性加上目标列表项，并确保
+ *	    非杂项属性以正确的字段顺序出现。
  *
- * Once upon a time we also did more or less this with UPDATE targetlists,
- * but now this code is only applied to INSERT targetlists.
+ * 从前我们也对 UPDATE 目标列表或多或少这么做，
+ * 但现在这段代码只用于 INSERT 目标列表。
  */
 static List *
 expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
@@ -365,11 +365,11 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 	tlist_item = list_head(tlist);
 
 	/*
-	 * The rewriter should have already ensured that the TLEs are in correct
-	 * order; but we have to insert TLEs for any missing attributes.
+	 * 重写器应当已经确保 TLEs 顺序正确；
+	 * 但我们必须为任何缺少的属性插入 TLE。
 	 *
-	 * Scan the tuple description in the relation's relcache entry to make
-	 * sure we have all the user attributes in the right order.
+	 * 扫描该关系 relcache 项里的元组描述，以
+	 * 确保我们有全部用户属性且顺序正确。
 	 */
 	numattrs = RelationGetNumberOfAttributes(rel);
 
@@ -392,45 +392,45 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 		if (new_tle == NULL)
 		{
 			/*
-			 * Didn't find a matching tlist entry, so make one.
+			 * 没找到匹配的 tlist 项，因此做一个。
 			 *
-			 * INSERTs should insert NULL in this case.  (We assume the
-			 * rewriter would have inserted any available non-NULL default
-			 * value.)  Also, normally we must apply any domain constraints
-			 * that might exist --- this is to catch domain NOT NULL.
+			 * 这种情况下 INSERTs 应当插入 NULL。（我们假定
+			 * 重写器会已经插入任何可用的非 NULL 默认
+			 * 值。）另外，通常必须应用任何也许存在的域约束
+			 * ——这是为了抓住域的 NOT NULL。
 			 *
-			 * When generating a NULL constant for a dropped column, we label
-			 * it INT4 (any other guaranteed-to-exist datatype would do as
-			 * well). We can't label it with the dropped column's datatype
-			 * since that might not exist anymore.  It does not really matter
-			 * what we claim the type is, since NULL is NULL --- its
-			 * representation is datatype-independent.  This could perhaps
-			 * confuse code comparing the finished plan to the target
-			 * relation, however.
+			 * 为已删除列生成 NULL 常量时，我们把它标成
+			 * INT4（任何其他保证存在的数据类型也
+			 * 行）。不能用已删除列的数据类型来标它，
+			 * 因为那个也许已经不存在了。我们声称的类型是什么
+			 * 其实无关紧要，因为 NULL 就是 NULL——它的
+			 * 表示与数据类型无关。不过这也许会
+			 * 搞混把完成的计划与目标
+			 * 关系作比较的代码。
 			 *
-			 * Another exception is that if the column is generated, the value
-			 * we produce here will be ignored, and we don't want to risk
-			 * throwing an error.  So in that case we *don't* want to apply
-			 * domain constraints, so we must produce a NULL of the base type.
-			 * Again, code comparing the finished plan to the target relation
-			 * must account for this.
+			 * 另一个例外是，若该列是生成列，我们在这里产生的值
+			 * 会被忽略，而且我们不想冒
+			 * 抛错的风险。因此那种情况下我们*不*想应用
+			 * 域约束，所以必须产生基类型的 NULL。
+			 * 同样，把完成的计划与目标关系作比较的代码
+			 * 必须把这一点算进去。
 			 */
 			Node	   *new_expr;
 
 			if (att_tup->attisdropped)
 			{
-				/* Insert NULL for dropped column */
+				/* 为已删除列插入 NULL */
 				new_expr = (Node *) makeConst(INT4OID,
 											  -1,
 											  InvalidOid,
 											  sizeof(int32),
 											  (Datum) 0,
-											  true, /* isnull */
-											  true /* byval */ );
+											  true, /* isnull（为空） */
+											  true /* byval（传值） */ );
 			}
 			else if (att_tup->attgenerated)
 			{
-				/* Generated column, insert a NULL of the base type */
+				/* 生成列，插入基类型的 NULL */
 				Oid			baseTypeId = att_tup->atttypid;
 				int32		baseTypeMod = att_tup->atttypmod;
 
@@ -440,18 +440,18 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 											  att_tup->attcollation,
 											  att_tup->attlen,
 											  (Datum) 0,
-											  true, /* isnull */
+											  true, /* isnull（为空） */
 											  att_tup->attbyval);
 			}
 			else
 			{
-				/* Normal column, insert a NULL of the column datatype */
+				/* 普通列，插入该列数据类型的 NULL */
 				new_expr = coerce_null_to_domain(att_tup->atttypid,
 												 att_tup->atttypmod,
 												 att_tup->attcollation,
 												 att_tup->attlen,
 												 att_tup->attbyval);
-				/* Must run expression preprocessing on any non-const nodes */
+				/* 必须对任何非 const 节点跑表达式预处理 */
 				if (!IsA(new_expr, Const))
 					new_expr = eval_const_expressions(root, new_expr);
 			}
@@ -466,11 +466,11 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 	}
 
 	/*
-	 * The remaining tlist entries should be resjunk; append them all to the
-	 * end of the new tlist, making sure they have resnos higher than the last
-	 * real attribute.  (Note: although the rewriter already did such
-	 * renumbering, we have to do it again here in case we added NULL entries
-	 * above.)
+	 * 其余 tlist 项应当是 resjunk；把它们全部追加到
+	 * 新 tlist 的末尾，确保它们的 resno 高于最后一个
+	 * 真实属性。（注意：虽然重写器已经做过这样的
+	 * 重新编号，若上面加了 NULL 项，
+	 * 这里必须再做一次。）
 	 */
 	while (tlist_item)
 	{
@@ -478,7 +478,7 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 
 		if (!old_tle->resjunk)
 			elog(ERROR, "targetlist is not sorted correctly");
-		/* Get the resno right, but don't copy unnecessarily */
+		/* 把 resno 弄对，但不要不必要地复制 */
 		if (old_tle->resno != attrno)
 		{
 			old_tle = flatCopyTargetEntry(old_tle);
@@ -494,9 +494,9 @@ expand_insert_targetlist(PlannerInfo *root, List *tlist, Relation rel)
 
 
 /*
- * Locate PlanRowMark for given RT index, or return NULL if none
+ * 找出给定 RT 下标的 PlanRowMark，若没有则返回 NULL
  *
- * This probably ought to be elsewhere, but there's no very good place
+ * 这大概应当放在别处，但没有很好的地方
  */
 PlanRowMark *
 get_plan_rowmark(List *rowmarks, Index rtindex)

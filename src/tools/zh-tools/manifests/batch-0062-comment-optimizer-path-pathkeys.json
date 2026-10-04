@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0062-comment-optimizer-path-pathkeys",
+ "title": "zh: translate pathkeys comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "49eb29b7fa568b954c0efd40fc9e6ab34153e0b0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/path/pathkeys.c",
+   "kind": "c_comment",
+   "note": "pathkey construction and comparison"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0062-comment-optimizer-path-pathkeys.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/path/pathkeys.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 157,
+   "translated": 155,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent block"
+   ],
+   "note": "pathkey construction and comparison"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0062-comment-optimizer-path-pathkeys.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

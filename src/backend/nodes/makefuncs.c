@@ -25,7 +25,7 @@
 
 /*
  * makeA_Expr -
- *		makes an A_Expr node
+ *		制作一个 A_Expr 节点
  */
 A_Expr *
 makeA_Expr(A_Expr_Kind kind, List *name,
@@ -43,7 +43,7 @@ makeA_Expr(A_Expr_Kind kind, List *name,
 
 /*
  * makeSimpleA_Expr -
- *		As above, given a simple (unqualified) operator name
+ *		同上，给定一个简单（未限定）的操作符名
  */
 A_Expr *
 makeSimpleA_Expr(A_Expr_Kind kind, char *name,
@@ -61,7 +61,7 @@ makeSimpleA_Expr(A_Expr_Kind kind, char *name,
 
 /*
  * makeVar -
- *	  creates a Var node
+ *	  创建一个 Var 节点
  */
 Var *
 makeVar(int varno,
@@ -81,17 +81,17 @@ makeVar(int varno,
 	var->varlevelsup = varlevelsup;
 
 	/*
-	 * Only a few callers need to make Var nodes with non-null varnullingrels,
-	 * or with varnosyn/varattnosyn different from varno/varattno.  We don't
-	 * provide separate arguments for them, but just initialize them to NULL
-	 * and the given varno/varattno.  This reduces code clutter and chance of
-	 * error for most callers.
+	 * 只有少数调用方需要制作 varnullingrels 非空的 Var 节点，
+	 * 或 varnosyn/varattnosyn 与 varno/varattno 不同的节点。我们不
+	 * 为它们提供单独的参数，只是把它们初始化为 NULL
+	 * 以及给定的 varno/varattno。这减少了代码杂乱，也降低了
+	 * 大多数调用方出错的可能。
 	 */
 	var->varnullingrels = NULL;
 	var->varnosyn = (Index) varno;
 	var->varattnosyn = varattno;
 
-	/* Likewise, we just set location to "unknown" here */
+	/* 同样，这里只把 location 设为 "未知" */
 	var->location = -1;
 
 	return var;
@@ -99,8 +99,8 @@ makeVar(int varno,
 
 /*
  * makeVarFromTargetEntry -
- *		convenience function to create a same-level Var node from a
- *		TargetEntry
+ *		便捷函数，从 TargetEntry 创建同层的
+ *		Var 节点
  */
 Var *
 makeVarFromTargetEntry(int varno,
@@ -116,21 +116,21 @@ makeVarFromTargetEntry(int varno,
 
 /*
  * makeWholeRowVar -
- *	  creates a Var node representing a whole row of the specified RTE
+ *	  创建表示指定 RTE 整行的 Var 节点
  *
- * A whole-row reference is a Var with varno set to the correct range
- * table entry, and varattno == 0 to signal that it references the whole
- * tuple.  (Use of zero here is unclean, since it could easily be confused
- * with error cases, but it's not worth changing now.)  The vartype indicates
- * a rowtype; either a named composite type, or a domain over a named
- * composite type (only possible if the RTE is a function returning that),
- * or RECORD.  This function encapsulates the logic for determining the
- * correct rowtype OID to use.
+ * 整行引用是一个 Var，其 varno 设为正确的范围
+ * 表项，且 varattno == 0 表示它引用整个
+ * 元组。（这里用零并不干净，因为它很容易与
+ * 错误情形混淆，但现在不值得改。）vartype 表示
+ * 一种行类型；要么是命名的复合类型，要么是命名
+ * 复合类型上的域（仅当 RTE 是返回该类型的函数时才可能），
+ * 要么是 RECORD。本函数封装了确定
+ * 应使用的正确行类型 OID 的逻辑。
  *
- * If allowScalar is true, then for the case where the RTE is a single function
- * returning a non-composite result type, we produce a normal Var referencing
- * the function's result directly, instead of the single-column composite
- * value that the whole-row notation might otherwise suggest.
+ * 若 allowScalar 为 true，则当 RTE 是返回非复合结果类型的
+ * 单个函数时，我们生成一个直接引用
+ * 该函数结果的普通 Var，而不是整行记法否则可能暗示的
+ * 单列复合值。
  */
 Var *
 makeWholeRowVar(RangeTblEntry *rte,
@@ -145,7 +145,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 	switch (rte->rtekind)
 	{
 		case RTE_RELATION:
-			/* relation: the rowtype is a named composite type */
+			/* 关系：行类型是命名的复合类型 */
 			toid = get_rel_type_id(rte->relid);
 			if (!OidIsValid(toid))
 				ereport(ERROR,
@@ -163,15 +163,15 @@ makeWholeRowVar(RangeTblEntry *rte,
 		case RTE_SUBQUERY:
 
 			/*
-			 * For a standard subquery, the Var should be of RECORD type.
-			 * However, if we're looking at a subquery that was expanded from
-			 * a view or SRF (only possible during planning), we must use the
-			 * appropriate rowtype, so that the resulting Var has the same
-			 * type that we would have produced from the original RTE.
+			 * 对于普通子查询，Var 的类型应为 RECORD。
+			 * 不过，若我们看到的子查询是由
+			 * 视图或 SRF 展开的（仅在规划期间可能），必须使用
+			 * 适当的行类型，使得到的 Var 与
+			 * 我们从原始 RTE 生成的类型相同。
 			 */
 			if (OidIsValid(rte->relid))
 			{
-				/* Subquery was expanded from a view */
+				/* 子查询由视图展开而来 */
 				toid = get_rel_type_id(rte->relid);
 				if (!OidIsValid(toid))
 					ereport(ERROR,
@@ -182,11 +182,11 @@ makeWholeRowVar(RangeTblEntry *rte,
 			else if (rte->functions)
 			{
 				/*
-				 * Subquery was expanded from a set-returning function.  That
-				 * would not have happened if there's more than one function
-				 * or ordinality was requested.  We also needn't worry about
-				 * the allowScalar case, since the planner doesn't use that.
-				 * Otherwise this must match the RTE_FUNCTION code below.
+				 * 子查询由集合返回函数展开而来。若
+				 * 函数不止一个，
+				 * 或请求了序号列，就不会发生这种情况。allowScalar 的情况也不必担心，
+				 * 因为规划器不用它。
+				 * 否则这里必须与下面的 RTE_FUNCTION 代码一致。
 				 */
 				Assert(!allowScalar);
 				fexpr = ((RangeTblFunction *) linitial(rte->functions))->funcexpr;
@@ -196,7 +196,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 			}
 			else
 			{
-				/* Normal subquery-in-FROM */
+				/* FROM 中的普通子查询 */
 				toid = RECORDOID;
 			}
 			result = makeVar(varno,
@@ -210,13 +210,13 @@ makeWholeRowVar(RangeTblEntry *rte,
 		case RTE_FUNCTION:
 
 			/*
-			 * If there's more than one function, or ordinality is requested,
-			 * force a RECORD result, since there's certainly more than one
-			 * column involved and it can't be a known named type.
+			 * 若函数不止一个，或请求了序号列，
+			 * 强制结果为 RECORD，因为涉及的列肯定不止一列，
+			 * 而且无法是已知的命名类型。
 			 */
 			if (rte->funcordinality || list_length(rte->functions) != 1)
 			{
-				/* always produces an anonymous RECORD result */
+				/* 总是产生匿名的 RECORD 结果 */
 				result = makeVar(varno,
 								 InvalidAttrNumber,
 								 RECORDOID,
@@ -230,7 +230,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 			toid = exprType(fexpr);
 			if (type_is_rowtype(toid))
 			{
-				/* func returns composite; same as relation case */
+				/* 函数返回复合类型；与关系的情形相同 */
 				result = makeVar(varno,
 								 InvalidAttrNumber,
 								 toid,
@@ -240,7 +240,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 			}
 			else if (allowScalar)
 			{
-				/* func returns scalar; just return its output as-is */
+				/* 函数返回标量；直接原样返回其输出 */
 				result = makeVar(varno,
 								 1,
 								 toid,
@@ -250,7 +250,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 			}
 			else
 			{
-				/* func returns scalar, but we want a composite result */
+				/* 函数返回标量，但我们想要复合结果 */
 				result = makeVar(varno,
 								 InvalidAttrNumber,
 								 RECORDOID,
@@ -263,10 +263,10 @@ makeWholeRowVar(RangeTblEntry *rte,
 		default:
 
 			/*
-			 * RTE is a join, tablefunc, VALUES, CTE, etc.  We represent these
-			 * cases as a whole-row Var of RECORD type.  (Note that in most
-			 * cases the Var will be expanded to a RowExpr during planning,
-			 * but that is not our concern here.)
+			 * RTE 是连接、表函数、VALUES、CTE 等。我们把这些
+			 * 情形表示为 RECORD 类型的整行 Var。（注意在多数
+			 * 情形下，该 Var 会在规划期间被展开为 RowExpr，
+			 * 但那不是这里要关心的。）
 			 */
 			result = makeVar(varno,
 							 InvalidAttrNumber,
@@ -282,7 +282,7 @@ makeWholeRowVar(RangeTblEntry *rte,
 
 /*
  * makeTargetEntry -
- *	  creates a TargetEntry node
+ *	  创建一个 TargetEntry 节点
  */
 TargetEntry *
 makeTargetEntry(Expr *expr,
@@ -297,9 +297,9 @@ makeTargetEntry(Expr *expr,
 	tle->resname = resname;
 
 	/*
-	 * We always set these fields to 0. If the caller wants to change them he
-	 * must do so explicitly.  Few callers do that, so omitting these
-	 * arguments reduces the chance of error.
+	 * 我们总是把这些字段设为 0。若调用方想改它们，
+	 * 必须显式去做。很少有调用方这么做，因此省掉这些
+	 * 参数能降低出错的可能。
 	 */
 	tle->ressortgroupref = 0;
 	tle->resorigtbl = InvalidOid;
@@ -312,10 +312,10 @@ makeTargetEntry(Expr *expr,
 
 /*
  * flatCopyTargetEntry -
- *	  duplicate a TargetEntry, but don't copy substructure
+ *	  复制一个 TargetEntry，但不复制子结构
  *
- * This is commonly used when we just want to modify the resno or substitute
- * a new expression.
+ * 这常用于我们只想修改 resno 或替换
+ * 一个新表达式时。
  */
 TargetEntry *
 flatCopyTargetEntry(TargetEntry *src_tle)
@@ -329,7 +329,7 @@ flatCopyTargetEntry(TargetEntry *src_tle)
 
 /*
  * makeFromExpr -
- *	  creates a FromExpr node
+ *	  创建一个 FromExpr 节点
  */
 FromExpr *
 makeFromExpr(List *fromlist, Node *quals)
@@ -343,7 +343,7 @@ makeFromExpr(List *fromlist, Node *quals)
 
 /*
  * makeConst -
- *	  creates a Const node
+ *	  创建一个 Const 节点
  */
 Const *
 makeConst(Oid consttype,
@@ -357,9 +357,9 @@ makeConst(Oid consttype,
 	Const	   *cnst = makeNode(Const);
 
 	/*
-	 * If it's a varlena value, force it to be in non-expanded (non-toasted)
-	 * format; this avoids any possible dependency on external values and
-	 * improves consistency of representation, which is important for equal().
+	 * 若它是 varlena 值，强制其为非展开（非 toast）
+	 * 格式；这避免对外部值的任何可能依赖，并
+	 * 改善表示的一致性，这对 equal() 很重要。
 	 */
 	if (!constisnull && constlen == -1)
 		constvalue = PointerGetDatum(PG_DETOAST_DATUM(constvalue));
@@ -371,17 +371,17 @@ makeConst(Oid consttype,
 	cnst->constvalue = constvalue;
 	cnst->constisnull = constisnull;
 	cnst->constbyval = constbyval;
-	cnst->location = -1;		/* "unknown" */
+	cnst->location = -1;		/* "未知" */
 
 	return cnst;
 }
 
 /*
  * makeNullConst -
- *	  creates a Const node representing a NULL of the specified type/typmod
+ *	  创建一个表示指定 type/typmod 的 NULL 的 Const 节点
  *
- * This is a convenience routine that just saves a lookup of the type's
- * storage properties.
+ * 这是个便捷例程，只是省去了查找该类型
+ * 存储属性的步骤。
  */
 Const *
 makeNullConst(Oid consttype, int32 consttypmod, Oid constcollid)
@@ -401,19 +401,19 @@ makeNullConst(Oid consttype, int32 consttypmod, Oid constcollid)
 
 /*
  * makeBoolConst -
- *	  creates a Const node representing a boolean value (can be NULL too)
+ *	  创建一个表示布尔值的 Const 节点（也可以是 NULL）
  */
 Node *
 makeBoolConst(bool value, bool isnull)
 {
-	/* note that pg_type.h hardwires size of bool as 1 ... duplicate it */
+	/* 注意 pg_type.h 把 bool 的大小写死为 1……这里照抄 */
 	return (Node *) makeConst(BOOLOID, -1, InvalidOid, 1,
 							  BoolGetDatum(value), isnull, true);
 }
 
 /*
  * makeBoolExpr -
- *	  creates a BoolExpr node
+ *	  创建一个 BoolExpr 节点
  */
 Expr *
 makeBoolExpr(BoolExprType boolop, List *args, int location)
@@ -429,9 +429,9 @@ makeBoolExpr(BoolExprType boolop, List *args, int location)
 
 /*
  * makeAlias -
- *	  creates an Alias node
+ *	  创建一个 Alias 节点
  *
- * NOTE: the given name is copied, but the colnames list (if any) isn't.
+ * 注意：给定的名字会被复制，但 colnames 列表（若有）不会。
  */
 Alias *
 makeAlias(const char *aliasname, List *colnames)
@@ -446,7 +446,7 @@ makeAlias(const char *aliasname, List *colnames)
 
 /*
  * makeRelabelType -
- *	  creates a RelabelType node
+ *	  创建一个 RelabelType 节点
  */
 RelabelType *
 makeRelabelType(Expr *arg, Oid rtype, int32 rtypmod, Oid rcollid,
@@ -466,7 +466,7 @@ makeRelabelType(Expr *arg, Oid rtype, int32 rtypmod, Oid rcollid,
 
 /*
  * makeRangeVar -
- *	  creates a RangeVar node (rather oversimplified case)
+ *	  创建一个 RangeVar 节点（相当简化的情形）
  */
 RangeVar *
 makeRangeVar(char *schemaname, char *relname, int location)
@@ -486,9 +486,9 @@ makeRangeVar(char *schemaname, char *relname, int location)
 
 /*
  * makeTypeName -
- *	build a TypeName node for an unqualified name.
+ *	为一个未限定的名字构建 TypeName 节点。
  *
- * typmod is defaulted, but can be changed later by caller.
+ * typmod 取默认值，但调用方以后可以改。
  */
 TypeName *
 makeTypeName(char *typnam)
@@ -498,9 +498,9 @@ makeTypeName(char *typnam)
 
 /*
  * makeTypeNameFromNameList -
- *	build a TypeName node for a String list representing a qualified name.
+ *	为一个表示限定名的 String 列表构建 TypeName 节点。
  *
- * typmod is defaulted, but can be changed later by caller.
+ * typmod 取默认值，但调用方以后可以改。
  */
 TypeName *
 makeTypeNameFromNameList(List *names)
@@ -516,7 +516,7 @@ makeTypeNameFromNameList(List *names)
 
 /*
  * makeTypeNameFromOid -
- *	build a TypeName node to represent a type already known by OID/typmod.
+ *	构建 TypeName 节点，表示一个已由 OID/typmod 知晓的类型。
  */
 TypeName *
 makeTypeNameFromOid(Oid typeOid, int32 typmod)
@@ -531,10 +531,10 @@ makeTypeNameFromOid(Oid typeOid, int32 typmod)
 
 /*
  * makeColumnDef -
- *	build a ColumnDef node to represent a simple column definition.
+ *	构建表示简单列定义的 ColumnDef 节点。
  *
- * Type and collation are specified by OID.
- * Other properties are all basic to start with.
+ * 类型和排序规则由 OID 指定。
+ * 其他属性一开始都是基本值。
  */
 ColumnDef *
 makeColumnDef(const char *colname, Oid typeOid, int32 typmod, Oid collOid)
@@ -561,9 +561,9 @@ makeColumnDef(const char *colname, Oid typeOid, int32 typmod, Oid collOid)
 
 /*
  * makeFuncExpr -
- *	build an expression tree representing a function call.
+ *	构建表示函数调用的表达式树。
  *
- * The argument expressions must have been transformed already.
+ * 参数表达式必须已经变换过。
  */
 FuncExpr *
 makeFuncExpr(Oid funcid, Oid rettype, List *args,
@@ -574,8 +574,8 @@ makeFuncExpr(Oid funcid, Oid rettype, List *args,
 	funcexpr = makeNode(FuncExpr);
 	funcexpr->funcid = funcid;
 	funcexpr->funcresulttype = rettype;
-	funcexpr->funcretset = false;	/* only allowed case here */
-	funcexpr->funcvariadic = false; /* only allowed case here */
+	funcexpr->funcretset = false;	/* 这里只允许这种情况 */
+	funcexpr->funcvariadic = false; /* 这里只允许这种情况 */
 	funcexpr->funcformat = fformat;
 	funcexpr->funccollid = funccollid;
 	funcexpr->inputcollid = inputcollid;
@@ -587,10 +587,10 @@ makeFuncExpr(Oid funcid, Oid rettype, List *args,
 
 /*
  * makeDefElem -
- *	build a DefElem node
+ *	构建一个 DefElem 节点
  *
- * This is sufficient for the "typical" case with an unqualified option name
- * and no special action.
+ * 这对未限定选项名且没有特殊动作的 "典型" 情形
+ * 已经够用。
  */
 DefElem *
 makeDefElem(char *name, Node *arg, int location)
@@ -608,7 +608,7 @@ makeDefElem(char *name, Node *arg, int location)
 
 /*
  * makeDefElemExtended -
- *	build a DefElem node with all fields available to be specified
+ *	构建一个所有字段都可指定的 DefElem 节点
  */
 DefElem *
 makeDefElemExtended(char *nameSpace, char *name, Node *arg,
@@ -628,8 +628,8 @@ makeDefElemExtended(char *nameSpace, char *name, Node *arg,
 /*
  * makeFuncCall -
  *
- * Initialize a FuncCall struct with the information every caller must
- * supply.  Any non-default parameters have to be inserted by the caller.
+ * 用每个调用方都必须提供的信息初始化 FuncCall 结构体。
+ * 任何非默认参数都得由调用方填入。
  */
 FuncCall *
 makeFuncCall(List *name, List *args, CoercionForm funcformat, int location)
@@ -652,9 +652,9 @@ makeFuncCall(List *name, List *args, CoercionForm funcformat, int location)
 
 /*
  * make_opclause
- *	  Creates an operator clause given its operator info, left operand
- *	  and right operand (pass NULL to create single-operand clause),
- *	  and collation info.
+ *	  根据操作符信息、左操作数
+ *	  和右操作数（传入 NULL 以创建单操作数子句）
+ *	  以及排序规则信息，创建操作符子句。
  */
 Expr *
 make_opclause(Oid opno, Oid opresulttype, bool opretset,
@@ -680,7 +680,7 @@ make_opclause(Oid opno, Oid opresulttype, bool opretset,
 /*
  * make_andclause
  *
- * Creates an 'and' clause given a list of its subclauses.
+ * 根据子子句列表创建一个 'and' 子句。
  */
 Expr *
 make_andclause(List *andclauses)
@@ -696,7 +696,7 @@ make_andclause(List *andclauses)
 /*
  * make_orclause
  *
- * Creates an 'or' clause given a list of its subclauses.
+ * 根据子子句列表创建一个 'or' 子句。
  */
 Expr *
 make_orclause(List *orclauses)
@@ -712,7 +712,7 @@ make_orclause(List *orclauses)
 /*
  * make_notclause
  *
- * Create a 'not' clause given the expression to be negated.
+ * 根据要否定的表达式创建一个 'not' 子句。
  */
 Expr *
 make_notclause(Expr *notclause)
@@ -728,12 +728,12 @@ make_notclause(Expr *notclause)
 /*
  * make_and_qual
  *
- * Variant of make_andclause for ANDing two qual conditions together.
- * Qual conditions have the property that a NULL nodetree is interpreted
- * as 'true'.
+ * make_andclause 的变体，用于把两个限定条件 ANDing 在一起。
+ * 限定条件有这样的性质：NULL 节点树被解释
+ * 为 'true'。
  *
- * NB: this makes no attempt to preserve AND/OR flatness; so it should not
- * be used on a qual that has already been run through prepqual.c.
+ * 注意：这里并不试图保持 AND/OR 的平坦性；因此不应当
+ * 用于已经过 prepqual.c 处理的限定条件。
  */
 Node *
 make_and_qual(Node *qual1, Node *qual2)
@@ -746,13 +746,13 @@ make_and_qual(Node *qual1, Node *qual2)
 }
 
 /*
- * The planner and executor usually represent qualification expressions
- * as lists of boolean expressions with implicit AND semantics.
+ * 规划器和执行器通常把限定表达式
+ * 表示为带隐式 AND 语义的布尔表达式列表。
  *
- * These functions convert between an AND-semantics expression list and the
- * ordinary representation of a boolean expression.
+ * 这些函数在 AND 语义的表达式列表与
+ * 布尔表达式的普通表示之间转换。
  *
- * Note that an empty list is considered equivalent to TRUE.
+ * 注意空列表被视为等价于 TRUE。
  */
 Expr *
 make_ands_explicit(List *andclauses)
@@ -769,25 +769,25 @@ List *
 make_ands_implicit(Expr *clause)
 {
 	/*
-	 * NB: because the parser sets the qual field to NULL in a query that has
-	 * no WHERE clause, we must consider a NULL input clause as TRUE, even
-	 * though one might more reasonably think it FALSE.
+	 * 注意：因为解析器在没有 WHERE 子句的查询里把 qual 字段设为 NULL，
+	 * 我们必须把 NULL 输入子句视为 TRUE，即便
+	 * 有人更合理地认为它是 FALSE。
 	 */
 	if (clause == NULL)
-		return NIL;				/* NULL -> NIL list == TRUE */
+		return NIL;				/* NULL -> NIL 列表 == TRUE */
 	else if (is_andclause(clause))
 		return ((BoolExpr *) clause)->args;
 	else if (IsA(clause, Const) &&
 			 !((Const *) clause)->constisnull &&
 			 DatumGetBool(((Const *) clause)->constvalue))
-		return NIL;				/* constant TRUE input -> NIL list */
+		return NIL;				/* 常量 TRUE 输入 -> NIL 列表 */
 	else
 		return list_make1(clause);
 }
 
 /*
  * makeIndexInfo
- *	  create an IndexInfo node
+ *	  创建一个 IndexInfo 节点
  */
 IndexInfo *
 makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
@@ -808,35 +808,35 @@ makeIndexInfo(int numattrs, int numkeyattrs, Oid amoid, List *expressions,
 	n->ii_Concurrent = concurrent;
 	n->ii_Summarizing = summarizing;
 
-	/* summarizing indexes cannot contain non-key attributes */
+	/* 汇总索引无法包含非键属性 */
 	Assert(!summarizing || (numkeyattrs == numattrs));
 
-	/* expressions */
+	/* 表达式 */
 	n->ii_Expressions = expressions;
 	n->ii_ExpressionsState = NIL;
 
-	/* predicates  */
+	/* 谓词  */
 	n->ii_Predicate = predicates;
 	n->ii_PredicateState = NULL;
 
-	/* exclusion constraints */
+	/* 排除约束 */
 	n->ii_ExclusionOps = NULL;
 	n->ii_ExclusionProcs = NULL;
 	n->ii_ExclusionStrats = NULL;
 
-	/* opclass options */
+	/* 操作符类选项 */
 	n->ii_OpclassOptions = NULL;
 
-	/* speculative inserts */
+	/* 推测性插入 */
 	n->ii_UniqueOps = NULL;
 	n->ii_UniqueProcs = NULL;
 	n->ii_UniqueStrats = NULL;
 
-	/* initialize index-build state to default */
+	/* 把索引构建状态初始化为默认值 */
 	n->ii_BrokenHotChain = false;
 	n->ii_ParallelWorkers = 0;
 
-	/* set up for possible use by index AM */
+	/* 为索引访问方法可能的使用做准备 */
 	n->ii_Am = amoid;
 	n->ii_AmCache = NULL;
 	n->ii_Context = CurrentMemoryContext;
@@ -861,7 +861,7 @@ makeGroupingSet(GroupingSetKind kind, List *content, int location)
 
 /*
  * makeVacuumRelation -
- *	  create a VacuumRelation node
+ *	  创建一个 VacuumRelation 节点
  */
 VacuumRelation *
 makeVacuumRelation(RangeVar *relation, Oid oid, List *va_cols)
@@ -876,7 +876,7 @@ makeVacuumRelation(RangeVar *relation, Oid oid, List *va_cols)
 
 /*
  * makeJsonFormat -
- *	  creates a JsonFormat node
+ *	  创建一个 JsonFormat 节点
  */
 JsonFormat *
 makeJsonFormat(JsonFormatType type, JsonEncoding encoding, int location)
@@ -892,7 +892,7 @@ makeJsonFormat(JsonFormatType type, JsonEncoding encoding, int location)
 
 /*
  * makeJsonValueExpr -
- *	  creates a JsonValueExpr node
+ *	  创建一个 JsonValueExpr 节点
  */
 JsonValueExpr *
 makeJsonValueExpr(Expr *raw_expr, Expr *formatted_expr,
@@ -909,7 +909,7 @@ makeJsonValueExpr(Expr *raw_expr, Expr *formatted_expr,
 
 /*
  * makeJsonEncoding -
- *	  converts JSON encoding name to enum JsonEncoding
+ *	  把 JSON 编码名转换为枚举 JsonEncoding
  */
 JsonEncoding
 makeJsonEncoding(char *name)
@@ -930,7 +930,7 @@ makeJsonEncoding(char *name)
 
 /*
  * makeJsonKeyValue -
- *	  creates a JsonKeyValue node
+ *	  创建一个 JsonKeyValue 节点
  */
 Node *
 makeJsonKeyValue(Node *key, Node *value)
@@ -945,7 +945,7 @@ makeJsonKeyValue(Node *key, Node *value)
 
 /*
  * makeJsonIsPredicate -
- *	  creates a JsonIsPredicate node
+ *	  创建一个 JsonIsPredicate 节点
  */
 Node *
 makeJsonIsPredicate(Node *expr, JsonFormat *format, JsonValueType item_type,

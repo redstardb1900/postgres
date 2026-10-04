@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "0048-comment-nodes-small",
+ "title": "zh: translate small nodes comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8e32299921a98bf07728ad645167182f742636d9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/nodes.c",
+   "kind": "c_comment",
+   "note": "newNode macro support"
+  },
+  {
+   "pattern": "src/backend/nodes/value.c",
+   "kind": "c_comment",
+   "note": "value constructors"
+  },
+  {
+   "pattern": "src/backend/nodes/extensible.c",
+   "kind": "c_comment",
+   "note": "extensible node registration"
+  },
+  {
+   "pattern": "src/backend/nodes/multibitmapset.c",
+   "kind": "c_comment",
+   "note": "multibitmapset helpers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0048-comment-nodes-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/nodes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "newNode macro support"
+  },
+  {
+   "path": "src/backend/nodes/value.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 3,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "function-name banners"
+   ],
+   "note": "value constructors"
+  },
+  {
+   "path": "src/backend/nodes/extensible.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "extensible node registration"
+  },
+  {
+   "path": "src/backend/nodes/multibitmapset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "multibitmapset helpers"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0048-comment-nodes-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

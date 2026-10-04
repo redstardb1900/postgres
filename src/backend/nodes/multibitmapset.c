@@ -32,13 +32,13 @@
 
 /*
  * mbms_add_member
- *		Add a new member to a multibitmapset.
+ *		向多位图集加入一个新成员。
  *
- * The new member is identified by "listidx", the zero-based index of the
- * List element it should go into, and "bitidx", which specifies the bit
- * number to be set therein.
+ * 新成员由 "listidx" 标识，即它应当进入的
+ * List 元素的从零开始的下标，以及 "bitidx"，指定要在其中
+ * 设置的位号。
  *
- * This is like bms_add_member, but for multibitmapsets.
+ * 这与 bms_add_member 类似，但是针对多位图集。
  */
 List *
 mbms_add_member(List *a, int listidx, int bitidx)
@@ -48,10 +48,10 @@ mbms_add_member(List *a, int listidx, int bitidx)
 
 	if (listidx < 0 || bitidx < 0)
 		elog(ERROR, "negative multibitmapset member index not allowed");
-	/* Add empty elements as needed */
+	/* 按需要加入空元素 */
 	while (list_length(a) <= listidx)
 		a = lappend(a, NULL);
-	/* Update the target element */
+	/* 更新目标元素 */
 	lc = list_nth_cell(a, listidx);
 	bms = lfirst_node(Bitmapset, lc);
 	bms = bms_add_member(bms, bitidx);
@@ -61,11 +61,11 @@ mbms_add_member(List *a, int listidx, int bitidx)
 
 /*
  * mbms_add_members
- *		Add all members of set b to set a.
+ *		把集合 b 的全部成员加入集合 a。
  *
- * This is a UNION operation, but the left input is modified in-place.
+ * 这是 UNION 操作，但左输入被就地修改。
  *
- * This is like bms_add_members, but for multibitmapsets.
+ * 这与 bms_add_members 类似，但是针对多位图集。
  */
 List *
 mbms_add_members(List *a, const List *b)
@@ -73,10 +73,10 @@ mbms_add_members(List *a, const List *b)
 	ListCell   *lca,
 			   *lcb;
 
-	/* Add empty elements to a, as needed */
+	/* 按需要给 a 加入空元素 */
 	while (list_length(a) < list_length(b))
 		a = lappend(a, NULL);
-	/* forboth will stop at the end of the shorter list, which is fine */
+	/* forboth 会在较短列表的末尾停下，这没问题 */
 	forboth(lca, a, lcb, b)
 	{
 		Bitmapset  *bmsa = lfirst_node(Bitmapset, lca);
@@ -90,11 +90,11 @@ mbms_add_members(List *a, const List *b)
 
 /*
  * mbms_int_members
- *		Reduce set a to its intersection with set b.
+ *		把集合 a 缩减为它与集合 b 的交集。
  *
- * This is an INTERSECT operation, but the left input is modified in-place.
+ * 这是 INTERSECT 操作，但左输入被就地修改。
  *
- * This is like bms_int_members, but for multibitmapsets.
+ * 这与 bms_int_members 类似，但是针对多位图集。
  */
 List *
 mbms_int_members(List *a, const List *b)
@@ -102,9 +102,9 @@ mbms_int_members(List *a, const List *b)
 	ListCell   *lca,
 			   *lcb;
 
-	/* Remove any elements of a that are no longer of use */
+	/* 去掉 a 中不再有用的任何元素 */
 	a = list_truncate(a, list_length(b));
-	/* forboth will stop at the end of the shorter list, which is fine */
+	/* forboth 会在较短列表的末尾停下，这没问题 */
 	forboth(lca, a, lcb, b)
 	{
 		Bitmapset  *bmsa = lfirst_node(Bitmapset, lca);
@@ -118,16 +118,16 @@ mbms_int_members(List *a, const List *b)
 
 /*
  * mbms_is_member
- *		Is listidx/bitidx a member of A?
+ *		listidx/bitidx 是 A 的成员吗？
  *
- * This is like bms_is_member, but for multibitmapsets.
+ * 这与 bms_is_member 类似，但是针对多位图集。
  */
 bool
 mbms_is_member(int listidx, int bitidx, const List *a)
 {
 	const Bitmapset *bms;
 
-	/* XXX better to just return false for negative indexes? */
+	/* XXX：对负下标直接返回 false 是否更好？ */
 	if (listidx < 0 || bitidx < 0)
 		elog(ERROR, "negative multibitmapset member index not allowed");
 	if (listidx >= list_length(a))
@@ -138,9 +138,9 @@ mbms_is_member(int listidx, int bitidx, const List *a)
 
 /*
  * mbms_overlap_sets
- *		Identify the bitmapsets having common members in a and b.
+ *		找出 a 和 b 中有共同成员的位图集。
  *
- * The result is a bitmapset of the list indexes of bitmapsets that overlap.
+ * 结果是这些重叠位图集的列表下标组成的位图集。
  */
 Bitmapset *
 mbms_overlap_sets(const List *a, const List *b)
@@ -149,7 +149,7 @@ mbms_overlap_sets(const List *a, const List *b)
 	ListCell   *lca,
 			   *lcb;
 
-	/* forboth will stop at the end of the shorter list, which is fine */
+	/* forboth 会在较短列表的末尾停下，这没问题 */
 	forboth(lca, a, lcb, b)
 	{
 		const Bitmapset *bmsa = lfirst_node(Bitmapset, lca);

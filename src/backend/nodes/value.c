@@ -31,7 +31,7 @@ makeInteger(int i)
 /*
  *	makeFloat
  *
- * Caller is responsible for passing a palloc'd string.
+ * 调用方负责传入一个 palloc 出来的字符串。
  */
 Float *
 makeFloat(char *numericStr)
@@ -57,7 +57,7 @@ makeBoolean(bool val)
 /*
  *	makeString
  *
- * Caller is responsible for passing a palloc'd string.
+ * 调用方负责传入一个 palloc 出来的字符串。
  */
 String *
 makeString(char *str)
@@ -71,7 +71,7 @@ makeString(char *str)
 /*
  *	makeBitString
  *
- * Caller is responsible for passing a palloc'd string.
+ * 调用方负责传入一个 palloc 出来的字符串。
  */
 BitString *
 makeBitString(char *str)

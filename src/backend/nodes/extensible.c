@@ -33,7 +33,7 @@ typedef struct
 } ExtensibleNodeEntry;
 
 /*
- * An internal function to register a new callback structure
+ * 注册新回调结构的内部函数
  */
 static void
 RegisterExtensibleNodeEntry(HTAB **p_htable, const char *htable_label,
@@ -70,7 +70,7 @@ RegisterExtensibleNodeEntry(HTAB **p_htable, const char *htable_label,
 }
 
 /*
- * Register a new type of extensible node.
+ * 注册一种新的可扩展节点类型。
  */
 void
 RegisterExtensibleNodeMethods(const ExtensibleNodeMethods *methods)
@@ -82,7 +82,7 @@ RegisterExtensibleNodeMethods(const ExtensibleNodeMethods *methods)
 }
 
 /*
- * Register a new type of custom scan node
+ * 注册一种新的自定义扫描节点
  */
 void
 RegisterCustomScanMethods(const CustomScanMethods *methods)
@@ -94,7 +94,7 @@ RegisterCustomScanMethods(const CustomScanMethods *methods)
 }
 
 /*
- * An internal routine to get an ExtensibleNodeEntry by the given identifier
+ * 按给定标识符取得 ExtensibleNodeEntry 的内部例程
  */
 static const void *
 GetExtensibleNodeEntry(HTAB *htable, const char *extnodename, bool missing_ok)
@@ -119,7 +119,7 @@ GetExtensibleNodeEntry(HTAB *htable, const char *extnodename, bool missing_ok)
 }
 
 /*
- * Get the methods for a given type of extensible node.
+ * 取得给定可扩展节点类型的方法。
  */
 const ExtensibleNodeMethods *
 GetExtensibleNodeMethods(const char *extnodename, bool missing_ok)
@@ -131,7 +131,7 @@ GetExtensibleNodeMethods(const char *extnodename, bool missing_ok)
 }
 
 /*
- * Get the methods for a given name of CustomScanMethods
+ * 按给定名字取得 CustomScanMethods 的方法
  */
 const CustomScanMethods *
 GetCustomScanMethods(const char *CustomName, bool missing_ok)

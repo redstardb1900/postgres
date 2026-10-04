@@ -21,11 +21,11 @@
 #include "nodes/nodes.h"
 
 /*
- * Support for newNode() macro
+ * newNode() 宏的支持
  *
- * In a GCC build there is no need for the global variable newNodeMacroHolder.
- * However, we create it anyway, to support the case of a non-GCC-built
- * loadable module being loaded into a GCC-built backend.
+ * 在 GCC 构建中不需要全局变量 newNodeMacroHolder。
+ * 不过我们仍然创建它，以支持把非 GCC 构建的
+ * 可加载模块加载进 GCC 构建的后端这种情况。
  */
 
 Node	   *newNodeMacroHolder;

@@ -1,0 +1,60 @@
+{
+ "schema_version": 1,
+ "batch_id": "0056-comment-nodes-tidbitmap",
+ "title": "zh: translate tidbitmap comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f50c7230e22ddef358e83cc2ef05b020c62bf6de",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/tidbitmap.c",
+   "kind": "c_comment",
+   "note": "tuple-id bitmap package"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0056-comment-nodes-tidbitmap.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/tidbitmap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 185,
+   "translated": 184,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "tuple-id bitmap package"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0056-comment-nodes-tidbitmap.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

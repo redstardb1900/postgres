@@ -48,183 +48,183 @@
 #include "utils/dsa.h"
 
 /*
- * The maximum number of tuples per page is not large (typically 256 with
- * 8K pages, or 1024 with 32K pages).  So there's not much point in making
- * the per-page bitmaps variable size.  We just legislate that the size
- * is this:
+ * 每页的最大元组数并不大（8K 页通常是 256，
+ * 32K 页是 1024）。因此没必要把
+ * 每页位图做成可变大小。我们直接规定大小
+ * 就是这样：
  */
 #define MAX_TUPLES_PER_PAGE  MaxHeapTuplesPerPage
 
 /*
- * When we have to switch over to lossy storage, we use a data structure
- * with one bit per page, where all pages having the same number DIV
- * PAGES_PER_CHUNK are aggregated into one chunk.  When a chunk is present
- * and has the bit set for a given page, there must not be a per-page entry
- * for that page in the page table.
+ * 当我们不得不改用有损存储时，使用每个页一位的数据结构，
+ * 其中页号 DIV
+ * PAGES_PER_CHUNK 相同的所有页被聚成一个组块。当某个组块存在
+ * 且对给定页置了位时，页表中不得再有该页的
+ * 按页条目。
  *
- * We actually store both exact pages and lossy chunks in the same hash
- * table, using identical data structures.  (This is because the memory
- * management for hashtables doesn't easily/efficiently allow space to be
- * transferred easily from one hashtable to another.)  Therefore it's best
- * if PAGES_PER_CHUNK is the same as MAX_TUPLES_PER_PAGE, or at least not
- * too different.  But we also want PAGES_PER_CHUNK to be a power of 2 to
- * avoid expensive integer remainder operations.  So, define it like this:
+ * 实际上我们把精确页和有损组块存在同一个哈希
+ * 表里，使用相同的数据结构。（这是因为哈希表的内存
+ * 管理不容易、也不高效地把空间
+ * 方便地从一个哈希表转到另一个。）因此最好让
+ * PAGES_PER_CHUNK 与 MAX_TUPLES_PER_PAGE 相同，或至少不要
+ * 差太多。但我们也希望 PAGES_PER_CHUNK 是 2 的幂，以
+ * 避免昂贵的整数取余。因此这样定义：
  */
 #define PAGES_PER_CHUNK  (BLCKSZ / 32)
 
-/* We use BITS_PER_BITMAPWORD and typedef bitmapword from nodes/bitmapset.h */
+/* 我们使用 nodes/bitmapset.h 中的 BITS_PER_BITMAPWORD 和 typedef bitmapword */
 
 #define WORDNUM(x)	((x) / BITS_PER_BITMAPWORD)
 #define BITNUM(x)	((x) % BITS_PER_BITMAPWORD)
 
-/* number of active words for an exact page: */
+/* 精确页的活动字数： */
 #define WORDS_PER_PAGE	((MAX_TUPLES_PER_PAGE - 1) / BITS_PER_BITMAPWORD + 1)
-/* number of active words for a lossy chunk: */
+/* 有损组块的活动字数： */
 #define WORDS_PER_CHUNK  ((PAGES_PER_CHUNK - 1) / BITS_PER_BITMAPWORD + 1)
 
 /*
- * The hashtable entries are represented by this data structure.  For
- * an exact page, blockno is the page number and bit k of the bitmap
- * represents tuple offset k+1.  For a lossy chunk, blockno is the first
- * page in the chunk (this must be a multiple of PAGES_PER_CHUNK) and
- * bit k represents page blockno+k.  Note that it is not possible to
- * have exact storage for the first page of a chunk if we are using
- * lossy storage for any page in the chunk's range, since the same
- * hashtable entry has to serve both purposes.
+ * 哈希表项用这个数据结构表示。对于
+ * 精确页，blockno 是页号，位图的第 k 位
+ * 表示元组偏移 k+1。对于有损组块，blockno 是组块中的第一
+ * 页（它必须是 PAGES_PER_CHUNK 的倍数），
+ * 第 k 位表示页 blockno+k。注意，若组块范围内
+ * 任一页使用有损存储，就无法对该组块的第一页
+ * 做精确存储，因为同一个
+ * 哈希表项必须同时承担两种用途。
  *
- * recheck is used only on exact pages --- it indicates that although
- * only the stated tuples need be checked, the full index qual condition
- * must be checked for each (ie, these are candidate matches).
+ * recheck 只用于精确页——它表示虽然
+ * 只需要检查所说的那些元组，但对每个元组仍必须检查完整的索引限定条件
+ * （即这些是候选匹配）。
  */
 typedef struct PagetableEntry
 {
-	BlockNumber blockno;		/* page number (hashtable key) */
-	char		status;			/* hash entry status */
-	bool		ischunk;		/* T = lossy storage, F = exact */
-	bool		recheck;		/* should the tuples be rechecked? */
+	BlockNumber blockno;		/* 页号（哈希表键） */
+	char		status;			/* 哈希项状态 */
+	bool		ischunk;		/* T = 有损存储，F = 精确 */
+	bool		recheck;		/* 这些元组是否应当重新检查？ */
 	bitmapword	words[Max(WORDS_PER_PAGE, WORDS_PER_CHUNK)];
 } PagetableEntry;
 
 /*
- * Holds array of pagetable entries.
+ * 存放页表项数组。
  */
 typedef struct PTEntryArray
 {
-	pg_atomic_uint32 refcount;	/* no. of iterator attached */
+	pg_atomic_uint32 refcount;	/* 已挂接的迭代器数 */
 	PagetableEntry ptentry[FLEXIBLE_ARRAY_MEMBER];
 } PTEntryArray;
 
 /*
- * We want to avoid the overhead of creating the hashtable, which is
- * comparatively large, when not necessary. Particularly when we are using a
- * bitmap scan on the inside of a nestloop join: a bitmap may well live only
- * long enough to accumulate one entry in such cases.  We therefore avoid
- * creating an actual hashtable until we need two pagetable entries.  When
- * just one pagetable entry is needed, we store it in a fixed field of
- * TIDBitMap.  (NOTE: we don't get rid of the hashtable if the bitmap later
- * shrinks down to zero or one page again.  So, status can be TBM_HASH even
- * when nentries is zero or one.)
+ * 我们希望在不必要时避免创建哈希表的开销，它
+ * 相对较大。尤其是在嵌套循环连接内侧使用位图
+ * 扫描时：这种情况下位图很可能只
+ * 活到积累一个条目。因此我们等到需要两个页表条目时
+ * 才创建真正的哈希表。当
+ * 只需要一个页表条目时，把它存在
+ * TIDBitMap 的固定字段里。（注意：若位图后来
+ * 又缩回零页或一页，我们并不丢掉哈希表。
+ * 因此即使 nentries 为零或一，状态也可以是 TBM_HASH。）
  */
 typedef enum
 {
-	TBM_EMPTY,					/* no hashtable, nentries == 0 */
-	TBM_ONE_PAGE,				/* entry1 contains the single entry */
-	TBM_HASH					/* pagetable is valid, entry1 is not */
+	TBM_EMPTY,					/* 没有哈希表，nentries == 0 */
+	TBM_ONE_PAGE,				/* entry1 存放那唯一的条目 */
+	TBM_HASH					/* pagetable 有效，entry1 无效 */
 } TBMStatus;
 
 /*
- * Current iterating state of the TBM.
+ * TBM 当前的迭代状态。
  */
 typedef enum
 {
-	TBM_NOT_ITERATING,			/* not yet converted to page and chunk array */
-	TBM_ITERATING_PRIVATE,		/* converted to local page and chunk array */
-	TBM_ITERATING_SHARED		/* converted to shared page and chunk array */
+	TBM_NOT_ITERATING,			/* 尚未转换成页数组和组块数组 */
+	TBM_ITERATING_PRIVATE,		/* 已转换成本地页数组和组块数组 */
+	TBM_ITERATING_SHARED		/* 已转换成共享页数组和组块数组 */
 } TBMIteratingState;
 
 /*
- * Here is the representation for a whole TIDBitMap:
+ * 整个 TIDBitMap 的表示如下：
  */
 struct TIDBitmap
 {
-	NodeTag		type;			/* to make it a valid Node */
-	MemoryContext mcxt;			/* memory context containing me */
-	TBMStatus	status;			/* see codes above */
-	struct pagetable_hash *pagetable;	/* hash table of PagetableEntry's */
-	int			nentries;		/* number of entries in pagetable */
-	int			maxentries;		/* limit on same to meet maxbytes */
-	int			npages;			/* number of exact entries in pagetable */
-	int			nchunks;		/* number of lossy entries in pagetable */
-	TBMIteratingState iterating;	/* tbm_begin_iterate called? */
-	uint32		lossify_start;	/* offset to start lossifying hashtable at */
-	PagetableEntry entry1;		/* used when status == TBM_ONE_PAGE */
-	/* these are valid when iterating is true: */
-	PagetableEntry **spages;	/* sorted exact-page list, or NULL */
-	PagetableEntry **schunks;	/* sorted lossy-chunk list, or NULL */
-	dsa_pointer dsapagetable;	/* dsa_pointer to the element array */
-	dsa_pointer dsapagetableold;	/* dsa_pointer to the old element array */
-	dsa_pointer ptpages;		/* dsa_pointer to the page array */
-	dsa_pointer ptchunks;		/* dsa_pointer to the chunk array */
-	dsa_area   *dsa;			/* reference to per-query dsa area */
+	NodeTag		type;			/* 使它成为有效的 Node */
+	MemoryContext mcxt;			/* 包含我的内存上下文 */
+	TBMStatus	status;			/* 见上面的代码 */
+	struct pagetable_hash *pagetable;	/* PagetableEntry 的哈希表 */
+	int			nentries;		/* 页表中的条目数 */
+	int			maxentries;		/* 为满足 maxbytes 而对同样项设的上限 */
+	int			npages;			/* 页表中的精确条目数 */
+	int			nchunks;		/* 页表中的有损条目数 */
+	TBMIteratingState iterating;	/* 调用过 tbm_begin_iterate 吗？ */
+	uint32		lossify_start;	/* 开始把哈希表变成有损的偏移 */
+	PagetableEntry entry1;		/* 当 status == TBM_ONE_PAGE 时使用 */
+	/* 当 iterating 为 true 时这些有效： */
+	PagetableEntry **spages;	/* 排好序的精确页列表，或 NULL */
+	PagetableEntry **schunks;	/* 排好序的有损组块列表，或 NULL */
+	dsa_pointer dsapagetable;	/* 指向元素数组的 dsa_pointer */
+	dsa_pointer dsapagetableold;	/* 指向旧元素数组的 dsa_pointer */
+	dsa_pointer ptpages;		/* 指向页数组的 dsa_pointer */
+	dsa_pointer ptchunks;		/* 指向组块数组的 dsa_pointer */
+	dsa_area   *dsa;			/* 对每个查询的 dsa 区域的引用 */
 };
 
 /*
- * When iterating over a bitmap in sorted order, a TBMIterator is used to
- * track our progress.  There can be several iterators scanning the same
- * bitmap concurrently.  Note that the bitmap becomes read-only as soon as
- * any iterator is created.
+ * 按排序顺序遍历位图时，用 TBMIterator 来
+ * 跟踪进度。可以有多个迭代器同时扫描同一
+ * 位图。注意，一旦创建了任何迭代器，
+ * 位图就变为只读。
  */
 struct TBMIterator
 {
-	TIDBitmap  *tbm;			/* TIDBitmap we're iterating over */
-	int			spageptr;		/* next spages index */
-	int			schunkptr;		/* next schunks index */
-	int			schunkbit;		/* next bit to check in current schunk */
-	TBMIterateResult output;	/* MUST BE LAST (because variable-size) */
+	TIDBitmap  *tbm;			/* 我们正在遍历的 TIDBitmap */
+	int			spageptr;		/* 下一个 spages 下标 */
+	int			schunkptr;		/* 下一个 schunks 下标 */
+	int			schunkbit;		/* 当前 schunk 中下一个要检查的位 */
+	TBMIterateResult output;	/* 必须放在最后（因为大小可变） */
 };
 
 /*
- * Holds the shared members of the iterator so that multiple processes
- * can jointly iterate.
+ * 存放迭代器的共享成员，以便多个进程
+ * 可以联合迭代。
  */
 typedef struct TBMSharedIteratorState
 {
-	int			nentries;		/* number of entries in pagetable */
-	int			maxentries;		/* limit on same to meet maxbytes */
-	int			npages;			/* number of exact entries in pagetable */
-	int			nchunks;		/* number of lossy entries in pagetable */
-	dsa_pointer pagetable;		/* dsa pointers to head of pagetable data */
-	dsa_pointer spages;			/* dsa pointer to page array */
-	dsa_pointer schunks;		/* dsa pointer to chunk array */
-	LWLock		lock;			/* lock to protect below members */
-	int			spageptr;		/* next spages index */
-	int			schunkptr;		/* next schunks index */
-	int			schunkbit;		/* next bit to check in current schunk */
+	int			nentries;		/* 页表中的条目数 */
+	int			maxentries;		/* 为满足 maxbytes 而对同样项设的上限 */
+	int			npages;			/* 页表中的精确条目数 */
+	int			nchunks;		/* 页表中的有损条目数 */
+	dsa_pointer pagetable;		/* 指向页表数据头的 dsa 指针 */
+	dsa_pointer spages;			/* 指向页数组的 dsa 指针 */
+	dsa_pointer schunks;		/* 指向组块数组的 dsa 指针 */
+	LWLock		lock;			/* 保护下面这些成员的锁 */
+	int			spageptr;		/* 下一个 spages 下标 */
+	int			schunkptr;		/* 下一个 schunks 下标 */
+	int			schunkbit;		/* 当前 schunk 中下一个要检查的位 */
 } TBMSharedIteratorState;
 
 /*
- * pagetable iteration array.
+ * 页表迭代数组。
  */
 typedef struct PTIterationArray
 {
-	pg_atomic_uint32 refcount;	/* no. of iterator attached */
-	int			index[FLEXIBLE_ARRAY_MEMBER];	/* index array */
+	pg_atomic_uint32 refcount;	/* 已挂接的迭代器数 */
+	int			index[FLEXIBLE_ARRAY_MEMBER];	/* 下标数组 */
 } PTIterationArray;
 
 /*
- * same as TBMIterator, but it is used for joint iteration, therefore this
- * also holds a reference to the shared state.
+ * 与 TBMIterator 相同，但用于联合迭代，因此它
+ * 还持有对共享状态的引用。
  */
 struct TBMSharedIterator
 {
-	TBMSharedIteratorState *state;	/* shared state */
-	PTEntryArray *ptbase;		/* pagetable element array */
-	PTIterationArray *ptpages;	/* sorted exact page index list */
-	PTIterationArray *ptchunks; /* sorted lossy page index list */
-	TBMIterateResult output;	/* MUST BE LAST (because variable-size) */
+	TBMSharedIteratorState *state;	/* 共享状态 */
+	PTEntryArray *ptbase;		/* 页表元素数组 */
+	PTIterationArray *ptpages;	/* 排好序的精确页下标列表 */
+	PTIterationArray *ptchunks; /* 排好序的有损页下标列表 */
+	TBMIterateResult output;	/* 必须放在最后（因为大小可变） */
 };
 
-/* Local function prototypes */
+/* 本地函数原型 */
 static void tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage);
 static bool tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage,
 							   const TIDBitmap *b);
@@ -238,7 +238,7 @@ static int	tbm_comparator(const void *left, const void *right);
 static int	tbm_shared_comparator(const void *left, const void *right,
 								  void *arg);
 
-/* define hashtable mapping block numbers to PagetableEntry's */
+/* 定义把块号映射到 PagetableEntry 的哈希表 */
 #define SH_USE_NONDEFAULT_ALLOCATOR
 #define SH_PREFIX pagetable
 #define SH_ELEMENT_TYPE PagetableEntry
@@ -253,20 +253,20 @@ static int	tbm_shared_comparator(const void *left, const void *right,
 
 
 /*
- * tbm_create - create an initially-empty bitmap
+ * tbm_create - 创建一个最初为空的位图
  *
- * The bitmap will live in the memory context that is CurrentMemoryContext
- * at the time of this call.  It will be limited to (approximately) maxbytes
- * total memory consumption.  If the DSA passed to this function is not NULL
- * then the memory for storing elements of the underlying page table will
- * be allocated from the DSA.
+ * 该位图将活在本次调用时 CurrentMemoryContext
+ * 所在的内存上下文中。它的总内存消耗将限制在（大约）maxbytes。
+ * 若传给本函数的 DSA 不是 NULL，
+ * 则底层页表元素的存储内存将
+ * 从该 DSA 分配。
  */
 TIDBitmap *
 tbm_create(long maxbytes, dsa_area *dsa)
 {
 	TIDBitmap  *tbm;
 
-	/* Create the TIDBitmap struct and zero all its fields */
+	/* 创建 TIDBitmap 结构体并把所有字段清零 */
 	tbm = makeNode(TIDBitmap);
 
 	tbm->mcxt = CurrentMemoryContext;
@@ -284,8 +284,8 @@ tbm_create(long maxbytes, dsa_area *dsa)
 }
 
 /*
- * Actually create the hashtable.  Since this is a moderately expensive
- * proposition, we don't do it until we have to.
+ * 真正创建哈希表。因为这相当
+ * 昂贵，我们等到必须时才做。
  */
 static void
 tbm_create_pagetable(TIDBitmap *tbm)
@@ -295,7 +295,7 @@ tbm_create_pagetable(TIDBitmap *tbm)
 
 	tbm->pagetable = pagetable_create(tbm->mcxt, 128, tbm);
 
-	/* If entry1 is valid, push it into the hashtable */
+	/* 若 entry1 有效，把它推进哈希表 */
 	if (tbm->status == TBM_ONE_PAGE)
 	{
 		PagetableEntry *page;
@@ -315,7 +315,7 @@ tbm_create_pagetable(TIDBitmap *tbm)
 }
 
 /*
- * tbm_free - free a TIDBitmap
+ * tbm_free - 释放一个 TIDBitmap
  */
 void
 tbm_free(TIDBitmap *tbm)
@@ -330,11 +330,11 @@ tbm_free(TIDBitmap *tbm)
 }
 
 /*
- * tbm_free_shared_area - free shared state
+ * tbm_free_shared_area - 释放共享状态
  *
- * Free shared iterator state, Also free shared pagetable and iterator arrays
- * memory if they are not referred by any of the shared iterator i.e recount
- * is becomes 0.
+ * 释放共享迭代器状态；若没有任何共享迭代器引用，
+ * 也释放共享页表和迭代器数组的内存，即 recount
+ * 变为 0。
  */
 void
 tbm_free_shared_area(dsa_area *dsa, dsa_pointer dp)
@@ -367,17 +367,17 @@ tbm_free_shared_area(dsa_area *dsa, dsa_pointer dp)
 }
 
 /*
- * tbm_add_tuples - add some tuple IDs to a TIDBitmap
+ * tbm_add_tuples - 向 TIDBitmap 加入一些元组 ID
  *
- * If recheck is true, then the recheck flag will be set in the
- * TBMIterateResult when any of these tuples are reported out.
+ * 若 recheck 为 true，则当这些元组中的任何一个被报告出来时，
+ * 会在 TBMIterateResult 中设置重新检查标志。
  */
 void
 tbm_add_tuples(TIDBitmap *tbm, const ItemPointer tids, int ntids,
 			   bool recheck)
 {
 	BlockNumber currblk = InvalidBlockNumber;
-	PagetableEntry *page = NULL;	/* only valid when currblk is valid */
+	PagetableEntry *page = NULL;	/* 仅当 currblk 有效时才有效 */
 	int			i;
 
 	Assert(tbm->iterating == TBM_NOT_ITERATING);
@@ -388,35 +388,35 @@ tbm_add_tuples(TIDBitmap *tbm, const ItemPointer tids, int ntids,
 		int			wordnum,
 					bitnum;
 
-		/* safety check to ensure we don't overrun bit array bounds */
+		/* 安全检查，确保不会越出位数组边界 */
 		if (off < 1 || off > MAX_TUPLES_PER_PAGE)
 			elog(ERROR, "tuple offset out of range: %u", off);
 
 		/*
-		 * Look up target page unless we already did.  This saves cycles when
-		 * the input includes consecutive tuples on the same page, which is
-		 * common enough to justify an extra test here.
+		 * 除非已经查过，否则查找目标页。当输入包含
+		 * 同一页上连续的元组时，这能省下一些周期，而这种情况
+		 * 常见到值得在这里多做一次测试。
 		 */
 		if (blk != currblk)
 		{
 			if (tbm_page_is_lossy(tbm, blk))
-				page = NULL;	/* remember page is lossy */
+				page = NULL;	/* 记住该页是有损的 */
 			else
 				page = tbm_get_pageentry(tbm, blk);
 			currblk = blk;
 		}
 
 		if (page == NULL)
-			continue;			/* whole page is already marked */
+			continue;			/* 整页已经被标过 */
 
 		if (page->ischunk)
 		{
-			/* The page is a lossy chunk header, set bit for itself */
+			/* 该页是有损组块头，为自己置位 */
 			wordnum = bitnum = 0;
 		}
 		else
 		{
-			/* Page is exact, so set bit for individual tuple */
+			/* 该页是精确的，因此为单个元组置位 */
 			wordnum = WORDNUM(off - 1);
 			bitnum = BITNUM(off - 1);
 		}
@@ -426,41 +426,41 @@ tbm_add_tuples(TIDBitmap *tbm, const ItemPointer tids, int ntids,
 		if (tbm->nentries > tbm->maxentries)
 		{
 			tbm_lossify(tbm);
-			/* Page could have been converted to lossy, so force new lookup */
+			/* 该页可能已被转换成有损，因此强制重新查找 */
 			currblk = InvalidBlockNumber;
 		}
 	}
 }
 
 /*
- * tbm_add_page - add a whole page to a TIDBitmap
+ * tbm_add_page - 向 TIDBitmap 加入整页
  *
- * This causes the whole page to be reported (with the recheck flag)
- * when the TIDBitmap is scanned.
+ * 这会使扫描 TIDBitmap 时报告整页
+ * （并带上重新检查标志）。
  */
 void
 tbm_add_page(TIDBitmap *tbm, BlockNumber pageno)
 {
-	/* Enter the page in the bitmap, or mark it lossy if already present */
+	/* 把该页记入位图，若已存在则标为有损 */
 	tbm_mark_page_lossy(tbm, pageno);
-	/* If we went over the memory limit, lossify some more pages */
+	/* 若超过了内存限制，再把更多页变成有损 */
 	if (tbm->nentries > tbm->maxentries)
 		tbm_lossify(tbm);
 }
 
 /*
- * tbm_union - set union
+ * tbm_union - 集合并
  *
- * a is modified in-place, b is not changed
+ * a 被就地修改，b 不变
  */
 void
 tbm_union(TIDBitmap *a, const TIDBitmap *b)
 {
 	Assert(!a->iterating);
-	/* Nothing to do if b is empty */
+	/* 若 b 为空则无事可做 */
 	if (b->nentries == 0)
 		return;
-	/* Scan through chunks and pages in b, merge into a */
+	/* 扫描 b 中的组块和页，并入 a */
 	if (b->status == TBM_ONE_PAGE)
 		tbm_union_page(a, &b->entry1);
 	else
@@ -475,7 +475,7 @@ tbm_union(TIDBitmap *a, const TIDBitmap *b)
 	}
 }
 
-/* Process one page of b during a union op */
+/* 在并操作期间处理 b 的一页 */
 static void
 tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage)
 {
@@ -484,7 +484,7 @@ tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage)
 
 	if (bpage->ischunk)
 	{
-		/* Scan b's chunk, mark each indicated page lossy in a */
+		/* 扫描 b 的组块，把每个所指的页在 a 中标为有损 */
 		for (wordnum = 0; wordnum < WORDS_PER_CHUNK; wordnum++)
 		{
 			bitmapword	w = bpage->words[wordnum];
@@ -506,7 +506,7 @@ tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage)
 	}
 	else if (tbm_page_is_lossy(a, bpage->blockno))
 	{
-		/* page is already lossy in a, nothing to do */
+		/* 该页在 a 中已经是有损的，无事可做 */
 		return;
 	}
 	else
@@ -514,12 +514,12 @@ tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage)
 		apage = tbm_get_pageentry(a, bpage->blockno);
 		if (apage->ischunk)
 		{
-			/* The page is a lossy chunk header, set bit for itself */
+			/* 该页是有损组块头，为自己置位 */
 			apage->words[0] |= ((bitmapword) 1 << 0);
 		}
 		else
 		{
-			/* Both pages are exact, merge at the bit level */
+			/* 两页都是精确的，在位一级合并 */
 			for (wordnum = 0; wordnum < WORDS_PER_PAGE; wordnum++)
 				apage->words[wordnum] |= bpage->words[wordnum];
 			apage->recheck |= bpage->recheck;
@@ -531,23 +531,23 @@ tbm_union_page(TIDBitmap *a, const PagetableEntry *bpage)
 }
 
 /*
- * tbm_intersect - set intersection
+ * tbm_intersect - 集合交
  *
- * a is modified in-place, b is not changed
+ * a 被就地修改，b 不变
  */
 void
 tbm_intersect(TIDBitmap *a, const TIDBitmap *b)
 {
 	Assert(!a->iterating);
-	/* Nothing to do if a is empty */
+	/* 若 a 为空则无事可做 */
 	if (a->nentries == 0)
 		return;
-	/* Scan through chunks and pages in a, try to match to b */
+	/* 扫描 a 中的组块和页，尝试与 b 匹配 */
 	if (a->status == TBM_ONE_PAGE)
 	{
 		if (tbm_intersect_page(a, &a->entry1, b))
 		{
-			/* Page is now empty, remove it from a */
+			/* 该页现在为空，从 a 中去掉 */
 			Assert(!a->entry1.ischunk);
 			a->npages--;
 			a->nentries--;
@@ -566,7 +566,7 @@ tbm_intersect(TIDBitmap *a, const TIDBitmap *b)
 		{
 			if (tbm_intersect_page(a, apage, b))
 			{
-				/* Page or chunk is now empty, remove it from a */
+				/* 页或组块现在为空，从 a 中去掉 */
 				if (apage->ischunk)
 					a->nchunks--;
 				else
@@ -580,9 +580,9 @@ tbm_intersect(TIDBitmap *a, const TIDBitmap *b)
 }
 
 /*
- * Process one page of a during an intersection op
+ * 在交操作期间处理 a 的一页
  *
- * Returns true if apage is now empty and should be deleted from a
+ * 若 apage 现在为空、应从 a 中删除，则返回 true
  */
 static bool
 tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
@@ -592,7 +592,7 @@ tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
 
 	if (apage->ischunk)
 	{
-		/* Scan each bit in chunk, try to clear */
+		/* 扫描组块中的每一位，尝试清除 */
 		bool		candelete = true;
 
 		for (wordnum = 0; wordnum < WORDS_PER_CHUNK; wordnum++)
@@ -614,7 +614,7 @@ tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
 						if (!tbm_page_is_lossy(b, pg) &&
 							tbm_find_pageentry(b, pg) == NULL)
 						{
-							/* Page is not in b at all, lose lossy bit */
+							/* 该页根本不在 b 中，丢掉有损位 */
 							neww &= ~((bitmapword) 1 << bitnum);
 						}
 					}
@@ -632,10 +632,10 @@ tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
 	else if (tbm_page_is_lossy(b, apage->blockno))
 	{
 		/*
-		 * Some of the tuples in 'a' might not satisfy the quals for 'b', but
-		 * because the page 'b' is lossy, we don't know which ones. Therefore
-		 * we mark 'a' as requiring rechecks, to indicate that at most those
-		 * tuples set in 'a' are matches.
+		 * 'a' 中的某些元组也许不满足 'b' 的限定条件，但
+		 * 因为页 'b' 是有损的，我们不知道是哪些。因此
+		 * 我们把 'a' 标为需要重新检查，表示最多只有
+		 * 'a' 中置位的那些元组是匹配。
 		 */
 		apage->recheck = true;
 		return false;
@@ -647,7 +647,7 @@ tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
 		bpage = tbm_find_pageentry(b, apage->blockno);
 		if (bpage != NULL)
 		{
-			/* Both pages are exact, merge at the bit level */
+			/* 两页都是精确的，在位一级合并 */
 			Assert(!bpage->ischunk);
 			for (wordnum = 0; wordnum < WORDS_PER_PAGE; wordnum++)
 			{
@@ -657,13 +657,13 @@ tbm_intersect_page(TIDBitmap *a, PagetableEntry *apage, const TIDBitmap *b)
 			}
 			apage->recheck |= bpage->recheck;
 		}
-		/* If there is no matching b page, we can just delete the a page */
+		/* 若没有匹配的 b 页，可以直接删除 a 页 */
 		return candelete;
 	}
 }
 
 /*
- * tbm_is_empty - is a TIDBitmap completely empty?
+ * tbm_is_empty - TIDBitmap 是否完全为空？
  */
 bool
 tbm_is_empty(const TIDBitmap *tbm)
@@ -672,17 +672,17 @@ tbm_is_empty(const TIDBitmap *tbm)
 }
 
 /*
- * tbm_begin_iterate - prepare to iterate through a TIDBitmap
+ * tbm_begin_iterate - 准备遍历一个 TIDBitmap
  *
- * The TBMIterator struct is created in the caller's memory context.
- * For a clean shutdown of the iteration, call tbm_end_iterate; but it's
- * okay to just allow the memory context to be released, too.  It is caller's
- * responsibility not to touch the TBMIterator anymore once the TIDBitmap
- * is freed.
+ * TBMIterator 结构体在调用方的内存上下文中创建。
+ * 要干净地结束迭代，请调用 tbm_end_iterate；不过
+ * 只让内存上下文被释放也可以。调用方有责任
+ * 在 TIDBitmap
+ * 被释放之后，不再触碰该 TBMIterator。
  *
- * NB: after this is called, it is no longer allowed to modify the contents
- * of the bitmap.  However, you can call this multiple times to scan the
- * contents repeatedly, including parallel scans.
+ * 注意：在此之后，不再允许修改位图的
+ * 内容。不过你可以多次调用本函数来反复
+ * 扫描这些内容，包括并行扫描。
  */
 TBMIterator *
 tbm_begin_iterate(TIDBitmap *tbm)
@@ -692,25 +692,25 @@ tbm_begin_iterate(TIDBitmap *tbm)
 	Assert(tbm->iterating != TBM_ITERATING_SHARED);
 
 	/*
-	 * Create the TBMIterator struct, with enough trailing space to serve the
-	 * needs of the TBMIterateResult sub-struct.
+	 * 创建 TBMIterator 结构体，并留出足够的尾部空间，以满足
+	 * TBMIterateResult 子结构体的需要。
 	 */
 	iterator = (TBMIterator *) palloc(sizeof(TBMIterator) +
 									  MAX_TUPLES_PER_PAGE * sizeof(OffsetNumber));
 	iterator->tbm = tbm;
 
 	/*
-	 * Initialize iteration pointers.
+	 * 初始化迭代指针。
 	 */
 	iterator->spageptr = 0;
 	iterator->schunkptr = 0;
 	iterator->schunkbit = 0;
 
 	/*
-	 * If we have a hashtable, create and fill the sorted page lists, unless
-	 * we already did that for a previous iterator.  Note that the lists are
-	 * attached to the bitmap not the iterator, so they can be used by more
-	 * than one iterator.
+	 * 若我们有哈希表，就创建并填好排好序的页列表，除非
+	 * 先前的迭代器已经做过。注意这些列表
+	 * 挂在位图上而不是迭代器上，因此可以被多个
+	 * 迭代器使用。
 	 */
 	if (tbm->status == TBM_HASH && tbm->iterating == TBM_NOT_ITERATING)
 	{
@@ -753,13 +753,13 @@ tbm_begin_iterate(TIDBitmap *tbm)
 }
 
 /*
- * tbm_prepare_shared_iterate - prepare shared iteration state for a TIDBitmap.
+ * tbm_prepare_shared_iterate - 为 TIDBitmap 准备共享迭代状态。
  *
- * The necessary shared state will be allocated from the DSA passed to
- * tbm_create, so that multiple processes can attach to it and iterate jointly.
+ * 所需的共享状态将从传给
+ * tbm_create 的 DSA 中分配，以便多个进程可以挂接并联合迭代。
  *
- * This will convert the pagetable hash into page and chunk array of the index
- * into pagetable array.
+ * 这会把页表哈希转换成页数组和组块数组，其元素是
+ * 页表数组中的下标。
  */
 dsa_pointer
 tbm_prepare_shared_iterate(TIDBitmap *tbm)
@@ -774,16 +774,16 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 	Assert(tbm->iterating != TBM_ITERATING_PRIVATE);
 
 	/*
-	 * Allocate TBMSharedIteratorState from DSA to hold the shared members and
-	 * lock, this will also be used by multiple worker for shared iterate.
+	 * 从 DSA 分配 TBMSharedIteratorState，以存放共享成员和
+	 * 锁，多个工作进程的共享迭代也会用到它。
 	 */
 	dp = dsa_allocate0(tbm->dsa, sizeof(TBMSharedIteratorState));
 	istate = dsa_get_address(tbm->dsa, dp);
 
 	/*
-	 * If we're not already iterating, create and fill the sorted page lists.
-	 * (If we are, the sorted page lists are already stored in the TIDBitmap,
-	 * and we can just reuse them.)
+	 * 若我们尚未在迭代，就创建并填好排好序的页列表。
+	 * （若已经在迭代，排好序的页列表已经存在 TIDBitmap 中，
+	 * 我们可以直接复用。）
 	 */
 	if (tbm->iterating == TBM_NOT_ITERATING)
 	{
@@ -794,8 +794,8 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 		int			nchunks;
 
 		/*
-		 * Allocate the page and chunk array memory from the DSA to share
-		 * across multiple processes.
+		 * 从 DSA 分配页数组和组块数组的内存，以便在
+		 * 多个进程之间共享。
 		 */
 		if (tbm->npages)
 		{
@@ -813,10 +813,10 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 		}
 
 		/*
-		 * If TBM status is TBM_HASH then iterate over the pagetable and
-		 * convert it to page and chunk arrays.  But if it's in the
-		 * TBM_ONE_PAGE mode then directly allocate the space for one entry
-		 * from the DSA.
+		 * 若 TBM 状态是 TBM_HASH，则遍历页表并
+		 * 把它转换成页数组和组块数组。若它处于
+		 * TBM_ONE_PAGE 模式，则直接从 DSA
+		 * 为一个条目分配空间。
 		 */
 		npages = nchunks = 0;
 		if (tbm->status == TBM_HASH)
@@ -839,9 +839,9 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 		else if (tbm->status == TBM_ONE_PAGE)
 		{
 			/*
-			 * In one page mode allocate the space for one pagetable entry,
-			 * initialize it, and directly store its index (i.e. 0) in the
-			 * page array.
+			 * 在单页模式下为一个页表项分配空间，
+			 * 初始化它，并把它的下标（即 0）直接存进
+			 * 页数组。
 			 */
 			tbm->dsapagetable = dsa_allocate(tbm->dsa, sizeof(PTEntryArray) +
 											 sizeof(PagetableEntry));
@@ -861,8 +861,8 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 	}
 
 	/*
-	 * Store the TBM members in the shared state so that we can share them
-	 * across multiple processes.
+	 * 把 TBM 成员存进共享状态，以便在
+	 * 多个进程之间共享。
 	 */
 	istate->nentries = tbm->nentries;
 	istate->maxentries = tbm->maxentries;
@@ -877,9 +877,9 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 	ptchunks = dsa_get_address(tbm->dsa, tbm->ptchunks);
 
 	/*
-	 * For every shared iterator, referring to pagetable and iterator array,
-	 * increase the refcount by 1 so that while freeing the shared iterator we
-	 * don't free pagetable and iterator array until its refcount becomes 0.
+	 * 对每个引用页表和迭代器数组的共享迭代器，
+	 * 把引用计数加 1，这样在释放共享迭代器时，
+	 * 要等到引用计数变为 0 才释放页表和迭代器数组。
 	 */
 	if (ptbase != NULL)
 		pg_atomic_add_fetch_u32(&ptbase->refcount, 1);
@@ -888,10 +888,10 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 	if (ptchunks != NULL)
 		pg_atomic_add_fetch_u32(&ptchunks->refcount, 1);
 
-	/* Initialize the iterator lock */
+	/* 初始化迭代器锁 */
 	LWLockInitialize(&istate->lock, LWTRANCHE_SHARED_TIDBITMAP);
 
-	/* Initialize the shared iterator state */
+	/* 初始化共享迭代器状态 */
 	istate->schunkbit = 0;
 	istate->schunkptr = 0;
 	istate->spageptr = 0;
@@ -902,9 +902,9 @@ tbm_prepare_shared_iterate(TIDBitmap *tbm)
 }
 
 /*
- * tbm_extract_page_tuple - extract the tuple offsets from a page
+ * tbm_extract_page_tuple - 从一页中取出元组偏移
  *
- * The extracted offsets are stored into TBMIterateResult.
+ * 取出的偏移存入 TBMIterateResult。
  */
 static inline int
 tbm_extract_page_tuple(PagetableEntry *page, TBMIterateResult *output)
@@ -934,7 +934,7 @@ tbm_extract_page_tuple(PagetableEntry *page, TBMIterateResult *output)
 }
 
 /*
- *	tbm_advance_schunkbit - Advance the schunkbit
+ *	tbm_advance_schunkbit - 推进 schunkbit
  */
 static inline void
 tbm_advance_schunkbit(PagetableEntry *chunk, int *schunkbitp)
@@ -955,16 +955,16 @@ tbm_advance_schunkbit(PagetableEntry *chunk, int *schunkbitp)
 }
 
 /*
- * tbm_iterate - scan through next page of a TIDBitmap
+ * tbm_iterate - 扫描 TIDBitmap 的下一页
  *
- * Returns a TBMIterateResult representing one page, or NULL if there are
- * no more pages to scan.  Pages are guaranteed to be delivered in numerical
- * order.  If result->ntuples < 0, then the bitmap is "lossy" and failed to
- * remember the exact tuples to look at on this page --- the caller must
- * examine all tuples on the page and check if they meet the intended
- * condition.  If result->recheck is true, only the indicated tuples need
- * be examined, but the condition must be rechecked anyway.  (For ease of
- * testing, recheck is always set true when ntuples < 0.)
+ * 返回表示一页的 TBMIterateResult，若没有
+ * 更多页可扫描则返回 NULL。页保证按数字
+ * 顺序交付。若 result->ntuples < 0，则位图是 "有损" 的，未能
+ * 记住本页要查看的确切元组——调用方必须
+ * 检查该页上的所有元组，并检查它们是否满足预期
+ * 条件。若 result->recheck 为 true，则只需检查所指明的元组，
+ * 但条件无论如何都必须重新检查。（为便于
+ * 测试，当 ntuples < 0 时 recheck 总是被设为 true。）
  */
 TBMIterateResult *
 tbm_iterate(TBMIterator *iterator)
@@ -975,8 +975,8 @@ tbm_iterate(TBMIterator *iterator)
 	Assert(tbm->iterating == TBM_ITERATING_PRIVATE);
 
 	/*
-	 * If lossy chunk pages remain, make sure we've advanced schunkptr/
-	 * schunkbit to the next set bit.
+	 * 若还剩有损组块页，确保我们已经把 schunkptr/
+	 * schunkbit 推进到下一个置位。
 	 */
 	while (iterator->schunkptr < tbm->nchunks)
 	{
@@ -989,14 +989,14 @@ tbm_iterate(TBMIterator *iterator)
 			iterator->schunkbit = schunkbit;
 			break;
 		}
-		/* advance to next chunk */
+		/* 前进到下一个组块 */
 		iterator->schunkptr++;
 		iterator->schunkbit = 0;
 	}
 
 	/*
-	 * If both chunk and per-page data remain, must output the numerically
-	 * earlier page.
+	 * 若组块数据和按页数据都还剩，必须输出数字上
+	 * 更靠前的那一页。
 	 */
 	if (iterator->schunkptr < tbm->nchunks)
 	{
@@ -1007,7 +1007,7 @@ tbm_iterate(TBMIterator *iterator)
 		if (iterator->spageptr >= tbm->npages ||
 			chunk_blockno < tbm->spages[iterator->spageptr]->blockno)
 		{
-			/* Return a lossy page indicator from the chunk */
+			/* 从组块返回一个有损页指示 */
 			output->blockno = chunk_blockno;
 			output->ntuples = -1;
 			output->recheck = true;
@@ -1021,13 +1021,13 @@ tbm_iterate(TBMIterator *iterator)
 		PagetableEntry *page;
 		int			ntuples;
 
-		/* In TBM_ONE_PAGE state, we don't allocate an spages[] array */
+		/* 在 TBM_ONE_PAGE 状态下，我们不分配 spages[] 数组 */
 		if (tbm->status == TBM_ONE_PAGE)
 			page = &tbm->entry1;
 		else
 			page = tbm->spages[iterator->spageptr];
 
-		/* scan bitmap to extract individual offset numbers */
+		/* 扫描位图以取出各个偏移号 */
 		ntuples = tbm_extract_page_tuple(page, output);
 		output->blockno = page->blockno;
 		output->ntuples = ntuples;
@@ -1036,16 +1036,16 @@ tbm_iterate(TBMIterator *iterator)
 		return output;
 	}
 
-	/* Nothing more in the bitmap */
+	/* 位图中没有更多内容 */
 	return NULL;
 }
 
 /*
- *	tbm_shared_iterate - scan through next page of a TIDBitmap
+ *	tbm_shared_iterate - 扫描 TIDBitmap 的下一页
  *
- *	As above, but this will iterate using an iterator which is shared
- *	across multiple processes.  We need to acquire the iterator LWLock,
- *	before accessing the shared members.
+ *	同上，但这将使用在多个进程之间共享的
+ *	迭代器来迭代。在访问共享成员之前，
+ *	我们需要获取迭代器 LWLock。
  */
 TBMIterateResult *
 tbm_shared_iterate(TBMSharedIterator *iterator)
@@ -1063,12 +1063,12 @@ tbm_shared_iterate(TBMSharedIterator *iterator)
 	if (iterator->ptchunks != NULL)
 		idxchunks = iterator->ptchunks->index;
 
-	/* Acquire the LWLock before accessing the shared members */
+	/* 在访问共享成员之前获取 LWLock */
 	LWLockAcquire(&istate->lock, LW_EXCLUSIVE);
 
 	/*
-	 * If lossy chunk pages remain, make sure we've advanced schunkptr/
-	 * schunkbit to the next set bit.
+	 * 若还剩有损组块页，确保我们已经把 schunkptr/
+	 * schunkbit 推进到下一个置位。
 	 */
 	while (istate->schunkptr < istate->nchunks)
 	{
@@ -1081,14 +1081,14 @@ tbm_shared_iterate(TBMSharedIterator *iterator)
 			istate->schunkbit = schunkbit;
 			break;
 		}
-		/* advance to next chunk */
+		/* 前进到下一个组块 */
 		istate->schunkptr++;
 		istate->schunkbit = 0;
 	}
 
 	/*
-	 * If both chunk and per-page data remain, must output the numerically
-	 * earlier page.
+	 * 若组块数据和按页数据都还剩，必须输出数字上
+	 * 更靠前的那一页。
 	 */
 	if (istate->schunkptr < istate->nchunks)
 	{
@@ -1100,7 +1100,7 @@ tbm_shared_iterate(TBMSharedIterator *iterator)
 		if (istate->spageptr >= istate->npages ||
 			chunk_blockno < ptbase[idxpages[istate->spageptr]].blockno)
 		{
-			/* Return a lossy page indicator from the chunk */
+			/* 从组块返回一个有损页指示 */
 			output->blockno = chunk_blockno;
 			output->ntuples = -1;
 			output->recheck = true;
@@ -1116,7 +1116,7 @@ tbm_shared_iterate(TBMSharedIterator *iterator)
 		PagetableEntry *page = &ptbase[idxpages[istate->spageptr]];
 		int			ntuples;
 
-		/* scan bitmap to extract individual offset numbers */
+		/* 扫描位图以取出各个偏移号 */
 		ntuples = tbm_extract_page_tuple(page, output);
 		output->blockno = page->blockno;
 		output->ntuples = ntuples;
@@ -1130,16 +1130,16 @@ tbm_shared_iterate(TBMSharedIterator *iterator)
 
 	LWLockRelease(&istate->lock);
 
-	/* Nothing more in the bitmap */
+	/* 位图中没有更多内容 */
 	return NULL;
 }
 
 /*
- * tbm_end_iterate - finish an iteration over a TIDBitmap
+ * tbm_end_iterate - 结束对 TIDBitmap 的一次迭代
  *
- * Currently this is just a pfree, but it might do more someday.  (For
- * instance, it could be useful to count open iterators and allow the
- * bitmap to return to read/write status when there are no more iterators.)
+ * 目前这只是一次 pfree，但将来也许会做更多。（例如，
+ * 统计打开的迭代器会有用，并在不再有迭代器时
+ * 允许位图回到读/写状态。）
  */
 void
 tbm_end_iterate(TBMIterator *iterator)
@@ -1148,10 +1148,10 @@ tbm_end_iterate(TBMIterator *iterator)
 }
 
 /*
- * tbm_end_shared_iterate - finish a shared iteration over a TIDBitmap
+ * tbm_end_shared_iterate - 结束对 TIDBitmap 的一次共享迭代
  *
- * This doesn't free any of the shared state associated with the iterator,
- * just our backend-private state.
+ * 这不释放与迭代器关联的任何共享状态，
+ * 只释放我们后端私有的状态。
  */
 void
 tbm_end_shared_iterate(TBMSharedIterator *iterator)
@@ -1160,16 +1160,16 @@ tbm_end_shared_iterate(TBMSharedIterator *iterator)
 }
 
 /*
- * tbm_find_pageentry - find a PagetableEntry for the pageno
+ * tbm_find_pageentry - 为 pageno 查找 PagetableEntry
  *
- * Returns NULL if there is no non-lossy entry for the pageno.
+ * 若该 pageno 没有非有损条目，则返回 NULL。
  */
 static const PagetableEntry *
 tbm_find_pageentry(const TIDBitmap *tbm, BlockNumber pageno)
 {
 	const PagetableEntry *page;
 
-	if (tbm->nentries == 0)		/* in case pagetable doesn't exist */
+	if (tbm->nentries == 0)		/* 以防页表不存在 */
 		return NULL;
 
 	if (tbm->status == TBM_ONE_PAGE)
@@ -1185,17 +1185,17 @@ tbm_find_pageentry(const TIDBitmap *tbm, BlockNumber pageno)
 	if (page == NULL)
 		return NULL;
 	if (page->ischunk)
-		return NULL;			/* don't want a lossy chunk header */
+		return NULL;			/* 不想要有损组块头 */
 	return page;
 }
 
 /*
- * tbm_get_pageentry - find or create a PagetableEntry for the pageno
+ * tbm_get_pageentry - 为 pageno 查找或创建 PagetableEntry
  *
- * If new, the entry is marked as an exact (non-chunk) entry.
+ * 若是新建的，该条目标为精确（非组块）条目。
  *
- * This may cause the table to exceed the desired memory size.  It is
- * up to the caller to call tbm_lossify() at the next safe point if so.
+ * 这可能使表超过期望的内存大小。若如此，
+ * 由调用方在下一个安全点调用 tbm_lossify()。
  */
 static PagetableEntry *
 tbm_get_pageentry(TIDBitmap *tbm, BlockNumber pageno)
@@ -1205,7 +1205,7 @@ tbm_get_pageentry(TIDBitmap *tbm, BlockNumber pageno)
 
 	if (tbm->status == TBM_EMPTY)
 	{
-		/* Use the fixed slot */
+		/* 使用固定槽位 */
 		page = &tbm->entry1;
 		found = false;
 		tbm->status = TBM_ONE_PAGE;
@@ -1217,15 +1217,15 @@ tbm_get_pageentry(TIDBitmap *tbm, BlockNumber pageno)
 			page = &tbm->entry1;
 			if (page->blockno == pageno)
 				return page;
-			/* Time to switch from one page to a hashtable */
+			/* 该从单页切换到哈希表了 */
 			tbm_create_pagetable(tbm);
 		}
 
-		/* Look up or create an entry */
+		/* 查找或创建一个条目 */
 		page = pagetable_insert(tbm->pagetable, pageno, &found);
 	}
 
-	/* Initialize it if not present before */
+	/* 若先前不存在则初始化 */
 	if (!found)
 	{
 		char		oldstatus = page->status;
@@ -1233,7 +1233,7 @@ tbm_get_pageentry(TIDBitmap *tbm, BlockNumber pageno)
 		MemSet(page, 0, sizeof(PagetableEntry));
 		page->status = oldstatus;
 		page->blockno = pageno;
-		/* must count it too */
+		/* 也必须计入 */
 		tbm->nentries++;
 		tbm->npages++;
 	}
@@ -1242,7 +1242,7 @@ tbm_get_pageentry(TIDBitmap *tbm, BlockNumber pageno)
 }
 
 /*
- * tbm_page_is_lossy - is the page marked as lossily stored?
+ * tbm_page_is_lossy - 该页是否被标为有损存储？
  */
 static bool
 tbm_page_is_lossy(const TIDBitmap *tbm, BlockNumber pageno)
@@ -1251,7 +1251,7 @@ tbm_page_is_lossy(const TIDBitmap *tbm, BlockNumber pageno)
 	BlockNumber chunk_pageno;
 	int			bitno;
 
-	/* we can skip the lookup if there are no lossy chunks */
+	/* 若没有有损组块，可以跳过查找 */
 	if (tbm->nchunks == 0)
 		return false;
 	Assert(tbm->status == TBM_HASH);
@@ -1273,10 +1273,10 @@ tbm_page_is_lossy(const TIDBitmap *tbm, BlockNumber pageno)
 }
 
 /*
- * tbm_mark_page_lossy - mark the page number as lossily stored
+ * tbm_mark_page_lossy - 把该页号标为有损存储
  *
- * This may cause the table to exceed the desired memory size.  It is
- * up to the caller to call tbm_lossify() at the next safe point if so.
+ * 这可能使表超过期望的内存大小。若如此，
+ * 由调用方在下一个安全点调用 tbm_lossify()。
  */
 static void
 tbm_mark_page_lossy(TIDBitmap *tbm, BlockNumber pageno)
@@ -1288,7 +1288,7 @@ tbm_mark_page_lossy(TIDBitmap *tbm, BlockNumber pageno)
 	int			wordnum;
 	int			bitnum;
 
-	/* We force the bitmap into hashtable mode whenever it's lossy */
+	/* 一旦位图变成有损，我们就强制它进入哈希表模式 */
 	if (tbm->status != TBM_HASH)
 		tbm_create_pagetable(tbm);
 
@@ -1296,23 +1296,23 @@ tbm_mark_page_lossy(TIDBitmap *tbm, BlockNumber pageno)
 	chunk_pageno = pageno - bitno;
 
 	/*
-	 * Remove any extant non-lossy entry for the page.  If the page is its own
-	 * chunk header, however, we skip this and handle the case below.
+	 * 去掉该页现存的任何非有损条目。不过若该页自己就是
+	 * 组块头，则跳过这一步，并在下面处理该情形。
 	 */
 	if (bitno != 0)
 	{
 		if (pagetable_delete(tbm->pagetable, pageno))
 		{
-			/* It was present, so adjust counts */
+			/* 它存在，因此调整计数 */
 			tbm->nentries--;
-			tbm->npages--;		/* assume it must have been non-lossy */
+			tbm->npages--;		/* 假定它必定曾经是非有损的 */
 		}
 	}
 
-	/* Look up or create entry for chunk-header page */
+	/* 查找或创建组块头页的条目 */
 	page = pagetable_insert(tbm->pagetable, chunk_pageno, &found);
 
-	/* Initialize it if not present before */
+	/* 若先前不存在则初始化 */
 	if (!found)
 	{
 		char		oldstatus = page->status;
@@ -1321,7 +1321,7 @@ tbm_mark_page_lossy(TIDBitmap *tbm, BlockNumber pageno)
 		page->status = oldstatus;
 		page->blockno = chunk_pageno;
 		page->ischunk = true;
-		/* must count it too */
+		/* 也必须计入 */
 		tbm->nentries++;
 		tbm->nchunks++;
 	}
@@ -1329,26 +1329,26 @@ tbm_mark_page_lossy(TIDBitmap *tbm, BlockNumber pageno)
 	{
 		char		oldstatus = page->status;
 
-		/* chunk header page was formerly non-lossy, make it lossy */
+		/* 组块头页原先是非有损的，把它变成有损 */
 		MemSet(page, 0, sizeof(PagetableEntry));
 		page->status = oldstatus;
 		page->blockno = chunk_pageno;
 		page->ischunk = true;
-		/* we assume it had some tuple bit(s) set, so mark it lossy */
+		/* 我们假定它有某些元组 bit(s) 被置位，因此标为有损 */
 		page->words[0] = ((bitmapword) 1 << 0);
-		/* adjust counts */
+		/* 调整计数 */
 		tbm->nchunks++;
 		tbm->npages--;
 	}
 
-	/* Now set the original target page's bit */
+	/* 现在设置原来目标页的那一位 */
 	wordnum = WORDNUM(bitno);
 	bitnum = BITNUM(bitno);
 	page->words[wordnum] |= ((bitmapword) 1 << bitnum);
 }
 
 /*
- * tbm_lossify - lose some information to get back under the memory limit
+ * tbm_lossify - 丢掉一些信息，以便回到内存限制以内
  */
 static void
 tbm_lossify(TIDBitmap *tbm)
@@ -1357,13 +1357,13 @@ tbm_lossify(TIDBitmap *tbm)
 	PagetableEntry *page;
 
 	/*
-	 * XXX Really stupid implementation: this just lossifies pages in
-	 * essentially random order.  We should be paying some attention to the
-	 * number of bits set in each page, instead.
+	 * XXX 实现实在笨：这只是按基本上
+	 * 随机的顺序把页变成有损。我们其实应当注意
+	 * 每一页置了多少位。
 	 *
-	 * Since we are called as soon as nentries exceeds maxentries, we should
-	 * push nentries down to significantly less than maxentries, or else we'll
-	 * just end up doing this again very soon.  We shoot for maxentries/2.
+	 * 因为一旦 nentries 超过 maxentries 就会调用我们，应当把
+	 * nentries 压到明显低于 maxentries，否则
+	 * 很快又得再来一次。我们的目标是 maxentries/2。
 	 */
 	Assert(tbm->iterating == TBM_NOT_ITERATING);
 	Assert(tbm->status == TBM_HASH);
@@ -1372,52 +1372,52 @@ tbm_lossify(TIDBitmap *tbm)
 	while ((page = pagetable_iterate(tbm->pagetable, &i)) != NULL)
 	{
 		if (page->ischunk)
-			continue;			/* already a chunk header */
+			continue;			/* 已经是组块头 */
 
 		/*
-		 * If the page would become a chunk header, we won't save anything by
-		 * converting it to lossy, so skip it.
+		 * 若该页会变成组块头，把它变成有损也省不下任何东西，
+		 * 因此跳过它。
 		 */
 		if ((page->blockno % PAGES_PER_CHUNK) == 0)
 			continue;
 
-		/* This does the dirty work ... */
+		/* 脏活由这里来做…… */
 		tbm_mark_page_lossy(tbm, page->blockno);
 
 		if (tbm->nentries <= tbm->maxentries / 2)
 		{
 			/*
-			 * We have made enough room. Remember where to start lossifying
-			 * next round, so we evenly iterate over the hashtable.
+			 * 我们已经腾出足够空间。记住下一轮从哪里开始
+			 * 变成有损，以便均匀地遍历哈希表。
 			 */
 			tbm->lossify_start = i.cur;
 			break;
 		}
 
 		/*
-		 * Note: tbm_mark_page_lossy may have inserted a lossy chunk into the
-		 * hashtable and may have deleted the non-lossy chunk.  We can
-		 * continue the same hash table scan, since failure to visit one
-		 * element or visiting the newly inserted element, isn't fatal.
+		 * 注意：tbm_mark_page_lossy 可能已向
+		 * 哈希表插入了一个有损组块，也可能删除了非有损组块。我们仍可
+		 * 继续同一次哈希表扫描，因为漏访一个
+		 * 元素或访问到新插入的元素并不会致命。
 		 */
 	}
 
 	/*
-	 * With a big bitmap and small work_mem, it's possible that we cannot get
-	 * under maxentries.  Again, if that happens, we'd end up uselessly
-	 * calling tbm_lossify over and over.  To prevent this from becoming a
-	 * performance sink, force maxentries up to at least double the current
-	 * number of entries.  (In essence, we're admitting inability to fit
-	 * within work_mem when we do this.)  Note that this test will not fire if
-	 * we broke out of the loop early; and if we didn't, the current number of
-	 * entries is simply not reducible any further.
+	 * 位图很大而 work_mem 很小时，我们可能无法把条目数
+	 * 压到 maxentries 以下。若发生这种情况，又会无用地
+	 * 一遍遍调用 tbm_lossify。为防止这变成
+	 * 性能陷阱，把 maxentries 强制提升到至少为当前
+	 * 条目数的两倍。（本质上，这么做是承认无法
+	 * 装进 work_mem。）注意，若我们提前跳出循环，这个测试不会触发；
+	 * 若没有提前跳出，则当前条目数
+	 * 已经无法再减少了。
 	 */
 	if (tbm->nentries > tbm->maxentries / 2)
 		tbm->maxentries = Min(tbm->nentries, (INT_MAX - 1) / 2) * 2;
 }
 
 /*
- * qsort comparator to handle PagetableEntry pointers.
+ * 处理 PagetableEntry 指针的 qsort 比较器。
  */
 static int
 tbm_comparator(const void *left, const void *right)
@@ -1433,9 +1433,9 @@ tbm_comparator(const void *left, const void *right)
 }
 
 /*
- * As above, but this will get index into PagetableEntry array.  Therefore,
- * it needs to get actual PagetableEntry using the index before comparing the
- * blockno.
+ * 同上，但这会得到 PagetableEntry 数组中的下标。因此
+ * 比较 blockno 之前，需要用该下标取得实际的
+ * PagetableEntry。
  */
 static int
 tbm_shared_comparator(const void *left, const void *right, void *arg)
@@ -1454,11 +1454,11 @@ tbm_shared_comparator(const void *left, const void *right, void *arg)
 /*
  *	tbm_attach_shared_iterate
  *
- *	Allocate a backend-private iterator and attach the shared iterator state
- *	to it so that multiple processed can iterate jointly.
+ *	分配一个后端私有迭代器，并把共享迭代器状态
+ *	挂上去，以便多个进程可以联合迭代。
  *
- *	We also converts the DSA pointers to local pointers and store them into
- *	our private iterator.
+ *	我们还会把 DSA 指针转换成局部指针，并存进
+ *	我们的私有迭代器。
  */
 TBMSharedIterator *
 tbm_attach_shared_iterate(dsa_area *dsa, dsa_pointer dp)
@@ -1467,8 +1467,8 @@ tbm_attach_shared_iterate(dsa_area *dsa, dsa_pointer dp)
 	TBMSharedIteratorState *istate;
 
 	/*
-	 * Create the TBMSharedIterator struct, with enough trailing space to
-	 * serve the needs of the TBMIterateResult sub-struct.
+	 * 创建 TBMSharedIterator 结构体，并留出足够的尾部空间，
+	 * 以满足 TBMIterateResult 子结构体的需要。
 	 */
 	iterator = (TBMSharedIterator *) palloc0(sizeof(TBMSharedIterator) +
 											 MAX_TUPLES_PER_PAGE * sizeof(OffsetNumber));
@@ -1490,8 +1490,8 @@ tbm_attach_shared_iterate(dsa_area *dsa, dsa_pointer dp)
 /*
  * pagetable_allocate
  *
- * Callback function for allocating the memory for hashtable elements.
- * Allocate memory for hashtable elements, using DSA if available.
+ * 为哈希表元素分配内存的回调函数。
+ * 为哈希表元素分配内存，若有 DSA 则使用它。
  */
 static inline void *
 pagetable_allocate(pagetable_hash *pagetable, Size size)
@@ -1504,8 +1504,8 @@ pagetable_allocate(pagetable_hash *pagetable, Size size)
 										  MCXT_ALLOC_HUGE | MCXT_ALLOC_ZERO);
 
 	/*
-	 * Save the dsapagetable reference in dsapagetableold before allocating
-	 * new memory so that pagetable_free can free the old entry.
+	 * 在分配新内存之前，把 dsapagetable 引用存进 dsapagetableold，
+	 * 以便 pagetable_free 可以释放旧条目。
 	 */
 	tbm->dsapagetableold = tbm->dsapagetable;
 	tbm->dsapagetable = dsa_allocate_extended(tbm->dsa,
@@ -1519,14 +1519,14 @@ pagetable_allocate(pagetable_hash *pagetable, Size size)
 /*
  * pagetable_free
  *
- * Callback function for freeing hash table elements.
+ * 释放哈希表元素的回调函数。
  */
 static inline void
 pagetable_free(pagetable_hash *pagetable, void *pointer)
 {
 	TIDBitmap  *tbm = (TIDBitmap *) pagetable->private_data;
 
-	/* pfree the input pointer if DSA is not available */
+	/* 若没有 DSA，则 pfree 输入指针 */
 	if (tbm->dsa == NULL)
 		pfree(pointer);
 	else if (DsaPointerIsValid(tbm->dsapagetableold))
@@ -1539,7 +1539,7 @@ pagetable_free(pagetable_hash *pagetable, void *pointer)
 /*
  * tbm_calculate_entries
  *
- * Estimate number of hashtable entries we can have within maxbytes.
+ * 估计在 maxbytes 之内可以有多少哈希表项。
  */
 long
 tbm_calculate_entries(double maxbytes)
@@ -1547,15 +1547,15 @@ tbm_calculate_entries(double maxbytes)
 	long		nbuckets;
 
 	/*
-	 * Estimate number of hashtable entries we can have within maxbytes. This
-	 * estimates the hash cost as sizeof(PagetableEntry), which is good enough
-	 * for our purpose.  Also count an extra Pointer per entry for the arrays
-	 * created during iteration readout.
+	 * 估计在 maxbytes 之内可以有多少哈希表项。这里把
+	 * 哈希开销估计为 sizeof(PagetableEntry)，对我们的目的
+	 * 已经够好。另外为迭代读出期间创建的数组，
+	 * 每个条目再计一个额外的 Pointer。
 	 */
 	nbuckets = maxbytes /
 		(sizeof(PagetableEntry) + sizeof(Pointer) + sizeof(Pointer));
-	nbuckets = Min(nbuckets, INT_MAX - 1);	/* safety limit */
-	nbuckets = Max(nbuckets, 16);	/* sanity limit */
+	nbuckets = Min(nbuckets, INT_MAX - 1);	/* 安全上限 */
+	nbuckets = Max(nbuckets, 16);	/* 健全性上限 */
 
 	return nbuckets;
 }

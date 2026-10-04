@@ -790,6 +790,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0027-readme-lmgr.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/README",
+   "kind": "readme",
+   "note": "xact stack, WAL API, async commit"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0028-readme-transam.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2867,7 +2877,27 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/transam/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "xact stack, WAL API, async commit"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0028-readme-transam.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 85 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 86 of 88 include files translated."
 }

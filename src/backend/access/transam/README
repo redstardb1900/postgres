@@ -1,23 +1,20 @@
 src/backend/access/transam/README
 
-The Transaction System
-======================
+事务系统
+========
 
-PostgreSQL's transaction system is a three-layer system.  The bottom layer
-implements low-level transactions and subtransactions, on top of which rests
-the mainloop's control code, which in turn implements user-visible
-transactions and savepoints.
+PostgreSQL 的事务系统是三层系统。底层实现低层事务和子事务，其上是主循环
+的控制代码，后者再实现用户可见的事务和保存点。
 
-The middle layer of code is called by postgres.c before and after the
-processing of each query, or after detecting an error:
+中间层代码由 postgres.c 在处理每个查询之前和之后，或检测到错误之后调用：
 
 		StartTransactionCommand
 		CommitTransactionCommand
 		AbortCurrentTransaction
 
-Meanwhile, the user can alter the system's state by issuing the SQL commands
-BEGIN, COMMIT, ROLLBACK, SAVEPOINT, ROLLBACK TO or RELEASE.  The traffic cop
-redirects these calls to the toplevel routines
+同时，用户可以通过发出 SQL 命令 BEGIN、COMMIT、ROLLBACK、SAVEPOINT、
+ROLLBACK TO 或 RELEASE 来改变系统状态。流量警察把这些调用重定向到顶层
+例程
 
 		BeginTransactionBlock
 		EndTransactionBlock
@@ -26,8 +23,7 @@ redirects these calls to the toplevel routines
 		RollbackToSavepoint
 		ReleaseSavepoint
 
-respectively.  Depending on the current state of the system, these functions
-call low level functions to activate the real transaction system:
+分别对应。根据系统当前状态，这些函数调用低层函数来激活真正的事务系统：
 
 		StartTransaction
 		CommitTransaction
@@ -38,26 +34,22 @@ call low level functions to activate the real transaction system:
 		AbortSubTransaction
 		CleanupSubTransaction
 
-Additionally, within a transaction, CommandCounterIncrement is called to
-increment the command counter, which allows future commands to "see" the
-effects of previous commands within the same transaction.  Note that this is
-done automatically by CommitTransactionCommand after each query inside a
-transaction block, but some utility functions also do it internally to allow
-some operations (usually in the system catalogs) to be seen by future
-operations in the same utility command.  (For example, in DefineRelation it is
-done after creating the heap so the pg_class row is visible, to be able to
-lock it.)
+另外，在事务内调用 CommandCounterIncrement 来递增命令计数器，这允许将来
+的命令“看见”同一事务内先前命令的效果。注意事务块内每个查询之后，
+CommitTransactionCommand 会自动做这件事，但某些实用函数也在内部做，以
+允许某些操作（通常在系统目录中）被同一实用命令中将来的操作看见。
+（例如，在 DefineRelation 中，创建堆之后做这件事，以便 pg_class 行可见，
+从而能锁定它。）
 
 
-For example, consider the following sequence of user commands:
+例如，考虑以下用户命令序列：
 
 1)		BEGIN
 2)		SELECT * FROM foo
 3)		INSERT INTO foo VALUES (...)
 4)		COMMIT
 
-In the main processing loop, this results in the following function call
-sequence:
+在主处理循环中，这导致以下函数调用序列：
 
      /  StartTransactionCommand;
     /       StartTransaction;
@@ -81,381 +73,289 @@ sequence:
     \   CommitTransactionCommand;
      \      CommitTransaction;
 
-The point of this example is to demonstrate the need for
-StartTransactionCommand and CommitTransactionCommand to be state smart -- they
-should call CommandCounterIncrement between the calls to BeginTransactionBlock
-and EndTransactionBlock and outside these calls they need to do normal start,
-commit or abort processing.
+这个例子的要点是说明 StartTransactionCommand 和
+CommitTransactionCommand 需要感知状态——它们应在 BeginTransactionBlock
+与 EndTransactionBlock 的调用之间调用 CommandCounterIncrement，而在这些
+调用之外它们需要做正常的开始、提交或中止处理。
 
-Furthermore, suppose the "SELECT * FROM foo" caused an abort condition. In
-this case AbortCurrentTransaction is called, and the transaction is put in
-aborted state.  In this state, any user input is ignored except for
-transaction-termination statements, or ROLLBACK TO <savepoint> commands.
+此外，假设 “SELECT * FROM foo” 造成了中止条件。这种情况下调用
+AbortCurrentTransaction，事务被置于已中止状态。在此状态下，除事务终止
+语句或 ROLLBACK TO <savepoint> 命令外，任何用户输入都被忽略。
 
-Transaction aborts can occur in two ways:
+事务中止可以以两种方式发生：
 
-1) system dies from some internal cause  (syntax error, etc)
-2) user types ROLLBACK
+1) 系统因某种内部原因死亡（语法错误等）
+2) 用户键入 ROLLBACK
 
-The reason we have to distinguish them is illustrated by the following two
-situations:
+我们必须区分它们的原因由以下两种情形说明：
 
-        case 1                                  case 2
+        情形 1                                  情形 2
         ------                                  ------
-1) user types BEGIN                     1) user types BEGIN
-2) user does something                  2) user does something
-3) user does not like what              3) system aborts for some reason
-   she sees and types ABORT                (syntax error, etc)
+1) 用户键入 BEGIN                       1) 用户键入 BEGIN
+2) 用户做某事                           2) 用户做某事
+3) 用户不喜欢她看到的内容               3) 系统因某种原因中止
+   并键入 ABORT                            （语法错误等）
 
-In case 1, we want to abort the transaction and return to the default state.
-In case 2, there may be more commands coming our way which are part of the
-same transaction block; we have to ignore these commands until we see a COMMIT
-or ROLLBACK.
+在情形 1 中，我们想中止事务并回到默认状态。在情形 2 中，可能还有更多
+属于同一事务块的命令到来；我们必须忽略这些命令，直到看到 COMMIT 或
+ROLLBACK。
 
-Internal aborts are handled by AbortCurrentTransaction, while user aborts are
-handled by UserAbortTransactionBlock.  Both of them rely on AbortTransaction
-to do all the real work.  The only difference is what state we enter after
-AbortTransaction does its work:
+内部中止由 AbortCurrentTransaction 处理，用户中止由
+UserAbortTransactionBlock 处理。二者都依赖 AbortTransaction 做全部真正
+的工作。唯一差异是 AbortTransaction 做完工作后我们进入的状态：
 
-* AbortCurrentTransaction leaves us in TBLOCK_ABORT,
-* UserAbortTransactionBlock leaves us in TBLOCK_ABORT_END
+* AbortCurrentTransaction 让我们处于 TBLOCK_ABORT
+* UserAbortTransactionBlock 让我们处于 TBLOCK_ABORT_END
 
-Low-level transaction abort handling is divided in two phases:
-* AbortTransaction executes as soon as we realize the transaction has
-  failed.  It should release all shared resources (locks etc) so that we do
-  not delay other backends unnecessarily.
-* CleanupTransaction executes when we finally see a user COMMIT
-  or ROLLBACK command; it cleans things up and gets us out of the transaction
-  completely.  In particular, we mustn't destroy TopTransactionContext until
-  this point.
+低层事务中止处理分为两个阶段：
+* 一旦我们意识到事务已失败，就执行 AbortTransaction。它应释放全部共享
+  资源（锁等），以免不必要地拖延其他后端。
+* 当我们最终看到用户 COMMIT 或 ROLLBACK 命令时执行 CleanupTransaction；
+  它清理东西并让我们完全脱离事务。特别是，在此之前我们不得销毁
+  TopTransactionContext。
 
-Also, note that when a transaction is committed, we don't close it right away.
-Rather it's put in TBLOCK_END state, which means that when
-CommitTransactionCommand is called after the query has finished processing,
-the transaction has to be closed.  The distinction is subtle but important,
-because it means that control will leave the xact.c code with the transaction
-open, and the main loop will be able to keep processing inside the same
-transaction.  So, in a sense, transaction commit is also handled in two
-phases, the first at EndTransactionBlock and the second at
-CommitTransactionCommand (which is where CommitTransaction is actually
-called).
+还要注意，当事务提交时，我们不会立刻关闭它。相反它被置于 TBLOCK_END
+状态，这意味着当查询处理完成后调用 CommitTransactionCommand 时，必须
+关闭该事务。这一区分微妙但重要，因为它意味着控制会在事务仍打开的情况
+下离开 xact.c 代码，主循环将能在同一事务内继续处理。因此，某种意义上，
+事务提交也分两阶段处理，第一阶段在 EndTransactionBlock，第二阶段在
+CommitTransactionCommand（实际调用 CommitTransaction 的地方）。
 
-The rest of the code in xact.c are routines to support the creation and
-finishing of transactions and subtransactions.  For example, AtStart_Memory
-takes care of initializing the memory subsystem at main transaction start.
+xact.c 中的其余代码是支持创建和结束事务及子事务的例程。例如
+AtStart_Memory 负责在主事务开始时初始化内存子系统。
 
 
-Subtransaction Handling
------------------------
+子事务处理
+----------
 
-Subtransactions are implemented using a stack of TransactionState structures,
-each of which has a pointer to its parent transaction's struct.  When a new
-subtransaction is to be opened, PushTransaction is called, which creates a new
-TransactionState, with its parent link pointing to the current transaction.
-StartSubTransaction is in charge of initializing the new TransactionState to
-sane values, and properly initializing other subsystems (AtSubStart routines).
+子事务用 TransactionState 结构的栈实现，每个结构有指向其父事务结构的
+指针。当要打开新子事务时，调用 PushTransaction，它创建新的
+TransactionState，其父链接指向当前事务。StartSubTransaction 负责把新的
+TransactionState 初始化为合理值，并正确初始化其他子系统（AtSubStart
+例程）。
 
-When closing a subtransaction, either CommitSubTransaction has to be called
-(if the subtransaction is committing), or AbortSubTransaction and
-CleanupSubTransaction (if it's aborting).  In either case, PopTransaction is
-called so the system returns to the parent transaction.
+关闭子事务时，要么必须调用 CommitSubTransaction（若子事务正在提交），
+要么 AbortSubTransaction 和 CleanupSubTransaction（若正在中止）。无论
+哪种情况，都调用 PopTransaction，以便系统回到父事务。
 
-One important point regarding subtransaction handling is that several may need
-to be closed in response to a single user command.  That's because savepoints
-have names, and we allow to commit or rollback a savepoint by name, which is
-not necessarily the one that was last opened.  Also a COMMIT or ROLLBACK
-command must be able to close out the entire stack.  We handle this by having
-the utility command subroutine mark all the state stack entries as commit-
-pending or abort-pending, and then when the main loop reaches
-CommitTransactionCommand, the real work is done.  The main point of doing
-things this way is that if we get an error while popping state stack entries,
-the remaining stack entries still show what we need to do to finish up.
+关于子事务处理的一个要点是：单个用户命令可能需要关闭若干个子事务。
+那是因为保存点有名字，我们允许按名字提交或回滚保存点，它不一定是最后
+打开的那个。另外 COMMIT 或 ROLLBACK 命令必须能关闭整个栈。我们的处理
+方式是让实用命令子例程把所有状态栈条目标为待提交或待中止，然后当主
+循环到达 CommitTransactionCommand 时再做真正的工作。这样做的主要目的
+是：若我们在弹出状态栈条目时出错，剩余栈条目仍显示我们需要做什么来
+收尾。
 
-In the case of ROLLBACK TO <savepoint>, we abort all the subtransactions up
-through the one identified by the savepoint name, and then re-create that
-subtransaction level with the same name.  So it's a completely new
-subtransaction as far as the internals are concerned.
+在 ROLLBACK TO <savepoint> 情形下，我们中止直到由保存点名标识的那个
+为止的全部子事务，然后用相同名字重新创建该子事务层。因此就内部而言
+它是一个全新的子事务。
 
-Other subsystems are allowed to start "internal" subtransactions, which are
-handled by BeginInternalSubTransaction.  This is to allow implementing
-exception handling, e.g. in PL/pgSQL.  ReleaseCurrentSubTransaction and
-RollbackAndReleaseCurrentSubTransaction allows the subsystem to close said
-subtransactions.  The main difference between this and the savepoint/release
-path is that we execute the complete state transition immediately in each
-subroutine, rather than deferring some work until CommitTransactionCommand.
-Another difference is that BeginInternalSubTransaction is allowed when no
-explicit transaction block has been established, while DefineSavepoint is not.
+允许其他子系统启动“内部”子事务，由 BeginInternalSubTransaction 处理。
+这是为了允许实现异常处理，例如在 PL/pgSQL 中。
+ReleaseCurrentSubTransaction 和 RollbackAndReleaseCurrentSubTransaction
+允许子系统关闭所述子事务。这与保存点/释放路径的主要差异是：我们在每个
+子例程中立即执行完整状态转换，而不是把部分工作推迟到
+CommitTransactionCommand。另一差异是当尚未建立显式事务块时允许
+BeginInternalSubTransaction，而不允许 DefineSavepoint。
 
 
-Transaction and Subtransaction Numbering
-----------------------------------------
+事务与子事务编号
+----------------
 
-Transactions and subtransactions are assigned permanent XIDs only when/if
-they first do something that requires one --- typically, insert/update/delete
-a tuple, though there are a few other places that need an XID assigned.
-If a subtransaction requires an XID, we always first assign one to its
-parent.  This maintains the invariant that child transactions have XIDs later
-than their parents, which is assumed in a number of places.
+事务和子事务只在它们第一次做需要永久 XID 的事时才被分配永久 XID——
+通常是插入/更新/删除元组，不过还有少数其他地方需要分配 XID。若子事务
+需要 XID，我们总是先给其父分配一个。这维持子事务的 XID 晚于其父这一
+不变量，许多地方假定这一点。
 
-The subsidiary actions of obtaining a lock on the XID and entering it into
-pg_subtrans and PGPROC are done at the time it is assigned.
+获取该 XID 上的锁并把它记入 pg_subtrans 和 PGPROC 的附属动作，在分配
+时完成。
 
-A transaction that has no XID still needs to be identified for various
-purposes, notably holding locks.  For this purpose we assign a "virtual
-transaction ID" or VXID to each top-level transaction.  VXIDs are formed from
-two fields, the backendID and a backend-local counter; this arrangement allows
-assignment of a new VXID at transaction start without any contention for
-shared memory.  To ensure that a VXID isn't re-used too soon after backend
-exit, we store the last local counter value into shared memory at backend
-exit, and initialize it from the previous value for the same backendID slot
-at backend start.  All these counters go back to zero at shared memory
-re-initialization, but that's OK because VXIDs never appear anywhere on-disk.
+没有 XID 的事务仍需要为各种目的被标识，尤其是持有锁。为此我们给每个
+顶层事务分配一个“虚拟事务 ID”或 VXID。VXID 由两个字段组成，backendID
+和后端本地计数器；这一安排允许在事务开始时分配新 VXID，而不争夺共享
+内存。为确保后端退出后 VXID 不会太快被复用，我们在后端退出时把最后
+本地计数器值存入共享内存，并在后端启动时从同一 backendID 槽的先前值
+初始化它。所有这些计数器在共享内存重新初始化时回到零，但那没问题，
+因为 VXID 从不出现在磁盘上的任何地方。
 
-Internally, a backend needs a way to identify subtransactions whether or not
-they have XIDs; but this need only lasts as long as the parent top transaction
-endures.  Therefore, we have SubTransactionId, which is somewhat like
-CommandId in that it's generated from a counter that we reset at the start of
-each top transaction.  The top-level transaction itself has SubTransactionId 1,
-and subtransactions have IDs 2 and up.  (Zero is reserved for
-InvalidSubTransactionId.)  Note that subtransactions do not have their
-own VXIDs; they use the parent top transaction's VXID.
+在内部，后端需要一种办法来标识子事务，无论它们是否有 XID；但这只需
+持续到父顶层事务存在期间。因此我们有 SubTransactionId，它有点像
+CommandId，因为它由我们在每个顶层事务开始时重置的计数器生成。顶层
+事务本身的 SubTransactionId 为 1，子事务的 ID 为 2 及以上。（零保留
+给 InvalidSubTransactionId。）注意子事务没有自己的 VXID；它们使用父
+顶层事务的 VXID。
 
 
-Interlocking Transaction Begin, Transaction End, and Snapshots
---------------------------------------------------------------
+事务开始、事务结束与快照的互锁
+------------------------------
 
-We try hard to minimize the amount of overhead and lock contention involved
-in the frequent activities of beginning/ending a transaction and taking a
-snapshot.  Unfortunately, we must have some interlocking for this, because
-we must ensure consistency about the commit order of transactions.
-For example, suppose an UPDATE in xact A is blocked by xact B's prior
-update of the same row, and xact B is doing commit while xact C gets a
-snapshot.  Xact A can complete and commit as soon as B releases its locks.
-If xact C's GetSnapshotData sees xact B as still running, then it had
-better see xact A as still running as well, or it will be able to see two
-tuple versions - one deleted by xact B and one inserted by xact A.  Another
-reason why this would be bad is that C would see (in the row inserted by A)
-earlier changes by B, and it would be inconsistent for C not to see any
-of B's changes elsewhere in the database.
+我们尽量减少开始/结束事务和取快照这些频繁活动所涉及的开销和锁争用。
+不幸的是，我们必须对此有一些互锁，因为我们必须确保关于事务提交顺序
+的一致性。例如，假设 xact A 中的 UPDATE 被 xact B 先前对同一行的更新
+挡住，而 xact B 正在提交时 xact C 获取快照。B 一释放其锁，A 就可以
+完成并提交。若 xact C 的 GetSnapshotData 仍把 xact B 视为运行中，则
+它最好也把 xact A 视为仍在运行，否则它将能看到两个元组版本——一个被
+xact B 删除，一个被 xact A 插入。这不好的另一原因是 C 会（在 A 插入
+的行中）看到 B 的更早变更，而 C 在数据库其他地方看不到 B 的任何变更
+会不一致。
 
-Formally, the correctness requirement is "if a snapshot A considers
-transaction X as committed, and any of transaction X's snapshots considered
-transaction Y as committed, then snapshot A must consider transaction Y as
-committed".
+形式上，正确性要求是：“若快照 A 把事务 X 视为已提交，并且事务 X 的
+任何快照把事务 Y 视为已提交，则快照 A 必须把事务 Y 视为已提交”。
 
-What we actually enforce is strict serialization of commits and rollbacks
-with snapshot-taking: we do not allow any transaction to exit the set of
-running transactions while a snapshot is being taken.  (This rule is
-stronger than necessary for consistency, but is relatively simple to
-enforce, and it assists with some other issues as explained below.)  The
-implementation of this is that GetSnapshotData takes the ProcArrayLock in
-shared mode (so that multiple backends can take snapshots in parallel),
-but ProcArrayEndTransaction must take the ProcArrayLock in exclusive mode
-while clearing the ProcGlobal->xids[] entry at transaction end (either
-commit or abort). (To reduce context switching, when multiple transactions
-commit nearly simultaneously, we have one backend take ProcArrayLock and
-clear the XIDs of multiple processes at once.)
+我们实际强制的是提交和回滚与取快照的严格串行化：我们不允许任何事务
+在正在取快照时退出运行中事务集合。（这条规则比对一致性必要的更强，
+但相对简单可强制，并且如下文所解释有助于其他问题。）实现方式是
+GetSnapshotData 以共享模式获取 ProcArrayLock（以便多个后端可以并行
+取快照），但 ProcArrayEndTransaction 必须在事务结束（提交或中止）时
+清除 ProcGlobal->xids[] 条目期间以独占模式获取 ProcArrayLock。（为
+减少上下文切换，当多个事务几乎同时提交时，我们让一个后端获取
+ProcArrayLock 并一次清除多个进程的 XID。）
 
-ProcArrayEndTransaction also holds the lock while advancing the shared
-latestCompletedXid variable.  This allows GetSnapshotData to use
-latestCompletedXid + 1 as xmax for its snapshot: there can be no
-transaction >= this xid value that the snapshot needs to consider as
-completed.
+ProcArrayEndTransaction 在推进共享 latestCompletedXid 变量期间也持有
+该锁。这允许 GetSnapshotData 使用 latestCompletedXid + 1 作为其快照的
+xmax：不能有 >= 此 xid 值、该快照需要视为已完成的事务。
 
-In short, then, the rule is that no transaction may exit the set of
-currently-running transactions between the time we fetch latestCompletedXid
-and the time we finish building our snapshot.  However, this restriction
-only applies to transactions that have an XID --- read-only transactions
-can end without acquiring ProcArrayLock, since they don't affect anyone
-else's snapshot nor latestCompletedXid.
+简而言之，规则是：在我们取出 latestCompletedXid 与完成构建快照之间，
+任何事务都不得退出当前运行中事务集合。不过这一限制只适用于有 XID 的
+事务——只读事务可以不获取 ProcArrayLock 就结束，因为它们不影响任何
+其他人的快照，也不影响 latestCompletedXid。
 
-Transaction start, per se, doesn't have any interlocking with these
-considerations, since we no longer assign an XID immediately at transaction
-start.  But when we do decide to allocate an XID, GetNewTransactionId must
-store the new XID into the shared ProcArray before releasing XidGenLock.
-This ensures that all top-level XIDs <= latestCompletedXid are either
-present in the ProcArray, or not running anymore.  (This guarantee doesn't
-apply to subtransaction XIDs, because of the possibility that there's not
-room for them in the subxid array; instead we guarantee that they are
-present or the overflow flag is set.)  If a backend released XidGenLock
-before storing its XID into ProcGlobal->xids[], then it would be possible for
-another backend to allocate and commit a later XID, causing latestCompletedXid
-to pass the first backend's XID, before that value became visible in the
-ProcArray.  That would break ComputeXidHorizons, as discussed below.
+事务开始本身与这些考虑没有互锁，因为我们不再在事务开始时立即分配
+XID。但当我们决定分配 XID 时，GetNewTransactionId 必须在释放
+XidGenLock 之前把新 XID 存入共享 ProcArray。这确保所有 <=
+latestCompletedXid 的顶层 XID 要么存在于 ProcArray 中，要么不再运行。
+（这一保证不适用于子事务 XID，因为可能子xid 数组放不下它们；相反我们
+保证它们存在或溢出标志已设置。）若后端在把它的 XID 存入
+ProcGlobal->xids[] 之前释放 XidGenLock，则另一后端可能分配并提交更晚
+的 XID，使 latestCompletedXid 超过第一个后端的 XID，而该值尚未在
+ProcArray 中可见。那会破坏下文讨论的 ComputeXidHorizons。
 
-We allow GetNewTransactionId to store the XID into ProcGlobal->xids[] (or the
-subxid array) without taking ProcArrayLock.  This was once necessary to
-avoid deadlock; while that is no longer the case, it's still beneficial for
-performance.  We are thereby relying on fetch/store of an XID to be atomic,
-else other backends might see a partially-set XID.  This also means that
-readers of the ProcArray xid fields must be careful to fetch a value only
-once, rather than assume they can read it multiple times and get the same
-answer each time.  (Use volatile-qualified pointers when doing this, to
-ensure that the C compiler does exactly what you tell it to.)
+我们允许 GetNewTransactionId 在不获取 ProcArrayLock 的情况下把 XID 存
+入 ProcGlobal->xids[]（或子xid 数组）。这曾经是避免死锁所必要的；虽然
+现在不再如此，但对性能仍有益。我们因此依赖 XID 的取/存是原子的，否则
+其他后端可能看到部分设置的 XID。这也意味着 ProcArray xid 字段的读者
+必须小心只取一次值，而不是假定他们可以多次读取并每次得到相同答案。
+（做这件事时使用 volatile 限定的指针，以确保 C 编译器恰好按你告诉它
+的去做。）
 
-Another important activity that uses the shared ProcArray is
-ComputeXidHorizons, which must determine a lower bound for the oldest xmin
-of any active MVCC snapshot, system-wide.  Each individual backend
-advertises the smallest xmin of its own snapshots in MyProc->xmin, or zero
-if it currently has no live snapshots (eg, if it's between transactions or
-hasn't yet set a snapshot for a new transaction).  ComputeXidHorizons takes
-the MIN() of the valid xmin fields.  It does this with only shared lock on
-ProcArrayLock, which means there is a potential race condition against other
-backends doing GetSnapshotData concurrently: we must be certain that a
-concurrent backend that is about to set its xmin does not compute an xmin
-less than what ComputeXidHorizons determines.  We ensure that by including
-all the active XIDs into the MIN() calculation, along with the valid xmins.
-The rule that transactions can't exit without taking exclusive ProcArrayLock
-ensures that concurrent holders of shared ProcArrayLock will compute the
-same minimum of currently-active XIDs: no xact, in particular not the
-oldest, can exit while we hold shared ProcArrayLock.  So
-ComputeXidHorizons's view of the minimum active XID will be the same as that
-of any concurrent GetSnapshotData, and so it can't produce an overestimate.
-If there is no active transaction at all, ComputeXidHorizons uses
-latestCompletedXid + 1, which is a lower bound for the xmin that might
-be computed by concurrent or later GetSnapshotData calls.  (We know that no
-XID less than this could be about to appear in the ProcArray, because of the
-XidGenLock interlock discussed above.)
+使用共享 ProcArray 的另一重要活动是 ComputeXidHorizons，它必须为全系统
+任何活动 MVCC 快照的最旧 xmin 确定一个下界。每个单独后端在 MyProc->xmin
+中公布其自己快照的最小 xmin，若它当前没有活快照（例如，若它在事务之间，
+或尚未为新事务设置快照）则为零。ComputeXidHorizons 取有效 xmin 字段的
+MIN()。它只以共享锁持有 ProcArrayLock 来做这件事，这意味着与并发做
+GetSnapshotData 的其他后端存在潜在竞态：我们必须确定即将设置其 xmin 的
+并发后端不会计算出小于 ComputeXidHorizons 所确定的 xmin。我们通过把全部
+活动 XID 连同有效 xmin 纳入 MIN() 计算来确保这一点。事务不获取独占
+ProcArrayLock 就不能退出这一规则，确保共享 ProcArrayLock 的并发持有者
+会计算出相同的当前活动 XID 最小值：没有 xact，特别是不是最旧的，能在
+我们持有共享 ProcArrayLock 时退出。因此 ComputeXidHorizons 对最小活动
+XID 的看法将与任何并发 GetSnapshotData 相同，因此它不能产生高估。若
+完全没有活动事务，ComputeXidHorizons 使用 latestCompletedXid + 1，这是
+并发或稍后 GetSnapshotData 调用可能计算出的 xmin 的下界。（我们知道
+没有小于此的 XID 即将出现在 ProcArray 中，因为上面讨论的 XidGenLock
+互锁。）
 
-As GetSnapshotData is performance critical, it does not perform an accurate
-oldest-xmin calculation (it used to, until v14). The contents of a snapshot
-only depend on the xids of other backends, not their xmin. As backend's xmin
-changes much more often than its xid, having GetSnapshotData look at xmins
-can lead to a lot of unnecessary cacheline ping-pong.  Instead
-GetSnapshotData updates approximate thresholds (one that guarantees that all
-deleted rows older than it can be removed, another determining that deleted
-rows newer than it can not be removed). GlobalVisTest* uses those thresholds
-to make invisibility decision, falling back to ComputeXidHorizons if
-necessary.
+由于 GetSnapshotData 对性能关键，它不做精确的最旧 xmin 计算（直到 v14
+它才这样做）。快照的内容只依赖其他后端的 xid，不依赖它们的 xmin。由于
+后端的 xmin 比其 xid 变化频繁得多，让 GetSnapshotData 查看 xmin 会导致
+大量不必要的缓存行乒乓。相反 GetSnapshotData 更新近似阈值（一个保证
+比它更旧的已删除行都可以被移除，另一个判定比它更新的已删除行不能被
+移除）。GlobalVisTest* 使用那些阈值做不可见判定，必要时回退到
+ComputeXidHorizons。
 
-Note that while it is certain that two concurrent executions of
-GetSnapshotData will compute the same xmin for their own snapshots, there is
-no such guarantee for the horizons computed by ComputeXidHorizons.  This is
-because we allow XID-less transactions to clear their MyProc->xmin
-asynchronously (without taking ProcArrayLock), so one execution might see
-what had been the oldest xmin, and another not.  This is OK since the
-thresholds need only be a valid lower bound.  As noted above, we are already
-assuming that fetch/store of the xid fields is atomic, so assuming it for
-xmin as well is no extra risk.
+注意：虽然可以确定两次并发执行的 GetSnapshotData 会为它们自己的快照
+计算出相同的 xmin，但对 ComputeXidHorizons 计算出的视野没有这种保证。
+这是因为我们允许无 XID 的事务异步（不获取 ProcArrayLock）清除其
+MyProc->xmin，因此一次执行可能看到曾经是最旧的 xmin，另一次看不到。
+这没问题，因为阈值只需是有效下界。如上所述，我们已经假定 xid 字段的
+取/存是原子的，因此对 xmin 也这样假定没有额外风险。
 
 
-pg_xact and pg_subtrans
------------------------
-
-pg_xact and pg_subtrans are permanent (on-disk) storage of transaction related
-information.  There is a limited number of pages of each kept in memory, so
-in many cases there is no need to actually read from disk.  However, if
-there's a long running transaction or a backend sitting idle with an open
-transaction, it may be necessary to be able to read and write this information
-from disk.  They also allow information to be permanent across server restarts.
-
-pg_xact records the commit status for each transaction that has been assigned
-an XID.  A transaction can be in progress, committed, aborted, or
-"sub-committed".  This last state means that it's a subtransaction that's no
-longer running, but its parent has not updated its state yet.  It is not
-necessary to update a subtransaction's transaction status to subcommit, so we
-can just defer it until main transaction commit.  The main role of marking
-transactions as sub-committed is to provide an atomic commit protocol when
-transaction status is spread across multiple clog pages. As a result, whenever
-transaction status spreads across multiple pages we must use a two-phase commit
-protocol: the first phase is to mark the subtransactions as sub-committed, then
-we mark the top level transaction and all its subtransactions committed (in
-that order).  Thus, subtransactions that have not aborted appear as in-progress
-even when they have already finished, and the subcommit status appears as a
-very short transitory state during main transaction commit.  Subtransaction
-abort is always marked in clog as soon as it occurs.  When the transaction
-status all fit in a single CLOG page, we atomically mark them all as committed
-without bothering with the intermediate sub-commit state.
-
-Savepoints are implemented using subtransactions.  A subtransaction is a
-transaction inside a transaction; its commit or abort status is not only
-dependent on whether it committed itself, but also whether its parent
-transaction committed.  To implement multiple savepoints in a transaction we
-allow unlimited transaction nesting depth, so any particular subtransaction's
-commit state is dependent on the commit status of each and every ancestor
-transaction.
-
-The "subtransaction parent" (pg_subtrans) mechanism records, for each
-transaction with an XID, the TransactionId of its parent transaction.  This
-information is stored as soon as the subtransaction is assigned an XID.
-Top-level transactions do not have a parent, so they leave their pg_subtrans
-entries set to the default value of zero (InvalidTransactionId).
-
-pg_subtrans is used to check whether the transaction in question is still
-running --- the main Xid of a transaction is recorded in ProcGlobal->xids[],
-with a copy in PGPROC->xid, but since we allow arbitrary nesting of
-subtransactions, we can't fit all Xids in shared memory, so we have to store
-them on disk.  Note, however, that for each transaction we keep a "cache" of
-Xids that are known to be part of the transaction tree, so we can skip looking
-at pg_subtrans unless we know the cache has been overflowed.  See
-storage/ipc/procarray.c for the gory details.
-
-slru.c is the supporting mechanism for both pg_xact and pg_subtrans.  It
-implements the LRU policy for in-memory buffer pages.  The high-level routines
-for pg_xact are implemented in transam.c, while the low-level functions are in
-clog.c.  pg_subtrans is contained completely in subtrans.c.
-
-
-Write-Ahead Log Coding
+pg_xact 与 pg_subtrans
 ----------------------
 
-The WAL subsystem (also called XLOG in the code) exists to guarantee crash
-recovery.  It can also be used to provide point-in-time recovery, as well as
-hot-standby replication via log shipping.  Here are some notes about
-non-obvious aspects of its design.
+pg_xact 和 pg_subtrans 是事务相关信息的永久（磁盘上）存储。每种在内存
+中只保留有限页数，因此许多情况下不必实际从磁盘读。不过，若有长运行
+事务或后端带着打开的事务闲坐，可能必须能从磁盘读写这些信息。它们也
+允许信息在服务器重启后仍然永久。
 
-A basic assumption of a write AHEAD log is that log entries must reach stable
-storage before the data-page changes they describe.  This ensures that
-replaying the log to its end will bring us to a consistent state where there
-are no partially-performed transactions.  To guarantee this, each data page
-(either heap or index) is marked with the LSN (log sequence number --- in
-practice, a WAL file location) of the latest XLOG record affecting the page.
-Before the bufmgr can write out a dirty page, it must ensure that xlog has
-been flushed to disk at least up to the page's LSN.  This low-level
-interaction improves performance by not waiting for XLOG I/O until necessary.
-The LSN check exists only in the shared-buffer manager, not in the local
-buffer manager used for temp tables; hence operations on temp tables must not
-be WAL-logged.
+pg_xact 记录每个已分配 XID 的事务的提交状态。事务可以是进行中、已提交、
+已中止或“已子提交”。最后一种状态意味着它是不再运行的子事务，但其父
+尚未更新其状态。不必把子事务的事务状态更新为子提交，因此我们可以推迟
+到主事务提交。把事务标为已子提交的主要作用是：当事务状态分布在多个
+clog 页上时提供原子提交协议。因此，每当事务状态跨多页时，我们必须使用
+两阶段提交协议：第一阶段把子事务标为已子提交，然后我们把顶层事务及其
+全部子事务标为已提交（按该顺序）。因此，尚未中止的子事务即便已经结束
+也表现为进行中，子提交状态表现为主事务提交期间非常短暂的过渡状态。
+子事务中止总是在发生时立刻在 clog 中标记。当事务状态全部装进单个 CLOG
+页时，我们原子地把它们全部标为已提交，而不费中间子提交状态的劲。
 
-During WAL replay, we can check the LSN of a page to detect whether the change
-recorded by the current log entry is already applied (it has been, if the page
-LSN is >= the log entry's WAL location).
+保存点用子事务实现。子事务是事务内的事务；其提交或中止状态不仅依赖它
+自己是否提交，还依赖其父事务是否提交。为在事务中实现多个保存点，我们
+允许无限事务嵌套深度，因此任何特定子事务的提交状态依赖每一个祖先事务
+的提交状态。
 
-Usually, log entries contain just enough information to redo a single
-incremental update on a page (or small group of pages).  This will work only
-if the filesystem and hardware implement data page writes as atomic actions,
-so that a page is never left in a corrupt partly-written state.  Since that's
-often an untenable assumption in practice, we log additional information to
-allow complete reconstruction of modified pages.  The first WAL record
-affecting a given page after a checkpoint is made to contain a copy of the
-entire page, and we implement replay by restoring that page copy instead of
-redoing the update.  (This is more reliable than the data storage itself would
-be because we can check the validity of the WAL record's CRC.)  We can detect
-the "first change after checkpoint" by noting whether the page's old LSN
-precedes the end of WAL as of the last checkpoint (the RedoRecPtr).
+“子事务父”（pg_subtrans）机制为每个有 XID 的事务记录其父事务的
+TransactionId。子事务一被分配 XID 就存储这些信息。顶层事务没有父，因此
+它们把 pg_subtrans 条目留为默认值零（InvalidTransactionId）。
 
-The general schema for executing a WAL-logged action is
+pg_subtrans 用来检查所讨论的事务是否仍在运行——事务的主 Xid 记录在
+ProcGlobal->xids[] 中，PGPROC->xid 中有副本，但因为我们允许任意嵌套
+子事务，我们无法把全部 Xid 放进共享内存，因此必须把它们存在磁盘上。
+不过注意：对每个事务我们保持一个已知属于该事务树的 Xid “缓存”，因此
+除非我们知道缓存已溢出，可以跳过查看 pg_subtrans。血淋淋的细节见
+storage/ipc/procarray.c。
 
-1. Pin and exclusive-lock the shared buffer(s) containing the data page(s)
-to be modified.
 
-2. START_CRIT_SECTION()  (Any error during the next three steps must cause a
-PANIC because the shared buffers will contain unlogged changes, which we
-have to ensure don't get to disk.  Obviously, you should check conditions
-such as whether there's enough free space on the page before you start the
-critical section.)
+slru.c 是 pg_xact 和 pg_subtrans 的支撑机制。它实现内存中缓冲区页的
+LRU 策略。pg_xact 的高层例程在 transam.c 中实现，低层函数在 clog.c 中。
+pg_subtrans 完全包含在 subtrans.c 中。
 
-3. Apply the required changes to the shared buffer(s).
 
-4. Mark the shared buffer(s) as dirty with MarkBufferDirty().  (This must
-happen before the WAL record is inserted; see notes in SyncOneBuffer().)
-Note that marking a buffer dirty with MarkBufferDirty() should only
-happen iff you write a WAL record; see Writing Hints below.
+预写日志编码
+------------
 
-5. If the relation requires WAL-logging, build a WAL record using
-XLogBeginInsert and XLogRegister* functions, and insert it.  (See
-"Constructing a WAL record" below).  Then update the page's LSN using the
-returned XLOG location.  For instance,
+WAL 子系统（代码中也称为 XLOG）的存在是为了保证崩溃恢复。它也可以用来
+提供时间点恢复，以及经日志传送的热备复制。以下是其设计中一些非显而易见
+方面的说明。
+
+写*前*日志的一个基本假定是：日志条目必须在它们描述的数据页变更之前到达
+稳定存储。这确保把日志重放到末尾会把我们带到没有部分执行事务的一致状态。
+为保证这一点，每个数据页（堆或索引）标有影响该页的最新 XLOG 记录的 LSN
+（日志序列号——实践中是 WAL 文件位置）。bufmgr 写出脏页之前，必须确保
+xlog 至少已刷到该页的 LSN。这种低层交互通过直到必要时才等待 XLOG I/O
+来改善性能。LSN 检查只存在于共享缓冲区管理器中，不存在于临时表所用的
+本地缓冲区管理器中；因此对临时表的操作不得记 WAL。
+
+WAL 重放期间，我们可以检查页的 LSN 来检测当前日志条目记录的变更是否已
+应用（若页 LSN >= 该日志条目的 WAL 位置，则已应用）。
+
+通常，日志条目只包含足够重做页（或小组页）上单次增量更新的信息。这只有
+在文件系统和硬件把数据页写实现为原子动作、从而页从不处于损坏的部分写入
+状态时才工作。由于实践中这常常是站不住脚的假定，我们记录额外信息以允许
+完整重建被修改的页。检查点之后影响给定页的第一条 WAL 记录被做成包含整页
+的副本，我们通过恢复该页副本而不是重做更新来实现重放。（这比数据存储
+本身更可靠，因为我们可以检查 WAL 记录的 CRC 有效性。）我们可以通过注意
+页的旧 LSN 是否先于上次检查点时的 WAL 末尾（RedoRecPtr）来检测“检查点
+后的第一次变更”。
+
+执行记 WAL 动作的一般模式是
+
+1. 钉住并以独占方式锁定包含要修改的数据页的共享缓冲区。
+
+2. START_CRIT_SECTION()（接下来三步中的任何错误都必须导致 PANIC，因为
+共享缓冲区将包含未记录的变更，我们必须确保它们不到达磁盘。显然，你应
+在开始临界区之前检查页上是否有足够空闲空间等条件。）
+
+3. 把所需变更应用到共享缓冲区。
+
+4. 用 MarkBufferDirty() 把共享缓冲区标为脏。（这必须在插入 WAL 记录
+之前发生；见 SyncOneBuffer() 中的说明。）注意只有在你写 WAL 记录时才应
+用 MarkBufferDirty() 把缓冲区标为脏；见下文写提示。
+
+5. 若该关系需要记 WAL，用 XLogBeginInsert 和 XLogRegister* 函数构建
+WAL 记录并插入它。（见下文“构造 WAL 记录”。）然后用返回的 XLOG 位置
+更新页的 LSN。例如，
 
 		XLogBeginInsert();
 		XLogRegisterBuffer(...)
@@ -466,448 +366,338 @@ returned XLOG location.  For instance,
 
 6. END_CRIT_SECTION()
 
-7. Unlock and unpin the buffer(s).
+7. 解锁并取消钉住缓冲区。
 
-Complex changes (such as a multilevel index insertion) normally need to be
-described by a series of atomic-action WAL records.  The intermediate states
-must be self-consistent, so that if the replay is interrupted between any
-two actions, the system is fully functional.  In btree indexes, for example,
-a page split requires a new page to be allocated, and an insertion of a new
-key in the parent btree level, but for locking reasons this has to be
-reflected by two separate WAL records.  Replaying the first record, to
-allocate the new page and move tuples to it, sets a flag on the page to
-indicate that the key has not been inserted to the parent yet.  Replaying the
-second record clears the flag.  This intermediate state is never seen by
-other backends during normal operation, because the lock on the child page
-is held across the two actions, but will be seen if the operation is
-interrupted before writing the second WAL record.  The search algorithm works
-with the intermediate state as normal, but if an insertion encounters a page
-with the incomplete-split flag set, it will finish the interrupted split by
-inserting the key to the parent, before proceeding.
+复杂变更（例如多层索引插入）通常需要由一系列原子动作 WAL 记录描述。
+中间状态必须自洽，以便若重放在任意两个动作之间被打断，系统仍完全可用。
+例如在 btree 索引中，页分裂需要分配新页，并在父 btree 层插入新键，但
+出于加锁原因这必须由两条单独的 WAL 记录反映。重放第一条记录以分配新页
+并把元组移到它上面时，在页上设置标志以表明键尚未插入父。重放第二条
+记录清除该标志。这一中间状态在正常操作期间不会被其他后端看到，因为
+跨两个动作持有子页上的锁，但若操作在写第二条 WAL 记录之前被打断就会
+被看到。搜索算法把中间状态当正常处理，但若插入遇到设置了未完成分裂
+标志的页，它会在继续之前通过把键插入父来完成被打断的分裂。
 
 
-Constructing a WAL record
--------------------------
+构造 WAL 记录
+-------------
 
-A WAL record consists of a header common to all WAL record types,
-record-specific data, and information about the data blocks modified.  Each
-modified data block is identified by an ID number, and can optionally have
-more record-specific data associated with the block.  If XLogInsert decides
-that a full-page image of a block needs to be taken, the data associated
-with that block is not included.
+WAL 记录由所有 WAL 记录类型共有的头、记录特定数据，以及关于被修改数据
+块的信息组成。每个被修改的数据块由 ID 号标识，并且可以选择有与该块
+关联的更多记录特定数据。若 XLogInsert 判定需要拍某块的整页映像，则不
+包含与该块关联的数据。
 
-The API for constructing a WAL record consists of five functions:
-XLogBeginInsert, XLogRegisterBuffer, XLogRegisterData, XLogRegisterBufData,
-and XLogInsert.  First, call XLogBeginInsert().  Then register all the buffers
-modified, and data needed to replay the changes, using XLogRegister*
-functions.  Finally, insert the constructed record to the WAL by calling
-XLogInsert().
+构造 WAL 记录的 API 由五个函数组成：XLogBeginInsert、XLogRegisterBuffer、
+XLogRegisterData、XLogRegisterBufData 和 XLogInsert。首先调用
+XLogBeginInsert()。然后用 XLogRegister* 函数注册全部被修改的缓冲区以及
+重放变更所需的数据。最后通过调用 XLogInsert() 把构造好的记录插入 WAL。
 
 	XLogBeginInsert();
 
-	/* register buffers modified as part of this WAL-logged action */
+	/* 注册作为此记 WAL 动作一部分被修改的缓冲区 */
 	XLogRegisterBuffer(0, lbuffer, REGBUF_STANDARD);
 	XLogRegisterBuffer(1, rbuffer, REGBUF_STANDARD);
 
-	/* register data that is always included in the WAL record */
+	/* 注册总是包含在 WAL 记录中的数据 */
 	XLogRegisterData(&xlrec, SizeOfFictionalAction);
 
 	/*
-	 * register data associated with a buffer. This will not be included
-	 * in the record if a full-page image is taken.
+	 * 注册与缓冲区关联的数据。若拍了整页映像，
+	 * 这不会包含在记录中。
 	 */
 	XLogRegisterBufData(0, tuple->data, tuple->len);
 
-	/* more data associated with the buffer */
+	/* 与该缓冲区关联的更多数据 */
 	XLogRegisterBufData(0, data2, len2);
 
 	/*
-	 * Ok, all the data and buffers to include in the WAL record have
-	 * been registered. Insert the record.
+	 * 好了，要包含在 WAL 记录中的全部数据和缓冲区都已
+	 * 注册。插入记录。
 	 */
 	recptr = XLogInsert(RM_FOO_ID, XLOG_FOOBAR_DO_STUFF);
 
-Details of the API functions:
+API 函数细节：
 
 void XLogBeginInsert(void)
 
-    Must be called before XLogRegisterBuffer and XLogRegisterData.
+    必须在 XLogRegisterBuffer 和 XLogRegisterData 之前调用。
 
 void XLogResetInsertion(void)
 
-    Clear any currently registered data and buffers from the WAL record
-    construction workspace.  This is only needed if you have already called
-    XLogBeginInsert(), but decide to not insert the record after all.
+    从 WAL 记录构造工作区清除任何当前已注册的数据和缓冲区。只有当你
+    已经调用了 XLogBeginInsert()，但决定毕竟不插入该记录时才需要。
 
 void XLogEnsureRecordSpace(int max_block_id, int ndatas)
 
-    Normally, the WAL record construction buffers have the following limits:
+    通常，WAL 记录构造缓冲区有以下限制：
 
-    * highest block ID that can be used is 4 (allowing five block references)
-    * Max 20 chunks of registered data
+    * 能使用的最高块 ID 是 4（允许五个块引用）
+    * 最多 20 块已注册数据
 
-    These default limits are enough for most record types that change some
-    on-disk structures.  For the odd case that requires more data, or needs to
-    modify more buffers, these limits can be raised by calling
-    XLogEnsureRecordSpace().  XLogEnsureRecordSpace() must be called before
-    XLogBeginInsert(), and outside a critical section.
+    这些默认限制对大多数更改某些磁盘结构的记录类型够用。对需要更多
+    数据或需要修改更多缓冲区的罕见情形，可以通过调用
+    XLogEnsureRecordSpace() 提高这些限制。XLogEnsureRecordSpace()
+    必须在 XLogBeginInsert() 之前、临界区之外调用。
 
 void XLogRegisterBuffer(uint8 block_id, Buffer buf, uint8 flags);
 
-    XLogRegisterBuffer adds information about a data block to the WAL record.
-    block_id is an arbitrary number used to identify this page reference in
-    the redo routine.  The information needed to re-find the page at redo -
-    relfilelocator, fork, and block number - are included in the WAL record.
+    XLogRegisterBuffer 向 WAL 记录添加关于数据块的信息。block_id 是
+    用来在 redo 例程中标识此页引用的任意编号。重做时重新找到该页所需
+    的信息——relfilelocator、分支和块号——包含在 WAL 记录中。
 
-    XLogInsert will automatically include a full copy of the page contents, if
-    this is the first modification of the buffer since the last checkpoint.
-    It is important to register every buffer modified by the action with
-    XLogRegisterBuffer, to avoid torn-page hazards.
+    若这是上次检查点以来对该缓冲区的第一次修改，XLogInsert 会自动包含
+    页内容的完整副本。用 XLogRegisterBuffer 注册该动作修改的每个缓冲区
+    很重要，以避免撕裂页危害。
 
-    The flags control when and how the buffer contents are included in the
-    WAL record.  Normally, a full-page image is taken only if the page has not
-    been modified since the last checkpoint, and only if full_page_writes=on
-    or an online backup is in progress.  The REGBUF_FORCE_IMAGE flag can be
-    used to force a full-page image to always be included; that is useful
-    e.g. for an operation that rewrites most of the page, so that tracking the
-    details is not worth it.  For the rare case where it is not necessary to
-    protect from torn pages, REGBUF_NO_IMAGE flag can be used to suppress
-    full page image from being taken.  REGBUF_WILL_INIT also suppresses a full
-    page image, but the redo routine must re-generate the page from scratch,
-    without looking at the old page contents.  Re-initializing the page
-    protects from torn page hazards like a full page image does.
+    标志控制何时以及如何把缓冲区内容包含在 WAL 记录中。通常，只有当页
+    自上次检查点以来未被修改，并且只有当 full_page_writes=on 或在线备份
+    正在进行时，才拍整页映像。REGBUF_FORCE_IMAGE 标志可用来强制总是
+    包含整页映像；这对例如重写页大部分、跟踪细节不值得的操作有用。对
+    不必防止撕裂页的罕见情形，可以用 REGBUF_NO_IMAGE 标志抑制拍整页
+    映像。REGBUF_WILL_INIT 也抑制整页映像，但 redo 例程必须从零重新
+    生成该页，而不查看旧页内容。重新初始化页像整页映像一样防止撕裂页
+    危害。
 
-    The REGBUF_STANDARD flag can be specified together with the other flags to
-    indicate that the page follows the standard page layout.  It causes the
-    area between pd_lower and pd_upper to be left out from the image, reducing
-    WAL volume.
+    REGBUF_STANDARD 标志可以与其他标志一起指定，以表明该页遵循标准页
+    布局。它导致 pd_lower 与 pd_upper 之间的区域从映像中略去，减少
+    WAL 量。
 
-    If the REGBUF_KEEP_DATA flag is given, any per-buffer data registered with
-    XLogRegisterBufData() is included in the WAL record even if a full-page
-    image is taken.
+    若给出 REGBUF_KEEP_DATA 标志，即使用 XLogRegisterBufData() 注册的
+    每缓冲区数据，即便拍了整页映像也会包含在 WAL 记录中。
 
 void XLogRegisterData(char *data, int len);
 
-    XLogRegisterData is used to include arbitrary data in the WAL record.  If
-    XLogRegisterData() is called multiple times, the data are appended, and
-    will be made available to the redo routine as one contiguous chunk.
+    XLogRegisterData 用来在 WAL 记录中包含任意数据。若多次调用
+    XLogRegisterData()，数据被追加，并将作为一块连续块提供给 redo
+    例程。
 
 void XLogRegisterBufData(uint8 block_id, char *data, int len);
 
-    XLogRegisterBufData is used to include data associated with a particular
-    buffer that was registered earlier with XLogRegisterBuffer().  If
-    XLogRegisterBufData() is called multiple times with the same block ID, the
-    data are appended, and will be made available to the redo routine as one
-    contiguous chunk.
+    XLogRegisterBufData 用来包含与先前用 XLogRegisterBuffer() 注册的
+    特定缓冲区关联的数据。若对同一块 ID 多次调用 XLogRegisterBufData()，
+    数据被追加，并将作为一块连续块提供给 redo 例程。
 
-    If a full-page image of the buffer is taken at insertion, the data is not
-    included in the WAL record, unless the REGBUF_KEEP_DATA flag is used.
+    若插入时拍了该缓冲区的整页映像，则数据不包含在 WAL 记录中，除非
+    使用了 REGBUF_KEEP_DATA 标志。
 
 
-Writing a REDO routine
+编写 REDO 例程
+--------------
+
+REDO 例程使用 WAL 记录中包含的数据和页引用来重建页的新状态。
+xlogreader.c/h 中的记录解码函数和宏可用来从记录中提取数据。
+
+重放描述多页变更的 WAL 记录时，必须小心正确锁定页，以防止并发热备查询
+看到不一致状态。若这要求同时持有两把或更多缓冲区锁，必须按适当顺序
+锁定页，并且直到全部变更完成才释放锁。
+
+注意：只有当我们知道该动作已串行化时，才必须使用
+PageSetLSN/PageGetLSN()。只有启动进程可以在恢复期间修改数据块，因此
+启动进程可以执行 PageGetLSN() 而不必担心串行化问题。所有其他进程必须
+只在持有独占缓冲区锁、或共享锁加缓冲区头锁时调用 PageSet/GetLSN，或
+在持有关系上的 AccessExclusiveLock 时直接写数据块而不是通过共享缓冲区。
+
+
+写提示
+------
+
+在某些情形下，我们向数据块写额外信息而不写在前的 WAL 记录。这只应在
+数据可以在崩溃后稍后重建、并且该动作只是优化性能的方式时发生。写提示
+时我们用 MarkBufferDirtyHint() 把块标为脏。
+
+若缓冲区是干净的且正在使用校验和，则 MarkBufferDirtyHint() 插入
+XLOG_FPI_FOR_HINT 记录以确保我们拍包含该提示的整页映像。我们这样做是
+为了在写出变脏的页时避免部分页写。恢复期间不写 WAL，因此我们在恢复中
+只是跳过因提示而使块变脏。
+
+若你决定优化掉 WAL 记录，则任何对 MarkBufferDirty() 的调用必须替换为
+MarkBufferDirtyHint()，否则你会暴露部分页写的风险。
+
+堆页中的全可见提示（PD_ALL_VISIBLE）是特殊情形，因为它在某些方面被当作
+持久变更，在其他方面被当作提示。它必须满足这一不变量：若堆页关联的
+可见性映射（VM）位已设置，则堆页本身上的 PD_ALL_VISIBLE 已设置。清除
+PD_ALL_VISIBLE 总是被当作完全持久的变更以维持这一不变量。另外，若启用
+了校验和或 wal_log_hints，设置 PD_ALL_VISIBLE 也被当作完全持久的变更
+以防止撕裂页。
+
+但是，若既未启用校验和也未启用 wal_log_hints，若唯一变更是
+PD_ALL_VISIBLE，撕裂页没有后果；因此不拍整堆页映像，也不更新堆页的
+LSN。注意：应用这一优化时更新堆页的 LSN 会不正确，即便有关联的 WAL
+记录，因为该页的后续修改者（例如无关的 UPDATE）可能错误地相信不需要
+整页映像。
+
+
+文件系统动作的预写日志
 ----------------------
 
-A REDO routine uses the data and page references included in the WAL record
-to reconstruct the new state of the page.  The record decoding functions
-and macros in xlogreader.c/h can be used to extract the data from the record.
+上一节描述了如何为只更改共享缓冲区内页内容的动作记 WAL。对那类动作，
+一般可以在开始做实际变更之前检查所有可能的错误情形（例如页上空间不足）。
+因此我们可以通过把它们包进临界区来使变更和创建关联 WAL 日志记录“原子”
+——中途失败的几率足够低，若确实发生则 PANIC 可接受。
 
-When replaying a WAL record that describes changes on multiple pages, you
-must be careful to lock the pages properly to prevent concurrent Hot Standby
-queries from seeing an inconsistent state.  If this requires that two
-or more buffer locks be held concurrently, you must lock the pages in
-appropriate order, and not release the locks until all the changes are done.
+显然，那种做法对要记录的动作内有显著失败概率的情形行不通，例如创建新
+文件或数据库。我们不想 PANIC，尤其不想在已经写了说我们做了该动作的
+WAL 记录之后 PANIC——若那样做，重放该记录可能再次失败并再次 PANIC，使
+失败不可恢复。这意味着“在它所描述的变更之前写 WAL”这一普通 WAL 规则
+行不通，我们需要为这类情形采用不同设计。
 
-Note that we must only use PageSetLSN/PageGetLSN() when we know the action
-is serialised. Only Startup process may modify data blocks during recovery,
-so Startup process may execute PageGetLSN() without fear of serialisation
-problems. All other processes must only call PageSet/GetLSN when holding
-either an exclusive buffer lock or a shared lock plus buffer header lock,
-or be writing the data block directly rather than through shared buffers
-while holding AccessExclusiveLock on the relation.
+有若干基本类型的文件系统动作有这个问题。以下是我们如何处理每一种：
 
+1. 向现有表添加磁盘页。
 
-Writing Hints
--------------
+这一动作完全不记 WAL。我们通过在其末尾写一页零来扩展表。我们必须实际
+做这次写，以便确定文件系统已分配该空间。若写失败我们可以正常抛错。一旦
+知道空间已分配，我们可以通过一次或多次正常的记 WAL 动作初始化和填充
+该页。因为可能在扩展文件与写出 WAL 条目之间崩溃，我们必须把在表或索引
+中发现全零页当作非错误条件。那种情况下我们可以只回收该空间以供复用。
 
-In some cases, we write additional information to data blocks without
-writing a preceding WAL record. This should only happen iff the data can
-be reconstructed later following a crash and the action is simply a way
-of optimising for performance. When a hint is written we use
-MarkBufferDirtyHint() to mark the block dirty.
+2. 创建新表，这需要文件系统中的新文件。
 
-If the buffer is clean and checksums are in use then MarkBufferDirtyHint()
-inserts an XLOG_FPI_FOR_HINT record to ensure that we take a full page image
-that includes the hint. We do this to avoid a partial page write, when we
-write the dirtied page. WAL is not written during recovery, so we simply skip
-dirtying blocks because of hints when in recovery.
+我们试图创建该文件，若成功则做一条说我们做了这件事的 WAL 记录。若不
+成功，我们可以只抛错。注意有一个窗口：我们已创建文件但尚未向磁盘写任何
+关于它的 WAL。若我们在此窗口期间崩溃，该文件作为“孤儿”留在磁盘上。
+可以通过让数据库重启搜索没有任何已提交 pg_class 条目的文件来清理这类
+孤儿，但目前没这样做，因为有可能删除对崩溃的取证分析有用的数据。孤儿
+文件无害——最坏浪费一点磁盘空间——因为我们在分配新 relfilenumber OID
+时检查磁盘上的碰撞。因此清理其实并不必要。
 
-If you do decide to optimise away a WAL record, then any calls to
-MarkBufferDirty() must be replaced by MarkBufferDirtyHint(),
-otherwise you will expose the risk of partial page writes.
+3. 删除表，这需要可能失败的 unlink()。
 
-The all-visible hint in a heap page (PD_ALL_VISIBLE) is a special
-case, because it is treated like a durable change in some respects and
-a hint in other respects. It must satisfy the invariant that, if a
-heap page's associated visibilitymap (VM) bit is set, then
-PD_ALL_VISIBLE is set on the heap page itself. Clearing of
-PD_ALL_VISIBLE is always treated like a fully-durable change to
-maintain this invariant. Additionally, if checksums or wal_log_hints
-are enabled, setting PD_ALL_VISIBLE is also treated like a
-fully-durable change to protect against torn pages.
+我们这里的做法是先记 WAL，但把实际 unlink() 调用的失败当作警告而不是
+错误条件。同样，这可能留下孤儿文件，但那比替代方案便宜。由于我们在
+提交 DROP TABLE 事务之前实际上不能做 unlink()，反正抛错也无从谈起。
+（值得注意的是，关于文件删除的 WAL 条目实际上是删除事务的提交记录的
+一部分。）
 
-But, if neither checksums nor wal_log_hints are enabled, torn pages
-are of no consequence if the only change is to PD_ALL_VISIBLE; so no
-full heap page image is taken, and the heap page's LSN is not
-updated. NB: it would be incorrect to update the heap page's LSN when
-applying this optimization, even though there is an associated WAL
-record, because subsequent modifiers (e.g. an unrelated UPDATE) of the
-page may falsely believe that a full page image is not required.
+4. 创建和删除数据库和表空间，这需要创建和删除目录以及整棵目录树。
 
-Write-Ahead Logging for Filesystem Actions
-------------------------------------------
+这些情形的处理类似创建单个文件，即我们先试图做该动作，若成功再写 WAL
+条目。当然，潜在浪费的磁盘空间量要大一些。在创建情形下，若创建失败我们
+试图再次删除目录树，以降低浪费空间的风险。删除操作中途失败导致损坏的
+数据库：DROP 失败了，但部分数据反正已经没了。对此我们能做的很少，不过
+无论如何那大概是用户不再想要的数据。
 
-The previous section described how to WAL-log actions that only change page
-contents within shared buffers.  For that type of action it is generally
-possible to check all likely error cases (such as insufficient space on the
-page) before beginning to make the actual change.  Therefore we can make
-the change and the creation of the associated WAL log record "atomic" by
-wrapping them into a critical section --- the odds of failure partway
-through are low enough that PANIC is acceptable if it does happen.
-
-Clearly, that approach doesn't work for cases where there's a significant
-probability of failure within the action to be logged, such as creation
-of a new file or database.  We don't want to PANIC, and we especially don't
-want to PANIC after having already written a WAL record that says we did
-the action --- if we did, replay of the record would probably fail again
-and PANIC again, making the failure unrecoverable.  This means that the
-ordinary WAL rule of "write WAL before the changes it describes" doesn't
-work, and we need a different design for such cases.
-
-There are several basic types of filesystem actions that have this
-issue.  Here is how we deal with each:
-
-1. Adding a disk page to an existing table.
-
-This action isn't WAL-logged at all.  We extend a table by writing a page
-of zeroes at its end.  We must actually do this write so that we are sure
-the filesystem has allocated the space.  If the write fails we can just
-error out normally.  Once the space is known allocated, we can initialize
-and fill the page via one or more normal WAL-logged actions.  Because it's
-possible that we crash between extending the file and writing out the WAL
-entries, we have to treat discovery of an all-zeroes page in a table or
-index as being a non-error condition.  In such cases we can just reclaim
-the space for re-use.
-
-2. Creating a new table, which requires a new file in the filesystem.
-
-We try to create the file, and if successful we make a WAL record saying
-we did it.  If not successful, we can just throw an error.  Notice that
-there is a window where we have created the file but not yet written any
-WAL about it to disk.  If we crash during this window, the file remains
-on disk as an "orphan".  It would be possible to clean up such orphans
-by having database restart search for files that don't have any committed
-entry in pg_class, but that currently isn't done because of the possibility
-of deleting data that is useful for forensic analysis of the crash.
-Orphan files are harmless --- at worst they waste a bit of disk space ---
-because we check for on-disk collisions when allocating new relfilenumber
-OIDs.  So cleaning up isn't really necessary.
-
-3. Deleting a table, which requires an unlink() that could fail.
-
-Our approach here is to WAL-log the operation first, but to treat failure
-of the actual unlink() call as a warning rather than error condition.
-Again, this can leave an orphan file behind, but that's cheap compared to
-the alternatives.  Since we can't actually do the unlink() until after
-we've committed the DROP TABLE transaction, throwing an error would be out
-of the question anyway.  (It may be worth noting that the WAL entry about
-the file deletion is actually part of the commit record for the dropping
-transaction.)
-
-4. Creating and deleting databases and tablespaces, which requires creating
-and deleting directories and entire directory trees.
-
-These cases are handled similarly to creating individual files, ie, we
-try to do the action first and then write a WAL entry if it succeeded.
-The potential amount of wasted disk space is rather larger, of course.
-In the creation case we try to delete the directory tree again if creation
-fails, so as to reduce the risk of wasted space.  Failure partway through
-a deletion operation results in a corrupt database: the DROP failed, but
-some of the data is gone anyway.  There is little we can do about that,
-though, and in any case it was presumably data the user no longer wants.
-
-In all of these cases, if WAL replay fails to redo the original action
-we must panic and abort recovery.  The DBA will have to manually clean up
-(for instance, free up some disk space or fix directory permissions) and
-then restart recovery.  This is part of the reason for not writing a WAL
-entry until we've successfully done the original action.
+在所有这些情形中，若 WAL 重放未能重做原始动作，我们必须恐慌并中止恢复。
+DBA 将必须手工清理（例如腾出一些磁盘空间或修复目录权限），然后重新
+启动恢复。这是直到我们成功做了原始动作才写 WAL 条目的部分原因。
 
 
-Skipping WAL for New RelFileLocator
---------------------------------
+为新 RelFileLocator 跳过 WAL
+---------------------------
 
-Under wal_level=minimal, if a change modifies a relfilenumber that ROLLBACK
-would unlink, in-tree access methods write no WAL for that change.  Code that
-writes WAL without calling RelationNeedsWAL() must check for this case.  This
-skipping is mandatory.  If a WAL-writing change preceded a WAL-skipping change
-for the same block, REDO could overwrite the WAL-skipping change.  If a
-WAL-writing change followed a WAL-skipping change for the same block, a
-related problem would arise.  When a WAL record contains no full-page image,
-REDO expects the page to match its contents from just before record insertion.
-A WAL-skipping change may not reach disk at all, violating REDO's expectation
-under full_page_writes=off.  For any access method, CommitTransaction() writes
-and fsyncs affected blocks before recording the commit.
+在 wal_level=minimal 下，若某变更修改 ROLLBACK 会解除链接的
+relfilenumber，树内访问方法不为该变更写 WAL。不调用 RelationNeedsWAL()
+就写 WAL 的代码必须检查这种情形。这种跳过是强制的。若记 WAL 的变更先于
+同一块上跳过 WAL 的变更，REDO 可能覆盖跳过 WAL 的变更。若记 WAL 的变更
+跟在同一块上跳过 WAL 的变更之后，会出现相关问题。当 WAL 记录不含整页
+映像时，REDO 期望该页匹配记录插入前一刻的内容。跳过 WAL 的变更可能根本
+不到达磁盘，从而在 full_page_writes=off 下违反 REDO 的期望。对任何访问
+方法，CommitTransaction() 在记录提交之前写出并 fsync 受影响的块。
 
-Prefer to do the same in future access methods.  However, two other approaches
-can work.  First, an access method can irreversibly transition a given fork
-from WAL-skipping to WAL-writing by calling FlushRelationBuffers() and
-smgrimmedsync().  Second, an access method can opt to write WAL
-unconditionally for permanent relations.  Under these approaches, the access
-method callbacks must not call functions that react to RelationNeedsWAL().
+将来的访问方法最好也这样做。不过另外两种做法也能工作。第一，访问方法
+可以通过调用 FlushRelationBuffers() 和 smgrimmedsync() 把给定分支从跳过
+WAL 不可逆地过渡到记 WAL。第二，访问方法可以选择对永久关系无条件写
+WAL。在这些做法下，访问方法回调不得调用对 RelationNeedsWAL() 作出反应
+的函数。
 
-This applies only to WAL records whose replay would modify bytes stored in the
-new relfilenumber.  It does not apply to other records about the relfilenumber,
-such as XLOG_SMGR_CREATE.  Because it operates at the level of individual
-relfilenumbers, RelationNeedsWAL() can differ for tightly-coupled relations.
-Consider "CREATE TABLE t (); BEGIN; ALTER TABLE t ADD c text; ..." in which
-ALTER TABLE adds a TOAST relation.  The TOAST relation will skip WAL, while
-the table owning it will not.  ALTER TABLE SET TABLESPACE will cause a table
-to skip WAL, but that won't affect its indexes.
+这只适用于其重放会修改新 relfilenumber 中所存字节的 WAL 记录。它不适用于
+关于该 relfilenumber 的其他记录，例如 XLOG_SMGR_CREATE。因为它在各个
+relfilenumber 的级别上操作，紧密耦合的关系的 RelationNeedsWAL() 可能
+不同。考虑 “CREATE TABLE t (); BEGIN; ALTER TABLE t ADD c text; ...”，
+其中 ALTER TABLE 添加 TOAST 关系。该 TOAST 关系将跳过 WAL，而拥有它的
+表不会。ALTER TABLE SET TABLESPACE 会使表跳过 WAL，但那不会影响其索引。
 
 
-Asynchronous Commit
--------------------
+异步提交
+--------
 
-As of PostgreSQL 8.3 it is possible to perform asynchronous commits - i.e.,
-we don't wait while the WAL record for the commit is fsync'ed.
-We perform an asynchronous commit when synchronous_commit = off.  Instead
-of performing an XLogFlush() up to the LSN of the commit, we merely note
-the LSN in shared memory.  The backend then continues with other work.
-We record the LSN only for an asynchronous commit, not an abort; there's
-never any need to flush an abort record, since the presumption after a
-crash would be that the transaction aborted anyway.
+自 PostgreSQL 8.3 起可以执行异步提交——即，我们不等待提交的 WAL 记录被
+fsync。当 synchronous_commit = off 时我们执行异步提交。与其执行直到
+提交 LSN 的 XLogFlush()，我们只在共享内存中记下该 LSN。然后后端继续
+做其他工作。我们只为异步提交记录 LSN，不为中止记录；永远不需要刷新
+中止记录，因为崩溃后的假定反正会是该事务已中止。
 
-We always force synchronous commit when the transaction is deleting
-relations, to ensure the commit record is down to disk before the relations
-are removed from the filesystem.  Also, certain utility commands that have
-non-roll-backable side effects (such as filesystem changes) force sync
-commit to minimize the window in which the filesystem change has been made
-but the transaction isn't guaranteed committed.
+当事务正在删除关系时，我们总是强制同步提交，以确保提交记录落到磁盘
+之后才从文件系统移除关系。另外，某些有不可回滚副作用（例如文件系统
+变更）的实用命令强制同步提交，以最小化已做文件系统变更但事务尚未保证
+提交的窗口。
 
-The walwriter regularly wakes up (via wal_writer_delay) or is woken up
-(via its latch, which is set by backends committing asynchronously) and
-performs an XLogBackgroundFlush().  This checks the location of the last
-completely filled WAL page.  If that has moved forwards, then we write all
-the changed buffers up to that point, so that under full load we write
-only whole buffers.  If there has been a break in activity and the current
-WAL page is the same as before, then we find out the LSN of the most
-recent asynchronous commit, and write up to that point, if required (i.e.
-if it's in the current WAL page).  If more than wal_writer_delay has
-passed, or more than wal_writer_flush_after blocks have been written, since
-the last flush, WAL is also flushed up to the current location.  This
-arrangement in itself would guarantee that an async commit record reaches
-disk after at most two times wal_writer_delay after the transaction
-completes. However, we also allow XLogFlush to write/flush full buffers
-"flexibly" (ie, not wrapping around at the end of the circular WAL buffer
-area), so as to minimize the number of writes issued under high load when
-multiple WAL pages are filled per walwriter cycle. This makes the worst-case
-delay three wal_writer_delay cycles.
+walwriter 定期醒来（经 wal_writer_delay）或被唤醒（经其后端 latch，由
+异步提交的后端设置）并执行 XLogBackgroundFlush()。这检查最后完全填满
+的 WAL 页的位置。若那已向前移动，则我们写出直到该点的全部已变更缓冲区，
+以便在满负载下我们只写整缓冲区。若活动有中断且当前 WAL 页与以前相同，
+则我们找出最近异步提交的 LSN，并在需要时（即若它在当前 WAL 页中）写到
+该点。若自上次刷新以来已过超过 wal_writer_delay，或已写超过
+wal_writer_flush_after 块，WAL 也会刷新到当前位置。这一安排本身会保证
+异步提交记录在事务完成后最多两个 wal_writer_delay 到达磁盘。不过，我们
+也允许 XLogFlush “灵活地”写/刷新满缓冲区（即不在环形 WAL 缓冲区区域
+末尾回绕），以便在每个 walwriter 周期填满多页 WAL 的高负载下最小化发出
+的写次数。这使最坏情况延迟变成三个 wal_writer_delay 周期。
 
-There are some other subtle points to consider with asynchronous commits.
-First, for each page of CLOG we must remember the LSN of the latest commit
-affecting the page, so that we can enforce the same flush-WAL-before-write
-rule that we do for ordinary relation pages.  Otherwise the record of the
-commit might reach disk before the WAL record does.  Again, abort records
-need not factor into this consideration.
+异步提交还有一些微妙要点要考虑。第一，对 CLOG 的每一页我们必须记住影响
+该页的最新提交的 LSN，以便我们可以强制与普通关系页相同的先刷新 WAL 再
+写的规则。否则提交记录可能在 WAL 记录之前到达磁盘。同样，中止记录不必
+纳入这一考虑。
 
-In fact, we store more than one LSN for each clog page.  This relates to
-the way we set transaction status hint bits during visibility tests.
-We must not set a transaction-committed hint bit on a relation page and
-have that record make it to disk prior to the WAL record of the commit.
-Since visibility tests are normally made while holding buffer share locks,
-we do not have the option of changing the page's LSN to guarantee WAL
-synchronization.  Instead, we defer the setting of the hint bit if we have
-not yet flushed WAL as far as the LSN associated with the transaction.
-This requires tracking the LSN of each unflushed async commit.  It is
-convenient to associate this data with clog buffers: because we will flush
-WAL before writing a clog page, we know that we do not need to remember a
-transaction's LSN longer than the clog page holding its commit status
-remains in memory.  However, the naive approach of storing an LSN for each
-clog position is unattractive: the LSNs are 32x bigger than the two-bit
-commit status fields, and so we'd need 256K of additional shared memory for
-each 8K clog buffer page.  We choose instead to store a smaller number of
-LSNs per page, where each LSN is the highest LSN associated with any
-transaction commit in a contiguous range of transaction IDs on that page.
-This saves storage at the price of some possibly-unnecessary delay in
-setting transaction hint bits.
+实际上，我们为每个 clog 页存储不止一个 LSN。这与我们在可见性测试期间
+设置事务状态提示位的方式有关。我们不得在关系页上设置事务已提交提示位，
+并让该记录在提交的 WAL 记录之前到达磁盘。由于可见性测试通常在持有
+缓冲区共享锁时进行，我们没有更改页的 LSN 以保证 WAL 同步的选项。相反，
+若我们尚未把 WAL 刷新到与该事务关联的 LSN，我们就推迟设置提示位。这
+需要跟踪每个未刷新异步提交的 LSN。把这些数据与 clog 缓冲区关联很方便：
+因为我们会在写 clog 页之前刷新 WAL，我们知道我们不需要把事务的 LSN
+记住得比保存其提交状态的 clog 页留在内存中更久。不过，为每个 clog 位置
+存储一个 LSN 的朴素做法不吸引人：LSN 比两位提交状态字段大 32 倍，因此
+我们对每个 8K clog 缓冲区页会需要 256K 额外共享内存。我们改为选择每页
+存储较少数量的 LSN，其中每个 LSN 是与该页上一段连续事务 ID 范围内任何
+事务提交关联的最高 LSN。这以设置事务提示位时可能不必要的某些延迟为代价
+节省存储。
 
-How many transactions should share the same cached LSN (N)?  If the
-system's workload consists only of small async-commit transactions, then
-it's reasonable to have N similar to the number of transactions per
-walwriter cycle, since that is the granularity with which transactions will
-become truly committed (and thus hintable) anyway.  The worst case is where
-a sync-commit xact shares a cached LSN with an async-commit xact that
-commits a bit later; even though we paid to sync the first xact to disk,
-we won't be able to hint its outputs until the second xact is sync'd, up to
-three walwriter cycles later.  This argues for keeping N (the group size)
-as small as possible.  For the moment we are setting the group size to 32,
-which makes the LSN cache space the same size as the actual clog buffer
-space (independently of BLCKSZ).
+多少事务应共享同一缓存 LSN（N）？若系统的负载只由小型异步提交事务组成，
+则让 N 类似于每个 walwriter 周期的事务数是合理的，因为那反正是事务真正
+提交（因而可提示）的粒度。最坏情形是同步提交 xact 与稍后一点提交的异步
+提交 xact 共享缓存 LSN；即便我们付了把第一个 xact 同步到磁盘的代价，
+在第二个 xact 被同步之前——最多三个 walwriter 周期之后——我们也不能提示
+其输出。这主张把 N（组大小）保持得尽可能小。目前我们把组大小设为 32，
+这使 LSN 缓存空间与实际 clog 缓冲区空间大小相同（与 BLCKSZ 无关）。
 
-It is useful that we can run both synchronous and asynchronous commit
-transactions concurrently, but the safety of this is perhaps not
-immediately obvious.  Assume we have two transactions, T1 and T2.  The Log
-Sequence Number (LSN) is the point in the WAL sequence where a transaction
-commit is recorded, so LSN1 and LSN2 are the commit records of those
-transactions.  If T2 can see changes made by T1 then when T2 commits it
-must be true that LSN2 follows LSN1.  Thus when T2 commits it is certain
-that all of the changes made by T1 are also now recorded in the WAL.  This
-is true whether T1 was asynchronous or synchronous.  As a result, it is
-safe for asynchronous commits and synchronous commits to work concurrently
-without endangering data written by synchronous commits.  Sub-transactions
-are not important here since the final write to disk only occurs at the
-commit of the top level transaction.
+我们可以并发运行同步和异步提交事务是有用的，但这种安全性也许不是立刻
+显然的。假定我们有两个事务 T1 和 T2。日志序列号（LSN）是 WAL 序列中
+记录事务提交的点，因此 LSN1 和 LSN2 是那些事务的提交记录。若 T2 能看到
+T1 做的变更，则当 T2 提交时必须为真：LSN2 跟在 LSN1 之后。因此当 T2
+提交时，可以确定 T1 做的全部变更现在也都记录在 WAL 中。无论 T1 是异步
+还是同步都成立。因此，异步提交和同步提交可以安全地并发工作，而不危及
+同步提交写出的数据。子事务在这里不重要，因为最终写到磁盘只发生在顶层
+事务提交时。
 
-Changes to data blocks cannot reach disk unless WAL is flushed up to the
-point of the LSN of the data blocks.  Any attempt to write unsafe data to
-disk will trigger a write which ensures the safety of all data written by
-that and prior transactions.  Data blocks and clog pages are both protected
-by LSNs.
+数据块的变更不能到达磁盘，除非 WAL 已刷新到数据块的 LSN 点。任何试图
+把不安全数据写到磁盘的行为都会触发一次写，该写确保该事务及先前事务
+写出的全部数据的安全。数据块和 clog 页都受 LSN 保护。
 
-Changes to a temp table are not WAL-logged, hence could reach disk in
-advance of T1's commit, but we don't care since temp table contents don't
-survive crashes anyway.
+对临时表的变更不记 WAL，因此可能在 T1 提交之前到达磁盘，但我们不关心，
+因为临时表内容反正不能在崩溃后存活。
 
-Database writes that skip WAL for new relfilenumbers are also safe.  In these
-cases it's entirely possible for the data to reach disk before T1's commit,
-because T1 will fsync it down to disk without any sort of interlock.  However,
-all these paths are designed to write data that no other transaction can see
-until after T1 commits.  The situation is thus not different from ordinary
-WAL-logged updates.
+为新 relfilenumber 跳过 WAL 的数据库写也是安全的。这些情形下数据完全
+可能在 T1 提交之前到达磁盘，因为 T1 会在没有任何互锁的情况下把它
+fsync 到磁盘。不过，所有这些路径都设计为写出其他事务在 T1 提交之前
+看不到的数据。因此情形与普通记 WAL 的更新没有不同。
 
-Transaction Emulation during Recovery
--------------------------------------
 
-During Recovery we replay transaction changes in the order they occurred.
-As part of this replay we emulate some transactional behaviour, so that
-read only backends can take MVCC snapshots. We do this by maintaining a
-list of XIDs belonging to transactions that are being replayed, so that
-each transaction that has recorded WAL records for database writes exist
-in the array until it commits. Further details are given in comments in
-procarray.c.
+恢复期间的事务模拟
+------------------
 
-Many actions write no WAL records at all, for example read only transactions.
-These have no effect on MVCC in recovery and we can pretend they never
-occurred at all. Subtransaction commit does not write a WAL record either
-and has very little effect, since lock waiters need to wait for the
-parent transaction to complete.
+恢复期间我们按发生顺序重放事务变更。作为这次重放的一部分，我们模拟某些
+事务行为，以便只读后端可以取 MVCC 快照。我们通过维护属于正在被重放的
+事务的 XID 列表来做这件事，以便每个已为数据库写记录了 WAL 记录的事务
+在提交之前都存在于该数组中。更多细节见 procarray.c 中的注释。
 
-Not all transactional behaviour is emulated, for example we do not insert
-a transaction entry into the lock table, nor do we maintain the transaction
-stack in memory. Clog, multixact and commit_ts entries are made normally.
-Subtrans is maintained during recovery but the details of the transaction
-tree are ignored and all subtransactions reference the top-level TransactionId
-directly. Since commit is atomic this provides correct lock wait behaviour
-yet simplifies emulation of subtransactions considerably.
+许多动作完全不写 WAL 记录，例如只读事务。这些对恢复中的 MVCC 没有影响，
+我们可以假装它们从未发生过。子事务提交也不写 WAL 记录，并且影响很小，
+因为等锁者需要等父事务完成。
 
-Further details on locking mechanics in recovery are given in comments
-with the Lock rmgr code.
+并非所有事务行为都被模拟，例如我们不向锁表插入事务条目，也不在内存中
+维护事务栈。CLOG、multixact 和 commit_ts 条目正常做出。恢复期间维护
+Subtrans，但忽略事务树的细节，全部子事务直接引用顶层 TransactionId。
+由于提交是原子的，这提供正确的等锁行为，同时大大简化子事务的模拟。
+
+恢复中加锁机制的更多细节见 Lock 资源管理器代码中的注释。

@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0038-comment-libpq-pqformat",
+ "title": "zh: translate pqformat and be-fsstubs comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "bcf624d1ddc10020ddbaee6829134f83d80cd62d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/be-fsstubs.c",
+   "kind": "c_comment",
+   "note": "comment-only; disabled FSDB define kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0038-comment-libpq-pqformat.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 43,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/be-fsstubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 53,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "commented-out FSDB define"
+   ],
+   "note": "comment-only; disabled FSDB define kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0038-comment-libpq-pqformat.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

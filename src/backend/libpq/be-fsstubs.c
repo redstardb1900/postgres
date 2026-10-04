@@ -55,18 +55,18 @@
 #include "utils/snapmgr.h"
 #include "varatt.h"
 
-/* define this to enable debug logging */
+/* 定义此项以启用调试日志 */
 /* #define FSDB 1 */
-/* chunk size for lo_import/lo_export transfers */
+/* lo_import/lo_export 传输用的块大小 */
 #define BUFSIZE			8192
 
 /*
- * LO "FD"s are indexes into the cookies array.
+ * LO "FD" 是 cookies 数组的下标。
  *
- * A non-null entry is a pointer to a LargeObjectDesc allocated in the
- * LO private memory context "fscxt".  The cookies array itself is also
- * dynamically allocated in that context.  Its current allocated size is
- * cookies_size entries, of which any unused entries will be NULL.
+ * 非 NULL 条目是指向 LargeObjectDesc 的指针，分配在
+ * 大对象私有内存上下文 "fscxt" 中。cookies 数组本身
+ * 也在该上下文中动态分配。当前分配大小为
+ * cookies_size 个条目，其中未使用的条目为 NULL。
  */
 static LargeObjectDesc **cookies = NULL;
 static int	cookies_size = 0;
@@ -80,7 +80,7 @@ static Oid	lo_import_internal(text *filename, Oid lobjOid);
 
 
 /*****************************************************************************
- *	File Interfaces for Large Objects
+ *	大对象的文件接口
  *****************************************************************************/
 
 Datum
@@ -99,19 +99,19 @@ be_lo_open(PG_FUNCTION_ARGS)
 		PreventCommandIfReadOnly("lo_open(INV_WRITE)");
 
 	/*
-	 * Allocate a large object descriptor first.  This will also create
-	 * 'fscxt' if this is the first LO opened in this transaction.
-	 */
+ * 先分配一个大对象描述符。若这是本事务中打开的
+ * 第一个大对象，这也会创建 'fscxt'。
+ */
 	fd = newLOfd();
 
 	lobjDesc = inv_open(lobjId, mode, fscxt);
 	lobjDesc->subid = GetCurrentSubTransactionId();
 
 	/*
-	 * We must register the snapshot in TopTransaction's resowner so that it
-	 * stays alive until the LO is closed rather than until the current portal
-	 * shuts down.
-	 */
+ * 必须把快照登记到 TopTransaction 的 resowner 中，使它
+ * 一直存活到大对象关闭，而不是在当前门户
+ * 关闭时就结束。
+ */
 	if (lobjDesc->snapshot)
 		lobjDesc->snapshot = RegisterSnapshotOnOwner(lobjDesc->snapshot,
 													 TopTransactionResourceOwner);
@@ -143,10 +143,10 @@ be_lo_close(PG_FUNCTION_ARGS)
 
 
 /*****************************************************************************
- *	Bare Read/Write operations --- these are not fmgr-callable!
+ *	裸读/写操作 --- 这些不是可供 fmgr 调用的！
  *
- *	We assume the large object supports byte oriented reads and seeks so
- *	that our work is easier.
+ *	我们假定大对象支持面向字节的读取和定位，以便
+ *	我们的工作更简单。
  *
  *****************************************************************************/
 
@@ -163,10 +163,10 @@ lo_read(int fd, char *buf, int len)
 	lobj = cookies[fd];
 
 	/*
-	 * Check state.  inv_read() would throw an error anyway, but we want the
-	 * error to be about the FD's state not the underlying privilege; it might
-	 * be that the privilege exists but user forgot to ask for read mode.
-	 */
+ * 检查状态。inv_read() 反正会抛错，但我们希望
+ * 错误针对 FD 的状态，而不是底层权限；也许
+ * 权限是有的，只是用户忘了请求读模式。
+ */
 	if ((lobj->flags & IFS_RDLOCK) == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -190,7 +190,7 @@ lo_write(int fd, const char *buf, int len)
 				 errmsg("invalid large-object descriptor: %d", fd)));
 	lobj = cookies[fd];
 
-	/* see comment in lo_read() */
+	/* 参见 lo_read() 中的注释 */
 	if ((lobj->flags & IFS_WRLOCK) == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -217,7 +217,7 @@ be_lo_lseek(PG_FUNCTION_ARGS)
 
 	status = inv_seek(cookies[fd], offset, whence);
 
-	/* guard against result overflow */
+	/* 防止结果溢出 */
 	if (status != (int32) status)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -284,7 +284,7 @@ be_lo_tell(PG_FUNCTION_ARGS)
 
 	offset = inv_tell(cookies[fd]);
 
-	/* guard against result overflow */
+	/* 防止结果溢出 */
 	if (offset != (int32) offset)
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
@@ -318,10 +318,10 @@ be_lo_unlink(PG_FUNCTION_ARGS)
 	PreventCommandIfReadOnly("lo_unlink()");
 
 	/*
-	 * Must be owner of the large object.  It would be cleaner to check this
-	 * in inv_drop(), but we want to throw the error before not after closing
-	 * relevant FDs.
-	 */
+ * 必须是大对象的所有者。在 inv_drop() 里检查会更干净，
+ * 但我们希望在关闭相关 FD 之前抛错，
+ * 而不是之后。
+ */
 	if (!lo_compat_privileges &&
 		!object_ownercheck(LargeObjectRelationId, lobjId, GetUserId()))
 		ereport(ERROR,
@@ -329,8 +329,8 @@ be_lo_unlink(PG_FUNCTION_ARGS)
 				 errmsg("must be owner of large object %u", lobjId)));
 
 	/*
-	 * If there are any open LO FDs referencing that ID, close 'em.
-	 */
+ * 若有打开的大对象 FD 引用该 ID，就把它们关掉。
+ */
 	if (fscxt != NULL)
 	{
 		int			i;
@@ -343,14 +343,14 @@ be_lo_unlink(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * inv_drop does not create a need for end-of-transaction cleanup and
-	 * hence we don't need to set lo_cleanup_needed.
-	 */
+ * inv_drop 并不产生事务结束时清理的需要，
+ * 因此不必设置 lo_cleanup_needed。
+ */
 	PG_RETURN_INT32(inv_drop(lobjId));
 }
 
 /*****************************************************************************
- *	Read/Write using bytea
+ *	使用 bytea 的读/写
  *****************************************************************************/
 
 Datum
@@ -387,12 +387,12 @@ be_lowrite(PG_FUNCTION_ARGS)
 }
 
 /*****************************************************************************
- *	 Import/Export of Large Object
+ *	大对象的导入/导出
  *****************************************************************************/
 
 /*
  * lo_import -
- *	  imports a file as an (inversion) large object.
+ *	  把文件导入为（inversion）大对象。
  */
 Datum
 be_lo_import(PG_FUNCTION_ARGS)
@@ -404,7 +404,7 @@ be_lo_import(PG_FUNCTION_ARGS)
 
 /*
  * lo_import_with_oid -
- *	  imports a file as an (inversion) large object specifying oid.
+ *	  按指定 oid 把文件导入为（inversion）大对象。
  */
 Datum
 be_lo_import_with_oid(PG_FUNCTION_ARGS)
@@ -429,8 +429,8 @@ lo_import_internal(text *filename, Oid lobjOid)
 	PreventCommandIfReadOnly("lo_import()");
 
 	/*
-	 * open the file to be read in
-	 */
+ *	打开要读入的文件
+ */
 	text_to_cstring_buffer(filename, fnamebuf, sizeof(fnamebuf));
 	fd = OpenTransientFile(fnamebuf, O_RDONLY | PG_BINARY);
 	if (fd < 0)
@@ -440,14 +440,14 @@ lo_import_internal(text *filename, Oid lobjOid)
 						fnamebuf)));
 
 	/*
-	 * create an inversion object
-	 */
+ *	创建一个 inversion 对象
+ */
 	lo_cleanup_needed = true;
 	oid = inv_create(lobjOid);
 
 	/*
-	 * read in from the filesystem and write to the inversion object
-	 */
+ *	从文件系统读入并写入 inversion 对象
+ */
 	lobj = inv_open(oid, INV_WRITE, CurrentMemoryContext);
 
 	while ((nbytes = read(fd, buf, BUFSIZE)) > 0)
@@ -475,7 +475,7 @@ lo_import_internal(text *filename, Oid lobjOid)
 
 /*
  * lo_export -
- *	  exports an (inversion) large object.
+ *	  导出一个（inversion）大对象。
  */
 Datum
 be_lo_export(PG_FUNCTION_ARGS)
@@ -491,18 +491,18 @@ be_lo_export(PG_FUNCTION_ARGS)
 	mode_t		oumask;
 
 	/*
-	 * open the inversion object (no need to test for failure)
-	 */
+ *	打开 inversion 对象（不必测试是否失败）
+ */
 	lo_cleanup_needed = true;
 	lobj = inv_open(lobjId, INV_READ, CurrentMemoryContext);
 
 	/*
-	 * open the file to be written to
-	 *
-	 * Note: we reduce backend's normal 077 umask to the slightly friendlier
-	 * 022. This code used to drop it all the way to 0, but creating
-	 * world-writable export files doesn't seem wise.
-	 */
+ *	打开要写入的文件
+ *
+ *	注意：我们把后端通常的 077 umask 降到稍友好一些的
+ *	022。这段代码曾经把它一路降到 0，但创建
+ *	任何人都可写的导出文件似乎并不明智。
+ */
 	text_to_cstring_buffer(filename, fnamebuf, sizeof(fnamebuf));
 	oumask = umask(S_IWGRP | S_IWOTH);
 	PG_TRY();
@@ -522,8 +522,8 @@ be_lo_export(PG_FUNCTION_ARGS)
 						fnamebuf)));
 
 	/*
-	 * read in from the inversion file and write to the filesystem
-	 */
+ *	从 inversion 文件读入并写入文件系统
+ */
 	while ((nbytes = inv_read(lobj, buf, BUFSIZE)) > 0)
 	{
 		tmp = write(fd, buf, nbytes);
@@ -547,7 +547,7 @@ be_lo_export(PG_FUNCTION_ARGS)
 
 /*
  * lo_truncate -
- *	  truncate a large object to a specified length
+ *	  把大对象截断到指定长度
  */
 static void
 lo_truncate_internal(int32 fd, int64 len)
@@ -560,7 +560,7 @@ lo_truncate_internal(int32 fd, int64 len)
 				 errmsg("invalid large-object descriptor: %d", fd)));
 	lobj = cookies[fd];
 
-	/* see comment in lo_read() */
+	/* 参见 lo_read() 中的注释 */
 	if ((lobj->flags & IFS_WRLOCK) == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -596,7 +596,7 @@ be_lo_truncate64(PG_FUNCTION_ARGS)
 
 /*
  * AtEOXact_LargeObject -
- *		 prepares large objects for transaction commit
+ *	  为事务提交准备大对象
  */
 void
 AtEOXact_LargeObject(bool isCommit)
@@ -604,15 +604,15 @@ AtEOXact_LargeObject(bool isCommit)
 	int			i;
 
 	if (!lo_cleanup_needed)
-		return;					/* no LO operations in this xact */
+		return;					/* 本事务中没有大对象操作 */
 
 	/*
-	 * Close LO fds and clear cookies array so that LO fds are no longer good.
-	 * The memory context and resource owner holding them are going away at
-	 * the end-of-transaction anyway, but on commit, we need to close them to
-	 * avoid warnings about leaked resources at commit.  On abort we can skip
-	 * this step.
-	 */
+ * 关闭大对象 FD 并清空 cookies 数组，使大对象 FD 不再有效。
+ * 持有它们的内存上下文和资源所有者反正会在
+ * 事务结束时消失，但在提交时需要关闭它们，以免
+ * 提交时出现资源泄漏警告。中止时可以跳过
+ * 这一步。
+ */
 	if (isCommit)
 	{
 		for (i = 0; i < cookies_size; i++)
@@ -622,16 +622,16 @@ AtEOXact_LargeObject(bool isCommit)
 		}
 	}
 
-	/* Needn't actually pfree since we're about to zap context */
+	/* 不必真的 pfree，因为马上就要清掉上下文 */
 	cookies = NULL;
 	cookies_size = 0;
 
-	/* Release the LO memory context to prevent permanent memory leaks. */
+	/* 释放大对象内存上下文，防止永久性内存泄漏。 */
 	if (fscxt)
 		MemoryContextDelete(fscxt);
 	fscxt = NULL;
 
-	/* Give inv_api.c a chance to clean up, too */
+	/* 也给 inv_api.c 一个清理的机会 */
 	close_lo_relation(isCommit);
 
 	lo_cleanup_needed = false;
@@ -639,10 +639,10 @@ AtEOXact_LargeObject(bool isCommit)
 
 /*
  * AtEOSubXact_LargeObject
- *		Take care of large objects at subtransaction commit/abort
+ *	  在子事务提交/中止时处理大对象
  *
- * Reassign LOs created/opened during a committing subtransaction
- * to the parent subtransaction.  On abort, just close them.
+ * 把在正在提交的子事务期间创建或打开的大对象
+ * 重新归到父级子事务。中止时只关闭它们。
  */
 void
 AtEOSubXact_LargeObject(bool isCommit, SubTransactionId mySubid,
@@ -650,7 +650,7 @@ AtEOSubXact_LargeObject(bool isCommit, SubTransactionId mySubid,
 {
 	int			i;
 
-	if (fscxt == NULL)			/* no LO operations in this xact */
+	if (fscxt == NULL)			/* 本事务中没有大对象操作 */
 		return;
 
 	for (i = 0; i < cookies_size; i++)
@@ -668,7 +668,7 @@ AtEOSubXact_LargeObject(bool isCommit, SubTransactionId mySubid,
 }
 
 /*****************************************************************************
- *	Support routines for this file
+ *	本文件的支持例程
  *****************************************************************************/
 
 static int
@@ -683,17 +683,17 @@ newLOfd(void)
 									  "Filesystem",
 									  ALLOCSET_DEFAULT_SIZES);
 
-	/* Try to find a free slot */
+	/* 试着找一个空闲槽位 */
 	for (i = 0; i < cookies_size; i++)
 	{
 		if (cookies[i] == NULL)
 			return i;
 	}
 
-	/* No free slot, so make the array bigger */
+	/* 没有空闲槽位，于是把数组加大 */
 	if (cookies_size <= 0)
 	{
-		/* First time through, arbitrarily make 64-element array */
+		/* 第一次进入时，随意做成 64 个元素的数组 */
 		i = 0;
 		newsize = 64;
 		cookies = (LargeObjectDesc **)
@@ -701,7 +701,7 @@ newLOfd(void)
 	}
 	else
 	{
-		/* Double size of array */
+		/* 把数组大小加倍 */
 		i = cookies_size;
 		newsize = cookies_size * 2;
 		cookies =
@@ -718,9 +718,9 @@ closeLOfd(int fd)
 	LargeObjectDesc *lobj;
 
 	/*
-	 * Make sure we do not try to free twice if this errors out for some
-	 * reason.  Better a leak than a crash.
-	 */
+ * 若这里因某种原因出错，确保不会尝试释放两次。
+ * 泄漏总比崩溃好。
+ */
 	lobj = cookies[fd];
 	cookies[fd] = NULL;
 
@@ -731,11 +731,11 @@ closeLOfd(int fd)
 }
 
 /*****************************************************************************
- *	Wrappers oriented toward SQL callers
+ *	面向 SQL 调用方的包装
  *****************************************************************************/
 
 /*
- * Read [offset, offset+nbytes) within LO; when nbytes is -1, read to end.
+ * 读取大对象中 [offset, offset+nbytes) 这一段；nbytes 为 -1 时读到末尾。
  */
 static bytea *
 lo_get_fragment_internal(Oid loOid, int64 offset, int32 nbytes)
@@ -750,24 +750,24 @@ lo_get_fragment_internal(Oid loOid, int64 offset, int32 nbytes)
 	loDesc = inv_open(loOid, INV_READ, CurrentMemoryContext);
 
 	/*
-	 * Compute number of bytes we'll actually read, accommodating nbytes == -1
-	 * and reads beyond the end of the LO.
-	 */
+ * 计算实际要读取的字节数，兼顾 nbytes == -1
+ * 以及越过大对象末尾的读取。
+ */
 	loSize = inv_seek(loDesc, 0, SEEK_END);
 	if (loSize > offset)
 	{
 		if (nbytes >= 0 && nbytes <= loSize - offset)
-			result_length = nbytes; /* request is wholly inside LO */
+			result_length = nbytes; /* 请求完全落在大对象内部 */
 		else
-			result_length = loSize - offset;	/* adjust to end of LO */
+			result_length = loSize - offset;	/* 调整到大对象末尾 */
 	}
 	else
-		result_length = 0;		/* request is wholly outside LO */
+		result_length = 0;		/* 请求完全落在大对象外部 */
 
 	/*
-	 * A result_length calculated from loSize may not fit in a size_t.  Check
-	 * that the size will satisfy this and subsequently-enforced size limits.
-	 */
+ * 由 loSize 算出的 result_length 也许放不进 size_t。检查
+ * 该大小能否满足这一点以及随后强制的大小限制。
+ */
 	if (result_length > MaxAllocSize - VARHDRSZ)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -786,7 +786,7 @@ lo_get_fragment_internal(Oid loOid, int64 offset, int32 nbytes)
 }
 
 /*
- * Read entire LO
+ * 读取整个大对象
  */
 Datum
 be_lo_get(PG_FUNCTION_ARGS)
@@ -800,7 +800,7 @@ be_lo_get(PG_FUNCTION_ARGS)
 }
 
 /*
- * Read range within LO
+ * 读取大对象中的一段范围
  */
 Datum
 be_lo_get_fragment(PG_FUNCTION_ARGS)
@@ -821,7 +821,7 @@ be_lo_get_fragment(PG_FUNCTION_ARGS)
 }
 
 /*
- * Create LO with initial contents given by a bytea argument
+ * 用 bytea 参数给出的初始内容创建大对象
  */
 Datum
 be_lo_from_bytea(PG_FUNCTION_ARGS)
@@ -844,7 +844,7 @@ be_lo_from_bytea(PG_FUNCTION_ARGS)
 }
 
 /*
- * Update range within LO
+ * 更新大对象中的一段范围
  */
 Datum
 be_lo_put(PG_FUNCTION_ARGS)
@@ -860,7 +860,7 @@ be_lo_put(PG_FUNCTION_ARGS)
 	lo_cleanup_needed = true;
 	loDesc = inv_open(loOid, INV_WRITE, CurrentMemoryContext);
 
-	/* Permission check */
+	/* 权限检查 */
 	if (!lo_compat_privileges &&
 		pg_largeobject_aclcheck_snapshot(loDesc->id,
 										 GetUserId(),

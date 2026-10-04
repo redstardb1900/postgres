@@ -30,43 +30,43 @@
  */
 /*
  * INTERFACE ROUTINES
- * Message assembly and output:
- *		pq_beginmessage - initialize StringInfo buffer
- *		pq_sendbyte		- append a raw byte to a StringInfo buffer
- *		pq_sendint		- append a binary integer to a StringInfo buffer
- *		pq_sendint64	- append a binary 8-byte int to a StringInfo buffer
- *		pq_sendfloat4	- append a float4 to a StringInfo buffer
- *		pq_sendfloat8	- append a float8 to a StringInfo buffer
- *		pq_sendbytes	- append raw data to a StringInfo buffer
- *		pq_sendcountedtext - append a counted text string (with character set conversion)
- *		pq_sendtext		- append a text string (with conversion)
- *		pq_sendstring	- append a null-terminated text string (with conversion)
- *		pq_send_ascii_string - append a null-terminated text string (without conversion)
- *		pq_endmessage	- send the completed message to the frontend
- * Note: it is also possible to append data to the StringInfo buffer using
- * the regular StringInfo routines, but this is discouraged since required
- * character set conversion may not occur.
+ * 消息组装与输出：
+ *		pq_beginmessage - 初始化 StringInfo 缓冲区
+ *		pq_sendbyte		- 向 StringInfo 缓冲区追加一个原始字节
+ *		pq_sendint		- 向 StringInfo 缓冲区追加一个二进制整数
+ *		pq_sendint64	- 向 StringInfo 缓冲区追加一个二进制 8 字节整数
+ *		pq_sendfloat4	- 向 StringInfo 缓冲区追加一个 float4
+ *		pq_sendfloat8	- 向 StringInfo 缓冲区追加一个 float8
+ *		pq_sendbytes	- 向 StringInfo 缓冲区追加原始数据
+ *		pq_sendcountedtext - 追加带计数的文本字符串（含字符集转换）
+ *		pq_sendtext		- 追加文本字符串（含转换）
+ *		pq_sendstring	- 追加以空字符结尾的文本字符串（含转换）
+ *		pq_send_ascii_string - 追加以空字符结尾的文本字符串（不含转换）
+ *		pq_endmessage	- 把完成的消息发给前端
+ * 注意：也可以用常规 StringInfo 例程向 StringInfo 缓冲区追加数据，
+ * 但不鼓励这样做，因为可能不会发生所需的
+ * 字符集转换。
  *
- * typsend support (construct a bytea value containing external binary data):
- *		pq_begintypsend - initialize StringInfo buffer
- *		pq_endtypsend	- return the completed string as a "bytea*"
+ * typsend 支持（构造包含外部二进制数据的 bytea 值）：
+ *		pq_begintypsend - 初始化 StringInfo 缓冲区
+ *		pq_endtypsend	- 把完成的字符串作为 "bytea*" 返回
  *
- * Special-case message output:
- *		pq_puttextmessage - generate a character set-converted message in one step
- *		pq_putemptymessage - convenience routine for message with empty body
+ * 特殊情况的消息输出：
+ *		pq_puttextmessage - 一步生成经过字符集转换的消息
+ *		pq_putemptymessage - 空消息体的便捷例程
  *
- * Message parsing after input:
- *		pq_getmsgbyte	- get a raw byte from a message buffer
- *		pq_getmsgint	- get a binary integer from a message buffer
- *		pq_getmsgint64	- get a binary 8-byte int from a message buffer
- *		pq_getmsgfloat4 - get a float4 from a message buffer
- *		pq_getmsgfloat8 - get a float8 from a message buffer
- *		pq_getmsgbytes	- get raw data from a message buffer
- *		pq_copymsgbytes - copy raw data from a message buffer
- *		pq_getmsgtext	- get a counted text string (with conversion)
- *		pq_getmsgstring - get a null-terminated text string (with conversion)
- *		pq_getmsgrawstring - get a null-terminated text string - NO conversion
- *		pq_getmsgend	- verify message fully consumed
+ * 输入后的消息解析：
+ *		pq_getmsgbyte	- 从消息缓冲区取一个原始字节
+ *		pq_getmsgint	- 从消息缓冲区取一个二进制整数
+ *		pq_getmsgint64	- 从消息缓冲区取一个二进制 8 字节整数
+ *		pq_getmsgfloat4 - 从消息缓冲区取一个 float4
+ *		pq_getmsgfloat8 - 从消息缓冲区取一个 float8
+ *		pq_getmsgbytes	- 从消息缓冲区取原始数据
+ *		pq_copymsgbytes - 从消息缓冲区复制原始数据
+ *		pq_getmsgtext	- 取带计数的文本字符串（含转换）
+ *		pq_getmsgstring - 取以空字符结尾的文本字符串（含转换）
+ *		pq_getmsgrawstring - 取以空字符结尾的文本字符串，不做转换
+ *		pq_getmsgend	- 确认消息已被完全消耗
  */
 
 #include "postgres.h"
@@ -81,7 +81,7 @@
 
 
 /* --------------------------------
- *		pq_beginmessage		- initialize for sending a message
+ *		pq_beginmessage		- 初始化，准备发送一条消息
  * --------------------------------
  */
 void
@@ -90,19 +90,19 @@ pq_beginmessage(StringInfo buf, char msgtype)
 	initStringInfo(buf);
 
 	/*
-	 * We stash the message type into the buffer's cursor field, expecting
-	 * that the pq_sendXXX routines won't touch it.  We could alternatively
-	 * make it the first byte of the buffer contents, but this seems easier.
-	 */
+ * 我们把消息类型藏进缓冲区的 cursor 字段，并预期
+ * pq_sendXXX 例程不会去动它。也可以改成把它作为
+ * 缓冲区内容的第一个字节，但现在这样似乎更简单。
+ */
 	buf->cursor = msgtype;
 }
 
 /* --------------------------------
 
- *		pq_beginmessage_reuse - initialize for sending a message, reuse buffer
+ *		pq_beginmessage_reuse - 初始化以发送消息，复用缓冲区
  *
- * This requires the buffer to be allocated in a sufficiently long-lived
- * memory context.
+ * 这需要把缓冲区分配在寿命足够长的
+ * 内存上下文中。
  * --------------------------------
  */
 void
@@ -111,32 +111,32 @@ pq_beginmessage_reuse(StringInfo buf, char msgtype)
 	resetStringInfo(buf);
 
 	/*
-	 * We stash the message type into the buffer's cursor field, expecting
-	 * that the pq_sendXXX routines won't touch it.  We could alternatively
-	 * make it the first byte of the buffer contents, but this seems easier.
-	 */
+ * 我们把消息类型藏进缓冲区的 cursor 字段，并预期
+ * pq_sendXXX 例程不会去动它。也可以改成把它作为
+ * 缓冲区内容的第一个字节，但现在这样似乎更简单。
+ */
 	buf->cursor = msgtype;
 }
 
 /* --------------------------------
- *		pq_sendbytes	- append raw data to a StringInfo buffer
+ *		pq_sendbytes	- 向 StringInfo 缓冲区追加原始数据
  * --------------------------------
  */
 void
 pq_sendbytes(StringInfo buf, const void *data, int datalen)
 {
-	/* use variant that maintains a trailing null-byte, out of caution */
+	/* 出于谨慎，使用会维持末尾空字节的变体 */
 	appendBinaryStringInfo(buf, data, datalen);
 }
 
 /* --------------------------------
- *		pq_sendcountedtext - append a counted text string (with character set conversion)
+ *		pq_sendcountedtext - 追加带计数的文本字符串（含字符集转换）
  *
- * The data sent to the frontend by this routine is a 4-byte count field
- * followed by the string.  The count includes itself or not, as per the
- * countincludesself flag (pre-3.0 protocol requires it to include itself).
- * The passed text string need not be null-terminated, and the data sent
- * to the frontend isn't either.
+ * 本例程发给前端的数据是一个 4 字节计数字段，
+ * 后面跟着字符串。计数是否包含自身，由
+ * countincludesself 标志决定（3.0 之前的协议需要它包含自身）。
+ * 传入的文本字符串不必以空字符结尾，发给
+ * 前端的数据也是如此。
  * --------------------------------
  */
 void
@@ -147,7 +147,7 @@ pq_sendcountedtext(StringInfo buf, const char *str, int slen,
 	char	   *p;
 
 	p = pg_server_to_client(str, slen);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换做完了吗? */
 	{
 		slen = strlen(p);
 		pq_sendint32(buf, slen + extra);
@@ -162,13 +162,13 @@ pq_sendcountedtext(StringInfo buf, const char *str, int slen,
 }
 
 /* --------------------------------
- *		pq_sendtext		- append a text string (with conversion)
+ *		pq_sendtext		- 追加文本字符串（含转换）
  *
- * The passed text string need not be null-terminated, and the data sent
- * to the frontend isn't either.  Note that this is not actually useful
- * for direct frontend transmissions, since there'd be no way for the
- * frontend to determine the string length.  But it is useful for binary
- * format conversions.
+ * 传入的文本字符串不必以空字符结尾，发给
+ * 前端的数据也是如此。注意，这对直接发给
+ * 前端并不真正有用，因为前端没有办法
+ * 确定字符串长度。但它对二进制
+ * 格式转换有用。
  * --------------------------------
  */
 void
@@ -177,7 +177,7 @@ pq_sendtext(StringInfo buf, const char *str, int slen)
 	char	   *p;
 
 	p = pg_server_to_client(str, slen);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换做完了吗? */
 	{
 		slen = strlen(p);
 		appendBinaryStringInfo(buf, p, slen);
@@ -188,10 +188,10 @@ pq_sendtext(StringInfo buf, const char *str, int slen)
 }
 
 /* --------------------------------
- *		pq_sendstring	- append a null-terminated text string (with conversion)
+ *		pq_sendstring	- 追加以空字符结尾的文本字符串（含转换）
  *
- * NB: passed text string must be null-terminated, and so is the data
- * sent to the frontend.
+ * 注意：传入的文本字符串必须以空字符结尾，发给
+ * 前端的数据也是如此。
  * --------------------------------
  */
 void
@@ -201,7 +201,7 @@ pq_sendstring(StringInfo buf, const char *str)
 	char	   *p;
 
 	p = pg_server_to_client(str, slen);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换做完了吗? */
 	{
 		slen = strlen(p);
 		appendBinaryStringInfoNT(buf, p, slen + 1);
@@ -212,18 +212,18 @@ pq_sendstring(StringInfo buf, const char *str)
 }
 
 /* --------------------------------
- *		pq_send_ascii_string	- append a null-terminated text string (without conversion)
+ *		pq_send_ascii_string	- 追加以空字符结尾的文本字符串（不做转换）
  *
- * This function intentionally bypasses encoding conversion, instead just
- * silently replacing any non-7-bit-ASCII characters with question marks.
- * It is used only when we are having trouble sending an error message to
- * the client with normal localization and encoding conversion.  The caller
- * should already have taken measures to ensure the string is just ASCII;
- * the extra work here is just to make certain we don't send a badly encoded
- * string to the client (which might or might not be robust about that).
+ * 本函数有意绕过编码转换，只是悄悄把任何非
+ * 7-bit-ASCII 字符替换成问号。
+ * 仅当我们难以用正常的本地化和编码转换
+ * 向客户端发送错误消息时才使用它。调用方
+ * 应当已经采取措施确保字符串只是 ASCII；
+ * 这里的额外工作只是为了确保我们不会把编码错误的
+ * 字符串发给客户端（客户端对这种情况也许健壮，也许不健壮）。
  *
- * NB: passed text string must be null-terminated, and so is the data
- * sent to the frontend.
+ * 注意：传入的文本字符串必须以空字符结尾，发给
+ * 前端的数据也是如此。
  * --------------------------------
  */
 void
@@ -241,14 +241,14 @@ pq_send_ascii_string(StringInfo buf, const char *str)
 }
 
 /* --------------------------------
- *		pq_sendfloat4	- append a float4 to a StringInfo buffer
+ *		pq_sendfloat4	- 向 StringInfo 缓冲区追加一个 float4
  *
- * The point of this routine is to localize knowledge of the external binary
- * representation of float4, which is a component of several datatypes.
+ * 本例程的意义是把 float4 外部二进制表示的知识集中起来，
+ * float4 是好几种数据类型的组成部分。
  *
- * We currently assume that float4 should be byte-swapped in the same way
- * as int4.  This rule is not perfect but it gives us portability across
- * most IEEE-float-using architectures.
+ * 目前假定 float4 应按与 int4 相同的方式做字节交换。
+ * 这条规则并不完美，但能让我们在大多数使用 IEEE
+ * 浮点的体系结构上可移植。
  * --------------------------------
  */
 void
@@ -265,14 +265,14 @@ pq_sendfloat4(StringInfo buf, float4 f)
 }
 
 /* --------------------------------
- *		pq_sendfloat8	- append a float8 to a StringInfo buffer
+ *		pq_sendfloat8	- 向 StringInfo 缓冲区追加一个 float8
  *
- * The point of this routine is to localize knowledge of the external binary
- * representation of float8, which is a component of several datatypes.
+ * 本例程的意义是把 float8 外部二进制表示的知识集中起来，
+ * float8 是好几种数据类型的组成部分。
  *
- * We currently assume that float8 should be byte-swapped in the same way
- * as int8.  This rule is not perfect but it gives us portability across
- * most IEEE-float-using architectures.
+ * 目前假定 float8 应按与 int8 相同的方式做字节交换。
+ * 这条规则并不完美，但能让我们在大多数使用 IEEE
+ * 浮点的体系结构上可移植。
  * --------------------------------
  */
 void
@@ -289,47 +289,47 @@ pq_sendfloat8(StringInfo buf, float8 f)
 }
 
 /* --------------------------------
- *		pq_endmessage	- send the completed message to the frontend
+ *		pq_endmessage	- 把完成的消息发给前端
  *
- * The data buffer is pfree()d, but if the StringInfo was allocated with
- * makeStringInfo then the caller must still pfree it.
+ * 数据缓冲区会被 pfree()，但若 StringInfo 是用
+ * makeStringInfo 分配的，调用方仍必须 pfree 它。
  * --------------------------------
  */
 void
 pq_endmessage(StringInfo buf)
 {
-	/* msgtype was saved in cursor field */
+	/* msgtype 保存在 cursor 字段中 */
 	(void) pq_putmessage(buf->cursor, buf->data, buf->len);
-	/* no need to complain about any failure, since pqcomm.c already did */
+	/* 不必抱怨任何失败，因为 pqcomm.c 已经处理过 */
 	pfree(buf->data);
 	buf->data = NULL;
 }
 
 /* --------------------------------
- *		pq_endmessage_reuse	- send the completed message to the frontend
+ *		pq_endmessage_reuse	- 把完成的消息发给前端
  *
- * The data buffer is *not* freed, allowing to reuse the buffer with
- * pq_beginmessage_reuse.
+ * 数据缓冲区并不释放，以便用
+ * pq_beginmessage_reuse 复用该缓冲区。
  --------------------------------
  */
 
 void
 pq_endmessage_reuse(StringInfo buf)
 {
-	/* msgtype was saved in cursor field */
+	/* msgtype 保存在 cursor 字段中 */
 	(void) pq_putmessage(buf->cursor, buf->data, buf->len);
 }
 
 
 /* --------------------------------
- *		pq_begintypsend		- initialize for constructing a bytea result
+ *		pq_begintypsend		- 初始化，准备构造 bytea 结果
  * --------------------------------
  */
 void
 pq_begintypsend(StringInfo buf)
 {
 	initStringInfo(buf);
-	/* Reserve four bytes for the bytea length word */
+	/* 为 bytea 长度字预留四个字节 */
 	appendStringInfoCharMacro(buf, '\0');
 	appendStringInfoCharMacro(buf, '\0');
 	appendStringInfoCharMacro(buf, '\0');
@@ -337,12 +337,12 @@ pq_begintypsend(StringInfo buf)
 }
 
 /* --------------------------------
- *		pq_endtypsend	- finish constructing a bytea result
+ *		pq_endtypsend	- 完成 bytea 结果的构造
  *
- * The data buffer is returned as the palloc'd bytea value.  (We expect
- * that it will be suitably aligned for this because it has been palloc'd.)
- * We assume the StringInfoData is just a local variable in the caller and
- * need not be pfree'd.
+ * 数据缓冲区作为 palloc 出来的 bytea 值返回。（我们预期
+ * 它会为此适当对齐，因为它是 palloc 出来的。）
+ * 我们假定 StringInfoData 只是调用方的局部变量，
+ * 不必 pfree。
  * --------------------------------
  */
 bytea *
@@ -350,7 +350,7 @@ pq_endtypsend(StringInfo buf)
 {
 	bytea	   *result = (bytea *) buf->data;
 
-	/* Insert correct length into bytea length word */
+	/* 把正确的长度写入 bytea 长度字 */
 	Assert(buf->len >= VARHDRSZ);
 	SET_VARSIZE(result, buf->len);
 
@@ -359,11 +359,11 @@ pq_endtypsend(StringInfo buf)
 
 
 /* --------------------------------
- *		pq_puttextmessage - generate a character set-converted message in one step
+ *		pq_puttextmessage - 一步生成经过字符集转换的消息
  *
- *		This is the same as the pqcomm.c routine pq_putmessage, except that
- *		the message body is a null-terminated string to which encoding
- *		conversion applies.
+ *		这与 pqcomm.c 中的例程 pq_putmessage 相同，只是
+ *		消息体是一个以空字符结尾的字符串，要对其做编码
+ *		转换。
  * --------------------------------
  */
 void
@@ -373,7 +373,7 @@ pq_puttextmessage(char msgtype, const char *str)
 	char	   *p;
 
 	p = pg_server_to_client(str, slen);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换做完了吗? */
 	{
 		(void) pq_putmessage(msgtype, p, strlen(p) + 1);
 		pfree(p);
@@ -384,7 +384,7 @@ pq_puttextmessage(char msgtype, const char *str)
 
 
 /* --------------------------------
- *		pq_putemptymessage - convenience routine for message with empty body
+ *		pq_putemptymessage - 空消息体的便捷例程
  * --------------------------------
  */
 void
@@ -395,7 +395,7 @@ pq_putemptymessage(char msgtype)
 
 
 /* --------------------------------
- *		pq_getmsgbyte	- get a raw byte from a message buffer
+ *		pq_getmsgbyte	- 从消息缓冲区取一个原始字节
  * --------------------------------
  */
 int
@@ -409,9 +409,9 @@ pq_getmsgbyte(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgint	- get a binary integer from a message buffer
+ *		pq_getmsgint	- 从消息缓冲区取一个二进制整数
  *
- *		Values are treated as unsigned.
+ *		值按无符号处理。
  * --------------------------------
  */
 unsigned int
@@ -438,18 +438,18 @@ pq_getmsgint(StringInfo msg, int b)
 			break;
 		default:
 			elog(ERROR, "unsupported integer size %d", b);
-			result = 0;			/* keep compiler quiet */
+			result = 0;			/* 让编译器安静 */
 			break;
 	}
 	return result;
 }
 
 /* --------------------------------
- *		pq_getmsgint64	- get a binary 8-byte int from a message buffer
+ *		pq_getmsgint64	- 从消息缓冲区取一个二进制 8 字节整数
  *
- * It is tempting to merge this with pq_getmsgint, but we'd have to make the
- * result int64 for all data widths --- that could be a big performance
- * hit on machines where int64 isn't efficient.
+ * 很想把它和 pq_getmsgint 合并，但那样所有数据宽度的
+ * 结果都得是 int64 --- 在 int64 效率不高的机器上，
+ * 这可能是很大的性能损失。
  * --------------------------------
  */
 int64
@@ -463,9 +463,9 @@ pq_getmsgint64(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgfloat4 - get a float4 from a message buffer
+ *		pq_getmsgfloat4 - 从消息缓冲区取一个 float4
  *
- * See notes for pq_sendfloat4.
+ * 参见 pq_sendfloat4 的说明。
  * --------------------------------
  */
 float4
@@ -482,9 +482,9 @@ pq_getmsgfloat4(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgfloat8 - get a float8 from a message buffer
+ *		pq_getmsgfloat8 - 从消息缓冲区取一个 float8
  *
- * See notes for pq_sendfloat8.
+ * 参见 pq_sendfloat8 的说明。
  * --------------------------------
  */
 float8
@@ -501,10 +501,10 @@ pq_getmsgfloat8(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgbytes	- get raw data from a message buffer
+ *		pq_getmsgbytes	- 从消息缓冲区取原始数据
  *
- *		Returns a pointer directly into the message buffer; note this
- *		may not have any particular alignment.
+ *		返回直接指向消息缓冲区内部的指针；注意它
+ *		也许没有任何特定对齐。
  * --------------------------------
  */
 const char *
@@ -522,9 +522,9 @@ pq_getmsgbytes(StringInfo msg, int datalen)
 }
 
 /* --------------------------------
- *		pq_copymsgbytes - copy raw data from a message buffer
+ *		pq_copymsgbytes - 从消息缓冲区复制原始数据
  *
- *		Same as above, except data is copied to caller's buffer.
+ *		与上面相同，只是数据被复制到调用方的缓冲区。
  * --------------------------------
  */
 void
@@ -539,10 +539,10 @@ pq_copymsgbytes(StringInfo msg, char *buf, int datalen)
 }
 
 /* --------------------------------
- *		pq_getmsgtext	- get a counted text string (with conversion)
+ *		pq_getmsgtext	- 取带计数的文本字符串（含转换）
  *
- *		Always returns a pointer to a freshly palloc'd result.
- *		The result has a trailing null, *and* we return its strlen in *nbytes.
+ *		总是返回指向新 palloc 出来的结果的指针。
+ *		结果带末尾空字符，*并且* 我们在 *nbytes 中返回其 strlen。
  * --------------------------------
  */
 char *
@@ -559,7 +559,7 @@ pq_getmsgtext(StringInfo msg, int rawbytes, int *nbytes)
 	msg->cursor += rawbytes;
 
 	p = pg_client_to_server(str, rawbytes);
-	if (p != str)				/* actual conversion has been done? */
+	if (p != str)				/* 实际转换做完了吗? */
 		*nbytes = strlen(p);
 	else
 	{
@@ -572,10 +572,10 @@ pq_getmsgtext(StringInfo msg, int rawbytes, int *nbytes)
 }
 
 /* --------------------------------
- *		pq_getmsgstring - get a null-terminated text string (with conversion)
+ *		pq_getmsgstring - 取以空字符结尾的文本字符串（含转换）
  *
- *		May return a pointer directly into the message buffer, or a pointer
- *		to a palloc'd conversion result.
+ *		可能返回直接指向消息缓冲区内部的指针，或指向
+ *		palloc 出来的转换结果的指针。
  * --------------------------------
  */
 const char *
@@ -587,10 +587,10 @@ pq_getmsgstring(StringInfo msg)
 	str = &msg->data[msg->cursor];
 
 	/*
-	 * It's safe to use strlen() here because a StringInfo is guaranteed to
-	 * have a trailing null byte.  But check we found a null inside the
-	 * message.
-	 */
+ * 这里用 strlen() 是安全的，因为 StringInfo 保证
+ * 有一个末尾空字节。但要检查我们在消息内部
+ * 找到了空字符。
+ */
 	slen = strlen(str);
 	if (msg->cursor + slen >= msg->len)
 		ereport(ERROR,
@@ -602,9 +602,9 @@ pq_getmsgstring(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgrawstring - get a null-terminated text string - NO conversion
+ *		pq_getmsgrawstring - 取以空字符结尾的文本字符串，不做转换
  *
- *		Returns a pointer directly into the message buffer.
+ *		返回直接指向消息缓冲区内部的指针。
  * --------------------------------
  */
 const char *
@@ -616,10 +616,10 @@ pq_getmsgrawstring(StringInfo msg)
 	str = &msg->data[msg->cursor];
 
 	/*
-	 * It's safe to use strlen() here because a StringInfo is guaranteed to
-	 * have a trailing null byte.  But check we found a null inside the
-	 * message.
-	 */
+ * 这里用 strlen() 是安全的，因为 StringInfo 保证
+ * 有一个末尾空字节。但要检查我们在消息内部
+ * 找到了空字符。
+ */
 	slen = strlen(str);
 	if (msg->cursor + slen >= msg->len)
 		ereport(ERROR,
@@ -631,7 +631,7 @@ pq_getmsgrawstring(StringInfo msg)
 }
 
 /* --------------------------------
- *		pq_getmsgend	- verify message fully consumed
+ *		pq_getmsgend	- 确认消息已被完全消耗
  * --------------------------------
  */
 void

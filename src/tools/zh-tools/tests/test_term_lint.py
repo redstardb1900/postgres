@@ -20,16 +20,24 @@ PHRASEBOOK = (
 GLOSSARY = "English\t中文\nWAL\tWAL\ncluster\t数据库集簇\nLSN\tLSN\n"
 
 
-def rules_fixture():
+def rules_fixture(phrasebook_severity=termlint.WARNING):
     with open(os.path.join(TOOLS_DIR, "term_rules.json"), encoding="utf-8") as f:
         tr, pt = termlint.load_term_rules(json.load(f))
-    rules = tr + termlint.load_phrasebook(PHRASEBOOK)
+    rules = tr + termlint.load_phrasebook(PHRASEBOOK, severity=phrasebook_severity)
     rules += termlint.preserved_term_rules(pt + termlint.load_glossary_preserved(GLOSSARY))
     return rules
 
 
 def ids(hits):
     return sorted(h.rule for h in hits)
+
+
+def errors(hits):
+    return sorted(h.rule for h in hits if h.severity == termlint.ERROR)
+
+
+def warnings(hits):
+    return sorted(h.rule for h in hits if h.severity == termlint.WARNING)
 
 
 class RuleLoading(unittest.TestCase):
@@ -44,6 +52,25 @@ class RuleLoading(unittest.TestCase):
         rules = rules_fixture()
         self.assertTrue(any(r.id == "TL01" for r in rules))
         self.assertTrue(any(r.id == "PT_WAL" for r in rules))
+        with open(os.path.join(TOOLS_DIR, "term_rules.json"), encoding="utf-8") as f:
+            raw = json.load(f)
+        for r in raw["rules"]:
+            self.assertIn(r["severity"], termlint.SEVERITIES, r["id"])
+        # co-occurrence-prone rules must not be errors
+        sev = {r["id"]: r["severity"] for r in raw["rules"]}
+        for rid in ("TL08", "TL02", "TL03", "TL10", "TL12"):
+            self.assertEqual(sev[rid], "warning", rid)
+
+    def test_severity_is_mandatory_in_term_rules(self):
+        with self.assertRaises(ValueError):
+            termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b"}]})
+        with self.assertRaises(ValueError):
+            termlint.load_term_rules({"rules": [{"id": "X", "en": "a", "zh_forbidden": "b", "severity": "fatal"}]})
+
+    def test_phrasebook_severity_parameter(self):
+        self.assertEqual({r.severity for r in termlint.load_phrasebook(PHRASEBOOK)}, {termlint.ERROR})
+        self.assertEqual({r.severity for r in termlint.load_phrasebook(PHRASEBOOK, severity=termlint.WARNING)},
+                         {termlint.WARNING})
 
 
 class PairLinting(unittest.TestCase):
@@ -62,6 +89,28 @@ class PairLinting(unittest.TestCase):
         hits = termlint.lint_pair(self.rules, "could not open WAL file for the cluster",
                                   "不能为集群打开日志文件")
         self.assertEqual(ids(hits), ["P01", "PT_WAL", "TL01"])
+        # phrasebook hit is a warning for comment input, the others are errors
+        self.assertEqual(errors(hits), ["PT_WAL", "TL01"])
+        self.assertEqual(warnings(hits), ["P01"])
+        # ... and an error when the phrasebook is applied to PO messages
+        hits_po = termlint.lint_pair(rules_fixture(termlint.ERROR), "could not open file", "不能打开文件")
+        self.assertEqual(errors(hits_po), ["P01"])
+
+    def test_review_repro_requires_requirement_is_not_an_error(self):
+        # review finding #3: 'requires' correctly rendered 需要, 'requirement'
+        # rendered 要求 in the same segment must not fail the run
+        en = "A primary key requires a lock; this is a requirement."
+        zh = "主键需要一个锁；这是一个要求。"
+        hits = termlint.lint_pair(self.rules, en, zh)
+        self.assertEqual(errors(hits), [])
+        self.assertEqual(warnings(hits), ["TL08"])
+
+    def test_cooccurrence_phrasebook_is_only_a_warning_for_comments(self):
+        en = "could not open the file; the caller must not retry."
+        zh = "无法打开该文件；调用者不能重试。"
+        hits = termlint.lint_pair(self.rules, en, zh)
+        self.assertEqual(errors(hits), [])
+        self.assertEqual(warnings(hits), ["P01"])
 
     def test_forbidden_without_english_trigger_is_not_reported(self):
         # 集群 appears but the English never said "cluster": not an explicit hit
@@ -69,7 +118,7 @@ class PairLinting(unittest.TestCase):
         self.assertEqual(ids(hits), [])
 
     def test_bare_cu_rule(self):
-        self.assertEqual(ids(termlint.lint_pair(self.rules, "cluster", "簇")), ["TL02"])
+        self.assertEqual(warnings(termlint.lint_pair(self.rules, "cluster", "簇")), ["TL02"])
         self.assertEqual(ids(termlint.lint_pair(self.rules, "cluster", "集簇")), [])
         self.assertEqual(ids(termlint.lint_pair(self.rules, "CLUSTER the table", "对表执行聚簇")), [])
 
@@ -141,7 +190,16 @@ class Cli(unittest.TestCase):
         with open(rep, encoding="utf-8") as f:
             r = json.load(f)
         self.assertEqual(sorted(h["rule"] for h in r["hits"]), ["P01", "PT_WAL", "TL01"])
+        self.assertEqual({h["rule"]: h["severity"] for h in r["hits"]},
+                         {"P01": "warning", "PT_WAL": "error", "TL01": "error"})
+        self.assertEqual(r["n_errors"], 2)
+        self.assertEqual(r["n_warnings"], 1)
         self.assertEqual([h["line"] for h in r["hits"] if h["rule"] == "PT_WAL"], [2])
+        # --phrasebook-severity error turns P01 into an error for comments
+        rc, out, _ = self.run_cli("--c-pair", old, new, "--pgnls", self.pgnls, "--no-check-pgnls-sha",
+                                  "--phrasebook-severity", "error", "--json", rep)
+        with open(rep, encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["n_errors"], 3)
         # allowlist suppresses
         al = os.path.join(self.tmp.name, "allow.json")
         with open(al, "w", encoding="utf-8") as f:
@@ -152,6 +210,18 @@ class Cli(unittest.TestCase):
                                   "--allowlist", al)
         self.assertEqual(rc, 0, out)
         self.assertIn("3 allowlisted", out)
+
+    def test_warning_only_hits_exit_zero(self):
+        old = os.path.join(self.tmp.name, "o.c")
+        new = os.path.join(self.tmp.name, "n.c")
+        with open(old, "w", encoding="utf-8") as f:
+            f.write("/* A primary key requires a lock; this is a requirement. */\n")
+        with open(new, "w", encoding="utf-8") as f:
+            f.write("/* 主键需要一个锁；这是一个要求。 */\n")
+        rc, out, err = self.run_cli("--c-pair", old, new, "--pgnls", self.pgnls, "--no-check-pgnls-sha")
+        self.assertEqual(rc, 0, out + err)
+        self.assertIn("WARNING TL08", out)
+        self.assertIn("0 error hits, 1 warnings", out)
 
     def test_pgnls_sha_mismatch_is_unverified(self):
         old = os.path.join(self.tmp.name, "o.c")
@@ -167,7 +237,7 @@ class Cli(unittest.TestCase):
             f.write('msgid ""\nmsgstr ""\n\nmsgid "could not open file"\nmsgstr "不能打开文件"\n')
         rc, out, _ = self.run_cli("--po", po, "--pgnls", self.pgnls, "--no-check-pgnls-sha")
         self.assertEqual(rc, 1)
-        self.assertIn("P01", out)
+        self.assertIn("ERROR P01", out)
 
     def test_no_pycache(self):
         for dp, dns, _ in os.walk(TOOLS_DIR):

@@ -14,8 +14,17 @@ Required inputs:
   --baseline-dir DIR   baseline.json / doc_snapshot.json / perl_protected.json
                        (default: baseline/ next to this script)
 
+Modes:
+  (default)            cumulative: diff against the frozen base commit; the
+                       manifest must describe everything changed since
+                       REL_16_11 (used for the final acceptance)
+  --incremental        per-batch: diff against the manifest's parent_commit
+                       (must descend from the frozen base); doc/ and Perl
+                       checks are still absolute against the frozen baseline
+
 Checks (violation ids):
   S1_BASE_MISMATCH     base ref does not resolve to the frozen base commit
+                       (or, with --incremental, to the manifest parent_commit)
   S2_OUTSIDE_MANIFEST  a changed/untracked/ignored path matches no
                        allowed_paths pattern
   S2_NO_FILE_ENTRY     changed path has no files[] entry (when the manifest
@@ -32,6 +41,8 @@ Exit codes: 0 pass, 1 violations, 2 unverified (bad inputs / git error).
 import argparse
 import json
 import os
+import stat
+import subprocess
 import sys
 import time
 
@@ -125,18 +136,40 @@ def check(args):
         report["mode"] = "ref"
         report["target"] = gitutil.rev_parse(args.ref, cwd=repo)
 
-    base_ref = args.base or base_commit
-    resolved = gitutil.rev_parse(base_ref, cwd=repo)
-    report["base_resolved"] = resolved
-    if resolved != base_commit:
-        scope.add("S1_BASE_MISMATCH", base_ref, "resolves to %s, baseline is %s" % (resolved, base_commit))
-        return scope, report  # nothing below is meaningful
+    # The diff base: the frozen base commit (cumulative check), or -- with
+    # --incremental -- the manifest's parent_commit, which must descend from
+    # the frozen base.  doc/ and Perl checks below always use the frozen
+    # baseline regardless of mode.
+    if args.incremental:
+        report["incremental"] = True
+        parent = mf.parent_commit
+        if not parent:
+            scope.add("S1_BASE_MISMATCH", args.manifest, "--incremental requires manifest parent_commit")
+            return scope, report
+        diff_base = args.base or parent
+        resolved = gitutil.rev_parse(diff_base, cwd=repo)
+        report["base_resolved"] = resolved
+        if resolved != parent:
+            scope.add("S1_BASE_MISMATCH", diff_base, "resolves to %s, manifest parent_commit is %s" % (resolved, parent))
+            return scope, report
+        if subprocess.run(["git", "merge-base", "--is-ancestor", base_commit, parent], cwd=repo,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE).returncode != 0:
+            scope.add("S1_BASE_MISMATCH", parent, "parent_commit does not descend from frozen base %s" % base_commit)
+            return scope, report
+    else:
+        report["incremental"] = False
+        diff_base = args.base or base_commit
+        resolved = gitutil.rev_parse(diff_base, cwd=repo)
+        report["base_resolved"] = resolved
+        if resolved != base_commit:
+            scope.add("S1_BASE_MISMATCH", diff_base, "resolves to %s, baseline is %s" % (resolved, base_commit))
+            return scope, report  # nothing below is meaningful
 
     # ---- S2: changed set vs manifest -----------------------------------
     if args.worktree:
-        changes = collect_changes_worktree(repo, base_commit)
+        changes = collect_changes_worktree(repo, resolved)
     else:
-        changes = collect_changes_ref(repo, base_commit, args.ref)
+        changes = collect_changes_ref(repo, resolved, args.ref)
     report["changes"] = [{"status": s, "path": p, "origin": o} for s, p, o in changes]
     report["n_changes"] = len(changes)
     for status, path, origin in changes:
@@ -188,15 +221,22 @@ def check(args):
     if args.worktree:
         for e in perl_entries:
             full = os.path.join(repo, e["path"])
-            if not os.path.lexists(full):
+            try:
+                lst = os.lstat(full)
+            except FileNotFoundError:
                 scope.add("S4_PERL_MISSING", e["path"], "missing from worktree")
                 continue
-            if os.path.islink(full) or not os.path.isfile(full):
-                scope.add("S4_PERL_CHANGED", e["path"], "not a regular file")
+            if not stat.S_ISREG(lst.st_mode):
+                scope.add("S4_PERL_CHANGED", e["path"], "not a regular file (symlink/dir/special)")
                 continue
-            mode = gitutil.git_mode_for_path(full)
-            with open(full, "rb") as f:
-                oid = gitutil.blob_oid(f.read())
+            try:
+                # non-following open + identity/metadata check (no TOCTOU)
+                data, st = protection.read_regular_file(full, expect_st=lst)
+            except protection.UnstableFile as ex:
+                scope.add("S4_PERL_CHANGED", e["path"], str(ex))
+                continue
+            mode = protection.git_mode_of_stat(st)
+            oid = gitutil.blob_oid(data)
             if oid != e["oid"]:
                 scope.add("S4_PERL_CHANGED", e["path"], "blob %s != baseline %s" % (oid, e["oid"]))
             if mode != e["mode"]:
@@ -236,7 +276,11 @@ def main(argv=None):
     tgt.add_argument("--worktree", metavar="ROOT")
     tgt.add_argument("--ref", metavar="REF")
     ap.add_argument("--repo", default=None, help="repository for --ref (default: cwd)")
-    ap.add_argument("--base", default=None, help="base ref (default: baseline base_commit)")
+    ap.add_argument("--base", default=None,
+                    help="diff base ref (default: baseline base_commit, or manifest parent_commit with --incremental)")
+    ap.add_argument("--incremental", action="store_true",
+                    help="per-batch mode: diff against the manifest's parent_commit instead of the frozen base; "
+                         "doc/ and Perl checks still use the frozen baseline")
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--baseline-dir", default=DEFAULT_BASELINE)
     ap.add_argument("--json", dest="json_out", default=None)
@@ -247,7 +291,7 @@ def main(argv=None):
     t0 = time.time()
     try:
         scope, report = check(args)
-    except (gitutil.GitError, manifest_mod.ManifestError, OSError, ValueError) as e:
+    except (gitutil.GitError, manifest_mod.ManifestError, protection.UnstableFile, OSError, ValueError) as e:
         print("check_scope: UNVERIFIED: %s" % e, file=sys.stderr)
         if args.json_out:
             with open(args.json_out, "w", encoding="utf-8") as f:

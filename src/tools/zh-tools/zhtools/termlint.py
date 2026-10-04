@@ -26,10 +26,27 @@ sys.dont_write_bytecode = True
 from .manifest import glob_to_regex  # noqa: E402
 
 
-class Rule(object):
-    __slots__ = ("id", "en", "zh_forbidden", "note", "source", "kind", "term")
+ERROR = "error"
+WARNING = "warning"
+SEVERITIES = (ERROR, WARNING)
 
-    def __init__(self, id_, en, zh_forbidden, note, source, kind="pair", term=None):
+
+class Rule(object):
+    """A lint rule.
+
+    ``severity`` decides whether a hit fails the run (``error``) or is only
+    reported (``warning``).  Rules whose English and Chinese patterns are
+    matched against a whole segment (a multi-sentence comment) can co-occur
+    legitimately -- e.g. ``requires`` -> 需要 next to ``requirement`` -> 要求
+    -- so only rules whose forbidden rendering is wrong in *every* context
+    may be errors.
+    """
+
+    __slots__ = ("id", "en", "zh_forbidden", "note", "source", "kind", "term", "severity")
+
+    def __init__(self, id_, en, zh_forbidden, note, source, kind="pair", term=None, severity=ERROR):
+        if severity not in SEVERITIES:
+            raise ValueError("rule %s: bad severity %r" % (id_, severity))
         self.id = id_
         self.en = en
         self.zh_forbidden = zh_forbidden
@@ -37,21 +54,23 @@ class Rule(object):
         self.source = source
         self.kind = kind
         self.term = term
+        self.severity = severity
 
 
 class Hit(object):
-    __slots__ = ("rule", "path", "line", "en", "zh", "note")
+    __slots__ = ("rule", "path", "line", "en", "zh", "note", "severity")
 
-    def __init__(self, rule, path, line, en, zh, note):
+    def __init__(self, rule, path, line, en, zh, note, severity=ERROR):
         self.rule = rule
         self.path = path
         self.line = line
         self.en = en
         self.zh = zh
         self.note = note
+        self.severity = severity
 
     def to_dict(self):
-        return {"rule": self.rule, "path": self.path, "line": self.line,
+        return {"rule": self.rule, "severity": self.severity, "path": self.path, "line": self.line,
                 "en": _snip(self.en), "zh": _snip(self.zh), "note": self.note}
 
 
@@ -60,7 +79,14 @@ def _snip(s, n=160):
     return s[:n] + ("..." if len(s) > n else "")
 
 
-def load_phrasebook(text):
+def load_phrasebook(text, severity=ERROR):
+    """Phrasebook rules.
+
+    The phrasebook was written for single NLS messages.  Applied to a whole
+    comment it is a co-occurrence heuristic (``could not`` -> 无法 next to a
+    correctly rendered ``must not`` -> 不能 would trip P01), so callers pass
+    ``severity=WARNING`` for comment/text input and keep ERROR for PO input.
+    """
     rules = []
     rd = csv.DictReader(io.StringIO(text), delimiter="\t", quoting=csv.QUOTE_NONE)
     for row in rd:
@@ -72,7 +98,7 @@ def load_phrasebook(text):
             continue
         try:
             rules.append(Rule(row["id"], re.compile(en, re.I), re.compile(forb),
-                              row.get("note") or "", "phrasebook"))
+                              row.get("note") or "", "phrasebook", severity=severity))
         except re.error as e:
             raise ValueError("phrasebook %s: bad regex: %s" % (row.get("id"), e))
     return rules
@@ -97,8 +123,10 @@ def load_glossary_preserved(text):
 def load_term_rules(obj):
     rules = []
     for r in obj.get("rules", []):
+        if "severity" not in r:
+            raise ValueError("term rule %s: 'severity' is required (error|warning)" % r.get("id"))
         rules.append(Rule(r["id"], re.compile(r["en"], re.I), re.compile(r["zh_forbidden"]),
-                          r.get("note", ""), "term_rules"))
+                          r.get("note", ""), "term_rules", severity=r["severity"]))
     return rules, list(obj.get("preserve_terms", []))
 
 
@@ -139,10 +167,10 @@ def lint_pair(rules, en, zh, path="", line=None):
     for r in rules:
         if r.kind == "preserve":
             if r.en.search(en) and not r.en.search(zh):
-                hits.append(Hit(r.id, path, line, en, zh, r.note))
+                hits.append(Hit(r.id, path, line, en, zh, r.note, r.severity))
         else:
             if r.en.search(en) and r.zh_forbidden.search(zh):
-                hits.append(Hit(r.id, path, line, en, zh, r.note))
+                hits.append(Hit(r.id, path, line, en, zh, r.note, r.severity))
     return hits
 
 

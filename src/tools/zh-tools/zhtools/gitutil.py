@@ -96,16 +96,3 @@ def blob_oid(data):
     h.update(b"blob %d\0" % len(data))
     h.update(data)
     return h.hexdigest()
-
-
-def git_mode_for_path(path):
-    """Git-style mode string for an on-disk path (lstat)."""
-    st = os.lstat(path)
-    import stat as _stat
-    if _stat.S_ISLNK(st.st_mode):
-        return "120000"
-    if _stat.S_ISDIR(st.st_mode):
-        return "040000"
-    if st.st_mode & 0o111:
-        return "100755"
-    return "100644"

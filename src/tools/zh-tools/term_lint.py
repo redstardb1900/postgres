@@ -22,7 +22,15 @@ Only explicit hits are reported (English pattern matched the source AND the
 forbidden Chinese pattern matched the translation, or a preserved term
 vanished).  Nothing is rewritten.
 
-Exit codes: 0 no hits, 1 hits, 2 unverified (bad inputs / pgnls mismatch).
+Severity: every rule is "error" or "warning".  Matching is per segment, so
+a forbidden rendering can legitimately co-occur with a correct one inside a
+multi-sentence comment; only renderings that are wrong in every context are
+errors (term_rules.json sets this per rule).  Phrasebook rules were written
+for single NLS messages: they are errors for --po and warnings for comment /
+text input (override with --phrasebook-severity).
+
+Exit codes: 0 no error hits (warnings may be present), 1 error hits or
+unpairable files, 2 unverified (bad inputs / pgnls mismatch).
 """
 import argparse
 import json
@@ -38,8 +46,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 C_EXTS = (".c", ".h", ".cpp")
 
 
-def load_rules(pgnls, rules_path, check_sha, baseline_dir):
-    info = {"pgnls": None, "rules": rules_path, "n_rules": 0}
+def load_rules(pgnls, rules_path, check_sha, baseline_dir, phrasebook_severity):
+    info = {"pgnls": None, "rules": rules_path, "n_rules": 0, "phrasebook_severity": phrasebook_severity}
     rules = []
     preserved = []
     if rules_path:
@@ -59,11 +67,13 @@ def load_rules(pgnls, rules_path, check_sha, baseline_dir):
             if dirty:
                 raise ValueError("pgnls ref/ has local modifications")
         with open(os.path.join(pgnls, "ref", "phrasebook.tsv"), "r", encoding="utf-8") as f:
-            rules += termlint.load_phrasebook(f.read())
+            rules += termlint.load_phrasebook(f.read(), severity=phrasebook_severity)
         with open(os.path.join(pgnls, "ref", "glossary.tsv"), "r", encoding="utf-8") as f:
             preserved += termlint.load_glossary_preserved(f.read())
     rules += termlint.preserved_term_rules(preserved)
     info["n_rules"] = len(rules)
+    info["n_error_rules"] = sum(1 for r in rules if r.severity == termlint.ERROR)
+    info["n_warning_rules"] = sum(1 for r in rules if r.severity == termlint.WARNING)
     info["preserved_terms"] = sorted(set(preserved))
     return rules, info
 
@@ -97,13 +107,16 @@ def main(argv=None):
     ap.add_argument("--allowlist", default=None)
     ap.add_argument("--baseline-dir", default=os.path.join(HERE, "baseline"))
     ap.add_argument("--no-check-pgnls-sha", action="store_true")
+    ap.add_argument("--phrasebook-severity", choices=("error", "warning"), default=None,
+                    help="default: error for --po, warning otherwise")
     ap.add_argument("--json", dest="json_out", default=None)
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
 
+    pb_sev = args.phrasebook_severity or (termlint.ERROR if args.po else termlint.WARNING)
     try:
         rules, info = load_rules(args.pgnls, None if args.no_rules else args.rules,
-                                 not args.no_check_pgnls_sha, args.baseline_dir)
+                                 not args.no_check_pgnls_sha, args.baseline_dir, pb_sev)
         allow = termlint.Allowlist([])
         if args.allowlist:
             with open(args.allowlist, "r", encoding="utf-8") as f:
@@ -164,18 +177,24 @@ def main(argv=None):
 
     kept = [h for h in hits if not allow.allows(h)]
     suppressed = len(hits) - len(kept)
-    exit_code = 1 if kept or unpaired else 0
+    errors = [h for h in kept if h.severity == termlint.ERROR]
+    warnings = [h for h in kept if h.severity == termlint.WARNING]
+    exit_code = 1 if errors or unpaired else 0
     if not args.quiet:
         for h in kept:
-            print("%s:%s: %s: en=%s | zh=%s  (%s)" % (h.path, h.line if h.line is not None else "-",
-                                                   h.rule, _snip(h.en), _snip(h.zh), h.note))
+            print("%s:%s: %s %s: en=%s | zh=%s  (%s)" % (h.path, h.line if h.line is not None else "-",
+                                                      h.severity.upper(), h.rule, _snip(h.en), _snip(h.zh),
+                                                      h.note))
         for p in unpaired:
             print("%s: comments could not be paired (non-comment bytes differ)" % p)
-    print("term_lint: %d rules, %d pairs, %d hits (%d allowlisted), %d unpaired files" % (
-        info["n_rules"], n_pairs, len(kept), suppressed, len(unpaired)))
+    print("term_lint: %d rules (%d error/%d warning), %d pairs, %d error hits, %d warnings "
+          "(%d allowlisted), %d unpaired files" % (
+              info["n_rules"], info["n_error_rules"], info["n_warning_rules"], n_pairs, len(errors),
+              len(warnings), suppressed, len(unpaired)))
     if args.json_out:
         rep = {"tool": "term_lint.py", "tools_version": TOOLS_VERSION, "rules": info,
-               "pairs": n_pairs, "hits": [h.to_dict() for h in kept], "suppressed": suppressed,
+               "pairs": n_pairs, "hits": [h.to_dict() for h in kept], "n_errors": len(errors),
+               "n_warnings": len(warnings), "suppressed": suppressed,
                "unpaired": unpaired, "exit_code": exit_code}
         with open(args.json_out, "w", encoding="utf-8") as f:
             json.dump(rep, f, ensure_ascii=False, indent=1, sort_keys=True)

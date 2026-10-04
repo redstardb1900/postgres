@@ -66,6 +66,8 @@ class Manifest(object):
         for key in ("base_commit", "pgnls_commit"):
             if not _HEX40.match(str(d[key])):
                 raise ManifestError("%s must be a 40-hex commit id" % key)
+        if d.get("parent_commit") is not None and not _HEX40.match(str(d["parent_commit"])):
+            raise ManifestError("parent_commit must be a 40-hex commit id")
         if not isinstance(d["allowed_paths"], list) or not d["allowed_paths"]:
             raise ManifestError("allowed_paths must be a non-empty list")
         for a in d["allowed_paths"]:
@@ -103,6 +105,10 @@ class Manifest(object):
     @property
     def require_file_entries(self):
         return bool(self.data.get("require_file_entries", True))
+
+    @property
+    def parent_commit(self):
+        return self.data.get("parent_commit")
 
     def allows(self, path):
         """Return the matching pattern or None."""

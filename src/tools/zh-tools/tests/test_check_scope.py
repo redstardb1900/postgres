@@ -1,7 +1,6 @@
+import hashlib
 import json
 import os
-import shutil
-import stat
 import subprocess
 import sys
 import tempfile
@@ -86,6 +85,40 @@ class ProtectionUnit(unittest.TestCase):
         self.assertTrue(protection.is_perl_name("a/b.pl"))
         self.assertTrue(protection.is_perl_name("x.t"))
         self.assertFalse(protection.is_perl_name("x.txt"))
+
+    def test_read_regular_file_does_not_follow_symlinks(self):
+        with tempfile.TemporaryDirectory() as d:
+            real = write(d, "real.pl", "#!/usr/bin/perl\n1;\n")
+            link = os.path.join(d, "link")
+            os.symlink("real.pl", link)
+            data, st = protection.read_regular_file(real)
+            self.assertEqual(data, b"#!/usr/bin/perl\n1;\n")
+            self.assertEqual(protection.git_mode_of_stat(st), "100644")
+            with self.assertRaises(protection.UnstableFile):
+                protection.read_regular_file(link)
+            with self.assertRaises(protection.UnstableFile):
+                protection.sha256_fd_stable(link)
+            # a shebang-perl file reached only through a symlink is not
+            # classified by following the link
+            self.assertFalse(protection.is_perl_file_on_disk(link))
+            self.assertTrue(protection.is_perl_file_on_disk(real))
+            # directories are rejected
+            with self.assertRaises(protection.UnstableFile):
+                protection.read_regular_file(d)
+
+    def test_read_regular_file_identity_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            a = write(d, "a", "A")
+            b = write(d, "b", "B")
+            st_b = os.lstat(b)
+            # pretending the earlier lstat() saw another inode -> rejected
+            with self.assertRaises(protection.UnstableFile):
+                protection.read_regular_file(a, expect_st=st_b)
+            data, _ = protection.read_regular_file(a, expect_st=os.lstat(a))
+            self.assertEqual(data, b"A")
+            digest, st = protection.sha256_fd_stable(a, expect_st=os.lstat(a))
+            self.assertEqual(digest, hashlib.sha256(b"A").hexdigest())
+            self.assertEqual(st.st_size, 1)
 
     def test_snapshot_and_compare(self):
         with tempfile.TemporaryDirectory() as d:
@@ -274,6 +307,16 @@ class ScopeEndToEnd(unittest.TestCase):
         rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
         self.assertIn("S4_PERL_MISSING", self.rules(data))
         git(self.work, "checkout", "--", "src")
+        # protected file replaced by a symlink to identical content: must
+        # be reported without following the link
+        os.unlink(os.path.join(self.work, "src/tools/Mod.pm"))
+        write(self.work, "src/tools/Mod.pm.real", "package Mod;\n")
+        os.symlink("Mod.pm.real", os.path.join(self.work, "src/tools/Mod.pm"))
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
+        self.assertIn(("S4_PERL_CHANGED", "src/tools/Mod.pm"), {(v["rule"], v["path"]) for v in data["violations"]})
+        os.unlink(os.path.join(self.work, "src/tools/Mod.pm"))
+        os.unlink(os.path.join(self.work, "src/tools/Mod.pm.real"))
+        git(self.work, "checkout", "--", "src")
         # new perl files by extension and by shebang (untracked)
         write(self.work, "src/new.pl", "1;\n")
         write(self.work, "src/newperl", "#!/usr/bin/env perl\n1;\n")
@@ -309,6 +352,64 @@ class ScopeEndToEnd(unittest.TestCase):
             json.dump(mm, f)
         rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m)
         self.assertIn("S1_BASE_MISMATCH", self.rules(data))
+
+    def test_incremental_mode(self):
+        # batch 1 committed on top of base
+        write(self.work, "src/a.c", "int a; /* 甲 */\n")
+        git(self.work, "commit", "-q", "-am", "batch1")
+        parent = git(self.work, "rev-parse", "HEAD")
+        # batch 2 in the working tree
+        write(self.work, "src/b.h", "/* 头 */\n")
+        m2 = os.path.join(self.tmp.name, "m2.json")
+        with open(m2, "w") as f:
+            json.dump({"schema_version": 1, "batch_id": "b2", "title": "t", "base_commit": self.base_sha,
+                       "parent_commit": parent, "pgnls_commit": PGNLS_SHA,
+                       "allowed_paths": [{"pattern": "src/**", "kind": "c_comment"}],
+                       "files": [self.fe("src/b.h")]}, f)
+        # cumulative mode: a.c is changed since base but not in m2 -> fail
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m2)
+        self.assertEqual(rc, 1)
+        self.assertIn(("S2_NO_FILE_ENTRY", "src/a.c"), {(v["rule"], v["path"]) for v in data["violations"]})
+        # incremental mode: only b.h is in the diff -> pass
+        rc, out, data = self.run_scope("--worktree", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(data["incremental"], True)
+        self.assertEqual([c["path"] for c in data["changes"]], ["src/b.h"])
+        self.assertEqual(data["base_resolved"], parent)
+        # incremental on a ref
+        git(self.work, "commit", "-q", "-am", "batch2")
+        rc, out, _ = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 0, out)
+        # doc/ and Perl protection stay absolute in incremental mode
+        write(self.work, "doc/src/sgml/ref.sgml", "<para>译</para>\n")
+        write(self.work, "src/tools/Mod.pm", "package Mod; # 译\n")
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 1)
+        self.assertIn("S3_DOC_SNAPSHOT", self.rules(data))
+        self.assertIn("S4_PERL_CHANGED", self.rules(data))
+        git(self.work, "checkout", "--", ".")
+        # parent_commit missing -> S1
+        with open(m2) as f:
+            mm = json.load(f)
+        del mm["parent_commit"]
+        with open(m2, "w") as f:
+            json.dump(mm, f)
+        rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(self.rules(data), {"S1_BASE_MISMATCH"})
+        # parent_commit that does not descend from the frozen base -> S1
+        other = os.path.join(self.tmp.name, "other")
+        os.makedirs(other)
+        git(other, "init", "-q", "-b", "main")
+        write(other, "x", "x")
+        git(other, "add", "-A")
+        git(other, "commit", "-q", "-m", "unrelated")
+        unrelated = git(other, "rev-parse", "HEAD")
+        git(self.work, "fetch", "-q", other, "main")
+        mm["parent_commit"] = unrelated
+        with open(m2, "w") as f:
+            json.dump(mm, f)
+        rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(self.rules(data), {"S1_BASE_MISMATCH"})
 
     def test_bad_inputs_exit_2(self):
         p = subprocess.run([sys.executable, os.path.join(TOOLS_DIR, "check_scope.py"), "--worktree", self.work,

@@ -21,6 +21,18 @@ comment replaced by ``\\x00C<n>\\x00``.  ``reassemble(skeleton, comments)``
 must give back the original bytes; that round-trip is checked in the
 self-check mode of verify_c_comments.py.
 
+Offsets: a token's original end is "original offset of its last byte + 1",
+never "original offset of the byte after it" -- the two differ when a
+backslash-newline follows the token (``/* c */\\\n  1``), and the splice
+belongs to the code, not the comment.  Line comments end at the original
+offset of the terminating newline, so a splice inside the comment is part
+of it.
+
+Directive ambiguity: a ``#`` that follows a block comment containing a
+newline is treated as a directive start even though GCC/Clang only do so
+when the comment began at line start.  Directive mode is the conservative
+reading (``#include <a//b.h>`` becomes a header-name = code).
+
 The lexer never raises on odd input (unterminated literals, missing final
 newline, ...).  Such conditions are reported as ``LexResult.warnings`` so
 that the verifier can decide what to do.  A literal that is still open at
@@ -193,11 +205,30 @@ def lex(data):
                 if j < 0:
                     warnings.append(("unterminated_block_comment", orig(start_s)))
                     end_s = n
+                    end_o = len(data)
                 else:
                     end_s = j + 2
-                comments.append((BLOCK, orig(start_s), orig(end_s) if end_s < n else len(data)))
+                    # Original end = last byte of "*/" + 1.  NOT orig(end_s):
+                    # that is the first byte *after* the token and may lie
+                    # beyond a backslash-newline that follows "*/" and
+                    # belongs to the code (e.g. "/* c */\\\n  1").
+                    end_o = orig(end_s - 1) + 1
+                comments.append((BLOCK, orig(start_s), end_o))
                 i = end_s
-                # a block comment does not change at_line_start
+                # A one-line block comment is whitespace and does not change
+                # at_line_start.  After a block comment that contains a
+                # newline, GCC/Clang do NOT start a directive at a following
+                # '#' unless the comment itself began at line start, but the
+                # standard's wording is debatable and other preprocessors
+                # may differ.  Treating such a '#' as a directive is the
+                # conservative choice for this tool: in directive mode
+                # "#include <a//b.h>" is a header-name (code, must not
+                # change) instead of a '//' comment that a translator could
+                # edit.  The opposite mistake could let a code change pass.
+                # The directive state of the current logical line is kept:
+                # "#include /* a\n */ <x//y.h>" is still a header-name.
+                if b"\n" in spliced[start_s:end_s]:
+                    at_line_start = True
                 continue
             if c2 == 0x2F:  # line comment
                 start_s = i

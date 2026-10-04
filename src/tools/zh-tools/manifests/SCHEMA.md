@@ -10,7 +10,8 @@ explicitly allow, so the manifest *is* the closed scope of the batch.
   "schema_version": 1,
   "batch_id": "0001-tools",
   "title": "short human title",
-  "base_commit": "<40-hex commit the batch is diffed against>",
+  "base_commit": "<40-hex frozen base commit (REL_16_11)>",
+  "parent_commit": "<40-hex parent of this batch; optional, used by --incremental>",
   "pgnls_commit": "<40-hex pgnls commit used for terminology>",
   "require_file_entries": true,
   "allowed_paths": [
@@ -38,6 +39,7 @@ Field rules (enforced by `zhtools/manifest.py`):
 |---|---|
 | `schema_version` | must be `1` |
 | `base_commit`, `pgnls_commit` | 40 hex chars; must equal `baseline/baseline.json` |
+| `parent_commit` | optional, 40 hex chars; the commit this batch is diffed against in `check_scope.py --incremental` (must descend from `base_commit`). Without `--incremental` the diff base is always `base_commit` and the manifest must be cumulative |
 | `allowed_paths[].pattern` | path glob; `**` crosses directories, `*`/`?` do not; must not start with `/` or `doc/`, must not be `**` |
 | `allowed_paths[].kind`, `files[].kind` | one of `tool`, `c_comment`, `yl_comment`, `makefile_comment`, `meson_comment`, `shell_comment`, `readme`, `po`, `manifest`, `baseline` |
 | `files[].action` | `add` or `modify`; must agree with the git status of the path |

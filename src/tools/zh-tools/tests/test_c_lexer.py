@@ -146,6 +146,76 @@ class LineSplicing(unittest.TestCase):
         r = c_lexer.lex(src)
         self.assertEqual((r.comments[0].start, r.comments[0].end), (4, 11))
 
+    def test_block_comment_end_before_splice(self):
+        # review finding #2: "*/" immediately followed by backslash-newline;
+        # the splice belongs to the code, not to the comment.
+        src = b"#define X /* English */\\\n  1\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments], [b"/* English */"])
+        self.assertEqual(r.skeleton, b"#define X \x00C0\x00\\\n  1\n")
+        self.assertEqual(c_lexer.reassemble(r.skeleton, r.comments), src)
+
+    def test_block_comment_end_before_splice_ppport_shape(self):
+        # shape taken from src/pl/plperl/ppport.h (macro continuation lines
+        # ending in "/* Unicode 3.0 */\")
+        src = (b"#define IS_SPACE(c) (   (UV) (c) == 0x1680 /* Unicode 3.0 */ \\\n"
+               b"    || (UV) (c) == 0x202F  /* Unicode 3.0 */\\\n"
+               b"    || (UV) (c) == 0x205F  /* Unicode 3.2 */\\\n"
+               b"    || (UV) (c) == 0x3000)\n")
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments],
+                         [b"/* Unicode 3.0 */", b"/* Unicode 3.0 */", b"/* Unicode 3.2 */"])
+        self.assertEqual(r.skeleton.count(b"\\\n"), 3)
+
+    def test_block_comment_closer_spliced_inside(self):
+        src = b"int a; /* c *\\\n/ int b;\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments], [b"/* c *\\\n/"])
+        self.assertEqual(r.skeleton, b"int a; \x00C0\x00 int b;\n")
+
+    def test_line_comment_end_is_newline_offset(self):
+        src = b"// foo\\\n\nint a;\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments], [b"// foo\\\n"])
+        self.assertEqual(r.skeleton, b"\x00C0\x00\nint a;\n")
+
+    def test_block_comment_at_eof_after_splice(self):
+        src = b"int a; /* c */\\\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments], [b"/* c */"])
+        self.assertEqual(r.skeleton, b"int a; \x00C0\x00\\\n")
+
+
+class DirectiveAfterMultilineComment(unittest.TestCase):
+    """Review finding #1: '#' after a block comment that spans lines."""
+
+    def test_include_header_name_after_multiline_comment(self):
+        src = b"int x; /* spans\n */ #include <path//header.h>\nint q;\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([(c.kind, c.text) for c in r.comments], [(BLOCK, b"/* spans\n */")])
+        self.assertIn(b"<path//header.h>", r.skeleton)
+
+    def test_include_after_multiline_comment_at_line_start(self):
+        src = b"/* spans\n */ #include <a//b.h>\n"
+        r = c_lexer.lex(src)
+        self.assertEqual(len(r.comments), 1)
+        self.assertIn(b"<a//b.h>", r.skeleton)
+
+    def test_include_with_multiline_comment_inside_directive(self):
+        src = b"#include /* a\n */ <x//y.h>\n/* c */\n"
+        self.assertEqual(comments_of(src), [(BLOCK, b"/* a\n */"), (BLOCK, b"/* c */")])
+
+    def test_single_line_comment_does_not_start_directive_mid_line(self):
+        # GCC agrees: '#' here is an ordinary token and '//' a comment
+        src = b"int x; /* one */ # include <p//q.h>\n"
+        self.assertEqual(comments_of(src), [(BLOCK, b"/* one */"), (LINE, b"//q.h>")])
+
+    def test_error_directive_after_multiline_comment(self):
+        src = b"int x; /* a\n */ #error don't /* not */\n/* c */\n"
+        r = c_lexer.lex(src)
+        self.assertEqual([c.text for c in r.comments], [b"/* a\n */", b"/* c */"])
+        self.assertEqual(r.warnings, [])
+
 
 class Trigraphs(unittest.TestCase):
     def test_find(self):

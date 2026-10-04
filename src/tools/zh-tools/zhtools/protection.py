@@ -41,12 +41,101 @@ def is_perl_shebang(head):
     return _PERL_SHEBANG.match(first) is not None
 
 
-def sha256_file(path):
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
+class UnstableFile(RuntimeError):
+    """The file changed identity or content while it was being read."""
+
+
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_O_CLOEXEC = getattr(os, "O_CLOEXEC", 0)
+_O_BINARY = getattr(os, "O_BINARY", 0)
+
+
+def _same_identity(a, b):
+    return (a.st_dev, a.st_ino, stat.S_IFMT(a.st_mode)) == (b.st_dev, b.st_ino, stat.S_IFMT(b.st_mode))
+
+
+def open_regular_nofollow(path, expect_st=None):
+    """Open *path* as a regular file without following a final symlink.
+
+    Returns (fd, st) where st is the fstat of the opened descriptor.  Raises
+    UnstableFile when the path is not a regular file, when O_NOFOLLOW is
+    unavailable and the path is a symlink, or when the opened file is not
+    the one *expect_st* (an earlier lstat) described.
+    """
+    flags = os.O_RDONLY | _O_NOFOLLOW | _O_CLOEXEC | _O_BINARY
+    try:
+        fd = os.open(path, flags)
+    except OSError as e:
+        raise UnstableFile("%s: cannot open: %s" % (path, e))
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise UnstableFile("%s: not a regular file after open" % path)
+        if not _O_NOFOLLOW and os.path.islink(path):
+            raise UnstableFile("%s: symlink (O_NOFOLLOW unavailable)" % path)
+        if expect_st is not None and not _same_identity(expect_st, st):
+            raise UnstableFile("%s: file identity changed between lstat and open" % path)
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd, st
+
+
+def read_regular_file(path, expect_st=None):
+    """Read a regular file via a non-following descriptor.
+
+    Metadata (dev/ino/type/size/mode/mtime) is captured with fstat before
+    and after reading; any difference raises UnstableFile.  Returns
+    (data, st_before).
+    """
+    fd, st1 = open_regular_nofollow(path, expect_st)
+    try:
+        chunks = []
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        st2 = os.fstat(fd)
+    finally:
+        os.close(fd)
+    _check_stable(path, st1, st2)
+    data = b"".join(chunks)
+    if len(data) != st1.st_size:
+        raise UnstableFile("%s: read %d bytes, size was %d" % (path, len(data), st1.st_size))
+    return data, st1
+
+
+def _check_stable(path, st1, st2):
+    if not _same_identity(st1, st2) or (st1.st_size, st1.st_mode, st1.st_mtime_ns) != \
+            (st2.st_size, st2.st_mode, st2.st_mtime_ns):
+        raise UnstableFile("%s: metadata changed while reading" % path)
+
+
+def sha256_fd_stable(path, expect_st=None):
+    """SHA-256 of a regular file read via open_regular_nofollow.
+
+    Returns (hexdigest, st) with the same before/after metadata check as
+    read_regular_file, without holding the whole file in memory.
+    """
+    fd, st1 = open_regular_nofollow(path, expect_st)
+    try:
+        h = hashlib.sha256()
+        total = 0
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                break
             h.update(chunk)
-    return h.hexdigest()
+            total += len(chunk)
+        st2 = os.fstat(fd)
+    finally:
+        os.close(fd)
+    _check_stable(path, st1, st2)
+    if total != st1.st_size:
+        raise UnstableFile("%s: read %d bytes, size was %d" % (path, total, st1.st_size))
+    return h.hexdigest(), st1
+
 
 
 def snapshot_tree(root, subdir):
@@ -84,10 +173,13 @@ def _entry(rel, full, st):
         e["type"] = "dir"
         e["mode"] = "040000"
     elif stat.S_ISREG(st.st_mode):
+        # hash through a non-following descriptor and require that the
+        # opened file is the one lstat() described (no TOCTOU swap)
+        digest, st_fd = sha256_fd_stable(full, expect_st=st)
         e["type"] = "file"
-        e["mode"] = "100755" if st.st_mode & 0o111 else "100644"
-        e["size"] = st.st_size
-        e["sha256"] = sha256_file(full)
+        e["mode"] = "100755" if st_fd.st_mode & 0o111 else "100644"
+        e["size"] = st_fd.st_size
+        e["sha256"] = digest
     else:
         e["type"] = "other"
         e["mode"] = "000000"
@@ -161,7 +253,14 @@ def is_perl_file_on_disk(path):
     if is_perl_name(path):
         return True
     try:
-        with open(path, "rb") as f:
-            return is_perl_shebang(f.read(256))
-    except OSError:
+        fd, _st = open_regular_nofollow(path)
+    except UnstableFile:
         return False
+    try:
+        return is_perl_shebang(os.read(fd, 256))
+    finally:
+        os.close(fd)
+
+
+def git_mode_of_stat(st):
+    return "100755" if st.st_mode & 0o111 else "100644"

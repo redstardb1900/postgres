@@ -184,6 +184,38 @@ class MutationTests(unittest.TestCase):
             res = c_verify.compare_files(self.base, bytes(b))
             self.assertIn("R6_LF_COUNT", rules_of(res))
 
+    def test_every_byte_of_header_name_after_multiline_comment_is_code(self):
+        """Review finding #1: exhaustive single-byte mutation of the header name."""
+        base = b"int x; /* spans\n */ #include <path//header.h>\nint q;\n"
+        start = base.index(b"<path")
+        end = base.index(b">", start) + 1
+        for off in range(start, end):
+            b = bytearray(base)
+            b[off] = ord("!") if b[off] != ord("!") else ord("?")
+            res = c_verify.compare_files(base, bytes(b))
+            self.assertIn("R1_SKELETON", rules_of(res), "offset %d" % off)
+        # translating the comment itself still passes
+        ok = base.replace(b"/* spans\n */", "/* 跨行\n */".encode("utf-8"))
+        self.assertEqual(c_verify.compare_files(base, ok).violations, [])
+
+    def test_splice_after_block_comment_mutations(self):
+        """Review finding #2: code after "*/\\\\\\n" is code, comment is translatable."""
+        base = b"#define X /* English */\\\n  1\n#define Y /* two */\\\n  2\n"
+        # comment translations pass (incl. the second one)
+        new = base.replace(b"English", "英文".encode("utf-8")).replace(b"two", "二".encode("utf-8"))
+        self.assertEqual([f.to_dict() for f in c_verify.compare_files(base, new).violations], [])
+        # every byte outside the comments is protected
+        lex = c_lexer.lex(base)
+        ranges = [(c.start, c.end) for c in lex.comments]
+        self.assertEqual([base[s:e] for s, e in ranges], [b"/* English */", b"/* two */"])
+        for off in range(len(base)):
+            if any(s <= off < e for s, e in ranges):
+                continue
+            b = bytearray(base)
+            b[off] = ord("Z") if b[off] != ord("Z") else ord("Q")
+            res = c_verify.compare_files(base, bytes(b))
+            self.assertTrue(res.violations, "offset %d (%r) not rejected" % (off, base[off:off + 1]))
+
     def test_round_trip_random_bytes(self):
         """Lexer round-trip must hold for arbitrary byte soup."""
         alphabet = b"/*\n\\\"'#<>()RLuU8abc \t;"

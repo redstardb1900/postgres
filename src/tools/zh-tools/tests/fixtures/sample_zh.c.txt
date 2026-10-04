@@ -1,0 +1,63 @@
+/*-------------------------------------------------------------------------
+ *
+ * sample_old.c
+ *	  Fixture for verify_c_comments.py tests (not real PostgreSQL code).
+ *
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1994, Regents of the University of California
+ *
+ *-------------------------------------------------------------------------
+ */
+#include "postgres.h"
+
+#include <sys/types.h>	/* 用于 off_t */
+
+/* 带续行的简单宏。 */
+#define SAMPLE_MAX(a, b) \
+	((a) > (b) ? (a) : (b))	/* 会求值两次 */
+
+/*
+ * sample_insert
+ *		向堆关系中插入一个元组。
+ *
+ * 调用者必须至少持有该关系上的 RowExclusiveLock。
+ * 真正的实现见 heap_insert()；返回 XLogRecPtr。
+ */
+static int
+sample_insert(int relation, const char *tuple)
+{
+	int			result = 0;		/* 返回值 */
+	const char *marker = "/* not a comment */ // nor this";
+	char		quote = '"';
+	char		slash = '/';
+
+	if (tuple == NULL)
+		return -1;				// 无事可做
+
+	switch (relation)
+	{
+		case 1:
+			result = 1;
+			/* FALLTHROUGH */
+		case 2:
+			result += 2;
+			break;
+		default:
+			/* translator: %s is a relation name */
+			elog(ERROR, "unexpected relation %d", relation);
+	}
+
+	(void) quote;
+	(void) slash;
+	(void) marker;
+	return result;
+}
+
+/*
+ * A comment mentioning pg_attribute_noreturn() must stay as is.
+ */
+static void
+sample_noop(void)
+{
+	/* 什么也不做 */
+}

@@ -1,0 +1,63 @@
+/*-------------------------------------------------------------------------
+ *
+ * sample_old.c
+ *	  Fixture for verify_c_comments.py tests (not real PostgreSQL code).
+ *
+ * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+ * Portions Copyright (c) 1994, Regents of the University of California
+ *
+ *-------------------------------------------------------------------------
+ */
+#include "postgres.h"
+
+#include <sys/types.h>	/* for off_t */
+
+/* Simple macro with a continuation line. */
+#define SAMPLE_MAX(a, b) \
+	((a) > (b) ? (a) : (b))	/* evaluates twice */
+
+/*
+ * sample_insert
+ *		Insert a tuple into the heap relation.
+ *
+ * The caller must hold at least RowExclusiveLock on the relation.
+ * See heap_insert() for the real thing; XLogRecPtr is returned.
+ */
+static int
+sample_insert(int relation, const char *tuple)
+{
+	int			result = 0;		/* return value */
+	const char *marker = "/* not a comment */ // nor this";
+	char		quote = '"';
+	char		slash = '/';
+
+	if (tuple == NULL)
+		return -1;				// nothing to do
+
+	switch (relation)
+	{
+		case 1:
+			result = 1;
+			/* FALLTHROUGH */
+		case 2:
+			result += 2;
+			break;
+		default:
+			/* translator: %s is a relation name */
+			elog(ERROR, "unexpected relation %d", relation);
+	}
+
+	(void) quote;
+	(void) slash;
+	(void) marker;
+	return result;
+}
+
+/*
+ * A comment mentioning pg_attribute_noreturn() must stay as is.
+ */
+static void
+sample_noop(void)
+{
+	/* nothing */
+}

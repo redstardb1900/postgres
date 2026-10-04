@@ -1,0 +1,1715 @@
+{
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "entries": [
+  {
+   "mode": "100644",
+   "oid": "611f3a673fdf9afafde85c8190f38886ff875b08",
+   "path": "config/check_modules.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "46d5b53181e8899968da1f5a75b19a607399f1d1",
+   "path": "contrib/amcheck/t/001_verify_heapam.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "42a047a35710fdc2597ada4a8ddc3bfff38709d4",
+   "path": "contrib/amcheck/t/002_cic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3279a2505a38dddb853188c86a994442d661a082",
+   "path": "contrib/amcheck/t/003_cic_2pc.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6bcc1596f2bc1d42b4ef2242c01e00cc582c32e4",
+   "path": "contrib/amcheck/t/005_pitr.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "abb422f8de6910760a542ad5b1d53caac60bff6a",
+   "path": "contrib/auto_explain/t/001_auto_explain.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e2cdd2ecb0cc698fd6142e6eaeb93b9296d7797e",
+   "path": "contrib/basebackup_to_shell/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c1614e9be861cf253d98941749ca6335785e1971",
+   "path": "contrib/bloom/t/001_wal.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "51a40e774898a7c24651ccce74e1fbe9f6c38779",
+   "path": "contrib/fuzzystrmatch/daitch_mokotoff_header.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "067654986e2fe992391108ba7f96afbc13cc006f",
+   "path": "contrib/intarray/bench/bench.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "6efe9151ca5557ac96b4af5abd358e171109b9a5",
+   "path": "contrib/intarray/bench/create_test.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "74fe62291693ca66dc95de304fb35974d829fa1c",
+   "path": "contrib/oid2name/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "22993c055728ac107b5be9f2b871c8f5bf7646ad",
+   "path": "contrib/pg_prewarm/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "67c0015e6bea20509fe667ad98d5ebb7a0eb4b53",
+   "path": "contrib/seg/seg-validate.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "3cc21a3ba04645f199b7a95b11abc07528014f14",
+   "path": "contrib/seg/sort-segments.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c335bc5890c6e40e90b1c331e37b3d13ec7aec4b",
+   "path": "contrib/test_decoding/t/001_repl_stats.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "75067863decf0aec1808a9b38c291ea52815239c",
+   "path": "contrib/vacuumlo/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "51f22bde9586553c137f645282d8610f56d45e17",
+   "path": "doc/src/sgml/generate-errcodes-table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ee44edaa6c44de7e692ac7e0fc5aa73f2c11623b",
+   "path": "doc/src/sgml/generate-keywords-table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "824be729a0384dc0bc4b0fefc252307f13e78335",
+   "path": "doc/src/sgml/mk_feature_tables.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "84aaeb002a60f939ab254bac8d6f9b266038533a",
+   "path": "src/backend/catalog/Catalog.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4a7205472c165fd7dfa915c23bd0ca2924dee2ba",
+   "path": "src/backend/catalog/genbki.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d67565b925c1d192cfc58654f92e07d832dcb06c",
+   "path": "src/backend/nodes/gen_node_support.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e9b6f40eaa61b486eb365b7fec2ce8baa0023af9",
+   "path": "src/backend/parser/check_keywords.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "35d1cd9621b0d7308d97d7a34ae1975b48a99b6c",
+   "path": "src/backend/snowball/snowball_create.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "863c88252b2ce224ebff50e38617b8142eabadd4",
+   "path": "src/backend/storage/lmgr/generate-lwlocknames.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f289b19344beec0417890682dffacada0e0e7ed4",
+   "path": "src/backend/utils/Gen_dummy_probes.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f5210d684c0ac2da2b258e27ba7bb3ad7aae6764",
+   "path": "src/backend/utils/Gen_dummy_probes.pl.prolog",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100644",
+   "oid": "764216c56dd392735ad4397f78ae5f814a2092e7",
+   "path": "src/backend/utils/Gen_fmgrtab.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "34d0f25c2335d95d4962cc15b065ce3775135764",
+   "path": "src/backend/utils/generate-errcodes.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "4c5724b8b7502f2fdf102d9fb72cdaa2779a8941",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_BIG5.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "f9ff2bd3d2a7905a27ca552ae0cfc6357e9b0bbb",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_EUC_CN.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "2d0e05fb794170068efd4a81a582046e8f97973b",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_EUC_JIS_2004.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "4073578027eba1aeed46475caadbea00304e188b",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_EUC_JP.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "9112e1cfe9bf5e2a5d8184bbe322afec12127917",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_EUC_KR.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "4ad17064abc22582c77ad9dfaa21f8a27a25c009",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_EUC_TW.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "9c8a983bf7103618e8b6d7ea51680f24d11c12fa",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_GB18030.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "f50baa8f1f423d6bbab5934b095408aeb7cae2cf",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_JOHAB.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "ed010a58facf00f3a0944822a3bb355f2ea88a97",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_SHIFT_JIS_2004.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "0808c6836b3a155c165ef701c66d230fddad9e30",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_SJIS.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "207677d76dc22a7894bff39a27ce52175c8fad45",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_UHC.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "a1947308ffa3a0bef0c6eb9e7da1744bcc9cc2e4",
+   "path": "src/backend/utils/mb/Unicode/UCS_to_most.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "77de7b1a4d7468f945112a690b5d4382ab8a6715",
+   "path": "src/backend/utils/mb/Unicode/convutils.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ca9c8b100661813a72e183822050a099a911258d",
+   "path": "src/bin/initdb/t/001_initdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1f1e33278b81d94e5b129b843515e5cc71dde408",
+   "path": "src/bin/pg_amcheck/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "99b94dd02238be779e71c7250ce57b052c8a41d8",
+   "path": "src/bin/pg_amcheck/t/002_nonesuch.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d577cffa30df32da3c3ba9f0a8b3d4c328e9fe21",
+   "path": "src/bin/pg_amcheck/t/003_check.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1b5027c4204b68a3006622763fbe4958336c6c20",
+   "path": "src/bin/pg_amcheck/t/004_verify_heapam.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "fd476179f494f9e8b60d714cdb95f48c092caff0",
+   "path": "src/bin/pg_amcheck/t/005_opclass_damage.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cc3386d1464e1ab3d49701a1f30197565fe744a9",
+   "path": "src/bin/pg_archivecleanup/t/010_pg_archivecleanup.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7f29036f78b173f8c48f224ab6c27479551a243a",
+   "path": "src/bin/pg_basebackup/t/010_pg_basebackup.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d58696e8f99cb7b8d3b6a0bc1bcf36b60f73cdd1",
+   "path": "src/bin/pg_basebackup/t/011_in_place_tablespace.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "374f090a8b6dd840a59fcbc3e0d81b9e2db058d3",
+   "path": "src/bin/pg_basebackup/t/020_pg_receivewal.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "62dca5b67a6ce6cc17b8c9f845e60387208654a1",
+   "path": "src/bin/pg_basebackup/t/030_pg_recvlogical.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d3601a5dd84a25c83d4105c6161b6c7677c5e0ce",
+   "path": "src/bin/pg_checksums/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1d4d39db587be15af85a95bb9d766f93a990406f",
+   "path": "src/bin/pg_checksums/t/002_actions.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "24acf7872b2a57e7d181d31e4cb98ad1c37f27ac",
+   "path": "src/bin/pg_config/t/001_pg_config.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0c641036e9c58940a2997ec7ec836101763f037a",
+   "path": "src/bin/pg_controldata/t/001_pg_controldata.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "152c29892ef81a9737c6d26597ba998092038068",
+   "path": "src/bin/pg_ctl/t/001_start_stop.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f5c50f6a7db52c76a2c55aacc81e3143121b115a",
+   "path": "src/bin/pg_ctl/t/002_status.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0e83933098d9484ee44331c24d61c3272334ab46",
+   "path": "src/bin/pg_ctl/t/003_promote.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8d48e56ee9b1efaf6542eece5e29903cf3fefc5e",
+   "path": "src/bin/pg_ctl/t/004_logrotate.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8c63d31cb662e34878848fc16f321dc264ca1136",
+   "path": "src/bin/pg_dump/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5a69e58f217f857168d3f406da4a4f97298ff59c",
+   "path": "src/bin/pg_dump/t/002_pg_dump.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6c6bee4fe0c3a28007e5e33e4a2797607b1bdbbd",
+   "path": "src/bin/pg_dump/t/003_pg_dump_with_server.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c4b461ed87fbb440637a029341aa8461203c7805",
+   "path": "src/bin/pg_dump/t/004_pg_dump_parallel.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ed86c332ef967650d04403d1696f914ead99771e",
+   "path": "src/bin/pg_dump/t/010_dump_connstr.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7e5efbf56b5a0c6b12a24212be1ba92b836dd032",
+   "path": "src/bin/pg_resetwal/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6d19a1efd5adc8497fad55745ab88fe82ed825c7",
+   "path": "src/bin/pg_resetwal/t/002_corrupted.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "031594e14e68698ed63ec29a9cfcf3fca06e5c2c",
+   "path": "src/bin/pg_rewind/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "01eb9227093f69ef12f62f0016d788199aa8c0b0",
+   "path": "src/bin/pg_rewind/t/002_databases.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b6bfc5ed8087b1faa955dbd3fdc478440f3caec7",
+   "path": "src/bin/pg_rewind/t/003_extrafiles.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5fb7fa9077c2fe0808de9ec4fd8033ded66e9555",
+   "path": "src/bin/pg_rewind/t/004_pg_xlog_symlink.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b4ef05e56078ade3946ba354201b54833fbddf5f",
+   "path": "src/bin/pg_rewind/t/005_same_timeline.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4b6e39a47c7680e88c4157531fd31a7f09bd6913",
+   "path": "src/bin/pg_rewind/t/006_options.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4fd1ed001cf70abccf70fb9a93023fc58afe31d8",
+   "path": "src/bin/pg_rewind/t/007_standby_source.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d4c89451e65aa6faff86bef32c31b6bef9428862",
+   "path": "src/bin/pg_rewind/t/008_min_recovery_point.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cf60a04ae7131aeded0d3fc328104991c9a539a8",
+   "path": "src/bin/pg_rewind/t/009_growing_files.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "bf0084d3bc3585109f7444a85fdbdba2961a13b6",
+   "path": "src/bin/pg_rewind/t/010_keep_recycled_wals.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4957791e94dfc855e92f35695c2a97ce8eda4d62",
+   "path": "src/bin/pg_rewind/t/RewindTest.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "401ad2c07ca954fa449208ffeb503c8d72257f69",
+   "path": "src/bin/pg_test_fsync/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "43bc68cb37de3c8753bcee6080a9984207f4673f",
+   "path": "src/bin/pg_test_timing/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ceac4e0851bc84601620185e5f081ffd9d50bae0",
+   "path": "src/bin/pg_upgrade/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "056538af53c1064065686392d4853d3d3e868557",
+   "path": "src/bin/pg_upgrade/t/002_pg_upgrade.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "73e86632386793dca7207bfc73834aa267007bcb",
+   "path": "src/bin/pg_verifybackup/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5b02ea4d55e3c8d902da6bb8bbe8be406f7bc6af",
+   "path": "src/bin/pg_verifybackup/t/002_algorithm.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6490036edf644a3bca5b10c55d70bfef336dae0c",
+   "path": "src/bin/pg_verifybackup/t/003_corruption.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2aa8352f00ef11228e232b75d049e2bb60ef382a",
+   "path": "src/bin/pg_verifybackup/t/004_options.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c94fdd5df83051c43f05b43f4ff80be8d0cc925f",
+   "path": "src/bin/pg_verifybackup/t/005_bad_manifest.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0b37bda20c10302726f76e91d5f32f353afe5bd0",
+   "path": "src/bin/pg_verifybackup/t/006_encoding.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "89f96f85db11ef2f6ffa4e54f349fc70d5de92b1",
+   "path": "src/bin/pg_verifybackup/t/007_wal.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5bd2e303d2a9a1c13c50d62fa4342f414122c858",
+   "path": "src/bin/pg_verifybackup/t/008_untar.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f4d5378555ea88b71e7affa453f97cbd9fca9454",
+   "path": "src/bin/pg_verifybackup/t/009_extract.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6050da2bf9dacbf1756353b4a2e63e261690f780",
+   "path": "src/bin/pg_verifybackup/t/010_client_untar.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "492a8cadd83daed43223fd69df4d9039a87608ab",
+   "path": "src/bin/pg_waldump/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f0725805f21921d6d79c2d42d08d6f4a524a43f8",
+   "path": "src/bin/pg_waldump/t/002_save_fullpage.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2c6b70a2b946ec40e3d2267ad8ad886db05854c6",
+   "path": "src/bin/pgbench/t/001_pgbench_with_server.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0ec54fbb0330483548ca717296d24c45f170bbc3",
+   "path": "src/bin/pgbench/t/002_pgbench_no_server.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0809db41517b5cf5e04198c67dfb35e0b969c94d",
+   "path": "src/bin/psql/create_help.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f5ec8fab1f3b0e88a82a59d71dc35ecccda79a67",
+   "path": "src/bin/psql/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f2d2809aef6e51302b24b0eba6c184a33866c1fc",
+   "path": "src/bin/psql/t/010_tab_completion.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "bf438a36c1fd73ca4e9a8fdc00aff5f386bb8786",
+   "path": "src/bin/psql/t/020_cancel.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "715207fb4d16926cf8179c4618e3b984a883ae8d",
+   "path": "src/bin/scripts/t/010_clusterdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "35f0b18f50f375f810ca48d8b8829eae597c1fa9",
+   "path": "src/bin/scripts/t/011_clusterdb_all.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f44775df44e158cc9b7483c5a7554ce83d78e1a1",
+   "path": "src/bin/scripts/t/020_createdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9ca282181d8c882e14bea852c4da00f905f45aba",
+   "path": "src/bin/scripts/t/040_createuser.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3ed670bb0a157f13e558db9f2ad3e7884bc7424b",
+   "path": "src/bin/scripts/t/050_dropdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "95c24c4f30dc9a48d26689173fe09d5de0633504",
+   "path": "src/bin/scripts/t/070_dropuser.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d205ecadb2ef994641f902cf95cb95632715f3d3",
+   "path": "src/bin/scripts/t/080_pg_isready.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b663d0e741ace38a20857632da04ca5e695a082b",
+   "path": "src/bin/scripts/t/090_reindexdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7f3e081ceb1bba0f160da060af6e21fd3125dbd5",
+   "path": "src/bin/scripts/t/091_reindexdb_all.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "925079bbedb6fe5b0e345dfebf8b8d5a37ebc8fc",
+   "path": "src/bin/scripts/t/100_vacuumdb.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8d7c3ab014bbab5e944666c95780e842b95cba98",
+   "path": "src/bin/scripts/t/101_vacuumdb_all.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "64d7ed1575ffc94a4e968b7848270565dbe3ef4b",
+   "path": "src/bin/scripts/t/102_vacuumdb_stages.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "53c5e21ab2ce2a43c693bda5f786b3ad8fed7bab",
+   "path": "src/bin/scripts/t/200_connstr.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3434f7e2630baffa1bf1ff2269b27ee2d0060047",
+   "path": "src/common/unicode/generate-norm_test_table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2b2df375edfc5c868b445554ada3e0c23531cea7",
+   "path": "src/common/unicode/generate-unicode_east_asian_fw_table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ae86e82922f31ef882295c405d7613c9ba4a318c",
+   "path": "src/common/unicode/generate-unicode_nonspacing_table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d5914118abffffd1856b726053c09f4cef9b3499",
+   "path": "src/common/unicode/generate-unicode_norm_table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1b7473180b33582517157ee2e77541bd79efc75b",
+   "path": "src/common/unicode/generate-unicode_normprops_table.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "eb5c3fb08407365866ff3c3bbd2e0f9061dae9c2",
+   "path": "src/include/catalog/duplicate_oids",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100755",
+   "oid": "725117d846c5bf386bcd28a8df85159ed12682ad",
+   "path": "src/include/catalog/reformat_dat_file.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "ec0958495982621f30d8c28e6149e01a0580c14b",
+   "path": "src/include/catalog/renumber_oids.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "ccf3c3f78126fd20b07cf8e31baf95e35c53b241",
+   "path": "src/include/catalog/unused_oids",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100644",
+   "oid": "5e823fa30e09a30e5318c0da3c07b9e001346037",
+   "path": "src/interfaces/ecpg/preproc/check_rules.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9c45388a96943bbc3629b15adff897381ff62a44",
+   "path": "src/interfaces/ecpg/preproc/parse.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "fd062a95c574af7ed4512b7f93f927b657dbc1df",
+   "path": "src/interfaces/libpq/t/001_uri.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8b43a984fbce8c562c90b5534ae3330d9366c36a",
+   "path": "src/interfaces/libpq/t/002_api.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "21c3b8dd3353e5a793848aa76248d41a2f14ef84",
+   "path": "src/interfaces/libpq/t/003_load_balance_host_list.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "875070e2120eced63dfcdb745a2cbbfdac387a16",
+   "path": "src/interfaces/libpq/t/004_load_balance_dns.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "13298013d39618e75c662dc0a8b6d55bdfba4295",
+   "path": "src/pl/plperl/plc_perlboot.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6b23fa14064c9791d7d5196a1cc6a6f12eaace9a",
+   "path": "src/pl/plperl/plc_trusted.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "26ac717770173ac556db0de29c006057f88c6473",
+   "path": "src/pl/plperl/plperl_opmask.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "954ff452bd862d4f204046cf01ae1478bbfa0665",
+   "path": "src/pl/plperl/text2macro.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f4fd376ef95a3afa073080f6cab6ef6b80c260ae",
+   "path": "src/pl/plpgsql/src/generate-plerrcodes.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "61b37c35417071eb11b7fce90f4bf352d97f6869",
+   "path": "src/pl/plpython/generate-spiexceptions.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9c2309108c092e64599f3f561149080f607d69a2",
+   "path": "src/pl/tcl/generate-pltclerrcodes.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "12552837a8ed61ebaee435b723d5bc4507c7780f",
+   "path": "src/test/authentication/t/001_password.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ef158311668bd3603fc78d33cd092cd02182c9d7",
+   "path": "src/test/authentication/t/002_saslprep.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d8e49760726a289a5be2dd43e0de5a75347df678",
+   "path": "src/test/authentication/t/003_peer.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "55d28ad58644f0126ad75c2016240514f317c9a4",
+   "path": "src/test/authentication/t/004_file_inclusion.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "05d81f342293bcd1bcb936a9648d36964a321385",
+   "path": "src/test/authentication/t/005_sspi.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3beee2ff969e9d207bb02980fd383d993b68875a",
+   "path": "src/test/icu/t/010_database.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d74e4af464e2a2ecc49fafcdacacae5b3c724dcc",
+   "path": "src/test/kerberos/t/001_auth.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2ff580e5d468dcc3a38cc5cbeae78cc2938a227a",
+   "path": "src/test/ldap/LdapServer.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ef8ad1762aa90a4c0632431f39c7f5ed34712a2c",
+   "path": "src/test/ldap/t/001_auth.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9242fafacaecab0c976db51016a87abbc4e69173",
+   "path": "src/test/ldap/t/002_bindpasswd.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "8bed29b3ad9467ef1eb89c59abe564adbcdc9326",
+   "path": "src/test/locale/sort-test.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9655353e56a009fc919dfcd5547fdd9509faccbf",
+   "path": "src/test/modules/brin/t/01_workitems.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8b2b244feb918359cf79f84450a720deeee56814",
+   "path": "src/test/modules/brin/t/02_wal_consistency.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "90527db638735c0a827c3106985155c999b1f415",
+   "path": "src/test/modules/commit_ts/t/001_base.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "59cc2b1244bca382b198208889c50bf535631cdc",
+   "path": "src/test/modules/commit_ts/t/002_standby.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5af511e369c2659b536771174686d90e32759971",
+   "path": "src/test/modules/commit_ts/t/003_standby_2.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8fe4bedb140d446c20ba8dd468d2dcf917c57148",
+   "path": "src/test/modules/commit_ts/t/004_restart.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c96c8d7a4de10799ab4d57f326fd26f3ad399b54",
+   "path": "src/test/modules/ldap_password_func/t/001_mutated_bindpasswd.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "056fa5c6d2b97bb999a6558ca3eeb076e71912c0",
+   "path": "src/test/modules/libpq_pipeline/t/001_libpq_pipeline.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2b2c144ee288f1e922bf83d80574057407c65c07",
+   "path": "src/test/modules/ssl_passphrase_callback/t/001_testfunc.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "50655d3788a4fe594695f586187c15b4fd74ba87",
+   "path": "src/test/modules/test_custom_rmgrs/t/001_basic.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0d5aec3ed748f1111b70e2c80e69d6ce487921d3",
+   "path": "src/test/modules/test_escape/t/001_test_escape.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5a07a5d36df3ade3eddbcaf44fac432a5421fa60",
+   "path": "src/test/modules/test_misc/t/001_constraint_validation.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f774a021a8ad1553bfa957a34291957c428b0a8e",
+   "path": "src/test/modules/test_misc/t/002_tablespace.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a5d680e82e78e7cdb8b27ceb0beb1367e900285b",
+   "path": "src/test/modules/test_misc/t/003_check_guc.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "dddcfb1aa96594995a1b2e531300e98e987d8b15",
+   "path": "src/test/modules/test_misc/t/004_io_direct.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "796700d621f881dc5ad1b20abadda655a3aae42b",
+   "path": "src/test/modules/test_misc/t/008_replslot_single_user.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a5d5b9b35d3f65b90378a0c54451f6b4edb7e8d8",
+   "path": "src/test/modules/test_pg_dump/t/001_base.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "52bd1f02424bfcdfbf22a5db952a5624884d2dd1",
+   "path": "src/test/perl/PostgreSQL/Test/AdjustUpgrade.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a552132484ec90438a55ecbaa95ebfdb67e8ccb9",
+   "path": "src/test/perl/PostgreSQL/Test/BackgroundPsql.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b908f17adf6040315476099e3049a98ddc8b6766",
+   "path": "src/test/perl/PostgreSQL/Test/Cluster.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "15964e62173fdd92d0e697b90f113026a291afc1",
+   "path": "src/test/perl/PostgreSQL/Test/RecursiveCopy.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "82099bf50369fa1c61e5318be6826477d38a1ee2",
+   "path": "src/test/perl/PostgreSQL/Test/SimpleTee.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d66fe1cf453fa72c70bc0321f5f7fb9c2fb05765",
+   "path": "src/test/perl/PostgreSQL/Test/Utils.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3705c1bdafc1b1427f7dfde7cb5b466c456a13b5",
+   "path": "src/test/perl/PostgreSQL/Version.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "710bdd54dabe769ac8fc7a59a44906f5d558b784",
+   "path": "src/test/recovery/t/001_stream_rep.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4aa502bb66d30c4c8f83ad9fc27aa010a21e4017",
+   "path": "src/test/recovery/t/002_archiving.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e882ce20773574eeb2c08508d3a637e56a28667c",
+   "path": "src/test/recovery/t/003_recovery_targets.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ffe929f0970d9f4915044248bc1436e328ad403b",
+   "path": "src/test/recovery/t/004_timeline_switch.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8fadca4204597c770b54cb1ac4405467b198ccef",
+   "path": "src/test/recovery/t/005_replay_delay.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "96210b8bab7322d74dd441019c07fc56259e06d6",
+   "path": "src/test/recovery/t/006_logical_decoding.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2026af07021aadf0ef7318eccb9a6b2dd3a630dd",
+   "path": "src/test/recovery/t/007_sync_rep.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2c11ecb57c706c7d9b8b05bdb96af94c41661974",
+   "path": "src/test/recovery/t/008_fsm_truncation.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "fe7e8e798025dc9cee330c91770486aeae7ec124",
+   "path": "src/test/recovery/t/009_twophase.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "be518e437ae76874fa19f8b03f13f42c492c0e26",
+   "path": "src/test/recovery/t/010_logical_decoding_timelines.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "91ae79dd5144c88cfc74ef3678cb38ddf443d50a",
+   "path": "src/test/recovery/t/012_subtransactions.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ce57792f3128c83ab3edfd9fe2cc2dd03b2ccc38",
+   "path": "src/test/recovery/t/013_crash_restart.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3591b3309e691aa211ef48bc820bd80faa690a6e",
+   "path": "src/test/recovery/t/014_unlogged_reinit.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "271c93aa8b40bb33c093fd68cdf208918d4de9f5",
+   "path": "src/test/recovery/t/015_promotion_pages.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "81f7a43c079e8c287f22b90f25f87113d9ed780a",
+   "path": "src/test/recovery/t/016_min_consistency.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "74359e0e3882fd79c4eb85727839263c6ff3558b",
+   "path": "src/test/recovery/t/017_shm.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1d613eaede4db7ad3ba6ec96db0ce4b2d7010800",
+   "path": "src/test/recovery/t/018_wal_optimize.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "33e50ad933be2da588015529ace048a736a7ba9d",
+   "path": "src/test/recovery/t/019_replslot_limit.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "fa24153d4b98bd6d7409f4d0aa17cf77f5b75df2",
+   "path": "src/test/recovery/t/020_archive_status.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "52a6a3509c216feb7e8aca1992667f787a1a95bd",
+   "path": "src/test/recovery/t/021_row_visibility.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "14fd8bfc7fcb1418a6c7e74f674463121d412a3f",
+   "path": "src/test/recovery/t/022_crash_temp_files.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a8cdf4efdd4861b5b4936b7f1c85ceb0847316ef",
+   "path": "src/test/recovery/t/023_pitr_prepared_xact.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d594332b18d19b2f82a2bc8dc29caa277c322af7",
+   "path": "src/test/recovery/t/024_archive_recovery.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "91309030df9b449b158ac540032a8f0a51389f6c",
+   "path": "src/test/recovery/t/025_stuck_on_old_timeline.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "fad1811ca8d784e59f2bfaf59ef195ffa1022017",
+   "path": "src/test/recovery/t/026_overwrite_contrecord.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "eda4e6904cbe46583656ef2edd5b1cadecf65e12",
+   "path": "src/test/recovery/t/027_stream_regress.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "bb29a2d378c58be7279baa11d9d929010e6ce5df",
+   "path": "src/test/recovery/t/028_pitr_timelines.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "742bd57e2898da9e566c2027738f9d00214be59d",
+   "path": "src/test/recovery/t/029_stats_restart.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "51495aebcd74c4a9cc2c51eb6a96d230ff83a0fc",
+   "path": "src/test/recovery/t/030_stats_cleanup_replica.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b3e7972599be7d4a4307087278bcbd75f6d24286",
+   "path": "src/test/recovery/t/031_recovery_conflict.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3bc2db1a4f3d24d53e043d57d153f44f39500214",
+   "path": "src/test/recovery/t/032_relfilenode_reuse.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "af97ed9f70ad4abd1594556fe5b05fd79bfd00d6",
+   "path": "src/test/recovery/t/033_replay_tsp_drops.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ed562bba25152e2836dd0f44d5f708d2a40f9f9c",
+   "path": "src/test/recovery/t/034_create_database.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5fdc1803a9f3196f4d01da641818d1009f59e585",
+   "path": "src/test/recovery/t/035_standby_logical_decoding.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2d5339d9d8d99ef0936fc98bddf4f136551f9cd6",
+   "path": "src/test/recovery/t/036_truncated_dropped.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "69fcaaf0c3bdc52260ee3f52996cf97ebadbfc7c",
+   "path": "src/test/recovery/t/037_invalid_database.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4ffaec91611b75131fe8914516829df035ccbf19",
+   "path": "src/test/recovery/t/039_end_of_wal.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a473d3e7d3e63129f8ce9ff076186dc217db6a8a",
+   "path": "src/test/recovery/t/043_no_contrecord_switch.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "3332bd33f93dc24d1873a966b2ee703d1643c452",
+   "path": "src/test/recovery/t/043_vacuum_horizon_floor.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b143bc4e1d4e72d235df3b7a8c1288cec1ea229d",
+   "path": "src/test/recovery/t/045_archive_restartpoint.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cfeea41e5b918ed51fe62878558c2f5401de4e32",
+   "path": "src/test/recovery/t/cp_history_files",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100644",
+   "oid": "7f90c4efdd6ddea80e8a3cca077298427c8c8140",
+   "path": "src/test/ssl/t/001_ssltests.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b84e12691ede5c5f9099fbca324d34c7d9044f12",
+   "path": "src/test/ssl/t/002_scram.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "5306aad8023d25ba786fbf91aea49c5f22dfbfd9",
+   "path": "src/test/ssl/t/003_sslinfo.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f75347b08af5ff1f2b9e9cfe6518578b13408595",
+   "path": "src/test/ssl/t/SSL/Backend/OpenSSL.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "58df0455e8969619985f5396cc6d5d55bd475616",
+   "path": "src/test/ssl/t/SSL/Server.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "857bcfb5cc2d4afad601be483bffed7be80b5e4d",
+   "path": "src/test/subscription/t/001_rep_changes.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6b5853b80b6678e06069ac587579d55ac4fe9045",
+   "path": "src/test/subscription/t/002_types.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "6e902360cc6bc6a13087704cb8217716b25fd800",
+   "path": "src/test/subscription/t/003_constraints.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "aa7714c533b0cc2c6486e62d5973dae788f5bef8",
+   "path": "src/test/subscription/t/004_sync.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2f0bf7730b96ac069414878c6c04e2806e4557d7",
+   "path": "src/test/subscription/t/005_encoding.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8bc7e872d9b24f0c043498829dce599eff7a1985",
+   "path": "src/test/subscription/t/006_rewrite.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cbdb5b66e469fcc8be717f325ba1ebb176a29ad9",
+   "path": "src/test/subscription/t/007_ddl.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "67db1ebd3cdbf795a0989e1d5ccba88a92753e0b",
+   "path": "src/test/subscription/t/008_diff_schema.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "38080b431320646505838b64ef9eca79ef685635",
+   "path": "src/test/subscription/t/009_matviews.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a5b64453924bb19b071217044ef754c262810922",
+   "path": "src/test/subscription/t/010_truncate.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7711be295a0d59685cc9649a885f3b8f9fea815f",
+   "path": "src/test/subscription/t/011_generated.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "823550a31b53060d30b5be2165c91dfdd223f8a7",
+   "path": "src/test/subscription/t/012_collation.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "275fb3b52572196882f153a5d7a5b7a7c86a378e",
+   "path": "src/test/subscription/t/013_partition.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e5ce849c191aafe3bfbe76b3357b2a3d189aec5f",
+   "path": "src/test/subscription/t/014_binary.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "be70b869466279cb032f887d8da4ac598999aea8",
+   "path": "src/test/subscription/t/015_stream.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a962cd844b19efc16afc922616d6f78afb28bd97",
+   "path": "src/test/subscription/t/016_stream_subxact.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "626676a383b3a47ccbc3faace9a3aa726e860d73",
+   "path": "src/test/subscription/t/017_stream_ddl.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "91730d9b7c394da1f357c1d8347a46dca4fbd601",
+   "path": "src/test/subscription/t/018_stream_subxact_abort.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "420b9a7b516e535045c94c70c3f14f63b47179ef",
+   "path": "src/test/subscription/t/019_stream_subxact_ddl_abort.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "826d39cd89a564eee087b110669243311cd79a16",
+   "path": "src/test/subscription/t/020_messages.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "087ec7c94cef193400fe14e77af7bf441a33b622",
+   "path": "src/test/subscription/t/021_twophase.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e624ebe55c600e8a6886dceefca60401020b174b",
+   "path": "src/test/subscription/t/022_twophase_cascade.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0303807846e48b7a69fca9da37f47d8a1be992da",
+   "path": "src/test/subscription/t/023_twophase_stream.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8614b1b5b34d47aeeaf0c2e008f6830ee3acc9f3",
+   "path": "src/test/subscription/t/024_add_drop_pub.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8543f52710ccd897dbda2c6d99fa57e5f4e53c80",
+   "path": "src/test/subscription/t/025_rep_changes_for_schema.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "a033588008fcae2363dbe90f0bab8f45b9e87d9a",
+   "path": "src/test/subscription/t/026_stats.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "1436cf7153c88894391b54366376da04b109844b",
+   "path": "src/test/subscription/t/027_nosuperuser.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "aec483f785fee4cc5417fde4a02f81c09023ebfb",
+   "path": "src/test/subscription/t/028_row_filter.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "4d83b461c2d6d22168a6b444d23ad473f3ca81ed",
+   "path": "src/test/subscription/t/029_on_error.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0fa5874529bf5508795c9e17cb1c1f05e0da04c6",
+   "path": "src/test/subscription/t/030_origin.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b817d33dc6ab42401bb0d03c6dd0b0690a226c7b",
+   "path": "src/test/subscription/t/031_column_list.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "576eec6a578113c37f33d66c25ef35eea922a94e",
+   "path": "src/test/subscription/t/032_subscribe_use_index.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f4083202e5313e9e31999397dbe16f7dd874f34e",
+   "path": "src/test/subscription/t/033_run_as_table_owner.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "87643b8e620251dfa69e1c97eab4934b13e3a450",
+   "path": "src/test/subscription/t/100_bugs.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e54905a3ef8581f71ebc8d661f7e270d4afe01aa",
+   "path": "src/tools/PerfectHash.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "64a5783297220bcc848dcd1ab578d317e9dcef53",
+   "path": "src/tools/add_commit_links.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "18f14ad1272919097c7a0a37521ae468861c1eb9",
+   "path": "src/tools/check_bison_recursion.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "b0d4360c7483ab35fdc21c74b0360903c77c75bd",
+   "path": "src/tools/ci/windows_build_config.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "30c38c757b2395581493896f0bc8304a125d920f",
+   "path": "src/tools/copyright.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "d88e68b8b6ebb8658cc1c1208023cb0d127b8247",
+   "path": "src/tools/fix-old-flex-code.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "ed60abe9562838f801c1cd0f087de30655c16c14",
+   "path": "src/tools/gen_export.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "97a9ff1b301241c4d226f91cac0898e31042d28a",
+   "path": "src/tools/gen_keywordlist.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "14b94720282e7aa0d01cd7607f861e89d94a0c7e",
+   "path": "src/tools/git_changelog",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100755",
+   "oid": "45b4e73bff1acd281e0939f950d39bb6ba805689",
+   "path": "src/tools/mark_pgdllimport.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "05548d7c0aab8052c7e8b0197a9f3410d3a99abb",
+   "path": "src/tools/msvc/Install.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "62fec1fee5b7bb4328236c746ab8607480b41577",
+   "path": "src/tools/msvc/MSBuildProject.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e224f8d748006b735839846417b8173c39516bd5",
+   "path": "src/tools/msvc/Mkvcbuild.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "0507ad08c5ceef9e85b2944a6b7dd157d3e91d5f",
+   "path": "src/tools/msvc/Project.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "f928be021976591f7e7f91dd4454dd54d4571f8b",
+   "path": "src/tools/msvc/Solution.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9df2ab4282ae4bd424100d9cb5e38e7ca6213e24",
+   "path": "src/tools/msvc/VSObjectFactory.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "9853e5c3d83ad4df7713612d4c6130c7a7053316",
+   "path": "src/tools/msvc/build.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "8945e772c2eb1b4086ddaae6e0e07591fe84f2fd",
+   "path": "src/tools/msvc/config_default.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "df2d7a2929cf5595e5555f3a85b1d348c39e9872",
+   "path": "src/tools/msvc/dummylib/Win32.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "e14636eb317d3d31e5f174f827e6135f3eba1523",
+   "path": "src/tools/msvc/dummylib/Win32/Registry.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7baf34c4e52c61c7c97d62d9066ba5e403f31ae6",
+   "path": "src/tools/msvc/dummylib/Win32API/File.pm",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cf83d7d056e06136eb8ebef4b45cbd1400c64f52",
+   "path": "src/tools/msvc/gendef.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "8de7cee90fd0598f71d36027a4d354b255b94c30",
+   "path": "src/tools/msvc/install.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "7f94b1a6c9236f65e46b957b3b95f61657b2a786",
+   "path": "src/tools/msvc/mkvcbuild.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "25df6699b5e7e295dcfbf01cdab236f9da7cff4f",
+   "path": "src/tools/msvc/pgbison.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "c308a08b55f37b8c6516ad28ee8c81f8660b6817",
+   "path": "src/tools/msvc/pgflex.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "2fd01a49ae790e5878f419915a7721e8cdf3c1ca",
+   "path": "src/tools/msvc/vcregress.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100644",
+   "oid": "cf5463f6807514d7f040095904df399e3d8369d5",
+   "path": "src/tools/pg_bsd_indent/t/001_pg_bsd_indent.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "a9fe79ebe585492943ab07fc66401f3dc8b77e7f",
+   "path": "src/tools/pginclude/pgcheckdefines",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100755",
+   "oid": "bbb3155ed765fb489b9293b25400a08b0277a048",
+   "path": "src/tools/pgindent/pgindent",
+   "reason": "shebang"
+  },
+  {
+   "mode": "100755",
+   "oid": "326da374be83460c79be016229d07ab2c75ced17",
+   "path": "src/tools/version_stamp.pl",
+   "reason": "extension"
+  },
+  {
+   "mode": "100755",
+   "oid": "657f7d4879c00493b51bf69e7b98740b269d5385",
+   "path": "src/tools/win32tzlist.pl",
+   "reason": "extension"
+  }
+ ],
+ "extensions": [
+  ".pl",
+  ".pm",
+  ".t"
+ ],
+ "schema_version": 1
+}

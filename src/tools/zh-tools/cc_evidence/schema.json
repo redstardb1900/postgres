@@ -1,0 +1,24 @@
+{
+ "_doc": "Field list for cc_evidence/baseline.json (schema_version 1). All fields are required; zhtools/cc_check.py validates presence, schema_version and status.",
+ "schema_version": 1,
+ "fields": {
+  "schema_version": "int, must be 1",
+  "status": "\"frozen\" | \"draft\"; only frozen evidence may ever produce a verified result",
+  "base_commit": "40-hex commit of the srcdir (REL_16_11_base)",
+  "srcdir": "absolute path of the Make VPATH srcdir",
+  "builddir": "absolute path of the Make builddir",
+  "cc": "absolute path of the C compiler, e.g. /usr/bin/gcc",
+  "cxx": "absolute path of the C++ compiler, e.g. /usr/bin/g++",
+  "cc_version": "output of `cc --version` first line",
+  "cxx_version": "output of `cxx --version` first line",
+  "make_version": "output of `make --version` first line",
+  "configure_args": "list of strings, the complete frozen configure arguments",
+  "env": "object of environment variables that affect the build (CC, CXX, CFLAGS, LDFLAGS, PKG_CONFIG_PATH, LANG, LC_ALL, ...)",
+  "logs": {"world_bin": "sha256 of the make -j1 -w world-bin log", "checkprep": "sha256 of the make -j1 -w checkprep log"},
+  "n_variants": "int, number of records in commands.jsonl",
+  "n_objects": "int, number of active .o files found in builddir",
+  "n_po_files": "int, number of .deps/*.Po files",
+  "coverage_closed": "bool, true only when every active object has .o, .Po and argv",
+  "token_cache_sha256": "sha256 over the sorted token hashes (cache key component)"
+ }
+}

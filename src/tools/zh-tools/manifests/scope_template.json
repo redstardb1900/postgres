@@ -1,0 +1,20 @@
+{
+ "schema_version": 1,
+ "batch_id": "NNNN-name",
+ "title": "FILL: one-line description of the batch",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {"pattern": "src/tools/zh-tools/manifests/batch-NNNN-name.json", "kind": "manifest", "note": "this manifest"},
+  {"pattern": "FILL/subdir/**", "kind": "c_comment", "note": "FILL: why this directory"}
+ ],
+ "files": [
+  {"path": "src/tools/zh-tools/manifests/batch-NNNN-name.json", "kind": "manifest", "action": "add",
+   "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": []},
+  {"path": "FILL/subdir/file.c", "kind": "c_comment", "action": "modify",
+   "segments_total": 0, "translated": 0, "preserved": 0, "preserved_reasons": [],
+   "note": "FILL"}
+ ],
+ "notes": "FILL: parent SHA, tool hash, commands and report summary are recorded in the commit message."
+}

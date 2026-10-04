@@ -1,0 +1,20 @@
+{
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "base_ref_name": "REL_16_11",
+ "base_tree": "46ae9696742c8435111c376fe69b44b91906a48e",
+ "doc_snapshot_entries": 441,
+ "doc_tracked_files": 435,
+ "doc_tree": "5225740e19cc8738649577b6eb799b087519b7ad",
+ "notes": [
+  "doc_snapshot.json covers everything on disk below doc/ (tracked, untracked, ignored).",
+  "perl_protected.json is frozen from the base commit's blobs; compare by blob OID and mode.",
+  "Timestamps, inodes and uid/gid are intentionally not recorded."
+ ],
+ "perl_by_extension": 277,
+ "perl_by_shebang": 7,
+ "perl_protected_files": 284,
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "pgnls_path": "/Users/niejinbo/work/code/pg/pgsty/pgnls",
+ "schema_version": 1,
+ "tools_version": "0.1.0"
+}

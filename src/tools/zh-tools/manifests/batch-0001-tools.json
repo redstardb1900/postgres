@@ -1,0 +1,306 @@
+{
+ "schema_version": 1,
+ "batch_id": "0001-tools",
+ "title": "zh: add translation validation tools",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/**",
+   "kind": "tool",
+   "note": "first tool commit: validation tools, unit tests, fixtures, manifest schema, frozen protection baseline; no translation content"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/baseline.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/doc_snapshot.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/perl_protected.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/README.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/schema.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/gen_baseline.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0001-tools.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/scope_template.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/run_tests.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/term_lint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/term_rules.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/__init__.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/_path.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/negative_cases.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/sample_old.c.txt",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/sample_zh.c.txt",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_c_lexer.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_term_lint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/verify_c_comments.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_lexer.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/cc_check.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/gitutil.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/manifest.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/protection.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/termlint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "Bootstrap exception (README 首提交启动例外): this commit cannot be checked by a previously committed tool version; gates are the unittest suite, --self-check over the 2319 baseline .c/.h/.cpp files, check_scope.py from this very commit, and independent native git checks of doc/ and the Perl protected set. --cc-check is interface-only and returns UNVERIFIED (exit 2) until the Make VPATH baseline exists."
+}

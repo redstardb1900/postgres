@@ -37,7 +37,7 @@ static bool planstate_walk_members(PlanState **planstates, int nplans,
 
 /*
  *	exprType -
- *	  returns the Oid of the type of the expression's result.
+ *	  返回表达式结果类型的 Oid。
  */
 Oid
 exprType(const Node *expr)
@@ -98,7 +98,7 @@ exprType(const Node *expr)
 				if (sublink->subLinkType == EXPR_SUBLINK ||
 					sublink->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the type of the subselect's first target column */
+					/* 取子查询第一个目标列的类型 */
 					Query	   *qtree = (Query *) sublink->subselect;
 					TargetEntry *tent;
 
@@ -119,12 +119,12 @@ exprType(const Node *expr)
 				}
 				else if (sublink->subLinkType == MULTIEXPR_SUBLINK)
 				{
-					/* MULTIEXPR is always considered to return RECORD */
+					/* MULTIEXPR 总是被视为返回 RECORD */
 					type = RECORDOID;
 				}
 				else
 				{
-					/* for all other sublink types, result is boolean */
+					/* 对所有其他子链接类型，结果是布尔值 */
 					type = BOOLOID;
 				}
 			}
@@ -136,7 +136,7 @@ exprType(const Node *expr)
 				if (subplan->subLinkType == EXPR_SUBLINK ||
 					subplan->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the type of the subselect's first target column */
+					/* 取子查询第一个目标列的类型 */
 					type = subplan->firstColType;
 					if (subplan->subLinkType == ARRAY_SUBLINK)
 					{
@@ -150,12 +150,12 @@ exprType(const Node *expr)
 				}
 				else if (subplan->subLinkType == MULTIEXPR_SUBLINK)
 				{
-					/* MULTIEXPR is always considered to return RECORD */
+					/* MULTIEXPR 总是被视为返回 RECORD */
 					type = RECORDOID;
 				}
 				else
 				{
-					/* for all other subplan types, result is boolean */
+					/* 对所有其他子计划类型，结果是布尔值 */
 					type = BOOLOID;
 				}
 			}
@@ -164,7 +164,7 @@ exprType(const Node *expr)
 			{
 				const AlternativeSubPlan *asplan = (const AlternativeSubPlan *) expr;
 
-				/* subplans should all return the same thing */
+				/* 各子计划应当返回相同的东西 */
 				type = exprType((Node *) linitial(asplan->subplans));
 			}
 			break;
@@ -267,7 +267,7 @@ exprType(const Node *expr)
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
-			type = InvalidOid;	/* keep compiler quiet */
+			type = InvalidOid;	/* 消除编译器告警 */
 			break;
 	}
 	return type;
@@ -275,8 +275,8 @@ exprType(const Node *expr)
 
 /*
  *	exprTypmod -
- *	  returns the type-specific modifier of the expression's result type,
- *	  if it can be determined.  In many cases, it can't and we return -1.
+ *	  返回表达式结果类型的类型特定修饰符，
+ *	  若能确定的话。很多情况下无法确定，我们就返回 -1。
  */
 int32
 exprTypmod(const Node *expr)
@@ -298,7 +298,7 @@ exprTypmod(const Node *expr)
 			{
 				int32		coercedTypmod;
 
-				/* Be smart about length-coercion functions... */
+				/* 对长度强制转换函数要聪明一点…… */
 				if (exprIsLengthCoercion(expr, &coercedTypmod))
 					return coercedTypmod;
 			}
@@ -308,8 +308,8 @@ exprTypmod(const Node *expr)
 		case T_NullIfExpr:
 			{
 				/*
-				 * Result is either first argument or NULL, so we can report
-				 * first argument's typmod if known.
+				 * 结果要么是第一个参数，要么是 NULL，因此若已知，我们可以报告
+				 * 第一个参数的 typmod。
 				 */
 				const NullIfExpr *nexpr = (const NullIfExpr *) expr;
 
@@ -323,7 +323,7 @@ exprTypmod(const Node *expr)
 				if (sublink->subLinkType == EXPR_SUBLINK ||
 					sublink->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the typmod of the subselect's first target column */
+					/* 取子查询第一个目标列的 typmod */
 					Query	   *qtree = (Query *) sublink->subselect;
 					TargetEntry *tent;
 
@@ -332,9 +332,9 @@ exprTypmod(const Node *expr)
 					tent = linitial_node(TargetEntry, qtree->targetList);
 					Assert(!tent->resjunk);
 					return exprTypmod((Node *) tent->expr);
-					/* note we don't need to care if it's an array */
+					/* 注意若它是数组，我们不必关心 */
 				}
-				/* otherwise, result is RECORD or BOOLEAN, typmod is -1 */
+				/* 否则结果是 RECORD 或 BOOLEAN，typmod 为 -1 */
 			}
 			break;
 		case T_SubPlan:
@@ -344,18 +344,18 @@ exprTypmod(const Node *expr)
 				if (subplan->subLinkType == EXPR_SUBLINK ||
 					subplan->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the typmod of the subselect's first target column */
-					/* note we don't need to care if it's an array */
+					/* 取子查询第一个目标列的 typmod */
+					/* 注意若它是数组，我们不必关心 */
 					return subplan->firstColTypmod;
 				}
-				/* otherwise, result is RECORD or BOOLEAN, typmod is -1 */
+				/* 否则结果是 RECORD 或 BOOLEAN，typmod 为 -1 */
 			}
 			break;
 		case T_AlternativeSubPlan:
 			{
 				const AlternativeSubPlan *asplan = (const AlternativeSubPlan *) expr;
 
-				/* subplans should all return the same thing */
+				/* 各子计划应当返回相同的东西 */
 				return exprTypmod((Node *) linitial(asplan->subplans));
 			}
 			break;
@@ -370,8 +370,8 @@ exprTypmod(const Node *expr)
 		case T_CaseExpr:
 			{
 				/*
-				 * If all the alternatives agree on type/typmod, return that
-				 * typmod, else use -1
+				 * 若所有备选在类型/typmod 上一致，就返回该
+				 * typmod，否则用 -1
 				 */
 				const CaseExpr *cexpr = (const CaseExpr *) expr;
 				Oid			casetype = cexpr->casetype;
@@ -384,7 +384,7 @@ exprTypmod(const Node *expr)
 					return -1;
 				typmod = exprTypmod((Node *) cexpr->defresult);
 				if (typmod < 0)
-					return -1;	/* no point in trying harder */
+					return -1;	/* 没必要再费力 */
 				foreach(arg, cexpr->args)
 				{
 					CaseWhen   *w = lfirst_node(CaseWhen, arg);
@@ -402,8 +402,8 @@ exprTypmod(const Node *expr)
 		case T_ArrayExpr:
 			{
 				/*
-				 * If all the elements agree on type/typmod, return that
-				 * typmod, else use -1
+				 * 若所有元素在类型/typmod 上一致，就返回该
+				 * typmod，否则用 -1
 				 */
 				const ArrayExpr *arrayexpr = (const ArrayExpr *) expr;
 				Oid			commontype;
@@ -414,7 +414,7 @@ exprTypmod(const Node *expr)
 					return -1;
 				typmod = exprTypmod((Node *) linitial(arrayexpr->elements));
 				if (typmod < 0)
-					return -1;	/* no point in trying harder */
+					return -1;	/* 没必要再费力 */
 				if (arrayexpr->multidims)
 					commontype = arrayexpr->array_typeid;
 				else
@@ -434,8 +434,8 @@ exprTypmod(const Node *expr)
 		case T_CoalesceExpr:
 			{
 				/*
-				 * If all the alternatives agree on type/typmod, return that
-				 * typmod, else use -1
+				 * 若所有备选在类型/typmod 上一致，就返回该
+				 * typmod，否则用 -1
 				 */
 				const CoalesceExpr *cexpr = (const CoalesceExpr *) expr;
 				Oid			coalescetype = cexpr->coalescetype;
@@ -446,7 +446,7 @@ exprTypmod(const Node *expr)
 					return -1;
 				typmod = exprTypmod((Node *) linitial(cexpr->args));
 				if (typmod < 0)
-					return -1;	/* no point in trying harder */
+					return -1;	/* 没必要再费力 */
 				for_each_from(arg, cexpr->args, 1)
 				{
 					Node	   *e = (Node *) lfirst(arg);
@@ -462,8 +462,8 @@ exprTypmod(const Node *expr)
 		case T_MinMaxExpr:
 			{
 				/*
-				 * If all the alternatives agree on type/typmod, return that
-				 * typmod, else use -1
+				 * 若所有备选在类型/typmod 上一致，就返回该
+				 * typmod，否则用 -1
 				 */
 				const MinMaxExpr *mexpr = (const MinMaxExpr *) expr;
 				Oid			minmaxtype = mexpr->minmaxtype;
@@ -474,7 +474,7 @@ exprTypmod(const Node *expr)
 					return -1;
 				typmod = exprTypmod((Node *) linitial(mexpr->args));
 				if (typmod < 0)
-					return -1;	/* no point in trying harder */
+					return -1;	/* 没必要再费力 */
 				for_each_from(arg, mexpr->args, 1)
 				{
 					Node	   *e = (Node *) lfirst(arg);
@@ -509,24 +509,24 @@ exprTypmod(const Node *expr)
 
 /*
  * exprIsLengthCoercion
- *		Detect whether an expression tree is an application of a datatype's
- *		typmod-coercion function.  Optionally extract the result's typmod.
+ *		检测表达式树是否是某数据类型的
+ *		typmod 强制转换函数的应用。可选地取出结果的 typmod。
  *
- * If coercedTypmod is not NULL, the typmod is stored there if the expression
- * is a length-coercion function, else -1 is stored there.
+ * 若 coercedTypmod 不是 NULL，且表达式
+ * 是长度强制转换函数，就把 typmod 存在那里，否则存 -1。
  *
- * Note that a combined type-and-length coercion will be treated as a
- * length coercion by this routine.
+ * 注意组合的类型加长度强制转换会被本例程
+ * 当作长度强制转换。
  */
 bool
 exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
 {
 	if (coercedTypmod != NULL)
-		*coercedTypmod = -1;	/* default result on failure */
+		*coercedTypmod = -1;	/* 失败时的默认结果 */
 
 	/*
-	 * Scalar-type length coercions are FuncExprs, array-type length coercions
-	 * are ArrayCoerceExprs
+	 * 标量类型的长度强制转换是 FuncExprs，数组类型的长度强制转换
+	 * 是 ArrayCoerceExprs
 	 */
 	if (expr && IsA(expr, FuncExpr))
 	{
@@ -535,16 +535,16 @@ exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
 		Const	   *second_arg;
 
 		/*
-		 * If it didn't come from a coercion context, reject.
+		 * 若它不是来自强制转换上下文，就拒绝。
 		 */
 		if (func->funcformat != COERCE_EXPLICIT_CAST &&
 			func->funcformat != COERCE_IMPLICIT_CAST)
 			return false;
 
 		/*
-		 * If it's not a two-argument or three-argument function with the
-		 * second argument being an int4 constant, it can't have been created
-		 * from a length coercion (it must be a type coercion, instead).
+		 * 若它不是二参数或三参数函数，且
+		 * 第二个参数不是 int4 常量，它就无法由
+		 * 长度强制转换创建（相反，它必须是类型强制转换）。
 		 */
 		nargs = list_length(func->args);
 		if (nargs < 2 || nargs > 3)
@@ -557,7 +557,7 @@ exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
 			return false;
 
 		/*
-		 * OK, it is indeed a length-coercion function.
+		 * 好，它确实是长度强制转换函数。
 		 */
 		if (coercedTypmod != NULL)
 			*coercedTypmod = DatumGetInt32(second_arg->constvalue);
@@ -569,12 +569,12 @@ exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
 	{
 		const ArrayCoerceExpr *acoerce = (const ArrayCoerceExpr *) expr;
 
-		/* It's not a length coercion unless there's a nondefault typmod */
+		/* 除非有非默认的 typmod，否则它不是长度强制转换 */
 		if (acoerce->resulttypmod < 0)
 			return false;
 
 		/*
-		 * OK, it is indeed a length-coercion expression.
+		 * 好，它确实是长度强制转换表达式。
 		 */
 		if (coercedTypmod != NULL)
 			*coercedTypmod = acoerce->resulttypmod;
@@ -587,31 +587,31 @@ exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
 
 /*
  * applyRelabelType
- *		Add a RelabelType node if needed to make the expression expose
- *		the specified type, typmod, and collation.
+ *		必要时加上 RelabelType 节点，使表达式暴露
+ *		指定的类型、typmod 和排序规则。
  *
- * This is primarily intended to be used during planning.  Therefore, it must
- * maintain the post-eval_const_expressions invariants that there are not
- * adjacent RelabelTypes, and that the tree is fully const-folded (hence,
- * we mustn't return a RelabelType atop a Const).  If we do find a Const,
- * we'll modify it in-place if "overwrite_ok" is true; that should only be
- * passed as true if caller knows the Const is newly generated.
+ * 这主要用于规划期间。因此，它必须
+ * 维持 eval_const_expressions 之后的不变量：没有相邻的
+ * RelabelTypes，且树已完全常量折叠（因此，
+ * 我们不得在 Const 之上返回 RelabelType）。若确实找到 Const，
+ * 当 "overwrite_ok" 为 true 时就地修改它；仅当
+ * 调用方知道该 Const 是新生成的时，才应传入 true。
  */
 Node *
 applyRelabelType(Node *arg, Oid rtype, int32 rtypmod, Oid rcollid,
 				 CoercionForm rformat, int rlocation, bool overwrite_ok)
 {
 	/*
-	 * If we find stacked RelabelTypes (eg, from foo::int::oid) we can discard
-	 * all but the top one, and must do so to ensure that semantically
-	 * equivalent expressions are equal().
+	 * 若发现叠在一起的 RelabelTypes（例如 foo::int::oid），可以丢掉
+	 * 除最上面一个以外的全部，而且必须这么做，以确保语义上
+	 * 等价的表达式 equal()。
 	 */
 	while (arg && IsA(arg, RelabelType))
 		arg = (Node *) ((RelabelType *) arg)->arg;
 
 	if (arg && IsA(arg, Const))
 	{
-		/* Modify the Const directly to preserve const-flatness. */
+		/* 直接修改 Const，以保持常量平坦性。 */
 		Const	   *con = (Const *) arg;
 
 		if (!overwrite_ok)
@@ -619,19 +619,19 @@ applyRelabelType(Node *arg, Oid rtype, int32 rtypmod, Oid rcollid,
 		con->consttype = rtype;
 		con->consttypmod = rtypmod;
 		con->constcollid = rcollid;
-		/* We keep the Const's original location. */
+		/* 我们保留 Const 原来的位置。 */
 		return (Node *) con;
 	}
 	else if (exprType(arg) == rtype &&
 			 exprTypmod(arg) == rtypmod &&
 			 exprCollation(arg) == rcollid)
 	{
-		/* Sometimes we find a nest of relabels that net out to nothing. */
+		/* 有时会发现一层层重标号互相抵消，净效果为零。 */
 		return arg;
 	}
 	else
 	{
-		/* Nope, gotta have a RelabelType. */
+		/* 不行，必须有一个 RelabelType。 */
 		RelabelType *newrelabel = makeNode(RelabelType);
 
 		newrelabel->arg = (Expr *) arg;
@@ -646,9 +646,9 @@ applyRelabelType(Node *arg, Oid rtype, int32 rtypmod, Oid rcollid,
 
 /*
  * relabel_to_typmod
- *		Add a RelabelType node that changes just the typmod of the expression.
+ *		加上一个只改变表达式 typmod 的 RelabelType 节点。
  *
- * Convenience function for a common usage of applyRelabelType.
+ * 这是 applyRelabelType 常见用法的便捷函数。
  */
 Node *
 relabel_to_typmod(Node *expr, int32 typmod)
@@ -658,13 +658,13 @@ relabel_to_typmod(Node *expr, int32 typmod)
 }
 
 /*
- * strip_implicit_coercions: remove implicit coercions at top level of tree
+ * strip_implicit_coercions：去掉树顶层的隐式强制转换
  *
- * This doesn't modify or copy the input expression tree, just return a
- * pointer to a suitable place within it.
+ * 这不修改也不复制输入表达式树，只返回
+ * 指向其中合适位置的指针。
  *
- * Note: there isn't any useful thing we can do with a RowExpr here, so
- * just return it unchanged, even if it's marked as an implicit coercion.
+ * 注意：对 RowExpr 这里没有什么有用的事可做，因此
+ * 即使它被标成隐式强制转换，也原样返回。
  */
 Node *
 strip_implicit_coercions(Node *node)
@@ -718,11 +718,11 @@ strip_implicit_coercions(Node *node)
 
 /*
  * expression_returns_set
- *	  Test whether an expression returns a set result.
+ *	  测试表达式是否返回集合结果。
  *
- * Because we use expression_tree_walker(), this can also be applied to
- * whole targetlists; it'll produce true if any one of the tlist items
- * returns a set.
+ * 因为我们使用 expression_tree_walker()，这也可以用于
+ * 整个目标列表；若任一目标列表项
+ * 返回集合，结果就是 true。
  */
 bool
 expression_returns_set(Node *clause)
@@ -753,12 +753,12 @@ expression_returns_set_walker(Node *node, void *context)
 	}
 
 	/*
-	 * If you add any more cases that return sets, also fix
-	 * expression_returns_set_rows() in clauses.c and IS_SRF_CALL() in
-	 * tlist.c.
+	 * 若你再增加任何返回集合的情形，也要修改
+	 * clauses.c 中的 expression_returns_set_rows() 和 tlist.c 中的
+	 * IS_SRF_CALL()。
 	 */
 
-	/* Avoid recursion for some cases that parser checks not to return a set */
+	/* 对解析器已检查不会返回集合的某些情形，避免递归 */
 	if (IsA(node, Aggref))
 		return false;
 	if (IsA(node, GroupingFunc))
@@ -773,14 +773,14 @@ expression_returns_set_walker(Node *node, void *context)
 
 /*
  *	exprCollation -
- *	  returns the Oid of the collation of the expression's result.
+ *	  返回表达式结果的排序规则 Oid。
  *
- * Note: expression nodes that can invoke functions generally have an
- * "inputcollid" field, which is what the function should use as collation.
- * That is the resolved common collation of the node's inputs.  It is often
- * but not always the same as the result collation; in particular, if the
- * function produces a non-collatable result type from collatable inputs
- * or vice versa, the two are different.
+ * 注意：通常会调用函数的表达式节点都有
+ * "inputcollid" 字段，函数应把它用作排序规则。
+ * 那是该节点各输入已解析的公共排序规则。它常常
+ * 与结果排序规则相同，但并不总是；特别是，若函数
+ * 从可排序的输入产生不可排序的结果类型，
+ * 或反过来，这两者就不同。
  */
 Oid
 exprCollation(const Node *expr)
@@ -829,12 +829,12 @@ exprCollation(const Node *expr)
 			coll = ((const NullIfExpr *) expr)->opcollid;
 			break;
 		case T_ScalarArrayOpExpr:
-			/* ScalarArrayOpExpr's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* ScalarArrayOpExpr 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_BoolExpr:
-			/* BoolExpr's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* BoolExpr 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_SubLink:
 			{
@@ -843,7 +843,7 @@ exprCollation(const Node *expr)
 				if (sublink->subLinkType == EXPR_SUBLINK ||
 					sublink->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the collation of subselect's first target column */
+					/* 取子查询第一个目标列的排序规则 */
 					Query	   *qtree = (Query *) sublink->subselect;
 					TargetEntry *tent;
 
@@ -852,12 +852,12 @@ exprCollation(const Node *expr)
 					tent = linitial_node(TargetEntry, qtree->targetList);
 					Assert(!tent->resjunk);
 					coll = exprCollation((Node *) tent->expr);
-					/* collation doesn't change if it's converted to array */
+					/* 若被转换成数组，排序规则不变 */
 				}
 				else
 				{
-					/* otherwise, SubLink's result is RECORD or BOOLEAN */
-					coll = InvalidOid;	/* ... so it has no collation */
+					/* 否则 SubLink 的结果是 RECORD 或 BOOLEAN */
+					coll = InvalidOid;	/* ... 因此它没有排序规则 */
 				}
 			}
 			break;
@@ -868,14 +868,14 @@ exprCollation(const Node *expr)
 				if (subplan->subLinkType == EXPR_SUBLINK ||
 					subplan->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the collation of subselect's first target column */
+					/* 取子查询第一个目标列的排序规则 */
 					coll = subplan->firstColCollation;
-					/* collation doesn't change if it's converted to array */
+					/* 若被转换成数组，排序规则不变 */
 				}
 				else
 				{
-					/* otherwise, SubPlan's result is RECORD or BOOLEAN */
-					coll = InvalidOid;	/* ... so it has no collation */
+					/* 否则 SubPlan 的结果是 RECORD 或 BOOLEAN */
+					coll = InvalidOid;	/* ... 因此它没有排序规则 */
 				}
 			}
 			break;
@@ -883,7 +883,7 @@ exprCollation(const Node *expr)
 			{
 				const AlternativeSubPlan *asplan = (const AlternativeSubPlan *) expr;
 
-				/* subplans should all return the same thing */
+				/* 各子计划应当返回相同的东西 */
 				coll = exprCollation((Node *) linitial(asplan->subplans));
 			}
 			break;
@@ -891,8 +891,8 @@ exprCollation(const Node *expr)
 			coll = ((const FieldSelect *) expr)->resultcollid;
 			break;
 		case T_FieldStore:
-			/* FieldStore's result is composite ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* FieldStore 的结果是复合类型…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_RelabelType:
 			coll = ((const RelabelType *) expr)->resultcollid;
@@ -904,8 +904,8 @@ exprCollation(const Node *expr)
 			coll = ((const ArrayCoerceExpr *) expr)->resultcollid;
 			break;
 		case T_ConvertRowtypeExpr:
-			/* ConvertRowtypeExpr's result is composite ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* ConvertRowtypeExpr 的结果是复合类型…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_CollateExpr:
 			coll = ((const CollateExpr *) expr)->collOid;
@@ -920,12 +920,12 @@ exprCollation(const Node *expr)
 			coll = ((const ArrayExpr *) expr)->array_collid;
 			break;
 		case T_RowExpr:
-			/* RowExpr's result is composite ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* RowExpr 的结果是复合类型…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_RowCompareExpr:
-			/* RowCompareExpr's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* RowCompareExpr 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_CoalesceExpr:
 			coll = ((const CoalesceExpr *) expr)->coalescecollid;
@@ -934,7 +934,7 @@ exprCollation(const Node *expr)
 			coll = ((const MinMaxExpr *) expr)->minmaxcollid;
 			break;
 		case T_SQLValueFunction:
-			/* Returns either NAME or a non-collatable type */
+			/* 返回 NAME，或一种不可排序的类型 */
 			if (((const SQLValueFunction *) expr)->type == NAMEOID)
 				coll = C_COLLATION_OID;
 			else
@@ -943,9 +943,9 @@ exprCollation(const Node *expr)
 		case T_XmlExpr:
 
 			/*
-			 * XMLSERIALIZE returns text from non-collatable inputs, so its
-			 * collation is always default.  The other cases return boolean or
-			 * XML, which are non-collatable.
+			 * XMLSERIALIZE 从不可排序的输入返回 text，因此它的
+			 * 排序规则总是默认值。其他情形返回布尔或
+			 * XML，它们不可排序。
 			 */
 			if (((const XmlExpr *) expr)->op == IS_XMLSERIALIZE)
 				coll = DEFAULT_COLLATION_OID;
@@ -966,16 +966,16 @@ exprCollation(const Node *expr)
 			}
 			break;
 		case T_JsonIsPredicate:
-			/* IS JSON's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* IS JSON 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_NullTest:
-			/* NullTest's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* NullTest 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_BooleanTest:
-			/* BooleanTest's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* BooleanTest 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_CoerceToDomain:
 			coll = ((const CoerceToDomain *) expr)->resultcollid;
@@ -987,12 +987,12 @@ exprCollation(const Node *expr)
 			coll = ((const SetToDefault *) expr)->collation;
 			break;
 		case T_CurrentOfExpr:
-			/* CurrentOfExpr's result is boolean ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* CurrentOfExpr 的结果是布尔值…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_NextValueExpr:
-			/* NextValueExpr's result is an integer type ... */
-			coll = InvalidOid;	/* ... so it has no collation */
+			/* NextValueExpr 的结果是整数类型…… */
+			coll = InvalidOid;	/* ... 因此它没有排序规则 */
 			break;
 		case T_InferenceElem:
 			coll = exprCollation((Node *) ((const InferenceElem *) expr)->expr);
@@ -1002,7 +1002,7 @@ exprCollation(const Node *expr)
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
-			coll = InvalidOid;	/* keep compiler quiet */
+			coll = InvalidOid;	/* 消除编译器告警 */
 			break;
 	}
 	return coll;
@@ -1010,9 +1010,9 @@ exprCollation(const Node *expr)
 
 /*
  *	exprInputCollation -
- *	  returns the Oid of the collation a function should use, if available.
+ *	  返回函数应当使用的排序规则 Oid（若有）。
  *
- * Result is InvalidOid if the node type doesn't store this information.
+ * 若节点类型不存放该信息，结果是 InvalidOid。
  */
 Oid
 exprInputCollation(const Node *expr)
@@ -1057,10 +1057,10 @@ exprInputCollation(const Node *expr)
 
 /*
  *	exprSetCollation -
- *	  Assign collation information to an expression tree node.
+ *	  给表达式树节点指定排序规则信息。
  *
- * Note: since this is only used during parse analysis, we don't need to
- * worry about subplans or PlaceHolderVars.
+ * 注意：这只在语法分析期间使用，因此不必
+ * 担心子计划或 PlaceHolderVars。
  */
 void
 exprSetCollation(Node *expr, Oid collation)
@@ -1104,12 +1104,12 @@ exprSetCollation(Node *expr, Oid collation)
 			((NullIfExpr *) expr)->opcollid = collation;
 			break;
 		case T_ScalarArrayOpExpr:
-			/* ScalarArrayOpExpr's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* ScalarArrayOpExpr 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_BoolExpr:
-			/* BoolExpr's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* BoolExpr 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_SubLink:
 #ifdef USE_ASSERT_CHECKING
@@ -1119,7 +1119,7 @@ exprSetCollation(Node *expr, Oid collation)
 				if (sublink->subLinkType == EXPR_SUBLINK ||
 					sublink->subLinkType == ARRAY_SUBLINK)
 				{
-					/* get the collation of subselect's first target column */
+					/* 取子查询第一个目标列的排序规则 */
 					Query	   *qtree = (Query *) sublink->subselect;
 					TargetEntry *tent;
 
@@ -1131,7 +1131,7 @@ exprSetCollation(Node *expr, Oid collation)
 				}
 				else
 				{
-					/* otherwise, result is RECORD or BOOLEAN */
+					/* 否则结果是 RECORD 或 BOOLEAN */
 					Assert(!OidIsValid(collation));
 				}
 			}
@@ -1141,8 +1141,8 @@ exprSetCollation(Node *expr, Oid collation)
 			((FieldSelect *) expr)->resultcollid = collation;
 			break;
 		case T_FieldStore:
-			/* FieldStore's result is composite ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* FieldStore 的结果是复合类型…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_RelabelType:
 			((RelabelType *) expr)->resultcollid = collation;
@@ -1154,8 +1154,8 @@ exprSetCollation(Node *expr, Oid collation)
 			((ArrayCoerceExpr *) expr)->resultcollid = collation;
 			break;
 		case T_ConvertRowtypeExpr:
-			/* ConvertRowtypeExpr's result is composite ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* ConvertRowtypeExpr 的结果是复合类型…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_CaseExpr:
 			((CaseExpr *) expr)->casecollid = collation;
@@ -1164,12 +1164,12 @@ exprSetCollation(Node *expr, Oid collation)
 			((ArrayExpr *) expr)->array_collid = collation;
 			break;
 		case T_RowExpr:
-			/* RowExpr's result is composite ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* RowExpr 的结果是复合类型…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_RowCompareExpr:
-			/* RowCompareExpr's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* RowCompareExpr 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_CoalesceExpr:
 			((CoalesceExpr *) expr)->coalescecollid = collation;
@@ -1198,20 +1198,20 @@ exprSetCollation(Node *expr, Oid collation)
 				if (ctor->coercion)
 					exprSetCollation((Node *) ctor->coercion, collation);
 				else
-					Assert(!OidIsValid(collation)); /* result is always a
-													 * json[b] type */
+					Assert(!OidIsValid(collation)); /* 结果总是一种
+													 * json[b] 类型 */
 			}
 			break;
 		case T_JsonIsPredicate:
-			Assert(!OidIsValid(collation)); /* result is always boolean */
+			Assert(!OidIsValid(collation)); /* 结果总是布尔值 */
 			break;
 		case T_NullTest:
-			/* NullTest's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* NullTest 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_BooleanTest:
-			/* BooleanTest's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* BooleanTest 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_CoerceToDomain:
 			((CoerceToDomain *) expr)->resultcollid = collation;
@@ -1223,12 +1223,12 @@ exprSetCollation(Node *expr, Oid collation)
 			((SetToDefault *) expr)->collation = collation;
 			break;
 		case T_CurrentOfExpr:
-			/* CurrentOfExpr's result is boolean ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* CurrentOfExpr 的结果是布尔值…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		case T_NextValueExpr:
-			/* NextValueExpr's result is an integer type ... */
-			Assert(!OidIsValid(collation)); /* ... so never set a collation */
+			/* NextValueExpr 的结果是整数类型…… */
+			Assert(!OidIsValid(collation)); /* ... 因此从不设置排序规则 */
 			break;
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(expr));
@@ -1238,11 +1238,11 @@ exprSetCollation(Node *expr, Oid collation)
 
 /*
  *	exprSetInputCollation -
- *	  Assign input-collation information to an expression tree node.
+ *	  给表达式树节点指定输入排序规则信息。
  *
- * This is a no-op for node types that don't store their input collation.
- * Note we omit RowCompareExpr, which needs special treatment since it
- * contains multiple input collation OIDs.
+ * 对不存放输入排序规则的节点类型，这是空操作。
+ * 注意我们略过 RowCompareExpr，它需要特殊处理，因为它
+ * 包含多个输入排序规则 OIDs。
  */
 void
 exprSetInputCollation(Node *expr, Oid inputcollation)
@@ -1281,32 +1281,32 @@ exprSetInputCollation(Node *expr, Oid inputcollation)
 
 /*
  *	exprLocation -
- *	  returns the parse location of an expression tree, for error reports
+ *	  返回表达式树的解析位置，用于错误报告
  *
- * -1 is returned if the location can't be determined.
+ * 若位置无法确定，则返回 -1。
  *
- * For expressions larger than a single token, the intent here is to
- * return the location of the expression's leftmost token, not necessarily
- * the topmost Node's location field.  For example, an OpExpr's location
- * field will point at the operator name, but if it is not a prefix operator
- * then we should return the location of the left-hand operand instead.
- * The reason is that we want to reference the entire expression not just
- * that operator, and pointing to its start seems to be the most natural way.
+ * 对于大于单个词元的表达式，这里的意图是
+ * 返回表达式最左词元的位置，不一定是
+ * 最顶层 Node 的 location 字段。例如，OpExpr 的 location
+ * 字段会指向操作符名，但若它不是前缀操作符，
+ * 则应改为返回左操作数的位置。
+ * 原因是我们想引用整个表达式，而不只是
+ * 那个操作符，指向它的起点看来是最自然的方式。
  *
- * The location is not perfect --- for example, since the grammar doesn't
- * explicitly represent parentheses in the parsetree, given something that
- * had been written "(a + b) * c" we are going to point at "a" not "(".
- * But it should be plenty good enough for error reporting purposes.
+ * 这个位置并不完美——例如，语法并不
+ * 在分析树里显式表示括号，对于写成 "(a + b) * c" 的内容，
+ * 我们会指向 "a" 而不是 "("。
+ * 但对错误报告来说应当足够好。
  *
- * You might think that this code is overly general, for instance why check
- * the operands of a FuncExpr node, when the function name can be expected
- * to be to the left of them?  There are a couple of reasons.  The grammar
- * sometimes builds expressions that aren't quite what the user wrote;
- * for instance x IS NOT BETWEEN ... becomes a NOT-expression whose keyword
- * pointer is to the right of its leftmost argument.  Also, nodes that were
- * inserted implicitly by parse analysis (such as FuncExprs for implicit
- * coercions) will have location -1, and so we can have odd combinations of
- * known and unknown locations in a tree.
+ * 你也许觉得这段代码过于一般，比如为什么要检查
+ * FuncExpr 节点的操作数，函数名不是应该
+ * 在它们左边吗？有几个原因。语法
+ * 有时构建的表达式并不完全是用户所写的；
+ * 例如 x IS NOT BETWEEN ... 会变成一个 NOT 表达式，其关键字
+ * 指针在最左参数的右边。另外，由语法分析
+ * 隐式插入的节点（例如隐式强制转换的 FuncExprs）
+ * location 为 -1，因此树中会出现已知位置与
+ * 未知位置的奇怪组合。
  */
 int
 exprLocation(const Node *expr)
@@ -1333,25 +1333,25 @@ exprLocation(const Node *expr)
 			loc = ((const Param *) expr)->location;
 			break;
 		case T_Aggref:
-			/* function name should always be the first thing */
+			/* 函数名应当总是最先出现的东西 */
 			loc = ((const Aggref *) expr)->location;
 			break;
 		case T_GroupingFunc:
 			loc = ((const GroupingFunc *) expr)->location;
 			break;
 		case T_WindowFunc:
-			/* function name should always be the first thing */
+			/* 函数名应当总是最先出现的东西 */
 			loc = ((const WindowFunc *) expr)->location;
 			break;
 		case T_SubscriptingRef:
-			/* just use container argument's location */
+			/* 只用容器参数的位置 */
 			loc = exprLocation((Node *) ((const SubscriptingRef *) expr)->refexpr);
 			break;
 		case T_FuncExpr:
 			{
 				const FuncExpr *fexpr = (const FuncExpr *) expr;
 
-				/* consider both function name and leftmost arg */
+				/* 同时考虑函数名和最左参数 */
 				loc = leftmostLoc(fexpr->location,
 								  exprLocation((Node *) fexpr->args));
 			}
@@ -1360,18 +1360,18 @@ exprLocation(const Node *expr)
 			{
 				const NamedArgExpr *na = (const NamedArgExpr *) expr;
 
-				/* consider both argument name and value */
+				/* 同时考虑参数名和值 */
 				loc = leftmostLoc(na->location,
 								  exprLocation((Node *) na->arg));
 			}
 			break;
 		case T_OpExpr:
-		case T_DistinctExpr:	/* struct-equivalent to OpExpr */
-		case T_NullIfExpr:		/* struct-equivalent to OpExpr */
+		case T_DistinctExpr:	/* 结构上等价于 OpExpr */
+		case T_NullIfExpr:		/* 结构上等价于 OpExpr */
 			{
 				const OpExpr *opexpr = (const OpExpr *) expr;
 
-				/* consider both operator name and leftmost arg */
+				/* 同时考虑操作符名和最左参数 */
 				loc = leftmostLoc(opexpr->location,
 								  exprLocation((Node *) opexpr->args));
 			}
@@ -1380,7 +1380,7 @@ exprLocation(const Node *expr)
 			{
 				const ScalarArrayOpExpr *saopexpr = (const ScalarArrayOpExpr *) expr;
 
-				/* consider both operator name and leftmost arg */
+				/* 同时考虑操作符名和最左参数 */
 				loc = leftmostLoc(saopexpr->location,
 								  exprLocation((Node *) saopexpr->args));
 			}
@@ -1390,9 +1390,9 @@ exprLocation(const Node *expr)
 				const BoolExpr *bexpr = (const BoolExpr *) expr;
 
 				/*
-				 * Same as above, to handle either NOT or AND/OR.  We can't
-				 * special-case NOT because of the way that it's used for
-				 * things like IS NOT BETWEEN.
+				 * 同上，用以处理 NOT 或 AND/OR。我们无法
+				 * 把 NOT 特殊处理，因为
+				 * IS NOT BETWEEN 之类的用法。
 				 */
 				loc = leftmostLoc(bexpr->location,
 								  exprLocation((Node *) bexpr->args));
@@ -1402,24 +1402,24 @@ exprLocation(const Node *expr)
 			{
 				const SubLink *sublink = (const SubLink *) expr;
 
-				/* check the testexpr, if any, and the operator/keyword */
+				/* 检查 testexpr（若有）以及操作符/关键字 */
 				loc = leftmostLoc(exprLocation(sublink->testexpr),
 								  sublink->location);
 			}
 			break;
 		case T_FieldSelect:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation((Node *) ((const FieldSelect *) expr)->arg);
 			break;
 		case T_FieldStore:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation((Node *) ((const FieldStore *) expr)->arg);
 			break;
 		case T_RelabelType:
 			{
 				const RelabelType *rexpr = (const RelabelType *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(rexpr->location,
 								  exprLocation((Node *) rexpr->arg));
 			}
@@ -1428,7 +1428,7 @@ exprLocation(const Node *expr)
 			{
 				const CoerceViaIO *cexpr = (const CoerceViaIO *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(cexpr->location,
 								  exprLocation((Node *) cexpr->arg));
 			}
@@ -1437,7 +1437,7 @@ exprLocation(const Node *expr)
 			{
 				const ArrayCoerceExpr *cexpr = (const ArrayCoerceExpr *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(cexpr->location,
 								  exprLocation((Node *) cexpr->arg));
 			}
@@ -1446,52 +1446,52 @@ exprLocation(const Node *expr)
 			{
 				const ConvertRowtypeExpr *cexpr = (const ConvertRowtypeExpr *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(cexpr->location,
 								  exprLocation((Node *) cexpr->arg));
 			}
 			break;
 		case T_CollateExpr:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation((Node *) ((const CollateExpr *) expr)->arg);
 			break;
 		case T_CaseExpr:
-			/* CASE keyword should always be the first thing */
+			/* CASE 关键字应当总是最先出现的东西 */
 			loc = ((const CaseExpr *) expr)->location;
 			break;
 		case T_CaseWhen:
-			/* WHEN keyword should always be the first thing */
+			/* WHEN 关键字应当总是最先出现的东西 */
 			loc = ((const CaseWhen *) expr)->location;
 			break;
 		case T_ArrayExpr:
-			/* the location points at ARRAY or [, which must be leftmost */
+			/* 位置指向 ARRAY 或 [，它必须在最左边 */
 			loc = ((const ArrayExpr *) expr)->location;
 			break;
 		case T_RowExpr:
-			/* the location points at ROW or (, which must be leftmost */
+			/* 位置指向 ROW 或 (，它必须在最左边 */
 			loc = ((const RowExpr *) expr)->location;
 			break;
 		case T_RowCompareExpr:
-			/* just use leftmost argument's location */
+			/* 只用最左参数的位置 */
 			loc = exprLocation((Node *) ((const RowCompareExpr *) expr)->largs);
 			break;
 		case T_CoalesceExpr:
-			/* COALESCE keyword should always be the first thing */
+			/* COALESCE 关键字应当总是最先出现的东西 */
 			loc = ((const CoalesceExpr *) expr)->location;
 			break;
 		case T_MinMaxExpr:
-			/* GREATEST/LEAST keyword should always be the first thing */
+			/* GREATEST/LEAST 关键字应当总是最先出现的东西 */
 			loc = ((const MinMaxExpr *) expr)->location;
 			break;
 		case T_SQLValueFunction:
-			/* function keyword should always be the first thing */
+			/* 函数关键字应当总是最先出现的东西 */
 			loc = ((const SQLValueFunction *) expr)->location;
 			break;
 		case T_XmlExpr:
 			{
 				const XmlExpr *xexpr = (const XmlExpr *) expr;
 
-				/* consider both function name and leftmost arg */
+				/* 同时考虑函数名和最左参数 */
 				loc = leftmostLoc(xexpr->location,
 								  exprLocation((Node *) xexpr->args));
 			}
@@ -1512,7 +1512,7 @@ exprLocation(const Node *expr)
 			{
 				const NullTest *nexpr = (const NullTest *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(nexpr->location,
 								  exprLocation((Node *) nexpr->arg));
 			}
@@ -1521,7 +1521,7 @@ exprLocation(const Node *expr)
 			{
 				const BooleanTest *bexpr = (const BooleanTest *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(bexpr->location,
 								  exprLocation((Node *) bexpr->arg));
 			}
@@ -1530,7 +1530,7 @@ exprLocation(const Node *expr)
 			{
 				const CoerceToDomain *cexpr = (const CoerceToDomain *) expr;
 
-				/* Much as above */
+				/* 与上面大致相同 */
 				loc = leftmostLoc(cexpr->location,
 								  exprLocation((Node *) cexpr->arg));
 			}
@@ -1542,19 +1542,19 @@ exprLocation(const Node *expr)
 			loc = ((const SetToDefault *) expr)->location;
 			break;
 		case T_TargetEntry:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation((Node *) ((const TargetEntry *) expr)->expr);
 			break;
 		case T_IntoClause:
-			/* use the contained RangeVar's location --- close enough */
+			/* 使用所含 RangeVar 的位置——足够接近 */
 			loc = exprLocation((Node *) ((const IntoClause *) expr)->rel);
 			break;
 		case T_List:
 			{
-				/* report location of first list member that has a location */
+				/* 报告第一个带位置的列表成员的位置 */
 				ListCell   *lc;
 
-				loc = -1;		/* just to suppress compiler warning */
+				loc = -1;		/* 只为消除编译器告警 */
 				foreach(lc, (const List *) expr)
 				{
 					loc = exprLocation((Node *) lfirst(lc));
@@ -1567,8 +1567,8 @@ exprLocation(const Node *expr)
 			{
 				const A_Expr *aexpr = (const A_Expr *) expr;
 
-				/* use leftmost of operator or left operand (if any) */
-				/* we assume right operand can't be to left of operator */
+				/* 使用操作符或左操作数（若有）中更靠左的那个 */
+				/* 我们假定右操作数无法出现在操作符左边 */
 				loc = leftmostLoc(aexpr->location,
 								  exprLocation(aexpr->lexpr));
 			}
@@ -1586,18 +1586,18 @@ exprLocation(const Node *expr)
 			{
 				const FuncCall *fc = (const FuncCall *) expr;
 
-				/* consider both function name and leftmost arg */
-				/* (we assume any ORDER BY nodes must be to right of name) */
+				/* 同时考虑函数名和最左参数 */
+				/* （我们假定任何 ORDER BY 节点都在名字右边） */
 				loc = leftmostLoc(fc->location,
 								  exprLocation((Node *) fc->args));
 			}
 			break;
 		case T_A_ArrayExpr:
-			/* the location points at ARRAY or [, which must be leftmost */
+			/* 位置指向 ARRAY 或 [，它必须在最左边 */
 			loc = ((const A_ArrayExpr *) expr)->location;
 			break;
 		case T_ResTarget:
-			/* we need not examine the contained expression (if any) */
+			/* 我们不必检查所含的表达式（若有） */
 			loc = ((const ResTarget *) expr)->location;
 			break;
 		case T_MultiAssignRef:
@@ -1608,8 +1608,8 @@ exprLocation(const Node *expr)
 				const TypeCast *tc = (const TypeCast *) expr;
 
 				/*
-				 * This could represent CAST(), ::, or TypeName 'literal', so
-				 * any of the components might be leftmost.
+				 * 这可以表示 CAST()、:: 或 TypeName 'literal'，因此
+				 * 任一组成部分都可能在最左边。
 				 */
 				loc = exprLocation(tc->arg);
 				loc = leftmostLoc(loc, tc->typeName->location);
@@ -1617,11 +1617,11 @@ exprLocation(const Node *expr)
 			}
 			break;
 		case T_CollateClause:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation(((const CollateClause *) expr)->arg);
 			break;
 		case T_SortBy:
-			/* just use argument's location (ignore operator, if any) */
+			/* 只用参数的位置（忽略操作符，若有） */
 			loc = exprLocation(((const SortBy *) expr)->node);
 			break;
 		case T_WindowDef:
@@ -1640,11 +1640,11 @@ exprLocation(const Node *expr)
 			loc = ((const Constraint *) expr)->location;
 			break;
 		case T_FunctionParameter:
-			/* just use typename's location */
+			/* 只用类型名的位置 */
 			loc = exprLocation((Node *) ((const FunctionParameter *) expr)->argType);
 			break;
 		case T_XmlSerialize:
-			/* XMLSERIALIZE keyword should always be the first thing */
+			/* XMLSERIALIZE 关键字应当总是最先出现的东西 */
 			loc = ((const XmlSerialize *) expr)->location;
 			break;
 		case T_GroupingSet:
@@ -1669,7 +1669,7 @@ exprLocation(const Node *expr)
 			loc = ((const CommonTableExpr *) expr)->location;
 			break;
 		case T_JsonKeyValue:
-			/* just use the key's location */
+			/* 只用键的位置 */
 			loc = exprLocation((Node *) ((const JsonKeyValue *) expr)->key);
 			break;
 		case T_JsonObjectConstructor:
@@ -1691,11 +1691,11 @@ exprLocation(const Node *expr)
 			loc = exprLocation((Node *) ((const JsonArrayAgg *) expr)->constructor);
 			break;
 		case T_PlaceHolderVar:
-			/* just use argument's location */
+			/* 只用参数的位置 */
 			loc = exprLocation((Node *) ((const PlaceHolderVar *) expr)->phexpr);
 			break;
 		case T_InferenceElem:
-			/* just use nested expr's location */
+			/* 只用嵌套表达式的位置 */
 			loc = exprLocation((Node *) ((const InferenceElem *) expr)->expr);
 			break;
 		case T_PartitionElem:
@@ -1711,7 +1711,7 @@ exprLocation(const Node *expr)
 			loc = ((const PartitionRangeDatum *) expr)->location;
 			break;
 		default:
-			/* for any other node type it's just unknown... */
+			/* 对任何其他节点类型，位置就是未知的…… */
 			loc = -1;
 			break;
 	}
@@ -1719,9 +1719,9 @@ exprLocation(const Node *expr)
 }
 
 /*
- * leftmostLoc - support for exprLocation
+ * leftmostLoc - 为 exprLocation 提供支持
  *
- * Take the minimum of two parse location values, but ignore unknowns
+ * 取两个解析位置中较小的那个，但忽略未知值
  */
 static int
 leftmostLoc(int loc1, int loc2)
@@ -1737,17 +1737,17 @@ leftmostLoc(int loc1, int loc2)
 
 /*
  * fix_opfuncids
- *	  Calculate opfuncid field from opno for each OpExpr node in given tree.
- *	  The given tree can be anything expression_tree_walker handles.
+ *	  为给定树中每个 OpExpr 节点根据 opno 计算 opfuncid 字段。
+ *	  给定的树可以是 expression_tree_walker 能处理的任何东西。
  *
- * The argument is modified in-place.  (This is OK since we'd want the
- * same change for any node, even if it gets visited more than once due to
- * shared structure.)
+ * 参数会被就地修改。（这没问题，因为即使由于
+ * 共享结构而多次访问同一节点，我们对该节点
+ * 也想要同样的修改。）
  */
 void
 fix_opfuncids(Node *node)
 {
-	/* This tree walk requires no special setup, so away we go... */
+	/* 这次树遍历不需要特殊准备，那就开始吧…… */
 	fix_opfuncids_walker(node, NULL);
 }
 
@@ -1759,9 +1759,9 @@ fix_opfuncids_walker(Node *node, void *context)
 	if (IsA(node, OpExpr))
 		set_opfuncid((OpExpr *) node);
 	else if (IsA(node, DistinctExpr))
-		set_opfuncid((OpExpr *) node);	/* rely on struct equivalence */
+		set_opfuncid((OpExpr *) node);	/* 依赖结构等价 */
 	else if (IsA(node, NullIfExpr))
-		set_opfuncid((OpExpr *) node);	/* rely on struct equivalence */
+		set_opfuncid((OpExpr *) node);	/* 依赖结构等价 */
 	else if (IsA(node, ScalarArrayOpExpr))
 		set_sa_opfuncid((ScalarArrayOpExpr *) node);
 	return expression_tree_walker(node, fix_opfuncids_walker, context);
@@ -1769,11 +1769,11 @@ fix_opfuncids_walker(Node *node, void *context)
 
 /*
  * set_opfuncid
- *		Set the opfuncid (procedure OID) in an OpExpr node,
- *		if it hasn't been set already.
+ *		设置 OpExpr 节点中的 opfuncid（过程 OID），
+ *		若尚未设置的话。
  *
- * Because of struct equivalence, this can also be used for
- * DistinctExpr and NullIfExpr nodes.
+ * 由于结构等价，这也可用于
+ * DistinctExpr 和 NullIfExpr 节点。
  */
 void
 set_opfuncid(OpExpr *opexpr)
@@ -1784,7 +1784,7 @@ set_opfuncid(OpExpr *opexpr)
 
 /*
  * set_sa_opfuncid
- *		As above, for ScalarArrayOpExpr nodes.
+ *		同上，用于 ScalarArrayOpExpr 节点。
  */
 void
 set_sa_opfuncid(ScalarArrayOpExpr *opexpr)
@@ -1796,22 +1796,22 @@ set_sa_opfuncid(ScalarArrayOpExpr *opexpr)
 
 /*
  *	check_functions_in_node -
- *	  apply checker() to each function OID contained in given expression node
+ *	  对给定表达式节点中包含的每个函数 OID 调用 checker()
  *
- * Returns true if the checker() function does; for nodes representing more
- * than one function call, returns true if the checker() function does so
- * for any of those functions.  Returns false if node does not invoke any
- * SQL-visible function.  Caller must not pass node == NULL.
+ * 若 checker() 返回 true 则返回 true；对表示不止
+ * 一次函数调用的节点，若 checker() 对其中
+ * 任一函数返回 true 则返回 true。若节点不调用任何
+ * SQL 可见函数则返回 false。调用方不得传入 node == NULL。
  *
- * This function examines only the given node; it does not recurse into any
- * sub-expressions.  Callers typically prefer to keep control of the recursion
- * for themselves, in case additional checks should be made, or because they
- * have special rules about which parts of the tree need to be visited.
+ * 本函数只检查给定节点；不递归进入任何
+ * 子表达式。调用方通常希望自己控制递归，
+ * 以防还要做额外检查，或因为他们对
+ * 树的哪些部分需要访问有特殊规则。
  *
- * Note: we ignore MinMaxExpr, SQLValueFunction, XmlExpr, CoerceToDomain,
- * and NextValueExpr nodes, because they do not contain SQL function OIDs.
- * However, they can invoke SQL-visible functions, so callers should take
- * thought about how to treat them.
+ * 注意：我们忽略 MinMaxExpr、SQLValueFunction、XmlExpr、CoerceToDomain
+ * 和 NextValueExpr 节点，因为它们不含 SQL 函数 OIDs。
+ * 不过它们可以调用 SQL 可见函数，因此调用方应当
+ * 考虑如何对待它们。
  */
 bool
 check_functions_in_node(Node *node, check_function_callback checker,
@@ -1844,12 +1844,12 @@ check_functions_in_node(Node *node, check_function_callback checker,
 			}
 			break;
 		case T_OpExpr:
-		case T_DistinctExpr:	/* struct-equivalent to OpExpr */
-		case T_NullIfExpr:		/* struct-equivalent to OpExpr */
+		case T_DistinctExpr:	/* 结构上等价于 OpExpr */
+		case T_NullIfExpr:		/* 结构上等价于 OpExpr */
 			{
 				OpExpr	   *expr = (OpExpr *) node;
 
-				/* Set opfuncid if it wasn't set already */
+				/* 若 opfuncid 尚未设置，就设置它 */
 				set_opfuncid(expr);
 				if (checker(expr->opfuncid, context))
 					return true;
@@ -1871,12 +1871,12 @@ check_functions_in_node(Node *node, check_function_callback checker,
 				Oid			typioparam;
 				bool		typisvarlena;
 
-				/* check the result type's input function */
+				/* 检查结果类型的输入函数 */
 				getTypeInputInfo(expr->resulttype,
 								 &iofunc, &typioparam);
 				if (checker(iofunc, context))
 					return true;
-				/* check the input type's output function */
+				/* 检查输入类型的输出函数 */
 				getTypeOutputInfo(exprType((Node *) expr->arg),
 								  &iofunc, &typisvarlena);
 				if (checker(iofunc, context))
@@ -1905,95 +1905,95 @@ check_functions_in_node(Node *node, check_function_callback checker,
 
 
 /*
- * Standard expression-tree walking support
+ * 标准的表达式树遍历支持
  *
- * We used to have near-duplicate code in many different routines that
- * understood how to recurse through an expression node tree.  That was
- * a pain to maintain, and we frequently had bugs due to some particular
- * routine neglecting to support a particular node type.  In most cases,
- * these routines only actually care about certain node types, and don't
- * care about other types except insofar as they have to recurse through
- * non-primitive node types.  Therefore, we now provide generic tree-walking
- * logic to consolidate the redundant "boilerplate" code.  There are
- * two versions: expression_tree_walker() and expression_tree_mutator().
+ * 以前许多不同例程里有近乎重复的代码，它们
+ * 知道如何递归表达式节点树。那很难
+ * 维护，而且我们经常出漏洞，因为某个
+ * 例程漏掉了对某种节点类型的支持。多数情况下，
+ * 这些例程其实只关心某些节点类型，对其他类型
+ * 只是必须递归穿过
+ * 非原始节点类型。因此我们现在提供通用的树遍历
+ * 逻辑，把重复的样板代码收拢起来。有
+ * 两个版本：expression_tree_walker() 和 expression_tree_mutator()。
  */
 
 /*
- * expression_tree_walker() is designed to support routines that traverse
- * a tree in a read-only fashion (although it will also work for routines
- * that modify nodes in-place but never add/delete/replace nodes).
- * A walker routine should look like this:
+ * expression_tree_walker() 用来支持以
+ * 只读方式遍历树的例程（它也能用于
+ * 就地修改节点、但从不增删或替换节点的例程）。
+ * 遍历例程应当像这样：
  *
  * bool my_walker (Node *node, my_struct *context)
  * {
  *		if (node == NULL)
  *			return false;
- *		// check for nodes that special work is required for, eg:
+ *		// 检查需要特殊处理的节点，例如：
  *		if (IsA(node, Var))
  *		{
- *			... do special actions for Var nodes
+ *			... 对 Var 节点做特殊动作
  *		}
  *		else if (IsA(node, ...))
  *		{
- *			... do special actions for other node types
+ *			... 对其他节点类型做特殊动作
  *		}
- *		// for any node type not specially processed, do:
+ *		// 对未特殊处理的任何节点类型，执行：
  *		return expression_tree_walker(node, my_walker, (void *) context);
  * }
  *
- * The "context" argument points to a struct that holds whatever context
- * information the walker routine needs --- it can be used to return data
- * gathered by the walker, too.  This argument is not touched by
- * expression_tree_walker, but it is passed down to recursive sub-invocations
- * of my_walker.  The tree walk is started from a setup routine that
- * fills in the appropriate context struct, calls my_walker with the top-level
- * node of the tree, and then examines the results.
+ * "context" 参数指向一个结构体，其中存放遍历例程需要的
+ * 任何上下文信息——它也可用来返回
+ * 遍历例程收集的数据。该参数不会被
+ * expression_tree_walker 触碰，但会传给递归的子调用
+ * 中的 my_walker。树遍历由一个准备例程启动，它
+ * 填好相应的上下文结构体，对顶层
+ * 节点调用 my_walker，然后检查结果。
  *
- * The walker routine should return "false" to continue the tree walk, or
- * "true" to abort the walk and immediately return "true" to the top-level
- * caller.  This can be used to short-circuit the traversal if the walker
- * has found what it came for.  "false" is returned to the top-level caller
- * iff no invocation of the walker returned "true".
+ * 遍历例程应返回 "false" 以继续遍历，或
+ * 返回 "true" 以中止遍历并立即向顶层
+ * 调用方返回 "true"。若遍历例程已经
+ * 找到了要找的东西，可用此来短路遍历。当且仅当
+ * 没有任何一次遍历调用返回 "true" 时，才向顶层调用方返回 "false"。
  *
- * The node types handled by expression_tree_walker include all those
- * normally found in target lists and qualifier clauses during the planning
- * stage.  In particular, it handles List nodes since a cnf-ified qual clause
- * will have List structure at the top level, and it handles TargetEntry nodes
- * so that a scan of a target list can be handled without additional code.
- * Also, RangeTblRef, FromExpr, JoinExpr, and SetOperationStmt nodes are
- * handled, so that query jointrees and setOperation trees can be processed
- * without additional code.
+ * expression_tree_walker 处理的节点类型包括
+ * 规划阶段目标列表和限定子句中通常出现的全部类型。
+ * 特别是它处理 List 节点，因为合取范式化的限定子句
+ * 在顶层会有 List 结构，并且它处理 TargetEntry 节点，
+ * 因此扫描目标列表不需要额外代码。
+ * 另外也处理 RangeTblRef、FromExpr、JoinExpr 和 SetOperationStmt 节点，
+ * 因此查询连接树和 setOperation 树可以
+ * 不写额外代码就处理。
  *
- * expression_tree_walker will handle SubLink nodes by recursing normally
- * into the "testexpr" subtree (which is an expression belonging to the outer
- * plan).  It will also call the walker on the sub-Query node; however, when
- * expression_tree_walker itself is called on a Query node, it does nothing
- * and returns "false".  The net effect is that unless the walker does
- * something special at a Query node, sub-selects will not be visited during
- * an expression tree walk. This is exactly the behavior wanted in many cases
- * --- and for those walkers that do want to recurse into sub-selects, special
- * behavior is typically needed anyway at the entry to a sub-select (such as
- * incrementing a depth counter). A walker that wants to examine sub-selects
- * should include code along the lines of:
+ * expression_tree_walker 会正常递归 SubLink 节点
+ * 进入 "testexpr" 子树（属于外层
+ * 计划的表达式）。它也会对子 Query 节点调用遍历例程；不过，当
+ * expression_tree_walker 本身在 Query 节点上被调用时，它什么也不做
+ * 并返回 "false"。净效果是，除非遍历例程在
+ * Query 节点上做了特殊处理，否则表达式树遍历期间不会访问
+ * 子查询。这正是许多情况下想要的行为
+ * ——而对那些确实想递归进子查询的遍历例程，进入子查询时
+ * 通常反正需要特殊行为（例如
+ * 递增深度计数器）。想检查子查询的遍历例程
+ * 应包含大致如下的代码：
  *
  *		if (IsA(node, Query))
  *		{
- *			adjust context for subquery;
+ *			为子查询调整 context；
  *			result = query_tree_walker((Query *) node, my_walker, context,
- *									   0); // adjust flags as needed
- *			restore context if needed;
+ *									   0); // 按需要调整标志
+ *			必要时恢复 context；
  *			return result;
  *		}
  *
- * query_tree_walker is a convenience routine (see below) that calls the
- * walker on all the expression subtrees of the given Query node.
+ * query_tree_walker 是一个便捷例程（见下文），它对给定 Query 节点的
+ * 所有表达式子树调用遍历例程。
  *
- * expression_tree_walker will handle SubPlan nodes by recursing normally
- * into the "testexpr" and the "args" list (which are expressions belonging to
- * the outer plan).  It will not touch the completed subplan, however.  Since
- * there is no link to the original Query, it is not possible to recurse into
- * subselects of an already-planned expression tree.  This is OK for current
- * uses, but may need to be revisited in future.
+ * expression_tree_walker 会正常递归 SubPlan 节点
+ * 进入 "testexpr" 和 "args" 列表（属于
+ * 外层计划的表达式）。但它不会触碰已完成的子计划。由于
+ * 没有指向原始 Query 的链接，无法递归进入
+ * 已规划表达式树的子查询。对目前的
+ * 用途这没问题，但将来也许需要重新考虑。
  */
 
 bool
@@ -2004,12 +2004,12 @@ expression_tree_walker_impl(Node *node,
 	ListCell   *temp;
 
 	/*
-	 * The walker has already visited the current node, and so we need only
-	 * recurse into any sub-nodes it has.
+	 * 遍历例程已经访问过当前节点，因此我们只需
+	 * 递归进入它拥有的任何子节点。
 	 *
-	 * We assume that the walker is not interested in List nodes per se, so
-	 * when we expect a List we just recurse directly to self without
-	 * bothering to call the walker.
+	 * 我们假定遍历例程本身对 List 节点不感兴趣，因此
+	 * 当预期是 List 时，就直接递归到自身，
+	 * 而不必去调用遍历例程。
 	 */
 #define WALK(n) walker((Node *) (n), context)
 
@@ -2018,7 +2018,7 @@ expression_tree_walker_impl(Node *node,
 	if (node == NULL)
 		return false;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	switch (nodeTag(node))
@@ -2035,7 +2035,7 @@ expression_tree_walker_impl(Node *node,
 		case T_RangeTblRef:
 		case T_SortGroupClause:
 		case T_CTESearchClause:
-			/* primitive node types with no expression subnodes */
+			/* 没有表达式子节点的原始节点类型 */
 			break;
 		case T_WithCheckOption:
 			return WALK(((WithCheckOption *) node)->qual);
@@ -2043,7 +2043,7 @@ expression_tree_walker_impl(Node *node,
 			{
 				Aggref	   *expr = (Aggref *) node;
 
-				/* recurse directly on Lists */
+				/* 直接在 List 上递归 */
 				if (LIST_WALK(expr->aggdirectargs))
 					return true;
 				if (LIST_WALK(expr->args))
@@ -2068,7 +2068,7 @@ expression_tree_walker_impl(Node *node,
 			{
 				WindowFunc *expr = (WindowFunc *) node;
 
-				/* recurse directly on List */
+				/* 直接在 List 上递归 */
 				if (LIST_WALK(expr->args))
 					return true;
 				if (WALK(expr->aggfilter))
@@ -2079,12 +2079,12 @@ expression_tree_walker_impl(Node *node,
 			{
 				SubscriptingRef *sbsref = (SubscriptingRef *) node;
 
-				/* recurse directly for upper/lower container index lists */
+				/* 直接在上/下容器下标列表上递归 */
 				if (LIST_WALK(sbsref->refupperindexpr))
 					return true;
 				if (LIST_WALK(sbsref->reflowerindexpr))
 					return true;
-				/* walker must see the refexpr and refassgnexpr, however */
+				/* 不过遍历例程必须看到 refexpr 和 refassgnexpr */
 				if (WALK(sbsref->refexpr))
 					return true;
 
@@ -2103,8 +2103,8 @@ expression_tree_walker_impl(Node *node,
 		case T_NamedArgExpr:
 			return WALK(((NamedArgExpr *) node)->arg);
 		case T_OpExpr:
-		case T_DistinctExpr:	/* struct-equivalent to OpExpr */
-		case T_NullIfExpr:		/* struct-equivalent to OpExpr */
+		case T_DistinctExpr:	/* 结构上等价于 OpExpr */
+		case T_NullIfExpr:		/* 结构上等价于 OpExpr */
 			{
 				OpExpr	   *expr = (OpExpr *) node;
 
@@ -2136,8 +2136,8 @@ expression_tree_walker_impl(Node *node,
 					return true;
 
 				/*
-				 * Also invoke the walker on the sublink's Query node, so it
-				 * can recurse into the sub-query if it wants to.
+				 * 也对子链接的 Query 节点调用遍历例程，以便它
+				 * 可以按意愿递归进子查询。
 				 */
 				return WALK(sublink->subselect);
 			}
@@ -2146,10 +2146,10 @@ expression_tree_walker_impl(Node *node,
 			{
 				SubPlan    *subplan = (SubPlan *) node;
 
-				/* recurse into the testexpr, but not into the Plan */
+				/* 递归进 testexpr，但不进入 Plan */
 				if (WALK(subplan->testexpr))
 					return true;
-				/* also examine args list */
+				/* 也检查 args 列表 */
 				if (LIST_WALK(subplan->args))
 					return true;
 			}
@@ -2192,7 +2192,7 @@ expression_tree_walker_impl(Node *node,
 
 				if (WALK(caseexpr->arg))
 					return true;
-				/* we assume walker doesn't care about CaseWhens, either */
+				/* 我们假定遍历例程也不关心 CaseWhens */
 				foreach(temp, caseexpr->args)
 				{
 					CaseWhen   *when = lfirst_node(CaseWhen, temp);
@@ -2209,7 +2209,7 @@ expression_tree_walker_impl(Node *node,
 		case T_ArrayExpr:
 			return WALK(((ArrayExpr *) node)->elements);
 		case T_RowExpr:
-			/* Assume colnames isn't interesting */
+			/* 假定 colnames 不值得关注 */
 			return WALK(((RowExpr *) node)->args);
 		case T_RowCompareExpr:
 			{
@@ -2231,7 +2231,7 @@ expression_tree_walker_impl(Node *node,
 
 				if (WALK(xexpr->named_args))
 					return true;
-				/* we assume walker doesn't care about arg_names */
+				/* 我们假定遍历例程不关心 arg_names */
 				if (WALK(xexpr->args))
 					return true;
 			}
@@ -2269,7 +2269,7 @@ expression_tree_walker_impl(Node *node,
 		case T_TargetEntry:
 			return WALK(((TargetEntry *) node)->expr);
 		case T_Query:
-			/* Do nothing with a sub-Query, per discussion above */
+			/* 对子 Query 什么也不做，见上面的讨论 */
 			break;
 		case T_WindowClause:
 			{
@@ -2302,8 +2302,8 @@ expression_tree_walker_impl(Node *node,
 				CommonTableExpr *cte = (CommonTableExpr *) node;
 
 				/*
-				 * Invoke the walker on the CTE's Query node, so it can
-				 * recurse into the sub-query if it wants to.
+				 * 也对 CTE 的 Query 节点调用遍历例程，以便它
+				 * 可以按意愿递归进子查询。
 				 */
 				if (WALK(cte->ctequery))
 					return true;
@@ -2453,7 +2453,7 @@ expression_tree_walker_impl(Node *node,
 			}
 			break;
 		case T_PartitionPruneStepCombine:
-			/* no expression subnodes */
+			/* 没有表达式子节点 */
 			break;
 		case T_JoinExpr:
 			{
@@ -2467,7 +2467,7 @@ expression_tree_walker_impl(Node *node,
 					return true;
 
 				/*
-				 * alias clause, using list are deemed uninteresting.
+				 * alias 子句和 using 列表被视为不值得关注。
 				 */
 			}
 			break;
@@ -2480,7 +2480,7 @@ expression_tree_walker_impl(Node *node,
 				if (WALK(setop->rarg))
 					return true;
 
-				/* groupClauses are deemed uninteresting */
+				/* groupClauses 被视为不值得关注 */
 			}
 			break;
 		case T_IndexClause:
@@ -2542,24 +2542,24 @@ expression_tree_walker_impl(Node *node,
 	}
 	return false;
 
-	/* The WALK() macro can be re-used below, but LIST_WALK() not so much */
+	/* 下面可以复用 WALK() 宏，但 LIST_WALK() 就不太行 */
 #undef LIST_WALK
 }
 
 /*
- * query_tree_walker --- initiate a walk of a Query's expressions
+ * query_tree_walker --- 开始遍历 Query 的表达式
  *
- * This routine exists just to reduce the number of places that need to know
- * where all the expression subtrees of a Query are.  Note it can be used
- * for starting a walk at top level of a Query regardless of whether the
- * walker intends to descend into subqueries.  It is also useful for
- * descending into subqueries within a walker.
+ * 本例程只是为了减少需要知道
+ * Query 的全部表达式子树在哪里的地方。注意它可以用于
+ * 从 Query 顶层开始遍历，无论遍历例程是否
+ * 打算下降到子查询。它对在遍历例程内部
+ * 下降到子查询也很有用。
  *
- * Some callers want to suppress visitation of certain items in the sub-Query,
- * typically because they need to process them specially, or don't actually
- * want to recurse into subqueries.  This is supported by the flags argument,
- * which is the bitwise OR of flag values to add or suppress visitation of
- * indicated items.  (More flag bits may be added as needed.)
+ * 有些调用方想抑制对子 Query 中某些项的访问，
+ * 通常是因为他们需要特殊处理，或其实并不
+ * 想递归进子查询。这由 flags 参数支持，
+ * 它是要增加或抑制对
+ * 所示项的访问的标志值的按位 OR。（以后可以按需增加更多标志位。）
  */
 bool
 query_tree_walker_impl(Query *query,
@@ -2570,10 +2570,10 @@ query_tree_walker_impl(Query *query,
 	Assert(query != NULL && IsA(query, Query));
 
 	/*
-	 * We don't walk any utilityStmt here. However, we can't easily assert
-	 * that it is absent, since there are at least two code paths by which
-	 * action statements from CREATE RULE end up here, and NOTIFY is allowed
-	 * in a rule action.
+	 * 这里我们不遍历任何 utilityStmt。不过，我们无法轻易断言
+	 * 它不存在，因为至少有两条代码路径会让
+	 * CREATE RULE 的动作语句到达这里，并且规则动作中允许
+	 * NOTIFY。
 	 */
 
 	if (WALK(query->targetList))
@@ -2598,9 +2598,9 @@ query_tree_walker_impl(Query *query,
 		return true;
 
 	/*
-	 * Most callers aren't interested in SortGroupClause nodes since those
-	 * don't contain actual expressions. However they do contain OIDs which
-	 * may be needed by dependency walkers etc.
+	 * 多数调用方对 SortGroupClause 节点不感兴趣，因为那些
+	 * 并不包含实际表达式。不过它们确实包含 OIDs，
+	 * 依赖遍历等可能会需要。
 	 */
 	if ((flags & QTW_EXAMINE_SORTGROUP))
 	{
@@ -2616,8 +2616,8 @@ query_tree_walker_impl(Query *query,
 	else
 	{
 		/*
-		 * But we need to walk the expressions under WindowClause nodes even
-		 * if we're not interested in SortGroupClause nodes.
+		 * 但即使我们对 SortGroupClause 节点不感兴趣，
+		 * 也需要遍历 WindowClause 节点下的表达式。
 		 */
 		ListCell   *lc;
 
@@ -2635,15 +2635,15 @@ query_tree_walker_impl(Query *query,
 	}
 
 	/*
-	 * groupingSets and rowMarks are not walked:
+	 * 不遍历 groupingSets 和 rowMarks：
 	 *
-	 * groupingSets contain only ressortgrouprefs (integers) which are
-	 * meaningless without the corresponding groupClause or tlist.
-	 * Accordingly, any walker that needs to care about them needs to handle
-	 * them itself in its Query processing.
+	 * groupingSets 只包含 ressortgrouprefs（整数），若没有
+	 * 对应的 groupClause 或 tlist 就没有意义。
+	 * 因此，任何需要关心它们的遍历例程都得在自己的 Query
+	 * 处理中自行处理。
 	 *
-	 * rowMarks is not walked because it contains only rangetable indexes (and
-	 * flags etc.) and therefore should be handled at Query level similarly.
+	 * 不遍历 rowMarks，因为它只包含范围表下标（以及
+	 * 标志等），因此同样应在 Query 层处理。
 	 */
 
 	if (!(flags & QTW_IGNORE_CTE_SUBQUERIES))
@@ -2660,9 +2660,9 @@ query_tree_walker_impl(Query *query,
 }
 
 /*
- * range_table_walker is just the part of query_tree_walker that scans
- * a query's rangetable.  This is split out since it can be useful on
- * its own.
+ * range_table_walker 只是 query_tree_walker 中扫描
+ * 查询范围表的那一部分。把它拆出来是因为它
+ * 单独也有用。
  */
 bool
 range_table_walker_impl(List *rtable,
@@ -2683,7 +2683,7 @@ range_table_walker_impl(List *rtable,
 }
 
 /*
- * Some callers even want to scan the expressions in individual RTEs.
+ * 有些调用方甚至想扫描各个 RTEs 中的表达式。
  */
 bool
 range_table_entry_walker_impl(RangeTblEntry *rte,
@@ -2692,9 +2692,9 @@ range_table_entry_walker_impl(RangeTblEntry *rte,
 							  int flags)
 {
 	/*
-	 * Walkers might need to examine the RTE node itself either before or
-	 * after visiting its contents (or, conceivably, both).  Note that if you
-	 * specify neither flag, the walker won't be called on the RTE at all.
+	 * 遍历例程也许需要在访问 RTE 内容之前或
+	 * 之后检查 RTE 节点本身（或者可以想见两者都要）。注意若你
+	 * 两个标志都不指定，遍历例程根本不会在 RTE 上被调用。
 	 */
 	if (flags & QTW_EXAMINE_RTES_BEFORE)
 		if (WALK(rte))
@@ -2731,7 +2731,7 @@ range_table_entry_walker_impl(RangeTblEntry *rte,
 		case RTE_CTE:
 		case RTE_NAMEDTUPLESTORE:
 		case RTE_RESULT:
-			/* nothing to do */
+			/* 无事可做 */
 			break;
 	}
 
@@ -2747,65 +2747,65 @@ range_table_entry_walker_impl(RangeTblEntry *rte,
 
 
 /*
- * expression_tree_mutator() is designed to support routines that make a
- * modified copy of an expression tree, with some nodes being added,
- * removed, or replaced by new subtrees.  The original tree is (normally)
- * not changed.  Each recursion level is responsible for returning a copy of
- * (or appropriately modified substitute for) the subtree it is handed.
- * A mutator routine should look like this:
+ * expression_tree_mutator() 用来支持这样的例程：它们制作
+ * 表达式树的修改副本，其中一些节点被增加、
+ * 删除或替换为新的子树。原来的树（通常）
+ * 不会被改动。每一层递归负责返回它收到的
+ * 子树的副本（或适当修改后的替代物）。
+ * 变换例程应当像这样：
  *
  * Node * my_mutator (Node *node, my_struct *context)
  * {
  *		if (node == NULL)
  *			return NULL;
- *		// check for nodes that special work is required for, eg:
+ *		// 检查需要特殊处理的节点，例如：
  *		if (IsA(node, Var))
  *		{
- *			... create and return modified copy of Var node
+ *			... 创建并返回 Var 节点的修改副本
  *		}
  *		else if (IsA(node, ...))
  *		{
- *			... do special transformations of other node types
+ *			... 对其他节点类型做特殊变换
  *		}
- *		// for any node type not specially processed, do:
+ *		// 对未特殊处理的任何节点类型，执行：
  *		return expression_tree_mutator(node, my_mutator, (void *) context);
  * }
  *
- * The "context" argument points to a struct that holds whatever context
- * information the mutator routine needs --- it can be used to return extra
- * data gathered by the mutator, too.  This argument is not touched by
- * expression_tree_mutator, but it is passed down to recursive sub-invocations
- * of my_mutator.  The tree walk is started from a setup routine that
- * fills in the appropriate context struct, calls my_mutator with the
- * top-level node of the tree, and does any required post-processing.
+ * "context" 参数指向一个结构体，其中存放变换例程需要的
+ * 任何上下文信息——它也可用来返回变换器
+ * 收集的额外数据。该参数不会被
+ * expression_tree_mutator 触碰，但会传给递归的子调用
+ * 中的 my_mutator。树遍历由一个准备例程启动，它
+ * 填好相应的上下文结构体，对树的
+ * 顶层节点调用 my_mutator，并做任何需要的后处理。
  *
- * Each level of recursion must return an appropriately modified Node.
- * If expression_tree_mutator() is called, it will make an exact copy
- * of the given Node, but invoke my_mutator() to copy the sub-node(s)
- * of that Node.  In this way, my_mutator() has full control over the
- * copying process but need not directly deal with expression trees
- * that it has no interest in.
+ * 每一层递归都必须返回适当修改过的 Node。
+ * 若调用了 expression_tree_mutator()，它会精确复制
+ * 给定的 Node，但调用 my_mutator() 来复制该
+ * Node 的子节点。这样 my_mutator() 完全控制
+ * 复制过程，但不必直接处理它
+ * 不感兴趣的表达式树。
  *
- * Just as for expression_tree_walker, the node types handled by
- * expression_tree_mutator include all those normally found in target lists
- * and qualifier clauses during the planning stage.
+ * 正如 expression_tree_walker 那样，expression_tree_mutator 处理的
+ * 节点类型包括规划阶段目标列表
+ * 和限定子句中通常出现的全部类型。
  *
- * expression_tree_mutator will handle SubLink nodes by recursing normally
- * into the "testexpr" subtree (which is an expression belonging to the outer
- * plan).  It will also call the mutator on the sub-Query node; however, when
- * expression_tree_mutator itself is called on a Query node, it does nothing
- * and returns the unmodified Query node.  The net effect is that unless the
- * mutator does something special at a Query node, sub-selects will not be
- * visited or modified; the original sub-select will be linked to by the new
- * SubLink node.  Mutators that want to descend into sub-selects will usually
- * do so by recognizing Query nodes and calling query_tree_mutator (below).
+ * expression_tree_mutator 会正常递归 SubLink 节点
+ * 进入 "testexpr" 子树（属于外层
+ * 计划的表达式）。它也会对子 Query 节点调用变换器；不过，当
+ * expression_tree_mutator 本身在 Query 节点上被调用时，它什么也不做
+ * 并返回未修改的 Query 节点。净效果是，除非
+ * 变换器在 Query 节点上做了特殊处理，子查询不会被
+ * 访问或修改；原来的子查询会由新的
+ * SubLink 节点链接到。想下降到子查询的变换器通常
+ * 通过识别 Query 节点并调用 query_tree_mutator（见下）来做。
  *
- * expression_tree_mutator will handle a SubPlan node by recursing into the
- * "testexpr" and the "args" list (which belong to the outer plan), but it
- * will simply copy the link to the inner plan, since that's typically what
- * expression tree mutators want.  A mutator that wants to modify the subplan
- * can force appropriate behavior by recognizing SubPlan expression nodes
- * and doing the right thing.
+ * expression_tree_mutator 会递归 SubPlan 节点进入
+ * "testexpr" 和 "args" 列表（属于外层计划），但
+ * 只会复制指向内层计划的链接，因为那通常正是
+ * 表达式树变换器想要的。想修改子计划的变换器
+ * 可以通过识别 SubPlan 表达式节点
+ * 并做正确的事，来强制适当的行为。
  */
 
 Node *
@@ -2814,8 +2814,8 @@ expression_tree_mutator_impl(Node *node,
 							 void *context)
 {
 	/*
-	 * The mutator has already decided not to modify the current node, but we
-	 * must call the mutator for any sub-nodes.
+	 * 变换器已经决定不修改当前节点，但我们
+	 * 必须对任何子节点调用变换器。
 	 */
 
 #define FLATCOPY(newnode, node, nodetype)  \
@@ -2828,15 +2828,15 @@ expression_tree_mutator_impl(Node *node,
 	if (node == NULL)
 		return NULL;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	switch (nodeTag(node))
 	{
 			/*
-			 * Primitive node types with no expression subnodes.  Var and
-			 * Const are frequent enough to deserve special cases, the others
-			 * we just use copyObject for.
+			 * 没有表达式子节点的原始节点类型。Var 和
+			 * Const 足够常见，值得特殊处理，其余的
+			 * 我们就用 copyObject。
 			 */
 		case T_Var:
 			{
@@ -2844,7 +2844,7 @@ expression_tree_mutator_impl(Node *node,
 				Var		   *newnode;
 
 				FLATCOPY(newnode, var, Var);
-				/* Assume we need not copy the varnullingrels bitmapset */
+				/* 假定不必复制 varnullingrels 位图集 */
 				return (Node *) newnode;
 			}
 			break;
@@ -2854,7 +2854,7 @@ expression_tree_mutator_impl(Node *node,
 				Const	   *newnode;
 
 				FLATCOPY(newnode, oldnode, Const);
-				/* XXX we don't bother with datumCopy; should we? */
+				/* XXX 我们没有费心做 datumCopy；要不要做？ */
 				return (Node *) newnode;
 			}
 			break;
@@ -2885,7 +2885,7 @@ expression_tree_mutator_impl(Node *node,
 				Aggref	   *newnode;
 
 				FLATCOPY(newnode, aggref, Aggref);
-				/* assume mutation doesn't change types of arguments */
+				/* 假定变换不会改变参数的类型 */
 				newnode->aggargtypes = list_copy(aggref->aggargtypes);
 				MUTATE(newnode->aggdirectargs, aggref->aggdirectargs, List *);
 				MUTATE(newnode->args, aggref->args, List *);
@@ -2904,13 +2904,13 @@ expression_tree_mutator_impl(Node *node,
 				MUTATE(newnode->args, grouping->args, List *);
 
 				/*
-				 * We assume here that mutating the arguments does not change
-				 * the semantics, i.e. that the arguments are not mutated in a
-				 * way that makes them semantically different from their
-				 * previously matching expressions in the GROUP BY clause.
+				 * 这里我们假定变换参数不会改变
+				 * 语义，即参数不会被变换成
+				 * 与 GROUP BY 子句中先前匹配的表达式
+				 * 在语义上不同的东西。
 				 *
-				 * If a mutator somehow wanted to do this, it would have to
-				 * handle the refs and cols lists itself as appropriate.
+				 * 若某个变换器不知怎么想这么做，它必须
+				 * 自行妥善处理 refs 和 cols 列表。
 				 */
 				newnode->refs = list_copy(grouping->refs);
 				newnode->cols = list_copy(grouping->cols);
@@ -3026,8 +3026,8 @@ expression_tree_mutator_impl(Node *node,
 				MUTATE(newnode->testexpr, sublink->testexpr, Node *);
 
 				/*
-				 * Also invoke the mutator on the sublink's Query node, so it
-				 * can recurse into the sub-query if it wants to.
+				 * 也对子链接的 Query 节点调用变换器，以便它
+				 * 可以按意愿递归进子查询。
 				 */
 				MUTATE(newnode->subselect, sublink->subselect, Node *);
 				return (Node *) newnode;
@@ -3039,11 +3039,11 @@ expression_tree_mutator_impl(Node *node,
 				SubPlan    *newnode;
 
 				FLATCOPY(newnode, subplan, SubPlan);
-				/* transform testexpr */
+				/* 变换 testexpr */
 				MUTATE(newnode->testexpr, subplan->testexpr, Node *);
-				/* transform args list (params to be passed to subplan) */
+				/* 变换 args 列表（要传给子计划的参数） */
 				MUTATE(newnode->args, subplan->args, List *);
-				/* but not the sub-Plan itself, which is referenced as-is */
+				/* 但不变换子 Plan 本身，它按原样引用 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3170,7 +3170,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, rowexpr, RowExpr);
 				MUTATE(newnode->args, rowexpr->args, List *);
-				/* Assume colnames needn't be duplicated */
+				/* 假定 colnames 不必复制 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3212,7 +3212,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, xexpr, XmlExpr);
 				MUTATE(newnode->named_args, xexpr->named_args, List *);
-				/* assume mutator does not care about arg_names */
+				/* 假定变换器不关心 arg_names */
 				MUTATE(newnode->args, xexpr->args, List *);
 				return (Node *) newnode;
 			}
@@ -3304,7 +3304,7 @@ expression_tree_mutator_impl(Node *node,
 			}
 			break;
 		case T_Query:
-			/* Do nothing with a sub-Query, per discussion above */
+			/* 对子 Query 什么也不做，见上面的讨论 */
 			return node;
 		case T_WindowClause:
 			{
@@ -3339,8 +3339,8 @@ expression_tree_mutator_impl(Node *node,
 				FLATCOPY(newnode, cte, CommonTableExpr);
 
 				/*
-				 * Also invoke the mutator on the CTE's Query node, so it can
-				 * recurse into the sub-query if it wants to.
+				 * 也对 CTE 的 Query 节点调用变换器，以便它
+				 * 可以按意愿递归进子查询。
 				 */
 				MUTATE(newnode->ctequery, cte->ctequery, Node *);
 
@@ -3375,9 +3375,9 @@ expression_tree_mutator_impl(Node *node,
 		case T_List:
 			{
 				/*
-				 * We assume the mutator isn't interested in the list nodes
-				 * per se, so just invoke it on each list element. NOTE: this
-				 * would fail badly on a list with integer elements!
+				 * 我们假定变换器本身对列表节点
+				 * 不感兴趣，因此只对每个列表元素调用它。注意：这
+				 * 在元素为整数的列表上会严重失败！
 				 */
 				List	   *resultlist;
 				ListCell   *temp;
@@ -3442,7 +3442,7 @@ expression_tree_mutator_impl(Node *node,
 			}
 			break;
 		case T_PartitionPruneStepCombine:
-			/* no expression sub-nodes */
+			/* 没有表达式子节点 */
 			return (Node *) copyObject(node);
 		case T_JoinExpr:
 			{
@@ -3453,7 +3453,7 @@ expression_tree_mutator_impl(Node *node,
 				MUTATE(newnode->larg, join->larg, Node *);
 				MUTATE(newnode->rarg, join->rarg, Node *);
 				MUTATE(newnode->quals, join->quals, Node *);
-				/* We do not mutate alias or using by default */
+				/* 默认不变换 alias 或 using */
 				return (Node *) newnode;
 			}
 			break;
@@ -3465,7 +3465,7 @@ expression_tree_mutator_impl(Node *node,
 				FLATCOPY(newnode, setop, SetOperationStmt);
 				MUTATE(newnode->larg, setop->larg, Node *);
 				MUTATE(newnode->rarg, setop->rarg, Node *);
-				/* We do not mutate groupClauses by default */
+				/* 默认不变换 groupClauses */
 				return (Node *) newnode;
 			}
 			break;
@@ -3487,7 +3487,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, phv, PlaceHolderVar);
 				MUTATE(newnode->phexpr, phv->phexpr, Expr *);
-				/* Assume we need not copy the relids bitmapsets */
+				/* 假定不必复制 relids 位图集 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3508,7 +3508,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, appinfo, AppendRelInfo);
 				MUTATE(newnode->translated_vars, appinfo->translated_vars, List *);
-				/* Assume nothing need be done with parent_colnos[] */
+				/* 假定不必对 parent_colnos[] 做任何事 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3519,7 +3519,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, phinfo, PlaceHolderInfo);
 				MUTATE(newnode->ph_var, phinfo->ph_var, PlaceHolderVar *);
-				/* Assume we need not copy the relids bitmapsets */
+				/* 假定不必复制 relids 位图集 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3530,7 +3530,7 @@ expression_tree_mutator_impl(Node *node,
 
 				FLATCOPY(newnode, rtfunc, RangeTblFunction);
 				MUTATE(newnode->funcexpr, rtfunc->funcexpr, Node *);
-				/* Assume we need not copy the coldef info lists */
+				/* 假定不必复制 coldef 信息列表 */
 				return (Node *) newnode;
 			}
 			break;
@@ -3564,29 +3564,29 @@ expression_tree_mutator_impl(Node *node,
 				 (int) nodeTag(node));
 			break;
 	}
-	/* can't get here, but keep compiler happy */
+	/* 无法到达这里，但要消除编译器告警 */
 	return NULL;
 }
 
 
 /*
- * query_tree_mutator --- initiate modification of a Query's expressions
+ * query_tree_mutator --- 开始修改 Query 的表达式
  *
- * This routine exists just to reduce the number of places that need to know
- * where all the expression subtrees of a Query are.  Note it can be used
- * for starting a walk at top level of a Query regardless of whether the
- * mutator intends to descend into subqueries.  It is also useful for
- * descending into subqueries within a mutator.
+ * 本例程只是为了减少需要知道
+ * Query 的全部表达式子树在哪里的地方。注意它可以用于
+ * 从 Query 顶层开始遍历，无论变换器是否
+ * 打算下降到子查询。它对在变换器内部
+ * 下降到子查询也很有用。
  *
- * Some callers want to suppress mutating of certain items in the Query,
- * typically because they need to process them specially, or don't actually
- * want to recurse into subqueries.  This is supported by the flags argument,
- * which is the bitwise OR of flag values to suppress mutating of
- * indicated items.  (More flag bits may be added as needed.)
+ * 有些调用方想抑制对 Query 中某些项的变换，
+ * 通常是因为他们需要特殊处理，或其实并不
+ * 想递归进子查询。这由 flags 参数支持，
+ * 它是要抑制对
+ * 所示项的变换的标志值的按位 OR。（以后可以按需增加更多标志位。）
  *
- * Normally the top-level Query node itself is copied, but some callers want
- * it to be modified in-place; they must pass QTW_DONT_COPY_QUERY in flags.
- * All modified substructure is safely copied in any case.
+ * 通常顶层 Query 节点本身会被复制，但有些调用方希望
+ * 就地修改它；他们必须在 flags 中传入 QTW_DONT_COPY_QUERY。
+ * 无论如何，所有被修改的子结构都会被安全地复制。
  */
 Query *
 query_tree_mutator_impl(Query *query,
@@ -3616,9 +3616,9 @@ query_tree_mutator_impl(Query *query,
 	MUTATE(query->limitCount, query->limitCount, Node *);
 
 	/*
-	 * Most callers aren't interested in SortGroupClause nodes since those
-	 * don't contain actual expressions. However they do contain OIDs, which
-	 * may be of interest to some mutators.
+	 * 多数调用方对 SortGroupClause 节点不感兴趣，因为那些
+	 * 并不包含实际表达式。不过它们确实包含 OIDs，
+	 * 有些变换器可能会感兴趣。
 	 */
 
 	if ((flags & QTW_EXAMINE_SORTGROUP))
@@ -3631,8 +3631,8 @@ query_tree_mutator_impl(Query *query,
 	else
 	{
 		/*
-		 * But we need to mutate the expressions under WindowClause nodes even
-		 * if we're not interested in SortGroupClause nodes.
+		 * 但即使我们对 SortGroupClause 节点不感兴趣，
+		 * 也需要变换 WindowClause 节点下的表达式。
 		 */
 		List	   *resultlist;
 		ListCell   *temp;
@@ -3654,20 +3654,20 @@ query_tree_mutator_impl(Query *query,
 	}
 
 	/*
-	 * groupingSets and rowMarks are not mutated:
+	 * 不变换 groupingSets 和 rowMarks：
 	 *
-	 * groupingSets contain only ressortgroup refs (integers) which are
-	 * meaningless without the groupClause or tlist. Accordingly, any mutator
-	 * that needs to care about them needs to handle them itself in its Query
-	 * processing.
+	 * groupingSets 只包含 ressortgroup 引用（整数），若没有
+	 * groupClause 或 tlist 就没有意义。因此，任何
+	 * 需要关心它们的变换器都得在自己的 Query
+	 * 处理中自行处理。
 	 *
-	 * rowMarks contains only rangetable indexes (and flags etc.) and
-	 * therefore should be handled at Query level similarly.
+	 * rowMarks 只包含范围表下标（以及标志等），
+	 * 因此同样应在 Query 层处理。
 	 */
 
 	if (!(flags & QTW_IGNORE_CTE_SUBQUERIES))
 		MUTATE(query->cteList, query->cteList, List *);
-	else						/* else copy CTE list as-is */
+	else						/* 否则按原样复制 CTE 列表 */
 		query->cteList = copyObject(query->cteList);
 	query->rtable = range_table_mutator(query->rtable,
 										mutator, context, flags);
@@ -3675,9 +3675,9 @@ query_tree_mutator_impl(Query *query,
 }
 
 /*
- * range_table_mutator is just the part of query_tree_mutator that processes
- * a query's rangetable.  This is split out since it can be useful on
- * its own.
+ * range_table_mutator 只是 query_tree_mutator 中处理
+ * 查询范围表的那一部分。把它拆出来是因为它
+ * 单独也有用。
  */
 List *
 range_table_mutator_impl(List *rtable,
@@ -3699,14 +3699,14 @@ range_table_mutator_impl(List *rtable,
 			case RTE_RELATION:
 				MUTATE(newrte->tablesample, rte->tablesample,
 					   TableSampleClause *);
-				/* we don't bother to copy eref, aliases, etc; OK? */
+				/* 我们没有费心复制 eref、别名等；可以吗？ */
 				break;
 			case RTE_SUBQUERY:
 				if (!(flags & QTW_IGNORE_RT_SUBQUERIES))
 					MUTATE(newrte->subquery, rte->subquery, Query *);
 				else
 				{
-					/* else, copy RT subqueries as-is */
+					/* 否则按原样复制 RT 子查询 */
 					newrte->subquery = copyObject(rte->subquery);
 				}
 				break;
@@ -3715,7 +3715,7 @@ range_table_mutator_impl(List *rtable,
 					MUTATE(newrte->joinaliasvars, rte->joinaliasvars, List *);
 				else
 				{
-					/* else, copy join aliases as-is */
+					/* 否则按原样复制连接别名 */
 					newrte->joinaliasvars = copyObject(rte->joinaliasvars);
 				}
 				break;
@@ -3731,7 +3731,7 @@ range_table_mutator_impl(List *rtable,
 			case RTE_CTE:
 			case RTE_NAMEDTUPLESTORE:
 			case RTE_RESULT:
-				/* nothing to do */
+				/* 无事可做 */
 				break;
 		}
 		MUTATE(newrte->securityQuals, rte->securityQuals, List *);
@@ -3741,12 +3741,12 @@ range_table_mutator_impl(List *rtable,
 }
 
 /*
- * query_or_expression_tree_walker --- hybrid form
+ * query_or_expression_tree_walker --- 混合形式
  *
- * This routine will invoke query_tree_walker if called on a Query node,
- * else will invoke the walker directly.  This is a useful way of starting
- * the recursion when the walker's normal change of state is not appropriate
- * for the outermost Query node.
+ * 若在 Query 节点上调用，本例程会调用 query_tree_walker，
+ * 否则直接调用遍历例程。当遍历例程通常的状态变化
+ * 不适合最外层 Query 节点时，
+ * 这是启动递归的有用方式。
  */
 bool
 query_or_expression_tree_walker_impl(Node *node,
@@ -3764,12 +3764,12 @@ query_or_expression_tree_walker_impl(Node *node,
 }
 
 /*
- * query_or_expression_tree_mutator --- hybrid form
+ * query_or_expression_tree_mutator --- 混合形式
  *
- * This routine will invoke query_tree_mutator if called on a Query node,
- * else will invoke the mutator directly.  This is a useful way of starting
- * the recursion when the mutator's normal change of state is not appropriate
- * for the outermost Query node.
+ * 若在 Query 节点上调用，本例程会调用 query_tree_mutator，
+ * 否则直接调用变换器。当变换器通常的状态变化
+ * 不适合最外层 Query 节点时，
+ * 这是启动递归的有用方式。
  */
 Node *
 query_or_expression_tree_mutator_impl(Node *node,
@@ -3788,19 +3788,19 @@ query_or_expression_tree_mutator_impl(Node *node,
 
 
 /*
- * raw_expression_tree_walker --- walk raw parse trees
+ * raw_expression_tree_walker --- 遍历原始分析树
  *
- * This has exactly the same API as expression_tree_walker, but instead of
- * walking post-analysis parse trees, it knows how to walk the node types
- * found in raw grammar output.  (There is not currently any need for a
- * combined walker, so we keep them separate in the name of efficiency.)
- * Unlike expression_tree_walker, there is no special rule about query
- * boundaries: we descend to everything that's possibly interesting.
+ * 它的 API 与 expression_tree_walker 完全相同，但遍历的不是
+ * 分析之后的分析树，而是知道如何遍历原始语法输出中的
+ * 节点类型。（目前不需要合并的遍历器，
+ * 因此为了效率把它们分开。）
+ * 与 expression_tree_walker 不同，对查询
+ * 边界没有特殊规则：凡是可能有意思的东西我们都下降进去。
  *
- * Currently, the node type coverage here extends only to DML statements
- * (SELECT/INSERT/UPDATE/DELETE/MERGE) and nodes that can appear in them,
- * because this is used mainly during analysis of CTEs, and only DML
- * statements can appear in CTEs.
+ * 目前这里覆盖的节点类型只到 DML 语句
+ * （SELECT/INSERT/UPDATE/DELETE/MERGE）以及能出现在其中的节点，
+ * 因为这主要用于分析 CTEs，而只有 DML
+ * 语句能出现在 CTEs 中。
  */
 bool
 raw_expression_tree_walker_impl(Node *node,
@@ -3810,13 +3810,13 @@ raw_expression_tree_walker_impl(Node *node,
 	ListCell   *temp;
 
 	/*
-	 * The walker has already visited the current node, and so we need only
-	 * recurse into any sub-nodes it has.
+	 * 遍历例程已经访问过当前节点，因此我们只需
+	 * 递归进入它拥有的任何子节点。
 	 */
 	if (node == NULL)
 		return false;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	switch (nodeTag(node))
@@ -3833,10 +3833,10 @@ raw_expression_tree_walker_impl(Node *node,
 		case T_ParamRef:
 		case T_A_Const:
 		case T_A_Star:
-			/* primitive node types with no subnodes */
+			/* 没有子节点的原始节点类型 */
 			break;
 		case T_Alias:
-			/* we assume the colnames list isn't interesting */
+			/* 我们假定 colnames 列表不值得关注 */
 			break;
 		case T_RangeVar:
 			return WALK(((RangeVar *) node)->alias);
@@ -3848,7 +3848,7 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(sublink->testexpr))
 					return true;
-				/* we assume the operName is not interesting */
+				/* 我们假定 operName 不值得关注 */
 				if (WALK(sublink->subselect))
 					return true;
 			}
@@ -3859,7 +3859,7 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(caseexpr->arg))
 					return true;
-				/* we assume walker doesn't care about CaseWhens, either */
+				/* 我们假定遍历例程也不关心 CaseWhens */
 				foreach(temp, caseexpr->args)
 				{
 					CaseWhen   *when = lfirst_node(CaseWhen, temp);
@@ -3874,7 +3874,7 @@ raw_expression_tree_walker_impl(Node *node,
 			}
 			break;
 		case T_RowExpr:
-			/* Assume colnames isn't interesting */
+			/* 假定 colnames 不值得关注 */
 			return WALK(((RowExpr *) node)->args);
 		case T_CoalesceExpr:
 			return WALK(((CoalesceExpr *) node)->args);
@@ -3886,7 +3886,7 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(xexpr->named_args))
 					return true;
-				/* we assume walker doesn't care about arg_names */
+				/* 我们假定遍历例程不关心 arg_names */
 				if (WALK(xexpr->args))
 					return true;
 			}
@@ -3937,7 +3937,7 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(join->alias))
 					return true;
-				/* using list is deemed uninteresting */
+				/* using 列表被视为不值得关注 */
 			}
 			break;
 		case T_IntoClause:
@@ -3946,8 +3946,8 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(into->rel))
 					return true;
-				/* colNames, options are deemed uninteresting */
-				/* viewQuery should be null in raw parsetree, but check it */
+				/* colNames、options 被视为不值得关注 */
+				/* 在原始分析树中 viewQuery 应当为 null，但仍检查它 */
 				if (WALK(into->viewQuery))
 					return true;
 			}
@@ -4095,7 +4095,7 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(expr->rexpr))
 					return true;
-				/* operator name is deemed uninteresting */
+				/* 操作符名被视为不值得关注 */
 			}
 			break;
 		case T_BoolExpr:
@@ -4107,7 +4107,7 @@ raw_expression_tree_walker_impl(Node *node,
 			}
 			break;
 		case T_ColumnRef:
-			/* we assume the fields contain nothing interesting */
+			/* 我们假定这些字段不含值得关注的内容 */
 			break;
 		case T_FuncCall:
 			{
@@ -4121,7 +4121,7 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(fcall->over))
 					return true;
-				/* function name is deemed uninteresting */
+				/* 函数名被视为不值得关注 */
 			}
 			break;
 		case T_NamedArgExpr:
@@ -4216,7 +4216,7 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(rts->relation))
 					return true;
-				/* method name is deemed uninteresting */
+				/* 方法名被视为不值得关注 */
 				if (WALK(rts->args))
 					return true;
 				if (WALK(rts->repeatable))
@@ -4257,7 +4257,7 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(tn->arrayBounds))
 					return true;
-				/* type name itself is deemed uninteresting */
+				/* 类型名本身被视为不值得关注 */
 			}
 			break;
 		case T_ColumnDef:
@@ -4270,7 +4270,7 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(coldef->collClause))
 					return true;
-				/* for now, constraints are ignored */
+				/* 目前忽略约束 */
 			}
 			break;
 		case T_IndexElem:
@@ -4279,7 +4279,7 @@ raw_expression_tree_walker_impl(Node *node,
 
 				if (WALK(indelem->expr))
 					return true;
-				/* collation and opclass names are deemed uninteresting */
+				/* 排序规则名和操作符类名被视为不值得关注 */
 			}
 			break;
 		case T_GroupingSet:
@@ -4321,7 +4321,7 @@ raw_expression_tree_walker_impl(Node *node,
 			}
 			break;
 		case T_CommonTableExpr:
-			/* search_clause and cycle_clause are not interesting here */
+			/* search_clause 和 cycle_clause 在这里不值得关注 */
 			return WALK(((CommonTableExpr *) node)->ctequery);
 		case T_JsonOutput:
 			{
@@ -4416,10 +4416,10 @@ raw_expression_tree_walker_impl(Node *node,
 }
 
 /*
- * planstate_tree_walker --- walk plan state trees
+ * planstate_tree_walker --- 遍历计划状态树
  *
- * The walker has already visited the current node, and so we need only
- * recurse into any sub-nodes it has.
+ * 遍历例程已经访问过当前节点，因此我们只需
+ * 递归进入它拥有的任何子节点。
  */
 bool
 planstate_tree_walker_impl(PlanState *planstate,
@@ -4429,13 +4429,13 @@ planstate_tree_walker_impl(PlanState *planstate,
 	Plan	   *plan = planstate->plan;
 	ListCell   *lc;
 
-	/* We don't need implicit coercions to Node here */
+	/* 这里不需要到 Node 的隐式强制转换 */
 #define PSWALK(n) walker(n, context)
 
-	/* Guard against stack overflow due to overly complex plan trees */
+	/* 防止过于复杂的计划树导致栈溢出 */
 	check_stack_depth();
 
-	/* initPlan-s */
+	/* initPlan 们 */
 	if (planstate_walk_subplans(planstate->initPlan, walker, context))
 		return true;
 
@@ -4453,7 +4453,7 @@ planstate_tree_walker_impl(PlanState *planstate,
 			return true;
 	}
 
-	/* special child plans */
+	/* 特殊的子计划 */
 	switch (nodeTag(plan))
 	{
 		case T_Append:
@@ -4495,7 +4495,7 @@ planstate_tree_walker_impl(PlanState *planstate,
 			break;
 	}
 
-	/* subPlan-s */
+	/* subPlan 们 */
 	if (planstate_walk_subplans(planstate->subPlan, walker, context))
 		return true;
 
@@ -4503,7 +4503,7 @@ planstate_tree_walker_impl(PlanState *planstate,
 }
 
 /*
- * Walk a list of SubPlans (or initPlans, which also use SubPlan nodes).
+ * 遍历 SubPlans 列表（或同样使用 SubPlan 节点的 initPlans）。
  */
 static bool
 planstate_walk_subplans(List *plans,
@@ -4524,8 +4524,8 @@ planstate_walk_subplans(List *plans,
 }
 
 /*
- * Walk the constituent plans of a ModifyTable, Append, MergeAppend,
- * BitmapAnd, or BitmapOr node.
+ * 遍历 ModifyTable、Append、MergeAppend、
+ * BitmapAnd 或 BitmapOr 节点的组成计划。
  */
 static bool
 planstate_walk_members(PlanState **planstates, int nplans,

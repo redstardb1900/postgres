@@ -24,63 +24,63 @@
 
 
 /*
- * Macros to simplify comparison of different kinds of fields.  Use these
- * wherever possible to reduce the chance for silly typos.  Note that these
- * hard-wire the convention that the local variables in an Equal routine are
- * named 'a' and 'b'.
+ * 简化各类字段比较的宏。尽可能使用它们，
+ * 以减少低级笔误的机会。注意，这些宏把
+ * Equal 例程中局部变量名为 'a' 和 'b'
+ * 这一约定写死了。
  */
 
-/* Compare a simple scalar field (int, float, bool, enum, etc) */
+/* 比较简单标量字段（int、float、bool、enum 等） */
 #define COMPARE_SCALAR_FIELD(fldname) \
 	do { \
 		if (a->fldname != b->fldname) \
 			return false; \
 	} while (0)
 
-/* Compare a field that is a pointer to some kind of Node or Node tree */
+/* 比较指向某种 Node 或 Node 树的字段 */
 #define COMPARE_NODE_FIELD(fldname) \
 	do { \
 		if (!equal(a->fldname, b->fldname)) \
 			return false; \
 	} while (0)
 
-/* Compare a field that is a pointer to a Bitmapset */
+/* 比较指向 Bitmapset 的字段 */
 #define COMPARE_BITMAPSET_FIELD(fldname) \
 	do { \
 		if (!bms_equal(a->fldname, b->fldname)) \
 			return false; \
 	} while (0)
 
-/* Compare a field that is a pointer to a C string, or perhaps NULL */
+/* 比较指向 C 字符串的字段，或者也许是 NULL */
 #define COMPARE_STRING_FIELD(fldname) \
 	do { \
 		if (!equalstr(a->fldname, b->fldname)) \
 			return false; \
 	} while (0)
 
-/* Macro for comparing string fields that might be NULL */
+/* 比较可能为 NULL 的字符串字段的宏 */
 #define equalstr(a, b)	\
 	(((a) != NULL && (b) != NULL) ? (strcmp(a, b) == 0) : (a) == (b))
 
-/* Compare a field that is an inline array */
+/* 比较内联数组字段 */
 #define COMPARE_ARRAY_FIELD(fldname) \
 	do { \
 		if (memcmp(a->fldname, b->fldname, sizeof(a->fldname)) != 0) \
 			return false; \
 	} while (0)
 
-/* Compare a field that is a pointer to a simple palloc'd object of size sz */
+/* 比较指向大小为 sz 的、简单 palloc 对象的字段 */
 #define COMPARE_POINTER_FIELD(fldname, sz) \
 	do { \
 		if (memcmp(a->fldname, b->fldname, (sz)) != 0) \
 			return false; \
 	} while (0)
 
-/* Compare a parse location field (this is a no-op, per note above) */
+/* 比较解析位置字段（这是空操作，见上面的说明） */
 #define COMPARE_LOCATION_FIELD(fldname) \
 	((void) 0)
 
-/* Compare a CoercionForm field (also a no-op, per comment in primnodes.h) */
+/* 比较 CoercionForm 字段（同样是空操作，见 primnodes.h 中的注释） */
 #define COMPARE_COERCIONFORM_FIELD(fldname) \
 	((void) 0)
 
@@ -89,7 +89,7 @@
 
 
 /*
- * Support functions for nodes with custom_copy_equal attribute
+ * 带 custom_copy_equal 属性的节点的支持函数
  */
 
 static bool
@@ -104,8 +104,8 @@ _equalConst(const Const *a, const Const *b)
 	COMPARE_LOCATION_FIELD(location);
 
 	/*
-	 * We treat all NULL constants of the same type as equal. Someday this
-	 * might need to change?  But datumIsEqual doesn't work on nulls, so...
+	 * 我们把同一类型的所有 NULL 常量视为相等。将来也许
+	 * 需要改变？但 datumIsEqual 对 null 不起作用，所以……
 	 */
 	if (a->constisnull)
 		return true;
@@ -120,10 +120,10 @@ _equalExtensibleNode(const ExtensibleNode *a, const ExtensibleNode *b)
 
 	COMPARE_STRING_FIELD(extnodename);
 
-	/* At this point, we know extnodename is the same for both nodes. */
+	/* 至此，我们知道两个节点的 extnodename 相同。 */
 	methods = GetExtensibleNodeMethods(a->extnodename, false);
 
-	/* compare the private fields */
+	/* 比较私有字段 */
 	if (!methods->nodeEqual(a, b))
 		return false;
 
@@ -134,7 +134,7 @@ static bool
 _equalA_Const(const A_Const *a, const A_Const *b)
 {
 	COMPARE_SCALAR_FIELD(isnull);
-	/* Hack for in-line val field.  Also val is not valid if isnull is true */
+	/* 针对内联 val 字段的权宜做法。若 isnull 为 true，val 也无效 */
 	if (!a->isnull &&
 		!equal(&a->val, &b->val))
 		return false;
@@ -150,7 +150,7 @@ _equalBitmapset(const Bitmapset *a, const Bitmapset *b)
 }
 
 /*
- * Lists are handled specially
+ * 列表被特殊处理
  */
 static bool
 _equalList(const List *a, const List *b)
@@ -159,15 +159,15 @@ _equalList(const List *a, const List *b)
 	const ListCell *item_b;
 
 	/*
-	 * Try to reject by simple scalar checks before grovelling through all the
-	 * list elements...
+	 * 在翻遍所有列表元素之前，先用简单的标量检查尝试排除
+	 * ……
 	 */
 	COMPARE_SCALAR_FIELD(type);
 	COMPARE_SCALAR_FIELD(length);
 
 	/*
-	 * We place the switch outside the loop for the sake of efficiency; this
-	 * may not be worth doing...
+	 * 为了效率我们把 switch 放在循环外面；这
+	 * 也许并不值得……
 	 */
 	switch (a->type)
 	{
@@ -202,11 +202,11 @@ _equalList(const List *a, const List *b)
 		default:
 			elog(ERROR, "unrecognized list node type: %d",
 				 (int) a->type);
-			return false;		/* keep compiler quiet */
+			return false;		/* 消除编译器告警 */
 	}
 
 	/*
-	 * If we got here, we should have run out of elements of both lists
+	 * 若到达这里，两个列表的元素都应当已经用完
 	 */
 	Assert(item_a == NULL);
 	Assert(item_b == NULL);
@@ -217,7 +217,7 @@ _equalList(const List *a, const List *b)
 
 /*
  * equal
- *	  returns whether two nodes are equal
+ *	  返回两个节点是否相等
  */
 bool
 equal(const void *a, const void *b)
@@ -228,18 +228,18 @@ equal(const void *a, const void *b)
 		return true;
 
 	/*
-	 * note that a!=b, so only one of them can be NULL
+	 * 注意 a!=b，因此只有其中一个可以为 NULL
 	 */
 	if (a == NULL || b == NULL)
 		return false;
 
 	/*
-	 * are they the same type of nodes?
+	 * 它们是同一类型的节点吗？
 	 */
 	if (nodeTag(a) != nodeTag(b))
 		return false;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	switch (nodeTag(a))
@@ -256,7 +256,7 @@ equal(const void *a, const void *b)
 		default:
 			elog(ERROR, "unrecognized node type: %d",
 				 (int) nodeTag(a));
-			retval = false;		/* keep compiler quiet */
+			retval = false;		/* 消除编译器告警 */
 			break;
 	}
 

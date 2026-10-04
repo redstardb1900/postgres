@@ -1190,6 +1190,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0048-comment-nodes-small.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "note": "node copy support"
+  },
+  {
+   "pattern": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "note": "node equality support"
+  },
+  {
+   "pattern": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "note": "node debug printers"
+  },
+  {
+   "pattern": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "note": "query jumble"
+  },
+  {
+   "pattern": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "note": "ParamListInfo helpers"
+  },
+  {
+   "pattern": "src/backend/nodes/read.c",
+   "kind": "c_comment",
+   "note": "node string reader"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0049-comment-nodes-mid.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -4234,7 +4269,90 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node copy support"
+  },
+  {
+   "path": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 25,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node equality support"
+  },
+  {
+   "path": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node debug printers"
+  },
+  {
+   "path": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "query jumble"
+  },
+  {
+   "path": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "ParamListInfo helpers"
+  },
+  {
+   "path": "src/backend/nodes/read.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 38,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent block"
+   ],
+   "note": "node string reader"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0049-comment-nodes-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read)."
 }

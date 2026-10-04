@@ -30,7 +30,7 @@
 
 /*
  * print
- *	  print contents of Node to stdout
+ *	  把 Node 的内容打印到 stdout
  */
 void
 print(const void *obj)
@@ -48,7 +48,7 @@ print(const void *obj)
 
 /*
  * pprint
- *	  pretty-print contents of Node to stdout
+ *	  把 Node 的内容美化打印到 stdout
  */
 void
 pprint(const void *obj)
@@ -66,7 +66,7 @@ pprint(const void *obj)
 
 /*
  * elog_node_display
- *	  send pretty-printed contents of Node to postmaster log
+ *	  把 Node 美化打印后的内容送到 postmaster 日志
  */
 void
 elog_node_display(int lev, const char *title, const void *obj, bool pretty)
@@ -87,11 +87,11 @@ elog_node_display(int lev, const char *title, const void *obj, bool pretty)
 }
 
 /*
- * Format a nodeToString output for display on a terminal.
+ * 把 nodeToString 的输出格式化，以便在终端上显示。
  *
- * The result is a palloc'd string.
+ * 结果是 palloc 出来的字符串。
  *
- * This version just tries to break at whitespace.
+ * 这一版只尝试在空白处折行。
  */
 char *
 format_node_dump(const char *dump)
@@ -113,7 +113,7 @@ format_node_dump(const char *dump)
 			break;
 		if (dump[i] == ' ')
 		{
-			/* ok to break at adjacent space */
+			/* 可以在相邻空格处折行 */
 			i++;
 		}
 		else
@@ -123,7 +123,7 @@ format_node_dump(const char *dump)
 					break;
 			if (k > 0)
 			{
-				/* back up; will reprint all after space */
+				/* 回退；将重新打印空格之后的全部内容 */
 				i -= (j - k - 1);
 				j = k;
 			}
@@ -141,11 +141,11 @@ format_node_dump(const char *dump)
 }
 
 /*
- * Format a nodeToString output for display on a terminal.
+ * 把 nodeToString 的输出格式化，以便在终端上显示。
  *
- * The result is a palloc'd string.
+ * 结果是 palloc 出来的字符串。
  *
- * This version tries to indent intelligently.
+ * 这一版尝试智能地缩进。
  */
 char *
 pretty_format_node_dump(const char *dump)
@@ -161,8 +161,8 @@ pretty_format_node_dump(const char *dump)
 	int			j;
 
 	initStringInfo(&str);
-	indentLev = 0;				/* logical indent level */
-	indentDist = 0;				/* physical indent distance */
+	indentLev = 0;				/* 逻辑缩进层级 */
+	indentDist = 0;				/* 物理缩进距离 */
 	i = 0;
 	for (;;)
 	{
@@ -176,28 +176,28 @@ pretty_format_node_dump(const char *dump)
 				case '}':
 					if (j != indentDist)
 					{
-						/* print data before the } */
+						/* 打印 } 之前的数据 */
 						line[j] = '\0';
 						appendStringInfo(&str, "%s\n", line);
 					}
-					/* print the } at indentDist */
+					/* 在 indentDist 处打印 } */
 					line[indentDist] = '}';
 					line[indentDist + 1] = '\0';
 					appendStringInfo(&str, "%s\n", line);
-					/* outdent */
+					/* 减少缩进 */
 					if (indentLev > 0)
 					{
 						indentLev--;
 						indentDist = Min(indentLev * INDENTSTOP, MAXINDENT);
 					}
 					j = indentDist - 1;
-					/* j will equal indentDist on next loop iteration */
-					/* suppress whitespace just after } */
+					/* 下一次循环迭代时 j 将等于 indentDist */
+					/* 抑制紧跟在 } 之后的空白 */
 					while (dump[i + 1] == ' ')
 						i++;
 					break;
 				case ')':
-					/* force line break after ), unless another ) follows */
+					/* 在 ) 之后强制换行，除非后面紧跟另一个 ) */
 					if (dump[i + 1] != ')')
 					{
 						line[j + 1] = '\0';
@@ -208,13 +208,13 @@ pretty_format_node_dump(const char *dump)
 					}
 					break;
 				case '{':
-					/* force line break before { */
+					/* 在 { 之前强制换行 */
 					if (j != indentDist)
 					{
 						line[j] = '\0';
 						appendStringInfo(&str, "%s\n", line);
 					}
-					/* indent */
+					/* 缩进 */
 					indentLev++;
 					indentDist = Min(indentLev * INDENTSTOP, MAXINDENT);
 					for (j = 0; j < indentDist; j++)
@@ -222,7 +222,7 @@ pretty_format_node_dump(const char *dump)
 					line[j] = dump[i];
 					break;
 				case ':':
-					/* force line break before : */
+					/* 在 : 之前强制换行 */
 					if (j != indentDist)
 					{
 						line[j] = '\0';
@@ -248,7 +248,7 @@ pretty_format_node_dump(const char *dump)
 
 /*
  * print_rt
- *	  print contents of range table
+ *	  打印范围表的内容
  */
 void
 print_rt(const List *rtable)
@@ -315,7 +315,7 @@ print_rt(const List *rtable)
 
 /*
  * print_expr
- *	  print an expression
+ *	  打印一个表达式
  */
 void
 print_expr(const Node *expr, const List *rtable)
@@ -420,7 +420,7 @@ print_expr(const Node *expr, const List *rtable)
 
 /*
  * print_pathkeys -
- *	  pathkeys list of PathKeys
+ *	  PathKeys 的 pathkeys 列表
  */
 void
 print_pathkeys(const List *pathkeys, const List *rtable)
@@ -436,7 +436,7 @@ print_pathkeys(const List *pathkeys, const List *rtable)
 		bool		first = true;
 
 		eclass = pathkey->pk_eclass;
-		/* chase up, in case pathkey is non-canonical */
+		/* 向上追踪，以防 pathkey 不是规范形式 */
 		while (eclass->ec_merged)
 			eclass = eclass->ec_merged;
 
@@ -460,7 +460,7 @@ print_pathkeys(const List *pathkeys, const List *rtable)
 
 /*
  * print_tl
- *	  print targetlist in a more legible way.
+ *	  以更易读的方式打印目标列表。
  */
 void
 print_tl(const List *tlist, const List *rtable)
@@ -486,7 +486,7 @@ print_tl(const List *tlist, const List *rtable)
 
 /*
  * print_slot
- *	  print out the tuple with the given TupleTableSlot
+ *	  打印给定 TupleTableSlot 中的元组
  */
 void
 print_slot(TupleTableSlot *slot)

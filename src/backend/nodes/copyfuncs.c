@@ -20,33 +20,33 @@
 
 
 /*
- * Macros to simplify copying of different kinds of fields.  Use these
- * wherever possible to reduce the chance for silly typos.  Note that these
- * hard-wire the convention that the local variables in a Copy routine are
- * named 'newnode' and 'from'.
+ * 简化各类字段复制的宏。尽可能使用它们，
+ * 以减少低级笔误的机会。注意，这些宏把
+ * Copy 例程中局部变量名为 'newnode' 和 'from'
+ * 这一约定写死了。
  */
 
-/* Copy a simple scalar field (int, float, bool, enum, etc) */
+/* 复制简单标量字段（int、float、bool、enum 等） */
 #define COPY_SCALAR_FIELD(fldname) \
 	(newnode->fldname = from->fldname)
 
-/* Copy a field that is a pointer to some kind of Node or Node tree */
+/* 复制指向某种 Node 或 Node 树的字段 */
 #define COPY_NODE_FIELD(fldname) \
 	(newnode->fldname = copyObjectImpl(from->fldname))
 
-/* Copy a field that is a pointer to a Bitmapset */
+/* 复制指向 Bitmapset 的字段 */
 #define COPY_BITMAPSET_FIELD(fldname) \
 	(newnode->fldname = bms_copy(from->fldname))
 
-/* Copy a field that is a pointer to a C string, or perhaps NULL */
+/* 复制指向 C 字符串的字段，或者也许是 NULL */
 #define COPY_STRING_FIELD(fldname) \
 	(newnode->fldname = from->fldname ? pstrdup(from->fldname) : (char *) NULL)
 
-/* Copy a field that is an inline array */
+/* 复制内联数组字段 */
 #define COPY_ARRAY_FIELD(fldname) \
 	memcpy(newnode->fldname, from->fldname, sizeof(newnode->fldname))
 
-/* Copy a field that is a pointer to a simple palloc'd object of size sz */
+/* 复制指向大小为 sz 的、简单 palloc 对象的字段 */
 #define COPY_POINTER_FIELD(fldname, sz) \
 	do { \
 		Size	_size = (sz); \
@@ -57,7 +57,7 @@
 		} \
 	} while (0)
 
-/* Copy a parse location field (for Copy, this is same as scalar case) */
+/* 复制解析位置字段（对 Copy 来说，这与标量情况相同） */
 #define COPY_LOCATION_FIELD(fldname) \
 	(newnode->fldname = from->fldname)
 
@@ -66,7 +66,7 @@
 
 
 /*
- * Support functions for nodes with custom_copy_equal attribute
+ * 带 custom_copy_equal 属性的节点的支持函数
  */
 
 static Const *
@@ -82,15 +82,15 @@ _copyConst(const Const *from)
 	if (from->constbyval || from->constisnull)
 	{
 		/*
-		 * passed by value so just copy the datum. Also, don't try to copy
-		 * struct when value is null!
+		 * 按值传递，因此只复制 datum。另外，值为 null 时不要尝试复制
+		 * 结构体！
 		 */
 		newnode->constvalue = from->constvalue;
 	}
 	else
 	{
 		/*
-		 * passed by reference.  We need a palloc'd copy.
+		 * 按引用传递。我们需要一份 palloc 出来的副本。
 		 */
 		newnode->constvalue = datumCopy(from->constvalue,
 										from->constbyval,
@@ -112,7 +112,7 @@ _copyA_Const(const A_Const *from)
 	COPY_SCALAR_FIELD(isnull);
 	if (!from->isnull)
 	{
-		/* This part must duplicate other _copy*() functions. */
+		/* 这一部分必须与其他 _copy*() 函数保持重复。 */
 		COPY_SCALAR_FIELD(val.node.type);
 		switch (nodeTag(&from->val))
 		{
@@ -154,7 +154,7 @@ _copyExtensibleNode(const ExtensibleNode *from)
 										 T_ExtensibleNode);
 	COPY_STRING_FIELD(extnodename);
 
-	/* copy the private fields */
+	/* 复制私有字段 */
 	methods->nodeCopy(newnode, from);
 
 	return newnode;
@@ -168,10 +168,10 @@ _copyBitmapset(const Bitmapset *from)
 
 
 /*
- * copyObjectImpl -- implementation of copyObject(); see nodes/nodes.h
+ * copyObjectImpl -- copyObject() 的实现；见 nodes/nodes.h
  *
- * Create a copy of a Node tree or list.  This is a "deep" copy: all
- * substructure is copied too, recursively.
+ * 创建 Node 树或列表的副本。这是一次 "深" 拷贝：所有
+ * 子结构也会被递归复制。
  */
 void *
 copyObjectImpl(const void *from)
@@ -181,7 +181,7 @@ copyObjectImpl(const void *from)
 	if (from == NULL)
 		return NULL;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	switch (nodeTag(from))
@@ -193,8 +193,8 @@ copyObjectImpl(const void *from)
 			break;
 
 			/*
-			 * Lists of integers, OIDs and XIDs don't need to be deep-copied,
-			 * so we perform a shallow copy via list_copy()
+			 * 整数、OIDs 和 XIDs 的列表不需要深拷贝，
+			 * 因此我们通过 list_copy() 做浅拷贝
 			 */
 		case T_IntList:
 		case T_OidList:
@@ -204,7 +204,7 @@ copyObjectImpl(const void *from)
 
 		default:
 			elog(ERROR, "unrecognized node type: %d", (int) nodeTag(from));
-			retval = 0;			/* keep compiler quiet */
+			retval = 0;			/* 消除编译器告警 */
 			break;
 	}
 

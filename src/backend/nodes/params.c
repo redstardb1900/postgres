@@ -31,14 +31,14 @@ static Node *paramlist_param_ref(ParseState *pstate, ParamRef *pref);
 
 
 /*
- * Allocate and initialize a new ParamListInfo structure.
+ * 分配并初始化一个新的 ParamListInfo 结构体。
  *
- * To make a new structure for the "dynamic" way (with hooks), pass 0 for
- * numParams and set numParams manually.
+ * 要为 "动态" 方式（带钩子）建立新结构，numParams 传 0，
+ * 再手动设置 numParams。
  *
- * A default parserSetup function is supplied automatically.  Callers may
- * override it if they choose.  (Note that most use-cases for ParamListInfos
- * will never use the parserSetup function anyway.)
+ * 会自动提供一个默认的 parserSetup 函数。调用方若愿意
+ * 可以覆盖它。（注意，ParamListInfos 的多数使用场景
+ * 反正永远不会用到 parserSetup 函数。）
  */
 ParamListInfo
 makeParamList(int numParams)
@@ -63,16 +63,16 @@ makeParamList(int numParams)
 }
 
 /*
- * Copy a ParamListInfo structure.
+ * 复制一个 ParamListInfo 结构体。
  *
- * The result is allocated in CurrentMemoryContext.
+ * 结果分配在 CurrentMemoryContext 中。
  *
- * Note: the intent of this function is to make a static, self-contained
- * set of parameter values.  If dynamic parameter hooks are present, we
- * intentionally do not copy them into the result.  Rather, we forcibly
- * instantiate all available parameter values and copy the datum values.
+ * 注意：本函数的意图是做出一套静态的、自包含的
+ * 参数值。若存在动态参数钩子，我们
+ * 有意不把它们复制进结果。而是强制
+ * 实例化所有可用的参数值，并复制 datum 值。
  *
- * paramValuesStr is not copied, either.
+ * 也不复制 paramValuesStr。
  */
 ParamListInfo
 copyParamList(ParamListInfo from)
@@ -92,16 +92,16 @@ copyParamList(ParamListInfo from)
 		int16		typLen;
 		bool		typByVal;
 
-		/* give hook a chance in case parameter is dynamic */
+		/* 若参数是动态的，给钩子一次机会 */
 		if (from->paramFetch != NULL)
 			oprm = from->paramFetch(from, i + 1, false, &prmdata);
 		else
 			oprm = &from->params[i];
 
-		/* flat-copy the parameter info */
+		/* 平铺复制参数信息 */
 		*nprm = *oprm;
 
-		/* need datumCopy in case it's a pass-by-reference datatype */
+		/* 若它是按引用传递的数据类型，则需要 datumCopy */
 		if (nprm->isnull || !OidIsValid(nprm->ptype))
 			continue;
 		get_typlenbyval(nprm->ptype, &typLen, &typByVal);
@@ -113,19 +113,19 @@ copyParamList(ParamListInfo from)
 
 
 /*
- * Set up to parse a query containing references to parameters
- * sourced from a ParamListInfo.
+ * 准备解析含有参数引用的查询，
+ * 这些参数来自 ParamListInfo。
  */
 static void
 paramlist_parser_setup(ParseState *pstate, void *arg)
 {
 	pstate->p_paramref_hook = paramlist_param_ref;
-	/* no need to use p_coerce_param_hook */
+	/* 不需要使用 p_coerce_param_hook */
 	pstate->p_ref_hook_state = arg;
 }
 
 /*
- * Transform a ParamRef using parameter type data from a ParamListInfo.
+ * 用来自 ParamListInfo 的参数类型数据变换 ParamRef。
  */
 static Node *
 paramlist_param_ref(ParseState *pstate, ParamRef *pref)
@@ -136,11 +136,11 @@ paramlist_param_ref(ParseState *pstate, ParamRef *pref)
 	ParamExternData prmdata;
 	Param	   *param;
 
-	/* check parameter number is valid */
+	/* 检查参数编号是否有效 */
 	if (paramno <= 0 || paramno > paramLI->numParams)
 		return NULL;
 
-	/* give hook a chance in case parameter is dynamic */
+	/* 若参数是动态的，给钩子一次机会 */
 	if (paramLI->paramFetch != NULL)
 		prm = paramLI->paramFetch(paramLI, paramno, false, &prmdata);
 	else
@@ -161,7 +161,7 @@ paramlist_param_ref(ParseState *pstate, ParamRef *pref)
 }
 
 /*
- * Estimate the amount of space required to serialize a ParamListInfo.
+ * 估算序列化一个 ParamListInfo 所需的空间。
  */
 Size
 EstimateParamListSpace(ParamListInfo paramLI)
@@ -180,7 +180,7 @@ EstimateParamListSpace(ParamListInfo paramLI)
 		int16		typLen;
 		bool		typByVal;
 
-		/* give hook a chance in case parameter is dynamic */
+		/* 若参数是动态的，给钩子一次机会 */
 		if (paramLI->paramFetch != NULL)
 			prm = paramLI->paramFetch(paramLI, i + 1, false, &prmdata);
 		else
@@ -188,15 +188,15 @@ EstimateParamListSpace(ParamListInfo paramLI)
 
 		typeOid = prm->ptype;
 
-		sz = add_size(sz, sizeof(Oid)); /* space for type OID */
-		sz = add_size(sz, sizeof(uint16));	/* space for pflags */
+		sz = add_size(sz, sizeof(Oid)); /* 类型 OID 所需空间 */
+		sz = add_size(sz, sizeof(uint16));	/* pflags 所需空间 */
 
-		/* space for datum/isnull */
+		/* datum/isnull 所需空间 */
 		if (OidIsValid(typeOid))
 			get_typlenbyval(typeOid, &typLen, &typByVal);
 		else
 		{
-			/* If no type OID, assume by-value, like copyParamList does. */
+			/* 若没有类型 OID，就假定按值传递，如同 copyParamList 那样。 */
 			typLen = sizeof(Datum);
 			typByVal = true;
 		}
@@ -208,22 +208,22 @@ EstimateParamListSpace(ParamListInfo paramLI)
 }
 
 /*
- * Serialize a ParamListInfo structure into caller-provided storage.
+ * 把 ParamListInfo 结构体序列化到调用方提供的存储中。
  *
- * We write the number of parameters first, as a 4-byte integer, and then
- * write details for each parameter in turn.  The details for each parameter
- * consist of a 4-byte type OID, 2 bytes of flags, and then the datum as
- * serialized by datumSerialize().  The caller is responsible for ensuring
- * that there is enough storage to store the number of bytes that will be
- * written; use EstimateParamListSpace to find out how many will be needed.
- * *start_address is updated to point to the byte immediately following those
- * written.
+ * 我们先把参数个数写成 4 字节整数，然后
+ * 依次写出每个参数的细节。每个参数的细节
+ * 包括 4 字节类型 OID、2 字节标志，然后是 datum，
+ * 由 datumSerialize() 序列化。调用方负责确保
+ * 有足够的存储来存放将要写入的字节数；
+ * 用 EstimateParamListSpace 查出需要多少。
+ * *start_address 被更新为指向紧接那些
+ * 已写字节之后的字节。
  *
- * RestoreParamList can be used to recreate a ParamListInfo based on the
- * serialized representation; this will be a static, self-contained copy
- * just as copyParamList would create.
+ * 可以用 RestoreParamList 根据序列化表示重建 ParamListInfo；
+ * 这将是一份静态的、自包含的副本，
+ * 正如 copyParamList 会创建的那样。
  *
- * paramValuesStr is not included.
+ * 不包括 paramValuesStr。
  */
 void
 SerializeParamList(ParamListInfo paramLI, char **start_address)
@@ -231,7 +231,7 @@ SerializeParamList(ParamListInfo paramLI, char **start_address)
 	int			nparams;
 	int			i;
 
-	/* Write number of parameters. */
+	/* 写出参数个数。 */
 	if (paramLI == NULL || paramLI->numParams <= 0)
 		nparams = 0;
 	else
@@ -239,7 +239,7 @@ SerializeParamList(ParamListInfo paramLI, char **start_address)
 	memcpy(*start_address, &nparams, sizeof(int));
 	*start_address += sizeof(int);
 
-	/* Write each parameter in turn. */
+	/* 依次写出每个参数。 */
 	for (i = 0; i < nparams; i++)
 	{
 		ParamExternData *prm;
@@ -248,7 +248,7 @@ SerializeParamList(ParamListInfo paramLI, char **start_address)
 		int16		typLen;
 		bool		typByVal;
 
-		/* give hook a chance in case parameter is dynamic */
+		/* 若参数是动态的，给钩子一次机会 */
 		if (paramLI->paramFetch != NULL)
 			prm = paramLI->paramFetch(paramLI, i + 1, false, &prmdata);
 		else
@@ -256,20 +256,20 @@ SerializeParamList(ParamListInfo paramLI, char **start_address)
 
 		typeOid = prm->ptype;
 
-		/* Write type OID. */
+		/* 写出类型 OID。 */
 		memcpy(*start_address, &typeOid, sizeof(Oid));
 		*start_address += sizeof(Oid);
 
-		/* Write flags. */
+		/* 写出标志。 */
 		memcpy(*start_address, &prm->pflags, sizeof(uint16));
 		*start_address += sizeof(uint16);
 
-		/* Write datum/isnull. */
+		/* 写出 datum/isnull。 */
 		if (OidIsValid(typeOid))
 			get_typlenbyval(typeOid, &typLen, &typByVal);
 		else
 		{
-			/* If no type OID, assume by-value, like copyParamList does. */
+			/* 若没有类型 OID，就假定按值传递，如同 copyParamList 那样。 */
 			typLen = sizeof(Datum);
 			typByVal = true;
 		}
@@ -279,14 +279,14 @@ SerializeParamList(ParamListInfo paramLI, char **start_address)
 }
 
 /*
- * Copy a ParamListInfo structure.
+ * 复制一个 ParamListInfo 结构体。
  *
- * The result is allocated in CurrentMemoryContext.
+ * 结果分配在 CurrentMemoryContext 中。
  *
- * Note: the intent of this function is to make a static, self-contained
- * set of parameter values.  If dynamic parameter hooks are present, we
- * intentionally do not copy them into the result.  Rather, we forcibly
- * instantiate all available parameter values and copy the datum values.
+ * 注意：本函数的意图是做出一套静态的、自包含的
+ * 参数值。若存在动态参数钩子，我们
+ * 有意不把它们复制进结果。而是强制
+ * 实例化所有可用的参数值，并复制 datum 值。
  */
 ParamListInfo
 RestoreParamList(char **start_address)
@@ -303,15 +303,15 @@ RestoreParamList(char **start_address)
 	{
 		ParamExternData *prm = &paramLI->params[i];
 
-		/* Read type OID. */
+		/* 读取类型 OID。 */
 		memcpy(&prm->ptype, *start_address, sizeof(Oid));
 		*start_address += sizeof(Oid);
 
-		/* Read flags. */
+		/* 读取标志。 */
 		memcpy(&prm->pflags, *start_address, sizeof(uint16));
 		*start_address += sizeof(uint16);
 
-		/* Read datum/isnull. */
+		/* 读取 datum/isnull。 */
 		prm->value = datumRestore(start_address, &prm->isnull);
 	}
 
@@ -320,16 +320,16 @@ RestoreParamList(char **start_address)
 
 /*
  * BuildParamLogString
- *		Return a string that represents the parameter list, for logging.
+ *		返回表示参数列表的字符串，用于记日志。
  *
- * If caller already knows textual representations for some parameters, it can
- * pass an array of exactly params->numParams values as knownTextValues, which
- * can contain NULLs for any unknown individual values.  NULL can be given if
- * no parameters are known.
+ * 若调用方已经知道某些参数的文本表示，它可以
+ * 传入恰好 params->numParams 个值的数组作为 knownTextValues，其中
+ * 未知的单个值可以是 NULLs。若没有任何已知参数，
+ * 可以传入 NULL。
  *
- * If maxlen is >= 0, that's the maximum number of bytes of any one
- * parameter value to be printed; an ellipsis is added if the string is
- * longer.  (Added quotes are not considered in this calculation.)
+ * 若 maxlen >= 0，那就是任一参数值要打印的
+ * 最大字节数；若字符串更长就加上省略号。
+ * （加上的引号不计入这一计算。）
  */
 char *
 BuildParamLogString(ParamListInfo params, char **knownTextValues, int maxlen)
@@ -339,24 +339,24 @@ BuildParamLogString(ParamListInfo params, char **knownTextValues, int maxlen)
 	StringInfoData buf;
 
 	/*
-	 * NB: think not of returning params->paramValuesStr!  It may have been
-	 * generated with a different maxlen, and so be unsuitable.  Besides that,
-	 * this is the function used to create that string.
+	 * 注意：不要想着返回 params->paramValuesStr！它可能是用
+	 * 不同的 maxlen 生成的，因此不合适。除此之外，
+	 * 创建那个字符串用的就是本函数。
 	 */
 
 	/*
-	 * No work if the param fetch hook is in use.  Also, it's not possible to
-	 * do this in an aborted transaction.  (It might be possible to improve on
-	 * this last point when some knownTextValues exist, but it seems tricky.)
+	 * 若正在使用参数获取钩子，就无事可做。另外，在
+	 * 已中止的事务中无法做这件事。（若存在某些 knownTextValues，
+	 * 也许可以改进最后这一点，但看起来很棘手。）
 	 */
 	if (params->paramFetch != NULL ||
 		IsAbortedTransactionBlockState())
 		return NULL;
 
-	/* Initialize the output stringinfo, in caller's memory context */
+	/* 在调用方的内存上下文中初始化输出 stringinfo */
 	initStringInfo(&buf);
 
-	/* Use a temporary context to call output functions, just in case */
+	/* 用临时上下文调用输出函数，以防万一 */
 	tmpCxt = AllocSetContextCreate(CurrentMemoryContext,
 								   "BuildParamLogString",
 								   ALLOCSET_DEFAULT_SIZES);
@@ -398,10 +398,10 @@ BuildParamLogString(ParamListInfo params, char **knownTextValues, int maxlen)
 }
 
 /*
- * ParamsErrorCallback - callback for printing parameters in error context
+ * ParamsErrorCallback - 在错误上下文中打印参数的回调
  *
- * Note that this is a no-op unless BuildParamLogString has been called
- * beforehand.
+ * 注意，除非事先调用了 BuildParamLogString，否则这是
+ * 空操作。
  */
 void
 ParamsErrorCallback(void *arg)

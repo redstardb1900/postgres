@@ -37,12 +37,12 @@
 #include "nodes/queryjumble.h"
 #include "parser/scansup.h"
 
-#define JUMBLE_SIZE				1024	/* query serialization buffer size */
+#define JUMBLE_SIZE				1024	/* 查询序列化缓冲区大小 */
 
-/* GUC parameters */
+/* GUC 参数 */
 int			compute_query_id = COMPUTE_QUERY_ID_AUTO;
 
-/* True when compute_query_id is ON, or AUTO and a module requests them */
+/* 当 compute_query_id 为 ON，或为 AUTO 且有模块请求它们时为 true */
 bool		query_id_enabled = false;
 
 static void AppendJumble(JumbleState *jstate,
@@ -54,8 +54,8 @@ static void _jumbleList(JumbleState *jstate, Node *node);
 static void _jumbleRangeTblEntry(JumbleState *jstate, Node *node);
 
 /*
- * Given a possibly multi-statement source string, confine our attention to the
- * relevant part of the string.
+ * 给定一个可能含多条语句的源字符串，把注意力限制在
+ * 该字符串的相关部分。
  */
 const char *
 CleanQuerytext(const char *query, int *location, int *len)
@@ -63,12 +63,12 @@ CleanQuerytext(const char *query, int *location, int *len)
 	int			query_location = *location;
 	int			query_len = *len;
 
-	/* First apply starting offset, unless it's -1 (unknown). */
+	/* 先应用起始偏移，除非它是 -1（未知）。 */
 	if (query_location >= 0)
 	{
 		Assert(query_location <= strlen(query));
 		query += query_location;
-		/* Length of 0 (or -1) means "rest of string" */
+		/* 长度为 0（或 -1）表示 "字符串的剩余部分" */
 		if (query_len <= 0)
 			query_len = strlen(query);
 		else
@@ -76,14 +76,14 @@ CleanQuerytext(const char *query, int *location, int *len)
 	}
 	else
 	{
-		/* If query location is unknown, distrust query_len as well */
+		/* 若查询位置未知，同样不要信任 query_len */
 		query_location = 0;
 		query_len = strlen(query);
 	}
 
 	/*
-	 * Discard leading and trailing whitespace, too.  Use scanner_isspace()
-	 * not libc's isspace(), because we want to match the lexer's behavior.
+	 * 也丢弃前导和尾随空白。使用 scanner_isspace()
+	 * 而不是 libc 的 isspace()，因为我们希望与词法分析器的行为一致。
 	 */
 	while (query_len > 0 && scanner_isspace(query[0]))
 		query++, query_location++, query_len--;
@@ -105,7 +105,7 @@ JumbleQuery(Query *query)
 
 	jstate = (JumbleState *) palloc(sizeof(JumbleState));
 
-	/* Set up workspace for query jumbling */
+	/* 为查询混写建立工作区 */
 	jstate->jumble = (unsigned char *) palloc(JUMBLE_SIZE);
 	jstate->jumble_len = 0;
 	jstate->clocations_buf_size = 32;
@@ -114,15 +114,15 @@ JumbleQuery(Query *query)
 	jstate->clocations_count = 0;
 	jstate->highest_extern_param_id = 0;
 
-	/* Compute query ID and mark the Query node with it */
+	/* 计算查询 ID，并把它标记到 Query 节点上 */
 	_jumbleNode(jstate, (Node *) query);
 	query->queryId = DatumGetUInt64(hash_any_extended(jstate->jumble,
 													  jstate->jumble_len,
 													  0));
 
 	/*
-	 * If we are unlucky enough to get a hash of zero, use 1 instead for
-	 * normal statements and 2 for utility queries.
+	 * 若不幸得到哈希值为 0，普通语句改用 1，
+	 * 实用语句改用 2。
 	 */
 	if (query->queryId == UINT64CONST(0))
 	{
@@ -136,10 +136,10 @@ JumbleQuery(Query *query)
 }
 
 /*
- * Enables query identifier computation.
+ * 启用查询标识符计算。
  *
- * Third-party plugins can use this function to inform core that they require
- * a query identifier to be computed.
+ * 第三方插件可以用这个函数通知核心，它们需要
+ * 计算查询标识符。
  */
 void
 EnableQueryId(void)
@@ -149,8 +149,8 @@ EnableQueryId(void)
 }
 
 /*
- * AppendJumble: Append a value that is substantive in a given query to
- * the current jumble.
+ * AppendJumble：把给定查询中有实质意义的值追加到
+ * 当前混写。
  */
 static void
 AppendJumble(JumbleState *jstate, const unsigned char *item, Size size)
@@ -159,9 +159,9 @@ AppendJumble(JumbleState *jstate, const unsigned char *item, Size size)
 	Size		jumble_len = jstate->jumble_len;
 
 	/*
-	 * Whenever the jumble buffer is full, we hash the current contents and
-	 * reset the buffer to contain just that hash value, thus relying on the
-	 * hash to summarize everything so far.
+	 * 每当混写缓冲区满了，我们就对当前内容做哈希，并
+	 * 把缓冲区重置为只含该哈希值，从而依靠
+	 * 哈希来概括到目前为止的一切。
 	 */
 	while (size > 0)
 	{
@@ -186,16 +186,16 @@ AppendJumble(JumbleState *jstate, const unsigned char *item, Size size)
 }
 
 /*
- * Record location of constant within query string of query tree
- * that is currently being walked.
+ * 记录当前正在遍历的查询树的查询字符串中
+ * 常量的位置。
  */
 static void
 RecordConstLocation(JumbleState *jstate, int location)
 {
-	/* -1 indicates unknown or undefined location */
+	/* -1 表示未知或未定义的位置 */
 	if (location >= 0)
 	{
-		/* enlarge array if needed */
+		/* 必要时扩大数组 */
 		if (jstate->clocations_count >= jstate->clocations_buf_size)
 		{
 			jstate->clocations_buf_size *= 2;
@@ -205,7 +205,7 @@ RecordConstLocation(JumbleState *jstate, int location)
 						 sizeof(LocationLen));
 		}
 		jstate->clocations[jstate->clocations_count].location = location;
-		/* initialize lengths to -1 to simplify third-party module usage */
+		/* 把长度初始化为 -1，以简化第三方模块的使用 */
 		jstate->clocations[jstate->clocations_count].length = -1;
 		jstate->clocations_count++;
 	}
@@ -235,12 +235,12 @@ _jumbleNode(JumbleState *jstate, Node *node)
 	if (expr == NULL)
 		return;
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	/*
-	 * We always emit the node's NodeTag, then any additional fields that are
-	 * considered significant, and then we recurse to any child nodes.
+	 * 我们总是先发出节点的 NodeTag，然后是被认为重要的任何附加字段，
+	 * 再递归到任何子节点。
 	 */
 	JUMBLE_FIELD(type);
 
@@ -256,13 +256,13 @@ _jumbleNode(JumbleState *jstate, Node *node)
 			break;
 
 		default:
-			/* Only a warning, since we can stumble along anyway */
+			/* 只是警告，因为我们反正可以勉强继续 */
 			elog(WARNING, "unrecognized node type: %d",
 				 (int) nodeTag(expr));
 			break;
 	}
 
-	/* Special cases to handle outside the automated code */
+	/* 要在自动生成的代码之外处理的特殊情况 */
 	switch (nodeTag(expr))
 	{
 		case T_Param:
@@ -270,8 +270,8 @@ _jumbleNode(JumbleState *jstate, Node *node)
 				Param	   *p = (Param *) node;
 
 				/*
-				 * Update the highest Param id seen, in order to start
-				 * normalization correctly.
+				 * 更新见过的最高 Param id，以便
+				 * 正确地开始规范化。
 				 */
 				if (p->paramkind == PARAM_EXTERN &&
 					p->paramid > jstate->highest_extern_param_id)
@@ -379,8 +379,8 @@ _jumbleRangeTblEntry(JumbleState *jstate, Node *node)
 		case RTE_CTE:
 
 			/*
-			 * Depending on the CTE name here isn't ideal, but it's the only
-			 * info we have to identify the referenced WITH item.
+			 * 在这里依赖 CTE 名字并不理想，但这是我们
+			 * 用来识别所引用 WITH 项的唯一信息。
 			 */
 			JUMBLE_STRING(ctename);
 			JUMBLE_FIELD(ctelevelsup);

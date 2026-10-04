@@ -1,0 +1,146 @@
+{
+ "schema_version": 1,
+ "batch_id": "0049-comment-nodes-mid",
+ "title": "zh: translate mid nodes comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d1336abd1fc9adbd20ee0612797a4cf758396b68",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "note": "node copy support"
+  },
+  {
+   "pattern": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "note": "node equality support"
+  },
+  {
+   "pattern": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "note": "node debug printers"
+  },
+  {
+   "pattern": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "note": "query jumble"
+  },
+  {
+   "pattern": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "note": "ParamListInfo helpers"
+  },
+  {
+   "pattern": "src/backend/nodes/read.c",
+   "kind": "c_comment",
+   "note": "node string reader"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0049-comment-nodes-mid.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node copy support"
+  },
+  {
+   "path": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 25,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node equality support"
+  },
+  {
+   "path": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "node debug printers"
+  },
+  {
+   "path": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "query jumble"
+  },
+  {
+   "path": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "ParamListInfo helpers"
+  },
+  {
+   "path": "src/backend/nodes/read.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 40,
+   "translated": 38,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent block"
+   ],
+   "note": "node string reader"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0049-comment-nodes-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

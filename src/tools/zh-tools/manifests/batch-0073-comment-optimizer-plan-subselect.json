@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0073-comment-optimizer-plan-subselect",
+ "title": "zh: translate subselect comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6908e3cff6777e7c05b3d308a72de3f5e79ae991",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/subselect.c",
+   "kind": "c_comment",
+   "note": "subquery planning"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0073-comment-optimizer-plan-subselect.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/subselect.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 245,
+   "translated": 243,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through agg arguments comment"
+   ],
+   "note": "subquery planning"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0073-comment-optimizer-plan-subselect.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0073 translates src/backend/optimizer/plan/subselect.c."
+}

@@ -42,7 +42,7 @@
 typedef struct convert_testexpr_context
 {
 	PlannerInfo *root;
-	List	   *subst_nodes;	/* Nodes to substitute for Params */
+	List	   *subst_nodes;	/* 用来替换 Param 的节点 */
 } convert_testexpr_context;
 
 typedef struct process_sublinks_context
@@ -54,14 +54,14 @@ typedef struct process_sublinks_context
 typedef struct finalize_primnode_context
 {
 	PlannerInfo *root;
-	Bitmapset  *paramids;		/* Non-local PARAM_EXEC paramids found */
+	Bitmapset  *paramids;		/* 找到的非局部 PARAM_EXEC 参数号 */
 } finalize_primnode_context;
 
 typedef struct inline_cte_walker_context
 {
-	const char *ctename;		/* name and relative level of target CTE */
+	const char *ctename;		/* 目标 CTE 的名字和相对层次 */
 	int			levelsup;
-	Query	   *ctequery;		/* query to substitute */
+	Query	   *ctequery;		/* 用来替换的查询 */
 } inline_cte_walker_context;
 
 
@@ -106,19 +106,19 @@ static bool finalize_agg_primnode(Node *node, finalize_primnode_context *context
 
 
 /*
- * Get the datatype/typmod/collation of the first column of the plan's output.
+ * 取得计划输出第一列的数据类型/typmod/排序规则。
  *
- * This information is stored for ARRAY_SUBLINK execution and for
- * exprType()/exprTypmod()/exprCollation(), which have no way to get at the
- * plan associated with a SubPlan node.  We really only need the info for
- * EXPR_SUBLINK and ARRAY_SUBLINK subplans, but for consistency we save it
- * always.
+ * 这份信息为 ARRAY_SUBLINK 执行以及
+ * exprType()/exprTypmod()/exprCollation() 保存，它们没法拿到
+ * 与 SubPlan 节点关联的计划。其实只对
+ * EXPR_SUBLINK 和 ARRAY_SUBLINK 子计划需要这份信息，但为了一致，总是
+ * 保存。
  */
 static void
 get_first_col_type(Plan *plan, Oid *coltype, int32 *coltypmod,
 				   Oid *colcollation)
 {
-	/* In cases such as EXISTS, tlist might be empty; arbitrarily use VOID */
+	/* 在 EXISTS 这类情形里目标列表可能为空；任意使用 VOID */
 	if (plan->targetlist)
 	{
 		TargetEntry *tent = linitial_node(TargetEntry, plan->targetlist);
@@ -137,26 +137,26 @@ get_first_col_type(Plan *plan, Oid *coltype, int32 *coltypmod,
 }
 
 /*
- * Convert a SubLink (as created by the parser) into a SubPlan.
+ * 把 SubLink（由解析器创建）转换成 SubPlan。
  *
- * We are given the SubLink's contained query, type, ID, and testexpr.  We are
- * also told if this expression appears at top level of a WHERE/HAVING qual.
+ * 给定 SubLink 所含的查询、类型、ID 和 testexpr。还
+ * 会被告知该表达式是否出现在 WHERE/HAVING 限定条件的顶层。
  *
- * Note: we assume that the testexpr has been AND/OR flattened (actually,
- * it's been through eval_const_expressions), but not converted to
- * implicit-AND form; and any SubLinks in it should already have been
- * converted to SubPlans.  The subquery is as yet untouched, however.
+ * 注意：假定 testexpr 已经做过 AND/OR 展平（实际上
+ * 已经过 eval_const_expressions），但还没转换成
+ * 隐式 AND 形式；其中任何 SubLinks 应当已经
+ * 转换成 SubPlans。不过子查询本身还没动过。
  *
- * The result is whatever we need to substitute in place of the SubLink node
- * in the executable expression.  If we're going to do the subplan as a
- * regular subplan, this will be the constructed SubPlan node.  If we're going
- * to do the subplan as an InitPlan, the SubPlan node instead goes into
- * root->init_plans, and what we return here is an expression tree
- * representing the InitPlan's result: usually just a Param node representing
- * a single scalar result, but possibly a row comparison tree containing
- * multiple Param nodes, or for a MULTIEXPR subquery a simple NULL constant
- * (since the real output Params are elsewhere in the tree, and the MULTIEXPR
- * subquery itself is in a resjunk tlist entry whose value is uninteresting).
+ * 结果是要在可执行表达式里替换该 SubLink 节点的东西。
+ * 若把子计划做成
+ * 普通子计划，这就是构造出的 SubPlan 节点。若做成
+ * InitPlan，则 SubPlan 节点改放到
+ * root->init_plans，这里返回的是表示
+ * InitPlan 结果的表达式树：通常只是表示
+ * 单个标量结果的 Param 节点，但也可能是含有
+ * 多个 Param 节点的行比较树；对 MULTIEXPR 子查询则是一个简单的 NULL 常量
+ * （因为真正的输出 Param 在树的别处，而 MULTIEXPR
+ * 子查询本身在一个值无足轻重的 resjunk 目标列表项里）。
  */
 static Node *
 make_subplan(PlannerInfo *root, Query *orig_subquery,
@@ -174,119 +174,119 @@ make_subplan(PlannerInfo *root, Query *orig_subquery,
 	Node	   *result;
 
 	/*
-	 * Copy the source Query node.  This is a quick and dirty kluge to resolve
-	 * the fact that the parser can generate trees with multiple links to the
-	 * same sub-Query node, but the planner wants to scribble on the Query.
-	 * Try to clean this up when we do querytree redesign...
+	 * 复制源 Query 节点。这是个又快又糙的权宜之计，用来解决
+	 * 解析器可能生成多处链接到
+	 * 同一个子 Query 节点的树，但规划器想在 Query 上涂改。
+	 * 等做查询树重新设计时再设法收拾……
 	 */
 	subquery = copyObject(orig_subquery);
 
 	/*
-	 * If it's an EXISTS subplan, we might be able to simplify it.
+	 * 若是 EXISTS 子计划，也许能简化它。
 	 */
 	if (subLinkType == EXISTS_SUBLINK)
 		simple_exists = simplify_EXISTS_query(root, subquery);
 
 	/*
-	 * For an EXISTS subplan, tell lower-level planner to expect that only the
-	 * first tuple will be retrieved.  For ALL and ANY subplans, we will be
-	 * able to stop evaluating if the test condition fails or matches, so very
-	 * often not all the tuples will be retrieved; for lack of a better idea,
-	 * specify 50% retrieval.  For EXPR, MULTIEXPR, and ROWCOMPARE subplans,
-	 * use default behavior (we're only expecting one row out, anyway).
+	 * 对 EXISTS 子计划，告诉下层规划器预期只会
+	 * 取出第一个元组。对 ALL 和 ANY 子计划，若测试条件失败或匹配，
+	 * 就能停止求值，因此常常
+	 * 不会取出全部元组；没有更好的主意，就
+	 * 指定取出 50%。对 EXPR、MULTIEXPR 和 ROWCOMPARE 子计划，
+	 * 用默认行为（反正只预期输出一行）。
 	 *
-	 * NOTE: if you change these numbers, also change cost_subplan() in
-	 * path/costsize.c.
+	 * 注意：若改这些数字，也要改 path/costsize.c 里的
+	 * cost_subplan()。
 	 *
-	 * XXX If an ANY subplan is uncorrelated, build_subplan may decide to hash
-	 * its output.  In that case it would've been better to specify full
-	 * retrieval.  At present, however, we can only check hashability after
-	 * we've made the subplan :-(.  (Determining whether it'll fit in hash_mem
-	 * is the really hard part.)  Therefore, we don't want to be too
-	 * optimistic about the percentage of tuples retrieved, for fear of
-	 * selecting a plan that's bad for the materialization case.
+	 * XXX 若 ANY 子计划不相关，build_subplan 也许会决定哈希
+	 * 其输出。那时最好指定全部
+	 * 取出。不过目前只能在
+	 * 做好子计划之后才能检查可否哈希 :-(。（判断它是否放得进 hash_mem
+	 * 才是真正难的部分。）因此，对取出元组的比例不要太
+	 * 乐观，以免
+	 * 选出对物化情形很差的计划。
 	 */
 	if (subLinkType == EXISTS_SUBLINK)
-		tuple_fraction = 1.0;	/* just like a LIMIT 1 */
+		tuple_fraction = 1.0;	/* 就像 LIMIT 1 */
 	else if (subLinkType == ALL_SUBLINK ||
 			 subLinkType == ANY_SUBLINK)
-		tuple_fraction = 0.5;	/* 50% */
+		tuple_fraction = 0.5;	/* 50%（一半） */
 	else
-		tuple_fraction = 0.0;	/* default behavior */
+		tuple_fraction = 0.0;	/* 默认行为 */
 
-	/* plan_params should not be in use in current query level */
+	/* 当前查询层次不应当在使用 plan_params */
 	Assert(root->plan_params == NIL);
 
-	/* Generate Paths for the subquery */
+	/* 为子查询生成路径 */
 	subroot = subquery_planner(root->glob, subquery,
 							   root,
 							   false, tuple_fraction);
 
-	/* Isolate the params needed by this specific subplan */
+	/* 分离出这个特定子计划需要的参数 */
 	plan_params = root->plan_params;
 	root->plan_params = NIL;
 
 	/*
-	 * Select best Path and turn it into a Plan.  At least for now, there
-	 * seems no reason to postpone doing that.
+	 * 选出最佳路径并把它变成计划。至少目前，
+	 * 似乎没有理由推迟这件事。
 	 */
 	final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 	best_path = get_cheapest_fractional_path(final_rel, tuple_fraction);
 
 	plan = create_plan(subroot, best_path);
 
-	/* And convert to SubPlan or InitPlan format. */
+	/* 并转换成 SubPlan 或 InitPlan 形式。 */
 	result = build_subplan(root, plan, subroot, plan_params,
 						   subLinkType, subLinkId,
 						   testexpr, NIL, isTopQual);
 
 	/*
-	 * If it's a correlated EXISTS with an unimportant targetlist, we might be
-	 * able to transform it to the equivalent of an IN and then implement it
-	 * by hashing.  We don't have enough information yet to tell which way is
-	 * likely to be better (it depends on the expected number of executions of
-	 * the EXISTS qual, and we are much too early in planning the outer query
-	 * to be able to guess that).  So we generate both plans, if possible, and
-	 * leave it to setrefs.c to decide which to use.
+	 * 若是带有无关紧要目标列表的相关 EXISTS，也许能
+	 * 把它变成等价的 IN，再用
+	 * 哈希实现。现在还没有足够信息判断哪种
+	 * 可能更好（取决于该 EXISTS 限定条件的预期执行次数，
+	 * 而对外层查询的规划还太早，
+	 * 猜不了这个）。因此尽可能生成两种计划，
+	 * 留给 setrefs.c 决定用哪一种。
 	 */
 	if (simple_exists && IsA(result, SubPlan))
 	{
 		Node	   *newtestexpr;
 		List	   *paramIds;
 
-		/* Make a second copy of the original subquery */
+		/* 再复制一份原来的子查询 */
 		subquery = copyObject(orig_subquery);
-		/* and re-simplify */
+		/* 并重新简化 */
 		simple_exists = simplify_EXISTS_query(root, subquery);
 		Assert(simple_exists);
-		/* See if it can be converted to an ANY query */
+		/* 看能否转换成 ANY 查询 */
 		subquery = convert_EXISTS_to_ANY(root, subquery,
 										 &newtestexpr, &paramIds);
 		if (subquery)
 		{
-			/* Generate Paths for the ANY subquery; we'll need all rows */
+			/* 为 ANY 子查询生成路径；需要全部行 */
 			subroot = subquery_planner(root->glob, subquery,
 									   root,
 									   false, 0.0);
 
-			/* Isolate the params needed by this specific subplan */
+			/* 分离出这个特定子计划需要的参数 */
 			plan_params = root->plan_params;
 			root->plan_params = NIL;
 
-			/* Select best Path */
+			/* 选出最佳路径 */
 			final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 			best_path = final_rel->cheapest_total_path;
 
-			/* Now we can check if it'll fit in hash_mem */
+			/* 现在可以检查它是否放得进 hash_mem */
 			if (subpath_is_hashable(best_path))
 			{
 				SubPlan    *hashplan;
 				AlternativeSubPlan *asplan;
 
-				/* OK, finish planning the ANY subquery */
+				/* 好，完成 ANY 子查询的规划 */
 				plan = create_plan(subroot, best_path);
 
-				/* ... and convert to SubPlan format */
+				/* ……并转换成 SubPlan 形式 */
 				hashplan = castNode(SubPlan,
 									build_subplan(root, plan, subroot,
 												  plan_params,
@@ -294,11 +294,11 @@ make_subplan(PlannerInfo *root, Query *orig_subquery,
 												  newtestexpr,
 												  paramIds,
 												  true));
-				/* Check we got what we expected */
+				/* 检查得到的是否为预期 */
 				Assert(hashplan->parParam == NIL);
 				Assert(hashplan->useHashTable);
 
-				/* Leave it to setrefs.c to decide which plan to use */
+				/* 留给 setrefs.c 决定用哪份计划 */
 				asplan = makeNode(AlternativeSubPlan);
 				asplan->subplans = list_make2(result, hashplan);
 				result = (Node *) asplan;
@@ -311,10 +311,10 @@ make_subplan(PlannerInfo *root, Query *orig_subquery,
 }
 
 /*
- * Build a SubPlan node given the raw inputs --- subroutine for make_subplan
+ * 根据原始输入建立 SubPlan 节点 --- make_subplan 的子程序
  *
- * Returns either the SubPlan, or a replacement expression if we decide to
- * make it an InitPlan, as explained in the comments for make_subplan.
+ * 返回该 SubPlan，或者若决定
+ * 把它做成 InitPlan，就返回替换表达式，如 make_subplan 的注释所述。
  */
 static Node *
 build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
@@ -329,8 +329,8 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	ListCell   *lc;
 
 	/*
-	 * Initialize the SubPlan node.  Note plan_id, plan_name, and cost fields
-	 * are set further down.
+	 * 初始化 SubPlan 节点。注意 plan_id、plan_name 和代价字段
+	 * 在更下面设置。
 	 */
 	splan = makeNode(SubPlan);
 	splan->subLinkType = subLinkType;
@@ -346,8 +346,8 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	splan->args = NIL;
 
 	/*
-	 * Make parParam and args lists of param IDs and expressions that current
-	 * query level will pass to this child plan.
+	 * 建立 parParam 和 args 列表，即当前
+	 * 查询层次要传给这个子计划的参数号和表达式。
 	 */
 	foreach(lc, plan_params)
 	{
@@ -355,13 +355,13 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		Node	   *arg = pitem->item;
 
 		/*
-		 * The Var, PlaceHolderVar, Aggref or GroupingFunc has already been
-		 * adjusted to have the correct varlevelsup, phlevelsup, or
-		 * agglevelsup.
+		 * Var、PlaceHolderVar、Aggref 或 GroupingFunc 已经
+		 * 调整到正确的 varlevelsup、phlevelsup 或
+		 * agglevelsup。
 		 *
-		 * If it's a PlaceHolderVar, Aggref or GroupingFunc, its arguments
-		 * might contain SubLinks, which have not yet been processed (see the
-		 * comments for SS_replace_correlation_vars).  Do that now.
+		 * 若是 PlaceHolderVar、Aggref 或 GroupingFunc，其参数
+		 * 可能含有尚未处理的 SubLinks（见
+		 * SS_replace_correlation_vars 的注释）。现在处理。
 		 */
 		if (IsA(arg, PlaceHolderVar) ||
 			IsA(arg, Aggref) ||
@@ -373,15 +373,15 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	}
 
 	/*
-	 * Un-correlated or undirect correlated plans of EXISTS, EXPR, ARRAY,
-	 * ROWCOMPARE, or MULTIEXPR types can be used as initPlans.  For EXISTS,
-	 * EXPR, or ARRAY, we return a Param referring to the result of evaluating
-	 * the initPlan.  For ROWCOMPARE, we must modify the testexpr tree to
-	 * contain PARAM_EXEC Params instead of the PARAM_SUBLINK Params emitted
-	 * by the parser, and then return that tree.  For MULTIEXPR, we return a
-	 * null constant: the resjunk targetlist item containing the SubLink does
-	 * not need to return anything useful, since the referencing Params are
-	 * elsewhere.
+	 * EXISTS、EXPR、ARRAY、
+	 * ROWCOMPARE 或 MULTIEXPR 类型的不相关或非直接相关计划可以用作 initPlan。对 EXISTS、
+	 * EXPR 或 ARRAY，返回一个 Param，指向求值
+	 * initPlan 的结果。对 ROWCOMPARE，必须修改 testexpr 树，使它
+	 * 含有 PARAM_EXEC Param，而不是解析器发出的 PARAM_SUBLINK Param，
+	 * 然后返回那棵树。对 MULTIEXPR，返回一个
+	 * 空常量：含有该 SubLink 的 resjunk 目标列表项
+	 * 不必返回任何有用的东西，因为引用它的 Param 在
+	 * 别处。
 	 */
 	if (splan->parParam == NIL && subLinkType == EXISTS_SUBLINK)
 	{
@@ -430,7 +430,7 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	}
 	else if (splan->parParam == NIL && subLinkType == ROWCOMPARE_SUBLINK)
 	{
-		/* Adjust the Params */
+		/* 调整这些 Param */
 		List	   *params;
 
 		Assert(testexpr != NULL);
@@ -444,15 +444,15 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		isInitPlan = true;
 
 		/*
-		 * The executable expression is returned to become part of the outer
-		 * plan's expression tree; it is not kept in the initplan node.
+		 * 可执行表达式被返回，成为外层
+		 * 计划表达式树的一部分；它不留在 initplan 节点里。
 		 */
 	}
 	else if (subLinkType == MULTIEXPR_SUBLINK)
 	{
 		/*
-		 * Whether it's an initplan or not, it needs to set a PARAM_EXEC Param
-		 * for each output column.
+		 * 无论是不是 initplan，都要为每个输出列设置一个 PARAM_EXEC Param。
+		 * 输出列各一个。
 		 */
 		List	   *params;
 
@@ -462,9 +462,9 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 										  &splan->setParam);
 
 		/*
-		 * Save the list of replacement Params in the n'th cell of
-		 * root->multiexpr_params; setrefs.c will use it to replace
-		 * PARAM_MULTIEXPR Params.
+		 * 把替换 Param 的列表存进
+		 * root->multiexpr_params 的第 n 个单元；setrefs.c 会用它替换
+		 * PARAM_MULTIEXPR Param。
 		 */
 		while (list_length(root->multiexpr_params) < subLinkId)
 			root->multiexpr_params = lappend(root->multiexpr_params, NIL);
@@ -472,7 +472,7 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		Assert(lfirst(lc) == NIL);
 		lfirst(lc) = params;
 
-		/* It can be an initplan if there are no parParams. */
+		/* 若没有 parParam，就可以做成 initplan。 */
 		if (splan->parParam == NIL)
 		{
 			isInitPlan = true;
@@ -487,8 +487,8 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	else
 	{
 		/*
-		 * Adjust the Params in the testexpr, unless caller already took care
-		 * of it (as indicated by passing a list of Param IDs).
+		 * 调整 testexpr 里的 Param，除非调用方已经处理过
+		 * （由传入一份 Param ID 列表来表明）。
 		 */
 		if (testexpr && testexpr_paramids == NIL)
 		{
@@ -508,11 +508,11 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		}
 
 		/*
-		 * We can't convert subplans of ALL_SUBLINK or ANY_SUBLINK types to
-		 * initPlans, even when they are uncorrelated or undirect correlated,
-		 * because we need to scan the output of the subplan for each outer
-		 * tuple.  But if it's a not-direct-correlated IN (= ANY) test, we
-		 * might be able to use a hashtable to avoid comparing all the tuples.
+		 * 不能把 ALL_SUBLINK 或 ANY_SUBLINK 类型的子计划转换成
+		 * initPlan，即使它们不相关或非直接相关，
+		 * 因为对每个外侧
+		 * 元组都要扫描子计划的输出。但若是非直接相关的 IN（= ANY）测试，
+		 * 也许能用哈希表避免比较全部元组。
 		 */
 		if (subLinkType == ANY_SUBLINK &&
 			splan->parParam == NIL &&
@@ -521,14 +521,14 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 			splan->useHashTable = true;
 
 		/*
-		 * Otherwise, we have the option to tack a Material node onto the top
-		 * of the subplan, to reduce the cost of reading it repeatedly.  This
-		 * is pointless for a direct-correlated subplan, since we'd have to
-		 * recompute its results each time anyway.  For uncorrelated/undirect
-		 * correlated subplans, we add Material unless the subplan's top plan
-		 * node would materialize its output anyway.  Also, if enable_material
-		 * is false, then the user does not want us to materialize anything
-		 * unnecessarily, so we don't.
+		 * 否则，可以选择在子计划顶上加一个 Material 节点，
+		 * 以降低反复读取的代价。对直接相关的子计划这
+		 * 没有意义，因为反正每次都得
+		 * 重算结果。对不相关/非直接
+		 * 相关的子计划，除非子计划的顶层计划
+		 * 节点本来就会物化输出，否则加上 Material。另外，若 enable_material
+		 * 为假，则用户不希望我们做不必要的物化，
+		 * 因此就不加。
 		 */
 		else if (splan->parParam == NIL && enable_material &&
 				 !ExecMaterializesOutput(nodeTag(plan)))
@@ -539,7 +539,7 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 	}
 
 	/*
-	 * Add the subplan and its PlannerInfo to the global lists.
+	 * 把子计划及其 PlannerInfo 加进全局列表。
 	 */
 	root->glob->subplans = lappend(root->glob->subplans, plan);
 	root->glob->subroots = lappend(root->glob->subroots, subroot);
@@ -549,17 +549,17 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		root->init_plans = lappend(root->init_plans, splan);
 
 	/*
-	 * A parameterless subplan (not initplan) should be prepared to handle
-	 * REWIND efficiently.  If it has direct parameters then there's no point
-	 * since it'll be reset on each scan anyway; and if it's an initplan then
-	 * there's no point since it won't get re-run without parameter changes
-	 * anyway.  The input of a hashed subplan doesn't need REWIND either.
+	 * 无参数的子计划（不是 initplan）应当准备高效处理
+	 * REWIND。若它有直接参数，就没有意义，
+	 * 因为每次扫描反正都会重置；若是 initplan，
+	 * 也没有意义，因为没有参数变化就不会重跑。
+	 * 哈希子计划的输入也不需要 REWIND。
 	 */
 	if (splan->parParam == NIL && !isInitPlan && !splan->useHashTable)
 		root->glob->rewindPlanIDs = bms_add_member(root->glob->rewindPlanIDs,
 												   splan->plan_id);
 
-	/* Label the subplan for EXPLAIN purposes */
+	/* 为 EXPLAIN 给子计划加标签 */
 	splan->plan_name = palloc(32 + 12 * list_length(splan->setParam));
 	sprintf(splan->plan_name, "%s %d",
 			isInitPlan ? "InitPlan" : "SubPlan",
@@ -577,17 +577,17 @@ build_subplan(PlannerInfo *root, Plan *plan, PlannerInfo *subroot,
 		}
 	}
 
-	/* Lastly, fill in the cost estimates for use later */
+	/* 最后，填入代价估计供以后使用 */
 	cost_subplan(root, splan, plan);
 
 	return result;
 }
 
 /*
- * generate_subquery_params: build a list of Params representing the output
- * columns of a sublink's sub-select, given the sub-select's targetlist.
+ * generate_subquery_params：建立表示子链接的子 SELECT
+ * 输出列的 Param 列表，给定该子 SELECT 的目标列表。
  *
- * We also return an integer list of the paramids of the Params.
+ * 也返回这些 Param 的参数号整数列表。
  */
 static List *
 generate_subquery_params(PlannerInfo *root, List *tlist, List **paramIds)
@@ -618,9 +618,9 @@ generate_subquery_params(PlannerInfo *root, List *tlist, List **paramIds)
 }
 
 /*
- * generate_subquery_vars: build a list of Vars representing the output
- * columns of a sublink's sub-select, given the sub-select's targetlist.
- * The Vars have the specified varno (RTE index).
+ * generate_subquery_vars：建立表示子链接的子 SELECT
+ * 输出列的 Var 列表，给定该子 SELECT 的目标列表。
+ * 这些 Var 具有指定的 varno（RTE 下标）。
  */
 static List *
 generate_subquery_vars(PlannerInfo *root, List *tlist, Index varno)
@@ -645,11 +645,11 @@ generate_subquery_vars(PlannerInfo *root, List *tlist, Index varno)
 }
 
 /*
- * convert_testexpr: convert the testexpr given by the parser into
- * actually executable form.  This entails replacing PARAM_SUBLINK Params
- * with Params or Vars representing the results of the sub-select.  The
- * nodes to be substituted are passed in as the List result from
- * generate_subquery_params or generate_subquery_vars.
+ * convert_testexpr：把解析器给出的 testexpr 转换成
+ * 真正可执行的形式。这要把 PARAM_SUBLINK Param
+ * 换成表示子 SELECT 结果的 Param 或 Var。要
+ * 替换进去的节点作为
+ * generate_subquery_params 或 generate_subquery_vars 的 List 结果传入。
  */
 static Node *
 convert_testexpr(PlannerInfo *root,
@@ -680,9 +680,9 @@ convert_testexpr_mutator(Node *node,
 				elog(ERROR, "unexpected PARAM_SUBLINK ID: %d", param->paramid);
 
 			/*
-			 * We copy the list item to avoid having doubly-linked
-			 * substructure in the modified parse tree.  This is probably
-			 * unnecessary when it's a Param, but be safe.
+			 * 复制列表项，以免修改后的解析树里出现双重链接的
+			 * 子结构。当它是 Param 时这大概
+			 * 不必要，但求稳妥。
 			 */
 			return (Node *) copyObject(list_nth(context->subst_nodes,
 												param->paramid - 1));
@@ -691,22 +691,22 @@ convert_testexpr_mutator(Node *node,
 	if (IsA(node, SubLink))
 	{
 		/*
-		 * If we come across a nested SubLink, it is neither necessary nor
-		 * correct to recurse into it: any PARAM_SUBLINKs we might find inside
-		 * belong to the inner SubLink not the outer. So just return it as-is.
+		 * 若遇到嵌套的 SubLink，递归进去既不必要也
+		 * 不正确：里面可能找到的任何 PARAM_SUBLINKs 属于
+		 * 内层 SubLink 而不是外层。因此原样返回。
 		 *
-		 * This reasoning depends on the assumption that nothing will pull
-		 * subexpressions into or out of the testexpr field of a SubLink, at
-		 * least not without replacing PARAM_SUBLINKs first.  If we did want
-		 * to do that we'd need to rethink the parser-output representation
-		 * altogether, since currently PARAM_SUBLINKs are only unique per
-		 * SubLink not globally across the query.  The whole point of
-		 * replacing them with Vars or PARAM_EXEC nodes is to make them
-		 * globally unique before they escape from the SubLink's testexpr.
+		 * 这个推理依赖一个假定：不会有东西把
+		 * 子表达式拉进或拉出 SubLink 的 testexpr 字段，至少
+		 * 不会在先替换 PARAM_SUBLINKs 之前这样做。若真想
+		 * 那样做，就得重新考虑解析器输出的表示
+		 * 整体，因为目前 PARAM_SUBLINKs 只在每个
+		 * SubLink 内唯一，而不是在整个查询中全局唯一。替换成
+		 * Var 或 PARAM_EXEC 节点的全部意义，就是让它们在
+		 * 逃出 SubLink 的 testexpr 之前全局唯一。
 		 *
-		 * Note: this can't happen when called during SS_process_sublinks,
-		 * because that recursively processes inner SubLinks first.  It can
-		 * happen when called from convert_ANY_sublink_to_join, though.
+		 * 注意：在 SS_process_sublinks 期间调用时不会发生这种情况，
+		 * 因为它先递归处理内层 SubLinks。不过从
+		 * convert_ANY_sublink_to_join 调用时可能发生。
 		 */
 		return node;
 	}
@@ -716,10 +716,10 @@ convert_testexpr_mutator(Node *node,
 }
 
 /*
- * subplan_is_hashable: can we implement an ANY subplan by hashing?
+ * subplan_is_hashable：能否用哈希实现 ANY 子计划？
  *
- * This is not responsible for checking whether the combining testexpr
- * is suitable for hashing.  We only look at the subquery itself.
+ * 这里不负责检查组合用的 testexpr
+ * 是否适合哈希。只看子查询本身。
  */
 static bool
 subplan_is_hashable(Plan *plan)
@@ -727,10 +727,10 @@ subplan_is_hashable(Plan *plan)
 	double		subquery_size;
 
 	/*
-	 * The estimated size of the subquery result must fit in hash_mem. (Note:
-	 * we use heap tuple overhead here even though the tuples will actually be
-	 * stored as MinimalTuples; this provides some fudge factor for hashtable
-	 * overhead.)
+	 * 子查询结果的估计规模必须放进 hash_mem。（注意：
+	 * 这里用堆元组开销，尽管元组实际会
+	 * 存成 MinimalTuples；这为哈希表
+	 * 开销留一点余量。）
 	 */
 	subquery_size = plan->plan_rows *
 		(MAXALIGN(plan->plan_width) + MAXALIGN(SizeofHeapTupleHeader));
@@ -741,9 +741,9 @@ subplan_is_hashable(Plan *plan)
 }
 
 /*
- * subpath_is_hashable: can we implement an ANY subplan by hashing?
+ * subpath_is_hashable：能否用哈希实现 ANY 子计划？
  *
- * Identical to subplan_is_hashable, but work from a Path for the subplan.
+ * 与 subplan_is_hashable 相同，但从子计划的 Path 出发。
  */
 static bool
 subpath_is_hashable(Path *path)
@@ -751,10 +751,10 @@ subpath_is_hashable(Path *path)
 	double		subquery_size;
 
 	/*
-	 * The estimated size of the subquery result must fit in hash_mem. (Note:
-	 * we use heap tuple overhead here even though the tuples will actually be
-	 * stored as MinimalTuples; this provides some fudge factor for hashtable
-	 * overhead.)
+	 * 子查询结果的估计规模必须放进 hash_mem。（注意：
+	 * 这里用堆元组开销，尽管元组实际会
+	 * 存成 MinimalTuples；这为哈希表
+	 * 开销留一点余量。）
 	 */
 	subquery_size = path->rows *
 		(MAXALIGN(path->pathtarget->width) + MAXALIGN(SizeofHeapTupleHeader));
@@ -765,17 +765,17 @@ subpath_is_hashable(Path *path)
 }
 
 /*
- * testexpr_is_hashable: is an ANY SubLink's test expression hashable?
+ * testexpr_is_hashable：ANY SubLink 的测试表达式可否哈希？
  *
- * To identify LHS vs RHS of the hash expression, we must be given the
- * list of output Param IDs of the SubLink's subquery.
+ * 要区分哈希表达式的左侧和右侧，必须给定
+ * 该 SubLink 子查询的输出 Param ID 列表。
  */
 static bool
 testexpr_is_hashable(Node *testexpr, List *param_ids)
 {
 	/*
-	 * The testexpr must be a single OpExpr, or an AND-clause containing only
-	 * OpExprs, each of which satisfy test_opexpr_is_hashable().
+	 * testexpr 必须是单个 OpExpr，或只含
+	 * OpExprs 的 AND 子句，且每个都满足 test_opexpr_is_hashable()。
 	 */
 	if (testexpr && IsA(testexpr, OpExpr))
 	{
@@ -805,26 +805,26 @@ static bool
 test_opexpr_is_hashable(OpExpr *testexpr, List *param_ids)
 {
 	/*
-	 * The combining operator must be hashable and strict.  The need for
-	 * hashability is obvious, since we want to use hashing.  Without
-	 * strictness, behavior in the presence of nulls is too unpredictable.  We
-	 * actually must assume even more than plain strictness: it can't yield
-	 * NULL for non-null inputs, either (see nodeSubplan.c).  However, hash
-	 * indexes and hash joins assume that too.
+	 * 组合操作符必须可哈希且严格。需要
+	 * 可哈希性是显然的，因为要用哈希。没有
+	 * 严格性，有空值时的行为太不可预测。实际上
+	 * 还必须假定比普通严格性更多：对非空输入它也不能得出
+	 * NULL（见 nodeSubplan.c）。不过哈希
+	 * 索引和哈希连接也这样假定。
 	 */
 	if (!hash_ok_operator(testexpr))
 		return false;
 
 	/*
-	 * The left and right inputs must belong to the outer and inner queries
-	 * respectively; hence Params that will be supplied by the subquery must
-	 * not appear in the LHS, and Vars of the outer query must not appear in
-	 * the RHS.  (Ordinarily, this must be true because of the way that the
-	 * parser builds an ANY SubLink's testexpr ... but inlining of functions
-	 * could have changed the expression's structure, so we have to check.
-	 * Such cases do not occur often enough to be worth trying to optimize, so
-	 * we don't worry about trying to commute the clause or anything like
-	 * that; we just need to be sure not to build an invalid plan.)
+	 * 左右输入必须分别属于外层查询和内层查询；
+	 * 因此将由子查询提供的 Param 不得
+	 * 出现在左侧，外层查询的 Var 也不得出现在
+	 * 右侧。（通常这必定为真，因为
+	 * 解析器构建 ANY SubLink 的 testexpr 的方式……但函数内联
+	 * 可能已经改变表达式结构，所以必须检查。
+	 * 这类情形不够常见，不值得设法优化，因此
+	 * 不必操心交换子句之类的事；
+	 * 只须确保不建立无效计划。）
 	 */
 	if (list_length(testexpr->args) != 2)
 		return false;
@@ -836,30 +836,30 @@ test_opexpr_is_hashable(OpExpr *testexpr, List *param_ids)
 }
 
 /*
- * Check expression is hashable + strict
+ * 检查表达式是否可哈希且严格
  *
- * We could use op_hashjoinable() and op_strict(), but do it like this to
- * avoid a redundant cache lookup.
+ * 可以用 op_hashjoinable() 和 op_strict()，但这样做是为了
+ * 避免一次多余的缓存查找。
  */
 static bool
 hash_ok_operator(OpExpr *expr)
 {
 	Oid			opid = expr->opno;
 
-	/* quick out if not a binary operator */
+	/* 若不是二元操作符就快速退出 */
 	if (list_length(expr->args) != 2)
 		return false;
 	if (opid == ARRAY_EQ_OP ||
 		opid == RECORD_EQ_OP)
 	{
-		/* these are strict, but must check input type to ensure hashable */
+		/* 这些是严格的，但必须检查输入类型以确保可哈希 */
 		Node	   *leftarg = linitial(expr->args);
 
 		return op_hashjoinable(opid, exprType(leftarg));
 	}
 	else
 	{
-		/* else must look up the operator properties */
+		/* 否则必须查找操作符属性 */
 		HeapTuple	tup;
 		Form_pg_operator optup;
 
@@ -879,15 +879,15 @@ hash_ok_operator(OpExpr *expr)
 
 
 /*
- * SS_process_ctes: process a query's WITH list
+ * SS_process_ctes：处理查询的 WITH 列表
  *
- * Consider each CTE in the WITH list and either ignore it (if it's an
- * unreferenced SELECT), "inline" it to create a regular sub-SELECT-in-FROM,
- * or convert it to an initplan.
+ * 考虑 WITH 列表中的每个 CTE，或者忽略它（若是
+ * 未被引用的 SELECT），或者"内联"它以建立普通的 FROM 中子 SELECT，
+ * 或者把它转换成 initplan。
  *
- * A side effect is to fill in root->cte_plan_ids with a list that
- * parallels root->parse->cteList and provides the subplan ID for
- * each CTE's initplan, or a dummy ID (-1) if we didn't make an initplan.
+ * 副作用是填好 root->cte_plan_ids，这份列表
+ * 与 root->parse->cteList 平行，并给出
+ * 每个 CTE 的 initplan 的子计划 ID，若没做 initplan 则为哑 ID（-1）。
  */
 void
 SS_process_ctes(PlannerInfo *root)
@@ -909,45 +909,45 @@ SS_process_ctes(PlannerInfo *root)
 		int			paramid;
 
 		/*
-		 * Ignore SELECT CTEs that are not actually referenced anywhere.
+		 * 忽略实际上没有任何地方引用的 SELECT CTEs。
 		 */
 		if (cte->cterefcount == 0 && cmdType == CMD_SELECT)
 		{
-			/* Make a dummy entry in cte_plan_ids */
+			/* 在 cte_plan_ids 里做一个哑项 */
 			root->cte_plan_ids = lappend_int(root->cte_plan_ids, -1);
 			continue;
 		}
 
 		/*
-		 * Consider inlining the CTE (creating RTE_SUBQUERY RTE(s)) instead of
-		 * implementing it as a separately-planned CTE.
+		 * 考虑内联该 CTE（建立 RTE_SUBQUERY 的 RTE），而不是
+		 * 把它实现成单独规划的 CTE。
 		 *
-		 * We cannot inline if any of these conditions hold:
+		 * 若下列任一条件成立，就无法内联：
 		 *
-		 * 1. The user said not to (the CTEMaterializeAlways option).
+		 * 1. 用户说不要（CTEMaterializeAlways 选项）。
 		 *
-		 * 2. The CTE is recursive.
+		 * 2. 该 CTE 是递归的。
 		 *
-		 * 3. The CTE has side-effects; this includes either not being a plain
-		 * SELECT, or containing volatile functions.  Inlining might change
-		 * the side-effects, which would be bad.
+		 * 3. 该 CTE 有副作用；这包括不是普通
+		 * SELECT，或含有易变函数。内联可能改变
+		 * 副作用，那会很糟。
 		 *
-		 * 4. The CTE is multiply-referenced and contains a self-reference to
-		 * a recursive CTE outside itself.  Inlining would result in multiple
-		 * recursive self-references, which we don't support.
+		 * 4. 该 CTE 被多次引用，并且含有对
+		 * 自身之外某个递归 CTE 的自引用。内联会造成多处
+		 * 递归自引用，我们不支持。
 		 *
-		 * Otherwise, we have an option whether to inline or not.  That should
-		 * always be a win if there's just a single reference, but if the CTE
-		 * is multiply-referenced then it's unclear: inlining adds duplicate
-		 * computations, but the ability to absorb restrictions from the outer
-		 * query level could outweigh that.  We do not have nearly enough
-		 * information at this point to tell whether that's true, so we let
-		 * the user express a preference.  Our default behavior is to inline
-		 * only singly-referenced CTEs, but a CTE marked CTEMaterializeNever
-		 * will be inlined even if multiply referenced.
+		 * 否则，内联与否是可选的。若只有
+		 * 一处引用，那应当总是划算的，但若该 CTE
+		 * 被多次引用就不清楚：内联会增加重复
+		 * 计算，但吸收外层
+		 * 查询层次限制的能力可能抵消这一点。此时远远没有足够
+		 * 信息来判断是否如此，因此让
+		 * 用户表达偏好。默认行为是只内联
+		 * 单次引用的 CTEs，但标了 CTEMaterializeNever 的 CTE
+		 * 即使被多次引用也会内联。
 		 *
-		 * Note: we check for volatile functions last, because that's more
-		 * expensive than the other tests needed.
+		 * 注意：最后检查易变函数，因为那比
+		 * 其他所需测试更贵。
 		 */
 		if ((cte->ctematerialized == CTEMaterializeNever ||
 			 (cte->ctematerialized == CTEMaterializeDefault &&
@@ -960,39 +960,39 @@ SS_process_ctes(PlannerInfo *root)
 			!contain_volatile_functions(cte->ctequery))
 		{
 			inline_cte(root, cte);
-			/* Make a dummy entry in cte_plan_ids */
+			/* 在 cte_plan_ids 里做一个哑项 */
 			root->cte_plan_ids = lappend_int(root->cte_plan_ids, -1);
 			continue;
 		}
 
 		/*
-		 * Copy the source Query node.  Probably not necessary, but let's keep
-		 * this similar to make_subplan.
+		 * 复制源 Query 节点。大概不必要，但让
+		 * 这与 make_subplan 保持相似。
 		 */
 		subquery = (Query *) copyObject(cte->ctequery);
 
-		/* plan_params should not be in use in current query level */
+		/* 当前查询层次不应当在使用 plan_params */
 		Assert(root->plan_params == NIL);
 
 		/*
-		 * Generate Paths for the CTE query.  Always plan for full retrieval
-		 * --- we don't have enough info to predict otherwise.
+		 * 为 CTE 查询生成路径。总是按全部取出来规划
+		 * --- 没有足够信息做别的预测。
 		 */
 		subroot = subquery_planner(root->glob, subquery,
 								   root,
 								   cte->cterecursive, 0.0);
 
 		/*
-		 * Since the current query level doesn't yet contain any RTEs, it
-		 * should not be possible for the CTE to have requested parameters of
-		 * this level.
+		 * 由于当前查询层次还没有任何 RTEs，
+		 * CTE 不可能请求
+		 * 这一层的参数。
 		 */
 		if (root->plan_params)
 			elog(ERROR, "unexpected outer reference in CTE query");
 
 		/*
-		 * Select best Path and turn it into a Plan.  At least for now, there
-		 * seems no reason to postpone doing that.
+		 * 选出最佳路径并把它变成计划。至少目前，
+		 * 似乎没有理由推迟这件事。
 		 */
 		final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 		best_path = final_rel->cheapest_total_path;
@@ -1000,10 +1000,10 @@ SS_process_ctes(PlannerInfo *root)
 		plan = create_plan(subroot, best_path);
 
 		/*
-		 * Make a SubPlan node for it.  This is just enough unlike
-		 * build_subplan that we can't share code.
+		 * 为它做一个 SubPlan 节点。这和
+		 * build_subplan 差别刚好大到不能共享代码。
 		 *
-		 * Note plan_id, plan_name, and cost fields are set further down.
+		 * 注意 plan_id、plan_name 和代价字段在更下面设置。
 		 */
 		splan = makeNode(SubPlan);
 		splan->subLinkType = CTE_SUBLINK;
@@ -1015,9 +1015,9 @@ SS_process_ctes(PlannerInfo *root)
 		splan->unknownEqFalse = false;
 
 		/*
-		 * CTE scans are not considered for parallelism (cf
-		 * set_rel_consider_parallel), and even if they were, initPlans aren't
-		 * parallel-safe.
+		 * CTE 扫描不考虑并行（参见
+		 * set_rel_consider_parallel），即便考虑，initPlan 也不是
+		 * 并行安全的。
 		 */
 		splan->parallel_safe = false;
 		splan->setParam = NIL;
@@ -1025,25 +1025,25 @@ SS_process_ctes(PlannerInfo *root)
 		splan->args = NIL;
 
 		/*
-		 * The node can't have any inputs (since it's an initplan), so the
-		 * parParam and args lists remain empty.  (It could contain references
-		 * to earlier CTEs' output param IDs, but CTE outputs are not
-		 * propagated via the args list.)
+		 * 该节点不能有任何输入（因为它是 initplan），因此
+		 * parParam 和 args 列表保持为空。（它可能含有对
+		 * 更早 CTEs 输出参数号的引用，但 CTE 输出不是
+		 * 经由 args 列表传播的。）
 		 */
 
 		/*
-		 * Assign a param ID to represent the CTE's output.  No ordinary
-		 * "evaluation" of this param slot ever happens, but we use the param
-		 * ID for setParam/chgParam signaling just as if the CTE plan were
-		 * returning a simple scalar output.  (Also, the executor abuses the
-		 * ParamExecData slot for this param ID for communication among
-		 * multiple CteScan nodes that might be scanning this CTE.)
+		 * 分配一个参数号来表示该 CTE 的输出。这个参数槽从来不会做普通的
+		 * "求值"，但我们用这个参数
+		 * 号做 setParam/chgParam 信号，就好像该 CTE 计划
+		 * 返回一个简单标量输出。（执行器还会滥用
+		 * 这个参数号的 ParamExecData 槽，供
+		 * 可能在扫描该 CTE 的多个 CteScan 节点之间通信。）
 		 */
 		paramid = assign_special_exec_param(root);
 		splan->setParam = list_make1_int(paramid);
 
 		/*
-		 * Add the subplan and its PlannerInfo to the global lists.
+		 * 把子计划及其 PlannerInfo 加进全局列表。
 		 */
 		root->glob->subplans = lappend(root->glob->subplans, plan);
 		root->glob->subroots = lappend(root->glob->subroots, subroot);
@@ -1053,18 +1053,18 @@ SS_process_ctes(PlannerInfo *root)
 
 		root->cte_plan_ids = lappend_int(root->cte_plan_ids, splan->plan_id);
 
-		/* Label the subplan for EXPLAIN purposes */
+		/* 为 EXPLAIN 给子计划加标签 */
 		splan->plan_name = psprintf("CTE %s", cte->ctename);
 
-		/* Lastly, fill in the cost estimates for use later */
+		/* 最后，填入代价估计供以后使用 */
 		cost_subplan(root, splan, plan);
 	}
 }
 
 /*
- * contain_dml: is any subquery not a plain SELECT?
+ * contain_dml：是否有子查询不是普通 SELECT？
  *
- * We reject SELECT FOR UPDATE/SHARE as well as INSERT etc.
+ * 也拒绝 SELECT FOR UPDATE/SHARE 以及 INSERT 等。
  */
 static bool
 contain_dml(Node *node)
@@ -1091,7 +1091,7 @@ contain_dml_walker(Node *node, void *context)
 }
 
 /*
- * contain_outer_selfref: is there an external recursive self-reference?
+ * contain_outer_selfref：是否有外部递归自引用？
  */
 static bool
 contain_outer_selfref(Node *node)
@@ -1099,8 +1099,8 @@ contain_outer_selfref(Node *node)
 	Index		depth = 0;
 
 	/*
-	 * We should be starting with a Query, so that depth will be 1 while
-	 * examining its immediate contents.
+	 * 应当从一个 Query 开始，因此检查其直接内容时
+	 * 深度为 1。
 	 */
 	Assert(IsA(node, Query));
 
@@ -1117,18 +1117,18 @@ contain_outer_selfref_walker(Node *node, Index *depth)
 		RangeTblEntry *rte = (RangeTblEntry *) node;
 
 		/*
-		 * Check for a self-reference to a CTE that's above the Query that our
-		 * search started at.
+		 * 检查是否自引用了位于我们
+		 * 开始搜索的那个 Query 之上的 CTE。
 		 */
 		if (rte->rtekind == RTE_CTE &&
 			rte->self_reference &&
 			rte->ctelevelsup >= *depth)
 			return true;
-		return false;			/* allow range_table_walker to continue */
+		return false;			/* 允许 range_table_walker 继续 */
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subquery, tracking nesting depth properly */
+		/* 递归进入子查询，正确跟踪嵌套深度 */
 		Query	   *query = (Query *) node;
 		bool		result;
 
@@ -1146,7 +1146,7 @@ contain_outer_selfref_walker(Node *node, Index *depth)
 }
 
 /*
- * inline_cte: convert RTE_CTE references to given CTE into RTE_SUBQUERYs
+ * inline_cte：把对给定 CTE 的 RTE_CTE 引用转换成 RTE_SUBQUERYs
  */
 static void
 inline_cte(PlannerInfo *root, CommonTableExpr *cte)
@@ -1154,7 +1154,7 @@ inline_cte(PlannerInfo *root, CommonTableExpr *cte)
 	struct inline_cte_walker_context context;
 
 	context.ctename = cte->ctename;
-	/* Start at levelsup = -1 because we'll immediately increment it */
+	/* 从 levelsup = -1 开始，因为马上就会把它加一 */
 	context.levelsup = -1;
 	context.ctequery = castNode(Query, cte->ctequery);
 
@@ -1173,9 +1173,9 @@ inline_cte_walker(Node *node, inline_cte_walker_context *context)
 		context->levelsup++;
 
 		/*
-		 * Visit the query's RTE nodes after their contents; otherwise
-		 * query_tree_walker would descend into the newly inlined CTE query,
-		 * which we don't want.
+		 * 在查询的 RTE 节点的内容之后再访问这些节点；否则
+		 * query_tree_walker 会下降进入新内联的 CTE 查询，
+		 * 那不是我们要的。
 		 */
 		(void) query_tree_walker(query, inline_cte_walker, context,
 								 QTW_EXAMINE_RTES_AFTER);
@@ -1193,9 +1193,9 @@ inline_cte_walker(Node *node, inline_cte_walker_context *context)
 			rte->ctelevelsup == context->levelsup)
 		{
 			/*
-			 * Found a reference to replace.  Generate a copy of the CTE query
-			 * with appropriate level adjustment for outer references (e.g.,
-			 * to other CTEs).
+			 * 找到一处要替换的引用。生成该 CTE 查询的一份副本，
+			 * 对外层引用（例如
+			 * 其他 CTEs）做适当的层次调整。
 			 */
 			Query	   *newquery = copyObject(context->ctequery);
 
@@ -1203,18 +1203,18 @@ inline_cte_walker(Node *node, inline_cte_walker_context *context)
 				IncrementVarSublevelsUp((Node *) newquery, context->levelsup, 1);
 
 			/*
-			 * Convert the RTE_CTE RTE into a RTE_SUBQUERY.
+			 * 把 RTE_CTE 的 RTE 转换成 RTE_SUBQUERY。
 			 *
-			 * Historically, a FOR UPDATE clause has been treated as extending
-			 * into views and subqueries, but not into CTEs.  We preserve this
-			 * distinction by not trying to push rowmarks into the new
-			 * subquery.
+			 * 历史上，FOR UPDATE 子句被当作延伸
+			 * 进视图和子查询，但不进 CTEs。我们保留这一
+			 * 区别，不试图把行标记推进新的
+			 * 子查询。
 			 */
 			rte->rtekind = RTE_SUBQUERY;
 			rte->subquery = newquery;
 			rte->security_barrier = false;
 
-			/* Zero out CTE-specific fields */
+			/* 把 CTE 专用字段清零 */
 			rte->ctename = NULL;
 			rte->ctelevelsup = 0;
 			rte->self_reference = false;
@@ -1231,38 +1231,38 @@ inline_cte_walker(Node *node, inline_cte_walker_context *context)
 
 
 /*
- * convert_ANY_sublink_to_join: try to convert an ANY SubLink to a join
+ * convert_ANY_sublink_to_join：试着把 ANY SubLink 转换成连接
  *
- * The caller has found an ANY SubLink at the top level of one of the query's
- * qual clauses, but has not checked the properties of the SubLink further.
- * Decide whether it is appropriate to process this SubLink in join style.
- * If so, form a JoinExpr and return it.  Return NULL if the SubLink cannot
- * be converted to a join.
+ * 调用方在查询的某条
+ * 限定子句顶层找到了 ANY SubLink，但还没进一步检查该 SubLink 的性质。
+ * 决定是否适合用连接风格处理这个 SubLink。
+ * 若适合，就形成一个 JoinExpr 并返回它。若该 SubLink 无法
+ * 转换成连接，就返回 NULL。
  *
- * The only non-obvious input parameter is available_rels: this is the set
- * of query rels that can safely be referenced in the sublink expression.
- * (We must restrict this to avoid changing the semantics when a sublink
- * is present in an outer join's ON qual.)  The conversion must fail if
- * the converted qual would reference any but these parent-query relids.
+ * 唯一不显然的输入参数是 available_rels：这是
+ * 可以在子链接表达式里安全引用的查询关系集合。
+ * （必须限制这一点，以免子链接
+ * 出现在外连接的 ON 限定条件里时改变语义。）若转换后的限定条件会引用
+ * 这些父查询 relid 以外的任何东西，转换必须失败。
  *
- * On success, the returned JoinExpr has larg = NULL and rarg = the jointree
- * item representing the pulled-up subquery.  The caller must set larg to
- * represent the relation(s) on the lefthand side of the new join, and insert
- * the JoinExpr into the upper query's jointree at an appropriate place
- * (typically, where the lefthand relation(s) had been).  Note that the
- * passed-in SubLink must also be removed from its original position in the
- * query quals, since the quals of the returned JoinExpr replace it.
- * (Notionally, we replace the SubLink with a constant TRUE, then elide the
- * redundant constant from the qual.)
+ * 成功时，返回的 JoinExpr 的 larg = NULL，rarg = 表示
+ * 上拉后子查询的 jointree 项。调用方必须设置 larg，以
+ * 表示新连接左侧的关系，并把
+ * 该 JoinExpr 插到上层查询 jointree 的适当位置
+ * （通常是左侧关系原来所在的地方）。注意传入的
+ * SubLink 也必须从查询限定条件里的原位置去掉，
+ * 因为返回的 JoinExpr 的限定条件取代了它。
+ * （概念上，把该 SubLink 换成常量 TRUE，再从限定条件里
+ * 消掉这个多余常量。）
  *
- * On success, the caller is also responsible for recursively applying
- * pull_up_sublinks processing to the rarg and quals of the returned JoinExpr.
- * (On failure, there is no need to do anything, since pull_up_sublinks will
- * be applied when we recursively plan the sub-select.)
+ * 成功时，调用方还负责对返回的 JoinExpr 的 rarg 和限定条件
+ * 递归应用
+ * pull_up_sublinks 处理。
+ * （失败时不必做任何事，因为当我们递归规划子 SELECT 时
  *
- * Side effects of a successful conversion include adding the SubLink's
- * subselect to the query's rangetable, so that it can be referenced in
- * the JoinExpr's rarg.
+ * 会应用 pull_up_sublinks。）
+ * 成功转换的副作用包括把该 SubLink 的
+ * 子查询加进查询的范围表，以便在 JoinExpr 的 rarg 里引用它。
  */
 JoinExpr *
 convert_ANY_sublink_to_join(PlannerInfo *root, SubLink *sublink,
@@ -1283,43 +1283,43 @@ convert_ANY_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	Assert(sublink->subLinkType == ANY_SUBLINK);
 
 	/*
-	 * The sub-select must not refer to any Vars of the parent query. (Vars of
-	 * higher levels should be okay, though.)
+	 * 子查询不得引用父查询的任何 Var。（更高
+	 * 层次的 Var 应当可以。）
 	 */
 	if (contain_vars_of_level((Node *) subselect, 1))
 		return NULL;
 
 	/*
-	 * The test expression must contain some Vars of the parent query, else
-	 * it's not gonna be a join.  (Note that it won't have Vars referring to
-	 * the subquery, rather Params.)
+	 * 测试表达式必须含有父查询的一些 Var，否则
+	 * 它不会成为连接。（注意它不会有引用
+	 * 子查询的 Var，而是 Param。）
 	 */
 	upper_varnos = pull_varnos(root, sublink->testexpr);
 	if (bms_is_empty(upper_varnos))
 		return NULL;
 
 	/*
-	 * However, it can't refer to anything outside available_rels.
+	 * 不过，它不能引用 available_rels 以外的任何东西。
 	 */
 	if (!bms_is_subset(upper_varnos, available_rels))
 		return NULL;
 
 	/*
-	 * The combining operators and left-hand expressions mustn't be volatile.
+	 * 组合操作符和左侧表达式不得是易变的。
 	 */
 	if (contain_volatile_functions(sublink->testexpr))
 		return NULL;
 
-	/* Create a dummy ParseState for addRangeTableEntryForSubquery */
+	/* 为 addRangeTableEntryForSubquery 创建一个哑 ParseState */
 	pstate = make_parsestate(NULL);
 
 	/*
-	 * Okay, pull up the sub-select into upper range table.
+	 * 好，把子查询上拉到上层范围表。
 	 *
-	 * We rely here on the assumption that the outer query has no references
-	 * to the inner (necessarily true, other than the Vars that we build
-	 * below). Therefore this is a lot easier than what pull_up_subqueries has
-	 * to go through.
+	 * 这里依赖一个假定：外层查询没有对
+	 * 内层的引用（除了下面要建的 Var，这必然为真）。
+	 * 因此这比 pull_up_subqueries
+	 * 要经历的简单得多。
 	 */
 	nsitem = addRangeTableEntryForSubquery(pstate,
 										   subselect,
@@ -1331,46 +1331,46 @@ convert_ANY_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	rtindex = list_length(parse->rtable);
 
 	/*
-	 * Form a RangeTblRef for the pulled-up sub-select.
+	 * 为上拉的子查询形成一个 RangeTblRef。
 	 */
 	rtr = makeNode(RangeTblRef);
 	rtr->rtindex = rtindex;
 
 	/*
-	 * Build a list of Vars representing the subselect outputs.
+	 * 建立表示子查询输出的 Var 列表。
 	 */
 	subquery_vars = generate_subquery_vars(root,
 										   subselect->targetList,
 										   rtindex);
 
 	/*
-	 * Build the new join's qual expression, replacing Params with these Vars.
+	 * 建立新连接的限定表达式，用这些 Var 替换 Param。
 	 */
 	quals = convert_testexpr(root, sublink->testexpr, subquery_vars);
 
 	/*
-	 * And finally, build the JoinExpr node.
+	 * 最后，建立 JoinExpr 节点。
 	 */
 	result = makeNode(JoinExpr);
 	result->jointype = JOIN_SEMI;
 	result->isNatural = false;
-	result->larg = NULL;		/* caller must fill this in */
+	result->larg = NULL;		/* 调用方必须填上这个 */
 	result->rarg = (Node *) rtr;
 	result->usingClause = NIL;
 	result->join_using_alias = NULL;
 	result->quals = quals;
 	result->alias = NULL;
-	result->rtindex = 0;		/* we don't need an RTE for it */
+	result->rtindex = 0;		/* 不需要为它建 RTE */
 
 	return result;
 }
 
 /*
- * convert_EXISTS_sublink_to_join: try to convert an EXISTS SubLink to a join
+ * convert_EXISTS_sublink_to_join：试着把 EXISTS SubLink 转换成连接
  *
- * The API of this function is identical to convert_ANY_sublink_to_join's,
- * except that we also support the case where the caller has found NOT EXISTS,
- * so we need an additional input parameter "under_not".
+ * 本函数的 API 与 convert_ANY_sublink_to_join 相同，
+ * 只是还支持调用方找到的是 NOT EXISTS 的情形，
+ * 因此需要额外的输入参数 "under_not"。
  */
 JoinExpr *
 convert_EXISTS_sublink_to_join(PlannerInfo *root, SubLink *sublink,
@@ -1388,96 +1388,96 @@ convert_EXISTS_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	Assert(sublink->subLinkType == EXISTS_SUBLINK);
 
 	/*
-	 * Can't flatten if it contains WITH.  (We could arrange to pull up the
-	 * WITH into the parent query's cteList, but that risks changing the
-	 * semantics, since a WITH ought to be executed once per associated query
-	 * call.)  Note that convert_ANY_sublink_to_join doesn't have to reject
-	 * this case, since it just produces a subquery RTE that doesn't have to
-	 * get flattened into the parent query.
+	 * 若含有 WITH 就不能展平。（可以安排把
+	 * WITH 上拉到父查询的 cteList，但那有改变
+	 * 语义的风险，因为 WITH 应当对每次关联的查询
+	 * 调用执行一次。）注意 convert_ANY_sublink_to_join 不必拒绝
+	 * 这种情形，因为它只产生一个子查询 RTE，不必
+	 * 展平进父查询。
 	 */
 	if (subselect->cteList)
 		return NULL;
 
 	/*
-	 * Copy the subquery so we can modify it safely (see comments in
-	 * make_subplan).
+	 * 复制子查询以便安全地修改它（见
+	 * make_subplan 里的注释）。
 	 */
 	subselect = copyObject(subselect);
 
 	/*
-	 * See if the subquery can be simplified based on the knowledge that it's
-	 * being used in EXISTS().  If we aren't able to get rid of its
-	 * targetlist, we have to fail, because the pullup operation leaves us
-	 * with noplace to evaluate the targetlist.
+	 * 看能否根据它用于 EXISTS() 这一点来简化子查询。
+	 * 若没法去掉它的
+	 * 目标列表，就必须失败，因为上拉操作之后没有
+	 * 地方求值目标列表。
 	 */
 	if (!simplify_EXISTS_query(root, subselect))
 		return NULL;
 
 	/*
-	 * Separate out the WHERE clause.  (We could theoretically also remove
-	 * top-level plain JOIN/ON clauses, but it's probably not worth the
-	 * trouble.)
+	 * 把 WHERE 子句分离出来。（理论上也可以去掉
+	 * 顶层的普通 JOIN/ON 子句，但大概不值得
+	 * 费这个事。）
 	 */
 	whereClause = subselect->jointree->quals;
 	subselect->jointree->quals = NULL;
 
 	/*
-	 * The rest of the sub-select must not refer to any Vars of the parent
-	 * query.  (Vars of higher levels should be okay, though.)
+	 * 子查询的其余部分不得引用父查询的任何 Var。
+	 * （更高层次的 Var 应当可以。）
 	 */
 	if (contain_vars_of_level((Node *) subselect, 1))
 		return NULL;
 
 	/*
-	 * On the other hand, the WHERE clause must contain some Vars of the
-	 * parent query, else it's not gonna be a join.
+	 * 另一方面，WHERE 子句必须含有父查询的一些 Var，
+	 * 否则它不会成为连接。
 	 */
 	if (!contain_vars_of_level(whereClause, 1))
 		return NULL;
 
 	/*
-	 * We don't risk optimizing if the WHERE clause is volatile, either.
+	 * 若 WHERE 子句是易变的，也不冒险优化。
 	 */
 	if (contain_volatile_functions(whereClause))
 		return NULL;
 
 	/*
-	 * The subquery must have a nonempty jointree, but we can make it so.
+	 * 子查询必须有非空的 jointree，但我们可以让它如此。
 	 */
 	replace_empty_jointree(subselect);
 
 	/*
-	 * Prepare to pull up the sub-select into top range table.
+	 * 准备把子查询上拉到顶层范围表。
 	 *
-	 * We rely here on the assumption that the outer query has no references
-	 * to the inner (necessarily true). Therefore this is a lot easier than
-	 * what pull_up_subqueries has to go through.
+	 * 这里依赖一个假定：外层查询没有对
+	 * 内层的引用（这必然为真）。因此这比
+	 * pull_up_subqueries 要经历的简单得多。
 	 *
-	 * In fact, it's even easier than what convert_ANY_sublink_to_join has to
-	 * do.  The machinations of simplify_EXISTS_query ensured that there is
-	 * nothing interesting in the subquery except an rtable and jointree, and
-	 * even the jointree FromExpr no longer has quals.  So we can just append
-	 * the rtable to our own and use the FromExpr in our jointree. But first,
-	 * adjust all level-zero varnos in the subquery to account for the rtable
-	 * merger.
+	 * 事实上，这甚至比 convert_ANY_sublink_to_join 要
+	 * 做的更简单。simplify_EXISTS_query 的处理确保了子查询里除了
+	 * rtable 和 jointree 没有别的有意思的东西，而且
+	 * 连 jointree 的 FromExpr 也不再有限定条件。因此可以只把
+	 * rtable 追加到我们自己的，并在 jointree 里使用该 FromExpr。但首先，
+	 * 调整子查询里所有层次为零的 varno，以计入 rtable
+	 * 合并。
 	 */
 	rtoffset = list_length(parse->rtable);
 	OffsetVarNodes((Node *) subselect, rtoffset, 0);
 	OffsetVarNodes(whereClause, rtoffset, 0);
 
 	/*
-	 * Upper-level vars in subquery will now be one level closer to their
-	 * parent than before; in particular, anything that had been level 1
-	 * becomes level zero.
+	 * 子查询里的上层变量现在离它们的
+	 * 父项比以前近一层；尤其是，原来是层次 1 的
+	 * 变成层次零。
 	 */
 	IncrementVarSublevelsUp((Node *) subselect, -1, 1);
 	IncrementVarSublevelsUp(whereClause, -1, 1);
 
 	/*
-	 * Now that the WHERE clause is adjusted to match the parent query
-	 * environment, we can easily identify all the level-zero rels it uses.
-	 * The ones <= rtoffset belong to the upper query; the ones > rtoffset do
-	 * not.
+	 * 既然 WHERE 子句已调整到匹配父查询
+	 * 环境，就能轻易识别它使用的全部层次为零的关系。
+	 * 那些 <= rtoffset 的属于上层查询；那些 > rtoffset 的
+	 * 不属于。
 	 */
 	clause_varnos = pull_varnos(root, whereClause);
 	upper_varnos = NULL;
@@ -1491,27 +1491,27 @@ convert_EXISTS_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	Assert(!bms_is_empty(upper_varnos));
 
 	/*
-	 * Now that we've got the set of upper-level varnos, we can make the last
-	 * check: only available_rels can be referenced.
+	 * 既然有了上层 varno 的集合，就可以做最后
+	 * 一项检查：只能引用 available_rels。
 	 */
 	if (!bms_is_subset(upper_varnos, available_rels))
 		return NULL;
 
 	/*
-	 * Now we can attach the modified subquery rtable to the parent. This also
-	 * adds subquery's RTEPermissionInfos into the upper query.
+	 * 现在可以把修改后的子查询 rtable 接到父项上。这也会
+	 * 把子查询的 RTEPermissionInfos 加进上层查询。
 	 */
 	CombineRangeTables(&parse->rtable, &parse->rteperminfos,
 					   subselect->rtable, subselect->rteperminfos);
 
 	/*
-	 * And finally, build the JoinExpr node.
+	 * 最后，建立 JoinExpr 节点。
 	 */
 	result = makeNode(JoinExpr);
 	result->jointype = under_not ? JOIN_ANTI : JOIN_SEMI;
 	result->isNatural = false;
-	result->larg = NULL;		/* caller must fill this in */
-	/* flatten out the FromExpr node if it's useless */
+	result->larg = NULL;		/* 调用方必须填上这个 */
+	/* 若 FromExpr 节点没用，就把它展平 */
 	if (list_length(subselect->jointree->fromlist) == 1)
 		result->rarg = (Node *) linitial(subselect->jointree->fromlist);
 	else
@@ -1520,37 +1520,37 @@ convert_EXISTS_sublink_to_join(PlannerInfo *root, SubLink *sublink,
 	result->join_using_alias = NULL;
 	result->quals = whereClause;
 	result->alias = NULL;
-	result->rtindex = 0;		/* we don't need an RTE for it */
+	result->rtindex = 0;		/* 不需要为它建 RTE */
 
 	return result;
 }
 
 /*
- * simplify_EXISTS_query: remove any useless stuff in an EXISTS's subquery
+ * simplify_EXISTS_query：去掉 EXISTS 的子查询里任何无用的东西
  *
- * The only thing that matters about an EXISTS query is whether it returns
- * zero or more than zero rows.  Therefore, we can remove certain SQL features
- * that won't affect that.  The only part that is really likely to matter in
- * typical usage is simplifying the targetlist: it's a common habit to write
- * "SELECT * FROM" even though there is no need to evaluate any columns.
+ * EXISTS 查询唯一要紧的是它返回
+ * 零行还是多于零行。因此可以去掉不影响这一点的 SQL 特性。
+ * 典型用法里真正可能要紧的是简化目标列表：
+ * 人们习惯写
+ * "SELECT * FROM"，即使不必求值任何列。
  *
- * Note: by suppressing the targetlist we could cause an observable behavioral
- * change, namely that any errors that might occur in evaluating the tlist
- * won't occur, nor will other side-effects of volatile functions.  This seems
- * unlikely to bother anyone in practice.
+ * 注意：压掉目标列表可能造成可观察的行为
+ * 变化，即求值目标列表时可能发生的任何错误
+ * 不会发生，易变函数的其他副作用也不会。这在实践中似乎
+ * 不太会打扰到谁。
  *
- * Returns true if was able to discard the targetlist, else false.
+ * 若能丢掉目标列表则返回真，否则返回假。
  */
 static bool
 simplify_EXISTS_query(PlannerInfo *root, Query *query)
 {
 	/*
-	 * We don't try to simplify at all if the query uses set operations,
-	 * aggregates, grouping sets, SRFs, modifying CTEs, HAVING, OFFSET, or FOR
-	 * UPDATE/SHARE; none of these seem likely in normal usage and their
-	 * possible effects are complex.  (Note: we could ignore an "OFFSET 0"
-	 * clause, but that traditionally is used as an optimization fence, so we
-	 * don't.)
+	 * 若查询使用集合运算、
+	 * 聚合、分组集、SRFs、修改性 CTEs、HAVING、OFFSET 或 FOR
+	 * UPDATE/SHARE，就完全不尝试简化；这些在正常用法里似乎都不太可能，而且它们
+	 * 可能的效应很复杂。（注意：可以忽略 "OFFSET 0"
+	 * 子句，但那传统上用作优化栅栏，因此
+	 * 不忽略。）
 	 */
 	if (query->commandType != CMD_SELECT ||
 		query->setOperations ||
@@ -1565,25 +1565,25 @@ simplify_EXISTS_query(PlannerInfo *root, Query *query)
 		return false;
 
 	/*
-	 * LIMIT with a constant positive (or NULL) value doesn't affect the
-	 * semantics of EXISTS, so let's ignore such clauses.  This is worth doing
-	 * because people accustomed to certain other DBMSes may be in the habit
-	 * of writing EXISTS(SELECT ... LIMIT 1) as an optimization.  If there's a
-	 * LIMIT with anything else as argument, though, we can't simplify.
+	 * 带常量正值（或 NULL）的 LIMIT 不影响
+	 * EXISTS 的语义，因此忽略这种子句。值得做，
+	 * 因为习惯了某些其他 DBMSes 的人可能习惯
+	 * 把 EXISTS(SELECT ... LIMIT 1) 写成一种优化。若
+	 * LIMIT 的参数是别的东西，就不能简化。
 	 */
 	if (query->limitCount)
 	{
 		/*
-		 * The LIMIT clause has not yet been through eval_const_expressions,
-		 * so we have to apply that here.  It might seem like this is a waste
-		 * of cycles, since the only case plausibly worth worrying about is
-		 * "LIMIT 1" ... but what we'll actually see is "LIMIT int8(1::int4)",
-		 * so we have to fold constants or we're not going to recognize it.
+		 * LIMIT 子句还没经过 eval_const_expressions，
+		 * 所以必须在这里应用。这似乎是浪费
+		 * 周期，因为唯一值得操心的情形大概是
+		 * "LIMIT 1"……但实际会看到的是 "LIMIT int8(1::int4)"，
+		 * 因此必须折叠常量，否则认不出来。
 		 */
 		Node	   *node = eval_const_expressions(root, query->limitCount);
 		Const	   *limit;
 
-		/* Might as well update the query if we simplified the clause. */
+		/* 若简化了该子句，不妨更新查询。 */
 		query->limitCount = node;
 
 		if (!IsA(node, Const))
@@ -1594,16 +1594,16 @@ simplify_EXISTS_query(PlannerInfo *root, Query *query)
 		if (!limit->constisnull && DatumGetInt64(limit->constvalue) <= 0)
 			return false;
 
-		/* Whether or not the targetlist is safe, we can drop the LIMIT. */
+		/* 无论目标列表是否安全，都可以丢掉 LIMIT。 */
 		query->limitCount = NULL;
 	}
 
 	/*
-	 * Otherwise, we can throw away the targetlist, as well as any GROUP,
-	 * WINDOW, DISTINCT, and ORDER BY clauses; none of those clauses will
-	 * change a nonzero-rows result to zero rows or vice versa.  (Furthermore,
-	 * since our parsetree representation of these clauses depends on the
-	 * targetlist, we'd better throw them away if we drop the targetlist.)
+	 * 否则可以扔掉目标列表，以及任何 GROUP、
+	 * WINDOW、DISTINCT 和 ORDER BY 子句；这些子句都不会
+	 * 把非零行结果变成零行，或反过来。（而且，
+	 * 由于这些子句的解析树表示依赖
+	 * 目标列表，若丢掉目标列表就最好把它们也扔掉。）
 	 */
 	query->targetList = NIL;
 	query->groupClause = NIL;
@@ -1616,18 +1616,18 @@ simplify_EXISTS_query(PlannerInfo *root, Query *query)
 }
 
 /*
- * convert_EXISTS_to_ANY: try to convert EXISTS to a hashable ANY sublink
+ * convert_EXISTS_to_ANY：试着把 EXISTS 转换成可哈希的 ANY 子链接
  *
- * The subselect is expected to be a fresh copy that we can munge up,
- * and to have been successfully passed through simplify_EXISTS_query.
+ * 子查询预期是一份可以改动的新副本，
+ * 并且已经成功通过 simplify_EXISTS_query。
  *
- * On success, the modified subselect is returned, and we store a suitable
- * upper-level test expression at *testexpr, plus a list of the subselect's
- * output Params at *paramIds.  (The test expression is already Param-ified
- * and hence need not go through convert_testexpr, which is why we have to
- * deal with the Param IDs specially.)
+ * 成功时返回修改后的子查询，并把合适的
+ * 上层测试表达式存进 *testexpr，再加上子查询
+ * 输出 Param 的列表到 *paramIds。（测试表达式已经 Param 化，
+ * 因此不必经过 convert_testexpr，这就是必须
+ * 特别处理 Param ID 的原因。）
  *
- * On failure, returns NULL.
+ * 失败时返回 NULL。
  */
 static Query *
 convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
@@ -1649,65 +1649,65 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 	AttrNumber	resno;
 
 	/*
-	 * Query must not require a targetlist, since we have to insert a new one.
-	 * Caller should have dealt with the case already.
+	 * 查询不得需要目标列表，因为必须插入一个新的。
+	 * 调用方应当已经处理过这种情形。
 	 */
 	Assert(subselect->targetList == NIL);
 
 	/*
-	 * Separate out the WHERE clause.  (We could theoretically also remove
-	 * top-level plain JOIN/ON clauses, but it's probably not worth the
-	 * trouble.)
+	 * 把 WHERE 子句分离出来。（理论上也可以去掉
+	 * 顶层的普通 JOIN/ON 子句，但大概不值得
+	 * 费这个事。）
 	 */
 	whereClause = subselect->jointree->quals;
 	subselect->jointree->quals = NULL;
 
 	/*
-	 * The rest of the sub-select must not refer to any Vars of the parent
-	 * query.  (Vars of higher levels should be okay, though.)
+	 * 子查询的其余部分不得引用父查询的任何 Var。
+	 * （更高层次的 Var 应当可以。）
 	 *
-	 * Note: we need not check for Aggrefs separately because we know the
-	 * sub-select is as yet unoptimized; any uplevel Aggref must therefore
-	 * contain an uplevel Var reference.  This is not the case below ...
+	 * 注意：不必单独检查 Aggref，因为知道
+	 * 子查询还没优化；任何上层 Aggref 因此
+	 * 必定含有上层 Var 引用。下面的情形不是这样……
 	 */
 	if (contain_vars_of_level((Node *) subselect, 1))
 		return NULL;
 
 	/*
-	 * We don't risk optimizing if the WHERE clause is volatile, either.
+	 * 若 WHERE 子句是易变的，也不冒险优化。
 	 */
 	if (contain_volatile_functions(whereClause))
 		return NULL;
 
 	/*
-	 * Clean up the WHERE clause by doing const-simplification etc on it.
-	 * Aside from simplifying the processing we're about to do, this is
-	 * important for being able to pull chunks of the WHERE clause up into the
-	 * parent query.  Since we are invoked partway through the parent's
-	 * preprocess_expression() work, earlier steps of preprocess_expression()
-	 * wouldn't get applied to the pulled-up stuff unless we do them here. For
-	 * the parts of the WHERE clause that get put back into the child query,
-	 * this work is partially duplicative, but it shouldn't hurt.
+	 * 对 WHERE 子句做常量简化等清理。
+	 * 除了简化即将做的处理，这对
+	 * 能把 WHERE 子句的一些片段上拉到
+	 * 父查询也很重要。因为我们是在父项的
+	 * preprocess_expression() 工作进行到一半时被调用的，除非在这里做，否则 preprocess_expression() 的更早步骤
+	 * 不会应用到上拉的东西。对
+	 * 放回子查询的那部分 WHERE 子句，
+	 * 这项工作有部分重复，但不应当有害。
 	 *
-	 * Note: we do not run flatten_join_alias_vars.  This is OK because any
-	 * parent aliases were flattened already, and we're not going to pull any
-	 * child Vars (of any description) into the parent.
+	 * 注意：不跑 flatten_join_alias_vars。这没问题，因为任何
+	 * 父项别名已经展平，而且不会把任何
+	 * 子 Var（无论哪种）拉进父项。
 	 *
-	 * Note: passing the parent's root to eval_const_expressions is
-	 * technically wrong, but we can get away with it since only the
-	 * boundParams (if any) are used, and those would be the same in a
-	 * subroot.
+	 * 注意：把父项的 root 传给 eval_const_expressions 在
+	 * 技术上是错的，但可以蒙混过关，因为只用到
+	 * boundParams（若有），而那些在
+	 * 子 root 里也会相同。
 	 */
 	whereClause = eval_const_expressions(root, whereClause);
 	whereClause = (Node *) canonicalize_qual((Expr *) whereClause, false);
 	whereClause = (Node *) make_ands_implicit((Expr *) whereClause);
 
 	/*
-	 * We now have a flattened implicit-AND list of clauses, which we try to
-	 * break apart into "outervar = innervar" hash clauses. Anything that
-	 * can't be broken apart just goes back into the newWhere list.  Note that
-	 * we aren't trying hard yet to ensure that we have only outer or only
-	 * inner on each side; we'll check that if we get to the end.
+	 * 现在有一份展平的隐式 AND 子句列表，试着把它
+	 * 拆成 "outervar = innervar" 哈希子句。任何
+	 * 拆不开的就放回 newWhere 列表。注意
+	 * 还没努力确保每一侧只有外侧或只有
+	 * 内侧；若能走到最后再检查。
 	 */
 	leftargs = rightargs = opids = opcollations = newWhere = NIL;
 	foreach(lc, (List *) whereClause)
@@ -1731,10 +1731,10 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 			if (contain_vars_of_level(rightarg, 1))
 			{
 				/*
-				 * We must commute the clause to put the outer var on the
-				 * left, because the hashing code in nodeSubplan.c expects
-				 * that.  This probably shouldn't ever fail, since hashable
-				 * operators ought to have commutators, but be paranoid.
+				 * 必须交换该子句，把外侧变量放在
+				 * 左边，因为 nodeSubplan.c 里的哈希代码预期
+				 * 如此。这大概不应当失败，因为可哈希
+				 * 操作符应当有交换子，但还是谨慎一点。
 				 */
 				expr->opno = get_commutator(expr->opno);
 				if (OidIsValid(expr->opno) && hash_ok_operator(expr))
@@ -1745,26 +1745,26 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 					opcollations = lappend_oid(opcollations, expr->inputcollid);
 					continue;
 				}
-				/* If no commutator, no chance to optimize the WHERE clause */
+				/* 若没有交换子，就没机会优化 WHERE 子句 */
 				return NULL;
 			}
 		}
-		/* Couldn't handle it as a hash clause */
+		/* 没法把它当作哈希子句处理 */
 		newWhere = lappend(newWhere, expr);
 	}
 
 	/*
-	 * If we didn't find anything we could convert, fail.
+	 * 若没找到任何可以转换的东西，就失败。
 	 */
 	if (leftargs == NIL)
 		return NULL;
 
 	/*
-	 * There mustn't be any parent Vars or Aggs in the stuff that we intend to
-	 * put back into the child query.  Note: you might think we don't need to
-	 * check for Aggs separately, because an uplevel Agg must contain an
-	 * uplevel Var in its argument.  But it is possible that the uplevel Var
-	 * got optimized away by eval_const_expressions.  Consider
+	 * 打算放回子查询的东西里不得有任何父项 Var 或聚合。
+	 * 注意：也许会觉得不必
+	 * 单独检查聚合，因为上层聚合的参数里必定含有
+	 * 上层 Var。但上层 Var 有可能
+	 * 被 eval_const_expressions 优化掉。考虑
 	 *
 	 * SUM(CASE WHEN false THEN uplevelvar ELSE 0 END)
 	 */
@@ -1777,37 +1777,37 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 		return NULL;
 
 	/*
-	 * And there can't be any child Vars in the stuff we intend to pull up.
-	 * (Note: we'd need to check for child Aggs too, except we know the child
-	 * has no aggs at all because of simplify_EXISTS_query's check. The same
-	 * goes for window functions.)
+	 * 而且打算上拉的东西里不能有任何子 Var。
+	 * （注意：本来也得检查子聚合，只是知道子查询
+	 * 因 simplify_EXISTS_query 的检查而完全没有聚合。窗口函数
+	 * 也一样。）
 	 */
 	if (contain_vars_of_level((Node *) leftargs, 0))
 		return NULL;
 
 	/*
-	 * Also reject sublinks in the stuff we intend to pull up.  (It might be
-	 * possible to support this, but doesn't seem worth the complication.)
+	 * 也拒绝打算上拉的东西里的子链接。（也许
+	 * 可以支持，但似乎不值得为此增加复杂度。）
 	 */
 	if (contain_subplans((Node *) leftargs))
 		return NULL;
 
 	/*
-	 * Okay, adjust the sublevelsup in the stuff we're pulling up.
+	 * 好，调整正在上拉的东西里的 sublevelsup。
 	 */
 	IncrementVarSublevelsUp((Node *) leftargs, -1, 1);
 
 	/*
-	 * Put back any child-level-only WHERE clauses.
+	 * 把任何只属于子层次的 WHERE 子句放回去。
 	 */
 	if (newWhere)
 		subselect->jointree->quals = (Node *) make_ands_explicit(newWhere);
 
 	/*
-	 * Build a new targetlist for the child that emits the expressions we
-	 * need.  Concurrently, build a testexpr for the parent using Params to
-	 * reference the child outputs.  (Since we generate Params directly here,
-	 * there will be no need to convert the testexpr in build_subplan.)
+	 * 为子查询建立新的目标列表，发出需要的表达式。
+	 * 同时用 Param 为父项建立 testexpr，以
+	 * 引用子输出。（因为这里直接生成 Param，
+	 * build_subplan 里就不必转换 testexpr。）
 	 */
 	tlist = testlist = paramids = NIL;
 	resno = 1;
@@ -1835,7 +1835,7 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 		paramids = lappend_int(paramids, param->paramid);
 	}
 
-	/* Put everything where it should go, and we're done */
+	/* 把一切放到该放的地方，就完成了 */
 	subselect->targetList = tlist;
 	*testexpr = (Node *) make_ands_explicit(testlist);
 	*paramIds = paramids;
@@ -1845,33 +1845,33 @@ convert_EXISTS_to_ANY(PlannerInfo *root, Query *subselect,
 
 
 /*
- * Replace correlation vars (uplevel vars) with Params.
+ * 用 Param 替换相关变量（上层变量）。
  *
- * Uplevel PlaceHolderVars and aggregates are replaced, too.
+ * 上层的 PlaceHolderVars 和聚合也会被替换。
  *
- * Note: it is critical that this runs immediately after SS_process_sublinks.
- * Since we do not recurse into the arguments of uplevel PHVs and aggregates,
- * they will get copied to the appropriate subplan args list in the parent
- * query with uplevel vars not replaced by Params, but only adjusted in level
- * (see replace_outer_placeholdervar and replace_outer_agg).  That's exactly
- * what we want for the vars of the parent level --- but if a PHV's or
- * aggregate's argument contains any further-up variables, they have to be
- * replaced with Params in their turn. That will happen when the parent level
- * runs SS_replace_correlation_vars.  Therefore it must do so after expanding
- * its sublinks to subplans.  And we don't want any steps in between, else
- * those steps would never get applied to the argument expressions, either in
- * the parent or the child level.
+ * 注意：必须紧接在 SS_process_sublinks 之后运行，这很关键。
+ * 因为不递归进入上层 PHVs 和聚合的参数，
+ * 它们会被复制到父查询里适当的子计划参数列表，
+ * 上层变量不被 Param 替换，只调整层次
+ * （见 replace_outer_placeholdervar 和 replace_outer_agg）。对父层次的变量，这正是
+ * 我们要的 --- 但若某个 PHV 或
+ * 聚合的参数含有更上层的变量，那些变量轮到它们时
+ * 必须被 Param 替换。那会发生在父层次
+ * 运行 SS_replace_correlation_vars 时。因此它必须在展开
+ * 其子链接为子计划之后这样做。而且中间不要有任何步骤，否则
+ * 那些步骤也永远不会应用到参数表达式，无论在
+ * 父层次还是子层次。
  *
- * Another fairly tricky thing going on here is the handling of SubLinks in
- * the arguments of uplevel PHVs/aggregates.  Those are not touched inside the
- * intermediate query level, either.  Instead, SS_process_sublinks recurses on
- * them after copying the PHV or Aggref expression into the parent plan level
- * (this is actually taken care of in build_subplan).
+ * 这里另一件相当棘手的事是上层 PHV/聚合参数里的 SubLinks
+ * 的处理。在中间查询层次内部也不碰
+ * 它们。而是在把 PHV 或 Aggref 表达式复制到父计划层次之后，
+ * 由 SS_process_sublinks 对它们递归
+ * （这实际上在 build_subplan 里处理）。
  */
 Node *
 SS_replace_correlation_vars(PlannerInfo *root, Node *expr)
 {
-	/* No setup needed for tree walk, so away we go */
+	/* 树遍历不需要准备，因此出发 */
 	return replace_correlation_vars_mutator(expr, root);
 }
 
@@ -1907,11 +1907,11 @@ replace_correlation_vars_mutator(Node *node, PlannerInfo *root)
 }
 
 /*
- * Expand SubLinks to SubPlans in the given expression.
+ * 把给定表达式里的 SubLinks 展开成 SubPlans。
  *
- * The isQual argument tells whether or not this expression is a WHERE/HAVING
- * qualifier expression.  If it is, any sublinks appearing at top level need
- * not distinguish FALSE from UNKNOWN return values.
+ * isQual 参数说明该表达式是否是 WHERE/HAVING
+ * 限定表达式。若是，出现在顶层的任何子链接
+ * 不必区分 FALSE 和 UNKNOWN 返回值。
  */
 Node *
 SS_process_sublinks(PlannerInfo *root, Node *expr, bool isQual)
@@ -1938,14 +1938,14 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 		Node	   *testexpr;
 
 		/*
-		 * First, recursively process the lefthand-side expressions, if any.
-		 * They're not top-level anymore.
+		 * 首先，若有左侧表达式，就递归处理它们。
+		 * 它们不再是顶层。
 		 */
 		locContext.isTopQual = false;
 		testexpr = process_sublinks_mutator(sublink->testexpr, &locContext);
 
 		/*
-		 * Now build the SubPlan node and make the expr to return.
+		 * 现在建立 SubPlan 节点，并做出要返回的表达式。
 		 */
 		return make_subplan(context->root,
 							(Query *) sublink->subselect,
@@ -1956,11 +1956,11 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 	}
 
 	/*
-	 * Don't recurse into the arguments of an outer PHV, Aggref or
-	 * GroupingFunc here.  Any SubLinks in the arguments have to be dealt with
-	 * at the outer query level; they'll be handled when build_subplan
-	 * collects the PHV, Aggref or GroupingFunc into the arguments to be
-	 * passed down to the current subplan.
+	 * 这里不要递归进入外层 PHV、Aggref 或
+	 * GroupingFunc 的参数。参数里的任何 SubLinks 必须在
+	 * 外层查询层次处理；当 build_subplan
+	 * 把该 PHV、Aggref 或 GroupingFunc 收进要
+	 * 传给当前子计划的参数时会处理它们。
 	 */
 	if (IsA(node, PlaceHolderVar))
 	{
@@ -1979,34 +1979,34 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 	}
 
 	/*
-	 * We should never see a SubPlan expression in the input (since this is
-	 * the very routine that creates 'em to begin with).  We shouldn't find
-	 * ourselves invoked directly on a Query, either.
+	 * 输入里永远不应当看到 SubPlan 表达式（因为本例程
+	 * 正是一开始创建它们的例程）。也不应当发现
+	 * 自己被直接调用在一个 Query 上。
 	 */
 	Assert(!IsA(node, SubPlan));
 	Assert(!IsA(node, AlternativeSubPlan));
 	Assert(!IsA(node, Query));
 
 	/*
-	 * Because make_subplan() could return an AND or OR clause, we have to
-	 * take steps to preserve AND/OR flatness of a qual.  We assume the input
-	 * has been AND/OR flattened and so we need no recursion here.
+	 * 因为 make_subplan() 可能返回 AND 或 OR 子句，必须
+	 * 采取措施保持限定条件的 AND/OR 平坦。假定输入
+	 * 已经 AND/OR 展平，因此这里不需要递归。
 	 *
-	 * (Due to the coding here, we will not get called on the List subnodes of
-	 * an AND; and the input is *not* yet in implicit-AND format.  So no check
-	 * is needed for a bare List.)
+	 * （由于这里的写法，不会在 AND 的 List 子节点上被调用；
+	 * 而且输入 *还没有* 变成隐式 AND 格式。因此
+	 * 不需要对裸 List 做检查。）
 	 *
-	 * Anywhere within the top-level AND/OR clause structure, we can tell
-	 * make_subplan() that NULL and FALSE are interchangeable.  So isTopQual
-	 * propagates down in both cases.  (Note that this is unlike the meaning
-	 * of "top level qual" used in most other places in Postgres.)
+	 * 在顶层 AND/OR 子句结构内的任何地方，都可以告诉
+	 * make_subplan()：NULL 和 FALSE 可互换。因此 isTopQual
+	 * 在两种情形里都向下传播。（注意这不同于 Postgres 里多数其他地方
+	 * 所用的"顶层限定条件"的含义。）
 	 */
 	if (is_andclause(node))
 	{
 		List	   *newargs = NIL;
 		ListCell   *l;
 
-		/* Still at qual top-level */
+		/* 仍在限定条件顶层 */
 		locContext.isTopQual = context->isTopQual;
 
 		foreach(l, ((BoolExpr *) node)->args)
@@ -2027,7 +2027,7 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 		List	   *newargs = NIL;
 		ListCell   *l;
 
-		/* Still at qual top-level */
+		/* 仍在限定条件顶层 */
 		locContext.isTopQual = context->isTopQual;
 
 		foreach(l, ((BoolExpr *) node)->args)
@@ -2044,8 +2044,8 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 	}
 
 	/*
-	 * If we recurse down through anything other than an AND or OR node, we
-	 * are definitely not at top qual level anymore.
+	 * 若递归经过 AND 或 OR 节点以外的任何东西，就
+	 * 肯定不再处于顶层限定条件。
 	 */
 	locContext.isTopQual = false;
 
@@ -2055,16 +2055,16 @@ process_sublinks_mutator(Node *node, process_sublinks_context *context)
 }
 
 /*
- * SS_identify_outer_params - identify the Params available from outer levels
+ * SS_identify_outer_params - 识别外层可用的 Param
  *
- * This must be run after SS_replace_correlation_vars and SS_process_sublinks
- * processing is complete in a given query level as well as all of its
- * descendant levels (which means it's most practical to do it at the end of
- * processing the query level).  We compute the set of paramIds that outer
- * levels will make available to this level+descendants, and record it in
- * root->outer_params for use while computing extParam/allParam sets in final
- * plan cleanup.  (We can't just compute it then, because the upper levels'
- * plan_params lists are transient and will be gone by then.)
+ * 这必须在给定查询层次及其全部
+ * 后代层次都完成 SS_replace_correlation_vars 和 SS_process_sublinks
+ * 处理之后运行（因此最实际的是在该
+ * 查询层次处理结束时做）。计算外层
+ * 会提供给这一层加后代的 paramId 集合，并记到
+ * root->outer_params，供最终
+ * 计划清理时计算 extParam/allParam 集合使用。（那时不能直接算，因为上层的
+ * plan_params 列表是临时的，到那时已经没了。）
  */
 void
 SS_identify_outer_params(PlannerInfo *root)
@@ -2074,29 +2074,29 @@ SS_identify_outer_params(PlannerInfo *root)
 	ListCell   *l;
 
 	/*
-	 * If no parameters have been assigned anywhere in the tree, we certainly
-	 * don't need to do anything here.
+	 * 若整棵树里都没分配过参数，这里当然
+	 * 不必做任何事。
 	 */
 	if (root->glob->paramExecTypes == NIL)
 		return;
 
 	/*
-	 * Scan all query levels above this one to see which parameters are due to
-	 * be available from them, either because lower query levels have
-	 * requested them (via plan_params) or because they will be available from
-	 * initPlans of those levels.
+	 * 扫描这一层之上的全部查询层次，看哪些参数将由
+	 * 它们提供，或者因为更低的查询层次
+	 * 请求了它们（经由 plan_params），或者因为它们将由
+	 * 那些层次的 initPlan 提供。
 	 */
 	outer_params = NULL;
 	for (proot = root->parent_root; proot != NULL; proot = proot->parent_root)
 	{
-		/* Include ordinary Var/PHV/Aggref/GroupingFunc params */
+		/* 包括普通的 Var/PHV/Aggref/GroupingFunc 参数 */
 		foreach(l, proot->plan_params)
 		{
 			PlannerParamItem *pitem = (PlannerParamItem *) lfirst(l);
 
 			outer_params = bms_add_member(outer_params, pitem->paramId);
 		}
-		/* Include any outputs of outer-level initPlans */
+		/* 包括外层 initPlan 的任何输出 */
 		foreach(l, proot->init_plans)
 		{
 			SubPlan    *initsubplan = (SubPlan *) lfirst(l);
@@ -2107,7 +2107,7 @@ SS_identify_outer_params(PlannerInfo *root)
 				outer_params = bms_add_member(outer_params, lfirst_int(l2));
 			}
 		}
-		/* Include worktable ID, if a recursive query is being planned */
+		/* 若正在规划递归查询，就包括工作表 ID */
 		if (proot->wt_param_id >= 0)
 			outer_params = bms_add_member(outer_params, proot->wt_param_id);
 	}
@@ -2115,18 +2115,18 @@ SS_identify_outer_params(PlannerInfo *root)
 }
 
 /*
- * SS_charge_for_initplans - account for initplans in Path costs & parallelism
+ * SS_charge_for_initplans - 在路径代价和并行性里计入 initplan
  *
- * If any initPlans have been created in the current query level, they will
- * get attached to the Plan tree created from whichever Path we select from
- * the given rel.  Increment all that rel's Paths' costs to account for them,
- * and make sure the paths get marked as parallel-unsafe, since we can't
- * currently transmit initPlans to parallel workers.
+ * 若当前查询层次创建了任何 initPlan，它们会
+ * 接到从给定关系选出的那条路径所建立的计划树上。
+ * 把该关系全部路径的代价都加上它们，
+ * 并确保这些路径被标成并行不安全，因为目前不能
+ * 把 initPlan 传给并行工作进程。
  *
- * This is separate from SS_attach_initplans because we might conditionally
- * create more initPlans during create_plan(), depending on which Path we
- * select.  However, Paths that would generate such initPlans are expected
- * to have included their cost and parallel-safety effects already.
+ * 这与 SS_attach_initplans 分开，因为 create_plan() 期间也许会按条件
+ * 再创建 initPlan，取决于选出哪条路径。
+ * 不过，会产生这种 initPlan 的路径预期
+ * 已经计入了它们的代价和并行安全效应。
  */
 void
 SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
@@ -2134,15 +2134,15 @@ SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
 	Cost		initplan_cost;
 	ListCell   *lc;
 
-	/* Nothing to do if no initPlans */
+	/* 若没有 initPlan 就无事可做 */
 	if (root->init_plans == NIL)
 		return;
 
 	/*
-	 * Compute the cost increment just once, since it will be the same for all
-	 * Paths.  We assume each initPlan gets run once during top plan startup.
-	 * This is a conservative overestimate, since in fact an initPlan might be
-	 * executed later than plan startup, or even not at all.
+	 * 代价增量只算一次，因为对所有
+	 * 路径都相同。假定每个 initPlan 在顶层计划启动期间跑一次。
+	 * 这是保守的高估，因为事实上 initPlan 也许
+	 * 在计划启动之后才执行，甚至根本不执行。
 	 */
 	initplan_cost = 0;
 	foreach(lc, root->init_plans)
@@ -2153,7 +2153,7 @@ SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
 	}
 
 	/*
-	 * Now adjust the costs and parallel_safe flags.
+	 * 现在调整代价和 parallel_safe 标志。
 	 */
 	foreach(lc, final_rel->pathlist)
 	{
@@ -2165,27 +2165,27 @@ SS_charge_for_initplans(PlannerInfo *root, RelOptInfo *final_rel)
 	}
 
 	/*
-	 * Forget about any partial paths and clear consider_parallel, too;
-	 * they're not usable if we attached an initPlan.
+	 * 忘掉任何部分路径，并清掉 consider_parallel；
+	 * 若接上了 initPlan，它们就不可用。
 	 */
 	final_rel->partial_pathlist = NIL;
 	final_rel->consider_parallel = false;
 
-	/* We needn't do set_cheapest() here, caller will do it */
+	/* 这里不必做 set_cheapest()，调用方会做 */
 }
 
 /*
- * SS_attach_initplans - attach initplans to topmost plan node
+ * SS_attach_initplans - 把 initplan 接到最顶层计划节点
  *
- * Attach any initplans created in the current query level to the specified
- * plan node, which should normally be the topmost node for the query level.
- * (In principle the initPlans could go in any node at or above where they're
- * referenced; but there seems no reason to put them any lower than the
- * topmost node, so we don't bother to track exactly where they came from.)
+ * 把当前查询层次创建的任何 initplan 接到指定的
+ * 计划节点，它通常应当是该查询层次的最顶层节点。
+ * （原则上 initPlan 可以放在引用它们的地方或其上的任何节点；
+ * 但似乎没有理由放得比
+ * 最顶层节点更低，因此不费心精确跟踪它们从哪来。）
  *
- * We do not touch the plan node's cost or parallel_safe flag.  The initplans
- * must have been accounted for in SS_charge_for_initplans, or by any later
- * code that adds initplans via SS_make_initplan_from_plan.
+ * 不碰计划节点的代价或 parallel_safe 标志。这些 initplan
+ * 必须已在 SS_charge_for_initplans 里计入，或由后来
+ * 经由 SS_make_initplan_from_plan 添加 initplan 的代码计入。
  */
 void
 SS_attach_initplans(PlannerInfo *root, Plan *plan)
@@ -2194,51 +2194,51 @@ SS_attach_initplans(PlannerInfo *root, Plan *plan)
 }
 
 /*
- * SS_finalize_plan - do final parameter processing for a completed Plan.
+ * SS_finalize_plan - 对已完成的计划做最终参数处理。
  *
- * This recursively computes the extParam and allParam sets for every Plan
- * node in the given plan tree.  (Oh, and RangeTblFunction.funcparams too.)
+ * 这递归计算给定计划树中每个计划
+ * 节点的 extParam 和 allParam 集合。（还有 RangeTblFunction.funcparams。）
  *
- * We assume that SS_finalize_plan has already been run on any initplans or
- * subplans the plan tree could reference.
+ * 假定对计划树可能引用的任何 initplan 或
+ * 子计划已经跑过 SS_finalize_plan。
  */
 void
 SS_finalize_plan(PlannerInfo *root, Plan *plan)
 {
-	/* No setup needed, just recurse through plan tree. */
+	/* 不需要准备，只要递归走过计划树。 */
 	(void) finalize_plan(root, plan, -1, root->outer_params, NULL);
 }
 
 /*
- * Recursive processing of all nodes in the plan tree
+ * 递归处理计划树中的全部节点
  *
- * gather_param is the rescan_param of an ancestral Gather/GatherMerge,
- * or -1 if there is none.
+ * gather_param 是某个祖先 Gather/GatherMerge 的 rescan_param，
+ * 若没有则为 -1。
  *
- * valid_params is the set of param IDs supplied by outer plan levels
- * that are valid to reference in this plan node or its children.
+ * valid_params 是外层计划层次提供的、
+ * 在本计划节点或其子节点里可以合法引用的参数号集合。
  *
- * scan_params is a set of param IDs to force scan plan nodes to reference.
- * This is for EvalPlanQual support, and is always NULL at the top of the
- * recursion.
+ * scan_params 是要强制扫描计划节点引用的参数号集合。
+ * 这是为了 EvalPlanQual 支持，
+ * 在递归的顶层总是 NULL。
  *
- * The return value is the computed allParam set for the given Plan node.
- * This is just an internal notational convenience: we can add a child
- * plan's allParams to the set of param IDs of interest to this level
- * in the same statement that recurses to that child.
+ * 返回值是给定计划节点算出的 allParam 集合。
+ * 这只是内部记法上的方便：可以把子
+ * 计划的 allParams 加进本层关心的参数号集合，
+ * 就在递归到该子节点的同一条语句里。
  *
- * Do not scribble on caller's values of valid_params or scan_params!
+ * 不要涂改调用方的 valid_params 或 scan_params 值！
  *
- * Note: although we attempt to deal with initPlans anywhere in the tree, the
- * logic is not really right.  The problem is that a plan node might return an
- * output Param of its initPlan as a targetlist item, in which case it's valid
- * for the parent plan level to reference that same Param; the parent's usage
- * will be converted into a Var referencing the child plan node by setrefs.c.
- * But this function would see the parent's reference as out of scope and
- * complain about it.  For now, this does not matter because the planner only
- * attaches initPlans to the topmost plan node in a query level, so the case
- * doesn't arise.  If we ever merge this processing into setrefs.c, maybe it
- * can be handled more cleanly.
+ * 注意：虽然试图处理树中任何地方的 initPlan，
+ * 逻辑并不真的正确。问题是计划节点可能把
+ * 其 initPlan 的输出 Param 作为目标列表项返回，这时父计划层次
+ * 引用同一个 Param 是合法的；父项的使用
+ * 会被 setrefs.c 转换成引用子计划节点的 Var。
+ * 但本函数会把父项的引用看成超出范围并
+ * 抱怨。目前这没关系，因为规划器只
+ * 把 initPlan 接到查询层次的最顶层计划节点，因此这种情况
+ * 不会出现。若将来把这项处理并进 setrefs.c，也许能
+ * 处理得更干净。
  */
 static Bitmapset *
 finalize_plan(PlannerInfo *root, Plan *plan,
@@ -2258,14 +2258,14 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 		return NULL;
 
 	context.root = root;
-	context.paramids = NULL;	/* initialize set to empty */
-	locally_added_param = -1;	/* there isn't one */
-	nestloop_params = NULL;		/* there aren't any */
+	context.paramids = NULL;	/* 把集合初始化为空 */
+	locally_added_param = -1;	/* 没有那么一个 */
+	nestloop_params = NULL;		/* 一个也没有 */
 
 	/*
-	 * Examine any initPlans to determine the set of external params they
-	 * reference and the set of output params they supply.  (We assume
-	 * SS_finalize_plan was run on them already.)
+	 * 检查任何 initPlan，以确定它们引用的外部参数集合
+	 * 以及它们提供的输出参数集合。（假定
+	 * 已经对它们跑过 SS_finalize_plan。）
 	 */
 	initExtParam = initSetParam = NULL;
 	foreach(l, plan->initPlan)
@@ -2281,24 +2281,24 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 		}
 	}
 
-	/* Any setParams are validly referenceable in this node and children */
+	/* 任何 setParam 在本节点及子节点里都可以合法引用 */
 	if (initSetParam)
 		valid_params = bms_union(valid_params, initSetParam);
 
 	/*
-	 * When we call finalize_primnode, context.paramids sets are automatically
-	 * merged together.  But when recursing to self, we have to do it the hard
-	 * way.  We want the paramids set to include params in subplans as well as
-	 * at this level.
+	 * 调用 finalize_primnode 时，context.paramids 集合会自动
+	 * 合并在一起。但递归到自身时，必须用笨
+	 * 办法。希望 paramids 集合既包括子计划里的参数，也包括
+	 * 这一层的参数。
 	 */
 
-	/* Find params in targetlist and qual */
+	/* 找出目标列表和限定条件里的参数 */
 	finalize_primnode((Node *) plan->targetlist, &context);
 	finalize_primnode((Node *) plan->qual, &context);
 
 	/*
-	 * If it's a parallel-aware scan node, mark it as dependent on the parent
-	 * Gather/GatherMerge's rescan Param.
+	 * 若是并行感知的扫描节点，把它标成依赖父项
+	 * Gather/GatherMerge 的重新扫描 Param。
 	 */
 	if (plan->parallel_aware)
 	{
@@ -2308,7 +2308,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			bms_add_member(context.paramids, gather_param);
 	}
 
-	/* Check additional node-type-specific fields */
+	/* 检查节点类型特有的附加字段 */
 	switch (nodeTag(plan))
 	{
 		case T_Result:
@@ -2333,9 +2333,9 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 							  &context);
 
 			/*
-			 * we need not look at indexqualorig, since it will have the same
-			 * param references as indexqual.  Likewise, we can ignore
-			 * indexorderbyorig.
+			 * 不必看 indexqualorig，因为它与 indexqual 有相同的
+			 * 参数引用。同样可以忽略
+			 * indexorderbyorig。
 			 */
 			context.paramids = bms_add_members(context.paramids, scan_params);
 			break;
@@ -2349,7 +2349,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 							  &context);
 
 			/*
-			 * we need not look at indextlist, since it cannot contain Params.
+			 * 不必看 indextlist，因为它无法含有 Param。
 			 */
 			context.paramids = bms_add_members(context.paramids, scan_params);
 			break;
@@ -2359,8 +2359,8 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 							  &context);
 
 			/*
-			 * we need not look at indexqualorig, since it will have the same
-			 * param references as indexqual.
+			 * 不必看 indexqualorig，因为它与 indexqual 有相同的
+			 * 参数引用。
 			 */
 			break;
 
@@ -2388,7 +2388,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				RelOptInfo *rel;
 				Bitmapset  *subquery_params;
 
-				/* We must run finalize_plan on the subquery */
+				/* 必须对子查询跑 finalize_plan */
 				rel = find_base_rel(root, sscan->scan.scanrelid);
 				subquery_params = rel->subroot->outer_params;
 				if (gather_param >= 0)
@@ -2397,10 +2397,10 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				finalize_plan(rel->subroot, sscan->subplan, gather_param,
 							  subquery_params, NULL);
 
-				/* Now we can add its extParams to the parent's params */
+				/* 现在可以把它的 extParams 加到父项的参数里 */
 				context.paramids = bms_add_members(context.paramids,
 												   sscan->subplan->extParam);
-				/* We need scan_params too, though */
+				/* 不过也需要 scan_params */
 				context.paramids = bms_add_members(context.paramids,
 												   scan_params);
 			}
@@ -2412,10 +2412,10 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				ListCell   *lc;
 
 				/*
-				 * Call finalize_primnode independently on each function
-				 * expression, so that we can record which params are
-				 * referenced in each, in order to decide which need
-				 * re-evaluating during rescan.
+				 * 对每个函数
+				 * 表达式独立调用 finalize_primnode，以便记录
+				 * 各自引用了哪些参数，从而决定重新扫描时哪些需要
+				 * 重新求值。
 				 */
 				foreach(lc, fscan->functions)
 				{
@@ -2427,10 +2427,10 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 
 					finalize_primnode(rtfunc->funcexpr, &funccontext);
 
-					/* remember results for execution */
+					/* 记住结果供执行使用 */
 					rtfunc->funcparams = funccontext.paramids;
 
-					/* add the function's params to the overall set */
+					/* 把该函数的参数加进总集合 */
 					context.paramids = bms_add_members(context.paramids,
 													   funccontext.paramids);
 				}
@@ -2455,20 +2455,20 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 		case T_CteScan:
 			{
 				/*
-				 * You might think we should add the node's cteParam to
-				 * paramids, but we shouldn't because that param is just a
-				 * linkage mechanism for multiple CteScan nodes for the same
-				 * CTE; it is never used for changed-param signaling.  What we
-				 * have to do instead is to find the referenced CTE plan and
-				 * incorporate its external paramids, so that the correct
-				 * things will happen if the CTE references outer-level
-				 * variables.  See test cases for bug #4902.  (We assume
-				 * SS_finalize_plan was run on the CTE plan already.)
+				 * 也许会觉得应当把该节点的 cteParam 加进
+				 * paramids，但不应当，因为那个参数只是
+				 * 同一 CTE 的多个 CteScan 节点之间的
+				 * 连接机制；它从不用作参数变化信号。必须
+				 * 做的是找到被引用的 CTE 计划，并
+				 * 并入它的外部 paramids，这样若该 CTE 引用外层
+				 * 变量，就会发生正确的事。
+				 * 见 bug #4902 的测试用例。（假定
+				 * 已经对 CTE 计划跑过 SS_finalize_plan。）
 				 */
 				int			plan_id = ((CteScan *) plan)->ctePlanId;
 				Plan	   *cteplan;
 
-				/* so, do this ... */
+				/* 因此，做这个…… */
 				if (plan_id < 1 || plan_id > list_length(root->glob->subplans))
 					elog(ERROR, "could not find plan for CteScan referencing plan ID %d",
 						 plan_id);
@@ -2477,7 +2477,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 					bms_add_members(context.paramids, cteplan->extParam);
 
 #ifdef NOT_USED
-				/* ... but not this */
+				/* ……但不要做这个 */
 				context.paramids =
 					bms_add_member(context.paramids,
 								   ((CteScan *) plan)->cteParam);
@@ -2508,7 +2508,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				finalize_primnode((Node *) fscan->fdw_recheck_quals,
 								  &context);
 
-				/* We assume fdw_scan_tlist cannot contain Params */
+				/* 假定 fdw_scan_tlist 无法含有 Param */
 				context.paramids = bms_add_members(context.paramids,
 												   scan_params);
 			}
@@ -2521,11 +2521,11 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 
 				finalize_primnode((Node *) cscan->custom_exprs,
 								  &context);
-				/* We assume custom_scan_tlist cannot contain Params */
+				/* 假定 custom_scan_tlist 无法含有 Param */
 				context.paramids =
 					bms_add_members(context.paramids, scan_params);
 
-				/* child nodes if any */
+				/* 若有子节点 */
 				foreach(lc, cscan->custom_plans)
 				{
 					context.paramids =
@@ -2543,7 +2543,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			{
 				ModifyTable *mtplan = (ModifyTable *) plan;
 
-				/* Force descendant scan nodes to reference epqParam */
+				/* 强制后代扫描节点引用 epqParam */
 				locally_added_param = mtplan->epqParam;
 				valid_params = bms_add_member(bms_copy(valid_params),
 											  locally_added_param);
@@ -2555,7 +2555,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 								  &context);
 				finalize_primnode((Node *) mtplan->onConflictWhere,
 								  &context);
-				/* exclRelTlist contains only Vars, doesn't need examination */
+				/* exclRelTlist 只含 Var，不必检查 */
 			}
 			break;
 
@@ -2623,7 +2623,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			{
 				finalize_primnode((Node *) ((Join *) plan)->joinqual,
 								  &context);
-				/* collect set of params that will be passed to right child */
+				/* 收集要传给右子节点的参数集合 */
 				foreach(l, ((NestLoop *) plan)->nestParams)
 				{
 					NestLoopParam *nlp = (NestLoopParam *) lfirst(l);
@@ -2661,15 +2661,15 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			break;
 
 		case T_RecursiveUnion:
-			/* child nodes are allowed to reference wtParam */
+			/* 允许子节点引用 wtParam */
 			locally_added_param = ((RecursiveUnion *) plan)->wtParam;
 			valid_params = bms_add_member(bms_copy(valid_params),
 										  locally_added_param);
-			/* wtParam does *not* get added to scan_params */
+			/* wtParam *不* 加进 scan_params */
 			break;
 
 		case T_LockRows:
-			/* Force descendant scan nodes to reference epqParam */
+			/* 强制后代扫描节点引用 epqParam */
 			locally_added_param = ((LockRows *) plan)->epqParam;
 			valid_params = bms_add_member(bms_copy(valid_params),
 										  locally_added_param);
@@ -2682,8 +2682,8 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				Agg		   *agg = (Agg *) plan;
 
 				/*
-				 * AGG_HASHED plans need to know which Params are referenced
-				 * in aggregate calls.  Do a separate scan to identify them.
+				 * AGG_HASHED 计划需要知道聚合调用里引用了哪些 Param。
+				 * 另做一次扫描来识别它们。
 				 */
 				if (agg->aggstrategy == AGG_HASHED)
 				{
@@ -2708,7 +2708,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 			break;
 
 		case T_Gather:
-			/* child nodes are allowed to reference rescan_param, if any */
+			/* 若有 rescan_param，允许子节点引用它 */
 			locally_added_param = ((Gather *) plan)->rescan_param;
 			if (locally_added_param >= 0)
 			{
@@ -2716,19 +2716,19 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 											  locally_added_param);
 
 				/*
-				 * We currently don't support nested Gathers.  The issue so
-				 * far as this function is concerned would be how to identify
-				 * which child nodes depend on which Gather.
+				 * 目前不支持嵌套的 Gather。就
+				 * 本函数而言，问题是如何识别
+				 * 哪些子节点依赖哪个 Gather。
 				 */
 				Assert(gather_param < 0);
-				/* Pass down rescan_param to child parallel-aware nodes */
+				/* 把 rescan_param 传给并行感知的子节点 */
 				gather_param = locally_added_param;
 			}
-			/* rescan_param does *not* get added to scan_params */
+			/* rescan_param *不* 加进 scan_params */
 			break;
 
 		case T_GatherMerge:
-			/* child nodes are allowed to reference rescan_param, if any */
+			/* 若有 rescan_param，允许子节点引用它 */
 			locally_added_param = ((GatherMerge *) plan)->rescan_param;
 			if (locally_added_param >= 0)
 			{
@@ -2736,15 +2736,15 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 											  locally_added_param);
 
 				/*
-				 * We currently don't support nested Gathers.  The issue so
-				 * far as this function is concerned would be how to identify
-				 * which child nodes depend on which Gather.
+				 * 目前不支持嵌套的 Gather。就
+				 * 本函数而言，问题是如何识别
+				 * 哪些子节点依赖哪个 Gather。
 				 */
 				Assert(gather_param < 0);
-				/* Pass down rescan_param to child parallel-aware nodes */
+				/* 把 rescan_param 传给并行感知的子节点 */
 				gather_param = locally_added_param;
 			}
-			/* rescan_param does *not* get added to scan_params */
+			/* rescan_param *不* 加进 scan_params */
 			break;
 
 		case T_Memoize:
@@ -2759,7 +2759,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 		case T_Unique:
 		case T_SetOp:
 		case T_Group:
-			/* no node-type-specific fields need fixing */
+			/* 没有需要按节点类型修正的字段 */
 			break;
 
 		default:
@@ -2767,7 +2767,7 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 				 (int) nodeTag(plan));
 	}
 
-	/* Process left and right child plans, if any */
+	/* 处理左右子计划，若有的话 */
 	child_params = finalize_plan(root,
 								 plan->lefttree,
 								 gather_param,
@@ -2777,19 +2777,19 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 
 	if (nestloop_params)
 	{
-		/* right child can reference nestloop_params as well as valid_params */
+		/* 右子节点可以引用 nestloop_params 以及 valid_params */
 		child_params = finalize_plan(root,
 									 plan->righttree,
 									 gather_param,
 									 bms_union(nestloop_params, valid_params),
 									 scan_params);
-		/* ... and they don't count as parameters used at my level */
+		/* ……而且它们不算我这一层使用的参数 */
 		child_params = bms_difference(child_params, nestloop_params);
 		bms_free(nestloop_params);
 	}
 	else
 	{
-		/* easy case */
+		/* 简单情形 */
 		child_params = finalize_plan(root,
 									 plan->righttree,
 									 gather_param,
@@ -2799,10 +2799,10 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 	context.paramids = bms_add_members(context.paramids, child_params);
 
 	/*
-	 * Any locally generated parameter doesn't count towards its generating
-	 * plan node's external dependencies.  (Note: if we changed valid_params
-	 * and/or scan_params, we leak those bitmapsets; not worth the notational
-	 * trouble to clean them up.)
+	 * 任何本地生成的参数都不算其生成
+	 * 计划节点的外部依赖。（注意：若改了 valid_params
+	 * 和/或 scan_params，就会泄漏那些位图集；不值得为记法
+	 * 麻烦去清理它们。）
 	 */
 	if (locally_added_param >= 0)
 	{
@@ -2810,33 +2810,33 @@ finalize_plan(PlannerInfo *root, Plan *plan,
 										  locally_added_param);
 	}
 
-	/* Now we have all the paramids referenced in this node and children */
+	/* 现在有了本节点及子节点引用的全部 paramids */
 
 	if (!bms_is_subset(context.paramids, valid_params))
 		elog(ERROR, "plan should not reference subplan's variable");
 
 	/*
-	 * The plan node's allParam and extParam fields should include all its
-	 * referenced paramids, plus contributions from any child initPlans.
-	 * However, any setParams of the initPlans should not be present in the
-	 * parent node's extParams, only in its allParams.  (It's possible that
-	 * some initPlans have extParams that are setParams of other initPlans.)
+	 * 计划节点的 allParam 和 extParam 字段应当包括它
+	 * 引用的全部 paramids，加上任何子 initPlan 的贡献。
+	 * 不过，initPlan 的任何 setParam 不应当出现在
+	 * 父节点的 extParams 里，只在 allParams 里。（有可能
+	 * 某些 initPlan 的 extParams 是其他 initPlan 的 setParams。）
 	 */
 
-	/* allParam must include initplans' extParams and setParams */
+	/* allParam 必须包括 initplan 的 extParams 和 setParams */
 	plan->allParam = bms_union(context.paramids, initExtParam);
 	plan->allParam = bms_add_members(plan->allParam, initSetParam);
-	/* extParam must include any initplan extParams */
+	/* extParam 必须包括任何 initplan 的 extParams */
 	plan->extParam = bms_union(context.paramids, initExtParam);
-	/* but not any initplan setParams */
+	/* 但不包括任何 initplan 的 setParams */
 	plan->extParam = bms_del_members(plan->extParam, initSetParam);
 
 	return plan->allParam;
 }
 
 /*
- * finalize_primnode: add IDs of all PARAM_EXEC params that appear (or will
- * appear) in the given expression tree to the result set.
+ * finalize_primnode：把出现（或将
+ * 出现）在给定表达式树里的全部 PARAM_EXEC 参数的 ID 加进结果集。
  */
 static bool
 finalize_primnode(Node *node, finalize_primnode_context *context)
@@ -2851,17 +2851,17 @@ finalize_primnode(Node *node, finalize_primnode_context *context)
 
 			context->paramids = bms_add_member(context->paramids, paramid);
 		}
-		return false;			/* no more to do here */
+		return false;			/* 这里没有更多要做的 */
 	}
 	else if (IsA(node, Aggref))
 	{
 		/*
-		 * Check to see if the aggregate will be replaced by a Param
-		 * referencing a subquery output during setrefs.c.  If so, we must
-		 * account for that Param here.  (For various reasons, it's not
-		 * convenient to perform that substitution earlier than setrefs.c, nor
-		 * to perform this processing after setrefs.c.  Thus we need a wart
-		 * here.)
+		 * 检查该聚合是否会被替换成引用
+		 * 子查询输出的 Param，在 setrefs.c 期间。若是，必须
+		 * 在这里计入那个 Param。（由于种种原因，不便于
+		 * 在 setrefs.c 之前做那次替换，也不便于
+		 * 在 setrefs.c 之后做这项处理。因此这里需要一块
+		 * 补丁。）
 		 */
 		Aggref	   *aggref = (Aggref *) node;
 		Param	   *aggparam;
@@ -2879,16 +2879,16 @@ finalize_primnode(Node *node, finalize_primnode_context *context)
 		ListCell   *lc;
 		Bitmapset  *subparamids;
 
-		/* Recurse into the testexpr, but not into the Plan */
+		/* 递归进入 testexpr，但不进入 Plan */
 		finalize_primnode(subplan->testexpr, context);
 
 		/*
-		 * Remove any param IDs of output parameters of the subplan that were
-		 * referenced in the testexpr.  These are not interesting for
-		 * parameter change signaling since we always re-evaluate the subplan.
-		 * Note that this wouldn't work too well if there might be uses of the
-		 * same param IDs elsewhere in the plan, but that can't happen because
-		 * generate_new_exec_param never tries to merge params.
+		 * 去掉 testexpr 里引用过的、该子计划输出参数的任何参数号。
+		 * 这些对
+		 * 参数变化信号没意思，因为总是重新求值子计划。
+		 * 注意若计划别处可能使用
+		 * 相同的参数号，这就不太行，但那不会发生，因为
+		 * generate_new_exec_param 从不试图合并参数。
 		 */
 		foreach(lc, subplan->paramIds)
 		{
@@ -2896,13 +2896,13 @@ finalize_primnode(Node *node, finalize_primnode_context *context)
 											   lfirst_int(lc));
 		}
 
-		/* Also examine args list */
+		/* 也检查 args 列表 */
 		finalize_primnode((Node *) subplan->args, context);
 
 		/*
-		 * Add params needed by the subplan to paramids, but excluding those
-		 * we will pass down to it.  (We assume SS_finalize_plan was run on
-		 * the subplan already.)
+		 * 把子计划需要的参数加进 paramids，但不包括那些
+		 * 将向下传给它的。（假定已经对
+		 * 该子计划跑过 SS_finalize_plan。）
 		 */
 		subparamids = bms_copy(plan->extParam);
 		foreach(lc, subplan->parParam)
@@ -2911,16 +2911,16 @@ finalize_primnode(Node *node, finalize_primnode_context *context)
 		}
 		context->paramids = bms_join(context->paramids, subparamids);
 
-		return false;			/* no more to do here */
+		return false;			/* 这里没有更多要做的 */
 	}
 	return expression_tree_walker(node, finalize_primnode,
 								  (void *) context);
 }
 
 /*
- * finalize_agg_primnode: find all Aggref nodes in the given expression tree,
- * and add IDs of all PARAM_EXEC params appearing within their aggregated
- * arguments to the result set.
+ * finalize_agg_primnode：找出给定表达式树里的全部 Aggref 节点，
+ * 并把出现在它们的聚合
+ * 参数里的全部 PARAM_EXEC 参数的 ID 加进结果集。
  */
 static bool
 finalize_agg_primnode(Node *node, finalize_primnode_context *context)
@@ -2931,23 +2931,23 @@ finalize_agg_primnode(Node *node, finalize_primnode_context *context)
 	{
 		Aggref	   *agg = (Aggref *) node;
 
-		/* we should not consider the direct arguments, if any */
+		/* 不应当考虑直接参数，若有的话 */
 		finalize_primnode((Node *) agg->args, context);
 		finalize_primnode((Node *) agg->aggfilter, context);
-		return false;			/* there can't be any Aggrefs below here */
+		return false;			/* 这里下面不可能有任何 Aggref */
 	}
 	return expression_tree_walker(node, finalize_agg_primnode,
 								  (void *) context);
 }
 
 /*
- * SS_make_initplan_output_param - make a Param for an initPlan's output
+ * SS_make_initplan_output_param - 为 initPlan 的输出做一个 Param
  *
- * The plan is expected to return a scalar value of the given type/collation.
+ * 该计划预期返回给定类型/排序规则的标量值。
  *
- * Note that in some cases the initplan may not ever appear in the finished
- * plan tree.  If that happens, we'll have wasted a PARAM_EXEC slot, which
- * is no big deal.
+ * 注意有些情况下 initplan 也许永远不会出现在完成的
+ * 计划树里。若发生那种情况，会浪费一个 PARAM_EXEC 槽，
+ * 这不是大事。
  */
 Param *
 SS_make_initplan_output_param(PlannerInfo *root,
@@ -2959,11 +2959,11 @@ SS_make_initplan_output_param(PlannerInfo *root,
 }
 
 /*
- * SS_make_initplan_from_plan - given a plan tree, make it an InitPlan
+ * SS_make_initplan_from_plan - 给定一棵计划树，把它做成 InitPlan
  *
- * We build an EXPR_SUBLINK SubPlan node and put it into the initplan
- * list for the outer query level.  A Param that represents the initplan's
- * output has already been assigned using SS_make_initplan_output_param.
+ * 建立一个 EXPR_SUBLINK SubPlan 节点，并把它放进外层查询层次的 initplan
+ * 列表。表示该 initplan
+ * 输出的 Param 已经用 SS_make_initplan_output_param 分配好了。
  */
 void
 SS_make_initplan_from_plan(PlannerInfo *root,
@@ -2973,15 +2973,15 @@ SS_make_initplan_from_plan(PlannerInfo *root,
 	SubPlan    *node;
 
 	/*
-	 * Add the subplan and its PlannerInfo to the global lists.
+	 * 把子计划及其 PlannerInfo 加进全局列表。
 	 */
 	root->glob->subplans = lappend(root->glob->subplans, plan);
 	root->glob->subroots = lappend(root->glob->subroots, subroot);
 
 	/*
-	 * Create a SubPlan node and add it to the outer list of InitPlans. Note
-	 * it has to appear after any other InitPlans it might depend on (see
-	 * comments in ExecReScan).
+	 * 创建一个 SubPlan 节点并把它加到外层 InitPlans 列表。注意
+	 * 它必须出现在它可能依赖的任何其他 InitPlans 之后（见
+	 * ExecReScan 里的注释）。
 	 */
 	node = makeNode(SubPlan);
 	node->subLinkType = EXPR_SUBLINK;
@@ -2995,10 +2995,10 @@ SS_make_initplan_from_plan(PlannerInfo *root,
 	root->init_plans = lappend(root->init_plans, node);
 
 	/*
-	 * The node can't have any inputs (since it's an initplan), so the
-	 * parParam and args lists remain empty.
+	 * 该节点不能有任何输入（因为它是 initplan），因此
+	 * parParam 和 args 列表保持为空。
 	 */
 
-	/* Set costs of SubPlan using info from the plan tree */
+	/* 用计划树里的信息设置 SubPlan 的代价 */
 	cost_subplan(subroot, node, plan);
 }

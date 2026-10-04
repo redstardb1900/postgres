@@ -1,81 +1,64 @@
 src/backend/utils/resowner/README
 
-Notes About Resource Owners
-===========================
+关于资源所有者的说明
+====================
 
-ResourceOwner objects are a concept invented to simplify management of
-query-related resources, such as buffer pins and table locks.  These
-resources need to be tracked in a reliable way to ensure that they will
-be released at query end, even if the query fails due to an error.
-Rather than expecting the entire executor to have bulletproof data
-structures, we localize the tracking of such resources into a single
-module.
+ResourceOwner 对象是为简化查询相关资源（如缓冲区钉住和表锁）的管理而
+发明的概念。这些资源需要以可靠方式跟踪，以确保即使查询因错误失败，也
+会在查询结束时释放。我们不指望整个执行器都有防弹的数据结构，而是把这
+类资源的跟踪集中到一个模块。
 
-The design of the ResourceOwner API is modeled on our MemoryContext API,
-which has proven very flexible and successful in preventing memory leaks.
-In particular we allow ResourceOwners to have child ResourceOwner objects
-so that there can be forests of the things; releasing a parent
-ResourceOwner acts on all its direct and indirect children as well.
+ResourceOwner API 的设计模仿了我们的 MemoryContext API，后者在防止内
+存泄漏方面已被证明非常灵活且成功。特别是我们允许 ResourceOwner 拥有子
+ResourceOwner 对象，从而可以形成森林；释放父 ResourceOwner 也会作用于
+其所有直接和间接子对象。
 
-(It is tempting to consider unifying ResourceOwners and MemoryContexts
-into a single object type, but their usage patterns are sufficiently
-different that this is probably not really a helpful thing to do.)
+（把 ResourceOwner 和 MemoryContext 统一成单一对象类型很诱人，但它们
+的用法模式差别足够大，这样做大概并不真的有帮助。）
 
-We create a ResourceOwner for each transaction or subtransaction as
-well as one for each Portal.  During execution of a Portal, the global
-variable CurrentResourceOwner points to the Portal's ResourceOwner.
-This causes operations such as ReadBuffer and LockAcquire to record
-ownership of the acquired resources in that ResourceOwner object.
+我们为每个事务或子事务以及每个 Portal 创建一个 ResourceOwner。在执行
+Portal 期间，全局变量 CurrentResourceOwner 指向该 Portal 的
+ResourceOwner。这使 ReadBuffer 和 LockAcquire 等操作把所获资源的所有
+权记录到该 ResourceOwner 对象中。
 
-When a Portal is closed, any remaining resources (typically only locks)
-become the responsibility of the current transaction.  This is represented
-by making the Portal's ResourceOwner a child of the current transaction's
-ResourceOwner.  resowner.c automatically transfers the resources to the
-parent object when releasing the child.  Similarly, subtransaction
-ResourceOwners are children of their immediate parent.
+关闭 Portal 时，剩余资源（通常只有锁）改由当前事务负责。这表现为把
+Portal 的 ResourceOwner 变成当前事务 ResourceOwner 的子对象。释放子对
+象时，resowner.c 自动把资源转移到父对象。类似地，子事务 ResourceOwner
+是其直接父对象的子对象。
 
-We need transaction-related ResourceOwners as well as Portal-related ones
-because transactions may initiate operations that require resources (such
-as query parsing) when no associated Portal exists yet.
+我们既需要与事务相关的 ResourceOwner，也需要与 Portal 相关的，因为事
+务可能在尚无关联 Portal 时就发起需要资源的操作（例如查询解析）。
 
 
-API Overview
-------------
+API 概览
+--------
 
-The basic operations on a ResourceOwner are:
+对 ResourceOwner 的基本操作是：
 
-* create a ResourceOwner
+* 创建一个 ResourceOwner
 
-* associate or deassociate some resource with a ResourceOwner
+* 把某个资源与 ResourceOwner 关联或解除关联
 
-* release a ResourceOwner's assets (free all owned resources, but not the
-  owner object itself)
+* 释放 ResourceOwner 的资产（释放全部拥有的资源，但不释放所有者对象
+  本身）
 
-* delete a ResourceOwner (including child owner objects); all resources
-  must have been released beforehand
+* 删除 ResourceOwner（包括子所有者对象）；此前必须已释放全部资源
 
-This API directly supports the resource types listed in the definition of
-ResourceOwnerData struct in src/backend/utils/resowner/resowner.c.
-Other objects can be associated with a ResourceOwner by recording the address
-of the owning ResourceOwner in such an object.  There is an API for other
-modules to get control during ResourceOwner release, so that they can scan
-their own data structures to find the objects that need to be deleted.
+此 API 直接支持 src/backend/utils/resowner/resowner.c 中
+ResourceOwnerData 结构定义所列出的资源类型。
+其他对象可以通过在该对象中记录拥有它的 ResourceOwner 地址，与
+ResourceOwner 关联。有一个 API 让其他模块在 ResourceOwner 释放期间获
+得控制，以便扫描自己的数据结构找出需要删除的对象。
 
-Locks are handled specially because in non-error situations a lock should
-be held until end of transaction, even if it was originally taken by a
-subtransaction or portal.  Therefore, the "release" operation on a child
-ResourceOwner transfers lock ownership to the parent instead of actually
-releasing the lock, if isCommit is true.
+锁被特殊处理，因为在非错误情况下，锁应持有到事务结束，即使它最初由子
+事务或 portal 取得。因此，若 isCommit 为真，对子 ResourceOwner 的
+“释放”操作会把锁所有权转移给父对象，而不是真正释放锁。
 
-Whenever we are inside a transaction, the global variable
-CurrentResourceOwner shows which resource owner should be assigned
-ownership of acquired resources.  Note however that CurrentResourceOwner
-is NULL when not inside any transaction (or when inside a failed
-transaction).  In this case it is not valid to acquire query-lifespan
-resources.
+只要我们在事务内部，全局变量 CurrentResourceOwner 就指出应把所获资源
+的所有权赋给哪个资源所有者。但要注意，不在任何事务中（或在已失败的事
+务中）时 CurrentResourceOwner 为 NULL。这时获取查询生命周期的资源是不
+合法的。
 
-When unpinning a buffer or releasing a lock or cache reference,
-CurrentResourceOwner must point to the same resource owner that was current
-when the buffer, lock, or cache reference was acquired.  It would be possible
-to relax this restriction given additional bookkeeping effort, but at present
-there seems no need.
+在取消钉住缓冲区或释放锁或缓存引用时，CurrentResourceOwner 必须指向取
+得该缓冲区、锁或缓存引用时当前的同一个资源所有者。若多做一些簿记，放
+宽这一限制是可能的，但目前似乎没有必要。

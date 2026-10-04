@@ -3,80 +3,74 @@ src/backend/libpq/README.SSL
 SSL
 ===
 
->From the servers perspective:
+从服务器角度看：
 
 
-  Receives StartupPacket
+  收到 StartupPacket
            |
            |
- (Is SSL_NEGOTIATE_CODE?) -----------  Normal startup
-           |                  No
+ (是 SSL_NEGOTIATE_CODE？) -----------  正常启动
+           |                  否
            |
-           | Yes
+           | 是
            |
            |
- (Server compiled with USE_SSL?) ------- Send 'N'
-           |                       No        |
+ (服务器以 USE_SSL 编译？) ------- 发送 'N'
+           |                       否        |
            |                                 |
-           | Yes                         Normal startup
+           | 是                         正常启动
            |
            |
-        Send 'S'
+        发送 'S'
            |
            |
-      Establish SSL
+      建立 SSL
            |
            |
-      Normal startup
+      正常启动
 
 
 
 
 
->From the clients perspective (v6.6 client _with_ SSL):
+从客户端角度看（带 SSL 的 v6.6 客户端）：
 
 
-      Connect
+      连接
          |
          |
-  Send packet with SSL_NEGOTIATE_CODE
+  发送带 SSL_NEGOTIATE_CODE 的包
          |
          |
-  Receive single char  ------- 'S' -------- Establish SSL
+  收到单个字符  ------- 'S' -------- 建立 SSL
          |                                       |
-         | '<else>'                              |
-         |                                  Normal startup
+         | '<其他>'                              |
+         |                                  正常启动
          |
          |
-   Is it 'E' for error  ------------------- Retry connection
-         |                  Yes             without SSL
-         | No
+   是表示错误的 'E'  ------------------- 重试连接
+         |                  是             不用 SSL
+         | 否
          |
-   Is it 'N' for normal ------------------- Normal startup
-         |                  Yes
+   是表示普通的 'N' ------------------- 正常启动
+         |                  是
          |
-   Fail with unknown
+   因未知而失败
 
 ---------------------------------------------------------------------------
 
-Ephemeral DH
-============
+临时 DH
+=======
 
-Since the server static private key ($DataDir/server.key) will
-normally be stored unencrypted so that the database backend can
-restart automatically, it is important that we select an algorithm
-that continues to provide confidentiality even if the attacker has the
-server's private key.  Ephemeral DH (EDH) keys provide this and more
-(Perfect Forward Secrecy aka PFS).
+因为服务器静态私钥（$DataDir/server.key）通常会以未加密形式存放，以便
+数据库后端能自动重启，所以必须选择即使攻击者拿到服务器私钥仍能继续提
+供机密性的算法。临时 DH（EDH）密钥提供这一点以及更多（完美前向保密，
+即 PFS）。
 
-N.B., the static private key should still be protected to the largest
-extent possible, to minimize the risk of impersonations.
+注意，静态私钥仍应尽可能加以保护，以降低被冒充的风险。
 
-Another benefit of EDH is that it allows the backend and clients to
-use DSA keys.  DSA keys can only provide digital signatures, not
-encryption, and are often acceptable in jurisdictions where RSA keys
-are unacceptable.
+EDH 的另一好处是允许后端和客户端使用 DSA 密钥。DSA 密钥只能提供数字签
+名，不能加密，在 RSA 密钥不被接受的司法管辖区往往可以接受。
 
-The downside to EDH is that it makes it impossible to use ssldump(1)
-if there's a problem establishing an SSL session.  In this case you'll
-need to temporarily disable EDH (see initialize_dh()).
+EDH 的缺点是，若建立 SSL 会话出了问题，就无法使用 ssldump(1)。这时需
+要临时禁用 EDH（见 initialize_dh()）。

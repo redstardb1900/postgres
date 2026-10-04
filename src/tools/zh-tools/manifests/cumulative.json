@@ -565,6 +565,41 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0015-readme-modules.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/ci/README",
+   "kind": "readme",
+   "note": "CI / cirrus-ci"
+  },
+  {
+   "pattern": "src/backend/libpq/README.SSL",
+   "kind": "readme",
+   "note": "SSL handshake diagrams kept as flow"
+  },
+  {
+   "pattern": "src/backend/utils/resowner/README",
+   "kind": "readme",
+   "note": "ResourceOwner"
+  },
+  {
+   "pattern": "src/backend/statistics/README",
+   "kind": "readme",
+   "note": "extended statistics"
+  },
+  {
+   "pattern": "src/backend/replication/README",
+   "kind": "readme",
+   "note": "walreceiver/walsender IPC"
+  },
+  {
+   "pattern": "src/backend/utils/mb/conversion_procs/README.euc_jp",
+   "kind": "readme",
+   "note": "JA->zh how to add conversions"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0016-readme-ci-repl.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2192,7 +2227,77 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/tools/ci/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "CI / cirrus-ci"
+  },
+  {
+   "path": "src/backend/libpq/README.SSL",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SSL handshake diagrams kept as flow"
+  },
+  {
+   "path": "src/backend/utils/resowner/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ResourceOwner"
+  },
+  {
+   "path": "src/backend/statistics/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "extended statistics"
+  },
+  {
+   "path": "src/backend/replication/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "walreceiver/walsender IPC"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/README.euc_jp",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "JA->zh how to add conversions"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0016-readme-ci-repl.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 52 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 58 of 88 include files translated."
 }

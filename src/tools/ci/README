@@ -1,95 +1,83 @@
-Postgres Continuous Integration (CI)
-====================================
+Postgres 持续集成（CI）
+=======================
 
-Postgres has two forms of CI:
+Postgres 有两种 CI：
 
-1) All supported branches in the main postgres repository are continuously
-   tested via the buildfarm. As this covers only the main repository, it
-   cannot be used during development of features.
+1) 主 postgres 仓库中所有受支持的分支通过 buildfarm 持续测试。因为它只
+   覆盖主仓库，不能用于功能开发期间。
 
-   For details see https://buildfarm.postgresql.org/
+   详见 https://buildfarm.postgresql.org/
 
-2) For not yet merged development work, CI can be enabled for some git hosting
-   providers. This allows developers to test patches on a number of platforms
-   before they are merged (or even submitted).
+2) 对于尚未合并的开发工作，可以在某些 git 托管提供方上启用 CI。这让开
+   发者可以在补丁合并（甚至提交）之前，在若干平台上测试它们。
 
 
-Configuring CI on personal repositories
-=======================================
+在个人仓库上配置 CI
+===================
 
-Currently postgres contains CI support utilizing cirrus-ci. cirrus-ci
-currently is only available for github.
+目前 postgres 包含利用 cirrus-ci 的 CI 支持。cirrus-ci 目前仅适用于
+github。
 
 
-Enabling cirrus-ci in a github repository
-=========================================
+在 github 仓库中启用 cirrus-ci
+==============================
 
-To enable cirrus-ci on a repository, go to
-https://github.com/marketplace/cirrus-ci and select "Public
-Repositories". Then "Install it for free" and "Complete order". The next page
-allows to configure which repositories cirrus-ci has access to. Choose the
-relevant repository and "Install".
+要在仓库上启用 cirrus-ci，前往
+https://github.com/marketplace/cirrus-ci 并选择 "Public
+Repositories"。然后 "Install it for free" 和 "Complete order"。下一页
+可以配置 cirrus-ci 能访问哪些仓库。选择相关仓库并 "Install"。
 
-See also https://cirrus-ci.org/guide/quick-start/
+另见 https://cirrus-ci.org/guide/quick-start/
 
-Once enabled on a repository, future commits and pull-requests in that
-repository will automatically trigger CI builds. These are visible from the
-commit history / PRs, and can also be viewed in the cirrus-ci UI at
+在仓库上启用后，该仓库今后的提交和 pull request 会自动触发 CI 构建。
+它们可从提交历史 / PR 看到，也可在 cirrus-ci UI 中查看：
 https://cirrus-ci.com/github/<username>/<reponame>/
 
-Hint: all build log files are uploaded to cirrus-ci and can be downloaded
-from the "Artifacts" section from the cirrus-ci UI after clicking into a
-specific task on a build's summary page.
+提示：所有构建日志文件都会上传到 cirrus-ci，进入某次构建摘要页并点进
+具体任务后，可从 "Artifacts" 一节下载。
 
 
-Images used for CI
-==================
+CI 所用镜像
+===========
 
-To keep CI times tolerable, most platforms use pre-generated images. Some
-platforms use containers, others use full VMs. Images for both are generated
-separately from CI runs, otherwise each git repository that is being tested
-would need to build its own set of containers, which would be wasteful (both
-in space and time.
+为把 CI 时间控制在可接受范围，大多数平台使用预先生成的镜像。有些平台
+用容器，有些用完整虚拟机。两类镜像都与 CI 运行分开生成，否则每个被测
+试的 git 仓库都要自己构建一套容器，在空间和时间上都很浪费。
 
-These images are built, on a daily basis, from the specifications in
-github.com/anarazel/pg-vm-images/
+这些镜像每天根据 github.com/anarazel/pg-vm-images/ 中的规格构建。
 
 
-Controlling CI via commit messages
-==================================
+通过提交说明控制 CI
+===================
 
-The behavior of CI can be controlled by special content in commit
-messages. Currently the following controls are available:
+CI 的行为可由提交说明中的特殊内容控制。目前可用的控制有：
 
 - ci-os-only: {(freebsd|linux|macos|windows|mingw)}
 
-  Only runs CI on operating systems specified. This can be useful when
-  addressing portability issues affecting only a subset of platforms.
+  只在指定的操作系统上运行 CI。在处理只影响部分平台的可移植性问题时
+  可能有用。
 
 
-Using custom compute resources for CI
-=====================================
+为 CI 使用自定义计算资源
+========================
 
-When running a lot of tests in a repository, cirrus-ci's free credits do not
-suffice. In those cases a repository can be configured to use other
-infrastructure for running tests. To do so, the REPO_CI_CONFIG_GIT_URL
-variable can be configured for the repository in the cirrus-ci web interface,
-at https://cirrus-ci.com/github/<user or organization>. The file referenced
-(see https://cirrus-ci.org/guide/programming-tasks/#fs) by the variable can
-overwrite the default execution method for different operating systems,
-defined in .cirrus.yml, by redefining the relevant yaml anchors.
+在仓库中运行大量测试时，cirrus-ci 的免费额度不够。这时可以把仓库配置
+成用其他基础设施运行测试。为此，可在 cirrus-ci Web 界面为该仓库配置
+REPO_CI_CONFIG_GIT_URL 变量，地址为
+https://cirrus-ci.com/github/<user or organization>。该变量引用的文件
+（见 https://cirrus-ci.org/guide/programming-tasks/#fs）可以通过重新定
+义相关 yaml 锚点，覆盖 .cirrus.yml 中为不同操作系统定义的默认执行方式。
 
-Custom compute resources can be provided using
+自定义计算资源可通过以下方式提供
 - https://cirrus-ci.org/guide/supported-computing-services/
 - https://cirrus-ci.org/guide/persistent-workers/
 
 
-Enabling manual tasks by default
-================================
+默认启用手工任务
+================
 
-Some tasks are not triggered automatically by default, to avoid using up CI
-credits too quickly. This can be changed on the repository level, e.g. when
-custom compute resources are configured.
+有些任务默认不会自动触发，以免过快耗尽 CI 额度。这可以在仓库级别更改，
+例如在配置了自定义计算资源时。
 
-The following repository level environment variables are recognized:
+识别以下仓库级环境变量：
 - REPO_CI_AUTOMATIC_TRIGGER_TASKS="mingw"

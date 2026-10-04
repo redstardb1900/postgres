@@ -40,10 +40,10 @@ static int	range_sockaddr_AF_INET6(const struct sockaddr_in6 *addr,
 
 
 /*
- * pg_range_sockaddr - is addr within the subnet specified by netaddr/netmask ?
+ * pg_range_sockaddr - addr 是否在 netaddr/netmask 指定的子网内？
  *
- * Note: caller must already have verified that all three addresses are
- * in the same address family; and AF_UNIX addresses are not supported.
+ * 注意：调用者必须已经验证这三个地址属于同一地址族；
+ * 不支持 AF_UNIX 地址。
  */
 int
 pg_range_sockaddr(const struct sockaddr_storage *addr,
@@ -92,14 +92,14 @@ range_sockaddr_AF_INET6(const struct sockaddr_in6 *addr,
 }
 
 /*
- *	pg_sockaddr_cidr_mask - make a network mask of the appropriate family
- *	  and required number of significant bits
+ *	pg_sockaddr_cidr_mask - 构造适当地址族、且具有所需有效
+ *	  位数的网络掩码
  *
- * numbits can be null, in which case the mask is fully set.
+ * numbits 可以为空，此时掩码全部置位。
  *
- * The resulting mask is placed in *mask, which had better be big enough.
+ * 结果掩码放进 *mask，它最好足够大。
  *
- * Return value is 0 if okay, -1 if not.
+ * 成功返回 0，否则返回 -1。
  */
 int
 pg_sockaddr_cidr_mask(struct sockaddr_storage *mask, char *numbits, int family)
@@ -128,7 +128,7 @@ pg_sockaddr_cidr_mask(struct sockaddr_storage *mask, char *numbits, int family)
 				if (bits < 0 || bits > 32)
 					return -1;
 				memset(&mask4, 0, sizeof(mask4));
-				/* avoid "x << 32", which is not portable */
+				/* 避免 "x << 32"，那不可移植 */
 				if (bits > 0)
 					maskl = (0xffffffffUL << (32 - (int) bits))
 						& 0xffffffffUL;
@@ -174,8 +174,8 @@ pg_sockaddr_cidr_mask(struct sockaddr_storage *mask, char *numbits, int family)
 
 
 /*
- * Run the callback function for the addr/mask, after making sure the
- * mask is sane for the addr.
+ * 先确认掩码对 addr 是合理的，再对 addr/mask 运行回调函数。
+ *
  */
 static void
 run_ifaddr_callback(PgIfAddrCallback callback, void *cb_data,
@@ -186,7 +186,7 @@ run_ifaddr_callback(PgIfAddrCallback callback, void *cb_data,
 	if (!addr)
 		return;
 
-	/* Check that the mask is valid */
+	/* 检查掩码是否有效 */
 	if (mask)
 	{
 		if (mask->sa_family != addr->sa_family)
@@ -205,7 +205,7 @@ run_ifaddr_callback(PgIfAddrCallback callback, void *cb_data,
 		}
 	}
 
-	/* If mask is invalid, generate our own fully-set mask */
+	/* 若掩码无效，就自己生成一个全部置位的掩码 */
 	if (!mask)
 	{
 		pg_sockaddr_cidr_mask(&fullmask, NULL, addr->sa_family);
@@ -221,10 +221,10 @@ run_ifaddr_callback(PgIfAddrCallback callback, void *cb_data,
 #include <ws2tcpip.h>
 
 /*
- * Enumerate the system's network interface addresses and call the callback
- * for each one.  Returns 0 if successful, -1 if trouble.
+ * 枚举系统的网络接口地址，并对每一个调用回调。
+ * 成功返回 0，出问题返回 -1。
  *
- * This version is for Win32.  Uses the Winsock 2 functions (ie: ws2_32.dll)
+ * 这个版本用于 Win32。使用 Winsock 2 函数（即 ws2_32.dll）
  */
 int
 pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
@@ -260,7 +260,7 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 		{
 			error = WSAGetLastError();
 			if (error == WSAEFAULT || error == WSAENOBUFS)
-				continue;		/* need to make the buffer bigger */
+				continue;		/* 需要把缓冲区加大 */
 			closesocket(sock);
 			free(ii);
 			return -1;
@@ -285,11 +285,11 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 #endif
 
 /*
- * Enumerate the system's network interface addresses and call the callback
- * for each one.  Returns 0 if successful, -1 if trouble.
+ * 枚举系统的网络接口地址，并对每一个调用回调。
+ * 成功返回 0，出问题返回 -1。
  *
- * This version uses the getifaddrs() interface, which is available on
- * BSDs, macOS, Solaris, illumos and Linux.
+ * 这个版本使用 getifaddrs() 接口，BSDs、macOS、Solaris、
+ * illumos 和 Linux 上都有。
  */
 int
 pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
@@ -307,7 +307,7 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 	freeifaddrs(ifa);
 	return 0;
 }
-#else							/* !HAVE_GETIFADDRS && !WIN32 */
+#else							/* 既无 getifaddrs 也非 WIN32（!HAVE_GETIFADDRS && !WIN32） */
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -315,24 +315,24 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 #if defined(SIOCGIFCONF)
 
 /*
- * Remaining Unixes use SIOCGIFCONF. Some only return IPv4 information
- * here, so this is the least preferred method. Note that there is no
- * standard way to iterate the struct ifreq returned in the array.
- * On some OSs the structures are padded large enough for any address,
- * on others you have to calculate the size of the struct ifreq.
+ * 其余 Unix 使用 SIOCGIFCONF。有些在这里只返回 IPv4 信息，
+ * 因此这是最不被优先选用的方法。注意，没有标准方式来遍历
+ * 数组中返回的 struct ifreq。有些操作系统把结构体填充到
+ * 足以放下任何地址，另一些则必须计算 struct ifreq 的大小。
+ *
  */
 
-/* Some OSs have _SIZEOF_ADDR_IFREQ, so just use that */
+/* 有些操作系统有 _SIZEOF_ADDR_IFREQ，直接用它 */
 #ifndef _SIZEOF_ADDR_IFREQ
 
-/* Calculate based on sockaddr.sa_len */
+/* 根据 sockaddr.sa_len 计算 */
 #ifdef HAVE_STRUCT_SOCKADDR_SA_LEN
 #define _SIZEOF_ADDR_IFREQ(ifr) \
 		((ifr).ifr_addr.sa_len > sizeof(struct sockaddr) ? \
 		 (sizeof(struct ifreq) - sizeof(struct sockaddr) + \
 		  (ifr).ifr_addr.sa_len) : sizeof(struct ifreq))
 
-/* Padded ifreq structure, simple */
+/* 填充过的 ifreq 结构，很简单 */
 #else
 #define _SIZEOF_ADDR_IFREQ(ifr) \
 	sizeof (struct ifreq)
@@ -340,10 +340,10 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 #endif							/* !_SIZEOF_ADDR_IFREQ */
 
 /*
- * Enumerate the system's network interface addresses and call the callback
- * for each one.  Returns 0 if successful, -1 if trouble.
+ * 枚举系统的网络接口地址，并对每一个调用回调。
+ * 成功返回 0，出问题返回 -1。
  *
- * This version uses ioctl(SIOCGIFCONF).
+ * 这个版本使用 ioctl(SIOCGIFCONF)。
  */
 int
 pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
@@ -388,10 +388,10 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 		}
 
 		/*
-		 * Some Unixes try to return as much data as possible, with no
-		 * indication of whether enough space allocated. Don't believe we have
-		 * it all unless there's lots of slop.
-		 */
+ * 有些 Unix 会尽量返回尽可能多的数据，而不表明分配的空间
+ * 是否足够。除非有大量富余，否则不要相信已经全部拿到。
+ *
+ */
 		if (ifc.ifc_len < n_buffer - 1024)
 			break;
 	}
@@ -415,11 +415,11 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 #else							/* !defined(SIOCGIFCONF) */
 
 /*
- * Enumerate the system's network interface addresses and call the callback
- * for each one.  Returns 0 if successful, -1 if trouble.
+ * 枚举系统的网络接口地址，并对每一个调用回调。
+ * 成功返回 0，出问题返回 -1。
  *
- * This version is our fallback if there's no known way to get the
- * interface addresses.  Just return the standard loopback addresses.
+ * 若没有已知方法取得接口地址，就用这个后备版本。只返回
+ * 标准环回地址。
  */
 int
 pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
@@ -428,7 +428,7 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 	struct sockaddr_storage mask;
 	struct sockaddr_in6 addr6;
 
-	/* addr 127.0.0.1/8 */
+	/* 地址 127.0.0.1/8 */
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = pg_ntoh32(0x7f000001);
@@ -438,7 +438,7 @@ pg_foreach_ifaddr(PgIfAddrCallback callback, void *cb_data)
 						(struct sockaddr *) &addr,
 						(struct sockaddr *) &mask);
 
-	/* addr ::1/128 */
+	/* 地址 ::1/128 */
 	memset(&addr6, 0, sizeof(addr6));
 	addr6.sin6_family = AF_INET6;
 	addr6.sin6_addr.s6_addr[15] = 1;

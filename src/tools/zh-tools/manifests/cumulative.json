@@ -1025,6 +1025,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0036-comment-libpq-headers.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/libpq/auth-sasl.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/be-gssapi-common.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure-common.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure.c",
+   "kind": "c_comment",
+   "note": "comment-only; dash separators kept"
+  },
+  {
+   "pattern": "src/backend/libpq/crypt.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/ifaddr.c",
+   "kind": "c_comment",
+   "note": "comment-only; preprocessor markers kept"
+  },
+  {
+   "pattern": "src/backend/libpq/pqmq.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/backend/libpq/pqsignal.c",
+   "kind": "c_comment",
+   "note": "comment-only"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0037-comment-libpq-c-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3677,7 +3722,115 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/libpq/auth-sasl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/be-gssapi-common.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 14,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/be-secure-common.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 5,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/be-secure.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 25,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "decorative separators"
+   ],
+   "note": "comment-only; dash separators kept"
+  },
+  {
+   "path": "src/backend/libpq/crypt.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/ifaddr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 19,
+   "preserved": 6,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "preprocessor condition comments"
+   ],
+   "note": "comment-only; preprocessor markers kept"
+  },
+  {
+   "path": "src/backend/libpq/pqmq.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/backend/libpq/pqsignal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0037-comment-libpq-c-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, and 13 include/libpq headers. Batch 0035 adjusts terminology in five backend/lib files. Backend libpq .c files are not translated yet. 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and 8 smaller backend/libpq .c files (auth-sasl, be-gssapi-common, be-secure, be-secure-common, crypt, ifaddr, pqmq, pqsignal). Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, auth-scram.c, be-fsstubs.c, be-secure-gssapi.c, be-secure-openssl.c, hba.c, pqcomm.c, pqformat.c. 194 platform candidates still unapproved."
 }

@@ -18,41 +18,41 @@
 #include "libpq/pqsignal.h"
 
 
-/* Global variables */
+/* 全局变量 */
 sigset_t	UnBlockSig,
 			BlockSig,
 			StartupBlockSig;
 
 
 /*
- * Initialize BlockSig, UnBlockSig, and StartupBlockSig.
+ * 初始化 BlockSig、UnBlockSig 和 StartupBlockSig。
  *
- * BlockSig is the set of signals to block when we are trying to block
- * signals.  This includes all signals we normally expect to get, but NOT
- * signals that should never be turned off.
+ * BlockSig 是我们试图阻塞信号时要阻塞的信号集。它包括
+ * 我们通常预期会收到的全部信号，但不包括绝不应该关掉的
+ * 信号。
  *
- * StartupBlockSig is the set of signals to block during startup packet
- * collection; it's essentially BlockSig minus SIGTERM, SIGQUIT, SIGALRM.
+ * StartupBlockSig 是收集启动包期间要阻塞的信号集；它
+ * 基本上是 BlockSig 减去 SIGTERM、SIGQUIT、SIGALRM。
  *
- * UnBlockSig is the set of signals to block when we don't want to block
- * signals.
+ * UnBlockSig 是我们不想阻塞信号时要阻塞的信号集。
+ *
  */
 void
 pqinitmask(void)
 {
 	sigemptyset(&UnBlockSig);
 
-	/* Note: InitializeLatchSupport() modifies UnBlockSig. */
+	/* 注意：InitializeLatchSupport() 会修改 UnBlockSig。 */
 
-	/* First set all signals, then clear some. */
+	/* 先设置全部信号，再清除其中一些。 */
 	sigfillset(&BlockSig);
 	sigfillset(&StartupBlockSig);
 
 	/*
-	 * Unmark those signals that should never be blocked. Some of these signal
-	 * names don't exist on all platforms.  Most do, but might as well ifdef
-	 * them all for consistency...
-	 */
+ * 取消标记那些绝不应该被阻塞的信号。其中有些信号名
+ * 并非在所有平台上都存在。大多数是存在的，但为了一致
+ * 不妨把它们全都放进 ifdef。
+ */
 #ifdef SIGTRAP
 	sigdelset(&BlockSig, SIGTRAP);
 	sigdelset(&StartupBlockSig, SIGTRAP);
@@ -86,7 +86,7 @@ pqinitmask(void)
 	sigdelset(&StartupBlockSig, SIGCONT);
 #endif
 
-/* Signals unique to startup */
+/* 启动阶段特有的信号 */
 #ifdef SIGQUIT
 	sigdelset(&StartupBlockSig, SIGQUIT);
 #endif

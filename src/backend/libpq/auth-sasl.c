@@ -21,32 +21,32 @@
 #include "libpq/sasl.h"
 
 /*
- * Maximum accepted size of SASL messages.
+ * 接受的 SASL 消息最大尺寸。
  *
- * The messages that the server or libpq generate are much smaller than this,
- * but have some headroom.
+ * 服务器或 libpq 生成的消息比这小得多，但留了一些余量。
+ *
  */
 #define PG_MAX_SASL_MESSAGE_LENGTH	1024
 
 /*
- * Perform a SASL exchange with a libpq client, using a specific mechanism
- * implementation.
+ * 使用特定机制实现，与 libpq 客户端进行一次 SASL 交换。
  *
- * shadow_pass is an optional pointer to the stored secret of the role
- * authenticated, from pg_authid.rolpassword.  For mechanisms that use
- * shadowed passwords, a NULL pointer here means that an entry could not
- * be found for the role (or the user does not exist), and the mechanism
- * should fail the authentication exchange.
+ * shadow_pass 是可选指针，指向已认证角色的已存储秘密，来自
+ * pg_authid.rolpassword。对使用已存储口令的机制，这里的
+ * NULL 指针表示找不到该角色的条目（或用户不存在），机制
+ * 应使这次认证交换失败。
  *
- * Mechanisms must take care not to reveal to the client that a user entry
- * does not exist; ideally, the external failure mode is identical to that
- * of an incorrect password.  Mechanisms may instead use the logdetail
- * output parameter to internally differentiate between failure cases and
- * assist debugging by the server admin.
+ * 机制必须注意不要向客户端透露用户条目不存在；理想情况下，
+ * 对外的失败表现应与口令错误完全相同。机制也可以改用
+ * logdetail 输出参数，在内部区分失败情形，帮助服务器管理员
+ * 调试。
  *
- * A mechanism is not required to utilize a shadow entry, or even a password
- * system at all; for these cases, shadow_pass may be ignored and the caller
- * should just pass NULL.
+ * 机制不必使用影子条目，甚至可以完全不用口令系统；对这些
+ * 情况，可以忽略 shadow_pass，调用者只需传入 NULL。
+ *
+ *
+ *
+ *
  */
 int
 CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
@@ -64,24 +64,24 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 	bool		initial;
 
 	/*
-	 * Send the SASL authentication request to user.  It includes the list of
-	 * authentication mechanisms that are supported.
-	 */
+ * 向用户发送 SASL 认证请求。其中包含所支持的认证机制列表。
+ *
+ */
 	initStringInfo(&sasl_mechs);
 
 	mech->get_mechanisms(port, &sasl_mechs);
-	/* Put another '\0' to mark that list is finished. */
+	/* 再放一个 '\0'，标记列表结束。 */
 	appendStringInfoChar(&sasl_mechs, '\0');
 
 	sendAuthRequest(port, AUTH_REQ_SASL, sasl_mechs.data, sasl_mechs.len);
 	pfree(sasl_mechs.data);
 
 	/*
-	 * Loop through SASL message exchange.  This exchange can consist of
-	 * multiple messages sent in both directions.  First message is always
-	 * from the client.  All messages from client to server are password
-	 * packets (type 'p').
-	 */
+ * 循环进行 SASL 消息交换。这次交换可以包含双向发送的多条
+ * 消息。第一条消息总是来自客户端。客户端发往服务器的所有
+ * 消息都是口令包（类型 'p'）。
+ *
+ */
 	initial = true;
 	do
 	{
@@ -89,7 +89,7 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 		mtype = pq_getbyte();
 		if (mtype != 'p')
 		{
-			/* Only log error if client didn't disconnect. */
+			/* 仅当客户端没有断开时才记录错误。 */
 			if (mtype != EOF)
 			{
 				ereport(ERROR,
@@ -101,11 +101,11 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 				return STATUS_EOF;
 		}
 
-		/* Get the actual SASL message */
+		/* 取得实际的 SASL 消息 */
 		initStringInfo(&buf);
 		if (pq_getmessage(&buf, PG_MAX_SASL_MESSAGE_LENGTH))
 		{
-			/* EOF - pq_getmessage already logged error */
+			/* EOF，pq_getmessage 已经记录了错误 */
 			pfree(buf.data);
 			return STATUS_ERROR;
 		}
@@ -113,11 +113,11 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 		elog(DEBUG4, "processing received SASL response of length %d", buf.len);
 
 		/*
-		 * The first SASLInitialResponse message is different from the others.
-		 * It indicates which SASL mechanism the client selected, and contains
-		 * an optional Initial Client Response payload.  The subsequent
-		 * SASLResponse messages contain just the SASL payload.
-		 */
+ * 第一条 SASLInitialResponse 消息与其他消息不同。它指出
+ * 客户端选择了哪种 SASL 机制，并包含可选的 Initial Client
+ * Response 负载。随后的 SASLResponse 消息只包含 SASL 负载。
+ *
+ */
 		if (initial)
 		{
 			const char *selected_mech;
@@ -125,17 +125,17 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 			selected_mech = pq_getmsgrawstring(&buf);
 
 			/*
-			 * Initialize the status tracker for message exchanges.
-			 *
-			 * If the user doesn't exist, or doesn't have a valid password, or
-			 * it's expired, we still go through the motions of SASL
-			 * authentication, but tell the authentication method that the
-			 * authentication is "doomed". That is, it's going to fail, no
-			 * matter what.
-			 *
-			 * This is because we don't want to reveal to an attacker what
-			 * usernames are valid, nor which users have a valid password.
-			 */
+ * 初始化消息交换的状态跟踪。
+ *
+ * 即使用户不存在，或没有有效口令，或口令已过期，我们仍走
+ * 一遍 SASL 认证的步骤，但告诉认证方法这次认证 "注定失败"。
+ * 也就是说，无论怎样它都会失败。
+ *
+ * 这是因为我们不想向攻击者透露哪些用户名有效，也不想透露
+ * 哪些用户有有效口令。
+ *
+ *
+ */
 			opaq = mech->init(port, selected_mech, shadow_pass);
 
 			inputlen = pq_getmsgint(&buf, 4);
@@ -154,33 +154,33 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 		pq_getmsgend(&buf);
 
 		/*
-		 * The StringInfo guarantees that there's a \0 byte after the
-		 * response.
-		 */
+ * StringInfo 保证应答后面有一个 \0 字节。
+ *
+ */
 		Assert(input == NULL || input[inputlen] == '\0');
 
 		/*
-		 * Hand the incoming message to the mechanism implementation.
-		 */
+ * 把收到的消息交给机制实现。
+ */
 		result = mech->exchange(opaq, input, inputlen,
 								&output, &outputlen,
 								logdetail);
 
-		/* input buffer no longer used */
+		/* 输入缓冲区不再使用 */
 		pfree(buf.data);
 
 		if (output)
 		{
 			/*
-			 * PG_SASL_EXCHANGE_FAILURE with some output is forbidden by SASL.
-			 * Make sure here that the mechanism used got that right.
-			 */
+ * SASL 禁止 PG_SASL_EXCHANGE_FAILURE 还带有某些输出。在这里
+ * 确认所用机制做对了这一点。
+ */
 			if (result == PG_SASL_EXCHANGE_FAILURE)
 				elog(ERROR, "output message found after SASL exchange failure");
 
 			/*
-			 * Negotiation generated data to be sent to the client.
-			 */
+ * 协商产生了要发给客户端的数据。
+ */
 			elog(DEBUG4, "sending SASL challenge of length %d", outputlen);
 
 			if (result == PG_SASL_EXCHANGE_SUCCESS)
@@ -192,7 +192,7 @@ CheckSASLAuth(const pg_be_sasl_mech *mech, Port *port, char *shadow_pass,
 		}
 	} while (result == PG_SASL_EXCHANGE_CONTINUE);
 
-	/* Oops, Something bad happened */
+	/* 糟糕，出了坏事 */
 	if (result != PG_SASL_EXCHANGE_SUCCESS)
 	{
 		return STATUS_ERROR;

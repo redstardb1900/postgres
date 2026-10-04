@@ -49,28 +49,28 @@ bool		ssl_passphrase_command_supports_reload;
 bool		ssl_loaded_verify_locations = false;
 #endif
 
-/* GUC variable controlling SSL cipher list */
+/* 控制 SSL 密码套件列表的 GUC 变量 */
 char	   *SSLCipherSuites = NULL;
 
-/* GUC variable for default ECHD curve. */
+/* 默认 ECHD 曲线的 GUC 变量。 */
 char	   *SSLECDHCurve;
 
-/* GUC variable: if false, prefer client ciphers */
+/* GUC 变量：若为假，则优先使用客户端密码套件 */
 bool		SSLPreferServerCiphers;
 
 int			ssl_min_protocol_version = PG_TLS1_2_VERSION;
 int			ssl_max_protocol_version = PG_TLS_ANY;
 
 /* ------------------------------------------------------------ */
-/*			 Procedures common to all secure sessions			*/
+/*			 所有安全会话共用的过程			*/
 /* ------------------------------------------------------------ */
 
 /*
- *	Initialize global context.
+ *	初始化全局上下文。
  *
- * If isServerStart is true, report any errors as FATAL (so we don't return).
- * Otherwise, log errors at LOG level and return -1 to indicate trouble,
- * preserving the old SSL state if any.  Returns 0 if OK.
+ * 若 isServerStart 为真，把任何错误报告为 FATAL（这样我们就
+ * 不会返回）。否则以 LOG 级别记录错误并返回 -1 表示有麻烦，
+ * 若已有旧 SSL 状态则保留它。成功则返回 0。
  */
 int
 secure_initialize(bool isServerStart)
@@ -83,7 +83,7 @@ secure_initialize(bool isServerStart)
 }
 
 /*
- *	Destroy global context, if any.
+ *	销毁全局上下文，若有的话。
  */
 void
 secure_destroy(void)
@@ -94,7 +94,7 @@ secure_destroy(void)
 }
 
 /*
- * Indicate if we have loaded the root CA store to verify certificates
+ * 表明我们是否已加载根 CA 存储以验证证书
  */
 bool
 secure_loaded_verify_locations(void)
@@ -107,7 +107,7 @@ secure_loaded_verify_locations(void)
 }
 
 /*
- *	Attempt to negotiate secure session.
+ *	尝试协商安全会话。
  */
 int
 secure_open_server(Port *port)
@@ -127,7 +127,7 @@ secure_open_server(Port *port)
 }
 
 /*
- *	Close secure session.
+ *	关闭安全会话。
  */
 void
 secure_close(Port *port)
@@ -139,7 +139,7 @@ secure_close(Port *port)
 }
 
 /*
- *	Read data from a secure connection.
+ *	从安全连接读取数据。
  */
 ssize_t
 secure_read(Port *port, void *ptr, size_t len)
@@ -147,7 +147,7 @@ secure_read(Port *port, void *ptr, size_t len)
 	ssize_t		n;
 	int			waitfor;
 
-	/* Deal with any already-pending interrupt condition. */
+	/* 处理任何已经待处理的中断条件。 */
 	ProcessClientReadInterrupt(false);
 
 retry:
@@ -172,7 +172,7 @@ retry:
 		waitfor = WL_SOCKET_READABLE;
 	}
 
-	/* In blocking mode, wait until the socket is ready */
+	/* 在阻塞模式下，等到套接字就绪 */
 	if (n < 0 && !port->noblock && (errno == EWOULDBLOCK || errno == EAGAIN))
 	{
 		WaitEvent	event;
@@ -181,50 +181,50 @@ retry:
 
 		ModifyWaitEvent(FeBeWaitSet, FeBeWaitSetSocketPos, waitfor, NULL);
 
-		WaitEventSetWait(FeBeWaitSet, -1 /* no timeout */ , &event, 1,
+		WaitEventSetWait(FeBeWaitSet, -1 /* 无超时 */ , &event, 1,
 						 WAIT_EVENT_CLIENT_READ);
 
 		/*
-		 * If the postmaster has died, it's not safe to continue running,
-		 * because it is the postmaster's job to kill us if some other backend
-		 * exits uncleanly.  Moreover, we won't run very well in this state;
-		 * helper processes like walwriter and the bgwriter will exit, so
-		 * performance may be poor.  Finally, if we don't exit, pg_ctl will be
-		 * unable to restart the postmaster without manual intervention, so no
-		 * new connections can be accepted.  Exiting clears the deck for a
-		 * postmaster restart.
-		 *
-		 * (Note that we only make this check when we would otherwise sleep on
-		 * our latch.  We might still continue running for a while if the
-		 * postmaster is killed in mid-query, or even through multiple queries
-		 * if we never have to wait for read.  We don't want to burn too many
-		 * cycles checking for this very rare condition, and this should cause
-		 * us to exit quickly in most cases.)
-		 */
+ * 若 postmaster 已死亡，继续运行就不安全，因为若其他后端
+ * 不干净地退出，该由 postmaster 来杀掉我们。而且在这种
+ * 状态下我们也跑不好；walwriter 和 bgwriter 这类辅助进程
+ * 会退出，性能可能很差。最后，若我们不退出，不人工干预
+ * pg_ctl 就无法重启 postmaster，从而无法接受新连接。退出
+ * 是为 postmaster 重启清场。
+ *
+ * （注意，只在本来就要在锁存器上睡眠时才做这项检查。若
+ * postmaster 在查询中途被杀掉，或者我们一直不用等待读取，
+ * 甚至跨多条查询，我们仍可能继续跑一会儿。我们不想为这种
+ * 极罕见的情况烧掉过多周期，而这样在多数情况下应能让我们
+ * 很快退出。）
+ *
+ *
+ *
+ */
 		if (event.events & WL_POSTMASTER_DEATH)
 			ereport(FATAL,
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),
 					 errmsg("terminating connection due to unexpected postmaster exit")));
 
-		/* Handle interrupt. */
+		/* 处理中断。 */
 		if (event.events & WL_LATCH_SET)
 		{
 			ResetLatch(MyLatch);
 			ProcessClientReadInterrupt(true);
 
 			/*
-			 * We'll retry the read. Most likely it will return immediately
-			 * because there's still no data available, and we'll wait for the
-			 * socket to become ready again.
-			 */
+ * 我们将重试这次读取。它很可能会立刻返回，因为仍然没有
+ * 可用数据，然后我们再等待套接字再次就绪。
+ *
+ */
 		}
 		goto retry;
 	}
 
 	/*
-	 * Process interrupts that happened during a successful (or non-blocking,
-	 * or hard-failed) read.
-	 */
+ * 处理在一次成功（或非阻塞、或硬失败）的读取期间发生的
+ * 中断。
+ */
 	ProcessClientReadInterrupt(false);
 
 	return n;
@@ -236,9 +236,9 @@ secure_raw_read(Port *port, void *ptr, size_t len)
 	ssize_t		n;
 
 	/*
-	 * Try to read from the socket without blocking. If it succeeds we're
-	 * done, otherwise we'll wait for the socket using the latch mechanism.
-	 */
+ * 尝试不阻塞地从套接字读取。若成功就完成了，否则用锁存器
+ * 机制等待套接字。
+ */
 #ifdef WIN32
 	pgwin32_noblock = true;
 #endif
@@ -252,7 +252,7 @@ secure_raw_read(Port *port, void *ptr, size_t len)
 
 
 /*
- *	Write data to a secure connection.
+ *	向安全连接写入数据。
  */
 ssize_t
 secure_write(Port *port, void *ptr, size_t len)
@@ -260,7 +260,7 @@ secure_write(Port *port, void *ptr, size_t len)
 	ssize_t		n;
 	int			waitfor;
 
-	/* Deal with any already-pending interrupt condition. */
+	/* 处理任何已经待处理的中断条件。 */
 	ProcessClientWriteInterrupt(false);
 
 retry:
@@ -293,34 +293,34 @@ retry:
 
 		ModifyWaitEvent(FeBeWaitSet, FeBeWaitSetSocketPos, waitfor, NULL);
 
-		WaitEventSetWait(FeBeWaitSet, -1 /* no timeout */ , &event, 1,
+		WaitEventSetWait(FeBeWaitSet, -1 /* 无超时 */ , &event, 1,
 						 WAIT_EVENT_CLIENT_WRITE);
 
-		/* See comments in secure_read. */
+		/* 见 secure_read 中的注释。 */
 		if (event.events & WL_POSTMASTER_DEATH)
 			ereport(FATAL,
 					(errcode(ERRCODE_ADMIN_SHUTDOWN),
 					 errmsg("terminating connection due to unexpected postmaster exit")));
 
-		/* Handle interrupt. */
+		/* 处理中断。 */
 		if (event.events & WL_LATCH_SET)
 		{
 			ResetLatch(MyLatch);
 			ProcessClientWriteInterrupt(true);
 
 			/*
-			 * We'll retry the write. Most likely it will return immediately
-			 * because there's still no buffer space available, and we'll wait
-			 * for the socket to become ready again.
-			 */
+ * 我们将重试这次写入。它很可能会立刻返回，因为仍然没有
+ * 可用的缓冲区空间，然后我们再等待套接字再次就绪。
+ *
+ */
 		}
 		goto retry;
 	}
 
 	/*
-	 * Process interrupts that happened during a successful (or non-blocking,
-	 * or hard-failed) write.
-	 */
+ * 处理在一次成功（或非阻塞、或硬失败）的写入期间发生的
+ * 中断。
+ */
 	ProcessClientWriteInterrupt(false);
 
 	return n;

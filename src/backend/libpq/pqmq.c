@@ -46,8 +46,8 @@ static const PQcommMethods PqCommMqMethods = {
 };
 
 /*
- * Arrange to redirect frontend/backend protocol messages to a shared-memory
- * message queue.
+ * 安排把前端/后端协议消息重定向到共享内存消息队列。
+ *
  */
 void
 pq_redirect_to_shm_mq(dsm_segment *seg, shm_mq_handle *mqh)
@@ -60,8 +60,8 @@ pq_redirect_to_shm_mq(dsm_segment *seg, shm_mq_handle *mqh)
 }
 
 /*
- * When the DSM that contains our shm_mq goes away, we need to stop sending
- * messages to it.
+ * 当包含我们 shm_mq 的 DSM 消失时，需要停止向它发送消息。
+ *
  */
 static void
 pq_cleanup_redirect_to_shm_mq(dsm_segment *seg, Datum arg)
@@ -71,8 +71,8 @@ pq_cleanup_redirect_to_shm_mq(dsm_segment *seg, Datum arg)
 }
 
 /*
- * Arrange to SendProcSignal() to the parallel leader each time we transmit
- * message data via the shm_mq.
+ * 安排每次通过 shm_mq 传送消息数据时，向并行领导者
+ * SendProcSignal()。
  */
 void
 pq_set_parallel_leader(pid_t pid, BackendId backend_id)
@@ -85,34 +85,34 @@ pq_set_parallel_leader(pid_t pid, BackendId backend_id)
 static void
 mq_comm_reset(void)
 {
-	/* Nothing to do. */
+	/* 无事可做。 */
 }
 
 static int
 mq_flush(void)
 {
-	/* Nothing to do. */
+	/* 无事可做。 */
 	return 0;
 }
 
 static int
 mq_flush_if_writable(void)
 {
-	/* Nothing to do. */
+	/* 无事可做。 */
 	return 0;
 }
 
 static bool
 mq_is_send_pending(void)
 {
-	/* There's never anything pending. */
+	/* 从不会有任何待处理内容。 */
 	return 0;
 }
 
 /*
- * Transmit a libpq protocol message to the shared memory message queue
- * selected via pq_mq_handle.  We don't include a length word, because the
- * receiver will know the length of the message from shm_mq_receive().
+ * 经 pq_mq_handle 选定的共享内存消息队列传送一条 libpq
+ * 协议消息。我们不附带长度字，因为接收方会从
+ * shm_mq_receive() 知道消息长度。
  */
 static int
 mq_putmessage(char msgtype, const char *s, size_t len)
@@ -121,13 +121,13 @@ mq_putmessage(char msgtype, const char *s, size_t len)
 	shm_mq_result result;
 
 	/*
-	 * If we're sending a message, and we have to wait because the queue is
-	 * full, and then we get interrupted, and that interrupt results in trying
-	 * to send another message, we respond by detaching the queue.  There's no
-	 * way to return to the original context, but even if there were, just
-	 * queueing the message would amount to indefinitely postponing the
-	 * response to the interrupt.  So we do this instead.
-	 */
+ * 若我们正在发送消息，因为队列已满而必须等待，然后被中断，
+ * 而该中断又导致试图再发送一条消息，我们就通过分离队列来
+ * 回应。没有办法回到原来的上下文，即便有，仅仅把消息入队
+ * 也等于无限期推迟对该中断的响应。因此我们改这样做。
+ *
+ *
+ */
 	if (pq_mq_busy)
 	{
 		if (pq_mq_handle != NULL)
@@ -137,11 +137,11 @@ mq_putmessage(char msgtype, const char *s, size_t len)
 	}
 
 	/*
-	 * If the message queue is already gone, just ignore the message. This
-	 * doesn't necessarily indicate a problem; for example, DEBUG messages can
-	 * be generated late in the shutdown sequence, after all DSMs have already
-	 * been detached.
-	 */
+ * 若消息队列已经消失，就忽略这条消息。这不一定表示有问题；
+ * 例如，DEBUG 消息可能在关闭序列的后期产生，那时所有 DSMs
+ * 都已经分离。
+ *
+ */
 	if (pq_mq_handle == NULL)
 		return 0;
 
@@ -157,10 +157,10 @@ mq_putmessage(char msgtype, const char *s, size_t len)
 	for (;;)
 	{
 		/*
-		 * Immediately notify the receiver by passing force_flush as true so
-		 * that the shared memory value is updated before we send the parallel
-		 * message signal right after this.
-		 */
+ * 通过把 force_flush 传为 true 立即通知接收方，这样在紧接着
+ * 发送并行消息信号之前，共享内存中的值已经更新。
+ *
+ */
 		result = shm_mq_sendv(pq_mq_handle, iov, 2, true, true);
 
 		if (pq_mq_parallel_leader_pid != 0)
@@ -199,28 +199,28 @@ static void
 mq_putmessage_noblock(char msgtype, const char *s, size_t len)
 {
 	/*
-	 * While the shm_mq machinery does support sending a message in
-	 * non-blocking mode, there's currently no way to try sending beginning to
-	 * send the message that doesn't also commit us to completing the
-	 * transmission.  This could be improved in the future, but for now we
-	 * don't need it.
-	 */
+ * shm_mq 机制确实支持以非阻塞模式发送消息，但目前没有办法
+ * 尝试开始发送消息、而又不让我们承诺完成这次传输。将来
+ * 可以改进，但现在我们不需要。
+ *
+ *
+ */
 	elog(ERROR, "not currently supported");
 }
 
 /*
- * Parse an ErrorResponse or NoticeResponse payload and populate an ErrorData
- * structure with the results.
+ * 解析 ErrorResponse 或 NoticeResponse 的负载，并用结果填充
+ * 一个 ErrorData 结构。
  */
 void
 pq_parse_errornotice(StringInfo msg, ErrorData *edata)
 {
-	/* Initialize edata with reasonable defaults. */
+	/* 用合理的默认值初始化 edata。 */
 	MemSet(edata, 0, sizeof(ErrorData));
 	edata->elevel = ERROR;
 	edata->assoc_context = CurrentMemoryContext;
 
-	/* Loop over fields and extract each one. */
+	/* 遍历各字段并逐个取出。 */
 	for (;;)
 	{
 		char		code = pq_getmsgbyte(msg);
@@ -236,24 +236,24 @@ pq_parse_errornotice(StringInfo msg, ErrorData *edata)
 		switch (code)
 		{
 			case PG_DIAG_SEVERITY:
-				/* ignore, trusting we'll get a nonlocalized version */
+				/* 忽略，相信我们会得到未本地化的版本 */
 				break;
 			case PG_DIAG_SEVERITY_NONLOCALIZED:
 				if (strcmp(value, "DEBUG") == 0)
 				{
 					/*
-					 * We can't reconstruct the exact DEBUG level, but
-					 * presumably it was >= client_min_messages, so select
-					 * DEBUG1 to ensure we'll pass it on to the client.
-					 */
+ * 我们无法重建确切的 DEBUG 级别，但推测它 >= client_min_messages，
+ * 因此选用 DEBUG1，以确保会把它传给客户端。
+ *
+ */
 					edata->elevel = DEBUG1;
 				}
 				else if (strcmp(value, "LOG") == 0)
 				{
 					/*
-					 * It can't be LOG_SERVER_ONLY, or the worker wouldn't
-					 * have sent it to us; so LOG is the correct value.
-					 */
+ * 它不会是 LOG_SERVER_ONLY，否则工作进程不会把它发给我们；
+ * 因此 LOG 是正确的值。
+ */
 					edata->elevel = LOG;
 				}
 				else if (strcmp(value, "INFO") == 0)

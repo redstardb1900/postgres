@@ -28,13 +28,13 @@
 #include "storage/fd.h"
 
 /*
- * Run ssl_passphrase_command
+ * 运行 ssl_passphrase_command
  *
- * prompt will be substituted for %p.  is_server_start determines the loglevel
- * of error messages.
+ * prompt 会替换 %p。is_server_start 决定错误消息的日志级别。
  *
- * The result will be put in buffer buf, which is of size size.  The return
- * value is the length of the actual result.
+ * 结果放进大小为 size 的缓冲区 buf。返回值是实际结果的长度。
+ *
+ *
  */
 int
 run_ssl_passphrase_command(const char *prompt, bool is_server_start, char *buf, int size)
@@ -94,7 +94,7 @@ run_ssl_passphrase_command(const char *prompt, bool is_server_start, char *buf, 
 		goto error;
 	}
 
-	/* strip trailing newline and carriage return */
+	/* 去掉末尾的换行和回车 */
 	len = pg_strip_crlf(buf);
 
 error:
@@ -104,7 +104,7 @@ error:
 
 
 /*
- * Check permissions for SSL key files.
+ * 检查 SSL 密钥文件的权限。
  */
 bool
 check_ssl_key_file_permissions(const char *ssl_key_file, bool isServerStart)
@@ -121,7 +121,7 @@ check_ssl_key_file_permissions(const char *ssl_key_file, bool isServerStart)
 		return false;
 	}
 
-	/* Key file must be a regular file */
+	/* 密钥文件必须是普通文件 */
 	if (!S_ISREG(buf.st_mode))
 	{
 		ereport(loglevel,
@@ -132,21 +132,21 @@ check_ssl_key_file_permissions(const char *ssl_key_file, bool isServerStart)
 	}
 
 	/*
-	 * Refuse to load key files owned by users other than us or root, and
-	 * require no public access to the key file.  If the file is owned by us,
-	 * require mode 0600 or less.  If owned by root, require 0640 or less to
-	 * allow read access through either our gid or a supplementary gid that
-	 * allows us to read system-wide certificates.
-	 *
-	 * Note that roughly similar checks are performed in
-	 * src/interfaces/libpq/fe-secure-openssl.c so any changes here may need
-	 * to be made there as well.  The environment is different though; this
-	 * code can assume that we're not running as root.
-	 *
-	 * Ideally we would do similar permissions checks on Windows, but it is
-	 * not clear how that would work since Unix-style permissions may not be
-	 * available.
-	 */
+ * 拒绝加载不属于我们或 root 的密钥文件，且密钥文件不得
+ * 有公共访问权限。若文件属于我们，需要模式为 0600 或
+ * 更严。若属于 root，需要 0640 或更严，以便通过我们的 gid
+ * 或允许我们读取全系统证书的附加 gid 来读取。
+ *
+ * 注意，src/interfaces/libpq/fe-secure-openssl.c 里有大致
+ * 类似的检查，因此这里的改动也许也要同步到那里。不过环境
+ * 不同；这段代码可以假定我们不是以 root 身份运行。
+ *
+ * 理想情况下 Windows 上也做类似的权限检查，但不清楚那该
+ * 怎么做，因为 Unix 风格的权限也许不可用。
+ *
+ *
+ *
+ */
 #if !defined(WIN32) && !defined(__CYGWIN__)
 	if (buf.st_uid != geteuid() && buf.st_uid != 0)
 	{

@@ -17,9 +17,9 @@
 #include "libpq/be-gssapi-common.h"
 
 /*
- * Fetch all errors of a specific type and append to "s" (buffer of size len).
- * If we obtain more than one string, separate them with spaces.
- * Call once for GSS_CODE and once for MECH_CODE.
+ * 取出某一特定类型的全部错误并追加到 "s"（大小为 len 的缓冲区）。
+ * 若得到不止一个字符串，用空格分隔。
+ * 对 GSS_CODE 和 MECH_CODE 各调用一次。
  */
 static void
 pg_GSS_error_int(char *s, size_t len, OM_uint32 stat, int type)
@@ -47,7 +47,7 @@ pg_GSS_error_int(char *s, size_t len, OM_uint32 stat, int type)
 	}
 	while (msg_ctx);
 
-	/* add nul termination */
+	/* 补上空字符结尾 */
 	if (i < len)
 		s[i] = '\0';
 	else
@@ -58,18 +58,18 @@ pg_GSS_error_int(char *s, size_t len, OM_uint32 stat, int type)
 }
 
 /*
- * Report the GSSAPI error described by maj_stat/min_stat.
+ * 报告由 maj_stat/min_stat 描述的 GSSAPI 错误。
  *
- * errmsg should be an already-translated primary error message.
- * The GSSAPI info is appended as errdetail.
+ * errmsg 应当是已经翻译过的主错误消息。
+ * GSSAPI 信息作为 errdetail 追加。
  *
- * The error is always reported with elevel COMMERROR; we daren't try to
- * send it to the client, as that'd likely lead to infinite recursion
- * when elog.c tries to write to the client.
+ * 错误始终以级别 COMMERROR 报告；我们不敢把它发给客户端，
+ * 因为 elog.c 试图写往客户端时，那很可能导致无限递归。
  *
- * To avoid memory allocation, total error size is capped (at 128 bytes for
- * each of major and minor).  No known mechanisms will produce error messages
- * beyond this cap.
+ * 为避免内存分配，错误总大小有上限（主状态和次状态各
+ * 128 字节）。没有已知机制会产生超出该上限的错误消息。
+ *
+ *
  */
 void
 pg_GSS_error(const char *errmsg,
@@ -78,26 +78,26 @@ pg_GSS_error(const char *errmsg,
 	char		msg_major[128],
 				msg_minor[128];
 
-	/* Fetch major status message */
+	/* 取主状态消息 */
 	pg_GSS_error_int(msg_major, sizeof(msg_major), maj_stat, GSS_C_GSS_CODE);
 
-	/* Fetch mechanism minor status message */
+	/* 取机制次状态消息 */
 	pg_GSS_error_int(msg_minor, sizeof(msg_minor), min_stat, GSS_C_MECH_CODE);
 
 	/*
-	 * errmsg_internal, since translation of the first part must be done
-	 * before calling this function anyway.
-	 */
+ * 使用 errmsg_internal，因为前半部分的翻译反正必须在
+ * 调用本函数之前完成。
+ */
 	ereport(COMMERROR,
 			(errmsg_internal("%s", errmsg),
 			 errdetail_internal("%s: %s", msg_major, msg_minor)));
 }
 
 /*
- * Store the credentials passed in into the memory cache for later usage.
+ * 把传入的凭证存进内存缓存，供以后使用。
  *
- * This allows credentials to be delegated to us for us to use to connect
- * to other systems with, using, e.g. postgres_fdw or dblink.
+ * 这样委托给我们的凭证就可以用来连接其他系统，例如
+ * 通过 postgres_fdw 或 dblink。
  */
 #define GSS_MEMORY_CACHE "MEMORY:"
 void
@@ -115,14 +115,14 @@ pg_store_delegated_credential(gss_cred_id_t cred)
 	ccset.count = 1;
 	ccset.elements = &cc;
 
-	/* Make the delegated credential only available to current process */
+	/* 使委托的凭证只对当前进程可用 */
 	major = gss_store_cred_into(&minor,
 								cred,
-								GSS_C_INITIATE, /* credential only used for
-												 * starting libpq connection */
-								GSS_C_NULL_OID, /* store all */
-								true,	/* overwrite */
-								true,	/* make default */
+								GSS_C_INITIATE, /* 凭证只用于
+												 * 启动 libpq 连接 */
+								GSS_C_NULL_OID, /* 全部存储 */
+								true,	/* 覆盖 */
+								true,	/* 设为默认 */
 								&ccset,
 								&mech,
 								&usage);
@@ -132,7 +132,7 @@ pg_store_delegated_credential(gss_cred_id_t cred)
 		pg_GSS_error("gss_store_cred", major, minor);
 	}
 
-	/* Credential stored, so we can release our credential handle. */
+	/* 凭证已存储，因此可以释放我们的凭证句柄。 */
 	major = gss_release_cred(&minor, &cred);
 	if (major != GSS_S_COMPLETE)
 	{
@@ -140,8 +140,8 @@ pg_store_delegated_credential(gss_cred_id_t cred)
 	}
 
 	/*
-	 * Set KRB5CCNAME for this backend, so that later calls to
-	 * gss_acquire_cred will find the delegated credentials we stored.
-	 */
+ * 为本后端设置 KRB5CCNAME，以便稍后调用 gss_acquire_cred
+ * 时能找到我们存储的委托凭证。
+ */
 	setenv("KRB5CCNAME", GSS_MEMORY_CACHE, 1);
 }

@@ -27,11 +27,11 @@
 
 
 /*
- * Fetch stored password for a user, for authentication.
+ * 取出用户已存储的口令，供认证使用。
  *
- * On error, returns NULL, and stores a palloc'd string describing the reason,
- * for the postmaster log, in *logdetail.  The error reason should *not* be
- * sent to the client, to avoid giving away user information!
+ * 出错时返回 NULL，并把一段 palloc 分配的原因说明存入
+ * *logdetail，供 postmaster 日志使用。错误原因 *不应* 发给
+ * 客户端，以免泄露用户信息！
  */
 char *
 get_role_password(const char *role, const char **logdetail)
@@ -42,13 +42,13 @@ get_role_password(const char *role, const char **logdetail)
 	bool		isnull;
 	char	   *shadow_pass;
 
-	/* Get role info from pg_authid */
+	/* 从 pg_authid 取得角色信息 */
 	roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(role));
 	if (!HeapTupleIsValid(roleTup))
 	{
 		*logdetail = psprintf(_("Role \"%s\" does not exist."),
 							  role);
-		return NULL;			/* no such user */
+		return NULL;			/* 没有这个用户 */
 	}
 
 	datum = SysCacheGetAttr(AUTHNAME, roleTup,
@@ -58,7 +58,7 @@ get_role_password(const char *role, const char **logdetail)
 		ReleaseSysCache(roleTup);
 		*logdetail = psprintf(_("User \"%s\" has no password assigned."),
 							  role);
-		return NULL;			/* user has no password */
+		return NULL;			/* 用户没有口令 */
 	}
 	shadow_pass = TextDatumGetCString(datum);
 
@@ -70,8 +70,8 @@ get_role_password(const char *role, const char **logdetail)
 	ReleaseSysCache(roleTup);
 
 	/*
-	 * Password OK, but check to be sure we are not past rolvaliduntil
-	 */
+ * 口令正确，但还要确认没有超过 rolvaliduntil
+ */
 	if (!isnull && vuntil < GetCurrentTimestamp())
 	{
 		*logdetail = psprintf(_("User \"%s\" has an expired password."),
@@ -83,7 +83,7 @@ get_role_password(const char *role, const char **logdetail)
 }
 
 /*
- * What kind of a password type is 'shadow_pass'?
+ * 'shadow_pass' 是哪一种口令类型？
  */
 PasswordType
 get_password_type(const char *shadow_pass)
@@ -106,11 +106,11 @@ get_password_type(const char *shadow_pass)
 }
 
 /*
- * Given a user-supplied password, convert it into a secret of
- * 'target_type' kind.
+ * 给定用户提供的口令，把它转换成 'target_type' 那种秘密。
  *
- * If the password is already in encrypted form, we cannot reverse the
- * hash, so it is stored as it is regardless of the requested type.
+ * 若口令已经是加密形式，我们无法反推哈希，因此无论请求
+ * 的类型是什么，都按原样存储。
+ *
  */
 char *
 encrypt_password(PasswordType target_type, const char *role,
@@ -123,9 +123,9 @@ encrypt_password(PasswordType target_type, const char *role,
 	if (guessed_type != PASSWORD_TYPE_PLAINTEXT)
 	{
 		/*
-		 * Cannot convert an already-encrypted password from one format to
-		 * another, so return it as it is.
-		 */
+ * 无法把已经加密的口令从一种格式转换成另一种，因此按原样
+ * 返回。
+ */
 		return pstrdup(password);
 	}
 
@@ -147,23 +147,23 @@ encrypt_password(PasswordType target_type, const char *role,
 	}
 
 	/*
-	 * This shouldn't happen, because the above switch statements should
-	 * handle every combination of source and target password types.
-	 */
+ * 这不该发生，因为上面的 switch 语句应该处理源类型和目标
+ * 口令类型的每一种组合。
+ */
 	elog(ERROR, "cannot encrypt password to requested type");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 /*
- * Check MD5 authentication response, and return STATUS_OK or STATUS_ERROR.
+ * 检查 MD5 认证应答，返回 STATUS_OK 或 STATUS_ERROR。
  *
- * 'shadow_pass' is the user's correct password or password hash, as stored
- * in pg_authid.rolpassword.
- * 'client_pass' is the response given by the remote user to the MD5 challenge.
- * 'md5_salt' is the salt used in the MD5 authentication challenge.
+ * 'shadow_pass' 是用户的正确口令或口令哈希，即存储在
+ * pg_authid.rolpassword 中的值。
+ * 'client_pass' 是远程用户对 MD5 质询给出的应答。
+ * 'md5_salt' 是 MD5 认证质询使用的盐。
  *
- * In the error case, save a string at *logdetail that will be sent to the
- * postmaster log (but not the client).
+ * 出错时，把一段字符串存入 *logdetail，它会写入 postmaster
+ * 日志（但不发给客户端）。
  */
 int
 md5_crypt_verify(const char *role, const char *shadow_pass,
@@ -179,16 +179,16 @@ md5_crypt_verify(const char *role, const char *shadow_pass,
 
 	if (get_password_type(shadow_pass) != PASSWORD_TYPE_MD5)
 	{
-		/* incompatible password hash format. */
+		/* 不兼容的口令哈希格式。 */
 		*logdetail = psprintf(_("User \"%s\" has a password that cannot be used with MD5 authentication."),
 							  role);
 		return STATUS_ERROR;
 	}
 
 	/*
-	 * Compute the correct answer for the MD5 challenge.
-	 */
-	/* stored password already encrypted, only do salt */
+ * 计算 MD5 质询的正确答案。
+ */
+	/* 存储的口令已经加密，只做加盐 */
 	if (!pg_md5_encrypt(shadow_pass + strlen("md5"),
 						md5_salt, md5_salt_len,
 						crypt_pwd, &errstr))
@@ -210,14 +210,14 @@ md5_crypt_verify(const char *role, const char *shadow_pass,
 }
 
 /*
- * Check given password for given user, and return STATUS_OK or STATUS_ERROR.
+ * 检查给定用户的给定口令，返回 STATUS_OK 或 STATUS_ERROR。
  *
- * 'shadow_pass' is the user's correct password hash, as stored in
- * pg_authid.rolpassword.
- * 'client_pass' is the password given by the remote user.
+ * 'shadow_pass' 是用户的正确口令哈希，即存储在
+ * pg_authid.rolpassword 中的值。
+ * 'client_pass' 是远程用户给出的口令。
  *
- * In the error case, store a string at *logdetail that will be sent to the
- * postmaster log (but not the client).
+ * 出错时，把一段字符串存入 *logdetail，它会写入 postmaster
+ * 日志（但不发给客户端）。
  */
 int
 plain_crypt_verify(const char *role, const char *shadow_pass,
@@ -228,10 +228,10 @@ plain_crypt_verify(const char *role, const char *shadow_pass,
 	const char *errstr = NULL;
 
 	/*
-	 * Client sent password in plaintext.  If we have an MD5 hash stored, hash
-	 * the password the client sent, and compare the hashes.  Otherwise
-	 * compare the plaintext passwords directly.
-	 */
+ * 客户端以明文发送了口令。若我们存的是 MD5 哈希，就把客户端
+ * 发来的口令做哈希，再比较哈希。否则直接比较明文口令。
+ *
+ */
 	switch (get_password_type(shadow_pass))
 	{
 		case PASSWORD_TYPE_SCRAM_SHA_256:
@@ -272,16 +272,16 @@ plain_crypt_verify(const char *role, const char *shadow_pass,
 		case PASSWORD_TYPE_PLAINTEXT:
 
 			/*
-			 * We never store passwords in plaintext, so this shouldn't
-			 * happen.
-			 */
+ * 我们从不存储明文口令，因此这不该发生。
+ *
+ */
 			break;
 	}
 
 	/*
-	 * This shouldn't happen.  Plain "password" authentication is possible
-	 * with any kind of stored password hash.
-	 */
+ * 这不该发生。纯 "password" 认证对任何已存储的口令哈希
+ * 都是可能的。
+ */
 	*logdetail = psprintf(_("Password of user \"%s\" is in unrecognized format."),
 						  role);
 	return STATUS_ERROR;

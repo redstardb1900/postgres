@@ -1,0 +1,696 @@
+{
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "builddir": "/home/redstar/pg-builds/REL_16_11_base-make",
+ "bulk_files": {
+  "headers_base": {
+   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/replay-base/headers.jsonl",
+   "sha256": "3a184265064e813cd954d68b9a65304fe96f736f10c914fde9956791b9e0a523",
+   "size": 3638951
+  },
+  "po_headers": {
+   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/cc_bulk/po_headers.jsonl",
+   "sha256": "c1d283bd56dd8d65b5dc1a0f6b74d9cb8495d16e49840988feb8f272657c06a0",
+   "size": 3637996
+  }
+ },
+ "cache_key_material": {
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "cc_version": "gcc (GCC) 10.3.1",
+  "closure_sha256": "ae32042de2aae5b87ea159d8093ceb6544bc724e3990bc307d0a3a878f853dbe",
+  "commands_sha256": "91a4b4371bdce11e13f0e8c1ec1f339a28724f35ae547f83352813e8d38a7578",
+  "configure_args": [
+   "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
+   "--enable-depend",
+   "--enable-nls",
+   "--enable-tap-tests",
+   "--enable-cassert",
+   "--enable-debug",
+   "--enable-dtrace",
+   "--with-perl",
+   "--with-python",
+   "--with-openssl",
+   "--with-gssapi",
+   "--with-ldap",
+   "--with-pam",
+   "--with-uuid=e2fs",
+   "--with-libxml",
+   "--with-libxslt",
+   "--with-lz4",
+   "--with-icu",
+   "--with-selinux",
+   "CC=/usr/bin/gcc",
+   "CXX=/usr/bin/g++"
+  ],
+  "cxx_version": "g++ (GCC) 10.3.1",
+  "env": {
+   "HOME": "/home/redstar",
+   "LANG": "C.UTF-8",
+   "LOGNAME": "redstar",
+   "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+   "SHELL": "/bin/bash",
+   "USER": "redstar"
+  },
+  "flagsets_sha256": "fd1f60a96b0c70742db321ea03f411a5b3fae6818844eb4ce7048c37bf79c774",
+  "logs": {
+   "check_prereqs": "c1eda6104ce1ea6cbfa30e558338b706beb6883a50547ffadaf68b67ca7f7306",
+   "check_prereqs_ecpg": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3",
+   "check_prereqs_libpq": "d19df3f1b77d00c088d2804ff619414e048483c245919b09e5a87e44c6a994dc",
+   "check_prereqs_pg_bsd_indent": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
+   "checkprep": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82",
+   "world_bin": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36"
+  },
+  "make_version": "GNU Make 4.3",
+  "po_headers_sha256": "c1d283bd56dd8d65b5dc1a0f6b74d9cb8495d16e49840988feb8f272657c06a0",
+  "token_cache_sha256": "8a6cdf122651e1cdaead09c05a96225ae4c1a5736cfa893640e44bcf2cf776b7",
+  "tokens_sha256": "04f2f10c67d32cf4fdb7b7b5931f9d22ab21e6630dfde19d1cba612e899d7d2d"
+ },
+ "cache_key_sha256": "3880e372e316a8254979d929ef79563b5687a8477f6623fc2dbec82992e1a50b",
+ "cc": "/usr/bin/gcc",
+ "cc_version": "gcc (GCC) 10.3.1",
+ "check_world_args": [
+  "make",
+  "-j8",
+  "-k",
+  "-Orecurse",
+  "-w",
+  "check-world"
+ ],
+ "check_world_exit_code": 0,
+ "check_world_failures": [],
+ "check_world_log_sha256": "2f22edfd61b0b797413a9d389d61fbcbc19d34947d1ed91f45f3124dd9ccf9f6",
+ "check_world_summary": {
+  "compiler_warnings": 0,
+  "make_errors": 0,
+  "regress_failed_tests": 0,
+  "regress_skipped_tests": 0,
+  "regress_suites": 82,
+  "regress_tests": 691,
+  "regression_diffs_files": 0,
+  "sections": 126,
+  "tap_failed_files": 0,
+  "tap_files": 188,
+  "tap_results": {
+   "FAIL": 0,
+   "NOTESTS": 3,
+   "PASS": 41
+  },
+  "tap_skipped_files": 9,
+  "tap_suites": 44
+ },
+ "configure_args": [
+  "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
+  "--enable-depend",
+  "--enable-nls",
+  "--enable-tap-tests",
+  "--enable-cassert",
+  "--enable-debug",
+  "--enable-dtrace",
+  "--with-perl",
+  "--with-python",
+  "--with-openssl",
+  "--with-gssapi",
+  "--with-ldap",
+  "--with-pam",
+  "--with-uuid=e2fs",
+  "--with-libxml",
+  "--with-libxslt",
+  "--with-lz4",
+  "--with-icu",
+  "--with-selinux",
+  "CC=/usr/bin/gcc",
+  "CXX=/usr/bin/g++"
+ ],
+ "configure_exit_code": 0,
+ "coverage": {
+  "covered_build_paths_total": 109,
+  "covered_src_paths_total": 2202,
+  "covered_tracked": 2125,
+  "tracked_c_h_cpp": 2319,
+  "uncovered_tracked": 194,
+  "variants": 1504,
+  "variants_generated_source": 123,
+  "variants_src_source": 1381
+ },
+ "coverage_closed": true,
+ "cxx": "/usr/bin/g++",
+ "cxx_version": "g++ (GCC) 10.3.1",
+ "env": {
+  "HOME": "/home/redstar",
+  "LANG": "C.UTF-8",
+  "LOGNAME": "redstar",
+  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "SHELL": "/bin/bash",
+  "USER": "redstar"
+ },
+ "frozen_utc": "2026-10-04T13:12:48Z",
+ "logs": {
+  "check_prereqs": "c1eda6104ce1ea6cbfa30e558338b706beb6883a50547ffadaf68b67ca7f7306",
+  "check_prereqs_ecpg": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3",
+  "check_prereqs_libpq": "d19df3f1b77d00c088d2804ff619414e048483c245919b09e5a87e44c6a994dc",
+  "check_prereqs_pg_bsd_indent": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
+  "checkprep": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82",
+  "world_bin": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36"
+ },
+ "make_version": "GNU Make 4.3",
+ "n_objects": 1505,
+ "n_po_files": 1373,
+ "n_variants": 1504,
+ "po_superset": {
+  "checked": 1504,
+  "inherited_checked": 131,
+  "inherited_not_superset": [
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/archive.o",
+    "variant_key": "src/common/archive_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/base64.o",
+    "variant_key": "src/common/base64_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/checksum_helper.o",
+    "variant_key": "src/common/checksum_helper_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/compression.o",
+    "variant_key": "src/common/compression_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/config_info.o",
+    "variant_key": "src/common/config_info_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/catalog/pg_attribute_d.h",
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/access/attnum.h",
+     "SRC/src/include/access/tupdesc.h",
+     "SRC/src/include/catalog/genbki.h",
+     "SRC/src/include/catalog/pg_attribute.h",
+     "SRC/src/include/libpq/pqcomm.h",
+     "SRC/src/include/miscadmin.h",
+     "SRC/src/include/nodes/bitmapset.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/nodes/pg_list.h",
+     "SRC/src/include/pgstat.h",
+     "SRC/src/include/portability/instr_time.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/postmaster/pgarch.h",
+     "SRC/src/include/storage/fd.h",
+     "SRC/src/include/utils/backend_progress.h",
+     "SRC/src/include/utils/backend_status.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h",
+     "SRC/src/include/utils/relcache.h",
+     "SRC/src/include/utils/wait_event.h"
+    ],
+    "po_inherited_from": "src/common/controldata_utils.o",
+    "variant_key": "src/common/controldata_utils_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/catalog/pg_attribute_d.h",
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/storage/lwlocknames.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/access/attnum.h",
+     "SRC/src/include/access/htup.h",
+     "SRC/src/include/access/skey.h",
+     "SRC/src/include/access/stratnum.h",
+     "SRC/src/include/access/tupdesc.h",
+     "SRC/src/include/access/xlogdefs.h",
+     "SRC/src/include/catalog/catversion.h",
+     "SRC/src/include/catalog/genbki.h",
+     "SRC/src/include/catalog/pg_attribute.h",
+     "SRC/src/include/common/relpath.h",
+     "SRC/src/include/datatype/timestamp.h",
+     "SRC/src/include/fmgr.h",
+     "SRC/src/include/lib/ilist.h",
+     "SRC/src/include/lib/pairingheap.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/nodes/bitmapset.h",
+     "SRC/src/include/nodes/memnodes.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/nodes/params.h",
+     "SRC/src/include/nodes/pg_list.h",
+     "SRC/src/include/pgtime.h",
+     "SRC/src/include/port/atomics.h",
+     "SRC/src/include/port/atomics/arch-arm.h",
+     "SRC/src/include/port/atomics/fallback.h",
+     "SRC/src/include/port/atomics/generic-gcc.h",
+     "SRC/src/include/port/atomics/generic.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/storage/backendid.h",
+     "SRC/src/include/storage/block.h",
+     "SRC/src/include/storage/buf.h",
+     "SRC/src/include/storage/dsm.h",
+     "SRC/src/include/storage/dsm_impl.h",
+     "SRC/src/include/storage/fd.h",
+     "SRC/src/include/storage/itemid.h",
+     "SRC/src/include/storage/itemptr.h",
+     "SRC/src/include/storage/lock.h",
+     "SRC/src/include/storage/lockdefs.h",
+     "SRC/src/include/storage/lwlock.h",
+     "SRC/src/include/storage/off.h",
+     "SRC/src/include/storage/proclist_types.h",
+     "SRC/src/include/storage/shmem.h",
+     "SRC/src/include/tcop/cmdtag.h",
+     "SRC/src/include/tcop/cmdtaglist.h",
+     "SRC/src/include/utils/catcache.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/hsearch.h",
+     "SRC/src/include/utils/memutils.h",
+     "SRC/src/include/utils/palloc.h",
+     "SRC/src/include/utils/plancache.h",
+     "SRC/src/include/utils/queryenvironment.h",
+     "SRC/src/include/utils/relcache.h",
+     "SRC/src/include/utils/resowner.h",
+     "SRC/src/include/utils/resowner_private.h",
+     "SRC/src/include/utils/snapshot.h",
+     "SRC/src/include/utils/timestamp.h"
+    ],
+    "po_inherited_from": "src/common/cryptohash_openssl.o",
+    "variant_key": "src/common/cryptohash_openssl_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/d2s.o",
+    "variant_key": "src/common/d2s_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/exec.o",
+    "variant_key": "src/common/exec_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/f2s.o",
+    "variant_key": "src/common/f2s_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/file_utils.o",
+    "variant_key": "src/common/file_utils_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/catalog/pg_attribute_d.h",
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/storage/lwlocknames.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/access/attnum.h",
+     "SRC/src/include/access/htup.h",
+     "SRC/src/include/access/skey.h",
+     "SRC/src/include/access/stratnum.h",
+     "SRC/src/include/access/tupdesc.h",
+     "SRC/src/include/access/xlogdefs.h",
+     "SRC/src/include/catalog/catversion.h",
+     "SRC/src/include/catalog/genbki.h",
+     "SRC/src/include/catalog/pg_attribute.h",
+     "SRC/src/include/common/relpath.h",
+     "SRC/src/include/datatype/timestamp.h",
+     "SRC/src/include/fmgr.h",
+     "SRC/src/include/lib/ilist.h",
+     "SRC/src/include/lib/pairingheap.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/nodes/bitmapset.h",
+     "SRC/src/include/nodes/memnodes.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/nodes/params.h",
+     "SRC/src/include/nodes/pg_list.h",
+     "SRC/src/include/pgtime.h",
+     "SRC/src/include/port/atomics.h",
+     "SRC/src/include/port/atomics/arch-arm.h",
+     "SRC/src/include/port/atomics/fallback.h",
+     "SRC/src/include/port/atomics/generic-gcc.h",
+     "SRC/src/include/port/atomics/generic.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/storage/backendid.h",
+     "SRC/src/include/storage/block.h",
+     "SRC/src/include/storage/buf.h",
+     "SRC/src/include/storage/dsm.h",
+     "SRC/src/include/storage/dsm_impl.h",
+     "SRC/src/include/storage/fd.h",
+     "SRC/src/include/storage/itemid.h",
+     "SRC/src/include/storage/itemptr.h",
+     "SRC/src/include/storage/lock.h",
+     "SRC/src/include/storage/lockdefs.h",
+     "SRC/src/include/storage/lwlock.h",
+     "SRC/src/include/storage/off.h",
+     "SRC/src/include/storage/proclist_types.h",
+     "SRC/src/include/storage/shmem.h",
+     "SRC/src/include/tcop/cmdtag.h",
+     "SRC/src/include/tcop/cmdtaglist.h",
+     "SRC/src/include/utils/catcache.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/hsearch.h",
+     "SRC/src/include/utils/memutils.h",
+     "SRC/src/include/utils/palloc.h",
+     "SRC/src/include/utils/plancache.h",
+     "SRC/src/include/utils/queryenvironment.h",
+     "SRC/src/include/utils/relcache.h",
+     "SRC/src/include/utils/resowner.h",
+     "SRC/src/include/utils/resowner_private.h",
+     "SRC/src/include/utils/snapshot.h",
+     "SRC/src/include/utils/timestamp.h"
+    ],
+    "po_inherited_from": "src/common/hmac_openssl.o",
+    "variant_key": "src/common/hmac_openssl_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/ip.o",
+    "variant_key": "src/common/ip_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/datatype/timestamp.h",
+     "SRC/src/include/miscadmin.h",
+     "SRC/src/include/pgtime.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/jsonapi.o",
+    "variant_key": "src/common/jsonapi_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/md5_common.o",
+    "variant_key": "src/common/md5_common_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/percentrepl.o",
+    "variant_key": "src/common/percentrepl_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/pg_get_line.o",
+    "variant_key": "src/common/pg_get_line_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/pg_lzcompress.o",
+    "variant_key": "src/common/pg_lzcompress_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/pgfnames.o",
+    "variant_key": "src/common/pgfnames_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/protocol_openssl.o",
+    "variant_key": "src/common/protocol_openssl_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/nodes/memnodes.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/memutils.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/psprintf.o",
+    "variant_key": "src/common/psprintf_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/relpath.o",
+    "variant_key": "src/common/relpath_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/storage/fd.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/rmtree.o",
+    "variant_key": "src/common/rmtree_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/nodes/memnodes.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/memutils.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/saslprep.o",
+    "variant_key": "src/common/saslprep_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/datatype/timestamp.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/miscadmin.h",
+     "SRC/src/include/pgtime.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/scram-common.o",
+    "variant_key": "src/common/scram-common_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/string.o",
+    "variant_key": "src/common/string_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/nodes/nodetags.h",
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/nodes/memnodes.h",
+     "SRC/src/include/nodes/nodes.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/memutils.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/stringinfo.o",
+    "variant_key": "src/common/stringinfo_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/common/unicode_norm_hashfunc.h",
+     "SRC/src/include/common/unicode_normprops_table.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/port/pg_bswap.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/unicode_norm.o",
+    "variant_key": "src/common/unicode_norm_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/username.o",
+    "variant_key": "src/common/username_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/common/wait_error.o",
+    "variant_key": "src/common/wait_error_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/port/chklocale.o",
+    "variant_key": "src/port/chklocale_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/fmgr.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/inet.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/port/inet_net_ntop.o",
+    "variant_key": "src/port/inet_net_ntop_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/port/path.o",
+    "variant_key": "src/port/path_srv.o"
+   },
+   {
+    "not_in_po": [
+     "BUILD/src/include/utils/errcodes.h",
+     "SRC/src/include/lib/stringinfo.h",
+     "SRC/src/include/postgres.h",
+     "SRC/src/include/utils/elog.h",
+     "SRC/src/include/utils/palloc.h"
+    ],
+    "po_inherited_from": "src/port/pg_crc32c_armv8_choose.o",
+    "variant_key": "src/port/pg_crc32c_armv8_choose_srv.o"
+   },
+   {
+    "not_in_po": [
+     "SRC/src/include/libpq/pqsignal.h"
+    ],
+    "po_inherited_from": "src/port/pqsignal.o",
+    "variant_key": "src/port/pqsignal_srv.o"
+   }
+  ],
+  "own_po_violations": []
+ },
+ "problems": [],
+ "schema_version": 2,
+ "srcdir": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base",
+ "status": "frozen",
+ "token_cache_sha256": "8a6cdf122651e1cdaead09c05a96225ae4c1a5736cfa893640e44bcf2cf776b7"
+}

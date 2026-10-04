@@ -1,0 +1,231 @@
+{
+ "schema_version": 1,
+ "batch_id": "0005-make-evidence-baseline",
+ "title": "zh: record GNU Make baseline evidence",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5bda6d57f195a42819b0e664fbb4ae942aeccd8e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/evidence/**",
+   "kind": "baseline",
+   "note": "frozen config and records of the configure / make / check-world runs (logs stay outside the repo, SHA-256 recorded)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/cc_evidence/**",
+   "kind": "baseline",
+   "note": "frozen --cc-check evidence produced by make_evidence.py collect/replay/freeze"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "external build root location"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0005-make-evidence-baseline.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "baseline table: external build roots must be on native btrfs"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/baseline.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "frozen (schema 2): cache key, bulk SHAs, closure counters, coverage, .Po superset audit, empty check-world failure set"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/closure.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/commands.jsonl",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1504 variant records (cwd, source, flagset, object, .Po)"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/flagsets.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/platform_exceptions_candidates.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "194 uncovered tracked files; candidates only, nothing approved"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/replay_base.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/tokens.jsonl",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "per-variant token/header/argv hashes of the base replay (1504 variants)"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/check_world.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "make -j8 -k -Orecurse -w check-world: exit 0, 0 failures, 9 PG_TEST_EXTRA/platform skips"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/configure.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/environment.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/environment.md",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "frozen environment, configure args, disabled features, capture commands, virtiofs migration record with old evidence hashes"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/frozen_config.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "builddir/prefix/evidence_out moved from virtiofs (/Users/...postgres.builds) to native btrfs /home/redstar/pg-builds; migration block records the reason and the old check-world log hashes"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_ecpg.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_libpq.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_pg_bsd_indent.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_checkprep.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_world_bin.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/replay_compare_zh.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0005-make-evidence-baseline.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "Evidence of the GNU Make VPATH baseline of REL_16_11 (d61dd817) captured with the tools of the parent commit after moving builddir/prefix/evidence_out to native btrfs: configure exit 0; six -j1 -w captures; 1504 variants, .o/.Po/argv closure closed; base replay 1504/1504 ok, zh replay identical (1504 same, 0 different); make -j8 -k -Orecurse -w check-world exit 0 (82 regress/isolation suites 691 tests, 44 TAP suites 188 files, 0 failures, 9 skips, 0 regression.diffs, 0 warnings); baseline frozen with an empty failure set. No translation content."
+}

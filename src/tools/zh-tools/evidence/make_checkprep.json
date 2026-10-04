@@ -1,0 +1,48 @@
+{
+ "argv": [
+  "make",
+  "-j1",
+  "-w",
+  "checkprep"
+ ],
+ "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 14.045,
+ "env": {
+  "HOME": "/home/redstar",
+  "LANG": "C.UTF-8",
+  "LOGNAME": "redstar",
+  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "SHELL": "/bin/bash",
+  "USER": "redstar"
+ },
+ "exit_code": 0,
+ "finished_utc": "2026-10-04T12:58:55Z",
+ "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_checkprep.log",
+ "log_sha256": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82",
+ "log_size": 239395,
+ "log_summary": {
+  "compile_commands": 26,
+  "compiler_errors": 0,
+  "compiler_warning_lines": [],
+  "compiler_warnings": 0,
+  "enter": 260,
+  "leave": 260,
+  "lines": 1433,
+  "link_commands": 24,
+  "make_errors": 0,
+  "make_warning_kinds": {},
+  "make_warnings": 0,
+  "problems": 0
+ },
+ "started_utc": "2026-10-04T12:58:41Z",
+ "target": {
+  "args": [
+   "-j1",
+   "-w",
+   "checkprep"
+  ],
+  "name": "checkprep"
+ },
+ "tool": "make_evidence.py make",
+ "tools_version": "0.2.0"
+}

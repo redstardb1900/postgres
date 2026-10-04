@@ -66,6 +66,7 @@ python3 make_evidence.py freeze
 | 基线 worktree（只读 detached） | `/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base` |
 | 目标 worktree / 分支 | `/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh` / `REL_16_11_zh` |
 | pgnls 术语库 | `/Users/niejinbo/work/code/pg/pgsty/pgnls` @ `cbaeef3eb8be500984ab3da9f3e251634f346d1c` |
+| Make builddir / prefix / 证据日志 | `/home/redstar/pg-builds/REL_16_11_base-{make,install,evidence}`（原生 btrfs；**不得**放在 virtiofs 的 `/Users` 下，原因见 `evidence/environment.md`） |
 | `doc/` 快照 | 441 项（435 个 tracked 文件 + 目录），字段 path/type/mode/perm/size/sha256/target |
 | Perl 保护集 | 284 个 blob：277 个 `*.pl/*.pm/*.t` + 7 个 shebang 识别文件（`src/backend/utils/Gen_dummy_probes.pl.prolog`、`src/include/catalog/{duplicate_oids,unused_oids}`、`src/test/recovery/t/cp_history_files`、`src/tools/{git_changelog,pginclude/pgcheckdefines,pgindent/pgindent}`） |
 

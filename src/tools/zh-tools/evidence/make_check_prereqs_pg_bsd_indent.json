@@ -1,0 +1,53 @@
+{
+ "argv": [
+  "make",
+  "-j1",
+  "-w",
+  "-C",
+  "src/tools/pg_bsd_indent",
+  "all"
+ ],
+ "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 1.661,
+ "env": {
+  "HOME": "/home/redstar",
+  "LANG": "C.UTF-8",
+  "LOGNAME": "redstar",
+  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+  "SHELL": "/bin/bash",
+  "USER": "redstar"
+ },
+ "exit_code": 0,
+ "finished_utc": "2026-10-04T12:59:11Z",
+ "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_pg_bsd_indent.log",
+ "log_sha256": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
+ "log_size": 7714,
+ "log_summary": {
+  "compile_commands": 7,
+  "compiler_errors": 0,
+  "compiler_warning_lines": [],
+  "compiler_warnings": 0,
+  "enter": 8,
+  "leave": 8,
+  "lines": 39,
+  "link_commands": 1,
+  "make_errors": 0,
+  "make_warning_kinds": {},
+  "make_warnings": 0,
+  "problems": 0
+ },
+ "started_utc": "2026-10-04T12:59:10Z",
+ "target": {
+  "args": [
+   "-j1",
+   "-w",
+   "-C",
+   "src/tools/pg_bsd_indent",
+   "all"
+  ],
+  "name": "check_prereqs_pg_bsd_indent",
+  "note": "pg_bsd_indent is built only by its own TAP check (not by world-bin); its 7 objects would otherwise be compiled in parallel by check-world"
+ },
+ "tool": "make_evidence.py make",
+ "tools_version": "0.2.0"
+}

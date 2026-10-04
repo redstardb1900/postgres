@@ -1,15 +1,43 @@
 {
- "_doc": "Frozen GNU Make VPATH evidence configuration for REL_16_11 (plan step 1). Every make_evidence.py subcommand reads this file; nothing here may change inside one evidence cycle. Reasons for every disabled optional feature are in evidence/environment.md.",
+ "_doc": "Frozen GNU Make VPATH evidence configuration for REL_16_11 (plan step 1). Every make_evidence.py subcommand reads this file; nothing here may change inside one evidence cycle. Reasons for every disabled optional feature and for the builddir location are in evidence/environment.md.",
  "schema_version": 1,
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
  "srcdir": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base",
- "builddir": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-make",
- "prefix": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-install",
- "evidence_out": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence",
+ "builddir": "/home/redstar/pg-builds/REL_16_11_base-make",
+ "prefix": "/home/redstar/pg-builds/REL_16_11_base-install",
+ "evidence_out": "/home/redstar/pg-builds/REL_16_11_base-evidence",
+ "external_roots_note": "builddir, prefix and evidence_out live on the native btrfs root filesystem (/home/redstar/pg-builds), never on the OrbStack virtiofs mount (/Users). srcdir stays on virtiofs and is only read.",
+ "migration": {
+  "from": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-{make,install,evidence}",
+  "to": "/home/redstar/pg-builds/REL_16_11_base-{make,install,evidence}",
+  "reason": "virtiofs (/Users) is not POSIX enough for the test suite: (1) readdir() on a mode-0400 directory fails with EACCES instead of stat() of its entries failing, so pg_verifybackup/t/003_corruption.pl subtest 44 (search_directory_fails) cannot match 'could not stat file or directory'; (2) a file written by one process (walreceiver) was read back as zeros by another (startup) at the same offset repeatedly, so recovery/t/032_relfilenode_reuse.pl timed out waiting for catchup in one of two runs ('invalid magic number 0000 in WAL segment 000000010000000000000003, LSN 0/3764000, offset 7749632').",
+  "old_evidence_kept_at": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence (diagnostic archive, not part of the baseline)",
+  "old_check_world_logs": {
+   "run1_no_k": {
+    "path": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence/make_check_world.run1.log",
+    "sha256": "d7bfcdc2033bf0981616e91b3f77a9ad1ce8eebede9fe43d82c89b846a75be48",
+    "exit_code": 2,
+    "failed": [
+     "src/bin/pg_verifybackup/t/003_corruption.pl",
+     "src/test/recovery/t/032_relfilenode_reuse.pl"
+    ]
+   },
+   "run2_k": {
+    "path": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence/make_check_world.log",
+    "sha256": "7bdc2ca87c8800411bd674e0b7f5933db67d2a2a0747b9a16eb88be19b3e3aff",
+    "exit_code": 2,
+    "failed": [
+     "src/bin/pg_verifybackup/t/003_corruption.pl"
+    ]
+   }
+  },
+  "old_world_bin_log_sha256": "c0b30e49f998ba9bf8c73ff934d98ab0cf693a4268b462ba5310c2c9518354d8",
+  "old_token_cache_sha256_1504_variants": "258b7cb94146ced12d8d994e57dc4213317d06f77776b75413a581e1133917bd"
+ },
  "cc": "/usr/bin/gcc",
  "cxx": "/usr/bin/g++",
  "configure_args": [
-  "--prefix=/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-install",
+  "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
   "--enable-depend",
   "--enable-nls",
   "--enable-tap-tests",
@@ -52,14 +80,77 @@
  },
  "env_unset_note": "The build and test environment is created with env -i; LC_ALL, LANGUAGE, TZ, TMPDIR, PGPORT, PGHOST, PGDATA, PG_TEST_EXTRA, PROVE_FLAGS, MAKEFLAGS, CFLAGS, CPPFLAGS, LDFLAGS and PKG_CONFIG_PATH are intentionally absent.",
  "capture_targets": [
-  {"name": "world_bin", "args": ["-j1", "-w", "world-bin"]},
-  {"name": "checkprep", "args": ["-j1", "-w", "checkprep"]},
-  {"name": "check_prereqs", "args": ["-j1", "-w", "-C", "src/test", "all"], "note": "compile the test programs/modules that check-world would otherwise build in parallel (src/test/regress, isolation, modules); needed for .o/.Po/argv closure"},
-  {"name": "check_prereqs_ecpg", "args": ["-j1", "-w", "-C", "src/interfaces/ecpg/test", "all"], "note": "ecpg test programs (generated TUs in builddir)"},
-  {"name": "check_prereqs_libpq", "args": ["-j1", "-w", "-C", "src/interfaces/libpq", "test-build"], "note": "libpq test programs"},
-  {"name": "check_prereqs_pg_bsd_indent", "args": ["-j1", "-w", "-C", "src/tools/pg_bsd_indent", "all"], "note": "pg_bsd_indent is built only by its own TAP check (not by world-bin); its 7 objects would otherwise be compiled in parallel by check-world"}
+  {
+   "name": "world_bin",
+   "args": [
+    "-j1",
+    "-w",
+    "world-bin"
+   ]
+  },
+  {
+   "name": "checkprep",
+   "args": [
+    "-j1",
+    "-w",
+    "checkprep"
+   ]
+  },
+  {
+   "name": "check_prereqs",
+   "args": [
+    "-j1",
+    "-w",
+    "-C",
+    "src/test",
+    "all"
+   ],
+   "note": "compile the test programs/modules that check-world would otherwise build in parallel (src/test/regress, isolation, modules); needed for .o/.Po/argv closure"
+  },
+  {
+   "name": "check_prereqs_ecpg",
+   "args": [
+    "-j1",
+    "-w",
+    "-C",
+    "src/interfaces/ecpg/test",
+    "all"
+   ],
+   "note": "ecpg test programs (generated TUs in builddir)"
+  },
+  {
+   "name": "check_prereqs_libpq",
+   "args": [
+    "-j1",
+    "-w",
+    "-C",
+    "src/interfaces/libpq",
+    "test-build"
+   ],
+   "note": "libpq test programs"
+  },
+  {
+   "name": "check_prereqs_pg_bsd_indent",
+   "args": [
+    "-j1",
+    "-w",
+    "-C",
+    "src/tools/pg_bsd_indent",
+    "all"
+   ],
+   "note": "pg_bsd_indent is built only by its own TAP check (not by world-bin); its 7 objects would otherwise be compiled in parallel by check-world"
+  }
  ],
- "check_world": {"jobs": 8, "args": ["-j8", "-k", "-Orecurse", "-w", "check-world"],
-                 "_doc": "-k so every suite runs even after a failure (the failure set must be complete, not whatever make happened to start before the first error); -Orecurse groups each recursive make's output so the '# +++ ... check in DIR +++' anchors are attributable."},
+ "check_world": {
+  "jobs": 8,
+  "args": [
+   "-j8",
+   "-k",
+   "-Orecurse",
+   "-w",
+   "check-world"
+  ],
+  "_doc": "-k so every suite runs even after a failure (the failure set must be complete, not whatever make happened to start before the first error); -Orecurse groups each recursive make's output so the '# +++ ... check in DIR +++' anchors are attributable."
+ },
  "replay_jobs": 8
 }

@@ -1,0 +1,2246 @@
+{
+ "candidates": [
+  {
+   "first_pp_conditional": "#ifdef USE_LLVM_BACKPORT_SECTION_MEMORY_MANAGER",
+   "path": "src/backend/jit/llvm/SectionMemoryManager.cpp",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if LLVM_VERSION_MAJOR > 16",
+   "path": "src/backend/jit/llvm/llvmjit.c",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_deform.c",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_error.cpp",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_expr.c",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_inline.cpp",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_types.c",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/jit/llvm/llvmjit_wrap.cpp",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(USE_NAMED_POSIX_SEMAPHORES) && defined(EXEC_BACKEND)",
+   "path": "src/backend/port/posix_sema.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/sysv_sema.c",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/sysv_shmem.c",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef _MSC_VER",
+   "path": "src/backend/port/win32/crashdump.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/win32/signal.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/win32/socket.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/win32/timer.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/win32_sema.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/port/win32_shmem.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/utils/mb/iso.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/utils/mb/win1251.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/backend/utils/mb/win866.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/bin/pgevent/pgevent.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/bin/pgevent/pgmsgevent.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/common/cryptohash.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/common/hmac.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/common/md5.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PG_MD5_INT_H",
+   "path": "src/common/md5_int.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/common/sha1.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PG_SHA1_INT_H",
+   "path": "src/common/sha1_int.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/common/sha2.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PG_SHA2_INT_H",
+   "path": "src/common/sha2_int.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/common/unicode/norm_test.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef LLVM_EXECUTIONENGINE_BACKPORT_SECTIONMEMORYMANAGER_H",
+   "path": "src/include/jit/SectionMemoryManager.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef LLVMJIT_H",
+   "path": "src/include/jit/llvmjit.h",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef LLVMJIT_BACKPORT_H",
+   "path": "src/include/jit/llvmjit_backport.h",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef LLVMJIT_EMIT_H",
+   "path": "src/include/jit/llvmjit_emit.h",
+   "path_hints": [
+    "llvm"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/pch/c_pch.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/pch/postgres_fe_pch.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/pch/postgres_pch.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(__ILP32__) && defined(__IBMC__)",
+   "path": "src/include/port/aix.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/atomics/arch-hppa.h",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(__GNUC__)",
+   "path": "src/include/port/atomics/arch-ppc.h",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(__GNUC__) || defined(__INTEL_COMPILER)",
+   "path": "src/include/port/atomics/arch-x86.h",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef INSIDE_ATOMICS_H",
+   "path": "src/include/port/atomics/generic-msvc.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(HAVE_ATOMICS)",
+   "path": "src/include/port/atomics/generic-sunpro.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/include/port/cygwin.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if HAVE_DECL_F_FULLFSYNC",
+   "path": "src/include/port/darwin.h",
+   "path_hints": [
+    "darwin"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/freebsd.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/linux.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/netbsd.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/openbsd.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(__i386) && !defined(__i386__)",
+   "path": "src/include/port/solaris.h",
+   "path_hints": [
+    "other_unix"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(_WIN32) && !defined(WIN32)",
+   "path": "src/include/port/win32.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/arpa/inet.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/dlfcn.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/grp.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32_NETDB_H",
+   "path": "src/include/port/win32/netdb.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/netinet/in.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32_NETINET_TCP_H",
+   "path": "src/include/port/win32/netinet/tcp.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/pwd.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32_SYS_RESOURCE_H",
+   "path": "src/include/port/win32/sys/resource.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/sys/select.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32_SYS_SOCKET_H",
+   "path": "src/include/port/win32/sys/socket.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32_SYS_UN_H",
+   "path": "src/include/port/win32/sys/un.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32/sys/wait.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef _WIN32VC_DIRENT_H",
+   "path": "src/include/port/win32_msvc/dirent.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32_msvc/sys/file.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32_msvc/sys/param.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32_msvc/sys/time.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32_msvc/unistd.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/include/port/win32_msvc/utime.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PG_WIN32_PORT_H",
+   "path": "src/include/port/win32_port.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef WIN32NTDLL_H",
+   "path": "src/include/port/win32ntdll.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef _ECPG_DATETIME_H",
+   "path": "src/interfaces/ecpg/include/datetime.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-charfuncs.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-dec_test.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-describe.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-intoasc.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-rfmtdate.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-rfmtlong.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-rnull.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-sqlda.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-test_informix.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_informix-test_informix2.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/compat_oracle-char_array.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/connect-test1.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/connect-test2.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/connect-test3.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/connect-test4.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/connect-test5.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/pgtypeslib-dt_test.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/pgtypeslib-dt_test2.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/pgtypeslib-nan_test.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/pgtypeslib-num_test.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/pgtypeslib-num_test2.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-array_of_struct.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-autoprep.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-comment.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-cursor.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-define.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-describe.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-init.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-outofscope.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-pointer_to_struct.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-strings.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-type.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-variable.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-whenever.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/preproc-whenever_do_continue.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-array.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-binary.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-bytea.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-code100.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-copystdout.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-createtableas.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-declare.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-define.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-desc.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-describe.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-dynalloc.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-dynalloc2.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-dyntest.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-execute.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-fetch.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-func.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-indicators.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-insupd.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-oldexec.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-parser.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-prepareas.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-quote.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-show.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-sqlda.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-sqljson.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/sql-twophase.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/thread-alloc.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/thread-descriptor.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/thread-prep.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/thread-thread.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/expected/thread-thread_implicit.c",
+   "path_hints": [
+    "ecpg_expected"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/preproc/strings.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/preproc/struct.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/printf_hack.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/ecpg/test/regression.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/interfaces/libpq/pthread-win32.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef __MINGW32__",
+   "path": "src/interfaces/libpq/win32.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef __win32_h_included",
+   "path": "src/interfaces/libpq/win32.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if 0",
+   "path": "src/pl/plperl/ppport.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/tcl/pltcl.c",
+   "path_hints": [
+    "tcl"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/port/dirent.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/port/dirmod.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if HAVE_DECL_MEMSET_S",
+   "path": "src/port/explicit_bzero.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(LIBC_SCCS) && !defined(lint)",
+   "path": "src/port/getopt.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/getopt_long.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/inet_aton.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef WIN32",
+   "path": "src/port/kill.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if HAVE_NBTOOL_CONFIG_H",
+   "path": "src/port/mkdtemp.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef WIN32",
+   "path": "src/port/open.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/pg_crc32c_sse42.c",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef HAVE__GET_CPUID",
+   "path": "src/port/pg_crc32c_sse42_choose.c",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/preadv.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef __PTHREAD_H",
+   "path": "src/port/pthread-win32.h",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/pthread_barrier_wait.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/pwritev.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/strnlen.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/strtof.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(WIN32) && !defined(__CYGWIN__)",
+   "path": "src/port/system.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef FRONTEND",
+   "path": "src/port/win32common.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32dlopen.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32env.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/port/win32error.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef FRONTEND",
+   "path": "src/port/win32fdatasync.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef FRONTEND",
+   "path": "src/port/win32fseek.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32gai_strerror.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32getrusage.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32gettimeofday.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32link.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32ntdll.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32pread.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32pwrite.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/port/win32security.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/win32setlocale.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef WIN32",
+   "path": "src/port/win32stat.c",
+   "path_hints": [
+    "win32"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/examples/testlibpq.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef WIN32",
+   "path": "src/test/examples/testlibpq2.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef WIN32",
+   "path": "src/test/examples/testlibpq3.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/examples/testlibpq4.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/examples/testlo.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/examples/testlo64.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/locale/test-ctype.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/test/modules/ldap_password_func/ldap_password_func.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/tools/ifaddrs/test_ifaddrs.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef USE_NATIVE_INT128",
+   "path": "src/tools/testint128.c",
+   "path_hints": [
+    "test_only_sources"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/tutorial/complex.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/tutorial/funcs.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  }
+ ],
+ "generated_utc": "2026-10-04T13:12:48Z",
+ "n_candidates": 194,
+ "note": "Tracked .c/.h/.cpp files not covered by any passing baseline variant (as source or via side depfile). Every entry is a CANDIDATE only: it may enter the platform exception table solely after review records platform_guard/reason/reviewed_by/review_commit. Nothing here is approved by this tool.",
+ "schema_version": 2
+}

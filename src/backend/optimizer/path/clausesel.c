@@ -641,14 +641,14 @@ treat_as_join_clause(PlannerInfo *root, Node *clause, RestrictInfo *rinfo,
  * 计算选择率时被考虑；其他变量当作取值未知的常量。
  * 这适合用来估计这样一条连接子句的选择率：它在扫描
  * 嵌套循环连接的内层关系时被当作限制子句---
- * 此时 varRelid 应当是该内层关系的 ID。
- * 内层关系就是正在被扫描的那一侧。
+ * 此时 varRelid 应当是该
+ * 内层关系的 ID。
  *
  * 当 varRelid 为 0 时，所有变量都当作变量。这
  * 适合普通连接子句和限制子句。
  *
- * 若该子句是连接子句，jointype 是连接类型。传入 JOIN_INNER
- * 若该子句不是连接子句。
+ * 若该子句是连接子句，jointype 是连接类型。若不是连接子句，则传入
+ * JOIN_INNER。
  *
  * 对非连接子句 sjinfo 为 NULL，否则它提供关于
  * 正在执行的连接的额外上下文信息。有一些
@@ -799,7 +799,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (is_notclause(clause))
 	{
-		/* 底层子句选择率的倒数 */
+		/* 1 减底层子句的选择率 */
 		s1 = 1.0 - clause_selectivity_ext(root,
 										  (Node *) get_notclausearg((Expr *) clause),
 										  varRelid,
@@ -969,7 +969,7 @@ clause_selectivity_ext(PlannerInfo *root,
 
 #ifdef SELECTIVITY_DEBUG
 	elog(DEBUG4, "clause_selectivity: s1 %f", s1);
-#endif							/* 若 SELECTIVITY_DEBUG */
+#endif							/* SELECTIVITY_DEBUG */
 
 	return s1;
 }

@@ -109,19 +109,19 @@ initHyperLogLog(hyperLogLogState *cState, uint8 bwidth)
 }
 
 /*
- * 按错误率初始化 HyperLogLog 跟踪状态
+ * 按误差率初始化 HyperLogLog 跟踪状态
  *
  * 不指定 bwidth（用于寻址寄存器的位数），本方法
- * 允许用论文中的简单公式按特定错误率为计数器
+ * 允许用论文中的简单公式按特定误差率为计数器
  * 定大小：
  *
  *	 e = 1.04 / sqrt(m)
  *
  * 其中 'm' 是寄存器数，即 (2^bwidth)。本方法找出
- * 'e' 低于所请求错误率的最低 bwidth，然后用它
+ * 'e' 低于所请求误差率的最低 bwidth，然后用它
  * 初始化计数器。
  *
- * 由于 bwidth 必须在 4 到 16 之间，最坏可能错误率
+ * 由于 bwidth 必须在 4 到 16 之间，最坏可能误差率
  * 在约 25% (bwidth=4) 和 0.4% (bwidth=16) 之间。
  */
 void
@@ -222,7 +222,7 @@ estimateHyperLogLog(hyperLogLogState *cState)
 }
 
 /*
- * addHyperLogLog() 的工作者。
+ * addHyperLogLog() 的辅助函数。
  *
  * 计算 x 参数前 b 位中第一个置位的位置，从第一位
  * 开始，从最高有效位读到最低有效

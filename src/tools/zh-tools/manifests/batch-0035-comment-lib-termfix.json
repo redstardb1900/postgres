@@ -1,0 +1,130 @@
+{
+ "schema_version": 1,
+ "batch_id": "0035-comment-lib-termfix",
+ "title": "zh: fix backend/lib comment terminology",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c202a65890dd09bb5d7dfc20e9c1156369b3bde0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "note": "false positive, lacks, and Bloom capitalization"
+  },
+  {
+   "pattern": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "note": "error rate and worker wording"
+  },
+  {
+   "pattern": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "note": "return wording and Bitmapset"
+  },
+  {
+   "pattern": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "note": "odd node wording"
+  },
+  {
+   "pattern": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "note": "avoid bare 簇"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0035-comment-lib-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "误报/误报率, 肯定不含, Bloom capitalization"
+  },
+  {
+   "path": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 14,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "MIT license block"
+   ],
+   "note": "误差率; worker rendered as 辅助函数"
+  },
+  {
+   "path": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "return wording; bitmapset to Bitmapset"
+  },
+  {
+   "path": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "odd node rendered as 落单（未成对）的节点"
+  },
+  {
+   "path": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 105,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "整数簇 rendered as 成组整数; cannot rendered as 无法"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0035-comment-lib-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Terminology fixes on already-translated backend/lib comments. No new files. Copyright, pgindent and MIT blocks unchanged."
+}

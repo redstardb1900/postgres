@@ -59,7 +59,7 @@ static inline uint32 mod_m(uint32 val, uint64 m);
 
 /*
  * 在调用者的内存上下文中创建 Bloom 过滤器。当位集大小
- * 不受内存可用性约束时，我们瞄准 1% 到 2% 之间的假阳性
+ * 不受内存可用性约束时，我们瞄准 1% 到 2% 之间的误报
  * 率。
  *
  * total_elems 是集合最终大小的估计。它应当大致
@@ -71,14 +71,14 @@ static inline uint32 mod_m(uint32 val, uint64 m);
  * bloom_work_mem 以 KB 计，与一般 work_mem 约定一致。
  * 这决定底层位集的大小（琐碎的簿记空间不计入）。
  * 位集大小总是二的幂位数，最大可能位集是 512MB
- * (2^32 位)。实现只分配瞄准其标准假阳性率所需的
+ * (2^32 位)。实现只分配瞄准其标准误报率所需的
  * 内存，用调用者的 total_elems 估计作为输入的简单
  * 公式。即使 bloom_work_mem 高得多，位集也可能小到
  * 1MB。
  *
  * Bloom 过滤器使用调用者提供的值做种。每次调用使用
  * 不同种子值，使同一集合第二次取指纹时不太可能再
- * 出现相同的假阳性。不关心这一点的调用者传入常量
+ * 出现相同的误报。不关心这一点的调用者传入常量
  * 作为种子，通常是 0。调用者也可以用伪随机种子，
  * 例如来自 pg_prng_uint64()。
  *
@@ -92,10 +92,10 @@ bloom_create(int64 total_elems, int bloom_work_mem, uint64 seed)
 	uint64		bitset_bits;
 
 	/*
-	 * 瞄准每元素两字节；这足以使假阳性率低于 1%，
+	 * 瞄准每元素两字节；这足以使误报率低于 1%，
 	 * 与位集大小或元素总数无关。另外，若把位集
 	 * 大小向下取整到下一个更低的二的幂是显著下降，
-	 * 几乎所有情况下假阳性率仍不会超过
+	 * 几乎所有情况下误报率仍不会超过
 	 * 2%。
 	 */
 	bitset_bytes = Min(bloom_work_mem * UINT64CONST(1024), total_elems * 2);
@@ -109,7 +109,7 @@ bloom_create(int64 total_elems, int bloom_work_mem, uint64 seed)
 	bitset_bits = UINT64CONST(1) << bloom_power;
 	bitset_bytes = bitset_bits / BITS_PER_BYTE;
 
-	/* 分配位集未设置的 bloom 过滤器 */
+	/* 分配位集未设置的 Bloom 过滤器 */
 	filter = palloc0(offsetof(bloom_filter, bitset) +
 					 sizeof(unsigned char) * bitset_bytes);
 	filter->k_hash_funcs = optimal_k(bitset_bits, total_elems);
@@ -147,7 +147,7 @@ bloom_add_element(bloom_filter *filter, unsigned char *elem, size_t len)
 }
 
 /*
- * 测试 Bloom 过滤器是否肯定缺少该元素。
+ * 测试 Bloom 过滤器是否肯定不含该元素。
  *
  * 若该元素肯定不在 bloom_add_element() 观察到的元素
  * 集合中，返回 true。否则返回 false，表示该元素
@@ -175,12 +175,12 @@ bloom_lacks_element(bloom_filter *filter, unsigned char *elem, size_t len)
  * 当前有多大比例的位被设置？
  *
  * 返回比例，表示为过滤器大小的乘数。那一般应
- * 接近 0.5，即使我们有绰绰有余的内存来保证假
- * 阳性率落在目标 1% 到 2% 区间，因为每元素可用
+ * 接近 0.5，即使我们有绰绰有余的内存来保证误
+ * 报率落在目标 1% 到 2% 区间，因为每元素可用
  * 内存越多，使用的哈希函数就越多。
  *
  * 这是唯一开销低到足以出现在调试跟踪中的仪表。
- * 调试 Bloom 过滤器代码时，直接测试假阳性率往
+ * 调试 Bloom 过滤器代码时，直接测试误报率往
  * 往有趣得多。
  */
 double
@@ -222,7 +222,7 @@ my_bloom_power(uint64 target_bitset_bits)
 
 /*
  * 根据过滤器以位计的大小以及预计元素总数，确定
- * 最优哈希函数个数。最优个数是使假阳性率最小的
+ * 最优哈希函数个数。最优个数是使误报率最小的
  * 那个。
  */
 static int

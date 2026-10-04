@@ -253,7 +253,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 
 		if (curr->next_sibling == NULL)
 		{
-			/* 列表末尾最后一个奇数节点 */
+			/* 列表末尾最后一个落单（未成对）的节点 */
 			curr->next_sibling = pairs;
 			pairs = curr;
 			break;

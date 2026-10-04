@@ -945,6 +945,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0034-comment-include-lib.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0035-comment-lib-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3392,7 +3397,17 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0035-comment-lib-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, the lib Makefile header, and 10 include/lib headers. bloomfilter.h, integerset.h, knapsack.h and stringinfo.h unchanged (copyright, license or pgindent blocks). meson.build copyright-only. 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, the lib Makefile header, and 10 include/lib headers. Batch 0035 adjusts terminology in five already-translated backend/lib files. bloomfilter.h, integerset.h, knapsack.h and stringinfo.h unchanged (copyright, license or pgindent blocks). meson.build copyright-only. 194 platform candidates still unapproved."
 }

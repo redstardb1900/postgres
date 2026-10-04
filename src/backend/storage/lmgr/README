@@ -1,731 +1,518 @@
 src/backend/storage/lmgr/README
 
-Locking Overview
-================
+加锁概述
+========
 
-Postgres uses four types of interprocess locks:
+Postgres 使用四种进程间锁：
 
-* Spinlocks.  These are intended for *very* short-term locks.  If a lock
-is to be held more than a few dozen instructions, or across any sort of
-kernel call (or even a call to a nontrivial subroutine), don't use a
-spinlock. Spinlocks are primarily used as infrastructure for lightweight
-locks. They are implemented using a hardware atomic-test-and-set
-instruction, if available.  Waiting processes busy-loop until they can
-get the lock. There is no provision for deadlock detection, automatic
-release on error, or any other nicety.  There is a timeout if the lock
-cannot be gotten after a minute or so (which is approximately forever in
-comparison to the intended lock hold time, so this is certainly an error
-condition).
+* 自旋锁。这些旨在用于*非常*短期的锁。若锁要持有超过几十条指令，或跨越
+任何种类的内核调用（甚至对非平凡子例程的调用），不要用自旋锁。自旋锁
+主要用作轻量级锁的基础设施。它们用硬件原子测试并设置指令实现（若可用）。
+等待进程忙循环直到能获得锁。没有死锁检测、出错时自动释放或任何其他
+讲究。若大约一分钟后仍不能获得锁则超时（相对预期持锁时间，这大约是
+永远，因此这肯定是错误条件）。
 
-* Lightweight locks (LWLocks).  These locks are typically used to
-interlock access to datastructures in shared memory.  LWLocks support
-both exclusive and shared lock modes (for read/write and read-only
-access to a shared object). There is no provision for deadlock
-detection, but the LWLock manager will automatically release held
-LWLocks during elog() recovery, so it is safe to raise an error while
-holding LWLocks.  Obtaining or releasing an LWLock is quite fast (a few
-dozen instructions) when there is no contention for the lock.  When a
-process has to wait for an LWLock, it blocks on a SysV semaphore so as
-to not consume CPU time.  Waiting processes will be granted the lock in
-arrival order.  There is no timeout.
+* 轻量级锁（LWLocks）。这些锁通常用来交错访问共享内存中的数据结构。
+轻量级锁支持独占和共享锁模式（用于对共享对象的读/写和只读访问）。没有
+死锁检测，但轻量级锁管理器会在 elog() 恢复期间自动释放所持有的轻量级
+锁，因此持有轻量级锁时抛错是安全的。没有争用时，获取或释放轻量级锁
+相当快（几十条指令）。当进程必须等待轻量级锁时，它在 SysV 信号量上
+阻塞以免消耗 CPU 时间。等待进程按到达顺序被授予锁。没有超时。
 
-* Regular locks (a/k/a heavyweight locks).  The regular lock manager
-supports a variety of lock modes with table-driven semantics, and it has
-full deadlock detection and automatic release at transaction end.
-Regular locks should be used for all user-driven lock requests.
+* 常规锁（又称重量级锁）。常规锁管理器支持带表驱动语义的多种锁模式，
+并且有完整的死锁检测和事务结束时自动释放。常规锁应用于所有用户驱动的
+锁请求。
 
-* SIReadLock predicate locks.  See separate README-SSI file for details.
+* SIReadLock 谓词锁。细节见单独的 README-SSI 文件。
 
-Acquisition of either a spinlock or a lightweight lock causes query
-cancel and die() interrupts to be held off until all such locks are
-released. No such restriction exists for regular locks, however.  Also
-note that we can accept query cancel and die() interrupts while waiting
-for a regular lock, but we will not accept them while waiting for
-spinlocks or LW locks. It is therefore not a good idea to use LW locks
-when the wait time might exceed a few seconds.
+获取自旋锁或轻量级锁会导致查询取消和 die() 中断被推迟，直到所有这类
+锁都释放。常规锁没有这种限制。还要注意我们可以在等待常规锁时接受查询
+取消和 die() 中断，但在等待自旋锁或轻量级锁时不会接受它们。因此当等待
+时间可能超过几秒时，用轻量级锁不是好主意。
 
-The rest of this README file discusses the regular lock manager in detail.
+本 README 其余部分详细讨论常规锁管理器。
 
 
-Lock Data Structures
---------------------
+锁数据结构
+----------
 
-Lock methods describe the overall locking behavior.  Currently there are
-two lock methods: DEFAULT and USER.
+锁方法描述总体加锁行为。目前有两种锁方法：DEFAULT 和 USER。
 
-Lock modes describe the type of the lock (read/write or shared/exclusive).
-In principle, each lock method can have its own set of lock modes with
-different conflict rules, but currently DEFAULT and USER methods use
-identical lock mode sets. See src/include/storage/lock.h for more details.
-(Lock modes are also called lock types in some places in the code and
-documentation.)
+锁模式描述锁的类型（读/写或共享/独占）。原则上，每种锁方法可以有自己
+的锁模式集和不同的冲突规则，但目前 DEFAULT 和 USER 方法使用相同的锁
+模式集。更多细节见 src/include/storage/lock.h。（锁模式在代码和文档的
+某些地方也称为锁类型。）
 
-There are two main methods for recording locks in shared memory.  The primary
-mechanism uses two main structures: the per-lockable-object LOCK struct, and
-the per-lock-and-requestor PROCLOCK struct.  A LOCK object exists for each
-lockable object that currently has locks held or requested on it.  A PROCLOCK
-struct exists for each backend that is holding or requesting lock(s) on each
-LOCK object.
+在共享内存中记录锁有两种主要方法。主要机制使用两个主结构：每个可锁定
+对象的 LOCK 结构，以及每个锁和请求者的 PROCLOCK 结构。对当前有锁持有
+或请求的每个可锁定对象存在一个 LOCK 对象。对每个 LOCK 对象上持有或
+请求锁的每个后端存在一个 PROCLOCK 结构。
 
-There is also a special "fast path" mechanism which backends may use to
-record a limited number of locks with very specific characteristics: they must
-use the DEFAULT lockmethod; they must represent a lock on a database relation
-(not a shared relation), they must be a "weak" lock which is unlikely to
-conflict (AccessShareLock, RowShareLock, or RowExclusiveLock); and the system
-must be able to quickly verify that no conflicting locks could possibly be
-present.  See "Fast Path Locking", below, for more details.
+还有一种特殊的“快速路径”机制，后端可用它记录数量有限、特征非常特定的
+锁：它们必须使用 DEFAULT 锁方法；必须表示数据库关系上的锁（不是共享
+关系），必须是不太可能冲突的“弱”锁（AccessShareLock、RowShareLock 或
+RowExclusiveLock）；并且系统必须能快速验证不可能存在任何冲突锁。更多
+细节见下文“快速路径加锁”。
 
-Each backend also maintains an unshared LOCALLOCK structure for each lockable
-object and lock mode that it is currently holding or requesting.  The shared
-lock structures only allow a single lock grant to be made per lockable
-object/lock mode/backend.  Internally to a backend, however, the same lock may
-be requested and perhaps released multiple times in a transaction, and it can
-also be held both transactionally and session-wide.  The internal request
-counts are held in LOCALLOCK so that the shared data structures need not be
-accessed to alter them.
+每个后端还为它当前持有或请求的每个可锁定对象和锁模式维护一个非共享的
+LOCALLOCK 结构。共享锁结构只允许对每个可锁定对象/锁模式/后端做一次
+锁授予。不过在后端内部，同一把锁可以在事务中被请求并也许释放多次，
+并且也可以既按事务持有又按会话持有。内部请求计数保存在 LOCALLOCK 中，
+从而不必访问共享数据结构来更改它们。
 
 ---------------------------------------------------------------------------
 
-The lock manager's LOCK objects contain:
+锁管理器的 LOCK 对象包含：
 
 tag -
-    The key fields that are used for hashing locks in the shared memory
-    lock hash table.  The contents of the tag essentially define an
-    individual lockable object.  See include/storage/lock.h for details
-    about the supported types of lockable objects.  This is declared as
-    a separate struct to ensure that we always zero out the correct number
-    of bytes.  It is critical that any alignment-padding bytes the compiler
-    might insert in the struct be zeroed out, else the hash computation
-    will be random.  (Currently, we are careful to define struct LOCKTAG
-    so that there are no padding bytes.)
+    用于在共享内存锁哈希表中哈希锁的键字段。tag 的内容本质上定义一个
+    单独的可锁定对象。关于支持的可锁定对象类型，见 include/storage/lock.h。
+    它声明为单独结构，以确保我们总是清零正确数量的字节。编译器可能在
+    结构中插入的任何对齐填充字节必须被清零，否则哈希计算将是随机的。
+    （目前我们小心定义 struct LOCKTAG，使没有填充字节。）
 
 grantMask -
-    This bitmask indicates what types of locks are currently held on the
-    given lockable object.  It is used (against the lock table's conflict
-    table) to determine if a new lock request will conflict with existing
-    lock types held.  Conflicts are determined by bitwise AND operations
-    between the grantMask and the conflict table entry for the requested
-    lock type.  Bit i of grantMask is 1 if and only if granted[i] > 0.
+    该位掩码指示当前在给定可锁定对象上持有哪些类型的锁。它（对照锁表
+    的冲突表）用来判定新锁请求是否会与现有持有的锁类型冲突。冲突通过
+    grantMask 与所请求锁类型的冲突表条目之间的按位 AND 操作判定。
+    grantMask 的第 i 位当且仅当 granted[i] > 0 时为 1。
 
 waitMask -
-    This bitmask shows the types of locks being waited for.  Bit i of waitMask
-    is 1 if and only if requested[i] > granted[i].
+    该位掩码显示正在等待的锁类型。waitMask 的第 i 位当且仅当
+    requested[i] > granted[i] 时为 1。
 
 procLocks -
-    This is a shared memory queue of all the PROCLOCK structs associated with
-    the lock object.  Note that both granted and waiting PROCLOCKs are in this
-    list (indeed, the same PROCLOCK might have some already-granted locks and
-    be waiting for more!).
+    这是与该锁对象关联的全部 PROCLOCK 结构的共享内存队列。注意已授予
+    和正在等待的 PROCLOCK 都在此列表中（实际上，同一 PROCLOCK 可能已
+    有一些已授予的锁并且还在等待更多！）。
 
 waitProcs -
-    This is a shared memory queue of all PGPROC structures corresponding to
-    backends that are waiting (sleeping) until another backend releases this
-    lock.  The process structure holds the information needed to determine
-    if it should be woken up when the lock is released.
+    这是对应正在等待（睡眠）直到另一后端释放该锁的后端的全部 PGPROC
+    结构的共享内存队列。进程结构保存判定锁释放时是否应被唤醒所需的
+    信息。
 
 nRequested -
-    Keeps a count of how many times this lock has been attempted to be
-    acquired.  The count includes attempts by processes which were put
-    to sleep due to conflicts.  It also counts the same backend twice
-    if, for example, a backend process first acquires a read and then
-    acquires a write.  (But multiple acquisitions of the same lock/lock mode
-    within a backend are not multiply counted here; they are recorded
-    only in the backend's LOCALLOCK structure.)
+    记录尝试获取该锁的次数。计数包括因冲突而被放入睡眠的进程的尝试。
+    它也把同一后端计两次，例如若后端进程先获取读再获取写。（但后端内
+    对同一锁/锁模式的多次获取在此不多次计数；它们只记录在后端的
+    LOCALLOCK 结构中。）
 
 requested -
-    Keeps a count of how many locks of each type have been attempted.  Only
-    elements 1 through MAX_LOCKMODES-1 are used as they correspond to the lock
-    type defined constants.  Summing the values of requested[] should come out
-    equal to nRequested.
+    记录每种类型尝试过的锁数。只用元素 1 到 MAX_LOCKMODES-1，因为它们
+    对应锁类型定义常量。把 requested[] 的值相加应等于 nRequested。
 
 nGranted -
-    Keeps count of how many times this lock has been successfully acquired.
-    This count does not include attempts that are waiting due to conflicts.
-    Otherwise the counting rules are the same as for nRequested.
+    记录成功获取该锁的次数。此计数不包括因冲突而等待的尝试。除此之外
+    计数规则与 nRequested 相同。
 
 granted -
-    Keeps count of how many locks of each type are currently held.  Once again
-    only elements 1 through MAX_LOCKMODES-1 are used (0 is not).  Also, like
-    requested[], summing the values of granted[] should total to the value
-    of nGranted.
+    记录当前持有的每种类型的锁数。同样只用元素 1 到 MAX_LOCKMODES-1
+    （0 不用）。并且像 requested[] 一样，把 granted[] 的值相加应等于
+    nGranted 的值。
 
-We should always have 0 <= nGranted <= nRequested, and
-0 <= granted[i] <= requested[i] for each i.  When all the request counts
-go to zero, the LOCK object is no longer needed and can be freed.
+我们应始终有 0 <= nGranted <= nRequested，以及对每个 i 有
+0 <= granted[i] <= requested[i]。当所有请求计数变为零时，不再需要
+LOCK 对象，可以释放。
 
 ---------------------------------------------------------------------------
 
-The lock manager's PROCLOCK objects contain:
+锁管理器的 PROCLOCK 对象包含：
 
 tag -
-    The key fields that are used for hashing entries in the shared memory
-    PROCLOCK hash table.  This is declared as a separate struct to ensure that
-    we always zero out the correct number of bytes.  It is critical that any
-    alignment-padding bytes the compiler might insert in the struct be zeroed
-    out, else the hash computation will be random.  (Currently, we are careful
-    to define struct PROCLOCKTAG so that there are no padding bytes.)
+    用于在共享内存 PROCLOCK 哈希表中哈希条目的键字段。它声明为单独
+    结构，以确保我们总是清零正确数量的字节。编译器可能在结构中插入的
+    任何对齐填充字节必须被清零，否则哈希计算将是随机的。（目前我们
+    小心定义 struct PROCLOCKTAG，使没有填充字节。）
 
     tag.myLock
-        Pointer to the shared LOCK object this PROCLOCK is for.
+        指向该 PROCLOCK 对应的共享 LOCK 对象的指针。
 
     tag.myProc
-        Pointer to the PGPROC of backend process that owns this PROCLOCK.
+        指向拥有该 PROCLOCK 的后端进程的 PGPROC 的指针。
 
-    Note: it's OK to use pointers here because a PROCLOCK never outlives
-    either its lock or its proc.  The tag is therefore unique for as long
-    as it needs to be, even though the same tag values might mean something
-    else at other times.
+    注意：这里用指针没问题，因为 PROCLOCK 从不比其锁或其进程活得更久。
+    因此在需要期间 tag 是唯一的，即便同一 tag 值在其他时候可能意味着
+    别的东西。
 
 holdMask -
-    A bitmask for the lock modes successfully acquired by this PROCLOCK.
-    This should be a subset of the LOCK object's grantMask, and also a
-    subset of the PGPROC object's heldLocks mask (if the PGPROC is
-    currently waiting for another lock mode on this lock).
+    该 PROCLOCK 成功获取的锁模式的位掩码。这应是 LOCK 对象的 grantMask
+    的子集，并且也是 PGPROC 对象的 heldLocks 掩码的子集（若该 PGPROC
+    当前正在等待该锁上的另一锁模式）。
 
 releaseMask -
-    A bitmask for the lock modes due to be released during LockReleaseAll.
-    This must be a subset of the holdMask.  Note that it is modified without
-    taking the partition LWLock, and therefore it is unsafe for any
-    backend except the one owning the PROCLOCK to examine/change it.
+    LockReleaseAll 期间将要释放的锁模式的位掩码。这必须是 holdMask 的
+    子集。注意它在不取分区轻量级锁的情况下被修改，因此除拥有该
+    PROCLOCK 的后端外，任何后端检查/更改它都不安全。
 
 lockLink -
-    List link for shared memory queue of all the PROCLOCK objects for the
-    same LOCK.
+    同一 LOCK 的全部 PROCLOCK 对象的共享内存队列的列表链接。
 
 procLink -
-    List link for shared memory queue of all the PROCLOCK objects for the
-    same backend.
+    同一后端的全部 PROCLOCK 对象的共享内存队列的列表链接。
 
 ---------------------------------------------------------------------------
 
 
-Lock Manager Internal Locking
------------------------------
-
-Before PostgreSQL 8.2, all of the shared-memory data structures used by
-the lock manager were protected by a single LWLock, the LockMgrLock;
-any operation involving these data structures had to exclusively lock
-LockMgrLock.  Not too surprisingly, this became a contention bottleneck.
-To reduce contention, the lock manager's data structures have been split
-into multiple "partitions", each protected by an independent LWLock.
-Most operations only need to lock the single partition they are working in.
-Here are the details:
-
-* Each possible lock is assigned to one partition according to a hash of
-its LOCKTAG value.  The partition's LWLock is considered to protect all the
-LOCK objects of that partition as well as their subsidiary PROCLOCKs.
-
-* The shared-memory hash tables for LOCKs and PROCLOCKs are organized
-so that different partitions use different hash chains, and thus there
-is no conflict in working with objects in different partitions.  This
-is supported directly by dynahash.c's "partitioned table" mechanism
-for the LOCK table: we need only ensure that the partition number is
-taken from the low-order bits of the dynahash hash value for the LOCKTAG.
-To make it work for PROCLOCKs, we have to ensure that a PROCLOCK's hash
-value has the same low-order bits as its associated LOCK.  This requires
-a specialized hash function (see proclock_hash).
-
-* Formerly, each PGPROC had a single list of PROCLOCKs belonging to it.
-This has now been split into per-partition lists, so that access to a
-particular PROCLOCK list can be protected by the associated partition's
-LWLock.  (This rule allows one backend to manipulate another backend's
-PROCLOCK lists, which was not originally necessary but is now required in
-connection with fast-path locking; see below.)
-
-* The other lock-related fields of a PGPROC are only interesting when
-the PGPROC is waiting for a lock, so we consider that they are protected
-by the partition LWLock of the awaited lock.
-
-For normal lock acquisition and release, it is sufficient to lock the
-partition containing the desired lock.  Deadlock checking needs to touch
-multiple partitions in general; for simplicity, we just make it lock all
-the partitions in partition-number order.  (To prevent LWLock deadlock,
-we establish the rule that any backend needing to lock more than one
-partition at once must lock them in partition-number order.)  It's
-possible that deadlock checking could be done without touching every
-partition in typical cases, but since in a properly functioning system
-deadlock checking should not occur often enough to be performance-critical,
-trying to make this work does not seem a productive use of effort.
-
-A backend's internal LOCALLOCK hash table is not partitioned.  We do store
-a copy of the locktag hash code in LOCALLOCK table entries, from which the
-partition number can be computed, but this is a straight speed-for-space
-tradeoff: we could instead recalculate the partition number from the LOCKTAG
-when needed.
-
-
-Fast Path Locking
------------------
-
-Fast path locking is a special purpose mechanism designed to reduce the
-overhead of taking and releasing certain types of locks which are taken
-and released very frequently but rarely conflict.  Currently, this includes
-two categories of locks:
-
-(1) Weak relation locks.  SELECT, INSERT, UPDATE, and DELETE must acquire a
-lock on every relation they operate on, as well as various system catalogs
-that can be used internally.  Many DML operations can proceed in parallel
-against the same table at the same time; only DDL operations such as
-CLUSTER, ALTER TABLE, or DROP -- or explicit user action such as LOCK TABLE
--- will create lock conflicts with the "weak" locks (AccessShareLock,
-RowShareLock, RowExclusiveLock) acquired by DML operations.
-
-(2) VXID locks.  Every transaction takes a lock on its own virtual
-transaction ID.  Currently, the only operations that wait for these locks
-are CREATE INDEX CONCURRENTLY and Hot Standby (in the case of a conflict),
-so most VXID locks are taken and released by the owner without anyone else
-needing to care.
-
-The primary locking mechanism does not cope well with this workload.  Even
-though the lock manager locks are partitioned, the locktag for any given
-relation still falls in one, and only one, partition.  Thus, if many short
-queries are accessing the same relation, the lock manager partition lock for
-that partition becomes a contention bottleneck.  This effect is measurable
-even on 2-core servers, and becomes very pronounced as core count increases.
-
-To alleviate this bottleneck, beginning in PostgreSQL 9.2, each backend is
-permitted to record a limited number of locks on unshared relations in an
-array within its PGPROC structure, rather than using the primary lock table.
-This mechanism can only be used when the locker can verify that no conflicting
-locks exist at the time of taking the lock.
-
-A key point of this algorithm is that it must be possible to verify the
-absence of possibly conflicting locks without fighting over a shared LWLock or
-spinlock.  Otherwise, this effort would simply move the contention bottleneck
-from one place to another.  We accomplish this using an array of 1024 integer
-counters, which are in effect a 1024-way partitioning of the lock space.
-Each counter records the number of "strong" locks (that is, ShareLock,
-ShareRowExclusiveLock, ExclusiveLock, and AccessExclusiveLock) on unshared
-relations that fall into that partition.  When this counter is non-zero, the
-fast path mechanism may not be used to take new relation locks within that
-partition.  A strong locker bumps the counter and then scans each per-backend
-array for matching fast-path locks; any which are found must be transferred to
-the primary lock table before attempting to acquire the lock, to ensure proper
-lock conflict and deadlock detection.
-
-On an SMP system, we must guarantee proper memory synchronization.  Here we
-rely on the fact that LWLock acquisition acts as a memory sequence point: if
-A performs a store, A and B both acquire an LWLock in either order, and B
-then performs a load on the same memory location, it is guaranteed to see
-A's store.  In this case, each backend's fast-path lock queue is protected
-by an LWLock.  A backend wishing to acquire a fast-path lock grabs this
-LWLock before examining FastPathStrongRelationLocks to check for the presence
-of a conflicting strong lock.  And the backend attempting to acquire a strong
-lock, because it must transfer any matching weak locks taken via the fast-path
-mechanism to the shared lock table, will acquire every LWLock protecting a
-backend fast-path queue in turn.  So, if we examine
-FastPathStrongRelationLocks and see a zero, then either the value is truly
-zero, or if it is a stale value, the strong locker has yet to acquire the
-per-backend LWLock we now hold (or, indeed, even the first per-backend LWLock)
-and will notice any weak lock we take when it does.
-
-Fast-path VXID locks do not use the FastPathStrongRelationLocks table.  The
-first lock taken on a VXID is always the ExclusiveLock taken by its owner.
-Any subsequent lockers are share lockers waiting for the VXID to terminate.
-Indeed, the only reason VXID locks use the lock manager at all (rather than
-waiting for the VXID to terminate via some other method) is for deadlock
-detection.  Thus, the initial VXID lock can *always* be taken via the fast
-path without checking for conflicts.  Any subsequent locker must check
-whether the lock has been transferred to the main lock table, and if not,
-do so.  The backend owning the VXID must be careful to clean up any entry
-made in the main lock table at end of transaction.
-
-Deadlock detection does not need to examine the fast-path data structures,
-because any lock that could possibly be involved in a deadlock must have
-been transferred to the main tables beforehand.
-
-
-The Deadlock Detection Algorithm
---------------------------------
-
-Since we allow user transactions to request locks in any order, deadlock
-is possible.  We use a deadlock detection/breaking algorithm that is
-fairly standard in essence, but there are many special considerations
-needed to deal with Postgres' generalized locking model.
-
-A key design consideration is that we want to make routine operations
-(lock grant and release) run quickly when there is no deadlock, and
-avoid the overhead of deadlock handling as much as possible.  We do this
-using an "optimistic waiting" approach: if a process cannot acquire the
-lock it wants immediately, it goes to sleep without any deadlock check.
-But it also sets a delay timer, with a delay of DeadlockTimeout
-milliseconds (typically set to one second).  If the delay expires before
-the process is granted the lock it wants, it runs the deadlock
-detection/breaking code. Normally this code will determine that there is
-no deadlock condition, and then the process will go back to sleep and
-wait quietly until it is granted the lock.  But if a deadlock condition
-does exist, it will be resolved, usually by aborting the detecting
-process' transaction.  In this way, we avoid deadlock handling overhead
-whenever the wait time for a lock is less than DeadlockTimeout, while
-not imposing an unreasonable delay of detection when there is an error.
-
-Lock acquisition (routines LockAcquire and ProcSleep) follows these rules:
-
-1. A lock request is granted immediately if it does not conflict with
-any existing or waiting lock request, or if the process already holds an
-instance of the same lock type (eg, there's no penalty to acquire a read
-lock twice).  Note that a process never conflicts with itself, eg one
-can obtain read lock when one already holds exclusive lock.
-
-2. Otherwise the process joins the lock's wait queue.  Normally it will
-be added to the end of the queue, but there is an exception: if the
-process already holds locks on this same lockable object that conflict
-with the request of any pending waiter, then the process will be
-inserted in the wait queue just ahead of the first such waiter.  (If we
-did not make this check, the deadlock detection code would adjust the
-queue order to resolve the conflict, but it's relatively cheap to make
-the check in ProcSleep and avoid a deadlock timeout delay in this case.)
-Note special case when inserting before the end of the queue: if the
-process's request does not conflict with any existing lock nor any
-waiting request before its insertion point, then go ahead and grant the
-lock without waiting.
-
-When a lock is released, the lock release routine (ProcLockWakeup) scans
-the lock object's wait queue.  Each waiter is awoken if (a) its request
-does not conflict with already-granted locks, and (b) its request does
-not conflict with the requests of prior un-wakable waiters.  Rule (b)
-ensures that conflicting requests are granted in order of arrival. There
-are cases where a later waiter must be allowed to go in front of
-conflicting earlier waiters to avoid deadlock, but it is not
-ProcLockWakeup's responsibility to recognize these cases; instead, the
-deadlock detection code will re-order the wait queue when necessary.
-
-To perform deadlock checking, we use the standard method of viewing the
-various processes as nodes in a directed graph (the waits-for graph or
-WFG).  There is a graph edge leading from process A to process B if A
-waits for B, ie, A is waiting for some lock and B holds a conflicting
-lock.  There is a deadlock condition if and only if the WFG contains a
-cycle.  We detect cycles by searching outward along waits-for edges to
-see if we return to our starting point.  There are three possible
-outcomes:
-
-1. All outgoing paths terminate at a running process (which has no
-outgoing edge).
-
-2. A deadlock is detected by looping back to the start point.  We
-resolve such a deadlock by canceling the start point's lock request and
-reporting an error in that transaction, which normally leads to
-transaction abort and release of that transaction's held locks.  Note
-that it's sufficient to cancel one request to remove the cycle; we don't
-need to kill all the transactions involved.
-
-3. Some path(s) loop back to a node other than the start point.  This
-indicates a deadlock, but one that does not involve our starting
-process. We ignore this condition on the grounds that resolving such a
-deadlock is the responsibility of the processes involved --- killing our
-start-point process would not resolve the deadlock.  So, cases 1 and 3
-both report "no deadlock".
-
-Postgres' situation is a little more complex than the standard discussion
-of deadlock detection, for two reasons:
-
-1. A process can be waiting for more than one other process, since there
-might be multiple PROCLOCKs of (non-conflicting) lock types that all
-conflict with the waiter's request.  This creates no real difficulty
-however; we simply need to be prepared to trace more than one outgoing
-edge.
-
-2. If a process A is behind a process B in some lock's wait queue, and
-their requested locks conflict, then we must say that A waits for B, since
-ProcLockWakeup will never awaken A before B.  This creates additional
-edges in the WFG.  We call these "soft" edges, as opposed to the "hard"
-edges induced by locks already held.  Note that if B already holds any
-locks conflicting with A's request, then their relationship is a hard edge
-not a soft edge.
-
-A "soft" block, or wait-priority block, has the same potential for
-inducing deadlock as a hard block.  However, we may be able to resolve
-a soft block without aborting the transactions involved: we can instead
-rearrange the order of the wait queue.  This rearrangement reverses the
-direction of the soft edge between two processes with conflicting requests
-whose queue order is reversed.  If we can find a rearrangement that
-eliminates a cycle without creating new ones, then we can avoid an abort.
-Checking for such possible rearrangements is the trickiest part of the
-algorithm.
-
-The workhorse of the deadlock detector is a routine FindLockCycle() which
-is given a starting point process (which must be a waiting process).
-It recursively scans outward across waits-for edges as discussed above.
-If it finds no cycle involving the start point, it returns "false".
-(As discussed above, we can ignore cycles not involving the start point.)
-When such a cycle is found, FindLockCycle() returns "true", and as it
-unwinds it also builds a list of any "soft" edges involved in the cycle.
-If the resulting list is empty then there is a hard deadlock and the
-configuration cannot succeed.  However, if the list is not empty, then
-reversing any one of the listed edges through wait-queue rearrangement
-will eliminate that cycle.  Since such a reversal might create cycles
-elsewhere, we may need to try every possibility.  Therefore, we need to
-be able to invoke FindLockCycle() on hypothetical configurations (wait
-orders) as well as the current real order.
-
-The easiest way to handle this seems to be to have a lookaside table that
-shows the proposed new queue order for each wait queue that we are
-considering rearranging.  This table is checked by FindLockCycle, and it
-believes the proposed queue order rather than the real order for each lock
-that has an entry in the lookaside table.
-
-We build a proposed new queue order by doing a "topological sort" of the
-existing entries.  Each soft edge that we are currently considering
-reversing creates a property of the partial order that the topological sort
-has to enforce.  We must use a sort method that preserves the input
-ordering as much as possible, so as not to gratuitously break arrival
-order for processes not involved in a deadlock.  (This is not true of the
-tsort method shown in Knuth, for example, but it's easily done by a simple
-doubly-nested-loop method that emits the first legal candidate at each
-step.  Fortunately, we don't need a highly efficient sort algorithm, since
-the number of partial order constraints is not likely to be large.)  Note
-that failure of the topological sort tells us we have conflicting ordering
-constraints, and therefore that the last-added soft edge reversal
-conflicts with a prior edge reversal.  We need to detect this case to
-avoid an infinite loop in the case where no possible rearrangement will
-work: otherwise, we might try a reversal, find that it still leads to
-a cycle, then try to un-reverse the reversal while trying to get rid of
-that cycle, etc etc.  Topological sort failure tells us the un-reversal
-is not a legitimate move in this context.
-
-So, the basic step in our rearrangement method is to take a list of
-soft edges in a cycle (as returned by FindLockCycle()) and successively
-try the reversal of each one as a topological-sort constraint added to
-whatever constraints we are already considering.  We recursively search
-through all such sets of constraints to see if any one eliminates all
-the deadlock cycles at once.  Although this might seem impossibly
-inefficient, it shouldn't be a big problem in practice, because there
-will normally be very few, and not very large, deadlock cycles --- if
-any at all.  So the combinatorial inefficiency isn't going to hurt us.
-Besides, it's better to spend some time to guarantee that we've checked
-all possible escape routes than to abort a transaction when we didn't
-really have to.
-
-Each edge reversal constraint can be viewed as requesting that the waiting
-process A be moved to before the blocking process B in the wait queue they
-are both in.  This action will reverse the desired soft edge, as well as
-any other soft edges between A and other processes it is advanced over.
-No other edges will be affected (note this is actually a constraint on our
-topological sort method to not re-order the queue more than necessary.)
-Therefore, we can be sure we have not created any new deadlock cycles if
-neither FindLockCycle(A) nor FindLockCycle(B) discovers any cycle.  Given
-the above-defined behavior of FindLockCycle, each of these searches is
-necessary as well as sufficient, since FindLockCycle starting at the
-original start point will not complain about cycles that include A or B
-but not the original start point.
-
-In short then, a proposed rearrangement of the wait queue(s) is determined
-by one or more broken soft edges A->B, fully specified by the output of
-topological sorts of each wait queue involved, and then tested by invoking
-FindLockCycle() starting at the original start point as well as each of
-the mentioned processes (A's and B's).  If none of the tests detect a
-cycle, then we have a valid configuration and can implement it by
-reordering the wait queues per the sort outputs (and then applying
-ProcLockWakeup on each reordered queue, in case a waiter has become wakable).
-If any test detects a soft cycle, we can try to resolve it by adding each
-soft link in that cycle, in turn, to the proposed rearrangement list.
-This is repeated recursively until we either find a workable rearrangement
-or determine that none exists.  In the latter case, the outer level
-resolves the deadlock by aborting the original start-point transaction.
-
-The particular order in which rearrangements are tried depends on the
-order FindLockCycle() happens to scan in, so if there are multiple
-workable rearrangements of the wait queues, then it is unspecified which
-one will be chosen.  What's more important is that we guarantee to try
-every queue rearrangement that could lead to success.  (For example,
-if we have A before B before C and the needed order constraints are
-C before A and B before C, we would first discover that A before C
-doesn't work and try the rearrangement C before A before B.  This would
-eventually lead to the discovery of the additional constraint B before C.)
-
-Got that?
-
-Miscellaneous Notes
--------------------
-
-1. It is easily proven that no deadlock will be missed due to our
-asynchronous invocation of deadlock checking.  A deadlock cycle in the WFG
-is formed when the last edge in the cycle is added; therefore the last
-process in the cycle to wait (the one from which that edge is outgoing) is
-certain to detect and resolve the cycle when it later runs CheckDeadLock.
-This holds even if that edge addition created multiple cycles; the process
-may indeed abort without ever noticing those additional cycles, but we
-don't particularly care.  The only other possible creation of deadlocks is
-during deadlock resolution's rearrangement of wait queues, and we already
-saw that that algorithm will prove that it creates no new deadlocks before
-it attempts to actually execute any rearrangement.
-
-2. It is not certain that a deadlock will be resolved by aborting the
-last-to-wait process.  If earlier waiters in the cycle have not yet run
-CheckDeadLock, then the first one to do so will be the victim.
-
-3. No live (wakable) process can be missed by ProcLockWakeup, since it
-examines every member of the wait queue (this was not true in the 7.0
-implementation, BTW).  Therefore, if ProcLockWakeup is always invoked
-after a lock is released or a wait queue is rearranged, there can be no
-failure to wake a wakable process.  One should also note that
-LockErrorCleanup (abort a waiter due to outside factors) must run
-ProcLockWakeup, in case the canceled waiter was soft-blocking other
-waiters.
-
-4. We can minimize excess rearrangement-trial work by being careful to
-scan the wait queue from the front when looking for soft edges.  For
-example, if we have queue order A,B,C and C has deadlock conflicts with
-both A and B, we want to generate the "C before A" constraint first,
-rather than wasting time with "C before B", which won't move C far
-enough up.  So we look for soft edges outgoing from C starting at the
-front of the wait queue.
-
-5. The working data structures needed by the deadlock detection code can
-be limited to numbers of entries computed from MaxBackends.  Therefore,
-we can allocate the worst-case space needed during backend startup. This
-seems a safer approach than trying to allocate workspace on the fly; we
-don't want to risk having the deadlock detector run out of memory, else
-we really have no guarantees at all that deadlock will be detected.
-
-6. We abuse the deadlock detector to implement autovacuum cancellation.
-When we run the detector and we find that there's an autovacuum worker
-involved in the waits-for graph, we store a pointer to its PGPROC, and
-return a special return code (unless a hard deadlock has been detected).
-The caller can then send a cancellation signal.  This implements the
-principle that autovacuum has a low locking priority (eg it must not block
-DDL on the table).
-
-Group Locking
--------------
-
-As if all of that weren't already complicated enough, PostgreSQL now supports
-parallelism (see src/backend/access/transam/README.parallel), which means that
-we might need to resolve deadlocks that occur between gangs of related
-processes rather than individual processes.  This doesn't change the basic
-deadlock detection algorithm very much, but it makes the bookkeeping more
-complicated.
-
-We choose to regard locks held by processes in the same parallel group as
-non-conflicting with the exception of relation extension lock.  This means that
-two processes in a parallel group can hold a self-exclusive lock on the same
-relation at the same time, or one process can acquire an AccessShareLock while
-the other already holds AccessExclusiveLock.  This might seem dangerous and
-could be in some cases (more on that below), but if we didn't do this then
-parallel query would be extremely prone to self-deadlock.  For example, a
-parallel query against a relation on which the leader already had
-AccessExclusiveLock would hang, because the workers would try to lock the same
-relation and be blocked by the leader; yet the leader can't finish until it
-receives completion indications from all workers.  An undetected deadlock
-results.  This is far from the only scenario where such a problem happens.  The
-same thing will occur if the leader holds only AccessShareLock, the worker
-seeks AccessShareLock, but between the time the leader attempts to acquire the
-lock and the time the worker attempts to acquire it, some other process queues
-up waiting for an AccessExclusiveLock.  In this case, too, an indefinite hang
-results.
-
-It might seem that we could predict which locks the workers will attempt to
-acquire and ensure before going parallel that those locks would be acquired
-successfully.  But this is very difficult to make work in a general way.  For
-example, a parallel worker's portion of the query plan could involve an
-SQL-callable function which generates a query dynamically, and that query
-might happen to hit a table on which the leader happens to hold
-AccessExclusiveLock.  By imposing enough restrictions on what workers can do,
-we could eventually create a situation where their behavior can be adequately
-restricted, but these restrictions would be fairly onerous, and even then, the
-system required to decide whether the workers will succeed at acquiring the
-necessary locks would be complex and possibly buggy.
-
-So, instead, we take the approach of deciding that locks within a lock group
-do not conflict.  This eliminates the possibility of an undetected deadlock,
-but also opens up some problem cases: if the leader and worker try to do some
-operation at the same time which would ordinarily be prevented by the
-heavyweight lock mechanism, undefined behavior might result.  In practice, the
-dangers are modest.  The leader and worker share the same transaction,
-snapshot, and combo CID hash, and neither can perform any DDL or, indeed,
-write any data at all.  Thus, for either to read a table locked exclusively by
-the other is safe enough.  Problems would occur if the leader initiated
-parallelism from a point in the code at which it had some backend-private
-state that made table access from another process unsafe, for example after
-calling SetReindexProcessing and before calling ResetReindexProcessing,
-catastrophe could ensue, because the worker won't have that state.  Similarly,
-problems could occur with certain kinds of non-relation locks, such as
-GIN page locks.  It's no safer for two related processes to perform GIN clean
-up at the same time than for unrelated processes to do the same.
-However, since parallel mode is strictly read-only at present, neither this
-nor most of the similar cases can arise at present.  To allow parallel writes,
-we'll either need to (1) further enhance the deadlock detector to handle those
-types of locks in a different way than other types; or (2) have parallel
-workers use some other mutual exclusion method for such cases.
-
-Group locking adds three new members to each PGPROC: lockGroupLeader,
-lockGroupMembers, and lockGroupLink. A PGPROC's lockGroupLeader is NULL for
-processes not involved in parallel query. When a process wants to cooperate
-with parallel workers, it becomes a lock group leader, which means setting
-this field to point to its own PGPROC. When a parallel worker starts up, it
-points this field at the leader. The lockGroupMembers field is only used in
-the leader; it is a list of the member PGPROCs of the lock group (the leader
-and all workers). The lockGroupLink field is the list link for this list.
-
-All three of these fields are considered to be protected by a lock manager
-partition lock.  The partition lock that protects these fields within a given
-lock group is chosen by taking the leader's pgprocno modulo the number of lock
-manager partitions.  This unusual arrangement has a major advantage: the
-deadlock detector can count on the fact that no lockGroupLeader field can
-change while the deadlock detector is running, because it knows that it holds
-all the lock manager locks.  Also, holding this single lock allows safe
-manipulation of the lockGroupMembers list for the lock group.
-
-We need an additional interlock when setting these fields, because a newly
-started parallel worker has to try to join the leader's lock group, but it
-has no guarantee that the group leader is still alive by the time it gets
-started.  We try to ensure that the parallel leader dies after all workers
-in normal cases, but also that the system could survive relatively intact
-if that somehow fails to happen.  This is one of the precautions against
-such a scenario: the leader relays its PGPROC and also its PID to the
-worker, and the worker fails to join the lock group unless the given PGPROC
-still has the same PID and is still a lock group leader.  We assume that
-PIDs are not recycled quickly enough for this interlock to fail.
-
-
-User Locks (Advisory Locks)
----------------------------
-
-User locks are handled totally on the application side as long term
-cooperative locks which may extend beyond the normal transaction boundaries.
-Their purpose is to indicate to an application that someone is `working'
-on an item.  So it is possible to put a user lock on a tuple's oid,
-retrieve the tuple, work on it for an hour and then update it and remove
-the lock.  While the lock is active other clients can still read and write
-the tuple but they can be aware that it has been locked at the application
-level by someone.
-
-User locks and normal locks are completely orthogonal and they don't
-interfere with each other.
-
-User locks can be acquired either at session level or transaction level.
-A session-level lock request is not automatically released at transaction
-end, but must be explicitly released by the application.  (However, any
-remaining locks are always released at session end.)  Transaction-level
-user lock requests behave the same as normal lock requests, in that they
-are released at transaction end and do not need explicit unlocking.
-
-Locking during Hot Standby
---------------------------
-
-The Startup process is the only backend that can make changes during
-recovery, all other backends are read only.  As a result the Startup
-process does not acquire locks on relations or objects except when the lock
-level is AccessExclusiveLock.
-
-Regular backends are only allowed to take locks on relations or objects
-at RowExclusiveLock or lower. This ensures that they do not conflict with
-each other or with the Startup process, unless AccessExclusiveLocks are
-requested by the Startup process.
-
-Deadlocks involving AccessExclusiveLocks are not possible, so we need
-not be concerned that a user initiated deadlock can prevent recovery from
-progressing.
-
-AccessExclusiveLocks on the primary node generate WAL records
-that are then applied by the Startup process. Locks are released at end
-of transaction just as they are in normal processing. These locks are
-held by the Startup process, acting as a proxy for the backends that
-originally acquired these locks. Again, these locks cannot conflict with
-one another, so the Startup process cannot deadlock itself either.
-
-Although deadlock is not possible, a regular backend's weak lock can
-prevent the Startup process from making progress in applying WAL, which is
-usually not something that should be tolerated for very long.  Mechanisms
-exist to forcibly cancel a regular backend's query if it blocks the
-Startup process for too long.
+锁管理器内部加锁
+----------------
+
+PostgreSQL 8.2 之前，锁管理器使用的全部共享内存数据结构由一把轻量级锁
+LockMgrLock 保护；涉及这些数据结构的任何操作都必须独占锁定 LockMgrLock。
+不出所料，这成了争用瓶颈。为降低争用，锁管理器的数据结构被拆成多个
+“分区”，各由独立的轻量级锁保护。大多数操作只需锁定它们正在其中工作的
+单个分区。细节如下：
+
+* 每个可能的锁根据其 LOCKTAG 值的哈希分配到一个分区。该分区的轻量级锁
+被视为保护该分区的全部 LOCK 对象及其附属 PROCLOCK。
+
+* LOCK 和 PROCLOCK 的共享内存哈希表组织为不同分区使用不同哈希链，因此
+在不同分区中处理对象没有冲突。对 LOCK 表这由 dynahash.c 的“分区表”
+机制直接支持：我们只需确保分区号取自 LOCKTAG 的 dynahash 哈希值的低位。
+为让它对 PROCLOCK 工作，我们必须确保 PROCLOCK 的哈希值与其关联 LOCK
+有相同的低位。这需要专用哈希函数（见 proclock_hash）。
+
+* 以前，每个 PGPROC 有一个属于它的 PROCLOCK 的单个列表。这现已拆成每
+分区列表，以便对特定 PROCLOCK 列表的访问可以由关联分区的轻量级锁保护。
+（这条规则允许一个后端操纵另一后端的 PROCLOCK 列表，这原先并不必要，
+但现在因快速路径加锁而需要；见下文。）
+
+* PGPROC 的其他与锁相关的字段只在该 PGPROC 正在等待锁时才有意义，因此
+我们认为它们由所等待锁的分区轻量级锁保护。
+
+对正常的锁获取和释放，锁定包含期望锁的分区就够了。死锁检查一般需要
+触及多个分区；为简单，我们只让它按分区号顺序锁定全部分区。（为防止
+轻量级锁死锁，我们建立规则：任何需要一次锁定多个分区的后端必须按分区
+号顺序锁定它们。）可能在典型情形下可以不做触及每个分区的死锁检查，但
+由于在正常工作的系统中死锁检查不应频繁到成为性能关键，试图让这工作
+似乎不是对努力的生产性使用。
+
+后端内部的 LOCALLOCK 哈希表不分区。我们确实在 LOCALLOCK 表条目中存储
+锁标签哈希码的副本，从中可以计算分区号，但这是直接的以空间换速度：
+我们也可以改为在需要时从 LOCKTAG 重新计算分区号。
+
+
+快速路径加锁
+------------
+
+快速路径加锁是一种专用机制，设计为降低获取和释放某些获取和释放非常
+频繁但很少冲突的锁类型的开销。目前这包括两类锁：
+
+(1) 弱关系锁。SELECT、INSERT、UPDATE 和 DELETE 必须获取它们操作的每个
+关系上的锁，以及可能在内部使用的各种系统目录上的锁。许多 DML 操作可以
+同时并行对着同一表进行；只有 CLUSTER、ALTER TABLE 或 DROP 等 DDL 操作
+——或 LOCK TABLE 等显式用户动作——会与 DML 操作获取的“弱”锁
+（AccessShareLock、RowShareLock、RowExclusiveLock）创建锁冲突。
+
+(2) VXID 锁。每个事务对其自己的虚拟事务 ID 取一把锁。目前，等待这些锁
+的唯一操作是 CREATE INDEX CONCURRENTLY 和热备（在冲突情形下），因此
+大多数 VXID 锁由其拥有者获取和释放，而不需要任何其他人关心。
+
+主要加锁机制不能很好地应付这种负载。即便锁管理器锁已分区，任何给定
+关系的锁标签仍落在一个、且仅一个分区中。因此，若许多短查询访问同一
+关系，该分区的锁管理器分区锁就成了争用瓶颈。这一效果即便在 2 核服务器
+上也可测量，并随核数增加变得非常显著。
+
+为缓解这一瓶颈，从 PostgreSQL 9.2 起，每个后端被允许在其 PGPROC 结构
+内的数组中记录数量有限的对非共享关系的锁，而不是使用主锁表。只有当
+加锁者能验证获取锁时不存在冲突锁时，才能使用这一机制。
+
+该算法的关键点是：必须能在不争夺共享轻量级锁或自旋锁的情况下验证不存在
+可能冲突的锁。否则，这一努力只会把争用瓶颈从一处移到另一处。我们用
+1024 个整数计数器的数组来做到这一点，它们实际上是锁空间的 1024 路
+分区。每个计数器记录落入该分区的、对非共享关系的“强”锁（即 ShareLock、
+ShareRowExclusiveLock、ExclusiveLock 和 AccessExclusiveLock）的数量。
+当此计数器非零时，不能用快速路径机制在该分区内获取新的关系锁。强加锁
+者递增计数器，然后扫描每个每后端数组寻找匹配的快速路径锁；找到的任何
+锁必须在试图获取该锁之前转到主锁表，以确保正确的锁冲突和死锁检测。
+
+在 SMP 系统上，我们必须保证适当的内存同步。这里我们依赖轻量级锁获取
+充当内存序列点这一事实：若 A 执行存储，A 和 B 都以任一顺序获取轻量级
+锁，然后 B 对同一内存位置执行加载，则保证看到 A 的存储。在此情形，每个
+后端的快速路径锁队列由一把轻量级锁保护。希望获取快速路径锁的后端在
+检查 FastPathStrongRelationLocks 以查看是否存在冲突强锁之前抓住这把
+轻量级锁。而试图获取强锁的后端，因为它必须把经快速路径机制获取的任何
+匹配弱锁转到共享锁表，会依次获取保护后端快速路径队列的每把轻量级锁。
+因此，若我们检查 FastPathStrongRelationLocks 并看到零，则要么该值真是
+零，要么若它是过期值，强加锁者尚未获取我们现在持有的每后端轻量级锁
+（或者甚至尚未获取第一把每后端轻量级锁），并且在获取时会注意到我们
+取得的任何弱锁。
+
+快速路径 VXID 锁不使用 FastPathStrongRelationLocks 表。对 VXID 取得的
+第一把锁总是其拥有者取得的 ExclusiveLock。任何后续加锁者都是等待 VXID
+终止的共享加锁者。实际上，VXID 锁之所以使用锁管理器（而不是经其他方法
+等待 VXID 终止），唯一原因是死锁检测。因此，初始 VXID 锁*总是*可以经
+快速路径获取而不检查冲突。任何后续加锁者必须检查该锁是否已转到主锁表，
+若没有则转过去。拥有该 VXID 的后端必须小心在事务结束时清理在主锁表中
+做的任何条目。
+
+死锁检测不需要检查快速路径数据结构，因为任何可能卷入死锁的锁必须事先
+已转到主表。
+
+
+死锁检测算法
+------------
+
+由于我们允许用户事务以任何顺序请求锁，死锁是可能的。我们使用本质上
+相当标准的死锁检测/打破算法，但需要许多特殊考虑来处理 Postgres 的
+广义加锁模型。
+
+一个关键设计考虑是：我们希望在没有死锁时让常规操作（锁授予和释放）
+快速运行，并尽可能避免死锁处理的开销。我们用“乐观等待”做法做到这一点：
+若进程不能立即获取它想要的锁，它在不做任何死锁检查的情况下去睡眠。
+但它也设置一个延迟定时器，延迟为 DeadlockTimeout 毫秒（通常设为一秒）。
+若在进程被授予它想要的锁之前延迟到期，它运行死锁检测/打破代码。通常
+这段代码会判定没有死锁条件，然后进程回去睡眠并安静等待直到被授予锁。
+但若确实存在死锁条件，它会被解决，通常通过中止检测进程的事务。这样，
+每当锁的等待时间小于 DeadlockTimeout 时，我们避免死锁处理开销，同时
+在有错误时不对检测施加不合理的延迟。
+
+锁获取（例程 LockAcquire 和 ProcSleep）遵循这些规则：
+
+1. 若锁请求不与任何现有或等待的锁请求冲突，或进程已持有同一锁类型的
+实例（例如，获取读锁两次没有代价），则立即授予锁请求。注意进程从不与
+自己冲突，例如已持有独占锁时仍可获得读锁。
+
+2. 否则进程加入该锁的等待队列。通常它会被加到队列末尾，但有一个例外：
+若进程已持有该同一可锁定对象上与任何挂起等待者的请求冲突的锁，则该
+进程将被插入到等待队列中刚好在第一个这类等待者之前。（若我们不做此
+检查，死锁检测代码会调整队列顺序以解决冲突，但在 ProcSleep 中做此
+检查相对便宜，并在此情形避免死锁超时延迟。）注意插入到队列末尾之前
+的特殊情形：若进程的请求不与任何现有锁或插入点之前的任何等待请求
+冲突，则继续授予锁而不等待。
+
+当锁被释放时，锁释放例程（ProcLockWakeup）扫描锁对象的等待队列。每个
+等待者在（a）其请求不与已授予的锁冲突，且（b）其请求不与先前不可唤醒
+等待者的请求冲突时被唤醒。规则（b）确保冲突请求按到达顺序授予。有些
+情形必须允许较后的等待者走到冲突的较早等待者前面以避免死锁，但识别
+这些情形不是 ProcLockWakeup 的责任；相反，死锁检测代码会在必要时重新
+排序等待队列。
+
+为执行死锁检查，我们使用标准方法：把各个进程视为有向图（等待图或 WFG）
+中的节点。若 A 等待 B，即 A 正在等待某把锁而 B 持有冲突的锁，则有从
+进程 A 通向进程 B 的图边。当且仅当 WFG 包含环时存在死锁条件。我们通过
+沿等待边向外搜索看是否回到起点来检测环。有三种可能结果：
+
+1. 所有外出路径终止于运行中的进程（没有外出边）。
+
+2. 通过循环回起点检测到死锁。我们通过取消起点的锁请求并在该事务中
+报告错误来解决这类死锁，这通常导致事务中止并释放该事务持有的锁。注意
+取消一个请求就足以移除环；我们不需要杀掉所有涉及的事务。
+
+3. 某条或某些路径循环回起点以外的节点。这表示死锁，但不涉及我们的起始
+进程。我们忽略此条件，理由是解决这类死锁是所涉及进程的责任——杀掉我们
+的起点进程不会解决死锁。因此情形 1 和 3 都报告“无死锁”。
+
+Postgres 的情形比标准死锁检测讨论稍复杂，有两个原因：
+
+1. 进程可以等待不止一个其他进程，因为可能有多个（不冲突的）锁类型的
+PROCLOCK 都与等待者的请求冲突。不过这没有真正的困难；我们只需准备好
+追踪不止一条外出边。
+
+2. 若进程 A 在某锁的等待队列中位于进程 B 之后，并且它们请求的锁冲突，
+则我们必须说 A 等待 B，因为 ProcLockWakeup 永远不会在 B 之前唤醒 A。
+这在 WFG 中创建额外的边。我们称这些为“软”边，相对于已持有锁诱导的
+“硬”边。注意若 B 已持有与 A 的请求冲突的任何锁，则它们的关系是硬边
+而不是软边。
+
+“软”阻塞，或等待优先级阻塞，与硬阻塞有相同的诱导死锁潜力。不过，我们
+可能能在不中止所涉及事务的情况下解决软阻塞：我们可以改为重排等待队列
+的顺序。这种重排反转两个冲突请求、其队列顺序被反转的进程之间的软边
+方向。若我们能找到消除环而不创建新环的重排，就可以避免中止。检查这类
+可能的重排是算法最棘手的部分。
+
+死锁检测器的主力是例程 FindLockCycle()，它被给定一个起点进程（必须是
+等待进程）。它如上所述沿等待边向外递归扫描。若它找不到涉及起点的环，
+它返回 “false”。（如上所述，我们可以忽略不涉及起点的环。）找到这类环
+时，FindLockCycle() 返回 “true”，并且在展开时它也构建环中涉及的任何
+“软”边的列表。若得到的列表为空，则有硬死锁，该配置无法成功。不过，
+若列表非空，则通过等待队列重排反转所列边中的任意一条将消除该环。由于
+这种反转可能在别处创建环，我们可能需要尝试每一种可能。因此，我们需要
+能对假设配置（等待顺序）以及当前真实顺序调用 FindLockCycle()。
+
+处理这一点最容易的办法似乎是有一个旁视表，显示我们正在考虑重排的每个
+等待队列的提议新队列顺序。FindLockCycle 检查此表，并且对旁视表中有
+条目的每个锁相信提议的队列顺序而不是真实顺序。
+
+我们通过对现有条目做“拓扑排序”来构建提议的新队列顺序。我们当前正在
+考虑反转的每条软边创建拓扑排序必须强制的偏序性质。我们必须使用尽可能
+保持输入顺序的排序方法，以免无端打破未卷入死锁的进程的到达顺序。
+（例如 Knuth 中展示的 tsort 方法并非如此，但用在每步发出第一个合法
+候选的简单双重嵌套循环方法很容易做到。幸运的是，我们不需要高度高效的
+排序算法，因为偏序约束的数量不太可能很大。）注意拓扑排序失败告诉我们
+有冲突的排序约束，因此最后添加的软边反转与先前的边反转冲突。我们需要
+检测此情形以避免在没有任何可能重排能工作的情形下无限循环：否则，我们
+可能尝试反转，发现它仍导致环，然后在试图去掉该环时尝试取消反转该反转，
+等等。拓扑排序失败告诉我们在此上下文中取消反转不是合法移动。
+
+因此，我们重排方法中的基本步骤是取环中的软边列表（由 FindLockCycle()
+返回），并相继尝试把其中每一条的反转作为拓扑排序约束加到我们已在考虑
+的任何约束上。我们递归搜索所有这类约束集，看是否有一个能一次消除全部
+死锁环。虽然这看起来可能低效得不可能，实践中不应是大问题，因为通常
+会有很少、并且不太大的死锁环——如果有的话。因此组合低效不会伤害我们。
+此外，花一些时间保证我们检查了所有可能的逃脱路线，好过在其实不必时
+中止事务。
+
+每个边反转约束可以视为请求把等待进程 A 移到它们共同所在的等待队列中
+阻塞进程 B 之前。这一动作将反转期望的软边，以及 A 与它被提前越过的
+其他进程之间的任何其他软边。没有其他边会受影响（注意这实际上是对我们
+拓扑排序方法不要不必要地重排队列的约束。）因此，若既没有
+FindLockCycle(A) 也没有 FindLockCycle(B) 发现任何环，我们可以确定我们
+没有创建任何新死锁环。给定上面定义的 FindLockCycle 行为，这些搜索中
+的每一个既必要也充分，因为从原始起点开始的 FindLockCycle 不会抱怨
+包含 A 或 B 但不包含原始起点的环。
+
+简而言之，等待队列的提议重排由一条或多条被打破的软边 A->B 决定，由
+每个涉及的等待队列的拓扑排序输出完全指定，然后通过从原始起点以及每个
+提到的进程（A 和 B）调用 FindLockCycle() 来测试。若没有测试检测到环，
+则我们有有效配置，并可以按排序输出重排等待队列来实现它（然后对每个
+重排的队列应用 ProcLockWakeup，以防某等待者已变得可唤醒）。若任何测试
+检测到软环，我们可以通过依次把该环中的每条软链接加到提议重排列表来
+试图解决它。这递归重复，直到我们找到可行的重排或判定不存在。在后一
+情形，外层通过中止原始起点事务来解决死锁。
+
+尝试重排的特定顺序取决于 FindLockCycle() 碰巧扫描的顺序，因此若有多个
+可行的等待队列重排，则未指定会选择哪一个。更重要的是我们保证尝试每个
+可能导致成功的队列重排。（例如，若我们有 A 在 B 之前在 C 之前，所需
+顺序约束是 C 在 A 之前且 B 在 C 之前，我们会先发现 A 在 C 之前不行，
+并尝试重排 C 在 A 之前在 B 之前。这最终会导致发现额外约束 B 在 C
+之前。）
+
+明白了吗？
+
+杂项说明
+--------
+
+1. 很容易证明：由于我们异步调用死锁检查，不会漏掉死锁。WFG 中的死锁
+环在环中最后一条边被添加时形成；因此环中最后一个等待的进程（该边从
+它外出）肯定会在稍后运行 CheckDeadLock 时检测并解决该环。即便该边
+添加创建了多个环也成立；该进程确实可能中止而从不注意到那些额外的环，
+但我们不太关心。死锁的唯一其他可能创建是在死锁解决重排等待队列期间，
+并且我们已经看到该算法会在试图实际执行任何重排之前证明它不创建新死锁。
+
+2. 不能确定死锁会通过中止最后等待的进程来解决。若环中较早的等待者尚未
+运行 CheckDeadLock，则第一个这样做的会成为牺牲者。
+
+3. ProcLockWakeup 不会漏掉任何活的（可唤醒）进程，因为它检查等待队列
+的每个成员（顺便说，7.0 实现中这不成立）。因此，若总是在锁释放或等待
+队列重排之后调用 ProcLockWakeup，就不会有未能唤醒可唤醒进程的失败。
+还应注意 LockErrorCleanup（因外部因素中止等待者）必须运行
+ProcLockWakeup，以防被取消的等待者正在软阻塞其他等待者。
+
+4. 我们可以通过在查找软边时小心从前面扫描等待队列来最小化多余的重排
+尝试工作。例如，若我们有队列顺序 A、B、C 且 C 与 A 和 B 都有死锁冲突，
+我们想先生成“C 在 A 之前”约束，而不是浪费时间在“C 在 B 之前”上，那
+不会把 C 往上移得足够远。因此我们从等待队列前面开始查找从 C 外出的
+软边。
+
+5. 死锁检测代码所需的工作数据结构可以限制为从 MaxBackends 计算出的
+条目数。因此，我们可以在后端启动期间分配最坏情况所需的空间。这似乎
+比试图在运行中分配工作空间更安全；我们不想冒死锁检测器内存不足的风险，
+否则我们对检测到死锁真的没有任何保证。
+
+6. 我们滥用死锁检测器来实现自动清理取消。当我们运行检测器并发现等待
+图中涉及自动清理工作进程时，我们存储指向其 PGPROC 的指针，并返回特殊
+返回码（除非已检测到硬死锁）。调用者随后可以发送取消信号。这实现自动
+清理具有低加锁优先级的原则（例如它不得阻塞表上的 DDL）。
+
+组加锁
+------
+
+仿佛这一切还不够复杂，PostgreSQL 现在支持并行（见
+src/backend/access/transam/README.parallel），这意味着我们可能需要
+解决发生在相关进程团伙之间而不是单个进程之间的死锁。这不会太多改变
+基本死锁检测算法，但让记账更复杂。
+
+我们选择把同一并行组中进程持有的锁视为不冲突，关系扩展锁除外。这意味
+着并行组中的两个进程可以同时持有同一关系上的自独占锁，或者一个进程
+可以在另一个已持有 AccessExclusiveLock 时获取 AccessShareLock。这可能
+看起来危险，在某些情形下也可能如此（下文更多），但若我们不这样做，
+并行查询会极易自死锁。例如，对着领导者已持有 AccessExclusiveLock 的
+关系的并行查询会挂起，因为工作进程会试图锁定同一关系并被领导者挡住；
+而领导者在收到所有工作进程的完成指示之前无法完成。结果是未检测到的
+死锁。这远不是发生这类问题的唯一场景。若领导者只持有 AccessShareLock，
+工作进程寻求 AccessShareLock，但在领导者试图获取锁与工作进程试图获取
+它之间，某个其他进程排队等待 AccessExclusiveLock，同样的事也会发生。
+这种情况下也会导致无限挂起。
+
+看起来我们可以预测工作进程将试图获取哪些锁，并在进入并行之前确保那些
+锁会被成功获取。但很难让这以通用方式工作。例如，并行工作进程的查询
+计划部分可能涉及动态生成查询的 SQL 可调用函数，而该查询可能碰巧打到
+领导者碰巧持有 AccessExclusiveLock 的表。通过足够限制工作进程能做的
+事，我们最终可以创建其行为能被充分限制的情形，但这些限制会相当繁重，
+即便那时，判定工作进程是否会成功获取必要锁的系统也会复杂并且可能有
+缺陷。
+
+因此，我们改为采取认定锁组内的锁不冲突的做法。这消除了未检测到死锁的
+可能，但也打开了一些问题情形：若领导者和工作进程同时试图做某种通常
+会被重量级锁机制阻止的操作，可能出现未定义行为。实践中危险不大。领导
+者和工作进程共享同一事务、快照和 combo CID 哈希，并且都不能执行任何
+DDL，实际上也不能写任何数据。因此，任一方读被另一方独占锁定的表足够
+安全。若领导者从代码中它有某些使从另一进程访问表不安全的后端私有状态
+的点发起并行，例如在调用 SetReindexProcessing 之后、调用
+ResetReindexProcessing 之前，就会出问题，因为工作进程不会有该状态。
+类似地，某些种类的非关系锁也可能出问题，例如 GIN 页锁。两个相关进程
+同时执行 GIN 清理并不比不相关进程做同样的事更安全。不过，由于并行
+模式目前严格只读，这一点以及大多数类似情形目前不会出现。要允许并行
+写，我们要么需要（1）进一步增强死锁检测器，以与其他类型不同的方式
+处理那些类型的锁；要么（2）让并行工作进程对这类情形使用其他互斥方法。
+
+组加锁给每个 PGPROC 添加三个新成员：lockGroupLeader、lockGroupMembers
+和 lockGroupLink。未卷入并行查询的进程的 lockGroupLeader 为 NULL。当
+进程想与并行工作进程合作时，它成为锁组领导者，这意味着把该字段设为
+指向自己的 PGPROC。并行工作进程启动时，它把该字段指向领导者。
+lockGroupMembers 字段只在领导者中使用；它是锁组成员 PGPROC 的列表
+（领导者和全部工作进程）。lockGroupLink 字段是该列表的列表链接。
+
+这三个字段都被视为由一把锁管理器分区锁保护。保护给定锁组内这些字段的
+分区锁通过取领导者的 pgprocno 对锁管理器分区数取模来选择。这一不寻常
+的安排有一个主要优点：死锁检测器可以指望在死锁检测器运行期间没有任何
+lockGroupLeader 字段会改变，因为它知道它持有全部锁管理器锁。另外，
+持有这一把锁允许安全操纵该锁组的 lockGroupMembers 列表。
+
+设置这些字段时我们需要额外的互锁，因为新启动的并行工作进程必须试图
+加入领导者的锁组，但它无法保证到它启动时锁组领导者仍活着。我们试图
+确保在正常情形下并行领导者在所有工作进程之后死亡，但也确保若那因某种
+原因未能发生，系统仍能相对完好地存活。这是针对这种场景的预防措施之一：
+领导者把它的 PGPROC 以及它的 PID 传给工作进程，并且除非给定 PGPROC
+仍有相同 PID 并且仍是锁组领导者，工作进程加入锁组失败。我们假定 PID
+不会回收得快到使这一互锁失败。
+
+
+用户锁（咨询锁）
+----------------
+
+用户锁完全在应用侧处理，作为可能延伸到正常事务边界之外的长期协作锁。
+它们的目的是向应用表明有人正在某项上“工作”。因此可以在元组的 oid 上
+放一把用户锁，取出该元组，对它工作一小时，然后更新它并移除锁。锁活动
+期间其他客户端仍可以读写该元组，但他们可以意识到它已在应用层被某人
+锁定。
+
+用户锁和普通锁完全正交，彼此不干扰。
+
+用户锁可以在会话级或事务级获取。会话级锁请求在事务结束时不自动释放，
+而必须由应用显式释放。（不过，任何剩余的锁总是在会话结束时释放。）
+事务级用户锁请求的行为与普通锁请求相同，即它们在事务结束时释放，不
+需要显式解锁。
+
+
+热备期间的加锁
+--------------
+
+启动进程是恢复期间唯一能做更改的后端，所有其他后端都是只读的。因此
+启动进程除锁级别为 AccessExclusiveLock 时外，不获取关系或对象上的锁。
+
+常规后端只被允许在 RowExclusiveLock 或更低级别对关系或对象取锁。这
+确保它们彼此不冲突，也不与启动进程冲突，除非启动进程请求
+AccessExclusiveLocks。
+
+涉及 AccessExclusiveLocks 的死锁是不可能的，因此我们不必担心用户发起
+的死锁会阻止恢复进展。
+
+主库上的 AccessExclusiveLocks 生成 WAL 记录，然后由启动进程应用。
+锁在事务结束时释放，就像正常处理中一样。这些锁由启动进程持有，充当
+原先获取这些锁的后端的代理。同样，这些锁不能彼此冲突，因此启动进程
+也不能自己死锁。
+
+虽然死锁不可能，常规后端的弱锁可能阻止启动进程在应用 WAL 时取得进展，
+这通常不是应容忍很久的事。存在若常规后端的查询阻挡启动进程太久就强制
+取消它的机制。

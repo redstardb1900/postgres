@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0055-comment-nodes-readfuncs",
+ "title": "zh: translate readfuncs comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5702d2cac234545c9c82bdf5a4c40a66a59a0f60",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/readfuncs.c",
+   "kind": "c_comment",
+   "note": "node string reader functions"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0055-comment-nodes-readfuncs.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/readfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 100,
+   "translated": 97,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "function-name banner",
+    "code literal"
+   ],
+   "note": "node string reader functions"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0055-comment-nodes-readfuncs.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

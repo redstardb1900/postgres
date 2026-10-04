@@ -34,145 +34,145 @@
 
 
 /*
- * Macros to simplify reading of different kinds of fields.  Use these
- * wherever possible to reduce the chance for silly typos.  Note that these
- * hard-wire conventions about the names of the local variables in a Read
- * routine.
+ * 简化各类字段读取的宏。尽可能使用它们，
+ * 以减少低级笔误的机会。注意，这些宏把
+ * Read 例程中局部变量名的约定
+ * 写死了。
  */
 
-/* Macros for declaring appropriate local variables */
+/* 声明适当局部变量的宏 */
 
-/* A few guys need only local_node */
+/* 有少数只需要 local_node */
 #define READ_LOCALS_NO_FIELDS(nodeTypeName) \
 	nodeTypeName *local_node = makeNode(nodeTypeName)
 
-/* And a few guys need only the pg_strtok support fields */
+/* 还有少数只需要 pg_strtok 的支持字段 */
 #define READ_TEMP_LOCALS()	\
 	const char *token;		\
 	int			length
 
-/* ... but most need both */
+/* ……但大多数两者都需要 */
 #define READ_LOCALS(nodeTypeName)			\
 	READ_LOCALS_NO_FIELDS(nodeTypeName);	\
 	READ_TEMP_LOCALS()
 
-/* Read an integer field (anything written as ":fldname %d") */
+/* 读取整数字段（任何写成 ":fldname %d" 的内容） */
 #define READ_INT_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = atoi(token)
 
-/* Read an unsigned integer field (anything written as ":fldname %u") */
+/* 读取无符号整数字段（任何写成 ":fldname %u" 的内容） */
 #define READ_UINT_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = atoui(token)
 
-/* Read an unsigned integer field (anything written using UINT64_FORMAT) */
+/* 读取无符号整数字段（任何用 UINT64_FORMAT 写出的内容） */
 #define READ_UINT64_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = strtou64(token, NULL, 10)
 
-/* Read a long integer field (anything written as ":fldname %ld") */
+/* 读取长整数字段（任何写成 ":fldname %ld" 的内容） */
 #define READ_LONG_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = atol(token)
 
-/* Read an OID field (don't hard-wire assumption that OID is same as uint) */
+/* 读取 OID 字段（不要把 OID 与 uint 相同这一假设写死） */
 #define READ_OID_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = atooid(token)
 
-/* Read a char field (ie, one ascii character) */
+/* 读取 char 字段（即一个 ascii 字符） */
 #define READ_CHAR_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
-	/* avoid overhead of calling debackslash() for one char */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
+	/* 避免为单个字符调用 debackslash() 的开销 */ \
 	local_node->fldname = (length == 0) ? '\0' : (token[0] == '\\' ? token[1] : token[0])
 
-/* Read an enumerated-type field that was written as an integer code */
+/* 读取写成整数代码的枚举类型字段 */
 #define READ_ENUM_FIELD(fldname, enumtype) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = (enumtype) atoi(token)
 
-/* Read a float field */
+/* 读取浮点字段 */
 #define READ_FLOAT_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = atof(token)
 
-/* Read a boolean field */
+/* 读取布尔字段 */
 #define READ_BOOL_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = strtobool(token)
 
-/* Read a character-string field */
+/* 读取字符串字段 */
 #define READ_STRING_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = nullable_string(token, length)
 
-/* Read a parse location field (and possibly throw away the value) */
+/* 读取解析位置字段（并可能丢弃该值） */
 #ifdef WRITE_READ_PARSE_PLAN_TREES
 #define READ_LOCATION_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
 	local_node->fldname = restore_location_fields ? atoi(token) : -1
 #else
 #define READ_LOCATION_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	token = pg_strtok(&length);		/* get field value */ \
-	(void) token;				/* in case not used elsewhere */ \
-	local_node->fldname = -1	/* set field to "unknown" */
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	token = pg_strtok(&length);		/* 取字段值 */ \
+	(void) token;				/* 以防别处未使用 */ \
+	local_node->fldname = -1	/* 把字段设为 "未知" */
 #endif
 
-/* Read a Node field */
+/* 读取 Node 字段 */
 #define READ_NODE_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	(void) token;				/* in case not used elsewhere */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	(void) token;				/* 以防别处未使用 */ \
 	local_node->fldname = nodeRead(NULL, 0)
 
-/* Read a bitmapset field */
+/* 读取位图集字段 */
 #define READ_BITMAPSET_FIELD(fldname) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
-	(void) token;				/* in case not used elsewhere */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
+	(void) token;				/* 以防别处未使用 */ \
 	local_node->fldname = _readBitmapset()
 
-/* Read an attribute number array */
+/* 读取属性号数组 */
 #define READ_ATTRNUMBER_ARRAY(fldname, len) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
 	local_node->fldname = readAttrNumberCols(len)
 
-/* Read an oid array */
+/* 读取 oid 数组 */
 #define READ_OID_ARRAY(fldname, len) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
 	local_node->fldname = readOidCols(len)
 
-/* Read an int array */
+/* 读取 int 数组 */
 #define READ_INT_ARRAY(fldname, len) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
 	local_node->fldname = readIntCols(len)
 
-/* Read a bool array */
+/* 读取 bool 数组 */
 #define READ_BOOL_ARRAY(fldname, len) \
-	token = pg_strtok(&length);		/* skip :fldname */ \
+	token = pg_strtok(&length);		/* 跳过 :fldname */ \
 	local_node->fldname = readBoolCols(len)
 
-/* Routine exit */
+/* 例程出口 */
 #define READ_DONE() \
 	return local_node
 
 
 /*
- * NOTE: use atoi() to read values written with %d, or atoui() to read
- * values written with %u in outfuncs.c.  An exception is OID values,
- * for which use atooid().  (As of 7.1, outfuncs.c writes OIDs as %u,
- * but this will probably change in the future.)
+ * 注意：用 atoi() 读取以 %d 写出的值，或用 atoui() 读取
+ * outfuncs.c 中以 %u 写出的值。例外是 OID 值，
+ * 对它们使用 atooid()。（自 7.1 起，outfuncs.c 把 OIDs 写成 %u，
+ * 但这将来大概会变。）
  */
 #define atoui(x)  ((unsigned int) strtoul((x), NULL, 10))
 
@@ -181,13 +181,13 @@
 static char *
 nullable_string(const char *token, int length)
 {
-	/* outToken emits <> for NULL, and pg_strtok makes that an empty string */
+	/* outToken 对 NULL 输出 <>，pg_strtok 把它变成空字符串 */
 	if (length == 0)
 		return NULL;
-	/* outToken emits "" for empty string */
+	/* outToken 对空字符串输出 "" */
 	if (length == 2 && token[0] == '"' && token[1] == '"')
 		return pstrdup("");
-	/* otherwise, we must remove protective backslashes added by outToken */
+	/* 否则，我们必须去掉 outToken 加上的保护性反斜杠 */
 	return debackslash(token, length);
 }
 
@@ -195,9 +195,9 @@ nullable_string(const char *token, int length)
 /*
  * _readBitmapset
  *
- * Note: this code is used in contexts where we know that a Bitmapset
- * is expected.  There is equivalent code in nodeRead() that can read a
- * Bitmapset when we come across one in other contexts.
+ * 注意：这段代码用于已知预期是 Bitmapset 的上下文。
+ * 在其他上下文里遇到 Bitmapset 时，nodeRead() 中有等价代码
+ * 可以读取。
  */
 static Bitmapset *
 _readBitmapset(void)
@@ -238,8 +238,8 @@ _readBitmapset(void)
 }
 
 /*
- * We export this function for use by extensions that define extensible nodes.
- * That's somewhat historical, though, because calling nodeRead() will work.
+ * 我们导出此函数，供定义可扩展节点的扩展使用。
+ * 不过这多少是历史原因，因为调用 nodeRead() 也能工作。
  */
 Bitmapset *
 readBitmapset(void)
@@ -251,8 +251,8 @@ readBitmapset(void)
 
 
 /*
- * Support functions for nodes with custom_read_write attribute or
- * special_read_write attribute
+ * 带 custom_read_write 属性或
+ * special_read_write 属性的节点的支持函数
  */
 
 static Const *
@@ -268,9 +268,9 @@ _readConst(void)
 	READ_BOOL_FIELD(constisnull);
 	READ_LOCATION_FIELD(location);
 
-	token = pg_strtok(&length); /* skip :constvalue */
+	token = pg_strtok(&length); /* 跳过 :constvalue */
 	if (local_node->constisnull)
-		token = pg_strtok(&length); /* skip "<>" */
+		token = pg_strtok(&length); /* 跳过 "<>" */
 	else
 		local_node->constvalue = readDatum(local_node->constbyval);
 
@@ -282,9 +282,9 @@ _readBoolExpr(void)
 {
 	READ_LOCALS(BoolExpr);
 
-	/* do-it-yourself enum representation */
-	token = pg_strtok(&length); /* skip :boolop */
-	token = pg_strtok(&length); /* get field value */
+	/* 自行处理的枚举表示 */
+	token = pg_strtok(&length); /* 跳过 :boolop */
+	token = pg_strtok(&length); /* 取字段值 */
 	if (length == 3 && strncmp(token, "and", 3) == 0)
 		local_node->boolop = AND_EXPR;
 	else if (length == 2 && strncmp(token, "or", 2) == 0)
@@ -305,7 +305,7 @@ _readA_Const(void)
 {
 	READ_LOCALS(A_Const);
 
-	/* We expect either NULL or :val here */
+	/* 这里我们预期要么是 NULL，要么是 :val */
 	token = pg_strtok(&length);
 	if (length == 4 && strncmp(token, "NULL", 4) == 0)
 		local_node->isnull = true;
@@ -313,7 +313,7 @@ _readA_Const(void)
 	{
 		union ValUnion *tmp = nodeRead(NULL, 0);
 
-		/* To forestall valgrind complaints, copy only the valid data */
+		/* 为避免 valgrind 抱怨，只复制有效数据 */
 		switch (nodeTag(tmp))
 		{
 			case T_Integer:
@@ -356,8 +356,8 @@ _readConstraint(void)
 	READ_BOOL_FIELD(initdeferred);
 	READ_LOCATION_FIELD(location);
 
-	token = pg_strtok(&length); /* skip :contype */
-	token = pg_strtok(&length); /* get field value */
+	token = pg_strtok(&length); /* 跳过 :contype */
+	token = pg_strtok(&length); /* 取字段值 */
 	if (length == 4 && strncmp(token, "NULL", 4) == 0)
 		local_node->contype = CONSTR_NULL;
 	else if (length == 8 && strncmp(token, "NOT_NULL", 8) == 0)
@@ -391,7 +391,7 @@ _readConstraint(void)
 	{
 		case CONSTR_NULL:
 		case CONSTR_NOTNULL:
-			/* no extra fields */
+			/* 没有额外字段 */
 			break;
 
 		case CONSTR_DEFAULT:
@@ -425,7 +425,7 @@ _readConstraint(void)
 			READ_STRING_FIELD(indexname);
 			READ_STRING_FIELD(indexspace);
 			READ_BOOL_FIELD(reset_default_tblspc);
-			/* access_method and where_clause not currently used */
+			/* access_method 和 where_clause 目前未使用 */
 			break;
 
 		case CONSTR_UNIQUE:
@@ -436,7 +436,7 @@ _readConstraint(void)
 			READ_STRING_FIELD(indexname);
 			READ_STRING_FIELD(indexspace);
 			READ_BOOL_FIELD(reset_default_tblspc);
-			/* access_method and where_clause not currently used */
+			/* access_method 和 where_clause 目前未使用 */
 			break;
 
 		case CONSTR_EXCLUSION:
@@ -468,7 +468,7 @@ _readConstraint(void)
 		case CONSTR_ATTR_NOT_DEFERRABLE:
 		case CONSTR_ATTR_DEFERRED:
 		case CONSTR_ATTR_IMMEDIATE:
-			/* no extra fields */
+			/* 没有额外字段 */
 			break;
 
 		default:
@@ -484,7 +484,7 @@ _readRangeTblEntry(void)
 {
 	READ_LOCALS(RangeTblEntry);
 
-	/* put alias + eref first to make dump more legible */
+	/* 把 alias 和 eref 放前面，使转储更易读 */
 	READ_NODE_FIELD(alias);
 	READ_NODE_FIELD(eref);
 	READ_ENUM_FIELD(rtekind, RTEKind);
@@ -501,7 +501,7 @@ _readRangeTblEntry(void)
 		case RTE_SUBQUERY:
 			READ_NODE_FIELD(subquery);
 			READ_BOOL_FIELD(security_barrier);
-			/* we re-use these RELATION fields, too: */
+			/* 我们也复用这些 RELATION 字段： */
 			READ_OID_FIELD(relid);
 			READ_CHAR_FIELD(relkind);
 			READ_INT_FIELD(rellockmode);
@@ -521,7 +521,7 @@ _readRangeTblEntry(void)
 			break;
 		case RTE_TABLEFUNC:
 			READ_NODE_FIELD(tablefunc);
-			/* The RTE must have a copy of the column type info, if any */
+			/* RTE 若有列类型信息，必须有一份副本 */
 			if (local_node->tablefunc)
 			{
 				TableFunc  *tf = local_node->tablefunc;
@@ -551,11 +551,11 @@ _readRangeTblEntry(void)
 			READ_NODE_FIELD(coltypes);
 			READ_NODE_FIELD(coltypmods);
 			READ_NODE_FIELD(colcollations);
-			/* we re-use these RELATION fields, too: */
+			/* 我们也复用这些 RELATION 字段： */
 			READ_OID_FIELD(relid);
 			break;
 		case RTE_RESULT:
-			/* no extra fields */
+			/* 没有额外字段 */
 			break;
 		default:
 			elog(ERROR, "unrecognized RTE kind: %d",
@@ -667,8 +667,8 @@ _readExtensibleNode(void)
 
 	READ_TEMP_LOCALS();
 
-	token = pg_strtok(&length); /* skip :extnodename */
-	token = pg_strtok(&length); /* get extnodename */
+	token = pg_strtok(&length); /* 跳过 :extnodename */
+	token = pg_strtok(&length); /* 取 extnodename */
 
 	extnodename = nullable_string(token, length);
 	if (!extnodename)
@@ -679,7 +679,7 @@ _readExtensibleNode(void)
 											T_ExtensibleNode);
 	local_node->extnodename = extnodename;
 
-	/* deserialize the private fields */
+	/* 反序列化私有字段 */
 	methods->nodeRead(local_node);
 
 	READ_DONE();
@@ -689,17 +689,17 @@ _readExtensibleNode(void)
 /*
  * parseNodeString
  *
- * Given a character string representing a node tree, parseNodeString creates
- * the internal node structure.
+ * 给定表示节点树的字符串，parseNodeString 创建
+ * 内部节点结构。
  *
- * The string to be read must already have been loaded into pg_strtok().
+ * 要读的字符串必须已经装入 pg_strtok()。
  */
 Node *
 parseNodeString(void)
 {
 	READ_TEMP_LOCALS();
 
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	token = pg_strtok(&length);
@@ -710,16 +710,16 @@ parseNodeString(void)
 #include "readfuncs.switch.c"
 
 	elog(ERROR, "badly formatted node string \"%.32s\"...", token);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 
 /*
  * readDatum
  *
- * Given a string representation of a constant, recreate the appropriate
- * Datum.  The string representation embeds length info, but not byValue,
- * so we must be told that.
+ * 给定常量的字符串表示，重建相应的
+ * Datum。字符串表示嵌入了长度信息，但不含 byValue，
+ * 因此必须由调用方告知。
  */
 Datum
 readDatum(bool typbyval)
@@ -732,12 +732,12 @@ readDatum(bool typbyval)
 	char	   *s;
 
 	/*
-	 * read the actual length of the value
+	 * 读取该值的实际长度
 	 */
 	token = pg_strtok(&tokenLength);
 	length = atoui(token);
 
-	token = pg_strtok(&tokenLength);	/* read the '[' */
+	token = pg_strtok(&tokenLength);	/* 读取 '[' */
 	if (token == NULL || token[0] != '[')
 		elog(ERROR, "expected \"[\" to start datum, but got \"%s\"; length = %zu",
 			 token ? token : "[NULL]", length);
@@ -767,7 +767,7 @@ readDatum(bool typbyval)
 		res = PointerGetDatum(s);
 	}
 
-	token = pg_strtok(&tokenLength);	/* read the ']' */
+	token = pg_strtok(&tokenLength);	/* 读取 ']' */
 	if (token == NULL || token[0] != ']')
 		elog(ERROR, "expected \"]\" to end datum, but got \"%s\"; length = %zu",
 			 token ? token : "[NULL]", length);
@@ -776,12 +776,12 @@ readDatum(bool typbyval)
 }
 
 /*
- * common implementation for scalar-array-reading functions
+ * 标量数组读取函数的公共实现
  *
- * The data format is either "<>" for a NULL pointer (in which case numCols
- * is ignored) or "(item item item)" where the number of items must equal
- * numCols.  The convfunc must be okay with stopping at whitespace or a
- * right parenthesis, since pg_strtok won't null-terminate the token.
+ * 数据格式要么是 NULL 指针的 "<>"（此时忽略 numCols），
+ * 要么是 "(item item item)"，其中项数必须等于
+ * numCols。convfunc 必须能在空白或
+ * 右括号处停下，因为 pg_strtok 不会给词元加上结尾的空字符。
  */
 #define READ_SCALAR_ARRAY(fnname, datatype, convfunc) \
 datatype * \
@@ -793,7 +793,7 @@ fnname(int numCols) \
 	if (token == NULL) \
 		elog(ERROR, "incomplete scalar array"); \
 	if (length == 0) \
-		return NULL;			/* it was "<>", so return NULL pointer */ \
+		return NULL;			/* 它是 "<>"，因此返回 NULL 指针 */ \
 	if (length != 1 || token[0] != '(') \
 		elog(ERROR, "unrecognized token: \"%.*s\"", length, token); \
 	vals = (datatype *) palloc(numCols * sizeof(datatype)); \
@@ -811,12 +811,12 @@ fnname(int numCols) \
 }
 
 /*
- * Note: these functions are exported in nodes.h for possible use by
- * extensions, so don't mess too much with their names or API.
+ * 注意：这些函数在 nodes.h 中导出，扩展可能会使用，
+ * 因此不要过度改动它们的名字或 API。
  */
 READ_SCALAR_ARRAY(readAttrNumberCols, int16, atoi)
 READ_SCALAR_ARRAY(readOidCols, Oid, atooid)
-/* outfuncs.c has writeIndexCols, but we don't yet need that here */
+/* outfuncs.c 有 writeIndexCols，但这里还不需要 */
 /* READ_SCALAR_ARRAY(readIndexCols, Index, atoui) */
 READ_SCALAR_ARRAY(readIntCols, int, atoi)
 READ_SCALAR_ARRAY(readBoolCols, bool, strtobool)

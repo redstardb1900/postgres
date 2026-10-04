@@ -24,32 +24,32 @@
 
 
 /*
- * The previous List implementation, since it used a separate palloc chunk
- * for each cons cell, had the property that adding or deleting list cells
- * did not move the storage of other existing cells in the list.  Quite a
- * bit of existing code depended on that, by retaining ListCell pointers
- * across such operations on a list.  There is no such guarantee in this
- * implementation, so instead we have debugging support that is meant to
- * help flush out now-broken assumptions.  Defining DEBUG_LIST_MEMORY_USAGE
- * while building this file causes the List operations to forcibly move
- * all cells in a list whenever a cell is added or deleted.  In combination
- * with MEMORY_CONTEXT_CHECKING and/or Valgrind, this can usually expose
- * broken code.  It's a bit expensive though, as there's many more palloc
- * cycles and a lot more data-copying than in a default build.
+ * 先前的 List 实现为每个 cons 单元单独做一次 palloc，
+ * 因此有这样的性质：增删列表单元不会移动
+ * 列表中其他已有单元的存储。相当一部分
+ * 既有代码依赖这一点，会在对列表做这类操作之后
+ * 仍然保留 ListCell 指针。本实现不提供这种保证，
+ * 因此我们改为提供调试支持，用来
+ * 帮助揪出现已不成立的假设。在编译本文件时定义 DEBUG_LIST_MEMORY_USAGE
+ * 会使 List 操作在增删单元时强制移动
+ * 列表中的所有单元。再配合
+ * MEMORY_CONTEXT_CHECKING 和/或 Valgrind，通常就能暴露
+ * 有问题的代码。不过这有些昂贵，因为比起默认构建，
+ * palloc 周期多得多，数据复制也多得多。
  *
- * By default, we enable this when building for Valgrind.
+ * 默认情况下，为 Valgrind 构建时启用此项。
  */
 #ifdef USE_VALGRIND
 #define DEBUG_LIST_MEMORY_USAGE
 #endif
 
-/* Overhead for the fixed part of a List header, measured in ListCells */
+/* List 头固定部分的开销，以 ListCells 计 */
 #define LIST_HEADER_OVERHEAD  \
 	((int) ((offsetof(List, initial_elements) - 1) / sizeof(ListCell) + 1))
 
 /*
- * Macros to simplify writing assertions about the type of a list; a
- * NIL list is considered to be an empty list of any type.
+ * 简化列表类型断言的宏；
+ * NIL 列表视为任意类型的空列表。
  */
 #define IsPointerList(l)		((l) == NIL || IsA((l), List))
 #define IsIntegerList(l)		((l) == NIL || IsA((l), IntList))
@@ -58,7 +58,7 @@
 
 #ifdef USE_ASSERT_CHECKING
 /*
- * Check that the specified List is valid (so far as we can tell).
+ * 检查指定的 List 是否有效（就我们所能判断的范围而言）。
  */
 static void
 check_list_invariants(const List *list)
@@ -80,11 +80,11 @@ check_list_invariants(const List *list)
 #endif							/* USE_ASSERT_CHECKING */
 
 /*
- * Return a freshly allocated List with room for at least min_size cells.
+ * 返回一个新分配的 List，至少能放下 min_size 个单元。
  *
- * Since empty non-NIL lists are invalid, new_list() sets the initial length
- * to min_size, effectively marking that number of cells as valid; the caller
- * is responsible for filling in their data.
+ * 由于空的非 NIL 列表是无效的，new_list() 把初始长度
+ * 设为 min_size，相当于把那么多个单元标为有效；调用方
+ * 负责填入它们的数据。
  */
 static List *
 new_list(NodeTag type, int min_size)
@@ -95,40 +95,40 @@ new_list(NodeTag type, int min_size)
 	Assert(min_size > 0);
 
 	/*
-	 * We allocate all the requested cells, and possibly some more, as part of
-	 * the same palloc request as the List header.  This is a big win for the
-	 * typical case of short fixed-length lists.  It can lose if we allocate a
-	 * moderately long list and then it gets extended; we'll be wasting more
-	 * initial_elements[] space than if we'd made the header small.  However,
-	 * rounding up the request as we do in the normal code path provides some
-	 * defense against small extensions.
+	 * 我们把所请求的全部单元，也许还有一些额外单元，作为
+	 * 与 List 头同一次 palloc 请求的一部分来分配。对
+	 * 典型的短固定长度列表这是很大的收益。若我们分配了一个
+	 * 中等长度的列表然后它又被扩展，就会有损失；浪费的
+	 * initial_elements[] 空间会比把头做小更多。不过，
+	 * 像正常代码路径那样把请求向上取整，对小幅扩展
+	 * 提供了一些防护。
 	 */
 
 #ifndef DEBUG_LIST_MEMORY_USAGE
 
 	/*
-	 * Normally, we set up a list with some extra cells, to allow it to grow
-	 * without a repalloc.  Prefer cell counts chosen to make the total
-	 * allocation a power-of-2, since palloc would round it up to that anyway.
-	 * (That stops being true for very large allocations, but very long lists
-	 * are infrequent, so it doesn't seem worth special logic for such cases.)
+	 * 通常我们会给列表多留一些单元，使它不必
+	 * repalloc 就能增长。优先选择能让总分配量
+	 * 成为 2 的幂的单元数，因为 palloc 反正会向上取整到那么大。
+	 * （对非常大的分配不再成立，但很长的列表
+	 * 很少见，因此似乎不值得为这类情况写特殊逻辑。）
 	 *
-	 * The minimum allocation is 8 ListCell units, providing either 4 or 5
-	 * available ListCells depending on the machine's word width.  Counting
-	 * palloc's overhead, this uses the same amount of space as a one-cell
-	 * list did in the old implementation, and less space for any longer list.
+	 * 最小分配是 8 个 ListCell 单位，依机器字宽可提供 4 或 5 个
+	 * 可用的 ListCells。把
+	 * palloc 的开销算进去，这与旧实现中单单元
+	 * 列表占用的空间相同，更长的列表则更省空间。
 	 *
-	 * We needn't worry about integer overflow; no caller passes min_size
-	 * that's more than twice the size of an existing list, so the size limits
-	 * within palloc will ensure that we don't overflow here.
+	 * 我们不必担心整数溢出；没有调用方传入的 min_size
+	 * 会超过现有列表大小的两倍，因此 palloc 内部的大小限制
+	 * 会保证这里不会溢出。
 	 */
 	max_size = pg_nextpower2_32(Max(8, min_size + LIST_HEADER_OVERHEAD));
 	max_size -= LIST_HEADER_OVERHEAD;
 #else
 
 	/*
-	 * For debugging, don't allow any extra space.  This forces any cell
-	 * addition to go through enlarge_list() and thus move the existing data.
+	 * 为了调试，不留任何额外空间。这会迫使任何新增单元
+	 * 都走 enlarge_list()，从而移动已有数据。
 	 */
 	max_size = min_size;
 #endif
@@ -144,42 +144,42 @@ new_list(NodeTag type, int min_size)
 }
 
 /*
- * Enlarge an existing non-NIL List to have room for at least min_size cells.
+ * 把已有的非 NIL List 扩大到至少能放下 min_size 个单元。
  *
- * This does *not* update list->length, as some callers would find that
- * inconvenient.  (list->length had better be the correct number of existing
- * valid cells, though.)
+ * 这不会更新 list->length，因为有些调用方会觉得那样
+ * 不方便。（不过 list->length 最好就是已有
+ * 有效单元的正确个数。）
  */
 static void
 enlarge_list(List *list, int min_size)
 {
 	int			new_max_len;
 
-	Assert(min_size > list->max_length);	/* else we shouldn't be here */
+	Assert(min_size > list->max_length);	/* 否则我们不该到这里 */
 
 #ifndef DEBUG_LIST_MEMORY_USAGE
 
 	/*
-	 * As above, we prefer power-of-two total allocations; but here we need
-	 * not account for list header overhead.
+	 * 同上，我们偏好总量为 2 的幂的分配；但这里
+	 * 不必计入列表头的开销。
 	 */
 
-	/* clamp the minimum value to 16, a semi-arbitrary small power of 2 */
+	/* 把最小值钳制为 16，一个多少有些随意的、较小的 2 的幂 */
 	new_max_len = pg_nextpower2_32(Max(16, min_size));
 
 #else
-	/* As above, don't allocate anything extra */
+	/* 同上，不额外分配任何空间 */
 	new_max_len = min_size;
 #endif
 
 	if (list->elements == list->initial_elements)
 	{
 		/*
-		 * Replace original in-line allocation with a separate palloc block.
-		 * Ensure it is in the same memory context as the List header.  (The
-		 * previous List implementation did not offer any guarantees about
-		 * keeping all list cells in the same context, but it seems reasonable
-		 * to create such a guarantee now.)
+		 * 用单独的 palloc 块替换原来的内联分配。
+		 * 确保它与 List 头在同一内存上下文中。（先前的
+		 * List 实现并不保证
+		 * 所有列表单元都在同一上下文中，但现在
+		 * 做出这样的保证看来是合理的。）
 		 */
 		list->elements = (ListCell *)
 			MemoryContextAlloc(GetMemoryChunkContext(list),
@@ -188,10 +188,10 @@ enlarge_list(List *list, int min_size)
 			   list->length * sizeof(ListCell));
 
 		/*
-		 * We must not move the list header, so it's unsafe to try to reclaim
-		 * the initial_elements[] space via repalloc.  In debugging builds,
-		 * however, we can clear that space and/or mark it inaccessible.
-		 * (wipe_mem includes VALGRIND_MAKE_MEM_NOACCESS.)
+		 * 我们不得移动列表头，因此试图通过 repalloc 回收
+		 * initial_elements[] 空间是不安全的。在调试构建中，
+		 * 我们仍可以把那块空间清掉，并/或标为不可访问。
+		 * （wipe_mem 包含 VALGRIND_MAKE_MEM_NOACCESS。）
 		 */
 #ifdef CLOBBER_FREED_MEMORY
 		wipe_mem(list->initial_elements,
@@ -204,13 +204,13 @@ enlarge_list(List *list, int min_size)
 	else
 	{
 #ifndef DEBUG_LIST_MEMORY_USAGE
-		/* Normally, let repalloc deal with enlargement */
+		/* 通常让 repalloc 处理扩大 */
 		list->elements = (ListCell *) repalloc(list->elements,
 											   new_max_len * sizeof(ListCell));
 #else
 		/*
-		 * repalloc() might enlarge the space in-place, which we don't want
-		 * for debugging purposes, so forcibly move the data somewhere else.
+		 * repalloc() 也许会就地扩大空间，而我们为了
+		 * 调试目的并不希望这样，因此强制把数据移到别处。
 		 */
 		ListCell   *newelements;
 
@@ -228,8 +228,8 @@ enlarge_list(List *list, int min_size)
 }
 
 /*
- * Convenience functions to construct short Lists from given values.
- * (These are normally invoked via the list_makeN macros.)
+ * 用给定值构造短 List 的便捷函数。
+ * （通常经由 list_makeN 宏调用。）
  */
 List *
 list_make1_impl(NodeTag t, ListCell datum1)
@@ -295,44 +295,44 @@ list_make5_impl(NodeTag t, ListCell datum1, ListCell datum2,
 }
 
 /*
- * Make room for a new head cell in the given (non-NIL) list.
+ * 在给定（非 NIL）列表中为新的头单元腾出空间。
  *
- * The data in the new head cell is undefined; the caller should be
- * sure to fill it in
+ * 新头单元中的数据未定义；调用方应当
+ * 务必填入
  */
 static void
 new_head_cell(List *list)
 {
-	/* Enlarge array if necessary */
+	/* 必要时扩大数组 */
 	if (list->length >= list->max_length)
 		enlarge_list(list, list->length + 1);
-	/* Now shove the existing data over */
+	/* 然后把已有数据挪开 */
 	memmove(&list->elements[1], &list->elements[0],
 			list->length * sizeof(ListCell));
 	list->length++;
 }
 
 /*
- * Make room for a new tail cell in the given (non-NIL) list.
+ * 在给定（非 NIL）列表中为新的尾单元腾出空间。
  *
- * The data in the new tail cell is undefined; the caller should be
- * sure to fill it in
+ * 新尾单元中的数据未定义；调用方应当
+ * 务必填入
  */
 static void
 new_tail_cell(List *list)
 {
-	/* Enlarge array if necessary */
+	/* 必要时扩大数组 */
 	if (list->length >= list->max_length)
 		enlarge_list(list, list->length + 1);
 	list->length++;
 }
 
 /*
- * Append a pointer to the list. A pointer to the modified list is
- * returned. Note that this function may or may not destructively
- * modify the list; callers should always use this function's return
- * value, rather than continuing to use the pointer passed as the
- * first argument.
+ * 把一个指针追加到列表。返回指向修改后列表的
+ * 指针。注意本函数也许会、也许不会破坏性地
+ * 修改列表；调用方应当始终使用本函数的返回
+ * 值，而不是继续使用作为
+ * 第一个参数传入的指针。
  */
 List *
 lappend(List *list, void *datum)
@@ -350,7 +350,7 @@ lappend(List *list, void *datum)
 }
 
 /*
- * Append an integer to the specified list. See lappend()
+ * 把一个整数追加到指定列表。见 lappend()
  */
 List *
 lappend_int(List *list, int datum)
@@ -368,7 +368,7 @@ lappend_int(List *list, int datum)
 }
 
 /*
- * Append an OID to the specified list. See lappend()
+ * 把一个 OID 追加到指定列表。见 lappend()
  */
 List *
 lappend_oid(List *list, Oid datum)
@@ -386,7 +386,7 @@ lappend_oid(List *list, Oid datum)
 }
 
 /*
- * Append a TransactionId to the specified list. See lappend()
+ * 把一个 TransactionId 追加到指定列表。见 lappend()
  */
 List *
 lappend_xid(List *list, TransactionId datum)
@@ -404,21 +404,21 @@ lappend_xid(List *list, TransactionId datum)
 }
 
 /*
- * Make room for a new cell at position 'pos' (measured from 0).
- * The data in the cell is left undefined, and must be filled in by the
- * caller. 'list' is assumed to be non-NIL, and 'pos' must be a valid
- * list position, ie, 0 <= pos <= list's length.
- * Returns address of the new cell.
+ * 为位置 'pos'（从 0 计）腾出一个新单元。
+ * 单元中的数据留空，必须由
+ * 调用方填入。假定 'list' 不是 NIL，且 'pos' 必须是有效的
+ * 列表位置，即 0 <= pos <= 列表长度。
+ * 返回新单元的地址。
  */
 static ListCell *
 insert_new_cell(List *list, int pos)
 {
 	Assert(pos >= 0 && pos <= list->length);
 
-	/* Enlarge array if necessary */
+	/* 必要时扩大数组 */
 	if (list->length >= list->max_length)
 		enlarge_list(list, list->length + 1);
-	/* Now shove the existing data over */
+	/* 然后把已有数据挪开 */
 	if (pos < list->length)
 		memmove(&list->elements[pos + 1], &list->elements[pos],
 				(list->length - pos) * sizeof(ListCell));
@@ -428,11 +428,11 @@ insert_new_cell(List *list, int pos)
 }
 
 /*
- * Insert the given datum at position 'pos' (measured from 0) in the list.
- * 'pos' must be valid, ie, 0 <= pos <= list's length.
+ * 把给定 datum 插入列表中从 0 计的位置 'pos'。
+ * 'pos' 必须有效，即 0 <= pos <= 列表长度。
  *
- * Note that this takes time proportional to the distance to the end of the
- * list, since the following entries must be moved.
+ * 注意这所花时间与到列表末尾的距离成正比，
+ * 因为必须移动后面的项。
  */
 List *
 list_insert_nth(List *list, int pos, void *datum)
@@ -477,18 +477,18 @@ list_insert_nth_oid(List *list, int pos, Oid datum)
 }
 
 /*
- * Prepend a new element to the list. A pointer to the modified list
- * is returned. Note that this function may or may not destructively
- * modify the list; callers should always use this function's return
- * value, rather than continuing to use the pointer passed as the
- * second argument.
+ * 把新元素加到列表前端。返回指向修改后列表
+ * 的指针。注意本函数也许会、也许不会破坏性地
+ * 修改列表；调用方应当始终使用本函数的返回
+ * 值，而不是继续使用作为
+ * 第二个参数传入的指针。
  *
- * Note that this takes time proportional to the length of the list,
- * since the existing entries must be moved.
+ * 注意这所花时间与列表长度成正比，
+ * 因为必须移动已有项。
  *
- * Caution: before Postgres 8.0, the original List was unmodified and
- * could be considered to retain its separate identity.  This is no longer
- * the case.
+ * 注意：在 Postgres 8.0 之前，原来的 List 不会被修改，
+ * 可以认为它仍保持独立身份。现在
+ * 已经不是这样了。
  */
 List *
 lcons(void *datum, List *list)
@@ -506,7 +506,7 @@ lcons(void *datum, List *list)
 }
 
 /*
- * Prepend an integer to the list. See lcons()
+ * 把一个整数加到列表前端。见 lcons()
  */
 List *
 lcons_int(int datum, List *list)
@@ -524,7 +524,7 @@ lcons_int(int datum, List *list)
 }
 
 /*
- * Prepend an OID to the list. See lcons()
+ * 把一个 OID 加到列表前端。见 lcons()
  */
 List *
 lcons_oid(Oid datum, List *list)
@@ -542,19 +542,19 @@ lcons_oid(Oid datum, List *list)
 }
 
 /*
- * Concatenate list2 to the end of list1, and return list1.
+ * 把 list2 拼接到 list1 末尾，并返回 list1。
  *
- * This is equivalent to lappend'ing each element of list2, in order, to list1.
- * list1 is destructively changed, list2 is not.  (However, in the case of
- * pointer lists, list1 and list2 will point to the same structures.)
+ * 这等价于按顺序把 list2 的每个元素 lappend 到 list1。
+ * list1 会被破坏性修改，list2 不会。（不过对于
+ * 指针列表，list1 和 list2 将指向相同的结构。）
  *
- * Callers should be sure to use the return value as the new pointer to the
- * concatenated list: the 'list1' input pointer may or may not be the same
- * as the returned pointer.
+ * 调用方应务必把返回值当作拼接后列表的新指针：
+ * 传入的 'list1' 指针也许与
+ * 返回的指针相同，也许不同。
  *
- * Note that this takes at least time proportional to the length of list2.
- * It'd typically be the case that we have to enlarge list1's storage,
- * probably adding time proportional to the length of list1.
+ * 注意这至少要花与 list2 长度成正比的时间。
+ * 通常我们还得扩大 list1 的存储，
+ * 可能再增加与 list1 长度成正比的时间。
  */
 List *
 list_concat(List *list1, const List *list2)
@@ -569,11 +569,11 @@ list_concat(List *list1, const List *list2)
 	Assert(list1->type == list2->type);
 
 	new_len = list1->length + list2->length;
-	/* Enlarge array if necessary */
+	/* 必要时扩大数组 */
 	if (new_len > list1->max_length)
 		enlarge_list(list1, new_len);
 
-	/* Even if list1 == list2, using memcpy should be safe here */
+	/* 即使 list1 == list2，这里使用 memcpy 也应是安全的 */
 	memcpy(&list1->elements[list1->length], &list2->elements[0],
 		   list2->length * sizeof(ListCell));
 	list1->length = new_len;
@@ -583,15 +583,15 @@ list_concat(List *list1, const List *list2)
 }
 
 /*
- * Form a new list by concatenating the elements of list1 and list2.
+ * 把 list1 与 list2 的元素拼接成一个新列表。
  *
- * Neither input list is modified.  (However, if they are pointer lists,
- * the output list will point to the same structures.)
+ * 两个输入列表都不会被修改。（不过若它们是指针列表，
+ * 输出列表将指向相同的结构。）
  *
- * This is equivalent to, but more efficient than,
- * list_concat(list_copy(list1), list2).
- * Note that some pre-v13 code might list_copy list2 as well, but that's
- * pointless now.
+ * 这等价于、但比下面更高效：
+ * list_concat(list_copy(list1), list2)。
+ * 注意某些 v13 之前的代码也许还会 list_copy list2，但那
+ * 现在已无必要。
  */
 List *
 list_concat_copy(const List *list1, const List *list2)
@@ -618,43 +618,43 @@ list_concat_copy(const List *list1, const List *list2)
 }
 
 /*
- * Truncate 'list' to contain no more than 'new_size' elements. This
- * modifies the list in-place! Despite this, callers should use the
- * pointer returned by this function to refer to the newly truncated
- * list -- it may or may not be the same as the pointer that was
- * passed.
+ * 把 'list' 截断为最多包含 'new_size' 个元素。这会
+ * 就地修改列表！尽管如此，调用方仍应使用
+ * 本函数返回的指针来引用新截断的
+ * 列表——它也许与传入的指针
+ * 相同，也许不同。
  *
- * Note that any cells removed by list_truncate() are NOT pfree'd.
+ * 注意 list_truncate() 去掉的任何单元都不会被 pfree。
  */
 List *
 list_truncate(List *list, int new_size)
 {
 	if (new_size <= 0)
-		return NIL;				/* truncate to zero length */
+		return NIL;				/* 截断到长度为零 */
 
-	/* If asked to effectively extend the list, do nothing */
+	/* 若请求的效果其实是扩展列表，则什么都不做 */
 	if (new_size < list_length(list))
 		list->length = new_size;
 
 	/*
-	 * Note: unlike the individual-list-cell deletion functions, we don't move
-	 * the list cells to new storage, even in DEBUG_LIST_MEMORY_USAGE mode.
-	 * This is because none of them can move in this operation, so just like
-	 * in the old cons-cell-based implementation, this function doesn't
-	 * invalidate any pointers to cells of the list.  This is also the reason
-	 * for not wiping the memory of the deleted cells: the old code didn't
-	 * free them either.  Perhaps later we'll tighten this up.
+	 * 注意：与逐个删除列表单元的函数不同，即使在
+	 * DEBUG_LIST_MEMORY_USAGE 模式下，我们也不把列表单元移到新存储。
+	 * 这是因为本操作中它们都不会移动，因此就像
+	 * 旧的基于 cons 单元的实现一样，本函数不会
+	 * 使指向列表单元的任何指针失效。同样也是这个原因，
+	 * 不擦除被删单元的内存：旧代码也
+	 * 不释放它们。也许以后我们会收紧这一点。
 	 */
 
 	return list;
 }
 
 /*
- * Return true iff 'datum' is a member of the list. Equality is
- * determined via equal(), so callers should ensure that they pass a
- * Node as 'datum'.
+ * 若 'datum' 是列表成员则返回 true。相等性
+ * 通过 equal() 判定，因此调用方应确保传入的
+ * 'datum' 是一个 Node。
  *
- * This does a simple linear search --- avoid using it on long lists.
+ * 这是简单的线性搜索——避免在长列表上使用。
  */
 bool
 list_member(const List *list, const void *datum)
@@ -674,8 +674,8 @@ list_member(const List *list, const void *datum)
 }
 
 /*
- * Return true iff 'datum' is a member of the list. Equality is
- * determined by using simple pointer comparison.
+ * 若 'datum' 是列表成员则返回 true。相等性
+ * 通过简单的指针比较判定。
  */
 bool
 list_member_ptr(const List *list, const void *datum)
@@ -695,7 +695,7 @@ list_member_ptr(const List *list, const void *datum)
 }
 
 /*
- * Return true iff the integer 'datum' is a member of the list.
+ * 若整数 'datum' 是列表成员则返回 true。
  */
 bool
 list_member_int(const List *list, int datum)
@@ -715,7 +715,7 @@ list_member_int(const List *list, int datum)
 }
 
 /*
- * Return true iff the OID 'datum' is a member of the list.
+ * 若 OID 'datum' 是列表成员则返回 true。
  */
 bool
 list_member_oid(const List *list, Oid datum)
@@ -735,7 +735,7 @@ list_member_oid(const List *list, Oid datum)
 }
 
 /*
- * Return true iff the TransactionId 'datum' is a member of the list.
+ * 若 TransactionId 'datum' 是列表成员则返回 true。
  */
 bool
 list_member_xid(const List *list, TransactionId datum)
@@ -755,12 +755,12 @@ list_member_xid(const List *list, TransactionId datum)
 }
 
 /*
- * Delete the n'th cell (counting from 0) in list.
+ * 删除列表中第 n 个单元（从 0 计）。
  *
- * The List is pfree'd if this was the last member.
+ * 若这是最后一个成员，则 pfree 该 List。
  *
- * Note that this takes time proportional to the distance to the end of the
- * list, since the following entries must be moved.
+ * 注意这所花时间与到列表末尾的距离成正比，
+ * 因为必须移动后面的项。
  */
 List *
 list_delete_nth_cell(List *list, int n)
@@ -770,9 +770,9 @@ list_delete_nth_cell(List *list, int n)
 	Assert(n >= 0 && n < list->length);
 
 	/*
-	 * If we're about to delete the last node from the list, free the whole
-	 * list instead and return NIL, which is the only valid representation of
-	 * a zero-length list.
+	 * 若即将删掉列表的最后一个节点，则改为释放整个
+	 * 列表并返回 NIL，这是
+	 * 零长度列表的唯一合法表示。
 	 */
 	if (list->length == 1)
 	{
@@ -781,10 +781,10 @@ list_delete_nth_cell(List *list, int n)
 	}
 
 	/*
-	 * Otherwise, we normally just collapse out the removed element.  But for
-	 * debugging purposes, move the whole list contents someplace else.
+	 * 否则，通常只是把去掉的元素折叠掉。但为了
+	 * 调试，把整个列表内容移到别处。
 	 *
-	 * (Note that we *must* keep the contents in the same memory context.)
+	 * （注意我们必须把内容保持在同一内存上下文中。）
 	 */
 #ifndef DEBUG_LIST_MEMORY_USAGE
 	memmove(&list->elements[n], &list->elements[n + 1],
@@ -806,8 +806,8 @@ list_delete_nth_cell(List *list, int n)
 		else
 		{
 			/*
-			 * As in enlarge_list(), clear the initial_elements[] space and/or
-			 * mark it inaccessible.
+			 * 与 enlarge_list() 一样，清掉 initial_elements[] 空间并/或
+			 * 把它标为不可访问。
 			 */
 #ifdef CLOBBER_FREED_MEMORY
 			wipe_mem(list->initial_elements,
@@ -828,13 +828,13 @@ list_delete_nth_cell(List *list, int n)
 }
 
 /*
- * Delete 'cell' from 'list'.
+ * 从 'list' 中删除 'cell'。
  *
- * The List is pfree'd if this was the last member.  However, we do not
- * touch any data the cell might've been pointing to.
+ * 若这是最后一个成员，则 pfree 该 List。不过我们不会
+ * 触碰该单元也许指向的任何数据。
  *
- * Note that this takes time proportional to the distance to the end of the
- * list, since the following entries must be moved.
+ * 注意这所花时间与到列表末尾的距离成正比，
+ * 因为必须移动后面的项。
  */
 List *
 list_delete_cell(List *list, ListCell *cell)
@@ -843,10 +843,10 @@ list_delete_cell(List *list, ListCell *cell)
 }
 
 /*
- * Delete the first cell in list that matches datum, if any.
- * Equality is determined via equal().
+ * 删除列表中第一个与 datum 匹配的单元（若有）。
+ * 相等性通过 equal() 判定。
  *
- * This does a simple linear search --- avoid using it on long lists.
+ * 这是简单的线性搜索——避免在长列表上使用。
  */
 List *
 list_delete(List *list, void *datum)
@@ -862,11 +862,11 @@ list_delete(List *list, void *datum)
 			return list_delete_cell(list, cell);
 	}
 
-	/* Didn't find a match: return the list unmodified */
+	/* 未找到匹配：原样返回列表 */
 	return list;
 }
 
-/* As above, but use simple pointer equality */
+/* 同上，但使用简单的指针相等 */
 List *
 list_delete_ptr(List *list, void *datum)
 {
@@ -881,11 +881,11 @@ list_delete_ptr(List *list, void *datum)
 			return list_delete_cell(list, cell);
 	}
 
-	/* Didn't find a match: return the list unmodified */
+	/* 未找到匹配：原样返回列表 */
 	return list;
 }
 
-/* As above, but for integers */
+/* 同上，但针对整数 */
 List *
 list_delete_int(List *list, int datum)
 {
@@ -900,11 +900,11 @@ list_delete_int(List *list, int datum)
 			return list_delete_cell(list, cell);
 	}
 
-	/* Didn't find a match: return the list unmodified */
+	/* 未找到匹配：原样返回列表 */
 	return list;
 }
 
-/* As above, but for OIDs */
+/* 同上，但针对 OIDs */
 List *
 list_delete_oid(List *list, Oid datum)
 {
@@ -919,24 +919,24 @@ list_delete_oid(List *list, Oid datum)
 			return list_delete_cell(list, cell);
 	}
 
-	/* Didn't find a match: return the list unmodified */
+	/* 未找到匹配：原样返回列表 */
 	return list;
 }
 
 /*
- * Delete the first element of the list.
+ * 删除列表的第一个元素。
  *
- * This is useful to replace the Lisp-y code "list = lnext(list);" in cases
- * where the intent is to alter the list rather than just traverse it.
- * Beware that the list is modified, whereas the Lisp-y coding leaves
- * the original list head intact in case there's another pointer to it.
+ * 这可用于替换 Lisp 风格的代码 "list = lnext(list);"，当
+ * 意图是修改列表而不是仅仅遍历它时。
+ * 注意列表会被修改，而 Lisp 风格的写法会让
+ * 原来的列表头保持原样，以防另有指针指向它。
  *
- * Note that this takes time proportional to the length of the list,
- * since the remaining entries must be moved.  Consider reversing the
- * list order so that you can use list_delete_last() instead.  However,
- * if that causes you to replace lappend() with lcons(), you haven't
- * improved matters.  (In short, you can make an efficient stack from
- * a List, but not an efficient FIFO queue.)
+ * 注意这所花时间与列表长度成正比，
+ * 因为必须移动剩余项。可以考虑把列表
+ * 反序，以便改用 list_delete_last()。不过，
+ * 若那导致你用 lcons() 替换 lappend()，你并没有
+ * 把事情变得更好。（简言之，可以用
+ * List 做出高效的栈，但做不出高效的 FIFO 队列。）
  */
 List *
 list_delete_first(List *list)
@@ -944,13 +944,13 @@ list_delete_first(List *list)
 	check_list_invariants(list);
 
 	if (list == NIL)
-		return NIL;				/* would an error be better? */
+		return NIL;				/* 报错是否更好？ */
 
 	return list_delete_nth_cell(list, 0);
 }
 
 /*
- * Delete the last element of the list.
+ * 删除列表的最后一个元素。
  */
 List *
 list_delete_last(List *list)
@@ -958,9 +958,9 @@ list_delete_last(List *list)
 	check_list_invariants(list);
 
 	if (list == NIL)
-		return NIL;				/* would an error be better? */
+		return NIL;				/* 报错是否更好？ */
 
-	/* list_truncate won't free list if it goes to empty, but this should */
+	/* list_truncate 在列表变空时不会释放列表，但这里应当 */
 	if (list_length(list) <= 1)
 	{
 		list_free(list);
@@ -971,23 +971,23 @@ list_delete_last(List *list)
 }
 
 /*
- * Delete the first N cells of the list.
+ * 删除列表的前 N 个单元。
  *
- * The List is pfree'd if the request causes all cells to be deleted.
+ * 若该请求导致所有单元都被删除，则 pfree 该 List。
  *
- * Note that this takes time proportional to the distance to the end of the
- * list, since the following entries must be moved.
+ * 注意这所花时间与到列表末尾的距离成正比，
+ * 因为必须移动后面的项。
  */
 List *
 list_delete_first_n(List *list, int n)
 {
 	check_list_invariants(list);
 
-	/* No-op request? */
+	/* 空操作请求？ */
 	if (n <= 0)
 		return list;
 
-	/* Delete whole list? */
+	/* 删除整个列表？ */
 	if (n >= list_length(list))
 	{
 		list_free(list);
@@ -995,10 +995,10 @@ list_delete_first_n(List *list, int n)
 	}
 
 	/*
-	 * Otherwise, we normally just collapse out the removed elements.  But for
-	 * debugging purposes, move the whole list contents someplace else.
+	 * 否则，通常只是把去掉的元素折叠掉。但为了
+	 * 调试，把整个列表内容移到别处。
 	 *
-	 * (Note that we *must* keep the contents in the same memory context.)
+	 * （注意我们必须把内容保持在同一内存上下文中。）
 	 */
 #ifndef DEBUG_LIST_MEMORY_USAGE
 	memmove(&list->elements[0], &list->elements[n],
@@ -1018,8 +1018,8 @@ list_delete_first_n(List *list, int n)
 		else
 		{
 			/*
-			 * As in enlarge_list(), clear the initial_elements[] space and/or
-			 * mark it inaccessible.
+			 * 与 enlarge_list() 一样，清掉 initial_elements[] 空间并/或
+			 * 把它标为不可访问。
 			 */
 #ifdef CLOBBER_FREED_MEMORY
 			wipe_mem(list->initial_elements,
@@ -1040,26 +1040,26 @@ list_delete_first_n(List *list, int n)
 }
 
 /*
- * Generate the union of two lists. This is calculated by copying
- * list1 via list_copy(), then adding to it all the members of list2
- * that aren't already in list1.
+ * 生成两个列表的并集。做法是用 list_copy() 复制
+ * list1，然后把 list2 中
+ * 尚不在 list1 里的成员全部加进去。
  *
- * Whether an element is already a member of the list is determined
- * via equal().
+ * 某元素是否已是列表成员，
+ * 通过 equal() 判定。
  *
- * The returned list is newly-allocated, although the content of the
- * cells is the same (i.e. any pointed-to objects are not copied).
+ * 返回的列表是新分配的，不过单元的内容
+ * 相同（即任何被指向的对象都不会被复制）。
  *
- * NB: this function will NOT remove any duplicates that are present
- * in list1 (so it only performs a "union" if list1 is known unique to
- * start with).  Also, if you are about to write "x = list_union(x, y)"
- * you probably want to use list_concat_unique() instead to avoid wasting
- * the storage of the old x list.
+ * 注意：本函数不会去掉 list1 中已有的
+ * 任何重复项（因此只有在已知 list1 一开始就唯一时，
+ * 它做的才是 "并集"）。另外，若你正要写 "x = list_union(x, y)"
+ * 你多半想改用 list_concat_unique()，以免浪费
+ * 旧 x 列表的存储。
  *
- * Note that this takes time proportional to the product of the list
- * lengths, so beware of using it on long lists.  (We could probably
- * improve that, but really you should be using some other data structure
- * if this'd be a performance bottleneck.)
+ * 注意这所花时间与两个列表长度的乘积成正比，
+ * 因此对长列表要慎用。（我们也许可以
+ * 改进这一点，但如果这会成为性能瓶颈，你其实应该换用
+ * 别的数据结构。）
  */
 List *
 list_union(const List *list1, const List *list2)
@@ -1082,8 +1082,8 @@ list_union(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_union() determines duplicates via simple
- * pointer comparison.
+ * list_union() 的这一变体通过简单的
+ * 指针比较判定重复项。
  */
 List *
 list_union_ptr(const List *list1, const List *list2)
@@ -1106,7 +1106,7 @@ list_union_ptr(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_union() operates upon lists of integers.
+ * list_union() 的这一变体用于整数列表。
  */
 List *
 list_union_int(const List *list1, const List *list2)
@@ -1129,7 +1129,7 @@ list_union_int(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_union() operates upon lists of OIDs.
+ * list_union() 的这一变体用于 OIDs 列表。
  */
 List *
 list_union_oid(const List *list1, const List *list2)
@@ -1152,22 +1152,22 @@ list_union_oid(const List *list1, const List *list2)
 }
 
 /*
- * Return a list that contains all the cells that are in both list1 and
- * list2.  The returned list is freshly allocated via palloc(), but the
- * cells themselves point to the same objects as the cells of the
- * input lists.
+ * 返回一个列表，包含既在 list1 又在
+ * list2 中的所有单元。返回的列表经 palloc() 新分配，但
+ * 单元本身指向与
+ * 输入列表的单元相同的对象。
  *
- * Duplicate entries in list1 will not be suppressed, so it's only a true
- * "intersection" if list1 is known unique beforehand.
+ * list1 中的重复项不会被去掉，因此只有事先
+ * 已知 list1 唯一时，这才是真正的 "交集"。
  *
- * This variant works on lists of pointers, and determines list
- * membership via equal().  Note that the list1 member will be pointed
- * to in the result.
+ * 本变体用于指针列表，并通过 equal()
+ * 判定列表成员资格。注意结果中指向的是
+ * list1 的成员。
  *
- * Note that this takes time proportional to the product of the list
- * lengths, so beware of using it on long lists.  (We could probably
- * improve that, but really you should be using some other data structure
- * if this'd be a performance bottleneck.)
+ * 注意这所花时间与两个列表长度的乘积成正比，
+ * 因此对长列表要慎用。（我们也许可以
+ * 改进这一点，但如果这会成为性能瓶颈，你其实应该换用
+ * 别的数据结构。）
  */
 List *
 list_intersection(const List *list1, const List *list2)
@@ -1193,7 +1193,7 @@ list_intersection(const List *list1, const List *list2)
 }
 
 /*
- * As list_intersection but operates on lists of integers.
+ * 与 list_intersection 相同，但用于整数列表。
  */
 List *
 list_intersection_int(const List *list1, const List *list2)
@@ -1219,18 +1219,18 @@ list_intersection_int(const List *list1, const List *list2)
 }
 
 /*
- * Return a list that contains all the cells in list1 that are not in
- * list2. The returned list is freshly allocated via palloc(), but the
- * cells themselves point to the same objects as the cells of the
- * input lists.
+ * 返回一个列表，包含在 list1 中但不在
+ * list2 中的所有单元。返回的列表经 palloc() 新分配，但
+ * 单元本身指向与
+ * 输入列表的单元相同的对象。
  *
- * This variant works on lists of pointers, and determines list
- * membership via equal()
+ * 本变体用于指针列表，并通过 equal()
+ * 判定列表成员资格
  *
- * Note that this takes time proportional to the product of the list
- * lengths, so beware of using it on long lists.  (We could probably
- * improve that, but really you should be using some other data structure
- * if this'd be a performance bottleneck.)
+ * 注意这所花时间与两个列表长度的乘积成正比，
+ * 因此对长列表要慎用。（我们也许可以
+ * 改进这一点，但如果这会成为性能瓶颈，你其实应该换用
+ * 别的数据结构。）
  */
 List *
 list_difference(const List *list1, const List *list2)
@@ -1255,8 +1255,8 @@ list_difference(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_difference() determines list membership via
- * simple pointer equality.
+ * list_difference() 的这一变体通过
+ * 简单的指针相等判定列表成员资格。
  */
 List *
 list_difference_ptr(const List *list1, const List *list2)
@@ -1281,7 +1281,7 @@ list_difference_ptr(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_difference() operates upon lists of integers.
+ * list_difference() 的这一变体用于整数列表。
  */
 List *
 list_difference_int(const List *list1, const List *list2)
@@ -1306,7 +1306,7 @@ list_difference_int(const List *list1, const List *list2)
 }
 
 /*
- * This variant of list_difference() operates upon lists of OIDs.
+ * list_difference() 的这一变体用于 OIDs 列表。
  */
 List *
 list_difference_oid(const List *list1, const List *list2)
@@ -1331,12 +1331,12 @@ list_difference_oid(const List *list1, const List *list2)
 }
 
 /*
- * Append datum to list, but only if it isn't already in the list.
+ * 把 datum 追加到列表，但仅当它尚不在列表中时。
  *
- * Whether an element is already a member of the list is determined
- * via equal().
+ * 某元素是否已是列表成员，
+ * 通过 equal() 判定。
  *
- * This does a simple linear search --- avoid using it on long lists.
+ * 这是简单的线性搜索——避免在长列表上使用。
  */
 List *
 list_append_unique(List *list, void *datum)
@@ -1348,8 +1348,8 @@ list_append_unique(List *list, void *datum)
 }
 
 /*
- * This variant of list_append_unique() determines list membership via
- * simple pointer equality.
+ * list_append_unique() 的这一变体通过
+ * 简单的指针相等判定列表成员资格。
  */
 List *
 list_append_unique_ptr(List *list, void *datum)
@@ -1361,7 +1361,7 @@ list_append_unique_ptr(List *list, void *datum)
 }
 
 /*
- * This variant of list_append_unique() operates upon lists of integers.
+ * list_append_unique() 的这一变体用于整数列表。
  */
 List *
 list_append_unique_int(List *list, int datum)
@@ -1373,7 +1373,7 @@ list_append_unique_int(List *list, int datum)
 }
 
 /*
- * This variant of list_append_unique() operates upon lists of OIDs.
+ * list_append_unique() 的这一变体用于 OIDs 列表。
  */
 List *
 list_append_unique_oid(List *list, Oid datum)
@@ -1385,20 +1385,20 @@ list_append_unique_oid(List *list, Oid datum)
 }
 
 /*
- * Append to list1 each member of list2 that isn't already in list1.
+ * 把 list2 中尚不在 list1 里的每个成员追加到 list1。
  *
- * Whether an element is already a member of the list is determined
- * via equal().
+ * 某元素是否已是列表成员，
+ * 通过 equal() 判定。
  *
- * This is almost the same functionality as list_union(), but list1 is
- * modified in-place rather than being copied. However, callers of this
- * function may have strict ordering expectations -- i.e. that the relative
- * order of those list2 elements that are not duplicates is preserved.
+ * 这与 list_union() 的功能几乎相同，但 list1 是
+ * 就地修改而不是被复制。不过，本函数的调用方
+ * 也许对顺序有严格预期，即那些
+ * 不是重复项的 list2 元素的相对顺序会被保留。
  *
- * Note that this takes time proportional to the product of the list
- * lengths, so beware of using it on long lists.  (We could probably
- * improve that, but really you should be using some other data structure
- * if this'd be a performance bottleneck.)
+ * 注意这所花时间与两个列表长度的乘积成正比，
+ * 因此对长列表要慎用。（我们也许可以
+ * 改进这一点，但如果这会成为性能瓶颈，你其实应该换用
+ * 别的数据结构。）
  */
 List *
 list_concat_unique(List *list1, const List *list2)
@@ -1419,8 +1419,8 @@ list_concat_unique(List *list1, const List *list2)
 }
 
 /*
- * This variant of list_concat_unique() determines list membership via
- * simple pointer equality.
+ * list_concat_unique() 的这一变体通过
+ * 简单的指针相等判定列表成员资格。
  */
 List *
 list_concat_unique_ptr(List *list1, const List *list2)
@@ -1441,7 +1441,7 @@ list_concat_unique_ptr(List *list1, const List *list2)
 }
 
 /*
- * This variant of list_concat_unique() operates upon lists of integers.
+ * list_concat_unique() 的这一变体用于整数列表。
  */
 List *
 list_concat_unique_int(List *list1, const List *list2)
@@ -1462,7 +1462,7 @@ list_concat_unique_int(List *list1, const List *list2)
 }
 
 /*
- * This variant of list_concat_unique() operates upon lists of OIDs.
+ * list_concat_unique() 的这一变体用于 OIDs 列表。
  */
 List *
 list_concat_unique_oid(List *list1, const List *list2)
@@ -1483,12 +1483,12 @@ list_concat_unique_oid(List *list1, const List *list2)
 }
 
 /*
- * Remove adjacent duplicates in a list of OIDs.
+ * 去掉 OIDs 列表中相邻的重复项。
  *
- * It is caller's responsibility to have sorted the list to bring duplicates
- * together, perhaps via list_sort(list, list_oid_cmp).
+ * 调用方有责任先把列表排好序，使重复项靠在一起，
+ * 例如经由 list_sort(list, list_oid_cmp)。
  *
- * Note that this takes time proportional to the length of the list.
+ * 注意这所花时间与列表长度成正比。
  */
 void
 list_deduplicate_oid(List *list)
@@ -1513,13 +1513,13 @@ list_deduplicate_oid(List *list)
 }
 
 /*
- * Free all storage in a list, and optionally the pointed-to elements
+ * 释放列表中的全部存储，以及可选地释放被指向的元素
  */
 static void
 list_free_private(List *list, bool deep)
 {
 	if (list == NIL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	check_list_invariants(list);
 
@@ -1534,12 +1534,12 @@ list_free_private(List *list, bool deep)
 }
 
 /*
- * Free all the cells of the list, as well as the list itself. Any
- * objects that are pointed-to by the cells of the list are NOT
- * free'd.
+ * 释放列表的所有单元以及列表本身。列表
+ * 单元所指向的任何对象都不会被
+ * 释放。
  *
- * On return, the argument to this function has been freed, so the
- * caller would be wise to set it to NIL for safety's sake.
+ * 返回时，本函数的参数已被释放，因此
+ * 调用方为安全起见最好把它设为 NIL。
  */
 void
 list_free(List *list)
@@ -1548,25 +1548,25 @@ list_free(List *list)
 }
 
 /*
- * Free all the cells of the list, the list itself, and all the
- * objects pointed-to by the cells of the list (each element in the
- * list must contain a pointer to a palloc()'d region of memory!)
+ * 释放列表的所有单元、列表本身，以及
+ * 列表单元所指向的全部
+ * 对象（每个元素都必须包含指向一块 palloc() 区域的指针！）
  *
- * On return, the argument to this function has been freed, so the
- * caller would be wise to set it to NIL for safety's sake.
+ * 返回时，本函数的参数已被释放，因此
+ * 调用方为安全起见最好把它设为 NIL。
  */
 void
 list_free_deep(List *list)
 {
 	/*
-	 * A "deep" free operation only makes sense on a list of pointers.
+	 * "深" 释放只对指针列表有意义。
 	 */
 	Assert(IsPointerList(list));
 	list_free_private(list, true);
 }
 
 /*
- * Return a shallow copy of the specified list.
+ * 返回指定列表的浅拷贝。
  */
 List *
 list_copy(const List *oldlist)
@@ -1585,8 +1585,8 @@ list_copy(const List *oldlist)
 }
 
 /*
- * Return a shallow copy of the specified list containing only the first 'len'
- * elements.  If oldlist is shorter than 'len' then we copy the entire list.
+ * 返回指定列表的浅拷贝，只含前 'len'
+ * 个元素。若 oldlist 短于 'len'，则复制整个列表。
  */
 List *
 list_copy_head(const List *oldlist, int len)
@@ -1606,7 +1606,7 @@ list_copy_head(const List *oldlist, int len)
 }
 
 /*
- * Return a shallow copy of the specified list, without the first N elements.
+ * 返回指定列表去掉前 N 个元素后的浅拷贝。
  */
 List *
 list_copy_tail(const List *oldlist, int nskip)
@@ -1614,7 +1614,7 @@ list_copy_tail(const List *oldlist, int nskip)
 	List	   *newlist;
 
 	if (nskip < 0)
-		nskip = 0;				/* would it be better to elog? */
+		nskip = 0;				/* 改用 elog 是否更好？ */
 
 	if (oldlist == NIL || nskip >= oldlist->length)
 		return NIL;
@@ -1628,11 +1628,11 @@ list_copy_tail(const List *oldlist, int nskip)
 }
 
 /*
- * Return a deep copy of the specified list.
+ * 返回指定列表的深拷贝。
  *
- * The list elements are copied via copyObject(), so that this function's
- * idea of a "deep" copy is considerably deeper than what list_free_deep()
- * means by the same word.
+ * 列表元素经由 copyObject() 复制，因此本函数所说的
+ * "深" 拷贝比 list_free_deep()
+ * 用同一个词所指的要深得多。
  */
 List *
 list_copy_deep(const List *oldlist)
@@ -1642,7 +1642,7 @@ list_copy_deep(const List *oldlist)
 	if (oldlist == NIL)
 		return NIL;
 
-	/* This is only sensible for pointer Lists */
+	/* 这只对指针 List 有意义 */
 	Assert(IsA(oldlist, List));
 
 	newlist = new_list(oldlist->type, oldlist->length);
@@ -1655,19 +1655,19 @@ list_copy_deep(const List *oldlist)
 }
 
 /*
- * Sort a list according to the specified comparator function.
+ * 按指定的比较函数对列表排序。
  *
- * The list is sorted in-place.
+ * 列表就地排序。
  *
- * The comparator function is declared to receive arguments of type
- * const ListCell *; this allows it to use lfirst() and variants
- * without casting its arguments.  Otherwise it behaves the same as
- * the comparator function for standard qsort().
+ * 比较函数声明为接收类型为
+ * const ListCell * 的参数；这样它就可以使用 lfirst() 及其变体，
+ * 而不必转换参数。除此之外，它的行为与
+ * 标准 qsort() 的比较函数相同。
  *
- * Like qsort(), this provides no guarantees about sort stability
- * for equal keys.
+ * 与 qsort() 一样，对相等的键
+ * 不保证排序稳定性。
  *
- * This is based on qsort(), so it likewise has O(N log N) runtime.
+ * 本实现基于 qsort()，因此运行时间同样是 O(N log N)。
  */
 void
 list_sort(List *list, list_sort_comparator cmp)
@@ -1677,14 +1677,14 @@ list_sort(List *list, list_sort_comparator cmp)
 
 	check_list_invariants(list);
 
-	/* Nothing to do if there's less than two elements */
+	/* 若元素少于两个，则无事可做 */
 	len = list_length(list);
 	if (len > 1)
 		qsort(list->elements, len, sizeof(ListCell), (qsort_comparator) cmp);
 }
 
 /*
- * list_sort comparator for sorting a list into ascending int order.
+ * 供 list_sort 把列表按整数升序排序的比较器。
  */
 int
 list_int_cmp(const ListCell *p1, const ListCell *p2)
@@ -1700,7 +1700,7 @@ list_int_cmp(const ListCell *p1, const ListCell *p2)
 }
 
 /*
- * list_sort comparator for sorting a list into ascending OID order.
+ * 供 list_sort 把列表按 OID 升序排序的比较器。
  */
 int
 list_oid_cmp(const ListCell *p1, const ListCell *p2)

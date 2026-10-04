@@ -1,35 +1,31 @@
-This directory contains a general purpose data structures, for use anywhere
-in the backend:
+本目录包含通用数据结构，可在后端任意处使用：
 
-binaryheap.c - a binary heap
+binaryheap.c - 二叉堆
 
-bipartite_match.c - Hopcroft-Karp maximum cardinality algorithm for bipartite graphs
+bipartite_match.c - 二分图的 Hopcroft-Karp 最大基数算法
 
-bloomfilter.c - probabilistic, space-efficient set membership testing
+bloomfilter.c - 概率性、节省空间的集合成员测试
 
-dshash.c - concurrent hash tables backed by dynamic shared memory areas
+dshash.c - 由动态共享内存区支撑的并发哈希表
 
-hyperloglog.c - a streaming cardinality estimator
+hyperloglog.c - 流式基数估计器
 
-ilist.c - single and double-linked lists
+ilist.c - 单链表和双链表
 
-integerset.c - a data structure for holding large set of integers
+integerset.c - 保存大型整数集合的数据结构
 
-knapsack.c - knapsack problem solver
+knapsack.c - 背包问题求解器
 
-pairingheap.c - a pairing heap
+pairingheap.c - 配对堆
 
-rbtree.c - a red-black tree
+rbtree.c - 红黑树
 
-stringinfo.c - an extensible string type
+stringinfo.c - 可扩展字符串类型
 
 
-Aside from the inherent characteristics of the data structures, there are a
-few practical differences between the binary heap and the pairing heap. The
-binary heap is fully allocated at creation, and cannot be expanded beyond the
-allocated size. The pairing heap on the other hand has no inherent maximum
-size, but the caller needs to allocate each element being stored in the heap,
-while the binary heap works with plain Datums or pointers.
+除数据结构固有特性外，二叉堆与配对堆还有一些实际差别。二叉堆在创建时
+完全分配，不能超出已分配大小。配对堆则没有固有上限，但调用方需要为堆
+中存储的每个元素分配内存，而二叉堆使用普通 Datum 或指针。
 
-The linked-lists in ilist.c can be embedded directly into other structs, as
-opposed to the List interface in nodes/pg_list.h.
+ilist.c 中的链表可以直接嵌入其他结构体，这与 nodes/pg_list.h 中的 List
+接口不同。

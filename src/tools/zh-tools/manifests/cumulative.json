@@ -470,6 +470,51 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0013-readme-medium.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/test/kerberos/README",
+   "kind": "readme",
+   "note": "Kerberos/GSSAPI TAP tests"
+  },
+  {
+   "pattern": "src/test/ldap/README",
+   "kind": "readme",
+   "note": "LDAP TAP tests"
+  },
+  {
+   "pattern": "src/test/recovery/README",
+   "kind": "readme",
+   "note": "recovery TAP tests"
+  },
+  {
+   "pattern": "src/test/modules/dummy_seclabel/README",
+   "kind": "readme",
+   "note": "SECURITY LABEL test module"
+  },
+  {
+   "pattern": "src/test/modules/libpq_pipeline/README",
+   "kind": "readme",
+   "note": "libpq pipeline tests"
+  },
+  {
+   "pattern": "src/interfaces/ecpg/README.dynSQL",
+   "kind": "readme",
+   "note": "ecpg descriptor limits"
+  },
+  {
+   "pattern": "src/backend/lib/README",
+   "kind": "readme",
+   "note": "backend data structures"
+  },
+  {
+   "pattern": "src/backend/parser/README",
+   "kind": "readme",
+   "note": "parser file map"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0014-readme-tap.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -1907,7 +1952,97 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/test/kerberos/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Kerberos/GSSAPI TAP tests"
+  },
+  {
+   "path": "src/test/ldap/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "LDAP TAP tests"
+  },
+  {
+   "path": "src/test/recovery/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "recovery TAP tests"
+  },
+  {
+   "path": "src/test/modules/dummy_seclabel/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SECURITY LABEL test module"
+  },
+  {
+   "path": "src/test/modules/libpq_pipeline/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "libpq pipeline tests"
+  },
+  {
+   "path": "src/interfaces/ecpg/README.dynSQL",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ecpg descriptor limits"
+  },
+  {
+   "path": "src/backend/lib/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "backend data structures"
+  },
+  {
+   "path": "src/backend/parser/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "parser file map"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0014-readme-tap.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 5 intro + 17 short + 13 medium files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 43 of 88 include files translated."
 }

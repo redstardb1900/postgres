@@ -1,54 +1,47 @@
 src/test/ldap/README
 
-Tests for LDAP functionality
-============================
+LDAP 功能测试
+=============
 
-This directory contains a test suite for LDAP functionality.  This
-requires a full OpenLDAP installation, including server and client
-tools, and is therefore kept separate and not run by default.  You
-might need to adjust some paths in the test file to have it find
-OpenLDAP in a place that hadn't been thought of yet.
+本目录包含 LDAP 功能的测试套件。这需要完整的 OpenLDAP 安装，包括服务器
+和客户端工具，因此单独存放，默认不运行。你可能需要调整测试文件中的某些
+路径，才能在尚未考虑到的位置找到 OpenLDAP。
 
-Also, this test suite creates an LDAP server that listens for TCP/IP
-connections on localhost without any real access control, so it is not
-safe to run this on a system where there might be untrusted local
-users.
+另外，本测试套件会创建一个在 localhost 上侦听 TCP/IP 连接、没有任何真正
+访问控制的 LDAP 服务器，因此在可能有不可信本地用户的系统上运行不安全。
 
-Running the tests
-=================
+运行测试
+========
 
-NOTE: You must have given the --enable-tap-tests argument to configure.
+注意：必须已向 configure 传入 --enable-tap-tests 参数。
 
-Run
+运行
     make check PG_TEST_EXTRA=ldap
-or
+或
     make installcheck PG_TEST_EXTRA=ldap
-You can use "make installcheck" if you previously did "make install".
-In that case, the code in the installation tree is tested.  With
-"make check", a temporary installation tree is built from the current
-sources and then tested.
+若先前已执行 "make install"，可以使用 "make installcheck"。
+此时测试的是安装树中的代码。使用 "make check" 时，会从当前源码构建
+一个临时安装树再测试。
 
-Either way, this test initializes, starts, and stops a test Postgres
-cluster, as well as a test LDAP server.
+无论哪种方式，本测试都会初始化、启动并停止一个测试用 Postgres
+集簇，以及一个测试用 LDAP 服务器。
 
-See src/test/perl/README for more info about running these tests.
+关于运行这些测试的更多信息，见 src/test/perl/README。
 
-Requirements
-============
+要求
+====
 
-LDAP server and client tools are required.
+需要 LDAP 服务器和客户端工具。
 
-Debian/Ubuntu packages: slapd ldap-utils
+Debian/Ubuntu 软件包：slapd ldap-utils
 
-RHEL/CentOS/Fedora packages: openldap-clients openldap-servers
-(You will already have needed openldap and openldap-devel to build.)
+RHEL/CentOS/Fedora 软件包：openldap-clients openldap-servers
+（构建时你已经需要过 openldap 和 openldap-devel。）
 
-FreeBSD: openldap-server
-(You will already have needed openldap-client to build.  If building
-from the ports source tree, you want to build net/openldap24-client
-and net/openldap24-server.)
+FreeBSD：openldap-server
+（构建时你已经需要过 openldap-client。若从 ports 源码树构建，应构建
+net/openldap24-client 和 net/openldap24-server。）
 
-macOS: We do not recommend trying to use the Apple-provided version of
-OpenLDAP; it's very old, plus Apple seem to have changed the launching
-conventions for slapd.  The paths in the test file are set on the
-assumption that you installed OpenLDAP using Homebrew or MacPorts.
+macOS：我们不建议尝试使用 Apple 自带的 OpenLDAP；它非常旧，而且 Apple
+似乎改过 slapd 的启动约定。测试文件中的路径是按你用 Homebrew 或
+MacPorts 安装 OpenLDAP 来设定的。

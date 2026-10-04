@@ -1,49 +1,43 @@
 src/test/kerberos/README
 
-Tests for Kerberos/GSSAPI functionality
-=======================================
+Kerberos/GSSAPI 功能测试
+========================
 
-This directory contains a test suite for Kerberos/GSSAPI
-functionality.  This requires a full MIT Kerberos installation,
-including server and client tools, and is therefore kept separate and
-not run by default.
+本目录包含 Kerberos/GSSAPI 功能的测试套件。这需要完整的 MIT Kerberos
+安装，包括服务器和客户端工具，因此单独存放，默认不运行。
 
-CAUTION: The test server run by this test is configured to listen for TCP
-connections on localhost. Any user on the same host is able to log in to the
-test server while the tests are running. Do not run this suite on a multi-user
-system where you don't trust all local users! Also, this test suite creates a
-KDC server that listens for TCP/IP connections on localhost without any real
-access control.
+注意：本测试运行的测试服务器配置为在 localhost 上侦听 TCP 连接。测试
+运行期间，同一主机上的任何用户都能登录该测试服务器。不要在你不信任
+所有本地用户的多用户系统上运行本套件！另外，本测试套件会创建一个在
+localhost 上侦听 TCP/IP 连接、没有任何真正访问控制的 KDC 服务器。
 
-Running the tests
-=================
+运行测试
+========
 
-NOTE: You must have given the --enable-tap-tests argument to configure.
-Also, to use "make installcheck", you must have built and installed
-contrib/dblink and contrib/postgres_fdw in addition to the core code.
+注意：必须已向 configure 传入 --enable-tap-tests 参数。
+另外，要使用 "make installcheck"，除核心代码外还必须已构建并安装
+contrib/dblink 和 contrib/postgres_fdw。
 
-Run
+运行
     make check PG_TEST_EXTRA=kerberos
-or
+或
     make installcheck PG_TEST_EXTRA=kerberos
-You can use "make installcheck" if you previously did "make install".
-In that case, the code in the installation tree is tested.  With
-"make check", a temporary installation tree is built from the current
-sources and then tested.
+若先前已执行 "make install"，可以使用 "make installcheck"。
+此时测试的是安装树中的代码。使用 "make check" 时，会从当前源码构建
+一个临时安装树再测试。
 
-Either way, this test initializes, starts, and stops a test Postgres
-cluster, as well as a test KDC server.
+无论哪种方式，本测试都会初始化、启动并停止一个测试用 Postgres
+集簇，以及一个测试用 KDC 服务器。
 
-See src/test/perl/README for more info about running these tests.
+关于运行这些测试的更多信息，见 src/test/perl/README。
 
-Requirements
-============
+要求
+====
 
-MIT Kerberos server and client tools are required.  Heimdal is not
-supported.
+需要 MIT Kerberos 服务器和客户端工具。不支持 Heimdal。
 
-Debian/Ubuntu packages: krb5-admin-server krb5-kdc krb5-user
+Debian/Ubuntu 软件包：krb5-admin-server krb5-kdc krb5-user
 
-RHEL/CentOS/Fedora packages: krb5-server krb5-workstation
+RHEL/CentOS/Fedora 软件包：krb5-server krb5-workstation
 
-FreeBSD port: krb5 (base system has Heimdal)
+FreeBSD port：krb5（基础系统带的是 Heimdal）

@@ -1,11 +1,9 @@
 src/interfaces/ecpg/README.dynSQL
 
-descriptor statements have the following shortcomings
+描述符语句有以下不足
 
-- input descriptors (USING DESCRIPTOR <name>) are not supported
+- 不支持输入描述符（USING DESCRIPTOR <name>）
 
-  Reason: to fully support dynamic SQL the frontend/backend communication
-          should change to recognize input parameters.
-          Since this is not likely to happen in the near future and you
-          can cover the same functionality with the existing infrastructure
-          (using s[n]printf), I'll leave the work to someone else.
+  原因：要完全支持动态 SQL，前端/后端通信应改为识别输入参数。
+          这在近期不太可能发生，而且用现有设施（使用 s[n]printf）
+          就能覆盖同样的功能，所以把这项工作留给别人。

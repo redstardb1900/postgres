@@ -1,34 +1,32 @@
 src/backend/parser/README
 
-Parser
+解析器
 ======
 
-This directory does more than tokenize and parse SQL queries.  It also
-creates Query structures for the various complex queries that are passed
-to the optimizer and then executor.
+本目录所做的不只是把 SQL 查询分词并解析。它还会为各种复杂查询创建
+Query 结构，再交给规划器和执行器。
 
-parser.c	things start here
-scan.l		break query into tokens
-scansup.c	handle escapes in input strings
-gram.y		parse the tokens and produce a "raw" parse tree
-analyze.c	top level of parse analysis for optimizable queries
-parse_agg.c	handle aggregates, like SUM(col1),  AVG(col2), ...
-parse_clause.c	handle clauses like WHERE, ORDER BY, GROUP BY, ...
-parse_coerce.c	handle coercing expressions to different data types
-parse_collate.c	assign collation information in completed expressions
-parse_cte.c	handle Common Table Expressions (WITH clauses)
-parse_expr.c	handle expressions like col, col + 3, x = 3 or x = 4
-parse_enr.c	handle ephemeral named rels (trigger transition tables, ...)
-parse_func.c	handle functions, table.column and column identifiers
-parse_merge.c	handle MERGE
-parse_node.c	create nodes for various structures
-parse_oper.c	handle operators in expressions
-parse_param.c	handle Params (for the cases used in the core backend)
-parse_relation.c support routines for tables and column handling
-parse_target.c	handle the result list of the query
-parse_type.c	support routines for data type handling
-parse_utilcmd.c	parse analysis for utility commands (done at execution time)
+parser.c	从这里开始
+scan.l		把查询拆成词元
+scansup.c	处理输入字符串中的转义
+gram.y		解析词元并产生“原始”解析树
+analyze.c	可优化查询的解析分析顶层
+parse_agg.c	处理聚集，如 SUM(col1)、AVG(col2)……
+parse_clause.c	处理 WHERE、ORDER BY、GROUP BY 等子句
+parse_coerce.c	处理把表达式强制转换为不同数据类型
+parse_collate.c	在已完成的表达式中指定排序规则信息
+parse_cte.c	处理公共表表达式（WITH 子句）
+parse_expr.c	处理 col、col + 3、x = 3 or x = 4 这类表达式
+parse_enr.c	处理临时命名关系（触发器过渡表等）
+parse_func.c	处理函数、table.column 和列标识符
+parse_merge.c	处理 MERGE
+parse_node.c	为各种结构创建节点
+parse_oper.c	处理表达式中的操作符
+parse_param.c	处理 Params（核心后端所用的那些情形）
+parse_relation.c 表与列处理的支持例程
+parse_target.c	处理查询的结果列表
+parse_type.c	数据类型处理的支持例程
+parse_utilcmd.c	实用命令的解析分析（在执行时完成）
 
-See also src/common/keywords.c, which contains the table of standard
-keywords and the keyword lookup function.  We separated that out because
-various frontend code wants to use it too.
+另见 src/common/keywords.c，其中包含标准关键字表和关键字查找函数。
+我们把它单独放出来，是因为各种前端代码也要用。

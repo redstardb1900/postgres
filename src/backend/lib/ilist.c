@@ -21,11 +21,11 @@
 #include "lib/ilist.h"
 
 /*
- * Delete 'node' from list.
+ * 从列表中删除 'node'。
  *
- * It is not allowed to delete a 'node' which is not in the list 'head'
+ * 不允许删除不在列表 'head' 中的 'node'
  *
- * Caution: this is O(n); consider using slist_delete_current() instead.
+ * 注意：这是 O(n)；考虑改用 slist_delete_current()。
  */
 void
 slist_delete(slist_head *head, const slist_node *node)
@@ -54,14 +54,14 @@ slist_delete(slist_head *head, const slist_node *node)
 #ifdef ILIST_DEBUG
 /*
  * dlist_member_check
- *		Validate that 'node' is a member of 'head'
+ *		验证 'node' 是 'head' 的成员
  */
 void
 dlist_member_check(const dlist_head *head, const dlist_node *node)
 {
 	const dlist_node *cur;
 
-	/* iteration open-coded to due to the use of const */
+	/* 因使用 const 而展开写循环 */
 	for (cur = head->head.next; cur != &head->head; cur = cur->next)
 	{
 		if (cur == node)
@@ -71,7 +71,7 @@ dlist_member_check(const dlist_head *head, const dlist_node *node)
 }
 
 /*
- * Verify integrity of a doubly linked list
+ * 验证双向链表的完整性
  */
 void
 dlist_check(const dlist_head *head)
@@ -82,9 +82,9 @@ dlist_check(const dlist_head *head)
 		elog(ERROR, "doubly linked list head address is NULL");
 
 	if (head->head.next == NULL && head->head.prev == NULL)
-		return;					/* OK, initialized as zeroes */
+		return;					/* 正常，已初始化为零 */
 
-	/* iterate in forward direction */
+	/* 向前迭代 */
 	for (cur = head->head.next; cur != &head->head; cur = cur->next)
 	{
 		if (cur == NULL ||
@@ -95,7 +95,7 @@ dlist_check(const dlist_head *head)
 			elog(ERROR, "doubly linked list is corrupted");
 	}
 
-	/* iterate in backward direction */
+	/* 向后迭代 */
 	for (cur = head->head.prev; cur != &head->head; cur = cur->prev)
 	{
 		if (cur == NULL ||
@@ -108,7 +108,7 @@ dlist_check(const dlist_head *head)
 }
 
 /*
- * Verify integrity of a singly linked list
+ * 验证单向链表的完整性
  */
 void
 slist_check(const slist_head *head)
@@ -119,8 +119,8 @@ slist_check(const slist_head *head)
 		elog(ERROR, "singly linked list head address is NULL");
 
 	/*
-	 * there isn't much we can test in a singly linked list except that it
-	 * actually ends sometime, i.e. hasn't introduced a cycle or similar
+	 * 对单向链表能测的不多，除了它最终会结束，
+	 * 也就是没有引入环或类似问题
 	 */
 	for (cur = head->head.next; cur != NULL; cur = cur->next)
 		;

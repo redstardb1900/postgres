@@ -1,0 +1,96 @@
+{
+ "schema_version": 1,
+ "batch_id": "0031-comment-lib-small",
+ "title": "zh: translate small backend/lib comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "fdc5ae35ac51476d99c344512120621b1811adb1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/lib/ilist.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/bipartite_match.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0031-comment-lib-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/lib/ilist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 9,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "ILIST_DEBUG identifier"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/bipartite_match.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0031-comment-lib-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "First C-comment batch. 194 uncovered platform candidates left unapproved and untranslated. Files are in the 1504-variant baseline. Copyright/pgindent headers preserved."
+}

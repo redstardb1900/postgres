@@ -36,19 +36,19 @@
 /*
  * DiscreteKnapsack
  *
- * The item_values input is optional; if omitted, all the items are assumed to
- * have value 1.
+ * item_values 输入是可选的；若省略，则假定所有项的
+ * 价值为 1。
  *
- * Returns a Bitmapset of the 0..(n-1) indexes of the items chosen for
- * inclusion in the solution.
+ * 返回所选纳入解中的项的 0..(n-1) 下标组成的
+ * Bitmapset。
  *
- * This uses the usual dynamic-programming algorithm, adapted to reuse the
- * memory on each pass (by working from larger weights to smaller).  At the
- * start of pass number i, the values[w] array contains the largest value
- * computed with total weight <= w, using only items with indices < i; and
- * sets[w] contains the bitmap of items actually used for that value.  (The
- * bitmapsets are all pre-initialized with an unused high bit so that memory
- * allocation is done only once.)
+ * 这使用通常的动态规划算法，改编为每趟复用
+ * 内存（从较大重量做到较小重量）。在第 i 趟
+ * 开始时，values[w] 数组包含只用下标 < i 的项、
+ * 在总重量 <= w 下算出的最大价值；sets[w]
+ * 包含实际用于该价值的项的位图。（所有
+ * bitmapset 都预置了一个未用的高位，因此内存
+ * 分配只做一次。）
  */
 Bitmapset *
 DiscreteKnapsack(int max_weight, int num_items,
@@ -87,7 +87,7 @@ DiscreteKnapsack(int max_weight, int num_items,
 
 			if (values[j] <= values[ow] + iv)
 			{
-				/* copy sets[ow] to sets[j] without realloc */
+				/* 把 sets[ow] 复制到 sets[j]，不重新分配 */
 				if (j != ow)
 				{
 					sets[j] = bms_del_members(sets[j], sets[j]);

@@ -22,9 +22,9 @@
 #include "miscadmin.h"
 
 /*
- * The distances computed in hk_breadth_search can easily be seen to never
- * exceed u_size.  Since we restrict u_size to be less than SHRT_MAX, we
- * can therefore use SHRT_MAX as the "infinity" distance needed as a marker.
+ * 很容易看出 hk_breadth_search 算出的距离从不超过
+ * u_size。由于我们限制 u_size 小于 SHRT_MAX，因此
+ * 可以用 SHRT_MAX 作为所需的 "无穷" 距离标记。
  */
 #define HK_INFINITY  SHRT_MAX
 
@@ -32,8 +32,8 @@ static bool hk_breadth_search(BipartiteMatchState *state);
 static bool hk_depth_search(BipartiteMatchState *state, int u);
 
 /*
- * Given the size of U and V, where each is indexed 1..size, and an adjacency
- * list, perform the matching and return the resulting state.
+ * 给定 U 和 V 的大小（各自下标为 1..size）以及邻接
+ * 表，执行匹配并返回结果状态。
  */
 BipartiteMatchState *
 BipartiteMatch(int u_size, int v_size, short **adjacency)
@@ -64,20 +64,20 @@ BipartiteMatch(int u_size, int v_size, short **adjacency)
 					state->matching++;
 		}
 
-		CHECK_FOR_INTERRUPTS(); /* just in case */
+		CHECK_FOR_INTERRUPTS(); /* 以防万一 */
 	}
 
 	return state;
 }
 
 /*
- * Free a state returned by BipartiteMatch, except for the original adjacency
- * list, which is owned by the caller. This only frees memory, so it's optional.
+ * 释放 BipartiteMatch 返回的状态，但不释放原来的邻接
+ * 表，它由调用者拥有。这只释放内存，因此是可选的。
  */
 void
 BipartiteMatchFree(BipartiteMatchState *state)
 {
-	/* adjacency matrix is treated as owned by the caller */
+	/* 邻接矩阵视为由调用者拥有 */
 	pfree(state->pair_uv);
 	pfree(state->pair_vu);
 	pfree(state->distance);
@@ -86,8 +86,8 @@ BipartiteMatchFree(BipartiteMatchState *state)
 }
 
 /*
- * Perform the breadth-first search step of H-K matching.
- * Returns true if successful.
+ * 执行 H-K 匹配的广度优先搜索步骤。
+ * 成功则返回 true。
  */
 static bool
 hk_breadth_search(BipartiteMatchState *state)
@@ -95,8 +95,8 @@ hk_breadth_search(BipartiteMatchState *state)
 	int			usize = state->u_size;
 	short	   *queue = state->queue;
 	short	   *distance = state->distance;
-	int			qhead = 0;		/* we never enqueue any node more than once */
-	int			qtail = 0;		/* so don't have to worry about wrapping */
+	int			qhead = 0;		/* 我们从不把同一节点入队超过一次 */
+	int			qtail = 0;		/* 因此不必担心回绕 */
 	int			u;
 
 	distance[0] = HK_INFINITY;
@@ -139,8 +139,8 @@ hk_breadth_search(BipartiteMatchState *state)
 }
 
 /*
- * Perform the depth-first search step of H-K matching.
- * Returns true if successful.
+ * 执行 H-K 匹配的深度优先搜索步骤。
+ * 成功则返回 true。
  */
 static bool
 hk_depth_search(BipartiteMatchState *state, int u)

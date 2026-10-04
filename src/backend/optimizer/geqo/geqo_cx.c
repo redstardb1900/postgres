@@ -11,15 +11,15 @@
 *-------------------------------------------------------------------------
 */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* the cx algorithm is adopted from Genitor : */
+/* cx 算法取自 Genitor： */
 /*************************************************************/
 /*															 */
 /*	Copyright (c) 1990										 */
@@ -42,7 +42,7 @@
 
 /* cx
  *
- *	 cycle crossover
+ *	 循环交叉
  */
 int
 cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
@@ -54,7 +54,7 @@ cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 	int			count = 0;
 	int			num_diffs = 0;
 
-	/* initialize city table */
+	/* 初始化城市表 */
 	for (i = 1; i <= num_gene; i++)
 	{
 		city_table[i].used = 0;
@@ -62,22 +62,22 @@ cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 		city_table[tour1[i - 1]].tour1_position = i - 1;
 	}
 
-	/* choose random cycle starting position */
+	/* 随机选择循环起点 */
 	start_pos = geqo_randint(root, num_gene - 1, 0);
 
-	/* child inherits first city  */
+	/* 子代继承第一座城市  */
 	offspring[start_pos] = tour1[start_pos];
 
-	/* begin cycle with tour1 */
+	/* 从 tour1 开始循环 */
 	curr_pos = start_pos;
 	city_table[(int) tour1[start_pos]].used = 1;
 
 	count++;
 
-	/* cx main part */
+	/* cx 主要部分 */
 
 
-/* STEP 1 */
+/* 步骤 1 */
 
 	while (tour2[curr_pos] != tour1[start_pos])
 	{
@@ -88,9 +88,9 @@ cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 	}
 
 
-/* STEP 2 */
+/* 步骤 2 */
 
-	/* failed to create a complete tour */
+	/* 未能生成完整巡回 */
 	if (count < num_gene)
 	{
 		for (i = 1; i <= num_gene; i++)
@@ -105,13 +105,13 @@ cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 	}
 
 
-/* STEP 3 */
+/* 步骤 3 */
 
-	/* still failed to create a complete tour */
+	/* 仍未能生成完整巡回 */
 	if (count < num_gene)
 	{
 
-		/* count the number of differences between mom and offspring */
+		/* 统计母本与后代之间的差异数 */
 		for (i = 0; i < num_gene; i++)
 			if (tour1[i] != offspring[i])
 				num_diffs++;
@@ -120,4 +120,4 @@ cx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring,
 	return num_diffs;
 }
 
-#endif							/* defined(CX) */
+#endif							/* 当 defined(CX) */

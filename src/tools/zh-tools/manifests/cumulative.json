@@ -1300,6 +1300,86 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0057-comment-nodes-nodefuncs-termfix.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_copy.c",
+   "kind": "c_comment",
+   "note": "Whitley copyright card left in English"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_cx.c",
+   "kind": "c_comment",
+   "note": "cycle crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_erx.c",
+   "kind": "c_comment",
+   "note": "edge recombination"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_eval.c",
+   "kind": "c_comment",
+   "note": "join-order evaluation"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_main.c",
+   "kind": "c_comment",
+   "note": "GEQO main loop"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_misc.c",
+   "kind": "c_comment",
+   "note": "debug helpers; function-name banners kept"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_mutation.c",
+   "kind": "c_comment",
+   "note": "CX mutation"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_ox1.c",
+   "kind": "c_comment",
+   "note": "order crossover 1"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_ox2.c",
+   "kind": "c_comment",
+   "note": "order crossover 2"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_pmx.c",
+   "kind": "c_comment",
+   "note": "partially matched crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_pool.c",
+   "kind": "c_comment",
+   "note": "genetic pool"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_px.c",
+   "kind": "c_comment",
+   "note": "position crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_random.c",
+   "kind": "c_comment",
+   "note": "random helper"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_recombination.c",
+   "kind": "c_comment",
+   "note": "tour recombination"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_selection.c",
+   "kind": "c_comment",
+   "note": "linear-bias selection"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0058-comment-optimizer-geqo.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -4599,7 +4679,225 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_copy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 3,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "Whitley copyright card left in English"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_cx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 15,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "cycle crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_erx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 61,
+   "translated": 48,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "edge recombination"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_eval.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "join-order evaluation"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_main.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 45,
+   "translated": 44,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "GEQO main loop"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_misc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 7,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "function-name banners"
+   ],
+   "note": "debug helpers; function-name banners kept"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_mutation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 4,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "CX mutation"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_ox1.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 11,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "order crossover 1"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_ox2.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 11,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "order crossover 2"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_pmx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 24,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "partially matched crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_pool.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "genetic pool"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_px.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 15,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "position crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_random.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "random helper"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_recombination.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "tour recombination"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_selection.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 7,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "linear-bias selection"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0058-comment-optimizer-geqo.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs)."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments."
 }

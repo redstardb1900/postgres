@@ -11,15 +11,15 @@
 *-------------------------------------------------------------------------
 */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* the ox algorithm is adopted from Genitor : */
+/* ox 算法取自 Genitor： */
 /*************************************************************/
 /*															 */
 /*	Copyright (c) 1990										 */
@@ -41,7 +41,7 @@
 
 /* ox1
  *
- *	 position crossover
+ *	 位置交叉
  */
 void
 ox1(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene,
@@ -53,11 +53,11 @@ ox1(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene,
 				p,
 				temp;
 
-	/* initialize city table */
+	/* 初始化城市表 */
 	for (k = 1; k <= num_gene; k++)
 		city_table[k].used = 0;
 
-	/* select portion to copy from tour1 */
+	/* 选择要从 tour1 复制的那一段 */
 	left = geqo_randint(root, num_gene - 1, 0);
 	right = geqo_randint(root, num_gene - 1, 0);
 
@@ -68,17 +68,17 @@ ox1(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene,
 		right = temp;
 	}
 
-	/* copy portion from tour1 to offspring */
+	/* 把这一段从 tour1 复制到后代 */
 	for (k = left; k <= right; k++)
 	{
 		offspring[k] = tour1[k];
 		city_table[(int) tour1[k]].used = 1;
 	}
 
-	k = (right + 1) % num_gene; /* index into offspring */
-	p = k;						/* index into tour2 */
+	k = (right + 1) % num_gene; /* 后代中的下标 */
+	p = k;						/* tour2 中的下标 */
 
-	/* copy stuff from tour2 to offspring */
+	/* 把 tour2 中的内容复制到后代 */
 	while (k != left)
 	{
 		if (!city_table[(int) tour2[p]].used)
@@ -87,8 +87,8 @@ ox1(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene,
 			k = (k + 1) % num_gene;
 			city_table[(int) tour2[p]].used = 1;
 		}
-		p = (p + 1) % num_gene; /* increment tour2-index */
+		p = (p + 1) % num_gene; /* 递增 tour2 的下标 */
 	}
 }
 
-#endif							/* defined(OX1) */
+#endif							/* 当 defined(OX1) */

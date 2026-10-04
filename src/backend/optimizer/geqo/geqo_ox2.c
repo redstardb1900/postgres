@@ -11,15 +11,15 @@
 *-------------------------------------------------------------------------
 */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* the ox algorithm is adopted from Genitor : */
+/* ox 算法取自 Genitor： */
 /*************************************************************/
 /*															 */
 /*	Copyright (c) 1990										 */
@@ -41,7 +41,7 @@
 
 /* ox2
  *
- *	 position crossover
+ *	 位置交叉
  */
 void
 ox2(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene, City * city_table)
@@ -53,29 +53,29 @@ ox2(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene, 
 				select,
 				num_positions;
 
-	/* initialize city table */
+	/* 初始化城市表 */
 	for (k = 1; k <= num_gene; k++)
 	{
 		city_table[k].used = 0;
 		city_table[k - 1].select_list = -1;
 	}
 
-	/* determine the number of positions to be inherited from tour1  */
+	/* 确定要从 tour1 继承的位置个数  */
 	num_positions = geqo_randint(root, 2 * num_gene / 3, num_gene / 3);
 
-	/* make a list of selected cities */
+	/* 列出被选中的城市 */
 	for (k = 0; k < num_positions; k++)
 	{
 		pos = geqo_randint(root, num_gene - 1, 0);
 		city_table[pos].select_list = (int) tour1[pos];
-		city_table[(int) tour1[pos]].used = 1;	/* mark used */
+		city_table[(int) tour1[pos]].used = 1;	/* 标为已使用 */
 	}
 
 
 	count = 0;
 	k = 0;
 
-	/* consolidate the select list to adjacent positions */
+	/* 把选择列表收拢到相邻位置 */
 	while (count < num_positions)
 	{
 		if (city_table[k].select_list == -1)
@@ -100,12 +100,12 @@ ox2(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene, 
 		if (city_table[(int) tour2[k]].used)
 		{
 			offspring[k] = (Gene) city_table[select].select_list;
-			select++;			/* next city in  the select list   */
+			select++;			/* 选择列表中的下一座城市   */
 		}
 		else
-			/* city isn't used yet, so inherit from tour2 */
+			/* 城市尚未使用，因此从 tour2 继承 */
 			offspring[k] = tour2[k];
 	}
 }
 
-#endif							/* defined(OX2) */
+#endif							/* 当 defined(OX2) */

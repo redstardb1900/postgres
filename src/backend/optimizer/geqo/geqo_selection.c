@@ -11,15 +11,15 @@
  *-------------------------------------------------------------------------
  */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* this is adopted from D. Whitley's Genitor algorithm */
+/* 本实现取自 D. Whitley 的 Genitor 算法 */
 
 /*************************************************************/
 /*															 */
@@ -47,8 +47,8 @@ static int	linear_rand(PlannerInfo *root, int pool_size, double bias);
 
 /*
  * geqo_selection
- *	 according to bias described by input parameters,
- *	 first and second genes are selected from the pool
+ *	 按输入参数描述的偏置，
+ *	 从池中选出第一和第二个基因
  */
 void
 geqo_selection(PlannerInfo *root, Chromosome *momma, Chromosome *daddy,
@@ -61,8 +61,8 @@ geqo_selection(PlannerInfo *root, Chromosome *momma, Chromosome *daddy,
 	second = linear_rand(root, pool->size, bias);
 
 	/*
-	 * Ensure we have selected different genes, except if pool size is only
-	 * one, when we can't.
+	 * 确保选出的是不同基因，除非池大小只有
+	 * 一个，那种情况下无法做到。
 	 */
 	if (pool->size > 1)
 	{
@@ -76,26 +76,26 @@ geqo_selection(PlannerInfo *root, Chromosome *momma, Chromosome *daddy,
 
 /*
  * linear_rand
- *	  generates random integer between 0 and input max number
- *	  using input linear bias
+ *	  生成 0 到输入最大数之间的随机整数，
+ *	  使用输入的线性偏置
  *
- *	  bias is y-intercept of linear distribution
+ *	  bias 是线性分布的 y 轴截距
  *
- *	  probability distribution function is: f(x) = bias - 2(bias - 1)x
- *			 bias = (prob of first rule) / (prob of middle rule)
+ *	  概率分布函数为：f(x) = bias - 2(bias - 1)x
+ *			 bias = (第一条规则的概率) / (中间规则的概率)
  */
 static int
 linear_rand(PlannerInfo *root, int pool_size, double bias)
 {
-	double		index;			/* index between 0 and pool_size */
+	double		index;			/* 下标介于 0 与 pool_size 之间 */
 	double		max = (double) pool_size;
 
 	/*
-	 * geqo_rand() is not supposed to return 1.0, but if it does then we will
-	 * get exactly max from this equation, whereas we need 0 <= index < max.
-	 * Also it seems possible that roundoff error might deliver values
-	 * slightly outside the range; in particular avoid passing a value
-	 * slightly less than 0 to sqrt().  If we get a bad value just try again.
+	 * geqo_rand() 按理不应返回 1.0，但如果返回了，这个等式就会
+	 * 得到恰好为 max 的结果，而我们需要 0 <= index < max。
+	 * 舍入误差似乎也可能给出
+	 * 略微超出范围的值；尤其要避免把略小于 0 的值传给
+	 * sqrt()。若得到坏值，就再重试一次。
 	 */
 	do
 	{

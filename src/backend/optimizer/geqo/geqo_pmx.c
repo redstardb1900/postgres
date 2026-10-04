@@ -11,15 +11,15 @@
 *-------------------------------------------------------------------------
 */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* the pmx algorithm is adopted from Genitor : */
+/* pmx 算法取自 Genitor： */
 /*************************************************************/
 /*															 */
 /*	Copyright (c) 1990										 */
@@ -41,7 +41,7 @@
 
 /* pmx
  *
- *	 partially matched crossover
+ *	 部分匹配交叉
  */
 void
 pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
@@ -62,8 +62,8 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 				mx_hold;
 
 
-/* no mutation so start up the pmx replacement algorithm */
-/* initialize failed[], from[], check_list[] */
+/* 不做变异，因此启动 pmx 替换算法 */
+/* 初始化 failed[]、from[]、check_list[] */
 	for (k = 0; k < num_gene; k++)
 	{
 		failed[k] = -1;
@@ -71,7 +71,7 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 		check_list[k + 1] = 0;
 	}
 
-/* locate crossover points */
+/* 定位交叉点 */
 	left = geqo_randint(root, num_gene - 1, 0);
 	right = geqo_randint(root, num_gene - 1, 0);
 
@@ -83,7 +83,7 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 	}
 
 
-/* copy tour2 into offspring */
+/* 把 tour2 复制到后代 */
 	for (k = 0; k < num_gene; k++)
 	{
 		offspring[k] = tour2[k];
@@ -91,7 +91,7 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 		check_list[tour2[k]]++;
 	}
 
-/* copy tour1 into offspring */
+/* 把 tour1 复制到后代 */
 	for (k = left; k <= right; k++)
 	{
 		check_list[offspring[k]]--;
@@ -101,21 +101,21 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 	}
 
 
-/* pmx main part */
+/* pmx 主要部分 */
 
 	mx_fail = 0;
 
-/* STEP 1 */
+/* 步骤 1 */
 
 	for (k = left; k <= right; k++)
-	{							/* for all elements in the tour1-2 */
+	{							/* 对 tour1-2 中的全部元素 */
 
 		if (tour1[k] == tour2[k])
-			found = 1;			/* find match in tour2 */
+			found = 1;			/* 在 tour2 中寻找匹配 */
 
 		else
 		{
-			found = 0;			/* substitute elements */
+			found = 0;			/* 替换元素 */
 
 			j = 0;
 			while (!(found) && (j < num_gene))
@@ -134,17 +134,17 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 		}
 
 		if (!(found))
-		{						/* failed to replace gene */
+		{						/* 未能替换基因 */
 			failed[mx_fail] = (int) tour1[k];
 			indx[mx_fail] = k;
 			mx_fail++;
 		}
-	}							/* ... for */
+	}							/* ……对应 for */
 
 
-/* STEP 2 */
+/* 步骤 2 */
 
-	/* see if any genes could not be replaced */
+	/* 查看是否有基因无法替换 */
 	if (mx_fail > 0)
 	{
 		mx_hold = mx_fail;
@@ -170,11 +170,11 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 
 				j++;
 			}
-		}						/* ... for	 */
-	}							/* ... if	 */
+		}						/* ……对应 for	 */
+	}							/* ……对应 if	 */
 
 
-/* STEP 3 */
+/* 步骤 3 */
 
 	for (k = 1; k <= num_gene; k++)
 	{
@@ -202,12 +202,12 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 
 						j++;
 					}
-				}				/* ... if	 */
+				}				/* ……对应 if	 */
 
 				i++;
-			}					/* end while */
+			}					/* while 结束 */
 		}
-	}							/* ... for	 */
+	}							/* ……对应 for	 */
 
 	pfree(failed);
 	pfree(from);
@@ -215,4 +215,4 @@ pmx(PlannerInfo *root, Gene *tour1, Gene *tour2, Gene *offspring, int num_gene)
 	pfree(check_list);
 }
 
-#endif							/* defined(PMX) */
+#endif							/* 当 defined(PMX) */

@@ -11,15 +11,15 @@
  *-------------------------------------------------------------------------
  */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* -- parts of this are adapted from D. Whitley's Genitor algorithm -- */
+/* -- 部分内容改编自 D. Whitley 的 Genitor 算法 -- */
 
 #include "postgres.h"
 
@@ -36,7 +36,7 @@ static int	compare(const void *arg1, const void *arg2);
 
 /*
  * alloc_pool
- *		allocates memory for GA pool
+ *		为 GA 池分配内存
  */
 Pool *
 alloc_pool(PlannerInfo *root, int pool_size, int string_length)
@@ -45,16 +45,16 @@ alloc_pool(PlannerInfo *root, int pool_size, int string_length)
 	Chromosome *chromo;
 	int			i;
 
-	/* pool */
+	/* 池 */
 	new_pool = (Pool *) palloc(sizeof(Pool));
 	new_pool->size = (int) pool_size;
 	new_pool->string_length = (int) string_length;
 
-	/* all chromosome */
+	/* 全部染色体 */
 	new_pool->data = (Chromosome *) palloc(pool_size * sizeof(Chromosome));
 
-	/* all gene */
-	chromo = (Chromosome *) new_pool->data; /* vector of all chromos */
+	/* 全部基因 */
+	chromo = (Chromosome *) new_pool->data; /* 全部染色体的向量 */
 	for (i = 0; i < pool_size; i++)
 		chromo[i].string = palloc((string_length + 1) * sizeof(Gene));
 
@@ -63,7 +63,7 @@ alloc_pool(PlannerInfo *root, int pool_size, int string_length)
 
 /*
  * free_pool
- *		deallocates memory for GA pool
+ *		释放 GA 池的内存
  */
 void
 free_pool(PlannerInfo *root, Pool *pool)
@@ -71,21 +71,21 @@ free_pool(PlannerInfo *root, Pool *pool)
 	Chromosome *chromo;
 	int			i;
 
-	/* all gene */
-	chromo = (Chromosome *) pool->data; /* vector of all chromos */
+	/* 全部基因 */
+	chromo = (Chromosome *) pool->data; /* 全部染色体的向量 */
 	for (i = 0; i < pool->size; i++)
 		pfree(chromo[i].string);
 
-	/* all chromosome */
+	/* 全部染色体 */
 	pfree(pool->data);
 
-	/* pool */
+	/* 池 */
 	pfree(pool);
 }
 
 /*
  * random_init_pool
- *		initialize genetic pool
+ *		初始化基因池
  */
 void
 random_init_pool(PlannerInfo *root, Pool *pool)
@@ -95,12 +95,12 @@ random_init_pool(PlannerInfo *root, Pool *pool)
 	int			bad = 0;
 
 	/*
-	 * We immediately discard any invalid individuals (those that geqo_eval
-	 * returns DBL_MAX for), thereby not wasting pool space on them.
+	 * 立刻丢掉任何无效个体（即 geqo_eval
+	 * 对其返回 DBL_MAX 的那些），以免浪费池空间。
 	 *
-	 * If we fail to make any valid individuals after 10000 tries, give up;
-	 * this probably means something is broken, and we shouldn't just let
-	 * ourselves get stuck in an infinite loop.
+	 * 若尝试 10000 次仍造不出任何有效个体，就放弃；
+	 * 这多半说明某处坏了，不应当就这样
+	 * 让自己陷在无限循环里。
 	 */
 	i = 0;
 	while (i < pool->size)
@@ -127,9 +127,9 @@ random_init_pool(PlannerInfo *root, Pool *pool)
 
 /*
  * sort_pool
- *	 sorts input pool according to worth, from smallest to largest
+ *	 按 worth 对输入池排序，从小到大
  *
- *	 maybe you have to change compare() for different ordering ...
+ *	 若要不同的次序，也许得修改 compare() ...
  */
 void
 sort_pool(PlannerInfo *root, Pool *pool)
@@ -139,7 +139,7 @@ sort_pool(PlannerInfo *root, Pool *pool)
 
 /*
  * compare
- *	 qsort comparison function for sort_pool
+ *	 供 sort_pool 使用的 qsort 比较函数
  */
 static int
 compare(const void *arg1, const void *arg2)
@@ -156,7 +156,7 @@ compare(const void *arg1, const void *arg2)
 }
 
 /* alloc_chromo
- *	  allocates a chromosome and string space
+ *	  分配一条染色体及其串空间
  */
 Chromosome *
 alloc_chromo(PlannerInfo *root, int string_length)
@@ -170,7 +170,7 @@ alloc_chromo(PlannerInfo *root, int string_length)
 }
 
 /* free_chromo
- *	  deallocates a chromosome and string space
+ *	  释放一条染色体及其串空间
  */
 void
 free_chromo(PlannerInfo *root, Chromosome *chromo)
@@ -180,8 +180,8 @@ free_chromo(PlannerInfo *root, Chromosome *chromo)
 }
 
 /* spread_chromo
- *	 inserts a new chromosome into the pool, displacing worst gene in pool
- *	 assumes best->worst = smallest->largest
+ *	 把新染色体插入池中，挤掉池里最差的基因
+ *	 假定 最好->最差 = 最小->最大
  */
 void
 spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
@@ -194,11 +194,11 @@ spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
 	Chromosome	swap_chromo,
 				tmp_chromo;
 
-	/* new chromo is so bad we can't use it */
+	/* 新染色体太差，无法使用 */
 	if (chromo->worth > pool->data[pool->size - 1].worth)
 		return;
 
-	/* do a binary search to find the index of the new chromo */
+	/* 用二分查找确定新染色体的下标 */
 
 	top = 0;
 	mid = pool->size / 2;
@@ -207,7 +207,7 @@ spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
 
 	while (index == -1)
 	{
-		/* these 4 cases find a new location */
+		/* 这 4 种情况找到了新位置 */
 
 		if (chromo->worth <= pool->data[top].worth)
 			index = top;
@@ -220,8 +220,8 @@ spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
 
 
 		/*
-		 * these 2 cases move the search indices since a new location has not
-		 * yet been found.
+		 * 这两种情况会移动查找下标，因为新位置还
+		 * 没有找到。
 		 */
 
 		else if (chromo->worth < pool->data[mid].worth)
@@ -230,20 +230,20 @@ spread_chromo(PlannerInfo *root, Chromosome *chromo, Pool *pool)
 			mid = top + ((bot - top) / 2);
 		}
 		else
-		{						/* (chromo->worth > pool->data[mid].worth) */
+		{						/* 对应 (chromo->worth > pool->data[mid].worth) */
 			top = mid;
 			mid = top + ((bot - top) / 2);
 		}
-	}							/* ... while */
+	}							/* ……对应 while */
 
-	/* now we have index for chromo */
+	/* 现在已经得到 chromo 的下标 */
 
 	/*
-	 * move every gene from index on down one position to make room for chromo
+	 * 把从该下标起的每个基因下移一格，给 chromo 腾出位置
 	 */
 
 	/*
-	 * copy new gene into pool storage; always replace worst gene in pool
+	 * 把新基因复制进池存储；总是替换池里最差的基因
 	 */
 
 	geqo_copy(root, &pool->data[pool->size - 1], chromo, pool->string_length);

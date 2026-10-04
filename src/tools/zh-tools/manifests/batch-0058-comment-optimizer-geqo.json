@@ -1,0 +1,326 @@
+{
+ "schema_version": 1,
+ "batch_id": "0058-comment-optimizer-geqo",
+ "title": "zh: translate geqo comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1146603ced58afb391e61fee64aabe2694eadbd5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_copy.c",
+   "kind": "c_comment",
+   "note": "Whitley copyright card left in English"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_cx.c",
+   "kind": "c_comment",
+   "note": "cycle crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_erx.c",
+   "kind": "c_comment",
+   "note": "edge recombination"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_eval.c",
+   "kind": "c_comment",
+   "note": "join-order evaluation"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_main.c",
+   "kind": "c_comment",
+   "note": "GEQO main loop"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_misc.c",
+   "kind": "c_comment",
+   "note": "debug helpers; function-name banners kept"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_mutation.c",
+   "kind": "c_comment",
+   "note": "CX mutation"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_ox1.c",
+   "kind": "c_comment",
+   "note": "order crossover 1"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_ox2.c",
+   "kind": "c_comment",
+   "note": "order crossover 2"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_pmx.c",
+   "kind": "c_comment",
+   "note": "partially matched crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_pool.c",
+   "kind": "c_comment",
+   "note": "genetic pool"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_px.c",
+   "kind": "c_comment",
+   "note": "position crossover"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_random.c",
+   "kind": "c_comment",
+   "note": "random helper"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_recombination.c",
+   "kind": "c_comment",
+   "note": "tour recombination"
+  },
+  {
+   "pattern": "src/backend/optimizer/geqo/geqo_selection.c",
+   "kind": "c_comment",
+   "note": "linear-bias selection"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0058-comment-optimizer-geqo.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/geqo/geqo_copy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 3,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "Whitley copyright card left in English"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_cx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 15,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "cycle crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_erx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 61,
+   "translated": 48,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "edge recombination"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_eval.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "join-order evaluation"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_main.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 45,
+   "translated": 44,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "GEQO main loop"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_misc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 7,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "function-name banners"
+   ],
+   "note": "debug helpers; function-name banners kept"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_mutation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 4,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "CX mutation"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_ox1.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 11,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "order crossover 1"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_ox2.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 11,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "order crossover 2"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_pmx.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 37,
+   "translated": 24,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "partially matched crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_pool.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "genetic pool"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_px.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 15,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "position crossover"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_random.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "random helper"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_recombination.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "tour recombination"
+  },
+  {
+   "path": "src/backend/optimizer/geqo/geqo_selection.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 7,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "copyright/license notice",
+    "attribution names",
+    "decorative separators"
+   ],
+   "note": "linear-bias selection"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0058-comment-optimizer-geqo.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

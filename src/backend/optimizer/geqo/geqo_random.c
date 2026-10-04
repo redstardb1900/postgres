@@ -38,8 +38,8 @@ geqo_randint(PlannerInfo *root, int upper, int lower)
 	GeqoPrivateData *private = (GeqoPrivateData *) root->join_search_private;
 
 	/*
-	 * In current usage, "lower" is never negative so we can just use
-	 * pg_prng_uint64_range directly.
+	 * 按目前的用法，"lower" 从不为负，因此可以直接使用
+	 * pg_prng_uint64_range。
 	 */
 	return (int) pg_prng_uint64_range(&private->random_state, lower, upper);
 }

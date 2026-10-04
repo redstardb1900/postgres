@@ -11,11 +11,11 @@
  *-------------------------------------------------------------------------
  */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
@@ -40,10 +40,10 @@ avg_pool(Pool *pool)
 		elog(ERROR, "pool_size is zero");
 
 	/*
-	 * Since the pool may contain multiple occurrences of DBL_MAX, divide by
-	 * pool->size before summing, not after, to avoid overflow.  This loses a
-	 * little in speed and accuracy, but this routine is only used for debug
-	 * printouts, so we don't care that much.
+	 * 由于池里可能多次出现 DBL_MAX，求和之前先除以
+	 * pool->size，而不是求和之后再除，以免溢出。这样会损失一点
+	 * 速度和精度，但本例程只用于调试
+	 * 打印，所以不太在意。
 	 */
 	for (i = 0; i < pool->size; i++)
 		cumulative += pool->data[i].worth / pool->size;
@@ -59,7 +59,7 @@ print_pool(FILE *fp, Pool *pool, int start, int stop)
 	int			i,
 				j;
 
-	/* be extra careful that start and stop are valid inputs */
+	/* 格外确认 start 和 stop 是有效输入 */
 
 	if (start < 0)
 		start = 0;
@@ -85,15 +85,15 @@ print_pool(FILE *fp, Pool *pool, int start, int stop)
 
 /* print_gen
  *
- *	 printout for chromosome: best, worst, mean, average
+ *	 染色体的打印：最佳、最差、均值、平均
  */
 void
 print_gen(FILE *fp, Pool *pool, int generation)
 {
 	int			lowest;
 
-	/* Get index to lowest ranking gene in population. */
-	/* Use 2nd to last since last is buffer. */
+	/* 取得种群中排名最低的基因的下标。 */
+	/* 用倒数第二个，因为最后一个是缓冲区。 */
 	lowest = pool->size > 1 ? pool->size - 2 : 0;
 
 	fprintf(fp,
@@ -129,4 +129,4 @@ print_edge_table(FILE *fp, Edge *edge_table, int num_gene)
 	fflush(fp);
 }
 
-#endif							/* GEQO_DEBUG */
+#endif							/* 若 GEQO_DEBUG */

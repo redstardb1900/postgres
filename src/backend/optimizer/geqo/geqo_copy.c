@@ -10,15 +10,15 @@
  *-------------------------------------------------------------------------
  */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* this is adopted from D. Whitley's Genitor algorithm */
+/* 本实现取自 D. Whitley 的 Genitor 算法 */
 
 /*************************************************************/
 /*															 */
@@ -38,7 +38,7 @@
 
 /* geqo_copy
  *
- *	 copies one gene to another
+ *	 把一个基因复制到另一个
  *
  */
 void

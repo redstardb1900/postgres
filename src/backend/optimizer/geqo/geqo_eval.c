@@ -11,11 +11,11 @@
  *-------------------------------------------------------------------------
  */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
@@ -32,11 +32,11 @@
 #include "utils/memutils.h"
 
 
-/* A "clump" of already-joined relations within gimme_tree */
+/* gimme_tree 里已经连接在一起的关系 "clump"（团块） */
 typedef struct
 {
-	RelOptInfo *joinrel;		/* joinrel for the set of relations */
-	int			size;			/* number of input relations in clump */
+	RelOptInfo *joinrel;		/* 这组关系的连接关系 */
+	int			size;			/* 团块中的输入关系个数 */
 } Clump;
 
 static List *merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump,
@@ -48,10 +48,10 @@ static bool desirable_join(PlannerInfo *root,
 /*
  * geqo_eval
  *
- * Returns cost of a query tree as an individual of the population.
+ * 把查询树的代价作为种群中一个个体返回。
  *
- * If no legal join order can be extracted from the proposed tour,
- * returns DBL_MAX.
+ * 若从提议的 tour 中抽不出合法连接顺序，
+ * 则返回 DBL_MAX。
  */
 Cost
 geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
@@ -64,13 +64,13 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 	struct HTAB *savehash;
 
 	/*
-	 * Create a private memory context that will hold all temp storage
-	 * allocated inside gimme_tree().
+	 * 创建一个私有内存上下文，用来存放全部临时存储，
+	 * 这些存储是在 gimme_tree() 内部分配的。
 	 *
-	 * Since geqo_eval() will be called many times, we can't afford to let all
-	 * that memory go unreclaimed until end of statement.  Note we make the
-	 * temp context a child of the planner's normal context, so that it will
-	 * be freed even if we abort via ereport(ERROR).
+	 * 由于 geqo_eval() 会被调用很多次，我们无法让这些
+	 * 内存一直留到语句结束才回收。注意，我们把
+	 * 临时上下文做成规划器普通上下文的子级，这样即使
+	 * 经由 ereport(ERROR) 中止，它也会被释放。
 	 */
 	mycontext = AllocSetContextCreate(CurrentMemoryContext,
 									  "GEQO",
@@ -78,19 +78,19 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 	oldcxt = MemoryContextSwitchTo(mycontext);
 
 	/*
-	 * gimme_tree will add entries to root->join_rel_list, which may or may
-	 * not already contain some entries.  The newly added entries will be
-	 * recycled by the MemoryContextDelete below, so we must ensure that the
-	 * list is restored to its former state before exiting.  We can do this by
-	 * truncating the list to its original length.  NOTE this assumes that any
-	 * added entries are appended at the end!
+	 * gimme_tree 会向 root->join_rel_list 添加条目，其中也许已经
+	 * 有一些条目，也许还没有。新添加的条目会被
+	 * 下面的 MemoryContextDelete 回收，因此必须确保
+	 * 退出前把列表恢复成原来的状态。做法是
+	 * 把列表截断到原来的长度。注意：这里假定任何
+	 * 新条目都追加在末尾！
 	 *
-	 * We also must take care not to mess up the outer join_rel_hash, if there
-	 * is one.  We can do this by just temporarily setting the link to NULL.
-	 * (If we are dealing with enough join rels, which we very likely are, a
-	 * new hash table will get built and used locally.)
+	 * 还必须注意不要弄乱外层的 join_rel_hash（如果
+	 * 有的话）。只要暂时把该链接设为 NULL 即可。
+	 * （如果涉及的连接关系足够多——很可能如此——就会
+	 * 在本地新建并使用一张哈希表。）
 	 *
-	 * join_rel_level[] shouldn't be in use, so just Assert it isn't.
+	 * join_rel_level[] 不应当处于使用中，因此直接 Assert 它没有。
 	 */
 	savelength = list_length(root->join_rel_list);
 	savehash = root->join_rel_hash;
@@ -98,15 +98,15 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 
 	root->join_rel_hash = NULL;
 
-	/* construct the best path for the given combination of relations */
+	/* 为给定的关系组合构造最佳路径 */
 	joinrel = gimme_tree(root, tour, num_gene);
 
 	/*
-	 * compute fitness, if we found a valid join
+	 * 若找到有效连接，则计算适应度
 	 *
-	 * XXX geqo does not currently support optimization for partial result
-	 * retrieval, nor do we take any cognizance of possible use of
-	 * parameterized paths --- how to fix?
+	 * XXX geqo 目前不支持针对部分结果
+	 * 检索的优化，也不考虑可能使用
+	 * 参数化路径——如何修复？
 	 */
 	if (joinrel)
 	{
@@ -118,14 +118,14 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 		fitness = DBL_MAX;
 
 	/*
-	 * Restore join_rel_list to its former state, and put back original
-	 * hashtable if any.
+	 * 把 join_rel_list 恢复成原来的状态，并放回原来的
+	 * 哈希表（如果有）。
 	 */
 	root->join_rel_list = list_truncate(root->join_rel_list,
 										savelength);
 	root->join_rel_hash = savehash;
 
-	/* release all the memory acquired within gimme_tree */
+	/* 释放在 gimme_tree 内获得的全部内存 */
 	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(mycontext);
 
@@ -134,30 +134,30 @@ geqo_eval(PlannerInfo *root, Gene *tour, int num_gene)
 
 /*
  * gimme_tree
- *	  Form planner estimates for a join tree constructed in the specified
- *	  order.
+ *	  为按指定顺序构造的连接树
+ *	  生成规划器估计。
  *
- *	 'tour' is the proposed join order, of length 'num_gene'
+ *	 'tour' 是提议的连接顺序，长度为 'num_gene'
  *
- * Returns a new join relation whose cheapest path is the best plan for
- * this join order.  NB: will return NULL if join order is invalid and
- * we can't modify it into a valid order.
+ * 返回一个新的连接关系，其最低代价路径就是该
+ * 连接顺序的最佳计划。注意：若连接顺序无效，且
+ * 无法把它改成有效顺序，则返回 NULL。
  *
- * The original implementation of this routine always joined in the specified
- * order, and so could only build left-sided plans (and right-sided and
- * mixtures, as a byproduct of the fact that make_join_rel() is symmetric).
- * It could never produce a "bushy" plan.  This had a couple of big problems,
- * of which the worst was that there are situations involving join order
- * restrictions where the only valid plans are bushy.
+ * 本例程最初的实现总是按指定顺序连接，
+ * 因此只能构造左深计划（以及右深计划和
+ * 混合计划，这是 make_join_rel() 对称性的副产品）。
+ * 它永远产生不了 "丛状" 计划。这带来几个大问题，
+ * 其中最严重的是：在存在连接顺序
+ * 限制时，唯一有效的计划是丛状的。
  *
- * The present implementation takes the given tour as a guideline, but
- * postpones joins that are illegal or seem unsuitable according to some
- * heuristic rules.  This allows correct bushy plans to be generated at need,
- * and as a nice side-effect it seems to materially improve the quality of the
- * generated plans.  Note however that since it's just a heuristic, it can
- * still fail in some cases.  (In particular, we might clump together
- * relations that actually mustn't be joined yet due to LATERAL restrictions;
- * since there's no provision for un-clumping, this must lead to failure.)
+ * 现在的实现把给定 tour 当作指导，但会
+ * 推迟违规或按某些启发式规则看来不合适的
+ * 连接。这样就能在需要时生成正确的丛状计划，
+ * 而且作为不错的副作用，似乎明显提高了所生成计划的
+ * 质量。不过请注意，这只是启发式，在某些情况下仍会
+ * 失败。（尤其是，我们可能把实际上因 LATERAL 限制而
+ * 还不得连接的关系团到一起；
+ * 由于没有拆团的机制，这必然导致失败。）
  */
 RelOptInfo *
 gimme_tree(PlannerInfo *root, Gene *tour, int num_gene)
@@ -167,15 +167,15 @@ gimme_tree(PlannerInfo *root, Gene *tour, int num_gene)
 	int			rel_count;
 
 	/*
-	 * Sometimes, a relation can't yet be joined to others due to heuristics
-	 * or actual semantic restrictions.  We maintain a list of "clumps" of
-	 * successfully joined relations, with larger clumps at the front. Each
-	 * new relation from the tour is added to the first clump it can be joined
-	 * to; if there is none then it becomes a new clump of its own. When we
-	 * enlarge an existing clump we check to see if it can now be merged with
-	 * any other clumps.  After the tour is all scanned, we forget about the
-	 * heuristics and try to forcibly join any remaining clumps.  If we are
-	 * unable to merge all the clumps into one, fail.
+	 * 有时某个关系因启发式
+	 * 或实际的语义限制，暂时无法与其他关系连接。我们维护一个团块列表，
+	 * 存放已成功连接的关系，较大的团块在前。tour 中的每个
+	 * 新关系被加到它能连上的第一个团块；
+	 * 若没有这样的团块，它自己成为一个新团块。当我们
+	 * 扩大已有团块时，检查它现在能否与
+	 * 其他团块合并。tour 全部扫描完后，我们放下
+	 * 启发式，尝试强制连接剩余团块。如果
+	 * 无法把所有团块并成一个，则失败。
 	 */
 	clumps = NIL;
 
@@ -185,23 +185,23 @@ gimme_tree(PlannerInfo *root, Gene *tour, int num_gene)
 		RelOptInfo *cur_rel;
 		Clump	   *cur_clump;
 
-		/* Get the next input relation */
+		/* 取下一个输入关系 */
 		cur_rel_index = (int) tour[rel_count];
 		cur_rel = (RelOptInfo *) list_nth(private->initial_rels,
 										  cur_rel_index - 1);
 
-		/* Make it into a single-rel clump */
+		/* 把它做成只含一个关系的团块 */
 		cur_clump = (Clump *) palloc(sizeof(Clump));
 		cur_clump->joinrel = cur_rel;
 		cur_clump->size = 1;
 
-		/* Merge it into the clumps list, using only desirable joins */
+		/* 只用合意的连接，把它并入团块列表 */
 		clumps = merge_clump(root, clumps, cur_clump, num_gene, false);
 	}
 
 	if (list_length(clumps) > 1)
 	{
-		/* Force-join the remaining clumps in some legal order */
+		/* 按某种合法顺序强制连接剩余团块 */
 		List	   *fclumps;
 		ListCell   *lc;
 
@@ -215,7 +215,7 @@ gimme_tree(PlannerInfo *root, Gene *tour, int num_gene)
 		clumps = fclumps;
 	}
 
-	/* Did we succeed in forming a single join relation? */
+	/* 是否成功形成了单一连接关系？ */
 	if (list_length(clumps) != 1)
 		return NULL;
 
@@ -223,16 +223,16 @@ gimme_tree(PlannerInfo *root, Gene *tour, int num_gene)
 }
 
 /*
- * Merge a "clump" into the list of existing clumps for gimme_tree.
+ * 把一个团块并入 gimme_tree 的已有团块列表。
  *
- * We try to merge the clump into some existing clump, and repeat if
- * successful.  When no more merging is possible, insert the clump
- * into the list, preserving the list ordering rule (namely, that
- * clumps of larger size appear earlier).
+ * 尝试把该团块并入某个已有团块，成功则
+ * 重复。无法再合并时，把该团块
+ * 插入列表，并保持列表的排序规则（即
+ * 较大的团块排在前面）。
  *
- * If force is true, merge anywhere a join is legal, even if it causes
- * a cartesian join to be performed.  When force is false, do only
- * "desirable" joins.
+ * 若 force 为 true，只要连接合法就合并，即使这会造成
+ * 一次笛卡尔连接。若 force 为 false，只做
+ * "合意的" 连接。
  */
 static List *
 merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump, int num_gene,
@@ -241,7 +241,7 @@ merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump, int num_gene,
 	ListCell   *lc;
 	int			pos;
 
-	/* Look for a clump that new_clump can join to */
+	/* 寻找 new_clump 可以连上的团块 */
 	foreach(lc, clumps)
 	{
 		Clump	   *old_clump = (Clump *) lfirst(lc);
@@ -252,45 +252,45 @@ merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump, int num_gene,
 			RelOptInfo *joinrel;
 
 			/*
-			 * Construct a RelOptInfo representing the join of these two input
-			 * relations.  Note that we expect the joinrel not to exist in
-			 * root->join_rel_list yet, and so the paths constructed for it
-			 * will only include the ones we want.
+			 * 构造一个 RelOptInfo，表示这两个输入
+			 * 关系的连接。注意，我们预期该连接关系还不在
+			 * root->join_rel_list 中，因此为它构造的路径
+			 * 只会包含我们想要的那些。
 			 */
 			joinrel = make_join_rel(root,
 									old_clump->joinrel,
 									new_clump->joinrel);
 
-			/* Keep searching if join order is not valid */
+			/* 若连接顺序无效则继续寻找 */
 			if (joinrel)
 			{
-				/* Create paths for partitionwise joins. */
+				/* 为按分区连接创建路径。 */
 				generate_partitionwise_join_paths(root, joinrel);
 
 				/*
-				 * Except for the topmost scan/join rel, consider gathering
-				 * partial paths.  We'll do the same for the topmost scan/join
-				 * rel once we know the final targetlist (see
-				 * grouping_planner).
+				 * 除最顶层的扫描/连接关系外，考虑汇集
+				 * 部分路径。等知道最终目标列表后，对最顶层的扫描/连接
+				 * 关系也会这样做（见
+				 * grouping_planner）。
 				 */
 				if (!bms_equal(joinrel->relids, root->all_query_rels))
 					generate_useful_gather_paths(root, joinrel, false);
 
-				/* Find and save the cheapest paths for this joinrel */
+				/* 找出并保存该连接关系的最低代价路径 */
 				set_cheapest(joinrel);
 
-				/* Absorb new clump into old */
+				/* 把新团块吸收进旧团块 */
 				old_clump->joinrel = joinrel;
 				old_clump->size += new_clump->size;
 				pfree(new_clump);
 
-				/* Remove old_clump from list */
+				/* 从列表中去掉 old_clump */
 				clumps = foreach_delete_current(clumps, lc);
 
 				/*
-				 * Recursively try to merge the enlarged old_clump with
-				 * others.  When no further merge is possible, we'll reinsert
-				 * it into the list.
+				 * 递归尝试把扩大后的 old_clump 与
+				 * 其他团块合并。无法再合并时，再把它插回
+				 * 列表。
 				 */
 				return merge_clump(root, clumps, old_clump, num_gene, force);
 			}
@@ -298,20 +298,20 @@ merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump, int num_gene,
 	}
 
 	/*
-	 * No merging is possible, so add new_clump as an independent clump, in
-	 * proper order according to size.  We can be fast for the common case
-	 * where it has size 1 --- it should always go at the end.
+	 * 无法再合并，因此把 new_clump 作为独立团块，按
+	 * 大小放入正确位置。常见情况可以走快路径：
+	 * 大小为 1 时，它总是应该放在末尾。
 	 */
 	if (clumps == NIL || new_clump->size == 1)
 		return lappend(clumps, new_clump);
 
-	/* Else search for the place to insert it */
+	/* 否则寻找插入位置 */
 	for (pos = 0; pos < list_length(clumps); pos++)
 	{
 		Clump	   *old_clump = (Clump *) list_nth(clumps, pos);
 
 		if (new_clump->size > old_clump->size)
-			break;				/* new_clump belongs before old_clump */
+			break;				/* new_clump 应排在 old_clump 之前 */
 	}
 	clumps = list_insert_nth(clumps, pos, new_clump);
 
@@ -319,20 +319,20 @@ merge_clump(PlannerInfo *root, List *clumps, Clump *new_clump, int num_gene,
 }
 
 /*
- * Heuristics for gimme_tree: do we want to join these two relations?
+ * gimme_tree 的启发式：这两个关系要不要连接？
  */
 static bool
 desirable_join(PlannerInfo *root,
 			   RelOptInfo *outer_rel, RelOptInfo *inner_rel)
 {
 	/*
-	 * Join if there is an applicable join clause, or if there is a join order
-	 * restriction forcing these rels to be joined.
+	 * 若有适用的连接子句，或有连接顺序
+	 * 限制强制这些关系相连，则进行连接。
 	 */
 	if (have_relevant_joinclause(root, outer_rel, inner_rel) ||
 		have_join_order_restriction(root, outer_rel, inner_rel))
 		return true;
 
-	/* Otherwise postpone the join till later. */
+	/* 否则把这次连接推迟。 */
 	return false;
 }

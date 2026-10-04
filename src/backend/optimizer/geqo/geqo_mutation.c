@@ -9,15 +9,15 @@
 *-------------------------------------------------------------------------
 */
 
-/* contributed by:
+/* 贡献者：
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
-   *  Martin Utesch				 * Institute of Automatic Control	   *
-   =							 = University of Mining and Technology =
-   *  utesch@aut.tu-freiberg.de  * Freiberg, Germany				   *
+   *  Martin Utesch				 * 自动控制研究所	   *
+   =							 = 矿业技术大学 =
+   *  utesch@aut.tu-freiberg.de  * 德国弗赖贝格				   *
    =*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
  */
 
-/* this is adopted from Genitor : */
+/* 本实现取自 Genitor： */
 /*************************************************************/
 /*															 */
 /*	Copyright (c) 1990										 */
@@ -35,7 +35,7 @@
 #include "optimizer/geqo_mutation.h"
 #include "optimizer/geqo_random.h"
 
-#if defined(CX)					/* currently used only in CX mode */
+#if defined(CX)					/* 目前只在 CX 模式下使用 */
 
 void
 geqo_mutation(PlannerInfo *root, Gene *tour, int num_gene)
@@ -63,4 +63,4 @@ geqo_mutation(PlannerInfo *root, Gene *tour, int num_gene)
 	}
 }
 
-#endif							/* defined(CX) */
+#endif							/* 当 defined(CX) */

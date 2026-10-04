@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0057-comment-nodes-nodefuncs-termfix",
+ "title": "zh: fix nodeFuncs comment wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b2ea2069a04ea52e9487edde689a9326d1adc818",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/nodes/nodeFuncs.c",
+   "kind": "c_comment",
+   "note": "wording fixes from review of 0054"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0057-comment-nodes-nodefuncs-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/nodes/nodeFuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 274,
+   "translated": 268,
+   "preserved": 6,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through",
+    "preprocessor marker",
+    "field-name banners"
+   ],
+   "note": "bugs/parse-tree/ressortgrouprefs wording"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0057-comment-nodes-nodefuncs-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

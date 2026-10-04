@@ -590,7 +590,7 @@ exprIsLengthCoercion(const Node *expr, int32 *coercedTypmod)
  *		必要时加上 RelabelType 节点，使表达式暴露
  *		指定的类型、typmod 和排序规则。
  *
- * 这主要用于规划期间。因此，它必须
+ * 这主要用于规划阶段。因此，它必须
  * 维持 eval_const_expressions 之后的不变量：没有相邻的
  * RelabelTypes，且树已完全常量折叠（因此，
  * 我们不得在 Const 之上返回 RelabelType）。若确实找到 Const，
@@ -1294,7 +1294,7 @@ exprSetInputCollation(Node *expr, Oid inputcollation)
  * 那个操作符，指向它的起点看来是最自然的方式。
  *
  * 这个位置并不完美——例如，语法并不
- * 在分析树里显式表示括号，对于写成 "(a + b) * c" 的内容，
+ * 在解析树里显式表示括号，对于写成 "(a + b) * c" 的内容，
  * 我们会指向 "a" 而不是 "("。
  * 但对错误报告来说应当足够好。
  *
@@ -1909,7 +1909,7 @@ check_functions_in_node(Node *node, check_function_callback checker,
  *
  * 以前许多不同例程里有近乎重复的代码，它们
  * 知道如何递归表达式节点树。那很难
- * 维护，而且我们经常出漏洞，因为某个
+ * 维护，而且很容易出错，因为某个
  * 例程漏掉了对某种节点类型的支持。多数情况下，
  * 这些例程其实只关心某些节点类型，对其他类型
  * 只是必须递归穿过
@@ -3656,7 +3656,7 @@ query_tree_mutator_impl(Query *query,
 	/*
 	 * 不变换 groupingSets 和 rowMarks：
 	 *
-	 * groupingSets 只包含 ressortgroup 引用（整数），若没有
+	 * groupingSets 只包含 ressortgrouprefs（整数），若没有
 	 * groupClause 或 tlist 就没有意义。因此，任何
 	 * 需要关心它们的变换器都得在自己的 Query
 	 * 处理中自行处理。
@@ -3788,10 +3788,10 @@ query_or_expression_tree_mutator_impl(Node *node,
 
 
 /*
- * raw_expression_tree_walker --- 遍历原始分析树
+ * raw_expression_tree_walker --- 遍历原始解析树
  *
  * 它的 API 与 expression_tree_walker 完全相同，但遍历的不是
- * 分析之后的分析树，而是知道如何遍历原始语法输出中的
+ * 分析后的解析树，而是知道如何遍历原始语法输出中的
  * 节点类型。（目前不需要合并的遍历器，
  * 因此为了效率把它们分开。）
  * 与 expression_tree_walker 不同，对查询
@@ -3947,7 +3947,7 @@ raw_expression_tree_walker_impl(Node *node,
 				if (WALK(into->rel))
 					return true;
 				/* colNames、options 被视为不值得关注 */
-				/* 在原始分析树中 viewQuery 应当为 null，但仍检查它 */
+				/* 在原始解析树中 viewQuery 应当为 null，但仍检查它 */
 				if (WALK(into->viewQuery))
 					return true;
 			}

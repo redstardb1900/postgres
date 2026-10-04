@@ -54,7 +54,7 @@ static void check_root(const char *progname);
 
 
 /*
- * Any Postgres server process begins execution here.
+ * 任何 Postgres 服务器进程都从这里开始执行。
  */
 int
 main(int argc, char *argv[])
@@ -64,8 +64,8 @@ main(int argc, char *argv[])
 	reached_main = true;
 
 	/*
-	 * If supported on the current platform, set up a handler to be called if
-	 * the backend/postmaster crashes with a fatal signal or exception.
+	 * 若当前平台支持，就设置一个处理程序，在
+	 * 后端或 postmaster 因致命信号或异常崩溃时调用。
 	 */
 #if defined(WIN32)
 	pgwin32_install_crashdump_handler();
@@ -74,74 +74,74 @@ main(int argc, char *argv[])
 	progname = get_progname(argv[0]);
 
 	/*
-	 * Platform-specific startup hacks
+	 * 平台特定的启动处理
 	 */
 	startup_hacks(progname);
 
 	/*
-	 * Remember the physical location of the initially given argv[] array for
-	 * possible use by ps display.  On some platforms, the argv[] storage must
-	 * be overwritten in order to set the process title for ps. In such cases
-	 * save_ps_display_args makes and returns a new copy of the argv[] array.
+	 * 记住最初给出的 argv[] 数组的物理位置，供
+	 * ps 显示可能使用。在某些平台上，为了给 ps 设置进程标题，必须
+	 * 覆盖 argv[] 的存储。在这种情况下
+	 * save_ps_display_args 会制作并返回 argv[] 数组的一份新副本。
 	 *
-	 * save_ps_display_args may also move the environment strings to make
-	 * extra room. Therefore this should be done as early as possible during
-	 * startup, to avoid entanglements with code that might save a getenv()
-	 * result pointer.
+	 * save_ps_display_args 也可能挪动环境字符串以腾出
+	 * 额外空间。因此这应当在启动期间尽早完成，
+	 * 以免和可能保存 getenv()
+	 * 结果指针的代码缠在一起。
 	 */
 	argv = save_ps_display_args(argc, argv);
 
 	/*
-	 * Fire up essential subsystems: error and memory management
+	 * 启动必要的子系统：错误处理和内存管理
 	 *
-	 * Code after this point is allowed to use elog/ereport, though
-	 * localization of messages may not work right away, and messages won't go
-	 * anywhere but stderr until GUC settings get loaded.
+	 * 此后的代码可以使用 elog/ereport，不过
+	 * 消息本地化也许不会立刻生效，而且在 GUC 设置加载之前，
+	 * 消息只会送到 stderr。
 	 */
 	MyProcPid = getpid();
 	MemoryContextInit();
 
 	/*
-	 * Set up locale information
+	 * 设置区域设置
 	 */
 	set_pglocale_pgservice(argv[0], PG_TEXTDOMAIN("postgres"));
 
 	/*
-	 * In the postmaster, absorb the environment values for LC_COLLATE and
-	 * LC_CTYPE.  Individual backends will change these later to settings
-	 * taken from pg_database, but the postmaster cannot do that.  If we leave
-	 * these set to "C" then message localization might not work well in the
-	 * postmaster.
+	 * 在 postmaster 中吸收环境里的 LC_COLLATE 和
+	 * LC_CTYPE 值。各个后端稍后会把它们改成取自
+	 * pg_database 的设置，但 postmaster 无法那样做。若把
+	 * 它们留在 "C"，postmaster 里的消息本地化
+	 * 可能效果不好。
 	 */
 	init_locale("LC_COLLATE", LC_COLLATE, "");
 	init_locale("LC_CTYPE", LC_CTYPE, "");
 
 	/*
-	 * LC_MESSAGES will get set later during GUC option processing, but we set
-	 * it here to allow startup error messages to be localized.
+	 * LC_MESSAGES 会在稍后的 GUC 选项处理中设置，但我们在这里
+	 * 先设置它，以便启动错误消息可以本地化。
 	 */
 #ifdef LC_MESSAGES
 	init_locale("LC_MESSAGES", LC_MESSAGES, "");
 #endif
 
 	/*
-	 * We keep these set to "C" always, except transiently in pg_locale.c; see
-	 * that file for explanations.
+	 * 我们始终把这些保持为 "C"，只在 pg_locale.c 里短暂例外；解释
+	 * 见那个文件。
 	 */
 	init_locale("LC_MONETARY", LC_MONETARY, "C");
 	init_locale("LC_NUMERIC", LC_NUMERIC, "C");
 	init_locale("LC_TIME", LC_TIME, "C");
 
 	/*
-	 * Now that we have absorbed as much as we wish to from the locale
-	 * environment, remove any LC_ALL setting, so that the environment
-	 * variables installed by pg_perm_setlocale have force.
+	 * 既然已经从区域设置环境中吸收了我们想要的部分，就去掉任何
+	 * LC_ALL 设置，这样 pg_perm_setlocale 安装的环境
+	 * 变量才会生效。
 	 */
 	unsetenv("LC_ALL");
 
 	/*
-	 * Catch standard options before doing much else, in particular before we
-	 * insist on not being root.
+	 * 在做其他事情之前先接住标准选项，尤其是在我们
+	 * 坚持不以 root 运行之前。
 	 */
 	if (argc > 1)
 	{
@@ -157,14 +157,14 @@ main(int argc, char *argv[])
 		}
 
 		/*
-		 * In addition to the above, we allow "--describe-config" and "-C var"
-		 * to be called by root.  This is reasonably safe since these are
-		 * read-only activities.  The -C case is important because pg_ctl may
-		 * try to invoke it while still holding administrator privileges on
-		 * Windows.  Note that while -C can normally be in any argv position,
-		 * if you want to bypass the root check you must put it first.  This
-		 * reduces the risk that we might misinterpret some other mode's -C
-		 * switch as being the postmaster/postgres one.
+		 * 除此之外，我们允许 root 调用 "--describe-config" 和 "-C var"。
+		 * 这相当安全，因为它们是
+		 * 只读操作。-C 这种情况很重要，因为 pg_ctl 可能
+		 * 在 Windows 上仍持有管理员权限时尝试调用它。
+		 * 注意，虽然 -C 通常可以出现在 argv 的任何位置，
+		 * 若想绕过 root 检查，就必须把它放在最前面。这
+		 * 降低了我们把其他模式的 -C
+		 * 开关误当成 postmaster/postgres 那个开关的风险。
 		 */
 		if (strcmp(argv[1], "--describe-config") == 0)
 			do_check_root = false;
@@ -173,14 +173,14 @@ main(int argc, char *argv[])
 	}
 
 	/*
-	 * Make sure we are not running as root, unless it's safe for the selected
-	 * option.
+	 * 确保我们不是以 root 运行，除非对所选
+	 * 选项来说这样是安全的。
 	 */
 	if (do_check_root)
 		check_root(progname);
 
 	/*
-	 * Dispatch to one of various subprograms depending on first argument.
+	 * 根据第一个参数分派到各个子程序之一。
 	 */
 
 	if (argc > 1 && strcmp(argv[1], "--check") == 0)
@@ -198,39 +198,39 @@ main(int argc, char *argv[])
 							   strdup(get_user_name_or_exit(progname)));
 	else
 		PostmasterMain(argc, argv);
-	/* the functions above should not return */
+	/* 上面的函数不应返回 */
 	abort();
 }
 
 
 
 /*
- * Place platform-specific startup hacks here.  This is the right
- * place to put code that must be executed early in the launch of any new
- * server process.  Note that this code will NOT be executed when a backend
- * or sub-bootstrap process is forked, unless we are in a fork/exec
- * environment (ie EXEC_BACKEND is defined).
+ * 把平台特定的启动处理放在这里。这是放置
+ * 任何新服务器进程启动早期必须执行的代码的正确位置。
+ * 注意，当后端或子 bootstrap 进程被 fork 出来时，这段代码不会
+ * 执行，除非我们处于 fork/exec
+ * 环境（即定义了 EXEC_BACKEND）。
  *
- * XXX The need for code here is proof that the platform in question
- * is too brain-dead to provide a standard C execution environment
- * without help.  Avoid adding more here, if you can.
+ * XXX 这里需要代码，证明该平台
+ * 过于简陋，不帮忙就无法提供标准 C 执行环境。
+ * 若做得到，避免再往这里加东西。
  */
 static void
 startup_hacks(const char *progname)
 {
 	/*
-	 * Windows-specific execution environment hacking.
+	 * Windows 特定的执行环境处理。
 	 */
 #ifdef WIN32
 	{
 		WSADATA		wsaData;
 		int			err;
 
-		/* Make output streams unbuffered by default */
+		/* 默认让输出流不缓冲 */
 		setvbuf(stdout, NULL, _IONBF, 0);
 		setvbuf(stderr, NULL, _IONBF, 0);
 
-		/* Prepare Winsock */
+		/* 准备 Winsock */
 		err = WSAStartup(MAKEWORD(2, 2), &wsaData);
 		if (err != 0)
 		{
@@ -240,14 +240,14 @@ startup_hacks(const char *progname)
 		}
 
 		/*
-		 * By default abort() only generates a crash-dump in *non* debug
-		 * builds. As our Assert() / ExceptionalCondition() uses abort(),
-		 * leaving the default in place would make debugging harder.
+		 * 默认情况下，abort() 只在非调试
+		 * 构建中生成崩溃转储。由于我们的 Assert() / ExceptionalCondition() 使用 abort()，
+		 * 保留默认设置会让调试更难。
 		 *
-		 * MINGW's own C runtime doesn't have _set_abort_behavior(). When
-		 * targeting Microsoft's UCRT with mingw, it never links to the debug
-		 * version of the library and thus doesn't need the call to
-		 * _set_abort_behavior() either.
+		 * MINGW 自己的 C 运行时没有 _set_abort_behavior()。当
+		 * 用 mingw 以微软的 UCRT 为目标时，它从不链接到库的调试
+		 * 版本，因此也不需要调用
+		 * _set_abort_behavior()。
 		 */
 #if !defined(__MINGW32__) && !defined(__MINGW64__)
 		_set_abort_behavior(_CALL_REPORTFAULT | _WRITE_ABORT_MSG,
@@ -256,31 +256,31 @@ startup_hacks(const char *progname)
 								 * !defined(__MINGW64__) */
 
 		/*
-		 * SEM_FAILCRITICALERRORS causes more errors to be reported to
-		 * callers.
+		 * SEM_FAILCRITICALERRORS 会使更多错误报告给
+		 * 调用方。
 		 *
-		 * We used to also specify SEM_NOGPFAULTERRORBOX, but that prevents
-		 * windows crash reporting from working. Which includes registered
-		 * just-in-time debuggers, making it unnecessarily hard to debug
-		 * problems on windows. Now we try to disable sources of popups
-		 * separately below (note that SEM_NOGPFAULTERRORBOX did not actually
-		 * prevent all sources of such popups).
+		 * 我们以前还指定 SEM_NOGPFAULTERRORBOX，但那会阻止
+		 * Windows 崩溃报告工作。其中包括已注册的
+		 * 即时调试器，使在 Windows 上调试问题变得不必要地困难。
+		 * 现在我们尝试在下面分别禁用弹出框的来源
+		 * （注意 SEM_NOGPFAULTERRORBOX 实际上并没有
+		 * 阻止所有这些弹出框的来源）。
 		 */
 		SetErrorMode(SEM_FAILCRITICALERRORS);
 
 		/*
-		 * Show errors on stderr instead of popup box (note this doesn't
-		 * affect errors originating in the C runtime, see below).
+		 * 把错误显示到 stderr，而不是弹出框（注意这不影响
+		 * 源自 C 运行时的错误，见下文）。
 		 */
 		_set_error_mode(_OUT_TO_STDERR);
 
 		/*
-		 * In DEBUG builds, errors, including assertions, C runtime errors are
-		 * reported via _CrtDbgReport. By default such errors are displayed
-		 * with a popup (even with NOGPFAULTERRORBOX), preventing forward
-		 * progress. Instead report such errors stderr (and the debugger).
-		 * This is C runtime specific and thus the above incantations aren't
-		 * sufficient to suppress these popups.
+		 * 在 DEBUG 构建中，错误（包括断言）和 C 运行时错误通过
+		 * _CrtDbgReport 报告。默认情况下这类错误会以
+		 * 弹出框显示（即使有 NOGPFAULTERRORBOX），妨碍继续
+		 * 进行。改为把这类错误报告到 stderr（以及调试器）。
+		 * 这是 C 运行时特有的，因此上面的办法并不足以
+		 * 抑制这些弹出框。
 		 */
 		_CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE | _CRTDBG_MODE_DEBUG);
 		_CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
@@ -292,19 +292,19 @@ startup_hacks(const char *progname)
 #endif							/* WIN32 */
 
 	/*
-	 * Initialize dummy_spinlock, in case we are on a platform where we have
-	 * to use the fallback implementation of pg_memory_barrier().
+	 * 初始化 dummy_spinlock，以防我们所在的平台必须
+	 * 使用 pg_memory_barrier() 的回退实现。
 	 */
 	SpinLockInit(&dummy_spinlock);
 }
 
 
 /*
- * Make the initial permanent setting for a locale category.  If that fails,
- * perhaps due to LC_foo=invalid in the environment, use locale C.  If even
- * that fails, perhaps due to out-of-memory, the entire startup fails with it.
- * When this returns, we are guaranteed to have a setting for the given
- * category's environment variable.
+ * 为某个区域设置类别做最初的永久设置。若失败，
+ * 也许是因为环境里 LC_foo=invalid，就使用 C 区域设置。若连
+ * 这也失败，也许是因为内存不足，整个启动都会因此失败。
+ * 当本函数返回时，保证已经为给定
+ * 类别的环境变量做了设置。
  */
 static void
 init_locale(const char *categoryname, int category, const char *locale)
@@ -318,12 +318,12 @@ init_locale(const char *categoryname, int category, const char *locale)
 
 
 /*
- * Help display should match the options accepted by PostmasterMain()
- * and PostgresMain().
+ * 帮助显示应当与 PostmasterMain() 和
+ * PostgresMain() 所接受的选项一致。
  *
- * XXX On Windows, non-ASCII localizations of these messages only display
- * correctly if the console output code page covers the necessary characters.
- * Messages emitted in write_console() do not exhibit this problem.
+ * XXX 在 Windows 上，这些消息的非 ASCII 本地化只有在
+ * 控制台输出代码页覆盖所需字符时才能正确显示。
+ * write_console() 发出的消息没有这个问题。
  */
 static void
 help(const char *progname)
@@ -398,12 +398,12 @@ check_root(const char *progname)
 	}
 
 	/*
-	 * Also make sure that real and effective uids are the same. Executing as
-	 * a setuid program from a root shell is a security hole, since on many
-	 * platforms a nefarious subroutine could setuid back to root if real uid
-	 * is root.  (Since nobody actually uses postgres as a setuid program,
-	 * trying to actively fix this situation seems more trouble than it's
-	 * worth; we'll just expend the effort to check for it.)
+	 * 还要确保实际 uid 和有效 uid 相同。从 root shell 把程序
+	 * 作为 setuid 程序执行是一个安全漏洞，因为在许多
+	 * 平台上，若实际 uid 是 root，恶意子程序可以 setuid 回到 root。
+	 * （既然实际上没人把 postgres 当作 setuid 程序使用，
+	 * 试图主动修复这种情况似乎比它的价值更麻烦；
+	 * 我们只花力气检查它。）
 	 */
 	if (getuid() != geteuid())
 	{
@@ -425,25 +425,25 @@ check_root(const char *progname)
 }
 
 /*
- * At least on linux, set_ps_display() breaks /proc/$pid/environ. The
- * sanitizer library uses /proc/$pid/environ to implement getenv() as it wants
- * to work independent of libc. Depending on which sanitizers are enabled,
- * the sanitizer library may not get initialized until after we've called
- * set_ps_display(), preventing the sanitizer from seeing environment-supplied
- * options.
+ * 至少在 linux 上，set_ps_display() 会破坏 /proc/$pid/environ。
+ * sanitizer 库使用 /proc/$pid/environ 来实现 getenv()，因为它希望
+ * 独立于 libc 工作。取决于启用了哪些检测器，
+ * sanitizer 库可能直到我们调用了
+ * set_ps_display() 之后才初始化，从而使检测器看不到由环境提供的
+ * 选项。
  *
- * We can work around that by defining __ubsan_default_options, a weak symbol
- * libsanitizer uses to get defaults from the application, and return
- * getenv("UBSAN_OPTIONS"). But only if main already was reached, so that we
- * don't end up relying on a not-yet-working getenv().
+ * 我们可以定义 __ubsan_default_options 来绕过，这是一个弱符号，
+ * libsanitizer 用它从应用程序取得默认值，并返回
+ * getenv("UBSAN_OPTIONS")。但仅当已经到达 main 时才这样做，以免
+ * 最终依赖一个尚未能工作的 getenv()。
  *
- * On the other hand, with different sanitizers enabled, libsanitizer can
- * call this so early that it's not fully initialized itself, resulting in
- * recursion and a core dump within libsanitizer.  To prevent that, ensure
- * that this function is built without any sanitizer callbacks in it.
+ * 另一方面，启用不同的检测器时，libsanitizer 可能
+ * 调用得如此之早，以至于它自己也没有完全初始化，从而导致
+ * 递归，并在 libsanitizer 内部做核心转储。为防止这种情况，确保
+ * 本函数在构建时不含任何检测器回调。
  *
- * As this function won't get called when not running a sanitizer, it doesn't
- * seem necessary to only compile it conditionally.
+ * 由于不运行检测器时不会调用本函数，似乎没有必要
+ * 只在有条件时才编译它。
  */
 const char *__ubsan_default_options(void);
 
@@ -453,7 +453,7 @@ __attribute__((disable_sanitizer_instrumentation))
 const char *
 __ubsan_default_options(void)
 {
-	/* don't call libc before it's guaranteed to be initialized */
+	/* 在保证 libc 已初始化之前不要调用它 */
 	if (!reached_main)
 		return "";
 

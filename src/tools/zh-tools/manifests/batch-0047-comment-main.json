@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0047-comment-main",
+ "title": "zh: translate main comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dea4a8de6411c186e6f65e1ca50733a624a9d910",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "note": "comment-only; pgindent header and WIN32/MINGW markers kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0047-comment-main.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 29,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "preprocessor markers"
+   ],
+   "note": "comment-only; pgindent header and WIN32/MINGW markers kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0047-comment-main.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

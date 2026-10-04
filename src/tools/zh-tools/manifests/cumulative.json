@@ -1440,6 +1440,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0065-comment-pathkeys-nodes-termfix.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/optimizer/path/joinpath.c",
+   "kind": "c_comment",
+   "note": "join path generation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0066-comment-optimizer-path-joinpath.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -5090,7 +5100,30 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/optimizer/path/joinpath.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 182,
+   "translated": 180,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "preprocessor marker USE_ASSERT_CHECKING"
+   ],
+   "note": "join path generation"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0066-comment-optimizer-path-joinpath.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments. Batch 0059 translates src/backend/optimizer/path/tidpath.c and clausesel.c. Batch 0060 translates src/backend/optimizer/path/joinrels.c. Batch 0061 fixes clausesel.c wording (SELECTIVITY_DEBUG endif, selectivity complement). Batch 0062 translates src/backend/optimizer/path/pathkeys.c. Batch 0063 fixes joinrels.c wording (lateral joins). Batch 0064 translates src/backend/optimizer/path/equivclass.c. Batch 0065 fixes pathkeys.c (merge pathkey comments; find_mergeclauses pgindent block preserved), copyfuncs.c, and tidbitmap.c wording."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments. Batch 0059 translates src/backend/optimizer/path/tidpath.c and clausesel.c. Batch 0060 translates src/backend/optimizer/path/joinrels.c. Batch 0061 fixes clausesel.c wording (SELECTIVITY_DEBUG endif, selectivity complement). Batch 0062 translates src/backend/optimizer/path/pathkeys.c. Batch 0063 fixes joinrels.c wording (lateral joins). Batch 0064 translates src/backend/optimizer/path/equivclass.c. Batch 0065 fixes pathkeys.c (merge pathkey comments; find_mergeclauses pgindent block preserved), copyfuncs.c, and tidbitmap.c wording. Batch 0066 translates src/backend/optimizer/path/joinpath.c."
 }

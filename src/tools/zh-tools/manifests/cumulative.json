@@ -705,6 +705,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0020-readme-par-buf.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/utils/fmgr/README",
+   "kind": "readme",
+   "note": "V1 fmgr, TOAST, soft errors, SRF modes"
+  },
+  {
+   "pattern": "src/backend/executor/README",
+   "kind": "readme",
+   "note": "plan/state trees, ExprState, MERGE, EPQ, async"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0021-readme-fmgr-exec.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2612,7 +2627,37 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/utils/fmgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "V1 fmgr, TOAST, soft errors, SRF modes"
+  },
+  {
+   "path": "src/backend/executor/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "plan/state trees, ExprState, MERGE, EPQ, async"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0021-readme-fmgr-exec.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 75 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 77 of 88 include files translated."
 }

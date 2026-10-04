@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0021-readme-fmgr-exec",
+ "title": "zh: translate function manager and executor READMEs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "87eef047be9d6e00276326bbcac54a31f5650f5e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/utils/fmgr/README",
+   "kind": "readme",
+   "note": "V1 fmgr, TOAST, soft errors, SRF modes"
+  },
+  {
+   "pattern": "src/backend/executor/README",
+   "kind": "readme",
+   "note": "plan/state trees, ExprState, MERGE, EPQ, async"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0021-readme-fmgr-exec.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/utils/fmgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "V1 fmgr, TOAST, soft errors, SRF modes"
+  },
+  {
+   "path": "src/backend/executor/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "plan/state trees, ExprState, MERGE, EPQ, async"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0021-readme-fmgr-exec.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Eleventh README batch: 2 files. C structs, macros, control-flow sketches and error strings kept."
+}

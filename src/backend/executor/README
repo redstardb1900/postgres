@@ -1,444 +1,349 @@
 src/backend/executor/README
 
-The Postgres Executor
-=====================
+Postgres 执行器
+===============
 
-The executor processes a tree of "plan nodes".  The plan tree is essentially
-a demand-pull pipeline of tuple processing operations.  Each node, when
-called, will produce the next tuple in its output sequence, or NULL if no
-more tuples are available.  If the node is not a primitive relation-scanning
-node, it will have child node(s) that it calls in turn to obtain input
-tuples.
+执行器处理一棵“计划节点”树。计划树本质上是元组处理操作的按需拉取管道。
+每个节点被调用时，会产出其输出序列中的下一个元组，若没有更多元组则
+返回 NULL。若该节点不是原始关系扫描节点，它会有子节点，并依次调用
+它们以获得输入元组。
 
-Refinements on this basic model include:
+对这一基本模型的细化包括：
 
-* Choice of scan direction (forwards or backwards).  Caution: this is not
-currently well-supported.  It works for primitive scan nodes, but not very
-well for joins, aggregates, etc.
+* 扫描方向选择（向前或向后）。注意：目前支持得不好。对原始扫描节点
+能工作，对连接、聚集等则不太好。
 
-* Rescan command to reset a node and make it generate its output sequence
-over again.
+* Rescan 命令，重置节点并让它重新生成其输出序列。
 
-* Parameters that can alter a node's results.  After adjusting a parameter,
-the rescan command must be applied to that node and all nodes above it.
-There is a moderately intelligent scheme to avoid rescanning nodes
-unnecessarily (for example, Sort does not rescan its input if no parameters
-of the input have changed, since it can just reread its stored sorted data).
+* 能改变节点结果的参数。调整参数后，必须对该节点及其上方所有节点
+应用 rescan 命令。有一套还算聪明的方案来避免不必要地重新扫描节点
+（例如，若输入的参数没有变化，Sort 不会重新扫描其输入，因为它可以
+直接重读已存储的排序数据）。
 
-For a SELECT, it is only necessary to deliver the top-level result tuples
-to the client.  For INSERT/UPDATE/DELETE/MERGE, the actual table modification
-operations happen in a top-level ModifyTable plan node.  If the query
-includes a RETURNING clause, the ModifyTable node delivers the computed
-RETURNING rows as output, otherwise it returns nothing.  Handling INSERT
-is pretty straightforward: the tuples returned from the plan tree below
-ModifyTable are inserted into the correct result relation.  For UPDATE,
-the plan tree returns the new values of the updated columns, plus "junk"
-(hidden) column(s) identifying which table row is to be updated.  The
-ModifyTable node must fetch that row to extract values for the unchanged
-columns, combine the values into a new row, and apply the update.  (For a
-heap table, the row-identity junk column is a CTID, but other things may
-be used for other table types.)  For DELETE, the plan tree need only deliver
-junk row-identity column(s), and the ModifyTable node visits each of those
-rows and marks the row deleted.  MERGE is described below.
+对 SELECT，只需把顶层结果元组交给客户端。对 INSERT/UPDATE/DELETE/MERGE，
+实际的表修改操作发生在顶层 ModifyTable 计划节点中。若查询包含
+RETURNING 子句，ModifyTable 节点把计算出的 RETURNING 行作为输出交付，
+否则它什么也不返回。处理 INSERT 相当直接：ModifyTable 下方计划树返回
+的元组被插入正确的结果关系。对 UPDATE，计划树返回被更新列的新值，
+外加标识要更新哪一行的“垃圾”（隐藏）列。ModifyTable 节点必须取出该行
+以提取未更改列的值，把各值组合成新行，并应用更新。（对堆表，行标识
+垃圾列是 CTID，其他表类型可能用别的东西。）对 DELETE，计划树只需交付
+垃圾行标识列，ModifyTable 节点访问这些行并把行标为已删除。MERGE 见
+下文。
 
-XXX a great deal more documentation needs to be written here...
+XXX 这里还需要写大量文档……
 
 
-Plan Trees and State Trees
---------------------------
+计划树与状态树
+--------------
 
-The plan tree delivered by the planner contains a tree of Plan nodes (struct
-types derived from struct Plan).  During executor startup we build a parallel
-tree of identical structure containing executor state nodes --- generally,
-every plan node type has a corresponding executor state node type.  Each node
-in the state tree has a pointer to its corresponding node in the plan tree,
-plus executor state data as needed to implement that node type.  This
-arrangement allows the plan tree to be completely read-only so far as the
-executor is concerned: all data that is modified during execution is in the
-state tree.  Read-only plan trees make life much simpler for plan caching and
-reuse.
+规划器交付的计划树包含一棵 Plan 节点树（派生自 struct Plan 的结构
+类型）。执行器启动期间我们构建一棵结构相同的并行树，包含执行器状态
+节点——一般每种计划节点类型都有对应的执行器状态节点类型。状态树中的
+每个节点有一个指向计划树中对应节点的指针，外加实现该节点类型所需的
+执行器状态数据。这一安排让执行器可以把计划树完全当作只读：执行期间
+被修改的所有数据都在状态树中。只读计划树让计划缓存和复用简单得多。
 
-A corresponding executor state node may not be created during executor startup
-if the executor determines that an entire subplan is not required due to
-execution time partition pruning determining that no matching records will be
-found there.  This currently only occurs for Append and MergeAppend nodes.  In
-this case the non-required subplans are ignored and the executor state's
-subnode array will become out of sequence to the plan's subplan list.
+若执行器判定由于执行期分区裁剪确定那里找不到匹配记录，因而整棵子计划
+都不需要，则执行器启动时可能不创建对应的执行器状态节点。这目前只发生
+在 Append 和 MergeAppend 节点上。这种情况下忽略不需要的子计划，执行器
+状态的子节点数组会与计划的子计划列表错位。
 
-Each Plan node may have expression trees associated with it, to represent
-its target list, qualification conditions, etc.  These trees are also
-read-only to the executor, but the executor state for expression evaluation
-does not mirror the Plan expression's tree shape, as explained below.
-Rather, there's just one ExprState node per expression tree, although this
-may have sub-nodes for some complex expression node types.
+每个 Plan 节点可以关联表达式树，以表示其目标列表、限定条件等。这些树
+对执行器也是只读的，但如下所述，表达式求值的执行器状态并不镜像 Plan
+表达式的树形。相反，每棵表达式树只有一个 ExprState 节点，不过对某些
+复杂表达式节点类型它可以有子节点。
 
-Altogether there are four classes of nodes used in these trees: Plan nodes,
-their corresponding PlanState nodes, Expr nodes, and ExprState nodes.
-(Actually, there are also List nodes, which are used as "glue" in all
-three tree-based representations.)
+这些树中一共使用四类节点：Plan 节点、对应的 PlanState 节点、Expr 节点
+和 ExprState 节点。（实际上还有 List 节点，在所有三种基于树的表示中
+用作“胶水”。）
 
 
-Expression Trees and ExprState nodes
-------------------------------------
-
-Expression trees, in contrast to Plan trees, are not mirrored into a
-corresponding tree of state nodes.  Instead each separately executable
-expression tree (e.g. a Plan's qual or targetlist) is represented by one
-ExprState node.  The ExprState node contains the information needed to
-evaluate the expression in a compact, linear form.  That compact form is
-stored as a flat array in ExprState->steps[] (an array of ExprEvalStep,
-not ExprEvalStep *).
-
-The reasons for choosing such a representation include:
-- commonly the amount of work needed to evaluate one Expr-type node is
-  small enough that the overhead of having to perform a tree-walk
-  during evaluation is significant.
-- the flat representation can be evaluated non-recursively within a single
-  function, reducing stack depth and function call overhead.
-- such a representation is usable both for fast interpreted execution,
-  and for compiling into native code.
-
-The Plan-tree representation of an expression is compiled into an
-ExprState node by ExecInitExpr().  As much complexity as possible should
-be handled by ExecInitExpr() (and helpers), instead of execution time
-where both interpreted and compiled versions would need to deal with the
-complexity.  Besides duplicating effort between execution approaches,
-runtime initialization checks also have a small but noticeable cost every
-time the expression is evaluated.  Therefore, we allow ExecInitExpr() to
-precompute information that we do not expect to vary across execution of a
-single query, for example the set of CHECK constraint expressions to be
-applied to a domain type.  This could not be done at plan time without
-greatly increasing the number of events that require plan invalidation.
-(Previously, some information of this kind was rechecked on each
-expression evaluation, but that seems like unnecessary overhead.)
-
-
-Expression Initialization
+表达式树与 ExprState 节点
 -------------------------
 
-During ExecInitExpr() and similar routines, Expr trees are converted
-into the flat representation.  Each Expr node might be represented by
-zero, one, or more ExprEvalSteps.
+与 Plan 树不同，表达式树不镜像成对应的状态节点树。相反，每棵可单独
+执行的表达式树（例如 Plan 的 qual 或 targetlist）由一个 ExprState 节点
+表示。ExprState 节点以紧凑的线性形式包含求值该表达式所需的信息。该
+紧凑形式存为 ExprState->steps[] 中的扁平数组（ExprEvalStep 的数组，
+不是 ExprEvalStep *）。
 
-Each ExprEvalStep's work is determined by its opcode (of enum ExprEvalOp)
-and it stores the result of its work into the Datum variable and boolean
-null flag variable pointed to by ExprEvalStep->resvalue/resnull.
-Complex expressions are performed by chaining together several steps.
-For example, "a + b" (one OpExpr, with two Var expressions) would be
-represented as two steps to fetch the Var values, and one step for the
-evaluation of the function underlying the + operator.  The steps for the
-Vars would have their resvalue/resnull pointing directly to the appropriate
-args[].value .isnull elements in the FunctionCallInfoBaseData struct that
-is used by the function evaluation step, thus avoiding extra work to copy
-the result values around.
+选择这种表示的原因包括：
+- 通常求值一个 Expr 类型节点所需的工作量足够小，求值期间走树的开销
+  就变得显著。
+- 扁平表示可以在单个函数内非递归求值，降低栈深度和函数调用开销。
+- 这种表示既可用于快速解释执行，也可用于编译成本地代码。
 
-The last entry in a completed ExprState->steps array is always an
-EEOP_DONE step; this removes the need to test for end-of-array while
-iterating.  Also, if the expression contains any variable references (to
-user columns of the ExprContext's INNER, OUTER, or SCAN tuples), the steps
-array begins with EEOP_*_FETCHSOME steps that ensure that the relevant
-tuples have been deconstructed to make the required columns directly
-available (cf. slot_getsomeattrs()).  This allows individual Var-fetching
-steps to be little more than an array lookup.
-
-Most of ExecInitExpr()'s work is done by the recursive function
-ExecInitExprRec() and its subroutines.  ExecInitExprRec() maps one Expr
-node into the steps required for execution, recursing as needed for
-sub-expressions.
-
-Each ExecInitExprRec() call has to specify where that subexpression's
-results are to be stored (via the resv/resnull parameters).  This allows
-the above scenario of evaluating a (sub-)expression directly into
-fcinfo->args[].value/isnull, but also requires some care: target Datum/isnull
-variables may not be shared with another ExecInitExprRec() unless the
-results are only needed by steps executing before further usages of those
-target Datum/isnull variables.  Due to the non-recursiveness of the
-ExprEvalStep representation that's usually easy to guarantee.
-
-ExecInitExprRec() pushes new operations into the ExprState->steps array
-using ExprEvalPushStep().  To keep the steps as a consecutively laid out
-array, ExprEvalPushStep() has to repalloc the entire array when there's
-not enough space.  Because of that it is *not* allowed to point directly
-into any of the steps during expression initialization.  Therefore, the
-resv/resnull for a subexpression usually point to some storage that is
-palloc'd separately from the steps array.  For instance, the
-FunctionCallInfoBaseData for a function call step is separately allocated
-rather than being part of the ExprEvalStep array.  The overall result
-of a complete expression is typically returned into the resvalue/resnull
-fields of the ExprState node itself.
-
-Some steps, e.g. boolean expressions, allow skipping evaluation of
-certain subexpressions.  In the flat representation this amounts to
-jumping to some later step rather than just continuing consecutively
-with the next step.  The target for such a jump is represented by
-the integer index in the ExprState->steps array of the step to execute
-next.  (Compare the EEO_NEXT and EEO_JUMP macros in execExprInterp.c.)
-
-Typically, ExecInitExprRec() has to push a jumping step into the steps
-array, then recursively generate steps for the subexpression that might
-get skipped over, then go back and fix up the jump target index using
-the now-known length of the subexpression's steps.  This is handled by
-adjust_jumps lists in execExpr.c.
-
-The last step in constructing an ExprState is to apply ExecReadyExpr(),
-which readies it for execution using whichever execution method has been
-selected.
+表达式的 Plan 树表示由 ExecInitExpr() 编译成 ExprState 节点。尽可能多
+的复杂性应由 ExecInitExpr()（及其辅助函数）处理，而不是在执行时处理，
+因为解释版和编译版都需要应对这些复杂性。除了在两种执行途径之间重复
+工作外，运行时初始化检查每次求值表达式也有虽小但可察觉的代价。因此
+我们允许 ExecInitExpr() 预计算我们不期望在单次查询执行中变化的信息，
+例如要应用到域类型的 CHECK 约束表达式集合。这不能在规划时做，否则会
+大大增加需要计划失效的事件数量。（以前，这类信息有些在每次表达式求值
+时重新检查，但那看起来是不必要的开销。）
 
 
-Expression Evaluation
----------------------
+表达式初始化
+------------
 
-To allow for different methods of expression evaluation, and for
-better branch/jump target prediction, expressions are evaluated by
-calling ExprState->evalfunc (via ExecEvalExpr() and friends).
+在 ExecInitExpr() 及类似例程期间，Expr 树被转换成扁平表示。每个 Expr
+节点可能由零个、一个或多个 ExprEvalStep 表示。
 
-ExecReadyExpr() can choose the method of interpretation by setting
-evalfunc to an appropriate function.  The default execution function,
-ExecInterpExpr, is implemented in execExprInterp.c; see its header
-comment for details.  Special-case evalfuncs are used for certain
-especially-simple expressions.
+每个 ExprEvalStep 的工作由其操作码（枚举 ExprEvalOp）决定，并把它的
+工作结果存入 ExprEvalStep->resvalue/resnull 指向的 Datum 变量和布尔
+空标志变量。复杂表达式通过把若干步骤串起来执行。例如，“a + b”
+（一个 OpExpr，带两个 Var 表达式）会表示为两步取出 Var 值，以及一步
+求值 + 操作符底层的函数。Var 的步骤会让它们的 resvalue/resnull 直接
+指向函数求值步骤所用 FunctionCallInfoBaseData 结构中适当的
+args[].value / isnull 元素，从而避免额外工作来四处复制结果值。
 
-Note that a lot of the more complex expression evaluation steps, which are
-less performance-critical than the simpler ones, are implemented as
-separate functions outside the fast-path of expression execution, allowing
-their implementation to be shared between interpreted and compiled
-expression evaluation.  This means that these helper functions are not
-allowed to perform expression step dispatch themselves, as the method of
-dispatch will vary based on the caller.  The helpers therefore cannot call
-for the execution of subexpressions; all subexpression results they need
-must be computed by earlier steps.  And dispatch to the following
-expression step must be performed after returning from the helper.
+已完成的 ExprState->steps 数组的最后一项总是 EEOP_DONE 步骤；这去掉了
+迭代时测试是否到数组末尾的需要。另外，若表达式包含任何变量引用（对
+ExprContext 的 INNER、OUTER 或 SCAN 元组的用户列），steps 数组以
+EEOP_*_FETCHSOME 步骤开始，确保相关元组已被拆开，使所需列可直接使用
+（参见 slot_getsomeattrs()）。这让各个取 Var 的步骤几乎只是一次数组
+查找。
+
+ExecInitExpr() 的大部分工作由递归函数 ExecInitExprRec() 及其子例程
+完成。ExecInitExprRec() 把一个 Expr 节点映射为执行所需的步骤，并按
+需要对子表达式递归。
+
+每次 ExecInitExprRec() 调用都必须指定该子表达式的结果存到何处（通过
+resv/resnull 参数）。这允许上述把（子）表达式直接求值到
+fcinfo->args[].value/isnull 的情形，但也需要一些小心：目标
+Datum/isnull 变量不能与另一次 ExecInitExprRec() 共享，除非结果只被
+在进一步使用这些目标 Datum/isnull 变量之前执行的步骤需要。由于
+ExprEvalStep 表示的非递归性，这通常容易保证。
+
+ExecInitExprRec() 用 ExprEvalPushStep() 把新操作压入 ExprState->steps
+数组。为保持步骤为连续排布的数组，空间不够时 ExprEvalPushStep() 必须
+对整个数组 repalloc。因此表达式初始化期间*不允许*直接指向任何步骤。
+所以子表达式的 resv/resnull 通常指向与 steps 数组分开 palloc 的某块
+存储。例如，函数调用步骤的 FunctionCallInfoBaseData 是单独分配的，
+而不是 ExprEvalStep 数组的一部分。完整表达式的总体结果通常返回到
+ExprState 节点自身的 resvalue/resnull 字段。
+
+某些步骤，例如布尔表达式，允许跳过某些子表达式的求值。在扁平表示中
+这相当于跳到某个稍后的步骤，而不是只是连续执行下一步。这种跳转的
+目标由要接着执行的步骤在 ExprState->steps 数组中的整数下标表示。
+（比较 execExprInterp.c 中的 EEO_NEXT 和 EEO_JUMP 宏。）
+
+通常，ExecInitExprRec() 必须先把一个跳转步骤压入 steps 数组，再递归
+生成可能被跳过的子表达式的步骤，然后回头用现已知道的子表达式步骤
+长度修正跳转目标下标。这由 execExpr.c 中的 adjust_jumps 列表处理。
+
+构建 ExprState 的最后一步是应用 ExecReadyExpr()，它用已选定的执行
+方法让其准备好执行。
 
 
-Targetlist Evaluation
----------------------
+表达式求值
+----------
 
-ExecBuildProjectionInfo builds an ExprState that has the effect of
-evaluating a targetlist into ExprState->resultslot.  A generic targetlist
-expression is executed by evaluating it as discussed above (storing the
-result into the ExprState's resvalue/resnull fields) and then using an
-EEOP_ASSIGN_TMP step to move the result into the appropriate tts_values[]
-and tts_isnull[] array elements of the result slot.  There are special
-fast-path step types (EEOP_ASSIGN_*_VAR) to handle targetlist entries that
-are simple Vars using only one step instead of two.
+为允许不同的表达式求值方法，以及更好的分支/跳转目标预测，表达式通过
+调用 ExprState->evalfunc 求值（经 ExecEvalExpr() 及其友元）。
+
+ExecReadyExpr() 可以通过把 evalfunc 设为适当函数来选择解释方法。默认
+执行函数 ExecInterpExpr 在 execExprInterp.c 中实现；细节见其头注释。
+对某些特别简单的表达式使用特例 evalfunc。
+
+注意：许多更复杂、性能关键性低于较简单步骤的表达式求值步骤，作为快速
+路径之外的独立函数实现，从而让其实现能在解释型和编译型表达式求值之间
+共享。这意味着这些辅助函数不允许自己做表达式步骤分派，因为分派方法
+会因调用者而异。因此辅助函数不能调用子表达式的执行；它们需要的所有
+子表达式结果必须由更早的步骤计算。并且必须在从辅助函数返回之后再分派
+到下一个表达式步骤。
+
+
+目标列表求值
+------------
+
+ExecBuildProjectionInfo 构建一个 ExprState，效果是把目标列表求值到
+ExprState->resultslot。通用目标列表表达式按上文讨论求值（把结果存入
+ExprState 的 resvalue/resnull 字段），然后用 EEOP_ASSIGN_TMP 步骤把
+结果移入结果槽的适当 tts_values[] 和 tts_isnull[] 数组元素。有特殊的
+快速路径步骤类型（EEOP_ASSIGN_*_VAR）用一步而不是两步处理作为简单
+Var 的目标列表条目。
 
 
 MERGE
 -----
 
-MERGE is a multiple-table, multiple-action command: It specifies a target
-table and a source relation, and can contain multiple WHEN MATCHED and
-WHEN NOT MATCHED clauses, each of which specifies one UPDATE, INSERT,
-DELETE, or DO NOTHING actions.  The target table is modified by MERGE,
-and the source relation supplies additional data for the actions.  Each action
-optionally specifies a qualifying expression that is evaluated for each tuple.
+MERGE 是多表、多动作命令：它指定一个目标表和一个源关系，可以包含多个
+WHEN MATCHED 和 WHEN NOT MATCHED 子句，每个指定一个 UPDATE、INSERT、
+DELETE 或 DO NOTHING 动作。目标表由 MERGE 修改，源关系为动作提供额外
+数据。每个动作可选地指定一个限定表达式，对每个元组求值。
 
-In the planner, transform_MERGE_to_join constructs a join between the target
-table and the source relation, with row-identifying junk columns from the target
-table.  This join is an outer join if the MERGE command contains any WHEN NOT
-MATCHED clauses; the ModifyTable node fetches tuples from the plan tree of that
-join.  If the row-identifying columns in the fetched tuple are NULL, then the
-source relation contains a tuple that is not matched by any tuples in the
-target table, so the qualifying expression for each WHEN NOT MATCHED clause is
-evaluated given that tuple as returned by the plan.  If the expression returns
-true, the action indicated by the clause is executed, and no further clauses
-are evaluated.  On the other hand, if the row-identifying columns are not
-NULL, then the matching tuple from the target table can be fetched; qualifying
-expression of each WHEN MATCHED clause is evaluated given both the fetched
-tuple and the tuple returned by the plan.
+在规划器中，transform_MERGE_to_join 在目标表与源关系之间构造连接，
+带上来自目标表的行标识垃圾列。若 MERGE 命令包含任何 WHEN NOT MATCHED
+子句，该连接是外连接；ModifyTable 节点从该连接的计划树取元组。若取出
+的元组中行标识列为 NULL，则源关系包含一个不被目标表中任何元组匹配的
+元组，因此对每个 WHEN NOT MATCHED 子句，用计划返回的该元组求值限定
+表达式。若表达式返回 true，则执行该子句指示的动作，并不再求值后续
+子句。另一方面，若行标识列不是 NULL，则可以取出目标表中的匹配元组；
+对每个 WHEN MATCHED 子句，用取出的元组和计划返回的元组一起求值限定
+表达式。
 
-If no WHEN NOT MATCHED clauses are present, then the join constructed by
-the planner is an inner join, and the row-identifying junk columns are
-always non NULL.
+若没有 WHEN NOT MATCHED 子句，则规划器构造的连接是内连接，行标识垃圾
+列总是非 NULL。
 
-If WHEN MATCHED ends up processing a row that is concurrently updated or deleted,
-EvalPlanQual (see below) is used to find the latest version of the row, and
-that is re-fetched; if it exists, the search for a matching WHEN MATCHED clause
-to use starts at the top.
+若 WHEN MATCHED 最终处理的是被并发更新或删除的行，则使用 EvalPlanQual
+（见下文）找到该行的最新版本并重新取出；若它存在，则从顶部开始搜索
+要使用的匹配 WHEN MATCHED 子句。
 
-MERGE does not allow its own type of triggers, but instead fires UPDATE, DELETE,
-and INSERT triggers: row triggers are fired for each row when an action is
-executed for that row.  Statement triggers are fired always, regardless of
-whether any rows match the corresponding clauses.
+MERGE 不允许自己类型的触发器，而是触发 UPDATE、DELETE 和 INSERT
+触发器：当对某行执行动作时，为该行触发行触发器。语句触发器总是触发，
+无论是否有行匹配对应子句。
 
 
-Memory Management
------------------
+内存管理
+--------
 
-A "per query" memory context is created during CreateExecutorState();
-all storage allocated during an executor invocation is allocated in that
-context or a child context.  This allows easy reclamation of storage
-during executor shutdown --- rather than messing with retail pfree's and
-probable storage leaks, we just destroy the memory context.
+CreateExecutorState() 期间创建“每查询”内存上下文；一次执行器调用期间
+分配的所有存储都分配在该上下文或其子上下文中。这让执行器关闭期间回收
+存储很容易——与其折腾零售 pfree 并很可能泄漏存储，我们只是销毁该内存
+上下文。
 
-In particular, the plan state trees and expression state trees described
-in the previous section are allocated in the per-query memory context.
+特别是，上一节描述的计划状态树和表达式状态树分配在每查询内存上下文中。
 
-To avoid intra-query memory leaks, most processing while a query runs
-is done in "per tuple" memory contexts, which are so-called because they
-are typically reset to empty once per tuple.  Per-tuple contexts are usually
-associated with ExprContexts, and commonly each PlanState node has its own
-ExprContext to evaluate its qual and targetlist expressions in.
+为避免查询内内存泄漏，查询运行期间的大多数处理在“每元组”内存上下文
+中完成，之所以这样称呼是因为它们通常每元组重置为空一次。每元组上下文
+通常与 ExprContext 关联，并且常见的是每个 PlanState 节点有自己的
+ExprContext，用来求值其 qual 和 targetlist 表达式。
 
 
-Query Processing Control Flow
------------------------------
+查询处理控制流
+--------------
 
-This is a sketch of control flow for full query processing:
+这是完整查询处理控制流的草图：
 
 	CreateQueryDesc
 
 	ExecutorStart
 		CreateExecutorState
-			creates per-query context
-		switch to per-query context to run ExecInitNode
+			创建每查询上下文
+		切换到每查询上下文以运行 ExecInitNode
 		AfterTriggerBeginQuery
-		ExecInitNode --- recursively scans plan tree
+		ExecInitNode --- 递归扫描计划树
 			ExecInitNode
-				recurse into subsidiary nodes
+				递归进入附属节点
 			CreateExprContext
-				creates per-tuple context
+				创建每元组上下文
 			ExecInitExpr
 
 	ExecutorRun
-		ExecProcNode --- recursively called in per-query context
-			ExecEvalExpr --- called in per-tuple context
-			ResetExprContext --- to free memory
+		ExecProcNode --- 在每查询上下文中递归调用
+			ExecEvalExpr --- 在每元组上下文中调用
+			ResetExprContext --- 以释放内存
 
 	ExecutorFinish
-		ExecPostprocessPlan --- run any unfinished ModifyTable nodes
+		ExecPostprocessPlan --- 运行任何未完成的 ModifyTable 节点
 		AfterTriggerEndQuery
 
 	ExecutorEnd
-		ExecEndNode --- recursively releases resources
+		ExecEndNode --- 递归释放资源
 		FreeExecutorState
-			frees per-query context and child contexts
+			释放每查询上下文和子上下文
 
 	FreeQueryDesc
 
-Per above comments, it's not really critical for ExecEndNode to free any
-memory; it'll all go away in FreeExecutorState anyway.  However, we do need to
-be careful to close relations, drop buffer pins, etc, so we do need to scan
-the plan state tree to find these sorts of resources.
+按上面的说明，ExecEndNode 释放任何内存其实并不关键；反正都会在
+FreeExecutorState 中消失。不过我们确实需要小心关闭关系、放下缓冲区
+钉住等，因此我们确实需要扫描计划状态树来找到这类资源。
 
 
-The executor can also be used to evaluate simple expressions without any Plan
-tree ("simple" meaning "no aggregates and no sub-selects", though such might
-be hidden inside function calls).  This case has a flow of control like
+执行器也可以用来求值没有任何 Plan 树的简单表达式（“简单”意思是“没有
+聚集也没有子选择”，尽管这些可能藏在函数调用里）。这种情形的控制流
+如下
 
 	CreateExecutorState
-		creates per-query context
+		创建每查询上下文
 
-	CreateExprContext	-- or use GetPerTupleExprContext(estate)
-		creates per-tuple context
+	CreateExprContext	-- 或使用 GetPerTupleExprContext(estate)
+		创建每元组上下文
 
 	ExecPrepareExpr
-		temporarily switch to per-query context
-		run the expression through expression_planner
+		临时切换到每查询上下文
+		把表达式跑过 expression_planner
 		ExecInitExpr
 
-	Repeatedly do:
+	反复做：
 		ExecEvalExprSwitchContext
-			ExecEvalExpr --- called in per-tuple context
-		ResetExprContext --- to free memory
+			ExecEvalExpr --- 在每元组上下文中调用
+		ResetExprContext --- 以释放内存
 
 	FreeExecutorState
-		frees per-query context, as well as ExprContext
-		(a separate FreeExprContext call is not necessary)
+		释放每查询上下文以及 ExprContext
+		（不必单独调用 FreeExprContext）
 
 
-EvalPlanQual (READ COMMITTED Update Checking)
----------------------------------------------
+EvalPlanQual（读已提交更新检查）
+--------------------------------
 
-For simple SELECTs, the executor need only pay attention to tuples that are
-valid according to the snapshot seen by the current transaction (ie, they
-were inserted by a previously committed transaction, and not deleted by any
-previously committed transaction).  However, for UPDATE, DELETE, and MERGE it
-is not cool to modify or delete a tuple that's been modified by an open or
-concurrently-committed transaction.  If we are running in SERIALIZABLE
-isolation level then we just raise an error when this condition is seen to
-occur.  In READ COMMITTED isolation level, we must work a lot harder.
+对简单 SELECT，执行器只需关注按当前事务所见快照有效的元组（即由先前
+已提交事务插入，且未被任何先前已提交事务删除）。不过对 UPDATE、DELETE
+和 MERGE，修改或删除被未结束或并发已提交事务改过的元组就不妥了。若
+我们运行在可串行化隔离级别，看到这种情况就只抛错。在读已提交隔离
+级别，我们必须辛苦得多。
 
-The basic idea in READ COMMITTED mode is to take the modified tuple
-committed by the concurrent transaction (after waiting for it to commit,
-if need be) and re-evaluate the query qualifications to see if it would
-still meet the quals.  If so, we regenerate the updated tuple (if we are
-doing an UPDATE) from the modified tuple, and finally update/delete the
-modified tuple.  SELECT FOR UPDATE/SHARE behaves similarly, except that its
-action is just to lock the modified tuple and return results based on that
-version of the tuple.
+读已提交模式的基本想法是：取并发事务提交的已修改元组（若需要则先等
+它提交），并重新求值查询限定条件，看它是否仍满足条件。若是，我们从
+已修改元组重新生成更新后的元组（若我们在做 UPDATE），最后更新/删除
+该已修改元组。SELECT FOR UPDATE/SHARE 行为类似，只是其动作只是锁定
+已修改元组，并基于该版本的元组返回结果。
 
-To implement this checking, we actually re-run the query from scratch for
-each modified tuple (or set of tuples, for SELECT FOR UPDATE), with the
-relation scan nodes tweaked to return only the current tuples --- either
-the original ones, or the updated (and now locked) versions of the modified
-tuple(s).  If this query returns a tuple, then the modified tuple(s) pass
-the quals (and the query output is the suitably modified update tuple, if
-we're doing UPDATE).  If no tuple is returned, then the modified tuple(s)
-fail the quals, so we ignore the current result tuple and continue the
-original query.
+为实现这一检查，我们实际上为每个已修改元组（或对 SELECT FOR UPDATE
+是一组元组）从零重新跑查询，关系扫描节点被调整为只返回当前元组——
+要么是原来的，要么是已修改元组的已更新（且现已锁定）版本。若该查询
+返回一个元组，则已修改元组通过限定条件（并且查询输出是适当修改后的
+更新元组，若我们在做 UPDATE）。若没有元组返回，则已修改元组未通过
+限定条件，因此我们忽略当前结果元组并继续原来的查询。
 
-In UPDATE/DELETE/MERGE, only the target relation needs to be handled this way.
-In SELECT FOR UPDATE, there may be multiple relations flagged FOR UPDATE,
-so we obtain lock on the current tuple version in each such relation before
-executing the recheck.
+在 UPDATE/DELETE/MERGE 中，只有目标关系需要这样处理。在 SELECT FOR
+UPDATE 中，可能有多个关系标为 FOR UPDATE，因此我们在执行再检查之前
+先锁定每个这类关系中的当前元组版本。
 
-It is also possible that there are relations in the query that are not
-to be locked (they are neither the UPDATE/DELETE/MERGE target nor specified
-to be locked in SELECT FOR UPDATE/SHARE).  When re-running the test query
-we want to use the same rows from these relations that were joined to
-the locked rows.  For ordinary relations this can be implemented relatively
-cheaply by including the row TID in the join outputs and re-fetching that
-TID.  (The re-fetch is expensive, but we're trying to optimize the normal
-case where no re-test is needed.)  We have also to consider non-table
-relations, such as a ValuesScan or FunctionScan.  For these, since there
-is no equivalent of TID, the only practical solution seems to be to include
-the entire row value in the join output row.
+查询中也可能有不需要锁定的关系（它们既不是 UPDATE/DELETE/MERGE 目标，
+也未在 SELECT FOR UPDATE/SHARE 中指定要锁定）。重新跑测试查询时，我们
+希望对这些关系使用与锁定行连接过的同一行。对普通关系，这可以相对便宜
+地实现：把行 TID 包含在连接输出中并重新取出该 TID。（重新取出很贵，
+但我们试图优化不需要再测试的正常情形。）我们还必须考虑非表关系，例如
+ValuesScan 或 FunctionScan。对这些，由于没有 TID 的等价物，唯一实际的
+方案似乎是把整行值包含在连接输出行中。
 
-We disallow set-returning functions in the targetlist of SELECT FOR UPDATE,
-so as to ensure that at most one tuple can be returned for any particular
-set of scan tuples.  Otherwise we'd get duplicates due to the original
-query returning the same set of scan tuples multiple times.  Likewise,
-SRFs are disallowed in an UPDATE's targetlist.  There, they would have the
-effect of the same row being updated multiple times, which is not very
-useful --- and updates after the first would have no effect anyway.
+我们禁止 SELECT FOR UPDATE 的目标列表中有返回集合的函数，以确保对任何
+特定扫描元组集合最多返回一个元组。否则会因原查询多次返回同一扫描元组
+集合而产生重复。同样，UPDATE 的目标列表中禁止 SRF。在那里，它们会有
+同一行被更新多次的效果，这不太有用——并且第一次之后的更新反正不会有
+效果。
 
 
-Asynchronous Execution
-----------------------
+异步执行
+--------
 
-In cases where a node is waiting on an event external to the database system,
-such as a ForeignScan awaiting network I/O, it's desirable for the node to
-indicate that it cannot return any tuple immediately but may be able to do so
-at a later time.  A process which discovers this type of situation can always
-handle it simply by blocking, but this may waste time that could be spent
-executing some other part of the plan tree where progress could be made
-immediately.  This is particularly likely to occur when the plan tree contains
-an Append node.  Asynchronous execution runs multiple parts of an Append node
-concurrently rather than serially to improve performance.
+当节点在等待数据库系统外部的事件时，例如 ForeignScan 等待网络 I/O，
+希望该节点能表示它现在不能立即返回任何元组，但稍后也许可以。发现这种
+情况的进程总可以简单地阻塞来处理，但这可能浪费本可花在计划树其他能
+立即取得进展的部分上的时间。当计划树包含 Append 节点时尤其可能发生。
+异步执行并发而不是串行地运行 Append 节点的多个部分以提高性能。
 
-For asynchronous execution, an Append node must first request a tuple from an
-async-capable child node using ExecAsyncRequest.  Next, it must execute the
-asynchronous event loop using ExecAppendAsyncEventWait.  Eventually, when a
-child node to which an asynchronous request has been made produces a tuple,
-the Append node will receive it from the event loop via ExecAsyncResponse.  In
-the current implementation of asynchronous execution, the only node type that
-requests tuples from an async-capable child node is an Append, while the only
-node type that might be async-capable is a ForeignScan.
+对异步执行，Append 节点必须先用 ExecAsyncRequest 向能异步的子节点请求
+元组。接下来，它必须用 ExecAppendAsyncEventWait 执行异步事件循环。
+最终，当已对其发出异步请求的子节点产出元组时，Append 节点会经
+ExecAsyncResponse 从事件循环收到它。在当前异步执行实现中，向能异步的
+子节点请求元组的唯一节点类型是 Append，而可能能异步的唯一节点类型是
+ForeignScan。
 
-Typically, the ExecAsyncResponse callback is the only one required for nodes
-that wish to request tuples asynchronously.  On the other hand, async-capable
-nodes generally need to implement three methods:
+通常，希望异步请求元组的节点只需要 ExecAsyncResponse 回调。另一方面，
+能异步的节点一般需要实现三个方法：
 
-1. When an asynchronous request is made, the node's ExecAsyncRequest callback
-   will be invoked; it should use ExecAsyncRequestPending to indicate that the
-   request is pending for a callback described below.  Alternatively, it can
-   instead use ExecAsyncRequestDone if a result is available immediately.
+1. 发出异步请求时，会调用该节点的 ExecAsyncRequest 回调；它应使用
+   ExecAsyncRequestPending 表示该请求挂起，等待下述回调。或者，若
+   结果立即可用，它可以改用 ExecAsyncRequestDone。
 
-2. When the event loop wishes to wait or poll for file descriptor events, the
-   node's ExecAsyncConfigureWait callback will be invoked to configure the
-   file descriptor event for which the node wishes to wait.
+2. 当事件循环希望等待或轮询文件描述符事件时，会调用该节点的
+   ExecAsyncConfigureWait 回调，以配置该节点希望等待的文件描述符事件。
 
-3. When the file descriptor becomes ready, the node's ExecAsyncNotify callback
-   will be invoked; like #1, it should use ExecAsyncRequestPending for another
-   callback or ExecAsyncRequestDone to return a result immediately.
+3. 当文件描述符就绪时，会调用该节点的 ExecAsyncNotify 回调；与 #1
+   一样，它应使用 ExecAsyncRequestPending 等待另一次回调，或使用
+   ExecAsyncRequestDone 立即返回结果。

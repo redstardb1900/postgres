@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "batch_id": "0046-comment-libpq-auth",
+ "title": "zh: translate auth comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "304f128d90fa4f1af1b912671dcb7ad66f68ead1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "note": "comment-only; pgindent, translator, fall-through and macro markers kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0046-comment-libpq-auth.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 264,
+   "translated": 221,
+   "preserved": 43,
+   "preserved_reasons": [
+    "copyright/pgindent blocks",
+    "translator comments",
+    "fall-through",
+    "preprocessor markers",
+    "code literals"
+   ],
+   "note": "comment-only; pgindent, translator, fall-through and macro markers kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0046-comment-libpq-auth.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

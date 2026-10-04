@@ -65,10 +65,10 @@ static int	CheckMD5Auth(Port *port, char *shadow_pass,
  * Ident authentication
  *----------------------------------------------------------------
  */
-/* Max size of username ident server can return (per RFC 1413) */
+/* Ident 服务器能返回的用户名最大长度（见 RFC 1413） */
 #define IDENT_USERNAME_MAX 512
 
-/* Standard TCP port number for Ident service.  Assigned by IANA */
+/* Ident 服务的标准 TCP 端口号。由 IANA 分配 */
 #define IDENT_PORT 113
 
 static int	ident_inet(hbaPort *port);
@@ -93,9 +93,9 @@ static int	auth_peer(hbaPort *port);
 #include <security/pam_appl.h>
 #endif
 
-#define PGSQL_PAM_SERVICE "postgresql"	/* Service name passed to PAM */
+#define PGSQL_PAM_SERVICE "postgresql"	/* 传给 PAM 的服务名 */
 
-/* Work around original Solaris' lack of "const" in the conv_proc signature */
+/* 变通办法，弥补最初的 Solaris 在 conv_proc 签名中缺少 "const" */
 #ifdef _PAM_LEGACY_NONCONST
 #define PG_PAM_CONST
 #else
@@ -112,11 +112,11 @@ static struct pam_conv pam_passw_conv = {
 	NULL
 };
 
-static const char *pam_passwd = NULL;	/* Workaround for Solaris 2.6
-										 * brokenness */
-static Port *pam_port_cludge;	/* Workaround for passing "Port *port" into
-								 * pam_passwd_conv_proc */
-static bool pam_no_password;	/* For detecting no-password-given */
+static const char *pam_passwd = NULL;	/* 针对 Solaris 2.6 缺陷的
+										 * 变通办法 */
+static Port *pam_port_cludge;	/* 把 "Port *port" 传进
+								 * pam_passwd_conv_proc 的变通办法 */
+static bool pam_no_password;	/* 用于检测未给出口令 */
 #endif							/* USE_PAM */
 
 
@@ -137,7 +137,7 @@ static int	CheckBSDAuth(Port *port, char *user);
  */
 #ifdef USE_LDAP
 #ifndef WIN32
-/* We use a deprecated function to keep the codepath the same as win32. */
+/* 我们使用已弃用的函数，以便代码路径与 win32 保持一致。 */
 #define LDAP_DEPRECATED 1
 #include <ldap.h>
 #else
@@ -147,12 +147,12 @@ static int	CheckBSDAuth(Port *port, char *user);
 
 static int	CheckLDAPAuth(Port *port);
 
-/* LDAP_OPT_DIAGNOSTIC_MESSAGE is the newer spelling */
+/* LDAP_OPT_DIAGNOSTIC_MESSAGE 是较新的拼写 */
 #ifndef LDAP_OPT_DIAGNOSTIC_MESSAGE
 #define LDAP_OPT_DIAGNOSTIC_MESSAGE LDAP_OPT_ERROR_STRING
 #endif
 
-/* Default LDAP password mutator hook, can be overridden by a shared library */
+/* 默认 LDAP 口令变换钩子，可被共享库覆盖 */
 static char *dummy_ldap_password_mutator(char *input);
 auth_password_hook_typ ldap_password_hook = dummy_ldap_password_mutator;
 
@@ -212,18 +212,18 @@ static int	PerformRadiusTransaction(const char *server, const char *secret, cons
 
 
 /*
- * Maximum accepted size of GSS and SSPI authentication tokens.
- * We also use this as a limit on ordinary password packet lengths.
+ * 接受的 GSS 和 SSPI 认证 token 的最大长度。
+ * 我们也把它用作普通口令报文长度的上限。
  *
- * Kerberos tickets are usually quite small, but the TGTs issued by Windows
- * domain controllers include an authorization field known as the Privilege
- * Attribute Certificate (PAC), which contains the user's Windows permissions
- * (group memberships etc.). The PAC is copied into all tickets obtained on
- * the basis of this TGT (even those issued by Unix realms which the Windows
- * realm trusts), and can be several kB in size. The maximum token size
- * accepted by Windows systems is determined by the MaxAuthToken Windows
- * registry setting. Microsoft recommends that it is not set higher than
- * 65535 bytes, so that seems like a reasonable limit for us as well.
+ * Kerberos 票据通常很小，但 Windows
+ * 域控制器签发的 TGTs 含有一个授权字段，称为权限
+ * 属性证书 (PAC)，其中有该用户的 Windows 权限
+ * （组成员身份等）。PAC 会被复制进基于此 TGT 取得的
+ * 所有票据（即使由该 Windows 领域所信任的 Unix 领域
+ * 签发），并且可以有数 kB 之大。Windows 系统接受的最大 token
+ * 长度由 Windows 注册表设置 MaxAuthToken 决定。微软建议
+ * 不要把它设得高于
+ * 65535 字节，因此这对我们来说也像是一个合理上限。
  */
 #define PG_MAX_AUTH_TOKEN_LENGTH	65535
 
@@ -233,24 +233,24 @@ static int	PerformRadiusTransaction(const char *server, const char *secret, cons
  */
 
 /*
- * This hook allows plugins to get control following client authentication,
- * but before the user has been informed about the results.  It could be used
- * to record login events, insert a delay after failed authentication, etc.
+ * 这个钩子让插件在客户端认证之后、
+ * 用户得知结果之前取得控制。它可以用来
+ * 记录登录事件、在认证失败后插入延迟，等等。
  */
 ClientAuthentication_hook_type ClientAuthentication_hook = NULL;
 
 /*
- * Tell the user the authentication failed, but not (much about) why.
+ * 告诉用户认证失败了，但不要说明多少原因。
  *
- * There is a tradeoff here between security concerns and making life
- * unnecessarily difficult for legitimate users.  We would not, for example,
- * want to report the password we were expecting to receive...
- * But it seems useful to report the username and authorization method
- * in use, and these are items that must be presumed known to an attacker
- * anyway.
- * Note that many sorts of failure report additional information in the
- * postmaster log, which we hope is only readable by good guys.  In
- * particular, if logdetail isn't NULL, we send that string to the log.
+ * 这里要在安全顾虑和给正当用户
+ * 造成不必要的困难之间权衡。例如，我们不会
+ * 想报告我们期望收到的口令……
+ * 但报告正在使用的用户名和授权方法
+ * 似乎有用，而且必须假定攻击者反正已经
+ * 知道这些。
+ * 注意，许多失败还会在 postmaster 日志里报告更多信息，
+ * 我们希望只有正当的人才能读到它。特别是，
+ * 若 logdetail 不是 NULL，我们就把该字符串写进日志。
  */
 static void
 auth_failed(Port *port, int status, const char *logdetail)
@@ -260,14 +260,14 @@ auth_failed(Port *port, int status, const char *logdetail)
 	int			errcode_return = ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION;
 
 	/*
-	 * If we failed due to EOF from client, just quit; there's no point in
-	 * trying to send a message to the client, and not much point in logging
-	 * the failure in the postmaster log.  (Logging the failure might be
-	 * desirable, were it not for the fact that libpq closes the connection
-	 * unceremoniously if challenged for a password when it hasn't got one to
-	 * send.  We'll get a useless log entry for every psql connection under
-	 * password auth, even if it's perfectly successful, if we log STATUS_EOF
-	 * events.)
+	 * 若因客户端 EOF 而失败，就直接退出；没有必要
+	 * 再给客户端发消息，也没有多大必要把这次失败
+	 * 记进 postmaster 日志。（若不是因为：当 libpq 被索取口令
+	 * 却没有口令可发时，它会粗鲁地关闭连接，
+	 * 记下这次失败也许是可取的。在口令认证下，
+	 * 每次 psql 连接都会得到一条无用日志，
+	 * 即使完全成功，只要我们记录 STATUS_EOF
+	 * 事件。）
 	 */
 	if (status == STATUS_EOF)
 		proc_exit(0);
@@ -291,7 +291,7 @@ auth_failed(Port *port, int status, const char *logdetail)
 		case uaMD5:
 		case uaSCRAM:
 			errstr = gettext_noop("password authentication failed for user \"%s\"");
-			/* We use it to indicate if a .pgpass password failed. */
+			/* 我们用它表示 .pgpass 口令是否失败。 */
 			errcode_return = ERRCODE_INVALID_PASSWORD;
 			break;
 		case uaGSS:
@@ -333,22 +333,22 @@ auth_failed(Port *port, int status, const char *logdetail)
 			 errmsg(errstr, port->user_name),
 			 logdetail ? errdetail_log("%s", logdetail) : 0));
 
-	/* doesn't return */
+	/* 不会返回 */
 }
 
 
 /*
- * Sets the authenticated identity for the current user.  The provided string
- * will be stored into MyClientConnectionInfo, alongside the current HBA
- * method in use.  The ID will be logged if log_connections is enabled.
+ * 设置当前用户的已认证身份。所给字符串
+ * 会存入 MyClientConnectionInfo，旁边是当前使用的 HBA
+ * 方法。若启用了 log_connections，就会记录该身份。
  *
- * Auth methods should call this routine exactly once, as soon as the user is
- * successfully authenticated, even if they have reasons to know that
- * authorization will fail later.
+ * 认证方法应当恰好调用本例程一次，就在用户
+ * 成功认证之后，即使它们有理由知道
+ * 授权稍后会失败。
  *
- * The provided string will be copied into TopMemoryContext, to match the
- * lifetime of MyClientConnectionInfo, so it is safe to pass a string that is
- * managed by an external library.
+ * 所给字符串会被复制进 TopMemoryContext，以匹配
+ * MyClientConnectionInfo 的生命周期，因此传入由外部库
+ * 管理的字符串是安全的。
  */
 static void
 set_authn_id(Port *port, const char *id)
@@ -358,10 +358,10 @@ set_authn_id(Port *port, const char *id)
 	if (MyClientConnectionInfo.authn_id)
 	{
 		/*
-		 * An existing authn_id should never be overwritten; that means two
-		 * authentication providers are fighting (or one is fighting itself).
-		 * Don't leak any authn details to the client, but don't let the
-		 * connection continue, either.
+		 * 已有的 authn_id 绝不应该被覆盖；那意味着两个
+		 * 认证提供方在互相冲突（或一个在跟自己冲突）。
+		 * 不要向客户端泄露任何认证细节，但也不要让
+		 * 连接继续。
 		 */
 		ereport(FATAL,
 				(errmsg("authentication identifier set more than once"),
@@ -385,8 +385,8 @@ set_authn_id(Port *port, const char *id)
 
 
 /*
- * Client authentication starts here.  If there is an error, this
- * function does not return and the backend process is terminated.
+ * 客户端认证从这里开始。若出错，本函数
+ * 不返回，后端进程会被终止。
  */
 void
 ClientAuthentication(Port *port)
@@ -395,33 +395,33 @@ ClientAuthentication(Port *port)
 	const char *logdetail = NULL;
 
 	/*
-	 * Get the authentication method to use for this frontend/database
-	 * combination.  Note: we do not parse the file at this point; this has
-	 * already been done elsewhere.  hba.c dropped an error message into the
-	 * server logfile if parsing the hba config file failed.
+	 * 取得用于此前端/数据库组合的认证方法。
+	 * 注意：此时我们不解析文件；这已经在
+	 * 别处完成。若解析 hba 配置文件失败，hba.c 已经把
+	 * 错误消息写进了服务器日志。
 	 */
 	hba_getauthmethod(port);
 
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * This is the first point where we have access to the hba record for the
-	 * current connection, so perform any verifications based on the hba
-	 * options field that should be done *before* the authentication here.
+	 * 这是我们第一次能访问当前连接的 hba 记录的地方，
+	 * 因此在这里、在认证之前，执行任何基于 hba
+	 * 选项字段、应当事先完成的校验。
 	 */
 	if (port->hba->clientcert != clientCertOff)
 	{
-		/* If we haven't loaded a root certificate store, fail */
+		/* 若尚未加载根证书库，则失败 */
 		if (!secure_loaded_verify_locations())
 			ereport(FATAL,
 					(errcode(ERRCODE_CONFIG_FILE_ERROR),
 					 errmsg("client certificates can only be checked if a root certificate store is available")));
 
 		/*
-		 * If we loaded a root certificate store, and if a certificate is
-		 * present on the client, then it has been verified against our root
-		 * certificate store, and the connection would have been aborted
-		 * already if it didn't verify ok.
+		 * 若我们加载了根证书库，并且客户端提供了
+		 * 证书，那么它已经对照我们的根证书库
+		 * 校验过，若校验未通过，连接早已被
+		 * 中止。
 		 */
 		if (!port->peer_cert_valid)
 			ereport(FATAL,
@@ -430,21 +430,21 @@ ClientAuthentication(Port *port)
 	}
 
 	/*
-	 * Now proceed to do the actual authentication check
+	 * 现在进行实际的认证检查
 	 */
 	switch (port->hba->auth_method)
 	{
 		case uaReject:
 
 			/*
-			 * An explicit "reject" entry in pg_hba.conf.  This report exposes
-			 * the fact that there's an explicit reject entry, which is
-			 * perhaps not so desirable from a security standpoint; but the
-			 * message for an implicit reject could confuse the DBA a lot when
-			 * the true situation is a match to an explicit reject.  And we
-			 * don't want to change the message for an implicit reject.  As
-			 * noted below, the additional information shown here doesn't
-			 * expose anything not known to an attacker.
+			 * pg_hba.conf 中一条显式的 "reject" 记录。这份报告暴露了
+			 * 存在一条显式拒绝记录，从安全角度
+			 * 看也许不太理想；但隐式拒绝的
+			 * 消息在真实情况是匹配了显式拒绝时，
+			 * 会让 DBA 非常困惑。而我们
+			 * 不想改变隐式拒绝的消息。如下所述，
+			 * 这里显示的额外信息并没有暴露
+			 * 攻击者所不知道的任何东西。
 			 */
 			{
 				char		hostinfo[NI_MAXHOST];
@@ -485,12 +485,12 @@ ClientAuthentication(Port *port)
 		case uaImplicitReject:
 
 			/*
-			 * No matching entry, so tell the user we fell through.
+			 * 没有匹配项，因此告诉用户我们落到了末尾。
 			 *
-			 * NOTE: the extra info reported here is not a security breach,
-			 * because all that info is known at the frontend and must be
-			 * assumed known to bad guys.  We're merely helping out the less
-			 * clueful good guys.
+			 * 注意：这里额外报告的信息不是安全漏洞，
+			 * 因为这些信息前端都知道，并且必须
+			 * 假定攻击者也知道。我们只是在帮助那些
+			 * 不太熟悉情况的正当用户。
 			 */
 			{
 				char		hostinfo[NI_MAXHOST];
@@ -553,7 +553,7 @@ ClientAuthentication(Port *port)
 
 		case uaGSS:
 #ifdef ENABLE_GSS
-			/* We might or might not have the gss workspace already */
+			/* 我们也许已经有 gss 工作区，也许还没有 */
 			if (port->gss == NULL)
 				port->gss = (pg_gssinfo *)
 					MemoryContextAllocZero(TopMemoryContext,
@@ -561,8 +561,8 @@ ClientAuthentication(Port *port)
 			port->gss->auth = true;
 
 			/*
-			 * If GSS state was set up while enabling encryption, we can just
-			 * check the client's principal.  Otherwise, ask for it.
+			 * 若在启用加密时已经设置了 GSS 状态，我们只需
+			 * 检查客户端的主体。否则就去索取它。
 			 */
 			if (port->gss->enc)
 				status = pg_GSS_checkauth(port);
@@ -633,7 +633,7 @@ ClientAuthentication(Port *port)
 			status = CheckRADIUSAuth(port);
 			break;
 		case uaCert:
-			/* uaCert will be treated as if clientcert=verify-full (uaTrust) */
+			/* uaCert 将被视为 clientcert=verify-full（uaTrust） */
 		case uaTrust:
 			status = STATUS_OK;
 			break;
@@ -643,8 +643,8 @@ ClientAuthentication(Port *port)
 		|| port->hba->auth_method == uaCert)
 	{
 		/*
-		 * Make sure we only check the certificate if we use the cert method
-		 * or verify-full option.
+		 * 确保只有在使用 cert 方法或 verify-full 选项时
+		 * 才检查证书。
 		 */
 #ifdef USE_SSL
 		status = CheckCertAuth(port);
@@ -664,7 +664,7 @@ ClientAuthentication(Port *port)
 
 
 /*
- * Send an authentication request packet to the frontend.
+ * 向前端发送认证请求报文。
  */
 void
 sendAuthRequest(Port *port, AuthRequest areq, const char *extradata, int extralen)
@@ -681,9 +681,9 @@ sendAuthRequest(Port *port, AuthRequest areq, const char *extradata, int extrale
 	pq_endmessage(&buf);
 
 	/*
-	 * Flush message so client will see it, except for AUTH_REQ_OK and
-	 * AUTH_REQ_SASL_FIN, which need not be sent until we are ready for
-	 * queries.
+	 * 刷新消息以便客户端能看到它，但 AUTH_REQ_OK 和
+	 * AUTH_REQ_SASL_FIN 除外，它们不必发送，直到我们准备好
+	 * 处理查询。
 	 */
 	if (areq != AUTH_REQ_OK && areq != AUTH_REQ_SASL_FIN)
 		pq_flush();
@@ -692,9 +692,9 @@ sendAuthRequest(Port *port, AuthRequest areq, const char *extradata, int extrale
 }
 
 /*
- * Collect password response packet from frontend.
+ * 从前端收集口令响应报文。
  *
- * Returns NULL if couldn't get password, else palloc'd string.
+ * 若无法取得口令则返回 NULL，否则返回 palloc 出来的字符串。
  */
 static char *
 recv_password_packet(Port *port)
@@ -704,35 +704,35 @@ recv_password_packet(Port *port)
 
 	pq_startmsgread();
 
-	/* Expect 'p' message type */
+	/* 期望消息类型 'p' */
 	mtype = pq_getbyte();
 	if (mtype != 'p')
 	{
 		/*
-		 * If the client just disconnects without offering a password, don't
-		 * make a log entry.  This is legal per protocol spec and in fact
-		 * commonly done by psql, so complaining just clutters the log.
+		 * 若客户端直接断开、不提供口令，不要
+		 * 记日志。按协议规范这是合法的，而且 psql
+		 * 经常这样做，因此抱怨只会把日志弄乱。
 		 */
 		if (mtype != EOF)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROTOCOL_VIOLATION),
 					 errmsg("expected password response, got message type %d",
 							mtype)));
-		return NULL;			/* EOF or bad message type */
+		return NULL;			/* EOF 或错误的消息类型 */
 	}
 
 	initStringInfo(&buf);
-	if (pq_getmessage(&buf, PG_MAX_AUTH_TOKEN_LENGTH))	/* receive password */
+	if (pq_getmessage(&buf, PG_MAX_AUTH_TOKEN_LENGTH))	/* 接收口令 */
 	{
-		/* EOF - pq_getmessage already logged a suitable message */
+		/* EOF：pq_getmessage 已经记了一条合适的消息 */
 		pfree(buf.data);
 		return NULL;
 	}
 
 	/*
-	 * Apply sanity check: password packet length should agree with length of
-	 * contained string.  Note it is safe to use strlen here because
-	 * StringInfo is guaranteed to have an appended '\0'.
+	 * 做健全性检查：口令报文长度应与所含
+	 * 字符串的长度一致。这里使用 strlen 是安全的，因为
+	 * StringInfo 保证附加了一个 '\0'。
 	 */
 	if (strlen(buf.data) + 1 != buf.len)
 		ereport(ERROR,
@@ -740,30 +740,30 @@ recv_password_packet(Port *port)
 				 errmsg("invalid password packet size")));
 
 	/*
-	 * Don't allow an empty password. Libpq treats an empty password the same
-	 * as no password at all, and won't even try to authenticate. But other
-	 * clients might, so allowing it would be confusing.
+	 * 不要允许空口令。Libpq 把空口令当成
+	 * 完全没有口令，甚至不会尝试认证。但其他
+	 * 客户端可能会，因此允许它会造成混淆。
 	 *
-	 * Note that this only catches an empty password sent by the client in
-	 * plaintext. There's also a check in CREATE/ALTER USER that prevents an
-	 * empty string from being stored as a user's password in the first place.
-	 * We rely on that for MD5 and SCRAM authentication, but we still need
-	 * this check here, to prevent an empty password from being used with
-	 * authentication methods that check the password against an external
-	 * system, like PAM, LDAP and RADIUS.
+	 * 注意，这只捕捉客户端以明文发来的空口令。
+	 * CREATE/ALTER USER 里还有一项检查，防止一开始就把
+	 * 空字符串存成用户口令。
+	 * 对 MD5 和 SCRAM 认证我们依赖那项检查，但仍需要
+	 * 这里的这项检查，以防止空口令被用于
+	 * 对照外部系统检查口令的认证方法，
+	 * 例如 PAM、LDAP 和 RADIUS。
 	 */
 	if (buf.len == 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PASSWORD),
 				 errmsg("empty password returned by client")));
 
-	/* Do not echo password to logs, for security. */
+	/* 出于安全，不要把口令回显到日志。 */
 	elog(DEBUG5, "received password packet");
 
 	/*
-	 * Return the received string.  Note we do not attempt to do any
-	 * character-set conversion on it; since we don't yet know the client's
-	 * encoding, there wouldn't be much point.
+	 * 返回收到的字符串。注意我们不尝试对它做任何
+	 * 字符集转换；既然还不知道客户端的
+	 * 编码，这样做也没什么意义。
 	 */
 	return buf.data;
 }
@@ -775,7 +775,7 @@ recv_password_packet(Port *port)
  */
 
 /*
- * Plaintext password authentication.
+ * 明文口令认证。
  */
 static int
 CheckPasswordAuth(Port *port, const char **logdetail)
@@ -788,7 +788,7 @@ CheckPasswordAuth(Port *port, const char **logdetail)
 
 	passwd = recv_password_packet(port);
 	if (passwd == NULL)
-		return STATUS_EOF;		/* client wouldn't send password */
+		return STATUS_EOF;		/* 客户端不会发送口令 */
 
 	shadow_pass = get_role_password(port->user_name, logdetail);
 	if (shadow_pass)
@@ -810,7 +810,7 @@ CheckPasswordAuth(Port *port, const char **logdetail)
 }
 
 /*
- * MD5 and SCRAM authentication.
+ * MD5 和 SCRAM 认证。
  */
 static int
 CheckPWChallengeAuth(Port *port, const char **logdetail)
@@ -822,17 +822,17 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 	Assert(port->hba->auth_method == uaSCRAM ||
 		   port->hba->auth_method == uaMD5);
 
-	/* First look up the user's password. */
+	/* 先查找该用户的口令。 */
 	shadow_pass = get_role_password(port->user_name, logdetail);
 
 	/*
-	 * If the user does not exist, or has no password or it's expired, we
-	 * still go through the motions of authentication, to avoid revealing to
-	 * the client that the user didn't exist.  If 'md5' is allowed, we choose
-	 * whether to use 'md5' or 'scram-sha-256' authentication based on current
-	 * password_encryption setting.  The idea is that most genuine users
-	 * probably have a password of that type, and if we pretend that this user
-	 * had a password of that type, too, it "blends in" best.
+	 * 若用户不存在，或没有口令，或口令已过期，我们
+	 * 仍走完认证的动作，以免向客户端泄露
+	 * 用户并不存在。若允许 'md5'，我们就根据当前的
+	 * password_encryption 设置，选择使用 'md5' 还是
+	 * 'scram-sha-256' 认证。想法是，多数真正的用户
+	 * 大概有那种类型的口令，若我们假装这个用户
+	 * 也有那种类型的口令，就最能混进去。
 	 */
 	if (!shadow_pass)
 		pwtype = Password_encryption;
@@ -840,14 +840,14 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 		pwtype = get_password_type(shadow_pass);
 
 	/*
-	 * If 'md5' authentication is allowed, decide whether to perform 'md5' or
-	 * 'scram-sha-256' authentication based on the type of password the user
-	 * has.  If it's an MD5 hash, we must do MD5 authentication, and if it's a
-	 * SCRAM secret, we must do SCRAM authentication.
+	 * 若允许 'md5' 认证，就根据用户口令的类型，
+	 * 决定做 'md5' 还是 'scram-sha-256' 认证。若它是
+	 * MD5 哈希，就必须做 MD5 认证；若它是
+	 * SCRAM 密钥，就必须做 SCRAM 认证。
 	 *
-	 * If MD5 authentication is not allowed, always use SCRAM.  If the user
-	 * had an MD5 password, CheckSASLAuth() with the SCRAM mechanism will
-	 * fail.
+	 * 若不允许 MD5 认证，就始终使用 SCRAM。若用户
+	 * 有的是 MD5 口令，用 SCRAM 机制调用 CheckSASLAuth()
+	 * 会失败。
 	 */
 	if (port->hba->auth_method == uaMD5 && pwtype == PASSWORD_TYPE_MD5)
 		auth_result = CheckMD5Auth(port, shadow_pass, logdetail);
@@ -860,8 +860,8 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 	else
 	{
 		/*
-		 * If get_role_password() returned error, authentication better not
-		 * have succeeded.
+		 * 若 get_role_password() 返回了错误，认证最好没有
+		 * 成功。
 		 */
 		Assert(auth_result != STATUS_OK);
 	}
@@ -875,7 +875,7 @@ CheckPWChallengeAuth(Port *port, const char **logdetail)
 static int
 CheckMD5Auth(Port *port, char *shadow_pass, const char **logdetail)
 {
-	char		md5Salt[4];		/* Password salt */
+	char		md5Salt[4];		/* 口令盐 */
 	char	   *passwd;
 	int			result;
 
@@ -884,7 +884,7 @@ CheckMD5Auth(Port *port, char *shadow_pass, const char **logdetail)
 				(errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
 				 errmsg("MD5 authentication is not supported when \"db_user_namespace\" is enabled")));
 
-	/* include the salt to use for computing the response */
+	/* 包含用于计算响应的盐 */
 	if (!pg_strong_random(md5Salt, 4))
 	{
 		ereport(LOG,
@@ -896,7 +896,7 @@ CheckMD5Auth(Port *port, char *shadow_pass, const char **logdetail)
 
 	passwd = recv_password_packet(port);
 	if (passwd == NULL)
-		return STATUS_EOF;		/* client wouldn't send password */
+		return STATUS_EOF;		/* 客户端不会发送口令 */
 
 	if (shadow_pass)
 		result = md5_crypt_verify(port->user_name, shadow_pass, passwd,
@@ -928,15 +928,15 @@ pg_GSS_recvauth(Port *port)
 	gss_cred_id_t delegated_creds;
 
 	/*
-	 * Use the configured keytab, if there is one.  As we now require MIT
-	 * Kerberos, we might consider using the credential store extensions in
-	 * the future instead of the environment variable.
+	 * 若配置了 keytab，就使用它。既然我们现在需要 MIT
+	 * Kerberos，将来也许可以考虑使用凭据存储扩展，
+	 * 而不是环境变量。
 	 */
 	if (pg_krb_server_keyfile != NULL && pg_krb_server_keyfile[0] != '\0')
 	{
 		if (setenv("KRB5_KTNAME", pg_krb_server_keyfile, 1) != 0)
 		{
-			/* The only likely failure cause is OOM, so use that errcode */
+			/* 唯一可能的失败原因是内存不足，因此使用那个错误码 */
 			ereport(FATAL,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
 					 errmsg("could not set environment: %m")));
@@ -944,15 +944,15 @@ pg_GSS_recvauth(Port *port)
 	}
 
 	/*
-	 * We accept any service principal that's present in our keytab. This
-	 * increases interoperability between kerberos implementations that see
-	 * for example case sensitivity differently, while not really opening up
-	 * any vector of attack.
+	 * 我们接受 keytab 中存在的任何服务主体。这提高了
+	 * 那些对大小写敏感性看法不同的 Kerberos 实现之间的互操作性，
+	 * 同时又并不真正打开
+	 * 任何攻击途径。
 	 */
 	port->gss->cred = GSS_C_NO_CREDENTIAL;
 
 	/*
-	 * Initialize sequence with an empty context
+	 * 用空上下文初始化序列
 	 */
 	port->gss->ctx = GSS_C_NO_CONTEXT;
 
@@ -960,10 +960,10 @@ pg_GSS_recvauth(Port *port)
 	port->gss->delegated_creds = false;
 
 	/*
-	 * Loop through GSSAPI message exchange. This exchange can consist of
-	 * multiple messages sent in both directions. First message is always from
-	 * the client. All messages from client to server are password packets
-	 * (type 'p').
+	 * 循环进行 GSSAPI 消息交换。这次交换可以包含
+	 * 双向发送的多条消息。第一条消息始终来自
+	 * 客户端。所有从客户端到服务器的消息都是口令报文
+	 * （类型 'p'）。
 	 */
 	do
 	{
@@ -974,7 +974,7 @@ pg_GSS_recvauth(Port *port)
 		mtype = pq_getbyte();
 		if (mtype != 'p')
 		{
-			/* Only log error if client didn't disconnect. */
+			/* 仅当客户端没有断开时才记错误。 */
 			if (mtype != EOF)
 				ereport(ERROR,
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -983,16 +983,16 @@ pg_GSS_recvauth(Port *port)
 			return STATUS_ERROR;
 		}
 
-		/* Get the actual GSS token */
+		/* 取得实际的 GSS token */
 		initStringInfo(&buf);
 		if (pq_getmessage(&buf, PG_MAX_AUTH_TOKEN_LENGTH))
 		{
-			/* EOF - pq_getmessage already logged error */
+			/* EOF：pq_getmessage 已经记下了错误 */
 			pfree(buf.data);
 			return STATUS_ERROR;
 		}
 
-		/* Map to GSSAPI style buffer */
+		/* 映射为 GSSAPI 风格的缓冲区 */
 		gbuf.length = buf.len;
 		gbuf.value = buf.data;
 
@@ -1011,7 +1011,7 @@ pg_GSS_recvauth(Port *port)
 										  NULL,
 										  pg_gss_accept_delegation ? &delegated_creds : NULL);
 
-		/* gbuf no longer used */
+		/* gbuf 不再使用 */
 		pfree(buf.data);
 
 		elog(DEBUG5, "gss_accept_sec_context major: %u, "
@@ -1030,7 +1030,7 @@ pg_GSS_recvauth(Port *port)
 		if (port->gss->outbuf.length != 0)
 		{
 			/*
-			 * Negotiation generated data to be sent to the client.
+			 * 协商产生了要发给客户端的数据。
 			 */
 			elog(DEBUG4, "sending GSS response token of length %u",
 				 (unsigned int) port->gss->outbuf.length);
@@ -1057,7 +1057,7 @@ pg_GSS_recvauth(Port *port)
 	if (port->gss->cred != GSS_C_NO_CREDENTIAL)
 	{
 		/*
-		 * Release service principal credentials
+		 * 释放服务主体凭据
 		 */
 		gss_release_cred(&min_stat, &port->gss->cred);
 	}
@@ -1065,8 +1065,8 @@ pg_GSS_recvauth(Port *port)
 }
 
 /*
- * Check whether the GSSAPI-authenticated user is allowed to connect as the
- * claimed username.
+ * 检查通过 GSSAPI 认证的用户是否被允许以所声称的用户名
+ * 连接。
  */
 static int
 pg_GSS_checkauth(Port *port)
@@ -1079,8 +1079,8 @@ pg_GSS_checkauth(Port *port)
 	char	   *princ;
 
 	/*
-	 * Get the name of the user that authenticated, and compare it to the pg
-	 * username that was specified for the connection.
+	 * 取得已认证用户的名字，并与为该连接指定的 pg
+	 * 用户名比较。
 	 */
 	maj_stat = gss_display_name(&min_stat, port->gss->name, &gbuf, NULL);
 	if (maj_stat != GSS_S_COMPLETE)
@@ -1091,8 +1091,8 @@ pg_GSS_checkauth(Port *port)
 	}
 
 	/*
-	 * gbuf.value might not be null-terminated, so turn it into a regular
-	 * null-terminated string.
+	 * gbuf.value 可能没有以空字符结尾，因此把它变成普通的
+	 * 以空字符结尾的字符串。
 	 */
 	princ = palloc(gbuf.length + 1);
 	memcpy(princ, gbuf.value, gbuf.length);
@@ -1100,27 +1100,27 @@ pg_GSS_checkauth(Port *port)
 	gss_release_buffer(&lmin_s, &gbuf);
 
 	/*
-	 * Copy the original name of the authenticated principal into our backend
-	 * memory for display later.
+	 * 把已认证主体的原始名字复制到我们的后端
+	 * 内存中，供以后显示。
 	 *
-	 * This is also our authenticated identity.  Set it now, rather than
-	 * waiting for the usermap check below, because authentication has already
-	 * succeeded and we want the log file to reflect that.
+	 * 这也是我们的已认证身份。现在就设置它，而不是
+	 * 等到下面的用户映射检查，因为认证已经
+	 * 成功，我们希望日志反映出这一点。
 	 */
 	port->gss->princ = MemoryContextStrdup(TopMemoryContext, princ);
 	set_authn_id(port, princ);
 
 	/*
-	 * Split the username at the realm separator
+	 * 在领域分隔符处拆分用户名
 	 */
 	if (strchr(princ, '@'))
 	{
 		char	   *cp = strchr(princ, '@');
 
 		/*
-		 * If we are not going to include the realm in the username that is
-		 * passed to the ident map, destructively modify it here to remove the
-		 * realm. Then advance past the separator to check the realm.
+		 * 若我们不打算把领域包含进传给 ident 映射的
+		 * 用户名，就在这里破坏性地修改它以去掉
+		 * 领域。然后越过分隔符去检查领域。
 		 */
 		if (!port->hba->include_realm)
 			*cp = '\0';
@@ -1129,7 +1129,7 @@ pg_GSS_checkauth(Port *port)
 		if (port->hba->krb_realm != NULL && strlen(port->hba->krb_realm))
 		{
 			/*
-			 * Match the realm part of the name first
+			 * 先匹配名字中的领域部分
 			 */
 			if (pg_krb_caseins_users)
 				ret = pg_strcasecmp(port->hba->krb_realm, cp);
@@ -1138,7 +1138,7 @@ pg_GSS_checkauth(Port *port)
 
 			if (ret)
 			{
-				/* GSS realm does not match */
+				/* GSS 领域不匹配 */
 				elog(DEBUG2,
 					 "GSSAPI realm (%s) and configured realm (%s) don't match",
 					 cp, port->hba->krb_realm);
@@ -1172,8 +1172,8 @@ pg_GSS_checkauth(Port *port)
 #ifdef ENABLE_SSPI
 
 /*
- * Generate an error for SSPI authentication.  The caller should apply
- * _() to errmsg to make it translatable.
+ * 为 SSPI 认证生成一条错误。调用方应当对 errmsg
+ * 使用 _()，以便可以翻译。
  */
 static void
 pg_SSPI_error(int severity, const char *errmsg, SECURITY_STATUS r)
@@ -1219,7 +1219,7 @@ pg_SSPI_recvauth(Port *port)
 	char	   *authn_id;
 
 	/*
-	 * Acquire a handle to the server credentials.
+	 * 取得服务器凭据的句柄。
 	 */
 	r = AcquireCredentialsHandle(NULL,
 								 "negotiate",
@@ -1234,10 +1234,10 @@ pg_SSPI_recvauth(Port *port)
 		pg_SSPI_error(ERROR, _("could not acquire SSPI credentials"), r);
 
 	/*
-	 * Loop through SSPI message exchange. This exchange can consist of
-	 * multiple messages sent in both directions. First message is always from
-	 * the client. All messages from client to server are password packets
-	 * (type 'p').
+	 * 循环进行 SSPI 消息交换。这次交换可以包含
+	 * 双向发送的多条消息。第一条消息始终来自
+	 * 客户端。所有从客户端到服务器的消息都是口令报文
+	 * （类型 'p'）。
 	 */
 	do
 	{
@@ -1252,7 +1252,7 @@ pg_SSPI_recvauth(Port *port)
 			}
 			FreeCredentialsHandle(&sspicred);
 
-			/* Only log error if client didn't disconnect. */
+			/* 仅当客户端没有断开时才记错误。 */
 			if (mtype != EOF)
 				ereport(ERROR,
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
@@ -1261,11 +1261,11 @@ pg_SSPI_recvauth(Port *port)
 			return STATUS_ERROR;
 		}
 
-		/* Get the actual SSPI token */
+		/* 取得实际的 SSPI token */
 		initStringInfo(&buf);
 		if (pq_getmessage(&buf, PG_MAX_AUTH_TOKEN_LENGTH))
 		{
-			/* EOF - pq_getmessage already logged error */
+			/* EOF：pq_getmessage 已经记下了错误 */
 			pfree(buf.data);
 			if (sspictx != NULL)
 			{
@@ -1276,7 +1276,7 @@ pg_SSPI_recvauth(Port *port)
 			return STATUS_ERROR;
 		}
 
-		/* Map to SSPI style buffer */
+		/* 映射为 SSPI 风格的缓冲区 */
 		inbuf.ulVersion = SECBUFFER_VERSION;
 		inbuf.cBuffers = 1;
 		inbuf.pBuffers = InBuffers;
@@ -1284,7 +1284,7 @@ pg_SSPI_recvauth(Port *port)
 		InBuffers[0].cbBuffer = buf.len;
 		InBuffers[0].BufferType = SECBUFFER_TOKEN;
 
-		/* Prepare output buffer */
+		/* 准备输出缓冲区 */
 		OutBuffers[0].pvBuffer = NULL;
 		OutBuffers[0].BufferType = SECBUFFER_TOKEN;
 		OutBuffers[0].cbBuffer = 0;
@@ -1305,13 +1305,13 @@ pg_SSPI_recvauth(Port *port)
 								  &contextattr,
 								  NULL);
 
-		/* input buffer no longer used */
+		/* 输入缓冲区不再使用 */
 		pfree(buf.data);
 
 		if (outbuf.cBuffers > 0 && outbuf.pBuffers[0].cbBuffer > 0)
 		{
 			/*
-			 * Negotiation generated data to be sent to the client.
+			 * 协商产生了要发给客户端的数据。
 			 */
 			elog(DEBUG4, "sending SSPI response token of length %u",
 				 (unsigned int) outbuf.pBuffers[0].cbBuffer);
@@ -1338,10 +1338,10 @@ pg_SSPI_recvauth(Port *port)
 		}
 
 		/*
-		 * Overwrite the current context with the one we just received. If
-		 * sspictx is NULL it was the first loop and we need to allocate a
-		 * buffer for it. On subsequent runs, we can just overwrite the buffer
-		 * contents since the size does not change.
+		 * 用我们刚收到的上下文覆盖当前上下文。若
+		 * sspictx 为 NULL，这就是第一次循环，需要为它分配
+		 * 缓冲区。随后的循环可以直接覆盖缓冲区
+		 * 内容，因为大小不变。
 		 */
 		if (sspictx == NULL)
 		{
@@ -1360,16 +1360,16 @@ pg_SSPI_recvauth(Port *port)
 
 
 	/*
-	 * Release service principal credentials
+	 * 释放服务主体凭据
 	 */
 	FreeCredentialsHandle(&sspicred);
 
 
 	/*
-	 * SEC_E_OK indicates that authentication is now complete.
+	 * SEC_E_OK 表示认证现已完成。
 	 *
-	 * Get the name of the user that authenticated, and compare it to the pg
-	 * username that was specified for the connection.
+	 * 取得已认证用户的名字，并把它与为该连接指定的 pg
+	 * 用户名比较。
 	 */
 
 	r = QuerySecurityContextToken(sspictx, &token);
@@ -1378,8 +1378,8 @@ pg_SSPI_recvauth(Port *port)
 					  _("could not get token from SSPI security context"), r);
 
 	/*
-	 * No longer need the security context, everything from here on uses the
-	 * token instead.
+	 * 不再需要安全上下文，此后的一切改用
+	 * token。
 	 */
 	DeleteSecurityContext(sspictx);
 	free(sspictx);
@@ -1416,24 +1416,24 @@ pg_SSPI_recvauth(Port *port)
 											  port->hba->upn_username);
 
 		if (status != STATUS_OK)
-			/* Error already reported from pg_SSPI_make_upn */
+			/* 错误已由 pg_SSPI_make_upn 报告 */
 			return status;
 	}
 
 	/*
-	 * We have all of the information necessary to construct the authenticated
-	 * identity.  Set it now, rather than waiting for check_usermap below,
-	 * because authentication has already succeeded and we want the log file
-	 * to reflect that.
+	 * 我们已经有了构造已认证身份所需的全部信息。
+	 * 现在就设置它，而不是等到下面的 check_usermap，因为
+	 * 认证已经成功，我们希望日志
+	 * 反映出这一点。
 	 */
 	if (port->hba->compat_realm)
 	{
-		/* SAM-compatible format. */
+		/* SAM 兼容格式。 */
 		authn_id = psprintf("%s\\%s", domainname, accountname);
 	}
 	else
 	{
-		/* Kerberos principal format. */
+		/* Kerberos 主体格式。 */
 		authn_id = psprintf("%s@%s", accountname, domainname);
 	}
 
@@ -1441,8 +1441,8 @@ pg_SSPI_recvauth(Port *port)
 	pfree(authn_id);
 
 	/*
-	 * Compare realm/domain if requested. In SSPI, always compare case
-	 * insensitive.
+	 * 若指定了，就比较领域/域。在 SSPI 中，比较始终
+	 * 不区分大小写。
 	 */
 	if (port->hba->krb_realm && strlen(port->hba->krb_realm))
 	{
@@ -1457,10 +1457,10 @@ pg_SSPI_recvauth(Port *port)
 	}
 
 	/*
-	 * We have the username (without domain/realm) in accountname, compare to
-	 * the supplied value. In SSPI, always compare case insensitive.
+	 * 我们在 accountname 中有用户名（不含域/领域），与
+	 * 所提供的值比较。在 SSPI 中，比较始终不区分大小写。
 	 *
-	 * If set to include realm, append it in <username>@<realm> format.
+	 * 若设置为包含领域，就按 <username>@<realm> 格式追加它。
 	 */
 	if (port->hba->include_realm)
 	{
@@ -1477,8 +1477,8 @@ pg_SSPI_recvauth(Port *port)
 }
 
 /*
- * Replaces the domainname with the Kerberos realm name,
- * and optionally the accountname with the Kerberos user name.
+ * 用 Kerberos 领域名替换 domainname，
+ * 并可选地用 Kerberos 用户名替换 accountname。
  */
 static int
 pg_SSPI_make_upn(char *accountname,
@@ -1495,10 +1495,10 @@ pg_SSPI_make_upn(char *accountname,
 	BOOLEAN		res;
 
 	/*
-	 * Build SAM name (DOMAIN\user), then translate to UPN
-	 * (user@kerberos.realm). The realm name is returned in lower case, but
-	 * that is fine because in SSPI auth, string comparisons are always
-	 * case-insensitive.
+	 * 构造 SAM 名（DOMAIN\user），然后转换成 UPN
+	 * （user@kerberos.realm）。领域名以小写返回，但
+	 * 这没问题，因为在 SSPI 认证中，字符串比较始终
+	 * 不区分大小写。
 	 */
 
 	samname = psprintf("%s\\%s", domainname, accountname);
@@ -1515,7 +1515,7 @@ pg_SSPI_make_upn(char *accountname,
 		return STATUS_ERROR;
 	}
 
-	/* upnamesize includes the terminating NUL. */
+	/* upnamesize 包含结尾的 NUL。 */
 	upname = palloc(upnamesize);
 
 	res = TranslateName(samname, NameSamCompatible, NameUserPrincipal,
@@ -1534,10 +1534,10 @@ pg_SSPI_make_upn(char *accountname,
 		return STATUS_ERROR;
 	}
 
-	/* Length of realm name after the '@', including the NUL. */
+	/* '@' 之后领域名的长度，包括 NUL。 */
 	upnamerealmsize = upnamesize - (p - upname + 1);
 
-	/* Replace domainname with realm name. */
+	/* 用领域名替换 domainname。 */
 	if (upnamerealmsize > domainnamesize)
 	{
 		pfree(upname);
@@ -1547,10 +1547,10 @@ pg_SSPI_make_upn(char *accountname,
 		return STATUS_ERROR;
 	}
 
-	/* Length is now safe. */
+	/* 长度现在是安全的。 */
 	strcpy(domainname, p + 1);
 
-	/* Replace account name as well (in case UPN != SAM)? */
+	/* 也替换账户名（以防 UPN != SAM）？ */
 	if (update_accountname)
 	{
 		if ((p - upname + 1) > accountnamesize)
@@ -1579,19 +1579,19 @@ pg_SSPI_make_upn(char *accountname,
  */
 
 /*
- *	Parse the string "*ident_response" as a response from a query to an Ident
- *	server.  If it's a normal response indicating a user name, return true
- *	and store the user name at *ident_user. If it's anything else,
- *	return false.
+ *	把字符串 "*ident_response" 解析为对 Ident
+ *	服务器查询的响应。若它是表明用户名的正常响应，就返回 true
+ *	并把用户名存到 *ident_user。若是其他任何东西，
+ *	就返回 false。
  */
 static bool
 interpret_ident_response(const char *ident_response,
 						 char *ident_user)
 {
-	const char *cursor = ident_response;	/* Cursor into *ident_response */
+	const char *cursor = ident_response;	/* 指向 *ident_response 的游标 */
 
 	/*
-	 * Ident's response, in the telnet tradition, should end in crlf (\r\n).
+	 * Ident 的响应按 telnet 惯例应以 crlf（\r\n）结束。
 	 */
 	if (strlen(ident_response) < 2)
 		return false;
@@ -1600,50 +1600,50 @@ interpret_ident_response(const char *ident_response,
 	else
 	{
 		while (*cursor != ':' && *cursor != '\r')
-			cursor++;			/* skip port field */
+			cursor++;			/* 跳过端口字段 */
 
 		if (*cursor != ':')
 			return false;
 		else
 		{
-			/* We're positioned to colon before response type field */
+			/* 我们正位于响应类型字段之前的冒号处 */
 			char		response_type[80];
-			int			i;		/* Index into *response_type */
+			int			i;		/* 指向 *response_type 的下标 */
 
-			cursor++;			/* Go over colon */
+			cursor++;			/* 越过冒号 */
 			while (pg_isblank(*cursor))
-				cursor++;		/* skip blanks */
+				cursor++;		/* 跳过空白 */
 			i = 0;
 			while (*cursor != ':' && *cursor != '\r' && !pg_isblank(*cursor) &&
 				   i < (int) (sizeof(response_type) - 1))
 				response_type[i++] = *cursor++;
 			response_type[i] = '\0';
 			while (pg_isblank(*cursor))
-				cursor++;		/* skip blanks */
+				cursor++;		/* 跳过空白 */
 			if (strcmp(response_type, "USERID") != 0)
 				return false;
 			else
 			{
 				/*
-				 * It's a USERID response.  Good.  "cursor" should be pointing
-				 * to the colon that precedes the operating system type.
+				 * 这是 USERID 响应。很好。"cursor" 应当指向
+				 * 操作系统类型之前的那个冒号。
 				 */
 				if (*cursor != ':')
 					return false;
 				else
 				{
-					cursor++;	/* Go over colon */
-					/* Skip over operating system field. */
+					cursor++;	/* 越过冒号 */
+					/* 跳过操作系统字段。 */
 					while (*cursor != ':' && *cursor != '\r')
 						cursor++;
 					if (*cursor != ':')
 						return false;
 					else
 					{
-						cursor++;	/* Go over colon */
+						cursor++;	/* 越过冒号 */
 						while (pg_isblank(*cursor))
-							cursor++;	/* skip blanks */
-						/* Rest of line is user name.  Copy it over. */
+							cursor++;	/* 跳过空白 */
+						/* 该行剩余部分是用户名。把它复制过来。 */
 						i = 0;
 						while (*cursor != '\r' && i < IDENT_USERNAME_MAX)
 							ident_user[i++] = *cursor++;
@@ -1658,12 +1658,12 @@ interpret_ident_response(const char *ident_response,
 
 
 /*
- *	Talk to the ident server on "remote_addr" and find out who
- *	owns the tcp connection to "local_addr"
- *	If the username is successfully retrieved, check the usermap.
+ *	与 "remote_addr" 上的 ident 服务器交谈，查明谁
+ *	拥有到 "local_addr" 的 TCP 连接
+ *	若成功取到用户名，就检查用户映射。
  *
- *	XXX: Using WaitLatchOrSocket() and doing a CHECK_FOR_INTERRUPTS() if the
- *	latch was set would improve the responsiveness to timeouts/cancellations.
+ *	XXX：若锁存器已置位，使用 WaitLatchOrSocket() 并执行 CHECK_FOR_INTERRUPTS()，
+ *	会改善对超时和取消的响应能力。
  */
 static int
 ident_inet(hbaPort *port)
@@ -1671,8 +1671,8 @@ ident_inet(hbaPort *port)
 	const SockAddr remote_addr = port->raddr;
 	const SockAddr local_addr = port->laddr;
 	char		ident_user[IDENT_USERNAME_MAX + 1];
-	pgsocket	sock_fd = PGINVALID_SOCKET; /* for talking to Ident server */
-	int			rc;				/* Return code from a locally called function */
+	pgsocket	sock_fd = PGINVALID_SOCKET; /* 用于与 Ident 服务器交谈 */
+	int			rc;				/* 本地调用函数的返回码 */
 	bool		ident_return;
 	char		remote_addr_s[NI_MAXHOST];
 	char		remote_port[NI_MAXSERV];
@@ -1686,8 +1686,8 @@ ident_inet(hbaPort *port)
 				hints;
 
 	/*
-	 * Might look a little weird to first convert it to text and then back to
-	 * sockaddr, but it's protocol independent.
+	 * 先转成文本再转回 sockaddr 可能看起来有点怪，
+	 * 但这与协议无关。
 	 */
 	pg_getnameinfo_all(&remote_addr.addr, remote_addr.salen,
 					   remote_addr_s, sizeof(remote_addr_s),
@@ -1710,7 +1710,7 @@ ident_inet(hbaPort *port)
 	rc = pg_getaddrinfo_all(remote_addr_s, ident_port, &hints, &ident_serv);
 	if (rc || !ident_serv)
 	{
-		/* we don't expect this to happen */
+		/* 我们不期望发生这种情况 */
 		ident_return = false;
 		goto ident_inet_done;
 	}
@@ -1726,7 +1726,7 @@ ident_inet(hbaPort *port)
 	rc = pg_getaddrinfo_all(local_addr_s, NULL, &hints, &la);
 	if (rc || !la)
 	{
-		/* we don't expect this to happen */
+		/* 我们不期望发生这种情况 */
 		ident_return = false;
 		goto ident_inet_done;
 	}
@@ -1743,9 +1743,9 @@ ident_inet(hbaPort *port)
 	}
 
 	/*
-	 * Bind to the address which the client originally contacted, otherwise
-	 * the ident server won't be able to match up the right connection. This
-	 * is necessary if the PostgreSQL server is running on an IP alias.
+	 * 绑定到客户端最初联系的地址，否则
+	 * Ident 服务器将无法匹配到正确的连接。若
+	 * PostgreSQL 服务器跑在 IP 别名上，这就有必要。
 	 */
 	rc = bind(sock_fd, la->ai_addr, la->ai_addrlen);
 	if (rc != 0)
@@ -1770,11 +1770,11 @@ ident_inet(hbaPort *port)
 		goto ident_inet_done;
 	}
 
-	/* The query we send to the Ident server */
+	/* 我们发给 Ident 服务器的查询 */
 	snprintf(ident_query, sizeof(ident_query), "%s,%s\r\n",
 			 remote_port, local_port);
 
-	/* loop in case send is interrupted */
+	/* 循环，以防 send 被中断 */
 	do
 	{
 		CHECK_FOR_INTERRUPTS();
@@ -1827,9 +1827,9 @@ ident_inet_done:
 	if (ident_return)
 	{
 		/*
-		 * Success!  Store the identity, then check the usermap. Note that
-		 * setting the authenticated identity is done before checking the
-		 * usermap, because at this point authentication has succeeded.
+		 * 成功！先保存身份，再检查用户映射。注意，
+		 * 设置已认证身份是在检查用户映射之前做的，
+		 * 因为此时认证已经成功。
 		 */
 		set_authn_id(port, ident_user);
 		return check_usermap(port->hba->usermap, port->user_name, ident_user, false);
@@ -1844,11 +1844,11 @@ ident_inet_done:
  */
 
 /*
- *	Ask kernel about the credentials of the connecting process,
- *	determine the symbolic name of the corresponding user, and check
- *	if valid per the usermap.
+ *	向内核询问正在连接的进程的凭据，
+ *	确定对应用户的符号名，并检查
+ *	按用户映射是否有效。
  *
- *	Iff authorized, return STATUS_OK, otherwise return STATUS_ERROR.
+ *	当且仅当已授权时返回 STATUS_OK，否则返回 STATUS_ERROR。
  */
 static int
 auth_peer(hbaPort *port)
@@ -1862,7 +1862,7 @@ auth_peer(hbaPort *port)
 
 	if (getpeereid(port->sock, &uid, &gid) != 0)
 	{
-		/* Provide special error message if getpeereid is a stub */
+		/* 若 getpeereid 是桩函数，则给出专门的错误消息 */
 		if (errno == ENOSYS)
 			ereport(LOG,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1875,7 +1875,7 @@ auth_peer(hbaPort *port)
 	}
 
 #ifndef WIN32
-	errno = 0;					/* clear errno before call */
+	errno = 0;					/* 调用前清除 errno */
 	pw = getpwuid(uid);
 	if (!pw)
 	{
@@ -1889,9 +1889,9 @@ auth_peer(hbaPort *port)
 	}
 
 	/*
-	 * Make a copy of static getpw*() result area; this is our authenticated
-	 * identity.  Set it before calling check_usermap, because authentication
-	 * has already succeeded and we want the log file to reflect that.
+	 * 复制静态 getpw*() 结果区的一份副本；这是我们的已认证
+	 * 身份。在调用 check_usermap 之前设置它，因为认证
+	 * 已经成功，我们希望日志反映出这一点。
 	 */
 	set_authn_id(port, pw->pw_name);
 
@@ -1900,7 +1900,7 @@ auth_peer(hbaPort *port)
 
 	return ret;
 #else
-	/* should have failed with ENOSYS above */
+	/* 上面本应以 ENOSYS 失败 */
 	Assert(false);
 	return STATUS_ERROR;
 #endif
@@ -1914,7 +1914,7 @@ auth_peer(hbaPort *port)
 #ifdef USE_PAM
 
 /*
- * PAM conversation function
+ * PAM 对话函数
  */
 
 static int
@@ -1930,20 +1930,20 @@ pam_passwd_conv_proc(int num_msg, PG_PAM_CONST struct pam_message **msg,
 	else
 	{
 		/*
-		 * Workaround for Solaris 2.6 where the PAM library is broken and does
-		 * not pass appdata_ptr to the conversation routine
+		 * 针对 Solaris 2.6 的变通办法，那里的 PAM 库有缺陷，不会
+		 * 把 appdata_ptr 传给对话例程
 		 */
 		passwd = pam_passwd;
 	}
 
-	*resp = NULL;				/* in case of error exit */
+	*resp = NULL;				/* 以便出错时退出 */
 
 	if (num_msg <= 0 || num_msg > PAM_MAX_NUM_MSG)
 		return PAM_CONV_ERR;
 
 	/*
-	 * Explicitly not using palloc here - PAM will free this memory in
-	 * pam_end()
+	 * 这里明确不用 palloc：PAM 会在
+	 * pam_end() 中释放这块内存
 	 */
 	if ((reply = calloc(num_msg, sizeof(struct pam_response))) == NULL)
 	{
@@ -1961,18 +1961,18 @@ pam_passwd_conv_proc(int num_msg, PG_PAM_CONST struct pam_message **msg,
 				if (strlen(passwd) == 0)
 				{
 					/*
-					 * Password wasn't passed to PAM the first time around -
-					 * let's go ask the client to send a password, which we
-					 * then stuff into PAM.
+					 * 口令第一次没有传给 PAM。
+					 * 我们就去请客户端发送口令，然后再把它
+					 * 塞进 PAM。
 					 */
 					sendAuthRequest(pam_port_cludge, AUTH_REQ_PASSWORD, NULL, 0);
 					passwd = recv_password_packet(pam_port_cludge);
 					if (passwd == NULL)
 					{
 						/*
-						 * Client didn't want to send password.  We
-						 * intentionally do not log anything about this,
-						 * either here or at higher levels.
+						 * 客户端不想发送口令。我们
+						 * 有意不记录与此有关的任何内容，
+						 * 无论在这里还是在更高层。
 						 */
 						pam_no_password = true;
 						goto fail;
@@ -1988,7 +1988,7 @@ pam_passwd_conv_proc(int num_msg, PG_PAM_CONST struct pam_message **msg,
 								msg[i]->msg)));
 				/* FALL THROUGH */
 			case PAM_TEXT_INFO:
-				/* we don't bother to log TEXT_INFO messages */
+				/* 我们不费心记录 TEXT_INFO 消息 */
 				if ((reply[i].resp = strdup("")) == NULL)
 					goto fail;
 				reply[i].resp_retcode = PAM_SUCCESS;
@@ -2006,7 +2006,7 @@ pam_passwd_conv_proc(int num_msg, PG_PAM_CONST struct pam_message **msg,
 	return PAM_SUCCESS;
 
 fail:
-	/* free up whatever we allocated */
+	/* 释放我们分配的任何东西 */
 	for (i = 0; i < num_msg; i++)
 		free(reply[i].resp);
 	free(reply);
@@ -2016,7 +2016,7 @@ fail:
 
 
 /*
- * Check authentication against PAM.
+ * 对照 PAM 检查认证。
  */
 static int
 CheckPAMAuth(Port *port, const char *user, const char *password)
@@ -2025,23 +2025,23 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 	pam_handle_t *pamh = NULL;
 
 	/*
-	 * We can't entirely rely on PAM to pass through appdata --- it appears
-	 * not to work on at least Solaris 2.6.  So use these ugly static
-	 * variables instead.
+	 * 我们无法完全依赖 PAM 传过 appdata：至少在
+	 * Solaris 2.6 上它似乎不起作用。因此改用这些
+	 * 难看的静态变量。
 	 */
 	pam_passwd = password;
 	pam_port_cludge = port;
 	pam_no_password = false;
 
 	/*
-	 * Set the application data portion of the conversation struct.  This is
-	 * later used inside the PAM conversation to pass the password to the
-	 * authentication module.
+	 * 设置对话结构体的应用数据部分。稍后
+	 * 在 PAM 对话内部用它把口令传给
+	 * 认证模块。
 	 */
-	pam_passw_conv.appdata_ptr = unconstify(char *, password);	/* from password above,
-																 * not allocated */
+	pam_passw_conv.appdata_ptr = unconstify(char *, password);	/* 来自上面的口令，
+																 * 并未单独分配 */
 
-	/* Optionally, one can set the service name in pg_hba.conf */
+	/* 可选地，可以在 pg_hba.conf 中设置服务名 */
 	if (port->hba->pamservice && port->hba->pamservice[0] != '\0')
 		retval = pam_start(port->hba->pamservice, "pgsql@",
 						   &pam_passw_conv, &pamh);
@@ -2054,7 +2054,7 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 		ereport(LOG,
 				(errmsg("could not create PAM authenticator: %s",
 						pam_strerror(pamh, retval))));
-		pam_passwd = NULL;		/* Unset pam_passwd */
+		pam_passwd = NULL;		/* 清除 pam_passwd */
 		return STATUS_ERROR;
 	}
 
@@ -2065,7 +2065,7 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 		ereport(LOG,
 				(errmsg("pam_set_item(PAM_USER) failed: %s",
 						pam_strerror(pamh, retval))));
-		pam_passwd = NULL;		/* Unset pam_passwd */
+		pam_passwd = NULL;		/* 清除 pam_passwd */
 		return STATUS_ERROR;
 	}
 
@@ -2109,7 +2109,7 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 		ereport(LOG,
 				(errmsg("pam_set_item(PAM_CONV) failed: %s",
 						pam_strerror(pamh, retval))));
-		pam_passwd = NULL;		/* Unset pam_passwd */
+		pam_passwd = NULL;		/* 清除 pam_passwd */
 		return STATUS_ERROR;
 	}
 
@@ -2117,12 +2117,12 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 
 	if (retval != PAM_SUCCESS)
 	{
-		/* If pam_passwd_conv_proc saw EOF, don't log anything */
+		/* 若 pam_passwd_conv_proc 看到 EOF，不要记任何日志 */
 		if (!pam_no_password)
 			ereport(LOG,
 					(errmsg("pam_authenticate failed: %s",
 							pam_strerror(pamh, retval))));
-		pam_passwd = NULL;		/* Unset pam_passwd */
+		pam_passwd = NULL;		/* 清除 pam_passwd */
 		return pam_no_password ? STATUS_EOF : STATUS_ERROR;
 	}
 
@@ -2130,12 +2130,12 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 
 	if (retval != PAM_SUCCESS)
 	{
-		/* If pam_passwd_conv_proc saw EOF, don't log anything */
+		/* 若 pam_passwd_conv_proc 看到 EOF，不要记任何日志 */
 		if (!pam_no_password)
 			ereport(LOG,
 					(errmsg("pam_acct_mgmt failed: %s",
 							pam_strerror(pamh, retval))));
-		pam_passwd = NULL;		/* Unset pam_passwd */
+		pam_passwd = NULL;		/* 清除 pam_passwd */
 		return pam_no_password ? STATUS_EOF : STATUS_ERROR;
 	}
 
@@ -2148,7 +2148,7 @@ CheckPAMAuth(Port *port, const char *user, const char *password)
 						pam_strerror(pamh, retval))));
 	}
 
-	pam_passwd = NULL;			/* Unset pam_passwd */
+	pam_passwd = NULL;			/* 清除 pam_passwd */
 
 	if (retval == PAM_SUCCESS)
 		set_authn_id(port, user);
@@ -2169,7 +2169,7 @@ CheckBSDAuth(Port *port, char *user)
 	char	   *passwd;
 	int			retval;
 
-	/* Send regular password request to client, and get the response */
+	/* 向客户端发送普通口令请求，并取得响应 */
 	sendAuthRequest(port, AUTH_REQ_PASSWORD, NULL, 0);
 
 	passwd = recv_password_packet(port);
@@ -2177,9 +2177,9 @@ CheckBSDAuth(Port *port, char *user)
 		return STATUS_EOF;
 
 	/*
-	 * Ask the BSD auth system to verify password.  Note that auth_userokay
-	 * will overwrite the password string with zeroes, but it's just a
-	 * temporary string so we don't care.
+	 * 请 BSD 认证系统校验口令。注意 auth_userokay
+	 * 会用零覆盖口令字符串，但它只是
+	 * 临时字符串，所以我们不在意。
 	 */
 	retval = auth_userokay(user, NULL, "auth-postgresql", passwd);
 
@@ -2203,8 +2203,8 @@ CheckBSDAuth(Port *port, char *user)
 static int	errdetail_for_ldap(LDAP *ldap);
 
 /*
- * Initialize a connection to the LDAP server, including setting up
- * TLS if requested.
+ * 初始化到 LDAP 服务器的连接，包括在指定时
+ * 设置 TLS。
  */
 static int
 InitializeLDAPConnection(Port *port, LDAP **ldap)
@@ -2233,11 +2233,11 @@ InitializeLDAPConnection(Port *port, LDAP **ldap)
 #ifdef HAVE_LDAP_INITIALIZE
 
 	/*
-	 * OpenLDAP provides a non-standard extension ldap_initialize() that takes
-	 * a list of URIs, allowing us to request "ldaps" instead of "ldap".  It
-	 * also provides ldap_domain2hostlist() to find LDAP servers automatically
-	 * using DNS SRV.  They were introduced in the same version, so for now we
-	 * don't have an extra configure check for the latter.
+	 * OpenLDAP 提供非标准扩展 ldap_initialize()，它接受
+	 * URIs 列表，使我们能请求 "ldaps" 而不是 "ldap"。它
+	 * 还提供 ldap_domain2hostlist()，以便用 DNS SRV 自动
+	 * 查找 LDAP 服务器。它们在同一版本引入，因此目前我们
+	 * 没有针对后者的额外 configure 检查。
 	 */
 	{
 		StringInfoData uris;
@@ -2245,19 +2245,19 @@ InitializeLDAPConnection(Port *port, LDAP **ldap)
 		char	   *p;
 		bool		append_port;
 
-		/* We'll build a space-separated scheme://hostname:port list here */
+		/* 这里将构造一个以空格分隔的 scheme://hostname:port 列表 */
 		initStringInfo(&uris);
 
 		/*
-		 * If pg_hba.conf provided no hostnames, we can ask OpenLDAP to try to
-		 * find some by extracting a domain name from the base DN and looking
-		 * up DSN SRV records for _ldap._tcp.<domain>.
+		 * 若 pg_hba.conf 没有提供主机名，我们可以请 OpenLDAP 试着
+		 * 从基准 DN 中提取域名，并查找
+		 * _ldap._tcp.<domain> 的 DSN SRV 记录。
 		 */
 		if (!port->hba->ldapserver || port->hba->ldapserver[0] == '\0')
 		{
 			char	   *domain;
 
-			/* ou=blah,dc=foo,dc=bar -> foo.bar */
+			/* 例如 ou=blah,dc=foo,dc=bar -> foo.bar */
 			if (ldap_dn2domain(port->hba->ldapbasedn, &domain))
 			{
 				ereport(LOG,
@@ -2265,7 +2265,7 @@ InitializeLDAPConnection(Port *port, LDAP **ldap)
 				return STATUS_ERROR;
 			}
 
-			/* Look up a list of LDAP server hosts and port numbers */
+			/* 查找 LDAP 服务器主机和端口号列表 */
 			if (ldap_domain2hostlist(domain, &hostlist))
 			{
 				ereport(LOG,
@@ -2277,47 +2277,47 @@ InitializeLDAPConnection(Port *port, LDAP **ldap)
 			}
 			ldap_memfree(domain);
 
-			/* We have a space-separated list of host:port entries */
+			/* 我们有一个以空格分隔的 host:port 项列表 */
 			p = hostlist;
 			append_port = false;
 		}
 		else
 		{
-			/* We have a space-separated list of hosts from pg_hba.conf */
+			/* 我们有一个来自 pg_hba.conf 的、以空格分隔的主机列表 */
 			p = port->hba->ldapserver;
 			append_port = true;
 		}
 
-		/* Convert the list of host[:port] entries to full URIs */
+		/* 把 host[:port] 项列表转换成完整的 URIs */
 		do
 		{
 			size_t		size;
 
-			/* Find the span of the next entry */
+			/* 找出下一项的跨度 */
 			size = strcspn(p, " ");
 
-			/* Append a space separator if this isn't the first URI */
+			/* 若这不是第一个 URI，就追加一个空格分隔符 */
 			if (uris.len > 0)
 				appendStringInfoChar(&uris, ' ');
 
-			/* Append scheme://host:port */
+			/* 追加 scheme://host:port */
 			appendStringInfoString(&uris, scheme);
 			appendStringInfoString(&uris, "://");
 			appendBinaryStringInfo(&uris, p, size);
 			if (append_port)
 				appendStringInfo(&uris, ":%d", port->hba->ldapport);
 
-			/* Step over this entry and any number of trailing spaces */
+			/* 跳过这一项以及其后任意个空格 */
 			p += size;
 			while (*p == ' ')
 				++p;
 		} while (*p);
 
-		/* Free memory from OpenLDAP if we looked up SRV records */
+		/* 若查找了 SRV 记录，就释放 OpenLDAP 的内存 */
 		if (hostlist)
 			ldap_memfree(hostlist);
 
-		/* Finally, try to connect using the URI list */
+		/* 最后，尝试用 URI 列表连接 */
 		r = ldap_initialize(ldap, uris.data);
 		pfree(uris.data);
 		if (r != LDAP_SUCCESS)
@@ -2378,16 +2378,16 @@ InitializeLDAPConnection(Port *port, LDAP **ldap)
 	return STATUS_OK;
 }
 
-/* Placeholders recognized by FormatSearchFilter.  For now just one. */
+/* FormatSearchFilter 识别的占位符。目前只有一个。 */
 #define LPH_USERNAME "$username"
 #define LPH_USERNAME_LEN (sizeof(LPH_USERNAME) - 1)
 
-/* Not all LDAP implementations define this. */
+/* 并非所有 LDAP 实现都定义了它。 */
 #ifndef LDAP_NO_ATTRS
 #define LDAP_NO_ATTRS "1.1"
 #endif
 
-/* Not all LDAP implementations define this. */
+/* 并非所有 LDAP 实现都定义了它。 */
 #ifndef LDAPS_PORT
 #define LDAPS_PORT 636
 #endif
@@ -2399,8 +2399,8 @@ dummy_ldap_password_mutator(char *input)
 }
 
 /*
- * Return a newly allocated C string copied from "pattern" with all
- * occurrences of the placeholder "$username" replaced with "user_name".
+ * 返回从 "pattern" 新分配的 C 字符串，其中所有
+ * 占位符 "$username" 都被替换为 "user_name"。
  */
 static char *
 FormatSearchFilter(const char *pattern, const char *user_name)
@@ -2423,7 +2423,7 @@ FormatSearchFilter(const char *pattern, const char *user_name)
 }
 
 /*
- * Perform LDAP authentication
+ * 执行 LDAP 认证
  */
 static int
 CheckLDAPAuth(Port *port)
@@ -2437,8 +2437,8 @@ CheckLDAPAuth(Port *port)
 #ifdef HAVE_LDAP_INITIALIZE
 
 	/*
-	 * For OpenLDAP, allow empty hostname if we have a basedn.  We'll look for
-	 * servers with DNS SRV records via OpenLDAP library facilities.
+	 * 对 OpenLDAP，若有 basedn，就允许空主机名。我们将通过
+	 * OpenLDAP 库的功能用 DNS SRV 记录查找服务器。
 	 */
 	if ((!port->hba->ldapserver || port->hba->ldapserver[0] == '\0') &&
 		(!port->hba->ldapbasedn || port->hba->ldapbasedn[0] == '\0'))
@@ -2457,8 +2457,8 @@ CheckLDAPAuth(Port *port)
 #endif
 
 	/*
-	 * If we're using SRV records, we don't have a server name so we'll just
-	 * show an empty string in error messages.
+	 * 若使用 SRV 记录，我们就没有服务器名，因此错误消息里
+	 * 只显示空字符串。
 	 */
 	server_name = port->hba->ldapserver ? port->hba->ldapserver : "";
 
@@ -2475,11 +2475,11 @@ CheckLDAPAuth(Port *port)
 
 	passwd = recv_password_packet(port);
 	if (passwd == NULL)
-		return STATUS_EOF;		/* client wouldn't send password */
+		return STATUS_EOF;		/* 客户端不会发送口令 */
 
 	if (InitializeLDAPConnection(port, &ldap) == STATUS_ERROR)
 	{
-		/* Error message already sent */
+		/* 错误消息已经发出 */
 		pfree(passwd);
 		return STATUS_ERROR;
 	}
@@ -2487,8 +2487,8 @@ CheckLDAPAuth(Port *port)
 	if (port->hba->ldapbasedn)
 	{
 		/*
-		 * First perform an LDAP search to find the DN for the user we are
-		 * trying to log in as.
+		 * 先做一次 LDAP 搜索，找出我们正要登录的用户的
+		 * 可分辨名称 (DN)。
 		 */
 		char	   *filter;
 		LDAPMessage *search_message;
@@ -2499,10 +2499,10 @@ CheckLDAPAuth(Port *port)
 		int			count;
 
 		/*
-		 * Disallow any characters that we would otherwise need to escape,
-		 * since they aren't really reasonable in a username anyway. Allowing
-		 * them would make it possible to inject any kind of custom filters in
-		 * the LDAP filter.
+		 * 禁止任何否则就需要转义的字符，
+		 * 因为它们在用户名里本来就不合理。允许
+		 * 它们将使人能够向 LDAP 过滤器注入任何
+		 * 自定义过滤器。
 		 */
 		for (c = port->user_name; *c; c++)
 		{
@@ -2521,8 +2521,8 @@ CheckLDAPAuth(Port *port)
 		}
 
 		/*
-		 * Bind with a pre-defined username/password (if available) for
-		 * searching. If none is specified, this turns into an anonymous bind.
+		 * 用预定义的用户名/口令绑定（若有）来
+		 * 搜索。若未指定，这就变成匿名绑定。
 		 */
 		r = ldap_simple_bind_s(ldap,
 							   port->hba->ldapbinddn ? port->hba->ldapbinddn : "",
@@ -2540,7 +2540,7 @@ CheckLDAPAuth(Port *port)
 			return STATUS_ERROR;
 		}
 
-		/* Build a custom filter or a single attribute filter? */
+		/* 构造自定义过滤器，还是单一属性过滤器？ */
 		if (port->hba->ldapsearchfilter)
 			filter = FormatSearchFilter(port->hba->ldapsearchfilter, port->user_name);
 		else if (port->hba->ldapsearchattribute)
@@ -2618,7 +2618,7 @@ CheckLDAPAuth(Port *port)
 		ldap_memfree(dn);
 		ldap_msgfree(search_message);
 
-		/* Unbind and disconnect from the LDAP server */
+		/* 解除绑定并断开与 LDAP 服务器的连接 */
 		r = ldap_unbind_s(ldap);
 		if (r != LDAP_SUCCESS)
 		{
@@ -2631,15 +2631,15 @@ CheckLDAPAuth(Port *port)
 		}
 
 		/*
-		 * Need to re-initialize the LDAP connection, so that we can bind to
-		 * it with a different username.
+		 * 需要重新初始化 LDAP 连接，以便用另一个
+		 * 用户名绑定到它。
 		 */
 		if (InitializeLDAPConnection(port, &ldap) == STATUS_ERROR)
 		{
 			pfree(passwd);
 			pfree(fulluser);
 
-			/* Error message already sent */
+			/* 错误消息已经发出 */
 			return STATUS_ERROR;
 		}
 	}
@@ -2663,7 +2663,7 @@ CheckLDAPAuth(Port *port)
 		return STATUS_ERROR;
 	}
 
-	/* Save the original bind DN as the authenticated identity. */
+	/* 把原来的绑定可分辨名称 (DN) 存为已认证身份。 */
 	set_authn_id(port, fulluser);
 
 	ldap_unbind(ldap);
@@ -2674,8 +2674,8 @@ CheckLDAPAuth(Port *port)
 }
 
 /*
- * Add a detail error message text to the current error if one can be
- * constructed from the LDAP 'diagnostic message'.
+ * 若能从 LDAP 的诊断消息构造出细节错误文本，
+ * 就把它加到当前错误上。
  */
 static int
 errdetail_for_ldap(LDAP *ldap)
@@ -2709,7 +2709,7 @@ CheckCertAuth(Port *port)
 
 	Assert(port->ssl);
 
-	/* select the correct field to compare */
+	/* 选择要比较的正确字段 */
 	switch (port->hba->clientcertname)
 	{
 		case clientCertDN:
@@ -2719,7 +2719,7 @@ CheckCertAuth(Port *port)
 			peer_username = port->peer_cn;
 	}
 
-	/* Make sure we have received a username in the certificate */
+	/* 确保我们已经从证书中收到用户名 */
 	if (peer_username == NULL ||
 		strlen(peer_username) <= 0)
 	{
@@ -2732,17 +2732,17 @@ CheckCertAuth(Port *port)
 	if (port->hba->auth_method == uaCert)
 	{
 		/*
-		 * For cert auth, the client's Subject DN is always our authenticated
-		 * identity, even if we're only using its CN for authorization.  Set
-		 * it now, rather than waiting for check_usermap() below, because
-		 * authentication has already succeeded and we want the log file to
-		 * reflect that.
+		 * 对证书认证，客户端的主题可分辨名称 (DN) 始终是我们的已认证
+		 * 身份，即使我们只用它的 CN 做授权。现在就
+		 * 设置它，而不是等到下面的 check_usermap()，因为
+		 * 认证已经成功，我们希望日志
+		 * 反映出这一点。
 		 */
 		if (!port->peer_dn)
 		{
 			/*
-			 * This should not happen as both peer_dn and peer_cn should be
-			 * set in this context.
+			 * 这不应发生，因为在此上下文中 peer_dn 和 peer_cn 都应当
+			 * 已经设置。
 			 */
 			ereport(LOG,
 					(errmsg("certificate authentication failed for user \"%s\": unable to retrieve subject DN",
@@ -2753,14 +2753,14 @@ CheckCertAuth(Port *port)
 		set_authn_id(port, port->peer_dn);
 	}
 
-	/* Just pass the certificate cn/dn to the usermap check */
+	/* 只把证书的 cn/dn 传给用户映射检查 */
 	status_check_usermap = check_usermap(port->hba->usermap, port->user_name, peer_username, false);
 	if (status_check_usermap != STATUS_OK)
 	{
 		/*
-		 * If clientcert=verify-full was specified and the authentication
-		 * method is other than uaCert, log the reason for rejecting the
-		 * authentication.
+		 * 若指定了 clientcert=verify-full，且认证方法
+		 * 不是 uaCert，就记录拒绝该
+		 * 认证的原因。
 		 */
 		if (port->hba->clientcert == clientCertFull && port->hba->auth_method != uaCert)
 		{
@@ -2789,14 +2789,14 @@ CheckCertAuth(Port *port)
  */
 
 /*
- * RADIUS authentication is described in RFC2865 (and several others).
+ * RADIUS 认证在 RFC2865（以及其他几份文档）中描述。
  */
 
 #define RADIUS_VECTOR_LENGTH 16
 #define RADIUS_HEADER_LENGTH 20
 #define RADIUS_MAX_PASSWORD_LENGTH 128
 
-/* Maximum size of a RADIUS packet we will create or accept */
+/* 我们将创建或接受的 RADIUS 报文的最大长度 */
 #define RADIUS_BUFFER_SIZE 1024
 
 typedef struct
@@ -2812,25 +2812,25 @@ typedef struct
 	uint8		id;
 	uint16		length;
 	uint8		vector[RADIUS_VECTOR_LENGTH];
-	/* this is a bit longer than strictly necessary: */
+	/* 这比严格所需略长： */
 	char		pad[RADIUS_BUFFER_SIZE - RADIUS_VECTOR_LENGTH];
 } radius_packet;
 
-/* RADIUS packet types */
+/* RADIUS 报文类型 */
 #define RADIUS_ACCESS_REQUEST	1
 #define RADIUS_ACCESS_ACCEPT	2
 #define RADIUS_ACCESS_REJECT	3
 
-/* RADIUS attributes */
+/* RADIUS 属性 */
 #define RADIUS_USER_NAME		1
 #define RADIUS_PASSWORD			2
 #define RADIUS_SERVICE_TYPE		6
 #define RADIUS_NAS_IDENTIFIER	32
 
-/* RADIUS service types */
+/* RADIUS 服务类型 */
 #define RADIUS_AUTHENTICATE_ONLY	8
 
-/* Seconds to wait - XXX: should be in a config variable! */
+/* 等待的秒数。XXX：应当放进配置变量！ */
 #define RADIUS_TIMEOUT 3
 
 static void
@@ -2841,10 +2841,10 @@ radius_add_attribute(radius_packet *packet, uint8 type, const unsigned char *dat
 	if (packet->length + len > RADIUS_BUFFER_SIZE)
 	{
 		/*
-		 * With remotely realistic data, this can never happen. But catch it
-		 * just to make sure we don't overrun a buffer. We'll just skip adding
-		 * the broken attribute, which will in the end cause authentication to
-		 * fail.
+		 * 以哪怕稍微真实一点的数据，这绝不会发生。但仍要抓住它，
+		 * 以确保我们不会让缓冲区越界。我们将跳过添加
+		 * 这个损坏的属性，这最终会导致认证
+		 * 失败。
 		 */
 		elog(WARNING,
 			 "adding attribute code %d with length %d to radius packet would create oversize packet, ignoring",
@@ -2854,7 +2854,7 @@ radius_add_attribute(radius_packet *packet, uint8 type, const unsigned char *dat
 
 	attr = (radius_attribute *) ((unsigned char *) packet + packet->length);
 	attr->attribute = type;
-	attr->length = len + 2;		/* total size includes type and length */
+	attr->length = len + 2;		/* 总长度包括类型和长度 */
 	memcpy(attr->data, data, len);
 	packet->length += attr->length;
 }
@@ -2868,10 +2868,10 @@ CheckRADIUSAuth(Port *port)
 			   *radiusports,
 			   *identifiers;
 
-	/* Make sure struct alignment is correct */
+	/* 确保结构体对齐正确 */
 	Assert(offsetof(radius_packet, vector) == 4);
 
-	/* Verify parameters */
+	/* 校验参数 */
 	if (port->hba->radiusservers == NIL)
 	{
 		ereport(LOG,
@@ -2886,12 +2886,12 @@ CheckRADIUSAuth(Port *port)
 		return STATUS_ERROR;
 	}
 
-	/* Send regular password request to client, and get the response */
+	/* 向客户端发送普通口令请求，并取得响应 */
 	sendAuthRequest(port, AUTH_REQ_PASSWORD, NULL, 0);
 
 	passwd = recv_password_packet(port);
 	if (passwd == NULL)
-		return STATUS_EOF;		/* client wouldn't send password */
+		return STATUS_EOF;		/* 客户端不会发送口令 */
 
 	if (strlen(passwd) > RADIUS_MAX_PASSWORD_LENGTH)
 	{
@@ -2902,7 +2902,7 @@ CheckRADIUSAuth(Port *port)
 	}
 
 	/*
-	 * Loop over and try each server in order.
+	 * 按顺序循环尝试每一台服务器。
 	 */
 	secrets = list_head(port->hba->radiussecrets);
 	radiusports = list_head(port->hba->radiusports);
@@ -2936,10 +2936,10 @@ CheckRADIUSAuth(Port *port)
 		}
 
 		/*
-		 * secret, port and identifiers either have length 0 (use default),
-		 * length 1 (use the same everywhere) or the same length as servers.
-		 * So if the length is >1, we advance one step. In other cases, we
-		 * don't and will then reuse the correct value.
+		 * 密钥、端口和标识符的长度要么是 0（用默认值），
+		 * 要么是 1（各处用同一个），要么与服务器数量相同。
+		 * 因此若长度 > 1，我们就前进一步。其他情况下不前进，
+		 * 随后会复用正确的值。
 		 */
 		if (list_length(port->hba->radiussecrets) > 1)
 			secrets = lnext(port->hba->radiussecrets, secrets);
@@ -2949,7 +2949,7 @@ CheckRADIUSAuth(Port *port)
 			identifiers = lnext(port->hba->radiusidentifiers, identifiers);
 	}
 
-	/* No servers left to try, so give up */
+	/* 没有剩下的服务器可试，因此放弃 */
 	pfree(passwd);
 	return STATUS_ERROR;
 }
@@ -2983,7 +2983,7 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 				j,
 				r;
 
-	/* Assign default values */
+	/* 赋予默认值 */
 	if (portstr == NULL)
 		portstr = "1812";
 	if (identifier == NULL)
@@ -3004,9 +3004,9 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 			pg_freeaddrinfo_all(hint.ai_family, serveraddrs);
 		return STATUS_ERROR;
 	}
-	/* XXX: add support for multiple returned addresses? */
+	/* XXX：要支持多个返回地址吗？ */
 
-	/* Construct RADIUS packet */
+	/* 构造 RADIUS 报文 */
 	packet->code = RADIUS_ACCESS_REQUEST;
 	packet->length = RADIUS_HEADER_LENGTH;
 	if (!pg_strong_random(packet->vector, RADIUS_VECTOR_LENGTH))
@@ -3022,16 +3022,16 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 	radius_add_attribute(packet, RADIUS_NAS_IDENTIFIER, (const unsigned char *) identifier, strlen(identifier));
 
 	/*
-	 * RADIUS password attributes are calculated as: e[0] = p[0] XOR
-	 * MD5(secret + Request Authenticator) for the first group of 16 octets,
-	 * and then: e[i] = p[i] XOR MD5(secret + e[i-1]) for the following ones
-	 * (if necessary)
+	 * RADIUS 口令属性这样计算：第一组 16 个八位组为 e[0] = p[0] XOR
+	 * MD5(secret + Request Authenticator)，
+	 * 随后的各组则为：e[i] = p[i] XOR MD5(secret + e[i-1])
+	 * （若需要）
 	 */
 	encryptedpasswordlen = ((strlen(passwd) + RADIUS_VECTOR_LENGTH - 1) / RADIUS_VECTOR_LENGTH) * RADIUS_VECTOR_LENGTH;
 	cryptvector = palloc(strlen(secret) + RADIUS_VECTOR_LENGTH);
 	memcpy(cryptvector, secret, strlen(secret));
 
-	/* for the first iteration, we use the Request Authenticator vector */
+	/* 第一次迭代使用 Request Authenticator 向量 */
 	md5trailer = packet->vector;
 	for (i = 0; i < encryptedpasswordlen; i += RADIUS_VECTOR_LENGTH)
 	{
@@ -3040,8 +3040,8 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 		memcpy(cryptvector + strlen(secret), md5trailer, RADIUS_VECTOR_LENGTH);
 
 		/*
-		 * .. and for subsequent iterations the result of the previous XOR
-		 * (calculated below)
+		 * ……随后的迭代则使用上一次 XOR 的结果
+		 * （在下面计算）
 		 */
 		md5trailer = encryptedpassword + i;
 
@@ -3068,7 +3068,7 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 
 	radius_add_attribute(packet, RADIUS_PASSWORD, encryptedpassword, encryptedpasswordlen);
 
-	/* Length needs to be in network order on the wire */
+	/* 在线路上，长度需要用网络字节序 */
 	packetlength = packet->length;
 	packet->length = pg_hton16(packet->length);
 
@@ -3108,18 +3108,18 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 		return STATUS_ERROR;
 	}
 
-	/* Don't need the server address anymore */
+	/* 不再需要服务器地址 */
 	pg_freeaddrinfo_all(hint.ai_family, serveraddrs);
 
 	/*
-	 * Figure out at what time we should time out. We can't just use a single
-	 * call to select() with a timeout, since somebody can be sending invalid
-	 * packets to our port thus causing us to retry in a loop and never time
-	 * out.
+	 * 算出我们应当在什么时刻超时。我们无法只做一次
+	 * 带超时的 select() 调用，因为可能有人向我们的端口
+	 * 发送无效报文，从而使我们在循环里重试，永远
+	 * 不会超时。
 	 *
-	 * XXX: Using WaitLatchOrSocket() and doing a CHECK_FOR_INTERRUPTS() if
-	 * the latch was set would improve the responsiveness to
-	 * timeouts/cancellations.
+	 * XXX：若锁存器已置位，使用 WaitLatchOrSocket() 并执行 CHECK_FOR_INTERRUPTS()，
+	 * 会改善对超时和取消的
+	 * 响应能力。
 	 */
 	gettimeofday(&endtime, NULL);
 	endtime.tv_sec += RADIUS_TIMEOUT;
@@ -3153,7 +3153,7 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 			if (errno == EINTR)
 				continue;
 
-			/* Anything else is an actual error */
+			/* 其他任何情况都是真正的错误 */
 			ereport(LOG,
 					(errmsg("could not check status on RADIUS socket: %m")));
 			closesocket(sock);
@@ -3169,14 +3169,14 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 		}
 
 		/*
-		 * Attempt to read the response packet, and verify the contents.
+		 * 尝试读取响应报文，并校验其内容。
 		 *
-		 * Any packet that's not actually a RADIUS packet, or otherwise does
-		 * not validate as an explicit reject, is just ignored and we retry
-		 * for another packet (until we reach the timeout). This is to avoid
-		 * the possibility to denial-of-service the login by flooding the
-		 * server with invalid packets on the port that we're expecting the
-		 * RADIUS response on.
+		 * 任何实际上不是 RADIUS 报文的包，或者并未被验证为
+		 * 一条显式拒绝的包，都直接忽略，我们重试
+		 * 下一个报文（直到超时）。这是为了避免
+		 * 有人向我们期待 RADIUS 响应的端口洪泛无效报文，
+		 * 从而对该登录造成拒绝服务
+		 * 的可能。
 		 */
 
 		addrsize = sizeof(remoteaddr);
@@ -3222,17 +3222,17 @@ PerformRadiusTransaction(const char *server, const char *secret, const char *por
 		}
 
 		/*
-		 * Verify the response authenticator, which is calculated as
+		 * 校验响应认证器，其计算方式为
 		 * MD5(Code+ID+Length+RequestAuthenticator+Attributes+Secret)
 		 */
 		cryptvector = palloc(packetlength + strlen(secret));
 
 		memcpy(cryptvector, receivepacket, 4);	/* code+id+length */
-		memcpy(cryptvector + 4, packet->vector, RADIUS_VECTOR_LENGTH);	/* request
-																		 * authenticator, from
-																		 * original packet */
-		if (packetlength > RADIUS_HEADER_LENGTH)	/* there may be no
-													 * attributes at all */
+		memcpy(cryptvector + 4, packet->vector, RADIUS_VECTOR_LENGTH);	/* 请求
+																		 * 认证器，来自
+																		 * 原始报文 */
+		if (packetlength > RADIUS_HEADER_LENGTH)	/* 可能根本
+													 * 没有属性 */
 			memcpy(cryptvector + RADIUS_HEADER_LENGTH, receive_buffer + RADIUS_HEADER_LENGTH, packetlength - RADIUS_HEADER_LENGTH);
 		memcpy(cryptvector + packetlength, secret, strlen(secret));
 

@@ -103,17 +103,17 @@
 #define LOG2(x)  (log(x) / 0.693147180559945)
 
 /*
- * Append and MergeAppend nodes are less expensive than some other operations
- * which use cpu_tuple_cost; instead of adding a separate GUC, estimate the
- * per-tuple cost as cpu_tuple_cost multiplied by this value.
+ * Append 和 MergeAppend 节点比另一些使用 cpu_tuple_cost 的操作更便宜；
+ * 与其另加一个 GUC，不如把
+ * 每元组代价估计为 cpu_tuple_cost 乘以这个值。
  */
 #define APPEND_CPU_COST_MULTIPLIER 0.5
 
 /*
- * Maximum value for row estimates.  We cap row estimates to this to help
- * ensure that costs based on these estimates remain within the range of what
- * double can represent.  add_path() wouldn't act sanely given infinite or NaN
- * cost values.
+ * 行数估计的最大值。我们把行数估计封顶到这个值，以帮助
+ * 确保基于这些估计的代价仍处在
+ * double 能表示的范围内。若代价是无穷或 NaN，add_path()
+ * 不会表现正常。
  */
 #define MAXIMUM_ROWCOUNT 1e100
 
@@ -197,16 +197,16 @@ static double get_parallel_divisor(Path *path);
 
 /*
  * clamp_row_est
- *		Force a row-count estimate to a sane value.
+ *		把行数估计强制成一个合理的值。
  */
 double
 clamp_row_est(double nrows)
 {
 	/*
-	 * Avoid infinite and NaN row estimates.  Costs derived from such values
-	 * are going to be useless.  Also force the estimate to be at least one
-	 * row, to make explain output look better and to avoid possible
-	 * divide-by-zero when interpolating costs.  Make it an integer, too.
+	 * 避免无穷和 NaN 行数估计。由这类值导出的代价
+	 * 将没有用。还把估计强制为至少一行，
+	 * 好让 explain 输出好看些，并避免插值代价时可能的
+	 * 除零。也把它变成整数。
 	 */
 	if (nrows > MAXIMUM_ROWCOUNT || isnan(nrows))
 		nrows = MAXIMUM_ROWCOUNT;
@@ -220,14 +220,14 @@ clamp_row_est(double nrows)
 
 /*
  * clamp_cardinality_to_long
- *		Cast a Cardinality value to a sane long value.
+ *		把 Cardinality 值转换成一个合理的 long 值。
  */
 long
 clamp_cardinality_to_long(Cardinality x)
 {
 	/*
-	 * Just for paranoia's sake, ensure we do something sane with negative or
-	 * NaN values.
+	 * 只是为了偏执，确保对负数或
+	 * NaN 值做点合理的事。
 	 */
 	if (isnan(x))
 		return LONG_MAX;
@@ -235,11 +235,11 @@ clamp_cardinality_to_long(Cardinality x)
 		return 0;
 
 	/*
-	 * If "long" is 64 bits, then LONG_MAX cannot be represented exactly as a
-	 * double.  Casting it to double and back may well result in overflow due
-	 * to rounding, so avoid doing that.  We trust that any double value that
-	 * compares strictly less than "(double) LONG_MAX" will cast to a
-	 * representable "long" value.
+	 * 若 "long" 是 64 位，则 LONG_MAX 无法被精确表示为
+	 * double。把它转成 double 再转回来，很可能会因
+	 * 舍入而溢出，因此避免那样做。我们相信任何严格小于
+	 * "(double) LONG_MAX" 的 double 值都能转成
+	 * 可表示的 "long" 值。
 	 */
 	return (x < (double) LONG_MAX) ? (long) x : LONG_MAX;
 }
@@ -247,10 +247,10 @@ clamp_cardinality_to_long(Cardinality x)
 
 /*
  * cost_seqscan
- *	  Determines and returns the cost of scanning a relation sequentially.
+ *	  确定并返回顺序扫描一个关系的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_seqscan(Path *path, PlannerInfo *root,
@@ -263,11 +263,11 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
@@ -276,44 +276,44 @@ cost_seqscan(Path *path, PlannerInfo *root,
 	if (!enable_seqscan)
 		startup_cost += disable_cost;
 
-	/* fetch estimated page cost for tablespace containing table */
+	/* 取包含该表的表空间的估计页代价 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  NULL,
 							  &spc_seq_page_cost);
 
 	/*
-	 * disk costs
+	 * 磁盘代价
 	 */
 	disk_run_cost = spc_seq_page_cost * baserel->pages;
 
-	/* CPU costs */
+	/* CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * baserel->tuples;
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	cpu_run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
-	/* Adjust costing for parallelism, if used. */
+	/* 若使用了并行，就调整计价。 */
 	if (path->parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(path);
 
-		/* The CPU cost is divided among all the workers. */
+		/* CPU 代价分摊到所有工作进程。 */
 		cpu_run_cost /= parallel_divisor;
 
 		/*
-		 * It may be possible to amortize some of the I/O cost, but probably
-		 * not very much, because most operating systems already do aggressive
-		 * prefetching.  For now, we assume that the disk run cost can't be
-		 * amortized at all.
+		 * 也许可以把一部分 I/O 代价摊销掉，但大概
+		 * 摊不了多少，因为多数操作系统已经在积极
+		 * 预取。目前假定磁盘运行代价完全
+		 * 无法摊销。
 		 */
 
 		/*
-		 * In the case of a parallel plan, the row count needs to represent
-		 * the number of tuples processed per worker.
+		 * 对并行计划，行数需要表示
+		 * 每个工作进程处理的元组数。
 		 */
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
 	}
@@ -324,10 +324,10 @@ cost_seqscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_samplescan
- *	  Determines and returns the cost of scanning a relation using sampling.
+ *	  确定并返回用采样扫描一个关系的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_samplescan(Path *path, PlannerInfo *root,
@@ -344,7 +344,7 @@ cost_samplescan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations with tablesample clauses */
+	/* 只应当用于带 tablesample 子句的基关系 */
 	Assert(baserel->relid > 0);
 	rte = planner_rt_fetch(baserel->relid, root);
 	Assert(rte->rtekind == RTE_RELATION);
@@ -352,41 +352,41 @@ cost_samplescan(Path *path, PlannerInfo *root,
 	Assert(tsc != NULL);
 	tsm = GetTsmRoutine(tsc->tsmhandler);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* fetch estimated page cost for tablespace containing table */
+	/* 取包含该表的表空间的估计页代价 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  &spc_random_page_cost,
 							  &spc_seq_page_cost);
 
-	/* if NextSampleBlock is used, assume random access, else sequential */
+	/* 若使用 NextSampleBlock，假定随机访问，否则假定顺序访问 */
 	spc_page_cost = (tsm->NextSampleBlock != NULL) ?
 		spc_random_page_cost : spc_seq_page_cost;
 
 	/*
-	 * disk costs (recall that baserel->pages has already been set to the
-	 * number of pages the sampling method will visit)
+	 * 磁盘代价（记住 baserel->pages 已经被设成
+	 * 采样方法将访问的页数）
 	 */
 	run_cost += spc_page_cost * baserel->pages;
 
 	/*
-	 * CPU costs (recall that baserel->tuples has already been set to the
-	 * number of tuples the sampling method will select).  Note that we ignore
-	 * execution cost of the TABLESAMPLE parameter expressions; they will be
-	 * evaluated only once per scan, and in most usages they'll likely be
-	 * simple constants anyway.  We also don't charge anything for the
-	 * calculations the sampling method might do internally.
+	 * CPU 代价（记住 baserel->tuples 已经被设成
+	 * 采样方法将选出的元组数）。注意我们忽略
+	 * TABLESAMPLE 参数表达式的执行代价；它们每次扫描
+	 * 只求值一次，而且在多数用法里它们大概
+	 * 反正是简单常量。我们也不为采样方法内部可能做的
+	 * 计算收取任何费用。
 	 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost += cpu_per_tuple * baserel->tuples;
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -396,13 +396,13 @@ cost_samplescan(Path *path, PlannerInfo *root,
 
 /*
  * cost_gather
- *	  Determines and returns the cost of gather path.
+ *	  确定并返回 gather 路径的代价。
  *
- * 'rel' is the relation to be operated upon
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
- * 'rows' may be used to point to a row estimate; if non-NULL, it overrides
- * both 'rel' and 'param_info'.  This is useful when the path doesn't exactly
- * correspond to any particular RelOptInfo.
+ * 'rel' 是要操作的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
+ * 'rows' 可以指向一个行数估计；若非 NULL，它覆盖
+ * 'rel' 和 'param_info' 两者。当路径并不恰好
+ * 对应任何一个 RelOptInfo 时，这很有用。
  */
 void
 cost_gather(GatherPath *path, PlannerInfo *root,
@@ -412,7 +412,7 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 	Cost		startup_cost = 0;
 	Cost		run_cost = 0;
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (rows)
 		path->path.rows = *rows;
 	else if (param_info)
@@ -424,7 +424,7 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 
 	run_cost = path->subpath->total_cost - path->subpath->startup_cost;
 
-	/* Parallel setup and communication cost. */
+	/* 并行建立和通信代价。 */
 	startup_cost += parallel_setup_cost;
 	run_cost += parallel_tuple_cost * path->path.rows;
 
@@ -434,13 +434,13 @@ cost_gather(GatherPath *path, PlannerInfo *root,
 
 /*
  * cost_gather_merge
- *	  Determines and returns the cost of gather merge path.
+ *	  确定并返回 gather merge 路径的代价。
  *
- * GatherMerge merges several pre-sorted input streams, using a heap that at
- * any given instant holds the next tuple from each stream. If there are N
- * streams, we need about N*log2(N) tuple comparisons to construct the heap at
- * startup, and then for each output tuple, about log2(N) comparisons to
- * replace the top heap entry with the next tuple from the same stream.
+ * GatherMerge 用一个堆归并若干已预排序的输入流，该堆在
+ * 任一时刻保存每个流的下一个元组。若有 N
+ * 个流，启动时构造堆大约需要 N*log2(N) 次元组比较，
+ * 然后对每个输出元组，大约需要 log2(N) 次比较来
+ * 用同一流的下一个元组替换堆顶项。
  */
 void
 cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
@@ -454,7 +454,7 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 	double		N;
 	double		logN;
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (rows)
 		path->path.rows = *rows;
 	else if (param_info)
@@ -466,31 +466,31 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 		startup_cost += disable_cost;
 
 	/*
-	 * Add one to the number of workers to account for the leader.  This might
-	 * be overgenerous since the leader will do less work than other workers
-	 * in typical cases, but we'll go with it for now.
+	 * 把工作进程数加一，以计入主导进程。这也许
+	 * 偏慷慨，因为主导进程在典型情况下比其他工作进程做的工作少，
+	 * 但目前就这样。
 	 */
 	Assert(path->num_workers > 0);
 	N = (double) path->num_workers + 1;
 	logN = LOG2(N);
 
-	/* Assumed cost per tuple comparison */
+	/* 假定的每次元组比较代价 */
 	comparison_cost = 2.0 * cpu_operator_cost;
 
-	/* Heap creation cost */
+	/* 建堆代价 */
 	startup_cost += comparison_cost * N * logN;
 
-	/* Per-tuple heap maintenance cost */
+	/* 每元组的堆维护代价 */
 	run_cost += path->path.rows * comparison_cost * logN;
 
-	/* small cost for heap management, like cost_merge_append */
+	/* 堆管理的小代价，类似 cost_merge_append */
 	run_cost += cpu_operator_cost * path->path.rows;
 
 	/*
-	 * Parallel setup and communication cost.  Since Gather Merge, unlike
-	 * Gather, requires us to block until a tuple is available from every
-	 * worker, we bump the IPC cost up a little bit as compared with Gather.
-	 * For lack of a better idea, charge an extra 5%.
+	 * 并行建立和通信代价。与 Gather 不同，Gather Merge
+	 * 需要我们阻塞到每个
+	 * 工作进程都有元组可用，因此与 Gather 相比把 IPC 代价略微抬高。
+	 * 没有更好的办法，就额外收取 5%。
 	 */
 	startup_cost += parallel_setup_cost;
 	run_cost += parallel_tuple_cost * path->path.rows * 1.05;
@@ -501,21 +501,21 @@ cost_gather_merge(GatherMergePath *path, PlannerInfo *root,
 
 /*
  * cost_index
- *	  Determines and returns the cost of scanning a relation using an index.
+ *	  确定并返回用索引扫描一个关系的代价。
  *
- * 'path' describes the indexscan under consideration, and is complete
- *		except for the fields to be set by this routine
- * 'loop_count' is the number of repetitions of the indexscan to factor into
- *		estimates of caching behavior
+ * 'path' 描述正在考虑的索引扫描，除了本例程要设置的字段之外，
+ *		它是完整的
+ * 'loop_count' 是要计入缓存行为估计的
+ *		索引扫描重复次数
  *
- * In addition to rows, startup_cost and total_cost, cost_index() sets the
- * path's indextotalcost and indexselectivity fields.  These values will be
- * needed if the IndexPath is used in a BitmapIndexScan.
+ * 除了行数、startup_cost 和 total_cost，cost_index() 还设置
+ * 路径的 indextotalcost 和 indexselectivity 字段。若 IndexPath 用于 BitmapIndexScan，
+ * 就需要这些值。
  *
- * NOTE: path->indexquals must contain only clauses usable as index
- * restrictions.  Any additional quals evaluated as qpquals may reduce the
- * number of returned tuples, but they won't reduce the number of tuples
- * we have to fetch from the table, so they don't reduce the scan cost.
+ * 注意：path->indexquals 只能含有可用作索引
+ * 限制的子句。作为 qpqual 求值的任何额外限定条件可能减少
+ * 返回的元组数，但不会减少必须从表中取出的元组数，
+ * 因此它们不降低扫描代价。
  */
 void
 cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
@@ -545,23 +545,23 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	double		rand_heap_pages;
 	double		index_pages;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(IsA(baserel, RelOptInfo) &&
 		   IsA(index, IndexOptInfo));
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
 	/*
-	 * Mark the path with the correct row estimate, and identify which quals
-	 * will need to be enforced as qpquals.  We need not check any quals that
-	 * are implied by the index's predicate, so we can use indrestrictinfo not
-	 * baserestrictinfo as the list of relevant restriction clauses for the
-	 * rel.
+	 * 用正确的行数估计标记该路径，并识别哪些限定条件
+	 * 需要作为 qpqual 强制执行。不必检查任何由
+	 * 索引谓词蕴含的限定条件，因此可以用 indrestrictinfo 而不是
+	 * baserestrictinfo 作为该关系相关限制子句的
+	 * 列表。
 	 */
 	if (path->path.param_info)
 	{
 		path->path.rows = path->path.param_info->ppi_rows;
-		/* qpquals come from the rel's restriction clauses and ppi_clauses */
+		/* qpqual 来自该关系的限制子句和 ppi_clauses */
 		qpquals = list_concat(extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
 														  path->indexclauses),
 							  extract_nonindex_conditions(path->path.param_info->ppi_clauses,
@@ -570,21 +570,21 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	else
 	{
 		path->path.rows = baserel->rows;
-		/* qpquals come from just the rel's restriction clauses */
+		/* qpqual 只来自该关系的限制子句 */
 		qpquals = extract_nonindex_conditions(path->indexinfo->indrestrictinfo,
 											  path->indexclauses);
 	}
 
 	if (!enable_indexscan)
 		startup_cost += disable_cost;
-	/* we don't need to check enable_indexonlyscan; indxpath.c does that */
+	/* 不必检查 enable_indexonlyscan；indxpath.c 会做那件事 */
 
 	/*
-	 * Call index-access-method-specific code to estimate the processing cost
-	 * for scanning the index, as well as the selectivity of the index (ie,
-	 * the fraction of main-table tuples we will have to retrieve) and its
-	 * correlation to the main-table tuple order.  We need a cast here because
-	 * pathnodes.h uses a weak function type to avoid including amapi.h.
+	 * 调用特定于索引访问方法的代码，估计扫描索引的处理代价，
+	 * 以及索引的选择率（即
+	 * 我们必须检索的主表元组所占比例）和它与
+	 * 主表元组顺序的相关性。这里需要一次转换，因为
+	 * pathnodes.h 用弱函数类型来避免包含 amapi.h。
 	 */
 	amcostestimate = (amcostestimate_function) index->amcostestimate;
 	amcostestimate(root, path, loop_count,
@@ -593,21 +593,21 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 				   &index_pages);
 
 	/*
-	 * Save amcostestimate's results for possible use in bitmap scan planning.
-	 * We don't bother to save indexStartupCost or indexCorrelation, because a
-	 * bitmap scan doesn't care about either.
+	 * 保存 amcostestimate 的结果，以备位图扫描规划使用。
+	 * 不费心保存 indexStartupCost 或 indexCorrelation，因为
+	 * 位图扫描不关心这两者。
 	 */
 	path->indextotalcost = indexTotalCost;
 	path->indexselectivity = indexSelectivity;
 
-	/* all costs for touching index itself included here */
+	/* 触及索引本身的全部代价都算在这里 */
 	startup_cost += indexStartupCost;
 	run_cost += indexTotalCost - indexStartupCost;
 
-	/* estimate number of main-table tuples fetched */
+	/* 估计取出的主表元组数 */
 	tuples_fetched = clamp_row_est(indexSelectivity * baserel->tuples);
 
-	/* fetch estimated page costs for tablespace containing table */
+	/* 取包含该表的表空间的估计页代价 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  &spc_random_page_cost,
 							  &spc_seq_page_cost);
@@ -642,12 +642,12 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	if (loop_count > 1)
 	{
 		/*
-		 * For repeated indexscans, the appropriate estimate for the
-		 * uncorrelated case is to scale up the number of tuples fetched in
-		 * the Mackert and Lohman formula by the number of scans, so that we
-		 * estimate the number of pages fetched by all the scans; then
-		 * pro-rate the costs for one scan.  In this case we assume all the
-		 * fetches are random accesses.
+		 * 对重复的索引扫描，不相关情形的适当估计是
+		 * 按扫描次数放大 Mackert 和 Lohman 公式中取出的元组数，
+		 * 以便估计
+		 * 全部扫描取出的页数；然后
+		 * 按比例分摊一次扫描的代价。这种情况下假定所有
+		 * 取出都是随机访问。
 		 */
 		pages_fetched = index_pages_fetched(tuples_fetched * loop_count,
 											baserel->pages,
@@ -662,14 +662,14 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 		max_IO_cost = (pages_fetched * spc_random_page_cost) / loop_count;
 
 		/*
-		 * In the perfectly correlated case, the number of pages touched by
-		 * each scan is selectivity * table_size, and we can use the Mackert
-		 * and Lohman formula at the page level to estimate how much work is
-		 * saved by caching across scans.  We still assume all the fetches are
-		 * random, though, which is an overestimate that's hard to correct for
-		 * without double-counting the cache effects.  (But in most cases
-		 * where such a plan is actually interesting, only one page would get
-		 * fetched per scan anyway, so it shouldn't matter much.)
+		 * 在完全相关的情形里，每次扫描触及的页数是
+		 * 选择率乘以 table_size，可以在页这一层使用 Mackert
+		 * 和 Lohman 公式来估计跨扫描缓存节省了多少工作。
+		 * 不过仍假定所有取出都是
+		 * 随机的，这是一个很难纠正的高估，
+		 * 否则会把缓存效应算两次。（但在多数
+		 * 这种计划真正有意义的情形里，每次扫描反正只会取出
+		 * 一页，所以关系不大。）
 		 */
 		pages_fetched = ceil(indexSelectivity * (double) baserel->pages);
 
@@ -686,8 +686,8 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	else
 	{
 		/*
-		 * Normal case: apply the Mackert and Lohman formula, and then
-		 * interpolate between that and the correlation-derived result.
+		 * 普通情形：应用 Mackert 和 Lohman 公式，然后
+		 * 在它和由相关性导出的结果之间插值。
 		 */
 		pages_fetched = index_pages_fetched(tuples_fetched,
 											baserel->pages,
@@ -699,10 +699,10 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 		rand_heap_pages = pages_fetched;
 
-		/* max_IO_cost is for the perfectly uncorrelated case (csquared=0) */
+		/* max_IO_cost 用于完全不相关的情形（csquared=0） */
 		max_IO_cost = pages_fetched * spc_random_page_cost;
 
-		/* min_IO_cost is for the perfectly correlated case (csquared=1) */
+		/* min_IO_cost 用于完全相关的情形（csquared=1） */
 		pages_fetched = ceil(indexSelectivity * (double) baserel->pages);
 
 		if (indexonly)
@@ -721,18 +721,18 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	if (partial_path)
 	{
 		/*
-		 * For index only scans compute workers based on number of index pages
-		 * fetched; the number of heap pages we fetch might be so small as to
-		 * effectively rule out parallelism, which we don't want to do.
+		 * 对仅索引扫描，根据取出的索引页数计算工作进程；
+		 * 我们取出的堆页数可能小到
+		 * 实际上排除并行，而我们不想那样。
 		 */
 		if (indexonly)
 			rand_heap_pages = -1;
 
 		/*
-		 * Estimate the number of parallel workers required to scan index. Use
-		 * the number of heap pages computed considering heap fetches won't be
-		 * sequential as for parallel scans the pages are accessed in random
-		 * order.
+		 * 估计扫描索引所需的并行工作进程数。使用
+		 * 考虑到堆取出不会是
+		 * 顺序的页数，因为并行扫描以随机
+		 * 顺序访问页。
 		 */
 		path->path.parallel_workers = compute_parallel_worker(baserel,
 															  rand_heap_pages,
@@ -740,9 +740,9 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 															  max_parallel_workers_per_gather);
 
 		/*
-		 * Fall out if workers can't be assigned for parallel scan, because in
-		 * such a case this path will be rejected.  So there is no benefit in
-		 * doing extra computation.
+		 * 若无法为并行扫描分配工作进程，就退出，因为
+		 * 这种情况下这条路径会被拒绝。多做
+		 * 额外计算没有好处。
 		 */
 		if (path->path.parallel_workers <= 0)
 			return;
@@ -751,18 +751,18 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 	}
 
 	/*
-	 * Now interpolate based on estimated index order correlation to get total
-	 * disk I/O cost for main table accesses.
+	 * 现在根据估计的索引顺序相关性插值，得到主表访问的总
+	 * 磁盘 I/O 代价。
 	 */
 	csquared = indexCorrelation * indexCorrelation;
 
 	run_cost += max_IO_cost + csquared * (min_IO_cost - max_IO_cost);
 
 	/*
-	 * Estimate CPU costs per tuple.
+	 * 估计每个元组的 CPU 代价。
 	 *
-	 * What we want here is cpu_tuple_cost plus the evaluation costs of any
-	 * qual clauses that we have to evaluate as qpquals.
+	 * 这里要的是 cpu_tuple_cost 加上任何
+	 * 必须作为 qpqual 求值的限定子句的求值代价。
 	 */
 	cost_qual_eval(&qpqual_cost, qpquals, root);
 
@@ -771,18 +771,18 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 
 	cpu_run_cost += cpu_per_tuple * tuples_fetched;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->path.pathtarget->cost.startup;
 	cpu_run_cost += path->path.pathtarget->cost.per_tuple * path->path.rows;
 
-	/* Adjust costing for parallelism, if used. */
+	/* 若使用了并行，就调整计价。 */
 	if (path->path.parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(&path->path);
 
 		path->path.rows = clamp_row_est(path->path.rows / parallel_divisor);
 
-		/* The CPU cost is divided among all the workers. */
+		/* CPU 代价分摊到所有工作进程。 */
 		cpu_run_cost /= parallel_divisor;
 	}
 
@@ -795,18 +795,18 @@ cost_index(IndexPath *path, PlannerInfo *root, double loop_count,
 /*
  * extract_nonindex_conditions
  *
- * Given a list of quals to be enforced in an indexscan, extract the ones that
- * will have to be applied as qpquals (ie, the index machinery won't handle
- * them).  Here we detect only whether a qual clause is directly redundant
- * with some indexclause.  If the index path is chosen for use, createplan.c
- * will try a bit harder to get rid of redundant qual conditions; specifically
- * it will see if quals can be proven to be implied by the indexquals.  But
- * it does not seem worth the cycles to try to factor that in at this stage,
- * since we're only trying to estimate qual eval costs.  Otherwise this must
- * match the logic in create_indexscan_plan().
+ * 给定一份要在索引扫描中强制执行的限定条件列表，抽出那些
+ * 必须作为 qpqual 应用的（即索引机制不会处理
+ * 它们）。这里只检测一条限定子句是否与某条索引子句直接冗余。
+ * 若选中该索引路径来用，createplan.c
+ * 会更努力地去掉冗余限定条件；具体说
+ * 它会看限定条件能否被证明由索引限定条件蕴含。但
+ * 在这个阶段把那一点算进去似乎不值得花周期，
+ * 因为我们只是在估计限定条件求值代价。除此之外，这必须
+ * 与 create_indexscan_plan() 中的逻辑匹配。
  *
- * qual_clauses, and the result, are lists of RestrictInfos.
- * indexclauses is a list of IndexClauses.
+ * qual_clauses 和结果都是 RestrictInfos 的列表。
+ * indexclauses 是 IndexClauses 的列表。
  */
 static List *
 extract_nonindex_conditions(List *qual_clauses, List *indexclauses)
@@ -819,10 +819,10 @@ extract_nonindex_conditions(List *qual_clauses, List *indexclauses)
 		RestrictInfo *rinfo = lfirst_node(RestrictInfo, lc);
 
 		if (rinfo->pseudoconstant)
-			continue;			/* we may drop pseudoconstants here */
+			continue;			/* 这里可以丢掉伪常量 */
 		if (is_redundant_with_indexclauses(rinfo, indexclauses))
-			continue;			/* dup or derived from same EquivalenceClass */
-		/* ... skip the predicate proof attempt createplan.c will try ... */
+			continue;			/* 重复，或派生自同一个 EquivalenceClass */
+		/* ……跳过 createplan.c 会尝试的谓词证明…… */
 		result = lappend(result, rinfo);
 	}
 	return result;
@@ -830,41 +830,41 @@ extract_nonindex_conditions(List *qual_clauses, List *indexclauses)
 
 /*
  * index_pages_fetched
- *	  Estimate the number of pages actually fetched after accounting for
- *	  cache effects.
+ *	  在计入缓存效应之后，估计实际取出的页数。
+ *	  缓存效应。
  *
- * We use an approximation proposed by Mackert and Lohman, "Index Scans
- * Using a Finite LRU Buffer: A Validated I/O Model", ACM Transactions
- * on Database Systems, Vol. 14, No. 3, September 1989, Pages 401-424.
- * The Mackert and Lohman approximation is that the number of pages
- * fetched is
+ * 我们使用 Mackert 和 Lohman 提出的近似，"Index Scans
+ * Using a Finite LRU Buffer: A Validated I/O Model"，ACM Transactions
+ * on Database Systems，第 14 卷，第 3 期，1989 年 9 月，第 401-424 页。
+ * Mackert 和 Lohman 近似是：取出的页数
+ * 为
  *	PF =
- *		min(2TNs/(2T+Ns), T)			when T <= b
- *		2TNs/(2T+Ns)					when T > b and Ns <= 2Tb/(2T-b)
- *		b + (Ns - 2Tb/(2T-b))*(T-b)/T	when T > b and Ns > 2Tb/(2T-b)
- * where
- *		T = # pages in table
- *		N = # tuples in table
- *		s = selectivity = fraction of table to be scanned
- *		b = # buffer pages available (we include kernel space here)
+ *		min(2TNs/(2T+Ns), T)			当 T <= b
+ *		2TNs/(2T+Ns)					当 T > b 且 Ns <= 2Tb/(2T-b)
+ *		b + (Ns - 2Tb/(2T-b))*(T-b)/T	当 T > b 且 Ns > 2Tb/(2T-b)
+ * 其中
+ *		T = 表中的页数
+ *		N = 表中的元组数
+ *		s = 选择率 = 要扫描的表所占比例
+ *		b = 可用缓冲页数（这里包括内核空间）
  *
- * We assume that effective_cache_size is the total number of buffer pages
- * available for the whole query, and pro-rate that space across all the
- * tables in the query and the index currently under consideration.  (This
- * ignores space needed for other indexes used by the query, but since we
- * don't know which indexes will get used, we can't estimate that very well;
- * and in any case counting all the tables may well be an overestimate, since
- * depending on the join plan not all the tables may be scanned concurrently.)
+ * 假定 effective_cache_size 是整个查询可用的缓冲页总数，
+ * 并把该空间按比例分给查询中的全部
+ * 表和当前考虑的索引。（这
+ * 忽略了查询使用的其他索引所需的空间，但既然我们
+ * 不知道哪些索引会被用到，就无法把这一点估计得很好；
+ * 而且把所有表都算上很可能是高估，因为
+ * 取决于连接计划，并非所有表都会被并发扫描。）
  *
- * The product Ns is the number of tuples fetched; we pass in that
- * product rather than calculating it here.  "pages" is the number of pages
- * in the object under consideration (either an index or a table).
- * "index_pages" is the amount to add to the total table space, which was
- * computed for us by make_one_rel.
+ * 乘积 Ns 是取出的元组数；我们传入该
+ * 乘积，而不是在这里计算它。"pages" 是
+ * 所考虑对象（索引或表）中的页数。
+ * "index_pages" 是要加到总表空间上的量，它由
+ * make_one_rel 为我们算好。
  *
- * Caller is expected to have ensured that tuples_fetched is greater than zero
- * and rounded to integer (see clamp_row_est).  The result will likewise be
- * greater than zero and integral.
+ * 调用方预期已确保 tuples_fetched 大于零
+ * 并舍入为整数（见 clamp_row_est）。结果同样将
+ * 大于零并且是整数。
  */
 double
 index_pages_fetched(double tuples_fetched, BlockNumber pages,
@@ -875,24 +875,24 @@ index_pages_fetched(double tuples_fetched, BlockNumber pages,
 	double		T,
 				b;
 
-	/* T is # pages in table, but don't allow it to be zero */
+	/* T 是表中的页数，但不允许它为零 */
 	T = (pages > 1) ? (double) pages : 1.0;
 
-	/* Compute number of pages assumed to be competing for cache space */
+	/* 计算假定在争夺缓存空间的页数 */
 	total_pages = root->total_table_pages + index_pages;
 	total_pages = Max(total_pages, 1.0);
 	Assert(T <= total_pages);
 
-	/* b is pro-rated share of effective_cache_size */
+	/* b 是 effective_cache_size 按比例分得的份额 */
 	b = (double) effective_cache_size * T / total_pages;
 
-	/* force it positive and integral */
+	/* 强制它为正并且是整数 */
 	if (b <= 1.0)
 		b = 1.0;
 	else
 		b = ceil(b);
 
-	/* This part is the Mackert and Lohman formula */
+	/* 这一部分是 Mackert 和 Lohman 公式 */
 	if (T <= b)
 	{
 		pages_fetched =
@@ -924,12 +924,12 @@ index_pages_fetched(double tuples_fetched, BlockNumber pages,
 
 /*
  * get_indexpath_pages
- *		Determine the total size of the indexes used in a bitmap index path.
+ *		确定位图索引路径中使用的索引的总规模。
  *
- * Note: if the same index is used more than once in a bitmap tree, we will
- * count it multiple times, which perhaps is the wrong thing ... but it's
- * not completely clear, and detecting duplicates is difficult, so ignore it
- * for now.
+ * 注意：若同一索引在位图树中使用不止一次，我们会
+ * 把它计算多次，这也许不对……但这
+ * 并不完全清楚，而且检测重复很难，所以暂时
+ * 忽略。
  */
 static double
 get_indexpath_pages(Path *bitmapqual)
@@ -969,17 +969,17 @@ get_indexpath_pages(Path *bitmapqual)
 
 /*
  * cost_bitmap_heap_scan
- *	  Determines and returns the cost of scanning a relation using a bitmap
- *	  index-then-heap plan.
+ *	  确定并返回用位图
+ *	  先索引后堆计划扫描一个关系的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
- * 'bitmapqual' is a tree of IndexPaths, BitmapAndPaths, and BitmapOrPaths
- * 'loop_count' is the number of repetitions of the indexscan to factor into
- *		estimates of caching behavior
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
+ * 'bitmapqual' 是 IndexPaths、BitmapAndPaths 和 BitmapOrPaths 组成的树
+ * 'loop_count' 是要计入缓存行为估计的
+ *		索引扫描重复次数
  *
- * Note: the component IndexPaths in bitmapqual should have been costed
- * using the same loop_count.
+ * 注意：bitmapqual 中的组成 IndexPaths 应当已经用相同的 loop_count
+ * 计过价。
  */
 void
 cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
@@ -999,12 +999,12 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 				spc_random_page_cost;
 	double		T;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(IsA(baserel, RelOptInfo));
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
@@ -1020,17 +1020,17 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	startup_cost += indexTotalCost;
 	T = (baserel->pages > 1) ? (double) baserel->pages : 1.0;
 
-	/* Fetch estimated page costs for tablespace containing table. */
+	/* 取包含该表的表空间的估计页代价。 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  &spc_random_page_cost,
 							  &spc_seq_page_cost);
 
 	/*
-	 * For small numbers of pages we should charge spc_random_page_cost
-	 * apiece, while if nearly all the table's pages are being read, it's more
-	 * appropriate to charge spc_seq_page_cost apiece.  The effect is
-	 * nonlinear, too. For lack of a better idea, interpolate like this to
-	 * determine the cost per page.
+	 * 页数少时应当按页收取 spc_random_page_cost，
+	 * 而若几乎要读表的全部页，更
+	 * 适合按页收取 spc_seq_page_cost。效果
+	 * 也是非线性的。没有更好的办法，就这样插值来
+	 * 确定每页代价。
 	 */
 	if (pages_fetched >= 2.0)
 		cost_per_page = spc_random_page_cost -
@@ -1042,13 +1042,13 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	run_cost += pages_fetched * cost_per_page;
 
 	/*
-	 * Estimate CPU costs per tuple.
+	 * 估计每个元组的 CPU 代价。
 	 *
-	 * Often the indexquals don't need to be rechecked at each tuple ... but
-	 * not always, especially not if there are enough tuples involved that the
-	 * bitmaps become lossy.  For the moment, just assume they will be
-	 * rechecked always.  This means we charge the full freight for all the
-	 * scan clauses.
+	 * 索引限定条件常常不必在每个元组上复查……但
+	 * 并不总是如此，尤其是涉及的元组多到
+	 * 位图变得有损时。目前就假定它们总会
+	 * 被复查。这意味着我们对全部
+	 * 扫描子句收取全部费用。
 	 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
@@ -1056,12 +1056,12 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	cpu_run_cost = cpu_per_tuple * tuples_fetched;
 
-	/* Adjust costing for parallelism, if used. */
+	/* 若使用了并行，就调整计价。 */
 	if (path->parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(path);
 
-		/* The CPU cost is divided among all the workers. */
+		/* CPU 代价分摊到所有工作进程。 */
 		cpu_run_cost /= parallel_divisor;
 
 		path->rows = clamp_row_est(path->rows / parallel_divisor);
@@ -1070,7 +1070,7 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 
 	run_cost += cpu_run_cost;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1080,7 +1080,7 @@ cost_bitmap_heap_scan(Path *path, PlannerInfo *root, RelOptInfo *baserel,
 
 /*
  * cost_bitmap_tree_node
- *		Extract cost and selectivity from a bitmap tree node (index/and/or)
+ *		从位图树节点（索引/与/或）提取代价和选择率
  */
 void
 cost_bitmap_tree_node(Path *path, Cost *cost, Selectivity *selec)
@@ -1091,10 +1091,10 @@ cost_bitmap_tree_node(Path *path, Cost *cost, Selectivity *selec)
 		*selec = ((IndexPath *) path)->indexselectivity;
 
 		/*
-		 * Charge a small amount per retrieved tuple to reflect the costs of
-		 * manipulating the bitmap.  This is mostly to make sure that a bitmap
-		 * scan doesn't look to be the same cost as an indexscan to retrieve a
-		 * single tuple.
+		 * 对每个检索到的元组收取一小笔费用，以反映操作
+		 * 位图的代价。这主要是为了确保位图
+		 * 扫描看起来不会与检索单个
+		 * 元组的索引扫描代价相同。
 		 */
 		*cost += 0.1 * cpu_operator_cost * path->rows;
 	}
@@ -1111,19 +1111,19 @@ cost_bitmap_tree_node(Path *path, Cost *cost, Selectivity *selec)
 	else
 	{
 		elog(ERROR, "unrecognized node type: %d", nodeTag(path));
-		*cost = *selec = 0;		/* keep compiler quiet */
+		*cost = *selec = 0;		/* 消除编译器告警 */
 	}
 }
 
 /*
  * cost_bitmap_and_node
- *		Estimate the cost of a BitmapAnd node
+ *		估计 BitmapAnd 节点的代价
  *
- * Note that this considers only the costs of index scanning and bitmap
- * creation, not the eventual heap access.  In that sense the object isn't
- * truly a Path, but it has enough path-like properties (costs in particular)
- * to warrant treating it as one.  We don't bother to set the path rows field,
- * however.
+ * 注意这只考虑索引扫描和位图
+ * 创建的代价，不是最终的堆访问。从这个意义上说，该对象并不
+ * 真正是一条 Path，但它有足够的类路径性质（尤其是代价），
+ * 值得把它当作一条来对待。
+ * 不过我们不费心设置路径的行数字段。
  */
 void
 cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
@@ -1133,13 +1133,13 @@ cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
 	ListCell   *l;
 
 	/*
-	 * We estimate AND selectivity on the assumption that the inputs are
-	 * independent.  This is probably often wrong, but we don't have the info
-	 * to do better.
+	 * 我们在假定输入相互
+	 * 独立的前提下估计 AND 选择率。这大概常常是错的，但我们没有信息
+	 * 做得更好。
 	 *
-	 * The runtime cost of the BitmapAnd itself is estimated at 100x
-	 * cpu_operator_cost for each tbm_intersect needed.  Probably too small,
-	 * definitely too simplistic?
+	 * BitmapAnd 本身的运行时代价估计为每次所需的 tbm_intersect 为 100 倍
+	 * cpu_operator_cost。大概太小，
+	 * 肯定太简化了？
 	 */
 	totalCost = 0.0;
 	selec = 1.0;
@@ -1158,16 +1158,16 @@ cost_bitmap_and_node(BitmapAndPath *path, PlannerInfo *root)
 			totalCost += 100.0 * cpu_operator_cost;
 	}
 	path->bitmapselectivity = selec;
-	path->path.rows = 0;		/* per above, not used */
+	path->path.rows = 0;		/* 如上所述，未使用 */
 	path->path.startup_cost = totalCost;
 	path->path.total_cost = totalCost;
 }
 
 /*
  * cost_bitmap_or_node
- *		Estimate the cost of a BitmapOr node
+ *		估计 BitmapOr 节点的代价
  *
- * See comments for cost_bitmap_and_node.
+ * 见 cost_bitmap_and_node 的注释。
  */
 void
 cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root)
@@ -1177,14 +1177,14 @@ cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root)
 	ListCell   *l;
 
 	/*
-	 * We estimate OR selectivity on the assumption that the inputs are
-	 * non-overlapping, since that's often the case in "x IN (list)" type
-	 * situations.  Of course, we clamp to 1.0 at the end.
+	 * 我们在假定输入
+	 * 不重叠的前提下估计 OR 选择率，因为 "x IN (list)" 这类
+	 * 情形常常如此。当然，最后钳制到 1.0。
 	 *
-	 * The runtime cost of the BitmapOr itself is estimated at 100x
-	 * cpu_operator_cost for each tbm_union needed.  Probably too small,
-	 * definitely too simplistic?  We are aware that the tbm_unions are
-	 * optimized out when the inputs are BitmapIndexScans.
+	 * BitmapOr 本身的运行时代价估计为每次所需的 tbm_union 为 100 倍
+	 * cpu_operator_cost。大概太小，
+	 * 肯定太简化了？我们知道当输入是 BitmapIndexScans 时，tbm_unions
+	 * 会被优化掉。
 	 */
 	totalCost = 0.0;
 	selec = 0.0;
@@ -1204,18 +1204,18 @@ cost_bitmap_or_node(BitmapOrPath *path, PlannerInfo *root)
 			totalCost += 100.0 * cpu_operator_cost;
 	}
 	path->bitmapselectivity = Min(selec, 1.0);
-	path->path.rows = 0;		/* per above, not used */
+	path->path.rows = 0;		/* 如上所述，未使用 */
 	path->path.startup_cost = totalCost;
 	path->path.total_cost = totalCost;
 }
 
 /*
  * cost_tidscan
- *	  Determines and returns the cost of scanning a relation using TIDs.
+ *	  确定并返回用 TIDs 扫描一个关系的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'tidquals' is the list of TID-checkable quals
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'tidquals' 是可做 TID 检查的限定条件列表
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_tidscan(Path *path, PlannerInfo *root,
@@ -1231,17 +1231,17 @@ cost_tidscan(Path *path, PlannerInfo *root,
 	ListCell   *l;
 	double		spc_random_page_cost;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* Count how many tuples we expect to retrieve */
+	/* 数我们预期要检索多少元组 */
 	ntuples = 0;
 	foreach(l, tidquals)
 	{
@@ -1250,7 +1250,7 @@ cost_tidscan(Path *path, PlannerInfo *root,
 
 		if (IsA(qual, ScalarArrayOpExpr))
 		{
-			/* Each element of the array yields 1 tuple */
+			/* 数组的每个元素产生 1 个元组 */
 			ScalarArrayOpExpr *saop = (ScalarArrayOpExpr *) qual;
 			Node	   *arraynode = (Node *) lsecond(saop->args);
 
@@ -1258,24 +1258,24 @@ cost_tidscan(Path *path, PlannerInfo *root,
 		}
 		else if (IsA(qual, CurrentOfExpr))
 		{
-			/* CURRENT OF yields 1 tuple */
+			/* CURRENT OF 产生 1 个元组 */
 			isCurrentOf = true;
 			ntuples++;
 		}
 		else
 		{
-			/* It's just CTID = something, count 1 tuple */
+			/* 只是 CTID = 某物，计 1 个元组 */
 			ntuples++;
 		}
 	}
 
 	/*
-	 * We must force TID scan for WHERE CURRENT OF, because only nodeTidscan.c
-	 * understands how to do it correctly.  Therefore, honor enable_tidscan
-	 * only when CURRENT OF isn't present.  Also note that cost_qual_eval
-	 * counts a CurrentOfExpr as having startup cost disable_cost, which we
-	 * subtract off here; that's to prevent other plan types such as seqscan
-	 * from winning.
+	 * 对 WHERE CURRENT OF 必须强制 TID 扫描，因为只有 nodeTidscan.c
+	 * 知道如何正确做。因此仅当不存在 CURRENT OF 时
+	 * 才遵守 enable_tidscan。还要注意 cost_qual_eval
+	 * 把 CurrentOfExpr 计为具有启动代价 disable_cost，我们
+	 * 在这里把它减掉；这是为了防止顺序扫描等其他计划类型
+	 * 胜出。
 	 */
 	if (isCurrentOf)
 	{
@@ -1286,29 +1286,29 @@ cost_tidscan(Path *path, PlannerInfo *root,
 		startup_cost += disable_cost;
 
 	/*
-	 * The TID qual expressions will be computed once, any other baserestrict
-	 * quals once per retrieved tuple.
+	 * TID 限定表达式会计算一次，任何其他 baserestrict
+	 * 限定条件对每个检索到的元组计算一次。
 	 */
 	cost_qual_eval(&tid_qual_cost, tidquals, root);
 
-	/* fetch estimated page cost for tablespace containing table */
+	/* 取包含该表的表空间的估计页代价 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  &spc_random_page_cost,
 							  NULL);
 
-	/* disk costs --- assume each tuple on a different page */
+	/* 磁盘代价 --- 假定每个元组在不同的页上 */
 	run_cost += spc_random_page_cost * ntuples;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
-	/* XXX currently we assume TID quals are a subset of qpquals */
+	/* XXX 目前假定 TID 限定条件是 qpqual 的子集 */
 	startup_cost += qpqual_cost.startup + tid_qual_cost.per_tuple;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple -
 		tid_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * ntuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1318,12 +1318,12 @@ cost_tidscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_tidrangescan
- *	  Determines and sets the costs of scanning a relation using a range of
- *	  TIDs for 'path'
+ *	  确定并设置用一段 TIDs 范围扫描一个关系的代价，
+ *	  用于 'path'
  *
- * 'baserel' is the relation to be scanned
- * 'tidrangequals' is the list of TID-checkable range quals
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'tidrangequals' 是可做 TID 检查的范围限定条件列表
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_tidrangescan(Path *path, PlannerInfo *root,
@@ -1342,17 +1342,17 @@ cost_tidrangescan(Path *path, PlannerInfo *root,
 	double		spc_random_page_cost;
 	double		spc_seq_page_cost;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RELATION);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* Count how many tuples and pages we expect to scan */
+	/* 数我们预期要扫描多少元组和页 */
 	selectivity = clauselist_selectivity(root, tidrangequals, baserel->relid,
 										 JOIN_INNER, NULL);
 	pages = ceil(selectivity * baserel->pages);
@@ -1361,12 +1361,12 @@ cost_tidrangescan(Path *path, PlannerInfo *root,
 		pages = 1.0;
 
 	/*
-	 * The first page in a range requires a random seek, but each subsequent
-	 * page is just a normal sequential page read. NOTE: it's desirable for
-	 * TID Range Scans to cost more than the equivalent Sequential Scans,
-	 * because Seq Scans have some performance advantages such as scan
-	 * synchronization and parallelizability, and we'd prefer one of them to
-	 * be picked unless a TID Range Scan really is better.
+	 * 范围内的第一页需要一次随机寻道，但随后每一
+	 * 页只是普通的顺序页读。注意：希望
+	 * TID 范围扫描比等价的顺序扫描更贵，
+	 * 因为顺序扫描有扫描
+	 * 同步和可并行性等性能优势，我们更希望选中其中之一，
+	 * 除非 TID 范围扫描真的更好。
 	 */
 	ntuples = selectivity * baserel->tuples;
 	nseqpages = pages - 1.0;
@@ -1375,35 +1375,35 @@ cost_tidrangescan(Path *path, PlannerInfo *root,
 		startup_cost += disable_cost;
 
 	/*
-	 * The TID qual expressions will be computed once, any other baserestrict
-	 * quals once per retrieved tuple.
+	 * TID 限定表达式会计算一次，任何其他 baserestrict
+	 * 限定条件对每个检索到的元组计算一次。
 	 */
 	cost_qual_eval(&tid_qual_cost, tidrangequals, root);
 
-	/* fetch estimated page cost for tablespace containing table */
+	/* 取包含该表的表空间的估计页代价 */
 	get_tablespace_page_costs(baserel->reltablespace,
 							  &spc_random_page_cost,
 							  &spc_seq_page_cost);
 
-	/* disk costs; 1 random page and the remainder as seq pages */
+	/* 磁盘代价；1 次随机页，其余作为顺序页 */
 	run_cost += spc_random_page_cost + spc_seq_page_cost * nseqpages;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	/*
-	 * XXX currently we assume TID quals are a subset of qpquals at this
-	 * point; they will be removed (if possible) when we create the plan, so
-	 * we subtract their cost from the total qpqual cost.  (If the TID quals
-	 * can't be removed, this is a mistake and we're going to underestimate
-	 * the CPU cost a bit.)
+	 * XXX 目前假定在这一点上 TID 限定条件是 qpqual 的子集；
+	 * 建立计划时会（若可能）去掉它们，因此
+	 * 我们从总 qpqual 代价中减去它们的代价。（若 TID 限定条件
+	 * 无法去掉，这就是个错误，我们会略微低估
+	 * CPU 代价。）
 	 */
 	startup_cost += qpqual_cost.startup + tid_qual_cost.per_tuple;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple -
 		tid_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * ntuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1413,11 +1413,11 @@ cost_tidrangescan(Path *path, PlannerInfo *root,
 
 /*
  * cost_subqueryscan
- *	  Determines and returns the cost of scanning a subquery RTE.
+ *	  确定并返回扫描子查询 RTE 的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
- * 'trivial_pathtarget' is true if the pathtarget is believed to be trivial.
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
+ * 若认为 pathtarget 是平凡的，'trivial_pathtarget' 为 true。
  */
 void
 cost_subqueryscan(SubqueryScanPath *path, PlannerInfo *root,
@@ -1430,15 +1430,15 @@ cost_subqueryscan(SubqueryScanPath *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations that are subqueries */
+	/* 只应当用于作为子查询的基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_SUBQUERY);
 
 	/*
-	 * We compute the rowcount estimate as the subplan's estimate times the
-	 * selectivity of relevant restriction clauses.  In simple cases this will
-	 * come out the same as baserel->rows; but when dealing with parallelized
-	 * paths we must do it like this to get the right answer.
+	 * 把行数估计算成子计划的估计乘以
+	 * 相关限制子句的选择率。简单情形下这会
+	 * 得出与 baserel->rows 相同的结果；但处理并行
+	 * 路径时必须这样算才能得到正确答案。
 	 */
 	if (param_info)
 		qpquals = list_concat_copy(param_info->ppi_clauses,
@@ -1454,26 +1454,26 @@ cost_subqueryscan(SubqueryScanPath *path, PlannerInfo *root,
 														   NULL));
 
 	/*
-	 * Cost of path is cost of evaluating the subplan, plus cost of evaluating
-	 * any restriction clauses and tlist that will be attached to the
-	 * SubqueryScan node, plus cpu_tuple_cost to account for selection and
-	 * projection overhead.
+	 * 路径代价是求值子计划的代价，加上求值
+	 * 将挂到 SubqueryScan 节点上的任何限制子句和目标列表的代价，
+	 * 再加上 cpu_tuple_cost 以计入选择和
+	 * 投影开销。
 	 */
 	path->path.startup_cost = path->subpath->startup_cost;
 	path->path.total_cost = path->subpath->total_cost;
 
 	/*
-	 * However, if there are no relevant restriction clauses and the
-	 * pathtarget is trivial, then we expect that setrefs.c will optimize away
-	 * the SubqueryScan plan node altogether, so we should just make its cost
-	 * and rowcount equal to the input path's.
+	 * 不过，若没有相关限制子句，并且
+	 * pathtarget 是平凡的，就预期 setrefs.c 会把
+	 * SubqueryScan 计划节点整个优化掉，因此应当让它的代价
+	 * 和行数等于输入路径的。
 	 *
-	 * Note: there are some edge cases where createplan.c will apply a
-	 * different targetlist to the SubqueryScan node, thus falsifying our
-	 * current estimate of whether the target is trivial, and making the cost
-	 * estimate (though not the rowcount) wrong.  It does not seem worth the
-	 * extra complication to try to account for that exactly, especially since
-	 * that behavior falsifies other cost estimates as well.
+	 * 注意：有些边角情形 createplan.c 会给
+	 * SubqueryScan 节点应用不同的目标列表，从而使我们
+	 * 当前关于目标是否平凡的估计不成立，并使代价
+	 * 估计（尽管不是行数）出错。似乎不值得为
+	 * 额外的复杂性去精确计入这一点，尤其是因为
+	 * 那种行为也会使其他代价估计不成立。
 	 */
 	if (qpquals == NIL && trivial_pathtarget)
 		return;
@@ -1484,7 +1484,7 @@ cost_subqueryscan(SubqueryScanPath *path, PlannerInfo *root,
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost = cpu_per_tuple * path->subpath->rows;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->path.pathtarget->cost.startup;
 	run_cost += path->path.pathtarget->cost.per_tuple * path->path.rows;
 
@@ -1494,10 +1494,10 @@ cost_subqueryscan(SubqueryScanPath *path, PlannerInfo *root,
 
 /*
  * cost_functionscan
- *	  Determines and returns the cost of scanning a function RTE.
+ *	  确定并返回扫描函数 RTE 的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_functionscan(Path *path, PlannerInfo *root,
@@ -1510,42 +1510,42 @@ cost_functionscan(Path *path, PlannerInfo *root,
 	RangeTblEntry *rte;
 	QualCost	exprcost;
 
-	/* Should only be applied to base relations that are functions */
+	/* 只应当用于作为函数的基关系 */
 	Assert(baserel->relid > 0);
 	rte = planner_rt_fetch(baserel->relid, root);
 	Assert(rte->rtekind == RTE_FUNCTION);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
 	/*
-	 * Estimate costs of executing the function expression(s).
+	 * 估计执行函数表达式的代价。
 	 *
-	 * Currently, nodeFunctionscan.c always executes the functions to
-	 * completion before returning any rows, and caches the results in a
-	 * tuplestore.  So the function eval cost is all startup cost, and per-row
-	 * costs are minimal.
+	 * 目前，nodeFunctionscan.c 总是把函数执行
+	 * 完毕才返回任何行，并把结果缓存在
+	 * tuplestore 中。因此函数求值代价全是启动代价，每行
+	 * 代价很小。
 	 *
-	 * XXX in principle we ought to charge tuplestore spill costs if the
-	 * number of rows is large.  However, given how phony our rowcount
-	 * estimates for functions tend to be, there's not a lot of point in that
-	 * refinement right now.
+	 * XXX 原则上若行数很大，应当收取 tuplestore 溢出代价。
+	 * 不过，鉴于我们对函数的行数
+	 * 估计往往很假，现在做这种
+	 * 细化意义不大。
 	 */
 	cost_qual_eval_node(&exprcost, (Node *) rte->functions, root);
 
 	startup_cost += exprcost.startup + exprcost.per_tuple;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost += cpu_per_tuple * baserel->tuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1555,10 +1555,10 @@ cost_functionscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_tablefuncscan
- *	  Determines and returns the cost of scanning a table function.
+ *	  确定并返回扫描表函数的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_tablefuncscan(Path *path, PlannerInfo *root,
@@ -1571,37 +1571,37 @@ cost_tablefuncscan(Path *path, PlannerInfo *root,
 	RangeTblEntry *rte;
 	QualCost	exprcost;
 
-	/* Should only be applied to base relations that are functions */
+	/* 只应当用于作为函数的基关系 */
 	Assert(baserel->relid > 0);
 	rte = planner_rt_fetch(baserel->relid, root);
 	Assert(rte->rtekind == RTE_TABLEFUNC);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
 	/*
-	 * Estimate costs of executing the table func expression(s).
+	 * 估计执行表函数表达式的代价。
 	 *
-	 * XXX in principle we ought to charge tuplestore spill costs if the
-	 * number of rows is large.  However, given how phony our rowcount
-	 * estimates for tablefuncs tend to be, there's not a lot of point in that
-	 * refinement right now.
+	 * XXX 原则上若行数很大，应当收取 tuplestore 溢出代价。
+	 * 不过，鉴于我们对表函数的行数
+	 * 估计往往很假，现在做这种
+	 * 细化意义不大。
 	 */
 	cost_qual_eval_node(&exprcost, (Node *) rte->tablefunc, root);
 
 	startup_cost += exprcost.startup + exprcost.per_tuple;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost += cpu_per_tuple * baserel->tuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1611,10 +1611,10 @@ cost_tablefuncscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_valuesscan
- *	  Determines and returns the cost of scanning a VALUES RTE.
+ *	  确定并返回扫描 VALUES RTE 的代价。
  *
- * 'baserel' is the relation to be scanned
- * 'param_info' is the ParamPathInfo if this is a parameterized path, else NULL
+ * 'baserel' 是要扫描的关系
+ * 'param_info' 若这是参数化路径则为 ParamPathInfo，否则为 NULL
  */
 void
 cost_valuesscan(Path *path, PlannerInfo *root,
@@ -1625,30 +1625,30 @@ cost_valuesscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations that are values lists */
+	/* 只应当用于作为值列表的基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_VALUES);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
 	/*
-	 * For now, estimate list evaluation cost at one operator eval per list
-	 * (probably pretty bogus, but is it worth being smarter?)
+	 * 目前，把列表求值代价估计为每个列表一次操作符求值
+	 * （大概很不靠谱，但值得更聪明吗？）
 	 */
 	cpu_per_tuple = cpu_operator_cost;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple += cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost += cpu_per_tuple * baserel->tuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1658,13 +1658,13 @@ cost_valuesscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_ctescan
- *	  Determines and returns the cost of scanning a CTE RTE.
+ *	  确定并返回扫描 CTE RTE 的代价。
  *
- * Note: this is used for both self-reference and regular CTEs; the
- * possible cost differences are below the threshold of what we could
- * estimate accurately anyway.  Note that the costs of evaluating the
- * referenced CTE query are added into the final plan as initplan costs,
- * and should NOT be counted here.
+ * 注意：自引用和普通 CTEs 都用这个；
+ * 可能的代价差异低于我们反正能
+ * 准确估计的阈值。注意求值
+ * 被引用 CTE 查询的代价作为 initplan 代价加进最终计划，
+ * 不应当算在这里。
  */
 void
 cost_ctescan(Path *path, PlannerInfo *root,
@@ -1675,27 +1675,27 @@ cost_ctescan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations that are CTEs */
+	/* 只应当用于作为 CTEs 的基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_CTE);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* Charge one CPU tuple cost per row for tuplestore manipulation */
+	/* 每行收取一次 CPU 元组代价，用于 tuplestore 操作 */
 	cpu_per_tuple = cpu_tuple_cost;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
 	cpu_per_tuple += cpu_tuple_cost + qpqual_cost.per_tuple;
 	run_cost += cpu_per_tuple * baserel->tuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->pathtarget->cost.startup;
 	run_cost += path->pathtarget->cost.per_tuple * path->rows;
 
@@ -1705,7 +1705,7 @@ cost_ctescan(Path *path, PlannerInfo *root,
 
 /*
  * cost_namedtuplestorescan
- *	  Determines and returns the cost of scanning a named tuplestore.
+ *	  确定并返回扫描命名 tuplestore 的代价。
  */
 void
 cost_namedtuplestorescan(Path *path, PlannerInfo *root,
@@ -1716,20 +1716,20 @@ cost_namedtuplestorescan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to base relations that are Tuplestores */
+	/* 只应当用于作为 Tuplestores 的基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_NAMEDTUPLESTORE);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* Charge one CPU tuple cost per row for tuplestore manipulation */
+	/* 每行收取一次 CPU 元组代价，用于 tuplestore 操作 */
 	cpu_per_tuple = cpu_tuple_cost;
 
-	/* Add scanning CPU costs */
+	/* 加上扫描的 CPU 代价 */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
@@ -1742,7 +1742,7 @@ cost_namedtuplestorescan(Path *path, PlannerInfo *root,
 
 /*
  * cost_resultscan
- *	  Determines and returns the cost of scanning an RTE_RESULT relation.
+ *	  确定并返回扫描 RTE_RESULT 关系的代价。
  */
 void
 cost_resultscan(Path *path, PlannerInfo *root,
@@ -1753,17 +1753,17 @@ cost_resultscan(Path *path, PlannerInfo *root,
 	QualCost	qpqual_cost;
 	Cost		cpu_per_tuple;
 
-	/* Should only be applied to RTE_RESULT base relations */
+	/* 只应当用于 RTE_RESULT 基关系 */
 	Assert(baserel->relid > 0);
 	Assert(baserel->rtekind == RTE_RESULT);
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (param_info)
 		path->rows = param_info->ppi_rows;
 	else
 		path->rows = baserel->rows;
 
-	/* We charge qual cost plus cpu_tuple_cost */
+	/* 我们收取限定条件代价加上 cpu_tuple_cost */
 	get_restriction_qual_cost(root, baserel, param_info, &qpqual_cost);
 
 	startup_cost += qpqual_cost.startup;
@@ -1776,10 +1776,10 @@ cost_resultscan(Path *path, PlannerInfo *root,
 
 /*
  * cost_recursive_union
- *	  Determines and returns the cost of performing a recursive union,
- *	  and also the estimated output size.
+ *	  确定并返回执行递归并集的代价，
+ *	  以及估计的输出规模。
  *
- * We are given Paths for the nonrecursive and recursive terms.
+ * 我们得到非递归项和递归项的 Paths。
  */
 void
 cost_recursive_union(Path *runion, Path *nrterm, Path *rterm)
@@ -1788,24 +1788,24 @@ cost_recursive_union(Path *runion, Path *nrterm, Path *rterm)
 	Cost		total_cost;
 	double		total_rows;
 
-	/* We probably have decent estimates for the non-recursive term */
+	/* 对非递归项，我们大概有不错的估计 */
 	startup_cost = nrterm->startup_cost;
 	total_cost = nrterm->total_cost;
 	total_rows = nrterm->rows;
 
 	/*
-	 * We arbitrarily assume that about 10 recursive iterations will be
-	 * needed, and that we've managed to get a good fix on the cost and output
-	 * size of each one of them.  These are mighty shaky assumptions but it's
-	 * hard to see how to do better.
+	 * 我们任意假定大约需要 10 次递归迭代，
+	 * 并且已经设法很好地掌握每一次的代价和输出
+	 * 规模。这些假定非常不牢靠，但很难
+	 * 看出怎样做得更好。
 	 */
 	total_cost += 10 * rterm->total_cost;
 	total_rows += 10 * rterm->rows;
 
 	/*
-	 * Also charge cpu_tuple_cost per row to account for the costs of
-	 * manipulating the tuplestores.  (We don't worry about possible
-	 * spill-to-disk costs.)
+	 * 还按每行收取 cpu_tuple_cost，以计入
+	 * 操作 tuplestore 的代价。（我们不担心可能的
+	 * 溢出到磁盘的代价。）
 	 */
 	total_cost += cpu_tuple_cost * total_rows;
 
@@ -1818,39 +1818,39 @@ cost_recursive_union(Path *runion, Path *nrterm, Path *rterm)
 
 /*
  * cost_tuplesort
- *	  Determines and returns the cost of sorting a relation using tuplesort,
- *    not including the cost of reading the input data.
+ *	  确定并返回用 tuplesort 对一个关系排序的代价，
+ *    不包括读取输入数据的代价。
  *
- * If the total volume of data to sort is less than sort_mem, we will do
- * an in-memory sort, which requires no I/O and about t*log2(t) tuple
- * comparisons for t tuples.
+ * 若要排序的数据总量小于 sort_mem，就做
+ * 内存中排序，这不需要 I/O，对 t 个元组大约做 t*log2(t) 次
+ * 元组比较。
  *
- * If the total volume exceeds sort_mem, we switch to a tape-style merge
- * algorithm.  There will still be about t*log2(t) tuple comparisons in
- * total, but we will also need to write and read each tuple once per
- * merge pass.  We expect about ceil(logM(r)) merge passes where r is the
- * number of initial runs formed and M is the merge order used by tuplesort.c.
- * Since the average initial run should be about sort_mem, we have
- *		disk traffic = 2 * relsize * ceil(logM(p / sort_mem))
+ * 若总量超过 sort_mem，就切换到磁带式归并
+ * 算法。总共仍大约有 t*log2(t) 次元组比较，
+ * 但每个归并趟还需要把每个元组写一次、读一次。
+ * 预期大约有 ceil(logM(r)) 个归并趟，其中 r 是
+ * 形成的初始趟数，M 是 tuplesort.c 使用的归并阶。
+ * 由于平均初始趟大约应当是 sort_mem，我们有
+ *		磁盘流量 = 2 * relsize * ceil(logM(p / sort_mem))
  *		cpu = comparison_cost * t * log2(t)
  *
- * If the sort is bounded (i.e., only the first k result tuples are needed)
- * and k tuples can fit into sort_mem, we use a heap method that keeps only
- * k tuples in the heap; this will require about t*log2(k) tuple comparisons.
+ * 若排序有界（即只需要前 k 个结果元组）
+ * 并且 k 个元组能放进 sort_mem，就用只在堆中保留
+ * k 个元组的堆方法；这大约需要 t*log2(k) 次元组比较。
  *
- * The disk traffic is assumed to be 3/4ths sequential and 1/4th random
- * accesses (XXX can't we refine that guess?)
+ * 假定磁盘流量有 3/4 是顺序访问、1/4 是随机
+ * 访问（XXX 不能把这个猜测细化吗？）
  *
- * By default, we charge two operator evals per tuple comparison, which should
- * be in the right ballpark in most cases.  The caller can tweak this by
- * specifying nonzero comparison_cost; typically that's used for any extra
- * work that has to be done to prepare the inputs to the comparison operators.
+ * 默认每次元组比较收取两次操作符求值，这在
+ * 多数情形里应当差不多。调用方可以通过
+ * 指定非零的 comparison_cost 来调整；通常那用于比较操作符的输入
+ * 必须做的任何额外准备工作。
  *
- * 'tuples' is the number of tuples in the relation
- * 'width' is the average tuple width in bytes
- * 'comparison_cost' is the extra cost per comparison, if any
- * 'sort_mem' is the number of kilobytes of work memory allowed for the sort
- * 'limit_tuples' is the bound on the number of output tuples; -1 if no bound
+ * 'tuples' 是关系中的元组数
+ * 'width' 是平均元组宽度（字节）
+ * 'comparison_cost' 是每次比较的额外代价，若有的话
+ * 'sort_mem' 是允许用于排序的工作内存千字节数
+ * 'limit_tuples' 是输出元组数的上界；若无上界则为 -1
  */
 static void
 cost_tuplesort(Cost *startup_cost, Cost *run_cost,
@@ -1864,16 +1864,16 @@ cost_tuplesort(Cost *startup_cost, Cost *run_cost,
 	long		sort_mem_bytes = sort_mem * 1024L;
 
 	/*
-	 * We want to be sure the cost of a sort is never estimated as zero, even
-	 * if passed-in tuple count is zero.  Besides, mustn't do log(0)...
+	 * 我们想确保排序代价永远不会被估计为零，即使
+	 * 传入的元组数为零。另外，不得做 log(0)……
 	 */
 	if (tuples < 2.0)
 		tuples = 2.0;
 
-	/* Include the default cost-per-comparison */
+	/* 包括默认的每次比较代价 */
 	comparison_cost += 2.0 * cpu_operator_cost;
 
-	/* Do we have a useful LIMIT? */
+	/* 我们有有用的 LIMIT 吗？ */
 	if (limit_tuples > 0 && limit_tuples < tuples)
 	{
 		output_tuples = limit_tuples;
@@ -1888,7 +1888,7 @@ cost_tuplesort(Cost *startup_cost, Cost *run_cost,
 	if (output_bytes > sort_mem_bytes)
 	{
 		/*
-		 * We'll have to use a disk-based sort of all the tuples
+		 * 必须对全部元组做基于磁盘的排序
 		 */
 		double		npages = ceil(input_bytes / BLCKSZ);
 		double		nruns = input_bytes / sort_mem_bytes;
@@ -1897,62 +1897,62 @@ cost_tuplesort(Cost *startup_cost, Cost *run_cost,
 		double		npageaccesses;
 
 		/*
-		 * CPU costs
+		 * CPU 代价
 		 *
-		 * Assume about N log2 N comparisons
+		 * 假定大约 N log2 N 次比较
 		 */
 		*startup_cost = comparison_cost * tuples * LOG2(tuples);
 
-		/* Disk costs */
+		/* 磁盘代价 */
 
-		/* Compute logM(r) as log(r) / log(M) */
+		/* 把 logM(r) 算成 log(r) / log(M) */
 		if (nruns > mergeorder)
 			log_runs = ceil(log(nruns) / log(mergeorder));
 		else
 			log_runs = 1.0;
 		npageaccesses = 2.0 * npages * log_runs;
-		/* Assume 3/4ths of accesses are sequential, 1/4th are not */
+		/* 假定 3/4 的访问是顺序的，1/4 不是 */
 		*startup_cost += npageaccesses *
 			(seq_page_cost * 0.75 + random_page_cost * 0.25);
 	}
 	else if (tuples > 2 * output_tuples || input_bytes > sort_mem_bytes)
 	{
 		/*
-		 * We'll use a bounded heap-sort keeping just K tuples in memory, for
-		 * a total number of tuple comparisons of N log2 K; but the constant
-		 * factor is a bit higher than for quicksort.  Tweak it so that the
-		 * cost curve is continuous at the crossover point.
+		 * 将使用只在内存中保留 K 个元组的有界堆排序，
+		 * 元组比较总数为 N log2 K；但常数
+		 * 因子比快速排序略高。调整它，使
+		 * 代价曲线在交叉点连续。
 		 */
 		*startup_cost = comparison_cost * tuples * LOG2(2.0 * output_tuples);
 	}
 	else
 	{
-		/* We'll use plain quicksort on all the input tuples */
+		/* 将对全部输入元组使用普通快速排序 */
 		*startup_cost = comparison_cost * tuples * LOG2(tuples);
 	}
 
 	/*
-	 * Also charge a small amount (arbitrarily set equal to operator cost) per
-	 * extracted tuple.  We don't charge cpu_tuple_cost because a Sort node
-	 * doesn't do qual-checking or projection, so it has less overhead than
-	 * most plan nodes.  Note it's correct to use tuples not output_tuples
-	 * here --- the upper LIMIT will pro-rate the run cost so we'd be double
-	 * counting the LIMIT otherwise.
+	 * 还对每个
+	 * 抽出的元组收取一小笔费用（任意设成等于操作符代价）。不收取 cpu_tuple_cost，因为 Sort 节点
+	 * 不做限定条件检查或投影，因此开销比
+	 * 多数计划节点小。注意这里用 tuples 而不是 output_tuples
+	 * 是对的 --- 上层 LIMIT 会按比例分摊运行代价，否则会把
+	 * LIMIT 算两次。
 	 */
 	*run_cost = cpu_operator_cost * tuples;
 }
 
 /*
  * cost_incremental_sort
- * 	Determines and returns the cost of sorting a relation incrementally, when
- *  the input path is presorted by a prefix of the pathkeys.
+ * 	确定并返回增量排序一个关系的代价，当
+ *  输入路径已按路径键的一个前缀预排序时。
  *
- * 'presorted_keys' is the number of leading pathkeys by which the input path
- * is sorted.
+ * 'presorted_keys' 是输入路径已按其排序的前导路径键个数。
+ * 估计关系被前导
  *
- * We estimate the number of groups into which the relation is divided by the
- * leading pathkeys, and then calculate the cost of sorting a single group
- * with tuplesort using cost_tuplesort().
+ * 路径键分成多少组，然后用 cost_tuplesort()
+ * 计算用 tuplesort 对单个组
+ * 排序的代价。
  */
 void
 cost_incremental_sort(Path *path,
@@ -1976,36 +1976,36 @@ cost_incremental_sort(Path *path,
 	Assert(presorted_keys > 0 && presorted_keys < list_length(pathkeys));
 
 	/*
-	 * We want to be sure the cost of a sort is never estimated as zero, even
-	 * if passed-in tuple count is zero.  Besides, mustn't do log(0)...
+	 * 我们想确保排序代价永远不会被估计为零，即使
+	 * 传入的元组数为零。另外，不得做 log(0)……
 	 */
 	if (input_tuples < 2.0)
 		input_tuples = 2.0;
 
-	/* Default estimate of number of groups, capped to one group per row. */
+	/* 组数的默认估计，封顶为每行一组。 */
 	input_groups = Min(input_tuples, DEFAULT_NUM_DISTINCT);
 
 	/*
-	 * Extract presorted keys as list of expressions.
+	 * 把预排序键抽成表达式列表。
 	 *
-	 * We need to be careful about Vars containing "varno 0" which might have
-	 * been introduced by generate_append_tlist, which would confuse
-	 * estimate_num_groups (in fact it'd fail for such expressions). See
-	 * recurse_set_operations which has to deal with the same issue.
+	 * 必须小心含有 "varno 0" 的 Vars，它们可能由
+	 * generate_append_tlist 引入，那会搞乱
+	 * estimate_num_groups（事实上对这类表达式它会失败）。见
+	 * 必须处理同一问题的 recurse_set_operations。
 	 *
-	 * Unlike recurse_set_operations we can't access the original target list
-	 * here, and even if we could it's not very clear how useful would that be
-	 * for a set operation combining multiple tables. So we simply detect if
-	 * there are any expressions with "varno 0" and use the default
-	 * DEFAULT_NUM_DISTINCT in that case.
+	 * 与 recurse_set_operations 不同，这里无法访问原来的目标列表，
+	 * 而且即使能，对组合多张表的集合运算那有多大用也不
+	 * 很清楚。因此只是检测是否
+	 * 有任何带 "varno 0" 的表达式，若有就使用默认的
+	 * DEFAULT_NUM_DISTINCT。
 	 *
-	 * We might also use either 1.0 (a single group) or input_tuples (each row
-	 * being a separate group), pretty much the worst and best case for
-	 * incremental sort. But those are extreme cases and using something in
-	 * between seems reasonable. Furthermore, generate_append_tlist is used
-	 * for set operations, which are likely to produce mostly unique output
-	 * anyway - from that standpoint the DEFAULT_NUM_DISTINCT is defensive
-	 * while maintaining lower startup cost.
+	 * 也可以用 1.0（单个组）或 input_tuples（每一行
+	 * 单独成组），差不多是增量排序最坏和最好的情形。
+	 * 但那些是极端情形，用中间某个值似乎合理。
+	 * 而且 generate_append_tlist 用于
+	 * 集合运算，它们很可能本来就会产生大多唯一的输出
+	 * --- 从这个角度看 DEFAULT_NUM_DISTINCT 是防御性的，
+	 * 同时保持较低的启动代价。
 	 */
 	foreach(l, pathkeys)
 	{
@@ -2014,8 +2014,8 @@ cost_incremental_sort(Path *path,
 			linitial(key->pk_eclass->ec_members);
 
 		/*
-		 * Check if the expression contains Var with "varno 0" so that we
-		 * don't call estimate_num_groups in that case.
+		 * 检查表达式是否含有 "varno 0" 的 Var，以免
+		 * 在那种情况下调用 estimate_num_groups。
 		 */
 		if (bms_is_member(0, pull_varnos(root, (Node *) member->em_expr)))
 		{
@@ -2023,14 +2023,14 @@ cost_incremental_sort(Path *path,
 			break;
 		}
 
-		/* expression not containing any Vars with "varno 0" */
+		/* 不含任何 "varno 0" Var 的表达式 */
 		presortedExprs = lappend(presortedExprs, member->em_expr);
 
 		if (foreach_current_index(l) + 1 >= presorted_keys)
 			break;
 	}
 
-	/* Estimate the number of groups with equal presorted keys. */
+	/* 估计预排序键相等的组数。 */
 	if (!unknown_varno)
 		input_groups = estimate_num_groups(root, presortedExprs, input_tuples,
 										   NULL, NULL);
@@ -2039,39 +2039,39 @@ cost_incremental_sort(Path *path,
 	group_input_run_cost = input_run_cost / input_groups;
 
 	/*
-	 * Estimate the average cost of sorting of one group where presorted keys
-	 * are equal.
+	 * 估计预排序键相等的单个组的平均排序
+	 * 代价。
 	 */
 	cost_tuplesort(&group_startup_cost, &group_run_cost,
 				   group_tuples, width, comparison_cost, sort_mem,
 				   limit_tuples);
 
 	/*
-	 * Startup cost of incremental sort is the startup cost of its first group
-	 * plus the cost of its input.
+	 * 增量排序的启动代价是第一组的启动代价
+	 * 加上其输入的代价。
 	 */
 	startup_cost = group_startup_cost + input_startup_cost +
 		group_input_run_cost;
 
 	/*
-	 * After we started producing tuples from the first group, the cost of
-	 * producing all the tuples is given by the cost to finish processing this
-	 * group, plus the total cost to process the remaining groups, plus the
-	 * remaining cost of input.
+	 * 开始从第一组产出元组之后，产出全部
+	 * 元组的代价等于处理完这一
+	 * 组的代价，加上处理其余组的总代价，加上
+	 * 输入的剩余代价。
 	 */
 	run_cost = group_run_cost + (group_run_cost + group_startup_cost) *
 		(input_groups - 1) + group_input_run_cost * (input_groups - 1);
 
 	/*
-	 * Incremental sort adds some overhead by itself. Firstly, it has to
-	 * detect the sort groups. This is roughly equal to one extra copy and
-	 * comparison per tuple.
+	 * 增量排序本身会增加一些开销。首先，它必须
+	 * 检测排序组。这大致等于每个元组多一次复制和
+	 * 比较。
 	 */
 	run_cost += (cpu_tuple_cost + comparison_cost) * input_tuples;
 
 	/*
-	 * Additionally, we charge double cpu_tuple_cost for each input group to
-	 * account for the tuplesort_reset that's performed after each group.
+	 * 另外，对每个输入组收取两倍 cpu_tuple_cost，以
+	 * 计入每组之后执行的 tuplesort_reset。
 	 */
 	run_cost += 2.0 * cpu_tuple_cost * input_groups;
 
@@ -2082,15 +2082,15 @@ cost_incremental_sort(Path *path,
 
 /*
  * cost_sort
- *	  Determines and returns the cost of sorting a relation, including
- *	  the cost of reading the input data.
+ *	  确定并返回对一个关系排序的代价，包括
+ *	  读取输入数据的代价。
  *
- * NOTE: some callers currently pass NIL for pathkeys because they
- * can't conveniently supply the sort keys.  Since this routine doesn't
- * currently do anything with pathkeys anyway, that doesn't matter...
- * but if it ever does, it should react gracefully to lack of key data.
- * (Actually, the thing we'd most likely be interested in is just the number
- * of sort keys, which all callers *could* supply.)
+ * 注意：有些调用方目前为路径键传入 NIL，因为它们
+ * 不方便提供排序键。既然本例程目前反正
+ * 对路径键什么都不做，那就没关系……
+ * 但若以后会做，它应当从容应对缺少键数据。
+ * （实际上，我们最可能关心的只是排序键的个数，
+ * 所有调用方 *都能* 提供。）
  */
 void
 cost_sort(Path *path, PlannerInfo *root,
@@ -2119,9 +2119,9 @@ cost_sort(Path *path, PlannerInfo *root,
 
 /*
  * append_nonpartial_cost
- *	  Estimate the cost of the non-partial paths in a Parallel Append.
- *	  The non-partial paths are assumed to be the first "numpaths" paths
- *	  from the subpaths list, and to be in order of decreasing cost.
+ *	  估计并行 Append 中非部分路径的代价。
+ *	  假定非部分路径是 subpaths 列表中前 "numpaths" 条
+ *	  路径，并且按代价递减排序。
  */
 static Cost
 append_nonpartial_cost(List *subpaths, int numpaths, int parallel_workers)
@@ -2138,13 +2138,13 @@ append_nonpartial_cost(List *subpaths, int numpaths, int parallel_workers)
 		return 0;
 
 	/*
-	 * Array length is number of workers or number of relevant paths,
-	 * whichever is less.
+	 * 数组长度是工作进程数或相关路径数，
+	 * 取较小者。
 	 */
 	arrlen = Min(parallel_workers, numpaths);
 	costarr = (Cost *) palloc(sizeof(Cost) * arrlen);
 
-	/* The first few paths will each be claimed by a different worker. */
+	/* 前几条路径将各由不同的工作进程认领。 */
 	path_index = 0;
 	foreach(cell, subpaths)
 	{
@@ -2156,26 +2156,26 @@ append_nonpartial_cost(List *subpaths, int numpaths, int parallel_workers)
 	}
 
 	/*
-	 * Since subpaths are sorted by decreasing cost, the last one will have
-	 * the minimum cost.
+	 * 由于子路径按代价递减排序，最后一条将具有
+	 * 最小代价。
 	 */
 	min_index = arrlen - 1;
 
 	/*
-	 * For each of the remaining subpaths, add its cost to the array element
-	 * with minimum cost.
+	 * 对其余每条子路径，把它的代价加到具有最小代价的
+	 * 数组元素上。
 	 */
 	for_each_cell(l, subpaths, cell)
 	{
 		Path	   *subpath = (Path *) lfirst(l);
 
-		/* Consider only the non-partial paths */
+		/* 只考虑非部分路径 */
 		if (path_index++ == numpaths)
 			break;
 
 		costarr[min_index] += subpath->total_cost;
 
-		/* Update the new min cost array index */
+		/* 更新新的最小代价数组下标 */
 		min_index = 0;
 		for (int i = 0; i < arrlen; i++)
 		{
@@ -2184,7 +2184,7 @@ append_nonpartial_cost(List *subpaths, int numpaths, int parallel_workers)
 		}
 	}
 
-	/* Return the highest cost from the array */
+	/* 返回数组中的最高代价 */
 	max_index = 0;
 	for (int i = 0; i < arrlen; i++)
 	{
@@ -2197,7 +2197,7 @@ append_nonpartial_cost(List *subpaths, int numpaths, int parallel_workers)
 
 /*
  * cost_append
- *	  Determines and returns the cost of an Append node.
+ *	  确定并返回 Append 节点的代价。
  */
 void
 cost_append(AppendPath *apath)
@@ -2220,12 +2220,12 @@ cost_append(AppendPath *apath)
 			Path	   *firstsubpath = (Path *) linitial(apath->subpaths);
 
 			/*
-			 * For an unordered, non-parallel-aware Append we take the startup
-			 * cost as the startup cost of the first subpath.
+			 * 对无序、不感知并行的 Append，把启动
+			 * 代价取为第一条子路径的启动代价。
 			 */
 			apath->path.startup_cost = firstsubpath->startup_cost;
 
-			/* Compute rows and costs as sums of subplan rows and costs. */
+			/* 把行数和代价算成子计划行数和代价之和。 */
 			foreach(l, apath->subpaths)
 			{
 				Path	   *subpath = (Path *) lfirst(l);
@@ -2237,38 +2237,38 @@ cost_append(AppendPath *apath)
 		else
 		{
 			/*
-			 * For an ordered, non-parallel-aware Append we take the startup
-			 * cost as the sum of the subpath startup costs.  This ensures
-			 * that we don't underestimate the startup cost when a query's
-			 * LIMIT is such that several of the children have to be run to
-			 * satisfy it.  This might be overkill --- another plausible hack
-			 * would be to take the Append's startup cost as the maximum of
-			 * the child startup costs.  But we don't want to risk believing
-			 * that an ORDER BY LIMIT query can be satisfied at small cost
-			 * when the first child has small startup cost but later ones
-			 * don't.  (If we had the ability to deal with nonlinear cost
-			 * interpolation for partial retrievals, we would not need to be
-			 * so conservative about this.)
+			 * 对有序、不感知并行的 Append，把启动
+			 * 代价取为子路径启动代价之和。这确保
+			 * 当查询的
+			 * LIMIT 使得必须运行若干子项才能
+			 * 满足它时，我们不会低估启动代价。这也许过头了 --- 另一个说得通的做法
+			 * 是把 Append 的启动代价取为子项启动代价的
+			 * 最大值。但我们不想冒险认为
+			 * 一条 ORDER BY LIMIT 查询能以很小的代价得到满足，
+			 * 当第一个子项启动代价很小但后面的
+			 * 不是时。（若我们有能力处理非线性的
+			 * 部分检索代价插值，就不必
+			 * 对此如此保守。）
 			 *
-			 * This case is also different from the above in that we have to
-			 * account for possibly injecting sorts into subpaths that aren't
-			 * natively ordered.
+			 * 这种情形与上面不同，因为我们必须
+			 * 计入可能向本身没有原生顺序的子路径注入
+			 * 排序。
 			 */
 			foreach(l, apath->subpaths)
 			{
 				Path	   *subpath = (Path *) lfirst(l);
-				Path		sort_path;	/* dummy for result of cost_sort */
+				Path		sort_path;	/* cost_sort 结果的占位 */
 
 				if (!pathkeys_contained_in(pathkeys, subpath->pathkeys))
 				{
 					/*
-					 * We'll need to insert a Sort node, so include costs for
-					 * that.  We can use the parent's LIMIT if any, since we
-					 * certainly won't pull more than that many tuples from
-					 * any child.
+					 * 需要插入一个 Sort 节点，因此计入
+					 * 它的代价。若父项有 LIMIT，可以用它，因为我们
+					 * 肯定不会从
+					 * 任何子项取出比那更多的元组。
 					 */
 					cost_sort(&sort_path,
-							  NULL, /* doesn't currently need root */
+							  NULL, /* 目前不需要 root */
 							  pathkeys,
 							  subpath->total_cost,
 							  subpath->rows,
@@ -2285,23 +2285,23 @@ cost_append(AppendPath *apath)
 			}
 		}
 	}
-	else						/* parallel-aware */
+	else						/* 感知并行 */
 	{
 		int			i = 0;
 		double		parallel_divisor = get_parallel_divisor(&apath->path);
 
-		/* Parallel-aware Append never produces ordered output. */
+		/* 感知并行的 Append 从不产生有序输出。 */
 		Assert(apath->path.pathkeys == NIL);
 
-		/* Calculate startup cost. */
+		/* 计算启动代价。 */
 		foreach(l, apath->subpaths)
 		{
 			Path	   *subpath = (Path *) lfirst(l);
 
 			/*
-			 * Append will start returning tuples when the child node having
-			 * lowest startup cost is done setting up. We consider only the
-			 * first few subplans that immediately get a worker assigned.
+			 * 当启动代价最低的子节点
+			 * 完成建立时，Append 将开始返回元组。我们只考虑
+			 * 立刻分到工作进程的前几条子计划。
 			 */
 			if (i == 0)
 				apath->path.startup_cost = subpath->startup_cost;
@@ -2310,11 +2310,11 @@ cost_append(AppendPath *apath)
 											   subpath->startup_cost);
 
 			/*
-			 * Apply parallel divisor to subpaths.  Scale the number of rows
-			 * for each partial subpath based on the ratio of the parallel
-			 * divisor originally used for the subpath to the one we adopted.
-			 * Also add the cost of partial paths to the total cost, but
-			 * ignore non-partial paths for now.
+			 * 对子路径应用并行除数。根据原先用于该子路径的并行
+			 * 除数与我们采用的除数之比，缩放每条部分子路径的
+			 * 行数。
+			 * 也把部分路径的代价加到总代价，但
+			 * 暂时忽略非部分路径。
 			 */
 			if (i < apath->first_partial_path)
 				apath->path.rows += subpath->rows / parallel_divisor;
@@ -2333,7 +2333,7 @@ cost_append(AppendPath *apath)
 			i++;
 		}
 
-		/* Add cost for non-partial subpaths. */
+		/* 加上非部分子路径的代价。 */
 		apath->path.total_cost +=
 			append_nonpartial_cost(apath->subpaths,
 								   apath->first_partial_path,
@@ -2341,8 +2341,8 @@ cost_append(AppendPath *apath)
 	}
 
 	/*
-	 * Although Append does not do any selection or projection, it's not free;
-	 * add a small per-tuple overhead.
+	 * 虽然 Append 不做任何选择或投影，它也不是免费的；
+	 * 加上一小笔每元组开销。
 	 */
 	apath->path.total_cost +=
 		cpu_tuple_cost * APPEND_CPU_COST_MULTIPLIER * apath->path.rows;
@@ -2350,27 +2350,27 @@ cost_append(AppendPath *apath)
 
 /*
  * cost_merge_append
- *	  Determines and returns the cost of a MergeAppend node.
+ *	  确定并返回 MergeAppend 节点的代价。
  *
- * MergeAppend merges several pre-sorted input streams, using a heap that
- * at any given instant holds the next tuple from each stream.  If there
- * are N streams, we need about N*log2(N) tuple comparisons to construct
- * the heap at startup, and then for each output tuple, about log2(N)
- * comparisons to replace the top entry.
+ * MergeAppend 用一个堆归并若干已预排序的输入流，该堆
+ * 在任一时刻保存每个流的下一个元组。若
+ * 有 N 个流，启动时构造堆大约需要 N*log2(N) 次元组比较，
+ * 然后对每个输出元组，大约需要 log2(N)
+ * 次比较来替换堆顶项。
  *
- * (The effective value of N will drop once some of the input streams are
- * exhausted, but it seems unlikely to be worth trying to account for that.)
+ * （一旦某些输入流耗尽，N 的有效值会下降，
+ * 但试图计入这一点似乎不值得。）
  *
- * The heap is never spilled to disk, since we assume N is not very large.
- * So this is much simpler than cost_sort.
+ * 堆从不溢出到磁盘，因为我们假定 N 不是很大。
+ * 因此这比 cost_sort 简单得多。
  *
- * As in cost_sort, we charge two operator evals per tuple comparison.
+ * 与 cost_sort 一样，每次元组比较收取两次操作符求值。
  *
- * 'pathkeys' is a list of sort keys
- * 'n_streams' is the number of input streams
- * 'input_startup_cost' is the sum of the input streams' startup costs
- * 'input_total_cost' is the sum of the input streams' total costs
- * 'tuples' is the number of tuples in all the streams
+ * 'pathkeys' 是排序键列表
+ * 'n_streams' 是输入流的个数
+ * 'input_startup_cost' 是各输入流启动代价之和
+ * 'input_total_cost' 是各输入流总代价之和
+ * 'tuples' 是所有流中的元组数
  */
 void
 cost_merge_append(Path *path, PlannerInfo *root,
@@ -2385,23 +2385,23 @@ cost_merge_append(Path *path, PlannerInfo *root,
 	double		logN;
 
 	/*
-	 * Avoid log(0)...
+	 * 避免 log(0)……
 	 */
 	N = (n_streams < 2) ? 2.0 : (double) n_streams;
 	logN = LOG2(N);
 
-	/* Assumed cost per tuple comparison */
+	/* 假定的每次元组比较代价 */
 	comparison_cost = 2.0 * cpu_operator_cost;
 
-	/* Heap creation cost */
+	/* 建堆代价 */
 	startup_cost += comparison_cost * N * logN;
 
-	/* Per-tuple heap maintenance cost */
+	/* 每元组的堆维护代价 */
 	run_cost += tuples * comparison_cost * logN;
 
 	/*
-	 * Although MergeAppend does not do any selection or projection, it's not
-	 * free; add a small per-tuple overhead.
+	 * 虽然 MergeAppend 不做任何选择或投影，它也不是
+	 * 免费的；加上一小笔每元组开销。
 	 */
 	run_cost += cpu_tuple_cost * APPEND_CPU_COST_MULTIPLIER * tuples;
 
@@ -2411,15 +2411,15 @@ cost_merge_append(Path *path, PlannerInfo *root,
 
 /*
  * cost_material
- *	  Determines and returns the cost of materializing a relation, including
- *	  the cost of reading the input data.
+ *	  确定并返回物化一个关系的代价，包括
+ *	  读取输入数据的代价。
  *
- * If the total volume of data to materialize exceeds work_mem, we will need
- * to write it to disk, so the cost is much higher in that case.
+ * 若要物化的数据总量超过 work_mem，就需要
+ * 把它写到磁盘，那种情况下代价高得多。
  *
- * Note that here we are estimating the costs for the first scan of the
- * relation, so the materialization is all overhead --- any savings will
- * occur only on rescan, which is estimated in cost_rescan.
+ * 注意这里估计的是对该关系第一次扫描的
+ * 代价，因此物化全是开销 --- 任何节省只发生在
+ * 重新扫描时，那在 cost_rescan 中估计。
  */
 void
 cost_material(Path *path,
@@ -2434,24 +2434,24 @@ cost_material(Path *path,
 	path->rows = tuples;
 
 	/*
-	 * Whether spilling or not, charge 2x cpu_operator_cost per tuple to
-	 * reflect bookkeeping overhead.  (This rate must be more than what
-	 * cost_rescan charges for materialize, ie, cpu_operator_cost per tuple;
-	 * if it is exactly the same then there will be a cost tie between
-	 * nestloop with A outer, materialized B inner and nestloop with B outer,
-	 * materialized A inner.  The extra cost ensures we'll prefer
-	 * materializing the smaller rel.)	Note that this is normally a good deal
-	 * less than cpu_tuple_cost; which is OK because a Material plan node
-	 * doesn't do qual-checking or projection, so it's got less overhead than
-	 * most plan nodes.
+	 * 无论是否溢出，每个元组收取 2 倍 cpu_operator_cost，以
+	 * 反映簿记开销。（这个费率必须高于
+	 * cost_rescan 对物化收取的每个元组 cpu_operator_cost；
+	 * 若完全相同，则 A 在外侧、物化的 B 在内侧的嵌套循环，与 B 在外侧、
+	 * 物化的 A 在内侧的嵌套循环之间会出现代价平局。额外代价确保我们更愿意
+	 * 物化较小的关系。）
+	 * 注意这通常比
+	 * cpu_tuple_cost 小不少；这可以，因为 Material 计划节点
+	 * 不做限定条件检查或投影，因此开销比
+	 * 多数计划节点小。
 	 */
 	run_cost += 2 * cpu_operator_cost * tuples;
 
 	/*
-	 * If we will spill to disk, charge at the rate of seq_page_cost per page.
-	 * This cost is assumed to be evenly spread through the plan run phase,
-	 * which isn't exactly accurate but our cost model doesn't allow for
-	 * nonuniform costs within the run phase.
+	 * 若将溢出到磁盘，按每页 seq_page_cost 的费率收取。
+	 * 假定这笔代价均匀分布在计划运行阶段，
+	 * 这并不完全准确，但我们的代价模型不允许
+	 * 运行阶段内的非均匀代价。
 	 */
 	if (nbytes > work_mem_bytes)
 	{
@@ -2466,16 +2466,16 @@ cost_material(Path *path,
 
 /*
  * cost_memoize_rescan
- *	  Determines the estimated cost of rescanning a Memoize node.
+ *	  确定重新扫描 Memoize 节点的估计代价。
  *
- * In order to estimate this, we must gain knowledge of how often we expect to
- * be called and how many distinct sets of parameters we are likely to be
- * called with. If we expect a good cache hit ratio, then we can set our
- * costs to account for that hit ratio, plus a little bit of cost for the
- * caching itself.  Caching will not work out well if we expect to be called
- * with too many distinct parameter values.  The worst-case here is that we
- * never see any parameter value twice, in which case we'd never get a cache
- * hit and caching would be a complete waste of effort.
+ * 为了估计这一点，必须了解预期被调用的频率，以及
+ * 可能带着多少组不同的参数被
+ * 调用。若预期缓存命中率不错，就可以把
+ * 代价设成计入该命中率，再加上缓存本身的一小笔代价。
+ * 若预期带着过多不同的参数值被调用，缓存就不会很好。
+ * 这里最坏的情况是我们
+ * 从未看见任何参数值出现两次，那时永远不会命中缓存，
+ * 缓存就完全是白费力气。
  */
 static void
 cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
@@ -2498,65 +2498,65 @@ cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
 	Cost		startup_cost;
 	Cost		total_cost;
 
-	/* available cache space */
+	/* 可用的缓存空间 */
 	hash_mem_bytes = get_hash_memory_limit();
 
 	/*
-	 * Set the number of bytes each cache entry should consume in the cache.
-	 * To provide us with better estimations on how many cache entries we can
-	 * store at once, we make a call to the executor here to ask it what
-	 * memory overheads there are for a single cache entry.
+	 * 设置每个缓存项在缓存中应占用的字节数。
+	 * 为了更好地估计一次能存多少缓存项，
+	 * 这里调用执行器，询问
+	 * 单个缓存项有哪些内存开销。
 	 */
 	est_entry_bytes = relation_byte_size(tuples, width) +
 		ExecEstimateCacheEntryOverheadBytes(tuples);
 
-	/* include the estimated width for the cache keys */
+	/* 包括缓存键的估计宽度 */
 	foreach(lc, mpath->param_exprs)
 		est_entry_bytes += get_expr_width(root, (Node *) lfirst(lc));
 
-	/* estimate on the upper limit of cache entries we can hold at once */
+	/* 一次能容纳的缓存项数上限的估计 */
 	est_cache_entries = floor(hash_mem_bytes / est_entry_bytes);
 
-	/* estimate on the distinct number of parameter values */
+	/* 不同参数值个数的估计 */
 	ndistinct = estimate_num_groups(root, mpath->param_exprs, calls, NULL,
 									&estinfo);
 
 	/*
-	 * When the estimation fell back on using a default value, it's a bit too
-	 * risky to assume that it's ok to use a Memoize node.  The use of a
-	 * default could cause us to use a Memoize node when it's really
-	 * inappropriate to do so.  If we see that this has been done, then we'll
-	 * assume that every call will have unique parameters, which will almost
-	 * certainly mean a MemoizePath will never survive add_path().
+	 * 当估计退回到使用默认值时，假定可以使用 Memoize 节点就有点太
+	 * 冒险。使用
+	 * 默认值可能导致在其实
+	 * 不合适时使用 Memoize 节点。若看到已经这样做了，就
+	 * 假定每次调用的参数都是唯一的，这几乎
+	 * 肯定意味着 MemoizePath 永远通不过 add_path()。
 	 */
 	if ((estinfo.flags & SELFLAG_USED_DEFAULT) != 0)
 		ndistinct = calls;
 
 	/*
-	 * Since we've already estimated the maximum number of entries we can
-	 * store at once and know the estimated number of distinct values we'll be
-	 * called with, we'll take this opportunity to set the path's est_entries.
-	 * This will ultimately determine the hash table size that the executor
-	 * will use.  If we leave this at zero, the executor will just choose the
-	 * size itself.  Really this is not the right place to do this, but it's
-	 * convenient since everything is already calculated.
+	 * 既然已经估计了一次能存储的最大项数，
+	 * 并且知道将被调用时的不同值估计个数，
+	 * 就借此机会设置路径的 est_entries。
+	 * 这最终决定执行器
+	 * 将使用的哈希表大小。若把它留为零，执行器会自己
+	 * 选择大小。这其实不是做这件事的正确地方，但
+	 * 既然一切都已经算好，这样做很方便。
 	 */
 	mpath->est_entries = Min(Min(ndistinct, est_cache_entries),
 							 PG_UINT32_MAX);
 
 	/*
-	 * When the number of distinct parameter values is above the amount we can
-	 * store in the cache, then we'll have to evict some entries from the
-	 * cache.  This is not free. Here we estimate how often we'll incur the
-	 * cost of that eviction.
+	 * 当不同参数值的个数高于缓存能
+	 * 存储的数量时，就必须从
+	 * 缓存中逐出一些项。这不是免费的。这里估计会多常
+	 * 承担那次逐出的代价。
 	 */
 	evict_ratio = 1.0 - Min(est_cache_entries, ndistinct) / ndistinct;
 
 	/*
-	 * In order to estimate how costly a single scan will be, we need to
-	 * attempt to estimate what the cache hit ratio will be.  To do that we
-	 * must look at how many scans are estimated in total for this node and
-	 * how many of those scans we expect to get a cache hit.
+	 * 为了估计单次扫描有多贵，需要
+	 * 试着估计缓存命中率会是多少。为此必须
+	 * 看这个节点总共估计有多少次扫描，以及
+	 * 其中有多少次扫描预期会命中缓存。
 	 */
 	hit_ratio = ((calls - ndistinct) / calls) *
 		(est_cache_entries / Max(ndistinct, est_cache_entries));
@@ -2564,42 +2564,42 @@ cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
 	Assert(hit_ratio >= 0 && hit_ratio <= 1.0);
 
 	/*
-	 * Set the total_cost accounting for the expected cache hit ratio.  We
-	 * also add on a cpu_operator_cost to account for a cache lookup. This
-	 * will happen regardless of whether it's a cache hit or not.
+	 * 按预期缓存命中率设置 total_cost。还
+	 * 加上一次 cpu_operator_cost 以计入缓存查找。无论
+	 * 是否命中都会发生。
 	 */
 	total_cost = input_total_cost * (1.0 - hit_ratio) + cpu_operator_cost;
 
-	/* Now adjust the total cost to account for cache evictions */
+	/* 现在调整总代价以计入缓存逐出 */
 
-	/* Charge a cpu_tuple_cost for evicting the actual cache entry */
+	/* 为逐出实际的缓存项收取一次 cpu_tuple_cost */
 	total_cost += cpu_tuple_cost * evict_ratio;
 
 	/*
-	 * Charge a 10th of cpu_operator_cost to evict every tuple in that entry.
-	 * The per-tuple eviction is really just a pfree, so charging a whole
-	 * cpu_operator_cost seems a little excessive.
+	 * 为逐出该项中的每个元组收取十分之一 cpu_operator_cost。
+	 * 每元组逐出其实只是一次 pfree，因此收取整整一次
+	 * cpu_operator_cost 似乎有点过分。
 	 */
 	total_cost += cpu_operator_cost / 10.0 * evict_ratio * tuples;
 
 	/*
-	 * Now adjust for storing things in the cache, since that's not free
-	 * either.  Everything must go in the cache.  We don't proportion this
-	 * over any ratio, just apply it once for the scan.  We charge a
-	 * cpu_tuple_cost for the creation of the cache entry and also a
-	 * cpu_operator_cost for each tuple we expect to cache.
+	 * 现在调整把东西存进缓存的代价，因为那也不是免费的。
+	 * 一切都必须进缓存。我们不按任何比例
+	 * 分摊，只对这次扫描应用一次。为
+	 * 创建缓存项收取一次 cpu_tuple_cost，也为预期要缓存的每个元组收取一次
+	 * cpu_operator_cost。
 	 */
 	total_cost += cpu_tuple_cost + cpu_operator_cost * tuples;
 
 	/*
-	 * Getting the first row must be also be proportioned according to the
-	 * expected cache hit ratio.
+	 * 取得第一行也必须按
+	 * 预期缓存命中率按比例计算。
 	 */
 	startup_cost = input_startup_cost * (1.0 - hit_ratio);
 
 	/*
-	 * Additionally we charge a cpu_tuple_cost to account for cache lookups,
-	 * which we'll do regardless of whether it was a cache hit or not.
+	 * 另外收取一次 cpu_tuple_cost 以计入缓存查找，
+	 * 无论是否命中都会做。
 	 */
 	startup_cost += cpu_tuple_cost;
 
@@ -2609,14 +2609,14 @@ cost_memoize_rescan(PlannerInfo *root, MemoizePath *mpath,
 
 /*
  * cost_agg
- *		Determines and returns the cost of performing an Agg plan node,
- *		including the cost of its input.
+ *		确定并返回执行 Agg 计划节点的代价，
+ *		包括其输入的代价。
  *
- * aggcosts can be NULL when there are no actual aggregate functions (i.e.,
- * we are using a hashed Agg node just to do grouping).
+ * 当没有实际的聚合函数时，aggcosts 可以为 NULL（即
+ * 只用哈希 Agg 节点来做分组）。
  *
- * Note: when aggstrategy == AGG_SORTED, caller must ensure that input costs
- * are for appropriately-sorted input.
+ * 注意：当 aggstrategy == AGG_SORTED 时，调用方必须确保输入代价
+ * 是针对已适当排序的输入的。
  */
 void
 cost_agg(Path *path, PlannerInfo *root,
@@ -2631,7 +2631,7 @@ cost_agg(Path *path, PlannerInfo *root,
 	Cost		total_cost;
 	AggClauseCosts dummy_aggcosts;
 
-	/* Use all-zero per-aggregate costs if NULL is passed */
+	/* 若传入 NULL，就使用全零的每聚合代价 */
 	if (aggcosts == NULL)
 	{
 		Assert(aggstrategy == AGG_HASHED);
@@ -2640,26 +2640,26 @@ cost_agg(Path *path, PlannerInfo *root,
 	}
 
 	/*
-	 * The transCost.per_tuple component of aggcosts should be charged once
-	 * per input tuple, corresponding to the costs of evaluating the aggregate
-	 * transfns and their input expressions. The finalCost.per_tuple component
-	 * is charged once per output tuple, corresponding to the costs of
-	 * evaluating the finalfns.  Startup costs are of course charged but once.
+	 * aggcosts 的 transCost.per_tuple 分量应当对每个
+	 * 输入元组收取一次，对应于求值聚合
+	 * 转移函数及其输入表达式的代价。finalCost.per_tuple 分量
+	 * 对每个输出元组收取一次，对应于求值
+	 * 最终函数的代价。启动代价当然只收取一次。
 	 *
-	 * If we are grouping, we charge an additional cpu_operator_cost per
-	 * grouping column per input tuple for grouping comparisons.
+	 * 若在分组，就对每个
+	 * 输入元组的每个分组列额外收取一次 cpu_operator_cost，用于分组比较。
 	 *
-	 * We will produce a single output tuple if not grouping, and a tuple per
-	 * group otherwise.  We charge cpu_tuple_cost for each output tuple.
+	 * 若不分组，将产生单个输出元组，否则每个
+	 * 组一个元组。对每个输出元组收取 cpu_tuple_cost。
 	 *
-	 * Note: in this cost model, AGG_SORTED and AGG_HASHED have exactly the
-	 * same total CPU cost, but AGG_SORTED has lower startup cost.  If the
-	 * input path is already sorted appropriately, AGG_SORTED should be
-	 * preferred (since it has no risk of memory overflow).  This will happen
-	 * as long as the computed total costs are indeed exactly equal --- but if
-	 * there's roundoff error we might do the wrong thing.  So be sure that
-	 * the computations below form the same intermediate values in the same
-	 * order.
+	 * 注意：在这个代价模型里，AGG_SORTED 和 AGG_HASHED 的总
+	 * CPU 代价完全相同，但 AGG_SORTED 的启动代价更低。若
+	 * 输入路径已经适当排好序，应当优先选 AGG_SORTED
+	 * （因为它没有内存溢出的风险）。只要
+	 * 算出的总代价确实完全相等，就会这样 --- 但若
+	 * 有舍入误差，我们可能会做错。
+	 * 因此确保
+	 * 下面的计算以相同顺序形成相同的中间值。
 	 */
 	if (aggstrategy == AGG_PLAIN)
 	{
@@ -2668,13 +2668,13 @@ cost_agg(Path *path, PlannerInfo *root,
 		startup_cost += aggcosts->transCost.per_tuple * input_tuples;
 		startup_cost += aggcosts->finalCost.startup;
 		startup_cost += aggcosts->finalCost.per_tuple;
-		/* we aren't grouping */
+		/* 我们不在分组 */
 		total_cost = startup_cost + cpu_tuple_cost;
 		output_tuples = 1;
 	}
 	else if (aggstrategy == AGG_SORTED || aggstrategy == AGG_MIXED)
 	{
-		/* Here we are able to deliver output on-the-fly */
+		/* 这里能够随时交付输出 */
 		startup_cost = input_startup_cost;
 		total_cost = input_total_cost;
 		if (aggstrategy == AGG_MIXED && !enable_hashagg)
@@ -2682,7 +2682,7 @@ cost_agg(Path *path, PlannerInfo *root,
 			startup_cost += disable_cost;
 			total_cost += disable_cost;
 		}
-		/* calcs phrased this way to match HASHED case, see note above */
+		/* 计算这样表述是为了匹配 HASHED 情形，见上面的说明 */
 		total_cost += aggcosts->transCost.startup;
 		total_cost += aggcosts->transCost.per_tuple * input_tuples;
 		total_cost += (cpu_operator_cost * numGroupCols) * input_tuples;
@@ -2693,35 +2693,35 @@ cost_agg(Path *path, PlannerInfo *root,
 	}
 	else
 	{
-		/* must be AGG_HASHED */
+		/* 必须是 AGG_HASHED */
 		startup_cost = input_total_cost;
 		if (!enable_hashagg)
 			startup_cost += disable_cost;
 		startup_cost += aggcosts->transCost.startup;
 		startup_cost += aggcosts->transCost.per_tuple * input_tuples;
-		/* cost of computing hash value */
+		/* 计算哈希值的代价 */
 		startup_cost += (cpu_operator_cost * numGroupCols) * input_tuples;
 		startup_cost += aggcosts->finalCost.startup;
 
 		total_cost = startup_cost;
 		total_cost += aggcosts->finalCost.per_tuple * numGroups;
-		/* cost of retrieving from hash table */
+		/* 从哈希表检索的代价 */
 		total_cost += cpu_tuple_cost * numGroups;
 		output_tuples = numGroups;
 	}
 
 	/*
-	 * Add the disk costs of hash aggregation that spills to disk.
+	 * 加上溢出到磁盘的哈希聚合的磁盘代价。
 	 *
-	 * Groups that go into the hash table stay in memory until finalized, so
-	 * spilling and reprocessing tuples doesn't incur additional invocations
-	 * of transCost or finalCost. Furthermore, the computed hash value is
-	 * stored with the spilled tuples, so we don't incur extra invocations of
-	 * the hash function.
+	 * 进入哈希表的组一直留在内存里直到定稿，因此
+	 * 溢出并重新处理元组不会引起额外的
+	 * transCost 或 finalCost 调用。而且，算出的哈希值
+	 * 与溢出的元组一起存储，因此不会额外调用
+	 * 哈希函数。
 	 *
-	 * Hash Agg begins returning tuples after the first batch is complete.
-	 * Accrue writes (spilled tuples) to startup_cost and to total_cost;
-	 * accrue reads only to total_cost.
+	 * 哈希聚合在第一批完成之后开始返回元组。
+	 * 把写（溢出的元组）计入 startup_cost 和 total_cost；
+	 * 读只计入 total_cost。
 	 */
 	if (aggstrategy == AGG_HASHED || aggstrategy == AGG_MIXED)
 	{
@@ -2737,9 +2737,9 @@ cost_agg(Path *path, PlannerInfo *root,
 		int			depth;
 
 		/*
-		 * Estimate number of batches based on the computed limits. If less
-		 * than or equal to one, all groups are expected to fit in memory;
-		 * otherwise we expect to spill.
+		 * 根据算出的限制估计批次数。若小于
+		 * 或等于一，预期全部组都能放进内存；
+		 * 否则预期会溢出。
 		 */
 		hashentrysize = hash_agg_entry_size(list_length(root->aggtransinfos),
 											input_width,
@@ -2754,22 +2754,22 @@ cost_agg(Path *path, PlannerInfo *root,
 		num_partitions = Max(num_partitions, 2);
 
 		/*
-		 * The number of partitions can change at different levels of
-		 * recursion; but for the purposes of this calculation assume it stays
-		 * constant.
+		 * 分区数在不同的递归
+		 * 层次可能变化；但为了这次计算，假定它保持
+		 * 不变。
 		 */
 		depth = ceil(log(nbatches) / log(num_partitions));
 
 		/*
-		 * Estimate number of pages read and written. For each level of
-		 * recursion, a tuple must be written and then later read.
+		 * 估计读和写的页数。对每一层
+		 * 递归，一个元组必须先写、以后再读。
 		 */
 		pages = relation_byte_size(input_tuples, input_width) / BLCKSZ;
 		pages_written = pages_read = pages * depth;
 
 		/*
-		 * HashAgg has somewhat worse IO behavior than Sort on typical
-		 * hardware/OS combinations. Account for this with a generic penalty.
+		 * 在典型的硬件/操作系统组合上，HashAgg 的 IO 行为比 Sort 略差。
+		 * 用一项通用惩罚来计入这一点。
 		 */
 		pages_read *= 2.0;
 		pages_written *= 2.0;
@@ -2778,15 +2778,15 @@ cost_agg(Path *path, PlannerInfo *root,
 		total_cost += pages_written * random_page_cost;
 		total_cost += pages_read * seq_page_cost;
 
-		/* account for CPU cost of spilling a tuple and reading it back */
+		/* 计入溢出一个元组再读回来的 CPU 代价 */
 		spill_cost = depth * input_tuples * 2.0 * cpu_tuple_cost;
 		startup_cost += spill_cost;
 		total_cost += spill_cost;
 	}
 
 	/*
-	 * If there are quals (HAVING quals), account for their cost and
-	 * selectivity.
+	 * 若有限定条件（HAVING 限定条件），计入它们的代价和
+	 * 选择率。
 	 */
 	if (quals)
 	{
@@ -2811,10 +2811,10 @@ cost_agg(Path *path, PlannerInfo *root,
 
 /*
  * cost_windowagg
- *		Determines and returns the cost of performing a WindowAgg plan node,
- *		including the cost of its input.
+ *		确定并返回执行 WindowAgg 计划节点的代价，
+ *		包括其输入的代价。
  *
- * Input is assumed already properly sorted.
+ * 假定输入已经正确排序。
  */
 void
 cost_windowagg(Path *path, PlannerInfo *root,
@@ -2830,13 +2830,13 @@ cost_windowagg(Path *path, PlannerInfo *root,
 	total_cost = input_total_cost;
 
 	/*
-	 * Window functions are assumed to cost their stated execution cost, plus
-	 * the cost of evaluating their input expressions, per tuple.  Since they
-	 * may in fact evaluate their inputs at multiple rows during each cycle,
-	 * this could be a drastic underestimate; but without a way to know how
-	 * many rows the window function will fetch, it's hard to do better.  In
-	 * any case, it's a good estimate for all the built-in window functions,
-	 * so we'll just do this for now.
+	 * 假定窗口函数的代价是它们声明的执行代价，加上
+	 * 每个元组求值其输入表达式的代价。由于它们
+	 * 事实上可能在每个周期的多行上求值输入，
+	 * 这可能严重低估；但没有办法知道
+	 * 窗口函数会取出多少行，就很难做得更好。在
+	 * 任何情况下，这对所有内建窗口函数都是好的估计，
+	 * 所以目前就这样做。
 	 */
 	foreach(lc, windowFuncs)
 	{
@@ -2850,14 +2850,14 @@ cost_windowagg(Path *path, PlannerInfo *root,
 		startup_cost += argcosts.startup;
 		wfunccost = argcosts.per_tuple;
 
-		/* also add the input expressions' cost to per-input-row costs */
+		/* 也把输入表达式的代价加到每个输入行的代价上 */
 		cost_qual_eval_node(&argcosts, (Node *) wfunc->args, root);
 		startup_cost += argcosts.startup;
 		wfunccost += argcosts.per_tuple;
 
 		/*
-		 * Add the filter's cost to per-input-row costs.  XXX We should reduce
-		 * input expression costs according to filter selectivity.
+		 * 把过滤器的代价加到每个输入行的代价上。XXX 应当根据
+		 * 过滤器选择率降低输入表达式代价。
 		 */
 		cost_qual_eval_node(&argcosts, (Node *) wfunc->aggfilter, root);
 		startup_cost += argcosts.startup;
@@ -2867,12 +2867,12 @@ cost_windowagg(Path *path, PlannerInfo *root,
 	}
 
 	/*
-	 * We also charge cpu_operator_cost per grouping column per tuple for
-	 * grouping comparisons, plus cpu_tuple_cost per tuple for general
-	 * overhead.
+	 * 还对每个元组的每个分组列收取 cpu_operator_cost，用于
+	 * 分组比较，再加上每个元组的 cpu_tuple_cost 作为一般
+	 * 开销。
 	 *
-	 * XXX this neglects costs of spooling the data to disk when it overflows
-	 * work_mem.  Sooner or later that should get accounted for.
+	 * XXX 这忽略了数据溢出
+	 * work_mem 时写到磁盘的代价。迟早应当把那计入。
 	 */
 	total_cost += cpu_operator_cost * (numPartCols + numOrderCols) * input_tuples;
 	total_cost += cpu_tuple_cost * input_tuples;
@@ -2884,11 +2884,11 @@ cost_windowagg(Path *path, PlannerInfo *root,
 
 /*
  * cost_group
- *		Determines and returns the cost of performing a Group plan node,
- *		including the cost of its input.
+ *		确定并返回执行 Group 计划节点的代价，
+ *		包括其输入的代价。
  *
- * Note: caller must ensure that input costs are for appropriately-sorted
- * input.
+ * 注意：调用方必须确保输入代价是针对已适当排序的
+ * 输入的。
  */
 void
 cost_group(Path *path, PlannerInfo *root,
@@ -2906,14 +2906,14 @@ cost_group(Path *path, PlannerInfo *root,
 	total_cost = input_total_cost;
 
 	/*
-	 * Charge one cpu_operator_cost per comparison per input tuple. We assume
-	 * all columns get compared at most of the tuples.
+	 * 对每个输入元组的每次比较收取一次 cpu_operator_cost。假定
+	 * 多数元组上所有列都会被比较。
 	 */
 	total_cost += cpu_operator_cost * input_tuples * numGroupCols;
 
 	/*
-	 * If there are quals (HAVING quals), account for their cost and
-	 * selectivity.
+	 * 若有限定条件（HAVING 限定条件），计入它们的代价和
+	 * 选择率。
 	 */
 	if (quals)
 	{
@@ -2938,27 +2938,27 @@ cost_group(Path *path, PlannerInfo *root,
 
 /*
  * initial_cost_nestloop
- *	  Preliminary estimate of the cost of a nestloop join path.
+ *	  嵌套循环连接路径代价的初步估计。
  *
- * This must quickly produce lower-bound estimates of the path's startup and
- * total costs.  If we are unable to eliminate the proposed path from
- * consideration using the lower bounds, final_cost_nestloop will be called
- * to obtain the final estimates.
+ * 这必须迅速产生该路径启动代价和
+ * 总代价的下界估计。若无法用下界把提议的路径从
+ * 考虑中排除，就会调用 final_cost_nestloop
+ * 以取得最终估计。
  *
- * The exact division of labor between this function and final_cost_nestloop
- * is private to them, and represents a tradeoff between speed of the initial
- * estimate and getting a tight lower bound.  We choose to not examine the
- * join quals here, since that's by far the most expensive part of the
- * calculations.  The end result is that CPU-cost considerations must be
- * left for the second phase; and for SEMI/ANTI joins, we must also postpone
- * incorporation of the inner path's run cost.
+ * 本函数与 final_cost_nestloop 之间的分工
+ * 是它们私有的，代表初始估计速度
+ * 与得到较紧下界之间的折中。这里选择不检查
+ * 连接限定条件，因为那是计算中最贵的部分。
+ * 最终结果是 CPU 代价的考虑必须
+ * 留到第二阶段；对 SEMI/ANTI 连接，还必须推迟
+ * 并入内层路径的运行代价。
  *
- * 'workspace' is to be filled with startup_cost, total_cost, and perhaps
- *		other data to be used by final_cost_nestloop
- * 'jointype' is the type of join to be performed
- * 'outer_path' is the outer input to the join
- * 'inner_path' is the inner input to the join
- * 'extra' contains miscellaneous information about the join
+ * 'workspace' 将被填入 startup_cost、total_cost，也许还有
+ *		供 final_cost_nestloop 使用的其他数据
+ * 'jointype' 是要执行的连接类型
+ * 'outer_path' 是连接的外侧输入
+ * 'inner_path' 是连接的内侧输入
+ * 'extra' 含有关于该连接的杂项信息
  */
 void
 initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
@@ -2974,18 +2974,18 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 	Cost		inner_run_cost;
 	Cost		inner_rescan_run_cost;
 
-	/* estimate costs to rescan the inner relation */
+	/* 估计重新扫描内层关系的代价 */
 	cost_rescan(root, inner_path,
 				&inner_rescan_start_cost,
 				&inner_rescan_total_cost);
 
-	/* cost of source data */
+	/* 源数据的代价 */
 
 	/*
-	 * NOTE: clearly, we must pay both outer and inner paths' startup_cost
-	 * before we can start returning tuples, so the join's startup cost is
-	 * their sum.  We'll also pay the inner path's rescan startup cost
-	 * multiple times.
+	 * 注意：显然，在开始返回元组之前必须支付
+	 * 外侧和内侧路径的 startup_cost，
+	 * 因此连接的启动代价是
+	 * 它们之和。还会多次支付内层路径的重新扫描启动代价。
 	 */
 	startup_cost += outer_path->startup_cost + inner_path->startup_cost;
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
@@ -2999,41 +2999,41 @@ initial_cost_nestloop(PlannerInfo *root, JoinCostWorkspace *workspace,
 		extra->inner_unique)
 	{
 		/*
-		 * With a SEMI or ANTI join, or if the innerrel is known unique, the
-		 * executor will stop after the first match.
+		 * 对 SEMI 或 ANTI 连接，或者已知内层关系唯一时，
+		 * 执行器会在第一次匹配后停止。
 		 *
-		 * Getting decent estimates requires inspection of the join quals,
-		 * which we choose to postpone to final_cost_nestloop.
+		 * 要得到像样的估计，需要检查连接限定条件，
+		 * 我们选择把这推迟到 final_cost_nestloop。
 		 */
 
-		/* Save private data for final_cost_nestloop */
+		/* 为 final_cost_nestloop 保存私有数据 */
 		workspace->inner_run_cost = inner_run_cost;
 		workspace->inner_rescan_run_cost = inner_rescan_run_cost;
 	}
 	else
 	{
-		/* Normal case; we'll scan whole input rel for each outer row */
+		/* 普通情形；对每个外侧行将扫描整个输入关系 */
 		run_cost += inner_run_cost;
 		if (outer_path_rows > 1)
 			run_cost += (outer_path_rows - 1) * inner_rescan_run_cost;
 	}
 
-	/* CPU costs left for later */
+	/* CPU 代价留到以后 */
 
-	/* Public result fields */
+	/* 公开的结果字段 */
 	workspace->startup_cost = startup_cost;
 	workspace->total_cost = startup_cost + run_cost;
-	/* Save private data for final_cost_nestloop */
+	/* 为 final_cost_nestloop 保存私有数据 */
 	workspace->run_cost = run_cost;
 }
 
 /*
  * final_cost_nestloop
- *	  Final estimate of the cost and result size of a nestloop join path.
+ *	  嵌套循环连接路径的代价和结果规模的最终估计。
  *
- * 'path' is already filled in except for the rows and cost fields
- * 'workspace' is the result from initial_cost_nestloop
- * 'extra' contains miscellaneous information about the join
+ * 'path' 除了行数和代价字段之外已经填好
+ * 'workspace' 是 initial_cost_nestloop 的结果
+ * 'extra' 含有关于该连接的杂项信息
  */
 void
 final_cost_nestloop(PlannerInfo *root, NestPath *path,
@@ -3050,18 +3050,18 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	QualCost	restrict_qual_cost;
 	double		ntuples;
 
-	/* Protect some assumptions below that rowcounts aren't zero */
+	/* 保护下面关于行数不为零的一些假定 */
 	if (outer_path_rows <= 0)
 		outer_path_rows = 1;
 	if (inner_path_rows <= 0)
 		inner_path_rows = 1;
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (path->jpath.path.param_info)
 		path->jpath.path.rows = path->jpath.path.param_info->ppi_rows;
 	else
 		path->jpath.path.rows = path->jpath.path.parent->rows;
 
-	/* For partial paths, scale row estimate. */
+	/* 对部分路径，缩放行数估计。 */
 	if (path->jpath.path.parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(&path->jpath.path);
@@ -3071,21 +3071,21 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 	}
 
 	/*
-	 * We could include disable_cost in the preliminary estimate, but that
-	 * would amount to optimizing for the case where the join method is
-	 * disabled, which doesn't seem like the way to bet.
+	 * 可以把 disable_cost 包括进初步估计，但那
+	 * 等于针对连接方法被
+	 * 禁用的情形做优化，似乎不该押在那上面。
 	 */
 	if (!enable_nestloop)
 		startup_cost += disable_cost;
 
-	/* cost of inner-relation source data (we already dealt with outer rel) */
+	/* 内层关系源数据的代价（外侧关系已经处理过） */
 
 	if (path->jpath.jointype == JOIN_SEMI || path->jpath.jointype == JOIN_ANTI ||
 		extra->inner_unique)
 	{
 		/*
-		 * With a SEMI or ANTI join, or if the innerrel is known unique, the
-		 * executor will stop after the first match.
+		 * 对 SEMI 或 ANTI 连接，或者已知内层关系唯一时，
+		 * 执行器会在第一次匹配后停止。
 		 */
 		Cost		inner_run_cost = workspace->inner_run_cost;
 		Cost		inner_rescan_run_cost = workspace->inner_rescan_run_cost;
@@ -3094,116 +3094,116 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 		Selectivity inner_scan_frac;
 
 		/*
-		 * For an outer-rel row that has at least one match, we can expect the
-		 * inner scan to stop after a fraction 1/(match_count+1) of the inner
-		 * rows, if the matches are evenly distributed.  Since they probably
-		 * aren't quite evenly distributed, we apply a fuzz factor of 2.0 to
-		 * that fraction.  (If we used a larger fuzz factor, we'd have to
-		 * clamp inner_scan_frac to at most 1.0; but since match_count is at
-		 * least 1, no such clamp is needed now.)
+		 * 对至少有一次匹配的外侧行，可以预期
+		 * 内层扫描在内层行的 1/(match_count+1) 这个比例之后停止，
+		 * 若匹配均匀分布。由于它们大概
+		 * 并不十分均匀，对该比例施加 2.0 的模糊因子。
+		 * （若用更大的模糊因子，就必须把
+		 * inner_scan_frac 钳制到至多 1.0；但既然 match_count 至少
+		 * 为 1，现在不需要这样的钳制。）
 		 */
 		outer_matched_rows = rint(outer_path_rows * extra->semifactors.outer_match_frac);
 		outer_unmatched_rows = outer_path_rows - outer_matched_rows;
 		inner_scan_frac = 2.0 / (extra->semifactors.match_count + 1.0);
 
 		/*
-		 * Compute number of tuples processed (not number emitted!).  First,
-		 * account for successfully-matched outer rows.
+		 * 计算处理的元组数（不是发出的个数！）。首先，
+		 * 计入成功匹配的外侧行。
 		 */
 		ntuples = outer_matched_rows * inner_path_rows * inner_scan_frac;
 
 		/*
-		 * Now we need to estimate the actual costs of scanning the inner
-		 * relation, which may be quite a bit less than N times inner_run_cost
-		 * due to early scan stops.  We consider two cases.  If the inner path
-		 * is an indexscan using all the joinquals as indexquals, then an
-		 * unmatched outer row results in an indexscan returning no rows,
-		 * which is probably quite cheap.  Otherwise, the executor will have
-		 * to scan the whole inner rel for an unmatched row; not so cheap.
+		 * 现在需要估计扫描内层
+		 * 关系的实际代价，由于提前停止扫描，这可能比 N 乘 inner_run_cost
+		 * 小不少。考虑两种情形。若内层路径
+		 * 是把全部连接限定条件都用作索引限定条件的索引扫描，那么
+		 * 未匹配的外侧行会导致索引扫描不返回行，
+		 * 这大概相当便宜。否则，执行器将不得不
+		 * 为未匹配的行扫描整个内层关系；没那么便宜。
 		 */
 		if (has_indexed_join_quals(path))
 		{
 			/*
-			 * Successfully-matched outer rows will only require scanning
-			 * inner_scan_frac of the inner relation.  In this case, we don't
-			 * need to charge the full inner_run_cost even when that's more
-			 * than inner_rescan_run_cost, because we can assume that none of
-			 * the inner scans ever scan the whole inner relation.  So it's
-			 * okay to assume that all the inner scan executions can be
-			 * fractions of the full cost, even if materialization is reducing
-			 * the rescan cost.  At this writing, it's impossible to get here
-			 * for a materialized inner scan, so inner_run_cost and
-			 * inner_rescan_run_cost will be the same anyway; but just in
-			 * case, use inner_run_cost for the first matched tuple and
-			 * inner_rescan_run_cost for additional ones.
+			 * 成功匹配的外侧行只需要扫描
+			 * 内层关系的 inner_scan_frac。这种情况下，即使 inner_run_cost
+			 * 高于 inner_rescan_run_cost，也不
+			 * 需要收取全部 inner_run_cost，因为可以假定没有任何
+			 * 内层扫描会扫完整个内层关系。因此
+			 * 可以假定所有内层扫描执行都可以是
+			 * 全部代价的一个比例，即使物化正在降低
+			 * 重新扫描代价。写这段时，物化的内层扫描不可能走到这里，
+			 * 因此 inner_run_cost 和
+			 * inner_rescan_run_cost 反正会相同；但以防万一，
+			 * 对第一个匹配的元组用 inner_run_cost，对
+			 * 其余的用 inner_rescan_run_cost。
 			 */
 			run_cost += inner_run_cost * inner_scan_frac;
 			if (outer_matched_rows > 1)
 				run_cost += (outer_matched_rows - 1) * inner_rescan_run_cost * inner_scan_frac;
 
 			/*
-			 * Add the cost of inner-scan executions for unmatched outer rows.
-			 * We estimate this as the same cost as returning the first tuple
-			 * of a nonempty scan.  We consider that these are all rescans,
-			 * since we used inner_run_cost once already.
+			 * 加上未匹配外侧行的内层扫描执行代价。
+			 * 把这估计成与返回非空扫描的第一个元组
+			 * 相同的代价。认为这些都是重新扫描，
+			 * 因为已经用过一次 inner_run_cost。
 			 */
 			run_cost += outer_unmatched_rows *
 				inner_rescan_run_cost / inner_path_rows;
 
 			/*
-			 * We won't be evaluating any quals at all for unmatched rows, so
-			 * don't add them to ntuples.
+			 * 对未匹配的行根本不会求值任何限定条件，因此
+			 * 不要把它们加进 ntuples。
 			 */
 		}
 		else
 		{
 			/*
-			 * Here, a complicating factor is that rescans may be cheaper than
-			 * first scans.  If we never scan all the way to the end of the
-			 * inner rel, it might be (depending on the plan type) that we'd
-			 * never pay the whole inner first-scan run cost.  However it is
-			 * difficult to estimate whether that will happen (and it could
-			 * not happen if there are any unmatched outer rows!), so be
-			 * conservative and always charge the whole first-scan cost once.
-			 * We consider this charge to correspond to the first unmatched
-			 * outer row, unless there isn't one in our estimate, in which
-			 * case blame it on the first matched row.
+			 * 这里一个复杂因素是重新扫描可能比
+			 * 第一次扫描更便宜。若从未扫到内层关系的
+			 * 末尾，有可能（取决于计划类型）永远不会
+			 * 支付全部的内层第一次扫描运行代价。不过
+			 * 很难估计那会不会发生
+			 * （而且若有任何未匹配的外侧行，
+			 * 它就不会发生！），因此保守一点，总是把全部第一次扫描代价收取一次。
+			 * 认为这笔费用对应第一个未匹配的
+			 * 外侧行，除非估计里没有那样的行，那时
+			 * 就把它算到第一个匹配的行上。
 			 */
 
-			/* First, count all unmatched join tuples as being processed */
+			/* 首先，把所有未匹配的连接元组计为已处理 */
 			ntuples += outer_unmatched_rows * inner_path_rows;
 
-			/* Now add the forced full scan, and decrement appropriate count */
+			/* 现在加上强制的全扫描，并递减相应的计数 */
 			run_cost += inner_run_cost;
 			if (outer_unmatched_rows >= 1)
 				outer_unmatched_rows -= 1;
 			else
 				outer_matched_rows -= 1;
 
-			/* Add inner run cost for additional outer tuples having matches */
+			/* 为另外有匹配的外侧元组加上内层运行代价 */
 			if (outer_matched_rows > 0)
 				run_cost += outer_matched_rows * inner_rescan_run_cost * inner_scan_frac;
 
-			/* Add inner run cost for additional unmatched outer tuples */
+			/* 为另外未匹配的外侧元组加上内层运行代价 */
 			if (outer_unmatched_rows > 0)
 				run_cost += outer_unmatched_rows * inner_rescan_run_cost;
 		}
 	}
 	else
 	{
-		/* Normal-case source costs were included in preliminary estimate */
+		/* 普通情形的源代价已包括在初步估计中 */
 
-		/* Compute number of tuples processed (not number emitted!) */
+		/* 计算处理的元组数（不是发出的个数！） */
 		ntuples = outer_path_rows * inner_path_rows;
 	}
 
-	/* CPU costs */
+	/* CPU 代价 */
 	cost_qual_eval(&restrict_qual_cost, path->jpath.joinrestrictinfo, root);
 	startup_cost += restrict_qual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + restrict_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * ntuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->jpath.path.pathtarget->cost.startup;
 	run_cost += path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
 
@@ -3213,33 +3213,33 @@ final_cost_nestloop(PlannerInfo *root, NestPath *path,
 
 /*
  * initial_cost_mergejoin
- *	  Preliminary estimate of the cost of a mergejoin path.
+ *	  归并连接路径代价的初步估计。
  *
- * This must quickly produce lower-bound estimates of the path's startup and
- * total costs.  If we are unable to eliminate the proposed path from
- * consideration using the lower bounds, final_cost_mergejoin will be called
- * to obtain the final estimates.
+ * 这必须迅速产生该路径启动代价和
+ * 总代价的下界估计。若无法用下界把提议的路径从
+ * 考虑中排除，就会调用 final_cost_mergejoin
+ * 以取得最终估计。
  *
- * The exact division of labor between this function and final_cost_mergejoin
- * is private to them, and represents a tradeoff between speed of the initial
- * estimate and getting a tight lower bound.  We choose to not examine the
- * join quals here, except for obtaining the scan selectivity estimate which
- * is really essential (but fortunately, use of caching keeps the cost of
- * getting that down to something reasonable).
- * We also assume that cost_sort is cheap enough to use here.
+ * 本函数与 final_cost_mergejoin 之间的分工
+ * 是它们私有的，代表初始估计速度
+ * 与得到较紧下界之间的折中。这里选择不检查
+ * 连接限定条件，除了取得扫描选择率估计，那
+ * 确实必不可少（但幸好，利用缓存能把取得它的代价
+ * 降到合理的程度）。
+ * 还假定 cost_sort 便宜到可以在这里使用。
  *
- * 'workspace' is to be filled with startup_cost, total_cost, and perhaps
- *		other data to be used by final_cost_mergejoin
- * 'jointype' is the type of join to be performed
- * 'mergeclauses' is the list of joinclauses to be used as merge clauses
- * 'outer_path' is the outer input to the join
- * 'inner_path' is the inner input to the join
- * 'outersortkeys' is the list of sort keys for the outer path
- * 'innersortkeys' is the list of sort keys for the inner path
- * 'extra' contains miscellaneous information about the join
+ * 'workspace' 将被填入 startup_cost、total_cost，也许还有
+ *		供 final_cost_mergejoin 使用的其他数据
+ * 'jointype' 是要执行的连接类型
+ * 'mergeclauses' 是要用作归并子句的连接子句列表
+ * 'outer_path' 是连接的外侧输入
+ * 'inner_path' 是连接的内侧输入
+ * 'outersortkeys' 是外侧路径的排序键列表
+ * 'innersortkeys' 是内侧路径的排序键列表
+ * 'extra' 含有关于该连接的杂项信息
  *
- * Note: outersortkeys and innersortkeys should be NIL if no explicit
- * sort is needed because the respective source path is already ordered.
+ * 注意：若因为相应的源路径已经有序而不需要显式
+ * 排序，outersortkeys 和 innersortkeys 应当为 NIL。
  */
 void
 initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
@@ -3262,24 +3262,24 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 				outerendsel,
 				innerstartsel,
 				innerendsel;
-	Path		sort_path;		/* dummy for result of cost_sort */
+	Path		sort_path;		/* cost_sort 结果的占位 */
 
-	/* Protect some assumptions below that rowcounts aren't zero */
+	/* 保护下面关于行数不为零的一些假定 */
 	if (outer_path_rows <= 0)
 		outer_path_rows = 1;
 	if (inner_path_rows <= 0)
 		inner_path_rows = 1;
 
 	/*
-	 * A merge join will stop as soon as it exhausts either input stream
-	 * (unless it's an outer join, in which case the outer side has to be
-	 * scanned all the way anyway).  Estimate fraction of the left and right
-	 * inputs that will actually need to be scanned.  Likewise, we can
-	 * estimate the number of rows that will be skipped before the first join
-	 * pair is found, which should be factored into startup cost. We use only
-	 * the first (most significant) merge clause for this purpose. Since
-	 * mergejoinscansel() is a fairly expensive computation, we cache the
-	 * results in the merge clause RestrictInfo.
+	 * 归并连接会在任一输入流耗尽时停止
+	 * （除非是外连接，那时外侧反正必须
+	 * 一直扫完）。估计左右
+	 * 输入中实际需要扫描的比例。同样，可以
+	 * 估计找到第一对连接之前会跳过的行数，
+	 * 这应当计入启动代价。为此只用
+	 * 第一条（最重要的）归并子句。由于
+	 * mergejoinscansel() 是相当贵的计算，我们把
+	 * 结果缓存在归并子句的 RestrictInfo 中。
 	 */
 	if (mergeclauses && jointype != JOIN_FULL)
 	{
@@ -3290,27 +3290,27 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		PathKey    *ipathkey;
 		MergeScanSelCache *cache;
 
-		/* Get the input pathkeys to determine the sort-order details */
+		/* 取得输入路径键以确定排序细节 */
 		opathkeys = outersortkeys ? outersortkeys : outer_path->pathkeys;
 		ipathkeys = innersortkeys ? innersortkeys : inner_path->pathkeys;
 		Assert(opathkeys);
 		Assert(ipathkeys);
 		opathkey = (PathKey *) linitial(opathkeys);
 		ipathkey = (PathKey *) linitial(ipathkeys);
-		/* debugging check */
+		/* 调试检查 */
 		if (opathkey->pk_opfamily != ipathkey->pk_opfamily ||
 			opathkey->pk_eclass->ec_collation != ipathkey->pk_eclass->ec_collation ||
 			opathkey->pk_strategy != ipathkey->pk_strategy ||
 			opathkey->pk_nulls_first != ipathkey->pk_nulls_first)
 			elog(ERROR, "left and right pathkeys do not match in mergejoin");
 
-		/* Get the selectivity with caching */
+		/* 带缓存地取得选择率 */
 		cache = cached_scansel(root, firstclause, opathkey);
 
 		if (bms_is_subset(firstclause->left_relids,
 						  outer_path->parent->relids))
 		{
-			/* left side of clause is outer */
+			/* 子句左侧是外侧 */
 			outerstartsel = cache->leftstartsel;
 			outerendsel = cache->leftendsel;
 			innerstartsel = cache->rightstartsel;
@@ -3318,7 +3318,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		}
 		else
 		{
-			/* left side of clause is inner */
+			/* 子句左侧是内侧 */
 			outerstartsel = cache->rightstartsel;
 			outerendsel = cache->rightendsel;
 			innerstartsel = cache->leftstartsel;
@@ -3339,14 +3339,14 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	}
 	else
 	{
-		/* cope with clauseless or full mergejoin */
+		/* 应付无子句或完全归并连接 */
 		outerstartsel = innerstartsel = 0.0;
 		outerendsel = innerendsel = 1.0;
 	}
 
 	/*
-	 * Convert selectivities to row counts.  We force outer_rows and
-	 * inner_rows to be at least 1, but the skip_rows estimates can be zero.
+	 * 把选择率转换成行数。强制 outer_rows 和
+	 * inner_rows 至少为 1，但 skip_rows 估计可以为零。
 	 */
 	outer_skip_rows = rint(outer_path_rows * outerstartsel);
 	inner_skip_rows = rint(inner_path_rows * innerstartsel);
@@ -3357,9 +3357,9 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	Assert(inner_skip_rows <= inner_rows);
 
 	/*
-	 * Readjust scan selectivities to account for above rounding.  This is
-	 * normally an insignificant effect, but when there are only a few rows in
-	 * the inputs, failing to do this makes for a large percentage error.
+	 * 重新调整扫描选择率以计入上面的舍入。这
+	 * 通常影响很小，但当输入只有很少几行时，
+	 * 不做这件事会造成很大的百分比误差。
 	 */
 	outerstartsel = outer_skip_rows / outer_path_rows;
 	innerstartsel = inner_skip_rows / inner_path_rows;
@@ -3369,9 +3369,9 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	Assert(outerstartsel <= outerendsel);
 	Assert(innerstartsel <= innerendsel);
 
-	/* cost of source data */
+	/* 源数据的代价 */
 
-	if (outersortkeys)			/* do we need to sort outer? */
+	if (outersortkeys)			/* 需要对外侧排序吗？ */
 	{
 		cost_sort(&sort_path,
 				  root,
@@ -3397,7 +3397,7 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 			* (outerendsel - outerstartsel);
 	}
 
-	if (innersortkeys)			/* do we need to sort inner? */
+	if (innersortkeys)			/* 需要对内侧排序吗？ */
 	{
 		cost_sort(&sort_path,
 				  root,
@@ -3424,19 +3424,19 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	}
 
 	/*
-	 * We can't yet determine whether rescanning occurs, or whether
-	 * materialization of the inner input should be done.  The minimum
-	 * possible inner input cost, regardless of rescan and materialization
-	 * considerations, is inner_run_cost.  We include that in
-	 * workspace->total_cost, but not yet in run_cost.
+	 * 还不能确定是否会发生重新扫描，或者是否
+	 * 应当物化内侧输入。无论重新扫描和物化
+	 * 如何考虑，内层输入可能的最小
+	 * 代价是 inner_run_cost。把它包括进
+	 * workspace->total_cost，但还不要放进 run_cost。
 	 */
 
-	/* CPU costs left for later */
+	/* CPU 代价留到以后 */
 
-	/* Public result fields */
+	/* 公开的结果字段 */
 	workspace->startup_cost = startup_cost;
 	workspace->total_cost = startup_cost + run_cost + inner_run_cost;
-	/* Save private data for final_cost_mergejoin */
+	/* 为 final_cost_mergejoin 保存私有数据 */
 	workspace->run_cost = run_cost;
 	workspace->inner_run_cost = inner_run_cost;
 	workspace->outer_rows = outer_rows;
@@ -3447,30 +3447,30 @@ initial_cost_mergejoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 /*
  * final_cost_mergejoin
- *	  Final estimate of the cost and result size of a mergejoin path.
+ *	  归并连接路径的代价和结果规模的最终估计。
  *
- * Unlike other costsize functions, this routine makes two actual decisions:
- * whether the executor will need to do mark/restore, and whether we should
- * materialize the inner path.  It would be logically cleaner to build
- * separate paths testing these alternatives, but that would require repeating
- * most of the cost calculations, which are not all that cheap.  Since the
- * choice will not affect output pathkeys or startup cost, only total cost,
- * there is no possibility of wanting to keep more than one path.  So it seems
- * best to make the decisions here and record them in the path's
- * skip_mark_restore and materialize_inner fields.
+ * 与其他 costsize 函数不同，本例程做两个实际决定：
+ * 执行器是否需要做标记/恢复，以及是否应当
+ * 物化内层路径。为这些备选方案分别建立
+ * 路径在逻辑上更干净，但那需要重复
+ * 大部分代价计算，而那些并不都很便宜。既然这个
+ * 选择不影响输出路径键或启动代价，只影响总代价，
+ * 就不可能想保留不止一条路径。因此似乎
+ * 最好在这里做决定，并记到路径的
+ * skip_mark_restore 和 materialize_inner 字段里。
  *
- * Mark/restore overhead is usually required, but can be skipped if we know
- * that the executor need find only one match per outer tuple, and that the
- * mergeclauses are sufficient to identify a match.
+ * 通常需要标记/恢复开销，但若知道
+ * 执行器对每个外侧元组只需找到一次匹配，并且
+ * 归并子句足以识别匹配，就可以跳过。
  *
- * We materialize the inner path if we need mark/restore and either the inner
- * path can't support mark/restore, or it's cheaper to use an interposed
- * Material node to handle mark/restore.
+ * 若需要标记/恢复，并且内层
+ * 路径不能支持标记/恢复，或者插入一个
+ * Material 节点来处理标记/恢复更便宜，就物化内层路径。
  *
- * 'path' is already filled in except for the rows and cost fields and
- *		skip_mark_restore and materialize_inner
- * 'workspace' is the result from initial_cost_mergejoin
- * 'extra' contains miscellaneous information about the join
+ * 'path' 除了行数和代价字段以及
+ *		skip_mark_restore 和 materialize_inner 之外已经填好
+ * 'workspace' 是 initial_cost_mergejoin 的结果
+ * 'extra' 含有关于该连接的杂项信息
  */
 void
 final_cost_mergejoin(PlannerInfo *root, MergePath *path,
@@ -3498,17 +3498,17 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 				rescannedtuples;
 	double		rescanratio;
 
-	/* Protect some assumptions below that rowcounts aren't zero */
+	/* 保护下面关于行数不为零的一些假定 */
 	if (inner_path_rows <= 0)
 		inner_path_rows = 1;
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (path->jpath.path.param_info)
 		path->jpath.path.rows = path->jpath.path.param_info->ppi_rows;
 	else
 		path->jpath.path.rows = path->jpath.path.parent->rows;
 
-	/* For partial paths, scale row estimate. */
+	/* 对部分路径，缩放行数估计。 */
 	if (path->jpath.path.parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(&path->jpath.path);
@@ -3518,16 +3518,16 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	}
 
 	/*
-	 * We could include disable_cost in the preliminary estimate, but that
-	 * would amount to optimizing for the case where the join method is
-	 * disabled, which doesn't seem like the way to bet.
+	 * 可以把 disable_cost 包括进初步估计，但那
+	 * 等于针对连接方法被
+	 * 禁用的情形做优化，似乎不该押在那上面。
 	 */
 	if (!enable_mergejoin)
 		startup_cost += disable_cost;
 
 	/*
-	 * Compute cost of the mergequals and qpquals (other restriction clauses)
-	 * separately.
+	 * 分别计算归并限定条件和 qpqual（其他限制子句）的
+	 * 代价。
 	 */
 	cost_qual_eval(&merge_qual_cost, mergeclauses, root);
 	cost_qual_eval(&qp_qual_cost, path->jpath.joinrestrictinfo, root);
@@ -3535,10 +3535,10 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	qp_qual_cost.per_tuple -= merge_qual_cost.per_tuple;
 
 	/*
-	 * With a SEMI or ANTI join, or if the innerrel is known unique, the
-	 * executor will stop scanning for matches after the first match.  When
-	 * all the joinclauses are merge clauses, this means we don't ever need to
-	 * back up the merge, and so we can skip mark/restore overhead.
+	 * 对 SEMI 或 ANTI 连接，或者已知内层关系唯一时，
+	 * 执行器会在第一次匹配后停止扫描匹配。当
+	 * 全部连接子句都是归并子句时，这意味着永远不需要
+	 * 回退归并，因此可以跳过标记/恢复开销。
 	 */
 	if ((path->jpath.jointype == JOIN_SEMI ||
 		 path->jpath.jointype == JOIN_ANTI ||
@@ -3550,124 +3550,124 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 		path->skip_mark_restore = false;
 
 	/*
-	 * Get approx # tuples passing the mergequals.  We use approx_tuple_count
-	 * here because we need an estimate done with JOIN_INNER semantics.
+	 * 取得通过归并限定条件的近似元组数。这里用 approx_tuple_count，
+	 * 因为需要按 JOIN_INNER 语义做的估计。
 	 */
 	mergejointuples = approx_tuple_count(root, &path->jpath, mergeclauses);
 
 	/*
-	 * When there are equal merge keys in the outer relation, the mergejoin
-	 * must rescan any matching tuples in the inner relation. This means
-	 * re-fetching inner tuples; we have to estimate how often that happens.
+	 * 当外侧关系中有相等的归并键时，归并连接
+	 * 必须重新扫描内层关系中任何匹配的元组。这意味着
+	 * 重新取出内层元组；必须估计那发生得多频繁。
 	 *
-	 * For regular inner and outer joins, the number of re-fetches can be
-	 * estimated approximately as size of merge join output minus size of
-	 * inner relation. Assume that the distinct key values are 1, 2, ..., and
-	 * denote the number of values of each key in the outer relation as m1,
-	 * m2, ...; in the inner relation, n1, n2, ...  Then we have
+	 * 对普通的内连接和外连接，重新取出的次数可以
+	 * 近似估计为归并连接输出规模减去内层
+	 * 关系规模。假定不同的键值是 1、2、……，并把
+	 * 外侧关系中每个键的值的个数记为 m1、
+	 * m2、……；内层关系中为 n1、n2、……。于是有
 	 *
-	 * size of join = m1 * n1 + m2 * n2 + ...
+	 * 连接规模 = m1 * n1 + m2 * n2 + ...
 	 *
-	 * number of rescanned tuples = (m1 - 1) * n1 + (m2 - 1) * n2 + ... = m1 *
-	 * n1 + m2 * n2 + ... - (n1 + n2 + ...) = size of join - size of inner
-	 * relation
+	 * 重新扫描的元组数 = (m1 - 1) * n1 + (m2 - 1) * n2 + ... = m1 *
+	 * n1 + m2 * n2 + ... - (n1 + n2 + ...) = 连接规模 - 内层
+	 * 关系规模
 	 *
-	 * This equation works correctly for outer tuples having no inner match
-	 * (nk = 0), but not for inner tuples having no outer match (mk = 0); we
-	 * are effectively subtracting those from the number of rescanned tuples,
-	 * when we should not.  Can we do better without expensive selectivity
-	 * computations?
+	 * 这个等式对没有内层匹配的外侧元组是对的
+	 * （nk = 0），但对没有外侧匹配的内层元组不对（mk = 0）；我们
+	 * 实际上从重新扫描的元组数中减去了那些，
+	 * 而本不该减。不做昂贵的选择率
+	 * 计算，能做得更好吗？
 	 *
-	 * The whole issue is moot if we are working from a unique-ified outer
-	 * input, or if we know we don't need to mark/restore at all.
+	 * 若我们处理的是已唯一化的外侧
+	 * 输入，或者知道根本不需要标记/恢复，整个问题就无关了。
 	 */
 	if (IsA(outer_path, UniquePath) || path->skip_mark_restore)
 		rescannedtuples = 0;
 	else
 	{
 		rescannedtuples = mergejointuples - inner_path_rows;
-		/* Must clamp because of possible underestimate */
+		/* 必须钳制，因为可能低估 */
 		if (rescannedtuples < 0)
 			rescannedtuples = 0;
 	}
 
 	/*
-	 * We'll inflate various costs this much to account for rescanning.  Note
-	 * that this is to be multiplied by something involving inner_rows, or
-	 * another number related to the portion of the inner rel we'll scan.
+	 * 将把各种代价膨胀这么多以计入重新扫描。注意
+	 * 这要乘上某个涉及 inner_rows 的东西，或
+	 * 与我们将扫描的内层关系那一部分相关的另一个数。
 	 */
 	rescanratio = 1.0 + (rescannedtuples / inner_rows);
 
 	/*
-	 * Decide whether we want to materialize the inner input to shield it from
-	 * mark/restore and performing re-fetches.  Our cost model for regular
-	 * re-fetches is that a re-fetch costs the same as an original fetch,
-	 * which is probably an overestimate; but on the other hand we ignore the
-	 * bookkeeping costs of mark/restore.  Not clear if it's worth developing
-	 * a more refined model.  So we just need to inflate the inner run cost by
-	 * rescanratio.
+	 * 决定是否要物化内侧输入，以把它与
+	 * 标记/恢复和执行重新取出隔开。我们对普通
+	 * 重新取出的代价模型是，重新取出与原来取出代价相同，
+	 * 这大概是高估；但另一方面我们忽略了
+	 * 标记/恢复的簿记代价。不清楚是否值得发展
+	 * 更精细的模型。因此只需把内层运行代价按
+	 * rescanratio 膨胀。
 	 */
 	bare_inner_cost = inner_run_cost * rescanratio;
 
 	/*
-	 * When we interpose a Material node the re-fetch cost is assumed to be
-	 * just cpu_operator_cost per tuple, independently of the underlying
-	 * plan's cost; and we charge an extra cpu_operator_cost per original
-	 * fetch as well.  Note that we're assuming the materialize node will
-	 * never spill to disk, since it only has to remember tuples back to the
-	 * last mark.  (If there are a huge number of duplicates, our other cost
-	 * factors will make the path so expensive that it probably won't get
-	 * chosen anyway.)	So we don't use cost_rescan here.
+	 * 插入 Material 节点时，假定重新取出代价
+	 * 只是每个元组 cpu_operator_cost，与底层
+	 * 计划的代价无关；对原来的
+	 * 取出也额外收取一次 cpu_operator_cost。注意我们假定物化节点
+	 * 从不溢出到磁盘，因为它只需记住回到
+	 * 上一个标记的元组。（若有大量重复，我们的其他代价
+	 * 因素会让这条路径贵到大概反正不会被
+	 * 选中。）因此这里不用 cost_rescan。
 	 *
-	 * Note: keep this estimate in sync with create_mergejoin_plan's labeling
-	 * of the generated Material node.
+	 * 注意：让这个估计与 create_mergejoin_plan 给生成的 Material 节点
+	 * 贴的标签保持同步。
 	 */
 	mat_inner_cost = inner_run_cost +
 		cpu_operator_cost * inner_rows * rescanratio;
 
 	/*
-	 * If we don't need mark/restore at all, we don't need materialization.
+	 * 若根本不需要标记/恢复，就不需要物化。
 	 */
 	if (path->skip_mark_restore)
 		path->materialize_inner = false;
 
 	/*
-	 * Prefer materializing if it looks cheaper, unless the user has asked to
-	 * suppress materialization.
+	 * 若看起来更便宜就优先物化，除非用户要求
+	 * 抑制物化。
 	 */
 	else if (enable_material && mat_inner_cost < bare_inner_cost)
 		path->materialize_inner = true;
 
 	/*
-	 * Even if materializing doesn't look cheaper, we *must* do it if the
-	 * inner path is to be used directly (without sorting) and it doesn't
-	 * support mark/restore.
+	 * 即使物化看起来并不更便宜，若内层路径
+	 * 要被直接使用（不排序）并且它不
+	 * 支持标记/恢复，就 *必须* 物化。
 	 *
-	 * Since the inner side must be ordered, and only Sorts and IndexScans can
-	 * create order to begin with, and they both support mark/restore, you
-	 * might think there's no problem --- but you'd be wrong.  Nestloop and
-	 * merge joins can *preserve* the order of their inputs, so they can be
-	 * selected as the input of a mergejoin, and they don't support
-	 * mark/restore at present.
+	 * 既然内侧必须有序，而起初只有 Sort 和 IndexScans 能
+	 * 建立顺序，并且它们都支持标记/恢复，你
+	 * 也许觉得没问题 --- 但你错了。嵌套循环和
+	 * 归并连接可以 *保持* 其输入的顺序，因此它们可以被
+	 * 选为归并连接的输入，而它们目前不支持
+	 * 标记/恢复。
 	 *
-	 * We don't test the value of enable_material here, because
-	 * materialization is required for correctness in this case, and turning
-	 * it off does not entitle us to deliver an invalid plan.
+	 * 这里不测试 enable_material 的值，因为
+	 * 这种情况下物化是正确性所必需的，关掉
+	 * 它并不允许我们交付无效计划。
 	 */
 	else if (innersortkeys == NIL &&
 			 !ExecSupportsMarkRestore(inner_path))
 		path->materialize_inner = true;
 
 	/*
-	 * Also, force materializing if the inner path is to be sorted and the
-	 * sort is expected to spill to disk.  This is because the final merge
-	 * pass can be done on-the-fly if it doesn't have to support mark/restore.
-	 * We don't try to adjust the cost estimates for this consideration,
-	 * though.
+	 * 另外，若内层路径要被排序，并且
+	 * 预期排序会溢出到磁盘，就强制物化。
+	 * 这是因为若最终归并趟不必支持标记/恢复，
+	 * 就可以随时完成。
+	 * 不过不为这一考虑调整代价估计。
 	 *
-	 * Since materialization is a performance optimization in this case,
-	 * rather than necessary for correctness, we skip it if enable_material is
-	 * off.
+	 * 既然这种情况下物化是性能优化，
+	 * 而不是正确性所必需的，若 enable_material 为
+	 * 关就跳过它。
 	 */
 	else if (enable_material && innersortkeys != NIL &&
 			 relation_byte_size(inner_path_rows,
@@ -3677,18 +3677,18 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 	else
 		path->materialize_inner = false;
 
-	/* Charge the right incremental cost for the chosen case */
+	/* 为所选情形收取正确的增量代价 */
 	if (path->materialize_inner)
 		run_cost += mat_inner_cost;
 	else
 		run_cost += bare_inner_cost;
 
-	/* CPU costs */
+	/* CPU 代价 */
 
 	/*
-	 * The number of tuple comparisons needed is approximately number of outer
-	 * rows plus number of inner rows plus number of rescanned tuples (can we
-	 * refine this?).  At each one, we need to evaluate the mergejoin quals.
+	 * 所需的元组比较次数大约是外侧
+	 * 行数加上内侧行数再加上重新扫描的元组数（能
+	 * 把这细化吗？）。每一次都需要求值归并连接限定条件。
 	 */
 	startup_cost += merge_qual_cost.startup;
 	startup_cost += merge_qual_cost.per_tuple *
@@ -3698,19 +3698,19 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 		 (inner_rows - inner_skip_rows) * rescanratio);
 
 	/*
-	 * For each tuple that gets through the mergejoin proper, we charge
-	 * cpu_tuple_cost plus the cost of evaluating additional restriction
-	 * clauses that are to be applied at the join.  (This is pessimistic since
-	 * not all of the quals may get evaluated at each tuple.)
+	 * 对每个通过归并连接本身的元组，收取
+	 * cpu_tuple_cost 加上求值要在连接处应用的额外限制
+	 * 子句的代价。（这是悲观的，因为
+	 * 并非所有限定条件都会在每个元组上求值。）
 	 *
-	 * Note: we could adjust for SEMI/ANTI joins skipping some qual
-	 * evaluations here, but it's probably not worth the trouble.
+	 * 注意：可以调整以计入 SEMI/ANTI 连接跳过一些限定条件
+	 * 求值，但大概不值得费这个事。
 	 */
 	startup_cost += qp_qual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qp_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * mergejointuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->jpath.path.pathtarget->cost.startup;
 	run_cost += path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
 
@@ -3719,7 +3719,7 @@ final_cost_mergejoin(PlannerInfo *root, MergePath *path,
 }
 
 /*
- * run mergejoinscansel() with caching
+ * 带缓存地运行 mergejoinscansel()
  */
 static MergeScanSelCache *
 cached_scansel(PlannerInfo *root, RestrictInfo *rinfo, PathKey *pathkey)
@@ -3732,7 +3732,7 @@ cached_scansel(PlannerInfo *root, RestrictInfo *rinfo, PathKey *pathkey)
 				rightendsel;
 	MemoryContext oldcontext;
 
-	/* Do we have this result already? */
+	/* 已经有这个结果了吗？ */
 	foreach(lc, rinfo->scansel_cache)
 	{
 		cache = (MergeScanSelCache *) lfirst(lc);
@@ -3743,7 +3743,7 @@ cached_scansel(PlannerInfo *root, RestrictInfo *rinfo, PathKey *pathkey)
 			return cache;
 	}
 
-	/* Nope, do the computation */
+	/* 没有，做计算 */
 	mergejoinscansel(root,
 					 (Node *) rinfo->clause,
 					 pathkey->pk_opfamily,
@@ -3754,7 +3754,7 @@ cached_scansel(PlannerInfo *root, RestrictInfo *rinfo, PathKey *pathkey)
 					 &rightstartsel,
 					 &rightendsel);
 
-	/* Cache the result in suitably long-lived workspace */
+	/* 把结果缓存在寿命足够长的工作区里 */
 	oldcontext = MemoryContextSwitchTo(root->planner_cxt);
 
 	cache = (MergeScanSelCache *) palloc(sizeof(MergeScanSelCache));
@@ -3776,29 +3776,29 @@ cached_scansel(PlannerInfo *root, RestrictInfo *rinfo, PathKey *pathkey)
 
 /*
  * initial_cost_hashjoin
- *	  Preliminary estimate of the cost of a hashjoin path.
+ *	  哈希连接路径代价的初步估计。
  *
- * This must quickly produce lower-bound estimates of the path's startup and
- * total costs.  If we are unable to eliminate the proposed path from
- * consideration using the lower bounds, final_cost_hashjoin will be called
- * to obtain the final estimates.
+ * 这必须迅速产生该路径启动代价和
+ * 总代价的下界估计。若无法用下界把提议的路径从
+ * 考虑中排除，就会调用 final_cost_hashjoin
+ * 以取得最终估计。
  *
- * The exact division of labor between this function and final_cost_hashjoin
- * is private to them, and represents a tradeoff between speed of the initial
- * estimate and getting a tight lower bound.  We choose to not examine the
- * join quals here (other than by counting the number of hash clauses),
- * so we can't do much with CPU costs.  We do assume that
- * ExecChooseHashTableSize is cheap enough to use here.
+ * 本函数与 final_cost_hashjoin 之间的分工
+ * 是它们私有的，代表初始估计速度
+ * 与得到较紧下界之间的折中。这里选择不检查
+ * 连接限定条件（除了数哈希子句的个数），
+ * 因此对 CPU 代价做不了多少。假定
+ * ExecChooseHashTableSize 便宜到可以在这里使用。
  *
- * 'workspace' is to be filled with startup_cost, total_cost, and perhaps
- *		other data to be used by final_cost_hashjoin
- * 'jointype' is the type of join to be performed
- * 'hashclauses' is the list of joinclauses to be used as hash clauses
- * 'outer_path' is the outer input to the join
- * 'inner_path' is the inner input to the join
- * 'extra' contains miscellaneous information about the join
- * 'parallel_hash' indicates that inner_path is partial and that a shared
- *		hash table will be built in parallel
+ * 'workspace' 将被填入 startup_cost、total_cost，也许还有
+ *		供 final_cost_hashjoin 使用的其他数据
+ * 'jointype' 是要执行的连接类型
+ * 'hashclauses' 是要用作哈希子句的连接子句列表
+ * 'outer_path' 是连接的外侧输入
+ * 'inner_path' 是连接的内侧输入
+ * 'extra' 含有关于该连接的杂项信息
+ * 'parallel_hash' 表示 inner_path 是部分的，并且将并行建立共享
+ *		哈希表
  */
 void
 initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
@@ -3817,50 +3817,50 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 	int			numbuckets;
 	int			numbatches;
 	int			num_skew_mcvs;
-	size_t		space_allowed;	/* unused */
+	size_t		space_allowed;	/* 未使用 */
 
-	/* cost of source data */
+	/* 源数据的代价 */
 	startup_cost += outer_path->startup_cost;
 	run_cost += outer_path->total_cost - outer_path->startup_cost;
 	startup_cost += inner_path->total_cost;
 
 	/*
-	 * Cost of computing hash function: must do it once per input tuple. We
-	 * charge one cpu_operator_cost for each column's hash function.  Also,
-	 * tack on one cpu_tuple_cost per inner row, to model the costs of
-	 * inserting the row into the hashtable.
+	 * 计算哈希函数的代价：必须对每个输入元组做一次。对
+	 * 每列的哈希函数收取一次 cpu_operator_cost。另外，
+	 * 对每个内侧行贴上一次 cpu_tuple_cost，以模拟把
+	 * 行插入哈希表的代价。
 	 *
-	 * XXX when a hashclause is more complex than a single operator, we really
-	 * should charge the extra eval costs of the left or right side, as
-	 * appropriate, here.  This seems more work than it's worth at the moment.
+	 * XXX 当哈希子句比单个操作符更复杂时，其实
+	 * 应当在这里收取左侧或右侧适当的额外求值代价。
+	 * 目前这似乎比它的价值更费事。
 	 */
 	startup_cost += (cpu_operator_cost * num_hashclauses + cpu_tuple_cost)
 		* inner_path_rows;
 	run_cost += cpu_operator_cost * num_hashclauses * outer_path_rows;
 
 	/*
-	 * If this is a parallel hash build, then the value we have for
-	 * inner_rows_total currently refers only to the rows returned by each
-	 * participant.  For shared hash table size estimation, we need the total
-	 * number, so we need to undo the division.
+	 * 若这是并行哈希建立，那么 inner_rows_total 目前的值
+	 * 只指每个
+	 * 参与者返回的行。为了估计共享哈希表大小，需要总数，
+	 * 因此需要撤销那次除法。
 	 */
 	if (parallel_hash)
 		inner_path_rows_total *= get_parallel_divisor(inner_path);
 
 	/*
-	 * Get hash table size that executor would use for inner relation.
+	 * 取得执行器会对内层关系使用的哈希表大小。
 	 *
-	 * XXX for the moment, always assume that skew optimization will be
-	 * performed.  As long as SKEW_HASH_MEM_PERCENT is small, it's not worth
-	 * trying to determine that for sure.
+	 * XXX 目前总是假定会执行倾斜优化。
+	 * 只要 SKEW_HASH_MEM_PERCENT 很小，就不值得
+	 * 设法确定这一点。
 	 *
-	 * XXX at some point it might be interesting to try to account for skew
-	 * optimization in the cost estimate, but for now, we don't.
+	 * XXX 将来也许有兴趣试着在代价估计中计入倾斜
+	 * 优化，但目前不这样做。
 	 */
 	ExecChooseHashTableSize(inner_path_rows_total,
 							inner_path->pathtarget->width,
-							true,	/* useskew */
-							parallel_hash,	/* try_combined_hash_mem */
+							true,	/* useskew（是否做倾斜优化） */
+							parallel_hash,	/* try_combined_hash_mem（是否尝试合并哈希内存） */
 							outer_path->parallel_workers,
 							&space_allowed,
 							&numbuckets,
@@ -3868,11 +3868,11 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 							&num_skew_mcvs);
 
 	/*
-	 * If inner relation is too big then we will need to "batch" the join,
-	 * which implies writing and reading most of the tuples to disk an extra
-	 * time.  Charge seq_page_cost per page, since the I/O should be nice and
-	 * sequential.  Writing the inner rel counts as startup cost, all the rest
-	 * as run cost.
+	 * 若内层关系太大，就需要对连接分 "批"，
+	 * 这意味着要把大部分元组额外写到磁盘并读一次。
+	 * 按每页收取 seq_page_cost，因为 I/O 应当又好又
+	 * 顺序。写内层关系算作启动代价，其余全部
+	 * 算作运行代价。
 	 */
 	if (numbatches > 1)
 	{
@@ -3885,12 +3885,12 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 		run_cost += seq_page_cost * (innerpages + 2 * outerpages);
 	}
 
-	/* CPU costs left for later */
+	/* CPU 代价留到以后 */
 
-	/* Public result fields */
+	/* 公开的结果字段 */
 	workspace->startup_cost = startup_cost;
 	workspace->total_cost = startup_cost + run_cost;
-	/* Save private data for final_cost_hashjoin */
+	/* 为 final_cost_hashjoin 保存私有数据 */
 	workspace->run_cost = run_cost;
 	workspace->numbuckets = numbuckets;
 	workspace->numbatches = numbatches;
@@ -3899,14 +3899,14 @@ initial_cost_hashjoin(PlannerInfo *root, JoinCostWorkspace *workspace,
 
 /*
  * final_cost_hashjoin
- *	  Final estimate of the cost and result size of a hashjoin path.
+ *	  哈希连接路径的代价和结果规模的最终估计。
  *
- * Note: the numbatches estimate is also saved into 'path' for use later
+ * 注意：numbatches 估计也存进 'path' 供以后使用
  *
- * 'path' is already filled in except for the rows and cost fields and
+ * 'path' 除了行数和代价字段以及
  *		num_batches
- * 'workspace' is the result from initial_cost_hashjoin
- * 'extra' contains miscellaneous information about the join
+ * 'workspace' 是 initial_cost_hashjoin 的结果
+ * 'extra' 含有关于该连接的杂项信息
  */
 void
 final_cost_hashjoin(PlannerInfo *root, HashPath *path,
@@ -3932,13 +3932,13 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	Selectivity innermcvfreq;
 	ListCell   *hcl;
 
-	/* Mark the path with the correct row estimate */
+	/* 用正确的行数估计标记该路径 */
 	if (path->jpath.path.param_info)
 		path->jpath.path.rows = path->jpath.path.param_info->ppi_rows;
 	else
 		path->jpath.path.rows = path->jpath.path.parent->rows;
 
-	/* For partial paths, scale row estimate. */
+	/* 对部分路径，缩放行数估计。 */
 	if (path->jpath.path.parallel_workers > 0)
 	{
 		double		parallel_divisor = get_parallel_divisor(&path->jpath.path);
@@ -3948,31 +3948,31 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	}
 
 	/*
-	 * We could include disable_cost in the preliminary estimate, but that
-	 * would amount to optimizing for the case where the join method is
-	 * disabled, which doesn't seem like the way to bet.
+	 * 可以把 disable_cost 包括进初步估计，但那
+	 * 等于针对连接方法被
+	 * 禁用的情形做优化，似乎不该押在那上面。
 	 */
 	if (!enable_hashjoin)
 		startup_cost += disable_cost;
 
-	/* mark the path with estimated # of batches */
+	/* 用估计的批次数标记该路径 */
 	path->num_batches = numbatches;
 
-	/* store the total number of tuples (sum of partial row estimates) */
+	/* 存储元组总数（部分行数估计之和） */
 	path->inner_rows_total = inner_path_rows_total;
 
-	/* and compute the number of "virtual" buckets in the whole join */
+	/* 并计算整个连接中 "虚拟" 桶的个数 */
 	virtualbuckets = (double) numbuckets * (double) numbatches;
 
 	/*
-	 * Determine bucketsize fraction and MCV frequency for the inner relation.
-	 * We use the smallest bucketsize or MCV frequency estimated for any
-	 * individual hashclause; this is undoubtedly conservative.
+	 * 确定内层关系的桶大小比例和 MCV 频率。
+	 * 使用任何
+	 * 单个哈希子句估计出的最小桶大小或 MCV 频率；这无疑是保守的。
 	 *
-	 * BUT: if inner relation has been unique-ified, we can assume it's good
-	 * for hashing.  This is important both because it's the right answer, and
-	 * because we avoid contaminating the cache with a value that's wrong for
-	 * non-unique-ified paths.
+	 * 但是：若内层关系已被唯一化，可以假定它对
+	 * 哈希是好的。这很重要，既因为这是正确答案，也
+	 * 因为我们避免用一个对非唯一化路径是错的值
+	 * 污染缓存。
 	 */
 	if (IsA(inner_path, UniquePath))
 	{
@@ -3990,21 +3990,21 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 			Selectivity thismcvfreq;
 
 			/*
-			 * First we have to figure out which side of the hashjoin clause
-			 * is the inner side.
+			 * 首先必须弄清哈希连接子句的哪一侧
+			 * 是内侧。
 			 *
-			 * Since we tend to visit the same clauses over and over when
-			 * planning a large query, we cache the bucket stats estimates in
-			 * the RestrictInfo node to avoid repeated lookups of statistics.
+			 * 由于规划大查询时往往会反复访问相同的子句，
+			 * 把桶统计估计缓存在
+			 * RestrictInfo 节点中，以避免重复查找统计信息。
 			 */
 			if (bms_is_subset(restrictinfo->right_relids,
 							  inner_path->parent->relids))
 			{
-				/* righthand side is inner */
+				/* 右侧是内侧 */
 				thisbucketsize = restrictinfo->right_bucketsize;
 				if (thisbucketsize < 0)
 				{
-					/* not cached yet */
+					/* 尚未缓存 */
 					estimate_hash_bucket_stats(root,
 											   get_rightop(restrictinfo->clause),
 											   virtualbuckets,
@@ -4018,11 +4018,11 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 			{
 				Assert(bms_is_subset(restrictinfo->left_relids,
 									 inner_path->parent->relids));
-				/* lefthand side is inner */
+				/* 左侧是内侧 */
 				thisbucketsize = restrictinfo->left_bucketsize;
 				if (thisbucketsize < 0)
 				{
-					/* not cached yet */
+					/* 尚未缓存 */
 					estimate_hash_bucket_stats(root,
 											   get_leftop(restrictinfo->clause),
 											   virtualbuckets,
@@ -4041,27 +4041,27 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	}
 
 	/*
-	 * If the bucket holding the inner MCV would exceed hash_mem, we don't
-	 * want to hash unless there is really no other alternative, so apply
-	 * disable_cost.  (The executor normally copes with excessive memory usage
-	 * by splitting batches, but obviously it cannot separate equal values
-	 * that way, so it will be unable to drive the batch size below hash_mem
-	 * when this is true.)
+	 * 若持有内侧 MCV 的桶会超过 hash_mem，除非真的没有其他选择，
+	 * 否则不想哈希，因此应用
+	 * disable_cost。（执行器通常通过拆分批次来应付过多的内存使用，
+	 * 但显然它无法用那种方式分开相等的值，
+	 * 因此当这一点为真时，它将无法把批次大小压到 hash_mem
+	 * 以下。）
 	 */
 	if (relation_byte_size(clamp_row_est(inner_path_rows * innermcvfreq),
 						   inner_path->pathtarget->width) > get_hash_memory_limit())
 		startup_cost += disable_cost;
 
 	/*
-	 * Compute cost of the hashquals and qpquals (other restriction clauses)
-	 * separately.
+	 * 分别计算哈希限定条件和 qpqual（其他限制子句）的
+	 * 代价。
 	 */
 	cost_qual_eval(&hash_qual_cost, hashclauses, root);
 	cost_qual_eval(&qp_qual_cost, path->jpath.joinrestrictinfo, root);
 	qp_qual_cost.startup -= hash_qual_cost.startup;
 	qp_qual_cost.per_tuple -= hash_qual_cost.per_tuple;
 
-	/* CPU costs */
+	/* CPU 代价 */
 
 	if (path->jpath.jointype == JOIN_SEMI ||
 		path->jpath.jointype == JOIN_ANTI ||
@@ -4071,16 +4071,16 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 		Selectivity inner_scan_frac;
 
 		/*
-		 * With a SEMI or ANTI join, or if the innerrel is known unique, the
-		 * executor will stop after the first match.
+		 * 对 SEMI 或 ANTI 连接，或者已知内层关系唯一时，
+		 * 执行器会在第一次匹配后停止。
 		 *
-		 * For an outer-rel row that has at least one match, we can expect the
-		 * bucket scan to stop after a fraction 1/(match_count+1) of the
-		 * bucket's rows, if the matches are evenly distributed.  Since they
-		 * probably aren't quite evenly distributed, we apply a fuzz factor of
-		 * 2.0 to that fraction.  (If we used a larger fuzz factor, we'd have
-		 * to clamp inner_scan_frac to at most 1.0; but since match_count is
-		 * at least 1, no such clamp is needed now.)
+		 * 对至少有一次匹配的外侧行，可以预期
+		 * 桶扫描在该桶行数的 1/(match_count+1) 这个比例之后停止，
+		 * 若匹配均匀分布。由于它们
+		 * 大概并不十分均匀，对该比例施加
+		 * 2.0 的模糊因子。（若用更大的模糊因子，就必须
+		 * 把 inner_scan_frac 钳制到至多 1.0；但既然 match_count
+		 * 至少为 1，现在不需要这样的钳制。）
 		 */
 		outer_matched_rows = rint(outer_path_rows * extra->semifactors.outer_match_frac);
 		inner_scan_frac = 2.0 / (extra->semifactors.match_count + 1.0);
@@ -4090,23 +4090,23 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 			clamp_row_est(inner_path_rows * innerbucketsize * inner_scan_frac) * 0.5;
 
 		/*
-		 * For unmatched outer-rel rows, the picture is quite a lot different.
-		 * In the first place, there is no reason to assume that these rows
-		 * preferentially hit heavily-populated buckets; instead assume they
-		 * are uncorrelated with the inner distribution and so they see an
-		 * average bucket size of inner_path_rows / virtualbuckets.  In the
-		 * second place, it seems likely that they will have few if any exact
-		 * hash-code matches and so very few of the tuples in the bucket will
-		 * actually require eval of the hash quals.  We don't have any good
-		 * way to estimate how many will, but for the moment assume that the
-		 * effective cost per bucket entry is one-tenth what it is for
-		 * matchable tuples.
+		 * 对未匹配的外侧行，情况相当不同。
+		 * 首先，没有理由假定这些行
+		 * 优先命中人口稠密的桶；改为假定它们
+		 * 与内层分布不相关，因此它们看到的
+		 * 平均桶大小是 inner_path_rows / virtualbuckets。
+		 * 其次，它们很可能几乎没有精确的
+		 * 哈希码匹配，因此桶中很少有元组
+		 * 真正需要计算哈希限定条件。我们没有任何好
+		 * 办法估计会有多少，但目前假定
+		 * 每个桶项的有效代价是可匹配元组的
+		 * 十分之一。
 		 */
 		run_cost += hash_qual_cost.per_tuple *
 			(outer_path_rows - outer_matched_rows) *
 			clamp_row_est(inner_path_rows / virtualbuckets) * 0.05;
 
-		/* Get # of tuples that will pass the basic join */
+		/* 取得将通过基本连接的元组数 */
 		if (path->jpath.jointype == JOIN_ANTI)
 			hashjointuples = outer_path_rows - outer_matched_rows;
 		else
@@ -4115,38 +4115,38 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 	else
 	{
 		/*
-		 * The number of tuple comparisons needed is the number of outer
-		 * tuples times the typical number of tuples in a hash bucket, which
-		 * is the inner relation size times its bucketsize fraction.  At each
-		 * one, we need to evaluate the hashjoin quals.  But actually,
-		 * charging the full qual eval cost at each tuple is pessimistic,
-		 * since we don't evaluate the quals unless the hash values match
-		 * exactly.  For lack of a better idea, halve the cost estimate to
-		 * allow for that.
+		 * 所需的元组比较次数是外侧
+		 * 元组数乘以哈希桶中的典型元组数，即
+		 * 内层关系规模乘以其桶大小比例。每一次
+		 * 都需要求值哈希连接限定条件。但实际上，
+		 * 在每个元组上收取全部限定条件求值代价是悲观的，
+		 * 因为除非哈希值精确
+		 * 匹配，否则不求值限定条件。没有更好的办法，就把代价估计减半，以
+		 * 计入这一点。
 		 */
 		startup_cost += hash_qual_cost.startup;
 		run_cost += hash_qual_cost.per_tuple * outer_path_rows *
 			clamp_row_est(inner_path_rows * innerbucketsize) * 0.5;
 
 		/*
-		 * Get approx # tuples passing the hashquals.  We use
-		 * approx_tuple_count here because we need an estimate done with
-		 * JOIN_INNER semantics.
+		 * 取得通过哈希限定条件的近似元组数。这里用
+		 * approx_tuple_count，因为需要按
+		 * JOIN_INNER 语义做的估计。
 		 */
 		hashjointuples = approx_tuple_count(root, &path->jpath, hashclauses);
 	}
 
 	/*
-	 * For each tuple that gets through the hashjoin proper, we charge
-	 * cpu_tuple_cost plus the cost of evaluating additional restriction
-	 * clauses that are to be applied at the join.  (This is pessimistic since
-	 * not all of the quals may get evaluated at each tuple.)
+	 * 对每个通过哈希连接本身的元组，收取
+	 * cpu_tuple_cost 加上求值要在连接处应用的额外限制
+	 * 子句的代价。（这是悲观的，因为
+	 * 并非所有限定条件都会在每个元组上求值。）
 	 */
 	startup_cost += qp_qual_cost.startup;
 	cpu_per_tuple = cpu_tuple_cost + qp_qual_cost.per_tuple;
 	run_cost += cpu_per_tuple * hashjointuples;
 
-	/* tlist eval costs are paid per output row, not per tuple scanned */
+	/* 目标列表求值代价按每个输出行支付，而不是按每个被扫描的元组 */
 	startup_cost += path->jpath.path.pathtarget->cost.startup;
 	run_cost += path->jpath.path.pathtarget->cost.per_tuple * path->jpath.path.rows;
 
@@ -4157,10 +4157,10 @@ final_cost_hashjoin(PlannerInfo *root, HashPath *path,
 
 /*
  * cost_subplan
- *		Figure the costs for a SubPlan (or initplan).
+ *		算出 SubPlan（或 initplan）的代价。
  *
- * Note: we could dig the subplan's Plan out of the root list, but in practice
- * all callers have it handy already, so we make them pass it.
+ * 注意：可以从根列表里挖出子计划的 Plan，但实践中
+ * 所有调用方都已经手头有它，因此让它们传进来。
  */
 void
 cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan)
@@ -4168,19 +4168,19 @@ cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan)
 	QualCost	sp_cost;
 
 	/*
-	 * Figure any cost for evaluating the testexpr.
+	 * 算出求值 testexpr 的任何代价。
 	 *
-	 * Usually, SubPlan nodes are built very early, before we have constructed
-	 * any RelOptInfos for the parent query level, which means the parent root
-	 * does not yet contain enough information to safely consult statistics.
-	 * Therefore, we pass root as NULL here.  cost_qual_eval() is already
-	 * well-equipped to handle a NULL root.
+	 * 通常，SubPlan 节点建得很早，在为父查询层次构造任何
+	 * RelOptInfos 之前，这意味着父 root
+	 * 还没有足够的信息来安全地查阅统计信息。
+	 * 因此这里把 root 作为 NULL 传入。cost_qual_eval() 已经
+	 * 有能力处理 NULL root。
 	 *
-	 * One exception is SubPlan nodes built for the initplans of MIN/MAX
-	 * aggregates from indexes (cf. SS_make_initplan_from_plan).  In this
-	 * case, having a NULL root is safe because testexpr will be NULL.
-	 * Besides, an initplan will by definition not consult anything from the
-	 * parent plan.
+	 * 一个例外是为来自索引的 MIN/MAX
+	 * 聚合的 initplan 建立的 SubPlan 节点（参见 SS_make_initplan_from_plan）。在这种
+	 * 情况下 NULL root 是安全的，因为 testexpr 将为 NULL。
+	 * 而且，initplan 按定义不会查阅父计划中的
+	 * 任何东西。
 	 */
 	cost_qual_eval(&sp_cost,
 				   make_ands_implicit((Expr *) subplan->testexpr),
@@ -4189,59 +4189,59 @@ cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan)
 	if (subplan->useHashTable)
 	{
 		/*
-		 * If we are using a hash table for the subquery outputs, then the
-		 * cost of evaluating the query is a one-time cost.  We charge one
-		 * cpu_operator_cost per tuple for the work of loading the hashtable,
-		 * too.
+		 * 若对子查询输出使用哈希表，那么
+		 * 求值查询的代价是一次性代价。
+		 * 还对每个元组收取一次
+		 * cpu_operator_cost，用于装入哈希表的工作。
 		 */
 		sp_cost.startup += plan->total_cost +
 			cpu_operator_cost * plan->plan_rows;
 
 		/*
-		 * The per-tuple costs include the cost of evaluating the lefthand
-		 * expressions, plus the cost of probing the hashtable.  We already
-		 * accounted for the lefthand expressions as part of the testexpr, and
-		 * will also have counted one cpu_operator_cost for each comparison
-		 * operator.  That is probably too low for the probing cost, but it's
-		 * hard to make a better estimate, so live with it for now.
+		 * 每元组代价包括求值左侧
+		 * 表达式的代价，加上探测哈希表的代价。已经
+		 * 把左侧表达式作为 testexpr 的一部分计入，并且
+		 * 还会对每个比较
+		 * 操作符计过一次 cpu_operator_cost。对探测代价来说这大概太低，但
+		 * 很难做出更好的估计，所以目前就这样。
 		 */
 	}
 	else
 	{
 		/*
-		 * Otherwise we will be rescanning the subplan output on each
-		 * evaluation.  We need to estimate how much of the output we will
-		 * actually need to scan.  NOTE: this logic should agree with the
-		 * tuple_fraction estimates used by make_subplan() in
-		 * plan/subselect.c.
+		 * 否则，每次
+		 * 求值都会重新扫描子计划输出。需要估计实际需要扫描多少
+		 * 输出。注意：这段逻辑应当与
+		 * plan/subselect.c 中 make_subplan() 使用的
+		 * tuple_fraction 估计一致。
 		 */
 		Cost		plan_run_cost = plan->total_cost - plan->startup_cost;
 
 		if (subplan->subLinkType == EXISTS_SUBLINK)
 		{
-			/* we only need to fetch 1 tuple; clamp to avoid zero divide */
+			/* 只需取出 1 个元组；钳制以避免除零 */
 			sp_cost.per_tuple += plan_run_cost / clamp_row_est(plan->plan_rows);
 		}
 		else if (subplan->subLinkType == ALL_SUBLINK ||
 				 subplan->subLinkType == ANY_SUBLINK)
 		{
-			/* assume we need 50% of the tuples */
+			/* 假定需要 50% 的元组 */
 			sp_cost.per_tuple += 0.50 * plan_run_cost;
-			/* also charge a cpu_operator_cost per row examined */
+			/* 对检查的每一行也收取一次 cpu_operator_cost */
 			sp_cost.per_tuple += 0.50 * plan->plan_rows * cpu_operator_cost;
 		}
 		else
 		{
-			/* assume we need all tuples */
+			/* 假定需要全部元组 */
 			sp_cost.per_tuple += plan_run_cost;
 		}
 
 		/*
-		 * Also account for subplan's startup cost. If the subplan is
-		 * uncorrelated or undirect correlated, AND its topmost node is one
-		 * that materializes its output, assume that we'll only need to pay
-		 * its startup cost once; otherwise assume we pay the startup cost
-		 * every time.
+		 * 也计入子计划的启动代价。若子计划
+		 * 不相关或非直接相关，并且其最顶层节点是
+		 * 物化其输出的那种，就假定只需支付
+		 * 一次启动代价；
+		 * 否则假定每次都支付启动代价。
 		 */
 		if (subplan->parParam == NIL &&
 			ExecMaterializesOutput(nodeTag(plan)))
@@ -4257,21 +4257,21 @@ cost_subplan(PlannerInfo *root, SubPlan *subplan, Plan *plan)
 
 /*
  * cost_rescan
- *		Given a finished Path, estimate the costs of rescanning it after
- *		having done so the first time.  For some Path types a rescan is
- *		cheaper than an original scan (if no parameters change), and this
- *		function embodies knowledge about that.  The default is to return
- *		the same costs stored in the Path.  (Note that the cost estimates
- *		actually stored in Paths are always for first scans.)
+ *		给定一条已完成的 Path，估计第一次做完之后重新扫描它的
+ *		代价。对某些 Path 类型，重新扫描
+ *		比原来的扫描便宜（若参数不变），本
+ *		函数体现了关于这一点的知识。默认是返回
+ *		Path 中存储的相同代价。（注意 Path 中实际存储的代价估计
+ *		总是针对第一次扫描的。）
  *
- * This function is not currently intended to model effects such as rescans
- * being cheaper due to disk block caching; what we are concerned with is
- * plan types wherein the executor caches results explicitly, or doesn't
- * redo startup calculations, etc.
+ * 本函数目前不打算模拟诸如因磁盘块缓存而使重新扫描
+ * 更便宜这类效应；我们关心的是
+ * 执行器显式缓存结果、或不
+ * 重做启动计算等计划类型。
  */
 static void
 cost_rescan(PlannerInfo *root, Path *path,
-			Cost *rescan_startup_cost,	/* output parameters */
+			Cost *rescan_startup_cost,	/* 输出参数 */
 			Cost *rescan_total_cost)
 {
 	switch (path->pathtype)
@@ -4279,11 +4279,11 @@ cost_rescan(PlannerInfo *root, Path *path,
 		case T_FunctionScan:
 
 			/*
-			 * Currently, nodeFunctionscan.c always executes the function to
-			 * completion before returning any rows, and caches the results in
-			 * a tuplestore.  So the function eval cost is all startup cost
-			 * and isn't paid over again on rescans. However, all run costs
-			 * will be paid over again.
+			 * 目前，nodeFunctionscan.c 总是把函数执行
+			 * 完毕才返回任何行，并把结果缓存在
+			 * tuplestore 中。因此函数求值代价全是启动代价，
+			 * 重新扫描时不再支付。不过，全部运行代价
+			 * 在重新扫描时都要再付一次。
 			 */
 			*rescan_startup_cost = 0;
 			*rescan_total_cost = path->total_cost - path->startup_cost;
@@ -4291,18 +4291,18 @@ cost_rescan(PlannerInfo *root, Path *path,
 		case T_HashJoin:
 
 			/*
-			 * If it's a single-batch join, we don't need to rebuild the hash
-			 * table during a rescan.
+			 * 若是单批连接，重新扫描时不必
+			 * 重建哈希表。
 			 */
 			if (((HashPath *) path)->num_batches == 1)
 			{
-				/* Startup cost is exactly the cost of hash table building */
+				/* 启动代价正好就是建立哈希表的代价 */
 				*rescan_startup_cost = 0;
 				*rescan_total_cost = path->total_cost - path->startup_cost;
 			}
 			else
 			{
-				/* Otherwise, no special treatment */
+				/* 否则没有特殊处理 */
 				*rescan_startup_cost = path->startup_cost;
 				*rescan_total_cost = path->total_cost;
 			}
@@ -4311,10 +4311,10 @@ cost_rescan(PlannerInfo *root, Path *path,
 		case T_WorkTableScan:
 			{
 				/*
-				 * These plan types materialize their final result in a
-				 * tuplestore or tuplesort object.  So the rescan cost is only
-				 * cpu_tuple_cost per tuple, unless the result is large enough
-				 * to spill to disk.
+				 * 这些计划类型把最终结果物化在
+				 * tuplestore 或 tuplesort 对象里。因此重新扫描代价只是
+				 * 每个元组 cpu_tuple_cost，除非结果大到
+				 * 会溢出到磁盘。
 				 */
 				Cost		run_cost = cpu_tuple_cost * path->rows;
 				double		nbytes = relation_byte_size(path->rows,
@@ -4323,7 +4323,7 @@ cost_rescan(PlannerInfo *root, Path *path,
 
 				if (nbytes > work_mem_bytes)
 				{
-					/* It will spill, so account for re-read cost */
+					/* 会溢出，因此计入重新读取的代价 */
 					double		npages = ceil(nbytes / BLCKSZ);
 
 					run_cost += seq_page_cost * npages;
@@ -4336,12 +4336,12 @@ cost_rescan(PlannerInfo *root, Path *path,
 		case T_Sort:
 			{
 				/*
-				 * These plan types not only materialize their results, but do
-				 * not implement qual filtering or projection.  So they are
-				 * even cheaper to rescan than the ones above.  We charge only
-				 * cpu_operator_cost per tuple.  (Note: keep that in sync with
-				 * the run_cost charge in cost_sort, and also see comments in
-				 * cost_material before you change it.)
+				 * 这些计划类型不仅把结果物化，而且不
+				 * 做限定条件过滤或投影。因此它们重新扫描比上面那些
+				 * 更便宜。每个元组只收取
+				 * cpu_operator_cost。（注意：与 cost_sort 里的
+				 * run_cost 收取保持同步，改之前也请看
+				 * cost_material 里的注释。）
 				 */
 				Cost		run_cost = cpu_operator_cost * path->rows;
 				double		nbytes = relation_byte_size(path->rows,
@@ -4350,7 +4350,7 @@ cost_rescan(PlannerInfo *root, Path *path,
 
 				if (nbytes > work_mem_bytes)
 				{
-					/* It will spill, so account for re-read cost */
+					/* 会溢出，因此计入重新读取的代价 */
 					double		npages = ceil(nbytes / BLCKSZ);
 
 					run_cost += seq_page_cost * npages;
@@ -4360,7 +4360,7 @@ cost_rescan(PlannerInfo *root, Path *path,
 			}
 			break;
 		case T_Memoize:
-			/* All the hard work is done by cost_memoize_rescan */
+			/* 难做的部分都由 cost_memoize_rescan 完成 */
 			cost_memoize_rescan(root, (MemoizePath *) path,
 								rescan_startup_cost, rescan_total_cost);
 			break;
@@ -4374,12 +4374,12 @@ cost_rescan(PlannerInfo *root, Path *path,
 
 /*
  * cost_qual_eval
- *		Estimate the CPU costs of evaluating a WHERE clause.
- *		The input can be either an implicitly-ANDed list of boolean
- *		expressions, or a list of RestrictInfo nodes.  (The latter is
- *		preferred since it allows caching of the results.)
- *		The result includes both a one-time (startup) component,
- *		and a per-evaluation component.
+ *		估计求值 WHERE 子句的 CPU 代价。
+ *		输入可以是布尔表达式的隐式 ANDed 列表，
+ *		也可以是 RestrictInfo 节点列表。（后者更好，
+ *		因为它允许缓存结果。）
+ *		结果既包括一次性（启动）分量，
+ *		也包括每次求值的分量。
  */
 void
 cost_qual_eval(QualCost *cost, List *quals, PlannerInfo *root)
@@ -4391,7 +4391,7 @@ cost_qual_eval(QualCost *cost, List *quals, PlannerInfo *root)
 	context.total.startup = 0;
 	context.total.per_tuple = 0;
 
-	/* We don't charge any cost for the implicit ANDing at top level ... */
+	/* 顶层隐式的 ANDing 不收取任何代价…… */
 
 	foreach(l, quals)
 	{
@@ -4405,7 +4405,7 @@ cost_qual_eval(QualCost *cost, List *quals, PlannerInfo *root)
 
 /*
  * cost_qual_eval_node
- *		As above, for a single RestrictInfo or expression.
+ *		同上，针对单个 RestrictInfo 或表达式。
  */
 void
 cost_qual_eval_node(QualCost *cost, Node *qual, PlannerInfo *root)
@@ -4428,10 +4428,10 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 		return false;
 
 	/*
-	 * RestrictInfo nodes contain an eval_cost field reserved for this
-	 * routine's use, so that it's not necessary to evaluate the qual clause's
-	 * cost more than once.  If the clause's cost hasn't been computed yet,
-	 * the field's startup value will contain -1.
+	 * RestrictInfo 节点含有留给本例程使用的 eval_cost 字段，
+	 * 这样就不必把限定子句的代价求值
+	 * 一次以上。若该子句的代价还没算过，
+	 * 该字段的启动值会是 -1。
 	 */
 	if (IsA(node, RestrictInfo))
 	{
@@ -4446,8 +4446,8 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 			locContext.total.per_tuple = 0;
 
 			/*
-			 * For an OR clause, recurse into the marked-up tree so that we
-			 * set the eval_cost for contained RestrictInfos too.
+			 * 对 OR 子句，递归进入标记过的树，以便
+			 * 也给其中的 RestrictInfos 设置 eval_cost。
 			 */
 			if (rinfo->orclause)
 				cost_qual_eval_walker((Node *) rinfo->orclause, &locContext);
@@ -4455,12 +4455,12 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 				cost_qual_eval_walker((Node *) rinfo->clause, &locContext);
 
 			/*
-			 * If the RestrictInfo is marked pseudoconstant, it will be tested
-			 * only once, so treat its cost as all startup cost.
+			 * 若 RestrictInfo 被标成伪常量，它只会测试
+			 * 一次，因此把它的代价全部当作启动代价。
 			 */
 			if (rinfo->pseudoconstant)
 			{
-				/* count one execution during startup */
+				/* 启动期间计一次执行 */
 				locContext.total.startup += locContext.total.per_tuple;
 				locContext.total.per_tuple = 0;
 			}
@@ -4468,31 +4468,31 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 		}
 		context->total.startup += rinfo->eval_cost.startup;
 		context->total.per_tuple += rinfo->eval_cost.per_tuple;
-		/* do NOT recurse into children */
+		/* 不要递归进入子节点 */
 		return false;
 	}
 
 	/*
-	 * For each operator or function node in the given tree, we charge the
-	 * estimated execution cost given by pg_proc.procost (remember to multiply
-	 * this by cpu_operator_cost).
+	 * 对给定树中的每个操作符或函数节点，收取
+	 * pg_proc.procost 给出的估计执行代价（记得乘上
+	 * cpu_operator_cost）。
 	 *
-	 * Vars and Consts are charged zero, and so are boolean operators (AND,
-	 * OR, NOT). Simplistic, but a lot better than no model at all.
+	 * Var 和 Const 收取零，布尔操作符（AND、
+	 * OR、NOT）也是。这很简陋，但比完全没有模型好得多。
 	 *
-	 * Should we try to account for the possibility of short-circuit
-	 * evaluation of AND/OR?  Probably *not*, because that would make the
-	 * results depend on the clause ordering, and we are not in any position
-	 * to expect that the current ordering of the clauses is the one that's
-	 * going to end up being used.  The above per-RestrictInfo caching would
-	 * not mix well with trying to re-order clauses anyway.
+	 * 要不要试着计入 AND/OR 短路
+	 * 求值的可能？大概 *不要*，因为那会让
+	 * 结果依赖于子句顺序，而我们根本没有立场
+	 * 指望当前的子句顺序就是最终
+	 * 会用的那个。上面按每个 RestrictInfo 做的缓存，
+	 * 和试图重排子句本来也不搭。
 	 *
-	 * Another issue that is entirely ignored here is that if a set-returning
-	 * function is below top level in the tree, the functions/operators above
-	 * it will need to be evaluated multiple times.  In practical use, such
-	 * cases arise so seldom as to not be worth the added complexity needed;
-	 * moreover, since our rowcount estimates for functions tend to be pretty
-	 * phony, the results would also be pretty phony.
+	 * 这里完全忽略的另一个问题是：若集合返回
+	 * 函数不在树的顶层，它上面的函数/操作符
+	 * 就得求值多次。实际使用中这类
+	 * 情形少到不值得为此增加复杂度；
+	 * 而且我们对函数的行数估计往往相当
+	 * 假，结果也会相当假。
 	 */
 	if (IsA(node, FuncExpr))
 	{
@@ -4503,7 +4503,7 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 			 IsA(node, DistinctExpr) ||
 			 IsA(node, NullIfExpr))
 	{
-		/* rely on struct equivalence to treat these all alike */
+		/* 靠结构等价把这些都同样对待 */
 		set_opfuncid((OpExpr *) node);
 		add_function_cost(context->root, ((OpExpr *) node)->opfuncid, node,
 						  &context->total);
@@ -4523,32 +4523,32 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 
 		if (OidIsValid(saop->hashfuncid))
 		{
-			/* Handle costs for hashed ScalarArrayOpExpr */
+			/* 处理哈希版 ScalarArrayOpExpr 的代价 */
 			hcosts.startup = hcosts.per_tuple = 0;
 
 			add_function_cost(context->root, saop->hashfuncid, NULL, &hcosts);
 			context->total.startup += sacosts.startup + hcosts.startup;
 
-			/* Estimate the cost of building the hashtable. */
+			/* 估计建立哈希表的代价。 */
 			context->total.startup += estarraylen * hcosts.per_tuple;
 
 			/*
-			 * XXX should we charge a little bit for sacosts.per_tuple when
-			 * building the table, or is it ok to assume there will be zero
-			 * hash collision?
+			 * XXX 建表时要不要为 sacosts.per_tuple 收一点费，
+			 * 还是可以假定哈希
+			 * 冲突为零？
 			 */
 
 			/*
-			 * Charge for hashtable lookups.  Charge a single hash and a
-			 * single comparison.
+			 * 收取哈希表查找的费用。收取一次哈希和
+			 * 一次比较。
 			 */
 			context->total.per_tuple += hcosts.per_tuple + sacosts.per_tuple;
 		}
 		else
 		{
 			/*
-			 * Estimate that the operator will be applied to about half of the
-			 * array elements before the answer is determined.
+			 * 估计操作符大约会应用到一半
+			 * 数组元素之后答案才确定。
 			 */
 			context->total.startup += sacosts.startup;
 			context->total.per_tuple += sacosts.per_tuple *
@@ -4559,21 +4559,21 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 			 IsA(node, WindowFunc))
 	{
 		/*
-		 * Aggref and WindowFunc nodes are (and should be) treated like Vars,
-		 * ie, zero execution cost in the current model, because they behave
-		 * essentially like Vars at execution.  We disregard the costs of
-		 * their input expressions for the same reason.  The actual execution
-		 * costs of the aggregate/window functions and their arguments have to
-		 * be factored into plan-node-specific costing of the Agg or WindowAgg
-		 * plan node.
+		 * Aggref 和 WindowFunc 节点应当（也确实）像 Var 一样对待，
+		 * 即在当前模型里执行代价为零，因为执行时它们
+		 * 本质上就像 Var。出于同样原因，也不计
+		 * 其输入表达式的代价。聚合/窗口函数及其参数的实际执行
+		 * 代价必须
+		 * 计入 Agg 或 WindowAgg
+		 * 计划节点各自的代价模型。
 		 */
-		return false;			/* don't recurse into children */
+		return false;			/* 不要递归进入子节点 */
 	}
 	else if (IsA(node, GroupingFunc))
 	{
-		/* Treat this as having cost 1 */
+		/* 把它的代价当作 1 */
 		context->total.per_tuple += cpu_operator_cost;
-		return false;			/* don't recurse into children */
+		return false;			/* 不要递归进入子节点 */
 	}
 	else if (IsA(node, CoerceViaIO))
 	{
@@ -4582,12 +4582,12 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 		Oid			typioparam;
 		bool		typisvarlena;
 
-		/* check the result type's input function */
+		/* 检查结果类型的输入函数 */
 		getTypeInputInfo(iocoerce->resulttype,
 						 &iofunc, &typioparam);
 		add_function_cost(context->root, iofunc, NULL,
 						  &context->total);
-		/* check the input type's output function */
+		/* 检查输入类型的输出函数 */
 		getTypeOutputInfo(exprType((Node *) iocoerce->arg),
 						  &iofunc, &typisvarlena);
 		add_function_cost(context->root, iofunc, NULL,
@@ -4607,7 +4607,7 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 	}
 	else if (IsA(node, RowCompareExpr))
 	{
-		/* Conservatively assume we will check all the columns */
+		/* 保守地假定会检查所有列 */
 		RowCompareExpr *rcexpr = (RowCompareExpr *) node;
 		ListCell   *lc;
 
@@ -4625,26 +4625,26 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 			 IsA(node, CoerceToDomain) ||
 			 IsA(node, NextValueExpr))
 	{
-		/* Treat all these as having cost 1 */
+		/* 把这些的代价都当作 1 */
 		context->total.per_tuple += cpu_operator_cost;
 	}
 	else if (IsA(node, CurrentOfExpr))
 	{
-		/* Report high cost to prevent selection of anything but TID scan */
+		/* 报高代价，以防选中 TID 扫描以外的任何东西 */
 		context->total.startup += disable_cost;
 	}
 	else if (IsA(node, SubLink))
 	{
-		/* This routine should not be applied to un-planned expressions */
+		/* 本例程不应当用在尚未规划的表达式上 */
 		elog(ERROR, "cannot handle unplanned sub-select");
 	}
 	else if (IsA(node, SubPlan))
 	{
 		/*
-		 * A subplan node in an expression typically indicates that the
-		 * subplan will be executed on each evaluation, so charge accordingly.
-		 * (Sub-selects that can be executed as InitPlans have already been
-		 * removed from the expression.)
+		 * 表达式里的子计划节点通常表示
+		 * 每次求值都会执行该子计划，因此照此收费。
+		 * （能作为 InitPlans 执行的子查询已经从
+		 * 表达式里去掉了。）
 		 */
 		SubPlan    *subplan = (SubPlan *) node;
 
@@ -4652,18 +4652,18 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 		context->total.per_tuple += subplan->per_call_cost;
 
 		/*
-		 * We don't want to recurse into the testexpr, because it was already
-		 * counted in the SubPlan node's costs.  So we're done.
+		 * 不想递归进入 testexpr，因为它已经
+		 * 计在 SubPlan 节点的代价里。因此到此为止。
 		 */
 		return false;
 	}
 	else if (IsA(node, AlternativeSubPlan))
 	{
 		/*
-		 * Arbitrarily use the first alternative plan for costing.  (We should
-		 * certainly only include one alternative, and we don't yet have
-		 * enough information to know which one the executor is most likely to
-		 * use.)
+		 * 任意用第一条备选计划来估价。（确实
+		 * 只应包括一条备选，而且目前还没有
+		 * 足够信息知道执行器最可能
+		 * 用哪一条。）
 		 */
 		AlternativeSubPlan *asplan = (AlternativeSubPlan *) node;
 
@@ -4673,34 +4673,34 @@ cost_qual_eval_walker(Node *node, cost_qual_eval_context *context)
 	else if (IsA(node, PlaceHolderVar))
 	{
 		/*
-		 * A PlaceHolderVar should be given cost zero when considering general
-		 * expression evaluation costs.  The expense of doing the contained
-		 * expression is charged as part of the tlist eval costs of the scan
-		 * or join where the PHV is first computed (see set_rel_width and
-		 * add_placeholders_to_joinrel).  If we charged it again here, we'd be
-		 * double-counting the cost for each level of plan that the PHV
-		 * bubbles up through.  Hence, return without recursing into the
-		 * phexpr.
+		 * 考虑一般表达式求值代价时，PlaceHolderVar 的代价应为零。
+		 * 所含表达式的开销作为首次计算该 PHV 的扫描
+		 * 或连接的目标列表求值代价的一部分来收取（见 set_rel_width 和
+		 * add_placeholders_to_joinrel）。若在这里再收一次，就会对
+		 * PHV 逐层冒泡上去的每一层计划
+		 * 把代价重复计算。因此直接返回，
+		 * 不要递归进入
+		 * phexpr。
 		 */
 		return false;
 	}
 
-	/* recurse into children */
+	/* 递归进入子节点 */
 	return expression_tree_walker(node, cost_qual_eval_walker,
 								  (void *) context);
 }
 
 /*
  * get_restriction_qual_cost
- *	  Compute evaluation costs of a baserel's restriction quals, plus any
- *	  movable join quals that have been pushed down to the scan.
- *	  Results are returned into *qpqual_cost.
+ *	  计算基关系限制限定条件的求值代价，加上已经
+ *	  下推到该扫描的任何可移动连接限定条件。
+ *	  结果返回到 *qpqual_cost。
  *
- * This is a convenience subroutine that works for seqscans and other cases
- * where all the given quals will be evaluated the hard way.  It's not useful
- * for cost_index(), for example, where the index machinery takes care of
- * some of the quals.  We assume baserestrictcost was previously set by
- * set_baserel_size_estimates().
+ * 这是个方便的子程序，适用于顺序扫描以及其他
+ * 全部给定限定条件都要硬算的情形。它对
+ * cost_index() 之类没用，那些由索引机制处理
+ * 一部分限定条件。假定 baserestrictcost 先前已由
+ * set_baserel_size_estimates() 设好。
  */
 static void
 get_restriction_qual_cost(PlannerInfo *root, RelOptInfo *baserel,
@@ -4709,7 +4709,7 @@ get_restriction_qual_cost(PlannerInfo *root, RelOptInfo *baserel,
 {
 	if (param_info)
 	{
-		/* Include costs of pushed-down clauses */
+		/* 包括下推子句的代价 */
 		cost_qual_eval(qpqual_cost, param_info->ppi_clauses, root);
 
 		qpqual_cost->startup += baserel->baserestrictcost.startup;
@@ -4722,27 +4722,27 @@ get_restriction_qual_cost(PlannerInfo *root, RelOptInfo *baserel,
 
 /*
  * compute_semi_anti_join_factors
- *	  Estimate how much of the inner input a SEMI, ANTI, or inner_unique join
- *	  can be expected to scan.
+ *	  估计 SEMI、ANTI 或 inner_unique 连接预期会扫描
+ *	  多少内层输入。
  *
- * In a hash or nestloop SEMI/ANTI join, the executor will stop scanning
- * inner rows as soon as it finds a match to the current outer row.
- * The same happens if we have detected the inner rel is unique.
- * We should therefore adjust some of the cost components for this effect.
- * This function computes some estimates needed for these adjustments.
- * These estimates will be the same regardless of the particular paths used
- * for the outer and inner relation, so we compute these once and then pass
- * them to all the join cost estimation functions.
+ * 在哈希或嵌套循环 SEMI/ANTI 连接中，执行器一旦
+ * 为当前外侧行找到匹配，就会停止扫描内层行。
+ * 若已检测到内层关系是唯一的，也会如此。
+ * 因此应当按这种效应调整部分代价分量。
+ * 本函数计算这些调整所需的一些估计。
+ * 无论外侧和内层关系用哪条具体路径，这些估计都相同，
+ * 因此只计算一次，然后传给
+ * 所有连接代价估计函数。
  *
- * Input parameters:
- *	joinrel: join relation under consideration
- *	outerrel: outer relation under consideration
- *	innerrel: inner relation under consideration
- *	jointype: if not JOIN_SEMI or JOIN_ANTI, we assume it's inner_unique
- *	sjinfo: SpecialJoinInfo relevant to this join
- *	restrictlist: join quals
- * Output parameters:
- *	*semifactors is filled in (see pathnodes.h for field definitions)
+ * 输入参数：
+ *	joinrel：正在考虑的连接关系
+ *	outerrel：正在考虑的外侧关系
+ *	innerrel：正在考虑的内层关系
+ *	jointype：若不是 JOIN_SEMI 或 JOIN_ANTI，就假定是 inner_unique
+ *	sjinfo：与该连接相关的 SpecialJoinInfo
+ *	restrictlist：连接限定条件
+ * 输出参数：
+ *	*semifactors 被填好（字段定义见 pathnodes.h）
  */
 void
 compute_semi_anti_join_factors(PlannerInfo *root,
@@ -4762,11 +4762,11 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 	ListCell   *l;
 
 	/*
-	 * In an ANTI join, we must ignore clauses that are "pushed down", since
-	 * those won't affect the match logic.  In a SEMI join, we do not
-	 * distinguish joinquals from "pushed down" quals, so just use the whole
-	 * restrictinfo list.  For other outer join types, we should consider only
-	 * non-pushed-down quals, so that this devolves to an IS_OUTER_JOIN check.
+	 * 在 ANTI 连接中必须忽略"下推"的子句，因为
+	 * 那些不影响匹配逻辑。在 SEMI 连接中不
+	 * 区分连接限定条件和"下推"限定条件，因此直接用整份
+	 * restrictinfo 列表。对其他外连接类型，只应考虑
+	 * 非下推限定条件，这样它就退化成 IS_OUTER_JOIN 检查。
 	 */
 	if (IS_OUTER_JOIN(jointype))
 	{
@@ -4783,7 +4783,7 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 		joinquals = restrictlist;
 
 	/*
-	 * Get the JOIN_SEMI or JOIN_ANTI selectivity of the join clauses.
+	 * 取得连接子句的 JOIN_SEMI 或 JOIN_ANTI 选择率。
 	 */
 	jselec = clauselist_selectivity(root,
 									joinquals,
@@ -4792,7 +4792,7 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 									sjinfo);
 
 	/*
-	 * Also get the normal inner-join selectivity of the join clauses.
+	 * 也取得连接子句的普通内连接选择率。
 	 */
 	norm_sjinfo.type = T_SpecialJoinInfo;
 	norm_sjinfo.min_lefthand = outerrel->relids;
@@ -4805,7 +4805,7 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 	norm_sjinfo.commute_above_r = NULL;
 	norm_sjinfo.commute_below_l = NULL;
 	norm_sjinfo.commute_below_r = NULL;
-	/* we don't bother trying to make the remaining fields valid */
+	/* 不费力去让其余字段有效 */
 	norm_sjinfo.lhs_strict = false;
 	norm_sjinfo.semi_can_btree = false;
 	norm_sjinfo.semi_can_hash = false;
@@ -4818,26 +4818,26 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 									JOIN_INNER,
 									&norm_sjinfo);
 
-	/* Avoid leaking a lot of ListCells */
+	/* 避免泄漏大量 ListCells */
 	if (IS_OUTER_JOIN(jointype))
 		list_free(joinquals);
 
 	/*
-	 * jselec can be interpreted as the fraction of outer-rel rows that have
-	 * any matches (this is true for both SEMI and ANTI cases).  And nselec is
-	 * the fraction of the Cartesian product that matches.  So, the average
-	 * number of matches for each outer-rel row that has at least one match is
-	 * nselec * inner_rows / jselec.
+	 * jselec 可以解释成外侧关系中有
+	 * 任何匹配的行的比例（SEMI 和 ANTI 都成立）。nselec 则是
+	 * 笛卡尔积中匹配的比例。因此，至少有一次匹配的每个外侧行，
+	 * 平均匹配数是
+	 * nselec * inner_rows / jselec。
 	 *
-	 * Note: it is correct to use the inner rel's "rows" count here, even
-	 * though we might later be considering a parameterized inner path with
-	 * fewer rows.  This is because we have included all the join clauses in
-	 * the selectivity estimate.
+	 * 注意：这里用内层关系的 "rows" 计数是对的，即使
+	 * 以后可能考虑行数更少的参数化内层路径。
+	 * 这是因为选择率估计里已经包括了
+	 * 全部连接子句。
 	 */
-	if (jselec > 0)				/* protect against zero divide */
+	if (jselec > 0)				/* 防止除以零 */
 	{
 		avgmatch = nselec * innerrel->rows / jselec;
-		/* Clamp to sane range */
+		/* 钳制到合理范围 */
 		avgmatch = Max(1.0, avgmatch);
 	}
 	else
@@ -4849,13 +4849,13 @@ compute_semi_anti_join_factors(PlannerInfo *root,
 
 /*
  * has_indexed_join_quals
- *	  Check whether all the joinquals of a nestloop join are used as
- *	  inner index quals.
+ *	  检查嵌套循环连接的全部连接限定条件是否都用作
+ *	  内层索引限定条件。
  *
- * If the inner path of a SEMI/ANTI join is an indexscan (including bitmap
- * indexscan) that uses all the joinquals as indexquals, we can assume that an
- * unmatched outer tuple is cheap to process, whereas otherwise it's probably
- * expensive.
+ * 若 SEMI/ANTI 连接的内层路径是索引扫描（包括位图
+ * 索引扫描），并且把全部连接限定条件都用作索引限定条件，就可以假定
+ * 未匹配的外侧元组处理起来便宜，否则大概
+ * 很贵。
  */
 static bool
 has_indexed_join_quals(NestPath *path)
@@ -4867,14 +4867,14 @@ has_indexed_join_quals(NestPath *path)
 	bool		found_one;
 	ListCell   *lc;
 
-	/* If join still has quals to evaluate, it's not fast */
+	/* 若连接还有限定条件要算，就不快 */
 	if (joinpath->joinrestrictinfo != NIL)
 		return false;
-	/* Nor if the inner path isn't parameterized at all */
+	/* 内层路径完全没有参数化时也不是 */
 	if (innerpath->param_info == NULL)
 		return false;
 
-	/* Find the indexclauses list for the inner scan */
+	/* 找出内层扫描的 indexclauses 列表 */
 	switch (innerpath->pathtype)
 	{
 		case T_IndexScan:
@@ -4883,7 +4883,7 @@ has_indexed_join_quals(NestPath *path)
 			break;
 		case T_BitmapHeapScan:
 			{
-				/* Accept only a simple bitmap scan, not AND/OR cases */
+				/* 只接受简单位图扫描，不接受 AND/OR 情形 */
 				Path	   *bmqual = ((BitmapHeapPath *) innerpath)->bitmapqual;
 
 				if (IsA(bmqual, IndexPath))
@@ -4895,18 +4895,18 @@ has_indexed_join_quals(NestPath *path)
 		default:
 
 			/*
-			 * If it's not a simple indexscan, it probably doesn't run quickly
-			 * for zero rows out, even if it's a parameterized path using all
-			 * the joinquals.
+			 * 若不是简单索引扫描，零行输出时大概也跑不快，
+			 * 即使它是用上全部连接限定条件的
+			 * 参数化路径。
 			 */
 			return false;
 	}
 
 	/*
-	 * Examine the inner path's param clauses.  Any that are from the outer
-	 * path must be found in the indexclauses list, either exactly or in an
-	 * equivalent form generated by equivclass.c.  Also, we must find at least
-	 * one such clause, else it's a clauseless join which isn't fast.
+	 * 检查内层路径的参数子句。任何来自外侧
+	 * 路径的子句都必须出现在 indexclauses 列表里，要么完全相同，要么是
+	 * equivclass.c 生成的等价形式。另外，至少必须找到
+	 * 一条这样的子句，否则就是没有子句的连接，那不快。
 	 */
 	found_one = false;
 	foreach(lc, innerpath->param_info->ppi_clauses)
@@ -4928,27 +4928,27 @@ has_indexed_join_quals(NestPath *path)
 
 /*
  * approx_tuple_count
- *		Quick-and-dirty estimation of the number of join rows passing
- *		a set of qual conditions.
+ *		粗略估计通过一组限定条件的连接行数。
+ *		限定条件可以是布尔表达式的隐式 ANDed 列表，
  *
- * The quals can be either an implicitly-ANDed list of boolean expressions,
- * or a list of RestrictInfo nodes (typically the latter).
+ * 也可以是 RestrictInfo 节点列表（通常是后者）。
+ * 故意按 JOIN_INNER 规则计算选择率，即使
  *
- * We intentionally compute the selectivity under JOIN_INNER rules, even
- * if it's some type of outer join.  This is appropriate because we are
- * trying to figure out how many tuples pass the initial merge or hash
- * join step.
+ * 它是某种外连接。这是合适的，因为我们要
+ * 弄清有多少元组通过最初的归并或哈希
+ * 连接步骤。
+ * 之所以粗略，是因为绕过了 clauselist_selectivity，
  *
- * This is quick-and-dirty because we bypass clauselist_selectivity, and
- * simply multiply the independent clause selectivities together.  Now
- * clauselist_selectivity often can't do any better than that anyhow, but
- * for some situations (such as range constraints) it is smarter.  However,
- * we can't effectively cache the results of clauselist_selectivity, whereas
- * the individual clause selectivities can be and are cached.
+ * 只是把各独立子句的选择率乘在一起。其实
+ * clauselist_selectivity 常常也没法比这更好，但
+ * 有些情形（例如范围约束）它更聪明。不过，
+ * 没法有效缓存 clauselist_selectivity 的结果，而
+ * 单个子句的选择率可以缓存，也确实缓存了。
+ * 既然结果只用来估计
  *
- * Since we are only using the results to estimate how many potential
- * output tuples are generated and passed through qpqual checking, it
- * seems OK to live with the approximation.
+ * 会生成并送去 qpqual 检查的潜在输出元组有多少，
+ * 将就这个近似
+ * 似乎可以。
  */
 static double
 approx_tuple_count(PlannerInfo *root, JoinPath *path, List *quals)
@@ -4961,7 +4961,7 @@ approx_tuple_count(PlannerInfo *root, JoinPath *path, List *quals)
 	ListCell   *l;
 
 	/*
-	 * Make up a SpecialJoinInfo for JOIN_INNER semantics.
+	 * 编造一个按 JOIN_INNER 语义的 SpecialJoinInfo。
 	 */
 	sjinfo.type = T_SpecialJoinInfo;
 	sjinfo.min_lefthand = path->outerjoinpath->parent->relids;
@@ -4974,23 +4974,23 @@ approx_tuple_count(PlannerInfo *root, JoinPath *path, List *quals)
 	sjinfo.commute_above_r = NULL;
 	sjinfo.commute_below_l = NULL;
 	sjinfo.commute_below_r = NULL;
-	/* we don't bother trying to make the remaining fields valid */
+	/* 不费力去让其余字段有效 */
 	sjinfo.lhs_strict = false;
 	sjinfo.semi_can_btree = false;
 	sjinfo.semi_can_hash = false;
 	sjinfo.semi_operators = NIL;
 	sjinfo.semi_rhs_exprs = NIL;
 
-	/* Get the approximate selectivity */
+	/* 取得近似选择率 */
 	foreach(l, quals)
 	{
 		Node	   *qual = (Node *) lfirst(l);
 
-		/* Note that clause_selectivity will be able to cache its result */
+		/* 注意 clause_selectivity 能够缓存其结果 */
 		selec *= clause_selectivity(root, qual, 0, JOIN_INNER, &sjinfo);
 	}
 
-	/* Apply it to the input relation sizes */
+	/* 把它用到输入关系的规模上 */
 	tuples = selec * outer_tuples * inner_tuples;
 
 	return clamp_row_est(tuples);
@@ -4999,23 +4999,23 @@ approx_tuple_count(PlannerInfo *root, JoinPath *path, List *quals)
 
 /*
  * set_baserel_size_estimates
- *		Set the size estimates for the given base relation.
+ *		为给定基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already, and rel->tuples must be set.
+ * 该关系的目标列表和 restrictinfo 列表必须已经建好，
+ * 并且 rel->tuples 必须已设置。
  *
- * We set the following fields of the rel node:
- *	rows: the estimated number of output tuples (after applying
- *		  restriction clauses).
- *	width: the estimated average output tuple width in bytes.
- *	baserestrictcost: estimated cost of evaluating baserestrictinfo clauses.
+ * 设置该关系节点的下列字段：
+ *	rows：估计的输出元组数（应用
+ *		  限制子句之后）。
+ *	width：估计的平均输出元组宽度（字节）。
+ *	baserestrictcost：求值 baserestrictinfo 子句的估计代价。
  */
 void
 set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
 	double		nrows;
 
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(rel->relid > 0);
 
 	nrows = rel->tuples *
@@ -5034,11 +5034,11 @@ set_baserel_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * get_parameterized_baserel_size
- *		Make a size estimate for a parameterized scan of a base relation.
+ *		为基关系的参数化扫描做规模估计。
  *
- * 'param_clauses' lists the additional join clauses to be used.
+ * 'param_clauses' 列出要使用的额外连接子句。
  *
- * set_baserel_size_estimates must have been applied already.
+ * 必须已经用过 set_baserel_size_estimates。
  */
 double
 get_parameterized_baserel_size(PlannerInfo *root, RelOptInfo *rel,
@@ -5048,20 +5048,20 @@ get_parameterized_baserel_size(PlannerInfo *root, RelOptInfo *rel,
 	double		nrows;
 
 	/*
-	 * Estimate the number of rows returned by the parameterized scan, knowing
-	 * that it will apply all the extra join clauses as well as the rel's own
-	 * restriction clauses.  Note that we force the clauses to be treated as
-	 * non-join clauses during selectivity estimation.
+	 * 估计参数化扫描返回的行数，已知
+	 * 它会应用全部额外连接子句以及该关系自己的
+	 * 限制子句。注意强制这些子句在选择率估计期间
+	 * 被当作非连接子句。
 	 */
 	allclauses = list_concat_copy(param_clauses, rel->baserestrictinfo);
 	nrows = rel->tuples *
 		clauselist_selectivity(root,
 							   allclauses,
-							   rel->relid,	/* do not use 0! */
+							   rel->relid,	/* 不要用 0！ */
 							   JOIN_INNER,
 							   NULL);
 	nrows = clamp_row_est(nrows);
-	/* For safety, make sure result is not more than the base estimate */
+	/* 为安全起见，确保结果不超过基估计 */
 	if (nrows > rel->rows)
 		nrows = rel->rows;
 	return nrows;
@@ -5069,25 +5069,25 @@ get_parameterized_baserel_size(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * set_joinrel_size_estimates
- *		Set the size estimates for the given join relation.
+ *		为给定连接关系设置规模估计。
  *
- * The rel's targetlist must have been constructed already, and a
- * restriction clause list that matches the given component rels must
- * be provided.
+ * 该关系的目标列表必须已经建好，并且必须提供
+ * 与给定成员关系匹配的限制子句列表。
+ * 多于两个基关系的连接关系有不止一种做法，
  *
- * Since there is more than one way to make a joinrel for more than two
- * base relations, the results we get here could depend on which component
- * rel pair is provided.  In theory we should get the same answers no matter
- * which pair is provided; in practice, since the selectivity estimation
- * routines don't handle all cases equally well, we might not.  But there's
- * not much to be done about it.  (Would it make sense to repeat the
- * calculations for each pair of input rels that's encountered, and somehow
- * average the results?  Probably way more trouble than it's worth, and
- * anyway we must keep the rowcount estimate the same for all paths for the
- * joinrel.)
+ * 这里得到的结果可能取决于提供的是哪一对
+ * 成员关系。理论上无论提供哪一对都应得到相同答案；
+ * 实践中，由于选择率估计
+ * 例程并非对所有情形都同样好，也许得不到。但也
+ * 没什么办法。（要对遇到的每一对输入关系
+ * 重复计算，再以某种方式
+ * 平均结果，说得通吗？大概麻烦远大于价值，而且
+ * 无论如何必须让该连接关系所有路径的行数估计
+ * 保持相同。）
+ * 这里只设置 rows 字段。
  *
- * We set only the rows field here.  The reltarget field was already set by
- * build_joinrel_tlist, and baserestrictcost is not used for join rels.
+ * reltarget 字段已由
+ * build_joinrel_tlist 设置，baserestrictcost 不用于连接关系。
  */
 void
 set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
@@ -5108,18 +5108,18 @@ set_joinrel_size_estimates(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * get_parameterized_joinrel_size
- *		Make a size estimate for a parameterized scan of a join relation.
+ *		为连接关系的参数化扫描做规模估计。
  *
- * 'rel' is the joinrel under consideration.
- * 'outer_path', 'inner_path' are (probably also parameterized) Paths that
- *		produce the relations being joined.
- * 'sjinfo' is any SpecialJoinInfo relevant to this join.
- * 'restrict_clauses' lists the join clauses that need to be applied at the
- * join node (including any movable clauses that were moved down to this join,
- * and not including any movable clauses that were pushed down into the
- * child paths).
+ * 'rel' 是正在考虑的连接关系。
+ * 'outer_path'、'inner_path' 是产生被连接关系的路径
+ *		（多半也已参数化）。
+ * 'sjinfo' 是与该连接相关的任何 SpecialJoinInfo。
+ * 'restrict_clauses' 列出必须在
+ * 连接节点应用的连接子句（包括下移到该连接的任何可移动子句，
+ * 不包括下推到
+ * 子路径里的任何可移动子句）。
  *
- * set_joinrel_size_estimates must have been applied already.
+ * 必须已经用过 set_joinrel_size_estimates。
  */
 double
 get_parameterized_joinrel_size(PlannerInfo *root, RelOptInfo *rel,
@@ -5131,13 +5131,13 @@ get_parameterized_joinrel_size(PlannerInfo *root, RelOptInfo *rel,
 	double		nrows;
 
 	/*
-	 * Estimate the number of rows returned by the parameterized join as the
-	 * sizes of the input paths times the selectivity of the clauses that have
-	 * ended up at this join node.
+	 * 把参数化连接返回的行数估计成
+	 * 输入路径规模乘以最终落在该连接节点的子句的选择率。
+	 * 与 set_joinrel_size_estimates 一样，行数估计可能取决于
 	 *
-	 * As with set_joinrel_size_estimates, the rowcount estimate could depend
-	 * on the pair of input paths provided, though ideally we'd get the same
-	 * estimate for any pair with the same parameterization.
+	 * 提供的那对输入路径，虽然理想情况下
+	 * 参数化相同的任何一对
+	 * 都应得到相同估计。
 	 */
 	nrows = calc_joinrel_size_estimate(root,
 									   rel,
@@ -5147,7 +5147,7 @@ get_parameterized_joinrel_size(PlannerInfo *root, RelOptInfo *rel,
 									   inner_path->rows,
 									   sjinfo,
 									   restrict_clauses);
-	/* For safety, make sure result is not more than the base estimate */
+	/* 为安全起见，确保结果不超过基估计 */
 	if (nrows > rel->rows)
 		nrows = rel->rows;
 	return nrows;
@@ -5155,12 +5155,12 @@ get_parameterized_joinrel_size(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * calc_joinrel_size_estimate
- *		Workhorse for set_joinrel_size_estimates and
- *		get_parameterized_joinrel_size.
+ *		set_joinrel_size_estimates 和
+ *		get_parameterized_joinrel_size 的主力。
  *
- * outer_rel/inner_rel are the relations being joined, but they should be
- * assumed to have sizes outer_rows/inner_rows; those numbers might be less
- * than what rel->rows says, when we are considering parameterized paths.
+ * outer_rel/inner_rel 是被连接的关系，但应假定
+ * 它们的规模是 outer_rows/inner_rows；考虑参数化路径时，这些数字可能小于
+ * rel->rows 所说的值。
  */
 static double
 calc_joinrel_size_estimate(PlannerInfo *root,
@@ -5179,19 +5179,19 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 	double		nrows;
 
 	/*
-	 * Compute joinclause selectivity.  Note that we are only considering
-	 * clauses that become restriction clauses at this join level; we are not
-	 * double-counting them because they were not considered in estimating the
-	 * sizes of the component rels.
+	 * 计算连接子句选择率。注意这里只考虑
+	 * 在该连接层次变成限制子句的子句；不会
+	 * 重复计算它们，因为估计成员关系规模时
+	 * 没有考虑过它们。
 	 *
-	 * First, see whether any of the joinclauses can be matched to known FK
-	 * constraints.  If so, drop those clauses from the restrictlist, and
-	 * instead estimate their selectivity using FK semantics.  (We do this
-	 * without regard to whether said clauses are local or "pushed down".
-	 * Probably, an FK-matching clause could never be seen as pushed down at
-	 * an outer join, since it would be strict and hence would be grounds for
-	 * join strength reduction.)  fkselec gets the net selectivity for
-	 * FK-matching clauses, or 1.0 if there are none.
+	 * 首先看是否有连接子句能匹配已知的外键
+	 * 约束。若有，就把那些子句从 restrictlist 去掉，
+	 * 改为按外键语义估计它们的选择率。（这样做
+	 * 不管所说子句是局部的还是"下推"的。
+	 * 外键匹配的子句大概永远不会在
+	 * 外连接处被看成下推的，因为它是严格的，因而会成为
+	 * 连接强度归约的依据。）fkselec 取得
+	 * 外键匹配子句的净选择率，若没有则为 1.0。
 	 */
 	fkselec = get_foreign_key_join_selectivity(root,
 											   outer_rel->relids,
@@ -5200,9 +5200,9 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 											   &restrictlist);
 
 	/*
-	 * For an outer join, we have to distinguish the selectivity of the join's
-	 * own clauses (JOIN/ON conditions) from any clauses that were "pushed
-	 * down".  For inner joins we just count them all as joinclauses.
+	 * 对外连接，必须区分连接自己的子句（JOIN/ON 条件）
+	 * 与任何"下推"子句的选择率。对内连接则把它们
+	 * 全部算作连接子句。
 	 */
 	if (IS_OUTER_JOIN(jointype))
 	{
@@ -5210,7 +5210,7 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 		List	   *pushedquals = NIL;
 		ListCell   *l;
 
-		/* Grovel through the clauses to separate into two lists */
+		/* 翻找子句，分成两份列表 */
 		foreach(l, restrictlist)
 		{
 			RestrictInfo *rinfo = lfirst_node(RestrictInfo, l);
@@ -5221,7 +5221,7 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 				joinquals = lappend(joinquals, rinfo);
 		}
 
-		/* Get the separate selectivities */
+		/* 分别取得选择率 */
 		jselec = clauselist_selectivity(root,
 										joinquals,
 										0,
@@ -5233,7 +5233,7 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 										jointype,
 										sjinfo);
 
-		/* Avoid leaking a lot of ListCells */
+		/* 避免泄漏大量 ListCells */
 		list_free(joinquals);
 		list_free(pushedquals);
 	}
@@ -5244,26 +5244,26 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 										0,
 										jointype,
 										sjinfo);
-		pselec = 0.0;			/* not used, keep compiler quiet */
+		pselec = 0.0;			/* 未使用，消除编译器告警 */
 	}
 
 	/*
-	 * Basically, we multiply size of Cartesian product by selectivity.
+	 * 基本上，用选择率去乘笛卡尔积的规模。
 	 *
-	 * If we are doing an outer join, take that into account: the joinqual
-	 * selectivity has to be clamped using the knowledge that the output must
-	 * be at least as large as the non-nullable input.  However, any
-	 * pushed-down quals are applied after the outer join, so their
-	 * selectivity applies fully.
+	 * 若在做外连接，就要计入这一点：连接限定条件的
+	 * 选择率必须用"输出至少要和不可空输入一样大"
+	 * 这一知识来钳制。不过，任何
+	 * 下推限定条件是在外连接之后应用的，因此它们的
+	 * 选择率完全生效。
 	 *
-	 * For JOIN_SEMI and JOIN_ANTI, the selectivity is defined as the fraction
-	 * of LHS rows that have matches, and we apply that straightforwardly.
+	 * 对 JOIN_SEMI 和 JOIN_ANTI，选择率定义为
+	 * 有匹配的左侧行的比例，我们直接套用。
 	 */
 	switch (jointype)
 	{
 		case JOIN_INNER:
 			nrows = outer_rows * inner_rows * fkselec * jselec;
-			/* pselec not used */
+			/* 未使用 pselec */
 			break;
 		case JOIN_LEFT:
 			nrows = outer_rows * inner_rows * fkselec * jselec;
@@ -5281,16 +5281,16 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 			break;
 		case JOIN_SEMI:
 			nrows = outer_rows * fkselec * jselec;
-			/* pselec not used */
+			/* 未使用 pselec */
 			break;
 		case JOIN_ANTI:
 			nrows = outer_rows * (1.0 - fkselec * jselec);
 			nrows *= pselec;
 			break;
 		default:
-			/* other values not expected here */
+			/* 这里不预期出现其他值 */
 			elog(ERROR, "unrecognized join type: %d", (int) jointype);
-			nrows = 0;			/* keep compiler quiet */
+			nrows = 0;			/* 消除编译器告警 */
 			break;
 	}
 
@@ -5299,18 +5299,18 @@ calc_joinrel_size_estimate(PlannerInfo *root,
 
 /*
  * get_foreign_key_join_selectivity
- *		Estimate join selectivity for foreign-key-related clauses.
+ *		估计与外键相关的子句的连接选择率。
  *
- * Remove any clauses that can be matched to FK constraints from *restrictlist,
- * and return a substitute estimate of their selectivity.  1.0 is returned
- * when there are no such clauses.
+ * 从 *restrictlist 去掉任何能匹配外键约束的子句，
+ * 并返回它们选择率的替代估计。没有这种子句时
+ * 返回 1.0。
  *
- * The reason for treating such clauses specially is that we can get better
- * estimates this way than by relying on clauselist_selectivity(), especially
- * for multi-column FKs where that function's assumption that the clauses are
- * independent falls down badly.  But even with single-column FKs, we may be
- * able to get a better answer when the pg_statistic stats are missing or out
- * of date.
+ * 之所以特殊对待这些子句，是因为这样能得到比依赖
+ * clauselist_selectivity() 更好的估计，尤其是
+ * 多列外键，那个函数关于子句
+ * 相互独立的假定会严重失效。即使是单列外键，当
+ * pg_statistic 统计信息缺少或过时时，也可能
+ * 得到更好的答案。
  */
 static Selectivity
 get_foreign_key_join_selectivity(PlannerInfo *root,
@@ -5324,7 +5324,7 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 	List	   *worklist = *restrictlist;
 	ListCell   *lc;
 
-	/* Consider each FK constraint that is known to match the query */
+	/* 考虑已知与查询匹配的每条外键约束 */
 	foreach(lc, root->fkey_list)
 	{
 		ForeignKeyOptInfo *fkinfo = (ForeignKeyOptInfo *) lfirst(lc);
@@ -5333,8 +5333,8 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 		ListCell   *cell;
 
 		/*
-		 * This FK is not relevant unless it connects a baserel on one side of
-		 * this join to a baserel on the other side.
+		 * 除非这条外键把该连接一侧的基关系和
+		 * 另一侧的基关系连起来，否则它不相关。
 		 */
 		if (bms_is_member(fkinfo->con_relid, outer_relids) &&
 			bms_is_member(fkinfo->ref_relid, inner_relids))
@@ -5346,26 +5346,26 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 			continue;
 
 		/*
-		 * If we're dealing with a semi/anti join, and the FK's referenced
-		 * relation is on the outside, then knowledge of the FK doesn't help
-		 * us figure out what we need to know (which is the fraction of outer
-		 * rows that have matches).  On the other hand, if the referenced rel
-		 * is on the inside, then all outer rows must have matches in the
-		 * referenced table (ignoring nulls).  But any restriction or join
-		 * clauses that filter that table will reduce the fraction of matches.
-		 * We can account for restriction clauses, but it's too hard to guess
-		 * how many table rows would get through a join that's inside the RHS.
-		 * Hence, if either case applies, punt and ignore the FK.
+		 * 若处理的是半/反连接，并且外键的被引用
+		 * 关系在外侧，那么知道这条外键也帮不上
+		 * 我们弄清需要知道的事（即外侧
+		 * 行中有匹配的比例）。另一方面，若被引用关系
+		 * 在内侧，那么所有外侧行都必须在
+		 * 被引用表中有匹配（忽略空值）。但任何过滤该表的限制或连接
+		 * 子句都会降低匹配比例。
+		 * 可以计入限制子句，但很难猜测
+		 * 有多少表行能通过位于右侧内部的连接。
+		 * 因此，若两种情形之一适用，就放弃并忽略这条外键。
 		 */
 		if ((jointype == JOIN_SEMI || jointype == JOIN_ANTI) &&
 			(ref_is_outer || bms_membership(inner_relids) != BMS_SINGLETON))
 			continue;
 
 		/*
-		 * Modify the restrictlist by removing clauses that match the FK (and
-		 * putting them into removedlist instead).  It seems unsafe to modify
-		 * the originally-passed List structure, so we make a shallow copy the
-		 * first time through.
+		 * 修改 restrictlist，去掉与外键匹配的子句（并
+		 * 把它们放进 removedlist）。修改
+		 * 原先传入的 List 结构似乎不安全，因此
+		 * 第一次经过时做一份浅拷贝。
 		 */
 		if (worklist == *restrictlist)
 			worklist = list_copy(worklist);
@@ -5377,23 +5377,23 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 			bool		remove_it = false;
 			int			i;
 
-			/* Drop this clause if it matches any column of the FK */
+			/* 若该子句匹配外键的任何列，就丢掉它 */
 			for (i = 0; i < fkinfo->nkeys; i++)
 			{
 				if (rinfo->parent_ec)
 				{
 					/*
-					 * EC-derived clauses can only match by EC.  It is okay to
-					 * consider any clause derived from the same EC as
-					 * matching the FK: even if equivclass.c chose to generate
-					 * a clause equating some other pair of Vars, it could
-					 * have generated one equating the FK's Vars.  So for
-					 * purposes of estimation, we can act as though it did so.
+					 * 由等价类导出的子句只能按等价类匹配。把
+					 * 同一等价类导出的任何子句都视为
+					 * 与外键匹配是可以的：即使 equivclass.c 选择生成
+					 * 的是另一对 Var 的等值子句，它本来
+					 * 也可以生成外键那些 Var 的等值子句。因此就
+					 * 估计而言，可以当作它已经那样做了。
 					 *
-					 * Note: checking parent_ec is a bit of a cheat because
-					 * there are EC-derived clauses that don't have parent_ec
-					 * set; but such clauses must compare expressions that
-					 * aren't just Vars, so they cannot match the FK anyway.
+					 * 注意：检查 parent_ec 有点取巧，因为
+					 * 有些由等价类导出的子句没有设置 parent_ec；
+					 * 但那些子句比较的表达式
+					 * 不只是 Var，因此反正无法匹配外键。
 					 */
 					if (fkinfo->eclass[i] == rinfo->parent_ec)
 					{
@@ -5404,8 +5404,8 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 				else
 				{
 					/*
-					 * Otherwise, see if rinfo was previously matched to FK as
-					 * a "loose" clause.
+					 * 否则，看 rinfo 先前是否已作为
+					 * "宽松"子句匹配到外键。
 					 */
 					if (list_member_ptr(fkinfo->rinfos[i], rinfo))
 					{
@@ -5422,30 +5422,30 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 		}
 
 		/*
-		 * If we failed to remove all the matching clauses we expected to
-		 * find, chicken out and ignore this FK; applying its selectivity
-		 * might result in double-counting.  Put any clauses we did manage to
-		 * remove back into the worklist.
+		 * 若没能去掉预期会找到的全部匹配子句，
+		 * 就退缩并忽略这条外键；套用它的选择率
+		 * 可能导致重复计算。把已经设法
+		 * 去掉的子句放回工作列表。
 		 *
-		 * Since the matching clauses are known not outerjoin-delayed, they
-		 * would normally have appeared in the initial joinclause list.  If we
-		 * didn't find them, there are two possibilities:
+		 * 匹配子句已知不是外连接延迟的，它们
+		 * 通常会出现在最初的连接子句列表里。若
+		 * 没找到它们，有两种可能：
 		 *
-		 * 1. If the FK match is based on an EC that is ec_has_const, it won't
-		 * have generated any join clauses at all.  We discount such ECs while
-		 * checking to see if we have "all" the clauses.  (Below, we'll adjust
-		 * the selectivity estimate for this case.)
+		 * 1. 若外键匹配基于 ec_has_const 的等价类，它根本
+		 * 不会生成任何连接子句。检查是否已有"全部"子句时，
+		 * 不计这类等价类。（下面会针对这种情形
+		 * 调整选择率估计。）
 		 *
-		 * 2. The clauses were matched to some other FK in a previous
-		 * iteration of this loop, and thus removed from worklist.  (A likely
-		 * case is that two FKs are matched to the same EC; there will be only
-		 * one EC-derived clause in the initial list, so the first FK will
-		 * consume it.)  Applying both FKs' selectivity independently risks
-		 * underestimating the join size; in particular, this would undo one
-		 * of the main things that ECs were invented for, namely to avoid
-		 * double-counting the selectivity of redundant equality conditions.
-		 * Later we might think of a reasonable way to combine the estimates,
-		 * but for now, just punt, since this is a fairly uncommon situation.
+		 * 2. 子句在本循环先前某次迭代中匹配了另一条外键，
+		 * 因而已从工作列表去掉。（常见
+		 * 情形是两条外键匹配同一个等价类；最初列表里
+		 * 只有一条由等价类导出的子句，于是第一条外键
+		 * 会把它用掉。）独立套用两条外键的选择率有
+		 * 低估连接规模的风险；尤其会抵消
+		 * 等价类被发明出来要做的一件主要事情，即避免
+		 * 把冗余等值条件的选择率重复计算。
+		 * 以后也许会想到把这些估计合理地合并起来，
+		 * 但目前只能放弃，因为这种情形相当少见。
 		 */
 		if (removedlist == NIL ||
 			list_length(removedlist) !=
@@ -5456,40 +5456,40 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 		}
 
 		/*
-		 * Finally we get to the payoff: estimate selectivity using the
-		 * knowledge that each referencing row will match exactly one row in
-		 * the referenced table.
+		 * 最后到了回报：利用这一点估计选择率：
+		 * 每个引用行恰好匹配被引用表中的
+		 * 一行。
 		 *
-		 * XXX that's not true in the presence of nulls in the referencing
-		 * column(s), so in principle we should derate the estimate for those.
-		 * However (1) if there are any strict restriction clauses for the
-		 * referencing column(s) elsewhere in the query, derating here would
-		 * be double-counting the null fraction, and (2) it's not very clear
-		 * how to combine null fractions for multiple referencing columns. So
-		 * we do nothing for now about correcting for nulls.
+		 * XXX 若引用列里有空值，这就不成立，
+		 * 原则上应当为此降低估计。
+		 * 不过 (1) 若查询别处对引用列有任何严格限制子句，
+		 * 在这里再降就会
+		 * 把空值比例重复计算，而且 (2) 不太清楚
+		 * 多个引用列的空值比例如何合并。因此
+		 * 目前不对空值做修正。
 		 *
-		 * XXX another point here is that if either side of an FK constraint
-		 * is an inheritance parent, we estimate as though the constraint
-		 * covers all its children as well.  This is not an unreasonable
-		 * assumption for a referencing table, ie the user probably applied
-		 * identical constraints to all child tables (though perhaps we ought
-		 * to check that).  But it's not possible to have done that for a
-		 * referenced table.  Fortunately, precisely because that doesn't
-		 * work, it is uncommon in practice to have an FK referencing a parent
-		 * table.  So, at least for now, disregard inheritance here.
+		 * XXX 另一点是，若外键约束的任一侧
+		 * 是继承父表，估计时就当作约束
+		 * 也覆盖其全部子表。对引用表来说这不是
+		 * 不合理的假定，即用户大概施加了
+		 * 相同的约束到所有子表（不过也许应当
+		 * 检查这一点）。但对被引用表不可能那样做。
+		 * 幸好，正因为那样做不成，
+		 * 实践中外键引用父表并不常见。
+		 * 因此至少目前，这里不考虑继承。
 		 */
 		if (jointype == JOIN_SEMI || jointype == JOIN_ANTI)
 		{
 			/*
-			 * For JOIN_SEMI and JOIN_ANTI, we only get here when the FK's
-			 * referenced table is exactly the inside of the join.  The join
-			 * selectivity is defined as the fraction of LHS rows that have
-			 * matches.  The FK implies that every LHS row has a match *in the
-			 * referenced table*; but any restriction clauses on it will
-			 * reduce the number of matches.  Hence we take the join
-			 * selectivity as equal to the selectivity of the table's
-			 * restriction clauses, which is rows / tuples; but we must guard
-			 * against tuples == 0.
+			 * 对 JOIN_SEMI 和 JOIN_ANTI，只有外键的
+			 * 被引用表正好是连接内侧时才会到这里。连接
+			 * 选择率定义为有匹配的左侧行的比例。
+			 * 外键意味着每一左侧行在
+			 * *被引用表中* 都有匹配；但该表上的任何限制子句都会
+			 * 减少匹配数。因此把连接
+			 * 选择率取成该表限制子句的选择率，即 rows / tuples；
+			 * 但必须提防
+			 * tuples == 0。
 			 */
 			RelOptInfo *ref_rel = find_base_rel(root, fkinfo->ref_relid);
 			double		ref_tuples = Max(ref_rel->tuples, 1.0);
@@ -5499,9 +5499,9 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 		else
 		{
 			/*
-			 * Otherwise, selectivity is exactly 1/referenced-table-size; but
-			 * guard against tuples == 0.  Note we should use the raw table
-			 * tuple count, not any estimate of its filtered or joined size.
+			 * 否则选择率正好是 1/被引用表规模；但
+			 * 要提防 tuples == 0。注意应当用原始表
+			 * 元组计数，而不是它过滤或连接后规模的任何估计。
 			 */
 			RelOptInfo *ref_rel = find_base_rel(root, fkinfo->ref_relid);
 			double		ref_tuples = Max(ref_rel->tuples, 1.0);
@@ -5510,14 +5510,14 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 		}
 
 		/*
-		 * If any of the FK columns participated in ec_has_const ECs, then
-		 * equivclass.c will have generated "var = const" restrictions for
-		 * each side of the join, thus reducing the sizes of both input
-		 * relations.  Taking the fkselec at face value would amount to
-		 * double-counting the selectivity of the constant restriction for the
-		 * referencing Var.  Hence, look for the restriction clause(s) that
-		 * were applied to the referencing Var(s), and divide out their
-		 * selectivity to correct for this.
+		 * 若任何外键列参与了 ec_has_const 等价类，那么
+		 * equivclass.c 会为
+		 * 连接的每一侧生成 "var = const" 限制，
+		 * 从而缩小两个输入
+		 * 关系的规模。按字面取 fkselec 就等于
+		 * 把引用 Var 上常量限制的选择率重复计算。
+		 * 因此找出施加到引用 Var 上的限制子句，
+		 * 并除掉它们的选择率来修正这一点。
 		 */
 		if (fkinfo->nconst_ec > 0)
 		{
@@ -5555,13 +5555,13 @@ get_foreign_key_join_selectivity(PlannerInfo *root,
 
 /*
  * set_subquery_size_estimates
- *		Set the size estimates for a base relation that is a subquery.
+ *		为一个子查询基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already, and the Paths for the subquery must have been completed.
- * We look at the subquery's PlannerInfo to extract data.
+ * 该关系的目标列表和 restrictinfo 列表必须已经建好，
+ * 并且子查询的路径必须已经完成。
+ * 查看子查询的 PlannerInfo 来提取数据。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel)
@@ -5570,22 +5570,22 @@ set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 	RelOptInfo *sub_final_rel;
 	ListCell   *lc;
 
-	/* Should only be applied to base relations that are subqueries */
+	/* 只应当用于作为子查询的基关系 */
 	Assert(rel->relid > 0);
 	Assert(planner_rt_fetch(rel->relid, root)->rtekind == RTE_SUBQUERY);
 
 	/*
-	 * Copy raw number of output rows from subquery.  All of its paths should
-	 * have the same output rowcount, so just look at cheapest-total.
+	 * 从子查询复制原始输出行数。它的所有路径
+	 * 输出行数都应相同，因此只看总代价最低的那条。
 	 */
 	sub_final_rel = fetch_upper_rel(subroot, UPPERREL_FINAL, NULL);
 	rel->tuples = sub_final_rel->cheapest_total_path->rows;
 
 	/*
-	 * Compute per-output-column width estimates by examining the subquery's
-	 * targetlist.  For any output that is a plain Var, get the width estimate
-	 * that was made while planning the subquery.  Otherwise, we leave it to
-	 * set_rel_width to fill in a datatype-based default estimate.
+	 * 通过检查子查询的目标列表，计算每个输出列的宽度估计。
+	 * 对任何是普通 Var 的输出，取得
+	 * 规划子查询时做出的宽度估计。否则留给
+	 * set_rel_width 填入基于数据类型的默认估计。
 	 */
 	foreach(lc, subroot->parse->targetList)
 	{
@@ -5593,31 +5593,31 @@ set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 		Node	   *texpr = (Node *) te->expr;
 		int32		item_width = 0;
 
-		/* junk columns aren't visible to upper query */
+		/* 废列对上层查询不可见 */
 		if (te->resjunk)
 			continue;
 
 		/*
-		 * The subquery could be an expansion of a view that's had columns
-		 * added to it since the current query was parsed, so that there are
-		 * non-junk tlist columns in it that don't correspond to any column
-		 * visible at our query level.  Ignore such columns.
+		 * 子查询可能是某个视图的展开，自当前查询被解析以来又给它
+		 * 加过列，因此里面有
+		 * 非废的目标列表列并不对应我们这一查询层次
+		 * 可见的任何列。忽略这些列。
 		 */
 		if (te->resno < rel->min_attr || te->resno > rel->max_attr)
 			continue;
 
 		/*
-		 * XXX This currently doesn't work for subqueries containing set
-		 * operations, because the Vars in their tlists are bogus references
-		 * to the first leaf subquery, which wouldn't give the right answer
-		 * even if we could still get to its PlannerInfo.
+		 * XXX 这对含有集合
+		 * 运算的子查询目前不行，因为它们目标列表里的 Var 是指向
+		 * 第一个叶子子查询的假引用，即使仍能拿到它的 PlannerInfo，
+		 * 也给不出正确答案。
 		 *
-		 * Also, the subquery could be an appendrel for which all branches are
-		 * known empty due to constraint exclusion, in which case
-		 * set_append_rel_pathlist will have left the attr_widths set to zero.
+		 * 另外，子查询可能是追加关系，其全部分支都因
+		 * 约束排除而已知为空，这时
+		 * set_append_rel_pathlist 会把 attr_widths 留成零。
 		 *
-		 * In either case, we just leave the width estimate zero until
-		 * set_rel_width fixes it.
+		 * 无论哪种情形，都先把宽度估计留成零，直到
+		 * set_rel_width 把它补上。
 		 */
 		if (IsA(texpr, Var) &&
 			subroot->parse->setOperations == NULL)
@@ -5630,18 +5630,18 @@ set_subquery_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 		rel->attr_widths[te->resno - rel->min_attr] = item_width;
 	}
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_function_size_estimates
- *		Set the size estimates for a base relation that is a function call.
+ *		为一个函数调用的基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_function_size_estimates(PlannerInfo *root, RelOptInfo *rel)
@@ -5649,14 +5649,14 @@ set_function_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 	RangeTblEntry *rte;
 	ListCell   *lc;
 
-	/* Should only be applied to base relations that are functions */
+	/* 只应当用于作为函数的基关系 */
 	Assert(rel->relid > 0);
 	rte = planner_rt_fetch(rel->relid, root);
 	Assert(rte->rtekind == RTE_FUNCTION);
 
 	/*
-	 * Estimate number of rows the functions will return. The rowcount of the
-	 * node is that of the largest function result.
+	 * 估计这些函数将返回的行数。该节点的行数是
+	 * 最大那个函数结果的行数。
 	 */
 	rel->tuples = 0;
 	foreach(lc, rte->functions)
@@ -5668,79 +5668,79 @@ set_function_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 			rel->tuples = ntup;
 	}
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_function_size_estimates
- *		Set the size estimates for a base relation that is a function call.
+ *		为一个函数调用的基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  *
- * We set the same fields as set_tablefunc_size_estimates.
+ * 设置的字段与 set_tablefunc_size_estimates 相同。
  */
 void
 set_tablefunc_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
-	/* Should only be applied to base relations that are functions */
+	/* 只应当用于作为函数的基关系 */
 	Assert(rel->relid > 0);
 	Assert(planner_rt_fetch(rel->relid, root)->rtekind == RTE_TABLEFUNC);
 
 	rel->tuples = 100;
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_values_size_estimates
- *		Set the size estimates for a base relation that is a values list.
+ *		为一个值列表基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_values_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
 	RangeTblEntry *rte;
 
-	/* Should only be applied to base relations that are values lists */
+	/* 只应当用于作为值列表的基关系 */
 	Assert(rel->relid > 0);
 	rte = planner_rt_fetch(rel->relid, root);
 	Assert(rte->rtekind == RTE_VALUES);
 
 	/*
-	 * Estimate number of rows the values list will return. We know this
-	 * precisely based on the list length (well, barring set-returning
-	 * functions in list items, but that's a refinement not catered for
-	 * anywhere else either).
+	 * 估计值列表将返回的行数。根据
+	 * 列表长度可以精确知道（当然，列表项里的集合返回
+	 * 函数除外，但别的地方也没有为这种细化
+	 * 做准备）。
 	 */
 	rel->tuples = list_length(rte->values_lists);
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_cte_size_estimates
- *		Set the size estimates for a base relation that is a CTE reference.
+ *		为一个 CTE 引用的基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already, and we need an estimate of the number of rows returned by the CTE
- * (if a regular CTE) or the non-recursive term (if a self-reference).
+ * 该关系的目标列表和 restrictinfo 列表必须已经建好，
+ * 并且需要 CTE 返回行数的估计
+ * （普通 CTE），或非递归项的估计（自引用时）。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_cte_size_estimates(PlannerInfo *root, RelOptInfo *rel, double cte_rows)
 {
 	RangeTblEntry *rte;
 
-	/* Should only be applied to base relations that are CTE references */
+	/* 只应当用于作为 CTE 引用的基关系 */
 	Assert(rel->relid > 0);
 	rte = planner_rt_fetch(rel->relid, root);
 	Assert(rte->rtekind == RTE_CTE);
@@ -5748,100 +5748,100 @@ set_cte_size_estimates(PlannerInfo *root, RelOptInfo *rel, double cte_rows)
 	if (rte->self_reference)
 	{
 		/*
-		 * In a self-reference, we assume the average worktable size is a
-		 * multiple of the nonrecursive term's size.  The best multiplier will
-		 * vary depending on query "fan-out", so make its value adjustable.
+		 * 自引用时，假定工作表平均规模是
+		 * 非递归项规模的某个倍数。最佳倍数
+		 * 随查询"扇出"而变，因此让这个值可调。
 		 */
 		rel->tuples = clamp_row_est(recursive_worktable_factor * cte_rows);
 	}
 	else
 	{
-		/* Otherwise just believe the CTE's rowcount estimate */
+		/* 否则就相信 CTE 的行数估计 */
 		rel->tuples = cte_rows;
 	}
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_namedtuplestore_size_estimates
- *		Set the size estimates for a base relation that is a tuplestore reference.
+ *		为一个 tuplestore 引用的基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_namedtuplestore_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
 	RangeTblEntry *rte;
 
-	/* Should only be applied to base relations that are tuplestore references */
+	/* 只应当用于作为 tuplestore 引用的基关系 */
 	Assert(rel->relid > 0);
 	rte = planner_rt_fetch(rel->relid, root);
 	Assert(rte->rtekind == RTE_NAMEDTUPLESTORE);
 
 	/*
-	 * Use the estimate provided by the code which is generating the named
-	 * tuplestore.  In some cases, the actual number might be available; in
-	 * others the same plan will be re-used, so a "typical" value might be
-	 * estimated and used.
+	 * 使用生成该命名
+	 * tuplestore 的代码所提供的估计。有些情况下实际数量可得；
+	 * 另一些情况下同一计划会被复用，因此也许会估计并使用
+	 * 一个"典型"值。
 	 */
 	rel->tuples = rte->enrtuples;
 	if (rel->tuples < 0)
 		rel->tuples = 1000;
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_result_size_estimates
- *		Set the size estimates for an RTE_RESULT base relation
+ *		为 RTE_RESULT 基关系设置规模估计。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  *
- * We set the same fields as set_baserel_size_estimates.
+ * 设置的字段与 set_baserel_size_estimates 相同。
  */
 void
 set_result_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
-	/* Should only be applied to RTE_RESULT base relations */
+	/* 只应当用于 RTE_RESULT 基关系 */
 	Assert(rel->relid > 0);
 	Assert(planner_rt_fetch(rel->relid, root)->rtekind == RTE_RESULT);
 
-	/* RTE_RESULT always generates a single row, natively */
+	/* RTE_RESULT 原生总是生成单行 */
 	rel->tuples = 1;
 
-	/* Now estimate number of output rows, etc */
+	/* 现在估计输出行数等 */
 	set_baserel_size_estimates(root, rel);
 }
 
 /*
  * set_foreign_size_estimates
- *		Set the size estimates for a base relation that is a foreign table.
+ *		为一张外部表基关系设置规模估计。
  *
- * There is not a whole lot that we can do here; the foreign-data wrapper
- * is responsible for producing useful estimates.  We can do a decent job
- * of estimating baserestrictcost, so we set that, and we also set up width
- * using what will be purely datatype-driven estimates from the targetlist.
- * There is no way to do anything sane with the rows value, so we just put
- * a default estimate and hope that the wrapper can improve on it.  The
- * wrapper's GetForeignRelSize function will be called momentarily.
+ * 这里能做的不多；外部数据包装器
+ * 负责产生有用的估计。baserestrictcost 可以估计得像样，
+ * 因此把它设上，也用目标列表里纯粹由数据类型驱动的估计
+ * 把宽度设上。
+ * 对 rows 值没法做任何合理的事，因此只放
+ * 一个默认估计，希望包装器能改进它。包装器的
+ * GetForeignRelSize 函数马上会被调用。
  *
- * The rel's targetlist and restrictinfo list must have been constructed
- * already.
+ * 该关系的目标列表和 restrictinfo 列表必须已经
+ * 建好。
  */
 void
 set_foreign_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 {
-	/* Should only be applied to base relations */
+	/* 只应当用于基关系 */
 	Assert(rel->relid > 0);
 
-	rel->rows = 1000;			/* entirely bogus default estimate */
+	rel->rows = 1000;			/* 完全瞎编的默认估计 */
 
 	cost_qual_eval(&rel->baserestrictcost, rel->baserestrictinfo, root);
 
@@ -5851,24 +5851,24 @@ set_foreign_size_estimates(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * set_rel_width
- *		Set the estimated output width of a base relation.
+ *		设置基关系的估计输出宽度。
  *
- * The estimated output width is the sum of the per-attribute width estimates
- * for the actually-referenced columns, plus any PHVs or other expressions
- * that have to be calculated at this relation.  This is the amount of data
- * we'd need to pass upwards in case of a sort, hash, etc.
+ * 估计输出宽度是每属性宽度估计之和，
+ * 针对实际引用的列，再加上任何 PHVs 或其他表达式，
+ * 这些必须在该关系上计算。这是要
+ * 在排序、哈希等情况下向上传递的数据量。
  *
- * This function also sets reltarget->cost, so it's a bit misnamed now.
+ * 本函数也设置 reltarget->cost，所以现在名字有点不准。
  *
- * NB: this works best on plain relations because it prefers to look at
- * real Vars.  For subqueries, set_subquery_size_estimates will already have
- * copied up whatever per-column estimates were made within the subquery,
- * and for other types of rels there isn't much we can do anyway.  We fall
- * back on (fairly stupid) datatype-based width estimates if we can't get
- * any better number.
+ * 注意：它对普通关系效果最好，因为它优先看
+ * 真正的 Var。对子查询，set_subquery_size_estimates 已经
+ * 把子查询内部做出的每列估计复制上来，
+ * 对其他类型的关系反正也做不了多少。
+ * 若无法得到更好的数字，
+ * 就退回到（相当笨的）基于数据类型的宽度估计。
  *
- * The per-attribute width estimates are cached for possible re-use while
- * building join relations or post-scan/join pathtargets.
+ * 每属性宽度估计会被缓存，以便在
+ * 建立连接关系或扫描/连接之后的 pathtarget 时复用。
  */
 static void
 set_rel_width(PlannerInfo *root, RelOptInfo *rel)
@@ -5878,7 +5878,7 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 	bool		have_wholerow_var = false;
 	ListCell   *lc;
 
-	/* Vars are assumed to have cost zero, but other exprs do not */
+	/* 假定 Var 的代价为零，但其他表达式不是 */
 	rel->reltarget->cost.startup = 0;
 	rel->reltarget->cost.per_tuple = 0;
 
@@ -5905,8 +5905,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 			ndx = var->varattno - rel->min_attr;
 
 			/*
-			 * If it's a whole-row Var, we'll deal with it below after we have
-			 * already cached as many attr widths as possible.
+			 * 若是整行 Var，等已经
+			 * 尽量缓存属性宽度之后再在下面处理。
 			 */
 			if (var->varattno == 0)
 			{
@@ -5915,8 +5915,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 			}
 
 			/*
-			 * The width may have been cached already (especially if it's a
-			 * subquery), so don't duplicate effort.
+			 * 宽度也许已经缓存过（尤其当它是
+			 * 子查询时），因此不要重复劳动。
 			 */
 			if (rel->attr_widths[ndx] > 0)
 			{
@@ -5924,7 +5924,7 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 				continue;
 			}
 
-			/* Try to get column width from statistics */
+			/* 试着从统计信息取得列宽 */
 			if (reloid != InvalidOid && var->varattno > 0)
 			{
 				item_width = get_attavgwidth(reloid, var->varattno);
@@ -5937,8 +5937,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 			}
 
 			/*
-			 * Not a plain relation, or can't find statistics for it. Estimate
-			 * using just the type info.
+			 * 不是普通关系，或找不到它的统计信息。只根据
+			 * 类型信息来估计。
 			 */
 			item_width = get_typavgwidth(var->vartype, var->vartypmod);
 			Assert(item_width > 0);
@@ -5948,8 +5948,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 		else if (IsA(node, PlaceHolderVar))
 		{
 			/*
-			 * We will need to evaluate the PHV's contained expression while
-			 * scanning this rel, so be sure to include it in reltarget->cost.
+			 * 扫描该关系时需要求值 PHV 所含的表达式，
+			 * 因此务必把它计入 reltarget->cost。
 			 */
 			PlaceHolderVar *phv = (PlaceHolderVar *) node;
 			PlaceHolderInfo *phinfo = find_placeholder_info(root, phv);
@@ -5963,9 +5963,9 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 		else
 		{
 			/*
-			 * We could be looking at an expression pulled up from a subquery,
-			 * or a ROW() representing a whole-row child Var, etc.  Do what we
-			 * can using the expression type information.
+			 * 看到的可能是从子查询上拉的表达式，
+			 * 或表示整行子 Var 的 ROW()，等等。能做的
+			 * 就用表达式的类型信息来做。
 			 */
 			int32		item_width;
 			QualCost	cost;
@@ -5973,7 +5973,7 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 			item_width = get_typavgwidth(exprType(node), exprTypmod(node));
 			Assert(item_width > 0);
 			tuple_width += item_width;
-			/* Not entirely clear if we need to account for cost, but do so */
+			/* 是否必须计入代价并不完全清楚，但还是计入 */
 			cost_qual_eval_node(&cost, node, root);
 			rel->reltarget->cost.startup += cost.startup;
 			rel->reltarget->cost.per_tuple += cost.per_tuple;
@@ -5981,8 +5981,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 	}
 
 	/*
-	 * If we have a whole-row reference, estimate its width as the sum of
-	 * per-column widths plus heap tuple header overhead.
+	 * 若有整行引用，把它的宽度估计成
+	 * 每列宽度之和加上堆元组头开销。
 	 */
 	if (have_wholerow_var)
 	{
@@ -5990,13 +5990,13 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 
 		if (reloid != InvalidOid)
 		{
-			/* Real relation, so estimate true tuple width */
+			/* 真实关系，因此估计真实元组宽度 */
 			wholerow_width += get_relation_data_width(reloid,
 													  rel->attr_widths - rel->min_attr);
 		}
 		else
 		{
-			/* Do what we can with info for a phony rel */
+			/* 对假关系，能用什么信息就用什么 */
 			AttrNumber	i;
 
 			for (i = 1; i <= rel->max_attr; i++)
@@ -6006,8 +6006,8 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 		rel->attr_widths[0 - rel->min_attr] = wholerow_width;
 
 		/*
-		 * Include the whole-row Var as part of the output tuple.  Yes, that
-		 * really is what happens at runtime.
+		 * 把整行 Var 包括进输出元组。是的，运行时
+		 * 确实如此。
 		 */
 		tuple_width += wholerow_width;
 	}
@@ -6018,15 +6018,15 @@ set_rel_width(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * set_pathtarget_cost_width
- *		Set the estimated eval cost and output width of a PathTarget tlist.
+ *		设置 PathTarget 目标列表的估计求值代价和输出宽度。
  *
- * As a notational convenience, returns the same PathTarget pointer passed in.
+ * 作为记法上的方便，返回传入的同一个 PathTarget 指针。
  *
- * Most, though not quite all, uses of this function occur after we've run
- * set_rel_width() for base relations; so we can usually obtain cached width
- * estimates for Vars.  If we can't, fall back on datatype-based width
- * estimates.  Present early-planning uses of PathTargets don't need accurate
- * widths badly enough to justify going to the catalogs for better data.
+ * 本函数的多数（虽非全部）使用发生在已经对基关系跑过
+ * set_rel_width() 之后；因此通常能取得 Var 的缓存宽度
+ * 估计。若不能，就退回到基于数据类型的宽度
+ * 估计。早期规划阶段对 PathTargets 的使用并不那么
+ * 急需准确宽度，不值得为此去系统目录找更好的数据。
  */
 PathTarget *
 set_pathtarget_cost_width(PlannerInfo *root, PathTarget *target)
@@ -6034,7 +6034,7 @@ set_pathtarget_cost_width(PlannerInfo *root, PathTarget *target)
 	int32		tuple_width = 0;
 	ListCell   *lc;
 
-	/* Vars are assumed to have cost zero, but other exprs do not */
+	/* 假定 Var 的代价为零，但其他表达式不是 */
 	target->cost.startup = 0;
 	target->cost.per_tuple = 0;
 
@@ -6044,7 +6044,7 @@ set_pathtarget_cost_width(PlannerInfo *root, PathTarget *target)
 
 		tuple_width += get_expr_width(root, node);
 
-		/* For non-Vars, account for evaluation cost */
+		/* 对非 Var，计入求值代价 */
 		if (!IsA(node, Var))
 		{
 			QualCost	cost;
@@ -6063,9 +6063,9 @@ set_pathtarget_cost_width(PlannerInfo *root, PathTarget *target)
 
 /*
  * get_expr_width
- *		Estimate the width of the given expr attempting to use the width
- *		cached in a Var's owning RelOptInfo, else fallback on the type's
- *		average width when unable to or when the given Node is not a Var.
+ *		估计给定表达式的宽度，尽量使用
+ *		Var 所属 RelOptInfo 里缓存的宽度，否则在做不到或给定节点不是 Var 时
+ *		退回到该类型的平均宽度。
  */
 static int32
 get_expr_width(PlannerInfo *root, const Node *expr)
@@ -6076,10 +6076,10 @@ get_expr_width(PlannerInfo *root, const Node *expr)
 	{
 		const Var  *var = (const Var *) expr;
 
-		/* We should not see any upper-level Vars here */
+		/* 这里不应当看到任何上层 Var */
 		Assert(var->varlevelsup == 0);
 
-		/* Try to get data from RelOptInfo cache */
+		/* 试着从 RelOptInfo 缓存取得数据 */
 		if (!IS_SPECIAL_VARNO(var->varno) &&
 			var->varno < root->simple_rel_array_size)
 		{
@@ -6097,7 +6097,7 @@ get_expr_width(PlannerInfo *root, const Node *expr)
 		}
 
 		/*
-		 * No cached data available, so estimate using just the type info.
+		 * 没有缓存数据，因此只根据类型信息估计。
 		 */
 		width = get_typavgwidth(var->vartype, var->vartypmod);
 		Assert(width > 0);
@@ -6112,8 +6112,8 @@ get_expr_width(PlannerInfo *root, const Node *expr)
 
 /*
  * relation_byte_size
- *	  Estimate the storage space in bytes for a given number of tuples
- *	  of a given width (size in bytes).
+ *	  估计给定宽度（字节）的给定数量元组
+ *	  所占的存储空间（字节）。
  */
 static double
 relation_byte_size(double tuples, int width)
@@ -6123,8 +6123,8 @@ relation_byte_size(double tuples, int width)
 
 /*
  * page_size
- *	  Returns an estimate of the number of pages covered by a given
- *	  number of tuples of a given width (size in bytes).
+ *	  返回给定宽度（字节）的给定数量元组
+ *	  所覆盖页数的估计。
  */
 static double
 page_size(double tuples, int width)
@@ -6133,8 +6133,8 @@ page_size(double tuples, int width)
 }
 
 /*
- * Estimate the fraction of the work that each worker will do given the
- * number of workers budgeted for the path.
+ * 给定为该路径预算的工作进程数，估计每个工作进程
+ * 将承担的工作比例。
  */
 static double
 get_parallel_divisor(Path *path)
@@ -6142,15 +6142,15 @@ get_parallel_divisor(Path *path)
 	double		parallel_divisor = path->parallel_workers;
 
 	/*
-	 * Early experience with parallel query suggests that when there is only
-	 * one worker, the leader often makes a very substantial contribution to
-	 * executing the parallel portion of the plan, but as more workers are
-	 * added, it does less and less, because it's busy reading tuples from the
-	 * workers and doing whatever non-parallel post-processing is needed.  By
-	 * the time we reach 4 workers, the leader no longer makes a meaningful
-	 * contribution.  Thus, for now, estimate that the leader spends 30% of
-	 * its time servicing each worker, and the remainder executing the
-	 * parallel plan.
+	 * 并行查询的早期经验表明，只有
+	 * 一个工作进程时，领导进程常常对
+	 * 执行计划的并行部分贡献很大，但随着工作进程
+	 * 增加，它做得越来越少，因为它忙着从
+	 * 工作进程读取元组，并做所需的非并行后处理。到
+	 * 4 个工作进程时，领导进程不再有实质性
+	 * 贡献。因此目前估计领导进程把 30% 的
+	 * 时间花在服务每个工作进程上，其余时间执行
+	 * 并行计划。
 	 */
 	if (parallel_leader_participation)
 	{
@@ -6167,7 +6167,7 @@ get_parallel_divisor(Path *path)
 /*
  * compute_bitmap_pages
  *
- * compute number of pages fetched from heap in bitmap heap scan.
+ * 计算位图堆扫描中从堆取出的页数。
  */
 double
 compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel, Path *bitmapqual,
@@ -6182,32 +6182,32 @@ compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel, Path *bitmapqual,
 	long		maxentries;
 
 	/*
-	 * Fetch total cost of obtaining the bitmap, as well as its total
-	 * selectivity.
+	 * 取得获得该位图的总代价，以及它的总
+	 * 选择率。
 	 */
 	cost_bitmap_tree_node(bitmapqual, &indexTotalCost, &indexSelectivity);
 
 	/*
-	 * Estimate number of main-table pages fetched.
+	 * 估计从主表取出的页数。
 	 */
 	tuples_fetched = clamp_row_est(indexSelectivity * baserel->tuples);
 
 	T = (baserel->pages > 1) ? (double) baserel->pages : 1.0;
 
 	/*
-	 * For a single scan, the number of heap pages that need to be fetched is
-	 * the same as the Mackert and Lohman formula for the case T <= b (ie, no
-	 * re-reads needed).
+	 * 对单次扫描，需要从堆取出的页数
+	 * 与 Mackert 和 Lohman 公式在 T <= b 时的情形相同（即不
+	 * 需要重新读取）。
 	 */
 	pages_fetched = (2.0 * T * tuples_fetched) / (2.0 * T + tuples_fetched);
 
 	/*
-	 * Calculate the number of pages fetched from the heap.  Then based on
-	 * current work_mem estimate get the estimated maxentries in the bitmap.
-	 * (Note that we always do this calculation based on the number of pages
-	 * that would be fetched in a single iteration, even if loop_count > 1.
-	 * That's correct, because only that number of entries will be stored in
-	 * the bitmap at one time.)
+	 * 计算从堆取出的页数。然后根据
+	 * 当前 work_mem 估计位图中的估计 maxentries。
+	 * （注意这个计算总是基于单次迭代会取出的页数，
+	 * 即使 loop_count > 1 也如此。
+	 * 这是对的，因为同一时刻位图里只会存放
+	 * 那么多项。）
 	 */
 	heap_pages = Min(pages_fetched, baserel->pages);
 	maxentries = tbm_calculate_entries(work_mem * 1024L);
@@ -6215,10 +6215,10 @@ compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel, Path *bitmapqual,
 	if (loop_count > 1)
 	{
 		/*
-		 * For repeated bitmap scans, scale up the number of tuples fetched in
-		 * the Mackert and Lohman formula by the number of scans, so that we
-		 * estimate the number of pages fetched by all the scans. Then
-		 * pro-rate for one scan.
+		 * 对重复的位图扫描，把 Mackert 和 Lohman 公式中取出的元组数
+		 * 按扫描次数放大，以便
+		 * 估计全部扫描取出的页数。然后
+		 * 按一次扫描分摊。
 		 */
 		pages_fetched = index_pages_fetched(tuples_fetched * loop_count,
 											baserel->pages,
@@ -6238,21 +6238,21 @@ compute_bitmap_pages(PlannerInfo *root, RelOptInfo *baserel, Path *bitmapqual,
 		double		lossy_pages;
 
 		/*
-		 * Crude approximation of the number of lossy pages.  Because of the
-		 * way tbm_lossify() is coded, the number of lossy pages increases
-		 * very sharply as soon as we run short of memory; this formula has
-		 * that property and seems to perform adequately in testing, but it's
-		 * possible we could do better somehow.
+		 * 有损页数的粗略近似。由于
+		 * tbm_lossify() 的写法，一旦内存不够，有损页数
+		 * 会非常急剧地增加；这个公式有
+		 * 这个性质，测试里表现也够用，但
+		 * 也许还能做得更好。
 		 */
 		lossy_pages = Max(0, heap_pages - maxentries / 2);
 		exact_pages = heap_pages - lossy_pages;
 
 		/*
-		 * If there are lossy pages then recompute the number of tuples
-		 * processed by the bitmap heap node.  We assume here that the chance
-		 * of a given tuple coming from an exact page is the same as the
-		 * chance that a given page is exact.  This might not be true, but
-		 * it's not clear how we can do any better.
+		 * 若有有损页，就重新计算位图堆节点
+		 * 处理的元组数。这里假定某个元组来自精确页的机会
+		 * 与某一页是精确页的机会相同。这也许不成立，但
+		 * 不清楚还能怎么
+		 * 做得更好。
 		 */
 		if (lossy_pages > 0)
 			tuples_fetched =

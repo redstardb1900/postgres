@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0070-comment-optimizer-path-costsize",
+ "title": "zh: translate costsize comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "72e4c9c4d7b7ac6b1045e8513ba03974b4ae42e9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/path/costsize.c",
+   "kind": "c_comment",
+   "note": "cost estimation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0070-comment-optimizer-path-costsize.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/path/costsize.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 547,
+   "translated": 544,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "/*---------- Mackert and Lohman I/O block",
+    "fall-through Var varno comment"
+   ],
+   "note": "cost estimation"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0070-comment-optimizer-path-costsize.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0070 translates src/backend/optimizer/path/costsize.c."
+}

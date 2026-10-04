@@ -377,6 +377,23 @@ class RealReplayTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertTrue(any(p.startswith("config.log changed on disk") for p in report["problems"]), report)
         shutil.copy2(os.path.join(self.side, "config.log"), os.path.join(self.bld, "config.log"))
+        # a missing builddir config.log is a problem even when the evidence_out copy is intact
+        os.remove(os.path.join(self.bld, "config.log"))
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any(p.startswith("config.log missing:") and self.bld in p for p in report["problems"]),
+                        report["problems"])
+        shutil.copy2(os.path.join(self.side, "config.log"), os.path.join(self.bld, "config.log"))
+        # a configure record without the hash is a problem, not silently accepted
+        conf = ev.read_json(os.path.join(ev_dir, "configure.json"))
+        saved_hash = conf["config_log_sha256"]
+        del conf["config_log_sha256"]
+        ev.write_json(os.path.join(ev_dir, "configure.json"), conf)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertIn("configure record has no config_log_sha256", report["problems"])
+        conf["config_log_sha256"] = saved_hash
+        ev.write_json(os.path.join(ev_dir, "configure.json"), conf)
         # check-world log removed
         os.remove(os.path.join(self.side, "make_check_world.log"))
         rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)

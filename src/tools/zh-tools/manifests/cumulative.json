@@ -235,6 +235,16 @@
    "pattern": "src/tools/zh-tools/manifests/cumulative.json",
    "kind": "manifest",
    "note": "cumulative manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0009-po-review.json",
+   "kind": "manifest",
+   "note": "this batch"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/po_review.json",
+   "kind": "tool",
+   "note": "GPT zh-po-review-0001 record"
   }
  ],
  "files": [
@@ -917,7 +927,7 @@
    "translated": 1,
    "preserved": 0,
    "preserved_reasons": [],
-   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+   "note": "hand translations (exact-match compendium), every entry # zh-reviewed:"
   },
   {
    "path": "src/tools/zh-tools/po_supplement/pg_resetwal.po",
@@ -927,7 +937,7 @@
    "translated": 2,
    "preserved": 0,
    "preserved_reasons": [],
-   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+   "note": "hand translations (exact-match compendium), every entry # zh-reviewed:"
   },
   {
    "path": "src/tools/zh-tools/po_supplement/pg_test_timing.po",
@@ -937,7 +947,7 @@
    "translated": 1,
    "preserved": 0,
    "preserved_reasons": [],
-   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+   "note": "hand translations (exact-match compendium), every entry # zh-reviewed:"
   },
   {
    "path": "src/tools/zh-tools/po_supplement/postgres.po",
@@ -947,7 +957,7 @@
    "translated": 7,
    "preserved": 0,
    "preserved_reasons": [],
-   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+   "note": "hand translations (exact-match compendium), every entry # zh-reviewed:"
   },
   {
    "path": "src/tools/zh-tools/po_sync.py",
@@ -1253,7 +1263,26 @@
    "translated": 0,
    "preserved": 0,
    "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_review.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GPT-5.6 Sol zh-po-review-0001: 9 accepted as-is, 2 colon corrections required then accepted"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0009-po-review.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
   }
  ],
- "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental."
+ "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental. PO catalogs: 10576 translated, 0 fuzzy, 0 untranslated; 11 supplement entries reviewed (zh-po-review-0001)."
 }

@@ -1624,7 +1624,8 @@ msgstr "确保已启用配置参数 \"%s\"。"
 msgid "database is not accepting commands that generate new MultiXactIds to avoid wraparound data loss in database \"%s\""
 msgstr "数据库不再接受生成新 MultiXactId 的命令，以避免数据库 \"%s\" 因回卷而丢失数据"
 
-# zh-review-pending: msgid dropped the leading "To avoid a database shutdown," clause; translation reused verbatim from pgnls zh_CN/REL_17_STABLE and REL_18_STABLE postgres.po (identical msgid)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: msgid dropped the leading "To avoid a database shutdown," clause; translation reused verbatim from pgnls zh_CN/REL_17_STABLE and REL_18_STABLE postgres.po (identical msgid)
 #: access/transam/multixact.c:1025 access/transam/multixact.c:1032
 #: access/transam/multixact.c:1056 access/transam/multixact.c:1065
 #, c-format
@@ -3690,11 +3691,12 @@ msgstr "无法访问目录 \"%s\": %m"
 msgid "Check free disk space."
 msgstr "检查可用磁盘空间。"
 
-# zh-review-pending: format changed %lld -> %u for the offset; translation reused verbatim from pgnls zh_CN/REL_17_STABLE, REL_18_STABLE and master postgres.po (identical msgid)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: format changed %lld -> %u for the offset; wording from pgnls zh_CN/REL_17_STABLE, REL_18_STABLE and master postgres.po (identical msgid); corrected in zh-po-review-0001: half-width ": " after the quoted file name replaced by the fullwidth colon "：" (style-guide R1.1 keeps "：" for colons); positional arguments %1$s %4$u %3$d %2$d kept, accepted by msgfmt --check-format
 #: backup/basebackup_server.c:181 backup/basebackup_server.c:274
 #, c-format
 msgid "could not write file \"%s\": wrote only %d of %d bytes at offset %u"
-msgstr "无法写入文件 \"%1$s\": 在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节"
+msgstr "无法写入文件 \"%1$s\"：在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节"
 
 #: backup/basebackup_target.c:146
 #, c-format
@@ -19704,7 +19706,8 @@ msgstr "在恢复目标处关闭"
 msgid "startup process"
 msgstr "启动进程"
 
-# zh-review-pending: new wording (was "shutting down due to ..."); translation reused verbatim from pgnls zh_CN/REL_14_STABLE, REL_18_STABLE and master postgres.po (identical msgid)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: new wording (was "shutting down due to ..."); translation reused verbatim from pgnls zh_CN/REL_14_STABLE, REL_18_STABLE and master postgres.po (identical msgid)
 #: postmaster/postmaster.c:3040
 #, c-format
 msgid "aborting startup due to startup process failure"
@@ -20637,7 +20640,8 @@ msgstr "无法启动表 \"%s.%s\" 的初始内容复制: %s"
 msgid "table copy could not start transaction on publisher: %s"
 msgstr "表复制无法在发布服务器上开始事务: %s"
 
-# zh-review-pending: new message in REL_16_11 (no pgnls branch has it); "replication origin" = 复制源 as in pgnls REL_16_STABLE ("ID 为 %d 的复制源不存在"), pattern "X \"%s\" 已存在" as in "复制槽 \"%s\" 已存在"
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: new message in REL_16_11 (no pgnls branch has it); "replication origin" = 复制源 as in pgnls REL_16_STABLE ("ID 为 %d 的复制源不存在"), pattern "X \"%s\" 已存在" as in "复制槽 \"%s\" 已存在"
 #: replication/logical/tablesync.c:1486
 #, c-format
 msgid "replication origin \"%s\" already exists"
@@ -22226,7 +22230,8 @@ msgstr "数据结构 \"%s\" 的 ShmemIndex 条目大小不正确: 预期 %zu, �
 msgid "not enough shared memory for data structure \"%s\" (%zu bytes requested)"
 msgstr "没有足够的共享内存用于数据结构 \"%s\"（请求 %zu 字节）"
 
-# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry ("所要求的共享内存大小超过size_t", retired upstream); "overflows" rendered as 超出 ... 范围 like the active "value overflows numeric format" = "值超出 numeric 格式范围", space before the ASCII token per style-guide R5
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry ("所要求的共享内存大小超过size_t", retired upstream); "overflows" rendered as 超出 ... 范围 like the active "value overflows numeric format" = "值超出 numeric 格式范围", space before the ASCII token per style-guide R5
 #: storage/ipc/shmem.c:511 storage/ipc/shmem.c:530
 #, c-format
 msgid "requested shared memory size overflows size_t"
@@ -23276,7 +23281,8 @@ msgstr "别名数量超过指定的数量 %d"
 msgid "affix file contains both old-style and new-style commands"
 msgstr "词缀文件同时包含旧式和新式命令"
 
-# zh-review-pending: format changed %ld -> %d; wording follows the pgnls REL_16_STABLE translation of the %zu variant "字符串对于 tsvector 过长（%zu 字节，最多 %zu 字节）"
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: format changed %ld -> %d; wording follows the pgnls REL_16_STABLE translation of the %zu variant "字符串对于 tsvector 过长（%zu 字节，最多 %zu 字节）"
 #: tsearch/to_tsany.c:195 utils/adt/tsvector.c:275 utils/adt/tsvector_op.c:1128
 #, c-format
 msgid "string is too long for tsvector (%d bytes, max %d bytes)"
@@ -26236,7 +26242,8 @@ msgstr "权重超出范围"
 msgid "word is too long (%ld bytes, max %ld bytes)"
 msgstr "词过长（%ld 字节，最多 %ld 字节）"
 
-# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry ("字符串对于tsvector来说太长了(当前 %ld字节, 最大允许值是%ld字节)", retired upstream); aligned with the active %zu variant above per style-guide R4.3 (fullwidth parentheses) and R5 (spaces around the ASCII token)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry ("字符串对于tsvector来说太长了(当前 %ld字节, 最大允许值是%ld字节)", retired upstream); aligned with the active %zu variant above per style-guide R4.3 (fullwidth parentheses) and R5 (spaces around the ASCII token)
 #: utils/adt/tsvector.c:221
 #, c-format
 msgid "string is too long for tsvector (%ld bytes, max %ld bytes)"

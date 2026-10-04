@@ -61,10 +61,10 @@
    "stdout_bytes": 0
   }
  ],
- "generated_utc": "2026-10-04T13:43:43Z",
+ "generated_utc": "2026-10-04T14:18:16Z",
  "pass": true,
  "tool": "po_sync.py probe",
- "tools_version": "0.2.1",
+ "tools_version": "0.2.2",
  "versions": {
   "bison": "bison (GNU Bison) 3.8.2",
   "flex": "flex 2.6.4",

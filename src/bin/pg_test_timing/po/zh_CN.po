@@ -55,11 +55,12 @@ msgstr[0] "正在测试计时开销，持续 %u 秒。\n"
 msgid "Detected clock going backwards in time.\n"
 msgstr "检测到时钟倒转。\n"
 
-# zh-review-pending: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of "Time warp: %d us\n" = "时钟回退: %d us\n" with the unit updated (unit token kept ASCII per style-guide R4.4)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of "Time warp: %d us\n" = "时钟回退: %d us\n" with the unit updated (unit token kept ASCII per style-guide R4.4); corrected in zh-po-review-0001: half-width ": " replaced by the fullwidth colon "：" (style-guide R1.1)
 #: pg_test_timing.c:152
 #, c-format
 msgid "Time warp: %d ms\n"
-msgstr "时钟回退: %d ms\n"
+msgstr "时钟回退：%d ms\n"
 
 #: pg_test_timing.c:175
 #, c-format

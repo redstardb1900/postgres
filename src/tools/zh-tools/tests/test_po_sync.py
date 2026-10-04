@@ -169,10 +169,10 @@ class CheckOneTest(unittest.TestCase):
 
     def test_supplement_accounting(self):
         sup = _w(os.path.join(self.d, "sup.po"), HEADER +
-                 '# zh-review-pending: test\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关闭"\n\n'
-                 '# zh-review-pending\nmsgid "stale"\nmsgstr "过期"\n\n'
+                 '# zh-reviewed: test\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关闭"\n\n'
+                 '# zh-reviewed:\nmsgid "stale"\nmsgstr "过期"\n\n'
                  'msgid "one"\nmsgid_plural "many"\nmsgstr[0] "%d 项"\n')
-        marked = GOOD.replace('#: a.c:3\nmsgctxt', '# zh-review-pending: test\n#: a.c:3\nmsgctxt')
+        marked = GOOD.replace('#: a.c:3\nmsgctxt', '# zh-reviewed: test\n#: a.c:3\nmsgctxt')
         ok, rec = self._check(marked, sup)
         self.assertFalse(ok)
         s = rec["supplement"]
@@ -185,12 +185,20 @@ class CheckOneTest(unittest.TestCase):
         self.assertTrue(any("translator comment" in p for p in rec["problems"]))
         # a clean supplement whose single entry is marked in the target passes
         sup2 = _w(os.path.join(self.d, "sup2.po"), HEADER +
-                  '# zh-review-pending: test\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关闭"\n')
+                  '# zh-reviewed: test\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关闭"\n')
         ok, rec = self._check(marked, sup2)
         self.assertTrue(ok, rec["problems"])
         self.assertEqual(rec["supplement"]["review_marks_in_target"], 1)
+        self.assertEqual(rec["supplement"]["still_pending"], [])
+        self.assertEqual(rec["supplement"]["pending_marks_in_target"], 0)
+        # leftover pending marks fail even when a reviewed mark is also present
+        pending = GOOD.replace('#: a.c:3\nmsgctxt',
+                               '# zh-review-pending: leftover\n# zh-reviewed: test\n#: a.c:3\nmsgctxt')
+        ok, rec = self._check(pending, sup2)
+        self.assertFalse(ok)
+        self.assertTrue(any("still carry" in p for p in rec["problems"]), rec["problems"])
         # the mark on a non-supplement entry is a mismatch
-        ok, rec = self._check(marked.replace('#: a.c:2\n', '# zh-review-pending: stray\n#: a.c:2\n'), sup2)
+        ok, rec = self._check(marked.replace('#: a.c:2\n', '# zh-reviewed: stray\n#: a.c:2\n'), sup2)
         self.assertFalse(ok)
         self.assertTrue(any("review marks in target" in p for p in rec["problems"]), rec["problems"])
 
@@ -210,8 +218,8 @@ class MergePipelineTest(unittest.TestCase):
                         '#: a.c:3\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关闭"\n\n'
                         '#~ msgid "revived"\n#~ msgstr "旧译法"\n')
         self.sup = _w(os.path.join(self.d, "sup.po"), HEADER +
-                      '# zh-review-pending: new\nmsgid "brand new"\nmsgstr "全新"\n\n'
-                      '# zh-review-pending: OVERRIDE\nmsgid "revived"\nmsgstr "新译法"\n')
+                      '# zh-reviewed: new\nmsgid "brand new"\nmsgstr "全新"\n\n'
+                      '# zh-reviewed: OVERRIDE\nmsgid "revived"\nmsgstr "新译法"\n')
 
     def tearDown(self):
         shutil.rmtree(self.d)
@@ -239,7 +247,7 @@ class MergePipelineTest(unittest.TestCase):
         target = self._pipeline(self.sup)
         by = {e.key: e for e in potools.active_entries(potools.read(target))}
         self.assertEqual(by[(None, "brand new")].msgstr, "全新")
-        self.assertIn("# zh-review-pending: new", by[(None, "brand new")].comments)
+        self.assertIn("# zh-reviewed: new", by[(None, "brand new")].comments)
         self.assertEqual(by[(None, "revived")].msgstr, "旧译法")  # def.po obsolete wins over -C
         applied, problems = po_sync._apply_overrides(target, self.sup, self.defpo)
         self.assertEqual(problems, [])
@@ -252,7 +260,7 @@ class MergePipelineTest(unittest.TestCase):
         by = {e.key: e for e in potools.active_entries(entries)}
         self.assertEqual(by[(None, "revived")].msgstr, "新译法")
         self.assertEqual(by[(None, "revived")].references, ["a.c:4"])
-        self.assertTrue(any(c.startswith("# zh-review-pending: OVERRIDE") for c in by[(None, "revived")].comments))
+        self.assertTrue(any(c.startswith("# zh-reviewed: OVERRIDE") for c in by[(None, "revived")].comments))
         # idempotent and gate-clean
         applied2, _ = po_sync._apply_overrides(target, self.sup, self.defpo)
         self.assertEqual(applied2, [])
@@ -262,7 +270,7 @@ class MergePipelineTest(unittest.TestCase):
 
     def test_override_refuses_to_beat_an_active_pgnls_translation(self):
         sup = _w(os.path.join(self.d, "sup_conflict.po"), HEADER +
-                 '# zh-review-pending\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关上"\n')
+                 '# zh-reviewed:\nmsgctxt "verb"\nmsgid "close"\nmsgstr "关上"\n')
         target = self._pipeline(sup)
         applied, problems = po_sync._apply_overrides(target, sup, self.defpo)
         self.assertEqual(applied, [])

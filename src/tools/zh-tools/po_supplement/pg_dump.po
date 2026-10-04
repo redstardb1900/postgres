@@ -1,5 +1,5 @@
 # zh_CN supplement for pg_dump (REL_16_11).  See po_supplement/postgres.po
-# for what a supplement is; every entry is review-pending.
+# for what a supplement is; every entry carries its "# zh-reviewed:" record.
 msgid ""
 msgstr ""
 "Project-Id-Version: pg_dump (PostgreSQL) 16 zh_CN supplement\n"
@@ -9,7 +9,8 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-# zh-review-pending: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)
 #. translator: %s represents a numeric role OID
 #: pg_dumpall.c
 #, c-format

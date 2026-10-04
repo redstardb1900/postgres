@@ -2487,7 +2487,8 @@ msgstr ""
 msgid "role name starting with \"pg_\" skipped (%s)"
 msgstr "以 \"pg_\" 开始的角色名称已被跳过（%s）"
 
-# zh-review-pending: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)
+# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)
+# basis: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)
 #. translator: %s represents a numeric role OID
 #: pg_dumpall.c:1085 pg_dumpall.c:1143 pg_dumpall.c:1152
 #, c-format

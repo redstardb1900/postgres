@@ -1,0 +1,255 @@
+{
+ "schema_version": 1,
+ "batch_id": "0009-po-review",
+ "title": "zh: finalize reviewed Chinese message updates",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d3eb80768e3d9a4664713afe11ea6e3182e487bb",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {"pattern": "src/backend/po/zh_CN.po", "kind": "po", "note": "postgres catalog rematch"},
+  {"pattern": "src/bin/pg_dump/po/zh_CN.po", "kind": "po", "note": "pg_dump catalog rematch"},
+  {"pattern": "src/bin/pg_resetwal/po/zh_CN.po", "kind": "po", "note": "pg_resetwal catalog rematch"},
+  {"pattern": "src/bin/pg_test_timing/po/zh_CN.po", "kind": "po", "note": "pg_test_timing catalog rematch"},
+  {"pattern": "src/tools/zh-tools/README.md", "kind": "tool", "note": "reviewed-mark and freeze missing-config.log docs"},
+  {"pattern": "src/tools/zh-tools/evidence/po/msgattrib_probe.json", "kind": "tool", "note": "probe evidence refresh"},
+  {"pattern": "src/tools/zh-tools/evidence/po/po_check.json", "kind": "tool", "note": "check evidence refresh"},
+  {"pattern": "src/tools/zh-tools/evidence/po/po_merge.json", "kind": "tool", "note": "merge evidence refresh"},
+  {"pattern": "src/tools/zh-tools/evidence/po/po_review.json", "kind": "tool", "note": "GPT zh-po-review-0001 record"},
+  {"pattern": "src/tools/zh-tools/evidence/po/po_sync_report.json", "kind": "tool", "note": "report: 0 pending, 11 reviewed"},
+  {"pattern": "src/tools/zh-tools/make_evidence.py", "kind": "tool", "note": "freeze docs: missing config.log is a hard fail"},
+  {"pattern": "src/tools/zh-tools/manifests/batch-0009-po-review.json", "kind": "manifest", "note": "this manifest"},
+  {"pattern": "src/tools/zh-tools/manifests/cumulative.json", "kind": "tool", "note": "union includes this batch"},
+  {"pattern": "src/tools/zh-tools/po_supplement/pg_dump.po", "kind": "po", "note": "reviewed mark"},
+  {"pattern": "src/tools/zh-tools/po_supplement/pg_resetwal.po", "kind": "po", "note": "reviewed mark"},
+  {"pattern": "src/tools/zh-tools/po_supplement/pg_test_timing.po", "kind": "po", "note": "reviewed mark + fullwidth colon"},
+  {"pattern": "src/tools/zh-tools/po_supplement/postgres.po", "kind": "po", "note": "reviewed mark + fullwidth colon"},
+  {"pattern": "src/tools/zh-tools/po_sync.py", "kind": "tool", "note": "REVIEW_MARK # zh-reviewed:; leftover pending fails"},
+  {"pattern": "src/tools/zh-tools/tests/test_ccreplay.py", "kind": "tool", "note": "missing builddir config.log and missing hash"},
+  {"pattern": "src/tools/zh-tools/tests/test_po_sync.py", "kind": "tool", "note": "reviewed-mark fixtures; leftover pending fails"},
+  {"pattern": "src/tools/zh-tools/zhtools/__init__.py", "kind": "tool", "note": "TOOLS_VERSION 0.2.2"},
+  {"pattern": "src/tools/zh-tools/zhtools/ccreplay.py", "kind": "tool", "note": "freeze requires both config.log files"}
+ ],
+ "files": [
+  {
+   "path": "src/backend/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "7 supplement entries rematched: review marks + short-write colon"
+  },
+  {
+   "path": "src/bin/pg_dump/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 supplement entry rematched: review mark only"
+  },
+  {
+   "path": "src/bin/pg_resetwal/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "2 supplement entries rematched: review marks only"
+  },
+  {
+   "path": "src/bin/pg_test_timing/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1 supplement entry rematched: review mark + fullwidth colon"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync/po_supplement rows: # zh-reviewed:; leftover pending fails"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/msgattrib_probe.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "probe evidence refresh (tools_version 0.2.2)"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_check.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "check evidence refresh: still_pending empty, review marks required"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_merge.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "merge evidence refresh after reviewed supplements"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_review.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GPT-5.6 Sol zh-po-review-0001: 9 accepted as-is, 2 colon corrections required then accepted"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_sync_report.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "review_pending=[], review_reviewed=11"
+  },
+  {
+   "path": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze docstring: missing config.log is a hard fail"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0009-po-review.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes batch-0009 and po_review.json; supplement notes now # zh-reviewed:"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_dump.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_resetwal.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_test_timing.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fullwidth colon; # zh-reviewed: GPT-5.6 Sol zh-po-review-0001"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/postgres.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "short-write fullwidth colon; # zh-reviewed: GPT-5.6 Sol zh-po-review-0001"
+  },
+  {
+   "path": "src/tools/zh-tools/po_sync.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "REVIEW_MARK=# zh-reviewed:; leftover # zh-review-pending is a hard fail"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "missing builddir config.log and missing config_log_sha256 fail freeze"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_po_sync.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fixtures use # zh-reviewed:; leftover pending marks fail"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "TOOLS_VERSION 0.2.1 -> 0.2.2"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze fails if either config.log is missing or config_log_sha256 is absent"
+  }
+ ],
+ "notes": "GPT-5.6 Sol zh-po-review-0001 accepted all 11 supplement translations after two required fullwidth-colon corrections (Time warp; short-write). Catalogs rematched: 10576 translated, 0 fuzzy, 0 untranslated, 0 pending, 11 reviewed. freeze() now hard-fails when the builddir config.log is missing."
+}

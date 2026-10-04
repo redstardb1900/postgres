@@ -16,4 +16,7 @@ sys.dont_write_bytecode = True
 # 0.2.1: freeze hashes the configure / check-world / config.log evidence too
 # and gains a read-only `freeze --verify`; platform candidates are reported,
 # never approved.
-TOOLS_VERSION = "0.2.1"
+# 0.2.2: freeze fails if either config.log is missing (not only if the
+# evidence_out copy is missing); PO supplement entries must carry
+# `# zh-reviewed:` and leftover `# zh-review-pending` is a hard fail.
+TOOLS_VERSION = "0.2.2"

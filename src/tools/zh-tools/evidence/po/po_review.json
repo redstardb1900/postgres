@@ -1,0 +1,42 @@
+{
+ "review_id": "zh-po-review-0001",
+ "reviewer": "GPT-5.6 Sol",
+ "date": "2026-10-04",
+ "scope": "11 supplement msgstrs in po_supplement/{postgres,pg_dump,pg_resetwal,pg_test_timing}.po (the translations, not the git commits)",
+ "verdict": "accepted after required corrections",
+ "required_corrections": [
+  {
+   "catalog": "pg_test_timing",
+   "msgid": "Time warp: %d ms\n",
+   "before": "时钟回退: %d ms\n",
+   "after": "时钟回退：%d ms\n",
+   "reason": "style-guide R1.1: use the fullwidth colon \uff1a, not half-width \": \""
+  },
+  {
+   "catalog": "postgres",
+   "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u",
+   "before": "无法写入文件 \"%1$s\": 在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节",
+   "after": "无法写入文件 \"%1$s\"：在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节",
+   "reason": "style-guide R1.1: use the fullwidth colon \uff1a after the quoted file name"
+  }
+ ],
+ "accepted_without_change": [
+  {"catalog": "pg_dump", "msgid": "found orphaned pg_auth_members entry for role %s"},
+  {"catalog": "pg_resetwal", "msgid": "multitransaction offset (-O) must not be -1"},
+  {"catalog": "pg_resetwal", "msgid": "multitransaction ID (-m) must not be 0"},
+  {"catalog": "postgres", "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots."},
+  {"catalog": "postgres", "msgid": "aborting startup due to startup process failure"},
+  {"catalog": "postgres", "msgid": "replication origin \"%s\" already exists"},
+  {"catalog": "postgres", "msgid": "string is too long for tsvector (%d bytes, max %d bytes)"},
+  {"catalog": "postgres", "msgid": "string is too long for tsvector (%ld bytes, max %ld bytes)"},
+  {"catalog": "postgres", "msgid": "requested shared memory size overflows size_t"}
+ ],
+ "gate": {
+  "review_pending": 0,
+  "review_reviewed": 11,
+  "active": 10576,
+  "translated": 10576,
+  "fuzzy": 0,
+  "untranslated": 0
+ }
+}

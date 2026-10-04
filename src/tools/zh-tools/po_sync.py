@@ -21,15 +21,19 @@ distprep/init-po, never inside the zh worktree).  This tool
                msgattrib --no-obsolete --no-wrap -o <zh_CN.po> tmp.po
              A first pass without the supplement records what msgmerge left
              fuzzy/untranslated; the supplement (hand translations kept in
-             po_supplement/<catalog>.po, every one of them flagged for
-             100% review) is then used as an exact-match compendium
+             po_supplement/<catalog>.po, every one of them carrying a
+             "# zh-reviewed:" record after GPT 100% review) is then used
+             as an exact-match compendium
   check      msgfmt --check --check-format --statistics, msgcmp against the
              POT, 0 fuzzy / 0 untranslated (msgattrib zero-byte proof plus an
              independent parse), no duplicate active key, complete plurals,
              header Language/charset/Plural-Forms, every supplement entry used
+             and marked # zh-reviewed:, no leftover # zh-review-pending
                                                    -> evidence/po/po_check.json
   report     pgnls vs POT vs result: added / obsolete / fuzzy-resolved /
-             filled-by-supplement lists per component -> evidence/po/po_sync_report.json
+             filled-by-supplement lists per component; review_pending must
+             be empty and review_reviewed must match the supplement
+                                                   -> evidence/po/po_sync_report.json
 
 All gettext tools run with LC_ALL=C.  Exit codes: 0 pass, 1 violations,
 2 unverified (missing tool, probe failure, missing input).
@@ -95,8 +99,9 @@ EXPECTED_DIRS = {"ecpg": "src/interfaces/ecpg/preproc", "pgscripts": "src/bin/sc
 # every hand-translated supplement entry carries this translator comment;
 # msgmerge copies compendium translator comments into the merged catalog, so
 # the mark is visible in the committed zh_CN.po on exactly the supplement
-# entries (check_one verifies that) and in the report's review_pending list
-REVIEW_MARK = "# zh-review-pending"
+# entries (check_one verifies that) and in the report's review_reviewed list
+REVIEW_MARK = "# zh-reviewed:"
+PENDING_MARK = "# zh-review-pending"
 
 
 class Unverified(RuntimeError):
@@ -640,12 +645,14 @@ def check_one(name, target, pot, supplement=None):
             len(pot_keys - po_keys), len(po_keys - pot_keys)))
     rec["active_key_sha256"] = potools.active_key_hash(entries)
     rec["pot_active_key_sha256"] = potools.active_key_hash(pot_entries)
-    # 6. supplement: every entry used verbatim, none unused, every one flagged for review
+    # 6. supplement: every entry used verbatim, none unused, every one reviewed
     if supplement and os.path.exists(supplement):
         sup = potools.read(supplement)
         by_key = {e.key: e for e in potools.active_entries(entries)}
-        used, unused, mismatched, unflagged = [], [], [], []
+        used, unused, mismatched, unflagged, still_pending = [], [], [], [], []
         for e in potools.active_entries(sup):
+            if any(c.startswith(PENDING_MARK) for c in e.comments):
+                still_pending.append(potools.key_to_json(e.key))
             if not any(c.startswith(REVIEW_MARK) for c in e.comments):
                 unflagged.append(potools.key_to_json(e.key))
             t = by_key.get(e.key)
@@ -655,13 +662,16 @@ def check_one(name, target, pot, supplement=None):
                 mismatched.append(potools.key_to_json(e.key))
             else:
                 used.append(potools.key_to_json(e.key))
-        # the review mark must appear in the result on exactly the supplement keys
+        pending_in_target = sorted((potools.key_to_json(e.key) for e in potools.active_entries(entries)
+                                    if any(c.startswith(PENDING_MARK) for c in e.comments)), key=str)
         marked_in_target = sorted((potools.key_to_json(e.key) for e in potools.active_entries(entries)
                                    if any(c.startswith(REVIEW_MARK) for c in e.comments)), key=str)
         want_marked = sorted(used + mismatched, key=str)
         rec["supplement"] = {"path": supplement, "sha256": sha256_file(supplement), "entries": len(used) +
                              len(unused) + len(mismatched), "used": used, "unused": unused,
                              "mismatched": mismatched, "unflagged": unflagged,
+                             "still_pending": still_pending,
+                             "pending_marks_in_target": len(pending_in_target),
                              "review_marks_in_target": len(marked_in_target)}
         if marked_in_target != want_marked:
             pr.append("review marks in target (%d) do not match the supplement keys (%d)" % (
@@ -672,6 +682,9 @@ def check_one(name, target, pot, supplement=None):
             pr.append("%d supplement entries overridden by pgnls (drop them from the supplement)" % len(mismatched))
         if unflagged:
             pr.append("%d supplement entries lack the '%s' translator comment" % (len(unflagged), REVIEW_MARK))
+        if still_pending or pending_in_target:
+            pr.append("%d supplement / %d target entries still carry '%s'" % (
+                len(still_pending), len(pending_in_target), PENDING_MARK))
     return not pr, rec
 
 
@@ -795,18 +808,27 @@ def do_report(pgnls, repo, base_ref):
         tot["supplement_entries"] += len(supp_keys)
         tot["base_entries"] += (base_summary or {}).get("active", 0)
         tot["changed_vs_base"] += changed_vs_base or 0
-    review = []
+    review_pending, review_reviewed = [], []
     for name, c in comps.items():
         if not c["supplement_entries"]:
             continue
         sup = potools.read(supplement_path(name))
         for e in potools.active_entries(sup):
-            review.append({"catalog": name, "msgctxt": e.msgctxt, "msgid": e.msgid, "msgid_plural": e.msgid_plural,
-                           "msgstr": e.translations(), "flags": e.flags, "comments": e.comments,
-                           "review_status": "pending GPT 100% review"})
+            item = {"catalog": name, "msgctxt": e.msgctxt, "msgid": e.msgid, "msgid_plural": e.msgid_plural,
+                    "msgstr": e.translations(), "flags": e.flags, "comments": e.comments}
+            if any(cmt.startswith(PENDING_MARK) for cmt in e.comments) or not any(
+                    cmt.startswith(REVIEW_MARK) for cmt in e.comments):
+                item["review_status"] = "pending GPT 100% review"
+                review_pending.append(item)
+            else:
+                item["review_status"] = "reviewed"
+                item["reviewer"] = next((cmt[len(REVIEW_MARK):].strip() for cmt in e.comments
+                                         if cmt.startswith(REVIEW_MARK)), "")
+                review_reviewed.append(item)
     report = {"tool": "po_sync.py report", "tools_version": TOOLS_VERSION, "generated_utc": utc_now(),
               "pgnls": pgnls, "pgnls_commit": read_json(os.path.join(HERE, "baseline", "baseline.json"))["pgnls_commit"],
-              "base_ref": base_ref, "components": comps, "totals": tot, "review_pending": review}
+              "base_ref": base_ref, "components": comps, "totals": tot,
+              "review_pending": review_pending, "review_reviewed": review_reviewed}
     write_json(os.path.join(EVIDENCE_DIR, "po_sync_report.json"), report)
     return report
 
@@ -890,10 +912,11 @@ def main(argv=None):
             rep = do_report(args.pgnls, repo, args.base_ref)
             t = rep["totals"]
             print("report: POT %d entries; pgnls %d; added %d, obsolete %d; pass1 fuzzy %d untranslated %d; "
-                  "supplement %d; REL_16_11 base %d entries, %d changed/added vs base; %d review-pending" % (
+                  "supplement %d; REL_16_11 base %d entries, %d changed/added vs base; %d review-pending, "
+                  "%d reviewed" % (
                       t["pot_entries"], t["pgnls_entries"], t["added_vs_pgnls"], t["obsolete_vs_pgnls"],
                       t["pass1_fuzzy"], t["pass1_untranslated"], t["supplement_entries"], t["base_entries"],
-                      t["changed_vs_base"], len(rep["review_pending"])))
+                      t["changed_vs_base"], len(rep["review_pending"]), len(rep["review_reviewed"])))
             return 0
     except Unverified as e:
         print("po_sync: UNVERIFIED: %s" % e, file=sys.stderr)

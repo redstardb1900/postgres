@@ -1376,14 +1376,16 @@
    "target": "src/bin/psql/po/zh_CN.po"
   }
  },
- "generated_utc": "2026-10-04T13:57:02Z",
+ "generated_utc": "2026-10-04T14:18:21Z",
  "pgnls": "/Users/niejinbo/work/code/pg/pgsty/pgnls",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
- "review_pending": [
+ "review_pending": [],
+ "review_reviewed": [
   {
    "catalog": "pg_dump",
    "comments": [
-    "# zh-review-pending: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)",
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)",
     "#. translator: %s represents a numeric role OID"
    ],
    "flags": [
@@ -1395,12 +1397,14 @@
    "msgstr": [
     "发现角色 %s 的孤立 pg_auth_members 条目"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "pg_resetwal",
    "comments": [
-    "# zh-review-pending: new -O check in REL_16_11; translation reused verbatim from pgnls zh_CN/REL_14_STABLE pg_resetwal.po (identical msgid); \"多事务\" and fullwidth parentheses follow the sibling \"多事务ID（-m）不能为0\" style"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: new -O check in REL_16_11; translation reused verbatim from pgnls zh_CN/REL_14_STABLE pg_resetwal.po (identical msgid); \"多事务\" and fullwidth parentheses follow the sibling \"多事务ID（-m）不能为0\" style"
    ],
    "flags": [
     "c-format"
@@ -1411,12 +1415,14 @@
    "msgstr": [
     "多事务偏移量（-O）不得为 -1"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "pg_resetwal",
    "comments": [
-    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"多事务ID（-m）不能为0\", retired upstream); aligned with the active siblings \"OID（-o）不得为 0\" and \"最早的多事务 ID（-m）不得为 0\""
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"多事务ID（-m）不能为0\", retired upstream); aligned with the active siblings \"OID（-o）不得为 0\" and \"最早的多事务 ID（-m）不得为 0\""
    ],
    "flags": [
     "c-format"
@@ -1427,12 +1433,14 @@
    "msgstr": [
     "多事务 ID（-m）不得为 0"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "pg_test_timing",
    "comments": [
-    "# zh-review-pending: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of \"Time warp: %d us\\n\" = \"时钟回退: %d us\\n\" with the unit updated (unit token kept ASCII per style-guide R4.4)"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of \"Time warp: %d us\\n\" = \"时钟回退: %d us\\n\" with the unit updated (unit token kept ASCII per style-guide R4.4); corrected in zh-po-review-0001: half-width \": \" replaced by the fullwidth colon \"：\" (style-guide R1.1)"
    ],
    "flags": [
     "c-format"
@@ -1441,14 +1449,16 @@
    "msgid": "Time warp: %d ms\n",
    "msgid_plural": null,
    "msgstr": [
-    "时钟回退: %d ms\n"
+    "时钟回退：%d ms\n"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: msgid dropped the leading \"To avoid a database shutdown,\" clause; translation reused verbatim from pgnls zh_CN/REL_17_STABLE and REL_18_STABLE postgres.po (identical msgid)"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: msgid dropped the leading \"To avoid a database shutdown,\" clause; translation reused verbatim from pgnls zh_CN/REL_17_STABLE and REL_18_STABLE postgres.po (identical msgid)"
    ],
    "flags": [],
    "msgctxt": null,
@@ -1457,12 +1467,14 @@
    "msgstr": [
     "在该数据库中执行全库 VACUUM。\n您可能还需要提交或回滚旧的预备事务，或删除过期的复制槽。"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: format changed %lld -> %u for the offset; translation reused verbatim from pgnls zh_CN/REL_17_STABLE, REL_18_STABLE and master postgres.po (identical msgid)"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: format changed %lld -> %u for the offset; wording from pgnls zh_CN/REL_17_STABLE, REL_18_STABLE and master postgres.po (identical msgid); corrected in zh-po-review-0001: half-width \": \" after the quoted file name replaced by the fullwidth colon \"：\" (style-guide R1.1 keeps \"：\" for colons); positional arguments %1$s %4$u %3$d %2$d kept, accepted by msgfmt --check-format"
    ],
    "flags": [
     "c-format"
@@ -1471,14 +1483,16 @@
    "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u",
    "msgid_plural": null,
    "msgstr": [
-    "无法写入文件 \"%1$s\": 在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节"
+    "无法写入文件 \"%1$s\"：在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: new wording (was \"shutting down due to ...\"); translation reused verbatim from pgnls zh_CN/REL_14_STABLE, REL_18_STABLE and master postgres.po (identical msgid)"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: new wording (was \"shutting down due to ...\"); translation reused verbatim from pgnls zh_CN/REL_14_STABLE, REL_18_STABLE and master postgres.po (identical msgid)"
    ],
    "flags": [
     "c-format"
@@ -1489,12 +1503,14 @@
    "msgstr": [
     "因启动进程失败而中止启动"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: new message in REL_16_11 (no pgnls branch has it); \"replication origin\" = 复制源 as in pgnls REL_16_STABLE (\"ID 为 %d 的复制源不存在\"), pattern \"X \\\"%s\\\" 已存在\" as in \"复制槽 \\\"%s\\\" 已存在\""
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: new message in REL_16_11 (no pgnls branch has it); \"replication origin\" = 复制源 as in pgnls REL_16_STABLE (\"ID 为 %d 的复制源不存在\"), pattern \"X \\\"%s\\\" 已存在\" as in \"复制槽 \\\"%s\\\" 已存在\""
    ],
    "flags": [
     "c-format"
@@ -1505,12 +1521,14 @@
    "msgstr": [
     "复制源 \"%s\" 已存在"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: format changed %ld -> %d; wording follows the pgnls REL_16_STABLE translation of the %zu variant \"字符串对于 tsvector 过长（%zu 字节，最多 %zu 字节）\""
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: format changed %ld -> %d; wording follows the pgnls REL_16_STABLE translation of the %zu variant \"字符串对于 tsvector 过长（%zu 字节，最多 %zu 字节）\""
    ],
    "flags": [
     "c-format"
@@ -1521,12 +1539,14 @@
    "msgstr": [
     "字符串对于 tsvector 过长（%d 字节，最多 %d 字节）"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"字符串对于tsvector来说太长了(当前 %ld字节, 最大允许值是%ld字节)\", retired upstream); aligned with the active %zu variant above per style-guide R4.3 (fullwidth parentheses) and R5 (spaces around the ASCII token)"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"字符串对于tsvector来说太长了(当前 %ld字节, 最大允许值是%ld字节)\", retired upstream); aligned with the active %zu variant above per style-guide R4.3 (fullwidth parentheses) and R5 (spaces around the ASCII token)"
    ],
    "flags": [
     "c-format"
@@ -1537,12 +1557,14 @@
    "msgstr": [
     "字符串对于 tsvector 过长（%ld 字节，最多 %ld 字节）"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   },
   {
    "catalog": "postgres",
    "comments": [
-    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"所要求的共享内存大小超过size_t\", retired upstream); \"overflows\" rendered as 超出 ... 范围 like the active \"value overflows numeric format\" = \"值超出 numeric 格式范围\", space before the ASCII token per style-guide R5"
+    "# zh-reviewed: GPT-5.6 Sol zh-po-review-0001 (2026-10-04)",
+    "# basis: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"所要求的共享内存大小超过size_t\", retired upstream); \"overflows\" rendered as 超出 ... 范围 like the active \"value overflows numeric format\" = \"值超出 numeric 格式范围\", space before the ASCII token per style-guide R5"
    ],
    "flags": [
     "c-format"
@@ -1553,11 +1575,12 @@
    "msgstr": [
     "请求的共享内存大小超出 size_t 范围"
    ],
-   "review_status": "pending GPT 100% review"
+   "review_status": "reviewed",
+   "reviewer": "GPT-5.6 Sol zh-po-review-0001 (2026-10-04)"
   }
  ],
  "tool": "po_sync.py report",
- "tools_version": "0.2.1",
+ "tools_version": "0.2.2",
  "totals": {
   "added_vs_pgnls": 11,
   "base_entries": 9605,

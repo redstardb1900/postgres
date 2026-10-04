@@ -576,12 +576,14 @@ def freeze(cfg, evidence_dir, cc_dir, verify=False):
     _check_external_log(problems, "configure", conf)
     if conf.get("exit_code") != 0:
         problems.append("configure exit %r" % conf.get("exit_code"))
-    if conf.get("config_log_sha256"):
+    if not conf.get("config_log_sha256"):
+        problems.append("configure record has no config_log_sha256")
+    else:
         for cl in (os.path.join(cfg["builddir"], "config.log"), os.path.join(cfg["evidence_out"], "config.log")):
-            if os.path.exists(cl) and ev.sha256_file(cl) != conf["config_log_sha256"]:
+            if not os.path.exists(cl):
+                problems.append("config.log missing: %s" % cl)
+            elif ev.sha256_file(cl) != conf["config_log_sha256"]:
                 problems.append("config.log changed on disk: %s" % cl)
-        if not os.path.exists(os.path.join(cfg["evidence_out"], "config.log")):
-            problems.append("config.log copy missing: %s" % os.path.join(cfg["evidence_out"], "config.log"))
     _check_external_log(problems, "check-world", cw)
     tokens = read_tokens(os.path.join(cc_dir, "tokens.jsonl"))
     flagsets, recs = makelog.read_commands(cc_dir)

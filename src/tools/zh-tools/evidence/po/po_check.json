@@ -895,8 +895,10 @@
     "entries": 1,
     "mismatched": [],
     "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_dump.po",
+    "pending_marks_in_target": 0,
     "review_marks_in_target": 1,
-    "sha256": "fa3383bc5d76ddeea65dd0204329b68987d2180458f42a492d327ca6b15500a3",
+    "sha256": "77ae76badb3bec3f25309f885508cfefa3695c125f7b6cfc802589969e48a077",
+    "still_pending": [],
     "unflagged": [],
     "unused": [],
     "used": [
@@ -907,7 +909,7 @@
     ]
    },
    "target": "src/bin/pg_dump/po/zh_CN.po",
-   "target_sha256": "244aee2250aef19fa54c74d48efc703628a27142c24741bd3b24dcfee48b5f97",
+   "target_sha256": "76b203eb81f94ec0c9ed616b6e4d91cef463a3ffc52d6b77a5577fd138a41246",
    "term_lint_supplement": {
     "errors": 0,
     "rc": 0,
@@ -990,8 +992,10 @@
     "entries": 2,
     "mismatched": [],
     "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_resetwal.po",
+    "pending_marks_in_target": 0,
     "review_marks_in_target": 2,
-    "sha256": "04f38564e1f7063a76b4439a021a1aa4681527f4d800f3d0f9edfa0f01ee6246",
+    "sha256": "6118bdab522ddd062835d279df62668a4e762520afb2578742016960332322c0",
+    "still_pending": [],
     "unflagged": [],
     "unused": [],
     "used": [
@@ -1006,7 +1010,7 @@
     ]
    },
    "target": "src/bin/pg_resetwal/po/zh_CN.po",
-   "target_sha256": "c2a4d6d5a149dc3cf1ec0d8047e86ccc77fcbd304002d812ca38c77f509b58ce",
+   "target_sha256": "acd8af924dba283a773a0ead480af1fc953783cb0943b5f1c7cf920328354253",
    "term_lint_supplement": {
     "errors": 0,
     "rc": 0,
@@ -1239,8 +1243,10 @@
     "entries": 1,
     "mismatched": [],
     "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_test_timing.po",
+    "pending_marks_in_target": 0,
     "review_marks_in_target": 1,
-    "sha256": "8d8d441314fcea363ccf1b8a158e60338f1ff9f703e6737c8e4acd709c76fc57",
+    "sha256": "33c43ac88d0ce31f01fcea656a433c4eb7bfde22006cde5565bd10eef44016db",
+    "still_pending": [],
     "unflagged": [],
     "unused": [],
     "used": [
@@ -1251,7 +1257,7 @@
     ]
    },
    "target": "src/bin/pg_test_timing/po/zh_CN.po",
-   "target_sha256": "c99046ec8a288d79eef103b9d574b38a23366adf5366255361b06104793fd76b",
+   "target_sha256": "97b0165c9d66ae5597f1f949338bc3fdfe19296bb85f996fab42106d4ae30103",
    "term_lint_supplement": {
     "errors": 0,
     "rc": 0,
@@ -1934,8 +1940,10 @@
     "entries": 7,
     "mismatched": [],
     "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/postgres.po",
+    "pending_marks_in_target": 0,
     "review_marks_in_target": 7,
-    "sha256": "3e8a449a9195589aa8580e02c70ec62a022b8ad4ba27e73f7d1fbbec6a493ec7",
+    "sha256": "b7d3e93fbf3fbd465a7c26b2313426a24d717634867aa3a46bffd875c8958f6c",
+    "still_pending": [],
     "unflagged": [],
     "unused": [],
     "used": [
@@ -1970,7 +1978,7 @@
     ]
    },
    "target": "src/backend/po/zh_CN.po",
-   "target_sha256": "18928f6c934fb6119faf2d6f83a38e4203b315c1eae788797dd666aa03e282cb",
+   "target_sha256": "90f4e034ea557117be3a47e4249fc2f705d35f3e6735b1f1bfd832c22c684349",
    "term_lint_supplement": {
     "errors": 0,
     "rc": 0,
@@ -2059,12 +2067,12 @@
    }
   }
  },
- "generated_utc": "2026-10-04T13:57:01Z",
+ "generated_utc": "2026-10-04T14:18:20Z",
  "n_components": 26,
  "pass": true,
  "pot_manifest_generated_utc": "2026-10-04T13:46:19Z",
  "tool": "po_sync.py check",
- "tools_version": "0.2.1",
+ "tools_version": "0.2.2",
  "totals": {
   "active": 10576,
   "fuzzy": 0,

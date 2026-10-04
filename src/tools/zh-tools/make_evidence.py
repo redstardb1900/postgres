@@ -20,7 +20,9 @@ Subcommands:
                        (the base srcdir or a translated tree); write token
                        hashes and side depfiles             -> cc_evidence/tokens.jsonl
   freeze               validate everything (including the SHA-256 of every
-                       out-of-repo log: make captures, configure, check-world),
+                       out-of-repo log: make captures, configure, check-world,
+                       and both the builddir and evidence_out config.log;
+                       a missing config.log is a hard fail),
                        write cc_evidence/baseline.json with status "frozen"
                        and the cache key
   freeze --verify      read-only: recompute from the evidence on disk and

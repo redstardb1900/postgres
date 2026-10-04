@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0030-readme-optimizer",
+ "title": "zh: translate optimizer README",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5839ab3b2a84b91c6b27763e6f22449c92956131",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/README",
+   "kind": "readme",
+   "note": "paths, OJ identities, EC/PathKeys, parallel"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0030-readme-optimizer.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "paths, OJ identities, EC/PathKeys, parallel"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0030-readme-optimizer.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Twentieth README batch: 1 file, last include README. SQL, identities, call tree, Path/Plan type names kept."
+}

@@ -810,6 +810,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0029-readme-nbtree.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/optimizer/README",
+   "kind": "readme",
+   "note": "paths, OJ identities, EC/PathKeys, parallel"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0030-readme-optimizer.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2927,7 +2937,27 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/optimizer/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 24,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "paths, OJ identities, EC/PathKeys, parallel"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0030-readme-optimizer.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 87 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated."
 }

@@ -1,137 +1,96 @@
-src/backend/optimizer/README
+优化器
+======
 
-Optimizer
-=========
-
-These directories take the Query structure returned by the parser, and
-generate a plan used by the executor.  The /plan directory generates the
-actual output plan, the /path code generates all possible ways to join the
-tables, and /prep handles various preprocessing steps for special cases.
-/util is utility stuff.  /geqo is the separate "genetic optimization" planner
---- it does a semi-random search through the join tree space, rather than
-exhaustively considering all possible join trees.  (But each join considered
-by /geqo is given to /path to create paths for, so we consider all possible
-implementation paths for each specific join pair even in GEQO mode.)
+这些目录接收解析器返回的 Query 结构，并生成执行器使用的计划。/plan
+目录生成实际输出计划，/path 代码生成连接各表的所有可能方式，/prep 处理
+各种特殊情形的预处理步骤。/util 是实用代码。/geqo 是独立的“遗传优化”
+规划器——它在连接树空间中做半随机搜索，而不是穷尽考虑所有可能的连接树。
+（但 /geqo 考虑的每个连接都会交给 /path 为其创建路径，因此即使在 GEQO
+模式下，我们对每个具体连接对也会考虑所有可能的实现路径。）
 
 
-Paths and Join Pairs
---------------------
+路径与连接对
+------------
 
-During the planning/optimizing process, we build "Path" trees representing
-the different ways of doing a query.  We select the cheapest Path that
-generates the desired relation and turn it into a Plan to pass to the
-executor.  (There is pretty nearly a one-to-one correspondence between the
-Path and Plan trees, but Path nodes omit info that won't be needed during
-planning, and include info needed for planning that won't be needed by the
-executor.)
+在规划/优化过程中，我们构建表示查询不同执行方式的 “Path” 树。我们选出
+生成所需关系的最便宜 Path，并把它变成传给执行器的 Plan。（Path 与 Plan
+树几乎一一对应，但 Path 节点省略规划期间不需要的信息，并包含规划需要、
+执行器不需要的信息。）
 
-The optimizer builds a RelOptInfo structure for each base relation used in
-the query.  Base rels are either primitive tables, or subquery subselects
-that are planned via a separate recursive invocation of the planner.  A
-RelOptInfo is also built for each join relation that is considered during
-planning.  A join rel is simply a combination of base rels.  There is only
-one join RelOptInfo for any given set of baserels --- for example, the join
-{A B C} is represented by the same RelOptInfo no matter whether we build it
-by joining A and B first and then adding C, or joining B and C first and
-then adding A, etc.  These different means of building the joinrel are
-represented as Paths.  For each RelOptInfo we build a list of Paths that
-represent plausible ways to implement the scan or join of that relation.
-Once we've considered all the plausible Paths for a rel, we select the one
-that is cheapest according to the planner's cost estimates.  The final plan
-is derived from the cheapest Path for the RelOptInfo that includes all the
-base rels of the query.
+优化器为查询中使用的每个基关系构建一个 RelOptInfo 结构。基关系要么是原
+始表，要么是通过规划器单独递归调用规划的子查询。规划期间考虑的每个连接
+关系也会构建 RelOptInfo。连接关系只是基关系的组合。任意给定基关系集合
+只有一个连接 RelOptInfo——例如，无论我们先连接 A 与 B 再加 C，还是先连
+接 B 与 C 再加 A，等等，连接 {A B C} 都由同一个 RelOptInfo 表示。构建该
+连接关系的这些不同手段表示为 Path。对每个 RelOptInfo，我们构建一个 Path
+列表，表示实现该关系扫描或连接的合理方式。一旦考虑完某关系的所有合理
+Path，我们就按规划器的代价估计选出最便宜的那个。最终计划从包含查询所有
+基关系的 RelOptInfo 的最便宜 Path 导出。
 
-Possible Paths for a primitive table relation include plain old sequential
-scan, plus index scans for any indexes that exist on the table, plus bitmap
-index scans using one or more indexes.  Specialized RTE types, such as
-function RTEs, may have only one possible Path.
+原始表关系的可能 Path 包括普通顺序扫描、该表上存在的任何索引的索引扫描，
+以及使用一个或多个索引的位图索引扫描。专门的 RTE 类型，例如函数 RTE，可
+能只有一种可能的 Path。
 
-Joins always occur using two RelOptInfos.  One is outer, the other inner.
-Outers drive lookups of values in the inner.  In a nested loop, lookups of
-values in the inner occur by scanning the inner path once per outer tuple
-to find each matching inner row.  In a mergejoin, inner and outer rows are
-ordered, and are accessed in order, so only one scan is required to perform
-the entire join: both inner and outer paths are scanned in-sync.  (There's
-not a lot of difference between inner and outer in a mergejoin...)  In a
-hashjoin, the inner is scanned first and all its rows are entered in a
-hashtable, then the outer is scanned and for each row we lookup the join
-key in the hashtable.
+连接总是使用两个 RelOptInfo。一个是外，另一个是内。外端驱动对内端中值的
+查找。在嵌套循环中，对内端中值的查找通过对内路径每外元组扫描一次、以找
+到每个匹配的内行来发生。在归并连接中，内行和外行都是有序的，并按顺序访
+问，因此执行整个连接只需一次扫描：内路径和外路径同步扫描。（归并连接中
+内外差别不大……）在哈希连接中，先扫描内端并把其所有行放入哈希表，然后扫
+描外端，对每一行在哈希表中查找连接键。
 
-A Path for a join relation is actually a tree structure, with the topmost
-Path node representing the last-applied join method.  It has left and right
-subpaths that represent the scan or join methods used for the two input
-relations.
+连接关系的 Path 实际上是树结构，最顶的 Path 节点表示最后应用的连接方法。
+它有左右子路径，表示用于两个输入关系的扫描或连接方法。
 
 
-Join Tree Construction
-----------------------
+连接树的构造
+------------
 
-The optimizer generates optimal query plans by doing a more-or-less
-exhaustive search through the ways of executing the query.  The best Path
-tree is found by a recursive process:
+优化器通过对查询执行方式做或多或少穷尽的搜索来生成最优查询计划。最佳
+Path 树由递归过程找到：
 
-1) Take each base relation in the query, and make a RelOptInfo structure
-for it.  Find each potentially useful way of accessing the relation,
-including sequential and index scans, and make Paths representing those
-ways.  All the Paths made for a given relation are placed in its
-RelOptInfo.pathlist.  (Actually, we discard Paths that are obviously
-inferior alternatives before they ever get into the pathlist --- what
-ends up in the pathlist is the cheapest way of generating each potentially
-useful sort ordering and parameterization of the relation.)  Also create a
-RelOptInfo.joininfo list including all the join clauses that involve this
-relation.  For example, the WHERE clause "tab1.col1 = tab2.col1" generates
-entries in both tab1 and tab2's joininfo lists.
+1) 取查询中每个基关系，并为它做一个 RelOptInfo 结构。找出访问该关系的
+每种潜在有用方式，包括顺序扫描和索引扫描，并做出表示那些方式的 Path。
+为给定关系做出的所有 Path 放入其 RelOptInfo.pathlist。（实际上，我们在
+明显较差的替代方案进入 pathlist 之前就丢弃它们——最终进入 pathlist 的，
+是生成该关系每种潜在有用排序和参数化的最便宜方式。）还创建包含涉及该
+关系的所有连接子句的 RelOptInfo.joininfo 列表。例如，WHERE 子句
+“tab1.col1 = tab2.col1” 会在 tab1 和 tab2 的 joininfo 列表中都生成条目。
 
-If we have only a single base relation in the query, we are done.
-Otherwise we have to figure out how to join the base relations into a
-single join relation.
+若查询中只有一个基关系，我们就完成了。否则必须弄清如何把基关系连接成单
+个连接关系。
 
-2) Normally, any explicit JOIN clauses are "flattened" so that we just
-have a list of relations to join.  However, FULL OUTER JOIN clauses are
-never flattened, and other kinds of JOIN might not be either, if the
-flattening process is stopped by join_collapse_limit or from_collapse_limit
-restrictions.  Therefore, we end up with a planning problem that contains
-lists of relations to be joined in any order, where any individual item
-might be a sub-list that has to be joined together before we can consider
-joining it to its siblings.  We process these sub-problems recursively,
-bottom up.  Note that the join list structure constrains the possible join
-orders, but it doesn't constrain the join implementation method at each
-join (nestloop, merge, hash), nor does it say which rel is considered outer
-or inner at each join.  We consider all these possibilities in building
-Paths. We generate a Path for each feasible join method, and select the
-cheapest Path.
+2) 通常，任何显式 JOIN 子句都被“展平”，于是我们只有一份要连接的关系列
+表。然而 FULL OUTER JOIN 子句从不展平，其他种类的 JOIN 也可能不展平，若
+展平过程被 join_collapse_limit 或 from_collapse_limit 限制停下。因此，
+我们最终得到这样一个规划问题：包含可按任意顺序连接的关系列表，其中任何
+单个项都可能是一个子列表，必须先把该子列表连接在一起，才能考虑把它与兄
+弟连接。我们自底向上递归处理这些子问题。注意连接列表结构约束了可能的连
+接顺序，但并不约束每个连接处的连接实现方法（嵌套循环、归并、哈希），也
+不说明每个连接处哪个关系被视为外、哪个被视为内。我们在构建 Path 时考虑
+所有这些可能。我们为每种可行连接方法生成一个 Path，并选出最便宜的 Path。
 
-For each planning problem, therefore, we will have a list of relations
-that are either base rels or joinrels constructed per sub-join-lists.
-We can join these rels together in any order the planner sees fit.
-The standard (non-GEQO) planner does this as follows:
+因此，对每个规划问题，我们将有一份关系列表，它们要么是基关系，要么是按
+子连接列表构造的连接关系。规划器可以按它认为合适的任何顺序把这些关系连
+接在一起。标准（非 GEQO）规划器这样做：
 
-Consider joining each RelOptInfo to each other RelOptInfo for which there
-is a usable joinclause, and generate a Path for each possible join method
-for each such pair.  (If we have a RelOptInfo with no join clauses, we have
-no choice but to generate a clauseless Cartesian-product join; so we
-consider joining that rel to each other available rel.  But in the presence
-of join clauses we will only consider joins that use available join
-clauses.  Note that join-order restrictions induced by outer joins and
-IN/EXISTS clauses are also checked, to ensure that we find a workable join
-order in cases where those restrictions force a clauseless join to be done.)
+考虑把每个 RelOptInfo 连接到每个有可用连接子句的其他 RelOptInfo，并为每
+个这样的对的每种可能连接方法生成一个 Path。（若我们有一个没有连接子句的
+RelOptInfo，就别无选择，只能生成无子句的笛卡尔积连接；因此我们考虑把该
+关系连接到每个其他可用关系。但在存在连接子句时，我们只考虑使用可用连接
+子句的连接。注意外连接和 IN/EXISTS 子句引起的连接顺序限制也会被检查，以
+确保在那些限制迫使做无子句连接的情形中找到可行的连接顺序。）
 
-If we only had two relations in the list, we are done: we just pick
-the cheapest path for the join RelOptInfo.  If we had more than two, we now
-need to consider ways of joining join RelOptInfos to each other to make
-join RelOptInfos that represent more than two list items.
+若列表中只有两个关系，我们就完成了：只需为该连接 RelOptInfo 挑选最便宜
+的路径。若超过两个，我们现在需要考虑把连接 RelOptInfo 彼此连接、以做出
+表示两个以上列表项的连接 RelOptInfo 的方式。
 
-The join tree is constructed using a "dynamic programming" algorithm:
-in the first pass (already described) we consider ways to create join rels
-representing exactly two list items.  The second pass considers ways
-to make join rels that represent exactly three list items; the next pass,
-four items, etc.  The last pass considers how to make the final join
-relation that includes all list items --- obviously there can be only one
-join rel at this top level, whereas there can be more than one join rel
-at lower levels.  At each level we use joins that follow available join
-clauses, if possible, just as described for the first level.
+连接树用“动态规划”算法构造：第一趟（已描述）考虑创建恰好表示两个列表项
+的连接关系的方式。第二趟考虑做出恰好表示三个列表项的连接关系；下一趟四
+项，以此类推。最后一趟考虑如何做出包含所有列表项的最终连接关系——显然这
+一顶层只能有一个连接关系，而较低层可以有不止一个连接关系。在每一层，若
+可能，我们使用遵循可用连接子句的连接，正如第一层所述。
 
-For example:
+例如：
 
     SELECT  *
     FROM    tab1, tab2, tab3, tab4
@@ -139,11 +98,11 @@ For example:
         tab2.col = tab3.col AND
         tab3.col = tab4.col
 
-    Tables 1, 2, 3, and 4 are joined as:
+    表 1、2、3 和 4 这样连接：
     {1 2},{2 3},{3 4}
     {1 2 3},{2 3 4}
     {1 2 3 4}
-    (other possibilities will be excluded for lack of join clauses)
+    （其他可能因缺少连接子句而被排除）
 
     SELECT  *
     FROM    tab1, tab2, tab3, tab4
@@ -151,56 +110,45 @@ For example:
         tab1.col = tab3.col AND
         tab1.col = tab4.col
 
-    Tables 1, 2, 3, and 4 are joined as:
+    表 1、2、3 和 4 这样连接：
     {1 2},{1 3},{1 4}
     {1 2 3},{1 3 4},{1 2 4}
     {1 2 3 4}
 
-We consider left-handed plans (the outer rel of an upper join is a joinrel,
-but the inner is always a single list item); right-handed plans (outer rel
-is always a single item); and bushy plans (both inner and outer can be
-joins themselves).  For example, when building {1 2 3 4} we consider
-joining {1 2 3} to {4} (left-handed), {4} to {1 2 3} (right-handed), and
-{1 2} to {3 4} (bushy), among other choices.  Although the jointree
-scanning code produces these potential join combinations one at a time,
-all the ways to produce the same set of joined base rels will share the
-same RelOptInfo, so the paths produced from different join combinations
-that produce equivalent joinrels will compete in add_path().
+我们考虑左深计划（上层连接的外关系是连接关系，但内关系总是单个列表项）；
+右深计划（外关系总是单项）；以及灌木状计划（内外都可以本身是连接）。例
+如，构建 {1 2 3 4} 时，我们考虑把 {1 2 3} 连到 {4}（左深）、把 {4} 连到
+{1 2 3}（右深），以及把 {1 2} 连到 {3 4}（灌木状），以及其他选择。虽然
+连接树扫描代码一次产生一种潜在连接组合，产生同一组已连接基关系的所有方
+式将共享同一个 RelOptInfo，因此从产生等价连接关系的不同连接组合产生的路
+径会在 add_path() 中竞争。
 
-The dynamic-programming approach has an important property that's not
-immediately obvious: we will finish constructing all paths for a given
-relation before we construct any paths for relations containing that rel.
-This means that we can reliably identify the "cheapest path" for each rel
-before higher-level relations need to know that.  Also, we can safely
-discard a path when we find that another path for the same rel is better,
-without worrying that maybe there is already a reference to that path in
-some higher-level join path.  Without this, memory management for paths
-would be much more complicated.
+动态规划方法有一个不立即显而易见的重要性质：我们会在为包含某关系的关系
+构造任何路径之前，先完成该关系所有路径的构造。这意味着我们可以在更高层
+关系需要知道之前，可靠地识别每个关系的“最便宜路径”。另外，当我们发现同
+一关系的另一路径更好时，可以安全地丢弃一条路径，而不必担心该路径可能已
+被某个更高层连接路径引用。没有这一点，路径的内存管理会复杂得多。
 
-Once we have built the final join rel, we use either the cheapest path
-for it or the cheapest path with the desired ordering (if that's cheaper
-than applying a sort to the cheapest other path).
+一旦我们构建了最终连接关系，我们就使用它的最便宜路径，或具有所需排序的
+最便宜路径（若那比给其他最便宜路径加排序更便宜）。
 
-If the query contains one-sided outer joins (LEFT or RIGHT joins), or
-IN or EXISTS WHERE clauses that were converted to semijoins or antijoins,
-then some of the possible join orders may be illegal.  These are excluded
-by having join_is_legal consult a side list of such "special" joins to see
-whether a proposed join is illegal.  (The same consultation allows it to
-see which join style should be applied for a valid join, ie, JOIN_INNER,
-JOIN_LEFT, etc.)
+若查询包含单侧外连接（LEFT 或 RIGHT 连接），或被转换成半连接或反连接的
+IN 或 EXISTS WHERE 子句，则某些可能的连接顺序可能非法。这些通过让
+join_is_legal 查阅此类“特殊”连接的旁列表、以查看提议的连接是否非法来排
+除。（同一次查阅还让它看到对有效连接应应用哪种连接风格，即 JOIN_INNER、
+JOIN_LEFT 等。）
 
 
-Valid OUTER JOIN Optimizations
-------------------------------
+有效的外连接优化
+----------------
 
-The planner's treatment of outer join reordering is based on the following
-identities:
+规划器对外连接重排序的处理基于以下恒等式：
 
 1.	(A leftjoin B on (Pab)) innerjoin C on (Pac)
 	= (A innerjoin C on (Pac)) leftjoin B on (Pab)
 
-where Pac is a predicate referencing A and C, etc (in this case, clearly
-Pac cannot reference B, or the transformation is nonsensical).
+其中 Pac 是引用 A 和 C 的谓词，等等（在这种情况下，显然 Pac 不能引用 B，
+否则变换无意义）。
 
 2.	(A leftjoin B on (Pab)) leftjoin C on (Pac)
 	= (A leftjoin C on (Pac)) leftjoin B on (Pab)
@@ -208,579 +156,447 @@ Pac cannot reference B, or the transformation is nonsensical).
 3.	(A leftjoin B on (Pab)) leftjoin C on (Pbc)
 	= A leftjoin (B leftjoin C on (Pbc)) on (Pab)
 
-Identity 3 only holds if predicate Pbc must fail for all-null B rows
-(that is, Pbc is strict for at least one column of B).  If Pbc is not
-strict, the first form might produce some rows with nonnull C columns
-where the second form would make those entries null.
+恒等式 3 仅在谓词 Pbc 必须对全空的 B 行失败时成立（即 Pbc 对 B 的至少一
+列是严格的）。若 Pbc 不严格，第一种形式可能产生一些 C 列非空的行，而第
+二种形式会让那些项为 NULL。
 
-RIGHT JOIN is equivalent to LEFT JOIN after switching the two input
-tables, so the same identities work for right joins.
+RIGHT JOIN 在交换两个输入表后等价于 LEFT JOIN，因此相同恒等式适用于右连
+接。
 
-An example of a case that does *not* work is moving an innerjoin into or
-out of the nullable side of an outer join:
+一个*不*成立的例子，是把内连接移进或移出外连接的可空侧：
 
 	A leftjoin (B join C on (Pbc)) on (Pab)
 	!= (A leftjoin B on (Pab)) join C on (Pbc)
 
-SEMI joins work a little bit differently.  A semijoin can be reassociated
-into or out of the lefthand side of another semijoin, left join, or
-antijoin, but not into or out of the righthand side.  Likewise, an inner
-join, left join, or antijoin can be reassociated into or out of the
-lefthand side of a semijoin, but not into or out of the righthand side.
+SEMI 连接的工作方式稍有不同。半连接可以结合进或结合出另一个半连接、左连
+接或反连接的左侧，但不能进或出其右侧。同样，内连接、左连接或反连接可以
+结合进或结合出半连接的左侧，但不能进或出其右侧。
 
-ANTI joins work approximately like LEFT joins, except that identity 3
-fails if the join to C is an antijoin (even if Pbc is strict, and in
-both the cases where the other join is a leftjoin and where it is an
-antijoin).  So we can't reorder antijoins into or out of the RHS of a
-leftjoin or antijoin, even if the relevant clause is strict.
+ANTI 连接大致像 LEFT 连接，但若与 C 的连接是反连接，恒等式 3 失败（即使
+Pbc 是严格的，并且无论另一连接是左连接还是反连接）。因此即使相关子句是
+严格的，我们也不能把反连接重排进或重排出左连接或反连接的 RHS。
 
-The current code does not attempt to re-order FULL JOINs at all.
-FULL JOIN ordering is enforced by not collapsing FULL JOIN nodes when
-translating the jointree to "joinlist" representation.  Other types of
-JOIN nodes are normally collapsed so that they participate fully in the
-join order search.  To avoid generating illegal join orders, the planner
-creates a SpecialJoinInfo node for each non-inner join, and join_is_legal
-checks this list to decide if a proposed join is legal.
+当前代码完全不尝试重排 FULL JOIN。FULL JOIN 顺序通过在把连接树翻译成
+“joinlist” 表示时不折叠 FULL JOIN 节点来强制。其他类型的 JOIN 节点通常
+被折叠，以便充分参与连接顺序搜索。为避免生成非法连接顺序，规划器为每个
+非内连接创建 SpecialJoinInfo 节点，join_is_legal 检查此列表以决定提议的
+连接是否合法。
 
-What we store in SpecialJoinInfo nodes are the minimum sets of Relids
-required on each side of the join to form the outer join.  Note that
-these are minimums; there's no explicit maximum, since joining other
-rels to the OJ's syntactic rels may be legal.  Per identities 1 and 2,
-non-FULL joins can be freely associated into the lefthand side of an
-OJ, but in some cases they can't be associated into the righthand side.
-So the restriction enforced by join_is_legal is that a proposed join
-can't join a rel within or partly within an RHS boundary to one outside
-the boundary, unless the proposed join is a LEFT join that can associate
-into the SpecialJoinInfo's RHS using identity 3.
+我们存在 SpecialJoinInfo 节点中的，是形成该外连接时每一侧所需的最小
+Relids 集合。注意这些是最小值；没有显式最大值，因为把其他关系连到 OJ 的
+句法关系可能合法。按恒等式 1 和 2，非 FULL 连接可以自由结合进 OJ 的左侧，
+但在某些情形下不能结合进右侧。因此 join_is_legal 强制的限制是：提议的连
+接不能把 RHS 边界内或部分在边界内的关系连到边界外的关系，除非提议的连接
+是可以用恒等式 3 结合进该 SpecialJoinInfo 的 RHS 的 LEFT 连接。
 
-The use of minimum Relid sets has some pitfalls; consider a query like
+使用最小 Relid 集合有一些陷阱；考虑如下查询
 	A leftjoin (B leftjoin (C innerjoin D) on (Pbcd)) on Pa
-where Pa doesn't mention B/C/D at all.  In this case a naive computation
-would give the upper leftjoin's min LHS as {A} and min RHS as {C,D} (since
-we know that the innerjoin can't associate out of the leftjoin's RHS, and
-enforce that by including its relids in the leftjoin's min RHS).  And the
-lower leftjoin has min LHS of {B} and min RHS of {C,D}.  Given such
-information, join_is_legal would think it's okay to associate the upper
-join into the lower join's RHS, transforming the query to
+其中 Pa 完全不提及 B/C/D。这种情况下，朴素计算会给出上层左连接的最小
+LHS 为 {A}、最小 RHS 为 {C,D}（因为我们知道内连接不能结合出左连接的
+RHS，并通过把它的 relids 包含进左连接的最小 RHS 来强制）。而下层左连接
+的最小 LHS 为 {B}、最小 RHS 为 {C,D}。给定这样的信息，join_is_legal 会
+认为把上层连接结合进下层连接的 RHS 是可以的，从而把查询变换成
 	B leftjoin (A leftjoin (C innerjoin D) on Pa) on (Pbcd)
-which yields totally wrong answers.  We prevent that by forcing the min RHS
-for the upper join to include B.  This is perhaps overly restrictive, but
-such cases don't arise often so it's not clear that it's worth developing a
-more complicated system.
+这会产生完全错误的答案。我们通过强制上层连接的最小 RHS 包含 B 来防止这
+一点。这也许过于限制，但这类情形不常出现，因此不值得开发更复杂的系统。
 
 
-Pulling Up Subqueries
----------------------
+上拉子查询
+----------
 
-As we described above, a subquery appearing in the range table is planned
-independently and treated as a "black box" during planning of the outer
-query.  This is necessary when the subquery uses features such as
-aggregates, GROUP, or DISTINCT.  But if the subquery is just a simple
-scan or join, treating the subquery as a black box may produce a poor plan
-compared to considering it as part of the entire plan search space.
-Therefore, at the start of the planning process the planner looks for
-simple subqueries and pulls them up into the main query's jointree.
+如上所述，出现在范围表中的子查询被独立规划，并在外查询规划期间被当作
+“黑盒”。当子查询使用聚合、GROUP 或 DISTINCT 等特性时这是必要的。但若子
+查询只是简单的扫描或连接，把子查询当黑盒可能产生比把它作为整个计划搜索
+空间一部分更差的计划。因此，规划过程开始时，规划器寻找简单子查询并把它们
+上拉进主查询的连接树。
 
-Pulling up a subquery may result in FROM-list joins appearing below the top
-of the join tree.  Each FROM-list is planned using the dynamic-programming
-search method described above.
+上拉子查询可能导致 FROM 列表连接出现在连接树顶之下。每个 FROM 列表用上
+面描述的动态规划搜索方法规划。
 
-If pulling up a subquery produces a FROM-list as a direct child of another
-FROM-list, then we can merge the two FROM-lists together.  Once that's
-done, the subquery is an absolutely integral part of the outer query and
-will not constrain the join tree search space at all.  However, that could
-result in unpleasant growth of planning time, since the dynamic-programming
-search has runtime exponential in the number of FROM-items considered.
-Therefore, we don't merge FROM-lists if the result would have too many
-FROM-items in one list.
+若上拉子查询产生作为另一个 FROM 列表直接孩子的 FROM 列表，我们就可以把
+两个 FROM 列表合并在一起。一旦完成，子查询就是外查询绝对不可分割的一部
+分，完全不会约束连接树搜索空间。然而，那可能导致规划时间令人不快地增长，
+因为动态规划搜索的运行时间随所考虑的 FROM 项数指数增长。因此，若结果会
+使一个列表中有太多 FROM 项，我们就不合并 FROM 列表。
 
 
-Vars and PlaceHolderVars
-------------------------
+Vars 与 PlaceHolderVars
+-----------------------
 
-A Var node is simply the parse-tree representation of a table column
-reference.  However, in the presence of outer joins, that concept is
-more subtle than it might seem.  We need to distinguish the values of
-a Var "above" and "below" any outer join that could force the Var to
-null.  As an example, consider
+Var 节点只是表列引用的解析树表示。然而，在存在外连接时，这个概念比看起
+来更微妙。我们需要区分 Var 在“之上”和“之下”任何可能把该 Var 强制为 NULL
+的外连接时的值。例如，考虑
 
 	SELECT * FROM t1 LEFT JOIN t2 ON (t1.x = t2.y) WHERE foo(t2.z)
 
-(Assume foo() is not strict, so that we can't reduce the left join to
-a plain join.)  A naive implementation might try to push the foo(t2.z)
-call down to the scan of t2, but that is not correct because
-(a) what foo() should actually see for a null-extended join row is NULL,
-and (b) if foo() returns false, we should suppress the t1 row from the
-join altogether, not emit it with a null-extended t2 row.  On the other
-hand, it *would* be correct (and desirable) to push that call down to
-the scan level if the query were
+（假定 foo() 不严格，因此我们不能把左连接简化成普通连接。）朴素实现可能
+试图把 foo(t2.z) 调用下推到 t2 的扫描，但这不正确，因为 (a) 对空值扩展
+的连接行，foo() 实际应看到的是 NULL，以及 (b) 若 foo() 返回假，我们应完
+全抑制连接中的 t1 行，而不是发出带空值扩展 t2 行的它。另一方面，若查询
+是
 
 	SELECT * FROM t1 LEFT JOIN t2 ON (t1.x = t2.y AND foo(t2.z))
 
-This motivates considering "t2.z" within the left join's ON clause
-to be a different value from "t2.z" outside the JOIN clause.  The
-former can be identified with t2.z as seen at the relation scan level,
-but the latter can't.
+把该调用下推到扫描层*会*是正确的（也是可取的）。
 
-Another example occurs in connection with EquivalenceClasses (discussed
-below).  Given
+这促使我们把左连接 ON 子句内的 “t2.z” 视为与 JOIN 子句外的 “t2.z” 不同
+的值。前者可以与关系扫描层所见的 t2.z 等同，但后者不行。
+
+另一个例子出现在与 EquivalenceClasses（下面讨论）的关联中。给定
 
 	SELECT * FROM t1 LEFT JOIN t2 ON (t1.x = t2.y) WHERE t1.x = 42
 
-we would like to use the EquivalenceClass mechanisms to derive "t2.y = 42"
-to use as a restriction clause for the scan of t2.  (That works, because t2
-rows having y different from 42 cannot affect the query result.)  However,
-it'd be wrong to conclude that t2.y will be equal to t1.x in every joined
-row.  Part of the solution to this problem is to deem that "t2.y" in the
-ON clause refers to the relation-scan-level value of t2.y, but not to the
-value that y will have in joined rows, where it might be NULL rather than
-equal to t1.x.
+我们希望用等价类机制导出 “t2.y = 42”，用作 t2 扫描的限制子句。（这能工
+作，因为 y 不同于 42 的 t2 行不能影响查询结果。）然而，断定在每个连接行
+中 t2.y 将等于 t1.x 是错的。该问题解决方案的一部分是：认为 ON 子句中的
+“t2.y” 指 t2.y 的关系扫描层值，但不指 y 在连接行中将具有的值，那里它可
+能是 NULL 而不是等于 t1.x。
 
-Therefore, Var nodes are decorated with "varnullingrels", which are sets
-of the rangetable indexes of outer joins that potentially null the Var
-at the point where it appears in the query.  (Using a set, not an ordered
-list, is fine since it doesn't matter which join forced the value to null;
-and that avoids having to change the representation when we consider
-different outer-join orders.)  In the examples above, all occurrences of
-t1.x would have empty varnullingrels, since the left join doesn't null t1.
-The t2 references within the JOIN ON clauses would also have empty
-varnullingrels.  But outside the JOIN clauses, any Vars referencing t2
-would have varnullingrels containing the index of the JOIN's rangetable
-entry (RTE), so that they'd be understood as potentially different from
-the t2 values seen at scan level.  Labeling t2.z in the WHERE clause with
-the JOIN's RT index lets us recognize that that occurrence of foo(t2.z)
-cannot be pushed down to the t2 scan level: we cannot evaluate that value
-at the scan level, but only after the join has been done.
+因此，Var 节点装饰有 “varnullingrels”，即在查询中它出现的位置可能把该
+Var 置空的外连接的范围表索引集合。（用集合而不是有序列表没问题，因为哪
+个连接把值强制为 NULL 并不重要；并且这避免了我们考虑不同外连接顺序时改
+变表示。）在上面的例子中，t1.x 的所有出现都会有空的 varnullingrels，因
+为左连接不把 t1 置空。JOIN ON 子句内的 t2 引用也会有空的
+varnullingrels。但在 JOIN 子句外，任何引用 t2 的 Var 都会有包含该 JOIN
+的范围表条目（RTE）索引的 varnullingrels，从而被理解为可能不同于扫描层
+所见的 t2 值。给 WHERE 子句中的 t2.z 标上 JOIN 的 RT 索引，让我们认识到
+那次 foo(t2.z) 出现不能下推到 t2 扫描层：我们不能在扫描层计算该值，只能
+在连接完成之后。
 
-For LEFT and RIGHT outer joins, only Vars coming from the nullable side
-of the join are marked with that join's RT index.  For FULL joins, Vars
-from both inputs are marked.  (Such marking doesn't let us tell which
-side of the full join a Var came from; but that information can be found
-elsewhere at need.)
+对 LEFT 和 RIGHT 外连接，只有来自连接可空侧的 Var 被标上该连接的 RT 索
+引。对 FULL 连接，来自两侧输入的 Var 都被标记。（这种标记不能让我们分辨
+Var 来自全连接的哪一侧；但需要时可以在别处找到该信息。）
 
-Notionally, a Var having nonempty varnullingrels can be thought of as
+概念上，具有非空 varnullingrels 的 Var 可以想成
 	CASE WHEN any-of-these-outer-joins-produced-a-null-extended-row
 	  THEN NULL
 	  ELSE the-scan-level-value-of-the-column
 	  END
-It's only notional, because no such calculation is ever done explicitly.
-In a finished plan, Vars occurring in scan-level plan nodes represent
-the actual table column values, but upper-level Vars are always
-references to outputs of lower-level plan nodes.  When a join node emits
-a null-extended row, it just returns nulls for the relevant output
-columns rather than copying up values from its input.  Because we don't
-ever have to do this calculation explicitly, it's not necessary to
-distinguish which side of an outer join got null-extended, which'd
-otherwise be essential information for FULL JOIN cases.
+这只是概念上的，因为从未显式做这样的计算。在完成的计划中，出现在扫描层
+计划节点中的 Var 表示实际表列值，但上层 Var 总是对下层计划节点输出的引
+用。当连接节点发出空值扩展行时，它只是对相关输出列返回空值，而不是从输
+入向上复制值。因为我们不必显式做这个计算，就不必区分外连接的哪一侧被空
+值扩展，否则那对 FULL JOIN 情形会是必要信息。
 
-Outer join identity 3 (discussed above) complicates this picture
-a bit.  In the form
+外连接恒等式 3（上面讨论过）使这幅图稍复杂一点。在形式
 	A leftjoin (B leftjoin C on (Pbc)) on (Pab)
-all of the Vars in clauses Pbc and Pab will have empty varnullingrels,
-but if we start with
+中，子句 Pbc 和 Pab 中的所有 Var 都会有空的 varnullingrels，但若我们从
 	(A leftjoin B on (Pab)) leftjoin C on (Pbc)
-then the parser will have marked Pbc's B Vars with the A/B join's
-RT index, making this form artificially different from the first.
-For discussion's sake, let's denote this marking with a star:
+开始，则解析器会用 A/B 连接的 RT 索引标记 Pbc 的 B Vars，使这种形式与第
+一种人为地不同。为讨论起见，我们用星号表示这种标记：
 	(A leftjoin B on (Pab)) leftjoin C on (Pb*c)
-To cope with this, once we have detected that commuting these joins
-is legal, we generate both the Pbc and Pb*c forms of that ON clause,
-by either removing or adding the first join's RT index in the B Vars
-that the parser created.  While generating paths for a plan step that
-joins B and C, we include as a relevant join qual only the form that
-is appropriate depending on whether A has already been joined to B.
+为应对这一点，一旦我们检测到交换这些连接合法，就通过去掉或加上解析器创
+建的 B Vars 中第一个连接的 RT 索引，生成该 ON 子句的 Pbc 和 Pb*c 两种形
+式。在为连接 B 与 C 的计划步骤生成路径时，我们只把取决于 A 是否已经连到
+B 而适当的那种形式包含为相关连接限定。
 
-It's also worth noting that identity 3 makes "the left join's RT index"
-itself a bit of a fuzzy concept, since the syntactic scope of each join
-RTE will depend on which form was produced by the parser.  We resolve
-this by considering that a left join's identity is determined by its
-minimum set of right-hand-side input relations.  In both forms allowed
-by identity 3, we can identify the first join as having minimum RHS B
-and the second join as having minimum RHS C.
+还值得注意的是，恒等式 3 使“左连接的 RT 索引”本身有点模糊，因为每个连接
+RTE 的句法范围将取决于解析器产生的是哪种形式。我们通过认为左连接的身份
+由其右侧输入关系的最小集合决定来解决这一点。在恒等式 3 允许的两种形式
+中，我们可以把第一个连接识别为具有最小 RHS B，第二个连接具有最小 RHS C。
 
-Another thing to notice is that C Vars appearing outside the nested
-JOIN clauses will be marked as nulled by both left joins if the
-original parser input was in the first form of identity 3, but if the
-parser input was in the second form, such Vars will only be marked as
-nulled by the second join.  This is not really a semantic problem:
-such Vars will be marked the same way throughout the upper part of the
-query, so they will all look equal() which is correct; and they will not
-look equal() to any C Var appearing in the JOIN ON clause or below these
-joins.  However, when building Vars representing the outputs of join
-relations, we need to ensure that their varnullingrels are set to
-values consistent with the syntactic join order, so that they will
-appear equal() to pre-existing Vars in the upper part of the query.
+另一件要注意的是：若原始解析器输入是恒等式 3 的第一种形式，出现在嵌套
+JOIN 子句外的 C Vars 会被标为被两个左连接置空；但若解析器输入是第二种形
+式，这类 Var 只会被标为被第二个连接置空。这其实不是语义问题：这类 Var 在
+查询的上层部分自始至终以相同方式被标记，因此它们看起来都会 equal()，这
+是正确的；并且它们不会与出现在 JOIN ON 子句中或这些连接之下的任何 C Var
+看起来 equal()。然而，在构建表示连接关系输出的 Var 时，我们需要确保它们
+的 varnullingrels 被设为与句法连接顺序一致的值，以便它们看起来与查询上
+层部分中预先存在的 Var equal()。
 
-Outer joins also complicate handling of subquery pull-up.  Consider
+外连接也使子查询上拉的处理复杂化。考虑
 
 	SELECT ..., ss.x FROM tab1
 	  LEFT JOIN (SELECT *, 42 AS x FROM tab2) ss ON ...
 
-We want to be able to pull up the subquery as discussed previously,
-but we can't just replace the "ss.x" Var in the top-level SELECT list
-with the constant 42.  That'd result in always emitting 42, rather
-than emitting NULL in null-extended join rows.
+我们希望能如上所述上拉该子查询，但不能只是用常量 42 替换顶层 SELECT 列
+表中的 “ss.x” Var。那会导致总是发出 42，而不是在空值扩展的连接行中发出
+NULL。
 
-To solve this, we introduce the concept of PlaceHolderVars.
-A PlaceHolderVar is somewhat like a Var, in that its value originates
-at a relation scan level and can then be forced to null by higher-level
-outer joins; hence PlaceHolderVars carry a set of nulling rel IDs just
-like Vars.  Unlike a Var, whose original value comes from a table,
-a PlaceHolderVar's original value is defined by a query-determined
-expression ("42" in this example); so we represent the PlaceHolderVar
-as a node with that expression as child.  We insert a PlaceHolderVar
-whenever subquery pullup needs to replace a subquery-referencing Var
-that has nonempty varnullingrels with an expression that is not simply a
-Var.  (When the replacement expression is a pulled-up Var, we can just
-add the replaced Var's varnullingrels to its set.  Also, if the replaced
-Var has empty varnullingrels, we don't need a PlaceHolderVar: there is
-nothing that'd force the value to null, so the pulled-up expression is
-fine to use as-is.)  In a finished plan, a PlaceHolderVar becomes just
-the contained expression at whatever plan level it's supposed to be
-evaluated at, and then upper-level occurrences are replaced by Var
-references to that output column of the lower plan level.  That causes
-the value to go to null when appropriate at an outer join, in the same
-way as for normal Vars.  Thus, PlaceHolderVars are never seen outside
-the planner.
+为解决这一点，我们引入 PlaceHolderVars 的概念。PlaceHolderVar 有点像
+Var，因为它的值起源于关系扫描层，然后可以被更高层外连接强制为 NULL；因
+此 PlaceHolderVars 像 Vars 一样携带一组置空关系 ID。与原始值来自表的
+Var 不同，PlaceHolderVar 的原始值由查询确定的表达式定义（本例中的
+“42”）；因此我们把 PlaceHolderVar 表示为以该表达式为孩子的节点。每当子
+查询上拉需要用并非简单 Var 的表达式替换具有非空 varnullingrels 的、引用
+子查询的 Var 时，我们就插入 PlaceHolderVar。（当替换表达式是被上拉的
+Var 时，我们可以只是把被替换 Var 的 varnullingrels 加到它的集合中。另外，
+若被替换 Var 有空的 varnullingrels，我们不需要 PlaceHolderVar：没有什么
+会把该值强制为 NULL，因此被上拉的表达式可以直接按原样使用。）在完成的计
+划中，PlaceHolderVar 在它应当被计算的计划层变成所含表达式，然后上层出现
+被替换为对该下层计划层那个输出列的 Var 引用。这导致该值在外连接处适当时
+变为 NULL，与普通 Vars 相同。因此，PlaceHolderVars 从不在规划器外看见。
 
-PlaceHolderVars (PHVs) are more complicated than Vars in another way:
-their original value might need to be calculated at a join, not a
-base-level relation scan.  This can happen when a pulled-up subquery
-contains a join.  Because of this, a PHV can create a join order
-constraint that wouldn't otherwise exist, to ensure that it can
-be calculated before it is used.  A PHV's expression can also contain
-LATERAL references, adding complications that are discussed below.
+PlaceHolderVars（PHV）在另一方面比 Vars 更复杂：它们的原始值可能需要在
+连接处而不是基级关系扫描处计算。当被上拉的子查询包含连接时可能发生这种
+情况。因此，PHV 可以创建本来不会存在的连接顺序约束，以确保它能在被使用
+之前被计算。PHV 的表达式还可以包含 LATERAL 引用，增加下面讨论的复杂性。
 
 
-Relation Identification and Qual Clause Placement
--------------------------------------------------
+关系识别与限定子句放置
+----------------------
 
-A qual clause obtained from WHERE or JOIN/ON can be enforced at the lowest
-scan or join level that includes all relations used in the clause.  For
-this purpose we consider that outer joins listed in varnullingrels or
-phnullingrels are used in the clause, since we can't compute the qual's
-result correctly until we know whether such Vars have gone to null.
+从 WHERE 或 JOIN/ON 获得的限定子句，可以在包含该子句所用全部关系的最低
+扫描或连接层强制执行。为此我们把 varnullingrels 或 phnullingrels 中列出
+的外连接视为该子句所用，因为在我们知道这类 Var 是否已变为 NULL 之前，不
+能正确计算该限定的结果。
 
-The one exception to this general rule is that a non-degenerate outer
-JOIN/ON qual (one that references the non-nullable side of the join)
-cannot be enforced below that join, even if it doesn't reference the
-nullable side.  Pushing it down into the non-nullable side would result
-in rows disappearing from the join's result, rather than appearing as
-null-extended rows.  To handle that, when we identify such a qual we
-artificially add the join's minimum input relid set to the set of
-relations it is considered to use, forcing it to be evaluated exactly at
-that join level.  The same happens for outer-join quals that mention no
-relations at all.
+这条一般规则的唯一例外是：非退化的外 JOIN/ON 限定（引用连接不可空侧的那
+种）不能在该连接之下强制，即使它不引用可空侧。把它下推进不可空侧会导致
+行从连接结果中消失，而不是作为空值扩展行出现。为处理这一点，当我们识别
+出这类限定时，人为地把该连接的最小输入 relid 集合加到它被视为使用的关
+系集合中，迫使它恰好在该连接层计算。对外连接限定完全不提及任何关系的情
+形也一样。
 
-When attaching a qual clause to a join plan node that is performing an
-outer join, the qual clause is considered a "join clause" (that is, it is
-applied before the join performs null-extension) if it does not reference
-that outer join in any varnullingrels or phnullingrels set, or a "filter
-clause" (applied after null-extension) if it does reference that outer
-join.  A qual clause that originally appeared in that outer join's JOIN/ON
-will fall into the first category, since the parser would not have marked
-any of its Vars as referencing the outer join.  A qual clause that
-originally came from some upper ON clause or WHERE clause will be seen as
-referencing the outer join if it references any of the nullable side's
-Vars, since those Vars will be so marked by the parser.  But, if such a
-qual does not reference any nullable-side Vars, it's okay to push it down
-into the non-nullable side, so it won't get attached to the join node in
-the first place.
+当把限定子句附加到正在执行外连接的连接计划节点时，若该限定子句在任何
+varnullingrels 或 phnullingrels 集合中都不引用该外连接，则它被视为“连接
+子句”（即在连接执行空值扩展之前应用）；若它确实引用该外连接，则被视为
+“过滤子句”（在空值扩展之后应用）。原先出现在该外连接 JOIN/ON 中的限定子
+句会落入第一类，因为解析器不会把它的任何 Var 标为引用该外连接。原先来自
+某个上层 ON 子句或 WHERE 子句的限定子句，若引用可空侧的任何 Var，会被看
+成引用该外连接，因为那些 Var 会被解析器如此标记。但是，若这类限定不引用
+任何可空侧 Var，就可以把它下推进不可空侧，因此它根本不会被附加到该连接
+节点。
 
-These things lead us to identify join relations within the planner
-by the sets of base relation RT indexes plus outer join RT indexes
-that they include.  In that way, the sets of relations used by qual
-clauses can be directly compared to join relations' relid sets to
-see where to place the clauses.  These identifying sets are unique
-because, for any given collection of base relations, there is only
-one valid set of outer joins to have performed along the way to
-joining that set of base relations (although the order of applying
-them could vary, as discussed above).
+这些事情导致我们在规划器内用它们包含的基关系 RT 索引加上外连接 RT 索引
+的集合来识别连接关系。这样，限定子句所用的关系集合可以直接与连接关系的
+relid 集合比较，以查看把子句放在哪里。这些识别集合是唯一的，因为对任意
+给定的基关系集合，在连接该组基关系的途中只有一组有效的外连接要执行（尽
+管应用它们的顺序可能变化，如上所述）。
 
-SEMI joins do not have RT indexes, because they are artifacts made by
-the planner rather than the parser.  (We could create rangetable
-entries for them, but there seems no need at present.)  This does not
-cause a problem for qual placement, because the nullable side of a
-semijoin is not referenceable from above the join, so there is never a
-need to cite it in varnullingrels or phnullingrels.  It does not cause a
-problem for join relation identification either, since whether a semijoin
-has been completed is again implicit in the set of base relations
-included in the join.
+SEMI 连接没有 RT 索引，因为它们是规划器而不是解析器制造的产物。（我们可
+以为它们创建范围表条目，但目前似乎没有必要。）这不会给限定放置造成问题，
+因为半连接的可空侧不能从连接之上引用，因此从不需要在 varnullingrels 或
+phnullingrels 中引用它。这也不会给连接关系识别造成问题，因为半连接是否
+已完成再次隐含在连接所含的基关系集合中。
 
-As usual, outer join identity 3 complicates matters.  If we start with
+像往常一样，外连接恒等式 3 使事情复杂化。若我们从
 	(A leftjoin B on (Pab)) leftjoin C on (Pbc)
-then the parser will have marked any C Vars appearing above these joins
-with the RT index of the B/C join.  If we now transform to
+开始，则解析器会用 B/C 连接的 RT 索引标记这些连接之上出现的任何 C Vars。
+若我们现在变换成
 	A leftjoin (B leftjoin C on (Pbc)) on (Pab)
-then it would appear that a clause using only such Vars could be pushed
-down and applied as a filter clause (not a join clause) at the lower
-B/C join.  But *this might not give the right answer* since the clause
-might see a non-null value for the C Var that will be replaced by null
-once the A/B join is performed.  We handle this by saying that the
-pushed-down join hasn't completely performed the work of the B/C join
-and hence is not entitled to include that outer join relid in its
-relid set.  When we form the A/B join, both outer joins' relids will
-be added to its relid set, and then the upper clause will be applied
-at the correct join level.  (Note there is no problem when identity 3
-is applied in the other direction: if we started with the second form
-then upper C Vars are marked with both outer join relids, so they
-cannot drop below whichever join is applied second.)  Similarly,
-Vars representing the output of a pushed-down join do not acquire
-nullingrel bits for that join until after the upper join is performed.
+则看起来只用这类 Vars 的子句可以被下推，并作为过滤子句（不是连接子句）
+应用于下层 B/C 连接。但*这可能给不出正确答案*，因为该子句可能看到 C Var
+的非空值，而一旦执行 A/B 连接，该值将被 NULL 替换。我们这样处理：说被下
+推的连接尚未完全完成 B/C 连接的工作，因此无权把它的外连接 relid 包含进
+其 relid 集合。当我们形成 A/B 连接时，两个外连接的 relids 都会被加到它
+的 relid 集合，然后上层子句会在正确的连接层应用。（注意恒等式 3 沿另一
+方向应用时没有问题：若我们从第二种形式开始，则上层 C Vars 被标上两个外
+连接 relids，因此它们不能降到第二个被应用的连接之下。）类似地，表示被下
+推连接输出的 Vars 在上层连接执行之前不会获得该连接的 nullingrel 位。
 
-There is one additional complication for qual clause placement, which
-occurs when we have made multiple versions of an outer-join clause as
-described previously (that is, we have both "Pbc" and "Pb*c" forms of
-the same clause seen in outer join identity 3).  When forming an outer
-join we only want to apply one of the redundant versions of the clause.
-If we are forming the B/C join without having yet computed the A/B
-join, it's easy to reject the "Pb*c" form since its required relid
-set includes the A/B join relid which is not in the input.  However,
-if we form B/C after A/B, then both forms of the clause are applicable
-so far as that test can tell.  We have to look more closely to notice
-that the "Pbc" clause form refers to relation B which is no longer
-directly accessible.  While such a check could be performed using the
-per-relation RelOptInfo.nulling_relids data, it would be annoyingly
-expensive to do over and over as we consider different join paths.
-To make this simple and reliable, we compute an "incompatible_relids"
-set for each variant version (clone) of a redundant clause.  A clone
-clause should not be applied if any of the outer-join relids listed in
-incompatible_relids has already been computed below the current join.
+限定子句放置还有一个额外复杂性，发生在我们如先前所述为外连接子句做出多
+个版本时（即，我们同时有在外连接恒等式 3 中看到的同一子句的 “Pbc” 和
+“Pb*c” 形式）。形成外连接时，我们只想应用该子句的冗余版本之一。若我们在
+尚未计算 A/B 连接的情况下形成 B/C 连接，很容易拒绝 “Pb*c” 形式，因为它
+所需的 relid 集合包含不在输入中的 A/B 连接 relid。然而，若我们在 A/B 之
+后形成 B/C，则就该测试所能判断的而言，两种形式的子句都适用。我们必须更
+仔细地看，才会注意到 “Pbc” 子句形式引用了不再直接可访问的关系 B。虽然可
+以用每个关系的 RelOptInfo.nulling_relids 数据做这样的检查，但在我们考虑
+不同连接路径时一遍又一遍地做会烦人地昂贵。为使这简单可靠，我们为冗余子
+句的每个变体版本（克隆）计算一个 “incompatible_relids” 集合。若
+incompatible_relids 中列出的任何外连接 relids 已经在当前连接之下被计算，
+就不应应用该克隆子句。
 
 
-Optimizer Functions
--------------------
+优化器函数
+----------
 
-The primary entry point is planner().
+主要入口点是 planner()。
 
 planner()
-set up for recursive handling of subqueries
+为子查询的递归处理做准备
 -subquery_planner()
- pull up sublinks and subqueries from rangetable, if possible
- canonicalize qual
-     Attempt to simplify WHERE clause to the most useful form; this includes
-     flattening nested AND/ORs and detecting clauses that are duplicated in
-     different branches of an OR.
- simplify constant expressions
- process sublinks
- convert Vars of outer query levels into Params
+ 若可能，从范围表上拉子链接和子查询
+ 规范化限定
+     试图把 WHERE 子句简化成最有用的形式；这包括展平嵌套的 AND/OR，以及
+     检测在 OR 不同分支中重复的子句。
+ 简化常量表达式
+ 处理子链接
+ 把外查询层的 Vars 转换成 Params
 --grouping_planner()
-  preprocess target list for non-SELECT queries
-  handle UNION/INTERSECT/EXCEPT, GROUP BY, HAVING, aggregates,
-	ORDER BY, DISTINCT, LIMIT
+  为非 SELECT 查询预处理目标列表
+  处理 UNION/INTERSECT/EXCEPT、GROUP BY、HAVING、聚合、
+	ORDER BY、DISTINCT、LIMIT
 ---query_planner()
-   make list of base relations used in query
-   split up the qual into restrictions (a=1) and joins (b=c)
-   find qual clauses that enable merge and hash joins
+   做出查询中使用的基关系列表
+   把限定拆成限制（a=1）和连接（b=c）
+   找出使归并和哈希连接成为可能的限定子句
 ----make_one_rel()
      set_base_rel_pathlists()
-      find seqscan and all index paths for each base relation
-      find selectivity of columns used in joins
+      为每个基关系找出顺序扫描和所有索引路径
+      找出连接中使用的列的选择率
      make_rel_from_joinlist()
-      hand off join subproblems to a plugin, GEQO, or standard_join_search()
+      把连接子问题交给插件、GEQO 或 standard_join_search()
 ------standard_join_search()
-      call join_search_one_level() for each level of join tree needed
-      join_search_one_level():
-        For each joinrel of the prior level, do make_rels_by_clause_joins()
-        if it has join clauses, or make_rels_by_clauseless_joins() if not.
-        Also generate "bushy plan" joins between joinrels of lower levels.
-      Back at standard_join_search(), generate gather paths if needed for
-      each newly constructed joinrel, then apply set_cheapest() to extract
-      the cheapest path for it.
-      Loop back if this wasn't the top join level.
-  Back at grouping_planner:
-  do grouping (GROUP BY) and aggregation
-  do window functions
-  make unique (DISTINCT)
-  do sorting (ORDER BY)
-  do limit (LIMIT/OFFSET)
-Back at planner():
-convert finished Path tree into a Plan tree
-do final cleanup after planning
+      对所需连接树的每一层调用 join_search_one_level()
+      join_search_one_level()：
+        对前一层的每个连接关系，若它有连接子句则做
+        make_rels_by_clause_joins()，否则做
+        make_rels_by_clauseless_joins()。
+        还在较低层的连接关系之间生成“灌木状计划”连接。
+      回到 standard_join_search()，若需要对每个新构造的连接关系生成
+      gather 路径，然后应用 set_cheapest() 为其提取最便宜路径。
+      若这不是顶层连接层，则循环回去。
+  回到 grouping_planner：
+  做分组（GROUP BY）和聚合
+  做窗口函数
+  做唯一（DISTINCT）
+  做排序（ORDER BY）
+  做限制（LIMIT/OFFSET）
+回到 planner()：
+把完成的 Path 树转换成 Plan 树
+做规划后的最终清理
 
 
-Optimizer Data Structures
--------------------------
+优化器数据结构
+--------------
 
-PlannerGlobal   - global information for a single planner invocation
+PlannerGlobal   - 单次规划器调用的全局信息
 
-PlannerInfo     - information for planning a particular Query (we make
-                  a separate PlannerInfo node for each sub-Query)
+PlannerInfo     - 规划特定 Query 的信息（我们为每个子 Query 做一个单独
+                  的 PlannerInfo 节点）
 
-RelOptInfo      - a relation or joined relations
+RelOptInfo      - 一个关系或已连接的关系
 
- RestrictInfo   - WHERE clauses, like "x = 3" or "y = z"
-                  (note the same structure is used for restriction and
-                   join clauses)
+ RestrictInfo   - WHERE 子句，如 “x = 3” 或 “y = z”
+                  （注意限制子句和连接子句使用同一结构）
 
- Path           - every way to generate a RelOptInfo(sequential,index,joins)
-  A plain Path node can represent several simple plans, per its pathtype:
-    T_SeqScan   - sequential scan
-    T_SampleScan - tablesample scan
-    T_FunctionScan - function-in-FROM scan
-    T_TableFuncScan - table function scan
-    T_ValuesScan - VALUES scan
-    T_CteScan   - CTE (WITH) scan
-    T_NamedTuplestoreScan - ENR scan
-    T_WorkTableScan - scan worktable of a recursive CTE
-    T_Result    - childless Result plan node (used for FROM-less SELECT)
-  IndexPath     - index scan
-  BitmapHeapPath - top of a bitmapped index scan
-  TidPath       - scan by CTID
-  TidRangePath  - scan a contiguous range of CTIDs
-  SubqueryScanPath - scan a subquery-in-FROM
-  ForeignPath   - scan a foreign table, foreign join or foreign upper-relation
-  CustomPath    - for custom scan providers
-  AppendPath    - append multiple subpaths together
-  MergeAppendPath - merge multiple subpaths, preserving their common sort order
-  GroupResultPath - childless Result plan node (used for degenerate grouping)
-  MaterialPath  - a Material plan node
-  MemoizePath   - a Memoize plan node for caching tuples from sub-paths
-  UniquePath    - remove duplicate rows (either by hashing or sorting)
-  GatherPath    - collect the results of parallel workers
-  GatherMergePath - collect parallel results, preserving their common sort order
-  ProjectionPath - a Result plan node with child (used for projection)
-  ProjectSetPath - a ProjectSet plan node applied to some sub-path
-  SortPath      - a Sort plan node applied to some sub-path
-  IncrementalSortPath - an IncrementalSort plan node applied to some sub-path
-  GroupPath     - a Group plan node applied to some sub-path
-  UpperUniquePath - a Unique plan node applied to some sub-path
-  AggPath       - an Agg plan node applied to some sub-path
-  GroupingSetsPath - an Agg plan node used to implement GROUPING SETS
-  MinMaxAggPath - a Result plan node with subplans performing MIN/MAX
-  WindowAggPath - a WindowAgg plan node applied to some sub-path
-  SetOpPath     - a SetOp plan node applied to some sub-path
-  RecursiveUnionPath - a RecursiveUnion plan node applied to two sub-paths
-  LockRowsPath  - a LockRows plan node applied to some sub-path
-  ModifyTablePath - a ModifyTable plan node applied to some sub-path(s)
-  LimitPath     - a Limit plan node applied to some sub-path
-  NestPath      - nested-loop joins
-  MergePath     - merge joins
-  HashPath      - hash joins
+ Path           - 生成 RelOptInfo 的每种方式（顺序、索引、连接）
+  普通 Path 节点可以按它的 pathtype 表示若干简单计划：
+    T_SeqScan   - 顺序扫描
+    T_SampleScan - tablesample 扫描
+    T_FunctionScan - FROM 中的函数扫描
+    T_TableFuncScan - 表函数扫描
+    T_ValuesScan - VALUES 扫描
+    T_CteScan   - CTE（WITH）扫描
+    T_NamedTuplestoreScan - ENR 扫描
+    T_WorkTableScan - 扫描递归 CTE 的工作表
+    T_Result    - 无孩子的 Result 计划节点（用于无 FROM 的 SELECT）
+  IndexPath     - 索引扫描
+  BitmapHeapPath - 位图索引扫描的顶
+  TidPath       - 按 CTID 扫描
+  TidRangePath  - 扫描一段连续的 CTID
+  SubqueryScanPath - 扫描 FROM 中的子查询
+  ForeignPath   - 扫描外表、外部连接或外部上层关系
+  CustomPath    - 用于自定义扫描提供者
+  AppendPath    - 把多个子路径追加在一起
+  MergeAppendPath - 归并多个子路径，保持它们共同的排序
+  GroupResultPath - 无孩子的 Result 计划节点（用于退化分组）
+  MaterialPath  - Material 计划节点
+  MemoizePath   - 用于缓存来自子路径的元组的 Memoize 计划节点
+  UniquePath    - 去除重复行（通过哈希或排序）
+  GatherPath    - 收集并行工作者的结果
+  GatherMergePath - 收集并行结果，保持它们共同的排序
+  ProjectionPath - 带孩子的 Result 计划节点（用于投影）
+  ProjectSetPath - 应用于某子路径的 ProjectSet 计划节点
+  SortPath      - 应用于某子路径的 Sort 计划节点
+  IncrementalSortPath - 应用于某子路径的 IncrementalSort 计划节点
+  GroupPath     - 应用于某子路径的 Group 计划节点
+  UpperUniquePath - 应用于某子路径的 Unique 计划节点
+  AggPath       - 应用于某子路径的 Agg 计划节点
+  GroupingSetsPath - 用于实现 GROUPING SETS 的 Agg 计划节点
+  MinMaxAggPath - 带子计划执行 MIN/MAX 的 Result 计划节点
+  WindowAggPath - 应用于某子路径的 WindowAgg 计划节点
+  SetOpPath     - 应用于某子路径的 SetOp 计划节点
+  RecursiveUnionPath - 应用于两个子路径的 RecursiveUnion 计划节点
+  LockRowsPath  - 应用于某子路径的 LockRows 计划节点
+  ModifyTablePath - 应用于某（些）子路径的 ModifyTable 计划节点
+  LimitPath     - 应用于某子路径的 Limit 计划节点
+  NestPath      - 嵌套循环连接
+  MergePath     - 归并连接
+  HashPath      - 哈希连接
 
- EquivalenceClass - a data structure representing a set of values known equal
+ EquivalenceClass - 表示一组已知相等的值的数据结构
 
- PathKey        - a data structure representing the sort ordering of a path
+ PathKey        - 表示路径排序的数据结构
 
-The optimizer spends a good deal of its time worrying about the ordering
-of the tuples returned by a path.  The reason this is useful is that by
-knowing the sort ordering of a path, we may be able to use that path as
-the left or right input of a mergejoin and avoid an explicit sort step.
-Nestloops and hash joins don't really care what the order of their inputs
-is, but mergejoin needs suitably ordered inputs.  Therefore, all paths
-generated during the optimization process are marked with their sort order
-(to the extent that it is known) for possible use by a higher-level merge.
+优化器花相当多时间操心路径返回的元组的排序。这之所以有用，是因为通过知
+道路径的排序，我们可能能把该路径用作归并连接的左或右输入，并避免显式排
+序步骤。嵌套循环和哈希连接其实不关心其输入的顺序，但归并连接需要适当排
+序的输入。因此，优化过程中生成的所有路径都标上它们的排序（在已知的程度
+内），以供可能的更高层归并使用。
 
-It is also possible to avoid an explicit sort step to implement a user's
-ORDER BY clause if the final path has the right ordering already, so the
-sort ordering is of interest even at the top level.  grouping_planner() will
-look for the cheapest path with a sort order matching the desired order,
-then compare its cost to the cost of using the cheapest-overall path and
-doing an explicit sort on that.
+若最终路径已经具有正确排序，也可以避免显式排序步骤来实现用户的 ORDER BY
+子句，因此即使在顶层，排序也是有意义的。grouping_planner() 会寻找排序与
+所需顺序匹配的最便宜路径，然后把它的代价与使用总体最便宜路径并对其做显
+式排序的代价比较。
 
-When we are generating paths for a particular RelOptInfo, we discard a path
-if it is more expensive than another known path that has the same or better
-sort order.  We will never discard a path that is the only known way to
-achieve a given sort order (without an explicit sort, that is).  In this
-way, the next level up will have the maximum freedom to build mergejoins
-without sorting, since it can pick from any of the paths retained for its
-inputs.
+当我们为特定 RelOptInfo 生成路径时，若一条路径比另一条已知路径更贵，且
+后者具有相同或更好的排序，我们就丢弃它。我们永远不会丢弃实现给定排序的
+唯一已知方式（也就是说，不经显式排序）。这样，上一层将有最大自由度来在
+不排序的情况下构建归并连接，因为它可以从为其输入保留的任何路径中挑选。
 
 
-EquivalenceClasses
-------------------
+等价类
+------
 
-During the deconstruct_jointree() scan of the query's qual clauses, we
-look for mergejoinable equality clauses A = B.  When we find one, we
-create an EquivalenceClass containing the expressions A and B to record
-that they are equal.  If we later find another equivalence clause B = C,
-we add C to the existing EquivalenceClass for {A B}; this may require
-merging two existing EquivalenceClasses.  At the end of the scan, we have
-sets of values that are known all transitively equal to each other.  We can
-therefore use a comparison of any pair of the values as a restriction or
-join clause (when these values are available at the scan or join, of
-course); furthermore, we need test only one such comparison, not all of
-them.  Therefore, equivalence clauses are removed from the standard qual
-distribution process.  Instead, when preparing a restriction or join clause
-list, we examine each EquivalenceClass to see if it can contribute a
-clause, and if so we select an appropriate pair of values to compare.  For
-example, if we are trying to join A's relation to C's, we can generate the
-clause A = C, even though this appeared nowhere explicitly in the original
-query.  This may allow us to explore join paths that otherwise would have
-been rejected as requiring Cartesian-product joins.
+在对查询限定子句的 deconstruct_jointree() 扫描期间，我们寻找可归并连接
+的等式子句 A = B。当我们找到一个时，就创建一个包含表达式 A 和 B 的
+EquivalenceClass，以记录它们相等。若我们后来找到另一个等价子句 B = C，
+就把 C 加到 {A B} 的已有 EquivalenceClass 中；这可能需要合并两个已有
+EquivalenceClasses。扫描结束时，我们有已知全部传递相等的值集合。因此我
+们可以用任意一对值的比较作为限制或连接子句（当然，当这些值在扫描或连接
+处可用时）；此外，我们只需测试一次这样的比较，而不是全部。因此，等价子
+句从标准限定分发过程中移除。改为在准备限制或连接子句列表时，我们检查每
+个 EquivalenceClass 看它是否能贡献一个子句，若能，就选择一对适当的值来
+比较。例如，若我们试图把 A 的关系连到 C 的，即使这在原查询中任何地方都
+没有显式出现，我们也能生成子句 A = C。这可能允许我们探索否则会因需要笛
+卡尔积连接而被拒绝的连接路径。
 
-Sometimes an EquivalenceClass may contain a pseudo-constant expression
-(i.e., one not containing Vars or Aggs of the current query level, nor
-volatile functions).  In this case we do not follow the policy of
-dynamically generating join clauses: instead, we dynamically generate
-restriction clauses "var = const" wherever one of the variable members of
-the class can first be computed.  For example, if we have A = B and B = 42,
-we effectively generate the restriction clauses A = 42 and B = 42, and then
-we need not bother with explicitly testing the join clause A = B when the
-relations are joined.  In effect, all the class members can be tested at
-relation-scan level and there's never a need for join tests.
+有时 EquivalenceClass 可能包含伪常量表达式（即不含当前查询层的 Vars 或
+Aggs，也不含易变函数）。这种情况下我们不遵循动态生成连接子句的策略：改
+为在可以首次计算该类的某个变量成员的地方，动态生成限制子句 “var =
+const”。例如，若我们有 A = B 和 B = 42，我们实际上生成限制子句 A = 42
+和 B = 42，然后在连接这些关系时不必费心显式测试连接子句 A = B。实际上，
+所有类成员都可以在关系扫描层测试，从不需要连接测试。
 
-The precise technical interpretation of an EquivalenceClass is that it
-asserts that at any plan node where more than one of its member values
-can be computed, output rows in which the values are not all equal may
-be discarded without affecting the query result.  (We require all levels
-of the plan to enforce EquivalenceClasses, hence a join need not recheck
-equality of values that were computable by one of its children.)
+EquivalenceClass 的精确技术解释是：它断言在可以计算其不止一个成员值的任
+何计划节点处，这些值并非全部相等的输出行可以丢弃而不影响查询结果。（我
+们要求计划的所有层都强制 EquivalenceClasses，因此连接不必重新检查其某个
+孩子已能计算的值的相等性。）
 
-Outer joins complicate this picture quite a bit, however.  While we could
-theoretically use mergejoinable equality clauses that appear in outer-join
-conditions as sources of EquivalenceClasses, there's a serious difficulty:
-the resulting deductions are not valid everywhere.  For example, given
+然而外连接使这幅图复杂不少。虽然我们理论上可以把出现在外连接条件中的可
+归并连接等式子句用作 EquivalenceClasses 的来源，但有一个严重困难：所得
+出的推论并非处处有效。例如，给定
 
 	SELECT * FROM a LEFT JOIN b ON (a.x = b.y AND a.x = 42);
 
-we can safely derive b.y = 42 and use that in the scan of B, because B
-rows not having b.y = 42 will not contribute to the join result.  However,
-we cannot apply a.x = 42 at the scan of A, or we will remove rows that
-should appear in the join result.  We could apply a.x = 42 as an outer join
-condition (and then it would be unnecessary to also check a.x = b.y).
-This is not yet implemented, however.
+我们可以安全地导出 b.y = 42 并在 B 的扫描中使用它，因为不具有 b.y = 42
+的 B 行不会对连接结果有贡献。然而，我们不能在 A 的扫描处应用 a.x = 42，
+否则会去掉应出现在连接结果中的行。我们可以把 a.x = 42 作为外连接条件应
+用（然后就不必再检查 a.x = b.y）。不过这尚未实现。
 
-A related issue is that constants appearing below an outer join are
-less constant than they appear.  Ordinarily, if we find "A = 1" and
-"B = 1", it's okay to put A and B into the same EquivalenceClass.
-But consider
+一个相关问题是，出现在外连接之下的常量不像它们看起来那么恒定。通常，若
+我们找到 “A = 1” 和 “B = 1”，把 A 和 B 放入同一个 EquivalenceClass 是可
+以的。但考虑
 
 	SELECT * FROM a
 	  LEFT JOIN (SELECT * FROM b WHERE b.z = 1) b ON (a.x = b.y)
 	WHERE a.x = 1;
 
-It would be a serious error to conclude that a.x = b.z, so we cannot
-form a single EquivalenceClass {a.x b.z 1}.
+断定 a.x = b.z 会是严重错误，因此我们不能形成一个
+EquivalenceClass {a.x b.z 1}。
 
-This leads to considering EquivalenceClasses as applying within "join
-domains", which are sets of relations that are inner-joined to each other.
-(We can treat semijoins as if they were inner joins for this purpose.)
-There is a top-level join domain, and then each outer join in the query
-creates a new join domain comprising its nullable side.  Full joins create
-two join domains, one for each side.  EquivalenceClasses generated from
-WHERE are associated with the top-level join domain.  EquivalenceClasses
-generated from the ON clause of an outer join are associated with the
-domain created by that outer join.  EquivalenceClasses generated from the
-ON clause of an inner or semi join are associated with the syntactically
-most closely nested join domain.
+这导致把 EquivalenceClasses 视为在“连接域”内应用，连接域是彼此内连接的
+关系集合。（为此我们可以把半连接当作内连接。）有一个顶层连接域，然后查
+询中的每个外连接创建一个由其可空侧组成的新连接域。全连接创建两个连接域，
+每一侧一个。从 WHERE 生成的 EquivalenceClasses 与顶层连接域关联。从外连
+接 ON 子句生成的 EquivalenceClasses 与该外连接创建的域关联。从内连接或
+半连接 ON 子句生成的 EquivalenceClasses 与句法上最紧密嵌套的连接域关联。
 
-Having defined these domains, we can fix the not-so-constant-constants
-problem by considering that constants only match EquivalenceClass members
-when they come from clauses within the same join domain.  In the above
-example, this means we keep {a.x 1} and {b.z 1} as separate
-EquivalenceClasses and don't erroneously merge them.  We don't have to
-worry about this for Vars (or expressions containing Vars), because
-references to the "same" column from different join domains will have
-different varnullingrels and thus won't be equal() anyway.
+定义了这些域之后，我们可以通过认为常量只在来自同一连接域内的子句时才匹
+配 EquivalenceClass 成员，来修正不那么恒定的常量问题。在上面的例子中，
+这意味着我们把 {a.x 1} 和 {b.z 1} 保持为单独的 EquivalenceClasses，并且
+不错误地合并它们。对 Vars（或包含 Vars 的表达式）我们不必担心这一点，因
+为对不同连接域中“同一”列的引用将具有不同的 varnullingrels，因此反正不会
+equal()。
 
-In the future, the join-domain concept may allow us to treat mergejoinable
-outer-join conditions as sources of EquivalenceClasses.  The idea would be
-that conditions derived from such classes could only be enforced at scans
-or joins that are within the appropriate join domain.  This is not
-implemented yet, however, as the details are trickier than they appear.
+将来，连接域概念可能允许我们把可归并连接的外连接条件当作
+EquivalenceClasses 的来源。想法是：从这类类导出的条件只能在适当连接域内
+的扫描或连接处强制。不过这尚未实现，因为细节比看起来更棘手。
 
-Another instructive example is:
+另一个有启发的例子是：
 
 	SELECT *
 	  FROM a LEFT JOIN
@@ -788,26 +604,20 @@ Another instructive example is:
 	       ON a.x = ss.y
 	  ORDER BY ss.y;
 
-We can form the EquivalenceClass {b.y c.z 10} and thereby apply c.z = 10
-while scanning C, as well as b.y = 10 while scanning B, so that no clause
-needs to be checked at the inner join.  The left-join clause "a.x = ss.y"
-(really "a.x = b.y") is not considered an equivalence clause, so we do
-not insert a.x into that same EquivalenceClass; if we did, we'd falsely
-conclude a.x = 10.  In the future though we might be able to do that,
-if we can keep from applying a.x = 10 at the scan of A, which in principle
-we could do by noting that the EquivalenceClass only applies within the
-{B,C} join domain.
+我们可以形成 EquivalenceClass {b.y c.z 10}，从而在扫描 C 时应用 c.z =
+10，以及在扫描 B 时应用 b.y = 10，因此内连接处不必检查任何子句。左连接
+子句 “a.x = ss.y”（其实是 “a.x = b.y”）不被视为等价子句，因此我们不把
+a.x 插入同一个 EquivalenceClass；若插入，我们会错误地断定 a.x = 10。不
+过将来我们也许能那样做，若我们能避免在 A 的扫描处应用 a.x = 10，原则上
+我们可以通过注意到该 EquivalenceClass 只在 {B,C} 连接域内应用来做到。
 
-Also notice that ss.y in the ORDER BY is really b.y* (that is, the
-possibly-nulled form of b.y), so we will not confuse it with the b.y member
-of the lower EquivalenceClass.  Thus, we won't mistakenly conclude that
-that ss.y is equal to a constant, which if true would lead us to think that
-sorting for the ORDER BY is unnecessary (see discussion of PathKeys below).
-Instead, there will be a separate EquivalenceClass containing only b.y*,
-which will form the basis for the PathKey describing the required sort
-order.
+还要注意 ORDER BY 中的 ss.y 其实是 b.y*（即 b.y 可能被置空的形式），因
+此我们不会把它与下层 EquivalenceClass 的 b.y 成员混淆。这样，我们就不会
+错误地断定 ss.y 等于常量，若为真会导致我们认为 ORDER BY 的排序不必要
+（见下面关于 PathKeys 的讨论）。相反，会有一个只包含 b.y* 的单独
+EquivalenceClass，它将构成描述所需排序的 PathKey 的基础。
 
-Also consider this variant:
+再考虑这个变体：
 
 	SELECT *
 	  FROM a LEFT JOIN
@@ -815,276 +625,205 @@ Also consider this variant:
 	       ON a.x = ss.y
 	  WHERE a.x = 42;
 
-We still form the EquivalenceClass {b.y c.z 10}, and additionally
-we have an EquivalenceClass {a.x 42} belonging to a different join domain.
-We cannot use "a.x = b.y" to merge these classes.  However, we can compare
-that outer join clause to the existing EquivalenceClasses and form the
-derived clause "b.y = 42", which we can treat as a valid equivalence
-within the lower join domain (since no row of that domain not having
-b.y = 42 can contribute to the outer-join result).  That makes the lower
-EquivalenceClass {42 b.y c.z 10}, resulting in the contradiction 10 = 42,
-which lets the planner deduce that the B/C join need not be computed at
-all: the result of that whole join domain can be forced to empty.
-(This gets implemented as a gating Result filter, since more usually the
-potential contradiction involves Param values rather than just Consts, and
-thus it has to be checked at runtime.  We can use the join domain to
-determine the join level at which to place the gating condition.)
+我们仍形成 EquivalenceClass {b.y c.z 10}，并且另外有一个属于不同连接域
+的 EquivalenceClass {a.x 42}。我们不能用 “a.x = b.y” 来合并这些类。然而，
+我们可以把该外连接子句与已有 EquivalenceClasses 比较，并形成导出子句
+“b.y = 42”，它可以在下层连接域内当作有效等价（因为该域中不具有 b.y = 42
+的任何行都不能对外连接结果有贡献）。这使下层 EquivalenceClass 变成 {42
+b.y c.z 10}，导致矛盾 10 = 42，从而让规划器推断 B/C 连接根本不必计算：
+整个该连接域的结果可以强制为空。（这被实现为门控 Result 过滤器，因为更
+常见的是潜在矛盾涉及 Param 值而不仅仅是 Consts，因此必须在运行时检查。
+我们可以用连接域来确定放置门控条件的连接层。）
 
-There is an additional complication when re-ordering outer joins according
-to identity 3.  Recall that the two choices we consider for such joins are
+按恒等式 3 重排外连接时还有一个额外复杂性。回想我们对这类连接考虑的两种
+选择是
 
 	A leftjoin (B leftjoin C on (Pbc)) on (Pab)
 	(A leftjoin B on (Pab)) leftjoin C on (Pb*c)
 
-where the star denotes varnullingrels markers on B's Vars.  When Pbc
-is (or includes) a mergejoinable clause, we have something like
+其中星号表示 B 的 Vars 上的 varnullingrels 标记。当 Pbc 是（或包含）可
+归并连接子句时，我们有类似
 
 	A leftjoin (B leftjoin C on (b.b = c.c)) on (Pab)
 	(A leftjoin B on (Pab)) leftjoin C on (b.b* = c.c)
 
-We could generate an EquivalenceClause linking b.b and c.c, but if we
-then also try to link b.b* and c.c, we end with a nonsensical conclusion
-that b.b and b.b* are equal (at least in some parts of the plan tree).
-In any case, the conclusions we could derive from such a thing would be
-largely duplicative.  Conditions involving b.b* can't be computed below
-this join nest, while any conditions that can be computed would be
-duplicative of what we'd get from the b.b/c.c combination.  Therefore,
-we choose to generate an EquivalenceClause linking b.b and c.c, but
-"b.b* = c.c" is handled as just an ordinary clause.
+我们可以生成连接 b.b 和 c.c 的 EquivalenceClause，但若我们然后还试图连
+接 b.b* 和 c.c，就会得到 b.b 与 b.b* 相等（至少在计划树的某些部分）这
+种无意义的结论。无论如何，我们能从这种东西导出的推论大体上是重复的。涉
+及 b.b* 的条件不能在该连接巢之下计算，而任何能计算的条件都会与我们从
+b.b/c.c 组合得到的重复。因此，我们选择生成连接 b.b 和 c.c 的
+EquivalenceClause，但 “b.b* = c.c” 只当作普通子句处理。
 
-To aid in determining the sort ordering(s) that can work with a mergejoin,
-we mark each mergejoinable clause with the EquivalenceClasses of its left
-and right inputs.  For an equivalence clause, these are of course the same
-EquivalenceClass.  For a non-equivalence mergejoinable clause (such as an
-outer-join qualification), we generate two separate EquivalenceClasses for
-the left and right inputs.  This may result in creating single-item
-equivalence "classes", though of course these are still subject to merging
-if other equivalence clauses are later found to bear on the same
-expressions.
+为帮助确定能与归并连接一起工作的排序，我们用其左右输入的
+EquivalenceClasses 标记每个可归并连接子句。对等价子句，这些当然是同一个
+EquivalenceClass。对非等价的可归并连接子句（例如外连接限定），我们为左
+右输入生成两个单独的 EquivalenceClasses。这可能导致创建单项等价“类”，不
+过若后来发现其他等价子句与相同表达式相关，它们当然仍可被合并。
 
-Another way that we may form a single-item EquivalenceClass is in creation
-of a PathKey to represent a desired sort order (see below).  This happens
-if an ORDER BY or GROUP BY key is not mentioned in any equivalence
-clause.  We need to reason about sort orders in such queries, and our
-representation of sort ordering is a PathKey which depends on an
-EquivalenceClass, so we have to make an EquivalenceClass.  This is a bit
-different from the above cases because such an EquivalenceClass might
-contain an aggregate function or volatile expression.  (A clause containing
-a volatile function will never be considered mergejoinable, even if its top
-operator is mergejoinable, so there is no way for a volatile expression to
-get into EquivalenceClasses otherwise.  Aggregates are disallowed in WHERE
-altogether, so will never be found in a mergejoinable clause.)  This is just
-a convenience to maintain a uniform PathKey representation: such an
-EquivalenceClass will never be merged with any other.  Note in particular
-that a single-item EquivalenceClass {a.x} is *not* meant to imply an
-assertion that a.x = a.x; the practical effect of this is that a.x could
-be NULL.
+我们可能形成单项 EquivalenceClass 的另一种方式，是在创建表示所需排序的
+PathKey 时（见下文）。若 ORDER BY 或 GROUP BY 键未在任何等价子句中提及，
+就会发生这种情况。我们需要在这类查询中推理排序，而我们对排序的表示是依
+赖 EquivalenceClass 的 PathKey，因此必须做一个 EquivalenceClass。这与上
+面的情形有点不同，因为这样的 EquivalenceClass 可能包含聚合函数或易变表
+达式。（包含易变函数的子句永远不会被视为可归并连接，即使其顶层操作符是
+可归并连接的，因此易变表达式没有其他方式进入 EquivalenceClasses。聚合在
+WHERE 中完全不允许，因此永远不会出现在可归并连接子句中。）这只是为了维
+持统一的 PathKey 表示的方便：这样的 EquivalenceClass 永远不会与任何其他
+的合并。特别要注意，单项 EquivalenceClass {a.x} *并不*意味着断言 a.x =
+a.x；实际效果是 a.x 可以为 NULL。
 
-An EquivalenceClass also contains a list of btree opfamily OIDs, which
-determines what the equalities it represents actually "mean".  All the
-equivalence clauses that contribute to an EquivalenceClass must have
-equality operators that belong to the same set of opfamilies.  (Note: most
-of the time, a particular equality operator belongs to only one family, but
-it's possible that it belongs to more than one.  We keep track of all the
-families to ensure that we can make use of an index belonging to any one of
-the families for mergejoin purposes.)
+EquivalenceClass 还包含 btree 操作符族 OID 的列表，它决定它所表示的相等
+实际“意味着”什么。对 EquivalenceClass 有贡献的所有等价子句必须具有属于
+同一组操作符族的相等操作符。（注意：大多数时候，特定相等操作符只属于一
+个族，但它可能属于不止一个。我们跟踪所有族，以确保可以为归并连接目的使
+用属于其中任何一个族的索引。）
 
-For the same sort of reason, an EquivalenceClass is also associated
-with a particular collation, if its datatype(s) care about collation.
+出于同类原因，若其数据类型关心排序规则，EquivalenceClass 也与特定排序规
+则关联。
 
-An EquivalenceClass can contain "em_is_child" members, which are copies
-of members that contain appendrel parent relation Vars, transposed to
-contain the equivalent child-relation variables or expressions.  These
-members are *not* full-fledged members of the EquivalenceClass and do not
-affect the class's overall properties at all.  They are kept only to
-simplify matching of child-relation expressions to EquivalenceClasses.
-Most operations on EquivalenceClasses should ignore child members.
+EquivalenceClass 可以包含 “em_is_child” 成员，它们是包含 appendrel 父关
+系 Vars 的成员的副本，转置为包含等价的子关系变量或表达式。这些成员*不是*
+EquivalenceClass 的正式成员，完全不影响该类的总体性质。保留它们只是为了
+简化子关系表达式与 EquivalenceClasses 的匹配。对 EquivalenceClasses 的
+大多数操作应忽略子成员。
 
 
 PathKeys
 --------
 
-The PathKeys data structure represents what is known about the sort order
-of the tuples generated by a particular Path.  A path's pathkeys field is a
-list of PathKey nodes, where the n'th item represents the n'th sort key of
-the result.  Each PathKey contains these fields:
+PathKeys 数据结构表示关于特定 Path 生成的元组排序已知的内容。路径的
+pathkeys 字段是 PathKey 节点的列表，其中第 n 项表示结果的第 n 个排序键。
+每个 PathKey 包含这些字段：
 
-	* a reference to an EquivalenceClass
-	* a btree opfamily OID (must match one of those in the EC)
-	* a sort direction (ascending or descending)
-	* a nulls-first-or-last flag
+	* 对 EquivalenceClass 的引用
+	* btree 操作符族 OID（必须匹配 EC 中的那些之一）
+	* 排序方向（升序或降序）
+	* 空值在前或在后标志
 
-The EquivalenceClass represents the value being sorted on.  Since the
-various members of an EquivalenceClass are known equal according to the
-opfamily, we can consider a path sorted by any one of them to be sorted by
-any other too; this is what justifies referencing the whole
-EquivalenceClass rather than just one member of it.
+EquivalenceClass 表示被排序的值。由于 EquivalenceClass 的各个成员按该操
+作符族已知相等，我们可以把按其中任何一个排序的路径也视为按任何其他排序；
+这就是引用整个 EquivalenceClass 而不仅仅是其中一个成员的理由。
 
-In single/base relation RelOptInfo's, the Paths represent various ways
-of scanning the relation and the resulting ordering of the tuples.
-Sequential scan Paths have NIL pathkeys, indicating no known ordering.
-Index scans have Path.pathkeys that represent the chosen index's ordering,
-if any.  A single-key index would create a single-PathKey list, while a
-multi-column index generates a list with one element per key index column.
-Non-key columns specified in the INCLUDE clause of covering indexes don't
-have corresponding PathKeys in the list, because they have no influence on
-index ordering.  (Actually, since an index can be scanned either forward or
-backward, there are two possible sort orders and two possible PathKey lists
-it can generate.)
+在单个/基关系 RelOptInfo 中，Paths 表示扫描该关系的各种方式以及元组的所
+得排序。顺序扫描 Paths 有 NIL pathkeys，表示未知排序。索引扫描具有表示
+所选索引排序（若有）的 Path.pathkeys。单键索引会创建单 PathKey 列表，而
+多列索引生成每个键索引列一个元素的列表。覆盖索引 INCLUDE 子句中指定的非
+键列在列表中没有对应的 PathKeys，因为它们对索引排序没有影响。（实际上，
+由于索引可以正向或反向扫描，有两种可能的排序和它可以生成的两种可能
+PathKey 列表。）
 
-Note that a bitmap scan has NIL pathkeys since we can say nothing about
-the overall order of its result.  Also, an indexscan on an unordered type
-of index generates NIL pathkeys.  However, we can always create a pathkey
-by doing an explicit sort.  The pathkeys for a Sort plan's output just
-represent the sort key fields and the ordering operators used.
+注意位图扫描有 NIL pathkeys，因为我们对其结果的总体顺序无话可说。另外，
+对无序类型索引的索引扫描也生成 NIL pathkeys。然而，我们总可以通过做显式
+排序来创建 pathkey。Sort 计划输出的 pathkeys 只表示排序键字段和所用的排
+序操作符。
 
-Things get more interesting when we consider joins.  Suppose we do a
-mergejoin between A and B using the mergeclause A.X = B.Y.  The output
-of the mergejoin is sorted by X --- but it is also sorted by Y.  Again,
-this can be represented by a PathKey referencing an EquivalenceClass
-containing both X and Y.
+当我们考虑连接时，事情变得更有趣。假定我们用归并子句 A.X = B.Y 在 A 与
+B 之间做归并连接。归并连接的输出按 X 排序——但按 Y 也排序。同样，这可以
+由引用包含 X 和 Y 的 EquivalenceClass 的 PathKey 表示。
 
-With a little further thought, it becomes apparent that nestloop joins
-can also produce sorted output.  For example, if we do a nestloop join
-between outer relation A and inner relation B, then any pathkeys relevant
-to A are still valid for the join result: we have not altered the order of
-the tuples from A.  Even more interesting, if there was an equivalence clause
-A.X=B.Y, and A.X was a pathkey for the outer relation A, then we can assert
-that B.Y is a pathkey for the join result; X was ordered before and still
-is, and the joined values of Y are equal to the joined values of X, so Y
-must now be ordered too.  This is true even though we used neither an
-explicit sort nor a mergejoin on Y.  (Note: hash joins cannot be counted
-on to preserve the order of their outer relation, because the executor
-might decide to "batch" the join, so we always set pathkeys to NIL for
-a hashjoin path.)
+再想一下就会明白，嵌套循环连接也可以产生有序输出。例如，若我们在外关系
+A 与内关系 B 之间做嵌套循环连接，则与 A 相关的任何 pathkeys 对连接结果
+仍然有效：我们没有改变来自 A 的元组顺序。更有趣的是，若有等价子句
+A.X=B.Y，且 A.X 是外关系 A 的 pathkey，则我们可以断言 B.Y 是连接结果的
+pathkey；X 以前有序现在仍有序，并且 Y 的连接值等于 X 的连接值，因此 Y 现
+在也必须有序。即使我们既没有对 Y 用显式排序也没有用归并连接，这也成立。
+（注意：哈希连接不能指望保持其外关系的顺序，因为执行器可能决定对该连接
+“分批”，因此我们总是把哈希连接路径的 pathkeys 设为 NIL。）
 
-An outer join doesn't preserve the ordering of its nullable input
-relation(s), because it might insert nulls at random points in the
-ordering.  We don't need to think about this explicitly in the PathKey
-representation, because a PathKey representing a post-join variable
-will contain varnullingrel bits, making it not equal to a PathKey
-representing the pre-join value.
+外连接不保持其可空输入关系的排序，因为它可能在排序中的随机点插入空值。
+我们不必在 PathKey 表示中显式考虑这一点，因为表示连接后变量的 PathKey 将
+包含 varnullingrel 位，使它不等于表示连接前值的 PathKey。
 
-In general, we can justify using EquivalenceClasses as the basis for
-pathkeys because, whenever we scan a relation containing multiple
-EquivalenceClass members or join two relations each containing
-EquivalenceClass members, we apply restriction or join clauses derived from
-the EquivalenceClass.  This guarantees that any two values listed in the
-EquivalenceClass are in fact equal in all tuples emitted by the scan or
-join, and therefore that if the tuples are sorted by one of the values,
-they can be considered sorted by any other as well.  It does not matter
-whether the test clause is used as a mergeclause, or merely enforced
-after-the-fact as a qpqual filter.
+一般而言，我们有理由把 EquivalenceClasses 作为 pathkeys 的基础，因为无
+论何时我们扫描包含多个 EquivalenceClass 成员的关系，或连接各自包含
+EquivalenceClass 成员的两个关系，我们都应用从该 EquivalenceClass 导出的
+限制或连接子句。这保证 EquivalenceClass 中列出的任意两个值在该扫描或连
+接发出的所有元组中实际上相等，因此若元组按其中一个值排序，它们也可以视
+为按任何其他值排序。测试子句是用作归并子句，还是仅在事后作为 qpqual 过
+滤器强制，并不重要。
 
-Note that there is no particular difficulty in labeling a path's sort
-order with a PathKey referencing an EquivalenceClass that contains
-variables not yet joined into the path's output.  We can simply ignore
-such entries as not being relevant (yet).  This makes it possible to
-use the same EquivalenceClasses throughout the join planning process.
-In fact, by being careful not to generate multiple identical PathKey
-objects, we can reduce comparison of EquivalenceClasses and PathKeys
-to simple pointer comparison, which is a huge savings because add_path
-has to make a large number of PathKey comparisons in deciding whether
-competing Paths are equivalently sorted.
+注意，用引用包含尚未连入该路径输出的变量的 EquivalenceClass 的 PathKey
+来标记路径的排序，并没有特别困难。我们可以只是忽略这类条目，因为（尚）
+不相关。这使得在整个连接规划过程中使用相同的 EquivalenceClasses 成为可
+能。事实上，通过小心不生成多个相同的 PathKey 对象，我们可以把
+EquivalenceClasses 和 PathKeys 的比较简化为简单的指针比较，这是巨大节省，
+因为 add_path 在决定竞争的 Paths 是否等价排序时必须做大量 PathKey 比较。
 
-Pathkeys are also useful to represent an ordering that we wish to achieve,
-since they are easily compared to the pathkeys of a potential candidate
-path.  So, SortGroupClause lists are turned into pathkeys lists for use
-inside the optimizer.
+Pathkeys 也可用来表示我们希望达到的排序，因为它们很容易与潜在候选路径的
+pathkeys 比较。因此，SortGroupClause 列表被转成 pathkeys 列表供优化器内
+部使用。
 
-An additional refinement we can make is to insist that canonical pathkey
-lists (sort orderings) do not mention the same EquivalenceClass more than
-once.  For example, in all these cases the second sort column is redundant,
-because it cannot distinguish values that are the same according to the
-first sort column:
+我们可以做的另一项细化是：坚持规范 pathkey 列表（排序）不多次提及同一
+EquivalenceClass。例如，在所有这些情形中，第二排序列是多余的，因为它无
+法区分按第一排序列相同的值：
 	SELECT ... ORDER BY x, x
 	SELECT ... ORDER BY x, x DESC
 	SELECT ... WHERE x = y ORDER BY x, y
-Although a user probably wouldn't write "ORDER BY x,x" directly, such
-redundancies are more probable once equivalence classes have been
-considered.  Also, the system may generate redundant pathkey lists when
-computing the sort ordering needed for a mergejoin.  By eliminating the
-redundancy, we save time and improve planning, since the planner will more
-easily recognize equivalent orderings as being equivalent.
+虽然用户大概不会直接写 “ORDER BY x,x”，但一旦考虑了等价类，这类冗余就更
+可能。另外，系统在计算归并连接所需排序时可能生成冗余 pathkey 列表。通过
+消除冗余，我们节省时间并改善规划，因为规划器会更容易把等价排序识别为等
+价。
 
-Another interesting property is that if the underlying EquivalenceClass
-contains a constant, then the pathkey is completely redundant and need not
-be sorted by at all!  Every interesting row must contain the same value,
-so there's no need to sort.  This might seem pointless because users
-are unlikely to write "... WHERE x = 42 ORDER BY x", but it allows us to
-recognize when particular index columns are irrelevant to the sort order:
-if we have "... WHERE x = 42 ORDER BY y", scanning an index on (x,y)
-produces correctly ordered data without a sort step.  We used to have very
-ugly ad-hoc code to recognize that in limited contexts, but discarding
-constant ECs from pathkeys makes it happen cleanly and automatically.
+另一个有趣的性质是：若底层 EquivalenceClass 包含常量，则该 pathkey 完全
+多余，根本不必按它排序！每个有意义的行必须包含相同的值，因此没有必要排
+序。这可能看起来没有意义，因为用户不太可能写 “… WHERE x = 42 ORDER BY
+x”，但它允许我们识别特定索引列与排序无关：若我们有 “… WHERE x = 42
+ORDER BY y”，扫描 (x,y) 上的索引就能产生正确排序的数据而无需排序步骤。
+我们过去有非常难看的专门代码在有限上下文中识别这一点，但从 pathkeys 中
+丢弃常量 EC 使它干净自动地发生。
 
 
-Order of processing for EquivalenceClasses and PathKeys
--------------------------------------------------------
+等价类与 PathKeys 的处理顺序
+----------------------------
 
-As alluded to above, there is a specific sequence of phases in the
-processing of EquivalenceClasses and PathKeys during planning.  During the
-initial scanning of the query's quals (deconstruct_jointree followed by
-reconsider_outer_join_clauses), we construct EquivalenceClasses based on
-mergejoinable clauses found in the quals.  At the end of this process,
-we know all we can know about equivalence of different variables, so
-subsequently there will be no further merging of EquivalenceClasses.
-At that point it is possible to consider the EquivalenceClasses as
-"canonical" and build canonical PathKeys that reference them.  At this
-time we construct PathKeys for the query's ORDER BY and related clauses.
-(Any ordering expressions that do not appear elsewhere will result in
-the creation of new EquivalenceClasses, but this cannot result in merging
-existing classes, so canonical-ness is not lost.)
+如上所述，规划期间 EquivalenceClasses 和 PathKeys 的处理有特定的阶段序
+列。在对查询限定的初始扫描期间（deconstruct_jointree 随后是
+reconsider_outer_join_clauses），我们基于限定中找到的可归并连接子句构造
+EquivalenceClasses。该过程结束时，我们对不同变量的等价已经知道所能知道
+的一切，因此随后不会再进一步合并 EquivalenceClasses。那时可以把
+EquivalenceClasses 视为“规范的”，并构建引用它们的规范 PathKeys。此时我
+们为查询的 ORDER BY 及相关子句构造 PathKeys。（任何未在别处出现的排序表
+达式将导致创建新的 EquivalenceClasses，但这不可能导致合并已有类，因此规
+范性不会丢失。）
 
-Because all the EquivalenceClasses are known before we begin path
-generation, we can use them as a guide to which indexes are of interest:
-if an index's column is not mentioned in any EquivalenceClass then that
-index's sort order cannot possibly be helpful for the query.  This allows
-short-circuiting of much of the processing of create_index_paths() for
-irrelevant indexes.
+因为在我们开始路径生成之前所有 EquivalenceClasses 都已知，我们可以用它
+们作为哪些索引有意义的指南：若索引的列未在任何 EquivalenceClass 中提及，
+则该索引的排序不可能对该查询有帮助。这允许对无关索引短路
+create_index_paths() 的大量处理。
 
-There are some cases where planner.c constructs additional
-EquivalenceClasses and PathKeys after query_planner has completed.
-In these cases, the extra ECs/PKs are needed to represent sort orders
-that were not considered during query_planner.  Such situations should be
-minimized since it is impossible for query_planner to return a plan
-producing such a sort order, meaning an explicit sort will always be needed.
-Currently this happens only for queries involving multiple window functions
-with different orderings, for which extra sorts are needed anyway.
+有些情形下 planner.c 在 query_planner 完成后构造额外的
+EquivalenceClasses 和 PathKeys。这些情形中，额外的 EC/PK 需要用来表示
+query_planner 期间未考虑的排序。应尽量减少这类情况，因为 query_planner
+不可能返回产生这种排序的计划，意味着总是需要显式排序。目前这只发生在涉
+及具有不同排序的多个窗口函数的查询中，反正那些查询需要额外排序。
 
 
-Parameterized Paths
--------------------
+参数化路径
+----------
 
-The naive way to join two relations using a clause like WHERE A.X = B.Y
-is to generate a nestloop plan like this:
+用像 WHERE A.X = B.Y 这样的子句连接两个关系的朴素方式，是生成像这样的嵌
+套循环计划：
 
 	NestLoop
 		Filter: A.X = B.Y
 		-> Seq Scan on A
 		-> Seq Scan on B
 
-We can make this better by using a merge or hash join, but it still
-requires scanning all of both input relations.  If A is very small and B is
-very large, but there is an index on B.Y, it can be enormously better to do
-something like this:
+我们可以用归并或哈希连接把它做得更好，但仍需要扫描两个输入关系的全部。
+若 A 很小而 B 很大，但 B.Y 上有索引，做类似这样的事可能好得多：
 
 	NestLoop
 		-> Seq Scan on A
 		-> Index Scan using B_Y_IDX on B
 			Index Condition: B.Y = A.X
 
-Here, we are expecting that for each row scanned from A, the nestloop
-plan node will pass down the current value of A.X into the scan of B.
-That allows the indexscan to treat A.X as a constant for any one
-invocation, and thereby use it as an index key.  This is the only plan type
-that can avoid fetching all of B, and for small numbers of rows coming from
-A, that will dominate every other consideration.  (As A gets larger, this
-gets less attractive, and eventually a merge or hash join will win instead.
-So we have to cost out all the alternatives to decide what to do.)
+这里，我们期望对从 A 扫描的每一行，嵌套循环计划节点会把 A.X 的当前值向
+下传入 B 的扫描。这允许索引扫描把 A.X 当作任何一次调用的常量，从而把它
+用作索引键。这是唯一能避免取回 B 的全部的计划类型，并且对来自 A 的少量
+行，那将压倒其他一切考虑。（随着 A 变大，这变得不那么有吸引力，最终归并
+或哈希连接会取胜。因此我们必须算出所有替代方案的代价来决定做什么。）
 
-It can be useful for the parameter value to be passed down through
-intermediate layers of joins, for example:
+让参数值穿过中间连接层向下传递可能有用，例如：
 
 	NestLoop
 		-> Seq Scan on A
@@ -1094,18 +833,14 @@ intermediate layers of joins, for example:
 			-> Index Scan using C_Z_IDX on C
 				Index Condition: C.Z = A.X
 
-If all joins are plain inner joins then this is usually unnecessary,
-because it's possible to reorder the joins so that a parameter is used
-immediately below the nestloop node that provides it.  But in the
-presence of outer joins, such join reordering may not be possible.
+若所有连接都是普通内连接，这通常不必要，因为可以重排连接，使参数在提供
+它的嵌套循环节点正下方立即使用。但在存在外连接时，这种连接重排可能不可
+能。
 
-Also, the bottom-level scan might require parameters from more than one
-other relation.  In principle we could join the other relations first
-so that all the parameters are supplied from a single nestloop level.
-But if those other relations have no join clause in common (which is
-common in star-schema queries for instance), the planner won't consider
-joining them directly to each other.  In such a case we need to be able
-to create a plan like
+另外，底层扫描可能需要来自不止一个其他关系的参数。原则上我们可以先连接
+那些其他关系，使所有参数都从单个嵌套循环层供给。但若那些其他关系没有共
+同的连接子句（例如在星型模式查询中很常见），规划器不会考虑直接把它们彼
+此连接。在这种情形下我们需要能创建像这样的计划
 
     NestLoop
         -> Seq Scan on SmallTable1 A
@@ -1114,26 +849,22 @@ to create a plan like
             -> Index Scan using XYIndex on LargeTable C
                  Index Condition: C.X = A.AID and C.Y = B.BID
 
-so we should be willing to pass down A.AID through a join even though
-there is no join order constraint forcing the plan to look like this.
+因此即使没有连接顺序约束迫使计划看起来像这样，我们也应该愿意让 A.AID 穿
+过连接向下传递。
 
-Before version 9.2, Postgres used ad-hoc methods for planning and
-executing nestloop queries of this kind, and those methods could not
-handle passing parameters down through multiple join levels.
+9.2 版之前，Postgres 用专门方法来规划和执行这类嵌套循环查询，那些方法无
+法处理参数穿过多层连接向下传递。
 
-To plan such queries, we now use a notion of a "parameterized path",
-which is a path that makes use of a join clause to a relation that's not
-scanned by the path.  In the example two above, we would construct a
-path representing the possibility of doing this:
+为规划这类查询，我们现在使用“参数化路径”的概念，即利用连接到该路径未扫
+描的关系的连接子句的路径。在上面倒数第二个例子中，我们会构造一条路径，
+表示做这件事的可能：
 
 	-> Index Scan using C_Z_IDX on C
 		Index Condition: C.Z = A.X
 
-This path will be marked as being parameterized by relation A.  (Note that
-this is only one of the possible access paths for C; we'd still have a
-plain unparameterized seqscan, and perhaps other possibilities.)  The
-parameterization marker does not prevent joining the path to B, so one of
-the paths generated for the joinrel {B C} will represent
+该路径将被标为由关系 A 参数化。（注意这只是 C 的可能访问路径之一；我们
+仍会有普通未参数化的顺序扫描，也许还有其他可能。）参数化标记并不阻止把
+该路径连到 B，因此为连接关系 {B C} 生成的路径之一将表示
 
 	Hash Join
 		Join Condition: B.Y = C.W
@@ -1141,359 +872,250 @@ the paths generated for the joinrel {B C} will represent
 		-> Index Scan using C_Z_IDX on C
 			Index Condition: C.Z = A.X
 
-This path is still marked as being parameterized by A.  When we attempt to
-join {B C} to A to form the complete join tree, such a path can only be
-used as the inner side of a nestloop join: it will be ignored for other
-possible join types.  So we will form a join path representing the query
-plan shown above, and it will compete in the usual way with paths built
-from non-parameterized scans.
+该路径仍被标为由 A 参数化。当我们试图把 {B C} 连到 A 以形成完整连接树时，
+这样的路径只能用作嵌套循环连接的内侧：对其他可能的连接类型它会被忽略。
+因此我们将形成表示上面所示查询计划的连接路径，并且它将以通常方式与从未
+参数化扫描构建的路径竞争。
 
-While all ordinary paths for a particular relation generate the same set
-of rows (since they must all apply the same set of restriction clauses),
-parameterized paths typically generate fewer rows than less-parameterized
-paths, since they have additional clauses to work with.  This means we
-must consider the number of rows generated as an additional figure of
-merit.  A path that costs more than another, but generates fewer rows,
-must be kept since the smaller number of rows might save work at some
-intermediate join level.  (It would not save anything if joined
-immediately to the source of the parameters.)
+虽然特定关系的所有普通路径生成同一组行（因为它们必须应用同一组限制子
+句），参数化路径通常比参数化程度较低的路径生成更少的行，因为它们有额外
+子句可用。这意味着我们必须把生成的行数视为额外的优劣指标。一条比另一条
+更贵、但生成更少行的路径必须被保留，因为更少的行数可能在某个中间连接层
+节省工作。（若立即连到参数来源则不会节省任何东西。）
 
-To keep cost estimation rules relatively simple, we make an implementation
-restriction that all paths for a given relation of the same parameterization
-(i.e., the same set of outer relations supplying parameters) must have the
-same rowcount estimate.  This is justified by insisting that each such path
-apply *all* join clauses that are available with the named outer relations.
-Different paths might, for instance, choose different join clauses to use
-as index clauses; but they must then apply any other join clauses available
-from the same outer relations as filter conditions, so that the set of rows
-returned is held constant.  This restriction doesn't degrade the quality of
-the finished plan: it amounts to saying that we should always push down
-movable join clauses to the lowest possible evaluation level, which is a
-good thing anyway.  The restriction is useful in particular to support
-pre-filtering of join paths in add_path_precheck.  Without this rule we
-could never reject a parameterized path in advance of computing its rowcount
-estimate, which would greatly reduce the value of the pre-filter mechanism.
+为使代价估计规则相对简单，我们做一项实现限制：给定关系上具有相同参数化
+（即供给参数的外关系集合相同）的所有路径必须具有相同的行数估计。这通过
+坚持每条这样的路径应用与所点名外关系一起可用的*所有*连接子句来证明正当。
+不同路径可能例如选择不同的连接子句用作索引子句；但它们随后必须把来自同
+一外关系的任何其他可用连接子句应用为过滤条件，以便返回的行集合保持恒定。
+这一限制不会降低完成计划的质量：它相当于说我们应总是把可移动的连接子句
+下推到尽可能低的计算层，这反正是好事。该限制特别有助于支持
+add_path_precheck 中连接路径的预过滤。没有这条规则，我们永远不能在计算
+其行数估计之前拒绝参数化路径，这将大大降低预过滤机制的价值。
 
-To limit planning time, we have to avoid generating an unreasonably large
-number of parameterized paths.  We do this by only generating parameterized
-relation scan paths for index scans, and then only for indexes for which
-suitable join clauses are available.  There are also heuristics in join
-planning that try to limit the number of parameterized paths considered.
+为限制规划时间，我们必须避免生成数量不合理的参数化路径。我们通过只为索
+引扫描生成参数化关系扫描路径、并且只为有可用合适连接子句的索引这样做来
+做到这一点。连接规划中也有启发式试图限制所考虑的参数化路径数量。
 
-In particular, there's been a deliberate policy decision to favor hash
-joins over merge joins for parameterized join steps (those occurring below
-a nestloop that provides parameters to the lower join's inputs).  While we
-do not ignore merge joins entirely, joinpath.c does not fully explore the
-space of potential merge joins with parameterized inputs.  Also, add_path
-treats parameterized paths as having no pathkeys, so that they compete
-only on cost and rowcount; they don't get preference for producing a
-special sort order.  This creates additional bias against merge joins,
-since we might discard a path that could have been useful for performing
-a merge without an explicit sort step.  Since a parameterized path must
-ultimately be used on the inside of a nestloop, where its sort order is
-uninteresting, these choices do not affect any requirement for the final
-output order of a query --- they only make it harder to use a merge join
-at a lower level.  The savings in planning work justifies that.
+特别是，有一项刻意的策略决定：对参数化连接步骤（发生在向较低连接的输入
+提供参数的嵌套循环之下的那些），偏好哈希连接而不是归并连接。虽然我们并
+不完全忽略归并连接，joinpath.c 并不充分探索带参数化输入的潜在归并连接空
+间。另外，add_path 把参数化路径当作没有 pathkeys，使它们只按代价和行数
+竞争；它们不因产生特殊排序而获得偏好。这造成对归并连接的额外偏向，因为
+我们可能丢弃本可用于在不做显式排序步骤的情况下执行归并的路径。由于参数
+化路径最终必须用在嵌套循环内侧，那里其排序无意义，这些选择不影响对查询
+最终输出顺序的任何要求——它们只是使在较低层使用归并连接更难。规划工作的
+节省证明这是正当的。
 
-Similarly, parameterized paths do not normally get preference in add_path
-for having cheap startup cost; that's seldom of much value when on the
-inside of a nestloop, so it seems not worth keeping extra paths solely for
-that.  An exception occurs for parameterized paths for the RHS relation of
-a SEMI or ANTI join: in those cases, we can stop the inner scan after the
-first match, so it's primarily startup not total cost that we care about.
+类似地，参数化路径通常不因在 add_path 中具有便宜的启动代价而获得偏好；
+在嵌套循环内侧那很少有很大价值，因此似乎不值得只为此保留额外路径。对
+SEMI 或 ANTI 连接的 RHS 关系的参数化路径有一个例外：那些情形下，我们可以
+在第一次匹配后停止内扫描，因此我们主要关心的是启动代价而不是总代价。
 
 
-LATERAL subqueries
+LATERAL 子查询
+--------------
+
+自 9.3 起我们支持 SQL 标准的、来自 FROM 中子查询（以及 FROM 中函数）的
+LATERAL 引用。规划器通过为任何包含横向引用的 RTE 生成参数化路径来实现这
+些。在这类情形中，该关系的*所有*路径都将至少由在其横向引用中使用的关系
+集合参数化。（进而，包含这类子查询的连接关系可能没有任何未参数化路径。）
+上面为参数化路径做的所有其他评论仍然适用；特别是，每条这样的路径仍被期
+望强制任何可以下推到它的连接子句，以便相同参数化的所有路径具有相同行数。
+
+我们也允许优化器展平（上拉进父查询）LATERAL 子查询，但仅当这不会把横向
+引用引入会引用该限定处/之上最低外连接之外关系的 JOIN/ON 限定时。这类限
+定的语义会不清晰。注意即使有这一限制，上拉 LATERAL 子查询仍可能导致创建
+包含对其句法范围外关系的横向引用的 PlaceHolderVars。我们仍在其句法位置
+或更低处计算这类 PHV，但计划节点的限定或目标列表中存在这样的 PHV，要求
+该节点相对于供给横向引用的关系出现在嵌套循环连接的内侧。（也许既然那些
+东西已经能工作，我们可以放宽上拉限制？）
+
+
+限定子句上的安全级约束
+----------------------
+
+为高效支持行级安全和安全屏障视图，我们用 “security_level” 字段标记限定
+子句（RestrictInfo 节点）。基本概念是：较低 security_level 的限定必须在
+较高 security_level 的限定之前计算。这确保可能暴露敏感数据的“会泄漏”限
+定，在本应用来滤掉安全敏感行的安全屏障限定之后才被计算。然而，许多限定
+条件是“防泄漏”的，即我们信任它们使用的函数不会暴露数据。为避免不必要地
+低效的计划，防泄漏限定不会因安全级考虑而延迟，即使它具有比另一限定更高
+的句法 security_level。
+
+在不含 RLS 或安全屏障视图使用的查询中，所有限定都将具有 security_level
+零，因此这些限制都不会启动；我们甚至不必检查限定条件的防泄漏性。
+
+若有安全屏障限定，它们得到 security_level 零（若有多层屏障，可能更高）。
+来自查询文本的常规限定得到比屏障限定所用最高级别多一的 security_level。
+
+当通过 EquivalenceClass 处理生成新限定子句时，必须给它们分配
+security_level。这比看起来更棘手。人的第一直觉是：使用该 EquivalenceClass
+源限定中找到的最大级别会是安全的，但那一点都不安全，因为它允许不想要的
+安全屏障限定延迟。考虑屏障限定 “t.x = t.y” 加上查询限定 “t.x =
+constant”，并假定有另一个查询限定 “leaky_function(t.z)”，我们绝不能在屏
+障限定被检查之前计算它。我们将有一个 EC {t.x, t.y, constant}，它将导致
+我们用 “t.x = constant AND t.y = constant” 替换 EC 限定。（我们也不想放
+弃该行为，因为后一条件可能允许使用 t.y 上的索引，而我们从原始限定永远不
+会发现这一点。）若这些生成的限定被分配与查询限定相同的 security_level，
+则 leaky_function 限定有可能先被计算，从而允许 leaky_function 看到可能未
+通过屏障条件的行中的数据。
+
+相反，我们对带 EC 的安全级的处理是这样的：
+* 除非限定是防泄漏的或具有 security_level 零，否则一开始就不被接受为
+EC 的源子句。
+* EC 导出的限定被分配该 EC 源子句中找到的最小（不是最大）
+security_level。
+* 若该 EC 源子句中找到的最大 security_level 大于零，则为导出限定选择的
+相等操作符必须是防泄漏的。当找不到这样的操作符时，该 EC 被视为“损坏”，
+我们回退到在没有任何额外导出限定的情况下发出其源子句。
+
+这些规则合在一起确保不可信限定子句（security_level 大于零的那种）不能导
+致 EC 生成会泄漏的导出子句。这使对导出子句使用最小而不是最大
+security_level 成为安全的。这些规则可能因完全不能生成导出子句而导致较差
+计划，但实践中该风险很小，因为大多数 btree 相等操作符是防泄漏的。另外，
+通过为级别零限定开例外，我们确保在没有屏障限定时没有计划劣化。
+
+一旦我们给所有子句分配了安全级，屏障限定顺序限制的强制就归结为两条规则：
+
+* 表扫描计划节点不得选择限定供提前执行（例如，在索引扫描中把它们用作索
+引限定），除非它们是防泄漏的，或具有不高于预定在同一计划节点执行的任何
+其他限定的 security_level。（用实用函数
+restriction_is_securely_promotable() 检查选择某限定供提前执行是否可以。）
+
+* 限定列表的正常执行必须以满足同一安全规则的顺序执行它们，即更高的
+security_levels 必须更晚计算，除非防泄漏。（这在 createplan.c 中的
+order_qual_clauses() 单一处处理。）
+
+order_qual_clauses() 用启发式决定对防泄漏子句究竟做什么。通常它按
+security_level 然后代价排序子句，小心使排序稳定，以便我们没有明确理由就
+不重排子句。但这可能导致非常昂贵的限定在更高 security_level 的更便宜限
+定之前完成。若更便宜的限定会泄漏，我们别无选择，但若它是防泄漏的，我们
+可以把它放在前面。我们选择把防泄漏限定当作它们具有 security_level 零来
+排序，但仅当它们的代价小于 10 倍 cpu_operator_cost 时；该限制减轻只因为
+防泄漏就先做昂贵限定的相反问题。
+
+当连接限定中混合有安全级时，需要额外规则来支持连接限定的安全处理；例如，
+将必须防止会泄漏的更高安全级限定在低于其他较低安全级限定的连接层计算。
+目前没有必要考虑那一点，因为按安全优先级的限定只能是来自 RLS 策略或安全
+屏障视图的单表限制限定，并且安全屏障视图子查询从不展平进父查询。因此按
+安全优先级限定的强制只发生在表扫描层。有了连接限定之间安全级安全处理的
+额外规则，应该可以让安全屏障视图被展平进父查询，从而在仍保持所需限定计
+算顺序的同时允许更灵活的规划。但那会来得更晚。
+
+
+扫描/连接规划之后
+----------------
+
+到目前为止我们只讨论了扫描/连接规划，即 SQL 查询 FROM 和 WHERE 子句的实
+现。但规划器还必须确定如何处理 GROUP BY、聚合以及查询的其他更高层特性；
+并且在许多情形下做这些步骤有多种方式，因而有优化选择的机会。这些步骤像
+扫描/连接规划一样，通过构造表示做某步骤不同方式的 Paths，然后选择最便宜
+的 Path 来处理。
+
+由于所有 Paths 都需要 RelOptInfo 作为“父”，我们创建表示这些上层处理步骤
+输出的 RelOptInfos。这些 RelOptInfos 大多是哑的，但它们的 pathlist 列表
+持有对每一步被认为有用的所有 Paths。目前，我们可能在上层规划期间创建这
+些类型的额外 RelOptInfos：
+
+UPPERREL_SETOP		UNION/INTERSECT/EXCEPT 的结果（若有）
+UPPERREL_PARTIAL_GROUP_AGG	部分分组/聚合的结果（若有）
+UPPERREL_GROUP_AGG	分组/聚合的结果（若有）
+UPPERREL_WINDOW		窗口函数的结果（若有）
+UPPERREL_PARTIAL_DISTINCT	部分 “SELECT DISTINCT” 的结果（若有）
+UPPERREL_DISTINCT	“SELECT DISTINCT” 的结果（若有）
+UPPERREL_ORDERED	ORDER BY 的结果（若有）
+UPPERREL_FINAL		任何剩余顶层动作的结果
+
+UPPERREL_FINAL 用来表示任何最终处理步骤，目前是 LockRows（SELECT FOR
+UPDATE）、LIMIT/OFFSET 和 ModifyTable。这些步骤的完成顺序没有灵活性，因
+此没有必要把这一阶段分得更细。
+
+这些“上层关系”由上面所示的 UPPERREL 枚举值加上一个 relids 集合识别，这
+允许有不止一个同类上层关系。若同类上层关系不需要不止一个，我们对 relids
+使用 NULL。事实上目前 relids 集合是残留的，因为它总是 NULL，但预期将来
+会改变。例如，在规划集合操作时，我们可能需要 relids 来表示叶 SELECT 的
+哪个子集已在彼此竞争的特定一组 Paths 中被组合。
+
+subquery_planner() 的结果总是作为存在具有 NULL relids 的 UPPERREL_FINAL
+关系中的一组 Paths 返回。其他类型的上层关系仅在特定查询需要时创建。
+
+
+并行查询与部分路径
 ------------------
 
-As of 9.3 we support SQL-standard LATERAL references from subqueries in
-FROM (and also functions in FROM).  The planner implements these by
-generating parameterized paths for any RTE that contains lateral
-references.  In such cases, *all* paths for that relation will be
-parameterized by at least the set of relations used in its lateral
-references.  (And in turn, join relations including such a subquery might
-not have any unparameterized paths.)  All the other comments made above for
-parameterized paths still apply, though; in particular, each such path is
-still expected to enforce any join clauses that can be pushed down to it,
-so that all paths of the same parameterization have the same rowcount.
+并行查询涉及把需要由整个查询或查询某部分执行的工作划分开，使其中一些工
+作可以由一个或多个工作者进程完成，这些进程称为并行工作者。并行工作者是
+动态后台工作者的一个子类型；更完整的描述见
+src/backend/access/transam/README.parallel。关于并行查询的学术文献表明，
+并行执行策略基本上可以分为两类：流水线并行，即查询的执行被分成多个阶段，
+每个阶段由单独进程处理；以及分区并行，即数据在多个进程之间拆分，每个进
+程处理一个子集。然而文献表明，流水线并行的收益往往非常有限，因为难以避
+免流水线停顿。因此，我们目前不试图生成使用该技术的查询计划。
 
-We also allow LATERAL subqueries to be flattened (pulled up into the parent
-query) by the optimizer, but only when this does not introduce lateral
-references into JOIN/ON quals that would refer to relations outside the
-lowest outer join at/above that qual.  The semantics of such a qual would
-be unclear.  Note that even with this restriction, pullup of a LATERAL
-subquery can result in creating PlaceHolderVars that contain lateral
-references to relations outside their syntactic scope.  We still evaluate
-such PHVs at their syntactic location or lower, but the presence of such a
-PHV in the quals or targetlist of a plan node requires that node to appear
-on the inside of a nestloop join relative to the rel(s) supplying the
-lateral reference.  (Perhaps now that that stuff works, we could relax the
-pullup restriction?)
+相反，我们聚焦于分区并行，它并不要求底层表被分区。它只要求 (1) 有某种方
+法把来自该关系所涉至少一个基表的数据在多个进程之间划分，(2) 允许每个进
+程处理它自己的那部分数据，然后 (3) 收集结果。要求 (2) 和 (3) 由执行器节
+点 Gather（或 GatherMerge）满足，它启动任意数量的工作者进程，并在所有这
+些进程中执行其单个子计划，也许也在领导者中执行，若孩子们没有生成足够数
+据让领导者保持忙碌。要求 (1) 由表扫描节点处理：当以 parallel_aware =
+true 调用时，该节点实际上将按块划分表，在执行该扫描节点的每个工作者中返
+回来自该关系的元组子集。
 
+正如我们对非并行访问方法所做的，我们构建 Paths 来表示可在并行计划中使用
+的访问策略。这些本质上与非并行计划中可用的策略相同，但有一个重要差别：
+将在 Gather 节点之下运行的路径在每个工作者中只返回查询结果的一个子集，
+而不是全部。要形成实际可执行的路径，必须计入 Gather 节点（相当大）的代
+价。由于这个原因以及其他原因，打算在 Gather 节点之下运行的路径——我们称
+之为“部分”路径，因为它们在每个工作者中只返回结果的一个子集——必须与普通
+路径分开保存（见 RelOptInfo 的 partial_pathlist 和函数
+add_partial_path）。
 
-Security-level constraints on qual clauses
-------------------------------------------
+使并行查询有效的关键之一，是尽可能多地并行运行查询。因此，我们预期通常
+希望把 Gather 阶段推迟到尽可能接近计划顶。扩大可以把更多工作推到 Gather
+之下的情形范围（并准确估计它们的代价）很可能让我们忙上很长时间。
 
-To support row-level security and security-barrier views efficiently,
-we mark qual clauses (RestrictInfo nodes) with a "security_level" field.
-The basic concept is that a qual with a lower security_level must be
-evaluated before one with a higher security_level.  This ensures that
-"leaky" quals that might expose sensitive data are not evaluated until
-after the security barrier quals that are supposed to filter out
-security-sensitive rows.  However, many qual conditions are "leakproof",
-that is we trust the functions they use to not expose data.  To avoid
-unnecessarily inefficient plans, a leakproof qual is not delayed by
-security-level considerations, even if it has a higher syntactic
-security_level than another qual.
+分区智能连接
+------------
 
-In a query that contains no use of RLS or security-barrier views, all
-quals will have security_level zero, so that none of these restrictions
-kick in; we don't even need to check leakproofness of qual conditions.
+两个类似分区的表之间的连接，若在连接表的分区键之间存在等值连接条件，就
+可以分解为它们匹配分区之间的连接。分区键之间的等值连接意味着，一个分区
+表中给定行的所有连接伙伴必须在另一分区表的对应分区中。因此，分区表之间
+的连接可以被分解为匹配分区之间的连接。所得连接按与连接关系相同的方式分
+区，从而允许在分区键之间具有等值连接条件的类似分区表之间的 N 路连接被
+分解为它们匹配分区之间的 N 路连接。这种把分区表之间的连接分解为它们分区
+之间连接的技术称为分区智能连接。我们将用术语“分区关系”表示分区表，或兼
+容分区的表之间的连接。
 
-If there are security-barrier quals, they get security_level zero (and
-possibly higher, if there are multiple layers of barriers).  Regular quals
-coming from the query text get a security_level one more than the highest
-level used for barrier quals.
-
-When new qual clauses are generated by EquivalenceClass processing,
-they must be assigned a security_level.  This is trickier than it seems.
-One's first instinct is that it would be safe to use the largest level
-found among the source quals for the EquivalenceClass, but that isn't
-safe at all, because it allows unwanted delays of security-barrier quals.
-Consider a barrier qual "t.x = t.y" plus a query qual "t.x = constant",
-and suppose there is another query qual "leaky_function(t.z)" that
-we mustn't evaluate before the barrier qual has been checked.
-We will have an EC {t.x, t.y, constant} which will lead us to replace
-the EC quals with "t.x = constant AND t.y = constant".  (We do not want
-to give up that behavior, either, since the latter condition could allow
-use of an index on t.y, which we would never discover from the original
-quals.)  If these generated quals are assigned the same security_level as
-the query quals, then it's possible for the leaky_function qual to be
-evaluated first, allowing leaky_function to see data from rows that
-possibly don't pass the barrier condition.
-
-Instead, our handling of security levels with ECs works like this:
-* Quals are not accepted as source clauses for ECs in the first place
-unless they are leakproof or have security_level zero.
-* EC-derived quals are assigned the minimum (not maximum) security_level
-found among the EC's source clauses.
-* If the maximum security_level found among the EC's source clauses is
-above zero, then the equality operators selected for derived quals must
-be leakproof.  When no such operator can be found, the EC is treated as
-"broken" and we fall back to emitting its source clauses without any
-additional derived quals.
-
-These rules together ensure that an untrusted qual clause (one with
-security_level above zero) cannot cause an EC to generate a leaky derived
-clause.  This makes it safe to use the minimum not maximum security_level
-for derived clauses.  The rules could result in poor plans due to not
-being able to generate derived clauses at all, but the risk of that is
-small in practice because most btree equality operators are leakproof.
-Also, by making exceptions for level-zero quals, we ensure that there is
-no plan degradation when no barrier quals are present.
-
-Once we have security levels assigned to all clauses, enforcement
-of barrier-qual ordering restrictions boils down to two rules:
-
-* Table scan plan nodes must not select quals for early execution
-(for example, use them as index qualifiers in an indexscan) unless
-they are leakproof or have security_level no higher than any other
-qual that is due to be executed at the same plan node.  (Use the
-utility function restriction_is_securely_promotable() to check
-whether it's okay to select a qual for early execution.)
-
-* Normal execution of a list of quals must execute them in an order
-that satisfies the same security rule, ie higher security_levels must
-be evaluated later unless leakproof.  (This is handled in a single place
-by order_qual_clauses() in createplan.c.)
-
-order_qual_clauses() uses a heuristic to decide exactly what to do with
-leakproof clauses.  Normally it sorts clauses by security_level then cost,
-being careful that the sort is stable so that we don't reorder clauses
-without a clear reason.  But this could result in a very expensive qual
-being done before a cheaper one that is of higher security_level.
-If the cheaper qual is leaky we have no choice, but if it is leakproof
-we could put it first.  We choose to sort leakproof quals as if they
-have security_level zero, but only when their cost is less than 10X
-cpu_operator_cost; that restriction alleviates the opposite problem of
-doing expensive quals first just because they're leakproof.
-
-Additional rules will be needed to support safe handling of join quals
-when there is a mix of security levels among join quals; for example, it
-will be necessary to prevent leaky higher-security-level quals from being
-evaluated at a lower join level than other quals of lower security level.
-Currently there is no need to consider that since security-prioritized
-quals can only be single-table restriction quals coming from RLS policies
-or security-barrier views, and security-barrier view subqueries are never
-flattened into the parent query.  Hence enforcement of security-prioritized
-quals only happens at the table scan level.  With extra rules for safe
-handling of security levels among join quals, it should be possible to let
-security-barrier views be flattened into the parent query, allowing more
-flexibility of planning while still preserving required ordering of qual
-evaluation.  But that will come later.
-
-
-Post scan/join planning
------------------------
-
-So far we have discussed only scan/join planning, that is, implementation
-of the FROM and WHERE clauses of a SQL query.  But the planner must also
-determine how to deal with GROUP BY, aggregation, and other higher-level
-features of queries; and in many cases there are multiple ways to do these
-steps and thus opportunities for optimization choices.  These steps, like
-scan/join planning, are handled by constructing Paths representing the
-different ways to do a step, then choosing the cheapest Path.
-
-Since all Paths require a RelOptInfo as "parent", we create RelOptInfos
-representing the outputs of these upper-level processing steps.  These
-RelOptInfos are mostly dummy, but their pathlist lists hold all the Paths
-considered useful for each step.  Currently, we may create these types of
-additional RelOptInfos during upper-level planning:
-
-UPPERREL_SETOP		result of UNION/INTERSECT/EXCEPT, if any
-UPPERREL_PARTIAL_GROUP_AGG	result of partial grouping/aggregation, if any
-UPPERREL_GROUP_AGG	result of grouping/aggregation, if any
-UPPERREL_WINDOW		result of window functions, if any
-UPPERREL_PARTIAL_DISTINCT	result of partial "SELECT DISTINCT", if any
-UPPERREL_DISTINCT	result of "SELECT DISTINCT", if any
-UPPERREL_ORDERED	result of ORDER BY, if any
-UPPERREL_FINAL		result of any remaining top-level actions
-
-UPPERREL_FINAL is used to represent any final processing steps, currently
-LockRows (SELECT FOR UPDATE), LIMIT/OFFSET, and ModifyTable.  There is no
-flexibility about the order in which these steps are done, and thus no need
-to subdivide this stage more finely.
-
-These "upper relations" are identified by the UPPERREL enum values shown
-above, plus a relids set, which allows there to be more than one upperrel
-of the same kind.  We use NULL for the relids if there's no need for more
-than one upperrel of the same kind.  Currently, in fact, the relids set
-is vestigial because it's always NULL, but that's expected to change in
-the future.  For example, in planning set operations, we might need the
-relids to denote which subset of the leaf SELECTs has been combined in a
-particular group of Paths that are competing with each other.
-
-The result of subquery_planner() is always returned as a set of Paths
-stored in the UPPERREL_FINAL rel with NULL relids.  The other types of
-upperrels are created only if needed for the particular query.
-
-
-Parallel Query and Partial Paths
---------------------------------
-
-Parallel query involves dividing up the work that needs to be performed
-either by an entire query or some portion of the query in such a way that
-some of that work can be done by one or more worker processes, which are
-called parallel workers.  Parallel workers are a subtype of dynamic
-background workers; see src/backend/access/transam/README.parallel for a
-fuller description.  The academic literature on parallel query suggests
-that parallel execution strategies can be divided into essentially two
-categories: pipelined parallelism, where the execution of the query is
-divided into multiple stages and each stage is handled by a separate
-process; and partitioning parallelism, where the data is split between
-multiple processes and each process handles a subset of it.  The
-literature, however, suggests that gains from pipeline parallelism are
-often very limited due to the difficulty of avoiding pipeline stalls.
-Consequently, we do not currently attempt to generate query plans that
-use this technique.
-
-Instead, we focus on partitioning parallelism, which does not require
-that the underlying table be partitioned.  It only requires that (1)
-there is some method of dividing the data from at least one of the base
-tables involved in the relation across multiple processes, (2) allowing
-each process to handle its own portion of the data, and then (3)
-collecting the results.  Requirements (2) and (3) are satisfied by the
-executor node Gather (or GatherMerge), which launches any number of worker
-processes and executes its single child plan in all of them, and perhaps
-in the leader also, if the children aren't generating enough data to keep
-the leader busy.  Requirement (1) is handled by the table scan node: when
-invoked with parallel_aware = true, this node will, in effect, partition
-the table on a block by block basis, returning a subset of the tuples from
-the relation in each worker where that scan node is executed.
-
-Just as we do for non-parallel access methods, we build Paths to
-represent access strategies that can be used in a parallel plan.  These
-are, in essence, the same strategies that are available in the
-non-parallel plan, but there is an important difference: a path that
-will run beneath a Gather node returns only a subset of the query
-results in each worker, not all of them.  To form a path that can
-actually be executed, the (rather large) cost of the Gather node must be
-accounted for.  For this reason among others, paths intended to run
-beneath a Gather node - which we call "partial" paths since they return
-only a subset of the results in each worker - must be kept separate from
-ordinary paths (see RelOptInfo's partial_pathlist and the function
-add_partial_path).
-
-One of the keys to making parallel query effective is to run as much of
-the query in parallel as possible.  Therefore, we expect it to generally
-be desirable to postpone the Gather stage until as near to the top of the
-plan as possible.  Expanding the range of cases in which more work can be
-pushed below the Gather (and costing them accurately) is likely to keep us
-busy for a long time to come.
-
-Partitionwise joins
--------------------
-
-A join between two similarly partitioned tables can be broken down into joins
-between their matching partitions if there exists an equi-join condition
-between the partition keys of the joining tables. The equi-join between
-partition keys implies that all join partners for a given row in one
-partitioned table must be in the corresponding partition of the other
-partitioned table. Because of this the join between partitioned tables to be
-broken into joins between the matching partitions. The resultant join is
-partitioned in the same way as the joining relations, thus allowing an N-way
-join between similarly partitioned tables having equi-join condition between
-their partition keys to be broken down into N-way joins between their matching
-partitions. This technique of breaking down a join between partitioned tables
-into joins between their partitions is called partitionwise join. We will use
-term "partitioned relation" for either a partitioned table or a join between
-compatibly partitioned tables.
-
-Even if the joining relations don't have exactly the same partition bounds,
-partitionwise join can still be applied by using an advanced
-partition-matching algorithm.  For both the joining relations, the algorithm
-checks whether every partition of one joining relation only matches one
-partition of the other joining relation at most.  In such a case the join
-between the joining relations can be broken down into joins between the
-matching partitions.  The join relation can then be considered partitioned.
-The algorithm produces the pairs of the matching partitions, plus the
-partition bounds for the join relation, to allow partitionwise join for
-computing the join.  The algorithm is implemented in partition_bounds_merge().
-For an N-way join relation considered partitioned this way, not every pair of
-joining relations can use partitionwise join.  For example:
+即使连接关系没有完全相同的分区边界，仍可以通过使用高级分区匹配算法应用
+分区智能连接。对两个连接关系，该算法检查一个连接关系的每个分区是否最多
+只匹配另一连接关系的一个分区。在这种情形下，连接关系之间的连接可以分解
+为匹配分区之间的连接。然后该连接关系可以被视为已分区。该算法产生匹配分
+区对，加上连接关系的分区边界，以允许用分区智能连接来计算该连接。该算法
+实现于 partition_bounds_merge()。对以这种方式被视为已分区的 N 路连接关
+系，并非每一对连接关系都能使用分区智能连接。例如：
 
 	(A leftjoin B on (Pab)) innerjoin C on (Pac)
 
-where A, B, and C are partitioned tables, and A has an extra partition
-compared to B and C.  When considering partitionwise join for the join {A B},
-the extra partition of A doesn't have a matching partition on the nullable
-side, which is the case that the current implementation of partitionwise join
-can't handle.  So {A B} is not considered partitioned, and the pair of {A B}
-and C considered for the 3-way join can't use partitionwise join.  On the
-other hand, the pair of {A C} and B can use partitionwise join because {A C}
-is considered partitioned by eliminating the extra partition (see identity 1
-on outer join reordering).  Whether an N-way join can use partitionwise join
-is determined based on the first pair of joining relations that are both
-partitioned and can use partitionwise join.
+其中 A、B 和 C 是分区表，且 A 比 B 和 C 多一个额外分区。当为连接 {A B}
+考虑分区智能连接时，A 的额外分区在可空侧没有匹配分区，这是当前分区智能
+连接实现无法处理的情形。因此 {A B} 不被视为已分区，为 3 路连接考虑的
+{A B} 与 C 这一对不能使用分区智能连接。另一方面，{A C} 与 B 这一对可以
+使用分区智能连接，因为通过消除额外分区，{A C} 被视为已分区（见外连接重
+排序上的恒等式 1）。N 路连接能否使用分区智能连接，根据第一对都已分区且
+能使用分区智能连接的连接关系来决定。
 
-The partitioning properties of a partitioned relation are stored in its
-RelOptInfo.  The information about data types of partition keys are stored in
-PartitionSchemeData structure. The planner maintains a list of canonical
-partition schemes (distinct PartitionSchemeData objects) so that RelOptInfo of
-any two partitioned relations with same partitioning scheme point to the same
-PartitionSchemeData object.  This reduces memory consumed by
-PartitionSchemeData objects and makes it easy to compare the partition schemes
-of joining relations.
+分区关系的分区性质存在其 RelOptInfo 中。关于分区键数据类型的信息存在
+PartitionSchemeData 结构中。规划器维护一份规范分区方案（不同的
+PartitionSchemeData 对象）列表，以便具有相同分区方案的任何两个分区关系
+的 RelOptInfo 指向同一个 PartitionSchemeData 对象。这减少
+PartitionSchemeData 对象消耗的内存，并使比较连接关系的分区方案变得容易。
 
-Partitionwise aggregates/grouping
----------------------------------
+分区智能聚合/分组
+----------------
 
-If the GROUP BY clause contains all of the partition keys, all the rows
-that belong to a given group must come from a single partition; therefore,
-aggregation can be done completely separately for each partition. Otherwise,
-partial aggregates can be computed for each partition, and then finalized
-after appending the results from the individual partitions.  This technique of
-breaking down aggregation or grouping over a partitioned relation into
-aggregation or grouping over its partitions is called partitionwise
-aggregation.  Especially when the partition keys match the GROUP BY clause,
-this can be significantly faster than the regular method.
+若 GROUP BY 子句包含所有分区键，属于给定组的所有行必须来自单个分区；因
+此，聚合可以完全分别对每个分区完成。否则，可以对每个分区计算部分聚合，
+然后在追加各个分区的结果之后定稿。这种把对分区关系的聚合或分组分解为对
+其分区的聚合或分组的技术称为分区智能聚合。尤其当分区键与 GROUP BY 子句
+匹配时，这可能比常规方法显著更快。

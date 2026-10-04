@@ -1,0 +1,164 @@
+{
+ "schema_version": 1,
+ "batch_id": "0011-exclude-txt",
+ "title": "zh: exclude all txt files from translation",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "809c3a37201cb917a4b766a242880f58e76874e6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "note": "S5: every *.txt is a hard exclude vs REL_16_11"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/protection.py",
+   "kind": "tool",
+   "note": "is_txt_name()"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/manifest.py",
+   "kind": "tool",
+   "note": "reject *.txt in allowed_paths and files[]"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "note": "TOOLS_VERSION 0.2.2 -> 0.2.3"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "note": "S5 fixtures; incremental *.txt stays absolute"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "document *.txt hard exclude"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "tool",
+   "note": "hard exclusions include *.txt"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "note": "all *.txt hard-excluded"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0011-exclude-txt.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes batch-0011"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "S5: every *.txt is a hard exclude vs REL_16_11"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/protection.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "is_txt_name()"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/manifest.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "reject *.txt in allowed_paths and files[]"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "TOOLS_VERSION 0.2.2 -> 0.2.3"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "S5 fixtures; incremental *.txt stays absolute"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "document *.txt hard exclude"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hard exclusions include *.txt"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "all *.txt hard-excluded"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0011-exclude-txt.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes batch-0011"
+  }
+ ],
+ "notes": "Hard-exclude every *.txt path (S5), same as doc/ and Perl. Manifests cannot list a .txt file. No translation content."
+}

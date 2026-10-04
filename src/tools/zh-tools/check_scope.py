@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 check_scope.py -- prove that a batch changed nothing outside its manifest
-and nothing inside the protected areas (doc/ and the Perl protected set).
+and nothing inside the protected areas (doc/, the Perl protected set, and
+every *.txt file).
 
 Targets (exactly one):
   --worktree ROOT      compare the base commit with the working tree in ROOT,
@@ -20,8 +21,9 @@ Modes:
                        REL_16_11 (used for the final acceptance)
   --incremental        per-batch: the manifest (S2) is checked against the
                        diff from the manifest's parent_commit (must descend
-                       from the frozen base); doc/ (S3) and Perl (S4) checks
-                       are always absolute against the frozen baseline
+                       from the frozen base); doc/ (S3), Perl (S4) and
+                       *.txt (S5) checks are always absolute against the
+                       frozen baseline
 
 Checks (violation ids):
   S1_BASE_MISMATCH     base ref does not resolve to the frozen base commit
@@ -39,6 +41,12 @@ Checks (violation ids):
                        the frozen protected set exists -- scanned over every
                        path added/modified since REL_16_11 (and all untracked
                        / ignored files), regardless of --incremental
+  S5_TXT_CHANGED       a source-tree *.txt file differs from REL_16_11
+                       (content or mode); src/tools/zh-tools/ is exempt
+  S5_TXT_NEW           a source-tree *.txt file was added (tracked,
+                       untracked or ignored) since REL_16_11, regardless
+                       of --incremental; src/tools/zh-tools/ is exempt
+  S5_TXT_DELETED       a source-tree *.txt file present in REL_16_11 is missing
 
 Exit codes: 0 pass, 1 violations, 2 unverified (bad inputs / git error).
 """
@@ -142,8 +150,8 @@ def check(args):
 
     # The diff base: the frozen base commit (cumulative check), or -- with
     # --incremental -- the manifest's parent_commit, which must descend from
-    # the frozen base.  doc/ and Perl checks below always use the frozen
-    # baseline regardless of mode.
+    # the frozen base.  doc/, Perl and *.txt checks below always use the
+    # frozen baseline regardless of mode.
     if args.incremental:
         report["incremental"] = True
         parent = mf.parent_commit
@@ -291,6 +299,21 @@ def check(args):
             blob = gitutil.show_blob(args.ref, path, cwd=repo)
             if blob is not None and protection.is_perl_shebang(blob[:256]):
                 scope.add("S4_PERL_NEW", path, "new Perl file by shebang (%s since base)" % how)
+
+    # ---- S5: every *.txt file is a hard exclude, ALWAYS vs the frozen base
+    seen_txt = set()
+    for status, path, origin in absolute:
+        if not protection.is_txt_name(path) or path in seen_txt:
+            continue
+        seen_txt.add(path)
+        how = "added" if status in ("A", "U", "I") else ("deleted" if status == "D" else "modified")
+        if status == "D":
+            scope.add("S5_TXT_DELETED", path, "*.txt deleted since base (%s)" % origin)
+        elif status in ("A", "U", "I"):
+            scope.add("S5_TXT_NEW", path, "new *.txt file (%s since base, %s)" % (how, origin))
+        else:
+            scope.add("S5_TXT_CHANGED", path, "*.txt %s since base (%s)" % (how, origin))
+    report["n_txt_hits"] = len(seen_txt)
     return scope, report
 
 
@@ -304,7 +327,7 @@ def main(argv=None):
                     help="diff base ref (default: baseline base_commit, or manifest parent_commit with --incremental)")
     ap.add_argument("--incremental", action="store_true",
                     help="per-batch mode: diff against the manifest's parent_commit instead of the frozen base; "
-                         "doc/ and Perl checks still use the frozen baseline")
+                         "doc/, Perl and *.txt checks still use the frozen baseline")
     ap.add_argument("--manifest", required=True)
     ap.add_argument("--baseline-dir", default=DEFAULT_BASELINE)
     ap.add_argument("--json", dest="json_out", default=None)

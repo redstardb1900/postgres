@@ -280,6 +280,36 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0010-readme-intro.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "note": "S5: every *.txt is a hard exclude vs REL_16_11"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/protection.py",
+   "kind": "tool",
+   "note": "is_txt_name()"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/manifest.py",
+   "kind": "tool",
+   "note": "reject *.txt in allowed_paths and files[]"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "note": "S5 fixtures; incremental *.txt stays absolute"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "tool",
+   "note": "hard exclusions include *.txt"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0011-exclude-txt.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -1387,7 +1417,17 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0011-exclude-txt.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental. README inventory: 88 include / 10 exclude; first README batch translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5)."
 }

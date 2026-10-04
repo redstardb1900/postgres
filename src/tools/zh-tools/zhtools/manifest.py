@@ -73,7 +73,8 @@ class Manifest(object):
         for a in d["allowed_paths"]:
             if not isinstance(a, dict) or not a.get("pattern") or a.get("kind") not in KINDS:
                 raise ManifestError("bad allowed_paths entry: %r" % (a,))
-            if a["pattern"].startswith("/") or a["pattern"].startswith("doc/") or a["pattern"] == "**":
+            if (a["pattern"].startswith("/") or a["pattern"].startswith("doc/") or a["pattern"] == "**"
+                    or (a["pattern"].endswith(".txt") and not a["pattern"].startswith("src/tools/zh-tools/"))):
                 raise ManifestError("allowed pattern not acceptable: %r" % a["pattern"])
         seen = set()
         for f in d.get("files", []):
@@ -81,6 +82,8 @@ class Manifest(object):
                 raise ManifestError("bad files entry: %r" % (f,))
             if f["path"] in seen:
                 raise ManifestError("duplicate files entry: %s" % f["path"])
+            if f["path"].endswith(".txt") and not f["path"].startswith("src/tools/zh-tools/"):
+                raise ManifestError("files entry %s: *.txt is a hard exclude" % f["path"])
             seen.add(f["path"])
             if f.get("kind") not in KINDS:
                 raise ManifestError("files entry %s: bad kind %r" % (f["path"], f.get("kind")))

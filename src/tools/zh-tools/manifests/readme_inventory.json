@@ -2,43 +2,11 @@
  "schema": "readme_inventory_v1",
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
- "rule": "Only files with decision=include may be translated as README/human text. Presence of a README-like name does not enlarge the scope.",
+ "rule": "Only files with decision=include may be translated as README/human text. Presence of a README-like name does not enlarge the scope. Every *.txt path is a hard exclude (check_scope S5); never translate or list one.",
  "excluded_other_txt": [
   {
-   "path": "meson_options.txt",
-   "reason": "Meson machine options; meson comments are a later comment-translation batch"
-  },
-  {
-   "path": "src/backend/catalog/sql_feature_packages.txt",
-   "reason": "machine-read catalog data"
-  },
-  {
-   "path": "src/backend/utils/mb/Unicode/*.txt",
-   "reason": "Unicode mapping tables"
-  },
-  {
-   "path": "src/timezone/known_abbrevs.txt",
-   "reason": "IANA/timezone data"
-  },
-  {
-   "path": "src/timezone/tznames/*.txt",
-   "reason": "IANA timezone name tables"
-  },
-  {
-   "path": "src/backend/catalog/sql_features.txt",
-   "reason": "machine-read (plan)"
-  },
-  {
-   "path": "src/backend/storage/lmgr/lwlocknames.txt",
-   "reason": "machine-read (plan)"
-  },
-  {
-   "path": "**/exports.txt",
-   "reason": "machine-read (plan)"
-  },
-  {
-   "path": "src/backend/utils/errcodes.txt",
-   "reason": "machine-read (plan)"
+   "path": "**/*.txt",
+   "reason": "hard exclude: all *.txt files, including meson_options.txt, sql_features.txt, errcodes.txt, exports.txt, Unicode/IANA tables, wait_event_names.txt"
   }
  ],
  "counts": {

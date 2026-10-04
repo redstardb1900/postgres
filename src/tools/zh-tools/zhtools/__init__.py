@@ -19,4 +19,5 @@ sys.dont_write_bytecode = True
 # 0.2.2: freeze fails if either config.log is missing (not only if the
 # evidence_out copy is missing); PO supplement entries must carry
 # `# zh-reviewed:` and leftover `# zh-review-pending` is a hard fail.
-TOOLS_VERSION = "0.2.2"
+# 0.2.3: check_scope hard-excludes every *.txt path (S5), same as doc/ and Perl.
+TOOLS_VERSION = "0.2.3"

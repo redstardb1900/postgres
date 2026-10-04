@@ -53,8 +53,10 @@ What a "segment" is depends on `kind`: a comment for `c_comment`,
 paragraph for `readme`; a message for `po`.  For `tool`, `manifest` and
 `baseline` files use `0/0/0`.
 
-Hard exclusions are not expressible in a manifest: `doc/**` and the Perl
-protected set (`baseline/perl_protected.json`) are always checked
-independently of `allowed_paths`.
+Hard exclusions are not expressible in a manifest: `doc/**`, the Perl
+protected set (`baseline/perl_protected.json`), and every source-tree
+`*.txt` path are always checked independently of `allowed_paths`.  A
+pattern or `files[]` path that ends in `.txt` is rejected at load time,
+except under `src/tools/zh-tools/` (tool fixtures, not translation).
 
 `manifests/scope_template.json` is a copy-and-fill template.

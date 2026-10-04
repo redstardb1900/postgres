@@ -62,6 +62,8 @@ class GlobTests(unittest.TestCase):
             dict(good, allowed_paths=[]),
             dict(good, allowed_paths=[{"pattern": "doc/**", "kind": "readme"}]),
             dict(good, allowed_paths=[{"pattern": "**", "kind": "readme"}]),
+            dict(good, allowed_paths=[{"pattern": "src/notes.txt", "kind": "readme"}]),
+            dict(good, files=[dict(good["files"][0], path="src/notes.txt")]),
             dict(good, allowed_paths=[{"pattern": "src/**", "kind": "nope"}]),
             dict(good, files=[dict(good["files"][0], action="delete")]),
             dict(good, files=[dict(good["files"][0], translated=5)]),
@@ -85,6 +87,11 @@ class ProtectionUnit(unittest.TestCase):
         self.assertTrue(protection.is_perl_name("a/b.pl"))
         self.assertTrue(protection.is_perl_name("x.t"))
         self.assertFalse(protection.is_perl_name("x.txt"))
+        self.assertTrue(protection.is_txt_name("src/notes.txt"))
+        self.assertTrue(protection.is_txt_name("meson_options.txt"))
+        self.assertFalse(protection.is_txt_name("x.TXT"))
+        self.assertFalse(protection.is_txt_name("notes.txt.bak"))
+        self.assertFalse(protection.is_txt_name("src/tools/zh-tools/tests/fixtures/sample_old.c.txt"))
 
     def test_read_regular_file_does_not_follow_symlinks(self):
         with tempfile.TemporaryDirectory() as d:
@@ -206,6 +213,7 @@ class ScopeEndToEnd(unittest.TestCase):
         write(self.base, "src/tools/Mod.pm", "package Mod;\n")
         write(self.base, "src/bin/script", "#!/bin/sh\necho hi\n", mode=0o755)
         write(self.base, "README", "readme\n")
+        write(self.base, "src/data.txt", "machine\n")
         git(self.base, "add", "-A")
         git(self.base, "commit", "-q", "-m", "base")
         self.base_sha = git(self.base, "rev-parse", "HEAD")
@@ -288,6 +296,7 @@ class ScopeEndToEnd(unittest.TestCase):
         self.assertIn(("S2_OUTSIDE_MANIFEST", "other/x.o"), paths)
         self.assertIn(("S2_OUTSIDE_MANIFEST", "build/out.log"), paths)
         self.assertIn(("S2_NO_FILE_ENTRY", "src/new.txt"), paths)
+        self.assertIn(("S5_TXT_NEW", "src/new.txt"), paths)
         origins = {c["path"]: c["origin"] for c in data["changes"]}
         self.assertEqual(origins["other/x.o"], "ignored")
         self.assertEqual(origins["src/new.txt"], "untracked")
@@ -384,6 +393,36 @@ class ScopeEndToEnd(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("S4_PERL_CHANGED", self.rules(data))
 
+    def test_txt_is_hard_exclude(self):
+        m = self.manifest(["src/**"], [self.fe("src/a.c")])
+        # content change of a baseline *.txt
+        write(self.work, "src/data.txt", "译\n")
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
+        self.assertEqual(rc, 1)
+        self.assertIn(("S5_TXT_CHANGED", "src/data.txt"), {(v["rule"], v["path"]) for v in data["violations"]})
+        git(self.work, "checkout", "--", "src/data.txt")
+        # deletion
+        os.unlink(os.path.join(self.work, "src/data.txt"))
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
+        self.assertIn(("S5_TXT_DELETED", "src/data.txt"), {(v["rule"], v["path"]) for v in data["violations"]})
+        git(self.work, "checkout", "--", "src/data.txt")
+        # new untracked *.txt, even listed in the manifest, is forbidden
+        write(self.work, "src/extra.txt", "n\n")
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
+        self.assertIn(("S5_TXT_NEW", "src/extra.txt"), {(v["rule"], v["path"]) for v in data["violations"]})
+        os.unlink(os.path.join(self.work, "src/extra.txt"))
+        # ignored *.txt
+        write(self.work, "build/out.txt", "n\n")
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m)
+        self.assertIn(("S5_TXT_NEW", "build/out.txt"), {(v["rule"], v["path"]) for v in data["violations"]})
+        os.unlink(os.path.join(self.work, "build/out.txt"))
+        # committed change in --ref mode
+        write(self.work, "src/data.txt", "译\n")
+        git(self.work, "commit", "-q", "-am", "txt")
+        rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m)
+        self.assertEqual(rc, 1)
+        self.assertIn("S5_TXT_CHANGED", self.rules(data))
+
     def test_base_mismatch_is_fatal(self):
         write(self.work, "src/a.c", "int a; /* 甲 */\n")
         git(self.work, "commit", "-q", "-am", "x")
@@ -427,13 +466,15 @@ class ScopeEndToEnd(unittest.TestCase):
         git(self.work, "commit", "-q", "-am", "batch2")
         rc, out, _ = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
         self.assertEqual(rc, 0, out)
-        # doc/ and Perl protection stay absolute in incremental mode
+        # doc/, Perl and *.txt protection stay absolute in incremental mode
         write(self.work, "doc/src/sgml/ref.sgml", "<para>译</para>\n")
         write(self.work, "src/tools/Mod.pm", "package Mod; # 译\n")
+        write(self.work, "src/data.txt", "译\n")
         rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m2, "--incremental")
         self.assertEqual(rc, 1)
         self.assertIn("S3_DOC_SNAPSHOT", self.rules(data))
         self.assertIn("S4_PERL_CHANGED", self.rules(data))
+        self.assertIn("S5_TXT_CHANGED", self.rules(data))
         git(self.work, "checkout", "--", ".")
         # parent_commit missing -> S1
         with open(m2) as f:

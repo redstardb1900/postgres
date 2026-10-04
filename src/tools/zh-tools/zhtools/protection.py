@@ -33,6 +33,15 @@ def is_perl_name(path):
     return path.endswith(PERL_EXTS)
 
 
+def is_txt_name(path):
+    """True for a source-tree ``*.txt`` path (hard translation exclude).
+
+    Files under ``src/tools/zh-tools/`` are tooling (test fixtures) and are
+    not in the translation set; they are not classified as excluded ``*.txt``.
+    """
+    return path.endswith(".txt") and not path.startswith("src/tools/zh-tools/")
+
+
 def is_perl_shebang(head):
     """True if the first line is a shebang that invokes perl."""
     if not head.startswith(b"#!"):

@@ -14,7 +14,7 @@
 | 文件 | 职责 |
 |---|---|
 | `verify_c_comments.py` | `.c/.h/.cpp` 的"只有注释变了"证明：字节级 C 词法状态机（续行、字符串/字符、C++ raw string、`#include <>`、`#error/#warning`），骨架逐字节比较，注释类型/LF/CR 规则，UTF-8/BOM，受保护注释（`translator:`、fall-through、`pg_attribute_*`、`/*-` pgindent 块、Copyright/License），trigraph 基线保留/新增拒绝 |
-| `check_scope.py` | 批次范围门禁：改动必须全部落在 manifest 的 `allowed_paths` 内并逐文件登记；覆盖 tracked、untracked、ignored；`doc/` 按递归快照和 tree OID 零变化；Perl 保护集按 blob OID 与 mode 零变化。新增 Perl 文件（扩展名或 shebang）的扫描始终相对冻结基线 REL_16_11 覆盖全部新增/修改路径及所有 untracked/ignored 文件，与 `--incremental` 无关 |
+| `check_scope.py` | 批次范围门禁：改动必须全部落在 manifest 的 `allowed_paths` 内并逐文件登记；覆盖 tracked、untracked、ignored；`doc/` 按递归快照和 tree OID 零变化；Perl 保护集按 blob OID 与 mode 零变化；源码树全部 `*.txt` 相对 REL_16_11 零变化（改/增/删均失败，S5；`src/tools/zh-tools/` 下的工具夹具除外）。新增 Perl 文件（扩展名或 shebang）以及源码树 `*.txt` 的扫描始终相对冻结基线 REL_16_11 覆盖全部新增/修改路径及所有 untracked/ignored 文件，与 `--incremental` 无关 |
 | `term_lint.py` | 保守术语检查：读取 pgnls `ref/phrasebook.tsv`（`status=decided` 且有 `zh_forbidden`）、`ref/glossary.tsv` 中"译文=原文"的保留词，以及 `term_rules.json`；只报告"英文命中且中文命中禁用译法"或"保留词丢失"的明确命中；规则分 `error`/`warning` 两级，只有 `error` 硬失败；支持带理由的 allowlist；不做任何自动替换 |
 | `gen_baseline.py` | 从只读基线 worktree 冻结保护数据：`baseline/baseline.json`、`baseline/doc_snapshot.json`、`baseline/perl_protected.json`；`--verify` 可重新生成并与已提交数据比对。快照与 Perl 比对的文件读取均经 `os.open(O_NOFOLLOW)` + `fstat`，哈希前后复核 dev/ino/size/mode/mtime；普通文件的 perm/mode/size/sha256 全部取自同一个哈希 fd 的 fstat，不混用打开前的 lstat；symlink 只记录 link target 不跟随 |
 | `make_evidence.py` | GNU Make 基线证据链 CLI：`environment`（机器/工具/locale/文件系统探测）、`configure`（全新源码树外 VPATH builddir）、`make NAME`（按 `frozen_config.json` 的 capture target 以 `-j1 -w` 捕获日志）、`check-world`（固定 `-j8 -k -Orecurse -w`，结构化结果）、`resummarize`（日志 SHA 不变时重新派生摘要）、`collect`（`.o/.Po/argv` 三方闭合 + flagset 模板）、`replay ROOT [--compare]`（`-E -P -MMD` 回放，token 哈希）、`freeze`（校验全部证据一致——含仓库外 make 捕获日志、`configure.log`、`config.log`、check-world 日志的 SHA-256——后写 `cc_evidence/baseline.json`）、`freeze --verify`（只读：从磁盘证据重算 baseline 与平台候选表并与已提交文件比对，不写任何文件）。平台例外候选在两种模式下都只做分类报告，从不审批 |
@@ -108,8 +108,8 @@ python3 $T/verify_c_comments.py --worktree REL_16_11 . --cc-check   # 回放改�
 # 最终验收：两个 ref
 python3 $T/verify_c_comments.py --git REL_16_11 REL_16_11_zh --json /tmp/vcc-final.json
 
-# 范围 / doc / Perl 门禁
-#   每批（增量：manifest 对照 parent_commit 的 diff；doc/、Perl 保护集与新增 Perl 扫描始终对冻结基线绝对比较）
+# 范围 / doc / Perl / *.txt 门禁
+#   每批（增量：manifest 对照 parent_commit 的 diff；doc/、Perl 保护集、新增 Perl 与全部 *.txt 始终对冻结基线绝对比较）
 python3 $T/check_scope.py --incremental --worktree . --manifest $T/manifests/batch-NNNN-name.json --json /tmp/scope.json
 python3 $T/check_scope.py --incremental --ref HEAD --repo . --manifest $T/manifests/batch-NNNN-name.json
 #   最终验收（累计，diff 基于 REL_16_11，manifest 必须覆盖自基线以来全部改动）

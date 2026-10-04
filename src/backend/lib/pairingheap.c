@@ -34,9 +34,9 @@ static pairingheap_node *merge_children(pairingheap *heap,
 /*
  * pairingheap_allocate
  *
- * Returns a pointer to a newly-allocated heap, with the heap property defined
- * by the given comparator function, which will be invoked with the additional
- * argument specified by 'arg'.
+ * 返回指向新分配堆的指针，堆性质由给定比较函数
+ * 定义，调用比较函数时会传入 'arg' 指定的额外
+ * 参数。
  */
 pairingheap *
 pairingheap_allocate(pairingheap_comparator compare, void *arg)
@@ -55,9 +55,9 @@ pairingheap_allocate(pairingheap_comparator compare, void *arg)
 /*
  * pairingheap_free
  *
- * Releases memory used by the given pairingheap.
+ * 释放给定 pairingheap 使用的内存。
  *
- * Note: The nodes in the heap are not freed!
+ * 注意：堆中的节点不会被释放！
  */
 void
 pairingheap_free(pairingheap *heap)
@@ -66,14 +66,14 @@ pairingheap_free(pairingheap *heap)
 }
 
 /*
- * A helper function to merge two subheaps into one.
+ * 把两个子堆合并成一个的辅助函数。
  *
- * The subheap with smaller value is put as a child of the other one (assuming
- * a max-heap).
+ * 值较小的子堆被放成另一个的孩子（假定是
+ * 最大堆）。
  *
- * The next_sibling and prev_or_parent pointers of the input nodes are
- * ignored. On return, the returned node's next_sibling and prev_or_parent
- * pointers are garbage.
+ * 输入节点的 next_sibling 和 prev_or_parent 指针被
+ * 忽略。返回时，返回节点的 next_sibling 和 prev_or_parent
+ * 指针是垃圾。
  */
 static pairingheap_node *
 merge(pairingheap *heap, pairingheap_node *a, pairingheap_node *b)
@@ -83,7 +83,7 @@ merge(pairingheap *heap, pairingheap_node *a, pairingheap_node *b)
 	if (b == NULL)
 		return a;
 
-	/* swap 'a' and 'b' so that 'a' is the one with larger value */
+	/* 交换 'a' 和 'b'，使 'a' 是值较大的那个 */
 	if (heap->ph_compare(a, b, heap->ph_arg) < 0)
 	{
 		pairingheap_node *tmp;
@@ -93,7 +93,7 @@ merge(pairingheap *heap, pairingheap_node *a, pairingheap_node *b)
 		b = tmp;
 	}
 
-	/* and put 'b' as a child of 'a' */
+	/* 并把 'b' 放成 'a' 的孩子 */
 	if (a->first_child)
 		a->first_child->prev_or_parent = b;
 	b->prev_or_parent = a;
@@ -106,14 +106,14 @@ merge(pairingheap *heap, pairingheap_node *a, pairingheap_node *b)
 /*
  * pairingheap_add
  *
- * Adds the given node to the heap in O(1) time.
+ * 在 O(1) 时间内把给定节点加入堆。
  */
 void
 pairingheap_add(pairingheap *heap, pairingheap_node *node)
 {
 	node->first_child = NULL;
 
-	/* Link the new node as a new tree */
+	/* 把新节点链成一棵新树 */
 	heap->ph_root = merge(heap, heap->ph_root, node);
 	heap->ph_root->prev_or_parent = NULL;
 	heap->ph_root->next_sibling = NULL;
@@ -122,9 +122,9 @@ pairingheap_add(pairingheap *heap, pairingheap_node *node)
 /*
  * pairingheap_first
  *
- * Returns a pointer to the first (root, topmost) node in the heap without
- * modifying the heap. The caller must ensure that this routine is not used on
- * an empty heap. Always O(1).
+ * 返回指向堆中第一个（根、最顶）节点的指针，不
+ * 修改堆。调用者必须确保不对空堆使用本例程。
+ * 总是 O(1)。
  */
 pairingheap_node *
 pairingheap_first(pairingheap *heap)
@@ -137,9 +137,9 @@ pairingheap_first(pairingheap *heap)
 /*
  * pairingheap_remove_first
  *
- * Removes the first (root, topmost) node in the heap and returns a pointer to
- * it after rebalancing the heap. The caller must ensure that this routine is
- * not used on an empty heap. O(log n) amortized.
+ * 移除堆中第一个（根、最顶）节点，在重新平衡堆后
+ * 返回指向它的指针。调用者必须确保不对空堆使用本
+ * 例程。摊还 O(log n)。
  */
 pairingheap_node *
 pairingheap_remove_first(pairingheap *heap)
@@ -149,7 +149,7 @@ pairingheap_remove_first(pairingheap *heap)
 
 	Assert(!pairingheap_is_empty(heap));
 
-	/* Remove the root, and form a new heap of its children. */
+	/* 移除根，并用其孩子们形成新堆。 */
 	result = heap->ph_root;
 	children = result->first_child;
 
@@ -164,7 +164,7 @@ pairingheap_remove_first(pairingheap *heap)
 }
 
 /*
- * Remove 'node' from the heap. O(log n) amortized.
+ * 从堆中移除 'node'。摊还 O(log n)。
  */
 void
 pairingheap_remove(pairingheap *heap, pairingheap_node *node)
@@ -175,8 +175,8 @@ pairingheap_remove(pairingheap *heap, pairingheap_node *node)
 	pairingheap_node **prev_ptr;
 
 	/*
-	 * If the removed node happens to be the root node, do it with
-	 * pairingheap_remove_first().
+	 * 若被移除的节点碰巧是根节点，则用
+	 * pairingheap_remove_first() 来做。
 	 */
 	if (node == heap->ph_root)
 	{
@@ -185,15 +185,15 @@ pairingheap_remove(pairingheap *heap, pairingheap_node *node)
 	}
 
 	/*
-	 * Before we modify anything, remember the removed node's first_child and
-	 * next_sibling pointers.
+	 * 在修改任何东西之前，记住被移除节点的 first_child 和
+	 * next_sibling 指针。
 	 */
 	children = node->first_child;
 	next_sibling = node->next_sibling;
 
 	/*
-	 * Also find the pointer to the removed node in its previous sibling, or
-	 * if this is the first child of its parent, in its parent.
+	 * 还要找到指向被移除节点的指针：在其前一兄弟中，
+	 * 若这是其父的第一个孩子，则在其父中。
 	 */
 	if (node->prev_or_parent->first_child == node)
 		prev_ptr = &node->prev_or_parent->first_child;
@@ -202,9 +202,9 @@ pairingheap_remove(pairingheap *heap, pairingheap_node *node)
 	Assert(*prev_ptr == node);
 
 	/*
-	 * If this node has children, make a new subheap of the children and link
-	 * the subheap in place of the removed node. Otherwise just unlink this
-	 * node.
+	 * 若本节点有孩子，用孩子们做一个新子堆，并把
+	 * 该子堆链到被移除节点的位置。否则只是解除本
+	 * 节点的链接。
 	 */
 	if (children)
 	{
@@ -225,10 +225,10 @@ pairingheap_remove(pairingheap *heap, pairingheap_node *node)
 }
 
 /*
- * Merge a list of subheaps into a single heap.
+ * 把一列子堆合并成单个堆。
  *
- * This implements the basic two-pass merging strategy, first forming pairs
- * from left to right, and then merging the pairs.
+ * 这实现基本的两趟合并策略，先从左到右形成对，
+ * 然后再合并这些对。
  */
 static pairingheap_node *
 merge_children(pairingheap *heap, pairingheap_node *children)
@@ -241,7 +241,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 	if (children == NULL || children->next_sibling == NULL)
 		return children;
 
-	/* Walk the subheaps from left to right, merging in pairs */
+	/* 从左到右走子堆，成对合并 */
 	next = children;
 	pairs = NULL;
 	for (;;)
@@ -253,7 +253,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 
 		if (curr->next_sibling == NULL)
 		{
-			/* last odd node at the end of list */
+			/* 列表末尾最后一个奇数节点 */
 			curr->next_sibling = pairs;
 			pairs = curr;
 			break;
@@ -261,7 +261,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 
 		next = curr->next_sibling->next_sibling;
 
-		/* merge this and the next subheap, and add to 'pairs' list. */
+		/* 合并本子堆和下一个，并加到 'pairs' 列表。 */
 
 		curr = merge(heap, curr, curr->next_sibling);
 		curr->next_sibling = pairs;
@@ -269,7 +269,7 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 	}
 
 	/*
-	 * Merge all the pairs together to form a single heap.
+	 * 把所有对合并在一起，形成一个堆。
 	 */
 	newroot = pairs;
 	next = pairs->next_sibling;
@@ -285,11 +285,11 @@ merge_children(pairingheap *heap, pairingheap_node *children)
 }
 
 /*
- * A debug function to dump the contents of the heap as a string.
+ * 把堆内容转储为字符串的调试函数。
  *
- * The 'dumpfunc' callback appends a string representation of a single node
- * to the StringInfo. 'opaque' can be used to pass more information to the
- * callback.
+ * 'dumpfunc' 回调把单个节点的字符串表示追加到
+ * StringInfo。'opaque' 可用来向回调传递更多
+ * 信息。
  */
 #ifdef PAIRINGHEAP_DEBUG
 static void

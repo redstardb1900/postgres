@@ -1,0 +1,113 @@
+{
+ "schema_version": 1,
+ "batch_id": "0032-comment-lib-heaps",
+ "title": "zh: translate backend/lib heap and filter comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "af8d9fd814d81a8a00867cc2558300764352b90c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/lib/binaryheap.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0032-comment-lib-heaps.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/lib/binaryheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 14,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "MIT license block"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0032-comment-lib-heaps.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Second C-comment batch. Covered by baseline variants. Copyright/pgindent/MIT headers preserved. Paper titles and identifiers kept."
+}

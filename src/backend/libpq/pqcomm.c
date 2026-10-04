@@ -82,60 +82,60 @@
 #include "utils/memutils.h"
 
 /*
- * Cope with the various platform-specific ways to spell TCP keepalive socket
- * options.  This doesn't cover Windows, which as usual does its own thing.
+ * 应付各种平台特定的 TCP keepalive 套接字
+ * 选项拼写。这不包括 Windows，它照例自行其是。
  */
 #if defined(TCP_KEEPIDLE)
-/* TCP_KEEPIDLE is the name of this option on Linux and *BSD */
+/* TCP_KEEPIDLE 是此选项在 Linux 和 *BSD 上的名称 */
 #define PG_TCP_KEEPALIVE_IDLE TCP_KEEPIDLE
 #define PG_TCP_KEEPALIVE_IDLE_STR "TCP_KEEPIDLE"
 #elif defined(TCP_KEEPALIVE_THRESHOLD)
-/* TCP_KEEPALIVE_THRESHOLD is the name of this option on Solaris >= 11 */
+/* TCP_KEEPALIVE_THRESHOLD 是此选项在 Solaris >= 11 上的名称 */
 #define PG_TCP_KEEPALIVE_IDLE TCP_KEEPALIVE_THRESHOLD
 #define PG_TCP_KEEPALIVE_IDLE_STR "TCP_KEEPALIVE_THRESHOLD"
 #elif defined(TCP_KEEPALIVE) && defined(__darwin__)
-/* TCP_KEEPALIVE is the name of this option on macOS */
-/* Caution: Solaris has this symbol but it means something different */
+/* TCP_KEEPALIVE 是此选项在 macOS 上的名称 */
+/* 注意：Solaris 有这个符号，但含义不同 */
 #define PG_TCP_KEEPALIVE_IDLE TCP_KEEPALIVE
 #define PG_TCP_KEEPALIVE_IDLE_STR "TCP_KEEPALIVE"
 #endif
 
 /*
- * Configuration options
+ * 配置选项
  */
 int			Unix_socket_permissions;
 char	   *Unix_socket_group;
 
-/* Where the Unix socket files are (list of palloc'd strings) */
+/* Unix 套接字文件所在位置（palloc 出来的字符串列表） */
 static List *sock_paths = NIL;
 
 /*
- * Buffers for low-level I/O.
+ * 低层 I/O 用的缓冲区。
  *
- * The receive buffer is fixed size. Send buffer is usually 8k, but can be
- * enlarged by pq_putmessage_noblock() if the message doesn't fit otherwise.
+ * 接收缓冲区大小固定。发送缓冲区通常是 8k，但若消息放不下，
+ * 可以由 pq_putmessage_noblock() 加大。
  */
 
 #define PQ_SEND_BUFFER_SIZE 8192
 #define PQ_RECV_BUFFER_SIZE 8192
 
 static char *PqSendBuffer;
-static int	PqSendBufferSize;	/* Size send buffer */
-static int	PqSendPointer;		/* Next index to store a byte in PqSendBuffer */
-static int	PqSendStart;		/* Next index to send a byte in PqSendBuffer */
+static int	PqSendBufferSize;	/* 发送缓冲区的大小 */
+static int	PqSendPointer;		/* 在 PqSendBuffer 中存入下一个字节的下标 */
+static int	PqSendStart;		/* 在 PqSendBuffer 中发送下一个字节的下标 */
 
 static char PqRecvBuffer[PQ_RECV_BUFFER_SIZE];
-static int	PqRecvPointer;		/* Next index to read a byte from PqRecvBuffer */
-static int	PqRecvLength;		/* End of data available in PqRecvBuffer */
+static int	PqRecvPointer;		/* 从 PqRecvBuffer 读取下一个字节的下标 */
+static int	PqRecvLength;		/* PqRecvBuffer 中可用数据的末尾 */
 
 /*
- * Message status
+ * 消息状态
  */
-static bool PqCommBusy;			/* busy sending data to the client */
-static bool PqCommReadingMsg;	/* in the middle of reading a message */
+static bool PqCommBusy;			/* 正忙着向客户端发送数据 */
+static bool PqCommReadingMsg;	/* 正在读取一条消息的中途 */
 
 
-/* Internal functions */
+/* 内部函数 */
 static void socket_comm_reset(void);
 static void socket_close(int code, Datum arg);
 static void socket_set_nonblocking(bool nonblocking);
@@ -165,7 +165,7 @@ WaitEventSet *FeBeWaitSet;
 
 
 /* --------------------------------
- *		pq_init - initialize libpq at backend startup
+ *		pq_init - 在后端启动时初始化 libpq
  * --------------------------------
  */
 void
@@ -174,21 +174,21 @@ pq_init(void)
 	int			socket_pos PG_USED_FOR_ASSERTS_ONLY;
 	int			latch_pos PG_USED_FOR_ASSERTS_ONLY;
 
-	/* initialize state variables */
+	/* 初始化状态变量 */
 	PqSendBufferSize = PQ_SEND_BUFFER_SIZE;
 	PqSendBuffer = MemoryContextAlloc(TopMemoryContext, PqSendBufferSize);
 	PqSendPointer = PqSendStart = PqRecvPointer = PqRecvLength = 0;
 	PqCommBusy = false;
 	PqCommReadingMsg = false;
 
-	/* set up process-exit hook to close the socket */
+	/* 设置进程退出钩子以关闭套接字 */
 	on_proc_exit(socket_close, 0);
 
 	/*
-	 * In backends (as soon as forked) we operate the underlying socket in
-	 * nonblocking mode and use latches to implement blocking semantics if
-	 * needed. That allows us to provide safely interruptible reads and
-	 * writes.
+	 * 在后端中（一旦 fork 出来），我们以
+	 * 非阻塞模式操作底层套接字，并在需要时用锁存器
+	 * 实现阻塞语义。这样就能提供可安全中断的读取和
+	 * 写入。
 	 */
 #ifndef WIN32
 	if (!pg_set_noblock(MyProcPort->sock))
@@ -198,7 +198,7 @@ pq_init(void)
 
 #ifndef WIN32
 
-	/* Don't give the socket to any subprograms we execute. */
+	/* 不要把套接字交给我们执行的任何子程序。 */
 	if (fcntl(MyProcPort->sock, F_SETFD, FD_CLOEXEC) < 0)
 		elog(FATAL, "fcntl(F_SETFD) failed on socket: %m");
 #endif
@@ -212,50 +212,50 @@ pq_init(void)
 					  NULL, NULL);
 
 	/*
-	 * The event positions match the order we added them, but let's sanity
-	 * check them to be sure.
+	 * 事件位置与我们添加它们的顺序一致，但还是做一次健全性
+	 * 检查以确认。
 	 */
 	Assert(socket_pos == FeBeWaitSetSocketPos);
 	Assert(latch_pos == FeBeWaitSetLatchPos);
 }
 
 /* --------------------------------
- *		socket_comm_reset - reset libpq during error recovery
+ *		socket_comm_reset - 在错误恢复期间重置 libpq
  *
- * This is called from error recovery at the outer idle loop.  It's
- * just to get us out of trouble if we somehow manage to elog() from
- * inside a pqcomm.c routine (which ideally will never happen, but...)
+ * 这在外层空闲循环的错误恢复中调用。只是为了
+ * 在我们不知怎么从 pqcomm.c 例程内部 elog() 时
+ * 让我们脱身（理想情况下永不发生，但是……）
  * --------------------------------
  */
 static void
 socket_comm_reset(void)
 {
-	/* Do not throw away pending data, but do reset the busy flag */
+	/* 不要丢弃待处理数据，但要重置忙标志 */
 	PqCommBusy = false;
 }
 
 /* --------------------------------
- *		socket_close - shutdown libpq at backend exit
+ *		socket_close - 在后端退出时关闭 libpq
  *
- * This is the one pg_on_exit_callback in place during BackendInitialize().
- * That function's unusual signal handling constrains that this callback be
- * safe to run at any instant.
+ * 这是 BackendInitialize() 期间就位的那个 pg_on_exit_callback。
+ * 该函数不寻常的信号处理需要这个回调
+ * 在任何时刻运行都是安全的。
  * --------------------------------
  */
 static void
 socket_close(int code, Datum arg)
 {
-	/* Nothing to do in a standalone backend, where MyProcPort is NULL. */
+	/* 独立后端中无事可做，那里 MyProcPort 为 NULL。 */
 	if (MyProcPort != NULL)
 	{
 #ifdef ENABLE_GSS
 		/*
-		 * Shutdown GSSAPI layer.  This section does nothing when interrupting
-		 * BackendInitialize(), because pg_GSS_recvauth() makes first use of
-		 * "ctx" and "cred".
+		 * 关闭 GSSAPI 层。打断 BackendInitialize() 时这一节
+		 * 什么也不做，因为 pg_GSS_recvauth() 才会首次使用
+		 * "ctx" 和 "cred"。
 		 *
-		 * Note that we don't bother to free MyProcPort->gss, since we're
-		 * about to exit anyway.
+		 * 注意我们不费心释放 MyProcPort->gss，因为反正
+		 * 马上就要退出。
 		 */
 		if (MyProcPort->gss)
 		{
@@ -270,20 +270,20 @@ socket_close(int code, Datum arg)
 #endif							/* ENABLE_GSS */
 
 		/*
-		 * Cleanly shut down SSL layer.  Nowhere else does a postmaster child
-		 * call this, so this is safe when interrupting BackendInitialize().
+		 * 干净地关闭 SSL 层。别处没有 postmaster 子进程
+		 * 调用它，因此打断 BackendInitialize() 时这样做是安全的。
 		 */
 		secure_close(MyProcPort);
 
 		/*
-		 * Formerly we did an explicit close() here, but it seems better to
-		 * leave the socket open until the process dies.  This allows clients
-		 * to perform a "synchronous close" if they care --- wait till the
-		 * transport layer reports connection closure, and you can be sure the
-		 * backend has exited.
+		 * 以前我们在这里显式 close()，但让套接字一直开到
+		 * 进程死掉似乎更好。这样若客户端在意，就可以做
+		 * 一次 "同步关闭" —— 等到传输层报告连接关闭，
+		 * 就可以确信后端已经退出。
+		 * 我们确实把 sock 设为 PGINVALID_SOCKET，以阻止任何
 		 *
-		 * We do set sock to PGINVALID_SOCKET to prevent any further I/O,
-		 * though.
+		 * 进一步的 I/O，
+		 * 不过。
 		 */
 		MyProcPort->sock = PGINVALID_SOCKET;
 	}
@@ -292,25 +292,25 @@ socket_close(int code, Datum arg)
 
 
 /*
- * Streams -- wrapper around Unix socket system calls
+ * 流 -- Unix 套接字系统调用的包装
  *
  *
- *		Stream functions are used for vanilla TCP connection protocol.
+ *		Stream 函数用于普通的 TCP 连接协议。
  */
 
 
 /*
- * StreamServerPort -- open a "listening" port to accept connections.
+ * StreamServerPort -- 打开一个 "监听" 端口以接受连接。
  *
- * family should be AF_UNIX or AF_UNSPEC; portNumber is the port number.
- * For AF_UNIX ports, hostName should be NULL and unixSocketDir must be
- * specified.  For TCP ports, hostName is either NULL for all interfaces or
- * the interface to listen on, and unixSocketDir is ignored (can be NULL).
+ * family 应为 AF_UNIX 或 AF_UNSPEC；portNumber 是端口号。
+ * 对 AF_UNIX 端口，hostName 应为 NULL，且必须指定 unixSocketDir。
+ * 对 TCP 端口，hostName 要么为 NULL（表示所有接口），要么是
+ * 要监听的接口，unixSocketDir 被忽略（可以为 NULL）。
  *
- * Successfully opened sockets are added to the ListenSocket[] array (of
- * length MaxListen), at the first position that isn't PGINVALID_SOCKET.
+ * 成功打开的套接字加入 ListenSocket[] 数组（长度为
+ * MaxListen），放在第一个不是 PGINVALID_SOCKET 的位置。
  *
- * RETURNS: STATUS_OK or STATUS_ERROR
+ * RETURNS：STATUS_OK 或 STATUS_ERROR
  */
 
 int
@@ -338,7 +338,7 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 	int			one = 1;
 #endif
 
-	/* Initialize hint structure */
+	/* 初始化 hint 结构 */
 	MemSet(&hint, 0, sizeof(hint));
 	hint.ai_family = family;
 	hint.ai_flags = AI_PASSIVE;
@@ -347,8 +347,8 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 	if (family == AF_UNIX)
 	{
 		/*
-		 * Create unixSocketPath from portNumber and unixSocketDir and lock
-		 * that file path
+		 * 由 portNumber 和 unixSocketDir 创建 unixSocketPath，并锁定
+		 * 该文件路径
 		 */
 		UNIXSOCK_PATH(unixSocketPath, portNumber, unixSocketDir);
 		if (strlen(unixSocketPath) >= UNIXSOCK_PATH_BUFLEN)
@@ -390,13 +390,13 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 		if (family != AF_UNIX && addr->ai_family == AF_UNIX)
 		{
 			/*
-			 * Only set up a unix domain socket when they really asked for it.
-			 * The service/port is different in that case.
+			 * 只有在他们真正请求时才设置 Unix 域套接字。
+			 * 这种情况下服务/端口是不同的。
 			 */
 			continue;
 		}
 
-		/* See if there is still room to add 1 more socket. */
+		/* 看看是否还有空位再加 1 个套接字。 */
 		for (; listen_index < MaxListen; listen_index++)
 		{
 			if (ListenSocket[listen_index] == PGINVALID_SOCKET)
@@ -410,7 +410,7 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 			break;
 		}
 
-		/* set up address family name for log messages */
+		/* 为日志消息设置地址族名称 */
 		switch (addr->ai_family)
 		{
 			case AF_INET:
@@ -430,7 +430,7 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 				break;
 		}
 
-		/* set up text form of address for log messages */
+		/* 为日志消息设置地址的文本形式 */
 		if (addr->ai_family == AF_UNIX)
 			addrDesc = unixSocketPath;
 		else
@@ -456,15 +456,15 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 #ifndef WIN32
 
 		/*
-		 * Without the SO_REUSEADDR flag, a new postmaster can't be started
-		 * right away after a stop or crash, giving "address already in use"
-		 * error on TCP ports.
+		 * 没有 SO_REUSEADDR 标志时，停止或崩溃后无法立刻
+		 * 启动新的 postmaster，TCP 端口会报出 "address already in use"
+		 * 错误。
 		 *
-		 * On win32, however, this behavior only happens if the
-		 * SO_EXCLUSIVEADDRUSE is set. With SO_REUSEADDR, win32 allows
-		 * multiple servers to listen on the same address, resulting in
-		 * unpredictable behavior. With no flags at all, win32 behaves as Unix
-		 * with SO_REUSEADDR.
+		 * 不过在 win32 上，只有设置了
+		 * SO_EXCLUSIVEADDRUSE 才会有这种行为。有 SO_REUSEADDR 时，win32 允许
+		 * 多个服务器监听同一地址，从而导致
+		 * 不可预测的行为。完全没有标志时，win32 的行为如同 Unix
+		 * 带上 SO_REUSEADDR 时那样。
 		 */
 		if (addr->ai_family != AF_UNIX)
 		{
@@ -502,10 +502,10 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 #endif
 
 		/*
-		 * Note: This might fail on some OS's, like Linux older than
-		 * 2.4.21-pre3, that don't have the IPV6_V6ONLY socket option, and map
-		 * ipv4 addresses to ipv6.  It will show ::ffff:ipv4 for all ipv4
-		 * connections.
+		 * 注意：在某些操作系统上这可能失败，例如早于
+		 * 2.4.21-pre3 的 Linux，它们没有 IPV6_V6ONLY 套接字选项，并把
+		 * ipv4 地址映射到 ipv6。所有 ipv4
+		 * 连接都会显示为 ::ffff:ipv4。
 		 */
 		err = bind(fd, addr->ai_addr, addr->ai_addrlen);
 		if (err < 0)
@@ -538,9 +538,9 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 		}
 
 		/*
-		 * Select appropriate accept-queue length limit.  It seems reasonable
-		 * to use a value similar to the maximum number of child processes
-		 * that the postmaster will permit.
+		 * 选择合适的 accept 队列长度限制。用一个与
+		 * postmaster 允许的最大子进程数相近的值
+		 * 似乎是合理的。
 		 */
 		maxconn = MaxConnections * 2;
 
@@ -580,33 +580,33 @@ StreamServerPort(int family, const char *hostName, unsigned short portNumber,
 
 
 /*
- * Lock_AF_UNIX -- configure unix socket file path
+ * Lock_AF_UNIX -- 配置 unix 套接字文件路径
  */
 static int
 Lock_AF_UNIX(const char *unixSocketDir, const char *unixSocketPath)
 {
-	/* no lock file for abstract sockets */
+	/* 抽象套接字没有锁文件 */
 	if (unixSocketPath[0] == '@')
 		return STATUS_OK;
 
 	/*
-	 * Grab an interlock file associated with the socket file.
+	 * 获取与套接字文件关联的互锁文件。
 	 *
-	 * Note: there are two reasons for using a socket lock file, rather than
-	 * trying to interlock directly on the socket itself.  First, it's a lot
-	 * more portable, and second, it lets us remove any pre-existing socket
-	 * file without race conditions.
+	 * 注意：使用套接字锁文件，而不是直接在套接字
+	 * 本身上互锁，有两个原因。第一，可移植性好得多；
+	 * 第二，我们可以没有竞态条件地删除任何已存在的
+	 * 套接字文件。
 	 */
 	CreateSocketLockFile(unixSocketPath, true, unixSocketDir);
 
 	/*
-	 * Once we have the interlock, we can safely delete any pre-existing
-	 * socket file to avoid failure at bind() time.
+	 * 一旦有了互锁，就可以安全地删除任何已存在的
+	 * 套接字文件，以避免 bind() 时失败。
 	 */
 	(void) unlink(unixSocketPath);
 
 	/*
-	 * Remember socket file pathnames for later maintenance.
+	 * 记住套接字文件路径名，供以后维护。
 	 */
 	sock_paths = lappend(sock_paths, pstrdup(unixSocketPath));
 
@@ -615,19 +615,19 @@ Lock_AF_UNIX(const char *unixSocketDir, const char *unixSocketPath)
 
 
 /*
- * Setup_AF_UNIX -- configure unix socket permissions
+ * Setup_AF_UNIX -- 配置 unix 套接字权限
  */
 static int
 Setup_AF_UNIX(const char *sock_path)
 {
-	/* no file system permissions for abstract sockets */
+	/* 抽象套接字没有文件系统权限 */
 	if (sock_path[0] == '@')
 		return STATUS_OK;
 
 	/*
-	 * Fix socket ownership/permission if requested.  Note we must do this
-	 * before we listen() to avoid a window where unwanted connections could
-	 * get accepted.
+	 * 若有请求，修正套接字的所有权/权限。注意必须在
+	 * listen() 之前做这件事，以免出现一个窗口，让不想要的连接
+	 * 被接受。
 	 */
 	Assert(Unix_socket_group);
 	if (Unix_socket_group[0] != '\0')
@@ -641,11 +641,11 @@ Setup_AF_UNIX(const char *sock_path)
 
 		val = strtoul(Unix_socket_group, &endptr, 10);
 		if (*endptr == '\0')
-		{						/* numeric group id */
+		{						/* 数值形式的组 id */
 			gid = val;
 		}
 		else
-		{						/* convert group name to id */
+		{						/* 把组名转换成 id */
 			struct group *gr;
 
 			gr = getgrnam(Unix_socket_group);
@@ -682,18 +682,18 @@ Setup_AF_UNIX(const char *sock_path)
 
 
 /*
- * StreamConnection -- create a new connection with client using
- *		server port.  Set port->sock to the FD of the new connection.
+ * StreamConnection -- 用服务器端口与客户端建立新连接。
+ *		把 port->sock 设为新连接的 FD。
  *
- * ASSUME: that this doesn't need to be non-blocking because
- *		the Postmaster waits for the socket to be ready to accept().
+ * ASSUME：这不必是非阻塞的，因为
+ *		Postmaster 会等到套接字准备好再 accept()。
  *
- * RETURNS: STATUS_OK or STATUS_ERROR
+ * RETURNS：STATUS_OK 或 STATUS_ERROR
  */
 int
 StreamConnection(pgsocket server_fd, Port *port)
 {
-	/* accept connection and fill in the client (remote) address */
+	/* 接受连接并填入客户端（远程）地址 */
 	port->raddr.salen = sizeof(port->raddr.addr);
 	if ((port->sock = accept(server_fd,
 							 (struct sockaddr *) &port->raddr.addr,
@@ -704,17 +704,17 @@ StreamConnection(pgsocket server_fd, Port *port)
 				 errmsg("could not accept new connection: %m")));
 
 		/*
-		 * If accept() fails then postmaster.c will still see the server
-		 * socket as read-ready, and will immediately try again.  To avoid
-		 * uselessly sucking lots of CPU, delay a bit before trying again.
-		 * (The most likely reason for failure is being out of kernel file
-		 * table slots; we can do little except hope some will get freed up.)
+		 * 若 accept() 失败，postmaster.c 仍会把服务器
+		 * 套接字看成可读，并立刻重试。为避免
+		 * 无用地吃掉大量 CPU，重试前延迟一会儿。
+		 * （最可能的失败原因是内核文件表槽位用尽；我们几乎
+		 * 无能为力，只能希望有一些会被释放。）
 		 */
-		pg_usleep(100000L);		/* wait 0.1 sec */
+		pg_usleep(100000L);		/* 等待 0.1 秒 */
 		return STATUS_ERROR;
 	}
 
-	/* fill in the server (local) address */
+	/* 填入服务器（本地）地址 */
 	port->laddr.salen = sizeof(port->laddr.addr);
 	if (getsockname(port->sock,
 					(struct sockaddr *) &port->laddr.addr,
@@ -725,7 +725,7 @@ StreamConnection(pgsocket server_fd, Port *port)
 		return STATUS_ERROR;
 	}
 
-	/* select NODELAY and KEEPALIVE options if it's a TCP connection */
+	/* 若是 TCP 连接，选择 NODELAY 和 KEEPALIVE 选项 */
 	if (port->laddr.addr.ss_family != AF_UNIX)
 	{
 		int			on;
@@ -757,24 +757,24 @@ StreamConnection(pgsocket server_fd, Port *port)
 #ifdef WIN32
 
 		/*
-		 * This is a Win32 socket optimization.  The OS send buffer should be
-		 * large enough to send the whole Postgres send buffer in one go, or
-		 * performance suffers.  The Postgres send buffer can be enlarged if a
-		 * very large message needs to be sent, but we won't attempt to
-		 * enlarge the OS buffer if that happens, so somewhat arbitrarily
-		 * ensure that the OS buffer is at least PQ_SEND_BUFFER_SIZE * 4.
-		 * (That's 32kB with the current default).
+		 * 这是一项 Win32 套接字优化。操作系统发送缓冲区应当
+		 * 大到能一次发出整个 Postgres 发送缓冲区，否则
+		 * 性能会受影响。若需要发送非常大的消息，Postgres 发送缓冲区
+		 * 可以加大，但那种情况下我们不会尝试
+		 * 加大操作系统缓冲区，因此有些任意地
+		 * 确保操作系统缓冲区至少为 PQ_SEND_BUFFER_SIZE * 4。
+		 * （以当前默认值，那是 32kB。）
 		 *
-		 * The default OS buffer size used to be 8kB in earlier Windows
-		 * versions, but was raised to 64kB in Windows 2012.  So it shouldn't
-		 * be necessary to change it in later versions anymore.  Changing it
-		 * unnecessarily can even reduce performance, because setting
-		 * SO_SNDBUF in the application disables the "dynamic send buffering"
-		 * feature that was introduced in Windows 7.  So before fiddling with
-		 * SO_SNDBUF, check if the current buffer size is already large enough
-		 * and only increase it if necessary.
+		 * 早期 Windows 版本中默认的操作系统缓冲区大小曾是 8kB，
+		 * 但在 Windows 2012 中提高到了 64kB。因此在更新的版本里
+		 * 应该不必再改它。不必要地改它甚至可能
+		 * 降低性能，因为在应用程序里设置
+		 * SO_SNDBUF 会禁用 Windows 7 引入的 "动态发送缓冲"
+		 * 功能。因此在摆弄
+		 * SO_SNDBUF 之前，先检查当前缓冲区是否已经够大，
+		 * 并且只在必要时才增大它。
 		 *
-		 * See https://support.microsoft.com/kb/823764/EN-US/ and
+		 * 参见 https://support.microsoft.com/kb/823764/EN-US/ 和
 		 * https://msdn.microsoft.com/en-us/library/bb736549%28v=vs.85%29.aspx
 		 */
 		optlen = sizeof(oldopt);
@@ -799,11 +799,11 @@ StreamConnection(pgsocket server_fd, Port *port)
 #endif
 
 		/*
-		 * Also apply the current keepalive parameters.  If we fail to set a
-		 * parameter, don't error out, because these aren't universally
-		 * supported.  (Note: you might think we need to reset the GUC
-		 * variables to 0 in such a case, but it's not necessary because the
-		 * show hooks for these variables report the truth anyway.)
+		 * 也应用当前的 keepalive 参数。若设置某个
+		 * 参数失败，不要报错退出，因为它们并非普遍
+		 * 支持。（注意：你也许认为这种情况下需要把 GUC
+		 * 变量重置为 0，但没有必要，因为这些变量的
+		 * show 钩子反正会报告真实值。）
 		 */
 		(void) pq_setkeepalivesidle(tcp_keepalives_idle, port);
 		(void) pq_setkeepalivesinterval(tcp_keepalives_interval, port);
@@ -815,14 +815,14 @@ StreamConnection(pgsocket server_fd, Port *port)
 }
 
 /*
- * StreamClose -- close a client/backend connection
+ * StreamClose -- 关闭一条客户端/后端连接
  *
- * NOTE: this is NOT used to terminate a session; it is just used to release
- * the file descriptor in a process that should no longer have the socket
- * open.  (For example, the postmaster calls this after passing ownership
- * of the connection to a child process.)  It is expected that someone else
- * still has the socket open.  So, we only want to close the descriptor,
- * we do NOT want to send anything to the far end.
+ * 注意：这不是用来终止会话的；只是用来释放
+ * 一个不该再打开该套接字的进程中的文件描述符。
+ * （例如，postmaster 在把连接所有权交给
+ * 子进程之后调用它。）预期别人仍开着该套接字。
+ * 因此我们只想关闭描述符，
+ * 并不想向远端发送任何东西。
  */
 void
 StreamClose(pgsocket sock)
@@ -831,63 +831,63 @@ StreamClose(pgsocket sock)
 }
 
 /*
- * TouchSocketFiles -- mark socket files as recently accessed
+ * TouchSocketFiles -- 把套接字文件标记为最近访问过
  *
- * This routine should be called every so often to ensure that the socket
- * files have a recent mod date (ordinary operations on sockets usually won't
- * change the mod date).  That saves them from being removed by
- * overenthusiastic /tmp-directory-cleaner daemons.  (Another reason we should
- * never have put the socket file in /tmp...)
+ * 应当时常调用本例程，以确保套接字
+ * 文件有较新的修改时间（对套接字的普通操作通常不会
+ * 改变修改时间）。这样它们就不会被过于热心的
+ * /tmp 目录清理守护进程删掉。（我们本不该把套接字文件
+ * 放在 /tmp 里的另一个原因……）
  */
 void
 TouchSocketFiles(void)
 {
 	ListCell   *l;
 
-	/* Loop through all created sockets... */
+	/* 遍历所有已创建的套接字…… */
 	foreach(l, sock_paths)
 	{
 		char	   *sock_path = (char *) lfirst(l);
 
-		/* Ignore errors; there's no point in complaining */
+		/* 忽略错误；抱怨没有意义 */
 		(void) utime(sock_path, NULL);
 	}
 }
 
 /*
- * RemoveSocketFiles -- unlink socket files at postmaster shutdown
+ * RemoveSocketFiles -- 在 postmaster 关闭时 unlink 套接字文件
  */
 void
 RemoveSocketFiles(void)
 {
 	ListCell   *l;
 
-	/* Loop through all created sockets... */
+	/* 遍历所有已创建的套接字…… */
 	foreach(l, sock_paths)
 	{
 		char	   *sock_path = (char *) lfirst(l);
 
-		/* Ignore any error. */
+		/* 忽略任何错误。 */
 		(void) unlink(sock_path);
 	}
-	/* Since we're about to exit, no need to reclaim storage */
+	/* 既然马上要退出，就不必回收存储 */
 	sock_paths = NIL;
 }
 
 
 /* --------------------------------
- * Low-level I/O routines begin here.
+ * 低层 I/O 例程从这里开始。
  *
- * These routines communicate with a frontend client across a connection
- * already established by the preceding routines.
+ * 这些例程通过前面的例程已经建立的连接，
+ * 与前端客户端通信。
  * --------------------------------
  */
 
 /* --------------------------------
- *			  socket_set_nonblocking - set socket blocking/non-blocking
+ *			  socket_set_nonblocking - 设置套接字为阻塞/非阻塞
  *
- * Sets the socket non-blocking if nonblocking is true, or sets it
- * blocking otherwise.
+ * 若 nonblocking 为真，把套接字设为非阻塞，否则设为
+ * 阻塞。
  * --------------------------------
  */
 static void
@@ -902,9 +902,9 @@ socket_set_nonblocking(bool nonblocking)
 }
 
 /* --------------------------------
- *		pq_recvbuf - load some bytes into the input buffer
+ *		pq_recvbuf - 把一些字节装入输入缓冲区
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 static int
@@ -914,7 +914,7 @@ pq_recvbuf(void)
 	{
 		if (PqRecvLength > PqRecvPointer)
 		{
-			/* still some unread data, left-justify it in the buffer */
+			/* 仍有未读数据，在缓冲区里左对齐 */
 			memmove(PqRecvBuffer, PqRecvBuffer + PqRecvPointer,
 					PqRecvLength - PqRecvPointer);
 			PqRecvLength -= PqRecvPointer;
@@ -924,10 +924,10 @@ pq_recvbuf(void)
 			PqRecvLength = PqRecvPointer = 0;
 	}
 
-	/* Ensure that we're in blocking mode */
+	/* 确保我们处于阻塞模式 */
 	socket_set_nonblocking(false);
 
-	/* Can fill buffer from PqRecvLength and upwards */
+	/* 可以从 PqRecvLength 往上填满缓冲区 */
 	for (;;)
 	{
 		int			r;
@@ -940,14 +940,14 @@ pq_recvbuf(void)
 		if (r < 0)
 		{
 			if (errno == EINTR)
-				continue;		/* Ok if interrupted */
+				continue;		/* 被中断也没关系 */
 
 			/*
-			 * Careful: an ereport() that tries to write to the client would
-			 * cause recursion to here, leading to stack overflow and core
-			 * dump!  This message must go *only* to the postmaster log.
+			 * 小心：试图写给客户端的 ereport() 会
+			 * 导致递归到这里，造成栈溢出和核心
+			 * 转储！这条消息必须*只*进入 postmaster 日志。
 			 *
-			 * If errno is zero, assume it's EOF and let the caller complain.
+			 * 若 errno 为零，就假定是 EOF，让调用方去抱怨。
 			 */
 			if (errno != 0)
 				ereport(COMMERROR,
@@ -958,19 +958,19 @@ pq_recvbuf(void)
 		if (r == 0)
 		{
 			/*
-			 * EOF detected.  We used to write a log message here, but it's
-			 * better to expect the ultimate caller to do that.
+			 * 检测到 EOF。我们以前在这里写一条日志消息，但最好
+			 * 预期最终的调用方去做这件事。
 			 */
 			return EOF;
 		}
-		/* r contains number of bytes read, so just incr length */
+		/* r 含有读到的字节数，因此只需增加长度 */
 		PqRecvLength += r;
 		return 0;
 	}
 }
 
 /* --------------------------------
- *		pq_getbyte	- get a single byte from connection, or return EOF
+ *		pq_getbyte - 从连接取一个字节，或返回 EOF
  * --------------------------------
  */
 int
@@ -980,16 +980,16 @@ pq_getbyte(void)
 
 	while (PqRecvPointer >= PqRecvLength)
 	{
-		if (pq_recvbuf())		/* If nothing in buffer, then recv some */
-			return EOF;			/* Failed to recv data */
+		if (pq_recvbuf())		/* 若缓冲区里什么都没有，就 recv 一些 */
+			return EOF;			/* 接收数据失败 */
 	}
 	return (unsigned char) PqRecvBuffer[PqRecvPointer++];
 }
 
 /* --------------------------------
- *		pq_peekbyte		- peek at next byte from connection
+ *		pq_peekbyte - 窥看连接上的下一个字节
  *
- *	 Same as pq_getbyte() except we don't advance the pointer.
+ *	 与 pq_getbyte() 相同，只是我们不推进指针。
  * --------------------------------
  */
 int
@@ -999,18 +999,18 @@ pq_peekbyte(void)
 
 	while (PqRecvPointer >= PqRecvLength)
 	{
-		if (pq_recvbuf())		/* If nothing in buffer, then recv some */
-			return EOF;			/* Failed to recv data */
+		if (pq_recvbuf())		/* 若缓冲区里什么都没有，就 recv 一些 */
+			return EOF;			/* 接收数据失败 */
 	}
 	return (unsigned char) PqRecvBuffer[PqRecvPointer];
 }
 
 /* --------------------------------
- *		pq_getbyte_if_available - get a single byte from connection,
- *			if available
+ *		pq_getbyte_if_available - 从连接取一个字节，
+ *			若可用的话
  *
- * The received byte is stored in *c. Returns 1 if a byte was read,
- * 0 if no data was available, or EOF if trouble.
+ * 收到的字节存在 *c 中。读到一个字节返回 1，
+ * 没有可用数据返回 0，出问题返回 EOF。
  * --------------------------------
  */
 int
@@ -1026,7 +1026,7 @@ pq_getbyte_if_available(unsigned char *c)
 		return 1;
 	}
 
-	/* Put the socket into non-blocking mode */
+	/* 把套接字设为非阻塞模式 */
 	socket_set_nonblocking(true);
 
 	errno = 0;
@@ -1035,20 +1035,20 @@ pq_getbyte_if_available(unsigned char *c)
 	if (r < 0)
 	{
 		/*
-		 * Ok if no data available without blocking or interrupted (though
-		 * EINTR really shouldn't happen with a non-blocking socket). Report
-		 * other errors.
+		 * 没有数据可非阻塞取得，或被中断，都没关系（不过
+		 * 非阻塞套接字上 EINTR 实在不该发生）。报告
+		 * 其他错误。
 		 */
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
 			r = 0;
 		else
 		{
 			/*
-			 * Careful: an ereport() that tries to write to the client would
-			 * cause recursion to here, leading to stack overflow and core
-			 * dump!  This message must go *only* to the postmaster log.
+			 * 小心：试图写给客户端的 ereport() 会
+			 * 导致递归到这里，造成栈溢出和核心
+			 * 转储！这条消息必须*只*进入 postmaster 日志。
 			 *
-			 * If errno is zero, assume it's EOF and let the caller complain.
+			 * 若 errno 为零，就假定是 EOF，让调用方去抱怨。
 			 */
 			if (errno != 0)
 				ereport(COMMERROR,
@@ -1059,7 +1059,7 @@ pq_getbyte_if_available(unsigned char *c)
 	}
 	else if (r == 0)
 	{
-		/* EOF detected */
+		/* 检测到 EOF */
 		r = EOF;
 	}
 
@@ -1067,9 +1067,9 @@ pq_getbyte_if_available(unsigned char *c)
 }
 
 /* --------------------------------
- *		pq_getbytes		- get a known number of bytes from connection
+ *		pq_getbytes - 从连接取得已知数量的字节
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 int
@@ -1083,8 +1083,8 @@ pq_getbytes(char *s, size_t len)
 	{
 		while (PqRecvPointer >= PqRecvLength)
 		{
-			if (pq_recvbuf())	/* If nothing in buffer, then recv some */
-				return EOF;		/* Failed to recv data */
+			if (pq_recvbuf())	/* 若缓冲区里什么都没有，就 recv 一些 */
+				return EOF;		/* 接收数据失败 */
 		}
 		amount = PqRecvLength - PqRecvPointer;
 		if (amount > len)
@@ -1098,12 +1098,12 @@ pq_getbytes(char *s, size_t len)
 }
 
 /* --------------------------------
- *		pq_discardbytes		- throw away a known number of bytes
+ *		pq_discardbytes - 丢掉已知数量的字节
  *
- *		same as pq_getbytes except we do not copy the data to anyplace.
- *		this is used for resynchronizing after read errors.
+ *		与 pq_getbytes 相同，只是我们不把数据复制到任何地方。
+ *		用于读错误之后重新同步。
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 static int
@@ -1117,8 +1117,8 @@ pq_discardbytes(size_t len)
 	{
 		while (PqRecvPointer >= PqRecvLength)
 		{
-			if (pq_recvbuf())	/* If nothing in buffer, then recv some */
-				return EOF;		/* Failed to recv data */
+			if (pq_recvbuf())	/* 若缓冲区里什么都没有，就 recv 一些 */
+				return EOF;		/* 接收数据失败 */
 		}
 		amount = PqRecvLength - PqRecvPointer;
 		if (amount > len)
@@ -1130,9 +1130,9 @@ pq_discardbytes(size_t len)
 }
 
 /* --------------------------------
- *		pq_buffer_has_data		- is any buffered data available to read?
+ *		pq_buffer_has_data - 是否有已缓冲的数据可供读取？
  *
- * This will *not* attempt to read more data.
+ * 这*不会*尝试读取更多数据。
  * --------------------------------
  */
 bool
@@ -1143,17 +1143,17 @@ pq_buffer_has_data(void)
 
 
 /* --------------------------------
- *		pq_startmsgread - begin reading a message from the client.
+ *		pq_startmsgread - 开始从客户端读取一条消息。
  *
- *		This must be called before any of the pq_get* functions.
+ *		在任何 pq_get* 函数之前都必须调用它。
  * --------------------------------
  */
 void
 pq_startmsgread(void)
 {
 	/*
-	 * There shouldn't be a read active already, but let's check just to be
-	 * sure.
+	 * 按理不该已经有一次读取在进行，但还是检查一下
+	 * 以确认。
 	 */
 	if (PqCommReadingMsg)
 		ereport(FATAL,
@@ -1165,11 +1165,11 @@ pq_startmsgread(void)
 
 
 /* --------------------------------
- *		pq_endmsgread	- finish reading message.
+ *		pq_endmsgread - 结束读取消息。
  *
- *		This must be called after reading a message with pq_getbytes()
- *		and friends, to indicate that we have read the whole message.
- *		pq_getmessage() does this implicitly.
+ *		用 pq_getbytes() 及其同类读完一条消息之后必须调用它，
+ *		以表明我们已经读完整条消息。
+ *		pq_getmessage() 会隐式做这件事。
  * --------------------------------
  */
 void
@@ -1181,11 +1181,11 @@ pq_endmsgread(void)
 }
 
 /* --------------------------------
- *		pq_is_reading_msg - are we currently reading a message?
+ *		pq_is_reading_msg - 我们当前是否正在读一条消息？
  *
- * This is used in error recovery at the outer idle loop to detect if we have
- * lost protocol sync, and need to terminate the connection. pq_startmsgread()
- * will check for that too, but it's nicer to detect it earlier.
+ * 这用在外层空闲循环的错误恢复中，检测我们是否
+ * 失去了协议同步，需要终止连接。pq_startmsgread()
+ * 也会检查这一点，但更早发现更好。
  * --------------------------------
  */
 bool
@@ -1195,19 +1195,19 @@ pq_is_reading_msg(void)
 }
 
 /* --------------------------------
- *		pq_getmessage	- get a message with length word from connection
+ *		pq_getmessage - 从连接取得带长度字的消息
  *
- *		The return value is placed in an expansible StringInfo, which has
- *		already been initialized by the caller.
- *		Only the message body is placed in the StringInfo; the length word
- *		is removed.  Also, s->cursor is initialized to zero for convenience
- *		in scanning the message contents.
+ *		返回值放进一个可扩展的 StringInfo，调用方
+ *		已经把它初始化好了。
+ *		只有消息体放进 StringInfo；长度字
+ *		被去掉。另外，s->cursor 被初始化为零，以便
+ *		扫描消息内容。
  *
- *		maxlen is the upper limit on the length of the
- *		message we are willing to accept.  We abort the connection (by
- *		returning EOF) if client tries to send more than that.
+ *		maxlen 是我们愿意接受的
+ *		消息长度上限。若客户端试图发送更多，我们就中止连接
+ *		（通过返回 EOF）。
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 int
@@ -1219,7 +1219,7 @@ pq_getmessage(StringInfo s, int maxlen)
 
 	resetStringInfo(s);
 
-	/* Read message length word */
+	/* 读取消息长度字 */
 	if (pq_getbytes((char *) &len, 4) == EOF)
 	{
 		ereport(COMMERROR,
@@ -1238,14 +1238,14 @@ pq_getmessage(StringInfo s, int maxlen)
 		return EOF;
 	}
 
-	len -= 4;					/* discount length itself */
+	len -= 4;					/* 扣掉长度自身 */
 
 	if (len > 0)
 	{
 		/*
-		 * Allocate space for message.  If we run out of room (ridiculously
-		 * large message), we will elog(ERROR), but we want to discard the
-		 * message body so as not to lose communication sync.
+		 * 为消息分配空间。若空间用尽（消息大得
+		 * 荒唐），我们会 elog(ERROR)，但我们想丢掉
+		 * 消息体，以免失去通信同步。
 		 */
 		PG_TRY();
 		{
@@ -1258,13 +1258,13 @@ pq_getmessage(StringInfo s, int maxlen)
 						(errcode(ERRCODE_PROTOCOL_VIOLATION),
 						 errmsg("incomplete message from client")));
 
-			/* we discarded the rest of the message so we're back in sync. */
+			/* 我们已经丢掉消息的其余部分，因此重新同步了。 */
 			PqCommReadingMsg = false;
 			PG_RE_THROW();
 		}
 		PG_END_TRY();
 
-		/* And grab the message */
+		/* 然后抓取这条消息 */
 		if (pq_getbytes(s->data, len) == EOF)
 		{
 			ereport(COMMERROR,
@@ -1273,11 +1273,11 @@ pq_getmessage(StringInfo s, int maxlen)
 			return EOF;
 		}
 		s->len = len;
-		/* Place a trailing null per StringInfo convention */
+		/* 按 StringInfo 的约定放一个末尾空字符 */
 		s->data[len] = '\0';
 	}
 
-	/* finished reading the message. */
+	/* 消息已经读完。 */
 	PqCommReadingMsg = false;
 
 	return 0;
@@ -1291,7 +1291,7 @@ internal_putbytes(const char *s, size_t len)
 
 	while (len > 0)
 	{
-		/* If buffer is full, then flush it out */
+		/* 若缓冲区已满，就把它刷出去 */
 		if (PqSendPointer >= PqSendBufferSize)
 		{
 			socket_set_nonblocking(false);
@@ -1310,9 +1310,9 @@ internal_putbytes(const char *s, size_t len)
 }
 
 /* --------------------------------
- *		socket_flush		- flush pending output
+ *		socket_flush - 刷出待处理的输出
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 static int
@@ -1320,7 +1320,7 @@ socket_flush(void)
 {
 	int			res;
 
-	/* No-op if reentrant call */
+	/* 若是重入调用则无操作 */
 	if (PqCommBusy)
 		return 0;
 	PqCommBusy = true;
@@ -1331,10 +1331,10 @@ socket_flush(void)
 }
 
 /* --------------------------------
- *		internal_flush - flush pending output
+ *		internal_flush - 刷出待处理的输出
  *
- * Returns 0 if OK (meaning everything was sent, or operation would block
- * and the socket is in non-blocking mode), or EOF if trouble.
+ * 若一切都已发送，或操作会阻塞且套接字处于非阻塞模式，
+ * 则返回 0；出问题则返回 EOF。
  * --------------------------------
  */
 static int
@@ -1354,11 +1354,11 @@ internal_flush(void)
 		if (r <= 0)
 		{
 			if (errno == EINTR)
-				continue;		/* Ok if we were interrupted */
+				continue;		/* 被中断也没关系 */
 
 			/*
-			 * Ok if no data writable without blocking, and the socket is in
-			 * non-blocking mode.
+			 * 若没有数据可以非阻塞地写，且套接字处于
+			 * 非阻塞模式，也没关系。
 			 */
 			if (errno == EAGAIN ||
 				errno == EWOULDBLOCK)
@@ -1367,13 +1367,13 @@ internal_flush(void)
 			}
 
 			/*
-			 * Careful: an ereport() that tries to write to the client would
-			 * cause recursion to here, leading to stack overflow and core
-			 * dump!  This message must go *only* to the postmaster log.
+			 * 小心：试图写给客户端的 ereport() 会
+			 * 导致递归到这里，造成栈溢出和核心
+			 * 转储！这条消息必须*只*进入 postmaster 日志。
 			 *
-			 * If a client disconnects while we're in the midst of output, we
-			 * might write quite a bit of data before we get to a safe query
-			 * abort point.  So, suppress duplicate log messages.
+			 * 若客户端在我们输出中途断开，我们可能会
+			 * 写出相当多的数据，然后才到一个安全的查询
+			 * 中止点。因此，抑制重复的日志消息。
 			 */
 			if (errno != last_reported_send_errno)
 			{
@@ -1384,10 +1384,10 @@ internal_flush(void)
 			}
 
 			/*
-			 * We drop the buffered data anyway so that processing can
-			 * continue, even though we'll probably quit soon. We also set a
-			 * flag that'll cause the next CHECK_FOR_INTERRUPTS to terminate
-			 * the connection.
+			 * 我们反正丢掉缓冲的数据，以便处理可以
+			 * 继续，尽管我们可能很快就会退出。我们还设置一个
+			 * 标志，使下一次 CHECK_FOR_INTERRUPTS 终止
+			 * 连接。
 			 */
 			PqSendStart = PqSendPointer = 0;
 			ClientConnectionLost = 1;
@@ -1395,7 +1395,7 @@ internal_flush(void)
 			return EOF;
 		}
 
-		last_reported_send_errno = 0;	/* reset after any successful send */
+		last_reported_send_errno = 0;	/* 任何成功发送之后重置 */
 		bufptr += r;
 		PqSendStart += r;
 	}
@@ -1405,9 +1405,9 @@ internal_flush(void)
 }
 
 /* --------------------------------
- *		pq_flush_if_writable - flush pending output if writable without blocking
+ *		pq_flush_if_writable - 若可写且不会阻塞，就刷出待处理输出
  *
- * Returns 0 if OK, or EOF if trouble.
+ * 成功返回 0，出问题返回 EOF。
  * --------------------------------
  */
 static int
@@ -1415,15 +1415,15 @@ socket_flush_if_writable(void)
 {
 	int			res;
 
-	/* Quick exit if nothing to do */
+	/* 若无事可做就快速退出 */
 	if (PqSendPointer == PqSendStart)
 		return 0;
 
-	/* No-op if reentrant call */
+	/* 若是重入调用则无操作 */
 	if (PqCommBusy)
 		return 0;
 
-	/* Temporarily put the socket into non-blocking mode */
+	/* 暂时把套接字设为非阻塞模式 */
 	socket_set_nonblocking(true);
 
 	PqCommBusy = true;
@@ -1433,7 +1433,7 @@ socket_flush_if_writable(void)
 }
 
 /* --------------------------------
- *	socket_is_send_pending	- is there any pending data in the output buffer?
+ *	socket_is_send_pending - 输出缓冲区里是否有待处理数据？
  * --------------------------------
  */
 static bool
@@ -1443,27 +1443,27 @@ socket_is_send_pending(void)
 }
 
 /* --------------------------------
- * Message-level I/O routines begin here.
+ * 消息级 I/O 例程从这里开始。
  * --------------------------------
  */
 
 
 /* --------------------------------
- *		socket_putmessage - send a normal message (suppressed in COPY OUT mode)
+ *		socket_putmessage - 发送一条普通消息（COPY OUT 模式下被抑制）
  *
- *		msgtype is a message type code to place before the message body.
+ *		msgtype 是放在消息体之前的消息类型码。
  *
- *		len is the length of the message body data at *s.  A message length
- *		word (equal to len+4 because it counts itself too) is inserted by this
- *		routine.
+ *		len 是 *s 处消息体数据的长度。本例程插入一个
+ *		消息长度字（等于 len+4，因为它也计入自身）。
+ *		当 pqcomm.c 正忙时，我们抑制所产生的消息。这
  *
- *		We suppress messages generated while pqcomm.c is busy.  This
- *		avoids any possibility of messages being inserted within other
- *		messages.  The only known trouble case arises if SIGQUIT occurs
- *		during a pqcomm.c routine --- quickdie() will try to send a warning
- *		message, and the most reasonable approach seems to be to drop it.
+ *		避免了消息被插入其他消息之中的任何可能。
+ *		已知的唯一麻烦是 SIGQUIT 发生在
+ *		某个 pqcomm.c 例程执行期间 --- quickdie() 会试图发送
+ *		一条警告消息，最合理的做法似乎是
+ *		丢掉它。
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 static int
@@ -1494,10 +1494,10 @@ fail:
 }
 
 /* --------------------------------
- *		pq_putmessage_noblock	- like pq_putmessage, but never blocks
+ *		pq_putmessage_noblock - 与 pq_putmessage 类似，但从不阻塞
  *
- *		If the output buffer is too small to hold the message, the buffer
- *		is enlarged.
+ *		若输出缓冲区太小，放不下这条消息，缓冲区
+ *		会被加大。
  */
 static void
 socket_putmessage_noblock(char msgtype, const char *s, size_t len)
@@ -1506,8 +1506,8 @@ socket_putmessage_noblock(char msgtype, const char *s, size_t len)
 	int			required;
 
 	/*
-	 * Ensure we have enough space in the output buffer for the message header
-	 * as well as the message itself.
+	 * 确保输出缓冲区有足够空间放下消息头
+	 * 以及消息本身。
 	 */
 	required = PqSendPointer + 1 + 4 + len;
 	if (required > PqSendBufferSize)
@@ -1516,24 +1516,24 @@ socket_putmessage_noblock(char msgtype, const char *s, size_t len)
 		PqSendBufferSize = required;
 	}
 	res = pq_putmessage(msgtype, s, len);
-	Assert(res == 0);			/* should not fail when the message fits in
-								 * buffer */
+	Assert(res == 0);			/* 当消息能放进缓冲区时，
+								 * 不应失败 */
 }
 
 /* --------------------------------
- *		pq_putmessage_v2 - send a message in protocol version 2
+ *		pq_putmessage_v2 - 按协议版本 2 发送一条消息
  *
- *		msgtype is a message type code to place before the message body.
+ *		msgtype 是放在消息体之前的消息类型码。
  *
- *		We no longer support protocol version 2, but we have kept this
- *		function so that if a client tries to connect with protocol version 2,
- *		as a courtesy we can still send the "unsupported protocol version"
- *		error to the client in the old format.
+ *		我们不再支持协议版本 2，但保留了这个
+ *		函数，以便若客户端试图用协议版本 2 连接，
+ *		作为礼貌，我们仍能以旧格式向客户端发送
+ *		"unsupported protocol version" 错误。
  *
- *		Like in pq_putmessage(), we suppress messages generated while
- *		pqcomm.c is busy.
+ *		与 pq_putmessage() 中一样，当 pqcomm.c 正忙时
+ *		我们抑制所产生的消息。
  *
- *		returns 0 if OK, EOF if trouble
+ *		成功返回 0，出问题返回 EOF
  * --------------------------------
  */
 int
@@ -1558,14 +1558,14 @@ fail:
 }
 
 /*
- * Support for TCP Keepalive parameters
+ * 对 TCP Keepalive 参数的支持
  */
 
 /*
- * On Windows, we need to set both idle and interval at the same time.
- * We also cannot reset them to the default (setting to zero will
- * actually set them to zero, not default), therefore we fallback to
- * the out-of-the-box default instead.
+ * 在 Windows 上，我们需要同时设置 idle 和 interval。
+ * 我们也无法把它们重置为默认值（设为零实际上会
+ * 把它们设为零，而不是默认值），因此我们退回到
+ * 出厂默认值。
  */
 #if defined(WIN32) && defined(SIO_KEEPALIVE_VALS)
 static int
@@ -1575,9 +1575,9 @@ pq_setkeepaliveswin32(Port *port, int idle, int interval)
 	DWORD		retsize;
 
 	if (idle <= 0)
-		idle = 2 * 60 * 60;		/* default = 2 hours */
+		idle = 2 * 60 * 60;		/* 默认值 = 2 小时 */
 	if (interval <= 0)
-		interval = 1;			/* default = 1 second */
+		interval = 1;			/* 默认值 = 1 秒 */
 
 	ka.onoff = 1;
 	ka.keepalivetime = idle * 1000;
@@ -1628,10 +1628,10 @@ pq_getkeepalivesidle(Port *port)
 		{
 			ereport(LOG,
 					(errmsg("%s(%s) failed: %m", "getsockopt", PG_TCP_KEEPALIVE_IDLE_STR)));
-			port->default_keepalives_idle = -1; /* don't know */
+			port->default_keepalives_idle = -1; /* 不知道 */
 		}
 #else							/* WIN32 */
-		/* We can't get the defaults on Windows, so return "don't know" */
+		/* 在 Windows 上我们无法取得默认值，因此返回 "不知道" */
 		port->default_keepalives_idle = -1;
 #endif							/* WIN32 */
 	}
@@ -1648,7 +1648,7 @@ pq_setkeepalivesidle(int idle, Port *port)
 	if (port == NULL || port->laddr.addr.ss_family == AF_UNIX)
 		return STATUS_OK;
 
-/* check SIO_KEEPALIVE_VALS here, not just WIN32, as some toolchains lack it */
+/* 在这里检查 SIO_KEEPALIVE_VALS，而不只是 WIN32，因为有些工具链没有它 */
 #if defined(PG_TCP_KEEPALIVE_IDLE) || defined(SIO_KEEPALIVE_VALS)
 	if (idle == port->keepalives_idle)
 		return STATUS_OK;
@@ -1659,7 +1659,7 @@ pq_setkeepalivesidle(int idle, Port *port)
 		if (pq_getkeepalivesidle(port) < 0)
 		{
 			if (idle == 0)
-				return STATUS_OK;	/* default is set but unknown */
+				return STATUS_OK;	/* 默认值已设置但未知 */
 			else
 				return STATUS_ERROR;
 		}
@@ -1713,10 +1713,10 @@ pq_getkeepalivesinterval(Port *port)
 		{
 			ereport(LOG,
 					(errmsg("%s(%s) failed: %m", "getsockopt", "TCP_KEEPINTVL")));
-			port->default_keepalives_interval = -1; /* don't know */
+			port->default_keepalives_interval = -1; /* 不知道 */
 		}
 #else
-		/* We can't get the defaults on Windows, so return "don't know" */
+		/* 在 Windows 上我们无法取得默认值，因此返回 "不知道" */
 		port->default_keepalives_interval = -1;
 #endif							/* WIN32 */
 	}
@@ -1743,7 +1743,7 @@ pq_setkeepalivesinterval(int interval, Port *port)
 		if (pq_getkeepalivesinterval(port) < 0)
 		{
 			if (interval == 0)
-				return STATUS_OK;	/* default is set but unknown */
+				return STATUS_OK;	/* 默认值已设置但未知 */
 			else
 				return STATUS_ERROR;
 		}
@@ -1796,7 +1796,7 @@ pq_getkeepalivescount(Port *port)
 		{
 			ereport(LOG,
 					(errmsg("%s(%s) failed: %m", "getsockopt", "TCP_KEEPCNT")));
-			port->default_keepalives_count = -1;	/* don't know */
+			port->default_keepalives_count = -1;	/* 不知道 */
 		}
 	}
 
@@ -1821,7 +1821,7 @@ pq_setkeepalivescount(int count, Port *port)
 		if (pq_getkeepalivescount(port) < 0)
 		{
 			if (count == 0)
-				return STATUS_OK;	/* default is set but unknown */
+				return STATUS_OK;	/* 默认值已设置但未知 */
 			else
 				return STATUS_ERROR;
 		}
@@ -1871,7 +1871,7 @@ pq_gettcpusertimeout(Port *port)
 		{
 			ereport(LOG,
 					(errmsg("%s(%s) failed: %m", "getsockopt", "TCP_USER_TIMEOUT")));
-			port->default_tcp_user_timeout = -1;	/* don't know */
+			port->default_tcp_user_timeout = -1;	/* 不知道 */
 		}
 	}
 
@@ -1896,7 +1896,7 @@ pq_settcpusertimeout(int timeout, Port *port)
 		if (pq_gettcpusertimeout(port) < 0)
 		{
 			if (timeout == 0)
-				return STATUS_OK;	/* default is set but unknown */
+				return STATUS_OK;	/* 默认值已设置但未知 */
 			else
 				return STATUS_ERROR;
 		}
@@ -1927,32 +1927,32 @@ pq_settcpusertimeout(int timeout, Port *port)
 }
 
 /*
- * GUC assign_hook for tcp_keepalives_idle
+ * tcp_keepalives_idle 的 GUC assign_hook
  */
 void
 assign_tcp_keepalives_idle(int newval, void *extra)
 {
 	/*
-	 * The kernel API provides no way to test a value without setting it; and
-	 * once we set it we might fail to unset it.  So there seems little point
-	 * in fully implementing the check-then-assign GUC API for these
-	 * variables.  Instead we just do the assignment on demand.
-	 * pq_setkeepalivesidle reports any problems via ereport(LOG).
+	 * 内核 API 没有办法测试一个值而不去设置它；而且
+	 * 一旦设置了，我们可能无法再取消。因此对这些
+	 * 变量完整实现先检查再赋值的 GUC API
+	 * 似乎意义不大。我们改为按需赋值。
+	 * pq_setkeepalivesidle 通过 ereport(LOG) 报告任何问题。
 	 *
-	 * This approach means that the GUC value might have little to do with the
-	 * actual kernel value, so we use a show_hook that retrieves the kernel
-	 * value rather than trusting GUC's copy.
+	 * 这种方法意味着 GUC 值可能与实际内核值
+	 * 关系不大，因此我们使用 show_hook 来取得内核
+	 * 值，而不是信任 GUC 的副本。
 	 */
 	(void) pq_setkeepalivesidle(newval, MyProcPort);
 }
 
 /*
- * GUC show_hook for tcp_keepalives_idle
+ * tcp_keepalives_idle 的 GUC show_hook
  */
 const char *
 show_tcp_keepalives_idle(void)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	static char nbuf[16];
 
 	snprintf(nbuf, sizeof(nbuf), "%d", pq_getkeepalivesidle(MyProcPort));
@@ -1960,22 +1960,22 @@ show_tcp_keepalives_idle(void)
 }
 
 /*
- * GUC assign_hook for tcp_keepalives_interval
+ * tcp_keepalives_interval 的 GUC assign_hook
  */
 void
 assign_tcp_keepalives_interval(int newval, void *extra)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	(void) pq_setkeepalivesinterval(newval, MyProcPort);
 }
 
 /*
- * GUC show_hook for tcp_keepalives_interval
+ * tcp_keepalives_interval 的 GUC show_hook
  */
 const char *
 show_tcp_keepalives_interval(void)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	static char nbuf[16];
 
 	snprintf(nbuf, sizeof(nbuf), "%d", pq_getkeepalivesinterval(MyProcPort));
@@ -1983,22 +1983,22 @@ show_tcp_keepalives_interval(void)
 }
 
 /*
- * GUC assign_hook for tcp_keepalives_count
+ * tcp_keepalives_count 的 GUC assign_hook
  */
 void
 assign_tcp_keepalives_count(int newval, void *extra)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	(void) pq_setkeepalivescount(newval, MyProcPort);
 }
 
 /*
- * GUC show_hook for tcp_keepalives_count
+ * tcp_keepalives_count 的 GUC show_hook
  */
 const char *
 show_tcp_keepalives_count(void)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	static char nbuf[16];
 
 	snprintf(nbuf, sizeof(nbuf), "%d", pq_getkeepalivescount(MyProcPort));
@@ -2006,22 +2006,22 @@ show_tcp_keepalives_count(void)
 }
 
 /*
- * GUC assign_hook for tcp_user_timeout
+ * tcp_user_timeout 的 GUC assign_hook
  */
 void
 assign_tcp_user_timeout(int newval, void *extra)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	(void) pq_settcpusertimeout(newval, MyProcPort);
 }
 
 /*
- * GUC show_hook for tcp_user_timeout
+ * tcp_user_timeout 的 GUC show_hook
  */
 const char *
 show_tcp_user_timeout(void)
 {
-	/* See comments in assign_tcp_keepalives_idle */
+	/* 参见 assign_tcp_keepalives_idle 中的注释 */
 	static char nbuf[16];
 
 	snprintf(nbuf, sizeof(nbuf), "%d", pq_gettcpusertimeout(MyProcPort));
@@ -2029,7 +2029,7 @@ show_tcp_user_timeout(void)
 }
 
 /*
- * Check if the client is still connected.
+ * 检查客户端是否仍然连接着。
  */
 bool
 pq_check_connection(void)
@@ -2038,8 +2038,8 @@ pq_check_connection(void)
 	int			rc;
 
 	/*
-	 * It's OK to modify the socket event filter without restoring, because
-	 * all FeBeWaitSet socket wait sites do the same.
+	 * 修改套接字事件过滤器而不恢复是可以的，因为
+	 * 所有 FeBeWaitSet 套接字等待点都这样做。
 	 */
 	ModifyWaitEvent(FeBeWaitSet, FeBeWaitSetSocketPos, WL_SOCKET_CLOSED, NULL);
 
@@ -2052,10 +2052,10 @@ retry:
 		if (events[i].events & WL_LATCH_SET)
 		{
 			/*
-			 * A latch event might be preventing other events from being
-			 * reported.  Reset it and poll again.  No need to restore it
-			 * because no code should expect latches to survive across
-			 * CHECK_FOR_INTERRUPTS().
+			 * 锁存器事件可能妨碍其他事件被
+			 * 报告。重置它再轮询一次。不必恢复它，
+			 * 因为不应有代码预期锁存器能跨越
+			 * CHECK_FOR_INTERRUPTS() 继续存在。
 			 */
 			ResetLatch(MyLatch);
 			goto retry;

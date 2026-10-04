@@ -1115,6 +1115,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0041-comment-libpq-scram.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "note": "comment-only; pgindent index, translator and WIN32/ENABLE_GSS markers kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0042-comment-libpq-pqcomm.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3982,7 +3992,32 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 175,
+   "translated": 161,
+   "preserved": 14,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "INTERFACE ROUTINES pgindent block",
+    "translator comments",
+    "preprocessor markers"
+   ],
+   "note": "comment-only; pgindent index, translator and WIN32/ENABLE_GSS markers kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0042-comment-libpq-pqcomm.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, 8 smaller backend/libpq .c files, pqformat.c, be-fsstubs.c, be-secure-gssapi.c, be-secure-openssl.c, and auth-scram.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, hba.c, pqcomm.c. 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files except auth.c and hba.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, hba.c. 194 platform candidates still unapproved."
 }

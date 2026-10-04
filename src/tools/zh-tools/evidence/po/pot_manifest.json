@@ -1,0 +1,1081 @@
+{
+ "archive_dir": "/home/redstar/pg-builds/REL_16_11_pot-evidence",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "components": {
+  "ecpg": {
+   "active_key_sha256": "3edc7ce7985c7e7f4b9a2c75d503eac9eee49bcf979d6a7664c3fa18732c6167",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot",
+   "canonical_sha256": "ce5e1248d278ab4e34a8e213d1f39b5e2d36bdcfd845285351a41640f83aea6f",
+   "catalog": "ecpg",
+   "entries": 130,
+   "generated_inputs": {
+    "pgc": [
+     {
+      "exists": true,
+      "file": "pgc.c",
+      "listed_in_gettext_files": null,
+      "sha256": "491b7d82785ced92e86cd8eac437cb5339affa166b231a684247f118fbedc67a"
+     }
+    ],
+    "preproc": [
+     {
+      "exists": true,
+      "file": "preproc.c",
+      "listed_in_gettext_files": null,
+      "sha256": "6bd8fa0da751091c4986a005492d17a5f75f1da57f518857f723dd6249f612fa"
+     }
+    ]
+   },
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "ecpg (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/interfaces/ecpg/preproc init-po",
+   "nls_dir": "src/interfaces/ecpg/preproc",
+   "plural_entries": 1,
+   "po_dir": "src/interfaces/ecpg/preproc/po",
+   "required_references": {
+    "pgc": {
+     "candidates": [
+      "pgc.l"
+     ],
+     "found": [
+      "pgc.l"
+     ],
+     "pass": true
+    },
+    "preproc": {
+     "candidates": [
+      "preproc.y"
+     ],
+     "found": [
+      "preproc.y"
+     ],
+     "pass": true
+    }
+   },
+   "sha256": "89d4f9061096862309475db35aa1bac9a5944b20c09fd7ef61f434c7bdc70b53",
+   "size": 13455,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/interfaces/ecpg/preproc/po/ecpg.pot",
+   "with_msgctxt": 0
+  },
+  "ecpglib": {
+   "active_key_sha256": "5cd5bf0bba55e4d8887e1bbe7e4f5ec419e2fba9d860f13eb9d05c14771d267e",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot",
+   "canonical_sha256": "56a666dc58ef9f85ac1020bc9c826bf531a42ce0d910ecd68366b4cc4d4a86ec",
+   "catalog": "ecpglib",
+   "entries": 32,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "ecpglib (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/interfaces/ecpg/ecpglib init-po",
+   "nls_dir": "src/interfaces/ecpg/ecpglib",
+   "plural_entries": 0,
+   "po_dir": "src/interfaces/ecpg/ecpglib/po",
+   "sha256": "1203b902066be7e65aa63c8500a340967bc48af647ee93b8470d9af3a12725dc",
+   "size": 5239,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/interfaces/ecpg/ecpglib/po/ecpglib.pot",
+   "with_msgctxt": 0
+  },
+  "initdb": {
+   "active_key_sha256": "b7119093efe9cd0846a7637ebee5533f405efaeecb81693271600487505f2f23",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot",
+   "canonical_sha256": "c3797f668f562dbd36bd0bf40a2037cefc6e3171060dc3302b61e369c2913b41",
+   "catalog": "initdb",
+   "entries": 193,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "initdb (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/initdb init-po",
+   "nls_dir": "src/bin/initdb",
+   "plural_entries": 0,
+   "po_dir": "src/bin/initdb/po",
+   "sha256": "d5f496f0c614ae713ee4757ebc1f592d31f2059d6f9d6108bddcde7e741f1743",
+   "size": 21380,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/initdb/po/initdb.pot",
+   "with_msgctxt": 0
+  },
+  "libpq": {
+   "active_key_sha256": "8b62a16483ac2d7f7e896c1cdaaf10807646bec145809dd9b551d596367710f4",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot",
+   "canonical_sha256": "fadcedce98fea4e38f990407d1e700b27163b9f548a984a8b1bc35268118c422",
+   "catalog": "libpq",
+   "entries": 292,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "libpq (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/interfaces/libpq init-po",
+   "nls_dir": "src/interfaces/libpq",
+   "plural_entries": 2,
+   "po_dir": "src/interfaces/libpq/po",
+   "sha256": "864f85501503033a0e24f55bd6f47b08c04145dda4673ea488d8dccd3b979075",
+   "size": 31744,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/interfaces/libpq/po/libpq.pot",
+   "with_msgctxt": 0
+  },
+  "pg_amcheck": {
+   "active_key_sha256": "727e3f32ca8301cc59c8d51809dbc94dbaa37ef8d96ac7cf8ef97913db4fd977",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot",
+   "canonical_sha256": "4a91f37387dac067e42731ac3f4c27d3741593490201f51fdf28f9b218d2d13e",
+   "catalog": "pg_amcheck",
+   "entries": 97,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_amcheck (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_amcheck init-po",
+   "nls_dir": "src/bin/pg_amcheck",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_amcheck/po",
+   "sha256": "c00692f70037a6ab40b1365ea2685ee840db5fcc7b7e4ef9c33a46bd99e9639f",
+   "size": 10807,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_amcheck/po/pg_amcheck.pot",
+   "with_msgctxt": 0
+  },
+  "pg_archivecleanup": {
+   "active_key_sha256": "9201a9e9b1d74d80092626e590d2796fd4245b9efab0874b442885289c64c60a",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot",
+   "canonical_sha256": "487c9ad12ebabd91243adae361abaefcbcfe39d6dc5ad6f6bc6f6839795dd4ec",
+   "catalog": "pg_archivecleanup",
+   "entries": 27,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_archivecleanup (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_archivecleanup init-po",
+   "nls_dir": "src/bin/pg_archivecleanup",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_archivecleanup/po",
+   "sha256": "f30aeb86f1a258123f2f540eac58acd582971457d62c29fd7721c952f723d459",
+   "size": 3678,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_archivecleanup/po/pg_archivecleanup.pot",
+   "with_msgctxt": 0
+  },
+  "pg_basebackup": {
+   "active_key_sha256": "6d881771f4e0f92ae9bcd2786829e7089bed407a34676645debe59ee4f4f0884",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot",
+   "canonical_sha256": "3c2946038c3e5961729ee02460e3ba8103fb071c459823000327c293e8778912",
+   "catalog": "pg_basebackup",
+   "entries": 329,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_basebackup (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_basebackup init-po",
+   "nls_dir": "src/bin/pg_basebackup",
+   "plural_entries": 5,
+   "po_dir": "src/bin/pg_basebackup/po",
+   "sha256": "67a77123d1563c2689352b713eafda58702ee6538c9125cd29acff9fad82fd28",
+   "size": 39518,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_basebackup/po/pg_basebackup.pot",
+   "with_msgctxt": 0
+  },
+  "pg_checksums": {
+   "active_key_sha256": "0a76ba02d8739c034917935e221fdc714d99baa40c8e6d13b7cd10e51a24d964",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot",
+   "canonical_sha256": "201710980c077c7ed092764e8d78400cff4ab64f3f345ed3de850bbb3e29e57f",
+   "catalog": "pg_checksums",
+   "entries": 59,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_checksums (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_checksums init-po",
+   "nls_dir": "src/bin/pg_checksums",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_checksums/po",
+   "sha256": "268abee9c0e7a4cd677f10f3bd1dbfba8940caf69d3ede1e7e749192f9691da8",
+   "size": 6387,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_checksums/po/pg_checksums.pot",
+   "with_msgctxt": 0
+  },
+  "pg_config": {
+   "active_key_sha256": "94f7533844cc67b273f8016062772dd54003e59a5e76d24cc8f4cdc662ef4d7e",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot",
+   "canonical_sha256": "1f871e2c0a96d42eac4dfcaa91077262d5ddf7c1c0884f617605afbefee6497a",
+   "catalog": "pg_config",
+   "entries": 41,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_config (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_config init-po",
+   "nls_dir": "src/bin/pg_config",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_config/po",
+   "sha256": "bd42d76fabd411a6e1b6ddb4ceeddbd263f82a81066bb8ee3106f38c6d077916",
+   "size": 5299,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_config/po/pg_config.pot",
+   "with_msgctxt": 0
+  },
+  "pg_controldata": {
+   "active_key_sha256": "0ed1640f719320907455520730c17b41455f01ba4aebb6277be92b2348378eb2",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot",
+   "canonical_sha256": "88d9f3adc016fb09ba04de1acb07250702d6dab15da9f714b690c36d5df56021",
+   "catalog": "pg_controldata",
+   "entries": 92,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_controldata (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_controldata init-po",
+   "nls_dir": "src/bin/pg_controldata",
+   "plural_entries": 1,
+   "po_dir": "src/bin/pg_controldata/po",
+   "sha256": "4bad49f436348a4b6db90c21f628ee0f0ac1ab5762772847d8e650cb65af9806",
+   "size": 10042,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_controldata/po/pg_controldata.pot",
+   "with_msgctxt": 0
+  },
+  "pg_ctl": {
+   "active_key_sha256": "15789354f425ecabb723747a446c6fdc6b205e362ff60963eeab228e795c3a1f",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot",
+   "canonical_sha256": "94bfef5861b2d8935fa44bd9176122c10e7e4ecf5713a0637b7fb5d38457fc52",
+   "catalog": "pg_ctl",
+   "entries": 154,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_ctl (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_ctl init-po",
+   "nls_dir": "src/bin/pg_ctl",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_ctl/po",
+   "sha256": "4c3417ea2e1b3ad1392f7f19ee7226b7118fb2794b1f2e2ba286caed85c338d9",
+   "size": 16085,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_ctl/po/pg_ctl.pot",
+   "with_msgctxt": 0
+  },
+  "pg_dump": {
+   "active_key_sha256": "150962cc01b95fb29416bd72204ab0bb8568f84101da8c7c87522695a24494ec",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot",
+   "canonical_sha256": "f1a5119a06f9bdcca06f71564d4904a8569c6249027d20971e25177b0d25eec1",
+   "catalog": "pg_dump",
+   "entries": 529,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_dump (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_dump init-po",
+   "nls_dir": "src/bin/pg_dump",
+   "plural_entries": 7,
+   "po_dir": "src/bin/pg_dump/po",
+   "sha256": "8f17bcae5d43cd2f3f5a11371f336d634210a59492df7243558ce65e7158a331",
+   "size": 59667,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_dump/po/pg_dump.pot",
+   "with_msgctxt": 0
+  },
+  "pg_resetwal": {
+   "active_key_sha256": "23f62eced8efdb442d9c5d946d1739ebc28252158b8005842be6e228d5e0a688",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot",
+   "canonical_sha256": "f37aae6850bdbe4909c7f783c091961280858c6f33e98207f40a313be9cb6909",
+   "catalog": "pg_resetwal",
+   "entries": 116,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_resetwal (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_resetwal init-po",
+   "nls_dir": "src/bin/pg_resetwal",
+   "plural_entries": 1,
+   "po_dir": "src/bin/pg_resetwal/po",
+   "sha256": "61a179f0f555c7aec2a699b2492d17e29bf2fc59c88e05df1236777625b4f796",
+   "size": 13064,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_resetwal/po/pg_resetwal.pot",
+   "with_msgctxt": 0
+  },
+  "pg_rewind": {
+   "active_key_sha256": "cd56ded1160cd85f37b7990236fdbb0302f1dd831d99339dd6a4b2d59d590c0b",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot",
+   "canonical_sha256": "63fe29e7a9c6562cb4d7f5dc8e1eedf1a7929d087b84d18750be271f955085a9",
+   "catalog": "pg_rewind",
+   "entries": 186,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_rewind (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_rewind init-po",
+   "nls_dir": "src/bin/pg_rewind",
+   "plural_entries": 1,
+   "po_dir": "src/bin/pg_rewind/po",
+   "sha256": "2a8b099cbe29796d0f82f0a91c6791dfe921fc6b01b100161cf13051ed47e54a",
+   "size": 20691,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_rewind/po/pg_rewind.pot",
+   "with_msgctxt": 0
+  },
+  "pg_test_fsync": {
+   "active_key_sha256": "ed35620a7c8731dc24d71c715b3cd7c3ac8cd3880dfcfbede2b8b541d2686e44",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot",
+   "canonical_sha256": "19a683f4f504e9a9c0fe86e15e65cfa454c4bdf889f4b65cad1531c730ab2fe3",
+   "catalog": "pg_test_fsync",
+   "entries": 35,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_test_fsync (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_test_fsync init-po",
+   "nls_dir": "src/bin/pg_test_fsync",
+   "plural_entries": 1,
+   "po_dir": "src/bin/pg_test_fsync/po",
+   "sha256": "908739eb5ac45ec1d84e637ee6df6438856eee526640040dd9640239373da2e9",
+   "size": 4601,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_test_fsync/po/pg_test_fsync.pot",
+   "with_msgctxt": 0
+  },
+  "pg_test_timing": {
+   "active_key_sha256": "1fc1a35a8e73ea2a5b89330639f4c6cbc28fe5ea1e5671a3df7f854c5e233d05",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot",
+   "canonical_sha256": "73dcca4b993acb3b697b5c0c637ca0d1fd514ed2b7f1c6e375a192f42862506b",
+   "catalog": "pg_test_timing",
+   "entries": 13,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_test_timing (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_test_timing init-po",
+   "nls_dir": "src/bin/pg_test_timing",
+   "plural_entries": 1,
+   "po_dir": "src/bin/pg_test_timing/po",
+   "sha256": "ff95bb4474596de820010e54fe284724c1a3a46ac251ad11a5de86c786d1f9c8",
+   "size": 1937,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_test_timing/po/pg_test_timing.pot",
+   "with_msgctxt": 0
+  },
+  "pg_upgrade": {
+   "active_key_sha256": "f1dfc69abb6384a393014eda14f515c3904760777b0900746a6481f7426105f0",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot",
+   "canonical_sha256": "ddff9195c8c9d95303876cce202f1eee86d13c3394ebfec3f83e2d9543aaedeb",
+   "catalog": "pg_upgrade",
+   "entries": 277,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_upgrade (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_upgrade init-po",
+   "nls_dir": "src/bin/pg_upgrade",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_upgrade/po",
+   "sha256": "48eddb0ac83e0f3acf441c8a87ef08ee27801521b258396a3caab3c1b1f4dd90",
+   "size": 35823,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_upgrade/po/pg_upgrade.pot",
+   "with_msgctxt": 0
+  },
+  "pg_verifybackup": {
+   "active_key_sha256": "274f1d9cc9ad988fb2d277a92480901ffbcfd12c6f5c36598aeb3319feb96ceb",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot",
+   "canonical_sha256": "5800102195be1c13be155160eec129e4a614dca283efbaa18f020c44d23bc5c4",
+   "catalog": "pg_verifybackup",
+   "entries": 104,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pg_verifybackup (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_verifybackup init-po",
+   "nls_dir": "src/bin/pg_verifybackup",
+   "plural_entries": 0,
+   "po_dir": "src/bin/pg_verifybackup/po",
+   "sha256": "506c27925f5655509411b125d5cc849d8ec644e7583ddc9a0739d36ed67ad292",
+   "size": 10399,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_verifybackup/po/pg_verifybackup.pot",
+   "with_msgctxt": 0
+  },
+  "pg_waldump": {
+   "active_key_sha256": "901b4a6f1d09cf99b8c5ca22b6444b0faa7fd83157b6634ac0b8e61bfa1a4003",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot",
+   "canonical_sha256": "5b1c7b4ee8b50a7c8f1f2b5c0234d24bcc7a75de70d11c274e9651f2d001bcc1",
+   "catalog": "pg_waldump",
+   "entries": 100,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pg_waldump (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/pg_waldump init-po",
+   "nls_dir": "src/bin/pg_waldump",
+   "plural_entries": 2,
+   "po_dir": "src/bin/pg_waldump/po",
+   "sha256": "3e8d33955816d8d103ce8c2483f01aec7d04b49d4f426055caac2da6eb366ce1",
+   "size": 11785,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/pg_waldump/po/pg_waldump.pot",
+   "with_msgctxt": 0
+  },
+  "pgscripts": {
+   "active_key_sha256": "b430584b5f103c3b86044ca3a166b6b69005991d21aeb70306895d1ebd1edc50",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot",
+   "canonical_sha256": "fec0c44137f468bc980f7cb67bc645da92081185b519a6a5a67030c34bd48712",
+   "catalog": "pgscripts",
+   "entries": 231,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "pgscripts (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/scripts init-po",
+   "nls_dir": "src/bin/scripts",
+   "plural_entries": 2,
+   "po_dir": "src/bin/scripts/po",
+   "sha256": "99d3ac3ab8e8a7933084ee63c5b40ee9a4f0536e5dd036570723bd6c8cf13889",
+   "size": 27502,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/scripts/po/pgscripts.pot",
+   "with_msgctxt": 0
+  },
+  "plperl": {
+   "active_key_sha256": "5d1eea05ecc728723dc6adcd581c2055bd558a042b1c1b70ef078c8420ade681",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot",
+   "canonical_sha256": "6c5a17295ad64d1878d8b4b51d9f34cdacc34e5390fbac433a7f7cae4018082d",
+   "catalog": "plperl",
+   "entries": 42,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "plperl (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/pl/plperl init-po",
+   "nls_dir": "src/pl/plperl",
+   "plural_entries": 0,
+   "po_dir": "src/pl/plperl/po",
+   "sha256": "0e4025fd896416a58326f02626f0c01a69843fea2ccaa2bd6a8ce40881548e30",
+   "size": 4899,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/pl/plperl/po/plperl.pot",
+   "with_msgctxt": 0
+  },
+  "plpgsql": {
+   "active_key_sha256": "26d100ed452101a18e15b7d0a6e5ffc0e14e293581bce2089e32fc8cbaa80e29",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot",
+   "canonical_sha256": "9b8d5bdf252943d4918f5edba2196002fbea9f3a214a021a1f728d87f70e1cf9",
+   "catalog": "plpgsql",
+   "entries": 171,
+   "generated_inputs": {
+    "pl_gram": [
+     {
+      "exists": true,
+      "file": "pl_gram.c",
+      "listed_in_gettext_files": null,
+      "sha256": "2f95e8d3f78368f380b2d3d01925f85efcea7a434b2804c66e09d3a20c4464c4"
+     }
+    ]
+   },
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "plpgsql (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/pl/plpgsql/src init-po",
+   "nls_dir": "src/pl/plpgsql/src",
+   "plural_entries": 1,
+   "po_dir": "src/pl/plpgsql/src/po",
+   "required_references": {
+    "pl_gram": {
+     "candidates": [
+      "pl_gram.y"
+     ],
+     "found": [
+      "pl_gram.y"
+     ],
+     "pass": true
+    }
+   },
+   "sha256": "8d2b164a15dd5b5c19360ecc6a5088fccd27b20a187287f1a016bb68ab57a8d3",
+   "size": 17909,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/pl/plpgsql/src/po/plpgsql.pot",
+   "with_msgctxt": 0
+  },
+  "plpython": {
+   "active_key_sha256": "884864a2109f0c06bc9002c0aca83a4328b286e18e7d3d3b0830085d156653f3",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot",
+   "canonical_sha256": "d3dadd4469fc12eb457b3b36f94481e76f30c9aefca07c60adac1f293d165a02",
+   "catalog": "plpython",
+   "entries": 86,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "plpython (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/pl/plpython init-po",
+   "nls_dir": "src/pl/plpython",
+   "plural_entries": 1,
+   "po_dir": "src/pl/plpython/po",
+   "sha256": "d0e3e6faf860dfa2a68f117f067206bc67f066ad3e6f7b3acf68285af15fc34a",
+   "size": 9685,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/pl/plpython/po/plpython.pot",
+   "with_msgctxt": 0
+  },
+  "pltcl": {
+   "active_key_sha256": "9976eecbc070d302f36aff7a950ada7a2df84694697302903dba7ea534812fd9",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot",
+   "canonical_sha256": "c002fae5c1fe87ce40ccfa1fe6a59907f4de51457c6f1594b8697a9ccabedc2f",
+   "catalog": "pltcl",
+   "entries": 20,
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Project-Id-Version": "pltcl (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/pl/tcl init-po",
+   "nls_dir": "src/pl/tcl",
+   "plural_entries": 0,
+   "po_dir": "src/pl/tcl/po",
+   "sha256": "aca1dab66349e71a3ee21a8a73b6681c440be8b5b7d0f8b4775a358e2f891278",
+   "size": 2551,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/pl/tcl/po/pltcl.pot",
+   "with_msgctxt": 0
+  },
+  "postgres": {
+   "active_key_sha256": "a068b6ac7051a4ec56d329cfa0ff2b30aa0d1f58d576fb7474b3620b81b91f1b",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot",
+   "canonical_sha256": "7259dfeb3bf540944049b9913613f59182f7056190af4384fed39ca9e7b93e19",
+   "catalog": "postgres",
+   "entries": 5878,
+   "generated_inputs": {
+    "boot": [
+     {
+      "exists": true,
+      "file": "bootstrap/bootparse.c",
+      "listed_in_gettext_files": true,
+      "sha256": "cf3c5c13da886c09d6aab93adb37edfe9a7dcaa95583c2b6b7ec485cef3ed961"
+     },
+     {
+      "exists": true,
+      "file": "bootstrap/bootscanner.c",
+      "listed_in_gettext_files": true,
+      "sha256": "5bbcd51b3f6e512f0ed6ca39de1b8ace3a5b3f7f7adb80210c477d8cbe7e9c74"
+     }
+    ],
+    "gram": [
+     {
+      "exists": true,
+      "file": "parser/gram.c",
+      "listed_in_gettext_files": true,
+      "sha256": "48b318488925c90930268f42a02c84c370fd992dd519d7f69ce49f9c50928f37"
+     }
+    ],
+    "guc-file": [
+     {
+      "exists": true,
+      "file": "utils/misc/guc-file.c",
+      "listed_in_gettext_files": true,
+      "sha256": "669baeb5a9a8f15575ec12f8d297ddc5c2d1a091548b5f45f9c5608d83be0436"
+     }
+    ],
+    "jsonpath": [
+     {
+      "exists": true,
+      "file": "utils/adt/jsonpath_gram.c",
+      "listed_in_gettext_files": true,
+      "sha256": "f703494460da87fa6ff7e3076f55768ec44e5143c06d5b438c60f8b9fe7ab607"
+     },
+     {
+      "exists": true,
+      "file": "utils/adt/jsonpath_scan.c",
+      "listed_in_gettext_files": true,
+      "sha256": "662622cfe96e161001578f1a170fd3677e652a1887344fd448b0f0dea3912805"
+     }
+    ],
+    "repl": [
+     {
+      "exists": true,
+      "file": "replication/repl_gram.c",
+      "listed_in_gettext_files": true,
+      "sha256": "19a2c29ed1190bcdb0594af3b03fe9be9b9ba5020e0088ed474badd66973a2d6"
+     },
+     {
+      "exists": true,
+      "file": "replication/repl_scanner.c",
+      "listed_in_gettext_files": true,
+      "sha256": "cdad656c245b4587405818b4b8cee0790cffd336f854cfd7081aa2821bfc50b2"
+     }
+    ],
+    "scan": [
+     {
+      "exists": true,
+      "file": "parser/scan.c",
+      "listed_in_gettext_files": true,
+      "sha256": "2d4e614782652ed931212b793f1d25b7f7f5e30733be377684be27edd609a805"
+     }
+    ],
+    "syncrep": [
+     {
+      "exists": true,
+      "file": "replication/syncrep_gram.c",
+      "listed_in_gettext_files": true,
+      "sha256": "b10870aa845e1b9727d4717c879fa0365c3d61129f15b1bfd9aca623cb17460e"
+     },
+     {
+      "exists": true,
+      "file": "replication/syncrep_scanner.c",
+      "listed_in_gettext_files": true,
+      "sha256": "ed7fc11d3e2522c709fc8d820720222380f8a9f5681476445de881d2ff2c3066"
+     }
+    ]
+   },
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "postgres (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/backend init-po",
+   "nls_dir": "src/backend",
+   "plural_entries": 42,
+   "po_dir": "src/backend/po",
+   "required_references": {
+    "gram": {
+     "candidates": [
+      "gram.y"
+     ],
+     "found": [
+      "gram.y"
+     ],
+     "pass": true
+    },
+    "guc-file": {
+     "candidates": [
+      "guc-file.l"
+     ],
+     "found": [
+      "guc-file.l"
+     ],
+     "pass": true
+    },
+    "jsonpath": {
+     "candidates": [
+      "jsonpath_gram.y",
+      "jsonpath_scan.l"
+     ],
+     "found": [
+      "jsonpath_gram.y",
+      "jsonpath_scan.l"
+     ],
+     "pass": true
+    },
+    "repl": {
+     "candidates": [
+      "repl_gram.y",
+      "repl_scanner.l"
+     ],
+     "found": [
+      "repl_gram.y",
+      "repl_scanner.l"
+     ],
+     "pass": true
+    },
+    "scan": {
+     "candidates": [
+      "scan.l"
+     ],
+     "found": [
+      "scan.l"
+     ],
+     "pass": true
+    }
+   },
+   "sha256": "16453217fc375fe7c9b48a42f7de943259310953b6303a405e194aa09633796f",
+   "size": 746555,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/backend/po/postgres.pot",
+   "with_msgctxt": 0
+  },
+  "psql": {
+   "active_key_sha256": "e0bfdb3493cbf7a6addb47369e07ef071f65ca300c916d01f97200b57375c933",
+   "archived": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot",
+   "canonical_sha256": "75a010bd13703a61cd3efa19da3b6da1affb1d905fb7e38da748f22c89bd5382",
+   "catalog": "psql",
+   "entries": 1342,
+   "generated_inputs": {
+    "sql_help": [
+     {
+      "exists": true,
+      "file": "sql_help.c",
+      "listed_in_gettext_files": null,
+      "sha256": "7ed6c4b4e8580d368adb91a30ab5adf7d30610f5affe312e447eaadef6b2085f"
+     },
+     {
+      "exists": true,
+      "file": "sql_help.h",
+      "listed_in_gettext_files": null,
+      "sha256": "1853cac5dddef301121a3736d06d027e9d6cac04312088f24a0d995c676a175b"
+     }
+    ]
+   },
+   "header": {
+    "Content-Transfer-Encoding": "8bit",
+    "Content-Type": "text/plain; charset=CHARSET",
+    "Language": "",
+    "Language-Team": "LANGUAGE <LL@li.org>",
+    "Last-Translator": "FULL NAME <EMAIL@ADDRESS>",
+    "MIME-Version": "1.0",
+    "PO-Revision-Date": "2026-MO-DA HO:MI+ZONE",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=INTEGER; plural=EXPRESSION;",
+    "Project-Id-Version": "psql (PostgreSQL) 16",
+    "Report-Msgid-Bugs-To": "pgsql-bugs@lists.postgresql.org"
+   },
+   "init_po_command": "make -j1 -w -C src/bin/psql init-po",
+   "nls_dir": "src/bin/psql",
+   "plural_entries": 3,
+   "po_dir": "src/bin/psql/po",
+   "required_references": {
+    "sql_help": {
+     "candidates": [
+      "sql_help.c",
+      "sql_help.h"
+     ],
+     "found": [
+      "sql_help.c"
+     ],
+     "pass": true
+    }
+   },
+   "sha256": "5377e17362e8f6b745ebe6f27dc33adb61651c8e00f0c22226f714977efff843",
+   "size": 132206,
+   "source": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot/src/bin/psql/po/psql.pot",
+   "with_msgctxt": 0
+  }
+ },
+ "configure_args": "'--prefix=/home/redstar/pg-builds/REL_16_11_pot-install' '--enable-depend' '--enable-nls' '--enable-tap-tests' '--enable-cassert' '--enable-debug' '--enable-dtrace' '--with-perl' '--with-python' '--with-openssl' '--with-gssapi' '--with-ldap' '--with-pam' '--with-uuid=e2fs' '--with-libxml' '--with-libxslt' '--with-lz4' '--with-icu' '--with-selinux' 'CC=/usr/bin/gcc' 'CXX=/usr/bin/g++'",
+ "generated_utc": "2026-10-04T13:46:19Z",
+ "logs": {
+  "configure.log": {
+   "sha256": "a828b304c31185282622ef8125656e5926c82ff58dbf463ecd0d4df844247afc",
+   "size": 19337
+  },
+  "init-po.src_backend.log": {
+   "sha256": "89cf99cb9afdc8123f47a9d7634f61cc67c6e06fb4bb75883688efd30bf507b5",
+   "size": 9973
+  },
+  "init-po.src_bin_initdb.log": {
+   "sha256": "10e317d530b3b949ceb189bc6ff66bcb201510b192f5dd27554860cee499037e",
+   "size": 1597
+  },
+  "init-po.src_bin_pg_amcheck.log": {
+   "sha256": "b7c7d7c9d1f0db5d095d19c5efad0144aea877003df3e5d2e9e6a284bb59c7e4",
+   "size": 1529
+  },
+  "init-po.src_bin_pg_archivecleanup.log": {
+   "sha256": "98bd4e92ab003fa82eec1a0fca20a3c59db5c52aff2126a502f95ec150704a30",
+   "size": 1411
+  },
+  "init-po.src_bin_pg_basebackup.log": {
+   "sha256": "4e2173b7692845f003a6901908fbbf47a86b58a6d7e9aea57bb9c7231009d7e5",
+   "size": 1723
+  },
+  "init-po.src_bin_pg_checksums.log": {
+   "sha256": "6f40c2602ba2fca30ce47521dd35a868bc27a8c137978be1b99c66f6fbb4daf2",
+   "size": 1411
+  },
+  "init-po.src_bin_pg_config.log": {
+   "sha256": "109bebad2fcb0560926da583cd33a00fbe242248b1308de6d3b548607f06efcf",
+   "size": 742
+  },
+  "init-po.src_bin_pg_controldata.log": {
+   "sha256": "a96a70010822405b714bf8b215c7ceede2507d7e9ae146c3e8fa873123fa181d",
+   "size": 1396
+  },
+  "init-po.src_bin_pg_ctl.log": {
+   "sha256": "dc811983c83d0803de051af4957251734772793a24548811b96700fd8b0ef89d",
+   "size": 768
+  },
+  "init-po.src_bin_pg_dump.log": {
+   "sha256": "9cba167f9545edccc9883aec7801c25861dc5bde18410abe01926342ff40ba9e",
+   "size": 1892
+  },
+  "init-po.src_bin_pg_resetwal.log": {
+   "sha256": "e7582be5c7d077c10a17daa60cda6b36f08d21b803097bcad0b21ae99a83f4fb",
+   "size": 1407
+  },
+  "init-po.src_bin_pg_rewind.log": {
+   "sha256": "3d57e57295336588482f2b6f75c510af6ecda458a5e92cc8aefabf58d31fe54c",
+   "size": 1750
+  },
+  "init-po.src_bin_pg_test_fsync.log": {
+   "sha256": "248133af30d3d981abbcf803205ee9e2549823c55098224c591dbfe1c5fbf801",
+   "size": 1393
+  },
+  "init-po.src_bin_pg_test_timing.log": {
+   "sha256": "88128d5127793bde6d24c8c862eff737890571575d7536ff568cdc9b4a4bd209",
+   "size": 725
+  },
+  "init-po.src_bin_pg_upgrade.log": {
+   "sha256": "05423294691c18a354414bfbde25b036619f090d6504050ada8fe399f2ebdf90",
+   "size": 1067
+  },
+  "init-po.src_bin_pg_verifybackup.log": {
+   "sha256": "da5a5370f21368e519f889bb64ac3e84f1404eefa28492b3278114e924ab8d22",
+   "size": 1658
+  },
+  "init-po.src_bin_pg_waldump.log": {
+   "sha256": "29afccba74fa02eb5d58f54b4d8d1634ee7912d72049dd9c2389b130f607f772",
+   "size": 1616
+  },
+  "init-po.src_bin_psql.log": {
+   "sha256": "5952e1d60fee6f63a015232e85774caea3ea05a0a89cde7de86d95e59426b744",
+   "size": 2080
+  },
+  "init-po.src_bin_scripts.log": {
+   "sha256": "2138bb8e249bc1bc63f87d5670dc96d8c1f0d2548ab98233f54c8ed92904017b",
+   "size": 1698
+  },
+  "init-po.src_interfaces_ecpg_ecpglib.log": {
+   "sha256": "301ef2653a43f97ecfa524e984dda0b9dcdb7ee6b6d71d427c29716d95bdd7d2",
+   "size": 796
+  },
+  "init-po.src_interfaces_ecpg_preproc.log": {
+   "sha256": "ac342752034bd66b67664eb38455741b063c1d9c53708c76193000a09f18e2ac",
+   "size": 1089
+  },
+  "init-po.src_interfaces_libpq.log": {
+   "sha256": "95c991cdaf909e90889bdeb702f452cf65ec6237ee224c42c80f6bcd6e65b114",
+   "size": 1214
+  },
+  "init-po.src_pl_plperl.log": {
+   "sha256": "3cd35d06c2f48100b3019f568af2b37fcf8f51d5beb7c863821c6850f67ef84c",
+   "size": 1974
+  },
+  "init-po.src_pl_plpgsql_src.log": {
+   "sha256": "1f88502f8cd419166e616ebf822e902d5269fff89b6b96ad1bc410442bbec063",
+   "size": 2007
+  },
+  "init-po.src_pl_plpython.log": {
+   "sha256": "0e5a07ee9b0327ba79a5ed4e478981d5445d7b4a42af2d4db8f41e99237b1065",
+   "size": 2253
+  },
+  "init-po.src_pl_tcl.log": {
+   "sha256": "f4aa55d5ef004b99ff473b21ab7e761a6eb368c2e651a01cdbae91a9e881a8f9",
+   "size": 1840
+  },
+  "init-po.summary": {
+   "sha256": "889657437ae558860b9f3fbb8776dccd7db7cd7e32c773b797e50f7095e40ebd",
+   "size": 893
+  }
+ },
+ "n_components": 26,
+ "pass": true,
+ "pot_worktree": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot",
+ "pot_worktree_head": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "probe": {
+  "cases": 6,
+  "pass": true
+ },
+ "problems": [],
+ "tool": "po_sync.py archive",
+ "tools_version": "0.2.1",
+ "versions": {
+  "bison": "bison (GNU Bison) 3.8.2",
+  "flex": "flex 2.6.4",
+  "make": "GNU Make 4.3",
+  "msgattrib": "msgattrib (GNU gettext-tools) 0.21.1",
+  "msgcmp": "msgcmp (GNU gettext-tools) 0.21.1",
+  "msgfmt": "msgfmt (GNU gettext-tools) 0.21.1",
+  "msgmerge": "msgmerge (GNU gettext-tools) 0.21.1",
+  "perl": "v5.34.0",
+  "xgettext": "xgettext (GNU gettext-tools) 0.21.1"
+ }
+}

@@ -1,0 +1,79 @@
+{
+ "cases": [
+  {
+   "case": "clean",
+   "entries_in_stdout": 0,
+   "expected_entries": 0,
+   "flag": "--only-fuzzy",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 0
+  },
+  {
+   "case": "clean",
+   "entries_in_stdout": 0,
+   "expected_entries": 0,
+   "flag": "--untranslated",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 0
+  },
+  {
+   "case": "one_fuzzy",
+   "entries_in_stdout": 1,
+   "expected_entries": 1,
+   "flag": "--only-fuzzy",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 156
+  },
+  {
+   "case": "one_fuzzy",
+   "entries_in_stdout": 0,
+   "expected_entries": 0,
+   "flag": "--untranslated",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 0
+  },
+  {
+   "case": "one_untranslated",
+   "entries_in_stdout": 1,
+   "expected_entries": 1,
+   "flag": "--untranslated",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 144
+  },
+  {
+   "case": "one_untranslated",
+   "entries_in_stdout": 0,
+   "expected_entries": 0,
+   "flag": "--only-fuzzy",
+   "pass": true,
+   "rc": 0,
+   "stderr": "",
+   "stdout_bytes": 0
+  }
+ ],
+ "generated_utc": "2026-10-04T13:43:43Z",
+ "pass": true,
+ "tool": "po_sync.py probe",
+ "tools_version": "0.2.1",
+ "versions": {
+  "bison": "bison (GNU Bison) 3.8.2",
+  "flex": "flex 2.6.4",
+  "make": "GNU Make 4.3",
+  "msgattrib": "msgattrib (GNU gettext-tools) 0.21.1",
+  "msgcmp": "msgcmp (GNU gettext-tools) 0.21.1",
+  "msgfmt": "msgfmt (GNU gettext-tools) 0.21.1",
+  "msgmerge": "msgmerge (GNU gettext-tools) 0.21.1",
+  "perl": "v5.34.0",
+  "xgettext": "xgettext (GNU gettext-tools) 0.21.1"
+ }
+}

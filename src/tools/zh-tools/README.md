@@ -18,9 +18,11 @@
 | `term_lint.py` | 保守术语检查：读取 pgnls `ref/phrasebook.tsv`（`status=decided` 且有 `zh_forbidden`）、`ref/glossary.tsv` 中"译文=原文"的保留词，以及 `term_rules.json`；只报告"英文命中且中文命中禁用译法"或"保留词丢失"的明确命中；规则分 `error`/`warning` 两级，只有 `error` 硬失败；支持带理由的 allowlist；不做任何自动替换 |
 | `gen_baseline.py` | 从只读基线 worktree 冻结保护数据：`baseline/baseline.json`、`baseline/doc_snapshot.json`、`baseline/perl_protected.json`；`--verify` 可重新生成并与已提交数据比对。快照与 Perl 比对的文件读取均经 `os.open(O_NOFOLLOW)` + `fstat`，哈希前后复核 dev/ino/size/mode/mtime；普通文件的 perm/mode/size/sha256 全部取自同一个哈希 fd 的 fstat，不混用打开前的 lstat；symlink 只记录 link target 不跟随 |
 | `make_evidence.py` | GNU Make 基线证据链 CLI：`environment`（机器/工具/locale/文件系统探测）、`configure`（全新源码树外 VPATH builddir）、`make NAME`（按 `frozen_config.json` 的 capture target 以 `-j1 -w` 捕获日志）、`check-world`（固定 `-j8 -k -Orecurse -w`，结构化结果）、`resummarize`（日志 SHA 不变时重新派生摘要）、`collect`（`.o/.Po/argv` 三方闭合 + flagset 模板）、`replay ROOT [--compare]`（`-E -P -MMD` 回放，token 哈希）、`freeze`（校验全部证据一致——含仓库外 make 捕获日志、`configure.log`、`config.log`、check-world 日志的 SHA-256——后写 `cc_evidence/baseline.json`）、`freeze --verify`（只读：从磁盘证据重算 baseline 与平台候选表并与已提交文件比对，不写任何文件）。平台例外候选在两种模式下都只做分类报告，从不审批 |
-| `zhtools/` | 共享库：`c_lexer`（词法）、`c_verify`（规则）、`gitutil`、`protection`（快照/Perl 集）、`manifest`（schema v1 与 glob）、`termlint`、`evidence_run`（冻结环境进程运行/日志 SHA/目录权限探针）、`makelog`（`-w` 日志解析、危险 shell 拒绝、闭合）、`ccreplay`（argv 改写、路径分类、token/depfile 规范化、cache key、freeze）、`checkworld`（check-world 结构化解析）、`cc_check`（`--cc-check` 判定） |
-| `manifests/` | `SCHEMA.md`（manifest schema v1）、`scope_template.json`（模板）、`batch-NNNN-*.json`（每批一份） |
-| `evidence/` | 冻结输入 `frozen_config.json`、人读说明 `environment.md`，以及 `make_evidence.py` 写出的 `environment.json`、`configure.json`、`make_*.json`、`check_world.json`、`replay_compare_*.json`（大日志留在仓库外，只记路径与 SHA-256） |
+| `po_sync.py` | `zh_CN.po` 门禁（计划第 3 步）：`probe`（msgattrib `--only-fuzzy/--untranslated` 无匹配时 stdout 零字节的正反探针）、`archive`（把一次性 in-tree worktree 中 26 个 `make -C <dir> init-po` 生成的 POT 复制到仓库外，记录原始 SHA-256、去 `POT-Creation-Date` 的规范 hash、active-key hash、条目数、命令和 gettext/bison/flex/perl 版本，并硬检查 POT 引用与生成源输入）、`merge`（规定管线 `msgmerge --quiet --no-wrap --previous --sort-by-file --lang=zh_CN [-C 补译] <pgnls.po> <pot>` → `msgattrib --no-obsolete --no-wrap`；先无补译跑一遍记录 gettext 自身留下的 fuzzy/未译，再以 `po_supplement/<catalog>.po` 为精确匹配 compendium 跑第二遍；仅当补译键在 pgnls 中只以 `#~` 过时条目存在时才做第三步覆盖并由 msgattrib 重新序列化）、`check`（`msgfmt --check --check-format --statistics`、`msgcmp`、零字节证明 + 独立解析的 0 fuzzy/0 未译/无 obsolete、无重复 active key、复数完整、header `Language: zh_CN`/UTF-8/`Plural-Forms`、active key 集合与 POT 相同、补译条目逐条被使用且带 `# zh-review-pending` 标记；`--pgnls` 时对补译跑 `term_lint.py --po` 作门禁、对整文件只做信息报告）、`report`（pgnls↔POT↔结果的新增/obsolete/pass1 fuzzy/未译/补译/与 REL_16_11 基线差异及待复核清单） |
+| `po_supplement/` | 手工补译（compendium）：仅含 REL_16_11 POT 中 pgnls `zh_CN/REL_16_STABLE` 没有精确译文的消息；每条带 `# zh-review-pending` 译者注释说明来源与依据，直到 GPT 100% 复核 |
+| `zhtools/` | 共享库：`c_lexer`（词法）、`c_verify`（规则）、`gitutil`、`protection`（快照/Perl 集）、`manifest`（schema v1 与 glob）、`termlint`、`evidence_run`（冻结环境进程运行/日志 SHA/目录权限探针）、`makelog`（`-w` 日志解析、危险 shell 拒绝、闭合）、`ccreplay`（argv 改写、路径分类、token/depfile 规范化、cache key、freeze）、`checkworld`（check-world 结构化解析）、`cc_check`（`--cc-check` 判定）、`potools`（机械 PO 读取：键集合、重复、复数、header、规范/active-key hash、覆盖拼接；不模拟 gettext） |
+| `manifests/` | `SCHEMA.md`（manifest schema v1）、`scope_template.json`（模板）、`batch-NNNN-*.json`（每批一份）、`cumulative.json`（自 REL_16_11 以来全部改动的累计 manifest，供最终验收） |
+| `evidence/` | 冻结输入 `frozen_config.json`、人读说明 `environment.md`，以及 `make_evidence.py` 写出的 `environment.json`、`configure.json`、`make_*.json`、`check_world.json`、`replay_compare_*.json`（大日志留在仓库外，只记路径与 SHA-256）；`evidence/po/` 为 `po_sync.py` 的 `msgattrib_probe.json`、`pot_manifest.json`、`po_merge.json`、`po_check.json`、`po_sync_report.json`（POT 本体与 init-po 日志留在仓库外 `/home/redstar/pg-builds/REL_16_11_pot-evidence`） |
 | `cc_evidence/` | `--cc-check` 证据：`baseline.json`（schema v2，含不可分割 cache key 与基线失败集）、`closure.json`、`commands.jsonl`、`flagsets.json`、`tokens.jsonl`、`replay_base.json`、`platform_exceptions_candidates.json`；规则见其 `README.md`、字段见 `schema.json` |
 | `tests/` | `unittest` 套件与固定正例/负例（`tests/fixtures/`） |
 | `run_tests.py` | 运行全部测试 |
@@ -120,6 +122,35 @@ python3 $T/term_lint.py --po src/backend/po/zh_CN.po --pgnls /Users/niejinbo/wor
 # 重新核对基线数据
 python3 $T/gen_baseline.py --base-worktree ../REL_16_11_base --pgnls /Users/niejinbo/work/code/pg/pgsty/pgnls --verify
 ```
+
+### PO 同步（计划第 3 步）
+
+```sh
+PG=/Users/niejinbo/work/code/pg/pgsty/pgnls
+POT_WT=/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_pot
+POT_EV=/home/redstar/pg-builds/REL_16_11_pot-evidence
+
+# 1. 一次性 detached worktree + in-tree configure（参数与 evidence/frozen_config.json 一致，prefix 放仓库外）
+git -C /Users/niejinbo/work/code/pg/postgres worktree add --detach $POT_WT REL_16_11
+(cd $POT_WT && env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 HOME=$HOME \
+   ./configure --prefix=/home/redstar/pg-builds/REL_16_11_pot-install --enable-depend --enable-nls ... )
+# 2. 逐目录 init-po（禁止顶层 distprep/init-po，禁止在 zh worktree 生成 POT）
+(cd $POT_WT && for d in $(git ls-files | grep 'nls\.mk$' | xargs -n1 dirname); do make -j1 -w -C $d init-po; done)
+# 3. 探针、归档、合并、门禁、报告（均在 zh worktree 内运行）
+python3 $T/po_sync.py probe
+python3 $T/po_sync.py archive --pot-worktree $POT_WT --out $POT_EV
+python3 $T/po_sync.py merge  --pgnls $PG
+python3 $T/po_sync.py check  --pgnls $PG
+python3 $T/po_sync.py report --pgnls $PG
+# 4. 归档 hash 确认后删除临时 worktree
+git -C /Users/niejinbo/work/code/pg/postgres worktree remove --force $POT_WT && git worktree prune
+```
+
+`merge` 是确定性的：输入（pgnls SHA、归档 POT、`po_supplement/`、gettext 版本）不变则 26 个
+`zh_CN.po` 逐字节相同。出现新的 fuzzy/未译时，不得保留英文或模糊译文：在
+`po_supplement/<catalog>.po` 增加带 `# zh-review-pending: <依据>` 注释的精确条目，重新
+`merge`/`check`。pgnls 本身的译文是术语权威，`check --pgnls` 对它们只报告 term_lint 命中数，
+对补译条目则要求 0 error。
 
 `verify_c_comments.py` 规则 ID（R1 骨架、R2 类型、R3 注释体安全、R4 编码/CR、
 R5 受保护注释、R6 LF 数、R8 trigraph、R9 解析/文件；W6/W7/W9 为告警）见

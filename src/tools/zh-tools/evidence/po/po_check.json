@@ -1,0 +1,2086 @@
+{
+ "components": {
+  "ecpg": {
+   "active_key_sha256": "3edc7ce7985c7e7f4b9a2c75d503eac9eee49bcf979d6a7664c3fa18732c6167",
+   "catalog": "ecpg",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "ecpg (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 130,
+    "pot": 130
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/preproc/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/preproc/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "130 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 130,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpg.pot",
+   "pot_active_key_sha256": "3edc7ce7985c7e7f4b9a2c75d503eac9eee49bcf979d6a7664c3fa18732c6167",
+   "problems": [],
+   "summary": {
+    "active": 130,
+    "entries_total": 131,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 130,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/interfaces/ecpg/preproc/po/zh_CN.po",
+   "target_sha256": "c4dd7addb87136ef51205c670c154365bd216ace9979a27aed1492b23d3c9547",
+   "term_lint_target_info": {
+    "errors": 3,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "ecpglib": {
+   "active_key_sha256": "5cd5bf0bba55e4d8887e1bbe7e4f5ec419e2fba9d860f13eb9d05c14771d267e",
+   "catalog": "ecpglib",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "ecpglib (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 32,
+    "pot": 32
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/ecpg/ecpglib/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "32 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 32,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/ecpglib.pot",
+   "pot_active_key_sha256": "5cd5bf0bba55e4d8887e1bbe7e4f5ec419e2fba9d860f13eb9d05c14771d267e",
+   "problems": [],
+   "summary": {
+    "active": 32,
+    "entries_total": 33,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 32,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+   "target_sha256": "7301c67d2e398c1361f19867dd8b69a63b3031c78c207f7d4c2d179f3887b83c",
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "initdb": {
+   "active_key_sha256": "b7119093efe9cd0846a7637ebee5533f405efaeecb81693271600487505f2f23",
+   "catalog": "initdb",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "initdb (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 193,
+    "pot": 193
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/initdb/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/initdb/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "193 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 193,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/initdb.pot",
+   "pot_active_key_sha256": "b7119093efe9cd0846a7637ebee5533f405efaeecb81693271600487505f2f23",
+   "problems": [],
+   "summary": {
+    "active": 193,
+    "entries_total": 194,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 193,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/initdb/po/zh_CN.po",
+   "target_sha256": "e1f1e161ff7af5c44696f54703c4dfc2ebdf5a8e70e769f4ede40d02f1d48017",
+   "term_lint_target_info": {
+    "errors": 8,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "libpq": {
+   "active_key_sha256": "8b62a16483ac2d7f7e896c1cdaaf10807646bec145809dd9b551d596367710f4",
+   "catalog": "libpq",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "libpq (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 292,
+    "pot": 292
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/libpq/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/interfaces/libpq/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "292 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 292,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/libpq.pot",
+   "pot_active_key_sha256": "8b62a16483ac2d7f7e896c1cdaaf10807646bec145809dd9b551d596367710f4",
+   "problems": [],
+   "summary": {
+    "active": 292,
+    "entries_total": 293,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 292,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/interfaces/libpq/po/zh_CN.po",
+   "target_sha256": "d4be039a7bfc07b623adfcfd527c5307cae0b136833c18bd3d72de71afa2d648",
+   "term_lint_target_info": {
+    "errors": 9,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_amcheck": {
+   "active_key_sha256": "727e3f32ca8301cc59c8d51809dbc94dbaa37ef8d96ac7cf8ef97913db4fd977",
+   "catalog": "pg_amcheck",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_amcheck (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 97,
+    "pot": 97
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_amcheck/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_amcheck/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "97 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 97,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_amcheck.pot",
+   "pot_active_key_sha256": "727e3f32ca8301cc59c8d51809dbc94dbaa37ef8d96ac7cf8ef97913db4fd977",
+   "problems": [],
+   "summary": {
+    "active": 97,
+    "entries_total": 98,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 97,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_amcheck/po/zh_CN.po",
+   "target_sha256": "b1d78bfe9e6d2c0cf1ddadedadb69f5364a496f65669a47f636c084ae80c05b3",
+   "term_lint_target_info": {
+    "errors": 2,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_archivecleanup": {
+   "active_key_sha256": "9201a9e9b1d74d80092626e590d2796fd4245b9efab0874b442885289c64c60a",
+   "catalog": "pg_archivecleanup",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_archivecleanup (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 27,
+    "pot": 27
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_archivecleanup/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_archivecleanup/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "27 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 27,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_archivecleanup.pot",
+   "pot_active_key_sha256": "9201a9e9b1d74d80092626e590d2796fd4245b9efab0874b442885289c64c60a",
+   "problems": [],
+   "summary": {
+    "active": 27,
+    "entries_total": 28,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 27,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_archivecleanup/po/zh_CN.po",
+   "target_sha256": "45a709d16a9500a3ba981f9ffd5641b1cd077c39e5a3a5674beee56cd27f3e0e",
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pg_basebackup": {
+   "active_key_sha256": "6d881771f4e0f92ae9bcd2786829e7089bed407a34676645debe59ee4f4f0884",
+   "catalog": "pg_basebackup",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_basebackup (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 329,
+    "pot": 329
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_basebackup/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_basebackup/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "329 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 329,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_basebackup.pot",
+   "pot_active_key_sha256": "6d881771f4e0f92ae9bcd2786829e7089bed407a34676645debe59ee4f4f0884",
+   "problems": [],
+   "summary": {
+    "active": 329,
+    "entries_total": 330,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 5,
+    "translated": 329,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_basebackup/po/zh_CN.po",
+   "target_sha256": "ff0d4d5740e78048f5fe9c7c600e3805a04c7c1919d8af960884b2b826303b5c",
+   "term_lint_target_info": {
+    "errors": 15,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_checksums": {
+   "active_key_sha256": "0a76ba02d8739c034917935e221fdc714d99baa40c8e6d13b7cd10e51a24d964",
+   "catalog": "pg_checksums",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_checksums (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 59,
+    "pot": 59
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_checksums/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_checksums/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "59 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 59,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_checksums.pot",
+   "pot_active_key_sha256": "0a76ba02d8739c034917935e221fdc714d99baa40c8e6d13b7cd10e51a24d964",
+   "problems": [],
+   "summary": {
+    "active": 59,
+    "entries_total": 60,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 59,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_checksums/po/zh_CN.po",
+   "target_sha256": "6f0670b538dd8f615299e838a9a39da36645a324b5709397e5fa74991b033b01",
+   "term_lint_target_info": {
+    "errors": 10,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_config": {
+   "active_key_sha256": "94f7533844cc67b273f8016062772dd54003e59a5e76d24cc8f4cdc662ef4d7e",
+   "catalog": "pg_config",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_config (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 41,
+    "pot": 41
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_config/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_config/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "41 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 41,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_config.pot",
+   "pot_active_key_sha256": "94f7533844cc67b273f8016062772dd54003e59a5e76d24cc8f4cdc662ef4d7e",
+   "problems": [],
+   "summary": {
+    "active": 41,
+    "entries_total": 42,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 41,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_config/po/zh_CN.po",
+   "target_sha256": "1e05bb76e2bffc5e1da29e67dd1d4f53a21a8e98878b7dba1f5a23eb8d6a293e",
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pg_controldata": {
+   "active_key_sha256": "0ed1640f719320907455520730c17b41455f01ba4aebb6277be92b2348378eb2",
+   "catalog": "pg_controldata",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_controldata (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 92,
+    "pot": 92
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_controldata/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_controldata/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "92 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 92,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_controldata.pot",
+   "pot_active_key_sha256": "0ed1640f719320907455520730c17b41455f01ba4aebb6277be92b2348378eb2",
+   "problems": [],
+   "summary": {
+    "active": 92,
+    "entries_total": 93,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 92,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_controldata/po/zh_CN.po",
+   "target_sha256": "1c10eb6bd30ec0ffd02dcba5c2f5bc1af2fa4495428127a381fb25ae1f83f3ab",
+   "term_lint_target_info": {
+    "errors": 2,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_ctl": {
+   "active_key_sha256": "15789354f425ecabb723747a446c6fdc6b205e362ff60963eeab228e795c3a1f",
+   "catalog": "pg_ctl",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_ctl (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 154,
+    "pot": 154
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_ctl/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_ctl/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "154 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 154,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_ctl.pot",
+   "pot_active_key_sha256": "15789354f425ecabb723747a446c6fdc6b205e362ff60963eeab228e795c3a1f",
+   "problems": [],
+   "summary": {
+    "active": 154,
+    "entries_total": 155,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 154,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_ctl/po/zh_CN.po",
+   "target_sha256": "f4b6208643eac2190772a4a125bc56c683d0986dee590661e867f9efc82d153e",
+   "term_lint_target_info": {
+    "errors": 11,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_dump": {
+   "active_key_sha256": "150962cc01b95fb29416bd72204ab0bb8568f84101da8c7c87522695a24494ec",
+   "catalog": "pg_dump",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_dump (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 529,
+    "pot": 529
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_dump/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_dump/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "529 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 529,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_dump.pot",
+   "pot_active_key_sha256": "150962cc01b95fb29416bd72204ab0bb8568f84101da8c7c87522695a24494ec",
+   "problems": [],
+   "summary": {
+    "active": 529,
+    "entries_total": 530,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 7,
+    "translated": 529,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement": {
+    "entries": 1,
+    "mismatched": [],
+    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_dump.po",
+    "review_marks_in_target": 1,
+    "sha256": "fa3383bc5d76ddeea65dd0204329b68987d2180458f42a492d327ca6b15500a3",
+    "unflagged": [],
+    "unused": [],
+    "used": [
+     {
+      "msgctxt": null,
+      "msgid": "found orphaned pg_auth_members entry for role %s"
+     }
+    ]
+   },
+   "target": "src/bin/pg_dump/po/zh_CN.po",
+   "target_sha256": "244aee2250aef19fa54c74d48efc703628a27142c24741bd3b24dcfee48b5f97",
+   "term_lint_supplement": {
+    "errors": 0,
+    "rc": 0,
+    "warnings": 0
+   },
+   "term_lint_target_info": {
+    "errors": 18,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_resetwal": {
+   "active_key_sha256": "23f62eced8efdb442d9c5d946d1739ebc28252158b8005842be6e228d5e0a688",
+   "catalog": "pg_resetwal",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_resetwal (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 116,
+    "pot": 116
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_resetwal/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "116 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 116,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_resetwal.pot",
+   "pot_active_key_sha256": "23f62eced8efdb442d9c5d946d1739ebc28252158b8005842be6e228d5e0a688",
+   "problems": [],
+   "summary": {
+    "active": 116,
+    "entries_total": 117,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 116,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement": {
+    "entries": 2,
+    "mismatched": [],
+    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_resetwal.po",
+    "review_marks_in_target": 2,
+    "sha256": "04f38564e1f7063a76b4439a021a1aa4681527f4d800f3d0f9edfa0f01ee6246",
+    "unflagged": [],
+    "unused": [],
+    "used": [
+     {
+      "msgctxt": null,
+      "msgid": "multitransaction offset (-O) must not be -1"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "multitransaction ID (-m) must not be 0"
+     }
+    ]
+   },
+   "target": "src/bin/pg_resetwal/po/zh_CN.po",
+   "target_sha256": "c2a4d6d5a149dc3cf1ec0d8047e86ccc77fcbd304002d812ca38c77f509b58ce",
+   "term_lint_supplement": {
+    "errors": 0,
+    "rc": 0,
+    "warnings": 0
+   },
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pg_rewind": {
+   "active_key_sha256": "cd56ded1160cd85f37b7990236fdbb0302f1dd831d99339dd6a4b2d59d590c0b",
+   "catalog": "pg_rewind",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_rewind (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 186,
+    "pot": 186
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_rewind/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_rewind/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "186 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 186,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_rewind.pot",
+   "pot_active_key_sha256": "cd56ded1160cd85f37b7990236fdbb0302f1dd831d99339dd6a4b2d59d590c0b",
+   "problems": [],
+   "summary": {
+    "active": 186,
+    "entries_total": 187,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 186,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_rewind/po/zh_CN.po",
+   "target_sha256": "830ff3fd34d829b56e9f1261de739fe133e8d2817bd58583bd2c6dd836a0bf6e",
+   "term_lint_target_info": {
+    "errors": 7,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_test_fsync": {
+   "active_key_sha256": "ed35620a7c8731dc24d71c715b3cd7c3ac8cd3880dfcfbede2b8b541d2686e44",
+   "catalog": "pg_test_fsync",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_test_fsync (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 35,
+    "pot": 35
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_fsync/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_fsync/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "35 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 35,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_fsync.pot",
+   "pot_active_key_sha256": "ed35620a7c8731dc24d71c715b3cd7c3ac8cd3880dfcfbede2b8b541d2686e44",
+   "problems": [],
+   "summary": {
+    "active": 35,
+    "entries_total": 36,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 35,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_test_fsync/po/zh_CN.po",
+   "target_sha256": "819e7157e04d5dacd8c1def0d08d741c24e7ceabdac11ab665514fa88df41a3a",
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pg_test_timing": {
+   "active_key_sha256": "1fc1a35a8e73ea2a5b89330639f4c6cbc28fe5ea1e5671a3df7f854c5e233d05",
+   "catalog": "pg_test_timing",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_test_timing (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 13,
+    "pot": 13
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_timing/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_test_timing/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "13 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 13,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_test_timing.pot",
+   "pot_active_key_sha256": "1fc1a35a8e73ea2a5b89330639f4c6cbc28fe5ea1e5671a3df7f854c5e233d05",
+   "problems": [],
+   "summary": {
+    "active": 13,
+    "entries_total": 14,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 13,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement": {
+    "entries": 1,
+    "mismatched": [],
+    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/pg_test_timing.po",
+    "review_marks_in_target": 1,
+    "sha256": "8d8d441314fcea363ccf1b8a158e60338f1ff9f703e6737c8e4acd709c76fc57",
+    "unflagged": [],
+    "unused": [],
+    "used": [
+     {
+      "msgctxt": null,
+      "msgid": "Time warp: %d ms\n"
+     }
+    ]
+   },
+   "target": "src/bin/pg_test_timing/po/zh_CN.po",
+   "target_sha256": "c99046ec8a288d79eef103b9d574b38a23366adf5366255361b06104793fd76b",
+   "term_lint_supplement": {
+    "errors": 0,
+    "rc": 0,
+    "warnings": 0
+   },
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pg_upgrade": {
+   "active_key_sha256": "f1dfc69abb6384a393014eda14f515c3904760777b0900746a6481f7426105f0",
+   "catalog": "pg_upgrade",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_upgrade (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 277,
+    "pot": 277
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_upgrade/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_upgrade/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "277 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 277,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_upgrade.pot",
+   "pot_active_key_sha256": "f1dfc69abb6384a393014eda14f515c3904760777b0900746a6481f7426105f0",
+   "problems": [],
+   "summary": {
+    "active": 277,
+    "entries_total": 278,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 277,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_upgrade/po/zh_CN.po",
+   "target_sha256": "20a19ffd0683674b1695f7d19dd54c3ec319acda9fb66f876996e5c6c12ce6c2",
+   "term_lint_target_info": {
+    "errors": 96,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_verifybackup": {
+   "active_key_sha256": "274f1d9cc9ad988fb2d277a92480901ffbcfd12c6f5c36598aeb3319feb96ceb",
+   "catalog": "pg_verifybackup",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_verifybackup (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 104,
+    "pot": 104
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_verifybackup/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_verifybackup/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "104 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 104,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_verifybackup.pot",
+   "pot_active_key_sha256": "274f1d9cc9ad988fb2d277a92480901ffbcfd12c6f5c36598aeb3319feb96ceb",
+   "problems": [],
+   "summary": {
+    "active": 104,
+    "entries_total": 105,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 104,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_verifybackup/po/zh_CN.po",
+   "target_sha256": "7a607be8200843aec02b7c46125e2a2d4b79e8bcb7d61327d4568286184f158d",
+   "term_lint_target_info": {
+    "errors": 4,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pg_waldump": {
+   "active_key_sha256": "901b4a6f1d09cf99b8c5ca22b6444b0faa7fd83157b6634ac0b8e61bfa1a4003",
+   "catalog": "pg_waldump",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pg_waldump (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 100,
+    "pot": 100
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_waldump/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/pg_waldump/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "100 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 100,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pg_waldump.pot",
+   "pot_active_key_sha256": "901b4a6f1d09cf99b8c5ca22b6444b0faa7fd83157b6634ac0b8e61bfa1a4003",
+   "problems": [],
+   "summary": {
+    "active": 100,
+    "entries_total": 101,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 100,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/pg_waldump/po/zh_CN.po",
+   "target_sha256": "fd0aa8692bb494d64c3f89bdb88cd151aad365d1ae281aea47828e2481dc0218",
+   "term_lint_target_info": {
+    "errors": 0,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 0,
+    "warnings": 0
+   }
+  },
+  "pgscripts": {
+   "active_key_sha256": "b430584b5f103c3b86044ca3a166b6b69005991d21aeb70306895d1ebd1edc50",
+   "catalog": "pgscripts",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pgscripts (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 231,
+    "pot": 231
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/scripts/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/scripts/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "231 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 231,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pgscripts.pot",
+   "pot_active_key_sha256": "b430584b5f103c3b86044ca3a166b6b69005991d21aeb70306895d1ebd1edc50",
+   "problems": [],
+   "summary": {
+    "active": 231,
+    "entries_total": 232,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 231,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/scripts/po/zh_CN.po",
+   "target_sha256": "6cecbd5a301fc2fe05d96a3062c757b90c68df5933e672437fbf5a4e67fce25e",
+   "term_lint_target_info": {
+    "errors": 36,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "plperl": {
+   "active_key_sha256": "5d1eea05ecc728723dc6adcd581c2055bd558a042b1c1b70ef078c8420ade681",
+   "catalog": "plperl",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "plperl (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 42,
+    "pot": 42
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plperl/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plperl/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "42 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 42,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plperl.pot",
+   "pot_active_key_sha256": "5d1eea05ecc728723dc6adcd581c2055bd558a042b1c1b70ef078c8420ade681",
+   "problems": [],
+   "summary": {
+    "active": 42,
+    "entries_total": 43,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 42,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/pl/plperl/po/zh_CN.po",
+   "target_sha256": "fcc7428a1b78e9290bc7589c04dcd08fc98e1c1c4efb42599ba29c2d33bb868d",
+   "term_lint_target_info": {
+    "errors": 10,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "plpgsql": {
+   "active_key_sha256": "26d100ed452101a18e15b7d0a6e5ffc0e14e293581bce2089e32fc8cbaa80e29",
+   "catalog": "plpgsql",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "plpgsql (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 171,
+    "pot": 171
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpgsql/src/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpgsql/src/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "171 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 171,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpgsql.pot",
+   "pot_active_key_sha256": "26d100ed452101a18e15b7d0a6e5ffc0e14e293581bce2089e32fc8cbaa80e29",
+   "problems": [],
+   "summary": {
+    "active": 171,
+    "entries_total": 172,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 171,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/pl/plpgsql/src/po/zh_CN.po",
+   "target_sha256": "78686d4559b541934edcff719e28bb5c08439cd6d72c2b16655718441eb587b5",
+   "term_lint_target_info": {
+    "errors": 33,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "plpython": {
+   "active_key_sha256": "884864a2109f0c06bc9002c0aca83a4328b286e18e7d3d3b0830085d156653f3",
+   "catalog": "plpython",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "plpython (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 86,
+    "pot": 86
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpython/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/plpython/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "86 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 86,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/plpython.pot",
+   "pot_active_key_sha256": "884864a2109f0c06bc9002c0aca83a4328b286e18e7d3d3b0830085d156653f3",
+   "problems": [],
+   "summary": {
+    "active": 86,
+    "entries_total": 87,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 86,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/pl/plpython/po/zh_CN.po",
+   "target_sha256": "163208314f4f09db12d5d7c16d87ea1f3b83448b8c25b9c4bb2349556efc6da8",
+   "term_lint_target_info": {
+    "errors": 7,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "pltcl": {
+   "active_key_sha256": "9976eecbc070d302f36aff7a950ada7a2df84694697302903dba7ea534812fd9",
+   "catalog": "pltcl",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "pltcl (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 20,
+    "pot": 20
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/tcl/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/pl/tcl/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "20 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 20,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/pltcl.pot",
+   "pot_active_key_sha256": "9976eecbc070d302f36aff7a950ada7a2df84694697302903dba7ea534812fd9",
+   "problems": [],
+   "summary": {
+    "active": 20,
+    "entries_total": 21,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 20,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/pl/tcl/po/zh_CN.po",
+   "target_sha256": "2e5c1426602cec3ed66c3c20031a9dd1adf149bc5493468160886979e20101b0",
+   "term_lint_target_info": {
+    "errors": 6,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  },
+  "postgres": {
+   "active_key_sha256": "a068b6ac7051a4ec56d329cfa0ff2b30aa0d1f58d576fb7474b3620b81b91f1b",
+   "catalog": "postgres",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "postgres (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 5878,
+    "pot": 5878
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/backend/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "5878 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 5878,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/postgres.pot",
+   "pot_active_key_sha256": "a068b6ac7051a4ec56d329cfa0ff2b30aa0d1f58d576fb7474b3620b81b91f1b",
+   "problems": [],
+   "summary": {
+    "active": 5878,
+    "entries_total": 5879,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 42,
+    "translated": 5878,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement": {
+    "entries": 7,
+    "mismatched": [],
+    "path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/tools/zh-tools/po_supplement/postgres.po",
+    "review_marks_in_target": 7,
+    "sha256": "3e8a449a9195589aa8580e02c70ec62a022b8ad4ba27e73f7d1fbbec6a493ec7",
+    "unflagged": [],
+    "unused": [],
+    "used": [
+     {
+      "msgctxt": null,
+      "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots."
+     },
+     {
+      "msgctxt": null,
+      "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "aborting startup due to startup process failure"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "replication origin \"%s\" already exists"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "string is too long for tsvector (%d bytes, max %d bytes)"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "string is too long for tsvector (%ld bytes, max %ld bytes)"
+     },
+     {
+      "msgctxt": null,
+      "msgid": "requested shared memory size overflows size_t"
+     }
+    ]
+   },
+   "target": "src/backend/po/zh_CN.po",
+   "target_sha256": "18928f6c934fb6119faf2d6f83a38e4203b315c1eae788797dd666aa03e282cb",
+   "term_lint_supplement": {
+    "errors": 0,
+    "rc": 0,
+    "warnings": 0
+   },
+   "term_lint_target_info": {
+    "errors": 763,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 1
+   }
+  },
+  "psql": {
+   "active_key_sha256": "e0bfdb3493cbf7a6addb47369e07ef071f65ca300c916d01f97200b57375c933",
+   "catalog": "psql",
+   "duplicate_keys": [],
+   "header": {
+    "Content-Type": "text/plain; charset=UTF-8",
+    "Language": "zh_CN",
+    "Last-Translator": "Ruohang Feng <rh@vonng.com>",
+    "PO-Revision-Date": "2026-09-29 22:12+0800",
+    "POT-Creation-Date": "2026-10-04 21:32+0800",
+    "Plural-Forms": "nplurals=1; plural=0;",
+    "Project-Id-Version": "psql (PostgreSQL) 16"
+   },
+   "keys": {
+    "extra_in_po": 0,
+    "missing_in_po": 0,
+    "po": 1342,
+    "pot": 1342
+   },
+   "msgattrib_only_fuzzy": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgattrib_untranslated": {
+    "pass": true,
+    "stdout_bytes": 0
+   },
+   "msgcmp": {
+    "argv": [
+     "msgcmp",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/psql/po/zh_CN.po",
+     "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot"
+    ],
+    "rc": 0,
+    "stderr": ""
+   },
+   "msgfmt": {
+    "argv": [
+     "msgfmt",
+     "--check",
+     "--check-format",
+     "--statistics",
+     "-o",
+     "/dev/null",
+     "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh/src/bin/psql/po/zh_CN.po"
+    ],
+    "rc": 0,
+    "stderr": "1342 translated messages."
+   },
+   "msgfmt_fuzzy": 0,
+   "msgfmt_translated": 1342,
+   "msgfmt_untranslated": 0,
+   "plural_problems": [],
+   "pot": "/home/redstar/pg-builds/REL_16_11_pot-evidence/pot/psql.pot",
+   "pot_active_key_sha256": "e0bfdb3493cbf7a6addb47369e07ef071f65ca300c916d01f97200b57375c933",
+   "problems": [],
+   "summary": {
+    "active": 1342,
+    "entries_total": 1343,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 3,
+    "translated": 1342,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "target": "src/bin/psql/po/zh_CN.po",
+   "target_sha256": "1927bcd9819e067b98f29a8a8806d54aef31ed0db88a500a1eadaac32213ad53",
+   "term_lint_target_info": {
+    "errors": 17,
+    "note": "informational: pgnls-sourced translations, not a gate here",
+    "rc": 1,
+    "warnings": 0
+   }
+  }
+ },
+ "generated_utc": "2026-10-04T13:57:01Z",
+ "n_components": 26,
+ "pass": true,
+ "pot_manifest_generated_utc": "2026-10-04T13:46:19Z",
+ "tool": "po_sync.py check",
+ "tools_version": "0.2.1",
+ "totals": {
+  "active": 10576,
+  "fuzzy": 0,
+  "plural_entries": 71,
+  "translated": 10576,
+  "untranslated": 0
+ },
+ "versions": {
+  "bison": "bison (GNU Bison) 3.8.2",
+  "flex": "flex 2.6.4",
+  "make": "GNU Make 4.3",
+  "msgattrib": "msgattrib (GNU gettext-tools) 0.21.1",
+  "msgcmp": "msgcmp (GNU gettext-tools) 0.21.1",
+  "msgfmt": "msgfmt (GNU gettext-tools) 0.21.1",
+  "msgmerge": "msgmerge (GNU gettext-tools) 0.21.1",
+  "perl": "v5.34.0",
+  "xgettext": "xgettext (GNU gettext-tools) 0.21.1"
+ }
+}

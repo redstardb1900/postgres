@@ -1,0 +1,22 @@
+# zh_CN supplement for pg_resetwal (REL_16_11).  See po_supplement/postgres.po
+# for what a supplement is; every entry is review-pending.
+msgid ""
+msgstr ""
+"Project-Id-Version: pg_resetwal (PostgreSQL) 16 zh_CN supplement\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# zh-review-pending: new -O check in REL_16_11; translation reused verbatim from pgnls zh_CN/REL_14_STABLE pg_resetwal.po (identical msgid); "多事务" and fullwidth parentheses follow the sibling "多事务ID（-m）不能为0" style
+#: pg_resetwal.c
+#, c-format
+msgid "multitransaction offset (-O) must not be -1"
+msgstr "多事务偏移量（-O）不得为 -1"
+
+# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry ("多事务ID（-m）不能为0", retired upstream); aligned with the active siblings "OID（-o）不得为 0" and "最早的多事务 ID（-m）不得为 0"
+#: pg_resetwal.c:254
+#, c-format
+msgid "multitransaction ID (-m) must not be 0"
+msgstr "多事务 ID（-m）不得为 0"

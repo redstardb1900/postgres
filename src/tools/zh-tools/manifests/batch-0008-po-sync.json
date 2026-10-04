@@ -1,0 +1,608 @@
+{
+ "schema_version": 1,
+ "batch_id": "0008-po-sync",
+ "title": "zh: sync REL_16_11 Chinese message catalogs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "82e43adc31e2e38ee9d99ea890cdc77474b409be",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/interfaces/ecpg/preproc/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog ecpg"
+  },
+  {
+   "pattern": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog ecpglib"
+  },
+  {
+   "pattern": "src/bin/initdb/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog initdb"
+  },
+  {
+   "pattern": "src/interfaces/libpq/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog libpq"
+  },
+  {
+   "pattern": "src/bin/pg_amcheck/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_amcheck"
+  },
+  {
+   "pattern": "src/bin/pg_archivecleanup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_archivecleanup"
+  },
+  {
+   "pattern": "src/bin/pg_basebackup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_basebackup"
+  },
+  {
+   "pattern": "src/bin/pg_checksums/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_checksums"
+  },
+  {
+   "pattern": "src/bin/pg_config/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_config"
+  },
+  {
+   "pattern": "src/bin/pg_controldata/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_controldata"
+  },
+  {
+   "pattern": "src/bin/pg_ctl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_ctl"
+  },
+  {
+   "pattern": "src/bin/pg_dump/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_dump"
+  },
+  {
+   "pattern": "src/bin/pg_resetwal/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_resetwal"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_rewind"
+  },
+  {
+   "pattern": "src/bin/pg_test_fsync/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_test_fsync"
+  },
+  {
+   "pattern": "src/bin/pg_test_timing/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_test_timing"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_upgrade"
+  },
+  {
+   "pattern": "src/bin/pg_verifybackup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_verifybackup"
+  },
+  {
+   "pattern": "src/bin/pg_waldump/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_waldump"
+  },
+  {
+   "pattern": "src/bin/scripts/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pgscripts"
+  },
+  {
+   "pattern": "src/pl/plperl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plperl"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plpgsql"
+  },
+  {
+   "pattern": "src/pl/plpython/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plpython"
+  },
+  {
+   "pattern": "src/pl/tcl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pltcl"
+  },
+  {
+   "pattern": "src/backend/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog postgres"
+  },
+  {
+   "pattern": "src/bin/psql/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog psql"
+  },
+  {
+   "pattern": "src/tools/zh-tools/po_sync.py",
+   "kind": "tool",
+   "note": "new PO gate CLI"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/potools.py",
+   "kind": "tool",
+   "note": "new PO reader"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_potools.py",
+   "kind": "tool",
+   "note": "tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_po_sync.py",
+   "kind": "tool",
+   "note": "tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "docs"
+  },
+  {
+   "pattern": "src/tools/zh-tools/po_supplement/*.po",
+   "kind": "po",
+   "note": "hand translations, review-pending"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/*.json",
+   "kind": "tool",
+   "note": "PO evidence"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0008-po-sync.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "cumulative manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/interfaces/ecpg/preproc/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 130,
+   "translated": 130,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE ecpg.po merged into the REL_16_11 POT (130 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 32,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE ecpglib.po merged into the REL_16_11 POT (32 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/initdb/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 193,
+   "translated": 193,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE initdb.po merged into the REL_16_11 POT (193 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/interfaces/libpq/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 292,
+   "translated": 292,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE libpq.po merged into the REL_16_11 POT (292 entries); 0 supplement entries review-pending; 4 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_amcheck/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 97,
+   "translated": 97,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_amcheck.po merged into the REL_16_11 POT (97 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_archivecleanup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 27,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_archivecleanup.po merged into the REL_16_11 POT (27 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_basebackup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 329,
+   "translated": 329,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_basebackup.po merged into the REL_16_11 POT (329 entries); 0 supplement entries review-pending; 4 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_checksums/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 59,
+   "translated": 59,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_checksums.po merged into the REL_16_11 POT (59 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_config/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 41,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_config.po merged into the REL_16_11 POT (41 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_controldata/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 92,
+   "translated": 92,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_controldata.po merged into the REL_16_11 POT (92 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_ctl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 154,
+   "translated": 154,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_ctl.po merged into the REL_16_11 POT (154 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_dump/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 529,
+   "translated": 529,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_dump.po merged into the REL_16_11 POT (529 entries); 1 supplement entries review-pending; 8 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_resetwal/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 116,
+   "translated": 116,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_resetwal.po merged into the REL_16_11 POT (116 entries); 2 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_rewind/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 186,
+   "translated": 186,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_rewind.po merged into the REL_16_11 POT (186 entries); 0 supplement entries review-pending; 9 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_test_fsync/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_test_fsync.po merged into the REL_16_11 POT (35 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_test_timing/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 13,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_test_timing.po merged into the REL_16_11 POT (13 entries); 1 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_upgrade/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 277,
+   "translated": 277,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_upgrade.po merged into the REL_16_11 POT (277 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_verifybackup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 104,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_verifybackup.po merged into the REL_16_11 POT (104 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_waldump/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 100,
+   "translated": 100,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_waldump.po merged into the REL_16_11 POT (100 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/scripts/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 231,
+   "translated": 231,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pgscripts.po merged into the REL_16_11 POT (231 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plperl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 42,
+   "translated": 42,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plperl.po merged into the REL_16_11 POT (42 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plpgsql/src/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 171,
+   "translated": 171,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plpgsql.po merged into the REL_16_11 POT (171 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plpython/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 86,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plpython.po merged into the REL_16_11 POT (86 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/tcl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 20,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pltcl.po merged into the REL_16_11 POT (20 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/backend/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 5878,
+   "translated": 5878,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE postgres.po merged into the REL_16_11 POT (5878 entries); 7 supplement entries review-pending; 47 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/psql/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1342,
+   "translated": 1342,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE psql.po merged into the REL_16_11 POT (1342 entries); 0 supplement entries review-pending; 5 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/tools/zh-tools/po_sync.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "PO gate CLI: probe/archive/merge/check/report"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/potools.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "mechanical PO reader (keys, duplicates, plurals, header, hashes, override splice)"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_potools.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unit tests for potools"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_po_sync.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unit tests for po_sync (probe, components, check_one gates, merge pipeline + override)"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "document po_sync.py / po_supplement / evidence/po and the PO workflow"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/postgres.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_dump.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_resetwal.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_test_timing.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/msgattrib_probe.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/pot_manifest.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_merge.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_check.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_sync_report.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0008-po-sync.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "26 zh_CN.po regenerated from the exact REL_16_11 POTs (one-off in-tree worktree, per-directory make init-po) merged with pgnls zh_CN/REL_16_STABLE @ cbaeef3eb8be500984ab3da9f3e251634f346d1c. Totals: 10576 active = 10576 translated, 0 fuzzy, 0 untranslated; pgnls 10657 -> POT 10576 (added 11, obsolete 92); gettext alone left 7 fuzzy + 1 untranslated, 3 more were revived from pgnls obsolete entries; all 11 are hand-translated in po_supplement/ and review-pending."
+}

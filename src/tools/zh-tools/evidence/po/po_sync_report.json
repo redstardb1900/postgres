@@ -1,0 +1,1572 @@
+{
+ "base_ref": "REL_16_11",
+ "components": {
+  "ecpg": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 129,
+    "entries_total": 130,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 129,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "ecpg",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 115,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 130,
+   "pot_entries": 130,
+   "result": {
+    "active": 130,
+    "entries_total": 131,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 130,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/interfaces/ecpg/preproc/po/zh_CN.po"
+  },
+  "ecpglib": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 32,
+    "entries_total": 33,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 32,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "ecpglib",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 28,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid input syntax for type bytea: \"%s\", on line %d"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 33,
+   "pot_entries": 32,
+   "result": {
+    "active": 32,
+    "entries_total": 33,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 32,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/interfaces/ecpg/ecpglib/po/zh_CN.po"
+  },
+  "initdb": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 173,
+    "entries_total": 174,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 173,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "initdb",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 153,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 195,
+   "pot_entries": 193,
+   "result": {
+    "active": 193,
+    "entries_total": 194,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 193,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/initdb/po/zh_CN.po"
+  },
+  "libpq": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 254,
+    "entries_total": 255,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 254,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "libpq",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 279,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "OpenSSL reports INT_MAX bytes pending"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "OpenSSL reports negative bytes pending"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "drained only %zd of %zd pending bytes in transport buffer"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "server returned too much data"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 296,
+   "pot_entries": 292,
+   "result": {
+    "active": 292,
+    "entries_total": 293,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 292,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/interfaces/libpq/po/zh_CN.po"
+  },
+  "pg_amcheck": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 94,
+    "entries_total": 95,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 94,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_amcheck",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 67,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 97,
+   "pot_entries": 97,
+   "result": {
+    "active": 97,
+    "entries_total": 98,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 97,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_amcheck/po/zh_CN.po"
+  },
+  "pg_archivecleanup": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 26,
+    "entries_total": 27,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 26,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_archivecleanup",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 18,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 27,
+   "pot_entries": 27,
+   "result": {
+    "active": 27,
+    "entries_total": 28,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 27,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_archivecleanup/po/zh_CN.po"
+  },
+  "pg_basebackup": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 262,
+    "entries_total": 263,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 5,
+    "translated": 262,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_basebackup",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 271,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "link target has unsafe path name: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "tar member has unsafe path name: \"%s\""
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 333,
+   "pot_entries": 329,
+   "result": {
+    "active": 329,
+    "entries_total": 330,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 5,
+    "translated": 329,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_basebackup/po/zh_CN.po"
+  },
+  "pg_checksums": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 55,
+    "entries_total": 56,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 55,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_checksums",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 44,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 59,
+   "pot_entries": 59,
+   "result": {
+    "active": 59,
+    "entries_total": 60,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 59,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_checksums/po/zh_CN.po"
+  },
+  "pg_config": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 43,
+    "entries_total": 44,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 43,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_config",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 34,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 41,
+   "pot_entries": 41,
+   "result": {
+    "active": 41,
+    "entries_total": 42,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 41,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_config/po/zh_CN.po"
+  },
+  "pg_controldata": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 92,
+    "entries_total": 93,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 92,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_controldata",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 78,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 92,
+   "pot_entries": 92,
+   "result": {
+    "active": 92,
+    "entries_total": 93,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 92,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_controldata/po/zh_CN.po"
+  },
+  "pg_ctl": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 154,
+    "entries_total": 158,
+    "fuzzy": 6,
+    "obsolete": 3,
+    "plural_entries": 0,
+    "translated": 148,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_ctl",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 116,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 156,
+   "pot_entries": 154,
+   "result": {
+    "active": 154,
+    "entries_total": 155,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 154,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_ctl/po/zh_CN.po"
+  },
+  "pg_dump": {
+   "added_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "found orphaned pg_auth_members entry for role %s"
+    }
+   ],
+   "base_rel_16_11": {
+    "active": 504,
+    "entries_total": 505,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 7,
+    "translated": 503,
+    "untranslated": 1,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_dump",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 437,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "This grant will be dumped without GRANTED BY."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not create worker thread: %m"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not parse numeric array \"%s\": too few numbers"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "grant of role \"%s\" to \"%s\" has invalid grantor OID %s"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "ignoring role grant for missing role with OID %s"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "ignoring role grant to missing role with OID %s"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [
+    {
+     "msgctxt": null,
+     "msgid": "found orphaned pg_auth_members entry for role %s"
+    }
+   ],
+   "pgnls_entries": 536,
+   "pot_entries": 529,
+   "result": {
+    "active": 529,
+    "entries_total": 530,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 7,
+    "translated": 529,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [
+    {
+     "msgctxt": null,
+     "msgid": "found orphaned pg_auth_members entry for role %s"
+    }
+   ],
+   "target": "src/bin/pg_dump/po/zh_CN.po"
+  },
+  "pg_resetwal": {
+   "added_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction ID (-m) must not be 0"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction offset (-O) must not be -1"
+    }
+   ],
+   "base_rel_16_11": {
+    "active": 117,
+    "entries_total": 118,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 117,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_resetwal",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 96,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction offset (-O) must be between 0 and %u"
+    }
+   ],
+   "pass1_fuzzy": [
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction offset (-O) must not be -1"
+    }
+   ],
+   "pass1_untranslated": [],
+   "pgnls_entries": 115,
+   "pot_entries": 116,
+   "result": {
+    "active": 116,
+    "entries_total": 117,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 116,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction offset (-O) must not be -1"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "multitransaction ID (-m) must not be 0"
+    }
+   ],
+   "target": "src/bin/pg_resetwal/po/zh_CN.po"
+  },
+  "pg_rewind": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 179,
+    "entries_total": 180,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 179,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_rewind",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 147,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target directory path is unsafe for directory creation: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target directory path is unsafe for directory removal: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target file path is unsafe for open: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target file path is unsafe for removal: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target file path is unsafe for truncation: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target symlink path is unsafe for creation: \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "target symlink path is unsafe for removal: \"%s\""
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 195,
+   "pot_entries": 186,
+   "result": {
+    "active": 186,
+    "entries_total": 187,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 186,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_rewind/po/zh_CN.po"
+  },
+  "pg_test_fsync": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 26,
+    "entries_total": 27,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 26,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_test_fsync",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 29,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 35,
+   "pot_entries": 35,
+   "result": {
+    "active": 35,
+    "entries_total": 36,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 35,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_test_fsync/po/zh_CN.po"
+  },
+  "pg_test_timing": {
+   "added_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "Time warp: %d ms\n"
+    }
+   ],
+   "base_rel_16_11": {
+    "active": 13,
+    "entries_total": 14,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 13,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_test_timing",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 11,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "Time warp: %d us\n"
+    }
+   ],
+   "pass1_fuzzy": [
+    {
+     "msgctxt": null,
+     "msgid": "Time warp: %d ms\n"
+    }
+   ],
+   "pass1_untranslated": [],
+   "pgnls_entries": 13,
+   "pot_entries": 13,
+   "result": {
+    "active": 13,
+    "entries_total": 14,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 13,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [
+    {
+     "msgctxt": null,
+     "msgid": "Time warp: %d ms\n"
+    }
+   ],
+   "target": "src/bin/pg_test_timing/po/zh_CN.po"
+  },
+  "pg_upgrade": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 282,
+    "entries_total": 283,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 282,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_upgrade",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 255,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 277,
+   "pot_entries": 277,
+   "result": {
+    "active": 277,
+    "entries_total": 278,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 277,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_upgrade/po/zh_CN.po"
+  },
+  "pg_verifybackup": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 98,
+    "entries_total": 99,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 98,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_verifybackup",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 61,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 106,
+   "pot_entries": 104,
+   "result": {
+    "active": 104,
+    "entries_total": 105,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 104,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_verifybackup/po/zh_CN.po"
+  },
+  "pg_waldump": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 51,
+    "entries_total": 52,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 51,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pg_waldump",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 90,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 100,
+   "pot_entries": 100,
+   "result": {
+    "active": 100,
+    "entries_total": 101,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 100,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/pg_waldump/po/zh_CN.po"
+  },
+  "pgscripts": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 214,
+    "entries_total": 215,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 214,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pgscripts",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 193,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 233,
+   "pot_entries": 231,
+   "result": {
+    "active": 231,
+    "entries_total": 232,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 2,
+    "translated": 231,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/scripts/po/zh_CN.po"
+  },
+  "plperl": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 41,
+    "entries_total": 42,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 41,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "plperl",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 40,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "array size exceeds the maximum allowed (%zu)"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 43,
+   "pot_entries": 42,
+   "result": {
+    "active": 42,
+    "entries_total": 43,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 42,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/pl/plperl/po/zh_CN.po"
+  },
+  "plpgsql": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 169,
+    "entries_total": 170,
+    "fuzzy": 2,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 167,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "plpgsql",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 150,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "cannot cast type %s to %s"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "cannot pass more than %d argument to a function"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 173,
+   "pot_entries": 171,
+   "result": {
+    "active": 171,
+    "entries_total": 172,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 171,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/pl/plpgsql/src/po/zh_CN.po"
+  },
+  "plpython": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 88,
+    "entries_total": 89,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 88,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "plpython",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 80,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "could not get element %d from sequence"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 87,
+   "pot_entries": 86,
+   "result": {
+    "active": 86,
+    "entries_total": 87,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 1,
+    "translated": 86,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/pl/plpython/po/zh_CN.po"
+  },
+  "pltcl": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 18,
+    "entries_total": 19,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 18,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "pltcl",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 17,
+   "obsolete_vs_pgnls": [],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 20,
+   "pot_entries": 20,
+   "result": {
+    "active": 20,
+    "entries_total": 21,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 0,
+    "translated": 20,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/pl/tcl/po/zh_CN.po"
+  },
+  "postgres": {
+   "added_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "aborting startup due to startup process failure"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "replication origin \"%s\" already exists"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "requested shared memory size overflows size_t"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%d bytes, max %d bytes)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%ld bytes, max %ld bytes)"
+    }
+   ],
+   "base_rel_16_11": {
+    "active": 5213,
+    "entries_total": 5348,
+    "fuzzy": 0,
+    "obsolete": 134,
+    "plural_entries": 31,
+    "translated": 5213,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "postgres",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 5354,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "walreceiver requested start point %X/%08X on timeline %u is ahead of the upstream server's flush position %X/%08X, waiting"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "A snapshot taken during recovery is exported with every transaction ID that it treats as running, and at most %d can be stored."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "CTE \"%s\" is below the aggregate's semantic level."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Close open transactions soon to avoid wraparound problems.\nYou might also need to commit or roll back old prepared transactions."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Could not create replication slot \"%s\": got %d rows and %d fields, expected %d rows and %d fields."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "If it is safe for all REPLICATION users to use this library as an output plugin, add it to \"%s\" and reload the server configuration."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Lists libraries that may be named as logical decoding output plugins."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "MultiXact %u has invalid next offset"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Selects the method used for extending data files."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "The configuration parameter \"%s\" (currently '%s') does not name this library as a trusted output plugin."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "To avoid a database shutdown, execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "Users with REPLICATION privileges may only use plugins in this list when creating logical replication slots."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "array is not a valid int2vector"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "array is not a valid oidvector"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "array size exceeds the maximum allowed (%zu)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "cannot export snapshot with %d running transaction ID"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "cannot truncate up to MultiXact %u because it has invalid offset, skipping truncation"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not find redo location %X/%08X referenced by checkpoint record at %X/%08X"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not parse WAL location \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %lld"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "functions accepting type \"%s\" cannot be called explicitly"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "functions returning type \"%s\" cannot be called explicitly"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid byte sequence for encoding \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "levenshtein distance out of range"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "lexeme is too long for tsvector (%zu bytes, max %zu bytes)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "library \"%s\" may not be used as an output plugin"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "logical replication column %d not found in tuple: only %d column received"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "must be superuser to specify a non-built-in join estimator function"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "must be superuser to specify a non-built-in restriction estimator function"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "number of aliases is less than specified number %d"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "outer-level aggregate cannot use a nested CTE"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "query result type does not match portal result type"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "referenced %s was concurrently dropped"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "referenced relation was concurrently dropped"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%zu bytes, max %zu bytes)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "terminating walreceiver due to timeout while waiting for upstream to catch up"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "time zone format value too long"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "too many check constraints on relation \"%s\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "triggers cannot have more than %d argument"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "unrecognized weight: \"\\%03o\""
+    },
+    {
+     "msgctxt": null,
+     "msgid": "value for \"%s\" is too long"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "word is too long (%d bytes, max %d bytes)"
+    }
+   ],
+   "pass1_fuzzy": [
+    {
+     "msgctxt": null,
+     "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "aborting startup due to startup process failure"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "replication origin \"%s\" already exists"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%d bytes, max %d bytes)"
+    }
+   ],
+   "pass1_untranslated": [],
+   "pgnls_entries": 5918,
+   "pot_entries": 5878,
+   "result": {
+    "active": 5878,
+    "entries_total": 5879,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 42,
+    "translated": 5878,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [
+    {
+     "msgctxt": null,
+     "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots."
+    },
+    {
+     "msgctxt": null,
+     "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "aborting startup due to startup process failure"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "replication origin \"%s\" already exists"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%d bytes, max %d bytes)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "string is too long for tsvector (%ld bytes, max %ld bytes)"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "requested shared memory size overflows size_t"
+    }
+   ],
+   "target": "src/backend/po/zh_CN.po"
+  },
+  "psql": {
+   "added_vs_pgnls": [],
+   "base_rel_16_11": {
+    "active": 1278,
+    "entries_total": 1279,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 3,
+    "translated": 1278,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "catalog": "psql",
+   "changed_translation_vs_pgnls": [],
+   "changed_vs_base_rel_16_11": 987,
+   "obsolete_vs_pgnls": [
+    {
+     "msgctxt": null,
+     "msgid": "and publication_drop_object is one of:"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu * %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "invalid memory allocation request size %zu + %zu\n"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "publication_drop_object"
+    },
+    {
+     "msgctxt": null,
+     "msgid": "unexpected COPY_IN result, aborting connection"
+    }
+   ],
+   "pass1_fuzzy": [],
+   "pass1_untranslated": [],
+   "pgnls_entries": 1347,
+   "pot_entries": 1342,
+   "result": {
+    "active": 1342,
+    "entries_total": 1343,
+    "fuzzy": 0,
+    "obsolete": 0,
+    "plural_entries": 3,
+    "translated": 1342,
+    "untranslated": 0,
+    "with_msgctxt": 0
+   },
+   "supplement_entries": [],
+   "target": "src/bin/psql/po/zh_CN.po"
+  }
+ },
+ "generated_utc": "2026-10-04T13:57:02Z",
+ "pgnls": "/Users/niejinbo/work/code/pg/pgsty/pgnls",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "review_pending": [
+  {
+   "catalog": "pg_dump",
+   "comments": [
+    "# zh-review-pending: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)",
+    "#. translator: %s represents a numeric role OID"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "found orphaned pg_auth_members entry for role %s",
+   "msgid_plural": null,
+   "msgstr": [
+    "发现角色 %s 的孤立 pg_auth_members 条目"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "pg_resetwal",
+   "comments": [
+    "# zh-review-pending: new -O check in REL_16_11; translation reused verbatim from pgnls zh_CN/REL_14_STABLE pg_resetwal.po (identical msgid); \"多事务\" and fullwidth parentheses follow the sibling \"多事务ID（-m）不能为0\" style"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "multitransaction offset (-O) must not be -1",
+   "msgid_plural": null,
+   "msgstr": [
+    "多事务偏移量（-O）不得为 -1"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "pg_resetwal",
+   "comments": [
+    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"多事务ID（-m）不能为0\", retired upstream); aligned with the active siblings \"OID（-o）不得为 0\" and \"最早的多事务 ID（-m）不得为 0\""
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "multitransaction ID (-m) must not be 0",
+   "msgid_plural": null,
+   "msgstr": [
+    "多事务 ID（-m）不得为 0"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "pg_test_timing",
+   "comments": [
+    "# zh-review-pending: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of \"Time warp: %d us\\n\" = \"时钟回退: %d us\\n\" with the unit updated (unit token kept ASCII per style-guide R4.4)"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "Time warp: %d ms\n",
+   "msgid_plural": null,
+   "msgstr": [
+    "时钟回退: %d ms\n"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: msgid dropped the leading \"To avoid a database shutdown,\" clause; translation reused verbatim from pgnls zh_CN/REL_17_STABLE and REL_18_STABLE postgres.po (identical msgid)"
+   ],
+   "flags": [],
+   "msgctxt": null,
+   "msgid": "Execute a database-wide VACUUM in that database.\nYou might also need to commit or roll back old prepared transactions, or drop stale replication slots.",
+   "msgid_plural": null,
+   "msgstr": [
+    "在该数据库中执行全库 VACUUM。\n您可能还需要提交或回滚旧的预备事务，或删除过期的复制槽。"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: format changed %lld -> %u for the offset; translation reused verbatim from pgnls zh_CN/REL_17_STABLE, REL_18_STABLE and master postgres.po (identical msgid)"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "could not write file \"%s\": wrote only %d of %d bytes at offset %u",
+   "msgid_plural": null,
+   "msgstr": [
+    "无法写入文件 \"%1$s\": 在偏移量 %4$u 处应写入 %3$d 字节，实际仅写入 %2$d 字节"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: new wording (was \"shutting down due to ...\"); translation reused verbatim from pgnls zh_CN/REL_14_STABLE, REL_18_STABLE and master postgres.po (identical msgid)"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "aborting startup due to startup process failure",
+   "msgid_plural": null,
+   "msgstr": [
+    "因启动进程失败而中止启动"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: new message in REL_16_11 (no pgnls branch has it); \"replication origin\" = 复制源 as in pgnls REL_16_STABLE (\"ID 为 %d 的复制源不存在\"), pattern \"X \\\"%s\\\" 已存在\" as in \"复制槽 \\\"%s\\\" 已存在\""
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "replication origin \"%s\" already exists",
+   "msgid_plural": null,
+   "msgstr": [
+    "复制源 \"%s\" 已存在"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: format changed %ld -> %d; wording follows the pgnls REL_16_STABLE translation of the %zu variant \"字符串对于 tsvector 过长（%zu 字节，最多 %zu 字节）\""
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "string is too long for tsvector (%d bytes, max %d bytes)",
+   "msgid_plural": null,
+   "msgstr": [
+    "字符串对于 tsvector 过长（%d 字节，最多 %d 字节）"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"字符串对于tsvector来说太长了(当前 %ld字节, 最大允许值是%ld字节)\", retired upstream); aligned with the active %zu variant above per style-guide R4.3 (fullwidth parentheses) and R5 (spaces around the ASCII token)"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "string is too long for tsvector (%ld bytes, max %ld bytes)",
+   "msgid_plural": null,
+   "msgstr": [
+    "字符串对于 tsvector 过长（%ld 字节，最多 %ld 字节）"
+   ],
+   "review_status": "pending GPT 100% review"
+  },
+  {
+   "catalog": "postgres",
+   "comments": [
+    "# zh-review-pending: OVERRIDE of a translation msgmerge revived from a pgnls REL_16_STABLE obsolete entry (\"所要求的共享内存大小超过size_t\", retired upstream); \"overflows\" rendered as 超出 ... 范围 like the active \"value overflows numeric format\" = \"值超出 numeric 格式范围\", space before the ASCII token per style-guide R5"
+   ],
+   "flags": [
+    "c-format"
+   ],
+   "msgctxt": null,
+   "msgid": "requested shared memory size overflows size_t",
+   "msgid_plural": null,
+   "msgstr": [
+    "请求的共享内存大小超出 size_t 范围"
+   ],
+   "review_status": "pending GPT 100% review"
+  }
+ ],
+ "tool": "po_sync.py report",
+ "tools_version": "0.2.1",
+ "totals": {
+  "added_vs_pgnls": 11,
+  "base_entries": 9605,
+  "changed_vs_base": 9150,
+  "obsolete_vs_pgnls": 92,
+  "pass1_fuzzy": 7,
+  "pass1_untranslated": 1,
+  "pgnls_entries": 10657,
+  "pot_entries": 10576,
+  "supplement_entries": 11
+ }
+}

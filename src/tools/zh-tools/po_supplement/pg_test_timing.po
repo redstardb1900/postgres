@@ -1,0 +1,16 @@
+# zh_CN supplement for pg_test_timing (REL_16_11).  See po_supplement/postgres.po
+# for what a supplement is; every entry is review-pending.
+msgid ""
+msgstr ""
+"Project-Id-Version: pg_test_timing (PostgreSQL) 16 zh_CN supplement\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# zh-review-pending: unit changed us -> ms in REL_16_11; follows the pgnls REL_16_STABLE translation of "Time warp: %d us\n" = "时钟回退: %d us\n" with the unit updated (unit token kept ASCII per style-guide R4.4)
+#: pg_test_timing.c
+#, c-format
+msgid "Time warp: %d ms\n"
+msgstr "时钟回退: %d ms\n"

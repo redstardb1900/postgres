@@ -1,0 +1,17 @@
+# zh_CN supplement for pg_dump (REL_16_11).  See po_supplement/postgres.po
+# for what a supplement is; every entry is review-pending.
+msgid ""
+msgstr ""
+"Project-Id-Version: pg_dump (PostgreSQL) 16 zh_CN supplement\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+# zh-review-pending: pgnls REL_16_STABLE has no translation (msgid absent there); translation reused verbatim from pgnls zh_CN/REL_14_STABLE and REL_15_STABLE pg_dump.po (identical msgid)
+#. translator: %s represents a numeric role OID
+#: pg_dumpall.c
+#, c-format
+msgid "found orphaned pg_auth_members entry for role %s"
+msgstr "发现角色 %s 的孤立 pg_auth_members 条目"

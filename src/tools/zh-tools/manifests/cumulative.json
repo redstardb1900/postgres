@@ -1,0 +1,1259 @@
+{
+ "schema_version": 1,
+ "batch_id": "cumulative",
+ "title": "cumulative scope since REL_16_11 (all batches)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/**",
+   "kind": "tool",
+   "note": "first tool commit: validation tools, unit tests, fixtures, manifest schema, frozen protection baseline; no translation content"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/**",
+   "kind": "baseline",
+   "note": "frozen config and records of the configure / make / check-world runs (logs stay outside the repo, SHA-256 recorded)"
+  },
+  {
+   "pattern": "src/tools/zh-tools/cc_evidence/**",
+   "kind": "baseline",
+   "note": "frozen --cc-check evidence produced by make_evidence.py collect/replay/freeze"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "external build root location"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0005-make-evidence-baseline.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_checkworld.py",
+   "kind": "tool",
+   "note": "fixture whitespace only"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0006-checkworld-fixtures.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "note": "freeze(): hash configure/check-world/config.log evidence; read-only verify mode; candidates report"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "note": "TOOLS_VERSION 0.2.1"
+  },
+  {
+   "pattern": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "note": "freeze --verify / --json CLI"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "note": "freeze fixtures record configure/check-world logs; new verify/tamper tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0007-freeze-verify.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/interfaces/ecpg/preproc/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog ecpg"
+  },
+  {
+   "pattern": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog ecpglib"
+  },
+  {
+   "pattern": "src/bin/initdb/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog initdb"
+  },
+  {
+   "pattern": "src/interfaces/libpq/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog libpq"
+  },
+  {
+   "pattern": "src/bin/pg_amcheck/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_amcheck"
+  },
+  {
+   "pattern": "src/bin/pg_archivecleanup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_archivecleanup"
+  },
+  {
+   "pattern": "src/bin/pg_basebackup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_basebackup"
+  },
+  {
+   "pattern": "src/bin/pg_checksums/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_checksums"
+  },
+  {
+   "pattern": "src/bin/pg_config/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_config"
+  },
+  {
+   "pattern": "src/bin/pg_controldata/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_controldata"
+  },
+  {
+   "pattern": "src/bin/pg_ctl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_ctl"
+  },
+  {
+   "pattern": "src/bin/pg_dump/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_dump"
+  },
+  {
+   "pattern": "src/bin/pg_resetwal/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_resetwal"
+  },
+  {
+   "pattern": "src/bin/pg_rewind/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_rewind"
+  },
+  {
+   "pattern": "src/bin/pg_test_fsync/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_test_fsync"
+  },
+  {
+   "pattern": "src/bin/pg_test_timing/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_test_timing"
+  },
+  {
+   "pattern": "src/bin/pg_upgrade/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_upgrade"
+  },
+  {
+   "pattern": "src/bin/pg_verifybackup/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_verifybackup"
+  },
+  {
+   "pattern": "src/bin/pg_waldump/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pg_waldump"
+  },
+  {
+   "pattern": "src/bin/scripts/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pgscripts"
+  },
+  {
+   "pattern": "src/pl/plperl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plperl"
+  },
+  {
+   "pattern": "src/pl/plpgsql/src/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plpgsql"
+  },
+  {
+   "pattern": "src/pl/plpython/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog plpython"
+  },
+  {
+   "pattern": "src/pl/tcl/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog pltcl"
+  },
+  {
+   "pattern": "src/backend/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog postgres"
+  },
+  {
+   "pattern": "src/bin/psql/po/zh_CN.po",
+   "kind": "po",
+   "note": "catalog psql"
+  },
+  {
+   "pattern": "src/tools/zh-tools/po_sync.py",
+   "kind": "tool",
+   "note": "new PO gate CLI"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/potools.py",
+   "kind": "tool",
+   "note": "new PO reader"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_potools.py",
+   "kind": "tool",
+   "note": "tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_po_sync.py",
+   "kind": "tool",
+   "note": "tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/po_supplement/*.po",
+   "kind": "po",
+   "note": "hand translations, review-pending"
+  },
+  {
+   "pattern": "src/tools/zh-tools/evidence/po/*.json",
+   "kind": "tool",
+   "note": "PO evidence"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0008-po-sync.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "manifest",
+   "note": "cumulative manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 5878,
+   "translated": 5878,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE postgres.po merged into the REL_16_11 POT (5878 entries); 7 supplement entries review-pending; 47 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/initdb/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 193,
+   "translated": 193,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE initdb.po merged into the REL_16_11 POT (193 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_amcheck/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 97,
+   "translated": 97,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_amcheck.po merged into the REL_16_11 POT (97 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_archivecleanup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 27,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_archivecleanup.po merged into the REL_16_11 POT (27 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_basebackup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 329,
+   "translated": 329,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_basebackup.po merged into the REL_16_11 POT (329 entries); 0 supplement entries review-pending; 4 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_checksums/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 59,
+   "translated": 59,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_checksums.po merged into the REL_16_11 POT (59 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_config/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 41,
+   "translated": 41,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_config.po merged into the REL_16_11 POT (41 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_controldata/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 92,
+   "translated": 92,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_controldata.po merged into the REL_16_11 POT (92 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_ctl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 154,
+   "translated": 154,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_ctl.po merged into the REL_16_11 POT (154 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_dump/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 529,
+   "translated": 529,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_dump.po merged into the REL_16_11 POT (529 entries); 1 supplement entries review-pending; 8 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_resetwal/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 116,
+   "translated": 116,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_resetwal.po merged into the REL_16_11 POT (116 entries); 2 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_rewind/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 186,
+   "translated": 186,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_rewind.po merged into the REL_16_11 POT (186 entries); 0 supplement entries review-pending; 9 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_test_fsync/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_test_fsync.po merged into the REL_16_11 POT (35 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_test_timing/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 13,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_test_timing.po merged into the REL_16_11 POT (13 entries); 1 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_upgrade/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 277,
+   "translated": 277,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_upgrade.po merged into the REL_16_11 POT (277 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_verifybackup/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 104,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_verifybackup.po merged into the REL_16_11 POT (104 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/pg_waldump/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 100,
+   "translated": 100,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pg_waldump.po merged into the REL_16_11 POT (100 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/psql/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 1342,
+   "translated": 1342,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE psql.po merged into the REL_16_11 POT (1342 entries); 0 supplement entries review-pending; 5 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/bin/scripts/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 231,
+   "translated": 231,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pgscripts.po merged into the REL_16_11 POT (231 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/interfaces/ecpg/ecpglib/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 32,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE ecpglib.po merged into the REL_16_11 POT (32 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/interfaces/ecpg/preproc/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 130,
+   "translated": 130,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE ecpg.po merged into the REL_16_11 POT (130 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/interfaces/libpq/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 292,
+   "translated": 292,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE libpq.po merged into the REL_16_11 POT (292 entries); 0 supplement entries review-pending; 4 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plperl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 42,
+   "translated": 42,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plperl.po merged into the REL_16_11 POT (42 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plpgsql/src/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 171,
+   "translated": 171,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plpgsql.po merged into the REL_16_11 POT (171 entries); 0 supplement entries review-pending; 2 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/plpython/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 86,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE plpython.po merged into the REL_16_11 POT (86 entries); 0 supplement entries review-pending; 1 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/pl/tcl/po/zh_CN.po",
+   "kind": "po",
+   "action": "modify",
+   "segments_total": 20,
+   "translated": 20,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgnls zh_CN/REL_16_STABLE pltcl.po merged into the REL_16_11 POT (20 entries); 0 supplement entries review-pending; 0 pgnls entries obsolete vs POT dropped"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "document po_sync.py / po_supplement / evidence/po and the PO workflow"
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/baseline.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/doc_snapshot.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/baseline/perl_protected.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/README.md",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/baseline.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "frozen (schema 2): cache key, bulk SHAs, closure counters, coverage, .Po superset audit, empty check-world failure set"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/closure.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/commands.jsonl",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1504 variant records (cwd, source, flagset, object, .Po)"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/flagsets.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/platform_exceptions_candidates.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "194 uncovered tracked files; candidates only, nothing approved"
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/replay_base.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/schema.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/tokens.jsonl",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "per-variant token/header/argv hashes of the base replay (1504 variants)"
+  },
+  {
+   "path": "src/tools/zh-tools/check_scope.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/check_world.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "make -j8 -k -Orecurse -w check-world: exit 0, 0 failures, 9 PG_TEST_EXTRA/platform skips"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/configure.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/environment.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/environment.md",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "frozen environment, configure args, disabled features, capture commands, virtiofs migration record with old evidence hashes"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/frozen_config.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "builddir/prefix/evidence_out moved from virtiofs (/Users/...postgres.builds) to native btrfs /home/redstar/pg-builds; migration block records the reason and the old check-world log hashes"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_ecpg.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_libpq.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_check_prereqs_pg_bsd_indent.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_checkprep.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/make_world_bin.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/msgattrib_probe.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_check.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_merge.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/po_sync_report.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/po/pot_manifest.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "po_sync.py evidence record"
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/replay_compare_zh.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/gen_baseline.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze gains --verify (read-only) and --json; prints problems, mismatches and the candidates summary"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/SCHEMA.md",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0001-tools.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0002-tools-fixes.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0003-perl-scope.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0004-make-evidence-tools.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0005-make-evidence-baseline.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0006-checkworld-fixtures.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0007-freeze-verify.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0008-po-sync.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "cumulative manifest since REL_16_11 for check_scope.py (non-incremental)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/scope_template.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_dump.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_resetwal.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/pg_test_timing.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_supplement/postgres.po",
+   "kind": "po",
+   "action": "add",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hand translations (exact-match compendium), every entry # zh-review-pending"
+  },
+  {
+   "path": "src/tools/zh-tools/po_sync.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "PO gate CLI: probe/archive/merge/check/report"
+  },
+  {
+   "path": "src/tools/zh-tools/run_tests.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/term_lint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/term_rules.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/__init__.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/_path.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/negative_cases.json",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/sample_old.c.txt",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/fixtures/sample_zh.c.txt",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_c_lexer.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_cc_check.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fixture writes configure.log, config.log (builddir + copy) and make_check_world.log with recorded hashes; tests tamper each one, remove the check-world log, drop the log reference, and exercise verify: read-only, field drift, bad cache key, hand-approved candidate, draft status, external drift, missing baseline"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_check_scope.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_checkworld.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "the two prove lines that must end in a space (progress line without status, 'No subtests run ') now spell it as \\x20 so no source line has trailing whitespace; parsed fixture text is unchanged"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_makelog.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_po_sync.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unit tests for po_sync (probe, components, check_one gates, merge pipeline + override)"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_potools.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unit tests for potools"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_term_lint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/verify_c_comments.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "TOOLS_VERSION 0.2.0 -> 0.2.1"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_lexer.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/cc_check.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze() now fails when the out-of-repo configure log, check-world log or config.log (builddir and evidence_out copy) is missing or its SHA-256 differs from the record, and when a record has no log reference at all; freeze(verify=True) recomputes baseline.json and platform_exceptions_candidates.json from disk and compares them with the committed files without writing; platform candidates are counted by hint and reported with approved=0 in both modes"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/checkworld.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/evidence_run.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/gitutil.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/makelog.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/manifest.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/potools.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "mechanical PO reader (keys, duplicates, plurals, header, hashes, override splice)"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/protection.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/termlint.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental."
+}

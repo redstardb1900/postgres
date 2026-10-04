@@ -287,8 +287,8 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 			else
 			{
 				/*
-				 * 口令看起来像 SCRAM 密钥，但无法
-				 * 解析。
+				 * 存储的 SCRAM 密钥（凭据串）格式看似正确，
+				 * 但无法解析。
 				 */
 				ereport(LOG,
 						(errmsg("invalid SCRAM secret for user \"%s\"",
@@ -434,13 +434,13 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 			 * 以应用程序特定的方式报错。我们选择
 			 * 后者，以便无效口令的错误消息
 			 * 对所有认证方法都相同。调用方会在我们返回
-			 * PG_SASL_EXCHANGE_FAILURE 且没有输出时调用 ereport()。
-			 * 注意：这些检查的顺序是有意的。即使在
+			 * PG_SASL_EXCHANGE_FAILURE 且没有输出时
+			 * 调用 ereport()。
 			 *
-			 * 模拟认证中，我们也会计算客户端证明，
+			 * 注意：这些检查的顺序是有意的。
+			 * 即使在模拟认证中，我们也会计算客户端证明，
 			 * 尽管它注定失败，以挫败计时攻击，
-			 * 那种攻击用来判断给定名字的角色
-			 * 是否存在。
+			 * 那种攻击用来判断给定名字的角色是否存在。
 			 */
 			if (!verify_client_proof(state) || state->doomed)
 			{
@@ -537,7 +537,7 @@ scram_verify_plain_password(const char *username, const char *password,
 							&encoded_salt, stored_key, server_key))
 	{
 		/*
-		 * 口令看起来像 SCRAM 密钥，但无法解析。
+		 * 存储的 SCRAM 密钥（凭据串）格式看似正确但无法解析。
 		 */
 		ereport(LOG,
 				(errmsg("invalid SCRAM secret for user \"%s\"", username)));
@@ -678,9 +678,9 @@ invalid_secret:
 /*
  * 为模拟认证生成看起来可信的 SCRAM 密钥参数。
  *
- * 正常认证中，这些值提取自
- * 存储在服务器上的密钥。没有已存储密钥时，本函数生成
- * 看起来真实的值，使用 SCRAM-SHA-256。
+ * 正常认证中，这些值提取自存储在服务器上的
+ * SCRAM 密钥（凭据串）。没有已存储的凭据串时，本函数
+ * 生成看起来真实的值，使用 SCRAM-SHA-256。
  *
  * 与 parse_scram_secret() 中一样，对于 'stored_key' 和 'server_key'，
  * 调用方必须传入大小为 SCRAM_MAX_KEY_LEN 的预先分配缓冲区，

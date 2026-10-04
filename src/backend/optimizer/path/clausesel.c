@@ -27,17 +27,17 @@
 #include "utils/selfuncs.h"
 
 /*
- * Data structure for accumulating info about possible range-query
- * clause pairs in clauselist_selectivity.
+ * 用于累积可能的范围查询
+ * 子句对信息的数据结构，供 clauselist_selectivity 使用。
  */
 typedef struct RangeQueryClause
 {
-	struct RangeQueryClause *next;	/* next in linked list */
-	Node	   *var;			/* The common variable of the clauses */
-	bool		have_lobound;	/* found a low-bound clause yet? */
-	bool		have_hibound;	/* found a high-bound clause yet? */
-	Selectivity lobound;		/* Selectivity of a var > something clause */
-	Selectivity hibound;		/* Selectivity of a var < something clause */
+	struct RangeQueryClause *next;	/* 链表中的下一项 */
+	Node	   *var;			/* 这些子句的公共变量 */
+	bool		have_lobound;	/* 是否已找到下界子句？ */
+	bool		have_hibound;	/* 是否已找到上界子句？ */
+	Selectivity lobound;		/* var > 某值这种子句的选择率 */
+	Selectivity hibound;		/* var < 某值这种子句的选择率 */
 } RangeQueryClause;
 
 static void addRangeClause(RangeQueryClause **rqlist, Node *clause,
@@ -52,51 +52,51 @@ static Selectivity clauselist_selectivity_or(PlannerInfo *root,
 											 bool use_extended_stats);
 
 /****************************************************************************
- *		ROUTINES TO COMPUTE SELECTIVITIES
+ *		ROUTINES TO COMPUTE SELECTIVITIES（计算选择率的例程）
  ****************************************************************************/
 
 /*
  * clauselist_selectivity -
- *	  Compute the selectivity of an implicitly-ANDed list of boolean
- *	  expression clauses.  The list can be empty, in which case 1.0
- *	  must be returned.  List elements may be either RestrictInfos
- *	  or bare expression clauses --- the former is preferred since
- *	  it allows caching of results.
+ *	  计算隐含 ANDed 的布尔
+ *	  表达式子句列表的选择率。列表可以为空，此时 1.0
+ *	  必须被返回。列表元素可以是 RestrictInfos
+ *	  或裸表达式子句---优先前者，因为
+ *	  它可以缓存结果。
  *
- * See clause_selectivity() for the meaning of the additional parameters.
+ * 其余参数的含义见 clause_selectivity()。
  *
- * The basic approach is to apply extended statistics first, on as many
- * clauses as possible, in order to capture cross-column dependencies etc.
- * The remaining clauses are then estimated by taking the product of their
- * selectivities, but that's only right if they have independent
- * probabilities, and in reality they are often NOT independent even if they
- * only refer to a single column.  So, we want to be smarter where we can.
+ * 基本做法是先把扩展统计用在尽可能多的
+ * 子句上，以便捕捉跨列依赖等。
+ * 然后对其余子句取它们的选择率
+ * 乘积来估计，但这仅当它们具有独立
+ * 概率时才正确，而实际上它们常常并不独立，即使
+ * 只引用单列。因此能更聪明时我们就更聪明。
  *
- * We also recognize "range queries", such as "x > 34 AND x < 42".  Clauses
- * are recognized as possible range query components if they are restriction
- * opclauses whose operators have scalarltsel or a related function as their
- * restriction selectivity estimator.  We pair up clauses of this form that
- * refer to the same variable.  An unpairable clause of this kind is simply
- * multiplied into the selectivity product in the normal way.  But when we
- * find a pair, we know that the selectivities represent the relative
- * positions of the low and high bounds within the column's range, so instead
- * of figuring the selectivity as hisel * losel, we can figure it as hisel +
- * losel - 1.  (To visualize this, see that hisel is the fraction of the range
- * below the high bound, while losel is the fraction above the low bound; so
- * hisel can be interpreted directly as a 0..1 value but we need to convert
- * losel to 1-losel before interpreting it as a value.  Then the available
- * range is 1-losel to hisel.  However, this calculation double-excludes
- * nulls, so really we need hisel + losel + null_frac - 1.)
+ * 我们也识别 "范围查询"，例如 "x > 34 AND x < 42"。若子句
+ * 被认作可能的范围查询成分，条件是它们是限制
+ * 操作子句，且其操作符把 scalarltsel 或相关函数当作
+ * 限制选择率估计器。我们把这种形式且
+ * 引用同一变量的子句配对。无法配对的这类子句就简单地
+ * 按通常方式乘进选择率乘积。但当我们
+ * 找到一对时，就知道这些选择率表示下界与上界在列范围内的相对
+ * 位置，因此不必
+ * 把选择率算成 hisel * losel，而可以算成 hisel +
+ * losel - 1。（直观地看，hisel 是范围中
+ * 低于上界的那一部分，而 losel 是高于下界的那一部分；因此
+ * hisel 可以直接解释为 0..1 的值，但需要先把 losel 换成
+ * 1-losel 再把它解释成一个值。于是可用
+ * 范围是从 1-losel 到 hisel。不过这个计算把空值
+ * 排除了两次，所以实际上需要 hisel + losel + null_frac - 1。）
  *
- * If either selectivity is exactly DEFAULT_INEQ_SEL, we forget this equation
- * and instead use DEFAULT_RANGE_INEQ_SEL.  The same applies if the equation
- * yields an impossible (negative) result.
+ * 若任一选择率恰好是 DEFAULT_INEQ_SEL，就放弃这个等式
+ * 而改用 DEFAULT_RANGE_INEQ_SEL。若等式
+ * 得出不可能的（负的）结果，也同样处理。
  *
- * A free side-effect is that we can recognize redundant inequalities such
- * as "x < 4 AND x < 5"; only the tighter constraint will be counted.
+ * 一个附带的好处是可以识别冗余不等式，例如
+ * "x < 4 AND x < 5"；只会计入更紧的约束。
  *
- * Of course this is all very dependent on the behavior of the inequality
- * selectivity functions; perhaps some day we can generalize the approach.
+ * 当然这一切都非常依赖于不等式
+ * 选择率函数的行为；也许将来可以推广这种方法。
  */
 Selectivity
 clauselist_selectivity(PlannerInfo *root,
@@ -111,9 +111,9 @@ clauselist_selectivity(PlannerInfo *root,
 
 /*
  * clauselist_selectivity_ext -
- *	  Extended version of clauselist_selectivity().  If "use_extended_stats"
- *	  is false, all extended statistics will be ignored, and only per-column
- *	  statistics will be used.
+ *	  clauselist_selectivity() 的扩展版本。若 "use_extended_stats"
+ *	  为 false，则忽略全部扩展统计，只用按列
+ *	  统计。
  */
 Selectivity
 clauselist_selectivity_ext(PlannerInfo *root,
@@ -131,8 +131,8 @@ clauselist_selectivity_ext(PlannerInfo *root,
 	int			listidx;
 
 	/*
-	 * If there's exactly one clause, just go directly to
-	 * clause_selectivity_ext(). None of what we might do below is relevant.
+	 * 若恰好只有一个子句，就直接进入
+	 * clause_selectivity_ext()。下面可能做的事都与此无关。
 	 */
 	if (list_length(clauses) == 1)
 		return clause_selectivity_ext(root, (Node *) linitial(clauses),
@@ -140,17 +140,17 @@ clauselist_selectivity_ext(PlannerInfo *root,
 									  use_extended_stats);
 
 	/*
-	 * Determine if these clauses reference a single relation.  If so, and if
-	 * it has extended statistics, try to apply those.
+	 * 判断这些子句是否只引用单一关系。若是，并且
+	 * 它有扩展统计，就尝试应用那些统计。
 	 */
 	rel = find_single_rel_for_clauses(root, clauses);
 	if (use_extended_stats && rel && rel->rtekind == RTE_RELATION && rel->statlist != NIL)
 	{
 		/*
-		 * Estimate as many clauses as possible using extended statistics.
+		 * 用扩展统计估计尽可能多的子句。
 		 *
-		 * 'estimatedclauses' is populated with the 0-based list position
-		 * index of clauses estimated here, and that should be ignored below.
+		 * 'estimatedclauses' 会被填上在这里估计过的子句的、从 0 起的列表位置
+		 * 下标，下面应当忽略它们。
 		 */
 		s1 = statext_clauselist_selectivity(root, clauses, varRelid,
 											jointype, sjinfo, rel,
@@ -158,12 +158,12 @@ clauselist_selectivity_ext(PlannerInfo *root,
 	}
 
 	/*
-	 * Apply normal selectivity estimates for remaining clauses. We'll be
-	 * careful to skip any clauses which were already estimated above.
+	 * 对其余子句应用普通选择率估计。我们会
+	 * 小心地跳过上面已经估计过的子句。
 	 *
-	 * Anything that doesn't look like a potential rangequery clause gets
-	 * multiplied into s1 and forgotten. Anything that does gets inserted into
-	 * an rqlist entry.
+	 * 凡是不像潜在范围查询子句的，都
+	 * 乘进 s1 然后忘掉。凡是像的，都插入
+	 * 一个 rqlist 条目。
 	 */
 	listidx = -1;
 	foreach(l, clauses)
@@ -175,21 +175,21 @@ clauselist_selectivity_ext(PlannerInfo *root,
 		listidx++;
 
 		/*
-		 * Skip this clause if it's already been estimated by some other
-		 * statistics above.
+		 * 若这个子句已由上面的其他
+		 * 统计估计过，就跳过它。
 		 */
 		if (bms_is_member(listidx, estimatedclauses))
 			continue;
 
-		/* Compute the selectivity of this clause in isolation */
+		/* 单独计算这个子句的选择率 */
 		s2 = clause_selectivity_ext(root, clause, varRelid, jointype, sjinfo,
 									use_extended_stats);
 
 		/*
-		 * Check for being passed a RestrictInfo.
+		 * 检查传来的是不是 RestrictInfo。
 		 *
-		 * If it's a pseudoconstant RestrictInfo, then s2 is either 1.0 or
-		 * 0.0; just use that rather than looking for range pairs.
+		 * 若它是伪常量 RestrictInfo，则 s2 要么是 1.0 要么是
+		 * 0.0；直接用这个值，不必再找范围对。
 		 */
 		if (IsA(clause, RestrictInfo))
 		{
@@ -205,10 +205,10 @@ clauselist_selectivity_ext(PlannerInfo *root,
 			rinfo = NULL;
 
 		/*
-		 * See if it looks like a restriction clause with a pseudoconstant on
-		 * one side.  (Anything more complicated than that might not behave in
-		 * the simple way we are expecting.)  Most of the tests here can be
-		 * done more efficiently with rinfo than without.
+		 * 看它是否像一侧为伪常量的限制子句。
+		 * （比这更复杂的东西也许不会按
+		 * 我们期望的简单方式表现。）这里的多数测试有 rinfo 时
+		 * 可以做得更高效。
 		 */
 		if (is_opclause(clause) && list_length(((OpExpr *) clause)->args) == 2)
 		{
@@ -236,9 +236,9 @@ clauselist_selectivity_ext(PlannerInfo *root,
 			if (ok)
 			{
 				/*
-				 * If it's not a "<"/"<="/">"/">=" operator, just merge the
-				 * selectivity in generically.  But if it's the right oprrest,
-				 * add the clause to rqlist for later processing.
+				 * 若它不是 "<"/"<="/">"/">=" 操作符，就把
+				 * 选择率按通用方式并入。但若 oprrest 正确，
+				 * 就把该子句加入 rqlist 供稍后处理。
 				 */
 				switch (get_oprrest(expr->opno))
 				{
@@ -253,20 +253,20 @@ clauselist_selectivity_ext(PlannerInfo *root,
 									   varonleft, false, s2);
 						break;
 					default:
-						/* Just merge the selectivity in generically */
+						/* 只按通用方式并入选择率 */
 						s1 = s1 * s2;
 						break;
 				}
-				continue;		/* drop to loop bottom */
+				continue;		/* 落到循环底部 */
 			}
 		}
 
-		/* Not the right form, so treat it generically. */
+		/* 形式不对，因此按通用方式处理。 */
 		s1 = s1 * s2;
 	}
 
 	/*
-	 * Now scan the rangequery pair list.
+	 * 现在扫描范围查询对的列表。
 	 */
 	while (rqlist != NULL)
 	{
@@ -274,13 +274,13 @@ clauselist_selectivity_ext(PlannerInfo *root,
 
 		if (rqlist->have_lobound && rqlist->have_hibound)
 		{
-			/* Successfully matched a pair of range clauses */
+			/* 成功配上一对范围子句 */
 			Selectivity s2;
 
 			/*
-			 * Exact equality to the default value probably means the
-			 * selectivity function punted.  This is not airtight but should
-			 * be good enough.
+			 * 与默认值精确相等，多半意味着
+			 * 选择率函数放弃了估计。这并不严密，但应当
+			 * 足够好。
 			 */
 			if (rqlist->hibound == DEFAULT_INEQ_SEL ||
 				rqlist->lobound == DEFAULT_INEQ_SEL)
@@ -291,50 +291,50 @@ clauselist_selectivity_ext(PlannerInfo *root,
 			{
 				s2 = rqlist->hibound + rqlist->lobound - 1.0;
 
-				/* Adjust for double-exclusion of NULLs */
+				/* 对 NULLs 被排除两次做调整 */
 				s2 += nulltestsel(root, IS_NULL, rqlist->var,
 								  varRelid, jointype, sjinfo);
 
 				/*
-				 * A zero or slightly negative s2 should be converted into a
-				 * small positive value; we probably are dealing with a very
-				 * tight range and got a bogus result due to roundoff errors.
-				 * However, if s2 is very negative, then we probably have
-				 * default selectivity estimates on one or both sides of the
-				 * range that we failed to recognize above for some reason.
+				 * 零或略为负的 s2 应当转换成一个
+				 * 小的正值；我们多半是在处理非常
+				 * 紧的范围，并因舍入误差得到了虚假结果。
+				 * 不过，若 s2 负得很多，则多半是范围的
+				 * 一侧或两侧用了默认选择率估计，
+				 * 而上面由于某种原因没能识别出来。
 				 */
 				if (s2 <= 0.0)
 				{
 					if (s2 < -0.01)
 					{
 						/*
-						 * No data available --- use a default estimate that
-						 * is small, but not real small.
+						 * 没有可用数据---使用一个较小、
+						 * 但不是非常小的默认估计。
 						 */
 						s2 = DEFAULT_RANGE_INEQ_SEL;
 					}
 					else
 					{
 						/*
-						 * It's just roundoff error; use a small positive
-						 * value
+						 * 这只是舍入误差；使用一个小的正
+						 * 值
 						 */
 						s2 = 1.0e-10;
 					}
 				}
 			}
-			/* Merge in the selectivity of the pair of clauses */
+			/* 并入这一对子句的选择率 */
 			s1 *= s2;
 		}
 		else
 		{
-			/* Only found one of a pair, merge it in generically */
+			/* 只找到一对中的一个，按通用方式并入 */
 			if (rqlist->have_lobound)
 				s1 *= rqlist->lobound;
 			else
 				s1 *= rqlist->hibound;
 		}
-		/* release storage and advance */
+		/* 释放存储并前进 */
 		rqnext = rqlist->next;
 		pfree(rqlist);
 		rqlist = rqnext;
@@ -345,17 +345,17 @@ clauselist_selectivity_ext(PlannerInfo *root,
 
 /*
  * clauselist_selectivity_or -
- *	  Compute the selectivity of an implicitly-ORed list of boolean
- *	  expression clauses.  The list can be empty, in which case 0.0
- *	  must be returned.  List elements may be either RestrictInfos
- *	  or bare expression clauses --- the former is preferred since
- *	  it allows caching of results.
+ *	  计算隐含 ORed 的布尔
+ *	  表达式子句列表的选择率。列表可以为空，此时 0.0
+ *	  必须被返回。列表元素可以是 RestrictInfos
+ *	  或裸表达式子句---优先前者，因为
+ *	  它可以缓存结果。
  *
- * See clause_selectivity() for the meaning of the additional parameters.
+ * 其余参数的含义见 clause_selectivity()。
  *
- * The basic approach is to apply extended statistics first, on as many
- * clauses as possible, in order to capture cross-column dependencies etc.
- * The remaining clauses are then estimated as if they were independent.
+ * 基本做法是先把扩展统计用在尽可能多的
+ * 子句上，以便捕捉跨列依赖等。
+ * 然后将其余子句当作相互独立来估计。
  */
 static Selectivity
 clauselist_selectivity_or(PlannerInfo *root,
@@ -372,17 +372,17 @@ clauselist_selectivity_or(PlannerInfo *root,
 	int			listidx;
 
 	/*
-	 * Determine if these clauses reference a single relation.  If so, and if
-	 * it has extended statistics, try to apply those.
+	 * 判断这些子句是否只引用单一关系。若是，并且
+	 * 它有扩展统计，就尝试应用那些统计。
 	 */
 	rel = find_single_rel_for_clauses(root, clauses);
 	if (use_extended_stats && rel && rel->rtekind == RTE_RELATION && rel->statlist != NIL)
 	{
 		/*
-		 * Estimate as many clauses as possible using extended statistics.
+		 * 用扩展统计估计尽可能多的子句。
 		 *
-		 * 'estimatedclauses' is populated with the 0-based list position
-		 * index of clauses estimated here, and that should be ignored below.
+		 * 'estimatedclauses' 会被填上在这里估计过的子句的、从 0 起的列表位置
+		 * 下标，下面应当忽略它们。
 		 */
 		s1 = statext_clauselist_selectivity(root, clauses, varRelid,
 											jointype, sjinfo, rel,
@@ -390,12 +390,12 @@ clauselist_selectivity_or(PlannerInfo *root,
 	}
 
 	/*
-	 * Estimate the remaining clauses as if they were independent.
+	 * 将其余子句当作相互独立来估计。
 	 *
-	 * Selectivities for an OR clause are computed as s1+s2 - s1*s2 to account
-	 * for the probable overlap of selected tuple sets.
+	 * OR 子句的选择率按 s1+s2 - s1*s2 计算，以计入
+	 * 被选中元组集合可能的重叠。
 	 *
-	 * XXX is this too conservative?
+	 * XXX 这样是不是过于保守？
 	 */
 	listidx = -1;
 	foreach(lc, clauses)
@@ -405,8 +405,8 @@ clauselist_selectivity_or(PlannerInfo *root,
 		listidx++;
 
 		/*
-		 * Skip this clause if it's already been estimated by some other
-		 * statistics above.
+		 * 若这个子句已由上面的其他
+		 * 统计估计过，就跳过它。
 		 */
 		if (bms_is_member(listidx, estimatedclauses))
 			continue;
@@ -421,9 +421,9 @@ clauselist_selectivity_or(PlannerInfo *root,
 }
 
 /*
- * addRangeClause --- add a new range clause for clauselist_selectivity
+ * addRangeClause --- 为 clauselist_selectivity 添加一条新的范围子句
  *
- * Here is where we try to match up pairs of range-query clauses
+ * 这里尝试把范围查询子句配对
  */
 static void
 addRangeClause(RangeQueryClause **rqlist, Node *clause,
@@ -436,23 +436,23 @@ addRangeClause(RangeQueryClause **rqlist, Node *clause,
 	if (varonleft)
 	{
 		var = get_leftop((Expr *) clause);
-		is_lobound = !isLTsel;	/* x < something is high bound */
+		is_lobound = !isLTsel;	/* x < 某值 是上界 */
 	}
 	else
 	{
 		var = get_rightop((Expr *) clause);
-		is_lobound = isLTsel;	/* something < x is low bound */
+		is_lobound = isLTsel;	/* 某值 < x 是下界 */
 	}
 
 	for (rqelem = *rqlist; rqelem; rqelem = rqelem->next)
 	{
 		/*
-		 * We use full equal() here because the "var" might be a function of
-		 * one or more attributes of the same relation...
+		 * 这里使用完整的 equal()，因为 "var" 也许是同一关系的
+		 * 一个或多个属性的函数……
 		 */
 		if (!equal(var, rqelem->var))
 			continue;
-		/* Found the right group to put this clause in */
+		/* 找到了安放这个子句的正确分组 */
 		if (is_lobound)
 		{
 			if (!rqelem->have_lobound)
@@ -496,7 +496,7 @@ addRangeClause(RangeQueryClause **rqlist, Node *clause,
 		return;
 	}
 
-	/* No matching var found, so make a new clause-pair data structure */
+	/* 没找到匹配的 var，因此新建一个子句对数据结构 */
 	rqelem = (RangeQueryClause *) palloc(sizeof(RangeQueryClause));
 	rqelem->var = var;
 	if (is_lobound)
@@ -517,9 +517,9 @@ addRangeClause(RangeQueryClause **rqlist, Node *clause,
 
 /*
  * find_single_rel_for_clauses
- *		Examine each clause in 'clauses' and determine if all clauses
- *		reference only a single relation.  If so return that relation,
- *		otherwise return NULL.
+ *		检查 'clauses' 中的每个子句，判断是否所有子句
+ *		都只引用单一关系。若是则返回该关系，
+ *		否则返回 NULL。
  */
 static RelOptInfo *
 find_single_rel_for_clauses(PlannerInfo *root, List *clauses)
@@ -533,15 +533,15 @@ find_single_rel_for_clauses(PlannerInfo *root, List *clauses)
 		int			relid;
 
 		/*
-		 * If we have a list of bare clauses rather than RestrictInfos, we
-		 * could pull out their relids the hard way with pull_varnos().
-		 * However, currently the extended-stats machinery won't do anything
-		 * with non-RestrictInfo clauses anyway, so there's no point in
-		 * spending extra cycles; just fail if that's what we have.
+		 * 若拿到的是裸子句列表而不是 RestrictInfos，我们
+		 * 可以用 pull_varnos() 费力地抽出它们的 relids。
+		 * 不过目前扩展统计机制对非 RestrictInfo 子句反正
+		 * 什么也不会做，因此没有必要
+		 * 多耗周期；若就是这种情况，直接失败即可。
 		 *
-		 * An exception to that rule is if we have a bare BoolExpr AND clause.
-		 * We treat this as a special case because the restrictinfo machinery
-		 * doesn't build RestrictInfos on top of AND clauses.
+		 * 例外是裸的 BoolExpr AND 子句。
+		 * 我们把它当作特例，因为 restrictinfo 机制
+		 * 不会在 AND 子句之上建立 RestrictInfos。
 		 */
 		if (is_andclause(rinfo))
 		{
@@ -564,25 +564,25 @@ find_single_rel_for_clauses(PlannerInfo *root, List *clauses)
 			return NULL;
 
 		if (bms_is_empty(rinfo->clause_relids))
-			continue;			/* we can ignore variable-free clauses */
+			continue;			/* 可以忽略不含变量的子句 */
 		if (!bms_get_singleton_member(rinfo->clause_relids, &relid))
-			return NULL;		/* multiple relations in this clause */
+			return NULL;		/* 这个子句里有多个关系 */
 		if (lastrelid == 0)
-			lastrelid = relid;	/* first clause referencing a relation */
+			lastrelid = relid;	/* 第一个引用某关系的子句 */
 		else if (relid != lastrelid)
-			return NULL;		/* relation not same as last one */
+			return NULL;		/* 关系与上一个不同 */
 	}
 
 	if (lastrelid != 0)
 		return find_base_rel(root, lastrelid);
 
-	return NULL;				/* no clauses */
+	return NULL;				/* 没有子句 */
 }
 
 /*
  * treat_as_join_clause -
- *	  Decide whether an operator clause is to be handled by the
- *	  restriction or join estimator.  Subroutine for clause_selectivity().
+ *	  决定一个操作符子句该由
+ *	  限制估计器还是连接估计器处理。clause_selectivity() 的子例程。
  */
 static inline bool
 treat_as_join_clause(PlannerInfo *root, Node *clause, RestrictInfo *rinfo,
@@ -591,33 +591,33 @@ treat_as_join_clause(PlannerInfo *root, Node *clause, RestrictInfo *rinfo,
 	if (varRelid != 0)
 	{
 		/*
-		 * Caller is forcing restriction mode (eg, because we are examining an
-		 * inner indexscan qual).
+		 * 调用方强制使用限制模式（例如因为我们正在检查
+		 * 内层索引扫描的限定条件）。
 		 */
 		return false;
 	}
 	else if (sjinfo == NULL)
 	{
 		/*
-		 * It must be a restriction clause, since it's being evaluated at a
-		 * scan node.
+		 * 它必须是限制子句，因为它是在
+		 * 扫描节点上求值的。
 		 */
 		return false;
 	}
 	else
 	{
 		/*
-		 * Otherwise, it's a join if there's more than one base relation used.
-		 * We can optimize this calculation if an rinfo was passed.
+		 * 否则，若使用了多于一个基关系，它就是连接。
+		 * 若传入了 rinfo，可以优化这个计算。
 		 *
-		 * XXX	Since we know the clause is being evaluated at a join, the
-		 * only way it could be single-relation is if it was delayed by outer
-		 * joins.  We intentionally count only baserels here, not OJs that
-		 * might be present in rinfo->clause_relids, so that we direct such
-		 * cases to the restriction qual estimators not join estimators.
-		 * Eventually some notice should be taken of the possibility of
-		 * injected nulls, but we'll likely want to do that in the restriction
-		 * estimators rather than starting to treat such cases as join quals.
+		 * XXX	既然知道该子句是在连接上求值的，它
+		 * 要成为单关系子句，唯一的途径是被外
+		 * 连接推迟。这里有意只计算基关系，不算那些
+		 * 也许出现在 rinfo->clause_relids 中的外连接，以便把这类
+		 * 情形交给限制限定条件估计器，而不是连接估计器。
+		 * 最终应当注意注入空值的
+		 * 可能性，但我们多半想在限制
+		 * 估计器里做这件事，而不是开始把这类情形当成连接限定条件。
 		 */
 		if (rinfo)
 			return (rinfo->num_base_rels > 1);
@@ -629,41 +629,41 @@ treat_as_join_clause(PlannerInfo *root, Node *clause, RestrictInfo *rinfo,
 
 /*
  * clause_selectivity -
- *	  Compute the selectivity of a general boolean expression clause.
+ *	  计算一般布尔表达式子句的选择率。
  *
- * The clause can be either a RestrictInfo or a plain expression.  If it's
- * a RestrictInfo, we try to cache the selectivity for possible re-use,
- * so passing RestrictInfos is preferred.
+ * 子句可以是 RestrictInfo，也可以是普通表达式。若它是
+ * RestrictInfo，我们就尝试缓存选择率以便复用，
+ * 因此优先传入 RestrictInfos。
  *
- * varRelid is either 0 or a rangetable index.
+ * varRelid 要么是 0，要么是范围表下标。
  *
- * When varRelid is not 0, only variables belonging to that relation are
- * considered in computing selectivity; other vars are treated as constants
- * of unknown values.  This is appropriate for estimating the selectivity of
- * a join clause that is being used as a restriction clause in a scan of a
- * nestloop join's inner relation --- varRelid should then be the ID of the
- * inner relation.
+ * 当 varRelid 不为 0 时，只有属于该关系的变量会在
+ * 计算选择率时被考虑；其他变量当作取值未知的常量。
+ * 这适合用来估计这样一条连接子句的选择率：它在扫描
+ * 嵌套循环连接的内层关系时被当作限制子句---
+ * 此时 varRelid 应当是该内层关系的 ID。
+ * 内层关系就是正在被扫描的那一侧。
  *
- * When varRelid is 0, all variables are treated as variables.  This
- * is appropriate for ordinary join clauses and restriction clauses.
+ * 当 varRelid 为 0 时，所有变量都当作变量。这
+ * 适合普通连接子句和限制子句。
  *
- * jointype is the join type, if the clause is a join clause.  Pass JOIN_INNER
- * if the clause isn't a join clause.
+ * 若该子句是连接子句，jointype 是连接类型。传入 JOIN_INNER
+ * 若该子句不是连接子句。
  *
- * sjinfo is NULL for a non-join clause, otherwise it provides additional
- * context information about the join being performed.  There are some
- * special cases:
- *	1. For a special (not INNER) join, sjinfo is always a member of
- *	   root->join_info_list.
- *	2. For an INNER join, sjinfo is just a transient struct, and only the
- *	   relids and jointype fields in it can be trusted.
- * It is possible for jointype to be different from sjinfo->jointype.
- * This indicates we are considering a variant join: either with
- * the LHS and RHS switched, or with one input unique-ified.
+ * 对非连接子句 sjinfo 为 NULL，否则它提供关于
+ * 正在执行的连接的额外上下文信息。有一些
+ * 特殊情形：
+ *	1. 对于特殊（非 INNER）连接，sjinfo 总是
+ *	   root->join_info_list 的成员。
+ *	2. 对于 INNER 连接，sjinfo 只是一个临时结构体，并且只有
+ *	   其中的 relids 和 jointype 字段可以信任。
+ * jointype 有可能不同于 sjinfo->jointype。
+ * 这表示我们正在考虑一种变体连接：要么
+ * 左右侧对调，要么对某一输入做了唯一化。
  *
- * Note: when passing nonzero varRelid, it's normally appropriate to set
- * jointype == JOIN_INNER, sjinfo == NULL, even if the clause is really a
- * join clause; because we aren't treating it as a join clause.
+ * 注意：传入非零 varRelid 时，通常应当设置
+ * jointype == JOIN_INNER 且 sjinfo == NULL，即使该子句其实是
+ * 连接子句；因为我们并没有把它当作连接子句。
  */
 Selectivity
 clause_selectivity(PlannerInfo *root,
@@ -678,9 +678,9 @@ clause_selectivity(PlannerInfo *root,
 
 /*
  * clause_selectivity_ext -
- *	  Extended version of clause_selectivity().  If "use_extended_stats" is
- *	  false, all extended statistics will be ignored, and only per-column
- *	  statistics will be used.
+ *	  clause_selectivity() 的扩展版本。若 "use_extended_stats" 为
+ *	  false，则忽略全部扩展统计，只用按列
+ *	  统计。
  */
 Selectivity
 clause_selectivity_ext(PlannerInfo *root,
@@ -690,11 +690,11 @@ clause_selectivity_ext(PlannerInfo *root,
 					   SpecialJoinInfo *sjinfo,
 					   bool use_extended_stats)
 {
-	Selectivity s1 = 0.5;		/* default for any unhandled clause type */
+	Selectivity s1 = 0.5;		/* 任何未处理子句类型的默认值 */
 	RestrictInfo *rinfo = NULL;
 	bool		cacheable = false;
 
-	if (clause == NULL)			/* can this still happen? */
+	if (clause == NULL)			/* 这还会发生吗？ */
 		return s1;
 
 	if (IsA(clause, RestrictInfo))
@@ -702,12 +702,12 @@ clause_selectivity_ext(PlannerInfo *root,
 		rinfo = (RestrictInfo *) clause;
 
 		/*
-		 * If the clause is marked pseudoconstant, then it will be used as a
-		 * gating qual and should not affect selectivity estimates; hence
-		 * return 1.0.  The only exception is that a constant FALSE may be
-		 * taken as having selectivity 0.0, since it will surely mean no rows
-		 * out of the plan.  This case is simple enough that we need not
-		 * bother caching the result.
+		 * 若子句被标为伪常量，它会被用作
+		 * 门控限定条件，不应影响选择率估计；因此
+		 * 返回 1.0。唯一的例外是常量 FALSE 可以
+		 * 视为选择率 0.0，因为它肯定意味着计划
+		 * 不会产出任何行。这种情况足够简单，不必
+		 * 费心缓存结果。
 		 */
 		if (rinfo->pseudoconstant)
 		{
@@ -716,22 +716,22 @@ clause_selectivity_ext(PlannerInfo *root,
 		}
 
 		/*
-		 * If possible, cache the result of the selectivity calculation for
-		 * the clause.  We can cache if varRelid is zero or the clause
-		 * contains only vars of that relid --- otherwise varRelid will affect
-		 * the result, so mustn't cache.  Outer join quals might be examined
-		 * with either their join's actual jointype or JOIN_INNER, so we need
-		 * two cache variables to remember both cases.  Note: we assume the
-		 * result won't change if we are switching the input relations or
-		 * considering a unique-ified case, so we only need one cache variable
-		 * for all non-JOIN_INNER cases.
+		 * 尽可能缓存该子句的选择率计算结果。
+		 * 若 varRelid 为零，或子句
+		 * 只含该 relid 的变量，就可以缓存---否则 varRelid 会影响
+		 * 结果，因此不得缓存。外连接限定条件也许会以
+		 * 其连接的实际 jointype 或 JOIN_INNER 来检查，因此需要
+		 * 两个缓存变量来记住这两种情形。注意：我们假定
+		 * 对调输入关系或
+		 * 考虑唯一化情形时结果不会变，因此所有非 JOIN_INNER 情形
+		 * 只需要一个缓存变量。
 		 */
 		if (varRelid == 0 ||
 			rinfo->num_base_rels == 0 ||
 			(rinfo->num_base_rels == 1 &&
 			 bms_is_member(varRelid, rinfo->clause_relids)))
 		{
-			/* Cacheable --- do we already have the result? */
+			/* 可缓存---是否已经有结果？ */
 			if (jointype == JOIN_INNER)
 			{
 				if (rinfo->norm_selec >= 0)
@@ -746,9 +746,9 @@ clause_selectivity_ext(PlannerInfo *root,
 		}
 
 		/*
-		 * Proceed with examination of contained clause.  If the clause is an
-		 * OR-clause, we want to look at the variant with sub-RestrictInfos,
-		 * so that per-subclause selectivities can be cached.
+		 * 继续检查所包含的子句。若该子句是
+		 * OR 子句，我们要看带有子 RestrictInfos 的那个变体，
+		 * 以便能缓存每个子子句的选择率。
 		 */
 		if (rinfo->orclause)
 			clause = (Node *) rinfo->orclause;
@@ -761,19 +761,19 @@ clause_selectivity_ext(PlannerInfo *root,
 		Var		   *var = (Var *) clause;
 
 		/*
-		 * We probably shouldn't ever see an uplevel Var here, but if we do,
-		 * return the default selectivity...
+		 * 这里大概不应当见到上层 Var，但如果见到了，
+		 * 就返回默认选择率……
 		 */
 		if (var->varlevelsup == 0 &&
 			(varRelid == 0 || varRelid == (int) var->varno))
 		{
-			/* Use the restriction selectivity function for a bool Var */
+			/* 对布尔 Var 使用限制选择率函数 */
 			s1 = boolvarsel(root, (Node *) var, varRelid);
 		}
 	}
 	else if (IsA(clause, Const))
 	{
-		/* bool constant is pretty easy... */
+		/* 布尔常量相当简单…… */
 		Const	   *con = (Const *) clause;
 
 		s1 = con->constisnull ? 0.0 :
@@ -781,12 +781,12 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, Param))
 	{
-		/* see if we can replace the Param */
+		/* 看看能否替换这个 Param */
 		Node	   *subst = estimate_expression_value(root, clause);
 
 		if (IsA(subst, Const))
 		{
-			/* bool constant is pretty easy... */
+			/* 布尔常量相当简单…… */
 			Const	   *con = (Const *) subst;
 
 			s1 = con->constisnull ? 0.0 :
@@ -794,12 +794,12 @@ clause_selectivity_ext(PlannerInfo *root,
 		}
 		else
 		{
-			/* XXX any way to do better than default? */
+			/* XXX 有没有办法比默认值更好？ */
 		}
 	}
 	else if (is_notclause(clause))
 	{
-		/* inverse of the selectivity of the underlying clause */
+		/* 底层子句选择率的倒数 */
 		s1 = 1.0 - clause_selectivity_ext(root,
 										  (Node *) get_notclausearg((Expr *) clause),
 										  varRelid,
@@ -809,7 +809,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (is_andclause(clause))
 	{
-		/* share code with clauselist_selectivity() */
+		/* 与 clauselist_selectivity() 共用代码 */
 		s1 = clauselist_selectivity_ext(root,
 										((BoolExpr *) clause)->args,
 										varRelid,
@@ -820,8 +820,8 @@ clause_selectivity_ext(PlannerInfo *root,
 	else if (is_orclause(clause))
 	{
 		/*
-		 * Almost the same thing as clauselist_selectivity, but with the
-		 * clauses connected by OR.
+		 * 几乎与 clauselist_selectivity 相同，只是
+		 * 子句用 OR 连接。
 		 */
 		s1 = clauselist_selectivity_or(root,
 									   ((BoolExpr *) clause)->args,
@@ -837,7 +837,7 @@ clause_selectivity_ext(PlannerInfo *root,
 
 		if (treat_as_join_clause(root, clause, rinfo, varRelid, sjinfo))
 		{
-			/* Estimate selectivity for a join clause. */
+			/* 估计连接子句的选择率。 */
 			s1 = join_selectivity(root, opno,
 								  opclause->args,
 								  opclause->inputcollid,
@@ -846,7 +846,7 @@ clause_selectivity_ext(PlannerInfo *root,
 		}
 		else
 		{
-			/* Estimate selectivity for a restriction clause. */
+			/* 估计限制子句的选择率。 */
 			s1 = restriction_selectivity(root, opno,
 										 opclause->args,
 										 opclause->inputcollid,
@@ -854,10 +854,10 @@ clause_selectivity_ext(PlannerInfo *root,
 		}
 
 		/*
-		 * DistinctExpr has the same representation as OpExpr, but the
-		 * contained operator is "=" not "<>", so we must negate the result.
-		 * This estimation method doesn't give the right behavior for nulls,
-		 * but it's better than doing nothing.
+		 * DistinctExpr 的表示与 OpExpr 相同，但
+		 * 所含操作符是 "=" 而不是 "<>"，因此必须把结果取反。
+		 * 这种估计方法对空值的行为并不正确，
+		 * 但总比什么都不做要好。
 		 */
 		if (IsA(clause, DistinctExpr))
 			s1 = 1.0 - s1;
@@ -866,7 +866,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	{
 		FuncExpr   *funcclause = (FuncExpr *) clause;
 
-		/* Try to get an estimate from the support function, if any */
+		/* 若有支持函数，试着从它得到估计 */
 		s1 = function_selectivity(root,
 								  funcclause->funcid,
 								  funcclause->args,
@@ -879,7 +879,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, ScalarArrayOpExpr))
 	{
-		/* Use node specific selectivity calculation function */
+		/* 使用特定于节点的选择率计算函数 */
 		s1 = scalararraysel(root,
 							(ScalarArrayOpExpr *) clause,
 							treat_as_join_clause(root, clause, rinfo,
@@ -890,7 +890,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, RowCompareExpr))
 	{
-		/* Use node specific selectivity calculation function */
+		/* 使用特定于节点的选择率计算函数 */
 		s1 = rowcomparesel(root,
 						   (RowCompareExpr *) clause,
 						   varRelid,
@@ -899,7 +899,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, NullTest))
 	{
-		/* Use node specific selectivity calculation function */
+		/* 使用特定于节点的选择率计算函数 */
 		s1 = nulltestsel(root,
 						 ((NullTest *) clause)->nulltesttype,
 						 (Node *) ((NullTest *) clause)->arg,
@@ -909,7 +909,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, BooleanTest))
 	{
-		/* Use node specific selectivity calculation function */
+		/* 使用特定于节点的选择率计算函数 */
 		s1 = booltestsel(root,
 						 ((BooleanTest *) clause)->booltesttype,
 						 (Node *) ((BooleanTest *) clause)->arg,
@@ -919,7 +919,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, CurrentOfExpr))
 	{
-		/* CURRENT OF selects at most one row of its table */
+		/* CURRENT OF 至多选出其表中的一行 */
 		CurrentOfExpr *cexpr = (CurrentOfExpr *) clause;
 		RelOptInfo *crel = find_base_rel(root, cexpr->cvarno);
 
@@ -928,7 +928,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, RelabelType))
 	{
-		/* Not sure this case is needed, but it can't hurt */
+		/* 不确定是否需要这种情况，但没有坏处 */
 		s1 = clause_selectivity_ext(root,
 									(Node *) ((RelabelType *) clause)->arg,
 									varRelid,
@@ -938,7 +938,7 @@ clause_selectivity_ext(PlannerInfo *root,
 	}
 	else if (IsA(clause, CoerceToDomain))
 	{
-		/* Not sure this case is needed, but it can't hurt */
+		/* 不确定是否需要这种情况，但没有坏处 */
 		s1 = clause_selectivity_ext(root,
 									(Node *) ((CoerceToDomain *) clause)->arg,
 									varRelid,
@@ -949,16 +949,16 @@ clause_selectivity_ext(PlannerInfo *root,
 	else
 	{
 		/*
-		 * For anything else, see if we can consider it as a boolean variable.
-		 * This only works if it's an immutable expression in Vars of a single
-		 * relation; but there's no point in us checking that here because
-		 * boolvarsel() will do it internally, and return a suitable default
-		 * selectivity if not.
+		 * 对于其他任何东西，看看能否把它当作布尔变量。
+		 * 这仅当它是单一
+		 * 关系中各 Var 上的不可变表达式时才成立；但这里不必由我们检查，因为
+		 * boolvarsel() 会在内部做这件事，若不成立就返回一个合适的默认
+		 * 选择率。
 		 */
 		s1 = boolvarsel(root, clause, varRelid);
 	}
 
-	/* Cache the result if possible */
+	/* 若可能则缓存结果 */
 	if (cacheable)
 	{
 		if (jointype == JOIN_INNER)
@@ -969,7 +969,7 @@ clause_selectivity_ext(PlannerInfo *root,
 
 #ifdef SELECTIVITY_DEBUG
 	elog(DEBUG4, "clause_selectivity: s1 %f", s1);
-#endif							/* SELECTIVITY_DEBUG */
+#endif							/* 若 SELECTIVITY_DEBUG */
 
 	return s1;
 }

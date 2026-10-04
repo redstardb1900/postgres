@@ -1380,6 +1380,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0058-comment-optimizer-geqo.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/optimizer/path/tidpath.c",
+   "kind": "c_comment",
+   "note": "TID scan path generation"
+  },
+  {
+   "pattern": "src/backend/optimizer/path/clausesel.c",
+   "kind": "c_comment",
+   "note": "clause selectivity estimates"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0059-comment-optimizer-path-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -4897,7 +4912,42 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/optimizer/path/tidpath.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 50,
+   "translated": 49,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "TID scan path generation"
+  },
+  {
+   "path": "src/backend/optimizer/path/clausesel.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 85,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "clause selectivity estimates"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0059-comment-optimizer-path-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments. Batch 0059 translates src/backend/optimizer/path/tidpath.c and clausesel.c."
 }

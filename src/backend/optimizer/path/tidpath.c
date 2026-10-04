@@ -50,12 +50,12 @@
 
 
 /*
- * Does this Var represent the CTID column of the specified baserel?
+ * 这个 Var 是否表示指定基关系的 CTID 列？
  */
 static inline bool
 IsCTIDVar(Var *var, RelOptInfo *rel)
 {
-	/* The vartype check is strictly paranoia */
+	/* vartype 检查纯粹是出于谨慎 */
 	if (var->varattno == SelfItemPointerAttributeNumber &&
 		var->vartype == TIDOID &&
 		var->varno == rel->relid &&
@@ -66,12 +66,12 @@ IsCTIDVar(Var *var, RelOptInfo *rel)
 }
 
 /*
- * Check to see if a RestrictInfo is of the form
- *		CTID OP pseudoconstant
- * or
- *		pseudoconstant OP CTID
- * where OP is a binary operation, the CTID Var belongs to relation "rel",
- * and nothing on the other side of the clause does.
+ * 检查 RestrictInfo 是否形如
+ *		CTID OP 伪常量
+ * 或
+ *		伪常量 OP CTID
+ * 其中 OP 是二元运算，CTID Var 属于关系 "rel"，
+ * 且子句另一侧没有任何属于该关系的东西。
  */
 static bool
 IsBinaryTidClause(RestrictInfo *rinfo, RelOptInfo *rel)
@@ -82,18 +82,18 @@ IsBinaryTidClause(RestrictInfo *rinfo, RelOptInfo *rel)
 			   *other;
 	Relids		other_relids;
 
-	/* Must be an OpExpr */
+	/* 必须是 OpExpr */
 	if (!is_opclause(rinfo->clause))
 		return false;
 	node = (OpExpr *) rinfo->clause;
 
-	/* OpExpr must have two arguments */
+	/* OpExpr 必须有两个参数 */
 	if (list_length(node->args) != 2)
 		return false;
 	arg1 = linitial(node->args);
 	arg2 = lsecond(node->args);
 
-	/* Look for CTID as either argument */
+	/* 在任一参数中寻找 CTID */
 	other = NULL;
 	other_relids = NULL;
 	if (arg1 && IsA(arg1, Var) &&
@@ -111,21 +111,21 @@ IsBinaryTidClause(RestrictInfo *rinfo, RelOptInfo *rel)
 	if (!other)
 		return false;
 
-	/* The other argument must be a pseudoconstant */
+	/* 另一个参数必须是伪常量 */
 	if (bms_is_member(rel->relid, other_relids) ||
 		contain_volatile_functions(other))
 		return false;
 
-	return true;				/* success */
+	return true;				/* 成功 */
 }
 
 /*
- * Check to see if a RestrictInfo is of the form
- *		CTID = pseudoconstant
- * or
- *		pseudoconstant = CTID
- * where the CTID Var belongs to relation "rel", and nothing on the
- * other side of the clause does.
+ * 检查 RestrictInfo 是否形如
+ *		CTID = 伪常量
+ * 或
+ *		伪常量 = CTID
+ * 其中 CTID Var 属于关系 "rel"，且另一侧
+ * 没有任何属于该关系的东西。
  */
 static bool
 IsTidEqualClause(RestrictInfo *rinfo, RelOptInfo *rel)
@@ -140,12 +140,12 @@ IsTidEqualClause(RestrictInfo *rinfo, RelOptInfo *rel)
 }
 
 /*
- * Check to see if a RestrictInfo is of the form
- *		CTID OP pseudoconstant
- * or
- *		pseudoconstant OP CTID
- * where OP is a range operator such as <, <=, >, or >=, the CTID Var belongs
- * to relation "rel", and nothing on the other side of the clause does.
+ * 检查 RestrictInfo 是否形如
+ *		CTID OP 伪常量
+ * 或
+ *		伪常量 OP CTID
+ * 其中 OP 是 <、<=、> 或 >= 这类范围操作符，CTID Var 属于
+ * 关系 "rel"，且子句另一侧没有任何属于该关系的东西。
  */
 static bool
 IsTidRangeClause(RestrictInfo *rinfo, RelOptInfo *rel)
@@ -164,10 +164,10 @@ IsTidRangeClause(RestrictInfo *rinfo, RelOptInfo *rel)
 }
 
 /*
- * Check to see if a RestrictInfo is of the form
+ * 检查 RestrictInfo 是否形如
  *		CTID = ANY (pseudoconstant_array)
- * where the CTID Var belongs to relation "rel", and nothing on the
- * other side of the clause does.
+ * 其中 CTID Var 属于关系 "rel"，且另一侧
+ * 没有任何属于该关系的东西。
  */
 static bool
 IsTidEqualAnyClause(PlannerInfo *root, RestrictInfo *rinfo, RelOptInfo *rel)
@@ -176,12 +176,12 @@ IsTidEqualAnyClause(PlannerInfo *root, RestrictInfo *rinfo, RelOptInfo *rel)
 	Node	   *arg1,
 			   *arg2;
 
-	/* Must be a ScalarArrayOpExpr */
+	/* 必须是 ScalarArrayOpExpr */
 	if (!(rinfo->clause && IsA(rinfo->clause, ScalarArrayOpExpr)))
 		return false;
 	node = (ScalarArrayOpExpr *) rinfo->clause;
 
-	/* Operator must be tideq */
+	/* 操作符必须是 tideq */
 	if (node->opno != TIDEqualOperator)
 		return false;
 	if (!node->useOr)
@@ -190,35 +190,35 @@ IsTidEqualAnyClause(PlannerInfo *root, RestrictInfo *rinfo, RelOptInfo *rel)
 	arg1 = linitial(node->args);
 	arg2 = lsecond(node->args);
 
-	/* CTID must be first argument */
+	/* CTID 必须是第一个参数 */
 	if (arg1 && IsA(arg1, Var) &&
 		IsCTIDVar((Var *) arg1, rel))
 	{
-		/* The other argument must be a pseudoconstant */
+		/* 另一个参数必须是伪常量 */
 		if (bms_is_member(rel->relid, pull_varnos(root, arg2)) ||
 			contain_volatile_functions(arg2))
 			return false;
 
-		return true;			/* success */
+		return true;			/* 成功 */
 	}
 
 	return false;
 }
 
 /*
- * Check to see if a RestrictInfo is a CurrentOfExpr referencing "rel".
+ * 检查 RestrictInfo 是否为引用 "rel" 的 CurrentOfExpr。
  */
 static bool
 IsCurrentOfClause(RestrictInfo *rinfo, RelOptInfo *rel)
 {
 	CurrentOfExpr *node;
 
-	/* Must be a CurrentOfExpr */
+	/* 必须是 CurrentOfExpr */
 	if (!(rinfo->clause && IsA(rinfo->clause, CurrentOfExpr)))
 		return false;
 	node = (CurrentOfExpr *) rinfo->clause;
 
-	/* If it references this rel, we're good */
+	/* 若它引用这个 rel，就可以 */
 	if (node->cvarno == rel->relid)
 		return true;
 
@@ -226,35 +226,35 @@ IsCurrentOfClause(RestrictInfo *rinfo, RelOptInfo *rel)
 }
 
 /*
- * Extract a set of CTID conditions from the given RestrictInfo
+ * 从给定的 RestrictInfo 中抽出一组 CTID 条件
  *
- * Returns a List of CTID qual RestrictInfos for the specified rel (with
- * implicit OR semantics across the list), or NIL if there are no usable
- * conditions.
+ * 返回指定 rel 的 CTID 限定条件 RestrictInfos 列表（列表上
+ * 隐含 OR 语义），若没有可用
+ * 条件则返回 NIL。
  *
- * This function considers only base cases; AND/OR combination is handled
- * below.  Therefore the returned List never has more than one element.
- * (Using a List may seem a bit weird, but it simplifies the caller.)
+ * 本函数只考虑基本情况；AND/OR 组合在
+ * 下面处理。因此返回的 List 绝不会超过一个元素。
+ * （用 List 也许显得有点怪，但能简化调用方。）
  */
 static List *
 TidQualFromRestrictInfo(PlannerInfo *root, RestrictInfo *rinfo, RelOptInfo *rel)
 {
 	/*
-	 * We may ignore pseudoconstant clauses (they can't contain Vars, so could
-	 * not match anyway).
+	 * 可以忽略伪常量子句（它们无法包含 Var，因此反正也
+	 * 无法匹配）。
 	 */
 	if (rinfo->pseudoconstant)
 		return NIL;
 
 	/*
-	 * If clause must wait till after some lower-security-level restriction
-	 * clause, reject it.
+	 * 若子句必须等到某个更低安全级别的限制
+	 * 子句之后，则拒绝它。
 	 */
 	if (!restriction_is_securely_promotable(rinfo, rel))
 		return NIL;
 
 	/*
-	 * Check all base cases.  If we get a match, return the clause.
+	 * 检查所有基本情况。若匹配，则返回该子句。
 	 */
 	if (IsTidEqualClause(rinfo, rel) ||
 		IsTidEqualAnyClause(root, rinfo, rel) ||
@@ -265,13 +265,13 @@ TidQualFromRestrictInfo(PlannerInfo *root, RestrictInfo *rinfo, RelOptInfo *rel)
 }
 
 /*
- * Extract a set of CTID conditions from implicit-AND List of RestrictInfos
+ * 从隐含 AND 的 RestrictInfos 列表中抽出一组 CTID 条件
  *
- * Returns a List of CTID qual RestrictInfos for the specified rel (with
- * implicit OR semantics across the list), or NIL if there are no usable
- * equality conditions.
+ * 返回指定 rel 的 CTID 限定条件 RestrictInfos 列表（列表上
+ * 隐含 OR 语义），若没有可用的
+ * 等值条件则返回 NIL。
  *
- * This function is just concerned with handling AND/OR recursion.
+ * 本函数只负责处理 AND/OR 递归。
  */
 static List *
 TidQualFromRestrictInfoList(PlannerInfo *root, List *rlist, RelOptInfo *rel)
@@ -288,20 +288,20 @@ TidQualFromRestrictInfoList(PlannerInfo *root, List *rlist, RelOptInfo *rel)
 			ListCell   *j;
 
 			/*
-			 * We must be able to extract a CTID condition from every
-			 * sub-clause of an OR, or we can't use it.
+			 * 必须能从 OR 的每个
+			 * 子子句抽出一个 CTID 条件，否则无法使用它。
 			 */
 			foreach(j, ((BoolExpr *) rinfo->orclause)->args)
 			{
 				Node	   *orarg = (Node *) lfirst(j);
 				List	   *sublist;
 
-				/* OR arguments should be ANDs or sub-RestrictInfos */
+				/* OR 的参数应当是 ANDs 或子 RestrictInfos */
 				if (is_andclause(orarg))
 				{
 					List	   *andargs = ((BoolExpr *) orarg)->args;
 
-					/* Recurse in case there are sub-ORs */
+					/* 若有子 OR 则递归 */
 					sublist = TidQualFromRestrictInfoList(root, andargs, rel);
 				}
 				else
@@ -313,33 +313,33 @@ TidQualFromRestrictInfoList(PlannerInfo *root, List *rlist, RelOptInfo *rel)
 				}
 
 				/*
-				 * If nothing found in this arm, we can't do anything with
-				 * this OR clause.
+				 * 若这一支什么都没找到，对这个 OR 子句就
+				 * 无法做任何事。
 				 */
 				if (sublist == NIL)
 				{
-					rlst = NIL; /* forget anything we had */
-					break;		/* out of loop over OR args */
+					rlst = NIL; /* 丢掉已经找到的内容 */
+					break;		/* 离开遍历 OR 参数的循环 */
 				}
 
 				/*
-				 * OK, continue constructing implicitly-OR'ed result list.
+				 * 可以，继续构造隐含 OR 的结果列表。
 				 */
 				rlst = list_concat(rlst, sublist);
 			}
 		}
 		else
 		{
-			/* Not an OR clause, so handle base cases */
+			/* 不是 OR 子句，因此处理基本情况 */
 			rlst = TidQualFromRestrictInfo(root, rinfo, rel);
 		}
 
 		/*
-		 * Stop as soon as we find any usable CTID condition.  In theory we
-		 * could get CTID equality conditions from different AND'ed clauses,
-		 * in which case we could try to pick the most efficient one.  In
-		 * practice, such usage seems very unlikely, so we don't bother; we
-		 * just exit as soon as we find the first candidate.
+		 * 一旦找到任何可用的 CTID 条件就停止。理论上我们
+		 * 可以从不同的 AND 子句得到 CTID 等值条件，
+		 * 那时可以试着挑选最高效的一个。
+		 * 实践中这种用法似乎很罕见，因此不必费心；我们
+		 * 一找到第一个候选就退出。
 		 */
 		if (rlst)
 			break;
@@ -349,12 +349,12 @@ TidQualFromRestrictInfoList(PlannerInfo *root, List *rlist, RelOptInfo *rel)
 }
 
 /*
- * Extract a set of CTID range conditions from implicit-AND List of RestrictInfos
+ * 从隐含 AND 的 RestrictInfos 列表中抽出一组 CTID 范围条件
  *
- * Returns a List of CTID range qual RestrictInfos for the specified rel
- * (with implicit AND semantics across the list), or NIL if there are no
- * usable range conditions or if the rel's table AM does not support TID range
- * scans.
+ * 返回指定 rel 的 CTID 范围限定条件 RestrictInfos 列表
+ * （列表上隐含 AND 语义），若没有
+ * 可用范围条件，或该 rel 的表访问方法不支持 TID 范围
+ * 扫描，则返回 NIL。
  */
 static List *
 TidRangeQualFromRestrictInfoList(List *rlist, RelOptInfo *rel)
@@ -377,12 +377,12 @@ TidRangeQualFromRestrictInfoList(List *rlist, RelOptInfo *rel)
 }
 
 /*
- * Given a list of join clauses involving our rel, create a parameterized
- * TidPath for each one that is a suitable TidEqual clause.
+ * 给定涉及本 rel 的连接子句列表，为每一个合适的
+ * TidEqual 子句创建一个参数化 TidPath。
  *
- * In principle we could combine clauses that reference the same outer rels,
- * but it doesn't seem like such cases would arise often enough to be worth
- * troubling over.
+ * 原则上可以把引用相同外部关系的子句合并，
+ * 但这种情形似乎不会频繁到值得
+ * 费心处理。
  */
 static void
 BuildParameterizedTidPaths(PlannerInfo *root, RelOptInfo *rel, List *clauses)
@@ -396,18 +396,18 @@ BuildParameterizedTidPaths(PlannerInfo *root, RelOptInfo *rel, List *clauses)
 		Relids		required_outer;
 
 		/*
-		 * Validate whether each clause is actually usable; we must check this
-		 * even when examining clauses generated from an EquivalenceClass,
-		 * since they might not satisfy the restriction on not having Vars of
-		 * our rel on the other side, or somebody might've built an operator
-		 * class that accepts type "tid" but has other operators in it.
+		 * 验证每个子句是否真正可用；必须检查这一点，
+		 * 即使正在检查由 EquivalenceClass 生成的子句，
+		 * 因为它们也许不满足另一侧没有本 rel 的 Var
+		 * 这一限制，或者有人也许建了一个操作符
+		 * 类，它接受 "tid" 类型但还含有其他操作符。
 		 *
-		 * We currently consider only TidEqual join clauses.  In principle we
-		 * might find a suitable ScalarArrayOpExpr in the rel's joininfo list,
-		 * but it seems unlikely to be worth expending the cycles to check.
-		 * And we definitely won't find a CurrentOfExpr here.  Hence, we don't
-		 * use TidQualFromRestrictInfo; but this must match that function
-		 * otherwise.
+		 * 目前只考虑 TidEqual 连接子句。原则上我们
+		 * 也许能在该 rel 的 joininfo 列表里找到合适的 ScalarArrayOpExpr，
+		 * 但为此耗费周期似乎不值得。
+		 * 而且这里肯定找不到 CurrentOfExpr。因此我们不
+		 * 使用 TidQualFromRestrictInfo；但本逻辑必须与该函数
+		 * 保持一致。
 		 */
 		if (rinfo->pseudoconstant ||
 			!restriction_is_securely_promotable(rinfo, rel) ||
@@ -415,17 +415,17 @@ BuildParameterizedTidPaths(PlannerInfo *root, RelOptInfo *rel, List *clauses)
 			continue;
 
 		/*
-		 * Check if clause can be moved to this rel; this is probably
-		 * redundant when considering EC-derived clauses, but we must check it
-		 * for "loose" join clauses.
+		 * 检查子句能否移到这个 rel；考虑由 EC 导出的子句时这多半
+		 * 是多余的，但对 "松散" 连接子句
+		 * 必须检查。
 		 */
 		if (!join_clause_is_movable_to(rinfo, rel))
 			continue;
 
-		/* OK, make list of clauses for this path */
+		/* 可以，为这条路径建立子句列表 */
 		tidquals = list_make1(rinfo);
 
-		/* Compute required outer rels for this path */
+		/* 计算这条路径所需的外部关系 */
 		required_outer = bms_union(rinfo->required_relids, rel->lateral_relids);
 		required_outer = bms_del_member(required_outer, rel->relid);
 
@@ -435,9 +435,9 @@ BuildParameterizedTidPaths(PlannerInfo *root, RelOptInfo *rel, List *clauses)
 }
 
 /*
- * Test whether an EquivalenceClass member matches our rel's CTID Var.
+ * 测试 EquivalenceClass 成员是否匹配本 rel 的 CTID Var。
  *
- * This is a callback for use by generate_implied_equalities_for_column.
+ * 这是供 generate_implied_equalities_for_column 使用的回调。
  */
 static bool
 ec_member_matches_ctid(PlannerInfo *root, RelOptInfo *rel,
@@ -452,9 +452,9 @@ ec_member_matches_ctid(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * create_tidscan_paths
- *	  Create paths corresponding to direct TID scans of the given rel.
+ *	  为给定 rel 的直接 TID 扫描创建对应路径。
  *
- *	  Candidate paths are added to the rel's pathlist (using add_path).
+ *	  候选路径加入该 rel 的 pathlist（使用 add_path）。
  */
 void
 create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel)
@@ -463,16 +463,16 @@ create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel)
 	List	   *tidrangequals;
 
 	/*
-	 * If any suitable quals exist in the rel's baserestrict list, generate a
-	 * plain (unparameterized) TidPath with them.
+	 * 若该 rel 的 baserestrict 列表中有合适的限定条件，用它们生成一条
+	 * 普通（非参数化）的 TidPath。
 	 */
 	tidquals = TidQualFromRestrictInfoList(root, rel->baserestrictinfo, rel);
 
 	if (tidquals != NIL)
 	{
 		/*
-		 * This path uses no join clauses, but it could still have required
-		 * parameterization due to LATERAL refs in its tlist.
+		 * 这条路径不用连接子句，但因其 tlist 中的 LATERAL 引用，
+		 * 仍可能需要参数化。
 		 */
 		Relids		required_outer = rel->lateral_relids;
 
@@ -481,8 +481,8 @@ create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel)
 	}
 
 	/*
-	 * If there are range quals in the baserestrict list, generate a
-	 * TidRangePath.
+	 * 若 baserestrict 列表中有范围限定条件，生成一条
+	 * TidRangePath。
 	 */
 	tidrangequals = TidRangeQualFromRestrictInfoList(rel->baserestrictinfo,
 													 rel);
@@ -490,8 +490,8 @@ create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel)
 	if (tidrangequals != NIL)
 	{
 		/*
-		 * This path uses no join clauses, but it could still have required
-		 * parameterization due to LATERAL refs in its tlist.
+		 * 这条路径不用连接子句，但因其 tlist 中的 LATERAL 引用，
+		 * 仍可能需要参数化。
 		 */
 		Relids		required_outer = rel->lateral_relids;
 
@@ -501,29 +501,29 @@ create_tidscan_paths(PlannerInfo *root, RelOptInfo *rel)
 	}
 
 	/*
-	 * Try to generate parameterized TidPaths using equality clauses extracted
-	 * from EquivalenceClasses.  (This is important since simple "t1.ctid =
-	 * t2.ctid" clauses will turn into ECs.)
+	 * 尝试用抽出的等值子句生成参数化 TidPaths，这些子句来自
+	 * EquivalenceClasses。（这很重要，因为简单的 "t1.ctid =
+	 * t2.ctid" 子句会变成 EC。）
 	 */
 	if (rel->has_eclass_joins)
 	{
 		List	   *clauses;
 
-		/* Generate clauses, skipping any that join to lateral_referencers */
+		/* 生成子句，跳过任何连接到 lateral_referencers 的子句 */
 		clauses = generate_implied_equalities_for_column(root,
 														 rel,
 														 ec_member_matches_ctid,
 														 NULL,
 														 rel->lateral_referencers);
 
-		/* Generate a path for each usable join clause */
+		/* 为每个可用的连接子句生成一条路径 */
 		BuildParameterizedTidPaths(root, rel, clauses);
 	}
 
 	/*
-	 * Also consider parameterized TidPaths using "loose" join quals.  Quals
-	 * of the form "t1.ctid = t2.ctid" would turn into these if they are outer
-	 * join quals, for example.
+	 * 也考虑使用 "松散" 连接限定条件的参数化 TidPaths。形如
+	 * "t1.ctid = t2.ctid" 的限定条件若是外
+	 * 连接限定条件，就会变成这些，例如。
 	 */
 	BuildParameterizedTidPaths(root, rel, rel->joininfo);
 }

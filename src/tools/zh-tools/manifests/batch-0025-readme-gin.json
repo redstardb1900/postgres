@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0025-readme-gin",
+ "title": "zh: translate GIN README",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dd73966550f5b11b5bfea0b390169412bb111fce",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gin/README",
+   "kind": "readme",
+   "note": "GIN structure, compression, concurrency trees"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0025-readme-gin.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gin/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GIN structure, compression, concurrency trees"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0025-readme-gin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Fifteenth README batch: 1 file. SQL, lock diagrams, Lehman-Yao notation and authors kept."
+}

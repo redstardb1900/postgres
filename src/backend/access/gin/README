@@ -1,329 +1,264 @@
 src/backend/access/gin/README
 
-Gin for PostgreSQL
-==================
+PostgreSQL 的 Gin
+=================
 
-Gin was sponsored by jfg://networks (http://www.jfg-networks.com/)
+Gin 由 jfg://networks（http://www.jfg-networks.com/）赞助。
 
-Gin stands for Generalized Inverted Index and should be considered as a genie,
-not a drink.
+Gin 代表 Generalized Inverted Index（广义倒排索引），应把它想成精灵
+（genie），而不是饮料。
 
-Generalized means that the index does not know which operation it accelerates.
-It instead works with custom strategies, defined for specific data types (read
-"Index Method Strategies" in the PostgreSQL documentation). In that sense, Gin
-is similar to GiST and differs from btree indices, which have predefined,
-comparison-based operations.
+广义意味着索引不知道它加速的是哪种操作。它改为与为特定数据类型定义的
+自定义策略一起工作（见 PostgreSQL 文档中的“索引方法策略”）。就此而言，
+Gin 类似 GiST，而不同于有预定义的、基于比较的操作的 btree 索引。
 
-An inverted index is an index structure storing a set of (key, posting list)
-pairs, where 'posting list' is a set of heap rows in which the key occurs.
-(A text document would usually contain many keys.)  The primary goal of
-Gin indices is support for highly scalable, full-text search in PostgreSQL.
+倒排索引是存储一组（键, 倒排列表）对的索引结构，其中“倒排列表”是该键
+出现于其中的一组堆行。（一篇文本文档通常包含许多键。）Gin 索引的主要
+目标是支持 PostgreSQL 中高度可扩展的全文搜索。
 
-A Gin index consists of a B-tree index constructed over key values,
-where each key is an element of some indexed items (element of array, lexeme
-for tsvector) and where each tuple in a leaf page contains either a pointer to
-a B-tree over item pointers (posting tree), or a simple list of item pointers
-(posting list) if the list is small enough.
+Gin 索引由构建在键值上的 B 树索引组成，其中每个键是某些被索引项的元素
+（数组元素、tsvector 的词元），并且叶子页中的每个元组要么包含指向项
+指针上 B 树的指针（倒排树），要么在列表足够小时包含项指针的简单列表
+（倒排列表）。
 
-Note: There is no delete operation in the key (entry) tree. The reason for
-this is that in our experience, the set of distinct words in a large corpus
-changes very slowly.  This greatly simplifies the code and concurrency
-algorithms.
+注意：键（条目）树中没有删除操作。原因是按我们的经验，大型语料中不同
+词的集合变化非常慢。这大大简化了代码和并发算法。
 
-Core PostgreSQL includes built-in Gin support for one-dimensional arrays
-(eg. integer[], text[]).  The following operations are available:
+核心 PostgreSQL 包含对一维数组（例如 integer[]、text[]）的内置 Gin
+支持。可用操作如下：
 
-  * contains: value_array @> query_array
-  * overlaps: value_array && query_array
-  * is contained by: value_array <@ query_array
+  * 包含：value_array @> query_array
+  * 重叠：value_array && query_array
+  * 被包含：value_array <@ query_array
 
-Synopsis
---------
+概要
+----
 
 =# create index txt_idx on aa using gin(a);
 
-Features
---------
+特性
+----
 
-  * Concurrency
-  * Write-Ahead Logging (WAL).  (Recoverability from crashes.)
-  * User-defined opclasses.  (The scheme is similar to GiST.)
-  * Optimized index creation (Makes use of maintenance_work_mem to accumulate
-    postings in memory.)
-  * Text search support via an opclass
-  * Soft upper limit on the returned results set using a GUC variable:
+  * 并发
+  * 预写日志（WAL）。（崩溃后的可恢复性。）
+  * 用户定义操作符类。（方案类似 GiST。）
+  * 优化的索引创建（利用 maintenance_work_mem 在内存中累积倒排项。）
+  * 经操作符类的文本搜索支持
+  * 用 GUC 变量对返回结果集的软上限：
     gin_fuzzy_search_limit
 
-Gin Fuzzy Limit
----------------
+Gin 模糊限制
+------------
 
-There are often situations when a full-text search returns a very large set of
-results.  Since reading tuples from the disk and sorting them could take a
-lot of time, this is unacceptable for production.  (Note that the search
-itself is very fast.)
+常常有全文搜索返回非常大结果集的情形。由于从磁盘读元组并排序它们可能
+花很多时间，这在生产中不可接受。（注意搜索本身非常快。）
 
-Such queries usually contain very frequent lexemes, so the results are not
-very helpful. To facilitate execution of such queries Gin has a configurable
-soft upper limit on the size of the returned set, determined by the
-'gin_fuzzy_search_limit' GUC variable.  This is set to 0 by default (no
-limit).
+这类查询通常包含很频繁的词元，因此结果不太有帮助。为方便执行这类查询，
+Gin 对返回集的大小有可配置的软上限，由 ‘gin_fuzzy_search_limit’ GUC
+变量决定。默认设为 0（无限制）。
 
-If a non-zero search limit is set, then the returned set is a subset of the
-whole result set, chosen at random.
+若设置了非零搜索限制，则返回集是整个结果集的一个子集，随机选取。
 
-"Soft" means that the actual number of returned results could differ
-from the specified limit, depending on the query and the quality of the
-system's random number generator.
+“软”意味着实际返回结果数可能与指定限制不同，取决于查询和系统随机数
+生成器的质量。
 
-From experience, a value of 'gin_fuzzy_search_limit' in the thousands
-(eg. 5000-20000) works well.  This means that 'gin_fuzzy_search_limit' will
-have no effect for queries returning a result set with less tuples than this
-number.
+按经验，‘gin_fuzzy_search_limit’ 在数千量级（例如 5000–20000）效果
+很好。这意味着对返回结果集元组数少于此数的查询，‘gin_fuzzy_search_limit’
+不会有任何效果。
 
-Index structure
----------------
+索引结构
+--------
 
-The "items" that a GIN index indexes are composite values that contain
-zero or more "keys".  For example, an item might be an integer array, and
-then the keys would be the individual integer values.  The index actually
-stores and searches for the key values, not the items per se.  In the
-pg_opclass entry for a GIN opclass, the opcintype is the data type of the
-items, and the opckeytype is the data type of the keys.  GIN is optimized
-for cases where items contain many keys and the same key values appear
-in many different items.
+GIN 索引所索引的“项”是包含零个或多个“键”的复合值。例如，一项可能是
+整数数组，然后键就是各个整数值。索引实际存储并搜索的是键值，而不是项
+本身。在 GIN 操作符类的 pg_opclass 条目中，opcintype 是项的数据类型，
+opckeytype 是键的数据类型。GIN 为项包含许多键、且同一键值出现在许多
+不同项中的情形做了优化。
 
-A GIN index contains a metapage, a btree of key entries, and possibly
-"posting tree" pages, which hold the overflow when a key entry acquires
-too many heap tuple pointers to fit in a btree page.  Additionally, if the
-fast-update feature is enabled, there can be "list pages" holding "pending"
-key entries that haven't yet been merged into the main btree.  The list
-pages have to be scanned linearly when doing a search, so the pending
-entries should be merged into the main btree before there get to be too
-many of them.  The advantage of the pending list is that bulk insertion of
-a few thousand entries can be much faster than retail insertion.  (The win
-comes mainly from not having to do multiple searches/insertions when the
-same key appears in multiple new heap tuples.)
+GIN 索引包含一个元页、一棵键条目的 btree，以及可能的“倒排树”页，当键
+条目获得太多堆元组指针以至于放不进 btree 页时保存溢出。另外，若启用了
+快速更新特性，可以有保存尚未合并进主 btree 的“挂起”键条目的“列表页”。
+搜索时必须线性扫描列表页，因此应在挂起条目变得太多之前把它们合并进主
+btree。挂起列表的优点是批量插入几千个条目可以比零售插入快得多。（收益
+主要来自同一键出现在多个新堆元组中时不必做多次搜索/插入。）
 
-Key entries are nominally of the same IndexTuple format as used in other
-index types, but since a leaf key entry typically refers to multiple heap
-tuples, there are significant differences.  (See GinFormTuple, which works
-by building a "normal" index tuple and then modifying it.)  The points to
-know are:
+键条目名义上与其他索引类型使用的 IndexTuple 格式相同，但由于叶子键条目
+通常引用多个堆元组，有显著差异。（见 GinFormTuple，它通过构建一个
+“普通”索引元组再修改它来工作。）需要知道的要点是：
 
-* In a single-column index, a key tuple just contains the key datum, but
-in a multi-column index, a key tuple contains the pair (column number,
-key datum) where the column number is stored as an int2.  This is needed
-to support different key data types in different columns.  This much of
-the tuple is built by index_form_tuple according to the usual rules.
-The column number (if present) can never be null, but the key datum can
-be, in which case a null bitmap is present as usual.  (As usual for index
-tuples, the size of the null bitmap is fixed at INDEX_MAX_KEYS.)
+* 在单列索引中，键元组只包含键 datum，但在多列索引中，键元组包含对
+（列号, 键 datum），其中列号存为 int2。这是为了支持不同列中不同的键
+数据类型。元组的这一部分由 index_form_tuple 按通常规则构建。列号（若
+存在）永远不能为空，但键 datum 可以，那种情况下像通常一样存在空位掩码。
+（与索引元组通常情况一样，空位掩码大小固定为 INDEX_MAX_KEYS。）
 
-* If the key datum is null (ie, IndexTupleHasNulls() is true), then
-just after the nominal index data (ie, at offset IndexInfoFindDataOffset
-or IndexInfoFindDataOffset + sizeof(int2)) there is a byte indicating
-the "category" of the null entry.  These are the possible categories:
-	1 = ordinary null key value extracted from an indexable item
-	2 = placeholder for zero-key indexable item
-	3 = placeholder for null indexable item
-Placeholder null entries are inserted into the index because otherwise
-there would be no index entry at all for an empty or null indexable item,
-which would mean that full index scans couldn't be done and various corner
-cases would give wrong answers.  The different categories of null entries
-are treated as distinct keys by the btree, but heap itempointers for the
-same category of null entry are merged into one index entry just as happens
-with ordinary key entries.
+* 若键 datum 为空（即 IndexTupleHasNulls() 为 true），则刚好在名义索引
+数据之后（即偏移 IndexInfoFindDataOffset 或
+IndexInfoFindDataOffset + sizeof(int2) 处）有一个字节指示该空条目的
+“类别”。可能的类别是：
+	1 = 从可索引项提取的普通空键值
+	2 = 零键可索引项的占位
+	3 = 空可索引项的占位
+把占位空条目插入索引，是因为否则空的或为 NULL 的可索引项将完全没有
+索引条目，
+这意味着无法做完整索引扫描，并且各种边角情形会给出错误答案。btree 把
+不同类别的空条目当作不同的键，但对同一类别空条目的堆项指针会合并进
+一个索引条目，就像普通键条目那样。
 
-* In a key entry at the btree leaf level, at the next SHORTALIGN boundary,
-there is a list of item pointers, in compressed format (see Posting List
-Compression section), pointing to the heap tuples for which the indexable
-items contain this key. This is called the "posting list".
+* 在 btree 叶子层的键条目中，在下一个 SHORTALIGN 边界处，有一个压缩
+格式的项指针列表（见倒排列表压缩一节），指向其可索引项包含此键的堆
+元组。这称为“倒排列表”。
 
-If the list would be too big for the index tuple to fit on an index page, the
-ItemPointers are pushed out to a separate posting page or pages, and none
-appear in the key entry itself.  The separate pages are called a "posting
-tree" (see below); Note that in either case, the ItemPointers associated with
-a key can easily be read out in sorted order; this is relied on by the scan
-algorithms.
+若列表大会使索引元组放不进索引页，则 ItemPointer 被推出到单独的倒排页
+或若干页，键条目本身不出现任何项指针。这些单独的页称为“倒排树”（见
+下文）；注意无论哪种情况，与键关联的 ItemPointer 都可以很容易按排序
+顺序读出；扫描算法依赖这一点。
 
-* The index tuple header fields of a leaf key entry are abused as follows:
+* 叶子键条目的索引元组头字段被滥用如下：
 
-1) Posting list case:
+1) 倒排列表情形：
 
-* ItemPointerGetBlockNumber(&itup->t_tid) contains the offset from index
-  tuple start to the posting list.
-  Access macros: GinGetPostingOffset(itup) / GinSetPostingOffset(itup,n)
+* ItemPointerGetBlockNumber(&itup->t_tid) 包含从索引元组起始到倒排
+  列表的偏移。
+  访问宏：GinGetPostingOffset(itup) / GinSetPostingOffset(itup,n)
 
-* ItemPointerGetOffsetNumber(&itup->t_tid) contains the number of elements
-  in the posting list (number of heap itempointers).
-  Access macros: GinGetNPosting(itup) / GinSetNPosting(itup,n)
+* ItemPointerGetOffsetNumber(&itup->t_tid) 包含倒排列表中的元素个数
+  （堆项指针个数）。
+  访问宏：GinGetNPosting(itup) / GinSetNPosting(itup,n)
 
-* If IndexTupleHasNulls(itup) is true, the null category byte can be
-  accessed/set with GinGetNullCategory(itup,gs) / GinSetNullCategory(itup,gs,c)
+* 若 IndexTupleHasNulls(itup) 为 true，空类别字节可以用
+  GinGetNullCategory(itup,gs) / GinSetNullCategory(itup,gs,c) 访问/设置
 
-* The posting list can be accessed with GinGetPosting(itup)
+* 倒排列表可以用 GinGetPosting(itup) 访问
 
-* If GinItupIsCompressed(itup), the posting list is stored in compressed
-  format. Otherwise it is just an array of ItemPointers. New tuples are always
-  stored in compressed format, uncompressed items can be present if the
-  database was migrated from 9.3 or earlier version.
+* 若 GinItupIsCompressed(itup)，倒排列表以压缩格式存储。否则它只是
+  ItemPointer 的数组。新元组总是以压缩格式存储，未压缩项可能存在，若
+  数据库是从 9.3 或更早版本迁移的。
 
-2) Posting tree case:
+2) 倒排树情形：
 
-* ItemPointerGetBlockNumber(&itup->t_tid) contains the index block number
-  of the root of the posting tree.
-  Access macros: GinGetPostingTree(itup) / GinSetPostingTree(itup, blkno)
+* ItemPointerGetBlockNumber(&itup->t_tid) 包含倒排树根的索引块号。
+  访问宏：GinGetPostingTree(itup) / GinSetPostingTree(itup, blkno)
 
-* ItemPointerGetOffsetNumber(&itup->t_tid) contains the magic number
-  GIN_TREE_POSTING, which distinguishes this from the posting-list case
-  (it's large enough that that many heap itempointers couldn't possibly
-  fit on an index page).  This value is inserted automatically by the
-  GinSetPostingTree macro.
+* ItemPointerGetOffsetNumber(&itup->t_tid) 包含魔数 GIN_TREE_POSTING，
+  把它与倒排列表情形区分开（它足够大，那么多堆项指针不可能放进一页
+  索引页）。该值由 GinSetPostingTree 宏自动插入。
 
-* If IndexTupleHasNulls(itup) is true, the null category byte can be
-  accessed/set with GinGetNullCategory(itup,gs) / GinSetNullCategory(itup,gs,c)
+* 若 IndexTupleHasNulls(itup) 为 true，空类别字节可以用
+  GinGetNullCategory(itup,gs) / GinSetNullCategory(itup,gs,c) 访问/设置
 
-* The posting list is not present and must not be accessed.
+* 倒排列表不存在，不得访问。
 
-Use the macro GinIsPostingTree(itup) to determine which case applies.
+用宏 GinIsPostingTree(itup) 判断适用哪种情形。
 
-In both cases, itup->t_info & INDEX_SIZE_MASK contains actual total size of
-tuple, and the INDEX_VAR_MASK and INDEX_NULL_MASK bits have their normal
-meanings as set by index_form_tuple.
+两种情况下，itup->t_info & INDEX_SIZE_MASK 包含元组的实际总大小，并且
+INDEX_VAR_MASK 和 INDEX_NULL_MASK 位具有 index_form_tuple 设置的通常
+含义。
 
-Index tuples in non-leaf levels of the btree contain the optional column
-number, key datum, and null category byte as above.  They do not contain
-a posting list.  ItemPointerGetBlockNumber(&itup->t_tid) is the downlink
-to the next lower btree level, and ItemPointerGetOffsetNumber(&itup->t_tid)
-is InvalidOffsetNumber.  Use the access macros GinGetDownlink/GinSetDownlink
-to get/set the downlink.
+btree 非叶子层的索引元组包含如上的可选列号、键 datum 和空类别字节。
+它们不包含倒排列表。ItemPointerGetBlockNumber(&itup->t_tid) 是通向
+下一更低 btree 层的下行指针，ItemPointerGetOffsetNumber(&itup->t_tid)
+是 InvalidOffsetNumber。用访问宏 GinGetDownlink/GinSetDownlink 获取/
+设置下行指针。
 
-Index entries that appear in "pending list" pages work a tad differently as
-well.  The optional column number, key datum, and null category byte are as
-for other GIN index entries.  However, there is always exactly one heap
-itempointer associated with a pending entry, and it is stored in the t_tid
-header field just as in non-GIN indexes.  There is no posting list.
-Furthermore, the code that searches the pending list assumes that all
-entries for a given heap tuple appear consecutively in the pending list and
-are sorted by the column-number-plus-key-datum.  The GIN_LIST_FULLROW page
-flag bit tells whether entries for a given heap tuple are spread across
-multiple pending-list pages.  If GIN_LIST_FULLROW is set, the page contains
-all the entries for one or more heap tuples.  If GIN_LIST_FULLROW is clear,
-the page contains entries for only one heap tuple, *and* they are not all
-the entries for that tuple.  (Thus, a heap tuple whose entries do not all
-fit on one pending-list page must have those pages to itself, even if this
-results in wasting much of the space on the preceding page and the last
-page for the tuple.)
+出现在“挂起列表”页中的索引条目工作方式也稍有不同。可选列号、键 datum
+和空类别字节与其他 GIN 索引条目相同。不过，挂起条目总是恰好关联一个
+堆项指针，并且它像非 GIN 索引一样存在 t_tid 头字段中。没有倒排列表。
+此外，搜索挂起列表的代码假定给定堆元组的全部条目在挂起列表中连续出现，
+并按列号加键 datum 排序。GIN_LIST_FULLROW 页标志位告诉给定堆元组的
+条目是否分布在多个挂起列表页上。若 GIN_LIST_FULLROW 已设置，该页包含
+一个或多个堆元组的全部条目。若 GIN_LIST_FULLROW 已清除，该页只包含
+一个堆元组的条目，*并且*它们不是该元组的全部条目。（因此，条目不能
+全部放进一页挂起列表页的堆元组必须独占那些页，即便这导致前一页和该
+元组最后一页上浪费大量空间。）
 
-GIN packs downlinks and pivot keys into internal page tuples in a different way
-than nbtree does.  Lehman & Yao defines it as following.
+GIN 把下行指针和枢纽键装进内部页元组的方式与 nbtree 不同。Lehman & Yao
+定义如下。
 
 P_0, K_1, P_1, K_2, P_2, ... , K_n, P_n, K_{n+1}
 
-There P_i is a downlink and K_i is a key.  K_i splits key space between P_{i-1}
-and P_i (0 <= i <= n).  K_{n+1} is high key.
+其中 P_i 是下行指针，K_i 是键。K_i 划分 P_{i-1} 与 P_i 之间的键空间
+（0 <= i <= n）。K_{n+1} 是高键。
 
-In internal page tuple is key and downlink grouped together.  nbtree packs
-keys and downlinks into tuples as following.
+在内部页中，元组和下行指针分组在一起。nbtree 把键和下行指针装进元组
+如下。
 
 (K_{n+1}, None), (-Inf, P_0), (K_1, P_1), ... , (K_n, P_n)
 
-There tuples are shown in parentheses.  So, highkey is stored separately.  P_i
-is grouped with K_i.  P_0 is grouped with -Inf key.
+元组显示在括号中。因此高键单独存储。P_i 与 K_i 分组。P_0 与 -Inf 键
+分组。
 
-GIN packs keys and downlinks into tuples in a different way.
+GIN 以不同方式把键和下行指针装进元组。
 
 (P_0, K_1), (P_1, K_2), ... , (P_n, K_{n+1})
 
-P_i is grouped with K_{i+1}.  -Inf key is not needed.
+P_i 与 K_{i+1} 分组。不需要 -Inf 键。
 
-There are couple of additional notes regarding K_{n+1} key.
-1) In entry tree rightmost page, a key coupled with P_n doesn't really matter.
-Highkey is assumed to be infinity.
-2) In posting tree, a key coupled with P_n always doesn't matter.  Highkey for
-non-rightmost pages is stored separately and accessed via
-GinDataPageGetRightBound().
+关于 K_{n+1} 键还有几点额外说明。
+1) 在条目树最右页中，与 P_n 配对的键其实无所谓。高键假定为无穷。
+2) 在倒排树中，与 P_n 配对的键总是无所谓。非最右页的高键单独存储，
+经 GinDataPageGetRightBound() 访问。
 
-Posting tree
+倒排树
+------
+
+若倒排列表太大无法内联存在键条目中，则创建倒排树。倒排树是 B 树结构，
+其中 ItemPointer 用作键。
+
+内部倒排树页使用标准 PageHeader 以及与其他 GIN 页相同的“不透明”结构，
+但不包含常规索引元组。相反，页的内容是 PostingItem 结构的数组。每个
+PostingItem 由子页的块号以及该子页的右界（作为 ItemPointer）组成。
+页的右界存在页头之后、PostingItem 数组之前。
+
+倒排树叶子页也使用标准 PageHeader 和不透明结构，页的右界存在页头之后，
+但页内容由若干压缩倒排列表组成。压缩倒排列表一个接一个地存在页头与
+pd_lower 之间。pd_lower 与 pd_upper 之间的空间未使用，这允许倒排树
+叶子页的整页映像跳过中间未使用的空间（XLogRecData 中 buffer_std =
+true）。
+
+项指针存在若干独立的压缩倒排列表（也称为段）中，而不是一个大的，以便
+对给定项指针的随机访问更快：要在压缩列表中找到一项，必须从开头读该
+列表，但当项被拆成多个列表时，你可以先跳到包含你要找的项的列表，并
+只读那一段。另外，更新只需重新编码受影响的段。
+
+倒排列表压缩
 ------------
 
-If a posting list is too large to store in-line in a key entry, a posting tree
-is created. A posting tree is a B-tree structure, where the ItemPointer is
-used as the key.
+为在一页上放下尽可能多的项指针，倒排树叶子页以及内联存在条目树叶子
+元组中的倒排列表使用一种轻量压缩形式。我们利用项指针按排序顺序存储
+这一事实。与其分别存储每个项指针的块号和偏移号，我们存储与前一项的
+差值。这本身作用不大，但允许我们用所谓的 varbyte 编码来压缩它们。
 
-Internal posting tree pages use the standard PageHeader and the same "opaque"
-struct as other GIN page, but do not contain regular index tuples. Instead,
-the contents of the page is an array of PostingItem structs. Each PostingItem
-consists of the block number of the child page, and the right bound of that
-child page, as an ItemPointer. The right bound of the page is stored right
-after the page header, before the PostingItem array.
+Varbyte 编码是一种编码整数的方法，允许较小的数占用更少空间，代价是
+较大的数占用更多。每个整数由可变数量的字节表示。varbyte 编码中每个
+字节的高位决定下一字节是否仍是该数的一部分。因此，要读一个 varbyte
+编码的数，必须读字节直到找到高位未设置的字节。
 
-Posting tree leaf pages also use the standard PageHeader and opaque struct,
-and the right bound of the page is stored right after the page header, but
-the page content comprises of a number of compressed posting lists. The
-compressed posting lists are stored one after each other, between page header
-and pd_lower. The space between pd_lower and pd_upper is unused, which allows
-full-page images of posting tree leaf pages to skip the unused space in middle
-(buffer_std = true in XLogRecData).
+编码时，构成项指针的块号和偏移号被组合成单个整数。偏移号存在低 11 位
+（见 ginpostinglist.c 中的 MaxHeapTuplesPerPageBits），块号存在更高
+位。这总共需要 43 位，方便地最多装进 6 字节。
 
-The item pointers are stored in a number of independent compressed posting
-lists (also called segments), instead of one big one, to make random access
-to a given item pointer faster: to find an item in a compressed list, you
-have to read the list from the beginning, but when the items are split into
-multiple lists, you can first skip over to the list containing the item you're
-looking for, and read only that segment. Also, an update only needs to
-re-encode the affected segment.
+压缩倒排列表以 GinPostingList 结构传递并存在磁盘上。列表中的第一项
+作为普通 ItemPointerData 未压缩存储，随后是列表的字节长度，再随后是
+打包的项。
 
-Posting List Compression
-------------------------
+并发
+----
 
-To fit as many item pointers on a page as possible, posting tree leaf pages
-and posting lists stored inline in entry tree leaf tuples use a lightweight
-form of compression. We take advantage of the fact that the item pointers
-are stored in sorted order. Instead of storing the block and offset number of
-each item pointer separately, we store the difference from the previous item.
-That in itself doesn't do much, but it allows us to use so-called varbyte
-encoding to compress them.
+条目树和每棵倒排树都是 B 树，同层兄弟页由右链接连接。这与常规 B 树
+索引访问方法使用的结构相同（由 Lehman & Yao 发明），但我们不支持向后
+扫描 GIN 树，因此不需要左链接。条目树叶子没有专用高键，最大的叶子
+元组充当高键。这能工作是因为条目树中从不删除元组。
 
-Varbyte encoding is a method to encode integers, allowing smaller numbers to
-take less space at the cost of larger numbers. Each integer is represented by
-variable number of bytes. High bit of each byte in varbyte encoding determines
-whether the next byte is still part of this number. Therefore, to read a single
-varbyte encoded number, you have to read bytes until you find a byte with the
-high bit not set.
+下面考虑用于操作条目树和倒排树的算法。
 
-When encoding, the block and offset number forming the item pointer are
-combined into a single integer. The offset number is stored in the 11 low
-bits (see MaxHeapTuplesPerPageBits in ginpostinglist.c), and the block number
-is stored in the higher bits. That requires 43 bits in total, which
-conveniently fits in at most 6 bytes.
+### 定位叶子页
 
-A compressed posting list is passed around and stored on disk in a
-GinPostingList struct. The first item in the list is stored uncompressed
-as a regular ItemPointerData, followed by the length of the list in bytes,
-followed by the packed items.
+当我们在 GIN btree 中搜索叶子页以执行读取时，我们从根页经下行指针
+下降到叶子，一次对一页取钉住和共享锁。因此，我们在对下一页获取它们
+之前释放上一页上的钉住和共享锁。
 
-Concurrency
------------
-
-The entry tree and each posting tree are B-trees, with right-links connecting
-sibling pages at the same level.  This is the same structure that is used in
-the regular B-tree indexam (invented by Lehman & Yao), but we don't support
-scanning a GIN trees backwards, so we don't need left-links.  The entry tree
-leaves don't have dedicated high keys, instead greatest leaf tuple serves as
-high key.  That works because tuples are never deleted from the entry tree.
-
-The algorithms used to operate entry and posting trees are considered below.
-
-### Locating the leaf page
-
-When we search for leaf page in GIN btree to perform a read, we descend from
-the root page to the leaf through using downlinks taking pin and shared lock on
-one page at once.  So, we release pin and shared lock on previous page before
-getting them on the next page.
-
-The picture below shows tree state after finding the leaf page.  Lower case
-letters depicts tree pages.  'S' depicts shared lock on the page.
+下图显示找到叶子页后的树状态。小写字母表示树页。‘S’ 表示页上的共享锁。
 
                a
            /   |   \
@@ -331,20 +266,17 @@ letters depicts tree pages.  'S' depicts shared lock on the page.
      / | \     | \     | \
    eS  f   g   h   i   j   k
 
-### Steping right
+### 向右走
 
-Concurrent page splits move the keyspace to right, so after following a
-downlink, the page actually containing the key we're looking for might be
-somewhere to the right of the page we landed on.  In that case, we follow the
-right-links until we find the page we're looking for.
+并发页分裂把键空间向右移动，因此跟随下行指针之后，实际包含我们要找
+的键的页可能在我们落地页的右边某处。那种情况下，我们跟随右链接直到
+找到我们要找的页。
 
-During stepping right we take pin and shared lock on the right sibling before
-releasing them from the current page.  This mechanism was designed to protect
-from stepping to delete page.  We step to the right sibling while hold lock on
-the rightlink pointing there.  So, it's guaranteed that nobody updates rightlink
-concurrently and doesn't delete right sibling accordingly.
+向右走时，我们在从当前页释放钉住和共享锁之前，对右兄弟取钉住和共享锁。
+这一机制设计为防止走到已删除页。我们在持有指向那里的右链接上的锁时
+走到右兄弟。因此保证没有人并发更新右链接，相应地也不会删除右兄弟。
 
-The picture below shows two pages locked at once during stepping right.
+下图显示向右走时同时锁着的两页。
 
                a
            /   |   \
@@ -352,17 +284,15 @@ The picture below shows two pages locked at once during stepping right.
      / | \     | \     | \
    eS  fS  g   h   i   j   k
 
-### Insert
+### 插入
 
-While finding appropriate leaf for insertion we also descend from the root to
-leaf, while shared locking one page at once in.  But during insertion we don't
-release pins from root and internal pages.  That could save us some lookups to
-the buffers hash table for downlinks insertion assuming parents are not changed
-due to concurrent splits.  Once we reach leaf we re-lock the page in exclusive
-mode.
+寻找适当叶子以插入时，我们也从根下降到叶子，同时一次共享锁定一页。
+但插入期间我们不从根和内部页释放钉住。假定父因并发分裂而未改变，这
+可以为下行指针插入省去一些对缓冲区哈希表的查找。一旦到达叶子，我们
+以独占模式重新锁定该页。
 
-The picture below shows leaf page locked in exclusive mode and ready for
-insertion.  'P' and 'E' depict pin and exclusive lock correspondingly.
+下图显示以独占模式锁定、准备好插入的叶子页。‘P’ 和 ‘E’ 分别表示钉住
+和独占锁。
 
 
                aP
@@ -372,12 +302,11 @@ insertion.  'P' and 'E' depict pin and exclusive lock correspondingly.
    e   f   g   hE  i   j   k
 
 
-If insert causes a page split, the parent is locked in exclusive mode before
-unlocking the left child.  So, insertion algorithm can exclusively lock both
-parent and child pages at once starting from child.
+若插入导致页分裂，在解锁左子之前以独占模式锁定父。因此插入算法可以从
+子开始同时独占锁定父页和子页。
 
-The picture below shows tree state after leaf page split.  'q' is new page
-produced by split.  Parent 'c' is about to have downlink inserted.
+下图显示叶子页分裂后的树状态。‘q’ 是分裂产生的新页。父 ‘c’ 即将插入
+下行指针。
 
                   aP
             /     |   \
@@ -386,23 +315,18 @@ produced by split.  Parent 'c' is about to have downlink inserted.
    e   f   g  hE  q   i   j   k
 
 
-### Page deletion
+### 页删除
 
-Vacuum never deletes tuples or pages from the entry tree. It traverses entry
-tree leafs in logical order by rightlinks and removes deletable TIDs from
-posting lists. Posting trees are processed by links from entry tree leafs. They
-are vacuumed in two stages. At first stage, deletable TIDs are removed from
-leafs. If first stage detects at least one empty page, then at the second stage
-ginScanToDelete() deletes empty pages.
+清理从不从条目树删除元组或页。它按右链接以逻辑顺序遍历条目树叶子，
+并从倒排列表中移除可删除的 TID。倒排树经条目树叶子的链接处理。它们
+分两个阶段清理。第一阶段从叶子移除可删除的 TID。若第一阶段检测到至少
+一页空页，则第二阶段 ginScanToDelete() 删除空页。
 
-ginScanToDelete() traverses the whole tree in depth-first manner.  It starts
-from the full cleanup lock on the tree root.  This lock prevents all the
-concurrent insertions into this tree while we're deleting pages.  However,
-there are still might be some in-progress readers, who traversed root before
-we locked it.
+ginScanToDelete() 以深度优先方式遍历整棵树。它从对树根的完全清理锁
+开始。该锁在我们删除页期间阻止所有向该树的并发插入。不过，仍可能有
+一些进行中的读者在我们锁定之前已遍历过根。
 
-The picture below shows tree state after page deletion algorithm traversed to
-leftmost leaf of the tree.
+下图显示页删除算法遍历到树最左叶子后的树状态。
 
                aE
            /   |   \
@@ -410,31 +334,23 @@ leftmost leaf of the tree.
      / | \     | \     | \
    eE  f   g   h   i   j   k
 
-Deletion algorithm keeps exclusive locks on left siblings of pages comprising
-currently investigated path.  Thus, if current page is to be removed, all
-required pages to remove both downlink and rightlink are already locked.  That
-avoids potential right to left page locking order, which could deadlock with
-concurrent stepping right.
+删除算法保持对组成当前调查路径的页的左兄弟的独占锁。因此，若当前页
+将被移除，移除下行指针和右链接所需的全部页都已锁定。这避免潜在的从
+右到左页加锁顺序，那可能与并发向右走死锁。
 
-A search concurrent to page deletion might already have read a pointer to the
-page to be deleted, and might be just about to follow it.  A page can be reached
-via the right-link of its left sibling, or via its downlink in the parent.
+与页删除并发的搜索可能已经读到指向待删除页的指针，并且可能正要跟随它。
+一页可以经其左兄弟的右链接到达，或经其父中的下行指针到达。
 
-To prevent a backend from reaching a deleted page via a right-link, stepping
-right algorithm doesn't release lock on the current page until lock of the
-right page is acquired.
+为防止后端经右链接到达已删除页，向右走算法在获得右页的锁之前不释放
+当前页上的锁。
 
-The downlink is more tricky.  A search descending the tree must release the lock
-on the parent page before locking the child, or it could deadlock with a
-concurrent split of the child page; a page split locks the parent, while already
-holding a lock on the child page.  So, deleted page cannot be reclaimed
-immediately.  Instead, we have to wait for every transaction, which might wait
-to reference this page, to finish.  Corresponding processes must observe that
-the page is marked deleted and recover accordingly.
+下行指针更棘手。下降树的搜索必须在锁定子之前释放父页上的锁，否则可能
+与子页的并发分裂死锁；页分裂在已持有子页上的锁时锁定父。因此已删除页
+不能立即回收。相反，我们必须等待每个可能等待引用该页的事务结束。对应
+进程必须观察到该页标为已删除并相应恢复。
 
-The picture below shows tree state after page deletion algorithm further
-traversed the tree.  Currently investigated path is 'a-c-h'.  Left siblings 'b'
-and 'g' of 'c' and 'h' correspondingly are also exclusively locked.
+下图显示页删除算法进一步遍历树后的树状态。当前调查路径是 ‘a-c-h’。
+‘c’ 和 ‘h’ 的左兄弟 ‘b’ 和 ‘g’ 也独占锁定。
 
                aE
            /   |   \
@@ -442,9 +358,8 @@ and 'g' of 'c' and 'h' correspondingly are also exclusively locked.
      / | \     | \     | \
    e   f   gE  hE  i   j   k
 
-The next picture shows tree state after page 'h' was deleted.  It's marked with
-'deleted' flag and newest xid, which might visit it.  Downlink from 'c' to 'h'
-is also deleted.
+下一图显示页 ‘h’ 被删除后的树状态。它标有 ‘deleted’ 标志和可能访问它
+的最新 xid。从 ‘c’ 到 ‘h’ 的下行指针也被删除。
 
                aE
            /   |   \
@@ -452,16 +367,14 @@ is also deleted.
      / | \       \     | \
    e   f   gE  hD  iE  j   k
 
-However, it's still possible that concurrent reader has seen downlink from 'c'
-to 'h' before we deleted it.  In that case this reader will step right from 'h'
-to till find non-deleted page.  Xid-marking of page 'h' guarantees that this
-page wouldn't be reused till all such readers gone.  Next leaf page under
-investigation is 'i'.  'g' remains locked as it becomes left sibling of 'i'.
+不过，仍可能并发读者在我们删除之前看到了从 ‘c’ 到 ‘h’ 的下行指针。
+那种情况下该读者将从 ‘h’ 向右走到找到非删除页。页 ‘h’ 的 xid 标记
+保证在所有这类读者离开之前该页不会被复用。下一个调查中的叶子页是
+‘i’。‘g’ 保持锁定，因为它成为 ‘i’ 的左兄弟。
 
-The next picture shows tree state after 'i' and 'c' was deleted.  Internal page
-'c' was deleted because it appeared to have no downlinks.  The path under
-investigation is 'a-d-j'.  Pages 'b' and 'g' are locked as self siblings of 'd'
-and 'j'.
+下一图显示 ‘i’ 和 ‘c’ 被删除后的树状态。内部页 ‘c’ 被删除是因为它
+显得没有下行指针。调查中的路径是 ‘a-d-j’。页 ‘b’ 和 ‘g’ 作为 ‘d’
+和 ‘j’ 的左兄弟被锁定。
 
                aE
            /       \
@@ -469,94 +382,77 @@ and 'j'.
      / | \             | \
    e   f   gE  hD  iD  jE  k
 
-During the replay of page deletion at standby, the page's left sibling, the
-target page, and its parent, are locked in that order.  This order guarantees
-no deadlock with concurrent reads.
+在备库重放页删除期间，页的左兄弟、目标页及其父按该顺序锁定。这一顺序
+保证不与并发读取死锁。
 
-Predicate Locking
------------------
+谓词锁
+------
 
-GIN supports predicate locking, for serializable snapshot isolation.
-A predicate locks represent that a scan has scanned a range of values.  They
-are not concerned with physical pages as such, but the logical key values.
-A predicate lock on a page covers the key range that would belong on that
-page, whether or not there are any matching tuples there currently.  In other
-words, a predicate lock on an index page covers the "gaps" between the index
-tuples.  To minimize false positives, predicate locks are acquired at the
-finest level possible.
+GIN 支持谓词锁，用于可串行化快照隔离。谓词锁表示扫描已扫描过一段值
+范围。它们不关心物理页本身，而关心逻辑键值。页上的谓词锁覆盖将属于
+该页的键范围，无论那里当前是否有任何匹配元组。换句话说，索引页上的
+谓词锁覆盖索引元组之间的“空隙”。为最小化假阳性，谓词锁在尽可能最细
+的级别获取。
 
-* Like in the B-tree index, it is enough to lock only leaf pages, because all
-  insertions happen at the leaf level.
+* 与 B 树索引一样，只锁定叶子页就够了，因为所有插入都发生在叶子层。
 
-* In an equality search (i.e. not a partial match search), if a key entry has
-  a posting tree, we lock the posting tree root page, to represent a lock on
-  just that key entry.  Otherwise, we lock the entry tree page.  We also lock
-  the entry tree page if no match is found, to lock the "gap" where the entry
-  would've been, had there been one.
+* 在相等搜索中（即不是部分匹配搜索），若键条目有倒排树，我们锁定倒排
+  树根页，以表示只对该键条目的锁。否则，我们锁定条目树页。若未找到
+  匹配，我们也锁定条目树页，以锁定若有条目就会在那里的“空隙”。
 
-* In a partial match search, we lock all the entry leaf pages that we scan,
-  in addition to locks on posting tree roots, to represent the "gaps" between
-  values.
+* 在部分匹配搜索中，除倒排树根上的锁外，我们锁定我们扫描的全部条目
+  叶子页，以表示值之间的“空隙”。
 
-* In addition to the locks on entry leaf pages and posting tree roots, all
-  scans grab a lock the metapage.  This is to interlock with insertions to
-  the fast update pending list.  An insertion to the pending list can really
-  belong anywhere in the tree, and the lock on the metapage represents that.
+* 除条目叶子页和倒排树根上的锁外，所有扫描都抓取元页上的一把锁。这是
+  为了与向快速更新挂起列表的插入互锁。向挂起列表的插入实际上可以属于
+  树中任何地方，元页上的锁表示这一点。
 
-The interlock for fastupdate pending lists means that with fastupdate=on,
-we effectively always grab a full-index lock, so you could get a lot of false
-positives.
+快速更新挂起列表的互锁意味着在 fastupdate=on 时，我们实际上总是抓取
+全索引锁，因此可能得到很多假阳性。
 
-Compatibility
--------------
+兼容性
+------
 
-Compression of TIDs was introduced in 9.4. Some GIN indexes could remain in
-uncompressed format because of pg_upgrade from 9.3 or earlier versions.
-For compatibility, old uncompressed format is also supported. Following
-rules are used to handle it:
+TID 压缩在 9.4 引入。某些 GIN 索引可能因从 9.3 或更早版本 pg_upgrade
+而保持未压缩格式。为兼容，也支持旧的未压缩格式。处理规则如下：
 
-* GIN_ITUP_COMPRESSED flag marks index tuples that contain a posting list.
-This flag is stored in high bit of ItemPointerGetBlockNumber(&itup->t_tid).
-Use GinItupIsCompressed(itup) to check the flag.
+* GIN_ITUP_COMPRESSED 标志标记包含倒排列表的索引元组。该标志存在
+ItemPointerGetBlockNumber(&itup->t_tid) 的高位。用
+GinItupIsCompressed(itup) 检查该标志。
 
-* Posting tree pages in the new format are marked with the GIN_COMPRESSED flag.
-  Macros GinPageIsCompressed(page) and GinPageSetCompressed(page) are used to
-  check and set this flag.
+* 新格式的倒排树页标有 GIN_COMPRESSED 标志。宏 GinPageIsCompressed(page)
+  和 GinPageSetCompressed(page) 用来检查和设置该标志。
 
-* All scan operations check format of posting list add use corresponding code
-to read its content.
+* 所有扫描操作检查倒排列表的格式，并使用相应代码读取其内容。
 
-* When updating an index tuple containing an uncompressed posting list, it
-will be replaced with new index tuple containing a compressed list.
+* 更新包含未压缩倒排列表的索引元组时，它将被包含压缩列表的新索引元组
+替换。
 
-* When updating an uncompressed posting tree leaf page, it's compressed.
+* 更新未压缩倒排树叶子页时，它被压缩。
 
-* If vacuum finds some dead TIDs in uncompressed posting lists, they are
-converted into compressed posting lists. This assumes that the compressed
-posting list fits in the space occupied by the uncompressed list. IOW, we
-assume that the compressed version of the page, with the dead items removed,
-takes less space than the old uncompressed version.
+* 若清理在未压缩倒排列表中找到一些死 TID，它们被转换成压缩倒排列表。
+这假定压缩倒排列表能放进未压缩列表占用的空间。也就是说，我们假定去掉
+死项后的压缩版本页比旧的未压缩版本占用更少空间。
 
-Limitations
------------
-
-  * Gin doesn't use scan->kill_prior_tuple & scan->ignore_killed_tuples
-  * Gin searches entries only by equality matching, or simple range
-    matching using the "partial match" feature.
-
-TODO
+限制
 ----
 
-Nearest future:
+  * Gin 不使用 scan->kill_prior_tuple 和 scan->ignore_killed_tuples
+  * Gin 只按相等匹配搜索条目，或使用“部分匹配”特性做简单范围匹配。
 
-  * Opclasses for more types (no programming, just many catalog changes)
+待办
+----
 
-Distant future:
+近期：
 
-  * Replace B-tree of entries to something like GiST
+  * 更多类型的操作符类（无需编程，只需许多目录变更）
 
-Authors
--------
+远期：
 
-Original work was done by Teodor Sigaev (teodor@sigaev.ru) and Oleg Bartunov
-(oleg@sai.msu.su).
+  * 把条目的 B 树换成类似 GiST 的东西
+
+作者
+----
+
+原始工作由 Teodor Sigaev（teodor@sigaev.ru）和 Oleg Bartunov
+（oleg@sai.msu.su）完成。

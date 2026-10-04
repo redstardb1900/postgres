@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0065-comment-pathkeys-nodes-termfix",
+ "title": "zh: fix pathkeys copyfuncs tidbitmap comment wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3469f367063c34e0bfffe28fe9b0755e339a386c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/path/pathkeys.c",
+   "kind": "c_comment",
+   "note": "pathkeys merge pathkey wording"
+  },
+  {
+   "pattern": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "note": "copy A_Const must duplicate other _copy functions"
+  },
+  {
+   "pattern": "src/backend/nodes/tidbitmap.c",
+   "kind": "c_comment",
+   "note": "shared bitmap refcount wording"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0065-comment-pathkeys-nodes-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/path/pathkeys.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 157,
+   "translated": 155,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "find_mergeclauses /*---------- pgindent block"
+   ],
+   "note": "pathkeys merge pathkey wording"
+  },
+  {
+   "path": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "copy A_Const must duplicate other _copy functions"
+  },
+  {
+   "path": "src/backend/nodes/tidbitmap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 185,
+   "translated": 184,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "shared bitmap refcount wording"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0065-comment-pathkeys-nodes-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

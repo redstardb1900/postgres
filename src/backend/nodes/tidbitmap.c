@@ -333,7 +333,7 @@ tbm_free(TIDBitmap *tbm)
  * tbm_free_shared_area - 释放共享状态
  *
  * 释放共享迭代器状态；若没有任何共享迭代器引用，
- * 也释放共享页表和迭代器数组的内存，即 recount
+ * 也释放共享页表和迭代器数组的内存，即 refcount
  * 变为 0。
  */
 void

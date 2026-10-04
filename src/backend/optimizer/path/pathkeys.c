@@ -120,7 +120,7 @@ append_pathkeys(List *target, List *source)
 
 /*
  * pathkey_is_redundant
- *	   新路径键是否与给定列表中已有的某个冗余？
+ *	   路径键是否与列表中已有路径键冗余？
  *
  * 我们检测两种情形：
  *
@@ -1399,27 +1399,27 @@ find_mergeclauses_for_outer_pathkeys(PlannerInfo *root,
 /*
  * select_outer_pathkeys_for_merge
  *	  构造表示一种可能排序顺序的路径键列表，
- *	  它可与给定的归并子句一起使用。
+ *	  可与给定的归并子句一起使用。
  *
- * 'mergeclauses' 是将用于归并连接的归并连接子句的 RestrictInfos 列表。
- *			'joinrel' 是我们试图构造的连接关系。
- * restrictinfos 必须已标记（经由 outer_is_left），以表明每条子句的哪一侧
+ * 'mergeclauses' 是归并连接子句的 RestrictInfos 列表，
+ *			这些子句将用于归并连接。
+ * 'joinrel' 是我们试图构造的连接关系。
  *
- * 与当前外层路径相关联。（见
+ * restrictinfos 必须已标记（经由 outer_is_left），以表明
+ * 每条子句的哪一侧与当前外层路径相关联。（见
  * select_mergejoin_clauses()）
+ *
  * 返回可应用于外层关系的路径键列表。
  *
- * 既然这里假定需要排序，去匹配外层关系任何已有排序
- *
- * 就没有特别的用处。（joinpath.c 有一条
- * 完全独立的代码路径，
- * 用来考虑免排序的归并连接。）相反，
- * 有意义的是尝试匹配，或匹配所请求的
- * query_pathkeys 的一个前缀，以便避免第二次输出排序，或改为做
+ * 既然这里假定需要排序，匹配外层关系任何已有排序
+ * 就没有特别用处。（joinpath.c 另有一条
+ * 完全独立的代码路径，用来考虑免排序的归并连接。）相反，
+ * 有意义的是尝试匹配所请求的 query_pathkeys，
+ * 或其一个前缀，以便避免第二次输出排序，或改为做
  * 增量排序。当前缀覆盖整个连接条件时，
  * 只取 query_pathkeys 的一个前缀就可以。
  * 若做不到，就试着把 "更常见" 的键（未匹配的
- * EquivalenceClass 同伴最多的那些）列在前面，希望得到的
+ * EquivalenceClass 同伴最多的那些）列在前面，希望所得
  * 排序对尽可能多的更高层归并连接有用。
  */
 List *
@@ -1599,24 +1599,24 @@ select_outer_pathkeys_for_merge(PlannerInfo *root,
 
 /*
  * make_inner_pathkeys_for_merge
- *	  构造表示必须施加到内层路径上的显式排序的路径键列表，
- *	  以便它能与给定的
- *	  归并子句一起使用。
+ *	  构造表示必须施加于内层路径的显式排序的路径键列表，
+ *	  该排序使内层路径能够与
+ *	  给定的归并子句一起使用。
  *
- * 'mergeclauses' 是将用于归并连接的归并连接子句的 RestrictInfos 列表，
- *			按顺序。
- * 'outer_pathkeys' 是连接外层一侧已经知道的规范路径键。
- *			restrictinfos 必须已标记（经由 outer_is_left），以表明每条子句的哪一侧
+ * 'mergeclauses' 是归并连接子句的 RestrictInfos 列表，
+ *			将按顺序用于归并连接。
+ * 'outer_pathkeys' 是外层一侧已经知道的规范路径键，
+ *			即该连接的外侧。
  *
- * 与当前外层路径相关联。（见
+ * restrictinfos 必须已标记（经由 outer_is_left），以表明
+ * 每条子句的哪一侧与当前外层路径相关联。（见
  * select_mergejoin_clauses()）
+ *
  * 返回可应用于内层关系的路径键列表。
  *
  * 注意，判断某个输入路径是否真的需要排序
- *
  * 不是本例程的事。假定需要排序；
- * 这里只负责把键造出来，
- * 嗯，就这些。
+ * 把键造出来就行，嗯？
  */
 List *
 make_inner_pathkeys_for_merge(PlannerInfo *root,

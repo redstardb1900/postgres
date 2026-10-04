@@ -112,7 +112,7 @@ _copyA_Const(const A_Const *from)
 	COPY_SCALAR_FIELD(isnull);
 	if (!from->isnull)
 	{
-		/* 这一部分必须与其他 _copy*() 函数保持重复。 */
+		/* 必须与其他 _copy*() 函数一样复制这部分逻辑。 */
 		COPY_SCALAR_FIELD(val.node.type);
 		switch (nodeTag(&from->val))
 		{

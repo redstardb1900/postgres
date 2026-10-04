@@ -1,10 +1,8 @@
 src/pl/plperl/README
 
-PL/Perl allows you to write PostgreSQL functions and procedures in
-Perl.  To include PL/Perl in the build use './configure --with-perl'.
-To build from this directory use 'make all; make install'.  libperl
-must have been built as a shared library, which is usually not the
-case in standard installations.
+PL/Perl 允许你用 Perl 编写 PostgreSQL 函数和过程。要在构建中包含
+PL/Perl，使用 './configure --with-perl'。要在本目录构建，使用
+'make all; make install'。libperl 必须已构建为共享库，标准安装中通常
+并非如此。
 
-Consult the PostgreSQL User's Guide and the INSTALL file in the
-top-level directory of the source distribution for more information.
+更多信息见 PostgreSQL 用户指南以及源码发行版顶层目录中的 INSTALL 文件。

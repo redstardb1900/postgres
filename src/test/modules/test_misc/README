@@ -1,4 +1,4 @@
-This directory doesn't actually contain any extension module.
+本目录实际上并不包含任何扩展模块。
 
-What it is is a home for otherwise-unclassified TAP tests that exercise core
-server features.  We might equally well have called it, say, src/test/misc.
+它只是存放一批不好归类的 TAP 测试，用来行使核心服务器功能。
+我们同样可以把它叫做 src/test/misc。

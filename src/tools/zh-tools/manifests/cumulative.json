@@ -310,6 +310,96 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0011-exclude-txt.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/test/modules/test_ginpostinglist/README",
+   "kind": "readme",
+   "note": "GIN posting list unit-test note"
+  },
+  {
+   "pattern": "src/test/locale/de_DE.ISO8859-1/README",
+   "kind": "readme",
+   "note": "German locale test"
+  },
+  {
+   "pattern": "src/test/locale/gr_GR.ISO8859-7/README",
+   "kind": "readme",
+   "note": "Greek locale test"
+  },
+  {
+   "pattern": "src/test/regress/README",
+   "kind": "readme",
+   "note": "pointer to manual Regression Tests chapter"
+  },
+  {
+   "pattern": "src/test/modules/test_pg_dump/README",
+   "kind": "readme",
+   "note": "pg_dump extension test"
+  },
+  {
+   "pattern": "src/test/modules/test_misc/README",
+   "kind": "readme",
+   "note": "unclassified TAP tests"
+  },
+  {
+   "pattern": "src/test/modules/plsample/README",
+   "kind": "readme",
+   "note": "PL handler template"
+  },
+  {
+   "pattern": "src/test/mb/README",
+   "kind": "readme",
+   "note": "multibyte regression"
+  },
+  {
+   "pattern": "src/test/modules/dummy_index_am/README",
+   "kind": "readme",
+   "note": "dummy index AM"
+  },
+  {
+   "pattern": "src/test/locale/koi8-to-win1251/README",
+   "kind": "readme",
+   "note": "koi8 conversion locale test"
+  },
+  {
+   "pattern": "src/test/modules/unsafe_tests/README",
+   "kind": "readme",
+   "note": "installcheck-unsafe tests"
+  },
+  {
+   "pattern": "src/test/modules/test_integerset/README",
+   "kind": "readme",
+   "note": "integerset unit tests"
+  },
+  {
+   "pattern": "src/tools/ifaddrs/README",
+   "kind": "readme",
+   "note": "test_ifaddrs"
+  },
+  {
+   "pattern": "src/test/modules/spgist_name_ops/README",
+   "kind": "readme",
+   "note": "SP-GiST name opclass"
+  },
+  {
+   "pattern": "src/test/modules/test_ddl_deparse/README",
+   "kind": "readme",
+   "note": "pg_ddl_command demo"
+  },
+  {
+   "pattern": "src/pl/plperl/README",
+   "kind": "readme",
+   "note": "PL/Perl build note"
+  },
+  {
+   "pattern": "src/tutorial/README",
+   "kind": "readme",
+   "note": "SQL tutorial scripts"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0012-readme-short.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -1427,7 +1517,187 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/test/modules/test_ginpostinglist/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GIN posting list unit-test note"
+  },
+  {
+   "path": "src/test/locale/de_DE.ISO8859-1/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "German locale test"
+  },
+  {
+   "path": "src/test/locale/gr_GR.ISO8859-7/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Greek locale test"
+  },
+  {
+   "path": "src/test/regress/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pointer to manual Regression Tests chapter"
+  },
+  {
+   "path": "src/test/modules/test_pg_dump/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pg_dump extension test"
+  },
+  {
+   "path": "src/test/modules/test_misc/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unclassified TAP tests"
+  },
+  {
+   "path": "src/test/modules/plsample/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "PL handler template"
+  },
+  {
+   "path": "src/test/mb/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "multibyte regression"
+  },
+  {
+   "path": "src/test/modules/dummy_index_am/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dummy index AM"
+  },
+  {
+   "path": "src/test/locale/koi8-to-win1251/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "koi8 conversion locale test"
+  },
+  {
+   "path": "src/test/modules/unsafe_tests/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "installcheck-unsafe tests"
+  },
+  {
+   "path": "src/test/modules/test_integerset/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "integerset unit tests"
+  },
+  {
+   "path": "src/tools/ifaddrs/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "test_ifaddrs"
+  },
+  {
+   "path": "src/test/modules/spgist_name_ops/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SP-GiST name opclass"
+  },
+  {
+   "path": "src/test/modules/test_ddl_deparse/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pg_ddl_command demo"
+  },
+  {
+   "path": "src/pl/plperl/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "PL/Perl build note"
+  },
+  {
+   "path": "src/tutorial/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SQL tutorial scripts"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0012-readme-short.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5)."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 5 intro + 17 short files translated."
 }

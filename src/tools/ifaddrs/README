@@ -3,10 +3,8 @@ src/tools/ifaddrs/README
 test_ifaddrs
 ============
 
-This program prints the addresses and netmasks of all the IPv4 and IPv6
-interfaces on the local machine.  It is useful for testing that this
-functionality works on various platforms.  If "samehost" and "samenet"
-in pg_hba.conf don't seem to work right, run this program to see what
-is happening.
+本程序打印本机所有 IPv4 和 IPv6 接口的地址和网络掩码。它用来测试该功能
+在各种平台上是否正常。如果 pg_hba.conf 中的 "samehost" 和 "samenet"
+看起来不对，运行本程序可以看看到底发生了什么。
 
-Usage:	test_ifaddrs
+用法：	test_ifaddrs

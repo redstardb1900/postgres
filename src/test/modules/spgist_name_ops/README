@@ -1,8 +1,6 @@
-spgist_name_ops implements an SP-GiST operator class that indexes
-columns of type "name", but with storage identical to that used
-by SP-GiST text_ops.
+spgist_name_ops 实现一个 SP-GiST 操作符类，对 "name" 类型的列建索引，
+但存储方式与 SP-GiST text_ops 所用的相同。
 
-This is not terribly useful in itself, perhaps, but it allows
-testing cases where the indexed data type is different from the leaf
-data type and yet we can reconstruct the original indexed value.
-That situation is not tested by any built-in SP-GiST opclass.
+这本身也许没什么用，但它允许测试以下情形：被索引的数据类型与叶数据
+类型不同，而我们仍能还原原来的被索引值。内建 SP-GiST 操作符类都没有
+覆盖这种情况。

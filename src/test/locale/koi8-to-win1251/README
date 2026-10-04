@@ -1,6 +1,6 @@
 src/test/locale/koi8-to-win1251/README
 
-koi8-to-win1251 test. The database should be created in koi8 (createdb -E koi8),
-test uses koi8-to-win1251 converting feature.
-Created by Oleg Broytmann <phd2@earthling.net>. Code for encodings
-converting created by Tatsuo Ishii <t-ishii@sra.co.jp>.
+koi8-to-win1251 测试。数据库应以 koi8 创建（createdb -E koi8），
+测试使用 koi8-to-win1251 转换功能。
+由 Oleg Broytmann <phd2@earthling.net> 创建。编码转换代码
+由 Tatsuo Ishii <t-ishii@sra.co.jp> 编写。

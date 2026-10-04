@@ -3,14 +3,12 @@ src/tutorial/README
 tutorial
 ========
 
-This directory contains SQL tutorial scripts.  To look at them, first do a
+本目录包含 SQL 教程脚本。要查看它们，先执行
 	% make
-to compile all the scripts and C files for the user-defined functions
-and types.  (make needs to be GNU make --- it may be named something
-different on your system, often 'gmake')
+以编译全部脚本以及用户定义函数和类型所用的 C 文件。（make 必须是
+GNU make —— 在你的系统上可能叫别的名字，常见的是 'gmake'）
 
-Then, run psql with the -s (single-step) flag:
+然后以 -s（单步）标志运行 psql：
 	% psql -s
 
-From within psql, you can try each individual script file by using
-psql's \i <filename> command.
+在 psql 内，可用 psql 的 \i <filename> 命令逐个尝试各个脚本文件。

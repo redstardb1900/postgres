@@ -1,4 +1,3 @@
-test_pg_dump is an extension explicitly to test pg_dump when
-extensions are present in the system.
+test_pg_dump 是一个专门用来在系统中存在扩展时测试 pg_dump 的扩展。
 
-We also make use of this module to test ALTER EXTENSION ADD/DROP.
+我们也用本模块测试 ALTER EXTENSION ADD/DROP。

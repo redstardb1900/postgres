@@ -1,8 +1,6 @@
-test_ddl_deparse is an example of how to use the pg_ddl_command datatype.
-It is not intended to do anything useful on its own; rather, it is a
-demonstration of how to use the datatype, and to provide some unit tests for
-it.
+test_ddl_deparse 是如何使用 pg_ddl_command 数据类型的例子。
+它本身并不打算做任何有用的事；而是演示该数据类型的用法，并为其提供
+一些单元测试。
 
-The functions in this extension are intended to be able to process some
-part of the struct and produce some readable output, preferably handling
-all possible cases so that SQL test code can be written.
+本扩展中的函数旨在能处理结构体的某一部分并产生可读输出，最好覆盖所有
+可能情形，以便编写 SQL 测试代码。

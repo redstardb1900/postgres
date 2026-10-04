@@ -1,2 +1,2 @@
-test_ginpostinglist contains unit tests for the GIN posting list code in
-src/backend/access/gin/ginpostinglist.c.
+test_ginpostinglist 包含对 src/backend/access/gin/ginpostinglist.c 中
+GIN posting list 代码的单元测试。

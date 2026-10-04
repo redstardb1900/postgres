@@ -1,8 +1,6 @@
-This directory doesn't actually contain any extension module.
+本目录实际上并不包含任何扩展模块。
 
-Instead it is a home for regression tests that we don't want to run
-during "make installcheck" because they could have side-effects that
-seem undesirable for a production installation.
+它用来存放我们不想在 "make installcheck" 期间运行的回归测试，因为它们
+可能产生对生产安装来说不受欢迎的副作用。
 
-An example is that rolenames.sql tests ALTER USER ALL and so could
-have effects on pre-existing roles.
+例如，rolenames.sql 会测试 ALTER USER ALL，因而可能影响已有角色。

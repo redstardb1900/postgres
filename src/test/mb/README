@@ -1,10 +1,9 @@
 src/test/mb/README
 
-README for multibyte regression test
+多字节回归测试说明
 							1998/7/22
 							Tatsuo Ishii
 
-This directory contains a set of tests for multibyte supporting
-extensions for PostgreSQL. To run the test, simply type:
+本目录包含一组针对 PostgreSQL 多字节支持扩展的测试。要运行测试，只需：
 
 % sh mbregress.sh

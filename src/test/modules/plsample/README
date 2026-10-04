@@ -1,6 +1,5 @@
 PL/Sample
 =========
 
-PL/Sample is an example template of procedural-language handler.  It is
-a simple implementation, yet demonstrates some of the things that can be done
-to build a fully functional procedural-language handler.
+PL/Sample 是过程语言处理器的示例模板。实现很简单，但仍演示了构建一个
+功能完整的过程语言处理器时可以做的若干事情。

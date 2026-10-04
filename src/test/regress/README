@@ -1,3 +1,2 @@
-Documentation concerning how to run these regression tests and interpret
-the results can be found in the PostgreSQL manual, in the chapter
-"Regression Tests".
+如何运行这些回归测试以及如何解读结果，见 PostgreSQL 手册中
+“Regression Tests”一章。

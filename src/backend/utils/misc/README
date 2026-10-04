@@ -1,294 +1,243 @@
 src/backend/utils/misc/README
 
-GUC Implementation Notes
-========================
+GUC 实现说明
+============
 
-The GUC (Grand Unified Configuration) module implements configuration
-variables of multiple types (currently boolean, enum, int, real, and string).
-Variable settings can come from various places, with a priority ordering
-determining which setting is used.
-
-
-Per-Variable Hooks
-------------------
-
-Each variable known to GUC can optionally have a check_hook, an
-assign_hook, and/or a show_hook to provide customized behavior.
-Check hooks are used to perform validity checking on variable values
-(above and beyond what GUC can do), to compute derived settings when
-nontrivial work is needed to do that, and optionally to "canonicalize"
-user-supplied values.  Assign hooks are used to update any derived state
-that needs to change when a GUC variable is set.  Show hooks are used to
-modify the default SHOW display for a variable.
+GUC（Grand Unified Configuration）模块实现多种类型的配置变量（目前有
+布尔、枚举、整数、实数和字符串）。变量设置可以来自各处，由优先级排序
+决定使用哪个设置。
 
 
-If a check_hook is provided, it points to a function of the signature
+每变量钩子
+----------
+
+GUC 已知的每个变量都可以选择有 check_hook、assign_hook 和/或 show_hook
+以提供定制行为。check 钩子用来对变量值做有效性检查（超出 GUC 本身能
+做的），在需要非平凡工作时计算派生设置，以及可选地“规范化”用户提供的
+值。assign 钩子用来在设置 GUC 变量时更新任何需要变更的派生状态。show
+钩子用来修改变量的默认 SHOW 显示。
+
+
+若提供了 check_hook，它指向签名为
 	bool check_hook(datatype *newvalue, void **extra, GucSource source)
-The "newvalue" argument is of type bool *, int *, double *, or char **
-for bool, int/enum, real, or string variables respectively.  The check
-function should validate the proposed new value, and return true if it is
-OK or false if not.  The function can optionally do a few other things:
+的函数。“newvalue” 参数对布尔、整数/枚举、实数或字符串变量分别是
+bool *、int *、double * 或 char **。检查函数应验证提议的新值，OK 则
+返回 true，否则返回 false。该函数还可以选择做几件其他事：
 
-* When rejecting a bad proposed value, it may be useful to append some
-additional information to the generic "invalid value for parameter FOO"
-complaint that guc.c will emit.  To do that, call
+* 拒绝不良提议值时，在 guc.c 将发出的通用“参数 FOO 的值无效”抱怨后
+附加一些额外信息可能有用。为此调用
 	void GUC_check_errdetail(const char *format, ...)
-where the format string and additional arguments follow the rules for
-errdetail() arguments.  The resulting string will be emitted as the
-DETAIL line of guc.c's error report, so it should follow the message style
-guidelines for DETAIL messages.  There is also
+其中格式串和额外参数遵循 errdetail() 参数的规则。得到的字符串将作为
+guc.c 错误报告的 DETAIL 行发出，因此应遵循 DETAIL 消息的消息风格指南。
+还有
 	void GUC_check_errhint(const char *format, ...)
-which can be used in the same way to append a HINT message.
-Occasionally it may even be appropriate to override guc.c's generic primary
-message or error code, which can be done with
+可用同样方式附加 HINT 消息。偶尔甚至适合覆盖 guc.c 的通用主消息或
+错误码，这可以用
 	void GUC_check_errcode(int sqlerrcode)
 	void GUC_check_errmsg(const char *format, ...)
-In general, check_hooks should avoid throwing errors directly if possible,
-though this may be impractical to avoid for some corner cases such as
-out-of-memory.
+来做。一般而言，check 钩子应尽量避免直接抛错，尽管对某些边角情形
+（例如内存不足）这可能不切实际。
 
-* Since the newvalue is pass-by-reference, the function can modify it.
-This might be used for example to canonicalize the spelling of a string
-value, round off a buffer size to the nearest supported value, or replace
-a special value such as "-1" with a computed default value.  If the
-function wishes to replace a string value, it must guc_malloc (not palloc)
-the replacement value, and be sure to guc_free() the previous value.
+* 由于 newvalue 是按引用传递，函数可以修改它。例如可以用来规范化
+字符串值的拼写、把缓冲区大小舍入到最近的支持值，或用计算出的默认值
+替换 “-1” 这类特殊值。若函数希望替换字符串值，必须用 guc_malloc
+（不是 palloc）分配替换值，并务必 guc_free() 先前的值。
 
-* Derived information, such as the role OID represented by a user name,
-can be stored for use by the assign hook.  To do this, guc_malloc (not palloc)
-storage space for the information, and return its address at *extra.
-guc.c will automatically guc_free() this space when the associated GUC setting
-is no longer of interest.  *extra is initialized to NULL before call, so
-it can be ignored if not needed.
+* 派生信息，例如用户名表示的角色 OID，可以存起来供 assign 钩子使用。
+为此，用 guc_malloc（不是 palloc）为该信息分配存储空间，并在 *extra
+返回其地址。当关联的 GUC 设置不再有用时，guc.c 会自动 guc_free()
+这块空间。调用前 *extra 初始化为 NULL，因此若不需要可以忽略。
 
-The "source" argument indicates the source of the proposed new value,
-If it is >= PGC_S_INTERACTIVE, then we are performing an interactive
-assignment (e.g., a SET command).  But when source < PGC_S_INTERACTIVE,
-we are reading a non-interactive option source, such as postgresql.conf.
-This is sometimes needed to determine whether a setting should be
-allowed.  The check_hook might also look at the current actual value of
-the variable to determine what is allowed.
+“source” 参数表示提议新值的来源。若它 >= PGC_S_INTERACTIVE，则我们
+在执行交互式赋值（例如 SET 命令）。但当 source < PGC_S_INTERACTIVE
+时，我们在读非交互选项来源，例如 postgresql.conf。有时需要据此判断
+是否应允许某设置。check 钩子也可能查看变量的当前实际值来决定允许
+什么。
 
-Note that check hooks are sometimes called just to validate a value,
-without any intention of actually changing the setting.  Therefore the
-check hook must *not* take any action based on the assumption that an
-assignment will occur.
+注意 check 钩子有时只是为了验证值而被调用，并无实际更改设置的意图。
+因此 check 钩子*不得*基于将会发生赋值的假定采取任何动作。
 
 
-If an assign_hook is provided, it points to a function of the signature
+若提供了 assign_hook，它指向签名为
 	void assign_hook(datatype newvalue, void *extra)
-where the type of "newvalue" matches the kind of variable, and "extra"
-is the derived-information pointer returned by the check_hook (always
-NULL if there is no check_hook).  This function is called immediately
-before actually setting the variable's value (so it can look at the actual
-variable to determine the old value, for example to avoid doing work when
-the value isn't really changing).
+的函数，其中 “newvalue” 的类型与变量种类匹配，“extra” 是 check 钩子
+返回的派生信息指针（若没有 check 钩子则总是 NULL）。该函数在实际设置
+变量值之前立即调用（因此它可以查看实际变量以确定旧值，例如在值并未
+真正改变时避免做功）。
 
-Note that there is no provision for a failure result code.  assign_hooks
-should never fail except under the most dire circumstances, since a failure
-may for example result in GUC settings not being rolled back properly during
-transaction abort.  In general, try to do anything that could conceivably
-fail in a check_hook instead, and pass along the results in an "extra"
-struct, so that the assign hook has little to do beyond copying the data to
-someplace.  This applies particularly to catalog lookups: any required
-lookups must be done in the check_hook, since the assign_hook may be
-executed during transaction rollback when lookups will be unsafe.
+注意没有失败结果码的规定。assign 钩子除最严重情形外永远不应失败，
+因为失败例如可能导致事务中止期间 GUC 设置无法正确回滚。一般而言，
+尽量把任何可能失败的事情放在 check 钩子中做，并把结果放在 “extra”
+结构中传递，这样 assign 钩子除了把数据复制到某处之外几乎无事可做。
+这尤其适用于目录查找：任何所需查找必须在 check 钩子中完成，因为
+assign 钩子可能在事务回滚期间执行，那时查找不安全。
 
-Note that check_hooks are sometimes called outside any transaction, too.
-This happens when processing the wired-in "bootstrap" value, values coming
-from the postmaster command line or environment, or values coming from
-postgresql.conf.  Therefore, any catalog lookups done in a check_hook
-should be guarded with an IsTransactionState() test, and there must be a
-fallback path to allow derived values to be computed during the first
-subsequent use of the GUC setting within a transaction.  A typical
-arrangement is for the catalog values computed by the check_hook and
-installed by the assign_hook to be used only for the remainder of the
-transaction in which the new setting is made.  Each subsequent transaction
-looks up the values afresh on first use.  This arrangement is useful to
-prevent use of stale catalog values, independently of the problem of
-needing to check GUC values outside a transaction.
+注意 check 钩子有时也在任何事务之外被调用。这发生在处理内置
+“bootstrap” 值、来自 postmaster 命令行或环境的值，或来自
+postgresql.conf 的值时。因此，check 钩子中做的任何目录查找都应受
+IsTransactionState() 测试保护，并且必须有回退路径，以便在事务内首次
+随后使用该 GUC 设置时能计算派生值。典型安排是：check 钩子计算、
+assign 钩子安装的目录值只用于做出新设置的那个事务的剩余部分。此后
+每个事务在首次使用时重新查找这些值。这一安排有助于防止使用过期的
+目录值，与需要在事务外检查 GUC 值的问题无关。
 
 
-If a show_hook is provided, it points to a function of the signature
+若提供了 show_hook，它指向签名为
 	const char *show_hook(void)
-This hook allows variable-specific computation of the value displayed
-by SHOW (and other SQL features for showing GUC variable values).
-The return value can point to a static buffer, since show functions are
-not used reentrantly.
+的函数。该钩子允许按变量计算 SHOW（以及用于显示 GUC 变量值的其他
+SQL 功能）所显示的值。返回值可以指向静态缓冲区，因为 show 函数不被
+重入使用。
 
 
-Saving/Restoring GUC Variable Values
-------------------------------------
+保存/恢复 GUC 变量值
+--------------------
 
-Prior values of configuration variables must be remembered in order to deal
-with several special cases: RESET (a/k/a SET TO DEFAULT), rollback of SET
-on transaction abort, rollback of SET LOCAL at transaction end (either
-commit or abort), and save/restore around a function that has a SET option.
-RESET is defined as selecting the value that would be effective had there
-never been any SET commands in the current session.
+必须记住配置变量的先前值，以处理若干特殊情形：RESET（又称 SET TO
+DEFAULT）、事务中止时回滚 SET、事务结束时（提交或中止）回滚 SET
+LOCAL，以及在带 SET 选项的函数周围保存/恢复。RESET 定义为选择若当前
+会话中从未有过任何 SET 命令就会生效的值。
 
-To handle these cases we must keep track of many distinct values for each
-variable.  The primary values are:
+为处理这些情形，我们必须为每个变量跟踪许多不同的值。主要值是：
 
-* actual variable contents	always the current effective value
+* 实际变量内容		始终是当前有效值
 
-* reset_val			the value to use for RESET
+* reset_val			RESET 要使用的值
 
-(Each GUC entry also has a boot_val which is the wired-in default value.
-This is assigned to the reset_val and the actual variable during
-InitializeGUCOptions().  The boot_val is also consulted to restore the
-correct reset_val if SIGHUP processing discovers that a variable formerly
-specified in postgresql.conf is no longer set there.)
+（每个 GUC 条目还有一个 boot_val，即内置默认值。它在
+InitializeGUCOptions() 期间赋给 reset_val 和实际变量。若 SIGHUP
+处理发现先前在 postgresql.conf 中指定的变量现在不再设置，也会查阅
+boot_val 来恢复正确的 reset_val。）
 
-In addition to the primary values, there is a stack of former effective
-values that might need to be restored in future.  Stacking and unstacking
-is controlled by the GUC "nest level", which is zero when outside any
-transaction, one at top transaction level, and incremented for each
-open subtransaction or function call with a SET option.  A stack entry
-is made whenever a GUC variable is first modified at a given nesting level.
-(Note: the reset_val need not be stacked because it is only changed by
-non-transactional operations.)
+除主要值外，还有一个先前有效值的栈，将来可能需要恢复。入栈和出栈由
+GUC “嵌套级别”控制，事务外为零，顶层事务为 1，每个打开的子事务或带
+SET 选项的函数调用递增。每当 GUC 变量在给定嵌套级别首次被修改时，
+就做一个栈条目。（注意：reset_val 不必入栈，因为它只被非事务操作
+更改。）
 
-A stack entry has a state, a prior value of the GUC variable, a remembered
-source of that prior value, and depending on the state may also have a
-"masked" value.  The masked value is needed when SET followed by SET LOCAL
-occur at the same nest level: the SET's value is masked but must be
-remembered to restore after transaction commit.
+栈条目有一个状态、GUC 变量的一个先前值、该先前值的记住的来源，并且
+视状态而定还可能有一个“掩蔽”值。当同一嵌套级别先发生 SET 再发生
+SET LOCAL 时需要掩蔽值：SET 的值被掩蔽，但必须记住以便事务提交后
+恢复。
 
-During initialization we set the actual value and reset_val based on
-whichever non-interactive source has the highest priority.  They will
-have the same value.
+初始化期间，我们根据优先级最高的非交互来源设置实际值和 reset_val。
+它们会有相同的值。
 
-The possible transactional operations on a GUC value are:
+对 GUC 值可能的事务操作是：
 
-Entry to a function with a SET option:
+进入带 SET 选项的函数：
 
-	Push a stack entry with the prior variable value and state SAVE,
-	then set the variable.
+	压入一个带先前变量值和状态 SAVE 的栈条目，
+	然后设置该变量。
 
-Plain SET command:
+普通 SET 命令：
 
-	If no stack entry of current level:
-		Push new stack entry w/prior value and state SET
-	else if stack entry's state is SAVE, SET, or LOCAL:
-		change stack state to SET, don't change saved value
-		(here we are forgetting effects of prior set action)
-	else (entry must have state SET+LOCAL):
-		discard its masked value, change state to SET
-		(here we are forgetting effects of prior SET and SET LOCAL)
-	Now set new value.
+	若当前级别没有栈条目：
+		压入带先前值和状态 SET 的新栈条目
+	否则若栈条目状态是 SAVE、SET 或 LOCAL：
+		把栈状态改为 SET，不改已保存的值
+		（这里我们忘掉先前 set 动作的效果）
+	否则（条目状态必为 SET+LOCAL）：
+		丢弃其掩蔽值，把状态改为 SET
+		（这里我们忘掉先前 SET 和 SET LOCAL 的效果）
+	现在设置新值。
 
-SET LOCAL command:
+SET LOCAL 命令：
 
-	If no stack entry of current level:
-		Push new stack entry w/prior value and state LOCAL
-	else if stack entry's state is SAVE or LOCAL or SET+LOCAL:
-		no change to stack entry
-		(in SAVE case, SET LOCAL will be forgotten at func exit)
-	else (entry must have state SET):
-		put current active into its masked slot, set state SET+LOCAL
-	Now set new value.
+	若当前级别没有栈条目：
+		压入带先前值和状态 LOCAL 的新栈条目
+	否则若栈条目状态是 SAVE 或 LOCAL 或 SET+LOCAL：
+		不改栈条目
+		（在 SAVE 情形，SET LOCAL 会在函数退出时被忘掉）
+	否则（条目状态必为 SET）：
+		把当前活动值放入其掩蔽槽，设状态 SET+LOCAL
+	现在设置新值。
 
-Transaction or subtransaction abort:
+事务或子事务中止：
 
-	Pop stack entries, restoring prior value, until top < subxact depth
+	弹出栈条目，恢复先前值，直到顶 < 子事务深度
 
-Transaction or subtransaction commit (incl. successful function exit):
+事务或子事务提交（包括成功的函数退出）：
 
-	While stack entry level >= subxact depth
+	当栈条目级别 >= 子事务深度时
 
-		if entry's state is SAVE:
-			pop, restoring prior value
-		else if level is 1 and entry's state is SET+LOCAL:
-			pop, restoring *masked* value
-		else if level is 1 and entry's state is SET:
-			pop, discarding old value
-		else if level is 1 and entry's state is LOCAL:
-			pop, restoring prior value
-		else if there is no entry of exactly level N-1:
-			decrement entry's level, no other state change
-		else
-			merge entries of level N-1 and N as specified below
+		若条目状态是 SAVE：
+			弹出，恢复先前值
+		否则若级别是 1 且条目状态是 SET+LOCAL：
+			弹出，恢复*掩蔽*值
+		否则若级别是 1 且条目状态是 SET：
+			弹出，丢弃旧值
+		否则若级别是 1 且条目状态是 LOCAL：
+			弹出，恢复先前值
+		否则若恰好没有级别 N-1 的条目：
+			递减条目的级别，无其他状态变更
+		否则
+			按下述规定合并级别 N-1 和 N 的条目
 
-The merged entry will have level N-1 and prior = older prior, so easiest
-to keep older entry and free newer.  There are 12 possibilities since
-we already handled level N state = SAVE:
+合并后的条目级别为 N-1，prior = 较旧的 prior，因此最容易保留较旧条目
+并释放较新的。因为我们已经处理了级别 N 状态 = SAVE，有 12 种可能：
 
 N-1		N
 
-SAVE		SET		discard top prior, set state SET
-SAVE		LOCAL		discard top prior, no change to stack entry
-SAVE		SET+LOCAL	discard top prior, copy masked, state S+L
+SAVE		SET		丢弃顶 prior，设状态 SET
+SAVE		LOCAL		丢弃顶 prior，不改栈条目
+SAVE		SET+LOCAL	丢弃顶 prior，复制掩蔽，状态 S+L
 
-SET		SET		discard top prior, no change to stack entry
-SET		LOCAL		copy top prior to masked, state S+L
-SET		SET+LOCAL	discard top prior, copy masked, state S+L
+SET		SET		丢弃顶 prior，不改栈条目
+SET		LOCAL		把顶 prior 复制到掩蔽，状态 S+L
+SET		SET+LOCAL	丢弃顶 prior，复制掩蔽，状态 S+L
 
-LOCAL		SET		discard top prior, set state SET
-LOCAL		LOCAL		discard top prior, no change to stack entry
-LOCAL		SET+LOCAL	discard top prior, copy masked, state S+L
+LOCAL		SET		丢弃顶 prior，设状态 SET
+LOCAL		LOCAL		丢弃顶 prior，不改栈条目
+LOCAL		SET+LOCAL	丢弃顶 prior，复制掩蔽，状态 S+L
 
-SET+LOCAL	SET		discard top prior and second masked, state SET
-SET+LOCAL	LOCAL		discard top prior, no change to stack entry
-SET+LOCAL	SET+LOCAL	discard top prior, copy masked, state S+L
-
-
-RESET is executed like a SET, but using the reset_val as the desired new
-value.  (We do not provide a RESET LOCAL command, but SET LOCAL TO DEFAULT
-has the same behavior that RESET LOCAL would.)  The source associated with
-the reset_val also becomes associated with the actual value.
-
-If SIGHUP is received, the GUC code rereads the postgresql.conf
-configuration file (this does not happen in the signal handler, but at
-next return to main loop; note that it can be executed while within a
-transaction).  New values from postgresql.conf are assigned to actual
-variable, reset_val, and stacked actual values, but only if each of
-these has a current source priority <= PGC_S_FILE.  (It is thus possible
-for reset_val to track the config-file setting even if there is
-currently a different interactive value of the actual variable.)
-
-The check_hook, assign_hook and show_hook routines work only with the
-actual variable, and are not directly aware of the additional values
-maintained by GUC.
+SET+LOCAL	SET		丢弃顶 prior 和第二掩蔽，状态 SET
+SET+LOCAL	LOCAL		丢弃顶 prior，不改栈条目
+SET+LOCAL	SET+LOCAL	丢弃顶 prior，复制掩蔽，状态 S+L
 
 
-GUC Memory Handling
--------------------
+RESET 像 SET 一样执行，但用 reset_val 作为期望的新值。（我们不提供
+RESET LOCAL 命令，但 SET LOCAL TO DEFAULT 的行为与 RESET LOCAL 相同。）
+与 reset_val 关联的来源也变成与实际值关联。
 
-String variable values are allocated with guc_malloc or guc_strdup,
-which ensure that the values are kept in a long-lived context, and provide
-more control over handling out-of-memory failures than bare palloc.
+若收到 SIGHUP，GUC 代码重读 postgresql.conf 配置文件（这不在信号处理
+程序中发生，而在下次回到主循环时；注意它可以在事务内执行）。来自
+postgresql.conf 的新值赋给实际变量、reset_val 和已入栈的实际值，但
+仅当其中每一个的当前来源优先级 <= PGC_S_FILE 时。（因此即便实际变量
+当前有不同的交互值，reset_val 仍可能跟踪配置文件设置。）
 
-We allow a string variable's actual value, reset_val, boot_val, and stacked
-values to point at the same storage.  This makes it slightly harder to free
-space (we must test whether a value to be freed isn't equal to any of the
-other pointers in the GUC entry or associated stack items).  The main
-advantage is that we never need to malloc during transaction commit/abort,
-so cannot cause an out-of-memory failure there.
-
-"Extra" structs returned by check_hook routines are managed in the same
-way as string values.  Note that we support "extra" structs for all types
-of GUC variables, although they are mainly useful with strings.
+check_hook、assign_hook 和 show_hook 例程只与实际变量打交道，并不直接
+知道 GUC 维护的额外值。
 
 
-GUC and Null String Variables
------------------------------
+GUC 内存处理
+------------
 
-A GUC string variable can have a boot_val of NULL.  guc.c handles this
-unsurprisingly, assigning the NULL to the underlying C variable.  Any code
-using such a variable, as well as any hook functions for it, must then be
-prepared to deal with a NULL value.
+字符串变量值用 guc_malloc 或 guc_strdup 分配，这确保值保存在长寿命
+上下文中，并比裸 palloc 对处理内存不足失败有更多控制。
 
-However, it is not possible to assign a NULL value to a GUC string
-variable in any other way: values coming from SET, postgresql.conf, etc,
-might be empty strings, but they'll never be NULL.  And SHOW displays
-a NULL the same as an empty string.  It is therefore not appropriate to
-treat a NULL value as a distinct user-visible setting.  A typical use
-for a NULL boot_val is to denote that a value hasn't yet been set for
-a variable that will receive a real value later in startup.
+我们允许字符串变量的实际值、reset_val、boot_val 和已入栈的值指向同一
+存储。这让释放空间稍难一些（我们必须测试待释放的值是否不等于 GUC 条目
+或关联栈项中的任何其他指针）。主要好处是事务提交/中止期间从不需要
+malloc，因此不会在那里造成内存不足失败。
 
-If it's undesirable for code using the underlying C variable to have to
-worry about NULL values ever, the variable can be given a non-null static
-initializer as well as a non-null boot_val.  guc.c will overwrite the
-static initializer pointer with a copy of the boot_val during
-InitializeGUCOptions, but the variable will never contain a NULL.
+check_hook 例程返回的 “extra” 结构以与字符串值相同的方式管理。注意我们
+对所有类型的 GUC 变量都支持 “extra” 结构，尽管它们主要用于字符串。
+
+
+GUC 与空字符串变量
+------------------
+
+GUC 字符串变量的 boot_val 可以为 NULL。guc.c 对此并不意外，把 NULL
+赋给底层 C 变量。使用该变量的任何代码，以及它的任何钩子函数，随后都
+必须准备好处理 NULL 值。
+
+不过，无法以任何其他方式给 GUC 字符串变量赋 NULL 值：来自 SET、
+postgresql.conf 等的值可能是空串，但绝不会是 NULL。并且 SHOW 把 NULL
+显示成与空串相同。因此不适合把 NULL 值当作不同的用户可见设置。NULL
+boot_val 的典型用途是表示某变量尚未设置，而该变量将在启动稍后收到
+真正的值。
+
+若不希望使用底层 C 变量的代码永远需要担心 NULL 值，可以给该变量一个
+非空静态初始化器以及非空 boot_val。guc.c 会在 InitializeGUCOptions
+期间用 boot_val 的副本覆盖静态初始化器指针，但该变量永远不会包含
+NULL。

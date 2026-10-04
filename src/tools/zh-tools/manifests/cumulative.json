@@ -680,6 +680,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0019-readme-iso-brin.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/README.parallel",
+   "kind": "readme",
+   "note": "parallel DSM, error reporting, coding pattern"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/README",
+   "kind": "readme",
+   "note": "buffer pins, content locks, clock-sweep"
+  },
+  {
+   "pattern": "src/backend/jit/README",
+   "kind": "readme",
+   "note": "LLVM JIT; APIs, paths, GUCs kept"
+  },
+  {
+   "pattern": "src/backend/utils/misc/README",
+   "kind": "readme",
+   "note": "GUC hooks and SET/LOCAL stack; tables kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0020-readme-par-buf.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2537,7 +2562,57 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/transam/README.parallel",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "parallel DSM, error reporting, coding pattern"
+  },
+  {
+   "path": "src/backend/storage/buffer/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "buffer pins, content locks, clock-sweep"
+  },
+  {
+   "path": "src/backend/jit/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "LLVM JIT; APIs, paths, GUCs kept"
+  },
+  {
+   "path": "src/backend/utils/misc/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GUC hooks and SET/LOCAL stack; tables kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0020-readme-par-buf.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 71 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 75 of 88 include files translated."
 }

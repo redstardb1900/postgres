@@ -1,295 +1,221 @@
-What is Just-in-Time Compilation?
-=================================
+src/backend/jit/README
 
-Just-in-Time compilation (JIT) is the process of turning some form of
-interpreted program evaluation into a native program, and doing so at
-runtime.
+什么是即时编译？
+================
 
-For example, instead of using a facility that can evaluate arbitrary
-SQL expressions to evaluate an SQL predicate like WHERE a.col = 3, it
-is possible to generate a function than can be natively executed by
-the CPU that just handles that expression, yielding a speedup.
+即时编译（JIT）是把某种形式的解释型程序求值变成本地程序、并在运行时
+完成这一过程。
 
-This is JIT, rather than ahead-of-time (AOT) compilation, because it
-is done at query execution time, and perhaps only in cases where the
-relevant task is repeated a number of times. Given the way JIT
-compilation is used in PostgreSQL, the lines between interpretation,
-AOT and JIT are somewhat blurry.
+例如，与其用能求值任意 SQL 表达式的设施来求值 WHERE a.col = 3 这样的
+SQL 谓词，可以生成一个可由 CPU 本地执行、只处理该表达式的函数，从而
+获得加速。
 
-Note that the interpreted program turned into a native program does
-not necessarily have to be a program in the classical sense. E.g. it
-is highly beneficial to JIT compile tuple deforming into a native
-function just handling a specific type of table, despite tuple
-deforming not commonly being understood as a "program".
+这是 JIT，而不是提前编译（AOT），因为它在查询执行时完成，并且也许只
+在相关任务重复若干次的情况下才做。鉴于 PostgreSQL 中 JIT 编译的使用
+方式，解释、AOT 与 JIT 之间的界限有些模糊。
+
+注意：被变成本地程序的解释型程序不一定是经典意义上的程序。例如，把
+元组变形 JIT 编译成只处理特定类型表的本地函数非常有益，尽管元组变形
+通常不被理解为“程序”。
 
 
-Why JIT?
+为什么要 JIT？
+==============
+
+PostgreSQL 的部分代码常常被相对较小的 CPU 密集型代码卡住。在若干情形
+下，这是因为相关代码必须非常通用（例如处理任意 SQL 级表达式、任意表、
+以及安装了任意扩展）。这常常导致大量间接跳转和不可预测的分支，并且
+对给定任务通常有很高的指令数。例如，仅仅求值比较数据库中某列与一个
+整数的表达式，就需要几百个周期。
+
+通过生成本地代码，可以把大量间接跳转变成直接分支（例如把对 SQL 操作符
+实现的间接调用替换为对该函数的直接调用），或完全去掉（例如因为输入是
+常量而在编译时求值该分支）。类似地，很多分支可以完全去掉（同样因为
+输入是常量而在编译时求值该分支）。后者对去掉元组变形期间的分支尤其
+有益。
+
+
+如何 JIT
 ========
 
-Parts of PostgreSQL are commonly bottlenecked by comparatively small
-pieces of CPU intensive code. In a number of cases that is because the
-relevant code has to be very generic (e.g. handling arbitrary SQL
-level expressions, over arbitrary tables, with arbitrary extensions
-installed). This often leads to a large number of indirect jumps and
-unpredictable branches, and generally a high number of instructions
-for a given task. E.g. just evaluating an expression comparing a
-column in a database to an integer ends up needing several hundred
-cycles.
-
-By generating native code large numbers of indirect jumps can be
-removed by either making them into direct branches (e.g. replacing the
-indirect call to an SQL operator's implementation with a direct call
-to that function), or by removing it entirely (e.g. by evaluating the
-branch at compile time because the input is constant). Similarly a lot
-of branches can be entirely removed (e.g. by again evaluating the
-branch at compile time because the input is constant). The latter is
-particularly beneficial for removing branches during tuple deforming.
+PostgreSQL 默认使用 LLVM 来执行 JIT。选择 LLVM 是因为它由几家大公司
+开发因而不太可能停更，因为它的许可证与 PostgreSQL 兼容，并且因为它的
+IR 可以用 Clang 编译器从 C 生成。
 
 
-How to JIT
-==========
+共享库分离
+----------
 
-PostgreSQL, by default, uses LLVM to perform JIT. LLVM was chosen
-because it is developed by several large corporations and therefore
-unlikely to be discontinued, because it has a license compatible with
-PostgreSQL, and because its IR can be generated from C using the Clang
-compiler.
+为避免主 PostgreSQL 二进制直接依赖 LLVM（那会阻止操作系统包管理器独立
+安装 LLVM 支持），依赖 LLVM 的代码放在一个按需加载的共享库中。
 
+这样做的额外好处是：相对容易评估不使用 LLVM 的 JIT 编译，只需换掉用来
+提供 JIT 编译的共享库。
 
-Shared Library Separation
--------------------------
+为此，打算执行 JIT 的代码（例如表达式求值）调用位于 jit.c 中、与 LLVM
+无关的包装来做这件事。若提供 JIT 支持的共享库能被加载（即 PostgreSQL
+用 LLVM 支持编译且该共享库已安装），JIT 编译表达式的任务就交给该共享
+库。这显然要求 jit.c 中的函数在无法加载 JIT 提供者时被允许失败。
 
-To avoid the main PostgreSQL binary directly depending on LLVM, which
-would prevent LLVM support being independently installed by OS package
-managers, the LLVM dependent code is located in a shared library that
-is loaded on-demand.
+加载哪个共享库由 jit_provider GUC 决定，默认为 "llvmjit"。
 
-An additional benefit of doing so is that it is relatively easy to
-evaluate JIT compilation that does not use LLVM, by changing out the
-shared library used to provide JIT compilation.
-
-To achieve this, code intending to perform JIT (e.g. expression evaluation)
-calls an LLVM independent wrapper located in jit.c to do so. If the
-shared library providing JIT support can be loaded (i.e. PostgreSQL was
-compiled with LLVM support and the shared library is installed), the task
-of JIT compiling an expression gets handed off to the shared library. This
-obviously requires that the function in jit.c is allowed to fail in case
-no JIT provider can be loaded.
-
-Which shared library is loaded is determined by the jit_provider GUC,
-defaulting to "llvmjit".
-
-Cloistering code performing JIT into a shared library unfortunately
-also means that code doing JIT compilation for various parts of code
-has to be located separately from the code doing so without
-JIT. E.g. the JIT version of execExprInterp.c is located in jit/llvm/
-rather than executor/.
+把执行 JIT 的代码关进共享库，不幸也意味着为各部分代码做 JIT 编译的
+代码必须与不做 JIT 的代码分开放。例如 execExprInterp.c 的 JIT 版本
+位于 jit/llvm/ 而不是 executor/。
 
 
-JIT Context
------------
+JIT 上下文
+----------
 
-For performance and convenience reasons it is useful to allow JITed
-functions to be emitted and deallocated together. It is e.g. very
-common to create a number of functions at query initialization time,
-use them during query execution, and then deallocate all of them
-together at the end of the query.
+出于性能和便利，让 JIT 出的函数一起发出、一起释放很有用。例如，非常
+常见的是在查询初始化时创建若干函数，在查询执行期间使用它们，然后在
+查询结束时一起释放全部。
 
-Lifetimes of JITed functions are managed via JITContext. Exactly one
-such context should be created for work in which all created JITed
-function should have the same lifetime. E.g. there's exactly one
-JITContext for each query executed, in the query's EState.  Only the
-release of a JITContext is exposed to the provider independent
-facility, as the creation of one is done on-demand by the JIT
-implementations.
+JIT 出的函数的生存期通过 JITContext 管理。应为其中所有已创建 JIT 函数
+应有相同生存期的工作恰好创建一个这样的上下文。例如，每个被执行的查询
+在其 EState 中恰好有一个 JITContext。只有 JITContext 的释放暴露给与
+提供者无关的设施，因为创建由 JIT 实现按需完成。
 
-Emitting individual functions separately is more expensive than
-emitting several functions at once, and emitting them together can
-provide additional optimization opportunities. To facilitate that, the
-LLVM provider separates defining functions from optimizing and
-emitting functions in an executable manner.
+分别发出各个函数比一次发出若干函数更贵，并且一起发出可以提供额外的
+优化机会。为促成这一点，LLVM 提供者把定义函数与以可执行方式优化并
+发出函数分开。
 
-Creating functions into the current mutable module (a module
-essentially is LLVM's equivalent of a translation unit in C) is done
-using
+把函数创建到当前可变模块中（模块本质上是 LLVM 对 C 翻译单元的等价物）
+使用
   extern LLVMModuleRef llvm_mutable_module(LLVMJitContext *context);
-in which it then can emit as much code using the LLVM APIs as it
-wants. Whenever a function actually needs to be called
+然后可以在其中用 LLVM API 发出任意多的代码。每当实际需要调用某函数时
   extern void *llvm_get_function(LLVMJitContext *context, const char *funcname);
-returns a pointer to it.
+返回指向它的指针。
 
-E.g. in the expression evaluation case this setup allows most
-functions in a query to be emitted during ExecInitNode(), delaying the
-function emission to the time the first time a function is actually
-used.
+例如，在表达式求值情形下，这一设置允许查询中的大多数函数在
+ExecInitNode() 期间发出，把函数发出推迟到某函数实际第一次被使用时。
 
 
-Error Handling
---------------
-
-There are two aspects of error handling.  Firstly, generated (LLVM IR)
-and emitted functions (mmap()ed segments) need to be cleaned up both
-after a successful query execution and after an error. This is done by
-registering each created JITContext with the current resource owner,
-and cleaning it up on error / end of transaction. If it is desirable
-to release resources earlier, jit_release_context() can be used.
-
-The second, less pretty, aspect of error handling is OOM handling
-inside LLVM itself. The above resowner based mechanism takes care of
-cleaning up emitted code upon ERROR, but there's also the chance that
-LLVM itself runs out of memory. LLVM by default does *not* use any C++
-exceptions. Its allocations are primarily funneled through the
-standard "new" handlers, and some direct use of malloc() and
-mmap(). For the former a 'new handler' exists:
-http://en.cppreference.com/w/cpp/memory/new/set_new_handler
-For the latter LLVM provides callbacks that get called upon failure
-(unfortunately mmap() failures are treated as fatal rather than OOM errors).
-What we've chosen to do for now is have two functions that LLVM using code
-must use:
-extern void llvm_enter_fatal_on_oom(void);
-extern void llvm_leave_fatal_on_oom(void);
-before interacting with LLVM code.
-
-When a libstdc++ new or LLVM error occurs, the handlers set up by the
-above functions trigger a FATAL error. We have to use FATAL rather
-than ERROR, as we *cannot* reliably throw ERROR inside a foreign
-library without risking corrupting its internal state.
-
-Users of the above sections do *not* have to use PG_TRY/CATCH blocks,
-the handlers instead are reset on toplevel sigsetjmp() level.
-
-Using a relatively small enter/leave protected section of code, rather
-than setting up these handlers globally, avoids negative interactions
-with extensions that might use C++ such as PostGIS. As LLVM code
-generation should never execute arbitrary code, just setting these
-handlers temporarily ought to suffice.
-
-
-Type Synchronization
---------------------
-
-To be able to generate code that can perform tasks done by "interpreted"
-PostgreSQL, it obviously is required that code generation knows about at
-least a few PostgreSQL types.  While it is possible to inform LLVM about
-type definitions by recreating them manually in C code, that is failure
-prone and labor intensive.
-
-Instead there is one small file (llvmjit_types.c) which references each of
-the types required for JITing. That file is translated to bitcode at
-compile time, and loaded when LLVM is initialized in a backend.
-
-That works very well to synchronize the type definition, but unfortunately
-it does *not* synchronize offsets as the IR level representation doesn't
-know field names.  Instead, required offsets are maintained as defines in
-the original struct definition, like so:
-#define FIELDNO_TUPLETABLESLOT_NVALID 9
-        int                     tts_nvalid;             /* # of valid values in tts_values */
-While that still needs to be defined, it's only required for a
-relatively small number of fields, and it's bunched together with the
-struct definition, so it's easily kept synchronized.
-
-
-Inlining
+错误处理
 --------
 
-One big advantage of JITing expressions is that it can significantly
-reduce the overhead of PostgreSQL's extensible function/operator
-mechanism, by inlining the body of called functions/operators.
+错误处理有两个方面。第一，生成的（LLVM IR）和发出的函数（mmap() 的
+段）需要在成功的查询执行之后以及出错之后都清理。做法是把每个创建的
+JITContext 注册到当前资源所有者，并在出错 / 事务结束时清理。若希望
+更早释放资源，可以使用 jit_release_context()。
 
-It obviously is undesirable to maintain a second implementation of
-commonly used functions, just for inlining purposes. Instead we take
-advantage of the fact that the Clang compiler can emit LLVM IR.
+第二，不太好看的方面是 LLVM 内部的 OOM 处理。上述基于 resowner 的
+机制负责在 ERROR 时清理已发出的代码，但也有 LLVM 本身内存不足的可能。
+LLVM 默认*不*使用任何 C++ 异常。其分配主要通过标准 "new" 处理程序，
+以及一些对 malloc() 和 mmap() 的直接使用。对前者存在 ‘new handler’：
+http://en.cppreference.com/w/cpp/memory/new/set_new_handler
+对后者 LLVM 提供失败时被调用的回调（不幸的是 mmap() 失败被当作致命
+错误而不是 OOM 错误）。我们目前选择让使用 LLVM 的代码必须使用两个
+函数：
+extern void llvm_enter_fatal_on_oom(void);
+extern void llvm_leave_fatal_on_oom(void);
+在与 LLVM 代码交互之前。
 
-The ability to do so allows us to get the LLVM IR for all operators
-(e.g. int8eq, float8pl etc), without maintaining two copies.  These
-bitcode files get installed into the server's
+当发生 libstdc++ new 或 LLVM 错误时，上述函数设置的处理程序触发
+FATAL 错误。我们必须用 FATAL 而不是 ERROR，因为我们*不能*可靠地在
+外部库内抛 ERROR，而不冒损坏其内部状态的风险。
+
+上述区段的使用者*不必*使用 PG_TRY/CATCH 块，处理程序改为在顶层
+sigsetjmp() 层重置。
+
+使用相对较小的 enter/leave 保护代码段，而不是全局设置这些处理程序，
+避免与可能使用 C++ 的扩展（例如 PostGIS）产生负面交互。由于 LLVM
+代码生成永远不应执行任意代码，临时设置这些处理程序应当足够。
+
+
+类型同步
+--------
+
+要能生成可以执行“解释型”PostgreSQL 所做任务的代码，显然要求代码生成
+至少了解若干 PostgreSQL 类型。虽然可以通过在 C 代码中手工重建类型
+定义来告知 LLVM，但那容易出错且费力。
+
+相反，有一个小文件（llvmjit_types.c）引用 JIT 所需的每一种类型。该
+文件在编译时被翻译成位码，并在后端初始化 LLVM 时加载。
+
+这在同步类型定义上工作得很好，但不幸*不同步*偏移，因为 IR 级表示不
+知道字段名。相反，所需偏移作为宏定义维护在原始结构定义中，如下：
+#define FIELDNO_TUPLETABLESLOT_NVALID 9
+        int                     tts_nvalid;             /* tts_values 中有效值的个数 */
+虽然仍需要定义，但只对相对少量字段需要，并且与结构定义放在一起，因此
+容易保持同步。
+
+
+内联
+----
+
+JIT 表达式的一大优势是：通过内联被调用函数/操作符的函数体，可以显著
+降低 PostgreSQL 可扩展函数/操作符机制的开销。
+
+显然不希望仅为内联目的维护常用函数的第二份实现。相反，我们利用 Clang
+编译器能发出 LLVM IR 这一事实。
+
+这一能力让我们能得到所有操作符（例如 int8eq、float8pl 等）的 LLVM IR，
+而不维护两份副本。这些位码文件被安装到服务器的
   $pkglibdir/bitcode/postgres/
-Using existing LLVM functionality (for parallel LTO compilation),
-additionally an index is over these is stored to
+利用现有 LLVM 功能（用于并行 LTO 编译），另外在这些之上存一个索引到
 $pkglibdir/bitcode/postgres.index.bc
 
-Similarly extensions can install code into
+类似地，扩展可以把代码安装到
   $pkglibdir/bitcode/[extension]/
-accompanied by
+并伴随
   $pkglibdir/bitcode/[extension].index.bc
 
-just alongside the actual library.  An extension's index will be used
-to look up symbols when located in the corresponding shared
-library. Symbols that are used inside the extension, when inlined,
-will be first looked up in the main binary and then the extension's.
+就在实际库旁边。当符号位于对应共享库中时，会用扩展的索引来查找。扩展
+内部使用的符号在内联时，会先在主二进制中查找，再在扩展中查找。
 
 
-Caching
--------
+缓存
+----
 
-Currently it is not yet possible to cache generated functions, even
-though that'd be desirable from a performance point of view. The
-problem is that the generated functions commonly contain pointers into
-per-execution memory. The expression evaluation machinery needs to
-be redesigned a bit to avoid that. Basically all per-execution memory
-needs to be referenced as an offset to one block of memory stored in
-an ExprState, rather than absolute pointers into memory.
+目前还不能缓存已生成的函数，尽管从性能角度看这是可取的。问题是生成的
+函数通常包含指向每执行内存的指针。表达式求值机制需要稍作重新设计才能
+避免这一点。基本上，所有每执行内存都需要作为 ExprState 中一块内存的
+偏移来引用，而不是指向内存的绝对指针。
 
-Once that is addressed, adding an LRU cache that's keyed by the
-generated LLVM IR will allow the usage of optimized functions even for
-faster queries.
+一旦解决这一点，加上一个以生成的 LLVM IR 为键的 LRU 缓存，将允许即便
+对较快的查询也使用优化后的函数。
 
-A longer term project is to move expression compilation to the planner
-stage, allowing e.g. to tie compiled expressions to prepared
-statements.
+更长期的项目是把表达式编译移到规划器阶段，从而例如能把已编译表达式
+绑到预备语句。
 
-An even more advanced approach would be to use JIT with few
-optimizations initially, and build an optimized version in the
-background. But that's even further off.
+更进一步的做法是起初用很少优化做 JIT，并在后台构建优化版本。但那更
+遥远。
 
 
-What to JIT
-===========
+对什么做 JIT
+============
 
-Currently expression evaluation and tuple deforming are JITed. Those
-were chosen because they commonly are major CPU bottlenecks in
-analytics queries, but are by no means the only potentially beneficial cases.
+目前对表达式求值和元组变形做 JIT。选择它们是因为它们常常是分析型查询
+中的主要 CPU 瓶颈，但绝不是唯一可能有益的情形。
 
-For JITing to be beneficial a piece of code first and foremost has to
-be a CPU bottleneck. But also importantly, JITing can only be
-beneficial if overhead can be removed by doing so. E.g. in the tuple
-deforming case the knowledge about the number of columns and their
-types can remove a significant number of branches, and in the
-expression evaluation case a lot of indirect jumps/calls can be
-removed.  If neither of these is the case, JITing is a waste of
-resources.
+JIT 要有益，一段代码首先必须是 CPU 瓶颈。但同样重要的是，只有通过
+JIT 能去掉开销，JIT 才有益。例如在元组变形情形下，关于列数及其类型的
+知识可以去掉大量分支；在表达式求值情形下，可以去掉大量间接跳转/调用。
+若两者都不是，JIT 就是浪费资源。
 
-Future avenues for JITing are tuple sorting, COPY parsing/output
-generation, and later compiling larger parts of queries.
+将来的 JIT 方向包括元组排序、COPY 解析/输出生成，以及稍后编译查询的
+更大部件。
 
 
-When to JIT
-===========
+何时 JIT
+========
 
-Currently there are a number of GUCs that influence JITing:
+目前有若干 GUC 影响 JIT：
 
-- jit_above_cost = -1, 0-DBL_MAX - all queries with a higher total cost
-  get JITed, *without* optimization (expensive part), corresponding to
-  -O0. This commonly already results in significant speedups if
-  expression/deforming is a bottleneck (removing dynamic branches
-  mostly).
-- jit_optimize_above_cost = -1, 0-DBL_MAX - all queries with a higher total cost
-  get JITed, *with* optimization (expensive part).
-- jit_inline_above_cost = -1, 0-DBL_MAX - inlining is tried if query has
-  higher cost.
+- jit_above_cost = -1, 0-DBL_MAX — 总成本更高的全部查询会被 JIT，
+  *不带*优化（昂贵部分），对应于 -O0。若表达式/变形是瓶颈，这通常已经
+  能带来显著加速（主要是去掉动态分支）。
+- jit_optimize_above_cost = -1, 0-DBL_MAX — 总成本更高的全部查询会被
+  JIT，*带*优化（昂贵部分）。
+- jit_inline_above_cost = -1, 0-DBL_MAX — 若查询成本更高则尝试内联。
 
-Whenever a query's total cost is above these limits, JITing is
-performed.
+每当查询总成本高于这些限制时，就执行 JIT。
 
-Alternative costing models, e.g. by generating separate paths for
-parts of a query with lower cpu_* costs, are also a possibility, but
-it's doubtful the overhead of doing so is sufficient.  Another
-alternative would be to count the number of times individual
-expressions are estimated to be evaluated, and perform JITing of these
-individual expressions.
+替代代价模型，例如为查询中 cpu_* 代价较低的部分生成单独路径，也有
+可能，但这样做的开销是否足够值得怀疑。另一种替代是统计各个表达式估计
+被求值的次数，并对这些单个表达式执行 JIT。
 
-The obvious seeming approach of JITing expressions individually after
-a number of execution turns out not to work too well. Primarily
-because emitting many small functions individually has significant
-overhead. Secondarily because the time until JITing occurs causes
-relative slowdowns that eat into the gain of JIT compilation.
+在若干次执行之后再对各个表达式分别 JIT 这一看似显然的做法，结果并不
+太好。主要是因为分别发出许多小函数有显著开销。其次是因为直到发生 JIT
+之前的时间会造成相对变慢，吃掉 JIT 编译的收益。

@@ -1,237 +1,177 @@
-Overview
+src/backend/access/transam/README.parallel
+
+概述
+====
+
+PostgreSQL 提供一些简单设施，让编写并行算法更容易。使用名为
+ParallelContext 的数据结构，你可以安排启动后台工作进程，把它们的状态
+初始化为与发起并行的后端一致，通过动态共享内存与它们通信，并写出相当
+复杂、既能在用户后端也能在某个并行工作进程中运行、且无需知道自己跑在
+何处的代码。
+
+启动并行操作的后端（此后称发起后端）首先创建一个动态共享内存段，其生
+存期与该并行操作相同。该动态共享内存段将包含：（1）一条 shm_mq，用来
+把错误（以及经 elog/ereport 报告的其他消息）从工作进程送回发起后端；
+（2）发起后端私有状态的序列化表示，以便工作进程能与发起后端同步状态；
+以及（3）ParallelContext 数据结构的特定使用者可能为自己目的添加的任何
+其他数据结构。发起后端初始化完动态共享内存段后，请求 postmaster 启动
+适当数量的并行工作进程。这些工作进程随后连接到该动态共享内存段，初始化
+自己的状态，再调用适当的入口点，详见下文。
+
+错误报告
 ========
 
-PostgreSQL provides some simple facilities to make writing parallel algorithms
-easier.  Using a data structure called a ParallelContext, you can arrange to
-launch background worker processes, initialize their state to match that of
-the backend which initiated parallelism, communicate with them via dynamic
-shared memory, and write reasonably complex code that can run either in the
-user backend or in one of the parallel workers without needing to be aware of
-where it's running.
+启动时，每个并行工作进程首先附加动态共享内存段并定位用于错误报告的
+shm_mq；它把自己的全部协议消息重定向到这条 shm_mq。在此之前，后台工作
+进程的任何失败都不会报告给发起后端；从发起后端的角度看，工作进程只是
+没能启动。发起后端反正必须准备好应付比原先请求更少的并行工作进程，因此
+照顾这种情况并不增加额外负担。
 
-The backend which starts a parallel operation (hereafter, the initiating
-backend) starts by creating a dynamic shared memory segment which will last
-for the lifetime of the parallel operation.  This dynamic shared memory segment
-will contain (1) a shm_mq that can be used to transport errors (and other
-messages reported via elog/ereport) from the worker back to the initiating
-backend; (2) serialized representations of the initiating backend's private
-state, so that the worker can synchronize its state with of the initiating
-backend; and (3) any other data structures which a particular user of the
-ParallelContext data structure may wish to add for its own purposes.  Once
-the initiating backend has initialized the dynamic shared memory segment, it
-asks the postmaster to launch the appropriate number of parallel workers.
-These workers then connect to the dynamic shared memory segment, initiate
-their state, and then invoke the appropriate entrypoint, as further detailed
-below.
+每当一条新消息（或消息片段；很大的消息可能环绕）发到错误报告队列时，
+PROCSIG_PARALLEL_MESSAGE 会发给发起后端。这会让发起后端下一次
+CHECK_FOR_INTERRUPTS() 读取并重新抛出该消息。大体上，这让并行模式下的
+错误报告“就是能用”。当然，要正确工作，发起后端正在执行的代码必须定期
+CHECK_FOR_INTERRUPTS()，并避免长时间阻塞中断处理，不过这些本来就是好事。
 
-Error Reporting
-===============
+（一个目前未解决的问题是：某些消息可能被写到系统日志两次，一次在最初
+生成报告的后端，一次在发起后端重新抛出该消息时。若我们决定抑制其中
+一次报告，大概应当抑制第二次；否则，若工作进程因某种原因无法把消息传
+回发起后端，消息就会完全丢失。）
 
-When started, each parallel worker begins by attaching the dynamic shared
-memory segment and locating the shm_mq to be used for error reporting; it
-redirects all of its protocol messages to this shm_mq.  Prior to this point,
-any failure of the background worker will not be reported to the initiating
-backend; from the point of view of the initiating backend, the worker simply
-failed to start.  The initiating backend must anyway be prepared to cope
-with fewer parallel workers than it originally requested, so catering to
-this case imposes no additional burden.
+状态共享
+========
 
-Whenever a new message (or partial message; very large messages may wrap) is
-sent to the error-reporting queue, PROCSIG_PARALLEL_MESSAGE is sent to the
-initiating backend.  This causes the next CHECK_FOR_INTERRUPTS() in the
-initiating backend to read and rethrow the message.  For the most part, this
-makes error reporting in parallel mode "just work".  Of course, to work
-properly, it is important that the code the initiating backend is executing
-CHECK_FOR_INTERRUPTS() regularly and avoid blocking interrupt processing for
-long periods of time, but those are good things to do anyway.
+可以写出在无并行时正确、但使用并行时失败的 C 代码。没有任何并行基础
+设施能完全消除这个问题，因为任何全局变量都是风险。没有通用机制能确保
+工作进程中每个全局变量都与发起后端中的值相同；即便我们能确保这一点，
+我们调用的某个函数也可能在每次调用后更新该变量，而只有执行该更新的
+后端会看到新值。我们可能选择使用的任何更复杂数据结构也会出现类似问题。
+例如，伪随机数生成器在给定特定种子时，每次都应产生同一可预测序列。
+但它靠某些私有状态做到这一点，而这些状态不会在协作后端之间自动共享。
+并行安全的 PRNG 需要把状态存在动态共享内存中，并需要加锁。并行基础
+设施无法知道用户是否打算调用有这类问题的代码，反正也做不了什么。
 
-(A currently-unsolved problem is that some messages may get written to the
-system log twice, once in the backend where the report was originally
-generated, and again when the initiating backend rethrows the message.  If
-we decide to suppress one of these reports, it should probably be second one;
-otherwise, if the worker is for some reason unable to propagate the message
-back to the initiating backend, the message will be lost altogether.)
+相反，我们采取更务实的做法。第一，尽量让在并行模式之外安全的操作在
+并行模式下也能正确工作。第二，尽量通过适当的错误检查禁止常见的不安全
+操作。这些检查旨在捕获用户可能从 SQL 接口做的全部不安全事情，但用 C
+写的代码可以做不会触发这些检查的不安全事情。错误检查通过
+EnterParallelMode() 启用，应在创建并行上下文之前调用；通过
+ExitParallelMode() 解除，应在所有并行上下文销毁之后调用。并行模式施加
+的最重要限制是：所有操作必须严格只读；我们不允许写数据库，也不允许
+DDL。将来我们可能尝试放宽这些限制。
 
-State Sharing
-=============
+为让尽可能多的操作在并行模式下安全，我们尽量把发起后端最重要的状态
+片段复制到每个并行工作进程。这包括：
 
-It's possible to write C code which works correctly without parallelism, but
-which fails when parallelism is used.  No parallel infrastructure can
-completely eliminate this problem, because any global variable is a risk.
-There's no general mechanism for ensuring that every global variable in the
-worker will have the same value that it does in the initiating backend; even
-if we could ensure that, some function we're calling could update the variable
-after each call, and only the backend where that update is performed will see
-the new value.  Similar problems can arise with any more-complex data
-structure we might choose to use.  For example, a pseudo-random number
-generator should, given a particular seed value, produce the same predictable
-series of values every time.  But it does this by relying on some private
-state which won't automatically be shared between cooperating backends.  A
-parallel-safe PRNG would need to store its state in dynamic shared memory, and
-would require locking.  The parallelism infrastructure has no way of knowing
-whether the user intends to call code that has this sort of problem, and can't
-do anything about it anyway.
+  - dfmgr.c 动态加载的库集合。
 
-Instead, we take a more pragmatic approach. First, we try to make as many of
-the operations that are safe outside of parallel mode work correctly in
-parallel mode as well.  Second, we try to prohibit common unsafe operations
-via suitable error checks.  These checks are intended to catch 100% of
-unsafe things that a user might do from the SQL interface, but code written
-in C can do unsafe things that won't trigger these checks.  The error checks
-are engaged via EnterParallelMode(), which should be called before creating
-a parallel context, and disarmed via ExitParallelMode(), which should be
-called after all parallel contexts have been destroyed.  The most
-significant restriction imposed by parallel mode is that all operations must
-be strictly read-only; we allow no writes to the database and no DDL.  We
-might try to relax these restrictions in the future.
+  - 已认证用户 ID 和当前数据库。每个并行工作进程将用同一用户 ID 连到
+    与发起后端相同的数据库。
 
-To make as many operations as possible safe in parallel mode, we try to copy
-the most important pieces of state from the initiating backend to each parallel
-worker.  This includes:
+  - 所有 GUC 的值。因此并行模式下禁止对任何 GUC 做永久更改；但临时
+    更改，例如进入带非 NULL proconfig 的函数，是可以的。
 
-  - The set of libraries dynamically loaded by dfmgr.c.
+  - 当前子事务的 XID、顶层事务的 XID，以及被视为当前的 XID 列表
+    （即进行中或已子提交的）。需要这些信息来确保元组可见性检查在工作
+    进程中与发起后端返回相同结果。另见下文“事务集成”一节。
 
-  - The authenticated user ID and current database.  Each parallel worker
-    will connect to the same database as the initiating backend, using the
-    same user ID.
+  - combo CID 映射。这是为了确保元组可见性检查得到一致答案。需要同步
+    这一数据结构，是我们无法在并行模式下支持写的主要原因：这类写可能
+    创建新的 combo CID，而我们没有办法让其他工作进程（或发起后端）
+    知道它们。
 
-  - The values of all GUCs.  Accordingly, permanent changes to the value of
-    any GUC are forbidden while in parallel mode; but temporary changes,
-    such as entering a function with non-NULL proconfig, are OK.
+  - 事务快照。
 
-  - The current subtransaction's XID, the top-level transaction's XID, and
-    the list of XIDs considered current (that is, they are in-progress or
-    subcommitted).  This information is needed to ensure that tuple visibility
-    checks return the same results in the worker as they do in the
-    initiating backend.  See also the section Transaction Integration, below.
+  - 活动快照，它可能与事务快照不同。
 
-  - The combo CID mappings.  This is needed to ensure consistent answers to
-    tuple visibility checks.  The need to synchronize this data structure is
-    a major reason why we can't support writes in parallel mode: such writes
-    might create new combo CIDs, and we have no way to let other workers
-    (or the initiating backend) know about them.
+  - 当前活动用户 ID 和安全上下文。注意这是我们恢复的第四个用户 ID：
+    绑定到正确数据库的初始步骤也涉及恢复已认证用户 ID。恢复 GUC 值时，
+    顺便把 SessionUserId 和 OuterUserId 设为正确值。这最后一步恢复
+    CurrentUserId。
 
-  - The transaction snapshot.
+  - 与挂起的 REINDEX 操作相关的状态，它阻止访问当前正在重建的索引。
 
-  - The active snapshot, which might be different from the transaction
-    snapshot.
+  - 活动的 relmapper.c 映射状态。这是为了在获取已映射关系 OID 的当前
+    relfilenumber 时给出一致答案。
 
-  - The currently active user ID and security context.  Note that this is
-    the fourth user ID we restore: the initial step of binding to the correct
-    database also involves restoring the authenticated user ID.  When GUC
-    values are restored, this incidentally sets SessionUserId and OuterUserId
-    to the correct values.  This final step restores CurrentUserId.
+为防止并行模式下出现无原则的死锁，这段代码还安排领导者和所有工作进程
+参与组加锁。更多细节见 src/backend/storage/lmgr/README。
 
-  - State related to pending REINDEX operations, which prevents access to
-    an index that is currently being rebuilt.
+事务集成
+========
 
-  - Active relmapper.c mapping state.  This is needed to allow consistent
-    answers when fetching the current relfilenumber for relation oids of
-    mapped relations.
+无论并行领导者中的 TransactionState 栈看起来如何，每个并行工作进程
+最终都得到深度为 1 的栈。该栈条目用特殊事务块状态
+TBLOCK_PARALLEL_INPROGRESS 标记，以免与普通顶层事务混淆。该
+TransactionState 的 XID 设为发起后端中最内层当前活动子事务的 XID。
+发起后端的顶层 XID，以及所有当前（进行中或已子提交）XID，与
+TransactionState 栈分开存储，但方式使得 GetTopTransactionId()、
+GetTopTransactionIdIfAny() 和 TransactionIdIsCurrentTransactionId()
+返回与发起后端相同的值。我们可以复制整个事务状态栈，但大部分会没用：
+例如，你不能从并行工作进程内回滚到保存点，也没有资源与中间子事务的
+内存上下文或资源所有者相关联。
 
-To prevent unprincipled deadlocks when running in parallel mode, this code
-also arranges for the leader and all workers to participate in group
-locking.  See src/backend/storage/lmgr/README for more details.
+并行模式下不能对事务状态做有意义的更改。不能分配 XID，也不能开始或
+结束子事务，因为我们没有办法把这些状态变更传达给协作后端，也无法
+同步它们。发起后端在所有并行工作进程退出之前，就退出并行开始时正在
+进行的任何事务或子事务，显然不可行；并行工作进程试图子提交或子中止
+当前子事务、并在与发起后端不同的事务上下文中执行，就更荒唐。也许可以
+允许在并行模式下使用内部子事务（例如实现 PL/pgSQL EXCEPTION 块），
+前提是它们没有 XID，因为其他后端其实不需要知道那些事务，也不必因此
+做任何不同的事。现在我们连这也禁止。
 
-Transaction Integration
-=======================
+并行操作结束时（无论是成功完成还是被错误打断），与该操作关联的并行
+工作进程退出。在出错情形下，并行领导者中的事务中止处理会杀掉剩余工作
+进程，然后并行领导者等它们死掉。在成功的并行操作中，并行领导者不发送
+任何信号，但必须等工作进程自行完成并退出。无论哪种情况，非常重要的是
+所有工作进程都真正退出之后，并行领导者才能清理创建它们的（子）事务；
+否则可能出现混乱。例如，若领导者正在回滚创建了某工作进程正在扫描的
+关系的事务，该关系可能在工作进程仍忙于扫描时消失。那不安全。
 
-Regardless of what the TransactionState stack looks like in the parallel
-leader, each parallel worker ends up with a stack of depth 1.  This stack
-entry is marked with the special transaction block state
-TBLOCK_PARALLEL_INPROGRESS so that it's not confused with an ordinary
-toplevel transaction.  The XID of this TransactionState is set to the XID of
-the innermost currently-active subtransaction in the initiating backend.  The
-initiating backend's toplevel XID, and the XIDs of all current (in-progress
-or subcommitted) XIDs are stored separately from the TransactionState stack,
-but in such a way that GetTopTransactionId(), GetTopTransactionIdIfAny(), and
-TransactionIdIsCurrentTransactionId() return the same values that they would
-in the initiating backend.  We could copy the entire transaction state stack,
-but most of it would be useless: for example, you can't roll back to a
-savepoint from within a parallel worker, and there are no resources to
-associated with the memory contexts or resource owners of intermediate
-subtransactions.
+一般而言，每个工作进程此时做的清理类似于顶层提交或中止。每个后端有
+自己的资源所有者：缓冲区钉住、catcache 或 relcache 引用计数、元组描述符
+等由每个后端分别管理，退出前必须释放。不过，并行工作进程的提交或中止
+与真正的顶层事务提交或中止有一些重要差异。最重要的是：
 
-No meaningful change to the transaction state can be made while in parallel
-mode.  No XIDs can be assigned, and no subtransactions can start or end,
-because we have no way of communicating these state changes to cooperating
-backends, or of synchronizing them.  It's clearly unworkable for the initiating
-backend to exit any transaction or subtransaction that was in progress when
-parallelism was started before all parallel workers have exited; and it's even
-more clearly crazy for a parallel worker to try to subcommit or subabort the
-current subtransaction and execute in some other transaction context than was
-present in the initiating backend.  It might be practical to allow internal
-sub-transactions (e.g. to implement a PL/pgSQL EXCEPTION block) to be used in
-parallel mode, provided that they are XID-less, because other backends
-wouldn't really need to know about those transactions or do anything
-differently because of them.  Right now, we don't even allow that.
+  - 不写提交或中止记录；这由发起后端负责。
 
-At the end of a parallel operation, which can happen either because it
-completed successfully or because it was interrupted by an error, parallel
-workers associated with that operation exit.  In the error case, transaction
-abort processing in the parallel leader kills off any remaining workers, and
-the parallel leader then waits for them to die.  In the case of a successful
-parallel operation, the parallel leader does not send any signals, but must
-wait for workers to complete and exit of their own volition.  In either
-case, it is very important that all workers actually exit before the
-parallel leader cleans up the (sub)transaction in which they were created;
-otherwise, chaos can ensue.  For example, if the leader is rolling back the
-transaction that created the relation being scanned by a worker, the
-relation could disappear while the worker is still busy scanning it.  That's
-not safe.
+  - 不做 pg_temp 命名空间的清理。并行工作进程不能安全访问发起后端的
+    pg_temp 命名空间，也不应创建自己的。
 
-Generally, the cleanup performed by each worker at this point is similar to
-top-level commit or abort.  Each backend has its own resource owners: buffer
-pins, catcache or relcache reference counts, tuple descriptors, and so on
-are managed separately by each backend, and must free them before exiting.
-There are, however, some important differences between parallel worker
-commit or abort and a real top-level transaction commit or abort.  Most
-importantly:
+编码约定
+========
 
-  - No commit or abort record is written; the initiating backend is
-    responsible for this.
+开始任何并行操作之前，调用 EnterParallelMode()；全部并行操作完成之后，
+调用 ExitParallelMode()。要真正并行化某操作，使用 ParallelContext。
+基本编码模式如下：
 
-  - Cleanup of pg_temp namespaces is not done.  Parallel workers cannot
-    safely access the initiating backend's pg_temp namespace, and should
-    not create one of their own.
-
-Coding Conventions
-===================
-
-Before beginning any parallel operation, call EnterParallelMode(); after all
-parallel operations are completed, call ExitParallelMode().  To actually
-parallelize a particular operation, use a ParallelContext.  The basic coding
-pattern looks like this:
-
-	EnterParallelMode();		/* prohibit unsafe state changes */
+	EnterParallelMode();		/* 禁止不安全的状态变更 */
 
 	pcxt = CreateParallelContext("library_name", "function_name", nworkers);
 
-	/* Allow space for application-specific data here. */
+	/* 在此为应用特定数据预留空间。 */
 	shm_toc_estimate_chunk(&pcxt->estimator, size);
 	shm_toc_estimate_keys(&pcxt->estimator, keys);
 
-	InitializeParallelDSM(pcxt);	/* create DSM and copy state to it */
+	InitializeParallelDSM(pcxt);	/* 创建 DSM 并把状态复制进去 */
 
-	/* Store the data for which we reserved space. */
+	/* 存储我们预留了空间的数据。 */
 	space = shm_toc_allocate(pcxt->toc, size);
 	shm_toc_insert(pcxt->toc, key, space);
 
 	LaunchParallelWorkers(pcxt);
 
-	/* do parallel stuff */
+	/* 做并行的事 */
 
 	WaitForParallelWorkersToFinish(pcxt);
 
-	/* read any final results from dynamic shared memory */
+	/* 从动态共享内存读取任何最终结果 */
 
 	DestroyParallelContext(pcxt);
 
 	ExitParallelMode();
 
-If desired, after WaitForParallelWorkersToFinish() has been called, the
-context can be reset so that workers can be launched anew using the same
-parallel context.  To do this, first call ReinitializeParallelDSM() to
-reinitialize state managed by the parallel context machinery itself; then,
-perform any other necessary resetting of state; after that, you can again
-call LaunchParallelWorkers.
+若需要，在调用 WaitForParallelWorkersToFinish() 之后，可以重置上下文，
+以便用同一并行上下文重新启动工作进程。为此，先调用
+ReinitializeParallelDSM() 重新初始化并行上下文机制本身管理的状态；然后
+执行任何其他必要的状态重置；之后可以再次调用 LaunchParallelWorkers。

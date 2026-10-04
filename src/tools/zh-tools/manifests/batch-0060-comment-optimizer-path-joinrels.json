@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0060-comment-optimizer-path-joinrels",
+ "title": "zh: translate joinrels comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c98609399f4df3a3bcea2fd8d9047a6a4bc8ea78",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/path/joinrels.c",
+   "kind": "c_comment",
+   "note": "join relation construction"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0060-comment-optimizer-path-joinrels.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/path/joinrels.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 161,
+   "translated": 157,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "join relation construction"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0060-comment-optimizer-path-joinrels.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

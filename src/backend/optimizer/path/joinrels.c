@@ -56,16 +56,16 @@ static void get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
 
 /*
  * join_search_one_level
- *	  Consider ways to produce join relations containing exactly 'level'
- *	  jointree items.  (This is one step of the dynamic-programming method
- *	  embodied in standard_join_search.)  Join rel nodes for each feasible
- *	  combination of lower-level rels are created and returned in a list.
- *	  Implementation paths are created for each such joinrel, too.
+ *	  考虑如何产生恰好包含 'level'
+ *	  个连接树项的连接关系。（这是动态规划方法中的一步，
+ *	  该方法体现在 standard_join_search 里。）每个可行的
+ *	  较低层关系组合都会创建连接关系节点，并放进列表返回。
+ *	  每个这样的连接关系也会创建实现路径。
  *
- * level: level of rels we want to make this time
- * root->join_rel_level[j], 1 <= j < level, is a list of rels containing j items
+ * level：这次要构造的关系所在的层
+ * root->join_rel_level[j]（1 <= j < level）是包含 j 个项的关系列表
  *
- * The result is returned in root->join_rel_level[level].
+ * 结果放在 root->join_rel_level[level] 中。
  */
 void
 join_search_one_level(PlannerInfo *root, int level)
@@ -76,15 +76,15 @@ join_search_one_level(PlannerInfo *root, int level)
 
 	Assert(joinrels[level] == NIL);
 
-	/* Set join_cur_level so that new joinrels are added to proper list */
+	/* 设置 join_cur_level，使新连接关系加入正确的列表 */
 	root->join_cur_level = level;
 
 	/*
-	 * First, consider left-sided and right-sided plans, in which rels of
-	 * exactly level-1 member relations are joined against initial relations.
-	 * We prefer to join using join clauses, but if we find a rel of level-1
-	 * members that has no join clauses, we will generate Cartesian-product
-	 * joins against all initial rels not already contained in it.
+	 * 首先考虑左深和右深计划：恰好含
+	 * level-1 个成员关系的关系，与初始关系相连接。
+	 * 我们优先使用连接子句来连接，但若发现某个含 level-1
+	 * 个成员的关系没有连接子句，就对所有尚未包含在其中的初始关系
+	 * 生成笛卡尔积连接。
 	 */
 	foreach(r, joinrels[level - 1])
 	{
@@ -94,27 +94,27 @@ join_search_one_level(PlannerInfo *root, int level)
 			has_join_restriction(root, old_rel))
 		{
 			/*
-			 * There are join clauses or join order restrictions relevant to
-			 * this rel, so consider joins between this rel and (only) those
-			 * initial rels it is linked to by a clause or restriction.
+			 * 存在与这个关系相关的连接子句或连接顺序限制，
+			 * 因此只考虑它与那些
+			 * 由子句或限制连到它的初始关系之间的连接。
 			 *
-			 * At level 2 this condition is symmetric, so there is no need to
-			 * look at initial rels before this one in the list; we already
-			 * considered such joins when we were at the earlier rel.  (The
-			 * mirror-image joins are handled automatically by make_join_rel.)
-			 * In later passes (level > 2), we join rels of the previous level
-			 * to each initial rel they don't already include but have a join
-			 * clause or restriction with.
+			 * 在第 2 层这个条件是对称的，因此不必
+			 * 看列表里位于它之前的初始关系；当我们
+			 * 还在更早的关系上时，已经
+			 * 考虑过这类连接。（镜像连接由 make_join_rel 自动处理。）
+			 * 在以后的趟（level > 2）中，把上一层的关系
+			 * 连到每个它们尚未包含、但与之有连接
+			 * 子句或限制的初始关系。
 			 */
 			List	   *other_rels_list;
 			ListCell   *other_rels;
 
-			if (level == 2)		/* consider remaining initial rels */
+			if (level == 2)		/* 考虑其余的初始关系 */
 			{
 				other_rels_list = joinrels[level - 1];
 				other_rels = lnext(other_rels_list, r);
 			}
-			else				/* consider all initial rels */
+			else				/* 考虑全部初始关系 */
 			{
 				other_rels_list = joinrels[1];
 				other_rels = list_head(other_rels_list);
@@ -128,16 +128,16 @@ join_search_one_level(PlannerInfo *root, int level)
 		else
 		{
 			/*
-			 * Oops, we have a relation that is not joined to any other
-			 * relation, either directly or by join-order restrictions.
-			 * Cartesian product time.
+			 * 哎呀，有一个关系没有连到任何其他
+			 * 关系，无论是直接的还是经由连接顺序限制。
+			 * 该做笛卡尔积了。
 			 *
-			 * We consider a cartesian product with each not-already-included
-			 * initial rel, whether it has other join clauses or not.  At
-			 * level 2, if there are two or more clauseless initial rels, we
-			 * will redundantly consider joining them in both directions; but
-			 * such cases aren't common enough to justify adding complexity to
-			 * avoid the duplicated effort.
+			 * 我们考虑与每个尚未包含的
+			 * 初始关系做笛卡尔积，无论它有没有其他连接子句。在
+			 * 第 2 层，若有两个或更多无子句的初始关系，我们
+			 * 会冗余地考虑从两个方向连接它们；但
+			 * 这类情形不够常见，不值得增加复杂性来
+			 * 避免重复劳动。
 			 */
 			make_rels_by_clauseless_joins(root,
 										  old_rel,
@@ -146,20 +146,20 @@ join_search_one_level(PlannerInfo *root, int level)
 	}
 
 	/*
-	 * Now, consider "bushy plans" in which relations of k initial rels are
-	 * joined to relations of level-k initial rels, for 2 <= k <= level-2.
+	 * 现在考虑 "丛状计划"：含 k 个初始关系的关系
+	 * 与含 level-k 个初始关系的关系相连接，2 <= k <= level-2。
 	 *
-	 * We only consider bushy-plan joins for pairs of rels where there is a
-	 * suitable join clause (or join order restriction), in order to avoid
-	 * unreasonable growth of planning time.
+	 * 只对存在合适连接子句（或连接顺序限制）的关系对考虑丛状连接，
+	 * 以免
+	 * 规划时间不合理地增长。
 	 */
 	for (k = 2;; k++)
 	{
 		int			other_level = level - k;
 
 		/*
-		 * Since make_join_rel(x, y) handles both x,y and y,x cases, we only
-		 * need to go as far as the halfway point.
+		 * 由于 make_join_rel(x, y) 同时处理 x,y 和 y,x，我们只需
+		 * 走到中点即可。
 		 */
 		if (k > other_level)
 			break;
@@ -172,9 +172,9 @@ join_search_one_level(PlannerInfo *root, int level)
 			ListCell   *r2;
 
 			/*
-			 * We can ignore relations without join clauses here, unless they
-			 * participate in join-order restrictions --- then we might have
-			 * to force a bushy join plan.
+			 * 这里可以忽略没有连接子句的关系，除非它们
+			 * 参与了连接顺序限制---那时我们也许不得不
+			 * 强制采用丛状连接计划。
 			 */
 			if (old_rel->joininfo == NIL && !old_rel->has_eclass_joins &&
 				!has_join_restriction(root, old_rel))
@@ -182,7 +182,7 @@ join_search_one_level(PlannerInfo *root, int level)
 
 			if (k == other_level)
 			{
-				/* only consider remaining rels */
+				/* 只考虑其余关系 */
 				other_rels_list = joinrels[k];
 				other_rels = lnext(other_rels_list, r);
 			}
@@ -199,9 +199,9 @@ join_search_one_level(PlannerInfo *root, int level)
 				if (!bms_overlap(old_rel->relids, new_rel->relids))
 				{
 					/*
-					 * OK, we can build a rel of the right level from this
-					 * pair of rels.  Do so if there is at least one relevant
-					 * join clause or join order restriction.
+					 * 可以用这一
+					 * 对关系构造出层数正确的关系。若至少有一条相关的
+					 * 连接子句或连接顺序限制，就这样做。
 					 */
 					if (have_relevant_joinclause(root, old_rel, new_rel) ||
 						have_join_order_restriction(root, old_rel, new_rel))
@@ -235,8 +235,8 @@ join_search_one_level(PlannerInfo *root, int level)
 	if (joinrels[level] == NIL)
 	{
 		/*
-		 * This loop is just like the first one, except we always call
-		 * make_rels_by_clauseless_joins().
+		 * 这个循环和第一个一样，只是我们总是调用
+		 * make_rels_by_clauseless_joins()。
 		 */
 		foreach(r, joinrels[level - 1])
 		{
@@ -274,24 +274,24 @@ join_search_one_level(PlannerInfo *root, int level)
 
 /*
  * make_rels_by_clause_joins
- *	  Build joins between the given relation 'old_rel' and other relations
- *	  that participate in join clauses that 'old_rel' also participates in
- *	  (or participate in join-order restrictions with it).
- *	  The join rels are returned in root->join_rel_level[join_cur_level].
+ *	  在给定关系 'old_rel' 与其他关系之间建立连接，
+ *	  那些其他关系参与了 'old_rel' 也参与的连接子句
+ *	  （或与它有连接顺序限制）。
+ *	  连接关系放在 root->join_rel_level[join_cur_level] 中。
  *
- * Note: at levels above 2 we will generate the same joined relation in
- * multiple ways --- for example (a join b) join c is the same RelOptInfo as
- * (b join c) join a, though the second case will add a different set of Paths
- * to it.  This is the reason for using the join_rel_level mechanism, which
- * automatically ensures that each new joinrel is only added to the list once.
+ * 注意：在高于 2 的层上，同一连接关系会以
+ * 多种方式生成---例如 (a join b) join c 与
+ * (b join c) join a 是同一个 RelOptInfo，尽管第二种会向它加入
+ * 一组不同的 Path。这就是使用 join_rel_level 机制的原因，它
+ * 自动保证每个新连接关系只加入列表一次。
  *
- * 'old_rel' is the relation entry for the relation to be joined
- * 'other_rels_list': a list containing the other
- * rels to be considered for joining
- * 'other_rels': the first cell to be considered
+ * 'old_rel' 是待连接关系的关系项
+ * 'other_rels_list'：包含其他
+ * 待考虑连接的关系的列表
+ * 'other_rels'：第一个要考虑的单元
  *
- * Currently, this is only used with initial rels in other_rels, but it
- * will work for joining to joinrels too.
+ * 目前这只用于 other_rels 中的初始关系，但它
+ * 对连接到连接关系也同样有效。
  */
 static void
 make_rels_by_clause_joins(PlannerInfo *root,
@@ -316,16 +316,16 @@ make_rels_by_clause_joins(PlannerInfo *root,
 
 /*
  * make_rels_by_clauseless_joins
- *	  Given a relation 'old_rel' and a list of other relations
- *	  'other_rels', create a join relation between 'old_rel' and each
- *	  member of 'other_rels' that isn't already included in 'old_rel'.
- *	  The join rels are returned in root->join_rel_level[join_cur_level].
+ *	  给定关系 'old_rel' 以及其他关系的列表
+ *	  'other_rels'，在 'old_rel' 与 'other_rels' 中每个
+ *	  尚未包含在 'old_rel' 里的成员之间创建连接关系。
+ *	  连接关系放在 root->join_rel_level[join_cur_level] 中。
  *
- * 'old_rel' is the relation entry for the relation to be joined
- * 'other_rels': a list containing the other rels to be considered for joining
+ * 'old_rel' 是待连接关系的关系项
+ * 'other_rels'：包含其他待考虑连接的关系的列表
  *
- * Currently, this is only used with initial rels in other_rels, but it would
- * work for joining to joinrels too.
+ * 目前这只用于 other_rels 中的初始关系，但它
+ * 对连接到连接关系也同样有效。
  */
 static void
 make_rels_by_clauseless_joins(PlannerInfo *root,
@@ -348,20 +348,20 @@ make_rels_by_clauseless_joins(PlannerInfo *root,
 
 /*
  * join_is_legal
- *	   Determine whether a proposed join is legal given the query's
- *	   join order constraints; and if it is, determine the join type.
+ *	   根据查询的连接顺序约束，判断提议的连接是否合法；
+ *	   若合法，再确定连接类型。
  *
- * Caller must supply not only the two rels, but the union of their relids.
- * (We could simplify the API by computing joinrelids locally, but this
- * would be redundant work in the normal path through make_join_rel.
- * Note that this value does NOT include the RT index of any outer join that
- * might need to be performed here, so it's not the canonical identifier
- * of the join relation.)
+ * 调用方不仅要提供两个关系，还要提供它们 relids 的并集。
+ * （可以在本地计算 joinrelids 来简化 API，但在
+ * 经由 make_join_rel 的正常路径上，
+ * 这会是重复工作。
+ * 注意这个值不包括此处也许要执行的任何外连接的 RT 下标，
+ * 因此它不是该连接关系的规范标识。）
  *
- * On success, *sjinfo_p is set to NULL if this is to be a plain inner join,
- * else it's set to point to the associated SpecialJoinInfo node.  Also,
- * *reversed_p is set true if the given relations need to be swapped to
- * match the SpecialJoinInfo node.
+ * 成功时，若这应是普通内连接，则 *sjinfo_p 设为 NULL；
+ * 否则设为指向关联的 SpecialJoinInfo 节点。另外，
+ * 若给定关系需要交换才能
+ * 与该 SpecialJoinInfo 节点匹配，则把 *reversed_p 设为 true。
  */
 static bool
 join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
@@ -375,16 +375,16 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 	ListCell   *l;
 
 	/*
-	 * Ensure output params are set on failure return.  This is just to
-	 * suppress uninitialized-variable warnings from overly anal compilers.
+	 * 失败返回时也要设置输出参数。这只是为了
+	 * 消除过于挑剔的编译器关于未初始化变量的告警。
 	 */
 	*sjinfo_p = NULL;
 	*reversed_p = false;
 
 	/*
-	 * If we have any special joins, the proposed join might be illegal; and
-	 * in any case we have to determine its join type.  Scan the join info
-	 * list for matches and conflicts.
+	 * 若存在任何特殊连接，提议的连接也许非法；而且
+	 * 无论如何都要确定它的连接类型。扫描连接信息
+	 * 列表，寻找匹配与冲突。
 	 */
 	match_sjinfo = NULL;
 	reversed = false;
@@ -396,22 +396,22 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		SpecialJoinInfo *sjinfo = (SpecialJoinInfo *) lfirst(l);
 
 		/*
-		 * This special join is not relevant unless its RHS overlaps the
-		 * proposed join.  (Check this first as a fast path for dismissing
-		 * most irrelevant SJs quickly.)
+		 * 除非这个特殊连接的 RHS 与
+		 * 提议的连接重叠，否则它不相关。（先做这个检查，以便快速排除
+		 * 大多数无关的 SJ。）
 		 */
 		if (!bms_overlap(sjinfo->min_righthand, joinrelids))
 			continue;
 
 		/*
-		 * Also, not relevant if proposed join is fully contained within RHS
-		 * (ie, we're still building up the RHS).
+		 * 若提议的连接完全包含在 RHS 之内，也不相关
+		 * （也就是说，我们还在构造 RHS）。
 		 */
 		if (bms_is_subset(joinrelids, sjinfo->min_righthand))
 			continue;
 
 		/*
-		 * Also, not relevant if SJ is already done within either input.
+		 * 若 SJ 已在任一输入之内完成，也不相关。
 		 */
 		if (bms_is_subset(sjinfo->min_lefthand, rel1->relids) &&
 			bms_is_subset(sjinfo->min_righthand, rel1->relids))
@@ -421,10 +421,10 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 			continue;
 
 		/*
-		 * If it's a semijoin and we already joined the RHS to any other rels
-		 * within either input, then we must have unique-ified the RHS at that
-		 * point (see below).  Therefore the semijoin is no longer relevant in
-		 * this join path.
+		 * 若它是半连接，且我们已经把 RHS 连到了任一输入中的
+		 * 其他关系，那么当时必定已经对 RHS 做了唯一化
+		 * （见下文）。因此在
+		 * 这条连接路径上，该半连接不再相关。
 		 */
 		if (sjinfo->jointype == JOIN_SEMI)
 		{
@@ -437,17 +437,17 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		}
 
 		/*
-		 * If one input contains min_lefthand and the other contains
-		 * min_righthand, then we can perform the SJ at this join.
+		 * 若一个输入包含 min_lefthand，另一个包含
+		 * min_righthand，就可以在这次连接上执行该 SJ。
 		 *
-		 * Reject if we get matches to more than one SJ; that implies we're
-		 * considering something that's not really valid.
+		 * 若匹配到不止一个 SJ，则拒绝；那意味着我们在
+		 * 考虑某种并不真正有效的东西。
 		 */
 		if (bms_is_subset(sjinfo->min_lefthand, rel1->relids) &&
 			bms_is_subset(sjinfo->min_righthand, rel2->relids))
 		{
 			if (match_sjinfo)
-				return false;	/* invalid join path */
+				return false;	/* 无效的连接路径 */
 			match_sjinfo = sjinfo;
 			reversed = false;
 		}
@@ -455,7 +455,7 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 				 bms_is_subset(sjinfo->min_righthand, rel1->relids))
 		{
 			if (match_sjinfo)
-				return false;	/* invalid join path */
+				return false;	/* 无效的连接路径 */
 			match_sjinfo = sjinfo;
 			reversed = true;
 		}
@@ -487,7 +487,7 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 			 *----------
 			 */
 			if (match_sjinfo)
-				return false;	/* invalid join path */
+				return false;	/* 无效的连接路径 */
 			match_sjinfo = sjinfo;
 			reversed = false;
 			unique_ified = true;
@@ -497,9 +497,9 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 				 create_unique_path(root, rel1, rel1->cheapest_total_path,
 									sjinfo) != NULL)
 		{
-			/* Reversed semijoin case */
+			/* 反向半连接的情形 */
 			if (match_sjinfo)
-				return false;	/* invalid join path */
+				return false;	/* 无效的连接路径 */
 			match_sjinfo = sjinfo;
 			reversed = true;
 			unique_ified = true;
@@ -507,63 +507,63 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		else
 		{
 			/*
-			 * Otherwise, the proposed join overlaps the RHS but isn't a valid
-			 * implementation of this SJ.  But don't panic quite yet: the RHS
-			 * violation might have occurred previously, in one or both input
-			 * relations, in which case we must have previously decided that
-			 * it was OK to commute some other SJ with this one.  If we need
-			 * to perform this join to finish building up the RHS, rejecting
-			 * it could lead to not finding any plan at all.  (This can occur
-			 * because of the heuristics elsewhere in this file that postpone
-			 * clauseless joins: we might not consider doing a clauseless join
-			 * within the RHS until after we've performed other, validly
-			 * commutable SJs with one or both sides of the clauseless join.)
-			 * This consideration boils down to the rule that if both inputs
-			 * overlap the RHS, we can allow the join --- they are either
-			 * fully within the RHS, or represent previously-allowed joins to
-			 * rels outside it.
+			 * 否则，提议的连接与 RHS 重叠，但不是这个 SJ 的有效
+			 * 实现。不过先别急：RHS
+			 * 违规也许先前已经发生，在一个或两个输入
+			 * 关系里，那时我们必定已经决定
+			 * 可以把某个其他 SJ 与这个交换。若我们需要
+			 * 做这次连接才能把 RHS 建完，拒绝它
+			 * 可能导致根本找不到任何计划。（这会发生，
+			 * 是因为本文件别处推迟无子句连接的启发式：
+			 * 我们也许要等到已经对无子句连接的一侧或两侧执行了其他、
+			 * 可合法交换的 SJ 之后，才考虑在 RHS 内部做
+			 * 无子句连接。）
+			 * 这归结为：若两个输入都
+			 * 与 RHS 重叠，就可以允许该连接---它们要么
+			 * 完全位于 RHS 之内，要么表示先前已允许的、连向
+			 * RHS 之外那些关系的连接。
 			 */
 			if (bms_overlap(rel1->relids, sjinfo->min_righthand) &&
 				bms_overlap(rel2->relids, sjinfo->min_righthand))
-				continue;		/* assume valid previous violation of RHS */
+				continue;		/* 假定先前对 RHS 的违规是有效的 */
 
 			/*
-			 * The proposed join could still be legal, but only if we're
-			 * allowed to associate it into the RHS of this SJ.  That means
-			 * this SJ must be a LEFT join (not SEMI or ANTI, and certainly
-			 * not FULL) and the proposed join must not overlap the LHS.
+			 * 提议的连接仍可能合法，但仅当我们被
+			 * 允许把它结合进这个 SJ 的 RHS 时。这意味着
+			 * 这个 SJ 必须是 LEFT 连接（不是 SEMI 或 ANTI，当然也
+			 * 不是 FULL），并且提议的连接不得与 LHS 重叠。
 			 */
 			if (sjinfo->jointype != JOIN_LEFT ||
 				bms_overlap(joinrelids, sjinfo->min_lefthand))
-				return false;	/* invalid join path */
+				return false;	/* 无效的连接路径 */
 
 			/*
-			 * To be valid, the proposed join must be a LEFT join; otherwise
-			 * it can't associate into this SJ's RHS.  But we may not yet have
-			 * found the SpecialJoinInfo matching the proposed join, so we
-			 * can't test that yet.  Remember the requirement for later.
+			 * 要成为有效连接，提议的连接必须是 LEFT 连接；否则
+			 * 它无法结合进这个 SJ 的 RHS。但我们也许还没有
+			 * 找到与提议连接匹配的 SpecialJoinInfo，因此还
+			 * 无法现在就测试。把该条件记下来以后再用。
 			 */
 			must_be_leftjoin = true;
 		}
 	}
 
 	/*
-	 * Fail if violated any SJ's RHS and didn't match to a LEFT SJ: the
-	 * proposed join can't associate into an SJ's RHS.
+	 * 若违反了任何 SJ 的 RHS，且没有匹配到 LEFT SJ，则失败：
+	 * 提议的连接无法结合进某个 SJ 的 RHS。
 	 *
-	 * Also, fail if the proposed join's predicate isn't strict; we're
-	 * essentially checking to see if we can apply outer-join identity 3, and
-	 * that's a requirement.  (This check may be redundant with checks in
-	 * make_outerjoininfo, but I'm not quite sure, and it's cheap to test.)
+	 * 另外，若提议连接的谓词不严格，也失败；我们
+	 * 实质上是在检查能否应用外连接恒等式 3，而
+	 * 那是必须满足的条件。（这个检查也许与 make_outerjoininfo 里的检查重复，
+	 * 但我不太确定，而且测试起来很便宜。）
 	 */
 	if (must_be_leftjoin &&
 		(match_sjinfo == NULL ||
 		 match_sjinfo->jointype != JOIN_LEFT ||
 		 !match_sjinfo->lhs_strict))
-		return false;			/* invalid join path */
+		return false;			/* 无效的连接路径 */
 
 	/*
-	 * We also have to check for constraints imposed by LATERAL references.
+	 * 还必须检查 LATERAL 引用施加的约束。
 	 */
 	if (root->hasLateralRTEs)
 	{
@@ -572,67 +572,67 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		Relids		join_lateral_rels;
 
 		/*
-		 * The proposed rels could each contain lateral references to the
-		 * other, in which case the join is impossible.  If there are lateral
-		 * references in just one direction, then the join has to be done with
-		 * a nestloop with the lateral referencer on the inside.  If the join
-		 * matches an SJ that cannot be implemented by such a nestloop, the
-		 * join is impossible.
+		 * 提议的关系各自都可能含有对另一方的横向引用，
+		 * 此时连接不可能。若横向
+		 * 引用只在一个方向上，则该连接必须做成
+		 * 嵌套循环，横向引用方放在内侧。若该连接
+		 * 匹配一个无法用这种嵌套循环实现的 SJ，则
+		 * 连接不可能。
 		 *
-		 * Also, if the lateral reference is only indirect, we should reject
-		 * the join; whatever rel(s) the reference chain goes through must be
-		 * joined to first.
+		 * 另外，若横向引用只是间接的，应当拒绝
+		 * 该连接；引用链经过的那些 rel(s) 必须
+		 * 先被连接进来。
 		 *
-		 * Another case that might keep us from building a valid plan is the
-		 * implementation restriction described by have_dangerous_phv().
+		 * 另一种可能使我们无法构造有效计划的情形是
+		 * have_dangerous_phv() 所描述的实现限制。
 		 */
 		lateral_fwd = bms_overlap(rel1->relids, rel2->lateral_relids);
 		lateral_rev = bms_overlap(rel2->relids, rel1->lateral_relids);
 		if (lateral_fwd && lateral_rev)
-			return false;		/* have lateral refs in both directions */
+			return false;		/* 两个方向都有横向引用 */
 		if (lateral_fwd)
 		{
-			/* has to be implemented as nestloop with rel1 on left */
+			/* 必须实现为 rel1 在左侧的嵌套循环 */
 			if (match_sjinfo &&
 				(reversed ||
 				 unique_ified ||
 				 match_sjinfo->jointype == JOIN_FULL))
-				return false;	/* not implementable as nestloop */
-			/* check there is a direct reference from rel2 to rel1 */
+				return false;	/* 无法实现为嵌套循环 */
+			/* 检查是否存在从 rel2 到 rel1 的直接引用 */
 			if (!bms_overlap(rel1->relids, rel2->direct_lateral_relids))
-				return false;	/* only indirect refs, so reject */
-			/* check we won't have a dangerous PHV */
+				return false;	/* 只有间接引用，因此拒绝 */
+			/* 检查不会出现危险的 PHV */
 			if (have_dangerous_phv(root, rel1->relids, rel2->lateral_relids))
-				return false;	/* might be unable to handle required PHV */
+				return false;	/* 也许无法处理所需的 PHV */
 		}
 		else if (lateral_rev)
 		{
-			/* has to be implemented as nestloop with rel2 on left */
+			/* 必须实现为 rel2 在左侧的嵌套循环 */
 			if (match_sjinfo &&
 				(!reversed ||
 				 unique_ified ||
 				 match_sjinfo->jointype == JOIN_FULL))
-				return false;	/* not implementable as nestloop */
-			/* check there is a direct reference from rel1 to rel2 */
+				return false;	/* 无法实现为嵌套循环 */
+			/* 检查是否存在从 rel1 到 rel2 的直接引用 */
 			if (!bms_overlap(rel2->relids, rel1->direct_lateral_relids))
-				return false;	/* only indirect refs, so reject */
-			/* check we won't have a dangerous PHV */
+				return false;	/* 只有间接引用，因此拒绝 */
+			/* 检查不会出现危险的 PHV */
 			if (have_dangerous_phv(root, rel2->relids, rel1->lateral_relids))
-				return false;	/* might be unable to handle required PHV */
+				return false;	/* 也许无法处理所需的 PHV */
 		}
 
 		/*
-		 * LATERAL references could also cause problems later on if we accept
-		 * this join: if the join's minimum parameterization includes any rels
-		 * that would have to be on the inside of an outer join with this join
-		 * rel, then it's never going to be possible to build the complete
-		 * query using this join.  We should reject this join not only because
-		 * it'll save work, but because if we don't, the clauseless-join
-		 * heuristics might think that legality of this join means that some
-		 * other join rel need not be formed, and that could lead to failure
-		 * to find any plan at all.  We have to consider not only rels that
-		 * are directly on the inner side of an OJ with the joinrel, but also
-		 * ones that are indirectly so, so search to find all such rels.
+		 * 若接受这次连接，LATERAL 引用以后也可能
+		 * 带来问题：若该连接的最小参数化包含某些关系，
+		 * 而这些关系必须处在与这个连接
+		 * 关系所成外连接的内侧，那么永远
+		 * 不可能用这次连接构造出完整
+		 * 查询。应当拒绝这次连接，不仅因为
+		 * 能省事，也因为若不拒绝，无子句连接
+		 * 启发式也许会认为这次连接合法就意味着某个
+		 * 其他连接关系不必形成，从而可能导致
+		 * 根本找不到任何计划。要考虑的不仅是直接处于
+		 * 与该连接关系所成外连接内侧的关系，也包括间接如此的，所以要搜索找出全部。
 		 */
 		join_lateral_rels = min_join_parameterization(root, joinrelids,
 													  rel1, rel2);
@@ -648,7 +648,7 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 				{
 					SpecialJoinInfo *sjinfo = (SpecialJoinInfo *) lfirst(l);
 
-					/* ignore full joins --- their ordering is predetermined */
+					/* 忽略全连接---它们的顺序是预定的 */
 					if (sjinfo->jointype == JOIN_FULL)
 						continue;
 
@@ -662,11 +662,11 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 				}
 			} while (more);
 			if (bms_overlap(join_plus_rhs, join_lateral_rels))
-				return false;	/* will not be able to join to some RHS rel */
+				return false;	/* 将无法连到某个 RHS 关系 */
 		}
 	}
 
-	/* Otherwise, it's a valid join */
+	/* 否则，这是一次有效连接 */
 	*sjinfo_p = match_sjinfo;
 	*reversed_p = reversed;
 	return true;
@@ -675,15 +675,15 @@ join_is_legal(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 
 /*
  * make_join_rel
- *	   Find or create a join RelOptInfo that represents the join of
- *	   the two given rels, and add to it path information for paths
- *	   created with the two rels as outer and inner rel.
- *	   (The join rel may already contain paths generated from other
- *	   pairs of rels that add up to the same set of base rels.)
+ *	   查找或创建一个表示给定两个关系之连接的 RelOptInfo，
+ *	   并把以这两个关系分别作为外层和内层而
+ *	   创建的路径信息加进去。
+ *	   （该连接关系也许已经含有由其他
+ *	   关系对生成的路径，那些关系对加起来是同一组基关系。）
  *
- * NB: will return NULL if attempted join is not valid.  This can happen
- * when working with outer joins, or with IN or EXISTS clauses that have been
- * turned into joins.
+ * 注意：若尝试的连接无效，将返回 NULL。这会发生在
+ * 处理外连接时，或处理已被
+ * 变成连接的 IN 或 EXISTS 子句时。
  */
 RelOptInfo *
 make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
@@ -696,29 +696,29 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 	RelOptInfo *joinrel;
 	List	   *restrictlist;
 
-	/* We should never try to join two overlapping sets of rels. */
+	/* 绝不应当尝试连接两个重叠的关系集合。 */
 	Assert(!bms_overlap(rel1->relids, rel2->relids));
 
-	/* Construct Relids set that identifies the joinrel (without OJ as yet). */
+	/* 构造标识该连接关系的 Relids 集合（此时还没有 OJ）。 */
 	joinrelids = bms_union(rel1->relids, rel2->relids);
 
-	/* Check validity and determine join type. */
+	/* 检查有效性并确定连接类型。 */
 	if (!join_is_legal(root, rel1, rel2, joinrelids,
 					   &sjinfo, &reversed))
 	{
-		/* invalid join path */
+		/* 无效的连接路径 */
 		bms_free(joinrelids);
 		return NULL;
 	}
 
 	/*
-	 * Add outer join relid(s) to form the canonical relids.  Any added outer
-	 * joins besides sjinfo itself are appended to pushed_down_joins.
+	 * 加上外连接的 relid(s) 以形成规范 relids。除 sjinfo 自身外，任何新增的外
+	 * 连接都追加到 pushed_down_joins。
 	 */
 	joinrelids = add_outer_joins_to_relids(root, joinrelids, sjinfo,
 										   &pushed_down_joins);
 
-	/* Swap rels if needed to match the join info. */
+	/* 必要时交换关系，以匹配连接信息。 */
 	if (reversed)
 	{
 		RelOptInfo *trel = rel1;
@@ -728,9 +728,9 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 	}
 
 	/*
-	 * If it's a plain inner join, then we won't have found anything in
-	 * join_info_list.  Make up a SpecialJoinInfo so that selectivity
-	 * estimation functions will know what's being joined.
+	 * 若是普通内连接，则在
+	 * join_info_list 里什么也找不到。造一个 SpecialJoinInfo，让选择率
+	 * 估计函数知道正在连接什么。
 	 */
 	if (sjinfo == NULL)
 	{
@@ -746,7 +746,7 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 		sjinfo->commute_above_r = NULL;
 		sjinfo->commute_below_l = NULL;
 		sjinfo->commute_below_r = NULL;
-		/* we don't bother trying to make the remaining fields valid */
+		/* 我们懒得把其余字段弄成有效的 */
 		sjinfo->lhs_strict = false;
 		sjinfo->semi_can_btree = false;
 		sjinfo->semi_can_hash = false;
@@ -755,16 +755,16 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 	}
 
 	/*
-	 * Find or build the join RelOptInfo, and compute the restrictlist that
-	 * goes with this particular joining.
+	 * 查找或构造连接 RelOptInfo，并计算与
+	 * 这一次特定连接相配的限制列表。
 	 */
 	joinrel = build_join_rel(root, joinrelids, rel1, rel2,
 							 sjinfo, pushed_down_joins,
 							 &restrictlist);
 
 	/*
-	 * If we've already proven this join is empty, we needn't consider any
-	 * more paths for it.
+	 * 若已经证明这次连接为空，就不必再为它考虑任何
+	 * 更多路径。
 	 */
 	if (is_dummy_rel(joinrel))
 	{
@@ -772,7 +772,7 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 		return joinrel;
 	}
 
-	/* Add paths to the join relation. */
+	/* 向连接关系添加路径。 */
 	populate_joinrel_with_paths(root, rel1, rel2, joinrel, sjinfo,
 								restrictlist);
 
@@ -783,56 +783,56 @@ make_join_rel(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2)
 
 /*
  * add_outer_joins_to_relids
- *	  Add relids to input_relids to represent any outer joins that will be
- *	  calculated at this join.
+ *	  向 input_relids 加入 relids，表示将在
+ *	  这次连接处计算的任何外连接。
  *
- * input_relids is the union of the relid sets of the two input relations.
- * Note that we modify this in-place and return it; caller must bms_copy()
- * it first, if a separate value is desired.
+ * input_relids 是两个输入关系 relid 集合的并集。
+ * 注意我们原地修改并返回它；若需要单独的值，调用方必须先
+ * bms_copy() 它。
  *
- * sjinfo represents the join being performed.
+ * sjinfo 表示正在执行的连接。
  *
- * If the current join completes the calculation of any outer joins that
- * have been pushed down per outer-join identity 3, those relids will be
- * added to the result along with sjinfo's own relid.  If pushed_down_joins
- * is not NULL, then also the SpecialJoinInfos for such added outer joins will
- * be appended to *pushed_down_joins (so caller must initialize it to NIL).
+ * 若当前连接完成了任何按外连接恒等式 3
+ * 下推的外连接的计算，那些 relids 会连同 sjinfo 自己的 relid
+ * 一起加入结果。若 pushed_down_joins
+ * 不是 NULL，则这些新增外连接的 SpecialJoinInfos 也会
+ * 追加到 *pushed_down_joins（因此调用方必须把它初始化为 NIL）。
  */
 Relids
 add_outer_joins_to_relids(PlannerInfo *root, Relids input_relids,
 						  SpecialJoinInfo *sjinfo,
 						  List **pushed_down_joins)
 {
-	/* Nothing to do if this isn't an outer join with an assigned relid. */
+	/* 若这不是带有已分配 relid 的外连接，则无事可做。 */
 	if (sjinfo == NULL || sjinfo->ojrelid == 0)
 		return input_relids;
 
 	/*
-	 * If it's not a left join, we have no rules that would permit executing
-	 * it in non-syntactic order, so just form the syntactic relid set.  (This
-	 * is just a quick-exit test; we'd come to the same conclusion anyway,
-	 * since its commute_below_l and commute_above_l sets must be empty.)
+	 * 若它不是左连接，就没有规则允许以
+	 * 非语法顺序执行它，因此只形成语法上的 relid 集合。（这
+	 * 只是快速退出测试；反正也会得出同一结论，
+	 * 因为它的 commute_below_l 和 commute_above_l 集合必须为空。）
 	 */
 	if (sjinfo->jointype != JOIN_LEFT)
 		return bms_add_member(input_relids, sjinfo->ojrelid);
 
 	/*
-	 * We cannot add the OJ relid if this join has been pushed into the RHS of
-	 * a syntactically-lower left join per OJ identity 3.  (If it has, then we
-	 * cannot claim that its outputs represent the final state of its RHS.)
-	 * There will not be any other OJs that can be added either, so we're
-	 * done.
+	 * 若这次连接已按 OJ 恒等式 3 被推进语法上更低的左连接的 RHS，
+	 * 我们无法加入该 OJ 的 relid。（若已经推进，则我们
+	 * 无法声称它的输出代表其 RHS 的最终状态。）
+	 * 也不会有任何其他 OJ 可以加入，因此
+	 * 到此结束。
 	 */
 	if (!bms_is_subset(sjinfo->commute_below_l, input_relids))
 		return input_relids;
 
-	/* OK to add OJ's own relid */
+	/* 可以加入 OJ 自己的 relid */
 	input_relids = bms_add_member(input_relids, sjinfo->ojrelid);
 
 	/*
-	 * Contrariwise, if we are now forming the final result of such a commuted
-	 * pair of OJs, it's time to add the relid(s) of the pushed-down join(s).
-	 * We can skip this if this join was never a candidate to be pushed up.
+	 * 反过来，若我们现在正在形成这样一对已交换 OJ 的
+	 * 最终结果，就该加上被下推的 join(s) 的 relid(s)。
+	 * 若这个连接从不是上推候选，可以跳过。
 	 */
 	if (sjinfo->commute_above_l)
 	{
@@ -840,11 +840,11 @@ add_outer_joins_to_relids(PlannerInfo *root, Relids input_relids,
 		ListCell   *lc;
 
 		/*
-		 * The current join could complete the nulling of more than one
-		 * pushed-down join, so we have to examine all the SpecialJoinInfos.
-		 * Because join_info_list was built in bottom-up order, it's
-		 * sufficient to traverse it once: an ojrelid we add in one loop
-		 * iteration would not have affected decisions of earlier iterations.
+		 * 当前连接也许能完成不止一个
+		 * 被下推连接的空值填充，因此必须检查全部 SpecialJoinInfos。
+		 * 因为 join_info_list 是自底向上建立的，
+		 * 遍历它一次就够了：某次循环迭代中加入的 ojrelid
+		 * 不会影响更早迭代的决定。
 		 */
 		foreach(lc, root->join_info_list)
 		{
@@ -852,27 +852,27 @@ add_outer_joins_to_relids(PlannerInfo *root, Relids input_relids,
 
 			if (othersj == sjinfo ||
 				othersj->ojrelid == 0 || othersj->jointype != JOIN_LEFT)
-				continue;		/* definitely not interesting */
+				continue;		/* 肯定不值得关注 */
 
 			if (!bms_is_member(othersj->ojrelid, commute_above_rels))
 				continue;
 
-			/* Add it if not already present but conditions now satisfied */
+			/* 若尚未存在、但条件现已满足，则加入它 */
 			if (!bms_is_member(othersj->ojrelid, input_relids) &&
 				bms_is_subset(othersj->min_lefthand, input_relids) &&
 				bms_is_subset(othersj->min_righthand, input_relids) &&
 				bms_is_subset(othersj->commute_below_l, input_relids))
 			{
 				input_relids = bms_add_member(input_relids, othersj->ojrelid);
-				/* report such pushed down outer joins, if asked */
+				/* 若调用方要求，则报告这些被下推的外连接 */
 				if (pushed_down_joins != NULL)
 					*pushed_down_joins = lappend(*pushed_down_joins, othersj);
 
 				/*
-				 * We must also check any joins that othersj potentially
-				 * commutes with.  They likewise must appear later in
-				 * join_info_list than othersj itself, so we can visit them
-				 * later in this loop.
+				 * 还必须检查 othersj 可能与之
+				 * 交换的任何连接。它们同样必须出现在
+				 * join_info_list 中 othersj 本身之后，因此可以在
+				 * 这个循环的稍后访问它们。
 				 */
 				commute_above_rels = bms_add_members(commute_above_rels,
 													 othersj->commute_above_l);
@@ -885,10 +885,10 @@ add_outer_joins_to_relids(PlannerInfo *root, Relids input_relids,
 
 /*
  * populate_joinrel_with_paths
- *	  Add paths to the given joinrel for given pair of joining relations. The
- *	  SpecialJoinInfo provides details about the join and the restrictlist
- *	  contains the join clauses and the other clauses applicable for given pair
- *	  of the joining relations.
+ *	  为给定的一对连接关系，向给定连接关系添加路径。
+ *	  SpecialJoinInfo 提供该连接的细节，restrictlist
+ *	  包含连接子句以及适用于这一对
+ *	  连接关系的其他子句。
  */
 static void
 populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
@@ -896,22 +896,22 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 							SpecialJoinInfo *sjinfo, List *restrictlist)
 {
 	/*
-	 * Consider paths using each rel as both outer and inner.  Depending on
-	 * the join type, a provably empty outer or inner rel might mean the join
-	 * is provably empty too; in which case throw away any previously computed
-	 * paths and mark the join as dummy.  (We do it this way since it's
-	 * conceivable that dummy-ness of a multi-element join might only be
-	 * noticeable for certain construction paths.)
+	 * 考虑把每个关系分别当作外层和内层的路径。取决于
+	 * 连接类型，已证明为空的外层或内层关系也许意味着该连接
+	 * 也已证明为空；此时丢掉先前算出的任何
+	 * 路径，并把该连接标为哑。（我们这样做是因为
+	 * 多元素连接的哑性质也许只对
+	 * 某些构造路径才看得出来。）
 	 *
-	 * Also, a provably constant-false join restriction typically means that
-	 * we can skip evaluating one or both sides of the join.  We do this by
-	 * marking the appropriate rel as dummy.  For outer joins, a
-	 * constant-false restriction that is pushed down still means the whole
-	 * join is dummy, while a non-pushed-down one means that no inner rows
-	 * will join so we can treat the inner rel as dummy.
+	 * 另外，已证明恒为假的连接限制通常意味着
+	 * 可以跳过连接一侧或两侧的求值。做法是
+	 * 把相应关系标为哑。对外连接，被下推的
+	 * 恒假限制仍意味着整个
+	 * 连接是哑的，而未下推的则意味着没有内层行
+	 * 会连上，因此可以把内层关系当作哑的。
 	 *
-	 * We need only consider the jointypes that appear in join_info_list, plus
-	 * JOIN_INNER.
+	 * 只需考虑 join_info_list 中出现的连接类型，外加
+	 * JOIN_INNER。
 	 */
 	switch (sjinfo->jointype)
 	{
@@ -961,11 +961,11 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 								 restrictlist);
 
 			/*
-			 * If there are join quals that aren't mergeable or hashable, we
-			 * may not be able to build any valid plan.  Complain here so that
-			 * we can give a somewhat-useful error message.  (Since we have no
-			 * flexibility of planning for a full join, there's no chance of
-			 * succeeding later with another pair of input rels.)
+			 * 若有既不可归并也不可哈希的连接限定条件，我们
+			 * 也许无法构造出任何有效计划。在这里报错，以便
+			 * 给出还算有用的错误信息。（由于对全连接的
+			 * 规划没有余地，以后换另一对输入关系
+			 * 也不会成功。）
 			 */
 			if (joinrel->pathlist == NIL)
 				ereport(ERROR,
@@ -975,10 +975,10 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 		case JOIN_SEMI:
 
 			/*
-			 * We might have a normal semijoin, or a case where we don't have
-			 * enough rels to do the semijoin but can unique-ify the RHS and
-			 * then do an innerjoin (see comments in join_is_legal).  In the
-			 * latter case we can't apply JOIN_SEMI joining.
+			 * 我们也许有一次普通半连接，或者关系还不够、
+			 * 做不了半连接、但可以把 RHS 唯一化
+			 * 再做内连接的情形（见 join_is_legal 的注释）。在
+			 * 后一种情形下无法应用 JOIN_SEMI 连接。
 			 */
 			if (bms_is_subset(sjinfo->min_lefthand, rel1->relids) &&
 				bms_is_subset(sjinfo->min_righthand, rel2->relids))
@@ -995,12 +995,12 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 			}
 
 			/*
-			 * If we know how to unique-ify the RHS and one input rel is
-			 * exactly the RHS (not a superset) we can consider unique-ifying
-			 * it and then doing a regular join.  (The create_unique_path
-			 * check here is probably redundant with what join_is_legal did,
-			 * but if so the check is cheap because it's cached.  So test
-			 * anyway to be sure.)
+			 * 若我们知道如何把 RHS 唯一化，且一个输入关系
+			 * 恰好就是 RHS（不是超集），就可以考虑先把它唯一化，
+			 * 再做普通连接。（这里的 create_unique_path
+			 * 检查多半与 join_is_legal 做过的重复，
+			 * 但即便如此，检查也很便宜，因为有缓存。所以还是
+			 * 测一下以求稳妥。）
 			 */
 			if (bms_equal(sjinfo->syn_righthand, rel2->relids) &&
 				create_unique_path(root, rel2, rel2->cheapest_total_path,
@@ -1038,35 +1038,35 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 								 restrictlist);
 			break;
 		default:
-			/* other values not expected here */
+			/* 这里不预期出现其他值 */
 			elog(ERROR, "unrecognized join type: %d", (int) sjinfo->jointype);
 			break;
 	}
 
-	/* Apply partitionwise join technique, if possible. */
+	/* 若可能，应用按分区连接技术。 */
 	try_partitionwise_join(root, rel1, rel2, joinrel, sjinfo, restrictlist);
 }
 
 
 /*
  * have_join_order_restriction
- *		Detect whether the two relations should be joined to satisfy
- *		a join-order restriction arising from special or lateral joins.
+ *		检测这两个关系是否应当连接，以满足
+ *		由特殊连接或横向连接引起的连接顺序限制。
  *
- * In practice this is always used with have_relevant_joinclause(), and so
- * could be merged with that function, but it seems clearer to separate the
- * two concerns.  We need this test because there are degenerate cases where
- * a clauseless join must be performed to satisfy join-order restrictions.
- * Also, if one rel has a lateral reference to the other, or both are needed
- * to compute some PHV, we should consider joining them even if the join would
- * be clauseless.
+ * 实践中它总是与 have_relevant_joinclause() 一起使用，因此
+ * 可以并入那个函数，但把两件事分开似乎更清楚。
+ * 需要这个测试，是因为存在退化情形：
+ * 必须做无子句连接才能满足连接顺序限制。
+ * 另外，若一个关系横向引用另一个，或两者都需要
+ * 用来计算某个 PHV，即使这次连接会是
+ * 无子句的，也应当考虑把它们连起来。
  *
- * Note: this is only a problem if one side of a degenerate outer join
- * contains multiple rels, or a clauseless join is required within an
- * IN/EXISTS RHS; else we will find a join path via the "last ditch" case in
- * join_search_one_level().  We could dispense with this test if we were
- * willing to try bushy plans in the "last ditch" case, but that seems much
- * less efficient.
+ * 注意：仅当退化外连接的一侧
+ * 包含多个关系，或 IN/EXISTS 的 RHS 内需要无子句连接时，这才成问题；
+ * 否则会经由 join_search_one_level() 的 "最后手段" 情形找到连接路径。
+ * 若愿意在 "最后手段" 情形尝试丛状计划，就可以省掉这个测试，
+ * 但那似乎
+ * 低效得多。
  */
 bool
 have_join_order_restriction(PlannerInfo *root,
@@ -1076,19 +1076,19 @@ have_join_order_restriction(PlannerInfo *root,
 	ListCell   *l;
 
 	/*
-	 * If either side has a direct lateral reference to the other, attempt the
-	 * join regardless of outer-join considerations.
+	 * 若任一侧直接横向引用另一侧，就尝试这次
+	 * 连接，不必考虑外连接方面的因素。
 	 */
 	if (bms_overlap(rel1->relids, rel2->direct_lateral_relids) ||
 		bms_overlap(rel2->relids, rel1->direct_lateral_relids))
 		return true;
 
 	/*
-	 * Likewise, if both rels are needed to compute some PlaceHolderVar,
-	 * attempt the join regardless of outer-join considerations.  (This is not
-	 * very desirable, because a PHV with a large eval_at set will cause a lot
-	 * of probably-useless joins to be considered, but failing to do this can
-	 * cause us to fail to construct a plan at all.)
+	 * 同样，若两个关系都需要用来计算某个 PlaceHolderVar，
+	 * 就尝试这次连接，不必考虑外连接方面的因素。（这并不
+	 * 很理想，因为 eval_at 集合很大的 PHV 会导致考虑大量
+	 * 多半无用的连接，但不这样做
+	 * 可能导致我们根本构造不出计划。）
 	 */
 	foreach(l, root->placeholder_list)
 	{
@@ -1100,22 +1100,22 @@ have_join_order_restriction(PlannerInfo *root,
 	}
 
 	/*
-	 * It's possible that the rels correspond to the left and right sides of a
-	 * degenerate outer join, that is, one with no joinclause mentioning the
-	 * non-nullable side; in which case we should force the join to occur.
+	 * 这两个关系可能对应退化外连接的左右两侧，
+	 * 也就是没有连接子句提及
+	 * 非空侧的那种；此时应当强制进行该连接。
 	 *
-	 * Also, the two rels could represent a clauseless join that has to be
-	 * completed to build up the LHS or RHS of an outer join.
+	 * 这两个关系也可能表示一次无子句连接，必须把它
+	 * 做完才能建起某个外连接的 LHS 或 RHS。
 	 */
 	foreach(l, root->join_info_list)
 	{
 		SpecialJoinInfo *sjinfo = (SpecialJoinInfo *) lfirst(l);
 
-		/* ignore full joins --- other mechanisms handle them */
+		/* 忽略全连接---其他机制会处理它们 */
 		if (sjinfo->jointype == JOIN_FULL)
 			continue;
 
-		/* Can we perform the SJ with these rels? */
+		/* 能否用这些关系执行该 SJ？ */
 		if (bms_is_subset(sjinfo->min_lefthand, rel1->relids) &&
 			bms_is_subset(sjinfo->min_righthand, rel2->relids))
 		{
@@ -1130,9 +1130,9 @@ have_join_order_restriction(PlannerInfo *root,
 		}
 
 		/*
-		 * Might we need to join these rels to complete the RHS?  We have to
-		 * use "overlap" tests since either rel might include a lower SJ that
-		 * has been proven to commute with this one.
+		 * 是否需要连接这些关系才能完成 RHS？必须
+		 * 使用 "重叠" 测试，因为任一关系都可能包含一个更低的 SJ，
+		 * 而该 SJ 已被证明可与这个交换。
 		 */
 		if (bms_overlap(sjinfo->min_righthand, rel1->relids) &&
 			bms_overlap(sjinfo->min_righthand, rel2->relids))
@@ -1141,7 +1141,7 @@ have_join_order_restriction(PlannerInfo *root,
 			break;
 		}
 
-		/* Likewise for the LHS. */
+		/* LHS 也同样处理。 */
 		if (bms_overlap(sjinfo->min_lefthand, rel1->relids) &&
 			bms_overlap(sjinfo->min_lefthand, rel2->relids))
 		{
@@ -1151,13 +1151,13 @@ have_join_order_restriction(PlannerInfo *root,
 	}
 
 	/*
-	 * We do not force the join to occur if either input rel can legally be
-	 * joined to anything else using joinclauses.  This essentially means that
-	 * clauseless bushy joins are put off as long as possible. The reason is
-	 * that when there is a join order restriction high up in the join tree
-	 * (that is, with many rels inside the LHS or RHS), we would otherwise
-	 * expend lots of effort considering very stupid join combinations within
-	 * its LHS or RHS.
+	 * 若任一输入关系可以用连接子句合法地
+	 * 连到别的东西，我们就不强制进行这次连接。这实质上意味着
+	 * 无子句的丛状连接被尽量推迟。原因是
+	 * 当连接树高处有连接顺序限制时
+	 * （也就是 LHS 或 RHS 内有许多关系），否则我们会
+	 * 花大量工夫去考虑其 LHS 或 RHS 内部那些
+	 * 非常愚蠢的连接组合。
 	 */
 	if (result)
 	{
@@ -1172,14 +1172,14 @@ have_join_order_restriction(PlannerInfo *root,
 
 /*
  * has_join_restriction
- *		Detect whether the specified relation has join-order restrictions,
- *		due to being inside an outer join or an IN (sub-SELECT),
- *		or participating in any LATERAL references or multi-rel PHVs.
+ *		检测指定关系是否有连接顺序限制，
+ *		原因是它位于外连接或 IN（子 SELECT）之内，
+ *		或参与了任何 LATERAL 引用或多关系 PHVs。
  *
- * Essentially, this tests whether have_join_order_restriction() could
- * succeed with this rel and some other one.  It's OK if we sometimes
- * say "true" incorrectly.  (Therefore, we don't bother with the relatively
- * expensive has_legal_joinclause test.)
+ * 本质上，这是在测试 have_join_order_restriction() 能否
+ * 对这个关系和某个其他关系成功。有时错误地说 "true" 也没关系。
+ * （因此我们不去费心做相对
+ * 昂贵的 has_legal_joinclause 测试。）
  */
 static bool
 has_join_restriction(PlannerInfo *root, RelOptInfo *rel)
@@ -1202,16 +1202,16 @@ has_join_restriction(PlannerInfo *root, RelOptInfo *rel)
 	{
 		SpecialJoinInfo *sjinfo = (SpecialJoinInfo *) lfirst(l);
 
-		/* ignore full joins --- other mechanisms preserve their ordering */
+		/* 忽略全连接---其他机制会保持它们的顺序 */
 		if (sjinfo->jointype == JOIN_FULL)
 			continue;
 
-		/* ignore if SJ is already contained in rel */
+		/* 若 SJ 已包含在 rel 中则忽略 */
 		if (bms_is_subset(sjinfo->min_lefthand, rel->relids) &&
 			bms_is_subset(sjinfo->min_righthand, rel->relids))
 			continue;
 
-		/* restricted if it overlaps LHS or RHS, but doesn't contain SJ */
+		/* 若它与 LHS 或 RHS 重叠、但不包含 SJ，则受限 */
 		if (bms_overlap(sjinfo->min_lefthand, rel->relids) ||
 			bms_overlap(sjinfo->min_righthand, rel->relids))
 			return true;
@@ -1223,19 +1223,19 @@ has_join_restriction(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * has_legal_joinclause
- *		Detect whether the specified relation can legally be joined
- *		to any other rels using join clauses.
+ *		检测指定关系能否合法地用连接子句
+ *		连到任何其他关系。
  *
- * We consider only joins to single other relations in the current
- * initial_rels list.  This is sufficient to get a "true" result in most real
- * queries, and an occasional erroneous "false" will only cost a bit more
- * planning time.  The reason for this limitation is that considering joins to
- * other joins would require proving that the other join rel can legally be
- * formed, which seems like too much trouble for something that's only a
- * heuristic to save planning time.  (Note: we must look at initial_rels
- * and not all of the query, since when we are planning a sub-joinlist we
- * may be forced to make clauseless joins within initial_rels even though
- * there are join clauses linking to other parts of the query.)
+ * 我们只考虑与当前
+ * initial_rels 列表中单个其他关系的连接。这对多数真实
+ * 查询足以得到 "true"；偶尔错误的 "false" 只是多花一点
+ * 规划时间。这个限制的原因是：考虑连到
+ * 其他连接需要证明那个连接关系可以合法
+ * 形成，对一个只是用来节省规划时间的
+ * 启发式来说，这似乎太麻烦。（注意：必须看 initial_rels，
+ * 而不是整个查询，因为在规划子连接列表时，
+ * 即使有连接子句连向查询的其他部分，
+ * 我们仍可能被迫在 initial_rels 内部做无子句连接。）
  */
 static bool
 has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
@@ -1246,7 +1246,7 @@ has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
 	{
 		RelOptInfo *rel2 = (RelOptInfo *) lfirst(lc);
 
-		/* ignore rels that are already in "rel" */
+		/* 忽略已经在 "rel" 中的关系 */
 		if (bms_overlap(rel->relids, rel2->relids))
 			continue;
 
@@ -1256,13 +1256,13 @@ has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
 			SpecialJoinInfo *sjinfo;
 			bool		reversed;
 
-			/* join_is_legal needs relids of the union */
+			/* join_is_legal 需要并集的 relids */
 			joinrelids = bms_union(rel->relids, rel2->relids);
 
 			if (join_is_legal(root, rel, rel2, joinrelids,
 							  &sjinfo, &reversed))
 			{
-				/* Yes, this will work */
+				/* 是的，这样可行 */
 				bms_free(joinrelids);
 				return true;
 			}
@@ -1276,30 +1276,30 @@ has_legal_joinclause(PlannerInfo *root, RelOptInfo *rel)
 
 
 /*
- * There's a pitfall for creating parameterized nestloops: suppose the inner
- * rel (call it A) has a parameter that is a PlaceHolderVar, and that PHV's
- * minimum eval_at set includes the outer rel (B) and some third rel (C).
- * We might think we could create a B/A nestloop join that's parameterized by
- * C.  But we would end up with a plan in which the PHV's expression has to be
- * evaluated as a nestloop parameter at the B/A join; and the executor is only
- * set up to handle simple Vars as NestLoopParams.  Rather than add complexity
- * and overhead to the executor for such corner cases, it seems better to
- * forbid the join.  (Note that we can still make use of A's parameterized
- * path with pre-joined B+C as the outer rel.  have_join_order_restriction()
- * ensures that we will consider making such a join even if there are not
- * other reasons to do so.)
+ * 创建参数化嵌套循环有个陷阱：假设内层
+ * 关系（称为 A）有一个参数是 PlaceHolderVar，且该 PHV 的
+ * 最小 eval_at 集合包含外层关系（B）和某个第三关系（C）。
+ * 我们也许以为可以创建一个由 C 参数化的 B/A 嵌套循环连接。
+ * 但最终计划里，该 PHV 的表达式必须
+ * 在 B/A 连接处作为嵌套循环参数求值；而执行器只
+ * 准备好把简单 Var 当作 NestLoopParams。与其给执行器增加
+ * 复杂性和开销来处理这种边角情形，看来更好的做法是
+ * 禁止该连接。（注意我们仍可以使用 A 的参数化
+ * 路径，把预先连接的 B+C 当作外层关系。have_join_order_restriction()
+ * 保证即使没有
+ * 其他理由，我们也会考虑做这样的连接。）
  *
- * So we check whether any PHVs used in the query could pose such a hazard.
- * We don't have any simple way of checking whether a risky PHV would actually
- * be used in the inner plan, and the case is so unusual that it doesn't seem
- * worth working very hard on it.
+ * 因此我们检查查询中用到的任何 PHVs 是否会造成这种危险。
+ * 我们没有简单办法检查有风险的 PHV 是否真的
+ * 会用在内层计划里，而这种情形如此少见，似乎不
+ * 值得花很大力气。
  *
- * This needs to be checked in two places.  If the inner rel's minimum
- * parameterization would trigger the restriction, then join_is_legal() should
- * reject the join altogether, because there will be no workable paths for it.
- * But joinpath.c has to check again for every proposed nestloop path, because
- * the inner path might have more than the minimum parameterization, causing
- * some PHV to be dangerous for it that otherwise wouldn't be.
+ * 这需要在两处检查。若内层关系的最小
+ * 参数化会触发该限制，则 join_is_legal() 应当
+ * 整个拒绝该连接，因为不会有可用的路径。
+ * 但 joinpath.c 必须对每条提议的嵌套循环路径再检查一次，因为
+ * 内层路径的参数化也许超过最小值，从而使
+ * 某个 PHV 对它变得危险，否则并不会。
  */
 bool
 have_dangerous_phv(PlannerInfo *root,
@@ -1312,22 +1312,22 @@ have_dangerous_phv(PlannerInfo *root,
 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(lc);
 
 		if (!bms_is_subset(phinfo->ph_eval_at, inner_params))
-			continue;			/* ignore, could not be a nestloop param */
+			continue;			/* 忽略，无法成为嵌套循环参数 */
 		if (!bms_overlap(phinfo->ph_eval_at, outer_relids))
-			continue;			/* ignore, not relevant to this join */
+			continue;			/* 忽略，与这次连接无关 */
 		if (bms_is_subset(phinfo->ph_eval_at, outer_relids))
-			continue;			/* safe, it can be eval'd within outerrel */
-		/* Otherwise, it's potentially unsafe, so reject the join */
+			continue;			/* 安全，它可以在 outerrel 内求值 */
+		/* 否则它可能不安全，因此拒绝该连接 */
 		return true;
 	}
 
-	/* OK to perform the join */
+	/* 可以执行该连接 */
 	return false;
 }
 
 
 /*
- * is_dummy_rel --- has relation been proven empty?
+ * is_dummy_rel --- 该关系是否已被证明为空？
  */
 bool
 is_dummy_rel(RelOptInfo *rel)
@@ -1335,19 +1335,19 @@ is_dummy_rel(RelOptInfo *rel)
 	Path	   *path;
 
 	/*
-	 * A rel that is known dummy will have just one path that is a childless
-	 * Append.  (Even if somehow it has more paths, a childless Append will
-	 * have cost zero and hence should be at the front of the pathlist.)
+	 * 已知为哑的关系只会有一条路径，即没有子节点的
+	 * Append。（即使它不知怎么有更多路径，没有子节点的 Append
+	 * 代价为零，因此应当排在 pathlist 的最前面。）
 	 */
 	if (rel->pathlist == NIL)
 		return false;
 	path = (Path *) linitial(rel->pathlist);
 
 	/*
-	 * Initially, a dummy path will just be a childless Append.  But in later
-	 * planning stages we might stick a ProjectSetPath and/or ProjectionPath
-	 * on top, since Append can't project.  Rather than make assumptions about
-	 * which combinations can occur, just descend through whatever we find.
+	 * 起初，哑路径只是一个没有子节点的 Append。但在以后的
+	 * 规划阶段，我们也许会在上面贴一个 ProjectSetPath 和/或 ProjectionPath，
+	 * 因为 Append 无法做投影。与其假设
+	 * 哪些组合会出现，不如顺着找到的东西一直往下走。
 	 */
 	for (;;)
 	{
@@ -1364,45 +1364,45 @@ is_dummy_rel(RelOptInfo *rel)
 }
 
 /*
- * Mark a relation as proven empty.
+ * 把一个关系标为已证明为空。
  *
- * During GEQO planning, this can get invoked more than once on the same
- * baserel struct, so it's worth checking to see if the rel is already marked
- * dummy.
+ * 在 GEQO 规划期间，同一个
+ * 基关系结构可能被调用不止一次，因此值得检查该关系是否已经标为
+ * 哑。
  *
- * Also, when called during GEQO join planning, we are in a short-lived
- * memory context.  We must make sure that the dummy path attached to a
- * baserel survives the GEQO cycle, else the baserel is trashed for future
- * GEQO cycles.  On the other hand, when we are marking a joinrel during GEQO,
- * we don't want the dummy path to clutter the main planning context.  Upshot
- * is that the best solution is to explicitly make the dummy path in the same
- * context the given RelOptInfo is in.
+ * 另外，在 GEQO 连接规划期间调用时，我们处于一个短命的
+ * 内存上下文。必须确保挂在基关系上的哑路径
+ * 能活过这次 GEQO 循环，否则该基关系会被破坏，影响以后的
+ * GEQO 循环。另一方面，在 GEQO 期间把连接关系标为哑时，
+ * 我们不希望哑路径弄乱主规划上下文。结论
+ * 是最好的办法是在给定 RelOptInfo 所在的同一
+ * 上下文里显式创建哑路径。
  */
 void
 mark_dummy_rel(RelOptInfo *rel)
 {
 	MemoryContext oldcontext;
 
-	/* Already marked? */
+	/* 已经标过了？ */
 	if (is_dummy_rel(rel))
 		return;
 
-	/* No, so choose correct context to make the dummy path in */
+	/* 没有，因此选择正确的上下文来创建哑路径 */
 	oldcontext = MemoryContextSwitchTo(GetMemoryChunkContext(rel));
 
-	/* Set dummy size estimate */
+	/* 设置哑的大小估计 */
 	rel->rows = 0;
 
-	/* Evict any previously chosen paths */
+	/* 清掉先前选中的任何路径 */
 	rel->pathlist = NIL;
 	rel->partial_pathlist = NIL;
 
-	/* Set up the dummy path */
+	/* 建立哑路径 */
 	add_path(rel, (Path *) create_append_path(NULL, rel, NIL, NIL,
 											  NIL, rel->lateral_relids,
 											  0, false, -1));
 
-	/* Set or update cheapest_total_path and related fields */
+	/* 设置或更新 cheapest_total_path 及相关字段 */
 	set_cheapest(rel);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -1410,16 +1410,16 @@ mark_dummy_rel(RelOptInfo *rel)
 
 
 /*
- * restriction_is_constant_false --- is a restrictlist just FALSE?
+ * restriction_is_constant_false --- 限制列表是不是就是 FALSE？
  *
- * In cases where a qual is provably constant FALSE, eval_const_expressions
- * will generally have thrown away anything that's ANDed with it.  In outer
- * join situations this will leave us computing cartesian products only to
- * decide there's no match for an outer row, which is pretty stupid.  So,
- * we need to detect the case.
+ * 在限定条件可证明恒为 FALSE 的情形下，eval_const_expressions
+ * 通常会丢掉任何与它 ANDed 的东西。在外
+ * 连接情形下，这会让我们去算笛卡尔积，只是为了
+ * 判定外层行没有匹配，这相当愚蠢。因此
+ * 我们需要检测这种情况。
  *
- * If only_pushed_down is true, then consider only quals that are pushed-down
- * from the point of view of the joinrel.
+ * 若 only_pushed_down 为 true，则只考虑从连接关系的角度看被下推的
+ * 限定条件。
  */
 static bool
 restriction_is_constant_false(List *restrictlist,
@@ -1429,10 +1429,10 @@ restriction_is_constant_false(List *restrictlist,
 	ListCell   *lc;
 
 	/*
-	 * Despite the above comment, the restriction list we see here might
-	 * possibly have other members besides the FALSE constant, since other
-	 * quals could get "pushed down" to the outer join level.  So we check
-	 * each member of the list.
+	 * 尽管有上面的注释，这里看到的限制列表
+	 * 除了 FALSE 常量之外也许还有其他成员，因为其他
+	 * 限定条件可能被 "下推" 到外连接这一层。因此我们检查
+	 * 列表的每个成员。
 	 */
 	foreach(lc, restrictlist)
 	{
@@ -1445,7 +1445,7 @@ restriction_is_constant_false(List *restrictlist,
 		{
 			Const	   *con = (Const *) rinfo->clause;
 
-			/* constant NULL is as good as constant FALSE for our purposes */
+			/* 就我们的目的而言，常量 NULL 和常量 FALSE 一样好 */
 			if (con->constisnull)
 				return true;
 			if (!DatumGetBool(con->constvalue))
@@ -1456,24 +1456,24 @@ restriction_is_constant_false(List *restrictlist,
 }
 
 /*
- * Assess whether join between given two partitioned relations can be broken
- * down into joins between matching partitions; a technique called
- * "partitionwise join"
+ * 评估给定的两个分区关系之间的连接能否被拆
+ * 成匹配分区之间的连接；这种技术叫做
+ * "按分区连接"
  *
- * Partitionwise join is possible when a. Joining relations have same
- * partitioning scheme b. There exists an equi-join between the partition keys
- * of the two relations.
+ * 当 a. 被连接关系具有相同
+ * 分区方案 b. 两个关系的分区键之间存在等值连接时，
+ * 就可以做按分区连接。
  *
- * Partitionwise join is planned as follows (details: optimizer/README.)
+ * 按分区连接的规划如下（细节见 optimizer/README。）
  *
- * 1. Create the RelOptInfos for joins between matching partitions i.e
- * child-joins and add paths to them.
+ * 1. 为匹配分区之间的连接创建 RelOptInfos，即
+ * 子连接，并向它们添加路径。
  *
- * 2. Construct Append or MergeAppend paths across the set of child joins.
- * This second phase is implemented by generate_partitionwise_join_paths().
+ * 2. 跨这组子连接构造 Append 或 MergeAppend 路径。
+ * 第二阶段由 generate_partitionwise_join_paths() 实现。
  *
- * The RelOptInfo, SpecialJoinInfo and restrictlist for each child join are
- * obtained by translating the respective parent join structures.
+ * 每个子连接的 RelOptInfo、SpecialJoinInfo 和限制列表
+ * 通过转换相应的父连接结构得到。
  */
 static void
 try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
@@ -1488,32 +1488,32 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 	ListCell   *lcr2 = NULL;
 	int			cnt_parts;
 
-	/* Guard against stack overflow due to overly deep partition hierarchy. */
+	/* 防止分区层次过深导致栈溢出。 */
 	check_stack_depth();
 
-	/* Nothing to do, if the join relation is not partitioned. */
+	/* 若连接关系未分区，则无事可做。 */
 	if (joinrel->part_scheme == NULL || joinrel->nparts == 0)
 		return;
 
-	/* The join relation should have consider_partitionwise_join set. */
+	/* 连接关系应当已设置 consider_partitionwise_join。 */
 	Assert(joinrel->consider_partitionwise_join);
 
 	/*
-	 * We can not perform partitionwise join if either of the joining
-	 * relations is not partitioned.
+	 * 若参与连接的任一
+	 * 关系未分区，就无法做按分区连接。
 	 */
 	if (!IS_PARTITIONED_REL(rel1) || !IS_PARTITIONED_REL(rel2))
 		return;
 
 	Assert(REL_HAS_ALL_PART_PROPS(rel1) && REL_HAS_ALL_PART_PROPS(rel2));
 
-	/* The joining relations should have consider_partitionwise_join set. */
+	/* 参与连接的关系应当已设置 consider_partitionwise_join。 */
 	Assert(rel1->consider_partitionwise_join &&
 		   rel2->consider_partitionwise_join);
 
 	/*
-	 * The partition scheme of the join relation should match that of the
-	 * joining relations.
+	 * 连接关系的分区方案应当与
+	 * 参与连接的关系一致。
 	 */
 	Assert(joinrel->part_scheme == rel1->part_scheme &&
 		   joinrel->part_scheme == rel2->part_scheme);
@@ -1530,9 +1530,9 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 	}
 
 	/*
-	 * Create child-join relations for this partitioned join, if those don't
-	 * exist. Add paths to child-joins for a pair of child relations
-	 * corresponding to the given pair of parent relations.
+	 * 若尚不存在，则为这个分区连接创建子连接关系。
+	 * 向子连接添加路径，对应给定那对父关系的
+	 * 一对子关系。
 	 */
 	for (cnt_parts = 0; cnt_parts < joinrel->nparts; cnt_parts++)
 	{
@@ -1563,55 +1563,55 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 		rel2_empty = (child_rel2 == NULL || IS_DUMMY_REL(child_rel2));
 
 		/*
-		 * Check for cases where we can prove that this segment of the join
-		 * returns no rows, due to one or both inputs being empty (including
-		 * inputs that have been pruned away entirely).  If so just ignore it.
-		 * These rules are equivalent to populate_joinrel_with_paths's rules
-		 * for dummy input relations.
+		 * 检查能否证明这段连接
+		 * 不返回行，原因是一个或两个输入为空（包括
+		 * 已被完全剪枝的输入）。若是，就忽略它。
+		 * 这些规则等价于 populate_joinrel_with_paths 对
+		 * 哑输入关系的规则。
 		 */
 		switch (parent_sjinfo->jointype)
 		{
 			case JOIN_INNER:
 			case JOIN_SEMI:
 				if (rel1_empty || rel2_empty)
-					continue;	/* ignore this join segment */
+					continue;	/* 忽略这段连接 */
 				break;
 			case JOIN_LEFT:
 			case JOIN_ANTI:
 				if (rel1_empty)
-					continue;	/* ignore this join segment */
+					continue;	/* 忽略这段连接 */
 				break;
 			case JOIN_FULL:
 				if (rel1_empty && rel2_empty)
-					continue;	/* ignore this join segment */
+					continue;	/* 忽略这段连接 */
 				break;
 			default:
-				/* other values not expected here */
+				/* 这里不预期出现其他值 */
 				elog(ERROR, "unrecognized join type: %d",
 					 (int) parent_sjinfo->jointype);
 				break;
 		}
 
 		/*
-		 * If a child has been pruned entirely then we can't generate paths
-		 * for it, so we have to reject partitionwise joining unless we were
-		 * able to eliminate this partition above.
+		 * 若某个子分区已被完全剪枝，就无法为它生成路径，
+		 * 因此必须拒绝按分区连接，除非上面已经
+		 * 能把这个分区消掉。
 		 */
 		if (child_rel1 == NULL || child_rel2 == NULL)
 		{
 			/*
-			 * Mark the joinrel as unpartitioned so that later functions treat
-			 * it correctly.
+			 * 把该连接关系标为未分区，以便后面的函数
+			 * 正确处理它。
 			 */
 			joinrel->nparts = 0;
 			return;
 		}
 
 		/*
-		 * If a leaf relation has consider_partitionwise_join=false, it means
-		 * that it's a dummy relation for which we skipped setting up tlist
-		 * expressions and adding EC members in set_append_rel_size(), so
-		 * again we have to fail here.
+		 * 若叶关系的 consider_partitionwise_join 为 false，意味着
+		 * 它是哑关系，我们在 set_append_rel_size() 里跳过了为它设置 tlist
+		 * 表达式和添加 EC 成员，因此
+		 * 这里必须再次失败。
 		 */
 		if (rel1_is_simple && !child_rel1->consider_partitionwise_join)
 		{
@@ -1628,33 +1628,33 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 			return;
 		}
 
-		/* We should never try to join two overlapping sets of rels. */
+		/* 绝不应当尝试连接两个重叠的关系集合。 */
 		Assert(!bms_overlap(child_rel1->relids, child_rel2->relids));
 
 		/*
-		 * Construct SpecialJoinInfo from parent join relations's
-		 * SpecialJoinInfo.
+		 * 根据父连接关系的
+		 * SpecialJoinInfo 构造 SpecialJoinInfo。
 		 */
 		child_sjinfo = build_child_join_sjinfo(root, parent_sjinfo,
 											   child_rel1->relids,
 											   child_rel2->relids);
 
-		/* Find the AppendRelInfo structures */
+		/* 找到 AppendRelInfo 结构 */
 		appinfos = find_appinfos_by_relids(root,
 										   bms_union(child_rel1->relids,
 													 child_rel2->relids),
 										   &nappinfos);
 
 		/*
-		 * Construct restrictions applicable to the child join from those
-		 * applicable to the parent join.
+		 * 根据适用于父连接的限制，构造适用于子连接的
+		 * 限制。
 		 */
 		child_restrictlist =
 			(List *) adjust_appendrel_attrs(root,
 											(Node *) parent_restrictlist,
 											nappinfos, appinfos);
 
-		/* Find or construct the child join's RelOptInfo */
+		/* 查找或构造子连接的 RelOptInfo */
 		child_joinrel = joinrel->part_rels[cnt_parts];
 		if (!child_joinrel)
 		{
@@ -1667,12 +1667,12 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 													child_joinrel->relids);
 		}
 
-		/* Assert we got the right one */
+		/* 断言我们得到的是正确的那一个 */
 		Assert(bms_equal(child_joinrel->relids,
 						 adjust_child_relids(joinrel->relids,
 											 nappinfos, appinfos)));
 
-		/* And make paths for the child join */
+		/* 并为子连接创建路径 */
 		populate_joinrel_with_paths(root, child_rel1, child_rel2,
 									child_joinrel, child_sjinfo,
 									child_restrictlist);
@@ -1682,9 +1682,9 @@ try_partitionwise_join(PlannerInfo *root, RelOptInfo *rel1, RelOptInfo *rel2,
 }
 
 /*
- * Construct the SpecialJoinInfo for a child-join by translating
- * SpecialJoinInfo for the join between parents. left_relids and right_relids
- * are the relids of left and right side of the join respectively.
+ * 通过转换父表之间连接的 SpecialJoinInfo，构造子连接的 SpecialJoinInfo。
+ * left_relids 和 right_relids
+ * 分别是连接左右两侧的 relids。
  */
 static SpecialJoinInfo *
 build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
@@ -1712,7 +1712,7 @@ build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
 	sjinfo->syn_righthand = adjust_child_relids(sjinfo->syn_righthand,
 												right_nappinfos,
 												right_appinfos);
-	/* outer-join relids need no adjustment */
+	/* 外连接 relids 不需要调整 */
 	sjinfo->semi_rhs_exprs = (List *) adjust_appendrel_attrs(root,
 															 (Node *) sjinfo->semi_rhs_exprs,
 															 right_nappinfos,
@@ -1726,7 +1726,7 @@ build_child_join_sjinfo(PlannerInfo *root, SpecialJoinInfo *parent_sjinfo,
 
 /*
  * compute_partition_bounds
- *		Compute the partition bounds for a join rel from those for inputs
+ *		根据输入的分区边界计算连接关系的分区边界
  */
 static void
 compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
@@ -1735,8 +1735,8 @@ compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 						 List **parts1, List **parts2)
 {
 	/*
-	 * If we don't have the partition bounds for the join rel yet, try to
-	 * compute those along with pairs of partitions to be joined.
+	 * 若还没有连接关系的分区边界，就尝试
+	 * 连同待连接的分区对一起算出来。
 	 */
 	if (joinrel->nparts == -1)
 	{
@@ -1748,14 +1748,14 @@ compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 		Assert(joinrel->part_rels == NULL);
 
 		/*
-		 * See if the partition bounds for inputs are exactly the same, in
-		 * which case we don't need to work hard: the join rel will have the
-		 * same partition bounds as inputs, and the partitions with the same
-		 * cardinal positions will form the pairs.
+		 * 看输入的分区边界是否完全相同，若是
+		 * 就不必费力：连接关系将具有与输入
+		 * 相同的分区边界，基数位置相同的分区
+		 * 将组成对。
 		 *
-		 * Note: even in cases where one or both inputs have merged bounds, it
-		 * would be possible for both the bounds to be exactly the same, but
-		 * it seems unlikely to be worth the cycles to check.
+		 * 注意：即使一个或两个输入的边界已经合并，
+		 * 两边的边界仍可能完全相同，但
+		 * 为此再花周期去检查似乎不值得。
 		 */
 		if (!rel1->partbounds_merged &&
 			!rel2->partbounds_merged &&
@@ -1770,7 +1770,7 @@ compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 		}
 		else
 		{
-			/* Try merging the partition bounds for inputs. */
+			/* 尝试合并输入的分区边界。 */
 			boundinfo = partition_bounds_merge(part_scheme->partnatts,
 											   part_scheme->partsupfunc,
 											   part_scheme->partcollation,
@@ -1799,11 +1799,11 @@ compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 		Assert(joinrel->part_rels);
 
 		/*
-		 * If the join rel's partbounds_merged flag is true, it means inputs
-		 * are not guaranteed to have the same partition bounds, therefore we
-		 * can't assume that the partitions at the same cardinal positions
-		 * form the pairs; let get_matching_part_pairs() generate the pairs.
-		 * Otherwise, nothing to do since we can assume that.
+		 * 若连接关系的 partbounds_merged 标志为 true，意味着输入
+		 * 不保证具有相同的分区边界，因此我们
+		 * 无法假定基数位置相同的分区
+		 * 组成对；让 get_matching_part_pairs() 来生成这些对。
+		 * 否则无需做事，因为可以这样假定。
 		 */
 		if (joinrel->partbounds_merged)
 		{
@@ -1817,7 +1817,7 @@ compute_partition_bounds(PlannerInfo *root, RelOptInfo *rel1,
 
 /*
  * get_matching_part_pairs
- *		Generate pairs of partitions to be joined from inputs
+ *		从输入生成待连接的分区对
  */
 static void
 get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
@@ -1840,12 +1840,12 @@ get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
 		Relids		child_relids2;
 
 		/*
-		 * If this segment of the join is empty, it means that this segment
-		 * was ignored when previously creating child-join paths for it in
-		 * try_partitionwise_join() as it would not contribute to the join
-		 * result, due to one or both inputs being empty; add NULL to each of
-		 * the given lists so that this segment will be ignored again in that
-		 * function.
+		 * 若这段连接为空，意味着先前在
+		 * try_partitionwise_join() 里为它创建子连接路径时忽略了这段，
+		 * 因为它不会对连接
+		 * 结果有贡献，原因是一个或两个输入为空；向每个
+		 * 给定列表加入 NULL，以便该函数再次
+		 * 忽略这段。
 		 */
 		if (!child_joinrel)
 		{
@@ -1855,21 +1855,21 @@ get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
 		}
 
 		/*
-		 * Get a relids set of partition(s) involved in this join segment that
-		 * are from the rel1 side.
+		 * 取得参与这个连接段、且
+		 * 来自 rel1 一侧的 partition(s) 的 relids 集合。
 		 */
 		child_relids1 = bms_intersect(child_joinrel->relids,
 									  rel1->all_partrels);
 		Assert(bms_num_members(child_relids1) == bms_num_members(rel1->relids));
 
 		/*
-		 * Get a child rel for rel1 with the relids.  Note that we should have
-		 * the child rel even if rel1 is a join rel, because in that case the
-		 * partitions specified in the relids would have matching/overlapping
-		 * boundaries, so the specified partitions should be considered as
-		 * ones to be joined when planning partitionwise joins of rel1,
-		 * meaning that the child rel would have been built by the time we get
-		 * here.
+		 * 用这些 relids 取得 rel1 的一个子关系。注意即使 rel1 是连接关系，
+		 * 我们也应当有这个子关系，因为那种情况下
+		 * relids 指定的分区会有匹配或重叠的
+		 * 边界，因此在规划 rel1 的按分区连接时，这些指定分区应被当作
+		 * 要连接的分区，
+		 * 这意味着走到
+		 * 这里时该子关系应当已经建好。
 		 */
 		if (rel1_is_simple)
 		{
@@ -1882,15 +1882,15 @@ get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
 		Assert(child_rel1);
 
 		/*
-		 * Get a relids set of partition(s) involved in this join segment that
-		 * are from the rel2 side.
+		 * 取得参与这个连接段、且
+		 * 来自 rel2 一侧的 partition(s) 的 relids 集合。
 		 */
 		child_relids2 = bms_intersect(child_joinrel->relids,
 									  rel2->all_partrels);
 		Assert(bms_num_members(child_relids2) == bms_num_members(rel2->relids));
 
 		/*
-		 * Get a child rel for rel2 with the relids.  See above comments.
+		 * 用这些 relids 取得 rel2 的一个子关系。见上面的注释。
 		 */
 		if (rel2_is_simple)
 		{
@@ -1903,9 +1903,9 @@ get_matching_part_pairs(PlannerInfo *root, RelOptInfo *joinrel,
 		Assert(child_rel2);
 
 		/*
-		 * The join of rel1 and rel2 is legal, so is the join of the child
-		 * rels obtained above; add them to the given lists as a join pair
-		 * producing this join segment.
+		 * rel1 与 rel2 的连接是合法的，因此上面得到的子
+		 * 关系的连接也合法；把它们作为产生这段连接的一对
+		 * 加入给定列表。
 		 */
 		*parts1 = lappend(*parts1, child_rel1);
 		*parts2 = lappend(*parts2, child_rel2);

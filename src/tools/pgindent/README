@@ -1,161 +1,145 @@
-pgindent'ing the PostgreSQL source tree
-=======================================
+对 PostgreSQL 源码树运行 pgindent
+=================================
 
-We run this process at least once in each development cycle,
-to maintain uniform layout style in our C and Perl code.
+我们在每个开发周期至少运行一次此过程，以在 C 和 Perl 代码中保持统一的
+排版风格。
 
-You might find this blog post interesting:
+你可能对这篇博文感兴趣：
 http://adpgtech.blogspot.com/2015/05/running-pgindent-on-non-core-code-or.html
 
 
-PREREQUISITES:
+先决条件：
 
-1) Install pg_bsd_indent in your PATH.  Its source code is in the
-   sibling directory src/tools/pg_bsd_indent; see the directions
-   in that directory's README file.
+1) 把 pg_bsd_indent 安装到 PATH 中。其源码在兄弟目录
+   src/tools/pg_bsd_indent；见该目录 README 中的说明。
 
-2) Install perltidy.  Please be sure it is version 20230309 (older and newer
-   versions make different formatting choices, and we want consistency).
-   You can get the correct version from
+2) 安装 perltidy。请确保是 20230309 版（更旧和更新的版本会做出不同的
+   格式化选择，我们需要一致性）。
+   正确版本可从
    https://cpan.metacpan.org/authors/id/S/SH/SHANCOCK/
-   To install, follow the usual install process for a Perl module
-   ("man perlmodinstall" explains it).  Or, if you have cpan installed,
-   this should work:
+   获得。安装时遵循 Perl 模块的通常安装过程（"man perlmodinstall"
+   有说明）。或者，若已安装 cpan，这样应该可行：
    cpan SHANCOCK/Perl-Tidy-20230309.tar.gz
-   Or if you have cpanm installed, you can just use:
+   若已安装 cpanm，可以直接：
    cpanm https://cpan.metacpan.org/authors/id/S/SH/SHANCOCK/Perl-Tidy-20230309.tar.gz
 
-DOING THE INDENT RUN:
+执行缩进运行：
 
-1) Change directory to the top of the source tree.
+1) 切换到源码树顶层。
 
-2) Download the latest typedef file from the buildfarm:
+2) 从 buildfarm 下载最新 typedef 文件：
 
 	wget -O src/tools/pgindent/typedefs.list https://buildfarm.postgresql.org/cgi-bin/typedefs.pl
 
-   (See https://buildfarm.postgresql.org/cgi-bin/typedefs.pl?show_list for a full
-   list of typedef files, if you want to indent some back branch.)
+   （完整 typedef 文件列表见
+   https://buildfarm.postgresql.org/cgi-bin/typedefs.pl?show_list ，
+   若要对某个旧分支做缩进。）
 
-3) Run pgindent on the C files:
+3) 对 C 文件运行 pgindent：
 
 	src/tools/pgindent/pgindent .
 
-   If any files generate errors, restore their original versions with
-   "git checkout", and see below for cleanup ideas.
+   若有文件产生错误，用 "git checkout" 恢复其原始版本，并见下文的清理
+   思路。
 
-4) Indent the Perl code using perltidy:
+4) 用 perltidy 缩进 Perl 代码：
 
 	src/tools/pgindent/pgperltidy .
 
-   If you want to use some perltidy version that's not in your PATH,
-   first set the PERLTIDY environment variable to point to it.
+   若要用 PATH 中没有的某个 perltidy 版本，先把 PERLTIDY 环境变量指
+   向它。
 
-5) Reformat the bootstrap catalog data files:
+5) 重新格式化引导目录数据文件：
 
-	./configure     # "make" will not work in an unconfigured tree
+	./configure     # 未 configure 的树中 "make" 不能工作
 	cd src/include/catalog
 	make reformat-dat-files
 	cd ../../..
 
-VALIDATION:
+校验：
 
-1) Check for any newly-created files using "git status"; there shouldn't
-   be any.  (pgindent leaves *.BAK files behind if it has trouble, while
-   perltidy leaves *.LOG files behind.)
+1) 用 "git status" 检查是否有新创建的文件；不应有任何。
+   （pgindent 遇到麻烦会留下 *.BAK 文件，perltidy 会留下 *.LOG 文件。）
 
-2) Do a full test build:
+2) 做一次完整测试构建：
 
 	make -s clean
-	make -s all	# look for unexpected warnings, and errors of course
+	make -s all	# 查找意外告警，当然还有错误
 	make check-world
 
-   Your configure switches should include at least --enable-tap-tests
-   or else much of the Perl code won't get exercised.
-   The ecpg regression tests may well fail due to pgindent's updates of
-   header files that get copied into ecpg output; if so, adjust the
-   expected-files to match.
+   你的 configure 开关至少应包含 --enable-tap-tests，否则大量 Perl
+   代码不会被行使。
+   ecpg 回归测试很可能因 pgindent 更新了会复制进 ecpg 输出的头文件而
+   失败；若如此，调整 expected 文件以匹配。
 
-3) If you have the patience, it's worth eyeballing the "git diff" output
-   for any egregiously ugly changes.  See below for cleanup ideas.
+3) 若有耐心，值得用眼睛扫一遍 "git diff" 输出，看有没有特别难看的改
+   动。清理思路见下文。
 
 
-When you're done, "git commit" everything including the typedefs.list file
-you used.
+完成后，用 "git commit" 提交一切，包括你使用的 typedefs.list 文件。
 
-4) Add the newly created commits to the .git-blame-ignore-revs file so
-   that "git blame" ignores the commits (for anybody that has opted-in
-   to using the ignore file).  Follow the instructions that appear at
-   the top of the .git-blame-ignore-revs file.
+4) 把新创建的提交加到 .git-blame-ignore-revs 文件中，以便 "git blame"
+   忽略这些提交（对选择使用该忽略文件的人）。遵循
+   .git-blame-ignore-revs 文件顶部的说明。
 
-Another "git commit" will be required for your ignore file changes.
+忽略文件的改动还需要再一次 "git commit"。
 
 ---------------------------------------------------------------------------
 
-Cleaning up in case of failure or ugly output
----------------------------------------------
+失败或难看输出时的清理
+----------------------
 
-If you don't like the results for any particular file, "git checkout"
-that file to undo the changes, patch the file as needed, then repeat
-the indent process.
+若你不喜欢某个文件的结果，用 "git checkout" 撤销该文件的改动，按需打
+补丁，然后重复缩进过程。
 
-pgindent will reflow any comment block that's not at the left margin.
-If this messes up manual formatting that ought to be preserved, protect
-the comment block with some dashes:
+pgindent 会重排任何不在左页边的注释块。
+若这打乱了应予保留的手工格式，用一些短划线保护该注释块：
 
 	/*----------
 	 * Text here will not be touched by pgindent.
 	 *----------
 	 */
 
-Odd spacing around typedef names might indicate an incomplete typedefs list.
+typedef 名周围的奇怪空格可能表明 typedefs 列表不完整。
 
-pgindent will mangle both declaration and definition of a C function whose
-name matches a typedef.  Currently the best workaround is to choose
-non-conflicting names.
+若 C 函数名与某个 typedef 相同，pgindent 会损坏其声明和定义。目前最好
+的变通是选用不冲突的名字。
 
-pgindent can get confused by #if sequences that look correct to the compiler
-but have mismatched braces/parentheses when considered as a whole.  Usually
-that looks pretty unreadable to humans too, so best practice is to rearrange
-the #if tests to avoid it.
+pgindent 可能被对编译器看起来正确、但作为整体看括号不匹配的 #if 序列
+弄糊涂。这对人来说通常也很难读，因此最佳做法是重排 #if 测试以避免它。
 
-Sometimes, if pgindent or perltidy produces odd-looking output, it's because
-of minor bugs like extra commas.  Don't hesitate to clean that up while
-you're at it.
+有时，若 pgindent 或 perltidy 产生看起来奇怪的输出，是因为多余逗号这
+类小毛病。趁此清理不要犹豫。
 
 ---------------------------------------------------------------------------
 
 BSD indent
 ----------
 
-We have standardized on FreeBSD's indent, and renamed it pg_bsd_indent.
-pg_bsd_indent does differ slightly from FreeBSD's version, mostly in
-being more easily portable to non-BSD platforms.  Find it in the
-sibling directory src/tools/pg_bsd_indent.
+我们已标准化为 FreeBSD 的 indent，并把它改名为 pg_bsd_indent。
+pg_bsd_indent 与 FreeBSD 版本确有细微差别，主要是更容易移植到非 BSD
+平台。它在兄弟目录 src/tools/pg_bsd_indent。
 
-GNU indent, version 2.2.6, has several problems, and is not recommended.
-These bugs become pretty major when you are doing >500k lines of code.
-If you don't believe me, take a directory and make a copy.  Run pgindent
-on the copy using GNU indent, and do a diff -r. You will see what I
-mean. GNU indent does some things better, but mangles too.  For details,
-see:
+GNU indent 2.2.6 有若干问题，不推荐。
+在处理超过 50 万行代码时，这些缺陷会变得相当严重。
+若不信，复制一个目录。用 GNU indent 对副本运行 pgindent，再做
+diff -r。你就会明白我的意思。GNU indent 有些事做得更好，但也搞糟不少。
+细节见：
 
 	http://archives.postgresql.org/pgsql-hackers/2003-10/msg00374.php
 	http://archives.postgresql.org/pgsql-hackers/2011-04/msg01436.php
 
 ---------------------------------------------------------------------------
 
-Which files are processed
--------------------------
+处理哪些文件
+------------
 
-The pgindent run processes (nearly) all PostgreSQL *.c and *.h files,
-but we currently exclude *.y and *.l files, as well as *.c and *.h files
-derived from *.y and *.l files.  Additional exceptions are listed
-in exclude_file_patterns; see the notes therein for rationale.
+pgindent 运行处理（几乎）所有 PostgreSQL 的 *.c 和 *.h 文件，
+但目前排除 *.y 和 *.l 文件，以及由 *.y 和 *.l 派生的 *.c 和 *.h 文件。
+额外例外列在 exclude_file_patterns；理由见其中的说明。
 
-Note that we do not exclude ecpg's header files from the run.  Some of them
-get copied verbatim into ecpg's output, meaning that ecpg's expected files
-may need to be updated to match.
+注意我们并不把 ecpg 的头文件排除在此次运行之外。其中一些会原样复制进
+ecpg 的输出，意味着 ecpg 的 expected 文件可能需要更新以匹配。
 
-The perltidy run processes all *.pl and *.pm files, plus a few
-executable Perl scripts that are not named that way.  See the "find"
-rules in pgperltidy for details.
+perltidy 运行处理所有 *.pl 和 *.pm 文件，外加少数不以这种方式命名的
+可执行 Perl 脚本。细节见 pgperltidy 中的 "find" 规则。

@@ -625,6 +625,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0017-readme-nodes-stats.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/test/ssl/README",
+   "kind": "readme",
+   "note": "SSL TAP tests and certificates"
+  },
+  {
+   "pattern": "src/test/perl/README",
+   "kind": "readme",
+   "note": "Perl TAP infrastructure"
+  },
+  {
+   "pattern": "src/tools/pgindent/README",
+   "kind": "readme",
+   "note": "pgindent runbook"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/README",
+   "kind": "readme",
+   "note": "1998 subselect notes; email headers kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0018-readme-ssl-perl.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2372,7 +2397,57 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/test/ssl/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SSL TAP tests and certificates"
+  },
+  {
+   "path": "src/test/perl/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Perl TAP infrastructure"
+  },
+  {
+   "path": "src/tools/pgindent/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgindent runbook"
+  },
+  {
+   "path": "src/backend/optimizer/plan/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1998 subselect notes; email headers kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0018-readme-ssl-perl.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 62 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 66 of 88 include files translated."
 }

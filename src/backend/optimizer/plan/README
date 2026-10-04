@@ -1,7 +1,7 @@
 src/backend/optimizer/plan/README
 
-Subselects
-==========
+子查询
+======
 
 Vadim B. Mikheev
 
@@ -33,63 +33,50 @@ Sender: owner-pgsql-hackers@hub.org
 Precedence: bulk
 Status: OR
 
-This is some implementation notes and opened issues...
+这是一些实现说明和未决问题……
 
-First, implementation uses new type of parameters - PARAM_EXEC - to deal
-with correlation Vars. When query_planner() is called, it first tries to
-replace all upper queries Var referenced in current query with Param of
-this type. Some global variables are used to keep mapping of Vars to
-Params and Params to Vars.
+首先，实现使用新型参数 PARAM_EXEC 来处理相关 Var。调用
+query_planner() 时，它首先尝试把当前查询中引用的上层查询 Var 替换成
+这种类型的 Param。一些全局变量用来维护 Var 到 Param 以及 Param 到 Var
+的映射。
 
-After this, all current query' SubLinks are processed: for each SubLink
-found in query' qual union_planner() (old planner() function) will be
-called to plan corresponding subselect (union_planner() calls
-query_planner() for "simple" query and supports UNIONs). After subselect
-are planned, optimizer knows about is this correlated, un-correlated or
-_undirect_ correlated (references some grand-parent Vars but no parent
-ones: uncorrelated from the parent' point of view) query.
+此后处理当前查询的全部 SubLink：对查询条件中找到的每个 SubLink，调用
+union_planner()（原先的 planner() 函数）来规划对应的子查询
+（union_planner() 对“简单”查询调用 query_planner()，并支持 UNION）。
+子查询规划完成后，优化器就知道它是相关、不相关，还是_间接_相关（引用
+某些祖父母 Var 但不引用父查询 Var：从父查询的角度看是不相关）查询。
 
-For uncorrelated and undirect correlated subqueries of EXPRession or
-EXISTS type SubLinks will be replaced with "normal" clauses from
-SubLink->Oper list (I changed this list to be list of EXPR nodes,
-not just Oper ones). Right sides of these nodes are replaced with
-PARAM_EXEC parameters. This is second use of new parameter type.
-At run-time these parameters get value from result of subquery
-evaluation (i.e. - from target list of subquery). Execution plan of
-subquery itself becomes init plan of parent query. InitPlan knows
-what parameters are to get values from subquery' results and will be
-executed "on-demand" (for query select * from table where x > 0 and
-y > (select max(a) from table_a) subquery will not be executed at all
-if there are no tuples with x > 0 _and_ y is not used in index scan).
+对 EXPR 或 EXISTS 类型的不相关和间接相关子查询，SubLink 会被替换成
+SubLink->Oper 列表中的“普通”子句（我把该列表改成了 EXPR 节点列表，
+而不再只是 Oper）。这些节点的右侧替换为 PARAM_EXEC 参数。这是新型参数
+的第二种用途。运行时这些参数从子查询求值结果取值（即从子查询的目标列
+表）。子查询自身的执行计划成为父查询的 init plan。InitPlan 知道哪些
+参数要从子查询结果取值，并将“按需”执行（对查询 select * from table
+where x > 0 and y > (select max(a) from table_a)，若没有 x > 0 的元组
+_并且_ y 未用于索引扫描，子查询根本不会执行）。
 
-SubLinks for subqueries of all other types are transformed into
-new type of Expr node - SUBPLAN_EXPR. Expr->args are just correlation
-variables from _parent_ query. Expr->oper is new SubPlan node.
+所有其他类型子查询的 SubLink 转换成新型 Expr 节点 SUBPLAN_EXPR。
+Expr->args 就是来自_父_查询的相关变量。Expr->oper 是新的 SubPlan 节点。
 
-This node is used for InitPlan too. It keeps subquery range table,
-indices of Params which are to get value from _parent_ query Vars
-(i.e. - from Expr->args), indices of Params into which subquery'
-results are to be substituted (this is for InitPlans), SubLink
-and subquery' execution plan.
+InitPlan 也使用该节点。它保存子查询范围表、要从_父_查询 Var 取值的
+Param 下标（即来自 Expr->args）、子查询结果要代入的 Param 下标（这是
+给 InitPlan 用的）、SubLink 以及子查询的执行计划。
 
-Plan node was changed to know about dependencies on Params from
-parent queries and InitPlans, to keep list of changed Params
-(from the above) and so be re-scanned if this list is not NULL.
-Also, added list of InitPlans (actually, all of them for current
-query are in topmost plan node now) and other SubPlans (from
-plan->qual) - to initialize them and let them know about changed
-Params (from the list of their "interests").
+Plan 节点已更改，以了解对来自父查询和 InitPlan 的 Param 的依赖，保存
+已更改 Param 的列表（来自上述），从而在该列表非空时重新扫描。另外还
+增加了 InitPlan 列表（目前当前查询的全部 InitPlan 都在最顶层计划节点
+中）以及其他 SubPlan（来自 plan->qual）—— 以便初始化它们，并让它们知
+道已更改的 Param（来自它们“关心”的列表）。
 
-After all SubLinks are processed, query_planner() calls qual'
-canonificator and does "normal" work. By using Params optimizer
-is mostly unchanged.
+处理完所有 SubLink 后，query_planner() 调用条件规范化器并做“正常”
+工作。通过使用 Param，优化器大体保持不变。
 
-Well, Executor. To get subplans re-evaluated without ExecutorStart()
-and ExecutorEnd() (without opening and closing relations and indices
-and without many palloc() and pfree() - this is what SQL-funcs does
-on each call) ExecReScan() now supports most of Plan types...
+好，执行器。为了在不调用 ExecutorStart() 和 ExecutorEnd() 的情况下重新
+求值子计划（不打开和关闭关系与索引，也不做大量 palloc() 和 pfree()
+—— 这正是 SQL 函数每次调用所做的），ExecReScan() 现在支持大多数 Plan
+类型……
 
-Explanation of EXPLAIN.
+EXPLAIN 的解释。
 
 vac=> explain select * from tmp where x >= (select max(x2) from test2
 where y2 = y and exists (select * from tempx where tx = x));
@@ -97,45 +84,43 @@ NOTICE:  QUERY PLAN:
 
 Seq Scan on tmp  (cost=40.03 size=101 width=8)
   SubPlan
-  ^^^^^^^ subquery is in Seq Scan' qual, its plan is below
+  ^^^^^^^ 子查询在 Seq Scan 的条件中，其计划如下
     ->  Aggregate  (cost=2.05 size=0 width=0)
           InitPlan
-          ^^^^^^^^ EXISTS subsubquery is InitPlan of subquery
+          ^^^^^^^^ EXISTS 子子查询是子查询的 InitPlan
             ->  Seq Scan on tempx  (cost=4.33 size=1 width=4)
           ->  Result  (cost=2.05 size=0 width=0)
-              ^^^^^^ EXISTS subsubquery was transformed into Param
-                     and so we have Result node here
+              ^^^^^^ EXISTS 子子查询被转换成 Param
+                     因此这里有 Result 节点
                 ->  Index Scan on test2  (cost=2.05 size=1 width=4)
 
 
-Opened issues.
+未决问题。
 
-1. No read permissions checking (easy, just not done yet).
-2. readfuncs.c can't read subplan-s (easy, not critical, because of
-   we currently nowhere use ascii representation of execution plans).
-3. ExecReScan() doesn't support all plan types. At least support for
-   MergeJoin has to be implemented.
-4. Memory leaks in ExecReScan().
-5. I need in advice: if subquery introduced with NOT IN doesn't return
-   any tuples then qualification is failed, yes ?
-6. Regression tests !!!!!!!!!!!!!!!!!!!!
-   (Could we use data/queries from MySQL' crash.me ?
-    Copyright-ed ? Could they give us rights ?)
-7. Performance.
-   - Should be good when subquery is transformed into InitPlan.
-   - Something should be done for uncorrelated subqueries introduced
-     with ANY/ALL - keep thinking. Currently, subplan will be re-scanned
-     for each parent tuple - very slow...
+1. 没有读权限检查（容易，只是还没做）。
+2. readfuncs.c 读不了 subplan（容易，不关键，因为我们目前任何地方都
+   不用执行计划的 ascii 表示）。
+3. ExecReScan() 并不支持所有计划类型。至少要实现 MergeJoin 的支持。
+4. ExecReScan() 中的内存泄漏。
+5. 我需要建议：若以 NOT IN 引入的子查询不返回任何元组，则条件失败，对
+   吗？
+6. 回归测试！！！！！！！！！！！！
+   （能用 MySQL crash.me 的数据/查询吗？
+    有版权？他们能授权给我们吗？）
+7. 性能。
+   - 子查询转换成 InitPlan 时应该不错。
+   - 对以 ANY/ALL 引入的不相关子查询还得想想办法。目前子计划会对每个
+     父元组重新扫描 —— 非常慢……
 
-Results of some test. TMP is table with x,y (int4-s), x in 0-9,
-y = 100 - x, 1000 tuples (10 duplicates of each tuple). TEST2 is table
-with x2, y2 (int4-s), x2 in 1-99, y2 = 100 -x2, 10000 tuples (100 dups).
+某次测试的结果。TMP 是带 x,y（int4）的表，x 在 0-9，
+y = 100 - x，1000 个元组（每种元组 10 份重复）。TEST2 是带 x2, y2
+（int4）的表，x2 在 1-99，y2 = 100 -x2，10000 个元组（100 份重复）。
 
-   Trying
+   尝试
 
 select * from tmp where x >= (select max(x2) from test2 where y2 = y);
 
-   and
+   以及
 
 begin;
 select y as ty, max(x2) as mx into table tsub from test2, tmp
@@ -145,14 +130,14 @@ select x, y from tmp, tsub where x >= mx and y = ty;
 drop table tsub;
 end;
 
-   Without index on test2(y2):
+   在 test2(y2) 上没有索引时：
 
-SubSelect         -> 320 sec
-Using temp table  -> 32 sec
+SubSelect         -> 320 秒
+Using temp table  -> 32 秒
 
-   Having index
+   有索引时
 
-SubSelect         -> 17 sec (2M of memory)
-Using temp table  -> 32 sec (12M of memory: -S 8192)
+SubSelect         -> 17 秒（2M 内存）
+Using temp table  -> 32 秒（12M 内存：-S 8192）
 
 Vadim

@@ -1,0 +1,104 @@
+{
+ "schema_version": 1,
+ "batch_id": "0018-readme-ssl-perl",
+ "title": "zh: translate SSL, TAP, pgindent and subselect READMEs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ea68fec68159ad74f86bc236e64aff2ec6ebd415",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/test/ssl/README",
+   "kind": "readme",
+   "note": "SSL TAP tests and certificates"
+  },
+  {
+   "pattern": "src/test/perl/README",
+   "kind": "readme",
+   "note": "Perl TAP infrastructure"
+  },
+  {
+   "pattern": "src/tools/pgindent/README",
+   "kind": "readme",
+   "note": "pgindent runbook"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/README",
+   "kind": "readme",
+   "note": "1998 subselect notes; email headers kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0018-readme-ssl-perl.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/test/ssl/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SSL TAP tests and certificates"
+  },
+  {
+   "path": "src/test/perl/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Perl TAP infrastructure"
+  },
+  {
+   "path": "src/tools/pgindent/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pgindent runbook"
+  },
+  {
+   "path": "src/backend/optimizer/plan/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "1998 subselect notes; email headers kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0018-readme-ssl-perl.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Eighth README batch: 4 files. Perl/SQL samples, email headers, EXPLAIN trees and make commands kept. cluster->集簇."
+}

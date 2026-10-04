@@ -1,61 +1,52 @@
-Perl-based TAP tests
-====================
+基于 Perl 的 TAP 测试
+=====================
 
-src/test/perl/ contains shared infrastructure that's used by Perl-based tests
-across the source tree, particularly tests in src/bin and src/test. It's used
-to drive tests for backup and restore, replication, etc - anything that can't
-really be expressed using pg_regress or the isolation test framework.
+src/test/perl/ 包含源码树中基于 Perl 的测试所用的共享基础设施，尤其是
+src/bin 和 src/test 中的测试。它用来驱动备份恢复、复制等测试 —— 任何
+无法用 pg_regress 或隔离测试框架表达的东西。
 
-The tests are invoked via perl's 'prove' command, wrapped in PostgreSQL
-makefiles to handle instance setup etc. See the $(prove_check) and
-$(prove_installcheck) targets in Makefile.global. By default every test in the
-t/ subdirectory is run. Individual test(s) can be run instead by passing
-something like PROVE_TESTS="t/001_testname.pl t/002_othertestname.pl" to make.
+测试通过 perl 的 'prove' 命令调用，由 PostgreSQL makefile 包装以处理
+实例搭建等。见 Makefile.global 中的 $(prove_check) 和
+$(prove_installcheck) 目标。默认运行 t/ 子目录中的每个测试。也可以向
+make 传入类似 PROVE_TESTS="t/001_testname.pl t/002_othertestname.pl"
+的内容，只运行个别测试。
 
-By default, to keep the noise low during runs, we do not set any flags via
-PROVE_FLAGS, but this can be done on the 'make' command line if desired, eg:
+默认情况下，为降低运行时噪音，我们不通过 PROVE_FLAGS 设置任何标志，
+但可以在 'make' 命令行上按需设置，例如：
 
 make check-world PROVE_FLAGS='--verbose'
 
-When a test fails, the terminal output from 'prove' is usually not sufficient
-to diagnose the problem.  Look into the log files that are left under
-tmp_check/log/ to get more info.  Files named 'regress_log_XXX' are log
-output from the perl test scripts themselves, and should be examined first.
-Other files are postmaster logs, and may be helpful as additional data.
+测试失败时，'prove' 的终端输出通常不足以诊断问题。请查看留在
+tmp_check/log/ 下的日志文件以获取更多信息。名为 'regress_log_XXX' 的
+文件是 perl 测试脚本自身的日志输出，应首先查看。其他文件是
+postmaster 日志，可作为补充数据。
 
-The tests default to a timeout of 180 seconds for many individual operations.
-Slow hosts may avoid load-induced, spurious failures by setting environment
-variable PG_TEST_TIMEOUT_DEFAULT to some number of seconds greater than 180.
-Developers may see faster failures by setting that environment variable to
-some lesser number of seconds.
+许多单独操作的默认超时是 180 秒。较慢的主机可以通过把环境变量
+PG_TEST_TIMEOUT_DEFAULT 设为大于 180 的秒数，避免因负载引起的虚假
+失败。开发者也可以把它设为更小的秒数，以便更快看到失败。
 
-Data directories will also be left behind for analysis when a test fails;
-they are named according to the test filename.  But if the environment
-variable PG_TEST_NOCLEAN is set, the data directories will be retained
-regardless of test status.  This environment variable also prevents the
-test's temporary directories from being removed.
+测试失败时数据目录也会留下来供分析；按测试文件名命名。但若设置了环境
+变量 PG_TEST_NOCLEAN，无论测试状态如何都会保留数据目录。该环境变量也
+会阻止删除测试的临时目录。
 
 
-Writing tests
--------------
+编写测试
+--------
 
-You should prefer to write tests using pg_regress in src/test/regress, or
-isolation tester specs in src/test/isolation, if possible. If not, check to
-see if your new tests make sense under an existing tree in src/test, like
-src/test/ssl, or should be added to one of the suites for an existing utility.
+若可能，应优先用 src/test/regress 中的 pg_regress，或 src/test/isolation
+中的 isolation tester 规格来写测试。若不行，检查新测试是否适合放在
+src/test 下现有树中（如 src/test/ssl），或应加入某个现有实用程序的套件。
 
-Note that all tests and test tools should have perltidy run on them before
-patches are submitted, using perltidy --profile=src/tools/pgindent/perltidyrc
+注意，提交补丁前应对所有测试和测试工具运行 perltidy，使用
+perltidy --profile=src/tools/pgindent/perltidyrc
 
-Tests are written using Perl's Test::More with some PostgreSQL-specific
-infrastructure from src/test/perl providing node management, support for
-invoking 'psql' to run queries and get results, etc. You should read the
-documentation for Test::More before trying to write tests.
+测试用 Perl 的 Test::More 编写，加上 src/test/perl 提供的
+PostgreSQL 专用基础设施，用于节点管理、调用 'psql' 运行查询并取得结果
+等。写测试前应阅读 Test::More 的文档。
 
-Test scripts in the t/ subdirectory of a suite are executed in alphabetical
-order.
+套件 t/ 子目录中的测试脚本按字母顺序执行。
 
-Each test script should begin with:
+每个测试脚本应以如下开头：
 
     use strict;
     use warnings;
@@ -63,8 +54,7 @@ Each test script should begin with:
     use PostgreSQL::Test::Utils;
     use Test::More;
 
-then it will generally need to set up one or more nodes, run commands
-against them and evaluate the results. For example:
+然后一般需要搭建一个或多个节点，对它们运行命令并评估结果。例如：
 
     my $node = PostgreSQL::Test::Cluster->new('primary');
     $node->init;
@@ -75,42 +65,38 @@ against them and evaluate the results. For example:
 
     $node->stop('fast');
 
-Each test script should end with:
+每个测试脚本应以如下结束：
 
 	done_testing();
 
-Test::Builder::Level controls how far up in the call stack a test will look
-at when reporting a failure.  This should be incremented by any subroutine
-which directly or indirectly calls test routines from Test::More, such as
-ok() or is():
+Test::Builder::Level 控制测试在报告失败时沿调用栈向上看多远。任何直接
+或间接调用 Test::More 测试例程（如 ok() 或 is()）的子程序都应递增它：
 
     local $Test::Builder::Level = $Test::Builder::Level + 1;
 
-Read the documentation for more on how to write tests:
+关于如何写测试的更多内容见文档：
 
     perldoc Test::More
     perldoc Test::Builder
 
-For available PostgreSQL-specific test methods and some example tests read the
-perldoc for the test modules, e.g.:
+可用的 PostgreSQL 专用测试方法及一些示例测试，见各测试模块的 perldoc，
+例如：
 
     perldoc src/test/perl/PostgreSQL/Test/Cluster.pm
 
-Portability
------------
+可移植性
+--------
 
-Avoid using any bleeding-edge Perl features.  We have buildfarm animals
-running Perl versions as old as 5.14, so your tests will be expected
-to pass on that.
+避免使用任何最前沿的 Perl 特性。我们有 buildfarm 机器运行的 Perl 版本
+低至 5.14，因此你的测试应能在其上通过。
 
-Also, do not use any non-core Perl modules except IPC::Run.  Or, if you
-must do so for a particular test, arrange to skip the test when the needed
-module isn't present.  If unsure, you can consult Module::CoreList to find
-out whether a given module is part of the Perl core, and which module
-versions shipped with which Perl releases.
+另外，除 IPC::Run 外不要使用任何非核心 Perl 模块。或者，若某个测试必须
+如此，应在所需模块不存在时跳过该测试。若不确定，可查阅 Module::CoreList
+以了解给定模块是否属于 Perl 核心，以及哪些模块版本随哪些 Perl 发行版
+一起提供。
 
-One way to test for compatibility with old Perl versions is to use
-perlbrew; see http://perlbrew.pl .  After installing that, do
+测试与旧 Perl 版本兼容性的一种办法是使用 perlbrew；见
+http://perlbrew.pl 。安装后执行
 
     export PERLBREW_CONFIGURE_FLAGS='-de -Duseshrplib'
     perlbrew --force install 5.14.0
@@ -120,15 +106,14 @@ perlbrew; see http://perlbrew.pl .  After installing that, do
     cpanm install IPC::Run@0.79
     cpanm install ExtUtils::MakeMaker@6.50  # downgrade
 
-TIP: if Test::Simple's utf8 regression test hangs up, try setting a
-UTF8-compatible locale, e.g. "export LANG=en_US.utf8".
+提示：若 Test::Simple 的 utf8 回归测试卡住，尝试设置兼容 UTF8 的区域
+设置，例如 "export LANG=en_US.utf8"。
 
-Then re-run Postgres' configure to ensure the correct Perl is used when
-running tests.  To verify that the right Perl was found:
+然后重新运行 Postgres 的 configure，确保运行测试时使用正确的 Perl。
+要验证找到的是正确的 Perl：
 
     grep ^PERL= config.log
 
-Due to limitations of cpanm, this recipe doesn't exactly duplicate the
-module list of older buildfarm animals.  The discrepancies should seldom
-matter, but if you want to be sure, bypass cpanm and instead manually
-install the desired versions of Test::Simple and IPC::Run.
+由于 cpanm 的限制，这套配方并不能精确复制较旧 buildfarm 机器的模块
+列表。差异很少要紧，但若想确定，可绕过 cpanm，改为手工安装所需版本
+的 Test::Simple 和 IPC::Run。

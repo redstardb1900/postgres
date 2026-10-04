@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0076-comment-optimizer-plan-createplan",
+ "title": "zh: translate createplan comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9e645b7475b5b2c953581ff176438fbb0223058d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/createplan.c",
+   "kind": "c_comment",
+   "note": "plan node construction"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0076-comment-optimizer-plan-createplan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/createplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 505,
+   "translated": 503,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through sort-column TLE match comment"
+   ],
+   "note": "plan node construction"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0076-comment-optimizer-plan-createplan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0076 translates src/backend/optimizer/plan/createplan.c."
+}

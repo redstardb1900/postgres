@@ -38,10 +38,10 @@
 #include "utils/memutils.h"
 
 /*
- * These SSL-related #includes must come after all system-provided headers.
- * This ensures that OpenSSL can take care of conflicts with Windows'
- * <wincrypt.h> by #undef'ing the conflicting macros.  (We don't directly
- * include <wincrypt.h>, but some other Windows headers do.)
+ * 这些与 SSL 相关的 #include 必须放在所有系统提供的头文件之后。
+ * 这样 OpenSSL 才能处理与 Windows 的
+ * <wincrypt.h> 的冲突，办法是 #undef 掉冲突的宏。（我们并不直接
+ * 包含 <wincrypt.h>，但其他一些 Windows 头文件会包含。）
  */
 #include "common/openssl.h"
 #include <openssl/conf.h>
@@ -52,7 +52,7 @@
 #include <openssl/x509v3.h>
 
 
-/* default init hook can be overridden by a shared library */
+/* 默认的初始化钩子可以被共享库覆盖 */
 static void default_openssl_tls_init(SSL_CTX *context, bool isServerStart);
 openssl_tls_init_hook_typ openssl_tls_init_hook = default_openssl_tls_init;
 
@@ -81,11 +81,11 @@ static bool ssl_is_server_start;
 static int	ssl_protocol_version_to_openssl(int v);
 static const char *ssl_protocol_version_to_string(int v);
 
-/* for passing data back from verify_cb() */
+/* 用于从 verify_cb() 传回数据 */
 static const char *cert_errdetail;
 
 /* ------------------------------------------------------------ */
-/*						 Public interface						*/
+/*						 公共接口						*/
 /* ------------------------------------------------------------ */
 
 int
@@ -95,7 +95,7 @@ be_tls_init(bool isServerStart)
 	int			ssl_ver_min = -1;
 	int			ssl_ver_max = -1;
 
-	/* This stuff need be done only once. */
+	/* 这些事情只需要做一次。 */
 	if (!SSL_initialized)
 	{
 #ifdef HAVE_OPENSSL_INIT_SSL
@@ -109,14 +109,14 @@ be_tls_init(bool isServerStart)
 	}
 
 	/*
-	 * Create a new SSL context into which we'll load all the configuration
-	 * settings.  If we fail partway through, we can avoid memory leakage by
-	 * freeing this context; we don't install it as active until the end.
+	 * 创建一个新的 SSL 上下文，我们将把全部配置
+	 * 设置装进去。若中途失败，可以通过释放该上下文
+	 * 避免内存泄漏；直到最后我们才把它安装为活动上下文。
 	 *
-	 * We use SSLv23_method() because it can negotiate use of the highest
-	 * mutually supported protocol version, while alternatives like
-	 * TLSv1_2_method() permit only one specific version.  Note that we don't
-	 * actually allow SSL v2 or v3, only TLS protocols (see below).
+	 * 我们使用 SSLv23_method()，因为它能协商双方
+	 * 共同支持的最高协议版本，而像
+	 * TLSv1_2_method() 这样的替代方案只允许一个特定版本。注意我们并不
+	 * 真正允许 SSL v2 或 v3，只允许 TLS 协议（见下文）。
 	 */
 	context = SSL_CTX_new(SSLv23_method());
 	if (!context)
@@ -128,21 +128,21 @@ be_tls_init(bool isServerStart)
 	}
 
 	/*
-	 * Disable OpenSSL's moving-write-buffer sanity check, because it causes
-	 * unnecessary failures in nonblocking send cases.
+	 * 禁用 OpenSSL 的移动写缓冲区健全性检查，因为它会在
+	 * 非阻塞发送情况下造成不必要的失败。
 	 */
 	SSL_CTX_set_mode(context, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
 
 	/*
-	 * Call init hook (usually to set password callback)
+	 * 调用初始化钩子（通常用来设置口令回调）
 	 */
 	(*openssl_tls_init_hook) (context, isServerStart);
 
-	/* used by the callback */
+	/* 供回调使用 */
 	ssl_is_server_start = isServerStart;
 
 	/*
-	 * Load and verify server's certificate and private key
+	 * 加载并验证服务器的证书和私钥
 	 */
 	if (SSL_CTX_use_certificate_chain_file(context, ssl_cert_file) != 1)
 	{
@@ -157,7 +157,7 @@ be_tls_init(bool isServerStart)
 		goto error;
 
 	/*
-	 * OK, try to load the private key file.
+	 * 好，尝试加载私钥文件。
 	 */
 	dummy_ssl_passwd_cb_called = false;
 
@@ -233,13 +233,13 @@ be_tls_init(bool isServerStart)
 		}
 	}
 
-	/* Check compatibility of min/max protocols */
+	/* 检查最小/最大协议的兼容性 */
 	if (ssl_min_protocol_version &&
 		ssl_max_protocol_version)
 	{
 		/*
-		 * No need to check for invalid values (-1) for each protocol number
-		 * as the code above would have already generated an error.
+		 * 不必检查每个协议号的无效值（-1），
+		 * 因为上面的代码应该已经产生了错误。
 		 */
 		if (ssl_ver_min > ssl_ver_max)
 		{
@@ -253,42 +253,42 @@ be_tls_init(bool isServerStart)
 	}
 
 	/*
-	 * Disallow SSL session tickets. OpenSSL use both stateful and stateless
-	 * tickets for TLSv1.3, and stateless ticket for TLSv1.2. SSL_OP_NO_TICKET
-	 * is available since 0.9.8f but only turns off stateless tickets. In
-	 * order to turn off stateful tickets we need SSL_CTX_set_num_tickets,
-	 * which is available since OpenSSL 1.1.1. LibreSSL 3.5.4 (from OpenBSD
-	 * 7.1) introduced this API for compatibility, but doesn't support session
-	 * tickets at all so it's a no-op there.
+	 * 禁止 SSL 会话票证。OpenSSL 对 TLSv1.3 同时使用有状态和无状态
+	 * 票证，对 TLSv1.2 使用无状态票证。SSL_OP_NO_TICKET
+	 * 自 0.9.8f 起可用，但只关掉无状态票证。为了
+	 * 关掉有状态票证，我们需要 SSL_CTX_set_num_tickets，
+	 * 它自 OpenSSL 1.1.1 起可用。LibreSSL 3.5.4（来自 OpenBSD
+	 * 7.1）为了兼容引入了这个 API，但根本不支持会话
+	 * 票证，所以在那里它是空操作。
 	 */
 #ifdef HAVE_SSL_CTX_SET_NUM_TICKETS
 	SSL_CTX_set_num_tickets(context, 0);
 #endif
 	SSL_CTX_set_options(context, SSL_OP_NO_TICKET);
 
-	/* disallow SSL session caching, too */
+	/* 也禁止 SSL 会话缓存 */
 	SSL_CTX_set_session_cache_mode(context, SSL_SESS_CACHE_OFF);
 
-	/* disallow SSL compression */
+	/* 禁止 SSL 压缩 */
 	SSL_CTX_set_options(context, SSL_OP_NO_COMPRESSION);
 
 #ifdef SSL_OP_NO_RENEGOTIATION
 
 	/*
-	 * Disallow SSL renegotiation, option available since 1.1.0h.  This
-	 * concerns only TLSv1.2 and older protocol versions, as TLSv1.3 has no
-	 * support for renegotiation.
+	 * 禁止 SSL 重协商，该选项自 1.1.0h 起可用。这
+	 * 只涉及 TLSv1.2 及更老的协议版本，因为 TLSv1.3 没有
+	 * 对重协商的支持。
 	 */
 	SSL_CTX_set_options(context, SSL_OP_NO_RENEGOTIATION);
 #endif
 
-	/* set up ephemeral DH and ECDH keys */
+	/* 设置临时 DH 和 ECDH 密钥 */
 	if (!initialize_dh(context, isServerStart))
 		goto error;
 	if (!initialize_ecdh(context, isServerStart))
 		goto error;
 
-	/* set up the allowed cipher list */
+	/* 设置允许的密码套件列表 */
 	if (SSL_CTX_set_cipher_list(context, SSLCipherSuites) != 1)
 	{
 		ereport(isServerStart ? FATAL : LOG,
@@ -297,12 +297,12 @@ be_tls_init(bool isServerStart)
 		goto error;
 	}
 
-	/* Let server choose order */
+	/* 让服务器选择顺序 */
 	if (SSLPreferServerCiphers)
 		SSL_CTX_set_options(context, SSL_OP_CIPHER_SERVER_PREFERENCE);
 
 	/*
-	 * Load CA store, so we can verify client certificates if needed.
+	 * 加载 CA 存储，以便在需要时验证客户端证书。
 	 */
 	if (ssl_ca_file[0])
 	{
@@ -319,18 +319,18 @@ be_tls_init(bool isServerStart)
 		}
 
 		/*
-		 * Tell OpenSSL to send the list of root certs we trust to clients in
-		 * CertificateRequests.  This lets a client with a keystore select the
-		 * appropriate client certificate to send to us.  Also, this ensures
-		 * that the SSL context will "own" the root_cert_list and remember to
-		 * free it when no longer needed.
+		 * 让 OpenSSL 把我们信任的根证书列表放在
+		 * CertificateRequests 里发给客户端。这样持有密钥库的客户端就能选择
+		 * 要发给我们的合适客户端证书。同时，这也确保
+		 * SSL 上下文会 "拥有" root_cert_list，并记得在
+		 * 不再需要时释放它。
 		 */
 		SSL_CTX_set_client_CA_list(context, root_cert_list);
 
 		/*
-		 * Always ask for SSL client cert, but don't fail if it's not
-		 * presented.  We might fail such connections later, depending on what
-		 * we find in pg_hba.conf.
+		 * 总是索取 SSL 客户端证书，但若未提供也不失败。
+		 * 以后我们可能会让这类连接失败，取决于在
+		 * pg_hba.conf 里发现了什么。
 		 */
 		SSL_CTX_set_verify(context,
 						   (SSL_VERIFY_PEER |
@@ -349,7 +349,7 @@ be_tls_init(bool isServerStart)
 
 		if (cvstore)
 		{
-			/* Set the flags to check against the complete CRL chain */
+			/* 设置标志，对照完整的 CRL 链进行检查 */
 			if (X509_STORE_load_locations(cvstore,
 										  ssl_crl_file[0] ? ssl_crl_file : NULL,
 										  ssl_crl_dir[0] ? ssl_crl_dir : NULL)
@@ -387,7 +387,7 @@ be_tls_init(bool isServerStart)
 	}
 
 	/*
-	 * Success!  Replace any existing SSL_context.
+	 * 成功！替换任何已有的 SSL_context。
 	 */
 	if (SSL_context)
 		SSL_CTX_free(SSL_context);
@@ -395,7 +395,7 @@ be_tls_init(bool isServerStart)
 	SSL_context = context;
 
 	/*
-	 * Set flag to remember whether CA store has been loaded into SSL_context.
+	 * 设置标志，记住 CA 存储是否已加载进 SSL_context。
 	 */
 	if (ssl_ca_file[0])
 		ssl_loaded_verify_locations = true;
@@ -404,7 +404,7 @@ be_tls_init(bool isServerStart)
 
 	return 0;
 
-	/* Clean up by releasing working context. */
+	/* 通过释放工作上下文来清理。 */
 error:
 	if (context)
 		SSL_CTX_free(context);
@@ -440,7 +440,7 @@ be_tls_open_server(Port *port)
 		return -1;
 	}
 
-	/* set up debugging/info callback */
+	/* 设置调试/信息回调 */
 	SSL_CTX_set_info_callback(SSL_context, info_cb);
 
 	if (!(port->ssl = SSL_new(SSL_context)))
@@ -464,12 +464,12 @@ be_tls_open_server(Port *port)
 aloop:
 
 	/*
-	 * Prepare to call SSL_get_error() by clearing thread's OpenSSL error
-	 * queue.  In general, the current thread's error queue must be empty
-	 * before the TLS/SSL I/O operation is attempted, or SSL_get_error() will
-	 * not work reliably.  An extension may have failed to clear the
-	 * per-thread error queue following another call to an OpenSSL I/O
-	 * routine.
+	 * 准备调用 SSL_get_error()，先清空线程的 OpenSSL 错误
+	 * 队列。一般而言，尝试 TLS/SSL I/O 操作之前，当前线程的
+	 * 错误队列必须为空，否则 SSL_get_error() 就
+	 * 不可靠。某个扩展可能在另一次 OpenSSL I/O
+	 * 例程调用之后，没有清空每线程
+	 * 错误队列。
 	 */
 	errno = 0;
 	ERR_clear_error();
@@ -479,25 +479,25 @@ aloop:
 		err = SSL_get_error(port->ssl, r);
 
 		/*
-		 * Other clients of OpenSSL in the backend may fail to call
-		 * ERR_get_error(), but we always do, so as to not cause problems for
-		 * OpenSSL clients that don't call ERR_clear_error() defensively.  Be
-		 * sure that this happens by calling now. SSL_get_error() relies on
-		 * the OpenSSL per-thread error queue being intact, so this is the
-		 * earliest possible point ERR_get_error() may be called.
+		 * 后端里 OpenSSL 的其他客户端可能没有调用
+		 * ERR_get_error()，但我们总会调用，以免给那些
+		 * 不防御性地调用 ERR_clear_error() 的 OpenSSL 客户端
+		 * 带来问题。现在就调用，确保这一点发生。SSL_get_error() 依赖于
+		 * OpenSSL 的每线程错误队列保持完好，因此这是
+		 * 可以调用 ERR_get_error() 的最早时机。
 		 */
 		ecode = ERR_get_error();
 		switch (err)
 		{
 			case SSL_ERROR_WANT_READ:
 			case SSL_ERROR_WANT_WRITE:
-				/* not allowed during connection establishment */
+				/* 连接建立期间不允许 */
 				Assert(!port->noblock);
 
 				/*
-				 * No need to care about timeouts/interrupts here. At this
-				 * point authentication_timeout still employs
-				 * StartupPacketTimeoutHandler() which directly exits.
+				 * 这里不必关心超时/中断。此时
+				 * authentication_timeout 仍使用
+				 * StartupPacketTimeoutHandler()，它会直接退出。
 				 */
 				if (err == SSL_ERROR_WANT_READ)
 					waitfor = WL_SOCKET_READABLE | WL_EXIT_ON_PM_DEATH;
@@ -521,17 +521,17 @@ aloop:
 				switch (ERR_GET_REASON(ecode))
 				{
 						/*
-						 * UNSUPPORTED_PROTOCOL, WRONG_VERSION_NUMBER, and
-						 * TLSV1_ALERT_PROTOCOL_VERSION have been observed
-						 * when trying to communicate with an old OpenSSL
-						 * library, or when the client and server specify
-						 * disjoint protocol ranges.  NO_PROTOCOLS_AVAILABLE
-						 * occurs if there's a local misconfiguration (which
-						 * can happen despite our checks, if openssl.cnf
-						 * injects a limit we didn't account for).  It's not
-						 * very clear what would make OpenSSL return the other
-						 * codes listed here, but a hint about protocol
-						 * versions seems like it's appropriate for all.
+						 * 已观察到 UNSUPPORTED_PROTOCOL、WRONG_VERSION_NUMBER 以及
+						 * TLSV1_ALERT_PROTOCOL_VERSION，出现于
+						 * 试图与旧的 OpenSSL
+						 * 库通信时，或客户端与服务器指定了
+						 * 互不相交的协议范围时。NO_PROTOCOLS_AVAILABLE
+						 * 出现于本地配置错误（尽管我们做了检查，
+						 * 若 openssl.cnf
+						 * 注入了我们没有计入的限制，仍可能发生）。并不
+						 * 很清楚什么会让 OpenSSL 返回这里列出的其他
+						 * 代码，但关于协议
+						 * 版本的提示对所有这些情况似乎都合适。
 						 */
 					case SSL_R_NO_PROTOCOLS_AVAILABLE:
 					case SSL_R_UNSUPPORTED_PROTOCOL:
@@ -582,10 +582,10 @@ aloop:
 		return -1;
 	}
 
-	/* Get client certificate, if available. */
+	/* 取得客户端证书，若有的话。 */
 	port->peer = SSL_get_peer_certificate(port->ssl);
 
-	/* and extract the Common Name and Distinguished Name from it. */
+	/* 并从中提取公用名和识别名。 */
 	port->peer_cn = NULL;
 	port->peer_dn = NULL;
 	port->peer_cert_valid = false;
@@ -608,14 +608,14 @@ aloop:
 			peer_cn[len] = '\0';
 			if (r != len)
 			{
-				/* shouldn't happen */
+				/* 不该发生 */
 				pfree(peer_cn);
 				return -1;
 			}
 
 			/*
-			 * Reject embedded NULLs in certificate common name to prevent
-			 * attacks like CVE-2009-4034.
+			 * 拒绝证书公用名中嵌入的 NULLs，以防止
+			 * 类似 CVE-2009-4034 的攻击。
 			 */
 			if (len != strlen(peer_cn))
 			{
@@ -641,11 +641,11 @@ aloop:
 		}
 
 		/*
-		 * RFC2253 is the closest thing to an accepted standard format for
-		 * DNs. We have documented how to produce this format from a
-		 * certificate. It uses commas instead of slashes for delimiters,
-		 * which make regular expression matching a bit easier. Also note that
-		 * it prints the Subject fields in reverse order.
+		 * RFC2253 是最接近公认标准的 DN
+		 * 格式。我们已经说明了如何从
+		 * 证书产生这种格式。它用逗号而不是斜线作分隔符，
+		 * 这让正则表达式匹配容易一些。还要注意
+		 * 它按相反顺序打印 Subject 字段。
 		 */
 		if (X509_NAME_print_ex(bio, x509name, 0, XN_FLAG_RFC2253) == -1 ||
 			BIO_get_mem_ptr(bio, &bio_buf) <= 0)
@@ -730,7 +730,7 @@ be_tls_read(Port *port, void *ptr, size_t len, int *waitfor)
 	switch (err)
 	{
 		case SSL_ERROR_NONE:
-			/* a-ok */
+			/* 正常 */
 			break;
 		case SSL_ERROR_WANT_READ:
 			*waitfor = WL_SOCKET_READABLE;
@@ -743,7 +743,7 @@ be_tls_read(Port *port, void *ptr, size_t len, int *waitfor)
 			n = -1;
 			break;
 		case SSL_ERROR_SYSCALL:
-			/* leave it to caller to ereport the value of errno */
+			/* 把 errno 的值留给调用方去 ereport */
 			if (n != -1 || errno == 0)
 			{
 				errno = ECONNRESET;
@@ -758,7 +758,7 @@ be_tls_read(Port *port, void *ptr, size_t len, int *waitfor)
 			n = -1;
 			break;
 		case SSL_ERROR_ZERO_RETURN:
-			/* connection was cleanly shut down by peer */
+			/* 连接已被对端干净地关闭 */
 			n = 0;
 			break;
 		default:
@@ -789,7 +789,7 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 	switch (err)
 	{
 		case SSL_ERROR_NONE:
-			/* a-ok */
+			/* 正常 */
 			break;
 		case SSL_ERROR_WANT_READ:
 			*waitfor = WL_SOCKET_READABLE;
@@ -804,10 +804,10 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 		case SSL_ERROR_SYSCALL:
 
 			/*
-			 * Leave it to caller to ereport the value of errno.  However, if
-			 * errno is still zero then assume it's a read EOF situation, and
-			 * report ECONNRESET.  (This seems possible because SSL_write can
-			 * also do reads.)
+			 * 把 errno 的值留给调用方去 ereport。不过，若
+			 * errno 仍为零，就假定这是读到 EOF 的情况，并
+			 * 报告 ECONNRESET。（这似乎是可能的，因为 SSL_write 也能
+			 * 执行读取。）
 			 */
 			if (n != -1 || errno == 0)
 			{
@@ -825,8 +825,8 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 		case SSL_ERROR_ZERO_RETURN:
 
 			/*
-			 * the SSL connection was closed, leave it to the caller to
-			 * ereport it
+			 * SSL 连接已关闭，留给调用方去
+			 * ereport
 			 */
 			errno = ECONNRESET;
 			n = -1;
@@ -845,21 +845,21 @@ be_tls_write(Port *port, void *ptr, size_t len, int *waitfor)
 }
 
 /* ------------------------------------------------------------ */
-/*						Internal functions						*/
+/*						内部函数						*/
 /* ------------------------------------------------------------ */
 
 /*
- * Private substitute BIO: this does the sending and receiving using send() and
- * recv() instead. This is so that we can enable and disable interrupts
- * just while calling recv(). We cannot have interrupts occurring while
- * the bulk of OpenSSL runs, because it uses malloc() and possibly other
- * non-reentrant libc facilities. We also need to call send() and recv()
- * directly so it gets passed through the socket/signals layer on Win32.
+ * 私有替代 BIO：改用 send() 和
+ * recv() 来发送和接收。这样我们就能启用和禁用中断，
+ * 并且只在调用 recv() 期间这样做。OpenSSL 主体运行时我们无法让中断发生，
+ * 因为它使用 malloc() 以及其他
+ * 不可重入的 libc 设施。我们还需要直接调用 send() 和 recv()，
+ * 以便在 Win32 上穿过套接字/信号层。
  *
- * These functions are closely modelled on the standard socket BIO in OpenSSL;
- * see sock_read() and sock_write() in OpenSSL's crypto/bio/bss_sock.c.
- * XXX OpenSSL 1.0.1e considers many more errcodes than just EINTR as reasons
- * to retry; do we need to adopt their logic for that?
+ * 这些函数紧密仿照 OpenSSL 中的标准套接字 BIO；
+ * 参见 OpenSSL 的 crypto/bio/bss_sock.c 中的 sock_read() 和 sock_write()。
+ * XXX OpenSSL 1.0.1e 把远不止 EINTR 的许多错误码当作重试
+ * 原因；我们是否需要采用它们的那套逻辑？
  */
 
 static BIO_METHOD *my_bio_methods = NULL;
@@ -875,7 +875,7 @@ my_sock_read(BIO *h, char *buf, int size)
 		BIO_clear_retry_flags(h);
 		if (res <= 0)
 		{
-			/* If we were interrupted, tell caller to retry */
+			/* 若被中断，告诉调用方重试 */
 			if (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN)
 			{
 				BIO_set_retry_read(h);
@@ -895,7 +895,7 @@ my_sock_write(BIO *h, const char *buf, int size)
 	BIO_clear_retry_flags(h);
 	if (res <= 0)
 	{
-		/* If we were interrupted, tell caller to retry */
+		/* 若被中断，告诉调用方重试 */
 		if (errno == EINTR || errno == EWOULDBLOCK || errno == EAGAIN)
 		{
 			BIO_set_retry_write(h);
@@ -946,7 +946,7 @@ my_BIO_s_socket(void)
 	return my_bio_methods;
 }
 
-/* This should exactly match OpenSSL's SSL_set_fd except for using my BIO */
+/* 除了使用我的 BIO 之外，这应当与 OpenSSL 的 SSL_set_fd 完全一致 */
 static int
 my_SSL_set_fd(Port *port, int fd)
 {
@@ -977,11 +977,11 @@ err:
 }
 
 /*
- *	Load precomputed DH parameters.
+ *	加载预先计算的 DH 参数。
  *
- *	To prevent "downgrade" attacks, we perform a number of checks
- *	to verify that the DBA-generated DH parameters file contains
- *	what we expect it to contain.
+ *	为防止 "降级" 攻击，我们做若干检查，
+ *	以验证 DBA 生成的 DH 参数文件包含
+ *	我们所预期的内容。
  */
 static DH  *
 load_dh_file(char *filename, bool isServerStart)
@@ -990,7 +990,7 @@ load_dh_file(char *filename, bool isServerStart)
 	DH		   *dh = NULL;
 	int			codes;
 
-	/* attempt to open file.  It's not an error if it doesn't exist. */
+	/* 尝试打开文件。文件不存在并不是错误。 */
 	if ((fp = AllocateFile(filename, "r")) == NULL)
 	{
 		ereport(isServerStart ? FATAL : LOG,
@@ -1012,7 +1012,7 @@ load_dh_file(char *filename, bool isServerStart)
 		return NULL;
 	}
 
-	/* make sure the DH parameters are usable */
+	/* 确保 DH 参数可用 */
 	if (DH_check(dh, &codes) == 0)
 	{
 		ereport(isServerStart ? FATAL : LOG,
@@ -1044,11 +1044,11 @@ load_dh_file(char *filename, bool isServerStart)
 }
 
 /*
- *	Load hardcoded DH parameters.
+ *	加载硬编码的 DH 参数。
  *
- *	If DH parameters cannot be loaded from a specified file, we can load
- *	the hardcoded DH parameters supplied with the backend to prevent
- *	problems.
+ *	若无法从指定文件加载 DH 参数，我们可以加载
+ *	后端自带的硬编码 DH 参数，以防止
+ *	出问题。
  */
 static DH  *
 load_dh_buffer(const char *buffer, size_t len)
@@ -1070,12 +1070,12 @@ load_dh_buffer(const char *buffer, size_t len)
 }
 
 /*
- *	Passphrase collection callback using ssl_passphrase_command
+ *	使用 ssl_passphrase_command 的口令收集回调
  */
 static int
 ssl_external_passwd_cb(char *buf, int size, int rwflag, void *userdata)
 {
-	/* same prompt as OpenSSL uses internally */
+	/* 与 OpenSSL 内部使用的提示相同 */
 	const char *prompt = "Enter PEM pass phrase:";
 
 	Assert(rwflag == 0);
@@ -1084,30 +1084,30 @@ ssl_external_passwd_cb(char *buf, int size, int rwflag, void *userdata)
 }
 
 /*
- * Dummy passphrase callback
+ * 哑口令回调
  *
- * If OpenSSL is told to use a passphrase-protected server key, by default
- * it will issue a prompt on /dev/tty and try to read a key from there.
- * That's no good during a postmaster SIGHUP cycle, not to mention SSL context
- * reload in an EXEC_BACKEND postmaster child.  So override it with this dummy
- * function that just returns an empty passphrase, guaranteeing failure.
+ * 若 OpenSSL 被告知使用口令保护的服务器密钥，默认情况下
+ * 它会在 /dev/tty 上发出提示，并试图从那里读取密钥。
+ * 在 postmaster 的 SIGHUP 周期里这不行，更不用说 SSL 上下文
+ * 在 EXEC_BACKEND postmaster 子进程里重新加载。因此用这个哑
+ * 函数覆盖它，该函数只返回空口令，从而保证失败。
  */
 static int
 dummy_ssl_passwd_cb(char *buf, int size, int rwflag, void *userdata)
 {
-	/* Set flag to change the error message we'll report */
+	/* 设置标志，以改变我们将报告的错误消息 */
 	dummy_ssl_passwd_cb_called = true;
-	/* And return empty string */
+	/* 并返回空字符串 */
 	Assert(size > 0);
 	buf[0] = '\0';
 	return 0;
 }
 
 /*
- * Examines the provided certificate name, and if it's too long to log or
- * contains unprintable ASCII, escapes and truncates it. The return value is
- * always a new palloc'd string. (The input string is still modified in place,
- * for ease of implementation.)
+ * 检查给出的证书名，若它长到不适合记入日志，或
+ * 含有不可打印的 ASCII，就对其转义并截断。返回值
+ * 总是一个新 palloc 出来的字符串。（输入字符串仍会被就地修改，
+ * 以便实现。）
  */
 static char *
 prepare_cert_name(char *name)
@@ -1116,18 +1116,18 @@ prepare_cert_name(char *name)
 	char	   *truncated = name;
 
 	/*
-	 * Common Names are 64 chars max, so for a common case where the CN is the
-	 * last field, we can still print the longest possible CN with a
-	 * 7-character prefix (".../CN=[64 chars]"), for a reasonable limit of 71
-	 * characters.
+	 * 公用名最长 64 个字符，因此在 CN 是
+	 * 最后一个字段的常见情况下，我们仍能打印最长的 CN，并带一个
+	 * 7 字符前缀（".../CN=[64 chars]"），合理上限是 71
+	 * 个字符。
 	 */
 #define MAXLEN 71
 
 	if (namelen > MAXLEN)
 	{
 		/*
-		 * Keep the end of the name, not the beginning, since the most
-		 * specific field is likely to give users the most information.
+		 * 保留名字的末尾而不是开头，因为最
+		 * 具体的字段很可能给用户最多信息。
 		 */
 		truncated = name + namelen - MAXLEN;
 		truncated[0] = truncated[1] = truncated[2] = '.';
@@ -1140,14 +1140,14 @@ prepare_cert_name(char *name)
 }
 
 /*
- *	Certificate verification callback
+ *	证书验证回调
  *
- *	This callback allows us to examine intermediate problems during
- *	verification, for later logging.
+ *	这个回调让我们在
+ *	验证期间检查中间问题，以便稍后记入日志。
  *
- *	This callback also allows us to override the default acceptance
- *	criteria (e.g., accepting self-signed or expired certs), but
- *	for now we accept the default checks.
+ *	这个回调也让我们覆盖默认的接受
+ *	标准（例如接受自签名或过期的证书），但
+ *	目前我们接受默认检查。
  */
 static int
 verify_cb(int ok, X509_STORE_CTX *ctx)
@@ -1160,11 +1160,11 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 
 	if (ok)
 	{
-		/* Nothing to do for the successful case. */
+		/* 成功情况下无事可做。 */
 		return ok;
 	}
 
-	/* Pull all the information we have on the verification failure. */
+	/* 取出我们掌握的关于验证失败的全部信息。 */
 	depth = X509_STORE_CTX_get_error_depth(ctx);
 	errcode = X509_STORE_CTX_get_error(ctx);
 	errstring = X509_verify_cert_error_string(errcode);
@@ -1186,9 +1186,9 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 		BIGNUM	   *b;
 
 		/*
-		 * Get the Subject and Issuer for logging, but don't let maliciously
-		 * huge certs flood the logs, and don't reflect non-ASCII bytes into
-		 * it either.
+		 * 取出 Subject 和 Issuer 以便记入日志，但不要让恶意的
+		 * 巨型证书灌满日志，也不要把非 ASCII 字节反映
+		 * 进去。
 		 */
 		subject = X509_NAME_to_cstring(X509_get_subject_name(cert));
 		sub_prepared = prepare_cert_name(subject);
@@ -1199,8 +1199,8 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 		pfree(issuer);
 
 		/*
-		 * Pull the serial number, too, in case a Subject is still ambiguous.
-		 * This mirrors be_tls_get_peer_serial().
+		 * 也取出序列号，以防 Subject 仍然有歧义。
+		 * 这与 be_tls_get_peer_serial() 一致。
 		 */
 		sn = X509_get_serialNumber(cert);
 		b = ASN1_INTEGER_to_BN(sn, NULL);
@@ -1218,15 +1218,15 @@ verify_cb(int ok, X509_STORE_CTX *ctx)
 		pfree(sub_prepared);
 	}
 
-	/* Store our detail message to be logged later. */
+	/* 把详细消息存起来，稍后记入日志。 */
 	cert_errdetail = str.data;
 
 	return ok;
 }
 
 /*
- *	This callback is used to copy SSL information messages
- *	into the PostgreSQL log.
+ *	这个回调用于把 SSL 信息消息
+ *	复制到 PostgreSQL 日志中。
  */
 static void
 info_cb(const SSL *ssl, int type, int args)
@@ -1273,17 +1273,17 @@ info_cb(const SSL *ssl, int type, int args)
 }
 
 /*
- * Set DH parameters for generating ephemeral DH keys.  The
- * DH parameters can take a long time to compute, so they must be
- * precomputed.
+ * 设置用于生成临时 DH 密钥的 DH 参数。
+ * DH 参数的计算可能很久，因此必须
+ * 预先计算。
  *
- * Since few sites will bother to create a parameter file, we also
- * provide a fallback to the parameters provided by the OpenSSL
- * project.
+ * 由于很少有站点会去创建参数文件，我们也
+ * 提供一个后备，使用 OpenSSL
+ * 项目提供的参数。
  *
- * These values can be static (once loaded or computed) since the
- * OpenSSL library can efficiently generate random keys from the
- * information provided.
+ * 这些值可以是静态的（一旦加载或计算完成），因为
+ * OpenSSL 库能根据所提供的
+ * 信息高效地生成随机密钥。
  */
 static bool
 initialize_dh(SSL_CTX *context, bool isServerStart)
@@ -1319,9 +1319,9 @@ initialize_dh(SSL_CTX *context, bool isServerStart)
 }
 
 /*
- * Set ECDH parameters for generating ephemeral Elliptic Curve DH
- * keys.  This is much simpler than the DH parameters, as we just
- * need to provide the name of the curve to OpenSSL.
+ * 设置用于生成临时椭圆曲线 DH
+ * 密钥的 ECDH 参数。这比 DH 参数简单得多，因为我们只需
+ * 向 OpenSSL 提供曲线名称。
  */
 static bool
 initialize_ecdh(SSL_CTX *context, bool isServerStart)
@@ -1357,13 +1357,13 @@ initialize_ecdh(SSL_CTX *context, bool isServerStart)
 }
 
 /*
- * Obtain reason string for passed SSL errcode
+ * 取得传入的 SSL 错误码的原因字符串
  *
- * ERR_get_error() is used by caller to get errcode to pass here.
+ * 调用方用 ERR_get_error() 取得要传到这里的错误码。
  *
- * Some caution is needed here since ERR_reason_error_string will return NULL
- * if it doesn't recognize the error code, or (in OpenSSL >= 3) if the code
- * represents a system errno value.  We don't want to return NULL ever.
+ * 这里需要小心，因为若无法识别错误码，ERR_reason_error_string 会返回 NULL，
+ * 或者（在 OpenSSL >= 3 中）该码
+ * 表示系统 errno 时也会返回 NULL。我们绝不希望返回 NULL。
  */
 static const char *
 SSLerrmessage(unsigned long ecode)
@@ -1378,18 +1378,18 @@ SSLerrmessage(unsigned long ecode)
 		return errreason;
 
 	/*
-	 * In OpenSSL 3.0.0 and later, ERR_reason_error_string does not map system
-	 * errno values anymore.  (See OpenSSL source code for the explanation.)
-	 * We can cover that shortcoming with this bit of code.  Older OpenSSL
-	 * versions don't have the ERR_SYSTEM_ERROR macro, but that's okay because
-	 * they don't have the shortcoming either.
+	 * 在 OpenSSL 3.0.0 及以后，ERR_reason_error_string 不再映射系统
+	 * errno 值。（解释见 OpenSSL 源代码。）
+	 * 我们可以用这段代码补上该不足。较旧的 OpenSSL
+	 * 版本没有 ERR_SYSTEM_ERROR 宏，但这没关系，因为
+	 * 它们也没有这个不足。
 	 */
 #ifdef ERR_SYSTEM_ERROR
 	if (ERR_SYSTEM_ERROR(ecode))
 		return strerror(ERR_GET_REASON(ecode));
 #endif
 
-	/* No choice but to report the numeric ecode */
+	/* 只好报告数值形式的错误码 */
 	snprintf(errbuf, sizeof(errbuf), _("SSL error code %lu"), ecode);
 	return errbuf;
 }
@@ -1472,7 +1472,7 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
 	X509	   *server_cert;
 	char	   *cert_hash;
 	const EVP_MD *algo_type = NULL;
-	unsigned char hash[EVP_MAX_MD_SIZE];	/* size for SHA-512 */
+	unsigned char hash[EVP_MAX_MD_SIZE];	/* SHA-512 用的大小 */
 	unsigned int hash_size;
 	int			algo_nid;
 
@@ -1482,9 +1482,9 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
 		return NULL;
 
 	/*
-	 * Get the signature algorithm of the certificate to determine the hash
-	 * algorithm to use for the result.  Prefer X509_get_signature_info(),
-	 * introduced in OpenSSL 1.1.1, which can handle RSA-PSS signatures.
+	 * 取得证书的签名算法，以确定结果要使用的散列
+	 * 算法。优先使用 X509_get_signature_info()，
+	 * 它在 OpenSSL 1.1.1 引入，能处理 RSA-PSS 签名。
 	 */
 #if HAVE_X509_GET_SIGNATURE_INFO
 	if (!X509_get_signature_info(server_cert, &algo_nid, NULL, NULL, NULL))
@@ -1495,10 +1495,10 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
 		elog(ERROR, "could not determine server certificate signature algorithm");
 
 	/*
-	 * The TLS server's certificate bytes need to be hashed with SHA-256 if
-	 * its signature algorithm is MD5 or SHA-1 as per RFC 5929
-	 * (https://tools.ietf.org/html/rfc5929#section-4.1).  If something else
-	 * is used, the same hash as the signature algorithm is used.
+	 * 若 TLS 服务器证书的签名算法是 MD5 或 SHA-1，按 RFC 5929
+	 * 其证书字节需要用 SHA-256 做散列
+	 * （https://tools.ietf.org/html/rfc5929#section-4.1）。若使用的是别的
+	 * 算法，就使用与签名算法相同的散列。
 	 */
 	switch (algo_nid)
 	{
@@ -1514,7 +1514,7 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
 			break;
 	}
 
-	/* generate and save the certificate hash */
+	/* 生成并保存证书散列 */
 	if (!X509_digest(server_cert, algo_type, hash, &hash_size))
 		elog(ERROR, "could not generate server certificate hash");
 
@@ -1527,7 +1527,7 @@ be_tls_get_certificate_hash(Port *port, size_t *len)
 #endif
 
 /*
- * Convert an X509 subject name to a cstring.
+ * 把 X509 主题名转换成 cstring。
  *
  */
 static char *
@@ -1574,7 +1574,7 @@ X509_NAME_to_cstring(X509_NAME *name)
 							  | ASN1_STRFLGS_UTF8_CONVERT));
 	}
 
-	/* ensure null termination of the BIO's content */
+	/* 确保 BIO 内容以空字符结尾 */
 	nullterm = '\0';
 	BIO_write(membuf, &nullterm, 1);
 	size = BIO_get_mem_data(membuf, &sp);
@@ -1590,18 +1590,18 @@ X509_NAME_to_cstring(X509_NAME *name)
 }
 
 /*
- * Convert TLS protocol version GUC enum to OpenSSL values
+ * 把 TLS 协议版本 GUC 枚举转换成 OpenSSL 的值
  *
- * This is a straightforward one-to-one mapping, but doing it this way makes
- * the definitions of ssl_min_protocol_version and ssl_max_protocol_version
- * independent of OpenSSL availability and version.
+ * 这是直接的一一映射，但这样做使
+ * ssl_min_protocol_version 和 ssl_max_protocol_version
+ * 的定义独立于 OpenSSL 是否可用及其版本。
  *
- * If a version is passed that is not supported by the current OpenSSL
- * version, then we return -1.  If a nonnegative value is returned,
- * subsequent code can assume it's working with a supported version.
+ * 若传入的版本不受当前 OpenSSL
+ * 版本支持，我们就返回 -1。若返回了非负值，
+ * 后续代码可以假定它面对的是受支持的版本。
  *
- * Note: this is rather similar to libpq's routine in fe-secure-openssl.c,
- * so make sure to update both routines if changing this one.
+ * 注意：这与 libpq 在 fe-secure-openssl.c 中的例程相当相似，
+ * 因此若修改这一处，请务必同时更新两处例程。
  */
 static int
 ssl_protocol_version_to_openssl(int v)
@@ -1636,7 +1636,7 @@ ssl_protocol_version_to_openssl(int v)
 }
 
 /*
- * Likewise provide a mapping to strings.
+ * 同样提供到字符串的映射。
  */
 static const char *
 ssl_protocol_version_to_string(int v)
@@ -1674,10 +1674,10 @@ default_openssl_tls_init(SSL_CTX *context, bool isServerStart)
 		else
 
 			/*
-			 * If reloading and no external command is configured, override
-			 * OpenSSL's default handling of passphrase-protected files,
-			 * because we don't want to prompt for a passphrase in an
-			 * already-running server.
+			 * 若正在重新加载且没有配置外部命令，就覆盖
+			 * OpenSSL 对口令保护文件的默认处理，
+			 * 因为我们不希望在已经运行的服务器里
+			 * 提示输入口令。
 			 */
 			SSL_CTX_set_default_passwd_cb(context, dummy_ssl_passwd_cb);
 	}

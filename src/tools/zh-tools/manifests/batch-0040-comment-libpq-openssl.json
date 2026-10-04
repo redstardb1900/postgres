@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0040-comment-libpq-openssl",
+ "title": "zh: translate be-secure-openssl comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "eab001f85901ddb138c22b8e847d521b05150a26",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/libpq/be-secure-openssl.c",
+   "kind": "c_comment",
+   "note": "comment-only; translator, pgindent and dash separators kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0040-comment-libpq-openssl.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/libpq/be-secure-openssl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 90,
+   "translated": 82,
+   "preserved": 8,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "translator comments",
+    "pgindent CRL block",
+    "decorative separators"
+   ],
+   "note": "comment-only; translator, pgindent and dash separators kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0040-comment-libpq-openssl.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

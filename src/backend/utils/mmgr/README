@@ -1,416 +1,312 @@
 src/backend/utils/mmgr/README
 
-Memory Context System Design Overview
-=====================================
+内存上下文系统设计概述
+======================
 
-Background
-----------
+背景
+----
 
-We do most of our memory allocation in "memory contexts", which are usually
-AllocSets as implemented by src/backend/utils/mmgr/aset.c.  The key to
-successful memory management without lots of overhead is to define a useful
-set of contexts with appropriate lifespans.
+我们的大多数内存分配在“内存上下文”中完成，它们通常是
+src/backend/utils/mmgr/aset.c 实现的 AllocSet。在没有大量开销的情况下
+成功管理内存的关键，是定义一组有用的、生存期适当的上下文。
 
-The basic operations on a memory context are:
+对内存上下文的基本操作是：
 
-* create a context
+* 创建一个上下文
 
-* allocate a chunk of memory within a context (equivalent of standard
-  C library's malloc())
+* 在上下文中分配一块内存（相当于标准 C 库的 malloc()）
 
-* delete a context (including freeing all the memory allocated therein)
+* 删除一个上下文（包括释放其中分配的全部内存）
 
-* reset a context (free all memory allocated in the context, but not the
-  context object itself)
+* 重置一个上下文（释放该上下文中分配的全部内存，但不释放上下文对象
+  本身）
 
-* inquire about the total amount of memory allocated to the context
-  (the raw memory from which the context allocates chunks; not the
-  chunks themselves)
+* 查询分配给该上下文的内存总量（上下文从中分配块的原始内存，不是块
+  本身）
 
-Given a chunk of memory previously allocated from a context, one can
-free it or reallocate it larger or smaller (corresponding to standard C
-library's free() and realloc() routines).  These operations return memory
-to or get more memory from the same context the chunk was originally
-allocated in.
+给定先前从某上下文分配的一块内存，可以释放它或把它重新分配得更大或
+更小（对应于标准 C 库的 free() 和 realloc() 例程）。这些操作把内存
+归还给该块原先分配所在的同一上下文，或从该上下文取得更多内存。
 
-At all times there is a "current" context denoted by the
-CurrentMemoryContext global variable.  palloc() implicitly allocates space
-in that context.  The MemoryContextSwitchTo() operation selects a new current
-context (and returns the previous context, so that the caller can restore the
-previous context before exiting).
+任何时候都有一个由全局变量 CurrentMemoryContext 表示的“当前”上下文。
+palloc() 隐式在该上下文中分配空间。MemoryContextSwitchTo() 操作选择
+新的当前上下文（并返回先前的上下文，以便调用者在退出前恢复先前上下文）。
 
-The main advantage of memory contexts over plain use of malloc/free is
-that the entire contents of a memory context can be freed easily, without
-having to request freeing of each individual chunk within it.  This is
-both faster and more reliable than per-chunk bookkeeping.  We use this
-fact to clean up at transaction end: by resetting all the active contexts
-of transaction or shorter lifespan, we can reclaim all transient memory.
-Similarly, we can clean up at the end of each query, or after each tuple
-is processed during a query.
+内存上下文相对直接使用 malloc/free 的主要优点是：整个内存上下文的内容
+可以很容易地释放，而不必请求释放其中的每一块。这既比按块记账更快，也
+更可靠。我们用这一事实在事务结束时清理：通过重置事务或更短生存期的全部
+活动上下文，我们可以回收所有瞬时内存。类似地，我们可以在每个查询结束时，
+或在查询期间处理每个元组之后清理。
 
 
-Some Notes About the palloc API Versus Standard C Library
----------------------------------------------------------
+关于 palloc API 与标准 C 库的若干说明
+------------------------------------
 
-The behavior of palloc and friends is similar to the standard C library's
-malloc and friends, but there are some deliberate differences too.  Here
-are some notes to clarify the behavior.
+palloc 及其友元的行为与标准 C 库的 malloc 及其友元相似，但也有一些刻意
+的差异。以下说明澄清行为。
 
-* If out of memory, palloc and repalloc exit via elog(ERROR).  They
-never return NULL, and it is not necessary or useful to test for such
-a result.  With palloc_extended() that behavior can be overridden
-using the MCXT_ALLOC_NO_OOM flag.
+* 内存不足时，palloc 和 repalloc 经 elog(ERROR) 退出。它们从不返回
+NULL，测试这种结果既不必要也没用。用 palloc_extended() 时，可以用
+MCXT_ALLOC_NO_OOM 标志覆盖该行为。
 
-* palloc(0) is explicitly a valid operation.  It does not return a NULL
-pointer, but a valid chunk of which no bytes may be used.  However, the
-chunk might later be repalloc'd larger; it can also be pfree'd without
-error.  Similarly, repalloc allows realloc'ing to zero size.
+* palloc(0) 明确是有效操作。它不返回 NULL 指针，而返回一块不可使用任何
+字节的有效块。不过该块稍后可以被 repalloc 得更大；也可以无错地 pfree。
+类似地，repalloc 允许重新分配到零大小。
 
-* pfree and repalloc do not accept a NULL pointer.  This is intentional.
-(For repalloc, this is necessary: As mentioned above, repalloc does
-not depend on the current memory context.  But then it needs to know
-which memory context to do the allocation in.  So the first allocation
-has to be done outside of repalloc.  For pfree, this behavior is
-mostly historical and partially because the extra check would impact
-performance.)
+* pfree 和 repalloc 不接受 NULL 指针。这是有意的。（对 repalloc，这是
+必要的：如上所述，repalloc 不依赖当前内存上下文。但它需要知道在哪个
+内存上下文中分配。因此第一次分配必须在 repalloc 之外完成。对 pfree，
+这一行为主要是历史原因，部分也因为额外检查会影响性能。）
 
 
-The Current Memory Context
+当前内存上下文
+--------------
+
+因为总是向被调用例程传入适当的内存上下文记号开销太大，所以始终存在
+当前内存上下文 CurrentMemoryContext 的概念。没有它，例如 copyObject
+例程需要被传入一个上下文，返回按引用传递数据类型的函数执行例程也是。
+对临时在内部分配空间但不把它返回给调用者的例程也类似？我们当然不想
+把系统中每次调用都弄得“这里有一个上下文，供你可能想做的任何临时内存
+分配使用”。
+
+不过那种推理的结果是：CurrentMemoryContext 只要可能就应指向短生存期
+上下文。查询执行期间它通常指向每元组后重置的上下文。只有在*非常*有限
+的代码中它才应指向生存期长于事务的上下文，因为那样做有永久内存泄漏的
+风险。
+
+
+pfree/repalloc 不依赖 CurrentMemoryContext
+-----------------------------------------
+
+pfree() 和 repalloc() 可以应用于任何块，无论它是否属于
+CurrentMemoryContext——将调用该块的所属上下文来处理该操作，无论当前
+上下文是什么。
+
+
+“父”与“子”上下文
+----------------
+
+若所有上下文都独立，就很难跟踪它们，尤其在出错情形下。解决办法是创建
+“父”和“子”上下文树。创建内存上下文时，可以指定新上下文为某现有上下文
+的子。一个上下文可以有许多子，但只有一个父。这样上下文形成一片森林
+（不一定是单棵树，因为可以有不止一个顶层上下文；不过当前实践中只有
+一个顶上下文 TopMemoryContext）。
+
+删除一个上下文也会删除其全部直接和间接子。重置上下文时几乎总是更有用
+的是删除子上下文，因此 MemoryContextReset() 就是这个意思；若你确实想
+要一棵空上下文树，需要调用 MemoryContextResetOnly() 加上
+MemoryContextResetChildren()。
+
+这些功能让我们能管理大量上下文而不怕有些会泄漏；我们只需跟踪一个将在
+事务结束时删除的顶层上下文，并确保我们创建的任何更短命上下文都是该
+上下文的后代。由于树可以有多层，我们可以轻松处理嵌套的存储生存期，
+例如每事务、每语句、每扫描、每元组。只部分重叠的存储生存期可以通过从
+上下文森林的不同树分配来处理（下一节有一些例子）。
+
+为方便，我们还提供“重置/删除给定上下文的全部子，但不重置或删除该上下文
+本身”这类操作。
+
+
+内存上下文重置/删除回调
+----------------------
+
+Postgres 9.5 引入的一项功能允许内存上下文用于管理比普通 palloc 内存
+更多的资源。做法是为内存上下文注册“重置回调函数”。这样的函数会在该
+上下文下一次被重置或删除之前调用一次。它可以用来放弃在某种意义上与
+该上下文中分配的某对象相关联的资源。可能的用例包括
+* 关闭与 tuplesort 对象关联的打开文件；
+* 释放由该正被重置上下文中某对象持有的、对长寿命缓存对象的引用计数；
+* 释放与某 palloc 对象关联的、由 malloc 管理的内存。
+最后一种情形对纯 Postgres 代码只是糟糕的编程实践；更好的是用 palloc
+在目标上下文或某子上下文中做全部分配。不过，对接非 Postgres 库的代码
+完全可能用得上。
+
+可以为一个内存上下文建立任意数量的重置回调；它们按注册的相反顺序调用。
+另外，若正在重置或删除一棵上下文树，附着于子上下文的回调在附着于父
+上下文的回调之前调用。
+
+该 API 要求调用者提供一块 MemoryContextCallback 内存来保存回调的状态。
+通常这应分配在它逻辑上附着的同一上下文中，以便使用后自动释放。要求
+调用者提供这块内存的原因是：在大多数使用场景中，调用者会在目标上下文
+中创建某个更大的结构，通过把 MemoryContextCallback 结构包含在该更大
+结构中，可以“免费”得到它而不必单独调用 palloc()。
+
+
+实践中的内存上下文
+==================
+
+全局已知的上下文
+----------------
+
+有若干广为人知的上下文通常通过全局变量引用。系统在任一瞬间可能包含
+许多额外上下文，但所有其他上下文都应是这些上下文之一的直接或间接子，
+以确保出错时不会泄漏。
+
+TopMemoryContext --- 这是上下文树的实际顶层；每个其他上下文都是它的
+直接或间接子。在这里分配本质上与 “malloc” 相同，因为该上下文永远不会
+被重置或删除。这用于应永远存活的东西，或控制模块会在适当时候负责删除
+的东西。一个例子是 fd.c 的打开文件表。除非真正必要，避免在这里分配
+东西，尤其避免让 CurrentMemoryContext 指向这里运行。
+
+PostmasterContext --- 这是 postmaster 的正常工作上下文。后端派生之后，
+它可以删除 PostmasterContext 以释放它不需要的、postmaster 曾使用的那
+份内存副本。注意在非 EXEC_BACKEND 构建中，postmaster 的 pg_hba.conf
+和 pg_ident.conf 数据副本在后端进程认证期间被直接使用；因此后端在那
+完成之前不能删除 PostmasterContext。（postmaster 只有 TopMemoryContext、
+PostmasterContext 和 ErrorContext——其余顶层上下文在每个后端启动期间
+设置。）
+
+CacheMemoryContext --- relcache、catcache 及相关模块的永久存储。它
+也永远不会被重置或删除，因此与 TopMemoryContext 区分并非真正必要。但
+为调试目的保持这一区分似乎值得。（注意：CacheMemoryContext 有生存期
+更短的子上下文。例如，子上下文是保存与 relcache 条目关联的附属存储的
+最佳位置；那样我们可以轻松释放规则解析树等，而不必依赖构造可靠版本的
+freeObject()。）
+
+MessageContext --- 该上下文保存来自前端的当前命令消息，以及只需与当前
+消息一样长命的任何派生存储（例如，在 simple-Query 模式下解析树和计划
+树可以活在这里）。该上下文会在 PostgresMain 外循环每个周期顶部被重置，
+并且任何子被删除。它与每事务和每 portal 上下文分开保存，因为查询串的
+生存期可能比任一单个事务或 portal 更长或更短。
+
+TopTransactionContext --- 这保存直到顶层事务结束才存活的一切。该上下文
+会在每个顶层事务周期结束时被重置，并且其全部子被删除。大多数情况下你
+不想直接在这里分配东西，而应在 CurTransactionContext；属于这里的是明确
+用来跨多个子事务管理状态的控制信息。注意：该上下文在出错时并不立即
+清空；其内容会存活到事务块经 COMMIT/ROLLBACK 退出。
+
+CurTransactionContext --- 这保存必须存活到当前事务结束、并且特别是在
+顶层事务提交时需要的数据。当我们处于顶层事务时，这与
+TopTransactionContext 相同，但在子事务中它指向一个子上下文。重要的是
+理解：若子事务中止，其 CurTransactionContext 在完成中止处理后被扔掉；
+但已提交子事务的 CurTransactionContext 会保留到顶层提交（当然，除非
+中间某层子事务中止）。这确保我们不会把失败子事务的数据保留得比必要
+更久。由于这一行为，你必须在子事务中止期间小心正确清理——子事务的状态
+必须从上层事务中保存的任何指针或列表解除链接，否则你会有悬空指针，
+导致顶层提交时崩溃。这里保存的数据的一个例子是挂起的 NOTIFY 消息，
+它们在顶层提交时发送，但仅当生成它们的子事务没有中止时。
+
+PortalContext --- 这其实不是单独的上下文，而是指向当前活动执行 portal
+的每 portal 上下文的全局变量。若必须分配生存期恰好与当前 portal 的
+执行所需一样长的存储，可以使用它。
+
+ErrorContext --- 该永久上下文在错误恢复处理时被切换进去，然后在恢复
+完成时重置。我们安排其中始终有几 KB 可用内存。这样，即便后端在其他
+方面已经内存不足，我们也能确保错误恢复有一些内存可用。这允许把内存
+不足当作普通 ERROR 条件，而不是 FATAL 错误。
+
+
+预备语句与 Portal 的上下文
 --------------------------
 
-Because it would be too much notational overhead to always pass an
-appropriate memory context to called routines, there always exists the
-notion of the current memory context CurrentMemoryContext.  Without it,
-for example, the copyObject routines would need to be passed a context, as
-would function execution routines that return a pass-by-reference
-datatype.  Similarly for routines that temporarily allocate space
-internally, but don't return it to their caller?  We certainly don't
-want to clutter every call in the system with "here is a context to
-use for any temporary memory allocation you might want to do".
+预备语句对象有一个关联的私有上下文，其中存储其查询的解析树和计划树。
+因为这些树对执行器是只读的，预备语句可以复用许多次而不必进一步复制
+这些树。
 
-The upshot of that reasoning, though, is that CurrentMemoryContext should
-generally point at a short-lifespan context if at all possible.  During
-query execution it usually points to a context that gets reset after each
-tuple.  Only in *very* circumscribed code should it ever point at a
-context having greater than transaction lifespan, since doing so risks
-permanent memory leaks.
+执行 portal 对象有一个私有上下文，portal 活动时由 PortalContext 引用。
+对由 DECLARE CURSOR 创建的 portal，该私有上下文包含查询解析树和计划树
+（没有其他对象能保存它们）。从预备语句创建的 portal 只是引用预备语句
+的树，实际上不需要在其私有上下文中分配任何存储。
 
 
-pfree/repalloc Do Not Depend On CurrentMemoryContext
-----------------------------------------------------
+逻辑复制工作进程上下文
+----------------------
 
-pfree() and repalloc() can be applied to any chunk whether it belongs
-to CurrentMemoryContext or not --- the chunk's owning context will be
-invoked to handle the operation, regardless.
+ApplyContext --- 在应用工作进程的整个生存期期间永久。也可以在这里使用
+TopMemoryContext，但为简化内存使用分析，我们另起一个不同的上下文。
 
-
-"Parent" and "Child" Contexts
------------------------------
-
-If all contexts were independent, it'd be hard to keep track of them,
-especially in error cases.  That is solved by creating a tree of
-"parent" and "child" contexts.  When creating a memory context, the
-new context can be specified to be a child of some existing context.
-A context can have many children, but only one parent.  In this way
-the contexts form a forest (not necessarily a single tree, since there
-could be more than one top-level context; although in current practice
-there is only one top context, TopMemoryContext).
-
-Deleting a context deletes all its direct and indirect children as
-well.  When resetting a context it's almost always more useful to
-delete child contexts, thus MemoryContextReset() means that, and if
-you really do want a tree of empty contexts you need to call
-MemoryContextResetOnly() plus MemoryContextResetChildren().
-
-These features allow us to manage a lot of contexts without fear that
-some will be leaked; we only need to keep track of one top-level
-context that we are going to delete at transaction end, and make sure
-that any shorter-lived contexts we create are descendants of that
-context.  Since the tree can have multiple levels, we can deal easily
-with nested lifetimes of storage, such as per-transaction,
-per-statement, per-scan, per-tuple.  Storage lifetimes that only
-partially overlap can be handled by allocating from different trees of
-the context forest (there are some examples in the next section).
-
-For convenience we also provide operations like "reset/delete all children
-of a given context, but don't reset or delete that context itself".
+ApplyMessageContext --- 短命上下文，在每个逻辑复制协议消息处理完后
+重置。
 
 
-Memory Context Reset/Delete Callbacks
--------------------------------------
+执行期间的瞬时上下文
+--------------------
 
-A feature introduced in Postgres 9.5 allows memory contexts to be used
-for managing more resources than just plain palloc'd memory.  This is
-done by registering a "reset callback function" for a memory context.
-Such a function will be called, once, just before the context is next
-reset or deleted.  It can be used to give up resources that are in some
-sense associated with an object allocated within the context.  Possible
-use-cases include
-* closing open files associated with a tuplesort object;
-* releasing reference counts on long-lived cache objects that are held
-  by some object within the context being reset;
-* freeing malloc-managed memory associated with some palloc'd object.
-That last case would just represent bad programming practice for pure
-Postgres code; better to have made all the allocations using palloc,
-in the target context or some child context.  However, it could well
-come in handy for code that interfaces to non-Postgres libraries.
+创建预备语句时，解析树和计划树将建在 MessageContext 的一个临时子上下文
+中（以便出错时自动消失）。成功时，完成的计划被复制到预备语句的私有
+上下文，临时上下文被释放；这允许在执行开始前回收规划器临时空间。
+（在 simple-Query 模式下我们不费这个额外复制步骤，因此规划器临时空间
+会留到查询结束。）
 
-Any number of reset callbacks can be established for a memory context;
-they are called in reverse order of registration.  Also, callbacks
-attached to child contexts are called before callbacks attached to
-parent contexts, if a tree of contexts is being reset or deleted.
+顶层执行器例程以及大多数“计划节点”执行代码，通常运行在由 ExecutorStart
+创建、由 ExecutorEnd 销毁的上下文中；该上下文也保存 ExecutorStart 期间
+构建的“计划状态”树。这些例程中分配的大多数内存旨在存活到查询结束，因此
+对此目的是适当的。执行器的顶上下文是 PortalContext 的子，即表示该查询
+执行的 portal 的每 portal 上下文。
 
-The API for this requires the caller to provide a MemoryContextCallback
-memory chunk to hold the state for a callback.  Typically this should be
-allocated in the same context it is logically attached to, so that it
-will be released automatically after use.  The reason for asking the
-caller to provide this memory is that in most usage scenarios, the caller
-will be creating some larger struct within the target context, and the
-MemoryContextCallback struct can be made "for free" without a separate
-palloc() call by including it in this larger struct.
+执行器中的主要内存管理考虑是：表达式求值——无论是限定测试还是目标列表
+条目的计算——需要不泄漏内存。为此，执行器中创建的每个 ExprContext
+（表达式求值上下文）都有一个关联的私有内存上下文，我们在该 ExprContext
+中求值表达式时切换到该上下文。拥有该 ExprContext 的计划节点负责在不再
+需要表达式求值结果时把该私有上下文重置为空。通常重置在计划节点每个
+取元组周期开始时完成。
 
+注意这一设计给每个计划节点自己的表达式求值内存上下文。这看起来是正确
+处理嵌套连接所必要的，因为外层计划节点可能需要在从内层节点获取下一
+元组时保留它已计算出的表达式结果——但内层节点可能在返回一个元组之前
+执行许多元组周期和许多表达式。内层节点必须能比每个外层元组周期更频繁
+地重置自己的表达式上下文。幸运的是，内存上下文足够便宜，给每个计划
+节点一个似乎不是问题。
 
-Memory Contexts in Practice
-===========================
+在查询生存期上下文中运行索引访问和排序的一个问题是：这些操作调用数据类型
+特定的比较函数，若比较器泄漏任何内存，则该内存要到查询结束才会被回收。
+比较函数都返回 bool 或 int32，因此它们的结果数据没有问题，但内部临时
+数据的泄漏可能有问题。特别是，操作可 TOAST 数据类型的比较函数需要小心
+不要泄漏其输入的已解 toast 版本。这很烦人，但让比较器遵守似乎比修复
+索引和排序例程容易得多，因此 7.1 就是这么做的。btree 和 hash 索引中
+情况仍然如此，因此 btree 和 hash 支持函数仍需要不泄漏内存。大多数其他
+索引访问方法已被修改为在短命上下文中运行操作符类支持函数，因此泄漏
+不是问题；鉴于其支持函数往往复杂得多，这是必要的。
 
-Globally Known Contexts
------------------------
+有一些特殊情形，例如聚集函数。nodeAgg.c 需要从一个元组周期到下一个
+记住聚集转移函数的求值结果，因此它不能在每个周期只是丢弃全部每元组
+状态。处理这一点最容易的办法似乎是在聚集节点中有两个每元组上下文，
+并在它们之间乒乓切换，从而在每个元组上一个是活动分配上下文，另一个
+保存前一周期转移函数分配的任何结果。
 
-There are a few widely-known contexts that are typically referenced
-through global variables.  At any instant the system may contain many
-additional contexts, but all other contexts should be direct or indirect
-children of one of these contexts to ensure they are not leaked in event
-of an error.
+切换活动 CurrentMemoryContext 的执行器例程可能需要在返回前把数据复制
+到其调用者的当前内存上下文。不过我们尽量减少了这种需要，因为约定是在
+执行周期的*开始*而不是结束时重置每元组上下文。有了那条规则，执行节点
+可以返回在其每元组上下文中 palloc 的元组，并且该元组会保持有效，直到
+该节点被再次调用取另一元组或被告知结束执行。这与表扫描层按引用传递
+值的情形平行，因为扫描节点可以返回指向磁盘缓冲区中元组的直接指针，
+该指针也只保证那么长时间内保持有效。
 
-TopMemoryContext --- this is the actual top level of the context tree;
-every other context is a direct or indirect child of this one.  Allocating
-here is essentially the same as "malloc", because this context will never
-be reset or deleted.  This is for stuff that should live forever, or for
-stuff that the controlling module will take care of deleting at the
-appropriate time.  An example is fd.c's tables of open files.  Avoid
-allocating stuff here unless really necessary, and especially avoid
-running with CurrentMemoryContext pointing here.
-
-PostmasterContext --- this is the postmaster's normal working context.
-After a backend is spawned, it can delete PostmasterContext to free its
-copy of memory the postmaster was using that it doesn't need.
-Note that in non-EXEC_BACKEND builds, the postmaster's copy of pg_hba.conf
-and pg_ident.conf data is used directly during authentication in backend
-processes; so backends can't delete PostmasterContext until that's done.
-(The postmaster has only TopMemoryContext, PostmasterContext, and
-ErrorContext --- the remaining top-level contexts are set up in each
-backend during startup.)
-
-CacheMemoryContext --- permanent storage for relcache, catcache, and
-related modules.  This will never be reset or deleted, either, so it's
-not truly necessary to distinguish it from TopMemoryContext.  But it
-seems worthwhile to maintain the distinction for debugging purposes.
-(Note: CacheMemoryContext has child contexts with shorter lifespans.
-For example, a child context is the best place to keep the subsidiary
-storage associated with a relcache entry; that way we can free rule
-parsetrees and so forth easily, without having to depend on constructing
-a reliable version of freeObject().)
-
-MessageContext --- this context holds the current command message from the
-frontend, as well as any derived storage that need only live as long as
-the current message (for example, in simple-Query mode the parse and plan
-trees can live here).  This context will be reset, and any children
-deleted, at the top of each cycle of the outer loop of PostgresMain.  This
-is kept separate from per-transaction and per-portal contexts because a
-query string might need to live either a longer or shorter time than any
-single transaction or portal.
-
-TopTransactionContext --- this holds everything that lives until end of the
-top-level transaction.  This context will be reset, and all its children
-deleted, at conclusion of each top-level transaction cycle.  In most cases
-you don't want to allocate stuff directly here, but in CurTransactionContext;
-what does belong here is control information that exists explicitly to manage
-status across multiple subtransactions.  Note: this context is NOT cleared
-immediately upon error; its contents will survive until the transaction block
-is exited by COMMIT/ROLLBACK.
-
-CurTransactionContext --- this holds data that has to survive until the end
-of the current transaction, and in particular will be needed at top-level
-transaction commit.  When we are in a top-level transaction this is the same
-as TopTransactionContext, but in subtransactions it points to a child context.
-It is important to understand that if a subtransaction aborts, its
-CurTransactionContext is thrown away after finishing the abort processing;
-but a committed subtransaction's CurTransactionContext is kept until top-level
-commit (unless of course one of the intermediate levels of subtransaction
-aborts).  This ensures that we do not keep data from a failed subtransaction
-longer than necessary.  Because of this behavior, you must be careful to clean
-up properly during subtransaction abort --- the subtransaction's state must be
-delinked from any pointers or lists kept in upper transactions, or you will
-have dangling pointers leading to a crash at top-level commit.  An example of
-data kept here is pending NOTIFY messages, which are sent at top-level commit,
-but only if the generating subtransaction did not abort.
-
-PortalContext --- this is not actually a separate context, but a
-global variable pointing to the per-portal context of the currently active
-execution portal.  This can be used if it's necessary to allocate storage
-that will live just as long as the execution of the current portal requires.
-
-ErrorContext --- this permanent context is switched into for error
-recovery processing, and then reset on completion of recovery.  We arrange
-to have a few KB of memory available in it at all times.  In this way, we
-can ensure that some memory is available for error recovery even if the
-backend has run out of memory otherwise.  This allows out-of-memory to be
-treated as a normal ERROR condition, not a FATAL error.
+更常见的复制数据原因是把结果从每元组上下文转到每查询上下文；例如，
+Unique 节点会把最后一个不同的元组值保存在其每查询上下文中，这需要一个
+复制步骤。
 
 
-Contexts For Prepared Statements And Portals
---------------------------------------------
+允许多种上下文类型的机制
+------------------------
 
-A prepared-statement object has an associated private context, in which
-the parse and plan trees for its query are stored.  Because these trees
-are read-only to the executor, the prepared statement can be re-used many
-times without further copying of these trees.
+为高效允许不同的分配模式，以及便于实验，我们允许不同类型的内存上下文
+有不同的分配策略但相似的外部行为。为此，内存分配函数通过函数指针访问，
+并且我们要求所有上下文类型遵守这里给出的约定。
 
-An execution-portal object has a private context that is referenced by
-PortalContext when the portal is active.  In the case of a portal created
-by DECLARE CURSOR, this private context contains the query parse and plan
-trees (there being no other object that can hold them).  Portals created
-from prepared statements simply reference the prepared statements' trees,
-and don't actually need any storage allocated in their private contexts.
+内存上下文由 struct MemoryContextData 表示（见 memnodes.h）。该结构
+标识上下文的确切类型，并包含不同类型 MemoryContext 之间的公共信息，
+例如父子上下文以及上下文的名称。
 
+这本质上是一个抽象超类，行为由引用要使用哪一组 MemoryContextMethods
+的 “methods” 指针决定。特定内存上下文类型将使用以这些字段为第一组
+字段的派生结构。特定类型的全部上下文都会有指向 mcxt.c 中定义的
+mcxt_methods[] 数组中对应元素的 methods 指针。
 
-Logical Replication Worker Contexts
------------------------------------
+虽然从上下文分配和重置上下文等操作以相关 MemoryContext 为参数，释放
+和 realloc 等操作更棘手。为让那些工作，我们要求所有内存上下文类型产出
+的已分配块紧挨着、没有任何填充地，前面有一个 uint64 值，其最低有效
+3 位设为所属上下文的 MemoryContextMethodID。这允许代码通过用这 3 位
+作为下标查找 mcxt_methods[] 数组来确定正确的 MemoryContextMethods。
 
-ApplyContext --- permanent during whole lifetime of apply worker.  It
-is possible to use TopMemoryContext here as well, but for simplicity
-of memory usage analysis we spin up different context.
+若某类分配器需要关于其块的额外信息，例如分配大小，该信息进而可以编码
+进前面那个 uint64 值的剩余 61 位，或者若需要更多空间，可以把额外值
+直接存在该 uint64 值之前。由上下文实现来管理这一点。
 
-ApplyMessageContext --- short-lived context that is reset after each
-logical replication protocol message is processed.
-
-
-Transient Contexts During Execution
------------------------------------
-
-When creating a prepared statement, the parse and plan trees will be built
-in a temporary context that's a child of MessageContext (so that it will
-go away automatically upon error).  On success, the finished plan is
-copied to the prepared statement's private context, and the temp context
-is released; this allows planner temporary space to be recovered before
-execution begins.  (In simple-Query mode we don't bother with the extra
-copy step, so the planner temp space stays around till end of query.)
-
-The top-level executor routines, as well as most of the "plan node"
-execution code, will normally run in a context that is created by
-ExecutorStart and destroyed by ExecutorEnd; this context also holds the
-"plan state" tree built during ExecutorStart.  Most of the memory
-allocated in these routines is intended to live until end of query,
-so this is appropriate for those purposes.  The executor's top context
-is a child of PortalContext, that is, the per-portal context of the
-portal that represents the query's execution.
-
-The main memory-management consideration in the executor is that
-expression evaluation --- both for qual testing and for computation of
-targetlist entries --- needs to not leak memory.  To do this, each
-ExprContext (expression-eval context) created in the executor has a
-private memory context associated with it, and we switch into that context
-when evaluating expressions in that ExprContext.  The plan node that owns
-the ExprContext is responsible for resetting the private context to empty
-when it no longer needs the results of expression evaluations.  Typically
-the reset is done at the start of each tuple-fetch cycle in the plan node.
-
-Note that this design gives each plan node its own expression-eval memory
-context.  This appears necessary to handle nested joins properly, since
-an outer plan node might need to retain expression results it has computed
-while obtaining the next tuple from an inner node --- but the inner node
-might execute many tuple cycles and many expressions before returning a
-tuple.  The inner node must be able to reset its own expression context
-more often than once per outer tuple cycle.  Fortunately, memory contexts
-are cheap enough that giving one to each plan node doesn't seem like a
-problem.
-
-A problem with running index accesses and sorts in a query-lifespan context
-is that these operations invoke datatype-specific comparison functions,
-and if the comparators leak any memory then that memory won't be recovered
-till end of query.  The comparator functions all return bool or int32,
-so there's no problem with their result data, but there can be a problem
-with leakage of internal temporary data.  In particular, comparator
-functions that operate on TOAST-able data types need to be careful
-not to leak detoasted versions of their inputs.  This is annoying, but
-it appeared a lot easier to make the comparators conform than to fix the
-index and sort routines, so that's what was done for 7.1.  This remains
-the state of affairs in btree and hash indexes, so btree and hash support
-functions still need to not leak memory.  Most of the other index AMs
-have been modified to run opclass support functions in short-lived
-contexts, so that leakage is not a problem; this is necessary in view
-of the fact that their support functions tend to be far more complex.
-
-There are some special cases, such as aggregate functions.  nodeAgg.c
-needs to remember the results of evaluation of aggregate transition
-functions from one tuple cycle to the next, so it can't just discard
-all per-tuple state in each cycle.  The easiest way to handle this seems
-to be to have two per-tuple contexts in an aggregate node, and to
-ping-pong between them, so that at each tuple one is the active allocation
-context and the other holds any results allocated by the prior cycle's
-transition function.
-
-Executor routines that switch the active CurrentMemoryContext may need
-to copy data into their caller's current memory context before returning.
-However, we have minimized the need for that, because of the convention
-of resetting the per-tuple context at the *start* of an execution cycle
-rather than at its end.  With that rule, an execution node can return a
-tuple that is palloc'd in its per-tuple context, and the tuple will remain
-good until the node is called for another tuple or told to end execution.
-This parallels the situation with pass-by-reference values at the table
-scan level, since a scan node can return a direct pointer to a tuple in a
-disk buffer that is only guaranteed to remain good that long.
-
-A more common reason for copying data is to transfer a result from
-per-tuple context to per-query context; for example, a Unique node will
-save the last distinct tuple value in its per-query context, requiring a
-copy step.
-
-
-Mechanisms to Allow Multiple Types of Contexts
-----------------------------------------------
-
-To efficiently allow for different allocation patterns, and for
-experimentation, we allow for different types of memory contexts with
-different allocation policies but similar external behavior.  To
-handle this, memory allocation functions are accessed via function
-pointers, and we require all context types to obey the conventions
-given here.
-
-A memory context is represented by struct MemoryContextData (see
-memnodes.h). This struct identifies the exact type of the context, and
-contains information common between the different types of
-MemoryContext like the parent and child contexts, and the name of the
-context.
-
-This is essentially an abstract superclass, and the behavior is
-determined by the "methods" pointer which references which set of
-MemoryContextMethods are to be used.  Specific memory context types will
-use derived structs having these fields as their first fields.  All the
-contexts of a specific type will have methods pointers that point to
-the corresponding element in the mcxt_methods[] array as defined in mcxt.c.
-
-While operations like allocating from and resetting a context take the
-relevant MemoryContext as a parameter, operations like free and
-realloc are trickier.  To make those work, we require all memory
-context types to produce allocated chunks that are immediately,
-without any padding, preceded by a uint64 value of which the least
-significant 3 bits are set to the owning context's MemoryContextMethodID.
-This allows the code to determine the correct MemoryContextMethods to
-use by looking up the mcxt_methods[] array using the 3 bits as an index
-into that array.
-
-If a type of allocator needs additional information about its chunks,
-like e.g. the size of the allocation, that information can in turn
-either be encoded into the remaining 61 bits of the preceding uint64 value
-or if more space is required, additional values may be stored directly prior
-to the uint64 value.  It is up to the context implementation to manage this.
-
-Given this, routines like pfree can determine which set of
-MemoryContextMethods to call the free_p function for by calling
-GetMemoryChunkMethodID() and finding the corresponding MemoryContextMethods
-in the mcxt_methods[] array.  For convenience, the MCXT_METHOD() macro is
-provided, making the code as simple as:
+有了这些，pfree 这类例程可以通过调用 GetMemoryChunkMethodID() 并在
+mcxt_methods[] 数组中找到对应的 MemoryContextMethods，来确定要对哪组
+MemoryContextMethods 调用 free_p 函数。为方便提供了 MCXT_METHOD() 宏，
+使代码可以简单到：
 
 void
 pfree(void *pointer)
@@ -418,96 +314,75 @@ pfree(void *pointer)
 	MCXT_METHOD(pointer, free_p)(pointer);
 }
 
-All of the current memory contexts make use of the MemoryChunk header type
-which is defined in memutils_memorychunk.h.  This suits all of the existing
-context types well as it makes use of the remaining 61-bits of the uint64
-header to efficiently encode the size of the chunk of memory (or freelist
-index, in the case of aset.c) and the number of bytes which must be subtracted
-from the chunk in order to obtain a reference to the block that the chunk
-belongs to.  30 bits are used for each of these.  If more than 30 bits are
-required then the memory context must manage that itself.  This can be done by
-calling the MemoryChunkSetHdrMaskExternal() function on the given chunk.
-Currently, each memory context type stores large allocations on dedicated
-blocks (which always contain only a single chunk).  For these, finding the
-block is simple as we know that the chunk must be the first on the given
-block, so the block is always at a fixed offset to the chunk.  For these,
-finding the size of the chunk is also simple as the block always stores an
-endptr which we can use to calculate the size of the chunk.
-
-More Control Over aset.c Behavior
----------------------------------
-
-By default aset.c always allocates an 8K block upon the first
-allocation in a context, and doubles that size for each successive
-block request.  That's good behavior for a context that might hold
-*lots* of data.  But if there are dozens if not hundreds of smaller
-contexts in the system, we need to be able to fine-tune things a
-little better.
-
-The creator of a context is able to specify an initial block size and
-a maximum block size.  Selecting smaller values can prevent wastage of
-space in contexts that aren't expected to hold very much (an example
-is the relcache's per-relation contexts).
-
-Also, it is possible to specify a minimum context size, in case for some
-reason that should be different from the initial size for additional
-blocks.  An aset.c context will always contain at least one block,
-of size minContextSize if that is specified, otherwise initBlockSize.
-
-We expect that per-tuple contexts will be reset frequently and typically
-will not allocate very much space per tuple cycle.  To make this usage
-pattern cheap, the first block allocated in a context is not given
-back to malloc() during reset, but just cleared.  This avoids malloc
-thrashing.
+当前所有内存上下文都使用 memutils_memorychunk.h 中定义的 MemoryChunk
+头类型。这很适合所有现有上下文类型，因为它利用 uint64 头的剩余 61 位
+高效编码该内存块的大小（或空闲列表下标，对 aset.c 而言）以及为获得该
+块所属块的引用必须从该块减去的字节数。这两者各用 30 位。若需要超过
+30 位，则内存上下文必须自己管理。这可以通过对给定块调用
+MemoryChunkSetHdrMaskExternal() 函数来完成。目前，每种内存上下文类型
+把大分配存在专用内存块上（其中总是只包含一个分配块）。对这些，找到
+内存块很简单，因为我们知道该分配块必须是给定内存块上的第一个，因此
+内存块总是在相对该分配块的固定偏移处。对这些，找到分配块的大小也很
+简单，因为内存块总是存储一个 endptr，我们可以用它计算分配块的大小。
 
 
-Alternative Memory Context Implementations
-------------------------------------------
+对 aset.c 行为的更多控制
+------------------------
 
-aset.c is our default general-purpose implementation, working fine
-in most situations. We also have two implementations optimized for
-special use cases, providing either better performance or lower memory
-usage compared to aset.c (or both).
+默认情况下，aset.c 总是在上下文中第一次分配时分配一个 8K 块，并对每次
+后续块请求把该大小加倍。对可能保存*大量*数据的上下文，这是好行为。但
+若系统中有几十甚至几百个较小的上下文，我们就需要能稍好一点地微调。
 
-* slab.c (SlabContext) is designed for allocations of fixed-length
-  chunks, and does not allow allocations of chunks with different size.
+上下文的创建者可以指定初始块大小和最大块大小。选择较小的值可以防止在
+预期不会保存很多的上下文中浪费空间（一个例子是 relcache 的每关系
+上下文）。
 
-* generation.c (GenerationContext) is designed for cases when chunks
-  are allocated in groups with similar lifespan (generations), or
-  roughly in FIFO order.
+另外，可以指定最小上下文大小，以防因某种原因它应不同于额外块的初始
+大小。aset.c 上下文将始终至少包含一个块，大小为 minContextSize（若
+指定），否则为 initBlockSize。
 
-Both memory contexts aim to free memory back to the operating system
-(unlike aset.c, which keeps the freed chunks in a freelist, and only
-returns the memory when reset/deleted).
-
-These memory contexts were initially developed for ReorderBuffer, but
-may be useful elsewhere as long as the allocation patterns match.
+我们期望每元组上下文会被频繁重置，并且通常每个元组周期不会分配很多
+空间。为让这种使用模式便宜，上下文中分配的第一块在重置期间不交还给
+malloc()，而只是清空。这避免 malloc 抖动。
 
 
-Memory Accounting
------------------
+替代内存上下文实现
+------------------
 
-One of the basic memory context operations is determining the amount of
-memory used in the context (and its children). We have multiple places
-that implement their own ad hoc memory accounting, and this is meant to
-provide a unified approach. Ad hoc accounting solutions work for places
-with tight control over the allocations or when it's easy to determine
-sizes of allocated chunks (e.g. places that only work with tuples).
+aset.c 是我们默认的通用实现，在大多数情况下工作得很好。我们还有两个
+针对特殊用例优化的实现，相比 aset.c 提供更好的性能或更低的内存用量
+（或两者）。
 
-The accounting built into the memory contexts is transparent and works
-transparently for all allocations as long as they end up in the right
-memory context subtree.
+* slab.c（SlabContext）设计用于固定长度块的分配，不允许分配不同大小
+  的块。
 
-Consider for example aggregate functions - the aggregate state is often
-represented by an arbitrary structure, allocated from the transition
-function, so the ad hoc accounting is unlikely to work. The built-in
-accounting will however handle such cases just fine.
+* generation.c（GenerationContext）设计用于块按生存期相似的组
+  （代）分配，或大致按 FIFO 顺序分配的情形。
 
-To minimize overhead, the accounting is done at the block level, not for
-individual allocation chunks.
+这两种内存上下文都旨在把内存释放回操作系统（不像 aset.c，它把已释放
+的块放在空闲列表中，只在重置/删除时才归还内存）。
 
-The accounting is lazy - after a block is allocated (or freed), only the
-context owning that block is updated. This means that when inquiring
-about the memory usage in a given context, we have to walk all children
-contexts recursively. This means the memory accounting is not intended
-for cases with too many memory contexts (in the relevant subtree).
+这些内存上下文最初为 ReorderBuffer 开发，但只要分配模式匹配，也可能
+在别处有用。
+
+
+内存记账
+--------
+
+内存上下文的基本操作之一是确定该上下文（及其子）中使用的内存量。我们
+有多处实现自己的临时内存记账，而这旨在提供统一做法。临时记账方案适用
+于对分配有紧密控制、或容易确定已分配块大小的地方（例如只与元组打交道
+的地方）。
+
+内建于内存上下文的记账是透明的，并且对所有分配都透明工作，只要它们
+落在正确的内存上下文子树中。
+
+例如考虑聚集函数——聚集状态常常由任意结构表示，从转移函数分配，因此
+临时记账不太可能工作。不过内建记账会妥善处理这类情形。
+
+为最小化开销，记账在内存块级完成，而不是针对各个分配块。
+
+记账是惰性的——在分配（或释放）一个内存块之后，只更新拥有该内存块的
+上下文。
+这意味着查询给定上下文中的内存用量时，我们必须递归遍历全部子上下文。
+这意味着内存记账不适用于（相关子树中）内存上下文过多的情形。

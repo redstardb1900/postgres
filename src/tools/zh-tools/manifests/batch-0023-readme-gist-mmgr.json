@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0023-readme-gist-mmgr",
+ "title": "zh: translate GiST and memory manager READMEs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e05e766177e87cbd9cc857c0c45e416baac72dd1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gist/README",
+   "kind": "readme",
+   "note": "GiST search/insert, buffering build, VACUUM"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "note": "memory contexts; API samples and names kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0023-readme-gist-mmgr.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gist/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GiST search/insert, buffering build, VACUUM"
+  },
+  {
+   "path": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "memory contexts; API samples and names kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0023-readme-gist-mmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Thirteenth README batch: 2 files. Papers/URLs, findPath/pageSplit sketches, context names and pfree sample kept."
+}

@@ -730,6 +730,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0022-readme-spgist.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/gist/README",
+   "kind": "readme",
+   "note": "GiST search/insert, buffering build, VACUUM"
+  },
+  {
+   "pattern": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "note": "memory contexts; API samples and names kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0023-readme-gist-mmgr.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2687,7 +2702,37 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/gist/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "GiST search/insert, buffering build, VACUUM"
+  },
+  {
+   "path": "src/backend/utils/mmgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "memory contexts; API samples and names kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0023-readme-gist-mmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 78 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 80 of 88 include files translated."
 }

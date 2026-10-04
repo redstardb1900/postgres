@@ -1,187 +1,140 @@
 src/backend/access/gist/README
 
-GiST Indexing
-=============
+GiST 索引
+=========
 
-This directory contains an implementation of GiST indexing for Postgres.
+本目录包含 Postgres 的 GiST 索引实现。
 
-GiST stands for Generalized Search Tree. It was introduced in the seminal paper
-"Generalized Search Trees for Database Systems", 1995, Joseph M. Hellerstein,
-Jeffrey F. Naughton, Avi Pfeffer:
+GiST 代表 Generalized Search Tree（广义搜索树）。它由 1995 年
+Joseph M. Hellerstein、Jeffrey F. Naughton、Avi Pfeffer 的开创性论文
+“Generalized Search Trees for Database Systems” 引入：
 
     http://www.sai.msu.su/~megera/postgres/gist/papers/gist.ps
     https://dsf.berkeley.edu/papers/sigmod97-gist.pdf
 
-and implemented by J. Hellerstein and P. Aoki in an early version of
-PostgreSQL (more details are available from The GiST Indexing Project
-at Berkeley at http://gist.cs.berkeley.edu/). As a "university"
-project it had a limited number of features and was in rare use.
+并由 J. Hellerstein 和 P. Aoki 在早期版本的 PostgreSQL 中实现（更多
+细节见伯克利的 The GiST Indexing Project，
+http://gist.cs.berkeley.edu/）。作为“大学”项目，功能有限，使用也少。
 
-The current implementation of GiST supports:
+当前 GiST 实现支持：
 
-  * Variable length keys
-  * Composite keys (multi-key)
-  * Ordered search (nearest-neighbor search)
-  * provides NULL-safe interface to GiST core
-  * Concurrency
-  * Recovery support via WAL logging
-  * Buffering build algorithm
-  * Sorted build method
+  * 变长键
+  * 复合键（多键）
+  * 有序搜索（最近邻搜索）
+  * 向 GiST 核心提供对 NULL 安全的接口
+  * 并发
+  * 经 WAL 记录的恢复支持
+  * 缓冲构建算法
+  * 排序构建方法
 
-The support for concurrency implemented in PostgreSQL was developed based on
-the paper "Access Methods for Next-Generation Database Systems" by
-Marcel Kornacker:
+PostgreSQL 中实现的并发支持基于 Marcel Kornacker 的论文
+“Access Methods for Next-Generation Database Systems”：
 
     http://www.sai.msu.su/~megera/postgres/gist/papers/concurrency/access-methods-for-next-generation.pdf.gz
 
-Buffering build algorithm for GiST was developed based on the paper "Efficient
-Bulk Operations on Dynamic R-trees" by Lars Arge, Klaus Hinrichs, Jan Vahrenhold
-and Jeffrey Scott Vitter.
+GiST 的缓冲构建算法基于 Lars Arge、Klaus Hinrichs、Jan Vahrenhold 和
+Jeffrey Scott Vitter 的论文 “Efficient Bulk Operations on Dynamic
+R-trees”。
 
     http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.135.9894&rep=rep1&type=pdf
 
-The original algorithms were modified in several ways:
+原始算法在若干方面做了修改：
 
-* They had to be adapted to PostgreSQL conventions. For example, the SEARCH
-  algorithm was considerably changed, because in PostgreSQL the search function
-  should return one tuple (next), not all tuples at once. Also, it should
-  release page locks between calls.
-* Since we added support for variable length keys, it's not possible to
-  guarantee enough free space for all keys on pages after splitting. User
-  defined function picksplit doesn't have information about size of tuples
-  (each tuple may contain several keys as in multicolumn index while picksplit
-  could work with only one key) and pages.
-* We modified original INSERT algorithm for performance reasons. In particular,
-  it is now a single-pass algorithm.
-* Since the papers were theoretical, some details were omitted and we
-  had to find out ourself how to solve some specific problems.
+* 必须适配 PostgreSQL 约定。例如 SEARCH 算法改动相当大，因为在
+  PostgreSQL 中搜索函数应返回一个元组（下一个），而不是一次返回全部
+  元组。另外，它应在调用之间释放页锁。
+* 由于我们增加了变长键支持，分裂后无法保证页上对所有键都有足够空闲
+  空间。用户定义函数 picksplit 没有关于元组大小的信息（每个元组可能
+  像多列索引那样包含若干键，而 picksplit 可能只处理一个键）和页的
+  信息。
+* 出于性能原因我们修改了原始 INSERT 算法。特别是，它现在是单遍算法。
+* 由于论文是理论性的，一些细节被省略，我们必须自己找出如何解决某些
+  具体问题。
 
-Because of the above reasons, we have revised the interaction of GiST
-core and PostgreSQL WAL system. Moreover, we encountered (and solved)
-a problem of uncompleted insertions when recovering after crash, which
-was not touched in the paper.
+由于上述原因，我们修订了 GiST 核心与 PostgreSQL WAL 系统的交互。此外，
+我们遇到（并解决了）崩溃恢复时未完成插入的问题，论文没有触及这一点。
 
-Search Algorithm
-----------------
+搜索算法
+--------
 
-The search code maintains a queue of unvisited items, where an "item" is
-either a heap tuple known to satisfy the search conditions, or an index
-page that is consistent with the search conditions according to inspection
-of its parent page's downlink item.  Initially the root page is searched
-to find unvisited items in it.  Then we pull items from the queue.  A
-heap tuple pointer is just returned immediately; an index page entry
-causes that page to be searched, generating more queue entries.
+搜索代码维护一个未访问项的队列，其中“项”要么是已知满足搜索条件的堆
+元组，要么是根据其父页下行指针项的检查与搜索条件一致的索引页。最初
+搜索根页以在其中找到未访问项。然后我们从队列中取出项。堆元组指针立即
+返回；索引页条目导致搜索该页，从而生成更多队列条目。
 
-The queue is kept ordered with heap tuple items at the front, then
-index page entries, with any newly-added index page entry inserted
-before existing index page entries.  This ensures depth-first traversal
-of the index, and in particular causes the first few heap tuples to be
-returned as soon as possible.  That is helpful in case there is a LIMIT
-that requires only a few tuples to be produced.
+队列保持有序：堆元组项在前，然后是索引页条目，任何新加入的索引页条目
+插在已有索引页条目之前。这确保对索引做深度优先遍历，并且特别地让前
+几个堆元组尽快返回。若有 LIMIT 只需要产出少数元组，这很有帮助。
 
-To implement nearest-neighbor search, the queue entries are augmented
-with distance data: heap tuple entries are labeled with exact distance
-from the search argument, while index-page entries must be labeled with
-the minimum distance that any of their children could have.  Then,
-queue entries are retrieved in smallest-distance-first order, with
-entries having identical distances managed as stated in the previous
-paragraph.
+为实现最近邻搜索，队列条目附带距离数据：堆元组条目标以距搜索参数的
+精确距离，而索引页条目必须标以其任一子节点可能具有的最小距离。然后
+按最小距离优先取出队列条目，距离相同的条目按上一段所述管理。
 
-The search algorithm keeps an index page locked only long enough to scan
-its entries and queue those that satisfy the search conditions.  Since
-insertions can occur concurrently with searches, it is possible for an
-index child page to be split between the time we make a queue entry for it
-(while visiting its parent page) and the time we actually reach and scan
-the child page.  To avoid missing the entries that were moved to the right
-sibling, we detect whether a split has occurred by comparing the child
-page's NSN (node sequence number, a special-purpose LSN) to the LSN that
-the parent had when visited.  If it did, the sibling page is immediately
-added to the front of the queue, ensuring that its items will be scanned
-in the same order as if they were still on the original child page.
+搜索算法只把索引页锁定足够扫描其条目并把满足搜索条件的那些入队的
+时间。由于插入可以与搜索并发发生，索引子页可能在我们（访问其父页时）
+为它做队列条目之后、实际到达并扫描该子页之前被分裂。为避免漏掉移到
+右兄弟的条目，我们通过比较子页的 NSN（节点序列号，一种专用 LSN）与
+访问父页时父页的 LSN 来检测是否发生了分裂。若发生了，兄弟页立即加到
+队列前面，确保其项按它们仍在原子页上时相同的顺序被扫描。
 
-As is usual in Postgres, the search algorithm only guarantees to find index
-entries that existed before the scan started; index entries added during
-the scan might or might not be visited.  This is okay as long as all
-searches use MVCC snapshot rules to reject heap tuples newer than the time
-of scan start.  In particular, this means that we need not worry about
-cases where a parent page's downlink key is "enlarged" after we look at it.
-Any such enlargement would be to add child items that we aren't interested
-in returning anyway.
+与 Postgres 中通常情况一样，搜索算法只保证找到扫描开始前已存在的索引
+条目；扫描期间加入的索引条目可能被访问也可能不被访问。只要所有搜索
+都用 MVCC 快照规则拒绝新于扫描开始时刻的堆元组，这就没问题。特别是，
+这意味着我们不必担心在我们查看之后父页下行指针键被“扩大”的情形。任何
+这种扩大都是为了添加我们反正不感兴趣返回的子项。
 
 
-Insert Algorithm
-----------------
+插入算法
+--------
 
-INSERT guarantees that the GiST tree remains balanced. User defined key method
-Penalty is used for choosing a subtree to insert; method PickSplit is used for
-the node splitting algorithm; method Union is used for propagating changes
-upward to maintain the tree properties.
+INSERT 保证 GiST 树保持平衡。用户定义的键方法 Penalty 用来选择要插入
+的子树；方法 PickSplit 用于节点分裂算法；方法 Union 用于向上传播变更
+以维持树性质。
 
-To insert a tuple, we first have to find a suitable leaf page to insert to.
-The algorithm walks down the tree, starting from the root, along the path
-of smallest Penalty. At each step:
+要插入一个元组，我们首先必须找到合适的叶子页来插入。算法从根开始沿
+最小 Penalty 的路径向下走树。每一步：
 
-1. Has this page been split since we looked at the parent? If so, it's
-possible that we should be inserting to the other half instead, so retreat
-back to the parent.
-2. If this is a leaf node, we've found our target node.
-3. Otherwise use Penalty to pick a new target subtree.
-4. Check the key representing the target subtree. If it doesn't already cover
-the key we're inserting, replace it with the Union of the old downlink key
-and the key being inserted. (Actually, we always call Union, and just skip
-the replacement if the Unioned key is the same as the existing key)
-5. Replacing the key in step 4 might cause the page to be split. In that case,
-propagate the change upwards and restart the algorithm from the first parent
-that didn't need to be split.
-6. Walk down to the target subtree, and goto 1.
+1. 自我们查看父页以来，此页是否已分裂？若是，我们可能应插入到另一半，
+因此退回父页。
+2. 若这是叶子节点，我们就找到了目标节点。
+3. 否则用 Penalty 挑选新的目标子树。
+4. 检查表示目标子树的键。若它尚未覆盖我们正在插入的键，用旧下行指针
+键与正在插入的键的 Union 替换它。（实际上我们总是调用 Union，若
+Union 后的键与现有键相同则跳过替换。）
+5. 步骤 4 中替换键可能导致页分裂。那种情况下，向上传播变更，并从第一
+个不需要分裂的父节点重新开始算法。
+6. 走到目标子树，转到 1。
 
-This differs from the insertion algorithm in the original paper. In the
-original paper, you first walk down the tree until you reach a leaf page, and
-then you adjust the downlink in the parent, and propagate the adjustment up,
-all the way up to the root in the worst case. But we adjust the downlinks to
-cover the new key already when we walk down, so that when we reach the leaf
-page, we don't need to update the parents anymore, except to insert the
-downlinks if we have to split the page. This makes crash recovery simpler:
-after inserting a key to the page, the tree is immediately self-consistent
-without having to update the parents. Even if we split a page and crash before
-inserting the downlink to the parent, the tree is self-consistent because the
-right half of the split is accessible via the rightlink of the left page
-(which replaced the original page).
+这与原论文中的插入算法不同。原论文中，你先向下走到叶子页，然后调整
+父中的下行指针，并向上传播该调整，最坏情况一直到根。但我们已经在向下
+走时调整下行指针以覆盖新键，因此到达叶子页时不再需要更新父，除非必须
+因页分裂而插入下行指针。这让崩溃恢复更简单：把键插入页后，树立即自洽，
+不必更新父。即便我们分裂了一页并在把下行指针插入父之前崩溃，树也是
+自洽的，因为分裂的右半经左页（它替换了原页）的右链接可到达。
 
-Note that the algorithm can walk up and down the tree before reaching a leaf
-page, if internal pages need to split while adjusting the downlinks for the
-new key. Eventually, you should reach the bottom, and proceed with the
-insertion of the new tuple.
+注意：若内部页在为新键调整下行指针时需要分裂，算法在到达叶子页之前
+可能上下走树。最终你应到达底部，并继续插入新元组。
 
-Once we've found the target page to insert to, we check if there's room
-for the new tuple. If there is, the tuple is inserted, and we're done.
-If it doesn't fit, however, the page needs to be split. Note that it is
-possible that a page needs to be split into more than two pages, if keys have
-different lengths or more than one key is being inserted at a time (which can
-happen when inserting downlinks for a page split that resulted in more than
-two pages at the lower level). After splitting a page, the parent page needs
-to be updated. The downlink for the new page needs to be inserted, and the
-downlink for the old page, which became the left half of the split, needs to
-be updated to only cover those tuples that stayed on the left page. Inserting
-the downlink in the parent can again lead to a page split, recursing up to the
-root page in the worst case.
+一旦找到要插入的目标页，我们检查是否有新元组的空间。若有，插入该元组，
+我们就完成了。若放不下，则该页需要分裂。注意一页可能需要分裂成多于
+两页，若键长度不同，或一次插入不止一个键（当插入下层分裂导致多于两页
+的下行指针时可能发生）。分裂一页后，需要更新父页。需要插入新页的下行
+指针，并且旧页（它变成分裂的左半）的下行指针需要更新为只覆盖留在左页
+上的那些元组。在父中插入下行指针可能再次导致页分裂，最坏情况递归到
+根页。
 
-gistplacetopage is the workhorse function that performs one step of the
-insertion. If the tuple fits, it inserts it to the given page, otherwise
-it splits the page, and constructs the new downlink tuples for the split
-pages. The caller must then call gistplacetopage() on the parent page to
-insert the downlink tuples. The parent page that holds the downlink to
-the child might have migrated as a result of concurrent splits of the
-parent, gistFindCorrectParent() is used to find the parent page.
+gistplacetopage 是执行插入一步的主力函数。若元组放得下，它把它插入
+给定页，否则它分裂该页，并为分裂出的页构造新的下行指针元组。调用者
+随后必须对父页调用 gistplacetopage() 以插入下行指针元组。持有通向子
+的下行指针的父页可能因父的并发分裂而迁移，用 gistFindCorrectParent()
+来找到父页。
 
-Splitting the root page works slightly differently. At root split,
-gistplacetopage() allocates the new child pages and replaces the old root
-page with the new root containing downlinks to the new children, all in one
-operation.
+分裂根页稍有不同。在根分裂时，gistplacetopage() 分配新的子页，并用
+包含通向新子的下行指针的新根替换旧根页，全部在一次操作中完成。
 
 
-findPath is a subroutine of findParent, used when the correct parent page
-can't be found by following the rightlinks at the parent level:
+findPath 是 findParent 的子例程，当无法通过沿父层右链接找到正确父页
+时使用：
 
 findPath( stack item )
 	push stack, [root, 0, 0] // page, LSN, parent
@@ -203,9 +156,8 @@ findPath( stack item )
 	end
 
 
-gistFindCorrectParent is used to re-find the parent of a page during
-insertion. It might have migrated to the right since we traversed down the
-tree because of page splits.
+gistFindCorrectParent 用来在插入期间重新找到某页的父。由于页分裂，它
+可能自我们向下遍历树以来向右迁移。
 
 findParent( stack item )
 	parent = item->parent
@@ -226,8 +178,7 @@ findParent( stack item )
 		return findParent( item )
 	end
 
-pageSplit function decides how to distribute keys to the new pages after
-page split:
+pageSplit 函数决定页分裂后如何把键分配到新页：
 
 pageSplit(page, allkeys)
 	(lkeys, rkeys) = pickSplit( allkeys )
@@ -249,60 +200,44 @@ pageSplit(page, allkeys)
 	return newkeys
 
 
+并发控制
+--------
+经验法则是：若需要同时持有多页上的锁，应按以下顺序获取锁：先子页后
+父页，同一层从左到右。总是按同一顺序获取锁可避免死锁。
 
-Concurrency control
--------------------
-As a rule of thumb, if you need to hold a lock on multiple pages at the
-same time, the locks should be acquired in the following order: child page
-before parent, and left-to-right at the same level. Always acquiring the
-locks in the same order avoids deadlocks.
+搜索算法一次只查看并锁定一页。因此搜索与页分裂之间存在竞态。页分裂
+分两个阶段发生：1. 页被分裂 2. 下行指针插入到父。若搜索在这两步之间、
+下行指针插入之前查看父页，它仍会通过左半上的右链接找到新的右半。但
+若它在父中看到了下行指针，就不得再跟随右链接，否则该页会被访问两次！
 
-The search algorithm only looks at and locks one page at a time. Consequently
-there's a race condition between a search and a page split. A page split
-happens in two phases: 1. The page is split 2. The downlink is inserted to the
-parent. If a search looks at the parent page between those steps, before the
-downlink is inserted, it will still find the new right half by following the
-rightlink on the left half. But it must not follow the rightlink if it saw the
-downlink in the parent, or the page will be visited twice!
+分裂最初用 F_FOLLOW_RIGHT 标志标记左页。若扫描看到该标志已设置，它
+就知道右页缺少下行指针，也应被访问。当分裂把下行指针插入父时，它清除
+子中的 F_FOLLOW_RIGHT 标志，并把子页头中的 NSN 字段设为与父上插入的
+LSN 匹配。若 F_FOLLOW_RIGHT 标志未设置，扫描比较子上的 NSN 与它在父
+上看到的 LSN。若子的 NSN 大于在父上看到的 LSN，则扫描在下行指针插入
+之前查看了父页，因此应跟随右链接。否则扫描在父页中看到了下行指针，
+并将/已经按通常方式跟随它。
 
-A split initially marks the left page with the F_FOLLOW_RIGHT flag. If a scan
-sees that flag set, it knows that the right page is missing the downlink, and
-should be visited too. When split inserts the downlink to the parent, it
-clears the F_FOLLOW_RIGHT flag in the child, and sets the NSN field in the
-child page header to match the LSN of the insertion on the parent. If the
-F_FOLLOW_RIGHT flag is not set, a scan compares the NSN on the child and the
-LSN it saw in the parent. If the child's NSN is greater than the LSN seen on
-the parent, the scan looked at the parent page before the downlink was
-inserted, so it should follow the rightlink. Otherwise the scan saw the
-downlink in the parent page, and will/did follow that as usual.
+扫描通常看不到设置了 F_FOLLOW_RIGHT 标志的页，因为页分裂在下行指针
+已插入父且标志再次清除之前一直锁着子页。但若页分裂中途、下行指针插入
+父之前发生崩溃，就会在树中留下带 F_FOLLOW_RIGHT 的页。扫描能妥善处理
+这一点，但我们最终会出于性能原因想修复它。更重要的是，处理父中缺少
+下行指针的页会让插入算法复杂化。因此当插入看到设置了 F_FOLLOW_RIGHT
+的页时，它立即试图通过在父中添加下行指针来把中途崩溃的分裂做完。
 
-A scan can't normally see a page with the F_FOLLOW_RIGHT flag set, because
-a page split keeps the child pages locked until the downlink has been inserted
-to the parent and the flag cleared again. But if a crash happens in the middle
-of a page split, before the downlinks are inserted into the parent, that will
-leave a page with F_FOLLOW_RIGHT in the tree. Scans handle that just fine,
-but we'll eventually want to fix that for performance reasons. And more
-importantly, dealing with pages with missing downlink pointers in the parent
-would complicate the insertion algorithm. So when an insertion sees a page
-with F_FOLLOW_RIGHT set, it immediately tries to bring the split that
-crashed in the middle to completion by adding the downlink in the parent.
+缓冲构建算法
+------------
 
-Buffering build algorithm
--------------------------
+在缓冲索引构建算法中，部分或全部内部节点附有缓冲区。当元组在顶部插入
+时，一旦到达缓冲区就停止向下下降，并把元组推进该缓冲区。当缓冲区过满
+时，其中全部元组被刷新到更低层，它们在那里再次碰到更低层缓冲区或叶子
+页。这让插入更多地按广度优先而不是深度优先发生，从而大大减少所需的
+随机 I/O 量。
 
-In the buffering index build algorithm, some or all internal nodes have a
-buffer attached to them. When a tuple is inserted at the top, the descend down
-the tree is stopped as soon as a buffer is reached, and the tuple is pushed to
-the buffer. When a buffer gets too full, all the tuples in it are flushed to
-the lower level, where they again hit lower level buffers or leaf pages. This
-makes the insertions happen in more of a breadth-first than depth-first order,
-which greatly reduces the amount of random I/O required.
+在该算法中，层编号使得叶子页为第 0 层，内部节点层从 1 向上计。这种
+编号确保页的层号永不改变，即便根页被分裂。
 
-In the algorithm, levels are numbered so that leaf pages have level zero,
-and internal node levels count up from 1. This numbering ensures that a page's
-level number never changes, even when the root page is split.
-
-Level                    Tree
+层                      树
 
 3                         *
                       /       \
@@ -312,17 +247,15 @@ Level                    Tree
           / \   / \   / \   / \   / \   / \
 0        o   o o   o o   o o   o o   o o   o
 
-* - internal page
-o - leaf page
+* - 内部页
+o - 叶子页
 
-Internal pages that belong to certain levels have buffers associated with
-them. Leaf pages never have buffers. Which levels have buffers is controlled
-by "level step" parameter: level numbers that are multiples of level_step
-have buffers, while others do not. For example, if level_step = 2, then
-pages on levels 2, 4, 6, ... have buffers. If level_step = 1 then every
-internal page has a buffer.
+属于某些层的内部页关联有缓冲区。叶子页从不带缓冲区。哪些层有缓冲区由
+“层步”参数控制：层号是 level_step 倍数的层有缓冲区，其他没有。例如，
+若 level_step = 2，则第 2、4、6、… 层的页有缓冲区。若 level_step = 1，
+则每个内部页都有缓冲区。
 
-Level        Tree (level_step = 1)                Tree (level_step = 2)
+层         树 (level_step = 1)                树 (level_step = 2)
 
 3                      *                                     *
                    /       \                             /       \
@@ -332,41 +265,32 @@ Level        Tree (level_step = 1)                Tree (level_step = 2)
        / \   / \   / \   / \   / \   / \     / \   / \   / \   / \   / \   / \
 0     o   o o   o o   o o   o o   o o   o   o   o o   o o   o o   o o   o o   o
 
-(b) - buffer
+(b) - 缓冲区
 
-Logically, a buffer is just bunch of tuples. Physically, it is divided in
-pages, backed by a temporary file. Each buffer can be in one of two states:
-a) Last page of the buffer is kept in main memory. A node buffer is
-automatically switched to this state when a new index tuple is added to it,
-or a tuple is removed from it.
-b) All pages of the buffer are swapped out to disk. When a buffer becomes too
-full, and we start to flush it, all other buffers are switched to this state.
+逻辑上，缓冲区只是一堆元组。物理上，它分成若干页，由临时文件支撑。每个
+缓冲区可以处于两种状态之一：
+a) 缓冲区的最后一页保留在主存中。当向节点缓冲区添加新索引元组，或从中
+移除元组时，它自动切换到此状态。
+b) 缓冲区的全部页都换出到磁盘。当某缓冲区过满、我们开始刷新它时，所有
+其他缓冲区都切换到此状态。
 
-When an index tuple is inserted, its initial processing can end in one of the
-following points:
-1) Leaf page, if the depth of the index <= level_step, meaning that
-   none of the internal pages have buffers associated with them.
-2) Buffer of topmost level page that has buffers.
+当插入一个索引元组时，其初始处理可以在以下位置之一结束：
+1) 叶子页，若索引深度 <= level_step，意味着没有任何内部页关联缓冲区。
+2) 最顶层带缓冲区的那一层页的缓冲区。
 
-New index tuples are processed until one of the buffers in the topmost
-buffered level becomes half-full. When a buffer becomes half-full, it's added
-to the emptying queue, and will be emptied before a new tuple is processed.
+新索引元组被处理，直到最顶层缓冲层中的某个缓冲区变成半满。当缓冲区变成
+半满时，它被加入清空队列，并将在处理新元组之前被清空。
 
-Buffer emptying process means that index tuples from the buffer are moved
-into buffers at a lower level, or leaf pages. First, all the other buffers are
-swapped to disk to free up the memory. Then tuples are popped from the buffer
-one by one, and cascaded down the tree to the next buffer or leaf page below
-the buffered node.
+缓冲区清空过程意味着把缓冲区中的索引元组移到更低层的缓冲区或叶子页。
+首先，所有其他缓冲区换出到磁盘以腾出内存。然后从缓冲区逐个弹出元组，
+并沿树级联到该缓冲节点下方的下一缓冲区或叶子页。
 
-Emptying a buffer has the interesting dynamic property that any intermediate
-pages between the buffer being emptied, and the next buffered or leaf level
-below it, become cached. If there are no more buffers below the node, the leaf
-pages where the tuples finally land on get cached too. If there are, the last
-buffer page of each buffer below is kept in memory. This is illustrated in
-the figures below:
+清空缓冲区有个有趣的动态性质：被清空的缓冲区与其下方下一缓冲层或叶子
+层之间的任何中间页都会被缓存。若该节点下方没有更多缓冲区，元组最终落地
+的叶子页也会被缓存。若有，则每个下方缓冲区的最后一页保留在内存中。这
+由下图说明：
 
-   Buffer being emptied to
-     lower-level buffers               Buffer being emptied to leaf pages
+   正被清空到更低层缓冲区                 正被清空到叶子页
 
                +(fb)                                 +(fb)
             /     \                                /     \
@@ -374,110 +298,84 @@ the figures below:
       /   \         /   \                    /   \         /   \
     *(ab)   *(ab) *(ab)   *(ab)            x       x     x       x
 
-+    - cached internal page
-x    - cached leaf page
-*    - non-cached internal page
-(fb) - buffer being emptied
-(ab) - buffers being appended to, with last page in memory
++    - 已缓存的内部页
+x    - 已缓存的叶子页
+*    - 未缓存的内部页
+(fb) - 正在被清空的缓冲区
+(ab) - 正在被追加、最后一页在内存中的缓冲区
 
-In the beginning of the index build, the level-step is chosen so that all those
-pages involved in emptying one buffer fit in cache, so after each of those
-pages have been accessed once and cached, emptying a buffer doesn't involve
-any more I/O. This locality is where the speedup of the buffering algorithm
-comes from.
+索引构建开始时，选择层步使得清空一个缓冲区所涉及的全部那些页都能放进
+缓存，因此在那些页各自被访问一次并缓存之后，清空缓冲区不再涉及任何
+I/O。这种局部性就是缓冲算法加速的来源。
 
-Emptying one buffer can fill up one or more of the lower-level buffers,
-triggering emptying of them as well. Whenever a buffer becomes too full, it's
-added to the emptying queue, and will be emptied after the current buffer has
-been processed.
+清空一个缓冲区可能填满一个或多个更低层缓冲区，从而也触发清空它们。每当
+缓冲区过满，它就被加入清空队列，并将在当前缓冲区处理完之后被清空。
 
-To keep the size of each buffer limited even in the worst case, buffer emptying
-is scheduled as soon as a buffer becomes half-full, and emptying it continues
-until 1/2 of the nominal buffer size worth of tuples has been emptied. This
-guarantees that when buffer emptying begins, all the lower-level buffers
-are at most half-full. In the worst case that all the tuples are cascaded down
-to the same lower-level buffer, that buffer therefore has enough space to
-accommodate all the tuples emptied from the upper-level buffer. There is no
-hard size limit in any of the data structures used, though, so this only needs
-to be approximate; small overfilling of some buffers doesn't matter.
+为即便在最坏情况下也保持每个缓冲区大小有限，一旦缓冲区变成半满就调度
+清空，并且清空持续到已清空相当于标称缓冲区大小 1/2 的元组。这保证开始
+清空缓冲区时，所有更低层缓冲区最多半满。最坏情况下全部元组都级联到同一
+更低层缓冲区，该缓冲区因此有足够空间容纳从上层缓冲区清空的全部元组。
+不过所用数据结构都没有硬性大小限制，因此这只需近似；某些缓冲区轻微
+过满不要紧。
 
-If an internal page that has a buffer associated with it is split, the buffer
-needs to be split too. All tuples in the buffer are scanned through and
-relocated to the correct sibling buffers, using the penalty function to decide
-which buffer each tuple should go to.
+若关联有缓冲区的内部页被分裂，该缓冲区也需要分裂。扫描缓冲区中的全部
+元组，并用 penalty 函数决定每个元组应去哪个缓冲区，把它们重定位到正确
+的兄弟缓冲区。
 
-After all tuples from the heap have been processed, there are still some index
-tuples in the buffers. At this point, final buffer emptying starts. All buffers
-are emptied in top-down order. This is slightly complicated by the fact that
-new buffers can be allocated during the emptying, due to page splits. However,
-the new buffers will always be siblings of buffers that haven't been fully
-emptied yet; tuples never move upwards in the tree. The final emptying loops
-through buffers at a given level until all buffers at that level have been
-emptied, and then moves down to the next level.
+堆中全部元组处理完后，缓冲区中仍有一些索引元组。此时开始最终缓冲区清空。
+所有缓冲区按自上而下的顺序清空。这因清空期间可能因页分裂而分配新缓冲区
+而稍复杂。不过新缓冲区总是尚未完全清空的缓冲区的兄弟；元组从不在树中
+向上移动。最终清空循环遍历给定层的缓冲区，直到该层全部缓冲区已清空，
+然后下移到下一层。
 
-Sorted build method
--------------------
+排序构建方法
+------------
 
-Sort all input tuples, pack them into GiST leaf pages in the sorted order,
-and create downlinks and internal pages as we go. This method builds the index
-from the bottom up, similar to how the B-tree index is built.
+对全部输入元组排序，按排序顺序把它们装进 GiST 叶子页，并在进行过程中
+创建下行指针和内部页。该方法自底向上构建索引，类似 B 树索引的构建方式。
 
-The sorted method is used if the operator classes for all columns have a
-"sortsupport" defined. Otherwise, we fall back on inserting tuples one by one
-with optional buffering.
+若所有列的操作符类都定义了 “sortsupport”，则使用排序方法。否则我们回退
+到逐个插入元组，可选地带缓冲。
 
-Sorting GiST build requires good linearization of the sort opclass. That is not
-always the case in multidimensional data. To tackle the anomalies, we buffer
-index tuples and apply a picksplit function that can be multidimensional-aware.
+排序 GiST 构建要求排序操作符类有良好的线性化。多维数据并不总是如此。
+为应对异常，我们缓冲索引元组并应用可以感知多维的 picksplit 函数。
 
-Bulk delete algorithm (VACUUM)
-------------------------------
+批量删除算法（VACUUM）
+----------------------
 
-VACUUM works in two stages:
+VACUUM 分两个阶段工作：
 
-In the first stage, we scan the whole index in physical order. To make sure
-that we don't miss any dead tuples because a concurrent page split moved them,
-we check the F_FOLLOW_RIGHT flags and NSN on each page, to detect if the
-page has been concurrently split. If a concurrent page split is detected, and
-one half of the page was moved to a position that we already scanned, we
-"jump backwards" to scan the page again. This is the same mechanism that
-B-tree VACUUM uses, but because we already have NSNs on pages, to detect page
-splits during searches, we don't need a "vacuum cycle ID" concept for that
-like B-tree does.
+第一阶段，我们按物理顺序扫描整个索引。为确保不会因并发页分裂移动死元组
+而漏掉它们，我们检查每页上的 F_FOLLOW_RIGHT 标志和 NSN，以检测该页是否
+被并发分裂。若检测到并发页分裂，且页的一半被移到我们已经扫描过的位置，
+我们“向后跳”再次扫描该页。这与 B 树 VACUUM 使用的机制相同，但因为我们
+页上已有 NSN 来在搜索期间检测页分裂，我们不需要像 B 树那样为此使用
+“清理周期 ID”概念。
 
-While we scan all the pages, we also make note of any completely empty leaf
-pages. We will try to unlink them from the tree after the scan. We also record
-the block numbers of all internal pages; they are needed to locate parents of
-the empty pages while unlinking them.
+扫描全部页时，我们也记下任何完全空的叶子页。扫描后我们将尝试把它们从
+树中解除链接。我们还记录所有内部页的块号；解除链接时空页的父需要用它们
+来定位。
 
-We try to unlink any empty leaf pages from the tree, so that their space can
-be reused. In order to delete an empty page, its downlink must be removed from
-the parent. We scan all the internal pages, whose block numbers we memorized
-in the first stage, and look for downlinks to pages that we have memorized as
-being empty. Whenever we find one, we acquire a lock on the parent and child
-page, re-check that the child page is still empty. Then, we remove the
-downlink and mark the child as deleted, and release the locks.
+我们尝试把任何空叶子页从树中解除链接，以便其空间可以复用。要删除空页，
+必须从其父中移除其下行指针。我们扫描第一阶段记住块号的全部内部页，并
+查找通向我们已记住为空的那些页的下行指针。每当找到一个，我们就获取父
+和子页上的锁，再检查子页是否仍为空。然后我们移除下行指针并把子标为已
+删除，再释放锁。
 
-The insertion algorithm would get confused, if an internal page was completely
-empty. So we never delete the last child of an internal page, even if it's
-empty. Currently, we only support deleting leaf pages.
+若内部页完全为空，插入算法会困惑。因此我们从不删除内部页的最后一个子，
+即便它是空的。目前我们只支持删除叶子页。
 
-This page deletion algorithm works on a best-effort basis. It might fail to
-find a downlink, if a concurrent page split moved it after the first stage.
-In that case, we won't be able to remove all empty pages. That's OK, it's
-not expected to happen very often, and hopefully the next VACUUM will clean
-it up.
+这一页删除算法按尽力而为工作。若并发页分裂在第一阶段之后移动了下行
+指针，它可能找不到下行指针。那种情况下，我们将无法移除全部空页。那没
+关系，预期不会经常发生，并且希望下一次 VACUUM 会清理掉。
 
-When we have deleted a page, it's possible that an in-progress search will
-still descend on the page, if it saw the downlink before we removed it. The
-search will see that it is deleted, and ignore it, but as long as that can
-happen, we cannot reuse the page. To "wait out" any in-progress searches, when
-a page is deleted, it's labeled with the current next-transaction counter
-value. The page is not recycled, until that XID is no longer visible to
-anyone. That's much more conservative than necessary, but let's keep it
-simple.
+当我们删除了一页时，进行中的搜索仍可能下降到该页，若它在我们移除之前
+看到了下行指针。搜索会看到它已删除并忽略它，但只要这还可能发生，我们
+就不能复用该页。为“等过”任何进行中的搜索，删除页时用当前的下一事务
+计数器值标记它。直到该 XID 对任何人都不再可见，该页才被回收。这比必要
+保守得多，但让我们保持简单。
 
 
-Authors:
+作者：
 	Teodor Sigaev	<teodor@sigaev.ru>
 	Oleg Bartunov	<oleg@sai.msu.su>

@@ -76,42 +76,42 @@ static Bitmapset *get_common_eclass_indexes(PlannerInfo *root, Relids relids1,
 
 /*
  * process_equivalence
- *	  The given clause has a mergejoinable operator and is not an outer-join
- *	  qualification, so its two sides can be considered equal
- *	  anywhere they are both computable; moreover that equality can be
- *	  extended transitively.  Record this knowledge in the EquivalenceClass
- *	  data structure, if applicable.  Returns true if successful, false if not
- *	  (in which case caller should treat the clause as ordinary, not an
- *	  equivalence).
+ *	  给定子句有可归并连接的操作符，且不是外连接
+ *	  限定条件，因此只要两侧都能计算，就可以认为它们
+ *	  处处相等；而且该相等可以
+ *	  传递地扩展。若适用，把这一知识记入 EquivalenceClass
+ *	  数据结构。成功返回 true，否则返回 false
+ *	  （此时调用方应把该子句当作普通子句，而不是
+ *	  等值关系）。
  *
- * In some cases, although we cannot convert a clause into EquivalenceClass
- * knowledge, we can still modify it to a more useful form than the original.
- * Then, *p_restrictinfo will be replaced by a new RestrictInfo, which is what
- * the caller should use for further processing.
+ * 有些情形下，虽然无法把子句转换成 EquivalenceClass
+ * 知识，仍可以把它改成比原来更有用的形式。
+ * 此时 *p_restrictinfo 会被换成新的 RestrictInfo，这就是
+ * 调用方后续处理应当使用的对象。
  *
- * jdomain is the join domain within which the given clause was found.
- * This limits the applicability of deductions from the EquivalenceClass,
- * as described in optimizer/README.
+ * jdomain 是找到该子句时所在的连接域。
+ * 这限制了从 EquivalenceClass 推出的结论能用在哪里，
+ * 如 optimizer/README 所述。
  *
- * We reject proposed equivalence clauses if they contain leaky functions
- * and have security_level above zero.  The EC evaluation rules require us to
- * apply certain tests at certain joining levels, and we can't tolerate
- * delaying any test on security_level grounds.  By rejecting candidate clauses
- * that might require security delays, we ensure it's safe to apply an EC
- * clause as soon as it's supposed to be applied.
+ * 若提议的等值子句含有泄漏函数
+ * 且 security_level 大于零，我们就拒绝。EC 的求值规则需要我们
+ * 在特定的连接层次施加特定测试，我们无法容忍
+ * 以 security_level 为由推迟任何测试。拒绝那些
+ * 可能需要安全推迟的候选子句，就能保证 EC
+ * 子句可以在应当施加的时候立刻施加。
  *
- * On success return, we have also initialized the clause's left_ec/right_ec
- * fields to point to the EquivalenceClass representing it.  This saves lookup
- * effort later.
+ * 成功返回时，我们还初始化了子句的 left_ec/right_ec
+ * 字段，指向表示它的 EquivalenceClass。这省去了以后的
+ * 查找开销。
  *
- * Note: constructing merged EquivalenceClasses is a standard UNION-FIND
- * problem, for which there exist better data structures than simple lists.
- * If this code ever proves to be a bottleneck then it could be sped up ---
- * but for now, simple is beautiful.
+ * 注意：构造合并后的 EquivalenceClasses 是标准的 UNION-FIND
+ * 问题，对此存在比简单列表更好的数据结构。
+ * 若这段代码成为瓶颈，可以再加速 ---
+ * 但目前，简单就是美。
  *
- * Note: this is only called during planner startup, not during GEQO
- * exploration, so we need not worry about whether we're in the right
- * memory context.
+ * 注意：本函数只在规划器启动期间调用，不在 GEQO
+ * 探索期间调用，因此不必担心是否处在正确的
+ * 内存上下文中。
  */
 bool
 process_equivalence(PlannerInfo *root,
@@ -136,15 +136,15 @@ process_equivalence(PlannerInfo *root,
 	ListCell   *lc1;
 	int			ec2_idx;
 
-	/* Should not already be marked as having generated an eclass */
+	/* 不应当已被标记为生成过 eclass */
 	Assert(restrictinfo->left_ec == NULL);
 	Assert(restrictinfo->right_ec == NULL);
 
-	/* Reject if it is potentially postponable by security considerations */
+	/* 若可能因安全考虑而推迟，则拒绝 */
 	if (restrictinfo->security_level > 0 && !restrictinfo->leakproof)
 		return false;
 
-	/* Extract info from given clause */
+	/* 从给定子句中提取信息 */
 	Assert(is_opclause(clause));
 	opno = ((OpExpr *) clause)->opno;
 	collation = ((OpExpr *) clause)->inputcollid;
@@ -154,8 +154,8 @@ process_equivalence(PlannerInfo *root,
 	item2_relids = restrictinfo->right_relids;
 
 	/*
-	 * Ensure both input expressions expose the desired collation (their types
-	 * should be OK already); see comments for canonicalize_ec_expression.
+	 * 确保两个输入表达式都暴露出所要的排序规则（它们的类型
+	 * 应当已经没问题）；见 canonicalize_ec_expression 的注释。
 	 */
 	item1 = canonicalize_ec_expression(item1,
 									   exprType((Node *) item1),
@@ -165,22 +165,22 @@ process_equivalence(PlannerInfo *root,
 									   collation);
 
 	/*
-	 * Clauses of the form X=X cannot be translated into EquivalenceClasses.
-	 * We'd either end up with a single-entry EC, losing the knowledge that
-	 * the clause was present at all, or else make an EC with duplicate
-	 * entries, causing other issues.
+	 * 形如 X=X 的子句无法翻译成 EquivalenceClasses。
+	 * 否则要么得到单项 EC，从而丢失该子句曾经存在的知识，
+	 * 要么造出带重复项的 EC，
+	 * 引起别的问题。
 	 */
 	if (equal(item1, item2))
 	{
 		/*
-		 * If the operator is strict, then the clause can be treated as just
-		 * "X IS NOT NULL".  (Since we know we are considering a top-level
-		 * qual, we can ignore the difference between FALSE and NULL results.)
-		 * It's worth making the conversion because we'll typically get a much
-		 * better selectivity estimate than we would for X=X.
+		 * 若操作符是严格的，该子句可以只当作
+		 * "X IS NOT NULL"。（既然考虑的是顶层
+		 * 限定条件，就可以忽略 FALSE 与 NULL 结果的差别。）
+		 * 值得做这个转换，因为通常会得到比 X=X
+		 * 好得多的选择率估计。
 		 *
-		 * If the operator is not strict, we can't be sure what it will do
-		 * with NULLs, so don't attempt to optimize it.
+		 * 若操作符不严格，就无法确定它对
+		 * NULLs 会做什么，因此不要试图优化它。
 		 */
 		set_opfuncid((OpExpr *) clause);
 		if (func_strict(((OpExpr *) clause)->opfuncid))
@@ -189,7 +189,7 @@ process_equivalence(PlannerInfo *root,
 
 			ntest->arg = item1;
 			ntest->nulltesttype = IS_NOT_NULL;
-			ntest->argisrow = false;	/* correct even if composite arg */
+			ntest->argisrow = false;	/* 即使参数是复合类型也正确 */
 			ntest->location = -1;
 
 			*p_restrictinfo =
@@ -208,34 +208,34 @@ process_equivalence(PlannerInfo *root,
 	}
 
 	/*
-	 * We use the declared input types of the operator, not exprType() of the
-	 * inputs, as the nominal datatypes for opfamily lookup.  This presumes
-	 * that btree operators are always registered with amoplefttype and
-	 * amoprighttype equal to their declared input types.  We will need this
-	 * info anyway to build EquivalenceMember nodes, and by extracting it now
-	 * we can use type comparisons to short-circuit some equal() tests.
+	 * 我们用操作符声明的输入类型，而不是输入的 exprType()
+	 * 结果，作为操作符族查找的名义数据类型。这假定
+	 * B-树操作符登记时 amoplefttype 与
+	 * amoprighttype 总等于其声明的输入类型。反正构造
+	 * EquivalenceMember 节点也需要这些信息，现在取出来
+	 * 就可以用类型比较短路某些 equal() 测试。
 	 */
 	op_input_types(opno, &item1_type, &item2_type);
 
 	opfamilies = restrictinfo->mergeopfamilies;
 
 	/*
-	 * Sweep through the existing EquivalenceClasses looking for matches to
-	 * item1 and item2.  These are the possible outcomes:
+	 * 遍历已有的 EquivalenceClasses，寻找与
+	 * item1 和 item2 的匹配。可能的结果是：
 	 *
-	 * 1. We find both in the same EC.  The equivalence is already known, so
-	 * there's nothing to do.
+	 * 1. 两者在同一个 EC 中。等值关系已知，
+	 * 因此无事可做。
 	 *
-	 * 2. We find both in different ECs.  Merge the two ECs together.
+	 * 2. 两者在不同的 EC 中。把两个 EC 合并。
 	 *
-	 * 3. We find just one.  Add the other to its EC.
+	 * 3. 只找到一个。把另一个加入它的 EC。
 	 *
-	 * 4. We find neither.  Make a new, two-entry EC.
+	 * 4. 一个都没找到。新建一个两项 EC。
 	 *
-	 * Note: since all ECs are built through this process or the similar
-	 * search in get_eclass_for_sort_expr(), it's impossible that we'd match
-	 * an item in more than one existing nonvolatile EC.  So it's okay to stop
-	 * at the first match.
+	 * 注意：因为所有 EC 都经此过程，或经
+	 * get_eclass_for_sort_expr() 中类似的搜索建成，不可能在
+	 * 不止一个已有的非易变 EC 中匹配到同一项。因此在
+	 * 第一次匹配处停下是可以的。
 	 */
 	ec1 = ec2 = NULL;
 	em1 = em2 = NULL;
@@ -245,21 +245,21 @@ process_equivalence(PlannerInfo *root,
 		EquivalenceClass *cur_ec = (EquivalenceClass *) lfirst(lc1);
 		ListCell   *lc2;
 
-		/* Never match to a volatile EC */
+		/* 永不匹配易变 EC */
 		if (cur_ec->ec_has_volatile)
 			continue;
 
 		/*
-		 * The collation has to match; check this first since it's cheaper
-		 * than the opfamily comparison.
+		 * 排序规则必须匹配；先查这个，因为它比
+		 * 操作符族比较更便宜。
 		 */
 		if (collation != cur_ec->ec_collation)
 			continue;
 
 		/*
-		 * A "match" requires matching sets of btree opfamilies.  Use of
-		 * equal() for this test has implications discussed in the comments
-		 * for get_mergejoin_opfamilies().
+		 * 一次 "匹配" 需要匹配的 B-树操作符族集合。对此使用
+		 * equal() 的影响，在
+		 * get_mergejoin_opfamilies() 的注释里讨论过。
 		 */
 		if (!equal(opfamilies, cur_ec->ec_opfamilies))
 			continue;
@@ -268,11 +268,11 @@ process_equivalence(PlannerInfo *root,
 		{
 			EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc2);
 
-			Assert(!cur_em->em_is_child);	/* no children yet */
+			Assert(!cur_em->em_is_child);	/* 还没有子项 */
 
 			/*
-			 * Match constants only within the same JoinDomain (see
-			 * optimizer/README).
+			 * 只在同一 JoinDomain 内匹配常量（见
+			 * optimizer/README）。
 			 */
 			if (cur_em->em_is_const && cur_em->em_jdomain != jdomain)
 				continue;
@@ -303,11 +303,11 @@ process_equivalence(PlannerInfo *root,
 			break;
 	}
 
-	/* Sweep finished, what did we find? */
+	/* 扫描结束，找到了什么？ */
 
 	if (ec1 && ec2)
 	{
-		/* If case 1, nothing to do, except add to sources */
+		/* 若是情形 1，除了加入来源外无事可做 */
 		if (ec1 == ec2)
 		{
 			ec1->ec_sources = lappend(ec1->ec_sources, restrictinfo);
@@ -315,44 +315,44 @@ process_equivalence(PlannerInfo *root,
 									   restrictinfo->security_level);
 			ec1->ec_max_security = Max(ec1->ec_max_security,
 									   restrictinfo->security_level);
-			/* mark the RI as associated with this eclass */
+			/* 把该 RI 标记为与此 eclass 相关联 */
 			restrictinfo->left_ec = ec1;
 			restrictinfo->right_ec = ec1;
-			/* mark the RI as usable with this pair of EMs */
+			/* 把该 RI 标记为可用于这一对 EM */
 			restrictinfo->left_em = em1;
 			restrictinfo->right_em = em2;
 			return true;
 		}
 
 		/*
-		 * Case 2: need to merge ec1 and ec2.  This should never happen after
-		 * the ECs have reached canonical state; otherwise, pathkeys could be
-		 * rendered non-canonical by the merge, and relation eclass indexes
-		 * would get broken by removal of an eq_classes list entry.
+		 * 情形 2：需要合并 ec1 和 ec2。EC 到达规范状态之后
+		 * 不应当再发生；否则合并会使路径键
+		 * 不再规范，而且删掉 eq_classes 列表项会弄坏
+		 * 关系的 eclass 索引。
 		 */
 		if (root->ec_merging_done)
 			elog(ERROR, "too late to merge equivalence classes");
 
 		/*
-		 * We add ec2's items to ec1, then set ec2's ec_merged link to point
-		 * to ec1 and remove ec2 from the eq_classes list.  We cannot simply
-		 * delete ec2 because that could leave dangling pointers in existing
-		 * PathKeys.  We leave it behind with a link so that the merged EC can
-		 * be found.
+		 * 我们把 ec2 的项加入 ec1，再让 ec2 的 ec_merged 链接指向
+		 * ec1，并把 ec2 从 eq_classes 列表中去掉。无法简单地
+		 * 删除 ec2，因为那会在已有的
+		 * PathKeys 里留下悬空指针。我们把它留下来并带上链接，以便能找到
+		 * 合并后的 EC。
 		 */
 		ec1->ec_members = list_concat(ec1->ec_members, ec2->ec_members);
 		ec1->ec_sources = list_concat(ec1->ec_sources, ec2->ec_sources);
 		ec1->ec_derives = list_concat(ec1->ec_derives, ec2->ec_derives);
 		ec1->ec_relids = bms_join(ec1->ec_relids, ec2->ec_relids);
 		ec1->ec_has_const |= ec2->ec_has_const;
-		/* can't need to set has_volatile */
+		/* 不可能还需要设置 has_volatile */
 		ec1->ec_min_security = Min(ec1->ec_min_security,
 								   ec2->ec_min_security);
 		ec1->ec_max_security = Max(ec1->ec_max_security,
 								   ec2->ec_max_security);
 		ec2->ec_merged = ec1;
 		root->eq_classes = list_delete_nth_cell(root->eq_classes, ec2_idx);
-		/* just to avoid debugging confusion w/ dangling pointers: */
+		/* 只是为了避免悬空指针造成调试混乱： */
 		ec2->ec_members = NIL;
 		ec2->ec_sources = NIL;
 		ec2->ec_derives = NIL;
@@ -362,16 +362,16 @@ process_equivalence(PlannerInfo *root,
 								   restrictinfo->security_level);
 		ec1->ec_max_security = Max(ec1->ec_max_security,
 								   restrictinfo->security_level);
-		/* mark the RI as associated with this eclass */
+		/* 把该 RI 标记为与此 eclass 相关联 */
 		restrictinfo->left_ec = ec1;
 		restrictinfo->right_ec = ec1;
-		/* mark the RI as usable with this pair of EMs */
+		/* 把该 RI 标记为可用于这一对 EM */
 		restrictinfo->left_em = em1;
 		restrictinfo->right_em = em2;
 	}
 	else if (ec1)
 	{
-		/* Case 3: add item2 to ec1 */
+		/* 情形 3：把 item2 加入 ec1 */
 		em2 = add_eq_member(ec1, item2, item2_relids,
 							jdomain, NULL, item2_type);
 		ec1->ec_sources = lappend(ec1->ec_sources, restrictinfo);
@@ -379,16 +379,16 @@ process_equivalence(PlannerInfo *root,
 								   restrictinfo->security_level);
 		ec1->ec_max_security = Max(ec1->ec_max_security,
 								   restrictinfo->security_level);
-		/* mark the RI as associated with this eclass */
+		/* 把该 RI 标记为与此 eclass 相关联 */
 		restrictinfo->left_ec = ec1;
 		restrictinfo->right_ec = ec1;
-		/* mark the RI as usable with this pair of EMs */
+		/* 把该 RI 标记为可用于这一对 EM */
 		restrictinfo->left_em = em1;
 		restrictinfo->right_em = em2;
 	}
 	else if (ec2)
 	{
-		/* Case 3: add item1 to ec2 */
+		/* 情形 3：把 item1 加入 ec2 */
 		em1 = add_eq_member(ec2, item1, item1_relids,
 							jdomain, NULL, item1_type);
 		ec2->ec_sources = lappend(ec2->ec_sources, restrictinfo);
@@ -396,16 +396,16 @@ process_equivalence(PlannerInfo *root,
 								   restrictinfo->security_level);
 		ec2->ec_max_security = Max(ec2->ec_max_security,
 								   restrictinfo->security_level);
-		/* mark the RI as associated with this eclass */
+		/* 把该 RI 标记为与此 eclass 相关联 */
 		restrictinfo->left_ec = ec2;
 		restrictinfo->right_ec = ec2;
-		/* mark the RI as usable with this pair of EMs */
+		/* 把该 RI 标记为可用于这一对 EM */
 		restrictinfo->left_em = em1;
 		restrictinfo->right_em = em2;
 	}
 	else
 	{
-		/* Case 4: make a new, two-entry EC */
+		/* 情形 4：新建一个两项 EC */
 		EquivalenceClass *ec = makeNode(EquivalenceClass);
 
 		ec->ec_opfamilies = opfamilies;
@@ -428,10 +428,10 @@ process_equivalence(PlannerInfo *root,
 
 		root->eq_classes = lappend(root->eq_classes, ec);
 
-		/* mark the RI as associated with this eclass */
+		/* 把该 RI 标记为与此 eclass 相关联 */
 		restrictinfo->left_ec = ec;
 		restrictinfo->right_ec = ec;
-		/* mark the RI as usable with this pair of EMs */
+		/* 把该 RI 标记为可用于这一对 EM */
 		restrictinfo->left_em = em1;
 		restrictinfo->right_em = em2;
 	}
@@ -442,30 +442,30 @@ process_equivalence(PlannerInfo *root,
 /*
  * canonicalize_ec_expression
  *
- * This function ensures that the expression exposes the expected type and
- * collation, so that it will be equal() to other equivalence-class expressions
- * that it ought to be equal() to.
+ * 本函数确保表达式暴露出预期的类型和
+ * 排序规则，从而能与它应当 equal() 到的其他等价类表达式
+ * equal() 相等。
  *
- * The rule for datatypes is that the exposed type should match what it would
- * be for an input to an operator of the EC's opfamilies; which is usually
- * the declared input type of the operator, but in the case of polymorphic
- * operators no relabeling is wanted (compare the behavior of parse_coerce.c).
- * Expressions coming in from quals will generally have the right type
- * already, but expressions coming from indexkeys may not (because they are
- * represented without any explicit relabel in pg_index), and the same problem
- * occurs for sort expressions (because the parser is likewise cavalier about
- * putting relabels on them).  Such cases will be binary-compatible with the
- * real operators, so adding a RelabelType is sufficient.
+ * 数据类型的规则是：暴露类型应当与它作为
+ * 该 EC 操作符族中某个操作符的输入时相同；通常就是
+ * 操作符声明的输入类型，但多态
+ * 操作符不必重标记（对照 parse_coerce.c 的行为）。
+ * 来自限定条件的表达式通常类型已经正确，
+ * 但来自索引键的表达式也许不对（因为它们在
+ * pg_index 中没有任何显式重标记），排序表达式也有
+ * 同样的问题（解析器同样随意地
+ * 给它们加不加重标记）。这些情形与真正的
+ * 操作符二进制兼容，因此加上 RelabelType 就够了。
  *
- * Also, the expression's exposed collation must match the EC's collation.
- * This is important because in comparisons like "foo < bar COLLATE baz",
- * only one of the expressions has the correct exposed collation as we receive
- * it from the parser.  Forcing both of them to have it ensures that all
- * variant spellings of such a construct behave the same.  Again, we can
- * stick on a RelabelType to force the right exposed collation.  (It might
- * work to not label the collation at all in EC members, but this is risky
- * since some parts of the system expect exprCollation() to deliver the
- * right answer for a sort key.)
+ * 另外，表达式暴露的排序规则必须与 EC 的排序规则一致。
+ * 这很重要，因为像 "foo < bar COLLATE baz" 这样的比较里，
+ * 我们从解析器收到时，只有其中一个表达式的暴露排序规则是对的。
+ * 强制两者都带上它，才能保证这种结构的所有
+ * 不同写法行为相同。同样，我们可以
+ * 贴上 RelabelType 来强制正确的暴露排序规则。（也可以
+ * 完全不给 EC 成员标排序规则，但那样有风险，
+ * 因为系统有些部分预期 exprCollation() 会给出
+ * 排序键的正确答案。）
  */
 Expr *
 canonicalize_ec_expression(Expr *expr, Oid req_type, Oid req_collation)
@@ -473,22 +473,22 @@ canonicalize_ec_expression(Expr *expr, Oid req_type, Oid req_collation)
 	Oid			expr_type = exprType((Node *) expr);
 
 	/*
-	 * For a polymorphic-input-type opclass, just keep the same exposed type.
-	 * RECORD opclasses work like polymorphic-type ones for this purpose.
+	 * 对多态输入类型的 opclass，保持原来的暴露类型。
+	 * RECORD opclass 在这里与多态类型的一样处理。
 	 */
 	if (IsPolymorphicType(req_type) || req_type == RECORDOID)
 		req_type = expr_type;
 
 	/*
-	 * No work if the expression exposes the right type/collation already.
+	 * 若表达式已经暴露出正确的类型/排序规则，就无事可做。
 	 */
 	if (expr_type != req_type ||
 		exprCollation((Node *) expr) != req_collation)
 	{
 		/*
-		 * If we have to change the type of the expression, set typmod to -1,
-		 * since the new type may not have the same typmod interpretation.
-		 * When we only have to change collation, preserve the exposed typmod.
+		 * 若必须改变表达式的类型，把 typmod 设为 -1，
+		 * 因为新类型对 typmod 的解释也许不同。
+		 * 若只改排序规则，就保留暴露的 typmod。
 		 */
 		int32		req_typmod;
 
@@ -498,8 +498,8 @@ canonicalize_ec_expression(Expr *expr, Oid req_type, Oid req_collation)
 			req_typmod = exprTypmod((Node *) expr);
 
 		/*
-		 * Use applyRelabelType so that we preserve const-flatness.  This is
-		 * important since eval_const_expressions has already been applied.
+		 * 用 applyRelabelType，以便保持常量平坦。这很
+		 * 重要，因为 eval_const_expressions 已经施加过了。
 		 */
 		expr = (Expr *) applyRelabelType((Node *) expr,
 										 req_type, req_typmod, req_collation,
@@ -510,7 +510,7 @@ canonicalize_ec_expression(Expr *expr, Oid req_type, Oid req_collation)
 }
 
 /*
- * add_eq_member - build a new EquivalenceMember and add it to an EC
+ * add_eq_member - 构造新的 EquivalenceMember 并加入某个 EC
  */
 static EquivalenceMember *
 add_eq_member(EquivalenceClass *ec, Expr *expr, Relids relids,
@@ -529,19 +529,19 @@ add_eq_member(EquivalenceClass *ec, Expr *expr, Relids relids,
 	if (bms_is_empty(relids))
 	{
 		/*
-		 * No Vars, assume it's a pseudoconstant.  This is correct for entries
-		 * generated from process_equivalence(), because a WHERE clause can't
-		 * contain aggregates or SRFs, and non-volatility was checked before
-		 * process_equivalence() ever got called.  But
-		 * get_eclass_for_sort_expr() has to work harder.  We put the tests
-		 * there not here to save cycles in the equivalence case.
+		 * 没有 Vars，就假定它是伪常量。对
+		 * process_equivalence() 生成的项这是对的，因为 WHERE 子句不能
+		 * 包含聚集或 SRFs，而且在
+		 * process_equivalence() 被调用之前已经检查过非易变性。但
+		 * get_eclass_for_sort_expr() 得更费力。我们把测试放在
+		 * 那里而不是这里，以便在等值情形下省掉这些周期。
 		 */
 		Assert(!parent);
 		em->em_is_const = true;
 		ec->ec_has_const = true;
-		/* it can't affect ec_relids */
+		/* 它影响不了 ec_relids */
 	}
-	else if (!parent)			/* child members don't add to ec_relids */
+	else if (!parent)			/* 子成员不加入 ec_relids */
 	{
 		ec->ec_relids = bms_add_members(ec->ec_relids, relids);
 	}
@@ -553,34 +553,34 @@ add_eq_member(EquivalenceClass *ec, Expr *expr, Relids relids,
 
 /*
  * get_eclass_for_sort_expr
- *	  Given an expression and opfamily/collation info, find an existing
- *	  equivalence class it is a member of; if none, optionally build a new
- *	  single-member EquivalenceClass for it.
+ *	  给定表达式以及操作符族/排序规则信息，找出它所属的已有
+ *	  等价类；若没有，可选地为它新建一个
+ *	  单成员 EquivalenceClass。
  *
- * sortref is the SortGroupRef of the originating SortGroupClause, if any,
- * or zero if not.  (It should never be zero if the expression is volatile!)
+ * sortref 是来源 SortGroupClause 的 SortGroupRef（若有），
+ * 否则为零。（表达式易变时它绝不应当为零！）
  *
- * If rel is not NULL, it identifies a specific relation we're considering
- * a path for, and indicates that child EC members for that relation can be
- * considered.  Otherwise child members are ignored.  (Note: since child EC
- * members aren't guaranteed unique, a non-NULL value means that there could
- * be more than one EC that matches the expression; if so it's order-dependent
- * which one you get.  This is annoying but it only happens in corner cases,
- * so for now we live with just reporting the first match.  See also
- * generate_implied_equalities_for_column and match_pathkeys_to_index.)
+ * 若 rel 不是 NULL，它标识我们正在为其考虑
+ * 路径的某个特定关系，并表示可以考虑该关系的子 EC 成员。
+ * 否则忽略子成员。（注意：子 EC
+ * 成员不保证唯一，非 NULL 意味着可能
+ * 有不止一个 EC 匹配该表达式；若是这样，你得到哪一个取决于顺序。
+ * 这很烦人，但只发生在边角情形，
+ * 所以目前我们接受只报告第一个匹配。另见
+ * generate_implied_equalities_for_column 和 match_pathkeys_to_index。）
  *
- * If create_it is true, we'll build a new EquivalenceClass when there is no
- * match.  If create_it is false, we just return NULL when no match.
+ * 若 create_it 为 true，没有匹配时就新建 EquivalenceClass。
+ * 若 create_it 为 false，没有匹配就返回 NULL。
  *
- * This can be used safely both before and after EquivalenceClass merging;
- * since it never causes merging it does not invalidate any existing ECs
- * or PathKeys.  However, ECs added after path generation has begun are
- * of limited usefulness, so usually it's best to create them beforehand.
+ * EquivalenceClass 合并前后都可以安全使用本函数；
+ * 它从不引起合并，因此不会使已有 EC
+ * 或 PathKeys 失效。不过，路径生成开始之后才加入的 EC
+ * 用处有限，所以通常最好事先创建。
  *
- * Note: opfamilies must be chosen consistently with the way
- * process_equivalence() would do; that is, generated from a mergejoinable
- * equality operator.  Else we might fail to detect valid equivalences,
- * generating poor (but not incorrect) plans.
+ * 注意：操作符族的选择必须与
+ * process_equivalence() 的做法一致，也就是从可归并连接的
+ * 等值操作符生成。否则我们也许检测不到有效的等值关系，
+ * 从而生成较差（但并非不正确）的计划。
  */
 EquivalenceClass *
 get_eclass_for_sort_expr(PlannerInfo *root,
@@ -600,18 +600,18 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 	MemoryContext oldcontext;
 
 	/*
-	 * Ensure the expression exposes the correct type and collation.
+	 * 确保表达式暴露出正确的类型和排序规则。
 	 */
 	expr = canonicalize_ec_expression(expr, opcintype, collation);
 
 	/*
-	 * Since SortGroupClause nodes are top-level expressions (GROUP BY, ORDER
-	 * BY, etc), they can be presumed to belong to the top JoinDomain.
+	 * SortGroupClause 节点是顶层表达式（GROUP BY、ORDER
+	 * BY 等），可以认为它们属于最顶层 JoinDomain。
 	 */
 	jdomain = linitial_node(JoinDomain, root->join_domains);
 
 	/*
-	 * Scan through the existing EquivalenceClasses for a match
+	 * 扫描已有的 EquivalenceClasses 寻找匹配
 	 */
 	foreach(lc1, root->eq_classes)
 	{
@@ -619,8 +619,8 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 		ListCell   *lc2;
 
 		/*
-		 * Never match to a volatile EC, except when we are looking at another
-		 * reference to the same volatile SortGroupClause.
+		 * 永不匹配易变 EC，除非我们正在看同一条易变
+		 * SortGroupClause 的另一处引用。
 		 */
 		if (cur_ec->ec_has_volatile &&
 			(sortref == 0 || sortref != cur_ec->ec_sortref))
@@ -636,33 +636,33 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 			EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc2);
 
 			/*
-			 * Ignore child members unless they match the request.
+			 * 除非子成员符合请求，否则忽略它们。
 			 */
 			if (cur_em->em_is_child &&
 				!bms_equal(cur_em->em_relids, rel))
 				continue;
 
 			/*
-			 * Match constants only within the same JoinDomain (see
-			 * optimizer/README).
+			 * 只在同一 JoinDomain 内匹配常量（见
+			 * optimizer/README）。
 			 */
 			if (cur_em->em_is_const && cur_em->em_jdomain != jdomain)
 				continue;
 
 			if (opcintype == cur_em->em_datatype &&
 				equal(expr, cur_em->em_expr))
-				return cur_ec;	/* Match! */
+				return cur_ec;	/* 匹配！ */
 		}
 	}
 
-	/* No match; does caller want a NULL result? */
+	/* 没有匹配；调用方是否想要 NULL 结果？ */
 	if (!create_it)
 		return NULL;
 
 	/*
-	 * OK, build a new single-member EC
+	 * 好，新建一个单成员 EC
 	 *
-	 * Here, we must be sure that we construct the EC in the right context.
+	 * 这里必须确保在正确的上下文中构造该 EC。
 	 */
 	oldcontext = MemoryContextSwitchTo(root->planner_cxt);
 
@@ -681,11 +681,11 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 	newec->ec_max_security = 0;
 	newec->ec_merged = NULL;
 
-	if (newec->ec_has_volatile && sortref == 0) /* should not happen */
+	if (newec->ec_has_volatile && sortref == 0) /* 不应当发生 */
 		elog(ERROR, "volatile EquivalenceClass has no sortref");
 
 	/*
-	 * Get the precise set of relids appearing in the expression.
+	 * 取得表达式中出现的精确 relid 集合。
 	 */
 	expr_relids = pull_varnos(root, (Node *) expr);
 
@@ -693,10 +693,10 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 						  jdomain, NULL, opcintype);
 
 	/*
-	 * add_eq_member doesn't check for volatile functions, set-returning
-	 * functions, aggregates, or window functions, but such could appear in
-	 * sort expressions; so we have to check whether its const-marking was
-	 * correct.
+	 * add_eq_member 不检查易变函数、集合返回
+	 * 函数、聚集或窗口函数，但排序表达式里可能出现这些；
+	 * 因此必须检查它对常量的标记是否
+	 * 正确。
 	 */
 	if (newec->ec_has_const)
 	{
@@ -713,8 +713,8 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 	root->eq_classes = lappend(root->eq_classes, newec);
 
 	/*
-	 * If EC merging is already complete, we have to mop up by adding the new
-	 * EC to the eclass_indexes of the relation(s) mentioned in it.
+	 * 若 EC 合并已经完成，就得补做：把新
+	 * EC 加入它所提到的 relation(s) 的 eclass_indexes。
 	 */
 	if (root->ec_merging_done)
 	{
@@ -725,7 +725,7 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 		{
 			RelOptInfo *rel = root->simple_rel_array[i];
 
-			if (rel == NULL)	/* must be an outer join */
+			if (rel == NULL)	/* 必须是外连接 */
 			{
 				Assert(bms_is_member(i, root->outer_join_rels));
 				continue;
@@ -745,15 +745,15 @@ get_eclass_for_sort_expr(PlannerInfo *root,
 
 /*
  * find_ec_member_matching_expr
- *		Locate an EquivalenceClass member matching the given expr, if any;
- *		return NULL if no match.
+ *		找出与给定 expr 匹配的 EquivalenceClass 成员（若有）；
+ *		没有匹配则返回 NULL。
  *
- * "Matching" is defined as "equal after stripping RelabelTypes".
- * This is used for identifying sort expressions, and we need to allow
- * binary-compatible relabeling for some cases involving binary-compatible
- * sort operators.
+ * "匹配" 定义为 "剥掉 RelabelTypes 之后相等"。
+ * 这用于识别排序表达式，有些涉及二进制兼容
+ * 排序操作符的情形需要允许
+ * 二进制兼容的重标记。
  *
- * Child EC members are ignored unless they belong to given 'relids'.
+ * 除非子 EC 成员属于给定的 relids，否则忽略它们。
  */
 EquivalenceMember *
 find_ec_member_matching_expr(EquivalenceClass *ec,
@@ -762,7 +762,7 @@ find_ec_member_matching_expr(EquivalenceClass *ec,
 {
 	ListCell   *lc;
 
-	/* We ignore binary-compatible relabeling on both ends */
+	/* 两端的二进制兼容重标记都忽略 */
 	while (expr && IsA(expr, RelabelType))
 		expr = ((RelabelType *) expr)->arg;
 
@@ -772,21 +772,21 @@ find_ec_member_matching_expr(EquivalenceClass *ec,
 		Expr	   *emexpr;
 
 		/*
-		 * We shouldn't be trying to sort by an equivalence class that
-		 * contains a constant, so no need to consider such cases any further.
+		 * 不应当试图按含有常量的等价类排序，
+		 * 因此不必再考虑这些情形。
 		 */
 		if (em->em_is_const)
 			continue;
 
 		/*
-		 * Ignore child members unless they belong to the requested rel.
+		 * 除非子成员属于所请求的关系，否则忽略它们。
 		 */
 		if (em->em_is_child &&
 			!bms_is_subset(em->em_relids, relids))
 			continue;
 
 		/*
-		 * Match if same expression (after stripping relabel).
+		 * 若表达式相同（剥掉重标记之后）则匹配。
 		 */
 		emexpr = em->em_expr;
 		while (emexpr && IsA(emexpr, RelabelType))
@@ -801,33 +801,33 @@ find_ec_member_matching_expr(EquivalenceClass *ec,
 
 /*
  * find_computable_ec_member
- *		Locate an EquivalenceClass member that can be computed from the
- *		expressions appearing in "exprs"; return NULL if no match.
+ *		找出一个能从 "exprs" 中出现的表达式计算出来的 EquivalenceClass 成员；
+ *		没有匹配则返回 NULL。
  *
- * "exprs" can be either a list of bare expression trees, or a list of
- * TargetEntry nodes.  Typically it will contain Vars and possibly Aggrefs
- * and WindowFuncs; however, when considering an appendrel member the list
- * could contain arbitrary expressions.  We consider an EC member to be
- * computable if all the Vars, PlaceHolderVars, Aggrefs, and WindowFuncs
- * it needs are present in "exprs".
+ * "exprs" 可以是裸表达式树的列表，也可以是
+ * TargetEntry 节点的列表。通常它含有 Vars，也许还有 Aggrefs
+ * 和 WindowFuncs；不过在考虑 appendrel 成员时，列表
+ * 可能含有任意表达式。若某个 EC 成员所需的全部 Vars、PlaceHolderVars、Aggrefs 和 WindowFuncs
+ * 都出现在 "exprs" 中，就认为它
+ * 可计算。
  *
- * There is some subtlety in that definition: for example, if an EC member is
- * Var_A + 1 while what is in "exprs" is Var_A + 2, it's still computable.
- * This works because in the final plan tree, the EC member's expression will
- * be computed as part of the same plan node targetlist that is currently
- * represented by "exprs".  So if we have Var_A available for the existing
- * tlist member, it must be OK to use it in the EC expression too.
+ * 这个定义有点微妙：例如 EC 成员是
+ * Var_A + 1，而 "exprs" 里是 Var_A + 2，它仍然可计算。
+ * 这是因为在最终计划树里，EC 成员的表达式会
+ * 作为当前由 "exprs" 表示的同一计划节点目标列表的一部分来
+ * 计算。因此若已有目标列表成员能用到 Var_A，
+ * 在 EC 表达式里用它也应当可以。
  *
- * Unlike find_ec_member_matching_expr, there's no special provision here
- * for binary-compatible relabeling.  This is intentional: if we have to
- * compute an expression in this way, setrefs.c is going to insist on exact
- * matches of Vars to the source tlist.
+ * 与 find_ec_member_matching_expr 不同，这里不为
+ * 二进制兼容重标记做特殊处理。这是有意的：若必须
+ * 以这种方式计算表达式，setrefs.c 会坚持 Vars 与源目标列表
+ * 精确匹配。
  *
- * Child EC members are ignored unless they belong to given 'relids'.
- * Also, non-parallel-safe expressions are ignored if 'require_parallel_safe'.
+ * 除非子 EC 成员属于给定的 relids，否则忽略它们。
+ * 另外，若 require_parallel_safe，则忽略非并行安全的表达式。
  *
- * Note: some callers pass root == NULL for notational reasons.  This is OK
- * when require_parallel_safe is false.
+ * 注意：有些调用方出于写法原因传入 root == NULL。当
+ * require_parallel_safe 为 false 时这是可以的。
  */
 EquivalenceMember *
 find_computable_ec_member(PlannerInfo *root,
@@ -840,10 +840,10 @@ find_computable_ec_member(PlannerInfo *root,
 	ListCell   *lc;
 
 	/*
-	 * Pull out the Vars and quasi-Vars present in "exprs".  In the typical
-	 * non-appendrel case, this is just another representation of the same
-	 * list.  However, it does remove the distinction between the case of a
-	 * list of plain expressions and a list of TargetEntrys.
+	 * 抽出 "exprs" 中的 Vars 和准 Vars。在典型的
+	 * 非 appendrel 情形下，这只是同一列表的另一种表示。
+	 * 不过，它确实消除了普通表达式列表与
+	 * TargetEntrys 列表这两种情形的差别。
 	 */
 	exprvars = pull_var_clause((Node *) exprs,
 							   PVC_INCLUDE_AGGREGATES |
@@ -857,21 +857,21 @@ find_computable_ec_member(PlannerInfo *root,
 		ListCell   *lc2;
 
 		/*
-		 * We shouldn't be trying to sort by an equivalence class that
-		 * contains a constant, so no need to consider such cases any further.
+		 * 不应当试图按含有常量的等价类排序，
+		 * 因此不必再考虑这些情形。
 		 */
 		if (em->em_is_const)
 			continue;
 
 		/*
-		 * Ignore child members unless they belong to the requested rel.
+		 * 除非子成员属于所请求的关系，否则忽略它们。
 		 */
 		if (em->em_is_child &&
 			!bms_is_subset(em->em_relids, relids))
 			continue;
 
 		/*
-		 * Match if all Vars and quasi-Vars are present in "exprs".
+		 * 若全部 Vars 和准 Vars 都出现在 "exprs" 中，则匹配。
 		 */
 		emvars = pull_var_clause((Node *) em->em_expr,
 								 PVC_INCLUDE_AGGREGATES |
@@ -884,17 +884,17 @@ find_computable_ec_member(PlannerInfo *root,
 		}
 		list_free(emvars);
 		if (lc2)
-			continue;			/* we hit a non-available Var */
+			continue;			/* 碰到了不可用的 Var */
 
 		/*
-		 * If requested, reject expressions that are not parallel-safe.  We
-		 * check this last because it's a rather expensive test.
+		 * 若要求，则拒绝非并行安全的表达式。我们
+		 * 最后才做这个检查，因为它相当贵。
 		 */
 		if (require_parallel_safe &&
 			!is_parallel_safe(root, (Node *) em->em_expr))
 			continue;
 
-		return em;				/* found usable expression */
+		return em;				/* 找到了可用表达式 */
 	}
 
 	return NULL;
@@ -902,16 +902,16 @@ find_computable_ec_member(PlannerInfo *root,
 
 /*
  * relation_can_be_sorted_early
- *		Can this relation be sorted on this EC before the final output step?
+ *		这个关系能否在最终输出步骤之前按该 EC 排序？
  *
- * To succeed, we must find an EC member that prepare_sort_from_pathkeys knows
- * how to sort on, given the rel's reltarget as input.  There are also a few
- * additional constraints based on the fact that the desired sort will be done
- * "early", within the scan/join part of the plan.  Also, non-parallel-safe
- * expressions are ignored if 'require_parallel_safe'.
+ * 要成功，必须找到一个 EC 成员，使得 prepare_sort_from_pathkeys 知道
+ * 在以该关系的 reltarget 为输入时如何按它排序。另外还有几条
+ * 约束，因为所要的排序会
+ * "提早" 做，在计划的扫描/连接部分之内。另外，若 require_parallel_safe，
+ * 则忽略非并行安全的表达式。
  *
- * At some point we might want to return the identified EquivalenceMember,
- * but for now, callers only want to know if there is one.
+ * 将来也许想返回找到的 EquivalenceMember，
+ * 但目前调用方只想知道有没有。
  */
 bool
 relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
@@ -922,13 +922,13 @@ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
 	ListCell   *lc;
 
 	/*
-	 * Reject volatile ECs immediately; such sorts must always be postponed.
+	 * 立即拒绝易变 EC；这种排序必须一直推迟。
 	 */
 	if (ec->ec_has_volatile)
 		return false;
 
 	/*
-	 * Try to find an EM directly matching some reltarget member.
+	 * 试着找一个直接匹配某个 reltarget 成员的 EM。
 	 */
 	foreach(lc, target->exprs)
 	{
@@ -939,17 +939,17 @@ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
 			continue;
 
 		/*
-		 * Reject expressions involving set-returning functions, as those
-		 * can't be computed early either.  (Note: this test and the following
-		 * one are effectively checking properties of targetexpr, so there's
-		 * no point in asking whether some other EC member would be better.)
+		 * 拒绝涉及集合返回函数的表达式，那些
+		 * 也不能提早计算。（注意：本测试和下面
+		 * 那个实际上是在检查 targetexpr 的性质，因此
+		 * 不必问别的 EC 成员会不会更好。）
 		 */
 		if (expression_returns_set((Node *) em->em_expr))
 			continue;
 
 		/*
-		 * If requested, reject expressions that are not parallel-safe.  We
-		 * check this last because it's a rather expensive test.
+		 * 若要求，则拒绝非并行安全的表达式。我们
+		 * 最后才做这个检查，因为它相当贵。
 		 */
 		if (require_parallel_safe &&
 			!is_parallel_safe(root, (Node *) em->em_expr))
@@ -959,7 +959,7 @@ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
 	}
 
 	/*
-	 * Try to find an expression computable from the reltarget.
+	 * 试着找一个能从 reltarget 计算出来的表达式。
 	 */
 	em = find_computable_ec_member(root, ec, target->exprs, rel->relids,
 								   require_parallel_safe);
@@ -967,10 +967,10 @@ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
 		return false;
 
 	/*
-	 * Reject expressions involving set-returning functions, as those can't be
-	 * computed early either.  (There's no point in looking for another EC
-	 * member in this case; since SRFs can't appear in WHERE, they cannot
-	 * belong to multi-member ECs.)
+	 * 拒绝涉及集合返回函数的表达式，那些也无法
+	 * 提早计算。（这种情形不必再找别的 EC
+	 * 成员；因为 SRFs 无法出现在 WHERE 里，它们无法
+	 * 属于多成员 EC。）
 	 */
 	if (expression_returns_set((Node *) em->em_expr))
 		return false;
@@ -980,49 +980,49 @@ relation_can_be_sorted_early(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * generate_base_implied_equalities
- *	  Generate any restriction clauses that we can deduce from equivalence
- *	  classes.
+ *	  生成我们能从等价类推出的任何限制
+ *	  子句。
  *
- * When an EC contains pseudoconstants, our strategy is to generate
- * "member = const1" clauses where const1 is the first constant member, for
- * every other member (including other constants).  If we are able to do this
- * then we don't need any "var = var" comparisons because we've successfully
- * constrained all the vars at their points of creation.  If we fail to
- * generate any of these clauses due to lack of cross-type operators, we fall
- * back to the "ec_broken" strategy described below.  (XXX if there are
- * multiple constants of different types, it's possible that we might succeed
- * in forming all the required clauses if we started from a different const
- * member; but this seems a sufficiently hokey corner case to not be worth
- * spending lots of cycles on.)
+ * 当 EC 含有伪常量时，策略是生成
+ * "member = const1" 子句，其中 const1 是第一个常量成员，对
+ * 其余每个成员（包括其他常量）都生成。若做得到，
+ * 就不需要任何 "var = var" 比较，因为已经在创建点
+ * 成功约束了全部变量。若因缺少跨类型操作符而未能
+ * 生成其中任何子句，就退回到下面描述的 "ec_broken" 策略。（XXX 若有
+ * 多个不同类型的常量，从另一个常量
+ * 成员出发也许能组成全部所需子句；
+ * 但这是够古怪的边角情形，不值得
+ * 花很多周期。）
+ * 对不含伪常量的 EC，我们为属于同一基
  *
- * For ECs that contain no pseudoconstants, we generate derived clauses
- * "member1 = member2" for each pair of members belonging to the same base
- * relation (actually, if there are more than two for the same base relation,
- * we only need enough clauses to link each to each other).  This provides
- * the base case for the recursion: each row emitted by a base relation scan
- * will constrain all computable members of the EC to be equal.  As each
- * join path is formed, we'll add additional derived clauses on-the-fly
- * to maintain this invariant (see generate_join_implied_equalities).
+ * 关系的每一对成员生成派生子句 "member1 = member2"
+ * （实际上，同一基关系若超过两个，
+ * 只需要足够把它们彼此连起来的子句）。这提供了
+ * 递归的基础情形：基关系扫描发出的每一行
+ * 都会把该 EC 中全部可计算成员约束为相等。每形成一条
+ * 连接路径，就会当场追加派生子句
+ * 来维持这个不变量（见 generate_join_implied_equalities）。
+ * 若 EC 使用的操作符族没有提供完整的跨类型
  *
- * If the opfamilies used by the EC do not provide complete sets of cross-type
- * equality operators, it is possible that we will fail to generate a clause
- * that must be generated to maintain the invariant.  (An example: given
- * "WHERE a.x = b.y AND b.y = a.z", the scheme breaks down if we cannot
- * generate "a.x = a.z" as a restriction clause for A.)  In this case we mark
- * the EC "ec_broken" and fall back to regurgitating its original source
- * RestrictInfos at appropriate times.  We do not try to retract any derived
- * clauses already generated from the broken EC, so the resulting plan could
- * be poor due to bad selectivity estimates caused by redundant clauses.  But
- * the correct solution to that is to fix the opfamilies ...
+ * 等值操作符集合，就可能无法生成一条
+ * 为维持不变量而必须生成的子句。（例如：给定
+ * "WHERE a.x = b.y AND b.y = a.z"，若无法
+ * 生成 "a.x = a.z" 作为 A 的限制子句，这套方案就垮了。）此时把
+ * 该 EC 标成 "ec_broken"，并退回到在适当时候吐回其原始来源
+ * RestrictInfos。我们不试图收回已从损坏 EC 生成的派生
+ * 子句，因此所得计划可能
+ * 因冗余子句造成的选择率估计偏差而变差。但
+ * 正确的解决办法是修好操作符族……
+ * 本函数推出的等值子句交给
  *
- * Equality clauses derived by this function are passed off to
- * process_implied_equality (in plan/initsplan.c) to be inserted into the
- * restrictinfo datastructures.  Note that this must be called after initial
- * scanning of the quals and before Path construction begins.
+ * process_implied_equality（在 plan/initsplan.c 中），以便插入
+ * restrictinfo 数据结构。注意必须在初次
+ * 扫描限定条件之后、
+ * Path 构造开始之前调用。
  *
- * We make no attempt to avoid generating duplicate RestrictInfos here: we
- * don't search ec_sources or ec_derives for matches.  It doesn't really
- * seem worth the trouble to do so.
+ * 这里不试图避免生成重复的 RestrictInfos：
+ * 不在 ec_sources 或 ec_derives 里找匹配。这么做
+ * 似乎不值得费那个事。
  */
 void
 generate_base_implied_equalities(PlannerInfo *root)
@@ -1031,11 +1031,11 @@ generate_base_implied_equalities(PlannerInfo *root)
 	ListCell   *lc;
 
 	/*
-	 * At this point, we're done absorbing knowledge of equivalences in the
-	 * query, so no further EC merging should happen, and ECs remaining in the
-	 * eq_classes list can be considered canonical.  (But note that it's still
-	 * possible for new single-member ECs to be added through
-	 * get_eclass_for_sort_expr().)
+	 * 到这里，查询中的等值知识已经吸收完，
+	 * 因此不应当再发生 EC 合并，留在
+	 * eq_classes 列表中的 EC 可以视为规范的。（但注意仍
+	 * 可能经由
+	 * get_eclass_for_sort_expr() 加入新的单成员 EC。）
 	 */
 	root->ec_merging_done = true;
 
@@ -1046,13 +1046,13 @@ generate_base_implied_equalities(PlannerInfo *root)
 		bool		can_generate_joinclause = false;
 		int			i;
 
-		Assert(ec->ec_merged == NULL);	/* else shouldn't be in list */
-		Assert(!ec->ec_broken); /* not yet anyway... */
+		Assert(ec->ec_merged == NULL);	/* 否则不应当在列表中 */
+		Assert(!ec->ec_broken); /* 反正现在还没有…… */
 
 		/*
-		 * Generate implied equalities that are restriction clauses.
-		 * Single-member ECs won't generate any deductions, either here or at
-		 * the join level.
+		 * 生成作为限制子句的隐含等值。
+		 * 单成员 EC 在这里或在
+		 * 连接层都不会产生任何推导。
 		 */
 		if (list_length(ec->ec_members) > 1)
 		{
@@ -1061,28 +1061,28 @@ generate_base_implied_equalities(PlannerInfo *root)
 			else
 				generate_base_implied_equalities_no_const(root, ec);
 
-			/* Recover if we failed to generate required derived clauses */
+			/* 若未能生成所需的派生子句，则回退处理 */
 			if (ec->ec_broken)
 				generate_base_implied_equalities_broken(root, ec);
 
-			/* Detect whether this EC might generate join clauses */
+			/* 检测该 EC 是否可能生成连接子句 */
 			can_generate_joinclause =
 				(bms_membership(ec->ec_relids) == BMS_MULTIPLE);
 		}
 
 		/*
-		 * Mark the base rels cited in each eclass (which should all exist by
-		 * now) with the eq_classes indexes of all eclasses mentioning them.
-		 * This will let us avoid searching in subsequent lookups.  While
-		 * we're at it, we can mark base rels that have pending eclass joins;
-		 * this is a cheap version of has_relevant_eclass_joinclause().
+		 * 给每个 eclass 所引用的基关系（此刻应当都已存在）
+		 * 标上提到它们的全部 eclass 在 eq_classes 中的索引。
+		 * 这样以后查找就不必再搜索。同时
+		 * 还可以标出有待处理 eclass 连接的基关系；
+		 * 这是 has_relevant_eclass_joinclause() 的廉价版本。
 		 */
 		i = -1;
 		while ((i = bms_next_member(ec->ec_relids, i)) > 0)
 		{
 			RelOptInfo *rel = root->simple_rel_array[i];
 
-			if (rel == NULL)	/* must be an outer join */
+			if (rel == NULL)	/* 必须是外连接 */
 			{
 				Assert(bms_is_member(i, root->outer_join_rels));
 				continue;
@@ -1102,7 +1102,7 @@ generate_base_implied_equalities(PlannerInfo *root)
 }
 
 /*
- * generate_base_implied_equalities when EC contains pseudoconstant(s)
+ * generate_base_implied_equalities，当 EC 含有 pseudoconstant(s) 时
  */
 static void
 generate_base_implied_equalities_const(PlannerInfo *root,
@@ -1112,11 +1112,11 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 	ListCell   *lc;
 
 	/*
-	 * In the trivial case where we just had one "var = const" clause, push
-	 * the original clause back into the main planner machinery.  There is
-	 * nothing to be gained by doing it differently, and we save the effort to
-	 * re-build and re-analyze an equality clause that will be exactly
-	 * equivalent to the old one.
+	 * 在只曾有一条 "var = const" 子句的平凡情形下，把
+	 * 原始子句推回主规划器机制。换种做法
+	 * 没有好处，还能省掉
+	 * 重建并重新分析一条将与旧子句完全
+	 * 等值的等值子句的功夫。
 	 */
 	if (list_length(ec->ec_members) == 2 &&
 		list_length(ec->ec_sources) == 1)
@@ -1128,10 +1128,10 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 	}
 
 	/*
-	 * Find the constant member to use.  We prefer an actual constant to
-	 * pseudo-constants (such as Params), because the constraint exclusion
-	 * machinery might be able to exclude relations on the basis of generated
-	 * "var = const" equalities, but "var = param" won't work for that.
+	 * 找出要使用的常量成员。我们更喜欢真正的常量，而不是
+	 * 伪常量（例如 Params），因为约束排除
+	 * 机制也许能根据生成的
+	 * "var = const" 等值排除关系，但 "var = param" 做不到。
 	 */
 	foreach(lc, ec->ec_members)
 	{
@@ -1146,14 +1146,14 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 	}
 	Assert(const_em != NULL);
 
-	/* Generate a derived equality against each other member */
+	/* 对其余每个成员生成一条派生等值 */
 	foreach(lc, ec->ec_members)
 	{
 		EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc);
 		Oid			eq_op;
 		RestrictInfo *rinfo;
 
-		Assert(!cur_em->em_is_child);	/* no children yet */
+		Assert(!cur_em->em_is_child);	/* 还没有子项 */
 		if (cur_em == const_em)
 			continue;
 		eq_op = select_equality_operator(ec,
@@ -1161,15 +1161,15 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 										 const_em->em_datatype);
 		if (!OidIsValid(eq_op))
 		{
-			/* failed... */
+			/* 失败了…… */
 			ec->ec_broken = true;
 			break;
 		}
 
 		/*
-		 * We use the constant's em_jdomain as qualscope, so that if the
-		 * generated clause is variable-free (i.e, both EMs are consts) it
-		 * will be enforced at the join domain level.
+		 * 我们用常量的 em_jdomain 作为 qualscope，这样若
+		 * 生成的子句不含变量（即两个 EM 都是常量），就会
+		 * 在连接域这一层强制它。
 		 */
 		rinfo = process_implied_equality(root, eq_op, ec->ec_collation,
 										 cur_em->em_expr, const_em->em_expr,
@@ -1178,16 +1178,16 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 										 cur_em->em_is_const);
 
 		/*
-		 * If the clause didn't degenerate to a constant, fill in the correct
-		 * markings for a mergejoinable clause, and save it in ec_derives. (We
-		 * will not re-use such clauses directly, but selectivity estimation
-		 * may consult the list later.  Note that this use of ec_derives does
-		 * not overlap with its use for join clauses, since we never generate
-		 * join clauses from an ec_has_const eclass.)
+		 * 若子句没有退化成常量，就填上可归并连接子句的正确
+		 * 标记，并把它存进 ec_derives。（我们
+		 * 不会直接复用这些子句，但选择率估计
+		 * 以后也许会查阅该列表。注意 ec_derives 的这种用法
+		 * 与它用于连接子句的用法不重叠，因为我们从不从
+		 * ec_has_const 的 eclass 生成连接子句。）
 		 */
 		if (rinfo && rinfo->mergeopfamilies)
 		{
-			/* it's not redundant, so don't set parent_ec */
+			/* 它不是冗余的，所以不要设置 parent_ec */
 			rinfo->left_ec = rinfo->right_ec = ec;
 			rinfo->left_em = cur_em;
 			rinfo->right_em = const_em;
@@ -1197,7 +1197,7 @@ generate_base_implied_equalities_const(PlannerInfo *root,
 }
 
 /*
- * generate_base_implied_equalities when EC contains no pseudoconstants
+ * generate_base_implied_equalities，当 EC 不含伪常量时
  */
 static void
 generate_base_implied_equalities_no_const(PlannerInfo *root,
@@ -1207,12 +1207,12 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 	ListCell   *lc;
 
 	/*
-	 * We scan the EC members once and track the last-seen member for each
-	 * base relation.  When we see another member of the same base relation,
-	 * we generate "prev_em = cur_em".  This results in the minimum number of
-	 * derived clauses, but it's possible that it will fail when a different
-	 * ordering would succeed.  XXX FIXME: use a UNION-FIND algorithm similar
-	 * to the way we build merged ECs.  (Use a list-of-lists for each rel.)
+	 * 我们把 EC 成员扫描一遍，并跟踪每个
+	 * 基关系上次见到的成员。当再次看到同一基关系的成员时，
+	 * 就生成 "prev_em = cur_em"。这样派生子句数量最少，
+	 * 但换一种顺序也许能成功，而这次可能失败。
+	 * XXX FIXME：用与构造合并 EC 类似的 UNION-FIND 算法。
+	 * （每个关系用一个列表的列表。）
 	 */
 	prev_ems = (EquivalenceMember **)
 		palloc0(root->simple_rel_array_size * sizeof(EquivalenceMember *));
@@ -1222,7 +1222,7 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 		EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc);
 		int			relid;
 
-		Assert(!cur_em->em_is_child);	/* no children yet */
+		Assert(!cur_em->em_is_child);	/* 还没有子项 */
 		if (!bms_get_singleton_member(cur_em->em_relids, &relid))
 			continue;
 		Assert(relid < root->simple_rel_array_size);
@@ -1238,15 +1238,15 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 											 cur_em->em_datatype);
 			if (!OidIsValid(eq_op))
 			{
-				/* failed... */
+				/* 失败了…… */
 				ec->ec_broken = true;
 				break;
 			}
 
 			/*
-			 * The expressions aren't constants, so the passed qualscope will
-			 * never be used to place the generated clause.  We just need to
-			 * be sure it covers both expressions, which em_relids should do.
+			 * 这些表达式不是常量，因此传入的 qualscope 永远
+			 * 不会用来放置生成的子句。只需要
+			 * 确保它覆盖两个表达式，em_relids 应当做得到。
 			 */
 			rinfo = process_implied_equality(root, eq_op, ec->ec_collation,
 											 prev_em->em_expr, cur_em->em_expr,
@@ -1255,15 +1255,15 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 											 false);
 
 			/*
-			 * If the clause didn't degenerate to a constant, fill in the
-			 * correct markings for a mergejoinable clause.  We don't put it
-			 * in ec_derives however; we don't currently need to re-find such
-			 * clauses, and we don't want to clutter that list with non-join
-			 * clauses.
+			 * 若子句没有退化成常量，就填上
+			 * 可归并连接子句的正确标记。不过不把它放进
+			 * ec_derives；目前不需要重新找到这些
+			 * 子句，也不想用非连接
+			 * 子句把那个列表弄乱。
 			 */
 			if (rinfo && rinfo->mergeopfamilies)
 			{
-				/* it's not redundant, so don't set parent_ec */
+				/* 它不是冗余的，所以不要设置 parent_ec */
 				rinfo->left_ec = rinfo->right_ec = ec;
 				rinfo->left_em = prev_em;
 				rinfo->right_em = cur_em;
@@ -1275,12 +1275,12 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 	pfree(prev_ems);
 
 	/*
-	 * We also have to make sure that all the Vars used in the member clauses
-	 * will be available at any join node we might try to reference them at.
-	 * For the moment we force all the Vars to be available at all join nodes
-	 * for this eclass.  Perhaps this could be improved by doing some
-	 * pre-analysis of which members we prefer to join, but it's no worse than
-	 * what happened in the pre-8.3 code.
+	 * 还必须确保成员子句用到的全部 Vars
+	 * 在我们可能引用它们的任何连接节点上都可用。
+	 * 目前强制全部 Vars 在该 eclass 的所有连接节点上都可用。
+	 * 也许可以先分析我们更想连接哪些成员来改进，
+	 * 但这不会比
+	 * 8.3 之前的代码更差。
 	 */
 	foreach(lc, ec->ec_members)
 	{
@@ -1296,18 +1296,18 @@ generate_base_implied_equalities_no_const(PlannerInfo *root,
 }
 
 /*
- * generate_base_implied_equalities cleanup after failure
+ * generate_base_implied_equalities 失败后的清理
  *
- * What we must do here is push any zero- or one-relation source RestrictInfos
- * of the EC back into the main restrictinfo datastructures.  Multi-relation
- * clauses will be regurgitated later by generate_join_implied_equalities().
- * (We do it this way to maintain continuity with the case that ec_broken
- * becomes set only after we've gone up a join level or two.)  However, for
- * an EC that contains constants, we can adopt a simpler strategy and just
- * throw back all the source RestrictInfos immediately; that works because
- * we know that such an EC can't become broken later.  (This rule justifies
- * ignoring ec_has_const ECs in generate_join_implied_equalities, even when
- * they are broken.)
+ * 这里必须做的是：把该 EC 中零关系或单关系的来源 RestrictInfos
+ * 推回主 restrictinfo 数据结构。多关系
+ * 子句以后由 generate_join_implied_equalities() 吐回。
+ * （这样做是为了与 ec_broken
+ * 直到上升一两层连接之后才被置位的情形保持连续。）不过，对
+ * 含常量的 EC，可以采用更简单的策略，立刻
+ * 把全部来源 RestrictInfos 退回去；这行得通，因为
+ * 我们知道这样的 EC 以后不会再损坏。（这条规则说明了为什么
+ * 即使 ec_has_const 的 EC 已损坏，在 generate_join_implied_equalities 里也可以
+ * 忽略它们。）
  */
 static void
 generate_base_implied_equalities_broken(PlannerInfo *root,
@@ -1328,49 +1328,49 @@ generate_base_implied_equalities_broken(PlannerInfo *root,
 
 /*
  * generate_join_implied_equalities
- *	  Generate any join clauses that we can deduce from equivalence classes.
+ *	  生成我们能从等价类推出的任何连接子句。
  *
- * At a join node, we must enforce restriction clauses sufficient to ensure
- * that all equivalence-class members computable at that node are equal.
- * Since the set of clauses to enforce can vary depending on which subset
- * relations are the inputs, we have to compute this afresh for each join
- * relation pair.  Hence a fresh List of RestrictInfo nodes is built and
- * passed back on each call.
+ * 在连接节点上，必须强制足够的限制子句，以确保
+ * 在该节点可计算的全部等价类成员彼此相等。
+ * 要强制的子句集合随哪些子集
+ * 关系作为输入而变化，因此必须为每一对连接
+ * 关系重新计算。所以每次调用都新建一份 RestrictInfo 的 List 并
+ * 返回。
  *
- * In addition to its use at join nodes, this can be applied to generate
- * eclass-based join clauses for use in a parameterized scan of a base rel.
- * The reason for the asymmetry of specifying the inner rel as a RelOptInfo
- * and the outer rel by Relids is that this usage occurs before we have
- * built any join RelOptInfos.
+ * 除了用于连接节点，这也可以用来为基关系的参数化扫描
+ * 生成基于 eclass 的连接子句。
+ * 把内层关系指定为 RelOptInfo、
+ * 外层关系指定为 Relids 这种不对称，是因为这种用法发生在我们
+ * 建成任何连接 RelOptInfos 之前。
  *
- * An annoying special case for parameterized scans is that the inner rel can
- * be an appendrel child (an "other rel").  In this case we must generate
- * appropriate clauses using child EC members.  add_child_rel_equivalences
- * must already have been done for the child rel.
+ * 参数化扫描有个烦人的特例：内层关系可以
+ * 是 appendrel 的子项（一个 "other rel"）。此时必须用子 EC 成员
+ * 生成适当的子句。对子关系，add_child_rel_equivalences
+ * 必须已经做过。
  *
- * The results are sufficient for use in merge, hash, and plain nestloop join
- * methods.  We do not worry here about selecting clauses that are optimal
- * for use in a parameterized indexscan.  indxpath.c makes its own selections
- * of clauses to use, and if the ones we pick here are redundant with those,
- * the extras will be eliminated at createplan time, using the parent_ec
- * markers that we provide (see is_redundant_derived_clause()).
+ * 结果足以用于归并、哈希以及普通嵌套循环连接
+ * 方法。这里不操心挑选对参数化索引扫描最合适的
+ * 子句。indxpath.c 会自己挑选
+ * 要用的子句，若我们这里挑的与那些冗余，
+ * 多余的会在 createplan 时用我们提供的 parent_ec
+ * 标记消掉（见 is_redundant_derived_clause()）。
  *
- * Because the same join clauses are likely to be needed multiple times as
- * we consider different join paths, we avoid generating multiple copies:
- * whenever we select a particular pair of EquivalenceMembers to join,
- * we check to see if the pair matches any original clause (in ec_sources)
- * or previously-built clause (in ec_derives).  This saves memory and allows
- * re-use of information cached in RestrictInfos.  We also avoid generating
- * commutative duplicates, i.e. if the algorithm selects "a.x = b.y" but
- * we already have "b.y = a.x", we return the existing clause.
+ * 因为考虑不同连接路径时，同一批连接子句很可能多次需要，
+ * 我们避免生成多份副本：
+ * 每当选定某一对 EquivalenceMembers 来连接，
+ * 就检查这一对是否匹配任何原始子句（在 ec_sources 中）
+ * 或先前建成的子句（在 ec_derives 中）。这省内存，并允许
+ * 复用缓存在 RestrictInfos 里的信息。我们也避免生成
+ * 交换重复，也就是算法选出 "a.x = b.y" 但
+ * 已经有 "b.y = a.x" 时，就返回已有子句。
  *
- * If we are considering an outer join, sjinfo is the associated OJ info,
- * otherwise it can be NULL.
+ * 若正在考虑外连接，sjinfo 是相关的外连接信息，
+ * 否则可以为 NULL。
  *
- * join_relids should always equal bms_union(outer_relids, inner_rel->relids)
- * plus whatever add_outer_joins_to_relids() would add.  We could simplify
- * this function's API by computing it internally, but most callers have the
- * value at hand anyway.
+ * join_relids 应当总是等于 bms_union(outer_relids, inner_rel->relids)
+ * 再加上 add_outer_joins_to_relids() 会加上的那些。我们可以在内部计算它来简化
+ * 本函数的 API，但大多数调用方反正
+ * 手头就有这个值。
  */
 List *
 generate_join_implied_equalities(PlannerInfo *root,
@@ -1386,14 +1386,14 @@ generate_join_implied_equalities(PlannerInfo *root,
 	Bitmapset  *matching_ecs;
 	int			i;
 
-	/* If inner rel is a child, extra setup work is needed */
+	/* 若内层关系是子关系，则需要额外的准备 */
 	if (IS_OTHER_REL(inner_rel))
 	{
 		Assert(!bms_is_empty(inner_rel->top_parent_relids));
 
-		/* Fetch relid set for the topmost parent rel */
+		/* 取最顶层父关系的 relid 集合 */
 		nominal_inner_relids = inner_rel->top_parent_relids;
-		/* ECs will be marked with the parent's relid, not the child's */
+		/* EC 会标上父关系的 relid，而不是子关系的 */
 		nominal_join_relids = bms_union(outer_relids, nominal_inner_relids);
 		nominal_join_relids = add_outer_joins_to_relids(root,
 														nominal_join_relids,
@@ -1407,17 +1407,17 @@ generate_join_implied_equalities(PlannerInfo *root,
 	}
 
 	/*
-	 * Examine all potentially-relevant eclasses.
+	 * 检查所有可能相关的 eclass。
 	 *
-	 * If we are considering an outer join, we must include "join" clauses
-	 * that mention either input rel plus the outer join's relid; these
-	 * represent post-join filter clauses that have to be applied at this
-	 * join.  We don't have infrastructure that would let us identify such
-	 * eclasses cheaply, so just fall back to considering all eclasses
-	 * mentioning anything in nominal_join_relids.
+	 * 若正在考虑外连接，必须包括提到任一输入关系
+	 * 再加上该外连接 relid 的 "连接" 子句；这些
+	 * 表示必须在这次
+	 * 连接上施加的连接后过滤子句。我们没有能廉价识别这类
+	 * eclass 的基础设施，因此退回到考虑所有提到
+	 * nominal_join_relids 中任何内容的 eclass。
 	 *
-	 * At inner joins, we can be smarter: only consider eclasses mentioning
-	 * both input rels.
+	 * 在内连接上可以更聪明：只考虑提到
+	 * 两个输入关系的 eclass。
 	 */
 	if (sjinfo && sjinfo->ojrelid != 0)
 		matching_ecs = get_eclass_indexes_for_relids(root, nominal_join_relids);
@@ -1431,15 +1431,15 @@ generate_join_implied_equalities(PlannerInfo *root,
 		EquivalenceClass *ec = (EquivalenceClass *) list_nth(root->eq_classes, i);
 		List	   *sublist = NIL;
 
-		/* ECs containing consts do not need any further enforcement */
+		/* 含常量的 EC 不需要进一步强制 */
 		if (ec->ec_has_const)
 			continue;
 
-		/* Single-member ECs won't generate any deductions */
+		/* 单成员 EC 不会产生任何推导 */
 		if (list_length(ec->ec_members) <= 1)
 			continue;
 
-		/* Sanity check that this eclass overlaps the join */
+		/* 健全性检查：该 eclass 与这次连接有重叠 */
 		Assert(bms_overlap(ec->ec_relids, nominal_join_relids));
 
 		if (!ec->ec_broken)
@@ -1449,7 +1449,7 @@ generate_join_implied_equalities(PlannerInfo *root,
 															  outer_relids,
 															  inner_relids);
 
-		/* Recover if we failed to generate required derived clauses */
+		/* 若未能生成所需的派生子句，则回退处理 */
 		if (ec->ec_broken)
 			sublist = generate_join_implied_equalities_broken(root,
 															  ec,
@@ -1466,11 +1466,11 @@ generate_join_implied_equalities(PlannerInfo *root,
 
 /*
  * generate_join_implied_equalities_for_ecs
- *	  As above, but consider only the listed ECs.
+ *	  同上，但只考虑列出的 EC。
  *
- * For the sole current caller, we can assume sjinfo == NULL, that is we are
- * not interested in outer-join filter clauses.  This might need to change
- * in future.
+ * 对目前唯一的调用方，可以假定 sjinfo == NULL，也就是我们
+ * 对外连接过滤子句不感兴趣。将来也许需要
+ * 改掉这一点。
  */
 List *
 generate_join_implied_equalities_for_ecs(PlannerInfo *root,
@@ -1485,14 +1485,14 @@ generate_join_implied_equalities_for_ecs(PlannerInfo *root,
 	Relids		nominal_join_relids;
 	ListCell   *lc;
 
-	/* If inner rel is a child, extra setup work is needed */
+	/* 若内层关系是子关系，则需要额外的准备 */
 	if (IS_OTHER_REL(inner_rel))
 	{
 		Assert(!bms_is_empty(inner_rel->top_parent_relids));
 
-		/* Fetch relid set for the topmost parent rel */
+		/* 取最顶层父关系的 relid 集合 */
 		nominal_inner_relids = inner_rel->top_parent_relids;
-		/* ECs will be marked with the parent's relid, not the child's */
+		/* EC 会标上父关系的 relid，而不是子关系的 */
 		nominal_join_relids = bms_union(outer_relids, nominal_inner_relids);
 	}
 	else
@@ -1506,15 +1506,15 @@ generate_join_implied_equalities_for_ecs(PlannerInfo *root,
 		EquivalenceClass *ec = (EquivalenceClass *) lfirst(lc);
 		List	   *sublist = NIL;
 
-		/* ECs containing consts do not need any further enforcement */
+		/* 含常量的 EC 不需要进一步强制 */
 		if (ec->ec_has_const)
 			continue;
 
-		/* Single-member ECs won't generate any deductions */
+		/* 单成员 EC 不会产生任何推导 */
 		if (list_length(ec->ec_members) <= 1)
 			continue;
 
-		/* We can quickly ignore any that don't overlap the join, too */
+		/* 与这次连接不重叠的也可以很快忽略 */
 		if (!bms_overlap(ec->ec_relids, nominal_join_relids))
 			continue;
 
@@ -1525,7 +1525,7 @@ generate_join_implied_equalities_for_ecs(PlannerInfo *root,
 															  outer_relids,
 															  inner_relids);
 
-		/* Recover if we failed to generate required derived clauses */
+		/* 若未能生成所需的派生子句，则回退处理 */
 		if (ec->ec_broken)
 			sublist = generate_join_implied_equalities_broken(root,
 															  ec,
@@ -1541,7 +1541,7 @@ generate_join_implied_equalities_for_ecs(PlannerInfo *root,
 }
 
 /*
- * generate_join_implied_equalities for a still-valid EC
+ * generate_join_implied_equalities，针对仍然有效的 EC
  */
 static List *
 generate_join_implied_equalities_normal(PlannerInfo *root,
@@ -1557,25 +1557,25 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 	ListCell   *lc1;
 
 	/*
-	 * First, scan the EC to identify member values that are computable at the
-	 * outer rel, at the inner rel, or at this relation but not in either
-	 * input rel.  The outer-rel members should already be enforced equal,
-	 * likewise for the inner-rel members.  We'll need to create clauses to
-	 * enforce that any newly computable members are all equal to each other
-	 * as well as to at least one input member, plus enforce at least one
-	 * outer-rel member equal to at least one inner-rel member.
+	 * 首先扫描该 EC，找出在外层关系、
+	 * 内层关系、或在本关系但不在任一
+	 * 输入关系上可计算的成员值。外层关系的成员应当已经强制相等，
+	 * 内层关系的成员同样如此。还需要造子句来
+	 * 强制任何新可计算的成员彼此全部相等，
+	 * 并且至少与一个输入成员相等，另外至少强制一个
+	 * 外层成员与至少一个内层成员相等。
 	 */
 	foreach(lc1, ec->ec_members)
 	{
 		EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc1);
 
 		/*
-		 * We don't need to check explicitly for child EC members.  This test
-		 * against join_relids will cause them to be ignored except when
-		 * considering a child inner rel, which is what we want.
+		 * 不必显式检查子 EC 成员。对
+		 * join_relids 的这个测试会让它们被忽略，除非正在
+		 * 考虑子内层关系，而这正是我们想要的。
 		 */
 		if (!bms_is_subset(cur_em->em_relids, join_relids))
-			continue;			/* not computable yet, or wrong child */
+			continue;			/* 还不可计算，或子关系不对 */
 
 		if (bms_is_subset(cur_em->em_relids, outer_relids))
 			outer_members = lappend(outer_members, cur_em);
@@ -1586,13 +1586,13 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 	}
 
 	/*
-	 * First, select the joinclause if needed.  We can equate any one outer
-	 * member to any one inner member, but we have to find a datatype
-	 * combination for which an opfamily member operator exists.  If we have
-	 * choices, we prefer simple Var members (possibly with RelabelType) since
-	 * these are (a) cheapest to compute at runtime and (b) most likely to
-	 * have useful statistics. Also, prefer operators that are also
-	 * hashjoinable.
+	 * 首先，若需要就选出连接子句。可以把任意一个外层
+	 * 成员与任意一个内层成员等起来，但必须找到存在操作符族成员操作符的
+	 * 数据类型组合。若有
+	 * 选择，我们更喜欢简单的 Var 成员（也许带 RelabelType），因为
+	 * 它们 (a) 运行时计算最便宜，(b) 最可能
+	 * 有有用的统计信息。另外，更喜欢同时也
+	 * 可哈希连接的操作符。
 	 */
 	if (outer_members && inner_members)
 	{
@@ -1637,22 +1637,22 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 					best_eq_op = eq_op;
 					best_score = score;
 					if (best_score == 3)
-						break;	/* no need to look further */
+						break;	/* 不必再找下去 */
 				}
 			}
 			if (best_score == 3)
-				break;			/* no need to look further */
+				break;			/* 不必再找下去 */
 		}
 		if (best_score < 0)
 		{
-			/* failed... */
+			/* 失败了…… */
 			ec->ec_broken = true;
 			return NIL;
 		}
 
 		/*
-		 * Create clause, setting parent_ec to mark it as redundant with other
-		 * joinclauses
+		 * 创建子句，设置 parent_ec 以标记它与其他
+		 * 连接子句冗余
 		 */
 		rinfo = create_join_clause(root, ec, best_eq_op,
 								   best_outer_em, best_inner_em,
@@ -1662,13 +1662,13 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 	}
 
 	/*
-	 * Now deal with building restrictions for any expressions that involve
-	 * Vars from both sides of the join.  We have to equate all of these to
-	 * each other as well as to at least one old member (if any).
+	 * 现在处理为涉及
+	 * 连接两侧 Vars 的表达式建立限制。必须把它们全部彼此等起来，
+	 * 并且至少与一个旧成员等起来（若有）。
 	 *
-	 * XXX as in generate_base_implied_equalities_no_const, we could be a lot
-	 * smarter here to avoid unnecessary failures in cross-type situations.
-	 * For now, use the same left-to-right method used there.
+	 * XXX 与 generate_base_implied_equalities_no_const 一样，这里可以聪明
+	 * 得多，以避免跨类型情形下不必要的失败。
+	 * 目前先用那里用的从左到右方法。
 	 */
 	if (new_members)
 	{
@@ -1676,7 +1676,7 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 		EquivalenceMember *prev_em = NULL;
 		RestrictInfo *rinfo;
 
-		/* For now, arbitrarily take the first old_member as the one to use */
+		/* 目前先任意取第一个 old_member 来用 */
 		if (old_members)
 			new_members = lappend(new_members, linitial(old_members));
 
@@ -1693,11 +1693,11 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 												 cur_em->em_datatype);
 				if (!OidIsValid(eq_op))
 				{
-					/* failed... */
+					/* 失败了…… */
 					ec->ec_broken = true;
 					return NIL;
 				}
-				/* do NOT set parent_ec, this qual is not redundant! */
+				/* 不要设置 parent_ec，这个限定条件不是冗余的！ */
 				rinfo = create_join_clause(root, ec, eq_op,
 										   prev_em, cur_em,
 										   NULL);
@@ -1712,12 +1712,12 @@ generate_join_implied_equalities_normal(PlannerInfo *root,
 }
 
 /*
- * generate_join_implied_equalities cleanup after failure
+ * generate_join_implied_equalities 失败后的清理
  *
- * Return any original RestrictInfos that are enforceable at this join.
+ * 返回在这次连接上可强制的任何原始 RestrictInfos。
  *
- * In the case of a child inner relation, we have to translate the
- * original RestrictInfos from parent to child Vars.
+ * 若内层关系是子关系，必须把
+ * 原始 RestrictInfos 从父 Vars 翻译成子 Vars。
  */
 static List *
 generate_join_implied_equalities_broken(PlannerInfo *root,
@@ -1742,15 +1742,15 @@ generate_join_implied_equalities_broken(PlannerInfo *root,
 	}
 
 	/*
-	 * If we have to translate, just brute-force apply adjust_appendrel_attrs
-	 * to all the RestrictInfos at once.  This will result in returning
-	 * RestrictInfos that are not listed in ec_derives, but there shouldn't be
-	 * any duplication, and it's a sufficiently narrow corner case that we
-	 * shouldn't sweat too much over it anyway.
+	 * 若必须翻译，就粗暴地对全部 RestrictInfos 一次施加 adjust_appendrel_attrs。
+	 * 这会返回
+	 * 不在 ec_derives 里列出的 RestrictInfos，但不应当有
+	 * 重复，而且这是足够窄的边角情形，
+	 * 不必为此太费心。
 	 *
-	 * Since inner_rel might be an indirect descendant of the baserel
-	 * mentioned in the ec_sources clauses, we have to be prepared to apply
-	 * multiple levels of Var translation.
+	 * 因为 inner_rel 也许是 ec_sources 子句所提到的基关系的
+	 * 间接后代，必须准备好施加
+	 * 多层 Var 翻译。
 	 */
 	if (IS_OTHER_REL(inner_rel) && result != NIL)
 		result = (List *) adjust_appendrel_attrs_multilevel(root,
@@ -1764,9 +1764,9 @@ generate_join_implied_equalities_broken(PlannerInfo *root,
 
 /*
  * select_equality_operator
- *	  Select a suitable equality operator for comparing two EC members
+ *	  为比较两个 EC 成员选择合适的等值操作符
  *
- * Returns InvalidOid if no operator can be found for this datatype combination
+ * 若找不到该数据类型组合的操作符，则返回 InvalidOid
  */
 static Oid
 select_equality_operator(EquivalenceClass *ec, Oid lefttype, Oid righttype)
@@ -1782,10 +1782,10 @@ select_equality_operator(EquivalenceClass *ec, Oid lefttype, Oid righttype)
 								   BTEqualStrategyNumber);
 		if (!OidIsValid(opno))
 			continue;
-		/* If no barrier quals in query, don't worry about leaky operators */
+		/* 若查询中没有屏障限定条件，就不必担心泄漏操作符 */
 		if (ec->ec_max_security == 0)
 			return opno;
-		/* Otherwise, insist that selected operators be leakproof */
+		/* 否则，坚持所选操作符必须是防泄漏的 */
 		if (get_func_leakproof(get_opcode(opno)))
 			return opno;
 	}
@@ -1795,14 +1795,14 @@ select_equality_operator(EquivalenceClass *ec, Oid lefttype, Oid righttype)
 
 /*
  * create_join_clause
- *	  Find or make a RestrictInfo comparing the two given EC members
- *	  with the given operator (or, possibly, its commutator, because
- *	  the ordering of the operands in the result is not guaranteed).
+ *	  查找或制造一个 RestrictInfo，用给定操作符比较两个给定的 EC 成员
+ *	  （或者也许用它的交换子，因为
+ *	  结果中操作数的顺序没有保证）。
  *
- * parent_ec is either equal to ec (if the clause is a potentially-redundant
- * join clause) or NULL (if not).  We have to treat this as part of the
- * match requirements --- it's possible that a clause comparing the same two
- * EMs is a join clause in one join path and a restriction clause in another.
+ * parent_ec 要么等于 ec（若该子句是可能冗余的
+ * 连接子句），要么为 NULL（若不是）。必须把这一点当作
+ * 匹配要求的一部分 --- 比较同一对
+ * EM 的子句，在一条连接路径上可能是连接子句，在另一条上可能是限制子句。
  */
 static RestrictInfo *
 create_join_clause(PlannerInfo *root,
@@ -1817,13 +1817,13 @@ create_join_clause(PlannerInfo *root,
 	MemoryContext oldcontext;
 
 	/*
-	 * Search to see if we already built a RestrictInfo for this pair of
-	 * EquivalenceMembers.  We can use either original source clauses or
-	 * previously-derived clauses, and a commutator clause is acceptable.
+	 * 搜索是否已经为这一对
+	 * EquivalenceMembers 建过 RestrictInfo。可以用原始来源子句，
+	 * 也可以用先前派生的子句，交换子句也可以接受。
 	 *
-	 * We used to verify that opno matches, but that seems redundant: even if
-	 * it's not identical, it'd better have the same effects, or the operator
-	 * families we're using are broken.
+	 * 以前会验证 opno 是否匹配，但那似乎多余：即使
+	 * 不完全相同，效果也应当一样，否则我们用的操作符
+	 * 族就是坏的。
 	 */
 	foreach(lc, ec->ec_sources)
 	{
@@ -1852,14 +1852,14 @@ create_join_clause(PlannerInfo *root,
 	}
 
 	/*
-	 * Not there, so build it, in planner context so we can re-use it. (Not
-	 * important in normal planning, but definitely so in GEQO.)
+	 * 没有，那就造一个，放在规划器上下文里以便复用。（普通
+	 * 规划里不重要，但在 GEQO 里绝对重要。）
 	 */
 	oldcontext = MemoryContextSwitchTo(root->planner_cxt);
 
 	/*
-	 * If either EM is a child, recursively create the corresponding
-	 * parent-to-parent clause, so that we can duplicate its rinfo_serial.
+	 * 若任一 EM 是子项，就递归创建对应的
+	 * 父到父子句，以便复制它的 rinfo_serial。
 	 */
 	if (leftem->em_is_child || rightem->em_is_child)
 	{
@@ -1881,12 +1881,12 @@ create_join_clause(PlannerInfo *root,
 										ec->ec_min_security);
 
 	/*
-	 * If either EM is a child, force the clause's clause_relids to include
-	 * the relid(s) of the child rel.  In normal cases it would already, but
-	 * not if we are considering appendrel child relations with pseudoconstant
-	 * translated variables (i.e., UNION ALL sub-selects with constant output
-	 * items).  We must do this so that join_clause_is_movable_into() will
-	 * think that the clause should be evaluated at the correct place.
+	 * 若任一 EM 是子项，就强制该子句的 clause_relids 包含
+	 * 子关系的 relid(s)。正常情形下已经包含，但
+	 * 若考虑的是带伪常量
+	 * 翻译变量的 appendrel 子关系（即输出项为常量的 UNION ALL 子查询），则不然。
+	 * 必须这样做，join_clause_is_movable_into() 才会
+	 * 认为该子句应当在正确的地方求值。
 	 */
 	if (leftem->em_is_child)
 		rinfo->clause_relids = bms_add_members(rinfo->clause_relids,
@@ -1895,24 +1895,24 @@ create_join_clause(PlannerInfo *root,
 		rinfo->clause_relids = bms_add_members(rinfo->clause_relids,
 											   rightem->em_relids);
 
-	/* If it's a child clause, copy the parent's rinfo_serial */
+	/* 若是子子句，就复制父项的 rinfo_serial */
 	if (parent_rinfo)
 		rinfo->rinfo_serial = parent_rinfo->rinfo_serial;
 
-	/* Mark the clause as redundant, or not */
+	/* 把子句标记为冗余，或不冗余 */
 	rinfo->parent_ec = parent_ec;
 
 	/*
-	 * We know the correct values for left_ec/right_ec, ie this particular EC,
-	 * so we can just set them directly instead of forcing another lookup.
+	 * 我们知道 left_ec/right_ec 的正确值，即这个特定 EC，
+	 * 因此可以直接设置，不必再强制查找一次。
 	 */
 	rinfo->left_ec = ec;
 	rinfo->right_ec = ec;
 
-	/* Mark it as usable with these EMs */
+	/* 把它标记为可用于这些 EM */
 	rinfo->left_em = leftem;
 	rinfo->right_em = rightem;
-	/* and save it for possible re-use */
+	/* 并保存起来以便可能复用 */
 	ec->ec_derives = lappend(ec->ec_derives, rinfo);
 
 	MemoryContextSwitchTo(oldcontext);
@@ -1923,70 +1923,70 @@ create_join_clause(PlannerInfo *root,
 
 /*
  * reconsider_outer_join_clauses
- *	  Re-examine any outer-join clauses that were set aside by
- *	  distribute_qual_to_rels(), and see if we can derive any
- *	  EquivalenceClasses from them.  Then, if they were not made
- *	  redundant, push them out into the regular join-clause lists.
+ *	  重新检查被 distribute_qual_to_rels() 搁置的外连接子句，
+ *	  看能否从中推出
+ *	  EquivalenceClasses。然后，若它们没有变成
+ *	  冗余，就把它们推进常规的连接子句列表。
  *
- * When we have mergejoinable clauses A = B that are outer-join clauses,
- * we can't blindly combine them with other clauses A = C to deduce B = C,
- * since in fact the "equality" A = B won't necessarily hold above the
- * outer join (one of the variables might be NULL instead).  Nonetheless
- * there are cases where we can add qual clauses using transitivity.
+ * 当可归并连接的子句 A = B 是外连接子句时，
+ * 无法盲目把它们与其他子句 A = C 组合来推出 B = C，
+ * 因为事实上 "相等" A = B 在外连接之上不一定成立
+ * （其中一个变量也许是 NULL）。尽管如此，
+ * 仍有些情形可以用传递性追加限定子句。
  *
- * One case that we look for here is an outer-join clause OUTERVAR = INNERVAR
- * for which there is also an equivalence clause OUTERVAR = CONSTANT.
- * It is safe and useful to push a clause INNERVAR = CONSTANT into the
- * evaluation of the inner (nullable) relation, because any inner rows not
- * meeting this condition will not contribute to the outer-join result anyway.
- * (Any outer rows they could join to will be eliminated by the pushed-down
- * equivalence clause.)
+ * 这里要找的一种情形是外连接子句 OUTERVAR = INNERVAR，
+ * 并且还有等值子句 OUTERVAR = CONSTANT。
+ * 把子句 INNERVAR = CONSTANT 推进
+ * 内层（可空）关系的求值是安全且有用的，因为不满足该条件的内层行
+ * 反正不会对外连接结果有贡献。
+ * （它们能连上的任何外层行都会被推下去的
+ * 等值子句消掉。）
  *
- * Note that the above rule does not work for full outer joins; nor is it
- * very interesting to consider cases where the generated equivalence clause
- * would involve relations outside the outer join, since such clauses couldn't
- * be pushed into the inner side's scan anyway.  So the restriction to
- * outervar = pseudoconstant is not really giving up anything.
+ * 注意上面的规则对全外连接不成立；考虑生成的等值子句
+ * 会涉及外连接之外的关系也
+ * 没什么意思，因为这样的子句反正无法
+ * 推进内侧扫描。因此限制为
+ * outervar = 伪常量并没有真正放弃什么。
  *
- * For full-join cases, we can only do something useful if it's a FULL JOIN
- * USING and a merged column has an equivalence MERGEDVAR = CONSTANT.
- * By the time it gets here, the merged column will look like
+ * 对全连接情形，只有当它是 FULL JOIN
+ * USING，且某个合并列有等值 MERGEDVAR = CONSTANT 时，才能做点有用的事。
+ * 到这里时，合并列看起来会像
  *		COALESCE(LEFTVAR, RIGHTVAR)
- * and we will have a full-join clause LEFTVAR = RIGHTVAR that we can match
- * the COALESCE expression to. In this situation we can push LEFTVAR = CONSTANT
- * and RIGHTVAR = CONSTANT into the input relations, since any rows not
- * meeting these conditions cannot contribute to the join result.
+ * 并且会有一条全连接子句 LEFTVAR = RIGHTVAR，可以拿来匹配
+ * COALESCE 表达式。此时可以把 LEFTVAR = CONSTANT
+ * 和 RIGHTVAR = CONSTANT 推进输入关系，因为不满足这些条件的任何行
+ * 都无法对连接结果有贡献。
  *
- * Again, there isn't any traction to be gained by trying to deal with
- * clauses comparing a mergedvar to a non-pseudoconstant.  So we can make
- * use of the EquivalenceClasses to search for matching variables that were
- * equivalenced to constants.  The interesting outer-join clauses were
- * accumulated for us by distribute_qual_to_rels.
+ * 再者，试图处理把合并变量与非伪常量比较的
+ * 子句也得不到什么好处。因此可以利用
+ * EquivalenceClasses 去搜索曾被
+ * 等值到常量的匹配变量。有意思的外连接子句是由
+ * distribute_qual_to_rels 为我们积累的。
  *
- * When we find one of these cases, we implement the changes we want by
- * generating a new equivalence clause INNERVAR = CONSTANT (or LEFTVAR, etc)
- * and pushing it into the EquivalenceClass structures.  This is because we
- * may already know that INNERVAR is equivalenced to some other var(s), and
- * we'd like the constant to propagate to them too.  Note that it would be
- * unsafe to merge any existing EC for INNERVAR with the OUTERVAR's EC ---
- * that could result in propagating constant restrictions from
- * INNERVAR to OUTERVAR, which would be very wrong.
+ * 找到这些情形之一时，我们通过
+ * 生成新的等值子句 INNERVAR = CONSTANT（或 LEFTVAR 等）
+ * 并推进 EquivalenceClass 结构来实现所要的改动。这是因为我们
+ * 也许已经知道 INNERVAR 与某些其他 var(s) 等值，并且
+ * 希望常量也传播到它们。注意，把 INNERVAR 的任何已有 EC 与 OUTERVAR 的 EC 合并
+ * 是不安全的 ---
+ * 那会导致常量限制从
+ * INNERVAR 传播到 OUTERVAR，那就大错了。
  *
- * It's possible that the INNERVAR is also an OUTERVAR for some other
- * outer-join clause, in which case the process can be repeated.  So we repeat
- * looping over the lists of clauses until no further deductions can be made.
- * Whenever we do make a deduction, we remove the generating clause from the
- * lists, since we don't want to make the same deduction twice.
+ * INNERVAR 也可能是另一条
+ * 外连接子句的 OUTERVAR，此时过程可以重复。因此我们反复
+ * 遍历子句列表，直到再也推不出新结论。
+ * 每当做出一次推导，就把产生它的子句从
+ * 列表中去掉，因为不想把同一推导做两遍。
  *
- * If we don't find any match for a set-aside outer join clause, we must
- * throw it back into the regular joinclause processing by passing it to
- * distribute_restrictinfo_to_rels().  If we do generate a derived clause,
- * however, the outer-join clause is redundant.  We must still put some
- * clause into the regular processing, because otherwise the join will be
- * seen as a clauseless join and avoided during join order searching.
- * We handle this by generating a constant-TRUE clause that is marked with
- * the same required_relids etc as the removed outer-join clause, thus
- * making it a join clause between the correct relations.
+ * 若对搁置的外连接子句找不到任何匹配，就必须
+ * 把它退回常规连接子句处理，办法是传给
+ * distribute_restrictinfo_to_rels()。若确实生成了派生子句，
+ * 则外连接子句是冗余的。仍必须把某条
+ * 子句放进常规处理，否则该连接会被
+ * 看成无子句连接，并在连接顺序搜索中被避开。
+ * 我们的办法是生成一条常量 TRUE 子句，标上与去掉的外连接子句相同的
+ * required_relids 等，从而
+ * 使它成为正确关系之间的连接子句。
  */
 void
 reconsider_outer_join_clauses(PlannerInfo *root)
@@ -1994,12 +1994,12 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 	bool		found;
 	ListCell   *cell;
 
-	/* Outer loop repeats until we find no more deductions */
+	/* 外层循环重复，直到再也推不出新结论 */
 	do
 	{
 		found = false;
 
-		/* Process the LEFT JOIN clauses */
+		/* 处理 LEFT JOIN 子句 */
 		foreach(cell, root->left_join_clauses)
 		{
 			OuterJoinClauseInfo *ojcinfo = (OuterJoinClauseInfo *) lfirst(cell);
@@ -2009,17 +2009,17 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 				RestrictInfo *rinfo = ojcinfo->rinfo;
 
 				found = true;
-				/* remove it from the list */
+				/* 把它从列表中去掉 */
 				root->left_join_clauses =
 					foreach_delete_current(root->left_join_clauses, cell);
-				/* throw back a dummy replacement clause (see notes above) */
+				/* 退回一条哑替换子句（见上面的说明） */
 				rinfo = make_restrictinfo(root,
 										  (Expr *) makeBoolConst(true, false),
 										  rinfo->is_pushed_down,
 										  rinfo->has_clone,
 										  rinfo->is_clone,
-										  false,	/* pseudoconstant */
-										  0,	/* security_level */
+										  false,	/* 伪常量 */
+										  0,	/* security_level（安全级别） */
 										  rinfo->required_relids,
 										  rinfo->incompatible_relids,
 										  rinfo->outer_relids);
@@ -2027,7 +2027,7 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 			}
 		}
 
-		/* Process the RIGHT JOIN clauses */
+		/* 处理 RIGHT JOIN 子句 */
 		foreach(cell, root->right_join_clauses)
 		{
 			OuterJoinClauseInfo *ojcinfo = (OuterJoinClauseInfo *) lfirst(cell);
@@ -2037,17 +2037,17 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 				RestrictInfo *rinfo = ojcinfo->rinfo;
 
 				found = true;
-				/* remove it from the list */
+				/* 把它从列表中去掉 */
 				root->right_join_clauses =
 					foreach_delete_current(root->right_join_clauses, cell);
-				/* throw back a dummy replacement clause (see notes above) */
+				/* 退回一条哑替换子句（见上面的说明） */
 				rinfo = make_restrictinfo(root,
 										  (Expr *) makeBoolConst(true, false),
 										  rinfo->is_pushed_down,
 										  rinfo->has_clone,
 										  rinfo->is_clone,
-										  false,	/* pseudoconstant */
-										  0,	/* security_level */
+										  false,	/* 伪常量 */
+										  0,	/* security_level（安全级别） */
 										  rinfo->required_relids,
 										  rinfo->incompatible_relids,
 										  rinfo->outer_relids);
@@ -2055,7 +2055,7 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 			}
 		}
 
-		/* Process the FULL JOIN clauses */
+		/* 处理 FULL JOIN 子句 */
 		foreach(cell, root->full_join_clauses)
 		{
 			OuterJoinClauseInfo *ojcinfo = (OuterJoinClauseInfo *) lfirst(cell);
@@ -2065,17 +2065,17 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 				RestrictInfo *rinfo = ojcinfo->rinfo;
 
 				found = true;
-				/* remove it from the list */
+				/* 把它从列表中去掉 */
 				root->full_join_clauses =
 					foreach_delete_current(root->full_join_clauses, cell);
-				/* throw back a dummy replacement clause (see notes above) */
+				/* 退回一条哑替换子句（见上面的说明） */
 				rinfo = make_restrictinfo(root,
 										  (Expr *) makeBoolConst(true, false),
 										  rinfo->is_pushed_down,
 										  rinfo->has_clone,
 										  rinfo->is_clone,
-										  false,	/* pseudoconstant */
-										  0,	/* security_level */
+										  false,	/* 伪常量 */
+										  0,	/* security_level（安全级别） */
 										  rinfo->required_relids,
 										  rinfo->incompatible_relids,
 										  rinfo->outer_relids);
@@ -2084,7 +2084,7 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 		}
 	} while (found);
 
-	/* Now, any remaining clauses have to be thrown back */
+	/* 现在，其余子句都必须退回去 */
 	foreach(cell, root->left_join_clauses)
 	{
 		OuterJoinClauseInfo *ojcinfo = (OuterJoinClauseInfo *) lfirst(cell);
@@ -2106,9 +2106,9 @@ reconsider_outer_join_clauses(PlannerInfo *root)
 }
 
 /*
- * reconsider_outer_join_clauses for a single LEFT/RIGHT JOIN clause
+ * reconsider_outer_join_clauses，针对单条 LEFT/RIGHT JOIN 子句
  *
- * Returns true if we were able to propagate a constant through the clause.
+ * 若能把常量经该子句传播出去，则返回 true。
  */
 static bool
 reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
@@ -2130,7 +2130,7 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 	opno = ((OpExpr *) rinfo->clause)->opno;
 	collation = ((OpExpr *) rinfo->clause)->inputcollid;
 
-	/* Extract needed info from the clause */
+	/* 从该子句提取所需信息 */
 	op_input_types(opno, &left_type, &right_type);
 	if (outer_on_left)
 	{
@@ -2147,31 +2147,31 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 		inner_relids = rinfo->left_relids;
 	}
 
-	/* Scan EquivalenceClasses for a match to outervar */
+	/* 在 EquivalenceClasses 中扫描与 outervar 的匹配 */
 	foreach(lc1, root->eq_classes)
 	{
 		EquivalenceClass *cur_ec = (EquivalenceClass *) lfirst(lc1);
 		bool		match;
 		ListCell   *lc2;
 
-		/* Ignore EC unless it contains pseudoconstants */
+		/* 除非 EC 含有伪常量，否则忽略 */
 		if (!cur_ec->ec_has_const)
 			continue;
-		/* Never match to a volatile EC */
+		/* 永不匹配易变 EC */
 		if (cur_ec->ec_has_volatile)
 			continue;
-		/* It has to match the outer-join clause as to semantics, too */
+		/* 它在语义上也必须与外连接子句匹配 */
 		if (collation != cur_ec->ec_collation)
 			continue;
 		if (!equal(rinfo->mergeopfamilies, cur_ec->ec_opfamilies))
 			continue;
-		/* Does it contain a match to outervar? */
+		/* 它是否包含与 outervar 的匹配？ */
 		match = false;
 		foreach(lc2, cur_ec->ec_members)
 		{
 			EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc2);
 
-			Assert(!cur_em->em_is_child);	/* no children yet */
+			Assert(!cur_em->em_is_child);	/* 还没有子项 */
 			if (equal(outervar, cur_em->em_expr))
 			{
 				match = true;
@@ -2179,12 +2179,12 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 			}
 		}
 		if (!match)
-			continue;			/* no match, so ignore this EC */
+			continue;			/* 没有匹配，因此忽略该 EC */
 
 		/*
-		 * Yes it does!  Try to generate a clause INNERVAR = CONSTANT for each
-		 * CONSTANT in the EC.  Note that we must succeed with at least one
-		 * constant before we can decide to throw away the outer-join clause.
+		 * 是的！试着为 EC 中的每个
+		 * CONSTANT 生成子句 INNERVAR = CONSTANT。注意必须至少有一个
+		 * 常量成功，才能决定丢掉外连接子句。
 		 */
 		match = false;
 		foreach(lc2, cur_ec->ec_members)
@@ -2195,12 +2195,12 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 			JoinDomain *jdomain;
 
 			if (!cur_em->em_is_const)
-				continue;		/* ignore non-const members */
+				continue;		/* 忽略非常量成员 */
 			eq_op = select_equality_operator(cur_ec,
 											 inner_datatype,
 											 cur_em->em_datatype);
 			if (!OidIsValid(eq_op))
-				continue;		/* can't generate equality */
+				continue;		/* 无法生成等值 */
 			newrinfo = build_implied_join_equality(root,
 												   eq_op,
 												   cur_ec->ec_collation,
@@ -2208,16 +2208,16 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 												   cur_em->em_expr,
 												   bms_copy(inner_relids),
 												   cur_ec->ec_min_security);
-			/* This equality holds within the OJ's child JoinDomain */
+			/* 该等值在外连接的子 JoinDomain 内成立 */
 			jdomain = find_join_domain(root, sjinfo->syn_righthand);
 			if (process_equivalence(root, &newrinfo, jdomain))
 				match = true;
 		}
 
 		/*
-		 * If we were able to equate INNERVAR to any constant, report success.
-		 * Otherwise, fall out of the search loop, since we know the OUTERVAR
-		 * appears in at most one EC.
+		 * 若能把 INNERVAR 与任何常量等起来，就报告成功。
+		 * 否则跳出搜索循环，因为我们知道 OUTERVAR
+		 * 最多出现在一个 EC 中。
 		 */
 		if (match)
 			return true;
@@ -2225,13 +2225,13 @@ reconsider_outer_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo,
 			break;
 	}
 
-	return false;				/* failed to make any deduction */
+	return false;				/* 未能做出任何推导 */
 }
 
 /*
- * reconsider_outer_join_clauses for a single FULL JOIN clause
+ * reconsider_outer_join_clauses，针对单条 FULL JOIN 子句
  *
- * Returns true if we were able to propagate a constant through the clause.
+ * 若能把常量经该子句传播出去，则返回 true。
  */
 static bool
 reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
@@ -2249,7 +2249,7 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 				right_relids;
 	ListCell   *lc1;
 
-	/* Extract needed info from the clause */
+	/* 从该子句提取所需信息 */
 	Assert(is_opclause(rinfo->clause));
 	opno = ((OpExpr *) rinfo->clause)->opno;
 	collation = ((OpExpr *) rinfo->clause)->inputcollid;
@@ -2269,36 +2269,36 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 		ListCell   *lc2;
 		int			coal_idx = -1;
 
-		/* Ignore EC unless it contains pseudoconstants */
+		/* 除非 EC 含有伪常量，否则忽略 */
 		if (!cur_ec->ec_has_const)
 			continue;
-		/* Never match to a volatile EC */
+		/* 永不匹配易变 EC */
 		if (cur_ec->ec_has_volatile)
 			continue;
-		/* It has to match the outer-join clause as to semantics, too */
+		/* 它在语义上也必须与外连接子句匹配 */
 		if (collation != cur_ec->ec_collation)
 			continue;
 		if (!equal(rinfo->mergeopfamilies, cur_ec->ec_opfamilies))
 			continue;
 
 		/*
-		 * Does it contain a COALESCE(leftvar, rightvar) construct?
+		 * 它是否包含 COALESCE(leftvar, rightvar) 结构？
 		 *
-		 * We can assume the COALESCE() inputs are in the same order as the
-		 * join clause, since both were automatically generated in the cases
-		 * we care about.
+		 * 可以假定 COALESCE() 的输入与
+		 * 连接子句的顺序相同，因为在我们关心的情形里
+		 * 两者都是自动生成的。
 		 *
-		 * XXX currently this may fail to match in cross-type cases because
-		 * the COALESCE will contain typecast operations while the join clause
-		 * may not (if there is a cross-type mergejoin operator available for
-		 * the two column types). Is it OK to strip implicit coercions from
-		 * the COALESCE arguments?
+		 * XXX 目前在跨类型情形下这也许匹配失败，因为
+		 * COALESCE 会包含类型转换运算，而连接子句
+		 * 也许没有（若两个列类型
+		 * 有可用的跨类型归并连接操作符）。
+		 * 从 COALESCE 参数上剥掉隐式强制转换可以吗？
 		 */
 		match = false;
 		foreach(lc2, cur_ec->ec_members)
 		{
 			coal_em = (EquivalenceMember *) lfirst(lc2);
-			Assert(!coal_em->em_is_child);	/* no children yet */
+			Assert(!coal_em->em_is_child);	/* 还没有子项 */
 			if (IsA(coal_em->em_expr, CoalesceExpr))
 			{
 				CoalesceExpr *cexpr = (CoalesceExpr *) coal_em->em_expr;
@@ -2311,13 +2311,13 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 				csecond = (Node *) lsecond(cexpr->args);
 
 				/*
-				 * The COALESCE arguments will be marked as possibly nulled by
-				 * the full join, while we wish to generate clauses that apply
-				 * to the join's inputs.  So we must strip the join from the
-				 * nullingrels fields of cfirst/csecond before comparing them
-				 * to leftvar/rightvar.  (Perhaps with a less hokey
-				 * representation for FULL JOIN USING output columns, this
-				 * wouldn't be needed?)
+				 * COALESCE 参数会被标记为可能被
+				 * 全连接置空，而我们想生成施加于
+				 * 连接输入的子句。因此在把 cfirst/csecond 的
+				 * nullingrels 与 leftvar/rightvar 比较之前，必须从中剥掉该连接。
+				 * （也许 FULL JOIN USING 输出列若有不那么古怪的
+				 * 表示，
+				 * 就不需要这样做？）
 				 */
 				cfirst = remove_nulling_relids(cfirst, fjrelids, NULL);
 				csecond = remove_nulling_relids(csecond, fjrelids, NULL);
@@ -2331,13 +2331,13 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 			}
 		}
 		if (!match)
-			continue;			/* no match, so ignore this EC */
+			continue;			/* 没有匹配，因此忽略该 EC */
 
 		/*
-		 * Yes it does!  Try to generate clauses LEFTVAR = CONSTANT and
-		 * RIGHTVAR = CONSTANT for each CONSTANT in the EC.  Note that we must
-		 * succeed with at least one constant for each var before we can
-		 * decide to throw away the outer-join clause.
+		 * 是的！试着为 EC 中的每个 CONSTANT 生成子句 LEFTVAR = CONSTANT 和
+		 * RIGHTVAR = CONSTANT。注意必须
+		 * 每个变量至少有一个常量成功，才能
+		 * 决定丢掉外连接子句。
 		 */
 		matchleft = matchright = false;
 		foreach(lc2, cur_ec->ec_members)
@@ -2348,7 +2348,7 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 			JoinDomain *jdomain;
 
 			if (!cur_em->em_is_const)
-				continue;		/* ignore non-const members */
+				continue;		/* 忽略非常量成员 */
 			eq_op = select_equality_operator(cur_ec,
 											 left_type,
 											 cur_em->em_datatype);
@@ -2361,7 +2361,7 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 													   cur_em->em_expr,
 													   bms_copy(left_relids),
 													   cur_ec->ec_min_security);
-				/* This equality holds within the lefthand child JoinDomain */
+				/* 该等值在左侧子 JoinDomain 内成立 */
 				jdomain = find_join_domain(root, sjinfo->syn_lefthand);
 				if (process_equivalence(root, &newrinfo, jdomain))
 					matchleft = true;
@@ -2378,7 +2378,7 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 													   cur_em->em_expr,
 													   bms_copy(right_relids),
 													   cur_ec->ec_min_security);
-				/* This equality holds within the righthand child JoinDomain */
+				/* 该等值在右侧子 JoinDomain 内成立 */
 				jdomain = find_join_domain(root, sjinfo->syn_righthand);
 				if (process_equivalence(root, &newrinfo, jdomain))
 					matchright = true;
@@ -2386,11 +2386,11 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 		}
 
 		/*
-		 * If we were able to equate both vars to constants, we're done, and
-		 * we can throw away the full-join clause as redundant.  Moreover, we
-		 * can remove the COALESCE entry from the EC, since the added
-		 * restrictions ensure it will always have the expected value. (We
-		 * don't bother trying to update ec_relids or ec_sources.)
+		 * 若能把两个变量都与常量等起来，就做完了，并且
+		 * 可以把全连接子句当作冗余丢掉。此外，可以
+		 * 从 EC 中去掉 COALESCE 项，因为加上的
+		 * 限制保证它总会有预期的值。（我们
+		 * 懒得去更新 ec_relids 或 ec_sources。）
 		 */
 		if (matchleft && matchright)
 		{
@@ -2399,22 +2399,22 @@ reconsider_full_join_clause(PlannerInfo *root, OuterJoinClauseInfo *ojcinfo)
 		}
 
 		/*
-		 * Otherwise, fall out of the search loop, since we know the COALESCE
-		 * appears in at most one EC (XXX might stop being true if we allow
-		 * stripping of coercions above?)
+		 * 否则跳出搜索循环，因为我们知道 COALESCE
+		 * 最多出现在一个 EC 中（XXX 若允许
+		 * 上面那样剥掉强制转换，这也许不再成立？）
 		 */
 		break;
 	}
 
-	return false;				/* failed to make any deduction */
+	return false;				/* 未能做出任何推导 */
 }
 
 /*
  * find_join_domain
- *	  Find the highest JoinDomain enclosed within the given relid set.
+ *	  找出包含在给定 relid 集合之内的最高 JoinDomain。
  *
- * (We could avoid this search at the cost of complicating APIs elsewhere,
- * which doesn't seem worth it.)
+ * （可以不做这次搜索，代价是把别处的 APIs 弄复杂，
+ * 似乎不值得。）
  */
 static JoinDomain *
 find_join_domain(PlannerInfo *root, Relids relids)
@@ -2429,21 +2429,21 @@ find_join_domain(PlannerInfo *root, Relids relids)
 			return jdomain;
 	}
 	elog(ERROR, "failed to find appropriate JoinDomain");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 
 /*
  * exprs_known_equal
- *	  Detect whether two expressions are known equal due to equivalence
- *	  relationships.
+ *	  检测两个表达式是否因等值
+ *	  关系而已知相等。
  *
- * Actually, this only shows that the expressions are equal according
- * to some opfamily's notion of equality --- but we only use it for
- * selectivity estimation, so a fuzzy idea of equality is OK.
+ * 实际上这只表明这些表达式按
+ * 某个操作符族的相等观念是相等的 --- 但我们只用它做
+ * 选择率估计，所以模糊的相等观念就可以。
  *
- * Note: does not bother to check for "equal(item1, item2)"; caller must
- * check that case if it's possible to pass identical items.
+ * 注意：懒得检查 "equal(item1, item2)"；若可能传入相同的项，调用方必须
+ * 自己检查那种情形。
  */
 bool
 exprs_known_equal(PlannerInfo *root, Node *item1, Node *item2)
@@ -2457,7 +2457,7 @@ exprs_known_equal(PlannerInfo *root, Node *item1, Node *item2)
 		bool		item2member = false;
 		ListCell   *lc2;
 
-		/* Never match to a volatile EC */
+		/* 永不匹配易变 EC */
 		if (ec->ec_has_volatile)
 			continue;
 
@@ -2466,12 +2466,12 @@ exprs_known_equal(PlannerInfo *root, Node *item1, Node *item2)
 			EquivalenceMember *em = (EquivalenceMember *) lfirst(lc2);
 
 			if (em->em_is_child)
-				continue;		/* ignore children here */
+				continue;		/* 这里忽略子项 */
 			if (equal(item1, em->em_expr))
 				item1member = true;
 			else if (equal(item2, em->em_expr))
 				item2member = true;
-			/* Exit as soon as equality is proven */
+			/* 一旦证明相等就退出 */
 			if (item1member && item2member)
 				return true;
 		}
@@ -2482,19 +2482,19 @@ exprs_known_equal(PlannerInfo *root, Node *item1, Node *item2)
 
 /*
  * match_eclasses_to_foreign_key_col
- *	  See whether a foreign key column match is proven by any eclass.
+ *	  看外键列的匹配是否被某个 eclass 证明。
  *
- * If the referenced and referencing Vars of the fkey's colno'th column are
- * known equal due to any eclass, return that eclass; otherwise return NULL.
- * (In principle there might be more than one matching eclass if multiple
- * collations are involved, but since collation doesn't matter for equality,
- * we ignore that fine point here.)  This is much like exprs_known_equal,
- * except that we insist on the comparison operator matching the eclass, so
- * that the result is definite not approximate.
+ * 若该外键第 colno 列的被引用 Vars 与引用 Vars
+ * 因某个 eclass 而已知相等，就返回那个 eclass；否则返回 NULL。
+ * （原则上若涉及多种
+ * 排序规则，也许有不止一个匹配的 eclass，但排序规则对相等无关，
+ * 这里就忽略这个细节。）这很像 exprs_known_equal，
+ * 只是我们坚持比较操作符与该 eclass 匹配，从而
+ * 结果是确定的而不是近似的。
  *
- * On success, we also set fkinfo->eclass[colno] to the matching eclass,
- * and set fkinfo->fk_eclass_member[colno] to the eclass member for the
- * referencing Var.
+ * 成功时，还把 fkinfo->eclass[colno] 设为匹配的 eclass，
+ * 并把 fkinfo->fk_eclass_member[colno] 设为引用 Var 的
+ * eclass 成员。
  */
 EquivalenceClass *
 match_eclasses_to_foreign_key_col(PlannerInfo *root,
@@ -2508,11 +2508,11 @@ match_eclasses_to_foreign_key_col(PlannerInfo *root,
 	Oid			eqop = fkinfo->conpfeqop[colno];
 	RelOptInfo *rel1 = root->simple_rel_array[var1varno];
 	RelOptInfo *rel2 = root->simple_rel_array[var2varno];
-	List	   *opfamilies = NIL;	/* compute only if needed */
+	List	   *opfamilies = NIL;	/* 仅在需要时计算 */
 	Bitmapset  *matching_ecs;
 	int			i;
 
-	/* Consider only eclasses mentioning both relations */
+	/* 只考虑同时提到两个关系的 eclass */
 	Assert(root->ec_merging_done);
 	Assert(IS_SIMPLE_REL(rel1));
 	Assert(IS_SIMPLE_REL(rel2));
@@ -2528,10 +2528,10 @@ match_eclasses_to_foreign_key_col(PlannerInfo *root,
 		EquivalenceMember *item2_em = NULL;
 		ListCell   *lc2;
 
-		/* Never match to a volatile EC */
+		/* 永不匹配易变 EC */
 		if (ec->ec_has_volatile)
 			continue;
-		/* Note: it seems okay to match to "broken" eclasses here */
+		/* 注意：这里匹配 "损坏" 的 eclass 似乎没问题 */
 
 		foreach(lc2, ec->ec_members)
 		{
@@ -2539,30 +2539,30 @@ match_eclasses_to_foreign_key_col(PlannerInfo *root,
 			Var		   *var;
 
 			if (em->em_is_child)
-				continue;		/* ignore children here */
+				continue;		/* 这里忽略子项 */
 
-			/* EM must be a Var, possibly with RelabelType */
+			/* EM 必须是 Var，也许带 RelabelType */
 			var = (Var *) em->em_expr;
 			while (var && IsA(var, RelabelType))
 				var = (Var *) ((RelabelType *) var)->arg;
 			if (!(var && IsA(var, Var)))
 				continue;
 
-			/* Match? */
+			/* 匹配吗？ */
 			if (var->varno == var1varno && var->varattno == var1attno)
 				item1_em = em;
 			else if (var->varno == var2varno && var->varattno == var2attno)
 				item2_em = em;
 
-			/* Have we found both PK and FK column in this EC? */
+			/* 是否已在该 EC 中同时找到主键列和外键列？ */
 			if (item1_em && item2_em)
 			{
 				/*
-				 * Succeed if eqop matches EC's opfamilies.  We could test
-				 * this before scanning the members, but it's probably cheaper
-				 * to test for member matches first.
+				 * 若 eqop 匹配 EC 的操作符族，则成功。我们可以在
+				 * 扫描成员之前测试这一点，但先测试
+				 * 成员是否匹配也许更便宜。
 				 */
-				if (opfamilies == NIL)	/* compute if we didn't already */
+				if (opfamilies == NIL)	/* 若还没算过就计算 */
 					opfamilies = get_mergejoin_opfamilies(eqop);
 				if (equal(opfamilies, ec->ec_opfamilies))
 				{
@@ -2570,7 +2570,7 @@ match_eclasses_to_foreign_key_col(PlannerInfo *root,
 					fkinfo->fk_eclass_member[colno] = item2_em;
 					return ec;
 				}
-				/* Otherwise, done with this EC, move on to the next */
+				/* 否则，该 EC 处理完，转到下一个 */
 				break;
 			}
 		}
@@ -2580,12 +2580,12 @@ match_eclasses_to_foreign_key_col(PlannerInfo *root,
 
 /*
  * find_derived_clause_for_ec_member
- *	  Search for a previously-derived clause mentioning the given EM.
+ *	  搜索先前派生的、提到给定 EM 的子句。
  *
- * The eclass should be an ec_has_const EC, of which the EM is a non-const
- * member.  This should ensure there is just one derived clause mentioning
- * the EM (and equating it to a constant).
- * Returns NULL if no such clause can be found.
+ * 该 eclass 应当是 ec_has_const 的 EC，且该 EM 是非常量
+ * 成员。这应当保证只有一条提到
+ * 该 EM（并把它与常量等起来）的派生子句。
+ * 若找不到这样的子句，则返回 NULL。
  */
 RestrictInfo *
 find_derived_clause_for_ec_member(EquivalenceClass *ec,
@@ -2600,8 +2600,8 @@ find_derived_clause_for_ec_member(EquivalenceClass *ec,
 		RestrictInfo *rinfo = (RestrictInfo *) lfirst(lc);
 
 		/*
-		 * generate_base_implied_equalities_const will have put non-const
-		 * members on the left side of derived clauses.
+		 * generate_base_implied_equalities_const 会把非常量
+		 * 成员放在派生子句的左侧。
 		 */
 		if (rinfo->left_em == em)
 			return rinfo;
@@ -2612,20 +2612,20 @@ find_derived_clause_for_ec_member(EquivalenceClass *ec,
 
 /*
  * add_child_rel_equivalences
- *	  Search for EC members that reference the root parent of child_rel, and
- *	  add transformed members referencing the child_rel.
+ *	  搜索引用 child_rel 的根父项的 EC 成员，并
+ *	  加入引用该 child_rel 的变换后成员。
  *
- * Note that this function won't be called at all unless we have at least some
- * reason to believe that the EC members it generates will be useful.
+ * 除非我们至少有一些
+ * 理由相信它生成的 EC 成员会有用，否则根本不会调用本函数。
  *
- * parent_rel and child_rel could be derived from appinfo, but since the
- * caller has already computed them, we might as well just pass them in.
+ * parent_rel 和 child_rel 可以从 appinfo 推出，但既然
+ * 调用方已经算过，不妨直接传进来。
  *
- * The passed-in AppendRelInfo is not used when the parent_rel is not a
- * top-level baserel, since it shows the mapping from the parent_rel but
- * we need to translate EC expressions that refer to the top-level parent.
- * Using it is faster than using adjust_appendrel_attrs_multilevel(), though,
- * so we prefer it when we can.
+ * 传入的 AppendRelInfo 在 parent_rel 不是
+ * 顶层基关系时不用，因为它显示的是从该 parent_rel 出发的映射，而
+ * 我们需要翻译引用顶层父项的 EC 表达式。
+ * 用它比用 adjust_appendrel_attrs_multilevel() 更快，
+ * 因此能用时就用它。
  */
 void
 add_child_rel_equivalences(PlannerInfo *root,
@@ -2638,8 +2638,8 @@ add_child_rel_equivalences(PlannerInfo *root,
 	int			i;
 
 	/*
-	 * EC merging should be complete already, so we can use the parent rel's
-	 * eclass_indexes to avoid searching all of root->eq_classes.
+	 * EC 合并应当已经完成，因此可以用父关系的
+	 * eclass_indexes，避免搜索全部 root->eq_classes。
 	 */
 	Assert(root->ec_merging_done);
 	Assert(IS_SIMPLE_REL(parent_rel));
@@ -2651,20 +2651,20 @@ add_child_rel_equivalences(PlannerInfo *root,
 		int			num_members;
 
 		/*
-		 * If this EC contains a volatile expression, then generating child
-		 * EMs would be downright dangerous, so skip it.  We rely on a
-		 * volatile EC having only one EM.
+		 * 若该 EC 含有易变表达式，生成子
+		 * EM 会非常危险，因此跳过。我们依赖
+		 * 易变 EC 只有一个 EM。
 		 */
 		if (cur_ec->ec_has_volatile)
 			continue;
 
-		/* Sanity check eclass_indexes only contain ECs for parent_rel */
+		/* 健全性检查：eclass_indexes 只含 parent_rel 的 EC */
 		Assert(bms_is_subset(top_parent_relids, cur_ec->ec_relids));
 
 		/*
-		 * We don't use foreach() here because there's no point in scanning
-		 * newly-added child members, so we can stop after the last
-		 * pre-existing EC member.
+		 * 这里不用 foreach()，因为扫描
+		 * 新加入的子成员没有意义，可以在最后一个
+		 * 原有 EC 成员之后停下。
 		 */
 		num_members = list_length(cur_ec->ec_members);
 		for (int pos = 0; pos < num_members; pos++)
@@ -2672,37 +2672,37 @@ add_child_rel_equivalences(PlannerInfo *root,
 			EquivalenceMember *cur_em = (EquivalenceMember *) list_nth(cur_ec->ec_members, pos);
 
 			if (cur_em->em_is_const)
-				continue;		/* ignore consts here */
+				continue;		/* 这里忽略常量 */
 
 			/*
-			 * We consider only original EC members here, not
-			 * already-transformed child members.  Otherwise, if some original
-			 * member expression references more than one appendrel, we'd get
-			 * an O(N^2) explosion of useless derived expressions for
-			 * combinations of children.  (But add_child_join_rel_equivalences
-			 * may add targeted combinations for partitionwise-join purposes.)
+			 * 这里只考虑原始 EC 成员，不考虑
+			 * 已经变换过的子成员。否则，若某个原始
+			 * 成员表达式引用了不止一个 appendrel，就会得到
+			 * 无用派生表达式的 O(N^2) 爆炸，对应
+			 * 子项的各种组合。（但 add_child_join_rel_equivalences
+			 * 可以为按分区连接追加有针对性的组合。）
 			 */
 			if (cur_em->em_is_child)
-				continue;		/* ignore children here */
+				continue;		/* 这里忽略子项 */
 
 			/*
-			 * Consider only members that reference and can be computed at
-			 * child's topmost parent rel.  In particular we want to exclude
-			 * parent-rel Vars that have nonempty varnullingrels.  Translating
-			 * those might fail, if the transformed expression wouldn't be a
-			 * simple Var; and in any case it wouldn't produce a member that
-			 * has any use in creating plans for the child rel.
+			 * 只考虑引用并且能在
+			 * 子关系最顶层父关系上计算的成员。尤其要排除
+			 * varnullingrels 非空的父关系 Vars。翻译
+			 * 那些也许会失败，若变换后的表达式不是
+			 * 简单 Var；而且无论如何也产生不出对
+			 * 为子关系创建计划有任何用处的成员。
 			 */
 			if (bms_is_subset(cur_em->em_relids, top_parent_relids) &&
 				!bms_is_empty(cur_em->em_relids))
 			{
-				/* OK, generate transformed child version */
+				/* 好，生成变换后的子版本 */
 				Expr	   *child_expr;
 				Relids		new_relids;
 
 				if (parent_rel->reloptkind == RELOPT_BASEREL)
 				{
-					/* Simple single-level transformation */
+					/* 简单的单层变换 */
 					child_expr = (Expr *)
 						adjust_appendrel_attrs(root,
 											   (Node *) cur_em->em_expr,
@@ -2710,7 +2710,7 @@ add_child_rel_equivalences(PlannerInfo *root,
 				}
 				else
 				{
-					/* Must do multi-level transformation */
+					/* 必须做多层变换 */
 					child_expr = (Expr *)
 						adjust_appendrel_attrs_multilevel(root,
 														  (Node *) cur_em->em_expr,
@@ -2719,10 +2719,10 @@ add_child_rel_equivalences(PlannerInfo *root,
 				}
 
 				/*
-				 * Transform em_relids to match.  Note we do *not* do
-				 * pull_varnos(child_expr) here, as for example the
-				 * transformation might have substituted a constant, but we
-				 * don't want the child member to be marked as constant.
+				 * 变换 em_relids 使之匹配。注意这里 *不* 做
+				 * pull_varnos(child_expr)，例如
+				 * 变换也许替换进了一个常量，但我们
+				 * 不想把子成员标记为常量。
 				 */
 				new_relids = bms_difference(cur_em->em_relids,
 											top_parent_relids);
@@ -2732,7 +2732,7 @@ add_child_rel_equivalences(PlannerInfo *root,
 									 cur_em->em_jdomain,
 									 cur_em, cur_em->em_datatype);
 
-				/* Record this EC index for the child rel */
+				/* 为子关系记下该 EC 索引 */
 				child_rel->eclass_indexes = bms_add_member(child_rel->eclass_indexes, i);
 			}
 		}
@@ -2741,13 +2741,13 @@ add_child_rel_equivalences(PlannerInfo *root,
 
 /*
  * add_child_join_rel_equivalences
- *	  Like add_child_rel_equivalences(), but for joinrels
+ *	  与 add_child_rel_equivalences() 类似，但针对连接关系
  *
- * Here we find the ECs relevant to the top parent joinrel and add transformed
- * member expressions that refer to this child joinrel.
+ * 这里找出与最顶层父连接关系相关的 EC，并加入引用
+ * 这个子连接关系的变换后成员表达式。
  *
- * Note that this function won't be called at all unless we have at least some
- * reason to believe that the EC members it generates will be useful.
+ * 除非我们至少有一些
+ * 理由相信它生成的 EC 成员会有用，否则根本不会调用本函数。
  */
 void
 add_child_join_rel_equivalences(PlannerInfo *root,
@@ -2763,16 +2763,16 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 
 	Assert(IS_JOIN_REL(child_joinrel) && IS_JOIN_REL(parent_joinrel));
 
-	/* We need consider only ECs that mention the parent joinrel */
+	/* 只需考虑提到父连接关系的 EC */
 	matching_ecs = get_eclass_indexes_for_relids(root, top_parent_relids);
 
 	/*
-	 * If we're being called during GEQO join planning, we still have to
-	 * create any new EC members in the main planner context, to avoid having
-	 * a corrupt EC data structure after the GEQO context is reset.  This is
-	 * problematic since we'll leak memory across repeated GEQO cycles.  For
-	 * now, though, bloat is better than crash.  If it becomes a real issue
-	 * we'll have to do something to avoid generating duplicate EC members.
+	 * 若在 GEQO 连接规划期间被调用，仍必须
+	 * 在主规划器上下文中创建任何新的 EC 成员，以免
+	 * GEQO 上下文重置之后 EC 数据结构损坏。这有
+	 * 问题，因为重复的 GEQO 周期会泄漏内存。目前
+	 * 膨胀总比崩溃好。若这真成了问题，
+	 * 就得想办法避免生成重复的 EC 成员。
 	 */
 	oldcontext = MemoryContextSwitchTo(root->planner_cxt);
 
@@ -2783,20 +2783,20 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 		int			num_members;
 
 		/*
-		 * If this EC contains a volatile expression, then generating child
-		 * EMs would be downright dangerous, so skip it.  We rely on a
-		 * volatile EC having only one EM.
+		 * 若该 EC 含有易变表达式，生成子
+		 * EM 会非常危险，因此跳过。我们依赖
+		 * 易变 EC 只有一个 EM。
 		 */
 		if (cur_ec->ec_has_volatile)
 			continue;
 
-		/* Sanity check on get_eclass_indexes_for_relids result */
+		/* 对 get_eclass_indexes_for_relids 的结果做健全性检查 */
 		Assert(bms_overlap(top_parent_relids, cur_ec->ec_relids));
 
 		/*
-		 * We don't use foreach() here because there's no point in scanning
-		 * newly-added child members, so we can stop after the last
-		 * pre-existing EC member.
+		 * 这里不用 foreach()，因为扫描
+		 * 新加入的子成员没有意义，可以在最后一个
+		 * 原有 EC 成员之后停下。
 		 */
 		num_members = list_length(cur_ec->ec_members);
 		for (int pos = 0; pos < num_members; pos++)
@@ -2804,32 +2804,32 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 			EquivalenceMember *cur_em = (EquivalenceMember *) list_nth(cur_ec->ec_members, pos);
 
 			if (cur_em->em_is_const)
-				continue;		/* ignore consts here */
+				continue;		/* 这里忽略常量 */
 
 			/*
-			 * We consider only original EC members here, not
-			 * already-transformed child members.
+			 * 这里只考虑原始 EC 成员，不考虑
+			 * 已经变换过的子成员。
 			 */
 			if (cur_em->em_is_child)
-				continue;		/* ignore children here */
+				continue;		/* 这里忽略子项 */
 
 			/*
-			 * We may ignore expressions that reference a single baserel,
-			 * because add_child_rel_equivalences should have handled them.
+			 * 可以忽略只引用单个基关系的表达式，
+			 * 因为 add_child_rel_equivalences 应当已经处理过它们。
 			 */
 			if (bms_membership(cur_em->em_relids) != BMS_MULTIPLE)
 				continue;
 
-			/* Does this member reference child's topmost parent rel? */
+			/* 该成员是否引用子关系的最顶层父关系？ */
 			if (bms_overlap(cur_em->em_relids, top_parent_relids))
 			{
-				/* Yes, generate transformed child version */
+				/* 是的，生成变换后的子版本 */
 				Expr	   *child_expr;
 				Relids		new_relids;
 
 				if (parent_joinrel->reloptkind == RELOPT_JOINREL)
 				{
-					/* Simple single-level transformation */
+					/* 简单的单层变换 */
 					child_expr = (Expr *)
 						adjust_appendrel_attrs(root,
 											   (Node *) cur_em->em_expr,
@@ -2837,7 +2837,7 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 				}
 				else
 				{
-					/* Must do multi-level transformation */
+					/* 必须做多层变换 */
 					Assert(parent_joinrel->reloptkind == RELOPT_OTHER_JOINREL);
 					child_expr = (Expr *)
 						adjust_appendrel_attrs_multilevel(root,
@@ -2847,10 +2847,10 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 				}
 
 				/*
-				 * Transform em_relids to match.  Note we do *not* do
-				 * pull_varnos(child_expr) here, as for example the
-				 * transformation might have substituted a constant, but we
-				 * don't want the child member to be marked as constant.
+				 * 变换 em_relids 使之匹配。注意这里 *不* 做
+				 * pull_varnos(child_expr)，例如
+				 * 变换也许替换进了一个常量，但我们
+				 * 不想把子成员标记为常量。
 				 */
 				new_relids = bms_difference(cur_em->em_relids,
 											top_parent_relids);
@@ -2869,26 +2869,26 @@ add_child_join_rel_equivalences(PlannerInfo *root,
 
 /*
  * generate_implied_equalities_for_column
- *	  Create EC-derived joinclauses usable with a specific column.
+ *	  创建可用于特定列的、由 EC 派生的连接子句。
  *
- * This is used by indxpath.c to extract potentially indexable joinclauses
- * from ECs, and can be used by foreign data wrappers for similar purposes.
- * We assume that only expressions in Vars of a single table are of interest,
- * but the caller provides a callback function to identify exactly which
- * such expressions it would like to know about.
+ * indxpath.c 用它从 EC 中抽出可能可索引的连接子句，
+ * 外部数据包装器也可以为类似目的使用。
+ * 我们假定只有单表 Vars 中的表达式值得关心，
+ * 但调用方提供回调函数，以精确指出
+ * 它想知道哪些这样的表达式。
  *
- * We assume that any given table/index column could appear in only one EC.
- * (This should be true in all but the most pathological cases, and if it
- * isn't, we stop on the first match anyway.)  Therefore, what we return
- * is a redundant list of clauses equating the table/index column to each of
- * the other-relation values it is known to be equal to.  Any one of
- * these clauses can be used to create a parameterized path, and there
- * is no value in using more than one.  (But it *is* worthwhile to create
- * a separate parameterized path for each one, since that leads to different
- * join orders.)
+ * 我们假定任何给定的表/索引列只会出现在一个 EC 中。
+ * （除了最病态的情形，这应当成立；若不成立，
+ * 我们反正在第一个匹配处停下。）因此返回的
+ * 是一份冗余的子句列表，把该表/索引列与它已知相等的每一个
+ * 其他关系的值等起来。其中任何一条
+ * 都可以用来创建参数化路径，而且
+ * 用不止一条没有价值。（但为每一条分别创建
+ * 一条参数化路径是值得的，因为那会导致不同的
+ * 连接顺序。）
  *
- * The caller can pass a Relids set of rels we aren't interested in joining
- * to, so as to save the work of creating useless clauses.
+ * 调用方可以传入一组我们不想与之连接的 Relids，
+ * 以免费力去创建无用子句。
  */
 List *
 generate_implied_equalities_for_column(PlannerInfo *root,
@@ -2902,17 +2902,17 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 	Relids		parent_relids;
 	int			i;
 
-	/* Should be OK to rely on eclass_indexes */
+	/* 可以依赖 eclass_indexes */
 	Assert(root->ec_merging_done);
 
-	/* Indexes are available only on base or "other" member relations. */
+	/* 索引只存在于基关系或 "other" 成员关系上。 */
 	Assert(IS_SIMPLE_REL(rel));
 
-	/* If it's a child rel, we'll need to know what its parent(s) are */
+	/* 若是子关系，就需要知道它的 parent(s) 是什么 */
 	if (is_child_rel)
 		parent_relids = find_childrel_parents(root, rel);
 	else
-		parent_relids = NULL;	/* not used, but keep compiler quiet */
+		parent_relids = NULL;	/* 未使用，但用来消除编译器告警 */
 
 	i = -1;
 	while ((i = bms_next_member(rel->eclass_indexes, i)) >= 0)
@@ -2921,25 +2921,25 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 		EquivalenceMember *cur_em;
 		ListCell   *lc2;
 
-		/* Sanity check eclass_indexes only contain ECs for rel */
+		/* 健全性检查：eclass_indexes 只含该 rel 的 EC */
 		Assert(is_child_rel || bms_is_subset(rel->relids, cur_ec->ec_relids));
 
 		/*
-		 * Won't generate joinclauses if const or single-member (the latter
-		 * test covers the volatile case too)
+		 * 若是常量或单成员，就不会生成连接子句（后一种
+		 * 测试也覆盖易变情形）
 		 */
 		if (cur_ec->ec_has_const || list_length(cur_ec->ec_members) <= 1)
 			continue;
 
 		/*
-		 * Scan members, looking for a match to the target column.  Note that
-		 * child EC members are considered, but only when they belong to the
-		 * target relation.  (Unlike regular members, the same expression
-		 * could be a child member of more than one EC.  Therefore, it's
-		 * potentially order-dependent which EC a child relation's target
-		 * column gets matched to.  This is annoying but it only happens in
-		 * corner cases, so for now we live with just reporting the first
-		 * match.  See also get_eclass_for_sort_expr.)
+		 * 扫描成员，寻找与目标列的匹配。注意
+		 * 会考虑子 EC 成员，但仅当它们属于
+		 * 目标关系时。（与普通成员不同，同一表达式
+		 * 可以是不止一个 EC 的子成员。因此
+		 * 子关系的目标列匹配到哪个 EC 可能取决于顺序。
+		 * 这很烦人，但只发生在
+		 * 边角情形，所以目前我们接受只报告第一个
+		 * 匹配。另见 get_eclass_for_sort_expr。）
 		 */
 		cur_em = NULL;
 		foreach(lc2, cur_ec->ec_members)
@@ -2955,8 +2955,8 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 			continue;
 
 		/*
-		 * Found our match.  Scan the other EC members and attempt to generate
-		 * joinclauses.
+		 * 找到匹配了。扫描其他 EC 成员并尝试生成
+		 * 连接子句。
 		 */
 		foreach(lc2, cur_ec->ec_members)
 		{
@@ -2965,20 +2965,20 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 			RestrictInfo *rinfo;
 
 			if (other_em->em_is_child)
-				continue;		/* ignore children here */
+				continue;		/* 这里忽略子项 */
 
-			/* Make sure it'll be a join to a different rel */
+			/* 确保它会连接到另一个关系 */
 			if (other_em == cur_em ||
 				bms_overlap(other_em->em_relids, rel->relids))
 				continue;
 
-			/* Forget it if caller doesn't want joins to this rel */
+			/* 若调用方不想与该关系连接，就放弃 */
 			if (bms_overlap(other_em->em_relids, prohibited_rels))
 				continue;
 
 			/*
-			 * Also, if this is a child rel, avoid generating a useless join
-			 * to its parent rel(s).
+			 * 另外，若这是子关系，避免生成与其
+			 * 父 rel(s) 的无用连接。
 			 */
 			if (is_child_rel &&
 				bms_overlap(parent_relids, other_em->em_relids))
@@ -2990,7 +2990,7 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 			if (!OidIsValid(eq_op))
 				continue;
 
-			/* set parent_ec to mark as redundant with other joinclauses */
+			/* 设置 parent_ec，以标记它与其他连接子句冗余 */
 			rinfo = create_join_clause(root, cur_ec, eq_op,
 									   cur_em, other_em,
 									   cur_ec);
@@ -2999,9 +2999,9 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 		}
 
 		/*
-		 * If somehow we failed to create any join clauses, we might as well
-		 * keep scanning the ECs for another match.  But if we did make any,
-		 * we're done, because we don't want to return non-redundant clauses.
+		 * 若不知怎么没能创建任何连接子句，不妨
+		 * 继续扫描 EC 寻找另一个匹配。但若已经创建了任何一条，
+		 * 就做完了，因为不想返回非冗余子句。
 		 */
 		if (result)
 			break;
@@ -3012,15 +3012,15 @@ generate_implied_equalities_for_column(PlannerInfo *root,
 
 /*
  * have_relevant_eclass_joinclause
- *		Detect whether there is an EquivalenceClass that could produce
- *		a joinclause involving the two given relations.
+ *		检测是否有 EquivalenceClass 能产生
+ *		涉及给定两个关系的连接子句。
  *
- * This is essentially a very cut-down version of
- * generate_join_implied_equalities().  Note it's OK to occasionally say "yes"
- * incorrectly.  Hence we don't bother with details like whether the lack of a
- * cross-type operator might prevent the clause from actually being generated.
- * False negatives are not always fatal either: they will discourage, but not
- * completely prevent, investigation of particular join pathways.
+ * 这本质上是
+ * generate_join_implied_equalities() 大幅精简后的版本。注意偶尔错误地说 "yes"
+ * 是可以的。因此我们不管缺少
+ * 跨类型操作符是否会阻止子句真正生成这类细节。
+ * 假阴性也不总是致命的：它们会劝阻、但不会
+ * 完全阻止对特定连接途径的考察。
  */
 bool
 have_relevant_eclass_joinclause(PlannerInfo *root,
@@ -3030,14 +3030,14 @@ have_relevant_eclass_joinclause(PlannerInfo *root,
 	int			i;
 
 	/*
-	 * Examine only eclasses mentioning both rel1 and rel2.
+	 * 只检查同时提到 rel1 和 rel2 的 eclass。
 	 *
-	 * Note that we do not consider the possibility of an eclass generating
-	 * "join" clauses that mention just one of the rels plus an outer join
-	 * that could be formed from them.  Although such clauses must be
-	 * correctly enforced when we form the outer join, they don't seem like
-	 * sufficient reason to prioritize this join over other ones.  The join
-	 * ordering rules will force the join to be made when necessary.
+	 * 注意我们不考虑某个 eclass 生成
+	 * 只提到其中一个关系再加上一个可由它们形成的外连接的 "连接" 子句这种可能。
+	 * 虽然形成该外连接时必须
+	 * 正确强制这些子句，它们似乎并不是
+	 * 把这次连接优先于其他连接的充分理由。连接
+	 * 排序规则会在必要时强制做这次连接。
 	 */
 	matching_ecs = get_common_eclass_indexes(root, rel1->relids,
 											 rel2->relids);
@@ -3049,38 +3049,38 @@ have_relevant_eclass_joinclause(PlannerInfo *root,
 															 i);
 
 		/*
-		 * Sanity check that get_common_eclass_indexes gave only ECs
-		 * containing both rels.
+		 * 健全性检查：get_common_eclass_indexes 只给出同时
+		 * 包含两个关系的 EC。
 		 */
 		Assert(bms_overlap(rel1->relids, ec->ec_relids));
 		Assert(bms_overlap(rel2->relids, ec->ec_relids));
 
 		/*
-		 * Won't generate joinclauses if single-member (this test covers the
-		 * volatile case too)
+		 * 若是单成员，就不会生成连接子句（本测试也覆盖
+		 * 易变情形）
 		 */
 		if (list_length(ec->ec_members) <= 1)
 			continue;
 
 		/*
-		 * We do not need to examine the individual members of the EC, because
-		 * all that we care about is whether each rel overlaps the relids of
-		 * at least one member, and get_common_eclass_indexes() and the single
-		 * member check above are sufficient to prove that.  (As with
-		 * have_relevant_joinclause(), it is not necessary that the EC be able
-		 * to form a joinclause relating exactly the two given rels, only that
-		 * it be able to form a joinclause mentioning both, and this will
-		 * surely be true if both of them overlap ec_relids.)
+		 * 不必检查 EC 的各个成员，因为
+		 * 我们只关心每个关系是否与至少一个成员的 relid 重叠，
+		 * 而 get_common_eclass_indexes() 加上上面的单
+		 * 成员检查就足以证明这一点。（与
+		 * have_relevant_joinclause() 一样，不必要求该 EC 能
+		 * 形成恰好关联给定两个关系的连接子句，只要求
+		 * 它能形成提到两者的连接子句，而若两者都与 ec_relids 重叠，
+		 * 这肯定成立。）
 		 *
-		 * Note we don't test ec_broken; if we did, we'd need a separate code
-		 * path to look through ec_sources.  Checking the membership anyway is
-		 * OK as a possibly-overoptimistic heuristic.
+		 * 注意我们不测试 ec_broken；若测试，就需要单独的代码
+		 * 路径去查看 ec_sources。反正检查成员资格
+		 * 作为可能过于乐观的启发式是可以的。
 		 *
-		 * We don't test ec_has_const either, even though a const eclass won't
-		 * generate real join clauses.  This is because if we had "WHERE a.x =
-		 * b.y and a.x = 42", it is worth considering a join between a and b,
-		 * since the join result is likely to be small even though it'll end
-		 * up being an unqualified nestloop.
+		 * 也不测试 ec_has_const，尽管常量 eclass 不会
+		 * 生成真正的连接子句。这是因为若有 "WHERE a.x =
+		 * b.y and a.x = 42"，就值得考虑 a 与 b 之间的连接，
+		 * 因为连接结果很可能很小，即使它最后
+		 * 会变成无限定条件的嵌套循环。
 		 */
 
 		return true;
@@ -3092,11 +3092,11 @@ have_relevant_eclass_joinclause(PlannerInfo *root,
 
 /*
  * has_relevant_eclass_joinclause
- *		Detect whether there is an EquivalenceClass that could produce
- *		a joinclause involving the given relation and anything else.
+ *		检测是否有 EquivalenceClass 能产生
+ *		涉及给定关系以及任何其他东西的连接子句。
  *
- * This is the same as have_relevant_eclass_joinclause with the other rel
- * implicitly defined as "everything else in the query".
+ * 这与 have_relevant_eclass_joinclause 相同，只是另一个关系
+ * 被隐含定义为 "查询中的其他一切"。
  */
 bool
 has_relevant_eclass_joinclause(PlannerInfo *root, RelOptInfo *rel1)
@@ -3104,7 +3104,7 @@ has_relevant_eclass_joinclause(PlannerInfo *root, RelOptInfo *rel1)
 	Bitmapset  *matched_ecs;
 	int			i;
 
-	/* Examine only eclasses mentioning rel1 */
+	/* 只检查提到 rel1 的 eclass */
 	matched_ecs = get_eclass_indexes_for_relids(root, rel1->relids);
 
 	i = -1;
@@ -3114,15 +3114,15 @@ has_relevant_eclass_joinclause(PlannerInfo *root, RelOptInfo *rel1)
 															 i);
 
 		/*
-		 * Won't generate joinclauses if single-member (this test covers the
-		 * volatile case too)
+		 * 若是单成员，就不会生成连接子句（本测试也覆盖
+		 * 易变情形）
 		 */
 		if (list_length(ec->ec_members) <= 1)
 			continue;
 
 		/*
-		 * Per the comment in have_relevant_eclass_joinclause, it's sufficient
-		 * to find an EC that mentions both this rel and some other rel.
+		 * 按 have_relevant_eclass_joinclause 里的注释，只要
+		 * 找到一个同时提到本关系和其他某个关系的 EC 就够了。
 		 */
 		if (!bms_is_subset(ec->ec_relids, rel1->relids))
 			return true;
@@ -3134,13 +3134,13 @@ has_relevant_eclass_joinclause(PlannerInfo *root, RelOptInfo *rel1)
 
 /*
  * eclass_useful_for_merging
- *	  Detect whether the EC could produce any mergejoinable join clauses
- *	  against the specified relation.
+ *	  检测该 EC 能否产生任何
+ *	  针对指定关系的可归并连接子句。
  *
- * This is just a heuristic test and doesn't have to be exact; it's better
- * to say "yes" incorrectly than "no".  Hence we don't bother with details
- * like whether the lack of a cross-type operator might prevent the clause
- * from actually being generated.
+ * 这只是启发式测试，不必精确；错误地说 "yes"
+ * 比说 "no" 更好。因此我们不管缺少
+ * 跨类型操作符是否会阻止子句
+ * 真正生成这类细节。
  */
 bool
 eclass_useful_for_merging(PlannerInfo *root,
@@ -3153,19 +3153,19 @@ eclass_useful_for_merging(PlannerInfo *root,
 	Assert(!eclass->ec_merged);
 
 	/*
-	 * Won't generate joinclauses if const or single-member (the latter test
-	 * covers the volatile case too)
+	 * 若是常量或单成员，就不会生成连接子句（后一种测试
+	 * 也覆盖易变情形）
 	 */
 	if (eclass->ec_has_const || list_length(eclass->ec_members) <= 1)
 		return false;
 
 	/*
-	 * Note we don't test ec_broken; if we did, we'd need a separate code path
-	 * to look through ec_sources.  Checking the members anyway is OK as a
-	 * possibly-overoptimistic heuristic.
+	 * 注意我们不测试 ec_broken；若测试，就需要单独的代码路径
+	 * 去查看 ec_sources。反正检查成员
+	 * 作为可能过于乐观的启发式是可以的。
 	 */
 
-	/* If specified rel is a child, we must consider the topmost parent rel */
+	/* 若指定的关系是子关系，就必须考虑最顶层父关系 */
 	if (IS_OTHER_REL(rel))
 	{
 		Assert(!bms_is_empty(rel->top_parent_relids));
@@ -3174,17 +3174,17 @@ eclass_useful_for_merging(PlannerInfo *root,
 	else
 		relids = rel->relids;
 
-	/* If rel already includes all members of eclass, no point in searching */
+	/* 若关系已包含 eclass 的全部成员，就没有搜索的意义 */
 	if (bms_is_subset(eclass->ec_relids, relids))
 		return false;
 
-	/* To join, we need a member not in the given rel */
+	/* 要连接，就需要一个不在给定关系中的成员 */
 	foreach(lc, eclass->ec_members)
 	{
 		EquivalenceMember *cur_em = (EquivalenceMember *) lfirst(lc);
 
 		if (cur_em->em_is_child)
-			continue;			/* ignore children here */
+			continue;			/* 这里忽略子项 */
 
 		if (!bms_overlap(cur_em->em_relids, relids))
 			return true;
@@ -3196,9 +3196,9 @@ eclass_useful_for_merging(PlannerInfo *root,
 
 /*
  * is_redundant_derived_clause
- *		Test whether rinfo is derived from same EC as any clause in clauselist;
- *		if so, it can be presumed to represent a condition that's redundant
- *		with that member of the list.
+ *		测试 rinfo 是否与 clauselist 中任何子句派生自同一 EC；
+ *		若是，就可以认为它表示的条件与该列表成员
+ *		冗余。
  */
 bool
 is_redundant_derived_clause(RestrictInfo *rinfo, List *clauselist)
@@ -3206,7 +3206,7 @@ is_redundant_derived_clause(RestrictInfo *rinfo, List *clauselist)
 	EquivalenceClass *parent_ec = rinfo->parent_ec;
 	ListCell   *lc;
 
-	/* Fail if it's not a potentially-redundant clause from some EC */
+	/* 若它不是某个 EC 中可能冗余的子句，则失败 */
 	if (parent_ec == NULL)
 		return false;
 
@@ -3223,9 +3223,9 @@ is_redundant_derived_clause(RestrictInfo *rinfo, List *clauselist)
 
 /*
  * is_redundant_with_indexclauses
- *		Test whether rinfo is redundant with any clause in the IndexClause
- *		list.  Here, for convenience, we test both simple identity and
- *		whether it is derived from the same EC as any member of the list.
+ *		测试 rinfo 是否与 IndexClause
+ *		列表中的任何子句冗余。这里为方便起见，既测试简单的同一性，也测试
+ *		它是否与列表中任何成员派生自同一 EC。
  */
 bool
 is_redundant_with_indexclauses(RestrictInfo *rinfo, List *indexclauses)
@@ -3238,20 +3238,20 @@ is_redundant_with_indexclauses(RestrictInfo *rinfo, List *indexclauses)
 		IndexClause *iclause = lfirst_node(IndexClause, lc);
 		RestrictInfo *otherrinfo = iclause->rinfo;
 
-		/* If indexclause is lossy, it won't enforce the condition exactly */
+		/* 若 indexclause 是有损的，它不会精确强制该条件 */
 		if (iclause->lossy)
 			continue;
 
-		/* Match if it's same clause (pointer equality should be enough) */
+		/* 若是同一子句则匹配（指针相等应当就够了） */
 		if (rinfo == otherrinfo)
 			return true;
-		/* Match if derived from same EC */
+		/* 若派生自同一 EC 则匹配 */
 		if (parent_ec && otherrinfo->parent_ec == parent_ec)
 			return true;
 
 		/*
-		 * No need to look at the derived clauses in iclause->indexquals; they
-		 * couldn't match if the parent clause didn't.
+		 * 不必看 iclause->indexquals 里的派生子句；若父子句不匹配，
+		 * 它们也不可能匹配。
 		 */
 	}
 
@@ -3260,8 +3260,8 @@ is_redundant_with_indexclauses(RestrictInfo *rinfo, List *indexclauses)
 
 /*
  * get_eclass_indexes_for_relids
- *		Build and return a Bitmapset containing the indexes into root's
- *		eq_classes list for all eclasses that mention any of these relids
+ *		构造并返回一个 Bitmapset，其中是 root 的
+ *		eq_classes 列表里所有提到这些 relid 中任何一个的 eclass 的索引
  */
 static Bitmapset *
 get_eclass_indexes_for_relids(PlannerInfo *root, Relids relids)
@@ -3269,14 +3269,14 @@ get_eclass_indexes_for_relids(PlannerInfo *root, Relids relids)
 	Bitmapset  *ec_indexes = NULL;
 	int			i = -1;
 
-	/* Should be OK to rely on eclass_indexes */
+	/* 可以依赖 eclass_indexes */
 	Assert(root->ec_merging_done);
 
 	while ((i = bms_next_member(relids, i)) > 0)
 	{
 		RelOptInfo *rel = root->simple_rel_array[i];
 
-		if (rel == NULL)		/* must be an outer join */
+		if (rel == NULL)		/* 必须是外连接 */
 		{
 			Assert(bms_is_member(i, root->outer_join_rels));
 			continue;
@@ -3289,9 +3289,9 @@ get_eclass_indexes_for_relids(PlannerInfo *root, Relids relids)
 
 /*
  * get_common_eclass_indexes
- *		Build and return a Bitmapset containing the indexes into root's
- *		eq_classes list for all eclasses that mention rels in both
- *		relids1 and relids2.
+ *		构造并返回一个 Bitmapset，其中是 root 的
+ *		eq_classes 列表里所有同时提到
+ *		relids1 和 relids2 中关系的 eclass 的索引。
  */
 static Bitmapset *
 get_common_eclass_indexes(PlannerInfo *root, Relids relids1, Relids relids2)
@@ -3303,14 +3303,14 @@ get_common_eclass_indexes(PlannerInfo *root, Relids relids1, Relids relids2)
 	rel1ecs = get_eclass_indexes_for_relids(root, relids1);
 
 	/*
-	 * We can get away with just using the relation's eclass_indexes directly
-	 * when relids2 is a singleton set.
+	 * 当 relids2 是单元素集合时，可以直接用该关系的 eclass_indexes
+	 * 应付过去。
 	 */
 	if (bms_get_singleton_member(relids2, &relid))
 		rel2ecs = root->simple_rel_array[relid]->eclass_indexes;
 	else
 		rel2ecs = get_eclass_indexes_for_relids(root, relids2);
 
-	/* Calculate and return the common EC indexes, recycling the left input. */
+	/* 计算并返回公共 EC 索引，复用左侧输入。 */
 	return bms_int_members(rel1ecs, rel2ecs);
 }

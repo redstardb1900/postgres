@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0029-readme-nbtree",
+ "title": "zh: translate nbtree README",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cc51a87194e5999bbfc086f4bf9cedcce6abcf11",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/nbtree/README",
+   "kind": "readme",
+   "note": "L&Y, page delete, suffix truncation, dedup"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0029-readme-nbtree.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/nbtree/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "L&Y, page delete, suffix truncation, dedup"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0029-readme-nbtree.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Nineteenth README batch: 1 file. Paper citations, function names, LP_*/INCOMPLETE_SPLIT and algorithm steps kept."
+}

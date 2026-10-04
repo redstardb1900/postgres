@@ -1,0 +1,541 @@
+{
+ "schema": "readme_inventory_v1",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "rule": "Only files with decision=include may be translated as README/human text. Presence of a README-like name does not enlarge the scope.",
+ "excluded_other_txt": [
+  {
+   "path": "meson_options.txt",
+   "reason": "Meson machine options; meson comments are a later comment-translation batch"
+  },
+  {
+   "path": "src/backend/catalog/sql_feature_packages.txt",
+   "reason": "machine-read catalog data"
+  },
+  {
+   "path": "src/backend/utils/mb/Unicode/*.txt",
+   "reason": "Unicode mapping tables"
+  },
+  {
+   "path": "src/timezone/known_abbrevs.txt",
+   "reason": "IANA/timezone data"
+  },
+  {
+   "path": "src/timezone/tznames/*.txt",
+   "reason": "IANA timezone name tables"
+  },
+  {
+   "path": "src/backend/catalog/sql_features.txt",
+   "reason": "machine-read (plan)"
+  },
+  {
+   "path": "src/backend/storage/lmgr/lwlocknames.txt",
+   "reason": "machine-read (plan)"
+  },
+  {
+   "path": "**/exports.txt",
+   "reason": "machine-read (plan)"
+  },
+  {
+   "path": "src/backend/utils/errcodes.txt",
+   "reason": "machine-read (plan)"
+  }
+ ],
+ "counts": {
+  "readme_candidates": 98,
+  "include": 88,
+  "exclude": 10
+ },
+ "files": [
+  {
+   "path": "README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "README.git",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "contrib/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "contrib/start-scripts/macos/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/brin/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/gin/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/gist/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/hash/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/heap/README.HOT",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/heap/README.tuplock",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/nbtree/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/spgist/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/transam/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/access/transam/README.parallel",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/executor/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/jit/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/lib/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/libpq/README.SSL",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/nodes/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/optimizer/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/optimizer/plan/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/parser/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/regex/README",
+   "decision": "exclude",
+   "reason": "third-party Tcl regex library (plan hard exclude)"
+  },
+  {
+   "path": "src/backend/replication/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/snowball/README",
+   "decision": "exclude",
+   "reason": "Snowball stemmer third-party tree (plan hard exclude)"
+  },
+  {
+   "path": "src/backend/statistics/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/statistics/README.dependencies",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/statistics/README.mcv",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/buffer/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/freespace/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README-SSI",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README.barrier",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/page/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/storage/smgr/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/README.Gen_dummy_probes",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/fmgr/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/mb/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/mb/conversion_procs/README.euc_jp",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/misc/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/mmgr/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/backend/utils/resowner/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/bin/pg_amcheck/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/bin/pgevent/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/common/unicode/README",
+   "decision": "exclude",
+   "reason": "generator notes for unicode_*_table.h (plan hard exclude)"
+  },
+  {
+   "path": "src/interfaces/ecpg/README.dynSQL",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/interfaces/ecpg/preproc/README.parser",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/interfaces/ecpg/test/connect/README",
+   "decision": "exclude",
+   "reason": "src/interfaces/ecpg/test/** excluded by plan"
+  },
+  {
+   "path": "src/interfaces/libpq/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/pl/plperl/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/pl/plpython/expected/README",
+   "decision": "exclude",
+   "reason": "expected/ output tree excluded by plan"
+  },
+  {
+   "path": "src/port/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/authentication/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/icu/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/isolation/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/kerberos/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/ldap/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/locale/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/locale/de_DE.ISO8859-1/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/locale/gr_GR.ISO8859-7/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/locale/koi8-to-win1251/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/mb/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/dummy_index_am/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/dummy_seclabel/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/libpq_pipeline/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/plsample/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/spgist_name_ops/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_bloomfilter/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_ddl_deparse/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_ginpostinglist/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_integerset/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_misc/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_oat_hooks/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_parser/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_pg_dump/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_predtest/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_rbtree/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_regex/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_rls_hooks/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/test_shm_mq/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/modules/unsafe_tests/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/perl/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/recovery/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/regress/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/ssl/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/test/subscription/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/timezone/README",
+   "decision": "exclude",
+   "reason": "IANA timezone data tree (plan hard exclude)"
+  },
+  {
+   "path": "src/timezone/tznames/README",
+   "decision": "exclude",
+   "reason": "IANA timezone names (plan hard exclude)"
+  },
+  {
+   "path": "src/tools/ci/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/tools/ifaddrs/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/tools/msvc/README",
+   "decision": "exclude",
+   "reason": "src/tools/msvc/ excluded by plan"
+  },
+  {
+   "path": "src/tools/msvc/dummylib/README",
+   "decision": "exclude",
+   "reason": "src/tools/msvc/ excluded by plan"
+  },
+  {
+   "path": "src/tools/pg_bsd_indent/README",
+   "decision": "exclude",
+   "reason": "third-party pg_bsd_indent (plan hard exclude)"
+  },
+  {
+   "path": "src/tools/pginclude/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/tools/pgindent/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  },
+  {
+   "path": "src/tutorial/README",
+   "decision": "include",
+   "reason": "human-confirmed source README / developer note; not machine-read, not third-party, not in a hard-excluded tree"
+  }
+ ]
+}

@@ -1,28 +1,20 @@
-The PostgreSQL contrib tree
----------------------------
+PostgreSQL contrib 树
+---------------------
 
-This subtree contains porting tools, analysis utilities, and plug-in
-features that are not part of the core PostgreSQL system, mainly
-because they address a limited audience or are too experimental to be
-part of the main source tree.  This does not preclude their
-usefulness.
+本子树包含移植工具、分析实用程序和插件功能，它们不是核心 PostgreSQL
+系统的一部分，主要是因为受众有限，或实验性太强而不适合放进主源码树。
+这并不妨碍它们有用。
 
-User documentation for each module appears in the main SGML
-documentation.
+各模块的用户文档出现在主 SGML 文档中。
 
-When building from the source distribution, these modules are not
-built automatically, unless you build the "world" target.  You can
-also build and install them all by running "make all" and "make
-install" in this directory; or to build and install just one selected
-module, do the same in that module's subdirectory.
+从源码发行版构建时，这些模块不会自动构建，除非你构建 "world" 目标。
+你也可以在本目录中运行 "make all" 和 "make install" 来构建并安装全部
+模块；若只构建并安装某一个模块，在该模块的子目录中执行同样的命令即可。
 
-Some directories supply new user-defined functions, operators, or
-types.  To make use of one of these modules, after you have installed
-the code you need to register the new SQL objects in the database
-system by executing a CREATE EXTENSION command.  In a fresh database,
-you can simply do
+有些目录提供新的用户定义函数、操作符或类型。要使用这类模块，在安装
+代码之后，还需要执行 CREATE EXTENSION 命令，把新的 SQL 对象注册到
+数据库系统中。在全新数据库中，只需：
 
     CREATE EXTENSION module_name;
 
-See the PostgreSQL documentation for more information about this
-procedure.
+关于此过程的更多信息，见 PostgreSQL 文档。

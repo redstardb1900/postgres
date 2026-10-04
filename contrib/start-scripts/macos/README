@@ -1,24 +1,19 @@
-To make macOS automatically launch your PostgreSQL server at system start,
-do the following:
+若要让 macOS 在系统启动时自动拉起 PostgreSQL 服务器，请按下列步骤操作：
 
-1. Edit the postgres-wrapper.sh script and adjust the file path
-variables at its start to reflect where you have installed Postgres,
-if that's not /usr/local/pgsql.
+1. 编辑 postgres-wrapper.sh 脚本，并调整其开头的文件路径变量，使之
+反映你安装 Postgres 的位置（如果不是 /usr/local/pgsql）。
 
-2. Copy the modified postgres-wrapper.sh script into some suitable
-installation directory.  It can be, but doesn't have to be, where
-you keep the Postgres executables themselves.
+2. 将修改后的 postgres-wrapper.sh 脚本复制到某个合适的安装目录。
+可以放在 Postgres 可执行文件所在目录，但不是必须。
 
-3. Edit the org.postgresql.postgres.plist file and adjust its path
-for postgres-wrapper.sh to match what you did in step 2.  Also,
-if you plan to run the Postgres server under some user name other
-than "postgres", adjust the UserName parameter value for that.
+3. 编辑 org.postgresql.postgres.plist 文件，将其指向 postgres-wrapper.sh
+的路径改成与第 2 步一致。另外，如果你计划用 "postgres" 以外的用户名
+运行 Postgres 服务器，请相应调整 UserName 参数的值。
 
-4. Copy the modified org.postgresql.postgres.plist file into
-/Library/LaunchDaemons/.  You must do this as root:
+4. 将修改后的 org.postgresql.postgres.plist 文件复制到
+/Library/LaunchDaemons/。必须以 root 执行：
     sudo cp org.postgresql.postgres.plist /Library/LaunchDaemons
-because the file will be ignored if it is not root-owned.
+因为若文件不属于 root，就会被忽略。
 
-At this point a reboot should launch the server.  But if you want
-to test it without rebooting, you can do
+至此，重启后应会拉起服务器。若想不重启就测试，可以执行
     sudo launchctl load /Library/LaunchDaemons/org.postgresql.postgres.plist

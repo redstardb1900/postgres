@@ -1,3 +1,3 @@
 src/interfaces/libpq/README
 
-This directory contains the C version of Libpq, the POSTGRES frontend library.
+本目录包含 Libpq 的 C 版本，即 POSTGRES 前端库。

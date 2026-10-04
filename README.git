@@ -1,14 +1,11 @@
-(This file does not appear in release tarballs.)
+（本文件不会出现在发行版 tarball 中。）
 
-In a release or snapshot tarball of PostgreSQL, a documentation file named
-INSTALL will appear in this directory.  However, this file is not stored in
-git and so will not be present if you are using a git checkout.
+在 PostgreSQL 的发行版或快照 tarball 中，本目录会有一份名为 INSTALL 的
+文档。但该文件不存放在 git 中，因此如果你使用的是 git 检出，它不会出现。
 
-If you are using a git checkout, you can view the most recent installation
-instructions at:
+如果你使用的是 git 检出，可在以下地址查看最新安装说明：
 	https://www.postgresql.org/docs/devel/installation.html
 
-Users compiling from git will also need compatible versions of Bison, Flex,
-and Perl, as discussed in the install documentation.  These programs are not
-needed when using a tarball, since the files they are needed to build are
-already present in the tarball.  (On Windows, however, you need Perl anyway.)
+从 git 编译的用户还需要兼容版本的 Bison、Flex 和 Perl，详见安装文档。
+使用 tarball 时不需要这些程序，因为它们要生成的文件已经包含在 tarball
+中。（不过在 Windows 上，仍然需要 Perl。）

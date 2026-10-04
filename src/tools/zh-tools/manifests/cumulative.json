@@ -245,6 +245,41 @@
    "pattern": "src/tools/zh-tools/evidence/po/po_review.json",
    "kind": "tool",
    "note": "GPT zh-po-review-0001 record"
+  },
+  {
+   "pattern": "README",
+   "kind": "readme",
+   "note": "top-level source distribution intro"
+  },
+  {
+   "pattern": "README.git",
+   "kind": "readme",
+   "note": "git-checkout vs tarball INSTALL note"
+  },
+  {
+   "pattern": "contrib/README",
+   "kind": "readme",
+   "note": "contrib tree intro"
+  },
+  {
+   "pattern": "contrib/start-scripts/macos/README",
+   "kind": "readme",
+   "note": "macOS launchd steps"
+  },
+  {
+   "pattern": "src/interfaces/libpq/README",
+   "kind": "readme",
+   "note": "Libpq frontend library one-liner"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "note": "closed include/exclude list for 98 README-like files"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0010-readme-intro.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -1282,7 +1317,77 @@
    "translated": 0,
    "preserved": 0,
    "preserved_reasons": []
+  },
+  {
+   "path": "README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "top-level source distribution intro"
+  },
+  {
+   "path": "README.git",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "git-checkout vs tarball INSTALL note"
+  },
+  {
+   "path": "contrib/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "contrib tree intro"
+  },
+  {
+   "path": "contrib/start-scripts/macos/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "macOS launchd steps"
+  },
+  {
+   "path": "src/interfaces/libpq/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Libpq frontend library one-liner"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "closed include/exclude list for 98 README-like files"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0010-readme-intro.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental. PO catalogs: 10576 translated, 0 fuzzy, 0 untranslated; 11 supplement entries reviewed (zh-po-review-0001)."
+ "notes": "Union of manifests/batch-*.json; regenerate when a batch is added. Used by check_scope.py without --incremental. README inventory: 88 include / 10 exclude; first README batch translated."
 }

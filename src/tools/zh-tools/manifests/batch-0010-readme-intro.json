@@ -1,0 +1,134 @@
+{
+ "schema_version": 1,
+ "batch_id": "0010-readme-intro",
+ "title": "zh: translate top-level README files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e7d82152ff6d40c80c0a5109b37ae7d365f958b4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "README",
+   "kind": "readme",
+   "note": "top-level source distribution intro"
+  },
+  {
+   "pattern": "README.git",
+   "kind": "readme",
+   "note": "git-checkout vs tarball INSTALL note"
+  },
+  {
+   "pattern": "contrib/README",
+   "kind": "readme",
+   "note": "contrib tree intro"
+  },
+  {
+   "pattern": "contrib/start-scripts/macos/README",
+   "kind": "readme",
+   "note": "macOS launchd steps"
+  },
+  {
+   "pattern": "src/interfaces/libpq/README",
+   "kind": "readme",
+   "note": "Libpq frontend library one-liner"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "note": "closed include/exclude list for 98 README-like files"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0010-readme-intro.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes batch-0010"
+  }
+ ],
+ "files": [
+  {
+   "path": "README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "top-level source distribution intro"
+  },
+  {
+   "path": "README.git",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "git-checkout vs tarball INSTALL note"
+  },
+  {
+   "path": "contrib/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "contrib tree intro"
+  },
+  {
+   "path": "contrib/start-scripts/macos/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "macOS launchd steps"
+  },
+  {
+   "path": "src/interfaces/libpq/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 1,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Libpq frontend library one-liner"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/readme_inventory.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "closed include/exclude list for 98 README-like files"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0010-readme-intro.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes batch-0010"
+  }
+ ],
+ "notes": "First README batch: closed inventory (88 include / 10 exclude) plus five short human-confirmed files. Commands, URLs, file names, CREATE EXTENSION and the historical name POSTGRES are kept."
+}

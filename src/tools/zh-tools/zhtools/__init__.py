@@ -13,4 +13,7 @@ sys.dont_write_bytecode = True
 
 # 0.2.0: GNU Make evidence chain (make_evidence.py, makelog, ccreplay,
 # checkworld, evidence_run) and an implemented --cc-check.
-TOOLS_VERSION = "0.2.0"
+# 0.2.1: freeze hashes the configure / check-world / config.log evidence too
+# and gains a read-only `freeze --verify`; platform candidates are reported,
+# never approved.
+TOOLS_VERSION = "0.2.1"

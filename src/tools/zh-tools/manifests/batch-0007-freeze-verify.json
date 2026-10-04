@@ -1,0 +1,103 @@
+{
+ "schema_version": 1,
+ "batch_id": "0007-freeze-verify",
+ "title": "zh: harden baseline evidence verification",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8b2a71901fc08e0c6204b919e5cb0db0009036b2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "note": "freeze(): hash configure/check-world/config.log evidence; read-only verify mode; candidates report"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "note": "TOOLS_VERSION 0.2.1"
+  },
+  {
+   "pattern": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "note": "freeze --verify / --json CLI"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "note": "freeze fixtures record configure/check-world logs; new verify/tamper tests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "note": "document freeze --verify"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0007-freeze-verify.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0007-freeze-verify.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze() now fails when the out-of-repo configure log, check-world log or config.log (builddir and evidence_out copy) is missing or its SHA-256 differs from the record, and when a record has no log reference at all; freeze(verify=True) recomputes baseline.json and platform_exceptions_candidates.json from disk and compares them with the committed files without writing; platform candidates are counted by hint and reported with approved=0 in both modes"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "TOOLS_VERSION 0.2.0 -> 0.2.1"
+  },
+  {
+   "path": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "freeze gains --verify (read-only) and --json; prints problems, mismatches and the candidates summary"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fixture writes configure.log, config.log (builddir + copy) and make_check_world.log with recorded hashes; tests tamper each one, remove the check-world log, drop the log reference, and exercise verify: read-only, field drift, bad cache key, hand-approved candidate, draft status, external drift, missing baseline"
+  },
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "make_evidence.py row and evidence cycle example mention freeze --verify"
+  }
+ ],
+ "notes": "Non-blocking review findings on the baseline tooling, fixed before the PO phase. No translation content; cc_evidence/baseline.json is unchanged and `make_evidence.py freeze --verify` reproduces it from the evidence on disk (VERIFIED, 194 candidates, 0 approved)."
+}

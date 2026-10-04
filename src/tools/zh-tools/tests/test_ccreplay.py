@@ -23,6 +23,11 @@ def _write(path, text):
         f.write(text)
 
 
+def _read(path):
+    with open(path, "rb") as f:
+        return f.read()
+
+
 class RewriteArgvTest(unittest.TestCase):
     ARGV = [CC, "-Wall", "-O2", "-I../../../../src/include", "-I" + SRC + "/src/include", "-I", SRC + "/src/pl/x",
             "-iquote", ".", "-isystem", "/usr/include/libxml2", "-D_GNU_SOURCE", '-DVAL_CC="/usr/bin/gcc"',
@@ -272,13 +277,22 @@ class RealReplayTest(unittest.TestCase):
         ev.write_json(os.path.join(ev_dir, "environment.json"), {"versions": {
             k: {"first_line": ev.first_line(ev.capture([c, "--version"], env=env)[1])}
             for k, c in (("cc", CC), ("cxx", CXX), ("make", "make"))}})
-        ev.write_json(os.path.join(ev_dir, "configure.json"), {"exit_code": 0})
+        conf_log = os.path.join(self.side, "configure.log")
+        _write(conf_log, "checking build system type... ok\n")
+        # configure.json records the configure output and the config.log the
+        # builddir got; the evidence_out copy must hash the same
+        _write(os.path.join(self.bld, "config.log"), "This file contains any messages\n")
+        shutil.copy2(os.path.join(self.bld, "config.log"), os.path.join(self.side, "config.log"))
+        ev.write_json(os.path.join(ev_dir, "configure.json"), {
+            "exit_code": 0, "log": conf_log, "log_sha256": ev.sha256_file(conf_log),
+            "config_log_sha256": ev.sha256_file(os.path.join(self.bld, "config.log"))})
         ev.write_json(os.path.join(ev_dir, "make_world_bin.json"),
                       {"exit_code": 0, "log": log, "log_sha256": log_sha})
-        cw_log = os.path.join(self.d, "cw.log")
+        cw_log = os.path.join(self.side, "make_check_world.log")
         _write(cw_log, "x\n")
         ev.write_json(os.path.join(ev_dir, "check_world.json"), {
-            "exit_code": 2, "log_sha256": ev.sha256_file(cw_log), "argv": ["make", "-k", "check-world"],
+            "exit_code": 2, "log": cw_log, "log_sha256": ev.sha256_file(cw_log),
+            "argv": ["make", "-k", "check-world"],
             "results": {"summary": {k: 0 for k in (
                 "sections", "regress_suites", "regress_tests", "regress_failed_tests", "regress_skipped_tests",
                 "tap_suites", "tap_files", "tap_failed_files", "tap_skipped_files", "compiler_warnings",
@@ -325,6 +339,10 @@ class RealReplayTest(unittest.TestCase):
         self.assertEqual(b["check_world_failures"],
                          [{"dir": "src/bin/x", "kind": "tap", "test": "t/003.pl", "status": "failed",
                            "detail": "Failed 1/44 subtests"}])
+        # the report classifies the candidates but approves none
+        self.assertEqual(report["platform_candidates"], {
+            "n_candidates": 1, "by_hint": {"win32": 1}, "approved": 0,
+            "note": "report only; approval is a separate reviewed step, never performed by freeze/verify"})
         # a log that changes after the capture makes the baseline a draft, not frozen
         with open(os.path.join(self.d, "world.log"), "a") as f:
             f.write("\n")
@@ -332,6 +350,108 @@ class RealReplayTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(ev.read_json(os.path.join(self.cc_dir, "baseline.json"))["status"], "draft")
         self.assertTrue(any("changed on disk" in p for p in report["problems"]), report["problems"])
+
+    def _freeze_ok(self):
+        ev_dir = self._full_evidence()
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 0, report)
+        return ev_dir
+
+    def test_freeze_hashes_configure_and_check_world_logs(self):
+        ev_dir = self._freeze_ok()
+        # configure output log tampered
+        with open(os.path.join(self.side, "configure.log"), "a") as f:
+            f.write("tampered\n")
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any(p.startswith("configure log changed on disk") for p in report["problems"]),
+                        report["problems"])
+        self.assertEqual(ev.read_json(os.path.join(self.cc_dir, "baseline.json"))["status"], "draft")
+        # repair, then tamper with the builddir config.log
+        _write(os.path.join(self.side, "configure.log"), "checking build system type... ok\n")
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 0, report)
+        with open(os.path.join(self.bld, "config.log"), "a") as f:
+            f.write("x\n")
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any(p.startswith("config.log changed on disk") for p in report["problems"]), report)
+        shutil.copy2(os.path.join(self.side, "config.log"), os.path.join(self.bld, "config.log"))
+        # check-world log removed
+        os.remove(os.path.join(self.side, "make_check_world.log"))
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any(p.startswith("check-world log missing on disk") for p in report["problems"]), report)
+        # a record without any log reference is a problem, not silently accepted
+        _write(os.path.join(self.side, "make_check_world.log"), "x\n")
+        cw = ev.read_json(os.path.join(ev_dir, "check_world.json"))
+        del cw["log"]
+        ev.write_json(os.path.join(ev_dir, "check_world.json"), cw)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir)
+        self.assertEqual(rc, 1)
+        self.assertIn("check-world record has no log/log_sha256", report["problems"])
+
+    def test_freeze_verify_is_read_only_and_detects_drift(self):
+        ev_dir = self._freeze_ok()
+        base_path = os.path.join(self.cc_dir, "baseline.json")
+        cand_path = os.path.join(self.cc_dir, "platform_exceptions_candidates.json")
+        before = (_read(base_path), _read(cand_path))
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 0, report)
+        self.assertEqual(report["mode"], "verify")
+        self.assertEqual(report["mismatches"], [])
+        self.assertEqual(report["cache_key_sha256"], report["committed_cache_key_sha256"])
+        # nothing written
+        self.assertEqual(before, (_read(base_path), _read(cand_path)))
+        # a committed baseline that the evidence no longer reproduces: edit a derived field
+        b = ev.read_json(base_path)
+        b["coverage"]["covered_tracked"] += 1
+        ev.write_json(base_path, b)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 1)
+        self.assertIn("baseline.json field 'coverage' differs from the evidence on disk", report["mismatches"])
+        # verify never rewrites the committed file, even when it is wrong
+        self.assertEqual(ev.read_json(base_path)["coverage"]["covered_tracked"], b["coverage"]["covered_tracked"])
+        # a tampered cache key is caught against its own material
+        b["cache_key_sha256"] = "0" * 64
+        ev.write_json(base_path, b)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 1)
+        self.assertIn("committed cache_key_sha256 does not match its own cache_key_material", report["mismatches"])
+        # restore; a candidate that someone marked approved by hand is rejected
+        _write(base_path, before[0].decode("utf-8"))
+        c = ev.read_json(cand_path)
+        c["candidates"][0]["status"] = "approved"
+        c["candidates"][0]["reviewed_by"] = "someone"
+        ev.write_json(cand_path, c)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any("carry approval fields" in m for m in report["mismatches"]), report["mismatches"])
+        self.assertTrue(any(m.startswith("platform_exceptions_candidates.json differs") for m in
+                            report["mismatches"]), report["mismatches"])
+        # a draft baseline can never verify
+        _write(cand_path, before[1].decode("utf-8"))
+        b = ev.read_json(base_path)
+        b["status"] = "draft"
+        ev.write_json(base_path, b)
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 1)
+        self.assertIn("committed baseline.json status is 'draft', not 'frozen'", report["mismatches"])
+        # external evidence drift is a problem in verify mode too, and still read-only
+        _write(base_path, before[0].decode("utf-8"))
+        with open(os.path.join(self.side, "make_check_world.log"), "a") as f:
+            f.write("late\n")
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 1)
+        self.assertTrue(any(p.startswith("check-world log changed on disk") for p in report["problems"]), report)
+        self.assertEqual(before[0], _read(base_path))
+
+    def test_freeze_verify_without_committed_baseline_is_unverified(self):
+        ev_dir = self._full_evidence()
+        rc, report = ccreplay.freeze(self.cfg, ev_dir, self.cc_dir, verify=True)
+        self.assertEqual(rc, 2)
+        self.assertIn("missing cc_evidence/baseline.json (nothing to verify against)", report["problems"])
+        self.assertFalse(os.path.exists(os.path.join(self.cc_dir, "baseline.json")))
 
 
 class DirpermProbeTest(unittest.TestCase):

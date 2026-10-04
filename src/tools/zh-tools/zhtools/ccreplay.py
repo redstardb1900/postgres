@@ -486,9 +486,42 @@ def platform_candidates(srcdir, covered):
     return out
 
 
-def freeze(cfg, evidence_dir, cc_dir):
+def _check_external_log(problems, label, rec, key_log="log", key_sha="log_sha256"):
+    """An out-of-repo log recorded as (path, sha256) must still exist and hash the same."""
+    path = rec.get(key_log)
+    sha = rec.get(key_sha)
+    if not path or not sha:
+        problems.append("%s record has no %s/%s" % (label, key_log, key_sha))
+        return
+    if not os.path.exists(path):
+        problems.append("%s log missing on disk: %s" % (label, path))
+    elif ev.sha256_file(path) != sha:
+        problems.append("%s log changed on disk: %s" % (label, path))
+
+
+# baseline.json fields that are allowed to differ between a freeze and a later
+# `freeze --verify` of the same evidence (timestamps only; everything else is
+# derived from the evidence set and must reproduce byte for byte)
+_FREEZE_VOLATILE = ("frozen_utc",)
+_CANDIDATES_VOLATILE = ("generated_utc",)
+
+
+def _stable(obj, volatile):
+    return {k: v for k, v in obj.items() if k not in volatile}
+
+
+def freeze(cfg, evidence_dir, cc_dir, verify=False):
+    """Validate the whole evidence set.
+
+    ``verify=False`` writes ``cc_evidence/baseline.json`` (status ``frozen``
+    or ``draft``) and ``platform_exceptions_candidates.json``.
+    ``verify=True`` is read-only: it recomputes both from the evidence on
+    disk and compares them with the committed files; nothing is written.
+    Platform candidates are only ever reported -- neither mode approves any.
+    """
     problems = []
-    report = {"tool": "make_evidence.py freeze", "generated_utc": ev.utc_now()}
+    report = {"tool": "make_evidence.py freeze" + (" --verify" if verify else ""), "generated_utc": ev.utc_now(),
+              "mode": "verify" if verify else "freeze"}
     required = ["environment.json", "configure.json", "check_world.json"] + \
                ["make_%s.json" % t["name"] for t in cfg["capture_targets"]]
     for name in required:
@@ -498,6 +531,10 @@ def freeze(cfg, evidence_dir, cc_dir):
     for name in ("flagsets.json", "commands.jsonl", "closure.json", "tokens.jsonl", "replay_base.json"):
         if not os.path.exists(os.path.join(cc_dir, name)):
             problems.append("missing cc_evidence/%s" % name)
+    if verify:
+        for name in ("baseline.json", "platform_exceptions_candidates.json"):
+            if not os.path.exists(os.path.join(cc_dir, name)):
+                problems.append("missing cc_evidence/%s (nothing to verify against)" % name)
     if problems:
         report["problems"] = problems
         report["reason"] = "incomplete evidence"
@@ -530,8 +567,22 @@ def freeze(cfg, evidence_dir, cc_dir):
         logged = closure["logs"].get(t["name"], {}).get("sha256")
         if logged != rec["log_sha256"]:
             problems.append("log sha for %s differs between make record and closure" % t["name"])
-        if os.path.exists(rec["log"]) and ev.sha256_file(rec["log"]) != rec["log_sha256"]:
-            problems.append("log file %s changed on disk" % rec["log"])
+        _check_external_log(problems, "make %s" % t["name"], rec)
+    # configure and check-world keep their logs outside the repo too; the
+    # baseline is only as good as those files, so they are hashed on every
+    # freeze/verify, not just when they were captured
+    cw = ev.read_json(os.path.join(evidence_dir, "check_world.json"))
+    conf = ev.read_json(os.path.join(evidence_dir, "configure.json"))
+    _check_external_log(problems, "configure", conf)
+    if conf.get("exit_code") != 0:
+        problems.append("configure exit %r" % conf.get("exit_code"))
+    if conf.get("config_log_sha256"):
+        for cl in (os.path.join(cfg["builddir"], "config.log"), os.path.join(cfg["evidence_out"], "config.log")):
+            if os.path.exists(cl) and ev.sha256_file(cl) != conf["config_log_sha256"]:
+                problems.append("config.log changed on disk: %s" % cl)
+        if not os.path.exists(os.path.join(cfg["evidence_out"], "config.log")):
+            problems.append("config.log copy missing: %s" % os.path.join(cfg["evidence_out"], "config.log"))
+    _check_external_log(problems, "check-world", cw)
     tokens = read_tokens(os.path.join(cc_dir, "tokens.jsonl"))
     flagsets, recs = makelog.read_commands(cc_dir)
     keys = set(r["variant_key"] for r in recs)
@@ -609,7 +660,7 @@ def freeze(cfg, evidence_dir, cc_dir):
         "variants_src_source": n_src_tus,
         "variants_generated_source": sum(1 for r in tokens.values() if r.get("generated")),
     }
-    ev.write_json(os.path.join(cc_dir, "platform_exceptions_candidates.json"), {
+    candidates_doc = {
         "schema_version": 2,
         "generated_utc": report["generated_utc"],
         "note": "Tracked .c/.h/.cpp files not covered by any passing baseline variant (as source or via side "
@@ -618,10 +669,16 @@ def freeze(cfg, evidence_dir, cc_dir):
                 "approved by this tool.",
         "n_candidates": len(candidates),
         "candidates": candidates,
-    })
+    }
+    report["platform_candidates"] = {
+        "n_candidates": len(candidates),
+        "by_hint": _count_hints(candidates),
+        "approved": 0,
+        "note": "report only; approval is a separate reviewed step, never performed by freeze/verify",
+    }
+    if not verify:
+        ev.write_json(os.path.join(cc_dir, "platform_exceptions_candidates.json"), candidates_doc)
 
-    cw = ev.read_json(os.path.join(evidence_dir, "check_world.json"))
-    conf = ev.read_json(os.path.join(evidence_dir, "configure.json"))
     envj = ev.read_json(os.path.join(evidence_dir, "environment.json"))
     status = "frozen" if not problems else "draft"
     key_material = {
@@ -681,8 +738,59 @@ def freeze(cfg, evidence_dir, cc_dir):
         "problems": problems,
         "frozen_utc": report["generated_utc"],
     }
-    ev.write_json(os.path.join(cc_dir, "baseline.json"), baseline)
-    report["problems"] = problems
-    report["reason"] = "all evidence consistent" if not problems else "see problems"
     report["cache_key_sha256"] = baseline["cache_key_sha256"]
-    return (0 if not problems else 1), report
+    if not verify:
+        ev.write_json(os.path.join(cc_dir, "baseline.json"), baseline)
+        report["problems"] = problems
+        report["reason"] = "all evidence consistent" if not problems else "see problems"
+        return (0 if not problems else 1), report
+
+    # --verify: nothing written; the committed files must be exactly what the
+    # evidence on disk reproduces (timestamps excepted)
+    committed = ev.read_json(os.path.join(cc_dir, "baseline.json"))
+    committed_cands = ev.read_json(os.path.join(cc_dir, "platform_exceptions_candidates.json"))
+    mismatches = []
+    if committed.get("status") != "frozen":
+        mismatches.append("committed baseline.json status is %r, not 'frozen'" % committed.get("status"))
+    want = _stable(baseline, _FREEZE_VOLATILE)
+    have = _stable(committed, _FREEZE_VOLATILE)
+    for k in sorted(set(want) | set(have)):
+        if k == "problems":
+            continue
+        if want.get(k) != have.get(k):
+            mismatches.append("baseline.json field %r differs from the evidence on disk" % k)
+    try:
+        self_key = compute_cache_key(committed.get("cache_key_material") or {})
+    except ev.EvidenceError:
+        self_key = None
+    if committed.get("cache_key_sha256") != self_key:
+        mismatches.append("committed cache_key_sha256 does not match its own cache_key_material")
+    want_c = _stable(candidates_doc, _CANDIDATES_VOLATILE)
+    have_c = _stable(committed_cands, _CANDIDATES_VOLATILE)
+    if want_c != have_c:
+        wp = [c["path"] for c in want_c.get("candidates", [])]
+        hp = [c["path"] for c in have_c.get("candidates", [])]
+        mismatches.append("platform_exceptions_candidates.json differs from the evidence on disk "
+                          "(%d vs %d candidates; +%d/-%d paths)" % (len(wp), len(hp), len(set(wp) - set(hp)),
+                                                                   len(set(hp) - set(wp))))
+    not_candidate = [c["path"] for c in committed_cands.get("candidates", []) if c.get("status") != "candidate"
+                     or c.get("reviewed_by") or c.get("review_commit")]
+    if not_candidate:
+        mismatches.append("%d committed candidates carry approval fields; approvals are out of scope for "
+                          "freeze/verify (first: %s)" % (len(not_candidate), not_candidate[0]))
+    report["problems"] = problems
+    report["mismatches"] = mismatches
+    report["committed_cache_key_sha256"] = committed.get("cache_key_sha256")
+    if problems or mismatches:
+        report["reason"] = "evidence does not reproduce the committed baseline"
+        return 1, report
+    report["reason"] = "committed baseline reproduced from the evidence on disk; nothing written"
+    return 0, report
+
+
+def _count_hints(candidates):
+    out = {}
+    for c in candidates:
+        key = "+".join(c["path_hints"]) if c["path_hints"] else "unhinted"
+        out[key] = out.get(key, 0) + 1
+    return dict(sorted(out.items()))

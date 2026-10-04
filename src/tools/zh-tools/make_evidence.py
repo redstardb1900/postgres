@@ -19,8 +19,14 @@ Subcommands:
   replay ROOT          replay every variant with -E -P -MMD against ROOT
                        (the base srcdir or a translated tree); write token
                        hashes and side depfiles             -> cc_evidence/tokens.jsonl
-  freeze               validate everything, write cc_evidence/baseline.json
-                       with status "frozen" and the cache key
+  freeze               validate everything (including the SHA-256 of every
+                       out-of-repo log: make captures, configure, check-world),
+                       write cc_evidence/baseline.json with status "frozen"
+                       and the cache key
+  freeze --verify      read-only: recompute from the evidence on disk and
+                       compare with the committed baseline.json and platform
+                       candidates; writes nothing.  Platform candidates are
+                       reported only, never approved by either mode.
 
 Exit codes: 0 ok, 1 the step produced a FAIL verdict, 2 unverified / error.
 """
@@ -373,10 +379,22 @@ def cmd_replay(cfg, args):
 
 
 def cmd_freeze(cfg, args):
-    rc, report = ccreplay.freeze(cfg, EVIDENCE_DIR, CC_EVIDENCE_DIR)
-    print("freeze: %s -- %s" % ("FROZEN" if rc == 0 else "NOT FROZEN", report.get("reason", "")))
+    rc, report = ccreplay.freeze(cfg, EVIDENCE_DIR, CC_EVIDENCE_DIR, verify=args.verify)
+    if args.verify:
+        verdict = "VERIFIED" if rc == 0 else ("UNVERIFIED" if rc == 2 else "MISMATCH")
+    else:
+        verdict = "FROZEN" if rc == 0 else ("UNVERIFIED" if rc == 2 else "NOT FROZEN")
+    print("freeze%s: %s -- %s" % (" --verify" if args.verify else "", verdict, report.get("reason", "")))
     for p in report.get("problems", []):
         print("  problem: %s" % p)
+    for m in report.get("mismatches", []):
+        print("  mismatch: %s" % m)
+    pc = report.get("platform_candidates")
+    if pc:
+        print("  platform candidates (report only, %d approved): %d -- %s" % (
+            pc["approved"], pc["n_candidates"], ", ".join("%s %d" % kv for kv in pc["by_hint"].items())))
+    if args.json:
+        ev.write_json(args.json, report)
     return rc
 
 
@@ -397,7 +415,11 @@ def main(argv=None):
     p.add_argument("--label", default=None)
     p.add_argument("--jobs", type=int, default=None)
     p.add_argument("--compare", action="store_true", help="compare against cc_evidence/tokens.jsonl")
-    sub.add_parser("freeze")
+    p = sub.add_parser("freeze")
+    p.add_argument("--verify", action="store_true",
+                   help="read-only: recompute baseline.json and the platform candidates from the evidence on "
+                        "disk and compare with the committed files; write nothing")
+    p.add_argument("--json", default=None, help="write the freeze/verify report here")
     args = ap.parse_args(argv)
     try:
         cfg = ev.load_config(args.config)

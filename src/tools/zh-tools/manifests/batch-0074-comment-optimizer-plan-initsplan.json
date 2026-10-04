@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "0074-comment-optimizer-plan-initsplan",
+ "title": "zh: translate initsplan comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8c34463b02b6111cabeaf243033b5b4c1a21f0f8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "note": "join tree initialization"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0074-comment-optimizer-plan-initsplan.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/initsplan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 339,
+   "translated": 334,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "translator row-locking comment",
+    "pgindent outer-join delay block",
+    "fall-through to distribute_restrictinfo_to_rels",
+    "fall-through nope so distribute_restrictinfo_to_rels"
+   ],
+   "note": "join tree initialization"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0074-comment-optimizer-plan-initsplan.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0074 translates src/backend/optimizer/plan/initsplan.c."
+}

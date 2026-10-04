@@ -1,0 +1,179 @@
+{
+ "schema_version": 1,
+ "batch_id": "0015-readme-modules",
+ "title": "zh: translate module and storage README files",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8b14eaaacc820dd41d90088f8dbac061739a5d53",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/interfaces/ecpg/preproc/README.parser",
+   "kind": "readme",
+   "note": "ECPG grammar addons"
+  },
+  {
+   "pattern": "src/test/modules/test_bloomfilter/README",
+   "kind": "readme",
+   "note": "Bloom filter harness"
+  },
+  {
+   "pattern": "src/test/modules/test_oat_hooks/README",
+   "kind": "readme",
+   "note": "object access hooks"
+  },
+  {
+   "pattern": "src/test/modules/test_parser/README",
+   "kind": "readme",
+   "note": "FTS custom parser; SQL sessions kept"
+  },
+  {
+   "pattern": "src/test/modules/test_predtest/README",
+   "kind": "readme",
+   "note": "predtest proof checker"
+  },
+  {
+   "pattern": "src/test/modules/test_regex/README",
+   "kind": "readme",
+   "note": "regex test flags"
+  },
+  {
+   "pattern": "src/test/modules/test_shm_mq/README",
+   "kind": "readme",
+   "note": "shared memory message queue"
+  },
+  {
+   "pattern": "src/backend/storage/smgr/README",
+   "kind": "readme",
+   "note": "storage managers and forks"
+  },
+  {
+   "pattern": "src/backend/storage/page/README",
+   "kind": "readme",
+   "note": "page checksums"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0015-readme-modules.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/interfaces/ecpg/preproc/README.parser",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ECPG grammar addons"
+  },
+  {
+   "path": "src/test/modules/test_bloomfilter/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Bloom filter harness"
+  },
+  {
+   "path": "src/test/modules/test_oat_hooks/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "object access hooks"
+  },
+  {
+   "path": "src/test/modules/test_parser/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FTS custom parser; SQL sessions kept"
+  },
+  {
+   "path": "src/test/modules/test_predtest/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "predtest proof checker"
+  },
+  {
+   "path": "src/test/modules/test_regex/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "regex test flags"
+  },
+  {
+   "path": "src/test/modules/test_shm_mq/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "shared memory message queue"
+  },
+  {
+   "path": "src/backend/storage/smgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "storage managers and forks"
+  },
+  {
+   "path": "src/backend/storage/page/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "page checksums"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0015-readme-modules.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Fifth README batch: 9 module/storage files. SQL sessions, signatures, flag letters kept. cluster->集簇, token->词元, standby->热备/备库."
+}

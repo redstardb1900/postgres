@@ -1,68 +1,55 @@
-test_bloomfilter overview
-=========================
+test_bloomfilter 概览
+=====================
 
-test_bloomfilter is a test harness module for testing Bloom filter library set
-membership operations.  It consists of a single SQL-callable function,
-test_bloomfilter(), plus a regression test that calls test_bloomfilter().
-Membership tests are performed against a dataset that the test harness module
-generates.
+test_bloomfilter 是用来测试 Bloom 过滤器库集合成员操作的测试框架模块。
+它由一个可从 SQL 调用的函数 test_bloomfilter()，以及调用该函数的回归
+测试组成。成员测试针对测试框架模块自己生成的数据集执行。
 
-The test_bloomfilter() function displays instrumentation at DEBUG1 elog level
-(WARNING when the false positive rate exceeds a 1% threshold).  This can be
-used to get a sense of the performance characteristics of the Postgres Bloom
-filter implementation under varied conditions.
+test_bloomfilter() 函数在 DEBUG1 elog 级别显示检测信息（当假阳性率超过
+1% 阈值时为 WARNING）。这可以用来感受 Postgres Bloom 过滤器实现在不同
+条件下的性能特征。
 
-Bitset size
------------
+位集大小
+--------
 
-The main bloomfilter.c criteria for sizing its bitset is that the false
-positive rate should not exceed 2% when sufficient bloom_work_mem is available
-(and the caller-supplied estimate of the number of elements turns out to have
-been accurate).  A 1% - 2% rate is currently assumed to be suitable for all
-Bloom filter callers.
+bloomfilter.c 确定位集大小的主要准则是：在 bloom_work_mem 足够（且调用
+方提供的元素数量估计最终准确）时，假阳性率不应超过 2%。目前假定 1%–2%
+的比率适合所有 Bloom 过滤器调用方。
 
-With an optimal K (number of hash functions), Bloom filters should only have a
-1% false positive rate with just 9.6 bits of memory per element.  The Postgres
-implementation's 2% worst case guarantee exists because there is a need for
-some slop due to implementation inflexibility in bitset sizing.  Since the
-bitset size is always actually kept to a power of two number of bits, callers
-can have their bloom_work_mem argument truncated down by almost half.
-In practice, callers that make a point of passing a bloom_work_mem that is an
-exact power of two bitset size (such as test_bloomfilter.c) will actually get
-the "9.6 bits per element" 1% false positive rate.
+在最优 K（哈希函数个数）下，Bloom 过滤器只需每个元素 9.6 位内存就能把
+假阳性率控制在 1%。Postgres 实现给出 2% 最坏情况保证，是因为位集大小
+不够灵活，需要一些余量。位集实际大小始终保持为 2 的幂位数，因此调用方
+的 bloom_work_mem 参数可能被截断掉将近一半。
+实践中，特意传入恰好为 2 的幂位集大小的 bloom_work_mem 的调用方（例如
+test_bloomfilter.c）实际上会得到“每元素 9.6 位”的 1% 假阳性率。
 
-Testing strategy
-----------------
+测试策略
+--------
 
-Our approach to regression testing is to test that a Bloom filter has only a 1%
-false positive rate for a single bitset size (2 ^ 23, or 1MB).  We test a
-dataset with 838,861 elements, which works out at 10 bits of memory per
-element.  We round up from 9.6 bits to 10 bits to make sure that we reliably
-get under 1% for regression testing.  Note that a random seed is used in the
-regression tests because the exact false positive rate is inconsistent across
-platforms.  Inconsistent hash function behavior is something that the
-regression tests need to be tolerant of anyway.
+我们的回归测试做法是：只对一种位集大小（2 ^ 23，即 1MB）验证 Bloom
+过滤器的假阳性率只有 1%。我们测试 838,861 个元素的数据集，相当于每
+元素 10 位内存。从 9.6 位上取整到 10 位，是为了在回归测试中可靠地低于
+1%。注意回归测试使用随机种子，因为精确假阳性率在不同平台上不一致。
+哈希函数行为不一致是回归测试本来就需要容忍的。
 
-test_bloomfilter() SQL-callable function
-========================================
+test_bloomfilter() 可从 SQL 调用的函数
+======================================
 
-The SQL-callable function test_bloomfilter() provides the following arguments:
+可从 SQL 调用的函数 test_bloomfilter() 提供以下参数：
 
-* "power" is the power of two used to size the Bloom filter's bitset.
+* "power" 是用于确定 Bloom 过滤器位集大小的 2 的幂。
 
-The minimum valid argument value is 23 (2^23 bits), or 1MB of memory.  The
-maximum valid argument value is 32, or 512MB of memory.
+最小合法参数值是 23（2^23 位），即 1MB 内存。最大合法参数值是 32，即
+512MB 内存。
 
-* "nelements" is the number of elements to generate for testing purposes.
+* "nelements" 是为测试目的生成的元素个数。
 
-* "seed" is a seed value for hashing.
+* "seed" 是哈希用的种子值。
 
-A value < 0 is interpreted as "use random seed".  Varying the seed value (or
-specifying -1) should result in small variations in the total number of false
-positives.
+小于 0 的值解释为“使用随机种子”。改变种子值（或指定 -1）应导致假阳性
+总数出现小幅变化。
 
-* "tests" is the number of tests to run.
+* "tests" 是要运行的测试次数。
 
-This may be increased when it's useful to perform many tests in an interactive
-session.  It only makes sense to perform multiple tests when a random seed is
-used.
+在交互会话中需要做多次测试时可以增大该值。只有使用随机种子时，多次
+测试才有意义。

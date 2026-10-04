@@ -1,78 +1,71 @@
-test_regex is a module for testing the regular expression package.
-It is mostly meant to allow us to absorb Tcl's regex test suite.
-Therefore, there are provisions to exercise regex features that
-aren't currently exposed at the SQL level by PostgreSQL.
+test_regex 是用来测试正则表达式包的模块。
+它主要是为了让我们能吸收 Tcl 的 regex 测试套件。
+因此提供了行使目前 PostgreSQL 在 SQL 层尚未暴露的 regex 功能的途径。
 
-Currently, one function is provided:
+目前提供一个函数：
 
 test_regex(pattern text, string text, flags text) returns setof text[]
 
-Reports an error if the pattern is an invalid regex.  Otherwise,
-the first row of output contains the number of subexpressions,
-followed by words reporting set bit(s) in the regex's re_info field.
-If the pattern doesn't match the string, that's all.
-If the pattern does match, the next row contains the whole match
-as the first array element.  If there are parenthesized subexpression(s),
-following array elements contain the matches to those subexpressions.
-If the "g" (glob) flag is set, then additional row(s) of output similarly
-report any additional matches.
+若模式是无效正则则报错。否则，输出的第一行包含子表达式个数，
+随后是报告该正则 re_info 字段中置位的词。
+若模式不匹配字符串，那就结束了。
+若模式匹配，下一行的第一个数组元素是整个匹配。若有加括号的子表达式，
+后续数组元素包含这些子表达式的匹配。
+若设置了 "g"（glob）标志，则后续输出行以同样方式报告其余匹配。
 
-The "flags" argument is a string of zero or more single-character
-flags that modify the behavior of the regex package or the test
-function.  As described in Tcl's reg.test file:
+"flags" 参数是零个或多个单字符标志组成的字符串，用来修改正则包或测试
+函数的行为。如 Tcl 的 reg.test 文件所述：
 
-The flag characters are complex and a bit eclectic.  Generally speaking,
-lowercase letters are compile options, uppercase are expected re_info
-bits, and nonalphabetics are match options, controls for how the test is
-run, or testing options.  The one small surprise is that AREs are the
-default, and you must explicitly request lesser flavors of RE.  The flags
-are as follows.  It is admitted that some are not very mnemonic.
+这些标志字符比较复杂，也有些杂。一般说来，小写字母是编译选项，大写是
+预期的 re_info 位，非字母是匹配选项、测试如何运行的控制，或测试选项。
+一个小意外是 ARE 为默认，必须显式请求较弱的 RE 风格。标志如下。承认
+其中有些不太好记。
 
-	-	no-op (placeholder)
-	0	report indices not actual strings
-		(This substitutes for Tcl's -indices switch)
-	!	expect partial match, report start position anyway
-	%	force small state-set cache in matcher (to test cache replace)
-	^	beginning of string is not beginning of line
-	$	end of string is not end of line
-	*	test is Unicode-specific, needs big character set
-	+	provide fake xy equivalence class and ch collating element
-		(Note: the equivalence class is implemented, the
-		collating element is not; so references to [.ch.] fail)
-	,	set REG_PROGRESS (only useful in REG_DEBUG builds)
-	.	set REG_DUMP (only useful in REG_DEBUG builds)
-	:	set REG_MTRACE (only useful in REG_DEBUG builds)
-	;	set REG_FTRACE (only useful in REG_DEBUG builds)
+	-	空操作（占位）
+	0	报告下标而不是实际字符串
+		（这替代 Tcl 的 -indices 开关）
+	!	期望部分匹配，仍报告起始位置
+	%	强制匹配器使用小状态集缓存（以测试缓存替换）
+	^	字符串开头不是行首
+	$	字符串结尾不是行尾
+	*	测试特定于 Unicode，需要大字符集
+	+	提供假的 xy 等价类和 ch 排序元素
+		（注意：等价类已实现，排序元素未实现；因此对 [.ch.]
+		的引用会失败）
+	,	设置 REG_PROGRESS（仅在 REG_DEBUG 构建中有用）
+	.	设置 REG_DUMP（仅在 REG_DEBUG 构建中有用）
+	:	设置 REG_MTRACE（仅在 REG_DEBUG 构建中有用）
+	;	设置 REG_FTRACE（仅在 REG_DEBUG 构建中有用）
 
-	&	test as both ARE and BRE
-		(Not implemented in Postgres, we use separate tests)
+	&	同时按 ARE 和 BRE 测试
+		（Postgres 中未实现，我们用分开的测试）
 	b	BRE
 	e	ERE
-	a	turn advanced-features bit on (error unless ERE already)
-	q	literal string, no metacharacters at all
+	a	打开高级功能位（除非已经是 ERE 否则报错）
+	q	字面字符串，完全没有元字符
 
-	g	global match (find all matches)
-	i	case-independent matching
-	o	("opaque") do not return match locations
-	p	newlines are half-magic, excluded from . and [^ only
-	w	newlines are half-magic, significant to ^ and $ only
-	n	newlines are fully magic, both effects
-	x	expanded RE syntax
-	t	incomplete-match reporting
-	c	canmatch (equivalent to "t0!", in Postgres implementation)
-	s	match only at start (REG_BOSONLY)
+	g	全局匹配（找出全部匹配）
+	i	大小写无关匹配
+	o	（“不透明”）不返回匹配位置
+	p	换行半魔法，只从 . 和 [^ 中排除
+	w	换行半魔法，只对 ^ 和 $ 有意义
+	n	换行完全魔法，两种效果都有
+	x	扩展 RE 句法
+	t	不完整匹配报告
+	c	canmatch（在 Postgres 实现中等价于 "t0!"）
+	s	只在起始处匹配（REG_BOSONLY）
 
-	A	backslash-_a_lphanumeric seen
-	B	ERE/ARE literal-_b_race heuristic used
-	E	backslash (_e_scape) seen within []
-	H	looka_h_ead constraint seen
-	I	_i_mpossible to match
-	L	_l_ocale-specific construct seen
-	M	unportable (_m_achine-specific) construct seen
-	N	RE can match empty (_n_ull) string
-	P	non-_P_OSIX construct seen
-	Q	{} _q_uantifier seen
-	R	back _r_eference seen
-	S	POSIX-un_s_pecified syntax seen
-	T	prefers shortest (_t_iny)
-	U	saw original-POSIX botch: unmatched right paren in ERE (_u_gh)
+	A	见到反斜杠加字母数字
+	B	使用了 ERE/ARE 字面花括号启发式
+	E	在 [] 内见到反斜杠（转义）
+	H	见到前瞻约束
+	I	不可能匹配
+	L	见到区域设置相关构造
+	M	见到不可移植（机器相关）构造
+	N	RE 可以匹配空字符串
+	P	见到非 POSIX 构造
+	Q	见到 {} 量词
+	R	见到反向引用
+	S	见到 POSIX 未指定的句法
+	T	偏好最短
+	U	见到原始 POSIX 的毛病：ERE 中未匹配的右括号

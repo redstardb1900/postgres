@@ -1,28 +1,22 @@
-test_predtest is a module for checking the correctness of the optimizer's
-predicate-proof logic, in src/backend/optimizer/util/predtest.c.
+test_predtest 是用来检查规划器谓词证明逻辑正确性的模块，对应
+src/backend/optimizer/util/predtest.c。
 
-The module provides a function that allows direct application of
-predtest.c's exposed functions, predicate_implied_by() and
-predicate_refuted_by(), to arbitrary boolean expressions, with direct
-inspection of the results.  This could be done indirectly by checking
-planner results, but it can be difficult to construct end-to-end test
-cases that prove that the expected results were obtained.
+本模块提供一个函数，可以把 predtest.c 对外暴露的函数
+predicate_implied_by() 和 predicate_refuted_by() 直接应用到任意布尔
+表达式上，并直接查看结果。这也可以通过检查规划器结果间接做到，但往往
+很难构造出能证明得到了预期结果的端到端测试用例。
 
-In general, the use of this function is like
+一般用法类似
 	select * from test_predtest('query string')
-where the query string must be a SELECT returning two boolean
-columns, for example
+其中查询字符串必须是返回两列布尔值的 SELECT，例如
 
 	select * from test_predtest($$
 	select x, not x
 	from (values (false), (true), (null)) as v(x)
 	$$);
 
-The function parses and plans the given query, and then applies the
-predtest.c code to the two boolean expressions in the SELECT list, to see
-if the first expression can be proven or refuted by the second.  It also
-executes the query, and checks the resulting rows to see whether any
-claimed implication or refutation relationship actually holds.  If the
-query is designed to exercise the expressions on a full set of possible
-input values, as in the example above, then this provides a mechanical
-cross-check as to whether the proof code has given a correct answer.
+该函数解析并规划给定查询，然后把 predtest.c 的代码应用到 SELECT 列表
+中的两个布尔表达式，看第一个表达式能否被第二个证明或反驳。它也会执行
+该查询，并检查结果行，看所声称的蕴含或反驳关系是否真的成立。如果查询
+设计成在完整的可能输入值集合上行使这些表达式（如上例），这就对证明
+代码的答案是否正确提供了机械交叉检查。

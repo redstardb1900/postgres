@@ -1,9 +1,7 @@
-test_parser is an example of a custom parser for full-text
-search.  It doesn't do anything especially useful, but can serve as
-a starting point for developing your own parser.
+test_parser 是全文检索自定义解析器的例子。它本身没有特别有用的功能，
+但可以作为开发自己解析器的起点。
 
-test_parser recognizes words separated by white space,
-and returns just two token types:
+test_parser 识别由空白分隔的单词，并只返回两种词元类型：
 
 mydb=# SELECT * FROM ts_token_type('testparser');
  tokid | alias |  description
@@ -12,17 +10,16 @@ mydb=# SELECT * FROM ts_token_type('testparser');
     12 | blank | Space symbols
 (2 rows)
 
-These token numbers have been chosen to be compatible with the default
-parser's numbering.  This allows us to use its headline()
-function, thus keeping the example simple.
+这些词元编号选成与默认解析器的编号兼容。这样我们就能使用它的
+headline() 函数，从而保持例子简单。
 
-Usage
-=====
+用法
+====
 
-Installing the test_parser extension creates a text search
-parser testparser.  It has no user-configurable parameters.
+安装 test_parser 扩展会创建一个文本检索解析器 testparser。它没有用户
+可配置的参数。
 
-You can test the parser with, for example,
+例如可以用下面的方式测试该解析器：
 
 mydb=# SELECT * FROM ts_parse('testparser', 'That''s my first own parser');
  tokid | token
@@ -37,8 +34,7 @@ mydb=# SELECT * FROM ts_parse('testparser', 'That''s my first own parser');
     12 |
      3 | parser
 
-Real-world use requires setting up a text search configuration
-that uses the parser.  For example,
+实际使用需要设置一个使用该解析器的文本检索配置。例如：
 
 mydb=# CREATE TEXT SEARCH CONFIGURATION testcfg ( PARSER = testparser );
 CREATE TEXT SEARCH CONFIGURATION

@@ -515,6 +515,56 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0014-readme-tap.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/interfaces/ecpg/preproc/README.parser",
+   "kind": "readme",
+   "note": "ECPG grammar addons"
+  },
+  {
+   "pattern": "src/test/modules/test_bloomfilter/README",
+   "kind": "readme",
+   "note": "Bloom filter harness"
+  },
+  {
+   "pattern": "src/test/modules/test_oat_hooks/README",
+   "kind": "readme",
+   "note": "object access hooks"
+  },
+  {
+   "pattern": "src/test/modules/test_parser/README",
+   "kind": "readme",
+   "note": "FTS custom parser; SQL sessions kept"
+  },
+  {
+   "pattern": "src/test/modules/test_predtest/README",
+   "kind": "readme",
+   "note": "predtest proof checker"
+  },
+  {
+   "pattern": "src/test/modules/test_regex/README",
+   "kind": "readme",
+   "note": "regex test flags"
+  },
+  {
+   "pattern": "src/test/modules/test_shm_mq/README",
+   "kind": "readme",
+   "note": "shared memory message queue"
+  },
+  {
+   "pattern": "src/backend/storage/smgr/README",
+   "kind": "readme",
+   "note": "storage managers and forks"
+  },
+  {
+   "pattern": "src/backend/storage/page/README",
+   "kind": "readme",
+   "note": "page checksums"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0015-readme-modules.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2042,7 +2092,107 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/interfaces/ecpg/preproc/README.parser",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ECPG grammar addons"
+  },
+  {
+   "path": "src/test/modules/test_bloomfilter/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Bloom filter harness"
+  },
+  {
+   "path": "src/test/modules/test_oat_hooks/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "object access hooks"
+  },
+  {
+   "path": "src/test/modules/test_parser/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FTS custom parser; SQL sessions kept"
+  },
+  {
+   "path": "src/test/modules/test_predtest/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "predtest proof checker"
+  },
+  {
+   "path": "src/test/modules/test_regex/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "regex test flags"
+  },
+  {
+   "path": "src/test/modules/test_shm_mq/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "shared memory message queue"
+  },
+  {
+   "path": "src/backend/storage/smgr/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "storage managers and forks"
+  },
+  {
+   "path": "src/backend/storage/page/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "page checksums"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0015-readme-modules.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 43 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 52 of 88 include files translated."
 }

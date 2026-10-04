@@ -1,81 +1,66 @@
-OVERVIEW
-========
+概述
+====
 
-This test module, "test_oat_hooks", is an example of how to use the object
-access hooks (OAT) to enforce mandatory access controls (MAC).
+本测试模块 "test_oat_hooks" 演示如何使用对象访问钩子（OAT）来实施强制
+访问控制（MAC）。
 
-The testing strategy is as follows:  When this module loads, it registers hooks
-of various types.  (See below.)  GUCs are defined to control each hook,
-determining whether the hook allows or denies actions for which it fires.  A
-single additional GUC controls the verbosity of the hooks.  GUCs default to
-permissive/quiet, which allows the module to load without generating noise in
-the log or denying any activity in the run-up to the regression test beginning.
-When the test begins, it uses SET commands to turn on logging and to control
-each hook's permissive/restrictive behavior.  Various SQL statements are run
-under both superuser and ordinary user permissions.  The output is compared
-against the expected output to verify that the hooks behaved and fired in the
-order by expect.
+测试策略如下：本模块加载时会注册各类钩子。（见下文。）用 GUC 控制每个
+钩子，决定该钩子触发时是允许还是拒绝相应动作。另外还有一个 GUC 控制钩
+子的详细程度。GUC 默认是宽松/安静，这样模块加载时不会在日志中产生噪音，
+也不会在回归测试开始前拒绝任何活动。测试开始后，用 SET 命令打开日志，
+并控制每个钩子的宽松/限制行为。在超级用户和普通用户权限下运行各种 SQL
+语句。将输出与期望输出比较，以验证钩子的行为和触发顺序符合预期。
 
-Because users may care about the firing order of other system hooks relative to
-OAT hooks, ProcessUtility hooks and ExecutorCheckPerms hooks are also
-registered by this module, with their own logging and allow/deny behavior.
+因为用户可能关心其他系统钩子相对于 OAT 钩子的触发顺序，本模块也注册了
+ProcessUtility 钩子和 ExecutorCheckPerms 钩子，并有各自的日志以及允许/
+拒绝行为。
 
 
-SUSET test configuration GUCs
-=============================
+SUSET 测试配置 GUC
+==================
 
-The following configuration parameters (GUCs) control this test module's Object
-Access Type (OAT), Process Utility and Executor Check Permissions hooks.  The
-general pattern is that each hook has a corresponding GUC which controls
-whether the hook will allow or deny operations for which the hook gets called.
-A real-world OAT hook should certainly provide more fine-grained control than
-merely "allow-all" vs. "deny-all", but for testing this is sufficient.
+下列配置参数（GUC）控制本测试模块的对象访问类型（OAT）、Process Utility
+和 Executor Check Permissions 钩子。一般模式是每个钩子对应一个 GUC，
+控制该钩子被调用时是允许还是拒绝操作。真实的 OAT 钩子当然应提供比单纯
+“全允许”对“全拒绝”更细的控制，但对测试来说这就够了。
 
-Note that even when these hooks allow an action, the core permissions system
-may still refuse the action.  The firing order of the hooks relative to the
-core permissions system can be inferred from which NOTICE messages get emitted
-before an action is refused.
+注意，即使这些钩子允许某个动作，核心权限系统仍可能拒绝它。钩子相对于
+核心权限系统的触发顺序，可以从动作被拒绝前发出了哪些 NOTICE 消息推断。
 
-Each hook applies the allow vs. deny setting to all operations performed by
-non-superusers.
+每个钩子把允许/拒绝设置应用到非超级用户执行的所有操作。
 
 - test_oat_hooks.deny_set_variable
 
-  Controls whether the object_access_hook_str MAC function rejects attempts to
-  set a configuration parameter.
+  控制 object_access_hook_str MAC 函数是否拒绝设置配置参数的尝试。
 
 - test_oat_hooks.deny_alter_system
 
-  Controls whether the object_access_hook_str MAC function rejects attempts to
-  alter system set a configuration parameter.
+  控制 object_access_hook_str MAC 函数是否拒绝 ALTER SYSTEM SET 配置
+  参数的尝试。
 
 - test_oat_hooks.deny_object_access
 
-  Controls whether the object_access_hook MAC function rejects all operations
-  for which it is called.
+  控制 object_access_hook MAC 函数是否拒绝它被调用的所有操作。
 
 - test_oat_hooks.deny_exec_perms
 
-  Controls whether the exec_check_perms MAC function rejects all operations for
-  which it is called.
+  控制 exec_check_perms MAC 函数是否拒绝它被调用的所有操作。
 
 - test_oat_hooks.deny_utility_commands
 
-  Controls whether the ProcessUtility_hook function rejects all operations for
-  which it is called.
+  控制 ProcessUtility_hook 函数是否拒绝它被调用的所有操作。
 
 - test_oat_hooks.audit
 
-  Controls whether each hook logs NOTICE messages for each attempt, along with
-  success or failure status.  Note that clearing or setting this GUC may itself
-  generate NOTICE messages appearing before but not after, or after but not
-  before, the new setting takes effect.
+  控制每个钩子是否为每次尝试记录 NOTICE 消息，以及成功或失败状态。
+  注意清除或设置该 GUC 本身可能产生 NOTICE 消息，出现在新设置生效之前
+  而非之后，或之后而非之前。
 
 
-Functions
-=========
+函数
+====
 
-The module registers hooks by the following names:
+本模块以以下名称注册钩子：
 
 - REGRESS_object_access_hook
 

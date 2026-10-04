@@ -1,13 +1,9 @@
-test_rbtree is a test module for checking the correctness of red-black
-tree operations.
+test_rbtree 是用来检查红黑树操作正确性的测试模块。
 
-These tests are performed on red-black trees that store integers.
-Since the rbtree logic treats the comparison function as a black
-box, it shouldn't be important exactly what the key type is.
+这些测试在存储整数的红黑树上执行。
+由于 rbtree 逻辑把比较函数当作黑盒，键的具体类型不应重要。
 
-Checking the correctness of traversals is based on the fact that a red-black
-tree is a binary search tree, so the elements should be visited in increasing
-(for Left-Current-Right) or decreasing (for Right-Current-Left) order.
+遍历正确性的检查基于红黑树是二叉搜索树这一事实，因此元素应按递增
+（Left-Current-Right）或递减（Right-Current-Left）顺序被访问。
 
-Also, this module does some checks of the correctness of the find, delete
-and leftmost operations.
+本模块还对 find、delete 和 leftmost 操作的正确性做了一些检查。

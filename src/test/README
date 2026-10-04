@@ -1,50 +1,47 @@
-PostgreSQL tests
-================
+PostgreSQL 测试
+===============
 
-This directory contains a variety of test infrastructure as well as some of the
-tests in PostgreSQL. Not all tests are here -- in particular, there are more in
-individual contrib/ modules and in src/bin.
+本目录包含多种测试基础设施以及 PostgreSQL 的一部分测试。并非所有测试都
+在这里 —— 特别是，更多测试在各个 contrib/ 模块和 src/bin 中。
 
-Not all these tests get run by "make check". Check src/test/Makefile to see
-which tests get run automatically.
+并非所有这些测试都会由 "make check" 运行。查看 src/test/Makefile 可知
+哪些测试会自动运行。
 
 authentication/
-  Tests for authentication (but see also below)
+  认证测试（另见下文）
 
 examples/
-  Demonstration programs for libpq that double as regression tests via
-  "make check"
+  libpq 的演示程序，同时通过 "make check" 充当回归测试
 
 isolation/
-  Tests for concurrent behavior at the SQL level
+  SQL 层并发行为测试
 
 kerberos/
-  Tests for Kerberos/GSSAPI authentication and encryption
+  Kerberos/GSSAPI 认证与加密测试
 
 ldap/
-  Tests for LDAP-based authentication
+  基于 LDAP 的认证测试
 
 locale/
-  Sanity checks for locale data, encodings, etc
+  区域设置数据、编码等的健全性检查
 
 mb/
-  Tests for multibyte encoding (UTF-8) support
+  多字节编码（UTF-8）支持测试
 
 modules/
-  Extensions used only or mainly for test purposes, generally not suitable
-  for installing in production databases
+  仅用于或主要用于测试的扩展，一般不适合安装到生产数据库
 
 perl/
-  Infrastructure for Perl-based TAP tests
+  基于 Perl 的 TAP 测试基础设施
 
 recovery/
-  Test suite for recovery and replication
+  恢复与复制测试套件
 
 regress/
-  PostgreSQL's main regression test suite, pg_regress
+  PostgreSQL 的主回归测试套件，pg_regress
 
 ssl/
-  Tests to exercise and verify SSL certificate handling
+  行使并验证 SSL 证书处理的测试
 
 subscription/
-  Tests for logical replication
+  逻辑复制测试

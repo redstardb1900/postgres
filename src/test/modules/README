@@ -1,20 +1,16 @@
-Test extensions and libraries
-=============================
+测试扩展与库
+============
 
-src/test/modules contains PostgreSQL extensions that are primarily or entirely
-intended for testing PostgreSQL and/or to serve as example code. The extensions
-here aren't intended to be installed in a production server and aren't suitable
-for "real work".
+src/test/modules 包含主要用于测试 PostgreSQL 和/或作为示例代码的
+PostgreSQL 扩展。这里的扩展不打算安装到生产服务器，也不适合做“真正的
+工作”。
 
-Furthermore, while you can do "make install" and "make installcheck" in
-this directory or its children, it is NOT ADVISABLE to do so with a server
-containing valuable data.  Some of these tests may have undesirable
-side-effects on roles or other global objects within the tested server.
-"make installcheck-world" at the top level does not recurse into this
-directory.
+此外，虽然你可以在本目录或其子目录中执行 "make install" 和
+"make installcheck"，但在含有重要数据的服务器上这样做并不明智。
+其中一些测试可能对受测服务器上的角色或其他全局对象产生不受欢迎的
+副作用。顶层的 "make installcheck-world" 不会递归进入本目录。
 
-Most extensions have their own pg_regress tests or isolationtester specs. Some
-are also used by tests elsewhere in the tree.
+大多数扩展有自己的 pg_regress 测试或 isolationtester 规格。有些也会被
+树中其他地方的测试使用。
 
-If you're adding new hooks or other functionality exposed as C-level API this
-is where to add the tests for it.
+如果你要添加新的钩子或其他以 C 级 API 暴露的功能，测试应加在这里。

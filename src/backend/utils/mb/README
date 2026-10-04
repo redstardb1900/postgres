@@ -1,23 +1,23 @@
 src/backend/utils/mb/README
 
-Encodings
-=========
+编码
+====
 
-conv.c:		static functions and a public table for code conversion
-mbutils.c:	public functions for the backend only.
-stringinfo_mb.c: public backend-only multibyte-aware stringinfo functions
-wstrcmp.c:	strcmp for mb
-wstrncmp.c:	strncmp for mb
-win866.c:	a tool to generate KOI8 <--> CP866 conversion table
-iso.c:		a tool to generate KOI8 <--> ISO8859-5 conversion table
-win1251.c:	a tool to generate KOI8 <--> CP1251 conversion table
+conv.c:		静态函数以及用于代码转换的公共表
+mbutils.c:	仅供后端使用的公共函数。
+stringinfo_mb.c: 仅供后端使用的、感知多字节的 stringinfo 公共函数
+wstrcmp.c:	多字节版 strcmp
+wstrncmp.c:	多字节版 strncmp
+win866.c:	生成 KOI8 <--> CP866 转换表的工具
+iso.c:		生成 KOI8 <--> ISO8859-5 转换表的工具
+win1251.c:	生成 KOI8 <--> CP1251 转换表的工具
 
-See also in src/common/:
+另见 src/common/：
 
-encnames.c:	public functions for encoding names
-wchar.c:	mostly static functions and a public table for mb string and
-		multibyte conversion
+encnames.c:	编码名称的公共函数
+wchar.c:	多为静态函数，以及用于多字节字符串和
+		多字节转换的公共表
 
-Introduction
-------------
+简介
+----
 	http://www.cprogramming.com/tutorial/unicode.html

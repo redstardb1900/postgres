@@ -1,16 +1,13 @@
-test_rls_hooks is an example of how to use the hooks provided for RLS to
-define additional policies to be used.
+test_rls_hooks 演示如何使用为 RLS 提供的钩子来定义要使用的额外策略。
 
-Functions
-=========
+函数
+====
 test_rls_hooks_permissive(CmdType cmdtype, Relation relation)
     RETURNS List*
 
-Returns a list of policies which should be added to any existing
-policies on the relation, combined with OR.
+返回应追加到该关系上任何已有策略的策略列表，用 OR 组合。
 
 test_rls_hooks_restrictive(CmdType cmdtype, Relation relation)
     RETURNS List*
 
-Returns a list of policies which should be added to any existing
-policies on the relation, combined with AND.
+返回应追加到该关系上任何已有策略的策略列表，用 AND 组合。

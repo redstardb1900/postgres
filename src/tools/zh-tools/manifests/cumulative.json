@@ -400,6 +400,76 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0012-readme-short.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/test/modules/test_rls_hooks/README",
+   "kind": "readme",
+   "note": "RLS hook example"
+  },
+  {
+   "pattern": "src/test/modules/test_rbtree/README",
+   "kind": "readme",
+   "note": "red-black tree tests"
+  },
+  {
+   "pattern": "src/test/icu/README",
+   "kind": "readme",
+   "note": "ICU TAP tests"
+  },
+  {
+   "pattern": "src/bin/pg_amcheck/README",
+   "kind": "readme",
+   "note": "pg_amcheck TAP tests"
+  },
+  {
+   "pattern": "src/backend/utils/mb/README",
+   "kind": "readme",
+   "note": "encoding / mb file map"
+  },
+  {
+   "pattern": "src/bin/pgevent/README",
+   "kind": "readme",
+   "note": "Windows event DLL"
+  },
+  {
+   "pattern": "src/test/authentication/README",
+   "kind": "readme",
+   "note": "authentication TAP tests"
+  },
+  {
+   "pattern": "src/test/subscription/README",
+   "kind": "readme",
+   "note": "logical replication TAP tests"
+  },
+  {
+   "pattern": "src/test/modules/README",
+   "kind": "readme",
+   "note": "test extensions overview"
+  },
+  {
+   "pattern": "src/test/locale/README",
+   "kind": "readme",
+   "note": "locale test harness"
+  },
+  {
+   "pattern": "src/test/README",
+   "kind": "readme",
+   "note": "src/test overview"
+  },
+  {
+   "pattern": "src/port/README",
+   "kind": "readme",
+   "note": "libpgport linking rules"
+  },
+  {
+   "pattern": "src/backend/utils/README.Gen_dummy_probes",
+   "kind": "readme",
+   "note": "dummy dtrace probes"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0013-readme-medium.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -1697,7 +1767,147 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/test/modules/test_rls_hooks/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "RLS hook example"
+  },
+  {
+   "path": "src/test/modules/test_rbtree/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "red-black tree tests"
+  },
+  {
+   "path": "src/test/icu/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "ICU TAP tests"
+  },
+  {
+   "path": "src/bin/pg_amcheck/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "pg_amcheck TAP tests"
+  },
+  {
+   "path": "src/backend/utils/mb/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "encoding / mb file map"
+  },
+  {
+   "path": "src/bin/pgevent/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Windows event DLL"
+  },
+  {
+   "path": "src/test/authentication/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "authentication TAP tests"
+  },
+  {
+   "path": "src/test/subscription/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "logical replication TAP tests"
+  },
+  {
+   "path": "src/test/modules/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "test extensions overview"
+  },
+  {
+   "path": "src/test/locale/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "locale test harness"
+  },
+  {
+   "path": "src/test/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "src/test overview"
+  },
+  {
+   "path": "src/port/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "libpgport linking rules"
+  },
+  {
+   "path": "src/backend/utils/README.Gen_dummy_probes",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "dummy dtrace probes"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0013-readme-medium.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 5 intro + 17 short files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 5 intro + 17 short + 13 medium files translated."
 }

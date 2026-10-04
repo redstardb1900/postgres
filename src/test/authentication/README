@@ -1,28 +1,26 @@
 src/test/authentication/README
 
-Regression tests for authentication
-===================================
+认证回归测试
+============
 
-This directory contains a test suite for authentication. SSL certificate
-authentication tests are kept separate, in src/test/ssl/, because they
-are more complicated, and are not safe to run in a multi-user system.
+本目录包含认证测试套件。SSL 证书认证测试单独放在 src/test/ssl/，因为
+它们更复杂，并且在多用户系统上运行不安全。
 
 
-Running the tests
-=================
+运行测试
+========
 
-NOTE: You must have given the --enable-tap-tests argument to configure.
+注意：必须已向 configure 传入 --enable-tap-tests 参数。
 
-Run
+运行
     make check
-or
+或
     make installcheck
-You can use "make installcheck" if you previously did "make install".
-In that case, the code in the installation tree is tested.  With
-"make check", a temporary installation tree is built from the current
-sources and then tested.
+若先前已执行 "make install"，可以使用 "make installcheck"。
+此时测试的是安装树中的代码。使用 "make check" 时，会从当前源码构建
+一个临时安装树再测试。
 
-Either way, this test initializes, starts, and stops a test Postgres
-cluster.
+无论哪种方式，本测试都会初始化、启动并停止一个测试用 Postgres
+集簇。
 
-See src/test/perl/README for more info about running these tests.
+关于运行这些测试的更多信息，见 src/test/perl/README。

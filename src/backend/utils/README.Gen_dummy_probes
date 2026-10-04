@@ -1,27 +1,23 @@
-# Generating dummy probes
+# 生成哑探针
 
-If Postgres isn't configured with dtrace enabled, we need to generate
-dummy probes for the entries in probes.d, that do nothing.
+如果 Postgres 配置时未启用 dtrace，我们需要为 probes.d 中的条目生成
+什么也不做的哑探针。
 
-This is accomplished in Unix via the sed script `Gen_dummy_probes.sed`. We
-used to use this in MSVC builds using the perl utility `psed`, which mimicked
-sed. However, that utility disappeared from Windows perl distributions and so
-we converted the sed script to a perl script to be used in MSVC builds.
+在 Unix 上这由 sed 脚本 `Gen_dummy_probes.sed` 完成。我们过去在 MSVC
+构建中用模仿 sed 的 perl 工具 `psed` 做同样的事。不过该工具已从
+Windows 的 perl 发行版中消失，因此我们把 sed 脚本改成了供 MSVC 构建
+使用的 perl 脚本。
 
-We still keep the sed script as the authoritative source for generating
-these dummy probes because except on Windows perl is not a hard requirement
-when building from a tarball.
+我们仍把 sed 脚本作为生成这些哑探针的权威来源，因为除 Windows 外，从
+tarball 构建时 perl 并不是硬性要求。
 
-So, if you need to change the way dummy probes are generated, first change
-the sed script, and when it's working generate the perl script. This can
-be accomplished by using the perl utility s2p.
+因此，若需要改变哑探针的生成方式，先改 sed 脚本，等工作后再生成 perl
+脚本。这可以用 perl 工具 s2p 完成。
 
-s2p is no longer part of the perl core, so it might not be on your system,
-but it is available on CPAN and also in many package systems. e.g.
-on Fedora it can be installed using `cpan App::s2p` or
-`dnf install perl-App-s2p`.
+s2p 已不再是 perl 核心的一部分，所以你的系统上可能没有，但可以在 CPAN
+以及许多软件包系统中找到。例如在 Fedora 上可用 `cpan App::s2p` 或
+`dnf install perl-App-s2p` 安装。
 
-The Makefile contains a recipe for regenerating Gen_dummy_probes.pl, so all
-you need to do is once you have s2p installed is `make Gen_dummy_probes.pl`
-Note that in a VPATH build this will generate the file in the vpath tree,
-not the source tree.
+Makefile 里有重新生成 Gen_dummy_probes.pl 的配方，因此只要安装了 s2p，
+执行 `make Gen_dummy_probes.pl` 即可。注意在 VPATH 构建中，文件会生成
+在 vpath 树里，而不是源码树里。

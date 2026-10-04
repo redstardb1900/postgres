@@ -1,27 +1,24 @@
 src/test/locale/README
 
-Locales
-=======
+区域设置
+========
 
-This directory contains a set of tests for locales.  I provided one C
-program test-ctype.c to test CTYPE support in libc and the installed
-locale data.  Then there are test-sort.pl and test-sort.py that test
-collating.
+本目录包含一组区域设置测试。我提供了一个 C 程序 test-ctype.c，用来测试
+libc 的 CTYPE 支持以及已安装的区域设置数据。另有 test-sort.pl 和
+test-sort.py 用于测试排序。
 
-To run a test for some locale run
+要为某个区域设置运行测试，执行
     make check-$locale
-for example
+例如
     make check-koi8-r
 
-Currently, there are only tests for a few locales available.  The script
-'runall' calls test-ctype to test libc and locale data, test-sort.pl
-(uncomment test-sort.py, if you have a Python interpreter installed), and
-does tests on PostgreSQL with the provided SQL script files.
+目前只有少数区域设置的测试可用。脚本 'runall' 会调用 test-ctype 测试
+libc 和区域设置数据、调用 test-sort.pl（若已安装 Python 解释器，可取消
+注释 test-sort.py），并用所提供的 SQL 脚本文件对 PostgreSQL 做测试。
 
-To add locale tests one needs to create a directory $locale and create
-a Makefile (and other files) similar to koi8-r/*.  Actually, the simplest
-(I think) method is just to copy the koi8-r directory and edit/replace
-the files.
+要添加区域设置测试，需要创建目录 $locale，并创建与 koi8-r/* 类似的
+Makefile（及其他文件）。实际上，最简单的（我认为）办法就是复制 koi8-r
+目录再编辑/替换其中的文件。
 
 Oleg.
 ----

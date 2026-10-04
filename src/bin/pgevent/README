@@ -3,18 +3,16 @@ src/bin/pgevent/README
 pgevent
 =======
 
-MSG00001.bin is a binary file, result of Microsoft MC compiler. MC compiler
-can be downloaded for free with MS Core SDK but it is not included with MSYS
-tools and I didn't find an alternative way to compile MC file.
+MSG00001.bin 是二进制文件，由 Microsoft MC 编译器生成。MC 编译器可随
+MS Core SDK 免费下载，但不包含在 MSYS 工具中，我也没找到其他编译 MC
+文件的办法。
 
-To summarize: the command "MC pgmsgevent.mc" generates pgmsgevent.h,
-pgmsgevent.rc, and MSG00001.bin files.  In MC file, we declare a string
-with %s format, so we can write anything we want in the future without
-needing to change the definition of this string.
+概括：命令 "MC pgmsgevent.mc" 会生成 pgmsgevent.h、pgmsgevent.rc 和
+MSG00001.bin。在 MC 文件中，我们声明一个带 %s 格式的字符串，这样以后
+可以写入任意内容，而不必改这条字符串的定义。
 
-To finish, because DllUnregisterServer and DllRegisterServer are system
-defined entry points, we need to export these two functions with their names
-without "decoration", so we cannot use auto generated .def files without
-handy modifications.
+最后，因为 DllUnregisterServer 和 DllRegisterServer 是系统定义的入口点，
+需要按未“修饰”的名字导出这两个函数，所以不能未加手工修改就使用自动
+生成的 .def 文件。
 
 Laurent Ballester

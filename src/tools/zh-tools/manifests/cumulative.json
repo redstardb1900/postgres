@@ -765,6 +765,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0025-readme-gin.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/README-SSI",
+   "kind": "readme",
+   "note": "SSI, predicate locks; papers and graph kept"
+  },
+  {
+   "pattern": "src/backend/access/hash/README",
+   "kind": "readme",
+   "note": "hash buckets, WAL; algorithms kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0026-readme-ssi-hash.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2792,7 +2807,37 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/storage/lmgr/README-SSI",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SSI, predicate locks; papers and graph kept"
+  },
+  {
+   "path": "src/backend/access/hash/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hash buckets, WAL; algorithms kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0026-readme-ssi-hash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 82 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 84 of 88 include files translated."
 }

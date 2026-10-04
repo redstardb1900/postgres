@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0026-readme-ssi-hash",
+ "title": "zh: translate SSI and hash index READMEs",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c17ef95cb6dc0c8059f62d1bbd9ba2f347a2e788",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/README-SSI",
+   "kind": "readme",
+   "note": "SSI, predicate locks; papers and graph kept"
+  },
+  {
+   "pattern": "src/backend/access/hash/README",
+   "kind": "readme",
+   "note": "hash buckets, WAL; algorithms kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0026-readme-ssi-hash.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/README-SSI",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SSI, predicate locks; papers and graph kept"
+  },
+  {
+   "path": "src/backend/access/hash/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "hash buckets, WAL; algorithms kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0026-readme-ssi-hash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Sixteenth README batch: 2 files. Citations, rw-conflict graph, hash flag algorithms kept. SSI->可串行化快照隔离, bucket->桶."
+}

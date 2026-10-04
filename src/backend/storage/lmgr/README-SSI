@@ -1,21 +1,19 @@
 src/backend/storage/lmgr/README-SSI
 
-Serializable Snapshot Isolation (SSI) and Predicate Locking
-===========================================================
+可串行化快照隔离（SSI）与谓词锁
+================================
 
-This code is in the lmgr directory because about 90% of it is an
-implementation of predicate locking, which is required for SSI,
-rather than being directly related to SSI itself.  When another use
-for predicate locking justifies the effort to tease these two things
-apart, this README file should probably be split.
+这段代码放在 lmgr 目录，是因为其中约 90% 是谓词锁的实现，谓词锁是
+SSI 所需要的，而不是直接与 SSI 本身相关。当谓词锁的另一用途值得把
+这两件事拆开时，本 README 大概应拆分。
 
 
-Credits
--------
+致谢
+----
 
-This feature was developed by Kevin Grittner and Dan R. K. Ports,
-with review and suggestions from Joe Conway, Heikki Linnakangas, and
-Jeff Davis.  It is based on work published in these papers:
+本特性由 Kevin Grittner 和 Dan R. K. Ports 开发，Joe Conway、
+Heikki Linnakangas 和 Jeff Davis 做了审阅和建议。它基于这些论文发表
+的工作：
 
 	Michael J. Cahill, Uwe Röhm, and Alan D. Fekete. 2008.
 	Serializable isolation for snapshot databases.
@@ -31,604 +29,416 @@ Jeff Davis.  It is based on work published in these papers:
 	http://hdl.handle.net/2123/5353
 
 
-Overview
+概述
+----
+
+有了真正的可串行化事务，若你能证明在没有并发事务时你的事务会做对的
+事，它在任何可串行化事务的混合中也会做对的事，否则会以序列化失败回滚。
+PostgreSQL 用 SSI 实现了这一特性。
+
+
+可串行化与快照事务隔离级别
+--------------------------
+
+可串行化事务隔离对许多程序员对着复杂模式积极开发的场所有吸引力，因为
+它用很少的人力时间保证数据完整性——若能证明某事务单独运行时（在任何
+其他事务之前或之后）总是做对的事，它在任何并发可串行化事务的混合中也
+总是做对的事。当与其他事务的冲突会导致数据库内不一致状态或对数据的
+不一致视图时，可串行化事务会阻塞或回滚以防止该异常。SQL 标准为事务因
+此原因回滚时生成的错误提供了特定 SQLSTATE，以便事务可以自动重试。
+
+9.1 版之前，PostgreSQL 不支持完整的可串行化隔离级别。请求可串行化事务
+隔离实际提供的是快照隔离。这有众所周知的异常，可能在并发事务期间允许
+数据损坏或不一致的数据视图；不过这些异常只在一组并发事务中存在某些
+读-写依赖模式时发生。存在这些模式时，可以通过显式编程的锁或对数据库
+否则不必要的写来引入冲突，从而防止异常。快照隔离受欢迎，是因为性能
+好于可串行化隔离，并且它所提供的完整性保证在许多环境中允许以合理代价
+避免或管理异常。
+
+
+可串行化隔离实现策略
+--------------------
+
+实现完整可串行化隔离的技术已发表并在许多数据库产品中使用了数十年。
+主要使用的技术是严格两阶段锁（S2PL），它通过对已被并发事务读过的数据
+阻塞写，并对已被并发事务写过的数据阻塞任何访问（读或写）来工作。阻塞
+图中的环表示死锁，需要回滚。高争用负载下 S2PL 的阻塞和死锁可能使人
+瘫痪，严重损害吞吐量和响应时间。
+
+从 2008 年起，文献中出现了在 MVCC 数据库中实现完整可串行化隔离的新
+技术。这一称为可串行化快照隔离（SSI）的技术具有快照隔离的许多优点。
+特别是，读不阻塞任何东西，写不阻塞读。本质上，它按快照隔离运行，但
+监视事务之间的读-写冲突，以识别事务图中表明一组并发事务可能产生异常
+的危险结构，并回滚事务以确保不发生异常。它会产生一些假阳性（某事务
+被回滚，即便本来不会有异常），但永远不会让异常发生。在两个已知原型
+实现中，许多负载的性能（即便需要重启被回滚的事务）非常接近快照隔离，
+并且一般远好于 S2PL 实现。
+
+
+表观串行执行顺序
+----------------
+
+理解快照异常何时发生、并可视化上述可串行化实现之间差异的一种方式，是
+考虑：在可串行化事务隔离级别执行的事务中，结果必须与这些事务的某种
+串行（一次一个）执行一致 [1]。每种实现中该顺序如何确定？
+
+在 S2PL 中，每个事务锁定它访问的任何数据。它持有锁直到提交，防止其他
+事务在此期间对同一数据做冲突访问。某些事务可能必须回滚以防止死锁。
+但成功的事务总可以视为按它们提交的顺序依次发生。
+
+在快照隔离下，读从不阻塞写，反之亦然，因此可能有更多并发。事务表观
+执行的顺序由比 S2PL 更微妙的东西决定：读/写依赖。若某事务读数据，它
+表观上在写出它正在读的数据的事务之后执行。类似地，若它更新数据，它
+表观上在写出先前版本的事务之后执行。这些我们称为“wr 依赖”和“ww 依赖”
+的依赖与提交顺序一致，因为第一个事务必须在第二个开始之前提交。不过，
+两个*并发*事务之间也可以有依赖，即其中一个在另一个获取快照时正在运行。
+这些“读-写冲突”发生在某事务试图读因写出它（或稍后将写出它）的事务
+并发而对它不可见的数据时。读事务表观上先执行，无论实际的事务开始或
+提交序列如何，因为它看到的是另一事务留下的状态之前的数据库状态。
+
+当依赖图中形成环时发生异常：当一条依赖或一系列依赖使事务 A 表观上在
+事务 B 之前执行，但另一系列依赖使 B 表观上在 A 之前。若是那样，结果
+就不能与这些事务的任何串行执行一致。
+
+
+SSI 算法
 --------
 
-With true serializable transactions, if you can show that your
-transaction will do the right thing if there are no concurrent
-transactions, it will do the right thing in any mix of serializable
-transactions or be rolled back with a serialization failure.  This
-feature has been implemented in PostgreSQL using SSI.
+自 9.1 起，PostgreSQL 中的可串行化事务用可串行化快照隔离（SSI）实现，
+基于 Cahill 等人的工作。从根本上说，这允许快照隔离像以前一样运行，同时
+监视可能创建序列化异常的条件。
 
-
-Serializable and Snapshot Transaction Isolation Levels
-------------------------------------------------------
-
-Serializable transaction isolation is attractive for shops with
-active development by many programmers against a complex schema
-because it guarantees data integrity with very little staff time --
-if a transaction can be shown to always do the right thing when it is
-run alone (before or after any other transaction), it will always do
-the right thing in any mix of concurrent serializable transactions.
-Where conflicts with other transactions would result in an
-inconsistent state within the database or an inconsistent view of
-the data, a serializable transaction will block or roll back to
-prevent the anomaly. The SQL standard provides a specific SQLSTATE
-for errors generated when a transaction rolls back for this reason,
-so that transactions can be retried automatically.
-
-Before version 9.1, PostgreSQL did not support a full serializable
-isolation level. A request for serializable transaction isolation
-actually provided snapshot isolation. This has well known anomalies
-which can allow data corruption or inconsistent views of the data
-during concurrent transactions; although these anomalies only occur
-when certain patterns of read-write dependencies exist within a set
-of concurrent transactions. Where these patterns exist, the anomalies
-can be prevented by introducing conflicts through explicitly
-programmed locks or otherwise unnecessary writes to the database.
-Snapshot isolation is popular because performance is better than
-serializable isolation and the integrity guarantees which it does
-provide allow anomalies to be avoided or managed with reasonable
-effort in many environments.
-
-
-Serializable Isolation Implementation Strategies
-------------------------------------------------
-
-Techniques for implementing full serializable isolation have been
-published and in use in many database products for decades. The
-primary technique which has been used is Strict Two-Phase Locking
-(S2PL), which operates by blocking writes against data which has been
-read by concurrent transactions and blocking any access (read or
-write) against data which has been written by concurrent
-transactions. A cycle in a graph of blocking indicates a deadlock,
-requiring a rollback. Blocking and deadlocks under S2PL in high
-contention workloads can be debilitating, crippling throughput and
-response time.
-
-A new technique for implementing full serializable isolation in an
-MVCC database appears in the literature beginning in 2008. This
-technique, known as Serializable Snapshot Isolation (SSI) has many of
-the advantages of snapshot isolation. In particular, reads don't
-block anything and writes don't block reads. Essentially, it runs
-snapshot isolation but monitors the read-write conflicts between
-transactions to identify dangerous structures in the transaction
-graph which indicate that a set of concurrent transactions might
-produce an anomaly, and rolls back transactions to ensure that no
-anomalies occur. It will produce some false positives (where a
-transaction is rolled back even though there would not have been an
-anomaly), but will never let an anomaly occur. In the two known
-prototype implementations, performance for many workloads (even with
-the need to restart transactions which are rolled back) is very close
-to snapshot isolation and generally far better than an S2PL
-implementation.
-
-
-Apparent Serial Order of Execution
-----------------------------------
-
-One way to understand when snapshot anomalies can occur, and to
-visualize the difference between the serializable implementations
-described above, is to consider that among transactions executing at
-the serializable transaction isolation level, the results are
-required to be consistent with some serial (one-at-a-time) execution
-of the transactions [1]. How is that order determined in each?
-
-In S2PL, each transaction locks any data it accesses. It holds the
-locks until committing, preventing other transactions from making
-conflicting accesses to the same data in the interim. Some
-transactions may have to be rolled back to prevent deadlock. But
-successful transactions can always be viewed as having occurred
-sequentially, in the order they committed.
-
-With snapshot isolation, reads never block writes, nor vice versa, so
-more concurrency is possible. The order in which transactions appear
-to have executed is determined by something more subtle than in S2PL:
-read/write dependencies. If a transaction reads data, it appears to
-execute after the transaction that wrote the data it is reading.
-Similarly, if it updates data, it appears to execute after the
-transaction that wrote the previous version. These dependencies, which
-we call "wr-dependencies" and "ww-dependencies", are consistent with
-the commit order, because the first transaction must have committed
-before the second starts. However, there can also be dependencies
-between two *concurrent* transactions, i.e. where one was running when
-the other acquired its snapshot.  These "rw-conflicts" occur when one
-transaction attempts to read data which is not visible to it because
-the transaction which wrote it (or will later write it) is
-concurrent. The reading transaction appears to have executed first,
-regardless of the actual sequence of transaction starts or commits,
-because it sees a database state prior to that in which the other
-transaction leaves it.
-
-Anomalies occur when a cycle is created in the graph of dependencies:
-when a dependency or series of dependencies causes transaction A to
-appear to have executed before transaction B, but another series of
-dependencies causes B to appear before A. If that's the case, then
-the results can't be consistent with any serial execution of the
-transactions.
-
-
-SSI Algorithm
--------------
-
-As of 9.1, serializable transactions in PostgreSQL are implemented using
-Serializable Snapshot Isolation (SSI), based on the work of Cahill
-et al. Fundamentally, this allows snapshot isolation to run as it
-previously did, while monitoring for conditions which could create a
-serialization anomaly.
-
-SSI is based on the observation [2] that each snapshot isolation
-anomaly corresponds to a cycle that contains a "dangerous structure"
-of two adjacent rw-conflict edges:
+SSI 基于这一观察 [2]：每个快照隔离异常对应于包含由两条相邻读-写冲突
+边组成的“危险结构”的环：
 
       Tin ------> Tpivot ------> Tout
             rw             rw
 
-SSI works by watching for this dangerous structure, and rolling
-back a transaction when needed to prevent any anomaly. This means it
-only needs to track rw-conflicts between concurrent transactions, not
-wr- and ww-dependencies. It also means there is a risk of false
-positives, because not every dangerous structure is embedded in an
-actual cycle.  The number of false positives is low in practice, so
-this represents an acceptable tradeoff for keeping the detection
-overhead low.
-
-The PostgreSQL implementation uses two additional optimizations:
-
-* Tout must commit before any other transaction in the cycle
-  (see proof of Theorem 2.1 of [2]). We only roll back a transaction
-  if Tout commits before Tpivot and Tin.
-
-* if Tin is read-only, there can only be an anomaly if Tout committed
-  before Tin takes its snapshot. This optimization is an original
-  one. Proof:
-
-  - Because there is a cycle, there must be some transaction T0 that
-    precedes Tin in the cycle. (T0 might be the same as Tout.)
-
-  - The edge between T0 and Tin can't be a rw-conflict or ww-dependency,
-    because Tin was read-only, so it must be a wr-dependency.
-    Those can only occur if T0 committed before Tin took its snapshot,
-    else Tin would have ignored T0's output.
-
-  - Because Tout must commit before any other transaction in the
-    cycle, it must commit before T0 commits -- and thus before Tin
-    starts.
-
-
-PostgreSQL Implementation
--------------------------
-
-    * Since this technique is based on Snapshot Isolation (SI), those
-areas in PostgreSQL which don't use SI can't be brought under SSI.
-This includes system tables, temporary tables, sequences, hint bit
-rewrites, etc.  SSI can not eliminate existing anomalies in these
-areas.
-
-    * Any transaction which is run at a transaction isolation level
-other than SERIALIZABLE will not be affected by SSI.  If you want to
-enforce business rules through SSI, all transactions should be run at
-the SERIALIZABLE transaction isolation level, and that should
-probably be set as the default.
-
-    * If all transactions are run at the SERIALIZABLE transaction
-isolation level, business rules can be enforced in triggers or
-application code without ever having a need to acquire an explicit
-lock or to use SELECT FOR SHARE or SELECT FOR UPDATE.
-
-    * Those who want to continue to use snapshot isolation without
-the additional protections of SSI (and the associated costs of
-enforcing those protections), can use the REPEATABLE READ transaction
-isolation level.  This level retains its legacy behavior, which
-is identical to the old SERIALIZABLE implementation and fully
-consistent with the standard's requirements for the REPEATABLE READ
-transaction isolation level.
-
-    * Performance under this SSI implementation will be significantly
-improved if transactions which don't modify permanent tables are
-declared to be READ ONLY before they begin reading data.
-
-    * Performance under SSI will tend to degrade more rapidly with a
-large number of active database transactions than under less strict
-isolation levels.  Limiting the number of active transactions through
-use of a connection pool or similar techniques may be necessary to
-maintain good performance.
-
-    * Any transaction which must be rolled back to prevent
-serialization anomalies will fail with SQLSTATE 40001, which has a
-standard meaning of "serialization failure".
-
-    * This SSI implementation makes an effort to choose the
-transaction to be canceled such that an immediate retry of the
-transaction will not fail due to conflicts with exactly the same
-transactions.  Pursuant to this goal, no transaction is canceled
-until one of the other transactions in the set of conflicts which
-could generate an anomaly has successfully committed.  This is
-conceptually similar to how write conflicts are handled.  To fully
-implement this guarantee there needs to be a way to roll back the
-active transaction for another process with a serialization failure
-SQLSTATE, even if it is "idle in transaction".
-
-
-Predicate Locking
------------------
-
-Both S2PL and SSI require some form of predicate locking to handle
-situations where reads conflict with later inserts or with later
-updates which move data into the selected range.  PostgreSQL didn't
-already have predicate locking, so it needed to be added to support
-full serializable transactions under either strategy. Practical
-implementations of predicate locking generally involve acquiring
-locks against data as it is accessed, using multiple granularities
-(tuple, page, table, etc.) with escalation as needed to keep the lock
-count to a number which can be tracked within RAM structures.  This
-approach was used in PostgreSQL.  Coarse granularities can cause some
-false positive indications of conflict. The number of false positives
-can be influenced by plan choice.
-
-
-Implementation overview
------------------------
-
-New RAM structures, inspired by those used to track traditional locks
-in PostgreSQL, but tailored to the needs of SIREAD predicate locking,
-are used.  These refer to physical objects actually accessed in the
-course of executing the query, to model the predicates through
-inference.  Anyone interested in this subject should review the
-Hellerstein, Stonebraker and Hamilton paper [3], along with the
-locking papers referenced from that and the Cahill papers.
-
-Because the SIREAD locks don't block, traditional locking techniques
-have to be modified.  Intent locking (locking higher level objects
-before locking lower level objects) doesn't work with non-blocking
-"locks" (which are, in some respects, more like flags than locks).
-
-A configurable amount of shared memory is reserved at postmaster
-start-up to track predicate locks. This size cannot be changed
-without a restart.
-
-To prevent resource exhaustion, multiple fine-grained locks may
-be promoted to a single coarser-grained lock as needed.
-
-An attempt to acquire an SIREAD lock on a tuple when the same
-transaction already holds an SIREAD lock on the page or the relation
-will be ignored. Likewise, an attempt to lock a page when the
-relation is locked will be ignored, and the acquisition of a coarser
-lock will result in the automatic release of all finer-grained locks
-it covers.
-
-
-Heap locking
-------------
-
-Predicate locks will be acquired for the heap based on the following:
-
-    * For a table scan, the entire relation will be locked.
-
-    * Each tuple read which is visible to the reading transaction
-will be locked, whether or not it meets selection criteria; except
-that there is no need to acquire an SIREAD lock on a tuple when the
-transaction already holds a write lock on any tuple representing the
-row, since a rw-conflict would also create a ww-dependency which
-has more aggressive enforcement and thus will prevent any anomaly.
-
-    * Modifying a heap tuple creates a rw-conflict with any transaction
-that holds a SIREAD lock on that tuple, or on the page or relation
-that contains it.
-
-    * Inserting a new tuple creates a rw-conflict with any transaction
-holding a SIREAD lock on the entire relation. It doesn't conflict with
-page-level locks, because page-level locks are only used to aggregate
-tuple locks. Unlike index page locks, they don't lock "gaps" on the page.
-
-
-Index AM implementations
-------------------------
-
-Since predicate locks only exist to detect writes which conflict with
-earlier reads, and heap tuple locks are acquired to cover all heap
-tuples actually read, including those read through indexes, the index
-tuples which were actually scanned are not of interest in themselves;
-we only care about their "new neighbors" -- later inserts into the
-index which would have been included in the scan had they existed at
-the time.  Conceptually, we want to lock the gaps between and
-surrounding index entries within the scanned range.
-
-Correctness requires that any insert into an index generates a
-rw-conflict with a concurrent serializable transaction if, after that
-insert, re-execution of any index scan of the other transaction would
-access the heap for a row not accessed during the previous execution.
-Note that a non-HOT update which expires an old index entry covered
-by the scan and adds a new entry for the modified row's new tuple
-need not generate a conflict, although an update which "moves" a row
-into the scan must generate a conflict.  While correctness allows
-false positives, they should be minimized for performance reasons.
-
-Several optimizations are possible, though not all are implemented yet:
-
-    * An index scan which is just finding the right position for an
-index insertion or deletion need not acquire a predicate lock.
-
-    * An index scan which is comparing for equality on the entire key
-for a unique index need not acquire a predicate lock as long as a key
-is found corresponding to a visible tuple which has not been modified
-by another transaction -- there are no "between or around" gaps to
-cover.
-
-    * As long as built-in foreign key enforcement continues to use
-its current "special tricks" to deal with MVCC issues, predicate
-locks should not be needed for scans done by enforcement code.
-
-    * If a search determines that no rows can be found regardless of
-index contents because the search conditions are contradictory (e.g.,
-x = 1 AND x = 2), then no predicate lock is needed.
-
-Other index AM implementation considerations:
-
-    * For an index AM that doesn't have support for predicate locking,
-we just acquire a predicate lock on the whole index for any search.
-
-    * B-tree index searches acquire predicate locks only on the
-index *leaf* pages needed to lock the appropriate index range. If,
-however, a search discovers that no root page has yet been created, a
-predicate lock on the index relation is required.
-
-    * Like a B-tree, GIN searches acquire predicate locks only on the
-leaf pages of entry tree. When performing an equality scan, and an
-entry has a posting tree, the posting tree root is locked instead, to
-lock only that key value. However, fastupdate=on postpones the
-insertion of tuples into index structure by temporarily storing them
-into pending list. That makes us unable to detect r-w conflicts using
-page-level locks. To cope with that, insertions to the pending list
-conflict with all scans.
-
-    * GiST searches can determine that there are no matches at any
-level of the index, so we acquire predicate lock at each index
-level during a GiST search. An index insert at the leaf level can
-then be trusted to ripple up to all levels and locations where
-conflicting predicate locks may exist. In case there is a page split,
-we need to copy predicate lock from the original page to all the new
-pages.
-
-    * Hash index searches acquire predicate locks on the primary
-page of a bucket. It acquires a lock on both the old and new buckets
-for scans that happen concurrently with page splits. During a bucket
-split, a predicate lock is copied from the primary page of an old
-bucket to the primary page of a new bucket.
-
-    * The effects of page splits, overflows, consolidations, and
-removals must be carefully reviewed to ensure that predicate locks
-aren't "lost" during those operations, or kept with pages which could
-get re-used for different parts of the index.
-
-
-Innovations
------------
-
-The PostgreSQL implementation of Serializable Snapshot Isolation
-differs from what is described in the cited papers for several
-reasons:
-
-   1. PostgreSQL didn't have any existing predicate locking. It had
-to be added from scratch.
-
-   2. The existing in-memory lock structures were not suitable for
-tracking SIREAD locks.
-          * In PostgreSQL, tuple level locks are not held in RAM for
-any length of time; lock information is written to the tuples
-involved in the transactions.
-          * In PostgreSQL, existing lock structures have pointers to
-memory which is related to a session. SIREAD locks need to persist
-past the end of the originating transaction and even the session
-which ran it.
-          * PostgreSQL needs to be able to tolerate a large number of
-transactions executing while one long-running transaction stays open
--- the in-RAM techniques discussed in the papers wouldn't support
-that.
-
-   3. Unlike the database products used for the prototypes described
-in the papers, PostgreSQL didn't already have a true serializable
-isolation level distinct from snapshot isolation.
-
-   4. PostgreSQL supports subtransactions -- an issue not mentioned
-in the papers.
-
-   5. PostgreSQL doesn't assign a transaction number to a database
-transaction until and unless necessary (normally, when the transaction
-attempts to modify data).
-
-   6. PostgreSQL has pluggable data types with user-definable
-operators, as well as pluggable index types, not all of which are
-based around data types which support ordering.
-
-   7. Some possible optimizations became apparent during development
-and testing.
-
-Differences from the implementation described in the papers are
-listed below.
-
-    * New structures needed to be created in shared memory to track
-the proper information for serializable transactions and their SIREAD
-locks.
-
-    * Because PostgreSQL does not have the same concept of an "oldest
-transaction ID" for all serializable transactions as assumed in the
-Cahill thesis, we track the oldest snapshot xmin among serializable
-transactions, and a count of how many active transactions use that
-xmin. When the count hits zero we find the new oldest xmin and run a
-clean-up based on that.
-
-    * Because reads in a subtransaction may cause that subtransaction
-to roll back, thereby affecting what is written by the top level
-transaction, predicate locks must survive a subtransaction rollback.
-As a consequence, all xid usage in SSI, including predicate locking,
-is based on the top level xid.  When looking at an xid that comes
-from a tuple's xmin or xmax, for example, we always call
-SubTransGetTopmostTransaction() before doing much else with it.
-
-    * PostgreSQL does not use "update in place" with a rollback log
-for its MVCC implementation.  Where possible it uses "HOT" updates on
-the same page (if there is room and no indexed value is changed).
-For non-HOT updates the old tuple is expired in place and a new tuple
-is inserted at a new location.  Because of this difference, a tuple
-lock in PostgreSQL doesn't automatically lock any other versions of a
-row.  We don't try to copy or expand a tuple lock to any other
-versions of the row, based on the following proof that any additional
-serialization failures we would get from that would be false
-positives:
-
-          o If transaction T1 reads a row version (thus acquiring a
-predicate lock on it) and a second transaction T2 updates that row
-version (thus creating a rw-conflict graph edge from T1 to T2), must a
-third transaction T3 which re-updates the new version of the row also
-have a rw-conflict in from T1 to prevent anomalies?  In other words,
-does it matter whether we recognize the edge T1 -> T3?
-
-          o If T1 has a conflict in, it certainly doesn't. Adding the
-edge T1 -> T3 would create a dangerous structure, but we already had
-one from the edge T1 -> T2, so we would have aborted something anyway.
-(T2 has already committed, else T3 could not have updated its output;
-but we would have aborted either T1 or T1's predecessor(s).  Hence
-no cycle involving T1 and T3 can survive.)
-
-          o Now let's consider the case where T1 doesn't have a
-rw-conflict in. If that's the case, for this edge T1 -> T3 to make a
-difference, T3 must have a rw-conflict out that induces a cycle in the
-dependency graph, i.e. a conflict out to some transaction preceding T1
-in the graph. (A conflict out to T1 itself would be problematic too,
-but that would mean T1 has a conflict in, the case we already
-eliminated.)
-
-          o So now we're trying to figure out if there can be an
-rw-conflict edge T3 -> T0, where T0 is some transaction that precedes
-T1. For T0 to precede T1, there has to be some edge, or sequence of
-edges, from T0 to T1. At least the last edge has to be a wr-dependency
-or ww-dependency rather than a rw-conflict, because T1 doesn't have a
-rw-conflict in. And that gives us enough information about the order
-of transactions to see that T3 can't have a rw-conflict to T0:
- - T0 committed before T1 started (the wr/ww-dependency implies this)
- - T1 started before T2 committed (the T1->T2 rw-conflict implies this)
- - T2 committed before T3 started (otherwise, T3 would get aborted
-                                   because of an update conflict)
-
-          o That means T0 committed before T3 started, and therefore
-there can't be a rw-conflict from T3 to T0.
-
-          o So in all cases, we don't need the T1 -> T3 edge to
-recognize cycles.  Therefore it's not necessary for T1's SIREAD lock
-on the original tuple version to cover later versions as well.
-
-    * Predicate locking in PostgreSQL starts at the tuple level
-when possible. Multiple fine-grained locks are promoted to a single
-coarser-granularity lock as needed to avoid resource exhaustion.  The
-amount of memory used for these structures is configurable, to balance
-RAM usage against SIREAD lock granularity.
-
-    * Each backend keeps a process-local table of the locks it holds.
-To support granularity promotion decisions with low CPU and locking
-overhead, this table also includes the coarser covering locks and the
-number of finer-granularity locks they cover.
-
-    * Conflicts are identified by looking for predicate locks
-when tuples are written, and by looking at the MVCC information when
-tuples are read. There is no matching between two RAM-based locks.
-
-    * Because write locks are stored in the heap tuples rather than a
-RAM-based lock table, the optimization described in the Cahill thesis
-which eliminates an SIREAD lock where there is a write lock is
-implemented by the following:
-         1. When checking a heap write for conflicts against existing
-predicate locks, a tuple lock on the tuple being written is removed.
-         2. When acquiring a predicate lock on a heap tuple, we
-return quickly without doing anything if it is a tuple written by the
-reading transaction.
-
-    * Rather than using conflictIn and conflictOut pointers which use
-NULL to indicate no conflict and a self-reference to indicate
-multiple conflicts or conflicts with committed transactions, we use a
-list of rw-conflicts. With the more complete information, false
-positives are reduced and we have sufficient data for more aggressive
-clean-up and other optimizations:
-
-          o We can avoid ever rolling back a transaction until and
-unless there is a pivot where a transaction on the conflict *out*
-side of the pivot committed before either of the other transactions.
-
-          o We can avoid ever rolling back a transaction when the
-transaction on the conflict *in* side of the pivot is explicitly or
-implicitly READ ONLY unless the transaction on the conflict *out*
-side of the pivot committed before the READ ONLY transaction acquired
-its snapshot. (An implicit READ ONLY transaction is one which
-committed without writing, even though it was not explicitly declared
-to be READ ONLY.)
-
-          o We can more aggressively clean up conflicts, predicate
-locks, and SSI transaction information.
-
-    * We allow a READ ONLY transaction to "opt out" of SSI if there are
-no READ WRITE transactions which could cause the READ ONLY
-transaction to ever become part of a "dangerous structure" of
-overlapping transaction dependencies.
-
-    * We allow the user to request that a READ ONLY transaction wait
-until the conditions are right for it to start in the "opt out" state
-described above. We add a DEFERRABLE state to transactions, which is
-specified and maintained in a way similar to READ ONLY. It is
-ignored for transactions that are not SERIALIZABLE and READ ONLY.
-
-    * When a transaction must be rolled back, we pick among the
-active transactions such that an immediate retry will not fail again
-on conflicts with the same transactions.
-
-    * We use the PostgreSQL SLRU system to hold summarized
-information about older committed transactions to put an upper bound
-on RAM used. Beyond that limit, information spills to disk.
-Performance can degrade in a pessimal situation, but it should be
-tolerable, and transactions won't need to be canceled or blocked
-from starting.
-
-
-R&D Issues
-----------
-
-This is intended to be the place to record specific issues which need
-more detailed review or analysis.
-
-    * WAL file replay. While serializable implementations using S2PL
-can guarantee that the write-ahead log contains commits in a sequence
-consistent with some serial execution of serializable transactions,
-SSI cannot make that guarantee. While the WAL replay is no less
-consistent than under snapshot isolation, it is possible that under
-PITR recovery or hot standby a database could reach a readable state
-where some transactions appear before other transactions which would
-have had to precede them to maintain serializable consistency. In
-essence, if we do nothing, WAL replay will be at snapshot isolation
-even for serializable transactions. Is this OK? If not, how do we
-address it?
-
-    * External replication. Look at how this impacts external
-replication solutions, like Postgres-R, Slony, pgpool, HS/SR, etc.
-This is related to the "WAL file replay" issue.
-
-    * UNIQUE btree search for equality on all columns. Since a search
-of a UNIQUE index using equality tests on all columns will lock the
-heap tuple if an entry is found, it appears that there is no need to
-get a predicate lock on the index in that case. A predicate lock is
-still needed for such a search if a matching index entry which points
-to a visible tuple is not found.
-
-    * Minimize touching of shared memory. Should lists in shared
-memory push entries which have just been returned to the front of the
-available list, so they will be popped back off soon and some memory
-might never be touched, or should we keep adding returned items to
-the end of the available list?
-
-
-References
-----------
+SSI 通过监视这一危险结构工作，并在需要时回滚事务以防止任何异常。这
+意味着它只需跟踪并发事务之间的读-写冲突，而不跟踪 wr 和 ww 依赖。这也
+意味着有假阳性风险，因为并非每个危险结构都嵌在实际的环中。实践中假
+阳性数量很低，因此这对保持检测开销低是可接受的权衡。
+
+PostgreSQL 实现使用另外两项优化：
+
+* Tout 必须在环中任何其他事务之前提交（见 [2] 定理 2.1 的证明）。我们
+  只在 Tout 在 Tpivot 和 Tin 之前提交时才回滚事务。
+
+* 若 Tin 是只读的，只有当 Tout 在 Tin 取快照之前提交时才可能有异常。
+  这一优化是原创的。证明：
+
+  - 因为有环，必须有某个事务 T0 在环中位于 Tin 之前。（T0 可能与 Tout
+    相同。）
+
+  - T0 与 Tin 之间的边不能是读-写冲突或 ww 依赖，因为 Tin 是只读的，
+    因此必须是 wr 依赖。那些只能在 T0 在 Tin 取快照之前提交时发生，
+    否则 Tin 会忽略 T0 的输出。
+
+  - 因为 Tout 必须在环中任何其他事务之前提交，它必须在 T0 提交之前
+    提交——因而在 Tin 开始之前。
+
+
+PostgreSQL 实现
+---------------
+
+    * 由于这一技术基于快照隔离（SI），PostgreSQL 中不用 SI 的那些区域
+无法纳入 SSI。这包括系统表、临时表、序列、提示位重写等。SSI 不能消除
+这些区域中已有的异常。
+
+    * 在 SERIALIZABLE 以外的事务隔离级别运行的任何事务都不受 SSI
+影响。若想通过 SSI 强制业务规则，所有事务都应在 SERIALIZABLE 事务
+隔离级别运行，并且那大概应设为默认。
+
+    * 若所有事务都在 SERIALIZABLE 事务隔离级别运行，业务规则可以在
+触发器或应用代码中强制，而永远不需要获取显式锁或使用 SELECT FOR SHARE
+或 SELECT FOR UPDATE。
+
+    * 想继续使用快照隔离而不要 SSI 的额外保护（以及强制这些保护的
+关联代价）的人，可以使用 REPEATABLE READ 事务隔离级别。该级别保留其
+遗留行为，与旧的 SERIALIZABLE 实现相同，并且完全符合标准对
+REPEATABLE READ 事务隔离级别的要求。
+
+    * 若不修改永久表的事务在开始读数据之前声明为 READ ONLY，本 SSI
+实现下的性能会显著改善。
+
+    * SSI 下的性能往往随活动数据库事务数量增大而比不那么严格的隔离
+级别下降得更快。通过连接池或类似技术限制活动事务数，可能是保持良好
+性能所必要的。
+
+    * 任何必须回滚以防止序列化异常的事务会以 SQLSTATE 40001 失败，
+其标准含义是“序列化失败”。
+
+    * 本 SSI 实现努力选择要取消的事务，使得立即重试该事务不会因与
+恰好相同的事务冲突而失败。为此目标，直到冲突集合中可能生成异常的其他
+事务之一成功提交，才取消任何事务。这在概念上类似写冲突的处理方式。
+要完整实现这一保证，需要有办法以序列化失败 SQLSTATE 回滚另一进程的
+活动事务，即便它处于“事务中空闲”。
+
+
+谓词锁
+------
+
+S2PL 和 SSI 都需要某种形式的谓词锁，以处理读与稍后的插入、或与稍后把
+数据移入所选范围的更新冲突的情形。PostgreSQL 原先没有谓词锁，因此需要
+添加它以在任一策略下支持完整可串行化事务。谓词锁的实际实现一般涉及在
+访问数据时获取锁，使用多种粒度（元组、页、表等），并按需升级以把锁
+数量保持在能在 RAM 结构中跟踪的数量。PostgreSQL 使用了这一做法。粗
+粒度可能导致一些冲突的假阳性。假阳性数量可能受计划选择影响。
+
+
+实现概述
+--------
+
+使用了受 PostgreSQL 中跟踪传统锁的结构启发、但针对 SIREAD 谓词锁需求
+定制的新 RAM 结构。它们引用查询执行过程中实际访问的物理对象，通过
+推断来建模谓词。对这一主题感兴趣的人应审阅 Hellerstein、Stonebraker
+和 Hamilton 的论文 [3]，以及从那篇论文和 Cahill 论文引用的加锁论文。
+
+因为 SIREAD 锁不阻塞，传统加锁技术必须修改。意向锁（在锁定更低层对象
+之前锁定更高层对象）对非阻塞“锁”（在某些方面更像标志而不是锁）不起
+作用。
+
+在 postmaster 启动时预留可配置数量的共享内存来跟踪谓词锁。不重启不能
+更改该大小。
+
+为防止资源耗尽，多个细粒度锁可能按需提升为单个更粗粒度的锁。
+
+当事务已持有页或关系上的 SIREAD 锁时，试图获取元组上的 SIREAD 锁会被
+忽略。同样，当关系已锁定时试图锁定页会被忽略，并且获取更粗的锁会导致
+自动释放它所覆盖的全部更细粒度锁。
+
+
+堆加锁
+------
+
+将基于以下为堆获取谓词锁：
+
+    * 对表扫描，锁定整个关系。
+
+    * 对读事务可见的每个被读元组都会被锁定，无论它是否满足选择条件；
+例外是当事务已持有表示该行的任何元组上的写锁时，不必获取该元组上的
+SIREAD 锁，因为读-写冲突也会创建强制更积极、因而会防止任何异常的
+ww 依赖。
+
+    * 修改堆元组会与持有该元组上、或包含它的页或关系上的 SIREAD 锁的
+任何事务创建读-写冲突。
+
+    * 插入新元组会与持有整个关系上 SIREAD 锁的任何事务创建读-写冲突。
+它不与页级锁冲突，因为页级锁只用来聚合元组锁。与索引页锁不同，它们不
+锁定页上的“空隙”。
+
+
+索引访问方法实现
+----------------
+
+由于谓词锁只存在于检测与更早读冲突的写，并且获取堆元组锁是为了覆盖
+实际读到的全部堆元组（包括经索引读到的），实际扫描的索引元组本身并不
+令人感兴趣；我们只关心它们的“新邻居”——稍后插入索引、若在当时存在就会
+被包含在扫描中的那些。概念上，我们想锁定扫描范围内索引条目之间及周围
+的空隙。
+
+正确性要求：任何向索引的插入，若在该插入之后重新执行另一事务的任何
+索引扫描会访问先前执行未访问的行的堆，则必须与并发可串行化事务生成
+读-写冲突。注意：使扫描覆盖的旧索引条目过期、并为修改后行的新元组添加
+新条目的非 HOT 更新不必生成冲突，尽管把一行“移入”扫描的更新必须生成
+冲突。虽然正确性允许假阳性，但出于性能原因应最小化它们。
+
+若干优化是可能的，尽管并非全部已实现：
+
+    * 只是为索引插入或删除找正确位置的索引扫描不必获取谓词锁。
+
+    * 对唯一索引的整个键做相等比较的索引扫描，只要找到对应于未被另一
+事务修改的可见元组的键，就不必获取谓词锁——没有需要覆盖的“之间或周围”
+空隙。
+
+    * 只要内置外键强制继续使用其当前处理 MVCC 问题的“特殊技巧”，强制
+代码所做的扫描就不需要谓词锁。
+
+    * 若搜索判定无论索引内容如何都找不到行，因为搜索条件矛盾（例如
+x = 1 AND x = 2），则不需要谓词锁。
+
+其他索引访问方法实现考虑：
+
+    * 对没有谓词锁支持的索引访问方法，我们对任何搜索只获取整个索引上
+的谓词锁。
+
+    * B 树索引搜索只对锁定适当索引范围所需的索引*叶子*页获取谓词锁。
+不过，若搜索发现尚未创建根页，则需要索引关系上的谓词锁。
+
+    * 与 B 树一样，GIN 搜索只对条目树的叶子页获取谓词锁。做相等扫描
+且某条目有倒排树时，改为锁定倒排树根，以只锁定该键值。不过
+fastupdate=on 通过把元组临时存入挂起列表来推迟把元组插入索引结构。这
+使我们无法用页级锁检测读-写冲突。为应对这一点，向挂起列表的插入与
+所有扫描冲突。
+
+    * GiST 搜索可以在索引的任何一层判定没有匹配，因此我们在 GiST 搜索
+期间在每一索引层获取谓词锁。然后可以信任叶子层的索引插入会向上波及到
+可能存在冲突谓词锁的所有层和位置。若发生页分裂，我们需要把谓词锁从原
+页复制到所有新页。
+
+    * Hash 索引搜索对桶的主页获取谓词锁。对与页分裂并发发生的扫描，它
+对旧桶和新桶都获取锁。桶分裂期间，谓词锁从旧桶的主页复制到新桶的主页。
+
+    * 必须仔细审阅页分裂、溢出、合并和移除的效果，以确保谓词锁在那些
+操作期间不会“丢失”，或不会留在可能被复用于索引不同部分的页上。
+
+
+创新
+----
+
+PostgreSQL 的可串行化快照隔离实现因若干原因与所引论文中描述的不同：
+
+   1. PostgreSQL 没有任何现有谓词锁。必须从零添加。
+
+   2. 现有内存中锁结构不适合跟踪 SIREAD 锁。
+          * 在 PostgreSQL 中，元组级锁不会在 RAM 中持有任何长时间；
+锁信息写到事务所涉及的元组上。
+          * 在 PostgreSQL 中，现有锁结构有指向与会话相关的内存的指针。
+SIREAD 锁需要持续到发起事务结束之后，甚至运行它的会话结束之后。
+          * PostgreSQL 需要能容忍一个长运行事务保持打开期间有大量事务
+执行——论文中讨论的 RAM 内技术支撑不了这一点。
+
+   3. 与论文中描述的原型所用数据库产品不同，PostgreSQL 原先没有与快照
+隔离不同的真正可串行化隔离级别。
+
+   4. PostgreSQL 支持子事务——论文未提及的问题。
+
+   5. PostgreSQL 直到并且除非必要（通常是当事务试图修改数据时）才给
+数据库事务分配事务号。
+
+   6. PostgreSQL 有带用户可定义操作符的可插拔数据类型，以及可插拔索引
+类型，并非全部基于支持排序的数据类型。
+
+   7. 开发和测试期间出现了一些可能的优化。
+
+与论文中描述的实现的差异列于下。
+
+    * 需要在共享内存中创建新结构，以跟踪可串行化事务及其 SIREAD 锁的
+适当信息。
+
+    * 因为 PostgreSQL 没有 Cahill 论文所假定的对所有可串行化事务相同
+的“最旧事务 ID”概念，我们跟踪可串行化事务中最旧的快照 xmin，以及使用
+该 xmin 的活动事务计数。当计数到零时，我们找到新的最旧 xmin 并据此
+运行清理。
+
+    * 因为子事务中的读可能导致该子事务回滚，从而影响顶层事务写什么，
+谓词锁必须在子事务回滚后存活。因此，SSI 中所有 xid 用法，包括谓词锁，
+都基于顶层 xid。例如查看来自元组 xmin 或 xmax 的 xid 时，我们总是在
+对它做太多其他事之前调用 SubTransGetTopmostTransaction()。
+
+    * PostgreSQL 的 MVCC 实现不使用带回滚日志的“原地更新”。可能时它
+在同一页上使用“HOT”更新（若有空间且没有被索引值改变）。对非 HOT 更新，
+旧元组原地过期，新元组插入新位置。由于这一差异，PostgreSQL 中的元组
+锁不会自动锁定一行的任何其他版本。我们不试图把元组锁复制或扩展到该行
+的任何其他版本，基于以下证明：我们从那样做会得到的任何额外序列化失败
+都会是假阳性：
+
+          o 若事务 T1 读某行版本（从而对其获取谓词锁），第二事务 T2
+更新该行版本（从而创建从 T1 到 T2 的读-写冲突图边），第三事务 T3 再
+更新该行的新版本是否也必须有从 T1 进入的读-写冲突才能防止异常？换
+句话说，我们是否需要识别边 T1 -> T3？
+
+          o 若 T1 有进入的冲突，当然不需要。添加边 T1 -> T3 会创建
+危险结构，但我们已经从边 T1 -> T2 有一个，因此反正会中止某个东西。
+（T2 已经提交，否则 T3 无法更新其输出；但我们会中止 T1 或 T1 的
+前驱。因此涉及 T1 和 T3 的环无法存活。）
+
+          o 现在考虑 T1 没有进入的读-写冲突的情形。那种情况下，要让
+这条边 T1 -> T3 起作用，T3 必须有引出的读-写冲突，在依赖图中诱导一个
+环，即引出到图中位于 T1 之前的某事务的冲突。（引出到 T1 本身也会有
+问题，但那意味着 T1 有进入的冲突，即我们已排除的情形。）
+
+          o 因此我们现在试图弄清是否可以有读-写冲突边 T3 -> T0，其中
+T0 是位于 T1 之前的某事务。要让 T0 位于 T1 之前，必须有从 T0 到 T1
+的某条边或边序列。至少最后一条边必须是 wr 依赖或 ww 依赖而不是读-写
+冲突，因为 T1 没有进入的读-写冲突。而这给了我们足够的事务顺序信息，
+可以看出 T3 不能对 T0 有读-写冲突：
+ - T0 在 T1 开始之前提交（wr/ww 依赖蕴含这一点）
+ - T1 在 T2 提交之前开始（T1->T2 读-写冲突蕴含这一点）
+ - T2 在 T3 开始之前提交（否则 T3 会因更新冲突被中止）
+
+          o 这意味着 T0 在 T3 开始之前提交，因此不能有从 T3 到 T0 的
+读-写冲突。
+
+          o 因此在所有情形下，我们不需要 T1 -> T3 边来识别环。因此
+T1 对原始元组版本的 SIREAD 锁不必也覆盖较后版本。
+
+    * PostgreSQL 中的谓词锁在可能时从元组级开始。多个细粒度锁按需提升
+为单个更粗粒度的锁，以避免资源耗尽。用于这些结构的内存量可配置，以在
+RAM 用量与 SIREAD 锁粒度之间平衡。
+
+    * 每个后端保持它所持有锁的进程本地表。为以低 CPU 和加锁开销支持
+粒度提升决策，该表也包括更粗的覆盖锁以及它们覆盖的更细粒度锁的数量。
+
+    * 冲突通过在写元组时查找谓词锁、以及在读元组时查看 MVCC 信息来
+识别。没有两个基于 RAM 的锁之间的匹配。
+
+    * 因为写锁存在堆元组中而不是基于 RAM 的锁表中，Cahill 论文中描述
+的在有写锁处消除 SIREAD 锁的优化按以下实现：
+         1. 检查堆写与现有谓词锁的冲突时，移除正被写的元组上的元组锁。
+         2. 获取堆元组上的谓词锁时，若它是读事务写的元组，我们很快
+返回而不做任何事。
+
+    * 与其使用用 NULL 表示无冲突、用自引用表示多个冲突或与已提交事务
+的冲突的 conflictIn 和 conflictOut 指针，我们使用读-写冲突列表。有了
+更完整的信息，假阳性减少，并且我们有足够数据做更积极的清理和其他
+优化：
+
+          o 我们可以避免在有枢纽、且枢纽冲突*出*侧的事务在另外两个
+事务任一之前提交之前，回滚任何事务。
+
+          o 当枢纽冲突*入*侧的事务显式或隐式为 READ ONLY 时，除非枢纽
+冲突*出*侧的事务在该 READ ONLY 事务获取快照之前提交，我们可以避免
+回滚任何事务。（隐式 READ ONLY 事务是未显式声明为 READ ONLY 却未写
+就提交的事务。）
+
+          o 我们可以更积极地清理冲突、谓词锁和 SSI 事务信息。
+
+    * 若没有可能使 READ ONLY 事务成为重叠事务依赖的“危险结构”一部分
+的 READ WRITE 事务，我们允许 READ ONLY 事务“退出”SSI。
+
+    * 我们允许用户请求 READ ONLY 事务等到条件适合它以上述“退出”状态
+开始。我们给事务添加 DEFERRABLE 状态，其指定和维护方式类似 READ ONLY。
+对不是 SERIALIZABLE 且 READ ONLY 的事务它被忽略。
+
+    * 当事务必须回滚时，我们在活动事务中挑选，使得立即重试不会再次在
+与相同事务的冲突上失败。
+
+    * 我们使用 PostgreSQL SLRU 系统保存关于较旧已提交事务的汇总信息，
+以便对所用 RAM 设上限。超过该限制，信息溢出到磁盘。在最差情形下性能
+可能下降，但应可容忍，并且事务不需要被取消或阻止启动。
+
+
+研发问题
+--------
+
+这里旨在记录需要更详细审阅或分析的具体问题。
+
+    * WAL 文件重放。使用 S2PL 的可串行化实现可以保证预写日志包含的
+提交序列与可串行化事务的某种串行执行一致，SSI 不能做该保证。虽然 WAL
+重放的一致性不亚于快照隔离，但在 PITR 恢复或热备下，数据库可能到达
+某可读状态，其中某些事务表观上出现在为保持可串行化一致性本必须位于
+它们之前的其他事务之前。本质上，若我们什么都不做，即便对可串行化事务，
+WAL 重放也将处于快照隔离。这可以吗？若不可以，我们如何处理？
+
+    * 外部复制。看这对外部复制方案的影响，如 Postgres-R、Slony、
+pgpool、HS/SR 等。这与“WAL 文件重放”问题相关。
+
+    * 对所有列做相等的 UNIQUE btree 搜索。由于对 UNIQUE 索引用全部列
+上的相等测试搜索，若找到条目就会锁定堆元组，看来那种情况下不必在索引
+上获取谓词锁。若未找到指向可见元组的匹配索引条目，这类搜索仍需要谓词
+锁。
+
+    * 最小化对共享内存的触及。共享内存中的列表是否应把刚归还的条目
+推到可用列表前面，以便它们很快再被弹出、某些内存可能永远不被触及，
+还是应继续把归还项加到可用列表末尾？
+
+
+参考文献
+--------
 
 [1] http://www.contrib.andrew.cmu.edu/~shadow/sql/sql1992.txt
-Search for serial execution to find the relevant section.
+搜索 serial execution 以找到相关章节。
 
 [2] A. Fekete et al. Making Snapshot Isolation Serializable. In ACM
 Transactions on Database Systems 30:2, Jun. 2005.
@@ -638,7 +448,7 @@ http://dx.doi.org/10.1145/1071610.1071615
 Architecture of a Database System. Foundations and Trends(R) in
 Databases Vol. 1, No. 2 (2007) 141-259.
 http://db.cs.berkeley.edu/papers/fntdb07-architecture.pdf
-  Of particular interest:
+  特别感兴趣的：
     * 6.1 A Note on ACID
     * 6.2 A Brief Review of Serializability
     * 6.3 Locking and Latching

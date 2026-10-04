@@ -1,90 +1,73 @@
-MCV lists
-=========
+MCV 列表
+========
 
-Multivariate MCV (most-common values) lists are a straightforward extension of
-regular MCV lists, tracking most frequent combinations of values for a group of
-attributes.
+多元 MCV（最常见值）列表是普通 MCV 列表的直接扩展，跟踪一组属性上最频
+繁的值组合。
 
-This works particularly well for columns with a small number of distinct values,
-as the list may include all the combinations and approximate the distribution
-very accurately.
+这对只有少量不同值的列特别有效，因为列表可能包含全部组合，从而非常准
+确地近似分布。
 
-For columns with a large number of distinct values (e.g. those with continuous
-domains), the list will only track the most frequent combinations. If the
-distribution is mostly uniform (all combinations about equally frequent), the
-MCV list will be empty.
+对有大量不同值的列（例如连续域），列表只会跟踪最频繁的组合。若分布大
+体均匀（所有组合频率大致相同），MCV 列表将为空。
 
-Estimates of some clauses (e.g. equality) based on MCV lists are more accurate
-than when using histograms.
+基于 MCV 列表对某些子句（例如等式）的估计，比使用直方图更准确。
 
-Also, MCV lists don't necessarily require sorting of the values (the fact that
-we use sorting when building them is an implementation detail), but even more
-importantly the ordering is not built into the approximation (while histograms
-are built on ordering). So MCV lists work well even for attributes where the
-ordering of the data type is disconnected from the meaning of the data. For
-example we know how to sort strings, but it's unlikely to make much sense for
-city names (or other label-like attributes).
+另外，MCV 列表不一定要求对值排序（构建时使用排序只是实现细节），更重
+要的是排序并未内建到近似中（而直方图建立在排序上）。因此即使数据类型
+的排序与数据含义脱节，MCV 列表也能工作良好。例如我们知道如何排序字符
+串，但对城市名（或其他标签类属性）这不太可能有多大意义。
 
 
-Selectivity estimation
-----------------------
+选择率估计
+----------
 
-The estimation, implemented in mcv_clauselist_selectivity(), is quite simple
-in principle - we need to identify MCV items matching all the clauses and sum
-frequencies of all those items.
+估计实现在 mcv_clauselist_selectivity() 中，原则上相当简单 —— 我们需要
+找出匹配所有子句的 MCV 项，并对这些项的频率求和。
 
-Currently MCV lists support estimation of the following clause types:
+目前 MCV 列表支持估计以下子句类型：
 
-    (a) equality clauses      WHERE (a = 1) AND (b = 2)
-    (b) inequality clauses    WHERE (a < 1) AND (b >= 2)
-    (c) NULL clauses          WHERE (a IS NULL) AND (b IS NOT NULL)
-    (d) OR clauses            WHERE (a < 1) OR (b >= 2)
+    (a) 等式子句          WHERE (a = 1) AND (b = 2)
+    (b) 不等式子句        WHERE (a < 1) AND (b >= 2)
+    (c) NULL 子句         WHERE (a IS NULL) AND (b IS NOT NULL)
+    (d) OR 子句           WHERE (a < 1) OR (b >= 2)
 
-It's possible to add support for additional clauses, for example:
+还可以增加对其他子句的支持，例如：
 
-    (e) multi-var clauses     WHERE (a > b)
+    (e) 多变量子句        WHERE (a > b)
 
-and possibly others. These are tasks for the future, not yet implemented.
-
-
-Hashed MCV (not yet implemented)
---------------------------------
-
-Regular MCV lists have to include actual values for each item, so if those items
-are large the list may be quite large. This is especially true for multivariate
-MCV lists, although the current implementation partially mitigates this by
-de-duplicating the values before storing them on disk.
-
-It's possible to only store hashes (32-bit values) instead of the actual values,
-significantly reducing the space requirements. Obviously, this would only make
-the MCV lists useful for estimating equality conditions (assuming the 32-bit
-hashes make the collisions rare enough).
-
-This might also complicate matching the columns to available stats.
+以及其他。这些是将来的任务，尚未实现。
 
 
-TODO Consider implementing hashed MCV list, storing just 32-bit hashes instead
-     of the actual values. This type of MCV list will be useful only for
-     estimating equality clauses, and will reduce space requirements for large
-     varlena types (in such cases we usually only want equality anyway).
+哈希 MCV（尚未实现）
+--------------------
+
+普通 MCV 列表必须为每项包含实际值，因此若这些项很大，列表可能相当大。
+多元 MCV 列表尤其如此，尽管当前实现通过在落盘前对值去重部分缓解了这一
+点。
+
+可以只存哈希（32 位值）而不存实际值，从而显著降低空间需求。显然，这只
+会使 MCV 列表对估计等式条件有用（假定 32 位哈希使冲突足够稀少）。
+
+这也可能使列与可用统计的匹配更复杂。
 
 
-Inspecting the MCV list
------------------------
+TODO 考虑实现哈希 MCV 列表，只存 32 位哈希而不存实际值。这类 MCV 列表
+     只对估计等式子句有用，并将降低大型 varlena 类型的空间需求（这种
+     情况下我们通常也只需要等式）。
 
-Inspecting the regular (per-attribute) MCV lists is trivial, as it's enough
-to select the columns from pg_stats. The data is encoded as anyarrays, and
-all the items have the same data type, so anyarray provides a simple way to
-get a text representation.
 
-With multivariate MCV lists, the columns may use different data types, making
-it impossible to use anyarrays. It might be possible to produce a similar
-array-like representation, but that would complicate further processing and
-analysis of the MCV list.
+查看 MCV 列表
+-------------
 
-So instead the MCV lists are stored in a custom data type (pg_mcv_list),
-which however makes it more difficult to inspect the contents. To make that
-easier, there's a SRF returning detailed information about the MCV lists.
+查看普通（按属性）MCV 列表很简单，从 pg_stats 选出列即可。数据编码为
+anyarray，且所有项类型相同，因此 anyarray 提供了得到文本表示的简便办
+法。
+
+多元 MCV 列表中各列可能使用不同数据类型，因而无法使用 anyarray。也许
+可以产生类似数组的表示，但那会让对 MCV 列表的进一步处理和分析更复杂。
+
+因此 MCV 列表改为存放在自定义数据类型（pg_mcv_list）中，不过这使查看
+内容更困难。为方便起见，有一个 SRF 返回 MCV 列表的详细信息。
 
     SELECT m.* FROM pg_statistic_ext s,
                     pg_statistic_ext_data d,
@@ -92,12 +75,11 @@ easier, there's a SRF returning detailed information about the MCV lists.
               WHERE s.stxname = 'stts2'
                 AND d.stxoid = s.oid;
 
-It accepts one parameter - a pg_mcv_list value (which can only be obtained
-from pg_statistic_ext_data catalog, to defend against malicious input), and
-returns these columns:
+它接受一个参数 —— 一个 pg_mcv_list 值（只能从 pg_statistic_ext_data
+目录获得，以防恶意输入），并返回这些列：
 
-    - item index (0, ..., (nitems-1))
-    - values (string array)
-    - nulls only (boolean array)
-    - frequency (double precision)
-    - base_frequency (double precision)
+    - 项下标（0, ..., (nitems-1)）
+    - values（字符串数组）
+    - nulls only（布尔数组）
+    - frequency（双精度）
+    - base_frequency（双精度）

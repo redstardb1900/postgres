@@ -1,116 +1,93 @@
-Soft functional dependencies
-============================
+软函数依赖
+==========
 
-Functional dependencies are a concept well described in relational theory,
-particularly in the definition of normalization and "normal forms". Wikipedia
-has a nice definition of a functional dependency [1]:
+函数依赖是关系理论中描述得很清楚的概念，尤其是在范式和“正规形式”的
+定义中。维基百科对函数依赖有不错的定义 [1]：
 
-    In a given table, an attribute Y is said to have a functional dependency
-    on a set of attributes X (written X -> Y) if and only if each X value is
-    associated with precisely one Y value. For example, in an "Employee"
-    table that includes the attributes "Employee ID" and "Employee Date of
-    Birth", the functional dependency
+    在给定表中，当且仅当每个 X 值恰好与一个 Y 值相关联时，称属性 Y 对
+    属性集 X 有函数依赖（写作 X -> Y）。例如，在包含属性
+    "Employee ID" 和 "Employee Date of Birth" 的 "Employee" 表中，函数
+    依赖
 
         {Employee ID} -> {Employee Date of Birth}
 
-    would hold. It follows from the previous two sentences that each
-    {Employee ID} is associated with precisely one {Employee Date of Birth}.
+    会成立。由前两句可知，每个 {Employee ID} 恰好与一个
+    {Employee Date of Birth} 相关联。
 
     [1] https://en.wikipedia.org/wiki/Functional_dependency
 
-In practical terms, functional dependencies mean that a value in one column
-determines values in some other column. Consider for example this trivial
-table with two integer columns:
+实践上，函数依赖意味着一列中的值决定另一些列中的值。例如考虑这张有两
+个整数列的简单表：
 
     CREATE TABLE t (a INT, b INT)
         AS SELECT i, i/10 FROM generate_series(1,100000) s(i);
 
-Clearly, knowledge of the value in column 'a' is sufficient to determine the
-value in column 'b', as it's simply (a/10). A more practical example may be
-addresses, where the knowledge of a ZIP code (usually) determines city. Larger
-cities may have multiple ZIP codes, so the dependency can't be reversed.
+显然，知道列 'a' 的值就足以确定列 'b' 的值，因为它就是 (a/10)。更实际
+的例子是地址，知道邮政编码（通常）就能确定城市。较大城市可能有多个邮
+政编码，因此依赖不能反过来。
 
-Many datasets might be normalized not to contain such dependencies, but often
-it's not practical for various reasons. In some cases, it's actually a conscious
-design choice to model the dataset in a denormalized way, either because of
-performance or to make querying easier.
+许多数据集可能已被规范化而不含这类依赖，但往往因各种原因并不现实。有
+些情况下，有意识地选择反规范化建模，或是为了性能，或是为了查询更容易。
 
 
-Soft dependencies
------------------
+软依赖
+------
 
-Real-world data sets often contain data errors, either because of data entry
-mistakes (user mistyping the ZIP code) or perhaps issues in generating the
-data (e.g. a ZIP code mistakenly assigned to two cities in different states).
+真实数据集常常含有数据错误，或因录入失误（用户打错邮政编码），或因生
+成数据时的问题（例如一个邮政编码被误分给不同州的两个城市）。
 
-A strict implementation would either ignore dependencies in such cases,
-rendering the approach mostly useless even for slightly noisy data sets, or
-result in sudden changes in behavior depending on minor differences between
-samples provided to ANALYZE.
+严格实现要么在这种情况下忽略依赖，使该方法对略有噪声的数据集几乎无用，
+要么会因 ANALYZE 所得样本的细微差别而突然改变行为。
 
-For this reason, extended statistics implement "soft" functional dependencies,
-associating each functional dependency with a degree of validity (a number
-between 0 and 1). This degree is then used to combine selectivities in a
-smooth manner.
+因此，扩展统计实现“软”函数依赖，为每个函数依赖关联一个有效程度（0
+到 1 之间的数）。该程度随后用来平滑地组合选择率。
 
 
-Mining dependencies (ANALYZE)
------------------------------
+挖掘依赖（ANALYZE）
+-------------------
 
-The current algorithm is fairly simple - generate all possible functional
-dependencies, and for each one count the number of rows consistent with it.
-Then use the fraction of rows (supporting/total) as the degree.
+当前算法相当简单 —— 生成所有可能的函数依赖，并对每一个统计与之相符的
+行数。然后用行的比例（支持/总数）作为程度。
 
-To count the rows consistent with the dependency (a => b):
+要统计与依赖 (a => b) 相符的行：
 
- (a) Sort the data lexicographically, i.e. first by 'a' then 'b'.
+ (a) 按字典序排序数据，即先按 'a' 再按 'b'。
 
- (b) For each group of rows with the same 'a' value, count the number of
-     distinct values in 'b'.
+ (b) 对每个具有相同 'a' 值的行组，统计 'b' 中不同值的个数。
 
- (c) If there's a single distinct value in 'b', the rows are consistent with
-     the functional dependency, otherwise they contradict it.
+ (c) 若 'b' 中只有一个不同值，这些行与函数依赖相符，否则与之矛盾。
 
 
-Clause reduction (planner/optimizer)
-------------------------------------
+子句归约（规划器/优化器）
+-------------------------
 
-Applying the functional dependencies is fairly simple: given a list of
-equality clauses, we compute selectivities of each clause and then use the
-degree to combine them using this formula
+应用函数依赖相当简单：给定一组等式子句，我们计算每个子句的选择率，然
+后用程度按此公式组合它们
 
     P(a=?,b=?) = P(a=?) * (d + (1-d) * P(b=?))
 
-Where 'd' is the degree of functional dependency (a => b).
+其中 'd' 是函数依赖 (a => b) 的程度。
 
-With more than two equality clauses, this process happens recursively. For
-example for (a,b,c) we first use (a,b => c) to break the computation into
+超过两个等式子句时，此过程递归进行。例如对 (a,b,c)，我们先用
+(a,b => c) 把计算拆成
 
     P(a=?,b=?,c=?) = P(a=?,b=?) * (e + (1-e) * P(c=?))
 
-where 'e' is the degree of functional dependency (a,b => c); then we can
-apply (a=>b) the same way on P(a=?,b=?).
+其中 'e' 是函数依赖 (a,b => c) 的程度；然后可以用同样方式把 (a=>b)
+应用到 P(a=?,b=?)。
 
 
-Consistency of clauses
-----------------------
+子句的一致性
+------------
 
-Functional dependencies only express general dependencies between columns,
-without referencing particular values. This assumes that the equality clauses
-are in fact consistent with the functional dependency, i.e. that given a
-dependency (a=>b), the value in (b=?) clause is the value determined by (a=?).
-If that's not the case, the clauses are "inconsistent" with the functional
-dependency and the result will be over-estimation.
+函数依赖只表达列之间的一般依赖，不引用具体值。这假定等式子句实际上与
+函数依赖一致，即给定依赖 (a=>b)，(b=?) 子句中的值就是由 (a=?) 决定的
+那个值。若不是这样，这些子句与函数依赖“不一致”，结果将会高估。
 
-This may happen, for example, when using conditions on the ZIP code and city
-name with mismatching values (ZIP code for a different city), etc. In such a
-case, the result set will be empty, but we'll estimate the selectivity using
-the ZIP code condition.
+例如，在邮政编码和城市名上使用不匹配的值（另一城市的邮政编码）时就会
+发生。这时结果集为空，但我们会用邮政编码条件来估计选择率。
 
-In this case, the default estimation based on AVIA principle happens to work
-better, but mostly by chance.
+这种情况下，基于 AVIA 原则的默认估计碰巧更好，但多半是碰巧。
 
-This issue is the price for the simplicity of functional dependencies. If the
-application frequently constructs queries with clauses inconsistent with
-functional dependencies present in the data, the best solution is not to
-use functional dependencies, but one of the more complex types of statistics.
+这是函数依赖简单性的代价。若应用经常构造与数据中存在的函数依赖不一致
+的查询子句，最好的办法是不用函数依赖，而用更复杂的统计类型。

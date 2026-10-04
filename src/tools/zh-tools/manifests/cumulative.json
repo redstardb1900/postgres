@@ -600,6 +600,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0016-readme-ci-repl.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/statistics/README.mcv",
+   "kind": "readme",
+   "note": "multivariate MCV lists"
+  },
+  {
+   "pattern": "src/backend/statistics/README.dependencies",
+   "kind": "readme",
+   "note": "soft functional dependencies"
+  },
+  {
+   "pattern": "src/backend/nodes/README",
+   "kind": "readme",
+   "note": "node structures"
+  },
+  {
+   "pattern": "src/tools/pginclude/README",
+   "kind": "readme",
+   "note": "include cleanup tools"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0017-readme-nodes-stats.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -2297,7 +2322,57 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/statistics/README.mcv",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "multivariate MCV lists"
+  },
+  {
+   "path": "src/backend/statistics/README.dependencies",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "soft functional dependencies"
+  },
+  {
+   "path": "src/backend/nodes/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "node structures"
+  },
+  {
+   "path": "src/tools/pginclude/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "include cleanup tools"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0017-readme-nodes-stats.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 58 of 88 include files translated."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 62 of 88 include files translated."
 }

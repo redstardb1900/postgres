@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0072-comment-analyzejoins-termfix",
+ "title": "zh: fix analyzejoins comment wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "57d4ca1cf027b02e4a6a4bf4a8739732c5de874e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/analyzejoins.c",
+   "kind": "c_comment",
+   "note": "join simplification"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0072-comment-analyzejoins-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/analyzejoins.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 138,
+   "translated": 137,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "join simplification"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0072-comment-analyzejoins-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0072 fixes analyzejoins.c wording (derived clauses, uniqueness operator, LATERAL)."
+}

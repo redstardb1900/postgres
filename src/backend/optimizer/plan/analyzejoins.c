@@ -236,7 +236,7 @@ join_is_removable(PlannerInfo *root, SpecialJoinInfo *sjinfo)
 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(l);
 
 		if (bms_overlap(phinfo->ph_lateral, innerrel->relids))
-			return false;		/* 它横向引用了内层关系 */
+			return false;		/* 它 LATERAL 引用了内层关系 */
 		if (!bms_overlap(phinfo->ph_eval_at, innerrel->relids))
 			continue;			/* 它肯定不引用内层关系 */
 		if (bms_is_subset(phinfo->ph_needed, inputrelids))
@@ -644,7 +644,7 @@ remove_rel_from_eclass(EquivalenceClass *ec, int relid, int ojrelid)
 	}
 
 	/*
-	 * 与其花代码去修正任何已经导出的子句，干脆
+	 * 与其花代码去修正任何已经推导的子句，干脆
 	 * 丢掉它们。（此时，任何这样的子句都会是基限制
 	 * 子句，反正也不再需要。）
 	 */
@@ -757,7 +757,7 @@ reduce_unique_semijoins(PlannerInfo *root)
 		/*
 		 * 由于只考虑单关系的右侧，它拥有的任何连接子句
 		 * 都必须是把它连到该半连接 min_lefthand 的子句。也可以
-		 * 考虑由等价类导出的连接子句。
+		 * 考虑由等价类推导的连接子句。
 		 */
 		restrictlist =
 			list_concat(generate_join_implied_equalities(root,
@@ -889,7 +889,7 @@ rel_is_distinct_for(PlannerInfo *root, RelOptInfo *rel, List *clause_list)
 			Var		   *var;
 
 			/*
-			 * 取得需要按其唯一的等值操作符。
+			 * 取得用于判断唯一性所依据的等值操作符。
 			 * （这也许是跨类型操作符，因而并不正好是
 			 * 子查询会考虑的同一个操作符；这没关系，
 			 * 因为 query_is_distinct_for 能处理这类情形。）

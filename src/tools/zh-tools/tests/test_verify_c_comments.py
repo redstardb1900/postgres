@@ -340,27 +340,33 @@ class CliModes(unittest.TestCase):
         self.assertEqual(r["violations"], 0)
         self.assertEqual(r["rule_counts"], {})
 
-    def test_cc_check_is_unverified_exit_2(self):
+    def test_cc_check_without_usable_evidence_is_unverified_exit_2(self):
         old = os.path.join(FIXTURES, "sample_old.c.txt")
         new = os.path.join(FIXTURES, "sample_zh.c.txt")
         rep = os.path.join(self.root, "cc.json")
-        rc, out, _ = self.run_cli(old, new, "--cc-check", "--json", rep, "-j", "1")
+        # single-file mode has no tree root and an empty evidence dir -> unverified
+        ev = os.path.join(self.root, "ev")
+        os.makedirs(ev)
+        rc, out, _ = self.run_cli(old, new, "--cc-check", "--cc-evidence", ev, "--json", rep, "-j", "1")
         self.assertEqual(rc, 2)
         self.assertIn("UNVERIFIED", out)
         with open(rep, encoding="utf-8") as f:
             r = json.load(f)
         self.assertEqual(r["cc_check"]["status"], "unverified")
-        self.assertFalse(r["cc_check"]["implemented"])
         self.assertEqual(r["exit_code"], 2)
-        # even with a (fake) frozen evidence dir it must stay unverified
-        ev = os.path.join(self.root, "ev")
-        os.makedirs(os.path.join(ev, "tokens"))
+        # an old-schema or draft baseline must stay unverified
         with open(os.path.join(ev, "baseline.json"), "w") as f:
             json.dump({"schema_version": 1, "status": "frozen", "base_commit": "x", "cc": "/usr/bin/gcc",
                        "cxx": "/usr/bin/g++", "cc_version": "v", "make_version": "m", "configure_args": []}, f)
         open(os.path.join(ev, "commands.jsonl"), "w").close()
         rc, out, _ = self.run_cli(old, new, "--cc-check", "--cc-evidence", ev, "-j", "1")
         self.assertEqual(rc, 2)
+        self.assertIn("schema_version", out)
+        with open(os.path.join(ev, "baseline.json"), "w") as f:
+            json.dump({"schema_version": 2, "status": "draft", "coverage_closed": True}, f)
+        rc, out, _ = self.run_cli(old, new, "--cc-check", "--cc-evidence", ev, "-j", "1")
+        self.assertEqual(rc, 2)
+        self.assertIn("not 'frozen'", out)
 
     def test_parse_error_exit_2(self):
         _write(self.root, "o.c", b"int a; /* open\n")

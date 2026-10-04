@@ -17,9 +17,11 @@
 | `check_scope.py` | 批次范围门禁：改动必须全部落在 manifest 的 `allowed_paths` 内并逐文件登记；覆盖 tracked、untracked、ignored；`doc/` 按递归快照和 tree OID 零变化；Perl 保护集按 blob OID 与 mode 零变化。新增 Perl 文件（扩展名或 shebang）的扫描始终相对冻结基线 REL_16_11 覆盖全部新增/修改路径及所有 untracked/ignored 文件，与 `--incremental` 无关 |
 | `term_lint.py` | 保守术语检查：读取 pgnls `ref/phrasebook.tsv`（`status=decided` 且有 `zh_forbidden`）、`ref/glossary.tsv` 中"译文=原文"的保留词，以及 `term_rules.json`；只报告"英文命中且中文命中禁用译法"或"保留词丢失"的明确命中；规则分 `error`/`warning` 两级，只有 `error` 硬失败；支持带理由的 allowlist；不做任何自动替换 |
 | `gen_baseline.py` | 从只读基线 worktree 冻结保护数据：`baseline/baseline.json`、`baseline/doc_snapshot.json`、`baseline/perl_protected.json`；`--verify` 可重新生成并与已提交数据比对。快照与 Perl 比对的文件读取均经 `os.open(O_NOFOLLOW)` + `fstat`，哈希前后复核 dev/ino/size/mode/mtime；普通文件的 perm/mode/size/sha256 全部取自同一个哈希 fd 的 fstat，不混用打开前的 lstat；symlink 只记录 link target 不跟随 |
-| `zhtools/` | 共享库：`c_lexer`（词法）、`c_verify`（规则）、`gitutil`、`protection`（快照/Perl 集）、`manifest`（schema v1 与 glob）、`termlint`、`cc_check`（接口占位） |
+| `make_evidence.py` | GNU Make 基线证据链 CLI：`environment`（机器/工具/locale/文件系统探测）、`configure`（全新源码树外 VPATH builddir）、`make NAME`（按 `frozen_config.json` 的 capture target 以 `-j1 -w` 捕获日志）、`check-world`（固定 `-j8 -k -Orecurse -w`，结构化结果）、`resummarize`（日志 SHA 不变时重新派生摘要）、`collect`（`.o/.Po/argv` 三方闭合 + flagset 模板）、`replay ROOT [--compare]`（`-E -P -MMD` 回放，token 哈希）、`freeze`（校验全部证据一致后写 `cc_evidence/baseline.json`） |
+| `zhtools/` | 共享库：`c_lexer`（词法）、`c_verify`（规则）、`gitutil`、`protection`（快照/Perl 集）、`manifest`（schema v1 与 glob）、`termlint`、`evidence_run`（冻结环境进程运行/日志 SHA/目录权限探针）、`makelog`（`-w` 日志解析、危险 shell 拒绝、闭合）、`ccreplay`（argv 改写、路径分类、token/depfile 规范化、cache key、freeze）、`checkworld`（check-world 结构化解析）、`cc_check`（`--cc-check` 判定） |
 | `manifests/` | `SCHEMA.md`（manifest schema v1）、`scope_template.json`（模板）、`batch-NNNN-*.json`（每批一份） |
-| `cc_evidence/` | `--cc-check` 证据输入的 schema 与说明（本版本仅接口） |
+| `evidence/` | 冻结输入 `frozen_config.json`、人读说明 `environment.md`，以及 `make_evidence.py` 写出的 `environment.json`、`configure.json`、`make_*.json`、`check_world.json`、`replay_compare_*.json`（大日志留在仓库外，只记路径与 SHA-256） |
+| `cc_evidence/` | `--cc-check` 证据：`baseline.json`（schema v2，含不可分割 cache key 与基线失败集）、`closure.json`、`commands.jsonl`、`flagsets.json`、`tokens.jsonl`、`replay_base.json`、`platform_exceptions_candidates.json`；规则见其 `README.md`、字段见 `schema.json` |
 | `tests/` | `unittest` 套件与固定正例/负例（`tests/fixtures/`） |
 | `run_tests.py` | 运行全部测试 |
 
@@ -31,10 +33,29 @@ configure 参数，`CC=/usr/bin/gcc`、`CXX=/usr/bin/g++`）。compile command�
 条件宏、生成头、POT、Bison/Flex 产物和 `make check-world` 全部来自这一配置。
 不创建 Meson builddir、不运行 Meson/Ninja、不维护第二套配置映射。
 
-`verify_c_comments.py --cc-check` 依赖该 build 捕获的 `make -j1 -w world-bin` /
-`make -j1 -w checkprep` 日志、`.o/.Po` 覆盖集和规范 argv（见
-`cc_evidence/README.md`）。**本版本尚未建立该基线，`--cc-check` 一律返回
-`UNVERIFIED`、退出码 2，不会伪装成功。**
+`verify_c_comments.py --cc-check` 依赖该 build 以 `make -j1 -w` 捕获的
+`world-bin` / `checkprep` / 测试程序日志、`.o/.Po/argv` 三方闭合和规范 argv
+（见 `cc_evidence/README.md`）。证据由 `make_evidence.py` 生成并 `freeze`；
+`--cc-check` 在证据缺失、`status != frozen`、任一 SHA-256 或工具版本不一致、
+回放失败、或改动文件不被任何变体覆盖且无已评审平台例外时一律返回
+`UNVERIFIED`（退出码 2），token 哈希不同返回违规（退出码 1）。
+
+```sh
+# 一次证据周期（在 zh worktree 的 src/tools/zh-tools 下；全部参数来自 evidence/frozen_config.json）
+python3 make_evidence.py environment
+python3 make_evidence.py configure
+for t in world_bin checkprep check_prereqs check_prereqs_ecpg check_prereqs_libpq check_prereqs_pg_bsd_indent; do
+  python3 make_evidence.py make $t; done
+python3 make_evidence.py collect
+python3 make_evidence.py replay /Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base   # label base
+python3 make_evidence.py replay . --label zh --compare                                            # 当前 zh 树
+python3 make_evidence.py check-world
+python3 make_evidence.py freeze
+```
+
+已知限制（本版本未实现，不会伪装通过）：翻译后的 `.y`/`.l` 文件没有 token 级
+证明（生成 TU 只按 `G` 规则哈希，不与源文件对应）；平台例外只有候选表，没有任何
+已批准条目；`--cc-check --git` 需要检出的工作树。
 
 ## 基线
 
@@ -77,7 +98,7 @@ python3 $T/verify_c_comments.py --self-check ../REL_16_11_base --json /tmp/selfc
 
 # 每批提交前：工作树 vs 基线（提交与验收禁用 --no-strict-lines）
 python3 $T/verify_c_comments.py --worktree REL_16_11 . --paths src/backend/access --json /tmp/vcc.json
-python3 $T/verify_c_comments.py --worktree REL_16_11 . --cc-check   # 目前必然退出 2
+python3 $T/verify_c_comments.py --worktree REL_16_11 . --cc-check   # 回放改动文件涉及的全部变体；无 C 改动时 verified
 
 # 最终验收：两个 ref
 python3 $T/verify_c_comments.py --git REL_16_11 REL_16_11_zh --json /tmp/vcc-final.json

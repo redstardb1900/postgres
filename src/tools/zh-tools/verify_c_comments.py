@@ -18,13 +18,21 @@ Options:
   --no-strict-lines   demote the per-comment LF-count rule to a warning
                       (debugging only; forbidden for commits and acceptance)
   --no-warnings       suppress advisory warnings in the output
-  --cc-check          request the compiler-preprocessor token cross-check.
-                      NOT IMPLEMENTED in this tool version: the Make VPATH
-                      baseline evidence does not exist yet, so the check
-                      always reports "unverified" and the exit code is 2.
-  --cc-evidence DIR   directory holding the frozen compile-command evidence
-                      (see cc_evidence/README.md); only consulted with
-                      --cc-check.
+  --cc-check          compiler-preprocessor token cross-check: replay the
+                      frozen GNU Make compile commands (-E -P -MMD) of every
+                      variant covering a changed file against the translated
+                      tree and compare token / header-set / argv hashes with
+                      the frozen baseline (see cc_evidence/README.md).
+                      "verified" only when every changed file is covered by a
+                      passing variant; a token difference is a violation
+                      (exit 1); anything the check cannot establish is
+                      "unverified" (exit 2).
+  --cc-evidence DIR   frozen evidence directory (default: cc_evidence/ next
+                      to this script)
+  --cc-root DIR       translated tree to preprocess (default: the --worktree
+                      ROOT; for --git the repo is used only when its HEAD is
+                      NEWREF)
+  --cc-jobs N         parallel preprocessor invocations
 
 Exit codes: 0 all files pass, 1 at least one violation, 2 parse error,
 unverified cc-check, or usage/IO error.
@@ -184,7 +192,9 @@ def main(argv=None):
     ap.add_argument("--no-strict-lines", action="store_true")
     ap.add_argument("--no-warnings", action="store_true")
     ap.add_argument("--cc-check", action="store_true")
-    ap.add_argument("--cc-evidence", default=None)
+    ap.add_argument("--cc-evidence", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "cc_evidence"))
+    ap.add_argument("--cc-root", default=None)
+    ap.add_argument("--cc-jobs", type=int, default=None)
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
 
@@ -264,9 +274,21 @@ def main(argv=None):
 
     cc = None
     if args.cc_check:
-        cc = cc_check.run(args.cc_evidence, [r["path"] for r in results])
+        cc_root = args.cc_root
+        if cc_root is None and args.worktree:
+            cc_root = os.path.abspath(args.worktree[1])
+        elif cc_root is None and args.git:
+            repo = args.repo or os.getcwd()
+            try:
+                if gitutil.rev_parse("HEAD", cwd=repo) == report["new"]:
+                    cc_root = os.path.abspath(gitutil.toplevel(repo))
+            except gitutil.GitError:
+                cc_root = None
+        cc = cc_check.run(args.cc_evidence, [r["path"] for r in results], cc_root, jobs=args.cc_jobs)
         report["cc_check"] = cc
-        if cc["status"] != "verified":
+        if cc["status"] == "violation":
+            exit_code = max(exit_code, 1)
+        elif cc["status"] != "verified":
             exit_code = 2
 
     report.update({
@@ -300,6 +322,13 @@ def main(argv=None):
               report["elapsed_sec"]))
     if cc is not None:
         print("cc-check: %s -- %s" % (cc["status"].upper(), cc["reason"]))
+        if not args.quiet:
+            for p in cc.get("uncovered", []):
+                print("  cc-check UNCOVERED %s" % p)
+            for d in cc.get("variants_different", []):
+                print("  cc-check DIFFERENT %s (%s)" % (d["variant_key"], d["kind"]))
+            for f in cc.get("variants_failed", []):
+                print("  cc-check FAILED %s: %s" % (f["variant_key"], (f["error"] or "").strip().splitlines()[-1:]))
 
     if args.json_out:
         with open(args.json_out, "w", encoding="utf-8") as f:

@@ -1,0 +1,182 @@
+{
+ "schema_version": 1,
+ "batch_id": "0004-make-evidence-tools",
+ "title": "zh: add GNU Make evidence collection",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9fef65d6651ec4204cfcd408293ce6d83830f5fc",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/**",
+   "kind": "tool",
+   "note": "GNU Make evidence tooling (make_evidence.py, zhtools.makelog/ccreplay/checkworld/evidence_run, implemented cc_check) and the frozen evidence configuration; no translation content, no doc/, no Perl"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/README.md",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/cc_evidence/schema.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/evidence/frozen_config.json",
+   "kind": "baseline",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "frozen input of the Make evidence cycle (configure args, env, capture targets)"
+  },
+  {
+   "path": "src/tools/zh-tools/make_evidence.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0004-make-evidence-tools.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_cc_check.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_ccreplay.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_checkworld.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_makelog.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/__init__.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/cc_check.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/ccreplay.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/checkworld.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/evidence_run.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/makelog.py",
+   "kind": "tool",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": []
+  }
+ ],
+ "notes": "Plan step 1 tooling: frozen GNU Make VPATH evidence environment, -j1 -w log parsing with cwd tracking and dangerous-shell rejection, .o/.Po/argv closure with variants, base->zh path mapping and -E -P -MMD replay with canonical token hashes, check-world structured results, indivisible cache key, platform exception candidates, implemented --cc-check (UNVERIFIED on any uncertainty). The evidence produced with these tools is committed separately (batch 0005)."
+}

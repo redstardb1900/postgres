@@ -11,4 +11,6 @@ import sys
 # Never leave __pycache__ behind inside the source tree.
 sys.dont_write_bytecode = True
 
-TOOLS_VERSION = "0.1.0"
+# 0.2.0: GNU Make evidence chain (make_evidence.py, makelog, ccreplay,
+# checkworld, evidence_run) and an implemented --cc-check.
+TOOLS_VERSION = "0.2.0"

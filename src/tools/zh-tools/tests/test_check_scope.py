@@ -120,6 +120,53 @@ class ProtectionUnit(unittest.TestCase):
             self.assertEqual(digest, hashlib.sha256(b"A").hexdigest())
             self.assertEqual(st.st_size, 1)
 
+    def test_snapshot_file_fields_come_from_hashing_fd_stat(self):
+        """perm/mode/size must be taken from the fstat of the hashed descriptor,
+        never from the pre-open lstat (TOCTOU)."""
+        with tempfile.TemporaryDirectory() as d:
+            write(d, "doc/f.txt", "abc", mode=0o644)
+            real = protection.sha256_fd_stable
+            calls = []
+
+            class FakeSt(object):
+                st_mode = 0o100755
+                st_size = 99
+                st_dev = 1
+                st_ino = 2
+
+            def fake(path, expect_st=None):
+                calls.append((path, expect_st))
+                return "f" * 64, FakeSt()
+
+            protection.sha256_fd_stable = fake
+            try:
+                snap = protection.snapshot_tree(d, "doc")
+            finally:
+                protection.sha256_fd_stable = real
+            f = [e for e in snap if e["path"] == "doc/f.txt"][0]
+            self.assertEqual((f["mode"], f["perm"], f["size"], f["sha256"]), ("100755", "0755", 99, "f" * 64))
+            self.assertEqual(len(calls), 1)
+            self.assertIsNotNone(calls[0][1])  # lstat passed for identity check
+            # directories and symlinks keep lstat-derived fields
+            dd = [e for e in snap if e["path"] == "doc"][0]
+            self.assertEqual(dd["type"], "dir")
+            self.assertNotIn("size", dd)
+
+    def test_snapshot_file_unstable_raises(self):
+        with tempfile.TemporaryDirectory() as d:
+            write(d, "doc/f.txt", "abc")
+            real = protection.sha256_fd_stable
+
+            def fake(path, expect_st=None):
+                raise protection.UnstableFile("swapped")
+
+            protection.sha256_fd_stable = fake
+            try:
+                with self.assertRaises(protection.UnstableFile):
+                    protection.snapshot_tree(d, "doc")
+            finally:
+                protection.sha256_fd_stable = real
+
     def test_snapshot_and_compare(self):
         with tempfile.TemporaryDirectory() as d:
             write(d, "doc/a.txt", "a")
@@ -410,6 +457,83 @@ class ScopeEndToEnd(unittest.TestCase):
             json.dump(mm, f)
         rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
         self.assertEqual(self.rules(data), {"S1_BASE_MISMATCH"})
+
+    def test_incremental_detects_perl_added_by_earlier_commit(self):
+        """Review finding: Perl added relative to REL_16_11 by a previous
+        batch and untouched by this one must still fail, in both modes."""
+        # batch 1 (already committed): adds a .pl, a shebang-perl file and
+        # turns a shell script into perl
+        write(self.work, "src/new.pl", "1;\n")
+        write(self.work, "src/newperl", "#!/usr/bin/env perl\n1;\n")
+        write(self.work, "src/bin/script", "#!/usr/bin/perl\nprint 1;\n", mode=0o755)
+        git(self.work, "add", "-A")
+        git(self.work, "commit", "-q", "-m", "batch1 sneaks perl in")
+        parent = git(self.work, "rev-parse", "HEAD")
+        # batch 2 only touches src/a.c
+        write(self.work, "src/a.c", "int a; /* 甲 */\n")
+        m2 = os.path.join(self.tmp.name, "m2.json")
+        with open(m2, "w") as f:
+            json.dump({"schema_version": 1, "batch_id": "b2", "title": "t", "base_commit": self.base_sha,
+                       "parent_commit": parent, "pgnls_commit": PGNLS_SHA,
+                       "allowed_paths": [{"pattern": "src/**", "kind": "c_comment"}],
+                       "files": [self.fe("src/a.c")]}, f)
+        expected = {("S4_PERL_NEW", "src/new.pl"), ("S4_PERL_NEW", "src/newperl"),
+                    ("S4_PERL_NEW", "src/bin/script")}
+        # incremental worktree
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 1)
+        got = {(v["rule"], v["path"]) for v in data["violations"]}
+        self.assertTrue(expected <= got, got)
+        # the incremental manifest check itself is satisfied (only S4 fires)
+        self.assertEqual(self.rules(data), {"S4_PERL_NEW"})
+        self.assertEqual([c["path"] for c in data["changes"]], ["src/a.c"])
+        # incremental ref
+        git(self.work, "commit", "-q", "-am", "batch2")
+        rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 1)
+        got = {(v["rule"], v["path"]) for v in data["violations"]}
+        self.assertTrue(expected <= got, got)
+        self.assertEqual(self.rules(data), {"S4_PERL_NEW"})
+        # cumulative ref also fails (and additionally flags the manifest gap)
+        rc, _, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m2)
+        self.assertEqual(rc, 1)
+        got = {(v["rule"], v["path"]) for v in data["violations"]}
+        self.assertTrue(expected <= got, got)
+        # removing the offending files again makes incremental pass
+        git(self.work, "rm", "-q", "src/new.pl", "src/newperl")
+        write(self.work, "src/bin/script", "#!/bin/sh\necho hi\n", mode=0o755)
+        git(self.work, "commit", "-q", "-am", "undo perl")
+        m3 = os.path.join(self.tmp.name, "m3.json")
+        with open(m2) as f:
+            mm = json.load(f)
+        mm["parent_commit"] = git(self.work, "rev-parse", "HEAD~1")
+        mm["files"] = [self.fe("src/bin/script")]
+        with open(m3, "w") as f:
+            json.dump(mm, f)
+        rc, out, data = self.run_scope("--ref", "HEAD", "--repo", self.work, "--manifest", m3, "--incremental")
+        # deletions of new.pl/newperl are 'D' in the incremental diff and
+        # have no manifest entry -> S2, but no S4_PERL_NEW remains
+        self.assertNotIn("S4_PERL_NEW", self.rules(data))
+
+    def test_incremental_detects_untracked_and_ignored_perl(self):
+        write(self.work, "src/a.c", "int a; /* 甲 */\n")
+        git(self.work, "commit", "-q", "-am", "batch1")
+        parent = git(self.work, "rev-parse", "HEAD")
+        write(self.work, "src/b.h", "/* 头 */\n")
+        write(self.work, "tools/helper.pl", "1;\n")                 # untracked, outside pattern
+        write(self.work, "build/gen.pm", "package gen;\n")          # ignored (build/)
+        write(self.work, "build/run", "#!/usr/bin/perl\n")          # ignored, shebang
+        m2 = os.path.join(self.tmp.name, "m2.json")
+        with open(m2, "w") as f:
+            json.dump({"schema_version": 1, "batch_id": "b2", "title": "t", "base_commit": self.base_sha,
+                       "parent_commit": parent, "pgnls_commit": PGNLS_SHA,
+                       "allowed_paths": [{"pattern": "src/**", "kind": "c_comment"}],
+                       "files": [self.fe("src/b.h")]}, f)
+        rc, _, data = self.run_scope("--worktree", self.work, "--manifest", m2, "--incremental")
+        self.assertEqual(rc, 1)
+        got = {(v["rule"], v["path"]) for v in data["violations"]}
+        for p in ("tools/helper.pl", "build/gen.pm", "build/run"):
+            self.assertIn(("S4_PERL_NEW", p), got)
 
     def test_bad_inputs_exit_2(self):
         p = subprocess.run([sys.executable, os.path.join(TOOLS_DIR, "check_scope.py"), "--worktree", self.work,

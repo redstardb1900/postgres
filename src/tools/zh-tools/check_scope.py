@@ -18,9 +18,10 @@ Modes:
   (default)            cumulative: diff against the frozen base commit; the
                        manifest must describe everything changed since
                        REL_16_11 (used for the final acceptance)
-  --incremental        per-batch: diff against the manifest's parent_commit
-                       (must descend from the frozen base); doc/ and Perl
-                       checks are still absolute against the frozen baseline
+  --incremental        per-batch: the manifest (S2) is checked against the
+                       diff from the manifest's parent_commit (must descend
+                       from the frozen base); doc/ (S3) and Perl (S4) checks
+                       are always absolute against the frozen baseline
 
 Checks (violation ids):
   S1_BASE_MISMATCH     base ref does not resolve to the frozen base commit
@@ -34,7 +35,10 @@ Checks (violation ids):
   S3_DOC_DIFF          git diff against the base commit touches doc/
   S4_PERL_CHANGED      a Perl protected file differs (blob OID or mode)
   S4_PERL_MISSING      a Perl protected file is missing
-  S4_PERL_NEW          a new Perl file (by extension or shebang) appeared
+  S4_PERL_NEW          a Perl file (by extension or shebang) that is not in
+                       the frozen protected set exists -- scanned over every
+                       path added/modified since REL_16_11 (and all untracked
+                       / ignored files), regardless of --incremental
 
 Exit codes: 0 pass, 1 violations, 2 unverified (bad inputs / git error).
 """
@@ -241,12 +245,6 @@ def check(args):
                 scope.add("S4_PERL_CHANGED", e["path"], "blob %s != baseline %s" % (oid, e["oid"]))
             if mode != e["mode"]:
                 scope.add("S4_PERL_CHANGED", e["path"], "mode %s != baseline %s" % (mode, e["mode"]))
-        for status, path, origin in changes:
-            if status == "D" or path in perl_by_path:
-                continue
-            full = os.path.join(repo, path)
-            if os.path.isfile(full) and protection.is_perl_file_on_disk(full):
-                scope.add("S4_PERL_NEW", path, "new Perl file (%s)" % origin)
     else:
         tree = gitutil.ls_tree(args.ref, cwd=repo)
         for e in perl_entries:
@@ -259,14 +257,40 @@ def check(args):
                 scope.add("S4_PERL_CHANGED", e["path"], "blob %s != baseline %s" % (oid, e["oid"]))
             if mode != e["mode"]:
                 scope.add("S4_PERL_CHANGED", e["path"], "mode %s != baseline %s" % (mode, e["mode"]))
-        new_paths = [p for s, p, _ in changes if s != "D" and p not in perl_by_path]
-        for path in new_paths:
-            if protection.is_perl_name(path):
-                scope.add("S4_PERL_NEW", path, "new Perl file (extension)")
+
+    # ---- S4 (continued): new Perl files, ALWAYS relative to the frozen base
+    # The scan must not depend on --incremental: a Perl file added by an
+    # earlier batch and untouched by this one would otherwise slip through.
+    # Every path that is added or modified since REL_16_11 (tracked), plus
+    # every untracked / ignored file in worktree mode, is classified by
+    # name and -- for regular files -- by shebang.
+    if args.worktree:
+        absolute = collect_changes_worktree(repo, base_commit)
+    else:
+        absolute = collect_changes_ref(repo, base_commit, args.ref)
+    report["n_changes_since_base"] = len(absolute)
+    seen_new = set()
+    for status, path, origin in absolute:
+        if status == "D" or path in perl_by_path or path in seen_new:
+            continue
+        seen_new.add(path)
+        how = "added" if status in ("A", "U", "I") else "modified"
+        if protection.is_perl_name(path):
+            scope.add("S4_PERL_NEW", path, "new Perl file by extension (%s since base, %s)" % (how, origin))
+            continue
+        if args.worktree:
+            full = os.path.join(repo, path)
+            try:
+                if not stat.S_ISREG(os.lstat(full).st_mode):
+                    continue
+            except OSError:
                 continue
+            if protection.is_perl_file_on_disk(full):
+                scope.add("S4_PERL_NEW", path, "new Perl file by shebang (%s since base, %s)" % (how, origin))
+        else:
             blob = gitutil.show_blob(args.ref, path, cwd=repo)
             if blob is not None and protection.is_perl_shebang(blob[:256]):
-                scope.add("S4_PERL_NEW", path, "new Perl file (shebang)")
+                scope.add("S4_PERL_NEW", path, "new Perl file by shebang (%s since base)" % how)
     return scope, report
 
 

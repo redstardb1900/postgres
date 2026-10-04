@@ -163,26 +163,37 @@ def snapshot_tree(root, subdir):
 
 
 def _entry(rel, full, st):
+    """Snapshot entry for one path.
+
+    *st* is the lstat() taken while walking.  For regular files it is used
+    only to decide the type and to verify identity; every recorded field
+    (perm, mode, size, sha256) comes from the fstat() of the descriptor the
+    content was hashed through, after the before/after stability check, so
+    the entry describes exactly one observed file state.  Symlinks are
+    recorded by lstat + readlink and never followed.
+    """
     rel = rel.replace(os.sep, "/")
-    e = {"path": rel, "perm": "%04o" % (st.st_mode & 0o7777)}
+    e = {"path": rel}
     if stat.S_ISLNK(st.st_mode):
         e["type"] = "symlink"
         e["mode"] = "120000"
+        e["perm"] = "%04o" % (st.st_mode & 0o7777)
         e["target"] = os.readlink(full)
     elif stat.S_ISDIR(st.st_mode):
         e["type"] = "dir"
         e["mode"] = "040000"
+        e["perm"] = "%04o" % (st.st_mode & 0o7777)
     elif stat.S_ISREG(st.st_mode):
-        # hash through a non-following descriptor and require that the
-        # opened file is the one lstat() described (no TOCTOU swap)
         digest, st_fd = sha256_fd_stable(full, expect_st=st)
         e["type"] = "file"
-        e["mode"] = "100755" if st_fd.st_mode & 0o111 else "100644"
+        e["mode"] = git_mode_of_stat(st_fd)
+        e["perm"] = "%04o" % (st_fd.st_mode & 0o7777)
         e["size"] = st_fd.st_size
         e["sha256"] = digest
     else:
         e["type"] = "other"
         e["mode"] = "000000"
+        e["perm"] = "%04o" % (st.st_mode & 0o7777)
     return e
 
 

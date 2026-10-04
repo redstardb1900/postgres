@@ -51,20 +51,20 @@
  * CP_EXACT_TLIST 指定生成的计划节点必须恰好返回
  * 路径的 pathtarget 所指定的 tlist（若也设置了
  * CP_SMALL_TLIST 和 CP_LABEL_TLIST，则覆盖它们）。否则，
- * 计划节点可以只返回求值 pathtarget 所需的 Var 和 PlaceHolderVars。
- * CP_SMALL_TLIST 指定更窄的 tlist 更可取。这由
+ * 计划节点可以只返回求值 pathtarget 所需的 Var
+ * 和 PlaceHolderVars。
  *
- * Sort 和 Hash 这类父节点向下传递，它们必须
+ * CP_SMALL_TLIST 指定更窄的 tlist 更可取。
+ * 这由 Sort 和 Hash 这类父节点向下传递，它们必须
  * 存储返回的元组。
+ *
  * CP_LABEL_TLIST 指定计划节点必须返回与
- *
  * 其 pathtarget 里指定的任何 sortgroupref 匹配的列，并带上适当的
- * ressortgroupref 标注。这由 Sort
- * 和 Group 这类父节点向下传递，它们需要这些值在其输入里可用。
- * CP_IGNORE_TLIST 指定调用方打算替换目标列表，
+ * ressortgroupref 标注。这由 Sort 和 Group 这类父节点向下传递，
+ * 它们需要这些值在其输入里可用。
  *
- * 因此生成什么样的目标列表
- * 一点也不要紧。
+ * CP_IGNORE_TLIST 指定调用方打算替换目标列表，
+ * 因此生成什么样的目标列表一点也不要紧。
  */
 #define CP_EXACT_TLIST		0x0001	/* 计划必须返回指定的 tlist */
 #define CP_SMALL_TLIST		0x0002	/* 更窄的 tlist 更可取 */

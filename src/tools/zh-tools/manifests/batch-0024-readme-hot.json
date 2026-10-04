@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0024-readme-hot",
+ "title": "zh: translate HOT README",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8f009b0aa8b3bae1d21a7fc9625e1cd9c78d5a56",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/README.HOT",
+   "kind": "readme",
+   "note": "HOT chains, pruning, CREATE INDEX; diagrams kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0024-readme-hot.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/README.HOT",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 12,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "HOT chains, pruning, CREATE INDEX; diagrams kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0024-readme-hot.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Fourteenth README batch: 1 file. Line-pointer diagrams, flags and glossary terms kept. HOT->堆内元组."
+}

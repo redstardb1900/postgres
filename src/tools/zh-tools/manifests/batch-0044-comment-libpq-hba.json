@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0044-comment-libpq-hba",
+ "title": "zh: translate hba comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7abfa05250251621786fc91abbf3ab740615c47b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "note": "comment-only; pgindent header and translator comment kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0044-comment-libpq-hba.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 199,
+   "translated": 192,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "translator comment",
+    "config keyword and ctLocal markers left unchanged"
+   ],
+   "note": "comment-only; pgindent header and translator comment kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0044-comment-libpq-hba.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

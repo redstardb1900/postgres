@@ -1130,6 +1130,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0043-comment-libpq-scram-termfix.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "note": "comment-only; pgindent header and translator comment kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0044-comment-libpq-hba.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -4032,7 +4042,31 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 199,
+   "translated": 192,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "translator comment",
+    "config keyword and ctLocal markers left unchanged"
+   ],
+   "note": "comment-only; pgindent header and translator comment kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0044-comment-libpq-hba.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files except auth.c and hba.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, hba.c. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files except auth.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph."
 }

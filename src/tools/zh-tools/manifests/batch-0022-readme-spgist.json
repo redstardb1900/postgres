@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0022-readme-spgist",
+ "title": "zh: translate SP-GiST README",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "aff8109a33ecc0b2526244c8258ece6ead883d12",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/spgist/README",
+   "kind": "readme",
+   "note": "SP-GiST structure, insert, concurrency, VACUUM"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0022-readme-spgist.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/spgist/README",
+   "kind": "readme",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 10,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "SP-GiST structure, insert, concurrency, VACUUM"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0022-readme-spgist.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Twelfth README batch: 1 file. Insertion pseudocode, radix-tree diagrams and author emails kept."
+}

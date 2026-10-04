@@ -1,115 +1,90 @@
 src/backend/access/spgist/README
 
-SP-GiST is an abbreviation of space-partitioned GiST.  It provides a
-generalized infrastructure for implementing space-partitioned data
-structures, such as quadtrees, k-d trees, and radix trees (tries).  When
-implemented in main memory, these structures are usually designed as a set of
-dynamically-allocated nodes linked by pointers.  This is not suitable for
-direct storing on disk, since the chains of pointers can be rather long and
-require too many disk accesses. In contrast, disk based data structures
-should have a high fanout to minimize I/O.  The challenge is to map tree
-nodes to disk pages in such a way that the search algorithm accesses only a
-few disk pages, even if it traverses many nodes.
+SP-GiST 是 space-partitioned GiST（空间划分 GiST）的缩写。它为实现空间
+划分数据结构提供通用基础设施，例如四叉树、k-d 树和基数树（trie）。这些
+结构在主存中实现时，通常设计为一组由指针链接的动态分配节点。这不适合
+直接存盘，因为指针链可能相当长，需要太多磁盘访问。相反，基于磁盘的数据
+结构应有高扇出以最小化 I/O。挑战是把树节点映射到磁盘页，使得搜索算法
+即便遍历许多节点也只访问少数磁盘页。
 
 
-COMMON STRUCTURE DESCRIPTION
+通用结构描述
 
-Logically, an SP-GiST tree is a set of tuples, each of which can be either
-an inner or leaf tuple.  Each inner tuple contains "nodes", which are
-(label,pointer) pairs, where the pointer (ItemPointerData) is a pointer to
-another inner tuple or to the head of a list of leaf tuples.  Inner tuples
-can have different numbers of nodes (children).  Branches can be of different
-depth (actually, there is no control or code to support balancing), which
-means that the tree is non-balanced.  However, leaf and inner tuples cannot
-be intermixed at the same level: a downlink from a node of an inner tuple
-leads either to one inner tuple, or to a list of leaf tuples.
+逻辑上，SP-GiST 树是一组元组，每个可以是内部元组或叶子元组。每个内部
+元组包含“节点”，即（标签,指针）对，其中指针（ItemPointerData）指向另一
+内部元组，或指向叶子元组列表的头。内部元组可以有不同数量的节点（子节
+点）。分支可以有不同深度（实际上没有控制或代码来支持平衡），这意味着
+树是非平衡的。不过叶子元组和内部元组不能在同一层混放：内部元组某节点
+的下行指针要么通向一个内部元组，要么通向一个叶子元组列表。
 
-The SP-GiST core requires that inner and leaf tuples fit on a single index
-page, and even more stringently that the list of leaf tuples reached from a
-single inner-tuple node all be stored on the same index page.  (Restricting
-such lists to not cross pages reduces seeks, and allows the list links to be
-stored as simple 2-byte OffsetNumbers.)  SP-GiST index opclasses should
-therefore ensure that not too many nodes can be needed in one inner tuple,
-and that inner-tuple prefixes and leaf-node datum values not be too large.
+SP-GiST 核心要求内部元组和叶子元组能放进单个索引页，并且更严格地要求
+从单个内部元组节点到达的叶子元组列表全部存在同一索引页上。（限制这种
+列表不跨页可减少寻道，并允许把列表链接存为简单的 2 字节 OffsetNumber。）
+因此 SP-GiST 索引操作符类应确保一个内部元组中不会需要太多节点，并且
+内部元组前缀和叶子节点 datum 值不要太大。
 
-Inner and leaf tuples are stored separately: the former are stored only on
-"inner" pages, the latter only on "leaf" pages.  Also, there are special
-restrictions on the root page.  Early in an index's life, when there is only
-one page's worth of data, the root page contains an unorganized set of leaf
-tuples.  After the first page split has occurred, the root is required to
-contain exactly one inner tuple.
+内部元组和叶子元组分开存放：前者只存在“内部”页上，后者只存在“叶子”页
+上。根页还有特殊限制。索引生命早期，当数据只有一页时，根页包含一组未
+组织的叶子元组。第一次页分裂发生后，根被要求恰好包含一个内部元组。
 
-When the search traversal algorithm reaches an inner tuple, it chooses a set
-of nodes to continue tree traverse in depth.  If it reaches a leaf page it
-scans a list of leaf tuples to find the ones that match the query. SP-GiST
-also supports ordered (nearest-neighbor) searches - that is during scan pending
-nodes are put into priority queue, so traversal is performed by the
-closest-first model.
+当搜索遍历算法到达内部元组时，它选择一组节点继续向深度遍历树。若到达
+叶子页，它扫描叶子元组列表以找到匹配查询的那些。SP-GiST 也支持有序
+（最近邻）搜索——即扫描期间把挂起节点放入优先队列，从而按最近优先模型
+遍历。
 
 
-The insertion algorithm descends the tree similarly, except it must choose
-just one node to descend to from each inner tuple.  Insertion might also have
-to modify the inner tuple before it can descend: it could add a new node, or
-it could "split" the tuple to obtain a less-specific prefix that can match
-the value to be inserted.  If it's necessary to append a new leaf tuple to a
-list and there is no free space on page, then SP-GiST creates a new inner
-tuple and distributes leaf tuples into a set of lists on, perhaps, several
-pages.
+插入算法类似地下降树，只是它必须从每个内部元组只选择一个节点下降。插入
+在下降前也可能必须修改内部元组：它可以添加新节点，或“分裂”该元组以得到
+能匹配待插入值的更不具体前缀。若必须向列表追加新叶子元组且页上没有空闲
+空间，则 SP-GiST 创建新的内部元组，并把叶子元组分配到也许在若干页上的
+一组列表中。
 
-An inner tuple consists of:
+内部元组由以下组成：
 
-  optional prefix value - all successors must be consistent with it.
-    Example:
-        radix tree   - prefix value is a common prefix string
-        quad tree    - centroid
-        k-d tree     - one coordinate
+  可选前缀值 — 所有后继必须与它一致。
+    例子：
+        基数树   — 前缀值是公共前缀串
+        四叉树   — 质心
+        k-d 树   — 一个坐标
 
-  list of nodes, where node is a (label, pointer) pair.
-    Example of a label: a single character for radix tree
+  节点列表，其中节点是（标签, 指针）对。
+    标签的例子：基数树的单个字符
 
-A leaf tuple consists of:
+叶子元组由以下组成：
 
-  a leaf value
-    Example:
-        radix tree - the rest of string (postfix)
-        quad and k-d tree - the point itself
+  一个叶子值
+    例子：
+        基数树 — 字符串的剩余部分（后缀）
+        四叉树和 k-d 树 — 点本身
 
-  ItemPointer to the corresponding heap tuple
-  nextOffset number of next leaf tuple in a chain on a leaf page
+  指向对应堆元组的 ItemPointer
+  叶子页上链中下一叶子元组的 nextOffset 编号
 
-  optional nulls bitmask
-  optional INCLUDE-column values
+  可选空位掩码
+  可选 INCLUDE 列值
 
-For compatibility with pre-v14 indexes, a leaf tuple has a nulls bitmask
-only if there are null values (among the leaf value and the INCLUDE values)
-*and* there is at least one INCLUDE column.  The null-ness of the leaf
-value can be inferred from whether the tuple is on a "nulls page" (see below)
-so it is not necessary to represent it explicitly.  But we include it anyway
-in a bitmask used with INCLUDE values, so that standard tuple deconstruction
-code can be used.
+为与 v14 之前的索引兼容，叶子元组仅当存在空值（在叶子值和 INCLUDE 值
+之中）*并且*至少有一列 INCLUDE 时才有空位掩码。叶子值是否为空可以从
+元组是否在“空值页”上推断（见下文），因此不必显式表示。但我们在与
+INCLUDE 值一起使用的位掩码中仍包含它，以便能使用标准元组拆解代码。
 
 
-NULLS HANDLING
+空值处理
 
-We assume that SPGiST-indexable operators are strict (can never succeed for
-null inputs).  It is still desirable to index nulls, so that whole-table
-indexscans are possible and so that "x IS NULL" can be implemented by an
-SPGiST indexscan.  However, we prefer that SPGiST index opclasses not have
-to cope with nulls.  Therefore, the main tree of an SPGiST index does not
-include any null entries.  We store null entries in a separate SPGiST tree
-occupying a disjoint set of pages (in particular, its own root page).
-Insertions and searches in the nulls tree do not use any of the
-opclass-supplied functions, but just use hardwired logic comparable to
-AllTheSame cases in the normal tree.
+我们假定 SPGiST 可索引操作符是严格的（对空输入永远不会成功）。仍然希望
+索引空值，以便整表索引扫描成为可能，并且 “x IS NULL” 可以用 SPGiST 索引
+扫描实现。不过我们更希望 SPGiST 索引操作符类不必应付空值。因此 SPGiST
+索引的主树不包含任何空条目。我们把空条目存在占用不相交页集合（特别是
+自己的根页）的单独 SPGiST 树中。空值树中的插入和搜索不使用任何操作符类
+提供的函数，而只使用与正常树中 AllTheSame 情形相当的硬编码逻辑。
 
 
-INSERTION ALGORITHM
+插入算法
 
-Insertion algorithm is designed to keep the tree in a consistent state at
-any moment.  Here is a simplified insertion algorithm specification
-(numbers refer to notes below):
+插入算法设计为在任何时刻都保持树处于一致状态。以下是简化的插入算法
+规格（数字指向后面的说明）：
 
-  Start with the first tuple on the root page (1)
+  从根页上的第一个元组开始 (1)
 
   loop:
     if (page is leaf) then
@@ -126,65 +101,54 @@ any moment.  Here is a simplified insertion algorithm specification
                               retry chooseFn with the prefix tuple (4, 6)
     end if
 
-Notes:
+说明：
 
-(1) Initially, we just dump leaf tuples into the root page until it is full;
-then we split it.  Once the root is not a leaf page, it can have only one
-inner tuple, so as to keep the amount of free space on the root as large as
-possible.  Both of these rules are meant to postpone doing PickSplit on the
-root for as long as possible, so that the topmost partitioning of the search
-space is as good as we can easily make it.
+(1) 最初，我们只是把叶子元组倾倒进根页直到它满；然后我们分裂它。一旦
+根不是叶子页，它只能有一个内部元组，以便尽量保持根上的空闲空间最大。
+这两条规则都是为了尽量推迟对根做 PickSplit，从而使搜索空间的最顶层划分
+尽可能好。
 
-(2) Current implementation allows to do picksplit and insert a new leaf tuple
-in one operation, if the new list of leaf tuples fits on one page. It's
-always possible for trees with small nodes like quad tree or k-d tree, but
-radix trees may require another picksplit.
+(2) 当前实现允许在一次操作中做 picksplit 并插入新叶子元组，若新的叶子
+元组列表能放进一页。对四叉树或 k-d 树这类节点小的树这总是可能的，但
+基数树可能需要另一次 picksplit。
 
-(3) Addition of node must keep size of inner tuple small enough to fit on a
-page.  After addition, inner tuple could become too large to be stored on
-current page because of other tuples on page. In this case it will be moved
-to another inner page (see notes about page management). When moving tuple to
-another page, we can't change the numbers of other tuples on the page, else
-we'd make downlink pointers to them invalid. To prevent that, SP-GiST leaves
-a "placeholder" tuple, which can be reused later whenever another tuple is
-added to the page. See also Concurrency and Vacuum sections below. Right now
-only radix trees could add a node to the tuple; quad trees and k-d trees
-make all possible nodes at once in PickSplitFn() call.
+(3) 添加节点必须保持内部元组足够小以放进一页。添加后，由于页上其他元组，
+内部元组可能变得太大无法存在当前页上。这种情况下它会被移到另一内部页
+（见关于页管理的说明）。把元组移到另一页时，我们不能改变页上其他元组的
+编号，否则会使指向它们的下行指针无效。为防止这一点，SP-GiST 留下一个
+“占位”元组，以后向该页添加另一元组时可以复用。另见下文并发和清理各节。
+现在只有基数树能向元组添加节点；四叉树和 k-d 树在 PickSplitFn() 调用中
+一次做出所有可能节点。
 
-(4) Prefix value could only partially match a new value, so the SplitTuple
-action allows breaking the current tree branch into upper and lower sections.
-Another way to say it is that we can split the current inner tuple into
-"prefix" and "postfix" parts, where the prefix part is able to match the
-incoming new value. Consider example of insertion into a radix tree. We use
-the following notation, where tuple's id is just for discussion (no such id
-is actually stored):
+(4) 前缀值可能只部分匹配新值，因此 SplitTuple 动作允许把当前树分支拆成
+上段和下段。另一种说法是我们可以把当前内部元组拆成“前缀”和“后缀”部分，
+其中前缀部分能匹配传入的新值。考虑向基数树插入的例子。我们使用以下记法，
+其中元组 id 只是为了讨论（实际并不存储这种 id）：
 
-inner tuple: {tuple id}(prefix string)[ comma separated list of node labels ]
-leaf tuple: {tuple id}<value>
+内部元组：{tuple id}(prefix string)[ 逗号分隔的节点标签列表 ]
+叶子元组：{tuple id}<value>
 
-Suppose we need to insert string 'www.gogo.com' into inner tuple
+假设我们需要把字符串 'www.gogo.com' 插入内部元组
 
     {1}(www.google.com/)[a, i]
 
-The string does not match the prefix so we cannot descend.  We must
-split the inner tuple into two tuples:
+该字符串不匹配前缀，因此不能下降。我们必须把内部元组拆成两个元组：
 
-    {2}(www.go)[o]  - prefix tuple
+    {2}(www.go)[o]  - 前缀元组
                 |
-                {3}(gle.com/)[a,i] - postfix tuple
+                {3}(gle.com/)[a,i] - 后缀元组
 
-On the next iteration of loop we find that 'www.gogo.com' matches the
-prefix, but not any node label, so we add a node [g] to tuple {2}:
+在循环的下一次迭代中，我们发现 'www.gogo.com' 匹配前缀，但不匹配任何
+节点标签，因此向元组 {2} 添加节点 [g]：
 
-                   NIL (no child exists yet)
+                   NIL（尚无子节点）
                    |
     {2}(www.go)[o, g]
                 |
                 {3}(gle.com/)[a,i]
 
-Now we can descend through the [g] node, which will cause us to update
-the target string to just 'o.com'.  Finally, we'll insert a leaf tuple
-bearing that string:
+现在我们可以经 [g] 节点下降，这会使我们把目标字符串更新为只剩 'o.com'。
+最后，我们将插入带该字符串的叶子元组：
 
                   {4}<o.com>
                    |
@@ -192,198 +156,144 @@ bearing that string:
                 |
                 {3}(gle.com/)[a,i]
 
-As we can see, the original tuple's node array moves to postfix tuple without
-any changes.  Note also that SP-GiST core assumes that prefix tuple is not
-larger than old inner tuple.  That allows us to store prefix tuple directly
-in place of old inner tuple.  SP-GiST core will try to store postfix tuple on
-the same page if possible, but will use another page if there is not enough
-free space (see notes 5 and 6).  Currently, quad and k-d trees don't use this
-feature, because they have no concept of a prefix being "inconsistent" with
-any new value.  They grow their depth only by PickSplitFn() call.
+可以看到，原元组的节点数组原封不动地移到后缀元组。还要注意 SP-GiST
+核心假定前缀元组不大于旧内部元组。这允许我们把前缀元组直接存在旧内部
+元组的位置。若可能，SP-GiST 核心会尽量把后缀元组存在同一页，但若空闲
+空间不够则使用另一页（见说明 5 和 6）。目前四叉树和 k-d 树不用这一
+功能，因为它们没有前缀与任何新值“不一致”的概念。它们只通过
+PickSplitFn() 调用增加深度。
 
-(5) If pointer from node of parent is a NIL pointer, algorithm chooses a leaf
-page to store on.  At first, it tries to use the last-used leaf page with the
-largest free space (which we track in each backend) to better utilize disk
-space.  If that's not large enough, then the algorithm allocates a new page.
+(5) 若来自父节点的指针是 NIL 指针，算法选择一页叶子页来存放。首先，它
+试图使用空闲空间最大的最近使用叶子页（我们在每个后端中跟踪），以更好
+利用磁盘空间。若不够大，则算法分配新页。
 
-(6) Management of inner pages is very similar to management of leaf pages,
-described in (5).
+(6) 内部页的管理与 (5) 中描述的叶子页管理非常相似。
 
-(7) Actually, current implementation can move the whole list of leaf tuples
-and a new tuple to another page, if the list is short enough. This improves
-space utilization, but doesn't change the basis of the algorithm.
+(7) 实际上，当前实现可以把整个叶子元组列表和新元组移到另一页，若列表
+足够短。这改善空间利用，但不改变算法的基础。
 
 
-CONCURRENCY
+并发
 
-While descending the tree, the insertion algorithm holds exclusive lock on
-two tree levels at a time, ie both parent and child pages (but parent and
-child pages can be the same, see notes above).  There is a possibility of
-deadlock between two insertions if there are cross-referenced pages in
-different branches.  That is, if inner tuple on page M has a child on page N
-while an inner tuple from another branch is on page N and has a child on
-page M, then two insertions descending the two branches could deadlock,
-since they will each hold their parent page's lock while trying to get the
-child page's lock.
+下降树时，插入算法一次持有两层树的独占锁，即父页和子页（但父页和子页
+可以相同，见上面的说明）。若不同分支中有交叉引用的页，两次插入之间可能
+死锁。也就是说，若页 M 上的内部元组有子在页 N 上，而另一分支的内部元组
+在页 N 上且有子在页 M 上，则沿这两条分支下降的两次插入可能死锁，因为
+它们各自持有父页锁同时试图获取子页锁。
 
-Currently, we deal with this by conditionally locking buffers as we descend
-the tree.  If we fail to get lock on a buffer, we release both buffers and
-restart the insertion process.  This is potentially inefficient, but the
-locking costs of a more deterministic approach seem very high.
+目前我们通过在下降树时条件锁定缓冲区来处理这一点。若未能获得某缓冲区上
+的锁，我们释放两个缓冲区并重新开始插入过程。这可能低效，但更确定的方案
+的加锁代价似乎非常高。
 
-To reduce the number of cases where that happens, we introduce a concept of
-"triple parity" of pages: if inner tuple is on page with BlockNumber N, then
-its child tuples should be placed on the same page, or else on a page with
-BlockNumber M where (N+1) mod 3 == M mod 3.  This rule ensures that tuples
-on page M will have no children on page N, since (M+1) mod 3 != N mod 3.
-That makes it unlikely that two insertion processes will conflict against
-each other while descending the tree.  It's not perfect though: in the first
-place, we could still get a deadlock among three or more insertion processes,
-and in the second place, it's impractical to preserve this invariant in every
-case when we expand or split an inner tuple.  So we still have to allow for
-deadlocks.
+为减少这种情况发生的次数，我们引入页的“三倍奇偶”概念：若内部元组在
+BlockNumber 为 N 的页上，则其子元组应放在同一页，或放在 BlockNumber 为
+M 且 (N+1) mod 3 == M mod 3 的页上。这条规则确保页 M 上的元组不会有子
+在页 N 上，因为 (M+1) mod 3 != N mod 3。这让两个插入过程在下降树时不太
+可能互相冲突。不过并不完美：首先，三个或更多插入过程之间仍可能死锁；
+其次，在扩展或分裂内部元组时，实际上无法在每种情形下都保持这一不变量。
+因此我们仍必须允许死锁。
 
-Insertion may also need to take locks on an additional inner and/or leaf page
-to add tuples of the right type(s), when there's not enough room on the pages
-it descended through.  However, we don't care exactly which such page we add
-to, so deadlocks can be avoided by conditionally locking the additional
-buffers: if we fail to get lock on an additional page, just try another one.
+插入也可能需要在额外的内部和/或叶子页上加锁以添加正确类型的元组，当它
+下降经过的页上空间不够时。不过我们并不在乎恰好添加到哪一页，因此可以通过
+条件锁定额外缓冲区来避免死锁：若未能获得额外页上的锁，就再试另一页。
 
-Search traversal algorithm is rather traditional.  At each non-leaf level, it
-share-locks the page, identifies which node(s) in the current inner tuple
-need to be visited, and puts those addresses on a stack of pages to examine
-later.  It then releases lock on the current buffer before visiting the next
-stack item.  So only one page is locked at a time, and no deadlock is
-possible.  But instead, we have to worry about race conditions: by the time
-we arrive at a pointed-to page, a concurrent insertion could have replaced
-the target inner tuple (or leaf tuple chain) with data placed elsewhere.
-To handle that, whenever the insertion algorithm changes a nonempty downlink
-in an inner tuple, it places a "redirect tuple" in place of the lower-level
-inner tuple or leaf-tuple chain head that the link formerly led to.  Scans
-(though not insertions) must be prepared to honor such redirects.  Only a
-scan that had already visited the parent level could possibly reach such a
-redirect tuple, so we can remove redirects once all active transactions have
-been flushed out of the system.
+搜索遍历算法相当传统。在每个非叶子层，它共享锁定该页，识别当前内部元组
+中需要访问的节点，并把那些地址放入稍后要检查的页栈。然后它在访问下一
+栈项之前释放当前缓冲区上的锁。因此一次只锁一页，不可能死锁。但相反，
+我们必须担心竞态：等我们到达被指向的页时，并发插入可能已经用放在别处的
+数据替换了目标内部元组（或叶子元组链）。为处理这一点，每当插入算法更改
+内部元组中的非空下行指针时，它在该链接原先通向的下层内部元组或叶子元组
+链头的位置放一个“重定向元组”。扫描（但不是插入）必须准备好遵守这种重定向。
+只有已经访问过父层的扫描才可能到达这种重定向元组，因此一旦所有活动事务
+都已从系统中冲出，我们就可以移除重定向。
 
 
-DEAD TUPLES
+死元组
+------
 
-Tuples on leaf pages can be in one of four states:
+叶子页上的元组可以处于四种状态之一：
 
-SPGIST_LIVE: normal, live pointer to a heap tuple.
+SPGIST_LIVE：正常的、指向堆元组的活指针。
 
-SPGIST_REDIRECT: placeholder that contains a link to another place in the
-index.  When a chain of leaf tuples has to be moved to another page, a
-redirect tuple is inserted in place of the chain's head tuple.  The parent
-inner tuple's downlink is updated when this happens, but concurrent scans
-might be "in flight" from the parent page to the child page (since they
-release lock on the parent page before attempting to lock the child).
-The redirect pointer serves to tell such a scan where to go.  A redirect
-pointer is only needed for as long as such concurrent scans could be in
-progress.  Eventually, it's converted into a PLACEHOLDER dead tuple by
-VACUUM, and is then a candidate for replacement.  Searches that find such
-a tuple (which should never be part of a chain) should immediately proceed
-to the other place, forgetting about the redirect tuple.  Insertions that
-reach such a tuple should raise error, since a valid downlink should never
-point to such a tuple.
+SPGIST_REDIRECT：包含指向索引中另一位置的链接的占位。当叶子元组链必须
+移到另一页时，在链头元组的位置插入重定向元组。此时更新父内部元组的下行
+指针，但并发扫描可能正从父页“飞向”子页（因为它们在试图锁子页之前释放
+父页上的锁）。重定向指针用来告诉这种扫描该去哪里。只要这种并发扫描可能
+仍在进行，就需要重定向指针。最终，VACUUM 把它转换成 PLACEHOLDER 死元组，
+然后就可以作为替换候选。找到这种元组的搜索（它永远不应是链的一部分）应
+立即前往另一位置，忘掉该重定向元组。到达这种元组的插入应抛错，因为有效
+下行指针永远不应指向这种元组。
 
-SPGIST_DEAD: tuple is dead, but it cannot be removed or moved to a
-different offset on the page because there is a link leading to it from
-some inner tuple elsewhere in the index.  (Such a tuple is never part of a
-chain, since we don't need one unless there is nothing live left in its
-chain.)  Searches should ignore such entries.  If an insertion action
-arrives at such a tuple, it should either replace it in-place (if there's
-room on the page to hold the desired new leaf tuple) or replace it with a
-redirection pointer to wherever it puts the new leaf tuple.
+SPGIST_DEAD：元组已死，但不能移除或移到页上不同偏移，因为索引别处某内部
+元组有链接通向它。（这种元组永远不是链的一部分，因为只有当其链中没有
+剩下任何活元组时我们才需要它。）搜索应忽略这类条目。若插入动作到达这种
+元组，它应要么原地替换它（若页上有空间容纳期望的新叶子元组），要么用
+指向它放置新叶子元组之处的重定向指针替换它。
 
-SPGIST_PLACEHOLDER: tuple is dead, and there are known to be no links to
-it from elsewhere.  When a live tuple is deleted or moved away, and not
-replaced by a redirect pointer, it is replaced by a placeholder to keep
-the offsets of later tuples on the same page from changing.  Placeholders
-can be freely replaced when adding a new tuple to the page, and also
-VACUUM will delete any that are at the end of the range of valid tuple
-offsets.  Both searches and insertions should complain if a link from
-elsewhere leads them to a placeholder tuple.
+SPGIST_PLACEHOLDER：元组已死，并且已知没有从别处指向它的链接。当活元组
+被删除或移走、且未被重定向指针替换时，用占位替换它，以保持同一页上后面
+元组的偏移不变。向页添加新元组时可以自由替换占位，并且 VACUUM 会删除
+位于有效元组偏移范围末尾的任何占位。搜索和插入若被别处的链接带到占位
+元组，都应抱怨。
 
-When the root page is also a leaf, all its tuple should be in LIVE state;
-there's no need for the others since there are no links and no need to
-preserve offset numbers.
+当根页也是叶子时，其全部元组应处于 LIVE 状态；不需要其他状态，因为没有
+链接，也不需要保持偏移号。
 
-Tuples on inner pages can be in LIVE, REDIRECT, or PLACEHOLDER states.
-The REDIRECT state has the same function as on leaf pages, to send
-concurrent searches to the place where they need to go after an inner
-tuple is moved to another page.  Expired REDIRECT pointers are converted
-to PLACEHOLDER status by VACUUM, and are then candidates for replacement.
-DEAD state is not currently possible, since VACUUM does not attempt to
-remove unused inner tuples.
+内部页上的元组可以处于 LIVE、REDIRECT 或 PLACEHOLDER 状态。REDIRECT 状态
+的功能与叶子页上相同，在内部元组移到另一页后把并发搜索送到它们需要去的
+地方。过期的 REDIRECT 指针由 VACUUM 转换成 PLACEHOLDER 状态，然后就可以
+作为替换候选。DEAD 状态目前不可能，因为 VACUUM 不试图移除未使用的内部
+元组。
 
 
-VACUUM
+清理
 
-VACUUM (or more precisely, spgbulkdelete) performs a single sequential scan
-over the entire index.  On both leaf and inner pages, we can convert old
-REDIRECT tuples into PLACEHOLDER status, and then remove any PLACEHOLDERs
-that are at the end of the page (since they aren't needed to preserve the
-offsets of any live tuples).  On leaf pages, we scan for tuples that need
-to be deleted because their heap TIDs match a vacuum target TID.
+VACUUM（更精确地说是 spgbulkdelete）对整个索引做一次顺序扫描。在叶子页
+和内部页上，我们可以把旧 REDIRECT 元组转换成 PLACEHOLDER 状态，然后移除
+页末的任何 PLACEHOLDER（因为它们不需要用来保持任何活元组的偏移）。在
+叶子页上，我们扫描需要因堆 TID 匹配清理目标 TID 而被删除的元组。
 
-If we find a deletable tuple that is not at the head of its chain, we
-can simply replace it with a PLACEHOLDER, updating the chain links to
-remove it from the chain.  If it is at the head of its chain, but there's
-at least one live tuple remaining in the chain, we move that live tuple
-to the head tuple's offset, replacing it with a PLACEHOLDER to preserve
-the offsets of other tuples.  This keeps the parent inner tuple's downlink
-valid.  If we find ourselves deleting all live tuples in a chain, we
-replace the head tuple with a DEAD tuple and the rest with PLACEHOLDERS.
-The parent inner tuple's downlink thus points to the DEAD tuple, and the
-rules explained in the previous section keep everything working.
+若找到不在其链头的可删除元组，我们可以简单地用 PLACEHOLDER 替换它，并
+更新链链接以把它从链中移除。若它在链头，但链中至少还剩一个活元组，我们
+把该活元组移到头元组的偏移，用 PLACEHOLDER 替换它以保持其他元组的偏移。
+这保持父内部元组的下行指针有效。若发现自己正在删除链中全部活元组，我们
+用 DEAD 元组替换头元组，其余用 PLACEHOLDER。父内部元组的下行指针因此
+指向 DEAD 元组，上一节解释的规则让一切继续工作。
 
-VACUUM doesn't know a-priori which tuples are heads of their chains, but
-it can easily figure that out by constructing a predecessor array that's
-the reverse map of the nextOffset links (ie, when we see tuple x links to
-tuple y, we set predecessor[y] = x).  Then head tuples are the ones with
-no predecessor.
+VACUUM 事先不知道哪些元组是其链的头，但它可以很容易地通过构造前驱数组
+来算出，该数组是 nextOffset 链接的反向映射（即当我们看到元组 x 链接到
+元组 y 时，设 predecessor[y] = x）。然后头元组就是没有前驱的那些。
 
-Because insertions can occur while VACUUM runs, a pure sequential scan
-could miss deleting some target leaf tuples, because they could get moved
-from a not-yet-visited leaf page to an already-visited leaf page as a
-consequence of a PickSplit or MoveLeafs operation.  Failing to delete any
-target TID is not acceptable, so we have to extend the algorithm to cope
-with such cases.  We recognize that such a move might have occurred when
-we see a leaf-page REDIRECT tuple whose XID indicates it might have been
-created after the VACUUM scan started.  We add the redirection target TID
-to a "pending list" of places we need to recheck.  Between pages of the
-main sequential scan, we empty the pending list by visiting each listed
-TID.  If it points to an inner tuple (from a PickSplit), add each downlink
-TID to the pending list.  If it points to a leaf page, vacuum that page.
-(We could just vacuum the single pointed-to chain, but vacuuming the
-whole page simplifies the code and reduces the odds of VACUUM having to
-modify the same page multiple times.)  To ensure that pending-list
-processing can never get into an endless loop, even in the face of
-concurrent index changes, we don't remove list entries immediately but
-only after we've completed all pending-list processing; instead we just
-mark items as done after processing them.  Adding a TID that's already in
-the list is a no-op, whether or not that item is marked done yet.
+因为 VACUUM 运行期间可能发生插入，纯顺序扫描可能漏删一些目标叶子元组，
+因为它们可能因 PickSplit 或 MoveLeafs 操作从未访问的叶子页移到已访问的
+叶子页。漏删任何目标 TID 不可接受，因此我们必须扩展算法以应付这类情形。
+当我们看到叶子页 REDIRECT 元组的 XID 表明它可能是在 VACUUM 扫描开始之后
+创建的时，我们就认识到可能发生了这种移动。我们把重定向目标 TID 加到
+“挂起列表”，即我们需要再检查的位置。在主顺序扫描的页与页之间，我们通过
+访问每个列出的 TID 来清空挂起列表。若它指向内部元组（来自 PickSplit），
+把每个下行指针 TID 加到挂起列表。若它指向叶子页，清理该页。（我们可以
+只清理被指向的那一条链，但清理整页简化代码，并降低 VACUUM 必须多次修改
+同一页的几率。）为确保挂起列表处理永远不会陷入无限循环，即便面对并发
+索引变更，我们不立即移除列表条目，而只在完成全部挂起列表处理之后才移除；
+相反，处理完后只把项标为已完成。添加已经在列表中的 TID 是空操作，无论
+该项是否已标为完成。
 
-spgbulkdelete also updates the index's free space map.
+spgbulkdelete 也更新索引的空闲空间映射。
 
-Currently, spgvacuumcleanup has nothing to do if spgbulkdelete was
-performed; otherwise, it does an spgbulkdelete scan with an empty target
-list, so as to clean up redirections and placeholders, update the free
-space map, and gather statistics.
+目前，若已执行过 spgbulkdelete，spgvacuumcleanup 无事可做；否则，它用
+空目标列表做一次 spgbulkdelete 扫描，以便清理重定向和占位、更新空闲空间
+映射，并收集统计。
 
 
-LAST USED PAGE MANAGEMENT
+最近使用页管理
 
-The list of last used pages contains four pages - a leaf page and three
-inner pages, one from each "triple parity" group.  (Actually, there's one
-such list for the main tree and a separate one for the nulls tree.)  This
-list is stored between calls on the index meta page, but updates are never
-WAL-logged to decrease WAL traffic.  Incorrect data on meta page isn't
-critical, because we could allocate a new page at any moment.
+最近使用页列表包含四页——一页叶子页和三页内部页，每“三倍奇偶”组各一。
+（实际上，主树有一份这样的列表，空值树另有一份。）该列表在调用之间存在
+索引元页上，但更新从不记 WAL 以减少 WAL 流量。元页上的不正确数据并不
+关键，因为我们随时可以分配新页。
 
 
-AUTHORS
+作者
 
     Teodor Sigaev <teodor@sigaev.ru>
     Oleg Bartunov <oleg@sai.msu.su>

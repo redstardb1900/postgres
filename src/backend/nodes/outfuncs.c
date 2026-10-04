@@ -30,102 +30,102 @@ static void outDouble(StringInfo str, double d);
 
 
 /*
- * Macros to simplify output of different kinds of fields.  Use these
- * wherever possible to reduce the chance for silly typos.  Note that these
- * hard-wire conventions about the names of the local variables in an Out
- * routine.
+ * 简化各类字段输出的宏。尽可能使用它们，
+ * 以减少低级笔误的机会。注意，这些宏把
+ * Out 例程中局部变量名的约定
+ * 写死了。
  */
 
-/* Write the label for the node type */
+/* 写出节点类型的标签 */
 #define WRITE_NODE_TYPE(nodelabel) \
 	appendStringInfoString(str, nodelabel)
 
-/* Write an integer field (anything written as ":fldname %d") */
+/* 写出整数字段（任何写成 ":fldname %d" 的内容） */
 #define WRITE_INT_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %d", node->fldname)
 
-/* Write an unsigned integer field (anything written as ":fldname %u") */
+/* 写出无符号整数字段（任何写成 ":fldname %u" 的内容） */
 #define WRITE_UINT_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %u", node->fldname)
 
-/* Write an unsigned integer field (anything written with UINT64_FORMAT) */
+/* 写出无符号整数字段（任何用 UINT64_FORMAT 写出的内容） */
 #define WRITE_UINT64_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " " UINT64_FORMAT, \
 					 node->fldname)
 
-/* Write an OID field (don't hard-wire assumption that OID is same as uint) */
+/* 写出 OID 字段（不要把 OID 与 uint 相同这一假设写死） */
 #define WRITE_OID_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %u", node->fldname)
 
-/* Write a long-integer field */
+/* 写出长整数字段 */
 #define WRITE_LONG_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %ld", node->fldname)
 
-/* Write a char field (ie, one ascii character) */
+/* 写出 char 字段（即一个 ascii 字符） */
 #define WRITE_CHAR_FIELD(fldname) \
 	(appendStringInfo(str, " :" CppAsString(fldname) " "), \
 	 outChar(str, node->fldname))
 
-/* Write an enumerated-type field as an integer code */
+/* 把枚举类型字段写成整数代码 */
 #define WRITE_ENUM_FIELD(fldname, enumtype) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %d", \
 					 (int) node->fldname)
 
-/* Write a float field (actually, they're double) */
+/* 写出浮点字段（实际上是 double） */
 #define WRITE_FLOAT_FIELD(fldname) \
 	(appendStringInfo(str, " :" CppAsString(fldname) " "), \
 	 outDouble(str, node->fldname))
 
-/* Write a boolean field */
+/* 写出布尔字段 */
 #define WRITE_BOOL_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %s", \
 					 booltostr(node->fldname))
 
-/* Write a character-string (possibly NULL) field */
+/* 写出字符串字段（可能为 NULL） */
 #define WRITE_STRING_FIELD(fldname) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 outToken(str, node->fldname))
 
-/* Write a parse location field (actually same as INT case) */
+/* 写出解析位置字段（实际上与 INT 情形相同） */
 #define WRITE_LOCATION_FIELD(fldname) \
 	appendStringInfo(str, " :" CppAsString(fldname) " %d", node->fldname)
 
-/* Write a Node field */
+/* 写出 Node 字段 */
 #define WRITE_NODE_FIELD(fldname) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 outNode(str, node->fldname))
 
-/* Write a bitmapset field */
+/* 写出位图集字段 */
 #define WRITE_BITMAPSET_FIELD(fldname) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 outBitmapset(str, node->fldname))
 
-/* Write a variable-length array (not a List) of Node pointers */
+/* 写出 Node 指针的变长数组（不是 List） */
 #define WRITE_NODE_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeNodeArray(str, (const Node * const *) node->fldname, len))
 
-/* Write a variable-length array of AttrNumber */
+/* 写出 AttrNumber 的变长数组 */
 #define WRITE_ATTRNUMBER_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeAttrNumberCols(str, node->fldname, len))
 
-/* Write a variable-length array of Oid */
+/* 写出 Oid 的变长数组 */
 #define WRITE_OID_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeOidCols(str, node->fldname, len))
 
-/* Write a variable-length array of Index */
+/* 写出 Index 的变长数组 */
 #define WRITE_INDEX_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeIndexCols(str, node->fldname, len))
 
-/* Write a variable-length array of int */
+/* 写出 int 的变长数组 */
 #define WRITE_INT_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeIntCols(str, node->fldname, len))
 
-/* Write a variable-length array of bool */
+/* 写出 bool 的变长数组 */
 #define WRITE_BOOL_ARRAY(fldname, len) \
 	(appendStringInfoString(str, " :" CppAsString(fldname) " "), \
 	 writeBoolCols(str, node->fldname, len))
@@ -135,12 +135,12 @@ static void outDouble(StringInfo str, double d);
 
 /*
  * outToken
- *	  Convert an ordinary string (eg, an identifier) into a form that
- *	  will be decoded back to a plain token by read.c's functions.
+ *	  把普通字符串（例如标识符）转换成一种形式，
+ *	  使它会被 read.c 的函数解码回普通词元。
  *
- *	  If a null string pointer is given, it is encoded as '<>'.
- *	  An empty string is encoded as '""'.  To avoid ambiguity, input
- *	  strings beginning with '<' or '"' receive a leading backslash.
+ *	  若给定空指针，则编码为 '<>'。
+ *	  空字符串编码为 '""'。为避免歧义，以
+ *	  '<' 或 '"' 开头的输入字符串会加上前导反斜杠。
  */
 void
 outToken(StringInfo str, const char *s)
@@ -157,11 +157,11 @@ outToken(StringInfo str, const char *s)
 	}
 
 	/*
-	 * Look for characters or patterns that are treated specially by read.c
-	 * (either in pg_strtok() or in nodeRead()), and therefore need a
-	 * protective backslash.
+	 * 查找被 read.c 特殊处理的字符或模式
+	 * （在 pg_strtok() 或 nodeRead() 中），因此需要
+	 * 保护性反斜杠。
 	 */
-	/* These characters only need to be quoted at the start of the string */
+	/* 这些字符只需要在字符串开头加引号 */
 	if (*s == '<' ||
 		*s == '"' ||
 		isdigit((unsigned char) *s) ||
@@ -170,7 +170,7 @@ outToken(StringInfo str, const char *s)
 		appendStringInfoChar(str, '\\');
 	while (*s)
 	{
-		/* These chars must be backslashed anywhere in the string */
+		/* 这些字符在字符串中任何位置都必须加反斜杠 */
 		if (*s == ' ' || *s == '\n' || *s == '\t' ||
 			*s == '(' || *s == ')' || *s == '{' || *s == '}' ||
 			*s == '\\')
@@ -180,15 +180,15 @@ outToken(StringInfo str, const char *s)
 }
 
 /*
- * Convert one char.  Goes through outToken() so that special characters are
- * escaped.
+ * 转换一个字符。经由 outToken()，以便特殊字符
+ * 被转义。
  */
 static void
 outChar(StringInfo str, char c)
 {
 	char		in[2];
 
-	/* Traditionally, we've represented \0 as <>, so keep doing that */
+	/* 历来我们把 \0 表示为 <>，因此继续这样做 */
 	if (c == '\0')
 	{
 		appendStringInfoString(str, "<>");
@@ -202,7 +202,7 @@ outChar(StringInfo str, char c)
 }
 
 /*
- * Convert a double value, attempting to ensure the value is preserved exactly.
+ * 转换一个 double 值，尽量保证该值被精确保留。
  */
 static void
 outDouble(StringInfo str, double d)
@@ -214,12 +214,12 @@ outDouble(StringInfo str, double d)
 }
 
 /*
- * common implementation for scalar-array-writing functions
+ * 标量数组写出函数的公共实现
  *
- * The data format is either "<>" for a NULL pointer or "(item item item)".
- * fmtstr must include a leading space, and the rest of it must produce
- * something that will be seen as a single simple token by pg_strtok().
- * convfunc can be empty, or the name of a conversion macro or function.
+ * 数据格式要么是 NULL 指针的 "<>"，要么是 "(item item item)"。
+ * fmtstr 必须包含前导空格，其余部分必须产生
+ * 会被 pg_strtok() 视为单个简单词元的内容。
+ * convfunc 可以为空，或是转换宏或函数的名字。
  */
 #define WRITE_SCALAR_ARRAY(fnname, datatype, fmtstr, convfunc) \
 static void \
@@ -243,10 +243,10 @@ WRITE_SCALAR_ARRAY(writeIntCols, int, " %d",)
 WRITE_SCALAR_ARRAY(writeBoolCols, bool, " %s", booltostr)
 
 /*
- * Print an array (not a List) of Node pointers.
+ * 打印 Node 指针的数组（不是 List）。
  *
- * The decoration is identical to that of scalar arrays, but we can't
- * quite use appendStringInfo() in the loop.
+ * 装饰与标量数组相同，但循环里无法
+ * 直接使用 appendStringInfo()。
  */
 static void
 writeNodeArray(StringInfo str, const Node *const *arr, int len)
@@ -266,7 +266,7 @@ writeNodeArray(StringInfo str, const Node *const *arr, int len)
 }
 
 /*
- * Print a List.
+ * 打印一个 List。
  */
 static void
 _outList(StringInfo str, const List *node)
@@ -285,9 +285,9 @@ _outList(StringInfo str, const List *node)
 	foreach(lc, node)
 	{
 		/*
-		 * For the sake of backward compatibility, we emit a slightly
-		 * different whitespace format for lists of nodes vs. other types of
-		 * lists. XXX: is this necessary?
+		 * 为了向后兼容，我们对节点列表与其他类型的
+		 * 列表输出略有不同的空白格式。
+		 * XXX：这有必要吗？
 		 */
 		if (IsA(node, List))
 		{
@@ -311,12 +311,12 @@ _outList(StringInfo str, const List *node)
 
 /*
  * outBitmapset -
- *	   converts a bitmap set of integers
+ *	   把整数位图集转换成字符串
  *
- * Note: the output format is "(b int int ...)", similar to an integer List.
+ * 注意：输出格式是 "(b int int ...)"，类似于整数 List。
  *
- * We export this function for use by extensions that define extensible nodes.
- * That's somewhat historical, though, because calling outNode() will work.
+ * 我们导出此函数，供定义可扩展节点的扩展使用。
+ * 不过这多少是历史原因，因为调用 outNode() 也能工作。
  */
 void
 outBitmapset(StringInfo str, const Bitmapset *bms)
@@ -332,7 +332,7 @@ outBitmapset(StringInfo str, const Bitmapset *bms)
 }
 
 /*
- * Print the value of a Datum given its type.
+ * 打印给定类型的 Datum 值。
  */
 void
 outDatum(StringInfo str, Datum value, int typlen, bool typbyval)
@@ -371,8 +371,8 @@ outDatum(StringInfo str, Datum value, int typlen, bool typbyval)
 
 
 /*
- * Support functions for nodes with custom_read_write attribute or
- * special_read_write attribute
+ * 带 custom_read_write 属性或
+ * special_read_write 属性的节点的支持函数
  */
 
 static void
@@ -402,7 +402,7 @@ _outBoolExpr(StringInfo str, const BoolExpr *node)
 
 	WRITE_NODE_TYPE("BOOLEXPR");
 
-	/* do-it-yourself enum representation */
+	/* 自行处理的枚举表示 */
 	switch (node->boolop)
 	{
 		case AND_EXPR:
@@ -439,7 +439,7 @@ _outForeignKeyOptInfo(StringInfo str, const ForeignKeyOptInfo *node)
 	WRITE_INT_FIELD(nconst_ec);
 	WRITE_INT_FIELD(nmatched_rcols);
 	WRITE_INT_FIELD(nmatched_ri);
-	/* for compactness, just print the number of matches per column: */
+	/* 为紧凑起见，只打印每列的匹配数： */
 	appendStringInfoString(str, " :eclass");
 	for (i = 0; i < node->nkeys; i++)
 		appendStringInfo(str, " %d", (node->eclass[i] != NULL));
@@ -452,8 +452,8 @@ static void
 _outEquivalenceClass(StringInfo str, const EquivalenceClass *node)
 {
 	/*
-	 * To simplify reading, we just chase up to the topmost merged EC and
-	 * print that, without bothering to show the merge-ees separately.
+	 * 为简化读取，我们只向上追到最顶层合并后的 EC，并
+	 * 打印它，而不再单独显示被合并项。
 	 */
 	while (node->ec_merged)
 		node = node->ec_merged;
@@ -485,7 +485,7 @@ _outExtensibleNode(StringInfo str, const ExtensibleNode *node)
 
 	WRITE_STRING_FIELD(extnodename);
 
-	/* serialize the private fields */
+	/* 序列化私有字段 */
 	methods->nodeOut(str, node);
 }
 
@@ -494,7 +494,7 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 {
 	WRITE_NODE_TYPE("RANGETBLENTRY");
 
-	/* put alias + eref first to make dump more legible */
+	/* 把 alias 和 eref 放前面，使转储更易读 */
 	WRITE_NODE_FIELD(alias);
 	WRITE_NODE_FIELD(eref);
 	WRITE_ENUM_FIELD(rtekind, RTEKind);
@@ -511,7 +511,7 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 		case RTE_SUBQUERY:
 			WRITE_NODE_FIELD(subquery);
 			WRITE_BOOL_FIELD(security_barrier);
-			/* we re-use these RELATION fields, too: */
+			/* 我们也复用这些 RELATION 字段： */
 			WRITE_OID_FIELD(relid);
 			WRITE_CHAR_FIELD(relkind);
 			WRITE_INT_FIELD(rellockmode);
@@ -552,11 +552,11 @@ _outRangeTblEntry(StringInfo str, const RangeTblEntry *node)
 			WRITE_NODE_FIELD(coltypes);
 			WRITE_NODE_FIELD(coltypmods);
 			WRITE_NODE_FIELD(colcollations);
-			/* we re-use these RELATION fields, too: */
+			/* 我们也复用这些 RELATION 字段： */
 			WRITE_OID_FIELD(relid);
 			break;
 		case RTE_RESULT:
-			/* no extra fields */
+			/* 没有额外字段 */
 			break;
 		default:
 			elog(ERROR, "unrecognized RTE kind: %d", (int) node->rtekind);
@@ -651,8 +651,8 @@ static void
 _outFloat(StringInfo str, const Float *node)
 {
 	/*
-	 * We assume the value is a valid numeric literal and so does not need
-	 * quoting.
+	 * 我们假定该值是有效的数值字面量，因此不需要
+	 * 加引号。
 	 */
 	appendStringInfoString(str, node->fval);
 }
@@ -667,9 +667,9 @@ static void
 _outString(StringInfo str, const String *node)
 {
 	/*
-	 * We use outToken to provide escaping of the string's content, but we
-	 * don't want it to convert an empty string to '""', because we're putting
-	 * double quotes around the string already.
+	 * 我们用 outToken 转义字符串内容，但不希望
+	 * 它把空字符串转换成 '""'，因为我们
+	 * 已经在字符串外面加了双引号。
 	 */
 	appendStringInfoChar(str, '"');
 	if (node->sval[0] != '\0')
@@ -681,9 +681,9 @@ static void
 _outBitString(StringInfo str, const BitString *node)
 {
 	/*
-	 * The lexer will always produce a string starting with 'b' or 'x'.  There
-	 * might be characters following that that need escaping, but outToken
-	 * won't escape the 'b' or 'x'.  This is relied on by nodeTokenType.
+	 * 词法分析器总是产生以 'b' 或 'x' 开头的字符串。其后
+	 * 也许有需要转义的字符，但 outToken
+	 * 不会转义 'b' 或 'x'。nodeTokenType 依赖这一点。
 	 */
 	Assert(node->bsval[0] == 'b' || node->bsval[0] == 'x');
 	outToken(str, node->bsval);
@@ -761,7 +761,7 @@ _outConstraint(StringInfo str, const Constraint *node)
 			WRITE_STRING_FIELD(indexname);
 			WRITE_STRING_FIELD(indexspace);
 			WRITE_BOOL_FIELD(reset_default_tblspc);
-			/* access_method and where_clause not currently used */
+			/* access_method 和 where_clause 目前未使用 */
 			break;
 
 		case CONSTR_UNIQUE:
@@ -773,7 +773,7 @@ _outConstraint(StringInfo str, const Constraint *node)
 			WRITE_STRING_FIELD(indexname);
 			WRITE_STRING_FIELD(indexspace);
 			WRITE_BOOL_FIELD(reset_default_tblspc);
-			/* access_method and where_clause not currently used */
+			/* access_method 和 where_clause 目前未使用 */
 			break;
 
 		case CONSTR_EXCLUSION:
@@ -828,12 +828,12 @@ _outConstraint(StringInfo str, const Constraint *node)
 
 /*
  * outNode -
- *	  converts a Node into ascii string and append it to 'str'
+ *	  把 Node 转换成 ascii 字符串并追加到 'str'
  */
 void
 outNode(StringInfo str, const void *obj)
 {
-	/* Guard against stack overflow due to overly complex expressions */
+	/* 防止过于复杂的表达式导致栈溢出 */
 	check_stack_depth();
 
 	if (obj == NULL)
@@ -841,7 +841,7 @@ outNode(StringInfo str, const void *obj)
 	else if (IsA(obj, List) || IsA(obj, IntList) || IsA(obj, OidList) ||
 			 IsA(obj, XidList))
 		_outList(str, obj);
-	/* nodeRead does not want to see { } around these! */
+	/* nodeRead 不希望看到这些外面的 { }！ */
 	else if (IsA(obj, Integer))
 		_outInteger(str, (Integer *) obj);
 	else if (IsA(obj, Float))
@@ -864,8 +864,8 @@ outNode(StringInfo str, const void *obj)
 			default:
 
 				/*
-				 * This should be an ERROR, but it's too useful to be able to
-				 * dump structures that outNode only understands part of.
+				 * 这本应是 ERROR，但能够转储
+				 * outNode 只部分理解的结构太有用了。
 				 */
 				elog(WARNING, "could not dump unrecognized node type: %d",
 					 (int) nodeTag(obj));
@@ -877,14 +877,14 @@ outNode(StringInfo str, const void *obj)
 
 /*
  * nodeToString -
- *	   returns the ascii representation of the Node as a palloc'd string
+ *	   把 Node 的 ascii 表示作为 palloc 出来的字符串返回
  */
 char *
 nodeToString(const void *obj)
 {
 	StringInfoData str;
 
-	/* see stringinfo.h for an explanation of this maneuver */
+	/* 见 stringinfo.h 中对这一手法的说明 */
 	initStringInfo(&str);
 	outNode(&str, obj);
 	return str.data;
@@ -892,14 +892,14 @@ nodeToString(const void *obj)
 
 /*
  * bmsToString -
- *	   returns the ascii representation of the Bitmapset as a palloc'd string
+ *	   把 Bitmapset 的 ascii 表示作为 palloc 出来的字符串返回
  */
 char *
 bmsToString(const Bitmapset *bms)
 {
 	StringInfoData str;
 
-	/* see stringinfo.h for an explanation of this maneuver */
+	/* 见 stringinfo.h 中对这一手法的说明 */
 	initStringInfo(&str);
 	outBitmapset(&str, bms);
 	return str.data;

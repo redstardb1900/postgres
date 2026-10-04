@@ -1,0 +1,96 @@
+{
+ "schema_version": 1,
+ "batch_id": "0071-comment-optimizer-plan-small",
+ "title": "zh: translate planmain planagg analyzejoins comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d8278f8b046077e5198112ec9ee870313cbb5d59",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/planmain.c",
+   "kind": "c_comment",
+   "note": "plan a basic join"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/planagg.c",
+   "kind": "c_comment",
+   "note": "MIN/MAX aggregate planning"
+  },
+  {
+   "pattern": "src/backend/optimizer/plan/analyzejoins.c",
+   "kind": "c_comment",
+   "note": "join simplification"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0071-comment-optimizer-plan-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/planmain.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "plan a basic join"
+  },
+  {
+   "path": "src/backend/optimizer/plan/planagg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 54,
+   "translated": 52,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "/*---------- MIN/MAX subquery block"
+   ],
+   "note": "MIN/MAX aggregate planning"
+  },
+  {
+   "path": "src/backend/optimizer/plan/analyzejoins.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 138,
+   "translated": 137,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "join simplification"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0071-comment-optimizer-plan-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0071 translates src/backend/optimizer/plan/planmain.c, planagg.c, and analyzejoins.c."
+}

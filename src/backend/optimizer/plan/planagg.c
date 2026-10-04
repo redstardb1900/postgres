@@ -55,19 +55,19 @@ static Oid	fetch_agg_sort_op(Oid aggfnoid);
 
 
 /*
- * preprocess_minmax_aggregates - preprocess MIN/MAX aggregates
+ * preprocess_minmax_aggregates - 预处理 MIN/MAX 聚合
  *
- * Check to see whether the query contains MIN/MAX aggregate functions that
- * might be optimizable via indexscans.  If it does, and all the aggregates
- * are potentially optimizable, then create a MinMaxAggPath and add it to
- * the (UPPERREL_GROUP_AGG, NULL) upperrel.
+ * 检查查询是否含有也许能用索引扫描优化的 MIN/MAX 聚合函数。
+ * 若有，并且全部聚合
+ * 都有可能优化，就创建一条 MinMaxAggPath 并把它加到
+ * (UPPERREL_GROUP_AGG, NULL) 上层关系。
  *
- * This should be called by grouping_planner() just before it's ready to call
- * query_planner(), because we generate indexscan paths by cloning the
- * planner's state and invoking query_planner() on a modified version of
- * the query parsetree.  Thus, all preprocessing needed before query_planner()
- * must already be done.  This relies on the list of aggregates in
- * root->agginfos, so preprocess_aggrefs() must have been called already, too.
+ * 这应当由 grouping_planner() 在准备调用
+ * query_planner() 之前调用，因为我们靠克隆
+ * 规划器的状态并对查询解析树的修改版调用 query_planner() 来生成索引扫描路径。
+ * 因此，query_planner() 之前需要的全部预处理
+ * 必须已经完成。这依赖 root->agginfos 里的聚合列表，
+ * 所以 preprocess_aggrefs() 也必须已经调用过。
  */
 void
 preprocess_minmax_aggregates(PlannerInfo *root)
@@ -80,43 +80,43 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 	RelOptInfo *grouped_rel;
 	ListCell   *lc;
 
-	/* minmax_aggs list should be empty at this point */
+	/* 此时 minmax_aggs 列表应当为空 */
 	Assert(root->minmax_aggs == NIL);
 
-	/* Nothing to do if query has no aggregates */
+	/* 查询没有聚合时无事可做 */
 	if (!parse->hasAggs)
 		return;
 
-	Assert(!parse->setOperations);	/* shouldn't get here if a setop */
-	Assert(parse->rowMarks == NIL); /* nor if FOR UPDATE */
+	Assert(!parse->setOperations);	/* 若是集合运算，不应当到这里 */
+	Assert(parse->rowMarks == NIL); /* 有 FOR UPDATE 时也不是 */
 
 	/*
-	 * Reject unoptimizable cases.
+	 * 拒绝无法优化的情形。
 	 *
-	 * We don't handle GROUP BY or windowing, because our current
-	 * implementations of grouping require looking at all the rows anyway, and
-	 * so there's not much point in optimizing MIN/MAX.
+	 * 不处理 GROUP BY 或窗口，因为目前的
+	 * 分组实现反正需要查看全部行，
+	 * 因此优化 MIN/MAX 意义不大。
 	 */
 	if (parse->groupClause || list_length(parse->groupingSets) > 1 ||
 		parse->hasWindowFuncs)
 		return;
 
 	/*
-	 * Reject if query contains any CTEs; there's no way to build an indexscan
-	 * on one so we couldn't succeed here.  (If the CTEs are unreferenced,
-	 * that's not true, but it doesn't seem worth expending cycles to check.)
+	 * 若查询含有任何 CTEs 就拒绝；没法对它建索引扫描，
+	 * 因此这里不会成功。（若那些 CTE 未被引用，
+	 * 这话不成立，但似乎不值得花工夫去检查。）
 	 */
 	if (parse->cteList)
 		return;
 
 	/*
-	 * We also restrict the query to reference exactly one table, since join
-	 * conditions can't be handled reasonably.  (We could perhaps handle a
-	 * query containing cartesian-product joins, but it hardly seems worth the
-	 * trouble.)  However, the single table could be buried in several levels
-	 * of FromExpr due to subqueries.  Note the "single" table could be an
-	 * inheritance parent, too, including the case of a UNION ALL subquery
-	 * that's been flattened to an appendrel.
+	 * 还把查询限制为恰好引用一张表，因为连接
+	 * 条件没法合理地处理。（也许能处理
+	 * 含有笛卡尔积连接的查询，但似乎不值得
+	 * 费这个事。）不过，这一张表可能埋在好几层
+	 * FromExpr 里，因为有子查询。注意这张"唯一"的表也可以是
+	 * 继承父表，包括已被展平为追加关系的
+	 * UNION ALL 子查询。
 	 */
 	jtnode = parse->jointree;
 	while (IsA(jtnode, FromExpr))
@@ -130,25 +130,25 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 	rtr = (RangeTblRef *) jtnode;
 	rte = planner_rt_fetch(rtr->rtindex, root);
 	if (rte->rtekind == RTE_RELATION)
-		 /* ordinary relation, ok */ ;
+		 /* 普通关系，可以 */ ;
 	else if (rte->rtekind == RTE_SUBQUERY && rte->inh)
-		 /* flattened UNION ALL subquery, ok */ ;
+		 /* 已展平的 UNION ALL 子查询，可以 */ ;
 	else
 		return;
 
 	/*
-	 * Examine all the aggregates and verify all are MIN/MAX aggregates.  Stop
-	 * as soon as we find one that isn't.
+	 * 检查全部聚合，确认都是 MIN/MAX 聚合。一旦
+	 * 发现一个不是就停。
 	 */
 	aggs_list = NIL;
 	if (!can_minmax_aggs(root, &aggs_list))
 		return;
 
 	/*
-	 * OK, there is at least the possibility of performing the optimization.
-	 * Build an access path for each aggregate.  If any of the aggregates
-	 * prove to be non-indexable, give up; there is no point in optimizing
-	 * just some of them.
+	 * 好，至少有可能做这项优化。
+	 * 为每个聚合建立一条访问路径。若任何一个聚合
+	 * 证明不能走索引，就放弃；只优化
+	 * 其中一部分没有意义。
 	 */
 	foreach(lc, aggs_list)
 	{
@@ -157,39 +157,39 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 		bool		reverse;
 
 		/*
-		 * We'll need the equality operator that goes with the aggregate's
-		 * ordering operator.
+		 * 需要与该聚合的
+		 * 排序操作符配套的等值操作符。
 		 */
 		eqop = get_equality_op_for_ordering_op(mminfo->aggsortop, &reverse);
-		if (!OidIsValid(eqop))	/* shouldn't happen */
+		if (!OidIsValid(eqop))	/* 不应当发生 */
 			elog(ERROR, "could not find equality operator for ordering operator %u",
 				 mminfo->aggsortop);
 
 		/*
-		 * We can use either an ordering that gives NULLS FIRST or one that
-		 * gives NULLS LAST; furthermore there's unlikely to be much
-		 * performance difference between them, so it doesn't seem worth
-		 * costing out both ways if we get a hit on the first one.  NULLS
-		 * FIRST is more likely to be available if the operator is a
-		 * reverse-sort operator, so try that first if reverse.
+		 * 可以用给出 NULLS FIRST 的排序，也可以用给出
+		 * NULLS LAST 的排序；而且两者之间不太可能有很大
+		 * 性能差别，因此若第一种就命中，似乎不值得
+		 * 把两种都估价。若该操作符是
+		 * 逆序操作符，NULLS FIRST 更可能可用，
+		 * 因此若是逆序就先试那种。
 		 */
 		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, reverse))
 			continue;
 		if (build_minmax_path(root, mminfo, eqop, mminfo->aggsortop, !reverse))
 			continue;
 
-		/* No indexable path for this aggregate, so fail */
+		/* 这个聚合没有可索引路径，因此失败 */
 		return;
 	}
 
 	/*
-	 * OK, we can do the query this way.  Prepare to create a MinMaxAggPath
-	 * node.
+	 * 好，可以这样执行查询。准备创建 MinMaxAggPath
+	 * 节点。
 	 *
-	 * First, create an output Param node for each agg.  (If we end up not
-	 * using the MinMaxAggPath, we'll waste a PARAM_EXEC slot for each agg,
-	 * which is not worth worrying about.  We can't wait till create_plan time
-	 * to decide whether to make the Param, unfortunately.)
+	 * 首先，为每个聚合创建一个输出 Param 节点。（若最终不用
+	 * 这条 MinMaxAggPath，每个聚合会浪费一个 PARAM_EXEC 槽，
+	 * 这不值得担心。可惜不能等到 create_plan 时
+	 * 再决定是否做这个 Param。）
 	 */
 	foreach(lc, aggs_list)
 	{
@@ -203,18 +203,18 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 	}
 
 	/*
-	 * Create a MinMaxAggPath node with the appropriate estimated costs and
-	 * other needed data, and add it to the UPPERREL_GROUP_AGG upperrel, where
-	 * it will compete against the standard aggregate implementation.  (It
-	 * will likely always win, but we need not assume that here.)
+	 * 创建一个带有适当估计代价和
+	 * 其他所需数据的 MinMaxAggPath 节点，并把它加到 UPPERREL_GROUP_AGG 上层关系，
+	 * 在那里它会与标准聚合实现竞争。（它
+	 * 很可能总是赢，但这里不必假定这一点。）
 	 *
-	 * Note: grouping_planner won't have created this upperrel yet, but it's
-	 * fine for us to create it first.  We will not have inserted the correct
-	 * consider_parallel value in it, but MinMaxAggPath paths are currently
-	 * never parallel-safe anyway, so that doesn't matter.  Likewise, it
-	 * doesn't matter that we haven't filled FDW-related fields in the rel.
-	 * Also, because there are no rowmarks, we know that the processed_tlist
-	 * doesn't need to change anymore, so making the pathtarget now is safe.
+	 * 注意：grouping_planner 这时还没创建这个上层关系，但
+	 * 我们先创建它没问题。我们还没在里面填入正确的
+	 * consider_parallel 值，但 MinMaxAggPath 路径目前
+	 * 反正永远不是并行安全的，所以没关系。同样，
+	 * 关系里还没填 FDW 相关字段也没关系。
+	 * 另外，因为没有行标记，我们知道 processed_tlist
+	 * 不必再改，因此现在做路径目标是安全的。
 	 */
 	grouped_rel = fetch_upper_rel(root, UPPERREL_GROUP_AGG, NULL);
 	add_path(grouped_rel, (Path *)
@@ -227,11 +227,11 @@ preprocess_minmax_aggregates(PlannerInfo *root)
 
 /*
  * can_minmax_aggs
- *		Examine all the aggregates in the query, and check if they are
- *		all MIN/MAX aggregates.  If so, build a list of MinMaxAggInfo
- *		nodes for them.
+ *		检查查询中的全部聚合，看它们是否
+ *		都是 MIN/MAX 聚合。若是，就为它们建立一份 MinMaxAggInfo
+ *		节点列表。
  *
- * Returns false if a non-MIN/MAX aggregate is found, true otherwise.
+ * 若发现非 MIN/MAX 聚合则返回假，否则返回真。
  */
 static bool
 can_minmax_aggs(PlannerInfo *root, List **context)
@@ -239,8 +239,8 @@ can_minmax_aggs(PlannerInfo *root, List **context)
 	ListCell   *lc;
 
 	/*
-	 * This function used to have to scan the query for itself, but now we can
-	 * just thumb through the AggInfo list made by preprocess_aggrefs.
+	 * 这个函数以前得自己扫描查询，现在可以
+	 * 直接翻 preprocess_aggrefs 做好的 AggInfo 列表。
 	 */
 	foreach(lc, root->agginfos)
 	{
@@ -252,50 +252,50 @@ can_minmax_aggs(PlannerInfo *root, List **context)
 
 		Assert(aggref->agglevelsup == 0);
 		if (list_length(aggref->args) != 1)
-			return false;		/* it couldn't be MIN/MAX */
+			return false;		/* 它不可能是 MIN/MAX */
 
 		/*
-		 * ORDER BY is usually irrelevant for MIN/MAX, but it can change the
-		 * outcome if the aggsortop's operator class recognizes non-identical
-		 * values as equal.  For example, 4.0 and 4.00 are equal according to
-		 * numeric_ops, yet distinguishable.  If MIN() receives more than one
-		 * value equal to 4.0 and no value less than 4.0, it is unspecified
-		 * which of those equal values MIN() returns.  An ORDER BY expression
-		 * that differs for each of those equal values of the argument
-		 * expression makes the result predictable once again.  This is a
-		 * niche requirement, and we do not implement it with subquery paths.
-		 * In any case, this test lets us reject ordered-set aggregates
-		 * quickly.
+		 * ORDER BY 对 MIN/MAX 通常无关，但若聚合排序操作符的操作符类
+		 * 把并不相同的
+		 * 值认作相等，它就能改变结果。例如，按
+		 * numeric_ops，4.0 和 4.00 相等，却可以区分。若 MIN() 收到不止一个
+		 * 等于 4.0 的值，且没有小于 4.0 的值，则未指定
+		 * MIN() 返回这些相等值中的哪一个。一个对参数表达式
+		 * 这些相等值各不相同的 ORDER BY 表达式
+		 * 能让结果再次可预测。这是
+		 * 一种小众需求，我们不用子查询路径来实现它。
+		 * 无论如何，这项测试让我们能迅速
+		 * 拒绝有序集聚合。
 		 */
 		if (aggref->aggorder != NIL)
 			return false;
-		/* note: we do not care if DISTINCT is mentioned ... */
+		/* 注意：并不在意是否提到了 DISTINCT…… */
 
 		/*
-		 * We might implement the optimization when a FILTER clause is present
-		 * by adding the filter to the quals of the generated subquery.  For
-		 * now, just punt.
+		 * 有 FILTER 子句时，也许可以把过滤器加到生成的子查询的限定条件里
+		 * 来实现这项优化。
+		 * 目前直接放弃。
 		 */
 		if (aggref->aggfilter != NULL)
 			return false;
 
 		aggsortop = fetch_agg_sort_op(aggref->aggfnoid);
 		if (!OidIsValid(aggsortop))
-			return false;		/* not a MIN/MAX aggregate */
+			return false;		/* 不是 MIN/MAX 聚合 */
 
 		curTarget = (TargetEntry *) linitial(aggref->args);
 
 		if (contain_mutable_functions((Node *) curTarget->expr))
-			return false;		/* not potentially indexable */
+			return false;		/* 没有可能走索引 */
 
 		if (type_is_rowtype(exprType((Node *) curTarget->expr)))
-			return false;		/* IS NOT NULL would have weird semantics */
+			return false;		/* IS NOT NULL 的语义会很怪 */
 
 		mminfo = makeNode(MinMaxAggInfo);
 		mminfo->aggfnoid = aggref->aggfnoid;
 		mminfo->aggsortop = aggsortop;
 		mminfo->target = curTarget->expr;
-		mminfo->subroot = NULL; /* don't compute path yet */
+		mminfo->subroot = NULL; /* 先不算路径 */
 		mminfo->path = NULL;
 		mminfo->pathcost = 0;
 		mminfo->param = NULL;
@@ -307,11 +307,11 @@ can_minmax_aggs(PlannerInfo *root, List **context)
 
 /*
  * build_minmax_path
- *		Given a MIN/MAX aggregate, try to build an indexscan Path it can be
- *		optimized with.
+ *		给定一个 MIN/MAX 聚合，试着建立一条可以用来
+ *		优化它的索引扫描路径。
  *
- * If successful, stash the best path in *mminfo and return true.
- * Otherwise, return false.
+ * 若成功，把最佳路径存进 *mminfo 并返回真。
+ * 否则返回假。
  */
 static bool
 build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
@@ -329,17 +329,17 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	double		path_fraction;
 
 	/*
-	 * We are going to construct what is effectively a sub-SELECT query, so
-	 * clone the current query level's state and adjust it to make it look
-	 * like a subquery.  Any outer references will now be one level higher
-	 * than before.  (This means that when we are done, there will be no Vars
-	 * of level 1, which is why the subquery can become an initplan.)
+	 * 我们将构造的实际上是一条子 SELECT 查询，因此
+	 * 克隆当前查询层次的状态并调整它，使它看起来
+	 * 像一个子查询。任何外部引用现在都比以前高一层。
+	 * （这意味着做完之后不会有层次 1 的 Var，
+	 * 所以这个子查询可以变成 initplan。）
 	 */
 	subroot = (PlannerInfo *) palloc(sizeof(PlannerInfo));
 	memcpy(subroot, root, sizeof(PlannerInfo));
 	subroot->query_level++;
 	subroot->parent_root = root;
-	/* reset subplan-related stuff */
+	/* 重置与子计划相关的东西 */
 	subroot->plan_params = NIL;
 	subroot->outer_params = NULL;
 	subroot->init_plans = NIL;
@@ -349,14 +349,14 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	subroot->parse = parse = copyObject(root->parse);
 	IncrementVarSublevelsUp((Node *) parse, 1, 1);
 
-	/* append_rel_list might contain outer Vars? */
+	/* append_rel_list 里会不会有外部 Var？ */
 	subroot->append_rel_list = copyObject(root->append_rel_list);
 	IncrementVarSublevelsUp((Node *) subroot->append_rel_list, 1, 1);
-	/* There shouldn't be any OJ info to translate, as yet */
+	/* 目前应当还没有任何外连接信息要翻译 */
 	Assert(subroot->join_info_list == NIL);
-	/* and we haven't made equivalence classes, either */
+	/* 而且我们也还没做等价类 */
 	Assert(subroot->eq_classes == NIL);
-	/* and we haven't created PlaceHolderInfos, either */
+	/* 而且我们也还没创建 PlaceHolderInfos */
 	Assert(subroot->placeholder_list == NIL);
 
 	/*----------
@@ -367,7 +367,7 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	 *		 LIMIT 1)
 	 *----------
 	 */
-	/* single tlist entry that is the aggregate target */
+	/* 单个目标列表项，就是聚合目标 */
 	tle = makeTargetEntry(copyObject(mminfo->target),
 						  (AttrNumber) 1,
 						  pstrdup("agg_target"),
@@ -375,36 +375,36 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	tlist = list_make1(tle);
 	subroot->processed_tlist = parse->targetList = tlist;
 
-	/* No HAVING, no DISTINCT, no aggregates anymore */
+	/* 不再有 HAVING、DISTINCT、聚合 */
 	parse->havingQual = NULL;
 	subroot->hasHavingQual = false;
 	parse->distinctClause = NIL;
 	parse->hasDistinctOn = false;
 	parse->hasAggs = false;
 
-	/* Build "target IS NOT NULL" expression */
+	/* 建立 "target IS NOT NULL" 表达式 */
 	ntest = makeNode(NullTest);
 	ntest->nulltesttype = IS_NOT_NULL;
 	ntest->arg = copyObject(mminfo->target);
-	/* we checked it wasn't a rowtype in can_minmax_aggs */
+	/* 已在 can_minmax_aggs 里检查过它不是行类型 */
 	ntest->argisrow = false;
 	ntest->location = -1;
 
-	/* User might have had that in WHERE already */
+	/* 用户也许已经在 WHERE 里写过这个 */
 	if (!list_member((List *) parse->jointree->quals, ntest))
 		parse->jointree->quals = (Node *)
 			lcons(ntest, (List *) parse->jointree->quals);
 
-	/* Build suitable ORDER BY clause */
+	/* 建立合适的 ORDER BY 子句 */
 	sortcl = makeNode(SortGroupClause);
 	sortcl->tleSortGroupRef = assignSortGroupRef(tle, subroot->processed_tlist);
 	sortcl->eqop = eqop;
 	sortcl->sortop = sortop;
 	sortcl->nulls_first = nulls_first;
-	sortcl->hashable = false;	/* no need to make this accurate */
+	sortcl->hashable = false;	/* 不必把这个做得精确 */
 	parse->sortClause = list_make1(sortcl);
 
-	/* set up expressions for LIMIT 1 */
+	/* 为 LIMIT 1 设置表达式 */
 	parse->limitOffset = NULL;
 	parse->limitCount = (Node *) makeConst(INT8OID, -1, InvalidOid,
 										   sizeof(int64),
@@ -412,8 +412,8 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 										   FLOAT8PASSBYVAL);
 
 	/*
-	 * Generate the best paths for this query, telling query_planner that we
-	 * have LIMIT 1.
+	 * 为这个查询生成最佳路径，并告诉 query_planner 我们
+	 * 有 LIMIT 1。
 	 */
 	subroot->tuple_fraction = 1.0;
 	subroot->limit_tuples = 1.0;
@@ -421,17 +421,17 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 	final_rel = query_planner(subroot, minmax_qp_callback, NULL);
 
 	/*
-	 * Since we didn't go through subquery_planner() to handle the subquery,
-	 * we have to do some of the same cleanup it would do, in particular cope
-	 * with params and initplans used within this subquery.  (This won't
-	 * matter if we end up not using the subplan.)
+	 * 由于没有经过 subquery_planner() 来处理这个子查询，
+	 * 必须做它会做的一部分清理，尤其是应付
+	 * 这个子查询内部用到的参数和 initplan。（若最终
+	 * 不用这个子计划，这就无所谓。）
 	 */
 	SS_identify_outer_params(subroot);
 	SS_charge_for_initplans(subroot, final_rel);
 
 	/*
-	 * Get the best presorted path, that being the one that's cheapest for
-	 * fetching just one row.  If there's no such path, fail.
+	 * 取得最佳的预排序路径，也就是只取
+	 * 一行时最便宜的那条。若没有这样的路径，就失败。
 	 */
 	if (final_rel->rows > 1.0)
 		path_fraction = 1.0 / final_rel->rows;
@@ -447,24 +447,24 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 		return false;
 
 	/*
-	 * The path might not return exactly what we want, so fix that.  (We
-	 * assume that this won't change any conclusions about which was the
-	 * cheapest path.)
+	 * 这条路径返回的也许并不正好是我们要的，因此修正它。（假定
+	 * 这不会改变关于哪条是
+	 * 最便宜路径的任何结论。）
 	 */
 	sorted_path = apply_projection_to_path(subroot, final_rel, sorted_path,
 										   create_pathtarget(subroot,
 															 subroot->processed_tlist));
 
 	/*
-	 * Determine cost to get just the first row of the presorted path.
+	 * 确定只取预排序路径第一行的代价。
 	 *
-	 * Note: cost calculation here should match
-	 * compare_fractional_path_costs().
+	 * 注意：这里的代价计算应当与
+	 * compare_fractional_path_costs() 一致。
 	 */
 	path_cost = sorted_path->startup_cost +
 		path_fraction * (sorted_path->total_cost - sorted_path->startup_cost);
 
-	/* Save state for further processing */
+	/* 保存状态供后续处理 */
 	mminfo->subroot = subroot;
 	mminfo->path = sorted_path;
 	mminfo->pathcost = path_cost;
@@ -473,7 +473,7 @@ build_minmax_path(PlannerInfo *root, MinMaxAggInfo *mminfo,
 }
 
 /*
- * Compute query_pathkeys and other pathkeys during query_planner()
+ * 在 query_planner() 期间计算 query_pathkeys 和其他路径键
  */
 static void
 minmax_qp_callback(PlannerInfo *root, void *extra)
@@ -491,8 +491,8 @@ minmax_qp_callback(PlannerInfo *root, void *extra)
 }
 
 /*
- * Get the OID of the sort operator, if any, associated with an aggregate.
- * Returns InvalidOid if there is no such operator.
+ * 取得与某个聚合关联的排序操作符 OID，若有的话。
+ * 若没有这样的操作符则返回 InvalidOid。
  */
 static Oid
 fetch_agg_sort_op(Oid aggfnoid)
@@ -501,7 +501,7 @@ fetch_agg_sort_op(Oid aggfnoid)
 	Form_pg_aggregate aggform;
 	Oid			aggsortop;
 
-	/* fetch aggregate entry from pg_aggregate */
+	/* 从 pg_aggregate 取出聚合项 */
 	aggTuple = SearchSysCache1(AGGFNOID, ObjectIdGetDatum(aggfnoid));
 	if (!HeapTupleIsValid(aggTuple))
 		return InvalidOid;

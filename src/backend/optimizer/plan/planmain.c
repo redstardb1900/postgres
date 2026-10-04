@@ -33,23 +33,23 @@
 
 /*
  * query_planner
- *	  Generate a path (that is, a simplified plan) for a basic query,
- *	  which may involve joins but not any fancier features.
+ *	  为基本查询生成一条路径（也就是一份简化计划），
+ *	  它可以含有连接，但没有更花哨的特性。
  *
- * Since query_planner does not handle the toplevel processing (grouping,
- * sorting, etc) it cannot select the best path by itself.  Instead, it
- * returns the RelOptInfo for the top level of joining, and the caller
- * (grouping_planner) can choose among the surviving paths for the rel.
+ * 由于 query_planner 不处理顶层加工（分组、
+ * 排序等），它无法自己选出最佳路径。它改为
+ * 返回连接最顶层的 RelOptInfo，由调用方
+ * （grouping_planner）在该关系幸存的路径中选择。
  *
- * root describes the query to plan
- * qp_callback is a function to compute query_pathkeys once it's safe to do so
- * qp_extra is optional extra data to pass to qp_callback
+ * root 描述要规划的查询
+ * qp_callback 是在可以安全计算 query_pathkeys 时调用的函数
+ * qp_extra 是传给 qp_callback 的可选额外数据
  *
- * Note: the PlannerInfo node also includes a query_pathkeys field, which
- * tells query_planner the sort order that is desired in the final output
- * plan.  This value is *not* available at call time, but is computed by
- * qp_callback once we have completed merging the query's equivalence classes.
- * (We cannot construct canonical pathkeys until that's done.)
+ * 注意：PlannerInfo 节点也含有 query_pathkeys 字段，它
+ * 告诉 query_planner 最终输出
+ * 计划所要的排序。调用时这个值 *还没有*，要等
+ * qp_callback 在合并完查询的等价类之后才算出。
+ * （在那完成之前，我们无法构造规范路径键。）
  */
 RelOptInfo *
 query_planner(PlannerInfo *root,
@@ -60,10 +60,10 @@ query_planner(PlannerInfo *root,
 	RelOptInfo *final_rel;
 
 	/*
-	 * Init planner lists to empty.
+	 * 把规划器的列表初始化为空。
 	 *
-	 * NOTE: append_rel_list was set up by subquery_planner, so do not touch
-	 * here.
+	 * 注意：append_rel_list 已由 subquery_planner 设好，因此这里不要
+	 * 动它。
 	 */
 	root->join_rel_list = NIL;
 	root->join_rel_hash = NULL;
@@ -81,15 +81,15 @@ query_planner(PlannerInfo *root,
 	root->initial_rels = NIL;
 
 	/*
-	 * Set up arrays for accessing base relations and AppendRelInfos.
+	 * 设置用于访问基关系和 AppendRelInfos 的数组。
 	 */
 	setup_simple_rel_arrays(root);
 
 	/*
-	 * In the trivial case where the jointree is a single RTE_RESULT relation,
-	 * bypass all the rest of this function and just make a RelOptInfo and its
-	 * one access path.  This is worth optimizing because it applies for
-	 * common cases like "SELECT expression" and "INSERT ... VALUES()".
+	 * 在平凡情形下，jointree 只是单个 RTE_RESULT 关系，
+	 * 就绕过本函数其余部分，只做一个 RelOptInfo 及其
+	 * 一条访问路径。这值得优化，因为它适用于
+	 * "SELECT expression" 和 "INSERT ... VALUES()" 这类常见情形。
 	 */
 	Assert(parse->jointree->fromlist != NIL);
 	if (list_length(parse->jointree->fromlist) == 1)
@@ -104,19 +104,19 @@ query_planner(PlannerInfo *root,
 			Assert(rte != NULL);
 			if (rte->rtekind == RTE_RESULT)
 			{
-				/* Make the RelOptInfo for it directly */
+				/* 直接为它做 RelOptInfo */
 				final_rel = build_simple_rel(root, varno, NULL);
 
 				/*
-				 * If query allows parallelism in general, check whether the
-				 * quals are parallel-restricted.  (We need not check
-				 * final_rel->reltarget because it's empty at this point.
-				 * Anything parallel-restricted in the query tlist will be
-				 * dealt with later.)  This is normally pretty silly, because
-				 * a Result-only plan would never be interesting to
-				 * parallelize.  However, if debug_parallel_query is on, then
-				 * we want to execute the Result in a parallel worker if
-				 * possible, so we must do this.
+				 * 若查询总体上允许并行，就检查
+				 * 限定条件是否受并行限制。（此时不必检查
+				 * final_rel->reltarget，因为它还是空的。
+				 * 查询目标列表里受并行限制的东西
+				 * 以后再处理。）这通常很无聊，因为
+				 * 只有 Result 的计划从来就不值得
+				 * 并行化。不过，若 debug_parallel_query 开着，
+				 * 我们就希望尽可能在并行工作进程里执行 Result，
+				 * 因此必须做这件事。
 				 */
 				if (root->glob->parallelModeOK &&
 					debug_parallel_query != DEBUG_PARALLEL_OFF)
@@ -124,30 +124,30 @@ query_planner(PlannerInfo *root,
 						is_parallel_safe(root, parse->jointree->quals);
 
 				/*
-				 * The only path for it is a trivial Result path.  We cheat a
-				 * bit here by using a GroupResultPath, because that way we
-				 * can just jam the quals into it without preprocessing them.
-				 * (But, if you hold your head at the right angle, a FROM-less
-				 * SELECT is a kind of degenerate-grouping case, so it's not
-				 * that much of a cheat.)
+				 * 它唯一的路径是一条平凡的 Result 路径。这里取了点巧，
+				 * 用了 GroupResultPath，因为这样
+				 * 可以把限定条件直接塞进去，而不必预处理。
+				 * （不过，把脑袋歪到合适的角度，没有 FROM 的
+				 * SELECT 也算一种退化的分组，所以这不算
+				 * 太取巧。）
 				 */
 				add_path(final_rel, (Path *)
 						 create_group_result_path(root, final_rel,
 												  final_rel->reltarget,
 												  (List *) parse->jointree->quals));
 
-				/* Select cheapest path (pretty easy in this case...) */
+				/* 选出最便宜的路径（这种情形相当容易……） */
 				set_cheapest(final_rel);
 
 				/*
-				 * We don't need to run generate_base_implied_equalities, but
-				 * we do need to pretend that EC merging is complete.
+				 * 不必跑 generate_base_implied_equalities，但
+				 * 必须假装等价类合并已经完成。
 				 */
 				root->ec_merging_done = true;
 
 				/*
-				 * We still are required to call qp_callback, in case it's
-				 * something like "SELECT 2+2 ORDER BY 1".
+				 * 仍然必须调用 qp_callback，以防是
+				 * "SELECT 2+2 ORDER BY 1" 这类。
 				 */
 				(*qp_callback) (root, qp_extra);
 
@@ -157,25 +157,25 @@ query_planner(PlannerInfo *root,
 	}
 
 	/*
-	 * Construct RelOptInfo nodes for all base relations used in the query.
-	 * Appendrel member relations ("other rels") will be added later.
+	 * 为查询中用到的全部基关系构造 RelOptInfo 节点。
+	 * 追加关系的成员关系（"其他关系"）以后再加。
 	 *
-	 * Note: the reason we find the baserels by searching the jointree, rather
-	 * than scanning the rangetable, is that the rangetable may contain RTEs
-	 * for rels not actively part of the query, for example views.  We don't
-	 * want to make RelOptInfos for them.
+	 * 注意：靠搜索 jointree 来找基关系，而不是
+	 * 扫描范围表，是因为范围表里可能有
+	 * 并不积极参与查询的关系的 RTEs，例如视图。我们不想
+	 * 为它们做 RelOptInfos。
 	 */
 	add_base_rels_to_query(root, (Node *) parse->jointree);
 
 	/*
-	 * Examine the targetlist and join tree, adding entries to baserel
-	 * targetlists for all referenced Vars, and generating PlaceHolderInfo
-	 * entries for all referenced PlaceHolderVars.  Restrict and join clauses
-	 * are added to appropriate lists belonging to the mentioned relations. We
-	 * also build EquivalenceClasses for provably equivalent expressions. The
-	 * SpecialJoinInfo list is also built to hold information about join order
-	 * restrictions.  Finally, we form a target joinlist for make_one_rel() to
-	 * work from.
+	 * 检查目标列表和连接树，为所有被引用的 Var 向基关系
+	 * 目标列表加项，并为所有被引用的 PlaceHolderVars 生成 PlaceHolderInfo
+	 * 项。限制子句和连接子句
+	 * 加到所提及关系所属的适当列表。我们
+	 * 也为可证明等价的表达式建立 EquivalenceClasses。
+	 * SpecialJoinInfo 列表也建起来，用来保存连接顺序
+	 * 限制的信息。最后，形成一份目标连接列表，供 make_one_rel()
+	 * 据此工作。
 	 */
 	build_base_rel_tlists(root, root->processed_tlist);
 
@@ -186,98 +186,98 @@ query_planner(PlannerInfo *root,
 	joinlist = deconstruct_jointree(root);
 
 	/*
-	 * Reconsider any postponed outer-join quals now that we have built up
-	 * equivalence classes.  (This could result in further additions or
-	 * mergings of classes.)
+	 * 既然已经建好等价类，重新考虑任何推迟的外连接限定条件。
+	 * （这可能导致类的进一步添加或
+	 * 合并。）
 	 */
 	reconsider_outer_join_clauses(root);
 
 	/*
-	 * If we formed any equivalence classes, generate additional restriction
-	 * clauses as appropriate.  (Implied join clauses are formed on-the-fly
-	 * later.)
+	 * 若形成了任何等价类，就酌情生成额外的限制
+	 * 子句。（隐含的连接子句以后
+	 * 随时形成。）
 	 */
 	generate_base_implied_equalities(root);
 
 	/*
-	 * We have completed merging equivalence sets, so it's now possible to
-	 * generate pathkeys in canonical form; so compute query_pathkeys and
-	 * other pathkeys fields in PlannerInfo.
+	 * 等价集的合并已经完成，因此现在可以
+	 * 生成规范形式的路径键；于是计算 query_pathkeys 和
+	 * PlannerInfo 里的其他路径键字段。
 	 */
 	(*qp_callback) (root, qp_extra);
 
 	/*
-	 * Examine any "placeholder" expressions generated during subquery pullup.
-	 * Make sure that the Vars they need are marked as needed at the relevant
-	 * join level.  This must be done before join removal because it might
-	 * cause Vars or placeholders to be needed above a join when they weren't
-	 * so marked before.
+	 * 检查子查询上拉期间生成的任何"占位"表达式。
+	 * 确保它们需要的 Var 在相关
+	 * 连接层次被标成需要。这必须在连接移除之前做，因为它可能
+	 * 使 Var 或占位符在连接之上变为需要，而先前
+	 * 并没有这样标记。
 	 */
 	fix_placeholder_input_needed_levels(root);
 
 	/*
-	 * Remove any useless outer joins.  Ideally this would be done during
-	 * jointree preprocessing, but the necessary information isn't available
-	 * until we've built baserel data structures and classified qual clauses.
+	 * 去掉任何无用的外连接。理想情况下这会在
+	 * jointree 预处理期间做，但必要的信息要到
+	 * 建好基关系数据结构并分类限定子句之后才有。
 	 */
 	joinlist = remove_useless_joins(root, joinlist);
 
 	/*
-	 * Also, reduce any semijoins with unique inner rels to plain inner joins.
-	 * Likewise, this can't be done until now for lack of needed info.
+	 * 另外，把内层关系唯一的半连接归约为普通内连接。
+	 * 同样，由于缺少所需信息，现在之前不能做这件事。
 	 */
 	reduce_unique_semijoins(root);
 
 	/*
-	 * Now distribute "placeholders" to base rels as needed.  This has to be
-	 * done after join removal because removal could change whether a
-	 * placeholder is evaluable at a base rel.
+	 * 现在按需要把"占位符"分配到基关系。这必须在
+	 * 连接移除之后做，因为移除可能改变某个
+	 * 占位符能否在基关系上求值。
 	 */
 	add_placeholders_to_base_rels(root);
 
 	/*
-	 * Construct the lateral reference sets now that we have finalized
-	 * PlaceHolderVar eval levels.
+	 * 既然已经定下 PlaceHolderVar 的求值层次，现在构造
+	 * LATERAL 引用集合。
 	 */
 	create_lateral_join_info(root);
 
 	/*
-	 * Match foreign keys to equivalence classes and join quals.  This must be
-	 * done after finalizing equivalence classes, and it's useful to wait till
-	 * after join removal so that we can skip processing foreign keys
-	 * involving removed relations.
+	 * 把外键匹配到等价类和连接限定条件。这必须在
+	 * 定稿等价类之后做，而且等到
+	 * 连接移除之后再做也有用，这样就可以跳过涉及已移除关系的
+	 * 外键。
 	 */
 	match_foreign_keys_to_quals(root);
 
 	/*
-	 * Look for join OR clauses that we can extract single-relation
-	 * restriction OR clauses from.
+	 * 寻找可以从中抽出单关系
+	 * 限制 OR 子句的连接 OR 子句。
 	 */
 	extract_restriction_or_clauses(root);
 
 	/*
-	 * Now expand appendrels by adding "otherrels" for their children.  We
-	 * delay this to the end so that we have as much information as possible
-	 * available for each baserel, including all restriction clauses.  That
-	 * let us prune away partitions that don't satisfy a restriction clause.
-	 * Also note that some information such as lateral_relids is propagated
-	 * from baserels to otherrels here, so we must have computed it already.
+	 * 现在展开追加关系，为其子项添加 "otherrels"。我们
+	 * 把这推迟到最后，以便每个基关系能有尽可能多的
+	 * 信息，包括全部限制子句。那样
+	 * 才能剪掉不满足限制子句的分区。
+	 * 另外注意，lateral_relids 等一些信息在这里从基关系
+	 * 传播到其他关系，因此必须已经算好。
 	 */
 	add_other_rels_to_query(root);
 
 	/*
-	 * Distribute any UPDATE/DELETE/MERGE row identity variables to the target
-	 * relations.  This can't be done till we've finished expansion of
-	 * appendrels.
+	 * 把任何 UPDATE/DELETE/MERGE 行标识变量分发到目标
+	 * 关系。这要到追加关系展开
+	 * 完成之后才能做。
 	 */
 	distribute_row_identity_vars(root);
 
 	/*
-	 * Ready to do the primary planning.
+	 * 可以开始核心规划了。
 	 */
 	final_rel = make_one_rel(root, joinlist);
 
-	/* Check that we got at least one usable path */
+	/* 检查至少得到一条可用路径 */
 	if (!final_rel || !final_rel->cheapest_total_path ||
 		final_rel->cheapest_total_path->param_info != NULL)
 		elog(ERROR, "failed to construct the join relation");

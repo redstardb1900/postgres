@@ -37,18 +37,18 @@
 #define HYPERLOGLOG_H
 
 /*
- * HyperLogLog is an approximate technique for computing the number of distinct
- * entries in a set.  Importantly, it does this by using a fixed amount of
- * memory.  See the 2007 paper "HyperLogLog: the analysis of a near-optimal
- * cardinality estimation algorithm" for more.
+ * HyperLogLog 是一种计算集合中不同条目数量的近似技术。
+ * 重要的是，它用固定大小的内存完成这件事。更多内容见
+ * 2007 年论文 "HyperLogLog: the analysis of a near-optimal
+ * cardinality estimation algorithm"。
  *
  * hyperLogLogState
  *
- *		registerWidth		register width, in bits ("k")
- *		nRegisters			number of registers
- *		alphaMM				alpha * m ^ 2 (see initHyperLogLog())
- *		hashesArr			array of hashes
- *		arrSize				size of hashesArr
+ *		registerWidth		寄存器位宽（"k"）
+ *		nRegisters			寄存器数量
+ *		alphaMM				alpha * m ^ 2（见 initHyperLogLog()）
+ *		hashesArr			哈希数组
+ *		arrSize				hashesArr 的大小
  */
 typedef struct hyperLogLogState
 {

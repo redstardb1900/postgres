@@ -13,9 +13,9 @@
 #define QUNIQUE_H
 
 /*
- * Remove duplicates from a pre-sorted array, according to a user-supplied
- * comparator.  Usually the array should have been sorted with qsort() using
- * the same arguments.  Return the new size.
+ * 按调用者提供的比较函数，从已预先排序的数组中去掉
+ * 重复项。数组通常应已用相同参数调用 qsort() 排好序。
+ * 返回新的大小。
  */
 static inline size_t
 qunique(void *array, size_t elements, size_t width,
@@ -39,8 +39,8 @@ qunique(void *array, size_t elements, size_t width,
 }
 
 /*
- * Like qunique(), but takes a comparator with an extra user data argument
- * which is passed through, for compatibility with qsort_arg().
+ * 同 qunique()，但比较函数多一个用户数据参数，该参数
+ * 会被原样传入，以便与 qsort_arg() 兼容。
  */
 static inline size_t
 qunique_arg(void *array, size_t elements, size_t width,

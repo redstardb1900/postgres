@@ -14,34 +14,34 @@
 #define RBTREE_H
 
 /*
- * RBTNode is intended to be used as the first field of a larger struct,
- * whose additional fields carry whatever payload data the caller needs
- * for a tree entry.  (The total size of that larger struct is passed to
- * rbt_create.)	RBTNode is declared here to support this usage, but
- * callers must treat it as an opaque struct.
+ * RBTNode 应作为更大结构体的第一个字段使用，其余字段
+ * 携带调用者为树条目所需的负载数据。（那个更大结构体
+ * 的总大小传给 rbt_create。）这里声明 RBTNode 是为了
+ * 支持这种用法，但调用者必须把它当作不透明结构体。
+ *
  */
 typedef struct RBTNode
 {
-	char color;					/* node's current color, red or black */
-	struct RBTNode *left;		/* left child, or RBTNIL if none */
-	struct RBTNode *right;		/* right child, or RBTNIL if none */
-	struct RBTNode *parent;		/* parent, or NULL (not RBTNIL!) if none */
+	char color;					/* 节点当前颜色，红或黑 */
+	struct RBTNode *left;		/* 左孩子，若无则为 RBTNIL */
+	struct RBTNode *right;		/* 右孩子，若无则为 RBTNIL */
+	struct RBTNode *parent;		/* 父节点，若无则为 NULL（不是 RBTNIL！） */
 } RBTNode;
 
-/* Opaque struct representing a whole tree */
+/* 表示整棵树的不透明结构体 */
 typedef struct RBTree RBTree;
 
-/* Available tree iteration orderings */
+/* 可用的树遍历顺序 */
 typedef enum RBTOrderControl
 {
-	LeftRightWalk,				/* inorder: left child, node, right child */
-	RightLeftWalk				/* reverse inorder: right, node, left */
+	LeftRightWalk,				/* 中序：左孩子、节点、右孩子 */
+	RightLeftWalk				/* 逆中序：右、节点、左 */
 } RBTOrderControl;
 
 /*
- * RBTreeIterator holds state while traversing a tree.  This is declared
- * here so that callers can stack-allocate this, but must otherwise be
- * treated as an opaque struct.
+ * RBTreeIterator 在遍历树时保存状态。在此声明是为了
+ * 让调用者能在栈上分配它，但除此之外必须当作
+ * 不透明结构体。
  */
 typedef struct RBTreeIterator RBTreeIterator;
 
@@ -53,7 +53,7 @@ struct RBTreeIterator
 	bool		is_over;
 };
 
-/* Support functions to be provided by caller */
+/* 由调用者提供的支持函数 */
 typedef int (*rbt_comparator) (const RBTNode *a, const RBTNode *b, void *arg);
 typedef void (*rbt_combiner) (RBTNode *existing, const RBTNode *newdata, void *arg);
 typedef RBTNode *(*rbt_allocfunc) (void *arg);

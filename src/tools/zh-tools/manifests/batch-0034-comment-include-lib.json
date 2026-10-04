@@ -1,0 +1,230 @@
+{
+ "schema_version": 1,
+ "batch_id": "0034-comment-include-lib",
+ "title": "zh: translate include/lib header comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c37d74c3da4882bf143c6a2f04fae099325e88d8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/lib/binaryheap.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/bipartite_match.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/dshash.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/hyperloglog.h",
+   "kind": "c_comment",
+   "note": "comment-only; copyright and MIT license preserved"
+  },
+  {
+   "pattern": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/pairingheap.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/qunique.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/rbtree.h",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/include/lib/simplehash.h",
+   "kind": "c_comment",
+   "note": "comment-only; prototype comments kept"
+  },
+  {
+   "pattern": "src/include/lib/sort_template.h",
+   "kind": "c_comment",
+   "note": "comment-only; BSD license and NetBSD id preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0034-comment-include-lib.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/lib/binaryheap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright header",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/bipartite_match.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 12,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright header",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/dshash.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 26,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/hyperloglog.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 1,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright header",
+    "MIT license block",
+    "include guard"
+   ],
+   "note": "comment-only; copyright and MIT license preserved"
+  },
+  {
+   "path": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 113,
+   "translated": 109,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "commented-out ILIST_DEBUG",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/pairingheap.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 12,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright header",
+    "commented-out PAIRINGHEAP_DEBUG",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/qunique.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 2,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/rbtree.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 11,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "include guard"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/include/lib/simplehash.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 115,
+   "translated": 95,
+   "preserved": 20,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "generated function prototypes",
+    "macro sentinels"
+   ],
+   "note": "prototype comments kept verbatim"
+  },
+  {
+   "path": "src/include/lib/sort_template.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 16,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "BSD license block",
+    "NetBSD RCS id",
+    "DO_SORT call comments"
+   ],
+   "note": "comment-only; BSD license and NetBSD id preserved"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0034-comment-include-lib.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "include/lib headers covered by baseline variants. bloomfilter.h, integerset.h, knapsack.h and stringinfo.h are unchanged: their prose sits inside copyright, license or pgindent /*- blocks. simplehash.h keeps generated prototypes. sort_template.h keeps the BSD license and the NetBSD RCS id."
+}

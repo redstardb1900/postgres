@@ -13,19 +13,19 @@
 
 #include "lib/stringinfo.h"
 
-/* Enable if you need the pairingheap_dump() debug function */
+/* 若需要 pairingheap_dump() 调试函数则启用 */
 /* #define PAIRINGHEAP_DEBUG */
 
 /*
- * This represents an element stored in the heap. Embed this in a larger
- * struct containing the actual data you're storing.
+ * 这表示存放在堆中的一个元素。把它嵌入更大的结构体，
+ * 结构体里放你实际要存的数据。
  *
- * A node can have multiple children, which form a double-linked list.
- * first_child points to the node's first child, and the subsequent children
- * can be found by following the next_sibling pointers. The last child has
- * next_sibling == NULL. The prev_or_parent pointer points to the node's
- * previous sibling, or if the node is its parent's first child, to the
- * parent.
+ * 一个节点可以有多个孩子，它们组成双向链表。
+ * first_child 指向该节点的第一个孩子，随后的孩子
+ * 可顺着 next_sibling 指针找到。最后一个孩子的
+ * next_sibling == NULL。prev_or_parent 指向该节点的
+ * 前一个兄弟；若本节点是其父的第一个孩子，则指向
+ * 父节点。
  */
 typedef struct pairingheap_node
 {
@@ -35,10 +35,10 @@ typedef struct pairingheap_node
 } pairingheap_node;
 
 /*
- * Return the containing struct of 'type' where 'membername' is the
- * pairingheap_node pointed at by 'ptr'.
+ * 返回 'type' 的外层结构体，其中 'membername' 是
+ * 'ptr' 所指的 pairingheap_node。
  *
- * This is used to convert a pairingheap_node * back to its containing struct.
+ * 用来把 pairingheap_node * 转回其外层结构体。
  */
 #define pairingheap_container(type, membername, ptr) \
 	(AssertVariableIsOfTypeMacro(ptr, pairingheap_node *), \
@@ -46,7 +46,7 @@ typedef struct pairingheap_node
 	 ((type *) ((char *) (ptr) - offsetof(type, membername))))
 
 /*
- * Like pairingheap_container, but used when the pointer is 'const ptr'
+ * 同 pairingheap_container，但用于指针为 'const ptr' 时。
  */
 #define pairingheap_const_container(type, membername, ptr) \
 	(AssertVariableIsOfTypeMacro(ptr, const pairingheap_node *), \
@@ -54,25 +54,25 @@ typedef struct pairingheap_node
 	 ((const type *) ((const char *) (ptr) - offsetof(type, membername))))
 
 /*
- * For a max-heap, the comparator must return <0 iff a < b, 0 iff a == b,
- * and >0 iff a > b.  For a min-heap, the conditions are reversed.
+ * 对最大堆，比较函数必须在 a < b 时返回 <0，a == b 时返回 0，
+ * a > b 时返回 >0。对最小堆，这些条件反过来。
  */
 typedef int (*pairingheap_comparator) (const pairingheap_node *a,
 									   const pairingheap_node *b,
 									   void *arg);
 
 /*
- * A pairing heap.
+ * 一个配对堆。
  *
- * You can use pairingheap_allocate() to create a new palloc'd heap, or embed
- * this in a larger struct, set ph_compare and ph_arg directly and initialize
- * ph_root to NULL.
+ * 可以用 pairingheap_allocate() 创建经 palloc 分配的新堆，
+ * 或把本结构嵌入更大的结构体，直接设置 ph_compare 与
+ * ph_arg，并把 ph_root 初始化为 NULL。
  */
 typedef struct pairingheap
 {
-	pairingheap_comparator ph_compare;	/* comparison function */
-	void	   *ph_arg;			/* opaque argument to ph_compare */
-	pairingheap_node *ph_root;	/* current root of the heap */
+	pairingheap_comparator ph_compare;	/* 比较函数 */
+	void	   *ph_arg;			/* 传给 ph_compare 的不透明参数 */
+	pairingheap_node *ph_root;	/* 堆的当前根 */
 } pairingheap;
 
 extern pairingheap *pairingheap_allocate(pairingheap_comparator compare,
@@ -89,13 +89,13 @@ extern char *pairingheap_dump(pairingheap *heap,
 							  void *opaque);
 #endif
 
-/* Resets the heap to be empty. */
+/* 把堆重置为空。 */
 #define pairingheap_reset(h)			((h)->ph_root = NULL)
 
-/* Is the heap empty? */
+/* 堆是否为空？ */
 #define pairingheap_is_empty(h)			((h)->ph_root == NULL)
 
-/* Is there exactly one node in the heap? */
+/* 堆中是否恰好有一个节点？ */
 #define pairingheap_is_singular(h) \
 	((h)->ph_root && (h)->ph_root->first_child == NULL)
 

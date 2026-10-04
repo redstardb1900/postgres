@@ -100,20 +100,20 @@
  */
 
 /*
- * Qsort routine based on J. L. Bentley and M. D. McIlroy,
+ * 快速排序例程，基于 J. L. Bentley 与 M. D. McIlroy 的
  * "Engineering a sort function",
- * Software--Practice and Experience 23 (1993) 1249-1265.
+ * Software--Practice and Experience 23 (1993) 1249-1265。
  *
- * We have modified their original by adding a check for already-sorted
- * input, which seems to be a win per discussions on pgsql-hackers around
- * 2006-03-21.
+ * 我们在其原文上加了对输入已经有序的检查。根据大约
+ * 2006-03-21 pgsql-hackers 上的讨论，这看来是合算的。
  *
- * Also, we recurse on the smaller partition and iterate on the larger one,
- * which ensures we cannot recurse more than log(N) levels (since the
- * partition recursed to is surely no more than half of the input).  Bentley
- * and McIlroy explicitly rejected doing this on the grounds that it's "not
- * worth the effort", but we have seen crashes in the field due to stack
- * overrun, so that judgment seems wrong.
+ * 另外，我们对较小的分区递归，对较大的分区迭代，
+ * 从而保证递归层数无法超过 log(N)（因为递归进去的
+ * 分区肯定不超过输入的一半）。Bentley 与 McIlroy 明确
+ * 拒绝这样做，理由是 "不值得花这份力气"，但我们在
+ * 现场见过因栈溢出而崩溃，所以那个判断看来是错的。
+ *
+ *
  */
 
 #define ST_MAKE_PREFIX(a) CppConcat(a,_)
@@ -121,8 +121,8 @@
 #define ST_MAKE_NAME_(a,b) CppConcat(a,b)
 
 /*
- * If the element type is void, we'll also need an element_size argument
- * because we don't know the size.
+ * 若元素类型是 void，还需要 element_size 参数，
+ * 因为我们不知道元素大小。
  */
 #ifdef ST_ELEMENT_TYPE_VOID
 #define ST_ELEMENT_TYPE void
@@ -134,14 +134,14 @@
 #endif
 
 /*
- * If the user wants to be able to pass in compare functions at runtime,
- * we'll need to make that an argument of the sort and med3 functions.
+ * 若使用者希望在运行时传入比较函数，就需要把它
+ * 做成 sort 与 med3 函数的参数。
  */
 #ifdef ST_COMPARE_RUNTIME_POINTER
 /*
- * The type of the comparator function pointer that ST_SORT will take, unless
- * you've already declared a type name manually and want to use that instead of
- * having a new one defined.
+ * ST_SORT 将接受的比较函数指针类型，除非你已经
+ * 手工声明了类型名，并希望使用那个类型，而不是
+ * 再定义一个新的。
  */
 #ifndef ST_COMPARATOR_TYPE_NAME
 #define ST_COMPARATOR_TYPE_NAME ST_MAKE_NAME(ST_SORT, compare_function)
@@ -160,9 +160,9 @@
 #endif
 
 /*
- * If the user wants to use a compare function or expression that takes an
- * extra argument, we'll need to make that an argument of the sort, compare and
- * med3 functions.
+ * 若使用者希望比较函数或表达式带一个额外参数，
+ * 就需要把它做成 sort、compare 与 med3 函数的
+ * 参数。
  */
 #ifdef ST_COMPARE_ARG_TYPE
 #define ST_SORT_PROTO_ARG , ST_COMPARE_ARG_TYPE *arg
@@ -179,7 +179,7 @@ typedef int (*ST_COMPARATOR_TYPE_NAME) (const ST_ELEMENT_TYPE *,
 										const ST_ELEMENT_TYPE * ST_SORT_PROTO_ARG);
 #endif
 
-/* Declare the sort function.  Note optional arguments at end. */
+/* 声明排序函数。注意末尾的可选参数。 */
 ST_SCOPE void ST_SORT(ST_ELEMENT_TYPE * first, size_t n
 					  ST_SORT_PROTO_ELEMENT_SIZE
 					  ST_SORT_PROTO_COMPARE
@@ -189,12 +189,12 @@ ST_SCOPE void ST_SORT(ST_ELEMENT_TYPE * first, size_t n
 
 #ifdef ST_DEFINE
 
-/* sort private helper functions */
+/* 排序用的私有辅助函数 */
 #define ST_MED3 ST_MAKE_NAME(ST_SORT, med3)
 #define ST_SWAP ST_MAKE_NAME(ST_SORT, swap)
 #define ST_SWAPN ST_MAKE_NAME(ST_SORT, swapn)
 
-/* Users expecting to run very large sorts may need them to be interruptible. */
+/* 预期运行非常大规模排序的使用者，可能需要排序可被中断。 */
 #ifdef ST_CHECK_FOR_INTERRUPTS
 #define DO_CHECK_FOR_INTERRUPTS() CHECK_FOR_INTERRUPTS()
 #else
@@ -202,8 +202,8 @@ ST_SCOPE void ST_SORT(ST_ELEMENT_TYPE * first, size_t n
 #endif
 
 /*
- * Create wrapper macros that know how to invoke compare, med3 and sort with
- * the right arguments.
+ * 建立包装宏，使它们知道如何用正确的参数调用
+ * compare、med3 和 sort。
  */
 #ifdef ST_COMPARE_RUNTIME_POINTER
 #define DO_COMPARE(a_, b_) ST_COMPARE((a_), (b_) ST_SORT_INVOKE_ARG)
@@ -223,9 +223,9 @@ ST_SCOPE void ST_SORT(ST_ELEMENT_TYPE * first, size_t n
 			ST_SORT_INVOKE_ARG)
 
 /*
- * If we're working with void pointers, we'll use pointer arithmetic based on
- * uint8, and use the runtime element_size to step through the array and swap
- * elements.  Otherwise we'll work with ST_ELEMENT_TYPE.
+ * 若处理的是 void 指针，将基于 uint8 做指针运算，并用运行时的
+ * element_size 在数组中步进和交换元素。否则将使用
+ * ST_ELEMENT_TYPE。
  */
 #ifndef ST_ELEMENT_TYPE_VOID
 #define ST_POINTER_TYPE ST_ELEMENT_TYPE
@@ -240,9 +240,9 @@ ST_SCOPE void ST_SORT(ST_ELEMENT_TYPE * first, size_t n
 #endif
 
 /*
- * Find the median of three values.  Currently, performance seems to be best
- * if the comparator is inlined here, but the med3 function is not inlined
- * in the qsort function.
+ * 求三个值的中位数。目前看来，把比较函数在此处内联
+ * 性能最好，但 med3 函数不要内联进 qsort 函数。
+ *
  */
 static pg_noinline ST_ELEMENT_TYPE *
 ST_MED3(ST_ELEMENT_TYPE * a,
@@ -273,7 +273,7 @@ ST_SWAPN(ST_POINTER_TYPE * a, ST_POINTER_TYPE * b, size_t n)
 }
 
 /*
- * Sort an array.
+ * 对数组排序。
  */
 ST_SCOPE void
 ST_SORT(ST_ELEMENT_TYPE * data, size_t n
@@ -373,12 +373,12 @@ loop:
 	d2 = pd - pc;
 	if (d1 <= d2)
 	{
-		/* Recurse on left partition, then iterate on right partition */
+		/* 对左分区递归，然后对右分区迭代 */
 		if (d1 > ST_POINTER_STEP)
 			DO_SORT(a, d1 / ST_POINTER_STEP);
 		if (d2 > ST_POINTER_STEP)
 		{
-			/* Iterate rather than recurse to save stack space */
+			/* 迭代而不是递归，以节省栈空间 */
 			/* DO_SORT(pn - d2, d2 / ST_POINTER_STEP) */
 			a = pn - d2;
 			n = d2 / ST_POINTER_STEP;
@@ -387,12 +387,12 @@ loop:
 	}
 	else
 	{
-		/* Recurse on right partition, then iterate on left partition */
+		/* 对右分区递归，然后对左分区迭代 */
 		if (d2 > ST_POINTER_STEP)
 			DO_SORT(pn - d2, d2 / ST_POINTER_STEP);
 		if (d1 > ST_POINTER_STEP)
 		{
-			/* Iterate rather than recurse to save stack space */
+			/* 迭代而不是递归，以节省栈空间 */
 			/* DO_SORT(a, d1 / ST_POINTER_STEP) */
 			n = d1 / ST_POINTER_STEP;
 			goto loop;

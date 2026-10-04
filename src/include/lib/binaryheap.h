@@ -12,26 +12,26 @@
 #define BINARYHEAP_H
 
 /*
- * For a max-heap, the comparator must return <0 iff a < b, 0 iff a == b,
- * and >0 iff a > b.  For a min-heap, the conditions are reversed.
+ * 对最大堆，比较函数必须在 a < b 时返回 <0，a == b 时返回 0，
+ * a > b 时返回 >0。对最小堆，这些条件反过来。
  */
 typedef int (*binaryheap_comparator) (Datum a, Datum b, void *arg);
 
 /*
  * binaryheap
  *
- *		bh_size			how many nodes are currently in "nodes"
- *		bh_space		how many nodes can be stored in "nodes"
- *		bh_has_heap_property	no unordered operations since last heap build
- *		bh_compare		comparison function to define the heap property
- *		bh_arg			user data for comparison function
- *		bh_nodes		variable-length array of "space" nodes
+ *		bh_size			"nodes" 中当前的节点数
+ *		bh_space		"nodes" 中可存放的节点数
+ *		bh_has_heap_property	自上次建堆以来没有无序操作
+ *		bh_compare		定义堆性质的比较函数
+ *		bh_arg			比较函数的用户数据
+ *		bh_nodes		长度为 "space" 的变长节点数组
  */
 typedef struct binaryheap
 {
 	int			bh_size;
 	int			bh_space;
-	bool		bh_has_heap_property;	/* debugging cross-check */
+	bool		bh_has_heap_property;	/* 调试用交叉检查 */
 	binaryheap_comparator bh_compare;
 	void	   *bh_arg;
 	Datum		bh_nodes[FLEXIBLE_ARRAY_MEMBER];

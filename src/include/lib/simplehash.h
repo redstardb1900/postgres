@@ -95,21 +95,21 @@
 
 #include "port/pg_bitutils.h"
 
-/* helpers */
+/* 辅助 */
 #define SH_MAKE_PREFIX(a) CppConcat(a,_)
 #define SH_MAKE_NAME(name) SH_MAKE_NAME_(SH_MAKE_PREFIX(SH_PREFIX),name)
 #define SH_MAKE_NAME_(a,b) CppConcat(a,b)
 
-/* name macros for: */
+/* 下列对象的名字宏： */
 
-/* type declarations */
+/* 类型声明 */
 #define SH_TYPE SH_MAKE_NAME(hash)
 #define SH_STATUS SH_MAKE_NAME(status)
 #define SH_STATUS_EMPTY SH_MAKE_NAME(SH_EMPTY)
 #define SH_STATUS_IN_USE SH_MAKE_NAME(SH_IN_USE)
 #define SH_ITERATOR SH_MAKE_NAME(iterator)
 
-/* function declarations */
+/* 函数声明 */
 #define SH_CREATE SH_MAKE_NAME(create)
 #define SH_DESTROY SH_MAKE_NAME(destroy)
 #define SH_RESET SH_MAKE_NAME(reset)
@@ -127,7 +127,7 @@
 #define SH_FREE SH_MAKE_NAME(free)
 #define SH_STAT SH_MAKE_NAME(stat)
 
-/* internal helper functions (no externally visible prototypes) */
+/* 内部辅助函数（没有外部可见的原型） */
 #define SH_COMPUTE_PARAMETERS SH_MAKE_NAME(compute_parameters)
 #define SH_NEXT SH_MAKE_NAME(next)
 #define SH_PREV SH_MAKE_NAME(prev)
@@ -137,37 +137,37 @@
 #define SH_INSERT_HASH_INTERNAL SH_MAKE_NAME(insert_hash_internal)
 #define SH_LOOKUP_HASH_INTERNAL SH_MAKE_NAME(lookup_hash_internal)
 
-/* generate forward declarations necessary to use the hash table */
+/* 生成使用该哈希表所需的前向声明 */
 #ifdef SH_DECLARE
 
-/* type definitions */
+/* 类型定义 */
 typedef struct SH_TYPE
 {
 	/*
-	 * Size of data / bucket array, 64 bits to handle UINT32_MAX sized hash
-	 * tables.  Note that the maximum number of elements is lower
-	 * (SH_MAX_FILLFACTOR)
-	 */
+ * 数据 / 桶数组的大小，用 64 位以便处理 UINT32_MAX
+ * 大小的哈希表。注意元素个数上限更低
+ * （SH_MAX_FILLFACTOR）。
+ */
 	uint64		size;
 
-	/* how many elements have valid contents */
+	/* 有多少元素具有有效内容 */
 	uint32		members;
 
-	/* mask for bucket and size calculations, based on size */
+	/* 基于 size 的桶与大小计算掩码 */
 	uint32		sizemask;
 
-	/* boundary after which to grow hashtable */
+	/* 超过此界限后增长哈希表 */
 	uint32		grow_threshold;
 
-	/* hash buckets */
+	/* 哈希桶 */
 	SH_ELEMENT_TYPE *data;
 
 #ifndef SH_RAW_ALLOCATOR
-	/* memory context to use for allocations */
+	/* 用于分配的内存上下文 */
 	MemoryContext ctx;
 #endif
 
-	/* user defined data, useful for callbacks */
+	/* 用户定义的数据，供回调使用 */
 	void	   *private_data;
 }			SH_TYPE;
 
@@ -179,12 +179,12 @@ typedef enum SH_STATUS
 
 typedef struct SH_ITERATOR
 {
-	uint32		cur;			/* current element */
+	uint32		cur;			/* 当前元素 */
 	uint32		end;
-	bool		done;			/* iterator exhausted? */
+	bool		done;			/* 迭代器是否已耗尽？ */
 }			SH_ITERATOR;
 
-/* externally visible function prototypes */
+/* 外部可见的函数原型 */
 #ifdef SH_RAW_ALLOCATOR
 /* <prefix>_hash <prefix>_create(uint32 nelements, void *private_data) */
 SH_SCOPE	SH_TYPE *SH_CREATE(uint32 nelements, void *private_data);
@@ -247,32 +247,32 @@ SH_SCOPE void SH_STAT(SH_TYPE * tb);
 #endif							/* SH_DECLARE */
 
 
-/* generate implementation of the hash table */
+/* 生成哈希表的实现 */
 #ifdef SH_DEFINE
 
 #ifndef SH_RAW_ALLOCATOR
 #include "utils/memutils.h"
 #endif
 
-/* max data array size,we allow up to PG_UINT32_MAX buckets, including 0 */
+/* 数据数组最大尺寸，最多允许 PG_UINT32_MAX 个桶，含 0 */
 #define SH_MAX_SIZE (((uint64) PG_UINT32_MAX) + 1)
 
-/* normal fillfactor, unless already close to maximum */
+/* 正常填充因子，除非已经接近上限 */
 #ifndef SH_FILLFACTOR
 #define SH_FILLFACTOR (0.9)
 #endif
-/* increase fillfactor if we otherwise would error out */
+/* 若否则会报错，则提高填充因子 */
 #define SH_MAX_FILLFACTOR (0.98)
-/* grow if actual and optimal location bigger than */
+/* 若实际位置与最优位置之差大于此值则增长 */
 #ifndef SH_GROW_MAX_DIB
 #define SH_GROW_MAX_DIB 25
 #endif
-/* grow if more than elements to move when inserting */
+/* 若插入时要移动的元素多于此值则增长 */
 #ifndef SH_GROW_MAX_MOVE
 #define SH_GROW_MAX_MOVE 150
 #endif
 #ifndef SH_GROW_MIN_FILLFACTOR
-/* but do not grow due to SH_GROW_MAX_* if below */
+/* 但若低于此值，则不因 SH_GROW_MAX_* 而增长 */
 #define SH_GROW_MIN_FILLFACTOR 0.1
 #endif
 
@@ -283,11 +283,11 @@ SH_SCOPE void SH_STAT(SH_TYPE * tb);
 #endif
 
 /*
- * Wrap the following definitions in include guards, to avoid multiple
- * definition errors if this header is included more than once.  The rest of
- * the file deliberately has no include guards, because it can be included
- * with different parameters to define functions and types with non-colliding
- * names.
+ * 把随后的定义包进包含守卫，以免本头文件被包含
+ * 多次时出现重复定义错误。文件其余部分故意没有
+ * 包含守卫，因为它可以用不同参数被包含，以定义
+ * 名字互不冲突的函数和类型。
+ *
  */
 #ifndef SIMPLEHASH_H
 #define SIMPLEHASH_H
@@ -303,50 +303,50 @@ SH_SCOPE void SH_STAT(SH_TYPE * tb);
 #endif
 
 /*
- * Compute sizing parameters for hashtable. Called when creating and growing
- * the hashtable.
+ * 计算哈希表的尺寸参数。创建和增长哈希表时调用。
+ *
  */
 static inline void
 SH_COMPUTE_PARAMETERS(SH_TYPE * tb, uint64 newsize)
 {
 	uint64		size;
 
-	/* supporting zero sized hashes would complicate matters */
+	/* 支持大小为零的哈希会使事情变复杂 */
 	size = Max(newsize, 2);
 
-	/* round up size to the next power of 2, that's how bucketing works */
+	/* 把大小向上取整到下一个 2 的幂，分桶就是这样工作的 */
 	size = pg_nextpower2_64(size);
 	Assert(size <= SH_MAX_SIZE);
 
 	/*
-	 * Verify that allocation of ->data is possible on this platform, without
-	 * overflowing Size.
-	 */
+ * 验证在本平台上分配 ->data 是可能的，且不会
+ * 使 Size 溢出。
+ */
 	if (unlikely((((uint64) sizeof(SH_ELEMENT_TYPE)) * size) >= SIZE_MAX / 2))
 		sh_error("hash table too large");
 
-	/* now set size */
+	/* 现在设置大小 */
 	tb->size = size;
 	tb->sizemask = (uint32) (size - 1);
 
 	/*
-	 * Compute the next threshold at which we need to grow the hash table
-	 * again.
-	 */
+ * 计算下一次需要再次增长哈希表的阈值。
+ *
+ */
 	if (tb->size == SH_MAX_SIZE)
 		tb->grow_threshold = ((double) tb->size) * SH_MAX_FILLFACTOR;
 	else
 		tb->grow_threshold = ((double) tb->size) * SH_FILLFACTOR;
 }
 
-/* return the optimal bucket for the hash */
+/* 返回该哈希的最优桶 */
 static inline uint32
 SH_INITIAL_BUCKET(SH_TYPE * tb, uint32 hash)
 {
 	return hash & tb->sizemask;
 }
 
-/* return next bucket after the current, handling wraparound */
+/* 返回当前桶之后的下一个桶，并处理回绕 */
 static inline uint32
 SH_NEXT(SH_TYPE * tb, uint32 curelem, uint32 startelem)
 {
@@ -357,7 +357,7 @@ SH_NEXT(SH_TYPE * tb, uint32 curelem, uint32 startelem)
 	return curelem;
 }
 
-/* return bucket before the current, handling wraparound */
+/* 返回当前桶之前的上一个桶，并处理回绕 */
 static inline uint32
 SH_PREV(SH_TYPE * tb, uint32 curelem, uint32 startelem)
 {
@@ -368,7 +368,7 @@ SH_PREV(SH_TYPE * tb, uint32 curelem, uint32 startelem)
 	return curelem;
 }
 
-/* return distance between bucket and its optimal position */
+/* 返回桶与其最优位置之间的距离 */
 static inline uint32
 SH_DISTANCE_FROM_OPTIMAL(SH_TYPE * tb, uint32 optimal, uint32 bucket)
 {
@@ -388,13 +388,13 @@ SH_ENTRY_HASH(SH_TYPE * tb, SH_ELEMENT_TYPE * entry)
 #endif
 }
 
-/* default memory allocator function */
+/* 默认的内存分配函数 */
 static inline void *SH_ALLOCATE(SH_TYPE * type, Size size);
 static inline void SH_FREE(SH_TYPE * type, void *pointer);
 
 #ifndef SH_USE_NONDEFAULT_ALLOCATOR
 
-/* default memory allocator function */
+/* 默认的内存分配函数 */
 static inline void *
 SH_ALLOCATE(SH_TYPE * type, Size size)
 {
@@ -406,7 +406,7 @@ SH_ALLOCATE(SH_TYPE * type, Size size)
 #endif
 }
 
-/* default memory free function */
+/* 默认的内存释放函数 */
 static inline void
 SH_FREE(SH_TYPE * type, void *pointer)
 {
@@ -416,13 +416,13 @@ SH_FREE(SH_TYPE * type, void *pointer)
 #endif
 
 /*
- * Create a hash table with enough space for `nelements` distinct members.
- * Memory for the hash table is allocated from the passed-in context.  If
- * desired, the array of elements can be allocated using a passed-in allocator;
- * this could be useful in order to place the array of elements in a shared
- * memory, or in a context that will outlive the rest of the hash table.
- * Memory other than for the array of elements will still be allocated from
- * the passed-in context.
+ * 创建一张有足够空间存放 `nelements` 个不同成员的哈希表。
+ * 哈希表的内存从传入的上下文分配。如果需要，元素数组
+ * 可以用传入的分配器来分配；这有助于把元素数组放进
+ * 共享内存，或放进比哈希表其余部分活得更久的上下文。
+ * 元素数组以外的内存仍从传入的上下文分配。
+ *
+ *
  */
 #ifdef SH_RAW_ALLOCATOR
 SH_SCOPE	SH_TYPE *
@@ -443,7 +443,7 @@ SH_CREATE(MemoryContext ctx, uint32 nelements, void *private_data)
 #endif
 	tb->private_data = private_data;
 
-	/* increase nelements by fillfactor, want to store nelements elements */
+	/* 按填充因子放大 nelements，希望存下 nelements 个元素 */
 	size = Min((double) SH_MAX_SIZE, ((double) nelements) / SH_FILLFACTOR);
 
 	SH_COMPUTE_PARAMETERS(tb, size);
@@ -453,7 +453,7 @@ SH_CREATE(MemoryContext ctx, uint32 nelements, void *private_data)
 	return tb;
 }
 
-/* destroy a previously created hash table */
+/* 销毁先前创建的哈希表 */
 SH_SCOPE void
 SH_DESTROY(SH_TYPE * tb)
 {
@@ -461,7 +461,7 @@ SH_DESTROY(SH_TYPE * tb)
 	pfree(tb);
 }
 
-/* reset the contents of a previously created hash table */
+/* 重置先前创建的哈希表的内容 */
 SH_SCOPE void
 SH_RESET(SH_TYPE * tb)
 {
@@ -470,11 +470,11 @@ SH_RESET(SH_TYPE * tb)
 }
 
 /*
- * Grow a hash table to at least `newsize` buckets.
+ * 把哈希表增长到至少 `newsize` 个桶。
  *
- * Usually this will automatically be called by insertions/deletions, when
- * necessary. But resizing to the exact input size can be advantageous
- * performance-wise, when known at some point.
+ * 通常这会在必要时由插入或删除自动调用。但若在某个
+ * 时刻已知精确的输入大小，调到恰好那个大小在性能上
+ * 可能更有利。
  */
 SH_SCOPE void
 SH_GROW(SH_TYPE * tb, uint64 newsize)
@@ -490,7 +490,7 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 	Assert(oldsize != SH_MAX_SIZE);
 	Assert(oldsize < newsize);
 
-	/* compute parameters for new table */
+	/* 计算新表的参数 */
 	SH_COMPUTE_PARAMETERS(tb, newsize);
 
 	tb->data = (SH_ELEMENT_TYPE *) SH_ALLOCATE(tb, sizeof(SH_ELEMENT_TYPE) * tb->size);
@@ -498,23 +498,23 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 	newdata = tb->data;
 
 	/*
-	 * Copy entries from the old data to newdata. We theoretically could use
-	 * SH_INSERT here, to avoid code duplication, but that's more general than
-	 * we need. We neither want tb->members increased, nor do we need to do
-	 * deal with deleted elements, nor do we need to compare keys. So a
-	 * special-cased implementation is lot faster. As resizing can be time
-	 * consuming and frequent, that's worthwhile to optimize.
-	 *
-	 * To be able to simply move entries over, we have to start not at the
-	 * first bucket (i.e olddata[0]), but find the first bucket that's either
-	 * empty, or is occupied by an entry at its optimal position. Such a
-	 * bucket has to exist in any table with a load factor under 1, as not all
-	 * buckets are occupied, i.e. there always has to be an empty bucket.  By
-	 * starting at such a bucket we can move the entries to the larger table,
-	 * without having to deal with conflicts.
-	 */
+ * 把条目从旧数据复制到 newdata。理论上可以用 SH_INSERT
+ * 来避免代码重复，但那比我们需要的更通用。我们既不希望
+ * tb->members 增加，也不需要处理已删除元素，也不需要
+ * 比较键。因此专门实现要快得多。调整大小可能既耗时又
+ * 频繁，所以值得优化。
+ *
+ * 为了能简单地搬移条目，起点不能是第一个桶（即 olddata[0]），
+ * 而要找到第一个要么为空、要么被处在最优位置的条目占据
+ * 的桶。装载因子小于 1 的任何表里都必定存在这样的桶，
+ * 因为并非所有桶都被占用，也就是说始终必须有一个空桶。
+ * 从这样的桶开始，就能把条目搬到更大的表中，而不必处理冲突。
+ *
+ *
+ *
+ */
 
-	/* search for the first element in the hash that's not wrapped around */
+	/* 寻找哈希中第一个没有发生回绕的元素 */
 	for (i = 0; i < oldsize; i++)
 	{
 		SH_ELEMENT_TYPE *oldentry = &olddata[i];
@@ -537,7 +537,7 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 		}
 	}
 
-	/* and copy all elements in the old table */
+	/* 并复制旧表中的全部元素 */
 	copyelem = startelem;
 	for (i = 0; i < oldsize; i++)
 	{
@@ -554,7 +554,7 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 			startelem2 = SH_INITIAL_BUCKET(tb, hash);
 			curelem = startelem2;
 
-			/* find empty element to put data into */
+			/* 找一个空元素来放入数据 */
 			while (true)
 			{
 				newentry = &newdata[curelem];
@@ -567,11 +567,11 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 				curelem = SH_NEXT(tb, curelem, startelem2);
 			}
 
-			/* copy entry to new slot */
+			/* 把条目复制到新槽 */
 			memcpy(newentry, oldentry, sizeof(SH_ELEMENT_TYPE));
 		}
 
-		/* can't use SH_NEXT here, would use new size */
+		/* 这里无法使用 SH_NEXT，否则会用到新的大小 */
 		copyelem++;
 		if (copyelem >= oldsize)
 		{
@@ -583,8 +583,8 @@ SH_GROW(SH_TYPE * tb, uint64 newsize)
 }
 
 /*
- * This is a separate static inline function, so it can be reliably be inlined
- * into its wrapper functions even if SH_SCOPE is extern.
+ * 这是单独的 static inline 函数，因此即使 SH_SCOPE 为 extern，
+ * 也能可靠地内联进它的包装函数。
  */
 static inline SH_ELEMENT_TYPE *
 SH_INSERT_HASH_INTERNAL(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash, bool *found)
@@ -598,27 +598,27 @@ restart:
 	insertdist = 0;
 
 	/*
-	 * We do the grow check even if the key is actually present, to avoid
-	 * doing the check inside the loop. This also lets us avoid having to
-	 * re-find our position in the hashtable after resizing.
-	 *
-	 * Note that this also reached when resizing the table due to
-	 * SH_GROW_MAX_DIB / SH_GROW_MAX_MOVE.
-	 */
+ * 即使键实际上已经存在，我们也做增长检查，以免把检查
+ * 放进循环里。这也让我们在调整大小之后不必重新寻找
+ * 自己在哈希表中的位置。
+ *
+ * 注意：因 SH_GROW_MAX_DIB / SH_GROW_MAX_MOVE 而调整
+ * 表大小时也会走到这里。
+ */
 	if (unlikely(tb->members >= tb->grow_threshold))
 	{
 		if (unlikely(tb->size == SH_MAX_SIZE))
 			sh_error("hash table size exceeded");
 
 		/*
-		 * When optimizing, it can be very useful to print these out.
-		 */
+ * 做优化时，把这些打印出来会非常有用。
+ */
 		/* SH_STAT(tb); */
 		SH_GROW(tb, tb->size * 2);
 		/* SH_STAT(tb); */
 	}
 
-	/* perform insert, start bucket search at optimal location */
+	/* 执行插入，从最优位置开始搜索桶 */
 	data = tb->data;
 	startelem = SH_INITIAL_BUCKET(tb, hash);
 	curelem = startelem;
@@ -629,7 +629,7 @@ restart:
 		uint32		curoptimal;
 		SH_ELEMENT_TYPE *entry = &data[curelem];
 
-		/* any empty bucket can directly be used */
+		/* 任何空桶都可以直接使用 */
 		if (entry->status == SH_STATUS_EMPTY)
 		{
 			tb->members++;
@@ -643,12 +643,12 @@ restart:
 		}
 
 		/*
-		 * If the bucket is not empty, we either found a match (in which case
-		 * we're done), or we have to decide whether to skip over or move the
-		 * colliding entry. When the colliding element's distance to its
-		 * optimal position is smaller than the to-be-inserted entry's, we
-		 * shift the colliding entry (and its followers) forward by one.
-		 */
+ * 若桶非空，要么找到了匹配（此时已完成），要么必须决定
+ * 是跳过还是移动发生冲突的条目。当冲突元素到其最优位置
+ * 的距离小于待插入条目的距离时，把冲突条目（及其后继）
+ * 向前移动一格。
+ *
+ */
 
 		if (SH_COMPARE_KEYS(tb, hash, key, entry))
 		{
@@ -668,7 +668,7 @@ restart:
 			uint32		moveelem;
 			int32		emptydist = 0;
 
-			/* find next empty bucket */
+			/* 寻找下一个空桶 */
 			while (true)
 			{
 				SH_ELEMENT_TYPE *emptyentry;
@@ -683,14 +683,14 @@ restart:
 				}
 
 				/*
-				 * To avoid negative consequences from overly imbalanced
-				 * hashtables, grow the hashtable if collisions would require
-				 * us to move a lot of entries.  The most likely cause of such
-				 * imbalance is filling a (currently) small table, from a
-				 * currently big one, in hash-table order.  Don't grow if the
-				 * hashtable would be too empty, to prevent quick space
-				 * explosion for some weird edge cases.
-				 */
+ * 为避免严重不平衡的哈希表带来负面影响，若冲突会需要
+ * 我们移动大量条目，就增长哈希表。这种不平衡最可能的
+ * 原因，是按哈希表顺序把一张（当前）很大的表填进一张
+ * （当前）很小的表。若哈希表会因此变得太空，则不要增长，
+ * 以免某些古怪边界情况下空间迅速膨胀。
+ *
+ *
+ */
 				if (unlikely(++emptydist > SH_GROW_MAX_MOVE) &&
 					((double) tb->members / tb->size) >= SH_GROW_MIN_FILLFACTOR)
 				{
@@ -699,13 +699,13 @@ restart:
 				}
 			}
 
-			/* shift forward, starting at last occupied element */
+			/* 从最后一个已占用元素开始向前移位 */
 
 			/*
-			 * TODO: This could be optimized to be one memcpy in many cases,
-			 * excepting wrapping around at the end of ->data. Hasn't shown up
-			 * in profiles so far though.
-			 */
+ * TODO: 很多情况下这可以优化成一次 memcpy，
+ * 但在 ->data 末尾发生回绕时除外。不过到目前为止
+ * 它还没在性能剖析里显现出来。
+ */
 			moveelem = emptyelem;
 			while (moveelem != curelem)
 			{
@@ -718,7 +718,7 @@ restart:
 				lastentry = moveentry;
 			}
 
-			/* and fill the now empty spot */
+			/* 并填上现在空出的位置 */
 			tb->members++;
 
 			entry->SH_KEY = key;
@@ -734,13 +734,13 @@ restart:
 		insertdist++;
 
 		/*
-		 * To avoid negative consequences from overly imbalanced hashtables,
-		 * grow the hashtable if collisions lead to large runs. The most
-		 * likely cause of such imbalance is filling a (currently) small
-		 * table, from a currently big one, in hash-table order.  Don't grow
-		 * if the hashtable would be too empty, to prevent quick space
-		 * explosion for some weird edge cases.
-		 */
+ * 为避免严重不平衡的哈希表带来负面影响，若冲突导致
+ * 很长的连续段，就增长哈希表。这种不平衡最可能的原因，
+ * 是按哈希表顺序把一张（当前）很大的表填进一张（当前）
+ * 很小的表。若哈希表会因此变得太空，则不要增长，以免
+ * 某些古怪边界情况下空间迅速膨胀。
+ *
+ */
 		if (unlikely(insertdist > SH_GROW_MAX_DIB) &&
 			((double) tb->members / tb->size) >= SH_GROW_MIN_FILLFACTOR)
 		{
@@ -751,9 +751,9 @@ restart:
 }
 
 /*
- * Insert the key key into the hash-table, set *found to true if the key
- * already exists, false otherwise. Returns the hash-table entry in either
- * case.
+ * 把键 key 插入哈希表。若键已存在则把 *found 设为 true，
+ * 否则设为 false。两种情况下都返回哈希表条目。
+ *
  */
 SH_SCOPE	SH_ELEMENT_TYPE *
 SH_INSERT(SH_TYPE * tb, SH_KEY_TYPE key, bool *found)
@@ -764,9 +764,9 @@ SH_INSERT(SH_TYPE * tb, SH_KEY_TYPE key, bool *found)
 }
 
 /*
- * Insert the key key into the hash-table using an already-calculated
- * hash. Set *found to true if the key already exists, false
- * otherwise. Returns the hash-table entry in either case.
+ * 用已经算好的哈希把键 key 插入哈希表。若键已存在则把
+ * *found 设为 true，否则设为 false。两种情况下都返回
+ * 哈希表条目。
  */
 SH_SCOPE	SH_ELEMENT_TYPE *
 SH_INSERT_HASH(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash, bool *found)
@@ -775,8 +775,8 @@ SH_INSERT_HASH(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash, bool *found)
 }
 
 /*
- * This is a separate static inline function, so it can be reliably be inlined
- * into its wrapper functions even if SH_SCOPE is extern.
+ * 这是单独的 static inline 函数，因此即使 SH_SCOPE 为 extern，
+ * 也能可靠地内联进它的包装函数。
  */
 static inline SH_ELEMENT_TYPE *
 SH_LOOKUP_HASH_INTERNAL(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash)
@@ -799,18 +799,18 @@ SH_LOOKUP_HASH_INTERNAL(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash)
 			return entry;
 
 		/*
-		 * TODO: we could stop search based on distance. If the current
-		 * buckets's distance-from-optimal is smaller than what we've skipped
-		 * already, the entry doesn't exist. Probably only do so if
-		 * SH_STORE_HASH is defined, to avoid re-computing hashes?
-		 */
+ * TODO: 可以按距离停止搜索。若当前桶相对最优位置的距离
+ * 小于我们已经跳过的距离，则条目不存在。也许只在定义了
+ * SH_STORE_HASH 时才这样做，以免重新计算哈希？
+ *
+ */
 
 		curelem = SH_NEXT(tb, curelem, startelem);
 	}
 }
 
 /*
- * Lookup entry in hash table.  Returns NULL if key not present.
+ * 在哈希表中查找条目。若键不存在则返回 NULL。
  */
 SH_SCOPE	SH_ELEMENT_TYPE *
 SH_LOOKUP(SH_TYPE * tb, SH_KEY_TYPE key)
@@ -821,9 +821,9 @@ SH_LOOKUP(SH_TYPE * tb, SH_KEY_TYPE key)
 }
 
 /*
- * Lookup entry in hash table using an already-calculated hash.
+ * 用已经算好的哈希在哈希表中查找条目。
  *
- * Returns NULL if key not present.
+ * 若键不存在则返回 NULL。
  */
 SH_SCOPE	SH_ELEMENT_TYPE *
 SH_LOOKUP_HASH(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash)
@@ -832,8 +832,8 @@ SH_LOOKUP_HASH(SH_TYPE * tb, SH_KEY_TYPE key, uint32 hash)
 }
 
 /*
- * Delete entry from hash table by key.  Returns whether to-be-deleted key was
- * present.
+ * 按键从哈希表中删除条目。返回待删除的键是否存在。
+ *
  */
 SH_SCOPE bool
 SH_DELETE(SH_TYPE * tb, SH_KEY_TYPE key)
@@ -857,12 +857,12 @@ SH_DELETE(SH_TYPE * tb, SH_KEY_TYPE key)
 			tb->members--;
 
 			/*
-			 * Backward shift following elements till either an empty element
-			 * or an element at its optimal position is encountered.
-			 *
-			 * While that sounds expensive, the average chain length is short,
-			 * and deletions would otherwise require tombstones.
-			 */
+ * 向后移动后续元素，直到遇到空元素，或遇到处在
+ * 其最优位置的元素。
+ *
+ * 这听起来昂贵，但平均链长很短，而且否则删除
+ * 就需要墓碑标记。
+ */
 			while (true)
 			{
 				SH_ELEMENT_TYPE *curentry;
@@ -881,14 +881,14 @@ SH_DELETE(SH_TYPE * tb, SH_KEY_TYPE key)
 				curhash = SH_ENTRY_HASH(tb, curentry);
 				curoptimal = SH_INITIAL_BUCKET(tb, curhash);
 
-				/* current is at optimal position, done */
+				/* 当前位置已是最优位置，完成 */
 				if (curoptimal == curelem)
 				{
 					lastentry->status = SH_STATUS_EMPTY;
 					break;
 				}
 
-				/* shift */
+				/* 移位 */
 				memcpy(lastentry, curentry, sizeof(SH_ELEMENT_TYPE));
 
 				lastentry = curentry;
@@ -897,14 +897,14 @@ SH_DELETE(SH_TYPE * tb, SH_KEY_TYPE key)
 			return true;
 		}
 
-		/* TODO: return false; if distance too big */
+		/* TODO: 若距离太大则 return false; */
 
 		curelem = SH_NEXT(tb, curelem, startelem);
 	}
 }
 
 /*
- * Delete entry from hash table by entry pointer
+ * 按条目指针从哈希表中删除条目。
  */
 SH_SCOPE void
 SH_DELETE_ITEM(SH_TYPE * tb, SH_ELEMENT_TYPE * entry)
@@ -914,18 +914,18 @@ SH_DELETE_ITEM(SH_TYPE * tb, SH_ELEMENT_TYPE * entry)
 	uint32		startelem = SH_INITIAL_BUCKET(tb, hash);
 	uint32		curelem;
 
-	/* Calculate the index of 'entry' */
+	/* 计算 'entry' 的下标 */
 	curelem = entry - &tb->data[0];
 
 	tb->members--;
 
 	/*
-	 * Backward shift following elements till either an empty element or an
-	 * element at its optimal position is encountered.
-	 *
-	 * While that sounds expensive, the average chain length is short, and
-	 * deletions would otherwise require tombstones.
-	 */
+ * 向后移动后续元素，直到遇到空元素或遇到处在其
+ * 最优位置的元素。
+ *
+ * 这听起来昂贵，但平均链长很短，而且否则删除
+ * 就需要墓碑标记。
+ */
 	while (true)
 	{
 		SH_ELEMENT_TYPE *curentry;
@@ -944,14 +944,14 @@ SH_DELETE_ITEM(SH_TYPE * tb, SH_ELEMENT_TYPE * entry)
 		curhash = SH_ENTRY_HASH(tb, curentry);
 		curoptimal = SH_INITIAL_BUCKET(tb, curhash);
 
-		/* current is at optimal position, done */
+		/* 当前位置已是最优位置，完成 */
 		if (curoptimal == curelem)
 		{
 			lastentry->status = SH_STATUS_EMPTY;
 			break;
 		}
 
-		/* shift */
+		/* 移位 */
 		memcpy(lastentry, curentry, sizeof(SH_ELEMENT_TYPE));
 
 		lastentry = curentry;
@@ -959,7 +959,7 @@ SH_DELETE_ITEM(SH_TYPE * tb, SH_ELEMENT_TYPE * entry)
 }
 
 /*
- * Initialize iterator.
+ * 初始化迭代器。
  */
 SH_SCOPE void
 SH_START_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
@@ -967,10 +967,10 @@ SH_START_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
 	uint64		startelem = PG_UINT64_MAX;
 
 	/*
-	 * Search for the first empty element. As deletions during iterations are
-	 * supported, we want to start/end at an element that cannot be affected
-	 * by elements being shifted.
-	 */
+ * 寻找第一个空元素。由于支持在迭代期间删除，我们希望
+ * 从无法受元素移位影响的元素处开始并结束。
+ *
+ */
 	for (uint32 i = 0; i < tb->size; i++)
 	{
 		SH_ELEMENT_TYPE *entry = &tb->data[i];
@@ -982,46 +982,46 @@ SH_START_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
 		}
 	}
 
-	/* we should have found an empty element */
+	/* 此时应该已经找到一个空元素 */
 	Assert(startelem < SH_MAX_SIZE);
 
 	/*
-	 * Iterate backwards, that allows the current element to be deleted, even
-	 * if there are backward shifts
-	 */
+ * 反向迭代，这样即使发生向后移位，当前元素
+ * 也可以被删除。
+ */
 	iter->cur = startelem;
 	iter->end = iter->cur;
 	iter->done = false;
 }
 
 /*
- * Initialize iterator to a specific bucket. That's really only useful for
- * cases where callers are partially iterating over the hashspace, and that
- * iteration deletes and inserts elements based on visited entries. Doing that
- * repeatedly could lead to an unbalanced keyspace when always starting at the
- * same position.
+ * 把迭代器初始化到指定桶。这其实只在调用者部分地遍历
+ * 哈希空间、并且该迭代会基于已访问条目删除和插入元素时
+ * 有用。若总是从同一位置开始并反复这样做，可能导致
+ * 键空间不平衡。
+ *
  */
 SH_SCOPE void
 SH_START_ITERATE_AT(SH_TYPE * tb, SH_ITERATOR * iter, uint32 at)
 {
 	/*
-	 * Iterate backwards, that allows the current element to be deleted, even
-	 * if there are backward shifts.
-	 */
-	iter->cur = at & tb->sizemask;	/* ensure at is within a valid range */
+ * 反向迭代，这样即使发生向后移位，当前元素
+ * 也可以被删除。
+ */
+	iter->cur = at & tb->sizemask;	/* 确保 at 落在有效范围内 */
 	iter->end = iter->cur;
 	iter->done = false;
 }
 
 /*
- * Iterate over all entries in the hash-table. Return the next occupied entry,
- * or NULL if done.
+ * 遍历哈希表中的全部条目。返回下一个被占用的条目，
+ * 若已结束则返回 NULL。
  *
- * During iteration the current entry in the hash table may be deleted,
- * without leading to elements being skipped or returned twice.  Additionally
- * the rest of the table may be modified (i.e. there can be insertions or
- * deletions), but if so, there's neither a guarantee that all nodes are
- * visited at least once, nor a guarantee that a node is visited at most once.
+ * 迭代期间可以删除哈希表中的当前条目，而不会导致元素
+ * 被跳过或返回两次。此外也可以修改表的其余部分（即可以
+ * 有插入或删除），但若这样做，既不保证每个节点至少被
+ * 访问一次，也不保证一个节点至多被访问一次。
+ *
  */
 SH_SCOPE	SH_ELEMENT_TYPE *
 SH_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
@@ -1032,7 +1032,7 @@ SH_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
 
 		elem = &tb->data[iter->cur];
 
-		/* next element in backward direction */
+		/* 反方向上的下一个元素 */
 		iter->cur = (iter->cur - 1) & tb->sizemask;
 
 		if ((iter->cur & tb->sizemask) == (iter->end & tb->sizemask))
@@ -1047,8 +1047,8 @@ SH_ITERATE(SH_TYPE * tb, SH_ITERATOR * iter)
 }
 
 /*
- * Report some statistics about the state of the hashtable. For
- * debugging/profiling purposes only.
+ * 报告哈希表状态的一些统计信息。仅用于调试或性能剖析。
+ *
  */
 SH_SCOPE void
 SH_STAT(SH_TYPE * tb)
@@ -1094,14 +1094,14 @@ SH_STAT(SH_TYPE * tb)
 		if (curcoll == 0)
 			continue;
 
-		/* single contained element is not a collision */
+		/* 单独包含的一个元素不算冲突 */
 		curcoll--;
 		total_collisions += curcoll;
 		if (curcoll > max_collisions)
 			max_collisions = curcoll;
 	}
 
-	/* large enough to be worth freeing, even if just used for debugging */
+	/* 大到值得释放，即使只是用于调试 */
 	pfree(collisions);
 
 	if (tb->members > 0)
@@ -1125,7 +1125,7 @@ SH_STAT(SH_TYPE * tb)
 #endif							/* SH_DEFINE */
 
 
-/* undefine external parameters, so next hash table can be defined */
+/* 取消定义外部参数，以便可以定义下一张哈希表 */
 #undef SH_PREFIX
 #undef SH_KEY_TYPE
 #undef SH_KEY
@@ -1139,7 +1139,7 @@ SH_STAT(SH_TYPE * tb)
 #undef SH_USE_NONDEFAULT_ALLOCATOR
 #undef SH_EQUAL
 
-/* undefine locally declared macros */
+/* 取消定义本地声明的宏 */
 #undef SH_MAKE_PREFIX
 #undef SH_MAKE_NAME
 #undef SH_MAKE_NAME_
@@ -1150,14 +1150,14 @@ SH_STAT(SH_TYPE * tb)
 #undef SH_GROW_MIN_FILLFACTOR
 #undef SH_MAX_SIZE
 
-/* types */
+/* 类型 */
 #undef SH_TYPE
 #undef SH_STATUS
 #undef SH_STATUS_EMPTY
 #undef SH_STATUS_IN_USE
 #undef SH_ITERATOR
 
-/* external function names */
+/* 外部函数名 */
 #undef SH_CREATE
 #undef SH_DESTROY
 #undef SH_RESET
@@ -1175,7 +1175,7 @@ SH_STAT(SH_TYPE * tb)
 #undef SH_FREE
 #undef SH_STAT
 
-/* internal function names */
+/* 内部函数名 */
 #undef SH_COMPUTE_PARAMETERS
 #undef SH_COMPARE_KEYS
 #undef SH_INITIAL_BUCKET

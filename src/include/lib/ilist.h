@@ -123,15 +123,15 @@
 #define ILIST_H
 
 /*
- * Enable for extra debugging. This is rather expensive, so it's not enabled by
- * default even when USE_ASSERT_CHECKING.
+ * 启用额外调试。这相当昂贵，因此即使在
+ * USE_ASSERT_CHECKING 下默认也不启用。
  */
 /* #define ILIST_DEBUG */
 
 /*
- * Node of a doubly linked list.
+ * 双向链表的节点。
  *
- * Embed this in structs that need to be part of a doubly linked list.
+ * 把它嵌入需要成为双向链表一部分的结构体。
  */
 typedef struct dlist_node dlist_node;
 struct dlist_node
@@ -141,84 +141,84 @@ struct dlist_node
 };
 
 /*
- * Head of a doubly linked list.
+ * 双向链表的表头。
  *
- * Non-empty lists are internally circularly linked.  Circular lists have the
- * advantage of not needing any branches in the most common list manipulations.
- * An empty list can also be represented as a pair of NULL pointers, making
- * initialization easier.
+ * 非空链表在内部是环形链接的。环形链表的好处是，
+ * 最常见的链表操作不需要任何分支。空链表也可以
+ * 表示为一对 NULL 指针，从而使初始化更容易。
+ *
  */
 typedef struct dlist_head
 {
 	/*
-	 * head.next either points to the first element of the list; to &head if
-	 * it's a circular empty list; or to NULL if empty and not circular.
-	 *
-	 * head.prev either points to the last element of the list; to &head if
-	 * it's a circular empty list; or to NULL if empty and not circular.
-	 */
+ * head.next 要么指向链表的第一个元素；若是环形空链表
+ * 则指向 &head；若为空且非环形则指向 NULL。
+ *
+ * head.prev 要么指向链表的最后一个元素；若是环形空链表
+ * 则指向 &head；若为空且非环形则指向 NULL。
+ */
 	dlist_node	head;
 } dlist_head;
 
 
 /*
- * Doubly linked list iterator type for dlist_head and dclist_head types.
+ * 用于 dlist_head 与 dclist_head 类型的双向链表迭代器。
  *
- * Used as state in dlist_foreach() and dlist_reverse_foreach() (and the
- * dclist variant thereof).
+ * 在 dlist_foreach() 与 dlist_reverse_foreach()（以及
+ * 对应的 dclist 变体）中用作状态。
  *
- * To get the current element of the iteration use the 'cur' member.
+ * 要取得迭代的当前元素，使用成员 'cur'。
  *
- * Iterations using this are *not* allowed to change the list while iterating!
+ * 使用本迭代器时，*不得*在迭代期间改动链表！
  *
- * NB: We use an extra "end" field here to avoid multiple evaluations of
- * arguments in the dlist_foreach() and dclist_foreach() macros.
+ * 注意：这里多用一个 "end" 字段，是为了避免在
+ * dlist_foreach() 与 dclist_foreach() 宏中多次求值参数。
  */
 typedef struct dlist_iter
 {
-	dlist_node *cur;			/* current element */
-	dlist_node *end;			/* last node we'll iterate to */
+	dlist_node *cur;			/* 当前元素 */
+	dlist_node *end;			/* 将迭代到的最后节点 */
 } dlist_iter;
 
 /*
- * Doubly linked list iterator for both dlist_head and dclist_head types.
- * This iterator type allows some modifications while iterating.
+ * 用于 dlist_head 与 dclist_head 两种类型的双向链表迭代器。
+ * 这种迭代器允许在迭代期间做一些修改。
  *
- * Used as state in dlist_foreach_modify() and dclist_foreach_modify().
+ * 在 dlist_foreach_modify() 与 dclist_foreach_modify() 中用作状态。
  *
- * To get the current element of the iteration use the 'cur' member.
+ * 要取得迭代的当前元素，使用成员 'cur'。
  *
- * Iterations using this are only allowed to change the list at the current
- * point of iteration. It is fine to delete the current node, but it is *not*
- * fine to insert or delete adjacent nodes.
+ * 使用本迭代器时，只允许在当前迭代点改动链表。删除当前
+ * 节点没问题，但插入或删除相邻节点则不行。
  *
- * NB: We need a separate type for mutable iterations so that we can store
- * the 'next' node of the current node in case it gets deleted or modified.
+ * 注意：可变迭代需要单独的类型，以便在当前节点被删除或
+ * 修改时保存它的 'next' 节点。
+ *
  */
 typedef struct dlist_mutable_iter
 {
-	dlist_node *cur;			/* current element */
-	dlist_node *next;			/* next node we'll iterate to */
-	dlist_node *end;			/* last node we'll iterate to */
+	dlist_node *cur;			/* 当前元素 */
+	dlist_node *next;			/* 将迭代到的下一节点 */
+	dlist_node *end;			/* 将迭代到的最后节点 */
 } dlist_mutable_iter;
 
 /*
- * Head of a doubly linked list with a count of the number of items
+ * 带元素个数计数的双向链表表头。
  *
- * This internally makes use of a dlist to implement the actual list.  When
- * items are added or removed from the list the count is updated to reflect
- * the current number of items in the list.
+ * 内部用 dlist 实现真正的链表。向链表添加或移除
+ * 元素时，计数会更新以反映链表中的当前元素个数。
+ *
  */
 typedef struct dclist_head
 {
-	dlist_head	dlist;			/* the actual list header */
-	uint32		count;			/* the number of items in the list */
+	dlist_head	dlist;			/* 真正的链表表头 */
+	uint32		count;			/* 链表中的元素个数 */
 } dclist_head;
 
 /*
- * Node of a singly linked list.
+ * 单向链表的节点。
  *
- * Embed this in structs that need to be part of a singly linked list.
+ * 把它嵌入需要成为单向链表一部分的结构体。
  */
 typedef struct slist_node slist_node;
 struct slist_node
@@ -227,11 +227,11 @@ struct slist_node
 };
 
 /*
- * Head of a singly linked list.
+ * 单向链表的表头。
  *
- * Singly linked lists are not circularly linked, in contrast to doubly linked
- * lists; we just set head.next to NULL if empty.  This doesn't incur any
- * additional branches in the usual manipulations.
+ * 与双向链表不同，单向链表不是环形链接的；为空时
+ * 只把 head.next 设为 NULL。这在通常的操作中不会
+ * 引入额外分支。
  */
 typedef struct slist_head
 {
@@ -239,20 +239,20 @@ typedef struct slist_head
 } slist_head;
 
 /*
- * Singly linked list iterator.
+ * 单向链表迭代器。
  *
- * Used as state in slist_foreach(). To get the current element of the
- * iteration use the 'cur' member.
+ * 在 slist_foreach() 中用作状态。要取得迭代的当前
+ * 元素，使用成员 'cur'。
  *
- * It's allowed to modify the list while iterating, with the exception of
- * deleting the iterator's current node; deletion of that node requires
- * care if the iteration is to be continued afterward.  (Doing so and also
- * deleting or inserting adjacent list elements might misbehave; also, if
- * the user frees the current node's storage, continuing the iteration is
- * not safe.)
+ * 允许在迭代期间修改链表，但删除迭代器当前节点除外；
+ * 若之后还要继续迭代，删除该节点需要小心。（这样做，
+ * 同时还删除或插入相邻链表元素，可能行为异常；另外，
+ * 若使用者释放了当前节点的存储，继续迭代就不安全。）
  *
- * NB: this wouldn't really need to be an extra struct, we could use an
- * slist_node * directly. We prefer a separate type for consistency.
+ * 注意：这其实不必是额外的结构体，可以直接用
+ * slist_node *。我们更喜欢单独的类型，以求一致。
+ *
+ *
  */
 typedef struct slist_iter
 {
@@ -260,32 +260,32 @@ typedef struct slist_iter
 } slist_iter;
 
 /*
- * Singly linked list iterator allowing some modifications while iterating.
+ * 允许在迭代期间做一些修改的单向链表迭代器。
  *
- * Used as state in slist_foreach_modify(). To get the current element of the
- * iteration use the 'cur' member.
+ * 在 slist_foreach_modify() 中用作状态。要取得迭代的
+ * 当前元素，使用成员 'cur'。
  *
- * The only list modification allowed while iterating is to remove the current
- * node via slist_delete_current() (*not* slist_delete()).  Insertion or
- * deletion of nodes adjacent to the current node would misbehave.
+ * 迭代期间唯一允许的链表修改，是通过 slist_delete_current()
+ * 移除当前节点（*不是* slist_delete()）。插入或删除与当前
+ * 节点相邻的节点会行为异常。
  */
 typedef struct slist_mutable_iter
 {
-	slist_node *cur;			/* current element */
-	slist_node *next;			/* next node we'll iterate to */
-	slist_node *prev;			/* prev node, for deletions */
+	slist_node *cur;			/* 当前元素 */
+	slist_node *next;			/* 将迭代到的下一节点 */
+	slist_node *prev;			/* 前一节点，供删除使用 */
 } slist_mutable_iter;
 
 
-/* Static initializers */
+/* 静态初始化器 */
 #define DLIST_STATIC_INIT(name) {{&(name).head, &(name).head}}
 #define DCLIST_STATIC_INIT(name) {{{&(name).dlist.head, &(name).dlist.head}}, 0}
 #define SLIST_STATIC_INIT(name) {{NULL}}
 
 
-/* Prototypes for functions too big to be inline */
+/* 因体积太大而不做成内联的函数原型 */
 
-/* Caution: this is O(n); consider using slist_delete_current() instead */
+/* 注意：这是 O(n)；考虑改用 slist_delete_current()。 */
 extern void slist_delete(slist_head *head, const slist_node *node);
 
 #ifdef ILIST_DEBUG
@@ -294,21 +294,21 @@ extern void dlist_check(const dlist_head *head);
 extern void slist_check(const slist_head *head);
 #else
 /*
- * These seemingly useless casts to void are here to keep the compiler quiet
- * about the argument being unused in many functions in a non-debug compile,
- * in which functions the only point of passing the list head pointer is to be
- * able to run these checks.
+ * 这些看似无用的转换成 void，是为了在非调试编译中让
+ * 编译器不再抱怨参数未使用。在那些函数里，传入链表
+ * 表头指针的唯一目的就是能够运行这些检查。
+ *
  */
 #define dlist_member_check(head, node) ((void) (head))
 #define dlist_check(head)	((void) (head))
 #define slist_check(head)	((void) (head))
 #endif							/* ILIST_DEBUG */
 
-/* doubly linked list implementation */
+/* 双向链表实现 */
 
 /*
- * Initialize a doubly linked list.
- * Previous state will be thrown away without any cleanup.
+ * 初始化双向链表。
+ * 先前状态会被丢弃，不做任何清理。
  */
 static inline void
 dlist_init(dlist_head *head)
@@ -317,9 +317,9 @@ dlist_init(dlist_head *head)
 }
 
 /*
- * Initialize a doubly linked list element.
+ * 初始化双向链表元素。
  *
- * This is only needed when dlist_node_is_detached() may be needed.
+ * 只有可能需要 dlist_node_is_detached() 时才有必要。
  */
 static inline void
 dlist_node_init(dlist_node *node)
@@ -328,9 +328,9 @@ dlist_node_init(dlist_node *node)
 }
 
 /*
- * Is the list empty?
+ * 链表是否为空？
  *
- * An empty list has either its first 'next' pointer set to NULL, or to itself.
+ * 空链表的第一个 'next' 指针要么为 NULL，要么指向自身。
  */
 static inline bool
 dlist_is_empty(const dlist_head *head)
@@ -341,12 +341,12 @@ dlist_is_empty(const dlist_head *head)
 }
 
 /*
- * Insert a node at the beginning of the list.
+ * 在链表开头插入一个节点。
  */
 static inline void
 dlist_push_head(dlist_head *head, dlist_node *node)
 {
-	if (head->head.next == NULL)	/* convert NULL header to circular */
+	if (head->head.next == NULL)	/* 把 NULL 表头转成环形 */
 		dlist_init(head);
 
 	node->next = head->head.next;
@@ -358,12 +358,12 @@ dlist_push_head(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Insert a node at the end of the list.
+ * 在链表末尾插入一个节点。
  */
 static inline void
 dlist_push_tail(dlist_head *head, dlist_node *node)
 {
-	if (head->head.next == NULL)	/* convert NULL header to circular */
+	if (head->head.next == NULL)	/* 把 NULL 表头转成环形 */
 		dlist_init(head);
 
 	node->next = &head->head;
@@ -375,7 +375,7 @@ dlist_push_tail(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Insert a node after another *in the same list*
+ * 在同一链表中的另一个节点之后插入节点。
  */
 static inline void
 dlist_insert_after(dlist_node *after, dlist_node *node)
@@ -387,7 +387,7 @@ dlist_insert_after(dlist_node *after, dlist_node *node)
 }
 
 /*
- * Insert a node before another *in the same list*
+ * 在同一链表中的另一个节点之前插入节点。
  */
 static inline void
 dlist_insert_before(dlist_node *before, dlist_node *node)
@@ -399,7 +399,7 @@ dlist_insert_before(dlist_node *before, dlist_node *node)
 }
 
 /*
- * Delete 'node' from its list (it must be in one).
+ * 从其所在链表中删除 'node'（它必须在某个链表中）。
  */
 static inline void
 dlist_delete(dlist_node *node)
@@ -409,8 +409,8 @@ dlist_delete(dlist_node *node)
 }
 
 /*
- * Like dlist_delete(), but also sets next/prev to NULL to signal not being in
- * a list.
+ * 同 dlist_delete()，但还会把 next/prev 设为 NULL，以表示
+ * 不在任何链表中。
  */
 static inline void
 dlist_delete_thoroughly(dlist_node *node)
@@ -422,8 +422,8 @@ dlist_delete_thoroughly(dlist_node *node)
 }
 
 /*
- * Same as dlist_delete, but performs checks in ILIST_DEBUG builds to ensure
- * that 'node' belongs to 'head'.
+ * 同 dlist_delete，但在 ILIST_DEBUG 构建中做检查，确保
+ * 'node' 属于 'head'。
  */
 static inline void
 dlist_delete_from(dlist_head *head, dlist_node *node)
@@ -433,8 +433,8 @@ dlist_delete_from(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Like dlist_delete_from, but also sets next/prev to NULL to signal not
- * being in a list.
+ * 同 dlist_delete_from，但还会把 next/prev 设为 NULL，以表示
+ * 不在任何链表中。
  */
 static inline void
 dlist_delete_from_thoroughly(dlist_head *head, dlist_node *node)
@@ -444,7 +444,7 @@ dlist_delete_from_thoroughly(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Remove and return the first node from a list (there must be one).
+ * 移除并返回链表的第一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dlist_pop_head_node(dlist_head *head)
@@ -458,15 +458,15 @@ dlist_pop_head_node(dlist_head *head)
 }
 
 /*
- * Move element from its current position in the list to the head position in
- * the same list.
+ * 把元素从链表中的当前位置移到同一链表的表头位置。
  *
- * Undefined behaviour if 'node' is not already part of the list.
+ * 若 'node' 尚不是该链表的一部分，则行为未定义。
+ *
  */
 static inline void
 dlist_move_head(dlist_head *head, dlist_node *node)
 {
-	/* fast path if it's already at the head */
+	/* 若已在表头则走快速路径 */
 	if (head->head.next == node)
 		return;
 
@@ -477,15 +477,15 @@ dlist_move_head(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Move element from its current position in the list to the tail position in
- * the same list.
+ * 把元素从链表中的当前位置移到同一链表的表尾位置。
  *
- * Undefined behaviour if 'node' is not already part of the list.
+ * 若 'node' 尚不是该链表的一部分，则行为未定义。
+ *
  */
 static inline void
 dlist_move_tail(dlist_head *head, dlist_node *node)
 {
-	/* fast path if it's already at the tail */
+	/* 若已在表尾则走快速路径 */
 	if (head->head.prev == node)
 		return;
 
@@ -496,8 +496,8 @@ dlist_move_tail(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Check whether 'node' has a following node.
- * Caution: unreliable if 'node' is not in the list.
+ * 检查 'node' 是否有后继节点。
+ * 注意：若 'node' 不在链表中，结果不可靠。
  */
 static inline bool
 dlist_has_next(const dlist_head *head, const dlist_node *node)
@@ -506,8 +506,8 @@ dlist_has_next(const dlist_head *head, const dlist_node *node)
 }
 
 /*
- * Check whether 'node' has a preceding node.
- * Caution: unreliable if 'node' is not in the list.
+ * 检查 'node' 是否有前驱节点。
+ * 注意：若 'node' 不在链表中，结果不可靠。
  */
 static inline bool
 dlist_has_prev(const dlist_head *head, const dlist_node *node)
@@ -516,10 +516,10 @@ dlist_has_prev(const dlist_head *head, const dlist_node *node)
 }
 
 /*
- * Check if node is detached. A node is only detached if it either has been
- * initialized with dlist_init_node(), or deleted with
- * dlist_delete_thoroughly() / dlist_delete_from_thoroughly() /
- * dclist_delete_from_thoroughly().
+ * 检查节点是否已脱离链表。节点只有在用 dlist_init_node()
+ * 初始化之后，或用 dlist_delete_thoroughly() /
+ * dlist_delete_from_thoroughly() / dclist_delete_from_thoroughly()
+ * 删除之后，才算脱离。
  */
 static inline bool
 dlist_node_is_detached(const dlist_node *node)
@@ -531,7 +531,7 @@ dlist_node_is_detached(const dlist_node *node)
 }
 
 /*
- * Return the next node in the list (there must be one).
+ * 返回链表中的下一节点（必须存在一个）。
  */
 static inline dlist_node *
 dlist_next_node(dlist_head *head, dlist_node *node)
@@ -541,7 +541,7 @@ dlist_next_node(dlist_head *head, dlist_node *node)
 }
 
 /*
- * Return previous node in the list (there must be one).
+ * 返回链表中的前一节点（必须存在一个）。
  */
 static inline dlist_node *
 dlist_prev_node(dlist_head *head, dlist_node *node)
@@ -550,7 +550,7 @@ dlist_prev_node(dlist_head *head, dlist_node *node)
 	return node->prev;
 }
 
-/* internal support function to get address of head element's struct */
+/* 内部辅助函数，取得头元素结构体的地址 */
 static inline void *
 dlist_head_element_off(dlist_head *head, size_t off)
 {
@@ -559,7 +559,7 @@ dlist_head_element_off(dlist_head *head, size_t off)
 }
 
 /*
- * Return the first node in the list (there must be one).
+ * 返回链表中的第一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dlist_head_node(dlist_head *head)
@@ -567,7 +567,7 @@ dlist_head_node(dlist_head *head)
 	return (dlist_node *) dlist_head_element_off(head, 0);
 }
 
-/* internal support function to get address of tail element's struct */
+/* 内部辅助函数，取得尾元素结构体的地址 */
 static inline void *
 dlist_tail_element_off(dlist_head *head, size_t off)
 {
@@ -576,7 +576,7 @@ dlist_tail_element_off(dlist_head *head, size_t off)
 }
 
 /*
- * Return the last node in the list (there must be one).
+ * 返回链表中的最后一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dlist_tail_node(dlist_head *head)
@@ -585,10 +585,10 @@ dlist_tail_node(dlist_head *head)
 }
 
 /*
- * Return the containing struct of 'type' where 'membername' is the dlist_node
- * pointed at by 'ptr'.
+ * 返回 'type' 的外层结构体，其中 'membername' 是
+ * 'ptr' 所指的 dlist_node。
  *
- * This is used to convert a dlist_node * back to its containing struct.
+ * 用来把 dlist_node * 转回其外层结构体。
  */
 #define dlist_container(type, membername, ptr)								\
 	(AssertVariableIsOfTypeMacro(ptr, dlist_node *),						\
@@ -596,29 +596,29 @@ dlist_tail_node(dlist_head *head)
 	 ((type *) ((char *) (ptr) - offsetof(type, membername))))
 
 /*
- * Return the address of the first element in the list.
+ * 返回链表中第一个元素的地址。
  *
- * The list must not be empty.
+ * 链表不得为空。
  */
 #define dlist_head_element(type, membername, lhead)							\
 	(AssertVariableIsOfTypeMacro(((type *) NULL)->membername, dlist_node),	\
 	 (type *) dlist_head_element_off(lhead, offsetof(type, membername)))
 
 /*
- * Return the address of the last element in the list.
+ * 返回链表中最后一个元素的地址。
  *
- * The list must not be empty.
+ * 链表不得为空。
  */
 #define dlist_tail_element(type, membername, lhead)							\
 	(AssertVariableIsOfTypeMacro(((type *) NULL)->membername, dlist_node),	\
 	 ((type *) dlist_tail_element_off(lhead, offsetof(type, membername))))
 
 /*
- * Iterate through the list pointed at by 'lhead' storing the state in 'iter'.
+ * 遍历 'lhead' 所指的链表，把状态存在 'iter' 中。
  *
- * Access the current element with iter.cur.
+ * 用 iter.cur 访问当前元素。
  *
- * It is *not* allowed to manipulate the list during iteration.
+ * 迭代期间*不得*改动链表。
  */
 #define dlist_foreach(iter, lhead)											\
 	for (AssertVariableIsOfTypeMacro(iter, dlist_iter),						\
@@ -629,13 +629,13 @@ dlist_tail_node(dlist_head *head)
 		 (iter).cur = (iter).cur->next)
 
 /*
- * Iterate through the list pointed at by 'lhead' storing the state in 'iter'.
+ * 遍历 'lhead' 所指的链表，把状态存在 'iter' 中。
  *
- * Access the current element with iter.cur.
+ * 用 iter.cur 访问当前元素。
  *
- * Iterations using this are only allowed to change the list at the current
- * point of iteration. It is fine to delete the current node, but it is *not*
- * fine to insert or delete adjacent nodes.
+ * 使用本迭代时，只允许在当前迭代点改动链表。删除当前
+ * 节点没问题，但插入或删除相邻节点则不行。
+ *
  */
 #define dlist_foreach_modify(iter, lhead)									\
 	for (AssertVariableIsOfTypeMacro(iter, dlist_mutable_iter),				\
@@ -647,9 +647,9 @@ dlist_tail_node(dlist_head *head)
 		 (iter).cur = (iter).next, (iter).next = (iter).cur->next)
 
 /*
- * Iterate through the list in reverse order.
+ * 按相反顺序遍历链表。
  *
- * It is *not* allowed to manipulate the list during iteration.
+ * 迭代期间*不得*改动链表。
  */
 #define dlist_reverse_foreach(iter, lhead)									\
 	for (AssertVariableIsOfTypeMacro(iter, dlist_iter),						\
@@ -659,13 +659,13 @@ dlist_tail_node(dlist_head *head)
 		 (iter).cur != (iter).end;											\
 		 (iter).cur = (iter).cur->prev)
 
-/* doubly-linked count list implementation */
+/* 带计数的双向链表实现 */
 
 /*
  * dclist_init
- *		Initialize a doubly linked count list.
+ *		初始化带计数的双向链表。
  *
- * Previous state will be thrown away without any cleanup.
+ * 先前状态会被丢弃，不做任何清理。
  */
 static inline void
 dclist_init(dclist_head *head)
@@ -676,7 +676,7 @@ dclist_init(dclist_head *head)
 
 /*
  * dclist_is_empty
- *		Returns true if the list is empty, otherwise false.
+ *		链表为空则返回 true，否则返回 false。
  */
 static inline bool
 dclist_is_empty(const dclist_head *head)
@@ -687,77 +687,77 @@ dclist_is_empty(const dclist_head *head)
 
 /*
  * dclist_push_head
- *		Insert a node at the beginning of the list.
+ *		在链表开头插入一个节点。
  */
 static inline void
 dclist_push_head(dclist_head *head, dlist_node *node)
 {
-	if (head->dlist.head.next == NULL)	/* convert NULL header to circular */
+	if (head->dlist.head.next == NULL)	/* 把 NULL 表头转成环形 */
 		dclist_init(head);
 
 	dlist_push_head(&head->dlist, node);
 	head->count++;
 
-	Assert(head->count > 0);	/* count overflow check */
+	Assert(head->count > 0);	/* 计数溢出检查 */
 }
 
 /*
  * dclist_push_tail
- *		Insert a node at the end of the list.
+ *		在链表末尾插入一个节点。
  */
 static inline void
 dclist_push_tail(dclist_head *head, dlist_node *node)
 {
-	if (head->dlist.head.next == NULL)	/* convert NULL header to circular */
+	if (head->dlist.head.next == NULL)	/* 把 NULL 表头转成环形 */
 		dclist_init(head);
 
 	dlist_push_tail(&head->dlist, node);
 	head->count++;
 
-	Assert(head->count > 0);	/* count overflow check */
+	Assert(head->count > 0);	/* 计数溢出检查 */
 }
 
 /*
  * dclist_insert_after
- *		Insert a node after another *in the same list*
+ *		在同一链表中的另一个节点之后插入节点。
  *
- * Caution: 'after' must be a member of 'head'.
+ * 注意：'after' 必须是 'head' 的成员。
  */
 static inline void
 dclist_insert_after(dclist_head *head, dlist_node *after, dlist_node *node)
 {
 	dlist_member_check(&head->dlist, after);
-	Assert(head->count > 0);	/* must be at least 1 already */
+	Assert(head->count > 0);	/* 至少已经有 1 个 */
 
 	dlist_insert_after(after, node);
 	head->count++;
 
-	Assert(head->count > 0);	/* count overflow check */
+	Assert(head->count > 0);	/* 计数溢出检查 */
 }
 
 /*
  * dclist_insert_before
- *		Insert a node before another *in the same list*
+ *		在同一链表中的另一个节点之前插入节点。
  *
- * Caution: 'before' must be a member of 'head'.
+ * 注意：'before' 必须是 'head' 的成员。
  */
 static inline void
 dclist_insert_before(dclist_head *head, dlist_node *before, dlist_node *node)
 {
 	dlist_member_check(&head->dlist, before);
-	Assert(head->count > 0);	/* must be at least 1 already */
+	Assert(head->count > 0);	/* 至少已经有 1 个 */
 
 	dlist_insert_before(before, node);
 	head->count++;
 
-	Assert(head->count > 0);	/* count overflow check */
+	Assert(head->count > 0);	/* 计数溢出检查 */
 }
 
 /*
  * dclist_delete_from
- *		Deletes 'node' from 'head'.
+ *		从 'head' 中删除 'node'。
  *
- * Caution: 'node' must be a member of 'head'.
+ * 注意：'node' 必须是 'head' 的成员。
  */
 static inline void
 dclist_delete_from(dclist_head *head, dlist_node *node)
@@ -769,8 +769,8 @@ dclist_delete_from(dclist_head *head, dlist_node *node)
 }
 
 /*
- * Like dclist_delete_from(), but also sets next/prev to NULL to signal not
- * being in a list.
+ * 同 dclist_delete_from()，但还会把 next/prev 设为 NULL，
+ * 以表示不在任何链表中。
  */
 static inline void
 dclist_delete_from_thoroughly(dclist_head *head, dlist_node *node)
@@ -783,7 +783,7 @@ dclist_delete_from_thoroughly(dclist_head *head, dlist_node *node)
 
 /*
  * dclist_pop_head_node
- *		Remove and return the first node from a list (there must be one).
+ *		移除并返回链表的第一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dclist_pop_head_node(dclist_head *head)
@@ -799,10 +799,10 @@ dclist_pop_head_node(dclist_head *head)
 
 /*
  * dclist_move_head
- *		Move 'node' from its current position in the list to the head position
- *		in 'head'.
+ *		把 'node' 从链表中的当前位置移到 'head' 中的
+ *		表头位置。
  *
- * Caution: 'node' must be a member of 'head'.
+ * 注意：'node' 必须是 'head' 的成员。
  */
 static inline void
 dclist_move_head(dclist_head *head, dlist_node *node)
@@ -815,10 +815,10 @@ dclist_move_head(dclist_head *head, dlist_node *node)
 
 /*
  * dclist_move_tail
- *		Move 'node' from its current position in the list to the tail position
- *		in 'head'.
+ *		把 'node' 从链表中的当前位置移到 'head' 中的
+ *		表尾位置。
  *
- * Caution: 'node' must be a member of 'head'.
+ * 注意：'node' 必须是 'head' 的成员。
  */
 static inline void
 dclist_move_tail(dclist_head *head, dlist_node *node)
@@ -831,9 +831,9 @@ dclist_move_tail(dclist_head *head, dlist_node *node)
 
 /*
  * dclist_has_next
- *		Check whether 'node' has a following node.
+ *		检查 'node' 是否有后继节点。
  *
- * Caution: 'node' must be a member of 'head'.
+ * 注意：'node' 必须是 'head' 的成员。
  */
 static inline bool
 dclist_has_next(const dclist_head *head, const dlist_node *node)
@@ -846,9 +846,9 @@ dclist_has_next(const dclist_head *head, const dlist_node *node)
 
 /*
  * dclist_has_prev
- *		Check whether 'node' has a preceding node.
+ *		检查 'node' 是否有前驱节点。
  *
- * Caution: 'node' must be a member of 'head'.
+ * 注意：'node' 必须是 'head' 的成员。
  */
 static inline bool
 dclist_has_prev(const dclist_head *head, const dlist_node *node)
@@ -861,7 +861,7 @@ dclist_has_prev(const dclist_head *head, const dlist_node *node)
 
 /*
  * dclist_next_node
- *		Return the next node in the list (there must be one).
+ *		返回链表中的下一节点（必须存在一个）。
  */
 static inline dlist_node *
 dclist_next_node(dclist_head *head, dlist_node *node)
@@ -873,7 +873,7 @@ dclist_next_node(dclist_head *head, dlist_node *node)
 
 /*
  * dclist_prev_node
- *		Return the prev node in the list (there must be one).
+ *		返回链表中的前一节点（必须存在一个）。
  */
 static inline dlist_node *
 dclist_prev_node(dclist_head *head, dlist_node *node)
@@ -883,7 +883,7 @@ dclist_prev_node(dclist_head *head, dlist_node *node)
 	return dlist_prev_node(&head->dlist, node);
 }
 
-/* internal support function to get address of head element's struct */
+/* 内部辅助函数，取得头元素结构体的地址 */
 static inline void *
 dclist_head_element_off(dclist_head *head, size_t off)
 {
@@ -894,7 +894,7 @@ dclist_head_element_off(dclist_head *head, size_t off)
 
 /*
  * dclist_head_node
- *		Return the first node in the list (there must be one).
+ *		返回链表中的第一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dclist_head_node(dclist_head *head)
@@ -904,7 +904,7 @@ dclist_head_node(dclist_head *head)
 	return (dlist_node *) dlist_head_element_off(&head->dlist, 0);
 }
 
-/* internal support function to get address of tail element's struct */
+/* 内部辅助函数，取得尾元素结构体的地址 */
 static inline void *
 dclist_tail_element_off(dclist_head *head, size_t off)
 {
@@ -914,7 +914,7 @@ dclist_tail_element_off(dclist_head *head, size_t off)
 }
 
 /*
- * Return the last node in the list (there must be one).
+ * 返回链表中的最后一个节点（必须存在一个）。
  */
 static inline dlist_node *
 dclist_tail_node(dclist_head *head)
@@ -926,7 +926,7 @@ dclist_tail_node(dclist_head *head)
 
 /*
  * dclist_count
- *		Returns the stored number of entries in 'head'
+ *		返回 'head' 中存储的条目数。
  */
 static inline uint32
 dclist_count(const dclist_head *head)
@@ -937,36 +937,36 @@ dclist_count(const dclist_head *head)
 }
 
 /*
- * Return the containing struct of 'type' where 'membername' is the dlist_node
- * pointed at by 'ptr'.
+ * 返回 'type' 的外层结构体，其中 'membername' 是
+ * 'ptr' 所指的 dlist_node。
  *
- * This is used to convert a dlist_node * back to its containing struct.
+ * 用来把 dlist_node * 转回其外层结构体。
  *
- * Note: This is effectively just the same as dlist_container, so reuse that.
+ * 注意：这实际上与 dlist_container 相同，因此复用它。
  */
 #define dclist_container(type, membername, ptr) \
 		dlist_container(type, membername, ptr)
 
  /*
-  * Return the address of the first element in the list.
-  *
-  * The list must not be empty.
-  */
+ * 返回链表中第一个元素的地址。
+ *
+ * 链表不得为空。
+ */
 #define dclist_head_element(type, membername, lhead)							\
 	(AssertVariableIsOfTypeMacro(((type *) NULL)->membername, dlist_node),	\
 	 (type *) dclist_head_element_off(lhead, offsetof(type, membername)))
 
  /*
-  * Return the address of the last element in the list.
-  *
-  * The list must not be empty.
-  */
+ * 返回链表中最后一个元素的地址。
+ *
+ * 链表不得为空。
+ */
 #define dclist_tail_element(type, membername, lhead)							\
 	(AssertVariableIsOfTypeMacro(((type *) NULL)->membername, dlist_node),	\
 	 ((type *) dclist_tail_element_off(lhead, offsetof(type, membername))))
 
 
-/* Iterators for dclists */
+/* dclist 的迭代器 */
 #define dclist_foreach(iter, lhead) \
 	dlist_foreach(iter, &((lhead)->dlist))
 
@@ -976,11 +976,11 @@ dclist_count(const dclist_head *head)
 #define dclist_reverse_foreach(iter, lhead) \
 	dlist_reverse_foreach(iter, &((lhead)->dlist))
 
-/* singly linked list implementation */
+/* 单向链表实现 */
 
 /*
- * Initialize a singly linked list.
- * Previous state will be thrown away without any cleanup.
+ * 初始化单向链表。
+ * 先前状态会被丢弃，不做任何清理。
  */
 static inline void
 slist_init(slist_head *head)
@@ -989,7 +989,7 @@ slist_init(slist_head *head)
 }
 
 /*
- * Is the list empty?
+ * 链表是否为空？
  */
 static inline bool
 slist_is_empty(const slist_head *head)
@@ -1000,7 +1000,7 @@ slist_is_empty(const slist_head *head)
 }
 
 /*
- * Insert a node at the beginning of the list.
+ * 在链表开头插入一个节点。
  */
 static inline void
 slist_push_head(slist_head *head, slist_node *node)
@@ -1012,7 +1012,7 @@ slist_push_head(slist_head *head, slist_node *node)
 }
 
 /*
- * Insert a node after another *in the same list*
+ * 在同一链表中的另一个节点之后插入节点。
  */
 static inline void
 slist_insert_after(slist_node *after, slist_node *node)
@@ -1022,7 +1022,7 @@ slist_insert_after(slist_node *after, slist_node *node)
 }
 
 /*
- * Remove and return the first node from a list (there must be one).
+ * 移除并返回链表的第一个节点（必须存在一个）。
  */
 static inline slist_node *
 slist_pop_head_node(slist_head *head)
@@ -1037,7 +1037,7 @@ slist_pop_head_node(slist_head *head)
 }
 
 /*
- * Check whether 'node' has a following node.
+ * 检查 'node' 是否有后继节点。
  */
 static inline bool
 slist_has_next(const slist_head *head, const slist_node *node)
@@ -1048,7 +1048,7 @@ slist_has_next(const slist_head *head, const slist_node *node)
 }
 
 /*
- * Return the next node in the list (there must be one).
+ * 返回链表中的下一节点（必须存在一个）。
  */
 static inline slist_node *
 slist_next_node(slist_head *head, slist_node *node)
@@ -1057,7 +1057,7 @@ slist_next_node(slist_head *head, slist_node *node)
 	return node->next;
 }
 
-/* internal support function to get address of head element's struct */
+/* 内部辅助函数，取得头元素结构体的地址 */
 static inline void *
 slist_head_element_off(slist_head *head, size_t off)
 {
@@ -1066,7 +1066,7 @@ slist_head_element_off(slist_head *head, size_t off)
 }
 
 /*
- * Return the first node in the list (there must be one).
+ * 返回链表中的第一个节点（必须存在一个）。
  */
 static inline slist_node *
 slist_head_node(slist_head *head)
@@ -1075,33 +1075,33 @@ slist_head_node(slist_head *head)
 }
 
 /*
- * Delete the list element the iterator currently points to.
+ * 删除迭代器当前指向的链表元素。
  *
- * Caution: this modifies iter->cur, so don't use that again in the current
- * loop iteration.
+ * 注意：这会修改 iter->cur，因此在当前这轮循环中不要
+ * 再使用它。
  */
 static inline void
 slist_delete_current(slist_mutable_iter *iter)
 {
 	/*
-	 * Update previous element's forward link.  If the iteration is at the
-	 * first list element, iter->prev will point to the list header's "head"
-	 * field, so we don't need a special case for that.
-	 */
+ * 更新前一元素的前向链接。若迭代位于第一个链表元素，
+ * iter->prev 会指向链表表头的 "head" 字段，因此不需要
+ * 为这种情况写专门分支。
+ */
 	iter->prev->next = iter->next;
 
 	/*
-	 * Reset cur to prev, so that prev will continue to point to the prior
-	 * valid list element after slist_foreach_modify() advances to the next.
-	 */
+ * 把 cur 重置为 prev，这样在 slist_foreach_modify() 前进到
+ * 下一个元素之后，prev 仍指向先前有效的链表元素。
+ */
 	iter->cur = iter->prev;
 }
 
 /*
- * Return the containing struct of 'type' where 'membername' is the slist_node
- * pointed at by 'ptr'.
+ * 返回 'type' 的外层结构体，其中 'membername' 是
+ * 'ptr' 所指的 slist_node。
  *
- * This is used to convert a slist_node * back to its containing struct.
+ * 用来把 slist_node * 转回其外层结构体。
  */
 #define slist_container(type, membername, ptr)								\
 	(AssertVariableIsOfTypeMacro(ptr, slist_node *),						\
@@ -1109,25 +1109,25 @@ slist_delete_current(slist_mutable_iter *iter)
 	 ((type *) ((char *) (ptr) - offsetof(type, membername))))
 
 /*
- * Return the address of the first element in the list.
+ * 返回链表中第一个元素的地址。
  *
- * The list must not be empty.
+ * 链表不得为空。
  */
 #define slist_head_element(type, membername, lhead)							\
 	(AssertVariableIsOfTypeMacro(((type *) NULL)->membername, slist_node),	\
 	 (type *) slist_head_element_off(lhead, offsetof(type, membername)))
 
 /*
- * Iterate through the list pointed at by 'lhead' storing the state in 'iter'.
+ * 遍历 'lhead' 所指的链表，把状态存在 'iter' 中。
  *
- * Access the current element with iter.cur.
+ * 用 iter.cur 访问当前元素。
  *
- * It's allowed to modify the list while iterating, with the exception of
- * deleting the iterator's current node; deletion of that node requires
- * care if the iteration is to be continued afterward.  (Doing so and also
- * deleting or inserting adjacent list elements might misbehave; also, if
- * the user frees the current node's storage, continuing the iteration is
- * not safe.)
+ * 允许在迭代期间修改链表，但删除迭代器当前节点除外；
+ * 若之后还要继续迭代，删除该节点需要小心。（这样做，
+ * 同时还删除或插入相邻链表元素，可能行为异常；另外，
+ * 若使用者释放了当前节点的存储，继续迭代就不安全。）
+ *
+ *
  */
 #define slist_foreach(iter, lhead)											\
 	for (AssertVariableIsOfTypeMacro(iter, slist_iter),						\
@@ -1137,13 +1137,13 @@ slist_delete_current(slist_mutable_iter *iter)
 		 (iter).cur = (iter).cur->next)
 
 /*
- * Iterate through the list pointed at by 'lhead' storing the state in 'iter'.
+ * 遍历 'lhead' 所指的链表，把状态存在 'iter' 中。
  *
- * Access the current element with iter.cur.
+ * 用 iter.cur 访问当前元素。
  *
- * The only list modification allowed while iterating is to remove the current
- * node via slist_delete_current() (*not* slist_delete()).  Insertion or
- * deletion of nodes adjacent to the current node would misbehave.
+ * 迭代期间唯一允许的链表修改，是通过 slist_delete_current()
+ * 移除当前节点（*不是* slist_delete()）。插入或删除与当前
+ * 节点相邻的节点会行为异常。
  */
 #define slist_foreach_modify(iter, lhead)									\
 	for (AssertVariableIsOfTypeMacro(iter, slist_mutable_iter),				\

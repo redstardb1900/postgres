@@ -1051,7 +1051,7 @@ populate_joinrel_with_paths(PlannerInfo *root, RelOptInfo *rel1,
 /*
  * have_join_order_restriction
  *		检测这两个关系是否应当连接，以满足
- *		由特殊连接或横向连接引起的连接顺序限制。
+ *		由特殊连接或 LATERAL 连接引起的连接顺序限制。
  *
  * 实践中它总是与 have_relevant_joinclause() 一起使用，因此
  * 可以并入那个函数，但把两件事分开似乎更清楚。

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0063-comment-path-joinrels-termfix",
+ "title": "zh: fix joinrels lateral join wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9f36b10e4c4c1200c62c310f76a869aba8da2a63",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/path/joinrels.c",
+   "kind": "c_comment",
+   "note": "lateral joins as LATERAL join"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0063-comment-path-joinrels-termfix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/path/joinrels.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 161,
+   "translated": 157,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "lateral joins as LATERAL join"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0063-comment-path-joinrels-termfix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ]
+}

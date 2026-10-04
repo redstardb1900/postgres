@@ -114,7 +114,7 @@ static int	scram_exchange(void *opaq, const char *input, int inputlen,
 						   char **output, int *outputlen,
 						   const char **logdetail);
 
-/* Mechanism declaration */
+/* 机制声明 */
 const pg_be_sasl_mech pg_be_scram_mech = {
 	scram_get_mechanisms,
 	scram_init,
@@ -122,8 +122,8 @@ const pg_be_sasl_mech pg_be_scram_mech = {
 };
 
 /*
- * Status data for a SCRAM authentication exchange.  This should be kept
- * internal to this file.
+ * SCRAM 认证交换的状态数据。这应当只在
+ * 本文件内部使用。
  */
 typedef enum
 {
@@ -136,40 +136,40 @@ typedef struct
 {
 	scram_state_enum state;
 
-	const char *username;		/* username from startup packet */
+	const char *username;		/* 来自启动包的用户名 */
 
 	Port	   *port;
 	bool		channel_binding_in_use;
 
-	/* State data depending on the hash type */
+	/* 取决于散列类型的状态数据 */
 	pg_cryptohash_type hash_type;
 	int			key_length;
 
 	int			iterations;
-	char	   *salt;			/* base64-encoded */
+	char	   *salt;			/* 经 base64 编码 */
 	uint8		StoredKey[SCRAM_MAX_KEY_LEN];
 	uint8		ServerKey[SCRAM_MAX_KEY_LEN];
 
-	/* Fields of the first message from client */
+	/* 来自客户端第一条消息的字段 */
 	char		cbind_flag;
 	char	   *client_first_message_bare;
 	char	   *client_username;
 	char	   *client_nonce;
 
-	/* Fields from the last message from client */
+	/* 来自客户端最后一条消息的字段 */
 	char	   *client_final_message_without_proof;
 	char	   *client_final_nonce;
 	char		ClientProof[SCRAM_MAX_KEY_LEN];
 
-	/* Fields generated in the server */
+	/* 在服务器上生成的字段 */
 	char	   *server_first_message;
 	char	   *server_nonce;
 
 	/*
-	 * If something goes wrong during the authentication, or we are performing
-	 * a "mock" authentication (see comments at top of file), the 'doomed'
-	 * flag is set.  A reason for the failure, for the server log, is put in
-	 * 'logdetail'.
+	 * 若认证过程中出了问题，或者我们正在做
+	 * "模拟" 认证（见文件顶部的注释），就设置 'doomed'
+	 * 标志。失败原因（供服务器日志使用）放在
+	 * 'logdetail' 中。
 	 */
 	bool		doomed;
 	char	   *logdetail;
@@ -192,25 +192,25 @@ static char *scram_mock_salt(const char *username,
 							 int key_length);
 
 /*
- * The number of iterations to use when generating new secrets.
+ * 生成新密钥时使用的迭代次数。
  */
 int			scram_sha_256_iterations = SCRAM_SHA_256_DEFAULT_ITERATIONS;
 
 /*
- * Get a list of SASL mechanisms that this module supports.
+ * 取得本模块支持的 SASL 机制列表。
  *
- * For the convenience of building the FE/BE packet that lists the
- * mechanisms, the names are appended to the given StringInfo buffer,
- * separated by '\0' bytes.
+ * 为了便于构造列出这些机制的前端/后端数据包，
+ * 机制名被追加到给定的 StringInfo 缓冲区中，
+ * 以 '\0' 字节分隔。
  */
 static void
 scram_get_mechanisms(Port *port, StringInfo buf)
 {
 	/*
-	 * Advertise the mechanisms in decreasing order of importance.  So the
-	 * channel-binding variants go first, if they are supported.  Channel
-	 * binding is only supported with SSL, and only if the SSL implementation
-	 * has a function to get the certificate's hash.
+	 * 按重要性递减的顺序通告这些机制。因此若支持，
+	 * 通道绑定变体排在前面。通道绑定只在使用 SSL 时支持，
+	 * 并且仅当 SSL 实现有函数能取得证书散列时
+	 * 才支持。
 	 */
 #ifdef HAVE_BE_TLS_GET_CERTIFICATE_HASH
 	if (port->ssl_in_use)
@@ -224,19 +224,19 @@ scram_get_mechanisms(Port *port, StringInfo buf)
 }
 
 /*
- * Initialize a new SCRAM authentication exchange status tracker.  This
- * needs to be called before doing any exchange.  It will be filled later
- * after the beginning of the exchange with authentication information.
+ * 初始化一个新的 SCRAM 认证交换状态跟踪器。任何交换之前
+ * 都需要调用它。交换开始后，它会被填上
+ * 认证信息。
  *
- * 'selected_mech' identifies the SASL mechanism that the client selected.
- * It should be one of the mechanisms that we support, as returned by
- * scram_get_mechanisms().
+ * 'selected_mech' 标识客户端所选的 SASL 机制。
+ * 它应当是我们支持的机制之一，即
+ * scram_get_mechanisms() 所返回的那些。
  *
- * 'shadow_pass' is the role's stored secret, from pg_authid.rolpassword.
- * The username was provided by the client in the startup message, and is
- * available in port->user_name.  If 'shadow_pass' is NULL, we still perform
- * an authentication exchange, but it will fail, as if an incorrect password
- * was given.
+ * 'shadow_pass' 是角色已存储的密钥，来自 pg_authid.rolpassword。
+ * 用户名由客户端在启动消息中提供，可从
+ * port->user_name 取得。若 'shadow_pass' 为 NULL，我们仍会做
+ * 一次认证交换，但它会失败，就像给了错误的口令
+ * 一样。
  */
 static void *
 scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
@@ -249,13 +249,13 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 	state->state = SCRAM_AUTH_INIT;
 
 	/*
-	 * Parse the selected mechanism.
+	 * 解析所选的机制。
 	 *
-	 * Note that if we don't support channel binding, either because the SSL
-	 * implementation doesn't support it or we're not using SSL at all, we
-	 * would not have advertised the PLUS variant in the first place.  If the
-	 * client nevertheless tries to select it, it's a protocol violation like
-	 * selecting any other SASL mechanism we don't support.
+	 * 注意，若不支持通道绑定，无论是因为 SSL
+	 * 实现不支持，还是我们根本没用 SSL，我们
+	 * 一开始就不会通告 PLUS 变体。若客户端
+	 * 仍然试图选择它，这就是协议违规，如同
+	 * 选择了任何其他我们不支持的 SASL 机制。
 	 */
 #ifdef HAVE_BE_TLS_GET_CERTIFICATE_HASH
 	if (strcmp(selected_mech, SCRAM_SHA_256_PLUS_NAME) == 0 && port->ssl_in_use)
@@ -270,7 +270,7 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 				 errmsg("client selected an invalid SASL authentication mechanism")));
 
 	/*
-	 * Parse the stored secret.
+	 * 解析已存储的密钥。
 	 */
 	if (shadow_pass)
 	{
@@ -287,8 +287,8 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 			else
 			{
 				/*
-				 * The password looked like a SCRAM secret, but could not be
-				 * parsed.
+				 * 口令看起来像 SCRAM 密钥，但无法
+				 * 解析。
 				 */
 				ereport(LOG,
 						(errmsg("invalid SCRAM secret for user \"%s\"",
@@ -299,8 +299,8 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 		else
 		{
 			/*
-			 * The user doesn't have SCRAM secret. (You cannot do SCRAM
-			 * authentication with an MD5 hash.)
+			 * 该用户没有 SCRAM 密钥。（无法用
+			 * MD5 散列做 SCRAM 认证。）
 			 */
 			state->logdetail = psprintf(_("User \"%s\" does not have a valid SCRAM secret."),
 										state->port->user_name);
@@ -310,18 +310,18 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 	else
 	{
 		/*
-		 * The caller requested us to perform a dummy authentication.  This is
-		 * considered normal, since the caller requested it, so don't set log
-		 * detail.
+		 * 调用方请求我们做一次模拟认证。这被
+		 * 视为正常，因为是调用方请求的，所以不要设置日志
+		 * 详情。
 		 */
 		got_secret = false;
 	}
 
 	/*
-	 * If the user did not have a valid SCRAM secret, we still go through the
-	 * motions with a mock one, and fail as if the client supplied an
-	 * incorrect password.  This is to avoid revealing information to an
-	 * attacker.
+	 * 若用户没有有效的 SCRAM 密钥，我们仍用一个
+	 * 模拟密钥走完流程，并像客户端给了
+	 * 错误口令那样失败。这是为了避免向
+	 * 攻击者泄露信息。
 	 */
 	if (!got_secret)
 	{
@@ -336,20 +336,20 @@ scram_init(Port *port, const char *selected_mech, const char *shadow_pass)
 }
 
 /*
- * Continue a SCRAM authentication exchange.
+ * 继续一次 SCRAM 认证交换。
  *
- * 'input' is the SCRAM payload sent by the client.  On the first call,
- * 'input' contains the "Initial Client Response" that the client sent as
- * part of the SASLInitialResponse message, or NULL if no Initial Client
- * Response was given.  (The SASL specification distinguishes between an
- * empty response and non-existing one.)  On subsequent calls, 'input'
- * cannot be NULL.  For convenience in this function, the caller must
- * ensure that there is a null terminator at input[inputlen].
+ * 'input' 是客户端发来的 SCRAM 负载。第一次调用时，
+ * 'input' 包含客户端作为 SASLInitialResponse 消息一部分
+ * 发来的 "Initial Client Response"，若没有给出 Initial Client
+ * Response 则为 NULL。（SASL 规范区分空响应和
+ * 不存在的响应。）后续调用时，'input'
+ * 无法为 NULL。为了本函数方便，调用方必须
+ * 保证 input[inputlen] 处有一个空字符结尾。
  *
- * The next message to send to client is saved in 'output', for a length
- * of 'outputlen'.  In the case of an error, optionally store a palloc'd
- * string at *logdetail that will be sent to the postmaster log (but not
- * the client).
+ * 要发给客户端的下一条消息保存在 'output' 中，长度为
+ * 'outputlen'。出错时，可选地把一段 palloc 出来的
+ * 字符串存入 *logdetail，它会写入 postmaster 日志（但不会
+ * 发给客户端）。
  */
 static int
 scram_exchange(void *opaq, const char *input, int inputlen,
@@ -361,10 +361,10 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 	*output = NULL;
 
 	/*
-	 * If the client didn't include an "Initial Client Response" in the
-	 * SASLInitialResponse message, send an empty challenge, to which the
-	 * client will respond with the same data that usually comes in the
-	 * Initial Client Response.
+	 * 若客户端没有在 SASLInitialResponse 消息中包含
+	 * "Initial Client Response"，就发送一个空质询，客户端
+	 * 会用通常放在 Initial Client Response 里的同样数据
+	 * 来响应。
 	 */
 	if (input == NULL)
 	{
@@ -376,8 +376,8 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 	}
 
 	/*
-	 * Check that the input length agrees with the string length of the input.
-	 * We can ignore inputlen after this.
+	 * 检查输入长度与输入的字符串长度一致。
+	 * 此后可以忽略 inputlen。
 	 */
 	if (inputlen == 0)
 		ereport(ERROR,
@@ -395,13 +395,13 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 		case SCRAM_AUTH_INIT:
 
 			/*
-			 * Initialization phase.  Receive the first message from client
-			 * and be sure that it parsed correctly.  Then send the challenge
-			 * to the client.
+			 * 初始化阶段。接收来自客户端的第一条消息，
+			 * 并确认它解析正确。然后把质询
+			 * 发给客户端。
 			 */
 			read_client_first_message(state, input);
 
-			/* prepare message to send challenge */
+			/* 准备要发送质询的消息 */
 			*output = build_server_first_message(state);
 
 			state->state = SCRAM_AUTH_SALT_SENT;
@@ -411,9 +411,9 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 		case SCRAM_AUTH_SALT_SENT:
 
 			/*
-			 * Final phase for the server.  Receive the response to the
-			 * challenge previously sent, verify, and let the client know that
-			 * everything went well (or not).
+			 * 服务器的最后阶段。接收先前发出的质询的
+			 * 响应，加以验证，并让客户端知道
+			 * 一切是否顺利。
 			 */
 			read_client_final_message(state, input);
 
@@ -424,23 +424,23 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 						 errdetail("Nonce does not match.")));
 
 			/*
-			 * Now check the final nonce and the client proof.
+			 * 现在检查最终随机数和客户端证明。
 			 *
-			 * If we performed a "mock" authentication that we knew would fail
-			 * from the get go, this is where we fail.
+			 * 若我们做了从一开始就知道会失败的
+			 * "模拟" 认证，失败就发生在这里。
 			 *
-			 * The SCRAM specification includes an error code,
-			 * "invalid-proof", for authentication failure, but it also allows
-			 * erroring out in an application-specific way.  We choose to do
-			 * the latter, so that the error message for invalid password is
-			 * the same for all authentication methods.  The caller will call
-			 * ereport(), when we return PG_SASL_EXCHANGE_FAILURE with no
-			 * output.
+			 * SCRAM 规范包含一个错误码，
+			 * "invalid-proof"，用于认证失败，但它也允许
+			 * 以应用程序特定的方式报错。我们选择
+			 * 后者，以便无效口令的错误消息
+			 * 对所有认证方法都相同。调用方会在我们返回
+			 * PG_SASL_EXCHANGE_FAILURE 且没有输出时调用 ereport()。
+			 * 注意：这些检查的顺序是有意的。即使在
 			 *
-			 * NB: the order of these checks is intentional.  We calculate the
-			 * client proof even in a mock authentication, even though it's
-			 * bound to fail, to thwart timing attacks to determine if a role
-			 * with the given name exists or not.
+			 * 模拟认证中，我们也会计算客户端证明，
+			 * 尽管它注定失败，以挫败计时攻击，
+			 * 那种攻击用来判断给定名字的角色
+			 * 是否存在。
 			 */
 			if (!verify_client_proof(state) || state->doomed)
 			{
@@ -448,10 +448,10 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 				break;
 			}
 
-			/* Build final message for client */
+			/* 为客户端构造最终消息 */
 			*output = build_server_final_message(state);
 
-			/* Success! */
+			/* 成功！ */
 			result = PG_SASL_EXCHANGE_SUCCESS;
 			state->state = SCRAM_AUTH_FINISHED;
 			break;
@@ -471,9 +471,9 @@ scram_exchange(void *opaq, const char *input, int inputlen,
 }
 
 /*
- * Construct a SCRAM secret, for storing in pg_authid.rolpassword.
+ * 构造一个 SCRAM 密钥，以便存入 pg_authid.rolpassword。
  *
- * The result is palloc'd, so caller is responsible for freeing it.
+ * 结果是 palloc 出来的，因此调用方负责释放它。
  */
 char *
 pg_be_scram_build_secret(const char *password)
@@ -485,15 +485,15 @@ pg_be_scram_build_secret(const char *password)
 	const char *errstr = NULL;
 
 	/*
-	 * Normalize the password with SASLprep.  If that doesn't work, because
-	 * the password isn't valid UTF-8 or contains prohibited characters, just
-	 * proceed with the original password.  (See comments at top of file.)
+	 * 用 SASLprep 规范化口令。若做不到，因为
+	 * 口令不是有效的 UTF-8 或含有禁止字符，就直接
+	 * 使用原来的口令继续。（见文件顶部的注释。）
 	 */
 	rc = pg_saslprep(password, &prep_password);
 	if (rc == SASLPREP_SUCCESS)
 		password = (const char *) prep_password;
 
-	/* Generate random salt */
+	/* 生成随机盐 */
 	if (!pg_strong_random(saltbuf, SCRAM_DEFAULT_SALT_LEN))
 		ereport(ERROR,
 				(errcode(ERRCODE_INTERNAL_ERROR),
@@ -511,9 +511,9 @@ pg_be_scram_build_secret(const char *password)
 }
 
 /*
- * Verify a plaintext password against a SCRAM secret.  This is used when
- * performing plaintext password authentication for a user that has a SCRAM
- * secret stored in pg_authid.
+ * 对照 SCRAM 密钥验证明文口令。当对在 pg_authid 中
+ * 存有 SCRAM 密钥的用户做明文口令认证时
+ * 使用它。
  */
 bool
 scram_verify_plain_password(const char *username, const char *password,
@@ -537,7 +537,7 @@ scram_verify_plain_password(const char *username, const char *password,
 							&encoded_salt, stored_key, server_key))
 	{
 		/*
-		 * The password looked like a SCRAM secret, but could not be parsed.
+		 * 口令看起来像 SCRAM 密钥，但无法解析。
 		 */
 		ereport(LOG,
 				(errmsg("invalid SCRAM secret for user \"%s\"", username)));
@@ -555,12 +555,12 @@ scram_verify_plain_password(const char *username, const char *password,
 		return false;
 	}
 
-	/* Normalize the password */
+	/* 规范化口令 */
 	rc = pg_saslprep(password, &prep_password);
 	if (rc == SASLPREP_SUCCESS)
 		password = prep_password;
 
-	/* Compute Server Key based on the user-supplied plaintext password */
+	/* 根据用户提供的明文口令计算 Server Key */
 	if (scram_SaltedPassword(password, hash_type, key_length,
 							 salt, saltlen, iterations,
 							 salted_password, &errstr) < 0 ||
@@ -574,23 +574,23 @@ scram_verify_plain_password(const char *username, const char *password,
 		pfree(prep_password);
 
 	/*
-	 * Compare the secret's Server Key with the one computed from the
-	 * user-supplied password.
+	 * 把密钥中的 Server Key 与根据用户提供的
+	 * 口令计算出来的那个相比较。
 	 */
 	return memcmp(computed_key, server_key, key_length) == 0;
 }
 
 
 /*
- * Parse and validate format of given SCRAM secret.
+ * 解析并验证给定 SCRAM 密钥的格式。
  *
- * On success, the iteration count, salt, stored key, and server key are
- * extracted from the secret, and returned to the caller.  For 'stored_key'
- * and 'server_key', the caller must pass pre-allocated buffers of size
- * SCRAM_MAX_KEY_LEN.  Salt is returned as a base64-encoded, null-terminated
- * string.  The buffer for the salt is palloc'd by this function.
+ * 成功时，从密钥中提取迭代次数、盐、已存储密钥
+ * 和服务器密钥，并返回给调用方。对于 'stored_key'
+ * 和 'server_key'，调用方必须传入预先分配的、大小为
+ * SCRAM_MAX_KEY_LEN 的缓冲区。盐作为 base64 编码、以空字符结尾的
+ * 字符串返回。盐的缓冲区由本函数 palloc。
  *
- * Returns true if the SCRAM secret has been parsed, and false otherwise.
+ * 若已解析 SCRAM 密钥则返回 true，否则返回 false。
  */
 bool
 parse_scram_secret(const char *secret, int *iterations,
@@ -610,7 +610,7 @@ parse_scram_secret(const char *secret, int *iterations,
 	char	   *decoded_server_buf;
 
 	/*
-	 * The secret is of form:
+	 * 密钥的形式为：
 	 *
 	 * SCRAM-SHA-256$<iterations>:<salt>$<storedkey>:<serverkey>
 	 */
@@ -626,7 +626,7 @@ parse_scram_secret(const char *secret, int *iterations,
 	if ((serverkey_str = strtok(NULL, "")) == NULL)
 		goto invalid_secret;
 
-	/* Parse the fields */
+	/* 解析各字段 */
 	if (strcmp(scheme_str, "SCRAM-SHA-256") != 0)
 		goto invalid_secret;
 	*hash_type = PG_SHA256;
@@ -638,8 +638,8 @@ parse_scram_secret(const char *secret, int *iterations,
 		goto invalid_secret;
 
 	/*
-	 * Verify that the salt is in Base64-encoded format, by decoding it,
-	 * although we return the encoded version to the caller.
+	 * 通过解码来验证盐是 Base64 编码格式，
+	 * 尽管我们把编码后的版本返回给调用方。
 	 */
 	decoded_len = pg_b64_dec_len(strlen(salt_str));
 	decoded_salt_buf = palloc(decoded_len);
@@ -650,7 +650,7 @@ parse_scram_secret(const char *secret, int *iterations,
 	*salt = pstrdup(salt_str);
 
 	/*
-	 * Decode StoredKey and ServerKey.
+	 * 解码 StoredKey 和 ServerKey。
 	 */
 	decoded_len = pg_b64_dec_len(strlen(storedkey_str));
 	decoded_stored_buf = palloc(decoded_len);
@@ -676,15 +676,15 @@ invalid_secret:
 }
 
 /*
- * Generate plausible SCRAM secret parameters for mock authentication.
+ * 为模拟认证生成看起来可信的 SCRAM 密钥参数。
  *
- * In a normal authentication, these are extracted from the secret
- * stored in the server.  This function generates values that look
- * realistic, for when there is no stored secret, using SCRAM-SHA-256.
+ * 正常认证中，这些值提取自
+ * 存储在服务器上的密钥。没有已存储密钥时，本函数生成
+ * 看起来真实的值，使用 SCRAM-SHA-256。
  *
- * Like in parse_scram_secret(), for 'stored_key' and 'server_key', the
- * caller must pass pre-allocated buffers of size SCRAM_MAX_KEY_LEN, and
- * the buffer for the salt is palloc'd by this function.
+ * 与 parse_scram_secret() 中一样，对于 'stored_key' 和 'server_key'，
+ * 调用方必须传入大小为 SCRAM_MAX_KEY_LEN 的预先分配缓冲区，
+ * 盐的缓冲区由本函数 palloc。
  */
 static void
 mock_scram_secret(const char *username, pg_cryptohash_type *hash_type,
@@ -695,24 +695,24 @@ mock_scram_secret(const char *username, pg_cryptohash_type *hash_type,
 	char	   *encoded_salt;
 	int			encoded_len;
 
-	/* Enforce the use of SHA-256, which would be realistic enough */
+	/* 强制使用 SHA-256，这已经足够真实 */
 	*hash_type = PG_SHA256;
 	*key_length = SCRAM_SHA_256_KEY_LEN;
 
 	/*
-	 * Generate deterministic salt.
+	 * 生成确定性的盐。
 	 *
-	 * Note that we cannot reveal any information to an attacker here so the
-	 * error messages need to remain generic.  This should never fail anyway
-	 * as the salt generated for mock authentication uses the cluster's nonce
-	 * value.
+	 * 注意，这里我们无法向攻击者透露任何信息，因此
+	 * 错误消息需要保持笼统。这反正不该失败，
+	 * 因为模拟认证生成的盐使用的是数据库集簇
+	 * 的 nonce 值。
 	 */
 	raw_salt = scram_mock_salt(username, *hash_type, *key_length);
 	if (raw_salt == NULL)
 		elog(ERROR, "could not encode salt");
 
 	encoded_len = pg_b64_enc_len(SCRAM_DEFAULT_SALT_LEN);
-	/* don't forget the zero-terminator */
+	/* 别忘了末尾的零 */
 	encoded_salt = (char *) palloc(encoded_len + 1);
 	encoded_len = pg_b64_encode(raw_salt, SCRAM_DEFAULT_SALT_LEN, encoded_salt,
 								encoded_len);
@@ -724,13 +724,13 @@ mock_scram_secret(const char *username, pg_cryptohash_type *hash_type,
 	*salt = encoded_salt;
 	*iterations = SCRAM_SHA_256_DEFAULT_ITERATIONS;
 
-	/* StoredKey and ServerKey are not used in a doomed authentication */
+	/* 注定失败的认证中不使用 StoredKey 和 ServerKey */
 	memset(stored_key, 0, SCRAM_MAX_KEY_LEN);
 	memset(server_key, 0, SCRAM_MAX_KEY_LEN);
 }
 
 /*
- * Read the value in a given SCRAM exchange message for given attribute.
+ * 读取给定 SCRAM 交换消息中给定属性的值。
  */
 static char *
 read_attr_value(char **input, char attr)
@@ -782,19 +782,19 @@ is_scram_printable(char *p)
 	 */
 	for (; *p; p++)
 	{
-		if (*p < 0x21 || *p > 0x7E || *p == 0x2C /* comma */ )
+		if (*p < 0x21 || *p > 0x7E || *p == 0x2C /* 逗号 */ )
 			return false;
 	}
 	return true;
 }
 
 /*
- * Convert an arbitrary byte to printable form.  For error messages.
+ * 把任意字节转换成可打印形式。用于错误消息。
  *
- * If it's a printable ASCII character, print it as a single character.
- * otherwise, print it in hex.
+ * 若它是可打印的 ASCII 字符，就打印成单个字符。
+ * 否则，用十六进制打印。
  *
- * The returned pointer points to a static buffer.
+ * 返回的指针指向一个静态缓冲区。
  */
 static char *
 sanitize_char(char c)
@@ -809,12 +809,12 @@ sanitize_char(char c)
 }
 
 /*
- * Convert an arbitrary string to printable form, for error messages.
+ * 把任意字符串转换成可打印形式，用于错误消息。
  *
- * Anything that's not a printable ASCII character is replaced with
- * '?', and the string is truncated at 30 characters.
+ * 任何不是可打印 ASCII 字符的内容都替换成
+ * '?'，并且字符串在 30 个字符处截断。
  *
- * The returned pointer points to a static buffer.
+ * 返回的指针指向一个静态缓冲区。
  */
 static char *
 sanitize_str(const char *s)
@@ -839,10 +839,10 @@ sanitize_str(const char *s)
 }
 
 /*
- * Read the next attribute and value in a SCRAM exchange message.
+ * 读取 SCRAM 交换消息中的下一个属性和值。
  *
- * The attribute character is set in *attr_p, the attribute value is the
- * return value.
+ * 属性字符写入 *attr_p，属性值就是
+ * 返回值。
  */
 static char *
 read_any_attr(char **input, char *attr_p)
@@ -897,10 +897,10 @@ read_any_attr(char **input, char *attr_p)
 }
 
 /*
- * Read and parse the first message from client in the context of a SCRAM
- * authentication exchange message.
+ * 在 SCRAM 认证交换消息的上下文中，读取并解析
+ * 来自客户端的第一条消息。
  *
- * At this stage, any errors will be reported directly with ereport(ERROR).
+ * 在这个阶段，任何错误都直接用 ereport(ERROR) 报告。
  */
 static void
 read_client_first_message(scram_state *state, const char *input)
@@ -970,8 +970,8 @@ read_client_first_message(scram_state *state, const char *input)
 	 */
 
 	/*
-	 * Read gs2-cbind-flag.  (For details see also RFC 5802 Section 6 "Channel
-	 * Binding".)
+	 * 读取 gs2-cbind-flag。（详情另见 RFC 5802 第 6 节
+	 * "Channel Binding"。）
 	 */
 	state->cbind_flag = *p;
 	switch (*p)
@@ -979,8 +979,8 @@ read_client_first_message(scram_state *state, const char *input)
 		case 'n':
 
 			/*
-			 * The client does not support channel binding or has simply
-			 * decided to not use it.  In that case just let it go.
+			 * 客户端不支持通道绑定，或者只是
+			 * 决定不使用它。这时就让它继续。
 			 */
 			if (state->channel_binding_in_use)
 				ereport(ERROR,
@@ -1000,9 +1000,9 @@ read_client_first_message(scram_state *state, const char *input)
 		case 'y':
 
 			/*
-			 * The client supports channel binding and thinks that the server
-			 * does not.  In this case, the server must fail authentication if
-			 * it supports channel binding.
+			 * 客户端支持通道绑定，并认为服务器
+			 * 不支持。这种情况下，若服务器支持通道绑定，
+			 * 就必须让认证失败。
 			 */
 			if (state->channel_binding_in_use)
 				ereport(ERROR,
@@ -1030,8 +1030,8 @@ read_client_first_message(scram_state *state, const char *input)
 		case 'p':
 
 			/*
-			 * The client requires channel binding.  Channel binding type
-			 * follows, e.g., "p=tls-server-end-point".
+			 * 客户端需要通道绑定。通道绑定类型
+			 * 紧随其后，例如 "p=tls-server-end-point"。
 			 */
 			if (!state->channel_binding_in_use)
 				ereport(ERROR,
@@ -1042,8 +1042,8 @@ read_client_first_message(scram_state *state, const char *input)
 			channel_binding_type = read_attr_value(&p, 'p');
 
 			/*
-			 * The only channel binding type we support is
-			 * tls-server-end-point.
+			 * 我们支持的唯一通道绑定类型是
+			 * tls-server-end-point。
 			 */
 			if (strcmp(channel_binding_type, "tls-server-end-point") != 0)
 				ereport(ERROR,
@@ -1060,7 +1060,7 @@ read_client_first_message(scram_state *state, const char *input)
 	}
 
 	/*
-	 * Forbid optional authzid (authorization identity).  We don't support it.
+	 * 禁止可选的 authzid（授权身份）。我们不支持它。
 	 */
 	if (*p == 'a')
 		ereport(ERROR,
@@ -1077,11 +1077,11 @@ read_client_first_message(scram_state *state, const char *input)
 	state->client_first_message_bare = pstrdup(p);
 
 	/*
-	 * Any mandatory extensions would go here.  We don't support any.
+	 * 任何强制扩展都会放在这里。我们不支持任何扩展。
 	 *
-	 * RFC 5802 specifies error code "e=extensions-not-supported" for this,
-	 * but it can only be sent in the server-final message.  We prefer to fail
-	 * immediately (which the RFC also allows).
+	 * RFC 5802 为此指定了错误码 "e=extensions-not-supported"，
+	 * 但它只能在 server-final 消息中发送。我们宁愿立即
+	 * 失败（RFC 也允许这样做）。
 	 */
 	if (*p == 'm')
 		ereport(ERROR,
@@ -1089,13 +1089,13 @@ read_client_first_message(scram_state *state, const char *input)
 				 errmsg("client requires an unsupported SCRAM extension")));
 
 	/*
-	 * Read username.  Note: this is ignored.  We use the username from the
-	 * startup message instead, still it is kept around if provided as it
-	 * proves to be useful for debugging purposes.
+	 * 读取用户名。注意：它会被忽略。我们改用启动消息中的
+	 * 用户名，但若提供了它仍会留着，因为
+	 * 它对调试有用。
 	 */
 	state->client_username = read_attr_value(&p, 'n');
 
-	/* read nonce and check that it is made of only printable characters */
+	/* 读取随机数，并检查它只由可打印字符组成 */
 	state->client_nonce = read_attr_value(&p, 'r');
 	if (!is_scram_printable(state->client_nonce))
 		ereport(ERROR,
@@ -1103,18 +1103,18 @@ read_client_first_message(scram_state *state, const char *input)
 				 errmsg("non-printable characters in SCRAM nonce")));
 
 	/*
-	 * There can be any number of optional extensions after this.  We don't
-	 * support any extensions, so ignore them.
+	 * 此后可以有任意数量的可选扩展。我们不
+	 * 支持任何扩展，因此忽略它们。
 	 */
 	while (*p != '\0')
 		read_any_attr(&p, NULL);
 
-	/* success! */
+	/* 成功！ */
 }
 
 /*
- * Verify the final nonce contained in the last message received from
- * client in an exchange.
+ * 验证交换中从客户端收到的最后一条消息里
+ * 所含的最终随机数。
  */
 static bool
 verify_final_nonce(scram_state *state)
@@ -1134,9 +1134,9 @@ verify_final_nonce(scram_state *state)
 }
 
 /*
- * Verify the client proof contained in the last message received from
- * client in an exchange.  Returns true if the verification is a success,
- * or false for a failure.
+ * 验证交换中从客户端收到的最后一条消息里
+ * 所含的客户端证明。验证成功返回 true，
+ * 失败返回 false。
  */
 static bool
 verify_client_proof(scram_state *state)
@@ -1149,9 +1149,9 @@ verify_client_proof(scram_state *state)
 	const char *errstr = NULL;
 
 	/*
-	 * Calculate ClientSignature.  Note that we don't log directly a failure
-	 * here even when processing the calculations as this could involve a mock
-	 * authentication.
+	 * 计算 ClientSignature。注意，即使在处理这些计算时，
+	 * 我们也不直接记录失败，因为这可能涉及一次模拟
+	 * 认证。
 	 */
 	if (pg_hmac_init(ctx, state->StoredKey, state->key_length) < 0 ||
 		pg_hmac_update(ctx,
@@ -1173,11 +1173,11 @@ verify_client_proof(scram_state *state)
 
 	pg_hmac_free(ctx);
 
-	/* Extract the ClientKey that the client calculated from the proof */
+	/* 从证明中提取客户端算出的 ClientKey */
 	for (i = 0; i < state->key_length; i++)
 		ClientKey[i] = state->ClientProof[i] ^ ClientSignature[i];
 
-	/* Hash it one more time, and compare with StoredKey */
+	/* 再散列一次，并与 StoredKey 比较 */
 	if (scram_H(ClientKey, state->hash_type, state->key_length,
 				client_StoredKey, &errstr) < 0)
 		elog(ERROR, "could not hash stored key: %s", errstr);
@@ -1189,8 +1189,8 @@ verify_client_proof(scram_state *state)
 }
 
 /*
- * Build the first server-side message sent to the client in a SCRAM
- * communication exchange.
+ * 构造 SCRAM 通信交换中发给客户端的
+ * 第一条服务器端消息。
  */
 static char *
 build_server_first_message(scram_state *state)
@@ -1221,9 +1221,9 @@ build_server_first_message(scram_state *state)
 	 */
 
 	/*
-	 * Per the spec, the nonce may consist of any printable ASCII characters.
-	 * For convenience, however, we don't use the whole range available,
-	 * rather, we generate some random bytes, and base64 encode them.
+	 * 按规范，随机数可以由任何可打印 ASCII 字符组成。
+	 * 不过为了方便，我们不用全部可用范围，
+	 * 而是生成一些随机字节，再做 base64 编码。
 	 */
 	char		raw_nonce[SCRAM_RAW_NONCE_LEN];
 	int			encoded_len;
@@ -1234,7 +1234,7 @@ build_server_first_message(scram_state *state)
 				 errmsg("could not generate random nonce")));
 
 	encoded_len = pg_b64_enc_len(SCRAM_RAW_NONCE_LEN);
-	/* don't forget the zero-terminator */
+	/* 别忘了末尾的零 */
 	state->server_nonce = palloc(encoded_len + 1);
 	encoded_len = pg_b64_encode(raw_nonce, SCRAM_RAW_NONCE_LEN,
 								state->server_nonce, encoded_len);
@@ -1254,7 +1254,7 @@ build_server_first_message(scram_state *state)
 
 
 /*
- * Read and parse the final message received from client.
+ * 读取并解析从客户端收到的最终消息。
  */
 static void
 read_client_final_message(scram_state *state, const char *input)
@@ -1300,8 +1300,8 @@ read_client_final_message(scram_state *state, const char *input)
 	 */
 
 	/*
-	 * Read channel binding.  This repeats the channel-binding flags and is
-	 * then followed by the actual binding data depending on the type.
+	 * 读取通道绑定。这里重复通道绑定标志，然后
+	 * 根据类型跟上实际的绑定数据。
 	 */
 	channel_binding = read_attr_value(&p, 'c');
 	if (state->channel_binding_in_use)
@@ -1317,11 +1317,11 @@ read_client_final_message(scram_state *state, const char *input)
 
 		Assert(state->cbind_flag == 'p');
 
-		/* Fetch hash data of server's SSL certificate */
+		/* 取得服务器 SSL 证书的散列数据 */
 		cbind_data = be_tls_get_certificate_hash(state->port,
 												 &cbind_data_len);
 
-		/* should not happen */
+		/* 不该发生 */
 		if (cbind_data == NULL || cbind_data_len == 0)
 			elog(ERROR, "could not get server certificate hash");
 
@@ -1332,7 +1332,7 @@ read_client_final_message(scram_state *state, const char *input)
 		memcpy(cbind_input + cbind_header_len, cbind_data, cbind_data_len);
 
 		b64_message_len = pg_b64_enc_len(cbind_input_len);
-		/* don't forget the zero-terminator */
+		/* 别忘了末尾的零 */
 		b64_message = palloc(b64_message_len + 1);
 		b64_message_len = pg_b64_encode(cbind_input, cbind_input_len,
 										b64_message, b64_message_len);
@@ -1341,25 +1341,25 @@ read_client_final_message(scram_state *state, const char *input)
 		b64_message[b64_message_len] = '\0';
 
 		/*
-		 * Compare the value sent by the client with the value expected by the
-		 * server.
+		 * 把客户端发来的值与服务器预期的
+		 * 值相比较。
 		 */
 		if (strcmp(channel_binding, b64_message) != 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_AUTHORIZATION_SPECIFICATION),
 					 errmsg("SCRAM channel binding check failed")));
 #else
-		/* shouldn't happen, because we checked this earlier already */
+		/* 不该发生，因为我们之前已经检查过 */
 		elog(ERROR, "channel binding not supported by this build");
 #endif
 	}
 	else
 	{
 		/*
-		 * If we are not using channel binding, the binding data is expected
-		 * to always be "biws", which is "n,," base64-encoded, or "eSws",
-		 * which is "y,,".  We also have to check whether the flag is the same
-		 * one that the client originally sent.
+		 * 若我们没有使用通道绑定，绑定数据预期
+		 * 始终是 "biws"（即 "n,," 的 base64 编码），或 "eSws"
+		 * （即 "y,,"）。我们还得检查该标志是否与
+		 * 客户端最初发送的那个相同。
 		 */
 		if (!(strcmp(channel_binding, "biws") == 0 && state->cbind_flag == 'n') &&
 			!(strcmp(channel_binding, "eSws") == 0 && state->cbind_flag == 'y'))
@@ -1370,7 +1370,7 @@ read_client_final_message(scram_state *state, const char *input)
 
 	state->client_final_nonce = read_attr_value(&p, 'r');
 
-	/* ignore optional extensions, read until we find "p" attribute */
+	/* 忽略可选扩展，一直读到找到 "p" 属性 */
 	do
 	{
 		proof = p - 1;
@@ -1400,7 +1400,7 @@ read_client_final_message(scram_state *state, const char *input)
 }
 
 /*
- * Build the final server-side message of an exchange.
+ * 构造交换的最终服务器端消息。
  */
 static char *
 build_server_final_message(scram_state *state)
@@ -1410,7 +1410,7 @@ build_server_final_message(scram_state *state)
 	int			siglen;
 	pg_hmac_ctx *ctx = pg_hmac_create(state->hash_type);
 
-	/* calculate ServerSignature */
+	/* 计算 ServerSignature */
 	if (pg_hmac_init(ctx, state->ServerKey, state->key_length) < 0 ||
 		pg_hmac_update(ctx,
 					   (uint8 *) state->client_first_message_bare,
@@ -1432,7 +1432,7 @@ build_server_final_message(scram_state *state)
 	pg_hmac_free(ctx);
 
 	siglen = pg_b64_enc_len(state->key_length);
-	/* don't forget the zero-terminator */
+	/* 别忘了末尾的零 */
 	server_signature_base64 = palloc(siglen + 1);
 	siglen = pg_b64_encode((const char *) ServerSignature,
 						   state->key_length, server_signature_base64,
@@ -1457,9 +1457,9 @@ build_server_final_message(scram_state *state)
 
 
 /*
- * Deterministically generate salt for mock authentication, using a SHA256
- * hash based on the username and a cluster-level secret key.  Returns a
- * pointer to a static buffer of size SCRAM_DEFAULT_SALT_LEN, or NULL.
+ * 用基于用户名和数据库集簇级密钥的 SHA256
+ * 散列，为模拟认证确定性地生成盐。返回指向
+ * 大小为 SCRAM_DEFAULT_SALT_LEN 的静态缓冲区的指针，或 NULL。
  */
 static char *
 scram_mock_salt(const char *username, pg_cryptohash_type hash_type,
@@ -1470,17 +1470,17 @@ scram_mock_salt(const char *username, pg_cryptohash_type hash_type,
 	char	   *mock_auth_nonce = GetMockAuthenticationNonce();
 
 	/*
-	 * Generate salt using a SHA256 hash of the username and the cluster's
-	 * mock authentication nonce.  (This works as long as the salt length is
-	 * not larger than the SHA256 digest length.  If the salt is smaller, the
-	 * caller will just ignore the extra data.)
+	 * 用用户名和数据库集簇模拟认证 nonce 的 SHA256
+	 * 散列来生成盐。（只要盐的长度
+	 * 不大于 SHA256 摘要长度，这就行。若盐更短，
+	 * 调用方会忽略多余的数据。）
 	 */
 	StaticAssertDecl(PG_SHA256_DIGEST_LENGTH >= SCRAM_DEFAULT_SALT_LEN,
 					 "salt length greater than SHA256 digest length");
 
 	/*
-	 * This may be worth refreshing if support for more hash methods is\
-	 * added.
+	 * 若增加对更多散列方法的支持，这里也许
+	 * 值得更新。
 	 */
 	Assert(hash_type == PG_SHA256);
 

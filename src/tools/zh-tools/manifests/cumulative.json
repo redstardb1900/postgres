@@ -1105,6 +1105,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0040-comment-libpq-openssl.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/libpq/auth-scram.c",
+   "kind": "c_comment",
+   "note": "comment-only; RFC syntax pgindent blocks kept"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0041-comment-libpq-scram.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3948,7 +3958,31 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/libpq/auth-scram.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 86,
+   "preserved": 8,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "RFC syntax pgindent blocks",
+    "protocol literal"
+   ],
+   "note": "comment-only; RFC syntax pgindent blocks kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0041-comment-libpq-scram.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, 8 smaller backend/libpq .c files, pqformat.c, be-fsstubs.c, be-secure-gssapi.c, and be-secure-openssl.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, auth-scram.c, hba.c, pqcomm.c. 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, 8 smaller backend/libpq .c files, pqformat.c, be-fsstubs.c, be-secure-gssapi.c, be-secure-openssl.c, and auth-scram.c. Batch 0035 adjusts terminology in five backend/lib files. Remaining backend/libpq .c files: auth.c, hba.c, pqcomm.c. 194 platform candidates still unapproved."
 }

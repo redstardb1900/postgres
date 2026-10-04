@@ -39,48 +39,48 @@
 #include "utils/memutils.h"
 
 /*
- * An item in the hash table.  This wraps the user's entry object in an
- * envelop that holds a pointer back to the bucket and a pointer to the next
- * item in the bucket.
+ * 哈希表中的一项。这把用户的条目对象包在一个
+ * 信封里，信封持有指回桶的指针以及指向桶中下
+ * 一项的指针。
  */
 struct dshash_table_item
 {
-	/* The next item in the same bucket. */
+	/* 同一桶中的下一项。 */
 	dsa_pointer next;
-	/* The hashed key, to avoid having to recompute it. */
+	/* 已哈希的键，以免必须重新计算。 */
 	dshash_hash hash;
-	/* The user's entry object follows here.  See ENTRY_FROM_ITEM(item). */
+	/* 用户的条目对象紧随其后。见 ENTRY_FROM_ITEM(item)。 */
 };
 
 /*
- * The number of partitions for locking purposes.  This is set to match
- * NUM_BUFFER_PARTITIONS for now, on the basis that whatever's good enough for
- * the buffer pool must be good enough for any other purpose.  This could
- * become a runtime parameter in future.
+ * 为加锁目的的分区数。目前设为与 NUM_BUFFER_PARTITIONS
+ * 匹配，依据是对缓冲池足够好的对任何其他目的也必须足够
+ * 好。将来这可以变成运行时参数。
+ *
  */
 #define DSHASH_NUM_PARTITIONS_LOG2 7
 #define DSHASH_NUM_PARTITIONS (1 << DSHASH_NUM_PARTITIONS_LOG2)
 
-/* A magic value used to identify our hash tables. */
+/* 用来识别我们哈希表的魔数。 */
 #define DSHASH_MAGIC 0x75ff6a20
 
 /*
- * Tracking information for each lock partition.  Initially, each partition
- * corresponds to one bucket, but each time the hash table grows, the buckets
- * covered by each partition split so the number of buckets covered doubles.
+ * 每个锁分区的跟踪信息。最初每个分区对应一个桶，但
+ * 每次哈希表增长时，各分区覆盖的桶会分裂，覆盖的桶
+ * 数加倍。
  *
- * We might want to add padding here so that each partition is on a different
- * cache line, but doing so would bloat this structure considerably.
+ * 我们可能想在这里加填充，使每个分区在不同缓存行上，
+ * 但那样会显著膨胀本结构。
  */
 typedef struct dshash_partition
 {
-	LWLock		lock;			/* Protects all buckets in this partition. */
-	size_t		count;			/* # of items in this partition's buckets */
+	LWLock		lock;			/* 保护本分区中的所有桶。 */
+	size_t		count;			/* 本分区各桶中的项数 */
 } dshash_partition;
 
 /*
- * The head object for a hash table.  This will be stored in dynamic shared
- * memory.
+ * 哈希表的头对象。这将存在动态共享
+ * 内存中。
  */
 typedef struct dshash_table_control
 {
@@ -90,76 +90,76 @@ typedef struct dshash_table_control
 	int			lwlock_tranche_id;
 
 	/*
-	 * The following members are written to only when ALL partitions locks are
-	 * held.  They can be read when any one partition lock is held.
+	 * 以下成员仅在持有全部区画锁时才写入。
+	 * 持有任一区画锁时即可读取。
 	 */
 
-	/* Number of buckets expressed as power of 2 (8 = 256 buckets). */
-	size_t		size_log2;		/* log2(number of buckets) */
-	dsa_pointer buckets;		/* current bucket array */
+	/* 以 2 的幂表示的桶数（8 = 256 个桶）。 */
+	size_t		size_log2;		/* log2(桶数) */
+	dsa_pointer buckets;		/* 当前桶数组 */
 } dshash_table_control;
 
 /*
- * Per-backend state for a dynamic hash table.
+ * 动态哈希表的每后端状态。
  */
 struct dshash_table
 {
-	dsa_area   *area;			/* Backing dynamic shared memory area. */
-	dshash_parameters params;	/* Parameters. */
-	void	   *arg;			/* User-supplied data pointer. */
-	dshash_table_control *control;	/* Control object in DSM. */
-	dsa_pointer *buckets;		/* Current bucket pointers in DSM. */
-	size_t		size_log2;		/* log2(number of buckets) */
+	dsa_area   *area;			/* 后备动态共享内存区。 */
+	dshash_parameters params;	/* 参数。 */
+	void	   *arg;			/* 用户提供的数据指针。 */
+	dshash_table_control *control;	/* DSM 中的控制对象。 */
+	dsa_pointer *buckets;		/* DSM 中的当前桶指针。 */
+	size_t		size_log2;		/* log2(桶数) */
 };
 
-/* Given a pointer to an item, find the entry (user data) it holds. */
+/* 给定指向项的指针，找出它持有的条目（用户数据）。 */
 #define ENTRY_FROM_ITEM(item) \
 	((char *)(item) + MAXALIGN(sizeof(dshash_table_item)))
 
-/* Given a pointer to an entry, find the item that holds it. */
+/* 给定指向条目的指针，找出持有它的项。 */
 #define ITEM_FROM_ENTRY(entry)											\
 	((dshash_table_item *)((char *)(entry) -							\
 							 MAXALIGN(sizeof(dshash_table_item))))
 
-/* How many resize operations (bucket splits) have there been? */
+/* 已经发生了多少次调整大小操作（桶分裂）？ */
 #define NUM_SPLITS(size_log2)					\
 	(size_log2 - DSHASH_NUM_PARTITIONS_LOG2)
 
-/* How many buckets are there in a given size? */
+/* 给定大小下有多少个桶？ */
 #define NUM_BUCKETS(size_log2)		\
 	(((size_t) 1) << (size_log2))
 
-/* How many buckets are there in each partition at a given size? */
+/* 给定大小下每个分区有多少个桶？ */
 #define BUCKETS_PER_PARTITION(size_log2)		\
 	(((size_t) 1) << NUM_SPLITS(size_log2))
 
-/* Max entries before we need to grow.  Half + quarter = 75% load factor. */
+/* 需要增长前的最大条目数。一半 + 四分之一 = 75% 负载因子。 */
 #define MAX_COUNT_PER_PARTITION(hash_table)				\
 	(BUCKETS_PER_PARTITION(hash_table->size_log2) / 2 + \
 	 BUCKETS_PER_PARTITION(hash_table->size_log2) / 4)
 
-/* Choose partition based on the highest order bits of the hash. */
+/* 根据哈希的最高位选择分区。 */
 #define PARTITION_FOR_HASH(hash)										\
 	(hash >> ((sizeof(dshash_hash) * CHAR_BIT) - DSHASH_NUM_PARTITIONS_LOG2))
 
 /*
- * Find the bucket index for a given hash and table size.  Each time the table
- * doubles in size, the appropriate bucket for a given hash value doubles and
- * possibly adds one, depending on the newly revealed bit, so that all buckets
- * are split.
+ * 找出给定哈希和表大小的桶下标。每次表大小加倍时，给定
+ * 哈希值的适当桶会加倍，并可能加一，取决于新露出的位，
+ * 从而所有桶都被分裂。
+ *
  */
 #define BUCKET_INDEX_FOR_HASH_AND_SIZE(hash, size_log2)		\
 	(hash >> ((sizeof(dshash_hash) * CHAR_BIT) - (size_log2)))
 
-/* The index of the first bucket in a given partition. */
+/* 给定分区中第一个桶的下标。 */
 #define BUCKET_INDEX_FOR_PARTITION(partition, size_log2)	\
 	((partition) << NUM_SPLITS(size_log2))
 
-/* Choose partition based on bucket index. */
+/* 根据桶下标选择分区。 */
 #define PARTITION_FOR_BUCKET_INDEX(bucket_idx, size_log2)				\
 	((bucket_idx) >> NUM_SPLITS(size_log2))
 
-/* The head of the active bucket for a given hash value (lvalue). */
+/* 给定哈希值的活动桶的头（左值）。 */
 #define BUCKET_FOR_HASH(hash_table, hash)								\
 	(hash_table->buckets[												\
 		BUCKET_INDEX_FOR_HASH_AND_SIZE(hash,							\
@@ -197,10 +197,10 @@ static inline bool equal_keys(dshash_table *hash_table,
 		   DSHASH_NUM_PARTITIONS, sizeof(dshash_partition)))
 
 /*
- * Create a new hash table backed by the given dynamic shared area, with the
- * given parameters.  The returned object is allocated in backend-local memory
- * using the current MemoryContext.  'arg' will be passed through to the
- * compare and hash functions.
+ * 用给定参数创建由给定动态共享区支持的新哈希表。返回的
+ * 对象用当前 MemoryContext 分配在后端本地内存中。'arg'
+ * 会传给比较函数和哈希函数。
+ *
  */
 dshash_table *
 dshash_create(dsa_area *area, const dshash_parameters *params, void *arg)
@@ -208,13 +208,13 @@ dshash_create(dsa_area *area, const dshash_parameters *params, void *arg)
 	dshash_table *hash_table;
 	dsa_pointer control;
 
-	/* Allocate the backend-local object representing the hash table. */
+	/* 分配表示哈希表的后端本地对象。 */
 	hash_table = palloc(sizeof(dshash_table));
 
-	/* Allocate the control object in shared memory. */
+	/* 在共享内存中分配控制对象。 */
 	control = dsa_allocate(area, sizeof(dshash_table_control));
 
-	/* Set up the local and shared hash table structs. */
+	/* 设置本地和共享哈希表结构。 */
 	hash_table->area = area;
 	hash_table->params = *params;
 	hash_table->arg = arg;
@@ -223,7 +223,7 @@ dshash_create(dsa_area *area, const dshash_parameters *params, void *arg)
 	hash_table->control->magic = DSHASH_MAGIC;
 	hash_table->control->lwlock_tranche_id = params->tranche_id;
 
-	/* Set up the array of lock partitions. */
+	/* 设置锁分区数组。 */
 	{
 		dshash_partition *partitions = hash_table->control->partitions;
 		int			tranche_id = hash_table->control->lwlock_tranche_id;
@@ -237,8 +237,8 @@ dshash_create(dsa_area *area, const dshash_parameters *params, void *arg)
 	}
 
 	/*
-	 * Set up the initial array of buckets.  Our initial size is the same as
-	 * the number of partitions.
+	 * 设置初始桶数组。我们的初始大小与
+	 * 分区数相同。
 	 */
 	hash_table->control->size_log2 = DSHASH_NUM_PARTITIONS_LOG2;
 	hash_table->control->buckets =
@@ -262,9 +262,9 @@ dshash_create(dsa_area *area, const dshash_parameters *params, void *arg)
 }
 
 /*
- * Attach to an existing hash table using a handle.  The returned object is
- * allocated in backend-local memory using the current MemoryContext.  'arg'
- * will be passed through to the compare and hash functions.
+ * 用句柄附着到已有哈希表。返回的对象用当前 MemoryContext
+ * 分配在后端本地内存中。'arg' 会传给比较函数和哈希函数。
+ *
  */
 dshash_table *
 dshash_attach(dsa_area *area, const dshash_parameters *params,
@@ -273,13 +273,13 @@ dshash_attach(dsa_area *area, const dshash_parameters *params,
 	dshash_table *hash_table;
 	dsa_pointer control;
 
-	/* Allocate the backend-local object representing the hash table. */
+	/* 分配表示哈希表的后端本地对象。 */
 	hash_table = palloc(sizeof(dshash_table));
 
-	/* Find the control object in shared memory. */
+	/* 在共享内存中找到控制对象。 */
 	control = handle;
 
-	/* Set up the local hash table struct. */
+	/* 设置本地哈希表结构。 */
 	hash_table->area = area;
 	hash_table->params = *params;
 	hash_table->arg = arg;
@@ -287,10 +287,10 @@ dshash_attach(dsa_area *area, const dshash_parameters *params,
 	Assert(hash_table->control->magic == DSHASH_MAGIC);
 
 	/*
-	 * These will later be set to the correct values by
-	 * ensure_valid_bucket_pointers(), at which time we'll be holding a
-	 * partition lock for interlocking against concurrent resizing.
-	 */
+	 * 这些稍后会由 ensure_valid_bucket_pointers() 设为正确
+	 * 值，那时我们将持有区画锁以与并发调整大小联锁。
+ *
+ */
 	hash_table->buckets = NULL;
 	hash_table->size_log2 = 0;
 
@@ -298,26 +298,26 @@ dshash_attach(dsa_area *area, const dshash_parameters *params,
 }
 
 /*
- * Detach from a hash table.  This frees backend-local resources associated
- * with the hash table, but the hash table will continue to exist until it is
- * either explicitly destroyed (by a backend that is still attached to it), or
- * the area that backs it is returned to the operating system.
+ * 从哈希表分离。这释放与哈希表关联的后端本地资源，但
+ * 哈希表会继续存在，直到它被（仍附着的后端）显式销毁，
+ * 或支持它的区域被归还给操作系统。
+ *
  */
 void
 dshash_detach(dshash_table *hash_table)
 {
 	ASSERT_NO_PARTITION_LOCKS_HELD_BY_ME(hash_table);
 
-	/* The hash table may have been destroyed.  Just free local memory. */
+	/* 哈希表可能已被销毁。只释放本地内存。 */
 	pfree(hash_table);
 }
 
 /*
- * Destroy a hash table, returning all memory to the area.  The caller must be
- * certain that no other backend will attempt to access the hash table before
- * calling this function.  Other backend must explicitly call dshash_detach to
- * free up backend-local memory associated with the hash table.  The backend
- * that calls dshash_destroy must not call dshash_detach.
+ * 销毁哈希表，把所有内存还给区域。调用者必须确定在调用
+ * 本函数之前没有其他后端会试图访问该哈希表。其他后端必须
+ * 显式调用 dshash_detach 以释放与哈希表关联的后端本地内存。
+ * 调用 dshash_destroy 的后端不得调用 dshash_detach。
+ *
  */
 void
 dshash_destroy(dshash_table *hash_table)
@@ -328,7 +328,7 @@ dshash_destroy(dshash_table *hash_table)
 	Assert(hash_table->control->magic == DSHASH_MAGIC);
 	ensure_valid_bucket_pointers(hash_table);
 
-	/* Free all the entries. */
+	/* 释放所有条目。 */
 	size = NUM_BUCKETS(hash_table->size_log2);
 	for (i = 0; i < size; ++i)
 	{
@@ -347,12 +347,12 @@ dshash_destroy(dshash_table *hash_table)
 	}
 
 	/*
-	 * Vandalize the control block to help catch programming errors where
-	 * other backends access the memory formerly occupied by this hash table.
+	 * 破坏控制块，以帮助捕获其他后端访问本哈希表
+	 * 原先占用的内存的编程错误。
 	 */
 	hash_table->control->magic = 0;
 
-	/* Free the active table and control object. */
+	/* 释放活动表和控制对象。 */
 	dsa_free(hash_table->area, hash_table->control->buckets);
 	dsa_free(hash_table->area, hash_table->control->handle);
 
@@ -360,8 +360,8 @@ dshash_destroy(dshash_table *hash_table)
 }
 
 /*
- * Get a handle that can be used by other processes to attach to this hash
- * table.
+ * 取得可供其他进程用来附着到本哈希表的
+ * 句柄。
  */
 dshash_table_handle
 dshash_get_hash_table_handle(dshash_table *hash_table)
@@ -372,19 +372,19 @@ dshash_get_hash_table_handle(dshash_table *hash_table)
 }
 
 /*
- * Look up an entry, given a key.  Returns a pointer to an entry if one can be
- * found with the given key.  Returns NULL if the key is not found.  If a
- * non-NULL value is returned, the entry is locked and must be released by
- * calling dshash_release_lock.  If an error is raised before
- * dshash_release_lock is called, the lock will be released automatically, but
- * the caller must take care to ensure that the entry is not left corrupted.
- * The lock mode is either shared or exclusive depending on 'exclusive'.
+ * 按键查找条目。若能找到具有给定键的条目则返回指向它的
+ * 指针。若找不到键则返回 NULL。若返回非 NULL 值，则该条
+ * 目被锁定，必须调用 dshash_release_lock 来释放。若在调用
+ * dshash_release_lock 之前引发错误，锁会自动释放，但调用
+ * 者必须注意确保条目不被留下损坏。锁模式按 'exclusive'
+ * 为共享或排他。
  *
- * The caller must not hold a lock already.
+ * 调用者不得已经持有锁。
  *
- * Note that the lock held is in fact an LWLock, so interrupts will be held on
- * return from this function, and not resumed until dshash_release_lock is
- * called.  It is a very good idea for the caller to release the lock quickly.
+ * 注意所持的锁实际上是 LWLock，因此从本函数返回时中断
+ * 会被保持，直到调用 dshash_release_lock 才恢复。调用者
+ * 尽快释放锁是很好的主意。
+ *
  */
 void *
 dshash_find(dshash_table *hash_table, const void *key, bool exclusive)
@@ -403,31 +403,31 @@ dshash_find(dshash_table *hash_table, const void *key, bool exclusive)
 				  exclusive ? LW_EXCLUSIVE : LW_SHARED);
 	ensure_valid_bucket_pointers(hash_table);
 
-	/* Search the active bucket. */
+	/* 搜索活动桶。 */
 	item = find_in_bucket(hash_table, key, BUCKET_FOR_HASH(hash_table, hash));
 
 	if (!item)
 	{
-		/* Not found. */
+		/* 未找到。 */
 		LWLockRelease(PARTITION_LOCK(hash_table, partition));
 		return NULL;
 	}
 	else
 	{
-		/* The caller will free the lock by calling dshash_release_lock. */
+		/* 调用者将通过调用 dshash_release_lock 释放锁。 */
 		return ENTRY_FROM_ITEM(item);
 	}
 }
 
 /*
- * Returns a pointer to an exclusively locked item which must be released with
- * dshash_release_lock.  If the key is found in the hash table, 'found' is set
- * to true and a pointer to the existing entry is returned.  If the key is not
- * found, 'found' is set to false, and a pointer to a newly created entry is
- * returned.
+ * 返回指向必须用 dshash_release_lock 释放的排他锁定项的
+ * 指针。若在哈希表中找到该键，'found' 设为 true 并返回
+ * 指向已有条目的指针。若未找到该键，'found' 设为 false，
+ * 并返回指向新创建条目的指针。
  *
- * Notes above dshash_find() regarding locking and error handling equally
- * apply here.
+ * 上面关于 dshash_find() 的加锁和错误处理说明同样适用
+ * 于此。
+ *
  */
 void *
 dshash_find_or_insert(dshash_table *hash_table,
@@ -451,7 +451,7 @@ restart:
 				  LW_EXCLUSIVE);
 	ensure_valid_bucket_pointers(hash_table);
 
-	/* Search the active bucket. */
+	/* 搜索活动桶。 */
 	item = find_in_bucket(hash_table, key, BUCKET_FOR_HASH(hash_table, hash));
 
 	if (item)
@@ -460,44 +460,44 @@ restart:
 	{
 		*found = false;
 
-		/* Check if we are getting too full. */
+		/* 检查我们是否太满。 */
 		if (partition->count > MAX_COUNT_PER_PARTITION(hash_table))
 		{
 			/*
-			 * The load factor (= keys / buckets) for all buckets protected by
-			 * this partition is > 0.75.  Presumably the same applies
-			 * generally across the whole hash table (though we don't attempt
-			 * to track that directly to avoid contention on some kind of
-			 * central counter; we just assume that this partition is
-			 * representative).  This is a good time to resize.
+			 * 本分区保护的所有桶的负载因子（= 键 / 桶）
+			 * > 0.75。大概整个哈希表普遍如此（不过我们
+			 * 不试图直接跟踪以免在某种中心计数器上争用；
+			 * 我们只假定本分区有代表性）。这是调整大小
+			 * 的好时机。
 			 *
-			 * Give up our existing lock first, because resizing needs to
-			 * reacquire all the locks in the right order to avoid deadlocks.
-			 */
+			 * 先放弃我们已有的锁，因为调整大小需要按正确
+			 * 顺序重新获取所有锁以避免死锁。
+ *
+ */
 			LWLockRelease(PARTITION_LOCK(hash_table, partition_index));
 			resize(hash_table, hash_table->size_log2 + 1);
 
 			goto restart;
 		}
 
-		/* Finally we can try to insert the new item. */
+		/* 终于可以尝试插入新项。 */
 		item = insert_into_bucket(hash_table, key,
 								  &BUCKET_FOR_HASH(hash_table, hash));
 		item->hash = hash;
-		/* Adjust per-lock-partition counter for load factor knowledge. */
+		/* 为负载因子知识调整每锁分区计数器。 */
 		++partition->count;
 	}
 
-	/* The caller must release the lock with dshash_release_lock. */
+	/* 调用者必须用 dshash_release_lock 释放锁。 */
 	return ENTRY_FROM_ITEM(item);
 }
 
 /*
- * Remove an entry by key.  Returns true if the key was found and the
- * corresponding entry was removed.
+ * 按键移除条目。若找到键且对应条目被移除则返回
+ * true。
  *
- * To delete an entry that you already have a pointer to, see
- * dshash_delete_entry.
+ * 要删除你已有指针的条目，见
+ * dshash_delete_entry。
  */
 bool
 dshash_delete_key(dshash_table *hash_table, const void *key)
@@ -531,11 +531,11 @@ dshash_delete_key(dshash_table *hash_table, const void *key)
 }
 
 /*
- * Remove an entry.  The entry must already be exclusively locked, and must
- * have been obtained by dshash_find or dshash_find_or_insert.  Note that this
- * function releases the lock just like dshash_release_lock.
+ * 移除一个条目。该条目必须已经排他锁定，并且必须
+ * 由 dshash_find 或 dshash_find_or_insert 获得。注意本
+ * 函数像 dshash_release_lock 一样释放锁。
  *
- * To delete an entry by key, see dshash_delete_key.
+ * 要按键删除条目，见 dshash_delete_key。
  */
 void
 dshash_delete_entry(dshash_table *hash_table, void *entry)
@@ -552,7 +552,7 @@ dshash_delete_entry(dshash_table *hash_table, void *entry)
 }
 
 /*
- * Unlock an entry which was locked by dshash_find or dshash_find_or_insert.
+ * 解锁由 dshash_find 或 dshash_find_or_insert 锁定的条目。
  */
 void
 dshash_release_lock(dshash_table *hash_table, void *entry)
@@ -566,7 +566,7 @@ dshash_release_lock(dshash_table *hash_table, void *entry)
 }
 
 /*
- * A compare function that forwards to memcmp.
+ * 转发给 memcmp 的比较函数。
  */
 int
 dshash_memcmp(const void *a, const void *b, size_t size, void *arg)
@@ -575,7 +575,7 @@ dshash_memcmp(const void *a, const void *b, size_t size, void *arg)
 }
 
 /*
- * A hash function that forwards to tag_hash.
+ * 转发给 tag_hash 的哈希函数。
  */
 dshash_hash
 dshash_memhash(const void *v, size_t size, void *arg)
@@ -584,12 +584,12 @@ dshash_memhash(const void *v, size_t size, void *arg)
 }
 
 /*
- * Sequentially scan through dshash table and return all the elements one by
- * one, return NULL when all elements have been returned.
+ * 顺序扫描 dshash 表并逐个返回所有元素，当所有元素
+ * 都已返回时返回 NULL。
  *
- * dshash_seq_term needs to be called when a scan finished.  The caller may
- * delete returned elements midst of a scan by using dshash_delete_current()
- * if exclusive = true.
+ * 扫描结束时需要调用 dshash_seq_term。若 exclusive =
+ * true，调用者可在扫描中途用 dshash_delete_current()
+ * 删除返回的元素。
  */
 void
 dshash_seq_init(dshash_seq_status *status, dshash_table *hash_table,
@@ -605,10 +605,10 @@ dshash_seq_init(dshash_seq_status *status, dshash_table *hash_table,
 }
 
 /*
- * Returns the next element.
+ * 返回下一个元素。
  *
- * Returned elements are locked and the caller may not release the lock. It is
- * released by future calls to dshash_seq_next() or dshash_seq_term().
+ * 返回的元素被锁定，调用者不得释放该锁。它由将来对
+ * dshash_seq_next() 或 dshash_seq_term() 的调用释放。
  */
 void *
 dshash_seq_next(dshash_seq_status *status)
@@ -616,14 +616,14 @@ dshash_seq_next(dshash_seq_status *status)
 	dsa_pointer next_item_pointer;
 
 	/*
-	 * Not yet holding any partition locks. Need to determine the size of the
-	 * hash table, it could have been resized since we were looking last.
-	 * Since we iterate in partition order, we can start by unconditionally
-	 * lock partition 0.
+	 * 尚未持有任何区画锁。需要确定哈希表的大小，
+	 * 自我们上次查看以来它可能已被调整大小。由于
+	 * 我们按分区顺序迭代，可以先无条件锁定分区 0。
 	 *
-	 * Once we hold the lock, no resizing can happen until the scan ends. So
-	 * we don't need to repeatedly call ensure_valid_bucket_pointers().
-	 */
+	 * 一旦持有锁，直到扫描结束都不会发生调整大小。
+	 * 因此我们不必反复调用 ensure_valid_bucket_pointers()。
+ *
+ */
 	if (status->curpartition == -1)
 	{
 		Assert(status->curbucket == 0);
@@ -648,18 +648,18 @@ dshash_seq_next(dshash_seq_status *status)
 											   status->curpartition),
 								status->exclusive ? LW_EXCLUSIVE : LW_SHARED));
 
-	/* Move to the next bucket if we finished the current bucket */
+	/* 若已完成当前桶则移到下一个桶 */
 	while (!DsaPointerIsValid(next_item_pointer))
 	{
 		int			next_partition;
 
 		if (++status->curbucket >= status->nbuckets)
 		{
-			/* all buckets have been scanned. finish. */
+			/* 所有桶都已扫描完。结束。 */
 			return NULL;
 		}
 
-		/* Check if move to the next partition */
+		/* 检查是否移到下一个分区 */
 		next_partition =
 			PARTITION_FOR_BUCKET_INDEX(status->curbucket,
 									   status->hash_table->size_log2);
@@ -667,10 +667,10 @@ dshash_seq_next(dshash_seq_status *status)
 		if (status->curpartition != next_partition)
 		{
 			/*
-			 * Move to the next partition. Lock the next partition then
-			 * release the current, not in the reverse order to avoid
-			 * concurrent resizing.  Avoid dead lock by taking lock in the
-			 * same order with resize().
+			 * 移到下一个分区。先锁下一个分区再释放
+			 * 当前分区，不要反过来，以避免并发调整
+			 * 大小。按与 resize() 相同的顺序取锁以避免
+			 * 死锁。
 			 */
 			LWLockAcquire(PARTITION_LOCK(status->hash_table,
 										 next_partition),
@@ -687,8 +687,8 @@ dshash_seq_next(dshash_seq_status *status)
 		dsa_get_address(status->hash_table->area, next_item_pointer);
 
 	/*
-	 * The caller may delete the item. Store the next item in case of
-	 * deletion.
+	 * 调用者可能删除该项。为防删除，先存下一项。
+	 *
 	 */
 	status->pnextitem = status->curitem->next;
 
@@ -696,9 +696,9 @@ dshash_seq_next(dshash_seq_status *status)
 }
 
 /*
- * Terminates the seqscan and release all locks.
+ * 终止顺序扫描并释放所有锁。
  *
- * Needs to be called after finishing or when exiting a seqscan.
+ * 在完成或退出顺序扫描时需要调用。
  */
 void
 dshash_seq_term(dshash_seq_status *status)
@@ -708,7 +708,7 @@ dshash_seq_term(dshash_seq_status *status)
 }
 
 /*
- * Remove the current entry of the seq scan.
+ * 移除顺序扫描的当前条目。
  */
 void
 dshash_delete_current(dshash_seq_status *status)
@@ -728,8 +728,8 @@ dshash_delete_current(dshash_seq_status *status)
 }
 
 /*
- * Print debugging information about the internal state of the hash table to
- * stderr.  The caller must hold no partition locks.
+ * 把哈希表内部状态的调试信息打印到
+ * stderr。调用者不得持有任何区画锁。
  */
 void
 dshash_dump(dshash_table *hash_table)
@@ -783,7 +783,7 @@ dshash_dump(dshash_table *hash_table)
 }
 
 /*
- * Delete a locked item to which we have a pointer.
+ * 删除我们持有指针的已锁定项。
  */
 static void
 delete_item(dshash_table *hash_table, dshash_table_item *item)
@@ -806,10 +806,10 @@ delete_item(dshash_table *hash_table, dshash_table_item *item)
 }
 
 /*
- * Grow the hash table if necessary to the requested number of buckets.  The
- * requested size must be double some previously observed size.
+ * 如有必要，把哈希表增长到所请求的桶数。所请求的
+ * 大小必须是某个先前观察到的大小的两倍。
  *
- * Must be called without any partition lock held.
+ * 必须在未持有任何区画锁时调用。
  */
 static void
 resize(dshash_table *hash_table, size_t new_size_log2)
@@ -822,8 +822,8 @@ resize(dshash_table *hash_table, size_t new_size_log2)
 	size_t		i;
 
 	/*
-	 * Acquire the locks for all lock partitions.  This is expensive, but we
-	 * shouldn't have to do it many times.
+	 * 获取所有锁分区的锁。这很昂贵，但我们
+	 * 不应必须做很多次。
 	 */
 	for (i = 0; i < DSHASH_NUM_PARTITIONS; ++i)
 	{
@@ -833,8 +833,8 @@ resize(dshash_table *hash_table, size_t new_size_log2)
 		if (i == 0 && hash_table->control->size_log2 >= new_size_log2)
 		{
 			/*
-			 * Another backend has already increased the size; we can avoid
-			 * obtaining all the locks and return early.
+			 * 另一个后端已经增大了大小；我们可以避免
+			 * 获取所有锁并提早返回。
 			 */
 			LWLockRelease(PARTITION_LOCK(hash_table, 0));
 			return;
@@ -843,7 +843,7 @@ resize(dshash_table *hash_table, size_t new_size_log2)
 
 	Assert(new_size_log2 == hash_table->control->size_log2 + 1);
 
-	/* Allocate the space for the new table. */
+	/* 为新表分配空间。 */
 	new_buckets_shared =
 		dsa_allocate_extended(hash_table->area,
 							  sizeof(dsa_pointer) * new_size,
@@ -851,8 +851,8 @@ resize(dshash_table *hash_table, size_t new_size_log2)
 	new_buckets = dsa_get_address(hash_table->area, new_buckets_shared);
 
 	/*
-	 * We've allocated the new bucket array; all that remains to do now is to
-	 * reinsert all items, which amounts to adjusting all the pointers.
+	 * 我们已经分配了新桶数组；现在剩下要做的就是
+	 * 重新插入所有项，这相当于调整所有指针。
 	 */
 	size = ((size_t) 1) << hash_table->control->size_log2;
 	for (i = 0; i < size; ++i)
@@ -873,22 +873,22 @@ resize(dshash_table *hash_table, size_t new_size_log2)
 		}
 	}
 
-	/* Swap the hash table into place and free the old one. */
+	/* 把哈希表换到位并释放旧的。 */
 	old_buckets = hash_table->control->buckets;
 	hash_table->control->buckets = new_buckets_shared;
 	hash_table->control->size_log2 = new_size_log2;
 	hash_table->buckets = new_buckets;
 	dsa_free(hash_table->area, old_buckets);
 
-	/* Release all the locks. */
+	/* 释放所有锁。 */
 	for (i = 0; i < DSHASH_NUM_PARTITIONS; ++i)
 		LWLockRelease(PARTITION_LOCK(hash_table, i));
 }
 
 /*
- * Make sure that our backend-local bucket pointers are up to date.  The
- * caller must have locked one lock partition, which prevents resize() from
- * running concurrently.
+ * 确保我们的后端本地桶指针是最新的。调用者必须
+ * 已锁定一个锁分区，这防止 resize() 并发运行。
+ *
  */
 static inline void
 ensure_valid_bucket_pointers(dshash_table *hash_table)
@@ -902,7 +902,7 @@ ensure_valid_bucket_pointers(dshash_table *hash_table)
 }
 
 /*
- * Scan a locked bucket for a match, using the provided compare function.
+ * 用提供的比较函数扫描一个已锁定的桶以寻找匹配。
  */
 static inline dshash_table_item *
 find_in_bucket(dshash_table *hash_table, const void *key,
@@ -921,7 +921,7 @@ find_in_bucket(dshash_table *hash_table, const void *key,
 }
 
 /*
- * Insert an already-allocated item into a bucket.
+ * 把一个已分配的项插入桶中。
  */
 static void
 insert_item_into_bucket(dshash_table *hash_table,
@@ -936,8 +936,8 @@ insert_item_into_bucket(dshash_table *hash_table,
 }
 
 /*
- * Allocate space for an entry with the given key and insert it into the
- * provided bucket.
+ * 为具有给定键的条目分配空间并把它插入
+ * 提供的桶。
  */
 static dshash_table_item *
 insert_into_bucket(dshash_table *hash_table,
@@ -957,7 +957,7 @@ insert_into_bucket(dshash_table *hash_table,
 }
 
 /*
- * Search a bucket for a matching key and delete it.
+ * 在桶中搜索匹配的键并删除它。
  */
 static bool
 delete_key_from_bucket(dshash_table *hash_table,
@@ -986,7 +986,7 @@ delete_key_from_bucket(dshash_table *hash_table,
 }
 
 /*
- * Delete the specified item from the bucket.
+ * 从桶中删除指定项。
  */
 static bool
 delete_item_from_bucket(dshash_table *hash_table,
@@ -1014,7 +1014,7 @@ delete_item_from_bucket(dshash_table *hash_table,
 }
 
 /*
- * Compute the hash value for a key.
+ * 计算键的哈希值。
  */
 static inline dshash_hash
 hash_key(dshash_table *hash_table, const void *key)
@@ -1025,7 +1025,7 @@ hash_key(dshash_table *hash_table, const void *key)
 }
 
 /*
- * Check whether two keys compare equal.
+ * 检查两个键是否比较相等。
  */
 static inline bool
 equal_keys(dshash_table *hash_table, const void *a, const void *b)

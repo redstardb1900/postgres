@@ -30,33 +30,33 @@
 
 
 /*
- * Colors of nodes (values of RBTNode.color)
+ * 节点颜色（RBTNode.color 的值）
  */
 #define RBTBLACK	(0)
 #define RBTRED		(1)
 
 /*
- * RBTree control structure
+ * RBTree 控制结构
  */
 struct RBTree
 {
-	RBTNode    *root;			/* root node, or RBTNIL if tree is empty */
+	RBTNode    *root;			/* 根节点，若树为空则为 RBTNIL */
 
-	/* Remaining fields are constant after rbt_create */
+	/* 其余字段在 rbt_create 之后为常量 */
 
-	Size		node_size;		/* actual size of tree nodes */
-	/* The caller-supplied manipulation functions */
+	Size		node_size;		/* 树节点的实际大小 */
+	/* 调用者提供的操作函数 */
 	rbt_comparator comparator;
 	rbt_combiner combiner;
 	rbt_allocfunc allocfunc;
 	rbt_freefunc freefunc;
-	/* Passthrough arg passed to all manipulation functions */
+	/* 传给所有操作函数的透传参数 */
 	void	   *arg;
 };
 
 /*
- * all leafs are sentinels, use customized NIL name to prevent
- * collision with system-wide constant NIL which is actually NULL
+ * 所有叶子都是哨兵，使用定制的 NIL 名称以防
+ * 与实际上是 NULL 的系统范围常量 NIL 冲突
  */
 #define RBTNIL (&sentinel)
 
@@ -67,36 +67,36 @@ static RBTNode sentinel =
 
 
 /*
- * rbt_create: create an empty RBTree
+ * rbt_create: 创建一个空的 RBTree
  *
- * Arguments are:
- *	node_size: actual size of tree nodes (> sizeof(RBTNode))
- *	The manipulation functions:
- *	comparator: compare two RBTNodes for less/equal/greater
- *	combiner: merge an existing tree entry with a new one
- *	allocfunc: allocate a new RBTNode
- *	freefunc: free an old RBTNode
- *	arg: passthrough pointer that will be passed to the manipulation functions
+ * 参数为：
+ *	node_size: 树节点的实际大小（> sizeof(RBTNode)）
+ *	操作函数：
+ *	comparator: 比较两个 RBTNodes 的小于/等于/大于
+ *	combiner: 把已有树条目与新条目合并
+ *	allocfunc: 分配新的 RBTNode
+ *	freefunc: 释放旧的 RBTNode
+ *	arg: 将传给操作函数的透传指针
  *
- * Note that the combiner's righthand argument will be a "proposed" tree node,
- * ie the input to rbt_insert, in which the RBTNode fields themselves aren't
- * valid.  Similarly, either input to the comparator may be a "proposed" node.
- * This shouldn't matter since the functions aren't supposed to look at the
- * RBTNode fields, only the extra fields of the struct the RBTNode is embedded
- * in.
+ * 注意 combiner 的右手参数将是一个 "提议" 树节点，
+ * 即 rbt_insert 的输入，其中 RBTNode 字段本身并
+ * 无效。类似地，comparator 的任一输入也可能是 "提议"
+ * 节点。这不应要紧，因为这些函数不应看 RBTNode
+ * 字段，只看嵌入 RBTNode 的结构的额外字段。
  *
- * The freefunc should just be pfree or equivalent; it should NOT attempt
- * to free any subsidiary data, because the node passed to it may not contain
- * valid data!	freefunc can be NULL if caller doesn't require retail
- * space reclamation.
+ * freefunc 应只是 pfree 或等价物；它不应试图
+ * 释放任何附属数据，因为传给它的节点可能不含
+ * 有效数据！若调用者不需要逐条回收空间，
+ * freefunc 可以为 NULL。
  *
- * The RBTree node is palloc'd in the caller's memory context.  Note that
- * all contents of the tree are actually allocated by the caller, not here.
+ * RBTree 节点在调用者的内存上下文中 palloc。注意
+ * 树的所有内容实际上由调用者分配，而不是在这里。
  *
- * Since tree contents are managed by the caller, there is currently not
- * an explicit "destroy" operation; typically a tree would be freed by
- * resetting or deleting the memory context it's stored in.  You can pfree
- * the RBTree node if you feel the urge.
+ * 由于树内容由调用者管理，目前没有显式
+ * "destroy" 操作；通常通过重置或删除存放它的
+ * 内存上下文来释放树。若你想，可以 pfree
+ * 该 RBTree 节点。
+ *
  */
 RBTree *
 rbt_create(Size node_size,
@@ -122,7 +122,7 @@ rbt_create(Size node_size,
 	return tree;
 }
 
-/* Copy the additional data fields from one RBTNode to another */
+/* 把附加数据字段从一个 RBTNode 复制到另一个 */
 static inline void
 rbt_copy_data(RBTree *rbt, RBTNode *dest, const RBTNode *src)
 {
@@ -130,16 +130,16 @@ rbt_copy_data(RBTree *rbt, RBTNode *dest, const RBTNode *src)
 }
 
 /**********************************************************************
- *						  Search									  *
+ *						  搜索										  *
  **********************************************************************/
 
 /*
- * rbt_find: search for a value in an RBTree
+ * rbt_find: 在 RBTree 中搜索一个值
  *
- * data represents the value to try to find.  Its RBTNode fields need not
- * be valid, it's the extra data in the larger struct that is of interest.
+ * data 表示试图查找的值。其 RBTNode 字段不必
+ * 有效，有意义的是更大结构中的额外数据。
  *
- * Returns the matching tree entry, or NULL if no match is found.
+ * 返回匹配的树条目，若未找到则返回 NULL。
  */
 RBTNode *
 rbt_find(RBTree *rbt, const RBTNode *data)
@@ -162,11 +162,11 @@ rbt_find(RBTree *rbt, const RBTNode *data)
 }
 
 /*
- * rbt_find_great: search for a greater value in an RBTree
+ * rbt_find_great: 在 RBTree 中搜索一个更大的值
  *
- * If equal_match is true, this will be a great or equal search.
+ * 若 equal_match 为 true，这将是大于或等于搜索。
  *
- * Returns the matching tree entry, or NULL if no match is found.
+ * 返回匹配的树条目，若未找到则返回 NULL。
  */
 RBTNode *
 rbt_find_great(RBTree *rbt, const RBTNode *data, bool equal_match)
@@ -193,11 +193,11 @@ rbt_find_great(RBTree *rbt, const RBTNode *data, bool equal_match)
 }
 
 /*
- * rbt_find_less: search for a lesser value in an RBTree
+ * rbt_find_less: 在 RBTree 中搜索一个更小的值
  *
- * If equal_match is true, this will be a less or equal search.
+ * 若 equal_match 为 true，这将是小于或等于搜索。
  *
- * Returns the matching tree entry, or NULL if no match is found.
+ * 返回匹配的树条目，若未找到则返回 NULL。
  */
 RBTNode *
 rbt_find_less(RBTree *rbt, const RBTNode *data, bool equal_match)
@@ -224,12 +224,12 @@ rbt_find_less(RBTree *rbt, const RBTNode *data, bool equal_match)
 }
 
 /*
- * rbt_leftmost: fetch the leftmost (smallest-valued) tree node.
- * Returns NULL if tree is empty.
+ * rbt_leftmost: 取最左（值最小）的树节点。
+ * 若树为空则返回 NULL。
  *
- * Note: in the original implementation this included an unlink step, but
- * that's a bit awkward.  Just call rbt_delete on the result if that's what
- * you want.
+ * 注意：原实现包含解除链接步骤，但那有点
+ * 别扭。若那是你想要的，只需对结果调用 rbt_delete。
+ *
  */
 RBTNode *
 rbt_leftmost(RBTree *rbt)
@@ -250,26 +250,26 @@ rbt_leftmost(RBTree *rbt)
 }
 
 /**********************************************************************
- *							  Insertion								  *
+ *							  插入									  *
  **********************************************************************/
 
 /*
- * Rotate node x to left.
+ * 把节点 x 向左旋转。
  *
- * x's right child takes its place in the tree, and x becomes the left
- * child of that node.
+ * x 的右孩子取代它在树中的位置，x 成为该
+ * 节点的左孩子。
  */
 static void
 rbt_rotate_left(RBTree *rbt, RBTNode *x)
 {
 	RBTNode    *y = x->right;
 
-	/* establish x->right link */
+	/* 建立 x->right 链接 */
 	x->right = y->left;
 	if (y->left != RBTNIL)
 		y->left->parent = x;
 
-	/* establish y->parent link */
+	/* 建立 y->parent 链接 */
 	if (y != RBTNIL)
 		y->parent = x->parent;
 	if (x->parent)
@@ -284,29 +284,29 @@ rbt_rotate_left(RBTree *rbt, RBTNode *x)
 		rbt->root = y;
 	}
 
-	/* link x and y */
+	/* 链接 x 和 y */
 	y->left = x;
 	if (x != RBTNIL)
 		x->parent = y;
 }
 
 /*
- * Rotate node x to right.
+ * 把节点 x 向右旋转。
  *
- * x's left right child takes its place in the tree, and x becomes the right
- * child of that node.
+ * x 的左孩子取代它在树中的位置，x 成为该
+ * 节点的右孩子。
  */
 static void
 rbt_rotate_right(RBTree *rbt, RBTNode *x)
 {
 	RBTNode    *y = x->left;
 
-	/* establish x->left link */
+	/* 建立 x->left 链接 */
 	x->left = y->right;
 	if (y->right != RBTNIL)
 		y->right->parent = x;
 
-	/* establish y->parent link */
+	/* 建立 y->parent 链接 */
 	if (y != RBTNIL)
 		y->parent = x->parent;
 	if (x->parent)
@@ -321,57 +321,57 @@ rbt_rotate_right(RBTree *rbt, RBTNode *x)
 		rbt->root = y;
 	}
 
-	/* link x and y */
+	/* 链接 x 和 y */
 	y->right = x;
 	if (x != RBTNIL)
 		x->parent = y;
 }
 
 /*
- * Maintain Red-Black tree balance after inserting node x.
+ * 插入节点 x 之后维持红黑树平衡。
  *
- * The newly inserted node is always initially marked red.  That may lead to
- * a situation where a red node has a red child, which is prohibited.  We can
- * always fix the problem by a series of color changes and/or "rotations",
- * which move the problem progressively higher up in the tree.  If one of the
- * two red nodes is the root, we can always fix the problem by changing the
- * root from red to black.
+ * 新插入的节点总是最初标为红色。那可能导致
+ * 红节点有红孩子，这是禁止的。我们总可以
+ * 通过一系列变色和/或 "旋转" 来修复问题，
+ * 把问题逐步移到树的更高处。若两个红节点
+ * 之一是根，我们总可以通过把根从红变黑来
+ * 修复问题。
  *
- * (This does not work lower down in the tree because we must also maintain
- * the invariant that every leaf has equal black-height.)
+ * （这在树的更低处行不通，因为我们还必须维持
+ * 每个叶子具有相等黑高这一不变量。）
  */
 static void
 rbt_insert_fixup(RBTree *rbt, RBTNode *x)
 {
 	/*
-	 * x is always a red node.  Initially, it is the newly inserted node. Each
-	 * iteration of this loop moves it higher up in the tree.
+	 * x 总是红节点。最初它是新插入的节点。本循环
+	 * 的每次迭代都把它移到树的更高处。
 	 */
 	while (x != rbt->root && x->parent->color == RBTRED)
 	{
 		/*
-		 * x and x->parent are both red.  Fix depends on whether x->parent is
-		 * a left or right child.  In either case, we define y to be the
-		 * "uncle" of x, that is, the other child of x's grandparent.
+		 * x 和 x->parent 都是红色。修复取决于 x->parent 是
+		 * 左孩子还是右孩子。无论哪种情况，我们把 y 定义为
+		 * x 的 "uncle"（叔），即 x 祖父的另一个孩子。
 		 *
-		 * If the uncle is red, we flip the grandparent to red and its two
-		 * children to black.  Then we loop around again to check whether the
-		 * grandparent still has a problem.
+		 * 若叔是红色，我们把祖父翻成红、其两个孩子翻成
+		 * 黑。然后再次循环以检查祖父是否仍有问题。
 		 *
-		 * If the uncle is black, we will perform one or two "rotations" to
-		 * balance the tree.  Either x or x->parent will take the
-		 * grandparent's position in the tree and recolored black, and the
-		 * original grandparent will be recolored red and become a child of
-		 * that node. This always leaves us with a valid red-black tree, so
-		 * the loop will terminate.
-		 */
+		 * 若叔是黑色，我们将执行一次或两次 "旋转" 来
+		 * 平衡树。x 或 x->parent 将占据祖父在树中的
+		 * 位置并被重着色为黑，原来的祖父将被重着色为
+		 * 红并成为该节点的孩子。这总是留给我们一棵
+		 * 有效的红黑树，因此循环将终止。
+ *
+ *
+ */
 		if (x->parent == x->parent->parent->left)
 		{
 			RBTNode    *y = x->parent->parent->right;
 
 			if (y->color == RBTRED)
 			{
-				/* uncle is RBTRED */
+				/* 叔是 RBTRED */
 				x->parent->color = RBTBLACK;
 				y->color = RBTBLACK;
 				x->parent->parent->color = RBTRED;
@@ -380,15 +380,15 @@ rbt_insert_fixup(RBTree *rbt, RBTNode *x)
 			}
 			else
 			{
-				/* uncle is RBTBLACK */
+				/* 叔是 RBTBLACK */
 				if (x == x->parent->right)
 				{
-					/* make x a left child */
+					/* 使 x 成为左孩子 */
 					x = x->parent;
 					rbt_rotate_left(rbt, x);
 				}
 
-				/* recolor and rotate */
+				/* 重着色并旋转 */
 				x->parent->color = RBTBLACK;
 				x->parent->parent->color = RBTRED;
 
@@ -397,12 +397,12 @@ rbt_insert_fixup(RBTree *rbt, RBTNode *x)
 		}
 		else
 		{
-			/* mirror image of above code */
+			/* 上面代码的镜像 */
 			RBTNode    *y = x->parent->parent->left;
 
 			if (y->color == RBTRED)
 			{
-				/* uncle is RBTRED */
+				/* 叔是 RBTRED */
 				x->parent->color = RBTBLACK;
 				y->color = RBTBLACK;
 				x->parent->parent->color = RBTRED;
@@ -411,7 +411,7 @@ rbt_insert_fixup(RBTree *rbt, RBTNode *x)
 			}
 			else
 			{
-				/* uncle is RBTBLACK */
+				/* 叔是 RBTBLACK */
 				if (x == x->parent->left)
 				{
 					x = x->parent;
@@ -426,28 +426,28 @@ rbt_insert_fixup(RBTree *rbt, RBTNode *x)
 	}
 
 	/*
-	 * The root may already have been black; if not, the black-height of every
-	 * node in the tree increases by one.
+	 * 根可能已经是黑色；若不是，树中每个节点的
+	 * 黑高增加一。
 	 */
 	rbt->root->color = RBTBLACK;
 }
 
 /*
- * rbt_insert: insert a new value into the tree.
+ * rbt_insert: 向树中插入一个新值。
  *
- * data represents the value to insert.  Its RBTNode fields need not
- * be valid, it's the extra data in the larger struct that is of interest.
+ * data 表示要插入的值。其 RBTNode 字段不必
+ * 有效，有意义的是更大结构中的额外数据。
  *
- * If the value represented by "data" is not present in the tree, then
- * we copy "data" into a new tree entry and return that node, setting *isNew
- * to true.
+ * 若 "data" 表示的值不在树中，则我们把
+ * "data" 复制进新树条目并返回该节点，把 *isNew
+ * 设为 true。
  *
- * If the value represented by "data" is already present, then we call the
- * combiner function to merge data into the existing node, and return the
- * existing node, setting *isNew to false.
+ * 若 "data" 表示的值已存在，则我们调用
+ * combiner 函数把 data 合并进已有节点，并返回
+ * 已有节点，把 *isNew 设为 false。
  *
- * "data" is unmodified in either case; it's typically just a local
- * variable in the caller.
+ * 无论哪种情况 "data" 都不被修改；它通常只是
+ * 调用者中的局部变量。
  */
 RBTNode *
 rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
@@ -457,10 +457,10 @@ rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
 			   *x;
 	int			cmp;
 
-	/* find where node belongs */
+	/* 找出节点应属的位置 */
 	current = rbt->root;
 	parent = NULL;
-	cmp = 0;					/* just to prevent compiler warning */
+	cmp = 0;					/* 只是为了防止编译器警告 */
 
 	while (current != RBTNIL)
 	{
@@ -468,7 +468,7 @@ rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
 		if (cmp == 0)
 		{
 			/*
-			 * Found node with given key.  Apply combiner.
+			 * 找到具有给定键的节点。应用 combiner。
 			 */
 			rbt->combiner(current, data, rbt->arg);
 			*isNew = false;
@@ -479,7 +479,7 @@ rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
 	}
 
 	/*
-	 * Value is not present, so create a new node containing data.
+	 * 值不存在，因此创建一个含 data 的新节点。
 	 */
 	*isNew = true;
 
@@ -492,7 +492,7 @@ rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
 	x->parent = parent;
 	rbt_copy_data(rbt, x, data);
 
-	/* insert node in tree */
+	/* 把节点插入树中 */
 	if (parent)
 	{
 		if (cmp < 0)
@@ -511,29 +511,29 @@ rbt_insert(RBTree *rbt, const RBTNode *data, bool *isNew)
 }
 
 /**********************************************************************
- *							Deletion								  *
+ *							删除									  *
  **********************************************************************/
 
 /*
- * Maintain Red-Black tree balance after deleting a black node.
+ * 删除黑节点之后维持红黑树平衡。
  */
 static void
 rbt_delete_fixup(RBTree *rbt, RBTNode *x)
 {
 	/*
-	 * x is always a black node.  Initially, it is the former child of the
-	 * deleted node.  Each iteration of this loop moves it higher up in the
-	 * tree.
+	 * x 总是黑节点。最初它是被删除节点的原
+	 * 孩子。本循环的每次迭代都把它移到树的
+	 * 更高处。
 	 */
 	while (x != rbt->root && x->color == RBTBLACK)
 	{
 		/*
-		 * Left and right cases are symmetric.  Any nodes that are children of
-		 * x have a black-height one less than the remainder of the nodes in
-		 * the tree.  We rotate and recolor nodes to move the problem up the
-		 * tree: at some stage we'll either fix the problem, or reach the root
-		 * (where the black-height is allowed to decrease).
-		 */
+		 * 左、右情形是对称的。作为 x 的孩子的任何节点
+		 * 的黑高比树中其余节点少一。我们旋转并重着色
+		 * 节点以把问题沿树向上移：在某阶段我们要么修
+		 * 复问题，要么到达根（那里允许黑高下降）。
+ *
+ */
 		if (x == x->parent->left)
 		{
 			RBTNode    *w = x->parent->right;
@@ -568,7 +568,7 @@ rbt_delete_fixup(RBTree *rbt, RBTNode *x)
 				w->right->color = RBTBLACK;
 
 				rbt_rotate_left(rbt, x->parent);
-				x = rbt->root;	/* Arrange for loop to terminate. */
+				x = rbt->root;	/* 安排循环终止。 */
 			}
 		}
 		else
@@ -605,7 +605,7 @@ rbt_delete_fixup(RBTree *rbt, RBTNode *x)
 				w->left->color = RBTBLACK;
 
 				rbt_rotate_right(rbt, x->parent);
-				x = rbt->root;	/* Arrange for loop to terminate. */
+				x = rbt->root;	/* 安排循环终止。 */
 			}
 		}
 	}
@@ -613,7 +613,7 @@ rbt_delete_fixup(RBTree *rbt, RBTNode *x)
 }
 
 /*
- * Delete node z from tree.
+ * 从树中删除节点 z。
  */
 static void
 rbt_delete_node(RBTree *rbt, RBTNode *z)
@@ -621,35 +621,35 @@ rbt_delete_node(RBTree *rbt, RBTNode *z)
 	RBTNode    *x,
 			   *y;
 
-	/* This is just paranoia: we should only get called on a valid node */
+	/* 这只是偏执：我们应只在有效节点上被调用 */
 	if (!z || z == RBTNIL)
 		return;
 
 	/*
-	 * y is the node that will actually be removed from the tree.  This will
-	 * be z if z has fewer than two children, or the tree successor of z
-	 * otherwise.
-	 */
+	 * y 是实际将从树中移除的节点。若 z 的孩子少
+	 * 于两个，这将是 z，否则是 z 的树后继。
+ *
+ */
 	if (z->left == RBTNIL || z->right == RBTNIL)
 	{
-		/* y has a RBTNIL node as a child */
+		/* y 有一个作为孩子的 RBTNIL 节点 */
 		y = z;
 	}
 	else
 	{
-		/* find tree successor */
+		/* 找树后继 */
 		y = z->right;
 		while (y->left != RBTNIL)
 			y = y->left;
 	}
 
-	/* x is y's only child */
+	/* x 是 y 的唯一孩子 */
 	if (y->left != RBTNIL)
 		x = y->left;
 	else
 		x = y->right;
 
-	/* Remove y from the tree. */
+	/* 从树中移除 y。 */
 	x->parent = y->parent;
 	if (y->parent)
 	{
@@ -664,32 +664,32 @@ rbt_delete_node(RBTree *rbt, RBTNode *z)
 	}
 
 	/*
-	 * If we removed the tree successor of z rather than z itself, then move
-	 * the data for the removed node to the one we were supposed to remove.
+	 * 若我们移除的是 z 的树后继而不是 z 本身，则把
+	 * 被移除节点的数据移到本应移除的那个节点上。
 	 */
 	if (y != z)
 		rbt_copy_data(rbt, z, y);
 
 	/*
-	 * Removing a black node might make some paths from root to leaf contain
-	 * fewer black nodes than others, or it might make two red nodes adjacent.
+	 * 移除黑节点可能使某些从根到叶的路径含有
+	 * 比其他路径更少的黑节点，或使两个红节点相邻。
 	 */
 	if (y->color == RBTBLACK)
 		rbt_delete_fixup(rbt, x);
 
-	/* Now we can recycle the y node */
+	/* 现在可以回收 y 节点 */
 	if (rbt->freefunc)
 		rbt->freefunc(y, rbt->arg);
 }
 
 /*
- * rbt_delete: remove the given tree entry
+ * rbt_delete: 移除给定的树条目
  *
- * "node" must have previously been found via rbt_find or rbt_leftmost.
- * It is caller's responsibility to free any subsidiary data attached
- * to the node before calling rbt_delete.  (Do *not* try to push that
- * responsibility off to the freefunc, as some other physical node
- * may be the one actually freed!)
+ * "node" 必须先前已通过 rbt_find 或 rbt_leftmost 找到。
+ * 调用者有责任在调用 rbt_delete 之前释放附着到该
+ * 节点的任何附属数据。（不要试图把那责任推给
+ * freefunc，因为实际被释放的可能是另一个物理节点！）
+ *
  */
 void
 rbt_delete(RBTree *rbt, RBTNode *node)
@@ -698,7 +698,7 @@ rbt_delete(RBTree *rbt, RBTNode *node)
 }
 
 /**********************************************************************
- *						  Traverse									  *
+ *						  遍历										  *
  **********************************************************************/
 
 static RBTNode *
@@ -734,10 +734,10 @@ rbt_left_right_iterator(RBTreeIterator *iter)
 		}
 
 		if (iter->last_visited->left == came_from)
-			break;				/* came from left sub-tree, return current
-								 * node */
+			break;				/* 来自左子树，返回当前
+								 * 节点 */
 
-		/* else - came from right sub-tree, continue to move up */
+		/* 否则来自右子树，继续向上走 */
 	}
 
 	return iter->last_visited;
@@ -776,42 +776,42 @@ rbt_right_left_iterator(RBTreeIterator *iter)
 		}
 
 		if (iter->last_visited->right == came_from)
-			break;				/* came from right sub-tree, return current
-								 * node */
+			break;				/* 来自右子树，返回当前
+								 * 节点 */
 
-		/* else - came from left sub-tree, continue to move up */
+		/* 否则来自左子树，继续向上走 */
 	}
 
 	return iter->last_visited;
 }
 
 /*
- * rbt_begin_iterate: prepare to traverse the tree in any of several orders
+ * rbt_begin_iterate: 准备按若干顺序之一遍历树
  *
- * After calling rbt_begin_iterate, call rbt_iterate repeatedly until it
- * returns NULL or the traversal stops being of interest.
+ * 调用 rbt_begin_iterate 之后，反复调用 rbt_iterate 直到它
+ * 返回 NULL 或遍历不再有意义。
  *
- * If the tree is changed during traversal, results of further calls to
- * rbt_iterate are unspecified.  Multiple concurrent iterators on the same
- * tree are allowed.
+ * 若遍历期间树被改变，对 rbt_iterate 的后续调用结果
+ * 未指定。同一树上允许多个并发迭代器。
  *
- * The iterator state is stored in the 'iter' struct.  The caller should
- * treat it as an opaque struct.
+ * 迭代器状态存在 'iter' 结构中。调用者应把它当作
+ * 不透明结构对待。
+ *
  */
 void
 rbt_begin_iterate(RBTree *rbt, RBTOrderControl ctrl, RBTreeIterator *iter)
 {
-	/* Common initialization for all traversal orders */
+	/* 所有遍历顺序的公共初始化 */
 	iter->rbt = rbt;
 	iter->last_visited = NULL;
 	iter->is_over = (rbt->root == RBTNIL);
 
 	switch (ctrl)
 	{
-		case LeftRightWalk:		/* visit left, then self, then right */
+		case LeftRightWalk:		/* 先访问左，再自身，再右 */
 			iter->iterate = rbt_left_right_iterator;
 			break;
-		case RightLeftWalk:		/* visit right, then self, then left */
+		case RightLeftWalk:		/* 先访问右，再自身，再左 */
 			iter->iterate = rbt_right_left_iterator;
 			break;
 		default:
@@ -820,7 +820,7 @@ rbt_begin_iterate(RBTree *rbt, RBTOrderControl ctrl, RBTreeIterator *iter)
 }
 
 /*
- * rbt_iterate: return the next node in traversal order, or NULL if no more
+ * rbt_iterate: 按遍历顺序返回下一节点，若没有更多则返回 NULL
  */
 RBTNode *
 rbt_iterate(RBTreeIterator *iter)

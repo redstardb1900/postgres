@@ -865,6 +865,31 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0032-comment-lib-heaps.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/Makefile",
+   "kind": "makefile_comment",
+   "note": "header prose only; IDENTIFICATION path preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0033-comment-lib-hash.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3108,7 +3133,65 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 93,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 68,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 105,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/Makefile",
+   "kind": "makefile_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 1,
+   "preserved": 8,
+   "preserved_reasons": [
+    "structural header lines and IDENTIFICATION path"
+   ],
+   "note": "header prose only"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0033-comment-lib-hash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: 7 covered backend/lib files; 194 platform candidates still unapproved."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files plus the lib Makefile header; meson.build copyright-only and unchanged; 194 platform candidates still unapproved."
 }

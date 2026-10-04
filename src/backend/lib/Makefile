@@ -1,7 +1,7 @@
 #-------------------------------------------------------------------------
 #
 # Makefile--
-#    Makefile for lib (miscellaneous stuff)
+#    lib 的 Makefile（杂项）
 #
 # IDENTIFICATION
 #    src/backend/lib/Makefile

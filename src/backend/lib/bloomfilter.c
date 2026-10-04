@@ -66,7 +66,7 @@ static inline uint32 mod_m(uint32 val, uint64 m);
  * 正确，但实现能很好地应对偏差也许达到五倍或更
  * 多。为何如此，见 "Bloom Filters in
  * Probabilistic Verification" (Dillinger & Manolios, 2004) 的细节。
- * 
+ *
  *
  * bloom_work_mem 以 KB 计，与一般 work_mem 约定一致。
  * 这决定底层位集的大小（琐碎的簿记空间不计入）。

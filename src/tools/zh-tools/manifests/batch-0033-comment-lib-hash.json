@@ -1,0 +1,129 @@
+{
+ "schema_version": 1,
+ "batch_id": "0033-comment-lib-hash",
+ "title": "zh: translate backend/lib dshash, rbtree and integerset comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b603cba3bc96e8d56176650d995ccce62f1bb338",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "pattern": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "note": "trailing space inside an already-translated comment"
+  },
+  {
+   "pattern": "src/backend/lib/Makefile",
+   "kind": "makefile_comment",
+   "note": "header prose only; IDENTIFICATION path preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0033-comment-lib-hash.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 93,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 68,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 105,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "comment-only; headers preserved"
+  },
+  {
+   "path": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "trailing space inside an already-translated comment"
+  },
+  {
+   "path": "src/backend/lib/Makefile",
+   "kind": "makefile_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 1,
+   "preserved": 8,
+   "preserved_reasons": [
+    "structural header lines and IDENTIFICATION path"
+   ],
+   "note": "header prose only"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0033-comment-lib-hash.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Third C-comment batch. dshash, rbtree and integerset are comment-only with copyright/pgindent headers preserved. bloomfilter loses one trailing space inside a comment already translated in batch 0032. lib Makefile header prose translated; meson.build is copyright-only and unchanged. Covered by baseline variants."
+}

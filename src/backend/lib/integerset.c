@@ -78,187 +78,187 @@
 
 
 /*
- * Maximum number of integers that can be encoded in a single Simple-8b
- * codeword. (Defined here before anything else, so that we can size arrays
- * using this.)
+ * 单个 Simple-8b 码字中可编码的整数的最大个数。
+ * （在其他一切之前定义，以便我们可以用它来确定
+ * 数组大小。）
  */
 #define SIMPLE8B_MAX_VALUES_PER_CODEWORD 240
 
 /*
- * Parameters for shape of the in-memory B-tree.
+ * 内存中 B-树形状的参数。
  *
- * These set the size of each internal and leaf node.  They don't necessarily
- * need to be the same, because the tree is just an in-memory structure.
- * With the default 64, each node is about 1 kb.
+ * 这些设定每个内部节点和叶子节点的大小。它们不必
+ * 相同，因为该树只是内存中的结构。
+ * 默认 64 时，每个节点大约 1 kb。
  *
- * If you change these, you must recalculate MAX_TREE_LEVELS, too!
+ * 若你改这些，也必须重新计算 MAX_TREE_LEVELS！
  */
 #define MAX_INTERNAL_ITEMS	64
 #define MAX_LEAF_ITEMS	64
 
 /*
- * Maximum height of the tree.
+ * 树的最大高度。
  *
- * MAX_TREE_ITEMS is calculated from the "fan-out" of the B-tree.  The
- * theoretical maximum number of items that we can store in a set is 2^64,
- * so MAX_TREE_LEVELS should be set so that:
+ * MAX_TREE_ITEMS 由 B-树的 "扇出" 算出。我们能
+ * 在一个集合中存储的理论上限是 2^64，因此
+ * MAX_TREE_LEVELS 应设成使：
  *
- *   MAX_LEAF_ITEMS * MAX_INTERNAL_ITEMS ^ (MAX_TREE_LEVELS - 1) >= 2^64.
+ *   MAX_LEAF_ITEMS * MAX_INTERNAL_ITEMS ^ (MAX_TREE_LEVELS - 1) >= 2^64。
  *
- * In practice, we'll need far fewer levels, because you will run out of
- * memory long before reaching that number, but let's be conservative.
+ * 实践中我们需要的层数少得多，因为远在达到该数目
+ * 之前就会耗尽内存，但我们采取保守做法。
  */
 #define MAX_TREE_LEVELS		11
 
 /*
- * Node structures, for the in-memory B-tree.
+ * 内存中 B-树的节点结构。
  *
- * An internal node holds a number of downlink pointers to leaf nodes, or
- * to internal nodes on a lower level.  For each downlink, the key value
- * corresponding to the lower level node is stored in a sorted array.  The
- * stored key values are low keys.  In other words, if the downlink has value
- * X, then all items stored on that child are >= X.
+ * 内部节点持有若干指向叶子节点、或指向更低层内部
+ * 节点的下行链接指针。对每个下行链接，对应下层节点
+ * 的键值存在一个已排序数组中。所存键值是低键。
+ * 换句话说，若下行链接的值是 X，则该孩子上存储的
+ * 所有项都 >= X。
  *
- * Each leaf node holds a number of "items", with a varying number of
- * integers packed into each item.  Each item consists of two 64-bit words:
- * The first word holds the first integer stored in the item, in plain format.
- * The second word contains between 0 and 240 more integers, packed using
- * Simple-8b encoding.  By storing the first integer in plain, unpacked,
- * format, we can use binary search to quickly find an item that holds (or
- * would hold) a particular integer.  And by storing the rest in packed form,
- * we still get pretty good memory density, if there are clusters of integers
- * with similar values.
+ * 每个叶子节点持有若干 "项"，每项打包的整数个数
+ * 可变。每项由两个 64 位字组成：
+ * 第一个字以明文格式保存该项中存储的第一个整数。
+ * 第二个字用 Simple-8b 编码打包 0 到 240 个更多
+ * 整数。通过把第一个整数以明文、未打包格式存储，
+ * 我们可以用二分搜索快速找到持有（或将会持有）
+ * 某特定整数的项。而把其余以打包形式存储，若存在
+ * 取值相近的整数簇，我们仍能得到相当好的内存密度。
  *
- * Each leaf node also has a pointer to the next leaf node, so that the leaf
- * nodes can be easily walked from beginning to end when iterating.
+ * 每个叶子节点还有指向下一叶子节点的指针，以便
+ * 迭代时可以方便地从头到尾走遍叶子节点。
+ *
  */
 typedef struct intset_node intset_node;
 typedef struct intset_leaf_node intset_leaf_node;
 typedef struct intset_internal_node intset_internal_node;
 
-/* Common structure of both leaf and internal nodes. */
+/* 叶子节点和内部节点的公共结构。 */
 struct intset_node
 {
-	uint16		level;			/* tree level of this node */
-	uint16		num_items;		/* number of items in this node */
+	uint16		level;			/* 本节点的树层级 */
+	uint16		num_items;		/* 本节点中的项数 */
 };
 
-/* Internal node */
+/* 内部节点 */
 struct intset_internal_node
 {
-	/* common header, must match intset_node */
-	uint16		level;			/* >= 1 on internal nodes */
+	/* 公共头部，必须与 intset_node 匹配 */
+	uint16		level;			/* 内部节点上 >= 1 */
 	uint16		num_items;
 
 	/*
-	 * 'values' is an array of key values, and 'downlinks' are pointers to
-	 * lower-level nodes, corresponding to the key values.
+	 * 'values' 是键值数组，'downlinks' 是指向
+	 * 下层节点的指针，与这些键值对应。
 	 */
 	uint64		values[MAX_INTERNAL_ITEMS];
 	intset_node *downlinks[MAX_INTERNAL_ITEMS];
 };
 
-/* Leaf node */
+/* 叶子节点 */
 typedef struct
 {
-	uint64		first;			/* first integer in this item */
-	uint64		codeword;		/* simple8b encoded differences from 'first' */
+	uint64		first;			/* 本项中的第一个整数 */
+	uint64		codeword;		/* 相对 'first' 的 simple8b 编码差值 */
 } leaf_item;
 
 #define MAX_VALUES_PER_LEAF_ITEM	(1 + SIMPLE8B_MAX_VALUES_PER_CODEWORD)
 
 struct intset_leaf_node
 {
-	/* common header, must match intset_node */
-	uint16		level;			/* 0 on leafs */
+	/* 公共头部，必须与 intset_node 匹配 */
+	uint16		level;			/* 叶子上为 0 */
 	uint16		num_items;
 
-	intset_leaf_node *next;		/* right sibling, if any */
+	intset_leaf_node *next;		/* 右兄弟，若有 */
 
 	leaf_item	items[MAX_LEAF_ITEMS];
 };
 
 /*
- * We buffer insertions in a simple array, before packing and inserting them
- * into the B-tree.  MAX_BUFFERED_VALUES sets the size of the buffer.  The
- * encoder assumes that it is large enough that we can always fill a leaf
- * item with buffered new items.  In other words, MAX_BUFFERED_VALUES must be
- * larger than MAX_VALUES_PER_LEAF_ITEM.  For efficiency, make it much larger.
+ * 我们在打包并插入 B-树之前，把插入缓存在一个简单
+ * 数组中。MAX_BUFFERED_VALUES 设定缓冲区大小。编码器
+ * 假定它足够大，使我们总能用缓冲的新项填满一个叶子
+ * 项。换句话说，MAX_BUFFERED_VALUES 必须大于
+ * MAX_VALUES_PER_LEAF_ITEM。为效率起见，把它设得大得多。
  */
 #define MAX_BUFFERED_VALUES			(MAX_VALUES_PER_LEAF_ITEM * 2)
 
 /*
- * IntegerSet is the top-level object representing the set.
+ * IntegerSet 是表示该集合的顶层对象。
  *
- * The integers are stored in an in-memory B-tree structure, plus an array
- * for newly-added integers.  IntegerSet also tracks information about memory
- * usage, as well as the current position when iterating the set with
- * intset_begin_iterate / intset_iterate_next.
+ * 整数存在内存中的 B-树结构里，外加一个存放新加
+ * 整数的数组。IntegerSet 还跟踪内存用量信息，以及
+ * 用 intset_begin_iterate / intset_iterate_next
+ * 迭代集合时的当前位置。
  */
 struct IntegerSet
 {
 	/*
-	 * 'context' is the memory context holding this integer set and all its
-	 * tree nodes.
+	 * 'context' 是持有本整数集合及其全部树节点的
+	 * 内存上下文。
 	 *
-	 * 'mem_used' tracks the amount of memory used.  We don't do anything with
-	 * it in integerset.c itself, but the callers can ask for it with
-	 * intset_memory_usage().
+	 * 'mem_used' 跟踪已用内存量。integerset.c 本身
+	 * 不用它做任何事，但调用者可用
+	 * intset_memory_usage() 询问它。
 	 */
 	MemoryContext context;
 	uint64		mem_used;
 
-	uint64		num_entries;	/* total # of values in the set */
-	uint64		highest_value;	/* highest value stored in this set */
+	uint64		num_entries;	/* 集合中值的总数 */
+	uint64		highest_value;	/* 本集合中存储的最高值 */
 
 	/*
-	 * B-tree to hold the packed values.
+	 * 持有打包值的 B-树。
 	 *
-	 * 'rightmost_nodes' hold pointers to the rightmost node on each level.
-	 * rightmost_parent[0] is rightmost leaf, rightmost_parent[1] is its
-	 * parent, and so forth, all the way up to the root. These are needed when
-	 * adding new values. (Currently, we require that new values are added at
-	 * the end.)
-	 */
-	int			num_levels;		/* height of the tree */
-	intset_node *root;			/* root node */
+	 * 'rightmost_nodes' 持有每层最右节点的指针。
+	 * rightmost_parent[0] 是最右叶子，rightmost_parent[1]
+	 * 是其父，如此一直到根。添加新值时需要这些。
+	 * （当前我们需要新值加在末尾。）
+ *
+ */
+	int			num_levels;		/* 树的高度 */
+	intset_node *root;			/* 根节点 */
 	intset_node *rightmost_nodes[MAX_TREE_LEVELS];
-	intset_leaf_node *leftmost_leaf;	/* leftmost leaf node */
+	intset_leaf_node *leftmost_leaf;	/* 最左叶子节点 */
 
 	/*
-	 * Holding area for new items that haven't been inserted to the tree yet.
+	 * 尚未插入树的新项的暂存区。
 	 */
 	uint64		buffered_values[MAX_BUFFERED_VALUES];
 	int			num_buffered_values;
 
 	/*
-	 * Iterator support.
+	 * 迭代器支持。
 	 *
-	 * 'iter_values' is an array of integers ready to be returned to the
-	 * caller; 'iter_num_values' is the length of that array, and
-	 * 'iter_valueno' is the next index.  'iter_node' and 'iter_itemno' point
-	 * to the leaf node, and item within the leaf node, to get the next batch
-	 * of values from.
+	 * 'iter_values' 是准备返回给调用者的整数数组；
+	 * 'iter_num_values' 是该数组的长度，
+	 * 'iter_valueno' 是下一索引。'iter_node' 和
+	 * 'iter_itemno' 指向要从中取下一批值的叶子
+	 * 节点，以及该叶子节点内的项。
 	 *
-	 * Normally, 'iter_values' points to 'iter_values_buf', which holds items
-	 * decoded from a leaf item.  But after we have scanned the whole B-tree,
-	 * we iterate through all the unbuffered values, too, by pointing
-	 * iter_values to 'buffered_values'.
+	 * 通常 'iter_values' 指向 'iter_values_buf'，其中
+	 * 持有从叶子项解码出的项。但在扫完整棵 B-树
+	 * 之后，我们也通过把 iter_values 指向
+	 * 'buffered_values' 来迭代所有未缓冲的值。
 	 */
-	bool		iter_active;	/* is iteration in progress? */
+	bool		iter_active;	/* 迭代是否正在进行？ */
 
 	const uint64 *iter_values;
-	int			iter_num_values;	/* number of elements in 'iter_values' */
-	int			iter_valueno;	/* next index into 'iter_values' */
+	int			iter_num_values;	/* 'iter_values' 中的元素个数 */
+	int			iter_valueno;	/* 'iter_values' 中的下一索引 */
 
-	intset_leaf_node *iter_node;	/* current leaf node */
-	int			iter_itemno;	/* next item in 'iter_node' to decode */
+	intset_leaf_node *iter_node;	/* 当前叶子节点 */
+	int			iter_itemno;	/* 'iter_node' 中下一个要解码的项 */
 
 	uint64		iter_values_buf[MAX_VALUES_PER_LEAF_ITEM];
 };
 
 /*
- * Prototypes for internal functions.
+ * 内部函数原型。
  */
 static void intset_update_upper(IntegerSet *intset, int level,
 								intset_node *child, uint64 child_key);
@@ -275,11 +275,11 @@ static bool simple8b_contains(uint64 codeword, uint64 key, uint64 base);
 
 
 /*
- * Create a new, initially empty, integer set.
+ * 创建一个新的、初始为空的整数集合。
  *
- * The integer set is created in the current memory context.
- * We will do all subsequent allocations in the same context, too, regardless
- * of which memory context is current when new integers are added to the set.
+ * 该整数集合在当前内存上下文中创建。
+ * 我们随后的所有分配也在同一上下文中进行，无论
+ * 向集合添加新整数时当前是哪个内存上下文。
  */
 IntegerSet *
 intset_create(void)
@@ -311,7 +311,7 @@ intset_create(void)
 }
 
 /*
- * Allocate a new node.
+ * 分配一个新节点。
  */
 static intset_internal_node *
 intset_new_internal_node(IntegerSet *intset)
@@ -322,7 +322,7 @@ intset_new_internal_node(IntegerSet *intset)
 													sizeof(intset_internal_node));
 	intset->mem_used += GetMemoryChunkSpace(n);
 
-	n->level = 0;				/* caller must set */
+	n->level = 0;				/* 调用者必须设置 */
 	n->num_items = 0;
 
 	return n;
@@ -345,7 +345,7 @@ intset_new_leaf_node(IntegerSet *intset)
 }
 
 /*
- * Return the number of entries in the integer set.
+ * 返回整数集合中的条目数。
  */
 uint64
 intset_num_entries(IntegerSet *intset)
@@ -354,7 +354,7 @@ intset_num_entries(IntegerSet *intset)
 }
 
 /*
- * Return the amount of memory used by the integer set.
+ * 返回整数集合使用的内存量。
  */
 uint64
 intset_memory_usage(IntegerSet *intset)
@@ -363,9 +363,9 @@ intset_memory_usage(IntegerSet *intset)
 }
 
 /*
- * Add a value to the set.
+ * 向集合添加一个值。
  *
- * Values must be added in order.
+ * 值必须按顺序添加。
  */
 void
 intset_add_member(IntegerSet *intset, uint64 x)
@@ -378,12 +378,12 @@ intset_add_member(IntegerSet *intset, uint64 x)
 
 	if (intset->num_buffered_values >= MAX_BUFFERED_VALUES)
 	{
-		/* Time to flush our buffer */
+		/* 该刷新我们的缓冲区了 */
 		intset_flush_buffered_values(intset);
 		Assert(intset->num_buffered_values < MAX_BUFFERED_VALUES);
 	}
 
-	/* Add it to the buffer of newly-added values */
+	/* 把它加到新增值的缓冲区 */
 	intset->buffered_values[intset->num_buffered_values] = x;
 	intset->num_buffered_values++;
 	intset->num_entries++;
@@ -391,7 +391,7 @@ intset_add_member(IntegerSet *intset, uint64 x)
 }
 
 /*
- * Take a batch of buffered values, and pack them into the B-tree.
+ * 取一批缓冲的值，并把它们打包进 B-树。
  */
 static void
 intset_flush_buffered_values(IntegerSet *intset)
@@ -404,15 +404,15 @@ intset_flush_buffered_values(IntegerSet *intset)
 	leaf = (intset_leaf_node *) intset->rightmost_nodes[0];
 
 	/*
-	 * If the tree is completely empty, create the first leaf page, which is
-	 * also the root.
+	 * 若树完全为空，创建第一张叶子页，它也是
+	 * 根。
 	 */
 	if (leaf == NULL)
 	{
 		/*
-		 * This is the very first item in the set.
+		 * 这是集合中的第一项。
 		 *
-		 * Allocate root node. It's also a leaf.
+		 * 分配根节点。它也是叶子。
 		 */
 		leaf = intset_new_leaf_node(intset);
 
@@ -423,19 +423,19 @@ intset_flush_buffered_values(IntegerSet *intset)
 	}
 
 	/*
-	 * If there are less than MAX_VALUES_PER_LEAF_ITEM values in the buffer,
-	 * stop.  In most cases, we cannot encode that many values in a single
-	 * value, but this way, the encoder doesn't have to worry about running
-	 * out of input.
-	 */
+	 * 若缓冲区中的值少于 MAX_VALUES_PER_LEAF_ITEM，
+	 * 则停止。多数情况下我们无法在单个值中编码那么
+	 * 多值，但这样编码器就不必担心输入耗尽。
+ *
+ */
 	while (num_values - num_packed >= MAX_VALUES_PER_LEAF_ITEM)
 	{
 		leaf_item	item;
 		int			num_encoded;
 
 		/*
-		 * Construct the next leaf item, packing as many buffered values as
-		 * possible.
+		 * 构造下一个叶子项，尽可能多地打包缓冲
+		 * 的值。
 		 */
 		item.first = values[num_packed];
 		item.codeword = simple8b_encode(&values[num_packed + 1],
@@ -443,12 +443,12 @@ intset_flush_buffered_values(IntegerSet *intset)
 										item.first);
 
 		/*
-		 * Add the item to the node, allocating a new node if the old one is
-		 * full.
+		 * 把该项加到节点上，若旧节点已满则分配
+		 * 新节点。
 		 */
 		if (leaf->num_items >= MAX_LEAF_ITEMS)
 		{
-			/* Allocate new leaf and link it to the tree */
+			/* 分配新叶子并把它链到树上 */
 			intset_leaf_node *old_leaf = leaf;
 
 			leaf = intset_new_leaf_node(intset);
@@ -462,7 +462,7 @@ intset_flush_buffered_values(IntegerSet *intset)
 	}
 
 	/*
-	 * Move any remaining buffered values to the beginning of the array.
+	 * 把任何剩余的缓冲值移到数组开头。
 	 */
 	if (num_packed < intset->num_buffered_values)
 	{
@@ -474,9 +474,9 @@ intset_flush_buffered_values(IntegerSet *intset)
 }
 
 /*
- * Insert a downlink into parent node, after creating a new node.
+ * 在创建新节点之后，把下行链接插入父节点。
  *
- * Recurses if the parent node is full, too.
+ * 若父节点也满了则递归。
  */
 static void
 intset_update_upper(IntegerSet *intset, int level, intset_node *child,
@@ -487,21 +487,21 @@ intset_update_upper(IntegerSet *intset, int level, intset_node *child,
 	Assert(level > 0);
 
 	/*
-	 * Create a new root node, if necessary.
+	 * 如有必要，创建一个新根节点。
 	 */
 	if (level >= intset->num_levels)
 	{
 		intset_node *oldroot = intset->root;
 		uint64		downlink_key;
 
-		/* MAX_TREE_LEVELS should be more than enough, this shouldn't happen */
+		/* MAX_TREE_LEVELS 应绰绰有余，这不应发生 */
 		if (intset->num_levels == MAX_TREE_LEVELS)
 			elog(ERROR, "could not expand integer set, maximum number of levels reached");
 		intset->num_levels++;
 
 		/*
-		 * Get the first value on the old root page, to be used as the
-		 * downlink.
+		 * 取旧根页上的第一个值，用作
+		 * 下行链接。
 		 */
 		if (intset->root->level == 0)
 			downlink_key = ((intset_leaf_node *) oldroot)->items[0].first;
@@ -519,7 +519,7 @@ intset_update_upper(IntegerSet *intset, int level, intset_node *child,
 	}
 
 	/*
-	 * Place the downlink on the parent page.
+	 * 把下行链接放到父页上。
 	 */
 	parent = (intset_internal_node *) intset->rightmost_nodes[level];
 
@@ -532,10 +532,10 @@ intset_update_upper(IntegerSet *intset, int level, intset_node *child,
 	else
 	{
 		/*
-		 * Doesn't fit.  Allocate new parent, with the downlink as the first
-		 * item on it, and recursively insert the downlink to the new parent
-		 * to the grandparent.
-		 */
+		 * 放不下。分配新父，以下行链接作为其上第一
+		 * 项，并递归地把新父的下行链接插入祖父。
+ *
+ */
 		parent = intset_new_internal_node(intset);
 		parent->level = level;
 		parent->values[0] = child_key;
@@ -549,7 +549,7 @@ intset_update_upper(IntegerSet *intset, int level, intset_node *child,
 }
 
 /*
- * Does the set contain the given value?
+ * 集合是否包含给定值？
  */
 bool
 intset_is_member(IntegerSet *intset, uint64 x)
@@ -561,7 +561,7 @@ intset_is_member(IntegerSet *intset, uint64 x)
 	leaf_item  *item;
 
 	/*
-	 * The value might be in the buffer of newly-added values.
+	 * 该值可能在新增值的缓冲区中。
 	 */
 	if (intset->num_buffered_values > 0 && x >= intset->buffered_values[0])
 	{
@@ -576,8 +576,8 @@ intset_is_member(IntegerSet *intset, uint64 x)
 	}
 
 	/*
-	 * Start from the root, and walk down the B-tree to find the right leaf
-	 * node.
+	 * 从根开始，沿 B-树向下走，找到正确的叶子
+	 * 节点。
 	 */
 	if (!intset->root)
 		return false;
@@ -597,19 +597,19 @@ intset_is_member(IntegerSet *intset, uint64 x)
 	leaf = (intset_leaf_node *) node;
 
 	/*
-	 * Binary search to find the right item on the leaf page
+	 * 二分搜索以在叶子页上找到正确的项
 	 */
 	itemno = intset_binsrch_leaf(x, leaf->items, leaf->num_items, true);
 	if (itemno == 0)
 		return false;
 	item = &leaf->items[itemno - 1];
 
-	/* Is this a match to the first value on the item? */
+	/* 这是否与该项上的第一个值匹配？ */
 	if (item->first == x)
 		return true;
 	Assert(x > item->first);
 
-	/* Is it in the packed codeword? */
+	/* 它是否在打包的码字中？ */
 	if (simple8b_contains(item->codeword, x, item->first))
 		return true;
 
@@ -617,14 +617,14 @@ intset_is_member(IntegerSet *intset, uint64 x)
 }
 
 /*
- * Begin in-order scan through all the values.
+ * 开始按序扫描所有值。
  *
- * While the iteration is in-progress, you cannot add new values to the set.
+ * 迭代进行期间，不能向集合添加新值。
  */
 void
 intset_begin_iterate(IntegerSet *intset)
 {
-	/* Note that we allow an iteration to be abandoned midway */
+	/* 注意我们允许中途放弃一次迭代 */
 	intset->iter_active = true;
 	intset->iter_node = intset->leftmost_leaf;
 	intset->iter_itemno = 0;
@@ -634,11 +634,11 @@ intset_begin_iterate(IntegerSet *intset)
 }
 
 /*
- * Returns the next integer, when iterating.
+ * 迭代时返回下一个整数。
  *
- * intset_begin_iterate() must be called first.  intset_iterate_next() returns
- * the next value in the set.  Returns true, if there was another value, and
- * stores the value in *next.  Otherwise, returns false.
+ * 必须先调用 intset_begin_iterate()。intset_iterate_next()
+ * 返回集合中的下一个值。若还有另一个值则返回 true，并把
+ * 该值存入 *next。否则返回 false。
  */
 bool
 intset_iterate_next(IntegerSet *intset, uint64 *next)
@@ -646,14 +646,14 @@ intset_iterate_next(IntegerSet *intset, uint64 *next)
 	Assert(intset->iter_active);
 	for (;;)
 	{
-		/* Return next iter_values[] entry if any */
+		/* 若有则返回下一个 iter_values[] 条目 */
 		if (intset->iter_valueno < intset->iter_num_values)
 		{
 			*next = intset->iter_values[intset->iter_valueno++];
 			return true;
 		}
 
-		/* Decode next item in current leaf node, if any */
+		/* 若有则解码当前叶子节点中的下一项 */
 		if (intset->iter_node &&
 			intset->iter_itemno < intset->iter_node->num_items)
 		{
@@ -671,7 +671,7 @@ intset_iterate_next(IntegerSet *intset, uint64 *next)
 			continue;
 		}
 
-		/* No more items on this leaf, step to next node */
+		/* 本叶子上没有更多项，步进到下一节点 */
 		if (intset->iter_node)
 		{
 			intset->iter_node = intset->iter_node->next;
@@ -680,8 +680,8 @@ intset_iterate_next(IntegerSet *intset, uint64 *next)
 		}
 
 		/*
-		 * We have reached the end of the B-tree.  But we might still have
-		 * some integers in the buffer of newly-added values.
+		 * 我们已到达 B-树的末尾。但新增值的缓冲区
+		 * 中可能仍有一些整数。
 		 */
 		if (intset->iter_values == (const uint64 *) intset->iter_values_buf)
 		{
@@ -694,22 +694,22 @@ intset_iterate_next(IntegerSet *intset, uint64 *next)
 		break;
 	}
 
-	/* No more results. */
+	/* 没有更多结果。 */
 	intset->iter_active = false;
-	*next = 0;					/* prevent uninitialized-variable warnings */
+	*next = 0;					/* 防止未初始化变量警告 */
 	return false;
 }
 
 /*
- * intset_binsrch_uint64() -- search a sorted array of uint64s
+ * intset_binsrch_uint64() -- 搜索已排序的 uint64 数组
  *
- * Returns the first position with key equal or less than the given key.
- * The returned position would be the "insert" location for the given key,
- * that is, the position where the new key should be inserted to.
+ * 返回键小于或等于给定键的第一个位置。
+ * 返回的位置将是给定键的 "插入" 位置，
+ * 也就是新键应被插入到的位置。
  *
- * 'nextkey' affects the behavior on equal keys.  If true, and there is an
- * equal key in the array, this returns the position immediately after the
- * equal key.  If false, this returns the position of the equal key itself.
+ * 'nextkey' 影响相等键上的行为。若为 true，且数组中
+ * 有相等键，则返回紧接该相等键之后的位置。若为
+ * false，则返回相等键本身的位置。
  */
 static int
 intset_binsrch_uint64(uint64 item, uint64 *arr, int arr_elems, bool nextkey)
@@ -743,7 +743,7 @@ intset_binsrch_uint64(uint64 item, uint64 *arr, int arr_elems, bool nextkey)
 	return low;
 }
 
-/* same, but for an array of leaf items */
+/* 相同，但针对叶子项数组 */
 static int
 intset_binsrch_leaf(uint64 item, leaf_item *arr, int arr_elems, bool nextkey)
 {
@@ -777,47 +777,47 @@ intset_binsrch_leaf(uint64 item, leaf_item *arr, int arr_elems, bool nextkey)
 }
 
 /*
- * Simple-8b encoding.
+ * Simple-8b 编码。
  *
- * The simple-8b algorithm packs between 1 and 240 integers into 64-bit words,
- * called "codewords".  The number of integers packed into a single codeword
- * depends on the integers being packed; small integers are encoded using
- * fewer bits than large integers.  A single codeword can store a single
- * 60-bit integer, or two 30-bit integers, for example.
+ * simple-8b 算法把 1 到 240 个整数打包进 64 位字，
+ * 称为 "码字"。打进单个码字的整数个数取决于被打包
+ * 的整数；小整数比大整数用更少的位编码。例如单个
+ * 码字可以存一个 60 位整数，或两个 30 位整数。
  *
- * Since we're storing a unique, sorted, set of integers, we actually encode
- * the *differences* between consecutive integers.  That way, clusters of
- * integers that are close to each other are packed efficiently, regardless
- * of their absolute values.
+ * 由于我们存储的是唯一、已排序的整数集合，我们实际
+ * 编码的是连续整数之间的 *差值*。这样，彼此接近的
+ * 整数簇会被高效打包，无论其绝对值如何。
  *
- * In Simple-8b, each codeword consists of a 4-bit selector, which indicates
- * how many integers are encoded in the codeword, and the encoded integers are
- * packed into the remaining 60 bits.  The selector allows for 16 different
- * ways of using the remaining 60 bits, called "modes".  The number of integers
- * packed into a single codeword in each mode is listed in the simple8b_modes
- * table below.  For example, consider the following codeword:
+ * 在 Simple-8b 中，每个码字由一个 4 位选择器组成，
+ * 它指示码字中编码了多少整数，编码后的整数被打包进
+ * 其余 60 位。选择器允许用 16 种不同方式使用其余
+ * 60 位，称为 "模式"。每种模式打进单个码字的整数
+ * 个数列在下面的 simple8b_modes 表中。例如考虑
+ * 下面的码字：
  *
  *      20-bit integer       20-bit integer       20-bit integer
  * 1101 00000000000000010010 01111010000100100000 00000000000000010100
  * ^
  * selector
  *
- * The selector 1101 is 13 in decimal.  From the modes table below, we see
- * that it means that the codeword encodes three 20-bit integers.  In decimal,
- * those integers are 18, 500000 and 20.  Because we encode deltas rather than
- * absolute values, the actual values that they represent are 18, 500018 and
- * 500038.
+ * 选择器 1101 的十进制是 13。从下面的模式表可见，
+ * 它表示该码字编码三个 20 位整数。十进制下这些
+ * 整数是 18、500000 和 20。因为我们编码的是差值
+ * 而不是绝对值，它们表示的实际值是 18、500018 和
+ * 500038。
  *
- * Modes 0 and 1 are a bit special; they encode a run of 240 or 120 zeroes
- * (which means 240 or 120 consecutive integers, since we're encoding the
- * deltas between integers), without using the rest of the codeword bits
- * for anything.
+ * 模式 0 和 1 有点特殊；它们编码一串 240 或 120 个
+ * 零（由于我们编码的是整数间差值，这意味着 240 或
+ * 120 个连续整数），而不把码字其余位用于任何事。
  *
- * Simple-8b cannot encode integers larger than 60 bits.  Values larger than
- * that are always stored in the 'first' field of a leaf item, never in the
- * packed codeword.  If there is a sequence of integers that are more than
- * 2^60 apart, the codeword will go unused on those items.  To represent that,
- * we use a magic EMPTY_CODEWORD codeword value.
+ * Simple-8b 不能编码大于 60 位的整数。比那更大的
+ * 值总是存在叶子项的 'first' 字段中，从不在打包
+ * 码字里。若有一串整数彼此相隔超过 2^60，那些项上
+ * 的码字将不被使用。为表示这一点，我们使用魔术
+ * EMPTY_CODEWORD 码字值。
+ *
+ *
+ *
  */
 static const struct simple8b_mode
 {
@@ -826,49 +826,49 @@ static const struct simple8b_mode
 }			simple8b_modes[17] =
 
 {
-	{0, 240},					/* mode  0: 240 zeroes */
-	{0, 120},					/* mode  1: 120 zeroes */
-	{1, 60},					/* mode  2: sixty 1-bit integers */
-	{2, 30},					/* mode  3: thirty 2-bit integers */
-	{3, 20},					/* mode  4: twenty 3-bit integers */
-	{4, 15},					/* mode  5: fifteen 4-bit integers */
-	{5, 12},					/* mode  6: twelve 5-bit integers */
-	{6, 10},					/* mode  7: ten 6-bit integers */
-	{7, 8},						/* mode  8: eight 7-bit integers (four bits
-								 * are wasted) */
-	{8, 7},						/* mode  9: seven 8-bit integers (four bits
-								 * are wasted) */
-	{10, 6},					/* mode 10: six 10-bit integers */
-	{12, 5},					/* mode 11: five 12-bit integers */
-	{15, 4},					/* mode 12: four 15-bit integers */
-	{20, 3},					/* mode 13: three 20-bit integers */
-	{30, 2},					/* mode 14: two 30-bit integers */
-	{60, 1},					/* mode 15: one 60-bit integer */
+	{0, 240},					/* 模式  0: 240 个零 */
+	{0, 120},					/* 模式  1: 120 个零 */
+	{1, 60},					/* 模式  2: 六十个 1 位整数 */
+	{2, 30},					/* 模式  3: 三十个 2 位整数 */
+	{3, 20},					/* 模式  4: 二十个 3 位整数 */
+	{4, 15},					/* 模式  5: 十五个 4 位整数 */
+	{5, 12},					/* 模式  6: 十二个 5 位整数 */
+	{6, 10},					/* 模式  7: 十个 6 位整数 */
+	{7, 8},						/* 模式  8: 八个 7 位整数（浪费四
+								 * 位） */
+	{8, 7},						/* 模式  9: 七个 8 位整数（浪费四
+								 * 位） */
+	{10, 6},					/* 模式 10: 六个 10 位整数 */
+	{12, 5},					/* 模式 11: 五个 12 位整数 */
+	{15, 4},					/* 模式 12: 四个 15 位整数 */
+	{20, 3},					/* 模式 13: 三个 20 位整数 */
+	{30, 2},					/* 模式 14: 两个 30 位整数 */
+	{60, 1},					/* 模式 15: 一个 60 位整数 */
 
-	{0, 0}						/* sentinel value */
+	{0, 0}						/* 哨兵值 */
 };
 
 /*
- * EMPTY_CODEWORD is a special value, used to indicate "no values".
- * It is used if the next value is too large to be encoded with Simple-8b.
+ * EMPTY_CODEWORD 是一个特殊值，用来表示 "无值"。
+ * 若下一个值太大而无法用 Simple-8b 编码则使用它。
  *
- * This value looks like a mode-0 codeword, but we can distinguish it
- * because a regular mode-0 codeword would have zeroes in the unused bits.
+ * 该值看起来像模式 0 码字，但我们可以区分它，
+ * 因为常规模式 0 码字会在未用位上为全零。
  */
 #define EMPTY_CODEWORD		UINT64CONST(0x0FFFFFFFFFFFFFFF)
 
 /*
- * Encode a number of integers into a Simple-8b codeword.
+ * 把若干整数编码进一个 Simple-8b 码字。
  *
- * (What we actually encode are deltas between successive integers.
- * "base" is the value before ints[0].)
+ * （我们实际编码的是连续整数之间的差值。
+ * "base" 是 ints[0] 之前的值。）
  *
- * The input array must contain at least SIMPLE8B_MAX_VALUES_PER_CODEWORD
- * elements, ensuring that we can produce a full codeword.
+ * 输入数组必须至少含 SIMPLE8B_MAX_VALUES_PER_CODEWORD
+ * 个元素，以确保我们能产生一个满的码字。
  *
- * Returns the encoded codeword, and sets *num_encoded to the number of
- * input integers that were encoded.  That can be zero, if the first delta
- * is too large to be encoded.
+ * 返回编码后的码字，并把 *num_encoded 设为已编码
+ * 的输入整数个数。那可以为零，若第一个差值
+ * 太大而无法编码。
  */
 static uint64
 simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
@@ -884,45 +884,45 @@ simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
 	Assert(ints[0] > base);
 
 	/*
-	 * Select the "mode" to use for this codeword.
+	 * 为本码字选择要使用的 "模式"。
 	 *
-	 * In each iteration, check if the next value can be represented in the
-	 * current mode we're considering.  If it's too large, then step up the
-	 * mode to a wider one, and repeat.  If it fits, move on to the next
-	 * integer.  Repeat until the codeword is full, given the current mode.
+	 * 每次迭代，检查下一个值能否用我们正在考虑的
+	 * 当前模式表示。若太大，则把模式升到更宽的一
+	 * 档并重复。若放得下，则转到下一个整数。重复
+	 * 直到按当前模式码字已满。
 	 *
-	 * Note that we don't have any way to represent unused slots in the
-	 * codeword, so we require each codeword to be "full".  It is always
-	 * possible to produce a full codeword unless the very first delta is too
-	 * large to be encoded.  For example, if the first delta is small but the
-	 * second is too large to be encoded, we'll end up using the last "mode",
-	 * which has nints == 1.
-	 */
+	 * 注意我们没有办法表示码字中未用的槽，因此
+	 * 我们需要每个码字都是 "满的"。除非第一个差值
+	 * 太大而无法编码，否则总可以产生满码字。例如，
+	 * 若第一个差值小但第二个太大而无法编码，我们将
+	 * 最终使用最后一个 "模式"，其 nints == 1。
+ *
+ */
 	selector = 0;
 	nints = simple8b_modes[0].num_ints;
 	bits = simple8b_modes[0].bits_per_int;
 	diff = ints[0] - base - 1;
 	last_val = ints[0];
-	i = 0;						/* number of deltas we have accepted */
+	i = 0;						/* 我们已接受的差值个数 */
 	for (;;)
 	{
 		if (diff >= (UINT64CONST(1) << bits))
 		{
-			/* too large, step up to next mode */
+			/* 太大，升到下一模式 */
 			selector++;
 			nints = simple8b_modes[selector].num_ints;
 			bits = simple8b_modes[selector].bits_per_int;
-			/* we might already have accepted enough deltas for this mode */
+			/* 我们可能已为本模式接受了足够的差值 */
 			if (i >= nints)
 				break;
 		}
 		else
 		{
-			/* accept this delta; then done if codeword is full */
+			/* 接受此差值；若码字已满则完成 */
 			i++;
 			if (i >= nints)
 				break;
-			/* examine next delta */
+			/* 检查下一个差值 */
 			Assert(ints[i] > last_val);
 			diff = ints[i] - last_val - 1;
 			last_val = ints[i];
@@ -932,11 +932,11 @@ simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
 	if (nints == 0)
 	{
 		/*
-		 * The first delta is too large to be encoded with Simple-8b.
+		 * 第一个差值太大，无法用 Simple-8b 编码。
 		 *
-		 * If there is at least one not-too-large integer in the input, we
-		 * will encode it using mode 15 (or a more compact mode).  Hence, we
-		 * can only get here if the *first* delta is >= 2^60.
+		 * 若输入中至少有一个不太大的整数，我们将用
+		 * 模式 15（或更紧凑的模式）编码它。因此，
+		 * 只有 *第一个* 差值 >= 2^60 时才能到这里。
 		 */
 		Assert(i == 0);
 		*num_encoded = 0;
@@ -944,9 +944,9 @@ simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
 	}
 
 	/*
-	 * Encode the integers using the selected mode.  Note that we shift them
-	 * into the codeword in reverse order, so that they will come out in the
-	 * correct order in the decoder.
+	 * 用选定的模式编码这些整数。注意我们按相反
+	 * 顺序把它们移入码字，以便解码器按正确顺序
+	 * 取出它们。
 	 */
 	codeword = 0;
 	if (bits > 0)
@@ -961,7 +961,7 @@ simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
 		codeword |= diff;
 	}
 
-	/* add selector to the codeword, and return */
+	/* 把选择器加到码字上并返回 */
 	codeword |= (uint64) selector << 60;
 
 	*num_encoded = nints;
@@ -969,8 +969,8 @@ simple8b_encode(const uint64 *ints, int *num_encoded, uint64 base)
 }
 
 /*
- * Decode a codeword into an array of integers.
- * Returns the number of integers decoded.
+ * 把码字解码到整数数组中。
+ * 返回解码出的整数个数。
  */
 static int
 simple8b_decode(uint64 codeword, uint64 *decoded, uint64 base)
@@ -997,9 +997,9 @@ simple8b_decode(uint64 codeword, uint64 *decoded, uint64 base)
 }
 
 /*
- * This is very similar to simple8b_decode(), but instead of decoding all
- * the values to an array, it just checks if the given "key" is part of
- * the codeword.
+ * 这与 simple8b_decode() 非常相似，但不是把所有
+ * 值解码到数组，而只是检查给定的 "key" 是否属于
+ * 该码字。
  */
 static bool
 simple8b_contains(uint64 codeword, uint64 key, uint64 base)
@@ -1013,7 +1013,7 @@ simple8b_contains(uint64 codeword, uint64 key, uint64 base)
 
 	if (bits == 0)
 	{
-		/* Special handling for 0-bit cases. */
+		/* 对 0 位情形的特殊处理。 */
 		return (key - base) <= nints;
 	}
 	else

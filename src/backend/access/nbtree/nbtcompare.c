@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtcompare.c
- *	  Comparison functions for btree access method.
+ *	  btree 访问方法的比较函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,45 +12,45 @@
  *
  * NOTES
  *
- *	These functions are stored in pg_amproc.  For each operator class
- *	defined on btrees, they compute
+ *	这些函数存放在 pg_amproc 中。对定义在 B-树
+ *	上的每个操作符类，它们计算
  *
- *				compare(a, b):
- *						< 0 if a < b,
- *						= 0 if a == b,
- *						> 0 if a > b.
+ *				compare(a, b)：
+ *						若 a < b，则 < 0，
+ *						若 a == b，则 = 0，
+ *						若 a > b，则 > 0。
  *
- *	The result is always an int32 regardless of the input datatype.
+ *	结果始终是 int32，与输入数据类型无关。
  *
- *	Although any negative int32 is acceptable for reporting "<",
- *	and any positive int32 is acceptable for reporting ">", routines
- *	that work on 32-bit or wider datatypes can't just return "a - b".
- *	That could overflow and give the wrong answer.
+ *	虽然任何负的 int32 都可以用来报告 "<"，
+ *	任何正的 int32 都可以用来报告 ">"，但处理
+ *	32 位或更宽数据类型的例程不能直接返回 "a - b"。
+ *	那样可能溢出并给出错误答案。
  *
- *	NOTE: it is critical that the comparison function impose a total order
- *	on all non-NULL values of the data type, and that the datatype's
- *	boolean comparison operators (= < >= etc) yield results consistent
- *	with the comparison routine.  Otherwise bad behavior may ensue.
- *	(For example, the comparison operators must NOT punt when faced with
- *	NAN or other funny values; you must devise some collation sequence for
- *	all such values.)  If the datatype is not trivial, this is most
- *	reliably done by having the boolean operators invoke the same
- *	three-way comparison code that the btree function does.  Therefore,
- *	this file contains only btree support for "trivial" datatypes ---
- *	all others are in the /utils/adt/ files that implement their datatypes.
+ *	注意：比较函数必须对数据类型的所有非 NULL
+ *	值施加全序，而且该数据类型的布尔比较操作符
+ *	（= < >= 等）必须给出与比较例程一致的结果。
+ *	否则可能出现不良行为。
+ *	（例如，比较操作符面对 NAN 或其他奇怪的值时
+ *	绝不能放弃处理；必须为所有这些值设计某种
+ *	排序规则序列。）若数据类型并不简单，最可靠的
+ *	做法是让布尔操作符调用与 btree 函数相同的
+ *	三路比较代码。因此，本文件只包含 "简单"
+ *	数据类型的 btree 支持 --- 其余都在实现其
+ *	数据类型的 /utils/adt/ 文件中。
  *
- *	NOTE: these routines must not leak memory, since memory allocated
- *	during an index access won't be recovered till end of query.  This
- *	primarily affects comparison routines for toastable datatypes;
- *	they have to be careful to free any detoasted copy of an input datum.
+ *	注意：这些例程不得泄漏内存，因为索引访问期间
+ *	分配的内存要到查询结束才会回收。这主要影响
+ *	可 TOAST 的数据类型的比较例程；它们必须小心
+ *	释放输入 datum 的任何已解除 TOAST 的副本。
  *
- *	NOTE: we used to forbid comparison functions from returning INT_MIN,
- *	but that proves to be too error-prone because some platforms' versions
- *	of memcmp() etc can return INT_MIN.  As a means of stress-testing
- *	callers, this file can be compiled with STRESS_SORT_INT_MIN defined
- *	to cause many of these functions to return INT_MIN or INT_MAX instead of
- *	their customary -1/+1.  For production, though, that's not a good idea
- *	since users or third-party code might expect the traditional results.
+ *	注意：我们曾经禁止比较函数返回 INT_MIN，
+ *	但事实证明这太容易出错，因为某些平台的
+ *	memcmp() 等版本可能返回 INT_MIN。作为对调用者
+ *	做压力测试的手段，本文件可在定义
+ *	STRESS_SORT_INT_MIN 的情况下编译，使许多函数返回
+ *	INT_MIN 或 INT_MAX，而不是惯常的 -1/+1。不过
+ *	用于生产时这不是个好主意，因为用户或第三方代码可能期望传统结果。
  *-------------------------------------------------------------------------
  */
 #include "postgres.h"
@@ -299,7 +299,7 @@ btoidvectorcmp(PG_FUNCTION_ARGS)
 	oidvector  *b = (oidvector *) PG_GETARG_POINTER(1);
 	int			i;
 
-	/* We arbitrarily choose to sort first by vector length */
+	/* 我们任意地选择先按向量长度排序 */
 	if (a->dim1 != b->dim1)
 		PG_RETURN_INT32(a->dim1 - b->dim1);
 
@@ -322,6 +322,6 @@ btcharcmp(PG_FUNCTION_ARGS)
 	char		a = PG_GETARG_CHAR(0);
 	char		b = PG_GETARG_CHAR(1);
 
-	/* Be careful to compare chars as unsigned */
+	/* 比较字符时要小心按无符号处理 */
 	PG_RETURN_INT32((int32) ((uint8) a) - (int32) ((uint8) b));
 }

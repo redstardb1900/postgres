@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtvalidate.c
- *	  Opclass validator for btree.
+ *	  btree 的操作符类校验器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,12 +30,12 @@
 
 
 /*
- * Validator for a btree opclass.
+ * btree 操作符类的校验器。
  *
- * Some of the checks done here cover the whole opfamily, and therefore are
- * redundant when checking each opclass in a family.  But they don't run long
- * enough to be much of a problem, so we accept the duplication rather than
- * complicate the amvalidate API.
+ * 这里的某些检查覆盖整个操作符族，因此在检查
+ * 族中每个操作符类时是重复的。但它们运行时间
+ * 不够长，算不上什么问题，所以我们接受这种重复，
+ * 而不是把 amvalidate API 搞复杂。
  */
 bool
 btvalidate(Oid opclassoid)
@@ -58,7 +58,7 @@ btvalidate(Oid opclassoid)
 	int			i;
 	ListCell   *lc;
 
-	/* Fetch opclass information */
+	/* 获取操作符类信息 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -68,7 +68,7 @@ btvalidate(Oid opclassoid)
 	opcintype = classform->opcintype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* 获取操作符族信息 */
 	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
 	if (!HeapTupleIsValid(familytup))
 		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
@@ -76,18 +76,18 @@ btvalidate(Oid opclassoid)
 
 	opfamilyname = NameStr(familyform->opfname);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* 获取该操作符族的全部操作符和支持函数 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 
-	/* Check individual support functions */
+	/* 检查各个支持函数 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
 		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
 		bool		ok;
 
-		/* Check procedure numbers and function signatures */
+		/* 检查过程编号和函数签名 */
 		switch (procform->amprocnum)
 		{
 			case BTORDER_PROC:
@@ -122,7 +122,7 @@ btvalidate(Oid opclassoid)
 								format_procedure(procform->amproc),
 								procform->amprocnum)));
 				result = false;
-				continue;		/* don't want additional message */
+				continue;		/* 不想再输出额外消息 */
 		}
 
 		if (!ok)
@@ -137,13 +137,13 @@ btvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check individual operators */
+	/* 检查各个操作符 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 
-		/* Check that only allowed strategy numbers exist */
+		/* 检查只存在允许的策略编号 */
 		if (oprform->amopstrategy < 1 ||
 			oprform->amopstrategy > BTMaxStrategyNumber)
 		{
@@ -156,7 +156,7 @@ btvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* btree doesn't support ORDER BY operators */
+		/* btree 不支持 ORDER BY 操作符 */
 		if (oprform->amoppurpose != AMOP_SEARCH ||
 			OidIsValid(oprform->amopsortfamily))
 		{
@@ -168,7 +168,7 @@ btvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check operator signature --- same for all btree strategies */
+		/* 检查操作符签名 --- 对所有 btree 策略都相同 */
 		if (!check_amop_signature(oprform->amopopr, BOOLOID,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -182,7 +182,7 @@ btvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* 现在检查不一致的操作符/函数组 */
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 	usefulgroups = 0;
 	opclassgroup = NULL;
@@ -192,37 +192,37 @@ btvalidate(Oid opclassoid)
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
 		/*
-		 * It is possible for an in_range support function to have a RHS type
-		 * that is otherwise irrelevant to the opfamily --- for instance, SQL
-		 * requires the datetime_ops opclass to have range support with an
-		 * interval offset.  So, if this group appears to contain only an
-		 * in_range function, ignore it: it doesn't represent a pair of
-		 * supported types.
+		 * in_range 支持函数的右侧类型有可能在其他方面
+		 * 与操作符族无关 --- 例如，SQL 需要 datetime_ops
+		 * 操作符类提供以 interval 为偏移的范围支持。
+		 * 因此，若这一组看起来只包含一个 in_range
+		 * 函数，就忽略它：它并不代表一对受支持的
+		 * 类型。
 		 */
 		if (thisgroup->operatorset == 0 &&
 			thisgroup->functionset == (1 << BTINRANGE_PROC))
 			continue;
 
-		/* Else count it as a relevant group */
+		/* 否则把它算作相关的一组 */
 		usefulgroups++;
 
-		/* Remember the group exactly matching the test opclass */
+		/* 记住与被测操作符类精确匹配的那一组 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
 
 		/*
-		 * Identify all distinct data types handled in this opfamily.  This
-		 * implementation is O(N^2), but there aren't likely to be enough
-		 * types in the family for it to matter.
+		 * 找出本操作符族所处理的全部不同的数据类型。这一
+		 * 实现是 O(N^2)，但族中的类型不太可能多到
+		 * 让这一点成为问题。
 		 */
 		familytypes = list_append_unique_oid(familytypes, thisgroup->lefttype);
 		familytypes = list_append_unique_oid(familytypes, thisgroup->righttype);
 
 		/*
-		 * Complain if there seems to be an incomplete set of either operators
-		 * or support functions for this datatype pair.  The sortsupport,
-		 * in_range, and equalimage functions are considered optional.
+		 * 若这一对数据类型似乎缺少完整的操作符集合
+		 * 或支持函数集合，则报告问题。sortsupport、
+		 * in_range 与 equalimage 函数视为可选。
 		 */
 		if (thisgroup->operatorset !=
 			((1 << BTLessStrategyNumber) |
@@ -251,8 +251,8 @@ btvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check that the originally-named opclass is supported */
-	/* (if group is there, we already checked it adequately above) */
+	/* 检查原先命名的操作符类是否受支持 */
+	/* （若该组存在，上面已经充分检查过） */
 	if (!opclassgroup)
 	{
 		ereport(INFO,
@@ -263,11 +263,11 @@ btvalidate(Oid opclassoid)
 	}
 
 	/*
-	 * Complain if the opfamily doesn't have entries for all possible
-	 * combinations of its supported datatypes.  While missing cross-type
-	 * operators are not fatal, they do limit the planner's ability to derive
-	 * additional qual clauses from equivalence classes, so it seems
-	 * reasonable to insist that all built-in btree opfamilies be complete.
+	 * 若操作符族并未为其支持的数据类型的全部可能组合
+	 * 都提供条目，则报告问题。缺少跨类型操作符
+	 * 并非致命，但会限制规划器从等价类推导额外
+	 * 限定子句的能力，因此坚持所有内建 btree
+	 * 操作符族都完整，看起来是合理的。
 	 */
 	if (usefulgroups != (list_length(familytypes) * list_length(familytypes)))
 	{
@@ -287,7 +287,7 @@ btvalidate(Oid opclassoid)
 }
 
 /*
- * Prechecking function for adding operators/functions to a btree opfamily.
+ * 向 btree 操作符族添加操作符/函数之前的预检查函数。
  */
 void
 btadjustmembers(Oid opfamilyoid,
@@ -299,29 +299,29 @@ btadjustmembers(Oid opfamilyoid,
 	ListCell   *lc;
 
 	/*
-	 * Btree operators and comparison support functions are always "loose"
-	 * members of the opfamily if they are cross-type.  If they are not
-	 * cross-type, we prefer to tie them to the appropriate opclass ... but if
-	 * the user hasn't created one, we can't do that, and must fall back to
-	 * using the opfamily dependency.  (We mustn't force creation of an
-	 * opclass in such a case, as leaving an incomplete opclass laying about
-	 * would be bad.  Throwing an error is another undesirable alternative.)
+	 * btree 操作符和比较支持函数若是跨类型的，始终是
+	 * 操作符族的 "松散" 成员。若不是跨类型的，我们更愿
+	 * 把它们绑到合适的操作符类 ... 但若用户尚未创建
+	 * 操作符类，就做不到这一点，必须回退为使用操作符族
+	 * 依赖。（这种情况下我们绝不能强制创建操作符类，
+	 * 因为留下一个不完整的操作符类会很糟糕。抛出错误
+	 * 是另一种不可取的选择。）
 	 *
-	 * This behavior results in a bit of a dump/reload hazard, in that the
-	 * order of restoring objects could affect what dependencies we end up
-	 * with.  pg_dump's existing behavior will preserve the dependency choices
-	 * in most cases, but not if a cross-type operator has been bound tightly
-	 * into an opclass.  That's a mistake anyway, so silently "fixing" it
-	 * isn't awful.
+	 * 这种行为会带来一点转储/重新加载隐患，因为恢复
+	 * 对象的顺序可能影响我们最终得到的依赖。
+	 * pg_dump 的现有行为在多数情况下会保留这些
+	 * 依赖选择，但若某个跨类型操作符已被紧密绑定
+	 * 到操作符类中则不会。那本来就是个错误，所以
+	 * 默默 "修正" 它并不糟糕。
 	 *
-	 * Optional support functions are always "loose" family members.
+	 * 可选的支持函数始终是 "松散" 的族成员。
 	 *
-	 * To avoid repeated lookups, we remember the most recently used opclass's
-	 * input type.
+	 * 为避免重复查找，我们记住最近使用的操作符类的
+	 * 输入类型。
 	 */
 	if (OidIsValid(opclassoid))
 	{
-		/* During CREATE OPERATOR CLASS, need CCI to see the pg_opclass row */
+		/* CREATE OPERATOR CLASS 期间，需要 CCI 才能看到 pg_opclass 行 */
 		CommandCounterIncrement();
 		opcintype = get_opclass_input_type(opclassoid);
 	}
@@ -329,8 +329,8 @@ btadjustmembers(Oid opfamilyoid,
 		opcintype = InvalidOid;
 
 	/*
-	 * We handle operators and support functions almost identically, so rather
-	 * than duplicate this code block, just join the lists.
+	 * 操作符和支持函数的处理几乎相同，因此与其
+	 * 重复这段代码，不如直接把两个列表接起来。
 	 */
 	foreach(lc, list_concat_copy(operators, functions))
 	{
@@ -338,24 +338,24 @@ btadjustmembers(Oid opfamilyoid,
 
 		if (op->is_func && op->number != BTORDER_PROC)
 		{
-			/* Optional support proc, so always a soft family dependency */
+			/* 可选支持过程，因此始终是软的族依赖 */
 			op->ref_is_hard = false;
 			op->ref_is_family = true;
 			op->refobjid = opfamilyoid;
 		}
 		else if (op->lefttype != op->righttype)
 		{
-			/* Cross-type, so always a soft family dependency */
+			/* 跨类型，因此始终是软的族依赖 */
 			op->ref_is_hard = false;
 			op->ref_is_family = true;
 			op->refobjid = opfamilyoid;
 		}
 		else
 		{
-			/* Not cross-type; is there a suitable opclass? */
+			/* 不是跨类型；有合适的操作符类吗？ */
 			if (op->lefttype != opcintype)
 			{
-				/* Avoid repeating this expensive lookup, even if it fails */
+				/* 避免重复这次昂贵的查找，即使它失败 */
 				opcintype = op->lefttype;
 				opclassoid = opclass_for_family_datatype(BTREE_AM_OID,
 														 opfamilyoid,
@@ -363,14 +363,14 @@ btadjustmembers(Oid opfamilyoid,
 			}
 			if (OidIsValid(opclassoid))
 			{
-				/* Hard dependency on opclass */
+				/* 对操作符类的硬依赖 */
 				op->ref_is_hard = true;
 				op->ref_is_family = false;
 				op->refobjid = opclassoid;
 			}
 			else
 			{
-				/* We're stuck, so make a soft dependency on the opfamily */
+				/* 没有别的办法，因此对操作符族建立软依赖 */
 				op->ref_is_hard = false;
 				op->ref_is_family = true;
 				op->refobjid = opfamilyoid;

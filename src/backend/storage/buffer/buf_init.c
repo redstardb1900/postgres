@@ -34,7 +34,7 @@ CkptSortItem *CkptBufferIds;
  *		有两点重要说明。第一，缓冲区必须在
  *		IO 开始之前（BEFORE）就可以被查找。否则
  *		第二个试图读取该缓冲区的进程会
- *		分配自己的副本，缓冲区池就会
+ *		分配自己的副本，缓冲池就会
  *		变得不一致。
  *
  * 缓冲区替换：
@@ -47,19 +47,19 @@ CkptSortItem *CkptBufferIds;
  * IO_IN_PROGRESS 是缓冲区描述符里的一个标志。
  *		IO 开始时必须设置它，并在
  *		IO 结束时清除。它用来确保一个
- *		进程不会在另一个进程正在把它调入时开始使用该缓冲区。
+ *		进程不会在另一个进程正在把它缺页调入时开始使用该缓冲区。
  *		见 WaitIO 及相关例程。
  *
- * refcount 统计对一个缓冲区持有 pin 的进程数。
- *		缓冲区在 IO 期间以及 BufferAlloc() 之后立即被 pin。
- *		事务结束前必须释放 pin。为了效率，若单个后端多次 pin
+ * refcount 统计对一个缓冲区持有钉住的进程数。
+ *		缓冲区在 IO 期间以及 BufferAlloc() 之后立即被钉住。
+ *		事务结束前必须释放钉住。为了效率，若单个后端多次钉住
  *		同一个缓冲区，共享的 refcount 不会增加。见 bufmgr.c 里的
  *		PrivateRefCount 基础设施。
  */
 
 
 /*
- * 初始化共享缓冲区池。
+ * 初始化共享缓冲池。
  *
  * 这在共享内存初始化期间调用一次（或者在
  * postmaster 里，或者在独立后端里）。
@@ -78,7 +78,7 @@ InitBufferPool(void)
 						NBuffers * sizeof(BufferDescPadded),
 						&foundDescs);
 
-	/* 把缓冲区池对齐到 IO 页大小边界。 */
+	/* 把缓冲池对齐到 IO 页大小边界。 */
 	BufferBlocks = (char *)
 		TYPEALIGN(PG_IO_ALIGN_SIZE,
 				  ShmemInitStruct("Buffer Blocks",
@@ -153,7 +153,7 @@ InitBufferPool(void)
 /*
  * BufferShmemSize
  *
- * 计算缓冲区池的共享内存大小，包括
+ * 计算缓冲池的共享内存大小，包括
  * 数据页、缓冲区描述符、散列表等。
  */
 Size

@@ -69,185 +69,185 @@
 
 #define UINT32_ACCESS_ONCE(var)		 ((uint32)(*((volatile uint32 *)&(var))))
 
-/* Our shared memory area */
+/* 我们的共享内存区域 */
 typedef struct ProcArrayStruct
 {
-	int			numProcs;		/* number of valid procs entries */
-	int			maxProcs;		/* allocated size of procs array */
+	int			numProcs;		/* 有效 procs 项的数目 */
+	int			maxProcs;		/* procs 数组已分配的大小 */
 
 	/*
-	 * Known assigned XIDs handling
+	 * 已知已分配 XIDs 的处理
 	 */
-	int			maxKnownAssignedXids;	/* allocated size of array */
-	int			numKnownAssignedXids;	/* current # of valid entries */
-	int			tailKnownAssignedXids;	/* index of oldest valid element */
-	int			headKnownAssignedXids;	/* index of newest element, + 1 */
-	slock_t		known_assigned_xids_lck;	/* protects head/tail pointers */
+	int			maxKnownAssignedXids;	/* 数组已分配的大小 */
+	int			numKnownAssignedXids;	/* 当前有效项的数目 */
+	int			tailKnownAssignedXids;	/* 最旧有效元素的下标 */
+	int			headKnownAssignedXids;	/* 最新元素的下标加 1 */
+	slock_t		known_assigned_xids_lck;	/* 保护 head/tail 指针 */
 
 	/*
-	 * Highest subxid that has been removed from KnownAssignedXids array to
-	 * prevent overflow; or InvalidTransactionId if none.  We track this for
-	 * similar reasons to tracking overflowing cached subxids in PGPROC
-	 * entries.  Must hold exclusive ProcArrayLock to change this, and shared
-	 * lock to read it.
+	 * 为防止溢出而从 KnownAssignedXids 数组中移除的最高
+	 * subxid；若没有则为 InvalidTransactionId。跟踪它的原因与
+	 * 跟踪 PGPROC 项里溢出的已缓存 subxid 类似。修改它必须持有
+	 * 排他 ProcArrayLock，读取则持有
+	 * 共享锁。
 	 */
 	TransactionId lastOverflowedXid;
 
-	/* oldest xmin of any replication slot */
+	/* 任一复制槽的最旧 xmin */
 	TransactionId replication_slot_xmin;
-	/* oldest catalog xmin of any replication slot */
+	/* 任一复制槽的最旧系统目录 xmin */
 	TransactionId replication_slot_catalog_xmin;
 
-	/* indexes into allProcs[], has PROCARRAY_MAXPROCS entries */
+	/* 指向 allProcs[] 的下标，共 PROCARRAY_MAXPROCS 项 */
 	int			pgprocnos[FLEXIBLE_ARRAY_MEMBER];
 } ProcArrayStruct;
 
 /*
- * State for the GlobalVisTest* family of functions. Those functions can
- * e.g. be used to decide if a deleted row can be removed without violating
- * MVCC semantics: If the deleted row's xmax is not considered to be running
- * by anyone, the row can be removed.
+ * 这是 GlobalVisTest 系列函数的状态。这些函数可以
+ * 例如用来判断能否删掉一行而不违反
+ * MVCC 语义：若被删行的 xmax 不被任何人视为
+ * 仍在运行，该行就可以删掉。
  *
- * To avoid slowing down GetSnapshotData(), we don't calculate a precise
- * cutoff XID while building a snapshot (looking at the frequently changing
- * xmins scales badly). Instead we compute two boundaries while building the
- * snapshot:
+ * 为避免拖慢 GetSnapshotData()，构建快照时不算精确的
+ * 截止 XID，因为常变的 xmin 扩展性很差。构建
+ * 快照时改为计算两条边界。
+ * 两条边界如下：
  *
- * 1) definitely_needed, indicating that rows deleted by XIDs >=
- *    definitely_needed are definitely still visible.
+ * 1) definitely_needed，表示由 XIDs >=
+ *    definitely_needed 删除的行肯定仍然可见。
  *
- * 2) maybe_needed, indicating that rows deleted by XIDs < maybe_needed can
- *    definitely be removed
+ * 2) maybe_needed，表示由 XIDs < maybe_needed 删除的行
+ *    肯定可以删除。
  *
- * When testing an XID that falls in between the two (i.e. XID >= maybe_needed
- * && XID < definitely_needed), the boundaries can be recomputed (using
- * ComputeXidHorizons()) to get a more accurate answer. This is cheaper than
- * maintaining an accurate value all the time.
+ * 当被测 XID 落在两者之间（即 XID >= maybe_needed
+ * 且 XID < definitely_needed）时，可用
+ * ComputeXidHorizons() 重算边界以得到更准的答案。这比
+ * 始终维护精确值更便宜。
  *
- * As it is not cheap to compute accurate boundaries, we limit the number of
- * times that happens in short succession. See GlobalVisTestShouldUpdate().
+ * 精确边界计算不便宜，所以限制短时间内
+ * 发生的次数。见 GlobalVisTestShouldUpdate()。
  *
  *
- * There are three backend lifetime instances of this struct, optimized for
- * different types of relations. As e.g. a normal user defined table in one
- * database is inaccessible to backends connected to another database, a test
- * specific to a relation can be more aggressive than a test for a shared
- * relation.  Currently we track four different states:
+ * 该结构在后端生命周期内有三个实例，分别针对
+ * 不同类型的关系做了优化。例如一个数据库里普通的用户定义表
+ * 对连到另一数据库的后端不可访问，所以针对某个关系的测试
+ * 可以比针对共享关系的测试更激进。
+ * 目前跟踪四种不同状态：
  *
- * 1) GlobalVisSharedRels, which only considers an XID's
- *    effects visible-to-everyone if neither snapshots in any database, nor a
- *    replication slot's xmin, nor a replication slot's catalog_xmin might
- *    still consider XID as running.
+ * 1) GlobalVisSharedRels：仅当任何数据库中的快照、
+ *    复制槽的 xmin，以及复制槽的 catalog_xmin 都不可能
+ *    仍把该 XID 视为运行中时，才认为该 XID 的效果
+ *    对所有人可见。
  *
- * 2) GlobalVisCatalogRels, which only considers an XID's
- *    effects visible-to-everyone if neither snapshots in the current
- *    database, nor a replication slot's xmin, nor a replication slot's
- *    catalog_xmin might still consider XID as running.
+ * 2) GlobalVisCatalogRels：仅当当前数据库中的快照、
+ *    复制槽的 xmin，以及复制槽的 catalog_xmin 都不可能
+ *    仍把该 XID 视为运行中时，才认为该 XID 的效果
+ *    对所有人可见。
  *
- *    I.e. the difference to GlobalVisSharedRels is that
- *    snapshot in other databases are ignored.
+ *    也就是说，与 GlobalVisSharedRels 的差别在于
+ *    忽略其他数据库中的快照。
  *
- * 3) GlobalVisDataRels, which only considers an XID's
- *    effects visible-to-everyone if neither snapshots in the current
- *    database, nor a replication slot's xmin consider XID as running.
+ * 3) GlobalVisDataRels：仅当当前数据库中的快照以及
+ *    复制槽的 xmin 都不把该 XID 视为运行中时，才认为
+ *    该 XID 的效果对所有人可见。
  *
- *    I.e. the difference to GlobalVisCatalogRels is that
- *    replication slot's catalog_xmin is not taken into account.
+ *    也就是说，与 GlobalVisCatalogRels 的差别在于
+ *    不考虑复制槽的 catalog_xmin。
  *
- * 4) GlobalVisTempRels, which only considers the current session, as temp
- *    tables are not visible to other sessions.
+ * 4) GlobalVisTempRels：只考虑当前会话，因为临时表
+ *    对其他会话不可见。
  *
- * GlobalVisTestFor(relation) returns the appropriate state
- * for the relation.
+ * GlobalVisTestFor() 返回适合该关系的
+ * 状态。
  *
- * The boundaries are FullTransactionIds instead of TransactionIds to avoid
- * wraparound dangers. There e.g. would otherwise exist no procarray state to
- * prevent maybe_needed to become old enough after the GetSnapshotData()
- * call.
+ * 边界用 FullTransactionIds 而不是 TransactionIds，以免
+ * 回绕危险。否则例如不存在进程数组状态能
+ * 防止 maybe_needed 在 GetSnapshotData()
+ * 调用之后变得过旧。
  *
- * The typedef is in the header.
+ * 类型定义在头文件里。
  */
 struct GlobalVisState
 {
-	/* XIDs >= are considered running by some backend */
+	/* XIDs >= 此值的被某些后端视为运行中 */
 	FullTransactionId definitely_needed;
 
-	/* XIDs < are not considered to be running by any backend */
+	/* XIDs < 此值的不被任何后端视为运行中 */
 	FullTransactionId maybe_needed;
 };
 
 /*
- * Result of ComputeXidHorizons().
+ * ComputeXidHorizons() 的结果。
  */
 typedef struct ComputeXidHorizonsResult
 {
 	/*
-	 * The value of ShmemVariableCache->latestCompletedXid when
-	 * ComputeXidHorizons() held ProcArrayLock.
+	 * ComputeXidHorizons() 持有 ProcArrayLock 时
+	 * ShmemVariableCache->latestCompletedXid 的值。
 	 */
 	FullTransactionId latest_completed;
 
 	/*
-	 * The same for procArray->replication_slot_xmin and.
-	 * procArray->replication_slot_catalog_xmin.
+	 * 同样适用于 procArray->replication_slot_xmin 以及
+	 * procArray->replication_slot_catalog_xmin。
 	 */
 	TransactionId slot_xmin;
 	TransactionId slot_catalog_xmin;
 
 	/*
-	 * Oldest xid that any backend might still consider running. This needs to
-	 * include processes running VACUUM, in contrast to the normal visibility
-	 * cutoffs, as vacuum needs to be able to perform pg_subtrans lookups when
-	 * determining visibility, but doesn't care about rows above its xmin to
-	 * be removed.
+	 * 任何后端仍可能视为运行中的最旧 xid。这需要
+	 * 包括正在运行 VACUUM 的进程，与普通可见性截止不同，
+	 * 因为清理在判断可见性时需要能做 pg_subtrans
+	 * 查找，但不关心高于其 xmin 的行
+	 * 被删除。
 	 *
-	 * This likely should only be needed to determine whether pg_subtrans can
-	 * be truncated. It currently includes the effects of replication slots,
-	 * for historical reasons. But that could likely be changed.
+	 * 这大概只在判断 pg_subtrans 能否截断时需要。出于历史原因，
+	 * 它目前包含复制槽的影响。
+	 * 但这一点很可能可以改掉。
 	 */
 	TransactionId oldest_considered_running;
 
 	/*
-	 * Oldest xid for which deleted tuples need to be retained in shared
-	 * tables.
+	 * 共享表里需要保留已删元组的
+	 * 最旧 xid。
 	 *
-	 * This includes the effects of replication slots. If that's not desired,
-	 * look at shared_oldest_nonremovable_raw;
+	 * 这包括复制槽的影响。若不需要这一点，
+	 * 请看 shared_oldest_nonremovable_raw。
 	 */
 	TransactionId shared_oldest_nonremovable;
 
 	/*
-	 * Oldest xid that may be necessary to retain in shared tables. This is
-	 * the same as shared_oldest_nonremovable, except that is not affected by
-	 * replication slot's catalog_xmin.
+	 * 共享表中可能必须保留的最旧 xid。这与
+	 * shared_oldest_nonremovable 相同，只是不受复制槽
+	 * catalog_xmin 的影响。
 	 *
-	 * This is mainly useful to be able to send the catalog_xmin to upstream
-	 * streaming replication servers via hot_standby_feedback, so they can
-	 * apply the limit only when accessing catalog tables.
+	 * 这主要用于能通过 hot_standby_feedback 把 catalog_xmin
+	 * 发给上游流复制服务器，使它们只在访问
+	 * 系统目录表时才施加该限制。
 	 */
 	TransactionId shared_oldest_nonremovable_raw;
 
 	/*
-	 * Oldest xid for which deleted tuples need to be retained in non-shared
-	 * catalog tables.
+	 * 非共享系统目录表中需要保留已删元组的
+	 * 最旧 xid。
 	 */
 	TransactionId catalog_oldest_nonremovable;
 
 	/*
-	 * Oldest xid for which deleted tuples need to be retained in normal user
-	 * defined tables.
+	 * 普通用户定义表中需要保留已删元组的
+	 * 最旧 xid。
 	 */
 	TransactionId data_oldest_nonremovable;
 
 	/*
-	 * Oldest xid for which deleted tuples need to be retained in this
-	 * session's temporary tables.
+	 * 本会话临时表中需要保留已删元组的
+	 * 最旧 xid。
 	 */
 	TransactionId temp_oldest_nonremovable;
 } ComputeXidHorizonsResult;
 
 /*
- * Return value for GlobalVisHorizonKindForRel().
+ * GlobalVisHorizonKindForRel() 的返回值。
  */
 typedef enum GlobalVisHorizonKind
 {
@@ -258,14 +258,14 @@ typedef enum GlobalVisHorizonKind
 } GlobalVisHorizonKind;
 
 /*
- * Reason codes for KnownAssignedXidsCompress().
+ * KnownAssignedXidsCompress() 的原因码。
  */
 typedef enum KAXCompressReason
 {
-	KAX_NO_SPACE,				/* need to free up space at array end */
-	KAX_PRUNE,					/* we just pruned old entries */
-	KAX_TRANSACTION_END,		/* we just committed/removed some XIDs */
-	KAX_STARTUP_PROCESS_IDLE	/* startup process is about to sleep */
+	KAX_NO_SPACE,				/* 需要在数组末尾腾出空间 */
+	KAX_PRUNE,					/* 刚刚裁掉了旧项 */
+	KAX_TRANSACTION_END,		/* 刚刚提交或移除了一些 XIDs */
+	KAX_STARTUP_PROCESS_IDLE	/* 启动进程即将睡眠 */
 } KAXCompressReason;
 
 
@@ -274,28 +274,28 @@ static ProcArrayStruct *procArray;
 static PGPROC *allProcs;
 
 /*
- * Cache to reduce overhead of repeated calls to TransactionIdIsInProgress()
+ * 用于降低反复调用 TransactionIdIsInProgress() 的开销的缓存
  */
 static TransactionId cachedXidIsNotInProgress = InvalidTransactionId;
 
 /*
- * Bookkeeping for tracking emulated transactions in recovery
+ * 跟踪恢复期间模拟事务的记账
  */
 static TransactionId *KnownAssignedXids;
 static bool *KnownAssignedXidsValid;
 static TransactionId latestObservedXid = InvalidTransactionId;
 
 /*
- * If we're in STANDBY_SNAPSHOT_PENDING state, standbySnapshotPendingXmin is
- * the highest xid that might still be running that we don't have in
- * KnownAssignedXids.
+ * 若处于 STANDBY_SNAPSHOT_PENDING 状态，standbySnapshotPendingXmin 是
+ * 仍可能在运行、但我们还没放进
+ * KnownAssignedXids 的最高 xid。
  */
 static TransactionId standbySnapshotPendingXmin;
 
 /*
- * State for visibility checks on different types of relations. See struct
- * GlobalVisState for details. As shared, catalog, normal and temporary
- * relations can have different horizons, one such state exists for each.
+ * 不同类型关系上可见性检查的状态。详见
+ * 结构 GlobalVisState。共享、系统目录、普通和临时
+ * 关系可以有不同的视界，因此各有一份这样的状态。
  */
 static GlobalVisState GlobalVisSharedRels;
 static GlobalVisState GlobalVisCatalogRels;
@@ -303,15 +303,15 @@ static GlobalVisState GlobalVisDataRels;
 static GlobalVisState GlobalVisTempRels;
 
 /*
- * This backend's RecentXmin at the last time the accurate xmin horizon was
- * recomputed, or InvalidTransactionId if it has not. Used to limit how many
- * times accurate horizons are recomputed. See GlobalVisTestShouldUpdate().
+ * 上次重算精确 xmin 视界时，本后端的 RecentXmin；
+ * 若还没算过则为 InvalidTransactionId。用来限制精确视界
+ * 被重算的次数。见 GlobalVisTestShouldUpdate()。
  */
 static TransactionId ComputeXidHorizonsResultLastXmin;
 
 #ifdef XIDCACHE_DEBUG
 
-/* counters for XidCache measurement */
+/* XidCache 测量用的计数器 */
 static long xc_by_recent_xmin = 0;
 static long xc_by_known_xact = 0;
 static long xc_by_my_xact = 0;
@@ -333,7 +333,7 @@ static long xc_slow_answer = 0;
 #define xc_slow_answer_inc()		(xc_slow_answer++)
 
 static void DisplayXidCache(void);
-#else							/* !XIDCACHE_DEBUG */
+#else							/* 非 XIDCACHE_DEBUG */
 
 #define xc_by_recent_xmin_inc()		((void) 0)
 #define xc_by_known_xact_inc()		((void) 0)
@@ -344,9 +344,9 @@ static void DisplayXidCache(void);
 #define xc_by_known_assigned_inc()	((void) 0)
 #define xc_no_overflow_inc()		((void) 0)
 #define xc_slow_answer_inc()		((void) 0)
-#endif							/* XIDCACHE_DEBUG */
+#endif							/* 处于 XIDCACHE_DEBUG */
 
-/* Primitives for KnownAssignedXids array handling for standby */
+/* 备库上处理 KnownAssignedXids 数组的基本操作 */
 static void KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock);
 static void KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 								 bool exclusive_lock);
@@ -373,31 +373,31 @@ static inline FullTransactionId FullXidRelativeTo(FullTransactionId rel,
 static void GlobalVisUpdateApply(ComputeXidHorizonsResult *horizons);
 
 /*
- * Report shared-memory space needed by CreateSharedProcArray.
+ * 报告 CreateSharedProcArray 所需的共享内存空间。
  */
 Size
 ProcArrayShmemSize(void)
 {
 	Size		size;
 
-	/* Size of the ProcArray structure itself */
+	/* ProcArray 结构本身的大小 */
 #define PROCARRAY_MAXPROCS	(MaxBackends + max_prepared_xacts)
 
 	size = offsetof(ProcArrayStruct, pgprocnos);
 	size = add_size(size, mul_size(sizeof(int), PROCARRAY_MAXPROCS));
 
 	/*
-	 * During Hot Standby processing we have a data structure called
-	 * KnownAssignedXids, created in shared memory. Local data structures are
-	 * also created in various backends during GetSnapshotData(),
-	 * TransactionIdIsInProgress() and GetRunningTransactionData(). All of the
-	 * main structures created in those functions must be identically sized,
-	 * since we may at times copy the whole of the data structures around. We
-	 * refer to this size as TOTAL_MAX_CACHED_SUBXIDS.
+	 * 热备处理期间有一个叫 KnownAssignedXids 的数据结构，
+	 * 创建在共享内存里。各个后端在 GetSnapshotData()、
+	 * TransactionIdIsInProgress() 和 GetRunningTransactionData() 期间
+	 * 也会创建本地数据结构。这些函数里创建的主要结构
+	 * 大小必须一致，因为有时会把整个数据结构
+	 * 拷来拷去。我们把这个大小称为
+	 * TOTAL_MAX_CACHED_SUBXIDS。
 	 *
-	 * Ideally we'd only create this structure if we were actually doing hot
-	 * standby in the current run, but we don't know that yet at the time
-	 * shared memory is being set up.
+	 * 理想情况下只在本次运行确实做热备时才创建该结构，
+	 * 但设置共享内存时还不知道
+	 * 这一点。
 	 */
 #define TOTAL_MAX_CACHED_SUBXIDS \
 	((PGPROC_MAX_CACHED_SUBXIDS + 1) * PROCARRAY_MAXPROCS)
@@ -415,14 +415,14 @@ ProcArrayShmemSize(void)
 }
 
 /*
- * Initialize the shared PGPROC array during postmaster startup.
+ * 在 postmaster 启动期间初始化共享 PGPROC 数组。
  */
 void
 CreateSharedProcArray(void)
 {
 	bool		found;
 
-	/* Create or attach to the ProcArray shared structure */
+	/* 创建或挂接到 ProcArray 共享结构 */
 	procArray = (ProcArrayStruct *)
 		ShmemInitStruct("Proc Array",
 						add_size(offsetof(ProcArrayStruct, pgprocnos),
@@ -433,7 +433,7 @@ CreateSharedProcArray(void)
 	if (!found)
 	{
 		/*
-		 * We're the first - initialize.
+		 * 我们是第一个，进行初始化。
 		 */
 		procArray->numProcs = 0;
 		procArray->maxProcs = PROCARRAY_MAXPROCS;
@@ -450,7 +450,7 @@ CreateSharedProcArray(void)
 
 	allProcs = ProcGlobal->allProcs;
 
-	/* Create or attach to the KnownAssignedXids arrays too, if needed */
+	/* 若需要，也创建或挂接到 KnownAssignedXids 数组 */
 	if (EnableHotStandby)
 	{
 		KnownAssignedXids = (TransactionId *)
@@ -466,7 +466,7 @@ CreateSharedProcArray(void)
 }
 
 /*
- * Add the specified PGPROC to the shared array.
+ * 把指定的 PGPROC 加入共享数组。
  */
 void
 ProcArrayAdd(PGPROC *proc)
@@ -475,16 +475,16 @@ ProcArrayAdd(PGPROC *proc)
 	int			index;
 	int			movecount;
 
-	/* See ProcGlobal comment explaining why both locks are held */
+	/* 见 ProcGlobal 注释，说明为何两把锁都要持有 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 	LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
 
 	if (arrayP->numProcs >= arrayP->maxProcs)
 	{
 		/*
-		 * Oops, no room.  (This really shouldn't happen, since there is a
-		 * fixed supply of PGPROC structs too, and so we should have failed
-		 * earlier.)
+		 * 糟了，没有空位。（这其实不该发生，因为 PGPROC
+		 * 结构的供应也是固定的，所以本应更早
+		 * 失败。）
 		 */
 		ereport(FATAL,
 				(errcode(ERRCODE_TOO_MANY_CONNECTIONS),
@@ -492,13 +492,13 @@ ProcArrayAdd(PGPROC *proc)
 	}
 
 	/*
-	 * Keep the procs array sorted by (PGPROC *) so that we can utilize
-	 * locality of references much better. This is useful while traversing the
-	 * ProcArray because there is an increased likelihood of finding the next
-	 * PGPROC structure in the cache.
+	 * 保持 procs 数组按 (PGPROC *) 排序，以便更好地利用
+	 * 引用局部性。遍历 ProcArray 时这很有用，因为更有可能
+	 * 在缓存里找到下一个
+	 * PGPROC 结构。
 	 *
-	 * Since the occurrence of adding/removing a proc is much lower than the
-	 * access to the ProcArray itself, the overhead should be marginal
+	 * 加入或移除 proc 的次数远低于对 ProcArray 本身的访问，
+	 * 所以开销应当可以忽略。
 	 */
 	for (index = 0; index < arrayP->numProcs; index++)
 	{
@@ -507,7 +507,7 @@ ProcArrayAdd(PGPROC *proc)
 		Assert(procno >= 0 && procno < (arrayP->maxProcs + NUM_AUXILIARY_PROCS));
 		Assert(allProcs[procno].pgxactoff == index);
 
-		/* If we have found our right position in the array, break */
+		/* 若已在数组中找到正确位置，就跳出 */
 		if (arrayP->pgprocnos[index] > proc->pgprocno)
 			break;
 	}
@@ -534,7 +534,7 @@ ProcArrayAdd(PGPROC *proc)
 
 	arrayP->numProcs++;
 
-	/* adjust pgxactoff for all following PGPROCs */
+	/* 调整其后所有 PGPROCs 的 pgxactoff */
 	index++;
 	for (; index < arrayP->numProcs; index++)
 	{
@@ -547,22 +547,22 @@ ProcArrayAdd(PGPROC *proc)
 	}
 
 	/*
-	 * Release in reversed acquisition order, to reduce frequency of having to
-	 * wait for XidGenLock while holding ProcArrayLock.
+	 * 按与获取相反的顺序释放，以降低持有 ProcArrayLock 时
+	 * 还要等待 XidGenLock 的频率。
 	 */
 	LWLockRelease(XidGenLock);
 	LWLockRelease(ProcArrayLock);
 }
 
 /*
- * Remove the specified PGPROC from the shared array.
+ * 从共享数组中移除指定的 PGPROC。
  *
- * When latestXid is a valid XID, we are removing a live 2PC gxact from the
- * array, and thus causing it to appear as "not running" anymore.  In this
- * case we must advance latestCompletedXid.  (This is essentially the same
- * as ProcArrayEndTransaction followed by removal of the PGPROC, but we take
- * the ProcArrayLock only once, and don't damage the content of the PGPROC;
- * twophase.c depends on the latter.)
+ * 当 latestXid 是有效 XID 时，我们是在从数组中移除
+ * 一个仍存活的两阶段 gxact，从而使它看起来不再处于运行中。
+ * 这种情况下必须推进 latestCompletedXid。（这本质上与先
+ * ProcArrayEndTransaction 再移除该 PGPROC 相同，但
+ * ProcArrayLock 只取一次，并且不破坏 PGPROC 的内容；
+ * twophase.c 依赖后者。）
  */
 void
 ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
@@ -572,12 +572,12 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 	int			movecount;
 
 #ifdef XIDCACHE_DEBUG
-	/* dump stats at backend shutdown, but not prepared-xact end */
+	/* 在后端关闭时转储统计，但准备事务结束时不转储 */
 	if (proc->pid != 0)
 		DisplayXidCache();
 #endif
 
-	/* See ProcGlobal comment explaining why both locks are held */
+	/* 见 ProcGlobal 注释，说明为何两把锁都要持有 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 	LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
 
@@ -590,10 +590,10 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 	{
 		Assert(TransactionIdIsValid(ProcGlobal->xids[myoff]));
 
-		/* Advance global latestCompletedXid while holding the lock */
+		/* 持锁期间推进全局 latestCompletedXid */
 		MaintainLatestCompletedXid(latestXid);
 
-		/* Same with xactCompletionCount  */
+		/* xactCompletionCount 同样处理  */
 		ShmemVariableCache->xactCompletionCount++;
 
 		ProcGlobal->xids[myoff] = InvalidTransactionId;
@@ -602,7 +602,7 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 	}
 	else
 	{
-		/* Shouldn't be trying to remove a live transaction here */
+		/* 不应当在这里试图移除一个仍存活的事务 */
 		Assert(!TransactionIdIsValid(ProcGlobal->xids[myoff]));
 	}
 
@@ -612,7 +612,7 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 
 	ProcGlobal->statusFlags[myoff] = 0;
 
-	/* Keep the PGPROC array sorted. See notes above */
+	/* 保持 PGPROC 数组有序。见上面的说明 */
 	movecount = arrayP->numProcs - myoff - 1;
 	memmove(&arrayP->pgprocnos[myoff],
 			&arrayP->pgprocnos[myoff + 1],
@@ -627,12 +627,12 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 			&ProcGlobal->statusFlags[myoff + 1],
 			movecount * sizeof(*ProcGlobal->statusFlags));
 
-	arrayP->pgprocnos[arrayP->numProcs - 1] = -1;	/* for debugging */
+	arrayP->pgprocnos[arrayP->numProcs - 1] = -1;	/* 供调试 */
 	arrayP->numProcs--;
 
 	/*
-	 * Adjust pgxactoff of following procs for removed PGPROC (note that
-	 * numProcs already has been decremented).
+	 * 调整被移除 PGPROC 之后那些 proc 的 pgxactoff（注意
+	 * numProcs 已经减过了）。
 	 */
 	for (int index = myoff; index < arrayP->numProcs; index++)
 	{
@@ -645,8 +645,8 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 	}
 
 	/*
-	 * Release in reversed acquisition order, to reduce frequency of having to
-	 * wait for XidGenLock while holding ProcArrayLock.
+	 * 按与获取相反的顺序释放，以降低持有 ProcArrayLock 时
+	 * 还要等待 XidGenLock 的频率。
 	 */
 	LWLockRelease(XidGenLock);
 	LWLockRelease(ProcArrayLock);
@@ -654,17 +654,17 @@ ProcArrayRemove(PGPROC *proc, TransactionId latestXid)
 
 
 /*
- * ProcArrayEndTransaction -- mark a transaction as no longer running
+ * ProcArrayEndTransaction：把事务标为不再运行。
  *
- * This is used interchangeably for commit and abort cases.  The transaction
- * commit/abort must already be reported to WAL and pg_xact.
+ * 提交和中止两种情形都用它。事务的
+ * 提交或中止必须已经报告给 WAL 和 pg_xact。
  *
- * proc is currently always MyProc, but we pass it explicitly for flexibility.
- * latestXid is the latest Xid among the transaction's main XID and
- * subtransactions, or InvalidTransactionId if it has no XID.  (We must ask
- * the caller to pass latestXid, instead of computing it from the PGPROC's
- * contents, because the subxid information in the PGPROC might be
- * incomplete.)
+ * proc 目前总是 MyProc，但为了灵活仍显式传入。
+ * latestXid 是该事务主 XID 与子事务中最新的 Xid，
+ * 若没有 XID 则为 InvalidTransactionId。（必须让
+ * 调用方传入 latestXid，而不是从 PGPROC 的
+ * 内容里计算，因为 PGPROC 里的 subxid 信息可能
+ * 不完整。）
  */
 void
 ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid)
@@ -672,17 +672,17 @@ ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid)
 	if (TransactionIdIsValid(latestXid))
 	{
 		/*
-		 * We must lock ProcArrayLock while clearing our advertised XID, so
-		 * that we do not exit the set of "running" transactions while someone
-		 * else is taking a snapshot.  See discussion in
-		 * src/backend/access/transam/README.
+		 * 清除对外公布的 XID 时必须锁住 ProcArrayLock，
+		 * 以免在别人正在取快照时退出正在运行的
+		 * 事务集合。讨论见
+		 * src/backend/access/transam/README。
 		 */
 		Assert(TransactionIdIsValid(proc->xid));
 
 		/*
-		 * If we can immediately acquire ProcArrayLock, we clear our own XID
-		 * and release the lock.  If not, use group XID clearing to improve
-		 * efficiency.
+		 * 若能立刻取得 ProcArrayLock，就清除自己的 XID
+		 * 并释放锁。否则用分组清除 XID 来提高
+		 * 效率。
 		 */
 		if (LWLockConditionalAcquire(ProcArrayLock, LW_EXCLUSIVE))
 		{
@@ -695,9 +695,9 @@ ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid)
 	else
 	{
 		/*
-		 * If we have no XID, we don't need to lock, since we won't affect
-		 * anyone else's calculation of a snapshot.  We might change their
-		 * estimate of global xmin, but that's OK.
+		 * 若没有 XID，就不需要上锁，因为不会影响
+		 * 别人计算快照。我们可能改变他们对全局 xmin 的
+		 * 估计，但这没问题。
 		 */
 		Assert(!TransactionIdIsValid(proc->xid));
 		Assert(proc->subxidStatus.count == 0);
@@ -706,13 +706,13 @@ ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid)
 		proc->lxid = InvalidLocalTransactionId;
 		proc->xmin = InvalidTransactionId;
 
-		/* be sure this is cleared in abort */
+		/* 确保在中止时把它清掉 */
 		proc->delayChkptFlags = 0;
 
 		proc->recoveryConflictPending = false;
 
-		/* must be cleared with xid/xmin: */
-		/* avoid unnecessarily dirtying shared cachelines */
+		/* 必须与 xid/xmin 一起清掉： */
+		/* 避免不必要地弄脏共享缓存行 */
 		if (proc->statusFlags & PROC_VACUUM_STATE_MASK)
 		{
 			Assert(!LWLockHeldByMe(ProcArrayLock));
@@ -726,9 +726,9 @@ ProcArrayEndTransaction(PGPROC *proc, TransactionId latestXid)
 }
 
 /*
- * Mark a write transaction as no longer running.
+ * 把一个写事务标为不再运行。
  *
- * We don't do any locking here; caller must handle that.
+ * 这里不做任何上锁；调用方必须处理。
  */
 static inline void
 ProcArrayEndTransactionInternal(PGPROC *proc, TransactionId latestXid)
@@ -736,8 +736,8 @@ ProcArrayEndTransactionInternal(PGPROC *proc, TransactionId latestXid)
 	int			pgxactoff = proc->pgxactoff;
 
 	/*
-	 * Note: we need exclusive lock here because we're going to change other
-	 * processes' PGPROC entries.
+	 * 注意：这里需要排他锁，因为我们要改其他
+	 * 进程的 PGPROC 项。
 	 */
 	Assert(LWLockHeldByMeInMode(ProcArrayLock, LW_EXCLUSIVE));
 	Assert(TransactionIdIsValid(ProcGlobal->xids[pgxactoff]));
@@ -748,20 +748,20 @@ ProcArrayEndTransactionInternal(PGPROC *proc, TransactionId latestXid)
 	proc->lxid = InvalidLocalTransactionId;
 	proc->xmin = InvalidTransactionId;
 
-	/* be sure this is cleared in abort */
+	/* 确保在中止时把它清掉 */
 	proc->delayChkptFlags = 0;
 
 	proc->recoveryConflictPending = false;
 
-	/* must be cleared with xid/xmin: */
-	/* avoid unnecessarily dirtying shared cachelines */
+	/* 必须与 xid/xmin 一起清掉： */
+	/* 避免不必要地弄脏共享缓存行 */
 	if (proc->statusFlags & PROC_VACUUM_STATE_MASK)
 	{
 		proc->statusFlags &= ~PROC_VACUUM_STATE_MASK;
 		ProcGlobal->statusFlags[proc->pgxactoff] = proc->statusFlags;
 	}
 
-	/* Clear the subtransaction-XID cache too while holding the lock */
+	/* 持锁期间也清掉子事务 XID 缓存 */
 	Assert(ProcGlobal->subxidStates[pgxactoff].count == proc->subxidStatus.count &&
 		   ProcGlobal->subxidStates[pgxactoff].overflowed == proc->subxidStatus.overflowed);
 	if (proc->subxidStatus.count > 0 || proc->subxidStatus.overflowed)
@@ -772,24 +772,24 @@ ProcArrayEndTransactionInternal(PGPROC *proc, TransactionId latestXid)
 		proc->subxidStatus.overflowed = false;
 	}
 
-	/* Also advance global latestCompletedXid while holding the lock */
+	/* 持锁期间也推进全局 latestCompletedXid */
 	MaintainLatestCompletedXid(latestXid);
 
-	/* Same with xactCompletionCount  */
+	/* xactCompletionCount 同样处理  */
 	ShmemVariableCache->xactCompletionCount++;
 }
 
 /*
- * ProcArrayGroupClearXid -- group XID clearing
+ * ProcArrayGroupClearXid：分组清除 XID。
  *
- * When we cannot immediately acquire ProcArrayLock in exclusive mode at
- * commit time, add ourselves to a list of processes that need their XIDs
- * cleared.  The first process to add itself to the list will acquire
- * ProcArrayLock in exclusive mode and perform ProcArrayEndTransactionInternal
- * on behalf of all group members.  This avoids a great deal of contention
- * around ProcArrayLock when many processes are trying to commit at once,
- * since the lock need not be repeatedly handed off from one committing
- * process to the next.
+ * 在提交时若无法立刻以排他模式取得
+ * ProcArrayLock，就把自己加入需要清除 XIDs 的
+ * 进程列表。第一个把自己加入列表的进程会以排他
+ * 模式取得 ProcArrayLock，并代表全体成员执行
+ * ProcArrayEndTransactionInternal。这样在许多进程同时
+ * 提交时，可以避开 ProcArrayLock 上的大量争用，
+ * 因为锁不必从一个正在提交的进程反复
+ * 交到下一个。
  */
 static void
 ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
@@ -798,10 +798,10 @@ ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
 	uint32		nextidx;
 	uint32		wakeidx;
 
-	/* We should definitely have an XID to clear. */
+	/* 我们肯定有一个 XID 要清除。 */
 	Assert(TransactionIdIsValid(proc->xid));
 
-	/* Add ourselves to the list of processes needing a group XID clear. */
+	/* 把自己加入需要分组清除 XID 的进程列表。 */
 	proc->procArrayGroupMember = true;
 	proc->procArrayGroupMemberXid = latestXid;
 	nextidx = pg_atomic_read_u32(&procglobal->procArrayGroupFirst);
@@ -816,20 +816,20 @@ ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
 	}
 
 	/*
-	 * If the list was not empty, the leader will clear our XID.  It is
-	 * impossible to have followers without a leader because the first process
-	 * that has added itself to the list will always have nextidx as
-	 * INVALID_PGPROCNO.
+	 * 若列表原先非空，领导者会清除我们的 XID。不可能有跟随者却没有领导者，
+	 * 因为第一个把自己加入列表的进程，其 nextidx 始终是
+	 * INVALID_PGPROCNO。
+	 * 这一点是确定的。
 	 */
 	if (nextidx != INVALID_PGPROCNO)
 	{
 		int			extraWaits = 0;
 
-		/* Sleep until the leader clears our XID. */
+		/* 睡眠，直到领导者清除我们的 XID。 */
 		pgstat_report_wait_start(WAIT_EVENT_PROCARRAY_GROUP_UPDATE);
 		for (;;)
 		{
-			/* acts as a read barrier */
+			/* 充当读屏障 */
 			PGSemaphoreLock(proc->sem);
 			if (!proc->procArrayGroupMember)
 				break;
@@ -839,46 +839,46 @@ ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
 
 		Assert(pg_atomic_read_u32(&proc->procArrayGroupNext) == INVALID_PGPROCNO);
 
-		/* Fix semaphore count for any absorbed wakeups */
+		/* 修正被吸收的唤醒所对应的信号量计数 */
 		while (extraWaits-- > 0)
 			PGSemaphoreUnlock(proc->sem);
 		return;
 	}
 
-	/* We are the leader.  Acquire the lock on behalf of everyone. */
+	/* 我们是领导者。代表所有人取得锁。 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	/*
-	 * Now that we've got the lock, clear the list of processes waiting for
-	 * group XID clearing, saving a pointer to the head of the list.  Trying
-	 * to pop elements one at a time could lead to an ABA problem.
+	 * 既然已经拿到锁，就清掉等待分组清除 XID 的进程列表，
+	 * 并保存指向表头的指针。一次只弹出一个元素
+	 * 可能导致 ABA 问题。
 	 */
 	nextidx = pg_atomic_exchange_u32(&procglobal->procArrayGroupFirst,
 									 INVALID_PGPROCNO);
 
-	/* Remember head of list so we can perform wakeups after dropping lock. */
+	/* 记住表头，以便放锁后再执行唤醒。 */
 	wakeidx = nextidx;
 
-	/* Walk the list and clear all XIDs. */
+	/* 遍历列表并清除所有 XIDs。 */
 	while (nextidx != INVALID_PGPROCNO)
 	{
 		PGPROC	   *nextproc = &allProcs[nextidx];
 
 		ProcArrayEndTransactionInternal(nextproc, nextproc->procArrayGroupMemberXid);
 
-		/* Move to next proc in list. */
+		/* 移到列表中的下一个 proc。 */
 		nextidx = pg_atomic_read_u32(&nextproc->procArrayGroupNext);
 	}
 
-	/* We're done with the lock now. */
+	/* 锁现在用完了。 */
 	LWLockRelease(ProcArrayLock);
 
 	/*
-	 * Now that we've released the lock, go back and wake everybody up.  We
-	 * don't do this under the lock so as to keep lock hold times to a
-	 * minimum.  The system calls we need to perform to wake other processes
-	 * up are probably much slower than the simple memory writes we did while
-	 * holding the lock.
+	 * 既然已经放锁，就回去把所有人唤醒。
+	 * 不在持锁时做这件事，以便把持锁时间压到
+	 * 最短。唤醒其他进程所需的系统调用
+	 * 大概比持锁期间那些简单的内存写
+	 * 慢得多。
 	 */
 	while (wakeidx != INVALID_PGPROCNO)
 	{
@@ -887,7 +887,7 @@ ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
 		wakeidx = pg_atomic_read_u32(&nextproc->procArrayGroupNext);
 		pg_atomic_write_u32(&nextproc->procArrayGroupNext, INVALID_PGPROCNO);
 
-		/* ensure all previous writes are visible before follower continues. */
+		/* 确保先前的写在跟随者继续之前都可见。 */
 		pg_write_barrier();
 
 		nextproc->procArrayGroupMember = false;
@@ -898,12 +898,12 @@ ProcArrayGroupClearXid(PGPROC *proc, TransactionId latestXid)
 }
 
 /*
- * ProcArrayClearTransaction -- clear the transaction fields
+ * ProcArrayClearTransaction：清除事务字段。
  *
- * This is used after successfully preparing a 2-phase transaction.  We are
- * not actually reporting the transaction's XID as no longer running --- it
- * will still appear as running because the 2PC's gxact is in the ProcArray
- * too.  We just have to clear out our own PGPROC.
+ * 这用在成功准备一个两阶段事务之后。我们并不是在报告
+ * 该事务的 XID 不再运行，它仍会显示为运行中，因为两阶段的
+ * gxact 也在 ProcArray 里。我们只需要清掉自己的
+ * PGPROC。
  */
 void
 ProcArrayClearTransaction(PGPROC *proc)
@@ -911,18 +911,18 @@ ProcArrayClearTransaction(PGPROC *proc)
 	int			pgxactoff;
 
 	/*
-	 * Currently we need to lock ProcArrayLock exclusively here, as we
-	 * increment xactCompletionCount below. We also need it at least in shared
-	 * mode for pgproc->pgxactoff to stay the same below.
+	 * 目前这里需要排他地锁住 ProcArrayLock，因为下面要
+	 * 递增 xactCompletionCount。至少还需要共享
+	 * 模式，好让 pgproc->pgxactoff 在下面保持不变。
 	 *
-	 * We could however, as this action does not actually change anyone's view
-	 * of the set of running XIDs (our entry is duplicate with the gxact that
-	 * has already been inserted into the ProcArray), lower the lock level to
-	 * shared if we were to make xactCompletionCount an atomic variable. But
-	 * that doesn't seem worth it currently, as a 2PC commit is heavyweight
-	 * enough for this not to be the bottleneck.  If it ever becomes a
-	 * bottleneck it may also be worth considering to combine this with the
-	 * subsequent ProcArrayRemove()
+	 * 不过，这个动作实际上并不改变任何人对正在运行的 XIDs 集合的看法
+	 * （我们的项与已经插入 ProcArray 的 gxact 是重复的），
+	 * 若把 xactCompletionCount 做成原子变量，就可以把锁级别降到
+	 * 共享。但目前似乎不值得，因为两阶段提交本身已经足够重，
+	 * 这里不会成为瓶颈。若将来成为
+	 * 瓶颈，也可以考虑把它和随后的
+	 * ProcArrayRemove()
+	 * 合并起来。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
@@ -939,15 +939,15 @@ ProcArrayClearTransaction(PGPROC *proc)
 	Assert(!proc->delayChkptFlags);
 
 	/*
-	 * Need to increment completion count even though transaction hasn't
-	 * really committed yet. The reason for that is that GetSnapshotData()
-	 * omits the xid of the current transaction, thus without the increment we
-	 * otherwise could end up reusing the snapshot later. Which would be bad,
-	 * because it might not count the prepared transaction as running.
+	 * 即便事务其实还没提交，也需要递增完成计数。原因是 GetSnapshotData()
+	 * 会省略当前事务的 xid，因此若不递增，
+	 * 以后就可能复用这份快照。那就糟了，
+	 * 因为它可能不把已准备的事务算作运行中。
+	 * 所以这里仍然要递增。
 	 */
 	ShmemVariableCache->xactCompletionCount++;
 
-	/* Clear the subtransaction-XID cache too */
+	/* 也清掉子事务 XID 缓存 */
 	Assert(ProcGlobal->subxidStates[pgxactoff].count == proc->subxidStatus.count &&
 		   ProcGlobal->subxidStates[pgxactoff].overflowed == proc->subxidStatus.overflowed);
 	if (proc->subxidStatus.count > 0 || proc->subxidStatus.overflowed)
@@ -962,8 +962,8 @@ ProcArrayClearTransaction(PGPROC *proc)
 }
 
 /*
- * Update ShmemVariableCache->latestCompletedXid to point to latestXid if
- * currently older.
+ * 若 ShmemVariableCache->latestCompletedXid 目前更旧，
+ * 就把它更新为指向 latestXid。
  */
 static void
 MaintainLatestCompletedXid(TransactionId latestXid)
@@ -985,7 +985,7 @@ MaintainLatestCompletedXid(TransactionId latestXid)
 }
 
 /*
- * Same as MaintainLatestCompletedXid, except for use during WAL replay.
+ * 与 MaintainLatestCompletedXid 相同，但用于 WAL 重放期间。
  */
 static void
 MaintainLatestCompletedXidRecovery(TransactionId latestXid)
@@ -997,9 +997,9 @@ MaintainLatestCompletedXidRecovery(TransactionId latestXid)
 	Assert(LWLockHeldByMe(ProcArrayLock));
 
 	/*
-	 * Need a FullTransactionId to compare latestXid with. Can't rely on
-	 * latestCompletedXid to be initialized in recovery. But in recovery it's
-	 * safe to access nextXid without a lock for the startup process.
+	 * 需要一个 FullTransactionId 来和 latestXid 比较。恢复期间不能依赖
+	 * latestCompletedXid 已经初始化。但在恢复中，启动进程
+	 * 可以不上锁就访问 nextXid。
 	 */
 	rel = ShmemVariableCache->nextXid;
 	Assert(FullTransactionIdIsValid(ShmemVariableCache->nextXid));
@@ -1015,11 +1015,11 @@ MaintainLatestCompletedXidRecovery(TransactionId latestXid)
 }
 
 /*
- * ProcArrayInitRecovery -- initialize recovery xid mgmt environment
+ * ProcArrayInitRecovery：初始化恢复期的 xid 管理环境。
  *
- * Remember up to where the startup process initialized the CLOG and subtrans
- * so we can ensure it's initialized gaplessly up to the point where necessary
- * while in recovery.
+ * 记住启动进程把 CLOG 和 subtrans 初始化到了哪里，
+ * 以便在恢复期间确保从那里起无间隙地初始化到
+ * 所需要的位置。
  */
 void
 ProcArrayInitRecovery(TransactionId initializedUptoXID)
@@ -1028,29 +1028,29 @@ ProcArrayInitRecovery(TransactionId initializedUptoXID)
 	Assert(TransactionIdIsNormal(initializedUptoXID));
 
 	/*
-	 * we set latestObservedXid to the xid SUBTRANS has been initialized up
-	 * to, so we can extend it from that point onwards in
-	 * RecordKnownAssignedTransactionIds, and when we get consistent in
-	 * ProcArrayApplyRecoveryInfo().
+	 * 把 latestObservedXid 设为 SUBTRANS 已初始化到的那个 xid，
+	 * 以便从此处起在 RecordKnownAssignedTransactionIds 里扩展它，
+	 * 并在 ProcArrayApplyRecoveryInfo() 达到一致时
+	 * 也从这里扩展。
 	 */
 	latestObservedXid = initializedUptoXID;
 	TransactionIdRetreat(latestObservedXid);
 }
 
 /*
- * ProcArrayApplyRecoveryInfo -- apply recovery info about xids
+ * ProcArrayApplyRecoveryInfo：应用关于 xid 的恢复信息。
  *
- * Takes us through 3 states: Initialized, Pending and Ready.
- * Normal case is to go all the way to Ready straight away, though there
- * are atypical cases where we need to take it in steps.
+ * 它带我们经过三个状态：已初始化、待定和就绪。
+ * 正常情况是直接一路走到就绪，不过
+ * 也有非典型情况需要分步走。
  *
- * Use the data about running transactions on the primary to create the initial
- * state of KnownAssignedXids. We also use these records to regularly prune
- * KnownAssignedXids because we know it is possible that some transactions
- * with FATAL errors fail to write abort records, which could cause eventual
- * overflow.
+ * 用主库上正在运行的事务的数据来建立 KnownAssignedXids 的
+ * 初始状态。也用这些记录定期裁剪
+ * KnownAssignedXids，因为我们知道有些事务会因 FATAL
+ * 错误而没写出中止记录，最终可能导致
+ * 溢出。
  *
- * See comments for LogStandbySnapshot().
+ * 见 LogStandbySnapshot() 的注释。
  */
 void
 ProcArrayApplyRecoveryInfo(RunningTransactions running)
@@ -1065,43 +1065,43 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 	Assert(TransactionIdIsNormal(running->latestCompletedXid));
 
 	/*
-	 * Remove stale transactions, if any.
+	 * 若有过期事务，就移除。
 	 */
 	ExpireOldKnownAssignedTransactionIds(running->oldestRunningXid);
 
 	/*
-	 * Remove stale locks, if any.
+	 * 若有过期锁，就移除。
 	 */
 	StandbyReleaseOldLocks(running->oldestRunningXid);
 
 	/*
-	 * If our snapshot is already valid, nothing else to do...
+	 * 若快照已经有效，就没有别的事了...
 	 */
 	if (standbyState == STANDBY_SNAPSHOT_READY)
 		return;
 
 	/*
-	 * If our initial RunningTransactionsData had an overflowed snapshot then
-	 * we knew we were missing some subxids from our snapshot. If we continue
-	 * to see overflowed snapshots then we might never be able to start up, so
-	 * we make another test to see if our snapshot is now valid. We know that
-	 * the missing subxids are equal to or earlier than nextXid. After we
-	 * initialise we continue to apply changes during recovery, so once the
-	 * oldestRunningXid is later than the nextXid from the initial snapshot we
-	 * know that we no longer have missing information and can mark the
-	 * snapshot as valid.
+	 * 若最初的 RunningTransactionsData 有一份溢出的快照，
+	 * 我们就知道快照里缺少一些 subxid。若此后
+	 * 继续看到溢出的快照，可能永远无法启动，所以
+	 * 再做一次测试，看快照现在是否有效。我们知道
+	 * 缺少的 subxid 等于或早于 nextXid。初始化之后
+	 * 我们在恢复期间继续应用变更，所以一旦
+	 * oldestRunningXid 晚于初始快照的 nextXid，
+	 * 就知道不再缺少信息，可以把
+	 * 快照标为有效。
 	 */
 	if (standbyState == STANDBY_SNAPSHOT_PENDING)
 	{
 		/*
-		 * If the snapshot isn't overflowed or if its empty we can reset our
-		 * pending state and use this snapshot instead.
+		 * 若快照没有溢出，或者它是空的，就可以重置待定
+		 * 状态并改用这份快照。
 		 */
 		if (running->subxid_status != SUBXIDS_MISSING || running->xcnt == 0)
 		{
 			/*
-			 * If we have already collected known assigned xids, we need to
-			 * throw them away before we apply the recovery snapshot.
+			 * 若已经收集了已知已分配的 xid，就需要在应用恢复
+			 * 快照之前把它们丢掉。
 			 */
 			KnownAssignedXidsReset();
 			standbyState = STANDBY_INITIALIZED;
@@ -1128,35 +1128,35 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 	Assert(standbyState == STANDBY_INITIALIZED);
 
 	/*
-	 * NB: this can be reached at least twice, so make sure new code can deal
-	 * with that.
+	 * 注意：这里至少可能到达两次，所以新代码必须能
+	 * 对付这种情况。
 	 */
 
 	/*
-	 * Nobody else is running yet, but take locks anyhow
+	 * 还没有别人在跑，但还是把锁拿上
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	/*
-	 * KnownAssignedXids is sorted so we cannot just add the xids, we have to
-	 * sort them first.
+	 * KnownAssignedXids 是有序的，所以无法直接把 xid 加进去，必须
+	 * 先排序。
 	 *
-	 * Some of the new xids are top-level xids and some are subtransactions.
-	 * We don't call SubTransSetParent because it doesn't matter yet. If we
-	 * aren't overflowed then all xids will fit in snapshot and so we don't
-	 * need subtrans. If we later overflow, an xid assignment record will add
-	 * xids to subtrans. If RunningTransactionsData is overflowed then we
-	 * don't have enough information to correctly update subtrans anyway.
+	 * 有些新 xid 是顶层 xid，有些是子事务。
+	 * 我们不调用 SubTransSetParent，因为现在还不要紧。若没有
+	 * 溢出，所有 xid 都能放进快照，于是不
+	 * 需要 subtrans。若以后溢出，一条 xid 分配记录会把
+	 * xid 加进 subtrans。若 RunningTransactionsData 溢出了，那么
+	 * 反正也没有足够信息来正确更新 subtrans。
 	 */
 
 	/*
-	 * Allocate a temporary array to avoid modifying the array passed as
-	 * argument.
+	 * 分配一个临时数组，以免修改作为参数传入的
+	 * 那个数组。
 	 */
 	xids = palloc(sizeof(TransactionId) * (running->xcnt + running->subxcnt));
 
 	/*
-	 * Add to the temp array any xids which have not already completed.
+	 * 把尚未完成的 xid 加进临时数组。
 	 */
 	nxids = 0;
 	for (i = 0; i < running->xcnt + running->subxcnt; i++)
@@ -1164,10 +1164,10 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 		TransactionId xid = running->xids[i];
 
 		/*
-		 * The running-xacts snapshot can contain xids that were still visible
-		 * in the procarray when the snapshot was taken, but were already
-		 * WAL-logged as completed. They're not running anymore, so ignore
-		 * them.
+		 * running-xacts 快照可能含有在取快照时
+		 * 在 procarray 里仍可见、但已经作为已完成写入 WAL 的 xid。
+		 * 它们不再运行，所以
+		 * 忽略它们。
 		 */
 		if (TransactionIdDidCommit(xid) || TransactionIdDidAbort(xid))
 			continue;
@@ -1184,20 +1184,20 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 		}
 
 		/*
-		 * Sort the array so that we can add them safely into
-		 * KnownAssignedXids.
+		 * 把数组排序，以便能安全地加进
+		 * KnownAssignedXids。
 		 *
-		 * We have to sort them logically, because in KnownAssignedXidsAdd we
-		 * call TransactionIdFollowsOrEquals and so on. But we know these XIDs
-		 * come from RUNNING_XACTS, which means there are only normal XIDs
-		 * from the same epoch, so this is safe.
+		 * 必须按逻辑顺序排，因为 KnownAssignedXidsAdd 里会
+		 * 调用 TransactionIdFollowsOrEquals 等等。但我们知道这些 XIDs
+		 * 来自 RUNNING_XACTS，也就是说只有同一纪元里的普通 XIDs，
+		 * 所以这样做是安全的。
 		 */
 		qsort(xids, nxids, sizeof(TransactionId), xidLogicalComparator);
 
 		/*
-		 * Add the sorted snapshot into KnownAssignedXids.  The running-xacts
-		 * snapshot may include duplicated xids because of prepared
-		 * transactions, so ignore them.
+		 * 把排好序的快照加进 KnownAssignedXids。running-xacts
+		 * 快照可能因已准备事务而含有重复 xid，
+		 * 所以忽略它们。
 		 */
 		for (i = 0; i < nxids; i++)
 		{
@@ -1217,14 +1217,14 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 	pfree(xids);
 
 	/*
-	 * latestObservedXid is at least set to the point where SUBTRANS was
-	 * started up to (cf. ProcArrayInitRecovery()) or to the biggest xid
-	 * RecordKnownAssignedTransactionIds() was called for.  Initialize
-	 * subtrans from thereon, up to nextXid - 1.
+	 * latestObservedXid 至少被设到 SUBTRANS 启动到的位置
+	 * （参见 ProcArrayInitRecovery()），或设到
+	 * RecordKnownAssignedTransactionIds() 被调用过的最大 xid。从那里起
+	 * 把 subtrans 初始化到 nextXid - 1。
 	 *
-	 * We need to duplicate parts of RecordKnownAssignedTransactionId() here,
-	 * because we've just added xids to the known assigned xids machinery that
-	 * haven't gone through RecordKnownAssignedTransactionId().
+	 * 这里需要复制 RecordKnownAssignedTransactionId() 的一部分，
+	 * 因为刚加进已知已分配 xid 机制的那些 xid
+	 * 并没有经过 RecordKnownAssignedTransactionId()。
 	 */
 	Assert(TransactionIdIsNormal(latestObservedXid));
 	TransactionIdAdvance(latestObservedXid);
@@ -1233,20 +1233,20 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 		ExtendSUBTRANS(latestObservedXid);
 		TransactionIdAdvance(latestObservedXid);
 	}
-	TransactionIdRetreat(latestObservedXid);	/* = running->nextXid - 1 */
+	TransactionIdRetreat(latestObservedXid);	/* 等于 running->nextXid - 1 */
 
 	/* ----------
-	 * Now we've got the running xids we need to set the global values that
-	 * are used to track snapshots as they evolve further.
+	 * 现在已经有了正在运行的 xid，需要设置那些用来
+	 * 在快照继续演化时跟踪它们的全局值。
 	 *
-	 * - latestCompletedXid which will be the xmax for snapshots
-	 * - lastOverflowedXid which shows whether snapshots overflow
-	 * - nextXid
+	 * - latestCompletedXid，它将成为快照的 xmax
+	 * - lastOverflowedXid，它表示快照是否溢出
+	 * - nextXid。
 	 *
-	 * If the snapshot overflowed, then we still initialise with what we know,
-	 * but the recovery snapshot isn't fully valid yet because we know there
-	 * are some subxids missing. We don't know the specific subxids that are
-	 * missing, so conservatively assume the last one is latestObservedXid.
+	 * 若快照溢出了，仍用已知的内容初始化，
+	 * 但恢复快照还不完全有效，因为知道有些
+	 * subxid 缺少。不知道具体缺少哪些 subxid，所以保守地
+	 * 假定最后一个是 latestObservedXid。
 	 * ----------
 	 */
 	if (running->subxid_status == SUBXIDS_MISSING)
@@ -1263,8 +1263,8 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 		standbySnapshotPendingXmin = InvalidTransactionId;
 
 		/*
-		 * If the 'xids' array didn't include all subtransactions, we have to
-		 * mark any snapshots taken as overflowed.
+		 * 若 xids 数组没有包含全部子事务，就必须把此后取到的
+		 * 任何快照标为溢出。
 		 */
 		if (running->subxid_status == SUBXIDS_IN_SUBTRANS)
 			procArray->lastOverflowedXid = latestObservedXid;
@@ -1276,21 +1276,21 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 	}
 
 	/*
-	 * If a transaction wrote a commit record in the gap between taking and
-	 * logging the snapshot then latestCompletedXid may already be higher than
-	 * the value from the snapshot, so check before we use the incoming value.
-	 * It also might not yet be set at all.
+	 * 若某个事务在取快照和把快照写入日志之间的空隙里写了提交记录，
+	 * latestCompletedXid 可能已经高于
+	 * 快照里的值，所以用传入值之前先检查。
+	 * 它也可能根本还没被设置。
 	 */
 	MaintainLatestCompletedXidRecovery(running->latestCompletedXid);
 
 	/*
-	 * NB: No need to increment ShmemVariableCache->xactCompletionCount here,
-	 * nobody can see it yet.
+	 * 注意：这里不需要递增 ShmemVariableCache->xactCompletionCount，
+	 * 还没有人能看见它。
 	 */
 
 	LWLockRelease(ProcArrayLock);
 
-	/* ShmemVariableCache->nextXid must be beyond any observed xid. */
+	/* ShmemVariableCache->nextXid 必须超出任何已观察到的 xid。 */
 	AdvanceNextFullTransactionIdPastXid(latestObservedXid);
 
 	Assert(FullTransactionIdIsValid(ShmemVariableCache->nextXid));
@@ -1308,7 +1308,7 @@ ProcArrayApplyRecoveryInfo(RunningTransactions running)
 
 /*
  * ProcArrayApplyXidAssignment
- *		Process an XLOG_XACT_ASSIGNMENT WAL record
+ *		处理一条 XLOG_XACT_ASSIGNMENT WAL 记录
  */
 void
 ProcArrayApplyXidAssignment(TransactionId topxid,
@@ -1322,45 +1322,45 @@ ProcArrayApplyXidAssignment(TransactionId topxid,
 	max_xid = TransactionIdLatest(topxid, nsubxids, subxids);
 
 	/*
-	 * Mark all the subtransactions as observed.
+	 * 把所有子事务标为已观察到。
 	 *
-	 * NOTE: This will fail if the subxid contains too many previously
-	 * unobserved xids to fit into known-assigned-xids. That shouldn't happen
-	 * as the code stands, because xid-assignment records should never contain
-	 * more than PGPROC_MAX_CACHED_SUBXIDS entries.
+	 * 注意：若 subxid 里先前未观察到的 xid 过多，多到
+	 * 放不进 known-assigned-xids，这里会失败。按现有代码
+	 * 这不该发生，因为 xid 分配记录绝不应当包含
+	 * 超过 PGPROC_MAX_CACHED_SUBXIDS 项。
 	 */
 	RecordKnownAssignedTransactionIds(max_xid);
 
 	/*
-	 * Notice that we update pg_subtrans with the top-level xid, rather than
-	 * the parent xid. This is a difference between normal processing and
-	 * recovery, yet is still correct in all cases. The reason is that
-	 * subtransaction commit is not marked in clog until commit processing, so
-	 * all aborted subtransactions have already been clearly marked in clog.
-	 * As a result we are able to refer directly to the top-level
-	 * transaction's state rather than skipping through all the intermediate
-	 * states in the subtransaction tree. This should be the first time we
-	 * have attempted to SubTransSetParent().
+	 * 注意我们用顶层 xid 而不是父 xid 来更新 pg_subtrans。
+	 * 这是正常处理与恢复之间的差别，但在所有情况下仍然正确。
+	 * 原因是子事务提交要到提交处理时才记入 clog，所以
+	 * 所有已中止的子事务都已经在 clog 里明确标出。
+	 * 因此可以直接引用顶层
+	 * 事务的状态，而不必跳过子事务树里所有的中间
+	 * 状态。这应当是我们第一次尝试
+	 * 调用 SubTransSetParent()。
+	 * 此前还没有建立过这种父子关系。
 	 */
 	for (i = 0; i < nsubxids; i++)
 		SubTransSetParent(subxids[i], topxid);
 
-	/* KnownAssignedXids isn't maintained yet, so we're done for now */
+	/* KnownAssignedXids 还没在维护，所以目前到此为止 */
 	if (standbyState == STANDBY_INITIALIZED)
 		return;
 
 	/*
-	 * Uses same locking as transaction commit
+	 * 使用与事务提交相同的加锁
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	/*
-	 * Remove subxids from known-assigned-xacts.
+	 * 从 known-assigned-xacts 中移除 subxid。
 	 */
 	KnownAssignedXidsRemoveTree(InvalidTransactionId, nsubxids, subxids);
 
 	/*
-	 * Advance lastOverflowedXid to be at least the last of these subxids.
+	 * 把 lastOverflowedXid 至少推进到这些 subxid 中的最后一个。
 	 */
 	if (TransactionIdPrecedes(procArray->lastOverflowedXid, max_xid))
 		procArray->lastOverflowedXid = max_xid;
@@ -1369,30 +1369,30 @@ ProcArrayApplyXidAssignment(TransactionId topxid,
 }
 
 /*
- * TransactionIdIsInProgress -- is given transaction running in some backend
+ * TransactionIdIsInProgress：给定事务是否在某个后端里运行。
  *
- * Aside from some shortcuts such as checking RecentXmin and our own Xid,
- * there are four possibilities for finding a running transaction:
+ * 除了检查 RecentXmin 和我们自己的 Xid 这类捷径之外，
+ * 寻找正在运行的事务有四种可能：
  *
- * 1. The given Xid is a main transaction Id.  We will find this out cheaply
- * by looking at ProcGlobal->xids.
+ * 1. 给定 Xid 是主事务 Id。查看 ProcGlobal->xids
+ * 就能便宜地发现这一点。
  *
- * 2. The given Xid is one of the cached subxact Xids in the PGPROC array.
- * We can find this out cheaply too.
+ * 2. 给定 Xid 是 PGPROC 数组里缓存的某个子事务 Xid。
+ * 这也能便宜地发现。
  *
- * 3. In Hot Standby mode, we must search the KnownAssignedXids list to see
- * if the Xid is running on the primary.
+ * 3. 在热备模式下，必须搜索 KnownAssignedXids 列表，看
+ * 该 Xid 是否在主库上运行。
  *
- * 4. Search the SubTrans tree to find the Xid's topmost parent, and then see
- * if that is running according to ProcGlobal->xids[] or KnownAssignedXids.
- * This is the slowest way, but sadly it has to be done always if the others
- * failed, unless we see that the cached subxact sets are complete (none have
- * overflowed).
+ * 4. 搜索 SubTrans 树，找到该 Xid 的最顶层父事务，再看
+ * 按 ProcGlobal->xids[] 或 KnownAssignedXids 它是否在运行。
+ * 这是最慢的办法，但若其他办法都失败了，可惜总是得做，
+ * 除非看到缓存的子事务集合是完整的（没有一个
+ * 溢出）。
  *
- * ProcArrayLock has to be held while we do 1, 2, 3.  If we save the top Xids
- * while doing 1 and 3, we can release the ProcArrayLock while we do 4.
- * This buys back some concurrency (and we can't retrieve the main Xids from
- * ProcGlobal->xids[] again anyway; see GetNewTransactionId).
+ * 做 1、2、3 时必须持有 ProcArrayLock。若在做 1 和 3 时保存顶层 Xid，
+ * 就可以在做 4 时释放 ProcArrayLock。
+ * 这换回一些并发（而且反正也不能再从
+ * ProcGlobal->xids[] 取回主 Xid；见 GetNewTransactionId）。
  */
 bool
 TransactionIdIsInProgress(TransactionId xid)
@@ -1409,10 +1409,10 @@ TransactionIdIsInProgress(TransactionId xid)
 	int			j;
 
 	/*
-	 * Don't bother checking a transaction older than RecentXmin; it could not
-	 * possibly still be running.  (Note: in particular, this guarantees that
-	 * we reject InvalidTransactionId, FrozenTransactionId, etc as not
-	 * running.)
+	 * 不必检查比 RecentXmin 更旧的事务；它无法
+	 * 仍在运行。（特别是，这保证我们会拒绝
+	 * InvalidTransactionId、FrozenTransactionId 等，认定它们不在
+	 * 运行。）
 	 */
 	if (TransactionIdPrecedes(xid, RecentXmin))
 	{
@@ -1421,9 +1421,9 @@ TransactionIdIsInProgress(TransactionId xid)
 	}
 
 	/*
-	 * We may have just checked the status of this transaction, so if it is
-	 * already known to be completed, we can fall out without any access to
-	 * shared memory.
+	 * 我们可能刚查过这个事务的状态，所以若已经
+	 * 知道它已完成，就可以退出，而不访问
+	 * 共享内存。
 	 */
 	if (TransactionIdEquals(cachedXidIsNotInProgress, xid))
 	{
@@ -1432,8 +1432,8 @@ TransactionIdIsInProgress(TransactionId xid)
 	}
 
 	/*
-	 * Also, we can handle our own transaction (and subtransactions) without
-	 * any access to shared memory.
+	 * 同样，自己的事务（以及子事务）也可以不访问
+	 * 共享内存就处理。
 	 */
 	if (TransactionIdIsCurrentTransactionId(xid))
 	{
@@ -1442,15 +1442,15 @@ TransactionIdIsInProgress(TransactionId xid)
 	}
 
 	/*
-	 * If first time through, get workspace to remember main XIDs in. We
-	 * malloc it permanently to avoid repeated palloc/pfree overhead.
+	 * 若是第一次经过，就取得工作区来记住主 XIDs。
+	 * 把它永久 malloc 出来，以免反复 palloc/pfree 的开销。
 	 */
 	if (xids == NULL)
 	{
 		/*
-		 * In hot standby mode, reserve enough space to hold all xids in the
-		 * known-assigned list. If we later finish recovery, we no longer need
-		 * the bigger array, but we don't bother to shrink it.
+		 * 在热备模式下，留出足够空间来装下 known-assigned 列表里的
+		 * 全部 xid。若以后结束恢复，就不再需要
+		 * 更大的数组，但我们懒得把它缩小。
 		 */
 		int			maxxids = RecoveryInProgress() ? TOTAL_MAX_CACHED_SUBXIDS : arrayP->maxProcs;
 
@@ -1467,8 +1467,8 @@ TransactionIdIsInProgress(TransactionId xid)
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 
 	/*
-	 * Now that we have the lock, we can check latestCompletedXid; if the
-	 * target Xid is after that, it's surely still running.
+	 * 既然有了锁，就可以检查 latestCompletedXid；若目标
+	 * Xid 在它之后，就肯定仍在运行。
 	 */
 	latestCompletedXid =
 		XidFromFullTransactionId(ShmemVariableCache->latestCompletedXid);
@@ -1479,7 +1479,7 @@ TransactionIdIsInProgress(TransactionId xid)
 		return true;
 	}
 
-	/* No shortcuts, gotta grovel through the array */
+	/* 没有捷径，只能把数组翻一遍 */
 	mypgxactoff = MyProc->pgxactoff;
 	numProcs = arrayP->numProcs;
 	for (int pgxactoff = 0; pgxactoff < numProcs; pgxactoff++)
@@ -1489,18 +1489,18 @@ TransactionIdIsInProgress(TransactionId xid)
 		TransactionId pxid;
 		int			pxids;
 
-		/* Ignore ourselves --- dealt with it above */
+		/* 忽略我们自己，上面已经处理过 */
 		if (pgxactoff == mypgxactoff)
 			continue;
 
-		/* Fetch xid just once - see GetNewTransactionId */
+		/* xid 只取一次，见 GetNewTransactionId */
 		pxid = UINT32_ACCESS_ONCE(other_xids[pgxactoff]);
 
 		if (!TransactionIdIsValid(pxid))
 			continue;
 
 		/*
-		 * Step 1: check the main Xid
+		 * 第 1 步：检查主 Xid
 		 */
 		if (TransactionIdEquals(pxid, xid))
 		{
@@ -1510,22 +1510,22 @@ TransactionIdIsInProgress(TransactionId xid)
 		}
 
 		/*
-		 * We can ignore main Xids that are younger than the target Xid, since
-		 * the target could not possibly be their child.
+		 * 可以忽略比目标 Xid 更年轻的主 Xid，因为
+		 * 目标无法成为它们的子事务。
 		 */
 		if (TransactionIdPrecedes(xid, pxid))
 			continue;
 
 		/*
-		 * Step 2: check the cached child-Xids arrays
+		 * 第 2 步：检查缓存的子 Xid 数组
 		 */
 		pxids = other_subxidstates[pgxactoff].count;
-		pg_read_barrier();		/* pairs with barrier in GetNewTransactionId() */
+		pg_read_barrier();		/* 与 GetNewTransactionId() 里的屏障配对 */
 		pgprocno = arrayP->pgprocnos[pgxactoff];
 		proc = &allProcs[pgprocno];
 		for (j = pxids - 1; j >= 0; j--)
 		{
-			/* Fetch xid just once - see GetNewTransactionId */
+			/* xid 只取一次，见 GetNewTransactionId */
 			TransactionId cxid = UINT32_ACCESS_ONCE(proc->subxids.xids[j]);
 
 			if (TransactionIdEquals(cxid, xid))
@@ -1537,23 +1537,23 @@ TransactionIdIsInProgress(TransactionId xid)
 		}
 
 		/*
-		 * Save the main Xid for step 4.  We only need to remember main Xids
-		 * that have uncached children.  (Note: there is no race condition
-		 * here because the overflowed flag cannot be cleared, only set, while
-		 * we hold ProcArrayLock.  So we can't miss an Xid that we need to
-		 * worry about.)
+		 * 为第 4 步保存主 Xid。只需要记住那些
+		 * 有未缓存子事务的主 Xid。（注意：这里没有竞争
+		 * 条件，因为持有 ProcArrayLock 期间，溢出标志无法被清除，只能被设置。
+		 * 所以不会漏掉需要
+		 * 担心的 Xid。）
 		 */
 		if (other_subxidstates[pgxactoff].overflowed)
 			xids[nxids++] = pxid;
 	}
 
 	/*
-	 * Step 3: in hot standby mode, check the known-assigned-xids list.  XIDs
-	 * in the list must be treated as running.
+	 * 第 3 步：在热备模式下，检查 known-assigned-xids 列表。列表里的 XIDs
+	 * 必须当作正在运行。
 	 */
 	if (RecoveryInProgress())
 	{
-		/* none of the PGPROC entries should have XIDs in hot standby mode */
+		/* 热备模式下不应当有 PGPROC 项带有 XIDs */
 		Assert(nxids == 0);
 
 		if (KnownAssignedXidExists(xid))
@@ -1564,11 +1564,11 @@ TransactionIdIsInProgress(TransactionId xid)
 		}
 
 		/*
-		 * If the KnownAssignedXids overflowed, we have to check pg_subtrans
-		 * too.  Fetch all xids from KnownAssignedXids that are lower than
-		 * xid, since if xid is a subtransaction its parent will always have a
-		 * lower value.  Note we will collect both main and subXIDs here, but
-		 * there's no help for it.
+		 * 若 KnownAssignedXids 溢出了，还必须检查 pg_subtrans。
+		 * 从 KnownAssignedXids 取出所有低于
+		 * xid 的 xid，因为若 xid 是子事务，其父事务的值总是
+		 * 更低。注意这里会同时收集主 xid 和子 xid，
+		 * 但这是没办法的事。
 		 */
 		if (TransactionIdPrecedesOrEquals(xid, procArray->lastOverflowedXid))
 			nxids = KnownAssignedXidsGet(xids, xid);
@@ -1577,8 +1577,8 @@ TransactionIdIsInProgress(TransactionId xid)
 	LWLockRelease(ProcArrayLock);
 
 	/*
-	 * If none of the relevant caches overflowed, we know the Xid is not
-	 * running without even looking at pg_subtrans.
+	 * 若相关缓存都没有溢出，甚至不用看 pg_subtrans
+	 * 就知道该 Xid 不在运行。
 	 */
 	if (nxids == 0)
 	{
@@ -1588,12 +1588,12 @@ TransactionIdIsInProgress(TransactionId xid)
 	}
 
 	/*
-	 * Step 4: have to check pg_subtrans.
+	 * 第 4 步：必须检查 pg_subtrans。
 	 *
-	 * At this point, we know it's either a subtransaction of one of the Xids
-	 * in xids[], or it's not running.  If it's an already-failed
-	 * subtransaction, we want to say "not running" even though its parent may
-	 * still be running.  So first, check pg_xact to see if it's been aborted.
+	 * 到这里，我们知道它要么是 xids[] 里某个 Xid 的子事务，
+	 * 要么不在运行。若它是已经失败的
+	 * 子事务，即使父事务可能仍在运行，我们也要说不在运行。
+	 * 所以先查 pg_xact，看它是否已被中止。
 	 */
 	xc_slow_answer_inc();
 
@@ -1604,9 +1604,9 @@ TransactionIdIsInProgress(TransactionId xid)
 	}
 
 	/*
-	 * It isn't aborted, so check whether the transaction tree it belongs to
-	 * is still running (or, more precisely, whether it was running when we
-	 * held ProcArrayLock).
+	 * 它没有被中止，所以检查它所属的事务树
+	 * 是否仍在运行（更准确地说，是我们持有
+	 * ProcArrayLock 时它是否在运行）。
 	 */
 	topxid = SubTransGetTopmostTransaction(xid);
 	Assert(TransactionIdIsValid(topxid));
@@ -1619,12 +1619,12 @@ TransactionIdIsInProgress(TransactionId xid)
 }
 
 /*
- * TransactionIdIsActive -- is xid the top-level XID of an active backend?
+ * TransactionIdIsActive：xid 是否是某个活动后端的顶层 XID？
  *
- * This differs from TransactionIdIsInProgress in that it ignores prepared
- * transactions, as well as transactions running on the primary if we're in
- * hot standby.  Also, we ignore subtransactions since that's not needed
- * for current uses.
+ * 它与 TransactionIdIsInProgress 的差别在于忽略已准备
+ * 事务，以及在热备时忽略主库上正在运行的事务。另外，
+ * 我们忽略子事务，因为当前用途
+ * 不需要它们。
  */
 bool
 TransactionIdIsActive(TransactionId xid)
@@ -1635,8 +1635,8 @@ TransactionIdIsActive(TransactionId xid)
 	int			i;
 
 	/*
-	 * Don't bother checking a transaction older than RecentXmin; it could not
-	 * possibly still be running.
+	 * 不必检查比 RecentXmin 更旧的事务；它无法
+	 * 仍在运行。
 	 */
 	if (TransactionIdPrecedes(xid, RecentXmin))
 		return false;
@@ -1649,14 +1649,14 @@ TransactionIdIsActive(TransactionId xid)
 		PGPROC	   *proc = &allProcs[pgprocno];
 		TransactionId pxid;
 
-		/* Fetch xid just once - see GetNewTransactionId */
+		/* xid 只取一次，见 GetNewTransactionId */
 		pxid = UINT32_ACCESS_ONCE(other_xids[i]);
 
 		if (!TransactionIdIsValid(pxid))
 			continue;
 
 		if (proc->pid == 0)
-			continue;			/* ignore prepared transactions */
+			continue;			/* 忽略已准备事务 */
 
 		if (TransactionIdEquals(pxid, xid))
 		{
@@ -1672,60 +1672,60 @@ TransactionIdIsActive(TransactionId xid)
 
 
 /*
- * Determine XID horizons.
+ * 确定 XID 视界。
  *
- * This is used by wrapper functions like GetOldestNonRemovableTransactionId()
- * (for VACUUM), GetReplicationHorizons() (for hot_standby_feedback), etc as
- * well as "internally" by GlobalVisUpdate() (see comment above struct
- * GlobalVisState).
+ * 包装函数会用到它，例如 GetOldestNonRemovableTransactionId()
+ * （用于 VACUUM）、GetReplicationHorizons()（用于 hot_standby_feedback）等，
+ * 以及 GlobalVisUpdate() 在内部使用（见结构
+ * GlobalVisState 上面的注释）。
  *
- * See the definition of ComputeXidHorizonsResult for the various computed
- * horizons.
+ * 各种算出的视界见
+ * ComputeXidHorizonsResult 的定义。
  *
- * For VACUUM separate horizons (used to decide which deleted tuples must
- * be preserved), for shared and non-shared tables are computed.  For shared
- * relations backends in all databases must be considered, but for non-shared
- * relations that's not required, since only backends in my own database could
- * ever see the tuples in them. Also, we can ignore concurrently running lazy
- * VACUUMs because (a) they must be working on other tables, and (b) they
- * don't need to do snapshot-based lookups.
+ * 对 VACUUM 会分别计算共享表和非共享表的视界（用来决定哪些
+ * 已删元组必须保留）。共享关系必须考虑所有数据库里的后端，
+ * 但非共享关系则不需要，因为只有我自己数据库里的后端才可能
+ * 看见其中的元组。另外，可以忽略并发运行的惰性
+ * VACUUMs，因为 (a) 它们一定在处理别的表，并且 (b) 它们
+ * 不需要做基于快照的
+ * 查找。
  *
- * This also computes a horizon used to truncate pg_subtrans. For that
- * backends in all databases have to be considered, and concurrently running
- * lazy VACUUMs cannot be ignored, as they still may perform pg_subtrans
- * accesses.
+ * 这里也计算用来截断 pg_subtrans 的视界。为此
+ * 必须考虑所有数据库里的后端，并且无法忽略并发运行的惰性
+ * VACUUM，因为它们仍可能访问
+ * pg_subtrans。
  *
- * Note: we include all currently running xids in the set of considered xids.
- * This ensures that if a just-started xact has not yet set its snapshot,
- * when it does set the snapshot it cannot set xmin less than what we compute.
- * See notes in src/backend/access/transam/README.
+ * 注意：我们把当前所有正在运行的 xid 都放进所考虑的 xid 集合。
+ * 这保证若一个刚启动的事务还没设置快照，
+ * 等它设置快照时，无法把 xmin 设得比我们算出的更小。
+ * 见 src/backend/access/transam/README 里的说明。
  *
- * Note: despite the above, it's possible for the calculated values to move
- * backwards on repeated calls. The calculated values are conservative, so
- * that anything older is definitely not considered as running by anyone
- * anymore, but the exact values calculated depend on a number of things. For
- * example, if there are no transactions running in the current database, the
- * horizon for normal tables will be latestCompletedXid. If a transaction
- * begins after that, its xmin will include in-progress transactions in other
- * databases that started earlier, so another call will return a lower value.
- * Nonetheless it is safe to vacuum a table in the current database with the
- * first result.  There are also replication-related effects: a walsender
- * process can set its xmin based on transactions that are no longer running
- * on the primary but are still being replayed on the standby, thus possibly
- * making the values go backwards.  In this case there is a possibility that
- * we lose data that the standby would like to have, but unless the standby
- * uses a replication slot to make its xmin persistent there is little we can
- * do about that --- data is only protected if the walsender runs continuously
- * while queries are executed on the standby.  (The Hot Standby code deals
- * with such cases by failing standby queries that needed to access
- * already-removed data, so there's no integrity bug.)
+ * 注意：尽管如此，反复调用时算出的值仍可能
+ * 向后移动。算出的值是保守的，所以
+ * 比它更旧的东西肯定不再被任何人视为
+ * 运行中，但确切算出的值取决于许多因素。例如，
+ * 若当前数据库里没有正在运行的事务，
+ * 普通表的视界就是 latestCompletedXid。若此后有事务
+ * 开始，它的 xmin 会包含其他数据库里更早开始的进行中事务，
+ * 于是另一次调用会返回更低的值。
+ * 尽管如此，用第一次的结果来清理当前数据库里的表仍然是安全的。
+ * 还有与复制有关的影响：walsender
+ * 进程可以根据在主库上已不再运行、
+ * 但在备库上仍在重放的事务来设置 xmin，从而可能
+ * 使这些值向后走。这种情况下有可能
+ * 丢掉备库希望保留的数据，但除非备库
+ * 用复制槽让 xmin 持久化，否则我们几乎无能为力。
+ * 只有 walsender 在备库执行查询期间持续运行，
+ * 数据才受到保护。（热备代码处理
+ * 这类情况的办法是让需要访问已被删除数据的备库查询失败，
+ * 所以没有完整性缺陷。）
  *
- * Note: the approximate horizons (see definition of GlobalVisState) are
- * updated by the computations done here. That's currently required for
- * correctness and a small optimization. Without doing so it's possible that
- * heap vacuum's call to heap_page_prune() uses a more conservative horizon
- * than later when deciding which tuples can be removed - which the code
- * doesn't expect (breaking HOT).
+ * 注意：近似视界（见 GlobalVisState 的定义）由
+ * 这里所做的计算来更新。目前为了正确性以及一点小的加快，
+ * 这是必需的。不这样做的话，堆清理对 heap_page_prune() 的调用
+ * 可能用比后来决定哪些元组可以删除时更保守的视界，
+ * 而代码并不预期这种情况
+ * （会破坏 HOT）。
  */
 static void
 ComputeXidHorizons(ComputeXidHorizonsResult *h)
@@ -1735,7 +1735,7 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 	bool		in_recovery = RecoveryInProgress();
 	TransactionId *other_xids = ProcGlobal->xids;
 
-	/* inferred after ProcArrayLock is released */
+	/* 在 ProcArrayLock 释放之后推断出来 */
 	h->catalog_oldest_nonremovable = InvalidTransactionId;
 
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
@@ -1743,10 +1743,10 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 	h->latest_completed = ShmemVariableCache->latestCompletedXid;
 
 	/*
-	 * We initialize the MIN() calculation with latestCompletedXid + 1. This
-	 * is a lower bound for the XIDs that might appear in the ProcArray later,
-	 * and so protects us against overestimating the result due to future
-	 * additions.
+	 * 我们用 latestCompletedXid + 1 来初始化 MIN() 计算。这是
+	 * 以后可能出现在 ProcArray 里的 XIDs 的下界，
+	 * 从而防止因将来的加入而
+	 * 高估结果。
 	 */
 	{
 		TransactionId initial;
@@ -1760,16 +1760,16 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 		h->data_oldest_nonremovable = initial;
 
 		/*
-		 * Only modifications made by this backend affect the horizon for
-		 * temporary relations. Instead of a check in each iteration of the
-		 * loop over all PGPROCs it is cheaper to just initialize to the
-		 * current top-level xid any.
+		 * 只有本后端所做的修改才会影响临时关系的视界。与其在
+		 * 对所有 PGPROCs 的循环里每次检查，不如直接初始化为
+		 * 当前任一顶层 xid，这样更
+		 * 便宜。
 		 *
-		 * Without an assigned xid we could use a horizon as aggressive as
-		 * GetNewTransactionId(), but we can get away with the much cheaper
-		 * latestCompletedXid + 1: If this backend has no xid there, by
-		 * definition, can't be any newer changes in the temp table than
-		 * latestCompletedXid.
+		 * 若还没有分配 xid，视界可以激进到
+		 * GetNewTransactionId()，但用便宜得多的
+		 * latestCompletedXid + 1 就够了：若本后端在那里没有 xid，
+		 * 按定义，临时表里不会有比
+		 * latestCompletedXid 更新的变更。
 		 */
 		if (TransactionIdIsValid(MyProc->xid))
 			h->temp_oldest_nonremovable = MyProc->xid;
@@ -1778,9 +1778,9 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 	}
 
 	/*
-	 * Fetch slot horizons while ProcArrayLock is held - the
-	 * LWLockAcquire/LWLockRelease are a barrier, ensuring this happens inside
-	 * the lock.
+	 * 在持有 ProcArrayLock 时取出槽的视界。
+	 * LWLockAcquire/LWLockRelease 是屏障，保证这件事发生在
+	 * 锁的内部。
 	 */
 	h->slot_xmin = procArray->replication_slot_xmin;
 	h->slot_catalog_xmin = procArray->replication_slot_catalog_xmin;
@@ -1793,62 +1793,62 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 		TransactionId xid;
 		TransactionId xmin;
 
-		/* Fetch xid just once - see GetNewTransactionId */
+		/* xid 只取一次，见 GetNewTransactionId */
 		xid = UINT32_ACCESS_ONCE(other_xids[index]);
 		xmin = UINT32_ACCESS_ONCE(proc->xmin);
 
 		/*
-		 * Consider both the transaction's Xmin, and its Xid.
+		 * 同时考虑该事务的 Xmin 和它的 Xid。
 		 *
-		 * We must check both because a transaction might have an Xmin but not
-		 * (yet) an Xid; conversely, if it has an Xid, that could determine
-		 * some not-yet-set Xmin.
+		 * 两者都必须检查，因为事务可能有 Xmin 但还没有
+		 * Xid；反过来，若它有 Xid，那可能决定某个
+		 * 尚未设置的 Xmin。
 		 */
 		xmin = TransactionIdOlder(xmin, xid);
 
-		/* if neither is set, this proc doesn't influence the horizon */
+		/* 若两者都没设置，这个 proc 不影响视界 */
 		if (!TransactionIdIsValid(xmin))
 			continue;
 
 		/*
-		 * Don't ignore any procs when determining which transactions might be
-		 * considered running.  While slots should ensure logical decoding
-		 * backends are protected even without this check, it can't hurt to
-		 * include them here as well..
+		 * 在判断哪些事务可能被视为运行中时，不要忽略任何 proc。
+		 * 虽然复制槽应当即使没有这项检查也能保护逻辑解码
+		 * 后端，但把它们也算进来
+		 * 没有坏处。
 		 */
 		h->oldest_considered_running =
 			TransactionIdOlder(h->oldest_considered_running, xmin);
 
 		/*
-		 * Skip over backends either vacuuming (which is ok with rows being
-		 * removed, as long as pg_subtrans is not truncated) or doing logical
-		 * decoding (which manages xmin separately, check below).
+		 * 跳过正在清理的后端（只要不截断 pg_subtrans，行被
+		 * 删掉也没问题）或正在做逻辑
+		 * 解码的后端（它另行管理 xmin，见下面的检查）。
 		 */
 		if (statusFlags & (PROC_IN_VACUUM | PROC_IN_LOGICAL_DECODING))
 			continue;
 
-		/* shared tables need to take backends in all databases into account */
+		/* 共享表需要把所有数据库里的后端都考虑进去 */
 		h->shared_oldest_nonremovable =
 			TransactionIdOlder(h->shared_oldest_nonremovable, xmin);
 
 		/*
-		 * Normally sessions in other databases are ignored for anything but
-		 * the shared horizon.
+		 * 通常，其他数据库里的会话除了共享视界之外
+		 * 一律忽略。
 		 *
-		 * However, include them when MyDatabaseId is not (yet) set.  A
-		 * backend in the process of starting up must not compute a "too
-		 * aggressive" horizon, otherwise we could end up using it to prune
-		 * still-needed data away.  If the current backend never connects to a
-		 * database this is harmless, because data_oldest_nonremovable will
-		 * never be utilized.
+		 * 不过，当 MyDatabaseId 尚未设置时要把它们算进去。正在
+		 * 启动的后端不得算出过于激进的
+		 * 视界，否则我们可能用它把仍然需要的数据
+		 * 裁掉。若当前后端从不连接到某个
+		 * 数据库，这也无害，因为 data_oldest_nonremovable 将
+		 * 永远不会被用到。
 		 *
-		 * Also, sessions marked with PROC_AFFECTS_ALL_HORIZONS should always
-		 * be included.  (This flag is used for hot standby feedback, which
-		 * can't be tied to a specific database.)
+		 * 另外，标了 PROC_AFFECTS_ALL_HORIZONS 的会话应当始终
+		 * 被包括。（这个标志用于热备反馈，它
+		 * 没法绑定到某个特定数据库。）
 		 *
-		 * Also, while in recovery we cannot compute an accurate per-database
-		 * horizon, as all xids are managed via the KnownAssignedXids
-		 * machinery.
+		 * 另外，恢复期间没法算出准确的按数据库
+		 * 视界，因为所有 xid 都经由 KnownAssignedXids
+		 * 机制来管理。
 		 */
 		if (proc->databaseId == MyDatabaseId ||
 			MyDatabaseId == InvalidOid ||
@@ -1861,15 +1861,15 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 	}
 
 	/*
-	 * If in recovery fetch oldest xid in KnownAssignedXids, will be applied
-	 * after lock is released.
+	 * 若在恢复中，取出 KnownAssignedXids 里最旧的 xid，放锁之后
+	 * 再应用。
 	 */
 	if (in_recovery)
 		kaxmin = KnownAssignedXidsGetOldestXmin();
 
 	/*
-	 * No other information from shared state is needed, release the lock
-	 * immediately. The rest of the computations can be done without a lock.
+	 * 不再需要共享状态里的其他信息，立刻
+	 * 放锁。其余计算可以不上锁完成。
 	 */
 	LWLockRelease(ProcArrayLock);
 
@@ -1881,7 +1881,7 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 			TransactionIdOlder(h->shared_oldest_nonremovable, kaxmin);
 		h->data_oldest_nonremovable =
 			TransactionIdOlder(h->data_oldest_nonremovable, kaxmin);
-		/* temp relations cannot be accessed in recovery */
+		/* 恢复期间无法访问临时关系 */
 	}
 
 	Assert(TransactionIdPrecedesOrEquals(h->oldest_considered_running,
@@ -1890,7 +1890,7 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 										 h->data_oldest_nonremovable));
 
 	/*
-	 * Check whether there are replication slots requiring an older xmin.
+	 * 检查是否有复制槽需要更旧的 xmin。
 	 */
 	h->shared_oldest_nonremovable =
 		TransactionIdOlder(h->shared_oldest_nonremovable, h->slot_xmin);
@@ -1898,11 +1898,11 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 		TransactionIdOlder(h->data_oldest_nonremovable, h->slot_xmin);
 
 	/*
-	 * The only difference between catalog / data horizons is that the slot's
-	 * catalog xmin is applied to the catalog one (so catalogs can be accessed
-	 * for logical decoding). Initialize with data horizon, and then back up
-	 * further if necessary. Have to back up the shared horizon as well, since
-	 * that also can contain catalogs.
+	 * 系统目录视界与数据视界的唯一差别是，槽的
+	 * 系统目录 xmin 会作用到系统目录视界上（以便逻辑解码能访问系统目录）。
+	 * 先用数据视界初始化，然后在必要时再
+	 * 往回退。共享视界也得往回退，因为
+	 * 它里面也可能有系统目录。
 	 */
 	h->shared_oldest_nonremovable_raw = h->shared_oldest_nonremovable;
 	h->shared_oldest_nonremovable =
@@ -1914,8 +1914,8 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 						   h->slot_catalog_xmin);
 
 	/*
-	 * It's possible that slots backed up the horizons further than
-	 * oldest_considered_running. Fix.
+	 * 槽有可能把视界退得比 oldest_considered_running 更旧。
+	 * 修正这一点。
 	 */
 	h->oldest_considered_running =
 		TransactionIdOlder(h->oldest_considered_running,
@@ -1928,8 +1928,8 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 						   h->data_oldest_nonremovable);
 
 	/*
-	 * shared horizons have to be at least as old as the oldest visible in
-	 * current db
+	 * 共享视界至少要和当前数据库里可见的最旧值
+	 * 一样旧。
 	 */
 	Assert(TransactionIdPrecedesOrEquals(h->shared_oldest_nonremovable,
 										 h->data_oldest_nonremovable));
@@ -1937,8 +1937,8 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 										 h->catalog_oldest_nonremovable));
 
 	/*
-	 * Horizons need to ensure that pg_subtrans access is still possible for
-	 * the relevant backends.
+	 * 视界需要保证相关后端仍然能够访问
+	 * pg_subtrans。
 	 */
 	Assert(TransactionIdPrecedesOrEquals(h->oldest_considered_running,
 										 h->shared_oldest_nonremovable));
@@ -1955,20 +1955,20 @@ ComputeXidHorizons(ComputeXidHorizonsResult *h)
 		   TransactionIdPrecedesOrEquals(h->oldest_considered_running,
 										 h->slot_catalog_xmin));
 
-	/* update approximate horizons with the computed horizons */
+	/* 用算出的视界更新近似视界 */
 	GlobalVisUpdateApply(h);
 }
 
 /*
- * Determine what kind of visibility horizon needs to be used for a
- * relation. If rel is NULL, the most conservative horizon is used.
+ * 判断一个关系需要使用哪种可见性视界。
+ * 若 rel 为 NULL，就用最保守的视界。
  */
 static inline GlobalVisHorizonKind
 GlobalVisHorizonKindForRel(Relation rel)
 {
 	/*
-	 * Other relkinds currently don't contain xids, nor always the necessary
-	 * logical decoding markers.
+	 * 其他 relkind 目前既不含 xid，也并不总有必要的
+	 * 逻辑解码标记。
 	 */
 	Assert(!rel ||
 		   rel->rd_rel->relkind == RELKIND_RELATION ||
@@ -1987,15 +1987,15 @@ GlobalVisHorizonKindForRel(Relation rel)
 }
 
 /*
- * Return the oldest XID for which deleted tuples must be preserved in the
- * passed table.
+ * 返回传入表中必须保留已删元组的最旧
+ * XID。
  *
- * If rel is not NULL the horizon may be considerably more recent than
- * otherwise (i.e. fewer tuples will be removable). In the NULL case a horizon
- * that is correct (but not optimal) for all relations will be returned.
+ * 若 rel 不是 NULL，视界可能比否则情况下新得多
+ * （也就是可删除的元组更少）。NULL 情况下会返回一个对所有关系都正确
+ * （但不是最优）的视界。
  *
- * This is used by VACUUM to decide which deleted tuples must be preserved in
- * the passed in table.
+ * VACUUM 用它来决定传入表中哪些已删元组必须
+ * 保留。
  */
 TransactionId
 GetOldestNonRemovableTransactionId(Relation rel)
@@ -2016,15 +2016,15 @@ GetOldestNonRemovableTransactionId(Relation rel)
 			return horizons.temp_oldest_nonremovable;
 	}
 
-	/* just to prevent compiler warnings */
+	/* 只为消除编译器告警 */
 	return InvalidTransactionId;
 }
 
 /*
- * Return the oldest transaction id any currently running backend might still
- * consider running. This should not be used for visibility / pruning
- * determinations (see GetOldestNonRemovableTransactionId()), but for
- * decisions like up to where pg_subtrans can be truncated.
+ * 返回任何当前正在运行的后端仍可能视为运行中的最旧事务 id。
+ * 不应当把它用于可见性或裁剪判断
+ * （见 GetOldestNonRemovableTransactionId()），而是用于
+ * 诸如 pg_subtrans 可以截断到哪里这类决定。
  */
 TransactionId
 GetOldestTransactionIdConsideredRunning(void)
@@ -2037,7 +2037,7 @@ GetOldestTransactionIdConsideredRunning(void)
 }
 
 /*
- * Return the visibility horizons for a hot standby feedback message.
+ * 返回热备反馈消息所用的可见性视界。
  */
 void
 GetReplicationHorizons(TransactionId *xmin, TransactionId *catalog_xmin)
@@ -2047,19 +2047,19 @@ GetReplicationHorizons(TransactionId *xmin, TransactionId *catalog_xmin)
 	ComputeXidHorizons(&horizons);
 
 	/*
-	 * Don't want to use shared_oldest_nonremovable here, as that contains the
-	 * effect of replication slot's catalog_xmin. We want to send a separate
-	 * feedback for the catalog horizon, so the primary can remove data table
-	 * contents more aggressively.
+	 * 这里不要用 shared_oldest_nonremovable，因为它包含
+	 * 复制槽 catalog_xmin 的影响。我们想为系统目录视界
+	 * 单独发一份反馈，这样主库可以更激进地
+	 * 删除数据表的内容。
 	 */
 	*xmin = horizons.shared_oldest_nonremovable_raw;
 	*catalog_xmin = horizons.slot_catalog_xmin;
 }
 
 /*
- * GetMaxSnapshotXidCount -- get max size for snapshot XID array
+ * GetMaxSnapshotXidCount：取得快照 XID 数组的最大尺寸。
  *
- * We have to export this for use by snapmgr.c.
+ * 必须把它导出给 snapmgr.c 使用。
  */
 int
 GetMaxSnapshotXidCount(void)
@@ -2068,9 +2068,9 @@ GetMaxSnapshotXidCount(void)
 }
 
 /*
- * GetMaxSnapshotSubxidCount -- get max size for snapshot sub-XID array
+ * GetMaxSnapshotSubxidCount：取得快照子 XID 数组的最大尺寸。
  *
- * We have to export this for use by snapmgr.c.
+ * 必须把它导出给 snapmgr.c 使用。
  */
 int
 GetMaxSnapshotSubxidCount(void)
@@ -2079,7 +2079,7 @@ GetMaxSnapshotSubxidCount(void)
 }
 
 /*
- * Initialize old_snapshot_threshold specific parts of a newly build snapshot.
+ * 初始化新构建快照里与 old_snapshot_threshold 有关的部分。
  */
 static void
 GetSnapshotDataInitOldSnapshot(Snapshot snapshot)
@@ -2087,8 +2087,8 @@ GetSnapshotDataInitOldSnapshot(Snapshot snapshot)
 	if (!OldSnapshotThresholdActive())
 	{
 		/*
-		 * If not using "snapshot too old" feature, fill related fields with
-		 * dummy values that don't require any locking.
+		 * 若未使用快照过旧特性，相关字段填上
+		 * 不需要任何上锁的哑值。
 		 */
 		snapshot->lsn = InvalidXLogRecPtr;
 		snapshot->whenTaken = 0;
@@ -2096,9 +2096,9 @@ GetSnapshotDataInitOldSnapshot(Snapshot snapshot)
 	else
 	{
 		/*
-		 * Capture the current time and WAL stream location in case this
-		 * snapshot becomes old enough to need to fall back on the special
-		 * "old snapshot" logic.
+		 * 记下当前时间和 WAL 流位置，以防这份
+		 * 快照变得足够旧，需要退回到特殊的
+		 * 旧快照逻辑。
 		 */
 		snapshot->lsn = GetXLogInsertRecPtr();
 		snapshot->whenTaken = GetSnapshotCurrentTimestamp();
@@ -2107,13 +2107,13 @@ GetSnapshotDataInitOldSnapshot(Snapshot snapshot)
 }
 
 /*
- * Helper function for GetSnapshotData() that checks if the bulk of the
- * visibility information in the snapshot is still valid. If so, it updates
- * the fields that need to change and returns true. Otherwise it returns
- * false.
+ * GetSnapshotData() 的辅助函数，检查快照里大部分
+ * 可见性信息是否仍然有效。若有效，它更新
+ * 需要改变的字段并返回真。否则返回
+ * 假。
  *
- * This very likely can be evolved to not need ProcArrayLock held (at very
- * least in the case we already hold a snapshot), but that's for another day.
+ * 这很可能会演变成不必持有 ProcArrayLock（至少在
+ * 已经持有一份快照时），但那是以后的事。
  */
 static bool
 GetSnapshotDataReuse(Snapshot snapshot)
@@ -2130,24 +2130,24 @@ GetSnapshotDataReuse(Snapshot snapshot)
 		return false;
 
 	/*
-	 * If the current xactCompletionCount is still the same as it was at the
-	 * time the snapshot was built, we can be sure that rebuilding the
-	 * contents of the snapshot the hard way would result in the same snapshot
-	 * contents:
+	 * 若当前 xactCompletionCount 仍与构建快照时相同，
+	 * 就可以确定，用笨办法重建
+	 * 快照内容会得到相同的快照
+	 * 内容：
 	 *
-	 * As explained in transam/README, the set of xids considered running by
-	 * GetSnapshotData() cannot change while ProcArrayLock is held. Snapshot
-	 * contents only depend on transactions with xids and xactCompletionCount
-	 * is incremented whenever a transaction with an xid finishes (while
-	 * holding ProcArrayLock exclusively). Thus the xactCompletionCount check
-	 * ensures we would detect if the snapshot would have changed.
+	 * 如 transam/README 所解释，GetSnapshotData() 视为运行中的
+	 * xid 集合在持有 ProcArrayLock 期间无法改变。快照
+	 * 内容只取决于带 xid 的事务，而带 xid 的事务结束时
+	 * （同时排他持有 ProcArrayLock）就会递增 xactCompletionCount。
+	 * 因此这项 xactCompletionCount 检查能保证我们发现
+	 * 快照是否会改变。
 	 *
-	 * As the snapshot contents are the same as it was before, it is safe to
-	 * re-enter the snapshot's xmin into the PGPROC array. None of the rows
-	 * visible under the snapshot could already have been removed (that'd
-	 * require the set of running transactions to change) and it fulfills the
-	 * requirement that concurrent GetSnapshotData() calls yield the same
-	 * xmin.
+	 * 由于快照内容与之前相同，把快照的 xmin
+	 * 重新写入 PGPROC 数组是安全的。在该快照下可见的行
+	 * 没有一行可能已经被删掉（那需要正在运行的事务集合
+	 * 发生变化），并且它满足并发 GetSnapshotData()
+	 * 调用产生相同
+	 * xmin 的需要。
 	 */
 	if (!TransactionIdIsValid(MyProc->xmin))
 		MyProc->xmin = TransactionXmin = snapshot->xmin;
@@ -2166,36 +2166,36 @@ GetSnapshotDataReuse(Snapshot snapshot)
 }
 
 /*
- * GetSnapshotData -- returns information about running transactions.
+ * GetSnapshotData：返回关于正在运行的事务的信息。
  *
- * The returned snapshot includes xmin (lowest still-running xact ID),
- * xmax (highest completed xact ID + 1), and a list of running xact IDs
- * in the range xmin <= xid < xmax.  It is used as follows:
- *		All xact IDs < xmin are considered finished.
- *		All xact IDs >= xmax are considered still running.
- *		For an xact ID xmin <= xid < xmax, consult list to see whether
- *		it is considered running or not.
- * This ensures that the set of transactions seen as "running" by the
- * current xact will not change after it takes the snapshot.
+ * 返回的快照包括 xmin（仍在运行的最低事务 ID）、
+ * xmax（已完成的最高事务 ID + 1），以及范围
+ * xmin <= xid < xmax 内正在运行的事务 ID 列表。用法如下：
+ *		所有 < xmin 的事务 ID 视为已结束。
+ *		所有 >= xmax 的事务 ID 视为仍在运行。
+ *		对于 xmin <= xid < xmax 的事务 ID，查列表以判断
+ *		它是否被视为运行中。
+ * 这保证当前事务视为正在运行的事务集合
+ * 在它取得快照之后不会改变。
  *
- * All running top-level XIDs are included in the snapshot, except for lazy
- * VACUUM processes.  We also try to include running subtransaction XIDs,
- * but since PGPROC has only a limited cache area for subxact XIDs, full
- * information may not be available.  If we find any overflowed subxid arrays,
- * we have to mark the snapshot's subxid data as overflowed, and extra work
- * *may* need to be done to determine what's running (see XidInMVCCSnapshot()).
+ * 除了惰性 VACUUM 进程之外，所有正在运行的顶层 XIDs 都包含在快照里。
+ * 我们也尽量包含正在运行的子事务 XIDs，
+ * 但 PGPROC 只有有限的子事务 XID 缓存区，完整
+ * 信息可能不可得。若发现任何溢出的 subxid 数组，
+ * 就必须把快照的 subxid 数据标为溢出，并且可能
+ * 需要额外工作来判断什么在运行（见 XidInMVCCSnapshot()）。
  *
- * We also update the following backend-global variables:
- *		TransactionXmin: the oldest xmin of any snapshot in use in the
- *			current transaction (this is the same as MyProc->xmin).
- *		RecentXmin: the xmin computed for the most recent snapshot.  XIDs
- *			older than this are known not running any more.
+ * 我们也更新下列后端全局变量：
+ *		TransactionXmin：当前事务中任何在用快照的最旧 xmin
+ *			（这与 MyProc->xmin 相同）。
+ *		RecentXmin：最近一份快照算出的 xmin。比这更旧的 XIDs
+ *			已知不再运行。
  *
- * And try to advance the bounds of GlobalVis{Shared,Catalog,Data,Temp}Rels
- * for the benefit of the GlobalVisTest* family of functions.
+ * 并尽量推进 GlobalVis 的
+ * Shared、Catalog、Data、Temp 关系边界，以利于 GlobalVisTest 系列函数。
  *
- * Note: this function should probably not be called with an argument that's
- * not statically allocated (see xip allocation below).
+ * 注意：这个函数大概不应当用非静态分配的参数来调用
+ * （见下面的 xip 分配）。
  */
 Snapshot
 GetSnapshotData(Snapshot snapshot)
@@ -2219,21 +2219,21 @@ GetSnapshotData(Snapshot snapshot)
 	Assert(snapshot != NULL);
 
 	/*
-	 * Allocating space for maxProcs xids is usually overkill; numProcs would
-	 * be sufficient.  But it seems better to do the malloc while not holding
-	 * the lock, so we can't look at numProcs.  Likewise, we allocate much
-	 * more subxip storage than is probably needed.
+	 * 为 maxProcs 个 xid 分配空间通常是多余的；numProcs 就
+	 * 够了。但最好在不持锁时做 malloc，
+	 * 所以不能去看 numProcs。同样，我们分配的
+	 * subxip 存储也比大概需要的多得多。
 	 *
-	 * This does open a possibility for avoiding repeated malloc/free: since
-	 * maxProcs does not change at runtime, we can simply reuse the previous
-	 * xip arrays if any.  (This relies on the fact that all callers pass
-	 * static SnapshotData structs.)
+	 * 这确实打开了避免反复 malloc/free 的可能：因为
+	 * maxProcs 在运行时不变，若已有先前的
+	 * xip 数组就可以直接复用。（这依赖于所有调用方传入的都是
+	 * 静态的 SnapshotData 结构。）
 	 */
 	if (snapshot->xip == NULL)
 	{
 		/*
-		 * First call for this snapshot. Snapshot is same size whether or not
-		 * we are in recovery, see later comments.
+		 * 这份快照的第一次调用。无论是否
+		 * 处于恢复中，快照大小都相同，见后面的注释。
 		 */
 		snapshot->xip = (TransactionId *)
 			malloc(GetMaxSnapshotXidCount() * sizeof(TransactionId));
@@ -2251,8 +2251,8 @@ GetSnapshotData(Snapshot snapshot)
 	}
 
 	/*
-	 * It is sufficient to get shared lock on ProcArrayLock, even if we are
-	 * going to set MyProc->xmin.
+	 * 即使要设置 MyProc->xmin，对 ProcArrayLock 取共享锁
+	 * 也足够了。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 
@@ -2270,15 +2270,15 @@ GetSnapshotData(Snapshot snapshot)
 	oldestxid = ShmemVariableCache->oldestXid;
 	curXactCompletionCount = ShmemVariableCache->xactCompletionCount;
 
-	/* xmax is always latestCompletedXid + 1 */
+	/* xmax 始终是 latestCompletedXid + 1 */
 	xmax = XidFromFullTransactionId(latest_completed);
 	TransactionIdAdvance(xmax);
 	Assert(TransactionIdIsNormal(xmax));
 
-	/* initialize xmin calculation with xmax */
+	/* 用 xmax 初始化 xmin 的计算 */
 	xmin = xmax;
 
-	/* take own xid into account, saves a check inside the loop */
+	/* 把自己的 xid 考虑进去，省掉循环内部的一次检查 */
 	if (TransactionIdIsNormal(myxid) && NormalTransactionIdPrecedes(myxid, xmin))
 		xmin = myxid;
 
@@ -2293,51 +2293,51 @@ GetSnapshotData(Snapshot snapshot)
 		uint8	   *allStatusFlags = ProcGlobal->statusFlags;
 
 		/*
-		 * First collect set of pgxactoff/xids that need to be included in the
-		 * snapshot.
+		 * 先收集需要放进快照的
+		 * pgxactoff/xid 集合。
 		 */
 		for (int pgxactoff = 0; pgxactoff < numProcs; pgxactoff++)
 		{
-			/* Fetch xid just once - see GetNewTransactionId */
+			/* xid 只取一次，见 GetNewTransactionId */
 			TransactionId xid = UINT32_ACCESS_ONCE(other_xids[pgxactoff]);
 			uint8		statusFlags;
 
 			Assert(allProcs[arrayP->pgprocnos[pgxactoff]].pgxactoff == pgxactoff);
 
 			/*
-			 * If the transaction has no XID assigned, we can skip it; it
-			 * won't have sub-XIDs either.
+			 * 若事务还没分配 XID，就可以跳过；它
+			 * 也不会有子 XIDs。
 			 */
 			if (likely(xid == InvalidTransactionId))
 				continue;
 
 			/*
-			 * We don't include our own XIDs (if any) in the snapshot. It
-			 * needs to be included in the xmin computation, but we did so
-			 * outside the loop.
+			 * 快照里不包含我们自己的 XIDs（若有的话）。
+			 * 计算 xmin 时需要把它算进去，但我们在
+			 * 循环外面已经做了。
 			 */
 			if (pgxactoff == mypgxactoff)
 				continue;
 
 			/*
-			 * The only way we are able to get here with a non-normal xid is
-			 * during bootstrap - with this backend using
-			 * BootstrapTransactionId. But the above test should filter that
-			 * out.
+			 * 能带着非普通 xid 走到这里的唯一途径是
+			 * 引导期间，本后端使用
+			 * BootstrapTransactionId。但上面的测试应当把它
+			 * 滤掉。
 			 */
 			Assert(TransactionIdIsNormal(xid));
 
 			/*
-			 * If the XID is >= xmax, we can skip it; such transactions will
-			 * be treated as running anyway (and any sub-XIDs will also be >=
-			 * xmax).
+			 * 若 XID >= xmax，就可以跳过；这类事务反正会被
+			 * 当作正在运行（并且任何子 XIDs 也会
+			 * >= xmax）。
 			 */
 			if (!NormalTransactionIdPrecedes(xid, xmax))
 				continue;
 
 			/*
-			 * Skip over backends doing logical decoding which manages xmin
-			 * separately (check below) and ones running LAZY VACUUM.
+			 * 跳过另行管理 xmin 的逻辑解码后端（见下面的检查），
+			 * 以及正在运行 LAZY VACUUM 的后端。
 			 */
 			statusFlags = allStatusFlags[pgxactoff];
 			if (statusFlags & (PROC_IN_LOGICAL_DECODING | PROC_IN_VACUUM))
@@ -2346,23 +2346,23 @@ GetSnapshotData(Snapshot snapshot)
 			if (NormalTransactionIdPrecedes(xid, xmin))
 				xmin = xid;
 
-			/* Add XID to snapshot. */
+			/* 把 XID 加入快照。 */
 			xip[count++] = xid;
 
 			/*
-			 * Save subtransaction XIDs if possible (if we've already
-			 * overflowed, there's no point).  Note that the subxact XIDs must
-			 * be later than their parent, so no need to check them against
-			 * xmin.  We could filter against xmax, but it seems better not to
-			 * do that much work while holding the ProcArrayLock.
+			 * 若可能，保存子事务 XIDs（若已经
+			 * 溢出，就没有意义了）。注意子事务 XIDs 一定
+			 * 晚于其父事务，所以不必对照
+			 * xmin 检查它们。可以对照 xmax 过滤，但持有 ProcArrayLock 时
+			 * 最好别做那么多工作。
 			 *
-			 * The other backend can add more subxids concurrently, but cannot
-			 * remove any.  Hence it's important to fetch nxids just once.
-			 * Should be safe to use memcpy, though.  (We needn't worry about
-			 * missing any xids added concurrently, because they must postdate
-			 * xmax.)
+			 * 另一个后端可以并发地增加更多 subxid，但无法
+			 * 移除任何一个。因此只取一次 nxids 很重要。
+			 * 不过用 memcpy 应当是安全的。（不必担心
+			 * 缺少并发加入的 xid，因为它们一定晚于
+			 * xmax。）
 			 *
-			 * Again, our own XIDs are not included in the snapshot.
+			 * 同样，我们自己的 XIDs 不包含在快照里。
 			 */
 			if (!suboverflowed)
 			{
@@ -2378,7 +2378,7 @@ GetSnapshotData(Snapshot snapshot)
 						int			pgprocno = pgprocnos[pgxactoff];
 						PGPROC	   *proc = &allProcs[pgprocno];
 
-						pg_read_barrier();	/* pairs with GetNewTransactionId */
+						pg_read_barrier();	/* 与 GetNewTransactionId 配对 */
 
 						memcpy(snapshot->subxip + subcount,
 							   proc->subxids.xids,
@@ -2392,33 +2392,33 @@ GetSnapshotData(Snapshot snapshot)
 	else
 	{
 		/*
-		 * We're in hot standby, so get XIDs from KnownAssignedXids.
+		 * 我们处于热备，所以从 KnownAssignedXids 取 XIDs。
 		 *
-		 * We store all xids directly into subxip[]. Here's why:
+		 * 把所有 xid 直接存进 subxip[]。原因如下：
 		 *
-		 * In recovery we don't know which xids are top-level and which are
-		 * subxacts, a design choice that greatly simplifies xid processing.
+		 * 恢复期间我们不知道哪些 xid 是顶层、哪些是
+		 * 子事务，这个设计选择大大简化了 xid 处理。
 		 *
-		 * It seems like we would want to try to put xids into xip[] only, but
-		 * that is fairly small. We would either need to make that bigger or
-		 * to increase the rate at which we WAL-log xid assignment; neither is
-		 * an appealing choice.
+		 * 看起来我们会想只把 xid 放进 xip[]，但
+		 * 那个数组相当小。要么把它加大，要么
+		 * 提高 WAL 记录 xid 分配的频率；两者都
+		 * 不吸引人。
 		 *
-		 * We could try to store xids into xip[] first and then into subxip[]
-		 * if there are too many xids. That only works if the snapshot doesn't
-		 * overflow because we do not search subxip[] in that case. A simpler
-		 * way is to just store all xids in the subxip array because this is
-		 * by far the bigger array. We just leave the xip array empty.
+		 * 可以先把 xid 存进 xip[]，过多时再存进
+		 * subxip[]。这只有在快照不溢出时才行，因为那种情况下
+		 * 我们不搜索 subxip[]。更简单的办法是把所有 xid
+		 * 都存在 subxip 数组里，因为这是大得多的数组。
+		 * xip 数组就留空。
 		 *
-		 * Either way we need to change the way XidInMVCCSnapshot() works
-		 * depending upon when the snapshot was taken, or change normal
-		 * snapshot processing so it matches.
+		 * 无论哪种，都需要改变 XidInMVCCSnapshot() 的工作方式，
+		 * 取决于快照何时取得，或者改变普通快照处理
+		 * 使两者一致。
 		 *
-		 * Note: It is possible for recovery to end before we finish taking
-		 * the snapshot, and for newly assigned transaction ids to be added to
-		 * the ProcArray.  xmax cannot change while we hold ProcArrayLock, so
-		 * those newly added transaction ids would be filtered away, so we
-		 * need not be concerned about them.
+		 * 注意：可能在我们取完快照之前恢复就结束了，
+		 * 新分配的事务 id 会被加进
+		 * ProcArray。持有 ProcArrayLock 期间 xmax 无法改变，所以
+		 * 那些新加的事务 id 会被滤掉，因此不必为它们
+		 * 担心。
 		 */
 		subcount = KnownAssignedXidsGetAndSetXmin(snapshot->subxip, &xmin,
 												  xmax);
@@ -2429,9 +2429,9 @@ GetSnapshotData(Snapshot snapshot)
 
 
 	/*
-	 * Fetch into local variable while ProcArrayLock is held - the
-	 * LWLockRelease below is a barrier, ensuring this happens inside the
-	 * lock.
+	 * 在持有 ProcArrayLock 时取到局部变量。下面的
+	 * LWLockRelease 是屏障，保证这件事发生在
+	 * 锁的内部。
 	 */
 	replication_slot_xmin = procArray->replication_slot_xmin;
 	replication_slot_catalog_xmin = procArray->replication_slot_catalog_xmin;
@@ -2441,7 +2441,7 @@ GetSnapshotData(Snapshot snapshot)
 
 	LWLockRelease(ProcArrayLock);
 
-	/* maintain state for GlobalVis* */
+	/* 为 GlobalVis 维护状态 */
 	{
 		TransactionId def_vis_xid;
 		TransactionId def_vis_xid_data;
@@ -2450,25 +2450,25 @@ GetSnapshotData(Snapshot snapshot)
 		FullTransactionId oldestfxid;
 
 		/*
-		 * Converting oldestXid is only safe when xid horizon cannot advance,
-		 * i.e. holding locks. While we don't hold the lock anymore, all the
-		 * necessary data has been gathered with lock held.
+		 * 只有在 xid 视界无法前进时，转换 oldestXid 才安全，
+		 * 也就是持有锁的时候。虽然现在已经不持锁，但所有
+		 * 必要数据都是持锁时收集的。
 		 */
 		oldestfxid = FullXidRelativeTo(latest_completed, oldestxid);
 
-		/* Check whether there's a replication slot requiring an older xmin. */
+		/* 检查是否有复制槽需要更旧的 xmin。 */
 		def_vis_xid_data =
 			TransactionIdOlder(xmin, replication_slot_xmin);
 
 		/*
-		 * Rows in non-shared, non-catalog tables possibly could be vacuumed
-		 * if older than this xid.
+		 * 非共享、非系统目录表里的行，若比这个 xid 更旧，
+		 * 也许可以被清理掉。
 		 */
 		def_vis_xid = def_vis_xid_data;
 
 		/*
-		 * Check whether there's a replication slot requiring an older catalog
-		 * xmin.
+		 * 检查是否有复制槽需要更旧的系统目录
+		 * xmin。
 		 */
 		def_vis_xid =
 			TransactionIdOlder(replication_slot_catalog_xmin, def_vis_xid);
@@ -2477,9 +2477,9 @@ GetSnapshotData(Snapshot snapshot)
 		def_vis_fxid_data = FullXidRelativeTo(latest_completed, def_vis_xid_data);
 
 		/*
-		 * Check if we can increase upper bound. As a previous
-		 * GlobalVisUpdate() might have computed more aggressive values, don't
-		 * overwrite them if so.
+		 * 检查能否提高上界。先前的
+		 * GlobalVisUpdate() 可能已经算出更激进的值，若是这样就不要
+		 * 覆盖它们。
 		 */
 		GlobalVisSharedRels.definitely_needed =
 			FullTransactionIdNewer(def_vis_fxid,
@@ -2490,7 +2490,7 @@ GetSnapshotData(Snapshot snapshot)
 		GlobalVisDataRels.definitely_needed =
 			FullTransactionIdNewer(def_vis_fxid_data,
 								   GlobalVisDataRels.definitely_needed);
-		/* See temp_oldest_nonremovable computation in ComputeXidHorizons() */
+		/* 见 ComputeXidHorizons() 里 temp_oldest_nonremovable 的计算 */
 		if (TransactionIdIsNormal(myxid))
 			GlobalVisTempRels.definitely_needed =
 				FullXidRelativeTo(latest_completed, myxid);
@@ -2501,12 +2501,12 @@ GetSnapshotData(Snapshot snapshot)
 		}
 
 		/*
-		 * Check if we know that we can initialize or increase the lower
-		 * bound. Currently the only cheap way to do so is to use
-		 * ShmemVariableCache->oldestXid as input.
+		 * 检查是否知道可以初始化或提高下
+		 * 界。目前唯一便宜的办法是用
+		 * ShmemVariableCache->oldestXid 作为输入。
 		 *
-		 * We should definitely be able to do better. We could e.g. put a
-		 * global lower bound value into ShmemVariableCache.
+		 * 我们肯定能做得更好。例如可以把一个
+		 * 全局下界放进 ShmemVariableCache。
 		 */
 		GlobalVisSharedRels.maybe_needed =
 			FullTransactionIdNewer(GlobalVisSharedRels.maybe_needed,
@@ -2517,7 +2517,7 @@ GetSnapshotData(Snapshot snapshot)
 		GlobalVisDataRels.maybe_needed =
 			FullTransactionIdNewer(GlobalVisDataRels.maybe_needed,
 								   oldestfxid);
-		/* accurate value known */
+		/* 已知精确值 */
 		GlobalVisTempRels.maybe_needed = GlobalVisTempRels.definitely_needed;
 	}
 
@@ -2534,8 +2534,8 @@ GetSnapshotData(Snapshot snapshot)
 	snapshot->curcid = GetCurrentCommandId(false);
 
 	/*
-	 * This is a new snapshot, so set both refcounts are zero, and mark it as
-	 * not copied in persistent memory.
+	 * 这是一份新快照，所以两个引用计数都设为零，并把它标为
+	 * 没有复制到持久内存中。
 	 */
 	snapshot->active_count = 0;
 	snapshot->regd_count = 0;
@@ -2547,14 +2547,14 @@ GetSnapshotData(Snapshot snapshot)
 }
 
 /*
- * ProcArrayInstallImportedXmin -- install imported xmin into MyProc->xmin
+ * ProcArrayInstallImportedXmin：把导入的 xmin 装进 MyProc->xmin。
  *
- * This is called when installing a snapshot imported from another
- * transaction.  To ensure that OldestXmin doesn't go backwards, we must
- * check that the source transaction is still running, and we'd better do
- * that atomically with installing the new xmin.
+ * 在安装从另一个事务导入的快照时调用。为确保 OldestXmin
+ * 不向后走，必须检查源事务仍在运行，而且最好与安装
+ * 新 xmin 原子地
+ * 完成。
  *
- * Returns true if successful, false if source xact is no longer running.
+ * 成功返回真，若源事务不再运行则返回假。
  */
 bool
 ProcArrayInstallImportedXmin(TransactionId xmin,
@@ -2568,7 +2568,7 @@ ProcArrayInstallImportedXmin(TransactionId xmin,
 	if (!sourcevxid)
 		return false;
 
-	/* Get lock so source xact can't end while we're doing this */
+	/* 取得锁，使源事务不能在我们做这件事时结束 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 
 	for (index = 0; index < arrayP->numProcs; index++)
@@ -2578,27 +2578,27 @@ ProcArrayInstallImportedXmin(TransactionId xmin,
 		int			statusFlags = ProcGlobal->statusFlags[index];
 		TransactionId xid;
 
-		/* Ignore procs running LAZY VACUUM */
+		/* 忽略正在运行 LAZY VACUUM 的 proc */
 		if (statusFlags & PROC_IN_VACUUM)
 			continue;
 
-		/* We are only interested in the specific virtual transaction. */
+		/* 我们只关心这个特定的虚拟事务。 */
 		if (proc->backendId != sourcevxid->backendId)
 			continue;
 		if (proc->lxid != sourcevxid->localTransactionId)
 			continue;
 
 		/*
-		 * We check the transaction's database ID for paranoia's sake: if it's
-		 * in another DB then its xmin does not cover us.  Caller should have
-		 * detected this already, so we just treat any funny cases as
-		 * "transaction not found".
+		 * 出于谨慎，检查该事务的数据库 ID：若它
+		 * 在另一个数据库，它的 xmin 就不覆盖我们。调用方应当已经
+		 * 发现了这一点，所以任何异常情况都当作
+		 * 找不到事务。
 		 */
 		if (proc->databaseId != MyDatabaseId)
 			continue;
 
 		/*
-		 * Likewise, let's just make real sure its xmin does cover us.
+		 * 同样，确认它的 xmin 确实覆盖我们。
 		 */
 		xid = UINT32_ACCESS_ONCE(proc->xmin);
 		if (!TransactionIdIsNormal(xid) ||
@@ -2606,10 +2606,10 @@ ProcArrayInstallImportedXmin(TransactionId xmin,
 			continue;
 
 		/*
-		 * We're good.  Install the new xmin.  As in GetSnapshotData, set
-		 * TransactionXmin too.  (Note that because snapmgr.c called
-		 * GetSnapshotData first, we'll be overwriting a valid xmin here, so
-		 * we don't check that.)
+		 * 没问题。装上新的 xmin。与 GetSnapshotData 中一样，也设置
+		 * TransactionXmin。（注意因为 snapmgr.c 先调用了
+		 * GetSnapshotData，这里会覆盖一个有效的 xmin，所以
+		 * 我们不检查这一点。）
 		 */
 		MyProc->xmin = TransactionXmin = xmin;
 
@@ -2623,17 +2623,17 @@ ProcArrayInstallImportedXmin(TransactionId xmin,
 }
 
 /*
- * ProcArrayInstallRestoredXmin -- install restored xmin into MyProc->xmin
+ * ProcArrayInstallRestoredXmin：把恢复来的 xmin 装进 MyProc->xmin。
  *
- * This is like ProcArrayInstallImportedXmin, but we have a pointer to the
- * PGPROC of the transaction from which we imported the snapshot, rather than
- * an XID.
+ * 这与 ProcArrayInstallImportedXmin 类似，但我们有一个指向
+ * 导入快照的那个事务的 PGPROC 的指针，而不是
+ * 一个 XID。
  *
- * Note that this function also copies statusFlags from the source `proc` in
- * order to avoid the case where MyProc's xmin needs to be skipped for
- * computing xid horizon.
+ * 注意这个函数也会从源 proc 复制 statusFlags，
+ * 以免出现计算 xid 视界时需要跳过
+ * MyProc 的 xmin 的情况。
  *
- * Returns true if successful, false if source xact is no longer running.
+ * 成功返回真，若源事务不再运行则返回假。
  */
 bool
 ProcArrayInstallRestoredXmin(TransactionId xmin, PGPROC *proc)
@@ -2645,15 +2645,15 @@ ProcArrayInstallRestoredXmin(TransactionId xmin, PGPROC *proc)
 	Assert(proc != NULL);
 
 	/*
-	 * Get an exclusive lock so that we can copy statusFlags from source proc.
+	 * 取排他锁，以便从源 proc 复制 statusFlags。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	/*
-	 * Be certain that the referenced PGPROC has an advertised xmin which is
-	 * no later than the one we're installing, so that the system-wide xmin
-	 * can't go backwards.  Also, make sure it's running in the same database,
-	 * so that the per-database xmin cannot go backwards.
+	 * 要确定所引用的 PGPROC 对外公布的 xmin 不晚于
+	 * 我们正在安装的那个，这样系统范围的 xmin
+	 * 就不会向后走。另外，确保它在同一个数据库里运行，
+	 * 这样按数据库的 xmin 无法向后走。
 	 */
 	xid = UINT32_ACCESS_ONCE(proc->xmin);
 	if (proc->databaseId == MyDatabaseId &&
@@ -2661,8 +2661,8 @@ ProcArrayInstallRestoredXmin(TransactionId xmin, PGPROC *proc)
 		TransactionIdPrecedesOrEquals(xid, xmin))
 	{
 		/*
-		 * Install xmin and propagate the statusFlags that affect how the
-		 * value is interpreted by vacuum.
+		 * 装上 xmin，并传播影响清理如何解释
+		 * 该值的 statusFlags。
 		 */
 		MyProc->xmin = TransactionXmin = xmin;
 		MyProc->statusFlags = (MyProc->statusFlags & ~PROC_XMIN_FLAGS) |
@@ -2678,40 +2678,40 @@ ProcArrayInstallRestoredXmin(TransactionId xmin, PGPROC *proc)
 }
 
 /*
- * GetRunningTransactionData -- returns information about running transactions.
+ * GetRunningTransactionData：返回关于正在运行的事务的信息。
  *
- * Similar to GetSnapshotData but returns more information. We include
- * all PGPROCs with an assigned TransactionId, even VACUUM processes and
- * prepared transactions.
+ * 与 GetSnapshotData 类似，但返回更多信息。我们包括
+ * 所有已分配 TransactionId 的 PGPROCs，甚至包括 VACUUM 进程和
+ * 已准备事务。
  *
- * We acquire XidGenLock and ProcArrayLock, but the caller is responsible for
- * releasing them. Acquiring XidGenLock ensures that no new XIDs enter the proc
- * array until the caller has WAL-logged this snapshot, and releases the
- * lock. Acquiring ProcArrayLock ensures that no transactions commit until the
- * lock is released.
+ * 我们取得 XidGenLock 和 ProcArrayLock，但调用方负责
+ * 释放它们。取得 XidGenLock 保证在调用方把这份快照写入 WAL
+ * 并释放锁之前，不会有新的 XIDs 进入 proc
+ * 数组。取得 ProcArrayLock 保证在
+ * 锁被释放之前没有事务提交。
  *
- * The returned data structure is statically allocated; caller should not
- * modify it, and must not assume it is valid past the next call.
+ * 返回的数据结构是静态分配的；调用方不应
+ * 修改它，并且不得假定它在下一次调用之后仍然有效。
  *
- * This is never executed during recovery so there is no need to look at
- * KnownAssignedXids.
+ * 这在恢复期间从不执行，所以不必去看
+ * KnownAssignedXids。
  *
- * Dummy PGPROCs from prepared transaction are included, meaning that this
- * may return entries with duplicated TransactionId values coming from
- * transaction finishing to prepare.  Nothing is done about duplicated
- * entries here to not hold on ProcArrayLock more than necessary.
+ * 来自已准备事务的哑 PGPROCs 也包括在内，这意味着这里
+ * 可能返回来自正在完成准备的事务的、TransactionId 值重复的项。
+ * 这里不对重复项做任何处理，以免 ProcArrayLock 持有得
+ * 比必要更久。
  *
- * We don't worry about updating other counters, we want to keep this as
- * simple as possible and leave GetSnapshotData() as the primary code for
- * that bookkeeping.
+ * 我们不操心更新其他计数器，希望尽量
+ * 保持简单，把那部分记账留给 GetSnapshotData()
+ * 作为主代码。
  *
- * Note that if any transaction has overflowed its cached subtransactions
- * then there is no real need include any subtransactions.
+ * 注意若任何事务的缓存子事务溢出了，
+ * 就实在没有必要包含任何子事务。
  */
 RunningTransactions
 GetRunningTransactionData(void)
 {
-	/* result workspace */
+	/* 结果工作区 */
 	static RunningTransactionsData CurrentRunningXactsData;
 
 	ProcArrayStruct *arrayP = procArray;
@@ -2728,18 +2728,18 @@ GetRunningTransactionData(void)
 	Assert(!RecoveryInProgress());
 
 	/*
-	 * Allocating space for maxProcs xids is usually overkill; numProcs would
-	 * be sufficient.  But it seems better to do the malloc while not holding
-	 * the lock, so we can't look at numProcs.  Likewise, we allocate much
-	 * more subxip storage than is probably needed.
+	 * 为 maxProcs 个 xid 分配空间通常是多余的；numProcs 就
+	 * 够了。但最好在不持锁时做 malloc，
+	 * 所以不能去看 numProcs。同样，我们分配的
+	 * subxip 存储也比大概需要的多得多。
 	 *
-	 * Should only be allocated in bgwriter, since only ever executed during
-	 * checkpoints.
+	 * 应当只在 bgwriter 里分配，因为只在
+	 * 检查点期间执行。
 	 */
 	if (CurrentRunningXacts->xids == NULL)
 	{
 		/*
-		 * First call
+		 * 第一次调用
 		 */
 		CurrentRunningXacts->xids = (TransactionId *)
 			malloc(TOTAL_MAX_CACHED_SUBXIDS * sizeof(TransactionId));
@@ -2755,8 +2755,8 @@ GetRunningTransactionData(void)
 	suboverflowed = false;
 
 	/*
-	 * Ensure that no xids enter or leave the procarray while we obtain
-	 * snapshot.
+	 * 取得快照时，确保没有 xid 进入或离开
+	 * procarray。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 	LWLockAcquire(XidGenLock, LW_SHARED);
@@ -2767,26 +2767,26 @@ GetRunningTransactionData(void)
 		XidFromFullTransactionId(ShmemVariableCache->nextXid);
 
 	/*
-	 * Spin over procArray collecting all xids
+	 * 遍历 procArray，收集所有 xid
 	 */
 	for (index = 0; index < arrayP->numProcs; index++)
 	{
 		TransactionId xid;
 
-		/* Fetch xid just once - see GetNewTransactionId */
+		/* xid 只取一次，见 GetNewTransactionId */
 		xid = UINT32_ACCESS_ONCE(other_xids[index]);
 
 		/*
-		 * We don't need to store transactions that don't have a TransactionId
-		 * yet because they will not show as running on a standby server.
+		 * 还没有 TransactionId 的事务不必存储，因为它们在
+		 * 备库服务器上不会显示为正在运行。
 		 */
 		if (!TransactionIdIsValid(xid))
 			continue;
 
 		/*
-		 * Be careful not to exclude any xids before calculating the values of
-		 * oldestRunningXid and suboverflowed, since these are used to clean
-		 * up transaction information held on standbys.
+		 * 在计算 oldestRunningXid 和 suboverflowed 的值之前，小心不要排除任何 xid，
+		 * 因为这些值用来清理
+		 * 备库上持有的事务信息。
 		 */
 		if (TransactionIdPrecedes(xid, oldestRunningXid))
 			oldestRunningXid = xid;
@@ -2795,19 +2795,19 @@ GetRunningTransactionData(void)
 			suboverflowed = true;
 
 		/*
-		 * If we wished to exclude xids this would be the right place for it.
-		 * Procs with the PROC_IN_VACUUM flag set don't usually assign xids,
-		 * but they do during truncation at the end when they get the lock and
-		 * truncate, so it is not much of a problem to include them if they
-		 * are seen and it is cleaner to include them.
+		 * 若想排除某些 xid，这里就是合适的地方。
+		 * 设了 PROC_IN_VACUUM 标志的 proc 通常不分配 xid，
+		 * 但它们在末尾截断时会取得锁并
+		 * 截断，所以若看见它们就包含进来也没什么大问题，
+		 * 包含进来更干净。
 		 */
 
 		xids[count++] = xid;
 	}
 
 	/*
-	 * Spin over procArray collecting all subxids, but only if there hasn't
-	 * been a suboverflow.
+	 * 遍历 procArray 收集所有 subxid，但仅当还没有
+	 * 发生子事务溢出时。
 	 */
 	if (!suboverflowed)
 	{
@@ -2820,14 +2820,14 @@ GetRunningTransactionData(void)
 			int			nsubxids;
 
 			/*
-			 * Save subtransaction XIDs. Other backends can't add or remove
-			 * entries while we're holding XidGenLock.
+			 * 保存子事务 XIDs。持有 XidGenLock 期间，其他后端不能增加或移除
+			 * 项。
 			 */
 			nsubxids = other_subxidstates[index].count;
 			if (nsubxids > 0)
 			{
-				/* barrier not really required, as XidGenLock is held, but ... */
-				pg_read_barrier();	/* pairs with GetNewTransactionId */
+				/* 屏障其实并不需要，因为持有 XidGenLock，但是... */
+				pg_read_barrier();	/* 与 GetNewTransactionId 配对 */
 
 				memcpy(&xids[count], proc->subxids.xids,
 					   nsubxids * sizeof(TransactionId));
@@ -2835,21 +2835,21 @@ GetRunningTransactionData(void)
 				subcount += nsubxids;
 
 				/*
-				 * Top-level XID of a transaction is always less than any of
-				 * its subxids, so we don't need to check if any of the
-				 * subxids are smaller than oldestRunningXid
+				 * 事务的顶层 XID 总是小于它的任何
+				 * subxid，所以不必检查是否有
+				 * subxid 小于 oldestRunningXid
 				 */
 			}
 		}
 	}
 
 	/*
-	 * It's important *not* to include the limits set by slots here because
-	 * snapbuild.c uses oldestRunningXid to manage its xmin horizon. If those
-	 * were to be included here the initial value could never increase because
-	 * of a circular dependency where slots only increase their limits when
-	 * running xacts increases oldestRunningXid and running xacts only
-	 * increases if slots do.
+	 * 重要的是不要把槽所设的限制包含进来，因为
+	 * snapbuild.c 用 oldestRunningXid 来管理它的 xmin 视界。若把那些
+	 * 包含进来，初值就永远无法增加，因为
+	 * 存在循环依赖：槽只在
+	 * 正在运行的事务提高 oldestRunningXid 时才提高自己的限制，而正在运行的事务只在
+	 * 槽提高时才提高。
 	 */
 
 	CurrentRunningXacts->xcnt = count - subcount;
@@ -2863,25 +2863,25 @@ GetRunningTransactionData(void)
 	Assert(TransactionIdIsValid(CurrentRunningXacts->oldestRunningXid));
 	Assert(TransactionIdIsNormal(CurrentRunningXacts->latestCompletedXid));
 
-	/* We don't release the locks here, the caller is responsible for that */
+	/* 这里不释放锁，调用方负责 */
 
 	return CurrentRunningXacts;
 }
 
 /*
- * GetOldestActiveTransactionId()
+ * GetOldestActiveTransactionId()。
  *
- * Similar to GetSnapshotData but returns just oldestActiveXid. We include
- * all PGPROCs with an assigned TransactionId, even VACUUM processes.
- * We look at all databases, though there is no need to include WALSender
- * since this has no effect on hot standby conflicts.
+ * 与 GetSnapshotData 类似，但只返回 oldestActiveXid。我们包括
+ * 所有已分配 TransactionId 的 PGPROCs，甚至包括 VACUUM 进程。
+ * 我们查看所有数据库，不过不必包括 WALSender，
+ * 因为这对热备冲突没有影响。
  *
- * This is never executed during recovery so there is no need to look at
- * KnownAssignedXids.
+ * 这在恢复期间从不执行，所以不必去看
+ * KnownAssignedXids。
  *
- * We don't worry about updating other counters, we want to keep this as
- * simple as possible and leave GetSnapshotData() as the primary code for
- * that bookkeeping.
+ * 我们不操心更新其他计数器，希望尽量
+ * 保持简单，把那部分记账留给 GetSnapshotData()
+ * 作为主代码。
  */
 TransactionId
 GetOldestActiveTransactionId(void)
@@ -2894,25 +2894,25 @@ GetOldestActiveTransactionId(void)
 	Assert(!RecoveryInProgress());
 
 	/*
-	 * Read nextXid, as the upper bound of what's still active.
+	 * 读取 nextXid，作为仍活动内容的上界。
 	 *
-	 * Reading a TransactionId is atomic, but we must grab the lock to make
-	 * sure that all XIDs < nextXid are already present in the proc array (or
-	 * have already completed), when we spin over it.
+	 * 读一个 TransactionId 是原子的，但必须拿锁，以确保
+	 * 在我们遍历时，所有 < nextXid 的 XIDs 都已经在 proc 数组里
+	 * （或已经完成）。
 	 */
 	LWLockAcquire(XidGenLock, LW_SHARED);
 	oldestRunningXid = XidFromFullTransactionId(ShmemVariableCache->nextXid);
 	LWLockRelease(XidGenLock);
 
 	/*
-	 * Spin over procArray collecting all xids and subxids.
+	 * 遍历 procArray，收集所有 xid 和 subxid。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 	for (index = 0; index < arrayP->numProcs; index++)
 	{
 		TransactionId xid;
 
-		/* Fetch xid just once - see GetNewTransactionId */
+		/* xid 只取一次，见 GetNewTransactionId */
 		xid = UINT32_ACCESS_ONCE(other_xids[index]);
 
 		if (!TransactionIdIsNormal(xid))
@@ -2922,9 +2922,9 @@ GetOldestActiveTransactionId(void)
 			oldestRunningXid = xid;
 
 		/*
-		 * Top-level XID of a transaction is always less than any of its
-		 * subxids, so we don't need to check if any of the subxids are
-		 * smaller than oldestRunningXid
+		 * 事务的顶层 XID 总是小于它的任何
+		 * subxid，所以不必检查是否有 subxid
+		 * 小于 oldestRunningXid
 		 */
 	}
 	LWLockRelease(ProcArrayLock);
@@ -2933,20 +2933,20 @@ GetOldestActiveTransactionId(void)
 }
 
 /*
- * GetOldestSafeDecodingTransactionId -- lowest xid not affected by vacuum
+ * GetOldestSafeDecodingTransactionId：不受清理影响的最低 xid。
  *
- * Returns the oldest xid that we can guarantee not to have been affected by
- * vacuum, i.e. no rows >= that xid have been vacuumed away unless the
- * transaction aborted. Note that the value can (and most of the time will) be
- * much more conservative than what really has been affected by vacuum, but we
- * currently don't have better data available.
+ * 返回我们可以保证没有受清理影响的最旧 xid，
+ * 也就是说，除非事务中止，否则不会有 >= 该 xid 的行被清理掉。
+ * 注意这个值可以（而且大多数时候会）比真正受清理影响的范围
+ * 保守得多，但我们
+ * 目前没有更好的数据可用。
  *
- * This is useful to initialize the cutoff xid after which a new changeset
- * extraction replication slot can start decoding changes.
+ * 这对初始化截止 xid 有用，新的变更集
+ * 抽取复制槽可以在此之后开始解码变更。
  *
- * Must be called with ProcArrayLock held either shared or exclusively,
- * although most callers will want to use exclusive mode since it is expected
- * that the caller will immediately use the xid to peg the xmin horizon.
+ * 调用时必须持有共享或排他的 ProcArrayLock，
+ * 不过大多数调用方会想用排他模式，因为预期
+ * 调用方会立刻用这个 xid 来钉住 xmin 视界。
  */
 TransactionId
 GetOldestSafeDecodingTransactionId(bool catalogOnly)
@@ -2959,22 +2959,22 @@ GetOldestSafeDecodingTransactionId(bool catalogOnly)
 	Assert(LWLockHeldByMe(ProcArrayLock));
 
 	/*
-	 * Acquire XidGenLock, so no transactions can acquire an xid while we're
-	 * running. If no transaction with xid were running concurrently a new xid
-	 * could influence the RecentXmin et al.
+	 * 取得 XidGenLock，这样在我们运行期间没有事务能取得 xid。
+	 * 若没有带 xid 的事务并发运行，一个新 xid
+	 * 可能影响 RecentXmin 等等。
 	 *
-	 * We initialize the computation to nextXid since that's guaranteed to be
-	 * a safe, albeit pessimal, value.
+	 * 把计算初始化为 nextXid，因为那保证是一个
+	 * 安全、尽管偏悲观的值。
 	 */
 	LWLockAcquire(XidGenLock, LW_SHARED);
 	oldestSafeXid = XidFromFullTransactionId(ShmemVariableCache->nextXid);
 
 	/*
-	 * If there's already a slot pegging the xmin horizon, we can start with
-	 * that value, it's guaranteed to be safe since it's computed by this
-	 * routine initially and has been enforced since.  We can always use the
-	 * slot's general xmin horizon, but the catalog horizon is only usable
-	 * when only catalog data is going to be looked at.
+	 * 若已经有槽钉住 xmin 视界，就可以从
+	 * 那个值开始，它保证是安全的，因为它最初由本
+	 * 例程算出，此后一直被强制执行。总是可以用
+	 * 槽的一般 xmin 视界，但系统目录视界只在
+	 * 只会查看系统目录数据时才可用。
 	 */
 	if (TransactionIdIsValid(procArray->replication_slot_xmin) &&
 		TransactionIdPrecedes(procArray->replication_slot_xmin,
@@ -2988,29 +2988,29 @@ GetOldestSafeDecodingTransactionId(bool catalogOnly)
 		oldestSafeXid = procArray->replication_slot_catalog_xmin;
 
 	/*
-	 * If we're not in recovery, we walk over the procarray and collect the
-	 * lowest xid. Since we're called with ProcArrayLock held and have
-	 * acquired XidGenLock, no entries can vanish concurrently, since
-	 * ProcGlobal->xids[i] is only set with XidGenLock held and only cleared
-	 * with ProcArrayLock held.
+	 * 若不在恢复中，就遍历 procarray 并收集
+	 * 最低的 xid。因为调用时持有 ProcArrayLock，并且已经
+	 * 取得 XidGenLock，项不会并发消失，因为
+	 * ProcGlobal->xids[i] 只在持有 XidGenLock 时设置，只在持有
+	 * ProcArrayLock 时清除。
 	 *
-	 * In recovery we can't lower the safe value besides what we've computed
-	 * above, so we'll have to wait a bit longer there. We unfortunately can
-	 * *not* use KnownAssignedXidsGetOldestXmin() since the KnownAssignedXids
-	 * machinery can miss values and return an older value than is safe.
+	 * 恢复中我们不能把安全值降到上面算出的结果以下，
+	 * 所以那里得再等一会儿。可惜不能
+	 * 使用 KnownAssignedXidsGetOldestXmin()，因为 KnownAssignedXids
+	 * 机制可能漏掉一些值，返回比安全值更旧的值。
 	 */
 	if (!recovery_in_progress)
 	{
 		TransactionId *other_xids = ProcGlobal->xids;
 
 		/*
-		 * Spin over procArray collecting min(ProcGlobal->xids[i])
+		 * 遍历 procArray，收集 min(ProcGlobal->xids[i])
 		 */
 		for (index = 0; index < arrayP->numProcs; index++)
 		{
 			TransactionId xid;
 
-			/* Fetch xid just once - see GetNewTransactionId */
+			/* xid 只取一次，见 GetNewTransactionId */
 			xid = UINT32_ACCESS_ONCE(other_xids[index]);
 
 			if (!TransactionIdIsNormal(xid))
@@ -3027,24 +3027,24 @@ GetOldestSafeDecodingTransactionId(bool catalogOnly)
 }
 
 /*
- * GetVirtualXIDsDelayingChkpt -- Get the VXIDs of transactions that are
- * delaying checkpoint because they have critical actions in progress.
+ * GetVirtualXIDsDelayingChkpt：取得因有关键动作在进行
+ * 而推迟检查点的事务的 VXIDs。
  *
- * Constructs an array of VXIDs of transactions that are currently in commit
- * critical sections, as shown by having specified delayChkptFlags bits set
- * in their PGPROC.
+ * 构造当前处于提交
+ * 临界区的事务的 VXIDs 数组，表现为它们的 PGPROC 里
+ * 设置了指定的 delayChkptFlags 位。
  *
- * Returns a palloc'd array that should be freed by the caller.
- * *nvxids is the number of valid entries.
+ * 返回一个应由调用方释放的 palloc 数组。
+ * *nvxids 是有效项的数目。
  *
- * Note that because backends set or clear delayChkptFlags without holding any
- * lock, the result is somewhat indeterminate, but we don't really care.  Even
- * in a multiprocessor with delayed writes to shared memory, it should be
- * certain that setting of delayChkptFlags will propagate to shared memory
- * when the backend takes a lock, so we cannot fail to see a virtual xact as
- * delayChkptFlags if it's already inserted its commit record.  Whether it
- * takes a little while for clearing of delayChkptFlags to propagate is
- * unimportant for correctness.
+ * 注意，因为后端设置或清除 delayChkptFlags 时不持任何
+ * 锁，结果多少是不确定的，但我们并不真的在意。即使
+ * 在写共享内存有延迟的多处理器上，也可以
+ * 确定：后端拿锁时，delayChkptFlags 的设置会传播到共享内存，
+ * 所以若它已经插入了提交记录，我们就无法看不到这个虚拟事务的
+ * delayChkptFlags。delayChkptFlags 的清除要过一会儿才传播
+ * 对正确性并不重要。
+ * 因此这里的结果够用。
  */
 VirtualTransactionId *
 GetVirtualXIDsDelayingChkpt(int *nvxids, int type)
@@ -3056,7 +3056,7 @@ GetVirtualXIDsDelayingChkpt(int *nvxids, int type)
 
 	Assert(type != 0);
 
-	/* allocate what's certainly enough result space */
+	/* 分配肯定够用的结果空间 */
 	vxids = (VirtualTransactionId *)
 		palloc(sizeof(VirtualTransactionId) * arrayP->maxProcs);
 
@@ -3084,13 +3084,13 @@ GetVirtualXIDsDelayingChkpt(int *nvxids, int type)
 }
 
 /*
- * HaveVirtualXIDsDelayingChkpt -- Are any of the specified VXIDs delaying?
+ * HaveVirtualXIDsDelayingChkpt：指定的 VXIDs 里是否还有在推迟的？
  *
- * This is used with the results of GetVirtualXIDsDelayingChkpt to see if any
- * of the specified VXIDs are still in critical sections of code.
+ * 这与 GetVirtualXIDsDelayingChkpt 的结果一起用，看指定的
+ * VXIDs 是否仍在代码的临界区里。
  *
- * Note: this is O(N^2) in the number of vxacts that are/were delaying, but
- * those numbers should be small enough for it not to be a problem.
+ * 注意：按正在或曾经推迟的 vxact 数目，这是 O(N^2)，但
+ * 这些数目应当小到不成问题。
  */
 bool
 HaveVirtualXIDsDelayingChkpt(VirtualTransactionId *vxids, int nvxids, int type)
@@ -3135,18 +3135,18 @@ HaveVirtualXIDsDelayingChkpt(VirtualTransactionId *vxids, int nvxids, int type)
 }
 
 /*
- * BackendPidGetProc -- get a backend's PGPROC given its PID
+ * BackendPidGetProc：根据 PID 取得后端的 PGPROC。
  *
- * Returns NULL if not found.  Note that it is up to the caller to be
- * sure that the question remains meaningful for long enough for the
- * answer to be used ...
+ * 找不到则返回 NULL。注意，要由调用方确保
+ * 这个问题在答案被使用的足够长时间内
+ * 仍然有意义...
  */
 PGPROC *
 BackendPidGetProc(int pid)
 {
 	PGPROC	   *result;
 
-	if (pid == 0)				/* never match dummy PGPROCs */
+	if (pid == 0)				/* 永不匹配哑 PGPROCs */
 		return NULL;
 
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
@@ -3159,10 +3159,10 @@ BackendPidGetProc(int pid)
 }
 
 /*
- * BackendPidGetProcWithLock -- get a backend's PGPROC given its PID
+ * BackendPidGetProcWithLock：根据 PID 取得后端的 PGPROC。
  *
- * Same as above, except caller must be holding ProcArrayLock.  The found
- * entry, if any, can be assumed to be valid as long as the lock remains held.
+ * 与上面相同，只是调用方必须持有 ProcArrayLock。找到的
+ * 项（若有）在锁一直持有期间可以认为有效。
  */
 PGPROC *
 BackendPidGetProcWithLock(int pid)
@@ -3171,7 +3171,7 @@ BackendPidGetProcWithLock(int pid)
 	ProcArrayStruct *arrayP = procArray;
 	int			index;
 
-	if (pid == 0)				/* never match dummy PGPROCs */
+	if (pid == 0)				/* 永不匹配哑 PGPROCs */
 		return NULL;
 
 	for (index = 0; index < arrayP->numProcs; index++)
@@ -3189,17 +3189,17 @@ BackendPidGetProcWithLock(int pid)
 }
 
 /*
- * BackendXidGetPid -- get a backend's pid given its XID
+ * BackendXidGetPid：根据 XID 取得后端的 pid。
  *
- * Returns 0 if not found or it's a prepared transaction.  Note that
- * it is up to the caller to be sure that the question remains
- * meaningful for long enough for the answer to be used ...
+ * 找不到或它是已准备事务时返回 0。注意
+ * 要由调用方确保这个问题在
+ * 答案被使用的足够长时间内仍然有意义。
  *
- * Only main transaction Ids are considered.  This function is mainly
- * useful for determining what backend owns a lock.
+ * 只考虑主事务 Id。这个函数主要
+ * 用来判断哪一个后端拥有一把锁。
  *
- * Beware that not every xact has an XID assigned.  However, as long as you
- * only call this using an XID found on disk, you're safe.
+ * 注意并非每个事务都分配了 XID。不过，只要你
+ * 只用在磁盘上找到的 XID 来调用，就是安全的。
  */
 int
 BackendXidGetPid(TransactionId xid)
@@ -3209,7 +3209,7 @@ BackendXidGetPid(TransactionId xid)
 	TransactionId *other_xids = ProcGlobal->xids;
 	int			index;
 
-	if (xid == InvalidTransactionId)	/* never match invalid xid */
+	if (xid == InvalidTransactionId)	/* 永不匹配无效 xid */
 		return 0;
 
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
@@ -3232,9 +3232,9 @@ BackendXidGetPid(TransactionId xid)
 }
 
 /*
- * IsBackendPid -- is a given pid a running backend
+ * IsBackendPid：给定 pid 是否是正在运行的后端。
  *
- * This is not called by the backend, but is called by external modules.
+ * 后端自己不调用它，外部模块会调用。
  */
 bool
 IsBackendPid(int pid)
@@ -3244,30 +3244,30 @@ IsBackendPid(int pid)
 
 
 /*
- * GetCurrentVirtualXIDs -- returns an array of currently active VXIDs.
+ * GetCurrentVirtualXIDs：返回当前活动 VXIDs 的数组。
  *
- * The array is palloc'd. The number of valid entries is returned into *nvxids.
+ * 数组用 palloc 分配。有效项数目返回到 *nvxids。
  *
- * The arguments allow filtering the set of VXIDs returned.  Our own process
- * is always skipped.  In addition:
- *	If limitXmin is not InvalidTransactionId, skip processes with
- *		xmin > limitXmin.
- *	If excludeXmin0 is true, skip processes with xmin = 0.
- *	If allDbs is false, skip processes attached to other databases.
- *	If excludeVacuum isn't zero, skip processes for which
- *		(statusFlags & excludeVacuum) is not zero.
+ * 参数用来过滤返回的 VXIDs 集合。我们自己的进程
+ * 总是跳过。此外：
+ *	若 limitXmin 不是 InvalidTransactionId，就跳过
+ *		xmin > limitXmin 的进程。
+ *	若 excludeXmin0 为真，就跳过 xmin = 0 的进程。
+ *	若 allDbs 为假，就跳过挂到其他数据库的进程。
+ *	若 excludeVacuum 非零，就跳过
+ *		(statusFlags & excludeVacuum) 非零的进程。
  *
- * Note: the purpose of the limitXmin and excludeXmin0 parameters is to
- * allow skipping backends whose oldest live snapshot is no older than
- * some snapshot we have.  Since we examine the procarray with only shared
- * lock, there are race conditions: a backend could set its xmin just after
- * we look.  Indeed, on multiprocessors with weak memory ordering, the
- * other backend could have set its xmin *before* we look.  We know however
- * that such a backend must have held shared ProcArrayLock overlapping our
- * own hold of ProcArrayLock, else we would see its xmin update.  Therefore,
- * any snapshot the other backend is taking concurrently with our scan cannot
- * consider any transactions as still running that we think are committed
- * (since backends must hold ProcArrayLock exclusive to commit).
+ * 注意：limitXmin 和 excludeXmin0 参数的目的是
+ * 允许跳过那些最旧存活快照不比
+ * 我们已有的某份快照更旧的后端。因为我们只持共享
+ * 锁来检查 procarray，存在竞争：后端可能在我们
+ * 查看之后才设置 xmin。的确，在内存序较弱的多处理器上，
+ * 另一个后端可能在我们查看之前就已经设置了 xmin。不过我们知道
+ * 这样的后端必须持有与我们自己持有的 ProcArrayLock 重叠的共享 ProcArrayLock，
+ * 否则我们会看到它的 xmin 更新。因此，
+ * 另一个后端与我们的扫描并发取得的任何快照，都无法把
+ * 我们认为已提交的事务仍视为运行中
+ * （因为后端提交时必须排他持有 ProcArrayLock）。
  */
 VirtualTransactionId *
 GetCurrentVirtualXIDs(TransactionId limitXmin, bool excludeXmin0,
@@ -3279,7 +3279,7 @@ GetCurrentVirtualXIDs(TransactionId limitXmin, bool excludeXmin0,
 	int			count = 0;
 	int			index;
 
-	/* allocate what's certainly enough result space */
+	/* 分配肯定够用的结果空间 */
 	vxids = (VirtualTransactionId *)
 		palloc(sizeof(VirtualTransactionId) * arrayP->maxProcs);
 
@@ -3299,15 +3299,15 @@ GetCurrentVirtualXIDs(TransactionId limitXmin, bool excludeXmin0,
 
 		if (allDbs || proc->databaseId == MyDatabaseId)
 		{
-			/* Fetch xmin just once - might change on us */
+			/* xmin 只取一次，它可能在我们脚下改变 */
 			TransactionId pxmin = UINT32_ACCESS_ONCE(proc->xmin);
 
 			if (excludeXmin0 && !TransactionIdIsValid(pxmin))
 				continue;
 
 			/*
-			 * InvalidTransactionId precedes all other XIDs, so a proc that
-			 * hasn't set xmin yet will not be rejected by this test.
+			 * InvalidTransactionId 先于所有其他 XIDs，所以还没
+			 * 设置 xmin 的 proc 不会被这项测试拒绝。
 			 */
 			if (!TransactionIdIsValid(limitXmin) ||
 				TransactionIdPrecedesOrEquals(pxmin, limitXmin))
@@ -3328,39 +3328,39 @@ GetCurrentVirtualXIDs(TransactionId limitXmin, bool excludeXmin0,
 }
 
 /*
- * GetConflictingVirtualXIDs -- returns an array of currently active VXIDs.
+ * GetConflictingVirtualXIDs：返回当前活动 VXIDs 的数组。
  *
- * Usage is limited to conflict resolution during recovery on standby servers.
- * limitXmin is supplied as either a cutoff with snapshotConflictHorizon
- * semantics, or InvalidTransactionId in cases where caller cannot accurately
- * determine a safe snapshotConflictHorizon value.
+ * 用途限于备库服务器上恢复期间的冲突解决。
+ * limitXmin 要么作为带 snapshotConflictHorizon
+ * 语义的截止值提供，要么在调用方无法准确
+ * 确定安全的 snapshotConflictHorizon 值时提供 InvalidTransactionId。
  *
- * If limitXmin is InvalidTransactionId then we want to kill everybody,
- * so we're not worried if they have a snapshot or not, nor does it really
- * matter what type of lock we hold.  Caller must avoid calling here with
- * snapshotConflictHorizon style cutoffs that were set to InvalidTransactionId
- * during original execution, since that actually indicates that there is
- * definitely no need for a recovery conflict (the snapshotConflictHorizon
- * convention for InvalidTransactionId values is the opposite of our own!).
+ * 若 limitXmin 是 InvalidTransactionId，我们就想杀掉所有人，
+ * 所以不在乎他们有没有快照，持有哪种
+ * 锁也其实不重要。调用方必须避免用原始执行期间
+ * 被设成 InvalidTransactionId 的 snapshotConflictHorizon 风格截止值
+ * 来调用这里，因为那实际上表示肯定不需要恢复冲突
+ * （InvalidTransactionId 值的 snapshotConflictHorizon 约定
+ * 与我们自己的相反！）。
  *
- * All callers that are checking xmins always now supply a valid and useful
- * value for limitXmin. The limitXmin is always lower than the lowest
- * numbered KnownAssignedXid that is not already a FATAL error. This is
- * because we only care about cleanup records that are cleaning up tuple
- * versions from committed transactions. In that case they will only occur
- * at the point where the record is less than the lowest running xid. That
- * allows us to say that if any backend takes a snapshot concurrently with
- * us then the conflict assessment made here would never include the snapshot
- * that is being derived. So we take LW_SHARED on the ProcArray and allow
- * concurrent snapshots when limitXmin is valid. We might think about adding
+ * 现在所有检查 xmin 的调用方总会提供一个有效且有用的
+ * limitXmin 值。limitXmin 总是低于尚未成为 FATAL 错误的
+ * 编号最低的 KnownAssignedXid。这是
+ * 因为我们只关心清理已提交事务的元组
+ * 版本的清理条目。那种情况下它们只会
+ * 出现在该条小于最低运行 xid 的位置。这
+ * 允许我们说，若任何后端与我们并发取快照，
+ * 这里做出的冲突评估绝不会包含正在
+ * 导出的那份快照。所以我们对 ProcArray 取 LW_SHARED，并在
+ * limitXmin 有效时允许并发快照。我们也许会想加上
  *	 Assert(limitXmin < lowest(KnownAssignedXids))
- * but that would not be true in the case of FATAL errors lagging in array,
- * but we already know those are bogus anyway, so we skip that test.
+ * 但在数组里有滞后的 FATAL 错误时那并不为真，
+ * 而我们已经知道那些是假的，所以跳过该项测试。
  *
- * If dbOid is valid we skip backends attached to other databases.
+ * 若 dbOid 有效，就跳过挂到其他数据库的后端。
  *
- * Be careful to *not* pfree the result from this function. We reuse
- * this array sufficiently often that we use malloc for the result.
+ * 小心不要 pfree 这个函数的结果。我们足够频繁地复用
+ * 这个数组，所以结果用 malloc。
  */
 VirtualTransactionId *
 GetConflictingVirtualXIDs(TransactionId limitXmin, Oid dbOid)
@@ -3371,9 +3371,9 @@ GetConflictingVirtualXIDs(TransactionId limitXmin, Oid dbOid)
 	int			index;
 
 	/*
-	 * If first time through, get workspace to remember main XIDs in. We
-	 * malloc it permanently to avoid repeated palloc/pfree overhead. Allow
-	 * result space, remembering room for a terminator.
+	 * 若是第一次经过，就取得工作区来记住主 XIDs。我们
+	 * 把它永久 malloc 出来，以免反复 palloc/pfree 的开销。留出
+	 * 结果空间，记住要给终止符留位置。
 	 */
 	if (vxids == NULL)
 	{
@@ -3392,23 +3392,23 @@ GetConflictingVirtualXIDs(TransactionId limitXmin, Oid dbOid)
 		int			pgprocno = arrayP->pgprocnos[index];
 		PGPROC	   *proc = &allProcs[pgprocno];
 
-		/* Exclude prepared transactions */
+		/* 排除已准备事务 */
 		if (proc->pid == 0)
 			continue;
 
 		if (!OidIsValid(dbOid) ||
 			proc->databaseId == dbOid)
 		{
-			/* Fetch xmin just once - can't change on us, but good coding */
+			/* xmin 只取一次；不会在我们脚下改变，但这是好的写法 */
 			TransactionId pxmin = UINT32_ACCESS_ONCE(proc->xmin);
 
 			/*
-			 * We ignore an invalid pxmin because this means that backend has
-			 * no snapshot currently. We hold a Share lock to avoid contention
-			 * with users taking snapshots.  That is not a problem because the
-			 * current xmin is always at least one higher than the latest
-			 * removed xid, so any new snapshot would never conflict with the
-			 * test here.
+			 * 我们忽略无效的 pxmin，因为这意味着该后端
+			 * 当前没有快照。我们持有共享锁，以免与
+			 * 正在取快照的用户争用。这不是问题，因为
+			 * 当前 xmin 总是至少比最近
+			 * 删除的 xid 高一，所以任何新快照都不会与
+			 * 这里的测试冲突。
 			 */
 			if (!TransactionIdIsValid(limitXmin) ||
 				(TransactionIdIsValid(pxmin) && !TransactionIdFollows(pxmin, limitXmin)))
@@ -3424,7 +3424,7 @@ GetConflictingVirtualXIDs(TransactionId limitXmin, Oid dbOid)
 
 	LWLockRelease(ProcArrayLock);
 
-	/* add the terminator */
+	/* 加上终止符 */
 	vxids[count].backendId = InvalidBackendId;
 	vxids[count].localTransactionId = InvalidLocalTransactionId;
 
@@ -3432,9 +3432,9 @@ GetConflictingVirtualXIDs(TransactionId limitXmin, Oid dbOid)
 }
 
 /*
- * CancelVirtualTransaction - used in recovery conflict processing
+ * CancelVirtualTransaction：用于恢复冲突处理。
  *
- * Returns pid of the process signaled, or 0 if not found.
+ * 返回被发信号的进程的 pid，找不到则返回 0。
  */
 pid_t
 CancelVirtualTransaction(VirtualTransactionId vxid, ProcSignalReason sigmode)
@@ -3468,8 +3468,8 @@ SignalVirtualTransaction(VirtualTransactionId vxid, ProcSignalReason sigmode,
 			if (pid != 0)
 			{
 				/*
-				 * Kill the pid if it's still here. If not, that's what we
-				 * wanted so ignore any errors.
+				 * 若 pid 还在就杀掉它。若不在，那正是我们
+				 * 想要的，所以忽略任何错误。
 				 */
 				(void) SendProcSignal(pid, sigmode, vxid.backendId);
 			}
@@ -3483,13 +3483,13 @@ SignalVirtualTransaction(VirtualTransactionId vxid, ProcSignalReason sigmode,
 }
 
 /*
- * MinimumActiveBackends --- count backends (other than myself) that are
- *		in active transactions.  Return true if the count exceeds the
- *		minimum threshold passed.  This is used as a heuristic to decide if
- *		a pre-XLOG-flush delay is worthwhile during commit.
+ * MinimumActiveBackends：统计除我之外处于
+ *		活动事务中的后端。若计数超过传入的
+ *		最小阈值就返回真。这用作启发式，用来决定提交期间
+ *		在 XLOG 刷出之前的延迟是否值得。
  *
- * Do not count backends that are blocked waiting for locks, since they are
- * not going to get to run until someone else commits.
+ * 不要统计被锁阻塞而等待的后端，因为它们
+ * 要等别人提交才会运行。
  */
 bool
 MinimumActiveBackends(int min)
@@ -3498,14 +3498,14 @@ MinimumActiveBackends(int min)
 	int			count = 0;
 	int			index;
 
-	/* Quick short-circuit if no minimum is specified */
+	/* 若未指定最小值，就快速短路 */
 	if (min == 0)
 		return true;
 
 	/*
-	 * Note: for speed, we don't acquire ProcArrayLock.  This is a little bit
-	 * bogus, but since we are only testing fields for zero or nonzero, it
-	 * should be OK.  The result is only used for heuristic purposes anyway...
+	 * 注意：为了速度，我们不取得 ProcArrayLock。这有一点
+	 * 不严谨，但因为我们只测试字段是零还是非零，
+	 * 应当可以。结果反正只用于启发式...
 	 */
 	for (index = 0; index < arrayP->numProcs; index++)
 	{
@@ -3513,26 +3513,26 @@ MinimumActiveBackends(int min)
 		PGPROC	   *proc = &allProcs[pgprocno];
 
 		/*
-		 * Since we're not holding a lock, need to be prepared to deal with
-		 * garbage, as someone could have incremented numProcs but not yet
-		 * filled the structure.
+		 * 因为不持锁，必须准备对付
+		 * 垃圾，因为有人可能已经增加了 numProcs 但还没
+		 * 填好结构。
 		 *
-		 * If someone just decremented numProcs, 'proc' could also point to a
-		 * PGPROC entry that's no longer in the array. It still points to a
-		 * PGPROC struct, though, because freed PGPROC entries just go to the
-		 * free list and are recycled. Its contents are nonsense in that case,
-		 * but that's acceptable for this function.
+		 * 若有人刚减少了 numProcs，proc 也可能指向一个
+		 * 已不在数组里的 PGPROC 项。它仍然指向一个
+		 * PGPROC 结构，因为被释放的 PGPROC 项只是进到
+		 * 空闲列表并被回收。那种情况下它的内容是无意义的，
+		 * 但对这个函数可以接受。
 		 */
 		if (pgprocno == -1)
-			continue;			/* do not count deleted entries */
+			continue;			/* 不要统计已删除的项 */
 		if (proc == MyProc)
-			continue;			/* do not count myself */
+			continue;			/* 不要统计我自己 */
 		if (proc->xid == InvalidTransactionId)
-			continue;			/* do not count if no XID assigned */
+			continue;			/* 若未分配 XID 就不要统计 */
 		if (proc->pid == 0)
-			continue;			/* do not count prepared xacts */
+			continue;			/* 不要统计已准备事务 */
 		if (proc->waitLock != NULL)
-			continue;			/* do not count if blocked on a lock */
+			continue;			/* 若被锁阻塞就不要统计 */
 		count++;
 		if (count >= min)
 			break;
@@ -3542,7 +3542,7 @@ MinimumActiveBackends(int min)
 }
 
 /*
- * CountDBBackends --- count backends that are using specified database
+ * CountDBBackends：统计正在使用指定数据库的后端
  */
 int
 CountDBBackends(Oid databaseid)
@@ -3559,7 +3559,7 @@ CountDBBackends(Oid databaseid)
 		PGPROC	   *proc = &allProcs[pgprocno];
 
 		if (proc->pid == 0)
-			continue;			/* do not count prepared xacts */
+			continue;			/* 不要统计已准备事务 */
 		if (!OidIsValid(databaseid) ||
 			proc->databaseId == databaseid)
 			count++;
@@ -3571,7 +3571,7 @@ CountDBBackends(Oid databaseid)
 }
 
 /*
- * CountDBConnections --- counts database backends (only regular backends)
+ * CountDBConnections：统计数据库后端（仅普通后端）
  */
 int
 CountDBConnections(Oid databaseid)
@@ -3588,9 +3588,9 @@ CountDBConnections(Oid databaseid)
 		PGPROC	   *proc = &allProcs[pgprocno];
 
 		if (proc->pid == 0)
-			continue;			/* do not count prepared xacts */
+			continue;			/* 不要统计已准备事务 */
 		if (proc->isBackgroundWorker)
-			continue;			/* do not count background workers */
+			continue;			/* 不要统计后台工作进程 */
 		if (!OidIsValid(databaseid) ||
 			proc->databaseId == databaseid)
 			count++;
@@ -3602,7 +3602,7 @@ CountDBConnections(Oid databaseid)
 }
 
 /*
- * CancelDBBackends --- cancel backends that are using specified database
+ * CancelDBBackends：取消正在使用指定数据库的后端
  */
 void
 CancelDBBackends(Oid databaseid, ProcSignalReason sigmode, bool conflictPending)
@@ -3610,7 +3610,7 @@ CancelDBBackends(Oid databaseid, ProcSignalReason sigmode, bool conflictPending)
 	ProcArrayStruct *arrayP = procArray;
 	int			index;
 
-	/* tell all backends to die */
+	/* 通知所有后端退出 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	for (index = 0; index < arrayP->numProcs; index++)
@@ -3630,8 +3630,8 @@ CancelDBBackends(Oid databaseid, ProcSignalReason sigmode, bool conflictPending)
 			if (pid != 0)
 			{
 				/*
-				 * Kill the pid if it's still here. If not, that's what we
-				 * wanted so ignore any errors.
+				 * 若 pid 还在就杀掉它。若不在，那正是我们
+				 * 想要的，所以忽略任何错误。
 				 */
 				(void) SendProcSignal(pid, sigmode, procvxid.backendId);
 			}
@@ -3642,8 +3642,8 @@ CancelDBBackends(Oid databaseid, ProcSignalReason sigmode, bool conflictPending)
 }
 
 /*
- * CountUserBackends --- count backends that are used by specified user
- * (only regular backends, not any type of background worker)
+ * CountUserBackends：统计指定用户正在使用的后端
+ * （仅普通后端，不包括任何类型的后台工作进程）
  */
 int
 CountUserBackends(Oid roleid)
@@ -3660,9 +3660,9 @@ CountUserBackends(Oid roleid)
 		PGPROC	   *proc = &allProcs[pgprocno];
 
 		if (proc->pid == 0)
-			continue;			/* do not count prepared xacts */
+			continue;			/* 不要统计已准备事务 */
 		if (proc->isBackgroundWorker)
-			continue;			/* do not count background workers */
+			continue;			/* 不要统计后台工作进程 */
 		if (proc->roleId == roleid)
 			count++;
 	}
@@ -3673,38 +3673,38 @@ CountUserBackends(Oid roleid)
 }
 
 /*
- * CountOtherDBBackends -- check for other backends running in the given DB
+ * CountOtherDBBackends：检查给定数据库里是否还有其他后端在运行。
  *
- * If there are other backends in the DB, we will wait a maximum of 5 seconds
- * for them to exit.  Autovacuum backends are encouraged to exit early by
- * sending them SIGTERM, but normal user backends are just waited for.
+ * 若该数据库里还有其他后端，我们最多等 5 秒
+ * 让它们退出。自动清理后端会被鼓励提早退出，办法是
+ * 向它们发送 SIGTERM，但普通用户后端只是等待。
  *
- * The current backend is always ignored; it is caller's responsibility to
- * check whether the current backend uses the given DB, if it's important.
+ * 当前后端总是被忽略；若这一点重要，由调用方负责
+ * 检查当前后端是否使用给定数据库。
  *
- * Returns true if there are (still) other backends in the DB, false if not.
- * Also, *nbackends and *nprepared are set to the number of other backends
- * and prepared transactions in the DB, respectively.
+ * 若该数据库里（仍）有其他后端则返回真，否则返回假。
+ * 另外，*nbackends 和 *nprepared 分别设为该数据库里其他后端
+ * 和已准备事务的数目。
  *
- * This function is used to interlock DROP DATABASE and related commands
- * against there being any active backends in the target DB --- dropping the
- * DB while active backends remain would be a Bad Thing.  Note that we cannot
- * detect here the possibility of a newly-started backend that is trying to
- * connect to the doomed database, so additional interlocking is needed during
- * backend startup.  The caller should normally hold an exclusive lock on the
- * target DB before calling this, which is one reason we mustn't wait
- * indefinitely.
+ * 这个函数用来使 DROP DATABASE 及相关命令与目标数据库里
+ * 仍有活动后端互锁。在活动后端还在时删除
+ * 数据库会是坏事。注意我们在这里无法
+ * 发现一个新启动的后端正试图
+ * 连到这个注定要删除的数据库，所以后端启动期间还需要额外的互锁。
+ * 调用方通常应当在调用前对目标数据库持有排他锁，
+ * 这也是我们不得无限等待的
+ * 原因之一。
  */
 bool
 CountOtherDBBackends(Oid databaseId, int *nbackends, int *nprepared)
 {
 	ProcArrayStruct *arrayP = procArray;
 
-#define MAXAUTOVACPIDS	10		/* max autovacs to SIGTERM per iteration */
+#define MAXAUTOVACPIDS	10		/* 每次迭代最多向多少个自动清理发送 SIGTERM */
 	int			autovac_pids[MAXAUTOVACPIDS];
 	int			tries;
 
-	/* 50 tries with 100ms sleep between tries makes 5 sec total wait */
+	/* 50 次尝试，每次之间睡眠 100ms，总共等待 5 秒 */
 	for (tries = 0; tries < 50; tries++)
 	{
 		int			nautovacs = 0;
@@ -3744,34 +3744,34 @@ CountOtherDBBackends(Oid databaseId, int *nbackends, int *nprepared)
 		LWLockRelease(ProcArrayLock);
 
 		if (!found)
-			return false;		/* no conflicting backends, so done */
+			return false;		/* 没有冲突的后端，所以完成 */
 
 		/*
-		 * Send SIGTERM to any conflicting autovacuums before sleeping. We
-		 * postpone this step until after the loop because we don't want to
-		 * hold ProcArrayLock while issuing kill(). We have no idea what might
-		 * block kill() inside the kernel...
+		 * 睡眠前向任何冲突的自动清理发送 SIGTERM。我们
+		 * 把这一步推迟到循环之后，因为不想在
+		 * 持有 ProcArrayLock 时发出 kill()。我们不知道内核里
+		 * 什么可能阻塞 kill()...
 		 */
 		for (index = 0; index < nautovacs; index++)
-			(void) kill(autovac_pids[index], SIGTERM);	/* ignore any error */
+			(void) kill(autovac_pids[index], SIGTERM);	/* 忽略任何错误 */
 
-		/* sleep, then try again */
-		pg_usleep(100 * 1000L); /* 100ms */
+		/* 睡眠，然后重试 */
+		pg_usleep(100 * 1000L); /* 100 毫秒 */
 	}
 
-	return true;				/* timed out, still conflicts */
+	return true;				/* 超时了，仍然冲突 */
 }
 
 /*
- * Terminate existing connections to the specified database. This routine
- * is used by the DROP DATABASE command when user has asked to forcefully
- * drop the database.
+ * 终止到指定数据库的现有连接。当用户要求强制
+ * 删除数据库时，DROP DATABASE 命令使用这个例程
+ * 来做这件事。
  *
- * The current backend is always ignored; it is caller's responsibility to
- * check whether the current backend uses the given DB, if it's important.
+ * 当前后端总是被忽略；若这一点重要，由调用方负责
+ * 检查当前后端是否使用给定数据库。
  *
- * If the target database has a prepared transaction or permissions checks
- * fail for a connection, this fails without terminating anything.
+ * 若目标数据库有已准备事务，或某个连接的权限检查
+ * 失败，则什么都不终止就失败。
  */
 void
 TerminateOtherDBBackends(Oid databaseId)
@@ -3816,19 +3816,19 @@ TerminateOtherDBBackends(Oid databaseId)
 		ListCell   *lc;
 
 		/*
-		 * Permissions checks relax the pg_terminate_backend checks in two
-		 * ways, both by omitting the !OidIsValid(proc->roleId) check:
+		 * 权限检查在两个方面放宽 pg_terminate_backend 的检查，
+		 * 都是省掉 !OidIsValid(proc->roleId) 这项检查：
 		 *
-		 * - Accept terminating autovacuum workers, since DROP DATABASE
-		 * without FORCE terminates them.
+		 * 接受终止自动清理工作进程，因为不带 FORCE 的 DROP DATABASE
+		 * 也会终止它们。
 		 *
-		 * - Accept terminating bgworkers.  For bgworker authors, it's
-		 * convenient to be able to recommend FORCE if a worker is blocking
-		 * DROP DATABASE unexpectedly.
+		 * 接受终止后台工作进程。对后台工作进程的作者来说，
+		 * 若工作进程意外阻塞了 DROP DATABASE，能建议使用 FORCE
+		 * 会很方便。
 		 *
-		 * Unlike pg_terminate_backend, we don't raise some warnings - like
-		 * "PID %d is not a PostgreSQL server process", because for us already
-		 * finished session is not a problem.
+		 * 与 pg_terminate_backend 不同，我们不发出某些警告，例如
+		 * PID 不是 PostgreSQL 服务器进程，因为对我们来说已经
+		 * 结束的会话不是问题。
 		 */
 		foreach(lc, pids)
 		{
@@ -3855,10 +3855,10 @@ TerminateOtherDBBackends(Oid databaseId)
 		}
 
 		/*
-		 * There's a race condition here: once we release the ProcArrayLock,
-		 * it's possible for the session to exit before we issue kill.  That
-		 * race condition possibility seems too unlikely to worry about.  See
-		 * pg_signal_backend.
+		 * 这里有一个竞争：一旦释放 ProcArrayLock，
+		 * 会话可能在我们发出 kill 之前就退出。这种
+		 * 竞争的可能性似乎小到不必担心。见
+		 * pg_signal_backend。
 		 */
 		foreach(lc, pids)
 		{
@@ -3868,8 +3868,8 @@ TerminateOtherDBBackends(Oid databaseId)
 			if (proc != NULL)
 			{
 				/*
-				 * If we have setsid(), signal the backend's whole process
-				 * group
+				 * 若有 setsid()，就向该后端的整个进程
+				 * 组发信号
 				 */
 #ifdef HAVE_SETSID
 				(void) kill(-pid, SIGTERM);
@@ -3882,11 +3882,11 @@ TerminateOtherDBBackends(Oid databaseId)
 }
 
 /*
- * ProcArraySetReplicationSlotXmin
+ * ProcArraySetReplicationSlotXmin。
  *
- * Install limits to future computations of the xmin horizon to prevent vacuum
- * and HOT pruning from removing affected rows still needed by clients with
- * replication slots.
+ * 为将来的 xmin 视界计算装上限制，防止清理
+ * 和 HOT 裁剪删掉带有复制槽的客户端仍然需要的
+ * 受影响的行。
  */
 void
 ProcArraySetReplicationSlotXmin(TransactionId xmin, TransactionId catalog_xmin,
@@ -3908,10 +3908,10 @@ ProcArraySetReplicationSlotXmin(TransactionId xmin, TransactionId catalog_xmin,
 }
 
 /*
- * ProcArrayGetReplicationSlotXmin
+ * ProcArrayGetReplicationSlotXmin。
  *
- * Return the current slot xmin limits. That's useful to be able to remove
- * data that's older than those limits.
+ * 返回当前槽的 xmin 限制。这对于删除
+ * 比这些限制更旧的数据很有用。
  */
 void
 ProcArrayGetReplicationSlotXmin(TransactionId *xmin,
@@ -3929,12 +3929,12 @@ ProcArrayGetReplicationSlotXmin(TransactionId *xmin,
 }
 
 /*
- * XidCacheRemoveRunningXids
+ * XidCacheRemoveRunningXids。
  *
- * Remove a bunch of TransactionIds from the list of known-running
- * subtransactions for my backend.  Both the specified xid and those in
- * the xids[] array (of length nxids) are removed from the subxids cache.
- * latestXid must be the latest XID among the group.
+ * 从本后端已知正在运行的
+ * 子事务列表中移除一批 TransactionIds。
+ * 指定的 xid 以及 xids[] 数组（长度为 nxids）里的那些，
+ * 都从 subxid 缓存中移除。latestXid 必须是这组里最新的 XID。
  */
 void
 XidCacheRemoveRunningXids(TransactionId xid,
@@ -3948,25 +3948,25 @@ XidCacheRemoveRunningXids(TransactionId xid,
 	Assert(TransactionIdIsValid(xid));
 
 	/*
-	 * We must hold ProcArrayLock exclusively in order to remove transactions
-	 * from the PGPROC array.  (See src/backend/access/transam/README.)  It's
-	 * possible this could be relaxed since we know this routine is only used
-	 * to abort subtransactions, but pending closer analysis we'd best be
-	 * conservative.
+	 * 为了从 PGPROC 数组中移除事务，必须排他持有 ProcArrayLock。
+	 * （见 src/backend/access/transam/README。）可能
+	 * 这一点可以放宽，因为我们知道这个例程只用于
+	 * 中止子事务，但在更仔细分析之前，最好
+	 * 保守一点。
 	 *
-	 * Note that we do not have to be careful about memory ordering of our own
-	 * reads wrt. GetNewTransactionId() here - only this process can modify
-	 * relevant fields of MyProc/ProcGlobal->xids[].  But we do have to be
-	 * careful about our own writes being well ordered.
+	 * 注意，这里不必小心地处理我们自己的读相对于 GetNewTransactionId() 的内存序，
+	 * 只有本进程能修改
+	 * MyProc/ProcGlobal->xids[] 的相关字段。但我们必须
+	 * 小心让自己的写有良好的顺序。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	mysubxidstat = &ProcGlobal->subxidStates[MyProc->pgxactoff];
 
 	/*
-	 * Under normal circumstances xid and xids[] will be in increasing order,
-	 * as will be the entries in subxids.  Scan backwards to avoid O(N^2)
-	 * behavior when removing a lot of xids.
+	 * 正常情况下 xid 和 xids[] 会按递增顺序，
+	 * subxid 里的项也是。倒着扫描，以免在移除大量 xid 时出现
+	 * O(N^2) 行为。
 	 */
 	for (i = nxids - 1; i >= 0; i--)
 	{
@@ -3985,11 +3985,11 @@ XidCacheRemoveRunningXids(TransactionId xid,
 		}
 
 		/*
-		 * Ordinarily we should have found it, unless the cache has
-		 * overflowed. However it's also possible for this routine to be
-		 * invoked multiple times for the same subtransaction, in case of an
-		 * error during AbortSubTransaction.  So instead of Assert, emit a
-		 * debug warning.
+		 * 通常应当已经找到它，除非缓存
+		 * 溢出了。不过这个例程也可能对同一个子事务
+		 * 被调用多次，在 AbortSubTransaction 期间出错时
+		 * 就是这样。所以不 Assert，而是发出一条
+		 * 调试警告。
 		 */
 		if (j < 0 && !MyProc->subxidStatus.overflowed)
 			elog(WARNING, "did not find subXID %u in MyProc", anxid);
@@ -4006,14 +4006,14 @@ XidCacheRemoveRunningXids(TransactionId xid,
 			break;
 		}
 	}
-	/* Ordinarily we should have found it, unless the cache has overflowed */
+	/* 通常应当已经找到它，除非缓存溢出了 */
 	if (j < 0 && !MyProc->subxidStatus.overflowed)
 		elog(WARNING, "did not find subXID %u in MyProc", xid);
 
-	/* Also advance global latestCompletedXid while holding the lock */
+	/* 持锁期间也推进全局 latestCompletedXid */
 	MaintainLatestCompletedXid(latestXid);
 
-	/* ... and xactCompletionCount */
+	/* ...以及 xactCompletionCount */
 	ShmemVariableCache->xactCompletionCount++;
 
 	LWLockRelease(ProcArrayLock);
@@ -4022,7 +4022,7 @@ XidCacheRemoveRunningXids(TransactionId xid,
 #ifdef XIDCACHE_DEBUG
 
 /*
- * Print stats about effectiveness of XID cache
+ * 打印 XID 缓存有效性的统计
  */
 static void
 DisplayXidCache(void)
@@ -4039,25 +4039,25 @@ DisplayXidCache(void)
 			xc_no_overflow,
 			xc_slow_answer);
 }
-#endif							/* XIDCACHE_DEBUG */
+#endif							/* 处于 XIDCACHE_DEBUG */
 
 /*
- * If rel != NULL, return test state appropriate for relation, otherwise
- * return state usable for all relations.  The latter may consider XIDs as
- * not-yet-visible-to-everyone that a state for a specific relation would
- * already consider visible-to-everyone.
+ * 若 rel 不是 NULL，返回适合该关系的测试状态，否则
+ * 返回可用于所有关系的状态。后者可能把某些 XIDs 视为
+ * 尚未对所有人可见，而针对特定关系的状态
+ * 已经视为对所有人可见。
  *
- * This needs to be called while a snapshot is active or registered, otherwise
- * there are wraparound and other dangers.
+ * 必须在快照处于活动或已注册时调用，否则
+ * 会有回绕和其他危险。
  *
- * See comment for GlobalVisState for details.
+ * 详见 GlobalVisState 的注释。
  */
 GlobalVisState *
 GlobalVisTestFor(Relation rel)
 {
 	GlobalVisState *state = NULL;
 
-	/* XXX: we should assert that a snapshot is pushed or registered */
+	/* XXX：应当断言有一份快照被压入或已注册 */
 	Assert(RecentXmin);
 
 	switch (GlobalVisHorizonKindForRel(rel))
@@ -4083,31 +4083,31 @@ GlobalVisTestFor(Relation rel)
 }
 
 /*
- * Return true if it's worth updating the accurate maybe_needed boundary.
+ * 若值得更新精确的 maybe_needed 边界，就返回真。
  *
- * As it is somewhat expensive to determine xmin horizons, we don't want to
- * repeatedly do so when there is a low likelihood of it being beneficial.
+ * 确定 xmin 视界有些贵，所以不想在
+ * 受益可能性低时反复去做。
  *
- * The current heuristic is that we update only if RecentXmin has changed
- * since the last update. If the oldest currently running transaction has not
- * finished, it is unlikely that recomputing the horizon would be useful.
+ * 当前启发式是，只有 RecentXmin 自上次更新以来变了
+ * 才更新。若当前最旧的正在运行的事务还没
+ * 结束，重算视界不太可能有用。
  */
 static bool
 GlobalVisTestShouldUpdate(GlobalVisState *state)
 {
-	/* hasn't been updated yet */
+	/* 还没更新过 */
 	if (!TransactionIdIsValid(ComputeXidHorizonsResultLastXmin))
 		return true;
 
 	/*
-	 * If the maybe_needed/definitely_needed boundaries are the same, it's
-	 * unlikely to be beneficial to refresh boundaries.
+	 * 若 maybe_needed 与 definitely_needed 边界相同，
+	 * 刷新边界不太可能有益。
 	 */
 	if (FullTransactionIdFollowsOrEquals(state->maybe_needed,
 										 state->definitely_needed))
 		return false;
 
-	/* does the last snapshot built have a different xmin? */
+	/* 最近构建的快照的 xmin 是否不同？ */
 	return RecentXmin != ComputeXidHorizonsResultLastXmin;
 }
 
@@ -4128,9 +4128,9 @@ GlobalVisUpdateApply(ComputeXidHorizonsResult *horizons)
 						  horizons->temp_oldest_nonremovable);
 
 	/*
-	 * In longer running transactions it's possible that transactions we
-	 * previously needed to treat as running aren't around anymore. So update
-	 * definitely_needed to not be earlier than maybe_needed.
+	 * 在运行较久的事务里，先前必须当作运行中的事务
+	 * 可能已经不在了。所以更新
+	 * definitely_needed，使它不早于 maybe_needed。
 	 */
 	GlobalVisSharedRels.definitely_needed =
 		FullTransactionIdNewer(GlobalVisSharedRels.maybe_needed,
@@ -4147,48 +4147,48 @@ GlobalVisUpdateApply(ComputeXidHorizonsResult *horizons)
 }
 
 /*
- * Update boundaries in GlobalVis{Shared,Catalog, Data}Rels
- * using ComputeXidHorizons().
+ * 用 ComputeXidHorizons() 更新 GlobalVis 里
+ * 共享、系统目录和数据关系的边界。
  */
 static void
 GlobalVisUpdate(void)
 {
 	ComputeXidHorizonsResult horizons;
 
-	/* updates the horizons as a side-effect */
+	/* 作为副作用更新视界 */
 	ComputeXidHorizons(&horizons);
 }
 
 /*
- * Return true if no snapshot still considers fxid to be running.
+ * 若不再有快照把 fxid 视为运行中，就返回真。
  *
- * The state passed needs to have been initialized for the relation fxid is
- * from (NULL is also OK), otherwise the result may not be correct.
+ * 传入的状态必须已经按 fxid 所来自的关系初始化过
+ * （NULL 也可以），否则结果可能不正确。
  *
- * See comment for GlobalVisState for details.
+ * 详见 GlobalVisState 的注释。
  */
 bool
 GlobalVisTestIsRemovableFullXid(GlobalVisState *state,
 								FullTransactionId fxid)
 {
 	/*
-	 * If fxid is older than maybe_needed bound, it definitely is visible to
-	 * everyone.
+	 * 若 fxid 比 maybe_needed 边界更旧，它肯定对
+	 * 所有人可见。
 	 */
 	if (FullTransactionIdPrecedes(fxid, state->maybe_needed))
 		return true;
 
 	/*
-	 * If fxid is >= definitely_needed bound, it is very likely to still be
-	 * considered running.
+	 * 若 fxid >= definitely_needed 边界，它很有可能仍被
+	 * 视为运行中。
 	 */
 	if (FullTransactionIdFollowsOrEquals(fxid, state->definitely_needed))
 		return false;
 
 	/*
-	 * fxid is between maybe_needed and definitely_needed, i.e. there might or
-	 * might not exist a snapshot considering fxid running. If it makes sense,
-	 * update boundaries and recheck.
+	 * fxid 位于 maybe_needed 和 definitely_needed 之间，也就是说可能存在
+	 * 也可能不存在把 fxid 视为运行中的快照。若有意义，
+	 * 就更新边界并重新检查。
 	 */
 	if (GlobalVisTestShouldUpdate(state))
 	{
@@ -4203,11 +4203,11 @@ GlobalVisTestIsRemovableFullXid(GlobalVisState *state,
 }
 
 /*
- * Wrapper around GlobalVisTestIsRemovableFullXid() for 32bit xids.
+ * 供 32 位 xid 使用的 GlobalVisTestIsRemovableFullXid() 包装。
  *
- * It is crucial that this only gets called for xids from a source that
- * protects against xid wraparounds (e.g. from a table and thus protected by
- * relfrozenxid).
+ * 关键是它只对被防回绕的来源中的 xid 调用
+ * （例如来自表，因而受
+ * relfrozenxid 保护）。
  */
 bool
 GlobalVisTestIsRemovableXid(GlobalVisState *state, TransactionId xid)
@@ -4215,12 +4215,12 @@ GlobalVisTestIsRemovableXid(GlobalVisState *state, TransactionId xid)
 	FullTransactionId fxid;
 
 	/*
-	 * Convert 32 bit argument to FullTransactionId. We can do so safely
-	 * because we know the xid has to, at the very least, be between
-	 * [oldestXid, nextXid), i.e. within 2 billion of xid. To avoid taking a
-	 * lock to determine either, we can just compare with
-	 * state->definitely_needed, which was based on those value at the time
-	 * the current snapshot was built.
+	 * 把 32 位参数转换成 FullTransactionId。可以安全地这样做，
+	 * 因为我们知道该 xid 至少必须位于
+	 * [oldestXid, nextXid) 之内，也就是离 xid 不到 20 亿。为避免为确定
+	 * 其中任何一个而上锁，只需与
+	 * state->definitely_needed 比较，它基于构建当前快照时
+	 * 的那些值。
 	 */
 	fxid = FullXidRelativeTo(state->definitely_needed, xid);
 
@@ -4228,25 +4228,25 @@ GlobalVisTestIsRemovableXid(GlobalVisState *state, TransactionId xid)
 }
 
 /*
- * Return FullTransactionId below which all transactions are not considered
- * running anymore.
+ * 返回一个 FullTransactionId，低于它的所有事务都不再被视为
+ * 运行中。
  *
- * Note: This is less efficient than testing with
- * GlobalVisTestIsRemovableFullXid as it likely requires building an accurate
- * cutoff, even in the case all the XIDs compared with the cutoff are outside
- * [maybe_needed, definitely_needed).
+ * 注意：这比用 GlobalVisTestIsRemovableFullXid 测试效率更低，
+ * 因为它很可能需要建立一个精确的
+ * 截止，即使所有拿来与截止比较的 XIDs 都在
+ * [maybe_needed, definitely_needed) 之外。
  */
 FullTransactionId
 GlobalVisTestNonRemovableFullHorizon(GlobalVisState *state)
 {
-	/* acquire accurate horizon if not already done */
+	/* 若还没做过，就取得精确视界 */
 	if (GlobalVisTestShouldUpdate(state))
 		GlobalVisUpdate();
 
 	return state->maybe_needed;
 }
 
-/* Convenience wrapper around GlobalVisTestNonRemovableFullHorizon */
+/* GlobalVisTestNonRemovableFullHorizon 的便捷包装 */
 TransactionId
 GlobalVisTestNonRemovableHorizon(GlobalVisState *state)
 {
@@ -4258,8 +4258,8 @@ GlobalVisTestNonRemovableHorizon(GlobalVisState *state)
 }
 
 /*
- * Convenience wrapper around GlobalVisTestFor() and
- * GlobalVisTestIsRemovableFullXid(), see their comments.
+ * GlobalVisTestFor() 与 GlobalVisTestIsRemovableFullXid() 的便捷包装，
+ * 见它们的注释。
  */
 bool
 GlobalVisCheckRemovableFullXid(Relation rel, FullTransactionId fxid)
@@ -4272,8 +4272,8 @@ GlobalVisCheckRemovableFullXid(Relation rel, FullTransactionId fxid)
 }
 
 /*
- * Convenience wrapper around GlobalVisTestFor() and
- * GlobalVisTestIsRemovableXid(), see their comments.
+ * GlobalVisTestFor() 与 GlobalVisTestIsRemovableXid() 的便捷包装，
+ * 见它们的注释。
  */
 bool
 GlobalVisCheckRemovableXid(Relation rel, TransactionId xid)
@@ -4286,15 +4286,15 @@ GlobalVisCheckRemovableXid(Relation rel, TransactionId xid)
 }
 
 /*
- * Convert a 32 bit transaction id into 64 bit transaction id, by assuming it
- * is within MaxTransactionId / 2 of XidFromFullTransactionId(rel).
+ * 把 32 位事务 id 转成 64 位事务 id，假定它位于
+ * XidFromFullTransactionId(rel) 的 MaxTransactionId / 2 范围之内。
  *
- * Be very careful about when to use this function. It can only safely be used
- * when there is a guarantee that xid is within MaxTransactionId / 2 xids of
- * rel. That e.g. can be guaranteed if the caller assures a snapshot is
- * held by the backend and xid is from a table (where vacuum/freezing ensures
- * the xid has to be within that range), or if xid is from the procarray and
- * prevents xid wraparound that way.
+ * 使用这个函数时要非常小心。只有在能保证 xid 位于 rel 的
+ * MaxTransactionId / 2 个 xid 之内时才能安全使用。
+ * 例如，若调用方保证后端持有快照，
+ * 并且 xid 来自表（清理和冻结保证
+ * 该 xid 必须在那个范围内），或者 xid 来自 procarray 并
+ * 以此防止 xid 回绕，就可以保证。
  */
 static inline FullTransactionId
 FullXidRelativeTo(FullTransactionId rel, TransactionId xid)
@@ -4304,7 +4304,7 @@ FullXidRelativeTo(FullTransactionId rel, TransactionId xid)
 	Assert(TransactionIdIsValid(xid));
 	Assert(TransactionIdIsValid(rel_xid));
 
-	/* not guaranteed to find issues, but likely to catch mistakes */
+	/* 不保证能发现问题，但多半能抓住错误 */
 	AssertTransactionIdInAllowableRange(xid);
 
 	return FullTransactionIdFromU64(U64FromFullTransactionId(rel)
@@ -4313,70 +4313,70 @@ FullXidRelativeTo(FullTransactionId rel, TransactionId xid)
 
 
 /* ----------------------------------------------
- *		KnownAssignedTransactionIds sub-module
+ *		KnownAssignedTransactionIds 子模块
  * ----------------------------------------------
  */
 
 /*
- * In Hot Standby mode, we maintain a list of transactions that are (or were)
- * running on the primary at the current point in WAL.  These XIDs must be
- * treated as running by standby transactions, even though they are not in
- * the standby server's PGPROC array.
+ * 在热备模式下，我们维护一份在 WAL 当前点上于主库
+ * 正在（或曾经）运行的事务列表。备库事务必须把这些 XIDs
+ * 当作正在运行，即使它们不在
+ * 备库服务器的 PGPROC 数组里。
  *
- * We record all XIDs that we know have been assigned.  That includes all the
- * XIDs seen in WAL records, plus all unobserved XIDs that we can deduce have
- * been assigned.  We can deduce the existence of unobserved XIDs because we
- * know XIDs are assigned in sequence, with no gaps.  The KnownAssignedXids
- * list expands as new XIDs are observed or inferred, and contracts when
- * transaction completion records arrive.
+ * 我们记录所有已知已被分配的 XIDs。这包括在 WAL 记录里
+ * 见到的全部 XIDs，加上我们能推断已被分配的所有未观察到的 XIDs。
+ * 能推断未观察到的 XIDs 存在，是因为我们知道
+ * XIDs 按顺序分配，没有空隙。KnownAssignedXids
+ * 列表随新 XIDs 被观察到或推断出来而扩展，并在
+ * 事务完成记录到达时收缩。
  *
- * During hot standby we do not fret too much about the distinction between
- * top-level XIDs and subtransaction XIDs. We store both together in the
- * KnownAssignedXids list.  In backends, this is copied into snapshots in
- * GetSnapshotData(), taking advantage of the fact that XidInMVCCSnapshot()
- * doesn't care about the distinction either.  Subtransaction XIDs are
- * effectively treated as top-level XIDs and in the typical case pg_subtrans
- * links are *not* maintained (which does not affect visibility).
+ * 热备期间我们不太计较顶层 XIDs 和子事务 XIDs 的
+ * 区别。两者一起存在 KnownAssignedXids 列表里。
+ * 在后端里，这被复制进 GetSnapshotData() 的快照，
+ * 利用了 XidInMVCCSnapshot()
+ * 同样不在乎这个区别的事实。子事务 XIDs 实际上被当作
+ * 顶层 XIDs，典型情况下不维护 pg_subtrans
+ * 链接（这不影响可见性）。
  *
- * We have room in KnownAssignedXids and in snapshots to hold maxProcs *
- * (1 + PGPROC_MAX_CACHED_SUBXIDS) XIDs, so every primary transaction must
- * report its subtransaction XIDs in a WAL XLOG_XACT_ASSIGNMENT record at
- * least every PGPROC_MAX_CACHED_SUBXIDS.  When we receive one of these
- * records, we mark the subXIDs as children of the top XID in pg_subtrans,
- * and then remove them from KnownAssignedXids.  This prevents overflow of
- * KnownAssignedXids and snapshots, at the cost that status checks for these
- * subXIDs will take a slower path through TransactionIdIsInProgress().
- * This means that KnownAssignedXids is not necessarily complete for subXIDs,
- * though it should be complete for top-level XIDs; this is the same situation
- * that holds with respect to the PGPROC entries in normal running.
+ * KnownAssignedXids 和快照里有空间装下 maxProcs *
+ * (1 + PGPROC_MAX_CACHED_SUBXIDS) 个 XIDs，所以每个主库事务必须
+ * 至少每 PGPROC_MAX_CACHED_SUBXIDS 个就在一条 WAL
+ * XLOG_XACT_ASSIGNMENT 记录里报告它的子事务 XIDs。收到这样一条
+ * 记录时，我们在 pg_subtrans 里把子 XIDs 标为顶层 XID 的子事务，
+ * 然后把它们从 KnownAssignedXids 中移除。这防止
+ * KnownAssignedXids 和快照溢出，代价是这些
+ * 子 XIDs 的状态检查会走 TransactionIdIsInProgress() 这条较慢的路径。
+ * 这意味着 KnownAssignedXids 对子 XIDs 不一定完整，
+ * 但对顶层 XIDs 应当完整；这与正常运行时
+ * PGPROC 项的情况相同。
  *
- * When we throw away subXIDs from KnownAssignedXids, we need to keep track of
- * that, similarly to tracking overflow of a PGPROC's subxids array.  We do
- * that by remembering the lastOverflowedXid, ie the last thrown-away subXID.
- * As long as that is within the range of interesting XIDs, we have to assume
- * that subXIDs are missing from snapshots.  (Note that subXID overflow occurs
- * on primary when 65th subXID arrives, whereas on standby it occurs when 64th
- * subXID arrives - that is not an error.)
+ * 从 KnownAssignedXids 丢掉子 XIDs 时，需要记住
+ * 这一点，类似于跟踪 PGPROC 的 subxid 数组溢出。我们
+ * 通过记住 lastOverflowedXid 来做，也就是最后丢掉的那个 subXID。
+ * 只要它还在感兴趣的 XIDs 范围内，就必须假定
+ * 快照里缺少 subXIDs。（注意 subXID 溢出在
+ * 主库上发生于第 65 个 subXID 到达时，而在备库上发生于第 64 个
+ * subXID 到达时，这不是错误。）
  *
- * Should a backend on primary somehow disappear before it can write an abort
- * record, then we just leave those XIDs in KnownAssignedXids. They actually
- * aborted but we think they were running; the distinction is irrelevant
- * because either way any changes done by the transaction are not visible to
- * backends in the standby.  We prune KnownAssignedXids when
- * XLOG_RUNNING_XACTS arrives, to forestall possible overflow of the
- * array due to such dead XIDs.
+ * 若主库上的后端在写出中止记录之前不知怎么消失了，
+ * 我们就把那些 XIDs 留在 KnownAssignedXids 里。它们实际上
+ * 已中止，但我们以为它们在运行；这个区别无关紧要，
+ * 因为无论哪种，该事务所做的任何变更对
+ * 备库里的后端都不可见。当
+ * XLOG_RUNNING_XACTS 到达时我们裁剪 KnownAssignedXids，以防这种死掉的 XIDs
+ * 造成数组溢出。
  */
 
 /*
  * RecordKnownAssignedTransactionIds
- *		Record the given XID in KnownAssignedXids, as well as any preceding
- *		unobserved XIDs.
+ *		把给定 XID 以及任何在它之前、
+ *		尚未观察到的 XIDs 记入 KnownAssignedXids。
  *
- * RecordKnownAssignedTransactionIds() should be run for *every* WAL record
- * associated with a transaction. Must be called for each record after we
- * have executed StartupCLOG() et al, since we must ExtendCLOG() etc..
+ * 应当对与事务关联的每一条 WAL 记录都运行 RecordKnownAssignedTransactionIds()。
+ * 必须在执行了 StartupCLOG() 等之后对每条记录调用，因为我们必须
+ * ExtendCLOG() 等等。
  *
- * Called during recovery in analogy with and in place of GetNewTransactionId()
+ * 在恢复期间调用，类比并代替 GetNewTransactionId()。
  */
 void
 RecordKnownAssignedTransactionIds(TransactionId xid)
@@ -4389,22 +4389,22 @@ RecordKnownAssignedTransactionIds(TransactionId xid)
 		 xid, latestObservedXid);
 
 	/*
-	 * When a newly observed xid arrives, it is frequently the case that it is
-	 * *not* the next xid in sequence. When this occurs, we must treat the
-	 * intervening xids as running also.
+	 * 新观察到的 xid 到达时，经常出现它
+	 * 并不是序列中的下一个 xid。发生这种情况时，必须把
+	 * 中间的那些 xid 也当作正在运行。
 	 */
 	if (TransactionIdFollows(xid, latestObservedXid))
 	{
 		TransactionId next_expected_xid;
 
 		/*
-		 * Extend subtrans like we do in GetNewTransactionId() during normal
-		 * operation using individual extend steps. Note that we do not need
-		 * to extend clog since its extensions are WAL logged.
+		 * 像正常操作中 GetNewTransactionId() 那样扩展 subtrans，
+		 * 用单独的扩展步骤。注意不需要扩展 clog，因为
+		 * 它的扩展记入了 WAL。
 		 *
-		 * This part has to be done regardless of standbyState since we
-		 * immediately start assigning subtransactions to their toplevel
-		 * transactions.
+		 * 无论 standbyState 如何，这部分都必须做，因为我们
+		 * 立刻开始把子事务分配给它们的顶层
+		 * 事务。
 		 */
 		next_expected_xid = latestObservedXid;
 		while (TransactionIdPrecedes(next_expected_xid, xid))
@@ -4415,8 +4415,8 @@ RecordKnownAssignedTransactionIds(TransactionId xid)
 		Assert(next_expected_xid == xid);
 
 		/*
-		 * If the KnownAssignedXids machinery isn't up yet, there's nothing
-		 * more to do since we don't track assigned xids yet.
+		 * 若 KnownAssignedXids 机制还没起来，就没有更多的事可做，
+		 * 因为我们还没跟踪已分配的 xid。
 		 */
 		if (standbyState <= STANDBY_INITIALIZED)
 		{
@@ -4425,27 +4425,27 @@ RecordKnownAssignedTransactionIds(TransactionId xid)
 		}
 
 		/*
-		 * Add (latestObservedXid, xid] onto the KnownAssignedXids array.
+		 * 把 (latestObservedXid, xid] 加到 KnownAssignedXids 数组上。
 		 */
 		next_expected_xid = latestObservedXid;
 		TransactionIdAdvance(next_expected_xid);
 		KnownAssignedXidsAdd(next_expected_xid, xid, false);
 
 		/*
-		 * Now we can advance latestObservedXid
+		 * 现在可以推进 latestObservedXid
 		 */
 		latestObservedXid = xid;
 
-		/* ShmemVariableCache->nextXid must be beyond any observed xid */
+		/* ShmemVariableCache->nextXid 必须超出任何已观察到的 xid */
 		AdvanceNextFullTransactionIdPastXid(latestObservedXid);
 	}
 }
 
 /*
  * ExpireTreeKnownAssignedTransactionIds
- *		Remove the given XIDs from KnownAssignedXids.
+ *		从 KnownAssignedXids 中移除给定的 XIDs。
  *
- * Called during recovery in analogy with and in place of ProcArrayEndTransaction()
+ * 在恢复期间调用，类比并代替 ProcArrayEndTransaction()。
  */
 void
 ExpireTreeKnownAssignedTransactionIds(TransactionId xid, int nsubxids,
@@ -4454,16 +4454,16 @@ ExpireTreeKnownAssignedTransactionIds(TransactionId xid, int nsubxids,
 	Assert(standbyState >= STANDBY_INITIALIZED);
 
 	/*
-	 * Uses same locking as transaction commit
+	 * 使用与事务提交相同的加锁
 	 */
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	KnownAssignedXidsRemoveTree(xid, nsubxids, subxids);
 
-	/* As in ProcArrayEndTransaction, advance latestCompletedXid */
+	/* 与 ProcArrayEndTransaction 中一样，推进 latestCompletedXid */
 	MaintainLatestCompletedXidRecovery(max_xid);
 
-	/* ... and xactCompletionCount */
+	/* ...以及 xactCompletionCount */
 	ShmemVariableCache->xactCompletionCount++;
 
 	LWLockRelease(ProcArrayLock);
@@ -4471,7 +4471,7 @@ ExpireTreeKnownAssignedTransactionIds(TransactionId xid, int nsubxids,
 
 /*
  * ExpireAllKnownAssignedTransactionIds
- *		Remove all entries in KnownAssignedXids and reset lastOverflowedXid.
+ *		移除 KnownAssignedXids 中的全部项，并重置 lastOverflowedXid。
  */
 void
 ExpireAllKnownAssignedTransactionIds(void)
@@ -4481,22 +4481,22 @@ ExpireAllKnownAssignedTransactionIds(void)
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 	KnownAssignedXidsRemovePreceding(InvalidTransactionId);
 
-	/* Reset latestCompletedXid to nextXid - 1 */
+	/* 把 latestCompletedXid 重置为 nextXid - 1 */
 	Assert(FullTransactionIdIsValid(ShmemVariableCache->nextXid));
 	latestXid = ShmemVariableCache->nextXid;
 	FullTransactionIdRetreat(&latestXid);
 	ShmemVariableCache->latestCompletedXid = latestXid;
 
 	/*
-	 * Any transactions that were in-progress were effectively aborted, so
-	 * advance xactCompletionCount.
+	 * 任何进行中的事务实际上都被中止了，所以
+	 * 推进 xactCompletionCount。
 	 */
 	ShmemVariableCache->xactCompletionCount++;
 
 	/*
-	 * Reset lastOverflowedXid.  Currently, lastOverflowedXid has no use after
-	 * the call of this function.  But do this for unification with what
-	 * ExpireOldKnownAssignedTransactionIds() do.
+	 * 重置 lastOverflowedXid。目前，在调用这个函数之后
+	 * lastOverflowedXid 没有用途。但为了与
+	 * ExpireOldKnownAssignedTransactionIds() 所做的统一，还是做这件事。
 	 */
 	procArray->lastOverflowedXid = InvalidTransactionId;
 	LWLockRelease(ProcArrayLock);
@@ -4504,8 +4504,8 @@ ExpireAllKnownAssignedTransactionIds(void)
 
 /*
  * ExpireOldKnownAssignedTransactionIds
- *		Remove KnownAssignedXids entries preceding the given XID and
- *		potentially reset lastOverflowedXid.
+ *		移除给定 XID 之前的 KnownAssignedXids 项，并
+ *		可能重置 lastOverflowedXid。
  */
 void
 ExpireOldKnownAssignedTransactionIds(TransactionId xid)
@@ -4514,19 +4514,19 @@ ExpireOldKnownAssignedTransactionIds(TransactionId xid)
 
 	LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
-	/* As in ProcArrayEndTransaction, advance latestCompletedXid */
+	/* 与 ProcArrayEndTransaction 中一样，推进 latestCompletedXid */
 	latestXid = xid;
 	TransactionIdRetreat(latestXid);
 	MaintainLatestCompletedXidRecovery(latestXid);
 
-	/* ... and xactCompletionCount */
+	/* ...以及 xactCompletionCount */
 	ShmemVariableCache->xactCompletionCount++;
 
 	/*
-	 * Reset lastOverflowedXid if we know all transactions that have been
-	 * possibly running are being gone.  Not doing so could cause an incorrect
-	 * lastOverflowedXid value, which makes extra snapshots be marked as
-	 * suboverflowed.
+	 * 若知道所有可能曾在运行的事务都已经消失，就重置 lastOverflowedXid。
+	 * 不这样做可能导致不正确的
+	 * lastOverflowedXid 值，从而使额外的快照被标为
+	 * 子事务溢出。
 	 */
 	if (TransactionIdPrecedes(procArray->lastOverflowedXid, xid))
 		procArray->lastOverflowedXid = InvalidTransactionId;
@@ -4536,8 +4536,8 @@ ExpireOldKnownAssignedTransactionIds(TransactionId xid)
 
 /*
  * KnownAssignedTransactionIdsIdleMaintenance
- *		Opportunistically do maintenance work when the startup process
- *		is about to go idle.
+ *		在启动进程即将空闲时，
+ *		伺机做维护工作。
  */
 void
 KnownAssignedTransactionIdsIdleMaintenance(void)
@@ -4547,101 +4547,101 @@ KnownAssignedTransactionIdsIdleMaintenance(void)
 
 
 /*
- * Private module functions to manipulate KnownAssignedXids
+ * 操作 KnownAssignedXids 的私有模块函数。
  *
- * There are 5 main uses of the KnownAssignedXids data structure:
+ * KnownAssignedXids 数据结构有 5 种用途：
  *
- *	* backends taking snapshots - all valid XIDs need to be copied out
- *	* backends seeking to determine presence of a specific XID
- *	* startup process adding new known-assigned XIDs
- *	* startup process removing specific XIDs as transactions end
- *	* startup process pruning array when special WAL records arrive
+ *	后端取快照：需要把所有有效 XIDs 拷出去。
+ *	后端想判断某个特定 XID 是否存在。
+ *	启动进程加入新的已知已分配 XIDs。
+ *	启动进程在事务结束时移除特定 XIDs。
+ *	启动进程在特殊 WAL 记录到达时裁剪数组。
  *
- * This data structure is known to be a hot spot during Hot Standby, so we
- * go to some lengths to make these operations as efficient and as concurrent
- * as possible.
+ * 这个数据结构在热备期间是已知热点，所以我们
+ * 费些功夫让这些操作尽量高效，也尽量
+ * 并发。
  *
- * The XIDs are stored in an array in sorted order --- TransactionIdPrecedes
- * order, to be exact --- to allow binary search for specific XIDs.  Note:
- * in general TransactionIdPrecedes would not provide a total order, but
- * we know that the entries present at any instant should not extend across
- * a large enough fraction of XID space to wrap around (the primary would
- * shut down for fear of XID wrap long before that happens).  So it's OK to
- * use TransactionIdPrecedes as a binary-search comparator.
+ * XIDs 按排序存在数组里，确切说是 TransactionIdPrecedes
+ * 序，以便对特定 XIDs 做二分查找。注意：
+ * 一般而言 TransactionIdPrecedes 并不提供全序，但
+ * 我们知道任一时刻存在的项不应当跨越
+ * XID 空间中大到会回绕的那一部分（主库会
+ * 在那发生之前很久就因担心 XID 回绕而关闭）。所以可以用
+ * TransactionIdPrecedes 作为二分查找的比较器。
  *
- * It's cheap to maintain the sortedness during insertions, since new known
- * XIDs are always reported in XID order; we just append them at the right.
+ * 插入时维护有序很便宜，因为新的已知
+ * XIDs 总是按 XID 顺序报告；我们只是把它们追加在右边。
  *
- * To keep individual deletions cheap, we need to allow gaps in the array.
- * This is implemented by marking array elements as valid or invalid using
- * the parallel boolean array KnownAssignedXidsValid[].  A deletion is done
- * by setting KnownAssignedXidsValid[i] to false, *without* clearing the
- * XID entry itself.  This preserves the property that the XID entries are
- * sorted, so we can do binary searches easily.  Periodically we compress
- * out the unused entries; that's much cheaper than having to compress the
- * array immediately on every deletion.
+ * 为了让单次删除保持便宜，需要允许数组里有空隙。
+ * 这通过并行布尔数组 KnownAssignedXidsValid[] 来实现，
+ * 用它把数组元素标为有效或无效。删除时把
+ * KnownAssignedXidsValid[i] 设为假，而不清除
+ * XID 项本身。这保留 XID 项有序的性质，
+ * 所以可以轻松做二分查找。我们定期压缩掉
+ * 未使用的项；这比每次删除都立刻压缩
+ * 数组要便宜得多。
  *
- * The actually valid items in KnownAssignedXids[] and KnownAssignedXidsValid[]
- * are those with indexes tail <= i < head; items outside this subscript range
- * have unspecified contents.  When head reaches the end of the array, we
- * force compression of unused entries rather than wrapping around, since
- * allowing wraparound would greatly complicate the search logic.  We maintain
- * an explicit tail pointer so that pruning of old XIDs can be done without
- * immediately moving the array contents.  In most cases only a small fraction
- * of the array contains valid entries at any instant.
+ * KnownAssignedXids[] 和 KnownAssignedXidsValid[] 里真正有效的项
+ * 是下标 tail <= i < head 的那些；这个下标范围之外的项
+ * 内容未指定。当 head 到达数组末尾时，我们
+ * 强制压缩未使用的项，而不是回绕，因为
+ * 允许回绕会大大复杂化查找逻辑。我们维护
+ * 一个显式的 tail 指针，这样裁剪旧 XIDs 时不必
+ * 立刻移动数组内容。大多数情况下，任一时刻只有一小部分
+ * 数组含有有效项。
  *
- * Although only the startup process can ever change the KnownAssignedXids
- * data structure, we still need interlocking so that standby backends will
- * not observe invalid intermediate states.  The convention is that backends
- * must hold shared ProcArrayLock to examine the array.  To remove XIDs from
- * the array, the startup process must hold ProcArrayLock exclusively, for
- * the usual transactional reasons (compare commit/abort of a transaction
- * during normal running).  Compressing unused entries out of the array
- * likewise requires exclusive lock.  To add XIDs to the array, we just insert
- * them into slots to the right of the head pointer and then advance the head
- * pointer.  This wouldn't require any lock at all, except that on machines
- * with weak memory ordering we need to be careful that other processors
- * see the array element changes before they see the head pointer change.
- * We handle this by using a spinlock to protect reads and writes of the
- * head/tail pointers.  (We could dispense with the spinlock if we were to
- * create suitable memory access barrier primitives and use those instead.)
- * The spinlock must be taken to read or write the head/tail pointers unless
- * the caller holds ProcArrayLock exclusively.
+ * 虽然只有启动进程会改变 KnownAssignedXids
+ * 数据结构，仍然需要互锁，这样备库后端
+ * 才不会观察到无效的中间状态。约定是后端
+ * 检查数组时必须持有共享 ProcArrayLock。要从数组中
+ * 移除 XIDs，启动进程必须排他持有 ProcArrayLock，
+ * 原因是通常的事务性理由（对照正常运行期间
+ * 事务的提交或中止）。把未使用的项压缩出数组
+ * 同样需要排他锁。要把 XIDs 加进数组，只需把它们
+ * 插到 head 指针右边的槽里，然后推进 head
+ * 指针。这本来完全不需要锁，只是在
+ * 内存序较弱的机器上，必须小心让其他处理器
+ * 先看到数组元素的变化，再看到 head 指针的变化。
+ * 我们用自旋锁来保护 head/tail 指针的读写，以此处理这一点。
+ * （若去创建合适的内存访问屏障原语并改用那些，
+ * 就可以不用自旋锁。）
+ * 除非调用方排他持有 ProcArrayLock，否则读写 head/tail 指针
+ * 都必须取得自旋锁。
  *
- * Algorithmic analysis:
+ * 算法分析：
  *
- * If we have a maximum of M slots, with N XIDs currently spread across
- * S elements then we have N <= S <= M always.
+ * 若最多有 M 个槽，当前 N 个 XIDs 分布在
+ * S 个元素上，则始终有 N <= S <= M。
  *
- *	* Adding a new XID is O(1) and needs little locking (unless compression
- *		must happen)
- *	* Compressing the array is O(S) and requires exclusive lock
- *	* Removing an XID is O(logS) and requires exclusive lock
- *	* Taking a snapshot is O(S) and requires shared lock
- *	* Checking for an XID is O(logS) and requires shared lock
+ *	加入一个新 XID 是 O(1)，只需要很少的锁（除非必须
+ *		发生压缩）。
+ *	压缩数组是 O(S)，需要排他锁。
+ *	移除一个 XID 是 O(logS)，需要排他锁。
+ *	取快照是 O(S)，需要共享锁。
+ *	检查一个 XID 是 O(logS)，需要共享锁。
  *
- * In comparison, using a hash table for KnownAssignedXids would mean that
- * taking snapshots would be O(M). If we can maintain S << M then the
- * sorted array technique will deliver significantly faster snapshots.
- * If we try to keep S too small then we will spend too much time compressing,
- * so there is an optimal point for any workload mix. We use a heuristic to
- * decide when to compress the array, though trimming also helps reduce
- * frequency of compressing. The heuristic requires us to track the number of
- * currently valid XIDs in the array (N).  Except in special cases, we'll
- * compress when S >= 2N.  Bounding S at 2N in turn bounds the time for
- * taking a snapshot to be O(N), which it would have to be anyway.
+ * 相比之下，若 KnownAssignedXids 用散列表，
+ * 取快照就会是 O(M)。若能保持 S 远小于 M，
+ * 有序数组技术会给出快得多的快照。
+ * 若试图把 S 保持得太小，就会花太多时间压缩，
+ * 所以对任何工作负载组合都有一个最优点。我们用启发式
+ * 决定何时压缩数组，裁剪也有助于降低压缩频率。
+ * 该启发式需要我们跟踪数组里当前有效
+ * XIDs 的数目 (N)。除特殊情况外，S >= 2N 时就压缩。
+ * 把 S 限制在 2N 又把取快照的时间限制为 O(N)，
+ * 而它本来也必须是这样。
  */
 
 
 /*
- * Compress KnownAssignedXids by shifting valid data down to the start of the
- * array, removing any gaps.
+ * 压缩 KnownAssignedXids，把有效数据下移到数组
+ * 开头，去掉任何空隙。
  *
- * A compression step is forced if "reason" is KAX_NO_SPACE, otherwise
- * we do it only if a heuristic indicates it's a good time to do it.
+ * 若 reason 是 KAX_NO_SPACE，就强制做一步压缩，否则
+ * 只在启发式表明这是好时机时才做。
  *
- * Compression requires holding ProcArrayLock in exclusive mode.
- * Caller must pass haveLock = true if it already holds the lock.
+ * 压缩需要以排他模式持有 ProcArrayLock。
+ * 若调用方已经持有该锁，必须传入 haveLock = true。
  */
 static void
 KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
@@ -4653,34 +4653,34 @@ KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
 	int			compress_index;
 	int			i;
 
-	/* Counters for compression heuristics */
+	/* 压缩启发式用的计数器 */
 	static unsigned int transactionEndsCounter;
 	static TimestampTz lastCompressTs;
 
-	/* Tuning constants */
-#define KAX_COMPRESS_FREQUENCY 128	/* in transactions */
-#define KAX_COMPRESS_IDLE_INTERVAL 1000 /* in ms */
+	/* 调优常数 */
+#define KAX_COMPRESS_FREQUENCY 128	/* 以事务计 */
+#define KAX_COMPRESS_IDLE_INTERVAL 1000 /* 以毫秒计 */
 
 	/*
-	 * Since only the startup process modifies the head/tail pointers, we
-	 * don't need a lock to read them here.
+	 * 因为只有启动进程会修改 head/tail 指针，这里读它们
+	 * 不需要锁。
 	 */
 	head = pArray->headKnownAssignedXids;
 	tail = pArray->tailKnownAssignedXids;
 	nelements = head - tail;
 
 	/*
-	 * If we can choose whether to compress, use a heuristic to avoid
-	 * compressing too often or not often enough.  "Compress" here simply
-	 * means moving the values to the beginning of the array, so it is not as
-	 * complex or costly as typical data compression algorithms.
+	 * 若可以选择是否压缩，就用启发式来避免
+	 * 压缩得太频繁或不够频繁。这里的压缩只是
+	 * 把值移到数组开头，所以不像典型的数据压缩算法那样
+	 * 复杂或昂贵。
 	 */
 	if (nelements == pArray->numKnownAssignedXids)
 	{
 		/*
-		 * When there are no gaps between head and tail, don't bother to
-		 * compress, except in the KAX_NO_SPACE case where we must compress to
-		 * create some space after the head.
+		 * 当 head 和 tail 之间没有空隙时，就不必
+		 * 压缩，除非是 KAX_NO_SPACE 情形，那时必须压缩才能
+		 * 在 head 之后腾出一些空间。
 		 */
 		if (reason != KAX_NO_SPACE)
 			return;
@@ -4688,15 +4688,15 @@ KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
 	else if (reason == KAX_TRANSACTION_END)
 	{
 		/*
-		 * Consider compressing only once every so many commits.  Frequency
-		 * determined by benchmarks.
+		 * 只在每这么多次提交时才考虑压缩一次。频率
+		 * 由基准测试决定。
 		 */
 		if ((transactionEndsCounter++) % KAX_COMPRESS_FREQUENCY != 0)
 			return;
 
 		/*
-		 * Furthermore, compress only if the used part of the array is less
-		 * than 50% full (see comments above).
+		 * 此外，只有在数组已用部分的填充不到
+		 * 50% 时才压缩（见上面的注释）。
 		 */
 		if (nelements < 2 * pArray->numKnownAssignedXids)
 			return;
@@ -4704,9 +4704,9 @@ KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
 	else if (reason == KAX_STARTUP_PROCESS_IDLE)
 	{
 		/*
-		 * We're about to go idle for lack of new WAL, so we might as well
-		 * compress.  But not too often, to avoid ProcArray lock contention
-		 * with readers.
+		 * 因为缺少新的 WAL，我们即将空闲，所以不妨
+		 * 压缩。但不要太频繁，以免与读者争用
+		 * ProcArray 锁。
 		 */
 		if (lastCompressTs != 0)
 		{
@@ -4719,13 +4719,13 @@ KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
 		}
 	}
 
-	/* Need to compress, so get the lock if we don't have it. */
+	/* 需要压缩，所以若还没有锁就去取。 */
 	if (!haveLock)
 		LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 
 	/*
-	 * We compress the array by reading the valid values from tail to head,
-	 * re-aligning data to 0th element.
+	 * 压缩数组的办法是从 tail 读到 head 的有效值，
+	 * 把数据重新对齐到第 0 个元素。
 	 */
 	compress_index = 0;
 	for (i = tail; i < head; i++)
@@ -4745,20 +4745,20 @@ KnownAssignedXidsCompress(KAXCompressReason reason, bool haveLock)
 	if (!haveLock)
 		LWLockRelease(ProcArrayLock);
 
-	/* Update timestamp for maintenance.  No need to hold lock for this. */
+	/* 更新维护用的时间戳。这件事不需要持锁。 */
 	lastCompressTs = GetCurrentTimestamp();
 }
 
 /*
- * Add xids into KnownAssignedXids at the head of the array.
+ * 在数组头部把 xid 加入 KnownAssignedXids。
  *
- * xids from from_xid to to_xid, inclusive, are added to the array.
+ * 从 from_xid 到 to_xid（含两端）的 xid 被加入数组。
  *
- * If exclusive_lock is true then caller already holds ProcArrayLock in
- * exclusive mode, so we need no extra locking here.  Else caller holds no
- * lock, so we need to be sure we maintain sufficient interlocks against
- * concurrent readers.  (Only the startup process ever calls this, so no need
- * to worry about concurrent writers.)
+ * 若 exclusive_lock 为真，调用方已经以排他模式持有 ProcArrayLock，
+ * 所以这里不需要额外加锁。否则调用方不持
+ * 锁，因此必须确保对并发读者维持足够的互锁。
+ * （只有启动进程会调用这里，所以不必
+ * 担心并发的写者。）
  */
 static void
 KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
@@ -4774,9 +4774,9 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 	Assert(TransactionIdPrecedesOrEquals(from_xid, to_xid));
 
 	/*
-	 * Calculate how many array slots we'll need.  Normally this is cheap; in
-	 * the unusual case where the XIDs cross the wrap point, we do it the hard
-	 * way.
+	 * 计算需要多少个数组槽。通常这很便宜；在
+	 * XIDs 跨越回绕点的不常见情况下，就用笨
+	 * 办法。
 	 */
 	if (to_xid >= from_xid)
 		nxids = to_xid - from_xid + 1;
@@ -4792,8 +4792,8 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 	}
 
 	/*
-	 * Since only the startup process modifies the head/tail pointers, we
-	 * don't need a lock to read them here.
+	 * 因为只有启动进程会修改 head/tail 指针，这里读它们
+	 * 不需要锁。
 	 */
 	head = pArray->headKnownAssignedXids;
 	tail = pArray->tailKnownAssignedXids;
@@ -4802,9 +4802,9 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 	Assert(tail >= 0 && tail < pArray->maxKnownAssignedXids);
 
 	/*
-	 * Verify that insertions occur in TransactionId sequence.  Note that even
-	 * if the last existing element is marked invalid, it must still have a
-	 * correctly sequenced XID value.
+	 * 验证插入按 TransactionId 顺序发生。注意即使
+	 * 最后一个已有元素被标为无效，它仍然必须有
+	 * 顺序正确的 XID 值。
 	 */
 	if (head > tail &&
 		TransactionIdFollowsOrEquals(KnownAssignedXids[head - 1], from_xid))
@@ -4814,23 +4814,23 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 	}
 
 	/*
-	 * If our xids won't fit in the remaining space, compress out free space
+	 * 若我们的 xid 放不进剩余空间，就把空闲空间压缩出去
 	 */
 	if (head + nxids > pArray->maxKnownAssignedXids)
 	{
 		KnownAssignedXidsCompress(KAX_NO_SPACE, exclusive_lock);
 
 		head = pArray->headKnownAssignedXids;
-		/* note: we no longer care about the tail pointer */
+		/* 注意：我们不再关心 tail 指针 */
 
 		/*
-		 * If it still won't fit then we're out of memory
+		 * 若仍然放不下，那就是内存不足
 		 */
 		if (head + nxids > pArray->maxKnownAssignedXids)
 			elog(ERROR, "too many KnownAssignedXids");
 	}
 
-	/* Now we can insert the xids into the space starting at head */
+	/* 现在可以把 xid 插进从 head 开始的空间 */
 	next_xid = from_xid;
 	for (i = 0; i < nxids; i++)
 	{
@@ -4840,17 +4840,17 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 		head++;
 	}
 
-	/* Adjust count of number of valid entries */
+	/* 调整有效项数目的计数 */
 	pArray->numKnownAssignedXids += nxids;
 
 	/*
-	 * Now update the head pointer.  We use a spinlock to protect this
-	 * pointer, not because the update is likely to be non-atomic, but to
-	 * ensure that other processors see the above array updates before they
-	 * see the head pointer change.
+	 * 现在更新 head 指针。我们用自旋锁保护这个
+	 * 指针，不是因为更新很可能非原子，而是为了
+	 * 确保其他处理器先看到上面的数组更新，再
+	 * 看到 head 指针的变化。
 	 *
-	 * If we're holding ProcArrayLock exclusively, there's no need to take the
-	 * spinlock.
+	 * 若正排他持有 ProcArrayLock，就不必
+	 * 再取自旋锁。
 	 */
 	if (exclusive_lock)
 		pArray->headKnownAssignedXids = head;
@@ -4863,13 +4863,13 @@ KnownAssignedXidsAdd(TransactionId from_xid, TransactionId to_xid,
 }
 
 /*
- * KnownAssignedXidsSearch
+ * KnownAssignedXidsSearch。
  *
- * Searches KnownAssignedXids for a specific xid and optionally removes it.
- * Returns true if it was found, false if not.
+ * 在 KnownAssignedXids 里搜索特定 xid，并可选地移除它。
+ * 找到返回真，否则返回假。
  *
- * Caller must hold ProcArrayLock in shared or exclusive mode.
- * Exclusive lock must be held for remove = true.
+ * 调用方必须以共享或排他模式持有 ProcArrayLock。
+ * remove = true 时必须持有排他锁。
  */
 static bool
 KnownAssignedXidsSearch(TransactionId xid, bool remove)
@@ -4883,13 +4883,13 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 
 	if (remove)
 	{
-		/* we hold ProcArrayLock exclusively, so no need for spinlock */
+		/* 我们排他持有 ProcArrayLock，所以不需要自旋锁 */
 		tail = pArray->tailKnownAssignedXids;
 		head = pArray->headKnownAssignedXids;
 	}
 	else
 	{
-		/* take spinlock to ensure we see up-to-date array contents */
+		/* 取自旋锁，以确保看到最新的数组内容 */
 		SpinLockAcquire(&pArray->known_assigned_xids_lck);
 		tail = pArray->tailKnownAssignedXids;
 		head = pArray->headKnownAssignedXids;
@@ -4897,8 +4897,8 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 	}
 
 	/*
-	 * Standard binary search.  Note we can ignore the KnownAssignedXidsValid
-	 * array here, since even invalid entries will contain sorted XIDs.
+	 * 标准二分查找。注意这里可以忽略 KnownAssignedXidsValid
+	 * 数组，因为即使无效项也含有有序的 XIDs。
 	 */
 	first = tail;
 	last = head - 1;
@@ -4922,10 +4922,10 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 	}
 
 	if (result_index < 0)
-		return false;			/* not in array */
+		return false;			/* 不在数组里 */
 
 	if (!KnownAssignedXidsValid[result_index])
-		return false;			/* in array, but invalid */
+		return false;			/* 在数组里，但无效 */
 
 	if (remove)
 	{
@@ -4935,8 +4935,8 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 		Assert(pArray->numKnownAssignedXids >= 0);
 
 		/*
-		 * If we're removing the tail element then advance tail pointer over
-		 * any invalid elements.  This will speed future searches.
+		 * 若正在移除 tail 元素，就把 tail 指针向前推进，跳过
+		 * 任何无效元素。这会加快以后的查找。
 		 */
 		if (result_index == tail)
 		{
@@ -4945,7 +4945,7 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 				tail++;
 			if (tail >= head)
 			{
-				/* Array is empty, so we can reset both pointers */
+				/* 数组是空的，所以两个指针都可以重置 */
 				pArray->headKnownAssignedXids = 0;
 				pArray->tailKnownAssignedXids = 0;
 			}
@@ -4960,9 +4960,9 @@ KnownAssignedXidsSearch(TransactionId xid, bool remove)
 }
 
 /*
- * Is the specified XID present in KnownAssignedXids[]?
+ * 指定的 XID 是否在 KnownAssignedXids[] 里？
  *
- * Caller must hold ProcArrayLock in shared or exclusive mode.
+ * 调用方必须以共享或排他模式持有 ProcArrayLock。
  */
 static bool
 KnownAssignedXidExists(TransactionId xid)
@@ -4973,9 +4973,9 @@ KnownAssignedXidExists(TransactionId xid)
 }
 
 /*
- * Remove the specified XID from KnownAssignedXids[].
+ * 从 KnownAssignedXids[] 中移除指定的 XID。
  *
- * Caller must hold ProcArrayLock in exclusive mode.
+ * 调用方必须以排他模式持有 ProcArrayLock。
  */
 static void
 KnownAssignedXidsRemove(TransactionId xid)
@@ -4985,23 +4985,23 @@ KnownAssignedXidsRemove(TransactionId xid)
 	elog(trace_recovery(DEBUG4), "remove KnownAssignedXid %u", xid);
 
 	/*
-	 * Note: we cannot consider it an error to remove an XID that's not
-	 * present.  We intentionally remove subxact IDs while processing
-	 * XLOG_XACT_ASSIGNMENT, to avoid array overflow.  Then those XIDs will be
-	 * removed again when the top-level xact commits or aborts.
+	 * 注意：移除一个不存在的 XID，无法当成错误。
+	 * 处理 XLOG_XACT_ASSIGNMENT 时，我们有意移除子事务 ID，
+	 * 以免数组溢出。然后那些 XIDs 会在
+	 * 顶层事务提交或中止时被再次移除。
 	 *
-	 * It might be possible to track such XIDs to distinguish this case from
-	 * actual errors, but it would be complicated and probably not worth it.
-	 * So, just ignore the search result.
+	 * 也许可以跟踪这些 XIDs，以便把这种情况和
+	 * 真正的错误区分开，但那会很复杂，大概不值得。
+	 * 所以直接忽略查找结果。
 	 */
 	(void) KnownAssignedXidsSearch(xid, true);
 }
 
 /*
  * KnownAssignedXidsRemoveTree
- *		Remove xid (if it's not InvalidTransactionId) and all the subxids.
+ *		移除 xid（若它不是 InvalidTransactionId）以及所有 subxid。
  *
- * Caller must hold ProcArrayLock in exclusive mode.
+ * 调用方必须以排他模式持有 ProcArrayLock。
  */
 static void
 KnownAssignedXidsRemoveTree(TransactionId xid, int nsubxids,
@@ -5015,15 +5015,15 @@ KnownAssignedXidsRemoveTree(TransactionId xid, int nsubxids,
 	for (i = 0; i < nsubxids; i++)
 		KnownAssignedXidsRemove(subxids[i]);
 
-	/* Opportunistically compress the array */
+	/* 伺机压缩数组 */
 	KnownAssignedXidsCompress(KAX_TRANSACTION_END, true);
 }
 
 /*
- * Prune KnownAssignedXids up to, but *not* including xid. If xid is invalid
- * then clear the whole table.
+ * 把 KnownAssignedXids 裁剪到 xid，但不包括 xid。若 xid 无效，
+ * 就清空整张表。
  *
- * Caller must hold ProcArrayLock in exclusive mode.
+ * 调用方必须以排他模式持有 ProcArrayLock。
  */
 static void
 KnownAssignedXidsRemovePreceding(TransactionId removeXid)
@@ -5045,8 +5045,8 @@ KnownAssignedXidsRemovePreceding(TransactionId removeXid)
 	elog(trace_recovery(DEBUG4), "prune KnownAssignedXids to %u", removeXid);
 
 	/*
-	 * Mark entries invalid starting at the tail.  Since array is sorted, we
-	 * can stop as soon as we reach an entry >= removeXid.
+	 * 从 tail 开始把项标为无效。因为数组有序，
+	 * 一旦到达 >= removeXid 的项就可以停止。
 	 */
 	tail = pArray->tailKnownAssignedXids;
 	head = pArray->headKnownAssignedXids;
@@ -5072,7 +5072,7 @@ KnownAssignedXidsRemovePreceding(TransactionId removeXid)
 	Assert(pArray->numKnownAssignedXids >= 0);
 
 	/*
-	 * Advance the tail pointer if we've marked the tail item invalid.
+	 * 若已把 tail 项标为无效，就推进 tail 指针。
 	 */
 	for (i = tail; i < head; i++)
 	{
@@ -5081,7 +5081,7 @@ KnownAssignedXidsRemovePreceding(TransactionId removeXid)
 	}
 	if (i >= head)
 	{
-		/* Array is empty, so we can reset both pointers */
+		/* 数组是空的，所以两个指针都可以重置 */
 		pArray->headKnownAssignedXids = 0;
 		pArray->tailKnownAssignedXids = 0;
 	}
@@ -5090,18 +5090,18 @@ KnownAssignedXidsRemovePreceding(TransactionId removeXid)
 		pArray->tailKnownAssignedXids = i;
 	}
 
-	/* Opportunistically compress the array */
+	/* 伺机压缩数组 */
 	KnownAssignedXidsCompress(KAX_PRUNE, true);
 }
 
 /*
- * KnownAssignedXidsGet - Get an array of xids by scanning KnownAssignedXids.
- * We filter out anything >= xmax.
+ * KnownAssignedXidsGet：扫描 KnownAssignedXids 取得 xid 数组。
+ * 滤掉任何 >= xmax 的项。
  *
- * Returns the number of XIDs stored into xarray[].  Caller is responsible
- * that array is large enough.
+ * 返回存进 xarray[] 的 XIDs 数目。调用方负责
+ * 数组足够大。
  *
- * Caller must hold ProcArrayLock in (at least) shared mode.
+ * 调用方必须至少以共享模式持有 ProcArrayLock。
  */
 static int
 KnownAssignedXidsGet(TransactionId *xarray, TransactionId xmax)
@@ -5112,10 +5112,10 @@ KnownAssignedXidsGet(TransactionId *xarray, TransactionId xmax)
 }
 
 /*
- * KnownAssignedXidsGetAndSetXmin - as KnownAssignedXidsGet, plus
- * we reduce *xmin to the lowest xid value seen if not already lower.
+ * KnownAssignedXidsGetAndSetXmin：与 KnownAssignedXidsGet 相同，另外
+ * 若 *xmin 还不是更低，就把它降到所见的最低 xid。
  *
- * Caller must hold ProcArrayLock in (at least) shared mode.
+ * 调用方必须至少以共享模式持有 ProcArrayLock。
  */
 static int
 KnownAssignedXidsGetAndSetXmin(TransactionId *xarray, TransactionId *xmin,
@@ -5127,13 +5127,13 @@ KnownAssignedXidsGetAndSetXmin(TransactionId *xarray, TransactionId *xmin,
 	int			i;
 
 	/*
-	 * Fetch head just once, since it may change while we loop. We can stop
-	 * once we reach the initially seen head, since we are certain that an xid
-	 * cannot enter and then leave the array while we hold ProcArrayLock.  We
-	 * might miss newly-added xids, but they should be >= xmax so irrelevant
-	 * anyway.
+	 * head 只取一次，因为它可能在循环期间改变。一旦到达最初看到的
+	 * head 就可以停止，因为可以确定：持有 ProcArrayLock 期间，一个 xid
+	 * 无法进入数组然后又离开。我们
+	 * 可能漏掉新加入的 xid，但它们应当 >= xmax，所以反正
+	 * 无关。
 	 *
-	 * Must take spinlock to ensure we see up-to-date array contents.
+	 * 必须取自旋锁，以确保看到最新的数组内容。
 	 */
 	SpinLockAcquire(&procArray->known_assigned_xids_lck);
 	tail = procArray->tailKnownAssignedXids;
@@ -5142,28 +5142,28 @@ KnownAssignedXidsGetAndSetXmin(TransactionId *xarray, TransactionId *xmin,
 
 	for (i = tail; i < head; i++)
 	{
-		/* Skip any gaps in the array */
+		/* 跳过数组里的任何空隙 */
 		if (KnownAssignedXidsValid[i])
 		{
 			TransactionId knownXid = KnownAssignedXids[i];
 
 			/*
-			 * Update xmin if required.  Only the first XID need be checked,
-			 * since the array is sorted.
+			 * 若需要就更新 xmin。只需检查第一个 XID，
+			 * 因为数组是有序的。
 			 */
 			if (count == 0 &&
 				TransactionIdPrecedes(knownXid, *xmin))
 				*xmin = knownXid;
 
 			/*
-			 * Filter out anything >= xmax, again relying on sorted property
-			 * of array.
+			 * 滤掉任何 >= xmax 的项，同样依赖数组的
+			 * 有序性质。
 			 */
 			if (TransactionIdIsValid(xmax) &&
 				TransactionIdFollowsOrEquals(knownXid, xmax))
 				break;
 
-			/* Add knownXid into output array */
+			/* 把 knownXid 加入输出数组 */
 			xarray[count++] = knownXid;
 		}
 	}
@@ -5172,8 +5172,8 @@ KnownAssignedXidsGetAndSetXmin(TransactionId *xarray, TransactionId *xmin,
 }
 
 /*
- * Get oldest XID in the KnownAssignedXids array, or InvalidTransactionId
- * if nothing there.
+ * 取得 KnownAssignedXids 数组里最旧的 XID，若里面什么都没有
+ * 则为 InvalidTransactionId。
  */
 static TransactionId
 KnownAssignedXidsGetOldestXmin(void)
@@ -5183,7 +5183,7 @@ KnownAssignedXidsGetOldestXmin(void)
 	int			i;
 
 	/*
-	 * Fetch head just once, since it may change while we loop.
+	 * head 只取一次，因为它可能在循环期间改变。
 	 */
 	SpinLockAcquire(&procArray->known_assigned_xids_lck);
 	tail = procArray->tailKnownAssignedXids;
@@ -5192,7 +5192,7 @@ KnownAssignedXidsGetOldestXmin(void)
 
 	for (i = tail; i < head; i++)
 	{
-		/* Skip any gaps in the array */
+		/* 跳过数组里的任何空隙 */
 		if (KnownAssignedXidsValid[i])
 			return KnownAssignedXids[i];
 	}
@@ -5201,14 +5201,14 @@ KnownAssignedXidsGetOldestXmin(void)
 }
 
 /*
- * Display KnownAssignedXids to provide debug trail
+ * 显示 KnownAssignedXids，以提供调试踪迹。
  *
- * Currently this is only called within startup process, so we need no
- * special locking.
+ * 目前只在启动进程内调用，所以不需要
+ * 特殊加锁。
  *
- * Note this is pretty expensive, and much of the expense will be incurred
- * even if the elog message will get discarded.  It's not currently called
- * in any performance-critical places, however, so no need to be tenser.
+ * 注意这相当贵，而且即使 elog 消息会被丢掉，
+ * 大部分开销仍然会产生。不过目前不在任何
+ * 性能关键的地方调用，所以不必那么紧张。
  */
 static void
 KnownAssignedXidsDisplay(int trace_level)
@@ -5246,7 +5246,7 @@ KnownAssignedXidsDisplay(int trace_level)
 
 /*
  * KnownAssignedXidsReset
- *		Resets KnownAssignedXids to be empty
+ *		把 KnownAssignedXids 重置为空
  */
 static void
 KnownAssignedXidsReset(void)

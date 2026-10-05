@@ -1,19 +1,19 @@
 /*-------------------------------------------------------------------------
  *
  * dsm.c
- *	  manage dynamic shared memory segments
+ *	  管理动态共享内存段
  *
- * This file provides a set of services to make programming with dynamic
- * shared memory segments more convenient.  Unlike the low-level
- * facilities provided by dsm_impl.h and dsm_impl.c, mappings and segments
- * created using this module will be cleaned up automatically.  Mappings
- * will be removed when the resource owner under which they were created
- * is cleaned up, unless dsm_pin_mapping() is used, in which case they
- * have session lifespan.  Segments will be removed when there are no
- * remaining mappings, or at postmaster shutdown in any case.  After a
- * hard postmaster crash, remaining segments will be removed, if they
- * still exist, at the next postmaster startup.
- *
+ * 本文件提供一组服务，使使用动态
+ * 共享内存段编程更加方便。与
+ * dsm_impl.h 与 dsm_impl.c 提供的低级
+ * 设施不同，用本模块创建的映射与段
+ * 会自动清理。映射会在创建它们时所处的
+ * 资源所有者清理时移除；若使用了 dsm_pin_mapping()，
+ * 则映射具有会话寿命。当不再有
+ * 任何映射时段会被移除，无论如何也会在 postmaster
+ * 关闭时移除。在硬性的 postmaster
+ * 崩溃之后，若段仍存在，将在下一次 postmaster 启动时
+ * 移除。
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *

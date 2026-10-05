@@ -1,40 +1,40 @@
 /*-------------------------------------------------------------------------
  *
  * barrier.c
- *	  Barriers for synchronizing cooperating processes.
+ *	  用于同步协作进程的屏障。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
- * From Wikipedia[1]: "In parallel computing, a barrier is a type of
- * synchronization method.  A barrier for a group of threads or processes in
- * the source code means any thread/process must stop at this point and cannot
- * proceed until all other threads/processes reach this barrier."
+ * 引自 Wikipedia[1]：“在并行计算中，屏障是一种
+ * 同步方法。源代码中一组线程或进程的屏障意味着
+ * 任一线程/进程必须在此点停下，并且不能
+ * 继续，直到所有其他线程/进程都到达该屏障。”
  *
- * This implementation of barriers allows for static sets of participants
- * known up front, or dynamic sets of participants which processes can join or
- * leave at any time.  In the dynamic case, a phase number can be used to
- * track progress through a parallel algorithm, and may be necessary to
- * synchronize with the current phase of a multi-phase algorithm when a new
- * participant joins.  In the static case, the phase number is used
- * internally, but it isn't strictly necessary for client code to access it
- * because the phase can only advance when the declared number of participants
- * reaches the barrier, so client code should be in no doubt about the current
- * phase of computation at all times.
+ * 本屏障实现既支持预先已知的静态参与者集合，
+ * 也支持进程可随时加入或离开的动态参与者集合。
+ * 在动态情形下，可用相位编号
+ * 跟踪并行算法的进度；当新参与者加入时，可能需要
+ * 该编号来与多阶段算法的当前阶段同步。在静态情形下，
+ * 相位编号在内部使用，但客户端代码并非严格需要访问它，
+ * 因为只有在已声明数量的参与者到达屏障时相位才会推进，
+ * 故客户端代码在任何时刻都不应怀疑当前
+ * 计算阶段。
  *
- * Consider a parallel algorithm that involves separate phases of computation
- * A, B and C where the output of each phase is needed before the next phase
- * can begin.
  *
- * In the case of a static barrier initialized with 4 participants, each
- * participant works on phase A, then calls BarrierArriveAndWait to wait until
- * all 4 participants have reached that point.  When BarrierArriveAndWait
- * returns control, each participant can work on B, and so on.  Because the
- * barrier knows how many participants to expect, the phases of computation
- * don't need labels or numbers, since each process's program counter implies
- * the current phase.  Even if some of the processes are slow to start up and
- * begin running phase A, the other participants are expecting them and will
- * patiently wait at the barrier.  The code could be written as follows:
+ * 考虑一个涉及独立计算阶段
+ * A、B、C 的并行算法，其中每一阶段的输出都是下一阶段
+ * 开始前所需要的。
+ *
+ * 对于初始化为 4 个参与者的静态屏障，每个
+ * 参与者先做阶段 A，再调用 BarrierArriveAndWait，直到
+ * 全部 4 个参与者都到达该点。当 BarrierArriveAndWait
+ * 返回时，每个参与者可以做 B，依此类推。因为
+ * 屏障知道应期待多少参与者，计算阶段
+ * 无需标签或编号，每个进程的程序计数器即隐含
+ * 当前阶段。即便某些进程启动较慢、
+ * 较晚开始阶段 A，其他参与者仍期待它们，并会
+ * 在屏障处耐心等待。代码可写成如下形式：
  *
  *     perform_a();
  *     BarrierArriveAndWait(&barrier, ...);
@@ -43,19 +43,19 @@
  *     perform_c();
  *     BarrierArriveAndWait(&barrier, ...);
  *
- * If the number of participants is not known up front, then a dynamic barrier
- * is needed and the number should be set to zero at initialization.  New
- * complications arise because the number necessarily changes over time as
- * participants attach and detach, and therefore phases B, C or even the end
- * of processing may be reached before any given participant has started
- * running and attached.  Therefore the client code must perform an initial
- * test of the phase number after attaching, because it needs to find out
- * which phase of the algorithm has been reached by any participants that are
- * already attached in order to synchronize with that work.  Once the program
- * counter or some other representation of current progress is synchronized
- * with the barrier's phase, normal control flow can be used just as in the
- * static case.  Our example could be written using a switch statement with
- * cases that fall-through, as follows:
+ * 若预先不知道参与者数量，则需要动态屏障，
+ * 初始化时应将数量设为零。新的
+ * 复杂性在于：随着参与者附着与分离，数量必然随时间变化，
+ * 因此在任何给定参与者开始运行并附着之前，阶段 B、C
+ * 甚至处理结束都可能已经到达。因此客户端代码在附着后
+ * 必须先做一次相位编号的初始检测，以便弄清
+ * 已附着的参与者到达了算法的哪个阶段，从而与该工作同步。
+ * 一旦程序计数器或其他表示当前进度的形式与屏障相位同步，
+ * 就可以像静态情形一样使用正常控制流。我们的例子可用
+ * 带贯穿执行 case 的 switch 写成如下形式：
+ *
+ *
+ *
  *
  *     phase = BarrierAttach(&barrier);
  *     switch (phase)
@@ -72,8 +72,8 @@
  *     }
  *     BarrierDetach(&barrier);
  *
- * Static barriers behave similarly to POSIX's pthread_barrier_t.  Dynamic
- * barriers behave similarly to Java's java.util.concurrent.Phaser.
+ * 静态屏障行为类似于 POSIX 的 pthread_barrier_t。动态
+ * 屏障行为类似于 Java 的 java.util.concurrent.Phaser。
  *
  * [1] https://en.wikipedia.org/wiki/Barrier_(computer_science)
  *

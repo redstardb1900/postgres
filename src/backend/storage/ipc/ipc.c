@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * ipc.c
- *	  POSTGRES inter-process communication definitions.
+ *	  POSTGRES 进程间通信相关定义。
  *
- * This file is misnamed, as it no longer has much of anything directly
- * to do with IPC.  The functionality here is concerned with managing
- * exit-time cleanup for either a postmaster or a backend.
+ * 本文件名已不太贴切：这里几乎不再有与 IPC 直接
+ * 相关的内容。此处功能关注的是为 postmaster 或
+ * backend 管理退出时的清理工作。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ipci.c
- *	  POSTGRES inter-process communication initialization code.
+ *	  POSTGRES 进程间通信初始化代码。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1790,6 +1790,46 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0091-comment-statistics-extended-stats.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/barrier.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/ipc.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/ipci.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/procarray.c",
+   "kind": "c_comment",
+   "note": "header backfill 0113"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
+   "kind": "manifest",
+   "note": "batch 0113"
   }
  ],
  "files": [
@@ -6772,38 +6812,37 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 16,
-   "translated": 15,
-   "preserved": 1,
+   "translated": 16,
+   "preserved": 2,
    "preserved_reasons": [
-    "copyright/pgindent header",
-    "fall-through"
+    "fall-through",
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "header includes a switch fall-through example"
+   "note": "header includes a switch fall-through example; header module description"
   },
   {
    "path": "src/backend/storage/ipc/dsm.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 119,
-   "translated": 118,
+   "translated": 119,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "dynamic shared memory"
+   "note": "dynamic shared memory; header module description"
   },
   {
    "path": "src/backend/storage/ipc/dsm_impl.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 62,
-   "translated": 60,
-   "preserved": 2,
+   "translated": 61,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
-    "pgindent blocks"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "dynamic shared memory implementations"
+   "note": "dynamic shared memory implementations; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0109-comment-storage-ipc-dsm.json",
@@ -6830,24 +6869,24 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 32,
-   "translated": 31,
+   "translated": 32,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "process exit and shared memory callbacks"
+   "note": "process exit and shared memory callbacks; header module description"
   },
   {
    "path": "src/backend/storage/ipc/ipci.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 31,
-   "translated": 30,
+   "translated": 31,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "shared memory initialization"
+   "note": "shared memory initialization; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0110-comment-storage-ipc.json",
@@ -6864,13 +6903,12 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 177,
-   "translated": 175,
-   "preserved": 2,
+   "translated": 176,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
-    "pgindent blocks"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "latches and wait events; phrasebook requires 锁存器"
+   "note": "latches and wait events; phrasebook requires 锁存器; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0111-comment-storage-ipc-latch.json",
@@ -6897,12 +6935,12 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 427,
-   "translated": 426,
+   "translated": 427,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "process array, snapshots, KnownAssignedXids"
+   "note": "process array, snapshots, KnownAssignedXids; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0112-comment-storage-ipc-procarray.json",

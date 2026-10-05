@@ -1,0 +1,143 @@
+{
+ "schema_version": 1,
+ "batch_id": "0113-comment-headers-storage-ipc",
+ "title": "zh: translate storage/ipc file-header module descriptions",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4a83efc55ee76d2d0061c02b7e4580a8406aff23",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/barrier.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/ipc.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/ipci.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/procarray.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/barrier.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 119,
+   "translated": 119,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 61,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/ipc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 32,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/ipci.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 31,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 177,
+   "translated": 176,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/ipc/procarray.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 427,
+   "translated": 427,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  }
+ ],
+ "notes": "Backfill file-header module descriptions after protect-rule change; Copyright/IDENTIFICATION lines kept."
+}

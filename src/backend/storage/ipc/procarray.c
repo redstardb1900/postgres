@@ -1,38 +1,38 @@
 /*-------------------------------------------------------------------------
  *
  * procarray.c
- *	  POSTGRES process array code.
+ *	  POSTGRES 进程数组代码。
  *
  *
- * This module maintains arrays of PGPROC substructures, as well as associated
- * arrays in ProcGlobal, for all active backends.  Although there are several
- * uses for this, the principal one is as a means of determining the set of
- * currently running transactions.
+ * 本模块维护所有活动 backend 的 PGPROC 子结构数组，以及
+ * ProcGlobal 中的关联数组。用途虽多，但主要用途是确定
+ * 当前正在运行的事务集合。
  *
- * Because of various subtle race conditions it is critical that a backend
- * hold the correct locks while setting or clearing its xid (in
- * ProcGlobal->xids[]/MyProc->xid).  See notes in
- * src/backend/access/transam/README.
+ * 由于存在多种微妙的竞态，backend 在设置或清除其 xid（位于
+ * ProcGlobal->xids[]/MyProc->xid）时必须持有正确的锁，这一点至关重要。
+ * 参见
+ * src/backend/access/transam/README 中的说明。
  *
- * The process arrays now also include structures representing prepared
- * transactions.  The xid and subxids fields of these are valid, as are the
- * myProcLocks lists.  They can be distinguished from regular backend PGPROCs
- * at need by checking for pid == 0.
+ * 进程数组现在也包含表示预备
+ * 事务的结构。这些结构的 xid 与 subxids 字段有效，
+ * myProcLocks 列表亦然。需要时可通过检查 pid == 0
+ * 将它们与普通 backend 的 PGPROC 区分开。
  *
- * During hot standby, we also keep a list of XIDs representing transactions
- * that are known to be running on the primary (or more precisely, were running
- * as of the current point in the WAL stream).  This list is kept in the
- * KnownAssignedXids array, and is updated by watching the sequence of
- * arriving XIDs.  This is necessary because if we leave those XIDs out of
- * snapshots taken for standby queries, then they will appear to be already
- * complete, leading to MVCC failures.  Note that in hot standby, the PGPROC
- * array represents standby processes, which by definition are not running
- * transactions that have XIDs.
+ * 在热备期间，我们还维护一份 XID 列表，表示
+ * 已知在主库上运行的事务（更准确地说，是截至
+ * WAL 流当前点仍在运行的事务）。该列表保存在
+ * KnownAssignedXids 数组中，并通过观察
+ * 到达的 XID 序列来更新。这样做是必要的：若在为备库查询
+ * 拍摄快照时漏掉这些 XID，它们会显得已经
+ * 完成，从而导致 MVCC 失败。注意在热备中，PGPROC
+ * 数组表示的是备库进程，按定义它们不会运行
+ * 带有 XID 的事务。
  *
- * It is perhaps possible for a backend on the primary to terminate without
- * writing an abort record for its transaction.  While that shouldn't really
- * happen, it would tie up KnownAssignedXids indefinitely, so we protect
- * ourselves by pruning the array when a valid list of running XIDs arrives.
+ * 主库上的 backend 有可能在
+ * 未为其事务写入中止记录的情况下终止。虽然这本不该
+ * 发生，但会无限期占用 KnownAssignedXids，因此我们在
+ * 收到有效的正在运行 XID 列表时修剪该数组以保护自己。
+ *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

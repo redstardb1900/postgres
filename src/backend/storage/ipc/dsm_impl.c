@@ -1,40 +1,40 @@
 /*-------------------------------------------------------------------------
  *
  * dsm_impl.c
- *	  manage dynamic shared memory segments
+ *	  管理动态共享内存段
  *
- * This file provides low-level APIs for creating and destroying shared
- * memory segments using several different possible techniques.  We refer
- * to these segments as dynamic because they can be created, altered, and
- * destroyed at any point during the server life cycle.  This is unlike
- * the main shared memory segment, of which there is always exactly one
- * and which is always mapped at a fixed address in every PostgreSQL
- * background process.
+ * 本文件提供用于创建与销毁共享
+ * 内存段的低级 API，可选用若干不同技术。我们称
+ * 这些段为动态的，因为它们可在服务器生命周期中的任何时刻
+ * 被创建、更改与
+ * 销毁。这与
+ * 主共享内存段不同——主段始终恰好有一个，
+ * 并且总是映射在每个 PostgreSQL
+ * 后台进程的固定地址上。
  *
- * Because not all systems provide the same primitives in this area, nor
- * do all primitives behave the same way on all systems, we provide
- * several implementations of this facility.  Many systems implement
- * POSIX shared memory (shm_open etc.), which is well-suited to our needs
- * in this area, with the exception that shared memory identifiers live
- * in a flat system-wide namespace, raising the uncomfortable prospect of
- * name collisions with other processes (including other copies of
- * PostgreSQL) running on the same system.  Some systems only support
- * the older System V shared memory interface (shmget etc.) which is
- * also usable; however, the default allocation limits are often quite
- * small, and the namespace is even more restricted.
+ * 因为并非所有系统都在该领域提供相同的原语，也
+ * 并非所有原语在所有系统上行为一致，我们提供
+ * 该设施的多种实现。许多系统实现了
+ * POSIX 共享内存（shm_open 等），这很适合我们在
+ * 这一领域的需求，但有一个例外：共享内存标识符位于
+ * 平坦的系统级命名空间中，令人不安的是可能与
+ * 同一系统上的其他进程（包括其他
+ * PostgreSQL 副本）发生名称冲突。有些系统只支持
+ * 较旧的 System V 共享内存接口（shmget 等），同样
+ * 可用；不过默认分配限额往往相当
+ * 小，且命名空间限制更严。
  *
- * We also provide an mmap-based shared memory implementation.  This may
- * be useful on systems that provide shared memory via a special-purpose
- * filesystem; by opting for this implementation, the user can even
- * control precisely where their shared memory segments are placed.  It
- * can also be used as a fallback for systems where shm_open and shmget
- * are not available or can't be used for some reason.  Of course,
- * mapping a file residing on an actual spinning disk is a fairly poor
- * approximation for shared memory because writeback may hurt performance
- * substantially, but there should be few systems where we must make do
- * with such poor tools.
+ * 我们还提供基于 mmap 的共享内存实现。这在
+ * 通过专用文件系统提供共享内存的系统上可能
+ * 有用；选择该实现时，用户甚至可以
+ * 精确控制共享内存段的放置位置。它
+ * 也可用作 shm_open 与 shmget
+ * 不可用或因故不能使用时的回退。当然，
+ * 映射位于真实旋转磁盘上的文件只是对共享内存的
+ * 相当差的近似，因为写回可能严重损害性能，
+ * 但在只能依赖如此简陋工具的系统上，也只好如此。
  *
- * As ever, Windows requires its own implementation.
+ * 一如既往，Windows 需要自己的实现。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

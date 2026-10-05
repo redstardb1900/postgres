@@ -1,27 +1,27 @@
 /*-------------------------------------------------------------------------
  *
  * latch.c
- *	  Routines for inter-process latches
+ *	  进程间锁存器例程
  *
- * The poll() implementation uses the so-called self-pipe trick to overcome the
- * race condition involved with poll() and setting a global flag in the signal
- * handler. When a latch is set and the current process is waiting for it, the
- * signal handler wakes up the poll() in WaitLatch by writing a byte to a pipe.
- * A signal by itself doesn't interrupt poll() on all platforms, and even on
- * platforms where it does, a signal that arrives just before the poll() call
- * does not prevent poll() from entering sleep. An incoming byte on a pipe
- * however reliably interrupts the sleep, and causes poll() to return
- * immediately even if the signal arrives before poll() begins.
+ * poll() 实现使用所谓的 self-pipe 技巧，以消除
+ * poll() 与在信号处理函数中设置全局标志之间的
+ * 竞态。当锁存器被置位且当前进程正在等待它时，
+ * 信号处理函数向管道写入一个字节，从而唤醒 WaitLatch 中的 poll()。
+ * 单靠信号并不能在所有平台上打断 poll()；即便在
+ * 可以打断的平台上，若信号恰在调用 poll() 之前到达，
+ * 仍无法阻止 poll() 进入睡眠。而管道上到来的字节
+ * 能可靠地打断睡眠，并令 poll() 立即返回，
+ * 即使信号在 poll() 开始之前就已到达也是如此。
  *
- * The epoll() implementation overcomes the race with a different technique: it
- * keeps SIGURG blocked and consumes from a signalfd() descriptor instead.  We
- * don't need to register a signal handler or create our own self-pipe.  We
- * assume that any system that has Linux epoll() also has Linux signalfd().
+ * epoll() 实现用另一种技术消除竞态：它
+ * 保持 SIGURG 阻塞，改为从 signalfd() 描述符读取。我们
+ * 无需注册信号处理函数，也不必自建 self-pipe。我们
+ * 假定凡提供 Linux epoll() 的系统也都提供 Linux signalfd()。
  *
- * The kqueue() implementation waits for SIGURG with EVFILT_SIGNAL.
+ * kqueue() 实现用 EVFILT_SIGNAL 等待 SIGURG。
  *
- * The Windows implementation uses Windows events that are inherited by all
- * postmaster child processes. There's no need for the self-pipe trick there.
+ * Windows 实现使用由所有
+ * postmaster 子进程继承的 Windows 事件。那里不需要 self-pipe 技巧。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

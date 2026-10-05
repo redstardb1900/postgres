@@ -55,50 +55,50 @@
 #include "utils/resowner.h"
 
 /*
- * We break BufFiles into gigabyte-sized segments, regardless of RELSEG_SIZE.
- * The reason is that we'd like large BufFiles to be spread across multiple
- * tablespaces when available.
+ * 不论 RELSEG_SIZE 如何，我们都把 BufFiles 切成吉字节大小的段。
+ * 原因是希望大型 BufFiles 在有多个表空间可用时
+ * 分布到这些表空间上。
  */
 #define MAX_PHYSICAL_FILESIZE	0x40000000
 #define BUFFILE_SEG_SIZE		(MAX_PHYSICAL_FILESIZE / BLCKSZ)
 
 /*
- * This data structure represents a buffered file that consists of one or
- * more physical files (each accessed through a virtual file descriptor
- * managed by fd.c).
+ * 这个数据结构表示一个带缓冲的文件，它由一个或
+ * 多个物理文件组成（每个都通过 fd.c 管理的
+ * 虚拟文件描述符来访问）。
  */
 struct BufFile
 {
-	int			numFiles;		/* number of physical files in set */
-	/* all files except the last have length exactly MAX_PHYSICAL_FILESIZE */
-	File	   *files;			/* palloc'd array with numFiles entries */
+	int			numFiles;		/* 集合中物理文件的个数 */
+	/* 除最后一个文件外，长度都恰好是 MAX_PHYSICAL_FILESIZE */
+	File	   *files;			/* 用 palloc 分配的数组，有 numFiles 个元素 */
 
-	bool		isInterXact;	/* keep open over transactions? */
-	bool		dirty;			/* does buffer need to be written? */
-	bool		readOnly;		/* has the file been set to read only? */
+	bool		isInterXact;	/* 是否跨事务保持打开？ */
+	bool		dirty;			/* 缓冲区是否需要写回？ */
+	bool		readOnly;		/* 该文件是否已被设为只读？ */
 
-	FileSet    *fileset;		/* space for fileset based segment files */
-	const char *name;			/* name of fileset based BufFile */
+	FileSet    *fileset;		/* 基于文件集的段文件所用的空间 */
+	const char *name;			/* 基于文件集的 BufFile 的名字 */
 
 	/*
-	 * resowner is the ResourceOwner to use for underlying temp files.  (We
-	 * don't need to remember the memory context we're using explicitly,
-	 * because after creation we only repalloc our arrays larger.)
+	 * resowner 是底层临时文件使用的 ResourceOwner。（我们
+	 * 不需要显式记住正在使用的内存上下文，
+	 * 因为创建之后只把数组 repalloc 得更大。）
 	 */
 	ResourceOwner resowner;
 
 	/*
-	 * "current pos" is position of start of buffer within the logical file.
-	 * Position as seen by user of BufFile is (curFile, curOffset + pos).
+	 * current pos 是缓冲区起点在逻辑文件中的位置。
+	 * BufFile 的使用者看到的位置是（curFile，curOffset + pos）。
 	 */
-	int			curFile;		/* file index (0..n) part of current pos */
-	off_t		curOffset;		/* offset part of current pos */
-	int			pos;			/* next read/write position in buffer */
-	int			nbytes;			/* total # of valid bytes in buffer */
+	int			curFile;		/* 当前位置的文件下标（0..n）部分 */
+	off_t		curOffset;		/* 当前位置的偏移部分 */
+	int			pos;			/* 缓冲区中下一次读/写的位置 */
+	int			nbytes;			/* 缓冲区中有效字节的总数 */
 
 	/*
-	 * XXX Should ideally us PGIOAlignedBlock, but might need a way to avoid
-	 * wasting per-file alignment padding when some users create many files.
+	 * XXX：理想情况下应当使用 PGIOAlignedBlock，但可能需要一种办法，
+	 * 避免某些用户创建很多文件时浪费每个文件的对齐填充。
 	 */
 	PGAlignedBlock buffer;
 };
@@ -112,7 +112,7 @@ static void BufFileFlush(BufFile *file);
 static File MakeNewFileSetSegment(BufFile *buffile, int segment);
 
 /*
- * Create BufFile and perform the common initialization.
+ * 创建 BufFile 并做公共的初始化。
  */
 static BufFile *
 makeBufFileCommon(int nfiles)
@@ -132,8 +132,8 @@ makeBufFileCommon(int nfiles)
 }
 
 /*
- * Create a BufFile given the first underlying physical file.
- * NOTE: caller must set isInterXact if appropriate.
+ * 根据第一个底层物理文件创建 BufFile。
+ * 注意：调用者必须在适当时设置 isInterXact。
  */
 static BufFile *
 makeBufFile(File firstfile)
@@ -150,7 +150,7 @@ makeBufFile(File firstfile)
 }
 
 /*
- * Add another component temp file.
+ * 再增加一个组件临时文件。
  */
 static void
 extendBufFile(BufFile *file)
@@ -158,7 +158,7 @@ extendBufFile(BufFile *file)
 	File		pfile;
 	ResourceOwner oldowner;
 
-	/* Be sure to associate the file with the BufFile's resource owner */
+	/* 务必把该文件关联到 BufFile 的资源所有者 */
 	oldowner = CurrentResourceOwner;
 	CurrentResourceOwner = file->resowner;
 
@@ -178,16 +178,16 @@ extendBufFile(BufFile *file)
 }
 
 /*
- * Create a BufFile for a new temporary file (which will expand to become
- * multiple temporary files if more than MAX_PHYSICAL_FILESIZE bytes are
- * written to it).
+ * 为一个新的临时文件创建 BufFile（若写入超过
+ * MAX_PHYSICAL_FILESIZE 字节，它会扩展成
+ * 多个临时文件）。
  *
- * If interXact is true, the temp file will not be automatically deleted
- * at end of transaction.
+ * 若 interXact 为真，该临时文件不会在
+ * 事务结束时自动删除。
  *
- * Note: if interXact is true, the caller had better be calling us in a
- * memory context, and with a resource owner, that will survive across
- * transaction boundaries.
+ * 注意：若 interXact 为真，调用者最好在能够跨越
+ * 事务边界存活的内存上下文里、并带着同样能
+ * 存活的资源所有者来调用我们。
  */
 BufFile *
 BufFileCreateTemp(bool interXact)
@@ -196,13 +196,13 @@ BufFileCreateTemp(bool interXact)
 	File		pfile;
 
 	/*
-	 * Ensure that temp tablespaces are set up for OpenTemporaryFile to use.
-	 * Possibly the caller will have done this already, but it seems useful to
-	 * double-check here.  Failure to do this at all would result in the temp
-	 * files always getting placed in the default tablespace, which is a
-	 * pretty hard-to-detect bug.  Callers may prefer to do it earlier if they
-	 * want to be sure that any required catalog access is done in some other
-	 * resource context.
+	 * 确保为 OpenTemporaryFile 设好临时表空间。
+	 * 调用者也许已经做过，但在这里再检查一次似乎有用。
+	 * 完全不做的话，临时文件总会被放到默认表空间，
+	 * 这是相当难发现的缺陷。若调用者想确保
+	 * 任何所需的系统目录访问发生在某个别的
+	 * 资源上下文里，
+	 * 可以更早去做。
 	 */
 	PrepareTempTablespaces();
 
@@ -216,7 +216,7 @@ BufFileCreateTemp(bool interXact)
 }
 
 /*
- * Build the name for a given segment of a given BufFile.
+ * 为给定 BufFile 的给定段构造名字。
  */
 static void
 FileSetSegmentName(char *name, const char *buffile_name, int segment)
@@ -225,7 +225,7 @@ FileSetSegmentName(char *name, const char *buffile_name, int segment)
 }
 
 /*
- * Create a new segment file backing a fileset based BufFile.
+ * 创建支撑基于文件集的 BufFile 的新段文件。
  */
 static File
 MakeNewFileSetSegment(BufFile *buffile, int segment)
@@ -234,34 +234,34 @@ MakeNewFileSetSegment(BufFile *buffile, int segment)
 	File		file;
 
 	/*
-	 * It is possible that there are files left over from before a crash
-	 * restart with the same name.  In order for BufFileOpenFileSet() not to
-	 * get confused about how many segments there are, we'll unlink the next
-	 * segment number if it already exists.
+	 * 崩溃重启前可能留下同名文件。
+	 * 为了不让 BufFileOpenFileSet() 搞不清有多少段，
+	 * 若下一个段号已存在，我们就把它
+	 * unlink 掉。
 	 */
 	FileSetSegmentName(name, buffile->name, segment + 1);
 	FileSetDelete(buffile->fileset, name, true);
 
-	/* Create the new segment. */
+	/* 创建新段。 */
 	FileSetSegmentName(name, buffile->name, segment);
 	file = FileSetCreate(buffile->fileset, name);
 
-	/* FileSetCreate would've errored out */
+	/* FileSetCreate 本应已报错退出 */
 	Assert(file > 0);
 
 	return file;
 }
 
 /*
- * Create a BufFile that can be discovered and opened read-only by other
- * backends that are attached to the same SharedFileSet using the same name.
+ * 创建一个 BufFile，其他挂在同一个 SharedFileSet 上、
+ * 使用相同名字的后端可以找到它并以只读方式打开。
  *
- * The naming scheme for fileset based BufFiles is left up to the calling code.
- * The name will appear as part of one or more filenames on disk, and might
- * provide clues to administrators about which subsystem is generating
- * temporary file data.  Since each SharedFileSet object is backed by one or
- * more uniquely named temporary directory, names don't conflict with
- * unrelated SharedFileSet objects.
+ * 基于文件集的 BufFiles 命名方案由调用代码决定。
+ * 该名字会出现在磁盘上一个或多个文件名里，并可能
+ * 向管理员提示是哪个子系统在生成
+ * 临时文件数据。由于每个 SharedFileSet 对象由一个或多个
+ * 唯一命名的临时目录支撑，名字不会与
+ * 无关的 SharedFileSet 对象冲突。
  */
 BufFile *
 BufFileCreateFileSet(FileSet *fileset, const char *name)
@@ -279,13 +279,13 @@ BufFileCreateFileSet(FileSet *fileset, const char *name)
 }
 
 /*
- * Open a file that was previously created in another backend (or this one)
- * with BufFileCreateFileSet in the same FileSet using the same name.
- * The backend that created the file must have called BufFileClose() or
- * BufFileExportFileSet() to make sure that it is ready to be opened by other
- * backends and render it read-only.  If missing_ok is true, which indicates
- * that missing files can be safely ignored, then return NULL if the BufFile
- * with the given name is not found, otherwise, throw an error.
+ * 打开先前在另一个后端（或本后端）里用同一 FileSet、
+ * 同一名字经 BufFileCreateFileSet 创建的文件。
+ * 创建该文件的后端必须已调用 BufFileClose() 或
+ * BufFileExportFileSet()，以确保它可供其他
+ * 后端打开并把它变成只读。若 missing_ok 为真，表示
+ * 可以安全地忽略缺少的文件，则在找不到该名字的 BufFile
+ * 时返回 NULL，否则抛出错误。
  */
 BufFile *
 BufFileOpenFileSet(FileSet *fileset, const char *name, int mode,
@@ -300,18 +300,18 @@ BufFileOpenFileSet(FileSet *fileset, const char *name, int mode,
 	files = palloc(sizeof(File) * capacity);
 
 	/*
-	 * We don't know how many segments there are, so we'll probe the
-	 * filesystem to find out.
+	 * 我们不知道有多少段，因此探测
+	 * 文件系统来查明。
 	 */
 	for (;;)
 	{
-		/* See if we need to expand our file segment array. */
+		/* 看看是否需要扩展文件段数组。 */
 		if (nfiles + 1 > capacity)
 		{
 			capacity *= 2;
 			files = repalloc(files, sizeof(File) * capacity);
 		}
-		/* Try to load a segment. */
+		/* 尝试载入一个段。 */
 		FileSetSegmentName(segment_name, name, nfiles);
 		files[nfiles] = FileSetOpen(fileset, segment_name, mode);
 		if (files[nfiles] <= 0)
@@ -322,12 +322,12 @@ BufFileOpenFileSet(FileSet *fileset, const char *name, int mode,
 	}
 
 	/*
-	 * If we didn't find any files at all, then no BufFile exists with this
-	 * name.
+	 * 若一个文件都没找到，就不存在这个名字的
+	 * BufFile。
 	 */
 	if (nfiles == 0)
 	{
-		/* free the memory */
+		/* 释放内存 */
 		pfree(files);
 
 		if (missing_ok)
@@ -349,16 +349,16 @@ BufFileOpenFileSet(FileSet *fileset, const char *name, int mode,
 }
 
 /*
- * Delete a BufFile that was created by BufFileCreateFileSet in the given
- * FileSet using the given name.
+ * 删除在给定 FileSet 里用给定名字经 BufFileCreateFileSet
+ * 创建的 BufFile。
  *
- * It is not necessary to delete files explicitly with this function.  It is
- * provided only as a way to delete files proactively, rather than waiting for
- * the FileSet to be cleaned up.
+ * 不必用本函数显式删除文件。它只是提供一种
+ * 主动删除的办法，而不必等到
+ * FileSet 被清理。
  *
- * Only one backend should attempt to delete a given name, and should know
- * that it exists and has been exported or closed otherwise missing_ok should
- * be passed true.
+ * 只有一个后端应当尝试删除给定名字，并且应当知道
+ * 它存在且已经导出或关闭，否则应当把 missing_ok
+ * 传为真。
  */
 void
 BufFileDeleteFileSet(FileSet *fileset, const char *name, bool missing_ok)
@@ -368,9 +368,9 @@ BufFileDeleteFileSet(FileSet *fileset, const char *name, bool missing_ok)
 	bool		found = false;
 
 	/*
-	 * We don't know how many segments the file has.  We'll keep deleting
-	 * until we run out.  If we don't manage to find even an initial segment,
-	 * raise an error.
+	 * 我们不知道该文件有多少段。会一直删
+	 * 到没有为止。若连最初的段都找不到，
+	 * 就报错。
 	 */
 	for (;;)
 	{
@@ -388,15 +388,15 @@ BufFileDeleteFileSet(FileSet *fileset, const char *name, bool missing_ok)
 }
 
 /*
- * BufFileExportFileSet --- flush and make read-only, in preparation for sharing.
+ * BufFileExportFileSet --- 刷出并改为只读，以便共享。
  */
 void
 BufFileExportFileSet(BufFile *file)
 {
-	/* Must be a file belonging to a FileSet. */
+	/* 必须是属于某个 FileSet 的文件。 */
 	Assert(file->fileset != NULL);
 
-	/* It's probably a bug if someone calls this twice. */
+	/* 若有人调用两次，多半是缺陷。 */
 	Assert(!file->readOnly);
 
 	BufFileFlush(file);
@@ -404,21 +404,21 @@ BufFileExportFileSet(BufFile *file)
 }
 
 /*
- * Close a BufFile
+ * 关闭 BufFile。
  *
- * Like fclose(), this also implicitly FileCloses the underlying File.
+ * 与 fclose() 类似，这也会隐式地 FileCloses 底层文件。
  */
 void
 BufFileClose(BufFile *file)
 {
 	int			i;
 
-	/* flush any unwritten data */
+	/* 刷出尚未写出的数据 */
 	BufFileFlush(file);
-	/* close and delete the underlying file(s) */
+	/* 关闭并删除底层文件 */
 	for (i = 0; i < file->numFiles; i++)
 		FileClose(file->files[i]);
-	/* release the buffer space */
+	/* 释放缓冲区空间 */
 	pfree(file->files);
 	pfree(file);
 }
@@ -426,9 +426,9 @@ BufFileClose(BufFile *file)
 /*
  * BufFileLoadBuffer
  *
- * Load some data into buffer, if possible, starting from curOffset.
- * At call, must have dirty = false, pos and nbytes = 0.
- * On exit, nbytes is number of bytes loaded.
+ * 尽可能从 curOffset 起把一些数据载入缓冲区。
+ * 调用时必须 dirty 为假，pos 与 nbytes 为 0。
+ * 退出时，nbytes 是已载入的字节数。
  */
 static void
 BufFileLoadBuffer(BufFile *file)
@@ -438,7 +438,7 @@ BufFileLoadBuffer(BufFile *file)
 	instr_time	io_time;
 
 	/*
-	 * Advance to next component file if necessary and possible.
+	 * 必要时并且可能的话，前进到下一个组件文件。
 	 */
 	if (file->curOffset >= MAX_PHYSICAL_FILESIZE &&
 		file->curFile + 1 < file->numFiles)
@@ -455,7 +455,7 @@ BufFileLoadBuffer(BufFile *file)
 		INSTR_TIME_SET_ZERO(io_start);
 
 	/*
-	 * Read whatever we can get, up to a full bufferload.
+	 * 能读多少就读多少，最多一整缓冲区。
 	 */
 	file->nbytes = FileRead(thisfile,
 							file->buffer.data,
@@ -477,7 +477,7 @@ BufFileLoadBuffer(BufFile *file)
 		INSTR_TIME_ACCUM_DIFF(pgBufferUsage.temp_blk_read_time, io_time, io_start);
 	}
 
-	/* we choose not to advance curOffset here */
+	/* 这里我们选择不推进 curOffset */
 
 	if (file->nbytes > 0)
 		pgBufferUsage.temp_blks_read++;
@@ -486,9 +486,9 @@ BufFileLoadBuffer(BufFile *file)
 /*
  * BufFileDumpBuffer
  *
- * Dump buffer contents starting at curOffset.
- * At call, should have dirty = true, nbytes > 0.
- * On exit, dirty is cleared if successful write, and curOffset is advanced.
+ * 从 curOffset 起转储缓冲区内容。
+ * 调用时应当 dirty 为真，nbytes > 0。
+ * 退出时，若写成功则清掉 dirty，并推进 curOffset。
  */
 static void
 BufFileDumpBuffer(BufFile *file)
@@ -498,8 +498,8 @@ BufFileDumpBuffer(BufFile *file)
 	File		thisfile;
 
 	/*
-	 * Unlike BufFileLoadBuffer, we must dump the whole buffer even if it
-	 * crosses a component-file boundary; so we need a loop.
+	 * 与 BufFileLoadBuffer 不同，即使缓冲区跨越
+	 * 组件文件边界，也必须把整个缓冲区转储出去；因此需要循环。
 	 */
 	while (wpos < file->nbytes)
 	{
@@ -508,7 +508,7 @@ BufFileDumpBuffer(BufFile *file)
 		instr_time	io_time;
 
 		/*
-		 * Advance to next component file if necessary and possible.
+		 * 必要时并且可能的话，前进到下一个组件文件。
 		 */
 		if (file->curOffset >= MAX_PHYSICAL_FILESIZE)
 		{
@@ -519,7 +519,7 @@ BufFileDumpBuffer(BufFile *file)
 		}
 
 		/*
-		 * Determine how much we need to write into this file.
+		 * 确定需要向这个文件写入多少。
 		 */
 		bytestowrite = file->nbytes - wpos;
 		availbytes = MAX_PHYSICAL_FILESIZE - file->curOffset;
@@ -559,13 +559,13 @@ BufFileDumpBuffer(BufFile *file)
 	file->dirty = false;
 
 	/*
-	 * At this point, curOffset has been advanced to the end of the buffer,
-	 * ie, its original value + nbytes.  We need to make it point to the
-	 * logical file position, ie, original value + pos, in case that is less
-	 * (as could happen due to a small backwards seek in a dirty buffer!)
+	 * 此时 curOffset 已经推进到缓冲区末尾，
+	 * 即原来的值加上 nbytes。我们需要让它指向
+	 * 逻辑文件位置，即原来的值加上 pos，以免后者更小
+	 * （脏缓冲区里一次小幅向后定位就会这样！）
 	 */
 	file->curOffset -= (file->nbytes - file->pos);
-	if (file->curOffset < 0)	/* handle possible segment crossing */
+	if (file->curOffset < 0)	/* 处理可能的跨段 */
 	{
 		file->curFile--;
 		Assert(file->curFile >= 0);
@@ -573,21 +573,21 @@ BufFileDumpBuffer(BufFile *file)
 	}
 
 	/*
-	 * Now we can set the buffer empty without changing the logical position
+	 * 现在可以把缓冲区置空，而不改变逻辑位置
 	 */
 	file->pos = 0;
 	file->nbytes = 0;
 }
 
 /*
- * BufFileRead variants
+ * BufFileRead 的几个变体。
  *
- * Like fread() except we assume 1-byte element size and report I/O errors via
- * ereport().
+ * 与 fread() 类似，只是我们假定元素大小为 1 字节，并通过
+ * ereport() 报告 I/O 错误。
  *
- * If 'exact' is true, then an error is also raised if the number of bytes
- * read is not exactly 'size' (no short reads).  If 'exact' and 'eofOK' are
- * true, then reading zero bytes is ok.
+ * 若 exact 为真，则读到的字节数不是恰好 size 时也报错
+ * （不允许短读）。若 exact 与 eofOK 都为
+ * 真，则读到零字节是可以的。
  */
 static size_t
 BufFileReadCommon(BufFile *file, void *ptr, size_t size, bool exact, bool eofOK)
@@ -602,13 +602,13 @@ BufFileReadCommon(BufFile *file, void *ptr, size_t size, bool exact, bool eofOK)
 	{
 		if (file->pos >= file->nbytes)
 		{
-			/* Try to load more data into buffer. */
+			/* 尝试把更多数据载入缓冲区。 */
 			file->curOffset += file->pos;
 			file->pos = 0;
 			file->nbytes = 0;
 			BufFileLoadBuffer(file);
 			if (file->nbytes <= 0)
-				break;			/* no more data available */
+				break;			/* 没有更多数据可读 */
 		}
 
 		nthistime = file->nbytes - file->pos;
@@ -638,8 +638,8 @@ BufFileReadCommon(BufFile *file, void *ptr, size_t size, bool exact, bool eofOK)
 }
 
 /*
- * Legacy interface where the caller needs to check for end of file or short
- * reads.
+ * 旧接口：调用者需要自行检查文件结束或
+ * 短读。
  */
 size_t
 BufFileRead(BufFile *file, void *ptr, size_t size)
@@ -648,7 +648,7 @@ BufFileRead(BufFile *file, void *ptr, size_t size)
 }
 
 /*
- * Require read of exactly the specified size.
+ * 需要恰好读取指定的大小。
  */
 void
 BufFileReadExact(BufFile *file, void *ptr, size_t size)
@@ -657,8 +657,8 @@ BufFileReadExact(BufFile *file, void *ptr, size_t size)
 }
 
 /*
- * Require read of exactly the specified size, but optionally allow end of
- * file (in which case 0 is returned).
+ * 需要恰好读取指定的大小，但可以选择允许文件结束
+ * （此时返回 0）。
  */
 size_t
 BufFileReadMaybeEOF(BufFile *file, void *ptr, size_t size, bool eofOK)
@@ -669,8 +669,8 @@ BufFileReadMaybeEOF(BufFile *file, void *ptr, size_t size, bool eofOK)
 /*
  * BufFileWrite
  *
- * Like fwrite() except we assume 1-byte element size and report errors via
- * ereport().
+ * 与 fwrite() 类似，只是我们假定元素大小为 1 字节，并通过
+ * ereport() 报告错误。
  */
 void
 BufFileWrite(BufFile *file, const void *ptr, size_t size)
@@ -683,12 +683,12 @@ BufFileWrite(BufFile *file, const void *ptr, size_t size)
 	{
 		if (file->pos >= BLCKSZ)
 		{
-			/* Buffer full, dump it out */
+			/* 缓冲区已满，把它转储出去 */
 			if (file->dirty)
 				BufFileDumpBuffer(file);
 			else
 			{
-				/* Hmm, went directly from reading to writing? */
+				/* 嗯，从读直接转到写了？ */
 				file->curOffset += file->pos;
 				file->pos = 0;
 				file->nbytes = 0;
@@ -714,7 +714,7 @@ BufFileWrite(BufFile *file, const void *ptr, size_t size)
 /*
  * BufFileFlush
  *
- * Like fflush(), except that I/O errors are reported with ereport().
+ * 与 fflush() 类似，只是 I/O 错误用 ereport() 报告。
  */
 static void
 BufFileFlush(BufFile *file)
@@ -728,13 +728,13 @@ BufFileFlush(BufFile *file)
 /*
  * BufFileSeek
  *
- * Like fseek(), except that target position needs two values in order to
- * work when logical filesize exceeds maximum value representable by off_t.
- * We do not support relative seeks across more than that, however.
- * I/O errors are reported by ereport().
+ * 与 fseek() 类似，只是当逻辑文件大小超过 off_t
+ * 所能表示的最大值时，目标位置需要两个值。
+ * 但不支持跨越比这更多的相对定位。
+ * I/O 错误由 ereport() 报告。
  *
- * Result is 0 if OK, EOF if not.  Logical position is not moved if an
- * impossible seek is attempted.
+ * 结果为 0 表示成功，EOF 表示失败。若尝试不可能的定位，
+ * 逻辑位置不会移动。
  */
 int
 BufFileSeek(BufFile *file, int fileno, off_t offset, int whence)
@@ -753,9 +753,9 @@ BufFileSeek(BufFile *file, int fileno, off_t offset, int whence)
 		case SEEK_CUR:
 
 			/*
-			 * Relative seek considers only the signed offset, ignoring
-			 * fileno. Note that large offsets (> 1 GB) risk overflow in this
-			 * add, unless we have 64-bit off_t.
+			 * 相对定位只考虑有符号偏移，忽略
+			 * fileno。注意较大的偏移（> 1GB）在这次
+			 * 加法里有溢出风险，除非 off_t 是 64 位。
 			 */
 			newFile = file->curFile;
 			newOffset = (file->curOffset + file->pos) + offset;
@@ -763,8 +763,8 @@ BufFileSeek(BufFile *file, int fileno, off_t offset, int whence)
 		case SEEK_END:
 
 			/*
-			 * The file size of the last file gives us the end offset of that
-			 * file.
+			 * 最后一个文件的大小给出该文件的
+			 * 结束偏移。
 			 */
 			newFile = file->numFiles - 1;
 			newOffset = FileSize(file->files[file->numFiles - 1]);
@@ -790,24 +790,24 @@ BufFileSeek(BufFile *file, int fileno, off_t offset, int whence)
 		newOffset <= file->curOffset + file->nbytes)
 	{
 		/*
-		 * Seek is to a point within existing buffer; we can just adjust
-		 * pos-within-buffer, without flushing buffer.  Note this is OK
-		 * whether reading or writing, but buffer remains dirty if we were
-		 * writing.
+		 * 定位点落在现有缓冲区内；只需调整
+		 * 缓冲区内的 pos，不必刷出缓冲区。注意无论
+		 * 读还是写都可以，但若当时正在写，
+		 * 缓冲区仍保持为脏。
 		 */
 		file->pos = (int) (newOffset - file->curOffset);
 		return 0;
 	}
-	/* Otherwise, must reposition buffer, so flush any dirty data */
+	/* 否则必须重新定位缓冲区，因此先刷出任何脏数据 */
 	BufFileFlush(file);
 
 	/*
-	 * At this point and no sooner, check for seek past last segment. The
-	 * above flush could have created a new segment, so checking sooner would
-	 * not work (at least not with this code).
+	 * 直到此时才检查是否定位越过了最后一段。上面的
+	 * 刷出可能已经创建了新段，因此更早检查
+	 * 行不通（至少这段代码不行）。
 	 */
 
-	/* convert seek to "start of next seg" to "end of last seg" */
+	/* 把定位从下一段起点转换成最后一段的末尾 */
 	if (newFile == file->numFiles && newOffset == 0)
 	{
 		newFile--;
@@ -821,7 +821,7 @@ BufFileSeek(BufFile *file, int fileno, off_t offset, int whence)
 	}
 	if (newFile >= file->numFiles)
 		return EOF;
-	/* Seek is OK! */
+	/* 定位成功！ */
 	file->curFile = newFile;
 	file->curOffset = newOffset;
 	file->pos = 0;
@@ -837,15 +837,15 @@ BufFileTell(BufFile *file, int *fileno, off_t *offset)
 }
 
 /*
- * BufFileSeekBlock --- block-oriented seek
+ * BufFileSeekBlock --- 按块定位。
  *
- * Performs absolute seek to the start of the n'th BLCKSZ-sized block of
- * the file.  Note that users of this interface will fail if their files
- * exceed BLCKSZ * LONG_MAX bytes, but that is quite a lot; we don't work
- * with tables bigger than that, either...
+ * 绝对定位到文件中第 n 个 BLCKSZ 大小的块的
+ * 起点。注意，若文件超过 BLCKSZ * LONG_MAX 字节，
+ * 此接口的使用者就会失败，不过那已经相当大；
+ * 我们也不处理比这更大的表。
  *
- * Result is 0 if OK, EOF if not.  Logical position is not moved if an
- * impossible seek is attempted.
+ * 结果为 0 表示成功，EOF 表示失败。若尝试不可能的定位，
+ * 逻辑位置不会移动。
  */
 int
 BufFileSeekBlock(BufFile *file, long blknum)
@@ -858,9 +858,9 @@ BufFileSeekBlock(BufFile *file, long blknum)
 
 #ifdef NOT_USED
 /*
- * BufFileTellBlock --- block-oriented tell
+ * BufFileTellBlock --- 按块报告位置。
  *
- * Any fractional part of a block in the current seek position is ignored.
+ * 忽略当前定位位置里不足一整块的部分。
  */
 long
 BufFileTellBlock(BufFile *file)
@@ -875,10 +875,10 @@ BufFileTellBlock(BufFile *file)
 #endif
 
 /*
- * Return the current fileset based BufFile size.
+ * 返回当前基于文件集的 BufFile 大小。
  *
- * Counts any holes left behind by BufFileAppend as part of the size.
- * ereport()s on failure.
+ * 把 BufFileAppend 留下的空洞也计入大小。
+ * 失败时调用 ereport()。
  */
 int64
 BufFileSize(BufFile *file)
@@ -887,7 +887,7 @@ BufFileSize(BufFile *file)
 
 	Assert(file->fileset != NULL);
 
-	/* Get the size of the last physical file. */
+	/* 取得最后一个物理文件的大小。 */
 	lastFileSize = FileSize(file->files[file->numFiles - 1]);
 	if (lastFileSize < 0)
 		ereport(ERROR,
@@ -901,23 +901,23 @@ BufFileSize(BufFile *file)
 }
 
 /*
- * Append the contents of source file (managed within fileset) to
- * end of target file (managed within same fileset).
+ * 把源文件（由文件集管理）的内容追加到
+ * 同一文件集所管理的目标文件末尾。
  *
- * Note that operation subsumes ownership of underlying resources from
- * "source".  Caller should never call BufFileClose against source having
- * called here first.  Resource owners for source and target must match,
- * too.
+ * 注意，此操作接过 source 底层资源的所有权。
+ * 调用者在此调用之后，不得再对 source 调用 BufFileClose。
+ * source 与 target 的资源所有者也必须
+ * 一致。
  *
- * This operation works by manipulating lists of segment files, so the
- * file content is always appended at a MAX_PHYSICAL_FILESIZE-aligned
- * boundary, typically creating empty holes before the boundary.  These
- * areas do not contain any interesting data, and cannot be read from by
- * caller.
+ * 此操作通过调整段文件列表来完成，因此
+ * 文件内容总是追加在 MAX_PHYSICAL_FILESIZE 对齐的
+ * 边界上，通常会在边界前留下空洞。这些
+ * 区域没有任何有用数据，调用者无法
+ * 从中读取。
  *
- * Returns the block number within target where the contents of source
- * begins.  Caller should apply this as an offset when working off block
- * positions that are in terms of the original BufFile space.
+ * 返回目标文件中源内容开始处的块号。
+ * 调用者在使用相对于原来 BufFile 空间的块位置时，
+ * 应当把这个值当作偏移。
  */
 long
 BufFileAppend(BufFile *target, BufFile *source)
@@ -944,8 +944,8 @@ BufFileAppend(BufFile *target, BufFile *source)
 }
 
 /*
- * Truncate a BufFile created by BufFileCreateFileSet up to the given fileno
- * and the offset.
+ * 把 BufFileCreateFileSet 创建的 BufFile 截断到给定的 fileno
+ * 和偏移。
  */
 void
 BufFileTruncateFileSet(BufFile *file, int fileno, off_t offset)
@@ -957,10 +957,10 @@ BufFileTruncateFileSet(BufFile *file, int fileno, off_t offset)
 	int			i;
 
 	/*
-	 * Loop over all the files up to the given fileno and remove the files
-	 * that are greater than the fileno and truncate the given file up to the
-	 * offset. Note that we also remove the given fileno if the offset is 0
-	 * provided it is not the first file in which we truncate it.
+	 * 遍历直到给定 fileno 的所有文件，删掉
+	 * 大于该 fileno 的文件，并把给定文件截断到
+	 * 该偏移。注意，若偏移为 0 我们也删掉给定的 fileno，
+	 * 只要它不是第一个文件；若是第一个则截断它。
 	 */
 	for (i = file->numFiles - 1; i >= fileno; i--)
 	{
@@ -977,8 +977,8 @@ BufFileTruncateFileSet(BufFile *file, int fileno, off_t offset)
 			newOffset = MAX_PHYSICAL_FILESIZE;
 
 			/*
-			 * This is required to indicate that we have deleted the given
-			 * fileno.
+			 * 这样才能标明我们已经删除了给定的
+			 * fileno。
 			 */
 			if (i == fileno)
 				newFile--;
@@ -998,27 +998,27 @@ BufFileTruncateFileSet(BufFile *file, int fileno, off_t offset)
 	file->numFiles = numFiles;
 
 	/*
-	 * If the truncate point is within existing buffer then we can just adjust
-	 * pos within buffer.
+	 * 若截断点落在现有缓冲区内，只需调整
+	 * 缓冲区内的 pos。
 	 */
 	if (newFile == file->curFile &&
 		newOffset >= file->curOffset &&
 		newOffset <= file->curOffset + file->nbytes)
 	{
-		/* No need to reset the current pos if the new pos is greater. */
+		/* 若新位置更大，就不必重置当前位置。 */
 		if (newOffset <= file->curOffset + file->pos)
 			file->pos = (int) (newOffset - file->curOffset);
 
-		/* Adjust the nbytes for the current buffer. */
+		/* 调整当前缓冲区的 nbytes。 */
 		file->nbytes = (int) (newOffset - file->curOffset);
 	}
 	else if (newFile == file->curFile &&
 			 newOffset < file->curOffset)
 	{
 		/*
-		 * The truncate point is within the existing file but prior to the
-		 * current position, so we can forget the current buffer and reset the
-		 * current position.
+		 * 截断点在现有文件内、但位于当前位置之前，
+		 * 因此可以忘掉当前缓冲区并重置
+		 * 当前位置。
 		 */
 		file->curOffset = newOffset;
 		file->pos = 0;
@@ -1027,13 +1027,13 @@ BufFileTruncateFileSet(BufFile *file, int fileno, off_t offset)
 	else if (newFile < file->curFile)
 	{
 		/*
-		 * The truncate point is prior to the current file, so need to reset
-		 * the current position accordingly.
+		 * 截断点在当前文件之前，因此需要相应地重置
+		 * 当前位置。
 		 */
 		file->curFile = newFile;
 		file->curOffset = newOffset;
 		file->pos = 0;
 		file->nbytes = 0;
 	}
-	/* Nothing to do, if the truncate point is beyond current file. */
+	/* 若截断点在当前文件之后，则无事可做。 */
 }

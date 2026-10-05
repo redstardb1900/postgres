@@ -28,10 +28,10 @@
 #include "storage/fd.h"
 
 /*
- * copydir: copy a directory
+ * copydir：复制一个目录。
  *
- * If recurse is false, subdirectories are ignored.  Anything that's not
- * a directory or a regular file is ignored.
+ * 若 recurse 为假，则忽略子目录。凡不是
+ * 目录或普通文件的都忽略。
  */
 void
 copydir(const char *fromdir, const char *todir, bool recurse)
@@ -52,7 +52,7 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 	{
 		PGFileType	xlde_type;
 
-		/* If we got a cancel signal during the copy of the directory, quit */
+		/* 若在复制目录期间收到取消信号，则退出 */
 		CHECK_FOR_INTERRUPTS();
 
 		if (strcmp(xlde->d_name, ".") == 0 ||
@@ -66,7 +66,7 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 
 		if (xlde_type == PGFILETYPE_DIR)
 		{
-			/* recurse to handle subdirectories */
+			/* 递归处理子目录 */
 			if (recurse)
 				copydir(fromfile, tofile, true);
 		}
@@ -76,8 +76,8 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 	FreeDir(xldir);
 
 	/*
-	 * Be paranoid here and fsync all files to ensure the copy is really done.
-	 * But if fsync is disabled, we're done.
+	 * 这里要谨慎，对所有文件做 fsync，以确保复制真正完成。
+	 * 但若禁用了 fsync，就到此为止。
 	 */
 	if (!enableFsync)
 		return;
@@ -93,8 +93,8 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 		snprintf(tofile, sizeof(tofile), "%s/%s", todir, xlde->d_name);
 
 		/*
-		 * We don't need to sync subdirectories here since the recursive
-		 * copydir will do it before it returns
+		 * 这里不需要同步子目录，因为递归的
+		 * copydir 会在返回前做这件事
 		 */
 		if (get_dirent_type(tofile, xlde, false, ERROR) == PGFILETYPE_REG)
 			fsync_fname(tofile, false);
@@ -102,16 +102,16 @@ copydir(const char *fromdir, const char *todir, bool recurse)
 	FreeDir(xldir);
 
 	/*
-	 * It's important to fsync the destination directory itself as individual
-	 * file fsyncs don't guarantee that the directory entry for the file is
-	 * synced. Recent versions of ext4 have made the window much wider but
-	 * it's been true for ext3 and other filesystems in the past.
+	 * 对目标目录本身做 fsync 很重要，因为对单个
+	 * 文件做 fsync 并不保证该文件的目录项已经
+	 * 同步。较新的 ext4 把这个窗口拉得宽得多，但
+	 * 对 ext3 和过去的其他文件系统也一直如此。
 	 */
 	fsync_fname(todir, true);
 }
 
 /*
- * copy one file
+ * 复制一个文件
  */
 void
 copy_file(const char *fromfile, const char *tofile)
@@ -123,14 +123,14 @@ copy_file(const char *fromfile, const char *tofile)
 	off_t		offset;
 	off_t		flush_offset;
 
-	/* Size of copy buffer (read and write requests) */
+	/* 复制缓冲区的大小（读请求和写请求） */
 #define COPY_BUF_SIZE (8 * BLCKSZ)
 
 	/*
-	 * Size of data flush requests.  It seems beneficial on most platforms to
-	 * do this every 1MB or so.  But macOS, at least with early releases of
-	 * APFS, is really unfriendly to small mmap/msync requests, so there do it
-	 * only every 32MB.
+	 * 数据刷出请求的大小。在多数平台上大约每
+	 * 1MB 做一次似乎有好处。但 macOS，至少在 APFS 的早期版本上，
+	 * 对小的 mmap/msync 请求非常不友好，因此那里只
+	 * 每 32MB 做一次。
 	 */
 #if defined(__darwin__)
 #define FLUSH_DISTANCE (32 * 1024 * 1024)
@@ -138,11 +138,11 @@ copy_file(const char *fromfile, const char *tofile)
 #define FLUSH_DISTANCE (1024 * 1024)
 #endif
 
-	/* Use palloc to ensure we get a maxaligned buffer */
+	/* 用 palloc 以确保得到最大对齐的缓冲区 */
 	buffer = palloc(COPY_BUF_SIZE);
 
 	/*
-	 * Open the files
+	 * 打开这些文件
 	 */
 	srcfd = OpenTransientFile(fromfile, O_RDONLY | PG_BINARY);
 	if (srcfd < 0)
@@ -157,18 +157,18 @@ copy_file(const char *fromfile, const char *tofile)
 				 errmsg("could not create file \"%s\": %m", tofile)));
 
 	/*
-	 * Do the data copying.
+	 * 进行数据复制。
 	 */
 	flush_offset = 0;
 	for (offset = 0;; offset += nbytes)
 	{
-		/* If we got a cancel signal during the copy of the file, quit */
+		/* 若在复制文件期间收到取消信号，则退出 */
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * We fsync the files later, but during the copy, flush them every so
-		 * often to avoid spamming the cache and hopefully get the kernel to
-		 * start writing them out before the fsync comes.
+		 * 文件稍后会 fsync，但在复制期间每隔一段时间刷出，
+		 * 以免冲击缓存，并希望内核在 fsync 到来之前
+		 * 就开始把它们写出去。
 		 */
 		if (offset - flush_offset >= FLUSH_DISTANCE)
 		{
@@ -189,7 +189,7 @@ copy_file(const char *fromfile, const char *tofile)
 		pgstat_report_wait_start(WAIT_EVENT_COPY_FILE_WRITE);
 		if ((int) write(dstfd, buffer, nbytes) != nbytes)
 		{
-			/* if write didn't set errno, assume problem is no disk space */
+			/* 若写操作没有设置 errno，就假定问题是磁盘空间不足 */
 			if (errno == 0)
 				errno = ENOSPC;
 			ereport(ERROR,

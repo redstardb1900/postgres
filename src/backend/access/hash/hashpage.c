@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashpage.c
- *	  Hash table page management code for the Postgres hash access method
+ *	  Postgres hash 访问方法的 hash 表页管理代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,19 +10,19 @@
  * IDENTIFICATION
  *	  src/backend/access/hash/hashpage.c
  *
- * NOTES
- *	  Postgres hash pages look like ordinary relation pages.  The opaque
- *	  data at high addresses includes information about the page including
- *	  whether a page is an overflow page or a true bucket, the bucket
- *	  number, and the block numbers of the preceding and following pages
- *	  in the same bucket.
+ * 说明（NOTES）
+ *	  Postgres 的 hash 页看起来和普通关系页一样。
+ *	  高地址处的特殊空间含有该页的信息，
+ *	  包括它是溢出页还是真正的桶、桶号，
+ *	  以及同一桶中前一页和后一页的
+ *	  块号。
  *
- *	  The first page in a hash relation, page zero, is special -- it stores
- *	  information describing the hash table; it is referred to as the
- *	  "meta page." Pages one and higher store the actual data.
+ *	  hash 关系中的第一页，即第零页，是特殊的——它存储
+ *	  描述 hash 表的信息；它被称为
+ *	  "元页"。第一页及更高的页存放实际数据。
  *
- *	  There are also bitmap pages, which are not manipulated here;
- *	  see hashovfl.c.
+ *	  另外还有位图页，这里并不操作它们；
+ *	  见 hashovfl.c。
  *
  *-------------------------------------------------------------------------
  */
@@ -50,21 +50,21 @@ static void log_split_page(Relation rel, Buffer buf);
 
 
 /*
- *	_hash_getbuf() -- Get a buffer by block number for read or write.
+ *	_hash_getbuf() -- 按块号取得供读或写的缓冲区。
  *
- *		'access' must be HASH_READ, HASH_WRITE, or HASH_NOLOCK.
- *		'flags' is a bitwise OR of the allowed page types.
+ *		'access' 必须是 HASH_READ、HASH_WRITE 或 HASH_NOLOCK。
+ *		'flags' 是所允许页类型的按位 OR。
  *
- *		This must be used only to fetch pages that are expected to be valid
- *		already.  _hash_checkpage() is applied using the given flags.
+ *		只能用来读取预期已经有效的页。
+ *		会按给定的 flags 调用 _hash_checkpage()。
  *
- *		When this routine returns, the appropriate lock is set on the
- *		requested buffer and its reference count has been incremented
- *		(ie, the buffer is "locked and pinned").
+ *		本例程返回时，已在所请求的缓冲区上加上适当的锁，
+ *		并且其引用计数已经增加
+ *		（即该缓冲区 "已上锁并钉住"）。
  *
- *		P_NEW is disallowed because this routine can only be used
- *		to access pages that are known to be before the filesystem EOF.
- *		Extending the index should be done with _hash_getnewbuf.
+ *		不允许使用 P_NEW，因为本例程只能用来
+ *		访问已知位于文件系统 EOF 之前的页。
+ *		扩展索引应当使用 _hash_getnewbuf。
  */
 Buffer
 _hash_getbuf(Relation rel, BlockNumber blkno, int access, int flags)
@@ -79,7 +79,7 @@ _hash_getbuf(Relation rel, BlockNumber blkno, int access, int flags)
 	if (access != HASH_NOLOCK)
 		LockBuffer(buf, access);
 
-	/* ref count and lock type are correct */
+	/* 引用计数和锁类型都正确 */
 
 	_hash_checkpage(rel, buf, flags);
 
@@ -87,10 +87,10 @@ _hash_getbuf(Relation rel, BlockNumber blkno, int access, int flags)
 }
 
 /*
- * _hash_getbuf_with_condlock_cleanup() -- Try to get a buffer for cleanup.
+ * _hash_getbuf_with_condlock_cleanup() -- 尝试取得供清理用的缓冲区。
  *
- *		We read the page and try to acquire a cleanup lock.  If we get it,
- *		we return the buffer; otherwise, we return InvalidBuffer.
+ *		我们读入该页并尝试取得清理锁。若取得了，
+ *		就返回该缓冲区；否则返回 InvalidBuffer。
  */
 Buffer
 _hash_getbuf_with_condlock_cleanup(Relation rel, BlockNumber blkno, int flags)
@@ -108,7 +108,7 @@ _hash_getbuf_with_condlock_cleanup(Relation rel, BlockNumber blkno, int flags)
 		return InvalidBuffer;
 	}
 
-	/* ref count and lock type are correct */
+	/* 引用计数和锁类型都正确 */
 
 	_hash_checkpage(rel, buf, flags);
 
@@ -116,20 +116,20 @@ _hash_getbuf_with_condlock_cleanup(Relation rel, BlockNumber blkno, int flags)
 }
 
 /*
- *	_hash_getinitbuf() -- Get and initialize a buffer by block number.
+ *	_hash_getinitbuf() -- 按块号取得并初始化缓冲区。
  *
- *		This must be used only to fetch pages that are known to be before
- *		the index's filesystem EOF, but are to be filled from scratch.
- *		_hash_pageinit() is applied automatically.  Otherwise it has
- *		effects similar to _hash_getbuf() with access = HASH_WRITE.
+ *		只能用来读取已知位于索引的文件系统 EOF 之前、
+ *		但需要从头填充的页。
+ *		会自动调用 _hash_pageinit()。除此之外，其效果
+ *		类似于 access = HASH_WRITE 的 _hash_getbuf()。
  *
- *		When this routine returns, a write lock is set on the
- *		requested buffer and its reference count has been incremented
- *		(ie, the buffer is "locked and pinned").
+ *		本例程返回时，已在所请求的缓冲区上加上写锁，
+ *		并且其引用计数已经增加
+ *		（即该缓冲区 "已上锁并钉住"）。
  *
- *		P_NEW is disallowed because this routine can only be used
- *		to access pages that are known to be before the filesystem EOF.
- *		Extending the index should be done with _hash_getnewbuf.
+ *		不允许使用 P_NEW，因为本例程只能用来
+ *		访问已知位于文件系统 EOF 之前的页。
+ *		扩展索引应当使用 _hash_getnewbuf。
  */
 Buffer
 _hash_getinitbuf(Relation rel, BlockNumber blkno)
@@ -142,16 +142,16 @@ _hash_getinitbuf(Relation rel, BlockNumber blkno)
 	buf = ReadBufferExtended(rel, MAIN_FORKNUM, blkno, RBM_ZERO_AND_LOCK,
 							 NULL);
 
-	/* ref count and lock type are correct */
+	/* 引用计数和锁类型都正确 */
 
-	/* initialize the page */
+	/* 初始化该页 */
 	_hash_pageinit(BufferGetPage(buf), BufferGetPageSize(buf));
 
 	return buf;
 }
 
 /*
- *	_hash_initbuf() -- Get and initialize a buffer by bucket number.
+ *	_hash_initbuf() -- 按桶号取得并初始化缓冲区。
  */
 void
 _hash_initbuf(Buffer buf, uint32 max_bucket, uint32 num_bucket, uint32 flag,
@@ -162,16 +162,16 @@ _hash_initbuf(Buffer buf, uint32 max_bucket, uint32 num_bucket, uint32 flag,
 
 	page = BufferGetPage(buf);
 
-	/* initialize the page */
+	/* 初始化该页 */
 	if (initpage)
 		_hash_pageinit(page, BufferGetPageSize(buf));
 
 	pageopaque = HashPageGetOpaque(page);
 
 	/*
-	 * Set hasho_prevblkno with current hashm_maxbucket. This value will be
-	 * used to validate cached HashMetaPageData. See
-	 * _hash_getbucketbuf_from_hashkey().
+	 * 用当前的 hashm_maxbucket 设置 hasho_prevblkno。该值将用来
+	 * 校验缓存的 HashMetaPageData。参见
+	 * _hash_getbucketbuf_from_hashkey()。
 	 */
 	pageopaque->hasho_prevblkno = max_bucket;
 	pageopaque->hasho_nextblkno = InvalidBlockNumber;
@@ -181,18 +181,18 @@ _hash_initbuf(Buffer buf, uint32 max_bucket, uint32 num_bucket, uint32 flag,
 }
 
 /*
- *	_hash_getnewbuf() -- Get a new page at the end of the index.
+ *	_hash_getnewbuf() -- 在索引末尾取得一个新页。
  *
- *		This has the same API as _hash_getinitbuf, except that we are adding
- *		a page to the index, and hence expect the page to be past the
- *		logical EOF.  (However, we have to support the case where it isn't,
- *		since a prior try might have crashed after extending the filesystem
- *		EOF but before updating the metapage to reflect the added page.)
+ *		API 与 _hash_getinitbuf 相同，只是我们在向索引
+ *		增加一页，因此预期该页位于逻辑 EOF 之后。
+ *		（不过必须支持并非如此的情形，因为先前的尝试
+ *		可能在扩展了文件系统 EOF 之后、更新元页以反映
+ *		所增加的页之前崩溃。）
  *
- *		It is caller's responsibility to ensure that only one process can
- *		extend the index at a time.  In practice, this function is called
- *		only while holding write lock on the metapage, because adding a page
- *		is always associated with an update of metapage data.
+ *		调用者有责任保证同一时刻只有一个进程
+ *		能扩展该索引。实践中，本函数只在持有
+ *		元页写锁时调用，因为增加一页总是
+ *		伴随着元页数据的更新。
  */
 Buffer
 _hash_getnewbuf(Relation rel, BlockNumber blkno, ForkNumber forkNum)
@@ -206,7 +206,7 @@ _hash_getnewbuf(Relation rel, BlockNumber blkno, ForkNumber forkNum)
 		elog(ERROR, "access to noncontiguous page in hash index \"%s\"",
 			 RelationGetRelationName(rel));
 
-	/* smgr insists we explicitly extend the relation */
+	/* smgr 坚持要我们显式扩展该关系 */
 	if (blkno == nblocks)
 	{
 		buf = ExtendBufferedRel(BMR_REL(rel), forkNum, NULL,
@@ -221,19 +221,19 @@ _hash_getnewbuf(Relation rel, BlockNumber blkno, ForkNumber forkNum)
 								 NULL);
 	}
 
-	/* ref count and lock type are correct */
+	/* 引用计数和锁类型都正确 */
 
-	/* initialize the page */
+	/* 初始化该页 */
 	_hash_pageinit(BufferGetPage(buf), BufferGetPageSize(buf));
 
 	return buf;
 }
 
 /*
- *	_hash_getbuf_with_strategy() -- Get a buffer with nondefault strategy.
+ *	_hash_getbuf_with_strategy() -- 用非默认策略取得缓冲区。
  *
- *		This is identical to _hash_getbuf() but also allows a buffer access
- *		strategy to be specified.  We use this for VACUUM operations.
+ *		与 _hash_getbuf() 相同，但还允许指定缓冲区访问
+ *		策略。我们把它用于 VACUUM 操作。
  */
 Buffer
 _hash_getbuf_with_strategy(Relation rel, BlockNumber blkno,
@@ -250,7 +250,7 @@ _hash_getbuf_with_strategy(Relation rel, BlockNumber blkno,
 	if (access != HASH_NOLOCK)
 		LockBuffer(buf, access);
 
-	/* ref count and lock type are correct */
+	/* 引用计数和锁类型都正确 */
 
 	_hash_checkpage(rel, buf, flags);
 
@@ -258,9 +258,9 @@ _hash_getbuf_with_strategy(Relation rel, BlockNumber blkno,
 }
 
 /*
- *	_hash_relbuf() -- release a locked buffer.
+ *	_hash_relbuf() -- 释放一个已上锁的缓冲区。
  *
- * Lock and pin (refcount) are both dropped.
+ * 锁和钉住（引用计数）都会放下。
  */
 void
 _hash_relbuf(Relation rel, Buffer buf)
@@ -269,9 +269,9 @@ _hash_relbuf(Relation rel, Buffer buf)
 }
 
 /*
- *	_hash_dropbuf() -- release an unlocked buffer.
+ *	_hash_dropbuf() -- 释放一个未上锁的缓冲区。
  *
- * This is used to unpin a buffer on which we hold no lock.
+ * 用于解除我们并未持锁的缓冲区上的钉住。
  */
 void
 _hash_dropbuf(Relation rel, Buffer buf)
@@ -280,48 +280,48 @@ _hash_dropbuf(Relation rel, Buffer buf)
 }
 
 /*
- *	_hash_dropscanbuf() -- release buffers used in scan.
+ *	_hash_dropscanbuf() -- 释放扫描中使用的缓冲区。
  *
- * This routine unpins the buffers used during scan on which we
- * hold no lock.
+ * 本例程解除扫描期间使用、且我们并未持锁的
+ * 那些缓冲区上的钉住。
  */
 void
 _hash_dropscanbuf(Relation rel, HashScanOpaque so)
 {
-	/* release pin we hold on primary bucket page */
+	/* 释放我们在主桶页上持有的钉住 */
 	if (BufferIsValid(so->hashso_bucket_buf) &&
 		so->hashso_bucket_buf != so->currPos.buf)
 		_hash_dropbuf(rel, so->hashso_bucket_buf);
 	so->hashso_bucket_buf = InvalidBuffer;
 
-	/* release pin we hold on primary bucket page  of bucket being split */
+	/* 释放我们在正在分裂的桶的主桶页上持有的钉住 */
 	if (BufferIsValid(so->hashso_split_bucket_buf) &&
 		so->hashso_split_bucket_buf != so->currPos.buf)
 		_hash_dropbuf(rel, so->hashso_split_bucket_buf);
 	so->hashso_split_bucket_buf = InvalidBuffer;
 
-	/* release any pin we still hold */
+	/* 释放我们仍持有的任何钉住 */
 	if (BufferIsValid(so->currPos.buf))
 		_hash_dropbuf(rel, so->currPos.buf);
 	so->currPos.buf = InvalidBuffer;
 
-	/* reset split scan */
+	/* 重置分裂扫描 */
 	so->hashso_buc_populated = false;
 	so->hashso_buc_split = false;
 }
 
 
 /*
- *	_hash_init() -- Initialize the metadata page of a hash index,
- *				the initial buckets, and the initial bitmap page.
+ *	_hash_init() -- 初始化 hash 索引的元数据页、
+ *				初始的各个桶，以及初始位图页。
  *
- * The initial number of buckets is dependent on num_tuples, an estimate
- * of the number of tuples to be loaded into the index initially.  The
- * chosen number of buckets is returned.
+ * 初始桶数取决于 num_tuples，即对最初要装入
+ * 索引的元组数量的估计。返回所选定的
+ * 桶数。
  *
- * We are fairly cavalier about locking here, since we know that no one else
- * could be accessing this index.  In particular the rule about not holding
- * multiple buffer locks is ignored.
+ * 这里对加锁相当随意，因为我们知道没有别人
+ * 会访问这个索引。尤其是，关于不得同时持有
+ * 多把缓冲区锁的规则被忽略了。
  */
 uint32
 _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
@@ -339,42 +339,42 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 	uint32		i;
 	bool		use_wal;
 
-	/* safety check */
+	/* 安全检查 */
 	if (RelationGetNumberOfBlocksInFork(rel, forkNum) != 0)
 		elog(ERROR, "cannot initialize non-empty hash index \"%s\"",
 			 RelationGetRelationName(rel));
 
 	/*
-	 * WAL log creation of pages if the relation is persistent, or this is the
-	 * init fork.  Init forks for unlogged relations always need to be WAL
-	 * logged.
+	 * 若关系是持久的，或者这是 init 分支，就把页的
+	 * 创建记入 WAL。不记录 WAL 的关系的 init 分支始终
+	 * 需要记入 WAL。
 	 */
 	use_wal = RelationNeedsWAL(rel) || forkNum == INIT_FORKNUM;
 
 	/*
-	 * Determine the target fill factor (in tuples per bucket) for this index.
-	 * The idea is to make the fill factor correspond to pages about as full
-	 * as the user-settable fillfactor parameter says.  We can compute it
-	 * exactly since the index datatype (i.e. uint32 hash key) is fixed-width.
+	 * 确定该索引的目标填充因子（每桶元组数）。
+	 * 想法是让填充因子对应的页满度大约等于
+	 * 用户可设置的 fillfactor 参数所说的程度。由于索引
+	 * 数据类型（即 uint32 哈希键）是定宽的，我们可以精确计算。
 	 */
 	data_width = sizeof(uint32);
 	item_width = MAXALIGN(sizeof(IndexTupleData)) + MAXALIGN(data_width) +
-		sizeof(ItemIdData);		/* include the line pointer */
+		sizeof(ItemIdData);		/* 计入行指针 */
 	ffactor = HashGetTargetPageUsage(rel) / item_width;
-	/* keep to a sane range */
+	/* 限制在合理范围内 */
 	if (ffactor < 10)
 		ffactor = 10;
 
 	procid = index_getprocid(rel, 1, HASHSTANDARD_PROC);
 
 	/*
-	 * We initialize the metapage, the first N bucket pages, and the first
-	 * bitmap page in sequence, using _hash_getnewbuf to cause smgrextend()
-	 * calls to occur.  This ensures that the smgr level has the right idea of
-	 * the physical index length.
+	 * 我们依次初始化元页、前 N 个桶页和第一张
+	 * 位图页，用 _hash_getnewbuf 促使发生 smgrextend()
+	 * 调用。这保证 smgr 层对索引的物理长度
+	 * 有正确认识。
 	 *
-	 * Critical section not required, because on error the creation of the
-	 * whole relation will be rolled back.
+	 * 不需要临界区，因为出错时整个关系的创建
+	 * 都会回滚。
 	 */
 	metabuf = _hash_getnewbuf(rel, HASH_METAPAGE, forkNum);
 	_hash_init_metabuffer(metabuf, num_tuples, procid, ffactor, false);
@@ -383,7 +383,7 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 	pg = BufferGetPage(metabuf);
 	metap = HashPageGetMeta(pg);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (use_wal)
 	{
 		xl_hash_init_meta_page xlrec;
@@ -405,21 +405,21 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 	num_buckets = metap->hashm_maxbucket + 1;
 
 	/*
-	 * Release buffer lock on the metapage while we initialize buckets.
-	 * Otherwise, we'll be in interrupt holdoff and the CHECK_FOR_INTERRUPTS
-	 * won't accomplish anything.  It's a bad idea to hold buffer locks for
-	 * long intervals in any case, since that can block the bgwriter.
+	 * 初始化各个桶期间释放元页上的缓冲区锁。
+	 * 否则我们会处于中断推迟状态，CHECK_FOR_INTERRUPTS
+	 * 将起不了作用。无论如何，长时间持有缓冲区锁
+	 * 都不是好主意，因为那会堵住后台写入进程。
 	 */
 	LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
 	/*
-	 * Initialize and WAL Log the first N buckets
+	 * 初始化前 N 个桶并记入 WAL
 	 */
 	for (i = 0; i < num_buckets; i++)
 	{
 		BlockNumber blkno;
 
-		/* Allow interrupts, in case N is huge */
+		/* 允许中断，以防 N 很大 */
 		CHECK_FOR_INTERRUPTS();
 
 		blkno = BUCKET_TO_BLKNO(metap, i);
@@ -436,18 +436,18 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 		_hash_relbuf(rel, buf);
 	}
 
-	/* Now reacquire buffer lock on metapage */
+	/* 现在重新取得元页上的缓冲区锁 */
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
 	/*
-	 * Initialize bitmap page
+	 * 初始化位图页
 	 */
 	bitmapbuf = _hash_getnewbuf(rel, num_buckets + 1, forkNum);
 	_hash_initbitmapbuffer(bitmapbuf, metap->hashm_bmsize, false);
 	MarkBufferDirty(bitmapbuf);
 
-	/* add the new bitmap page to the metapage's list of bitmaps */
-	/* metapage already has a write lock */
+	/* 把新位图页加入元页的位图列表 */
+	/* 元页已经持有写锁 */
 	if (metap->hashm_nmaps >= HASH_MAX_BITMAPS)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -459,7 +459,7 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 	metap->hashm_nmaps++;
 	MarkBufferDirty(metabuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (use_wal)
 	{
 		xl_hash_init_bitmap_page xlrec;
@@ -472,9 +472,9 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 		XLogRegisterBuffer(0, bitmapbuf, REGBUF_WILL_INIT);
 
 		/*
-		 * This is safe only because nobody else can be modifying the index at
-		 * this stage; it's only visible to the transaction that is creating
-		 * it.
+		 * 这是安全的，只因为在此阶段没有别人
+		 * 能修改该索引；它只对正在创建它的
+		 * 那个事务可见。
 		 */
 		XLogRegisterBuffer(1, metabuf, REGBUF_STANDARD);
 
@@ -484,7 +484,7 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 		PageSetLSN(BufferGetPage(metabuf), recptr);
 	}
 
-	/* all done */
+	/* 全部完成 */
 	_hash_relbuf(rel, bitmapbuf);
 	_hash_relbuf(rel, metabuf);
 
@@ -492,7 +492,7 @@ _hash_init(Relation rel, double num_tuples, ForkNumber forkNum)
 }
 
 /*
- *	_hash_init_metabuffer() -- Initialize the metadata page of a hash index.
+ *	_hash_init_metabuffer() -- 初始化 hash 索引的元数据页。
  */
 void
 _hash_init_metabuffer(Buffer buf, double num_tuples, RegProcedure procid,
@@ -507,12 +507,12 @@ _hash_init_metabuffer(Buffer buf, double num_tuples, RegProcedure procid,
 	uint32		lshift;
 
 	/*
-	 * Choose the number of initial bucket pages to match the fill factor
-	 * given the estimated number of tuples.  We round up the result to the
-	 * total number of buckets which has to be allocated before using its
-	 * hashm_spares element. However always force at least 2 bucket pages. The
-	 * upper limit is determined by considerations explained in
-	 * _hash_expandtable().
+	 * 选择初始桶页数量，使它在给定的估计元组数下
+	 * 匹配填充因子。我们把结果向上取整到
+	 * 使用其 hashm_spares 元素之前必须分配的
+	 * 桶总数。不过始终至少强制 2 个桶页。
+	 * 上限由 _hash_expandtable() 中说明的
+	 * 考量决定。
 	 */
 	dnumbuckets = num_tuples / ffactor;
 	if (dnumbuckets <= 2.0)
@@ -545,7 +545,7 @@ _hash_init_metabuffer(Buffer buf, double num_tuples, RegProcedure procid,
 	metap->hashm_ffactor = ffactor;
 	metap->hashm_bsize = HashGetMaxBitmapSize(page);
 
-	/* find largest bitmap array size that will fit in page size */
+	/* 找出能放进页大小的最大位图数组尺寸 */
 	lshift = pg_leftmost_one_pos32(metap->hashm_bsize);
 	Assert(lshift > 0);
 	metap->hashm_bmsize = 1 << lshift;
@@ -553,21 +553,21 @@ _hash_init_metabuffer(Buffer buf, double num_tuples, RegProcedure procid,
 	Assert((1 << BMPG_SHIFT(metap)) == (BMPG_MASK(metap) + 1));
 
 	/*
-	 * Label the index with its primary hash support function's OID.  This is
-	 * pretty useless for normal operation (in fact, hashm_procid is not used
-	 * anywhere), but it might be handy for forensic purposes so we keep it.
+	 * 用其主 hash 支持函数的 OID 标记该索引。这对
+	 * 正常操作几乎没用（事实上 hashm_procid 在任何地方
+	 * 都没有使用），但取证时也许用得上，所以保留它。
 	 */
 	metap->hashm_procid = procid;
 
 	/*
-	 * We initialize the index with N buckets, 0 .. N-1, occupying physical
-	 * blocks 1 to N.  The first freespace bitmap page is in block N+1.
+	 * 我们用 N 个桶（0 .. N-1）初始化索引，它们占用物理
+	 * 块 1 到 N。第一张空闲空间位图页在块 N+1。
 	 */
 	metap->hashm_maxbucket = num_buckets - 1;
 
 	/*
-	 * Set highmask as next immediate ((2 ^ x) - 1), which should be
-	 * sufficient to cover num_buckets.
+	 * 把 highmask 设为紧接着的下一个 ((2 ^ x) - 1)，它应当
+	 * 足以覆盖 num_buckets。
 	 */
 	metap->hashm_highmask = pg_nextpower2_32(num_buckets + 1) - 1;
 	metap->hashm_lowmask = (metap->hashm_highmask >> 1);
@@ -575,22 +575,22 @@ _hash_init_metabuffer(Buffer buf, double num_tuples, RegProcedure procid,
 	MemSet(metap->hashm_spares, 0, sizeof(metap->hashm_spares));
 	MemSet(metap->hashm_mapp, 0, sizeof(metap->hashm_mapp));
 
-	/* Set up mapping for one spare page after the initial splitpoints */
+	/* 为初始分裂点之后的一个备用页建立映射 */
 	metap->hashm_spares[spare_index] = 1;
 	metap->hashm_ovflpoint = spare_index;
 	metap->hashm_firstfree = 0;
 
 	/*
-	 * Set pd_lower just past the end of the metadata.  This is essential,
-	 * because without doing so, metadata will be lost if xlog.c compresses
-	 * the page.
+	 * 把 pd_lower 设到元数据末尾刚过去的位置。这是
+	 * 必需的，因为若不这样做，xlog.c 压缩该页时
+	 * 元数据就会丢失。
 	 */
 	((PageHeader) page)->pd_lower =
 		((char *) metap + sizeof(HashMetaPageData)) - (char *) page;
 }
 
 /*
- *	_hash_pageinit() -- Initialize a new hash index page.
+ *	_hash_pageinit() -- 初始化一个新的 hash 索引页。
  */
 void
 _hash_pageinit(Page page, Size size)
@@ -599,16 +599,16 @@ _hash_pageinit(Page page, Size size)
 }
 
 /*
- * Attempt to expand the hash table by creating one new bucket.
+ * 尝试通过创建一个新桶来扩展 hash 表。
  *
- * This will silently do nothing if we don't get cleanup lock on old or
- * new bucket.
+ * 若我们拿不到旧桶或新桶上的清理锁，就静默地
+ * 什么也不做。
  *
- * Complete the pending splits and remove the tuples from old bucket,
- * if there are any left over from the previous split.
+ * 完成尚未结束的分裂，并删除旧桶中
+ * 上次分裂残留的元组（若还有的话）。
  *
- * The caller must hold a pin, but no lock, on the metapage buffer.
- * The buffer is returned in the same state.
+ * 调用者必须钉住元页缓冲区，但不持锁。
+ * 返回时该缓冲区处于同样的状态。
  */
 void
 _hash_expandtable(Relation rel, Buffer metabuf)
@@ -634,8 +634,8 @@ _hash_expandtable(Relation rel, Buffer metabuf)
 restart_expand:
 
 	/*
-	 * Write-lock the meta page.  It used to be necessary to acquire a
-	 * heavyweight lock to begin a split, but that is no longer required.
+	 * 对元页加写锁。过去开始一次分裂必须取得
+	 * 一把重量级锁，但现在不再需要。
 	 */
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
@@ -643,44 +643,44 @@ restart_expand:
 	metap = HashPageGetMeta(BufferGetPage(metabuf));
 
 	/*
-	 * Check to see if split is still needed; someone else might have already
-	 * done one while we waited for the lock.
+	 * 检查是否仍需要分裂；等待锁期间也许已经有别人
+	 * 做过一次了。
 	 *
-	 * Make sure this stays in sync with _hash_doinsert()
+	 * 务必与 _hash_doinsert() 保持同步
 	 */
 	if (metap->hashm_ntuples <=
 		(double) metap->hashm_ffactor * (metap->hashm_maxbucket + 1))
 		goto fail;
 
 	/*
-	 * Can't split anymore if maxbucket has reached its maximum possible
-	 * value.
+	 * 若 maxbucket 已达到其可能的
+	 * 最大值，就不能再分裂。
 	 *
-	 * Ideally we'd allow bucket numbers up to UINT_MAX-1 (no higher because
-	 * the calculation maxbucket+1 mustn't overflow).  Currently we restrict
-	 * to half that to prevent failure of pg_ceil_log2_32() and insufficient
-	 * space in hashm_spares[].  It's moot anyway because an index with 2^32
-	 * buckets would certainly overflow BlockNumber and hence
-	 * _hash_alloc_buckets() would fail, but if we supported buckets smaller
-	 * than a disk block then this would be an independent constraint.
+	 * 理想情况下我们允许桶号直到 UINT_MAX-1（不能再高，因为
+	 * maxbucket+1 的计算不得溢出）。目前我们限制为
+	 * 该值的一半，以防止 pg_ceil_log2_32() 失败以及
+	 * hashm_spares[] 空间不足。反正这也无关紧要，因为拥有 2^32
+	 * 个桶的索引肯定会使 BlockNumber 溢出，因而
+	 * _hash_alloc_buckets() 会失败；但若我们支持小于一个
+	 * 磁盘块的桶，这就会成为一条独立约束。
 	 *
-	 * If you change this, see also the maximum initial number of buckets in
-	 * _hash_init().
+	 * 若改动这里，另见 _hash_init() 中初始桶数的
+	 * 上限。
 	 */
 	if (metap->hashm_maxbucket >= (uint32) 0x7FFFFFFE)
 		goto fail;
 
 	/*
-	 * Determine which bucket is to be split, and attempt to take cleanup lock
-	 * on the old bucket.  If we can't get the lock, give up.
+	 * 确定要分裂哪个桶，并尝试在旧桶上取得清理锁。
+	 * 若拿不到锁，就放弃。
 	 *
-	 * The cleanup lock protects us not only against other backends, but
-	 * against our own backend as well.
+	 * 清理锁不仅防止其他后端，也防止
+	 * 我们自己的后端。
 	 *
-	 * The cleanup lock is mainly to protect the split from concurrent
-	 * inserts. See src/backend/access/hash/README, Lock Definitions for
-	 * further details.  Due to this locking restriction, if there is any
-	 * pending scan, the split will give up which is not good, but harmless.
+	 * 清理锁主要是为了保护分裂不受并发插入影响。
+	 * 详见 src/backend/access/hash/README 的 "锁定义"。
+	 * 由于这一加锁限制，若存在任何未完成的扫描，
+	 * 分裂就会放弃。这并不好，但无害。
 	 */
 	new_bucket = metap->hashm_maxbucket + 1;
 
@@ -696,27 +696,27 @@ restart_expand:
 	oopaque = HashPageGetOpaque(opage);
 
 	/*
-	 * We want to finish the split from a bucket as there is no apparent
-	 * benefit by not doing so and it will make the code complicated to finish
-	 * the split that involves multiple buckets considering the case where new
-	 * split also fails.  We don't need to consider the new bucket for
-	 * completing the split here as it is not possible that a re-split of new
-	 * bucket starts when there is still a pending split from old bucket.
+	 * 我们希望做完来自一个桶的分裂，因为不做完
+	 * 没有明显好处，而且考虑到新分裂也会失败的情形，
+	 * 要把涉及多个桶的分裂做完会使代码变复杂。这里
+	 * 完成分裂时不必考虑新桶，因为当旧桶仍有
+	 * 未完成的分裂时，不可能开始对新桶
+	 * 再次分裂。
 	 */
 	if (H_BUCKET_BEING_SPLIT(oopaque))
 	{
 		/*
-		 * Copy bucket mapping info now; refer the comment in code below where
-		 * we copy this information before calling _hash_splitbucket to see
-		 * why this is okay.
+		 * 现在复制桶映射信息；理由见下面
+		 * 在调用 _hash_splitbucket 之前复制该信息
+		 * 的那段注释。
 		 */
 		maxbucket = metap->hashm_maxbucket;
 		highmask = metap->hashm_highmask;
 		lowmask = metap->hashm_lowmask;
 
 		/*
-		 * Release the lock on metapage and old_bucket, before completing the
-		 * split.
+		 * 完成分裂之前，释放元页和 old_bucket 上的
+		 * 锁。
 		 */
 		LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 		LockBuffer(buf_oblkno, BUFFER_LOCK_UNLOCK);
@@ -724,37 +724,37 @@ restart_expand:
 		_hash_finish_split(rel, metabuf, buf_oblkno, old_bucket, maxbucket,
 						   highmask, lowmask);
 
-		/* release the pin on old buffer and retry for expand. */
+		/* 释放旧缓冲区上的钉住，并重试扩展。 */
 		_hash_dropbuf(rel, buf_oblkno);
 
 		goto restart_expand;
 	}
 
 	/*
-	 * Clean the tuples remained from the previous split.  This operation
-	 * requires cleanup lock and we already have one on the old bucket, so
-	 * let's do it. We also don't want to allow further splits from the bucket
-	 * till the garbage of previous split is cleaned.  This has two
-	 * advantages; first, it helps in avoiding the bloat due to garbage and
-	 * second is, during cleanup of bucket, we are always sure that the
-	 * garbage tuples belong to most recently split bucket.  On the contrary,
-	 * if we allow cleanup of bucket after meta page is updated to indicate
-	 * the new split and before the actual split, the cleanup operation won't
-	 * be able to decide whether the tuple has been moved to the newly created
-	 * bucket and ended up deleting such tuples.
+	 * 清理上次分裂残留的元组。该操作
+	 * 需要清理锁，而旧桶上我们已经有一把，
+	 * 所以现在就做。在上次分裂的垃圾清理完之前，
+	 * 我们也不想允许该桶再分裂。这样做有
+	 * 两个好处：第一，有助于避免垃圾造成的膨胀；
+	 * 第二，清理桶期间我们总能确定这些垃圾
+	 * 元组属于最近一次被分裂的桶。相反，若允许
+	 * 在元页已更新以表示新分裂之后、真正分裂之前
+	 * 就清理该桶，清理操作将无法判断元组是否
+	 * 已被移到新建的桶，最终就会删掉
+	 * 这样的元组。
 	 */
 	if (H_NEEDS_SPLIT_CLEANUP(oopaque))
 	{
 		/*
-		 * Copy bucket mapping info now; refer to the comment in code below
-		 * where we copy this information before calling _hash_splitbucket to
-		 * see why this is okay.
+		 * 现在复制桶映射信息；理由见下面代码里
+		 * 调用 _hash_splitbucket 之前复制该信息
+		 * 的那段注释。
 		 */
 		maxbucket = metap->hashm_maxbucket;
 		highmask = metap->hashm_highmask;
 		lowmask = metap->hashm_lowmask;
 
-		/* Release the metapage lock. */
+		/* 释放元页锁。 */
 		LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
 		hashbucketcleanup(rel, old_bucket, buf_oblkno, start_oblkno, NULL,
@@ -767,18 +767,18 @@ restart_expand:
 	}
 
 	/*
-	 * There shouldn't be any active scan on new bucket.
+	 * 新桶上不应当有任何活动扫描。
 	 *
-	 * Note: it is safe to compute the new bucket's blkno here, even though we
-	 * may still need to update the BUCKET_TO_BLKNO mapping.  This is because
-	 * the current value of hashm_spares[hashm_ovflpoint] correctly shows
-	 * where we are going to put a new splitpoint's worth of buckets.
+	 * 注意：即使这里可能仍需更新 BUCKET_TO_BLKNO 映射，
+	 * 现在计算新桶的块号也是安全的。这是因为
+	 * hashm_spares[hashm_ovflpoint] 的当前值正确地指出了
+	 * 我们将把新分裂点那一批桶放在哪里。
 	 */
 	start_nblkno = BUCKET_TO_BLKNO(metap, new_bucket);
 
 	/*
-	 * If the split point is increasing we need to allocate a new batch of
-	 * bucket pages.
+	 * 若分裂点在增大，就需要分配新的一批
+	 * 桶页。
 	 */
 	spare_ndx = _hash_spareindex(new_bucket + 1);
 	if (spare_ndx > metap->hashm_ovflpoint)
@@ -788,30 +788,30 @@ restart_expand:
 		Assert(spare_ndx == metap->hashm_ovflpoint + 1);
 
 		/*
-		 * We treat allocation of buckets as a separate WAL-logged action.
-		 * Even if we fail after this operation, won't leak bucket pages;
-		 * rather, the next split will consume this space. In any case, even
-		 * without failure we don't use all the space in one split operation.
+		 * 我们把桶的分配当作单独的、记入 WAL 的动作。
+		 * 即使这次操作之后失败，也不会泄漏桶页；
+		 * 下次分裂会用掉这块空间。无论如何，即使
+		 * 没有失败，一次分裂操作也不会用完全部空间。
 		 */
 		buckets_to_add = _hash_get_totalbuckets(spare_ndx) - new_bucket;
 		if (!_hash_alloc_buckets(rel, start_nblkno, buckets_to_add))
 		{
-			/* can't split due to BlockNumber overflow */
+			/* 因 BlockNumber 溢出而无法分裂 */
 			_hash_relbuf(rel, buf_oblkno);
 			goto fail;
 		}
 	}
 
 	/*
-	 * Physically allocate the new bucket's primary page.  We want to do this
-	 * before changing the metapage's mapping info, in case we can't get the
-	 * disk space.
+	 * 物理分配新桶的主页。我们希望在改元页的
+	 * 映射信息之前做这件事，以防无法取得
+	 * 磁盘空间。
 	 *
-	 * XXX It doesn't make sense to call _hash_getnewbuf first, zeroing the
-	 * buffer, and then only afterwards check whether we have a cleanup lock.
-	 * However, since no scan can be accessing the buffer yet, any concurrent
-	 * accesses will just be from processes like the bgwriter or checkpointer
-	 * which don't care about its contents, so it doesn't really matter.
+	 * XXX 先调用 _hash_getnewbuf 把缓冲区清零，
+	 * 然后再检查是否持有清理锁，这样做没什么道理。
+	 * 不过此时还不会有扫描访问该缓冲区，任何并发
+	 * 访问只会来自后台写入进程或检查点进程这类
+	 * 并不关心其内容的进程，所以其实无所谓。
 	 */
 	buf_nblkno = _hash_getnewbuf(rel, start_nblkno, MAIN_FORKNUM);
 	if (!IsBufferCleanupOK(buf_nblkno))
@@ -822,30 +822,30 @@ restart_expand:
 	}
 
 	/*
-	 * Since we are scribbling on the pages in the shared buffers, establish a
-	 * critical section.  Any failure in this next code leaves us with a big
-	 * problem: the metapage is effectively corrupt but could get written back
-	 * to disk.
+	 * 既然我们在直接改写共享缓冲区中的页，就建立一个
+	 * 临界区。接下来这段代码若失败，会留下大麻烦：
+	 * 元页实际上已损坏，却可能被写回
+	 * 磁盘。
 	 */
 	START_CRIT_SECTION();
 
 	/*
-	 * Okay to proceed with split.  Update the metapage bucket mapping info.
+	 * 可以继续分裂了。更新元页中的桶映射信息。
 	 */
 	metap->hashm_maxbucket = new_bucket;
 
 	if (new_bucket > metap->hashm_highmask)
 	{
-		/* Starting a new doubling */
+		/* 开始新一轮加倍 */
 		metap->hashm_lowmask = metap->hashm_highmask;
 		metap->hashm_highmask = new_bucket | metap->hashm_lowmask;
 		metap_update_masks = true;
 	}
 
 	/*
-	 * If the split point is increasing we need to adjust the hashm_spares[]
-	 * array and hashm_ovflpoint so that future overflow pages will be created
-	 * beyond this new batch of bucket pages.
+	 * 若分裂点在增大，就需要调整 hashm_spares[]
+	 * 数组和 hashm_ovflpoint，使以后的溢出页创建在
+	 * 这新一批桶页之后。
 	 */
 	if (spare_ndx > metap->hashm_ovflpoint)
 	{
@@ -857,11 +857,11 @@ restart_expand:
 	MarkBufferDirty(metabuf);
 
 	/*
-	 * Copy bucket mapping info now; this saves re-accessing the meta page
-	 * inside _hash_splitbucket's inner loop.  Note that once we drop the
-	 * split lock, other splits could begin, so these values might be out of
-	 * date before _hash_splitbucket finishes.  That's okay, since all it
-	 * needs is to tell which of these two buckets to map hashkeys into.
+	 * 现在复制桶映射信息；这样 _hash_splitbucket 的内层循环
+	 * 就不必再次访问元页。注意，一旦我们放下分裂锁，
+	 * 其他分裂就可能开始，因此这些值可能在
+	 * _hash_splitbucket 结束前过时。这没关系，因为它只需要
+	 * 判断该把哈希键映射到这两个桶中的哪一个。
 	 */
 	maxbucket = metap->hashm_maxbucket;
 	highmask = metap->hashm_highmask;
@@ -871,10 +871,10 @@ restart_expand:
 	oopaque = HashPageGetOpaque(opage);
 
 	/*
-	 * Mark the old bucket to indicate that split is in progress.  (At
-	 * operation end, we will clear the split-in-progress flag.)  Also, for a
-	 * primary bucket page, hasho_prevblkno stores the number of buckets that
-	 * existed as of the last split, so we must update that value here.
+	 * 标记旧桶，表示分裂正在进行。（操作结束时，
+	 * 我们会清除正在分裂标志。）另外，对于主桶页，
+	 * hasho_prevblkno 存放截至上次分裂时已经存在的
+	 * 桶数，所以必须在这里更新该值。
 	 */
 	oopaque->hasho_flag |= LH_BUCKET_BEING_SPLIT;
 	oopaque->hasho_prevblkno = maxbucket;
@@ -884,8 +884,8 @@ restart_expand:
 	npage = BufferGetPage(buf_nblkno);
 
 	/*
-	 * initialize the new bucket's primary page and mark it to indicate that
-	 * split is in progress.
+	 * 初始化新桶的主页，并标记它以表示
+	 * 分裂正在进行。
 	 */
 	nopaque = HashPageGetOpaque(npage);
 	nopaque->hasho_prevblkno = maxbucket;
@@ -896,7 +896,7 @@ restart_expand:
 
 	MarkBufferDirty(buf_nblkno);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_hash_split_allocate_page xlrec;
@@ -941,52 +941,52 @@ restart_expand:
 
 	END_CRIT_SECTION();
 
-	/* drop lock, but keep pin */
+	/* 放下锁，但保持钉住 */
 	LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
-	/* Relocate records to the new bucket */
+	/* 把记录搬到新桶 */
 	_hash_splitbucket(rel, metabuf,
 					  old_bucket, new_bucket,
 					  buf_oblkno, buf_nblkno, NULL,
 					  maxbucket, highmask, lowmask);
 
-	/* all done, now release the pins on primary buckets. */
+	/* 全部完成，现在释放主桶上的钉住。 */
 	_hash_dropbuf(rel, buf_oblkno);
 	_hash_dropbuf(rel, buf_nblkno);
 
 	return;
 
-	/* Here if decide not to split or fail to acquire old bucket lock */
+	/* 决定不分裂，或未能取得旧桶锁时走到这里 */
 fail:
 
-	/* We didn't write the metapage, so just drop lock */
+	/* 我们没有写元页，所以只放下锁 */
 	LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 }
 
 
 /*
- * _hash_alloc_buckets -- allocate a new splitpoint's worth of bucket pages
+ * _hash_alloc_buckets -- 分配一个新分裂点所需的桶页
  *
- * This does not need to initialize the new bucket pages; we'll do that as
- * each one is used by _hash_expandtable().  But we have to extend the logical
- * EOF to the end of the splitpoint; this keeps smgr's idea of the EOF in
- * sync with ours, so that we don't get complaints from smgr.
+ * 这里不必初始化新的桶页；等 _hash_expandtable() 用到
+ * 每一页时再做。但必须把逻辑 EOF 延伸到分裂点的末尾；
+ * 这使 smgr 对 EOF 的看法与我们保持同步，
+ * 从而不会收到 smgr 的抱怨。
  *
- * We do this by writing a page of zeroes at the end of the splitpoint range.
- * We expect that the filesystem will ensure that the intervening pages read
- * as zeroes too.  On many filesystems this "hole" will not be allocated
- * immediately, which means that the index file may end up more fragmented
- * than if we forced it all to be allocated now; but since we don't scan
- * hash indexes sequentially anyway, that probably doesn't matter.
+ * 做法是在分裂点范围的末尾写一页零。我们预期文件系统
+ * 会保证中间那些页读出来也是零。在许多文件系统上，
+ * 这个 "空洞" 不会被立即分配，这意味着索引文件最终
+ * 可能比现在就强制全部分配更加碎片化；但由于我们
+ * 本来就不会顺序扫描 hash 索引，所以这大概
+ * 不要紧。
  *
- * XXX It's annoying that this code is executed with the metapage lock held.
- * We need to interlock against _hash_addovflpage() adding a new overflow page
- * concurrently, but it'd likely be better to use LockRelationForExtension
- * for the purpose.  OTOH, adding a splitpoint is a very infrequent operation,
- * so it may not be worth worrying about.
+ * XXX 这段代码在持有元页锁时执行，这挺烦人。
+ * 我们需要与并发的 _hash_addovflpage() 增加新溢出页
+ * 互锁，但为此使用 LockRelationForExtension 可能更好。
+ * 另一方面，增加一个分裂点是非常少见的操作，
+ * 所以也许不值得操心。
  *
- * Returns true if successful, or false if allocation failed due to
- * BlockNumber overflow.
+ * 成功则返回 true，若因 BlockNumber 溢出导致分配失败
+ * 则返回 false。
  */
 static bool
 _hash_alloc_buckets(Relation rel, BlockNumber firstblock, uint32 nblocks)
@@ -999,8 +999,8 @@ _hash_alloc_buckets(Relation rel, BlockNumber firstblock, uint32 nblocks)
 	lastblock = firstblock + nblocks - 1;
 
 	/*
-	 * Check for overflow in block number calculation; if so, we cannot extend
-	 * the index anymore.
+	 * 检查块号计算是否溢出；若是，就无法再
+	 * 扩展该索引。
 	 */
 	if (lastblock < firstblock || lastblock == InvalidBlockNumber)
 		return false;
@@ -1008,9 +1008,9 @@ _hash_alloc_buckets(Relation rel, BlockNumber firstblock, uint32 nblocks)
 	page = (Page) zerobuf.data;
 
 	/*
-	 * Initialize the page.  Just zeroing the page won't work; see
-	 * _hash_freeovflpage for similar usage.  We take care to make the special
-	 * space valid for the benefit of tools such as pageinspect.
+	 * 初始化该页。只把页清零是不行的；类似用法见
+	 * _hash_freeovflpage。我们特意让特殊空间有效，
+	 * 以方便 pageinspect 这类工具。
 	 */
 	_hash_pageinit(page, BLCKSZ);
 
@@ -1038,36 +1038,36 @@ _hash_alloc_buckets(Relation rel, BlockNumber firstblock, uint32 nblocks)
 
 
 /*
- * _hash_splitbucket -- split 'obucket' into 'obucket' and 'nbucket'
+ * _hash_splitbucket -- 把 'obucket' 分裂成 'obucket' 和 'nbucket'
  *
- * This routine is used to partition the tuples between old and new bucket and
- * is used to finish the incomplete split operations.  To finish the previously
- * interrupted split operation, the caller needs to fill htab.  If htab is set,
- * then we skip the movement of tuples that exists in htab, otherwise NULL
- * value of htab indicates movement of all the tuples that belong to the new
- * bucket.
+ * 本例程用于在旧桶和新桶之间划分元组，
+ * 也用于完成未做完的分裂操作。要完成先前被
+ * 中断的分裂操作，调用者需要填好 htab。若设置了
+ * htab，就跳过已存在于 htab 中的那些元组的移动，
+ * 否则 htab 为 NULL 表示把属于新桶的
+ * 全部元组都移动过去。
  *
- * We are splitting a bucket that consists of a base bucket page and zero
- * or more overflow (bucket chain) pages.  We must relocate tuples that
- * belong in the new bucket.
+ * 我们正在分裂的桶由一张基桶页以及零张或
+ * 多张溢出（桶链）页组成。必须把属于新桶的
+ * 元组搬过去。
  *
- * The caller must hold cleanup locks on both buckets to ensure that
- * no one else is trying to access them (see README).
+ * 调用者必须在两个桶上都持有清理锁，以确保
+ * 没有别人试图访问它们（见 README）。
  *
- * The caller must hold a pin, but no lock, on the metapage buffer.
- * The buffer is returned in the same state.  (The metapage is only
- * touched if it becomes necessary to add or remove overflow pages.)
+ * 调用者必须钉住元页缓冲区，但不持锁。
+ * 返回时该缓冲区处于同样的状态。（只有在需要
+ * 增加或删除溢出页时才会碰元页。）
  *
- * Split needs to retain pin on primary bucket pages of both old and new
- * buckets till end of operation.  This is to prevent vacuum from starting
- * while a split is in progress.
+ * 分裂必须一直保持新旧两个桶的主桶页上的钉住，
+ * 直到操作结束。这是为了防止分裂进行期间
+ * VACUUM 开始工作。
  *
- * In addition, the caller must have created the new bucket's base page,
- * which is passed in buffer nbuf, pinned and write-locked.  The lock will be
- * released here and pin must be released by the caller.  (The API is set up
- * this way because we must do _hash_getnewbuf() before releasing the metapage
- * write lock.  So instead of passing the new bucket's start block number, we
- * pass an actual buffer.)
+ * 此外，调用者必须已经创建新桶的基页，
+ * 它通过缓冲区 nbuf 传入，已钉住并加上写锁。锁会在
+ * 这里释放，钉住必须由调用者释放。（API 这样设计
+ * 是因为我们必须在释放元页写锁之前做 _hash_getnewbuf()。
+ * 因此我们不传递新桶的起始块号，
+ * 而是传递一个实际的缓冲区。）
  */
 static void
 _hash_splitbucket(Relation rel,
@@ -1101,16 +1101,16 @@ _hash_splitbucket(Relation rel,
 	npage = BufferGetPage(nbuf);
 	nopaque = HashPageGetOpaque(npage);
 
-	/* Copy the predicate locks from old bucket to new bucket. */
+	/* 把谓词锁从旧桶复制到新桶。 */
 	PredicateLockPageSplit(rel,
 						   BufferGetBlockNumber(bucket_obuf),
 						   BufferGetBlockNumber(bucket_nbuf));
 
 	/*
-	 * Partition the tuples in the old bucket between the old bucket and the
-	 * new bucket, advancing along the old bucket's overflow bucket chain and
-	 * adding overflow pages to the new bucket as needed.  Outer loop iterates
-	 * once per page in old bucket.
+	 * 把旧桶中的元组划分到旧桶和新桶，沿旧桶的
+	 * 溢出桶链向前，并按需为新桶增加溢出页。
+	 * 外层循环对旧桶中的每一页迭代
+	 * 一次。
 	 */
 	for (;;)
 	{
@@ -1118,7 +1118,7 @@ _hash_splitbucket(Relation rel,
 		OffsetNumber ooffnum;
 		OffsetNumber omaxoffnum;
 
-		/* Scan each tuple in old page */
+		/* 扫描旧页中的每个元组 */
 		omaxoffnum = PageGetMaxOffsetNumber(opage);
 		for (ooffnum = FirstOffsetNumber;
 			 ooffnum <= omaxoffnum;
@@ -1129,16 +1129,16 @@ _hash_splitbucket(Relation rel,
 			Bucket		bucket;
 			bool		found = false;
 
-			/* skip dead tuples */
+			/* 跳过死元组 */
 			if (ItemIdIsDead(PageGetItemId(opage, ooffnum)))
 				continue;
 
 			/*
-			 * Before inserting a tuple, probe the hash table containing TIDs
-			 * of tuples belonging to new bucket, if we find a match, then
-			 * skip that tuple, else fetch the item's hash key (conveniently
-			 * stored in the item) and determine which bucket it now belongs
-			 * in.
+			 * 插入元组之前，先探测含有属于新桶的
+			 * 那些元组的 TIDs 的哈希表；若找到匹配，
+			 * 就跳过该元组，否则取出该项的哈希键
+			 * （它方便地存放在该项中），并确定它现在
+			 * 属于哪个桶。
 			 */
 			itup = (IndexTuple) PageGetItem(opage,
 											PageGetItemId(opage, ooffnum));
@@ -1157,20 +1157,20 @@ _hash_splitbucket(Relation rel,
 				IndexTuple	new_itup;
 
 				/*
-				 * make a copy of index tuple as we have to scribble on it.
+				 * 复制一份索引元组，因为我们得在它上面直接改写。
 				 */
 				new_itup = CopyIndexTuple(itup);
 
 				/*
-				 * mark the index tuple as moved by split, such tuples are
-				 * skipped by scan if there is split in progress for a bucket.
+				 * 把索引元组标为因分裂而移动的；若某桶的分裂
+				 * 正在进行，扫描会跳过这类元组。
 				 */
 				new_itup->t_info |= INDEX_MOVED_BY_SPLIT_MASK;
 
 				/*
-				 * insert the tuple into the new bucket.  if it doesn't fit on
-				 * the current page in the new bucket, we must allocate a new
-				 * overflow page and place the tuple on that page instead.
+				 * 把元组插入新桶。若它放不进新桶的当前页，
+				 * 就必须分配一张新的溢出页，改为把元组
+				 * 放在那一页上。
 				 */
 				itemsz = IndexTupleSize(new_itup);
 				itemsz = MAXALIGN(itemsz);
@@ -1178,28 +1178,28 @@ _hash_splitbucket(Relation rel,
 				if (PageGetFreeSpaceForMultipleTuples(npage, nitups + 1) < (all_tups_size + itemsz))
 				{
 					/*
-					 * Change the shared buffer state in critical section,
-					 * otherwise any error could make it unrecoverable.
+					 * 在临界区中更改共享缓冲区状态，
+					 * 否则任何错误都可能使它无法恢复。
 					 */
 					START_CRIT_SECTION();
 
 					_hash_pgaddmultitup(rel, nbuf, itups, itup_offsets, nitups);
 					MarkBufferDirty(nbuf);
-					/* log the split operation before releasing the lock */
+					/* 释放锁之前把分裂操作记入日志 */
 					log_split_page(rel, nbuf);
 
 					END_CRIT_SECTION();
 
-					/* drop lock, but keep pin */
+					/* 放下锁，但保持钉住 */
 					LockBuffer(nbuf, BUFFER_LOCK_UNLOCK);
 
-					/* be tidy */
+					/* 收拾干净 */
 					for (i = 0; i < nitups; i++)
 						pfree(itups[i]);
 					nitups = 0;
 					all_tups_size = 0;
 
-					/* chain to a new overflow page */
+					/* 链接到一张新的溢出页 */
 					nbuf = _hash_addovflpage(rel, metabuf, nbuf, (nbuf == bucket_nbuf));
 					npage = BufferGetPage(nbuf);
 					nopaque = HashPageGetOpaque(npage);
@@ -1211,7 +1211,7 @@ _hash_splitbucket(Relation rel,
 			else
 			{
 				/*
-				 * the tuple stays on this page, so nothing to do.
+				 * 元组留在这一页，所以无事可做。
 				 */
 				Assert(bucket == obucket);
 			}
@@ -1219,24 +1219,24 @@ _hash_splitbucket(Relation rel,
 
 		oblkno = oopaque->hasho_nextblkno;
 
-		/* retain the pin on the old primary bucket */
+		/* 保留旧主桶上的钉住 */
 		if (obuf == bucket_obuf)
 			LockBuffer(obuf, BUFFER_LOCK_UNLOCK);
 		else
 			_hash_relbuf(rel, obuf);
 
-		/* Exit loop if no more overflow pages in old bucket */
+		/* 旧桶中不再有溢出页时退出循环 */
 		if (!BlockNumberIsValid(oblkno))
 		{
 			/*
-			 * Change the shared buffer state in critical section, otherwise
-			 * any error could make it unrecoverable.
+			 * 在临界区中更改共享缓冲区状态，否则
+			 * 任何错误都可能使它无法恢复。
 			 */
 			START_CRIT_SECTION();
 
 			_hash_pgaddmultitup(rel, nbuf, itups, itup_offsets, nitups);
 			MarkBufferDirty(nbuf);
-			/* log the split operation before releasing the lock */
+			/* 释放锁之前把分裂操作记入日志 */
 			log_split_page(rel, nbuf);
 
 			END_CRIT_SECTION();
@@ -1246,25 +1246,25 @@ _hash_splitbucket(Relation rel,
 			else
 				_hash_relbuf(rel, nbuf);
 
-			/* be tidy */
+			/* 收拾干净 */
 			for (i = 0; i < nitups; i++)
 				pfree(itups[i]);
 			break;
 		}
 
-		/* Else, advance to next old page */
+		/* 否则，前进到下一张旧页 */
 		obuf = _hash_getbuf(rel, oblkno, HASH_READ, LH_OVERFLOW_PAGE);
 		opage = BufferGetPage(obuf);
 		oopaque = HashPageGetOpaque(opage);
 	}
 
 	/*
-	 * We're at the end of the old bucket chain, so we're done partitioning
-	 * the tuples.  Mark the old and new buckets to indicate split is
-	 * finished.
+	 * 我们已经到了旧桶链的末尾，元组划分
+	 * 完成。标记新旧桶，表示分裂已经
+	 * 结束。
 	 *
-	 * To avoid deadlocks due to locking order of buckets, first lock the old
-	 * bucket and then the new bucket.
+	 * 为避免因桶的加锁顺序导致死锁，先锁旧桶，
+	 * 再锁新桶。
 	 */
 	LockBuffer(bucket_obuf, BUFFER_LOCK_EXCLUSIVE);
 	opage = BufferGetPage(bucket_obuf);
@@ -1280,16 +1280,16 @@ _hash_splitbucket(Relation rel,
 	nopaque->hasho_flag &= ~LH_BUCKET_BEING_POPULATED;
 
 	/*
-	 * After the split is finished, mark the old bucket to indicate that it
-	 * contains deletable tuples.  We will clear split-cleanup flag after
-	 * deleting such tuples either at the end of split or at the next split
-	 * from old bucket or at the time of vacuum.
+	 * 分裂结束后，标记旧桶，表示它含有可删除的元组。
+	 * 我们会在删除这类元组之后清除分裂清理标志，
+	 * 删除发生在分裂结束时、下次从旧桶分裂时，
+	 * 或者 VACUUM 时。
 	 */
 	oopaque->hasho_flag |= LH_BUCKET_NEEDS_SPLIT_CLEANUP;
 
 	/*
-	 * now write the buffers, here we don't release the locks as caller is
-	 * responsible to release locks.
+	 * 现在把缓冲区写出去；这里不释放锁，因为
+	 * 调用者负责释放锁。
 	 */
 	MarkBufferDirty(bucket_obuf);
 	MarkBufferDirty(bucket_nbuf);
@@ -1318,12 +1318,12 @@ _hash_splitbucket(Relation rel,
 	END_CRIT_SECTION();
 
 	/*
-	 * If possible, clean up the old bucket.  We might not be able to do this
-	 * if someone else has a pin on it, but if not then we can go ahead.  This
-	 * isn't absolutely necessary, but it reduces bloat; if we don't do it
-	 * now, VACUUM will do it eventually, but maybe not until new overflow
-	 * pages have been allocated.  Note that there's no need to clean up the
-	 * new bucket.
+	 * 若可能，就清理旧桶。若别人在它上面持有钉住，
+	 * 我们也许做不到，但若没有就可以进行。这并非
+	 * 绝对必要，但能减少膨胀；若现在不做，
+	 * VACUUM 最终会做，但也许要等到新的溢出页
+	 * 已经被分配。注意没有必要清理
+	 * 新桶。
 	 */
 	if (IsBufferCleanupOK(bucket_obuf))
 	{
@@ -1341,16 +1341,16 @@ _hash_splitbucket(Relation rel,
 }
 
 /*
- *	_hash_finish_split() -- Finish the previously interrupted split operation
+ *	_hash_finish_split() -- 完成先前被中断的分裂操作
  *
- * To complete the split operation, we form the hash table of TIDs in new
- * bucket which is then used by split operation to skip tuples that are
- * already moved before the split operation was previously interrupted.
+ * 为完成分裂操作，我们建立新桶中 TIDs 的哈希表，
+ * 供分裂操作用来跳过那些在先前分裂被中断之前
+ * 就已经移走的元组。
  *
- * The caller must hold a pin, but no lock, on the metapage and old bucket's
- * primary page buffer.  The buffers are returned in the same state.  (The
- * metapage is only touched if it becomes necessary to add or remove overflow
- * pages.)
+ * 调用者必须钉住元页以及旧桶的主页缓冲区，
+ * 但不持锁。返回时这些缓冲区处于同样的状态。
+ * （只有在需要增加或删除溢出页时才会碰
+ * 元页。）
  */
 void
 _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
@@ -1367,21 +1367,21 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 	Bucket		nbucket;
 	bool		found;
 
-	/* Initialize hash tables used to track TIDs */
+	/* 初始化用于跟踪 TIDs 的哈希表 */
 	hash_ctl.keysize = sizeof(ItemPointerData);
 	hash_ctl.entrysize = sizeof(ItemPointerData);
 	hash_ctl.hcxt = CurrentMemoryContext;
 
 	tidhtab =
 		hash_create("bucket ctids",
-					256,		/* arbitrary initial size */
+					256,		/* 任意的初始大小 */
 					&hash_ctl,
 					HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
 	bucket_nblkno = nblkno = _hash_get_newblock_from_oldbucket(rel, obucket);
 
 	/*
-	 * Scan the new bucket and build hash table of TIDs
+	 * 扫描新桶并建立 TIDs 的哈希表
 	 */
 	for (;;)
 	{
@@ -1391,14 +1391,14 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 		nbuf = _hash_getbuf(rel, nblkno, HASH_READ,
 							LH_BUCKET_PAGE | LH_OVERFLOW_PAGE);
 
-		/* remember the primary bucket buffer to acquire cleanup lock on it. */
+		/* 记住主桶缓冲区，以便在其上取得清理锁。 */
 		if (nblkno == bucket_nblkno)
 			bucket_nbuf = nbuf;
 
 		npage = BufferGetPage(nbuf);
 		npageopaque = HashPageGetOpaque(npage);
 
-		/* Scan each tuple in new page */
+		/* 扫描新页中的每个元组 */
 		nmaxoffnum = PageGetMaxOffsetNumber(npage);
 		for (noffnum = FirstOffsetNumber;
 			 noffnum <= nmaxoffnum;
@@ -1406,7 +1406,7 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 		{
 			IndexTuple	itup;
 
-			/* Fetch the item's TID and insert it in hash table. */
+			/* 取出该项的 TID 并插入哈希表。 */
 			itup = (IndexTuple) PageGetItem(npage,
 											PageGetItemId(npage, noffnum));
 
@@ -1418,24 +1418,24 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 		nblkno = npageopaque->hasho_nextblkno;
 
 		/*
-		 * release our write lock without modifying buffer and ensure to
-		 * retain the pin on primary bucket.
+		 * 不修改缓冲区就释放写锁，并确保保留
+		 * 主桶上的钉住。
 		 */
 		if (nbuf == bucket_nbuf)
 			LockBuffer(nbuf, BUFFER_LOCK_UNLOCK);
 		else
 			_hash_relbuf(rel, nbuf);
 
-		/* Exit loop if no more overflow pages in new bucket */
+		/* 新桶中不再有溢出页时退出循环 */
 		if (!BlockNumberIsValid(nblkno))
 			break;
 	}
 
 	/*
-	 * Conditionally get the cleanup lock on old and new buckets to perform
-	 * the split operation.  If we don't get the cleanup locks, silently give
-	 * up and next insertion on old bucket will try again to complete the
-	 * split.
+	 * 有条件地取得新旧桶上的清理锁以执行
+	 * 分裂操作。若拿不到清理锁，就静默放弃，
+	 * 下次向旧桶插入时会重试以完成
+	 * 这次分裂。
 	 */
 	if (!ConditionalLockBufferForCleanup(obuf))
 	{
@@ -1462,13 +1462,13 @@ _hash_finish_split(Relation rel, Buffer metabuf, Buffer obuf, Bucket obucket,
 }
 
 /*
- *	log_split_page() -- Log the split operation
+ *	log_split_page() -- 把分裂操作记入日志
  *
- *	We log the split operation when the new page in new bucket gets full,
- *	so we log the entire page.
+ *	当新桶中的新页变满时，我们记录这次分裂操作，
+ *	因此我们记录整页。
  *
- *	'buf' must be locked by the caller which is also responsible for unlocking
- *	it.
+ *	调用者必须锁住 'buf'，并且也负责解开
+ *	它。
  */
 static void
 log_split_page(Relation rel, Buffer buf)
@@ -1488,14 +1488,14 @@ log_split_page(Relation rel, Buffer buf)
 }
 
 /*
- *	_hash_getcachedmetap() -- Returns cached metapage data.
+ *	_hash_getcachedmetap() -- 返回缓存的元页数据。
  *
- *	If metabuf is not InvalidBuffer, caller must hold a pin, but no lock, on
- *	the metapage.  If not set, we'll set it before returning if we have to
- *	refresh the cache, and return with a pin but no lock on it; caller is
- *	responsible for releasing the pin.
+ *	若 metabuf 不是 InvalidBuffer，调用者必须钉住元页，
+ *	但不持锁。若未设置，在必须刷新缓存时我们会在返回前
+ *	设置它，并在返回时保持钉住但不持锁；调用者
+ *	负责释放该钉住。
  *
- *	We refresh the cache if it's not initialized yet or force_refresh is true.
+ *	若缓存尚未初始化，或 force_refresh 为 true，我们就刷新缓存。
  */
 HashMetaPage
 _hash_getcachedmetap(Relation rel, Buffer *metabuf, bool force_refresh)
@@ -1508,16 +1508,16 @@ _hash_getcachedmetap(Relation rel, Buffer *metabuf, bool force_refresh)
 		char	   *cache = NULL;
 
 		/*
-		 * It's important that we don't set rd_amcache to an invalid value.
-		 * Either MemoryContextAlloc or _hash_getbuf could fail, so don't
-		 * install a pointer to the newly-allocated storage in the actual
-		 * relcache entry until both have succeeded.
+		 * 重要的是不要把 rd_amcache 设成无效值。
+		 * MemoryContextAlloc 或 _hash_getbuf 都可能失败，所以
+		 * 在二者都成功之前，不要把指向新分配存储的指针
+		 * 装进实际的 relcache 项。
 		 */
 		if (rel->rd_amcache == NULL)
 			cache = MemoryContextAlloc(rel->rd_indexcxt,
 									   sizeof(HashMetaPageData));
 
-		/* Read the metapage. */
+		/* 读取元页。 */
 		if (BufferIsValid(*metabuf))
 			LockBuffer(*metabuf, BUFFER_LOCK_SHARE);
 		else
@@ -1525,13 +1525,13 @@ _hash_getcachedmetap(Relation rel, Buffer *metabuf, bool force_refresh)
 									LH_META_PAGE);
 		page = BufferGetPage(*metabuf);
 
-		/* Populate the cache. */
+		/* 填充缓存。 */
 		if (rel->rd_amcache == NULL)
 			rel->rd_amcache = cache;
 		memcpy(rel->rd_amcache, HashPageGetMeta(page),
 			   sizeof(HashMetaPageData));
 
-		/* Release metapage lock, but keep the pin. */
+		/* 释放元页锁，但保持钉住。 */
 		LockBuffer(*metabuf, BUFFER_LOCK_UNLOCK);
 	}
 
@@ -1539,21 +1539,21 @@ _hash_getcachedmetap(Relation rel, Buffer *metabuf, bool force_refresh)
 }
 
 /*
- *	_hash_getbucketbuf_from_hashkey() -- Get the bucket's buffer for the given
- *										 hashkey.
+ *	_hash_getbucketbuf_from_hashkey() -- 取得给定 hashkey 对应
+ *										 桶的缓冲区。
  *
- *	Bucket pages do not move or get removed once they are allocated. This give
- *	us an opportunity to use the previously saved metapage contents to reach
- *	the target bucket buffer, instead of reading from the metapage every time.
- *	This saves one buffer access every time we want to reach the target bucket
- *	buffer, which is very helpful savings in bufmgr traffic and contention.
+ *	桶页一旦分配就不会移动或被删除。这使我们有机会
+ *	用先前保存的元页内容到达目标桶缓冲区，而不必
+ *	每次都从元页读取。这样每次要到达目标桶缓冲区时
+ *	都省一次缓冲区访问，对减少 bufmgr 流量和争用
+ *	很有帮助。
  *
- *	The access type parameter (HASH_READ or HASH_WRITE) indicates whether the
- *	bucket buffer has to be locked for reading or writing.
+ *	访问类型参数（HASH_READ 或 HASH_WRITE）指出桶缓冲区
+ *	必须为读还是为写而加锁。
  *
- *	The out parameter cachedmetap is set with metapage contents used for
- *	hashkey to bucket buffer mapping. Some callers need this info to reach the
- *	old bucket in case of bucket split, see _hash_doinsert().
+ *	输出参数 cachedmetap 被设为用于 hashkey 到桶缓冲区
+ *	映射的元页内容。有些调用者需要此信息以便在桶分裂时
+ *	到达旧桶，见 _hash_doinsert()。
  */
 Buffer
 _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
@@ -1567,19 +1567,19 @@ _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
 	BlockNumber blkno;
 	HashPageOpaque opaque;
 
-	/* We read from target bucket buffer, hence locking is must. */
+	/* 我们要读目标桶缓冲区，因此必须加锁。 */
 	Assert(access == HASH_READ || access == HASH_WRITE);
 
 	metap = _hash_getcachedmetap(rel, &metabuf, false);
 	Assert(metap != NULL);
 
 	/*
-	 * Loop until we get a lock on the correct target bucket.
+	 * 循环，直到我们在正确的目标桶上取得锁。
 	 */
 	for (;;)
 	{
 		/*
-		 * Compute the target bucket number, and convert to block number.
+		 * 计算目标桶号，并转换成块号。
 		 */
 		bucket = _hash_hashkey2bucket(hashkey,
 									  metap->hashm_maxbucket,
@@ -1588,7 +1588,7 @@ _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
 
 		blkno = BUCKET_TO_BLKNO(metap, bucket);
 
-		/* Fetch the primary bucket page for the bucket */
+		/* 取出该桶的主桶页 */
 		buf = _hash_getbuf(rel, blkno, access, LH_BUCKET_PAGE);
 		page = BufferGetPage(buf);
 		opaque = HashPageGetOpaque(page);
@@ -1596,12 +1596,12 @@ _hash_getbucketbuf_from_hashkey(Relation rel, uint32 hashkey, int access,
 		Assert(opaque->hasho_prevblkno != InvalidBlockNumber);
 
 		/*
-		 * If this bucket hasn't been split, we're done.
+		 * 若该桶尚未被分裂，就完成了。
 		 */
 		if (opaque->hasho_prevblkno <= metap->hashm_maxbucket)
 			break;
 
-		/* Drop lock on this buffer, update cached metapage, and retry. */
+		/* 放下该缓冲区上的锁，更新缓存的元页，然后重试。 */
 		_hash_relbuf(rel, buf);
 		metap = _hash_getcachedmetap(rel, &metabuf, true);
 		Assert(metap != NULL);

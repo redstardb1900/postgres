@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0139a-tool-dirty-xmax-fallthrough",
+ "title": "zh: allow DirtySatisfies xmax fallthrough prose",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e139be2618f60278ea6b4d9fcfbe8b418213f2a0",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "DIRTY_XMAX fallthrough prose exempt"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "note": "unit test"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0139a-tool-dirty-xmax-fallthrough.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "_DIRTY_XMAX_FALLTHROUGH_PROSE"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "test_dirty_xmax_fallthrough_prose_is_translatable"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0139a-tool-dirty-xmax-fallthrough.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "unblock heapam_visibility translation"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0139a"
+  }
+ ],
+ "notes": "Exempt HeapTupleSatisfiesDirty XXX fall-through prose so heapam_visibility.c can be translated; bare /* fall through */ stays protected."
+}

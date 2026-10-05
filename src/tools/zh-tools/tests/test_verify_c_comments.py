@@ -166,6 +166,13 @@ class FixedCases(unittest.TestCase):
         )
         self.assertIsNone(c_verify.protected_reason(old))
 
+    def test_dirty_xmax_fallthrough_prose_is_translatable(self):
+        old = b"/* XXX shouldn't we fall through to look at xmax? */"
+        self.assertIsNone(c_verify.protected_reason(old))
+        # bare switch annotations remain protected
+        self.assertEqual(
+            c_verify.protected_reason(b"/* fall through */"), "fallthrough")
+
     def test_banner_fallthrough_prose_is_translatable(self):
         """File headers may document switch fall-through; not a GCC marker."""
         old = (

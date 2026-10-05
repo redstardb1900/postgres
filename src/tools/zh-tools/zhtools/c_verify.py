@@ -145,6 +145,12 @@ _FILEZERO_FALLTHROUGH_PROSE = re.compile(
 _TOAST_REWRITE_FALLTHROUGH_PROSE = re.compile(
     rb"fall through without writing the data again")
 
+# heapam_visibility HeapTupleSatisfiesDirty: rhetorical XXX about whether
+# control should continue to inspect xmax; the next statement is return true,
+# so this is not a GCC -Wimplicit-fallthrough annotation.
+_DIRTY_XMAX_FALLTHROUGH_PROSE = re.compile(
+    rb"shouldn't we fall through to look at xmax")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -212,7 +218,8 @@ def protected_reason(old_text):
                     or _WAITIO_FALLTHROUGH_PROSE.search(old_text)
                     or _FSM_FALLTHROUGH_PROSE.search(old_text)
                     or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)
-                    or _TOAST_REWRITE_FALLTHROUGH_PROSE.search(old_text)):
+                    or _TOAST_REWRITE_FALLTHROUGH_PROSE.search(old_text)
+                    or _DIRTY_XMAX_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

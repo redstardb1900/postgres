@@ -26,13 +26,13 @@
 #include "storage/indexfsm.h"
 
 /*
- * Exported routines
+ * 导出的例程
  */
 
 /*
- * GetFreeIndexPage - return a free page from the FSM
+ * GetFreeIndexPage：从空闲空间映射（FSM）返回一个空闲页。
  *
- * As a side effect, the page is marked as used in the FSM.
+ * 副作用是，该页在 FSM 中被标成已用。
  */
 BlockNumber
 GetFreeIndexPage(Relation rel)
@@ -46,7 +46,7 @@ GetFreeIndexPage(Relation rel)
 }
 
 /*
- * RecordFreeIndexPage - mark a page as free in the FSM
+ * RecordFreeIndexPage：在空闲空间映射（FSM）里把一页标成空闲。
  */
 void
 RecordFreeIndexPage(Relation rel, BlockNumber freeBlock)
@@ -56,7 +56,7 @@ RecordFreeIndexPage(Relation rel, BlockNumber freeBlock)
 
 
 /*
- * RecordUsedIndexPage - mark a page as used in the FSM
+ * RecordUsedIndexPage：在空闲空间映射（FSM）里把一页标成已用。
  */
 void
 RecordUsedIndexPage(Relation rel, BlockNumber usedBlock)
@@ -65,7 +65,7 @@ RecordUsedIndexPage(Relation rel, BlockNumber usedBlock)
 }
 
 /*
- * IndexFreeSpaceMapVacuum - scan and fix any inconsistencies in the FSM
+ * IndexFreeSpaceMapVacuum：扫描并修正空闲空间映射（FSM）中的不一致。
  */
 void
 IndexFreeSpaceMapVacuum(Relation rel)

@@ -25,28 +25,28 @@
 #include "storage/bufmgr.h"
 #include "storage/fsm_internals.h"
 
-/* Macros to navigate the tree within a page. Root has index zero. */
+/* 在一页内部遍历树的宏。根的下标为零。 */
 #define leftchild(x)	(2 * (x) + 1)
 #define rightchild(x)	(2 * (x) + 2)
 #define parentof(x)		(((x) - 1) / 2)
 
 /*
- * Find right neighbor of x, wrapping around within the level
+ * 找 x 的右邻，在本层内回绕。
  */
 static int
 rightneighbor(int x)
 {
 	/*
-	 * Move right. This might wrap around, stepping to the leftmost node at
-	 * the next level.
+	 * 向右移动。这可能会回绕，走到下一层
+	 * 最左边的结点。
 	 */
 	x++;
 
 	/*
-	 * Check if we stepped to the leftmost node at next level, and correct if
-	 * so. The leftmost nodes at each level are numbered x = 2^level - 1, so
-	 * check if (x + 1) is a power of two, using a standard
-	 * twos-complement-arithmetic trick.
+	 * 检查是否走到了下一层最左边的结点，若是则纠正。
+	 * 每一层最左边的结点编号为 x = 2^level - 1，因此要检查
+	 * (x + 1) 是否为 2 的幂，用的是二进制补码算术里的
+	 * 标准技巧。
 	 */
 	if (((x + 1) & x) == 0)
 		x = parentof(x);
@@ -55,9 +55,9 @@ rightneighbor(int x)
 }
 
 /*
- * Sets the value of a slot on page. Returns true if the page was modified.
+ * 设置页上某个槽的值。若该页被修改则返回真。
  *
- * The caller must hold an exclusive lock on the page.
+ * 调用方必须对该页持有排他锁。
  */
 bool
 fsm_set_avail(Page page, int slot, uint8 value)
@@ -70,15 +70,15 @@ fsm_set_avail(Page page, int slot, uint8 value)
 
 	oldvalue = fsmpage->fp_nodes[nodeno];
 
-	/* If the value hasn't changed, we don't need to do anything */
+	/* 若值没有变化，就不必做任何事 */
 	if (oldvalue == value && value <= fsmpage->fp_nodes[0])
 		return false;
 
 	fsmpage->fp_nodes[nodeno] = value;
 
 	/*
-	 * Propagate up, until we hit the root or a node that doesn't need to be
-	 * updated.
+	 * 向上传播，直到碰到根，或碰到一个不需要
+	 * 更新的结点。
 	 */
 	do
 	{
@@ -103,8 +103,8 @@ fsm_set_avail(Page page, int slot, uint8 value)
 	} while (nodeno > 0);
 
 	/*
-	 * sanity check: if the new value is (still) higher than the value at the
-	 * top, the tree is corrupt.  If so, rebuild.
+	 * 健全性检查：若新值（仍然）高于顶端的值，
+	 * 这棵树已损坏。若如此，则重建。
 	 */
 	if (value > fsmpage->fp_nodes[0])
 		fsm_rebuild_page(page);
@@ -113,10 +113,10 @@ fsm_set_avail(Page page, int slot, uint8 value)
 }
 
 /*
- * Returns the value of given slot on page.
+ * 返回页上给定槽的值。
  *
- * Since this is just a read-only access of a single byte, the page doesn't
- * need to be locked.
+ * 这只是对单个字节的只读访问，因此该页不
+ * 需要上锁。
  */
 uint8
 fsm_get_avail(Page page, int slot)
@@ -129,10 +129,10 @@ fsm_get_avail(Page page, int slot)
 }
 
 /*
- * Returns the value at the root of a page.
+ * 返回一页根处的值。
  *
- * Since this is just a read-only access of a single byte, the page doesn't
- * need to be locked.
+ * 这只是对单个字节的只读访问，因此该页不
+ * 需要上锁。
  */
 uint8
 fsm_get_max_avail(Page page)
@@ -143,16 +143,16 @@ fsm_get_max_avail(Page page)
 }
 
 /*
- * Searches for a slot with category at least minvalue.
- * Returns slot number, or -1 if none found.
+ * 搜索类别不低于 minvalue 的槽。
+ * 返回槽号；若没有找到则返回 -1。
  *
- * The caller must hold at least a shared lock on the page, and this
- * function can unlock and lock the page again in exclusive mode if it
- * needs to be updated. exclusive_lock_held should be set to true if the
- * caller is already holding an exclusive lock, to avoid extra work.
+ * 调用方必须至少持有该页的共享锁。若需要更新该页，
+ * 本函数可以先解锁，再以排他模式重新锁上。
+ * 若调用方已经持有排他锁，应把 exclusive_lock_held
+ * 设为真，以免做额外的工作。
  *
- * If advancenext is false, fp_next_slot is set to point to the returned
- * slot, and if it's true, to the slot after the returned slot.
+ * 若 advancenext 为假，则把 fp_next_slot 指向返回的槽；
+ * 若为真，则指向所返回槽之后的那个槽。
  */
 int
 fsm_search_avail(Buffer buf, uint8 minvalue, bool advancenext,
@@ -167,16 +167,16 @@ fsm_search_avail(Buffer buf, uint8 minvalue, bool advancenext,
 restart:
 
 	/*
-	 * Check the root first, and exit quickly if there's no leaf with enough
-	 * free space
+	 * 先检查根。若没有空闲空间足够的叶结点，
+	 * 就尽快退出。
 	 */
 	if (fsmpage->fp_nodes[0] < minvalue)
 		return -1;
 
 	/*
-	 * Start search using fp_next_slot.  It's just a hint, so check that it's
-	 * sane.  (This also handles wrapping around when the prior call returned
-	 * the last slot on the page.)
+	 * 用 fp_next_slot 开始搜索。它只是提示，所以要检查
+	 * 它是否合理。（这也处理上一次调用返回了本页
+	 * 最后一个槽时的回绕。）
 	 */
 	target = fsmpage->fp_next_slot;
 	if (target < 0 || target >= LeafNodesPerPage)
@@ -231,16 +231,16 @@ restart:
 			break;
 
 		/*
-		 * Move to the right, wrapping around on same level if necessary, then
-		 * climb up.
+		 * 向右移动，必要时在同一层回绕，然后
+		 * 向上爬。
 		 */
 		nodeno = parentof(rightneighbor(nodeno));
 	}
 
 	/*
-	 * We're now at a node with enough free space, somewhere in the middle of
-	 * the tree. Descend to the bottom, following a path with enough free
-	 * space, preferring to move left if there's a choice.
+	 * 现在位于树的中部、空闲空间足够的结点。
+	 * 向下走到最底层，沿着空闲空间足够的路径，
+	 * 有选择时优先向左。
 	 */
 	while (nodeno < NonLeafNodesPerPage)
 	{
@@ -252,7 +252,7 @@ restart:
 			nodeno = childnodeno;
 			continue;
 		}
-		childnodeno++;			/* point to right child */
+		childnodeno++;			/* 指向右子结点 */
 		if (childnodeno < NodesPerPage &&
 			fsmpage->fp_nodes[childnodeno] >= minvalue)
 		{
@@ -261,12 +261,12 @@ restart:
 		else
 		{
 			/*
-			 * Oops. The parent node promised that either left or right child
-			 * has enough space, but neither actually did. This can happen in
-			 * case of a "torn page", IOW if we crashed earlier while writing
-			 * the page to disk, and only part of the page made it to disk.
+			 * 糟了。父结点曾保证左子或右子有足够空间，
+			 * 实际上却都没有。若先前把该页写到磁盘时崩溃，
+			 * 且只有一部分页真正落到了磁盘上，就会出现
+			 * 撕裂页。
 			 *
-			 * Fix the corruption and restart.
+			 * 修正损坏并重新开始。
 			 */
 			RelFileLocator rlocator;
 			ForkNumber	forknum;
@@ -276,7 +276,7 @@ restart:
 			elog(DEBUG1, "fixing corrupt FSM block %u, relation %u/%u/%u",
 				 blknum, rlocator.spcOid, rlocator.dbOid, rlocator.relNumber);
 
-			/* make sure we hold an exclusive lock */
+			/* 确保我们持有排他锁 */
 			if (!exclusive_lock_held)
 			{
 				LockBuffer(buf, BUFFER_LOCK_UNLOCK);
@@ -289,16 +289,16 @@ restart:
 		}
 	}
 
-	/* We're now at the bottom level, at a node with enough space. */
+	/* 现在位于最底层、空闲空间足够的结点。 */
 	slot = nodeno - NonLeafNodesPerPage;
 
 	/*
-	 * Update the next-target pointer. Note that we do this even if we're only
-	 * holding a shared lock, on the grounds that it's better to use a shared
-	 * lock and get a garbled next pointer every now and then, than take the
-	 * concurrency hit of an exclusive lock.
+	 * 更新下一目标指针。即便只持有共享锁也这么做。
+	 * 理由是：使用共享锁、偶尔得到一个乱掉的下一指针，
+	 * 也好过承受排他锁的并发代价。
+	 * 因此这里不把锁升级成排他锁。
 	 *
-	 * Wrap-around is handled at the beginning of this function.
+	 * 回绕在本函数开头处理。
 	 */
 	fsmpage->fp_next_slot = slot + (advancenext ? 1 : 0);
 
@@ -306,8 +306,8 @@ restart:
 }
 
 /*
- * Sets the available space to zero for all slots numbered >= nslots.
- * Returns true if the page was modified.
+ * 把编号 >= nslots 的所有槽的可用空间设为零。
+ * 若该页被修改则返回真。
  */
 bool
 fsm_truncate_avail(Page page, int nslots)
@@ -318,7 +318,7 @@ fsm_truncate_avail(Page page, int nslots)
 
 	Assert(nslots >= 0 && nslots < LeafNodesPerPage);
 
-	/* Clear all truncated leaf nodes */
+	/* 清掉所有被截断的叶结点 */
 	ptr = &fsmpage->fp_nodes[NonLeafNodesPerPage + nslots];
 	for (; ptr < &fsmpage->fp_nodes[NodesPerPage]; ptr++)
 	{
@@ -327,7 +327,7 @@ fsm_truncate_avail(Page page, int nslots)
 		*ptr = 0;
 	}
 
-	/* Fix upper nodes. */
+	/* 修正上层结点。 */
 	if (changed)
 		fsm_rebuild_page(page);
 
@@ -335,8 +335,8 @@ fsm_truncate_avail(Page page, int nslots)
 }
 
 /*
- * Reconstructs the upper levels of a page. Returns true if the page
- * was modified.
+ * 重建一页的上层。若该页被修改
+ * 则返回真。
  */
 bool
 fsm_rebuild_page(Page page)
@@ -346,8 +346,8 @@ fsm_rebuild_page(Page page)
 	int			nodeno;
 
 	/*
-	 * Start from the lowest non-leaf level, at last node, working our way
-	 * backwards, through all non-leaf nodes at all levels, up to the root.
+	 * 从最低的非叶层、最后一个结点开始倒着走，
+	 * 经过各层全部非叶结点，一直走到根。
 	 */
 	for (nodeno = NonLeafNodesPerPage - 1; nodeno >= 0; nodeno--)
 	{
@@ -355,7 +355,7 @@ fsm_rebuild_page(Page page)
 		int			rchild = lchild + 1;
 		uint8		newvalue = 0;
 
-		/* The first few nodes we examine might have zero or one child. */
+		/* 最先检查的几个结点可能有零个或一个子结点。 */
 		if (lchild < NodesPerPage)
 			newvalue = fsmpage->fp_nodes[lchild];
 

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginvalidate.c
- *	  Opclass validator for GIN.
+ *	  GIN 的操作符类校验器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,7 +27,7 @@
 #include "utils/syscache.h"
 
 /*
- * Validator for a GIN opclass.
+ * GIN 操作符类的校验器。
  */
 bool
 ginvalidate(Oid opclassoid)
@@ -49,7 +49,7 @@ ginvalidate(Oid opclassoid)
 	int			i;
 	ListCell   *lc;
 
-	/* Fetch opclass information */
+	/* 获取操作符类信息 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -62,7 +62,7 @@ ginvalidate(Oid opclassoid)
 		opckeytype = opcintype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* 获取操作符族信息 */
 	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
 	if (!HeapTupleIsValid(familytup))
 		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
@@ -70,11 +70,11 @@ ginvalidate(Oid opclassoid)
 
 	opfamilyname = NameStr(familyform->opfname);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* 获取该操作符族的全部操作符和支持函数 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 
-	/* Check individual support functions */
+	/* 检查各个支持函数 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
@@ -82,8 +82,8 @@ ginvalidate(Oid opclassoid)
 		bool		ok;
 
 		/*
-		 * All GIN support functions should be registered with matching
-		 * left/right types
+		 * 所有 GIN 支持函数都应当以相互匹配的
+		 * 左/右类型登记
 		 */
 		if (procform->amproclefttype != procform->amprocrighttype)
 		{
@@ -96,13 +96,13 @@ ginvalidate(Oid opclassoid)
 		}
 
 		/*
-		 * We can't check signatures except within the specific opclass, since
-		 * we need to know the associated opckeytype in many cases.
+		 * 除了在具体的操作符类内部，我们无法检查签名，因为
+		 * 许多情况下需要知道相关联的 opckeytype。
 		 */
 		if (procform->amproclefttype != opcintype)
 			continue;
 
-		/* Check procedure numbers and function signatures */
+		/* 检查过程编号和函数签名 */
 		switch (procform->amprocnum)
 		{
 			case GIN_COMPARE_PROC:
@@ -110,20 +110,20 @@ ginvalidate(Oid opclassoid)
 											2, 2, opckeytype, opckeytype);
 				break;
 			case GIN_EXTRACTVALUE_PROC:
-				/* Some opclasses omit nullFlags */
+				/* 有些操作符类省略 nullFlags */
 				ok = check_amproc_signature(procform->amproc, INTERNALOID, false,
 											2, 3, opcintype, INTERNALOID,
 											INTERNALOID);
 				break;
 			case GIN_EXTRACTQUERY_PROC:
-				/* Some opclasses omit nullFlags and searchMode */
+				/* 有些操作符类省略 nullFlags 和 searchMode */
 				ok = check_amproc_signature(procform->amproc, INTERNALOID, false,
 											5, 7, opcintype, INTERNALOID,
 											INT2OID, INTERNALOID, INTERNALOID,
 											INTERNALOID, INTERNALOID);
 				break;
 			case GIN_CONSISTENT_PROC:
-				/* Some opclasses omit queryKeys and nullFlags */
+				/* 有些操作符类省略 queryKeys 和 nullFlags */
 				ok = check_amproc_signature(procform->amproc, BOOLOID, false,
 											6, 8, INTERNALOID, INT2OID,
 											opcintype, INT4OID,
@@ -153,7 +153,7 @@ ginvalidate(Oid opclassoid)
 								format_procedure(procform->amproc),
 								procform->amprocnum)));
 				result = false;
-				continue;		/* don't want additional message */
+				continue;		/* 不想再输出额外消息 */
 		}
 
 		if (!ok)
@@ -168,13 +168,13 @@ ginvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check individual operators */
+	/* 检查各个操作符 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 
-		/* TODO: Check that only allowed strategy numbers exist */
+		/* TODO: 检查是否只存在允许的策略编号 */
 		if (oprform->amopstrategy < 1 || oprform->amopstrategy > 63)
 		{
 			ereport(INFO,
@@ -186,7 +186,7 @@ ginvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* gin doesn't support ORDER BY operators */
+		/* GIN 不支持 ORDER BY 操作符 */
 		if (oprform->amoppurpose != AMOP_SEARCH ||
 			OidIsValid(oprform->amopsortfamily))
 		{
@@ -198,7 +198,7 @@ ginvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check operator signature --- same for all gin strategies */
+		/* 检查操作符签名 --- 对所有 GIN 策略都相同 */
 		if (!check_amop_signature(oprform->amopopr, BOOLOID,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -212,39 +212,39 @@ ginvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* 现在检查不一致的操作符/函数组 */
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 	opclassgroup = NULL;
 	foreach(lc, grouplist)
 	{
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
-		/* Remember the group exactly matching the test opclass */
+		/* 记住与被测操作符类精确匹配的那一组 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
 
 		/*
-		 * There is not a lot we can do to check the operator sets, since each
-		 * GIN opclass is more or less a law unto itself, and some contain
-		 * only operators that are binary-compatible with the opclass datatype
-		 * (meaning that empty operator sets can be OK).  That case also means
-		 * that we shouldn't insist on nonempty function sets except for the
-		 * opclass's own group.
+		 * 对操作符集合能做的检查不多，因为每个 GIN
+		 * 操作符类大体上自成一套，而且有些只包含
+		 * 与操作符类数据类型二进制兼容的操作符
+		 * （这意味着空的操作符集合也可以接受）。这种情况
+		 * 也意味着，除了操作符类自己的那一组之外，我们
+		 * 不应坚持函数集合非空。
 		 */
 	}
 
-	/* Check that the originally-named opclass is complete */
+	/* 检查原先命名的操作符类是否完整 */
 	for (i = 1; i <= GINNProcs; i++)
 	{
 		if (opclassgroup &&
 			(opclassgroup->functionset & (((uint64) 1) << i)) != 0)
-			continue;			/* got it */
+			continue;			/* 已有 */
 		if (i == GIN_COMPARE_PROC || i == GIN_COMPARE_PARTIAL_PROC ||
 			i == GIN_OPTIONS_PROC)
-			continue;			/* optional method */
+			continue;			/* 可选方法 */
 		if (i == GIN_CONSISTENT_PROC || i == GIN_TRICONSISTENT_PROC)
-			continue;			/* don't need both, see check below loop */
+			continue;			/* 不必两者都有，见循环下方的检查 */
 		ereport(INFO,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("operator class \"%s\" of access method %s is missing support function %d",
@@ -273,7 +273,7 @@ ginvalidate(Oid opclassoid)
 }
 
 /*
- * Prechecking function for adding operators/functions to a GIN opfamily.
+ * 向 GIN 操作符族添加操作符/函数之前的预检查函数。
  */
 void
 ginadjustmembers(Oid opfamilyoid,
@@ -284,11 +284,11 @@ ginadjustmembers(Oid opfamilyoid,
 	ListCell   *lc;
 
 	/*
-	 * Operator members of a GIN opfamily should never have hard dependencies,
-	 * since their connection to the opfamily depends only on what the support
-	 * functions think, and that can be altered.  For consistency, we make all
-	 * soft dependencies point to the opfamily, though a soft dependency on
-	 * the opclass would work as well in the CREATE OPERATOR CLASS case.
+	 * GIN 操作符族的操作符成员绝不应当有硬依赖，
+	 * 因为它们与操作符族的联系只取决于支持函数的判断，
+	 * 而这是可以改变的。为保持一致，我们让所有软依赖
+	 * 都指向操作符族；不过在 CREATE OPERATOR CLASS 的情形下，
+	 * 指向操作符类的软依赖同样可行。
 	 */
 	foreach(lc, operators)
 	{
@@ -300,11 +300,11 @@ ginadjustmembers(Oid opfamilyoid,
 	}
 
 	/*
-	 * Required support functions should have hard dependencies.  Preferably
-	 * those are just dependencies on the opclass, but if we're in ALTER
-	 * OPERATOR FAMILY, we leave the dependency pointing at the whole
-	 * opfamily.  (Given that GIN opclasses generally don't share opfamilies,
-	 * it seems unlikely to be worth working harder.)
+	 * 必需的支持函数应当有硬依赖。最好这些只是
+	 * 对操作符类的依赖，但若我们处于 ALTER
+	 * OPERATOR FAMILY 之中，就让依赖指向整个
+	 * 操作符族。（鉴于 GIN 操作符类通常不共享
+	 * 操作符族，似乎不值得为此再费更多功夫。）
 	 */
 	foreach(lc, functions)
 	{
@@ -314,7 +314,7 @@ ginadjustmembers(Oid opfamilyoid,
 		{
 			case GIN_EXTRACTVALUE_PROC:
 			case GIN_EXTRACTQUERY_PROC:
-				/* Required support function */
+				/* 必需的支持函数 */
 				op->ref_is_hard = true;
 				break;
 			case GIN_COMPARE_PROC:
@@ -322,7 +322,7 @@ ginadjustmembers(Oid opfamilyoid,
 			case GIN_COMPARE_PARTIAL_PROC:
 			case GIN_TRICONSISTENT_PROC:
 			case GIN_OPTIONS_PROC:
-				/* Optional, so force it to be a soft family dependency */
+				/* 可选，因此强制它成为软的族依赖 */
 				op->ref_is_hard = false;
 				op->ref_is_family = true;
 				op->refobjid = opfamilyoid;

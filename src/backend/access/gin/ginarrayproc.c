@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginarrayproc.c
- *	  support functions for GIN's indexing of any array
+ *	  GIN 对任意数组建索引的支持函数
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -27,12 +27,12 @@
 
 
 /*
- * extractValue support function
+ * extractValue 支持函数
  */
 Datum
 ginarrayextract(PG_FUNCTION_ARGS)
 {
-	/* Make copy of array input to ensure it doesn't disappear while in use */
+	/* 复制数组输入，确保它在使用期间不会消失 */
 	ArrayType  *array = PG_GETARG_ARRAYTYPE_P_COPY(0);
 	int32	   *nkeys = (int32 *) PG_GETARG_POINTER(1);
 	bool	  **nullFlags = (bool **) PG_GETARG_POINTER(2);
@@ -54,37 +54,37 @@ ginarrayextract(PG_FUNCTION_ARGS)
 	*nkeys = nelems;
 	*nullFlags = nulls;
 
-	/* we should not free array, elems[i] points into it */
+	/* 不应释放数组，elems[i] 指向其中 */
 	PG_RETURN_POINTER(elems);
 }
 
 /*
- * Formerly, ginarrayextract had only two arguments.  Now it has three,
- * but we still need a pg_proc entry with two args to support reloading
- * pre-9.1 contrib/intarray opclass declarations.  This compatibility
- * function should go away eventually.
+ * 从前 ginarrayextract 只有两个参数。现在它有三个，
+ * 但仍需要一条有两个参数的 pg_proc 条目，以便重新加载
+ * 9.1 之前 contrib/intarray 操作符类的声明。这个兼容
+ * 函数最终应当去掉。
  */
 Datum
 ginarrayextract_2args(PG_FUNCTION_ARGS)
 {
-	if (PG_NARGS() < 3)			/* should not happen */
+	if (PG_NARGS() < 3)			/* 不应发生 */
 		elog(ERROR, "ginarrayextract requires three arguments");
 	return ginarrayextract(fcinfo);
 }
 
 /*
- * extractQuery support function
+ * extractQuery 支持函数
  */
 Datum
 ginqueryarrayextract(PG_FUNCTION_ARGS)
 {
-	/* Make copy of array input to ensure it doesn't disappear while in use */
+	/* 复制数组输入，确保它在使用期间不会消失 */
 	ArrayType  *array = PG_GETARG_ARRAYTYPE_P_COPY(0);
 	int32	   *nkeys = (int32 *) PG_GETARG_POINTER(1);
 	StrategyNumber strategy = PG_GETARG_UINT16(2);
 
-	/* bool   **pmatch = (bool **) PG_GETARG_POINTER(3); */
-	/* Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
+	/* 未使用：bool   **pmatch = (bool **) PG_GETARG_POINTER(3); */
+	/* 未使用：Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
 	bool	  **nullFlags = (bool **) PG_GETARG_POINTER(5);
 	int32	   *searchMode = (int32 *) PG_GETARG_POINTER(6);
 	int16		elmlen;
@@ -113,11 +113,11 @@ ginqueryarrayextract(PG_FUNCTION_ARGS)
 		case GinContainsStrategy:
 			if (nelems > 0)
 				*searchMode = GIN_SEARCH_MODE_DEFAULT;
-			else				/* everything contains the empty set */
+			else				/* 一切都包含空集 */
 				*searchMode = GIN_SEARCH_MODE_ALL;
 			break;
 		case GinContainedStrategy:
-			/* empty set is contained in everything */
+			/* 空集被一切包含 */
 			*searchMode = GIN_SEARCH_MODE_INCLUDE_EMPTY;
 			break;
 		case GinEqualStrategy:
@@ -131,12 +131,12 @@ ginqueryarrayextract(PG_FUNCTION_ARGS)
 				 strategy);
 	}
 
-	/* we should not free array, elems[i] points into it */
+	/* 不应释放数组，elems[i] 指向其中 */
 	PG_RETURN_POINTER(elems);
 }
 
 /*
- * consistent support function
+ * consistent 支持函数
  */
 Datum
 ginarrayconsistent(PG_FUNCTION_ARGS)
@@ -144,13 +144,13 @@ ginarrayconsistent(PG_FUNCTION_ARGS)
 	bool	   *check = (bool *) PG_GETARG_POINTER(0);
 	StrategyNumber strategy = PG_GETARG_UINT16(1);
 
-	/* ArrayType  *query = PG_GETARG_ARRAYTYPE_P(2); */
+	/* 未使用：ArrayType  *query = PG_GETARG_ARRAYTYPE_P(2); */
 	int32		nkeys = PG_GETARG_INT32(3);
 
-	/* Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
+	/* 未使用：Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(5);
 
-	/* Datum	   *queryKeys = (Datum *) PG_GETARG_POINTER(6); */
+	/* 未使用：Datum	   *queryKeys = (Datum *) PG_GETARG_POINTER(6); */
 	bool	   *nullFlags = (bool *) PG_GETARG_POINTER(7);
 	bool		res;
 	int32		i;
@@ -158,9 +158,9 @@ ginarrayconsistent(PG_FUNCTION_ARGS)
 	switch (strategy)
 	{
 		case GinOverlapStrategy:
-			/* result is not lossy */
+			/* 结果不是有损的 */
 			*recheck = false;
-			/* must have a match for at least one non-null element */
+			/* 必须至少有一个非空元素匹配 */
 			res = false;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -172,9 +172,9 @@ ginarrayconsistent(PG_FUNCTION_ARGS)
 			}
 			break;
 		case GinContainsStrategy:
-			/* result is not lossy */
+			/* 结果不是有损的 */
 			*recheck = false;
-			/* must have all elements in check[] true, and no nulls */
+			/* check[] 中的元素必须全部为真，且没有空值 */
 			res = true;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -186,19 +186,19 @@ ginarrayconsistent(PG_FUNCTION_ARGS)
 			}
 			break;
 		case GinContainedStrategy:
-			/* we will need recheck */
+			/* 需要重新检查 */
 			*recheck = true;
-			/* can't do anything else useful here */
+			/* 这里做不了其他有用的事 */
 			res = true;
 			break;
 		case GinEqualStrategy:
-			/* we will need recheck */
+			/* 需要重新检查 */
 			*recheck = true;
 
 			/*
-			 * Must have all elements in check[] true; no discrimination
-			 * against nulls here.  This is because array_contain_compare and
-			 * array_eq handle nulls differently ...
+			 * check[] 中的元素必须全部为真；这里不因空值而排除。
+			 * 这是因为 array_contain_compare 与 array_eq
+			 * 对空值的处理并不相同 ...
 			 */
 			res = true;
 			for (i = 0; i < nkeys; i++)
@@ -220,7 +220,7 @@ ginarrayconsistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * triconsistent support function
+ * triconsistent 支持函数
  */
 Datum
 ginarraytriconsistent(PG_FUNCTION_ARGS)
@@ -228,11 +228,11 @@ ginarraytriconsistent(PG_FUNCTION_ARGS)
 	GinTernaryValue *check = (GinTernaryValue *) PG_GETARG_POINTER(0);
 	StrategyNumber strategy = PG_GETARG_UINT16(1);
 
-	/* ArrayType  *query = PG_GETARG_ARRAYTYPE_P(2); */
+	/* 未使用：ArrayType  *query = PG_GETARG_ARRAYTYPE_P(2); */
 	int32		nkeys = PG_GETARG_INT32(3);
 
-	/* Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
-	/* Datum	   *queryKeys = (Datum *) PG_GETARG_POINTER(5); */
+	/* 未使用：Pointer	   *extra_data = (Pointer *) PG_GETARG_POINTER(4); */
+	/* 未使用：Datum	   *queryKeys = (Datum *) PG_GETARG_POINTER(5); */
 	bool	   *nullFlags = (bool *) PG_GETARG_POINTER(6);
 	GinTernaryValue res;
 	int32		i;
@@ -240,7 +240,7 @@ ginarraytriconsistent(PG_FUNCTION_ARGS)
 	switch (strategy)
 	{
 		case GinOverlapStrategy:
-			/* must have a match for at least one non-null element */
+			/* 必须至少有一个非空元素匹配 */
 			res = GIN_FALSE;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -259,7 +259,7 @@ ginarraytriconsistent(PG_FUNCTION_ARGS)
 			}
 			break;
 		case GinContainsStrategy:
-			/* must have all elements in check[] true, and no nulls */
+			/* check[] 中的元素必须全部为真，且没有空值 */
 			res = GIN_TRUE;
 			for (i = 0; i < nkeys; i++)
 			{
@@ -275,15 +275,15 @@ ginarraytriconsistent(PG_FUNCTION_ARGS)
 			}
 			break;
 		case GinContainedStrategy:
-			/* can't do anything else useful here */
+			/* 这里做不了其他有用的事 */
 			res = GIN_MAYBE;
 			break;
 		case GinEqualStrategy:
 
 			/*
-			 * Must have all elements in check[] true; no discrimination
-			 * against nulls here.  This is because array_contain_compare and
-			 * array_eq handle nulls differently ...
+			 * check[] 中的元素必须全部为真；这里不因空值而排除。
+			 * 这是因为 array_contain_compare 与 array_eq
+			 * 对空值的处理并不相同 ...
 			 */
 			res = GIN_MAYBE;
 			for (i = 0; i < nkeys; i++)

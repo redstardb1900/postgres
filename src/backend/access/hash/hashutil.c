@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashutil.c
- *	  Utility code for Postgres hash implementation.
+ *	  Postgres hash 实现的实用代码。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,16 +26,16 @@
 			old_bucket | (lowmask + 1)
 
 /*
- * _hash_checkqual -- does the index tuple satisfy the scan conditions?
+ * _hash_checkqual -- 索引元组是否满足扫描条件？
  */
 bool
 _hash_checkqual(IndexScanDesc scan, IndexTuple itup)
 {
 	/*
-	 * Currently, we can't check any of the scan conditions since we do not
-	 * have the original index entry value to supply to the sk_func. Always
-	 * return true; we expect that hashgettuple already set the recheck flag
-	 * to make the main indexscan code do it.
+	 * 目前无法检查任何扫描条件，因为我们没有
+	 * 可供 sk_func 使用的原始索引项值。始终
+	 * 返回 true；我们预期 hashgettuple 已经设置了 recheck 标志，
+	 * 让主索引扫描代码去做这项检查。
 	 */
 #ifdef NOT_USED
 	TupleDesc	tupdesc = RelationGetDescr(scan->indexRelation);
@@ -53,7 +53,7 @@ _hash_checkqual(IndexScanDesc scan, IndexTuple itup)
 							  tupdesc,
 							  &isNull);
 
-		/* assume sk_func is strict */
+		/* 假定 sk_func 是严格的 */
 		if (isNull)
 			return false;
 		if (key->sk_flags & SK_ISNULL)
@@ -74,10 +74,10 @@ _hash_checkqual(IndexScanDesc scan, IndexTuple itup)
 }
 
 /*
- * _hash_datum2hashkey -- given a Datum, call the index's hash function
+ * _hash_datum2hashkey -- 给定一个 Datum，调用索引的哈希函数
  *
- * The Datum is assumed to be of the index's column type, so we can use the
- * "primary" hash function that's tracked for us by the generic index code.
+ * 假定该 Datum 属于索引列的类型，因此可以使用
+ * 通用索引代码为我们跟踪的 "primary" 哈希函数。
  */
 uint32
 _hash_datum2hashkey(Relation rel, Datum key)
@@ -85,7 +85,7 @@ _hash_datum2hashkey(Relation rel, Datum key)
 	FmgrInfo   *procinfo;
 	Oid			collation;
 
-	/* XXX assumes index has only one attribute */
+	/* XXX 假定索引只有一个属性 */
 	procinfo = index_getprocinfo(rel, 1, HASHSTANDARD_PROC);
 	collation = rel->rd_indcollation[0];
 
@@ -93,11 +93,11 @@ _hash_datum2hashkey(Relation rel, Datum key)
 }
 
 /*
- * _hash_datum2hashkey_type -- given a Datum of a specified type,
- *			hash it in a fashion compatible with this index
+ * _hash_datum2hashkey_type -- 给定指定类型的 Datum，
+ *			以与本索引兼容的方式对其做哈希
  *
- * This is much more expensive than _hash_datum2hashkey, so use it only in
- * cross-type situations.
+ * 这比 _hash_datum2hashkey 昂贵得多，因此只在
+ * 跨类型情形下使用。
  */
 uint32
 _hash_datum2hashkey_type(Relation rel, Datum key, Oid keytype)
@@ -105,7 +105,7 @@ _hash_datum2hashkey_type(Relation rel, Datum key, Oid keytype)
 	RegProcedure hash_proc;
 	Oid			collation;
 
-	/* XXX assumes index has only one attribute */
+	/* XXX 假定索引只有一个属性 */
 	hash_proc = get_opfamily_proc(rel->rd_opfamily[0],
 								  keytype,
 								  keytype,
@@ -120,7 +120,7 @@ _hash_datum2hashkey_type(Relation rel, Datum key, Oid keytype)
 }
 
 /*
- * _hash_hashkey2bucket -- determine which bucket the hashkey maps to.
+ * _hash_hashkey2bucket -- 确定 hashkey 映射到哪个桶。
  */
 Bucket
 _hash_hashkey2bucket(uint32 hashkey, uint32 maxbucket,
@@ -136,8 +136,8 @@ _hash_hashkey2bucket(uint32 hashkey, uint32 maxbucket,
 }
 
 /*
- * _hash_spareindex -- returns spare index / global splitpoint phase of the
- *					   bucket
+ * _hash_spareindex -- 返回该桶的 spare 下标，即其全局
+ *					   分裂点阶段
  */
 uint32
 _hash_spareindex(uint32 num_bucket)
@@ -150,26 +150,26 @@ _hash_spareindex(uint32 num_bucket)
 	if (splitpoint_group < HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE)
 		return splitpoint_group;
 
-	/* account for single-phase groups */
+	/* 计入单阶段组 */
 	splitpoint_phases = HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE;
 
-	/* account for multi-phase groups before splitpoint_group */
+	/* 计入 splitpoint_group 之前的多阶段组 */
 	splitpoint_phases +=
 		((splitpoint_group - HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE) <<
 		 HASH_SPLITPOINT_PHASE_BITS);
 
-	/* account for phases within current group */
+	/* 计入当前组内的各阶段 */
 	splitpoint_phases +=
 		(((num_bucket - 1) >>
 		  (splitpoint_group - (HASH_SPLITPOINT_PHASE_BITS + 1))) &
-		 HASH_SPLITPOINT_PHASE_MASK);	/* to 0-based value. */
+		 HASH_SPLITPOINT_PHASE_MASK);	/* 换成从 0 起算的值。 */
 
 	return splitpoint_phases;
 }
 
 /*
- *	_hash_get_totalbuckets -- returns total number of buckets allocated till
- *							the given splitpoint phase.
+ *	_hash_get_totalbuckets -- 返回直到给定分裂点阶段为止
+ *							已分配的桶总数。
  */
 uint32
 _hash_get_totalbuckets(uint32 splitpoint_phase)
@@ -181,19 +181,19 @@ _hash_get_totalbuckets(uint32 splitpoint_phase)
 	if (splitpoint_phase < HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE)
 		return (1 << splitpoint_phase);
 
-	/* get splitpoint's group */
+	/* 取得分裂点所属的组 */
 	splitpoint_group = HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE;
 	splitpoint_group +=
 		((splitpoint_phase - HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE) >>
 		 HASH_SPLITPOINT_PHASE_BITS);
 
-	/* account for buckets before splitpoint_group */
+	/* 计入 splitpoint_group 之前的桶 */
 	total_buckets = (1 << (splitpoint_group - 1));
 
-	/* account for buckets within splitpoint_group */
+	/* 计入 splitpoint_group 之内的桶 */
 	phases_within_splitpoint_group =
 		(((splitpoint_phase - HASH_SPLITPOINT_GROUPS_WITH_ONE_PHASE) &
-		  HASH_SPLITPOINT_PHASE_MASK) + 1); /* from 0-based to 1-based */
+		  HASH_SPLITPOINT_PHASE_MASK) + 1); /* 从 0 起算改为从 1 起算 */
 	total_buckets +=
 		(((1 << (splitpoint_group - 1)) >> HASH_SPLITPOINT_PHASE_BITS) *
 		 phases_within_splitpoint_group);
@@ -202,10 +202,10 @@ _hash_get_totalbuckets(uint32 splitpoint_phase)
 }
 
 /*
- * _hash_checkpage -- sanity checks on the format of all hash pages
+ * _hash_checkpage -- 对所有 hash 页的格式做健全性检查
  *
- * If flags is not zero, it is a bitwise OR of the acceptable page types
- * (values of hasho_flag & LH_PAGE_TYPE).
+ * 若 flags 非零，它是可接受页类型的按位 OR
+ * （hasho_flag 与 LH_PAGE_TYPE 的取值）。
  */
 void
 _hash_checkpage(Relation rel, Buffer buf, int flags)
@@ -213,10 +213,10 @@ _hash_checkpage(Relation rel, Buffer buf, int flags)
 	Page		page = BufferGetPage(buf);
 
 	/*
-	 * ReadBuffer verifies that every newly-read page passes
-	 * PageHeaderIsValid, which means it either contains a reasonably sane
-	 * page header or is all-zero.  We have to defend against the all-zero
-	 * case, however.
+	 * ReadBuffer 会验证每个新读入的页都通过
+	 * PageHeaderIsValid，这意味着它要么含有相当合理的
+	 * 页头，要么全为零。不过我们必须防范全零的
+	 * 情形。
 	 */
 	if (PageIsNew(page))
 		ereport(ERROR,
@@ -227,7 +227,7 @@ _hash_checkpage(Relation rel, Buffer buf, int flags)
 				 errhint("Please REINDEX it.")));
 
 	/*
-	 * Additionally check that the special area looks sane.
+	 * 另外检查特殊空间看起来是否正常。
 	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(HashPageOpaqueData)))
 		ereport(ERROR,
@@ -251,7 +251,7 @@ _hash_checkpage(Relation rel, Buffer buf, int flags)
 	}
 
 	/*
-	 * When checking the metapage, also verify magic number and version.
+	 * 检查元页时，还要验证魔数和版本。
 	 */
 	if (flags == LH_META_PAGE)
 	{
@@ -286,7 +286,7 @@ hashoptions(Datum reloptions, bool validate)
 }
 
 /*
- * _hash_get_indextuple_hashkey - get the hash index tuple's hash key value
+ * _hash_get_indextuple_hashkey - 取得 hash 索引元组的哈希键值
  */
 uint32
 _hash_get_indextuple_hashkey(IndexTuple itup)
@@ -294,26 +294,26 @@ _hash_get_indextuple_hashkey(IndexTuple itup)
 	char	   *attp;
 
 	/*
-	 * We assume the hash key is the first attribute and can't be null, so
-	 * this can be done crudely but very very cheaply ...
+	 * 假定哈希键是第一个属性且不能为 null，因此
+	 * 可以做得比较粗糙，但非常非常便宜 ...
 	 */
 	attp = (char *) itup + IndexInfoFindDataOffset(itup->t_info);
 	return *((uint32 *) attp);
 }
 
 /*
- * _hash_convert_tuple - convert raw index data to hash key
+ * _hash_convert_tuple - 把原始索引数据转换为哈希键
  *
- * Inputs: values and isnull arrays for the user data column(s)
- * Outputs: values and isnull arrays for the index tuple, suitable for
- *		passing to index_form_tuple().
+ * 输入：用户数据列 column(s) 的 values 与 isnull 数组
+ * 输出：索引元组的 values 与 isnull 数组，适合
+ *		传给 index_form_tuple()。
  *
- * Returns true if successful, false if not (because there are null values).
- * On a false result, the given data need not be indexed.
+ * 成功返回 true，否则返回 false（因为存在空值）。
+ * 结果为 false 时，给定数据不必被索引。
  *
- * Note: callers know that the index-column arrays are always of length 1.
- * In principle, there could be more than one input column, though we do not
- * currently support that.
+ * 注意：调用者知道索引列数组的长度始终为 1。
+ * 原则上输入列可以多于一列，不过目前我们
+ * 不支持那样做。
  */
 bool
 _hash_convert_tuple(Relation index,
@@ -323,8 +323,8 @@ _hash_convert_tuple(Relation index,
 	uint32		hashkey;
 
 	/*
-	 * We do not insert null values into hash indexes.  This is okay because
-	 * the only supported search operator is '=', and we assume it is strict.
+	 * 我们不把空值插入 hash 索引。这没问题，因为
+	 * 唯一支持的搜索操作符是 '='，且我们假定它是严格的。
 	 */
 	if (user_isnull[0])
 		return false;
@@ -336,16 +336,16 @@ _hash_convert_tuple(Relation index,
 }
 
 /*
- * _hash_binsearch - Return the offset number in the page where the
- *					 specified hash value should be sought or inserted.
+ * _hash_binsearch - 返回页中应查找或插入
+ *					 指定哈希值的偏移号。
  *
- * We use binary search, relying on the assumption that the existing entries
- * are ordered by hash key.
+ * 我们使用二分搜索，依据现有项按哈希键
+ * 有序这一假定。
  *
- * Returns the offset of the first index entry having hashkey >= hash_value,
- * or the page's max offset plus one if hash_value is greater than all
- * existing hash keys in the page.  This is the appropriate place to start
- * a search, or to insert a new item.
+ * 返回第一个满足 hashkey >= hash_value 的索引项偏移，
+ * 若 hash_value 大于页中全部现有哈希键，则返回该页
+ * 最大偏移加一。这是开始搜索或插入新项的
+ * 合适位置。
  */
 OffsetNumber
 _hash_binsearch(Page page, uint32 hash_value)
@@ -353,7 +353,7 @@ _hash_binsearch(Page page, uint32 hash_value)
 	OffsetNumber upper;
 	OffsetNumber lower;
 
-	/* Loop invariant: lower <= desired place <= upper */
+	/* 循环不变量：lower <= 目标位置 <= upper */
 	upper = PageGetMaxOffsetNumber(page) + 1;
 	lower = FirstOffsetNumber;
 
@@ -380,10 +380,10 @@ _hash_binsearch(Page page, uint32 hash_value)
 /*
  * _hash_binsearch_last
  *
- * Same as above, except that if there are multiple matching items in the
- * page, we return the offset of the last one instead of the first one,
- * and the possible range of outputs is 0..maxoffset not 1..maxoffset+1.
- * This is handy for starting a new page in a backwards scan.
+ * 与上面相同，只是若页中有多个匹配项，
+ * 我们返回最后一项的偏移，而不是第一项，
+ * 且输出的可能范围是 0..maxoffset，不是 1..maxoffset+1。
+ * 这便于在反向扫描中开始新的一页。
  */
 OffsetNumber
 _hash_binsearch_last(Page page, uint32 hash_value)
@@ -391,7 +391,7 @@ _hash_binsearch_last(Page page, uint32 hash_value)
 	OffsetNumber upper;
 	OffsetNumber lower;
 
-	/* Loop invariant: lower <= desired place <= upper */
+	/* 循环不变量：lower <= 目标位置 <= upper */
 	upper = PageGetMaxOffsetNumber(page);
 	lower = FirstOffsetNumber - 1;
 
@@ -416,8 +416,8 @@ _hash_binsearch_last(Page page, uint32 hash_value)
 }
 
 /*
- *	_hash_get_oldblock_from_newbucket() -- get the block number of a bucket
- *			from which current (new) bucket is being split.
+ *	_hash_get_oldblock_from_newbucket() -- 取得正在分裂出
+ *			当前（新）桶的那个桶的块号。
  */
 BlockNumber
 _hash_get_oldblock_from_newbucket(Relation rel, Bucket new_bucket)
@@ -429,12 +429,12 @@ _hash_get_oldblock_from_newbucket(Relation rel, Bucket new_bucket)
 	BlockNumber blkno;
 
 	/*
-	 * To get the old bucket from the current bucket, we need a mask to modulo
-	 * into lower half of table.  This mask is stored in meta page as
-	 * hashm_lowmask, but here we can't rely on the same, because we need a
-	 * value of lowmask that was prevalent at the time when bucket split was
-	 * started.  Masking the most significant bit of new bucket would give us
-	 * old bucket.
+	 * 要从当前桶得到旧桶，需要一个掩码，以便对表的
+	 * 下半部分取模。该掩码存在元页中，名为
+	 * hashm_lowmask，但这里不能依赖它，因为我们需要的是
+	 * 桶分裂开始时生效的那个 lowmask 值。把新桶的
+	 * 最高有效位掩掉，得到的就是
+	 * 旧桶。
 	 */
 	mask = (((uint32) 1) << pg_leftmost_one_pos32(new_bucket)) - 1;
 	old_bucket = new_bucket & mask;
@@ -450,13 +450,13 @@ _hash_get_oldblock_from_newbucket(Relation rel, Bucket new_bucket)
 }
 
 /*
- *	_hash_get_newblock_from_oldbucket() -- get the block number of a bucket
- *			that will be generated after split from old bucket.
+ *	_hash_get_newblock_from_oldbucket() -- 取得旧桶分裂后
+ *			将生成的那个桶的块号。
  *
- * This is used to find the new bucket from old bucket based on current table
- * half.  It is mainly required to finish the incomplete splits where we are
- * sure that not more than one bucket could have split in progress from old
- * bucket.
+ * 用于按当前表半区，从旧桶找出新桶。
+ * 主要用来完成未完成的分裂：此时可以确定，
+ * 从该旧桶出发、正在进行的分裂
+ * 不会多于一个桶。
  */
 BlockNumber
 _hash_get_newblock_from_oldbucket(Relation rel, Bucket old_bucket)
@@ -480,16 +480,16 @@ _hash_get_newblock_from_oldbucket(Relation rel, Bucket old_bucket)
 }
 
 /*
- *	_hash_get_newbucket_from_oldbucket() -- get the new bucket that will be
- *			generated after split from current (old) bucket.
+ *	_hash_get_newbucket_from_oldbucket() -- 取得从当前（旧）桶
+ *			分裂后将生成的新桶。
  *
- * This is used to find the new bucket from old bucket.  New bucket can be
- * obtained by OR'ing old bucket with most significant bit of current table
- * half (lowmask passed in this function can be used to identify msb of
- * current table half).  There could be multiple buckets that could have
- * been split from current bucket.  We need the first such bucket that exists.
- * Caller must ensure that no more than one split has happened from old
- * bucket.
+ * 用于从旧桶找出新桶。把旧桶与当前表半区的
+ * 最高有效位做 OR，即可得到新桶（传入本函数的
+ * lowmask 可用来识别当前表半区的 msb）。从当前桶
+ * 分裂出去的桶可能有多个。我们需要第一个
+ * 实际存在的这种桶。
+ * 调用者必须保证，从旧桶出发发生的分裂不超过
+ * 一次。
  */
 Bucket
 _hash_get_newbucket_from_oldbucket(Relation rel, Bucket old_bucket,
@@ -508,30 +508,30 @@ _hash_get_newbucket_from_oldbucket(Relation rel, Bucket old_bucket,
 }
 
 /*
- * _hash_kill_items - set LP_DEAD state for items an indexscan caller has
- * told us were killed.
+ * _hash_kill_items - 把索引扫描调用者告知已被杀死的项设为
+ * LP_DEAD 状态。
  *
- * scan->opaque, referenced locally through so, contains information about the
- * current page and killed tuples thereon (generally, this should only be
- * called if so->numKilled > 0).
+ * 经 so 局部引用的 scan->opaque 含有当前页
+ * 以及其上被杀死元组的信息（一般仅当
+ * so->numKilled > 0 时才应调用）。
  *
- * The caller does not have a lock on the page and may or may not have the
- * page pinned in a buffer.  Note that read-lock is sufficient for setting
- * LP_DEAD status (which is only a hint).
+ * 调用者没有锁住该页，也可能没有在缓冲区中
+ * 钉住该页。注意，设置
+ * LP_DEAD 状态（它只是提示）有读锁就够了。
  *
- * The caller must have pin on bucket buffer, but may or may not have pin
- * on overflow buffer, as indicated by HashScanPosIsPinned(so->currPos).
+ * 调用者必须钉住桶缓冲区，但溢出缓冲区上的钉住
+ * 可有可无，如 HashScanPosIsPinned(so->currPos) 所示。
  *
- * We match items by heap TID before assuming they are the right ones to
- * delete.
+ * 我们先按堆 TID 匹配这些项，再认定它们就是
+ * 要删除的那些。
  *
- * There are never any scans active in a bucket at the time VACUUM begins,
- * because VACUUM takes a cleanup lock on the primary bucket page and scans
- * hold a pin.  A scan can begin after VACUUM leaves the primary bucket page
- * but before it finishes the entire bucket, but it can never pass VACUUM,
- * because VACUUM always locks the next page before releasing the lock on
- * the previous one.  Therefore, we don't have to worry about accidentally
- * killing a TID that has been reused for an unrelated tuple.
+ * VACUUM 开始时，桶里绝不会有正在进行的扫描，
+ * 因为 VACUUM 会在主桶页上取得清理锁，而扫描
+ * 持有钉住。扫描可以在 VACUUM 离开主桶页之后、
+ * 但在它做完整个桶之前开始，不过绝不能超过 VACUUM，
+ * 因为 VACUUM 总是先锁住下一页，再释放
+ * 上一页上的锁。因此不必担心意外杀死
+ * 一个已被无关元组复用的 TID。
  */
 void
 _hash_kill_items(IndexScanDesc scan)
@@ -554,8 +554,8 @@ _hash_kill_items(IndexScanDesc scan)
 	Assert(HashScanPosIsValid(so->currPos));
 
 	/*
-	 * Always reset the scan state, so we don't look for same items on other
-	 * pages.
+	 * 始终重置扫描状态，以免在其他页上
+	 * 再找同样的项。
 	 */
 	so->numKilled = 0;
 
@@ -563,8 +563,8 @@ _hash_kill_items(IndexScanDesc scan)
 	if (HashScanPosIsPinned(so->currPos))
 	{
 		/*
-		 * We already have pin on this buffer, so, all we need to do is
-		 * acquire lock on it.
+		 * 我们已经钉住了这个缓冲区，所以只需
+		 * 再取得它上面的锁。
 		 */
 		havePin = true;
 		buf = so->currPos.buf;
@@ -594,19 +594,19 @@ _hash_kill_items(IndexScanDesc scan)
 
 			if (ItemPointerEquals(&ituple->t_tid, &currItem->heapTid))
 			{
-				/* found the item */
+				/* 找到了该项 */
 				ItemIdMarkDead(iid);
 				killedsomething = true;
-				break;			/* out of inner search loop */
+				break;			/* 离开内层搜索循环 */
 			}
 			offnum = OffsetNumberNext(offnum);
 		}
 	}
 
 	/*
-	 * Since this can be redone later if needed, mark as dirty hint. Whenever
-	 * we mark anything LP_DEAD, we also set the page's
-	 * LH_PAGE_HAS_DEAD_TUPLES flag, which is likewise just a hint.
+	 * 因为以后需要时还可以重做，所以标为脏提示。每当
+	 * 我们把任何项标为 LP_DEAD，也设置该页的
+	 * LH_PAGE_HAS_DEAD_TUPLES 标志，它同样只是提示。
 	 */
 	if (killedsomething)
 	{

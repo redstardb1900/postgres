@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashsearch.c
- *	  search code for postgres hash tables
+ *	  Postgres hash 表的搜索代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,18 +31,18 @@ static void _hash_readnext(IndexScanDesc scan, Buffer *bufp,
 						   Page *pagep, HashPageOpaque *opaquep);
 
 /*
- *	_hash_next() -- Get the next item in a scan.
+ *	_hash_next() -- 取得扫描中的下一项。
  *
- *		On entry, so->currPos describes the current page, which may
- *		be pinned but not locked, and so->currPos.itemIndex identifies
- *		which item was previously returned.
+ *		进入时，so->currPos 描述当前页，该页可能
+ *		已钉住但未上锁，而 so->currPos.itemIndex 指出
+ *		先前返回的是哪一项。
  *
- *		On successful exit, scan->xs_ctup.t_self is set to the TID
- *		of the next heap tuple. so->currPos is updated as needed.
+ *		成功退出时，scan->xs_ctup.t_self 被设为下一个
+ *		堆元组的 TID。so->currPos 按需更新。
  *
- *		On failure exit (no more tuples), we return false with pin
- *		held on bucket page but no pins or locks held on overflow
- *		page.
+ *		失败退出时（没有更多元组），返回 false，桶页上
+ *		仍保持钉住，但溢出
+ *		页上不持有钉住或锁。
  */
 bool
 _hash_next(IndexScanDesc scan, ScanDirection dir)
@@ -55,10 +55,10 @@ _hash_next(IndexScanDesc scan, ScanDirection dir)
 	bool		end_of_scan = false;
 
 	/*
-	 * Advance to the next tuple on the current page; or if done, try to read
-	 * data from the next or previous page based on the scan direction. Before
-	 * moving to the next or previous page make sure that we deal with all the
-	 * killed items.
+	 * 前进到当前页的下一个元组；若已经走完，则按扫描方向
+	 * 尝试从下一页或上一页读取数据。在移到
+	 * 下一页或上一页之前，务必先处理全部
+	 * 被杀死的项。
 	 */
 	if (ScanDirectionIsForward(dir))
 	{
@@ -94,9 +94,9 @@ _hash_next(IndexScanDesc scan, ScanDirection dir)
 				TestForOldSnapshot(scan->xs_snapshot, rel, BufferGetPage(buf));
 
 				/*
-				 * We always maintain the pin on bucket page for whole scan
-				 * operation, so releasing the additional pin we have acquired
-				 * here.
+				 * 整个扫描期间我们一直保持桶页上的钉住，
+				 * 因此释放这里额外取得的那个
+				 * 钉住。
 				 */
 				if (buf == so->hashso_bucket_buf ||
 					buf == so->hashso_split_bucket_buf)
@@ -117,7 +117,7 @@ _hash_next(IndexScanDesc scan, ScanDirection dir)
 		return false;
 	}
 
-	/* OK, itemIndex says what to return */
+	/* 可以，itemIndex 指出该返回哪一项 */
 	currItem = &so->currPos.items[so->currPos.itemIndex];
 	scan->xs_heaptid = currItem->heapTid;
 
@@ -125,9 +125,9 @@ _hash_next(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
- * Advance to next page in a bucket, if any.  If we are scanning the bucket
- * being populated during split operation then this function advances to the
- * bucket being split after the last bucket page of bucket being populated.
+ * 前进到桶中的下一页（若有）。若正在扫描分裂操作期间
+ * 正在被填充的桶，则本函数在该正在被填充的桶的最后一页之后，
+ * 前进到正在被分裂的桶。
  */
 static void
 _hash_readnext(IndexScanDesc scan,
@@ -141,8 +141,8 @@ _hash_readnext(IndexScanDesc scan,
 	blkno = (*opaquep)->hasho_nextblkno;
 
 	/*
-	 * Retain the pin on primary bucket page till the end of scan.  Refer the
-	 * comments in _hash_first to know the reason of retaining pin.
+	 * 直到扫描结束都保持主桶页上的钉住。保留钉住的
+	 * 原因见 _hash_first 中的注释。
 	 */
 	if (*bufp == so->hashso_bucket_buf || *bufp == so->hashso_split_bucket_buf)
 		LockBuffer(*bufp, BUFFER_LOCK_UNLOCK);
@@ -150,7 +150,7 @@ _hash_readnext(IndexScanDesc scan,
 		_hash_relbuf(rel, *bufp);
 
 	*bufp = InvalidBuffer;
-	/* check for interrupts while we're not holding any buffer lock */
+	/* 未持有任何缓冲区锁时检查中断 */
 	CHECK_FOR_INTERRUPTS();
 	if (BlockNumberIsValid(blkno))
 	{
@@ -160,14 +160,14 @@ _hash_readnext(IndexScanDesc scan,
 	else if (so->hashso_buc_populated && !so->hashso_buc_split)
 	{
 		/*
-		 * end of bucket, scan bucket being split if there was a split in
-		 * progress at the start of scan.
+		 * 桶的末尾；若扫描开始时有正在进行的分裂，
+		 * 就去扫描正在被分裂的桶。
 		 */
 		*bufp = so->hashso_split_bucket_buf;
 
 		/*
-		 * buffer for bucket being split must be valid as we acquire the pin
-		 * on it before the start of scan and retain it till end of scan.
+		 * 正在被分裂的桶的缓冲区必须有效，因为我们在扫描开始前
+		 * 就钉住了它，并且一直保持到扫描结束。
 		 */
 		Assert(BufferIsValid(*bufp));
 
@@ -175,8 +175,8 @@ _hash_readnext(IndexScanDesc scan,
 		PredicateLockPage(rel, BufferGetBlockNumber(*bufp), scan->xs_snapshot);
 
 		/*
-		 * setting hashso_buc_split to true indicates that we are scanning
-		 * bucket being split.
+		 * 把 hashso_buc_split 设为 true，表示我们正在扫描
+		 * 正在被分裂的桶。
 		 */
 		so->hashso_buc_split = true;
 
@@ -192,9 +192,9 @@ _hash_readnext(IndexScanDesc scan,
 }
 
 /*
- * Advance to previous page in a bucket, if any.  If the current scan has
- * started during split operation then this function advances to bucket
- * being populated after the first bucket page of bucket being split.
+ * 前进到桶中的上一页（若有）。若当前扫描是在分裂操作期间
+ * 开始的，则本函数在正在被分裂的桶的第一页之后，前进到
+ * 正在被填充的桶。
  */
 static void
 _hash_readprev(IndexScanDesc scan,
@@ -208,8 +208,8 @@ _hash_readprev(IndexScanDesc scan,
 	blkno = (*opaquep)->hasho_prevblkno;
 
 	/*
-	 * Retain the pin on primary bucket page till the end of scan.  Refer the
-	 * comments in _hash_first to know the reason of retaining pin.
+	 * 直到扫描结束都保持主桶页上的钉住。保留钉住的
+	 * 原因见 _hash_first 中的注释。
 	 */
 	if (*bufp == so->hashso_bucket_buf || *bufp == so->hashso_split_bucket_buf)
 	{
@@ -223,7 +223,7 @@ _hash_readprev(IndexScanDesc scan,
 	}
 
 	*bufp = InvalidBuffer;
-	/* check for interrupts while we're not holding any buffer lock */
+	/* 未持有任何缓冲区锁时检查中断 */
 	CHECK_FOR_INTERRUPTS();
 
 	if (haveprevblk)
@@ -236,8 +236,8 @@ _hash_readprev(IndexScanDesc scan,
 		*opaquep = HashPageGetOpaque(*pagep);
 
 		/*
-		 * We always maintain the pin on bucket page for whole scan operation,
-		 * so releasing the additional pin we have acquired here.
+		 * 整个扫描期间我们一直保持桶页上的钉住，
+		 * 因此释放这里额外取得的那个钉住。
 		 */
 		if (*bufp == so->hashso_bucket_buf || *bufp == so->hashso_split_bucket_buf)
 			_hash_dropbuf(rel, *bufp);
@@ -245,14 +245,14 @@ _hash_readprev(IndexScanDesc scan,
 	else if (so->hashso_buc_populated && so->hashso_buc_split)
 	{
 		/*
-		 * end of bucket, scan bucket being populated if there was a split in
-		 * progress at the start of scan.
+		 * 桶的末尾；若扫描开始时有正在进行的分裂，
+		 * 就去扫描正在被填充的桶。
 		 */
 		*bufp = so->hashso_bucket_buf;
 
 		/*
-		 * buffer for bucket being populated must be valid as we acquire the
-		 * pin on it before the start of scan and retain it till end of scan.
+		 * 正在被填充的桶的缓冲区必须有效，因为我们在扫描开始前
+		 * 就钉住了它，并且一直保持到扫描结束。
 		 */
 		Assert(BufferIsValid(*bufp));
 
@@ -260,33 +260,33 @@ _hash_readprev(IndexScanDesc scan,
 		*pagep = BufferGetPage(*bufp);
 		*opaquep = HashPageGetOpaque(*pagep);
 
-		/* move to the end of bucket chain */
+		/* 移到桶链的末尾 */
 		while (BlockNumberIsValid((*opaquep)->hasho_nextblkno))
 			_hash_readnext(scan, bufp, pagep, opaquep);
 
 		/*
-		 * setting hashso_buc_split to false indicates that we are scanning
-		 * bucket being populated.
+		 * 把 hashso_buc_split 设为 false，表示我们正在扫描
+		 * 正在被填充的桶。
 		 */
 		so->hashso_buc_split = false;
 	}
 }
 
 /*
- *	_hash_first() -- Find the first item in a scan.
+ *	_hash_first() -- 找出扫描中的第一项。
  *
- *		We find the first item (or, if backward scan, the last item) in the
- *		index that satisfies the qualification associated with the scan
- *		descriptor.
+ *		我们在索引中找出满足扫描描述符所关联
+ *		限定条件的第一项（若是反向扫描，
+ *		则为最后一项）。
  *
- *		On successful exit, if the page containing current index tuple is an
- *		overflow page, both pin and lock are released whereas if it is a bucket
- *		page then it is pinned but not locked and data about the matching
- *		tuple(s) on the page has been loaded into so->currPos,
- *		scan->xs_ctup.t_self is set to the heap TID of the current tuple.
+ *		成功退出时，若含有当前索引元组的页是
+ *		溢出页，则钉住和锁都释放；若是桶
+ *		页，则保持钉住但不持锁，并且该页上
+ *		匹配元组（tuple）的数据已装入 so->currPos，
+ *		scan->xs_ctup.t_self 被设为当前元组的堆 TID。
  *
- *		On failure exit (no more tuples), we return false, with pin held on
- *		bucket page but no pins or locks held on overflow page.
+ *		失败退出时（没有更多元组），返回 false，桶页上
+ *		保持钉住，但溢出页上不持有钉住或锁。
  */
 bool
 _hash_first(IndexScanDesc scan, ScanDirection dir)
@@ -304,40 +304,40 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 	pgstat_count_index_scan(rel);
 
 	/*
-	 * We do not support hash scans with no index qualification, because we
-	 * would have to read the whole index rather than just one bucket. That
-	 * creates a whole raft of problems, since we haven't got a practical way
-	 * to lock all the buckets against splits or compactions.
+	 * 我们不支持没有任何索引限定条件的 hash 扫描，因为那样
+	 * 就得读整个索引，而不是只读一个桶。那会
+	 * 带来一大堆问题，因为我们没有切实可行的办法
+	 * 把所有桶都锁住，以防止分裂或压缩。
 	 */
 	if (scan->numberOfKeys < 1)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("hash indexes do not support whole-index scans")));
 
-	/* There may be more than one index qual, but we hash only the first */
+	/* 索引限定条件可能不止一个，但我们只对第一个做哈希 */
 	cur = &scan->keyData[0];
 
-	/* We support only single-column hash indexes */
+	/* 我们只支持单列 hash 索引 */
 	Assert(cur->sk_attno == 1);
-	/* And there's only one operator strategy, too */
+	/* 而且也只有一种操作符策略 */
 	Assert(cur->sk_strategy == HTEqualStrategyNumber);
 
 	/*
-	 * If the constant in the index qual is NULL, assume it cannot match any
-	 * items in the index.
+	 * 若索引限定条件中的常量是 NULL，就认为它无法匹配
+	 * 索引中的任何项。
 	 */
 	if (cur->sk_flags & SK_ISNULL)
 		return false;
 
 	/*
-	 * Okay to compute the hash key.  We want to do this before acquiring any
-	 * locks, in case a user-defined hash function happens to be slow.
+	 * 可以计算哈希键了。我们希望在取得任何
+	 * 锁之前做这件事，以防用户定义的哈希函数恰好很慢。
 	 *
-	 * If scankey operator is not a cross-type comparison, we can use the
-	 * cached hash function; otherwise gotta look it up in the catalogs.
+	 * 若扫描键的操作符不是跨类型比较，就可以使用
+	 * 缓存的哈希函数；否则就得去系统目录里查。
 	 *
-	 * We support the convention that sk_subtype == InvalidOid means the
-	 * opclass input type; this is a hack to simplify life for ScanKeyInit().
+	 * 我们支持这样的约定：sk_subtype == InvalidOid 表示
+	 * 操作符类的输入类型；这是为简化 ScanKeyInit() 而做的变通。
 	 */
 	if (cur->sk_subtype == rel->rd_opcintype[0] ||
 		cur->sk_subtype == InvalidOid)
@@ -358,20 +358,20 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 	so->hashso_bucket_buf = buf;
 
 	/*
-	 * If a bucket split is in progress, then while scanning the bucket being
-	 * populated, we need to skip tuples that were copied from bucket being
-	 * split.  We also need to maintain a pin on the bucket being split to
-	 * ensure that split-cleanup work done by vacuum doesn't remove tuples
-	 * from it till this scan is done.  We need to maintain a pin on the
-	 * bucket being populated to ensure that vacuum doesn't squeeze that
-	 * bucket till this scan is complete; otherwise, the ordering of tuples
-	 * can't be maintained during forward and backward scans.  Here, we have
-	 * to be cautious about locking order: first, acquire the lock on bucket
-	 * being split; then, release the lock on it but not the pin; then,
-	 * acquire a lock on bucket being populated and again re-verify whether
-	 * the bucket split is still in progress.  Acquiring the lock on bucket
-	 * being split first ensures that the vacuum waits for this scan to
-	 * finish.
+	 * 若桶分裂正在进行，则在扫描正在被填充的桶时，
+	 * 需要跳过从正在被分裂的桶复制来的元组。
+	 * 还须在正在被分裂的桶上保持钉住，以确保
+	 * VACUUM 所做的分裂清理在本次扫描结束前
+	 * 不会移除其中的元组。还须在正在被填充的桶上
+	 * 保持钉住，以确保 VACUUM 在本次扫描完成前
+	 * 不会挤压该桶；否则正向与反向扫描期间
+	 * 无法维持元组顺序。这里必须小心加锁顺序：首先，
+	 * 取得正在被分裂的桶上的锁；然后释放该锁，但
+	 * 不释放钉住；然后取得正在被填充的桶上的锁，并
+	 * 再次确认桶分裂是否仍在进行。先取得正在被分裂的桶
+	 * 上的锁，可以确保 VACUUM 会一直等到
+	 * 本次扫描
+	 * 结束。
 	 */
 	if (H_BUCKET_BEING_POPULATED(opaque))
 	{
@@ -381,8 +381,8 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 		old_blkno = _hash_get_oldblock_from_newbucket(rel, bucket);
 
 		/*
-		 * release the lock on new bucket and re-acquire it after acquiring
-		 * the lock on old bucket.
+		 * 释放新桶上的锁，并在取得
+		 * 旧桶上的锁之后重新取得它。
 		 */
 		LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
@@ -390,8 +390,8 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 		TestForOldSnapshot(scan->xs_snapshot, rel, BufferGetPage(old_buf));
 
 		/*
-		 * remember the split bucket buffer so as to use it later for
-		 * scanning.
+		 * 记住分裂桶的缓冲区，以便稍后
+		 * 扫描时使用。
 		 */
 		so->hashso_split_bucket_buf = old_buf;
 		LockBuffer(old_buf, BUFFER_LOCK_UNLOCK);
@@ -410,43 +410,43 @@ _hash_first(IndexScanDesc scan, ScanDirection dir)
 		}
 	}
 
-	/* If a backwards scan is requested, move to the end of the chain */
+	/* 若请求反向扫描，则移到链的末尾 */
 	if (ScanDirectionIsBackward(dir))
 	{
 		/*
-		 * Backward scans that start during split needs to start from end of
-		 * bucket being split.
+		 * 在分裂期间开始的反向扫描，需要从正在被分裂的桶的
+		 * 末尾开始。
 		 */
 		while (BlockNumberIsValid(opaque->hasho_nextblkno) ||
 			   (so->hashso_buc_populated && !so->hashso_buc_split))
 			_hash_readnext(scan, &buf, &page, &opaque);
 	}
 
-	/* remember which buffer we have pinned, if any */
+	/* 记住我们钉住了哪个缓冲区（若有） */
 	Assert(BufferIsInvalid(so->currPos.buf));
 	so->currPos.buf = buf;
 
-	/* Now find all the tuples satisfying the qualification from a page */
+	/* 现在从一页中找出所有满足限定条件的元组 */
 	if (!_hash_readpage(scan, &buf, dir))
 		return false;
 
-	/* OK, itemIndex says what to return */
+	/* 可以，itemIndex 指出该返回哪一项 */
 	currItem = &so->currPos.items[so->currPos.itemIndex];
 	scan->xs_heaptid = currItem->heapTid;
 
-	/* if we're here, _hash_readpage found a valid tuples */
+	/* 若执行到这里，说明 _hash_readpage 找到了有效元组 */
 	return true;
 }
 
 /*
- *	_hash_readpage() -- Load data from current index page into so->currPos
+ *	_hash_readpage() -- 把当前索引页的数据装入 so->currPos
  *
- *	We scan all the items in the current index page and save them into
- *	so->currPos if it satisfies the qualification. If no matching items
- *	are found in the current page, we move to the next or previous page
- *	in a bucket chain as indicated by the direction.
+ *	我们扫描当前索引页上的全部项，若满足限定条件
+ *	就把它们存入 so->currPos。若当前页没有找到
+ *	匹配项，就按方向移到桶链中的下一页或
+ *	上一页。
  *
- *	Return true if any matching items are found else return false.
+ *	若找到任何匹配项则返回 true，否则返回 false。
  */
 static bool
 _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
@@ -474,7 +474,7 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 
 		for (;;)
 		{
-			/* new page, locate starting position by binary search */
+			/* 新页，用二分搜索定位起始位置 */
 			offnum = _hash_binsearch(page, so->hashso_sk_hash);
 
 			itemIndex = _hash_load_qualified_items(scan, page, offnum, dir);
@@ -483,16 +483,16 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 				break;
 
 			/*
-			 * Could not find any matching tuples in the current page, move to
-			 * the next page. Before leaving the current page, deal with any
-			 * killed items.
+			 * 当前页找不到任何匹配元组，移到
+			 * 下一页。离开当前页之前，先处理
+			 * 被杀死的项。
 			 */
 			if (so->numKilled > 0)
 				_hash_kill_items(scan);
 
 			/*
-			 * If this is a primary bucket page, hasho_prevblkno is not a real
-			 * block number.
+			 * 若这是主桶页，hasho_prevblkno 并不是真正的
+			 * 块号。
 			 */
 			if (so->currPos.buf == so->hashso_bucket_buf ||
 				so->currPos.buf == so->hashso_split_bucket_buf)
@@ -509,12 +509,12 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 			else
 			{
 				/*
-				 * Remember next and previous block numbers for scrollable
-				 * cursors to know the start position and return false
-				 * indicating that no more matching tuples were found. Also,
-				 * don't reset currPage or lsn, because we expect
-				 * _hash_kill_items to be called for the old page after this
-				 * function returns.
+				 * 记住下一块和上一块的块号，供可滚动
+				 * 游标得知起始位置，并返回 false，
+				 * 表示没有找到更多匹配元组。另外，
+				 * 不要重置 currPage 或 lsn，因为我们预期
+				 * 本函数返回之后，会对旧页调用
+				 * _hash_kill_items。
 				 */
 				so->currPos.prevPage = prev_blkno;
 				so->currPos.nextPage = InvalidBlockNumber;
@@ -533,7 +533,7 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 
 		for (;;)
 		{
-			/* new page, locate starting position by binary search */
+			/* 新页，用二分搜索定位起始位置 */
 			offnum = _hash_binsearch_last(page, so->hashso_sk_hash);
 
 			itemIndex = _hash_load_qualified_items(scan, page, offnum, dir);
@@ -542,9 +542,9 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 				break;
 
 			/*
-			 * Could not find any matching tuples in the current page, move to
-			 * the previous page. Before leaving the current page, deal with
-			 * any killed items.
+			 * 当前页找不到任何匹配元组，移到
+			 * 上一页。离开当前页之前，先处理
+			 * 被杀死的项。
 			 */
 			if (so->numKilled > 0)
 				_hash_kill_items(scan);
@@ -562,12 +562,12 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 			else
 			{
 				/*
-				 * Remember next and previous block numbers for scrollable
-				 * cursors to know the start position and return false
-				 * indicating that no more matching tuples were found. Also,
-				 * don't reset currPage or lsn, because we expect
-				 * _hash_kill_items to be called for the old page after this
-				 * function returns.
+				 * 记住下一块和上一块的块号，供可滚动
+				 * 游标得知起始位置，并返回 false，
+				 * 表示没有找到更多匹配元组。另外，
+				 * 不要重置 currPage 或 lsn，因为我们预期
+				 * 本函数返回之后，会对旧页调用
+				 * _hash_kill_items。
 				 */
 				so->currPos.prevPage = InvalidBlockNumber;
 				so->currPos.nextPage = next_blkno;
@@ -601,8 +601,8 @@ _hash_readpage(IndexScanDesc scan, Buffer *bufP, ScanDirection dir)
 }
 
 /*
- * Load all the qualified items from a current index page
- * into so->currPos. Helper function for _hash_readpage.
+ * 把当前索引页上所有合格的项装入
+ * so->currPos。_hash_readpage 的辅助函数。
  */
 static int
 _hash_load_qualified_items(IndexScanDesc scan, Page page,
@@ -617,7 +617,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 
 	if (ScanDirectionIsForward(dir))
 	{
-		/* load items[] in ascending order */
+		/* 按升序装入 items[] */
 		itemIndex = 0;
 
 		while (offnum <= maxoff)
@@ -626,31 +626,31 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offnum));
 
 			/*
-			 * skip the tuples that are moved by split operation for the scan
-			 * that has started when split was in progress. Also, skip the
-			 * tuples that are marked as dead.
+			 * 对在分裂进行期间开始的扫描，跳过被分裂操作
+			 * 移走的元组。同时跳过
+			 * 已标为死的元组。
 			 */
 			if ((so->hashso_buc_populated && !so->hashso_buc_split &&
 				 (itup->t_info & INDEX_MOVED_BY_SPLIT_MASK)) ||
 				(scan->ignore_killed_tuples &&
 				 (ItemIdIsDead(PageGetItemId(page, offnum)))))
 			{
-				offnum = OffsetNumberNext(offnum);	/* move forward */
+				offnum = OffsetNumberNext(offnum);	/* 向前移动 */
 				continue;
 			}
 
 			if (so->hashso_sk_hash == _hash_get_indextuple_hashkey(itup) &&
 				_hash_checkqual(scan, itup))
 			{
-				/* tuple is qualified, so remember it */
+				/* 元组满足限定条件，因此记住它 */
 				_hash_saveitem(so, itemIndex, offnum, itup);
 				itemIndex++;
 			}
 			else
 			{
 				/*
-				 * No more matching tuples exist in this page. so, exit while
-				 * loop.
+				 * 本页不再有匹配元组。因此退出 while
+				 * 循环。
 				 */
 				break;
 			}
@@ -663,7 +663,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 	}
 	else
 	{
-		/* load items[] in descending order */
+		/* 按降序装入 items[] */
 		itemIndex = MaxIndexTuplesPerPage;
 
 		while (offnum >= FirstOffsetNumber)
@@ -672,16 +672,16 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offnum));
 
 			/*
-			 * skip the tuples that are moved by split operation for the scan
-			 * that has started when split was in progress. Also, skip the
-			 * tuples that are marked as dead.
+			 * 对在分裂进行期间开始的扫描，跳过被分裂操作
+			 * 移走的元组。同时跳过
+			 * 已标为死的元组。
 			 */
 			if ((so->hashso_buc_populated && !so->hashso_buc_split &&
 				 (itup->t_info & INDEX_MOVED_BY_SPLIT_MASK)) ||
 				(scan->ignore_killed_tuples &&
 				 (ItemIdIsDead(PageGetItemId(page, offnum)))))
 			{
-				offnum = OffsetNumberPrev(offnum);	/* move back */
+				offnum = OffsetNumberPrev(offnum);	/* 向后移动 */
 				continue;
 			}
 
@@ -689,14 +689,14 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 				_hash_checkqual(scan, itup))
 			{
 				itemIndex--;
-				/* tuple is qualified, so remember it */
+				/* 元组满足限定条件，因此记住它 */
 				_hash_saveitem(so, itemIndex, offnum, itup);
 			}
 			else
 			{
 				/*
-				 * No more matching tuples exist in this page. so, exit while
-				 * loop.
+				 * 本页不再有匹配元组。因此退出 while
+				 * 循环。
 				 */
 				break;
 			}
@@ -709,7 +709,7 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 	}
 }
 
-/* Save an index item into so->currPos.items[itemIndex] */
+/* 把一个索引项存入 so->currPos.items[itemIndex] */
 static inline void
 _hash_saveitem(HashScanOpaque so, int itemIndex,
 			   OffsetNumber offnum, IndexTuple itup)

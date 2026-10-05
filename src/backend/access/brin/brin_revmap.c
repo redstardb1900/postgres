@@ -1,16 +1,16 @@
 /*
  * brin_revmap.c
- *		Range map for BRIN indexes
+ *		BRIN 索引的范围映射（反向映射）
  *
- * The range map (revmap) is a translation structure for BRIN indexes: for each
- * page range there is one summary tuple, and its location is tracked by the
- * revmap.  Whenever a new tuple is inserted into a table that violates the
- * previously recorded summary values, a new tuple is inserted into the index
- * and the revmap is updated to point to it.
+ * 范围映射（revmap）是 BRIN 索引的转换结构：每个
+ * 页范围有一个汇总元组，其位置由
+ * revmap 跟踪。每当插入表中的新元组违反
+ * 先前保存的摘要值时，就向索引插入一个新元组，
+ * 并更新 revmap 使其指向该元组。
  *
- * The revmap is stored in the first pages of the index, immediately following
- * the metapage.  When the revmap needs to be expanded, all tuples on the
- * regular BRIN page at that block (if any) are moved out of the way.
+ * revmap 存放在索引最前面的若干页中，紧接在
+ * 元页之后。当 revmap 需要扩展时，该块上
+ * 常规 BRIN 页中的全部元组（若有）都会被移开。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -34,9 +34,9 @@
 
 
 /*
- * In revmap pages, each item stores an ItemPointerData.  These defines let one
- * find the logical revmap page number and index number of the revmap item for
- * the given heap block number.
+ * revmap 页中，每个项存放一个 ItemPointerData。这些宏用来
+ * 根据给定的堆块号，求出该 revmap 项的
+ * 逻辑 revmap 页号和项下标。
  */
 #define HEAPBLK_TO_REVMAP_BLK(pagesPerRange, heapBlk) \
 	((heapBlk / pagesPerRange) / REVMAP_PAGE_MAXITEMS)
@@ -48,12 +48,12 @@ struct BrinRevmap
 {
 	Relation	rm_irel;
 	BlockNumber rm_pagesPerRange;
-	BlockNumber rm_lastRevmapPage;	/* cached from the metapage */
+	BlockNumber rm_lastRevmapPage;	/* 从元页缓存而来 */
 	Buffer		rm_metaBuf;
 	Buffer		rm_currBuf;
 };
 
-/* typedef appears in brin_revmap.h */
+/* typedef 出现在 brin_revmap.h 中 */
 
 
 static BlockNumber revmap_get_blkno(BrinRevmap *revmap,
@@ -64,8 +64,8 @@ static BlockNumber revmap_extend_and_get_blkno(BrinRevmap *revmap,
 static void revmap_physical_extend(BrinRevmap *revmap);
 
 /*
- * Initialize an access object for a range map.  This must be freed by
- * brinRevmapTerminate when caller is done with it.
+ * 为范围映射初始化一个访问对象。调用者用完后必须由
+ * brinRevmapTerminate 释放它。
  */
 BrinRevmap *
 brinRevmapInitialize(Relation idxrel, BlockNumber *pagesPerRange,
@@ -97,7 +97,7 @@ brinRevmapInitialize(Relation idxrel, BlockNumber *pagesPerRange,
 }
 
 /*
- * Release resources associated with a revmap access object.
+ * 释放与 revmap 访问对象关联的资源。
  */
 void
 brinRevmapTerminate(BrinRevmap *revmap)
@@ -109,7 +109,7 @@ brinRevmapTerminate(BrinRevmap *revmap)
 }
 
 /*
- * Extend the revmap to cover the given heap block number.
+ * 扩展 revmap，使其覆盖给定的堆块号。
  */
 void
 brinRevmapExtend(BrinRevmap *revmap, BlockNumber heapBlk)
@@ -118,20 +118,20 @@ brinRevmapExtend(BrinRevmap *revmap, BlockNumber heapBlk)
 
 	mapBlk = revmap_extend_and_get_blkno(revmap, heapBlk);
 
-	/* Ensure the buffer we got is in the expected range */
+	/* 确保取得的缓冲区落在预期范围内 */
 	Assert(mapBlk != InvalidBlockNumber &&
 		   mapBlk != BRIN_METAPAGE_BLKNO &&
 		   mapBlk <= revmap->rm_lastRevmapPage);
 }
 
 /*
- * Prepare to insert an entry into the revmap; the revmap buffer in which the
- * entry is to reside is locked and returned.  Most callers should call
- * brinRevmapExtend beforehand, as this routine does not extend the revmap if
- * it's not long enough.
+ * 准备向 revmap 插入一项；该项将要驻留的 revmap 缓冲区
+ * 会被上锁并返回。多数调用者应事先调用
+ * brinRevmapExtend，因为若 revmap 不够长，本例程
+ * 并不扩展它。
  *
- * The returned buffer is also recorded in the revmap struct; finishing that
- * releases the buffer, therefore the caller needn't do it explicitly.
+ * 返回的缓冲区也会记入 revmap 结构；结束对该结构的使用时
+ * 会释放该缓冲区，因此调用者不必显式释放。
  */
 Buffer
 brinLockRevmapPageForUpdate(BrinRevmap *revmap, BlockNumber heapBlk)
@@ -145,14 +145,14 @@ brinLockRevmapPageForUpdate(BrinRevmap *revmap, BlockNumber heapBlk)
 }
 
 /*
- * In the given revmap buffer (locked appropriately by caller), which is used
- * in a BRIN index of pagesPerRange pages per range, set the element
- * corresponding to heap block number heapBlk to the given TID.
+ * 在调用者已适当上锁的给定 revmap 缓冲区中（该缓冲区用于
+ * 每范围 pagesPerRange 页的 BRIN 索引），设置对应于
+ * 堆块号 heapBlk 的元素为给定的 TID。
  *
- * Once the operation is complete, the caller must update the LSN on the
- * returned buffer.
+ * 操作完成后，调用者必须更新所返回
+ * 缓冲区上的 LSN。
  *
- * This is used both in regular operation and during WAL replay.
+ * 常规操作和 WAL 重放期间都会使用。
  */
 void
 brinSetHeapBlockItemptr(Buffer buf, BlockNumber pagesPerRange,
@@ -162,7 +162,7 @@ brinSetHeapBlockItemptr(Buffer buf, BlockNumber pagesPerRange,
 	ItemPointerData *iptr;
 	Page		page;
 
-	/* The correct page should already be pinned and locked */
+	/* 正确的页应当已经钉住并上锁 */
 	page = BufferGetPage(buf);
 	contents = (RevmapContents *) PageGetContents(page);
 	iptr = (ItemPointerData *) contents->rm_tids;
@@ -177,21 +177,21 @@ brinSetHeapBlockItemptr(Buffer buf, BlockNumber pagesPerRange,
 }
 
 /*
- * Fetch the BrinTuple for a given heap block.
+ * 取出给定堆块对应的 BrinTuple。
  *
- * The buffer containing the tuple is locked, and returned in *buf.  The
- * returned tuple points to the shared buffer and must not be freed; if caller
- * wants to use it after releasing the buffer lock, it must create its own
- * palloc'ed copy.  As an optimization, the caller can pass a pinned buffer
- * *buf on entry, which will avoid a pin-unpin cycle when the next tuple is on
- * the same page as a previous one.
+ * 含有该元组的缓冲区被上锁，并经 *buf 返回。返回的
+ * 元组指向共享缓冲区，不得释放；若调用者
+ * 想在释放缓冲区锁之后继续使用，必须自行建立
+ * palloc 出来的副本。作为优化，调用者可在进入时传入已钉住的缓冲区
+ * *buf，这样当下一个元组与前一个在同一页时，可避免一次
+ * 钉住与解除钉住的往返。
  *
- * If no tuple is found for the given heap range, returns NULL. In that case,
- * *buf might still be updated (and pin must be released by caller), but it's
- * not locked.
+ * 若给定堆范围找不到元组，则返回 NULL。此时
+ * *buf 仍可能被更新（调用者必须解除钉住），但它
+ * 并未上锁。
  *
- * The output tuple offset within the buffer is returned in *off, and its size
- * is returned in *size.
+ * 元组在缓冲区内的偏移经 *off 返回，其大小
+ * 经 *size 返回。
  */
 BrinTuple *
 brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
@@ -208,13 +208,13 @@ brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
 	BrinTuple  *tup;
 	ItemPointerData previptr;
 
-	/* normalize the heap block number to be the first page in the range */
+	/* 把堆块号规范化为该范围内的第一页 */
 	heapBlk = (heapBlk / revmap->rm_pagesPerRange) * revmap->rm_pagesPerRange;
 
 	/*
-	 * Compute the revmap page number we need.  If Invalid is returned (i.e.,
-	 * the revmap page hasn't been created yet), the requested page range is
-	 * not summarized.
+	 * 计算所需的 revmap 页号。若返回 Invalid（即
+	 * revmap 页尚未创建），则所请求的页范围
+	 * 尚未摘要。
 	 */
 	mapBlk = revmap_get_blkno(revmap, heapBlk);
 	if (mapBlk == InvalidBlockNumber)
@@ -252,10 +252,10 @@ brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
 		}
 
 		/*
-		 * Check the TID we got in a previous iteration, if any, and save the
-		 * current TID we got from the revmap; if we loop, we can sanity-check
-		 * that the next one we get is different.  Otherwise we might be stuck
-		 * looping forever if the revmap is somehow badly broken.
+		 * 检查上一轮得到的 TID（若有），并保存从
+		 * revmap 取得的当前 TID；若再次循环，可做健全性检查，
+		 * 确认下一次得到的与这次不同。否则，若 revmap
+		 * 以某种方式严重损坏，我们可能会永远循环下去。
 		 */
 		if (ItemPointerIsValid(&previptr) && ItemPointerEquals(&previptr, iptr))
 			ereport(ERROR,
@@ -268,7 +268,7 @@ brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
 
 		LockBuffer(revmap->rm_currBuf, BUFFER_LOCK_UNLOCK);
 
-		/* Ok, got a pointer to where the BrinTuple should be. Fetch it. */
+		/* 好，已得到 BrinTuple 应在位置的指针。取出来。 */
 		if (!BufferIsValid(*buf) || BufferGetBlockNumber(*buf) != blk)
 		{
 			if (BufferIsValid(*buf))
@@ -279,13 +279,13 @@ brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
 		page = BufferGetPage(*buf);
 		TestForOldSnapshot(snapshot, idxRel, page);
 
-		/* If we land on a revmap page, start over */
+		/* 若落到 revmap 页上，则从头再来 */
 		if (BRIN_IS_REGULAR_PAGE(page))
 		{
 			/*
-			 * If the offset number is greater than what's in the page, it's
-			 * possible that the range was desummarized concurrently. Just
-			 * return NULL to handle that case.
+			 * 若偏移号大于该页中已有的最大偏移，则有可能
+			 * 该范围已被并发取消摘要。对此直接
+			 * 返回 NULL 即可。
 			 */
 			if (*off > PageGetMaxOffsetNumber(page))
 			{
@@ -302,27 +302,27 @@ brinGetTupleForHeapBlock(BrinRevmap *revmap, BlockNumber heapBlk,
 				{
 					if (size)
 						*size = ItemIdGetLength(lp);
-					/* found it! */
+					/* 找到了！ */
 					return tup;
 				}
 			}
 		}
 
 		/*
-		 * No luck. Assume that the revmap was updated concurrently.
+		 * 未找到。假定 revmap 已被并发更新。
 		 */
 		LockBuffer(*buf, BUFFER_LOCK_UNLOCK);
 	}
-	/* not reached, but keep compiler quiet */
+	/* 不会到达，只为让编译器安静 */
 	return NULL;
 }
 
 /*
- * Delete an index tuple, marking a page range as unsummarized.
+ * 删除一个索引元组，把页范围标记为未摘要。
  *
- * Index must be locked in ShareUpdateExclusiveLock mode.
+ * 索引必须以 ShareUpdateExclusiveLock 模式锁定。
  *
- * Return false if caller should retry.
+ * 若调用者应当重试，则返回 false。
  */
 bool
 brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
@@ -346,12 +346,12 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 	revmapBlk = revmap_get_blkno(revmap, heapBlk);
 	if (!BlockNumberIsValid(revmapBlk))
 	{
-		/* revmap page doesn't exist: range not summarized, we're done */
+		/* revmap 页不存在：范围未摘要，到此结束 */
 		brinRevmapTerminate(revmap);
 		return true;
 	}
 
-	/* Lock the revmap page, obtain the index tuple pointer from it */
+	/* 锁住 revmap 页，并从中取得索引元组指针 */
 	revmapBuf = brinLockRevmapPageForUpdate(revmap, heapBlk);
 	revmapPg = BufferGetPage(revmapBuf);
 	revmapOffset = HEAPBLK_TO_REVMAP_INDEX(revmap->rm_pagesPerRange, heapBlk);
@@ -362,7 +362,7 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 
 	if (!ItemPointerIsValid(iptr))
 	{
-		/* no index tuple: range not summarized, we're done */
+		/* 没有索引元组：范围未摘要，到此结束 */
 		LockBuffer(revmapBuf, BUFFER_LOCK_UNLOCK);
 		brinRevmapTerminate(revmap);
 		return true;
@@ -373,11 +373,11 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 	regPg = BufferGetPage(regBuf);
 
 	/*
-	 * We're only removing data, not reading it, so there's no need to
-	 * TestForOldSnapshot here.
+	 * 我们只是在删除数据，而不是读取，因此这里无需
+	 * 调用 TestForOldSnapshot。
 	 */
 
-	/* if this is no longer a regular page, tell caller to start over */
+	/* 若这已不再是常规页，让调用者从头再来 */
 	if (!BRIN_IS_REGULAR_PAGE(regPg))
 	{
 		LockBuffer(revmapBuf, BUFFER_LOCK_UNLOCK);
@@ -399,10 +399,10 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 				 errmsg("corrupted BRIN index: inconsistent range map")));
 
 	/*
-	 * Placeholder tuples only appear during unfinished summarization, and we
-	 * hold ShareUpdateExclusiveLock, so this function cannot run concurrently
-	 * with that.  So any placeholder tuples that exist are leftovers from a
-	 * crashed or aborted summarization; remove them silently.
+	 * 占位元组只在未完成的摘要过程中出现，而我们
+	 * 持有 ShareUpdateExclusiveLock，因此本函数无法与该过程
+	 * 并发运行。现存的任何占位元组都是
+	 * 崩溃或已中止的摘要过程留下的；静默删除它们。
 	 */
 
 	START_CRIT_SECTION();
@@ -411,7 +411,7 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 	brinSetHeapBlockItemptr(revmapBuf, revmap->rm_pagesPerRange, heapBlk,
 							invalidIptr);
 	PageIndexTupleDeleteNoCompact(regPg, regOffset);
-	/* XXX record free space in FSM? */
+	/* XXX 要在 FSM 中记录空闲空间吗？ */
 
 	MarkBufferDirty(regBuf);
 	MarkBufferDirty(revmapBuf);
@@ -444,19 +444,19 @@ brinRevmapDesummarizeRange(Relation idxrel, BlockNumber heapBlk)
 }
 
 /*
- * Given a heap block number, find the corresponding physical revmap block
- * number and return it.  If the revmap page hasn't been allocated yet, return
- * InvalidBlockNumber.
+ * 给定堆块号，找出对应的物理 revmap 块号
+ * 并返回。若 revmap 页尚未分配，则返回
+ * InvalidBlockNumber。
  */
 static BlockNumber
 revmap_get_blkno(BrinRevmap *revmap, BlockNumber heapBlk)
 {
 	BlockNumber targetblk;
 
-	/* obtain revmap block number, skip 1 for metapage block */
+	/* 取得 revmap 块号，跳过 1 以避开元页块 */
 	targetblk = HEAPBLK_TO_REVMAP_BLK(revmap->rm_pagesPerRange, heapBlk) + 1;
 
-	/* Normal case: the revmap page is already allocated */
+	/* 正常情形：revmap 页已经分配 */
 	if (targetblk <= revmap->rm_lastRevmapPage)
 		return targetblk;
 
@@ -464,30 +464,30 @@ revmap_get_blkno(BrinRevmap *revmap, BlockNumber heapBlk)
 }
 
 /*
- * Obtain and return a buffer containing the revmap page for the given heap
- * page.  The revmap must have been previously extended to cover that page.
- * The returned buffer is also recorded in the revmap struct; finishing that
- * releases the buffer, therefore the caller needn't do it explicitly.
+ * 取得并返回含有给定堆页所对应 revmap 页的缓冲区。
+ * revmap 必须事先已经扩展到覆盖该页。
+ * 返回的缓冲区也会记入 revmap 结构；结束对该结构的使用时
+ * 会释放该缓冲区，因此调用者不必显式释放。
  */
 static Buffer
 revmap_get_buffer(BrinRevmap *revmap, BlockNumber heapBlk)
 {
 	BlockNumber mapBlk;
 
-	/* Translate the heap block number to physical index location. */
+	/* 把堆块号转换成物理索引位置。 */
 	mapBlk = revmap_get_blkno(revmap, heapBlk);
 
 	if (mapBlk == InvalidBlockNumber)
 		elog(ERROR, "revmap does not cover heap block %u", heapBlk);
 
-	/* Ensure the buffer we got is in the expected range */
+	/* 确保取得的缓冲区落在预期范围内 */
 	Assert(mapBlk != BRIN_METAPAGE_BLKNO &&
 		   mapBlk <= revmap->rm_lastRevmapPage);
 
 	/*
-	 * Obtain the buffer from which we need to read.  If we already have the
-	 * correct buffer in our access struct, use that; otherwise, release that,
-	 * (if valid) and read the one we need.
+	 * 取得需要从中读取的缓冲区。若访问结构中已经有
+	 * 正确的缓冲区，就用它；否则释放那个，
+	 * （若有效）并读入我们需要的那个。
 	 */
 	if (revmap->rm_currBuf == InvalidBuffer ||
 		mapBlk != BufferGetBlockNumber(revmap->rm_currBuf))
@@ -502,19 +502,19 @@ revmap_get_buffer(BrinRevmap *revmap, BlockNumber heapBlk)
 }
 
 /*
- * Given a heap block number, find the corresponding physical revmap block
- * number and return it. If the revmap page hasn't been allocated yet, extend
- * the revmap until it is.
+ * 给定堆块号，找出对应的物理 revmap 块号
+ * 并返回。若 revmap 页尚未分配，则扩展
+ * revmap，直到它被分配出来。
  */
 static BlockNumber
 revmap_extend_and_get_blkno(BrinRevmap *revmap, BlockNumber heapBlk)
 {
 	BlockNumber targetblk;
 
-	/* obtain revmap block number, skip 1 for metapage block */
+	/* 取得 revmap 块号，跳过 1 以避开元页块 */
 	targetblk = HEAPBLK_TO_REVMAP_BLK(revmap->rm_pagesPerRange, heapBlk) + 1;
 
-	/* Extend the revmap, if necessary */
+	/* 必要时扩展 revmap */
 	while (targetblk > revmap->rm_lastRevmapPage)
 	{
 		CHECK_FOR_INTERRUPTS();
@@ -525,8 +525,8 @@ revmap_extend_and_get_blkno(BrinRevmap *revmap, BlockNumber heapBlk)
 }
 
 /*
- * Try to extend the revmap by one page.  This might not happen for a number of
- * reasons; caller is expected to retry until the expected outcome is obtained.
+ * 尝试把 revmap 扩展一页。由于多种原因，这可能不会发生；
+ * 调用者应重试，直到得到预期的结果。
  */
 static void
 revmap_physical_extend(BrinRevmap *revmap)
@@ -540,17 +540,17 @@ revmap_physical_extend(BrinRevmap *revmap)
 	Relation	irel = revmap->rm_irel;
 
 	/*
-	 * Lock the metapage. This locks out concurrent extensions of the revmap,
-	 * but note that we still need to grab the relation extension lock because
-	 * another backend can extend the index with regular BRIN pages.
+	 * 锁住元页。这会挡住 revmap 的并发扩展，
+	 * 但请注意仍需取得关系扩展锁，因为
+	 * 另一个后端可以用常规 BRIN 页来扩展该索引。
 	 */
 	LockBuffer(revmap->rm_metaBuf, BUFFER_LOCK_EXCLUSIVE);
 	metapage = BufferGetPage(revmap->rm_metaBuf);
 	metadata = (BrinMetaPageData *) PageGetContents(metapage);
 
 	/*
-	 * Check that our cached lastRevmapPage value was up-to-date; if it
-	 * wasn't, update the cached copy and have caller start over.
+	 * 检查缓存的 lastRevmapPage 值是否仍是最新的；若不是，
+	 * 更新缓存的副本，并让调用者从头再来。
 	 */
 	if (metadata->lastRevmapPage != revmap->rm_lastRevmapPage)
 	{
@@ -574,10 +574,10 @@ revmap_physical_extend(BrinRevmap *revmap)
 		if (BufferGetBlockNumber(buf) != mapBlk)
 		{
 			/*
-			 * Very rare corner case: somebody extended the relation
-			 * concurrently after we read its length.  If this happens, give
-			 * up and have caller start over.  We will have to evacuate that
-			 * page from under whoever is using it.
+			 * 极罕见的极端情况：我们读完关系长度之后，
+			 * 有人并发扩展了该关系。若发生这种情况，就放弃
+			 * 并让调用者从头再来。以后必须把该页从
+			 * 正在使用它的人下面撤离。
 			 */
 			LockBuffer(revmap->rm_metaBuf, BUFFER_LOCK_UNLOCK);
 			UnlockReleaseBuffer(buf);
@@ -586,7 +586,7 @@ revmap_physical_extend(BrinRevmap *revmap)
 		page = BufferGetPage(buf);
 	}
 
-	/* Check that it's a regular block (or an empty page) */
+	/* 检查它是常规块（或空白页） */
 	if (!PageIsNew(page) && !BRIN_IS_REGULAR_PAGE(page))
 		ereport(ERROR,
 				(errcode(ERRCODE_INDEX_CORRUPTED),
@@ -595,34 +595,34 @@ revmap_physical_extend(BrinRevmap *revmap)
 						RelationGetRelationName(irel),
 						BufferGetBlockNumber(buf))));
 
-	/* If the page is in use, evacuate it and restart */
+	/* 若该页正在使用，则撤离它并重新开始 */
 	if (brin_start_evacuating_page(irel, buf))
 	{
 		LockBuffer(revmap->rm_metaBuf, BUFFER_LOCK_UNLOCK);
 		brin_evacuate_page(irel, revmap->rm_pagesPerRange, revmap, buf);
 
-		/* have caller start over */
+		/* 让调用者从头再来 */
 		return;
 	}
 
 	/*
-	 * Ok, we have now locked the metapage and the target block. Re-initialize
-	 * the target block as a revmap page, and update the metapage.
+	 * 好，现在已经锁住元页和目标块。把目标块
+	 * 重新初始化为 revmap 页，并更新元页。
 	 */
 	START_CRIT_SECTION();
 
-	/* the rm_tids array is initialized to all invalid by PageInit */
+	/* rm_tids 数组由 PageInit 初始化为全部无效 */
 	brin_page_init(page, BRIN_PAGETYPE_REVMAP);
 	MarkBufferDirty(buf);
 
 	metadata->lastRevmapPage = mapBlk;
 
 	/*
-	 * Set pd_lower just past the end of the metadata.  This is essential,
-	 * because without doing so, metadata will be lost if xlog.c compresses
-	 * the page.  (We must do this here because pre-v11 versions of PG did not
-	 * set the metapage's pd_lower correctly, so a pg_upgraded index might
-	 * contain the wrong value.)
+	 * 把 pd_lower 设到元数据末尾刚过的位置。这一点至关重要，
+	 * 因为若不这样做，xlog.c 压缩该页时元数据就会丢失。
+	 * （必须在这里做，因为 11 之前的 PG 版本没有正确设置
+	 * 元页的 pd_lower，因此经 pg_upgraded 的索引可能含有
+	 * 错误的值。）
 	 */
 	((PageHeader) metapage)->pd_lower =
 		((char *) metadata + sizeof(BrinMetaPageData)) - (char *) metapage;

@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0151-comment-access-brin-part2",
+ "title": "zh: translate access/brin comments (part 2)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9dc7fd0ec966ab0eea988790e2c878ad6fda92c1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/brin/brin_revmap.c",
+   "kind": "c_comment",
+   "note": "BRIN revmap"
+  },
+  {
+   "pattern": "src/backend/access/brin/brin_tuple.c",
+   "kind": "c_comment",
+   "note": "BRIN tuple format"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0151-comment-access-brin-part2.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/brin/brin_revmap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 49,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "BRIN revmap; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/brin/brin_tuple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 47,
+   "translated": 47,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "BRIN tuple format; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0151-comment-access-brin-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0151 translates comments in src/backend/access/brin/brin_revmap.c and brin_tuple.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: brin_inclusion.c and brin_bloom.c."
+}

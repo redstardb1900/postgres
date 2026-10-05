@@ -1,27 +1,27 @@
 /*
  * brin_tuple.c
- *		Method implementations for tuples in BRIN indexes.
+ *		BRIN 索引中元组的方法实现。
  *
- * Intended usage is that code outside this file only deals with
- * BrinMemTuples, and convert to and from the on-disk representation through
- * functions in this file.
+ * 预期用法是：本文件以外的代码只处理
+ * BrinMemTuples，并通过本文件中的函数
+ * 与磁盘上的表示互相转换。
  *
  * NOTES
  *
- * A BRIN tuple is similar to a heap tuple, with a few key differences.  The
- * first interesting difference is that the tuple header is much simpler, only
- * containing its total length and a small area for flags.  Also, the stored
- * data does not match the relation tuple descriptor exactly: for each
- * attribute in the descriptor, the index tuple carries an arbitrary number
- * of values, depending on the opclass.
+ * BRIN 元组类似于堆元组，但有几处关键差别。
+ * 首先一个有趣的差别是元组头部简单得多，只
+ * 含有总长度和一小块标志区域。另外，所存储的
+ * 数据与关系元组描述符并不完全一致：对于描述符中的每个
+ * 属性，索引元组携带任意多个
+ * 值，具体取决于操作符类。
  *
- * Also, for each column of the index relation there are two null bits: one
- * (hasnulls) stores whether any tuple within the page range has that column
- * set to null; the other one (allnulls) stores whether the column values are
- * all null.  If allnulls is true, then the tuple data area does not contain
- * values for that column at all; whereas it does if the hasnulls is set.
- * Note the size of the null bitmask may not be the same as that of the
- * datum array.
+ * 另外，索引关系的每一列都有两个空值位：一个
+ * （hasnulls）表示该页范围内是否有任何元组的该列
+ * 被置为空值；另一个（allnulls）表示该列的值是否
+ * 全部为空值。若 allnulls 为真，则元组数据区完全不含
+ * 该列的值；而若设置了 hasnulls，则包含这些值。
+ * 注意空位掩码的大小可能与
+ * datum 数组的大小不同。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -43,8 +43,8 @@
 
 
 /*
- * This enables de-toasting of index entries.  Needed until VACUUM is
- * smart enough to rebuild indexes from scratch.
+ * 启用对索引项解除 TOAST。在 VACUUM
+ * 聪明到足以从头重建索引之前，这是需要的。
  */
 #define TOAST_INDEX_HACK
 
@@ -55,12 +55,12 @@ static inline void brin_deconstruct_tuple(BrinDesc *brdesc,
 
 
 /*
- * Return a tuple descriptor used for on-disk storage of BRIN tuples.
+ * 返回用于 BRIN 元组磁盘存储的元组描述符。
  */
 static TupleDesc
 brtuple_disk_tupdesc(BrinDesc *brdesc)
 {
-	/* We cache these in the BrinDesc */
+	/* 我们把它们缓存在 BrinDesc 中 */
 	if (brdesc->bd_disktdesc == NULL)
 	{
 		int			i;
@@ -69,7 +69,7 @@ brtuple_disk_tupdesc(BrinDesc *brdesc)
 		TupleDesc	tupdesc;
 		MemoryContext oldcxt;
 
-		/* make sure it's in the bdesc's context */
+		/* 确保它位于 bdesc 的上下文中 */
 		oldcxt = MemoryContextSwitchTo(brdesc->bd_context);
 
 		tupdesc = CreateTemplateTupleDesc(brdesc->bd_totalstored);
@@ -91,9 +91,9 @@ brtuple_disk_tupdesc(BrinDesc *brdesc)
 }
 
 /*
- * Generate a new on-disk tuple to be inserted in a BRIN index.
+ * 生成一个要插入 BRIN 索引的新磁盘元组。
  *
- * See brin_form_placeholder_tuple if you touch this.
+ * 若改动这里，请参见 brin_form_placeholder_tuple。
  */
 BrinTuple *
 brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
@@ -129,7 +129,7 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 #endif
 
 	/*
-	 * Set up the values/nulls arrays for heap_fill_tuple
+	 * 为 heap_fill_tuple 设置 values/nulls 数组
 	 */
 	idxattno = 0;
 	for (keyno = 0; keyno < brdesc->bd_tupdesc->natts; keyno++)
@@ -137,9 +137,9 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 		int			datumno;
 
 		/*
-		 * "allnulls" is set when there's no nonnull value in any row in the
-		 * column; when this happens, there is no data to store.  Thus set the
-		 * nullable bits for all data elements of this column and we're done.
+		 * 当该列的任何行中都没有非空值时设置 "allnulls"；
+		 * 此时没有数据可存。因此把该列全部数据元素的
+		 * 可空位置位，然后就完成了。
 		 */
 		if (tuple->bt_columns[keyno].bv_allnulls)
 		{
@@ -152,14 +152,14 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 		}
 
 		/*
-		 * The "hasnulls" bit is set when there are some null values in the
-		 * data.  We still need to store a real value, but the presence of
-		 * this means we need a null bitmap.
+		 * 数据中存在一些空值时设置 "hasnulls" 位。
+		 * 我们仍需存储一个真实值，但该位的存在
+		 * 意味着我们需要空位掩码。
 		 */
 		if (tuple->bt_columns[keyno].bv_hasnulls)
 			anynulls = true;
 
-		/* If needed, serialize the values before forming the on-disk tuple. */
+		/* 若需要，在形成磁盘元组之前先把值序列化。 */
 		if (tuple->bt_columns[keyno].bv_serialize)
 		{
 			tuple->bt_columns[keyno].bv_serialize(brdesc,
@@ -168,10 +168,10 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 		}
 
 		/*
-		 * Now obtain the values of each stored datum.  Note that some values
-		 * might be toasted, and we cannot rely on the original heap values
-		 * sticking around forever, so we must detoast them.  Also try to
-		 * compress them.
+		 * 现在取得每个已存储 datum 的值。注意有些值
+		 * 可能已被 TOAST，而且无法依赖原始堆值
+		 * 永远留在原地，因此必须对它们解除 TOAST。并尝试
+		 * 压缩它们。
 		 */
 		for (datumno = 0;
 			 datumno < brdesc->bd_info[keyno]->oi_nstored;
@@ -181,13 +181,13 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 
 #ifdef TOAST_INDEX_HACK
 
-			/* We must look at the stored type, not at the index descriptor. */
+			/* 必须看存储类型，而不是索引描述符。 */
 			TypeCacheEntry *atttype = brdesc->bd_info[keyno]->oi_typcache[datumno];
 
-			/* Do we need to free the value at the end? */
+			/* 结束时是否需要释放该值？ */
 			bool		free_value = false;
 
-			/* For non-varlena types we don't need to do anything special */
+			/* 对于非 varlena 类型，不需要做任何特殊处理 */
 			if (atttype->typlen != -1)
 			{
 				values[idxattno++] = value;
@@ -195,15 +195,15 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 			}
 
 			/*
-			 * Do nothing if value is not of varlena type. We don't need to
-			 * care about NULL values here, thanks to bv_allnulls above.
+			 * 若值不是 varlena 类型，则什么也不做。这里不必
+			 * 关心 NULL 值，这要归功于上面的 bv_allnulls。
 			 *
-			 * If value is stored EXTERNAL, must fetch it so we are not
-			 * depending on outside storage.
+			 * 若值以 EXTERNAL 方式存储，就必须取出来，这样我们才不
+			 * 依赖外部存储。
 			 *
-			 * XXX Is this actually true? Could it be that the summary is NULL
-			 * even for range with non-NULL data? E.g. degenerate bloom filter
-			 * may be thrown away, etc.
+			 * XXX 这真的成立吗？会不会即使范围内有非 NULL 数据，
+			 * 汇总仍为 NULL？例如退化的 bloom 过滤器
+			 * 可能被丢弃，等等。
 			 */
 			if (VARATT_IS_EXTERNAL(DatumGetPointer(value)))
 			{
@@ -213,8 +213,8 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 			}
 
 			/*
-			 * If value is above size target, and is of a compressible
-			 * datatype, try to compress it in-line.
+			 * 若值超过大小目标，且数据类型可压缩，
+			 * 则尝试内联压缩它。
 			 */
 			if (!VARATT_IS_EXTENDED(DatumGetPointer(value)) &&
 				VARSIZE(DatumGetPointer(value)) > TOAST_INDEX_TARGET &&
@@ -227,10 +227,10 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 													  keyno);
 
 				/*
-				 * If the BRIN summary and indexed attribute use the same data
-				 * type and it has a valid compression method, we can use the
-				 * same compression method. Otherwise we have to use the
-				 * default method.
+				 * 若 BRIN 汇总与被索引属性使用同一数据
+				 * 类型，且它有有效的压缩方法，就可以使用
+				 * 同一压缩方法。否则就必须使用
+				 * 默认方法。
 				 */
 				if (att->atttypid == atttype->type_id)
 					compression = att->attcompression;
@@ -241,7 +241,7 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 
 				if (DatumGetPointer(cvalue) != NULL)
 				{
-					/* successful compression */
+					/* 压缩成功 */
 					if (free_value)
 						pfree(DatumGetPointer(value));
 
@@ -251,8 +251,8 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 			}
 
 			/*
-			 * If we untoasted / compressed the value, we need to free it
-			 * after forming the index tuple.
+			 * 若我们解除了 TOAST 或压缩了该值，就需要在
+			 * 形成索引元组之后释放它。
 			 */
 			if (free_value)
 				untoasted_values[nuntoasted++] = value;
@@ -263,17 +263,17 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 		}
 	}
 
-	/* Assert we did not overrun temp arrays */
+	/* 断言没有越出临时数组 */
 	Assert(idxattno <= brdesc->bd_totalstored);
 
-	/* compute total space needed */
+	/* 计算所需的总空间 */
 	len = SizeOfBrinTuple;
 	if (anynulls)
 	{
 		/*
-		 * We need a double-length bitmap on an on-disk BRIN index tuple; the
-		 * first half stores the "allnulls" bits, the second stores
-		 * "hasnulls".
+		 * 磁盘上的 BRIN 索引元组需要双倍长度的位图；
+		 * 前半存放 "allnulls" 位，后半存放
+		 * "hasnulls"。
 		 */
 		len += BITMAPLEN(brdesc->bd_tupdesc->natts * 2);
 	}
@@ -290,14 +290,14 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 	rettuple->bt_blkno = blkno;
 	rettuple->bt_info = hoff;
 
-	/* Assert that hoff fits in the space available */
+	/* 断言 hoff 能放进可用空间 */
 	Assert((rettuple->bt_info & BRIN_OFFSET_MASK) == hoff);
 
 	/*
-	 * The infomask and null bitmap as computed by heap_fill_tuple are useless
-	 * to us.  However, that function will not accept a null infomask; and we
-	 * need to pass a valid null bitmap so that it will correctly skip
-	 * outputting null attributes in the data area.
+	 * heap_fill_tuple 算出的 infomask 和空位掩码对我们
+	 * 没有用。但该函数不接受空的 infomask；而且我们
+	 * 需要传入有效的空位掩码，这样它才会正确地跳过
+	 * 在数据区中输出空属性。
 	 */
 	heap_fill_tuple(brtuple_disk_tupdesc(brdesc),
 					values,
@@ -307,7 +307,7 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 					&phony_infomask,
 					phony_nullbitmap);
 
-	/* done with these */
+	/* 这些用完了 */
 	pfree(values);
 	pfree(nulls);
 	pfree(phony_nullbitmap);
@@ -318,7 +318,7 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 #endif
 
 	/*
-	 * Now fill in the real null bitmasks.  allnulls first.
+	 * 现在填入真正的空值位掩码。先填 allnulls。
 	 */
 	if (anynulls)
 	{
@@ -328,9 +328,9 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 		rettuple->bt_info |= BRIN_NULLS_MASK;
 
 		/*
-		 * Note that we reverse the sense of null bits in this module: we
-		 * store a 1 for a null attribute rather than a 0.  So we must reverse
-		 * the sense of the att_isnull test in brin_deconstruct_tuple as well.
+		 * 注意本模块把空值位的含义反过来了：我们
+		 * 为空属性存 1 而不是 0。因此也必须把
+		 * brin_deconstruct_tuple 中 att_isnull 测试的含义反过来。
 		 */
 		bitP = ((bits8 *) ((char *) rettuple + SizeOfBrinTuple)) - 1;
 		bitmask = HIGHBIT;
@@ -350,7 +350,7 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 
 			*bitP |= bitmask;
 		}
-		/* hasnulls bits follow */
+		/* 接着是 hasnulls 位 */
 		for (keyno = 0; keyno < brdesc->bd_tupdesc->natts; keyno++)
 		{
 			if (bitmask != HIGHBIT)
@@ -380,9 +380,9 @@ brin_form_tuple(BrinDesc *brdesc, BlockNumber blkno, BrinMemTuple *tuple,
 }
 
 /*
- * Generate a new on-disk tuple with no data values, marked as placeholder.
+ * 生成一个不含数据值、标记为占位的新磁盘元组。
  *
- * This is a cut-down version of brin_form_tuple.
+ * 这是 brin_form_tuple 的精简版。
  */
 BrinTuple *
 brin_form_placeholder_tuple(BrinDesc *brdesc, BlockNumber blkno, Size *size)
@@ -394,7 +394,7 @@ brin_form_placeholder_tuple(BrinDesc *brdesc, BlockNumber blkno, Size *size)
 	bits8	   *bitP;
 	int			bitmask;
 
-	/* compute total space needed: always add nulls */
+	/* 计算所需总空间：总是加上空值位 */
 	len = SizeOfBrinTuple;
 	len += BITMAPLEN(brdesc->bd_tupdesc->natts * 2);
 	len = hoff = MAXALIGN(len);
@@ -406,7 +406,7 @@ brin_form_placeholder_tuple(BrinDesc *brdesc, BlockNumber blkno, Size *size)
 
 	bitP = ((bits8 *) ((char *) rettuple + SizeOfBrinTuple)) - 1;
 	bitmask = HIGHBIT;
-	/* set allnulls true for all attributes */
+	/* 把所有属性的 allnulls 设为真 */
 	for (keyno = 0; keyno < brdesc->bd_tupdesc->natts; keyno++)
 	{
 		if (bitmask != HIGHBIT)
@@ -420,14 +420,14 @@ brin_form_placeholder_tuple(BrinDesc *brdesc, BlockNumber blkno, Size *size)
 
 		*bitP |= bitmask;
 	}
-	/* no need to set hasnulls */
+	/* 不必设置 hasnulls */
 
 	*size = len;
 	return rettuple;
 }
 
 /*
- * Free a tuple created by brin_form_tuple
+ * 释放由 brin_form_tuple 创建的元组
  */
 void
 brin_free_tuple(BrinTuple *tuple)
@@ -436,11 +436,11 @@ brin_free_tuple(BrinTuple *tuple)
 }
 
 /*
- * Given a brin tuple of size len, create a copy of it.  If 'dest' is not
- * NULL, its size is destsz, and can be used as output buffer; if the tuple
- * to be copied does not fit, it is enlarged by repalloc, and the size is
- * updated to match.  This avoids palloc/free cycles when many brin tuples
- * are being processed in loops.
+ * 给定大小为 len 的 brin 元组，创建它的一份副本。若 'dest' 不是
+ * NULL，其大小为 destsz，可用作输出缓冲区；若待复制的元组
+ * 放不下，则用 repalloc 扩大，并把大小
+ * 更新为与之相符。这样在循环中处理许多 brin 元组时，
+ * 可以避免 palloc/free 往返。
  */
 BrinTuple *
 brin_copy_tuple(BrinTuple *tuple, Size len, BrinTuple *dest, Size *destsz)
@@ -459,7 +459,7 @@ brin_copy_tuple(BrinTuple *tuple, Size len, BrinTuple *dest, Size *destsz)
 }
 
 /*
- * Return whether two BrinTuples are bitwise identical.
+ * 返回两个 BrinTuples 是否按位相同。
  */
 bool
 brin_tuples_equal(const BrinTuple *a, Size alen, const BrinTuple *b, Size blen)
@@ -472,11 +472,11 @@ brin_tuples_equal(const BrinTuple *a, Size alen, const BrinTuple *b, Size blen)
 }
 
 /*
- * Create a new BrinMemTuple from scratch, and initialize it to an empty
- * state.
+ * 从头创建一个新的 BrinMemTuple，并把它初始化为
+ * 空状态。
  *
- * Note: we don't provide any means to free a deformed tuple, so make sure to
- * use a temporary memory context.
+ * 注意：我们不提供任何释放变形元组的手段，因此请务必
+ * 使用临时内存上下文。
  */
 BrinMemTuple *
 brin_new_memtuple(BrinDesc *brdesc)
@@ -504,8 +504,8 @@ brin_new_memtuple(BrinDesc *brdesc)
 }
 
 /*
- * Reset a BrinMemTuple to initial state.  We return the same tuple, for
- * notational convenience.
+ * 把 BrinMemTuple 重置为初始状态。为了书写方便，
+ * 我们返回同一个元组。
  */
 BrinMemTuple *
 brin_memtuple_initialize(BrinMemTuple *dtuple, BrinDesc *brdesc)
@@ -538,16 +538,16 @@ brin_memtuple_initialize(BrinMemTuple *dtuple, BrinDesc *brdesc)
 }
 
 /*
- * Convert a BrinTuple back to a BrinMemTuple.  This is the reverse of
- * brin_form_tuple.
+ * 把 BrinTuple 转回 BrinMemTuple。这是
+ * brin_form_tuple 的逆操作。
  *
- * As an optimization, the caller can pass a previously allocated 'dMemtuple'.
- * This avoids having to allocate it here, which can be useful when this
- * function is called many times in a loop.  It is caller's responsibility
- * that the given BrinMemTuple matches what we need here.
+ * 作为优化，调用者可以传入先前分配好的 'dMemtuple'。
+ * 这样可以避免在这里分配；当本函数
+ * 在循环中被调用许多次时，这很有用。调用者有责任
+ * 保证给定的 BrinMemTuple 符合这里的需要。
  *
- * Note we don't need the "on disk tupdesc" here; we rely on our own routine to
- * deconstruct the tuple from the on-disk format.
+ * 注意这里不需要 "磁盘上的 tupdesc"；我们依靠自己的例程
+ * 从磁盘格式解构该元组。
  */
 BrinMemTuple *
 brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple, BrinMemTuple *dMemtuple)
@@ -568,7 +568,7 @@ brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple, BrinMemTuple *dMemtuple)
 	if (BrinTupleIsPlaceholder(tuple))
 		dtup->bt_placeholder = true;
 
-	/* ranges start as empty, depends on the BrinTuple */
+	/* 范围一开始是空的，取决于 BrinTuple */
 	if (!BrinTupleIsEmptyRange(tuple))
 		dtup->bt_empty_range = false;
 
@@ -589,8 +589,8 @@ brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple, BrinMemTuple *dMemtuple)
 						   values, allnulls, hasnulls);
 
 	/*
-	 * Iterate to assign each of the values to the corresponding item in the
-	 * values array of each column.  The copies occur in the tuple's context.
+	 * 逐一迭代，把每个值赋给每一列的 values 数组中
+	 * 的对应项。这些复制发生在该元组的上下文中。
 	 */
 	oldcxt = MemoryContextSwitchTo(dtup->bt_context);
 	for (valueno = 0, keyno = 0; keyno < brdesc->bd_tupdesc->natts; keyno++)
@@ -604,8 +604,8 @@ brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple, BrinMemTuple *dMemtuple)
 		}
 
 		/*
-		 * We would like to skip datumCopy'ing the values datum in some cases,
-		 * caller permitting ...
+		 * 在某些情况下，我们希望跳过对值做 datumCopy，
+		 * 只要调用者允许 ...
 		 */
 		for (i = 0; i < brdesc->bd_info[keyno]->oi_nstored; i++)
 			dtup->bt_columns[keyno].bv_values[i] =
@@ -628,18 +628,18 @@ brin_deform_tuple(BrinDesc *brdesc, BrinTuple *tuple, BrinMemTuple *dMemtuple)
 
 /*
  * brin_deconstruct_tuple
- *		Guts of attribute extraction from an on-disk BRIN tuple.
+ *		从磁盘上的 BRIN 元组提取属性的核心。
  *
- * Its arguments are:
- *	brdesc		BRIN descriptor for the stored tuple
- *	tp			pointer to the tuple data area
- *	nullbits	pointer to the tuple nulls bitmask
- *	nulls		"has nulls" bit in tuple infomask
- *	values		output values, array of size brdesc->bd_totalstored
- *	allnulls	output "allnulls", size brdesc->bd_tupdesc->natts
- *	hasnulls	output "hasnulls", size brdesc->bd_tupdesc->natts
+ * 其参数为：
+ *	brdesc		所存储元组的 BRIN 描述符
+ *	tp			指向元组数据区的指针
+ *	nullbits	指向元组空位掩码的指针
+ *	nulls		元组 infomask 中的 "has nulls" 位
+ *	values		输出值，数组大小为 brdesc->bd_totalstored
+ *	allnulls	输出 "allnulls"，大小为 brdesc->bd_tupdesc->natts
+ *	hasnulls	输出 "hasnulls"，大小为 brdesc->bd_tupdesc->natts
  *
- * Output arrays must have been allocated by caller.
+ * 输出数组必须由调用者分配。
  */
 static inline void
 brin_deconstruct_tuple(BrinDesc *brdesc,
@@ -652,35 +652,35 @@ brin_deconstruct_tuple(BrinDesc *brdesc,
 	long		off;
 
 	/*
-	 * First iterate to natts to obtain both null flags for each attribute.
-	 * Note that we reverse the sense of the att_isnull test, because we store
-	 * 1 for a null value (rather than a 1 for a not null value as is the
-	 * att_isnull convention used elsewhere.)  See brin_form_tuple.
+	 * 先迭代到 natts，以取得每个属性的两个空值标志。
+	 * 注意我们把 att_isnull 测试的含义反过来了，因为空值存
+	 * 1（而不是像别处 att_isnull 约定那样，非空值存 1）。
+	 * 参见 brin_form_tuple。
 	 */
 	for (attnum = 0; attnum < brdesc->bd_tupdesc->natts; attnum++)
 	{
 		/*
-		 * the "all nulls" bit means that all values in the page range for
-		 * this column are nulls.  Therefore there are no values in the tuple
-		 * data area.
+		 * "all nulls" 位表示该页范围内此列的全部值
+		 * 都是空值。因此元组数据区中
+		 * 没有这些值。
 		 */
 		allnulls[attnum] = nulls && !att_isnull(attnum, nullbits);
 
 		/*
-		 * the "has nulls" bit means that some tuples have nulls, but others
-		 * have not-null values.  Therefore we know the tuple contains data
-		 * for this column.
+		 * "has nulls" 位表示有些元组含空值，但另一些
+		 * 含非空值。因此我们知道该元组含有
+		 * 此列的数据。
 		 *
-		 * The hasnulls bits follow the allnulls bits in the same bitmask.
+		 * hasnulls 位在同一位掩码中跟在 allnulls 位之后。
 		 */
 		hasnulls[attnum] =
 			nulls && !att_isnull(brdesc->bd_tupdesc->natts + attnum, nullbits);
 	}
 
 	/*
-	 * Iterate to obtain each attribute's stored values.  Note that since we
-	 * may reuse attribute entries for more than one column, we cannot cache
-	 * offsets here.
+	 * 迭代以取得每个属性所存储的值。注意由于我们
+	 * 可能把属性条目复用于不止一列，这里无法缓存
+	 * 偏移。
 	 */
 	diskdsc = brtuple_disk_tupdesc(brdesc);
 	stored = 0;
@@ -708,7 +708,7 @@ brin_deconstruct_tuple(BrinDesc *brdesc,
 			}
 			else
 			{
-				/* not varlena, so safe to use att_align_nominal */
+				/* 不是 varlena，因此可以安全使用 att_align_nominal */
 				off = att_align_nominal(off, thisatt->attalign);
 			}
 

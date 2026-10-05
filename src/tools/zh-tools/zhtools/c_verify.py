@@ -166,8 +166,13 @@ def legal_protected_segments(old_text):
             segs.append(b"".join(chunk))
             i = j
             continue
-        segs.append(line)
-        i += 1
+        # Multi-line quoted licence terms (e.g. rbtree.c Thomas Niemann).
+        j = i + 1
+        while j < n and b"".join(chunk).count(b'"') % 2 == 1:
+            chunk.append(lines[j])
+            j += 1
+        segs.append(b"".join(chunk))
+        i = j
     return segs
 
 

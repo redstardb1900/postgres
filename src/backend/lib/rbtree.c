@@ -9,7 +9,7 @@
  *
  * 见 http://www.cs.auckland.ac.nz/software/AlgAnim/niemann/s_man.htm 的
  * license terms: "Source code, when part of a software project, may be used
- * 可自由使用，无需注明作者。"
+ * freely without reference to the author."
  *
  * 红黑树是一种平衡二叉树，其中 (1) 红节点的任何一个孩子
  * 总是黑节点，并且 (2) 从根到叶的每条路径都经过

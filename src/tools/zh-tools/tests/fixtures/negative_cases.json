@@ -362,6 +362,18 @@
       "expect_warning": "W7_IDENT_LOST",
       "old": "/* calls heap_insert() here */\n",
       "new": "/* 这里调用插入函数 */\n"
+    },
+    {
+      "id": "pos-header-see-for-license-translated",
+      "expect": "ok",
+      "old": "/*-------------------------------------------------------------------------\n *\n * rbtree.c\n *\t  implementation.\n *\n * See example.htm for\n * license terms: \"Source code, when part of a software project, may be used\n * freely without reference to the author.\"\n *\n * Copyright (c) 2009-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/lib/rbtree.c\n *-------------------------------------------------------------------------\n */\n",
+      "new": "/*-------------------------------------------------------------------------\n *\n * rbtree.c\n *\t  实现。\n *\n * 见 example.htm 的\n * license terms: \"Source code, when part of a software project, may be used\n * freely without reference to the author.\"\n *\n * Copyright (c) 2009-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/lib/rbtree.c\n *-------------------------------------------------------------------------\n */\n"
+    },
+    {
+      "id": "neg-header-license-quote-split",
+      "expect": "R5_PROTECTED",
+      "old": "/*-------------------------------------------------------------------------\n *\n * rbtree.c\n *\t  implementation.\n *\n * See example.htm for\n * license terms: \"Source code, when part of a software project, may be used\n * freely without reference to the author.\"\n *\n * Copyright (c) 2009-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/lib/rbtree.c\n *-------------------------------------------------------------------------\n */\n",
+      "new": "/*-------------------------------------------------------------------------\n *\n * rbtree.c\n *\t  implementation.\n *\n * See example.htm for\n * license terms: \"Source code, when part of a software project, may be used\n * 可自由使用，无需注明作者。\"\n *\n * Copyright (c) 2009-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/lib/rbtree.c\n *-------------------------------------------------------------------------\n */\n"
     }
   ]
 }

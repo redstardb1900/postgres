@@ -156,7 +156,7 @@ git -C /Users/niejinbo/work/code/pg/postgres worktree remove --force $POT_WT && 
 R5 受保护注释、R6 LF 数、R8 trigraph、R9 解析/文件；W6/W7/W9 为告警）见
 `zhtools/c_verify.py` 开头说明；`check_scope.py` 的 S1–S4 见其 docstring。
 
-文件头注释策略：以 `/*-` 开头的 PostgreSQL 文件横幅**可以**翻译模块说明与 NOTES（含夹在 Copyright 与 IDENTIFICATION 之间的说明）。仅下列内容逐字节保留：含 `Copyright` / `(c) YYYY` / 许可/免责声明的行，以及 `IDENTIFICATION` 行及其后的路径行；`translator:`、fall-through、`pg_attribute_*` 仍整段不可改。`/*-` 本身不再构成整段保护。
+文件头注释策略：以 `/*-` 开头的 PostgreSQL 文件横幅**可以**翻译模块说明与 NOTES（含夹在 Copyright 与 IDENTIFICATION 之间的说明）。仅下列内容逐字节保留：含 `Copyright` / `(c) YYYY` / 许可/免责声明的行（含未闭合引号的多行许可引文），以及 `IDENTIFICATION` 行及其后的路径行；`translator:`、fall-through、`pg_attribute_*` 仍整段不可改。`/*-` 本身不再构成整段保护。
 
 
 ### 词法器的保守约定

@@ -36,7 +36,7 @@
 
 typedef struct JoinHashEntry
 {
-	Relids		join_relids;	/* hash key --- MUST BE FIRST */
+	Relids		join_relids;	/* 散列键必须排在最前（MUST BE FIRST） */
 	RelOptInfo *join_rel;
 } JoinHashEntry;
 
@@ -86,8 +86,8 @@ static void build_child_join_reltarget(PlannerInfo *root,
 
 /*
  * setup_simple_rel_arrays
- *	  Prepare the arrays we use for quickly accessing base relations
- *	  and AppendRelInfos.
+ *	  准备用来快速访问基关系
+ *	  和 AppendRelInfos 的数组。
  */
 void
 setup_simple_rel_arrays(PlannerInfo *root)
@@ -96,18 +96,18 @@ setup_simple_rel_arrays(PlannerInfo *root)
 	Index		rti;
 	ListCell   *lc;
 
-	/* Arrays are accessed using RT indexes (1..N) */
+	/* 数组用 RT 下标（1..N）访问 */
 	size = list_length(root->parse->rtable) + 1;
 	root->simple_rel_array_size = size;
 
 	/*
-	 * simple_rel_array is initialized to all NULLs, since no RelOptInfos
-	 * exist yet.  It'll be filled by later calls to build_simple_rel().
+	 * simple_rel_array 初始化为全 NULLs，因为还没有 RelOptInfos。
+	 * 稍后由对 build_simple_rel() 的调用填入。
 	 */
 	root->simple_rel_array = (RelOptInfo **)
 		palloc0(size * sizeof(RelOptInfo *));
 
-	/* simple_rte_array is an array equivalent of the rtable list */
+	/* simple_rte_array 是 rtable 列表的数组等价物 */
 	root->simple_rte_array = (RangeTblEntry **)
 		palloc0(size * sizeof(RangeTblEntry *));
 	rti = 1;
@@ -118,7 +118,7 @@ setup_simple_rel_arrays(PlannerInfo *root)
 		root->simple_rte_array[rti++] = rte;
 	}
 
-	/* append_rel_array is not needed if there are no AppendRelInfos */
+	/* 若没有 AppendRelInfos，就不需要 append_rel_array */
 	if (root->append_rel_list == NIL)
 	{
 		root->append_rel_array = NULL;
@@ -129,17 +129,17 @@ setup_simple_rel_arrays(PlannerInfo *root)
 		palloc0(size * sizeof(AppendRelInfo *));
 
 	/*
-	 * append_rel_array is filled with any already-existing AppendRelInfos,
-	 * which currently could only come from UNION ALL flattening.  We might
-	 * add more later during inheritance expansion, but it's the
-	 * responsibility of the expansion code to update the array properly.
+	 * append_rel_array 填入已经存在的 AppendRelInfos，
+	 * 目前它们只可能来自 UNION ALL 的展平。继承展开时
+	 * 我们以后可能再加，但正确更新该数组
+	 * 是展开代码的责任。
 	 */
 	foreach(lc, root->append_rel_list)
 	{
 		AppendRelInfo *appinfo = lfirst_node(AppendRelInfo, lc);
 		int			child_relid = appinfo->child_relid;
 
-		/* Sanity check */
+		/* 健全性检查 */
 		Assert(child_relid < size);
 
 		if (root->append_rel_array[child_relid])
@@ -151,12 +151,12 @@ setup_simple_rel_arrays(PlannerInfo *root)
 
 /*
  * expand_planner_arrays
- *		Expand the PlannerInfo's per-RTE arrays by add_size members
- *		and initialize the newly added entries to NULLs
+ *		把 PlannerInfo 的按 RTE 数组扩大 add_size 个成员，
+ *		并把新加入的项初始化为 NULLs。
  *
- * Note: this causes the append_rel_array to become allocated even if
- * it was not before.  This is okay for current uses, because we only call
- * this when adding child relations, which always have AppendRelInfos.
+ * 注意：这会使 append_rel_array 即使原先没有分配也被分配。
+ * 对当前用途没问题，因为我们只在添加子关系时调用它，
+ * 而子关系总是带有 AppendRelInfos。
  */
 void
 expand_planner_arrays(PlannerInfo *root, int add_size)
@@ -185,7 +185,7 @@ expand_planner_arrays(PlannerInfo *root, int add_size)
 
 /*
  * build_simple_rel
- *	  Construct a new RelOptInfo for a base relation or 'other' relation.
+ *	  为基关系或 other 关系构造一个新的 RelOptInfo。
  */
 RelOptInfo *
 build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
@@ -193,12 +193,12 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	RelOptInfo *rel;
 	RangeTblEntry *rte;
 
-	/* Rel should not exist already */
+	/* 该 Rel 不应已经存在 */
 	Assert(relid > 0 && relid < root->simple_rel_array_size);
 	if (root->simple_rel_array[relid] != NULL)
 		elog(ERROR, "rel %d already exists", relid);
 
-	/* Fetch RTE for relation */
+	/* 取出该关系的 RTE */
 	rte = root->simple_rte_array[relid];
 	Assert(rte != NULL);
 
@@ -206,10 +206,10 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->reloptkind = parent ? RELOPT_OTHER_MEMBER_REL : RELOPT_BASEREL;
 	rel->relids = bms_make_singleton(relid);
 	rel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
+	/* 仅当并非要取出全部元组时，较低的启动代价才有意义 */
 	rel->consider_startup = (root->tuple_fraction > 0);
-	rel->consider_param_startup = false;	/* might get changed later */
-	rel->consider_parallel = false; /* might get changed later */
+	rel->consider_param_startup = false;	/* 以后可能会改 */
+	rel->consider_parallel = false; /* 以后可能会改 */
 	rel->reltarget = create_empty_pathtarget();
 	rel->pathlist = NIL;
 	rel->ppilist = NIL;
@@ -220,7 +220,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->cheapest_parameterized_paths = NIL;
 	rel->relid = relid;
 	rel->rtekind = rte->rtekind;
-	/* min_attr, max_attr, attr_needed, attr_widths are set below */
+	/* min_attr、max_attr、attr_needed、attr_widths 在下面设置 */
 	rel->lateral_vars = NIL;
 	rel->indexlist = NIL;
 	rel->statlist = NIL;
@@ -230,7 +230,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->eclass_indexes = NULL;
 	rel->subroot = NULL;
 	rel->subplan_params = NIL;
-	rel->rel_parallel_workers = -1; /* set up in get_relation_info */
+	rel->rel_parallel_workers = -1; /* 在 get_relation_info 里建立 */
 	rel->amflags = 0;
 	rel->serverid = InvalidOid;
 	if (rte->rtekind == RTE_RELATION)
@@ -240,13 +240,13 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 			   parent->rtekind == RTE_SUBQUERY);
 
 		/*
-		 * For any RELATION rte, we need a userid with which to check
-		 * permission access. Baserels simply use their own
-		 * RTEPermissionInfo's checkAsUser.
+		 * 对任何 RELATION rte，我们需要一个 userid 来检查
+		 * 权限访问。基关系直接使用自己的
+		 * RTEPermissionInfo 的 checkAsUser。
 		 *
-		 * For otherrels normally there's no RTEPermissionInfo, so we use the
-		 * parent's, which normally has one. The exceptional case is that the
-		 * parent is a subquery, in which case the otherrel will have its own.
+		 * 对 otherrel，通常没有 RTEPermissionInfo，因此用
+		 * 父关系的，父关系通常有一份。例外是
+		 * 父关系是子查询，那时 otherrel 会有自己的。
 		 */
 		if (rel->reloptkind == RELOPT_BASEREL ||
 			(rel->reloptkind == RELOPT_OTHER_MEMBER_REL &&
@@ -273,7 +273,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->baserestrict_min_security = UINT_MAX;
 	rel->joininfo = NIL;
 	rel->has_eclass_joins = false;
-	rel->consider_partitionwise_join = false;	/* might get changed later */
+	rel->consider_partitionwise_join = false;	/* 以后可能会改 */
 	rel->part_scheme = NULL;
 	rel->nparts = -1;
 	rel->boundinfo = NULL;
@@ -286,34 +286,34 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	rel->nullable_partexprs = NULL;
 
 	/*
-	 * Pass assorted information down the inheritance hierarchy.
+	 * 把各种信息沿着继承层次往下传。
 	 */
 	if (parent)
 	{
-		/* We keep back-links to immediate parent and topmost parent. */
+		/* 我们保留指向直接父关系和最顶层父关系的反向链接。 */
 		rel->parent = parent;
 		rel->top_parent = parent->top_parent ? parent->top_parent : parent;
 		rel->top_parent_relids = rel->top_parent->relids;
 
 		/*
-		 * A child rel is below the same outer joins as its parent.  (We
-		 * presume this info was already calculated for the parent.)
+		 * 子关系位于与其父关系相同的外连接之下。（我们
+		 * 假定父关系的这项信息已经算好。）
 		 */
 		rel->nulling_relids = parent->nulling_relids;
 
 		/*
-		 * Also propagate lateral-reference information from appendrel parent
-		 * rels to their child rels.  We intentionally give each child rel the
-		 * same minimum parameterization, even though it's quite possible that
-		 * some don't reference all the lateral rels.  This is because any
-		 * append path for the parent will have to have the same
-		 * parameterization for every child anyway, and there's no value in
-		 * forcing extra reparameterize_path() calls.  Similarly, a lateral
-		 * reference to the parent prevents use of otherwise-movable join rels
-		 * for each child.
+		 * 也把 LATERAL 引用信息从 appendrel 父
+		 * 关系传播到其子关系。我们有意让每个子关系
+		 * 具有相同的最小参数化，尽管很有可能
+		 * 有些并不引用全部 LATERAL 关系。这是因为
+		 * 父关系的任何 append 路径反正都得让每个
+		 * 子关系具有相同的参数化，多强制几次
+		 * reparameterize_path() 调用也没有价值。同样，
+		 * 对父关系的 LATERAL 引用会阻止每个子关系
+		 * 使用本可移动的连接关系。
 		 *
-		 * It's possible for child rels to have their own children, in which
-		 * case the topmost parent's lateral info propagates all the way down.
+		 * 子关系自己也可能有子关系，那时
+		 * 最顶层父关系的 LATERAL 信息会一直传到最下面。
 		 */
 		rel->direct_lateral_relids = parent->direct_lateral_relids;
 		rel->lateral_relids = parent->lateral_relids;
@@ -330,11 +330,11 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 		rel->lateral_referencers = NULL;
 	}
 
-	/* Check type of rtable entry */
+	/* 检查 rtable 项的类型 */
 	switch (rte->rtekind)
 	{
 		case RTE_RELATION:
-			/* Table --- retrieve statistics from the system catalogs */
+			/* 表：从系统目录取出统计信息 */
 			get_relation_info(root, rte->relid, rte->inh, rel);
 			break;
 		case RTE_SUBQUERY:
@@ -345,10 +345,10 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 		case RTE_NAMEDTUPLESTORE:
 
 			/*
-			 * Subquery, function, tablefunc, values list, CTE, or ENR --- set
-			 * up attr range and arrays
+			 * 子查询、函数、tablefunc、值列表、CTE 或 ENR：设置
+			 * 属性范围和数组。
 			 *
-			 * Note: 0 is included in range to support whole-row Vars
+			 * 注意：范围包含 0，以支持整行 Var。
 			 */
 			rel->min_attr = 0;
 			rel->max_attr = list_length(rte->eref->colnames);
@@ -358,7 +358,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 				palloc0((rel->max_attr - rel->min_attr + 1) * sizeof(int32));
 			break;
 		case RTE_RESULT:
-			/* RTE_RESULT has no columns, nor could it have whole-row Var */
+			/* RTE_RESULT 没有列，也不可能有整行 Var */
 			rel->min_attr = 0;
 			rel->max_attr = -1;
 			rel->attr_needed = NULL;
@@ -371,10 +371,10 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 	}
 
 	/*
-	 * Copy the parent's quals to the child, with appropriate substitution of
-	 * variables.  If any constant false or NULL clauses turn up, we can mark
-	 * the child as dummy right away.  (We must do this immediately so that
-	 * pruning works correctly when recursing in expand_partitioned_rtentry.)
+	 * 把父关系的限定条件复制到子关系，并做适当的变量
+	 * 替换。若出现常量假或 NULL 子句，可以立刻把
+	 * 子关系标成哑。必须马上做，这样在
+	 * expand_partitioned_rtentry 里递归时裁剪才正确。
 	 */
 	if (parent)
 	{
@@ -384,14 +384,14 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 		if (!apply_child_basequals(root, parent, rel, rte, appinfo))
 		{
 			/*
-			 * Some restriction clause reduced to constant FALSE or NULL after
-			 * substitution, so this child need not be scanned.
+			 * 某条限制子句在替换后化成常量 FALSE 或 NULL，
+			 * 因此不必扫描这个子关系。
 			 */
 			mark_dummy_rel(rel);
 		}
 	}
 
-	/* Save the finished struct in the query's simple_rel_array */
+	/* 把完成的结构存进查询的 simple_rel_array */
 	root->simple_rel_array[relid] = rel;
 
 	return rel;
@@ -399,7 +399,7 @@ build_simple_rel(PlannerInfo *root, int relid, RelOptInfo *parent)
 
 /*
  * find_base_rel
- *	  Find a base or otherrel relation entry, which must already exist.
+ *	  查找必须已经存在的基关系或 otherrel 项。
  */
 RelOptInfo *
 find_base_rel(PlannerInfo *root, int relid)
@@ -417,17 +417,17 @@ find_base_rel(PlannerInfo *root, int relid)
 
 	elog(ERROR, "no relation entry for relid %d", relid);
 
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 /*
  * find_base_rel_ignore_join
- *	  Find a base or otherrel relation entry, which must already exist.
+ *	  查找必须已经存在的基关系或 otherrel 项。
  *
- * Unlike find_base_rel, if relid references an outer join then this
- * will return NULL rather than raising an error.  This is convenient
- * for callers that must deal with relid sets including both base and
- * outer joins.
+ * 与 find_base_rel 不同，若 relid 引用的是外连接，这里
+ * 返回 NULL 而不是报错。这对必须处理同时包含基关系
+ * 和外连接的 relid 集合的调用方
+ * 比较方便。
  */
 RelOptInfo *
 find_base_rel_ignore_join(PlannerInfo *root, int relid)
@@ -444,9 +444,9 @@ find_base_rel_ignore_join(PlannerInfo *root, int relid)
 			return rel;
 
 		/*
-		 * We could just return NULL here, but for debugging purposes it seems
-		 * best to actually verify that the relid is an outer join and not
-		 * something weird.
+		 * 这里可以直接返回 NULL，但为了调试，最好
+		 * 实际验证这个 relid 是外连接，而不是
+		 * 某种怪异的东西。
 		 */
 		rte = root->simple_rte_array[relid];
 		if (rte && rte->rtekind == RTE_JOIN && rte->jointype != JOIN_INNER)
@@ -455,12 +455,12 @@ find_base_rel_ignore_join(PlannerInfo *root, int relid)
 
 	elog(ERROR, "no relation entry for relid %d", relid);
 
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 /*
  * build_join_rel_hash
- *	  Construct the auxiliary hash table for join relations.
+ *	  为连接关系构造辅助散列表。
  */
 static void
 build_join_rel_hash(PlannerInfo *root)
@@ -469,7 +469,7 @@ build_join_rel_hash(PlannerInfo *root)
 	HASHCTL		hash_ctl;
 	ListCell   *l;
 
-	/* Create the hash table */
+	/* 创建散列表 */
 	hash_ctl.keysize = sizeof(Relids);
 	hash_ctl.entrysize = sizeof(JoinHashEntry);
 	hash_ctl.hash = bitmap_hash;
@@ -480,7 +480,7 @@ build_join_rel_hash(PlannerInfo *root)
 						  &hash_ctl,
 						  HASH_ELEM | HASH_FUNCTION | HASH_COMPARE | HASH_CONTEXT);
 
-	/* Insert all the already-existing joinrels */
+	/* 插入全部已经存在的连接关系 */
 	foreach(l, root->join_rel_list)
 	{
 		RelOptInfo *rel = (RelOptInfo *) lfirst(l);
@@ -500,26 +500,26 @@ build_join_rel_hash(PlannerInfo *root)
 
 /*
  * find_join_rel
- *	  Returns relation entry corresponding to 'relids' (a set of RT indexes),
- *	  or NULL if none exists.  This is for join relations.
+ *	  返回与 relids（一组 RT 下标）对应的关系项，
+ *	  若不存在则返回 NULL。这是给连接关系用的。
  */
 RelOptInfo *
 find_join_rel(PlannerInfo *root, Relids relids)
 {
 	/*
-	 * Switch to using hash lookup when list grows "too long".  The threshold
-	 * is arbitrary and is known only here.
+	 * 当列表变得过长时，改用散列查找。阈值
+	 * 是随意定的，而且只有这里知道。
 	 */
 	if (!root->join_rel_hash && list_length(root->join_rel_list) > 32)
 		build_join_rel_hash(root);
 
 	/*
-	 * Use either hashtable lookup or linear search, as appropriate.
+	 * 按情况使用散列表查找或线性搜索。
 	 *
-	 * Note: the seemingly redundant hashkey variable is used to avoid taking
-	 * the address of relids; unless the compiler is exceedingly smart, doing
-	 * so would force relids out of a register and thus probably slow down the
-	 * list-search case.
+	 * 注意：看似多余的 hashkey 变量是为了避免取
+	 * relids 的地址；除非编译器极其聪明，否则那样做
+	 * 会把 relids 挤出寄存器，从而可能拖慢
+	 * 列表搜索的情形。
 	 */
 	if (root->join_rel_hash)
 	{
@@ -551,19 +551,19 @@ find_join_rel(PlannerInfo *root, Relids relids)
 
 /*
  * set_foreign_rel_properties
- *		Set up foreign-join fields if outer and inner relation are foreign
- *		tables (or joins) belonging to the same server and assigned to the same
- *		user to check access permissions as.
+ *		若外侧和内侧关系是属于同一服务器、并且被指派给
+ *		同一用户做访问权限检查的外部表（或连接），
+ *		就设置外部连接的相关成员。
  *
- * In addition to an exact match of userid, we allow the case where one side
- * has zero userid (implying current user) and the other side has explicit
- * userid that happens to equal the current user; but in that case, pushdown of
- * the join is only valid for the current user.  The useridiscurrent field
- * records whether we had to make such an assumption for this join or any
- * sub-join.
+ * 除了 userid 精确匹配，也允许一侧
+ * userid 为零（表示当前用户）、另一侧显式
+ * userid 恰好等于当前用户的情形；但那时，把该
+ * 连接下推只对当前用户有效。useridiscurrent 成员
+ * 记录我们是否不得不为这个连接或任何
+ * 子连接做了这种假定。
  *
- * Otherwise these fields are left invalid, so GetForeignJoinPaths will not be
- * called for the join relation.
+ * 否则这些成员保持无效，因此不会对这个连接关系
+ * 调用 GetForeignJoinPaths。
  */
 static void
 set_foreign_rel_properties(RelOptInfo *joinrel, RelOptInfo *outer_rel,
@@ -600,16 +600,16 @@ set_foreign_rel_properties(RelOptInfo *joinrel, RelOptInfo *outer_rel,
 
 /*
  * add_join_rel
- *		Add given join relation to the list of join relations in the given
- *		PlannerInfo. Also add it to the auxiliary hashtable if there is one.
+ *		把给定的连接关系加进给定 PlannerInfo 的连接关系
+ *		列表。若有辅助散列表，也加进去。
  */
 static void
 add_join_rel(PlannerInfo *root, RelOptInfo *joinrel)
 {
-	/* GEQO requires us to append the new joinrel to the end of the list! */
+	/* GEQO 需要把新的连接关系追加到列表末尾！ */
 	root->join_rel_list = lappend(root->join_rel_list, joinrel);
 
-	/* store it into the auxiliary hashtable if there is one. */
+	/* 若有辅助散列表，就存进去。 */
 	if (root->join_rel_hash)
 	{
 		JoinHashEntry *hentry;
@@ -626,20 +626,20 @@ add_join_rel(PlannerInfo *root, RelOptInfo *joinrel)
 
 /*
  * build_join_rel
- *	  Returns relation entry corresponding to the union of two given rels,
- *	  creating a new relation entry if none already exists.
+ *	  返回与两个给定关系之并对应的关系项，
+ *	  若尚不存在就新建一项。
  *
- * 'joinrelids' is the Relids set that uniquely identifies the join
- * 'outer_rel' and 'inner_rel' are relation nodes for the relations to be
- *		joined
- * 'sjinfo': join context info
- * 'pushed_down_joins': any pushed-down outer joins that are now completed
- * 'restrictlist_ptr': result variable.  If not NULL, *restrictlist_ptr
- *		receives the list of RestrictInfo nodes that apply to this
- *		particular pair of joinable relations.
+ * joinrelids 是唯一标识该连接的 Relids 集合。
+ * outer_rel 和 inner_rel 是待连接关系的
+ *		关系节点。
+ * sjinfo：连接的上下文信息。
+ * pushed_down_joins：现在已经完成的任何下推外连接。
+ * restrictlist_ptr：结果变量。若非 NULL，*restrictlist_ptr
+ *		收到适用于这一对
+ *		可连接关系的 RestrictInfo 节点列表。
  *
- * restrictlist_ptr makes the routine's API a little grotty, but it saves
- * duplicated calculation of the restrictlist...
+ * restrictlist_ptr 让这个例程的 API 有点别扭，但它省下了
+ * 对 restrictlist 的重复计算……
  */
 RelOptInfo *
 build_join_rel(PlannerInfo *root,
@@ -653,19 +653,19 @@ build_join_rel(PlannerInfo *root,
 	RelOptInfo *joinrel;
 	List	   *restrictlist;
 
-	/* This function should be used only for join between parents. */
+	/* 本函数只应用于父关系之间的连接。 */
 	Assert(!IS_OTHER_REL(outer_rel) && !IS_OTHER_REL(inner_rel));
 
 	/*
-	 * See if we already have a joinrel for this set of base rels.
+	 * 看看这一组基关系是否已经有连接关系。
 	 */
 	joinrel = find_join_rel(root, joinrelids);
 
 	if (joinrel)
 	{
 		/*
-		 * Yes, so we only need to figure the restrictlist for this particular
-		 * pair of component relations.
+		 * 是的，因此只需算出这一对
+		 * 组成关系的 restrictlist。
 		 */
 		if (restrictlist_ptr)
 			*restrictlist_ptr = build_joinrel_restrictlist(root,
@@ -677,13 +677,13 @@ build_join_rel(PlannerInfo *root,
 	}
 
 	/*
-	 * Nope, so make one.
+	 * 没有，那就建一个。
 	 */
 	joinrel = makeNode(RelOptInfo);
 	joinrel->reloptkind = RELOPT_JOINREL;
 	joinrel->relids = bms_copy(joinrelids);
 	joinrel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
+	/* 仅当并非要取出全部元组时，较低的启动代价才有意义 */
 	joinrel->consider_startup = (root->tuple_fraction > 0);
 	joinrel->consider_param_startup = false;
 	joinrel->consider_parallel = false;
@@ -695,13 +695,13 @@ build_join_rel(PlannerInfo *root,
 	joinrel->cheapest_total_path = NULL;
 	joinrel->cheapest_unique_path = NULL;
 	joinrel->cheapest_parameterized_paths = NIL;
-	/* init direct_lateral_relids from children; we'll finish it up below */
+	/* 从子关系初始化 direct_lateral_relids；下面再把它补完 */
 	joinrel->direct_lateral_relids =
 		bms_union(outer_rel->direct_lateral_relids,
 				  inner_rel->direct_lateral_relids);
 	joinrel->lateral_relids = min_join_parameterization(root, joinrel->relids,
 														outer_rel, inner_rel);
-	joinrel->relid = 0;			/* indicates not a baserel */
+	joinrel->relid = 0;			/* 表示不是基关系 */
 	joinrel->rtekind = RTE_JOIN;
 	joinrel->min_attr = 0;
 	joinrel->max_attr = 0;
@@ -733,7 +733,7 @@ build_join_rel(PlannerInfo *root,
 	joinrel->baserestrict_min_security = UINT_MAX;
 	joinrel->joininfo = NIL;
 	joinrel->has_eclass_joins = false;
-	joinrel->consider_partitionwise_join = false;	/* might get changed later */
+	joinrel->consider_partitionwise_join = false;	/* 以后可能会改 */
 	joinrel->parent = NULL;
 	joinrel->top_parent = NULL;
 	joinrel->top_parent_relids = NULL;
@@ -748,17 +748,17 @@ build_join_rel(PlannerInfo *root,
 	joinrel->partexprs = NULL;
 	joinrel->nullable_partexprs = NULL;
 
-	/* Compute information relevant to the foreign relations. */
+	/* 计算与外部关系有关的信息。 */
 	set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
 
 	/*
-	 * Fill the joinrel's tlist with just the Vars and PHVs that need to be
-	 * output from this join (ie, are needed for higher joinclauses or final
-	 * output).
+	 * 用恰好需要从这次连接输出的 Var 和 PHVs
+	 * 填连接关系的 tlist（也就是更高层连接子句或最终
+	 * 输出所需要的）。
 	 *
-	 * NOTE: the tlist order for a join rel will depend on which pair of outer
-	 * and inner rels we first try to build it from.  But the contents should
-	 * be the same regardless.
+	 * 注意：连接关系的 tlist 顺序取决于我们第一次尝试用哪一对
+	 * 外侧和内侧关系来建它。但内容应当
+	 * 无论怎样都相同。
 	 */
 	build_joinrel_tlist(root, joinrel, outer_rel, sjinfo, pushed_down_joins,
 						(sjinfo->jointype == JOIN_FULL));
@@ -767,19 +767,19 @@ build_join_rel(PlannerInfo *root,
 	add_placeholders_to_joinrel(root, joinrel, outer_rel, inner_rel, sjinfo);
 
 	/*
-	 * add_placeholders_to_joinrel also took care of adding the ph_lateral
-	 * sets of any PlaceHolderVars computed here to direct_lateral_relids, so
-	 * now we can finish computing that.  This is much like the computation of
-	 * the transitively-closed lateral_relids in min_join_parameterization,
-	 * except that here we *do* have to consider the added PHVs.
+	 * add_placeholders_to_joinrel 也负责把这里计算出的任何
+	 * PlaceHolderVars 的 ph_lateral 集合加进 direct_lateral_relids，因此
+	 * 现在可以把那一项算完。这很像在 min_join_parameterization 里
+	 * 计算传递闭包的 lateral_relids，
+	 * 只不过这里必须考虑新增的 PHVs。
 	 */
 	joinrel->direct_lateral_relids =
 		bms_del_members(joinrel->direct_lateral_relids, joinrel->relids);
 
 	/*
-	 * Construct restrict and join clause lists for the new joinrel. (The
-	 * caller might or might not need the restrictlist, but I need it anyway
-	 * for set_joinrel_size_estimates().)
+	 * 为新连接关系构造限制子句和连接子句列表。（调用方
+	 * 也许需要、也许不需要 restrictlist，但我无论如何都要它，
+	 * 供 set_joinrel_size_estimates() 使用。）
 	 */
 	restrictlist = build_joinrel_restrictlist(root, joinrel,
 											  outer_rel, inner_rel,
@@ -789,48 +789,48 @@ build_join_rel(PlannerInfo *root,
 	build_joinrel_joinlist(joinrel, outer_rel, inner_rel);
 
 	/*
-	 * This is also the right place to check whether the joinrel has any
-	 * pending EquivalenceClass joins.
+	 * 这里也适合检查该连接关系是否有任何
+	 * 待处理的 EquivalenceClass 连接。
 	 */
 	joinrel->has_eclass_joins = has_relevant_eclass_joinclause(root, joinrel);
 
-	/* Store the partition information. */
+	/* 存储分区信息。 */
 	build_joinrel_partition_info(root, joinrel, outer_rel, inner_rel, sjinfo,
 								 restrictlist);
 
 	/*
-	 * Set estimates of the joinrel's size.
+	 * 设置该连接关系大小的估计。
 	 */
 	set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
 							   sjinfo, restrictlist);
 
 	/*
-	 * Set the consider_parallel flag if this joinrel could potentially be
-	 * scanned within a parallel worker.  If this flag is false for either
-	 * inner_rel or outer_rel, then it must be false for the joinrel also.
-	 * Even if both are true, there might be parallel-restricted expressions
-	 * in the targetlist or quals.
+	 * 若这个连接关系有可能在并行工作进程内被
+	 * 扫描，就设置 consider_parallel 标志。若 inner_rel 或
+	 * outer_rel 任一该标志为假，则连接关系也必须
+	 * 为假。即便两者都为真，目标列表或限定条件里
+	 * 仍可能有并行受限的表达式。
 	 *
-	 * Note that if there are more than two rels in this relation, they could
-	 * be divided between inner_rel and outer_rel in any arbitrary way.  We
-	 * assume this doesn't matter, because we should hit all the same baserels
-	 * and joinclauses while building up to this joinrel no matter which we
-	 * take; therefore, we should make the same decision here however we get
-	 * here.
+	 * 注意，若这个关系里不止两个关系，它们可以
+	 * 以任意方式分到 inner_rel 和 outer_rel 里。我们
+	 * 假定这无关紧要，因为无论取哪一种，在建到这个
+	 * 连接关系的过程中都会碰到同样的基关系和
+	 * 连接子句；因此无论怎么到达这里，这里的决定
+	 * 都应当相同。
 	 */
 	if (inner_rel->consider_parallel && outer_rel->consider_parallel &&
 		is_parallel_safe(root, (Node *) restrictlist) &&
 		is_parallel_safe(root, (Node *) joinrel->reltarget->exprs))
 		joinrel->consider_parallel = true;
 
-	/* Add the joinrel to the PlannerInfo. */
+	/* 把连接关系加进 PlannerInfo。 */
 	add_join_rel(root, joinrel);
 
 	/*
-	 * Also, if dynamic-programming join search is active, add the new joinrel
-	 * to the appropriate sublist.  Note: you might think the Assert on number
-	 * of members should be for equality, but some of the level 1 rels might
-	 * have been joinrels already, so we can only assert <=.
+	 * 另外，若动态规划的连接搜索正在进行，把新连接关系
+	 * 加进相应的子列表。注意：你也许以为对成员数的 Assert
+	 * 应当是相等，但某些第 1 层关系可能
+	 * 已经是连接关系，所以只能 Assert <=。
 	 */
 	if (root->join_rel_level)
 	{
@@ -845,16 +845,16 @@ build_join_rel(PlannerInfo *root,
 
 /*
  * build_child_join_rel
- *	  Builds RelOptInfo representing join between given two child relations.
+ *	  构造表示给定两个子关系之间连接的 RelOptInfo。
  *
- * 'outer_rel' and 'inner_rel' are the RelOptInfos of child relations being
- *		joined
- * 'parent_joinrel' is the RelOptInfo representing the join between parent
- *		relations. Some of the members of new RelOptInfo are produced by
- *		translating corresponding members of this RelOptInfo
- * 'restrictlist': list of RestrictInfo nodes that apply to this particular
- *		pair of joinable relations
- * 'sjinfo': child join's join-type details
+ * outer_rel 和 inner_rel 是正在
+ *		连接的子关系的 RelOptInfos。
+ * parent_joinrel 是表示父关系之间
+ *		连接的 RelOptInfo。新 RelOptInfo 的某些成员
+ *		由翻译该 RelOptInfo 的对应成员产生。
+ * restrictlist：适用于这一对可连接关系的
+ *		RestrictInfo 节点列表。
+ * sjinfo：子连接的连接类型细节。
  */
 RelOptInfo *
 build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
@@ -865,16 +865,16 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	AppendRelInfo **appinfos;
 	int			nappinfos;
 
-	/* Only joins between "other" relations land here. */
+	/* 只有 other 关系之间的连接才会到这里。 */
 	Assert(IS_OTHER_REL(outer_rel) && IS_OTHER_REL(inner_rel));
 
-	/* The parent joinrel should have consider_partitionwise_join set. */
+	/* 父连接关系应当已经设置了 consider_partitionwise_join。 */
 	Assert(parent_joinrel->consider_partitionwise_join);
 
 	/*
-	 * Find the AppendRelInfo structures for the child baserels.  We'll need
-	 * these for computing the child join's relid set, and later for mapping
-	 * Vars to the child rel.
+	 * 找出子基关系的 AppendRelInfo 结构。计算子连接的
+	 * relid 集合时需要它们，以后把 Var 映射到
+	 * 子关系时也需要。
 	 */
 	appinfos = find_appinfos_by_relids(root,
 									   bms_union(outer_rel->relids,
@@ -885,7 +885,7 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	joinrel->relids = adjust_child_relids(parent_joinrel->relids,
 										  nappinfos, appinfos);
 	joinrel->rows = 0;
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
+	/* 仅当并非要取出全部元组时，较低的启动代价才有意义 */
 	joinrel->consider_startup = (root->tuple_fraction > 0);
 	joinrel->consider_param_startup = false;
 	joinrel->consider_parallel = false;
@@ -899,7 +899,7 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	joinrel->cheapest_parameterized_paths = NIL;
 	joinrel->direct_lateral_relids = NULL;
 	joinrel->lateral_relids = NULL;
-	joinrel->relid = 0;			/* indicates not a baserel */
+	joinrel->relid = 0;			/* 表示不是基关系 */
 	joinrel->rtekind = RTE_JOIN;
 	joinrel->min_attr = 0;
 	joinrel->max_attr = 0;
@@ -926,7 +926,7 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	joinrel->baserestrictcost.per_tuple = 0;
 	joinrel->joininfo = NIL;
 	joinrel->has_eclass_joins = false;
-	joinrel->consider_partitionwise_join = false;	/* might get changed later */
+	joinrel->consider_partitionwise_join = false;	/* 以后可能会改 */
 	joinrel->parent = parent_joinrel;
 	joinrel->top_parent = parent_joinrel->top_parent ? parent_joinrel->top_parent : parent_joinrel;
 	joinrel->top_parent_relids = joinrel->top_parent->relids;
@@ -941,54 +941,54 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 	joinrel->partexprs = NULL;
 	joinrel->nullable_partexprs = NULL;
 
-	/* Compute information relevant to foreign relations. */
+	/* 计算与外部关系有关的信息。 */
 	set_foreign_rel_properties(joinrel, outer_rel, inner_rel);
 
-	/* Set up reltarget struct */
+	/* 建立 reltarget 结构 */
 	build_child_join_reltarget(root, parent_joinrel, joinrel,
 							   nappinfos, appinfos);
 
-	/* Construct joininfo list. */
+	/* 构造 joininfo 列表。 */
 	joinrel->joininfo = (List *) adjust_appendrel_attrs(root,
 														(Node *) parent_joinrel->joininfo,
 														nappinfos,
 														appinfos);
 
 	/*
-	 * Lateral relids referred in child join will be same as that referred in
-	 * the parent relation.
+	 * 子连接里引用的 LATERAL relid 与父关系里
+	 * 引用的相同。
 	 */
 	joinrel->direct_lateral_relids = (Relids) bms_copy(parent_joinrel->direct_lateral_relids);
 	joinrel->lateral_relids = (Relids) bms_copy(parent_joinrel->lateral_relids);
 
 	/*
-	 * If the parent joinrel has pending equivalence classes, so does the
-	 * child.
+	 * 若父连接关系有待处理的等价类，
+	 * 子关系也有。
 	 */
 	joinrel->has_eclass_joins = parent_joinrel->has_eclass_joins;
 
-	/* Is the join between partitions itself partitioned? */
+	/* 分区之间的连接本身是否也分区？ */
 	build_joinrel_partition_info(root, joinrel, outer_rel, inner_rel, sjinfo,
 								 restrictlist);
 
-	/* Child joinrel is parallel safe if parent is parallel safe. */
+	/* 若父关系并行安全，则子连接关系也并行安全。 */
 	joinrel->consider_parallel = parent_joinrel->consider_parallel;
 
-	/* Set estimates of the child-joinrel's size. */
+	/* 设置子连接关系大小的估计。 */
 	set_joinrel_size_estimates(root, joinrel, outer_rel, inner_rel,
 							   sjinfo, restrictlist);
 
-	/* We build the join only once. */
+	/* 连接只构造一次。 */
 	Assert(!find_join_rel(root, joinrel->relids));
 
-	/* Add the relation to the PlannerInfo. */
+	/* 把该关系加进 PlannerInfo。 */
 	add_join_rel(root, joinrel);
 
 	/*
-	 * We might need EquivalenceClass members corresponding to the child join,
-	 * so that we can represent sort pathkeys for it.  As with children of
-	 * baserels, we shouldn't need this unless there are relevant eclass joins
-	 * (implying that a merge join might be possible) or pathkeys to sort by.
+	 * 我们可能需要与子连接对应的 EquivalenceClass 成员，
+	 * 以便表示它的排序路径键。和基关系的子关系一样，
+	 * 除非有相关的等价类连接（意味着可能做归并连接）
+	 * 或要按其排序的路径键，否则不该需要这个。
 	 */
 	if (joinrel->has_eclass_joins || has_useful_pathkeys(root, parent_joinrel))
 		add_child_join_rel_equivalences(root,
@@ -1003,10 +1003,10 @@ build_child_join_rel(PlannerInfo *root, RelOptInfo *outer_rel,
 /*
  * min_join_parameterization
  *
- * Determine the minimum possible parameterization of a joinrel, that is, the
- * set of other rels it contains LATERAL references to.  We save this value in
- * the join's RelOptInfo.  This function is split out of build_join_rel()
- * because join_is_legal() needs the value to check a prospective join.
+ * 确定连接关系可能的最小参数化，也就是它所包含的
+ * 对其他关系的 LATERAL 引用集合。我们把这个值存在
+ * 该连接的 RelOptInfo 里。这个函数从 build_join_rel()
+ * 拆出来，是因为 join_is_legal() 需要该值来检查候选连接。
  */
 Relids
 min_join_parameterization(PlannerInfo *root,
@@ -1017,17 +1017,17 @@ min_join_parameterization(PlannerInfo *root,
 	Relids		result;
 
 	/*
-	 * Basically we just need the union of the inputs' lateral_relids, less
-	 * whatever is already in the join.
+	 * 基本上只需要各输入的 lateral_relids 之并，
+	 * 再去掉已经在该连接里的部分。
 	 *
-	 * It's not immediately obvious that this is a valid way to compute the
-	 * result, because it might seem that we're ignoring possible lateral refs
-	 * of PlaceHolderVars that are due to be computed at the join but not in
-	 * either input.  However, because create_lateral_join_info() already
-	 * charged all such PHV refs to each member baserel of the join, they'll
-	 * be accounted for already in the inputs' lateral_relids.  Likewise, we
-	 * do not need to worry about doing transitive closure here, because that
-	 * was already accounted for in the original baserel lateral_relids.
+	 * 这样计算结果并不一眼就能看出是对的，
+	 * 因为看起来我们忽略了本应在该连接上计算、
+	 * 却不在任一输入里的 PlaceHolderVars 可能有的 LATERAL 引用。
+	 * 不过，因为 create_lateral_join_info() 已经把所有这类
+	 * PHV 引用记到该连接的每个成员基关系上，它们
+	 * 已经算进各输入的 lateral_relids。同样，这里
+	 * 也不必操心传递闭包，因为那已经在原先基关系的
+	 * lateral_relids 里算过了。
 	 */
 	result = bms_union(outer_rel->lateral_relids, inner_rel->lateral_relids);
 	result = bms_del_members(result, joinrelids);
@@ -1036,55 +1036,55 @@ min_join_parameterization(PlannerInfo *root,
 
 /*
  * build_joinrel_tlist
- *	  Builds a join relation's target list from an input relation.
- *	  (This is invoked twice to handle the two input relations.)
+ *	  根据一个输入关系构造连接关系的目标列表。
+ *	  （调用两次，以处理两个输入关系。）
  *
- * The join's targetlist includes all Vars of its member relations that
- * will still be needed above the join.  This subroutine adds all such
- * Vars from the specified input rel's tlist to the join rel's tlist.
- * Likewise for any PlaceHolderVars emitted by the input rel.
+ * 连接的目标列表包括其成员关系中、在该连接之上
+ * 仍会用到的全部 Var。本子程序把指定输入关系
+ * tlist 里的所有这类 Var 加进连接关系的 tlist。
+ * 输入关系发出的任何 PlaceHolderVars 也同样处理。
  *
- * We also compute the expected width of the join's output, making use
- * of data that was cached at the baserel level by set_rel_width().
+ * 我们也计算该连接输出的预期宽度，利用
+ * set_rel_width() 在基关系层缓存的数据。
  *
- * Pass can_null as true if the join is an outer join that can null Vars
- * from this input relation.  If so, we will (normally) add the join's relid
- * to the nulling bitmaps of Vars and PHVs bubbled up from the input.
+ * 若该连接是可能把来自这个输入关系的 Var 置空的外连接，
+ * 就把 can_null 传为真。若如此，我们（通常）会把该连接的 relid
+ * 加进从该输入冒上来的 Var 和 PHVs 的置空位图。
  *
- * When forming an outer join's target list, special handling is needed in
- * case the outer join was commuted with another one per outer join identity 3
- * (see optimizer/README).  We must take steps to ensure that the output Vars
- * have the same nulling bitmaps that they would if the two joins had been
- * done in syntactic order; else they won't match Vars appearing higher in
- * the query tree.  An exception to the match-the-syntactic-order rule is
- * that when an outer join is pushed down into another one's RHS per identity
- * 3, we can't mark its Vars as nulled until the now-upper outer join is also
- * completed.  So we need to do three things:
+ * 构造外连接的目标列表时，若该外连接曾按
+ * 外连接恒等式 3 与另一个交换过
+ * （见 optimizer/README），必须采取措施，确保输出的
+ * Var 具有两个连接按语法顺序执行时
+ * 会有的相同置空位图；否则匹配不上
+ * 查询树更高处出现的 Var。匹配语法顺序这条规则的例外是：
+ * 按恒等式 3 把一个外连接下推进另一个的 RHS 时，
+ * 在如今位于上层的外连接也完成之前，没法把其 Var 标成已置空。
+ * 因此要做三件事：
  *
- * First, we add the outer join's relid to the nulling bitmap only if the
- * outer join has been completely performed and the Var or PHV actually
- * comes from within the syntactically nullable side(s) of the outer join.
- * This takes care of the possibility that we have transformed
+ * 首先，仅当该外连接已经完整执行、且该 Var 或 PHV 确实
+ * 来自该外连接在语法上可空的一侧（或若干侧）时，
+ * 才把该外连接的 relid 加进置空位图。
+ * 这覆盖了我们可能做过如下变换的情形：
  *		(A leftjoin B on (Pab)) leftjoin C on (Pbc)
  * to
  *		A leftjoin (B leftjoin C on (Pbc)) on (Pab)
- * Here the pushed-down B/C join cannot mark C columns as nulled yet,
- * while the now-upper A/B join must not mark C columns as nulled by itself.
+ * 这里下推后的 B/C 连接还没法把 C 的列标成已置空，
+ * 而如今位于上层的 A/B 连接不得自行把 C 的列标成已置空。
  *
- * Second, perform the same operation for each SpecialJoinInfo listed in
- * pushed_down_joins (which, in this example, would be the B/C join when
- * we are at the now-upper A/B join).  This allows the now-upper join to
- * complete the marking of "C" Vars that now have fully valid values.
+ * 其次，对 pushed_down_joins 里列出的每个 SpecialJoinInfo
+ * 做同样的操作（在这个例子里，当我们处在如今位于上层的
+ * A/B 连接时，那就是 B/C 连接）。这让如今位于上层的连接
+ * 能完成对现在已有完全有效值的 C 的 Var 的标记。
  *
- * Third, any relid in sjinfo->commute_above_r that is already part of
- * the joinrel is added to the nulling bitmaps of nullable Vars and PHVs.
- * This takes care of the reverse case where we implement
+ * 第三，sjinfo->commute_above_r 里已经属于
+ * 该连接关系的任何 relid，都加进可空 Var 和 PHVs 的置空位图。
+ * 这覆盖了我们把下面这种写法反过来实现的情形：
  *		A leftjoin (B leftjoin C on (Pbc)) on (Pab)
  * as
  *		(A leftjoin B on (Pab)) leftjoin C on (Pbc)
- * The C columns emitted by the B/C join need to be shown as nulled by both
- * the B/C and A/B joins, even though they've not physically traversed the
- * A/B join.
+ * B/C 连接发出的 C 的列，必须显示成同时被
+ * B/C 和 A/B 两个连接置空，即使它们并没有在物理上穿过
+ * A/B 连接。
  */
 static void
 build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
@@ -1102,25 +1102,25 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 		Var		   *var = (Var *) lfirst(vars);
 
 		/*
-		 * For a PlaceHolderVar, we have to look up the PlaceHolderInfo.
+		 * 对 PlaceHolderVar，必须去查 PlaceHolderInfo。
 		 */
 		if (IsA(var, PlaceHolderVar))
 		{
 			PlaceHolderVar *phv = (PlaceHolderVar *) var;
 			PlaceHolderInfo *phinfo = find_placeholder_info(root, phv);
 
-			/* Is it still needed above this joinrel? */
+			/* 在这个连接关系之上是否仍然需要？ */
 			if (bms_nonempty_difference(phinfo->ph_needed, relids))
 			{
 				/*
-				 * Yup, add it to the output.  If this join potentially nulls
-				 * this input, we have to update the PHV's phnullingrels,
-				 * which means making a copy.
+				 * 是的，把它加进输出。若这次连接可能把
+				 * 这个输入置空，就必须更新该 PHV 的 phnullingrels，
+				 * 也就是要做一份副本。
 				 */
 				if (can_null)
 				{
 					phv = copyObject(phv);
-					/* See comments above to understand this logic */
+					/* 见上面的注释以理解这段逻辑 */
 					if (sjinfo->ojrelid != 0 &&
 						bms_is_member(sjinfo->ojrelid, relids) &&
 						(bms_is_subset(phv->phrels, sjinfo->syn_righthand) ||
@@ -1145,16 +1145,16 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 
 				joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs,
 													phv);
-				/* Bubbling up the precomputed result has cost zero */
+				/* 把预先算好的结果冒上来，代价为零 */
 				joinrel->reltarget->width += phinfo->ph_width;
 			}
 			continue;
 		}
 
 		/*
-		 * Otherwise, anything in a baserel or joinrel targetlist ought to be
-		 * a Var.  (More general cases can only appear in appendrel child
-		 * rels, which will never be seen here.)
+		 * 否则，基关系或连接关系目标列表里的东西应当是
+		 * Var。（更一般的情形只会出现在 appendrel 的子
+		 * 关系里，这里永远看不到。）
 		 */
 		if (!IsA(var, Var))
 			elog(ERROR, "unexpected node type in rel targetlist: %d",
@@ -1162,11 +1162,11 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 
 		if (var->varno == ROWID_VAR)
 		{
-			/* UPDATE/DELETE/MERGE row identity vars are always needed */
+			/* UPDATE/DELETE/MERGE 的行标识 Var 总是需要的 */
 			RowIdentityVarInfo *ridinfo = (RowIdentityVarInfo *)
 				list_nth(root->row_identity_vars, var->varattno - 1);
 
-			/* Update reltarget width estimate from RowIdentityVarInfo */
+			/* 用 RowIdentityVarInfo 更新 reltarget 的宽度估计 */
 			joinrel->reltarget->width += ridinfo->rowidwidth;
 		}
 		else
@@ -1174,28 +1174,28 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 			RelOptInfo *baserel;
 			int			ndx;
 
-			/* Get the Var's original base rel */
+			/* 取得该 Var 原来的基关系 */
 			baserel = find_base_rel(root, var->varno);
 
-			/* Is it still needed above this joinrel? */
+			/* 在这个连接关系之上是否仍然需要？ */
 			ndx = var->varattno - baserel->min_attr;
 			if (!bms_nonempty_difference(baserel->attr_needed[ndx], relids))
-				continue;		/* nope, skip it */
+				continue;		/* 不需要，跳过 */
 
-			/* Update reltarget width estimate from baserel's attr_widths */
+			/* 用基关系的 attr_widths 更新 reltarget 的宽度估计 */
 			joinrel->reltarget->width += baserel->attr_widths[ndx];
 		}
 
 		/*
-		 * Add the Var to the output.  If this join potentially nulls this
-		 * input, we have to update the Var's varnullingrels, which means
-		 * making a copy.  But note that we don't ever add nullingrel bits to
-		 * row identity Vars (cf. comments in setrefs.c).
+		 * 把该 Var 加进输出。若这次连接可能把这个
+		 * 输入置空，就必须更新该 Var 的 varnullingrels，也就是
+		 * 要做一份副本。但注意，我们从不给
+		 * 行标识 Var 加置空关系位（参见 setrefs.c 里的注释）。
 		 */
 		if (can_null && var->varno != ROWID_VAR)
 		{
 			var = copyObject(var);
-			/* See comments above to understand this logic */
+			/* 见上面的注释以理解这段逻辑 */
 			if (sjinfo->ojrelid != 0 &&
 				bms_is_member(sjinfo->ojrelid, relids) &&
 				(bms_is_member(var->varno, sjinfo->syn_righthand) ||
@@ -1221,52 +1221,52 @@ build_joinrel_tlist(PlannerInfo *root, RelOptInfo *joinrel,
 		joinrel->reltarget->exprs = lappend(joinrel->reltarget->exprs,
 											var);
 
-		/* Vars have cost zero, so no need to adjust reltarget->cost */
+		/* Var 的代价为零，因此不必调整 reltarget->cost */
 	}
 }
 
 /*
  * build_joinrel_restrictlist
  * build_joinrel_joinlist
- *	  These routines build lists of restriction and join clauses for a
- *	  join relation from the joininfo lists of the relations it joins.
+ *	  这两个例程根据所连接关系的 joininfo 列表，
+ *	  为连接关系构造限制子句和连接子句列表。
  *
- *	  These routines are separate because the restriction list must be
- *	  built afresh for each pair of input sub-relations we consider, whereas
- *	  the join list need only be computed once for any join RelOptInfo.
- *	  The join list is fully determined by the set of rels making up the
- *	  joinrel, so we should get the same results (up to ordering) from any
- *	  candidate pair of sub-relations.  But the restriction list is whatever
- *	  is not handled in the sub-relations, so it depends on which
- *	  sub-relations are considered.
+ *	  这两个例程分开，是因为每一对考虑的输入子关系
+ *	  都必须重新构造限制列表，而连接列表对任何一个
+ *	  连接 RelOptInfo 只需计算一次。
+ *	  连接列表完全由组成该连接关系的关系集合决定，
+ *	  因此任何一对候选子关系都应当得到相同结果
+ *	  （次序除外）。但限制列表是子关系里
+ *	  尚未处理的那些，所以取决于考虑的是
+ *	  哪些子关系。
  *
- *	  If a join clause from an input relation refers to base+OJ rels still not
- *	  present in the joinrel, then it is still a join clause for the joinrel;
- *	  we put it into the joininfo list for the joinrel.  Otherwise,
- *	  the clause is now a restrict clause for the joined relation, and we
- *	  return it to the caller of build_joinrel_restrictlist() to be stored in
- *	  join paths made from this pair of sub-relations.  (It will not need to
- *	  be considered further up the join tree.)
+ *	  若来自输入关系的连接子句引用的基关系加外连接
+ *	  仍不在该连接关系里，则它对这个连接关系仍是连接子句；
+ *	  我们把它放进该连接关系的 joininfo 列表。否则，
+ *	  该子句现在是已连接关系的限制子句，我们把它
+ *	  返回给 build_joinrel_restrictlist() 的调用方，存进
+ *	  由这一对子关系做出的连接路径。（它不必
+ *	  在连接树更上方再被考虑。）
  *
- *	  In many cases we will find the same RestrictInfos in both input
- *	  relations' joinlists, so be careful to eliminate duplicates.
- *	  Pointer equality should be a sufficient test for dups, since all
- *	  the various joinlist entries ultimately refer to RestrictInfos
- *	  pushed into them by distribute_restrictinfo_to_rels().
+ *	  许多情形下会在两个输入关系的 joinlist 里
+ *	  发现相同的 RestrictInfos，因此要小心消除重复。
+ *	  指针相等就足以检测重复，因为各种
+ *	  joinlist 项最终都指向由
+ *	  distribute_restrictinfo_to_rels() 推进去的 RestrictInfos。
  *
- * 'joinrel' is a join relation node
- * 'outer_rel' and 'inner_rel' are a pair of relations that can be joined
- *		to form joinrel.
- * 'sjinfo': join context info
+ * joinrel 是一个连接关系节点。
+ * outer_rel 和 inner_rel 是可以连接起来
+ *		形成 joinrel 的一对关系。
+ * sjinfo：连接的上下文信息。
  *
- * build_joinrel_restrictlist() returns a list of relevant restrictinfos,
- * whereas build_joinrel_joinlist() stores its results in the joinrel's
- * joininfo list.  One or the other must accept each given clause!
+ * build_joinrel_restrictlist() 返回相关 restrictinfo 的列表，
+ * 而 build_joinrel_joinlist() 把结果存在连接关系的
+ * joininfo 列表里。每一条给定子句必须被其中之一接受！
  *
- * NB: Formerly, we made deep(!) copies of each input RestrictInfo to pass
- * up to the join relation.  I believe this is no longer necessary, because
- * RestrictInfo nodes are no longer context-dependent.  Instead, just include
- * the original nodes in the lists made for the join relation.
+ * 注意：从前我们为每个输入 RestrictInfo 做深层（deep）副本，
+ * 再传到连接关系。我相信这不再必要，因为
+ * RestrictInfo 节点不再依赖于上下文。改为只把
+ * 原始节点放进为连接关系做的列表。
  */
 static List *
 build_joinrel_restrictlist(PlannerInfo *root,
@@ -1281,9 +1281,9 @@ build_joinrel_restrictlist(PlannerInfo *root,
 	both_input_relids = bms_union(outer_rel->relids, inner_rel->relids);
 
 	/*
-	 * Collect all the clauses that syntactically belong at this level,
-	 * eliminating any duplicates (important since we will see many of the
-	 * same clauses arriving from both input relations).
+	 * 收集语法上属于这一层的全部子句，
+	 * 并消除任何重复（这很重要，因为我们会看到许多
+	 * 相同的子句从两个输入关系两边到来）。
 	 */
 	result = subbuild_joinrel_restrictlist(root, joinrel, outer_rel,
 										   both_input_relids, NIL);
@@ -1291,9 +1291,9 @@ build_joinrel_restrictlist(PlannerInfo *root,
 										   both_input_relids, result);
 
 	/*
-	 * Add on any clauses derived from EquivalenceClasses.  These cannot be
-	 * redundant with the clauses in the joininfo lists, so don't bother
-	 * checking.
+	 * 再加上从 EquivalenceClasses 导出的任何子句。这些无法
+	 * 与 joininfo 列表里的子句重复，所以不必费心
+	 * 检查。
 	 */
 	result = list_concat(result,
 						 generate_join_implied_equalities(root,
@@ -1313,9 +1313,9 @@ build_joinrel_joinlist(RelOptInfo *joinrel,
 	List	   *result;
 
 	/*
-	 * Collect all the clauses that syntactically belong above this level,
-	 * eliminating any duplicates (important since we will see many of the
-	 * same clauses arriving from both input relations).
+	 * 收集语法上属于这一层之上的全部子句，
+	 * 并消除任何重复（这很重要，因为我们会看到许多
+	 * 相同的子句从两个输入关系两边到来）。
 	 */
 	result = subbuild_joinrel_joinlist(joinrel, outer_rel->joininfo, NIL);
 	result = subbuild_joinrel_joinlist(joinrel, inner_rel->joininfo, result);
@@ -1339,13 +1339,13 @@ subbuild_joinrel_restrictlist(PlannerInfo *root,
 		if (bms_is_subset(rinfo->required_relids, joinrel->relids))
 		{
 			/*
-			 * This clause should become a restriction clause for the joinrel,
-			 * since it refers to no outside rels.  However, if it's a clone
-			 * clause then it might be too late to evaluate it, so we have to
-			 * check.  (If it is too late, just ignore the clause, taking it
-			 * on faith that another clone was or will be selected.)  Clone
-			 * clauses should always be outer-join clauses, so we compare
-			 * against both_input_relids.
+			 * 这条子句应当成为该连接关系的限制子句，
+			 * 因为它不引用外部关系。不过，若它是克隆
+			 * 子句，求值可能已经太晚，因此必须
+			 * 检查。（若确实太晚，就忽略该子句，姑且相信
+			 * 另一个克隆已经被选中或将会被选中。）克隆
+			 * 子句应当总是外连接子句，所以我们与
+			 * both_input_relids 比较。
 			 */
 			if (rinfo->has_clone || rinfo->is_clone)
 			{
@@ -1358,11 +1358,11 @@ subbuild_joinrel_restrictlist(PlannerInfo *root,
 			else
 			{
 				/*
-				 * For non-clone clauses, we just Assert it's OK.  These might
-				 * be either join or filter clauses; if it's a join clause
-				 * then it should not refer to the current join's output.
-				 * (There is little point in checking incompatible_relids,
-				 * because it'll be NULL.)
+				 * 对非克隆子句，我们只 Assert 它没问题。它们可能
+				 * 是连接子句或过滤子句；若是连接子句，
+				 * 则不应当引用当前连接的输出。
+				 * （检查 incompatible_relids 没什么意义，
+				 * 因为它会是 NULL。）
 				 */
 				Assert(RINFO_IS_PUSHED_DOWN(rinfo, joinrel->relids) ||
 					   bms_is_subset(rinfo->required_relids,
@@ -1370,18 +1370,18 @@ subbuild_joinrel_restrictlist(PlannerInfo *root,
 			}
 
 			/*
-			 * OK, so add it to the list, being careful to eliminate
-			 * duplicates.  (Since RestrictInfo nodes in different joinlists
-			 * will have been multiply-linked rather than copied, pointer
-			 * equality should be a sufficient test.)
+			 * 好，把它加进列表，并小心消除
+			 * 重复。（不同 joinlist 里的 RestrictInfo 节点
+			 * 是多重链接而不是复制的，因此指针
+			 * 相等就足以检测。）
 			 */
 			new_restrictlist = list_append_unique_ptr(new_restrictlist, rinfo);
 		}
 		else
 		{
 			/*
-			 * This clause is still a join clause at this level, so we ignore
-			 * it in this routine.
+			 * 这条子句在这一层仍是连接子句，因此本例程
+			 * 忽略它。
 			 */
 		}
 	}
@@ -1396,7 +1396,7 @@ subbuild_joinrel_joinlist(RelOptInfo *joinrel,
 {
 	ListCell   *l;
 
-	/* Expected to be called only for join between parent relations. */
+	/* 预期只对父关系之间的连接调用。 */
 	Assert(joinrel->reloptkind == RELOPT_JOINREL);
 
 	foreach(l, joininfo_list)
@@ -1406,19 +1406,19 @@ subbuild_joinrel_joinlist(RelOptInfo *joinrel,
 		if (bms_is_subset(rinfo->required_relids, joinrel->relids))
 		{
 			/*
-			 * This clause becomes a restriction clause for the joinrel, since
-			 * it refers to no outside rels.  So we can ignore it in this
-			 * routine.
+			 * 这条子句成为该连接关系的限制子句，因为
+			 * 它不引用外部关系。因此本例程可以
+			 * 忽略它。
 			 */
 		}
 		else
 		{
 			/*
-			 * This clause is still a join clause at this level, so add it to
-			 * the new joininfo list, being careful to eliminate duplicates.
-			 * (Since RestrictInfo nodes in different joinlists will have been
-			 * multiply-linked rather than copied, pointer equality should be
-			 * a sufficient test.)
+			 * 这条子句在这一层仍是连接子句，因此把它加进
+			 * 新的 joininfo 列表，并小心消除重复。
+			 * （不同 joinlist 里的 RestrictInfo 节点
+			 * 是多重链接而不是复制的，因此指针相等
+			 * 就足以检测。）
 			 */
 			new_joininfo = list_append_unique_ptr(new_joininfo, rinfo);
 		}
@@ -1430,16 +1430,16 @@ subbuild_joinrel_joinlist(RelOptInfo *joinrel,
 
 /*
  * fetch_upper_rel
- *		Build a RelOptInfo describing some post-scan/join query processing,
- *		or return a pre-existing one if somebody already built it.
+ *		构造描述扫描或连接之后某段查询处理的 RelOptInfo，
+ *		若已经有人建过，就返回已有的那个。
  *
- * An "upper" relation is identified by an UpperRelationKind and a Relids set.
- * The meaning of the Relids set is not specified here, and very likely will
- * vary for different relation kinds.
+ * 上层关系由 UpperRelationKind 和一个 Relids 集合标识。
+ * 这里不规定 Relids 集合的含义，而且很可能会
+ * 随关系种类而不同。
  *
- * Most of the fields in an upper-level RelOptInfo are not used and are not
- * set here (though makeNode should ensure they're zeroes).  We basically only
- * care about fields that are of interest to add_path() and set_cheapest().
+ * 上层 RelOptInfo 里的大多数成员用不到，这里也不设置
+ * （不过 makeNode 应当保证它们是零）。我们基本上只关心
+ * add_path() 和 set_cheapest() 感兴趣的成员。
  */
 RelOptInfo *
 fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
@@ -1448,13 +1448,13 @@ fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
 	ListCell   *lc;
 
 	/*
-	 * For the moment, our indexing data structure is just a List for each
-	 * relation kind.  If we ever get so many of one kind that this stops
-	 * working well, we can improve it.  No code outside this function should
-	 * assume anything about how to find a particular upperrel.
+	 * 目前，我们的索引数据结构只是每种关系
+	 * 一个 List。若某一种多到这种做法不再
+	 * 好用，可以再改进。本函数以外的代码不应当
+	 * 对如何找到某个特定上层关系做任何假定。
 	 */
 
-	/* If we already made this upperrel for the query, return it */
+	/* 若已经为该查询建过这个上层关系，就返回它 */
 	foreach(lc, root->upper_rels[kind])
 	{
 		upperrel = (RelOptInfo *) lfirst(lc);
@@ -1467,10 +1467,10 @@ fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
 	upperrel->reloptkind = RELOPT_UPPER_REL;
 	upperrel->relids = bms_copy(relids);
 
-	/* cheap startup cost is interesting iff not all tuples to be retrieved */
+	/* 仅当并非要取出全部元组时，较低的启动代价才有意义 */
 	upperrel->consider_startup = (root->tuple_fraction > 0);
 	upperrel->consider_param_startup = false;
-	upperrel->consider_parallel = false;	/* might get changed later */
+	upperrel->consider_parallel = false;	/* 以后可能会改 */
 	upperrel->reltarget = create_empty_pathtarget();
 	upperrel->pathlist = NIL;
 	upperrel->cheapest_startup_path = NULL;
@@ -1486,11 +1486,11 @@ fetch_upper_rel(PlannerInfo *root, UpperRelationKind kind, Relids relids)
 
 /*
  * find_childrel_parents
- *		Compute the set of parent relids of an appendrel child rel.
+ *		计算一个 appendrel 子关系的父 relid 集合。
  *
- * Since appendrels can be nested, a child could have multiple levels of
- * appendrel ancestors.  This function computes a Relids set of all the
- * parent relation IDs.
+ * 因为 appendrel 可以嵌套，一个子关系可能有多层
+ * appendrel 祖先。本函数算出全部
+ * 父关系 ID 的 Relids 集合。
  */
 Relids
 find_childrel_parents(PlannerInfo *root, RelOptInfo *rel)
@@ -1507,7 +1507,7 @@ find_childrel_parents(PlannerInfo *root, RelOptInfo *rel)
 
 		result = bms_add_member(result, prelid);
 
-		/* traverse up to the parent rel, loop if it's also a child rel */
+		/* 向上走到父关系；若它也是子关系就继续循环 */
 		rel = find_base_rel(root, prelid);
 	} while (rel->reloptkind == RELOPT_OTHER_MEMBER_REL);
 
@@ -1519,14 +1519,14 @@ find_childrel_parents(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * get_baserel_parampathinfo
- *		Get the ParamPathInfo for a parameterized path for a base relation,
- *		constructing one if we don't have one already.
+ *		取得基关系的参数化路径的 ParamPathInfo，
+ *		若还没有就构造一个。
  *
- * This centralizes estimating the rowcounts for parameterized paths.
- * We need to cache those to be sure we use the same rowcount for all paths
- * of the same parameterization for a given rel.  This is also a convenient
- * place to determine which movable join clauses the parameterized path will
- * be responsible for evaluating.
+ * 这里集中估计参数化路径的行数。
+ * 必须缓存它们，以确保对给定关系的同一种参数化，
+ * 所有路径用同一个行数。这里也便于
+ * 确定该参数化路径将负责计算哪些
+ * 可移动的连接子句。
  */
 ParamPathInfo *
 get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
@@ -1540,22 +1540,22 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
 	double		rows;
 	ListCell   *lc;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
+	/* 若关系有 LATERAL 引用，它的每条路径都应当把它们算进去 */
 	Assert(bms_is_subset(baserel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo */
+	/* 未参数化的路径没有 ParamPathInfo */
 	if (bms_is_empty(required_outer))
 		return NULL;
 
 	Assert(!bms_overlap(baserel->relids, required_outer));
 
-	/* If we already have a PPI for this parameterization, just return it */
+	/* 若这种参数化已经有 PPI，直接返回它 */
 	if ((ppi = find_param_path_info(baserel, required_outer)))
 		return ppi;
 
 	/*
-	 * Identify all joinclauses that are movable to this base rel given this
-	 * parameterization.
+	 * 找出在给定这种参数化下可移到该基关系的
+	 * 全部连接子句。
 	 */
 	joinrelids = bms_union(baserel->relids, required_outer);
 	pclauses = NIL;
@@ -1570,9 +1570,9 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
 	}
 
 	/*
-	 * Add in joinclauses generated by EquivalenceClasses, too.  (These
-	 * necessarily satisfy join_clause_is_movable_into; but in assert-enabled
-	 * builds, let's verify that.)
+	 * 也加入 EquivalenceClasses 生成的连接子句。（这些
+	 * 必然满足 join_clause_is_movable_into；但在启用断言的
+	 * 构建里，还是验证一下。）
 	 */
 	eqclauses = generate_join_implied_equalities(root,
 												 joinrelids,
@@ -1591,7 +1591,7 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
 #endif
 	pclauses = list_concat(pclauses, eqclauses);
 
-	/* Compute set of serial numbers of the enforced clauses */
+	/* 计算被强制子句的序号集合 */
 	pserials = NULL;
 	foreach(lc, pclauses)
 	{
@@ -1600,10 +1600,10 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
 		pserials = bms_add_member(pserials, rinfo->rinfo_serial);
 	}
 
-	/* Estimate the number of rows returned by the parameterized scan */
+	/* 估计该参数化扫描返回的行数 */
 	rows = get_parameterized_baserel_size(root, baserel, pclauses);
 
-	/* And now we can build the ParamPathInfo */
+	/* 现在可以建立 ParamPathInfo 了 */
 	ppi = makeNode(ParamPathInfo);
 	ppi->ppi_req_outer = required_outer;
 	ppi->ppi_rows = rows;
@@ -1616,31 +1616,31 @@ get_baserel_parampathinfo(PlannerInfo *root, RelOptInfo *baserel,
 
 /*
  * get_joinrel_parampathinfo
- *		Get the ParamPathInfo for a parameterized path for a join relation,
- *		constructing one if we don't have one already.
+ *		取得连接关系的参数化路径的 ParamPathInfo，
+ *		若还没有就构造一个。
  *
- * This centralizes estimating the rowcounts for parameterized paths.
- * We need to cache those to be sure we use the same rowcount for all paths
- * of the same parameterization for a given rel.  This is also a convenient
- * place to determine which movable join clauses the parameterized path will
- * be responsible for evaluating.
+ * 这里集中估计参数化路径的行数。
+ * 必须缓存它们，以确保对给定关系的同一种参数化，
+ * 所有路径用同一个行数。这里也便于
+ * 确定该参数化路径将负责计算哪些
+ * 可移动的连接子句。
  *
- * outer_path and inner_path are a pair of input paths that can be used to
- * construct the join, and restrict_clauses is the list of regular join
- * clauses (including clauses derived from EquivalenceClasses) that must be
- * applied at the join node when using these inputs.
+ * outer_path 和 inner_path 是一对可用于
+ * 构造该连接的输入路径，restrict_clauses 是使用这些输入时
+ * 必须在连接节点上应用的常规连接
+ * 子句列表（包括从 EquivalenceClasses 导出的子句）。
  *
- * Unlike the situation for base rels, the set of movable join clauses to be
- * enforced at a join varies with the selected pair of input paths, so we
- * must calculate that and pass it back, even if we already have a matching
- * ParamPathInfo.  We handle this by adding any clauses moved down to this
- * join to *restrict_clauses, which is an in/out parameter.  (The addition
- * is done in such a way as to not modify the passed-in List structure.)
+ * 与基关系的情形不同，要在一次连接上强制执行的
+ * 可移动连接子句集合，随所选的一对输入路径而变，
+ * 因此即使已经有匹配的 ParamPathInfo，也必须算出它并传回。
+ * 做法是把下移到这次连接的任何子句加进
+ * *restrict_clauses，它是一个输入输出参数。
+ * （添加时不会改动传入的 List 结构。）
  *
- * Note: when considering a nestloop join, the caller must have removed from
- * restrict_clauses any movable clauses that are themselves scheduled to be
- * pushed into the right-hand path.  We do not do that here since it's
- * unnecessary for other join types.
+ * 注意：考虑嵌套循环连接时，调用方必须已经从
+ * restrict_clauses 里去掉那些本身预定要
+ * 推进右侧路径的可移动子句。这里不这么做，因为
+ * 对其他连接类型没有必要。
  */
 ParamPathInfo *
 get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
@@ -1660,35 +1660,35 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 	double		rows;
 	ListCell   *lc;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
+	/* 若关系有 LATERAL 引用，它的每条路径都应当把它们算进去 */
 	Assert(bms_is_subset(joinrel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo or extra join clauses */
+	/* 未参数化的路径没有 ParamPathInfo，也没有额外的连接子句 */
 	if (bms_is_empty(required_outer))
 		return NULL;
 
 	Assert(!bms_overlap(joinrel->relids, required_outer));
 
 	/*
-	 * Identify all joinclauses that are movable to this join rel given this
-	 * parameterization.  These are the clauses that are movable into this
-	 * join, but not movable into either input path.  Treat an unparameterized
-	 * input path as not accepting parameterized clauses (because it won't,
-	 * per the shortcut exit above), even though the joinclause movement rules
-	 * might allow the same clauses to be moved into a parameterized path for
-	 * that rel.
+	 * 找出在给定这种参数化下可移到这个连接关系的
+	 * 全部连接子句。它们可移进这次连接，
+	 * 但不能移进任一输入路径。把未参数化的
+	 * 输入路径当成不接受参数化子句（因为它不会，
+	 * 见上面的提前返回），即使连接子句的移动规则
+	 * 也许允许把同样的子句移进该关系的一条
+	 * 参数化路径。
 	 */
 	join_and_req = bms_union(joinrel->relids, required_outer);
 	if (outer_path->param_info)
 		outer_and_req = bms_union(outer_path->parent->relids,
 								  PATH_REQ_OUTER(outer_path));
 	else
-		outer_and_req = NULL;	/* outer path does not accept parameters */
+		outer_and_req = NULL;	/* 外侧路径不接受参数 */
 	if (inner_path->param_info)
 		inner_and_req = bms_union(inner_path->parent->relids,
 								  PATH_REQ_OUTER(inner_path));
 	else
-		inner_and_req = NULL;	/* inner path does not accept parameters */
+		inner_and_req = NULL;	/* 内侧路径不接受参数 */
 
 	pclauses = NIL;
 	foreach(lc, joinrel->joininfo)
@@ -1707,13 +1707,13 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 			pclauses = lappend(pclauses, rinfo);
 	}
 
-	/* Consider joinclauses generated by EquivalenceClasses, too */
+	/* 也考虑 EquivalenceClasses 生成的连接子句 */
 	eclauses = generate_join_implied_equalities(root,
 												join_and_req,
 												required_outer,
 												joinrel,
 												NULL);
-	/* We only want ones that aren't movable to lower levels */
+	/* 我们只要那些不能移到更低层的 */
 	dropped_ecs = NIL;
 	foreach(lc, eclauses)
 	{
@@ -1725,12 +1725,12 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 		if (join_clause_is_movable_into(rinfo,
 										outer_path->parent->relids,
 										outer_and_req))
-			continue;			/* drop if movable into LHS */
+			continue;			/* 若可移进左侧就丢掉 */
 		if (join_clause_is_movable_into(rinfo,
 										inner_path->parent->relids,
 										inner_and_req))
 		{
-			/* drop if movable into RHS, but remember EC for use below */
+			/* 若可移进右侧就丢掉，但记住这个 EC 供下面使用 */
 			Assert(rinfo->left_ec == rinfo->right_ec);
 			dropped_ecs = lappend(dropped_ecs, rinfo->left_ec);
 			continue;
@@ -1739,34 +1739,34 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 	}
 
 	/*
-	 * EquivalenceClasses are harder to deal with than we could wish, because
-	 * of the fact that a given EC can generate different clauses depending on
-	 * context.  Suppose we have an EC {X.X, Y.Y, Z.Z} where X and Y are the
-	 * LHS and RHS of the current join and Z is in required_outer, and further
-	 * suppose that the inner_path is parameterized by both X and Z.  The code
-	 * above will have produced either Z.Z = X.X or Z.Z = Y.Y from that EC,
-	 * and in the latter case will have discarded it as being movable into the
-	 * RHS.  However, the EC machinery might have produced either Y.Y = X.X or
-	 * Y.Y = Z.Z as the EC enforcement clause within the inner_path; it will
-	 * not have produced both, and we can't readily tell from here which one
-	 * it did pick.  If we add no clause to this join, we'll end up with
-	 * insufficient enforcement of the EC; either Z.Z or X.X will fail to be
-	 * constrained to be equal to the other members of the EC.  (When we come
-	 * to join Z to this X/Y path, we will certainly drop whichever EC clause
-	 * is generated at that join, so this omission won't get fixed later.)
+	 * 等价类（EquivalenceClasses）比我们希望的更难对付，因为
+	 * 给定的 EC 会随上下文生成不同的子句。设有 EC {X.X, Y.Y, Z.Z}，
+	 * 其中 X 和 Y 是当前连接的左侧和右侧，Z 在 required_outer 里，并且
+	 * 再设 inner_path 同时由 X 和 Z 参数化。上面的代码
+	 * 会从该 EC 产生 Z.Z = X.X 或 Z.Z = Y.Y，
+	 * 后一种情形会因为它可移进右侧而被丢掉。
+	 * 然而 EC 机制在 inner_path 内部作为强制子句，
+	 * 可能产生了 Y.Y = X.X 或 Y.Y = Z.Z；
+	 * 它不会两个都产生，而我们从这里没法轻易看出
+	 * 它选了哪一个。若这次连接不加任何子句，最终对该
+	 * EC 的强制会不足：Z.Z 或 X.X 会没法
+	 * 被约束成等于该 EC 的其他成员。（等我们把
+	 * Z 连到这条 X/Y 路径时，肯定会丢掉在那次连接上
+	 * 生成的那条 EC 子句，所以这个遗漏
+	 * 以后补不上。）
 	 *
-	 * To handle this, for each EC we discarded such a clause from, try to
-	 * generate a clause connecting the required_outer rels to the join's LHS
-	 * ("Z.Z = X.X" in the terms of the above example).  If successful, and if
-	 * the clause can't be moved to the LHS, add it to the current join's
-	 * restriction clauses.  (If an EC cannot generate such a clause then it
-	 * has nothing that needs to be enforced here, while if the clause can be
-	 * moved into the LHS then it should have been enforced within that path.)
+	 * 为处理这一点，对每个我们从中丢掉了这样一条子句的 EC，
+	 * 尝试生成一条把 required_outer 关系连到该连接左侧的子句
+	 * （按上面例子的说法就是 Z.Z = X.X）。若成功，并且该
+	 * 子句没法移到左侧，就把它加进当前连接的
+	 * 限制子句。（若某个 EC 无法生成这样的子句，则它
+	 * 没有什么必须在这里强制的；而若该子句可以
+	 * 移进左侧，则它本应已在那条路径内部被强制。）
 	 *
-	 * Note that we don't need similar processing for ECs whose clause was
-	 * considered to be movable into the LHS, because the LHS can't refer to
-	 * the RHS so there is no comparable ambiguity about what it might
-	 * actually be enforcing internally.
+	 * 注意，对子句被认为可移进左侧的那些 EC，不需要类似处理，
+	 * 因为左侧没法引用右侧，所以不存在可比的歧义，
+	 * 说不清它内部实际
+	 * 在强制什么。
 	 */
 	if (dropped_ecs)
 	{
@@ -1795,17 +1795,17 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 	}
 
 	/*
-	 * Now, attach the identified moved-down clauses to the caller's
-	 * restrict_clauses list.  By using list_concat in this order, we leave
-	 * the original list structure of restrict_clauses undamaged.
+	 * 现在，把找出的下移子句接到调用方的
+	 * restrict_clauses 列表上。按这个顺序使用 list_concat，
+	 * 就不会破坏 restrict_clauses 原来的列表结构。
 	 */
 	*restrict_clauses = list_concat(pclauses, *restrict_clauses);
 
-	/* If we already have a PPI for this parameterization, just return it */
+	/* 若这种参数化已经有 PPI，直接返回它 */
 	if ((ppi = find_param_path_info(joinrel, required_outer)))
 		return ppi;
 
-	/* Estimate the number of rows returned by the parameterized join */
+	/* 估计该参数化连接返回的行数 */
 	rows = get_parameterized_joinrel_size(root, joinrel,
 										  outer_path,
 										  inner_path,
@@ -1813,11 +1813,11 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 										  *restrict_clauses);
 
 	/*
-	 * And now we can build the ParamPathInfo.  No point in saving the
-	 * input-pair-dependent clause list, though.
+	 * 现在可以建立 ParamPathInfo 了。不过没必要保存
+	 * 依赖于这一对输入的子句列表。
 	 *
-	 * Note: in GEQO mode, we'll be called in a temporary memory context, but
-	 * the joinrel structure is there too, so no problem.
+	 * 注意：在 GEQO 模式下，我们会在临时内存上下文里被调用，但
+	 * 连接关系结构也在那里，所以没问题。
 	 */
 	ppi = makeNode(ParamPathInfo);
 	ppi->ppi_req_outer = required_outer;
@@ -1831,33 +1831,33 @@ get_joinrel_parampathinfo(PlannerInfo *root, RelOptInfo *joinrel,
 
 /*
  * get_appendrel_parampathinfo
- *		Get the ParamPathInfo for a parameterized path for an append relation.
+ *		取得 append 关系的参数化路径的 ParamPathInfo。
  *
- * For an append relation, the rowcount estimate will just be the sum of
- * the estimates for its children.  However, we still need a ParamPathInfo
- * to flag the fact that the path requires parameters.  So this just creates
- * a suitable struct with zero ppi_rows (and no ppi_clauses either, since
- * the Append node isn't responsible for checking quals).
+ * 对 append 关系，行数估计就是其子关系
+ * 估计之和。不过仍需要一个 ParamPathInfo
+ * 来标明该路径需要参数。因此这里只建立
+ * 一个合适的结构，ppi_rows 为零（也没有 ppi_clauses，
+ * 因为 Append 节点不负责检查限定条件）。
  */
 ParamPathInfo *
 get_appendrel_parampathinfo(RelOptInfo *appendrel, Relids required_outer)
 {
 	ParamPathInfo *ppi;
 
-	/* If rel has LATERAL refs, every path for it should account for them */
+	/* 若关系有 LATERAL 引用，它的每条路径都应当把它们算进去 */
 	Assert(bms_is_subset(appendrel->lateral_relids, required_outer));
 
-	/* Unparameterized paths have no ParamPathInfo */
+	/* 未参数化的路径没有 ParamPathInfo */
 	if (bms_is_empty(required_outer))
 		return NULL;
 
 	Assert(!bms_overlap(appendrel->relids, required_outer));
 
-	/* If we already have a PPI for this parameterization, just return it */
+	/* 若这种参数化已经有 PPI，直接返回它 */
 	if ((ppi = find_param_path_info(appendrel, required_outer)))
 		return ppi;
 
-	/* Else build the ParamPathInfo */
+	/* 否则建立 ParamPathInfo */
 	ppi = makeNode(ParamPathInfo);
 	ppi->ppi_req_outer = required_outer;
 	ppi->ppi_rows = 0;
@@ -1869,8 +1869,8 @@ get_appendrel_parampathinfo(RelOptInfo *appendrel, Relids required_outer)
 }
 
 /*
- * Returns a ParamPathInfo for the parameterization given by required_outer, if
- * already available in the given rel. Returns NULL otherwise.
+ * 若给定关系里已经有 required_outer 所给参数化的 ParamPathInfo，
+ * 就返回它。否则返回 NULL。
  */
 ParamPathInfo *
 find_param_path_info(RelOptInfo *rel, Relids required_outer)
@@ -1890,25 +1890,25 @@ find_param_path_info(RelOptInfo *rel, Relids required_outer)
 
 /*
  * get_param_path_clause_serials
- *		Given a parameterized Path, return the set of pushed-down clauses
- *		(identified by rinfo_serial numbers) enforced within the Path.
+ *		给定一条参数化 Path，返回在该 Path 内部强制执行的
+ *		下推子句集合（以 rinfo_serial 序号标识）。
  */
 Bitmapset *
 get_param_path_clause_serials(Path *path)
 {
 	if (path->param_info == NULL)
-		return NULL;			/* not parameterized */
+		return NULL;			/* 未参数化 */
 	if (IsA(path, NestPath) ||
 		IsA(path, MergePath) ||
 		IsA(path, HashPath))
 	{
 		/*
-		 * For a join path, combine clauses enforced within either input path
-		 * with those enforced as joinrestrictinfo in this path.  Note that
-		 * joinrestrictinfo may include some non-pushed-down clauses, but for
-		 * current purposes it's okay if we include those in the result. (To
-		 * be more careful, we could check for clause_relids overlapping the
-		 * path parameterization, but it's not worth the cycles for now.)
+		 * 对连接路径，把任一输入路径内部强制的子句
+		 * 与本路径里作为 joinrestrictinfo 强制的子句合并。注意
+		 * joinrestrictinfo 可能含一些非下推子句，但就
+		 * 当前目的而言，把它们也放进结果是可以的。（若要
+		 * 更小心，可以检查 clause_relids 是否与该
+		 * 路径的参数化重叠，但目前不值得花这些周期。）
 		 */
 		JoinPath   *jpath = (JoinPath *) path;
 		Bitmapset  *pserials;
@@ -1930,8 +1930,8 @@ get_param_path_clause_serials(Path *path)
 	else if (IsA(path, AppendPath))
 	{
 		/*
-		 * For an appendrel, take the intersection of the sets of clauses
-		 * enforced in each input path.
+		 * 对 appendrel，取每条输入路径里强制子句
+		 * 集合的交集。
 		 */
 		AppendPath *apath = (AppendPath *) path;
 		Bitmapset  *pserials;
@@ -1953,7 +1953,7 @@ get_param_path_clause_serials(Path *path)
 	}
 	else if (IsA(path, MergeAppendPath))
 	{
-		/* Same as AppendPath case */
+		/* 与 AppendPath 的情形相同 */
 		MergeAppendPath *apath = (MergeAppendPath *) path;
 		Bitmapset  *pserials;
 		ListCell   *lc;
@@ -1975,8 +1975,8 @@ get_param_path_clause_serials(Path *path)
 	else
 	{
 		/*
-		 * Otherwise, it's a baserel path and we can use the
-		 * previously-computed set of serial numbers.
+		 * 否则它是基关系路径，可以用
+		 * 先前算好的序号集合。
 		 */
 		return path->param_info->ppi_serials;
 	}
@@ -1984,9 +1984,9 @@ get_param_path_clause_serials(Path *path)
 
 /*
  * build_joinrel_partition_info
- *		Checks if the two relations being joined can use partitionwise join
- *		and if yes, initialize partitioning information of the resulting
- *		partitioned join relation.
+ *		检查正在连接的两个关系能否使用按分区连接，
+ *		若可以，就初始化结果分区连接关系的
+ *		分区信息。
  */
 static void
 build_joinrel_partition_info(PlannerInfo *root,
@@ -1996,7 +1996,7 @@ build_joinrel_partition_info(PlannerInfo *root,
 {
 	PartitionScheme part_scheme;
 
-	/* Nothing to do if partitionwise join technique is disabled. */
+	/* 若按分区连接技术被禁用，就无事可做。 */
 	if (!enable_partitionwise_join)
 	{
 		Assert(!IS_PARTITIONED_REL(joinrel));
@@ -2004,15 +2004,15 @@ build_joinrel_partition_info(PlannerInfo *root,
 	}
 
 	/*
-	 * We can only consider this join as an input to further partitionwise
-	 * joins if (a) the input relations are partitioned and have
-	 * consider_partitionwise_join=true, (b) the partition schemes match, and
-	 * (c) we can identify an equi-join between the partition keys.  Note that
-	 * if it were possible for have_partkey_equi_join to return different
-	 * answers for the same joinrel depending on which join ordering we try
-	 * first, this logic would break.  That shouldn't happen, though, because
-	 * of the way the query planner deduces implied equalities and reorders
-	 * the joins.  Please see optimizer/README for details.
+	 * 只有当 (a) 输入关系已分区且
+	 * consider_partitionwise_join 为真，(b) 分区方案匹配，并且
+	 * (c) 我们能认出分区键之间的等值连接时，才能把这次连接
+	 * 当作进一步按分区连接的输入。注意，若
+	 * have_partkey_equi_join 对同一个连接关系会因我们先尝试
+	 * 哪种连接顺序而返回不同答案，这段逻辑就会坏掉。
+	 * 不过那不该发生，因为查询规划器推导隐含等式并重排
+	 * 连接的方式决定了这一点。详情见
+	 * optimizer/README。
 	 */
 	if (outer_rel->part_scheme == NULL || inner_rel->part_scheme == NULL ||
 		!outer_rel->consider_partitionwise_join ||
@@ -2028,26 +2028,26 @@ build_joinrel_partition_info(PlannerInfo *root,
 	part_scheme = outer_rel->part_scheme;
 
 	/*
-	 * This function will be called only once for each joinrel, hence it
-	 * should not have partitioning fields filled yet.
+	 * 本函数对每个连接关系只调用一次，因此
+	 * 分区相关成员应当还没填过。
 	 */
 	Assert(!joinrel->part_scheme && !joinrel->partexprs &&
 		   !joinrel->nullable_partexprs && !joinrel->part_rels &&
 		   !joinrel->boundinfo);
 
 	/*
-	 * If the join relation is partitioned, it uses the same partitioning
-	 * scheme as the joining relations.
+	 * 若该连接关系是分区的，它使用与参与连接的
+	 * 关系相同的分区方案。
 	 *
-	 * Note: we calculate the partition bounds, number of partitions, and
-	 * child-join relations of the join relation in try_partitionwise_join().
+	 * 注意：连接关系的分区边界、分区数和
+	 * 子连接关系在 try_partitionwise_join() 里计算。
 	 */
 	joinrel->part_scheme = part_scheme;
 	set_joinrel_partition_key_exprs(joinrel, outer_rel, inner_rel,
 									sjinfo->jointype);
 
 	/*
-	 * Set the consider_partitionwise_join flag.
+	 * 设置 consider_partitionwise_join 标志。
 	 */
 	Assert(outer_rel->consider_partitionwise_join);
 	Assert(inner_rel->consider_partitionwise_join);
@@ -2057,9 +2057,9 @@ build_joinrel_partition_info(PlannerInfo *root,
 /*
  * have_partkey_equi_join
  *
- * Returns true if there exist equi-join conditions involving pairs
- * of matching partition keys of the relations being joined for all
- * partition keys.
+ * 若对全部分区键，都存在涉及正在连接的
+ * 关系之匹配分区键对的等值连接条件，
+ * 则返回真。
  */
 static bool
 have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
@@ -2073,8 +2073,8 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 	bool		strict_op;
 
 	/*
-	 * This function must only be called when the joined relations have same
-	 * partitioning scheme.
+	 * 仅当被连接的关系具有相同的
+	 * 分区方案时，才可以调用本函数。
 	 */
 	Assert(rel1->part_scheme == rel2->part_scheme);
 	Assert(part_scheme);
@@ -2089,23 +2089,23 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 		int			ipk1;
 		int			ipk2;
 
-		/* If processing an outer join, only use its own join clauses. */
+		/* 若正在处理外连接，只用它自己的连接子句。 */
 		if (IS_OUTER_JOIN(jointype) &&
 			RINFO_IS_PUSHED_DOWN(rinfo, joinrel->relids))
 			continue;
 
-		/* Skip clauses which can not be used for a join. */
+		/* 跳过不能用于连接的子句。 */
 		if (!rinfo->can_join)
 			continue;
 
-		/* Skip clauses which are not equality conditions. */
+		/* 跳过不是等值条件的子句。 */
 		if (!rinfo->mergeopfamilies && !OidIsValid(rinfo->hashjoinoperator))
 			continue;
 
-		/* Should be OK to assume it's an OpExpr. */
+		/* 应当可以假定它是 OpExpr。 */
 		opexpr = castNode(OpExpr, rinfo->clause);
 
-		/* Match the operands to the relation. */
+		/* 把操作数匹配到关系上。 */
 		if (bms_is_subset(rinfo->left_relids, rel1->relids) &&
 			bms_is_subset(rinfo->right_relids, rel2->relids))
 		{
@@ -2122,16 +2122,16 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 			continue;
 
 		/*
-		 * Now we need to know whether the join operator is strict; see
-		 * comments in pathnodes.h.
+		 * 现在需要知道该连接操作符是否严格；见
+		 * pathnodes.h 里的注释。
 		 */
 		strict_op = op_strict(opexpr->opno);
 
 		/*
-		 * Vars appearing in the relation's partition keys will not have any
-		 * varnullingrels, but those in expr1 and expr2 will if we're above
-		 * outer joins that could null the respective rels.  It's okay to
-		 * match anyway, if the join operator is strict.
+		 * 出现在关系分区键里的 Var 不会有任何
+		 * varnullingrels，但若我们位于可能把相应关系置空的
+		 * 外连接之上，expr1 和 expr2 里的就会有。只要连接操作符
+		 * 是严格的，照样匹配也没关系。
 		 */
 		if (strict_op)
 		{
@@ -2146,8 +2146,8 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 		}
 
 		/*
-		 * Only clauses referencing the partition keys are useful for
-		 * partitionwise join.
+		 * 只有引用分区键的子句才对
+		 * 按分区连接有用。
 		 */
 		ipk1 = match_expr_to_partition_keys(expr1, rel1, strict_op);
 		if (ipk1 < 0)
@@ -2157,19 +2157,19 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 			continue;
 
 		/*
-		 * If the clause refers to keys at different ordinal positions, it can
-		 * not be used for partitionwise join.
+		 * 若子句引用的键序号位置不同，它就
+		 * 不能用于按分区连接。
 		 */
 		if (ipk1 != ipk2)
 			continue;
 
-		/* Reject if the partition key collation differs from the clause's. */
+		/* 若分区键的排序规则与子句的不同，就拒绝。 */
 		if (rel1->part_scheme->partcollation[ipk1] != opexpr->inputcollid)
 			return false;
 
 		/*
-		 * The clause allows partitionwise join only if it uses the same
-		 * operator family as that specified by the partition key.
+		 * 仅当子句使用的操作符族与分区键所指定的
+		 * 相同时，该子句才允许按分区连接。
 		 */
 		if (rel1->part_scheme->strategy == PARTITION_STRATEGY_HASH)
 		{
@@ -2182,11 +2182,11 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 								  part_scheme->partopfamily[ipk1]))
 			continue;
 
-		/* Mark the partition key as having an equi-join clause. */
+		/* 把该分区键标成已有等值连接子句。 */
 		pk_has_clause[ipk1] = true;
 	}
 
-	/* Check whether every partition key has an equi-join condition. */
+	/* 检查是否每个分区键都有等值连接条件。 */
 	for (cnt_pks = 0; cnt_pks < part_scheme->partnatts; cnt_pks++)
 	{
 		if (!pk_has_clause[cnt_pks])
@@ -2199,25 +2199,25 @@ have_partkey_equi_join(PlannerInfo *root, RelOptInfo *joinrel,
 /*
  * match_expr_to_partition_keys
  *
- * Tries to match an expression to one of the nullable or non-nullable
- * partition keys of "rel".  Returns the matched key's ordinal position,
- * or -1 if the expression could not be matched to any of the keys.
+ * 尝试把一个表达式匹配到 rel 的某个可空或非可空
+ * 分区键。返回匹配键的序号位置，
+ * 若该表达式无法匹配到任何键则返回 -1。
  *
- * strict_op must be true if the expression will be compared with the
- * partition key using a strict operator.  This allows us to consider
- * nullable as well as nonnullable partition keys.
+ * 若表达式将用严格操作符与分区键比较，
+ * strict_op 必须为真。这样就可以同时考虑
+ * 可空以及非可空的分区键。
  */
 static int
 match_expr_to_partition_keys(Expr *expr, RelOptInfo *rel, bool strict_op)
 {
 	int			cnt;
 
-	/* This function should be called only for partitioned relations. */
+	/* 本函数只应对已分区的关系调用。 */
 	Assert(rel->part_scheme);
 	Assert(rel->partexprs);
 	Assert(rel->nullable_partexprs);
 
-	/* Remove any relabel decorations. */
+	/* 去掉任何 relabel 装饰。 */
 	while (IsA(expr, RelabelType))
 		expr = (Expr *) (castNode(RelabelType, expr))->arg;
 
@@ -2225,7 +2225,7 @@ match_expr_to_partition_keys(Expr *expr, RelOptInfo *rel, bool strict_op)
 	{
 		ListCell   *lc;
 
-		/* We can always match to the non-nullable partition keys. */
+		/* 我们总是可以匹配到非可空的分区键。 */
 		foreach(lc, rel->partexprs[cnt])
 		{
 			if (equal(lfirst(lc), expr))
@@ -2236,11 +2236,11 @@ match_expr_to_partition_keys(Expr *expr, RelOptInfo *rel, bool strict_op)
 			continue;
 
 		/*
-		 * If it's a strict join operator then a NULL partition key on one
-		 * side will not join to any partition key on the other side, and in
-		 * particular such a row can't join to a row from a different
-		 * partition on the other side.  So, it's okay to search the nullable
-		 * partition keys as well.
+		 * 若它是严格连接操作符，则一侧的 NULL 分区键
+		 * 不会连到另一侧的任何分区键，尤其是
+		 * 这样的行不能连到另一侧不同
+		 * 分区里的行。因此也可以去搜可空的
+		 * 分区键。
 		 */
 		foreach(lc, rel->nullable_partexprs[cnt])
 		{
@@ -2254,7 +2254,7 @@ match_expr_to_partition_keys(Expr *expr, RelOptInfo *rel, bool strict_op)
 
 /*
  * set_joinrel_partition_key_exprs
- *		Initialize partition key expressions for a partitioned joinrel.
+ *		为分区的连接关系初始化分区键表达式。
  */
 static void
 set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
@@ -2269,14 +2269,14 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 		(List **) palloc0(sizeof(List *) * partnatts);
 
 	/*
-	 * The joinrel's partition expressions are the same as those of the input
-	 * rels, but we must properly classify them as nullable or not in the
-	 * joinrel's output.  (Also, we add some more partition expressions if
-	 * it's a FULL JOIN.)
+	 * 连接关系的分区表达式与输入
+	 * 关系的相同，但必须在连接关系的输出里
+	 * 把它们正确分成可空或不可空。（另外，若是
+	 * FULL JOIN，我们还会再加一些分区表达式。）
 	 */
 	for (int cnt = 0; cnt < partnatts; cnt++)
 	{
-		/* mark these const to enforce that we copy them properly */
+		/* 把它们标成 const，以强制我们正确地复制 */
 		const List *outer_expr = outer_rel->partexprs[cnt];
 		const List *outer_null_expr = outer_rel->nullable_partexprs[cnt];
 		const List *inner_expr = inner_rel->partexprs[cnt];
@@ -2288,13 +2288,13 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 		switch (jointype)
 		{
 				/*
-				 * A join relation resulting from an INNER join may be
-				 * regarded as partitioned by either of the inner and outer
-				 * relation keys.  For example, A INNER JOIN B ON A.a = B.b
-				 * can be regarded as partitioned on either A.a or B.b.  So we
-				 * add both keys to the joinrel's partexpr lists.  However,
-				 * anything that was already nullable still has to be treated
-				 * as nullable.
+				 * 由 INNER 连接得到的连接关系，可以看作
+				 * 按内侧或外侧关系键之一来分区。例如
+				 * A INNER JOIN B ON A.a = B.b
+				 * 可以看作按 A.a 或 B.b 分区。因此我们
+				 * 把两个键都加进连接关系的 partexpr 列表。不过，
+				 * 任何已经可空的东西仍必须当作
+				 * 可空来处理。
 				 */
 			case JOIN_INNER:
 				partexpr = list_concat_copy(outer_expr, inner_expr);
@@ -2303,11 +2303,11 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 				break;
 
 				/*
-				 * A join relation resulting from a SEMI or ANTI join may be
-				 * regarded as partitioned by the outer relation keys.  The
-				 * inner relation's keys are no longer interesting; since they
-				 * aren't visible in the join output, nothing could join to
-				 * them.
+				 * 由 SEMI 或 ANTI 连接得到的连接关系，可以
+				 * 看作按外侧关系键来分区。内侧关系的键
+				 * 不再有意思；它们在连接输出里不可见，
+				 * 没有什么能够
+				 * 连到它们。
 				 */
 			case JOIN_SEMI:
 			case JOIN_ANTI:
@@ -2316,11 +2316,11 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 				break;
 
 				/*
-				 * A join relation resulting from a LEFT OUTER JOIN likewise
-				 * may be regarded as partitioned on the (non-nullable) outer
-				 * relation keys.  The inner (nullable) relation keys are okay
-				 * as partition keys for further joins as long as they involve
-				 * strict join operators.
+				 * 由 LEFT OUTER JOIN 得到的连接关系，同样
+				 * 可以看作按（非可空的）外侧关系键来分区。
+				 * 内侧（可空）关系键，只要后续连接使用
+				 * 严格连接操作符，仍可以作为进一步连接的
+				 * 分区键。
 				 */
 			case JOIN_LEFT:
 				partexpr = list_copy(outer_expr);
@@ -2331,10 +2331,10 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 				break;
 
 				/*
-				 * For FULL OUTER JOINs, both relations are nullable, so the
-				 * resulting join relation may be regarded as partitioned on
-				 * either of inner and outer relation keys, but only for joins
-				 * that involve strict join operators.
+				 * 对 FULL OUTER JOINs，两侧关系都可空，因此
+				 * 结果连接关系可以看作按内侧或外侧关系键
+				 * 之一来分区，但仅限于涉及严格连接操作符的
+				 * 那些连接。
 				 */
 			case JOIN_FULL:
 				nullable_partexpr = list_concat_copy(outer_expr,
@@ -2345,28 +2345,28 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 												inner_null_expr);
 
 				/*
-				 * Also add CoalesceExprs corresponding to each possible
-				 * full-join output variable (that is, left side coalesced to
-				 * right side), so that we can match equijoin expressions
-				 * using those variables.  We really only need these for
-				 * columns merged by JOIN USING, and only with the pairs of
-				 * input items that correspond to the data structures that
-				 * parse analysis would build for such variables.  But it's
-				 * hard to tell which those are, so just make all the pairs.
-				 * Extra items in the nullable_partexprs list won't cause big
-				 * problems.  (It's possible that such items will get matched
-				 * to user-written COALESCEs, but it should still be valid to
-				 * partition on those, since they're going to be either the
-				 * partition column or NULL; it's the same argument as for
-				 * partitionwise nesting of any outer join.)  We assume no
-				 * type coercions are needed to make the coalesce expressions,
-				 * since columns of different types won't have gotten
-				 * classified as the same PartitionScheme.  Note that we
-				 * intentionally leave out the varnullingrels decoration that
-				 * would ordinarily appear on the Vars inside these
-				 * CoalesceExprs, because have_partkey_equi_join will strip
-				 * varnullingrels from the expressions it will compare to the
-				 * partexprs.
+				 * 也加入与每个可能的
+				 * 全连接输出变量对应的 CoalesceExprs
+				 * （也就是左侧合并到右侧），以便匹配
+				 * 使用这些变量的等值连接表达式。真正用得着的
+				 * 只是被 JOIN USING 合并的那些列，并且只针对
+				 * 与语法分析会为这类变量建立的
+				 * 数据结构相对应的那几对输入项。
+				 * 但很难分辨哪些才是那些，所以就把
+				 * 所有配对都做出来。nullable_partexprs 列表里
+				 * 多出来的项不会造成大问题。（这些项
+				 * 有可能匹配到用户写下的 COALESCEs，但按它们
+				 * 分区仍然有效，因为它们将要么是分区列，
+				 * 要么是 NULL；这与任何外连接做按分区
+				 * 嵌套时的论据相同。）我们假定构造合并表达式
+				 * 不需要类型强制，因为不同类型的列不会
+				 * 被归成同一个 PartitionScheme。注意，我们
+				 * 有意省掉通常会出现在这些
+				 * CoalesceExprs 内部 Var 上的
+				 * varnullingrels 装饰，因为 have_partkey_equi_join
+				 * 会从它将拿来比较的表达式上剥掉
+				 * varnullingrels，再与 partexprs
+				 * 比较。
 				 */
 				foreach(lc, list_concat_copy(outer_expr, outer_null_expr))
 				{
@@ -2398,7 +2398,7 @@ set_joinrel_partition_key_exprs(RelOptInfo *joinrel,
 
 /*
  * build_child_join_reltarget
- *	  Set up a child-join relation's reltarget from a parent-join relation.
+ *	  根据父连接关系建立子连接关系的 reltarget。
  */
 static void
 build_child_join_reltarget(PlannerInfo *root,
@@ -2407,13 +2407,13 @@ build_child_join_reltarget(PlannerInfo *root,
 						   int nappinfos,
 						   AppendRelInfo **appinfos)
 {
-	/* Build the targetlist */
+	/* 构造目标列表 */
 	childrel->reltarget->exprs = (List *)
 		adjust_appendrel_attrs(root,
 							   (Node *) parentrel->reltarget->exprs,
 							   nappinfos, appinfos);
 
-	/* Set the cost and width fields */
+	/* 设置代价和宽度成员 */
 	childrel->reltarget->cost.startup = parentrel->reltarget->cost.startup;
 	childrel->reltarget->cost.per_tuple = parentrel->reltarget->cost.per_tuple;
 	childrel->reltarget->width = parentrel->reltarget->width;

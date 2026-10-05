@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0123-comment-storage-lmgr-deadlock",
+ "title": "zh: translate deadlock comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1f36b97a476385586a09b715fe93471b9e4bfe3b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/deadlock.c",
+   "kind": "c_comment",
+   "note": "deadlock detection and wait-queue reordering"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0123-comment-storage-lmgr-deadlock.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/deadlock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 132,
+   "translated": 131,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "deadlock cycles, hard/soft edges, and wait-queue reorder"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0123-comment-storage-lmgr-deadlock.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0123 translates body comments in deadlock.c. Terms: 死锁, 等待图, 硬边/软边, 等待队列, 锁组, 自动清理工作进程. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be lmgr.c (about 1308 lines) before the larger proc.c."
+}

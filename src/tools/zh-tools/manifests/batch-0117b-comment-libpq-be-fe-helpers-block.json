@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0117b-comment-libpq-be-fe-helpers-block",
+ "title": "zh: fix libpq-be-fe-helpers header block wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "35a0081385a2cb78824704cfa3eaff01af05ae20",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "note": "do not block inside libpq"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0117b-comment-libpq-be-fe-helpers-block.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 33,
+   "translated": 32,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "say 须小心不要在 libpq 内部阻塞; TODO: ASCII colon"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0117b-comment-libpq-be-fe-helpers-block.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on batch-0117"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0117b"
+  }
+ ],
+ "notes": "English baseline says careful to block (likely missing not); Chinese conveys intended not to block."
+}

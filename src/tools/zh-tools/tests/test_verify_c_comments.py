@@ -134,6 +134,47 @@ class FixedCases(unittest.TestCase):
         marker = b"/* FALLTHROUGH */\n"
         self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
 
+    def test_banner_fallthrough_prose_is_translatable(self):
+        """File headers may document switch fall-through; not a GCC marker."""
+        old = (
+            "/*-------------------------------------------------------------------------\n"
+            " *\n"
+            " * barrier.c\n"
+            " *\t  Barriers.\n"
+            " *\n"
+            " * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n"
+            " *\n"
+            " * Example cases that fall-through, as follows:\n"
+            " *\n"
+            " * IDENTIFICATION\n"
+            " *\t  src/backend/storage/ipc/barrier.c\n"
+            " *-------------------------------------------------------------------------\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        new = (
+            "/*-------------------------------------------------------------------------\n"
+            " *\n"
+            " * barrier.c\n"
+            " *\t  屏障。\n"
+            " *\n"
+            " * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n"
+            " *\n"
+            " * 示例分支会贯穿执行，如下：\n"
+            " *\n"
+            " * IDENTIFICATION\n"
+            " *\t  src/backend/storage/ipc/barrier.c\n"
+            " *-------------------------------------------------------------------------\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        comment = c_lexer.lex(old).comments[0].text
+        self.assertIsNone(c_verify.protected_reason(comment))
+        self.assertTrue(c_verify.legal_protected_segments(comment))
+        res = c_verify.compare_files(old, new, path="banner-fallthrough")
+        self.assertEqual(res.violations, [],
+                         [f.to_dict() for f in res.violations])
+
     def test_no_strict_lines_demotes_rule6(self):
         old = b"/* one two */\nint a;\n"
         new = b"/* \xe4\xb8\x80\n * \xe4\xba\x8c */\nint a;\n"

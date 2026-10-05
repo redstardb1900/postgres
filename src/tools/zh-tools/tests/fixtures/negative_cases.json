@@ -310,14 +310,14 @@
     {
       "id": "pos-header-module-translated",
       "expect": "ok",
-      "old": "/*-------------------------------------------------------------------------\n *\n * latch.c\n *\t  Routines for inter-process latches\n *\n * The poll() implementation uses the self-pipe trick.\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/latch.c\n *\n *-------------------------------------------------------------------------\n */\n",
-      "new": "/*-------------------------------------------------------------------------\n *\n * latch.c\n *\t  进程间锁存器例程\n *\n * poll() 实现使用 self-pipe 技巧。\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/latch.c\n *\n *-------------------------------------------------------------------------\n */\n"
+      "old": "/*-------------------------------------------------------------------------\n *\n * barrier.c\n *\t  Barriers for synchronizing cooperating processes.\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * NOTES\n *\t  A barrier waits until all participants arrive.\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/barrier.c\n *\n *-------------------------------------------------------------------------\n */\n",
+      "new": "/*-------------------------------------------------------------------------\n *\n * barrier.c\n *\t  用于同步协作进程的屏障。\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * NOTES\n *\t  屏障会等待直到所有参与者到达。\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/barrier.c\n *\n *-------------------------------------------------------------------------\n */\n"
     },
     {
       "id": "neg-header-legal-modified",
       "expect": "R5_PROTECTED",
-      "old": "/*-------------------------------------------------------------------------\n *\n * latch.c\n *\t  Routines for inter-process latches\n *\n * The poll() implementation uses the self-pipe trick.\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/latch.c\n *\n *-------------------------------------------------------------------------\n */\n",
-      "new": "/*-------------------------------------------------------------------------\n *\n * latch.c\n *\t  进程间锁存器例程\n *\n * poll() 实现使用 self-pipe 技巧。\n *\n * 部分版权所有 (c) 1996-2023, PostgreSQL Global Development Group\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/latch.c\n *\n *-------------------------------------------------------------------------\n */\n"
+      "old": "/*-------------------------------------------------------------------------\n *\n * barrier.c\n *\t  Barriers for synchronizing cooperating processes.\n *\n * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group\n *\n * NOTES\n *\t  A barrier waits until all participants arrive.\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/barrier.c\n *\n *-------------------------------------------------------------------------\n */\n",
+      "new": "/*-------------------------------------------------------------------------\n *\n * barrier.c\n *\t  用于同步协作进程的屏障。\n *\n * 部分版权 (c) 1996-2023, PostgreSQL Global Development Group\n *\n * NOTES\n *\t  屏障会等待直到所有参与者到达。\n *\n * IDENTIFICATION\n *\t  src/backend/storage/ipc/barrier.c\n *\n *-------------------------------------------------------------------------\n */\n"
     },
     {
       "id": "neg-lf-added-in-comment",

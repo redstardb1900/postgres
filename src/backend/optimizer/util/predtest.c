@@ -31,41 +31,41 @@
 
 
 /*
- * Proof attempts involving large arrays in ScalarArrayOpExpr nodes are
- * likely to require O(N^2) time, and more often than not fail anyway.
- * So we set an arbitrary limit on the number of array elements that
- * we will allow to be treated as an AND or OR clause.
- * XXX is it worth exposing this as a GUC knob?
+ * 对 ScalarArrayOpExpr 节点里的大数组做证明，
+ * 多半需要 O(N^2) 时间，而且往往还是失败。
+ * 因此我们任意设了一个上限，限制
+ * 允许当作 AND 或 OR 子句处理的数组元素个数。
+ * XXX 值不值得把它做成 GUC 开关？
  */
 #define MAX_SAOP_ARRAY_SIZE		100
 
 /*
- * To avoid redundant coding in predicate_implied_by_recurse and
- * predicate_refuted_by_recurse, we need to abstract out the notion of
- * iterating over the components of an expression that is logically an AND
- * or OR structure.  There are multiple sorts of expression nodes that can
- * be treated as ANDs or ORs, and we don't want to code each one separately.
- * Hence, these types and support routines.
+ * 为避免在 predicate_implied_by_recurse 和
+ * predicate_refuted_by_recurse 里写重复代码，需要把
+ * 遍历逻辑上是 AND
+ * 或 OR 结构的表达式分量这一概念抽出来。有多种表达式节点可以
+ * 当作 ANDs 或 OR 处理，我们不想为每一种单独写代码。
+ * 因此有了这些类型和辅助例程。
  */
 typedef enum
 {
-	CLASS_ATOM,					/* expression that's not AND or OR */
-	CLASS_AND,					/* expression with AND semantics */
-	CLASS_OR					/* expression with OR semantics */
+	CLASS_ATOM,					/* 既不是 AND 也不是 OR 的表达式 */
+	CLASS_AND,					/* 具有 AND 语义的表达式 */
+	CLASS_OR					/* 具有 OR 语义的表达式 */
 } PredClass;
 
 typedef struct PredIterInfoData *PredIterInfo;
 
 typedef struct PredIterInfoData
 {
-	/* node-type-specific iteration state */
+	/* 随节点类型而异的迭代状态 */
 	void	   *state;
 	List	   *state_list;
-	/* initialize to do the iteration */
+	/* 初始化以便开始迭代 */
 	void		(*startup_fn) (Node *clause, PredIterInfo info);
-	/* next-component iteration function */
+	/* 取下一个分量的迭代函数 */
 	Node	   *(*next_fn) (PredIterInfo info);
-	/* release resources when done with iteration */
+	/* 迭代结束后释放资源 */
 	void		(*cleanup_fn) (PredIterInfo info);
 } PredIterInfoData;
 
@@ -114,39 +114,39 @@ static void InvalidateOprProofCacheCallBack(Datum arg, int cacheid, uint32 hashv
 
 /*
  * predicate_implied_by
- *	  Recursively checks whether the clauses in clause_list imply that the
- *	  given predicate is true.
+ *	  递归检查 clause_list 中的子句是否蕴含
+ *	  给定谓词为真。
  *
- * We support two definitions of implication:
+ * 我们支持两种蕴含定义：
  *
- * "Strong" implication: A implies B means that truth of A implies truth of B.
- * We use this to prove that a row satisfying one WHERE clause or index
- * predicate must satisfy another one.
+ * 强蕴含：A 蕴含 B 表示 A 为真则 B 为真。
+ * 我们用它证明：满足一条 WHERE 子句或索引谓词的行，
+ * 必定满足另一条。
  *
- * "Weak" implication: A implies B means that non-falsity of A implies
- * non-falsity of B ("non-false" means "either true or NULL").  We use this to
- * prove that a row satisfying one CHECK constraint must satisfy another one.
+ * 弱蕴含：A 蕴含 B 表示 A 非假则 B 非假。
+ * 非假表示真或 NULL。我们用它证明：满足一条
+ * CHECK 约束的行必定满足另一条。
  *
- * Strong implication can also be used to prove that a WHERE clause implies a
- * CHECK constraint, although it will fail to prove a few cases where we could
- * safely conclude that the implication holds.  There's no support for proving
- * the converse case, since only a few kinds of CHECK constraint would allow
- * deducing anything.
+ * 强蕴含也可以用来证明 WHERE 子句蕴含一条 CHECK 约束，
+ * 不过有少数我们本可安全断定蕴含成立的情形，它证不出来。
+ * 不支持证明反过来的情形，
+ * 因为只有少数几种 CHECK 约束
+ * 能据以推出什么。
  *
- * The top-level List structure of each list corresponds to an AND list.
- * We assume that eval_const_expressions() has been applied and so there
- * are no un-flattened ANDs or ORs (e.g., no AND immediately within an AND,
- * including AND just below the top-level List structure).
- * If this is not true we might fail to prove an implication that is
- * valid, but no worse consequences will ensue.
+ * 每个列表的顶层 List 结构对应一个 AND 列表。
+ * 我们假定已经用过 eval_const_expressions()，因此没有未展平的
+ * ANDs 或 OR（例如 AND 里紧挨着另一个 AND，
+ * 包括顶层 List 结构正下方的 AND）。
+ * 若并非如此，我们可能证不出一条本应成立的蕴含，
+ * 但不会有更糟的后果。
  *
- * We assume the predicate has already been checked to contain only
- * immutable functions and operators.  (In many current uses this is known
- * true because the predicate is part of an index predicate that has passed
- * CheckPredicate(); otherwise, the caller must check it.)  We dare not make
- * deductions based on non-immutable functions, because they might change
- * answers between the time we make the plan and the time we execute the plan.
- * Immutability of functions in the clause_list is checked here, if necessary.
+ * 我们假定谓词已经检查过，只含
+ * 不可变函数和操作符。（许多当前用法里这是已知的，
+ * 因为谓词是通过了 CheckPredicate() 的索引谓词的一部分；
+ * 否则调用者必须自己检查。）我们不敢根据
+ * 非不可变函数做推导，因为从做出计划到执行计划之间，
+ * 它们的结果可能改变。
+ * 必要时在这里检查 clause_list 中函数的不可变性。
  */
 bool
 predicate_implied_by(List *predicate_list, List *clause_list,
@@ -156,15 +156,15 @@ predicate_implied_by(List *predicate_list, List *clause_list,
 			   *c;
 
 	if (predicate_list == NIL)
-		return true;			/* no predicate: implication is vacuous */
+		return true;			/* 没有谓词：蕴含是空泛的 */
 	if (clause_list == NIL)
-		return false;			/* no restriction: implication must fail */
+		return false;			/* 没有限制：蕴含必定失败 */
 
 	/*
-	 * If either input is a single-element list, replace it with its lone
-	 * member; this avoids one useless level of AND-recursion.  We only need
-	 * to worry about this at top level, since eval_const_expressions should
-	 * have gotten rid of any trivial ANDs or ORs below that.
+	 * 若任一输入是单元素列表，就换成它那唯一的
+	 * 成员；这样省掉一层无用的 AND 递归。只需要
+	 * 在顶层操心这一点，因为 eval_const_expressions 应当
+	 * 已经去掉了更下层的平凡 ANDs 或 OR。
 	 */
 	if (list_length(predicate_list) == 1)
 		p = (Node *) linitial(predicate_list);
@@ -175,48 +175,48 @@ predicate_implied_by(List *predicate_list, List *clause_list,
 	else
 		c = (Node *) clause_list;
 
-	/* And away we go ... */
+	/* 然后就开始…… */
 	return predicate_implied_by_recurse(c, p, weak);
 }
 
 /*
  * predicate_refuted_by
- *	  Recursively checks whether the clauses in clause_list refute the given
- *	  predicate (that is, prove it false).
+ *	  递归检查 clause_list 中的子句是否反驳给定
+ *	  谓词（也就是证明它为假）。
  *
- * This is NOT the same as !(predicate_implied_by), though it is similar
- * in the technique and structure of the code.
+ * 这并不等于对 predicate_implied_by 取反，尽管代码的
+ * 手法和结构与之相似。
  *
- * We support two definitions of refutation:
+ * 我们支持两种反驳定义：
  *
- * "Strong" refutation: A refutes B means truth of A implies falsity of B.
- * We use this to disprove a CHECK constraint given a WHERE clause, i.e.,
- * prove that any row satisfying the WHERE clause would violate the CHECK
- * constraint.  (Observe we must prove B yields false, not just not-true.)
+ * 强反驳：A 反驳 B 表示 A 为真蕴含 B 为假。
+ * 我们用它在给定 WHERE 子句时否定一条 CHECK 约束，也就是
+ * 证明任何满足 WHERE 子句的行都会违反该 CHECK
+ * 约束。（注意必须证明 B 得出假，而不只是非真。）
  *
- * "Weak" refutation: A refutes B means truth of A implies non-truth of B
- * (i.e., B must yield false or NULL).  We use this to detect mutually
- * contradictory WHERE clauses.
+ * 弱反驳：A 反驳 B 表示 A 为真蕴含 B 非真
+ * （即 B 必须得出假或 NULL）。我们用它检测互相
+ * 矛盾的 WHERE 子句。
  *
- * Weak refutation can be proven in some cases where strong refutation doesn't
- * hold, so it's useful to use it when possible.  We don't currently have
- * support for disproving one CHECK constraint based on another one, nor for
- * disproving WHERE based on CHECK.  (As with implication, the last case
- * doesn't seem very practical.  CHECK-vs-CHECK might be useful, but isn't
- * currently needed anywhere.)
+ * 有些强反驳不成立的情形仍能证明弱反驳，
+ * 因此能用时就用它。目前不支持
+ * 根据一条 CHECK 约束否定另一条，也不支持
+ * 根据 CHECK 否定 WHERE。（和蕴含一样，后一种
+ * 似乎不太实用。CHECK 对 CHECK 也许有用，但目前
+ * 哪里都不需要。）
  *
- * The top-level List structure of each list corresponds to an AND list.
- * We assume that eval_const_expressions() has been applied and so there
- * are no un-flattened ANDs or ORs (e.g., no AND immediately within an AND,
- * including AND just below the top-level List structure).
- * If this is not true we might fail to prove an implication that is
- * valid, but no worse consequences will ensue.
+ * 每个列表的顶层 List 结构对应一个 AND 列表。
+ * 我们假定已经用过 eval_const_expressions()，因此
+ * 没有未展平的 ANDs 或 OR（例如 AND 里紧挨着另一个 AND，
+ * 包括顶层 List 结构正下方的 AND）。
+ * 若并非如此，我们可能证不出一条本应
+ * 成立的蕴含，但不会有更糟的后果。
  *
- * We assume the predicate has already been checked to contain only
- * immutable functions and operators.  We dare not make deductions based on
- * non-immutable functions, because they might change answers between the
- * time we make the plan and the time we execute the plan.
- * Immutability of functions in the clause_list is checked here, if necessary.
+ * 我们假定谓词已经检查过，只含
+ * 不可变函数和操作符。我们不敢根据
+ * 非不可变函数做推导，因为从做出
+ * 计划到执行计划之间，它们的结果可能改变。
+ * 必要时在这里检查 clause_list 中函数的不可变性。
  */
 bool
 predicate_refuted_by(List *predicate_list, List *clause_list,
@@ -226,15 +226,15 @@ predicate_refuted_by(List *predicate_list, List *clause_list,
 			   *c;
 
 	if (predicate_list == NIL)
-		return false;			/* no predicate: no refutation is possible */
+		return false;			/* 没有谓词：不可能反驳 */
 	if (clause_list == NIL)
-		return false;			/* no restriction: refutation must fail */
+		return false;			/* 没有限制：反驳必定失败 */
 
 	/*
-	 * If either input is a single-element list, replace it with its lone
-	 * member; this avoids one useless level of AND-recursion.  We only need
-	 * to worry about this at top level, since eval_const_expressions should
-	 * have gotten rid of any trivial ANDs or ORs below that.
+	 * 若任一输入是单元素列表，就换成它那唯一的
+	 * 成员；这样省掉一层无用的 AND 递归。只需要
+	 * 在顶层操心这一点，因为 eval_const_expressions 应当
+	 * 已经去掉了更下层的平凡 ANDs 或 OR。
 	 */
 	if (list_length(predicate_list) == 1)
 		p = (Node *) linitial(predicate_list);
@@ -245,7 +245,7 @@ predicate_refuted_by(List *predicate_list, List *clause_list,
 	else
 		c = (Node *) clause_list;
 
-	/* And away we go ... */
+	/* 然后就开始…… */
 	return predicate_refuted_by_recurse(c, p, weak);
 }
 
@@ -295,7 +295,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 	PredClass	pclass;
 	bool		result;
 
-	/* skip through RestrictInfo */
+	/* 跳过 RestrictInfo */
 	Assert(clause != NULL);
 	if (IsA(clause, RestrictInfo))
 		clause = (Node *) ((RestrictInfo *) clause)->clause;
@@ -310,7 +310,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_AND:
 
 					/*
-					 * AND-clause => AND-clause if A implies each of B's items
+					 * AND 子句 => AND 子句，若 A 蕴含 B 的每一项
 					 */
 					result = true;
 					iterate_begin(pitem, predicate, pred_info)
@@ -328,9 +328,9 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * AND-clause => OR-clause if A implies any of B's items
+					 * AND 子句 => OR 子句，若 A 蕴含 B 的任一项。
 					 *
-					 * Needed to handle (x AND y) => ((x AND y) OR z)
+					 * 为处理 (x AND y) => ((x AND y) OR z) 所需要。
 					 */
 					result = false;
 					iterate_begin(pitem, predicate, pred_info)
@@ -347,9 +347,9 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 						return result;
 
 					/*
-					 * Also check if any of A's items implies B
+					 * 也检查 A 的任一项是否蕴含 B。
 					 *
-					 * Needed to handle ((x OR y) AND z) => (x OR y)
+					 * 为处理 ((x OR y) AND z) => (x OR y) 所需要。
 					 */
 					iterate_begin(citem, clause, clause_info)
 					{
@@ -366,7 +366,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * AND-clause => atom if any of A's items implies B
+					 * AND 子句 => 原子，若 A 的任一项蕴含 B
 					 */
 					result = false;
 					iterate_begin(citem, clause, clause_info)
@@ -389,8 +389,8 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * OR-clause => OR-clause if each of A's items implies any
-					 * of B's items.  Messy but can't do it any more simply.
+					 * OR 子句 => OR 子句，若 A 的每一项蕴含 B 的
+					 * 任一项。很乱，但没法更简单。
 					 */
 					result = true;
 					iterate_begin(citem, clause, clause_info)
@@ -409,7 +409,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 						iterate_end(pred_info);
 						if (!presult)
 						{
-							result = false; /* doesn't imply any of B's */
+							result = false; /* 不蕴含 B 的任何一项 */
 							break;
 						}
 					}
@@ -420,9 +420,9 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * OR-clause => AND-clause if each of A's items implies B
+					 * OR 子句 => AND 子句，若 A 的每一项都蕴含 B。
 					 *
-					 * OR-clause => atom if each of A's items implies B
+					 * OR 子句 => 原子，若 A 的每一项都蕴含 B。
 					 */
 					result = true;
 					iterate_begin(citem, clause, clause_info)
@@ -445,7 +445,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_AND:
 
 					/*
-					 * atom => AND-clause if A implies each of B's items
+					 * 原子 => AND 子句，若 A 蕴含 B 的每一项
 					 */
 					result = true;
 					iterate_begin(pitem, predicate, pred_info)
@@ -463,7 +463,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * atom => OR-clause if A implies any of B's items
+					 * 原子 => OR 子句，若 A 蕴含 B 的任一项
 					 */
 					result = false;
 					iterate_begin(pitem, predicate, pred_info)
@@ -481,7 +481,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * atom => atom is the base case
+					 * 原子 => 原子是基本情况
 					 */
 					return
 						predicate_implied_by_simple_clause((Expr *) predicate,
@@ -491,7 +491,7 @@ predicate_implied_by_recurse(Node *clause, Node *predicate,
 			break;
 	}
 
-	/* can't get here */
+	/* 到不了这里 */
 	elog(ERROR, "predicate_classify returned a bogus value");
 	return false;
 }
@@ -537,7 +537,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 	Node	   *not_arg;
 	bool		result;
 
-	/* skip through RestrictInfo */
+	/* 跳过 RestrictInfo */
 	Assert(clause != NULL);
 	if (IsA(clause, RestrictInfo))
 		clause = (Node *) ((RestrictInfo *) clause)->clause;
@@ -552,9 +552,9 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_AND:
 
 					/*
-					 * AND-clause R=> AND-clause if A refutes any of B's items
+					 * AND 子句 R=> AND 子句，若 A 反驳 B 的任一项。
 					 *
-					 * Needed to handle (x AND y) R=> ((!x OR !y) AND z)
+					 * 为处理 (x AND y) R=> ((!x OR !y) AND z) 所需要。
 					 */
 					result = false;
 					iterate_begin(pitem, predicate, pred_info)
@@ -571,9 +571,9 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 						return result;
 
 					/*
-					 * Also check if any of A's items refutes B
+					 * 也检查 A 的任一项是否反驳 B。
 					 *
-					 * Needed to handle ((x OR y) AND z) R=> (!x AND !y)
+					 * 为处理 ((x OR y) AND z) R=> (!x AND !y) 所需要。
 					 */
 					iterate_begin(citem, clause, clause_info)
 					{
@@ -590,7 +590,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * AND-clause R=> OR-clause if A refutes each of B's items
+					 * AND 子句 R=> OR 子句，若 A 反驳 B 的每一项
 					 */
 					result = true;
 					iterate_begin(pitem, predicate, pred_info)
@@ -608,14 +608,14 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * If B is a NOT-type clause, A R=> B if A => B's arg
+					 * 若 B 是 NOT 型子句，则当 A => B 的参数时 A R=> B。
 					 *
-					 * Since, for either type of refutation, we are starting
-					 * with the premise that A is true, we can use a strong
-					 * implication test in all cases.  That proves B's arg is
-					 * true, which is more than we need for weak refutation if
-					 * B is a simple NOT, but it allows not worrying about
-					 * exactly which kind of negation clause we have.
+					 * 因为无论哪种反驳，出发点都是 A 为真，
+					 * 所以任何情况下都可以用强蕴含检验。
+					 * 那会证明 B 的参数为真。对弱反驳来说，
+					 * 若 B 只是简单的 NOT，这比所需更强，
+					 * 但它让我们不必操心
+					 * 到底是哪一种否定子句。
 					 */
 					not_arg = extract_not_arg(predicate);
 					if (not_arg &&
@@ -624,7 +624,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 						return true;
 
 					/*
-					 * AND-clause R=> atom if any of A's items refutes B
+					 * AND 子句 R=> 原子，若 A 的任一项反驳 B
 					 */
 					result = false;
 					iterate_begin(citem, clause, clause_info)
@@ -647,7 +647,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * OR-clause R=> OR-clause if A refutes each of B's items
+					 * OR 子句 R=> OR 子句，若 A 反驳 B 的每一项
 					 */
 					result = true;
 					iterate_begin(pitem, predicate, pred_info)
@@ -665,8 +665,8 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_AND:
 
 					/*
-					 * OR-clause R=> AND-clause if each of A's items refutes
-					 * any of B's items.
+					 * OR 子句 R=> AND 子句，若 A 的每一项反驳
+					 * B 的任一项。
 					 */
 					result = true;
 					iterate_begin(citem, clause, clause_info)
@@ -685,7 +685,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 						iterate_end(pred_info);
 						if (!presult)
 						{
-							result = false; /* citem refutes nothing */
+							result = false; /* citem 什么都不反驳 */
 							break;
 						}
 					}
@@ -695,9 +695,9 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * If B is a NOT-type clause, A R=> B if A => B's arg
+					 * 若 B 是 NOT 型子句，则当 A => B 的参数时 A R=> B。
 					 *
-					 * Same logic as for the AND-clause case above.
+					 * 逻辑与上面 AND 子句的情形相同。
 					 */
 					not_arg = extract_not_arg(predicate);
 					if (not_arg &&
@@ -706,7 +706,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 						return true;
 
 					/*
-					 * OR-clause R=> atom if each of A's items refutes B
+					 * OR 子句 R=> 原子，若 A 的每一项反驳 B
 					 */
 					result = true;
 					iterate_begin(citem, clause, clause_info)
@@ -726,13 +726,13 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 		case CLASS_ATOM:
 
 			/*
-			 * If A is a strong NOT-clause, A R=> B if B => A's arg
+			 * 若 A 是强 NOT 子句，则当 B 蕴含 A 的参数时 A R=> B。
 			 *
-			 * Since A is strong, we may assume A's arg is false (not just
-			 * not-true).  If B weakly implies A's arg, then B can be neither
-			 * true nor null, so that strong refutation is proven.  If B
-			 * strongly implies A's arg, then B cannot be true, so that weak
-			 * refutation is proven.
+			 * 因为 A 是强的，可以假定 A 的参数为假，而不只是非真。
+			 * 若 B 弱蕴含 A 的参数，则 B 既无法为真也无法为 null，
+			 * 从而证明了强反驳。
+			 * 若 B 强蕴含 A 的参数，则 B 无法为真，
+			 * 从而证明了弱反驳。
 			 */
 			not_arg = extract_strong_not_arg(clause);
 			if (not_arg &&
@@ -745,7 +745,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_AND:
 
 					/*
-					 * atom R=> AND-clause if A refutes any of B's items
+					 * 原子 R=> AND 子句，若 A 反驳 B 的任一项
 					 */
 					result = false;
 					iterate_begin(pitem, predicate, pred_info)
@@ -763,7 +763,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_OR:
 
 					/*
-					 * atom R=> OR-clause if A refutes each of B's items
+					 * 原子 R=> OR 子句，若 A 反驳 B 的每一项
 					 */
 					result = true;
 					iterate_begin(pitem, predicate, pred_info)
@@ -781,9 +781,9 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 				case CLASS_ATOM:
 
 					/*
-					 * If B is a NOT-type clause, A R=> B if A => B's arg
+					 * 若 B 是 NOT 型子句，则当 A => B 的参数时 A R=> B。
 					 *
-					 * Same logic as for the AND-clause case above.
+					 * 逻辑与上面 AND 子句的情形相同。
 					 */
 					not_arg = extract_not_arg(predicate);
 					if (not_arg &&
@@ -792,7 +792,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 						return true;
 
 					/*
-					 * atom R=> atom is the base case
+					 * 原子 R=> 原子是基本情况
 					 */
 					return
 						predicate_refuted_by_simple_clause((Expr *) predicate,
@@ -802,7 +802,7 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 			break;
 	}
 
-	/* can't get here */
+	/* 到不了这里 */
 	elog(ERROR, "predicate_classify returned a bogus value");
 	return false;
 }
@@ -810,28 +810,28 @@ predicate_refuted_by_recurse(Node *clause, Node *predicate,
 
 /*
  * predicate_classify
- *	  Classify an expression node as AND-type, OR-type, or neither (an atom).
+ *	  把表达式节点分成 AND 型、OR 型，或两者都不是（原子）。
  *
- * If the expression is classified as AND- or OR-type, then *info is filled
- * in with the functions needed to iterate over its components.
+ * 若分成 AND 型或 OR 型，则 *info 里填上
+ * 遍历其分量所需的函数。
  *
- * This function also implements enforcement of MAX_SAOP_ARRAY_SIZE: if a
- * ScalarArrayOpExpr's array has too many elements, we just classify it as an
- * atom.  (This will result in its being passed as-is to the simple_clause
- * functions, many of which will fail to prove anything about it.) Note that we
- * cannot just stop after considering MAX_SAOP_ARRAY_SIZE elements; in general
- * that would result in wrong proofs, rather than failing to prove anything.
+ * 本函数也强制执行 MAX_SAOP_ARRAY_SIZE：若
+ * ScalarArrayOpExpr 的数组元素过多，就只把它分成
+ * 原子。（结果是它会原样传给 simple_clause
+ * 函数，其中许多证不出任何东西。）注意我们
+ * 无法只考虑到 MAX_SAOP_ARRAY_SIZE 个元素就停下；一般说来
+ * 那样会得出错误的证明，而不是证不出任何东西。
  */
 static PredClass
 predicate_classify(Node *clause, PredIterInfo info)
 {
-	/* Caller should not pass us NULL, nor a RestrictInfo clause */
+	/* 调用者不应当传 NULL，也不应当传 RestrictInfo 子句 */
 	Assert(clause != NULL);
 	Assert(!IsA(clause, RestrictInfo));
 
 	/*
-	 * If we see a List, assume it's an implicit-AND list; this is the correct
-	 * semantics for lists of RestrictInfo nodes.
+	 * 若看到 List，就假定它是隐式 AND 列表；对
+	 * RestrictInfo 节点列表，这是正确语义。
 	 */
 	if (IsA(clause, List))
 	{
@@ -841,7 +841,7 @@ predicate_classify(Node *clause, PredIterInfo info)
 		return CLASS_AND;
 	}
 
-	/* Handle normal AND and OR boolean clauses */
+	/* 处理普通的 AND 和 OR 布尔子句 */
 	if (is_andclause(clause))
 	{
 		info->startup_fn = boolexpr_startup_fn;
@@ -857,17 +857,17 @@ predicate_classify(Node *clause, PredIterInfo info)
 		return CLASS_OR;
 	}
 
-	/* Handle ScalarArrayOpExpr */
+	/* 处理 ScalarArrayOpExpr */
 	if (IsA(clause, ScalarArrayOpExpr))
 	{
 		ScalarArrayOpExpr *saop = (ScalarArrayOpExpr *) clause;
 		Node	   *arraynode = (Node *) lsecond(saop->args);
 
 		/*
-		 * We can break this down into an AND or OR structure, but only if we
-		 * know how to iterate through expressions for the array's elements.
-		 * We can do that if the array operand is a non-null constant or a
-		 * simple ArrayExpr.
+		 * 我们可以把它拆成 AND 或 OR 结构，但前提是知道
+		 * 如何遍历数组元素的表达式。
+		 * 若数组操作数是非空常量，或是
+		 * 简单的 ArrayExpr，就可以这么做。
 		 */
 		if (arraynode && IsA(arraynode, Const) &&
 			!((Const *) arraynode)->constisnull)
@@ -896,13 +896,13 @@ predicate_classify(Node *clause, PredIterInfo info)
 		}
 	}
 
-	/* None of the above, so it's an atom */
+	/* 以上都不是，因此是原子 */
 	return CLASS_ATOM;
 }
 
 /*
- * PredIterInfo routines for iterating over regular Lists.  The iteration
- * state variable is the next ListCell to visit.
+ * 遍历普通 List 的 PredIterInfo 例程。迭代
+ * 状态变量是下一个要访问的 ListCell。
  */
 static void
 list_startup_fn(Node *clause, PredIterInfo info)
@@ -927,12 +927,12 @@ list_next_fn(PredIterInfo info)
 static void
 list_cleanup_fn(PredIterInfo info)
 {
-	/* Nothing to clean up */
+	/* 没有什么要清理的 */
 }
 
 /*
- * BoolExpr needs its own startup function, but can use list_next_fn and
- * list_cleanup_fn.
+ * BoolExpr 需要自己的启动函数，但可以使用 list_next_fn 和
+ * list_cleanup_fn。
  */
 static void
 boolexpr_startup_fn(Node *clause, PredIterInfo info)
@@ -942,8 +942,8 @@ boolexpr_startup_fn(Node *clause, PredIterInfo info)
 }
 
 /*
- * PredIterInfo routines for iterating over a ScalarArrayOpExpr with a
- * constant array operand.
+ * 遍历数组操作数为常量的 ScalarArrayOpExpr 的 PredIterInfo 例程。
+ * 数组操作数是常量。
  */
 typedef struct
 {
@@ -966,11 +966,11 @@ arrayconst_startup_fn(Node *clause, PredIterInfo info)
 	bool		elmbyval;
 	char		elmalign;
 
-	/* Create working state struct */
+	/* 建立工作状态结构 */
 	state = (ArrayConstIterState *) palloc(sizeof(ArrayConstIterState));
 	info->state = (void *) state;
 
-	/* Deconstruct the array literal */
+	/* 拆开数组字面量 */
 	arrayconst = (Const *) lsecond(saop->args);
 	arrayval = DatumGetArrayTypeP(arrayconst->constvalue);
 	get_typlenbyvalalign(ARR_ELEMTYPE(arrayval),
@@ -981,7 +981,7 @@ arrayconst_startup_fn(Node *clause, PredIterInfo info)
 					  &state->elem_values, &state->elem_nulls,
 					  &state->num_elems);
 
-	/* Set up a dummy OpExpr to return as the per-item node */
+	/* 建一个哑 OpExpr，作为逐项返回的节点 */
 	state->opexpr.xpr.type = T_OpExpr;
 	state->opexpr.opno = saop->opno;
 	state->opexpr.opfuncid = saop->opfuncid;
@@ -991,7 +991,7 @@ arrayconst_startup_fn(Node *clause, PredIterInfo info)
 	state->opexpr.inputcollid = saop->inputcollid;
 	state->opexpr.args = list_copy(saop->args);
 
-	/* Set up a dummy Const node to hold the per-element values */
+	/* 建一个哑 Const 节点，用来存放每个元素的值 */
 	state->const_expr.xpr.type = T_Const;
 	state->const_expr.consttype = ARR_ELEMTYPE(arrayval);
 	state->const_expr.consttypmod = -1;
@@ -1000,7 +1000,7 @@ arrayconst_startup_fn(Node *clause, PredIterInfo info)
 	state->const_expr.constbyval = elmbyval;
 	lsecond(state->opexpr.args) = &state->const_expr;
 
-	/* Initialize iteration state */
+	/* 初始化迭代状态 */
 	state->next_elem = 0;
 }
 
@@ -1029,8 +1029,8 @@ arrayconst_cleanup_fn(PredIterInfo info)
 }
 
 /*
- * PredIterInfo routines for iterating over a ScalarArrayOpExpr with a
- * one-dimensional ArrayExpr array operand.
+ * 遍历数组操作数为一维 ArrayExpr 的 ScalarArrayOpExpr 的 PredIterInfo 例程。
+ * 数组操作数是一维 ArrayExpr。
  */
 typedef struct
 {
@@ -1045,11 +1045,11 @@ arrayexpr_startup_fn(Node *clause, PredIterInfo info)
 	ArrayExprIterState *state;
 	ArrayExpr  *arrayexpr;
 
-	/* Create working state struct */
+	/* 建立工作状态结构 */
 	state = (ArrayExprIterState *) palloc(sizeof(ArrayExprIterState));
 	info->state = (void *) state;
 
-	/* Set up a dummy OpExpr to return as the per-item node */
+	/* 建一个哑 OpExpr，作为逐项返回的节点 */
 	state->opexpr.xpr.type = T_OpExpr;
 	state->opexpr.opno = saop->opno;
 	state->opexpr.opfuncid = saop->opfuncid;
@@ -1059,7 +1059,7 @@ arrayexpr_startup_fn(Node *clause, PredIterInfo info)
 	state->opexpr.inputcollid = saop->inputcollid;
 	state->opexpr.args = list_copy(saop->args);
 
-	/* Initialize iteration variable to first member of ArrayExpr */
+	/* 把迭代变量初始化为 ArrayExpr 的第一个成员 */
 	arrayexpr = (ArrayExpr *) lsecond(saop->args);
 	info->state_list = arrayexpr->elements;
 	state->next = list_head(arrayexpr->elements);
@@ -1124,14 +1124,14 @@ static bool
 predicate_implied_by_simple_clause(Expr *predicate, Node *clause,
 								   bool weak)
 {
-	/* Allow interrupting long proof attempts */
+	/* 允许打断长时间的证明尝试 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* First try the equal() test */
+	/* 先试 equal() 检验 */
 	if (equal((Node *) predicate, clause))
 		return true;
 
-	/* Next see if clause is boolean equality to a constant */
+	/* 接着看子句是否为与常量的布尔等值 */
 	if (is_opclause(clause) &&
 		((OpExpr *) clause)->opno == BooleanEqualOperator)
 	{
@@ -1140,7 +1140,7 @@ predicate_implied_by_simple_clause(Expr *predicate, Node *clause,
 
 		Assert(list_length(op->args) == 2);
 		rightop = lsecond(op->args);
-		/* We might never see a null Const here, but better check anyway */
+		/* 这里也许永远见不到空 Const，但最好还是检查 */
 		if (rightop && IsA(rightop, Const) &&
 			!((Const *) rightop)->constisnull)
 		{
@@ -1148,13 +1148,13 @@ predicate_implied_by_simple_clause(Expr *predicate, Node *clause,
 
 			if (DatumGetBool(((Const *) rightop)->constvalue))
 			{
-				/* X = true implies X */
+				/* X = true 蕴含 X */
 				if (equal(predicate, leftop))
 					return true;
 			}
 			else
 			{
-				/* X = false implies NOT X */
+				/* X = false 蕴含 NOT X */
 				if (is_notclause(predicate) &&
 					equal(get_notclausearg(predicate), leftop))
 					return true;
@@ -1163,29 +1163,29 @@ predicate_implied_by_simple_clause(Expr *predicate, Node *clause,
 	}
 
 	/*
-	 * We could likewise check whether the predicate is boolean equality to a
-	 * constant; but there are no known use-cases for that at the moment,
-	 * assuming that the predicate has been through constant-folding.
+	 * 同样可以检查谓词是否为与常量的布尔等值；
+	 * 但假定谓词已经过常量折叠，
+	 * 目前没有已知的使用情形。
 	 */
 
-	/* Next try the IS NOT NULL case */
+	/* 接着试 IS NOT NULL 情形 */
 	if (!weak &&
 		predicate && IsA(predicate, NullTest))
 	{
 		NullTest   *ntest = (NullTest *) predicate;
 
-		/* row IS NOT NULL does not act in the simple way we have in mind */
+		/* 行 IS NOT NULL 并不按我们心里那种简单方式起作用 */
 		if (ntest->nulltesttype == IS_NOT_NULL &&
 			!ntest->argisrow)
 		{
-			/* strictness of clause for foo implies foo IS NOT NULL */
+			/* 子句对 foo 严格，蕴含 foo IS NOT NULL */
 			if (clause_is_strict_for(clause, (Node *) ntest->arg, true))
 				return true;
 		}
-		return false;			/* we can't succeed below... */
+		return false;			/* 下面没法成功…… */
 	}
 
-	/* Else try operator-related knowledge */
+	/* 否则试与操作符有关的知识 */
 	return operator_predicate_proof(predicate, clause, false, weak);
 }
 
@@ -1223,71 +1223,71 @@ static bool
 predicate_refuted_by_simple_clause(Expr *predicate, Node *clause,
 								   bool weak)
 {
-	/* Allow interrupting long proof attempts */
+	/* 允许打断长时间的证明尝试 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* A simple clause can't refute itself */
-	/* Worth checking because of relation_excluded_by_constraints() */
+	/* 简单子句无法反驳它自己 */
+	/* 值得检查，因为有 relation_excluded_by_constraints() */
 	if ((Node *) predicate == clause)
 		return false;
 
-	/* Try the predicate-IS-NULL case */
+	/* 试谓词为 IS NULL 的情形 */
 	if (predicate && IsA(predicate, NullTest) &&
 		((NullTest *) predicate)->nulltesttype == IS_NULL)
 	{
 		Expr	   *isnullarg = ((NullTest *) predicate)->arg;
 
-		/* row IS NULL does not act in the simple way we have in mind */
+		/* 行 IS NULL 并不按我们心里那种简单方式起作用 */
 		if (((NullTest *) predicate)->argisrow)
 			return false;
 
-		/* strictness of clause for foo refutes foo IS NULL */
+		/* 子句对 foo 严格，反驳 foo IS NULL */
 		if (clause_is_strict_for(clause, (Node *) isnullarg, true))
 			return true;
 
-		/* foo IS NOT NULL refutes foo IS NULL */
+		/* foo IS NOT NULL 反驳 foo IS NULL */
 		if (clause && IsA(clause, NullTest) &&
 			((NullTest *) clause)->nulltesttype == IS_NOT_NULL &&
 			!((NullTest *) clause)->argisrow &&
 			equal(((NullTest *) clause)->arg, isnullarg))
 			return true;
 
-		return false;			/* we can't succeed below... */
+		return false;			/* 下面没法成功…… */
 	}
 
-	/* Try the clause-IS-NULL case */
+	/* 试子句为 IS NULL 的情形 */
 	if (clause && IsA(clause, NullTest) &&
 		((NullTest *) clause)->nulltesttype == IS_NULL)
 	{
 		Expr	   *isnullarg = ((NullTest *) clause)->arg;
 
-		/* row IS NULL does not act in the simple way we have in mind */
+		/* 行 IS NULL 并不按我们心里那种简单方式起作用 */
 		if (((NullTest *) clause)->argisrow)
 			return false;
 
-		/* foo IS NULL refutes foo IS NOT NULL */
+		/* foo IS NULL 反驳 foo IS NOT NULL */
 		if (predicate && IsA(predicate, NullTest) &&
 			((NullTest *) predicate)->nulltesttype == IS_NOT_NULL &&
 			!((NullTest *) predicate)->argisrow &&
 			equal(((NullTest *) predicate)->arg, isnullarg))
 			return true;
 
-		/* foo IS NULL weakly refutes any predicate that is strict for foo */
+		/* foo IS NULL 弱反驳任何对 foo 严格的谓词 */
 		if (weak &&
 			clause_is_strict_for((Node *) predicate, (Node *) isnullarg, true))
 			return true;
 
-		return false;			/* we can't succeed below... */
+		return false;			/* 下面没法成功…… */
 	}
 
-	/* Else try operator-related knowledge */
+	/* 否则试与操作符有关的知识 */
 	return operator_predicate_proof(predicate, clause, true, weak);
 }
 
 
 /*
- * If clause asserts the non-truth of a subclause, return that subclause;
- * otherwise return NULL.
+ * 若子句断言某个子子句非真，就返回该子子句；
+ * 否则返回 NULL。
  */
 static Node *
 extract_not_arg(Node *clause)
@@ -1314,8 +1314,8 @@ extract_not_arg(Node *clause)
 }
 
 /*
- * If clause asserts the falsity of a subclause, return that subclause;
- * otherwise return NULL.
+ * 若子句断言某个子子句为假，就返回该子子句；
+ * 否则返回 NULL。
  */
 static Node *
 extract_strong_not_arg(Node *clause)
@@ -1341,56 +1341,56 @@ extract_strong_not_arg(Node *clause)
 
 
 /*
- * Can we prove that "clause" returns NULL (or FALSE) if "subexpr" is
- * assumed to yield NULL?
+ * 能否证明：若假定 subexpr 得出 NULL，
+ * 则 clause 返回 NULL（或 FALSE）？
  *
- * In most places in the planner, "strictness" refers to a guarantee that
- * an expression yields NULL output for a NULL input, and that's mostly what
- * we're looking for here.  However, at top level where the clause is known
- * to yield boolean, it may be sufficient to prove that it cannot return TRUE
- * when "subexpr" is NULL.  The caller should pass allow_false = true when
- * this weaker property is acceptable.  (When this function recurses
- * internally, we pass down allow_false = false since we need to prove actual
- * nullness of the subexpression.)
+ * 规划器里多数地方的严格性，是保证
+ * 表达式在输入为 NULL 时输出 NULL，这里大体上也是
+ * 在找这个。不过在顶层，已知子句
+ * 得出布尔值时，证明它在 subexpr 为 NULL 时无法返回 TRUE
+ * 也许就够了。这种较弱性质可接受时，调用者应传 allow_false = true。
+ * （本函数内部递归时，
+ * 我们向下传 allow_false = false，因为需要证明
+ * 子表达式确实为 null。）
  *
- * We assume that the caller checked that least one of the input expressions
- * is immutable.  All of the proof rules here involve matching "subexpr" to
- * some portion of "clause", so that this allows assuming that "subexpr" is
- * immutable without a separate check.
+ * 我们假定调用者已检查过，至少有一个输入表达式
+ * 是不可变的。这里所有证明规则都是把 subexpr 匹配到
+ * clause 的某一部分，因此不必再单独检查就可以假定 subexpr
+ * 不可变。
  *
- * The base case is that clause and subexpr are equal().
+ * 基本情况是 clause 与 subexpr equal()。
  *
- * We can also report success if the subexpr appears as a subexpression
- * of "clause" in a place where it'd force nullness of the overall result.
+ * 若 subexpr 作为子表达式出现在
+ * clause 中某个会迫使整体结果为 null 的位置，也可以报告成功。
  */
 static bool
 clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 {
 	ListCell   *lc;
 
-	/* safety checks */
+	/* 安全检查 */
 	if (clause == NULL || subexpr == NULL)
 		return false;
 
 	/*
-	 * Look through any RelabelType nodes, so that we can match, say,
-	 * varcharcol with lower(varcharcol::text).  (In general we could recurse
-	 * through any nullness-preserving, immutable operation.)  We should not
-	 * see stacked RelabelTypes here.
+	 * 看穿任何 RelabelType 节点，以便能匹配例如
+	 * varcharcol 与 lower(varcharcol::text)。（一般说来可以递归
+	 * 穿过任何保持空值性的不可变操作。）这里不应当
+	 * 见到叠在一起的 RelabelTypes。
 	 */
 	if (IsA(clause, RelabelType))
 		clause = (Node *) ((RelabelType *) clause)->arg;
 	if (IsA(subexpr, RelabelType))
 		subexpr = (Node *) ((RelabelType *) subexpr)->arg;
 
-	/* Base case */
+	/* 基本情况 */
 	if (equal(clause, subexpr))
 		return true;
 
 	/*
-	 * If we have a strict operator or function, a NULL result is guaranteed
-	 * if any input is forced NULL by subexpr.  This is OK even if the op or
-	 * func isn't immutable, since it won't even be called on NULL input.
+	 * 若操作符或函数严格，则只要任一输入被 subexpr
+	 * 迫使为 NULL，就保证结果为 NULL。即使该操作符或
+	 * 函数不可变也没关系，因为 NULL 输入上根本不会调用它。
 	 */
 	if (is_opclause(clause) &&
 		op_strict(((OpExpr *) clause)->opno))
@@ -1414,12 +1414,12 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 	}
 
 	/*
-	 * CoerceViaIO is strict (whether or not the I/O functions it calls are).
-	 * Likewise, ArrayCoerceExpr is strict for its array argument (regardless
-	 * of what the per-element expression is), ConvertRowtypeExpr is strict at
-	 * the row level, and CoerceToDomain is strict too.  These are worth
-	 * checking mainly because it saves us having to explain to users why some
-	 * type coercions are known strict and others aren't.
+	 * CoerceViaIO 是严格的（不论它调用的 I/O 函数是否严格）。
+	 * 同样，ArrayCoerceExpr 对其数组参数严格（不论
+	 * 逐元素表达式是什么），ConvertRowtypeExpr 在
+	 * 行这一层严格，CoerceToDomain 也严格。值得
+	 * 检查，主要是免得向用户解释为什么有些
+	 * 类型强制已知严格，有些则不是。
 	 */
 	if (IsA(clause, CoerceViaIO))
 		return clause_is_strict_for((Node *) ((CoerceViaIO *) clause)->arg,
@@ -1435,9 +1435,9 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 									subexpr, false);
 
 	/*
-	 * ScalarArrayOpExpr is a special case.  Note that we'd only reach here
-	 * with a ScalarArrayOpExpr clause if we failed to deconstruct it into an
-	 * AND or OR tree, as for example if it has too many array elements.
+	 * ScalarArrayOpExpr 是特例。注意只有在没能把它拆成
+	 * AND 或 OR 树时，才会带着 ScalarArrayOpExpr 子句走到这里，
+	 * 例如数组元素过多的时候。
 	 */
 	if (IsA(clause, ScalarArrayOpExpr))
 	{
@@ -1446,12 +1446,12 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 		Node	   *arraynode = (Node *) lsecond(saop->args);
 
 		/*
-		 * If we can prove the scalar input to be null, and the operator is
-		 * strict, then the SAOP result has to be null --- unless the array is
-		 * empty.  For an empty array, we'd get either false (for ANY) or true
-		 * (for ALL).  So if allow_false = true then the proof succeeds anyway
-		 * for the ANY case; otherwise we can only make the proof if we can
-		 * prove the array non-empty.
+		 * 若能证明标量输入为 null，且操作符
+		 * 严格，则 SAOP 结果必须为 null——除非数组
+		 * 为空。空数组会得到假（ANY）或真
+		 * （ALL）。因此若 allow_false = true，则 ANY 情形下证明
+		 * 反正会成功；否则只有能
+		 * 证明数组非空时，才能做出证明。
 		 */
 		if (clause_is_strict_for(scalarnode, subexpr, false) &&
 			op_strict(saop->opno))
@@ -1459,7 +1459,7 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 			int			nelems = 0;
 
 			if (allow_false && saop->useOr)
-				return true;	/* can succeed even if array is empty */
+				return true;	/* 即使数组为空也能成功 */
 
 			if (arraynode && IsA(arraynode, Const))
 			{
@@ -1467,13 +1467,13 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 				ArrayType  *arrval;
 
 				/*
-				 * If array is constant NULL then we can succeed, as in the
-				 * case below.
+				 * 若数组是常量 NULL，则可以成功，如下面
+				 * 那种情形。
 				 */
 				if (arrayconst->constisnull)
 					return true;
 
-				/* Otherwise, we can compute the number of elements. */
+				/* 否则可以算出元素个数。 */
 				arrval = DatumGetArrayTypeP(arrayconst->constvalue);
 				nelems = ArrayGetNItems(ARR_NDIM(arrval), ARR_DIMS(arrval));
 			}
@@ -1481,28 +1481,28 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 					 !((ArrayExpr *) arraynode)->multidims)
 			{
 				/*
-				 * We can also reliably count the number of array elements if
-				 * the input is a non-multidim ARRAY[] expression.
+				 * 若输入是非多维的 ARRAY[] 表达式，
+				 * 也可以可靠地数出数组元素个数。
 				 */
 				nelems = list_length(((ArrayExpr *) arraynode)->elements);
 			}
 
-			/* Proof succeeds if array is definitely non-empty */
+			/* 若数组确定非空，则证明成功 */
 			if (nelems > 0)
 				return true;
 		}
 
 		/*
-		 * If we can prove the array input to be null, the proof succeeds in
-		 * all cases, since ScalarArrayOpExpr will always return NULL for a
-		 * NULL array.  Otherwise, we're done here.
+		 * 若能证明数组输入为 null，则任何情况下证明都成功，
+		 * 因为对 NULL 数组，ScalarArrayOpExpr 总是返回 NULL。
+		 * 否则这里就结束了。
 		 */
 		return clause_is_strict_for(arraynode, subexpr, false);
 	}
 
 	/*
-	 * When recursing into an expression, we might find a NULL constant.
-	 * That's certainly NULL, whether it matches subexpr or not.
+	 * 递归进表达式时，可能发现 NULL 常量。
+	 * 那当然是 NULL，不论它是否匹配 subexpr。
 	 */
 	if (IsA(clause, Const))
 		return ((Const *) clause)->constisnull;
@@ -1512,58 +1512,58 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 
 
 /*
- * Define "operator implication tables" for btree operators ("strategies"),
- * and similar tables for refutation.
+ * 为 btree 操作符（策略）定义操作符蕴含表，
+ * 以及类似的反驳表。
  *
- * The strategy numbers defined by btree indexes (see access/stratnum.h) are:
+ * btree 索引定义的策略号（见 access/stratnum.h）如下：
  *		1 <		2 <=	3 =		4 >=	5 >
- * and in addition we use 6 to represent <>.  <> is not a btree-indexable
- * operator, but we assume here that if an equality operator of a btree
- * opfamily has a negator operator, the negator behaves as <> for the opfamily.
- * (This convention is also known to get_op_btree_interpretation().)
+ * 另外用 6 表示 <>。<> 不是可建 btree 索引的操作符，
+ * 但这里假定：若某 btree 操作符族的等值操作符有否定操作符，
+ * 该否定操作符对该操作符族的行为如同 <>。
+ * （get_op_btree_interpretation() 也采用这一约定。）
  *
- * BT_implies_table[] and BT_refutes_table[] are used for cases where we have
- * two identical subexpressions and we want to know whether one operator
- * expression implies or refutes the other.  That is, if the "clause" is
- * EXPR1 clause_op EXPR2 and the "predicate" is EXPR1 pred_op EXPR2 for the
- * same two (immutable) subexpressions:
- *		BT_implies_table[clause_op-1][pred_op-1]
- *			is true if the clause implies the predicate
- *		BT_refutes_table[clause_op-1][pred_op-1]
- *			is true if the clause refutes the predicate
- * where clause_op and pred_op are strategy numbers (from 1 to 6) in the
- * same btree opfamily.  For example, "x < y" implies "x <= y" and refutes
- * "x > y".
+ * 当两个子表达式相同时，使用 BT_implies_table[] 与 BT_refutes_table[]，
+ * 用来判断一个操作符表达式是否蕴含或反驳另一个。
+ * 若子句是 EXPR1 clause_op EXPR2，
+ * 谓词是同一对不可变子表达式上的 EXPR1 pred_op EXPR2，则：
+ * BT_implies_table[clause_op-1][pred_op-1]
+ *		在子句蕴含谓词时为真。
+ *			BT_refutes_table[clause_op-1][pred_op-1]
+ *		在子句反驳谓词时为真。
+ *			其中 clause_op 与 pred_op 是同一 btree 操作符族里
+ * 从 1 到 6 的策略号。
+ * 例如 x < y 蕴含 x <= y，
+ * 并反驳 x > y。
  *
- * BT_implic_table[] and BT_refute_table[] are used where we have two
- * constants that we need to compare.  The interpretation of:
+ * 有两个需要比较的常量时，使用 BT_implic_table[] 和 BT_refute_table[]。
+ * 其含义是：
  *
  *		test_op = BT_implic_table[clause_op-1][pred_op-1]
  *
- * where test_op, clause_op and pred_op are strategy numbers (from 1 to 6)
- * of btree operators, is as follows:
+ * 其中 test_op、clause_op 和 pred_op 是从 1 到 6 的策略号，
+ * 含义如下：
  *
- *	 If you know, for some EXPR, that "EXPR clause_op CONST1" is true, and you
- *	 want to determine whether "EXPR pred_op CONST2" must also be true, then
- *	 you can use "CONST2 test_op CONST1" as a test.  If this test returns true,
- *	 then the predicate expression must be true; if the test returns false,
- *	 then the predicate expression may be false.
+ *	 若对某个 EXPR 已知 EXPR clause_op CONST1 为真，
+ *	 并且想判断 EXPR pred_op CONST2 是否也必定为真，
+ *	 可以用 CONST2 test_op CONST1 做检验。若检验返回真，
+ *	 则谓词表达式必定为真；若检验返回假，
+ *	 则谓词表达式可能为假。
  *
- * For example, if clause is "Quantity > 10" and pred is "Quantity > 5"
- * then we test "5 <= 10" which evals to true, so clause implies pred.
+ * 例如，若子句是 Quantity > 10，谓词是 Quantity > 5，
+ * 则检验 5 <= 10，求值为真，因此子句蕴含谓词。
  *
- * Similarly, the interpretation of a BT_refute_table entry is:
+ * 类似地，BT_refute_table 一项的含义是：
  *
- *	 If you know, for some EXPR, that "EXPR clause_op CONST1" is true, and you
- *	 want to determine whether "EXPR pred_op CONST2" must be false, then
- *	 you can use "CONST2 test_op CONST1" as a test.  If this test returns true,
- *	 then the predicate expression must be false; if the test returns false,
- *	 then the predicate expression may be true.
+ *	 若对某个 EXPR 已知 EXPR clause_op CONST1 为真，
+ *	 并且想判断 EXPR pred_op CONST2 是否必定为假，
+ *	 可以用 CONST2 test_op CONST1 做检验。若检验返回真，
+ *	 则谓词表达式必定为假；若检验返回假，
+ *	 则谓词表达式可能为真。
  *
- * For example, if clause is "Quantity > 10" and pred is "Quantity < 5"
- * then we test "5 <= 10" which evals to true, so clause refutes pred.
+ * 例如，若子句是 Quantity > 10，谓词是 Quantity < 5，
+ * 则检验 5 <= 10，求值为真，因此子句反驳谓词。
  *
- * An entry where test_op == 0 means the implication cannot be determined.
+ * test_op == 0 的项表示该蕴含无法判定。
  */
 
 #define BTLT BTLessStrategyNumber
@@ -1573,114 +1573,114 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 #define BTGT BTGreaterStrategyNumber
 #define BTNE ROWCOMPARE_NE
 
-/* We use "none" for 0/false to make the tables align nicely */
+/* 用 none 表示 0 或假，以便表格对齐 */
 #define none 0
 
 static const bool BT_implies_table[6][6] = {
 /*
- *			The predicate operator:
- *	 LT    LE	 EQ    GE	 GT    NE
+ *			谓词操作符：
+ *	 LT（小于） LE（小于等于） EQ（等于） GE（大于等于） GT（大于） NE（不等于）
  */
-	{true, true, none, none, none, true},	/* LT */
-	{none, true, none, none, none, none},	/* LE */
-	{none, true, true, true, none, none},	/* EQ */
-	{none, none, none, true, none, none},	/* GE */
-	{none, none, none, true, true, true},	/* GT */
-	{none, none, none, none, none, true}	/* NE */
+	{true, true, none, none, none, true},	/* LT（小于） */
+	{none, true, none, none, none, none},	/* LE（小于等于） */
+	{none, true, true, true, none, none},	/* EQ（等于） */
+	{none, none, none, true, none, none},	/* GE（大于等于） */
+	{none, none, none, true, true, true},	/* GT（大于） */
+	{none, none, none, none, none, true}	/* NE（不等于） */
 };
 
 static const bool BT_refutes_table[6][6] = {
 /*
- *			The predicate operator:
- *	 LT    LE	 EQ    GE	 GT    NE
+ *			谓词操作符：
+ *	 LT（小于） LE（小于等于） EQ（等于） GE（大于等于） GT（大于） NE（不等于）
  */
-	{none, none, true, true, true, none},	/* LT */
-	{none, none, none, none, true, none},	/* LE */
-	{true, none, none, none, true, true},	/* EQ */
-	{true, none, none, none, none, none},	/* GE */
-	{true, true, true, none, none, none},	/* GT */
-	{none, none, true, none, none, none}	/* NE */
+	{none, none, true, true, true, none},	/* LT（小于） */
+	{none, none, none, none, true, none},	/* LE（小于等于） */
+	{true, none, none, none, true, true},	/* EQ（等于） */
+	{true, none, none, none, none, none},	/* GE（大于等于） */
+	{true, true, true, none, none, none},	/* GT（大于） */
+	{none, none, true, none, none, none}	/* NE（不等于） */
 };
 
 static const StrategyNumber BT_implic_table[6][6] = {
 /*
- *			The predicate operator:
- *	 LT    LE	 EQ    GE	 GT    NE
+ *			谓词操作符：
+ *	 LT（小于） LE（小于等于） EQ（等于） GE（大于等于） GT（大于） NE（不等于）
  */
-	{BTGE, BTGE, none, none, none, BTGE},	/* LT */
-	{BTGT, BTGE, none, none, none, BTGT},	/* LE */
-	{BTGT, BTGE, BTEQ, BTLE, BTLT, BTNE},	/* EQ */
-	{none, none, none, BTLE, BTLT, BTLT},	/* GE */
-	{none, none, none, BTLE, BTLE, BTLE},	/* GT */
-	{none, none, none, none, none, BTEQ}	/* NE */
+	{BTGE, BTGE, none, none, none, BTGE},	/* LT（小于） */
+	{BTGT, BTGE, none, none, none, BTGT},	/* LE（小于等于） */
+	{BTGT, BTGE, BTEQ, BTLE, BTLT, BTNE},	/* EQ（等于） */
+	{none, none, none, BTLE, BTLT, BTLT},	/* GE（大于等于） */
+	{none, none, none, BTLE, BTLE, BTLE},	/* GT（大于） */
+	{none, none, none, none, none, BTEQ}	/* NE（不等于） */
 };
 
 static const StrategyNumber BT_refute_table[6][6] = {
 /*
- *			The predicate operator:
- *	 LT    LE	 EQ    GE	 GT    NE
+ *			谓词操作符：
+ *	 LT（小于） LE（小于等于） EQ（等于） GE（大于等于） GT（大于） NE（不等于）
  */
-	{none, none, BTGE, BTGE, BTGE, none},	/* LT */
-	{none, none, BTGT, BTGT, BTGE, none},	/* LE */
-	{BTLE, BTLT, BTNE, BTGT, BTGE, BTEQ},	/* EQ */
-	{BTLE, BTLT, BTLT, none, none, none},	/* GE */
-	{BTLE, BTLE, BTLE, none, none, none},	/* GT */
-	{none, none, BTEQ, none, none, none}	/* NE */
+	{none, none, BTGE, BTGE, BTGE, none},	/* LT（小于） */
+	{none, none, BTGT, BTGT, BTGE, none},	/* LE（小于等于） */
+	{BTLE, BTLT, BTNE, BTGT, BTGE, BTEQ},	/* EQ（等于） */
+	{BTLE, BTLT, BTLT, none, none, none},	/* GE（大于等于） */
+	{BTLE, BTLE, BTLE, none, none, none},	/* GT（大于） */
+	{none, none, BTEQ, none, none, none}	/* NE（不等于） */
 };
 
 
 /*
  * operator_predicate_proof
- *	  Does the predicate implication or refutation test for a "simple clause"
- *	  predicate and a "simple clause" restriction, when both are operator
- *	  clauses using related operators and identical input expressions.
+ *	  当两者都是使用相关操作符、且输入表达式相同的
+ *	  操作符子句时，对简单子句谓词和简单子句限制
+ *	  做蕴含或反驳检验。
  *
- * When refute_it == false, we want to prove the predicate true;
- * when refute_it == true, we want to prove the predicate false.
- * (There is enough common code to justify handling these two cases
- * in one routine.)  We return true if able to make the proof, false
- * if not able to prove it.
+ * refute_it == false 时，要证明谓词为真；
+ * refute_it == true 时，要证明谓词为假。
+ * 两边共同代码很多，值得放在同一个例程里。
+ * 若能做出证明则返回真，
+ * 若证不出则返回假。
  *
- * We mostly need not distinguish strong vs. weak implication/refutation here.
- * This depends on the assumption that a pair of related operators (i.e.,
- * commutators, negators, or btree opfamily siblings) will not return one NULL
- * and one non-NULL result for the same inputs.  Then, for the proof types
- * where we start with an assumption of truth of the clause, the predicate
- * operator could not return NULL either, so it doesn't matter whether we are
- * trying to make a strong or weak proof.  For weak implication, it could be
- * that the clause operator returned NULL, but then the predicate operator
- * would as well, so that the weak implication still holds.  This argument
- * doesn't apply in the case where we are considering two different constant
- * values, since then the operators aren't being given identical inputs.  But
- * we only support that for btree operators, for which we can assume that all
- * non-null inputs result in non-null outputs, so that it doesn't matter which
- * two non-null constants we consider.  If either constant is NULL, we have
- * to think harder, but sometimes the proof still works, as explained below.
+ * 这里多半不必区分强蕴含/反驳与弱蕴含/反驳。
+ * 这依赖于如下假定：一对相关操作符（交换子、否定子，
+ * 或 btree 操作符族中的兄弟）对相同输入不会一个返回 NULL、
+ * 另一个返回非 NULL。于是，对那些从假定子句为真出发的
+ * 证明类型，谓词操作符也无法返回 NULL，
+ * 因此做强证明还是弱证明并不重要。
+ * 对弱蕴含，子句操作符可能返回了 NULL，
+ * 但那时谓词操作符也会如此，弱蕴含仍然成立。
+ * 考虑两个不同常量时这一论证不适用，
+ * 因为操作符拿到的输入并不相同。
+ * 但我们只对 btree 操作符支持那种情形，
+ * 可以假定非空输入都得到非空输出，
+ * 因此考虑哪两个非空常量都没关系。
+ * 若任一常量为 NULL，就得想得更仔细，
+ * 但有时证明仍然成立，如下所述。
  *
- * We can make proofs involving several expression forms (here "foo" and "bar"
- * represent subexpressions that are identical according to equal()):
- *	"foo op1 bar" refutes "foo op2 bar" if op1 is op2's negator
- *	"foo op1 bar" implies "bar op2 foo" if op1 is op2's commutator
- *	"foo op1 bar" refutes "bar op2 foo" if op1 is negator of op2's commutator
- *	"foo op1 bar" can imply/refute "foo op2 bar" based on btree semantics
- *	"foo op1 bar" can imply/refute "bar op2 foo" based on btree semantics
- *	"foo op1 const1" can imply/refute "foo op2 const2" based on btree semantics
+ * 可以对几种表达式形式做证明。这里 foo 和 bar
+ * 表示按 equal() 来说相同的子表达式：
+ *	若 op1 是 op2 的否定子，则 foo op1 bar 反驳 foo op2 bar。
+ *	若 op1 是 op2 的交换子，则 foo op1 bar 蕴含 bar op2 foo。
+ *	若 op1 是 op2 交换子的否定子，则 foo op1 bar 反驳 bar op2 foo。
+ *	基于 btree 语义，foo op1 bar 可以蕴含或反驳 foo op2 bar。
+ *	基于 btree 语义，foo op1 bar 可以蕴含或反驳 bar op2 foo。
+ *	基于 btree 语义，foo op1 const1 可以蕴含或反驳 foo op2 const2。
  *
- * For the last three cases, op1 and op2 have to be members of the same btree
- * operator family.  When both subexpressions are identical, the idea is that,
- * for instance, x < y implies x <= y, independently of exactly what x and y
- * are.  If we have two different constants compared to the same expression
- * foo, we have to execute a comparison between the two constant values
- * in order to determine the result; for instance, foo < c1 implies foo < c2
- * if c1 <= c2.  We assume it's safe to compare the constants at plan time
- * if the comparison operator is immutable.
+ * 最后三种情形里，op1 和 op2 必须属于同一个 btree 操作符族。
+ * 当两个子表达式相同时，想法是：例如 x < y 蕴含 x <= y，
+ * 与 x 和 y 究竟是什么无关。
+ * 若两个不同常量与同一个表达式 foo 比较，
+ * 就必须执行一次常量比较才能决定结果。
+ * 例如，若 c1 <= c2，则 foo < c1 蕴含 foo < c2。
+ * 若比较操作符不可变，
+ * 我们假定在计划时比较这些常量是安全的。
  *
- * Note: all the operators and subexpressions have to be immutable for the
- * proof to be safe.  We assume the predicate expression is entirely immutable,
- * so no explicit check on the subexpressions is needed here, but in some
- * cases we need an extra check of operator immutability.  In particular,
- * btree opfamilies can contain cross-type operators that are merely stable,
- * and we dare not make deductions with those.
+ * 注意：所有操作符和子表达式都必须不可变，证明才安全。
+ * 我们假定谓词表达式整体不可变，
+ * 因此这里不必显式检查子表达式，但有些情形
+ * 需要额外检查操作符的不可变性。尤其是
+ * btree 操作符族可以含有仅仅稳定的跨类型操作符，
+ * 我们不敢用那些做推导。
  */
 static bool
 operator_predicate_proof(Expr *predicate, Node *clause,
@@ -1707,12 +1707,12 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 	MemoryContext oldcontext;
 
 	/*
-	 * Both expressions must be binary opclauses, else we can't do anything.
+	 * 两个表达式都必须是二元操作子句，否则我们也没法做什么。
 	 *
-	 * Note: in future we might extend this logic to other operator-based
-	 * constructs such as DistinctExpr.  But the planner isn't very smart
-	 * about DistinctExpr in general, and this probably isn't the first place
-	 * to fix if you want to improve that.
+	 * 注意：将来也许把这一逻辑扩展到其他基于操作符的
+	 * 构造，例如 DistinctExpr。但规划器对
+	 * DistinctExpr 总体上并不聪明，若想改进这一点，这里大概不是
+	 * 最先该修的地方。
 	 */
 	if (!is_opclause(predicate))
 		return false;
@@ -1726,20 +1726,20 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 		return false;
 
 	/*
-	 * If they're marked with different collations then we can't do anything.
-	 * This is a cheap test so let's get it out of the way early.
+	 * 若它们标了不同的排序规则，我们也没法做什么。
+	 * 这个检查很便宜，所以先做掉。
 	 */
 	pred_collation = pred_opexpr->inputcollid;
 	clause_collation = clause_opexpr->inputcollid;
 	if (pred_collation != clause_collation)
 		return false;
 
-	/* Grab the operator OIDs now too.  We may commute these below. */
+	/* 现在也取出操作符 OIDs。下面也许会交换它们。 */
 	pred_op = pred_opexpr->opno;
 	clause_op = clause_opexpr->opno;
 
 	/*
-	 * We have to match up at least one pair of input expressions.
+	 * 至少要配上一对输入表达式。
 	 */
 	pred_leftop = (Node *) linitial(pred_opexpr->args);
 	pred_rightop = (Node *) lsecond(pred_opexpr->args);
@@ -1750,12 +1750,12 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 	{
 		if (equal(pred_rightop, clause_rightop))
 		{
-			/* We have x op1 y and x op2 y */
+			/* 我们有 x op1 y 和 x op2 y */
 			return operator_same_subexprs_proof(pred_op, clause_op, refute_it);
 		}
 		else
 		{
-			/* Fail unless rightops are both Consts */
+			/* 除非两边的右操作数都是 Const，否则失败 */
 			if (pred_rightop == NULL || !IsA(pred_rightop, Const))
 				return false;
 			pred_const = (Const *) pred_rightop;
@@ -1766,14 +1766,14 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 	}
 	else if (equal(pred_rightop, clause_rightop))
 	{
-		/* Fail unless leftops are both Consts */
+		/* 除非两边的左操作数都是 Const，否则失败 */
 		if (pred_leftop == NULL || !IsA(pred_leftop, Const))
 			return false;
 		pred_const = (Const *) pred_leftop;
 		if (clause_leftop == NULL || !IsA(clause_leftop, Const))
 			return false;
 		clause_const = (Const *) clause_leftop;
-		/* Commute both operators so we can assume Consts are on the right */
+		/* 交换两个操作符，以便假定 Const 在右边 */
 		pred_op = get_commutator(pred_op);
 		if (!OidIsValid(pred_op))
 			return false;
@@ -1785,8 +1785,8 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 	{
 		if (equal(pred_rightop, clause_leftop))
 		{
-			/* We have x op1 y and y op2 x */
-			/* Commute pred_op that we can treat this like a straight match */
+			/* 我们有 x op1 y 和 y op2 x */
+			/* 交换 pred_op，以便把它当成直接匹配 */
 			pred_op = get_commutator(pred_op);
 			if (!OidIsValid(pred_op))
 				return false;
@@ -1794,14 +1794,14 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 		}
 		else
 		{
-			/* Fail unless pred_rightop/clause_leftop are both Consts */
+			/* 除非 pred_rightop 和 clause_leftop 都是 Const，否则失败 */
 			if (pred_rightop == NULL || !IsA(pred_rightop, Const))
 				return false;
 			pred_const = (Const *) pred_rightop;
 			if (clause_leftop == NULL || !IsA(clause_leftop, Const))
 				return false;
 			clause_const = (Const *) clause_leftop;
-			/* Commute clause_op so we can assume Consts are on the right */
+			/* 交换 clause_op，以便假定 Const 在右边 */
 			clause_op = get_commutator(clause_op);
 			if (!OidIsValid(clause_op))
 				return false;
@@ -1809,90 +1809,90 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 	}
 	else if (equal(pred_rightop, clause_leftop))
 	{
-		/* Fail unless pred_leftop/clause_rightop are both Consts */
+		/* 除非 pred_leftop 和 clause_rightop 都是 Const，否则失败 */
 		if (pred_leftop == NULL || !IsA(pred_leftop, Const))
 			return false;
 		pred_const = (Const *) pred_leftop;
 		if (clause_rightop == NULL || !IsA(clause_rightop, Const))
 			return false;
 		clause_const = (Const *) clause_rightop;
-		/* Commute pred_op so we can assume Consts are on the right */
+		/* 交换 pred_op，以便假定 Const 在右边 */
 		pred_op = get_commutator(pred_op);
 		if (!OidIsValid(pred_op))
 			return false;
 	}
 	else
 	{
-		/* Failed to match up any of the subexpressions, so we lose */
+		/* 任何子表达式都配不上，因此失败 */
 		return false;
 	}
 
 	/*
-	 * We have two identical subexpressions, and two other subexpressions that
-	 * are not identical but are both Consts; and we have commuted the
-	 * operators if necessary so that the Consts are on the right.  We'll need
-	 * to compare the Consts' values.  If either is NULL, we can't do that, so
-	 * usually the proof fails ... but in some cases we can claim success.
+	 * 我们有两个相同的子表达式，以及另外两个并不相同
+	 * 但都是 Const 的子表达式；并且已在必要时交换了
+	 * 操作符，使 Const 在右边。我们需要
+	 * 比较这些 Const 的值。若任一为 NULL，就没法比较，因此
+	 * 证明通常失败……但有些情形可以声称成功。
 	 */
 	if (clause_const->constisnull)
 	{
-		/* If clause_op isn't strict, we can't prove anything */
+		/* 若 clause_op 不严格，就证不出任何东西 */
 		if (!op_strict(clause_op))
 			return false;
 
 		/*
-		 * At this point we know that the clause returns NULL.  For proof
-		 * types that assume truth of the clause, this means the proof is
-		 * vacuously true (a/k/a "false implies anything").  That's all proof
-		 * types except weak implication.
+		 * 至此我们知道子句返回 NULL。对那些
+		 * 假定子句为真的证明类型，这意味着证明
+		 * 空泛地为真（亦即假蕴含一切）。除了弱蕴含，
+		 * 所有证明类型都是如此。
 		 */
 		if (!(weak && !refute_it))
 			return true;
 
 		/*
-		 * For weak implication, it's still possible for the proof to succeed,
-		 * if the predicate can also be proven NULL.  In that case we've got
-		 * NULL => NULL which is valid for this proof type.
+		 * 对弱蕴含，证明仍有可能成功，
+		 * 若谓词也能被证明为 NULL。那时我们就有
+		 * NULL => NULL，对这种证明类型是有效的。
 		 */
 		if (pred_const->constisnull && op_strict(pred_op))
 			return true;
-		/* Else the proof fails */
+		/* 否则证明失败 */
 		return false;
 	}
 	if (pred_const->constisnull)
 	{
 		/*
-		 * If the pred_op is strict, we know the predicate yields NULL, which
-		 * means the proof succeeds for either weak implication or weak
-		 * refutation.
+		 * 若 pred_op 严格，我们知道谓词得出 NULL，这
+		 * 意味着对弱蕴含或弱
+		 * 反驳，证明都成功。
 		 */
 		if (weak && op_strict(pred_op))
 			return true;
-		/* Else the proof fails */
+		/* 否则证明失败 */
 		return false;
 	}
 
 	/*
-	 * Lookup the constant-comparison operator using the system catalogs and
-	 * the operator implication tables.
+	 * 用系统目录和
+	 * 操作符蕴含表查找常量比较操作符。
 	 */
 	test_op = get_btree_test_op(pred_op, clause_op, refute_it);
 
 	if (!OidIsValid(test_op))
 	{
-		/* couldn't find a suitable comparison operator */
+		/* 找不到合适的比较操作符 */
 		return false;
 	}
 
 	/*
-	 * Evaluate the test.  For this we need an EState.
+	 * 求值该检验。为此需要一个 EState。
 	 */
 	estate = CreateExecutorState();
 
-	/* We can use the estate's working context to avoid memory leaks. */
+	/* 可以用 estate 的工作上下文来避免内存泄漏。 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
-	/* Build expression tree */
+	/* 建立表达式树 */
 	test_expr = make_opclause(test_op,
 							  BOOLOID,
 							  false,
@@ -1901,26 +1901,26 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 							  InvalidOid,
 							  pred_collation);
 
-	/* Fill in opfuncids */
+	/* 填上 opfuncids */
 	fix_opfuncids((Node *) test_expr);
 
-	/* Prepare it for execution */
+	/* 准备执行它 */
 	test_exprstate = ExecInitExpr(test_expr, NULL);
 
-	/* And execute it. */
+	/* 然后执行它。 */
 	test_result = ExecEvalExprSwitchContext(test_exprstate,
 											GetPerTupleExprContext(estate),
 											&isNull);
 
-	/* Get back to outer memory context */
+	/* 回到外层内存上下文 */
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Release all the junk we just created */
+	/* 释放刚才建出来的那些杂物 */
 	FreeExecutorState(estate);
 
 	if (isNull)
 	{
-		/* Treat a null result as non-proof ... but it's a tad fishy ... */
+		/* 把空结果当成未证明……不过这有点可疑…… */
 		elog(DEBUG2, "null predicate test result");
 		return false;
 	}
@@ -1930,26 +1930,26 @@ operator_predicate_proof(Expr *predicate, Node *clause,
 
 /*
  * operator_same_subexprs_proof
- *	  Assuming that EXPR1 clause_op EXPR2 is true, try to prove or refute
- *	  EXPR1 pred_op EXPR2.
+ *	  假定 EXPR1 clause_op EXPR2 为真，尝试证明或反驳
+ *	  EXPR1 pred_op EXPR2。
  *
- * Return true if able to make the proof, false if not able to prove it.
+ * 若能做出证明则返回真，若证不出则返回假。
  */
 static bool
 operator_same_subexprs_proof(Oid pred_op, Oid clause_op, bool refute_it)
 {
 	/*
-	 * A simple and general rule is that the predicate is proven if clause_op
-	 * and pred_op are the same, or refuted if they are each other's negators.
-	 * We need not check immutability since the pred_op is already known
-	 * immutable.  (Actually, by this point we may have the commutator of a
-	 * known-immutable pred_op, but that should certainly be immutable too.
-	 * Likewise we don't worry whether the pred_op's negator is immutable.)
+	 * 一条简单而通用的规则是：若 clause_op
+	 * 与 pred_op 相同则谓词得证；若二者互为否定子，则被反驳。
+	 * 不必检查不可变性，因为 pred_op 已知
+	 * 不可变。（实际上到这里我们拿到的可能是已知不可变的
+	 * pred_op 的交换子，但那当然也应当不可变。
+	 * 同样我们不担心 pred_op 的否定子是否不可变。）
 	 *
-	 * Note: the "same" case won't get here if we actually had EXPR1 clause_op
-	 * EXPR2 and EXPR1 pred_op EXPR2, because the overall-expression-equality
-	 * test in predicate_implied_by_simple_clause would have caught it.  But
-	 * we can see the same operator after having commuted the pred_op.
+	 * 注意：若我们实际上有 EXPR1 clause_op
+	 * EXPR2 和 EXPR1 pred_op EXPR2，相同这一情形到不了这里，因为
+	 * predicate_implied_by_simple_clause 里的整体表达式相等
+	 * 检验会抓住它。但交换 pred_op 之后，仍可能见到同一个操作符。
 	 */
 	if (refute_it)
 	{
@@ -1963,38 +1963,38 @@ operator_same_subexprs_proof(Oid pred_op, Oid clause_op, bool refute_it)
 	}
 
 	/*
-	 * Otherwise, see if we can determine the implication by finding the
-	 * operators' relationship via some btree opfamily.
+	 * 否则，看能否通过某个 btree 操作符族找出
+	 * 操作符之间的关系，从而判定蕴含。
 	 */
 	return operator_same_subexprs_lookup(pred_op, clause_op, refute_it);
 }
 
 
 /*
- * We use a lookaside table to cache the result of btree proof operator
- * lookups, since the actual lookup is pretty expensive and doesn't change
- * for any given pair of operators (at least as long as pg_amop doesn't
- * change).  A single hash entry stores both implication and refutation
- * results for a given pair of operators; but note we may have determined
- * only one of those sets of results as yet.
+ * 我们用一张旁路表缓存 btree 证明操作符
+ * 查找的结果，因为实际查找相当贵，而且对
+ * 任何给定的一对操作符都不变（至少在 pg_amop 不
+ * 变的时候）。单个散列项同时存放给定一对操作符的蕴含和反驳
+ * 结果；但注意我们眼下也许只
+ * 确定了其中一组结果。
  */
 typedef struct OprProofCacheKey
 {
-	Oid			pred_op;		/* predicate operator */
-	Oid			clause_op;		/* clause operator */
+	Oid			pred_op;		/* 谓词操作符 */
+	Oid			clause_op;		/* 子句操作符 */
 } OprProofCacheKey;
 
 typedef struct OprProofCacheEntry
 {
-	/* the hash lookup key MUST BE FIRST */
+	/* 散列查找键必须放在 FIRST */
 	OprProofCacheKey key;
 
-	bool		have_implic;	/* do we know the implication result? */
-	bool		have_refute;	/* do we know the refutation result? */
-	bool		same_subexprs_implies;	/* X clause_op Y implies X pred_op Y? */
-	bool		same_subexprs_refutes;	/* X clause_op Y refutes X pred_op Y? */
-	Oid			implic_test_op; /* OID of the test operator, or 0 if none */
-	Oid			refute_test_op; /* OID of the test operator, or 0 if none */
+	bool		have_implic;	/* 我们知道蕴含结果吗？ */
+	bool		have_refute;	/* 我们知道反驳结果吗？ */
+	bool		same_subexprs_implies;	/* X clause_op Y 是否蕴含 X pred_op Y？ */
+	bool		same_subexprs_refutes;	/* X clause_op Y 是否反驳 X pred_op Y？ */
+	Oid			implic_test_op; /* 检验操作符的 OID，没有则为 0 */
+	Oid			refute_test_op; /* 检验操作符的 OID，没有则为 0 */
 } OprProofCacheEntry;
 
 static HTAB *OprProofCacheHash = NULL;
@@ -2002,7 +2002,7 @@ static HTAB *OprProofCacheHash = NULL;
 
 /*
  * lookup_proof_cache
- *	  Get, and fill in if necessary, the appropriate cache entry.
+ *	  取得适当的缓存项，必要时填上。
  */
 static OprProofCacheEntry *
 lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
@@ -2019,11 +2019,11 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 			   *lcc;
 
 	/*
-	 * Find or make a cache entry for this pair of operators.
+	 * 为这一对操作符查找或建立缓存项。
 	 */
 	if (OprProofCacheHash == NULL)
 	{
-		/* First time through: initialize the hash table */
+		/* 第一次经过：初始化散列表 */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(OprProofCacheKey);
@@ -2031,7 +2031,7 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 		OprProofCacheHash = hash_create("Btree proof lookup cache", 256,
 										&ctl, HASH_ELEM | HASH_BLOBS);
 
-		/* Arrange to flush cache on pg_amop changes */
+		/* 安排在 pg_amop 变化时清空缓存 */
 		CacheRegisterSyscacheCallback(AMOPOPID,
 									  InvalidateOprProofCacheCallBack,
 									  (Datum) 0);
@@ -2044,38 +2044,38 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 													 HASH_ENTER, &cfound);
 	if (!cfound)
 	{
-		/* new cache entry, set it invalid */
+		/* 新缓存项，把它设成无效 */
 		cache_entry->have_implic = false;
 		cache_entry->have_refute = false;
 	}
 	else
 	{
-		/* pre-existing cache entry, see if we know the answer yet */
+		/* 已有的缓存项，看是否已经知道答案 */
 		if (refute_it ? cache_entry->have_refute : cache_entry->have_implic)
 			return cache_entry;
 	}
 
 	/*
-	 * Try to find a btree opfamily containing the given operators.
+	 * 试着找一个含有给定操作符的 btree 操作符族。
 	 *
-	 * We must find a btree opfamily that contains both operators, else the
-	 * implication can't be determined.  Also, the opfamily must contain a
-	 * suitable test operator taking the operators' righthand datatypes.
+	 * 必须找到同时含有两个操作符的 btree 操作符族，否则
+	 * 蕴含没法判定。另外，该操作符族必须含有
+	 * 一个接受这些操作符右端数据类型的合适检验操作符。
 	 *
-	 * If there are multiple matching opfamilies, assume we can use any one to
-	 * determine the logical relationship of the two operators and the correct
-	 * corresponding test operator.  This should work for any logically
-	 * consistent opfamilies.
+	 * 若有多个匹配的操作符族，假定可以用其中任何一个来
+	 * 判定两个操作符的逻辑关系以及正确的
+	 * 对应检验操作符。对任何逻辑上
+	 * 一致的操作符族，这都应当可行。
 	 *
-	 * Note that we can determine the operators' relationship for
-	 * same-subexprs cases even from an opfamily that lacks a usable test
-	 * operator.  This can happen in cases with incomplete sets of cross-type
-	 * comparison operators.
+	 * 注意，即使某个操作符族缺少可用的检验
+	 * 操作符，我们仍能判定相同子表达式情形下
+	 * 操作符之间的关系。不完整的跨类型
+	 * 比较操作符集合就会出现这种情况。
 	 */
 	clause_op_infos = get_op_btree_interpretation(clause_op);
 	if (clause_op_infos)
 		pred_op_infos = get_op_btree_interpretation(pred_op);
-	else						/* no point in looking */
+	else						/* 没有查找的必要 */
 		pred_op_infos = NIL;
 
 	foreach(lcp, pred_op_infos)
@@ -2090,18 +2090,18 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 						clause_strategy,
 						test_strategy;
 
-			/* Must find them in same opfamily */
+			/* 必须在同一个操作符族里找到它们 */
 			if (opfamily_id != clause_op_info->opfamily_id)
 				continue;
-			/* Lefttypes should match */
+			/* 左端类型应当匹配 */
 			Assert(clause_op_info->oplefttype == pred_op_info->oplefttype);
 
 			pred_strategy = pred_op_info->strategy;
 			clause_strategy = clause_op_info->strategy;
 
 			/*
-			 * Check to see if we can make a proof for same-subexpressions
-			 * cases based on the operators' relationship in this opfamily.
+			 * 检查能否根据这一操作符族中操作符的关系，
+			 * 为相同子表达式的情形做出证明。
 			 */
 			if (refute_it)
 				same_subexprs |= BT_refutes_table[clause_strategy - 1][pred_strategy - 1];
@@ -2109,7 +2109,7 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 				same_subexprs |= BT_implies_table[clause_strategy - 1][pred_strategy - 1];
 
 			/*
-			 * Look up the "test" strategy number in the implication table
+			 * 在蕴含表里查找检验策略号
 			 */
 			if (refute_it)
 				test_strategy = BT_refute_table[clause_strategy - 1][pred_strategy - 1];
@@ -2118,13 +2118,13 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 
 			if (test_strategy == 0)
 			{
-				/* Can't determine implication using this interpretation */
+				/* 用这种解释无法判定蕴含 */
 				continue;
 			}
 
 			/*
-			 * See if opfamily has an operator for the test strategy and the
-			 * datatypes.
+			 * 看操作符族是否有针对该检验策略和
+			 * 这些数据类型的操作符。
 			 */
 			if (test_strategy == BTNE)
 			{
@@ -2147,13 +2147,13 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 				continue;
 
 			/*
-			 * Last check: test_op must be immutable.
+			 * 最后一项检查：test_op 必须不可变。
 			 *
-			 * Note that we require only the test_op to be immutable, not the
-			 * original clause_op.  (pred_op is assumed to have been checked
-			 * immutable by the caller.)  Essentially we are assuming that the
-			 * opfamily is consistent even if it contains operators that are
-			 * merely stable.
+			 * 注意我们只需要 test_op 不可变，原来的
+			 * clause_op 则不必。（假定调用者已经检查
+			 * pred_op 不可变。）本质上我们假定操作符族
+			 * 即使含有仅仅稳定的操作符，
+			 * 仍然是一致的。
 			 */
 			if (op_volatile(test_op) == PROVOLATILE_IMMUTABLE)
 			{
@@ -2171,22 +2171,22 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 
 	if (!found)
 	{
-		/* couldn't find a suitable comparison operator */
+		/* 找不到合适的比较操作符 */
 		test_op = InvalidOid;
 	}
 
 	/*
-	 * If we think we were able to prove something about same-subexpressions
-	 * cases, check to make sure the clause_op is immutable before believing
-	 * it completely.  (Usually, the clause_op would be immutable if the
-	 * pred_op is, but it's not entirely clear that this must be true in all
-	 * cases, so let's check.)
+	 * 若我们认为已经能对相同子表达式
+	 * 情形证明些什么，在完全采信之前要检查 clause_op 是否不可变。
+	 * （通常若 pred_op 不可变，clause_op 也会不可变，但
+	 * 并不完全清楚这在所有
+	 * 情形下都必定为真，所以还是检查一下。）
 	 */
 	if (same_subexprs &&
 		op_volatile(clause_op) != PROVOLATILE_IMMUTABLE)
 		same_subexprs = false;
 
-	/* Cache the results, whether positive or negative */
+	/* 把结果放进缓存，不论是肯定还是否定 */
 	if (refute_it)
 	{
 		cache_entry->refute_test_op = test_op;
@@ -2205,8 +2205,8 @@ lookup_proof_cache(Oid pred_op, Oid clause_op, bool refute_it)
 
 /*
  * operator_same_subexprs_lookup
- *	  Convenience subroutine to look up the cached answer for
- *	  same-subexpressions cases.
+ *	  查找相同子表达式情形下缓存答案的
+ *	  方便子程序。
  */
 static bool
 operator_same_subexprs_lookup(Oid pred_op, Oid clause_op, bool refute_it)
@@ -2222,16 +2222,16 @@ operator_same_subexprs_lookup(Oid pred_op, Oid clause_op, bool refute_it)
 
 /*
  * get_btree_test_op
- *	  Identify the comparison operator needed for a btree-operator
- *	  proof or refutation involving comparison of constants.
+ *	  找出在涉及常量比较的证明或反驳中，
+ *	  btree 操作符所需的比较操作符。
  *
- * Given the truth of a clause "var clause_op const1", we are attempting to
- * prove or refute a predicate "var pred_op const2".  The identities of the
- * two operators are sufficient to determine the operator (if any) to compare
- * const2 to const1 with.
+ * 给定子句 var clause_op const1 为真，我们试图
+ * 证明或反驳谓词 var pred_op const2。两个操作符的身份
+ * 足以决定用哪个操作符（若有的话）来比较
+ * const2 和 const1。
  *
- * Returns the OID of the operator to use, or InvalidOid if no proof is
- * possible.
+ * 返回要使用的操作符 OID，
+ * 若无法证明则返回 InvalidOid。
  */
 static Oid
 get_btree_test_op(Oid pred_op, Oid clause_op, bool refute_it)
@@ -2247,7 +2247,7 @@ get_btree_test_op(Oid pred_op, Oid clause_op, bool refute_it)
 
 
 /*
- * Callback for pg_amop inval events
+ * pg_amop 失效事件的回调
  */
 static void
 InvalidateOprProofCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
@@ -2257,7 +2257,7 @@ InvalidateOprProofCacheCallBack(Datum arg, int cacheid, uint32 hashvalue)
 
 	Assert(OprProofCacheHash != NULL);
 
-	/* Currently we just reset all entries; hard to be smarter ... */
+	/* 目前只是重置全部项；很难更聪明…… */
 	hash_seq_init(&status, OprProofCacheHash);
 
 	while ((hentry = (OprProofCacheEntry *) hash_seq_search(&status)) != NULL)

@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "0082-comment-optimizer-util-predtest",
+ "title": "zh: translate predtest comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5bf565125a5c2d51c7b8537f0b0609f301db8e84",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "note": "predicate implication and refutation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0082-comment-optimizer-util-predtest.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 215,
+   "translated": 210,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent predicate_implied_by_recurse",
+    "pgindent predicate_refuted_by_recurse",
+    "pgindent predicate_implied_by_simple_clause",
+    "pgindent predicate_refuted_by_simple_clause"
+   ],
+   "note": "predicate implication and refutation"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0082-comment-optimizer-util-predtest.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0082 translates src/backend/optimizer/util/predtest.c."
+}

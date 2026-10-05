@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0115b-comment-planagg-existing-quals",
+ "title": "zh: fix planagg header existing-quals placeholder",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d19aeaeea76f2c42a333726303d8b9ad24ff367c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/plan/planagg.c",
+   "kind": "c_comment",
+   "note": "restore existing-quals placeholder"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0115b-comment-planagg-existing-quals.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/plan/planagg.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 54,
+   "translated": 53,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "keep existing-quals placeholder in header pseudo-SQL"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0115b-comment-planagg-existing-quals.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "follow-up for Composer P1 on batch-0115"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0115b"
+  }
+ ],
+ "notes": "Composer P1 on batch-0115: do not translate existing-quals placeholder."
+}

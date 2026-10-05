@@ -6,7 +6,8 @@
  * 本模块试图用子查询替换 MIN/MAX 聚合函数，
  * 其形式为
  *		(SELECT col FROM tab
- *		 WHERE col IS NOT NULL AND 已有限定条件
+ *		 WHERE col IS NOT NULL AND existing-quals
+
  *		 ORDER BY col ASC/DESC
  *		 LIMIT 1)
  * 若 tab.col 上有合适的索引，这可以比

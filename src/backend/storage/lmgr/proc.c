@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * proc.c
- *	  routines to manage per-process shared memory data structure
+ *	  管理每进程共享内存数据结构的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,19 +13,19 @@
  *-------------------------------------------------------------------------
  */
 /*
- * Interface (a):
- *		ProcSleep(), ProcWakeup(),
+ * 接口 (a)：
+ *		ProcSleep()、ProcWakeup()，
  *
- * Waiting for a lock causes the backend to be put to sleep.  Whoever releases
- * the lock wakes the process up again (and gives it an error code so it knows
- * whether it was awoken on an error condition).
+ * 等待一把锁会使后端进入睡眠。释放该锁的一方
+ * 会再次唤醒该进程（并给出错误码，以便它知道
+ * 自己是否因错误条件而被唤醒）。
  *
- * Interface (b):
+ * 接口 (b)：
  *
- * ProcReleaseLocks -- frees the locks associated with current transaction
+ * ProcReleaseLocks -- 释放与当前事务相关联的锁
  *
- * ProcKill -- destroys the shared memory state (and locks)
- * associated with the process.
+ * ProcKill -- 销毁与该进程相关联的
+ * 共享内存状态（以及锁）。
  */
 #include "postgres.h"
 
@@ -54,7 +54,7 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 
-/* GUC variables */
+/* GUC 变量 */
 int			DeadlockTimeout = 1000;
 int			StatementTimeout = 0;
 int			LockTimeout = 0;
@@ -62,29 +62,29 @@ int			IdleInTransactionSessionTimeout = 0;
 int			IdleSessionTimeout = 0;
 bool		log_lock_waits = false;
 
-/* Pointer to this process's PGPROC struct, if any */
+/* 指向本进程 PGPROC 结构体的指针（如果有） */
 PGPROC	   *MyProc = NULL;
 
 /*
- * This spinlock protects the freelist of recycled PGPROC structures.
- * We cannot use an LWLock because the LWLock manager depends on already
- * having a PGPROC and a wait semaphore!  But these structures are touched
- * relatively infrequently (only at backend startup or shutdown) and not for
- * very long, so a spinlock is okay.
+ * 这把自旋锁保护回收所得 PGPROC 结构的空闲链表。
+ * 我们无法使用 LWLock，因为 LWLock 管理器依赖于已经
+ * 持有一个 PGPROC 和一把等待信号量！不过这些结构被碰触的
+ * 频率相对较低（仅在后端启动或关闭时），而且持续
+ * 时间不长，所以用自旋锁就可以。
  */
 NON_EXEC_STATIC slock_t *ProcStructLock = NULL;
 
-/* Pointers to shared-memory structures */
+/* 指向共享内存结构的指针 */
 PROC_HDR   *ProcGlobal = NULL;
 NON_EXEC_STATIC PGPROC *AuxiliaryProcs = NULL;
 PGPROC	   *PreparedXactProcs = NULL;
 
-/* If we are waiting for a lock, this points to the associated LOCALLOCK */
+/* 若我们正在等锁，此指针指向相关联的 LOCALLOCK */
 static LOCALLOCK *lockAwaited = NULL;
 
 static DeadLockState deadlock_state = DS_NOT_YET_CHECKED;
 
-/* Is a deadlock check pending? */
+/* 是否有待处理的死锁检查？ */
 static volatile sig_atomic_t got_deadlock_timeout;
 
 static void RemoveProcFromArray(int code, Datum arg);
@@ -94,7 +94,7 @@ static void CheckDeadLock(void);
 
 
 /*
- * Report shared-memory space needed by InitProcGlobal.
+ * 报告 InitProcGlobal 所需的共享内存空间。
  */
 Size
 ProcGlobalShmemSize(void)
@@ -103,7 +103,7 @@ ProcGlobalShmemSize(void)
 	Size		TotalProcs =
 		add_size(MaxBackends, add_size(NUM_AUXILIARY_PROCS, max_prepared_xacts));
 
-	/* ProcGlobal */
+	/* ProcGlobal 结构 */
 	size = add_size(size, sizeof(PROC_HDR));
 	size = add_size(size, mul_size(TotalProcs, sizeof(PGPROC)));
 	size = add_size(size, sizeof(slock_t));
@@ -116,42 +116,42 @@ ProcGlobalShmemSize(void)
 }
 
 /*
- * Report number of semaphores needed by InitProcGlobal.
+ * 报告 InitProcGlobal 所需的信号量个数。
  */
 int
 ProcGlobalSemas(void)
 {
 	/*
-	 * We need a sema per backend (including autovacuum), plus one for each
-	 * auxiliary process.
+	 * 每个后端（包括自动清理）需要一个信号量，每个
+	 * 辅助进程再各需一个。
 	 */
 	return MaxBackends + NUM_AUXILIARY_PROCS;
 }
 
 /*
  * InitProcGlobal -
- *	  Initialize the global process table during postmaster or standalone
- *	  backend startup.
+ *	  在 postmaster 或独立
+ *	  后端启动期间初始化全局进程表。
  *
- *	  We also create all the per-process semaphores we will need to support
- *	  the requested number of backends.  We used to allocate semaphores
- *	  only when backends were actually started up, but that is bad because
- *	  it lets Postgres fail under load --- a lot of Unix systems are
- *	  (mis)configured with small limits on the number of semaphores, and
- *	  running out when trying to start another backend is a common failure.
- *	  So, now we grab enough semaphores to support the desired max number
- *	  of backends immediately at initialization --- if the sysadmin has set
- *	  MaxConnections, max_worker_processes, max_wal_senders, or
- *	  autovacuum_max_workers higher than his kernel will support, he'll
- *	  find out sooner rather than later.
+ *	  我们还会创建为支持所需后端数量而要用到的全部每进程信号量。
+ *	  从前只在后端真正启动时才分配信号量，
+ *	  那样不好，因为
+ *	  会让 Postgres 在负载下失败 --- 许多 Unix 系统
+ *	  （错误）配置了很小的信号量数量上限，而且
+ *	  试图再启动一个后端时用尽信号量是常见故障。
+ *	  因此，现在我们在初始化时立刻取得足够的信号量，以支持期望的最大
+ *	  后端数量 --- 若系统管理员把
+ *	  MaxConnections、max_worker_processes、max_wal_senders 或
+ *	  autovacuum_max_workers 设得比其内核所能支持的更高，就会
+ *	  尽早发现，而不是拖到以后。
  *
- *	  Another reason for creating semaphores here is that the semaphore
- *	  implementation typically requires us to create semaphores in the
- *	  postmaster, not in backends.
+ *	  在这里创建信号量的另一个原因是，信号量
+ *	  实现通常需要我们在
+ *	  postmaster 中创建信号量，而不是在后端中。
  *
- * Note: this is NOT called by individual backends under a postmaster,
- * not even in the EXEC_BACKEND case.  The ProcGlobal and AuxiliaryProcs
- * pointers must be propagated specially for EXEC_BACKEND operation.
+ * 注意：在 postmaster 之下，各个后端不会调用本函数，
+ * 即便是 EXEC_BACKEND 情形也不会。ProcGlobal 与 AuxiliaryProcs
+ * 指针必须为 EXEC_BACKEND 操作专门传递下去。
  */
 void
 InitProcGlobal(void)
@@ -162,13 +162,13 @@ InitProcGlobal(void)
 	bool		found;
 	uint32		TotalProcs = MaxBackends + NUM_AUXILIARY_PROCS + max_prepared_xacts;
 
-	/* Create the ProcGlobal shared structure */
+	/* 创建 ProcGlobal 共享结构 */
 	ProcGlobal = (PROC_HDR *)
 		ShmemInitStruct("Proc Header", sizeof(PROC_HDR), &found);
 	Assert(!found);
 
 	/*
-	 * Initialize the data structures.
+	 * 初始化数据结构。
 	 */
 	ProcGlobal->spins_per_delay = DEFAULT_SPINS_PER_DELAY;
 	dlist_init(&ProcGlobal->freeProcs);
@@ -182,25 +182,25 @@ InitProcGlobal(void)
 	pg_atomic_init_u32(&ProcGlobal->clogGroupFirst, INVALID_PGPROCNO);
 
 	/*
-	 * Create and initialize all the PGPROC structures we'll need.  There are
-	 * five separate consumers: (1) normal backends, (2) autovacuum workers
-	 * and the autovacuum launcher, (3) background workers, (4) auxiliary
-	 * processes, and (5) prepared transactions.  Each PGPROC structure is
-	 * dedicated to exactly one of these purposes, and they do not move
-	 * between groups.
+	 * 创建并初始化我们将需要的全部 PGPROC 结构。共有
+	 * 五类使用者：(1) 普通后端，(2) 自动清理工作进程
+	 * 与自动清理启动器，(3) 后台工作进程，(4) 辅助
+	 * 进程，以及 (5) 预备事务。每个 PGPROC 结构
+	 * 只专用于其中一种用途，并且不会在
+	 * 各组之间移动。
 	 */
 	procs = (PGPROC *) ShmemAlloc(TotalProcs * sizeof(PGPROC));
 	MemSet(procs, 0, TotalProcs * sizeof(PGPROC));
 	ProcGlobal->allProcs = procs;
-	/* XXX allProcCount isn't really all of them; it excludes prepared xacts */
+	/* XXX allProcCount 其实并非全部；它不含预备事务 */
 	ProcGlobal->allProcCount = MaxBackends + NUM_AUXILIARY_PROCS;
 
 	/*
-	 * Allocate arrays mirroring PGPROC fields in a dense manner. See
-	 * PROC_HDR.
+	 * 以紧凑方式分配镜像 PGPROC 字段的数组。见
+	 * PROC_HDR。
 	 *
-	 * XXX: It might make sense to increase padding for these arrays, given
-	 * how hotly they are accessed.
+	 * XXX：考虑到这些数组被访问得非常频繁，
+	 * 加大它们的填充也许是有意义的。
 	 */
 	ProcGlobal->xids =
 		(TransactionId *) ShmemAlloc(TotalProcs * sizeof(*ProcGlobal->xids));
@@ -214,12 +214,12 @@ InitProcGlobal(void)
 	{
 		PGPROC	   *proc = &procs[i];
 
-		/* Common initialization for all PGPROCs, regardless of type. */
+		/* 所有 PGPROCs 的公共初始化，不论类型。 */
 
 		/*
-		 * Set up per-PGPROC semaphore, latch, and fpInfoLock.  Prepared xact
-		 * dummy PGPROCs don't need these though - they're never associated
-		 * with a real process
+		 * 为每个 PGPROC 设置信号量、锁存器以及 fpInfoLock。预备事务的
+		 * 虚设 PGPROCs 并不需要这些——它们从不关联到
+		 * 真正的进程
 		 */
 		if (i < MaxBackends + NUM_AUXILIARY_PROCS)
 		{
@@ -230,48 +230,48 @@ InitProcGlobal(void)
 		proc->pgprocno = i;
 
 		/*
-		 * Newly created PGPROCs for normal backends, autovacuum and bgworkers
-		 * must be queued up on the appropriate free list.  Because there can
-		 * only ever be a small, fixed number of auxiliary processes, no free
-		 * list is used in that case; InitAuxiliaryProcess() instead uses a
-		 * linear search.   PGPROCs for prepared transactions are added to a
-		 * free list by TwoPhaseShmemInit().
+		 * 为普通后端、自动清理和后台工作进程新建的 PGPROCs
+		 * 必须排入相应的空闲链表。因为辅助进程的数量
+		 * 始终又少又固定，那种情况下不用空闲
+		 * 链表；InitAuxiliaryProcess() 改为做
+		 * 线性搜索。预备事务的 PGPROCs 由
+		 * TwoPhaseShmemInit() 加入空闲链表。
 		 */
 		if (i < MaxConnections)
 		{
-			/* PGPROC for normal backend, add to freeProcs list */
+			/* 普通后端的 PGPROC，加入 freeProcs 链表 */
 			dlist_push_head(&ProcGlobal->freeProcs, &proc->links);
 			proc->procgloballist = &ProcGlobal->freeProcs;
 		}
 		else if (i < MaxConnections + autovacuum_max_workers + 1)
 		{
-			/* PGPROC for AV launcher/worker, add to autovacFreeProcs list */
+			/* 自动清理启动器/工作进程的 PGPROC，加入 autovacFreeProcs 链表 */
 			dlist_push_head(&ProcGlobal->autovacFreeProcs, &proc->links);
 			proc->procgloballist = &ProcGlobal->autovacFreeProcs;
 		}
 		else if (i < MaxConnections + autovacuum_max_workers + 1 + max_worker_processes)
 		{
-			/* PGPROC for bgworker, add to bgworkerFreeProcs list */
+			/* 后台工作进程的 PGPROC，加入 bgworkerFreeProcs 链表 */
 			dlist_push_head(&ProcGlobal->bgworkerFreeProcs, &proc->links);
 			proc->procgloballist = &ProcGlobal->bgworkerFreeProcs;
 		}
 		else if (i < MaxBackends)
 		{
-			/* PGPROC for walsender, add to walsenderFreeProcs list */
+			/* WAL 发送进程的 PGPROC，加入 walsenderFreeProcs 链表 */
 			dlist_push_head(&ProcGlobal->walsenderFreeProcs, &proc->links);
 			proc->procgloballist = &ProcGlobal->walsenderFreeProcs;
 		}
 
-		/* Initialize myProcLocks[] shared memory queues. */
+		/* 初始化 myProcLocks[] 共享内存队列。 */
 		for (j = 0; j < NUM_LOCK_PARTITIONS; j++)
 			dlist_init(&(proc->myProcLocks[j]));
 
-		/* Initialize lockGroupMembers list. */
+		/* 初始化 lockGroupMembers 链表。 */
 		dlist_init(&proc->lockGroupMembers);
 
 		/*
-		 * Initialize the atomic variables, otherwise, it won't be safe to
-		 * access them for backends that aren't currently in use.
+		 * 初始化这些原子变量，否则对于当前未在使用的
+		 * 后端，访问它们将是不安全的。
 		 */
 		pg_atomic_init_u32(&(proc->procArrayGroupNext), INVALID_PGPROCNO);
 		pg_atomic_init_u32(&(proc->clogGroupNext), INVALID_PGPROCNO);
@@ -279,19 +279,19 @@ InitProcGlobal(void)
 	}
 
 	/*
-	 * Save pointers to the blocks of PGPROC structures reserved for auxiliary
-	 * processes and prepared transactions.
+	 * 保存保留给辅助进程和预备事务的
+	 * 那几块 PGPROC 结构的指针。
 	 */
 	AuxiliaryProcs = &procs[MaxBackends];
 	PreparedXactProcs = &procs[MaxBackends + NUM_AUXILIARY_PROCS];
 
-	/* Create ProcStructLock spinlock, too */
+	/* 同时创建 ProcStructLock 自旋锁 */
 	ProcStructLock = (slock_t *) ShmemAlloc(sizeof(slock_t));
 	SpinLockInit(ProcStructLock);
 }
 
 /*
- * InitProcess -- initialize a per-process data structure for this backend
+ * InitProcess -- 为本后端初始化每进程数据结构
  */
 void
 InitProcess(void)
@@ -299,8 +299,8 @@ InitProcess(void)
 	dlist_head *procgloballist;
 
 	/*
-	 * ProcGlobal should be set up already (if we are a backend, we inherit
-	 * this by fork() or EXEC_BACKEND mechanism from the postmaster).
+	 * ProcGlobal 应当已经设置好（若我们是后端，则经由
+	 * fork() 或 EXEC_BACKEND 机制从 postmaster 继承它）。
 	 */
 	if (ProcGlobal == NULL)
 		elog(PANIC, "proc header uninitialized");
@@ -308,7 +308,7 @@ InitProcess(void)
 	if (MyProc != NULL)
 		elog(ERROR, "you already exist");
 
-	/* Decide which list should supply our PGPROC. */
+	/* 决定由哪条链表提供我们的 PGPROC。 */
 	if (IsAnyAutoVacuumProcess())
 		procgloballist = &ProcGlobal->autovacFreeProcs;
 	else if (IsBackgroundWorker)
@@ -319,11 +319,11 @@ InitProcess(void)
 		procgloballist = &ProcGlobal->freeProcs;
 
 	/*
-	 * Try to get a proc struct from the appropriate free list.  If this
-	 * fails, we must be out of PGPROC structures (not to mention semaphores).
+	 * 尝试从相应的空闲链表取一个 proc 结构。若失败，
+	 * 我们一定是用尽了 PGPROC 结构（更不用说信号量）。
 	 *
-	 * While we are holding the ProcStructLock, also copy the current shared
-	 * estimate of spins_per_delay to local storage.
+	 * 持有 ProcStructLock 期间，也把当前共享的
+	 * spins_per_delay 估计值复制到本地存储。
 	 */
 	SpinLockAcquire(ProcStructLock);
 
@@ -337,10 +337,10 @@ InitProcess(void)
 	else
 	{
 		/*
-		 * If we reach here, all the PGPROCs are in use.  This is one of the
-		 * possible places to detect "too many backends", so give the standard
-		 * error message.  XXX do we need to give a different failure message
-		 * in the autovacuum case?
+		 * 若走到这里，全部 PGPROCs 都在使用中。这是可以
+		 * 检测出 "过多后端" 的地方之一，因此给出标准
+		 * 错误消息。XXX 自动清理情形下是否需要
+		 * 给出不同的失败消息？
 		 */
 		SpinLockRelease(ProcStructLock);
 		if (am_walsender)
@@ -354,23 +354,23 @@ InitProcess(void)
 	}
 
 	/*
-	 * Cross-check that the PGPROC is of the type we expect; if this were not
-	 * the case, it would get returned to the wrong list.
+	 * 交叉核对 PGPROC 是否为我们所期望的类型；若不是，
+	 * 它会被归还到错误的链表。
 	 */
 	Assert(MyProc->procgloballist == procgloballist);
 
 	/*
-	 * Now that we have a PGPROC, mark ourselves as an active postmaster
-	 * child; this is so that the postmaster can detect it if we exit without
-	 * cleaning up.  (XXX autovac launcher currently doesn't participate in
-	 * this; it probably should.)
+	 * 既然已有 PGPROC，就把自己标记为活跃的 postmaster
+	 * 子进程；这样如果我们退出时没有清理，postmaster 就能发现。
+	 * （XXX 自动清理启动器目前不参与
+	 * 这一点；它大概应该参与。）
 	 */
 	if (IsUnderPostmaster && !IsAutoVacuumLauncherProcess())
 		MarkPostmasterChildActive();
 
 	/*
-	 * Initialize all fields of MyProc, except for those previously
-	 * initialized by InitProcGlobal.
+	 * 初始化 MyProc 的全部字段，先前已由
+	 * InitProcGlobal 初始化过的那些除外。
 	 */
 	dlist_node_init(&MyProc->links);
 	MyProc->waitStatus = PROC_WAIT_STATUS_OK;
@@ -380,7 +380,7 @@ InitProcess(void)
 	MyProc->xid = InvalidTransactionId;
 	MyProc->xmin = InvalidTransactionId;
 	MyProc->pid = MyProcPid;
-	/* backendId, databaseId and roleId will be filled in later */
+	/* backendId、databaseId 和 roleId 稍后填入 */
 	MyProc->backendId = InvalidBackendId;
 	MyProc->databaseId = InvalidOid;
 	MyProc->roleId = InvalidOid;
@@ -388,7 +388,7 @@ InitProcess(void)
 	MyProc->isBackgroundWorker = !AmRegularBackendProcess();
 	MyProc->delayChkptFlags = 0;
 	MyProc->statusFlags = 0;
-	/* NB -- autovac launcher intentionally does not set IS_AUTOVACUUM */
+	/* NB -- 自动清理启动器有意不设置 IS_AUTOVACUUM */
 	if (IsAutoVacuumWorkerProcess())
 		MyProc->statusFlags |= PROC_IS_AUTOVACUUM;
 	MyProc->lwWaiting = LW_WS_NOT_WAITING;
@@ -400,31 +400,31 @@ InitProcess(void)
 	{
 		int			i;
 
-		/* Last process should have released all locks. */
+		/* 上一个进程应当已经释放全部锁。 */
 		for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 			Assert(dlist_is_empty(&(MyProc->myProcLocks[i])));
 	}
 #endif
 	MyProc->recoveryConflictPending = false;
 
-	/* Initialize fields for sync rep */
+	/* 初始化同步复制用的字段 */
 	MyProc->waitLSN = 0;
 	MyProc->syncRepState = SYNC_REP_NOT_WAITING;
 	dlist_node_init(&MyProc->syncRepLinks);
 
-	/* Initialize fields for group XID clearing. */
+	/* 初始化成组 XID 清除用的字段。 */
 	MyProc->procArrayGroupMember = false;
 	MyProc->procArrayGroupMemberXid = InvalidTransactionId;
 	Assert(pg_atomic_read_u32(&MyProc->procArrayGroupNext) == INVALID_PGPROCNO);
 
-	/* Check that group locking fields are in a proper initial state. */
+	/* 检查锁组字段处于正确的初始状态。 */
 	Assert(MyProc->lockGroupLeader == NULL);
 	Assert(dlist_is_empty(&MyProc->lockGroupMembers));
 
-	/* Initialize wait event information. */
+	/* 初始化等待事件信息。 */
 	MyProc->wait_event_info = 0;
 
-	/* Initialize fields for group transaction status update. */
+	/* 初始化成组事务状态更新用的字段。 */
 	MyProc->clogGroupMember = false;
 	MyProc->clogGroupMemberXid = InvalidTransactionId;
 	MyProc->clogGroupMemberXidStatus = TRANSACTION_STATUS_IN_PROGRESS;
@@ -433,42 +433,42 @@ InitProcess(void)
 	Assert(pg_atomic_read_u32(&MyProc->clogGroupNext) == INVALID_PGPROCNO);
 
 	/*
-	 * Acquire ownership of the PGPROC's latch, so that we can use WaitLatch
-	 * on it.  That allows us to repoint the process latch, which so far
-	 * points to process local one, to the shared one.
+	 * 取得该 PGPROC 锁存器的所有权，以便我们能对它使用 WaitLatch。
+	 * 这样就可以把进程锁存器（此前指向进程本地的那一个）
+	 * 改指到共享的这一把。
 	 */
 	OwnLatch(&MyProc->procLatch);
 	SwitchToSharedLatch();
 
-	/* now that we have a proc, report wait events to shared memory */
+	/* 既然已有 proc，就把等待事件报告到共享内存 */
 	pgstat_set_wait_event_storage(&MyProc->wait_event_info);
 
 	/*
-	 * We might be reusing a semaphore that belonged to a failed process. So
-	 * be careful and reinitialize its value here.  (This is not strictly
-	 * necessary anymore, but seems like a good idea for cleanliness.)
+	 * 我们也许在复用曾经属于失败进程的信号量。因此
+	 * 这里要小心，重新初始化它的值。（严格说来这已经
+	 * 不再必要，但为了干净，似乎仍是个好主意。）
 	 */
 	PGSemaphoreReset(MyProc->sem);
 
 	/*
-	 * Arrange to clean up at backend exit.
+	 * 安排在后端退出时清理。
 	 */
 	on_shmem_exit(ProcKill, 0);
 
 	/*
-	 * Now that we have a PGPROC, we could try to acquire locks, so initialize
-	 * local state needed for LWLocks, and the deadlock checker.
+	 * 既然已有 PGPROC，我们就可以尝试获取锁，因此初始化
+	 * LWLocks 所需的本地状态，以及死锁检测器。
 	 */
 	InitLWLockAccess();
 	InitDeadLockChecking();
 }
 
 /*
- * InitProcessPhase2 -- make MyProc visible in the shared ProcArray.
+ * InitProcessPhase2 -- 使 MyProc 在共享 ProcArray 中可见。
  *
- * This is separate from InitProcess because we can't acquire LWLocks until
- * we've created a PGPROC, but in the EXEC_BACKEND case ProcArrayAdd won't
- * work until after we've done CreateSharedMemoryAndSemaphores.
+ * 本阶段与 InitProcess 分开，是因为在创建 PGPROC 之前我们无法获取 LWLocks，
+ * 但在 EXEC_BACKEND 情形下，要等做完 CreateSharedMemoryAndSemaphores
+ * 之后 ProcArrayAdd 才会奏效。
  */
 void
 InitProcessPhase2(void)
@@ -476,34 +476,34 @@ InitProcessPhase2(void)
 	Assert(MyProc != NULL);
 
 	/*
-	 * Add our PGPROC to the PGPROC array in shared memory.
+	 * 把我们的 PGPROC 加入共享内存中的 PGPROC 数组。
 	 */
 	ProcArrayAdd(MyProc);
 
 	/*
-	 * Arrange to clean that up at backend exit.
+	 * 安排在后端退出时把它清理掉。
 	 */
 	on_shmem_exit(RemoveProcFromArray, 0);
 }
 
 /*
- * InitAuxiliaryProcess -- create a per-auxiliary-process data structure
+ * InitAuxiliaryProcess -- 创建每个辅助进程的数据结构
  *
- * This is called by bgwriter and similar processes so that they will have a
- * MyProc value that's real enough to let them wait for LWLocks.  The PGPROC
- * and sema that are assigned are one of the extra ones created during
- * InitProcGlobal.
+ * 本函数由后台写入器（bgwriter）及类似进程调用，以便它们拥有
+ * 一个真实到足以等待 LWLocks 的 MyProc 值。所分配的 PGPROC
+ * 与信号量是在
+ * InitProcGlobal 期间创建的额外那些之一。
  *
- * Auxiliary processes are presently not expected to wait for real (lockmgr)
- * locks, so we need not set up the deadlock checker.  They are never added
- * to the ProcArray or the sinval messaging mechanism, either.  They also
- * don't get a VXID assigned, since this is only useful when we actually
- * hold lockmgr locks.
+ * 目前并不预期辅助进程去等待真正的（锁管理器）
+ * 锁，因此不必设置死锁检测器。它们也从不被加入
+ * ProcArray 或 sinval 消息机制。它们也
+ * 不会被分配 VXID，因为这只在我们真正
+ * 持有锁管理器锁时才有用。
  *
- * Startup process however uses locks but never waits for them in the
- * normal backend sense. Startup process also takes part in sinval messaging
- * as a sendOnly process, so never reads messages from sinval queue. So
- * Startup process does have a VXID and does show up in pg_locks.
+ * 不过启动进程会使用锁，但从不按
+ * 普通后端那种方式等待它们。启动进程也参与 sinval 消息传递，
+ * 作为 sendOnly 进程，因此从不从 sinval 队列读取消息。所以
+ * 启动进程确实拥有 VXID，并且会出现在 pg_locks 中。
  */
 void
 InitAuxiliaryProcess(void)
@@ -512,8 +512,8 @@ InitAuxiliaryProcess(void)
 	int			proctype;
 
 	/*
-	 * ProcGlobal should be set up already (if we are a backend, we inherit
-	 * this by fork() or EXEC_BACKEND mechanism from the postmaster).
+	 * ProcGlobal 应当已经设置好（若我们是后端，则经由
+	 * fork() 或 EXEC_BACKEND 机制从 postmaster 继承它）。
 	 */
 	if (ProcGlobal == NULL || AuxiliaryProcs == NULL)
 		elog(PANIC, "proc header uninitialized");
@@ -522,18 +522,18 @@ InitAuxiliaryProcess(void)
 		elog(ERROR, "you already exist");
 
 	/*
-	 * We use the ProcStructLock to protect assignment and releasing of
-	 * AuxiliaryProcs entries.
+	 * 我们用 ProcStructLock 保护 AuxiliaryProcs 条目的
+	 * 分配与释放。
 	 *
-	 * While we are holding the ProcStructLock, also copy the current shared
-	 * estimate of spins_per_delay to local storage.
+	 * 持有 ProcStructLock 期间，也把当前共享的
+	 * spins_per_delay 估计值复制到本地存储。
 	 */
 	SpinLockAcquire(ProcStructLock);
 
 	set_spins_per_delay(ProcGlobal->spins_per_delay);
 
 	/*
-	 * Find a free auxproc ... *big* trouble if there isn't one ...
+	 * 找一个空闲的 auxproc……如果没有就非常麻烦……
 	 */
 	for (proctype = 0; proctype < NUM_AUXILIARY_PROCS; proctype++)
 	{
@@ -547,8 +547,8 @@ InitAuxiliaryProcess(void)
 		elog(FATAL, "all AuxiliaryProcs are in use");
 	}
 
-	/* Mark auxiliary proc as in use by me */
-	/* use volatile pointer to prevent code rearrangement */
+	/* 把辅助进程标记为由我使用 */
+	/* 使用 volatile 指针以防止代码重排 */
 	((volatile PGPROC *) auxproc)->pid = MyProcPid;
 
 	MyProc = auxproc;
@@ -556,8 +556,8 @@ InitAuxiliaryProcess(void)
 	SpinLockRelease(ProcStructLock);
 
 	/*
-	 * Initialize all fields of MyProc, except for those previously
-	 * initialized by InitProcGlobal.
+	 * 初始化 MyProc 的全部字段，先前已由
+	 * InitProcGlobal 初始化过的那些除外。
 	 */
 	dlist_node_init(&MyProc->links);
 	MyProc->waitStatus = PROC_WAIT_STATUS_OK;
@@ -582,74 +582,74 @@ InitAuxiliaryProcess(void)
 	{
 		int			i;
 
-		/* Last process should have released all locks. */
+		/* 上一个进程应当已经释放全部锁。 */
 		for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 			Assert(dlist_is_empty(&(MyProc->myProcLocks[i])));
 	}
 #endif
 
 	/*
-	 * Acquire ownership of the PGPROC's latch, so that we can use WaitLatch
-	 * on it.  That allows us to repoint the process latch, which so far
-	 * points to process local one, to the shared one.
+	 * 取得该 PGPROC 锁存器的所有权，以便我们能对它使用 WaitLatch。
+	 * 这样就可以把进程锁存器（此前指向进程本地的那一个）
+	 * 改指到共享的这一把。
 	 */
 	OwnLatch(&MyProc->procLatch);
 	SwitchToSharedLatch();
 
-	/* now that we have a proc, report wait events to shared memory */
+	/* 既然已有 proc，就把等待事件报告到共享内存 */
 	pgstat_set_wait_event_storage(&MyProc->wait_event_info);
 
-	/* Check that group locking fields are in a proper initial state. */
+	/* 检查锁组字段处于正确的初始状态。 */
 	Assert(MyProc->lockGroupLeader == NULL);
 	Assert(dlist_is_empty(&MyProc->lockGroupMembers));
 
 	/*
-	 * We might be reusing a semaphore that belonged to a failed process. So
-	 * be careful and reinitialize its value here.  (This is not strictly
-	 * necessary anymore, but seems like a good idea for cleanliness.)
+	 * 我们也许在复用曾经属于失败进程的信号量。因此
+	 * 这里要小心，重新初始化它的值。（严格说来这已经
+	 * 不再必要，但为了干净，似乎仍是个好主意。）
 	 */
 	PGSemaphoreReset(MyProc->sem);
 
 	/*
-	 * Arrange to clean up at process exit.
+	 * 安排在进程退出时清理。
 	 */
 	on_shmem_exit(AuxiliaryProcKill, Int32GetDatum(proctype));
 }
 
 /*
- * Used from bufmgr to share the value of the buffer that Startup waits on,
- * or to reset the value to "not waiting" (-1). This allows processing
- * of recovery conflicts for buffer pins. Set is made before backends look
- * at this value, so locking not required, especially since the set is
- * an atomic integer set operation.
+ * 由 bufmgr 用来共享启动进程正在等待的那个缓冲区的值，
+ * 或把该值复位为 "未在等待"（-1）。这样就能处理
+ * 缓冲区钉住上的恢复冲突。赋值发生在各后端查看
+ * 此值之前，因此不必加锁，尤其是因为这次赋值
+ * 是一次原子整数赋值。
  */
 void
 SetStartupBufferPinWaitBufId(int bufid)
 {
-	/* use volatile pointer to prevent code rearrangement */
+	/* 使用 volatile 指针以防止代码重排 */
 	volatile PROC_HDR *procglobal = ProcGlobal;
 
 	procglobal->startupBufferPinWaitBufId = bufid;
 }
 
 /*
- * Used by backends when they receive a request to check for buffer pin waits.
+ * 后端收到检查缓冲区钉住等待的请求时使用。
  */
 int
 GetStartupBufferPinWaitBufId(void)
 {
-	/* use volatile pointer to prevent code rearrangement */
+	/* 使用 volatile 指针以防止代码重排 */
 	volatile PROC_HDR *procglobal = ProcGlobal;
 
 	return procglobal->startupBufferPinWaitBufId;
 }
 
 /*
- * Check whether there are at least N free PGPROC objects.  If false is
- * returned, *nfree will be set to the number of free PGPROC objects.
- * Otherwise, *nfree will be set to n.
+ * 检查是否至少有 N 个空闲 PGPROC 对象。若返回 false，
+ * *nfree 会被设为空闲 PGPROC 对象的个数。
+ * 否则 *nfree 会被设为 n。
  *
- * Note: this is designed on the assumption that N will generally be small.
+ * 注意：本函数的设计假定 N 通常较小。
  */
 bool
 HaveNFreeProcs(int n, int *nfree)
@@ -675,7 +675,7 @@ HaveNFreeProcs(int n, int *nfree)
 }
 
 /*
- * Check if the current process is awaiting a lock.
+ * 检查当前进程是否正在等待锁。
  */
 bool
 IsWaitingForLock(void)
@@ -687,12 +687,12 @@ IsWaitingForLock(void)
 }
 
 /*
- * Cancel any pending wait for lock, when aborting a transaction, and revert
- * any strong lock count acquisition for a lock being acquired.
+ * 中止事务时，取消任何尚未完成的锁等待，并回退
+ * 正在获取的锁上已经加上的强锁计数。
  *
- * (Normally, this would only happen if we accept a cancel/die
- * interrupt while waiting; but an ereport(ERROR) before or during the lock
- * wait is within the realm of possibility, too.)
+ * （通常只有在等待期间接受了取消/die
+ * 打断才会这样；不过在锁等待之前或期间
+ * ereport(ERROR) 也是可能发生的。）
  */
 void
 LockErrorCleanup(void)
@@ -704,7 +704,7 @@ LockErrorCleanup(void)
 
 	AbortStrongLockAcquire();
 
-	/* Nothing to do if we weren't waiting for a lock */
+	/* 若我们当时并非在等锁，则无事可做 */
 	if (lockAwaited == NULL)
 	{
 		RESUME_INTERRUPTS();
@@ -712,12 +712,12 @@ LockErrorCleanup(void)
 	}
 
 	/*
-	 * Turn off the deadlock and lock timeout timers, if they are still
-	 * running (see ProcSleep).  Note we must preserve the LOCK_TIMEOUT
-	 * indicator flag, since this function is executed before
-	 * ProcessInterrupts when responding to SIGINT; else we'd lose the
-	 * knowledge that the SIGINT came from a lock timeout and not an external
-	 * source.
+	 * 关掉仍在运行的死锁与锁超时计时器
+	 * （见 ProcSleep）。注意必须保留 LOCK_TIMEOUT
+	 * 指示标志，因为响应 SIGINT 时本函数在
+	 * ProcessInterrupts 之前执行；否则我们会失去
+	 * 这样的信息：该 SIGINT 来自锁超时，而不是外部
+	 * 来源。
 	 */
 	timeouts[0].id = DEADLOCK_TIMEOUT;
 	timeouts[0].keep_indicator = false;
@@ -725,22 +725,22 @@ LockErrorCleanup(void)
 	timeouts[1].keep_indicator = true;
 	disable_timeouts(timeouts, 2);
 
-	/* Unlink myself from the wait queue, if on it (might not be anymore!) */
+	/* 若自己还在等待队列上，就把自己摘下来（也许已经不在了！） */
 	partitionLock = LockHashPartitionLock(lockAwaited->hashcode);
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	if (!dlist_node_is_detached(&MyProc->links))
 	{
-		/* We could not have been granted the lock yet */
+		/* 此时还无法认为锁已经授予我们 */
 		RemoveFromWaitQueue(MyProc, lockAwaited->hashcode);
 	}
 	else
 	{
 		/*
-		 * Somebody kicked us off the lock queue already.  Perhaps they
-		 * granted us the lock, or perhaps they detected a deadlock. If they
-		 * did grant us the lock, we'd better remember it in our local lock
-		 * table.
+		 * 已经有人把我们从锁等待队列上踢下来了。也许他们
+		 * 把锁授予了我们，也许他们检测到了死锁。若他们
+		 * 确实授予了我们锁，我们最好把它记入本地锁
+		 * 表。
 		 */
 		if (MyProc->waitStatus == PROC_WAIT_STATUS_OK)
 			GrantAwaitedLock();
@@ -755,37 +755,37 @@ LockErrorCleanup(void)
 
 
 /*
- * ProcReleaseLocks() -- release locks associated with current transaction
- *			at main transaction commit or abort
+ * ProcReleaseLocks() -- 在主事务提交或中止时
+ *			释放与当前事务相关联的锁
  *
- * At main transaction commit, we release standard locks except session locks.
- * At main transaction abort, we release all locks including session locks.
+ * 主事务提交时，我们释放标准锁，但保留会话级锁。
+ * 主事务中止时，我们释放包括会话级锁在内的全部锁。
  *
- * Advisory locks are released only if they are transaction-level;
- * session-level holds remain, whether this is a commit or not.
+ * 咨询锁仅在它们是事务级时才释放；
+ * 会话级持有仍然保留，无论这次是不是提交。
  *
- * At subtransaction commit, we don't release any locks (so this func is not
- * needed at all); we will defer the releasing to the parent transaction.
- * At subtransaction abort, we release all locks held by the subtransaction;
- * this is implemented by retail releasing of the locks under control of
- * the ResourceOwner mechanism.
+ * 子事务提交时，我们不释放任何锁（因此本函数
+ * 完全不需要）；释放会推迟到父事务。
+ * 子事务中止时，我们释放该子事务持有的全部锁；
+ * 这是在 ResourceOwner 机制的控制下
+ * 逐把释放这些锁来实现的。
  */
 void
 ProcReleaseLocks(bool isCommit)
 {
 	if (!MyProc)
 		return;
-	/* If waiting, get off wait queue (should only be needed after error) */
+	/* 若正在等待，就离开等待队列（应当只在出错后才需要） */
 	LockErrorCleanup();
-	/* Release standard locks, including session-level if aborting */
+	/* 释放标准锁；若正在中止，则包括会话级锁 */
 	LockReleaseAll(DEFAULT_LOCKMETHOD, !isCommit);
-	/* Release transaction-level advisory locks */
+	/* 释放事务级咨询锁 */
 	LockReleaseAll(USER_LOCKMETHOD, false);
 }
 
 
 /*
- * RemoveProcFromArray() -- Remove this process from the shared ProcArray.
+ * RemoveProcFromArray() -- 把本进程从共享 ProcArray 中移除。
  */
 static void
 RemoveProcFromArray(int code, Datum arg)
@@ -795,8 +795,8 @@ RemoveProcFromArray(int code, Datum arg)
 }
 
 /*
- * ProcKill() -- Destroy the per-proc data structure for
- *		this process. Release any of its held LW locks.
+ * ProcKill() -- 销毁本进程的
+ *		每进程数据结构。释放它持有的任何 LW 锁。
  */
 static void
 ProcKill(int code, Datum arg)
@@ -806,38 +806,38 @@ ProcKill(int code, Datum arg)
 
 	Assert(MyProc != NULL);
 
-	/* not safe if forked by system(), etc. */
+	/* 若由 system() 等调用 fork 出来则不安全 */
 	if (MyProc->pid != (int) getpid())
 		elog(PANIC, "ProcKill() called in child process");
 
-	/* Make sure we're out of the sync rep lists */
+	/* 确保我们已经不在同步复制链表中 */
 	SyncRepCleanupAtProcExit();
 
 #ifdef USE_ASSERT_CHECKING
 	{
 		int			i;
 
-		/* Last process should have released all locks. */
+		/* 上一个进程应当已经释放全部锁。 */
 		for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 			Assert(dlist_is_empty(&(MyProc->myProcLocks[i])));
 	}
 #endif
 
 	/*
-	 * Release any LW locks I am holding.  There really shouldn't be any, but
-	 * it's cheap to check again before we cut the knees off the LWLock
-	 * facility by releasing our PGPROC ...
+	 * 释放我持有的任何 LW 锁。按理不该还有，但
+	 * 在释放 PGPROC 从而废掉 LWLock
+	 * 机制之前，再检查一次的代价很低……
 	 */
 	LWLockReleaseAll();
 
-	/* Cancel any pending condition variable sleep, too */
+	/* 同时取消任何尚未结束的条件变量睡眠 */
 	ConditionVariableCancelSleep();
 
 	/*
-	 * Detach from any lock group of which we are a member.  If the leader
-	 * exits before all other group members, its PGPROC will remain allocated
-	 * until the last group process exits; that process must return the
-	 * leader's PGPROC to the appropriate list.
+	 * 从我们所属的任何锁组中脱离。若组长
+	 * 在其他组成员之前退出，其 PGPROC 会一直保持已分配，
+	 * 直到最后一个组进程退出；那个进程必须把
+	 * 组长的 PGPROC 归还到相应链表。
 	 */
 	if (MyProc->lockGroupLeader != NULL)
 	{
@@ -854,7 +854,7 @@ ProcKill(int code, Datum arg)
 			{
 				procgloballist = leader->procgloballist;
 
-				/* Leader exited first; return its PGPROC. */
+				/* 组长先退出；归还其 PGPROC。 */
 				SpinLockAcquire(ProcStructLock);
 				dlist_push_head(procgloballist, &leader->links);
 				SpinLockRelease(ProcStructLock);
@@ -866,13 +866,13 @@ ProcKill(int code, Datum arg)
 	}
 
 	/*
-	 * Reset MyLatch to the process local one.  This is so that signal
-	 * handlers et al can continue using the latch after the shared latch
-	 * isn't ours anymore.
+	 * 把 MyLatch 复位为进程本地的那一把。这样
+	 * 信号处理函数等在共享锁存器
+	 * 不再属于我们之后，仍能继续使用这把锁存器。
 	 *
-	 * Similarly, stop reporting wait events to MyProc->wait_event_info.
+	 * 同样，停止向 MyProc->wait_event_info 报告等待事件。
 	 *
-	 * After that clear MyProc and disown the shared latch.
+	 * 此后清除 MyProc，并放弃共享锁存器的所有权。
 	 */
 	SwitchBackToLocalLatch();
 	pgstat_reset_wait_event_storage();
@@ -885,41 +885,41 @@ ProcKill(int code, Datum arg)
 	SpinLockAcquire(ProcStructLock);
 
 	/*
-	 * If we're still a member of a locking group, that means we're a leader
-	 * which has somehow exited before its children.  The last remaining child
-	 * will release our PGPROC.  Otherwise, release it now.
+	 * 若我们仍是某个锁组的成员，那就说明我们是组长，
+	 * 并且不知怎么在子进程之前退出了。最后剩下的子进程
+	 * 会释放我们的 PGPROC。否则现在就释放它。
 	 */
 	if (proc->lockGroupLeader == NULL)
 	{
-		/* Since lockGroupLeader is NULL, lockGroupMembers should be empty. */
+		/* 既然 lockGroupLeader 为 NULL，lockGroupMembers 应为空。 */
 		Assert(dlist_is_empty(&proc->lockGroupMembers));
 
-		/* Return PGPROC structure (and semaphore) to appropriate freelist */
+		/* 把 PGPROC 结构（以及信号量）归还到相应空闲链表 */
 		dlist_push_tail(procgloballist, &proc->links);
 	}
 
-	/* Update shared estimate of spins_per_delay */
+	/* 更新 spins_per_delay 的共享估计值 */
 	ProcGlobal->spins_per_delay = update_spins_per_delay(ProcGlobal->spins_per_delay);
 
 	SpinLockRelease(ProcStructLock);
 
 	/*
-	 * This process is no longer present in shared memory in any meaningful
-	 * way, so tell the postmaster we've cleaned up acceptably well. (XXX
-	 * autovac launcher should be included here someday)
+	 * 本进程在共享内存中已经不再以任何有意义的方式
+	 * 存在，因此告诉 postmaster 我们已经清理得可以接受。（XXX
+	 * 自动清理启动器将来应当也被包括进来）
 	 */
 	if (IsUnderPostmaster && !IsAutoVacuumLauncherProcess())
 		MarkPostmasterChildInactive();
 
-	/* wake autovac launcher if needed -- see comments in FreeWorkerInfo */
+	/* 必要时唤醒自动清理启动器 -- 见 FreeWorkerInfo 中的注释 */
 	if (AutovacuumLauncherPid != 0)
 		kill(AutovacuumLauncherPid, SIGUSR2);
 }
 
 /*
- * AuxiliaryProcKill() -- Cut-down version of ProcKill for auxiliary
- *		processes (bgwriter, etc).  The PGPROC and sema are not released, only
- *		marked as not-in-use.
+ * AuxiliaryProcKill() -- 供辅助进程使用的精简版 ProcKill
+ *		（后台写入器等）。PGPROC 与信号量并不释放，只是
+ *		标记为未在使用。
  */
 static void
 AuxiliaryProcKill(int code, Datum arg)
@@ -930,7 +930,7 @@ AuxiliaryProcKill(int code, Datum arg)
 
 	Assert(proctype >= 0 && proctype < NUM_AUXILIARY_PROCS);
 
-	/* not safe if forked by system(), etc. */
+	/* 若由 system() 等调用 fork 出来则不安全 */
 	if (MyProc->pid != (int) getpid())
 		elog(PANIC, "AuxiliaryProcKill() called in child process");
 
@@ -938,13 +938,13 @@ AuxiliaryProcKill(int code, Datum arg)
 
 	Assert(MyProc == auxproc);
 
-	/* Release any LW locks I am holding (see notes above) */
+	/* 释放我持有的任何 LW 锁（见上方说明） */
 	LWLockReleaseAll();
 
-	/* Cancel any pending condition variable sleep, too */
+	/* 同时取消任何尚未结束的条件变量睡眠 */
 	ConditionVariableCancelSleep();
 
-	/* look at the equivalent ProcKill() code for comments */
+	/* 注释见对应的 ProcKill() 代码 */
 	SwitchBackToLocalLatch();
 	pgstat_reset_wait_event_storage();
 
@@ -954,20 +954,20 @@ AuxiliaryProcKill(int code, Datum arg)
 
 	SpinLockAcquire(ProcStructLock);
 
-	/* Mark auxiliary proc no longer in use */
+	/* 把辅助进程标记为不再使用 */
 	proc->pid = 0;
 
-	/* Update shared estimate of spins_per_delay */
+	/* 更新 spins_per_delay 的共享估计值 */
 	ProcGlobal->spins_per_delay = update_spins_per_delay(ProcGlobal->spins_per_delay);
 
 	SpinLockRelease(ProcStructLock);
 }
 
 /*
- * AuxiliaryPidGetProc -- get PGPROC for an auxiliary process
- * given its PID
+ * AuxiliaryPidGetProc -- 取得辅助进程的 PGPROC，
+ * 给定其 PID
  *
- * Returns NULL if not found.
+ * 找不到时返回 NULL。
  */
 PGPROC *
 AuxiliaryPidGetProc(int pid)
@@ -975,7 +975,7 @@ AuxiliaryPidGetProc(int pid)
 	PGPROC	   *result = NULL;
 	int			index;
 
-	if (pid == 0)				/* never match dummy PGPROCs */
+	if (pid == 0)				/* 绝不匹配虚设的 PGPROCs */
 		return NULL;
 
 	for (index = 0; index < NUM_AUXILIARY_PROCS; index++)
@@ -993,20 +993,20 @@ AuxiliaryPidGetProc(int pid)
 
 
 /*
- * ProcSleep -- put a process to sleep on the specified lock
+ * ProcSleep -- 让进程在指定的锁上睡眠
  *
- * Caller must have set MyProc->heldLocks to reflect locks already held
- * on the lockable object by this process (under all XIDs).
+ * 调用方必须已设置 MyProc->heldLocks，以反映本进程
+ * 在该可锁对象上已经持有的锁（在全部 XIDs 之下）。
  *
- * The lock table's partition lock must be held at entry, and will be held
- * at exit.
+ * 进入时必须持有锁表的分区锁，退出时
+ * 仍会持有。
  *
- * Result: PROC_WAIT_STATUS_OK if we acquired the lock, PROC_WAIT_STATUS_ERROR if not (deadlock).
+ * 结果：若取得锁则为 PROC_WAIT_STATUS_OK，否则（死锁）为 PROC_WAIT_STATUS_ERROR。
  *
- * ASSUME: that no one will fiddle with the queue until after
- *		we release the partition lock.
+ * ASSUME：在我们
+ *		释放分区锁之前，不会有人去改动该队列。
  *
- * NOTES: The process queue is now a priority queue for locking.
+ * NOTES：进程队列现在是用于加锁的优先级队列。
  */
 ProcWaitStatus
 ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
@@ -1027,14 +1027,14 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	PGPROC	   *leader = MyProc->lockGroupLeader;
 
 	/*
-	 * If group locking is in use, locks held by members of my locking group
-	 * need to be included in myHeldLocks.  This is not required for relation
-	 * extension lock which conflict among group members. However, including
-	 * them in myHeldLocks will give group members the priority to get those
-	 * locks as compared to other backends which are also trying to acquire
-	 * those locks.  OTOH, we can avoid giving priority to group members for
-	 * that kind of locks, but there doesn't appear to be a clear advantage of
-	 * the same.
+	 * 若正在使用锁组，我所属锁组成员持有的锁
+	 * 需要计入 myHeldLocks。对于在组成员之间相互冲突的关系
+	 * 扩展锁，这并不是必需的。不过，把它们计入
+	 * myHeldLocks 会让组成员比其他也在尝试获取
+	 * 这些锁的后端更优先得到这些
+	 * 锁。另一方面，我们也可以不给组成员这类锁的优先权，
+	 * 但那样做似乎并没有明显的
+	 * 好处。
 	 */
 	if (leader != NULL)
 	{
@@ -1052,21 +1052,21 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	}
 
 	/*
-	 * Determine where to add myself in the wait queue.
+	 * 确定把自己加到等待队列的什么位置。
 	 *
-	 * Normally I should go at the end of the queue.  However, if I already
-	 * hold locks that conflict with the request of any previous waiter, put
-	 * myself in the queue just in front of the first such waiter. This is not
-	 * a necessary step, since deadlock detection would move me to before that
-	 * waiter anyway; but it's relatively cheap to detect such a conflict
-	 * immediately, and avoid delaying till deadlock timeout.
+	 * 通常我应该排到队列末尾。不过，若我已经
+	 * 持有与任何先前等待者的请求相冲突的锁，就把
+	 * 自己插到第一个这样的等待者正前方。这一步并非
+	 * 必需，因为死锁检测反正会把我移到那个
+	 * 等待者之前；但立刻发现这种冲突相对便宜，
+	 * 可以避免一直拖到死锁超时。
 	 *
-	 * Special case: if I find I should go in front of some waiter, check to
-	 * see if I conflict with already-held locks or the requests before that
-	 * waiter.  If not, then just grant myself the requested lock immediately.
-	 * This is the same as the test for immediate grant in LockAcquire, except
-	 * we are only considering the part of the wait queue before my insertion
-	 * point.
+	 * 特殊情况：若发现自己应该排到某个等待者前面，就检查
+	 * 自己是否与已持有的锁、或该等待者之前的请求相冲突。
+	 * 若不相冲突，就立刻把所请求的锁授予自己。
+	 * 这与 LockAcquire 里立即授予的测试相同，只不过
+	 * 我们只考虑自己插入点之前
+	 * 的那一段等待队列。
 	 */
 	if (myHeldLocks != 0 && !dclist_is_empty(waitQueue))
 	{
@@ -1078,52 +1078,52 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			PGPROC	   *proc = dlist_container(PGPROC, links, iter.cur);
 
 			/*
-			 * If we're part of the same locking group as this waiter, its
-			 * locks neither conflict with ours nor contribute to
-			 * aheadRequests.
+			 * 若我们与这个等待者属于同一个锁组，它的
+			 * 锁既不与我们的锁冲突，也不计入
+			 * aheadRequests。
 			 */
 			if (leader != NULL && leader == proc->lockGroupLeader)
 				continue;
 
-			/* Must he wait for me? */
+			/* 他必须等我吗？ */
 			if (lockMethodTable->conflictTab[proc->waitLockMode] & myHeldLocks)
 			{
-				/* Must I wait for him ? */
+				/* 我必须等他吗？ */
 				if (lockMethodTable->conflictTab[lockmode] & proc->heldLocks)
 				{
 					/*
-					 * Yes, so we have a deadlock.  Easiest way to clean up
-					 * correctly is to call RemoveFromWaitQueue(), but we
-					 * can't do that until we are *on* the wait queue. So, set
-					 * a flag to check below, and break out of loop.  Also,
-					 * record deadlock info for later message.
+					 * 是的，于是我们死锁了。要把现场正确清理干净，
+					 * 最简单的办法是调用 RemoveFromWaitQueue()，但我们
+					 * 要等到自己已经在等待队列上才能这样做。因此设置
+					 * 一个标志留待下面检查，并跳出循环。同时
+					 * 记下死锁信息，供以后的消息使用。
 					 */
 					RememberSimpleDeadLock(MyProc, lockmode, lock, proc);
 					early_deadlock = true;
 					break;
 				}
-				/* I must go before this waiter.  Check special case. */
+				/* 我必须排在这个等待者之前。检查特殊情况。 */
 				if ((lockMethodTable->conflictTab[lockmode] & aheadRequests) == 0 &&
 					!LockCheckConflicts(lockMethodTable, lockmode, lock,
 										proclock))
 				{
-					/* Skip the wait and just grant myself the lock. */
+					/* 跳过等待，直接把锁授予自己。 */
 					GrantLock(lock, proclock, lockmode);
 					GrantAwaitedLock();
 					return PROC_WAIT_STATUS_OK;
 				}
 
-				/* Put myself into wait queue before conflicting process */
+				/* 把自己插到冲突进程之前的等待队列中 */
 				insert_before = proc;
 				break;
 			}
-			/* Nope, so advance to next waiter */
+			/* 不是，于是前进到下一个等待者 */
 			aheadRequests |= LOCKBIT_ON(proc->waitLockMode);
 		}
 	}
 
 	/*
-	 * Insert self into queue, at the position determined above.
+	 * 按上面确定的位置把自己插入队列。
 	 */
 	if (insert_before)
 		dclist_insert_before(waitQueue, &insert_before->links, &MyProc->links);
@@ -1132,7 +1132,7 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 
 	lock->waitMask |= LOCKBIT_ON(lockmode);
 
-	/* Set up wait information in PGPROC object, too */
+	/* 同时在 PGPROC 对象中设置等待信息 */
 	MyProc->waitLock = lock;
 	MyProc->waitProcLock = proclock;
 	MyProc->waitLockMode = lockmode;
@@ -1140,8 +1140,8 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	MyProc->waitStatus = PROC_WAIT_STATUS_WAITING;
 
 	/*
-	 * If we detected deadlock, give up without waiting.  This must agree with
-	 * CheckDeadLock's recovery code.
+	 * 若检测到死锁，则不再等待而直接放弃。这必须与
+	 * CheckDeadLock 的恢复代码一致。
 	 */
 	if (early_deadlock)
 	{
@@ -1149,46 +1149,46 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 		return PROC_WAIT_STATUS_ERROR;
 	}
 
-	/* mark that we are waiting for a lock */
+	/* 标记我们正在等待一把锁 */
 	lockAwaited = locallock;
 
 	/*
-	 * Release the lock table's partition lock.
+	 * 释放锁表的分区锁。
 	 *
-	 * NOTE: this may also cause us to exit critical-section state, possibly
-	 * allowing a cancel/die interrupt to be accepted. This is OK because we
-	 * have recorded the fact that we are waiting for a lock, and so
-	 * LockErrorCleanup will clean up if cancel/die happens.
+	 * NOTE：这可能也使我们退出临界区状态，从而可能
+	 * 允许接受取消/die 中断。这没问题，因为我们已经
+	 * 记下自己正在等锁，因此若发生取消/die，
+	 * LockErrorCleanup 会负责清理。
 	 */
 	LWLockRelease(partitionLock);
 
 	/*
-	 * Also, now that we will successfully clean up after an ereport, it's
-	 * safe to check to see if there's a buffer pin deadlock against the
-	 * Startup process.  Of course, that's only necessary if we're doing Hot
-	 * Standby and are not the Startup process ourselves.
+	 * 另外，既然 ereport 之后我们能够顺利清理，就可以
+	 * 安全地检查是否存在针对启动进程的缓冲区钉住死锁。
+	 * 当然，只有当我们正处于热备、并且自己并不是
+	 * 启动进程时，才有必要这样做。
 	 */
 	if (RecoveryInProgress() && !InRecovery)
 		CheckRecoveryConflictDeadlock();
 
-	/* Reset deadlock_state before enabling the timeout handler */
+	/* 在启用超时处理函数之前复位 deadlock_state */
 	deadlock_state = DS_NOT_YET_CHECKED;
 	got_deadlock_timeout = false;
 
 	/*
-	 * Set timer so we can wake up after awhile and check for a deadlock. If a
-	 * deadlock is detected, the handler sets MyProc->waitStatus =
-	 * PROC_WAIT_STATUS_ERROR, allowing us to know that we must report failure
-	 * rather than success.
+	 * 设置计时器，以便过一会儿醒来检查死锁。若
+	 * 检测到死锁，处理函数会把 MyProc->waitStatus 设为
+	 * PROC_WAIT_STATUS_ERROR，让我们知道必须报告失败
+	 * 而不是成功。
 	 *
-	 * By delaying the check until we've waited for a bit, we can avoid
-	 * running the rather expensive deadlock-check code in most cases.
+	 * 把检查推迟到已经等待片刻之后，大多数情况下就可以避免
+	 * 运行相当昂贵的死锁检测代码。
 	 *
-	 * If LockTimeout is set, also enable the timeout for that.  We can save a
-	 * few cycles by enabling both timeout sources in one call.
+	 * 若设置了 LockTimeout，也一并启用那个超时。把两个超时源
+	 * 放在一次调用里启用，可以省下几个周期。
 	 *
-	 * If InHotStandby we set lock waits slightly later for clarity with other
-	 * code.
+	 * 若处于 InHotStandby，为了与其他代码对照清楚，我们会把锁等待
+	 * 稍晚一点再设置。
 	 */
 	if (!InHotStandby)
 	{
@@ -1208,18 +1208,18 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			enable_timeout_after(DEADLOCK_TIMEOUT, DeadlockTimeout);
 
 		/*
-		 * Use the current time obtained for the deadlock timeout timer as
-		 * waitStart (i.e., the time when this process started waiting for the
-		 * lock). Since getting the current time newly can cause overhead, we
-		 * reuse the already-obtained time to avoid that overhead.
+		 * 把为死锁超时计时器取得的当前时间用作
+		 * waitStart（也就是本进程开始等待该
+		 * 锁的时刻）。重新取当前时间会带来开销，因此我们
+		 * 复用已经取得的时间，以避免该开销。
 		 *
-		 * Note that waitStart is updated without holding the lock table's
-		 * partition lock, to avoid the overhead by additional lock
-		 * acquisition. This can cause "waitstart" in pg_locks to become NULL
-		 * for a very short period of time after the wait started even though
-		 * "granted" is false. This is OK in practice because we can assume
-		 * that users are likely to look at "waitstart" when waiting for the
-		 * lock for a long time.
+		 * 注意，更新 waitStart 时并不持有锁表的
+		 * 分区锁，以免额外获取锁带来
+		 * 开销。这可能导致 pg_locks 里的 "waitstart" 在等待开始后
+		 * 极短的一段时间内变成 NULL，即便当时
+		 * "granted" 为 false。实践上这没问题，因为可以假定
+		 * 用户多半是在长时间等待
+		 * 该锁时才去看 "waitstart"。
 		 */
 		pg_atomic_write_u64(&MyProc->waitStart,
 							get_timeout_start_time(DEADLOCK_TIMEOUT));
@@ -1227,25 +1227,25 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	else if (log_recovery_conflict_waits)
 	{
 		/*
-		 * Set the wait start timestamp if logging is enabled and in hot
-		 * standby.
+		 * 若启用了日志且处于热备，
+		 * 则设置等待开始时间戳。
 		 */
 		standbyWaitStart = GetCurrentTimestamp();
 	}
 
 	/*
-	 * If somebody wakes us between LWLockRelease and WaitLatch, the latch
-	 * will not wait. But a set latch does not necessarily mean that the lock
-	 * is free now, as there are many other sources for latch sets than
-	 * somebody releasing the lock.
+	 * 若有人在 LWLockRelease 与 WaitLatch 之间唤醒我们，锁存器
+	 * 不会等待。但锁存器已置位并不一定意味着锁
+	 * 现在空闲，因为锁存器被置位的来源很多，并不只有
+	 * 有人释放了锁。
 	 *
-	 * We process interrupts whenever the latch has been set, so cancel/die
-	 * interrupts are processed quickly. This means we must not mind losing
-	 * control to a cancel/die interrupt here.  We don't, because we have no
-	 * shared-state-change work to do after being granted the lock (the
-	 * grantor did it all).  We do have to worry about canceling the deadlock
-	 * timeout and updating the locallock table, but if we lose control to an
-	 * error, LockErrorCleanup will fix that up.
+	 * 每当锁存器被置位，我们就处理中断，因此取消/die
+	 * 中断会被很快处理。这意味着我们不得介意在这里失去
+	 * 控制权，把它交给取消/die 中断。我们并不介意，因为我们没有
+	 * 在被授予锁之后要做的共享状态变更工作（授予方
+	 * 已经全部做完）。我们倒是要操心取消死锁
+	 * 超时并更新 locallock 表；但若因错误而失去控制，
+	 * LockErrorCleanup 会把它修好。
 	 */
 	do
 	{
@@ -1254,13 +1254,13 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			bool		maybe_log_conflict =
 				(standbyWaitStart != 0 && !logged_recovery_conflict);
 
-			/* Set a timer and wait for that or for the lock to be granted */
+			/* 设置计时器，并等待它到期或锁被授予 */
 			ResolveRecoveryConflictWithLock(locallock->tag.lock,
 											maybe_log_conflict);
 
 			/*
-			 * Emit the log message if the startup process is waiting longer
-			 * than deadlock_timeout for recovery conflict on lock.
+			 * 若启动进程为锁上的恢复冲突等待的时间
+			 * 超过 deadlock_timeout，则发出日志消息。
 			 */
 			if (maybe_log_conflict)
 			{
@@ -1276,11 +1276,11 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 											 AccessExclusiveLock, &cnt);
 
 					/*
-					 * Log the recovery conflict and the list of PIDs of
-					 * backends holding the conflicting lock. Note that we do
-					 * logging even if there are no such backends right now
-					 * because the startup process here has already waited
-					 * longer than deadlock_timeout.
+					 * 记下这次恢复冲突，以及持有冲突锁的
+					 * 各后端的 PIDs 列表。注意，即便此刻并没有
+					 * 这样的后端，我们仍然记日志，
+					 * 因为这里的启动进程已经等待得
+					 * 比 deadlock_timeout 更久。
 					 */
 					LogRecoveryConflict(PROCSIG_RECOVERY_CONFLICT_LOCK,
 										standbyWaitStart, now,
@@ -1294,7 +1294,7 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			(void) WaitLatch(MyLatch, WL_LATCH_SET | WL_EXIT_ON_PM_DEATH, 0,
 							 PG_WAIT_LOCK | locallock->tag.lock.locktag_type);
 			ResetLatch(MyLatch);
-			/* check for deadlocks first, as that's probably log-worthy */
+			/* 先检查死锁，因为那大概值得记入日志 */
 			if (got_deadlock_timeout)
 			{
 				CheckDeadLock();
@@ -1304,15 +1304,15 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 		}
 
 		/*
-		 * waitStatus could change from PROC_WAIT_STATUS_WAITING to something
-		 * else asynchronously.  Read it just once per loop to prevent
-		 * surprising behavior (such as missing log messages).
+		 * waitStatus 可能从 PROC_WAIT_STATUS_WAITING 异步地变成
+		 * 别的值。每个循环只读一次，以免出现
+		 * 令人意外的行为（例如漏掉日志消息）。
 		 */
 		myWaitStatus = *((volatile ProcWaitStatus *) &MyProc->waitStatus);
 
 		/*
-		 * If we are not deadlocked, but are waiting on an autovacuum-induced
-		 * task, send a signal to interrupt it.
+		 * 若我们并未死锁，但在等待由自动清理引起的
+		 * 任务，则发送信号去中断它。
 		 */
 		if (deadlock_state == DS_BLOCKED_BY_AUTOVACUUM && allow_autovacuum_cancel)
 		{
@@ -1322,13 +1322,13 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			LOCKTAG		locktag_copy;
 
 			/*
-			 * Grab info we need, then release lock immediately.  Note this
-			 * coding means that there is a tiny chance that the process
-			 * terminates its current transaction and starts a different one
-			 * before we have a change to send the signal; the worst possible
-			 * consequence is that a for-wraparound vacuum is cancelled.  But
-			 * that could happen in any case unless we were to do kill() with
-			 * the lock held, which is much more undesirable.
+			 * 先取走需要的信息，然后立刻释放锁。注意这种
+			 * 写法意味着有极小的可能：该进程
+			 * 终止其当前事务并开始另一个事务，
+			 * 发生在我们来得及发出信号之前；最坏的
+			 * 后果是一次防回卷清理被取消。但
+			 * 除非我们持锁调用 kill()，否则这种情况
+			 * 无论如何都可能发生，而持锁调用要不可取得多。
 			 */
 			LWLockAcquire(ProcArrayLock, LW_EXCLUSIVE);
 			statusFlags = ProcGlobal->statusFlags[autovac->pgxactoff];
@@ -1337,19 +1337,19 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			LWLockRelease(ProcArrayLock);
 
 			/*
-			 * Only do it if the worker is not working to protect against Xid
-			 * wraparound.
+			 * 仅当该工作进程并非在防止事务 ID
+			 * 回卷时才这样做。
 			 */
 			if ((statusFlags & PROC_IS_AUTOVACUUM) &&
 				!(statusFlags & PROC_VACUUM_FOR_WRAPAROUND))
 			{
 				int			pid = autovac->pid;
 
-				/* report the case, if configured to do so */
+				/* 若配置为报告，则报告这种情况 */
 				if (message_level_is_interesting(DEBUG1))
 				{
 					StringInfoData locktagbuf;
-					StringInfoData logbuf;	/* errdetail for server log */
+					StringInfoData logbuf;	/* 供服务器日志使用的 errdetail */
 
 					initStringInfo(&locktagbuf);
 					initStringInfo(&logbuf);
@@ -1369,18 +1369,18 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 					pfree(logbuf.data);
 				}
 
-				/* send the autovacuum worker Back to Old Kent Road */
+				/* 把自动清理工作进程送回起点 */
 				if (kill(pid, SIGINT) < 0)
 				{
 					/*
-					 * There's a race condition here: once we release the
-					 * ProcArrayLock, it's possible for the autovac worker to
-					 * close up shop and exit before we can do the kill().
-					 * Therefore, we do not whinge about no-such-process.
-					 * Other errors such as EPERM could conceivably happen if
-					 * the kernel recycles the PID fast enough, but such cases
-					 * seem improbable enough that it's probably best to issue
-					 * a warning if we see some other errno.
+					 * 这里有一处竞态：一旦我们释放
+					 * ProcArrayLock，自动清理工作进程就可能
+					 * 收工并在我们来得及 kill() 之前退出。
+					 * 因此，我们不为 "进程不存在" 而抱怨。
+					 * 若内核很快回收该 PID，EPERM 之类的其他错误
+					 * 按理也可能发生，但这类情况
+					 * 似乎不大可能，所以若看到别的 errno，
+					 * 发出警告大概是最好的。
 					 */
 					if (errno != ESRCH)
 						ereport(WARNING,
@@ -1389,13 +1389,13 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 				}
 			}
 
-			/* prevent signal from being sent again more than once */
+			/* 防止该信号被再次发送 */
 			allow_autovacuum_cancel = false;
 		}
 
 		/*
-		 * If awoken after the deadlock check interrupt has run, and
-		 * log_lock_waits is on, then report about the wait.
+		 * 若在死锁检查中断已经运行之后被唤醒，且
+		 * log_lock_waits 为开，则报告这次等待。
 		 */
 		if (log_lock_waits && deadlock_state != DS_NOT_YET_CHECKED)
 		{
@@ -1426,12 +1426,12 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			usecs = usecs % 1000;
 
 			/*
-			 * we loop over the lock's procLocks to gather a list of all
-			 * holders and waiters. Thus we will be able to provide more
-			 * detailed information for lock debugging purposes.
+			 * 我们遍历该锁的 procLocks，收集全部
+			 * 持有者与等待者的列表。这样就能为锁的调试
+			 * 提供更详细的信息。
 			 *
-			 * lock->procLocks contains all processes which hold or wait for
-			 * this lock.
+			 * lock->procLocks 包含持有或等待
+			 * 这把锁的全部进程。
 			 */
 
 			LWLockAcquire(partitionLock, LW_SHARED);
@@ -1442,8 +1442,8 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 					dlist_container(PROCLOCK, lockLink, proc_iter.cur);
 
 				/*
-				 * we are a waiter if myProc->waitProcLock == curproclock; we
-				 * are a holder if it is NULL or something different
+				 * 若 myProc->waitProcLock == curproclock，我们就是等待者；
+				 * 若它为 NULL 或别的值，我们就是持有者
 				 */
 				if (curproclock->tag.myProc->waitProcLock == curproclock)
 				{
@@ -1485,11 +1485,11 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			else if (deadlock_state == DS_HARD_DEADLOCK)
 			{
 				/*
-				 * This message is a bit redundant with the error that will be
-				 * reported subsequently, but in some cases the error report
-				 * might not make it to the log (eg, if it's caught by an
-				 * exception handler), and we want to ensure all long-wait
-				 * events get logged.
+				 * 这条消息与随后将报告的错误有些重复，
+				 * 但有些情况下错误报告
+				 * 可能到不了日志（例如被
+				 * 异常处理函数捕获），而我们希望确保所有长时间等待
+				 * 事件都被记入日志。
 				 */
 				ereport(LOG,
 						(errmsg("process %d detected deadlock while waiting for %s on %s after %ld.%03d ms",
@@ -1515,13 +1515,13 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 				Assert(myWaitStatus == PROC_WAIT_STATUS_ERROR);
 
 				/*
-				 * Currently, the deadlock checker always kicks its own
-				 * process, which means that we'll only see
-				 * PROC_WAIT_STATUS_ERROR when deadlock_state ==
-				 * DS_HARD_DEADLOCK, and there's no need to print redundant
-				 * messages.  But for completeness and future-proofing, print
-				 * a message if it looks like someone else kicked us off the
-				 * lock.
+				 * 目前，死锁检测器总是踢自己的
+				 * 进程，这意味着我们只会在
+				 * deadlock_state ==
+				 * DS_HARD_DEADLOCK 时看到 PROC_WAIT_STATUS_ERROR，因此不必打印冗余
+				 * 消息。但为了完整、也为将来预留，若看起来是别人把我们从
+				 * 这把锁上踢下来的，就
+				 * 打印一条消息。
 				 */
 				if (deadlock_state != DS_HARD_DEADLOCK)
 					ereport(LOG,
@@ -1533,8 +1533,8 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 			}
 
 			/*
-			 * At this point we might still need to wait for the lock. Reset
-			 * state so we don't print the above messages again.
+			 * 此时我们也许仍需等待该锁。复位
+			 * 状态，以免再次打印上面的消息。
 			 */
 			deadlock_state = DS_NO_DEADLOCK;
 
@@ -1545,10 +1545,10 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	} while (myWaitStatus == PROC_WAIT_STATUS_WAITING);
 
 	/*
-	 * Disable the timers, if they are still running.  As in LockErrorCleanup,
-	 * we must preserve the LOCK_TIMEOUT indicator flag: if a lock timeout has
-	 * already caused QueryCancelPending to become set, we want the cancel to
-	 * be reported as a lock timeout, not a user cancel.
+	 * 若计时器仍在运行，就关掉它们。与 LockErrorCleanup 中一样，
+	 * 我们必须保留 LOCK_TIMEOUT 指示标志：若锁超时已经
+	 * 使 QueryCancelPending 被置位，我们希望这次取消
+	 * 被报告为锁超时，而不是用户取消。
 	 */
 	if (!InHotStandby)
 	{
@@ -1567,8 +1567,8 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 	}
 
 	/*
-	 * Emit the log message if recovery conflict on lock was resolved but the
-	 * startup process waited longer than deadlock_timeout for it.
+	 * 若锁上的恢复冲突已经解决，但启动进程
+	 * 为它等待的时间超过了 deadlock_timeout，则发出日志消息。
 	 */
 	if (InHotStandby && logged_recovery_conflict)
 		LogRecoveryConflict(PROCSIG_RECOVERY_CONFLICT_LOCK,
@@ -1576,42 +1576,42 @@ ProcSleep(LOCALLOCK *locallock, LockMethod lockMethodTable)
 							NULL, false);
 
 	/*
-	 * Re-acquire the lock table's partition lock.  We have to do this to hold
-	 * off cancel/die interrupts before we can mess with lockAwaited (else we
-	 * might have a missed or duplicated locallock update).
+	 * 重新获取锁表的分区锁。必须这样做，才能在动
+	 * lockAwaited 之前挡住取消/die 中断（否则我们
+	 * 可能会漏掉或重复更新 locallock）。
 	 */
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	/*
-	 * We no longer want LockErrorCleanup to do anything.
+	 * 我们不再希望 LockErrorCleanup 做任何事。
 	 */
 	lockAwaited = NULL;
 
 	/*
-	 * If we got the lock, be sure to remember it in the locallock table.
+	 * 若我们得到了锁，务必把它记入 locallock 表。
 	 */
 	if (MyProc->waitStatus == PROC_WAIT_STATUS_OK)
 		GrantAwaitedLock();
 
 	/*
-	 * We don't have to do anything else, because the awaker did all the
-	 * necessary update of the lock table and MyProc.
+	 * 我们不必再做别的事，因为唤醒方已经完成了
+	 * 锁表和 MyProc 的全部必要更新。
 	 */
 	return MyProc->waitStatus;
 }
 
 
 /*
- * ProcWakeup -- wake up a process by setting its latch.
+ * ProcWakeup -- 通过置位其锁存器来唤醒进程。
  *
- *	 Also remove the process from the wait queue and set its links invalid.
+ *	 同时把该进程从等待队列移除，并将其链接置为无效。
  *
- * The appropriate lock partition lock must be held by caller.
+ * 调用方必须持有相应的锁分区锁。
  *
- * XXX: presently, this code is only used for the "success" case, and only
- * works correctly for that case.  To clean up in failure case, would need
- * to twiddle the lock's request counts too --- see RemoveFromWaitQueue.
- * Hence, in practice the waitStatus parameter must be PROC_WAIT_STATUS_OK.
+ * XXX：目前这段代码只用于 "成功" 情形，并且只在
+ * 该情形下才正确。失败情形下的清理还需要
+ * 调整该锁的请求计数 --- 见 RemoveFromWaitQueue。
+ * 因此实践上 waitStatus 参数必须是 PROC_WAIT_STATUS_OK。
  */
 void
 ProcWakeup(PGPROC *proc, ProcWaitStatus waitStatus)
@@ -1621,25 +1621,25 @@ ProcWakeup(PGPROC *proc, ProcWaitStatus waitStatus)
 
 	Assert(proc->waitStatus == PROC_WAIT_STATUS_WAITING);
 
-	/* Remove process from wait queue */
+	/* 把进程从等待队列移除 */
 	dclist_delete_from_thoroughly(&proc->waitLock->waitProcs, &proc->links);
 
-	/* Clean up process' state and pass it the ok/fail signal */
+	/* 清理进程状态，并把成功/失败信号传给它 */
 	proc->waitLock = NULL;
 	proc->waitProcLock = NULL;
 	proc->waitStatus = waitStatus;
 	pg_atomic_write_u64(&MyProc->waitStart, 0);
 
-	/* And awaken it */
+	/* 然后唤醒它 */
 	SetLatch(&proc->procLatch);
 }
 
 /*
- * ProcLockWakeup -- routine for waking up processes when a lock is
- *		released (or a prior waiter is aborted).  Scan all waiters
- *		for lock, waken any that are no longer blocked.
+ * ProcLockWakeup -- 在锁被
+ *		释放（或先前某个等待者被中止）时唤醒进程的例程。扫描该锁的全部等待者，
+ *		唤醒任何不再被阻塞的等待者。
  *
- * The appropriate lock partition lock must be held by caller.
+ * 调用方必须持有相应的锁分区锁。
  */
 void
 ProcLockWakeup(LockMethod lockMethodTable, LOCK *lock)
@@ -1657,23 +1657,23 @@ ProcLockWakeup(LockMethod lockMethodTable, LOCK *lock)
 		LOCKMODE	lockmode = proc->waitLockMode;
 
 		/*
-		 * Waken if (a) doesn't conflict with requests of earlier waiters, and
-		 * (b) doesn't conflict with already-held locks.
+		 * 若 (a) 与更早等待者的请求不冲突，且
+		 * (b) 与已持有的锁不冲突，则唤醒。
 		 */
 		if ((lockMethodTable->conflictTab[lockmode] & aheadRequests) == 0 &&
 			!LockCheckConflicts(lockMethodTable, lockmode, lock,
 								proc->waitProcLock))
 		{
-			/* OK to waken */
+			/* 可以唤醒 */
 			GrantLock(lock, proc->waitProcLock, lockmode);
-			/* removes proc from the lock's waiting process queue */
+			/* 把 proc 从该锁的等待进程队列中移除 */
 			ProcWakeup(proc, PROC_WAIT_STATUS_OK);
 		}
 		else
 		{
 			/*
-			 * Lock conflicts: Don't wake, but remember requested mode for
-			 * later checks.
+			 * 锁冲突：不要唤醒，但记住请求的模式，供
+			 * 后续检查使用。
 			 */
 			aheadRequests |= LOCKBIT_ON(lockmode);
 		}
@@ -1683,11 +1683,11 @@ ProcLockWakeup(LockMethod lockMethodTable, LOCK *lock)
 /*
  * CheckDeadLock
  *
- * We only get to this routine, if DEADLOCK_TIMEOUT fired while waiting for a
- * lock to be released by some other process.  Check if there's a deadlock; if
- * not, just return.  (But signal ProcSleep to log a message, if
- * log_lock_waits is true.)  If we have a real deadlock, remove ourselves from
- * the lock's wait queue and signal an error to ProcSleep.
+ * 只有在等待其他进程释放锁期间 DEADLOCK_TIMEOUT 触发时，
+ * 才会进入本例程。检查是否存在死锁；若
+ * 没有，直接返回。（但若 log_lock_waits 为真，则通知 ProcSleep
+ * 记一条日志。）若我们有真正的死锁，就把自己从
+ * 该锁的等待队列移除，并向 ProcSleep 发出错误信号。
  */
 static void
 CheckDeadLock(void)
@@ -1695,27 +1695,27 @@ CheckDeadLock(void)
 	int			i;
 
 	/*
-	 * Acquire exclusive lock on the entire shared lock data structures. Must
-	 * grab LWLocks in partition-number order to avoid LWLock deadlock.
+	 * 取得全部共享锁数据结构上的排他锁。必须
+	 * 按分区号顺序获取 LWLocks，以免发生 LWLock 死锁。
 	 *
-	 * Note that the deadlock check interrupt had better not be enabled
-	 * anywhere that this process itself holds lock partition locks, else this
-	 * will wait forever.  Also note that LWLockAcquire creates a critical
-	 * section, so that this routine cannot be interrupted by cancel/die
-	 * interrupts.
+	 * 注意，凡是本进程自己持有锁分区锁的地方，最好不要启用
+	 * 死锁检查中断，否则这里会
+	 * 永远等下去。还要注意 LWLockAcquire 会建立临界
+ * 区，因此本例程无法被取消/die
+ * 中断。
 	 */
 	for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 		LWLockAcquire(LockHashPartitionLockByIndex(i), LW_EXCLUSIVE);
 
 	/*
-	 * Check to see if we've been awoken by anyone in the interim.
+	 * 检查在此期间是否已有人唤醒我们。
 	 *
-	 * If we have, we can return and resume our transaction -- happy day.
-	 * Before we are awoken the process releasing the lock grants it to us so
-	 * we know that we don't have to wait anymore.
+	 * 若已经唤醒，我们就可以返回并继续事务 -- 皆大欢喜。
+	 * 在我们被唤醒之前，释放锁的进程已经把锁授予我们，因此
+	 * 我们知道不必再等。
 	 *
-	 * We check by looking to see if we've been unlinked from the wait queue.
-	 * This is safe because we hold the lock partition lock.
+	 * 我们通过查看自己是否已从等待队列摘除来检查这一点。
+	 * 这是安全的，因为我们持有锁分区锁。
 	 */
 	if (MyProc->links.prev == NULL ||
 		MyProc->links.next == NULL)
@@ -1726,44 +1726,44 @@ CheckDeadLock(void)
 		DumpAllLocks();
 #endif
 
-	/* Run the deadlock check, and set deadlock_state for use by ProcSleep */
+	/* 运行死锁检查，并设置 deadlock_state 供 ProcSleep 使用 */
 	deadlock_state = DeadLockCheck(MyProc);
 
 	if (deadlock_state == DS_HARD_DEADLOCK)
 	{
 		/*
-		 * Oops.  We have a deadlock.
+		 * 糟糕。我们死锁了。
 		 *
-		 * Get this process out of wait state. (Note: we could do this more
-		 * efficiently by relying on lockAwaited, but use this coding to
-		 * preserve the flexibility to kill some other transaction than the
-		 * one detecting the deadlock.)
+		 * 让本进程离开等待状态。（注意：靠 lockAwaited 可以做得
+		 * 更高效，但这里这样写是为了
+		 * 保留灵活性，以便弄掉的是检测到死锁的那一个以外的
+		 * 其他事务。）
 		 *
-		 * RemoveFromWaitQueue sets MyProc->waitStatus to
-		 * PROC_WAIT_STATUS_ERROR, so ProcSleep will report an error after we
-		 * return from the signal handler.
+		 * RemoveFromWaitQueue 把 MyProc->waitStatus 设为
+		 * PROC_WAIT_STATUS_ERROR，因此我们从信号处理函数
+		 * 返回之后，ProcSleep 会报告错误。
 		 */
 		Assert(MyProc->waitLock != NULL);
 		RemoveFromWaitQueue(MyProc, LockTagHashCode(&(MyProc->waitLock->tag)));
 
 		/*
-		 * We're done here.  Transaction abort caused by the error that
-		 * ProcSleep will raise will cause any other locks we hold to be
-		 * released, thus allowing other processes to wake up; we don't need
-		 * to do that here.  NOTE: an exception is that releasing locks we
-		 * hold doesn't consider the possibility of waiters that were blocked
-		 * behind us on the lock we just failed to get, and might now be
-		 * wakable because we're not in front of them anymore.  However,
-		 * RemoveFromWaitQueue took care of waking up any such processes.
+		 * 这里就做完了。ProcSleep 将抛出的错误所引起的事务中止
+		 * 会使我们持有的其他锁被
+		 * 释放，从而让其他进程醒来；我们不必
+		 * 在这里做那件事。NOTE：有一个例外，释放我们
+		 * 持有的锁时，不会考虑那些在我们刚刚没能得到的锁上、
+		 * 排在我们后面而被阻塞的等待者，它们现在也许
+		 * 可以唤醒了，因为我们不再挡在它们前面。不过，
+		 * RemoveFromWaitQueue 已经负责唤醒任何这样的进程。
 		 */
 	}
 
 	/*
-	 * And release locks.  We do this in reverse order for two reasons: (1)
-	 * Anyone else who needs more than one of the locks will be trying to lock
-	 * them in increasing order; we don't want to release the other process
-	 * until it can get all the locks it needs. (2) This avoids O(N^2)
-	 * behavior inside LWLockRelease.
+	 * 然后释放锁。我们按相反顺序做，原因有二：(1)
+	 * 其他任何需要其中一把以上锁的人都会按
+	 * 递增顺序去锁它们；我们不想在对方能够取得它需要的全部锁之前
+	 * 就放开另一个进程。(2) 这样可以避免 LWLockRelease 内部的
+	 * O(N^2) 行为。
 	 */
 check_done:
 	for (i = NUM_LOCK_PARTITIONS; --i >= 0;)
@@ -1771,9 +1771,9 @@ check_done:
 }
 
 /*
- * CheckDeadLockAlert - Handle the expiry of deadlock_timeout.
+ * CheckDeadLockAlert - 处理 deadlock_timeout 到期。
  *
- * NB: Runs inside a signal handler, be careful.
+ * NB：在信号处理函数内运行，务必小心。
  */
 void
 CheckDeadLockAlert(void)
@@ -1783,23 +1783,23 @@ CheckDeadLockAlert(void)
 	got_deadlock_timeout = true;
 
 	/*
-	 * Have to set the latch again, even if handle_sig_alarm already did. Back
-	 * then got_deadlock_timeout wasn't yet set... It's unlikely that this
-	 * ever would be a problem, but setting a set latch again is cheap.
+	 * 必须再次置位锁存器，即便 handle_sig_alarm 已经置过。当时
+	 * got_deadlock_timeout 还没被设置……这不大可能
+	 * 真成问题，但再次置位一把已置位的锁存器很便宜。
 	 *
-	 * Note that, when this function runs inside procsignal_sigusr1_handler(),
-	 * the handler function sets the latch again after the latch is set here.
+	 * 注意，当本函数在 procsignal_sigusr1_handler() 内运行时，
+	 * 处理函数会在此处置位锁存器之后再次置位锁存器。
 	 */
 	SetLatch(MyLatch);
 	errno = save_errno;
 }
 
 /*
- * ProcWaitForSignal - wait for a signal from another backend.
+ * ProcWaitForSignal - 等待来自另一个后端的信号。
  *
- * As this uses the generic process latch the caller has to be robust against
- * unrelated wakeups: Always check that the desired state has occurred, and
- * wait again if not.
+ * 由于这里用的是通用进程锁存器，调用方必须能承受
+ * 无关的唤醒：始终检查期望的状态是否已经发生，
+ * 若没有就再等。
  */
 void
 ProcWaitForSignal(uint32 wait_event_info)
@@ -1811,7 +1811,7 @@ ProcWaitForSignal(uint32 wait_event_info)
 }
 
 /*
- * ProcSendSignal - set the latch of a backend identified by pgprocno
+ * ProcSendSignal - 置位由 pgprocno 标识的后端的锁存器
  */
 void
 ProcSendSignal(int pgprocno)
@@ -1823,24 +1823,24 @@ ProcSendSignal(int pgprocno)
 }
 
 /*
- * BecomeLockGroupLeader - designate process as lock group leader
+ * BecomeLockGroupLeader - 把进程指定为锁组组长
  *
- * Once this function has returned, other processes can join the lock group
- * by calling BecomeLockGroupMember.
+ * 本函数返回之后，其他进程就可以通过调用 BecomeLockGroupMember
+ * 加入该锁组。
  */
 void
 BecomeLockGroupLeader(void)
 {
 	LWLock	   *leader_lwlock;
 
-	/* If we already did it, we don't need to do it again. */
+	/* 若已经做过，就不必再做一次。 */
 	if (MyProc->lockGroupLeader == MyProc)
 		return;
 
-	/* We had better not be a follower. */
+	/* 我们最好还不是跟随者。 */
 	Assert(MyProc->lockGroupLeader == NULL);
 
-	/* Create single-member group, containing only ourselves. */
+	/* 创建只包含我们自己的单成员锁组。 */
 	leader_lwlock = LockHashPartitionLockByProc(MyProc);
 	LWLockAcquire(leader_lwlock, LW_EXCLUSIVE);
 	MyProc->lockGroupLeader = MyProc;
@@ -1849,14 +1849,14 @@ BecomeLockGroupLeader(void)
 }
 
 /*
- * BecomeLockGroupMember - designate process as lock group member
+ * BecomeLockGroupMember - 把进程指定为锁组成员
  *
- * This is pretty straightforward except for the possibility that the leader
- * whose group we're trying to join might exit before we manage to do so;
- * and the PGPROC might get recycled for an unrelated process.  To avoid
- * that, we require the caller to pass the PID of the intended PGPROC as
- * an interlock.  Returns true if we successfully join the intended lock
- * group, and false if not.
+ * 这相当直接，只是我们要加入的那个组长
+ * 可能在我们完成加入之前就退出；
+ * 而且该 PGPROC 可能被回收给无关进程。为避免
+ * 这一点，我们需要调用方把目标 PGPROC 的 PID 作为
+ * 互锁传入。若成功加入目标锁
+ * 组则返回 true，否则返回 false。
  */
 bool
 BecomeLockGroupMember(PGPROC *leader, int pid)
@@ -1864,29 +1864,29 @@ BecomeLockGroupMember(PGPROC *leader, int pid)
 	LWLock	   *leader_lwlock;
 	bool		ok = false;
 
-	/* Group leader can't become member of group */
+	/* 组长无法成为锁组的成员 */
 	Assert(MyProc != leader);
 
-	/* Can't already be a member of a group */
+	/* 不能已经是某个锁组的成员 */
 	Assert(MyProc->lockGroupLeader == NULL);
 
-	/* PID must be valid. */
+	/* PID 必须有效。 */
 	Assert(pid != 0);
 
 	/*
-	 * Get lock protecting the group fields.  Note LockHashPartitionLockByProc
-	 * accesses leader->pgprocno in a PGPROC that might be free.  This is safe
-	 * because all PGPROCs' pgprocno fields are set during shared memory
-	 * initialization and never change thereafter; so we will acquire the
-	 * correct lock even if the leader PGPROC is in process of being recycled.
+	 * 取得保护锁组字段的锁。注意 LockHashPartitionLockByProc
+	 * 会访问一个也许空闲的 PGPROC 里的 leader->pgprocno。这是安全的，
+	 * 因为所有 PGPROCs 的 pgprocno 字段都在共享内存
+	 * 初始化期间设定，此后不再改变；因此即便组长 PGPROC 正在被回收，
+	 * 我们也会取得正确的锁。
 	 */
 	leader_lwlock = LockHashPartitionLockByProc(leader);
 	LWLockAcquire(leader_lwlock, LW_EXCLUSIVE);
 
-	/* Is this the leader we're looking for? */
+	/* 这是我们要找的组长吗？ */
 	if (leader->pid == pid && leader->lockGroupLeader == leader)
 	{
-		/* OK, join the group */
+		/* 好，加入该锁组 */
 		ok = true;
 		MyProc->lockGroupLeader = leader;
 		dlist_push_tail(&leader->lockGroupMembers, &MyProc->lockGroupLink);

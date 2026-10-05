@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0125-comment-storage-lmgr-proc",
+ "title": "zh: translate proc comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "30bae18657373ec0a26d0c394a7dd182f9ec8cf9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/proc.c",
+   "kind": "c_comment",
+   "note": "per-process shared-memory state and lock waits"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0125-comment-storage-lmgr-proc.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/proc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 186,
+   "translated": 185,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "per-process PGPROC state, semaphores, and lock wait queues"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0125-comment-storage-lmgr-proc.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0125 translates body comments in proc.c. Terms: 锁管理器, 进程, 事务, 等待队列, 信号量, 死锁, 锁存器, 缓冲池, 钉住, 热备. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be lock.c."
+}

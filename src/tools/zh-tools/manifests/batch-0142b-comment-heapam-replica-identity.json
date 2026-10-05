@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0142b-comment-heapam-replica-identity",
+ "title": "zh: fix heapam replica identity wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7cb9f88b4237bf6a8ce3f3713b56724d63f51b62",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "note": "Composer P1 P67 复制标识"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0142b-comment-heapam-replica-identity.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 797,
+   "translated": 13,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "副本标识→复制标识 (13)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0142b-comment-heapam-replica-identity.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0142"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0142b"
+  }
+ ],
+ "notes": "Composer P1: align replica identity with phrasebook P67 (复制标识)."
+}

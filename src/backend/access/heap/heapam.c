@@ -2589,7 +2589,7 @@ heap_delete(Relation relation, ItemPointer tid,
 	bool		have_tuple_lock = false;
 	bool		iscombo;
 	bool		all_visible_cleared = false;
-	HeapTuple	old_key_tuple = NULL;	/* 该元组的副本标识 */
+	HeapTuple	old_key_tuple = NULL;	/* 该元组的复制标识 */
 	bool		old_key_copied = false;
 
 	Assert(ItemPointerIsValid(tid));
@@ -2817,7 +2817,7 @@ l1:
 	HeapTupleHeaderAdjustCmax(tp.t_data, &cid, &iscombo);
 
 	/*
-	 * 进入临界区之前先计算副本标识元组，这样
+	 * 进入临界区之前先计算复制标识元组，这样
 	 * 内存分配失败时就不会 PANIC。
 	 */
 	old_key_tuple = ExtractReplicaIdentity(relation, &tp, true, &old_key_copied);
@@ -2916,7 +2916,7 @@ l1:
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 
 		/*
-		 * 若有，则记录被删除元组的副本标识
+		 * 若有，则记录被删除元组的复制标识
 		 */
 		if (old_key_tuple != NULL)
 		{
@@ -3117,7 +3117,7 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 	 * 死锁。无论如何，relcache
 	 * 会缓存这些数据，所以通常相当便宜。
 	 *
-	 * 我们还需要副本标识使用的列，以及被
+	 * 我们还需要复制标识使用的列，以及被
 	 * 视为表中行"键"的那些列。
 	 *
 	 * 注意我们拿到的是每张位图的副本，因此不必担心
@@ -3212,7 +3212,7 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 
 	/*
 	 * 确定本次更新修改了哪些列。此外，识别
-	 * 旧元组中未被修改的副本标识键属性是否有
+	 * 旧元组中未被修改的复制标识键属性是否有
 	 * 外部存储的。这是必需的，因为对
 	 * 这类属性，扁平化后的值不会作为新元组的一部分记入 WAL，
 	 * 所以我们必须把它包含进 old_key_tuple。见
@@ -3835,10 +3835,10 @@ l2:
 	}
 
 	/*
-	 * 进入临界区之前先计算副本标识元组，这样
+	 * 进入临界区之前先计算复制标识元组，这样
 	 * 内存分配失败时就不会 PANIC。
 	 * 若没有需要记录的内容，ExtractReplicaIdentity() 会返回 NULL。
-	 * 只有副本标识键列被修改或含有外部数据时，
+	 * 只有复制标识键列被修改或含有外部数据时，
 	 * 才把 old key required 传为 true。
 	 */
 	old_key_tuple = ExtractReplicaIdentity(relation, &oldtup,
@@ -6012,7 +6012,7 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 
 	/*
 	 * 这里不必检查可串行化冲突。也绝不会
-	 * 需要组合 CID。不必提取副本标识，也不必
+	 * 需要组合 CID。不必提取复制标识，也不必
 	 * 对 infomask 位做任何特殊处理。
 	 */
 
@@ -6072,7 +6072,7 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 		XLogRegisterData((char *) &xlrec, SizeOfHeapDelete);
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 
-		/* 不记录副本标识和复制源 */
+		/* 不记录复制标识和复制源 */
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_DELETE);
 
@@ -9129,7 +9129,7 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
  * 若不必记录标识，或没有定义合适的
  * 键，则返回 NULL。
  *
- * 若任何副本标识列的值变了，或者
+ * 若任何复制标识列的值变了，或者
  * 其中任何列含有外部数据，则传入 key_required 为 true。删除必须始终传入 true。
  *
  * 若返回的元组是修改过的副本，而不是
@@ -9172,12 +9172,12 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 	if (!key_required)
 		return NULL;
 
-	/* 找出副本标识列 */
+	/* 找出复制标识列 */
 	idattrs = RelationGetIndexAttrBitmap(relation,
 										 INDEX_ATTR_BITMAP_IDENTITY_KEY);
 
 	/*
-	 * 若没有定义副本标识列，就当作 !key_required。
+	 * 若没有定义复制标识列，就当作 !key_required。
 	 * （从 heap_update 不应当到达这种情形，因为它应当
 	 * 准确地计算 key_required。但 heap_delete 只传入
 	 * 常量 true 作为 key_required，因此删除时会碰到这种情形。）
@@ -9186,7 +9186,7 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 		return NULL;
 
 	/*
-	 * 构造一个只含副本标识列的新元组，
+	 * 构造一个只含复制标识列的新元组，
 	 * 其他地方为空。同时断言副本
 	 * 标识列不是空。
 	 */

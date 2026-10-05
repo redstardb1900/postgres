@@ -1,48 +1,48 @@
 /*-------------------------------------------------------------------------
  *
  * heaptuple.c
- *	  This file contains heap tuple accessor and mutator routines, as well
- *	  as various tuple utilities.
+ *	  本文件包含堆元组的访问例程与修改例程，
+ *	  以及各种元组实用函数。
  *
- * Some notes about varlenas and this code:
+ * 关于变长值以及这段代码的若干说明：
  *
- * Before Postgres 8.3 varlenas always had a 4-byte length header, and
- * therefore always needed 4-byte alignment (at least).  This wasted space
- * for short varlenas, for example CHAR(1) took 5 bytes and could need up to
- * 3 additional padding bytes for alignment.
+ * 在 Postgres 8.3 之前，变长值始终带有 4 字节长度头，
+ * 因此至少需要 4 字节对齐。这对短变长值浪费了空间，
+ * 例如 CHAR(1) 占 5 字节，对齐时最多还可能再需要
+ * 3 个额外的填充字节。
  *
- * Now, a short varlena (up to 126 data bytes) is reduced to a 1-byte header
- * and we don't align it.  To hide this from datatype-specific functions that
- * don't want to deal with it, such a datum is considered "toasted" and will
- * be expanded back to the normal 4-byte-header format by pg_detoast_datum.
- * (In performance-critical code paths we can use pg_detoast_datum_packed
- * and the appropriate access macros to avoid that overhead.)  Note that this
- * conversion is performed directly in heap_form_tuple, without invoking
- * heaptoast.c.
+ * 现在，短变长值（数据最多 126 字节）缩成 1 字节头，
+ * 并且不再对齐。为了对不想处理它的类型相关函数
+ * 隐藏这一差别，这样的 datum 被视为 "toasted"，并会
+ * 由 pg_detoast_datum 展开回普通的 4 字节头格式。
+ * （在性能关键的代码路径上可以使用 pg_detoast_datum_packed
+ * 以及相应的访问宏来避免这笔开销。）注意，这一
+ * 转换直接在 heap_form_tuple 中完成，并不调用
+ * heaptoast.c。
  *
- * This change will break any code that assumes it needn't detoast values
- * that have been put into a tuple but never sent to disk.  Hopefully there
- * are few such places.
+ * 这一改动会破坏任何假定如下的代码：放进元组但从未
+ * 落盘的值不必做 detoast。希望这样的地方
+ * 并不多。
  *
- * Varlenas still have alignment INT (or DOUBLE) in pg_type/pg_attribute, since
- * that's the normal requirement for the untoasted format.  But we ignore that
- * for the 1-byte-header format.  This means that the actual start position
- * of a varlena datum may vary depending on which format it has.  To determine
- * what is stored, we have to require that alignment padding bytes be zero.
- * (Postgres actually has always zeroed them, but now it's required!)  Since
- * the first byte of a 1-byte-header varlena can never be zero, we can examine
- * the first byte after the previous datum to tell if it's a pad byte or the
- * start of a 1-byte-header varlena.
+ * 变长值在 pg_type/pg_attribute 中的对齐仍是 INT（或 DOUBLE），因为
+ * 那是未 toast 格式的正常需要。但对 1 字节头格式
+ * 我们忽略该对齐。这意味着变长 datum 的实际起始位置
+ * 会随它所采用的格式而变化。要判断存放的是什么，就得
+ * 把对齐填充字节定为零。
+ * （Postgres 实际上一直把它们清零，但现在这是必须的！）由于
+ * 1 字节头变长值的第一个字节绝不可能为零，我们可以检查
+ * 前一个 datum 之后的第一个字节，以判断它是填充字节还是
+ * 1 字节头变长值的起始。
  *
- * Note that while formerly we could rely on the first varlena column of a
- * system catalog to be at the offset suggested by the C struct for the
- * catalog, this is now risky: it's only safe if the preceding field is
- * word-aligned, so that there will never be any padding.
+ * 注意，以前可以信赖系统目录中第一个变长列就在
+ * 该目录 C 结构体所给出的偏移处，现在这样做有风险：
+ * 只有当前一个成员按字对齐、从而绝不会出现任何填充时，
+ * 才是安全的。
  *
- * We don't pack varlenas whose attstorage is PLAIN, since the data type
- * isn't expecting to have to detoast values.  This is used in particular
- * by oidvector and int2vector, which are used in the system catalogs
- * and we'd like to still refer to them via C struct offsets.
+ * attstorage 为 PLAIN 的变长值我们不做紧缩，因为该数据类型
+ * 并不预期要对这些值做 detoast。oidvector 与 int2vector
+ * 尤其如此，它们用于系统目录，
+ * 我们仍希望能经由 C 结构体偏移来引用它们。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -69,24 +69,24 @@
 
 
 /*
- * Does att's datatype allow packing into the 1-byte-header varlena format?
- * While functions that use TupleDescAttr() and assign attstorage =
- * TYPSTORAGE_PLAIN cannot use packed varlena headers, functions that call
- * TupleDescInitEntry() use typeForm->typstorage (TYPSTORAGE_EXTENDED) and
- * can use packed varlena headers, e.g.:
+ * att 的数据类型是否允许打包成 1 字节头的变长格式？
+ * 使用 TupleDescAttr() 并把 attstorage 赋为
+ * TYPSTORAGE_PLAIN 的函数无法使用紧缩的变长头；调用
+ * TupleDescInitEntry() 的函数使用 typeForm->typstorage（TYPSTORAGE_EXTENDED），
+ * 可以使用紧缩的变长头，例如：
  *     CREATE TABLE test(a VARCHAR(10000) STORAGE PLAIN);
  *     INSERT INTO test VALUES (repeat('A',10));
- * This can be verified with pageinspect.
+ * 可以用 pageinspect 验证这一点。
  */
 #define ATT_IS_PACKABLE(att) \
 	((att)->attlen == -1 && (att)->attstorage != TYPSTORAGE_PLAIN)
-/* Use this if it's already known varlena */
+/* 若已经知道是变长值，则用这个 */
 #define VARLENA_ATT_IS_PACKABLE(att) \
 	((att)->attstorage != TYPSTORAGE_PLAIN)
 
 /*
- * Setup for cacheing pass-by-ref missing attributes in a way that survives
- * tupleDesc destruction.
+ * 为按引用传递的缺少属性建立缓存，使其在
+ * tupleDesc 销毁之后仍然有效。
  */
 
 typedef struct
@@ -137,12 +137,12 @@ init_missing_cache()
 }
 
 /* ----------------------------------------------------------------
- *						misc support routines
+ *						其他支持例程
  * ----------------------------------------------------------------
  */
 
 /*
- * Return the missing value of an attribute, or NULL if there isn't one.
+ * 返回某属性的缺少值；若没有则返回 NULL。
  */
 Datum
 getmissingattr(TupleDesc tupleDesc,
@@ -173,15 +173,15 @@ getmissingattr(TupleDesc tupleDesc,
 
 			*isnull = false;
 
-			/* no  need to cache by-value attributes */
+			/* 按值属性无需缓存 */
 			if (att->attbyval)
 				return attrmiss->am_value;
 
-			/* set up cache if required */
+			/* 若需要则建立缓存 */
 			if (missing_cache == NULL)
 				init_missing_cache();
 
-			/* check if there's a cache entry */
+			/* 检查是否已有缓存项 */
 			Assert(att->attlen > 0 || att->attlen == -1);
 			if (att->attlen > 0)
 				key.len = att->attlen;
@@ -193,7 +193,7 @@ getmissingattr(TupleDesc tupleDesc,
 
 			if (!found)
 			{
-				/* cache miss, so we need a non-transient copy of the datum */
+				/* 缓存未命中，因此需要一份非临时的 datum 副本 */
 				oldctx = MemoryContextSwitchTo(TopMemoryContext);
 				entry->value =
 					datumCopy(attrmiss->am_value, false, att->attlen);
@@ -210,7 +210,7 @@ getmissingattr(TupleDesc tupleDesc,
 
 /*
  * heap_compute_data_size
- *		Determine size of the data area of a tuple to be constructed
+ *		确定待构造元组的数据区域大小
  */
 Size
 heap_compute_data_size(TupleDesc tupleDesc,
@@ -236,8 +236,8 @@ heap_compute_data_size(TupleDesc tupleDesc,
 			VARATT_CAN_MAKE_SHORT(DatumGetPointer(val)))
 		{
 			/*
-			 * we're anticipating converting to a short varlena header, so
-			 * adjust length and don't count any alignment
+			 * 预期会转换成短变长头，因此
+			 * 调整长度，并且不计入任何对齐
 			 */
 			data_length += VARATT_CONVERTED_SHORT_SIZE(DatumGetPointer(val));
 		}
@@ -245,8 +245,8 @@ heap_compute_data_size(TupleDesc tupleDesc,
 				 VARATT_IS_EXTERNAL_EXPANDED(DatumGetPointer(val)))
 		{
 			/*
-			 * we want to flatten the expanded value so that the constructed
-			 * tuple doesn't depend on it
+			 * 要把展开值展平，使构造出的
+			 * 元组不依赖它
 			 */
 			data_length = att_align_nominal(data_length, atti->attalign);
 			data_length += EOH_get_flat_size(DatumGetEOHP(val));
@@ -264,9 +264,9 @@ heap_compute_data_size(TupleDesc tupleDesc,
 }
 
 /*
- * Per-attribute helper for heap_fill_tuple and other routines building tuples.
+ * heap_fill_tuple 及其他构造元组的例程所用的逐属性辅助函数。
  *
- * Fill in either a data value or a bit in the null bitmask
+ * 填入一个数据值，或在空值位图中置一位
  */
 static inline void
 fill_val(Form_pg_attribute att,
@@ -281,8 +281,8 @@ fill_val(Form_pg_attribute att,
 	char	   *data = *dataP;
 
 	/*
-	 * If we're building a null bitmap, set the appropriate bit for the
-	 * current column value here.
+	 * 若正在构造空值位图，就在此为当前列的值
+	 * 设置相应的位。
 	 */
 	if (bit != NULL)
 	{
@@ -305,19 +305,19 @@ fill_val(Form_pg_attribute att,
 	}
 
 	/*
-	 * XXX we use the att_align macros on the pointer value itself, not on an
-	 * offset.  This is a bit of a hack.
+	 * XXX 我们对指针值本身使用 att_align 宏，而不是对
+	 * 偏移使用。这有点像权宜之计。
 	 */
 	if (att->attbyval)
 	{
-		/* pass-by-value */
+		/* 按值传递 */
 		data = (char *) att_align_nominal(data, att->attalign);
 		store_att_byval(data, datum, att->attlen);
 		data_length = att->attlen;
 	}
 	else if (att->attlen == -1)
 	{
-		/* varlena */
+		/* 变长值 */
 		Pointer		val = DatumGetPointer(datum);
 
 		*infomask |= HEAP_HASVARWIDTH;
@@ -326,8 +326,8 @@ fill_val(Form_pg_attribute att,
 			if (VARATT_IS_EXTERNAL_EXPANDED(val))
 			{
 				/*
-				 * we want to flatten the expanded value so that the
-				 * constructed tuple doesn't depend on it
+				 * 要把展开值展平，使
+				 * 构造出的元组不依赖它
 				 */
 				ExpandedObjectHeader *eoh = DatumGetEOHP(datum);
 
@@ -339,28 +339,28 @@ fill_val(Form_pg_attribute att,
 			else
 			{
 				*infomask |= HEAP_HASEXTERNAL;
-				/* no alignment, since it's short by definition */
+				/* 无需对齐，按定义它就是短的 */
 				data_length = VARSIZE_EXTERNAL(val);
 				memcpy(data, val, data_length);
 			}
 		}
 		else if (VARATT_IS_SHORT(val))
 		{
-			/* no alignment for short varlenas */
+			/* 短变长值无需对齐 */
 			data_length = VARSIZE_SHORT(val);
 			memcpy(data, val, data_length);
 		}
 		else if (VARLENA_ATT_IS_PACKABLE(att) &&
 				 VARATT_CAN_MAKE_SHORT(val))
 		{
-			/* convert to short varlena -- no alignment */
+			/* 转换成短变长值 -- 无需对齐 */
 			data_length = VARATT_CONVERTED_SHORT_SIZE(val);
 			SET_VARSIZE_SHORT(data, data_length);
 			memcpy(data + 1, VARDATA(val), data_length - 1);
 		}
 		else
 		{
-			/* full 4-byte header varlena */
+			/* 完整的 4 字节头变长值 */
 			data = (char *) att_align_nominal(data,
 											  att->attalign);
 			data_length = VARSIZE(val);
@@ -369,7 +369,7 @@ fill_val(Form_pg_attribute att,
 	}
 	else if (att->attlen == -2)
 	{
-		/* cstring ... never needs alignment */
+		/* cstring ... 从不需要对齐 */
 		*infomask |= HEAP_HASVARWIDTH;
 		Assert(att->attalign == TYPALIGN_CHAR);
 		data_length = strlen(DatumGetCString(datum)) + 1;
@@ -377,7 +377,7 @@ fill_val(Form_pg_attribute att,
 	}
 	else
 	{
-		/* fixed-length pass-by-reference */
+		/* 定长、按引用传递 */
 		data = (char *) att_align_nominal(data, att->attalign);
 		Assert(att->attlen > 0);
 		data_length = att->attlen;
@@ -390,12 +390,12 @@ fill_val(Form_pg_attribute att,
 
 /*
  * heap_fill_tuple
- *		Load data portion of a tuple from values/isnull arrays
+ *		从 values/isnull 数组装入元组的数据部分
  *
- * We also fill the null bitmap (if any) and set the infomask bits
- * that reflect the tuple's data contents.
+ * 同时填入空值位图（若有），并设置反映元组
+ * 数据内容的 infomask 位。
  *
- * NOTE: it is now REQUIRED that the caller have pre-zeroed the data area.
+ * 注意：现在 REQUIRED 调用方预先把数据区域清零。
  */
 void
 heap_fill_tuple(TupleDesc tupleDesc,
@@ -419,7 +419,7 @@ heap_fill_tuple(TupleDesc tupleDesc,
 	}
 	else
 	{
-		/* just to keep compiler quiet */
+		/* 只为让编译器保持安静 */
 		bitP = NULL;
 		bitmask = 0;
 	}
@@ -444,20 +444,20 @@ heap_fill_tuple(TupleDesc tupleDesc,
 
 
 /* ----------------------------------------------------------------
- *						heap tuple interface
+ *						堆元组接口
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		heap_attisnull	- returns true iff tuple attribute is not present
+ *		heap_attisnull - 当元组属性不存在时返回 true
  * ----------------
  */
 bool
 heap_attisnull(HeapTuple tup, int attnum, TupleDesc tupleDesc)
 {
 	/*
-	 * We allow a NULL tupledesc for relations not expected to have missing
-	 * values, such as catalog relations and indexes.
+	 * 对于预期不会有缺少值的关系，允许 tupledesc 为 NULL，
+	 * 例如目录关系与索引。
 	 */
 	Assert(!tupleDesc || attnum <= tupleDesc->natts);
 	if (attnum > (int) HeapTupleHeaderGetNatts(tup->t_data))
@@ -483,7 +483,7 @@ heap_attisnull(HeapTuple tup, int attnum, TupleDesc tupleDesc)
 		case MinCommandIdAttributeNumber:
 		case MaxTransactionIdAttributeNumber:
 		case MaxCommandIdAttributeNumber:
-			/* these are never null */
+			/* 这些绝不会是空值 */
 			break;
 
 		default:
@@ -496,24 +496,24 @@ heap_attisnull(HeapTuple tup, int attnum, TupleDesc tupleDesc)
 /* ----------------
  *		nocachegetattr
  *
- *		This only gets called from fastgetattr() macro, in cases where
- *		we can't use a cacheoffset and the value is not null.
+ *		只会被 fastgetattr() 宏调用，且是在无法使用
+ *		cacheoffset、而值又非空的时候。
  *
- *		This caches attribute offsets in the attribute descriptor.
+ *		本函数把属性偏移缓存在属性描述符中。
  *
- *		An alternative way to speed things up would be to cache offsets
- *		with the tuple, but that seems more difficult unless you take
- *		the storage hit of actually putting those offsets into the
- *		tuple you send to disk.  Yuck.
+ *		另一种加速办法是把偏移与元组一起缓存，
+ *		但除非真把这些偏移写进要落盘的元组、
+ *		并承受相应的存储代价，否则似乎更难办到。
+ *		真糟。
  *
- *		This scheme will be slightly slower than that, but should
- *		perform well for queries which hit large #'s of tuples.  After
- *		you cache the offsets once, examining all the other tuples using
- *		the same attribute descriptor will go much quicker. -cim 5/4/91
+ *		本方案会比那种做法略慢，但对命中大量
+ *		元组的查询应当表现良好。偏移缓存一次之后，
+ *		再用同一属性描述符检查其余所有元组
+ *		就会快得多。-cim 5/4/91
  *
- *		NOTE: if you need to change this code, see also heap_deform_tuple.
- *		Also see nocache_index_getattr, which is the same code for index
- *		tuples.
+ *		注意：若要修改这段代码，请同时参见 heap_deform_tuple。
+ *		另见 nocache_index_getattr，那是用于索引
+ *		元组的同一套代码。
  * ----------------
  */
 Datum
@@ -522,17 +522,17 @@ nocachegetattr(HeapTuple tup,
 			   TupleDesc tupleDesc)
 {
 	HeapTupleHeader td = tup->t_data;
-	char	   *tp;				/* ptr to data part of tuple */
-	bits8	   *bp = td->t_bits;	/* ptr to null bitmap in tuple */
-	bool		slow = false;	/* do we have to walk attrs? */
-	int			off;			/* current offset within data */
+	char	   *tp;				/* 指向元组数据部分的指针 */
+	bits8	   *bp = td->t_bits;	/* 指向元组中空值位图的指针 */
+	bool		slow = false;	/* 是否必须遍历各属性？ */
+	int			off;			/* 数据区内的当前偏移 */
 
 	/* ----------------
-	 *	 Three cases:
+	 *	 三种情形：
 	 *
-	 *	 1: No nulls and no variable-width attributes.
-	 *	 2: Has a null or a var-width AFTER att.
-	 *	 3: Has nulls or var-widths BEFORE att.
+	 *	 1：没有空值，也没有变长属性。
+	 *	 2：有空值，或变长属性位于 att AFTER。
+	 *	 3：有空值或变长属性位于 att BEFORE。
 	 * ----------------
 	 */
 
@@ -541,19 +541,19 @@ nocachegetattr(HeapTuple tup,
 	if (!HeapTupleNoNulls(tup))
 	{
 		/*
-		 * there's a null somewhere in the tuple
+		 * 元组中某处存在空值
 		 *
-		 * check to see if any preceding bits are null...
+		 * 检查前面是否有任何位为空值...
 		 */
 		int			byte = attnum >> 3;
 		int			finalbit = attnum & 0x07;
 
-		/* check for nulls "before" final bit of last byte */
+		/* 检查最后一个字节中末位之前的空值 */
 		if ((~bp[byte]) & ((1 << finalbit) - 1))
 			slow = true;
 		else
 		{
-			/* check for nulls in any "earlier" bytes */
+			/* 检查任何更早字节中的空值 */
 			int			i;
 
 			for (i = 0; i < byte; i++)
@@ -574,17 +574,17 @@ nocachegetattr(HeapTuple tup,
 		Form_pg_attribute att;
 
 		/*
-		 * If we get here, there are no nulls up to and including the target
-		 * attribute.  If we have a cached offset, we can use it.
+		 * 若执行到这里，直到目标属性（含）都没有空值。
+		 * 若已有缓存偏移，就可以使用它。
 		 */
 		att = TupleDescAttr(tupleDesc, attnum);
 		if (att->attcacheoff >= 0)
 			return fetchatt(att, tp + att->attcacheoff);
 
 		/*
-		 * Otherwise, check for non-fixed-length attrs up to and including
-		 * target.  If there aren't any, it's safe to cheaply initialize the
-		 * cached offsets for these attrs.
+		 * 否则，检查直到目标（含）是否有非定长属性。
+		 * 若没有，就可以低成本地为这些属性
+		 * 初始化缓存偏移。
 		 */
 		if (HeapTupleHasVarWidth(tup))
 		{
@@ -607,17 +607,17 @@ nocachegetattr(HeapTuple tup,
 		int			j = 1;
 
 		/*
-		 * If we get here, we have a tuple with no nulls or var-widths up to
-		 * and including the target attribute, so we can use the cached offset
-		 * ... only we don't have it yet, or we'd not have got here.  Since
-		 * it's cheap to compute offsets for fixed-width columns, we take the
-		 * opportunity to initialize the cached offsets for *all* the leading
-		 * fixed-width columns, in hope of avoiding future visits to this
-		 * routine.
+		 * 若执行到这里，直到目标属性（含）为止，元组
+		 * 都没有空值或变长属性，因此可以使用缓存偏移
+		 * ……只不过现在还没有，否则也不会走到这里。由于
+		 * 计算定宽列的偏移很便宜，我们借此机会
+		 * 为前面*所有*定宽列初始化缓存偏移，
+		 * 希望以后不必再进入本
+		 * 例程。
 		 */
 		TupleDescAttr(tupleDesc, 0)->attcacheoff = 0;
 
-		/* we might have set some offsets in the slow path previously */
+		/* 慢路径上可能已经设置过一些偏移 */
 		while (j < natts && TupleDescAttr(tupleDesc, j)->attcacheoff > 0)
 			j++;
 
@@ -648,36 +648,36 @@ nocachegetattr(HeapTuple tup,
 		int			i;
 
 		/*
-		 * Now we know that we have to walk the tuple CAREFULLY.  But we still
-		 * might be able to cache some offsets for next time.
+		 * 现在已知必须 CAREFULLY 地遍历该元组。不过仍
+		 * 可能为下一次缓存一些偏移。
 		 *
-		 * Note - This loop is a little tricky.  For each non-null attribute,
-		 * we have to first account for alignment padding before the attr,
-		 * then advance over the attr based on its length.  Nulls have no
-		 * storage and no alignment padding either.  We can use/set
-		 * attcacheoff until we reach either a null or a var-width attribute.
+		 * 注意：这个循环有点微妙。对每个非空属性，
+		 * 必须先计入该属性之前的对齐填充，
+		 * 再按长度越过该属性。空值既没有
+		 * 存储，也没有对齐填充。在遇到空值或变长属性之前，
+		 * 都可以使用或设置 attcacheoff。
 		 */
 		off = 0;
-		for (i = 0;; i++)		/* loop exit is at "break" */
+		for (i = 0;; i++)		/* 循环在 "break" 处退出 */
 		{
 			Form_pg_attribute att = TupleDescAttr(tupleDesc, i);
 
 			if (HeapTupleHasNulls(tup) && att_isnull(i, bp))
 			{
 				usecache = false;
-				continue;		/* this cannot be the target att */
+				continue;		/* 这不可能是目标 att */
 			}
 
-			/* If we know the next offset, we can skip the rest */
+			/* 若已知下一偏移，就可以跳过其余部分 */
 			if (usecache && att->attcacheoff >= 0)
 				off = att->attcacheoff;
 			else if (att->attlen == -1)
 			{
 				/*
-				 * We can only cache the offset for a varlena attribute if the
-				 * offset is already suitably aligned, so that there would be
-				 * no pad bytes in any case: then the offset will be valid for
-				 * either an aligned or unaligned value.
+				 * 只有当偏移已经适当对齐，从而任何情况下
+				 * 都不会有填充字节时，才能缓存变长属性的偏移：
+				 * 这样，该偏移对已对齐和未对齐的值
+				 * 都有效。
 				 */
 				if (usecache &&
 					off == att_align_nominal(off, att->attalign))
@@ -691,7 +691,7 @@ nocachegetattr(HeapTuple tup,
 			}
 			else
 			{
-				/* not varlena, so safe to use att_align_nominal */
+				/* 不是变长值，因此可以安全使用 att_align_nominal */
 				off = att_align_nominal(off, att->attalign);
 
 				if (usecache)
@@ -714,10 +714,10 @@ nocachegetattr(HeapTuple tup,
 /* ----------------
  *		heap_getsysattr
  *
- *		Fetch the value of a system attribute for a tuple.
+ *		取一个元组的系统属性值。
  *
- * This is a support routine for the heap_getattr macro.  The macro
- * has already determined that the attnum refers to a system attribute.
+ * 这是 heap_getattr 宏的支持例程。该宏
+ * 已经确定 attnum 指向系统属性。
  * ----------------
  */
 Datum
@@ -727,13 +727,13 @@ heap_getsysattr(HeapTuple tup, int attnum, TupleDesc tupleDesc, bool *isnull)
 
 	Assert(tup);
 
-	/* Currently, no sys attribute ever reads as NULL. */
+	/* 目前，系统属性读出来绝不会是 NULL。 */
 	*isnull = false;
 
 	switch (attnum)
 	{
 		case SelfItemPointerAttributeNumber:
-			/* pass-by-reference datatype */
+			/* 按引用传递的数据类型 */
 			result = PointerGetDatum(&(tup->t_self));
 			break;
 		case MinTransactionIdAttributeNumber:
@@ -746,10 +746,10 @@ heap_getsysattr(HeapTuple tup, int attnum, TupleDesc tupleDesc, bool *isnull)
 		case MaxCommandIdAttributeNumber:
 
 			/*
-			 * cmin and cmax are now both aliases for the same field, which
-			 * can in fact also be a combo command id.  XXX perhaps we should
-			 * return the "real" cmin or cmax if possible, that is if we are
-			 * inside the originating transaction?
+			 * cmin 与 cmax 现在都是同一字段的别名，该字段
+			 * 实际上也可以是组合命令标识符。XXX 或许应当
+			 * 在可能时返回真正的 cmin 或 cmax，也就是当我们
+			 * 处于发起事务之内时？
 			 */
 			result = CommandIdGetDatum(HeapTupleHeaderGetRawCommandId(tup->t_data));
 			break;
@@ -758,7 +758,7 @@ heap_getsysattr(HeapTuple tup, int attnum, TupleDesc tupleDesc, bool *isnull)
 			break;
 		default:
 			elog(ERROR, "invalid attnum: %d", attnum);
-			result = 0;			/* keep compiler quiet */
+			result = 0;			/* 让编译器保持安静 */
 			break;
 	}
 	return result;
@@ -767,10 +767,10 @@ heap_getsysattr(HeapTuple tup, int attnum, TupleDesc tupleDesc, bool *isnull)
 /* ----------------
  *		heap_copytuple
  *
- *		returns a copy of an entire tuple
+ *		返回整个元组的一份副本
  *
- * The HeapTuple struct, tuple header, and tuple data are all allocated
- * as a single palloc() block.
+ * HeapTuple 结构体、元组头和元组数据都在
+ * 单独一个 palloc() 块中分配。
  * ----------------
  */
 HeapTuple
@@ -793,10 +793,10 @@ heap_copytuple(HeapTuple tuple)
 /* ----------------
  *		heap_copytuple_with_tuple
  *
- *		copy a tuple into a caller-supplied HeapTuple management struct
+ *		把元组复制到调用方提供的 HeapTuple 管理结构体中
  *
- * Note that after calling this function, the "dest" HeapTuple will not be
- * allocated as a single palloc() block (unlike with heap_copytuple()).
+ * 注意，调用本函数之后，"dest" HeapTuple 不会
+ * 像 heap_copytuple() 那样作为单独一个 palloc() 块来分配。
  * ----------------
  */
 void
@@ -816,14 +816,14 @@ heap_copytuple_with_tuple(HeapTuple src, HeapTuple dest)
 }
 
 /*
- * Expand a tuple which has fewer attributes than required. For each attribute
- * not present in the sourceTuple, if there is a missing value that will be
- * used. Otherwise the attribute will be set to NULL.
+ * 扩展属性数少于所需的元组。对 sourceTuple 中
+ * 不存在的每个属性，若有缺少值，就使用该值。
+ * 否则该属性将被设为 NULL。
  *
- * The source tuple must have fewer attributes than the required number.
+ * 源元组的属性数必须少于所需数量。
  *
- * Only one of targetHeapTuple and targetMinimalTuple may be supplied. The
- * other argument must be NULL.
+ * targetHeapTuple 与 targetMinimalTuple 只能提供其中一个。
+ * 另一个参数必须为 NULL。
  */
 static void
 expand_tuple(HeapTuple *targetHeapTuple,
@@ -863,15 +863,15 @@ expand_tuple(HeapTuple *targetHeapTuple,
 		tupleDesc->constr->missing)
 	{
 		/*
-		 * If there are missing values we want to put them into the tuple.
-		 * Before that we have to compute the extra length for the values
-		 * array and the variable length data.
+		 * 若有缺少值，就要把它们放进元组。
+		 * 在此之前，必须为 values 数组
+		 * 和变长数据计算额外长度。
 		 */
 		attrmiss = tupleDesc->constr->missing;
 
 		/*
-		 * Find the first item in attrmiss for which we don't have a value in
-		 * the source. We can ignore all the missing entries before that.
+		 * 找出 attrmiss 中第一个在源元组里没有值的项。
+		 * 在那之前的缺少项都可以忽略。
 		 */
 		for (firstmissingnum = sourceNatts;
 			 firstmissingnum < natts;
@@ -884,8 +884,8 @@ expand_tuple(HeapTuple *targetHeapTuple,
 		}
 
 		/*
-		 * Now walk the missing attributes. If there is a missing value make
-		 * space for it. Otherwise, it's going to be NULL.
+		 * 现在遍历缺少的属性。若有缺少值，就为它
+		 * 留出空间。否则它将是 NULL。
 		 */
 		for (attnum = firstmissingnum;
 			 attnum < natts;
@@ -906,16 +906,16 @@ expand_tuple(HeapTuple *targetHeapTuple,
 			}
 			else
 			{
-				/* no missing value, so it must be null */
+				/* 没有缺少值，因此它必定是空值 */
 				hasNulls = true;
 			}
 		}
-	}							/* end if have missing values */
+	}							/* 有缺少值时的分支到此结束 */
 	else
 	{
 		/*
-		 * If there are no missing values at all then NULLS must be allowed,
-		 * since some of the attributes are known to be absent.
+		 * 若完全没有缺少值，则必须允许 NULLS，
+		 * 因为已知有些属性并不存在。
 		 */
 		hasNulls = true;
 	}
@@ -931,13 +931,13 @@ expand_tuple(HeapTuple *targetHeapTuple,
 		targetNullLen = 0;
 
 	/*
-	 * Allocate and zero the space needed.  Note that the tuple body and
-	 * HeapTupleData management structure are allocated in one chunk.
+	 * 分配所需空间并清零。注意元组本体与
+	 * HeapTupleData 管理结构体分配在同一块中。
 	 */
 	if (targetHeapTuple)
 	{
 		len += offsetof(HeapTupleHeaderData, t_bits);
-		hoff = len = MAXALIGN(len); /* align user data safely */
+		hoff = len = MAXALIGN(len); /* 安全地对齐用户数据 */
 		len += targetDataLen;
 
 		*targetHeapTuple = (HeapTuple) palloc0(HEAPTUPLESIZE + len);
@@ -954,7 +954,7 @@ expand_tuple(HeapTuple *targetHeapTuple,
 		HeapTupleHeaderSetDatumLength(targetTHeader, len);
 		HeapTupleHeaderSetTypeId(targetTHeader, tupleDesc->tdtypeid);
 		HeapTupleHeaderSetTypMod(targetTHeader, tupleDesc->tdtypmod);
-		/* We also make sure that t_ctid is invalid unless explicitly set */
+		/* 同时确保未经显式设置时 t_ctid 为无效 */
 		ItemPointerSetInvalid(&(targetTHeader->t_ctid));
 		if (targetNullLen > 0)
 			nullBits = (bits8 *) ((char *) (*targetHeapTuple)->t_data
@@ -965,14 +965,14 @@ expand_tuple(HeapTuple *targetHeapTuple,
 	else
 	{
 		len += SizeofMinimalTupleHeader;
-		hoff = len = MAXALIGN(len); /* align user data safely */
+		hoff = len = MAXALIGN(len); /* 安全地对齐用户数据 */
 		len += targetDataLen;
 
 		*targetMinimalTuple = (MinimalTuple) palloc0(len);
 		(*targetMinimalTuple)->t_len = len;
 		(*targetMinimalTuple)->t_hoff = hoff + MINIMAL_TUPLE_OFFSET;
 		(*targetMinimalTuple)->t_infomask = sourceTHeader->t_infomask;
-		/* Same macro works for MinimalTuples */
+		/* 同一宏对 MinimalTuples 同样适用 */
 		HeapTupleHeaderSetNatts(*targetMinimalTuple, natts);
 		if (targetNullLen > 0)
 			nullBits = (bits8 *) ((char *) *targetMinimalTuple
@@ -985,7 +985,7 @@ expand_tuple(HeapTuple *targetHeapTuple,
 	{
 		if (sourceNullLen > 0)
 		{
-			/* if bitmap pre-existed copy in - all is set */
+			/* 若位图原先已存在，则复制进来——各位都已设好 */
 			memcpy(nullBits,
 				   ((char *) sourceTHeader)
 				   + offsetof(HeapTupleHeaderData, t_bits),
@@ -995,22 +995,22 @@ expand_tuple(HeapTuple *targetHeapTuple,
 		else
 		{
 			sourceNullLen = BITMAPLEN(sourceNatts);
-			/* Set NOT NULL for all existing attributes */
+			/* 把所有已有属性设为 NOT NULL */
 			memset(nullBits, 0xff, sourceNullLen);
 
 			nullBits += sourceNullLen - 1;
 
 			if (sourceNatts & 0x07)
 			{
-				/* build the mask (inverted!) */
+				/* 构造掩码（取反！） */
 				bitMask = 0xff << (sourceNatts & 0x07);
-				/* Voila */
+				/* 完成 */
 				*nullBits = ~bitMask;
 			}
 		}
 
 		bitMask = (1 << ((sourceNatts - 1) & 0x07));
-	}							/* End if have null bitmap */
+	}							/* 有空值位图时的分支到此结束 */
 
 	memcpy(targetData,
 		   ((char *) sourceTuple->t_data) + sourceTHeader->t_hoff,
@@ -1018,7 +1018,7 @@ expand_tuple(HeapTuple *targetHeapTuple,
 
 	targetData += sourceDataLen;
 
-	/* Now fill in the missing values */
+	/* 现在填入缺少的值 */
 	for (attnum = sourceNatts; attnum < natts; attnum++)
 	{
 
@@ -1044,11 +1044,11 @@ expand_tuple(HeapTuple *targetHeapTuple,
 					 (Datum) 0,
 					 true);
 		}
-	}							/* end loop over missing attributes */
+	}							/* 遍历缺少属性的循环到此结束 */
 }
 
 /*
- * Fill in the missing values for a minimal HeapTuple
+ * 为最小 HeapTuple 填入缺少的值
  */
 MinimalTuple
 minimal_expand_tuple(HeapTuple sourceTuple, TupleDesc tupleDesc)
@@ -1060,7 +1060,7 @@ minimal_expand_tuple(HeapTuple sourceTuple, TupleDesc tupleDesc)
 }
 
 /*
- * Fill in the missing values for an ordinary HeapTuple
+ * 为普通 HeapTuple 填入缺少的值
  */
 HeapTuple
 heap_expand_tuple(HeapTuple sourceTuple, TupleDesc tupleDesc)
@@ -1074,7 +1074,7 @@ heap_expand_tuple(HeapTuple sourceTuple, TupleDesc tupleDesc)
 /* ----------------
  *		heap_copy_tuple_as_datum
  *
- *		copy a tuple as a composite-type Datum
+ *		把元组复制为复合类型 Datum
  * ----------------
  */
 Datum
@@ -1083,8 +1083,8 @@ heap_copy_tuple_as_datum(HeapTuple tuple, TupleDesc tupleDesc)
 	HeapTupleHeader td;
 
 	/*
-	 * If the tuple contains any external TOAST pointers, we have to inline
-	 * those fields to meet the conventions for composite-type Datums.
+	 * 若元组含有任何外部 TOAST 指针，就必须内联
+	 * 这些字段，以符合复合类型 Datum 的约定。
 	 */
 	if (HeapTupleHasExternal(tuple))
 		return toast_flatten_tuple_to_datum(tuple->t_data,
@@ -1092,9 +1092,9 @@ heap_copy_tuple_as_datum(HeapTuple tuple, TupleDesc tupleDesc)
 											tupleDesc);
 
 	/*
-	 * Fast path for easy case: just make a palloc'd copy and insert the
-	 * correct composite-Datum header fields (since those may not be set if
-	 * the given tuple came from disk, rather than from heap_form_tuple).
+	 * 简单情形的快速路径：做一份 palloc 出来的副本，并填入
+	 * 正确的复合 Datum 头字段（若给定元组来自磁盘
+	 * 而非 heap_form_tuple，这些字段可能尚未设置）。
 	 */
 	td = (HeapTupleHeader) palloc(tuple->t_len);
 	memcpy((char *) td, (char *) tuple->t_data, tuple->t_len);
@@ -1108,18 +1108,18 @@ heap_copy_tuple_as_datum(HeapTuple tuple, TupleDesc tupleDesc)
 
 /*
  * heap_form_tuple
- *		construct a tuple from the given values[] and isnull[] arrays,
- *		which are of the length indicated by tupleDescriptor->natts
+ *		根据给定的 values[] 与 isnull[] 数组构造元组，
+ *		数组长度由 tupleDescriptor->natts 指出
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 HeapTuple
 heap_form_tuple(TupleDesc tupleDescriptor,
 				Datum *values,
 				bool *isnull)
 {
-	HeapTuple	tuple;			/* return tuple */
-	HeapTupleHeader td;			/* tuple data */
+	HeapTuple	tuple;			/* 返回的元组 */
+	HeapTupleHeader td;			/* 元组数据 */
 	Size		len,
 				data_len;
 	int			hoff;
@@ -1134,7 +1134,7 @@ heap_form_tuple(TupleDesc tupleDescriptor,
 						numberOfAttributes, MaxTupleAttributeNumber)));
 
 	/*
-	 * Check for nulls
+	 * 检查是否有空值
 	 */
 	for (i = 0; i < numberOfAttributes; i++)
 	{
@@ -1146,30 +1146,30 @@ heap_form_tuple(TupleDesc tupleDescriptor,
 	}
 
 	/*
-	 * Determine total space needed
+	 * 确定所需的总空间
 	 */
 	len = offsetof(HeapTupleHeaderData, t_bits);
 
 	if (hasnull)
 		len += BITMAPLEN(numberOfAttributes);
 
-	hoff = len = MAXALIGN(len); /* align user data safely */
+	hoff = len = MAXALIGN(len); /* 安全地对齐用户数据 */
 
 	data_len = heap_compute_data_size(tupleDescriptor, values, isnull);
 
 	len += data_len;
 
 	/*
-	 * Allocate and zero the space needed.  Note that the tuple body and
-	 * HeapTupleData management structure are allocated in one chunk.
+	 * 分配所需空间并清零。注意元组本体与
+	 * HeapTupleData 管理结构体分配在同一块中。
 	 */
 	tuple = (HeapTuple) palloc0(HEAPTUPLESIZE + len);
 	tuple->t_data = td = (HeapTupleHeader) ((char *) tuple + HEAPTUPLESIZE);
 
 	/*
-	 * And fill in the information.  Note we fill the Datum fields even though
-	 * this tuple may never become a Datum.  This lets HeapTupleHeaderGetDatum
-	 * identify the tuple type if needed.
+	 * 然后填入信息。注意，即使这个元组可能永远不会
+	 * 成为 Datum，我们也填写 Datum 字段。这样在需要时
+	 * HeapTupleHeaderGetDatum 就能识别元组类型。
 	 */
 	tuple->t_len = len;
 	ItemPointerSetInvalid(&(tuple->t_self));
@@ -1178,7 +1178,7 @@ heap_form_tuple(TupleDesc tupleDescriptor,
 	HeapTupleHeaderSetDatumLength(td, len);
 	HeapTupleHeaderSetTypeId(td, tupleDescriptor->tdtypeid);
 	HeapTupleHeaderSetTypMod(td, tupleDescriptor->tdtypmod);
-	/* We also make sure that t_ctid is invalid unless explicitly set */
+	/* 同时确保未经显式设置时 t_ctid 为无效 */
 	ItemPointerSetInvalid(&(td->t_ctid));
 
 	HeapTupleHeaderSetNatts(td, numberOfAttributes);
@@ -1197,14 +1197,14 @@ heap_form_tuple(TupleDesc tupleDescriptor,
 
 /*
  * heap_modify_tuple
- *		form a new tuple from an old tuple and a set of replacement values.
+ *		由旧元组和一组替换值构成新元组。
  *
- * The replValues, replIsnull, and doReplace arrays must be of the length
- * indicated by tupleDesc->natts.  The new tuple is constructed using the data
- * from replValues/replIsnull at columns where doReplace is true, and using
- * the data from the old tuple at columns where doReplace is false.
+ * replValues、replIsnull 与 doReplace 数组的长度必须由
+ * tupleDesc->natts 指出。新元组在 doReplace 为真的列上
+ * 使用 replValues/replIsnull 的数据，在 doReplace 为假的
+ * 列上则使用旧元组的数据。
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 HeapTuple
 heap_modify_tuple(HeapTuple tuple,
@@ -1220,15 +1220,15 @@ heap_modify_tuple(HeapTuple tuple,
 	HeapTuple	newTuple;
 
 	/*
-	 * allocate and fill values and isnull arrays from either the tuple or the
-	 * repl information, as appropriate.
+	 * 按情况从元组或替换信息分配并填充
+	 * values 与 isnull 数组。
 	 *
-	 * NOTE: it's debatable whether to use heap_deform_tuple() here or just
-	 * heap_getattr() only the non-replaced columns.  The latter could win if
-	 * there are many replaced columns and few non-replaced ones. However,
-	 * heap_deform_tuple costs only O(N) while the heap_getattr way would cost
-	 * O(N^2) if there are many non-replaced columns, so it seems better to
-	 * err on the side of linear cost.
+	 * 注意：这里用 heap_deform_tuple() 还是只对未替换列
+	 * 调用 heap_getattr()，尚可商榷。若替换的列很多、
+	 * 未替换的列很少，后者可能更快。不过
+	 * heap_deform_tuple 的代价只是 O(N)，而 heap_getattr 方式
+	 * 在未替换列很多时会达到 O(N^2)，因此
+	 * 更稳妥的是偏向线性代价。
 	 */
 	values = (Datum *) palloc(numberOfAttributes * sizeof(Datum));
 	isnull = (bool *) palloc(numberOfAttributes * sizeof(bool));
@@ -1245,7 +1245,7 @@ heap_modify_tuple(HeapTuple tuple,
 	}
 
 	/*
-	 * create a new tuple from the values and isnull arrays
+	 * 根据 values 与 isnull 数组创建新元组
 	 */
 	newTuple = heap_form_tuple(tupleDesc, values, isnull);
 
@@ -1253,7 +1253,7 @@ heap_modify_tuple(HeapTuple tuple,
 	pfree(isnull);
 
 	/*
-	 * copy the identification info of the old tuple: t_ctid, t_self
+	 * 复制旧元组的标识信息：t_ctid、t_self
 	 */
 	newTuple->t_data->t_ctid = tuple->t_data->t_ctid;
 	newTuple->t_self = tuple->t_self;
@@ -1264,15 +1264,15 @@ heap_modify_tuple(HeapTuple tuple,
 
 /*
  * heap_modify_tuple_by_cols
- *		form a new tuple from an old tuple and a set of replacement values.
+ *		由旧元组和一组替换值构成新元组。
  *
- * This is like heap_modify_tuple, except that instead of specifying which
- * column(s) to replace by a boolean map, an array of target column numbers
- * is used.  This is often more convenient when a fixed number of columns
- * are to be replaced.  The replCols, replValues, and replIsnull arrays must
- * be of length nCols.  Target column numbers are indexed from 1.
+ * 与 heap_modify_tuple 类似，但不用布尔映射指定替换哪些
+ * column(s)，而用目标列号数组。当要替换的列数
+ * 固定时，这通常更方便。replCols、replValues 与 replIsnull
+ * 数组长度必须为 nCols。目标列号
+ * 从 1 开始编号。
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 HeapTuple
 heap_modify_tuple_by_cols(HeapTuple tuple,
@@ -1289,8 +1289,8 @@ heap_modify_tuple_by_cols(HeapTuple tuple,
 	int			i;
 
 	/*
-	 * allocate and fill values and isnull arrays from the tuple, then replace
-	 * selected columns from the input arrays.
+	 * 从元组分配并填充 values 与 isnull 数组，再用来自
+	 * 输入数组的值替换选定的列。
 	 */
 	values = (Datum *) palloc(numberOfAttributes * sizeof(Datum));
 	isnull = (bool *) palloc(numberOfAttributes * sizeof(bool));
@@ -1308,7 +1308,7 @@ heap_modify_tuple_by_cols(HeapTuple tuple,
 	}
 
 	/*
-	 * create a new tuple from the values and isnull arrays
+	 * 根据 values 与 isnull 数组创建新元组
 	 */
 	newTuple = heap_form_tuple(tupleDesc, values, isnull);
 
@@ -1316,7 +1316,7 @@ heap_modify_tuple_by_cols(HeapTuple tuple,
 	pfree(isnull);
 
 	/*
-	 * copy the identification info of the old tuple: t_ctid, t_self
+	 * 复制旧元组的标识信息：t_ctid、t_self
 	 */
 	newTuple->t_data->t_ctid = tuple->t_data->t_ctid;
 	newTuple->t_self = tuple->t_self;
@@ -1327,20 +1327,20 @@ heap_modify_tuple_by_cols(HeapTuple tuple,
 
 /*
  * heap_deform_tuple
- *		Given a tuple, extract data into values/isnull arrays; this is
- *		the inverse of heap_form_tuple.
+ *		给定一个元组，将其变形到 values/isnull 数组中；
+ *		这是 heap_form_tuple 的逆操作。
  *
- *		Storage for the values/isnull arrays is provided by the caller;
- *		it should be sized according to tupleDesc->natts not
- *		HeapTupleHeaderGetNatts(tuple->t_data).
+ *		values/isnull 数组的存储由调用方提供；
+ *		其大小应按 tupleDesc->natts，而不是按
+ *		HeapTupleHeaderGetNatts(tuple->t_data) 来确定。
  *
- *		Note that for pass-by-reference datatypes, the pointer placed
- *		in the Datum will point into the given tuple.
+ *		注意，对于按引用传递的数据类型，放进 Datum 的
+ *		指针会指向给定元组的内部。
  *
- *		When all or most of a tuple's fields need to be extracted,
- *		this routine will be significantly quicker than a loop around
- *		heap_getattr; the loop will become O(N^2) as soon as any
- *		noncacheable attribute offsets are involved.
+ *		当需要提取元组的全部或大部分字段时，
+ *		本例程会明显快于围绕 heap_getattr 的循环；
+ *		一旦涉及任何不可缓存的属性偏移，
+ *		该循环就会变成 O(N^2)。
  */
 void
 heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
@@ -1349,19 +1349,19 @@ heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
 	HeapTupleHeader tup = tuple->t_data;
 	bool		hasnulls = HeapTupleHasNulls(tuple);
 	int			tdesc_natts = tupleDesc->natts;
-	int			natts;			/* number of atts to extract */
+	int			natts;			/* 要提取的属性数 */
 	int			attnum;
-	char	   *tp;				/* ptr to tuple data */
-	uint32		off;			/* offset in tuple data */
-	bits8	   *bp = tup->t_bits;	/* ptr to null bitmap in tuple */
-	bool		slow = false;	/* can we use/set attcacheoff? */
+	char	   *tp;				/* 指向元组数据的指针 */
+	uint32		off;			/* 元组数据中的偏移 */
+	bits8	   *bp = tup->t_bits;	/* 指向元组中空值位图的指针 */
+	bool		slow = false;	/* 能否使用或设置 attcacheoff？ */
 
 	natts = HeapTupleHeaderGetNatts(tup);
 
 	/*
-	 * In inheritance situations, it is possible that the given tuple actually
-	 * has more fields than the caller is expecting.  Don't run off the end of
-	 * the caller's arrays.
+	 * 在继承情形下，给定元组实际拥有的字段可能
+	 * 比调用方预期的更多。不要越过调用方
+	 * 数组的末尾。
 	 */
 	natts = Min(natts, tdesc_natts);
 
@@ -1377,7 +1377,7 @@ heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
 		{
 			values[attnum] = (Datum) 0;
 			isnull[attnum] = true;
-			slow = true;		/* can't use attcacheoff anymore */
+			slow = true;		/* 此后无法再使用 attcacheoff */
 			continue;
 		}
 
@@ -1388,10 +1388,10 @@ heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
 		else if (thisatt->attlen == -1)
 		{
 			/*
-			 * We can only cache the offset for a varlena attribute if the
-			 * offset is already suitably aligned, so that there would be no
-			 * pad bytes in any case: then the offset will be valid for either
-			 * an aligned or unaligned value.
+			 * 只有当偏移已经适当对齐，从而任何情况下
+			 * 都不会有填充字节时，才能缓存变长属性的偏移：
+			 * 这样，该偏移对已对齐和未对齐的值
+			 * 都有效。
 			 */
 			if (!slow &&
 				off == att_align_nominal(off, thisatt->attalign))
@@ -1405,7 +1405,7 @@ heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
 		}
 		else
 		{
-			/* not varlena, so safe to use att_align_nominal */
+			/* 不是变长值，因此可以安全使用 att_align_nominal */
 			off = att_align_nominal(off, thisatt->attalign);
 
 			if (!slow)
@@ -1417,19 +1417,19 @@ heap_deform_tuple(HeapTuple tuple, TupleDesc tupleDesc,
 		off = att_addlength_pointer(off, thisatt->attlen, tp + off);
 
 		if (thisatt->attlen <= 0)
-			slow = true;		/* can't use attcacheoff anymore */
+			slow = true;		/* 此后无法再使用 attcacheoff */
 	}
 
 	/*
-	 * If tuple doesn't have all the atts indicated by tupleDesc, read the
-	 * rest as nulls or missing values as appropriate.
+	 * 若元组没有 tupleDesc 所指出的全部属性，则按情况
+	 * 把其余属性读成空值或缺少值。
 	 */
 	for (; attnum < tdesc_natts; attnum++)
 		values[attnum] = getmissingattr(tupleDesc, attnum + 1, &isnull[attnum]);
 }
 
 /*
- * heap_freetuple
+ * heap_freetuple - 释放堆元组
  */
 void
 heap_freetuple(HeapTuple htup)
@@ -1440,21 +1440,21 @@ heap_freetuple(HeapTuple htup)
 
 /*
  * heap_form_minimal_tuple
- *		construct a MinimalTuple from the given values[] and isnull[] arrays,
- *		which are of the length indicated by tupleDescriptor->natts
+ *		根据给定的 values[] 与 isnull[] 数组构造 MinimalTuple，
+ *		数组长度由 tupleDescriptor->natts 指出
  *
- * This is exactly like heap_form_tuple() except that the result is a
- * "minimal" tuple lacking a HeapTupleData header as well as room for system
- * columns.
+ * 这与 heap_form_tuple() 完全相同，只是结果是一个
+ * 最小元组，没有 HeapTupleData 头，也没有
+ * 系统列的空间。
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 MinimalTuple
 heap_form_minimal_tuple(TupleDesc tupleDescriptor,
 						Datum *values,
 						bool *isnull)
 {
-	MinimalTuple tuple;			/* return tuple */
+	MinimalTuple tuple;			/* 返回的元组 */
 	Size		len,
 				data_len;
 	int			hoff;
@@ -1469,7 +1469,7 @@ heap_form_minimal_tuple(TupleDesc tupleDescriptor,
 						numberOfAttributes, MaxTupleAttributeNumber)));
 
 	/*
-	 * Check for nulls
+	 * 检查是否有空值
 	 */
 	for (i = 0; i < numberOfAttributes; i++)
 	{
@@ -1481,26 +1481,26 @@ heap_form_minimal_tuple(TupleDesc tupleDescriptor,
 	}
 
 	/*
-	 * Determine total space needed
+	 * 确定所需的总空间
 	 */
 	len = SizeofMinimalTupleHeader;
 
 	if (hasnull)
 		len += BITMAPLEN(numberOfAttributes);
 
-	hoff = len = MAXALIGN(len); /* align user data safely */
+	hoff = len = MAXALIGN(len); /* 安全地对齐用户数据 */
 
 	data_len = heap_compute_data_size(tupleDescriptor, values, isnull);
 
 	len += data_len;
 
 	/*
-	 * Allocate and zero the space needed.
+	 * 分配所需空间并清零。
 	 */
 	tuple = (MinimalTuple) palloc0(len);
 
 	/*
-	 * And fill in the information.
+	 * 然后填入信息。
 	 */
 	tuple->t_len = len;
 	HeapTupleHeaderSetNatts(tuple, numberOfAttributes);
@@ -1518,7 +1518,7 @@ heap_form_minimal_tuple(TupleDesc tupleDescriptor,
 }
 
 /*
- * heap_free_minimal_tuple
+ * heap_free_minimal_tuple - 释放最小元组
  */
 void
 heap_free_minimal_tuple(MinimalTuple mtup)
@@ -1528,9 +1528,9 @@ heap_free_minimal_tuple(MinimalTuple mtup)
 
 /*
  * heap_copy_minimal_tuple
- *		copy a MinimalTuple
+ *		复制一个 MinimalTuple
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 MinimalTuple
 heap_copy_minimal_tuple(MinimalTuple mtup)
@@ -1544,12 +1544,12 @@ heap_copy_minimal_tuple(MinimalTuple mtup)
 
 /*
  * heap_tuple_from_minimal_tuple
- *		create a HeapTuple by copying from a MinimalTuple;
- *		system columns are filled with zeroes
+ *		从 MinimalTuple 复制出一个 HeapTuple；
+ *		系统列用零填充
  *
- * The result is allocated in the current memory context.
- * The HeapTuple struct, tuple header, and tuple data are all allocated
- * as a single palloc() block.
+ * 结果分配在当前内存上下文中。
+ * HeapTuple 结构体、元组头和元组数据都在
+ * 单独一个 palloc() 块中分配。
  */
 HeapTuple
 heap_tuple_from_minimal_tuple(MinimalTuple mtup)
@@ -1569,9 +1569,9 @@ heap_tuple_from_minimal_tuple(MinimalTuple mtup)
 
 /*
  * minimal_tuple_from_heap_tuple
- *		create a MinimalTuple by copying from a HeapTuple
+ *		从 HeapTuple 复制出一个 MinimalTuple
  *
- * The result is allocated in the current memory context.
+ * 结果分配在当前内存上下文中。
  */
 MinimalTuple
 minimal_tuple_from_heap_tuple(HeapTuple htup)
@@ -1588,8 +1588,8 @@ minimal_tuple_from_heap_tuple(HeapTuple htup)
 }
 
 /*
- * This mainly exists so JIT can inline the definition, but it's also
- * sometimes useful in debugging sessions.
+ * 这主要是为了让 JIT 能够内联该定义，不过
+ * 在调试时有时也有用。
  */
 size_t
 varsize_any(void *p)

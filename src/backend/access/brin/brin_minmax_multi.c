@@ -1,54 +1,54 @@
 /*
  * brin_minmax_multi.c
- *		Implementation of Multi Min/Max opclass for BRIN
+ *		BRIN 的 Multi Min/Max 操作符类实现
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
  *
- * Implements a variant of minmax opclass, where the summary is composed of
- * multiple smaller intervals. This allows us to handle outliers, which
- * usually make the simple minmax opclass inefficient.
+ * 实现 minmax 操作符类的一种变体，其汇总由
+ * 多个较小的区间组成。这样就能处理离群值；离群值
+ * 通常会让简单的 minmax 操作符类效率低下。
  *
- * Consider for example page range with simple minmax interval [1000,2000],
- * and assume a new row gets inserted into the range with value 1000000.
- * Due to that the interval gets [1000,1000000]. I.e. the minmax interval
- * got 1000x wider and won't be useful to eliminate scan keys between 2001
- * and 1000000.
+ * 例如考虑一个页范围，简单 minmax 区间为 [1000,2000]，
+ * 并假设向该范围插入一行，值为 1000000。
+ * 于是区间变成 [1000,1000000]。也就是说 minmax 区间
+ * 变宽了 1000 倍，对排除介于 2001
+ * 与 1000000 之间的扫描键不再有用。
  *
- * With minmax-multi opclass, we may have [1000,2000] interval initially,
- * but after adding the new row we start tracking it as two interval:
+ * 使用 minmax-multi 操作符类时，起初可能只有 [1000,2000] 这一区间，
+ * 但加入新行之后，我们开始把它跟踪为两个区间：
  *
- *   [1000,2000] and [1000000,1000000]
+ *   [1000,2000] 和 [1000000,1000000]
  *
- * This allows us to still eliminate the page range when the scan keys hit
- * the gap between 2000 and 1000000, making it useful in cases when the
- * simple minmax opclass gets inefficient.
+ * 这样，当扫描键落在 2000 与 1000000 之间的间隙时，
+ * 我们仍能排除该页范围，因而在简单 minmax
+ * 操作符类变得低效的情形下仍然有用。
  *
- * The number of intervals tracked per page range is somewhat flexible.
- * What is restricted is the number of values per page range, and the limit
- * is currently 32 (see values_per_range reloption). Collapsed intervals
- * (with equal minimum and maximum value) are stored as a single value,
- * while regular intervals require two values.
+ * 每个页范围跟踪的区间个数有一定弹性。
+ * 受到限制的是每个页范围的值个数，目前的上限
+ * 是 32（见 values_per_range 关系选项）。折叠区间
+ * （最小值与最大值相等）存成单个值，
+ * 而普通区间需要两个值。
  *
- * When the number of values gets too high (by adding new values to the
- * summary), we merge some of the intervals to free space for more values.
- * This is done in a greedy way - we simply pick the two closest intervals,
- * merge them, and repeat this until the number of values to store gets
- * sufficiently low (below 50% of maximum values), but that is mostly
- * arbitrary threshold and may be changed easily).
+ * 当值的个数变得过高（因为向
+ * 汇总加入了新值）时，我们合并一些区间，以便为更多值腾出空间。
+ * 这是贪心做法：直接选出两个最接近的区间，
+ * 合并它们，并重复，直到要存储的值个数
+ * 足够低（低于最大值的 50%），不过这大多是
+ * 任意阈值，可以轻易改掉）。
  *
- * To pick the closest intervals we use the "distance" support procedure,
- * which measures space between two ranges (i.e. the length of an interval).
- * The computed value may be an approximation - in the worst case we will
- * merge two ranges that are slightly less optimal at that step, but the
- * index should still produce correct results.
+ * 为选出最接近的区间，我们使用 "distance" 支持过程，
+ * 它度量两个区间之间的空间（即一个区间的长度）。
+ * 算出的值可以是近似值：最坏情况下我们会
+ * 在该步合并两个略逊于最优的区间，但
+ * 索引仍应产生正确结果。
  *
- * The compactions (reducing the number of values) is fairly expensive, as
- * it requires calling the distance functions, sorting etc. So when building
- * the summary, we use a significantly larger buffer, and only enforce the
- * exact limit at the very end. This improves performance, and it also helps
- * with building better ranges (due to the greedy approach).
+ * 压实（减少值的个数）相当昂贵，因为
+ * 它需要调用距离函数、排序等等。因此在构建
+ * 汇总时，我们使用大得多的缓冲区，只在最后
+ * 才强制精确上限。这能提高性能，也有助于
+ * 构建更好的区间（由于贪心方法）。
  *
  *
  * IDENTIFICATION
@@ -56,7 +56,7 @@
  */
 #include "postgres.h"
 
-/* needed for PGSQL_AF_INET */
+/* PGSQL_AF_INET 需要此头文件 */
 #include <sys/socket.h>
 
 #include "access/genam.h"
@@ -85,24 +85,24 @@
 #include "utils/uuid.h"
 
 /*
- * Additional SQL level support functions
+ * 额外的 SQL 层支持函数
  *
- * Procedure numbers must not use values reserved for BRIN itself; see
- * brin_internal.h.
+ * 过程号不得使用 BRIN 自身保留的值；见
+ * brin_internal.h。
  */
-#define		MINMAX_MAX_PROCNUMS		1	/* maximum support procs we need */
-#define		PROCNUM_DISTANCE		11	/* required, distance between values */
+#define		MINMAX_MAX_PROCNUMS		1	/* 我们需要的支持过程个数上限 */
+#define		PROCNUM_DISTANCE		11	/* 必需，值之间的距离 */
 
 /*
- * Subtract this from procnum to obtain index in MinmaxMultiOpaque arrays
- * (Must be equal to minimum of private procnums).
+ * 从 procnum 中减去它，得到 MinmaxMultiOpaque 数组中的下标
+ * （必须等于私有过程号的最小值）。
  */
 #define		PROCNUM_BASE			11
 
 /*
- * Sizing the insert buffer - we use 10x the number of values specified
- * in the reloption, but we cap it to 8192 not to get too large. When
- * the buffer gets full, we reduce the number of values by half.
+ * 确定插入缓冲区大小：使用关系选项所指定值个数的 10 倍，
+ * 但封顶为 8192，以免过大。当
+ * 缓冲区装满时，把值的个数减半。
  */
 #define		MINMAX_BUFFER_FACTOR			10
 #define		MINMAX_BUFFER_MIN				256
@@ -117,12 +117,12 @@ typedef struct MinmaxMultiOpaque
 } MinmaxMultiOpaque;
 
 /*
- * Storage type for BRIN's minmax reloptions
+ * BRIN minmax 关系选项的存储类型
  */
 typedef struct MinMaxMultiOptions
 {
-	int32		vl_len_;		/* varlena header (do not touch directly!) */
-	int			valuesPerRange; /* number of values per range */
+	int32		vl_len_;		/* varlena 头部（不要直接改动！） */
+	int			valuesPerRange; /* 每个页范围的值个数 */
 } MinMaxMultiOptions;
 
 #define MINMAX_MULTI_DEFAULT_VALUES_PER_PAGE		32
@@ -135,88 +135,88 @@ typedef struct MinMaxMultiOptions
 #define SAMESIGN(a,b) (((a) < 0) == ((b) < 0))
 
 /*
- * The summary of minmax-multi indexes has two representations - Ranges for
- * convenient processing, and SerializedRanges for storage in bytea value.
+ * minmax-multi 索引的汇总有两种表示：便于处理的 Ranges，
+ * 以及存入 bytea 值的 SerializedRanges。
  *
- * The Ranges struct stores the boundary values in a single array, but we
- * treat regular and single-point ranges differently to save space. For
- * regular ranges (with different boundary values) we have to store both
- * the lower and upper bound of the range, while for "single-point ranges"
- * we only need to store a single value.
+ * Ranges 结构把边界值存在同一个数组里，但为了省空间，
+ * 普通区间和单点区间的处理不同。对于
+ * 普通区间（两端边界值不同），必须同时存储
+ * 区间的下界和上界；而对于 "单点区间"
+ * 只需要存一个值。
  *
- * The 'values' array stores boundary values for regular ranges first (there
- * are 2*nranges values to store), and then the nvalues boundary values for
- * single-point ranges. That is, we have (2*nranges + nvalues) boundary
- * values in the array.
+ * values 数组先存普通区间的边界值（要存
+ * 2*nranges 个值），然后再存单点区间的 nvalues 个边界值。
+ * 也就是说，数组里共有 (2*nranges + nvalues) 个
+ * 边界值。
  *
  * +-------------------------+----------------------------------+
- * | ranges (2 * nranges of) | single point values (nvalues of) |
+ * | 区间（2 * nranges 个） | 单点值（nvalues 个） |
  * +-------------------------+----------------------------------+
  *
- * This allows us to quickly add new values, and store outliers without
- * having to widen any of the existing range values.
+ * 这样就能快速加入新值，并存下离群值，而不必
+ * 放宽任何已有区间的值。
  *
- * 'nsorted' denotes how many of 'nvalues' in the values[] array are sorted.
- * When nsorted == nvalues, all single point values are sorted.
+ * nsorted 表示 values[] 数组里的 nvalues 中有多少已经排好序。
+ * 当 nsorted == nvalues 时，全部单点值都已排序。
  *
- * We never store more than maxvalues values (as set by values_per_range
- * reloption). If needed we merge some of the ranges.
+ * 存储的值绝不超过 maxvalues 个（由 values_per_range
+ * 关系选项设定）。必要时我们合并一些区间。
  *
- * To minimize palloc overhead, we always allocate the full array with
- * space for maxvalues elements. This should be fine as long as the
- * maxvalues is reasonably small (64 seems fine), which is the case
- * thanks to values_per_range reloption being limited to 256.
+ * 为减少 palloc 开销，我们总是按 maxvalues 个元素的
+ * 容量分配整个数组。只要
+ * maxvalues 相当小（64 看起来可以），这就没问题，而
+ * values_per_range 关系选项上限为 256，正好如此。
  */
 typedef struct Ranges
 {
-	/* Cache information that we need quite often. */
+	/* 缓存我们经常需要的信息。 */
 	Oid			typid;
 	Oid			colloid;
 	AttrNumber	attno;
 	FmgrInfo   *cmp;
 
-	/* (2*nranges + nvalues) <= maxvalues */
-	int			nranges;		/* number of ranges in the values[] array */
-	int			nsorted;		/* number of nvalues which are sorted */
-	int			nvalues;		/* number of point values in values[] array */
-	int			maxvalues;		/* number of elements in the values[] array */
+	/* 满足 (2*nranges + nvalues) <= maxvalues */
+	int			nranges;		/* values[] 数组中的区间个数 */
+	int			nsorted;		/* nvalues 中已排序的个数 */
+	int			nvalues;		/* values[] 数组中的点值个数 */
+	int			maxvalues;		/* values[] 数组的元素个数 */
 
 	/*
-	 * We simply add the values into a large buffer, without any expensive
-	 * steps (sorting, deduplication, ...). The buffer is a multiple of the
-	 * target number of values, so the compaction happens less often,
-	 * amortizing the costs. We keep the actual target and compact to the
-	 * requested number of values at the very end, before serializing to
-	 * on-disk representation.
+	 * 我们只是把值放进一个大缓冲区，不做任何昂贵
+	 * 步骤（排序、去重等等）。缓冲区是目标值个数的
+	 * 若干倍，因此压实不那么频繁，
+	 * 从而摊销开销。我们保留实际目标，直到最后、在序列化成
+	 * 磁盘表示之前，才压实到
+	 * 所请求的值个数。
 	 */
-	/* requested number of values */
+	/* 所请求的值个数 */
 	int			target_maxvalues;
 
-	/* values stored for this range - either raw values, or ranges */
+	/* 为本范围存储的值：原始值或区间 */
 	Datum		values[FLEXIBLE_ARRAY_MEMBER];
 } Ranges;
 
 /*
- * On-disk the summary is stored as a bytea value, with a simple header
- * with basic metadata, followed by the boundary values. It has a varlena
- * header, so can be treated as varlena directly.
+ * 在磁盘上，汇总存为一个 bytea 值：一个带基本元数据的简单头部，
+ * 后面跟着边界值。它带有 varlena
+ * 头部，因此可以直接当作 varlena。
  *
- * See brin_range_serialize/brin_range_deserialize for serialization details.
+ * 序列化细节见 brin_range_serialize/brin_range_deserialize。
  */
 typedef struct SerializedRanges
 {
-	/* varlena header (do not touch directly!) */
+	/* varlena 头部（不要直接改动！） */
 	int32		vl_len_;
 
-	/* type of values stored in the data array */
+	/* data 数组中所存值的类型 */
 	Oid			typid;
 
-	/* (2*nranges + nvalues) <= maxvalues */
-	int			nranges;		/* number of ranges in the array (stored) */
-	int			nvalues;		/* number of values in the data array (all) */
-	int			maxvalues;		/* maximum number of values (reloption) */
+	/* 满足 (2*nranges + nvalues) <= maxvalues */
+	int			nranges;		/* 数组中的区间个数（已存储） */
+	int			nvalues;		/* data 数组中的值个数（全部） */
+	int			maxvalues;		/* 值的最大个数（关系选项） */
 
-	/* contains the actual data */
+	/* 包含实际数据 */
 	char		data[FLEXIBLE_ARRAY_MEMBER];
 } SerializedRanges;
 
@@ -227,24 +227,24 @@ static Ranges *brin_range_deserialize(int maxvalues,
 
 
 /*
- * Used to represent ranges expanded to make merging and combining easier.
+ * 用来表示展开后的区间，以便更容易合并与组合。
  *
- * Each expanded range is essentially an interval, represented by min/max
- * values, along with a flag whether it's a collapsed range (in which case
- * the min and max values are equal). We have the flag to handle by-ref
- * data types - we can't simply compare the datums, and this saves some
- * calls to the type-specific comparator function.
+ * 每个展开区间本质上是一个区间，由最小/最大
+ * 值表示，并带一个标志说明它是否为折叠区间（此时
+ * 最小值与最大值相等）。设置该标志是为了处理按引用
+ * 数据类型：不能简单比较 datum，这样也能省去一些
+ * 对该类型比较函数的调用。
  */
 typedef struct ExpandedRange
 {
-	Datum		minval;			/* lower boundary */
-	Datum		maxval;			/* upper boundary */
-	bool		collapsed;		/* true if minval==maxval */
+	Datum		minval;			/* 下界 */
+	Datum		maxval;			/* 上界 */
+	bool		collapsed;		/* 若 minval==maxval 则为真 */
 } ExpandedRange;
 
 /*
- * Represents a distance between two ranges (identified by index into
- * an array of extended ranges).
+ * 表示两个区间之间的距离（由扩展区间数组中的
+ * 下标标识）。
  */
 typedef struct DistanceValue
 {
@@ -253,7 +253,7 @@ typedef struct DistanceValue
 } DistanceValue;
 
 
-/* Cache for support and strategy procedures. */
+/* 支持过程与策略过程的缓存。 */
 
 static FmgrInfo *minmax_multi_get_procinfo(BrinDesc *bdesc, uint16 attno,
 										   uint16 procnum);
@@ -273,8 +273,8 @@ static int	compare_values(const void *a, const void *b, void *arg);
 
 #ifdef USE_ASSERT_CHECKING
 /*
- * Check that the order of the array values is correct, using the cmp
- * function (which should be BTLessStrategyNumber).
+ * 用 cmp 函数检查数组值的顺序是否正确
+ * （该函数应为 BTLessStrategyNumber）。
  */
 static void
 AssertArrayOrder(FmgrInfo *cmp, Oid colloid, Datum *values, int nvalues)
@@ -291,7 +291,7 @@ AssertArrayOrder(FmgrInfo *cmp, Oid colloid, Datum *values, int nvalues)
 #endif
 
 /*
- * Comprehensive check of the Ranges structure.
+ * 对 Ranges 结构做全面检查。
  */
 static void
 AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
@@ -299,7 +299,7 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 #ifdef USE_ASSERT_CHECKING
 	int			i;
 
-	/* some basic sanity checks */
+	/* 一些基本的健全性检查 */
 	Assert(ranges->nranges >= 0);
 	Assert(ranges->nsorted >= 0);
 	Assert(ranges->nvalues >= ranges->nsorted);
@@ -307,20 +307,20 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 	Assert(ranges->typid != InvalidOid);
 
 	/*
-	 * First the ranges - there are 2*nranges boundary values, and the values
-	 * have to be strictly ordered (equal values would mean the range is
-	 * collapsed, and should be stored as a point). This also guarantees that
-	 * the ranges do not overlap.
+	 * 先检查区间：共有 2*nranges 个边界值，这些值
+	 * 必须严格有序（相等意味着该区间已
+	 * 折叠，应存为点）。这也保证
+	 * 各区间互不重叠。
 	 */
 	AssertArrayOrder(cmpFn, colloid, ranges->values, 2 * ranges->nranges);
 
-	/* then the single-point ranges (with nvalues boundary values ) */
+	/* 然后是单点区间（有 nvalues 个边界值） */
 	AssertArrayOrder(cmpFn, colloid, &ranges->values[2 * ranges->nranges],
 					 ranges->nsorted);
 
 	/*
-	 * Check that none of the values are not covered by ranges (both sorted
-	 * and unsorted)
+	 * 检查这些值都没有被区间覆盖（已排序
+	 * 和未排序的都要查）
 	 */
 	if (ranges->nranges > 0)
 	{
@@ -336,8 +336,8 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 			compar = FunctionCall2Coll(cmpFn, colloid, value, minvalue);
 
 			/*
-			 * If the value is smaller than the lower bound in the first range
-			 * then it cannot possibly be in any of the ranges.
+			 * 若该值小于第一个区间的下界，
+			 * 则它不可能落在任何一个区间里。
 			 */
 			if (DatumGetBool(compar))
 				continue;
@@ -345,35 +345,35 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 			compar = FunctionCall2Coll(cmpFn, colloid, maxvalue, value);
 
 			/*
-			 * Likewise, if the value is larger than the upper bound of the
-			 * final range, then it cannot possibly be inside any of the
-			 * ranges.
+			 * 同样，若该值大于最后一个区间的上界，
+			 * 则它不可能落在任何一个
+			 * 区间里。
 			 */
 			if (DatumGetBool(compar))
 				continue;
 
-			/* bsearch the ranges to see if 'value' fits within any of them */
-			start = 0;			/* first range */
-			end = ranges->nranges - 1;	/* last range */
+			/* 二分查找各区间，看 value 是否落在其中 */
+			start = 0;			/* 第一个区间 */
+			end = ranges->nranges - 1;	/* 最后一个区间 */
 			while (true)
 			{
 				int			midpoint = (start + end) / 2;
 
-				/* this means we ran out of ranges in the last step */
+				/* 这意味着上一步已经没有区间可看了 */
 				if (start > end)
 					break;
 
-				/* copy the min/max values from the ranges */
+				/* 从各区间复制最小/最大值 */
 				minvalue = ranges->values[2 * midpoint];
 				maxvalue = ranges->values[2 * midpoint + 1];
 
 				/*
-				 * Is the value smaller than the minval? If yes, we'll recurse
-				 * to the left side of range array.
+				 * 该值是否小于 minval？若是，则递归
+				 * 到区间数组的左侧。
 				 */
 				compar = FunctionCall2Coll(cmpFn, colloid, value, minvalue);
 
-				/* smaller than the smallest value in this range */
+				/* 小于本区间中的最小值 */
 				if (DatumGetBool(compar))
 				{
 					end = (midpoint - 1);
@@ -381,25 +381,25 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 				}
 
 				/*
-				 * Is the value greater than the minval? If yes, we'll recurse
-				 * to the right side of range array.
+				 * 该值是否大于 minval？若是，则递归
+				 * 到区间数组的右侧。
 				 */
 				compar = FunctionCall2Coll(cmpFn, colloid, maxvalue, value);
 
-				/* larger than the largest value in this range */
+				/* 大于本区间中的最大值 */
 				if (DatumGetBool(compar))
 				{
 					start = (midpoint + 1);
 					continue;
 				}
 
-				/* hey, we found a matching range */
+				/* 嘿，找到了匹配的区间 */
 				Assert(false);
 			}
 		}
 	}
 
-	/* and values in the unsorted part must not be in the sorted part */
+	/* 未排序部分中的值不得出现在已排序部分 */
 	if (ranges->nsorted > 0)
 	{
 		compare_context cxt;
@@ -420,8 +420,8 @@ AssertCheckRanges(Ranges *ranges, FmgrInfo *cmpFn, Oid colloid)
 }
 
 /*
- * Check that the expanded ranges (built when reducing the number of ranges
- * by combining some of them) are correctly sorted and do not overlap.
+ * 检查展开区间（在通过合并来减少区间个数时构造）
+ * 是否正确排序且互不重叠。
  */
 static void
 AssertCheckExpandedRanges(BrinDesc *bdesc, Oid colloid, AttrNumber attno,
@@ -440,8 +440,8 @@ AssertCheckExpandedRanges(BrinDesc *bdesc, Oid colloid, AttrNumber attno,
 											BTLessStrategyNumber);
 
 	/*
-	 * Each range independently should be valid, i.e. that for the boundary
-	 * values (lower <= upper).
+	 * 每个区间本身都应有效，即边界值满足
+	 * （下界 <= 上界）。
 	 */
 	for (i = 0; i < nranges; i++)
 	{
@@ -449,17 +449,17 @@ AssertCheckExpandedRanges(BrinDesc *bdesc, Oid colloid, AttrNumber attno,
 		Datum		minval = ranges[i].minval;
 		Datum		maxval = ranges[i].maxval;
 
-		if (ranges[i].collapsed)	/* collapsed: minval == maxval */
+		if (ranges[i].collapsed)	/* 折叠：minval == maxval */
 			r = FunctionCall2Coll(eq, colloid, minval, maxval);
-		else					/* non-collapsed: minval < maxval */
+		else					/* 未折叠：minval < maxval */
 			r = FunctionCall2Coll(lt, colloid, minval, maxval);
 
 		Assert(DatumGetBool(r));
 	}
 
 	/*
-	 * And the ranges should be ordered and must not overlap, i.e. upper <
-	 * lower for boundaries of consecutive ranges.
+	 * 并且各区间应有序且不得重叠，即相邻区间的边界满足上界 <
+	 * 下界。
 	 */
 	for (i = 0; i < nranges - 1; i++)
 	{
@@ -477,11 +477,11 @@ AssertCheckExpandedRanges(BrinDesc *bdesc, Oid colloid, AttrNumber attno,
 
 /*
  * minmax_multi_init
- * 		Initialize the deserialized range list, allocate all the memory.
+ * 		初始化反序列化后的区间列表，分配全部内存。
  *
- * This is only in-memory representation of the ranges, so we allocate
- * enough space for the maximum number of values (so as not to have to do
- * repallocs as the ranges grow).
+ * 这只是区间的内存表示，因此按最大取值个数
+ * 分配足够空间（以免区间增长时还要
+ * 做 repalloc）。
  */
 static Ranges *
 minmax_multi_init(int maxvalues)
@@ -491,8 +491,8 @@ minmax_multi_init(int maxvalues)
 
 	Assert(maxvalues > 0);
 
-	len = offsetof(Ranges, values); /* fixed header */
-	len += maxvalues * sizeof(Datum);	/* Datum values */
+	len = offsetof(Ranges, values); /* 固定头部 */
+	len += maxvalues * sizeof(Datum);	/* Datum 值 */
 
 	ranges = (Ranges *) palloc0(len);
 
@@ -504,14 +504,14 @@ minmax_multi_init(int maxvalues)
 
 /*
  * range_deduplicate_values
- *		Deduplicate the part with values in the simple points.
+ *		对简单点那一部分的值去重。
  *
- * This is meant to be a cheaper way of reducing the size of the ranges. It
- * does not touch the ranges, and only sorts the other values - it does not
- * call the distance functions, which may be quite expensive, etc.
+ * 这是一种更便宜的缩小区间规模的办法。它
+ * 不触碰区间，只对其余值排序，并不
+ * 调用可能相当昂贵的距离函数，等等。
  *
- * We do know the values are not duplicate with the ranges, because we check
- * that before adding a new value. Same for the sorted part of values.
+ * 我们知道这些值与区间不重复，因为在加入新值之前已经检查过。
+ * 值的已排序部分也是如此。
  */
 static void
 range_deduplicate_values(Ranges *range)
@@ -522,23 +522,23 @@ range_deduplicate_values(Ranges *range)
 	compare_context cxt;
 
 	/*
-	 * If there are no unsorted values, we're done (this probably can't
-	 * happen, as we're adding values to unsorted part).
+	 * 若没有未排序的值，则已完成（这大概不会
+	 * 发生，因为我们是在往未排序部分加值）。
 	 */
 	if (range->nsorted == range->nvalues)
 		return;
 
-	/* sort the values */
+	/* 对值排序 */
 	cxt.colloid = range->colloid;
 	cxt.cmpFn = range->cmp;
 
-	/* the values start right after the ranges (which are always sorted) */
+	/* 这些值紧接在区间之后开始（区间始终有序） */
 	start = 2 * range->nranges;
 
 	/*
-	 * XXX This might do a merge sort, to leverage that the first part of the
-	 * array is already sorted. If the sorted part is large, it might be quite
-	 * a bit faster.
+	 * XXX 这里也许可以做归并排序，以利用数组前一部分
+	 * 已经有序这一事实。若已排序部分很大，可能会
+	 * 快上不少。
 	 */
 	qsort_arg(&range->values[start],
 			  range->nvalues, sizeof(Datum),
@@ -547,7 +547,7 @@ range_deduplicate_values(Ranges *range)
 	n = 1;
 	for (i = 1; i < range->nvalues; i++)
 	{
-		/* same as preceding value, so store it */
+		/* 与前一个值相同，因此存下它 */
 		if (compare_values(&range->values[start + i - 1],
 						   &range->values[start + i],
 						   (void *) &cxt) == 0)
@@ -558,7 +558,7 @@ range_deduplicate_values(Ranges *range)
 		n++;
 	}
 
-	/* now all the values are sorted */
+	/* 现在全部值都已排序 */
 	range->nvalues = n;
 	range->nsorted = n;
 
@@ -568,10 +568,10 @@ range_deduplicate_values(Ranges *range)
 
 /*
  * brin_range_serialize
- *	  Serialize the in-memory representation into a compact varlena value.
+ *	  把内存中的表示序列化成紧凑的 varlena 值。
  *
- * Simply copy the header and then also the individual values, as stored
- * in the in-memory value array.
+ * 只需复制头部，然后再复制内存值数组中
+ * 所存的各个值。
  */
 static SerializedRanges *
 brin_range_serialize(Ranges *range)
@@ -585,41 +585,41 @@ brin_range_serialize(Ranges *range)
 
 	char	   *ptr;
 
-	/* simple sanity checks */
+	/* 简单的健全性检查 */
 	Assert(range->nranges >= 0);
 	Assert(range->nsorted >= 0);
 	Assert(range->nvalues >= 0);
 	Assert(range->maxvalues > 0);
 	Assert(range->target_maxvalues > 0);
 
-	/* at this point the range should be compacted to the target size */
+	/* 此时区间应已压实到目标大小 */
 	Assert(2 * range->nranges + range->nvalues <= range->target_maxvalues);
 
 	Assert(range->target_maxvalues <= range->maxvalues);
 
-	/* range boundaries are always sorted */
+	/* 区间边界始终有序 */
 	Assert(range->nvalues >= range->nsorted);
 
-	/* deduplicate values, if there's unsorted part */
+	/* 若有未排序部分，则对值去重 */
 	range_deduplicate_values(range);
 
-	/* see how many Datum values we actually have */
+	/* 看看实际有多少个 Datum 值 */
 	nvalues = 2 * range->nranges + range->nvalues;
 
 	typid = range->typid;
 	typbyval = get_typbyval(typid);
 	typlen = get_typlen(typid);
 
-	/* header is always needed */
+	/* 头部总是需要的 */
 	len = offsetof(SerializedRanges, data);
 
 	/*
-	 * The space needed depends on data type - for fixed-length data types
-	 * (by-value and some by-reference) it's pretty simple, just multiply
-	 * (attlen * nvalues) and we're done. For variable-length by-reference
-	 * types we need to actually walk all the values and sum the lengths.
+	 * 所需空间取决于数据类型：对定长数据类型
+	 * （按值，以及部分按引用）很简单，只要乘上
+	 * (attlen * nvalues) 即可。对变长按引用
+	 * 类型，则必须遍历全部值并累加长度。
 	 */
-	if (typlen == -1)			/* varlena */
+	if (typlen == -1)			/* 变长（varlena） */
 	{
 		int			i;
 
@@ -628,25 +628,25 @@ brin_range_serialize(Ranges *range)
 			len += VARSIZE_ANY(range->values[i]);
 		}
 	}
-	else if (typlen == -2)		/* cstring */
+	else if (typlen == -2)		/* 字符串（cstring） */
 	{
 		int			i;
 
 		for (i = 0; i < nvalues; i++)
 		{
-			/* don't forget to include the null terminator ;-) */
+			/* 别忘了计入结尾的空字符 ;-) */
 			len += strlen(DatumGetCString(range->values[i])) + 1;
 		}
 	}
-	else						/* fixed-length types (even by-reference) */
+	else						/* 定长类型（即使是按引用） */
 	{
 		Assert(typlen > 0);
 		len += nvalues * typlen;
 	}
 
 	/*
-	 * Allocate the serialized object, copy the basic information. The
-	 * serialized object is a varlena, so update the header.
+	 * 分配序列化对象，并复制基本信息。
+	 * 序列化对象是 varlena，因此要更新头部。
 	 */
 	serialized = (SerializedRanges *) palloc0(len);
 	SET_VARSIZE(serialized, len);
@@ -657,43 +657,43 @@ brin_range_serialize(Ranges *range)
 	serialized->maxvalues = range->target_maxvalues;
 
 	/*
-	 * And now copy also the boundary values (like the length calculation this
-	 * depends on the particular data type).
+	 * 现在也复制边界值（与长度计算一样，这
+	 * 取决于具体的数据类型）。
 	 */
-	ptr = serialized->data;		/* start of the serialized data */
+	ptr = serialized->data;		/* 序列化数据的起点 */
 
 	for (int i = 0; i < nvalues; i++)
 	{
-		if (typbyval)			/* simple by-value data types */
+		if (typbyval)			/* 简单的按值数据类型 */
 		{
 			Datum		tmp;
 
 			/*
-			 * For byval types, we need to copy just the significant bytes -
-			 * we can't use memcpy directly, as that assumes little-endian
-			 * behavior.  store_att_byval does almost what we need, but it
-			 * requires a properly aligned buffer - the output buffer does not
-			 * guarantee that. So we simply use a local Datum variable (which
-			 * guarantees proper alignment), and then copy the value from it.
+			 * 对按值类型，只需复制有效字节。
+			 * 不能直接用 memcpy，因为它假定小端
+			 * 行为。store_att_byval 几乎满足需要，但它
+			 * 需要正确对齐的缓冲区，而输出缓冲区并不
+			 * 保证这一点。因此我们使用一个局部 Datum 变量（它
+			 * 保证正确对齐），再从中复制该值。
 			 */
 			store_att_byval(&tmp, range->values[i], typlen);
 
 			memcpy(ptr, &tmp, typlen);
 			ptr += typlen;
 		}
-		else if (typlen > 0)	/* fixed-length by-ref types */
+		else if (typlen > 0)	/* 定长按引用类型 */
 		{
 			memcpy(ptr, DatumGetPointer(range->values[i]), typlen);
 			ptr += typlen;
 		}
-		else if (typlen == -1)	/* varlena */
+		else if (typlen == -1)	/* 变长（varlena） */
 		{
 			int			tmp = VARSIZE_ANY(DatumGetPointer(range->values[i]));
 
 			memcpy(ptr, DatumGetPointer(range->values[i]), tmp);
 			ptr += tmp;
 		}
-		else if (typlen == -2)	/* cstring */
+		else if (typlen == -2)	/* 字符串（cstring） */
 		{
 			int			tmp = strlen(DatumGetCString(range->values[i])) + 1;
 
@@ -701,11 +701,11 @@ brin_range_serialize(Ranges *range)
 			ptr += tmp;
 		}
 
-		/* make sure we haven't overflown the buffer end */
+		/* 确保没有越过缓冲区末尾 */
 		Assert(ptr <= ((char *) serialized + len));
 	}
 
-	/* exact size */
+	/* 精确大小 */
 	Assert(ptr == ((char *) serialized + len));
 
 	return serialized;
@@ -713,10 +713,10 @@ brin_range_serialize(Ranges *range)
 
 /*
  * brin_range_deserialize
- *	  Serialize the in-memory representation into a compact varlena value.
+ *	  把内存中的表示序列化成紧凑的 varlena 值。
  *
- * Simply copy the header and then also the individual values, as stored
- * in the in-memory value array.
+ * 只需复制头部，然后再复制内存值数组中
+ * 所存的各个值。
  */
 static Ranges *
 brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
@@ -742,7 +742,7 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 
 	range = minmax_multi_init(maxvalues);
 
-	/* copy the header info */
+	/* 复制头部信息 */
 	range->nranges = serialized->nranges;
 	range->nvalues = serialized->nvalues;
 	range->nsorted = serialized->nvalues;
@@ -755,30 +755,30 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 	typlen = get_typlen(serialized->typid);
 
 	/*
-	 * And now deconstruct the values into Datum array. We have to copy the
-	 * data because the serialized representation ignores alignment, and we
-	 * don't want to rely on it being kept around anyway.
+	 * 现在把这些值拆回 Datum 数组。必须复制
+	 * 数据，因为序列化表示忽略对齐，而且我们
+	 * 也不想依赖它一直留在原地。
 	 */
 	ptr = serialized->data;
 
 	/*
-	 * We don't want to allocate many pieces, so we just allocate everything
-	 * in one chunk. How much space will we need?
+	 * 不想分配很多小块，因此一次性把全部内容
+	 * 分配在一块里。需要多少空间？
 	 *
-	 * XXX We don't need to copy simple by-value data types.
+	 * XXX 简单的按值数据类型其实不必复制。
 	 */
 	datalen = 0;
 	dataptr = NULL;
 	for (i = 0; (i < nvalues) && (!typbyval); i++)
 	{
-		if (typlen > 0)			/* fixed-length by-ref types */
+		if (typlen > 0)			/* 定长按引用类型 */
 			datalen += MAXALIGN(typlen);
-		else if (typlen == -1)	/* varlena */
+		else if (typlen == -1)	/* 变长（varlena） */
 		{
 			datalen += MAXALIGN(VARSIZE_ANY(ptr));
 			ptr += VARSIZE_ANY(ptr);
 		}
-		else if (typlen == -2)	/* cstring */
+		else if (typlen == -2)	/* 字符串（cstring） */
 		{
 			Size		slen = strlen(ptr) + 1;
 
@@ -791,14 +791,14 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 		dataptr = palloc(datalen);
 
 	/*
-	 * Restore the source pointer (might have been modified when calculating
-	 * the space we need to allocate).
+	 * 恢复源指针（计算需要分配的空间时
+	 * 它可能已被改动）。
 	 */
 	ptr = serialized->data;
 
 	for (i = 0; i < nvalues; i++)
 	{
-		if (typbyval)			/* simple by-value data types */
+		if (typbyval)			/* 简单的按值数据类型 */
 		{
 			Datum		v = 0;
 
@@ -807,7 +807,7 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 			range->values[i] = fetch_att(&v, true, typlen);
 			ptr += typlen;
 		}
-		else if (typlen > 0)	/* fixed-length by-ref types */
+		else if (typlen > 0)	/* 定长按引用类型 */
 		{
 			range->values[i] = PointerGetDatum(dataptr);
 
@@ -816,7 +816,7 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 
 			ptr += typlen;
 		}
-		else if (typlen == -1)	/* varlena */
+		else if (typlen == -1)	/* 变长（varlena） */
 		{
 			range->values[i] = PointerGetDatum(dataptr);
 
@@ -824,7 +824,7 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 			dataptr += MAXALIGN(VARSIZE_ANY(ptr));
 			ptr += VARSIZE_ANY(ptr);
 		}
-		else if (typlen == -2)	/* cstring */
+		else if (typlen == -2)	/* 字符串（cstring） */
 		{
 			Size		slen = strlen(ptr) + 1;
 
@@ -835,25 +835,25 @@ brin_range_deserialize(int maxvalues, SerializedRanges *serialized)
 			ptr += slen;
 		}
 
-		/* make sure we haven't overflown the buffer end */
+		/* 确保没有越过缓冲区末尾 */
 		Assert(ptr <= ((char *) serialized + VARSIZE_ANY(serialized)));
 	}
 
-	/* should have consumed the whole input value exactly */
+	/* 应当正好消耗完整个输入值 */
 	Assert(ptr == ((char *) serialized + VARSIZE_ANY(serialized)));
 
-	/* return the deserialized value */
+	/* 返回反序列化后的值 */
 	return range;
 }
 
 /*
  * compare_expanded_ranges
- *	  Compare the expanded ranges - first by minimum, then by maximum.
+ *	  比较展开区间：先比最小值，再比最大值。
  *
- * We do guarantee that ranges in a single Ranges object do not overlap, so it
- * may seem strange that we don't order just by minimum. But when merging two
- * Ranges (which happens in the union function), the ranges may in fact
- * overlap. So we do compare both.
+ * 我们保证单个 Ranges 对象中的区间互不重叠，因此
+ * 只按最小值排序似乎就够了。但合并两个
+ * Ranges（发生在 union 函数中）时，区间实际上可能
+ * 重叠。所以两端都要比较。
  */
 static int
 compare_expanded_ranges(const void *a, const void *b, void *arg)
@@ -864,7 +864,7 @@ compare_expanded_ranges(const void *a, const void *b, void *arg)
 
 	compare_context *cxt = (compare_context *) arg;
 
-	/* first compare minvals */
+	/* 先比较 minval */
 	r = FunctionCall2Coll(cxt->cmpFn, cxt->colloid, ra->minval, rb->minval);
 
 	if (DatumGetBool(r))
@@ -875,7 +875,7 @@ compare_expanded_ranges(const void *a, const void *b, void *arg)
 	if (DatumGetBool(r))
 		return 1;
 
-	/* then compare maxvals */
+	/* 再比较 maxval */
 	r = FunctionCall2Coll(cxt->cmpFn, cxt->colloid, ra->maxval, rb->maxval);
 
 	if (DatumGetBool(r))
@@ -891,7 +891,7 @@ compare_expanded_ranges(const void *a, const void *b, void *arg)
 
 /*
  * compare_values
- *	  Compare the values.
+ *	  比较这些值。
  */
 static int
 compare_values(const void *a, const void *b, void *arg)
@@ -916,7 +916,7 @@ compare_values(const void *a, const void *b, void *arg)
 }
 
 /*
- * Check if the new value matches one of the existing ranges.
+ * 检查新值是否匹配某个已有区间。
  */
 static bool
 has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
@@ -930,7 +930,7 @@ has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
 	FmgrInfo   *cmpLessFn;
 	FmgrInfo   *cmpGreaterFn;
 
-	/* binary search on ranges */
+	/* 在区间上做二分查找 */
 	int			start,
 				end;
 
@@ -941,22 +941,22 @@ has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
 	maxvalue = ranges->values[2 * ranges->nranges - 1];
 
 	/*
-	 * Otherwise, need to compare the new value with boundaries of all the
-	 * ranges. First check if it's less than the absolute minimum, which is
-	 * the first value in the array.
+	 * 否则，需要把新值与所有区间的边界比较。
+	 * 先检查它是否小于绝对最小值，也就是
+	 * 数组中的第一个值。
 	 */
 	cmpLessFn = minmax_multi_get_strategy_procinfo(bdesc, attno, typid,
 												   BTLessStrategyNumber);
 	compar = FunctionCall2Coll(cmpLessFn, colloid, newval, minvalue);
 
-	/* smaller than the smallest value in the range list */
+	/* 小于区间列表中的最小值 */
 	if (DatumGetBool(compar))
 		return false;
 
 	/*
-	 * And now compare it to the existing maximum (last value in the data
-	 * array). But only if we haven't already ruled out a possible match in
-	 * the minvalue check.
+	 * 现在把它与现有最大值比较（数据数组中的最后一个值）。
+	 * 但仅当最小值检查尚未排除可能的匹配时
+	 * 才做这一步。
 	 */
 	cmpGreaterFn = minmax_multi_get_strategy_procinfo(bdesc, attno, typid,
 													  BTGreaterStrategyNumber);
@@ -966,33 +966,33 @@ has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
 		return false;
 
 	/*
-	 * So we know it's in the general min/max, the question is whether it
-	 * falls in one of the ranges or gaps. We'll do a binary search on
-	 * individual ranges - for each range we check equality (value falls into
-	 * the range), and then check ranges either above or below the current
-	 * range.
+	 * 因此我们知道它落在整体最小/最大之间，问题是它
+	 * 落在某个区间里还是间隙里。我们对各个区间做二分查找：
+	 * 对每个区间检查是否相等（值落入
+	 * 该区间），然后检查当前区间之上或之下的
+	 * 区间。
 	 */
-	start = 0;					/* first range */
-	end = (ranges->nranges - 1);	/* last range */
+	start = 0;					/* 第一个区间 */
+	end = (ranges->nranges - 1);	/* 最后一个区间 */
 	while (true)
 	{
 		int			midpoint = (start + end) / 2;
 
-		/* this means we ran out of ranges in the last step */
+		/* 这意味着上一步已经没有区间可看了 */
 		if (start > end)
 			return false;
 
-		/* copy the min/max values from the ranges */
+		/* 从各区间复制最小/最大值 */
 		minvalue = ranges->values[2 * midpoint];
 		maxvalue = ranges->values[2 * midpoint + 1];
 
 		/*
-		 * Is the value smaller than the minval? If yes, we'll recurse to the
-		 * left side of range array.
+		 * 该值是否小于 minval？若是，则递归
+		 * 到区间数组的左侧。
 		 */
 		compar = FunctionCall2Coll(cmpLessFn, colloid, newval, minvalue);
 
-		/* smaller than the smallest value in this range */
+		/* 小于本区间中的最小值 */
 		if (DatumGetBool(compar))
 		{
 			end = (midpoint - 1);
@@ -1000,19 +1000,19 @@ has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
 		}
 
 		/*
-		 * Is the value greater than the minval? If yes, we'll recurse to the
-		 * right side of range array.
+		 * 该值是否大于 minval？若是，则递归
+		 * 到区间数组的右侧。
 		 */
 		compar = FunctionCall2Coll(cmpGreaterFn, colloid, newval, maxvalue);
 
-		/* larger than the largest value in this range */
+		/* 大于本区间中的最大值 */
 		if (DatumGetBool(compar))
 		{
 			start = (midpoint + 1);
 			continue;
 		}
 
-		/* hey, we found a matching range */
+		/* 嘿，找到了匹配的区间 */
 		return true;
 	}
 
@@ -1022,25 +1022,25 @@ has_matching_range(BrinDesc *bdesc, Oid colloid, Ranges *ranges,
 
 /*
  * range_contains_value
- * 		See if the new value is already contained in the range list.
+ * 		看新值是否已经包含在区间列表中。
  *
- * We first inspect the list of intervals. We use a small trick - we check
- * the value against min/max of the whole range (min of the first interval,
- * max of the last one) first, and only inspect the individual intervals if
- * this passes.
+ * 先检查区间列表。这里用一个小技巧：先把
+ * 该值与整个范围的最小/最大比较（第一个区间的最小，
+ * 最后一个区间的最大），只有通过之后才检查
+ * 各个区间。
  *
- * If the value matches none of the intervals, we check the exact values.
- * We simply loop through them and invoke equality operator on them.
+ * 若该值不匹配任何区间，再检查精确值。
+ * 只需遍历它们并调用相等操作符。
  *
- * The last parameter (full) determines whether we need to search all the
- * values, including the unsorted part. With full=false, the unsorted part
- * is not searched, which may produce false negatives and duplicate values
- * (in the unsorted part only), but when we're building the range that's
- * fine - we'll deduplicate before serialization, and it can only happen
- * if there already are unsorted values (so it was already modified).
+ * 最后一个参数（full）决定是否需要搜索全部
+ * 值，包括未排序部分。full=false 时不搜索未排序部分，
+ * 这可能产生假阴性，并在未排序部分出现重复值
+ * （仅限未排序部分），但在构建区间时这
+ * 没问题：序列化之前会去重，而且只有
+ * 已经存在未排序值时才会发生（因此它已经被改过）。
  *
- * Serialized ranges don't have any unsorted values, so this can't cause
- * false negatives during querying.
+ * 序列化后的区间没有任何未排序值，因此查询时不会因此
+ * 产生假阴性。
  */
 static bool
 range_contains_value(BrinDesc *bdesc, Oid colloid,
@@ -1052,9 +1052,9 @@ range_contains_value(BrinDesc *bdesc, Oid colloid,
 	Oid			typid = attr->atttypid;
 
 	/*
-	 * First inspect the ranges, if there are any. We first check the whole
-	 * range, and only when there's still a chance of getting a match we
-	 * inspect the individual ranges.
+	 * 若有区间，先检查它们。先检查整个
+	 * 范围，只有仍有可能匹配时才
+	 * 检查各个区间。
 	 */
 	if (has_matching_range(bdesc, colloid, ranges, newval, attno, typid))
 		return true;
@@ -1063,18 +1063,18 @@ range_contains_value(BrinDesc *bdesc, Oid colloid,
 													BTEqualStrategyNumber);
 
 	/*
-	 * There is no matching range, so let's inspect the sorted values.
+	 * 没有匹配的区间，因此检查已排序的值。
 	 *
-	 * We do a sequential search for small numbers of values, and binary
-	 * search once we have more than 16 values. This threshold is somewhat
-	 * arbitrary, as it depends on how expensive the comparison function is.
+	 * 值很少时做顺序查找，个数较多时做二分
+	 * 查找（超过 16 个值）。这个阈值有些任意，
+	 * 取决于比较函数有多贵。
 	 *
-	 * XXX If we use the threshold here, maybe we should do the same thing in
-	 * has_matching_range? Or maybe we should do the bin search all the time?
+	 * XXX 若这里使用该阈值，也许 has_matching_range 里也应同样处理？
+	 * 或者也许应该一直做二分查找？
 	 *
-	 * XXX We could use the same optimization as for ranges, to check if the
-	 * value is between min/max, to maybe rule out all sorted values without
-	 * having to inspect all of them.
+	 * XXX 也可以用与区间相同的优化，检查该值是否
+	 * 介于最小/最大之间，从而也许不必查看全部已排序值
+	 * 就能把它们全部排除。
 	 */
 	if (ranges->nsorted >= 16)
 	{
@@ -1096,40 +1096,40 @@ range_contains_value(BrinDesc *bdesc, Oid colloid,
 
 			compar = FunctionCall2Coll(cmpEqualFn, colloid, newval, ranges->values[i]);
 
-			/* found an exact match */
+			/* 找到了精确匹配 */
 			if (DatumGetBool(compar))
 				return true;
 		}
 	}
 
-	/* If not asked to inspect the unsorted part, we're done. */
+	/* 若未让我们检查未排序部分，则已完成。 */
 	if (!full)
 		return false;
 
-	/* Inspect the unsorted part. */
+	/* 检查未排序部分。 */
 	for (i = 2 * ranges->nranges + ranges->nsorted; i < 2 * ranges->nranges + ranges->nvalues; i++)
 	{
 		Datum		compar;
 
 		compar = FunctionCall2Coll(cmpEqualFn, colloid, newval, ranges->values[i]);
 
-		/* found an exact match */
+		/* 找到了精确匹配 */
 		if (DatumGetBool(compar))
 			return true;
 	}
 
-	/* the value is not covered by this BRIN tuple */
+	/* 该值不被这个 BRIN 元组覆盖 */
 	return false;
 }
 
 /*
- * Expand ranges from Ranges into ExpandedRange array. This expects the
- * eranges to be pre-allocated and with the correct size - there needs to be
- * (nranges + nvalues) elements.
+ * 把 Ranges 中的区间展开到 ExpandedRange 数组。这里假定
+ * eranges 已预先分配且大小正确：需要有
+ * (nranges + nvalues) 个元素。
  *
- * The order of expanded ranges is arbitrary. We do expand the ranges first,
- * and this part is sorted. But then we expand the values, and this part may
- * be unsorted.
+ * 展开区间的顺序是任意的。我们先展开区间，
+ * 这一部分是有序的。然后再展开值，这一部分可能
+ * 无序。
  */
 static void
 fill_expanded_ranges(ExpandedRange *eranges, int neranges, Ranges *ranges)
@@ -1137,7 +1137,7 @@ fill_expanded_ranges(ExpandedRange *eranges, int neranges, Ranges *ranges)
 	int			idx;
 	int			i;
 
-	/* Check that the output array has the right size. */
+	/* 检查输出数组的大小是否正确。 */
 	Assert(neranges == (ranges->nranges + ranges->nvalues));
 
 	idx = 0;
@@ -1161,20 +1161,20 @@ fill_expanded_ranges(ExpandedRange *eranges, int neranges, Ranges *ranges)
 		Assert(idx <= neranges);
 	}
 
-	/* Did we produce the expected number of elements? */
+	/* 产生的元素个数是否符合预期？ */
 	Assert(idx == neranges);
 
 	return;
 }
 
 /*
- * Sort and deduplicate expanded ranges.
+ * 对展开区间排序并去重。
  *
- * The ranges may be deduplicated - we're simply appending values, without
- * checking for duplicates etc. So maybe the deduplication will reduce the
- * number of ranges enough, and we won't have to compute the distances etc.
+ * 这些区间可能有重复：我们只是追加值，并不
+ * 检查重复等等。因此去重也许就能把
+ * 区间个数减得够多，从而不必再计算距离等等。
  *
- * Returns the number of expanded ranges.
+ * 返回展开区间的个数。
  */
 static int
 sort_expanded_ranges(FmgrInfo *cmp, Oid colloid,
@@ -1186,30 +1186,30 @@ sort_expanded_ranges(FmgrInfo *cmp, Oid colloid,
 
 	Assert(neranges > 0);
 
-	/* sort the values */
+	/* 对值排序 */
 	cxt.colloid = colloid;
 	cxt.cmpFn = cmp;
 
 	/*
-	 * XXX We do qsort on all the values, but we could also leverage the fact
-	 * that some of the input data is already sorted (all the ranges and maybe
-	 * some of the points) and do merge sort.
+	 * XXX 我们对全部值做 qsort，但也可以利用
+	 * 部分输入已经有序这一事实（全部区间，也许还有
+	 * 部分点）来做归并排序。
 	 */
 	qsort_arg(eranges, neranges, sizeof(ExpandedRange),
 			  compare_expanded_ranges, &cxt);
 
 	/*
-	 * Deduplicate the ranges - simply compare each range to the preceding
-	 * one, and skip the duplicate ones.
+	 * 对区间去重：把每个区间与前一个比较，
+	 * 并跳过重复的。
 	 */
 	n = 1;
 	for (i = 1; i < neranges; i++)
 	{
-		/* if the current range is equal to the preceding one, do nothing */
+		/* 若当前区间与前一个相等，则什么也不做 */
 		if (!compare_expanded_ranges(&eranges[i - 1], &eranges[i], (void *) &cxt))
 			continue;
 
-		/* otherwise, copy it to n-th place (if not already there) */
+		/* 否则，把它复制到第 n 个位置（若还不在那里） */
 		if (i != n)
 			memcpy(&eranges[n], &eranges[i], sizeof(ExpandedRange));
 
@@ -1222,11 +1222,11 @@ sort_expanded_ranges(FmgrInfo *cmp, Oid colloid,
 }
 
 /*
- * When combining multiple Range values (in union function), some of the
- * ranges may overlap. We simply merge the overlapping ranges to fix that.
+ * 在组合多个 Range 值（union 函数中）时，有些
+ * 区间可能重叠。我们直接合并重叠区间来修正。
  *
- * XXX This assumes the expanded ranges were previously sorted (by minval
- * and then maxval). We leverage this when detecting overlap.
+ * XXX 这里假定展开区间先前已排序（先按 minval，
+ * 再按 maxval）。检测重叠时利用这一点。
  */
 static int
 merge_overlapping_ranges(FmgrInfo *cmp, Oid colloid,
@@ -1234,36 +1234,36 @@ merge_overlapping_ranges(FmgrInfo *cmp, Oid colloid,
 {
 	int			idx;
 
-	/* Merge ranges (idx) and (idx+1) if they overlap. */
+	/* 若区间 (idx) 与 (idx+1) 重叠，则合并它们。 */
 	idx = 0;
 	while (idx < (neranges - 1))
 	{
 		Datum		r;
 
 		/*
-		 * comparing [?,maxval] vs. [minval,?] - the ranges overlap if (minval
-		 * < maxval)
+		 * 比较 [?,maxval] 与 [minval,?]：若 (minval
+		 * < maxval)，则区间重叠
 		 */
 		r = FunctionCall2Coll(cmp, colloid,
 							  eranges[idx].maxval,
 							  eranges[idx + 1].minval);
 
 		/*
-		 * Nope, maxval < minval, so no overlap. And we know the ranges are
-		 * ordered, so there are no more overlaps, because all the remaining
-		 * ranges have greater or equal minval.
+		 * 不重叠：maxval < minval。而且我们知道区间
+		 * 有序，因此不会再有重叠，因为其余
+		 * 区间的 minval 都更大或相等。
 		 */
 		if (DatumGetBool(r))
 		{
-			/* proceed to the next range */
+			/* 继续下一个区间 */
 			idx += 1;
 			continue;
 		}
 
 		/*
-		 * So ranges 'idx' and 'idx+1' do overlap, but we don't know if
-		 * 'idx+1' is contained in 'idx', or if they overlap only partially.
-		 * So compare the upper bounds and keep the larger one.
+		 * 因此区间 idx 与 idx+1 确实重叠，但不知道
+		 * idx+1 是否包含在 idx 中，还是只部分重叠。
+		 * 所以比较上界并保留较大的那个。
 		 */
 		r = FunctionCall2Coll(cmp, colloid,
 							  eranges[idx].maxval,
@@ -1273,23 +1273,23 @@ merge_overlapping_ranges(FmgrInfo *cmp, Oid colloid,
 			eranges[idx].maxval = eranges[idx + 1].maxval;
 
 		/*
-		 * The range certainly is no longer collapsed (irrespectively of the
-		 * previous state).
+		 * 该区间肯定不再是折叠的（不论
+		 * 先前状态如何）。
 		 */
 		eranges[idx].collapsed = false;
 
 		/*
-		 * Now get rid of the (idx+1) range entirely by shifting the remaining
-		 * ranges by 1. There are neranges elements, and we need to move
-		 * elements from (idx+2). That means the number of elements to move is
-		 * [ncranges - (idx+2)].
+		 * 现在把 (idx+1) 区间整个去掉：把剩余
+		 * 区间前移 1。共有 neranges 个元素，需要移动
+		 * 从 (idx+2) 开始的元素。因此要移动的元素个数是
+		 * [ncranges - (idx+2)]。
 		 */
 		memmove(&eranges[idx + 1], &eranges[idx + 2],
 				(neranges - (idx + 2)) * sizeof(ExpandedRange));
 
 		/*
-		 * Decrease the number of ranges, and repeat (with the same range, as
-		 * it might overlap with additional ranges thanks to the merge).
+		 * 减少区间个数，并重复（仍用同一个区间，因为
+		 * 合并之后它可能还会与更多区间重叠）。
 		 */
 		neranges--;
 	}
@@ -1298,9 +1298,9 @@ merge_overlapping_ranges(FmgrInfo *cmp, Oid colloid,
 }
 
 /*
- * Simple comparator for distance values, comparing the double value.
- * This is intentionally sorting the distances in descending order, i.e.
- * the longer gaps will be at the front.
+ * 距离值的简单比较器，比较 double 值。
+ * 这里有意按降序排列距离，也就是
+ * 较长的间隙排在前面。
  */
 static int
 compare_distances(const void *a, const void *b)
@@ -1317,14 +1317,14 @@ compare_distances(const void *a, const void *b)
 }
 
 /*
- * Given an array of expanded ranges, compute size of the gaps between each
- * range.  For neranges there are (neranges-1) gaps.
+ * 给定展开区间数组，计算每对区间之间的间隙大小。
+ * neranges 个区间有 (neranges-1) 个间隙。
  *
- * We simply call the "distance" function to compute the (max-min) for pairs
- * of consecutive ranges. The function may be fairly expensive, so we do that
- * just once (and then use it to pick as many ranges to merge as possible).
+ * 只需调用 "distance" 函数，计算连续区间对的 (max-min)。
+ * 该函数可能相当昂贵，因此只做
+ * 一次（然后用它尽可能多地挑选要合并的区间）。
  *
- * See reduce_expanded_ranges for details.
+ * 细节见 reduce_expanded_ranges。
  */
 static DistanceValue *
 build_distances(FmgrInfo *distanceFn, Oid colloid,
@@ -1336,7 +1336,7 @@ build_distances(FmgrInfo *distanceFn, Oid colloid,
 
 	Assert(neranges > 0);
 
-	/* If there's only a single range, there's no distance to calculate. */
+	/* 若只有一个区间，就没有距离可算。 */
 	if (neranges == 1)
 		return NULL;
 
@@ -1344,8 +1344,8 @@ build_distances(FmgrInfo *distanceFn, Oid colloid,
 	distances = (DistanceValue *) palloc0(sizeof(DistanceValue) * ndistances);
 
 	/*
-	 * Walk through the ranges once and compute the distance between the
-	 * ranges so that we can sort them once.
+	 * 把区间走一遍，计算区间之间的距离，
+	 * 以便只排序一次。
 	 */
 	for (i = 0; i < ndistances; i++)
 	{
@@ -1356,17 +1356,17 @@ build_distances(FmgrInfo *distanceFn, Oid colloid,
 		a1 = eranges[i].maxval;
 		a2 = eranges[i + 1].minval;
 
-		/* compute length of the gap (between max/min) */
+		/* 计算间隙长度（介于 max/min 之间） */
 		r = FunctionCall2Coll(distanceFn, colloid, a1, a2);
 
-		/* remember the index of the gap the distance is for */
+		/* 记住该距离对应的间隙下标 */
 		distances[i].index = i;
 		distances[i].value = DatumGetFloat8(r);
 	}
 
 	/*
-	 * Sort the distances in descending order, so that the longest gaps are at
-	 * the front.
+	 * 按降序排列距离，使最长的间隙位于
+	 * 前面。
 	 */
 	pg_qsort(distances, ndistances, sizeof(DistanceValue), compare_distances);
 
@@ -1374,14 +1374,14 @@ build_distances(FmgrInfo *distanceFn, Oid colloid,
 }
 
 /*
- * Builds expanded ranges for the existing ranges (and single-point ranges),
- * and also the new value (which did not fit into the array).  This expanded
- * representation makes the processing a bit easier, as it allows handling
- * ranges and points the same way.
+ * 为已有区间（以及单点区间）构造展开区间，
+ * 也包括未能放入数组的新值。这种展开
+ * 表示让处理更容易一些，因为区间和点可以
+ * 用同样的方式处理。
  *
- * We sort and deduplicate the expanded ranges - this is necessary, because
- * the points may be unsorted. And moreover the two parts (ranges and
- * points) are sorted on their own.
+ * 我们对展开区间排序并去重。这是必要的，因为
+ * 点可能无序。而且两部分（区间和
+ * 点）各自是排好序的。
  */
 static ExpandedRange *
 build_expanded_ranges(FmgrInfo *cmp, Oid colloid, Ranges *ranges,
@@ -1390,18 +1390,18 @@ build_expanded_ranges(FmgrInfo *cmp, Oid colloid, Ranges *ranges,
 	int			neranges;
 	ExpandedRange *eranges;
 
-	/* both ranges and points are expanded into a separate element */
+	/* 区间和点都各自展开成单独的元素 */
 	neranges = ranges->nranges + ranges->nvalues;
 
 	eranges = (ExpandedRange *) palloc0(neranges * sizeof(ExpandedRange));
 
-	/* fill the expanded ranges */
+	/* 填充展开区间 */
 	fill_expanded_ranges(eranges, neranges, ranges);
 
-	/* sort and deduplicate the expanded ranges */
+	/* 对展开区间排序并去重 */
 	neranges = sort_expanded_ranges(cmp, colloid, eranges, neranges);
 
-	/* remember how many ranges we built */
+	/* 记住我们构造了多少个区间 */
 	*nranges = neranges;
 
 	return eranges;
@@ -1409,8 +1409,8 @@ build_expanded_ranges(FmgrInfo *cmp, Oid colloid, Ranges *ranges,
 
 #ifdef USE_ASSERT_CHECKING
 /*
- * Counts boundary values needed to store the ranges. Each single-point
- * range is stored using a single value, each regular range needs two.
+ * 计算存储这些区间所需的边界值个数。每个单点
+ * 区间用一个值存储，每个普通区间需要两个。
  */
 static int
 count_values(ExpandedRange *cranges, int ncranges)
@@ -1433,45 +1433,45 @@ count_values(ExpandedRange *cranges, int ncranges)
 
 /*
  * reduce_expanded_ranges
- *		reduce the ranges until the number of values is low enough
+ *		减少区间，直到值的个数足够低
  *
- * Combines ranges until the number of boundary values drops below the
- * threshold specified by max_values. This happens by merging enough
- * ranges by the distance between them.
+ * 不断组合区间，直到边界值个数降到
+ * max_values 所指定的阈值以下。做法是按区间之间的距离
+ * 合并足够多的区间。
  *
- * Returns the number of result ranges.
+ * 返回结果区间的个数。
  *
- * We simply use the global min/max and then add boundaries for enough
- * largest gaps. Each gap adds 2 values, so we simply use (target/2-1)
- * distances. Then we simply sort all the values - each two values are
- * a boundary of a range (possibly collapsed).
+ * 我们只用全局最小/最大，再为足够多的
+ * 最大间隙加上边界。每个间隙增加 2 个值，因此只用 (target/2-1)
+ * 个距离。然后把全部值排序：每两个值就是
+ * 一个区间的边界（可能是折叠的）。
  *
- * XXX Some of the ranges may be collapsed (i.e. the min/max values are
- * equal), but we ignore that for now. We could repeat the process,
- * adding a couple more gaps recursively.
+ * XXX 有些区间可能已折叠（即最小/最大值
+ * 相等），但目前先忽略。我们可以重复该过程，
+ * 再递归地多加几个间隙。
  *
- * XXX The ranges to merge are selected solely using the distance. But
- * that may not be the best strategy, for example when multiple gaps
- * are of equal (or very similar) length.
+ * XXX 要合并的区间完全按距离选取。但这
+ * 未必是最好的策略，例如当多个间隙
+ * 长度相等（或非常接近）时。
  *
- * Consider for example points 1, 2, 3, .., 64, which have gaps of the
- * same length 1 of course. In that case, we tend to pick the first
- * gap of that length, which leads to this:
+ * 例如考虑点 1, 2, 3, .., 64，它们的间隙
+ * 当然都是长度 1。这种情况下，我们倾向于选第一个
+ * 该长度的间隙，于是得到：
  *
- *    step 1:  [1, 2], 3, 4, 5, .., 64
- *    step 2:  [1, 3], 4, 5,    .., 64
- *    step 3:  [1, 4], 5,       .., 64
+ *    第 1 步：  [1, 2], 3, 4, 5, .., 64
+ *    第 2 步：  [1, 3], 4, 5,    .., 64
+ *    第 3 步：  [1, 4], 5,       .., 64
  *    ...
  *
- * So in the end we'll have one "large" range and multiple small points.
- * That may be fine, but it seems a bit strange and non-optimal. Maybe
- * we should consider other things when picking ranges to merge - e.g.
- * length of the ranges? Or perhaps randomize the choice of ranges, with
- * probability inversely proportional to the distance (the gap lengths
- * may be very close, but not exactly the same).
+ * 最终会得到一个 "大" 区间和多个小点。
+ * 这也许可以，但看起来有点奇怪，也不是最优。也许
+ * 挑选要合并的区间时还应考虑别的因素，例如
+ * 区间的长度？或者随机化区间的选择，
+ * 概率与距离成反比（间隙长度
+ * 可能非常接近，但并不完全相同）。
  *
- * XXX Or maybe we could just handle this by using random value as a
- * tie-break, or by adding random noise to the actual distance.
+ * XXX 或者也许只需用随机值作为
+ * 决胜项，或给实际距离加上随机噪声。
  */
 static int
 reduce_expanded_ranges(ExpandedRange *eranges, int neranges,
@@ -1484,65 +1484,65 @@ reduce_expanded_ranges(ExpandedRange *eranges, int neranges,
 
 	compare_context cxt;
 
-	/* total number of gaps between ranges */
+	/* 区间之间的间隙总数 */
 	int			ndistances = (neranges - 1);
 
-	/* number of gaps to keep */
+	/* 要保留的间隙个数 */
 	int			keep = (max_values / 2 - 1);
 
 	/*
-	 * Maybe we have a sufficiently low number of ranges already?
+	 * 也许区间个数已经足够低了？
 	 *
-	 * XXX This should happen before we actually do the expensive stuff like
-	 * sorting, so maybe this should be just an assert.
+	 * XXX 这应当发生在真正做排序之类的昂贵操作之前，
+	 * 所以也许这里只该是一个断言。
 	 */
 	if (keep >= ndistances)
 		return neranges;
 
-	/* sort the values */
+	/* 对值排序 */
 	cxt.colloid = colloid;
 	cxt.cmpFn = cmp;
 
-	/* allocate space for the boundary values */
+	/* 为边界值分配空间 */
 	nvalues = 0;
 	values = (Datum *) palloc(sizeof(Datum) * max_values);
 
-	/* add the global min/max values, from the first/last range */
+	/* 加入全局最小/最大值，取自第一个/最后一个区间 */
 	values[nvalues++] = eranges[0].minval;
 	values[nvalues++] = eranges[neranges - 1].maxval;
 
-	/* add boundary values for enough gaps */
+	/* 为足够多的间隙加入边界值 */
 	for (i = 0; i < keep; i++)
 	{
-		/* index of the gap between (index) and (index+1) ranges */
+		/* (index) 与 (index+1) 区间之间的间隙下标 */
 		int			index = distances[i].index;
 
 		Assert((index >= 0) && ((index + 1) < neranges));
 
-		/* add max from the preceding range, minval from the next one */
+		/* 加入前一区间的 max，以及下一区间的 minval */
 		values[nvalues++] = eranges[index].maxval;
 		values[nvalues++] = eranges[index + 1].minval;
 
 		Assert(nvalues <= max_values);
 	}
 
-	/* We should have an even number of range values. */
+	/* 区间值的个数应为偶数。 */
 	Assert(nvalues % 2 == 0);
 
 	/*
-	 * Sort the values using the comparator function, and form ranges from the
-	 * sorted result.
+	 * 用比较函数对值排序，并由排序结果
+	 * 构成区间。
 	 */
 	qsort_arg(values, nvalues, sizeof(Datum),
 			  compare_values, &cxt);
 
-	/* We have nvalues boundary values, which means nvalues/2 ranges. */
+	/* 有 nvalues 个边界值，即 nvalues/2 个区间。 */
 	for (i = 0; i < (nvalues / 2); i++)
 	{
 		eranges[i].minval = values[2 * i];
 		eranges[i].maxval = values[2 * i + 1];
 
-		/* if the boundary values are the same, it's a collapsed range */
+		/* 若两端边界值相同，则是折叠区间 */
 		eranges[i].collapsed = (compare_values(&values[2 * i],
 											   &values[2 * i + 1],
 											   &cxt) == 0);
@@ -1552,8 +1552,8 @@ reduce_expanded_ranges(ExpandedRange *eranges, int neranges,
 }
 
 /*
- * Store the boundary values from ExpandedRanges back into 'ranges' (using
- * only the minimal number of values needed).
+ * 把 ExpandedRanges 中的边界值存回 ranges（只使用
+ * 所需的最少个数）。
  */
 static void
 store_expanded_ranges(Ranges *ranges, ExpandedRange *eranges, int neranges)
@@ -1561,7 +1561,7 @@ store_expanded_ranges(Ranges *ranges, ExpandedRange *eranges, int neranges)
 	int			i;
 	int			idx = 0;
 
-	/* first copy in the regular ranges */
+	/* 先复制普通区间 */
 	ranges->nranges = 0;
 	for (i = 0; i < neranges; i++)
 	{
@@ -1573,7 +1573,7 @@ store_expanded_ranges(Ranges *ranges, ExpandedRange *eranges, int neranges)
 		}
 	}
 
-	/* now copy in the collapsed ones */
+	/* 再复制折叠的那些 */
 	ranges->nvalues = 0;
 	for (i = 0; i < neranges; i++)
 	{
@@ -1584,7 +1584,7 @@ store_expanded_ranges(Ranges *ranges, ExpandedRange *eranges, int neranges)
 		}
 	}
 
-	/* all the values are sorted */
+	/* 全部值都已排序 */
 	ranges->nsorted = ranges->nvalues;
 
 	Assert(count_values(eranges, neranges) == 2 * ranges->nranges + ranges->nvalues);
@@ -1593,10 +1593,10 @@ store_expanded_ranges(Ranges *ranges, ExpandedRange *eranges, int neranges)
 
 
 /*
- * Consider freeing space in the ranges. Checks if there's space for at least
- * one new value, and performs compaction if needed.
+ * 考虑在区间中腾出空间。检查是否至少还有一个新值的
+ * 空位，必要时执行压实。
  *
- * Returns true if the value was actually modified.
+ * 若该值确实被修改则返回 true。
  */
 static bool
 ensure_free_space_in_buffer(BrinDesc *bdesc, Oid colloid,
@@ -1609,46 +1609,46 @@ ensure_free_space_in_buffer(BrinDesc *bdesc, Oid colloid,
 	FmgrInfo   *cmpFn,
 			   *distanceFn;
 
-	/* expanded ranges */
+	/* 展开区间 */
 	ExpandedRange *eranges;
 	int			neranges;
 	DistanceValue *distances;
 
 	/*
-	 * If there is free space in the buffer, we're done without having to
-	 * modify anything.
+	 * 若缓冲区还有空位，则不必修改任何东西，
+	 * 就此完成。
 	 */
 	if (2 * range->nranges + range->nvalues < range->maxvalues)
 		return false;
 
-	/* we'll certainly need the comparator, so just look it up now */
+	/* 肯定需要比较函数，现在就查出来 */
 	cmpFn = minmax_multi_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 											   BTLessStrategyNumber);
 
-	/* deduplicate values, if there's an unsorted part */
+	/* 若有未排序部分，则对值去重 */
 	range_deduplicate_values(range);
 
 	/*
-	 * Did we reduce enough free space by just the deduplication?
+	 * 仅仅去重是否已经腾出足够的空位？
 	 *
-	 * We don't simply check against range->maxvalues again. The deduplication
-	 * might have freed very little space (e.g. just one value), forcing us to
-	 * do deduplication very often. In that case, it's better to do the
-	 * compaction and reduce more space.
+	 * 我们并不只是再对照 range->maxvalues 检查一次。去重
+	 * 也许只腾出很少空间（例如只一个值），迫使我们
+	 * 非常频繁地去重。这种情况下，最好做
+	 * 压实，多腾出一些空间。
 	 */
 	if (2 * range->nranges + range->nvalues <= range->maxvalues * MINMAX_BUFFER_LOAD_FACTOR)
 		return true;
 
 	/*
-	 * We need to combine some of the existing ranges, to reduce the number of
-	 * values we have to store.
+	 * 需要组合一些已有区间，以减少必须
+	 * 存储的值个数。
 	 *
-	 * The distanceFn calls (which may internally call e.g. numeric_le) may
-	 * allocate quite a bit of memory, and we must not leak it (we might have
-	 * to do this repeatedly, even for a single BRIN page range). Otherwise
-	 * we'd have problems e.g. when building new indexes. So we use a memory
-	 * context and make sure we free the memory at the end (so if we call the
-	 * distance function many times, it might be an issue, but meh).
+	 * distanceFn 调用（内部可能调用例如 numeric_le）可能
+	 * 分配不少内存，绝不能泄漏（即使对单个 BRIN 页范围，
+	 * 也可能要反复做这件事）。否则
+	 * 在例如构建新索引时会出问题。因此我们使用内存
+	 * 上下文，并确保最后释放内存（因此若多次调用
+	 * 距离函数，也许会有问题，不过也无妨）。
 	 */
 	ctx = AllocSetContextCreate(CurrentMemoryContext,
 								"minmax-multi context",
@@ -1656,34 +1656,34 @@ ensure_free_space_in_buffer(BrinDesc *bdesc, Oid colloid,
 
 	oldctx = MemoryContextSwitchTo(ctx);
 
-	/* build the expanded ranges */
+	/* 构造展开区间 */
 	eranges = build_expanded_ranges(cmpFn, colloid, range, &neranges);
 
-	/* and we'll also need the 'distance' procedure */
+	/* 还需要 "distance" 过程 */
 	distanceFn = minmax_multi_get_procinfo(bdesc, attno, PROCNUM_DISTANCE);
 
-	/* build array of gap distances and sort them in ascending order */
+	/* 构造间隙距离数组，并按升序排序 */
 	distances = build_distances(distanceFn, colloid, eranges, neranges);
 
 	/*
-	 * Combine ranges until we release at least 50% of the space. This
-	 * threshold is somewhat arbitrary, perhaps needs tuning. We must not use
-	 * too low or high value.
+	 * 不断组合区间，直到至少释放 50% 的空间。这个
+	 * 阈值有些任意，也许需要调优。不得使用
+	 * 过低或过高的值。
 	 */
 	neranges = reduce_expanded_ranges(eranges, neranges, distances,
 									  range->maxvalues * MINMAX_BUFFER_LOAD_FACTOR,
 									  cmpFn, colloid);
 
-	/* Make sure we've sufficiently reduced the number of ranges. */
+	/* 确保区间个数已经减得足够多。 */
 	Assert(count_values(eranges, neranges) <= range->maxvalues * MINMAX_BUFFER_LOAD_FACTOR);
 
-	/* decompose the expanded ranges into regular ranges and single values */
+	/* 把展开区间分解成普通区间和单值 */
 	store_expanded_ranges(range, eranges, neranges);
 
 	MemoryContextSwitchTo(oldctx);
 	MemoryContextDelete(ctx);
 
-	/* Did we break the ranges somehow? */
+	/* 区间是不是被我们弄坏了？ */
 	AssertCheckRanges(range, cmpFn, colloid);
 
 	return true;
@@ -1691,7 +1691,7 @@ ensure_free_space_in_buffer(BrinDesc *bdesc, Oid colloid,
 
 /*
  * range_add_value
- * 		Add the new value to the minmax-multi range.
+ * 		把新值加入 minmax-multi 区间。
  */
 static bool
 range_add_value(BrinDesc *bdesc, Oid colloid,
@@ -1701,83 +1701,83 @@ range_add_value(BrinDesc *bdesc, Oid colloid,
 	FmgrInfo   *cmpFn;
 	bool		modified = false;
 
-	/* we'll certainly need the comparator, so just look it up now */
+	/* 肯定需要比较函数，现在就查出来 */
 	cmpFn = minmax_multi_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 											   BTLessStrategyNumber);
 
-	/* comprehensive checks of the input ranges */
+	/* 对输入区间做全面检查 */
 	AssertCheckRanges(ranges, cmpFn, colloid);
 
 	/*
-	 * Make sure there's enough free space in the buffer. We only trigger this
-	 * when the buffer is full, which means it had to be modified as we size
-	 * it to be larger than what is stored on disk.
+	 * 确保缓冲区有足够空位。只有缓冲区已满时才触发，
+	 * 这意味着它一定被改过，因为我们把它的尺寸
+	 * 定得比磁盘上所存的更大。
 	 *
-	 * This needs to happen before we check if the value is contained in the
-	 * range, because the value might be in the unsorted part, and we don't
-	 * check that in range_contains_value. The deduplication would then move
-	 * it to the sorted part, and we'd add the value too, which violates the
-	 * rule that we never have duplicates with the ranges or sorted values.
+	 * 这必须发生在检查该值是否已包含在
+	 * 区间中之前，因为该值可能在未排序部分，而
+	 * range_contains_value 并不检查那里。去重随后会把它移到
+	 * 已排序部分，我们又会再加一次该值，这就违反了
+	 * 与区间或已排序值永不重复的规则。
 	 *
-	 * We might also deduplicate and recheck if the value is contained, but
-	 * that seems like overkill. We'd need to deduplicate anyway, so why not
-	 * do it now.
+	 * 也可以先去重再重新检查该值是否已包含，但
+	 * 那似乎不值得。反正都要去重，何不
+	 * 现在就做。
 	 */
 	modified = ensure_free_space_in_buffer(bdesc, colloid,
 										   attno, attr, ranges);
 
 	/*
-	 * Bail out if the value already is covered by the range.
+	 * 若该值已经被区间覆盖，则直接返回。
 	 *
-	 * We could also add values until we hit values_per_range, and then do the
-	 * deduplication in a batch, hoping for better efficiency. But that would
-	 * mean we actually modify the range every time, which means having to
-	 * serialize the value, which does palloc, walks the values, copies them,
-	 * etc. Not exactly cheap.
+	 * 也可以一直加值直到达到 values_per_range，然后成批
+	 * 去重，指望效率更好。但那样
+	 * 每次都会真正修改区间，也就必须
+	 * 序列化该值，而这会 palloc、遍历值、复制它们，
+	 * 等等。并不便宜。
 	 *
-	 * So instead we do the check, which should be fairly cheap - assuming the
-	 * comparator function is not very expensive.
+	 * 因此我们改为做检查，这应当相当便宜，只要
+	 * 比较函数不是很贵。
 	 *
-	 * This also implies the values array can't contain duplicate values.
+	 * 这也意味着 values 数组不能含有重复值。
 	 */
 	if (range_contains_value(bdesc, colloid, attno, attr, ranges, newval, false))
 		return modified;
 
-	/* Make a copy of the value, if needed. */
+	/* 若需要，复制该值。 */
 	newval = datumCopy(newval, attr->attbyval, attr->attlen);
 
 	/*
-	 * If there's space in the values array, copy it in and we're done.
+	 * 若 values 数组还有空位，复制进去即完成。
 	 *
-	 * We do want to keep the values sorted (to speed up searches), so we do a
-	 * simple insertion sort. We could do something more elaborate, e.g. by
-	 * sorting the values only now and then, but for small counts (e.g. when
-	 * maxvalues is 64) this should be fine.
+	 * 我们希望保持值有序（以加快查找），因此做一次
+	 * 简单的插入排序。也可以做得更精细，例如
+	 * 只是偶尔才排序，但对较小的个数（例如
+	 * maxvalues 为 64）这样就可以了。
 	 */
 	ranges->values[2 * ranges->nranges + ranges->nvalues] = newval;
 	ranges->nvalues++;
 
-	/* If we added the first value, we can consider it as sorted. */
+	/* 若加入的是第一个值，可以把它视为已排序。 */
 	if (ranges->nvalues == 1)
 		ranges->nsorted = 1;
 
 	/*
-	 * Check we haven't broken the ordering of boundary values (checks both
-	 * parts, but that doesn't hurt).
+	 * 检查边界值的顺序没有被破坏（两部分都会查，
+	 * 但没有坏处）。
 	 */
 	AssertCheckRanges(ranges, cmpFn, colloid);
 
-	/* Check the range contains the value we just added. */
+	/* 检查区间包含我们刚加入的值。 */
 	Assert(range_contains_value(bdesc, colloid, attno, attr, ranges, newval, true));
 
-	/* yep, we've modified the range */
+	/* 是的，我们已经修改了该区间 */
 	return true;
 }
 
 /*
- * Generate range representation of data collected during "batch mode".
- * This is similar to reduce_expanded_ranges, except that we can't assume
- * the values are sorted and there may be duplicate values.
+ * 生成 "批模式" 期间收集的数据的区间表示。
+ * 这与 reduce_expanded_ranges 类似，只是不能假定
+ * 值已排序，而且可能有重复值。
  */
 static void
 compactify_ranges(BrinDesc *bdesc, Ranges *ranges, int max_values)
@@ -1785,7 +1785,7 @@ compactify_ranges(BrinDesc *bdesc, Ranges *ranges, int max_values)
 	FmgrInfo   *cmpFn,
 			   *distanceFn;
 
-	/* expanded ranges */
+	/* 展开区间 */
 	ExpandedRange *eranges;
 	int			neranges;
 	DistanceValue *distances;
@@ -1794,28 +1794,28 @@ compactify_ranges(BrinDesc *bdesc, Ranges *ranges, int max_values)
 	MemoryContext oldctx;
 
 	/*
-	 * Do we need to actually compactify anything?
+	 * 是否真的需要压实？
 	 *
-	 * There are two reasons why compaction may be needed - firstly, there may
-	 * be too many values, or some of the values may be unsorted.
+	 * 需要压实有两个原因：首先，值可能
+	 * 过多，或者有些值可能尚未排序。
 	 */
 	if ((ranges->nranges * 2 + ranges->nvalues <= max_values) &&
 		(ranges->nsorted == ranges->nvalues))
 		return;
 
-	/* we'll certainly need the comparator, so just look it up now */
+	/* 肯定需要比较函数，现在就查出来 */
 	cmpFn = minmax_multi_get_strategy_procinfo(bdesc, ranges->attno, ranges->typid,
 											   BTLessStrategyNumber);
 
-	/* and we'll also need the 'distance' procedure */
+	/* 还需要 "distance" 过程 */
 	distanceFn = minmax_multi_get_procinfo(bdesc, ranges->attno, PROCNUM_DISTANCE);
 
 	/*
-	 * The distanceFn calls (which may internally call e.g. numeric_le) may
-	 * allocate quite a bit of memory, and we must not leak it. Otherwise,
-	 * we'd have problems e.g. when building indexes. So we create a local
-	 * memory context and make sure we free the memory before leaving this
-	 * function (not after every call).
+	 * distanceFn 调用（内部可能调用例如 numeric_le）可能
+	 * 分配不少内存，绝不能泄漏。否则，
+	 * 在例如构建索引时会出问题。因此我们创建局部
+	 * 内存上下文，并确保在离开本函数之前释放内存
+	 * （而不是每次调用之后）。
 	 */
 	ctx = AllocSetContextCreate(CurrentMemoryContext,
 								"minmax-multi context",
@@ -1823,27 +1823,27 @@ compactify_ranges(BrinDesc *bdesc, Ranges *ranges, int max_values)
 
 	oldctx = MemoryContextSwitchTo(ctx);
 
-	/* build the expanded ranges */
+	/* 构造展开区间 */
 	eranges = build_expanded_ranges(cmpFn, ranges->colloid, ranges, &neranges);
 
-	/* build array of gap distances and sort them in ascending order */
+	/* 构造间隙距离数组，并按升序排序 */
 	distances = build_distances(distanceFn, ranges->colloid,
 								eranges, neranges);
 
 	/*
-	 * Combine ranges until we get below max_values. We don't use any scale
-	 * factor, because this is used during serialization, and we don't expect
-	 * more tuples to be inserted anytime soon.
+	 * 不断组合区间，直到低于 max_values。这里不用任何缩放
+	 * 因子，因为这用在序列化期间，而且我们不预期
+	 * 很快还会插入更多元组。
 	 */
 	neranges = reduce_expanded_ranges(eranges, neranges, distances,
 									  max_values, cmpFn, ranges->colloid);
 
 	Assert(count_values(eranges, neranges) <= max_values);
 
-	/* transform back into regular ranges and single values */
+	/* 转换回普通区间和单值 */
 	store_expanded_ranges(ranges, eranges, neranges);
 
-	/* check all the range invariants */
+	/* 检查全部区间不变量 */
 	AssertCheckRanges(ranges, cmpFn, ranges->colloid);
 
 	MemoryContextSwitchTo(oldctx);
@@ -1856,8 +1856,8 @@ brin_minmax_multi_opcinfo(PG_FUNCTION_ARGS)
 	BrinOpcInfo *result;
 
 	/*
-	 * opaque->strategy_procinfos is initialized lazily; here it is set to
-	 * all-uninitialized by palloc0 which sets fn_oid to InvalidOid.
+	 * opaque->strategy_procinfos 惰性初始化；这里由 palloc0 置为
+	 * 全部未初始化，它会把 fn_oid 设为 InvalidOid。
 	 */
 
 	result = palloc0(MAXALIGN(SizeofBrinOpcInfo(1)) +
@@ -1872,7 +1872,7 @@ brin_minmax_multi_opcinfo(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two float4 values (plain subtraction).
+ * 计算两个 float4 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_float4(PG_FUNCTION_ARGS)
@@ -1880,17 +1880,17 @@ brin_minmax_multi_distance_float4(PG_FUNCTION_ARGS)
 	float		a1 = PG_GETARG_FLOAT4(0);
 	float		a2 = PG_GETARG_FLOAT4(1);
 
-	/* if both values are NaN, then we consider them the same */
+	/* 若两个值都是 NaN，则视为相同 */
 	if (isnan(a1) && isnan(a2))
 		PG_RETURN_FLOAT8(0.0);
 
-	/* if one value is NaN, use infinite distance */
+	/* 若其中一个值是 NaN，则使用无限距离 */
 	if (isnan(a1) || isnan(a2))
 		PG_RETURN_FLOAT8(get_float8_infinity());
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(a1 <= a2);
 
@@ -1898,7 +1898,7 @@ brin_minmax_multi_distance_float4(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two float8 values (plain subtraction).
+ * 计算两个 float8 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_float8(PG_FUNCTION_ARGS)
@@ -1906,17 +1906,17 @@ brin_minmax_multi_distance_float8(PG_FUNCTION_ARGS)
 	double		a1 = PG_GETARG_FLOAT8(0);
 	double		a2 = PG_GETARG_FLOAT8(1);
 
-	/* if both values are NaN, then we consider them the same */
+	/* 若两个值都是 NaN，则视为相同 */
 	if (isnan(a1) && isnan(a2))
 		PG_RETURN_FLOAT8(0.0);
 
-	/* if one value is NaN, use infinite distance */
+	/* 若其中一个值是 NaN，则使用无限距离 */
 	if (isnan(a1) || isnan(a2))
 		PG_RETURN_FLOAT8(get_float8_infinity());
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(a1 <= a2);
 
@@ -1924,7 +1924,7 @@ brin_minmax_multi_distance_float8(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two int2 values (plain subtraction).
+ * 计算两个 int2 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_int2(PG_FUNCTION_ARGS)
@@ -1933,8 +1933,8 @@ brin_minmax_multi_distance_int2(PG_FUNCTION_ARGS)
 	int16		a2 = PG_GETARG_INT16(1);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(a1 <= a2);
 
@@ -1942,7 +1942,7 @@ brin_minmax_multi_distance_int2(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two int4 values (plain subtraction).
+ * 计算两个 int4 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_int4(PG_FUNCTION_ARGS)
@@ -1951,8 +1951,8 @@ brin_minmax_multi_distance_int4(PG_FUNCTION_ARGS)
 	int32		a2 = PG_GETARG_INT32(1);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(a1 <= a2);
 
@@ -1960,7 +1960,7 @@ brin_minmax_multi_distance_int4(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two int8 values (plain subtraction).
+ * 计算两个 int8 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_int8(PG_FUNCTION_ARGS)
@@ -1969,8 +1969,8 @@ brin_minmax_multi_distance_int8(PG_FUNCTION_ARGS)
 	int64		a2 = PG_GETARG_INT64(1);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(a1 <= a2);
 
@@ -1978,8 +1978,8 @@ brin_minmax_multi_distance_int8(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two tid values (by mapping them to float8 and
- * then subtracting them).
+ * 计算两个 tid 值之间的距离（先映射成 float8，
+ * 再相减）。
  */
 Datum
 brin_minmax_multi_distance_tid(PG_FUNCTION_ARGS)
@@ -1991,14 +1991,14 @@ brin_minmax_multi_distance_tid(PG_FUNCTION_ARGS)
 	ItemPointer pa2 = (ItemPointer) PG_GETARG_DATUM(1);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(ItemPointerCompare(pa1, pa2) <= 0);
 
 	/*
-	 * We use the no-check variants here, because user-supplied values may
-	 * have (ip_posid == 0). See ItemPointerCompare.
+	 * 这里使用不做检查的变体，因为用户提供的值可能
+	 * 有 (ip_posid == 0)。见 ItemPointerCompare。
 	 */
 	da1 = ItemPointerGetBlockNumberNoCheck(pa1) * MaxHeapTuplesPerPage +
 		ItemPointerGetOffsetNumberNoCheck(pa1);
@@ -2010,7 +2010,7 @@ brin_minmax_multi_distance_tid(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two numeric values (plain subtraction).
+ * 计算两个 numeric 值之间的距离（直接相减）。
  */
 Datum
 brin_minmax_multi_distance_numeric(PG_FUNCTION_ARGS)
@@ -2020,23 +2020,23 @@ brin_minmax_multi_distance_numeric(PG_FUNCTION_ARGS)
 	Datum		a2 = PG_GETARG_DATUM(1);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(DatumGetBool(DirectFunctionCall2(numeric_le, a1, a2)));
 
-	d = DirectFunctionCall2(numeric_sub, a2, a1);	/* a2 - a1 */
+	d = DirectFunctionCall2(numeric_sub, a2, a1);	/* a2 减 a1 */
 
 	PG_RETURN_DATUM(DirectFunctionCall1(numeric_float8, d));
 }
 
 /*
- * Compute the approximate distance between two UUID values.
+ * 计算两个 UUID 值之间的近似距离。
  *
- * XXX We do not need a perfectly accurate value, so we approximate the
- * deltas (which would have to be 128-bit integers) with a 64-bit float.
- * The small inaccuracies do not matter in practice, in the worst case
- * we'll decide to merge ranges that are not the closest ones.
+ * XXX 我们不需要完全精确的值，因此用 64 位浮点来近似
+ * 差值（否则得用 128 位整数）。
+ * 实践中这点误差无关紧要，最坏情况下
+ * 我们会决定合并并非最接近的区间。
  */
 Datum
 brin_minmax_multi_distance_uuid(PG_FUNCTION_ARGS)
@@ -2051,12 +2051,12 @@ brin_minmax_multi_distance_uuid(PG_FUNCTION_ARGS)
 	pg_uuid_t  *u2 = DatumGetUUIDP(a2);
 
 	/*
-	 * We know the values are range boundaries, but the range may be collapsed
-	 * (i.e. single points), with equal values.
+	 * 我们知道这些值是区间边界，但区间可能已折叠
+	 * （即单点），两端的值相等。
 	 */
 	Assert(DatumGetBool(DirectFunctionCall2(uuid_le, a1, a2)));
 
-	/* compute approximate delta as a double precision value */
+	/* 把近似差值算成双精度值 */
 	for (i = UUID_LEN - 1; i >= 0; i--)
 	{
 		delta += (int) u2->data[i] - (int) u1->data[i];
@@ -2069,7 +2069,7 @@ brin_minmax_multi_distance_uuid(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the approximate distance between two dates.
+ * 计算两个 date 之间的近似距离。
  */
 Datum
 brin_minmax_multi_distance_date(PG_FUNCTION_ARGS)
@@ -2086,9 +2086,9 @@ brin_minmax_multi_distance_date(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the approximate distance between two time (without tz) values.
+ * 计算两个 time（不带时区）值之间的近似距离。
  *
- * TimeADT is just an int64, so we simply subtract the values directly.
+ * TimeADT 就是 int64，因此直接把两个值相减。
  */
 Datum
 brin_minmax_multi_distance_time(PG_FUNCTION_ARGS)
@@ -2106,9 +2106,9 @@ brin_minmax_multi_distance_time(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the approximate distance between two timetz values.
+ * 计算两个 timetz 值之间的近似距离。
  *
- * Simply subtracts the TimeADT (int64) values embedded in TimeTzADT.
+ * 直接减去嵌在 TimeTzADT 里的 TimeADT（int64）值。
  */
 Datum
 brin_minmax_multi_distance_timetz(PG_FUNCTION_ARGS)
@@ -2126,7 +2126,7 @@ brin_minmax_multi_distance_timetz(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two timestamp values.
+ * 计算两个 timestamp 值之间的距离。
  */
 Datum
 brin_minmax_multi_distance_timestamp(PG_FUNCTION_ARGS)
@@ -2144,7 +2144,7 @@ brin_minmax_multi_distance_timestamp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two interval values.
+ * 计算两个 interval 值之间的距离。
  */
 Datum
 brin_minmax_multi_distance_interval(PG_FUNCTION_ARGS)
@@ -2158,17 +2158,17 @@ brin_minmax_multi_distance_interval(PG_FUNCTION_ARGS)
 	int64		days;
 
 	/*
-	 * Delta is (fractional) number of days between the intervals. Assume
-	 * months have 30 days for consistency with interval_cmp_internal. We
-	 * don't need to be exact, in the worst case we'll build a bit less
-	 * efficient ranges. But we should not contradict interval_cmp.
+	 * 差值是两个 interval 之间的（小数）天数。为与
+	 * interval_cmp_internal 一致，假定每月 30 天。我们
+	 * 不必精确，最坏情况下只会构建稍差一些的
+	 * 区间。但不应当与 interval_cmp 矛盾。
 	 */
 	dayfraction = (ib->time % USECS_PER_DAY) - (ia->time % USECS_PER_DAY);
 	days = (ib->time / USECS_PER_DAY) - (ia->time / USECS_PER_DAY);
 	days += (int64) ib->day - (int64) ia->day;
 	days += ((int64) ib->month - (int64) ia->month) * INT64CONST(30);
 
-	/* convert to double precision */
+	/* 转换成双精度 */
 	delta = (double) days + dayfraction / (double) USECS_PER_DAY;
 
 	Assert(delta >= 0);
@@ -2177,10 +2177,10 @@ brin_minmax_multi_distance_interval(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two pg_lsn values.
+ * 计算两个 pg_lsn 值之间的距离。
  *
- * LSN is just an int64 encoding position in the stream, so just subtract
- * those int64 values directly.
+ * LSN 只是编码流中位置的 int64，因此直接把
+ * 这些 int64 值相减。
  */
 Datum
 brin_minmax_multi_distance_pg_lsn(PG_FUNCTION_ARGS)
@@ -2198,10 +2198,10 @@ brin_minmax_multi_distance_pg_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two macaddr values.
+ * 计算两个 macaddr 值之间的距离。
  *
- * mac addresses are treated as 6 unsigned chars, so do the same thing we
- * already do for UUID values.
+ * MAC 地址按 6 个无符号字符处理，因此做法与
+ * 已经用于 UUID 值的相同。
  */
 Datum
 brin_minmax_multi_distance_macaddr(PG_FUNCTION_ARGS)
@@ -2235,10 +2235,10 @@ brin_minmax_multi_distance_macaddr(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two macaddr8 values.
+ * 计算两个 macaddr8 值之间的距离。
  *
- * macaddr8 addresses are 8 unsigned chars, so do the same thing we
- * already do for UUID values.
+ * macaddr8 地址是 8 个无符号字符，因此做法与
+ * 已经用于 UUID 值的相同。
  */
 Datum
 brin_minmax_multi_distance_macaddr8(PG_FUNCTION_ARGS)
@@ -2278,15 +2278,15 @@ brin_minmax_multi_distance_macaddr8(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the distance between two inet values.
+ * 计算两个 inet 值之间的距离。
  *
- * The distance is defined as the difference between 32-bit/128-bit values,
- * depending on the IP version. The distance is computed by subtracting
- * the bytes and normalizing it to [0,1] range for each IP family.
- * Addresses from different families are considered to be in maximum
- * distance, which is 1.0.
+ * 距离定义为 32 位/128 位值之差，
+ * 取决于 IP 版本。距离的算法是把
+ * 字节相减，并对每个 IP 族归一化到 [0,1]。
+ * 不同族的地址视为处于最大
+ * 距离，即 1.0。
  *
- * XXX Does this need to consider the mask (bits)?  For now, it's ignored.
+ * XXX 是否需要考虑掩码（bits）？目前先忽略。
  */
 Datum
 brin_minmax_multi_distance_inet(PG_FUNCTION_ARGS)
@@ -2304,8 +2304,8 @@ brin_minmax_multi_distance_inet(PG_FUNCTION_ARGS)
 				lenb;
 
 	/*
-	 * If the addresses are from different families, consider them to be in
-	 * maximal possible distance (which is 1.0).
+	 * 若地址来自不同的族，则视为处于
+	 * 可能的最大距离（即 1.0）。
 	 */
 	if (ip_family(ipa) != ip_family(ipb))
 		PG_RETURN_FLOAT8(1.0);
@@ -2317,21 +2317,21 @@ brin_minmax_multi_distance_inet(PG_FUNCTION_ARGS)
 	memcpy(addrb, ip_addr(ipb), ip_addrsize(ipb));
 
 	/*
-	 * The length is calculated from the mask length, because we sort the
-	 * addresses by first address in the range, so A.B.C.D/24 < A.B.C.1 (the
-	 * first range starts at A.B.C.0, which is before A.B.C.1). We don't want
-	 * to produce a negative delta in this case, so we just cut the extra
-	 * bytes.
+	 * 长度按掩码长度计算，因为我们按范围中的第一个地址
+	 * 排序，因此 A.B.C.D/24 < A.B.C.1（
+	 * 前一个范围从 A.B.C.0 开始，它在 A.B.C.1 之前）。这种情况下我们不想
+	 * 产生负的差值，因此直接截掉多余的
+	 * 字节。
 	 *
-	 * XXX Maybe this should be a bit more careful and cut the bits, not just
-	 * whole bytes.
+	 * XXX 也许应当更仔细一些，截掉的是位，而不只是
+	 * 整个字节。
 	 */
 	lena = ip_bits(ipa);
 	lenb = ip_bits(ipb);
 
 	len = ip_addrsize(ipa);
 
-	/* apply the network mask to both addresses */
+	/* 对两个地址都施加网络掩码 */
 	for (i = 0; i < len; i++)
 	{
 		unsigned char mask;
@@ -2352,7 +2352,7 @@ brin_minmax_multi_distance_inet(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Calculate the difference between the addresses. */
+	/* 计算两个地址之差。 */
 	delta = 0;
 	for (i = len - 1; i >= 0; i--)
 	{
@@ -2378,12 +2378,12 @@ brin_minmax_multi_serialize(BrinDesc *bdesc, Datum src, Datum *dst)
 	SerializedRanges *s;
 
 	/*
-	 * In batch mode, we need to compress the accumulated values to the
-	 * actually requested number of values/ranges.
+	 * 在批模式下，需要把累积的值压缩到
+	 * 实际请求的值/区间个数。
 	 */
 	compactify_ranges(bdesc, ranges, ranges->target_maxvalues);
 
-	/* At this point everything has to be fully sorted. */
+	/* 此时一切都必须已完全排序。 */
 	Assert(ranges->nsorted == ranges->nvalues);
 
 	s = brin_range_serialize(ranges);
@@ -2397,11 +2397,11 @@ brin_minmax_multi_get_values(BrinDesc *bdesc, MinMaxMultiOptions *opts)
 }
 
 /*
- * Examine the given index tuple (which contains the partial status of a
- * certain page range) by comparing it to the given value that comes from
- * another heap tuple.  If the new value is outside the min/max range
- * specified by the existing tuple values, update the index tuple and return
- * true.  Otherwise, return false and do not modify in this case.
+ * 检查给定索引元组（它含有某个
+ * 页范围的部分状态）：把它与来自另一个堆元组的给定值相比较。
+ * 若新值超出现有元组值所指定的最小/最大范围，
+ * 则更新该索引元组并返回
+ * true。否则在这种情况下返回 false，且不做修改。
  */
 Datum
 brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
@@ -2423,18 +2423,18 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 	attno = column->bv_attno;
 	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
-	/* use the already deserialized value, if possible */
+	/* 若可能，使用已经反序列化的值 */
 	ranges = (Ranges *) DatumGetPointer(column->bv_mem_value);
 
 	/*
-	 * If this is the first non-null value, we need to initialize the range
-	 * list. Otherwise, just extract the existing range list from BrinValues.
+	 * 若这是第一个非空值，需要初始化区间
+	 * 列表。否则，只从 BrinValues 中取出已有的区间列表。
 	 *
-	 * When starting with an empty range, we assume this is a batch mode and
-	 * we use a larger buffer. The buffer size is derived from the BRIN range
-	 * size, number of rows per page, with some sensible min/max values. A
-	 * small buffer would be bad for performance, but a large buffer might
-	 * require a lot of memory (because of keeping all the values).
+	 * 从空区间开始时，我们假定这是批模式，并
+	 * 使用更大的缓冲区。缓冲区大小由 BRIN 范围
+	 * 大小、每页行数推导，并带一些合理的最小/最大值。
+	 * 缓冲区太小对性能不好，但太大则可能
+	 * 需要很多内存（因为要保留全部值）。
 	 */
 	if (column->bv_allnulls)
 	{
@@ -2444,22 +2444,22 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 		int			maxvalues;
 		BlockNumber pagesPerRange = BrinGetPagesPerRange(bdesc->bd_index);
 
-		/* what was specified as a reloption? */
+		/* 关系选项里指定的是什么？ */
 		target_maxvalues = brin_minmax_multi_get_values(bdesc, opts);
 
 		/*
-		 * Determine the insert buffer size - we use 10x the target, capped to
-		 * the maximum number of values in the heap range. This is more than
-		 * enough, considering the actual number of rows per page is likely
-		 * much lower, but meh.
+		 * 确定插入缓冲区大小：取目标值的 10 倍，并封顶为
+		 * 堆页范围中的最大取值个数。这已经绰绰有余，
+		 * 因为每页的实际行数很可能
+		 * 低得多，不过也无妨。
 		 */
 		maxvalues = Min(target_maxvalues * MINMAX_BUFFER_FACTOR,
 						MaxHeapTuplesPerPage * pagesPerRange);
 
-		/* but always at least the original value */
+		/* 但始终至少保留原来的值 */
 		maxvalues = Max(maxvalues, target_maxvalues);
 
-		/* always cap by MIN/MAX */
+		/* 始终用 MIN/MAX 封顶 */
 		maxvalues = Max(maxvalues, MINMAX_BUFFER_MIN);
 		maxvalues = Min(maxvalues, MINMAX_BUFFER_MAX);
 
@@ -2470,7 +2470,7 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 		ranges->typid = attr->atttypid;
 		ranges->target_maxvalues = target_maxvalues;
 
-		/* we'll certainly need the comparator, so just look it up now */
+		/* 肯定需要比较函数，现在就查出来 */
 		ranges->cmp = minmax_multi_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 														 BTLessStrategyNumber);
 
@@ -2494,18 +2494,18 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 		serialized = (SerializedRanges *) PG_DETOAST_DATUM(column->bv_values[0]);
 
 		/*
-		 * Determine the insert buffer size - we use 10x the target, capped to
-		 * the maximum number of values in the heap range. This is more than
-		 * enough, considering the actual number of rows per page is likely
-		 * much lower, but meh.
+		 * 确定插入缓冲区大小：取目标值的 10 倍，并封顶为
+		 * 堆页范围中的最大取值个数。这已经绰绰有余，
+		 * 因为每页的实际行数很可能
+		 * 低得多，不过也无妨。
 		 */
 		maxvalues = Min(serialized->maxvalues * MINMAX_BUFFER_FACTOR,
 						MaxHeapTuplesPerPage * pagesPerRange);
 
-		/* but always at least the original value */
+		/* 但始终至少保留原来的值 */
 		maxvalues = Max(maxvalues, serialized->maxvalues);
 
-		/* always cap by MIN/MAX */
+		/* 始终用 MIN/MAX 封顶 */
 		maxvalues = Max(maxvalues, MINMAX_BUFFER_MIN);
 		maxvalues = Min(maxvalues, MINMAX_BUFFER_MAX);
 
@@ -2515,7 +2515,7 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 		ranges->colloid = colloid;
 		ranges->typid = attr->atttypid;
 
-		/* we'll certainly need the comparator, so just look it up now */
+		/* 肯定需要比较函数，现在就查出来 */
 		ranges->cmp = minmax_multi_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 														 BTLessStrategyNumber);
 
@@ -2526,8 +2526,8 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Try to add the new value to the range. We need to update the modified
-	 * flag, so that we serialize the updated summary later.
+	 * 尝试把新值加入区间。需要更新 modified
+	 * 标志，以便稍后序列化更新后的汇总。
 	 */
 	modified |= range_add_value(bdesc, colloid, attno, attr, ranges, newval);
 
@@ -2536,9 +2536,9 @@ brin_minmax_multi_add_value(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given an index tuple corresponding to a certain page range and a scan key,
- * return whether the scan key is consistent with the index tuple's min/max
- * values.  Return true if so, false otherwise.
+ * 给定对应于某个页范围的索引元组和一个扫描键，
+ * 返回该扫描键是否与索引元组的最小/最大值一致。
+ * 若一致则返回 true，否则返回 false。
  */
 Datum
 brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
@@ -2564,13 +2564,13 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 	serialized = (SerializedRanges *) PG_DETOAST_DATUM(column->bv_values[0]);
 	ranges = brin_range_deserialize(serialized->maxvalues, serialized);
 
-	/* inspect the ranges, and for each one evaluate the scan keys */
+	/* 检查各区间，并对每个区间评估扫描键 */
 	for (rangeno = 0; rangeno < ranges->nranges; rangeno++)
 	{
 		Datum		minval = ranges->values[2 * rangeno];
 		Datum		maxval = ranges->values[2 * rangeno + 1];
 
-		/* assume the range is matching, and we'll try to prove otherwise */
+		/* 假定该区间匹配，再设法证明并非如此 */
 		bool		matching = true;
 
 		for (keyno = 0; keyno < nkeys; keyno++)
@@ -2578,7 +2578,7 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 			Datum		matches;
 			ScanKey		key = keys[keyno];
 
-			/* NULL keys are handled and filtered-out in bringetbitmap */
+			/* NULL 键在 bringetbitmap 中处理并过滤掉 */
 			Assert(!(key->sk_flags & SK_ISNULL));
 
 			attno = key->sk_attno;
@@ -2590,7 +2590,7 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 				case BTLessEqualStrategyNumber:
 					finfo = minmax_multi_get_strategy_procinfo(bdesc, attno, subtype,
 															   key->sk_strategy);
-					/* first value from the array */
+					/* 数组中的第一个值 */
 					matches = FunctionCall2Coll(finfo, colloid, minval, value);
 					break;
 
@@ -2599,20 +2599,20 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 						Datum		compar;
 						FmgrInfo   *cmpFn;
 
-						/* by default this range does not match */
+						/* 默认该区间不匹配 */
 						matches = false;
 
 						/*
-						 * Otherwise, need to compare the new value with
-						 * boundaries of all the ranges. First check if it's
-						 * less than the absolute minimum, which is the first
-						 * value in the array.
+						 * 否则，需要把新值与
+						 * 所有区间的边界比较。先检查它是否
+						 * 小于绝对最小值，也就是
+						 * 数组中的第一个值。
 						 */
 						cmpFn = minmax_multi_get_strategy_procinfo(bdesc, attno, subtype,
 																   BTGreaterStrategyNumber);
 						compar = FunctionCall2Coll(cmpFn, colloid, minval, value);
 
-						/* smaller than the smallest value in this range */
+						/* 小于本区间中的最小值 */
 						if (DatumGetBool(compar))
 							break;
 
@@ -2620,13 +2620,13 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 																   BTLessStrategyNumber);
 						compar = FunctionCall2Coll(cmpFn, colloid, maxval, value);
 
-						/* larger than the largest value in this range */
+						/* 大于本区间中的最大值 */
 						if (DatumGetBool(compar))
 							break;
 
 						/*
-						 * We haven't managed to eliminate this range, so
-						 * consider it matching.
+						 * 没能排除这个区间，因此
+						 * 把它视为匹配。
 						 */
 						matches = true;
 
@@ -2636,42 +2636,42 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 				case BTGreaterStrategyNumber:
 					finfo = minmax_multi_get_strategy_procinfo(bdesc, attno, subtype,
 															   key->sk_strategy);
-					/* last value from the array */
+					/* 数组中的最后一个值 */
 					matches = FunctionCall2Coll(finfo, colloid, maxval, value);
 					break;
 
 				default:
-					/* shouldn't happen */
+					/* 不应发生 */
 					elog(ERROR, "invalid strategy number %d", key->sk_strategy);
 					matches = 0;
 					break;
 			}
 
-			/* the range has to match all the scan keys */
+			/* 该区间必须匹配全部扫描键 */
 			matching &= DatumGetBool(matches);
 
-			/* once we find a non-matching key, we're done */
+			/* 一旦发现不匹配的键，就此结束 */
 			if (!matching)
 				break;
 		}
 
 		/*
-		 * have we found a range matching all scan keys? if yes, we're done
+		 * 是否找到了匹配全部扫描键的区间？若是，则结束
 		 */
 		if (matching)
 			PG_RETURN_DATUM(BoolGetDatum(true));
 	}
 
 	/*
-	 * And now inspect the values. We don't bother with doing a binary search
-	 * here, because we're dealing with serialized / fully compacted ranges,
-	 * so there should be only very few values.
+	 * 现在检查这些值。这里不费心做二分查找，
+	 * 因为处理的是已序列化 / 完全压实的区间，
+	 * 所以值应当很少。
 	 */
 	for (i = 0; i < ranges->nvalues; i++)
 	{
 		Datum		val = ranges->values[2 * ranges->nranges + i];
 
-		/* assume the range is matching, and we'll try to prove otherwise */
+		/* 假定该区间匹配，再设法证明并非如此 */
 		bool		matching = true;
 
 		for (keyno = 0; keyno < nkeys; keyno++)
@@ -2679,7 +2679,7 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 			Datum		matches;
 			ScanKey		key = keys[keyno];
 
-			/* we've already dealt with NULL keys at the beginning */
+			/* 开头已经处理过 NULL 键 */
 			if (key->sk_flags & SK_ISNULL)
 				continue;
 
@@ -2700,21 +2700,21 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 					break;
 
 				default:
-					/* shouldn't happen */
+					/* 不应发生 */
 					elog(ERROR, "invalid strategy number %d", key->sk_strategy);
 					matches = 0;
 					break;
 			}
 
-			/* the range has to match all the scan keys */
+			/* 该区间必须匹配全部扫描键 */
 			matching &= DatumGetBool(matches);
 
-			/* once we find a non-matching key, we're done */
+			/* 一旦发现不匹配的键，就此结束 */
 			if (!matching)
 				break;
 		}
 
-		/* have we found a range matching all scan keys? if yes, we're done */
+		/* 是否找到了匹配全部扫描键的区间？若是，则结束 */
 		if (matching)
 			PG_RETURN_DATUM(BoolGetDatum(true));
 	}
@@ -2723,8 +2723,8 @@ brin_minmax_multi_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given two BrinValues, update the first of them as a union of the summary
- * values contained in both.  The second one is untouched.
+ * 给定两个 BrinValues，把第一个更新为二者所含汇总
+ * 值的并。第二个保持不动。
  */
 Datum
 brin_minmax_multi_union(PG_FUNCTION_ARGS)
@@ -2760,18 +2760,18 @@ brin_minmax_multi_union(PG_FUNCTION_ARGS)
 	ranges_a = brin_range_deserialize(serialized_a->maxvalues, serialized_a);
 	ranges_b = brin_range_deserialize(serialized_b->maxvalues, serialized_b);
 
-	/* make sure neither of the ranges is NULL */
+	/* 确保两个区间都不是 NULL */
 	Assert(ranges_a && ranges_b);
 
 	neranges = (ranges_a->nranges + ranges_a->nvalues) +
 		(ranges_b->nranges + ranges_b->nvalues);
 
 	/*
-	 * The distanceFn calls (which may internally call e.g. numeric_le) may
-	 * allocate quite a bit of memory, and we must not leak it. Otherwise,
-	 * we'd have problems e.g. when building indexes. So we create a local
-	 * memory context and make sure we free the memory before leaving this
-	 * function (not after every call).
+	 * distanceFn 调用（内部可能调用例如 numeric_le）可能
+	 * 分配不少内存，绝不能泄漏。否则，
+	 * 在例如构建索引时会出问题。因此我们创建局部
+	 * 内存上下文，并确保在离开本函数之前释放内存
+	 * （而不是每次调用之后）。
 	 */
 	ctx = AllocSetContextCreate(CurrentMemoryContext,
 								"minmax-multi context",
@@ -2779,14 +2779,14 @@ brin_minmax_multi_union(PG_FUNCTION_ARGS)
 
 	oldctx = MemoryContextSwitchTo(ctx);
 
-	/* allocate and fill */
+	/* 分配并填充 */
 	eranges = (ExpandedRange *) palloc0(neranges * sizeof(ExpandedRange));
 
-	/* fill the expanded ranges with entries for the first range */
+	/* 用第一个区间的条目填充展开区间 */
 	fill_expanded_ranges(eranges, ranges_a->nranges + ranges_a->nvalues,
 						 ranges_a);
 
-	/* and now add combine ranges for the second range */
+	/* 现在为第二个区间加入组合区间 */
 	fill_expanded_ranges(&eranges[ranges_a->nranges + ranges_a->nvalues],
 						 ranges_b->nranges + ranges_b->nvalues,
 						 ranges_b);
@@ -2794,51 +2794,51 @@ brin_minmax_multi_union(PG_FUNCTION_ARGS)
 	cmpFn = minmax_multi_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 											   BTLessStrategyNumber);
 
-	/* sort the expanded ranges */
+	/* 对展开区间排序 */
 	neranges = sort_expanded_ranges(cmpFn, colloid, eranges, neranges);
 
 	/*
-	 * We've loaded two different lists of expanded ranges, so some of them
-	 * may be overlapping. So walk through them and merge them.
+	 * 我们装入了两份不同的展开区间列表，因此其中有些
+	 * 可能重叠。遍历它们并合并。
 	 */
 	neranges = merge_overlapping_ranges(cmpFn, colloid, eranges, neranges);
 
-	/* check that the combine ranges are correct (no overlaps, ordering) */
+	/* 检查组合区间是否正确（无重叠、有序） */
 	AssertCheckExpandedRanges(bdesc, colloid, attno, attr, eranges, neranges);
 
 	/*
-	 * If needed, reduce some of the ranges.
+	 * 若需要，减少一些区间。
 	 *
-	 * XXX This may be fairly expensive, so maybe we should do it only when
-	 * it's actually needed (when we have too many ranges).
+	 * XXX 这可能相当昂贵，所以也许只应在
+	 * 真正需要时才做（区间过多时）。
 	 */
 
-	/* build array of gap distances and sort them in ascending order */
+	/* 构造间隙距离数组，并按升序排序 */
 	distanceFn = minmax_multi_get_procinfo(bdesc, attno, PROCNUM_DISTANCE);
 	distances = build_distances(distanceFn, colloid, eranges, neranges);
 
 	/*
-	 * See how many values would be needed to store the current ranges, and if
-	 * needed combine as many of them to get below the threshold. The
-	 * collapsed ranges will be stored as a single value.
+	 * 看看存储当前区间需要多少个值，若
+	 * 需要则组合足够多的区间，使个数降到阈值以下。
+	 * 折叠区间将存成单个值。
 	 *
-	 * XXX This does not apply the load factor, as we don't expect to add more
-	 * values to the range, so we prefer to keep as many ranges as possible.
+	 * XXX 这里不应用装载因子，因为我们不预期再向
+	 * 区间加入更多值，因此倾向于尽可能多地保留区间。
 	 *
-	 * XXX Can the maxvalues be different in the two ranges? Perhaps we should
-	 * use maximum of those?
+	 * XXX 两个区间的 maxvalues 会不会不同？也许应当
+	 * 取二者中较大的那个？
 	 */
 	neranges = reduce_expanded_ranges(eranges, neranges, distances,
 									  ranges_a->maxvalues,
 									  cmpFn, colloid);
 
-	/* update the first range summary */
+	/* 更新第一个区间汇总 */
 	store_expanded_ranges(ranges_a, eranges, neranges);
 
 	MemoryContextSwitchTo(oldctx);
 	MemoryContextDelete(ctx);
 
-	/* cleanup and update the serialized value */
+	/* 清理并更新序列化后的值 */
 	pfree(serialized_a);
 	col_a->bv_values[0] = PointerGetDatum(brin_range_serialize(ranges_a));
 
@@ -2846,10 +2846,10 @@ brin_minmax_multi_union(PG_FUNCTION_ARGS)
 }
 
 /*
- * Cache and return minmax multi opclass support procedure
+ * 缓存并返回 minmax multi 操作符类的支持过程
  *
- * Return the procedure corresponding to the given function support number
- * or null if it does not exist.
+ * 返回与给定函数支持号对应的过程，
+ * 若不存在则返回 null。
  */
 static FmgrInfo *
 minmax_multi_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum)
@@ -2858,8 +2858,8 @@ minmax_multi_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum)
 	uint16		basenum = procnum - PROCNUM_BASE;
 
 	/*
-	 * We cache these in the opaque struct, to avoid repetitive syscache
-	 * lookups.
+	 * 把它们缓存在 opaque 结构里，以避免反复的 syscache
+	 * 查找。
 	 */
 	opaque = (MinmaxMultiOpaque *) bdesc->bd_info[attno - 1]->oi_opaque;
 
@@ -2882,10 +2882,10 @@ minmax_multi_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum)
 }
 
 /*
- * Cache and return the procedure for the given strategy.
+ * 缓存并返回给定策略对应的过程。
  *
- * Note: this function mirrors minmax_multi_get_strategy_procinfo; see notes
- * there.  If changes are made here, see that function too.
+ * 注意：本函数与 minmax_multi_get_strategy_procinfo 结构相同；参见
+ * 那里的注释。若此处有改动，也要看那个函数。
  */
 static FmgrInfo *
 minmax_multi_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
@@ -2899,9 +2899,9 @@ minmax_multi_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
 	opaque = (MinmaxMultiOpaque *) bdesc->bd_info[attno - 1]->oi_opaque;
 
 	/*
-	 * We cache the procedures for the previous subtype in the opaque struct,
-	 * to avoid repetitive syscache lookups.  If the subtype changed,
-	 * invalidate all the cached entries.
+	 * 把上一子类型的过程缓存在 opaque 结构里，
+	 * 以避免反复的 syscache 查找。若子类型变了，
+	 * 则使全部缓存条目失效。
 	 */
 	if (opaque->cached_subtype != subtype)
 	{
@@ -2958,33 +2958,33 @@ brin_minmax_multi_options(PG_FUNCTION_ARGS)
 
 /*
  * brin_minmax_multi_summary_in
- *		- input routine for type brin_minmax_multi_summary.
+ *		- 类型 brin_minmax_multi_summary 的输入例程。
  *
- * brin_minmax_multi_summary is only used internally to represent summaries
- * in BRIN minmax-multi indexes, so it has no operations of its own, and we
- * disallow input too.
+ * brin_minmax_multi_summary 只在内部用来表示
+ * BRIN minmax-multi 索引中的汇总，因此它自己没有操作，我们
+ * 也不允许输入。
  */
 Datum
 brin_minmax_multi_summary_in(PG_FUNCTION_ARGS)
 {
 	/*
-	 * brin_minmax_multi_summary stores the data in binary form and parsing
-	 * text input is not needed, so disallow this.
+	 * brin_minmax_multi_summary 以二进制形式存储数据，不需要解析
+	 * 文本输入，因此不允许这样做。
 	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "brin_minmax_multi_summary")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 让编译器保持安静 */
 }
 
 
 /*
  * brin_minmax_multi_summary_out
- *		- output routine for type brin_minmax_multi_summary.
+ *		- 类型 brin_minmax_multi_summary 的输出例程。
  *
- * BRIN minmax-multi summaries are serialized into a bytea value, but we
- * want to output something nicer humans can understand.
+ * BRIN minmax-multi 汇总被序列化成 bytea 值，但我们
+ * 希望输出人能看懂的更友好形式。
  */
 Datum
 brin_minmax_multi_summary_out(PG_FUNCTION_ARGS)
@@ -3003,16 +3003,16 @@ brin_minmax_multi_summary_out(PG_FUNCTION_ARGS)
 	appendStringInfoChar(&str, '{');
 
 	/*
-	 * Detoast to get value with full 4B header (can't be stored in a toast
-	 * table, but can use 1B header).
+	 * 解除 TOAST，得到带完整 4 字节头部的值（不能存进 TOAST
+	 * 表，但可以使用 1 字节头部）。
 	 */
 	ranges = (SerializedRanges *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
 
-	/* lookup output func for the type */
+	/* 查找该类型的输出函数 */
 	getTypeOutputInfo(ranges->typid, &outfunc, &isvarlena);
 	fmgr_info(outfunc, &fmgrinfo);
 
-	/* deserialize the range info easy-to-process pieces */
+	/* 把区间信息反序列化成易于处理的片段 */
 	ranges_deserialized = brin_range_deserialize(ranges->maxvalues, ranges);
 
 	appendStringInfo(&str, "nranges: %d  nvalues: %d  maxvalues: %d",
@@ -3020,7 +3020,7 @@ brin_minmax_multi_summary_out(PG_FUNCTION_ARGS)
 					 ranges_deserialized->nvalues,
 					 ranges_deserialized->maxvalues);
 
-	/* serialize ranges */
+	/* 序列化区间 */
 	idx = 0;
 	for (i = 0; i < ranges_deserialized->nranges; i++)
 	{
@@ -3061,7 +3061,7 @@ brin_minmax_multi_summary_out(PG_FUNCTION_ARGS)
 		appendStringInfo(&str, " ranges: %s", extval);
 	}
 
-	/* serialize individual values */
+	/* 序列化各个值 */
 	astate_values = NULL;
 
 	for (i = 0; i < ranges_deserialized->nvalues; i++)
@@ -3103,7 +3103,7 @@ brin_minmax_multi_summary_out(PG_FUNCTION_ARGS)
 
 /*
  * brin_minmax_multi_summary_recv
- *		- binary input routine for type brin_minmax_multi_summary.
+ *		- 类型 brin_minmax_multi_summary 的二进制输入例程。
  */
 Datum
 brin_minmax_multi_summary_recv(PG_FUNCTION_ARGS)
@@ -3112,15 +3112,15 @@ brin_minmax_multi_summary_recv(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "brin_minmax_multi_summary")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 让编译器保持安静 */
 }
 
 /*
  * brin_minmax_multi_summary_send
- *		- binary output routine for type brin_minmax_multi_summary.
+ *		- 类型 brin_minmax_multi_summary 的二进制输出例程。
  *
- * BRIN minmax-multi summaries are serialized in a bytea value (although
- * the type is named differently), so let's just send that.
+ * BRIN minmax-multi 汇总序列化在一个 bytea 值里（尽管
+ * 类型的名字不同），因此直接把它发送出去。
  */
 Datum
 brin_minmax_multi_summary_send(PG_FUNCTION_ARGS)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * brin_validate.c
- *	  Opclass validator for BRIN.
+ *	  BRIN 的操作符类校验器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,12 +26,12 @@
 #include "utils/syscache.h"
 
 /*
- * Validator for a BRIN opclass.
+ * BRIN 操作符类的校验器。
  *
- * Some of the checks done here cover the whole opfamily, and therefore are
- * redundant when checking each opclass in a family.  But they don't run long
- * enough to be much of a problem, so we accept the duplication rather than
- * complicate the amvalidate API.
+ * 这里的某些检查覆盖整个操作符族，因此在检查
+ * 族中每个操作符类时是重复的。但它们运行时间
+ * 不够长，算不上什么问题，所以我们接受这种重复，
+ * 而不是把 amvalidate API 搞复杂。
  */
 bool
 brinvalidate(Oid opclassoid)
@@ -54,7 +54,7 @@ brinvalidate(Oid opclassoid)
 	int			i;
 	ListCell   *lc;
 
-	/* Fetch opclass information */
+	/* 获取操作符类信息 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -64,7 +64,7 @@ brinvalidate(Oid opclassoid)
 	opcintype = classform->opcintype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* 获取操作符族信息 */
 	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
 	if (!HeapTupleIsValid(familytup))
 		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
@@ -72,18 +72,18 @@ brinvalidate(Oid opclassoid)
 
 	opfamilyname = NameStr(familyform->opfname);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* 获取该操作符族的全部操作符和支持函数 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 
-	/* Check individual support functions */
+	/* 检查各个支持函数 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
 		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
 		bool		ok;
 
-		/* Check procedure numbers and function signatures */
+		/* 检查过程编号和函数签名 */
 		switch (procform->amprocnum)
 		{
 			case BRIN_PROCNUM_OPCINFO:
@@ -109,7 +109,7 @@ brinvalidate(Oid opclassoid)
 				ok = check_amoptsproc_signature(procform->amproc);
 				break;
 			default:
-				/* Complain if it's not a valid optional proc number */
+				/* 若不是有效的可选过程编号则报错 */
 				if (procform->amprocnum < BRIN_FIRST_OPTIONAL_PROCNUM ||
 					procform->amprocnum > BRIN_LAST_OPTIONAL_PROCNUM)
 				{
@@ -120,9 +120,9 @@ brinvalidate(Oid opclassoid)
 									format_procedure(procform->amproc),
 									procform->amprocnum)));
 					result = false;
-					continue;	/* omit bad proc numbers from allfuncs */
+					continue;	/* 把坏的过程编号从 allfuncs 中略去 */
 				}
-				/* Can't check signatures of optional procs, so assume OK */
+				/* 无法检查可选过程的签名，故假定没问题 */
 				ok = true;
 				break;
 		}
@@ -138,17 +138,17 @@ brinvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Track all valid procedure numbers seen in opfamily */
+		/* 记录在操作符族中见过的全部有效过程编号 */
 		allfuncs |= ((uint64) 1) << procform->amprocnum;
 	}
 
-	/* Check individual operators */
+	/* 检查各个操作符 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 
-		/* Check that only allowed strategy numbers exist */
+		/* 检查只存在允许的策略编号 */
 		if (oprform->amopstrategy < 1 || oprform->amopstrategy > 63)
 		{
 			ereport(INFO,
@@ -162,21 +162,21 @@ brinvalidate(Oid opclassoid)
 		else
 		{
 			/*
-			 * The set of operators supplied varies across BRIN opfamilies.
-			 * Our plan is to identify all operator strategy numbers used in
-			 * the opfamily and then complain about datatype combinations that
-			 * are missing any operator(s).  However, consider only numbers
-			 * that appear in some non-cross-type case, since cross-type
-			 * operators may have unique strategies.  (This is not a great
-			 * heuristic, in particular an erroneous number used in a
-			 * cross-type operator will not get noticed; but the core BRIN
-			 * opfamilies are messy enough to make it necessary.)
+			 * 各 BRIN 操作符族所提供的操作符集合并不相同。
+			 * 我们的计划是找出该操作符族中用到的全部
+			 * 操作符策略编号，再对缺少任一操作符（operator(s)）的
+			 * 数据类型组合报错。不过只考虑出现在某些
+			 * 非跨类型情形中的编号，因为跨类型操作符
+			 * 可能拥有独有的策略。（这并不是很好的
+			 * 启发式：尤其是跨类型操作符里用错的编号
+			 * 不会被注意到；但核心 BRIN
+			 * 操作符族已经乱到有必要这样做。）
 			 */
 			if (oprform->amoplefttype == oprform->amoprighttype)
 				allops |= ((uint64) 1) << oprform->amopstrategy;
 		}
 
-		/* brin doesn't support ORDER BY operators */
+		/* brin 不支持 ORDER BY 操作符 */
 		if (oprform->amoppurpose != AMOP_SEARCH ||
 			OidIsValid(oprform->amopsortfamily))
 		{
@@ -188,7 +188,7 @@ brinvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check operator signature --- same for all brin strategies */
+		/* 检查操作符签名 --- 对所有 brin 策略都相同 */
 		if (!check_amop_signature(oprform->amopopr, BOOLOID,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -202,32 +202,32 @@ brinvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* 现在检查不一致的操作符/函数组 */
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 	opclassgroup = NULL;
 	foreach(lc, grouplist)
 	{
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
-		/* Remember the group exactly matching the test opclass */
+		/* 记住与被测操作符类精确匹配的那一组 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
 
 		/*
-		 * Some BRIN opfamilies expect cross-type support functions to exist,
-		 * and some don't.  We don't know exactly which are which, so if we
-		 * find a cross-type operator for which there are no support functions
-		 * at all, let it pass.  (Don't expect that all operators exist for
-		 * such cross-type cases, either.)
+		 * 有些 BRIN 操作符族预期存在跨类型支持函数，
+		 * 有些则不预期。我们并不确切知道是哪些，因此若
+		 * 发现某个跨类型操作符完全没有支持函数，
+		 * 就放行。（也不要预期此类跨类型情形下
+		 * 全部操作符都存在。）
 		 */
 		if (thisgroup->functionset == 0 &&
 			thisgroup->lefttype != thisgroup->righttype)
 			continue;
 
 		/*
-		 * Else complain if there seems to be an incomplete set of either
-		 * operators or support functions for this datatype pair.
+		 * 否则，若这一数据类型对的操作符集合或支持函数
+		 * 集合看起来不完整，则报错。
 		 */
 		if (thisgroup->operatorset != allops)
 		{
@@ -251,7 +251,7 @@ brinvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check that the originally-named opclass is complete */
+	/* 检查原先命名的操作符类是否完整 */
 	if (!opclassgroup || opclassgroup->operatorset != allops)
 	{
 		ereport(INFO,
@@ -264,7 +264,7 @@ brinvalidate(Oid opclassoid)
 	{
 		if (opclassgroup &&
 			(opclassgroup->functionset & (((int64) 1) << i)) != 0)
-			continue;			/* got it */
+			continue;			/* 已有 */
 		ereport(INFO,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("operator class \"%s\" of access method %s is missing support function %d",

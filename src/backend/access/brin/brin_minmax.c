@@ -1,6 +1,6 @@
 /*
  * brin_minmax.c
- *		Implementation of Min/Max opclass for BRIN
+ *		BRIN 的 Min/Max 操作符类实现
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -39,8 +39,8 @@ brin_minmax_opcinfo(PG_FUNCTION_ARGS)
 	BrinOpcInfo *result;
 
 	/*
-	 * opaque->strategy_procinfos is initialized lazily; here it is set to
-	 * all-uninitialized by palloc0 which sets fn_oid to InvalidOid.
+	 * opaque->strategy_procinfos 惰性初始化；这里由 palloc0 置为
+	 * 全部未初始化，它会把 fn_oid 设为 InvalidOid。
 	 */
 
 	result = palloc0(MAXALIGN(SizeofBrinOpcInfo(2)) +
@@ -56,11 +56,11 @@ brin_minmax_opcinfo(PG_FUNCTION_ARGS)
 }
 
 /*
- * Examine the given index tuple (which contains partial status of a certain
- * page range) by comparing it to the given value that comes from another heap
- * tuple.  If the new value is outside the min/max range specified by the
- * existing tuple values, update the index tuple and return true.  Otherwise,
- * return false and do not modify in this case.
+ * 检查给定索引元组（它含有某个页范围的部分状态）：
+ * 把它与来自另一个堆元组的给定值相比较。若新值超出
+ * 现有元组值所指定的 minmax 值域，则更新该索引元组
+ * 并返回 true。否则在这种情况下返回 false，
+ * 且不做修改。
  */
 Datum
 brin_minmax_add_value(PG_FUNCTION_ARGS)
@@ -82,8 +82,8 @@ brin_minmax_add_value(PG_FUNCTION_ARGS)
 	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
 	/*
-	 * If the recorded value is null, store the new value (which we know to be
-	 * not null) as both minimum and maximum, and we're done.
+	 * 若已记录的值为空，则把新值（已知为非空）同时存为
+	 * 最小值和最大值，至此完成。
 	 */
 	if (column->bv_allnulls)
 	{
@@ -94,9 +94,9 @@ brin_minmax_add_value(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Otherwise, need to compare the new value with the existing boundaries
-	 * and update them accordingly.  First check if it's less than the
-	 * existing minimum.
+	 * 否则，需要把新值与现有边界比较，
+	 * 并相应更新。先检查它是否小于
+	 * 现有最小值。
 	 */
 	cmpFn = minmax_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 										 BTLessStrategyNumber);
@@ -110,7 +110,7 @@ brin_minmax_add_value(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * And now compare it to the existing maximum.
+	 * 现在把它与现有最大值比较。
 	 */
 	cmpFn = minmax_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 										 BTGreaterStrategyNumber);
@@ -127,13 +127,13 @@ brin_minmax_add_value(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given an index tuple corresponding to a certain page range and a scan key,
- * return whether the scan key is consistent with the index tuple's min/max
- * values.  Return true if so, false otherwise.
+ * 给定对应于某个页范围的索引元组和一个扫描键，
+ * 返回该扫描键是否与索引元组的 minmax 值一致。
+ * 若一致则返回 true，否则返回 false。
  *
- * We're no longer dealing with NULL keys in the consistent function, that is
- * now handled by the AM code. That means we should not get any all-NULL ranges
- * either, because those can't be consistent with regular (not [IS] NULL) keys.
+ * consistent 函数里不再处理 NULL 键，那现在由 AM 代码
+ * 处理。因此也不应遇到全 NULL 页范围，因为它们不可能
+ * 与普通（非 [IS] NULL）键一致。
  */
 Datum
 brin_minmax_consistent(PG_FUNCTION_ARGS)
@@ -148,10 +148,10 @@ brin_minmax_consistent(PG_FUNCTION_ARGS)
 	Datum		matches;
 	FmgrInfo   *finfo;
 
-	/* This opclass uses the old signature with only three arguments. */
+	/* 此操作符类使用只有三个参数的旧签名。 */
 	Assert(PG_NARGS() == 3);
 
-	/* Should not be dealing with all-NULL ranges. */
+	/* 不应处理全 NULL 页范围。 */
 	Assert(!column->bv_allnulls);
 
 	attno = key->sk_attno;
@@ -169,9 +169,9 @@ brin_minmax_consistent(PG_FUNCTION_ARGS)
 		case BTEqualStrategyNumber:
 
 			/*
-			 * In the equality case (WHERE col = someval), we want to return
-			 * the current page range if the minimum value in the range <=
-			 * scan key, and the maximum value >= scan key.
+			 * 在相等情形（WHERE col = someval）下，若页范围内的
+			 * 最小值 <= 扫描键，且最大值 >= 扫描键，
+			 * 就要返回当前页范围。
 			 */
 			finfo = minmax_get_strategy_procinfo(bdesc, attno, subtype,
 												 BTLessEqualStrategyNumber);
@@ -179,7 +179,7 @@ brin_minmax_consistent(PG_FUNCTION_ARGS)
 										value);
 			if (!DatumGetBool(matches))
 				break;
-			/* max() >= scankey */
+			/* max() >= 扫描键 */
 			finfo = minmax_get_strategy_procinfo(bdesc, attno, subtype,
 												 BTGreaterEqualStrategyNumber);
 			matches = FunctionCall2Coll(finfo, colloid, column->bv_values[1],
@@ -193,7 +193,7 @@ brin_minmax_consistent(PG_FUNCTION_ARGS)
 										value);
 			break;
 		default:
-			/* shouldn't happen */
+			/* 不应发生 */
 			elog(ERROR, "invalid strategy number %d", key->sk_strategy);
 			matches = 0;
 			break;
@@ -203,8 +203,8 @@ brin_minmax_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * Given two BrinValues, update the first of them as a union of the summary
- * values contained in both.  The second one is untouched.
+ * 给定两个 BrinValues，把第一个更新为二者所含汇总信息
+ * 的并。第二个保持不动。
  */
 Datum
 brin_minmax_union(PG_FUNCTION_ARGS)
@@ -224,7 +224,7 @@ brin_minmax_union(PG_FUNCTION_ARGS)
 	attno = col_a->bv_attno;
 	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
-	/* Adjust minimum, if B's min is less than A's min */
+	/* 若 B 的最小值小于 A 的最小值，则调整最小值 */
 	finfo = minmax_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 										 BTLessStrategyNumber);
 	needsadj = FunctionCall2Coll(finfo, colloid, col_b->bv_values[0],
@@ -237,7 +237,7 @@ brin_minmax_union(PG_FUNCTION_ARGS)
 										attr->attbyval, attr->attlen);
 	}
 
-	/* Adjust maximum, if B's max is greater than A's max */
+	/* 若 B 的最大值大于 A 的最大值，则调整最大值 */
 	finfo = minmax_get_strategy_procinfo(bdesc, attno, attr->atttypid,
 										 BTGreaterStrategyNumber);
 	needsadj = FunctionCall2Coll(finfo, colloid, col_b->bv_values[1],
@@ -254,10 +254,10 @@ brin_minmax_union(PG_FUNCTION_ARGS)
 }
 
 /*
- * Cache and return the procedure for the given strategy.
+ * 缓存并返回给定策略对应的过程。
  *
- * Note: this function mirrors inclusion_get_strategy_procinfo; see notes
- * there.  If changes are made here, see that function too.
+ * 注意：本函数与 inclusion_get_strategy_procinfo 结构相同；参见
+ * 那里的注释。若此处有改动，也要看那个函数。
  */
 static FmgrInfo *
 minmax_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
@@ -271,9 +271,9 @@ minmax_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
 	opaque = (MinmaxOpaque *) bdesc->bd_info[attno - 1]->oi_opaque;
 
 	/*
-	 * We cache the procedures for the previous subtype in the opaque struct,
-	 * to avoid repetitive syscache lookups.  If the subtype changed,
-	 * invalidate all the cached entries.
+	 * 我们把上一子类型的过程缓存在 opaque 结构中，
+	 * 以避免反复的系统缓存查找。若子类型变了，
+	 * 就使全部缓存条目失效。
 	 */
 	if (opaque->cached_subtype != subtype)
 	{

@@ -1,6 +1,6 @@
 /*
  * brin_xlog.c
- *		XLog replay routines for BRIN indexes
+ *		BRIN 索引的 XLog 重放例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,7 +18,7 @@
 
 
 /*
- * xlog replay routines
+ * WAL 重放例程
  */
 static void
 brin_xlog_createidx(XLogReaderState *record)
@@ -28,7 +28,7 @@ brin_xlog_createidx(XLogReaderState *record)
 	Buffer		buf;
 	Page		page;
 
-	/* create the index' metapage */
+	/* 创建索引的元页 */
 	buf = XLogInitBufferForRedo(record, 0);
 	Assert(BufferIsValid(buf));
 	page = (Page) BufferGetPage(buf);
@@ -39,8 +39,8 @@ brin_xlog_createidx(XLogReaderState *record)
 }
 
 /*
- * Common part of an insert or update. Inserts the new tuple and updates the
- * revmap.
+ * 插入或更新的公共部分。插入新元组并更新
+ * revmap。
  */
 static void
 brin_xlog_insert_update(XLogReaderState *record,
@@ -53,8 +53,8 @@ brin_xlog_insert_update(XLogReaderState *record,
 	XLogRedoAction action;
 
 	/*
-	 * If we inserted the first and only tuple on the page, re-initialize the
-	 * page from scratch.
+	 * 若插入的是该页上第一个且唯一的元组，则从头
+	 * 重新初始化该页。
 	 */
 	if (XLogRecGetInfo(record) & XLOG_BRIN_INIT_PAGE)
 	{
@@ -68,10 +68,10 @@ brin_xlog_insert_update(XLogReaderState *record,
 		action = XLogReadBufferForRedo(record, 0, &buffer);
 	}
 
-	/* need this page's blkno to store in revmap */
+	/* 需要此页的块号，以便存入 revmap */
 	regpgno = BufferGetBlockNumber(buffer);
 
-	/* insert the index item into the page */
+	/* 把索引项插入该页 */
 	if (action == BLK_NEEDS_REDO)
 	{
 		OffsetNumber offnum;
@@ -97,7 +97,7 @@ brin_xlog_insert_update(XLogReaderState *record,
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* update the revmap */
+	/* 更新 revmap */
 	action = XLogReadBufferForRedo(record, 1, &buffer);
 	if (action == BLK_NEEDS_REDO)
 	{
@@ -114,11 +114,11 @@ brin_xlog_insert_update(XLogReaderState *record,
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* XXX no FSM updates here ... */
+	/* XXX 这里不更新 FSM ... */
 }
 
 /*
- * replay a BRIN index insertion
+ * 重放一次 BRIN 索引插入
  */
 static void
 brin_xlog_insert(XLogReaderState *record)
@@ -129,7 +129,7 @@ brin_xlog_insert(XLogReaderState *record)
 }
 
 /*
- * replay a BRIN index update
+ * 重放一次 BRIN 索引更新
  */
 static void
 brin_xlog_update(XLogReaderState *record)
@@ -139,7 +139,7 @@ brin_xlog_update(XLogReaderState *record)
 	Buffer		buffer;
 	XLogRedoAction action;
 
-	/* First remove the old tuple */
+	/* 先移除旧元组 */
 	action = XLogReadBufferForRedo(record, 2, &buffer);
 	if (action == BLK_NEEDS_REDO)
 	{
@@ -156,7 +156,7 @@ brin_xlog_update(XLogReaderState *record)
 		MarkBufferDirty(buffer);
 	}
 
-	/* Then insert the new tuple and update revmap, like in an insertion. */
+	/* 然后插入新元组并更新 revmap，与插入时一样。 */
 	brin_xlog_insert_update(record, &xlrec->insert);
 
 	if (BufferIsValid(buffer))
@@ -164,7 +164,7 @@ brin_xlog_update(XLogReaderState *record)
 }
 
 /*
- * Update a tuple on a single page.
+ * 在同一页上更新一个元组。
  */
 static void
 brin_xlog_samepage_update(XLogReaderState *record)
@@ -198,11 +198,11 @@ brin_xlog_samepage_update(XLogReaderState *record)
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* XXX no FSM updates here ... */
+	/* XXX 这里不更新 FSM ... */
 }
 
 /*
- * Replay a revmap page extension
+ * 重放 revmap 页扩展
  */
 static void
 brin_xlog_revmap_extend(XLogReaderState *record)
@@ -220,7 +220,7 @@ brin_xlog_revmap_extend(XLogReaderState *record)
 	XLogRecGetBlockTag(record, 1, NULL, NULL, &targetBlk);
 	Assert(xlrec->targetBlk == targetBlk);
 
-	/* Update the metapage */
+	/* 更新元页 */
 	action = XLogReadBufferForRedo(record, 0, &metabuf);
 	if (action == BLK_NEEDS_REDO)
 	{
@@ -236,11 +236,11 @@ brin_xlog_revmap_extend(XLogReaderState *record)
 		PageSetLSN(metapg, lsn);
 
 		/*
-		 * Set pd_lower just past the end of the metadata.  This is essential,
-		 * because without doing so, metadata will be lost if xlog.c
-		 * compresses the page.  (We must do this here because pre-v11
-		 * versions of PG did not set the metapage's pd_lower correctly, so a
-		 * pg_upgraded index might contain the wrong value.)
+		 * 把 pd_lower 设到元数据末尾刚过的位置。这一点至关重要，
+		 * 因为若不这样做，xlog.c 压缩该页时元数据就会丢失。
+		 * （必须在这里做，因为 11 之前的 PG 版本没有正确设置
+		 * 元页的 pd_lower，因此经 pg_upgraded 的索引可能含有
+		 * 错误的值。）
 		 */
 		((PageHeader) metapg)->pd_lower =
 			((char *) metadata + sizeof(BrinMetaPageData)) - (char *) metapg;
@@ -249,8 +249,8 @@ brin_xlog_revmap_extend(XLogReaderState *record)
 	}
 
 	/*
-	 * Re-init the target block as a revmap page.  There's never a full- page
-	 * image here.
+	 * 把目标块重新初始化为 revmap 页。这里从不会有
+	 * 整页映像。
 	 */
 
 	buf = XLogInitBufferForRedo(record, 1);
@@ -275,7 +275,7 @@ brin_xlog_desummarize_page(XLogReaderState *record)
 
 	xlrec = (xl_brin_desummarize *) XLogRecGetData(record);
 
-	/* Update the revmap */
+	/* 更新 revmap */
 	action = XLogReadBufferForRedo(record, 0, &buffer);
 	if (action == BLK_NEEDS_REDO)
 	{
@@ -290,7 +290,7 @@ brin_xlog_desummarize_page(XLogReaderState *record)
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* remove the leftover entry from the regular page */
+	/* 从常规页上移除残留条目 */
 	action = XLogReadBufferForRedo(record, 1, &buffer);
 	if (action == BLK_NEEDS_REDO)
 	{
@@ -336,7 +336,7 @@ brin_redo(XLogReaderState *record)
 }
 
 /*
- * Mask a BRIN page before doing consistency checks.
+ * 在对 BRIN 页做一致性检查之前先屏蔽它。
  */
 void
 brin_mask(char *pagedata, BlockNumber blkno)
@@ -349,9 +349,9 @@ brin_mask(char *pagedata, BlockNumber blkno)
 	mask_page_hint_bits(page);
 
 	/*
-	 * Regular brin pages contain unused space which needs to be masked.
-	 * Similarly for meta pages, but mask it only if pd_lower appears to have
-	 * been set correctly.
+	 * 常规 brin 页含有需要屏蔽的未用空间。
+	 * 元页同样如此，但仅当 pd_lower 看起来已被正确
+	 * 设置时才屏蔽。
 	 */
 	if (BRIN_IS_REGULAR_PAGE(page) ||
 		(BRIN_IS_META_PAGE(page) && pagehdr->pd_lower > SizeOfPageHeaderData))
@@ -360,8 +360,8 @@ brin_mask(char *pagedata, BlockNumber blkno)
 	}
 
 	/*
-	 * BRIN_EVACUATE_PAGE is not WAL-logged, since it's of no use in recovery.
-	 * Mask it.  See brin_start_evacuating_page() for details.
+	 * BRIN_EVACUATE_PAGE 不记入 WAL，因为恢复时没有用处。
+	 * 把它屏蔽。细节见 brin_start_evacuating_page()。
 	 */
 	BrinPageFlags(page) &= ~BRIN_EVACUATE_PAGE;
 }

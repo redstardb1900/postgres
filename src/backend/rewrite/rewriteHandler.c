@@ -214,8 +214,8 @@ AcquireRewriteLocks(Query *parsetree,
 				 * 指针。
 				 *
 				 * 由于连接只有两个输入，我们可以预期看到
-				 * 对同一输入 RTE 的多次引用；把多次
-				 * 读取优化掉。
+				 * 对同一输入 RTE 的多次引用；省去多次
+				 * 重复读取。
 				 */
 				newaliasvars = NIL;
 				curinputvarno = 0;
@@ -3357,7 +3357,7 @@ rewriteTargetView(Query *parsetree, Relation view)
 	 * 其中一些不被外层查询读取。我们可以尝试把
 	 * selectedCols 限制为变换后的查询里使用的列，但那
 	 * 并不对应于普通 SELECT 使用视图时发生的事：
-	 * 所有被引用的列都必须有读权限，即使优化
+	 * 所有被引用的列都必须有读权限，即使规划器
 	 * 发现其中一些可以在查询变换期间丢弃。
 	 * 我们在这里做的展平也是一种可选优化。（若
 	 * 你不信服并想改变这一点，请注意对 view_perminfo->selectedCols

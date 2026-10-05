@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0100b-comment-rewrite-handler-wording",
+ "title": "zh: fix rewriteHandler planner wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "52c363c0644130b886be92de4d83a116b84938d9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "note": "planner and duplicate-read wording"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0100b-comment-rewrite-handler-wording.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 285,
+   "translated": 280,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "planner and duplicate-read wording"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0100b-comment-rewrite-handler-wording.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0100b rewords the planner and duplicate-read comments in rewriteHandler.c."
+}

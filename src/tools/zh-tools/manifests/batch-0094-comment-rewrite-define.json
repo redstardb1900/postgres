@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0094-comment-rewrite-define",
+ "title": "zh: translate rewriteDefine comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f8c721c490f73653996f849019adc30bc31541d8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "note": "rule definition"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0094-comment-rewrite-define.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 67,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "rule definition"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0094-comment-rewrite-define.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0094 translates src/backend/rewrite/rewriteDefine.c."
+}

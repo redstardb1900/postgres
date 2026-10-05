@@ -52,8 +52,8 @@ static void setRuleCheckAsUser_Query(Query *qry, Oid userid);
 
 /*
  * InsertRule -
- *	  takes the arguments and inserts them as a row into the system
- *	  relation "pg_rewrite"
+ *	  把这些参数作为一行插入系统关系
+ *	  "pg_rewrite"。
  */
 static Oid
 InsertRule(const char *rulname,
@@ -78,7 +78,7 @@ InsertRule(const char *rulname,
 	bool		is_update = false;
 
 	/*
-	 * Set up *nulls and *values arrays
+	 * 设置 *nulls 和 *values 数组
 	 */
 	namestrcpy(&rname, rulname);
 	values[Anum_pg_rewrite_rulename - 1] = NameGetDatum(&rname);
@@ -90,12 +90,12 @@ InsertRule(const char *rulname,
 	values[Anum_pg_rewrite_ev_action - 1] = CStringGetTextDatum(actiontree);
 
 	/*
-	 * Ready to store new pg_rewrite tuple
+	 * 准备存放新的 pg_rewrite 元组
 	 */
 	pg_rewrite_desc = table_open(RewriteRelationId, RowExclusiveLock);
 
 	/*
-	 * Check to see if we are replacing an existing tuple
+	 * 检查是否在替换一条已有元组
 	 */
 	oldtup = SearchSysCache2(RULERELNAME,
 							 ObjectIdGetDatum(eventrel_oid),
@@ -112,7 +112,7 @@ InsertRule(const char *rulname,
 							rulname, get_rel_name(eventrel_oid))));
 
 		/*
-		 * When replacing, we don't need to replace every attribute
+		 * 替换时，不必替换每一个属性
 		 */
 		replaces[Anum_pg_rewrite_ev_type - 1] = true;
 		replaces[Anum_pg_rewrite_is_instead - 1] = true;
@@ -144,15 +144,15 @@ InsertRule(const char *rulname,
 
 	heap_freetuple(tup);
 
-	/* If replacing, get rid of old dependencies and make new ones */
+	/* 若在替换，先去掉旧依赖，再建立新依赖 */
 	if (is_update)
 		deleteDependencyRecordsFor(RewriteRelationId, rewriteObjectId, false);
 
 	/*
-	 * Install dependency on rule's relation to ensure it will go away on
-	 * relation deletion.  If the rule is ON SELECT, make the dependency
-	 * implicit --- this prevents deleting a view's SELECT rule.  Other kinds
-	 * of rules can be AUTO.
+	 * 为规则所在关系安装依赖，确保关系删除时
+	 * 规则随之消失。若规则是 ON SELECT，则把该依赖
+	 * 做成隐式的，以免删除视图的 SELECT 规则。其他种类
+	 * 的规则可以是 AUTO。
 	 */
 	myself.classId = RewriteRelationId;
 	myself.objectId = rewriteObjectId;
@@ -166,14 +166,14 @@ InsertRule(const char *rulname,
 					   (evtype == CMD_SELECT) ? DEPENDENCY_INTERNAL : DEPENDENCY_AUTO);
 
 	/*
-	 * Also install dependencies on objects referenced in action and qual.
+	 * 同时为动作和限定条件里引用的对象安装依赖。
 	 */
 	recordDependencyOnExpr(&myself, (Node *) action, NIL,
 						   DEPENDENCY_NORMAL);
 
 	if (event_qual != NULL)
 	{
-		/* Find query containing OLD/NEW rtable entries */
+		/* 查找含 OLD/NEW 范围表项的查询 */
 		Query	   *qry = linitial_node(Query, action);
 
 		qry = getInsertSelectQuery(qry, NULL);
@@ -181,7 +181,7 @@ InsertRule(const char *rulname,
 							   DEPENDENCY_NORMAL);
 	}
 
-	/* Post creation hook for new rule */
+	/* 新规则的创建后钩子 */
 	InvokeObjectPostCreateHook(RewriteRelationId, rewriteObjectId, 0);
 
 	table_close(pg_rewrite_desc, RowExclusiveLock);
@@ -191,7 +191,7 @@ InsertRule(const char *rulname,
 
 /*
  * DefineRule
- *		Execute a CREATE RULE command.
+ *		执行一条 CREATE RULE 命令。
  */
 ObjectAddress
 DefineRule(RuleStmt *stmt, const char *queryString)
@@ -200,16 +200,16 @@ DefineRule(RuleStmt *stmt, const char *queryString)
 	Node	   *whereClause;
 	Oid			relId;
 
-	/* Parse analysis. */
+	/* 解析分析。 */
 	transformRuleStmt(stmt, queryString, &actions, &whereClause);
 
 	/*
-	 * Find and lock the relation.  Lock level should match
-	 * DefineQueryRewrite.
+	 * 查找并锁定该关系。锁级别应当与
+	 * DefineQueryRewrite 一致。
 	 */
 	relId = RangeVarGetRelid(stmt->relation, AccessExclusiveLock, false);
 
-	/* ... and execute */
+	/* ……然后执行 */
 	return DefineQueryRewrite(stmt->rulename,
 							  relId,
 							  whereClause,
@@ -222,10 +222,10 @@ DefineRule(RuleStmt *stmt, const char *queryString)
 
 /*
  * DefineQueryRewrite
- *		Create a rule
+ *		创建一条规则。
  *
- * This is essentially the same as DefineRule() except that the rule's
- * action and qual have already been passed through parse analysis.
+ * 这本质上与 DefineRule() 相同，只是规则的
+ * 动作和限定条件已经过了解析分析。
  */
 ObjectAddress
 DefineQueryRewrite(const char *rulename,
@@ -243,21 +243,21 @@ DefineQueryRewrite(const char *rulename,
 	ObjectAddress address;
 
 	/*
-	 * If we are installing an ON SELECT rule, we had better grab
-	 * AccessExclusiveLock to ensure no SELECTs are currently running on the
-	 * event relation. For other types of rules, it would be sufficient to
-	 * grab ShareRowExclusiveLock to lock out insert/update/delete actions and
-	 * to ensure that we lock out current CREATE RULE statements; but because
-	 * of race conditions in access to catalog entries, we can't do that yet.
+	 * 若正在安装一条 ON SELECT 规则，最好取得
+	 * AccessExclusiveLock，以确保当前没有 SELECTs 正在该
+	 * 事件关系上运行。对其他类型的规则，取得
+	 * ShareRowExclusiveLock 就足以锁住插入、更新和删除动作，并
+	 * 确保锁住当前的 CREATE RULE 语句；但由于
+	 * 访问系统目录项时存在竞争条件，目前还没法那样做。
 	 *
-	 * Note that this lock level should match the one used in DefineRule.
+	 * 注意：该锁级别应当与 DefineRule 中使用的一致。
 	 */
 	event_relation = table_open(event_relid, AccessExclusiveLock);
 
 	/*
-	 * Verify relation is of a type that rules can sensibly be applied to.
-	 * Internal callers can target materialized views, but transformRuleStmt()
-	 * blocks them for users.  Don't mention them in the error message.
+	 * 验证该关系的类型适合应用规则。
+	 * 内部调用者可以针对物化视图，但 transformRuleStmt()
+	 * 会拦住用户。错误信息里不要提到它们。
 	 */
 	if (event_relation->rd_rel->relkind != RELKIND_RELATION &&
 		event_relation->rd_rel->relkind != RELKIND_MATVIEW &&
@@ -276,21 +276,21 @@ DefineQueryRewrite(const char *rulename,
 						RelationGetRelationName(event_relation))));
 
 	/*
-	 * Check user has permission to apply rules to this relation.
+	 * 检查用户是否有权对这个关系应用规则。
 	 */
 	if (!object_ownercheck(RelationRelationId, event_relid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, get_relkind_objtype(event_relation->rd_rel->relkind),
 					   RelationGetRelationName(event_relation));
 
 	/*
-	 * No rule actions that modify OLD or NEW
+	 * 没有会修改 OLD 或 NEW 的规则动作
 	 */
 	foreach(l, action)
 	{
 		query = lfirst_node(Query, l);
 		if (query->resultRelation == 0)
 			continue;
-		/* Don't be fooled by INSERT/SELECT */
+		/* 不要被 INSERT/SELECT 迷惑 */
 		if (query != getInsertSelectQuery(query, NULL))
 			continue;
 		if (query->resultRelation == PRS2_OLD_VARNO)
@@ -308,9 +308,9 @@ DefineQueryRewrite(const char *rulename,
 	if (event_type == CMD_SELECT)
 	{
 		/*
-		 * Rules ON SELECT are restricted to view definitions
+		 * ON SELECT 规则仅限于视图定义。
 		 *
-		 * So this had better be a view, ...
+		 * 因此这最好是一个视图，……
 		 */
 		if (event_relation->rd_rel->relkind != RELKIND_VIEW &&
 			event_relation->rd_rel->relkind != RELKIND_MATVIEW)
@@ -321,7 +321,7 @@ DefineQueryRewrite(const char *rulename,
 					 errdetail_relkind_not_supported(event_relation->rd_rel->relkind)));
 
 		/*
-		 * ... there cannot be INSTEAD NOTHING, ...
+		 * ……这里无法有 INSTEAD NOTHING，……
 		 */
 		if (action == NIL)
 			ereport(ERROR,
@@ -330,7 +330,7 @@ DefineQueryRewrite(const char *rulename,
 					 errhint("Use views instead.")));
 
 		/*
-		 * ... there cannot be multiple actions, ...
+		 * ……这里无法有多个动作，……
 		 */
 		if (list_length(action) > 1)
 			ereport(ERROR,
@@ -338,7 +338,7 @@ DefineQueryRewrite(const char *rulename,
 					 errmsg("multiple actions for rules on SELECT are not implemented")));
 
 		/*
-		 * ... the one action must be a SELECT, ...
+		 * ……那一个动作必须是 SELECT，……
 		 */
 		query = linitial_node(Query, action);
 		if (!is_instead ||
@@ -348,7 +348,7 @@ DefineQueryRewrite(const char *rulename,
 					 errmsg("rules on SELECT must have action INSTEAD SELECT")));
 
 		/*
-		 * ... it cannot contain data-modifying WITH ...
+		 * ……它无法包含会修改数据的 WITH……
 		 */
 		if (query->hasModifyingCTE)
 			ereport(ERROR,
@@ -356,7 +356,7 @@ DefineQueryRewrite(const char *rulename,
 					 errmsg("rules on SELECT must not contain data-modifying statements in WITH")));
 
 		/*
-		 * ... there can be no rule qual, ...
+		 * ……不能有规则限定条件，……
 		 */
 		if (event_qual != NULL)
 			ereport(ERROR,
@@ -364,8 +364,8 @@ DefineQueryRewrite(const char *rulename,
 					 errmsg("event qualifications are not implemented for rules on SELECT")));
 
 		/*
-		 * ... the targetlist of the SELECT action must exactly match the
-		 * event relation, ...
+		 * ……SELECT 动作的目标列表必须与
+		 * 事件关系完全匹配，……
 		 */
 		checkRuleResultList(query->targetList,
 							RelationGetDescr(event_relation),
@@ -374,7 +374,7 @@ DefineQueryRewrite(const char *rulename,
 							RELKIND_MATVIEW);
 
 		/*
-		 * ... there must not be another ON SELECT rule already ...
+		 * ……不得已经存在另一条 ON SELECT 规则……
 		 */
 		if (!replace && event_relation->rd_rules != NULL)
 		{
@@ -394,18 +394,18 @@ DefineQueryRewrite(const char *rulename,
 		}
 
 		/*
-		 * ... and finally the rule must be named _RETURN.
+		 * ……最后，该规则必须命名为 _RETURN。
 		 */
 		if (strcmp(rulename, ViewSelectRuleName) != 0)
 		{
 			/*
-			 * In versions before 7.3, the expected name was _RETviewname. For
-			 * backwards compatibility with old pg_dump output, accept that
-			 * and silently change it to _RETURN.  Since this is just a quick
-			 * backwards-compatibility hack, limit the number of characters
-			 * checked to a few less than NAMEDATALEN; this saves having to
-			 * worry about where a multibyte character might have gotten
-			 * truncated.
+			 * 在 7.3 之前的版本里，预期名称是 _RETviewname。为了
+			 * 与旧的 pg_dump 输出向后兼容，接受该名称
+			 * 并静默地把它改成 _RETURN。由于这只是一个临时的
+			 * 向后兼容权宜做法，把检查的字符数限制在比
+			 * NAMEDATALEN 少几个；这样就不必
+			 * 担心多字节字符可能在何处被
+			 * 截断。
 			 */
 			if (strncmp(rulename, "_RET", 4) != 0 ||
 				strncmp(rulename + 4, RelationGetRelationName(event_relation),
@@ -421,12 +421,12 @@ DefineQueryRewrite(const char *rulename,
 	else
 	{
 		/*
-		 * For non-SELECT rules, a RETURNING list can appear in at most one of
-		 * the actions ... and there can't be any RETURNING list at all in a
-		 * conditional or non-INSTEAD rule.  (Actually, there can be at most
-		 * one RETURNING list across all rules on the same event, but it seems
-		 * best to enforce that at rule expansion time.)  If there is a
-		 * RETURNING list, it must match the event relation.
+		 * 对非 SELECT 规则，RETURNING 列表最多只能出现在其中一个
+		 * 动作里……而且在条件规则或非 INSTEAD 规则里根本不能有
+		 * 任何 RETURNING 列表。（实际上，同一事件上的所有规则
+		 * 加起来最多只能有一个 RETURNING 列表，但似乎最好在
+		 * 规则展开时再强制这一点。）若存在
+		 * RETURNING 列表，它必须匹配事件关系。
 		 */
 		bool		haveReturning = false;
 
@@ -455,9 +455,9 @@ DefineQueryRewrite(const char *rulename,
 		}
 
 		/*
-		 * And finally, if it's not an ON SELECT rule then it must *not* be
-		 * named _RETURN.  This prevents accidentally or maliciously replacing
-		 * a view's ON SELECT rule with some other kind of rule.
+		 * 最后，若它不是 ON SELECT 规则，则它不得
+		 * 被命名为 _RETURN。这可以防止意外或恶意地用
+		 * 其他种类的规则替换视图的 ON SELECT 规则。
 		 */
 		if (strcmp(rulename, ViewSelectRuleName) == 0)
 			ereport(ERROR,
@@ -468,10 +468,10 @@ DefineQueryRewrite(const char *rulename,
 	}
 
 	/*
-	 * This rule is allowed - prepare to install it.
+	 * 这条规则是允许的：准备安装它。
 	 */
 
-	/* discard rule if it's null action and not INSTEAD; it's a no-op */
+	/* 若它是空动作且不是 INSTEAD，就丢弃该规则；它是空操作 */
 	if (action != NIL || is_instead)
 	{
 		ruleId = InsertRule(rulename,
@@ -483,18 +483,18 @@ DefineQueryRewrite(const char *rulename,
 							replace);
 
 		/*
-		 * Set pg_class 'relhasrules' field true for event relation.
+		 * 把事件关系的 pg_class relhasrules 成员设为真。
 		 *
-		 * Important side effect: an SI notice is broadcast to force all
-		 * backends (including me!) to update relcache entries with the new
-		 * rule.
+		 * 重要的副作用：会广播一条 SI 通知，迫使所有
+		 * 后端（包括我自己！）用这条新规则更新
+		 * relcache 项。
 		 */
 		SetRelationRuleStatus(event_relid, true);
 	}
 
 	ObjectAddressSet(address, RewriteRelationId, ruleId);
 
-	/* Close rel, but keep lock till commit... */
+	/* 关闭关系，但把锁保持到提交…… */
 	table_close(event_relation, NoLock);
 
 	return address;
@@ -502,12 +502,12 @@ DefineQueryRewrite(const char *rulename,
 
 /*
  * checkRuleResultList
- *		Verify that targetList produces output compatible with a tupledesc
+ *		验证 targetList 产生的输出与 tupledesc 兼容。
  *
- * The targetList might be either a SELECT targetlist, or a RETURNING list;
- * isSelect tells which.  This is used for choosing error messages.
+ * targetList 可能是 SELECT 目标列表，也可能是 RETURNING 列表；
+ * isSelect 表明是哪一种。这用来选择错误信息。
  *
- * A SELECT targetlist may optionally require that column names match.
+ * SELECT 目标列表可以可选地需要列名匹配。
  */
 static void
 checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
@@ -516,7 +516,7 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 	ListCell   *tllist;
 	int			i;
 
-	/* Only a SELECT may require a column name match. */
+	/* 只有 SELECT 才可能需要列名匹配。 */
 	Assert(isSelect || !requireColumnNameMatch);
 
 	i = 0;
@@ -528,7 +528,7 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 		Form_pg_attribute attr;
 		char	   *attname;
 
-		/* resjunk entries may be ignored */
+		/* resjunk 项可以忽略 */
 		if (tle->resjunk)
 			continue;
 		i++;
@@ -543,22 +543,22 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 		attname = NameStr(attr->attname);
 
 		/*
-		 * Disallow dropped columns in the relation.  This is not really
-		 * expected to happen when creating an ON SELECT rule.  It'd be
-		 * possible if someone tried to convert a relation with dropped
-		 * columns to a view, but the only case we care about supporting
-		 * table-to-view conversion for is pg_dump, and pg_dump won't do that.
+		 * 不允许关系里存在已删除的列。创建 ON SELECT
+		 * 规则时，这种情况其实不在预期之中。若有人试图把含
+		 * 已删除列的关系转换成视图，就可能出现，但我们
+		 * 关心支持的表到视图转换情形只针对 pg_dump，而
+		 * pg_dump 不会那样做。
 		 *
-		 * Unfortunately, the situation is also possible when adding a rule
-		 * with RETURNING to a regular table, and rejecting that case is
-		 * altogether more annoying.  In principle we could support it by
-		 * modifying the targetlist to include dummy NULL columns
-		 * corresponding to the dropped columns in the tupdesc.  However,
-		 * places like ruleutils.c would have to be fixed to not process such
-		 * entries, and that would take an uncertain and possibly rather large
-		 * amount of work.  (Note we could not dodge that by marking the dummy
-		 * columns resjunk, since it's precisely the non-resjunk tlist columns
-		 * that are expected to correspond to table columns.)
+		 * 不幸的是，给普通表添加带 RETURNING 的规则时，
+		 * 也可能出现这种情况，而拒绝那种情况
+		 * 要麻烦得多。原则上我们可以支持它：修改目标列表，
+		 * 纳入与 tupdesc 中已删除列对应的
+		 * 哑 NULL 列。然而，ruleutils.c 之类的地方
+		 * 必须改成不去处理这些项，而这会带来不确定、
+		 * 可能相当大的工作量。（注意，无法靠把这些哑
+		 * 列标成 resjunk 来回避，因为预期要对应表列的
+		 * 恰恰是那些非 resjunk 的目标列表
+		 * 列。）
 		 */
 		if (attr->attisdropped)
 			ereport(ERROR,
@@ -567,7 +567,7 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 					 errmsg("cannot convert relation containing dropped columns to view") :
 					 errmsg("cannot create a RETURNING list for a relation containing dropped columns")));
 
-		/* Check name match if required; no need for two error texts here */
+		/* 若有要求则检查名称匹配；这里不需要两段错误文本 */
 		if (requireColumnNameMatch && strcmp(tle->resname, attname) != 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -576,7 +576,7 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 					 errdetail("SELECT target entry is named \"%s\".",
 							   tle->resname)));
 
-		/* Check type match. */
+		/* 检查类型匹配。 */
 		tletypid = exprType((Node *) tle->expr);
 		if (attr->atttypid != tletypid)
 			ereport(ERROR,
@@ -595,10 +595,10 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 							   format_type_be(attr->atttypid))));
 
 		/*
-		 * Allow typmods to be different only if one of them is -1, ie,
-		 * "unspecified".  This is necessary for cases like "numeric", where
-		 * the table will have a filled-in default length but the select
-		 * rule's expression will probably have typmod = -1.
+		 * 仅当其中一个 typmod 为 -1（即
+		 * "未指定"）时，才允许 typmod 不同。这对 "numeric"
+		 * 这类情况是必要的：表会有填好的默认长度，而 select
+		 * 规则的表达式的 typmod 多半是 -1。
 		 */
 		tletypmod = exprTypmod((Node *) tle->expr);
 		if (attr->atttypmod != tletypmod &&
@@ -631,8 +631,8 @@ checkRuleResultList(List *targetList, TupleDesc resultDesc, bool isSelect,
 
 /*
  * setRuleCheckAsUser
- *		Recursively scan a query or expression tree and set the checkAsUser
- *		field to the given userid in all RTEPermissionInfos of the query.
+ *		递归扫描查询或表达式树，把该查询所有
+ *		RTEPermissionInfos 里的 checkAsUser 成员设为给定的用户 ID。
  */
 void
 setRuleCheckAsUser(Node *node, Oid userid)
@@ -659,7 +659,7 @@ setRuleCheckAsUser_Query(Query *qry, Oid userid)
 {
 	ListCell   *l;
 
-	/* Set in all RTEPermissionInfos for this query. */
+	/* 为该查询的所有 RTEPermissionInfos 设置。 */
 	foreach(l, qry->rteperminfos)
 	{
 		RTEPermissionInfo *perminfo = lfirst_node(RTEPermissionInfo, l);
@@ -667,7 +667,7 @@ setRuleCheckAsUser_Query(Query *qry, Oid userid)
 		perminfo->checkAsUser = userid;
 	}
 
-	/* Now recurse to any subquery RTEs */
+	/* 现在递归到任何子查询 RTEs */
 	foreach(l, qry->rtable)
 	{
 		RangeTblEntry *rte = (RangeTblEntry *) lfirst(l);
@@ -676,7 +676,7 @@ setRuleCheckAsUser_Query(Query *qry, Oid userid)
 			setRuleCheckAsUser_Query(rte->subquery, userid);
 	}
 
-	/* Recurse into subquery-in-WITH */
+	/* 递归进入 WITH 中的子查询 */
 	foreach(l, qry->cteList)
 	{
 		CommonTableExpr *cte = (CommonTableExpr *) lfirst(l);
@@ -684,7 +684,7 @@ setRuleCheckAsUser_Query(Query *qry, Oid userid)
 		setRuleCheckAsUser_Query(castNode(Query, cte->ctequery), userid);
 	}
 
-	/* If there are sublinks, search for them and process their RTEs */
+	/* 若有子链接，就搜索它们并处理其 RTEs */
 	if (qry->hasSubLinks)
 		query_tree_walker(qry, setRuleCheckAsUser_walker, (void *) &userid,
 						  QTW_IGNORE_RC_SUBQUERIES);
@@ -692,7 +692,7 @@ setRuleCheckAsUser_Query(Query *qry, Oid userid)
 
 
 /*
- * Change the firing semantics of an existing rule.
+ * 改变一条已有规则的触发语义。
  */
 void
 EnableDisableRule(Relation rel, const char *rulename,
@@ -706,7 +706,7 @@ EnableDisableRule(Relation rel, const char *rulename,
 	bool		changed = false;
 
 	/*
-	 * Find the rule tuple to change.
+	 * 查找要修改的规则元组。
 	 */
 	pg_rewrite_desc = table_open(RewriteRelationId, RowExclusiveLock);
 	ruletup = SearchSysCacheCopy2(RULERELNAME,
@@ -721,7 +721,7 @@ EnableDisableRule(Relation rel, const char *rulename,
 	ruleform = (Form_pg_rewrite) GETSTRUCT(ruletup);
 
 	/*
-	 * Verify that the user has appropriate permissions.
+	 * 验证用户拥有适当的权限。
 	 */
 	eventRelationOid = ruleform->ev_class;
 	Assert(eventRelationOid == owningRel);
@@ -730,7 +730,7 @@ EnableDisableRule(Relation rel, const char *rulename,
 					   get_rel_name(eventRelationOid));
 
 	/*
-	 * Change ev_enabled if it is different from the desired new state.
+	 * 若 ev_enabled 与想要的新状态不同，就修改它。
 	 */
 	if (DatumGetChar(ruleform->ev_enabled) !=
 		fires_when)
@@ -747,9 +747,9 @@ EnableDisableRule(Relation rel, const char *rulename,
 	table_close(pg_rewrite_desc, RowExclusiveLock);
 
 	/*
-	 * If we changed anything, broadcast a SI inval message to force each
-	 * backend (including our own!) to rebuild relation's relcache entry.
-	 * Otherwise they will fail to apply the change promptly.
+	 * 若有改动，就广播一条 SI 失效消息，迫使每个
+	 * 后端（包括我们自己！）重建该关系的 relcache 项。
+	 * 否则它们没法及时应用这项改动。
 	 */
 	if (changed)
 		CacheInvalidateRelcache(rel);
@@ -757,7 +757,7 @@ EnableDisableRule(Relation rel, const char *rulename,
 
 
 /*
- * Perform permissions and integrity checks before acquiring a relation lock.
+ * 在获取关系锁之前执行权限和完整性检查。
  */
 static void
 RangeVarCallbackForRenameRule(const RangeVar *rv, Oid relid, Oid oldrelid,
@@ -768,10 +768,10 @@ RangeVarCallbackForRenameRule(const RangeVar *rv, Oid relid, Oid oldrelid,
 
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
 	if (!HeapTupleIsValid(tuple))
-		return;					/* concurrently dropped */
+		return;					/* 已被并发删除 */
 	form = (Form_pg_class) GETSTRUCT(tuple);
 
-	/* only tables and views can have rules */
+	/* 只有表和视图才能有规则 */
 	if (form->relkind != RELKIND_RELATION &&
 		form->relkind != RELKIND_VIEW &&
 		form->relkind != RELKIND_PARTITIONED_TABLE)
@@ -786,7 +786,7 @@ RangeVarCallbackForRenameRule(const RangeVar *rv, Oid relid, Oid oldrelid,
 				 errmsg("permission denied: \"%s\" is a system catalog",
 						rv->relname)));
 
-	/* you must own the table to rename one of its rules */
+	/* 要重命名它的一条规则，你必须拥有该表 */
 	if (!object_ownercheck(RelationRelationId, relid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, get_relkind_objtype(get_rel_relkind(relid)), rv->relname);
 
@@ -794,7 +794,7 @@ RangeVarCallbackForRenameRule(const RangeVar *rv, Oid relid, Oid oldrelid,
 }
 
 /*
- * Rename an existing rewrite rule.
+ * 重命名一条已有的重写规则。
  */
 ObjectAddress
 RenameRewriteRule(RangeVar *relation, const char *oldName,
@@ -809,21 +809,21 @@ RenameRewriteRule(RangeVar *relation, const char *oldName,
 	ObjectAddress address;
 
 	/*
-	 * Look up name, check permissions, and acquire lock (which we will NOT
-	 * release until end of transaction).
+	 * 查找名称、检查权限并获取锁（我们不会
+	 * 在事务结束前释放它）。
 	 */
 	relid = RangeVarGetRelidExtended(relation, AccessExclusiveLock,
 									 0,
 									 RangeVarCallbackForRenameRule,
 									 NULL);
 
-	/* Have lock already, so just need to build relcache entry. */
+	/* 已经持有锁，因此只需建立 relcache 项。 */
 	targetrel = relation_open(relid, NoLock);
 
-	/* Prepare to modify pg_rewrite */
+	/* 准备修改 pg_rewrite */
 	pg_rewrite_desc = table_open(RewriteRelationId, RowExclusiveLock);
 
-	/* Fetch the rule's entry (it had better exist) */
+	/* 取出该规则的项（它应当存在） */
 	ruletup = SearchSysCacheCopy2(RULERELNAME,
 								  ObjectIdGetDatum(relid),
 								  PointerGetDatum(oldName));
@@ -835,7 +835,7 @@ RenameRewriteRule(RangeVar *relation, const char *oldName,
 	ruleform = (Form_pg_rewrite) GETSTRUCT(ruletup);
 	ruleOid = ruleform->oid;
 
-	/* rule with the new name should not already exist */
+	/* 新名称的规则不应当已经存在 */
 	if (IsDefinedRewriteRule(relid, newName))
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -843,15 +843,15 @@ RenameRewriteRule(RangeVar *relation, const char *oldName,
 						newName, RelationGetRelationName(targetrel))));
 
 	/*
-	 * We disallow renaming ON SELECT rules, because they should always be
-	 * named "_RETURN".
+	 * 不允许重命名 ON SELECT 规则，因为它们应当始终
+	 * 被命名为 "_RETURN"。
 	 */
 	if (ruleform->ev_type == CMD_SELECT + '0')
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("renaming an ON SELECT rule is not allowed")));
 
-	/* OK, do the update */
+	/* 可以了，执行更新 */
 	namestrcpy(&(ruleform->rulename), newName);
 
 	CatalogTupleUpdate(pg_rewrite_desc, &ruletup->t_self, ruletup);
@@ -862,16 +862,16 @@ RenameRewriteRule(RangeVar *relation, const char *oldName,
 	table_close(pg_rewrite_desc, RowExclusiveLock);
 
 	/*
-	 * Invalidate relation's relcache entry so that other backends (and this
-	 * one too!) are sent SI message to make them rebuild relcache entries.
-	 * (Ideally this should happen automatically...)
+	 * 使该关系的 relcache 项失效，以便其他后端（以及
+	 * 本后端！）收到 SI 消息，从而重建 relcache 项。
+	 * （理想情况下这应当自动发生……）
 	 */
 	CacheInvalidateRelcache(targetrel);
 
 	ObjectAddressSet(address, RewriteRelationId, ruleOid);
 
 	/*
-	 * Close rel, but keep exclusive lock!
+	 * 关闭关系，但保持排他锁！
 	 */
 	relation_close(targetrel, NoLock);
 

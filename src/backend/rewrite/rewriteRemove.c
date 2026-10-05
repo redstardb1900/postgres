@@ -33,7 +33,7 @@
 #include "utils/syscache.h"
 
 /*
- * Guts of rule deletion.
+ * 规则删除的核心。
  */
 void
 RemoveRewriteRuleById(Oid ruleOid)
@@ -46,12 +46,12 @@ RemoveRewriteRuleById(Oid ruleOid)
 	Oid			eventRelationOid;
 
 	/*
-	 * Open the pg_rewrite relation.
+	 * 打开 pg_rewrite 关系。
 	 */
 	RewriteRelation = table_open(RewriteRelationId, RowExclusiveLock);
 
 	/*
-	 * Find the tuple for the target rule.
+	 * 查找目标规则的元组。
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_rewrite_oid,
@@ -67,9 +67,9 @@ RemoveRewriteRuleById(Oid ruleOid)
 		elog(ERROR, "could not find tuple for rule %u", ruleOid);
 
 	/*
-	 * We had better grab AccessExclusiveLock to ensure that no queries are
-	 * going on that might depend on this rule.  (Note: a weaker lock would
-	 * suffice if it's not an ON SELECT rule.)
+	 * 我们最好取得 AccessExclusiveLock，以确保没有可能依赖
+	 * 这条规则的查询正在进行。（注意：若它不是 ON SELECT
+	 * 规则，较弱的锁就够了。）
 	 */
 	eventRelationOid = ((Form_pg_rewrite) GETSTRUCT(tuple))->ev_class;
 	event_relation = table_open(eventRelationOid, AccessExclusiveLock);
@@ -81,7 +81,7 @@ RemoveRewriteRuleById(Oid ruleOid)
 						RelationGetRelationName(event_relation))));
 
 	/*
-	 * Now delete the pg_rewrite tuple for the rule
+	 * 现在删除该规则的 pg_rewrite 元组
 	 */
 	CatalogTupleDelete(RewriteRelation, &tuple->t_self);
 
@@ -90,11 +90,11 @@ RemoveRewriteRuleById(Oid ruleOid)
 	table_close(RewriteRelation, RowExclusiveLock);
 
 	/*
-	 * Issue shared-inval notice to force all backends (including me!) to
-	 * update relcache entries with the new rule set.
+	 * 发出共享失效通知，迫使所有后端（包括我自己！）
+	 * 用新的规则集更新 relcache 项。
 	 */
 	CacheInvalidateRelcache(event_relation);
 
-	/* Close rel, but keep lock till commit... */
+	/* 关闭关系，但把锁保持到提交…… */
 	table_close(event_relation, NoLock);
 }

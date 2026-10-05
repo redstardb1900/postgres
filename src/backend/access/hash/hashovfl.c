@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashovfl.c
- *	  Overflow page management code for the Postgres hash access method
+ *	  Postgres hash 访问方法的溢出页管理代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,8 +10,8 @@
  * IDENTIFICATION
  *	  src/backend/access/hash/hashovfl.c
  *
- * NOTES
- *	  Overflow pages look like ordinary relation pages.
+ * 说明（NOTES）
+ *	  溢出页看起来和普通关系页一样。
  *
  *-------------------------------------------------------------------------
  */
@@ -28,8 +28,8 @@ static uint32 _hash_firstfreebit(uint32 map);
 
 
 /*
- * Convert overflow page bit number (its index in the free-page bitmaps)
- * to block number within the index.
+ * 把溢出页位号（它在空闲页位图中的下标）
+ * 转换成索引内的块号。
  */
 static BlockNumber
 bitno_to_blkno(HashMetaPage metap, uint32 ovflbitnum)
@@ -37,18 +37,18 @@ bitno_to_blkno(HashMetaPage metap, uint32 ovflbitnum)
 	uint32		splitnum = metap->hashm_ovflpoint;
 	uint32		i;
 
-	/* Convert zero-based bitnumber to 1-based page number */
+	/* 把从零起的位号转换成从 1 起的页号 */
 	ovflbitnum += 1;
 
-	/* Determine the split number for this page (must be >= 1) */
+	/* 确定该页的分裂点号（必须 >= 1） */
 	for (i = 1;
 		 i < splitnum && ovflbitnum > metap->hashm_spares[i];
 		 i++)
-		 /* loop */ ;
+		 /* 循环 */ ;
 
 	/*
-	 * Convert to absolute page number by adding the number of bucket pages
-	 * that exist before this split point.
+	 * 加上该分裂点之前已经存在的桶页数，
+	 * 转换成绝对页号。
 	 */
 	return (BlockNumber) (_hash_get_totalbuckets(i) + ovflbitnum);
 }
@@ -56,7 +56,7 @@ bitno_to_blkno(HashMetaPage metap, uint32 ovflbitnum)
 /*
  * _hash_ovflblkno_to_bitno
  *
- * Convert overflow page block number to bit number for free-page bitmap.
+ * 把溢出页块号转换成空闲页位图所用的位号。
  */
 uint32
 _hash_ovflblkno_to_bitno(HashMetaPage metap, BlockNumber ovflblkno)
@@ -65,48 +65,48 @@ _hash_ovflblkno_to_bitno(HashMetaPage metap, BlockNumber ovflblkno)
 	uint32		i;
 	uint32		bitnum;
 
-	/* Determine the split number containing this page */
+	/* 确定包含该页的分裂点号 */
 	for (i = 1; i <= splitnum; i++)
 	{
 		if (ovflblkno <= (BlockNumber) _hash_get_totalbuckets(i))
-			break;				/* oops */
+			break;				/* 糟糕 */
 		bitnum = ovflblkno - _hash_get_totalbuckets(i);
 
 		/*
-		 * bitnum has to be greater than number of overflow page added in
-		 * previous split point. The overflow page at this splitnum (i) if any
-		 * should start from (_hash_get_totalbuckets(i) +
-		 * metap->hashm_spares[i - 1] + 1).
+		 * bitnum 必须大于前一个分裂点已经加入的溢出页数量。
+		 * 本 splitnum (i) 上若有溢出页，则应当从
+		 * (_hash_get_totalbuckets(i) +
+		 * metap->hashm_spares[i - 1] + 1) 开始。
 		 */
 		if (bitnum > metap->hashm_spares[i - 1] &&
 			bitnum <= metap->hashm_spares[i])
-			return bitnum - 1;	/* -1 to convert 1-based to 0-based */
+			return bitnum - 1;	/* 减 1，把从 1 起转换成从 0 起 */
 	}
 
 	ereport(ERROR,
 			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			 errmsg("invalid overflow block number %u", ovflblkno)));
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器保持安静 */
 }
 
 /*
  *	_hash_addovflpage
  *
- *	Add an overflow page to the bucket whose last page is pointed to by 'buf'.
+ *	向 'buf' 所指向的最后一页所属的桶添加一张溢出页。
  *
- *	On entry, the caller must hold a pin but no lock on 'buf'.  The pin is
- *	dropped before exiting (we assume the caller is not interested in 'buf'
- *	anymore) if not asked to retain.  The pin will be retained only for the
- *	primary bucket.  The returned overflow page will be pinned and
- *	write-locked; it is guaranteed to be empty.
+ *	进入时，调用者必须钉住 'buf'，但不持锁。
+ *	若未要求保留，退出前会放下该钉住
+ *	（我们假定调用者此后不再关心 'buf'）。
+ *	钉住只为主桶保留。返回的溢出页会被钉住并加上写锁；
+ *	它保证是空的。
  *
- *	The caller must hold a pin, but no lock, on the metapage buffer.
- *	That buffer is returned in the same state.
+ *	调用者必须钉住元页缓冲区，但不持锁。
+ *	该缓冲区以同样的状态返回。
  *
- * NB: since this could be executed concurrently by multiple processes,
- * one should not assume that the returned overflow page will be the
- * immediate successor of the originally passed 'buf'.  Additional overflow
- * pages might have been added to the bucket chain in between.
+ * 注意：本函数可能被多个进程并发执行，
+ * 不应假定返回的溢出页就是原先传入的 'buf'
+ * 的直接后继。其间可能已有更多溢出页
+ * 被加入桶链。
  */
 Buffer
 _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
@@ -134,26 +134,26 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 	bool		page_found = false;
 
 	/*
-	 * Write-lock the tail page.  Here, we need to maintain locking order such
-	 * that, first acquire the lock on tail page of bucket, then on meta page
-	 * to find and lock the bitmap page and if it is found, then lock on meta
-	 * page is released, then finally acquire the lock on new overflow buffer.
-	 * We need this locking order to avoid deadlock with backends that are
-	 * doing inserts.
+	 * 对尾页加写锁。这里需要保持这样的加锁顺序：
+	 * 先取得桶尾页上的锁，再取得元页上的锁，
+	 * 以便找到并锁住位图页；若找到了，就释放元页
+	 * 上的锁，最后再取得新溢出缓冲区上的锁。
+	 * 需要这一加锁顺序，以避免与正在做插入的
+	 * 后端发生死锁。
 	 *
-	 * Note: We could have avoided locking many buffers here if we made two
-	 * WAL records for acquiring an overflow page (one to allocate an overflow
-	 * page and another to add it to overflow bucket chain).  However, doing
-	 * so can leak an overflow page, if the system crashes after allocation.
-	 * Needless to say, it is better to have a single record from a
-	 * performance point of view as well.
+	 * 注意：若把取得溢出页做成两条 WAL 记录
+	 * （一条用来分配溢出页，另一条把它加入溢出桶链），
+	 * 本来可以少锁许多缓冲区。但若分配之后系统崩溃，
+	 * 就会泄漏一张溢出页。
+	 * 不用说，从性能角度看，只用一条记录
+	 * 也更好。
 	 */
 	LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
-	/* probably redundant... */
+	/* 也许多余…… */
 	_hash_checkpage(rel, buf, LH_BUCKET_PAGE | LH_OVERFLOW_PAGE);
 
-	/* loop to find current tail page, in case someone else inserted too */
+	/* 循环寻找当前尾页，以防别人也插入了 */
 	for (;;)
 	{
 		BlockNumber nextblkno;
@@ -165,10 +165,10 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 		if (!BlockNumberIsValid(nextblkno))
 			break;
 
-		/* we assume we do not need to write the unmodified page */
+		/* 我们假定不需要写出未修改的页 */
 		if (retain_pin)
 		{
-			/* pin will be retained only for the primary bucket page */
+			/* 只为主桶页保留钉住 */
 			Assert((pageopaque->hasho_flag & LH_PAGE_TYPE) == LH_BUCKET_PAGE);
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 		}
@@ -180,13 +180,13 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 		buf = _hash_getbuf(rel, nextblkno, HASH_WRITE, LH_OVERFLOW_PAGE);
 	}
 
-	/* Get exclusive lock on the meta page */
+	/* 取得元页上的独占锁 */
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
 	_hash_checkpage(rel, metabuf, LH_META_PAGE);
 	metap = HashPageGetMeta(BufferGetPage(metabuf));
 
-	/* start search at hashm_firstfree */
+	/* 从 hashm_firstfree 开始搜索 */
 	orig_firstfree = metap->hashm_firstfree;
 	first_page = orig_firstfree >> BMPG_SHIFT(metap);
 	bit = orig_firstfree & BMPG_MASK(metap);
@@ -194,14 +194,14 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 	j = bit / BITS_PER_MAP;
 	bit &= ~(BITS_PER_MAP - 1);
 
-	/* outer loop iterates once per bitmap page */
+	/* 外层循环对每个位图页迭代一次 */
 	for (;;)
 	{
 		BlockNumber mapblkno;
 		Page		mappage;
 		uint32		last_inpage;
 
-		/* want to end search with the last existing overflow page */
+		/* 希望搜索在最后一个已有溢出页处结束 */
 		splitnum = metap->hashm_ovflpoint;
 		max_ovflpg = metap->hashm_spares[splitnum] - 1;
 		last_page = max_ovflpg >> BMPG_SHIFT(metap);
@@ -218,7 +218,7 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 		else
 			last_inpage = BMPGSZ_BIT(metap) - 1;
 
-		/* Release exclusive lock on metapage while reading bitmap page */
+		/* 读取位图页时释放元页上的独占锁 */
 		LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
 		mapbuf = _hash_getbuf(rel, mapblkno, HASH_WRITE, LH_BITMAP_PAGE);
@@ -231,53 +231,53 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 			{
 				page_found = true;
 
-				/* Reacquire exclusive lock on the meta page */
+				/* 重新取得元页上的独占锁 */
 				LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
-				/* convert bit to bit number within page */
+				/* 把位转换成页内位号 */
 				bit += _hash_firstfreebit(freep[j]);
 				bitmap_page_bit = bit;
 
-				/* convert bit to absolute bit number */
+				/* 把位转换成绝对位号 */
 				bit += (i << BMPG_SHIFT(metap));
-				/* Calculate address of the recycled overflow page */
+				/* 计算回收溢出页的地址 */
 				blkno = bitno_to_blkno(metap, bit);
 
-				/* Fetch and init the recycled page */
+				/* 取出并初始化回收的页 */
 				ovflbuf = _hash_getinitbuf(rel, blkno);
 
 				goto found;
 			}
 		}
 
-		/* No free space here, try to advance to next map page */
+		/* 这里没有空闲空间，试着前进到下一张位图页 */
 		_hash_relbuf(rel, mapbuf);
 		mapbuf = InvalidBuffer;
 		i++;
-		j = 0;					/* scan from start of next map page */
+		j = 0;					/* 从下一张位图页的开头扫描 */
 		bit = 0;
 
-		/* Reacquire exclusive lock on the meta page */
+		/* 重新取得元页上的独占锁 */
 		LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 	}
 
 	/*
-	 * No free pages --- have to extend the relation to add an overflow page.
-	 * First, check to see if we have to add a new bitmap page too.
+	 * 没有空闲页——必须扩展该关系才能加入一张溢出页。
+	 * 首先检查是否还要增加一张新的位图页。
 	 */
 	if (last_bit == (uint32) (BMPGSZ_BIT(metap) - 1))
 	{
 		/*
-		 * We create the new bitmap page with all pages marked "in use".
-		 * Actually two pages in the new bitmap's range will exist
-		 * immediately: the bitmap page itself, and the following page which
-		 * is the one we return to the caller.  Both of these are correctly
-		 * marked "in use".  Subsequent pages do not exist yet, but it is
-		 * convenient to pre-mark them as "in use" too.
+		 * 创建新位图页时，把所有页都标为 "使用中"。
+		 * 实际上新位图范围内会立刻存在两页：
+		 * 位图页本身，以及紧随其后的那一页，
+		 * 也就是返回给调用者的那一页。这两页都被正确地
+		 * 标为 "使用中"。后续页尚不存在，但预先
+		 * 把它们也标为 "使用中" 更方便。
 		 */
 		bit = metap->hashm_spares[splitnum];
 
-		/* metapage already has a write lock */
+		/* 元页已经持有写锁 */
 		if (metap->hashm_nmaps >= HASH_MAX_BITMAPS)
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -289,34 +289,34 @@ _hash_addovflpage(Relation rel, Buffer metabuf, Buffer buf, bool retain_pin)
 	else
 	{
 		/*
-		 * Nothing to do here; since the page will be past the last used page,
-		 * we know its bitmap bit was preinitialized to "in use".
+		 * 这里无事可做；因为该页将位于最后一张已用页之后，
+		 * 我们知道它的位图位已被预先初始化为 "使用中"。
 		 */
 	}
 
-	/* Calculate address of the new overflow page */
+	/* 计算新溢出页的地址 */
 	bit = BufferIsValid(newmapbuf) ?
 		metap->hashm_spares[splitnum] + 1 : metap->hashm_spares[splitnum];
 	blkno = bitno_to_blkno(metap, bit);
 
 	/*
-	 * Fetch the page with _hash_getnewbuf to ensure smgr's idea of the
-	 * relation length stays in sync with ours.  XXX It's annoying to do this
-	 * with metapage write lock held; would be better to use a lock that
-	 * doesn't block incoming searches.
+	 * 用 _hash_getnewbuf 取出该页，以确保 smgr 对关系长度的
+	 * 看法与我们保持同步。XXX 在持有元页写锁时做这件事
+	 * 很烦人；更好的做法是改用一把不会阻塞
+	 * 后续搜索的锁。
 	 *
-	 * It is okay to hold two buffer locks here (one on tail page of bucket
-	 * and other on new overflow page) since there cannot be anyone else
-	 * contending for access to ovflbuf.
+	 * 这里可以同时持有两把缓冲区锁（一把在桶尾页上，
+	 * 另一把在新溢出页上），因为此时无法有其他人
+	 * 争用对 ovflbuf 的访问。
 	 */
 	ovflbuf = _hash_getnewbuf(rel, blkno, MAIN_FORKNUM);
 
 found:
 
 	/*
-	 * Do the update.  No ereport(ERROR) until changes are logged. We want to
-	 * log the changes for bitmap page and overflow page together to avoid
-	 * loss of pages in case the new page is added.
+	 * 执行更新。在变更记入日志之前不要调用 ereport(ERROR)。
+	 * 我们希望把位图页和溢出页的变更一起记入日志，以免
+	 * 在加入新页时丢失页。
 	 */
 	START_CRIT_SECTION();
 
@@ -324,13 +324,13 @@ found:
 	{
 		Assert(BufferIsValid(mapbuf));
 
-		/* mark page "in use" in the bitmap */
+		/* 在位图中把该页标为 "使用中" */
 		SETBIT(freep, bitmap_page_bit);
 		MarkBufferDirty(mapbuf);
 	}
 	else
 	{
-		/* update the count to indicate new overflow page is added */
+		/* 更新计数，表示已加入新的溢出页 */
 		metap->hashm_spares[splitnum]++;
 
 		if (BufferIsValid(newmapbuf))
@@ -338,7 +338,7 @@ found:
 			_hash_initbitmapbuffer(newmapbuf, metap->hashm_bmsize, false);
 			MarkBufferDirty(newmapbuf);
 
-			/* add the new bitmap page to the metapage's list of bitmaps */
+			/* 把新位图页加入元页的位图列表 */
 			metap->hashm_mapp[metap->hashm_nmaps] = BufferGetBlockNumber(newmapbuf);
 			metap->hashm_nmaps++;
 			metap->hashm_spares[splitnum]++;
@@ -347,14 +347,14 @@ found:
 		MarkBufferDirty(metabuf);
 
 		/*
-		 * for new overflow page, we don't need to explicitly set the bit in
-		 * bitmap page, as by default that will be set to "in use".
+		 * 对于新的溢出页，不必在位图页中显式置位，
+		 * 因为默认就会被设为 "使用中"。
 		 */
 	}
 
 	/*
-	 * Adjust hashm_firstfree to avoid redundant searches.  But don't risk
-	 * changing it if someone moved it while we were searching bitmap pages.
+	 * 调整 hashm_firstfree，以避免重复搜索。但若有人在我们
+	 * 搜索位图页期间移动了它，就不要冒险去改它。
 	 */
 	if (metap->hashm_firstfree == orig_firstfree)
 	{
@@ -362,7 +362,7 @@ found:
 		MarkBufferDirty(metabuf);
 	}
 
-	/* initialize new overflow page */
+	/* 初始化新的溢出页 */
 	ovflpage = BufferGetPage(ovflbuf);
 	ovflopaque = HashPageGetOpaque(ovflpage);
 	ovflopaque->hasho_prevblkno = BufferGetBlockNumber(buf);
@@ -373,12 +373,12 @@ found:
 
 	MarkBufferDirty(ovflbuf);
 
-	/* logically chain overflow page to previous page */
+	/* 把溢出页逻辑链接到前一页 */
 	pageopaque->hasho_nextblkno = BufferGetBlockNumber(ovflbuf);
 
 	MarkBufferDirty(buf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		XLogRecPtr	recptr;
@@ -442,7 +442,7 @@ found:
 /*
  *	_hash_firstfreebit()
  *
- *	Return the number of the first bit that is not set in the word 'map'.
+ *	返回字 'map' 中第一个未被置位的位编号。
  */
 static uint32
 _hash_firstfreebit(uint32 map)
@@ -460,31 +460,31 @@ _hash_firstfreebit(uint32 map)
 
 	elog(ERROR, "firstfreebit found no free bit");
 
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器保持安静 */
 }
 
 /*
  *	_hash_freeovflpage() -
  *
- *	Remove this overflow page from its bucket's chain, and mark the page as
- *	free.  On entry, ovflbuf is write-locked; it is released before exiting.
+ *	把这张溢出页从它的桶链中移除，并把该页标为
+ *	空闲。进入时 ovflbuf 已加写锁；退出前会释放它。
  *
- *	Add the tuples (itups) to wbuf in this function.  We could do that in the
- *	caller as well, but the advantage of doing it here is we can easily write
- *	the WAL for XLOG_HASH_SQUEEZE_PAGE operation.  Addition of tuples and
- *	removal of overflow page has to done as an atomic operation, otherwise
- *	during replay on standby users might find duplicate records.
+ *	在本函数里把元组 (itups) 加入 wbuf。本来也可以在
+ *	调用者中做，但放在这里的好处是便于写入
+ *	XLOG_HASH_SQUEEZE_PAGE 操作的 WAL。元组的加入与
+ *	溢出页的移除必须作为一次原子操作完成，否则
+ *	在备库上重放时，用户可能会看到重复条目。
  *
- *	Since this function is invoked in VACUUM, we provide an access strategy
- *	parameter that controls fetches of the bucket pages.
+ *	本函数在 VACUUM 中被调用，因此我们提供一个访问策略
+ *	参数，用来控制对桶页的读取。
  *
- *	Returns the block number of the page that followed the given page
- *	in the bucket, or InvalidBlockNumber if no following page.
+ *	返回桶中紧跟在给定页之后的那一页的块号；
+ *	若没有后继页，则返回 InvalidBlockNumber。
  *
- *	NB: caller must not hold lock on metapage, nor on page, that's next to
- *	ovflbuf in the bucket chain.  We don't acquire the lock on page that's
- *	prior to ovflbuf in chain if it is same as wbuf because the caller already
- *	has a lock on same.
+ *	注意：调用者不能持有元页上的锁，也不能持有紧挨
+ *	ovflbuf 之后那一页上的锁。若链中位于 ovflbuf 之前的页
+ *	与 wbuf 相同，我们不去取得它的锁，因为调用者已经
+ *	持有同一把锁。
  */
 BlockNumber
 _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
@@ -512,7 +512,7 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 	Buffer		nextbuf = InvalidBuffer;
 	bool		update_metap = false;
 
-	/* Get information from the doomed page */
+	/* 从即将释放的页上取得信息 */
 	_hash_checkpage(rel, ovflbuf, LH_OVERFLOW_PAGE);
 	ovflblkno = BufferGetBlockNumber(ovflbuf);
 	ovflpage = BufferGetPage(ovflbuf);
@@ -523,10 +523,10 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 	bucket = ovflopaque->hasho_bucket;
 
 	/*
-	 * Fix up the bucket chain.  this is a doubly-linked list, so we must fix
-	 * up the bucket chain members behind and ahead of the overflow page being
-	 * deleted.  Concurrency issues are avoided by using lock chaining as
-	 * described atop hashbucketcleanup.
+	 * 修复桶链。这是一条双向链表，因此必须
+	 * 修复被删除溢出页前后的桶链成员。
+	 * 并发问题靠锁链避免，具体做法见
+	 * hashbucketcleanup 顶部的说明。
 	 */
 	if (BlockNumberIsValid(prevblkno))
 	{
@@ -546,13 +546,13 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 											 LH_OVERFLOW_PAGE,
 											 bstrategy);
 
-	/* Note: bstrategy is intentionally not used for metapage and bitmap */
+	/* 注意：有意不把 bstrategy 用于元页和位图页 */
 
-	/* Read the metapage so we can determine which bitmap page to use */
+	/* 读取元页，以便确定使用哪张位图页 */
 	metabuf = _hash_getbuf(rel, HASH_METAPAGE, HASH_READ, LH_META_PAGE);
 	metap = HashPageGetMeta(BufferGetPage(metabuf));
 
-	/* Identify which bit to set */
+	/* 确定要设置的是哪一位 */
 	ovflbitno = _hash_ovflblkno_to_bitno(metap, ovflblkno);
 
 	bitmappage = ovflbitno >> BMPG_SHIFT(metap);
@@ -562,28 +562,28 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 		elog(ERROR, "invalid overflow bit number %u", ovflbitno);
 	blkno = metap->hashm_mapp[bitmappage];
 
-	/* Release metapage lock while we access the bitmap page */
+	/* 访问位图页时释放元页锁 */
 	LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
-	/* read the bitmap page to clear the bitmap bit */
+	/* 读取位图页以清除位图位 */
 	mapbuf = _hash_getbuf(rel, blkno, HASH_WRITE, LH_BITMAP_PAGE);
 	mappage = BufferGetPage(mapbuf);
 	freep = HashPageGetBitmap(mappage);
 	Assert(ISSET(freep, bitmapbit));
 
-	/* Get write-lock on metapage to update firstfree */
+	/* 取得元页上的写锁以更新 firstfree */
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
-	/* This operation needs to log multiple tuples, prepare WAL for that */
+	/* 本操作要把多个元组记入 WAL，为此先做准备 */
 	if (RelationNeedsWAL(rel))
 		XLogEnsureRecordSpace(HASH_XLOG_FREE_OVFL_BUFS, 4 + nitups);
 
 	START_CRIT_SECTION();
 
 	/*
-	 * we have to insert tuples on the "write" page, being careful to preserve
-	 * hashkey ordering.  (If we insert many tuples into the same "write" page
-	 * it would be worth qsort'ing them).
+	 * 我们必须把元组插入 "写" 页，同时小心保持
+	 * 哈希键顺序。（如果向同一张 "写" 页插入许多元组，
+	 * 值得先对它们做 qsort）。
 	 */
 	if (nitups > 0)
 	{
@@ -592,11 +592,11 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 	}
 
 	/*
-	 * Reinitialize the freed overflow page.  Just zeroing the page won't
-	 * work, because WAL replay routines expect pages to be initialized. See
-	 * explanation of RBM_NORMAL mode atop XLogReadBufferExtended.  We are
-	 * careful to make the special space valid here so that tools like
-	 * pageinspect won't get confused.
+	 * 重新初始化已释放的溢出页。仅仅把该页清零是不行的，
+	 * 因为 WAL 重放例程预期这些页已经初始化。参见
+	 * XLogReadBufferExtended 顶部对 RBM_NORMAL 模式的说明。我们
+	 * 小心地让这里的特殊空间保持有效，以免 pageinspect
+	 * 之类的工具被弄糊涂。
 	 */
 	_hash_pageinit(ovflpage, BufferGetPageSize(ovflbuf));
 
@@ -629,11 +629,11 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 		MarkBufferDirty(nextbuf);
 	}
 
-	/* Clear the bitmap bit to indicate that this overflow page is free */
+	/* 清除位图位，表示该溢出页空闲 */
 	CLRBIT(freep, bitmapbit);
 	MarkBufferDirty(mapbuf);
 
-	/* if this is now the first free page, update hashm_firstfree */
+	/* 若这现在是第一个空闲页，则更新 hashm_firstfree */
 	if (ovflbitno < metap->hashm_firstfree)
 	{
 		metap->hashm_firstfree = ovflbitno;
@@ -641,7 +641,7 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 		MarkBufferDirty(metabuf);
 	}
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_hash_squeeze_page xlrec;
@@ -658,8 +658,8 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 		XLogRegisterData((char *) &xlrec, SizeOfHashSqueezePage);
 
 		/*
-		 * bucket buffer needs to be registered to ensure that we can acquire
-		 * a cleanup lock on it during replay.
+		 * 桶缓冲区需要登记，以确保重放期间
+		 * 我们能对它取得清理锁。
 		 */
 		if (!xlrec.is_prim_bucket_same_wrt)
 			XLogRegisterBuffer(0, bucketbuf, REGBUF_STANDARD | REGBUF_NO_IMAGE);
@@ -676,10 +676,10 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 		XLogRegisterBuffer(2, ovflbuf, REGBUF_STANDARD);
 
 		/*
-		 * If prevpage and the writepage (block in which we are moving tuples
-		 * from overflow) are same, then no need to separately register
-		 * prevpage.  During replay, we can directly update the nextblock in
-		 * writepage.
+		 * 若 prevpage 与 writepage（正在把元组从溢出页
+		 * 移入的那个块）是同一页，就不必单独登记
+		 * prevpage。重放期间可以直接更新 writepage
+		 * 中的 nextblock。
 		 */
 		if (BufferIsValid(prevbuf) && !xlrec.is_prev_bucket_same_wrt)
 			XLogRegisterBuffer(3, prevbuf, REGBUF_STANDARD);
@@ -714,7 +714,7 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 
 	END_CRIT_SECTION();
 
-	/* release previous bucket if it is not same as write bucket */
+	/* 若前一桶与写桶不同，则释放前一桶 */
 	if (BufferIsValid(prevbuf) && prevblkno != writeblkno)
 		_hash_relbuf(rel, prevbuf);
 
@@ -734,8 +734,8 @@ _hash_freeovflpage(Relation rel, Buffer bucketbuf, Buffer ovflbuf,
 /*
  *	_hash_initbitmapbuffer()
  *
- *	 Initialize a new bitmap page.  All bits in the new bitmap page are set to
- *	 "1", indicating "in use".
+ *	 初始化一张新的位图页。新位图页中的所有位都设为
+ *	 "1"，表示 "使用中"。
  */
 void
 _hash_initbitmapbuffer(Buffer buf, uint16 bmsize, bool initpage)
@@ -746,11 +746,11 @@ _hash_initbitmapbuffer(Buffer buf, uint16 bmsize, bool initpage)
 
 	pg = BufferGetPage(buf);
 
-	/* initialize the page */
+	/* 初始化该页 */
 	if (initpage)
 		_hash_pageinit(pg, BufferGetPageSize(buf));
 
-	/* initialize the page's special space */
+	/* 初始化该页的特殊空间 */
 	op = HashPageGetOpaque(pg);
 	op->hasho_prevblkno = InvalidBlockNumber;
 	op->hasho_nextblkno = InvalidBlockNumber;
@@ -758,14 +758,14 @@ _hash_initbitmapbuffer(Buffer buf, uint16 bmsize, bool initpage)
 	op->hasho_flag = LH_BITMAP_PAGE;
 	op->hasho_page_id = HASHO_PAGE_ID;
 
-	/* set all of the bits to 1 */
+	/* 把所有位都设为 1 */
 	freep = HashPageGetBitmap(pg);
 	memset(freep, 0xFF, bmsize);
 
 	/*
-	 * Set pd_lower just past the end of the bitmap page data.  We could even
-	 * set pd_lower equal to pd_upper, but this is more precise and makes the
-	 * page look compressible to xlog.c.
+	 * 把 pd_lower 设到位图页数据末尾刚过去的位置。我们甚至可以
+	 * 把 pd_lower 设成等于 pd_upper，但这样更精确，并让
+	 * 该页在 xlog.c 看来是可压缩的。
 	 */
 	((PageHeader) pg)->pd_lower = ((char *) freep + bmsize) - (char *) pg;
 }
@@ -774,33 +774,33 @@ _hash_initbitmapbuffer(Buffer buf, uint16 bmsize, bool initpage)
 /*
  *	_hash_squeezebucket(rel, bucket)
  *
- *	Try to squeeze the tuples onto pages occurring earlier in the
- *	bucket chain in an attempt to free overflow pages. When we start
- *	the "squeezing", the page from which we start taking tuples (the
- *	"read" page) is the last bucket in the bucket chain and the page
- *	onto which we start squeezing tuples (the "write" page) is the
- *	first page in the bucket chain.  The read page works backward and
- *	the write page works forward; the procedure terminates when the
- *	read page and write page are the same page.
+ *	尝试把元组挤压到桶链中更早出现的那些页上，
+ *	以便把溢出页腾出来。开始 "挤压" 时，
+ *	我们从中取出元组的那一页（"读" 页）
+ *	是桶链里的最后一页；开始把元组挤上去的那一页
+ *	（"写" 页）则是桶链里的第一页。
+ *	读页向后走，写页向前走；
+ *	当读页和写页走到同一页时，
+ *	这个过程就终止。
  *
- *	At completion of this procedure, it is guaranteed that all pages in
- *	the bucket are nonempty, unless the bucket is totally empty (in
- *	which case all overflow pages will be freed).  The original implementation
- *	required that to be true on entry as well, but it's a lot easier for
- *	callers to leave empty overflow pages and let this guy clean it up.
+ *	本过程完成时，保证桶中每一页都非空，
+ *	除非该桶完全为空（这种情况下所有溢出页都会被释放）。
+ *	原先的实现还要求进入时也满足这一点，
+ *	但让调用者留下空的溢出页、
+ *	再由本函数来清理，要容易得多。
  *
- *	Caller must acquire cleanup lock on the primary page of the target
- *	bucket to exclude any scans that are in progress, which could easily
- *	be confused into returning the same tuple more than once or some tuples
- *	not at all by the rearrangement we are performing here.  To prevent
- *	any concurrent scan to cross the squeeze scan we use lock chaining
- *	similar to hashbucketcleanup.  Refer comments atop hashbucketcleanup.
+ *	调用者必须在目标桶的主页上取得清理锁，
+ *	以排除任何正在进行的扫描。这里的重排很容易
+ *	让扫描把同一元组返回多次，或者让某些元组
+ *	根本不被返回。为防止并发扫描越过挤压扫描，
+ *	我们使用与 hashbucketcleanup 类似的锁链。
+ *	请参见 hashbucketcleanup 顶部的注释。
  *
- *	We need to retain a pin on the primary bucket to ensure that no concurrent
- *	split can start.
+ *	我们需要保持主桶上的钉住，以确保不会有
+ *	并发分裂开始。
  *
- *	Since this function is invoked in VACUUM, we provide an access strategy
- *	parameter that controls fetches of the bucket pages.
+ *	由于本函数在 VACUUM 中被调用，我们提供一个访问策略
+ *	参数，用来控制对桶页的读取。
  */
 void
 _hash_squeezebucket(Relation rel,
@@ -819,7 +819,7 @@ _hash_squeezebucket(Relation rel,
 	HashPageOpaque ropaque;
 
 	/*
-	 * start squeezing into the primary bucket page.
+	 * 开始向主桶页挤压。
 	 */
 	wblkno = bucket_blkno;
 	wbuf = bucket_buf;
@@ -827,8 +827,8 @@ _hash_squeezebucket(Relation rel,
 	wopaque = HashPageGetOpaque(wpage);
 
 	/*
-	 * if there aren't any overflow pages, there's nothing to squeeze. caller
-	 * is responsible for releasing the pin on primary bucket page.
+	 * 若没有任何溢出页，就没有什么可挤压的。调用者
+	 * 负责释放主桶页上的钉住。
 	 */
 	if (!BlockNumberIsValid(wopaque->hasho_nextblkno))
 	{
@@ -837,10 +837,10 @@ _hash_squeezebucket(Relation rel,
 	}
 
 	/*
-	 * Find the last page in the bucket chain by starting at the base bucket
-	 * page and working forward.  Note: we assume that a hash bucket chain is
-	 * usually smaller than the buffer ring being used by VACUUM, else using
-	 * the access strategy here would be counterproductive.
+	 * 从基本桶页出发向前走，找到桶链中的最后一页。
+	 * 注意：我们假定 hash 桶链通常小于 VACUUM 正在使用的
+	 * 缓冲区环，否则在这里使用访问策略
+	 * 会适得其反。
 	 */
 	rbuf = InvalidBuffer;
 	ropaque = wopaque;
@@ -860,7 +860,7 @@ _hash_squeezebucket(Relation rel,
 	} while (BlockNumberIsValid(ropaque->hasho_nextblkno));
 
 	/*
-	 * squeeze the tuples.
+	 * 挤压这些元组。
 	 */
 	for (;;)
 	{
@@ -877,7 +877,7 @@ _hash_squeezebucket(Relation rel,
 		bool		retain_pin = false;
 
 readpage:
-		/* Scan each tuple in "read" page */
+		/* 扫描 "读" 页中的每个元组 */
 		maxroffnum = PageGetMaxOffsetNumber(rpage);
 		for (roffnum = FirstOffsetNumber;
 			 roffnum <= maxroffnum;
@@ -886,7 +886,7 @@ readpage:
 			IndexTuple	itup;
 			Size		itemsz;
 
-			/* skip dead tuples */
+			/* 跳过死元组 */
 			if (ItemIdIsDead(PageGetItemId(rpage, roffnum)))
 				continue;
 
@@ -896,9 +896,9 @@ readpage:
 			itemsz = MAXALIGN(itemsz);
 
 			/*
-			 * Walk up the bucket chain, looking for a page big enough for
-			 * this item and all other accumulated items.  Exit if we reach
-			 * the read page.
+			 * 沿桶链向上走，寻找一张放得下本项
+			 * 以及所有其他已累积项的页。若到达
+			 * 读页则退出。
 			 */
 			while (PageGetFreeSpaceForMultipleTuples(wpage, nitups + 1) < (all_tups_size + itemsz))
 			{
@@ -913,7 +913,7 @@ readpage:
 				wblkno = wopaque->hasho_nextblkno;
 				Assert(BlockNumberIsValid(wblkno));
 
-				/* don't need to move to next page if we reached the read page */
+				/* 若已到达读页，则不必移到下一页 */
 				if (wblkno != rblkno)
 					next_wbuf = _hash_getbuf_with_strategy(rel,
 														   wblkno,
@@ -926,8 +926,8 @@ readpage:
 					Assert(nitups == ndeletable);
 
 					/*
-					 * This operation needs to log multiple tuples, prepare
-					 * WAL for that.
+					 * 本操作要把多个元组记入 WAL，
+					 * 为此先做准备。
 					 */
 					if (RelationNeedsWAL(rel))
 						XLogEnsureRecordSpace(0, 3 + nitups);
@@ -935,19 +935,19 @@ readpage:
 					START_CRIT_SECTION();
 
 					/*
-					 * we have to insert tuples on the "write" page, being
-					 * careful to preserve hashkey ordering.  (If we insert
-					 * many tuples into the same "write" page it would be
-					 * worth qsort'ing them).
+					 * 我们必须把元组插入 "写" 页，同时
+					 * 小心保持哈希键顺序。（若向同一张
+					 * "写" 页插入许多元组，值得
+					 * 先对它们做 qsort）。
 					 */
 					_hash_pgaddmultitup(rel, wbuf, itups, itup_offsets, nitups);
 					MarkBufferDirty(wbuf);
 
-					/* Delete tuples we already moved off read page */
+					/* 删除已经从读页移走的元组 */
 					PageIndexMultiDelete(rpage, deletable, ndeletable);
 					MarkBufferDirty(rbuf);
 
-					/* XLOG stuff */
+					/* XLOG 相关 */
 					if (RelationNeedsWAL(rel))
 					{
 						XLogRecPtr	recptr;
@@ -960,8 +960,8 @@ readpage:
 						XLogRegisterData((char *) &xlrec, SizeOfHashMovePageContents);
 
 						/*
-						 * bucket buffer needs to be registered to ensure that
-						 * we can acquire a cleanup lock on it during replay.
+						 * 桶缓冲区需要登记，以确保
+						 * 重放期间我们能对它取得清理锁。
 						 */
 						if (!xlrec.is_prim_bucket_same_wrt)
 							XLogRegisterBuffer(0, bucket_buf, REGBUF_STANDARD | REGBUF_NO_IMAGE);
@@ -988,15 +988,15 @@ readpage:
 				}
 
 				/*
-				 * release the lock on previous page after acquiring the lock
-				 * on next page
+				 * 在取得下一页的锁之后，
+				 * 再释放前一页上的锁
 				 */
 				if (retain_pin)
 					LockBuffer(wbuf, BUFFER_LOCK_UNLOCK);
 				else
 					_hash_relbuf(rel, wbuf);
 
-				/* nothing more to do if we reached the read page */
+				/* 若已到达读页，则没有更多事情要做 */
 				if (rblkno == wblkno)
 				{
 					_hash_relbuf(rel, rbuf);
@@ -1009,7 +1009,7 @@ readpage:
 				Assert(wopaque->hasho_bucket == bucket);
 				retain_pin = false;
 
-				/* be tidy */
+				/* 保持整洁 */
 				for (i = 0; i < nitups; i++)
 					pfree(itups[i]);
 				nitups = 0;
@@ -1017,20 +1017,20 @@ readpage:
 				ndeletable = 0;
 
 				/*
-				 * after moving the tuples, rpage would have been compacted,
-				 * so we need to rescan it.
+				 * 移走这些元组之后，rpage 已经被压紧，
+				 * 因此需要重新扫描它。
 				 */
 				if (tups_moved)
 					goto readpage;
 			}
 
-			/* remember tuple for deletion from "read" page */
+			/* 记住要从 "读" 页删除的元组 */
 			deletable[ndeletable++] = roffnum;
 
 			/*
-			 * we need a copy of index tuples as they can be freed as part of
-			 * overflow page, however we need them to write a WAL record in
-			 * _hash_freeovflpage.
+			 * 需要一份索引元组副本，因为它们可能作为
+			 * 溢出页的一部分被释放，但在 _hash_freeovflpage
+			 * 里写 WAL 时还要用到它们。
 			 */
 			itups[nitups] = CopyIndexTuple(itup);
 			tups_size[nitups++] = itemsz;
@@ -1038,31 +1038,31 @@ readpage:
 		}
 
 		/*
-		 * If we reach here, there are no live tuples on the "read" page ---
-		 * it was empty when we got to it, or we moved them all.  So we can
-		 * just free the page without bothering with deleting tuples
-		 * individually.  Then advance to the previous "read" page.
+		 * 若到达这里，"读" 页上已经没有活元组——
+		 * 要么我们到达时它就是空的，要么已经全部移走。因此可以
+		 * 直接释放该页，不必逐个删除元组。
+		 * 然后前进到前一张 "读" 页。
 		 *
-		 * Tricky point here: if our read and write pages are adjacent in the
-		 * bucket chain, our write lock on wbuf will conflict with
-		 * _hash_freeovflpage's attempt to update the sibling links of the
-		 * removed page.  In that case, we don't need to lock it again.
+		 * 这里有个微妙之处：若读页与写页在桶链里相邻，
+		 * 我们持有的 wbuf 写锁会和 _hash_freeovflpage
+		 * 更新被移除页兄弟链接的尝试相冲突。
+		 * 这种情况下不需要再次给它加锁。
 		 */
 		rblkno = ropaque->hasho_prevblkno;
 		Assert(BlockNumberIsValid(rblkno));
 
-		/* free this overflow page (releases rbuf) */
+		/* 释放该溢出页（同时释放 rbuf） */
 		_hash_freeovflpage(rel, bucket_buf, rbuf, wbuf, itups, itup_offsets,
 						   tups_size, nitups, bstrategy);
 
-		/* be tidy */
+		/* 保持整洁 */
 		for (i = 0; i < nitups; i++)
 			pfree(itups[i]);
 
-		/* are we freeing the page adjacent to wbuf? */
+		/* 正在释放的是否是紧挨 wbuf 的页？ */
 		if (rblkno == wblkno)
 		{
-			/* retain the pin on primary bucket page till end of bucket scan */
+			/* 直到桶扫描结束都保持主桶页上的钉住 */
 			if (wblkno == bucket_blkno)
 				LockBuffer(wbuf, BUFFER_LOCK_UNLOCK);
 			else
@@ -1080,5 +1080,5 @@ readpage:
 		Assert(ropaque->hasho_bucket == bucket);
 	}
 
-	/* NOTREACHED */
+	/* 不可达 (NOTREACHED) */
 }

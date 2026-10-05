@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0148-comment-access-hash-part3",
+ "title": "zh: translate access/hash comments (part 3)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "544b8b4b368f32e2bbbc9f51e21c6350e4393838",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/hash/hashovfl.c",
+   "kind": "c_comment",
+   "note": "hash index overflow page management"
+  },
+  {
+   "pattern": "src/backend/access/hash/hash_xlog.c",
+   "kind": "c_comment",
+   "note": "hash index WAL replay"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0148-comment-access-hash-part3.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/hash/hashovfl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 97,
+   "translated": 97,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash index overflow page management; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/hash/hash_xlog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 66,
+   "translated": 66,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash index WAL replay; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0148-comment-access-hash-part3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0148 translates comments in src/backend/access/hash/hashovfl.c and hash_xlog.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: hashpage.c (final hash batch)."
+}

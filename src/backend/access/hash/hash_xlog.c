@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hash_xlog.c
- *	  WAL replay logic for hash index.
+ *	  hash 索引的 WAL 重放逻辑。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,7 +24,7 @@
 #include "storage/procarray.h"
 
 /*
- * replay a hash index meta page
+ * 重放 hash 索引元页
  */
 static void
 hash_xlog_init_meta_page(XLogReaderState *record)
@@ -36,7 +36,7 @@ hash_xlog_init_meta_page(XLogReaderState *record)
 
 	xl_hash_init_meta_page *xlrec = (xl_hash_init_meta_page *) XLogRecGetData(record);
 
-	/* create the index' metapage */
+	/* 创建索引的元页 */
 	metabuf = XLogInitBufferForRedo(record, 0);
 	Assert(BufferIsValid(metabuf));
 	_hash_init_metabuffer(metabuf, xlrec->num_tuples, xlrec->procid,
@@ -46,21 +46,21 @@ hash_xlog_init_meta_page(XLogReaderState *record)
 	MarkBufferDirty(metabuf);
 
 	/*
-	 * Force the on-disk state of init forks to always be in sync with the
-	 * state in shared buffers.  See XLogReadBufferForRedoExtended.  We need
-	 * special handling for init forks as create index operations don't log a
-	 * full page image of the metapage.
+	 * 强制使初始化分叉的磁盘状态始终与共享缓冲区中的
+	 * 状态保持同步。参见 XLogReadBufferForRedoExtended。创建索引
+	 * 操作不会记录元页的整页映像，因此初始化分叉
+	 * 需要特殊处理。
 	 */
 	XLogRecGetBlockTag(record, 0, NULL, &forknum, NULL);
 	if (forknum == INIT_FORKNUM)
 		FlushOneBuffer(metabuf);
 
-	/* all done */
+	/* 全部完成 */
 	UnlockReleaseBuffer(metabuf);
 }
 
 /*
- * replay a hash index bitmap page
+ * 重放 hash 索引位图页
  */
 static void
 hash_xlog_init_bitmap_page(XLogReaderState *record)
@@ -76,7 +76,7 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
 	xl_hash_init_bitmap_page *xlrec = (xl_hash_init_bitmap_page *) XLogRecGetData(record);
 
 	/*
-	 * Initialize bitmap page
+	 * 初始化位图页
 	 */
 	bitmapbuf = XLogInitBufferForRedo(record, 0);
 	_hash_initbitmapbuffer(bitmapbuf, xlrec->bmsize, true);
@@ -84,24 +84,24 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
 	MarkBufferDirty(bitmapbuf);
 
 	/*
-	 * Force the on-disk state of init forks to always be in sync with the
-	 * state in shared buffers.  See XLogReadBufferForRedoExtended.  We need
-	 * special handling for init forks as create index operations don't log a
-	 * full page image of the metapage.
+	 * 强制使初始化分叉的磁盘状态始终与共享缓冲区中的
+	 * 状态保持同步。参见 XLogReadBufferForRedoExtended。创建索引
+	 * 操作不会记录元页的整页映像，因此初始化分叉
+	 * 需要特殊处理。
 	 */
 	XLogRecGetBlockTag(record, 0, NULL, &forknum, NULL);
 	if (forknum == INIT_FORKNUM)
 		FlushOneBuffer(bitmapbuf);
 	UnlockReleaseBuffer(bitmapbuf);
 
-	/* add the new bitmap page to the metapage's list of bitmaps */
+	/* 把新位图页加入元页的位图列表 */
 	if (XLogReadBufferForRedo(record, 1, &metabuf) == BLK_NEEDS_REDO)
 	{
 		/*
-		 * Note: in normal operation, we'd update the metapage while still
-		 * holding lock on the bitmap page.  But during replay it's not
-		 * necessary to hold that lock, since nobody can see it yet; the
-		 * creating transaction hasn't yet committed.
+		 * 注意：正常操作中，我们会在仍持有位图页锁的同时
+		 * 更新元页。但重放期间不必持有该锁，因为还没有人
+		 * 能看见它；创建该页的事务
+		 * 尚未提交。
 		 */
 		page = BufferGetPage(metabuf);
 		metap = HashPageGetMeta(page);
@@ -122,7 +122,7 @@ hash_xlog_init_bitmap_page(XLogReaderState *record)
 }
 
 /*
- * replay a hash index insert without split
+ * 重放不带分裂的 hash 索引插入
  */
 static void
 hash_xlog_insert(XLogReaderState *record)
@@ -153,10 +153,10 @@ hash_xlog_insert(XLogReaderState *record)
 	if (XLogReadBufferForRedo(record, 1, &buffer) == BLK_NEEDS_REDO)
 	{
 		/*
-		 * Note: in normal operation, we'd update the metapage while still
-		 * holding lock on the page we inserted into.  But during replay it's
-		 * not necessary to hold that lock, since no other index updates can
-		 * be happening concurrently.
+		 * 注意：正常操作中，我们会在仍持有所插入页的锁时
+		 * 更新元页。但重放期间不必持有那把锁，
+		 * 因为不会有其他索引更新
+		 * 并发进行。
 		 */
 		page = BufferGetPage(buffer);
 		metap = HashPageGetMeta(page);
@@ -170,7 +170,7 @@ hash_xlog_insert(XLogReaderState *record)
 }
 
 /*
- * replay addition of overflow page for hash index
+ * 重放为 hash 索引增加溢出页
  */
 static void
 hash_xlog_add_ovfl_page(XLogReaderState *record)
@@ -201,7 +201,7 @@ hash_xlog_add_ovfl_page(XLogReaderState *record)
 	Assert(datalen == sizeof(uint32));
 	_hash_initbuf(ovflbuf, InvalidBlockNumber, *num_bucket, LH_OVERFLOW_PAGE,
 				  true);
-	/* update backlink */
+	/* 更新反向链接 */
 	ovflpage = BufferGetPage(ovflbuf);
 	ovflopaque = HashPageGetOpaque(ovflpage);
 	ovflopaque->hasho_prevblkno = leftblk;
@@ -227,10 +227,10 @@ hash_xlog_add_ovfl_page(XLogReaderState *record)
 	UnlockReleaseBuffer(ovflbuf);
 
 	/*
-	 * Note: in normal operation, we'd update the bitmap and meta page while
-	 * still holding lock on the overflow pages.  But during replay it's not
-	 * necessary to hold those locks, since no other index updates can be
-	 * happening concurrently.
+	 * 注意：正常操作中，我们会在仍持有溢出页上的锁时
+	 * 更新位图页和元页。但重放期间不必持有那些锁，
+	 * 因为不会有其他索引更新
+	 * 并发进行。
 	 */
 	if (XLogRecHasBlockRef(record, 2))
 	{
@@ -308,7 +308,7 @@ hash_xlog_add_ovfl_page(XLogReaderState *record)
 }
 
 /*
- * replay allocation of page for split operation
+ * 重放分裂操作的页分配
  */
 static void
 hash_xlog_split_allocate_page(XLogReaderState *record)
@@ -323,17 +323,17 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * To be consistent with normal operation, here we take cleanup locks on
-	 * both the old and new buckets even though there can't be any concurrent
-	 * inserts.
+	 * 为与正常操作保持一致，这里对旧桶和新桶都取清理锁，
+	 * 尽管不会有任何并发
+	 * 插入。
 	 */
 
-	/* replay the record for old bucket */
+	/* 重放旧桶的记录 */
 	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true, &oldbuf);
 
 	/*
-	 * Note that we still update the page even if it was restored from a full
-	 * page image, because the special space is not included in the image.
+	 * 注意：即使该页是从整页映像恢复的，
+	 * 我们仍要更新它，因为特殊空间不包含在映像中。
 	 */
 	if (action == BLK_NEEDS_REDO || action == BLK_RESTORED)
 	{
@@ -350,7 +350,7 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 		MarkBufferDirty(oldbuf);
 	}
 
-	/* replay the record for new bucket */
+	/* 重放新桶的记录 */
 	XLogReadBufferForRedoExtended(record, 1, RBM_ZERO_AND_CLEANUP_LOCK, true,
 								  &newbuf);
 	_hash_initbuf(newbuf, xlrec->new_bucket, xlrec->new_bucket,
@@ -359,8 +359,8 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 	PageSetLSN(BufferGetPage(newbuf), lsn);
 
 	/*
-	 * We can release the lock on old bucket early as well but doing here to
-	 * consistent with normal operation.
+	 * 我们也可以更早释放旧桶上的锁，但放在这里做
+	 * 是为了与正常操作保持一致。
 	 */
 	if (BufferIsValid(oldbuf))
 		UnlockReleaseBuffer(oldbuf);
@@ -368,13 +368,13 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 		UnlockReleaseBuffer(newbuf);
 
 	/*
-	 * Note: in normal operation, we'd update the meta page while still
-	 * holding lock on the old and new bucket pages.  But during replay it's
-	 * not necessary to hold those locks, since no other bucket splits can be
-	 * happening concurrently.
+	 * 注意：正常操作中，我们会在仍持有旧桶页和新桶页锁时
+	 * 更新元页。但重放期间不必持有那些锁，
+	 * 因为不会有其他桶分裂
+	 * 并发进行。
 	 */
 
-	/* replay the record for metapage changes */
+	/* 重放元页变更的记录 */
 	if (XLogReadBufferForRedo(record, 2, &metabuf) == BLK_NEEDS_REDO)
 	{
 		Page		page;
@@ -391,11 +391,11 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 			uint32		lowmask;
 			uint32	   *highmask;
 
-			/* extract low and high masks. */
+			/* 取出低位掩码和高位掩码。 */
 			memcpy(&lowmask, data, sizeof(uint32));
 			highmask = (uint32 *) ((char *) data + sizeof(uint32));
 
-			/* update metapage */
+			/* 更新元页 */
 			metap->hashm_lowmask = lowmask;
 			metap->hashm_highmask = *highmask;
 
@@ -407,11 +407,11 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 			uint32		ovflpoint;
 			uint32	   *ovflpages;
 
-			/* extract information of overflow pages. */
+			/* 取出溢出页的信息。 */
 			memcpy(&ovflpoint, data, sizeof(uint32));
 			ovflpages = (uint32 *) ((char *) data + sizeof(uint32));
 
-			/* update metapage */
+			/* 更新元页 */
 			metap->hashm_spares[ovflpoint] = *ovflpages;
 			metap->hashm_ovflpoint = ovflpoint;
 		}
@@ -425,7 +425,7 @@ hash_xlog_split_allocate_page(XLogReaderState *record)
 }
 
 /*
- * replay of split operation
+ * 重放分裂操作
  */
 static void
 hash_xlog_split_page(XLogReaderState *record)
@@ -439,7 +439,7 @@ hash_xlog_split_page(XLogReaderState *record)
 }
 
 /*
- * replay completion of split operation
+ * 重放分裂操作的完成
  */
 static void
 hash_xlog_split_complete(XLogReaderState *record)
@@ -450,12 +450,12 @@ hash_xlog_split_complete(XLogReaderState *record)
 	Buffer		newbuf;
 	XLogRedoAction action;
 
-	/* replay the record for old bucket */
+	/* 重放旧桶的记录 */
 	action = XLogReadBufferForRedo(record, 0, &oldbuf);
 
 	/*
-	 * Note that we still update the page even if it was restored from a full
-	 * page image, because the bucket flag is not included in the image.
+	 * 注意：即使该页是从整页映像恢复的，
+	 * 我们仍要更新它，因为桶标志不包含在映像中。
 	 */
 	if (action == BLK_NEEDS_REDO || action == BLK_RESTORED)
 	{
@@ -473,12 +473,12 @@ hash_xlog_split_complete(XLogReaderState *record)
 	if (BufferIsValid(oldbuf))
 		UnlockReleaseBuffer(oldbuf);
 
-	/* replay the record for new bucket */
+	/* 重放新桶的记录 */
 	action = XLogReadBufferForRedo(record, 1, &newbuf);
 
 	/*
-	 * Note that we still update the page even if it was restored from a full
-	 * page image, because the bucket flag is not included in the image.
+	 * 注意：即使该页是从整页映像恢复的，
+	 * 我们仍要更新它，因为桶标志不包含在映像中。
 	 */
 	if (action == BLK_NEEDS_REDO || action == BLK_RESTORED)
 	{
@@ -498,7 +498,7 @@ hash_xlog_split_complete(XLogReaderState *record)
 }
 
 /*
- * replay move of page contents for squeeze operation of hash index
+ * 重放 hash 索引挤压操作中的页内容移动
  */
 static void
 hash_xlog_move_page_contents(XLogReaderState *record)
@@ -511,26 +511,26 @@ hash_xlog_move_page_contents(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * Ensure we have a cleanup lock on primary bucket page before we start
-	 * with the actual replay operation.  This is to ensure that neither a
-	 * scan can start nor a scan can be already-in-progress during the replay
-	 * of this operation.  If we allow scans during this operation, then they
-	 * can miss some records or show the same record multiple times.
+	 * 在开始实际的重放操作之前，确保已在主桶页上持有清理锁。
+	 * 这是为了确保本操作重放期间既不能有扫描开始，
+	 * 也不能已有扫描正在进行。若允许在本操作期间扫描，
+	 * 它们就可能漏掉某些记录，或多次显示
+	 * 同一条记录。
 	 */
 	if (xldata->is_prim_bucket_same_wrt)
 		action = XLogReadBufferForRedoExtended(record, 1, RBM_NORMAL, true, &writebuf);
 	else
 	{
 		/*
-		 * we don't care for return value as the purpose of reading bucketbuf
-		 * is to ensure a cleanup lock on primary bucket page.
+		 * 我们不关心返回值，因为读取 bucketbuf 的目的
+		 * 是确保在主桶页上取得清理锁。
 		 */
 		(void) XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true, &bucketbuf);
 
 		action = XLogReadBufferForRedo(record, 1, &writebuf);
 	}
 
-	/* replay the record for adding entries in overflow buffer */
+	/* 重放向溢出缓冲区添加条目的记录 */
 	if (action == BLK_NEEDS_REDO)
 	{
 		Page		writepage;
@@ -570,7 +570,7 @@ hash_xlog_move_page_contents(XLogReaderState *record)
 		}
 
 		/*
-		 * number of tuples inserted must be same as requested in REDO record.
+		 * 插入的元组数必须与重做项中请求的数量相同。
 		 */
 		Assert(ninserted == xldata->ntups);
 
@@ -578,7 +578,7 @@ hash_xlog_move_page_contents(XLogReaderState *record)
 		MarkBufferDirty(writebuf);
 	}
 
-	/* replay the record for deleting entries from overflow buffer */
+	/* 重放从溢出缓冲区删除条目的记录 */
 	if (XLogReadBufferForRedo(record, 2, &deletebuf) == BLK_NEEDS_REDO)
 	{
 		Page		page;
@@ -606,12 +606,12 @@ hash_xlog_move_page_contents(XLogReaderState *record)
 	}
 
 	/*
-	 * Replay is complete, now we can release the buffers. We release locks at
-	 * end of replay operation to ensure that we hold lock on primary bucket
-	 * page till end of operation.  We can optimize by releasing the lock on
-	 * write buffer as soon as the operation for same is complete, if it is
-	 * not same as primary bucket page, but that doesn't seem to be worth
-	 * complicating the code.
+	 * 重放已经完成，现在可以释放这些缓冲区。我们把锁的释放放在
+	 * 重放操作结束时，以确保直到操作结束都持有主桶页
+	 * 上的锁。若写缓冲区与主桶页不是同一页，可以在针对
+	 * 写缓冲区的操作一完成就释放其上的锁，以此优化，
+	 * 但那似乎不值得让代码变得
+	 * 更复杂。
 	 */
 	if (BufferIsValid(deletebuf))
 		UnlockReleaseBuffer(deletebuf);
@@ -624,7 +624,7 @@ hash_xlog_move_page_contents(XLogReaderState *record)
 }
 
 /*
- * replay squeeze page operation of hash index
+ * 重放 hash 索引的挤压页操作
  */
 static void
 hash_xlog_squeeze_page(XLogReaderState *record)
@@ -639,26 +639,26 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * Ensure we have a cleanup lock on primary bucket page before we start
-	 * with the actual replay operation.  This is to ensure that neither a
-	 * scan can start nor a scan can be already-in-progress during the replay
-	 * of this operation.  If we allow scans during this operation, then they
-	 * can miss some records or show the same record multiple times.
+	 * 在开始实际的重放操作之前，确保已在主桶页上持有清理锁。
+	 * 这是为了确保本操作重放期间既不能有扫描开始，
+	 * 也不能已有扫描正在进行。若允许在本操作期间扫描，
+	 * 它们就可能漏掉某些记录，或多次显示
+	 * 同一条记录。
 	 */
 	if (xldata->is_prim_bucket_same_wrt)
 		action = XLogReadBufferForRedoExtended(record, 1, RBM_NORMAL, true, &writebuf);
 	else
 	{
 		/*
-		 * we don't care for return value as the purpose of reading bucketbuf
-		 * is to ensure a cleanup lock on primary bucket page.
+		 * 我们不关心返回值，因为读取 bucketbuf 的目的
+		 * 是确保在主桶页上取得清理锁。
 		 */
 		(void) XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true, &bucketbuf);
 
 		action = XLogReadBufferForRedo(record, 1, &writebuf);
 	}
 
-	/* replay the record for adding entries in overflow buffer */
+	/* 重放向溢出缓冲区添加条目的记录 */
 	if (action == BLK_NEEDS_REDO)
 	{
 		Page		writepage;
@@ -698,13 +698,13 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 		}
 
 		/*
-		 * number of tuples inserted must be same as requested in REDO record.
+		 * 插入的元组数必须与重做项中请求的数量相同。
 		 */
 		Assert(ninserted == xldata->ntups);
 
 		/*
-		 * if the page on which are adding tuples is a page previous to freed
-		 * overflow page, then update its nextblkno.
+		 * 若正在添加元组的页就是已释放溢出页的前一页，
+		 * 则更新它的 nextblkno。
 		 */
 		if (xldata->is_prev_bucket_same_wrt)
 		{
@@ -717,7 +717,7 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 		MarkBufferDirty(writebuf);
 	}
 
-	/* replay the record for initializing overflow buffer */
+	/* 重放初始化溢出缓冲区的记录 */
 	if (XLogReadBufferForRedo(record, 2, &ovflbuf) == BLK_NEEDS_REDO)
 	{
 		Page		ovflpage;
@@ -741,7 +741,7 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 	if (BufferIsValid(ovflbuf))
 		UnlockReleaseBuffer(ovflbuf);
 
-	/* replay the record for page previous to the freed overflow page */
+	/* 重放已释放溢出页的前一页的记录 */
 	if (!xldata->is_prev_bucket_same_wrt &&
 		XLogReadBufferForRedo(record, 3, &prevbuf) == BLK_NEEDS_REDO)
 	{
@@ -756,7 +756,7 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 	if (BufferIsValid(prevbuf))
 		UnlockReleaseBuffer(prevbuf);
 
-	/* replay the record for page next to the freed overflow page */
+	/* 重放已释放溢出页的后一页的记录 */
 	if (XLogRecHasBlockRef(record, 4))
 	{
 		Buffer		nextbuf;
@@ -782,12 +782,12 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 		UnlockReleaseBuffer(bucketbuf);
 
 	/*
-	 * Note: in normal operation, we'd update the bitmap and meta page while
-	 * still holding lock on the primary bucket page and overflow pages.  But
-	 * during replay it's not necessary to hold those locks, since no other
-	 * index updates can be happening concurrently.
+	 * 注意：正常操作中，我们会在仍持有主桶页和溢出页锁时
+	 * 更新位图页和元页。但重放期间不必持有那些锁，
+	 * 因为不会有其他索引更新
+	 * 并发进行。
 	 */
-	/* replay the record for bitmap page */
+	/* 重放位图页的记录 */
 	if (XLogReadBufferForRedo(record, 5, &mapbuf) == BLK_NEEDS_REDO)
 	{
 		Page		mappage = (Page) BufferGetPage(mapbuf);
@@ -809,7 +809,7 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 	if (BufferIsValid(mapbuf))
 		UnlockReleaseBuffer(mapbuf);
 
-	/* replay the record for meta page */
+	/* 重放元页的记录 */
 	if (XLogRecHasBlockRef(record, 6))
 	{
 		Buffer		metabuf;
@@ -838,7 +838,7 @@ hash_xlog_squeeze_page(XLogReaderState *record)
 }
 
 /*
- * replay delete operation of hash index
+ * 重放 hash 索引的删除操作
  */
 static void
 hash_xlog_delete(XLogReaderState *record)
@@ -851,26 +851,26 @@ hash_xlog_delete(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * Ensure we have a cleanup lock on primary bucket page before we start
-	 * with the actual replay operation.  This is to ensure that neither a
-	 * scan can start nor a scan can be already-in-progress during the replay
-	 * of this operation.  If we allow scans during this operation, then they
-	 * can miss some records or show the same record multiple times.
+	 * 在开始实际的重放操作之前，确保已在主桶页上持有清理锁。
+	 * 这是为了确保本操作重放期间既不能有扫描开始，
+	 * 也不能已有扫描正在进行。若允许在本操作期间扫描，
+	 * 它们就可能漏掉某些记录，或多次显示
+	 * 同一条记录。
 	 */
 	if (xldata->is_primary_bucket_page)
 		action = XLogReadBufferForRedoExtended(record, 1, RBM_NORMAL, true, &deletebuf);
 	else
 	{
 		/*
-		 * we don't care for return value as the purpose of reading bucketbuf
-		 * is to ensure a cleanup lock on primary bucket page.
+		 * 我们不关心返回值，因为读取 bucketbuf 的目的
+		 * 是确保在主桶页上取得清理锁。
 		 */
 		(void) XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true, &bucketbuf);
 
 		action = XLogReadBufferForRedo(record, 1, &deletebuf);
 	}
 
-	/* replay the record for deleting entries in bucket page */
+	/* 重放删除桶页中条目的记录 */
 	if (action == BLK_NEEDS_REDO)
 	{
 		char	   *ptr;
@@ -893,9 +893,9 @@ hash_xlog_delete(XLogReaderState *record)
 		}
 
 		/*
-		 * Mark the page as not containing any LP_DEAD items only if
-		 * clear_dead_marking flag is set to true. See comments in
-		 * hashbucketcleanup() for details.
+		 * 仅当 clear_dead_marking 标志设为 true 时，
+		 * 才把该页标为不含任何 LP_DEAD 项。细节见
+		 * hashbucketcleanup() 中的注释。
 		 */
 		if (xldata->clear_dead_marking)
 		{
@@ -916,7 +916,7 @@ hash_xlog_delete(XLogReaderState *record)
 }
 
 /*
- * replay split cleanup flag operation for primary bucket page.
+ * 重放主桶页上的分裂清理标志操作。
  */
 static void
 hash_xlog_split_cleanup(XLogReaderState *record)
@@ -941,7 +941,7 @@ hash_xlog_split_cleanup(XLogReaderState *record)
 }
 
 /*
- * replay for update meta page
+ * 重放元页更新
  */
 static void
 hash_xlog_update_meta_page(XLogReaderState *record)
@@ -967,8 +967,8 @@ hash_xlog_update_meta_page(XLogReaderState *record)
 }
 
 /*
- * replay delete operation in hash index to remove
- * tuples marked as DEAD during index tuple insertion.
+ * 重放 hash 索引中的删除操作，以移除
+ * 索引元组插入期间被标为 DEAD 的元组。
  */
 static void
 hash_xlog_vacuum_one_page(XLogReaderState *record)
@@ -986,16 +986,16 @@ hash_xlog_vacuum_one_page(XLogReaderState *record)
 	toDelete = xldata->offsets;
 
 	/*
-	 * If we have any conflict processing to do, it must happen before we
-	 * update the page.
+	 * 若有任何冲突处理要做，必须在我们
+	 * 更新该页之前完成。
 	 *
-	 * Hash index records that are marked as LP_DEAD and being removed during
-	 * hash index tuple insertion can conflict with standby queries. You might
-	 * think that vacuum records would conflict as well, but we've handled
-	 * that already.  XLOG_HEAP2_PRUNE records provide the highest xid cleaned
-	 * by the vacuum of the heap and so we can resolve any conflicts just once
-	 * when that arrives.  After that we know that no conflicts exist from
-	 * individual hash index vacuum records on that index.
+	 * 在 hash 索引元组插入期间被标为 LP_DEAD 并正在移除的
+	 * hash 索引条目，可能与备库查询冲突。你也许会认为
+	 * 清理产生的条目同样会冲突，但那已经处理过了。
+	 * XLOG_HEAP2_PRUNE 条目给出由堆清理所清理的最高 xid，
+	 * 因此我们可以在它到达时只解决一次冲突。此后便知道，
+	 * 来自该索引上单独的 hash 索引清理条目的冲突
+	 * 已经不存在。
 	 */
 	if (InHotStandby)
 	{
@@ -1016,8 +1016,8 @@ hash_xlog_vacuum_one_page(XLogReaderState *record)
 		PageIndexMultiDelete(page, toDelete, xldata->ntuples);
 
 		/*
-		 * Mark the page as not containing any LP_DEAD items. See comments in
-		 * _hash_vacuum_one_page() for details.
+		 * 把该页标为不含任何 LP_DEAD 项。细节见
+		 * _hash_vacuum_one_page() 中的注释。
 		 */
 		pageopaque = HashPageGetOpaque(page);
 		pageopaque->hasho_flag &= ~LH_PAGE_HAS_DEAD_TUPLES;
@@ -1097,7 +1097,7 @@ hash_redo(XLogReaderState *record)
 }
 
 /*
- * Mask a hash page before performing consistency checks on it.
+ * 在对 hash 页做一致性检查之前先屏蔽它。
  */
 void
 hash_mask(char *pagedata, BlockNumber blkno)
@@ -1117,7 +1117,7 @@ hash_mask(char *pagedata, BlockNumber blkno)
 	if (pagetype == LH_UNUSED_PAGE)
 	{
 		/*
-		 * Mask everything on a UNUSED page.
+		 * 屏蔽 UNUSED 页上的全部内容。
 		 */
 		mask_page_content(page);
 	}
@@ -1125,16 +1125,16 @@ hash_mask(char *pagedata, BlockNumber blkno)
 			 pagetype == LH_OVERFLOW_PAGE)
 	{
 		/*
-		 * In hash bucket and overflow pages, it is possible to modify the
-		 * LP_FLAGS without emitting any WAL record. Hence, mask the line
-		 * pointer flags. See hashgettuple(), _hash_kill_items() for details.
+		 * 在 hash 桶页和溢出页上，有可能不发出任何 WAL 记录
+		 * 就修改 LP_FLAGS。因此屏蔽行指针标志。细节见
+		 * hashgettuple() 与 _hash_kill_items()。
 		 */
 		mask_lp_flags(page);
 	}
 
 	/*
-	 * It is possible that the hint bit LH_PAGE_HAS_DEAD_TUPLES may remain
-	 * unlogged. So, mask it. See _hash_kill_items() for details.
+	 * 提示位 LH_PAGE_HAS_DEAD_TUPLES 可能仍未被记入日志。
+	 * 因此屏蔽它。细节见 _hash_kill_items()。
 	 */
 	opaque->hasho_flag &= ~LH_PAGE_HAS_DEAD_TUPLES;
 }

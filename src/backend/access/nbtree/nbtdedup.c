@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtdedup.c
- *	  Deduplicate or bottom-up delete items in Postgres btrees.
+ *	  在 Postgres B-树中对项去重或做自底向上删除。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,28 +31,28 @@ static bool _bt_posting_valid(IndexTuple posting);
 #endif
 
 /*
- * Perform a deduplication pass.
+ * 执行一次去重趟。
  *
- * The general approach taken here is to perform as much deduplication as
- * possible to free as much space as possible.  Note, however, that "single
- * value" strategy is used for !bottomupdedup callers when the page is full of
- * tuples of a single value.  Deduplication passes that apply the strategy
- * will leave behind a few untouched tuples at the end of the page, preparing
- * the page for an anticipated page split that uses nbtsplitloc.c's own single
- * value strategy.  Our high level goal is to delay merging the untouched
- * tuples until after the page splits.
+ * 这里的总体做法是尽可能多地去重，
+ * 以尽可能多地腾出空间。不过请注意，"单值"
+ * 策略用于非 bottomupdedup 调用者，当页上全是
+ * 同一值的元组时。应用该策略的去重趟
+ * 会在页尾留下若干未触碰的元组，为
+ * 预计采用 nbtsplitloc.c 自身单值
+ * 策略的页分裂做准备。我们的高层目标是推迟合并这些未触碰的
+ * 元组，直到页分裂之后。
  *
- * When a call to _bt_bottomupdel_pass() just took place (and failed), our
- * high level goal is to prevent a page split entirely by buying more time.
- * We still hope that a page split can be avoided altogether.  That's why
- * single value strategy is not even considered for bottomupdedup callers.
+ * 当刚刚调用过 _bt_bottomupdel_pass()（并且失败）时，我们的
+ * 高层目标是争取更多时间，从而完全防止页分裂。
+ * 我们仍然希望页分裂能被完全避免。因此
+ * 对 bottomupdedup 调用者甚至不考虑单值策略。
  *
- * The page will have to be split if we cannot successfully free at least
- * newitemsz (we also need space for newitem's line pointer, which isn't
- * included in caller's newitemsz).
+ * 若无法成功腾出至少
+ * newitemsz 的空间，该页将不得不分裂（还需要 newitem 的行指针空间，这部分并未
+ * 计入调用者的 newitemsz）。
  *
- * Note: Caller should have already deleted all existing items with their
- * LP_DEAD bits set.
+ * 注意：调用者应当已经删除所有已设置
+ * LP_DEAD 位的现有项。
  */
 void
 _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
@@ -69,56 +69,56 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	bool		singlevalstrat = false;
 	int			nkeyatts = IndexRelationGetNumberOfKeyAttributes(rel);
 
-	/* Passed-in newitemsz is MAXALIGNED but does not include line pointer */
+	/* 传入的 newitemsz 已 MAXALIGNED，但不包含行指针 */
 	newitemsz += sizeof(ItemIdData);
 
 	/*
-	 * Initialize deduplication state.
+	 * 初始化去重状态。
 	 *
-	 * It would be possible for maxpostingsize (limit on posting list tuple
-	 * size) to be set to one third of the page.  However, it seems like a
-	 * good idea to limit the size of posting lists to one sixth of a page.
-	 * That ought to leave us with a good split point when pages full of
-	 * duplicates can be split several times.
+	 * maxpostingsize（倒排列表元组大小的上限）本来可以
+	 * 设为页的三分之一。不过，把倒排列表的大小限制为
+	 * 页的六分之一似乎是个好主意。
+	 * 这样，当充满重复的页可以分裂好几次时，
+	 * 我们应当仍能得到一个好的分裂点。
 	 */
 	state = (BTDedupState) palloc(sizeof(BTDedupStateData));
 	state->deduplicate = true;
 	state->nmaxitems = 0;
 	state->maxpostingsize = Min(BTMaxItemSize(page) / 2, INDEX_SIZE_MASK);
-	/* Metadata about base tuple of current pending posting list */
+	/* 当前待定倒排列表的基元组元数据 */
 	state->base = NULL;
 	state->baseoff = InvalidOffsetNumber;
 	state->basetupsize = 0;
-	/* Metadata about current pending posting list TIDs */
+	/* 当前待定倒排列表 TIDs 的元数据 */
 	state->htids = palloc(state->maxpostingsize);
 	state->nhtids = 0;
 	state->nitems = 0;
-	/* Size of all physical tuples to be replaced by pending posting list */
+	/* 将被待定倒排列表替换的全部物理元组大小 */
 	state->phystupsize = 0;
-	/* nintervals should be initialized to zero */
+	/* nintervals 应初始化为零 */
 	state->nintervals = 0;
 
 	minoff = P_FIRSTDATAKEY(opaque);
 	maxoff = PageGetMaxOffsetNumber(page);
 
 	/*
-	 * Consider applying "single value" strategy, though only if the page
-	 * seems likely to be split in the near future
+	 * 考虑应用"单值"策略，不过仅当该页
+	 * 看起来很可能在不久的将来分裂时
 	 */
 	if (!bottomupdedup)
 		singlevalstrat = _bt_do_singleval(rel, page, state, minoff, newitem);
 
 	/*
-	 * Deduplicate items from page, and write them to newpage.
+	 * 对页上的项去重，并写入 newpage。
 	 *
-	 * Copy the original page's LSN into newpage copy.  This will become the
-	 * updated version of the page.  We need this because XLogInsert will
-	 * examine the LSN and possibly dump it in a page image.
+	 * 把原页的 LSN 复制到 newpage 副本中。这将成为
+	 * 该页的更新版本。需要这样做是因为 XLogInsert 会
+	 * 检查 LSN，并可能把它转储进页映像。
 	 */
 	newpage = PageGetTempPageCopySpecial(page);
 	PageSetLSN(newpage, PageGetLSN(page));
 
-	/* Copy high key, if any */
+	/* 若有高键则复制 */
 	if (!P_RIGHTMOST(opaque))
 	{
 		ItemId		hitemid = PageGetItemId(page, P_HIKEY);
@@ -142,8 +142,8 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 		if (offnum == minoff)
 		{
 			/*
-			 * No previous/base tuple for the data item -- use the data item
-			 * as base tuple of pending posting list
+			 * 该数据项没有先前的/基元组 -- 把该数据项
+			 * 用作待定倒排列表的基元组
 			 */
 			_bt_dedup_start_pending(state, itup, offnum);
 		}
@@ -152,71 +152,71 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 				 _bt_dedup_save_htid(state, itup))
 		{
 			/*
-			 * Tuple is equal to base tuple of pending posting list.  Heap
-			 * TID(s) for itup have been saved in state.
+			 * 元组等于待定倒排列表的基元组。itup 的堆
+			 * TID(s) 已保存在 state 中。
 			 */
 		}
 		else
 		{
 			/*
-			 * Tuple is not equal to pending posting list tuple, or
-			 * _bt_dedup_save_htid() opted to not merge current item into
-			 * pending posting list for some other reason (e.g., adding more
-			 * TIDs would have caused posting list to exceed current
-			 * maxpostingsize).
+			 * 元组不等于待定倒排列表元组，或者
+			 * _bt_dedup_save_htid() 因其他原因选择不把当前项合并进
+			 * 待定倒排列表（例如，再加入更多
+			 * TIDs 会使倒排列表超过当前的
+			 * maxpostingsize）。
 			 *
-			 * If state contains pending posting list with more than one item,
-			 * form new posting tuple and add it to our temp page (newpage).
-			 * Else add pending interval's base tuple to the temp page as-is.
+			 * 若 state 中的待定倒排列表包含多于一项，
+			 * 则构造新的倒排元组并加入临时页（newpage）。
+			 * 否则把待定区间的基元组原样加入临时页。
 			 */
 			pagesaving += _bt_dedup_finish_pending(newpage, state);
 
 			if (singlevalstrat)
 			{
 				/*
-				 * Single value strategy's extra steps.
+				 * 单值策略的额外步骤。
 				 *
-				 * Lower maxpostingsize for sixth and final large posting list
-				 * tuple at the point where 5 maxpostingsize-capped tuples
-				 * have either been formed or observed.
+				 * 在已形成或观察到 5 个受 maxpostingsize 限制的元组时，
+				 * 降低第六个、也是最后一个大型倒排列表
+				 * 元组的 maxpostingsize。
 				 *
-				 * When a sixth maxpostingsize-capped item is formed/observed,
-				 * stop merging together tuples altogether.  The few tuples
-				 * that remain at the end of the page won't be merged together
-				 * at all (at least not until after a future page split takes
-				 * place, when this page's newly allocated right sibling page
-				 * gets its first deduplication pass).
+				 * 当第六个受 maxpostingsize 限制的项被形成或观察到时，
+				 * 就完全停止把元组合并到一起。页尾剩下的少数元组
+				 * 将完全不会被合并在一起
+				 * （至少要等到将来某次页分裂
+				 * 发生之后，当本页新分配的右兄弟页
+				 * 进行它的第一次去重趟时）。
 				 */
 				if (state->nmaxitems == 5)
 					_bt_singleval_fillfactor(page, state, newitemsz);
 				else if (state->nmaxitems == 6)
 				{
 					state->deduplicate = false;
-					singlevalstrat = false; /* won't be back here */
+					singlevalstrat = false; /* 不会再回到这里 */
 				}
 			}
 
-			/* itup starts new pending posting list */
+			/* itup 开始新的待定倒排列表 */
 			_bt_dedup_start_pending(state, itup, offnum);
 		}
 	}
 
-	/* Handle the last item */
+	/* 处理最后一项 */
 	pagesaving += _bt_dedup_finish_pending(newpage, state);
 
 	/*
-	 * If no items suitable for deduplication were found, newpage must be
-	 * exactly the same as the original page, so just return from function.
+	 * 若没有找到适合去重的项，newpage 必须与
+	 * 原页完全相同，因此直接从函数返回。
 	 *
-	 * We could determine whether or not to proceed on the basis the space
-	 * savings being sufficient to avoid an immediate page split instead.  We
-	 * don't do that because there is some small value in nbtsplitloc.c always
-	 * operating against a page that is fully deduplicated (apart from
-	 * newitem).  Besides, most of the cost has already been paid.
+	 * 我们本可以根据节省的空间是否足以避免立即的页分裂，
+	 * 来决定是否继续。我们
+	 * 不这么做，是因为让 nbtsplitloc.c 始终针对
+	 * 已完全去重的页工作有一点价值（除了
+	 * newitem 之外）。况且大部分代价已经付出。
 	 */
 	if (state->nintervals == 0)
 	{
-		/* cannot leak memory here */
+		/* 这里无法泄漏内存 */
 		pfree(newpage);
 		pfree(state->htids);
 		pfree(state);
@@ -224,11 +224,11 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	}
 
 	/*
-	 * By here, it's clear that deduplication will definitely go ahead.
+	 * 到这里，去重显然一定会进行。
 	 *
-	 * Clear the BTP_HAS_GARBAGE page flag.  The index must be a heapkeyspace
-	 * index, and as such we'll never pay attention to BTP_HAS_GARBAGE anyway.
-	 * But keep things tidy.
+	 * 清除 BTP_HAS_GARBAGE 页标志。该索引必须是 heapkeyspace
+	 * 索引，因此我们反正永远不会关注 BTP_HAS_GARBAGE。
+	 * 但还是保持整洁。
 	 */
 	if (P_HAS_GARBAGE(opaque))
 	{
@@ -242,7 +242,7 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 	PageRestoreTempPage(newpage, page);
 	MarkBufferDirty(buf);
 
-	/* XLOG stuff */
+	/* XLOG 相关处理 */
 	if (RelationNeedsWAL(rel))
 	{
 		XLogRecPtr	recptr;
@@ -255,9 +255,9 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 		XLogRegisterData((char *) &xlrec_dedup, SizeOfBtreeDedup);
 
 		/*
-		 * The intervals array is not in the buffer, but pretend that it is.
-		 * When XLogInsert stores the whole buffer, the array need not be
-		 * stored too.
+		 * 区间数组不在缓冲区中，但假装它在。
+		 * 当 XLogInsert 存储整个缓冲区时，该数组就不必
+		 * 再存储一遍。
 		 */
 		XLogRegisterBufData(0, (char *) state->intervals,
 							state->nintervals * sizeof(BTDedupInterval));
@@ -269,39 +269,39 @@ _bt_dedup_pass(Relation rel, Buffer buf, IndexTuple newitem, Size newitemsz,
 
 	END_CRIT_SECTION();
 
-	/* Local space accounting should agree with page accounting */
+	/* 本地空间记账应与页记账一致 */
 	Assert(pagesaving < newitemsz || PageGetExactFreeSpace(page) >= newitemsz);
 
-	/* cannot leak memory here */
+	/* 这里无法泄漏内存 */
 	pfree(state->htids);
 	pfree(state);
 }
 
 /*
- * Perform bottom-up index deletion pass.
+ * 执行自底向上索引删除趟。
  *
- * See if duplicate index tuples (plus certain nearby tuples) are eligible to
- * be deleted via bottom-up index deletion.  The high level goal here is to
- * entirely prevent "unnecessary" page splits caused by MVCC version churn
- * from UPDATEs (when the UPDATEs don't logically modify any of the columns
- * covered by the 'rel' index).  This is qualitative, not quantitative -- we
- * do not particularly care about once-off opportunities to delete many index
- * tuples together.
+ * 查看重复的索引元组（以及某些邻近元组）是否有资格
+ * 经由自底向上索引删除被删掉。这里的高层目标是
+ * 完全防止由 MVCC 版本搅动引起的"不必要"页分裂，
+ * 这些搅动来自 UPDATEs（当这些 UPDATEs 在逻辑上并未修改
+ * 'rel' 索引所覆盖的任何列时）。这是定性的，不是定量的 -- 我们
+ * 并不特别在意一次性删掉许多索引
+ * 元组的机会。
  *
- * See nbtree/README for details on the design of nbtree bottom-up deletion.
- * See access/tableam.h for a description of how we're expected to cooperate
- * with the tableam.
+ * 关于 nbtree 自底向上删除的设计细节，见 nbtree/README。
+ * 关于我们应如何与 tableam 配合，见 access/tableam.h
+ * 中的说明。
  *
- * Returns true on success, in which case caller can assume page split will be
- * avoided for a reasonable amount of time.  Returns false when caller should
- * deduplicate the page (if possible at all).
+ * 成功时返回 true，此时调用者可以假定页分裂会在
+ * 相当长一段时间内被避免。当调用者应当
+ * 对该页去重时返回 false（若根本有可能的话）。
  *
- * Note: Occasionally we return true despite failing to delete enough items to
- * avoid a split.  This makes caller skip deduplication and go split the page
- * right away.  Our return value is always just advisory information.
+ * 注意：有时尽管未能删掉足够多的项来
+ * 避免分裂，我们仍返回 true。这会使调用者跳过去重并立刻分裂该页。
+ * 我们的返回值始终只是建议性信息。
  *
- * Note: Caller should have already deleted all existing items with their
- * LP_DEAD bits set.
+ * 注意：调用者应当已经删除所有已设置
+ * LP_DEAD 位的现有项。
  */
 bool
 _bt_bottomupdel_pass(Relation rel, Buffer buf, Relation heapRel,
@@ -317,14 +317,14 @@ _bt_bottomupdel_pass(Relation rel, Buffer buf, Relation heapRel,
 	bool		neverdedup;
 	int			nkeyatts = IndexRelationGetNumberOfKeyAttributes(rel);
 
-	/* Passed-in newitemsz is MAXALIGNED but does not include line pointer */
+	/* 传入的 newitemsz 已 MAXALIGNED，但不包含行指针 */
 	newitemsz += sizeof(ItemIdData);
 
-	/* Initialize deduplication state */
+	/* 初始化去重状态 */
 	state = (BTDedupState) palloc(sizeof(BTDedupStateData));
 	state->deduplicate = true;
 	state->nmaxitems = 0;
-	state->maxpostingsize = BLCKSZ; /* We're not really deduplicating */
+	state->maxpostingsize = BLCKSZ; /* 我们其实并不是在去重 */
 	state->base = NULL;
 	state->baseoff = InvalidOffsetNumber;
 	state->basetupsize = 0;
@@ -335,20 +335,20 @@ _bt_bottomupdel_pass(Relation rel, Buffer buf, Relation heapRel,
 	state->nintervals = 0;
 
 	/*
-	 * Initialize tableam state that describes bottom-up index deletion
-	 * operation.
+	 * 初始化描述自底向上索引删除
+	 * 操作的 tableam 状态。
 	 *
-	 * We'll go on to ask the tableam to search for TIDs whose index tuples we
-	 * can safely delete.  The tableam will search until our leaf page space
-	 * target is satisfied, or until the cost of continuing with the tableam
-	 * operation seems too high.  It focuses its efforts on TIDs associated
-	 * with duplicate index tuples that we mark "promising".
+	 * 接下来我们会请 tableam 搜索那些索引元组可以
+	 * 安全删除的 TIDs。tableam 会一直搜索，直到叶子页空间
+	 * 目标得到满足，或直到继续进行 tableam
+	 * 操作的代价看起来过高。它把精力集中在与我们标为"有希望"的
+	 * 重复索引元组相关联的 TIDs 上。
 	 *
-	 * This space target is a little arbitrary.  The tableam must be able to
-	 * keep the costs and benefits in balance.  We provide the tableam with
-	 * exhaustive information about what might work, without directly
-	 * concerning ourselves with avoiding work during the tableam call.  Our
-	 * role in costing the bottom-up deletion process is strictly advisory.
+	 * 这个空间目标有些任意。tableam 必须能够
+	 * 使代价与收益保持平衡。我们向 tableam 提供
+	 * 关于什么可能奏效的详尽信息，而不直接
+	 * 关心在 tableam 调用期间避免工作。我们
+	 * 为自底向上删除过程计价的角色严格是建议性的。
 	 */
 	delstate.irel = rel;
 	delstate.iblknum = BufferGetBlockNumber(buf);
@@ -371,33 +371,33 @@ _bt_bottomupdel_pass(Relation rel, Buffer buf, Relation heapRel,
 
 		if (offnum == minoff)
 		{
-			/* itup starts first pending interval */
+			/* itup 开始第一个待定区间 */
 			_bt_dedup_start_pending(state, itup, offnum);
 		}
 		else if (_bt_keep_natts_fast(rel, state->base, itup) > nkeyatts &&
 				 _bt_dedup_save_htid(state, itup))
 		{
-			/* Tuple is equal; just added its TIDs to pending interval */
+			/* 元组相等；刚把它的 TIDs 加入待定区间 */
 		}
 		else
 		{
-			/* Finalize interval -- move its TIDs to delete state */
+			/* 完成区间 -- 把它的 TIDs 移到删除状态 */
 			_bt_bottomupdel_finish_pending(page, state, &delstate);
 
-			/* itup starts new pending interval */
+			/* itup 开始新的待定区间 */
 			_bt_dedup_start_pending(state, itup, offnum);
 		}
 	}
-	/* Finalize final interval -- move its TIDs to delete state */
+	/* 完成最后一个区间 -- 把它的 TIDs 移到删除状态 */
 	_bt_bottomupdel_finish_pending(page, state, &delstate);
 
 	/*
-	 * We don't give up now in the event of having few (or even zero)
-	 * promising tuples for the tableam because it's not up to us as the index
-	 * AM to manage costs (note that the tableam might have heuristics of its
-	 * own that work out what to do).  We should at least avoid having our
-	 * caller do a useless deduplication pass after we return in the event of
-	 * zero promising tuples, though.
+	 * 即使只有很少（甚至为零）个
+	 * 可供 tableam 使用的有希望元组，我们现在也不放弃，因为作为索引
+	 * AM，管理代价并不是我们的事（注意 tableam 可能自有
+	 * 启发式来判断该怎么做）。不过，若有希望元组为零，
+	 * 我们至少应当避免让调用者在我们返回之后
+	 * 再做一次无用的去重趟。
 	 */
 	neverdedup = false;
 	if (state->nintervals == 0)
@@ -406,28 +406,28 @@ _bt_bottomupdel_pass(Relation rel, Buffer buf, Relation heapRel,
 	pfree(state->htids);
 	pfree(state);
 
-	/* Ask tableam which TIDs are deletable, then physically delete them */
+	/* 询问 tableam 哪些 TIDs 可删除，然后物理删除它们 */
 	_bt_delitems_delete_check(rel, buf, heapRel, &delstate);
 
 	pfree(delstate.deltids);
 	pfree(delstate.status);
 
-	/* Report "success" to caller unconditionally to avoid deduplication */
+	/* 无条件向调用者报告"成功"，以避免去重 */
 	if (neverdedup)
 		return true;
 
-	/* Don't dedup when we won't end up back here any time soon anyway */
+	/* 若反正短期内不会再回到这里，就不要去重 */
 	return PageGetExactFreeSpace(page) >= Max(BLCKSZ / 24, newitemsz);
 }
 
 /*
- * Create a new pending posting list tuple based on caller's base tuple.
+ * 根据调用者的基元组创建一个新的待定倒排列表元组。
  *
- * Every tuple processed by deduplication either becomes the base tuple for a
- * posting list, or gets its heap TID(s) accepted into a pending posting list.
- * A tuple that starts out as the base tuple for a posting list will only
- * actually be rewritten within _bt_dedup_finish_pending() when it turns out
- * that there are duplicates that can be merged into the base tuple.
+ * 去重所处理的每个元组，要么成为某个
+ * 倒排列表的基元组，要么使其堆 TID(s) 被接受到待定倒排列表中。
+ * 一开始作为倒排列表基元组的元组，只有当
+ * 确实存在可以并入该基元组的重复时，才会在 _bt_dedup_finish_pending() 内
+ * 真正被重写。
  */
 void
 _bt_dedup_start_pending(BTDedupState state, IndexTuple base,
@@ -438,8 +438,8 @@ _bt_dedup_start_pending(BTDedupState state, IndexTuple base,
 	Assert(!BTreeTupleIsPivot(base));
 
 	/*
-	 * Copy heap TID(s) from new base tuple for new candidate posting list
-	 * into working state's array
+	 * 把新基元组的堆 TID(s) 复制到新候选倒排列表所用的
+	 * 工作状态数组中
 	 */
 	if (!BTreeTupleIsPosting(base))
 	{
@@ -455,30 +455,30 @@ _bt_dedup_start_pending(BTDedupState state, IndexTuple base,
 		memcpy(state->htids, BTreeTupleGetPosting(base),
 			   sizeof(ItemPointerData) * nposting);
 		state->nhtids = nposting;
-		/* basetupsize should not include existing posting list */
+		/* basetupsize 不应包含已有倒排列表 */
 		state->basetupsize = BTreeTupleGetPostingOffset(base);
 	}
 
 	/*
-	 * Save new base tuple itself -- it'll be needed if we actually create a
-	 * new posting list from new pending posting list.
+	 * 保存新的基元组本身 -- 若我们真的要从新的待定倒排列表
+	 * 创建出新的倒排列表，就会用到它。
 	 *
-	 * Must maintain physical size of all existing tuples (including line
-	 * pointer overhead) so that we can calculate space savings on page.
+	 * 必须维护所有现有元组的物理大小（包括行
+	 * 指针开销），以便计算页上节省的空间。
 	 */
 	state->nitems = 1;
 	state->base = base;
 	state->baseoff = baseoff;
 	state->phystupsize = MAXALIGN(IndexTupleSize(base)) + sizeof(ItemIdData);
-	/* Also save baseoff in pending state for interval */
+	/* 同时把 baseoff 存入区间的待定状态 */
 	state->intervals[state->nintervals].baseoff = state->baseoff;
 }
 
 /*
- * Save itup heap TID(s) into pending posting list where possible.
+ * 在可能的情况下，把 itup 的堆 TID(s) 保存到待定倒排列表中。
  *
- * Returns bool indicating if the pending posting list managed by state now
- * includes itup's heap TID(s).
+ * 返回布尔值，表明 state 所管理的待定倒排列表现在是否
+ * 包含 itup 的堆 TID(s)。
  */
 bool
 _bt_dedup_save_htid(BTDedupState state, IndexTuple itup)
@@ -501,11 +501,11 @@ _bt_dedup_save_htid(BTDedupState state, IndexTuple itup)
 	}
 
 	/*
-	 * Don't append (have caller finish pending posting list as-is) if
-	 * appending heap TID(s) from itup would put us over maxpostingsize limit.
+	 * 若追加 itup 的堆 TID(s) 会使我们超过 maxpostingsize 上限，
+	 * 就不要追加（让调用者按原样完成待定倒排列表）。
 	 *
-	 * This calculation needs to match the code used within _bt_form_posting()
-	 * for new posting list tuples.
+	 * 此计算需要与 _bt_form_posting() 内部用于
+	 * 新倒排列表元组的代码一致。
 	 */
 	mergedtupsz = MAXALIGN(state->basetupsize +
 						   (state->nhtids + nhtids) * sizeof(ItemPointerData));
@@ -513,16 +513,16 @@ _bt_dedup_save_htid(BTDedupState state, IndexTuple itup)
 	if (mergedtupsz > state->maxpostingsize)
 	{
 		/*
-		 * Count this as an oversized item for single value strategy, though
-		 * only when there are 50 TIDs in the final posting list tuple.  This
-		 * limit (which is fairly arbitrary) avoids confusion about how many
-		 * 1/6 of a page tuples have been encountered/created by the current
-		 * deduplication pass.
+		 * 把此项计为单值策略的超大项，不过
+		 * 仅当最终倒排列表元组中有 50 个 TIDs 时才这样。此
+		 * 上限（相当任意）是为了避免搞混：当前
+		 * 去重趟已经遇到或创建了多少个
+		 * 占页 1/6 的元组。
 		 *
-		 * Note: We deliberately don't consider which deduplication pass
-		 * merged together tuples to create this item (could be a previous
-		 * deduplication pass, or current pass).  See _bt_do_singleval()
-		 * comments.
+		 * 注意：我们有意不考虑是哪一次去重趟
+		 * 把元组合并起来创建了此项（可能是上一次
+		 * 去重趟，也可能是当前这一趟）。见 _bt_do_singleval()
+		 * 的注释。
 		 */
 		if (state->nhtids > 50)
 			state->nmaxitems++;
@@ -531,8 +531,8 @@ _bt_dedup_save_htid(BTDedupState state, IndexTuple itup)
 	}
 
 	/*
-	 * Save heap TIDs to pending posting list tuple -- itup can be merged into
-	 * pending posting list
+	 * 把堆 TIDs 保存到待定倒排列表元组中 -- itup 可以并入
+	 * 待定倒排列表
 	 */
 	state->nitems++;
 	memcpy(state->htids + state->nhtids, htids,
@@ -544,12 +544,12 @@ _bt_dedup_save_htid(BTDedupState state, IndexTuple itup)
 }
 
 /*
- * Finalize pending posting list tuple, and add it to the page.  Final tuple
- * is based on saved base tuple, and saved list of heap TIDs.
+ * 完成待定倒排列表元组，并把它加入页中。最终元组
+ * 基于已保存的基元组，以及已保存的堆 TIDs 列表。
  *
- * Returns space saving from deduplicating to make a new posting list tuple.
- * Note that this includes line pointer overhead.  This is zero in the case
- * where no deduplication was possible.
+ * 返回通过去重构造新倒排列表元组所节省的空间。
+ * 注意这包含行指针开销。若不可能去重，
+ * 则该值为零。
  */
 Size
 _bt_dedup_finish_pending(Page newpage, BTDedupState state)
@@ -565,7 +565,7 @@ _bt_dedup_finish_pending(Page newpage, BTDedupState state)
 	tupoff = OffsetNumberNext(PageGetMaxOffsetNumber(newpage));
 	if (state->nitems == 1)
 	{
-		/* Use original, unchanged base tuple */
+		/* 使用原来未改动的基元组 */
 		tuplesz = IndexTupleSize(state->base);
 		Assert(tuplesz == MAXALIGN(IndexTupleSize(state->base)));
 		Assert(tuplesz <= BTMaxItemSize(newpage));
@@ -579,12 +579,12 @@ _bt_dedup_finish_pending(Page newpage, BTDedupState state)
 	{
 		IndexTuple	final;
 
-		/* Form a tuple with a posting list */
+		/* 构造带倒排列表的元组 */
 		final = _bt_form_posting(state->base, state->htids, state->nhtids);
 		tuplesz = IndexTupleSize(final);
 		Assert(tuplesz <= state->maxpostingsize);
 
-		/* Save final number of items for posting list */
+		/* 保存倒排列表的最终项数 */
 		state->intervals[state->nintervals].nitems = state->nitems;
 
 		Assert(tuplesz == MAXALIGN(IndexTupleSize(final)));
@@ -595,12 +595,12 @@ _bt_dedup_finish_pending(Page newpage, BTDedupState state)
 
 		pfree(final);
 		spacesaving = state->phystupsize - (tuplesz + sizeof(ItemIdData));
-		/* Increment nintervals, since we wrote a new posting list tuple */
+		/* 递增 nintervals，因为我们写入了新的倒排列表元组 */
 		state->nintervals++;
 		Assert(spacesaving > 0 && spacesaving < BLCKSZ);
 	}
 
-	/* Reset state for next pending posting list */
+	/* 为下一个待定倒排列表重置状态 */
 	state->nhtids = 0;
 	state->nitems = 0;
 	state->phystupsize = 0;
@@ -609,40 +609,40 @@ _bt_dedup_finish_pending(Page newpage, BTDedupState state)
 }
 
 /*
- * Finalize interval during bottom-up index deletion.
+ * 在自底向上索引删除期间完成区间。
  *
- * During a bottom-up pass we expect that TIDs will be recorded in dedup state
- * first, and then get moved over to delstate (in variable-sized batches) by
- * calling here.  Call here happens when the number of TIDs in a dedup
- * interval is known, and interval gets finalized (i.e. when caller sees next
- * tuple on the page is not a duplicate, or when caller runs out of tuples to
- * process from leaf page).
+ * 在一次自底向上趟中，我们预期 TIDs 会先记入去重状态里，
+ * 然后再以大小可变的批次移交给 delstate，办法就是
+ * 调用这里。当某个去重区间中的 TID 数量已经知道、
+ * 并且该区间被完成时就会调用这里（即调用者看到下一个
+ * 页上元组不是重复，或者调用者已经没有叶子页上的元组
+ * 可处理时）。
  *
- * This is where bottom-up deletion determines and remembers which entries are
- * duplicates.  This will be important information to the tableam delete
- * infrastructure later on.  Plain index tuple duplicates are marked
- * "promising" here, per tableam contract.
+ * 自底向上删除在这里判定并记住哪些项是
+ * 重复。这对稍后的 tableam 删除
+ * 基础设施是重要信息。普通索引元组的重复在这里被标为
+ * "有希望"，依照 tableam 的约定。
  *
- * Our approach to marking entries whose TIDs come from posting lists is more
- * complicated.  Posting lists can only be formed by a deduplication pass (or
- * during an index build), so recent version churn affecting the pointed-to
- * logical rows is not particularly likely.  We may still give a weak signal
- * about posting list tuples' entries (by marking just one of its TIDs/entries
- * promising), though this is only a possibility in the event of further
- * duplicate index tuples in final interval that covers posting list tuple (as
- * in the plain tuple case).  A weak signal/hint will be useful to the tableam
- * when it has no stronger signal to go with for the deletion operation as a
- * whole.
+ * 对 TIDs 来自倒排列表的那些项，我们的标记办法更为
+ * 复杂。倒排列表只能由去重趟形成（或者
+ * 在索引构建期间），所以被指向的逻辑行近期发生版本搅动
+ * 并不特别可能。我们仍可能就倒排列表元组的各项给出弱信号
+ * （只把它的某一个 TID/项标成
+ * 有希望），不过只有当覆盖该倒排列表元组的最终区间里还有
+ * 更多重复索引元组时才有这种可能（与
+ * 普通元组情形相同）。当 tableam 对整个删除操作
+ * 没有更强的信号可以配合时，弱信号/提示
+ * 对它会有用。
  *
- * The heuristics we use work well in practice because we only need to give
- * the tableam the right _general_ idea about where to look.  Garbage tends to
- * naturally get concentrated in relatively few table blocks with workloads
- * that bottom-up deletion targets.  The tableam cannot possibly rank all
- * available table blocks sensibly based on the hints we provide, but that's
- * okay -- only the extremes matter.  The tableam just needs to be able to
- * predict which few table blocks will have the most tuples that are safe to
- * delete for each deletion operation, with low variance across related
- * deletion operations.
+ * 我们所用的启发式在实践中效果很好，因为我们只需要给
+ * tableam 关于该往哪里看的正确 _general_ 概念。垃圾往往会
+ * 自然地集中在相对较少的表块中，在自底向上删除
+ * 所针对的负载下尤其如此。tableam 无法依据我们提供的提示，
+ * 合理地给全部可用表块排序，但这没关系 --
+ * 只有极端情形才要紧。tableam 只需要能够
+ * 预测每一次删除操作中，哪少数几个表块会拥有最多
+ * 可以安全删除的元组，并且在相关的
+ * 各次删除操作之间保持很低的方差。
  */
 static void
 _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
@@ -664,12 +664,12 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 
 		if (!BTreeTupleIsPosting(itup))
 		{
-			/* Simple case: A plain non-pivot tuple */
+			/* 简单情形：普通非枢轴元组 */
 			ideltid->tid = itup->t_tid;
 			ideltid->id = delstate->ndeltids;
 			istatus->idxoffnum = offnum;
-			istatus->knowndeletable = false;	/* for now */
-			istatus->promising = dupinterval;	/* simple rule */
+			istatus->knowndeletable = false;	/* 目前 */
+			istatus->promising = dupinterval;	/* 简单规则 */
 			istatus->freespace = ItemIdGetLength(itemid) + sizeof(ItemIdData);
 
 			delstate->ndeltids++;
@@ -677,15 +677,15 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 		else
 		{
 			/*
-			 * Complicated case: A posting list tuple.
+			 * 复杂情形：倒排列表元组。
 			 *
-			 * We make the conservative assumption that there can only be at
-			 * most one affected logical row per posting list tuple.  There
-			 * will be at most one promising entry in deltids to represent
-			 * this presumed lone logical row.  Note that this isn't even
-			 * considered unless the posting list tuple is also in an interval
-			 * of duplicates -- this complicated rule is just a variant of the
-			 * simple rule used to decide if plain index tuples are promising.
+			 * 我们采取保守假定：每个倒排列表元组至多只会
+			 * 涉及一个受影响的逻辑行。在 deltids 里至多有一个有希望的项来代表
+ * 这个被假定为唯一的逻辑行。注意：除非
+ * 该倒排列表元组同时也处于某个重复项
+ * 区间之中，否则这一点甚至不会被考虑 -- 这条复杂规则不过是
+			 * 简单规则的一个变体，而简单规则用来决定普通索引元组
+			 * 是否有希望。
 			 */
 			int			nitem = BTreeTupleGetNPosting(itup);
 			bool		firstpromising = false;
@@ -696,8 +696,8 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 			if (dupinterval)
 			{
 				/*
-				 * Complicated rule: either the first or last TID in the
-				 * posting list gets marked promising (if any at all)
+				 * 复杂规则：倒排列表中的第一个或最后一个 TID
+				 * 会被标为有希望（若终究有任何一个的话）
 				 */
 				BlockNumber minblocklist,
 							midblocklist,
@@ -713,7 +713,7 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 				midblocklist = ItemPointerGetBlockNumber(midtid);
 				maxblocklist = ItemPointerGetBlockNumber(maxtid);
 
-				/* Only entry with predominant table block can be promising */
+				/* 只有主导表块上的那一项可以是有希望的 */
 				firstpromising = (minblocklist == midblocklist);
 				lastpromising = (!firstpromising &&
 								 midblocklist == maxblocklist);
@@ -726,12 +726,12 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 				ideltid->tid = *htid;
 				ideltid->id = delstate->ndeltids;
 				istatus->idxoffnum = offnum;
-				istatus->knowndeletable = false;	/* for now */
+				istatus->knowndeletable = false;	/* 目前 */
 				istatus->promising = false;
 				if ((firstpromising && p == 0) ||
 					(lastpromising && p == nitem - 1))
 					istatus->promising = true;
-				istatus->freespace = sizeof(ItemPointerData);	/* at worst */
+				istatus->freespace = sizeof(ItemPointerData);	/* 最坏情况 */
 
 				ideltid++;
 				istatus++;
@@ -746,37 +746,37 @@ _bt_bottomupdel_finish_pending(Page page, BTDedupState state,
 		state->nintervals++;
 	}
 
-	/* Reset state for next interval */
+	/* 为下一个区间重置状态 */
 	state->nhtids = 0;
 	state->nitems = 0;
 	state->phystupsize = 0;
 }
 
 /*
- * Determine if page non-pivot tuples (data items) are all duplicates of the
- * same value -- if they are, deduplication's "single value" strategy should
- * be applied.  The general goal of this strategy is to ensure that
- * nbtsplitloc.c (which uses its own single value strategy) will find a useful
- * split point as further duplicates are inserted, and successive rightmost
- * page splits occur among pages that store the same duplicate value.  When
- * the page finally splits, it should end up BTREE_SINGLEVAL_FILLFACTOR% full,
- * just like it would if deduplication were disabled.
+ * 判断页上的非枢轴元组（数据项）是否全是同一
+ * 值的重复 -- 若是，就应当应用去重的"单值"策略。
+ * 该策略的总目标是确保
+ * nbtsplitloc.c（它使用自己的单值策略）能找到有用的
+ * 分裂点，以便随着更多重复被插入，并在存储同一重复值的各页上发生连续的最右
+ * 页分裂。当
+ * 该页最终分裂时，它应当达到 BTREE_SINGLEVAL_FILLFACTOR% 满，
+ * 就像禁用了去重时那样。
  *
- * We expect that affected workloads will require _several_ single value
- * strategy deduplication passes (over a page that only stores duplicates)
- * before the page is finally split.  The first deduplication pass should only
- * find regular non-pivot tuples.  Later deduplication passes will find
- * existing maxpostingsize-capped posting list tuples, which must be skipped
- * over.  The penultimate pass is generally the first pass that actually
- * reaches _bt_singleval_fillfactor(), and so will deliberately leave behind a
- * few untouched non-pivot tuples.  The final deduplication pass won't free
- * any space -- it will skip over everything without merging anything (it
- * retraces the steps of the penultimate pass).
+ * 我们预期受影响的负载会需要 _several_ 次单值
+ * 策略去重趟（针对只存储重复的页），
+ * 然后该页才会最终分裂。第一次去重趟应当只
+ * 找到普通的非枢轴元组。后来的去重趟会找到
+ * 已有的、受 maxpostingsize 限制的倒排列表元组，这些必须被跳
+ * 过。倒数第二次趟通常是第一次真正
+ * 到达 _bt_singleval_fillfactor() 的趟，因此会故意留下
+ * 若干未触碰的非枢轴元组。最后一次去重趟不会释放
+ * 任何空间 -- 它会跳过一切而不合并任何东西（它
+ * 重走倒数第二次趟的步骤）。
  *
- * Fortunately, having several passes isn't too expensive.  Each pass (after
- * the first pass) won't spend many cycles on the large posting list tuples
- * left by previous passes.  Each pass will find a large contiguous group of
- * smaller duplicate tuples to merge together at the end of the page.
+ * 幸运的是，多趟并不太昂贵。每一趟（在
+ * 第一趟之后）不会在先前各趟留下的大型倒排列表元组上
+ * 花费很多周期。每一趟都会在页尾找到一大片连续的
+ * 较小重复元组，并把它们合并到一起。
  */
 static bool
 _bt_do_singleval(Relation rel, Page page, BTDedupState state,
@@ -802,21 +802,21 @@ _bt_do_singleval(Relation rel, Page page, BTDedupState state,
 }
 
 /*
- * Lower maxpostingsize when using "single value" strategy, to avoid a sixth
- * and final maxpostingsize-capped tuple.  The sixth and final posting list
- * tuple will end up somewhat smaller than the first five.  (Note: The first
- * five tuples could actually just be very large duplicate tuples that
- * couldn't be merged together at all.  Deduplication will simply not modify
- * the page when that happens.)
+ * 使用"单值"策略时降低 maxpostingsize，以避免出现第六个、
+ * 也是最后一个受 maxpostingsize 限制的元组。第六个、也是最后一个倒排列表
+ * 元组最终会比前五个略小一些。（注意：前
+ * 五个元组实际上也可能只是根本无法合并到一起的超大重复元组。
+ * 发生这种情况时，去重干脆不会修改
+ * 该页。）
  *
- * When there are six posting lists on the page (after current deduplication
- * pass goes on to create/observe a sixth very large tuple), caller should end
- * its deduplication pass.  It isn't useful to try to deduplicate items that
- * are supposed to end up on the new right sibling page following the
- * anticipated page split.  A future deduplication pass of future right
- * sibling page might take care of it.  (This is why the first single value
- * strategy deduplication pass for a given leaf page will generally find only
- * plain non-pivot tuples -- see _bt_do_singleval() comments.)
+ * 当页上已经有六个倒排列表时（当前去重趟
+ * 接着创建或观察到第六个超大元组之后），调用者应当结束
+ * 自己的去重趟。对那些项尝试去重并无用处，它们
+ * 本应在预计的页分裂之后出现在新的右兄弟页上。
+ * 将来那个右兄弟页的去重趟也许会处理它们。（这就是为什么
+ * 对给定叶子页的第一次单值策略
+ * 去重趟通常只会找到普通的
+ * 非枢轴元组 -- 见 _bt_do_singleval() 注释。）
  */
 static void
 _bt_singleval_fillfactor(Page page, BTDedupState state, Size newitemsz)
@@ -824,15 +824,15 @@ _bt_singleval_fillfactor(Page page, BTDedupState state, Size newitemsz)
 	Size		leftfree;
 	int			reduction;
 
-	/* This calculation needs to match nbtsplitloc.c */
+	/* 此计算需要与 nbtsplitloc.c 一致 */
 	leftfree = PageGetPageSize(page) - SizeOfPageHeaderData -
 		MAXALIGN(sizeof(BTPageOpaqueData));
-	/* Subtract size of new high key (includes pivot heap TID space) */
+	/* 减去新高键的大小（含枢轴堆 TID 空间） */
 	leftfree -= newitemsz + MAXALIGN(sizeof(ItemPointerData));
 
 	/*
-	 * Reduce maxpostingsize by an amount equal to target free space on left
-	 * half of page
+	 * 把 maxpostingsize 减少一段，减少量等于页左半
+	 * 的目标空闲空间
 	 */
 	reduction = leftfree * ((100 - BTREE_SINGLEVAL_FILLFACTOR) / 100.0);
 	if (state->maxpostingsize > reduction)
@@ -842,23 +842,23 @@ _bt_singleval_fillfactor(Page page, BTDedupState state, Size newitemsz)
 }
 
 /*
- * Build a posting list tuple based on caller's "base" index tuple and list of
- * heap TIDs.  When nhtids == 1, builds a standard non-pivot tuple without a
- * posting list. (Posting list tuples can never have a single heap TID, partly
- * because that ensures that deduplication always reduces final MAXALIGN()'d
- * size of entire tuple.)
+ * 根据调用者的"base"索引元组和一份
+ * 堆 TIDs 列表构造倒排列表元组。当 nhtids == 1 时，构造一个不带
+ * 倒排列表的标准非枢轴元组。（倒排列表元组永远不能只有一个堆 TID，部分
+ * 原因是这保证去重总会减小整个元组最终经 MAXALIGN() 对齐后的
+ * 大小。）
  *
- * Convention is that posting list starts at a MAXALIGN()'d offset (rather
- * than a SHORTALIGN()'d offset), in line with the approach taken when
- * appending a heap TID to new pivot tuple/high key during suffix truncation.
- * This sometimes wastes a little space that was only needed as alignment
- * padding in the original tuple.  Following this convention simplifies the
- * space accounting used when deduplicating a page (the same convention
- * simplifies the accounting for choosing a point to split a page at).
+ * 约定是倒排列表从一个经 MAXALIGN() 对齐的偏移开始（而不是
+ * 经 SHORTALIGN() 对齐的偏移），这与后缀截断期间
+ * 把堆 TID 追加到新枢轴元组/高键时的做法一致。
+ * 这有时会浪费一点空间，那些空间在原元组里只是对齐
+ * 填充。遵循这一约定简化了
+ * 对页去重时所用的空间记账（同一约定
+ * 也简化了选择页分裂点时的记账）。
  *
- * Note: Caller's "htids" array must be unique and already in ascending TID
- * order.  Any existing heap TIDs from "base" won't automatically appear in
- * returned posting list tuple (they must be included in htids array.)
+ * 注意：调用者的 "htids" 数组必须唯一，并且已经按升序 TID
+ * 排列。来自 "base" 的任何已有堆 TIDs 不会自动出现在
+ * 所返回的倒排列表元组中（它们必须包含在 htids 数组里）。
  */
 IndexTuple
 _bt_form_posting(IndexTuple base, ItemPointer htids, int nhtids)
@@ -876,7 +876,7 @@ _bt_form_posting(IndexTuple base, ItemPointer htids, int nhtids)
 	Assert(nhtids > 0 && nhtids <= PG_UINT16_MAX);
 	Assert(keysize == MAXALIGN(keysize));
 
-	/* Determine final size of new tuple */
+	/* 确定新元组的最终大小 */
 	if (nhtids > 1)
 		newsize = MAXALIGN(keysize +
 						   nhtids * sizeof(ItemPointerData));
@@ -886,14 +886,14 @@ _bt_form_posting(IndexTuple base, ItemPointer htids, int nhtids)
 	Assert(newsize <= INDEX_SIZE_MASK);
 	Assert(newsize == MAXALIGN(newsize));
 
-	/* Allocate memory using palloc0() (matches index_form_tuple()) */
+	/* 用 palloc0() 分配内存（与 index_form_tuple() 一致） */
 	itup = palloc0(newsize);
 	memcpy(itup, base, keysize);
 	itup->t_info &= ~INDEX_SIZE_MASK;
 	itup->t_info |= newsize;
 	if (nhtids > 1)
 	{
-		/* Form posting list tuple */
+		/* 构造倒排列表元组 */
 		BTreeTupleSetPosting(itup, nhtids, keysize);
 		memcpy(BTreeTupleGetPosting(itup), htids,
 			   sizeof(ItemPointerData) * nhtids);
@@ -901,7 +901,7 @@ _bt_form_posting(IndexTuple base, ItemPointer htids, int nhtids)
 	}
 	else
 	{
-		/* Form standard non-pivot tuple */
+		/* 构造标准非枢轴元组 */
 		itup->t_info &= ~INDEX_ALT_TID_MASK;
 		ItemPointerCopy(htids, &itup->t_tid);
 		Assert(ItemPointerIsValid(&itup->t_tid));
@@ -911,14 +911,14 @@ _bt_form_posting(IndexTuple base, ItemPointer htids, int nhtids)
 }
 
 /*
- * Generate a replacement tuple by "updating" a posting list tuple so that it
- * no longer has TIDs that need to be deleted.
+ * 通过"更新"倒排列表元组来生成替换元组，使它
+ * 不再含有需要删除的 TIDs。
  *
- * Used by both VACUUM and index deletion.  Caller's vacposting argument
- * points to the existing posting list tuple to be updated.
+ * VACUUM 和索引删除都会用到它。调用者的 vacposting 参数
+ * 指向待更新的现有倒排列表元组。
  *
- * On return, caller's vacposting argument will point to final "updated"
- * tuple, which will be palloc()'d in caller's memory context.
+ * 返回时，调用者的 vacposting 参数将指向最终"已更新"的
+ * 元组，它在调用者的内存上下文中由 palloc() 分配。
  */
 void
 _bt_update_posting(BTVacuumPosting vacposting)
@@ -938,11 +938,11 @@ _bt_update_posting(BTVacuumPosting vacposting)
 	Assert(nhtids > 0 && nhtids < BTreeTupleGetNPosting(origtuple));
 
 	/*
-	 * Determine final size of new tuple.
+	 * 确定新元组的最终大小。
 	 *
-	 * This calculation needs to match the code used within _bt_form_posting()
-	 * for new posting list tuples.  We avoid calling _bt_form_posting() here
-	 * to save ourselves a second memory allocation for a htids workspace.
+	 * 此计算需要与 _bt_form_posting() 内部用于
+	 * 新倒排列表元组的代码一致。这里避免调用 _bt_form_posting()，
+	 * 以免为 htids 工作区再做一次内存分配。
 	 */
 	keysize = BTreeTupleGetPostingOffset(origtuple);
 	if (nhtids > 1)
@@ -954,7 +954,7 @@ _bt_update_posting(BTVacuumPosting vacposting)
 	Assert(newsize <= INDEX_SIZE_MASK);
 	Assert(newsize == MAXALIGN(newsize));
 
-	/* Allocate memory using palloc0() (matches index_form_tuple()) */
+	/* 用 palloc0() 分配内存（与 index_form_tuple() 一致） */
 	itup = palloc0(newsize);
 	memcpy(itup, origtuple, keysize);
 	itup->t_info &= ~INDEX_SIZE_MASK;
@@ -962,13 +962,13 @@ _bt_update_posting(BTVacuumPosting vacposting)
 
 	if (nhtids > 1)
 	{
-		/* Form posting list tuple */
+		/* 构造倒排列表元组 */
 		BTreeTupleSetPosting(itup, nhtids, keysize);
 		htids = BTreeTupleGetPosting(itup);
 	}
 	else
 	{
-		/* Form standard non-pivot tuple */
+		/* 构造标准非枢轴元组 */
 		itup->t_info &= ~INDEX_ALT_TID_MASK;
 		htids = &itup->t_tid;
 	}
@@ -989,34 +989,34 @@ _bt_update_posting(BTVacuumPosting vacposting)
 	Assert(nhtids == 1 || _bt_posting_valid(itup));
 	Assert(nhtids > 1 || ItemPointerIsValid(&itup->t_tid));
 
-	/* vacposting arg's itup will now point to updated version */
+	/* vacposting 参数的 itup 现在将指向更新后的版本 */
 	vacposting->itup = itup;
 }
 
 /*
- * Prepare for a posting list split by swapping heap TID in newitem with heap
- * TID from original posting list (the 'oposting' heap TID located at offset
- * 'postingoff').  Modifies newitem, so caller should pass their own private
- * copy that can safely be modified.
+ * 为倒排列表分裂做准备：把 newitem 中的堆 TID 与原倒排列表中的堆
+ * TID 交换（位于偏移 postingoff 处的那个 oposting 堆 TID）。
+ * 会修改 newitem，因此调用者应当传入自己的、可以安全修改的
+ * 私有副本。
  *
- * Returns new posting list tuple, which is palloc()'d in caller's context.
- * This is guaranteed to be the same size as 'oposting'.  Modified newitem is
- * what caller actually inserts. (This happens inside the same critical
- * section that performs an in-place update of old posting list using new
- * posting list returned here.)
+ * 返回新的倒排列表元组，它在调用者上下文中由 palloc() 分配。
+ * 它保证与 oposting 大小相同。修改后的 newitem 才是
+ * 调用者实际插入的内容。（这发生在同一个临界
+ * 区内：该临界区用这里返回的新
+ * 倒排列表对旧倒排列表做原地更新。）
  *
- * While the keys from newitem and oposting must be opclass equal, and must
- * generate identical output when run through the underlying type's output
- * function, it doesn't follow that their representations match exactly.
- * Caller must avoid assuming that there can't be representational differences
- * that make datums from oposting bigger or smaller than the corresponding
- * datums from newitem.  For example, differences in TOAST input state might
- * break a faulty assumption about tuple size (the executor is entitled to
- * apply TOAST compression based on its own criteria).  It also seems possible
- * that further representational variation will be introduced in the future,
- * in order to support nbtree features like page-level prefix compression.
+ * 虽然 newitem 与 oposting 的键必须在操作符类意义上相等，并且必须
+ * 在经过底层类型的输出
+ * 函数后产生相同输出，但这并不意味着它们的表示完全一致。
+ * 调用者必须避免假定不存在表示差异，
+ * 那些差异可能使来自 oposting 的 datum 比 newitem 中对应的
+ * datum 更大或更小。例如，TOAST 输入状态的差异可能
+ * 打破关于元组大小的错误假定（执行器有权
+ * 按自己的标准应用 TOAST 压缩）。似乎也有可能
+ * 将来会引入进一步的表示差异，
+ * 以便支持 nbtree 的页级前缀压缩之类特性。
  *
- * See nbtree/README for details on the design of posting list splits.
+ * 关于倒排列表分裂的设计细节，见 nbtree/README。
  */
 IndexTuple
 _bt_swap_posting(IndexTuple newitem, IndexTuple oposting, int postingoff)
@@ -1031,23 +1031,23 @@ _bt_swap_posting(IndexTuple newitem, IndexTuple oposting, int postingoff)
 	Assert(_bt_posting_valid(oposting));
 
 	/*
-	 * The postingoff argument originated as a _bt_binsrch_posting() return
-	 * value.  It will be 0 in the event of corruption that makes a leaf page
-	 * contain a non-pivot tuple that's somehow identical to newitem (no two
-	 * non-pivot tuples should ever have the same TID).  This has been known
-	 * to happen in the field from time to time.
+	 * postingoff 参数最初是 _bt_binsrch_posting() 的返回
+	 * 值。若损坏使得叶子页
+	 * 含有一个不知怎么与 newitem 相同的非枢轴元组，它就会是 0（任何两个
+	 * 非枢轴元组都不应当拥有相同的 TID）。这种情况
+	 * 在实际环境中时不时会发生。
 	 *
-	 * Perform a basic sanity check to catch this case now.
+	 * 现在做一次基本健全性检查，以便抓住这种情况。
 	 */
 	if (!(postingoff > 0 && postingoff < nhtids))
 		elog(ERROR, "posting list tuple with %d items cannot be split at offset %d",
 			 nhtids, postingoff);
 
 	/*
-	 * Move item pointers in posting list to make a gap for the new item's
-	 * heap TID.  We shift TIDs one place to the right, losing original
-	 * rightmost TID. (nmovebytes must not include TIDs to the left of
-	 * postingoff, nor the existing rightmost/max TID that gets overwritten.)
+	 * 移动倒排列表中的项指针，为新项的
+	 * 堆 TID 腾出空隙。我们把 TIDs 右移一位，丢掉原来的
+	 * 最右 TID。（nmovebytes 不得包含 postingoff 左侧的 TIDs，
+	 * 也不得包含将被覆盖的现有最右/最大 TID。）
 	 */
 	nposting = CopyIndexTuple(oposting);
 	replacepos = (char *) BTreeTupleGetPostingN(nposting, postingoff);
@@ -1055,11 +1055,11 @@ _bt_swap_posting(IndexTuple newitem, IndexTuple oposting, int postingoff)
 	nmovebytes = (nhtids - postingoff - 1) * sizeof(ItemPointerData);
 	memmove(replaceposright, replacepos, nmovebytes);
 
-	/* Fill the gap at postingoff with TID of new item (original new TID) */
+	/* 用新项的 TID 填上 postingoff 处的空隙（原来的新 TID） */
 	Assert(!BTreeTupleIsPivot(newitem) && !BTreeTupleIsPosting(newitem));
 	ItemPointerCopy(&newitem->t_tid, (ItemPointer) replacepos);
 
-	/* Now copy oposting's rightmost/max TID into new item (final new TID) */
+	/* 现在把 oposting 的最右/最大 TID 复制到新项中（最终的新 TID） */
 	ItemPointerCopy(BTreeTupleGetMaxHeapTID(oposting), &newitem->t_tid);
 
 	Assert(ItemPointerCompare(BTreeTupleGetMaxHeapTID(nposting),
@@ -1070,8 +1070,8 @@ _bt_swap_posting(IndexTuple newitem, IndexTuple oposting, int postingoff)
 }
 
 /*
- * Verify posting list invariants for "posting", which must be a posting list
- * tuple.  Used within assertions.
+ * 校验 "posting" 的倒排列表不变量；它必须是倒排列表
+ * 元组。在断言中使用。
  */
 #ifdef USE_ASSERT_CHECKING
 static bool
@@ -1083,12 +1083,12 @@ _bt_posting_valid(IndexTuple posting)
 	if (!BTreeTupleIsPosting(posting) || BTreeTupleGetNPosting(posting) < 2)
 		return false;
 
-	/* Remember first heap TID for loop */
+	/* 记住循环用的第一个堆 TID */
 	ItemPointerCopy(BTreeTupleGetHeapTID(posting), &last);
 	if (!ItemPointerIsValid(&last))
 		return false;
 
-	/* Iterate, starting from second TID */
+	/* 从第二个 TID 开始迭代 */
 	for (int i = 1; i < BTreeTupleGetNPosting(posting); i++)
 	{
 		htid = BTreeTupleGetPostingN(posting, i);

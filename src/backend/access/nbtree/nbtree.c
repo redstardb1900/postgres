@@ -146,7 +146,7 @@ bthandler(PG_FUNCTION_ARGS)
 }
 
 /*
- *	btbuildempty() -- 在初始化分叉中构建一个空的 B-树索引
+ *	btbuildempty() -- 在初始化分支中构建一个空的 B-树索引
  */
 void
 btbuildempty(Relation index)

@@ -52,21 +52,21 @@ static PartitionDesc RelationBuildPartitionDesc(Relation rel,
 
 
 /*
- * RelationGetPartitionDesc -- get partition descriptor, if relation is partitioned
+ * RelationGetPartitionDesc：若关系已分区，取得分区描述符。
  *
- * We keep two partdescs in relcache: rd_partdesc includes all partitions
- * (even those being concurrently marked detached), while rd_partdesc_nodetached
- * omits (some of) those.  We store the pg_inherits.xmin value for the latter,
- * to determine whether it can be validly reused in each case, since that
- * depends on the active snapshot.
+ * 关系缓存里保留两份分区描述符：rd_partdesc 包含全部分区
+ * （甚至包括正在被并发标记为已分离的那些），而 rd_partdesc_nodetached
+ * 会略去其中一些。我们保存后者对应的 pg_inherits.xmin 值，
+ * 以判断每种情况下它能否有效复用，因为那
+ * 取决于活动快照。
  *
- * Note: we arrange for partition descriptors to not get freed until the
- * relcache entry's refcount goes to zero (see hacks in RelationClose,
- * RelationClearRelation, and RelationBuildPartitionDesc).  Therefore, even
- * though we hand back a direct pointer into the relcache entry, it's safe
- * for callers to continue to use that pointer as long as (a) they hold the
- * relation open, and (b) they hold a relation lock strong enough to ensure
- * that the data doesn't become stale.
+ * 注意：我们安排分区描述符直到
+ * 关系缓存项的引用计数降到零才释放（见 RelationClose、
+ * RelationClearRelation 和 RelationBuildPartitionDesc 里的权宜做法）。因此，即使
+ * 交出去的是指向关系缓存项内部的直接指针，调用方
+ * 继续使用该指针也是安全的，只要 (a) 他们保持
+ * 关系打开，并且 (b) 他们持有足够强的关系锁，以确保
+ * 数据不会变陈旧。
  */
 PartitionDesc
 RelationGetPartitionDesc(Relation rel, bool omit_detached)
@@ -74,12 +74,12 @@ RelationGetPartitionDesc(Relation rel, bool omit_detached)
 	Assert(rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE);
 
 	/*
-	 * If relcache has a partition descriptor, use that.  However, we can only
-	 * do so when we are asked to include all partitions including detached;
-	 * and also when we know that there are no detached partitions.
+	 * 若关系缓存已有分区描述符，就用它。不过，只有在
+	 * 要求包含全部分区（含已分离的）时才能这样做；
+	 * 以及已知没有已分离分区时也可以。
 	 *
-	 * If there is no active snapshot, detached partitions aren't omitted
-	 * either, so we can use the cached descriptor too in that case.
+	 * 若没有活动快照，已分离分区也不会被略去，
+	 * 因此那种情况下也可以用缓存的描述符。
 	 */
 	if (likely(rel->rd_partdesc &&
 			   (!rel->rd_partdesc->detached_exist || !omit_detached ||
@@ -87,12 +87,12 @@ RelationGetPartitionDesc(Relation rel, bool omit_detached)
 		return rel->rd_partdesc;
 
 	/*
-	 * If we're asked to omit detached partitions, we may be able to use a
-	 * cached descriptor too.  We determine that based on the pg_inherits.xmin
-	 * that was saved alongside that descriptor: if the xmin that was not in
-	 * progress for that active snapshot is also not in progress for the
-	 * current active snapshot, then we can use it.  Otherwise build one from
-	 * scratch.
+	 * 若要求略去已分离分区，也许仍能用
+	 * 一份缓存的描述符。判断依据是和该描述符一起保存的
+	 * pg_inherits.xmin：若那个对当时活动快照尚未进行的 xmin，
+	 * 对当前活动快照也尚未进行，就可以用它。
+	 * 否则就从头
+	 * 重新构造。
 	 */
 	if (omit_detached &&
 		rel->rd_partdesc_nodetached &&
@@ -112,24 +112,24 @@ RelationGetPartitionDesc(Relation rel, bool omit_detached)
 
 /*
  * RelationBuildPartitionDesc
- *		Form rel's partition descriptor, and store in relcache entry
+ *		构造关系的分区描述符，并存入关系缓存项。
  *
- * Partition descriptor is a complex structure; to avoid complicated logic to
- * free individual elements whenever the relcache entry is flushed, we give it
- * its own memory context, a child of CacheMemoryContext, which can easily be
- * deleted on its own.  To avoid leaking memory in that context in case of an
- * error partway through this function, the context is initially created as a
- * child of CurTransactionContext and only re-parented to CacheMemoryContext
- * at the end, when no further errors are possible.  Also, we don't make this
- * context the current context except in very brief code sections, out of fear
- * that some of our callees allocate memory on their own which would be leaked
- * permanently.
+ * 分区描述符结构复杂；为避免关系缓存项被刷掉时
+ * 释放各个元素的复杂逻辑，我们给它
+ * 自己的内存上下文，作为 CacheMemoryContext 的子上下文，这样可以
+ * 单独删掉。为避免本函数中途出错时在该上下文里泄漏内存，
+ * 这个上下文最初创建为
+ * CurTransactionContext 的子上下文，只在最后、不可能再出错时
+ * 才重新挂到 CacheMemoryContext 之下。另外，除了极短的代码段，
+ * 我们不把这个上下文设为当前上下文，因为担心
+ * 某些被调用者自己分配的内存会永久
+ * 泄漏。
  *
- * As a special case, partition descriptors that are requested to omit
- * partitions being detached (and which contain such partitions) are transient
- * and are not associated with the relcache entry.  Such descriptors only last
- * through the requesting Portal, so we use the corresponding memory context
- * for them.
+ * 作为一种特殊情形，被要求略去
+ * 正在分离的分区（并且确实含有这种分区）的描述符是临时的，
+ * 不与关系缓存项关联。这种描述符只持续到
+ * 请求它的 Portal 结束，因此我们为它们使用
+ * 对应的内存上下文。
  */
 static PartitionDesc
 RelationBuildPartitionDesc(Relation rel, bool omit_detached)
@@ -155,10 +155,10 @@ RelationBuildPartitionDesc(Relation rel, bool omit_detached)
 retry:
 
 	/*
-	 * Get partition oids from pg_inherits.  This uses a single snapshot to
-	 * fetch the list of children, so while more children may be getting added
-	 * or removed concurrently, whatever this function returns will be
-	 * accurate as of some well-defined point in time.
+	 * 从 pg_inherits 取得分区 OID。这用单个快照
+	 * 取出子关系列表，因此尽管可能有更多子关系正在被并发添加
+	 * 或移除，本函数返回的结果在某个定义明确的时间点上
+	 * 是准确的。
 	 */
 	detached_exist = false;
 	detached_xmin = InvalidTransactionId;
@@ -169,7 +169,7 @@ retry:
 
 	nparts = list_length(inhoids);
 
-	/* Allocate working arrays for OIDs, leaf flags, and boundspecs. */
+	/* 为 OIDs、叶子标志和边界说明分配工作数组。 */
 	if (nparts > 0)
 	{
 		oids = (Oid *) palloc(nparts * sizeof(Oid));
@@ -177,7 +177,7 @@ retry:
 		boundspecs = palloc(nparts * sizeof(PartitionBoundSpec *));
 	}
 
-	/* Collect bound spec nodes for each partition. */
+	/* 收集每个分区的边界说明节点。 */
 	i = 0;
 	foreach(cell, inhoids)
 	{
@@ -185,7 +185,7 @@ retry:
 		HeapTuple	tuple;
 		PartitionBoundSpec *boundspec = NULL;
 
-		/* Try fetching the tuple from the catcache, for speed. */
+		/* 为了速度，尝试从系统缓存取元组。 */
 		tuple = SearchSysCache1(RELOID, inhrelid);
 		if (HeapTupleIsValid(tuple))
 		{
@@ -201,27 +201,27 @@ retry:
 		}
 
 		/*
-		 * Two problems are possible here.  First, a concurrent ATTACH
-		 * PARTITION might be in the process of adding a new partition, but
-		 * the syscache doesn't have it, or its copy of it does not yet have
-		 * its relpartbound set.  We cannot just AcceptInvalidationMessages(),
-		 * because the other process might have already removed itself from
-		 * the ProcArray but not yet added its invalidation messages to the
-		 * shared queue.  We solve this problem by reading pg_class directly
-		 * for the desired tuple.
+		 * 这里可能有两个问题。首先，并发的 ATTACH
+		 * PARTITION 可能正在添加新分区，但
+		 * 系统缓存里还没有它，或者缓存副本尚未设置
+		 * 它的 relpartbound。我们无法直接 AcceptInvalidationMessages()，
+		 * 因为对方进程可能已经把自己从
+		 * ProcArray 里摘掉，但还没把失效消息加进
+		 * 共享队列。解决办法是直接读 pg_class
+		 * 以取得所需元组。
 		 *
-		 * If the partition recently detached is also dropped, we get no tuple
-		 * from the scan.  In that case, we also retry, and next time through
-		 * here, we don't see that partition anymore.
+		 * 若最近分离的分区也被删除，扫描就得不到元组。
+		 * 那种情况下我们也重试，下次经过
+		 * 这里时就不再看到那个分区。
 		 *
-		 * The other problem is that DETACH CONCURRENTLY is in the process of
-		 * removing a partition, which happens in two steps: first it marks it
-		 * as "detach pending", commits, then unsets relpartbound.  If
-		 * find_inheritance_children_extended included that partition but we
-		 * below we see that DETACH CONCURRENTLY has reset relpartbound for
-		 * it, we'd see an inconsistent view.  (The inconsistency is seen
-		 * because table_open below reads invalidation messages.)  We protect
-		 * against this by retrying find_inheritance_children_extended().
+		 * 另一个问题是 DETACH CONCURRENTLY 正在
+		 * 移除分区，这分两步：先把它标记为
+		 * 分离待定，提交，然后清除 relpartbound。若
+		 * find_inheritance_children_extended 包含了那个分区，但我们
+		 * 在下面看到 DETACH CONCURRENTLY 已为它重置了 relpartbound，
+		 * 就会看到不一致的视图。（不一致是因为
+		 * 下面的 table_open 会读取失效消息。）我们通过
+		 * 重试 find_inheritance_children_extended() 来防范。
 		 */
 		if (boundspec == NULL)
 		{
@@ -238,8 +238,8 @@ retry:
 									  NULL, 1, key);
 
 			/*
-			 * We could get one tuple from the scan (the normal case), or zero
-			 * tuples if the table has been dropped meanwhile.
+			 * 扫描可能得到一个元组（正常情形），也可能得到零
+			 * 个元组，如果表在此期间已被删除。
 			 */
 			tuple = systable_getnext(scan);
 			if (HeapTupleIsValid(tuple))
@@ -256,17 +256,17 @@ retry:
 			table_close(pg_class, AccessShareLock);
 
 			/*
-			 * If we still don't get a relpartbound value (either because
-			 * boundspec is null or because there was no tuple), then it must
-			 * be because of DETACH CONCURRENTLY.  Restart from the top, as
-			 * explained above.  We only do this once, for two reasons: first,
-			 * only one DETACH CONCURRENTLY session could affect us at a time,
-			 * since each of them would have to wait for the snapshot under
-			 * which this is running; and second, to avoid possible infinite
-			 * loops in case of catalog corruption.
+			 * 若仍然得不到 relpartbound 值（要么因为
+			 * boundspec 为空，要么因为没有元组），那一定
+			 * 是因为 DETACH CONCURRENTLY。按上面的说明从顶部重新开始。
+			 * 我们只做一次，有两个理由：第一，
+			 * 同一时刻只有一个 DETACH CONCURRENTLY 会话能影响我们，
+			 * 因为它们每一个都得等待本函数正在使用的快照；第二，
+			 * 以免目录损坏时可能出现无限
+			 * 循环。
 			 *
-			 * Note that the current memory context is short-lived enough, so
-			 * we needn't worry about memory leaks here.
+			 * 注意当前内存上下文寿命足够短，因此
+			 * 这里不必担心内存泄漏。
 			 */
 			if (!boundspec && !retried)
 			{
@@ -276,16 +276,16 @@ retry:
 			}
 		}
 
-		/* Sanity checks. */
+		/* 健全性检查。 */
 		if (!boundspec)
 			elog(ERROR, "missing relpartbound for relation %u", inhrelid);
 		if (!IsA(boundspec, PartitionBoundSpec))
 			elog(ERROR, "invalid relpartbound for relation %u", inhrelid);
 
 		/*
-		 * If the PartitionBoundSpec says this is the default partition, its
-		 * OID should match pg_partitioned_table.partdefid; if not, the
-		 * catalog is corrupt.
+		 * 若 PartitionBoundSpec 说这是默认分区，它的
+		 * OID 应当匹配 pg_partitioned_table.partdefid；若不匹配，
+		 * 目录就是损坏的。
 		 */
 		if (boundspec->is_default)
 		{
@@ -297,7 +297,7 @@ retry:
 					 inhrelid, partdefid);
 		}
 
-		/* Save results. */
+		/* 保存结果。 */
 		oids[i] = inhrelid;
 		is_leaf[i] = (get_rel_relkind(inhrelid) != RELKIND_PARTITIONED_TABLE);
 		boundspecs[i] = boundspec;
@@ -305,16 +305,16 @@ retry:
 	}
 
 	/*
-	 * Create PartitionBoundInfo and mapping, working in the caller's context.
-	 * This could fail, but we haven't done any damage if so.
+	 * 在调用方的上下文里创建 PartitionBoundInfo 和映射。
+	 * 这可能失败，但若失败我们还没有造成破坏。
 	 */
 	if (nparts > 0)
 		boundinfo = partition_bounds_create(boundspecs, nparts, key, &mapping);
 
 	/*
-	 * Now build the actual relcache partition descriptor, copying all the
-	 * data into a new, small context.  As per above comment, we don't make
-	 * this a long-lived context until it's finished.
+	 * 现在构造真正的关系缓存分区描述符，把全部
+	 * 数据复制进一个新的小上下文。按上面的注释，在完成之前
+	 * 我们不把它做成长寿命上下文。
 	 */
 	new_pdcxt = AllocSetContextCreate(CurTransactionContext,
 									  "partition descriptor",
@@ -326,13 +326,13 @@ retry:
 		MemoryContextAllocZero(new_pdcxt, sizeof(PartitionDescData));
 	partdesc->nparts = nparts;
 	partdesc->detached_exist = detached_exist;
-	/* If there are no partitions, the rest of the partdesc can stay zero */
+	/* 若没有分区，分区描述符的其余部分可以保持为零 */
 	if (nparts > 0)
 	{
 		oldcxt = MemoryContextSwitchTo(new_pdcxt);
 		partdesc->boundinfo = partition_bounds_copy(boundinfo, key);
 
-		/* Initialize caching fields for speeding up ExecFindPartition */
+		/* 初始化缓存成员，以加速 ExecFindPartition */
 		partdesc->last_found_datum_index = -1;
 		partdesc->last_found_part_index = -1;
 		partdesc->last_found_count = 0;
@@ -341,11 +341,11 @@ retry:
 		partdesc->is_leaf = (bool *) palloc(nparts * sizeof(bool));
 
 		/*
-		 * Assign OIDs from the original array into mapped indexes of the
-		 * result array.  The order of OIDs in the former is defined by the
-		 * catalog scan that retrieved them, whereas that in the latter is
-		 * defined by canonicalized representation of the partition bounds.
-		 * Also save leaf-ness of each partition.
+		 * 把原始数组里的 OIDs 按映射下标放进
+		 * 结果数组。前者中 OID 的顺序由
+		 * 取回它们的目录扫描定义，后者中的顺序则由
+		 * 分区边界的规范化表示定义。
+		 * 同时保存每个分区是否为叶子。
 		 */
 		for (i = 0; i < nparts; i++)
 		{
@@ -358,34 +358,34 @@ retry:
 	}
 
 	/*
-	 * Are we working with the partdesc that omits the detached partition, or
-	 * the one that includes it?
+	 * 我们处理的是略去已分离分区的描述符，还是
+	 * 包含它的那一份？
 	 *
-	 * Note that if a partition was found by the catalog's scan to have been
-	 * detached, but the pg_inherit tuple saying so was not visible to the
-	 * active snapshot (find_inheritance_children_extended will not have set
-	 * detached_xmin in that case), we consider there to be no "omittable"
-	 * detached partitions.
+	 * 注意：若目录扫描发现某个分区已
+	 * 分离，但说明这一点的 pg_inherit 元组对
+	 * 活动快照不可见（那种情况下 find_inheritance_children_extended 不会设置
+	 * detached_xmin），我们就认为没有可略去的
+	 * 已分离分区。
 	 */
 	is_omit = omit_detached && detached_exist && ActiveSnapshotSet() &&
 		TransactionIdIsValid(detached_xmin);
 
 	/*
-	 * We have a fully valid partdesc.  Reparent it so that it has the right
-	 * lifespan.
+	 * 我们有了一份完全有效的分区描述符。重新挂接父上下文，使它拥有正确的
+	 * 寿命。
 	 */
 	MemoryContextSetParent(new_pdcxt, CacheMemoryContext);
 
 	/*
-	 * Store it into relcache.
+	 * 把它存进关系缓存。
 	 *
-	 * But first, a kluge: if there's an old context for this type of
-	 * descriptor, it contains an old partition descriptor that may still be
-	 * referenced somewhere.  Preserve it, while not leaking it, by
-	 * reattaching it as a child context of the new one.  Eventually it will
-	 * get dropped by either RelationClose or RelationClearRelation. (We keep
-	 * the regular partdesc in rd_pdcxt, and the partdesc-excluding-
-	 * detached-partitions in rd_pddcxt.)
+	 * 但首先有个权宜之计：若这种描述符已有旧上下文，
+	 * 它含有一份可能仍在某处被引用的旧分区描述符。
+	 * 保留它，同时不泄漏，办法是
+	 * 把它重新挂成新上下文的子上下文。最终它会
+	 * 被 RelationClose 或 RelationClearRelation 丢掉。（常规分区描述符放在
+	 * rd_pdcxt 里，不含已分离分区的那份放在
+	 * rd_pddcxt 里。）
 	 */
 	if (is_omit)
 	{
@@ -395,12 +395,12 @@ retry:
 		rel->rd_partdesc_nodetached = partdesc;
 
 		/*
-		 * For partdescs built excluding detached partitions, which we save
-		 * separately, we also record the pg_inherits.xmin of the detached
-		 * partition that was omitted; this informs a future potential user of
-		 * such a cached partdesc to only use it after cross-checking that the
-		 * xmin is indeed visible to the snapshot it is going to be working
-		 * with.
+		 * 对排除已分离分区而构造的描述符，我们单独保存，
+		 * 同时记录被略去的已分离
+		 * 分区的 pg_inherits.xmin；这告诉以后可能使用
+		 * 这种缓存描述符的人：只有在交叉确认该
+		 * xmin 对它将要使用的快照确实可见之后，
+		 * 才能使用。
 		 */
 		Assert(TransactionIdIsValid(detached_xmin));
 		rel->rd_partdesc_nodetached_xmin = detached_xmin;
@@ -418,7 +418,7 @@ retry:
 
 /*
  * CreatePartitionDirectory
- *		Create a new partition directory object.
+ *		创建一个新的分区目录对象。
  */
 PartitionDirectory
 CreatePartitionDirectory(MemoryContext mcxt, bool omit_detached)
@@ -444,14 +444,14 @@ CreatePartitionDirectory(MemoryContext mcxt, bool omit_detached)
 
 /*
  * PartitionDirectoryLookup
- *		Look up the partition descriptor for a relation in the directory.
+ *		在目录里查找关系的分区描述符。
  *
- * The purpose of this function is to ensure that we get the same
- * PartitionDesc for each relation every time we look it up.  In the
- * face of concurrent DDL, different PartitionDescs may be constructed with
- * different views of the catalog state, but any single particular OID
- * will always get the same PartitionDesc for as long as the same
- * PartitionDirectory is used.
+ * 本函数的目的是保证每次查找时，同一关系都得到同一个
+ * PartitionDesc。面对并发 DDL，不同的 PartitionDescs 可能
+ * 按对目录状态的不同视图来构造，但任何一个特定的 OID
+ * 只要一直使用同一个
+ * PartitionDirectory，就总会得到同一个
+ * PartitionDesc。
  */
 PartitionDesc
 PartitionDirectoryLookup(PartitionDirectory pdir, Relation rel)
@@ -464,8 +464,8 @@ PartitionDirectoryLookup(PartitionDirectory pdir, Relation rel)
 	if (!found)
 	{
 		/*
-		 * We must keep a reference count on the relation so that the
-		 * PartitionDesc to which we are pointing can't get destroyed.
+		 * 必须保持对关系的引用计数，这样我们指向的
+		 * PartitionDesc 才不会被销毁。
 		 */
 		RelationIncrementReferenceCount(rel);
 		pde->rel = rel;
@@ -477,9 +477,9 @@ PartitionDirectoryLookup(PartitionDirectory pdir, Relation rel)
 
 /*
  * DestroyPartitionDirectory
- *		Destroy a partition directory.
+ *		销毁分区目录。
  *
- * Release the reference counts we're holding.
+ * 释放我们持有的引用计数。
  */
 void
 DestroyPartitionDirectory(PartitionDirectory pdir)
@@ -495,8 +495,8 @@ DestroyPartitionDirectory(PartitionDirectory pdir)
 /*
  * get_default_oid_from_partdesc
  *
- * Given a partition descriptor, return the OID of the default partition, if
- * one exists; else, return InvalidOid.
+ * 给定分区描述符，若存在默认分区就返回它的 OID，
+ * 否则返回 InvalidOid。
  */
 Oid
 get_default_oid_from_partdesc(PartitionDesc partdesc)

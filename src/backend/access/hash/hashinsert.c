@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashinsert.c
- *	  Item insertion in hash tables for Postgres.
+ *	  Postgres hash 表中的项插入。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,13 +28,13 @@ static void _hash_vacuum_one_page(Relation rel, Relation hrel,
 								  Buffer metabuf, Buffer buf);
 
 /*
- *	_hash_doinsert() -- Handle insertion of a single index tuple.
+ *	_hash_doinsert() -- 处理单个索引元组的插入。
  *
- *		This routine is called by the public interface routines, hashbuild
- *		and hashinsert.  By here, itup is completely filled in.
+ *		本例程由公共接口例程 hashbuild
+ *		和 hashinsert 调用。到这里时，itup 已完全填好。
  *
- * 'sorted' must only be passed as 'true' when inserts are done in hashkey
- * order.
+ * 仅当插入按 hashkey 顺序进行时，才可以把
+ * 'sorted' 作为 'true' 传入。
  */
 void
 _hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel, bool sorted)
@@ -54,31 +54,31 @@ _hash_doinsert(Relation rel, IndexTuple itup, Relation heapRel, bool sorted)
 	OffsetNumber itup_off;
 
 	/*
-	 * Get the hash key for the item (it's stored in the index tuple itself).
+	 * 取得该项的哈希键（它存放在索引元组自身中）。
 	 */
 	hashkey = _hash_get_indextuple_hashkey(itup);
 
-	/* compute item size too */
+	/* 同时计算项的大小 */
 	itemsz = IndexTupleSize(itup);
-	itemsz = MAXALIGN(itemsz);	/* be safe, PageAddItem will do this but we
-								 * need to be consistent */
+	itemsz = MAXALIGN(itemsz);	/* 保险起见，PageAddItem 也会这样做，但我们
+								 * 需要保持一致 */
 
 restart_insert:
 
 	/*
-	 * Read the metapage.  We don't lock it yet; HashMaxItemSize() will
-	 * examine pd_pagesize_version, but that can't change so we can examine it
-	 * without a lock.
+	 * 读取元页。我们尚未给它加锁；HashMaxItemSize() 会
+	 * 检查 pd_pagesize_version，但它不会改变，因此可以
+	 * 不加锁地查看。
 	 */
 	metabuf = _hash_getbuf(rel, HASH_METAPAGE, HASH_NOLOCK, LH_META_PAGE);
 	metapage = BufferGetPage(metabuf);
 
 	/*
-	 * Check whether the item can fit on a hash page at all. (Eventually, we
-	 * ought to try to apply TOAST methods if not.)  Note that at this point,
-	 * itemsz doesn't include the ItemId.
+	 * 检查该项究竟能否放进 hash 页。（若不能，最终
+	 * 应当尝试采用 TOAST 方法。）注意此时
+	 * itemsz 不包含 ItemId。
 	 *
-	 * XXX this is useless code if we are only storing hash keys.
+	 * XXX 若我们只存储哈希键，这段代码就没有用。
 	 */
 	if (itemsz > HashMaxItemSize(metapage))
 		ereport(ERROR,
@@ -87,14 +87,14 @@ restart_insert:
 						itemsz, HashMaxItemSize(metapage)),
 				 errhint("Values larger than a buffer page cannot be indexed.")));
 
-	/* Lock the primary bucket page for the target bucket. */
+	/* 锁定目标桶的主桶页。 */
 	buf = _hash_getbucketbuf_from_hashkey(rel, hashkey, HASH_WRITE,
 										  &usedmetap);
 	Assert(usedmetap != NULL);
 
 	CheckForSerializableConflictIn(rel, NULL, BufferGetBlockNumber(buf));
 
-	/* remember the primary bucket buffer to release the pin on it at end. */
+	/* 记住主桶缓冲区，以便最后释放其上的钉住。 */
 	bucket_buf = buf;
 
 	page = BufferGetPage(buf);
@@ -102,17 +102,17 @@ restart_insert:
 	bucket = pageopaque->hasho_bucket;
 
 	/*
-	 * If this bucket is in the process of being split, try to finish the
-	 * split before inserting, because that might create room for the
-	 * insertion to proceed without allocating an additional overflow page.
-	 * It's only interesting to finish the split if we're trying to insert
-	 * into the bucket from which we're removing tuples (the "old" bucket),
-	 * not if we're trying to insert into the bucket into which tuples are
-	 * being moved (the "new" bucket).
+	 * 若此桶正在分裂，尝试在插入之前完成这次
+	 * 分裂，因为那样可能腾出空间，使插入不必
+	 * 再分配额外的溢出页就能进行。只有当我们试图
+	 * 插入到正在从中移出元组的桶
+	 * （"旧" 桶）时，完成分裂才有意义；若试图
+	 * 插入到元组正在移入的桶
+	 * （"新" 桶），则没有意义。
 	 */
 	if (H_BUCKET_BEING_SPLIT(pageopaque) && IsBufferCleanupOK(buf))
 	{
-		/* release the lock on bucket buffer, before completing the split. */
+		/* 完成分裂之前，先释放桶缓冲区上的锁。 */
 		LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
 		_hash_finish_split(rel, metabuf, buf, bucket,
@@ -120,21 +120,21 @@ restart_insert:
 						   usedmetap->hashm_highmask,
 						   usedmetap->hashm_lowmask);
 
-		/* release the pin on old and meta buffer.  retry for insert. */
+		/* 释放旧缓冲区和元页缓冲区上的钉住。重试插入。 */
 		_hash_dropbuf(rel, buf);
 		_hash_dropbuf(rel, metabuf);
 		goto restart_insert;
 	}
 
-	/* Do the insertion */
+	/* 执行插入 */
 	while (PageGetFreeSpace(page) < itemsz)
 	{
 		BlockNumber nextblkno;
 
 		/*
-		 * Check if current page has any DEAD tuples. If yes, delete these
-		 * tuples and see if we can get a space for the new item to be
-		 * inserted before moving to the next page in the bucket chain.
+		 * 检查当前页是否有 DEAD 元组。若有，删掉这些
+		 * 元组，看看在移到桶链的下一页之前，能否为
+		 * 待插入的新项腾出空间。
 		 */
 		if (H_HAS_DEAD_TUPLES(pageopaque))
 		{
@@ -144,23 +144,23 @@ restart_insert:
 				_hash_vacuum_one_page(rel, heapRel, metabuf, buf);
 
 				if (PageGetFreeSpace(page) >= itemsz)
-					break;		/* OK, now we have enough space */
+					break;		/* 好，现在空间够了 */
 			}
 		}
 
 		/*
-		 * no space on this page; check for an overflow page
+		 * 此页没有空间；检查是否有溢出页
 		 */
 		nextblkno = pageopaque->hasho_nextblkno;
 
 		if (BlockNumberIsValid(nextblkno))
 		{
 			/*
-			 * ovfl page exists; go get it.  if it doesn't have room, we'll
-			 * find out next pass through the loop test above.  we always
-			 * release both the lock and pin if this is an overflow page, but
-			 * only the lock if this is the primary bucket page, since the pin
-			 * on the primary bucket must be retained throughout the scan.
+			 * 溢出页存在；去取它。若它也放不下，下一轮
+			 * 上面的循环测试会发现。若这是溢出页，我们总是
+			 * 同时释放锁和钉住；若这是主桶页，则只释放锁，
+			 * 因为整个扫描期间必须保持主桶上的
+			 * 钉住。
 			 */
 			if (buf != bucket_buf)
 				_hash_relbuf(rel, buf);
@@ -172,18 +172,18 @@ restart_insert:
 		else
 		{
 			/*
-			 * we're at the end of the bucket chain and we haven't found a
-			 * page with enough room.  allocate a new overflow page.
+			 * 已到桶链末尾，仍未找到空间足够的页。
+			 * 分配一个新的溢出页。
 			 */
 
-			/* release our write lock without modifying buffer */
+			/* 释放写锁，但不修改缓冲区 */
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
-			/* chain to a new overflow page */
+			/* 链接到一个新的溢出页 */
 			buf = _hash_addovflpage(rel, metabuf, buf, (buf == bucket_buf));
 			page = BufferGetPage(buf);
 
-			/* should fit now, given test above */
+			/* 鉴于上面的测试，现在应该放得下 */
 			Assert(PageGetFreeSpace(page) >= itemsz);
 		}
 		pageopaque = HashPageGetOpaque(page);
@@ -192,29 +192,29 @@ restart_insert:
 	}
 
 	/*
-	 * Write-lock the metapage so we can increment the tuple count. After
-	 * incrementing it, check to see if it's time for a split.
+	 * 对元页加写锁，以便增加元组计数。增加之后，
+	 * 检查是否到了分裂的时候。
 	 */
 	LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
-	/* Do the update.  No ereport(ERROR) until changes are logged */
+	/* 执行更新。在变更记入日志之前不要 ereport(ERROR) */
 	START_CRIT_SECTION();
 
-	/* found page with enough space, so add the item here */
+	/* 找到空间足够的页，把项加在这里 */
 	itup_off = _hash_pgaddtup(rel, buf, itemsz, itup, sorted);
 	MarkBufferDirty(buf);
 
-	/* metapage operations */
+	/* 元页操作 */
 	metap = HashPageGetMeta(metapage);
 	metap->hashm_ntuples += 1;
 
-	/* Make sure this stays in sync with _hash_expandtable() */
+	/* 确保与 _hash_expandtable() 保持同步 */
 	do_expand = metap->hashm_ntuples >
 		(double) metap->hashm_ffactor * (metap->hashm_maxbucket + 1);
 
 	MarkBufferDirty(metabuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_hash_insert xlrec;
@@ -238,39 +238,39 @@ restart_insert:
 
 	END_CRIT_SECTION();
 
-	/* drop lock on metapage, but keep pin */
+	/* 释放元页上的锁，但保持钉住 */
 	LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 
 	/*
-	 * Release the modified page and ensure to release the pin on primary
-	 * page.
+	 * 释放被修改的页，并确保释放
+	 * 主桶页上的钉住。
 	 */
 	_hash_relbuf(rel, buf);
 	if (buf != bucket_buf)
 		_hash_dropbuf(rel, bucket_buf);
 
-	/* Attempt to split if a split is needed */
+	/* 若需要分裂则尝试分裂 */
 	if (do_expand)
 		_hash_expandtable(rel, metabuf);
 
-	/* Finally drop our pin on the metapage */
+	/* 最后释放我们在元页上的钉住 */
 	_hash_dropbuf(rel, metabuf);
 }
 
 /*
- *	_hash_pgaddtup() -- add a tuple to a particular page in the index.
+ *	_hash_pgaddtup() -- 把一个元组加到索引的某一页上。
  *
- * This routine adds the tuple to the page as requested; it does not write out
- * the page.  It is an error to call this function without pin and write lock
- * on the target buffer.
+ * 本例程按要求把元组加到页上；它并不把该页
+ * 写出去。未在目标缓冲区上持有钉住和写锁
+ * 就调用本函数是错误的。
  *
- * Returns the offset number at which the tuple was inserted.  This function
- * is responsible for preserving the condition that tuples in a hash index
- * page are sorted by hashkey value, however, if the caller is certain that
- * the hashkey for the tuple being added is >= the hashkeys of all existing
- * tuples on the page, then the 'appendtup' flag may be passed as true.  This
- * saves from having to binary search for the correct location to insert the
- * tuple.
+ * 返回元组被插入处的偏移号。本函数负责
+ * 维持 hash 索引页中元组按 hashkey 值排序
+ * 的条件；不过，若调用方确定待加入元组的
+ * hashkey >= 页上全部已有元组的 hashkey，
+ * 则可以把 'appendtup' 标志作为 true 传入。
+ * 这样就能省去为找到正确插入位置
+ * 而做的二分搜索。
  */
 OffsetNumber
 _hash_pgaddtup(Relation rel, Buffer buf, Size itemsize, IndexTuple itup,
@@ -283,15 +283,15 @@ _hash_pgaddtup(Relation rel, Buffer buf, Size itemsize, IndexTuple itup,
 	page = BufferGetPage(buf);
 
 	/*
-	 * Find where to insert the tuple (preserving page's hashkey ordering). If
-	 * 'appendtup' is true then we just insert it at the end.
+	 * 寻找插入元组的位置（保持页内 hashkey 顺序）。若
+	 * 'appendtup' 为真，就把它插在末尾。
 	 */
 	if (appendtup)
 	{
 		itup_off = PageGetMaxOffsetNumber(page) + 1;
 
 #ifdef USE_ASSERT_CHECKING
-		/* ensure this tuple's hashkey is >= the final existing tuple */
+		/* 确保此元组的 hashkey >= 页上最后一个已有元组 */
 		if (PageGetMaxOffsetNumber(page) > 0)
 		{
 			IndexTuple	lasttup;
@@ -321,13 +321,13 @@ _hash_pgaddtup(Relation rel, Buffer buf, Size itemsize, IndexTuple itup,
 }
 
 /*
- *	_hash_pgaddmultitup() -- add a tuple vector to a particular page in the
- *							 index.
+ *	_hash_pgaddmultitup() -- 把一个元组向量加到索引的
+ *							 某一页上。
  *
- * This routine has same requirements for locking and tuple ordering as
- * _hash_pgaddtup().
+ * 本例程在锁定和元组排序方面的要求与
+ * _hash_pgaddtup() 相同。
  *
- * Returns the offset number array at which the tuples were inserted.
+ * 返回各元组被插入处的偏移号数组。
  */
 void
 _hash_pgaddmultitup(Relation rel, Buffer buf, IndexTuple *itups,
@@ -348,7 +348,7 @@ _hash_pgaddmultitup(Relation rel, Buffer buf, IndexTuple *itups,
 		itemsize = IndexTupleSize(itups[i]);
 		itemsize = MAXALIGN(itemsize);
 
-		/* Find where to insert the tuple (preserving page's hashkey ordering) */
+		/* 寻找插入元组的位置（保持页内 hashkey 顺序） */
 		hashkey = _hash_get_indextuple_hashkey(itups[i]);
 		itup_off = _hash_binsearch(page, hashkey);
 
@@ -362,10 +362,10 @@ _hash_pgaddmultitup(Relation rel, Buffer buf, IndexTuple *itups,
 }
 
 /*
- * _hash_vacuum_one_page - vacuum just one index page.
+ * _hash_vacuum_one_page - 只清理一个索引页。
  *
- * Try to remove LP_DEAD items from the given page. We must acquire cleanup
- * lock on the page being modified before calling this function.
+ * 尝试从给定页移除 LP_DEAD 项。调用本函数之前，必须
+ * 在将被修改的页上取得清理锁。
  */
 
 static void
@@ -379,7 +379,7 @@ _hash_vacuum_one_page(Relation rel, Relation hrel, Buffer metabuf, Buffer buf)
 	HashPageOpaque pageopaque;
 	HashMetaPage metap;
 
-	/* Scan each tuple in page to see if it is marked as LP_DEAD */
+	/* 扫描页中每个元组，看它是否标为 LP_DEAD */
 	maxoff = PageGetMaxOffsetNumber(page);
 	for (offnum = FirstOffsetNumber;
 		 offnum <= maxoff;
@@ -400,22 +400,22 @@ _hash_vacuum_one_page(Relation rel, Relation hrel, Buffer metabuf, Buffer buf)
 												 deletable, ndeletable);
 
 		/*
-		 * Write-lock the meta page so that we can decrement tuple count.
+		 * 对元页加写锁，以便减少元组计数。
 		 */
 		LockBuffer(metabuf, BUFFER_LOCK_EXCLUSIVE);
 
-		/* No ereport(ERROR) until changes are logged */
+		/* 在变更记入日志之前不要 ereport(ERROR) */
 		START_CRIT_SECTION();
 
 		PageIndexMultiDelete(page, deletable, ndeletable);
 
 		/*
-		 * Mark the page as not containing any LP_DEAD items. This is not
-		 * certainly true (there might be some that have recently been marked,
-		 * but weren't included in our target-item list), but it will almost
-		 * always be true and it doesn't seem worth an additional page scan to
-		 * check it. Remember that LH_PAGE_HAS_DEAD_TUPLES is only a hint
-		 * anyway.
+		 * 把该页标为不含任何 LP_DEAD 项。这并不
+		 * 一定为真（可能有一些刚被标上、但没进入
+		 * 我们的目标项列表），但它几乎总是真的，
+		 * 似乎不值得再扫描一页去检查。记住
+		 * LH_PAGE_HAS_DEAD_TUPLES 反正只是一个
+		 * 提示。
 		 */
 		pageopaque = HashPageGetOpaque(page);
 		pageopaque->hasho_flag &= ~LH_PAGE_HAS_DEAD_TUPLES;
@@ -426,7 +426,7 @@ _hash_vacuum_one_page(Relation rel, Relation hrel, Buffer metabuf, Buffer buf)
 		MarkBufferDirty(buf);
 		MarkBufferDirty(metabuf);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(rel))
 		{
 			xl_hash_vacuum_one_page xlrec;
@@ -441,9 +441,9 @@ _hash_vacuum_one_page(Relation rel, Relation hrel, Buffer metabuf, Buffer buf)
 			XLogRegisterData((char *) &xlrec, SizeOfHashVacuumOnePage);
 
 			/*
-			 * We need the target-offsets array whether or not we store the
-			 * whole buffer, to allow us to find the snapshotConflictHorizon
-			 * on a standby server.
+			 * 无论是否存储整个缓冲区，我们都需要目标偏移
+			 * 数组，以便在备库上找到
+			 * snapshotConflictHorizon。
 			 */
 			XLogRegisterData((char *) deletable,
 							 ndeletable * sizeof(OffsetNumber));
@@ -459,8 +459,8 @@ _hash_vacuum_one_page(Relation rel, Relation hrel, Buffer metabuf, Buffer buf)
 		END_CRIT_SECTION();
 
 		/*
-		 * Releasing write lock on meta page as we have updated the tuple
-		 * count.
+		 * 元组计数已经更新，释放元页上的
+		 * 写锁。
 		 */
 		LockBuffer(metabuf, BUFFER_LOCK_UNLOCK);
 	}

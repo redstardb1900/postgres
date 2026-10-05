@@ -1,17 +1,17 @@
 /*-------------------------------------------------------------------------
  *
  * hashsort.c
- *		Sort tuples for insertion into a new hash index.
+ *		为插入新建的 hash 索引而对元组排序。
  *
- * When building a very large hash index, we pre-sort the tuples by bucket
- * number to improve locality of access to the index, and thereby avoid
- * thrashing.  We use tuplesort.c to sort the given index tuples into order.
+ * 构建非常大的 hash 索引时，我们按桶号预先排序元组，
+ * 以改善对索引的访问局部性，从而避免颠簸。我们使用
+ * tuplesort.c 把给定的索引元组排成顺序。
  *
- * Note: if the number of rows in the table has been underestimated,
- * bucket splits may occur during the index build.  In that case we'd
- * be inserting into two or more buckets for each possible masked-off
- * hash code value.  That's no big problem though, since we'll still have
- * plenty of locality of access.
+ * 注意：若低估了表中的行数，索引构建期间
+ * 可能发生桶分裂。那时，对每个可能的掩码后
+ * 哈希码值，我们会插入到两个或更多桶中。
+ * 不过这不是大问题，因为我们仍会有充足的
+ * 访问局部性。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -34,18 +34,18 @@
 
 
 /*
- * Status record for spooling/sorting phase.
+ * 假脱机/排序阶段的状态记录。
  */
 struct HSpool
 {
-	Tuplesortstate *sortstate;	/* state data for tuplesort.c */
+	Tuplesortstate *sortstate;	/* tuplesort.c 的状态数据 */
 	Relation	index;
 
 	/*
-	 * We sort the hash keys based on the buckets they belong to, then by the
-	 * hash values themselves, to optimize insertions onto hash pages.  The
-	 * masks below are used in _hash_hashkey2bucket to determine the bucket of
-	 * a given hash key.
+	 * 我们先按哈希键所属的桶排序，再按哈希值本身
+	 * 排序，以优化向 hash 页的插入。下面的掩码在
+	 * _hash_hashkey2bucket 中用来确定给定哈希键
+	 * 所属的桶。
 	 */
 	uint32		high_mask;
 	uint32		low_mask;
@@ -54,7 +54,7 @@ struct HSpool
 
 
 /*
- * create and initialize a spool structure
+ * 创建并初始化假脱机结构
  */
 HSpool *
 _h_spoolinit(Relation heap, Relation index, uint32 num_buckets)
@@ -64,21 +64,21 @@ _h_spoolinit(Relation heap, Relation index, uint32 num_buckets)
 	hspool->index = index;
 
 	/*
-	 * Determine the bitmask for hash code values.  Since there are currently
-	 * num_buckets buckets in the index, the appropriate mask can be computed
-	 * as follows.
+	 * 确定哈希码值的位掩码。由于索引中目前有
+	 * num_buckets 个桶，合适的掩码可按如下方式
+	 * 计算。
 	 *
-	 * NOTE : This hash mask calculation should be in sync with similar
-	 * calculation in _hash_init_metabuffer.
+	 * 注意：此哈希掩码计算应与
+	 * _hash_init_metabuffer 中的类似计算保持同步。
 	 */
 	hspool->high_mask = pg_nextpower2_32(num_buckets + 1) - 1;
 	hspool->low_mask = (hspool->high_mask >> 1);
 	hspool->max_buckets = num_buckets - 1;
 
 	/*
-	 * We size the sort area as maintenance_work_mem rather than work_mem to
-	 * speed index creation.  This should be OK since a single backend can't
-	 * run multiple index creations in parallel.
+	 * 排序区按 maintenance_work_mem 而非 work_mem
+	 * 设定大小，以加快索引创建。这应当没问题，因为
+	 * 单个后端无法并行运行多个索引创建。
 	 */
 	hspool->sortstate = tuplesort_begin_index_hash(heap,
 												   index,
@@ -93,7 +93,7 @@ _h_spoolinit(Relation heap, Relation index, uint32 num_buckets)
 }
 
 /*
- * clean up a spool structure and its substructures.
+ * 清理假脱机结构及其子结构。
  */
 void
 _h_spooldestroy(HSpool *hspool)
@@ -103,7 +103,7 @@ _h_spooldestroy(HSpool *hspool)
 }
 
 /*
- * spool an index entry into the sort file.
+ * 把一条索引项假脱机写入排序文件。
  */
 void
 _h_spool(HSpool *hspool, ItemPointer self, Datum *values, bool *isnull)
@@ -113,8 +113,8 @@ _h_spool(HSpool *hspool, ItemPointer self, Datum *values, bool *isnull)
 }
 
 /*
- * given a spool loaded by successive calls to _h_spool,
- * create an entire index.
+ * 对由连续调用 _h_spool 装入的假脱机，
+ * 创建整个索引。
  */
 void
 _h_indexbuild(HSpool *hspool, Relation heapRel)
@@ -130,11 +130,11 @@ _h_indexbuild(HSpool *hspool, Relation heapRel)
 	while ((itup = tuplesort_getindextuple(hspool->sortstate, true)) != NULL)
 	{
 		/*
-		 * Technically, it isn't critical that hash keys be found in sorted
-		 * order, since this sorting is only used to increase locality of
-		 * access as a performance optimization.  It still seems like a good
-		 * idea to test tuplesort.c's handling of hash index tuple sorts
-		 * through an assertion, though.
+		 * 从技术上说，哈希键是否按排序顺序出现
+		 * 并不关键，因为这种排序只用来提高访问
+		 * 局部性，作为一种性能优化。不过，用断言
+		 * 测试 tuplesort.c 对 hash 索引元组排序的
+		 * 处理，仍然是个好主意。
 		 */
 #ifdef USE_ASSERT_CHECKING
 		uint32		lasthashkey = hashkey;
@@ -145,10 +145,10 @@ _h_indexbuild(HSpool *hspool, Relation heapRel)
 		Assert(hashkey >= lasthashkey);
 #endif
 
-		/* the tuples are sorted by hashkey, so pass 'sorted' as true */
+		/* 元组已按 hashkey 排序，因此把 'sorted' 作为 true 传入 */
 		_hash_doinsert(hspool->index, itup, heapRel, true);
 
-		/* allow insertion phase to be interrupted, and track progress */
+		/* 允许插入阶段被中断，并跟踪进度 */
 		CHECK_FOR_INTERRUPTS();
 
 		pgstat_progress_update_param(PROGRESS_CREATEIDX_TUPLES_DONE,

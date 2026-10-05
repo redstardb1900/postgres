@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashfunc.c
- *	  Support functions for hash access method.
+ *	  hash 访问方法的支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,17 +10,17 @@
  * IDENTIFICATION
  *	  src/backend/access/hash/hashfunc.c
  *
- * NOTES
- *	  These functions are stored in pg_amproc.  For each operator class
- *	  defined for hash indexes, they compute the hash value of the argument.
+ * 说明（NOTES）
+ *	  这些函数存放在 pg_amproc 中。对为 hash 索引
+ *	  定义的每个操作符类，它们计算参数的哈希值。
  *
- *	  Additional hash functions appear in /utils/adt/ files for various
- *	  specialized datatypes.
+ *	  更多哈希函数出现在各种专用数据类型的
+ *	  /utils/adt/ 文件中。
  *
- *	  It is expected that every bit of a hash function's 32-bit result is
- *	  as random as every other; failure to ensure this is likely to lead
- *	  to poor performance of hash joins, for example.  In most cases a hash
- *	  function should use hash_any() or its variant hash_uint32().
+ *	  预期哈希函数 32 位结果的每一位都与其他位
+ *	  同样随机；做不到这一点很可能导致哈希连接等
+ *	  性能变差。多数情况下哈希函数应使用 hash_any()
+ *	  或其变体 hash_uint32()。
  *-------------------------------------------------------------------------
  */
 
@@ -35,16 +35,16 @@
 #include "varatt.h"
 
 /*
- * Datatype-specific hash functions.
+ * 特定数据类型的哈希函数。
  *
- * These support both hash indexes and hash joins.
+ * 它们同时支持 hash 索引和哈希连接。
  *
- * NOTE: some of these are also used by catcache operations, without
- * any direct connection to hash indexes.  Also, the common hash_any
- * routine is also used by dynahash tables.
+ * 注意：其中一些也被 catcache 操作使用，与
+ * hash 索引没有直接关系。另外，公共的 hash_any
+ * 例程也被 dynahash 表使用。
  */
 
-/* Note: this is used for both "char" and boolean datatypes */
+/* 注意：同时用于 "char" 和布尔数据类型 */
 Datum
 hashchar(PG_FUNCTION_ARGS)
 {
@@ -85,12 +85,12 @@ Datum
 hashint8(PG_FUNCTION_ARGS)
 {
 	/*
-	 * The idea here is to produce a hash value compatible with the values
-	 * produced by hashint4 and hashint2 for logically equal inputs; this is
-	 * necessary to support cross-type hash joins across these input types.
-	 * Since all three types are signed, we can xor the high half of the int8
-	 * value if the sign is positive, or the complement of the high half when
-	 * the sign is negative.
+	 * 这里的想法是产生与 hashint4 和 hashint2 对逻辑上
+	 * 相等的输入所产生的值兼容的哈希值；这是为了支持
+	 * 这些输入类型之间的跨类型哈希连接所必需的。
+	 * 由于这三种类型都是有符号的，符号为正时可以把
+	 * int8 值的高半部分异或进去，符号为负时则异或
+	 * 高半部分的补码。
 	 */
 	int64		val = PG_GETARG_INT64(0);
 	uint32		lohalf = (uint32) val;
@@ -104,7 +104,7 @@ hashint8(PG_FUNCTION_ARGS)
 Datum
 hashint8extended(PG_FUNCTION_ARGS)
 {
-	/* Same approach as hashint8 */
+	/* 与 hashint8 相同的做法 */
 	int64		val = PG_GETARG_INT64(0);
 	uint32		lohalf = (uint32) val;
 	uint32		hihalf = (uint32) (val >> 32);
@@ -145,28 +145,28 @@ hashfloat4(PG_FUNCTION_ARGS)
 	float8		key8;
 
 	/*
-	 * On IEEE-float machines, minus zero and zero have different bit patterns
-	 * but should compare as equal.  We must ensure that they have the same
-	 * hash value, which is most reliably done this way:
+	 * 在 IEEE 浮点机器上，负零与零的位模式不同，
+	 * 但比较时应相等。我们必须保证它们具有相同的
+	 * 哈希值，最可靠的做法如下：
 	 */
 	if (key == (float4) 0)
 		PG_RETURN_UINT32(0);
 
 	/*
-	 * To support cross-type hashing of float8 and float4, we want to return
-	 * the same hash value hashfloat8 would produce for an equal float8 value.
-	 * So, widen the value to float8 and hash that.  (We must do this rather
-	 * than have hashfloat8 try to narrow its value to float4; that could fail
-	 * on overflow.)
+	 * 为支持 float8 与 float4 的跨类型哈希，我们希望返回
+	 * 与 hashfloat8 对相等的 float8 值所产生的相同哈希值。
+	 * 因此把该值拓宽为 float8 再做哈希。（必须这样做，
+	 * 而不能让 hashfloat8 试图把值收窄为 float4；那样
+	 * 可能因溢出而失败。）
 	 */
 	key8 = key;
 
 	/*
-	 * Similarly, NaNs can have different bit patterns but they should all
-	 * compare as equal.  For backwards-compatibility reasons we force them to
-	 * have the hash value of a standard float8 NaN.  (You'd think we could
-	 * replace key with a float4 NaN and then widen it; but on some old
-	 * platforms, that way produces a different bit pattern.)
+	 * 类似地，NaNs 可以有不同的位模式，但它们比较时
+	 * 都应相等。出于向后兼容，我们强制它们具有标准
+	 * float8 NaN 的哈希值。（也许会以为可以把 key
+	 * 换成 float4 NaN 再拓宽；但在某些旧平台上，
+	 * 那样会产生不同的位模式。）
 	 */
 	if (isnan(key8))
 		key8 = get_float8_nan();
@@ -181,7 +181,7 @@ hashfloat4extended(PG_FUNCTION_ARGS)
 	uint64		seed = PG_GETARG_INT64(1);
 	float8		key8;
 
-	/* Same approach as hashfloat4 */
+	/* 与 hashfloat4 相同的做法 */
 	if (key == (float4) 0)
 		PG_RETURN_UINT64(seed);
 	key8 = key;
@@ -197,17 +197,17 @@ hashfloat8(PG_FUNCTION_ARGS)
 	float8		key = PG_GETARG_FLOAT8(0);
 
 	/*
-	 * On IEEE-float machines, minus zero and zero have different bit patterns
-	 * but should compare as equal.  We must ensure that they have the same
-	 * hash value, which is most reliably done this way:
+	 * 在 IEEE 浮点机器上，负零与零的位模式不同，
+	 * 但比较时应相等。我们必须保证它们具有相同的
+	 * 哈希值，最可靠的做法如下：
 	 */
 	if (key == (float8) 0)
 		PG_RETURN_UINT32(0);
 
 	/*
-	 * Similarly, NaNs can have different bit patterns but they should all
-	 * compare as equal.  For backwards-compatibility reasons we force them to
-	 * have the hash value of a standard NaN.
+	 * 类似地，NaNs 可以有不同的位模式，但它们比较时
+	 * 都应相等。出于向后兼容，我们强制它们具有标准
+	 * NaN 的哈希值。
 	 */
 	if (isnan(key))
 		key = get_float8_nan();
@@ -221,7 +221,7 @@ hashfloat8extended(PG_FUNCTION_ARGS)
 	float8		key = PG_GETARG_FLOAT8(0);
 	uint64		seed = PG_GETARG_INT64(1);
 
-	/* Same approach as hashfloat8 */
+	/* 与 hashfloat8 相同的做法 */
 	if (key == (float8) 0)
 		PG_RETURN_UINT64(seed);
 	if (isnan(key))
@@ -301,21 +301,21 @@ hashtext(PG_FUNCTION_ARGS)
 
 		rsize = pg_strnxfrm(buf, bsize + 1, keydata, keylen, mylocale);
 
-		/* the second call may return a smaller value than the first */
+		/* 第二次调用返回的值可能比第一次更小 */
 		if (rsize > bsize)
 			elog(ERROR, "pg_strnxfrm() returned unexpected result");
 
 		/*
-		 * In principle, there's no reason to include the terminating NUL
-		 * character in the hash, but it was done before and the behavior must
-		 * be preserved.
+		 * 原则上没有理由把结尾的 NUL 字符
+		 * 纳入哈希，但以前就是这样做的，该行为必须
+		 * 保留。
 		 */
 		result = hash_any((uint8_t *) buf, bsize + 1);
 
 		pfree(buf);
 	}
 
-	/* Avoid leaking memory for toasted inputs */
+	/* 避免已 TOAST 输入泄漏内存 */
 	PG_FREE_IF_COPY(key, 0);
 
 	return result;
@@ -357,14 +357,14 @@ hashtextextended(PG_FUNCTION_ARGS)
 
 		rsize = pg_strnxfrm(buf, bsize + 1, keydata, keylen, mylocale);
 
-		/* the second call may return a smaller value than the first */
+		/* 第二次调用返回的值可能比第一次更小 */
 		if (rsize > bsize)
 			elog(ERROR, "pg_strnxfrm() returned unexpected result");
 
 		/*
-		 * In principle, there's no reason to include the terminating NUL
-		 * character in the hash, but it was done before and the behavior must
-		 * be preserved.
+		 * 原则上没有理由把结尾的 NUL 字符
+		 * 纳入哈希，但以前就是这样做的，该行为必须
+		 * 保留。
 		 */
 		result = hash_any_extended((uint8_t *) buf, bsize + 1,
 								   PG_GETARG_INT64(1));
@@ -378,8 +378,8 @@ hashtextextended(PG_FUNCTION_ARGS)
 }
 
 /*
- * hashvarlena() can be used for any varlena datatype in which there are
- * no non-significant bits, ie, distinct bitpatterns never compare as equal.
+ * hashvarlena() 可用于任何没有非有效位的 varlena 数据类型，
+ * 即不同的位模式永远不会比较为相等。
  */
 Datum
 hashvarlena(PG_FUNCTION_ARGS)
@@ -390,7 +390,7 @@ hashvarlena(PG_FUNCTION_ARGS)
 	result = hash_any((unsigned char *) VARDATA_ANY(key),
 					  VARSIZE_ANY_EXHDR(key));
 
-	/* Avoid leaking memory for toasted inputs */
+	/* 避免已 TOAST 输入泄漏内存 */
 	PG_FREE_IF_COPY(key, 0);
 
 	return result;

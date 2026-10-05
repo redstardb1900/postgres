@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * hashvalidate.c
- *	  Opclass validator for hash.
+ *	  hash 的操作符类校验器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -36,12 +36,12 @@ static bool check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype);
 
 
 /*
- * Validator for a hash opclass.
+ * hash 操作符类的校验器。
  *
- * Some of the checks done here cover the whole opfamily, and therefore are
- * redundant when checking each opclass in a family.  But they don't run long
- * enough to be much of a problem, so we accept the duplication rather than
- * complicate the amvalidate API.
+ * 这里的某些检查覆盖整个操作符族，因此在检查
+ * 族中每个操作符类时是重复的。但它们运行时间
+ * 不够长，算不上什么问题，所以我们接受这种重复，
+ * 而不是把 amvalidate API 搞复杂。
  */
 bool
 hashvalidate(Oid opclassoid)
@@ -63,7 +63,7 @@ hashvalidate(Oid opclassoid)
 	int			i;
 	ListCell   *lc;
 
-	/* Fetch opclass information */
+	/* 获取操作符类信息 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -73,7 +73,7 @@ hashvalidate(Oid opclassoid)
 	opcintype = classform->opcintype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* 获取操作符族信息 */
 	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
 	if (!HeapTupleIsValid(familytup))
 		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
@@ -81,19 +81,19 @@ hashvalidate(Oid opclassoid)
 
 	opfamilyname = NameStr(familyform->opfname);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* 获取该操作符族的全部操作符和支持函数 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 
-	/* Check individual support functions */
+	/* 检查各个支持函数 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
 		Form_pg_amproc procform = (Form_pg_amproc) GETSTRUCT(proctup);
 
 		/*
-		 * All hash functions should be registered with matching left/right
-		 * types
+		 * 所有哈希函数都应以匹配的左/右类型
+		 * 注册
 		 */
 		if (procform->amproclefttype != procform->amprocrighttype)
 		{
@@ -105,7 +105,7 @@ hashvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check procedure numbers and function signatures */
+		/* 检查过程编号和函数签名 */
 		switch (procform->amprocnum)
 		{
 			case HASHSTANDARD_PROC:
@@ -123,7 +123,7 @@ hashvalidate(Oid opclassoid)
 				}
 				else
 				{
-					/* Remember which types we can hash */
+					/* 记住我们可以做哈希的类型 */
 					hashabletypes =
 						list_append_unique_oid(hashabletypes,
 											   procform->amproclefttype);
@@ -145,13 +145,13 @@ hashvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check individual operators */
+	/* 检查各个操作符 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 
-		/* Check that only allowed strategy numbers exist */
+		/* 检查只存在允许的策略编号 */
 		if (oprform->amopstrategy < 1 ||
 			oprform->amopstrategy > HTMaxStrategyNumber)
 		{
@@ -164,7 +164,7 @@ hashvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* hash doesn't support ORDER BY operators */
+		/* hash 不支持 ORDER BY 操作符 */
 		if (oprform->amoppurpose != AMOP_SEARCH ||
 			OidIsValid(oprform->amopsortfamily))
 		{
@@ -176,7 +176,7 @@ hashvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check operator signature --- same for all hash strategies */
+		/* 检查操作符签名 --- 对所有 hash 策略都相同 */
 		if (!check_amop_signature(oprform->amopopr, BOOLOID,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -189,7 +189,7 @@ hashvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* There should be relevant hash functions for each datatype */
+		/* 每种数据类型都应有相应的哈希函数 */
 		if (!list_member_oid(hashabletypes, oprform->amoplefttype) ||
 			!list_member_oid(hashabletypes, oprform->amoprighttype))
 		{
@@ -202,22 +202,22 @@ hashvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* 现在检查不一致的操作符/函数组 */
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 	opclassgroup = NULL;
 	foreach(lc, grouplist)
 	{
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
-		/* Remember the group exactly matching the test opclass */
+		/* 记住与被测操作符类精确匹配的那一组 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
 
 		/*
-		 * Complain if there seems to be an incomplete set of operators for
-		 * this datatype pair (implying that we have a hash function but no
-		 * operator).
+		 * 若这一数据类型对的操作符集合看起来不完整
+		 * （意味着有哈希函数但没有操作符），
+		 * 则报告问题。
 		 */
 		if (thisgroup->operatorset != (1 << HTEqualStrategyNumber))
 		{
@@ -231,8 +231,8 @@ hashvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check that the originally-named opclass is supported */
-	/* (if group is there, we already checked it adequately above) */
+	/* 检查原先命名的操作符类是否受支持 */
+	/* （若该组存在，上面已经充分检查过） */
 	if (!opclassgroup)
 	{
 		ereport(INFO,
@@ -243,10 +243,10 @@ hashvalidate(Oid opclassoid)
 	}
 
 	/*
-	 * Complain if the opfamily doesn't have entries for all possible
-	 * combinations of its supported datatypes.  While missing cross-type
-	 * operators are not fatal, it seems reasonable to insist that all
-	 * built-in hash opfamilies be complete.
+	 * 若操作符族对其支持的数据类型的全部可能组合
+	 * 都没有条目，则报告问题。跨类型操作符缺少
+	 * 并非致命，但坚持所有内建 hash 操作符族
+	 * 都完整，看起来是合理的。
 	 */
 	if (list_length(grouplist) !=
 		list_length(hashabletypes) * list_length(hashabletypes))
@@ -268,8 +268,8 @@ hashvalidate(Oid opclassoid)
 
 
 /*
- * We need a custom version of check_amproc_signature because of assorted
- * hacks in the core hash opclass definitions.
+ * 由于核心 hash 操作符类定义中有各种特殊处理，
+ * 我们需要 check_amproc_signature 的定制版本。
  */
 static bool
 check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype)
@@ -308,36 +308,36 @@ check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype)
 	if (!IsBinaryCoercible(argtype, procform->proargtypes.values[0]))
 	{
 		/*
-		 * Some of the built-in hash opclasses cheat by using hash functions
-		 * that are different from but physically compatible with the opclass
-		 * datatype.  In some of these cases, even a "binary coercible" check
-		 * fails because there's no relevant cast.  For the moment, fix it by
-		 * having a list of allowed cases.  Test the specific function
-		 * identity, not just its input type, because hashvarlena() takes
-		 * INTERNAL and allowing any such function seems too scary.
+		 * 某些内建 hash 操作符类取巧，使用与操作符类
+		 * 数据类型不同但物理上兼容的哈希函数。其中一些
+		 * 情况下，连 "二进制可强制转换" 检查也会失败，
+		 * 因为没有相应的类型转换。目前用一份允许情形
+		 * 清单来处理。要测试具体的函数身份，而不只是
+		 * 其输入类型，因为 hashvarlena() 接受 INTERNAL，
+		 * 允许任何这样的函数似乎过于危险。
 		 */
 		if ((funcid == F_HASHINT4 || funcid == F_HASHINT4EXTENDED) &&
 			(argtype == DATEOID ||
 			 argtype == XIDOID || argtype == CIDOID))
-			 /* okay, allowed use of hashint4() */ ;
+			 /* 可以，允许使用 hashint4() */ ;
 		else if ((funcid == F_HASHINT8 || funcid == F_HASHINT8EXTENDED) &&
 				 (argtype == XID8OID))
-			 /* okay, allowed use of hashint8() */ ;
+			 /* 可以，允许使用 hashint8() */ ;
 		else if ((funcid == F_TIMESTAMP_HASH ||
 				  funcid == F_TIMESTAMP_HASH_EXTENDED) &&
 				 argtype == TIMESTAMPTZOID)
-			 /* okay, allowed use of timestamp_hash() */ ;
+			 /* 可以，允许使用 timestamp_hash() */ ;
 		else if ((funcid == F_HASHCHAR || funcid == F_HASHCHAREXTENDED) &&
 				 argtype == BOOLOID)
-			 /* okay, allowed use of hashchar() */ ;
+			 /* 可以，允许使用 hashchar() */ ;
 		else if ((funcid == F_HASHVARLENA || funcid == F_HASHVARLENAEXTENDED) &&
 				 argtype == BYTEAOID)
-			 /* okay, allowed use of hashvarlena() */ ;
+			 /* 可以，允许使用 hashvarlena() */ ;
 		else
 			result = false;
 	}
 
-	/* If function takes a second argument, it must be for a 64-bit salt. */
+	/* 若函数接受第二个参数，它必须是 64 位盐值。 */
 	if (nargs == 2 && procform->proargtypes.values[1] != INT8OID)
 		result = false;
 
@@ -346,7 +346,7 @@ check_hash_func_signature(Oid funcid, int16 amprocnum, Oid argtype)
 }
 
 /*
- * Prechecking function for adding operators/functions to a hash opfamily.
+ * 向 hash 操作符族添加操作符/函数之前的预检查函数。
  */
 void
 hashadjustmembers(Oid opfamilyoid,
@@ -358,29 +358,29 @@ hashadjustmembers(Oid opfamilyoid,
 	ListCell   *lc;
 
 	/*
-	 * Hash operators and required support functions are always "loose"
-	 * members of the opfamily if they are cross-type.  If they are not
-	 * cross-type, we prefer to tie them to the appropriate opclass ... but if
-	 * the user hasn't created one, we can't do that, and must fall back to
-	 * using the opfamily dependency.  (We mustn't force creation of an
-	 * opclass in such a case, as leaving an incomplete opclass laying about
-	 * would be bad.  Throwing an error is another undesirable alternative.)
+	 * 哈希操作符和必需的支持函数若是跨类型的，始终是
+	 * 操作符族的 "松散" 成员。若不是跨类型的，我们更愿
+	 * 把它们绑到合适的操作符类 ... 但若用户尚未创建
+	 * 操作符类，就做不到这一点，必须回退为使用操作符族
+	 * 依赖。（这种情况下我们绝不能强制创建操作符类，
+	 * 因为留下一个不完整的操作符类会很糟糕。抛出错误
+	 * 是另一种不可取的选择。）
 	 *
-	 * This behavior results in a bit of a dump/reload hazard, in that the
-	 * order of restoring objects could affect what dependencies we end up
-	 * with.  pg_dump's existing behavior will preserve the dependency choices
-	 * in most cases, but not if a cross-type operator has been bound tightly
-	 * into an opclass.  That's a mistake anyway, so silently "fixing" it
-	 * isn't awful.
+	 * 这种行为会带来一点转储/重新加载隐患，因为恢复
+	 * 对象的顺序可能影响我们最终得到的依赖。
+	 * pg_dump 的现有行为在多数情况下会保留这些
+	 * 依赖选择，但若某个跨类型操作符已被紧密绑定
+	 * 到操作符类中则不会。那本来就是个错误，所以
+	 * 默默 "修正" 它并不糟糕。
 	 *
-	 * Optional support functions are always "loose" family members.
+	 * 可选的支持函数始终是 "松散" 的族成员。
 	 *
-	 * To avoid repeated lookups, we remember the most recently used opclass's
-	 * input type.
+	 * 为避免重复查找，我们记住最近使用的操作符类的
+	 * 输入类型。
 	 */
 	if (OidIsValid(opclassoid))
 	{
-		/* During CREATE OPERATOR CLASS, need CCI to see the pg_opclass row */
+		/* CREATE OPERATOR CLASS 期间，需要 CCI 才能看到 pg_opclass 行 */
 		CommandCounterIncrement();
 		opcintype = get_opclass_input_type(opclassoid);
 	}
@@ -388,8 +388,8 @@ hashadjustmembers(Oid opfamilyoid,
 		opcintype = InvalidOid;
 
 	/*
-	 * We handle operators and support functions almost identically, so rather
-	 * than duplicate this code block, just join the lists.
+	 * 操作符和支持函数的处理几乎相同，因此与其
+	 * 重复这段代码，不如直接把两个列表接起来。
 	 */
 	foreach(lc, list_concat_copy(operators, functions))
 	{
@@ -397,24 +397,24 @@ hashadjustmembers(Oid opfamilyoid,
 
 		if (op->is_func && op->number != HASHSTANDARD_PROC)
 		{
-			/* Optional support proc, so always a soft family dependency */
+			/* 可选支持过程，因此始终是软的族依赖 */
 			op->ref_is_hard = false;
 			op->ref_is_family = true;
 			op->refobjid = opfamilyoid;
 		}
 		else if (op->lefttype != op->righttype)
 		{
-			/* Cross-type, so always a soft family dependency */
+			/* 跨类型，因此始终是软的族依赖 */
 			op->ref_is_hard = false;
 			op->ref_is_family = true;
 			op->refobjid = opfamilyoid;
 		}
 		else
 		{
-			/* Not cross-type; is there a suitable opclass? */
+			/* 不是跨类型；有合适的操作符类吗？ */
 			if (op->lefttype != opcintype)
 			{
-				/* Avoid repeating this expensive lookup, even if it fails */
+				/* 避免重复这次昂贵的查找，即使它失败 */
 				opcintype = op->lefttype;
 				opclassoid = opclass_for_family_datatype(HASH_AM_OID,
 														 opfamilyoid,
@@ -422,14 +422,14 @@ hashadjustmembers(Oid opfamilyoid,
 			}
 			if (OidIsValid(opclassoid))
 			{
-				/* Hard dependency on opclass */
+				/* 对操作符类的硬依赖 */
 				op->ref_is_hard = true;
 				op->ref_is_family = false;
 				op->refobjid = opclassoid;
 			}
 			else
 			{
-				/* We're stuck, so make a soft dependency on the opfamily */
+				/* 没有别的办法，因此对操作符族建立软依赖 */
 				op->ref_is_hard = false;
 				op->ref_is_family = true;
 				op->refobjid = opfamilyoid;

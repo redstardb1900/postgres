@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "0146-comment-access-hash-part1",
+ "title": "zh: translate access/hash comments (part 1)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "2292fd0d2907f856ace88659de83f42dcab69f02",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/hash/hashsort.c",
+   "kind": "c_comment",
+   "note": "hash index build sort spool"
+  },
+  {
+   "pattern": "src/backend/access/hash/hashfunc.c",
+   "kind": "c_comment",
+   "note": "hash support functions"
+  },
+  {
+   "pattern": "src/backend/access/hash/hashvalidate.c",
+   "kind": "c_comment",
+   "note": "hash opclass validator"
+  },
+  {
+   "pattern": "src/backend/access/hash/hashinsert.c",
+   "kind": "c_comment",
+   "note": "hash index tuple insertion"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0146-comment-access-hash-part1.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/hash/hashsort.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 13,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash index build sort spool; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/hash/hashfunc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash support functions; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/hash/hashvalidate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 38,
+   "translated": 38,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash opclass validator; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/hash/hashinsert.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 44,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "hash index tuple insertion; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0146-comment-access-hash-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0146 translates comments in src/backend/access/hash/hashsort.c, hashfunc.c, hashvalidate.c, and hashinsert.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: hashutil.c, hashsearch.c, and hash.c."
+}

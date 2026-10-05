@@ -1,6 +1,6 @@
 /*
  * brin_pageops.c
- *		Page-handling routines for BRIN indexes
+ *		BRIN 索引的页处理例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,8 +23,8 @@
 #include "utils/rel.h"
 
 /*
- * Maximum size of an entry in a BRIN_PAGETYPE_REGULAR page.  We can tolerate
- * a single item per page, unlike other index AMs.
+ * BRIN_PAGETYPE_REGULAR 页中一个条目的最大尺寸。与其他索引访问
+ * 方法不同，我们可以容忍每页只有一个项。
  */
 #define BrinMaxItemSize \
 	MAXALIGN_DOWN(BLCKSZ - \
@@ -39,16 +39,16 @@ static void brin_initialize_empty_new_buffer(Relation idxrel, Buffer buffer);
 
 
 /*
- * Update tuple origtup (size origsz), located in offset oldoff of buffer
- * oldbuf, to newtup (size newsz) as summary tuple for the page range starting
- * at heapBlk.  oldbuf must not be locked on entry, and is not locked at exit.
+ * 把缓冲区 oldbuf 中偏移 oldoff 处的元组 origtup（大小 origsz）
+ * 更新为 newtup（大小 newsz），作为从 heapBlk 开始的页范围的
+ * 汇总元组。进入时 oldbuf 不得上锁，退出时也不持有锁。
  *
- * If samepage is true, attempt to put the new tuple in the same page, but if
- * there's no room, use some other one.
+ * 若 samepage 为真，尝试把新元组放在同一页；若没有空间，
+ * 则改用其他页。
  *
- * If the update is successful, return true; the revmap is updated to point to
- * the new tuple.  If the update is not done for whatever reason, return false.
- * Caller may retry the update if this happens.
+ * 更新成功则返回真，并把 revmap 更新为指向新元组。无论
+ * 何种原因未能完成更新，都返回假。发生这种情况时，调用者
+ * 可以重试该更新。
  */
 bool
 brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
@@ -68,22 +68,22 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 
 	Assert(newsz == MAXALIGN(newsz));
 
-	/* If the item is oversized, don't bother. */
+	/* 若该项过大，则不必费心。 */
 	if (newsz > BrinMaxItemSize)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("index row size %zu exceeds maximum %zu for index \"%s\"",
 						newsz, BrinMaxItemSize, RelationGetRelationName(idxrel))));
-		return false;			/* keep compiler quiet */
+		return false;			/* 消除编译器告警 */
 	}
 
-	/* make sure the revmap is long enough to contain the entry we need */
+	/* 确保 revmap 足够长，能容纳所需条目 */
 	brinRevmapExtend(revmap, heapBlk);
 
 	if (!samepage)
 	{
-		/* need a page on which to put the item */
+		/* 需要一页来放置该项 */
 		newbuf = brin_getinsertbuffer(idxrel, oldbuf, newsz, &extended);
 		if (!BufferIsValid(newbuf))
 		{
@@ -92,9 +92,9 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 		}
 
 		/*
-		 * Note: it's possible (though unlikely) that the returned newbuf is
-		 * the same as oldbuf, if brin_getinsertbuffer determined that the old
-		 * buffer does in fact have enough space.
+		 * 注意：返回的 newbuf 有可能（尽管不太可能）与 oldbuf
+		 * 相同，如果 brin_getinsertbuffer 判定旧缓冲区确实
+		 * 有足够空间。
 		 */
 		if (newbuf == oldbuf)
 		{
@@ -114,12 +114,12 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 	oldlp = PageGetItemId(oldpage, oldoff);
 
 	/*
-	 * Check that the old tuple wasn't updated concurrently: it might have
-	 * moved someplace else entirely, and for that matter the whole page
-	 * might've become a revmap page.  Note that in the first two cases
-	 * checked here, the "oldlp" we just calculated is garbage; but
-	 * PageGetItemId() is simple enough that it was safe to do that
-	 * calculation anyway.
+	 * 检查旧元组没有被并发更新：它可能已经
+	 * 整个移到别处，甚至整页都可能已变成
+	 * revmap 页。注意，这里检查的前两种情况下，
+	 * 刚算出的 "oldlp" 是无效的；但
+	 * PageGetItemId() 足够简单，事先做这次计算
+	 * 仍然是安全的。
 	 */
 	if (!BRIN_IS_REGULAR_PAGE(oldpage) ||
 		oldoff > PageGetMaxOffsetNumber(oldpage) ||
@@ -128,9 +128,9 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 		LockBuffer(oldbuf, BUFFER_LOCK_UNLOCK);
 
 		/*
-		 * If this happens, and the new buffer was obtained by extending the
-		 * relation, then we need to ensure we don't leave it uninitialized or
-		 * forget about it.
+		 * 若发生这种情况，且新缓冲区是通过扩展关系得到的，
+		 * 则必须确保既不把它留在未初始化状态，也不把它
+		 * 忘掉。
 		 */
 		if (BufferIsValid(newbuf))
 		{
@@ -147,14 +147,14 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 	oldtup = (BrinTuple *) PageGetItem(oldpage, oldlp);
 
 	/*
-	 * ... or it might have been updated in place to different contents.
+	 * ……或者它可能已被原地更新成不同的内容。
 	 */
 	if (!brin_tuples_equal(oldtup, oldsz, origtup, origsz))
 	{
 		LockBuffer(oldbuf, BUFFER_LOCK_UNLOCK);
 		if (BufferIsValid(newbuf))
 		{
-			/* As above, initialize and record new page if we got one */
+			/* 同上，若得到了新页，则初始化并记录它 */
 			if (extended)
 				brin_initialize_empty_new_buffer(idxrel, newbuf);
 			UnlockReleaseBuffer(newbuf);
@@ -165,13 +165,13 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 	}
 
 	/*
-	 * Great, the old tuple is intact.  We can proceed with the update.
+	 * 很好，旧元组完好。可以继续更新。
 	 *
-	 * If there's enough room in the old page for the new tuple, replace it.
+	 * 若旧页有足够空间放下新元组，就替换它。
 	 *
-	 * Note that there might now be enough space on the page even though the
-	 * caller told us there isn't, if a concurrent update moved another tuple
-	 * elsewhere or replaced a tuple with a smaller one.
+	 * 注意，即使调用者告知空间不够，现在页上也可能已有足够
+	 * 空间：并发更新可能把另一个元组移走，或换成了更小的
+	 * 元组。
 	 */
 	if (((BrinPageFlags(oldpage) & BRIN_EVACUATE_PAGE) == 0) &&
 		brin_can_do_samepage_update(oldbuf, origsz, newsz))
@@ -181,7 +181,7 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 			elog(ERROR, "failed to replace BRIN tuple");
 		MarkBufferDirty(oldbuf);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(idxrel))
 		{
 			xl_brin_samepage_update xlrec;
@@ -207,7 +207,7 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 
 		if (BufferIsValid(newbuf))
 		{
-			/* As above, initialize and record new page if we got one */
+			/* 同上，若得到了新页，则初始化并记录它 */
 			if (extended)
 				brin_initialize_empty_new_buffer(idxrel, newbuf);
 			UnlockReleaseBuffer(newbuf);
@@ -220,8 +220,8 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 	else if (newbuf == InvalidBuffer)
 	{
 		/*
-		 * Not enough space, but caller said that there was. Tell them to
-		 * start over.
+		 * 空间不够，但调用者说有。告诉他们
+		 * 从头再来。
 		 */
 		LockBuffer(oldbuf, BUFFER_LOCK_UNLOCK);
 		return false;
@@ -229,8 +229,8 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 	else
 	{
 		/*
-		 * Not enough free space on the oldpage. Put the new tuple on the new
-		 * page, and update the revmap.
+		 * oldpage 上没有足够空闲空间。把新元组放到新页上，
+		 * 并更新 revmap。
 		 */
 		Page		newpage = BufferGetPage(newbuf);
 		Buffer		revmapbuf;
@@ -243,9 +243,9 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 		START_CRIT_SECTION();
 
 		/*
-		 * We need to initialize the page if it's newly obtained.  Note we
-		 * will WAL-log the initialization as part of the update, so we don't
-		 * need to do that here.
+		 * 若该页是新得到的，需要先初始化。注意，
+		 * 初始化会作为更新的一部分记入 WAL，因此
+		 * 这里不必单独做。
 		 */
 		if (extended)
 			brin_page_init(newpage, BRIN_PAGETYPE_REGULAR);
@@ -258,7 +258,7 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 		MarkBufferDirty(oldbuf);
 		MarkBufferDirty(newbuf);
 
-		/* needed to update FSM below */
+		/* 下面更新 FSM 时需要 */
 		if (extended)
 			freespace = br_page_get_freespace(newpage);
 
@@ -266,7 +266,7 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 		brinSetHeapBlockItemptr(revmapbuf, pagesPerRange, heapBlk, newtid);
 		MarkBufferDirty(revmapbuf);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(idxrel))
 		{
 			xl_brin_update xlrec;
@@ -282,16 +282,16 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 
 			XLogBeginInsert();
 
-			/* new page */
+			/* 新页 */
 			XLogRegisterData((char *) &xlrec, SizeOfBrinUpdate);
 
 			XLogRegisterBuffer(0, newbuf, REGBUF_STANDARD | (extended ? REGBUF_WILL_INIT : 0));
 			XLogRegisterBufData(0, (char *) unconstify(BrinTuple *, newtup), newsz);
 
-			/* revmap page */
+			/* revmap 页 */
 			XLogRegisterBuffer(1, revmapbuf, 0);
 
-			/* old page */
+			/* 旧页 */
 			XLogRegisterBuffer(2, oldbuf, REGBUF_STANDARD);
 
 			recptr = XLogInsert(RM_BRIN_ID, info);
@@ -318,7 +318,7 @@ brin_doupdate(Relation idxrel, BlockNumber pagesPerRange,
 }
 
 /*
- * Return whether brin_doupdate can do a samepage update.
+ * 返回 brin_doupdate 能否做同页更新。
  */
 bool
 brin_can_do_samepage_update(Buffer buffer, Size origsz, Size newsz)
@@ -329,15 +329,15 @@ brin_can_do_samepage_update(Buffer buffer, Size origsz, Size newsz)
 }
 
 /*
- * Insert an index tuple into the index relation.  The revmap is updated to
- * mark the range containing the given page as pointing to the inserted entry.
- * A WAL record is written.
+ * 向索引关系插入一个索引元组。revmap 会被更新，
+ * 把包含给定页的范围标记为指向刚插入的条目。
+ * 同时写入 WAL。
  *
- * The buffer, if valid, is first checked for free space to insert the new
- * entry; if there isn't enough, a new buffer is obtained and pinned.  No
- * buffer lock must be held on entry, no buffer lock is held on exit.
+ * 若缓冲区有效，先检查是否有空闲空间插入新条目；若不够，
+ * 则取得并钉住一个新缓冲区。进入时不得持有缓冲区锁，
+ * 退出时也不持有缓冲区锁。
  *
- * Return value is the offset number where the tuple was inserted.
+ * 返回值是元组被插入处的偏移号。
  */
 OffsetNumber
 brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
@@ -354,29 +354,29 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 
 	Assert(itemsz == MAXALIGN(itemsz));
 
-	/* If the item is oversized, don't even bother. */
+	/* 若该项过大，则根本不必费心。 */
 	if (itemsz > BrinMaxItemSize)
 	{
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("index row size %zu exceeds maximum %zu for index \"%s\"",
 						itemsz, BrinMaxItemSize, RelationGetRelationName(idxrel))));
-		return InvalidOffsetNumber; /* keep compiler quiet */
+		return InvalidOffsetNumber; /* 消除编译器告警 */
 	}
 
-	/* Make sure the revmap is long enough to contain the entry we need */
+	/* 确保 revmap 足够长，能容纳所需条目 */
 	brinRevmapExtend(revmap, heapBlk);
 
 	/*
-	 * Acquire lock on buffer supplied by caller, if any.  If it doesn't have
-	 * enough space, unpin it to obtain a new one below.
+	 * 若调用者提供了缓冲区，则取得其上的锁。若空间不够，
+	 * 则解除钉住，以便下面取得一个新缓冲区。
 	 */
 	if (BufferIsValid(*buffer))
 	{
 		/*
-		 * It's possible that another backend (or ourselves!) extended the
-		 * revmap over the page we held a pin on, so we cannot assume that
-		 * it's still a regular page.
+		 * 另一个后端（或我们自己！）可能已经把 revmap
+		 * 扩展到了我们钉住的那一页上，因此无法假定
+		 * 它仍是常规页。
 		 */
 		LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 		if (br_page_get_freespace(BufferGetPage(*buffer)) < itemsz)
@@ -387,8 +387,8 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 	}
 
 	/*
-	 * If we still don't have a usable buffer, have brin_getinsertbuffer
-	 * obtain one for us.
+	 * 若仍然没有可用缓冲区，就让 brin_getinsertbuffer
+	 * 为我们取得一个。
 	 */
 	if (!BufferIsValid(*buffer))
 	{
@@ -399,13 +399,13 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 	else
 		extended = false;
 
-	/* Now obtain lock on revmap buffer */
+	/* 现在取得 revmap 缓冲区上的锁 */
 	revmapbuf = brinLockRevmapPageForUpdate(revmap, heapBlk);
 
 	page = BufferGetPage(*buffer);
 	blk = BufferGetBlockNumber(*buffer);
 
-	/* Execute the actual insertion */
+	/* 执行实际的插入 */
 	START_CRIT_SECTION();
 	if (extended)
 		brin_page_init(page, BRIN_PAGETYPE_REGULAR);
@@ -415,7 +415,7 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 		elog(ERROR, "failed to add BRIN tuple to new page");
 	MarkBufferDirty(*buffer);
 
-	/* needed to update FSM below */
+	/* 下面更新 FSM 时需要 */
 	if (extended)
 		freespace = br_page_get_freespace(page);
 
@@ -423,7 +423,7 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 	brinSetHeapBlockItemptr(revmapbuf, pagesPerRange, heapBlk, tid);
 	MarkBufferDirty(revmapbuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(idxrel))
 	{
 		xl_brin_insert xlrec;
@@ -451,7 +451,7 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 
 	END_CRIT_SECTION();
 
-	/* Tuple is firmly on buffer; we can release our locks */
+	/* 元组已稳妥写入缓冲区；可以释放锁 */
 	LockBuffer(*buffer, BUFFER_LOCK_UNLOCK);
 	LockBuffer(revmapbuf, BUFFER_LOCK_UNLOCK);
 
@@ -468,9 +468,9 @@ brin_doinsert(Relation idxrel, BlockNumber pagesPerRange,
 }
 
 /*
- * Initialize a page with the given type.
+ * 用给定类型初始化一页。
  *
- * Caller is responsible for marking it dirty, as appropriate.
+ * 调用者负责在适当时把它标为脏。
  */
 void
 brin_page_init(Page page, uint16 type)
@@ -481,7 +481,7 @@ brin_page_init(Page page, uint16 type)
 }
 
 /*
- * Initialize a new BRIN index's metapage.
+ * 初始化新 BRIN 索引的元页。
  */
 void
 brin_metapage_init(Page page, BlockNumber pagesPerRange, uint16 version)
@@ -497,29 +497,29 @@ brin_metapage_init(Page page, BlockNumber pagesPerRange, uint16 version)
 	metadata->pagesPerRange = pagesPerRange;
 
 	/*
-	 * Note we cheat here a little.  0 is not a valid revmap block number
-	 * (because it's the metapage buffer), but doing this enables the first
-	 * revmap page to be created when the index is.
+	 * 注意，这里稍微取了个巧。0 不是有效的 revmap 块号
+	 * （因为它是元页缓冲区），但这样做能在创建索引时
+	 * 同时创建第一张 revmap 页。
 	 */
 	metadata->lastRevmapPage = 0;
 
 	/*
-	 * Set pd_lower just past the end of the metadata.  This is essential,
-	 * because without doing so, metadata will be lost if xlog.c compresses
-	 * the page.
+	 * 把 pd_lower 设到元数据末尾刚过的位置。这一点至关重要，
+	 * 因为若不这样做，xlog.c 压缩该页时
+	 * 元数据就会丢失。
 	 */
 	((PageHeader) page)->pd_lower =
 		((char *) metadata + sizeof(BrinMetaPageData)) - (char *) page;
 }
 
 /*
- * Initiate page evacuation protocol.
+ * 启动页面 evacuated 协议。
  *
- * The page must be locked in exclusive mode by the caller.
+ * 调用者必须以排他模式锁住该页。
  *
- * If the page is not yet initialized or empty, return false without doing
- * anything; it can be used for revmap without any further changes.  If it
- * contains tuples, mark it for evacuation and return true.
+ * 若该页尚未初始化或为空，则什么也不做并返回假；
+ * 它可以不加任何改动就用作 revmap。若其中含有元组，
+ * 则把它标记为 evacuated 并返回真。
  */
 bool
 brin_start_evacuating_page(Relation idxRel, Buffer buf)
@@ -542,10 +542,10 @@ brin_start_evacuating_page(Relation idxRel, Buffer buf)
 		if (ItemIdIsUsed(lp))
 		{
 			/*
-			 * Prevent other backends from adding more stuff to this page:
-			 * BRIN_EVACUATE_PAGE informs br_page_get_freespace that this page
-			 * can no longer be used to add new tuples.  Note that this flag
-			 * is not WAL-logged, except accidentally.
+			 * 阻止其他后端再往该页添加内容：
+			 * BRIN_EVACUATE_PAGE 告知 br_page_get_freespace，此页
+			 * 不能再用来添加新元组。注意，该标志不记入 WAL，
+			 * 除非是偶然。
 			 */
 			BrinPageFlags(page) |= BRIN_EVACUATE_PAGE;
 			MarkBufferDirtyHint(buf, true);
@@ -557,9 +557,9 @@ brin_start_evacuating_page(Relation idxRel, Buffer buf)
 }
 
 /*
- * Move all tuples out of a page.
+ * 把一页上的全部元组移走。
  *
- * The caller must hold lock on the page. The lock and pin are released.
+ * 调用者必须持有该页的锁。锁和钉住都会被释放。
  */
 void
 brin_evacuate_page(Relation idxRel, BlockNumber pagesPerRange,
@@ -595,11 +595,11 @@ brin_evacuate_page(Relation idxRel, BlockNumber pagesPerRange,
 
 			if (!brin_doupdate(idxRel, pagesPerRange, revmap, tup->bt_blkno,
 							   buf, off, tup, sz, tup, sz, false))
-				off--;			/* retry */
+				off--;			/* 重试 */
 
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 
-			/* It's possible that someone extended the revmap over this page */
+			/* 有人可能已经把 revmap 扩展到了这一页上 */
 			if (!BRIN_IS_REGULAR_PAGE(page))
 				break;
 		}
@@ -609,17 +609,17 @@ brin_evacuate_page(Relation idxRel, BlockNumber pagesPerRange,
 }
 
 /*
- * Given a BRIN index page, initialize it if necessary, and record its
- * current free space in the FSM.
+ * 给定一个 BRIN 索引页，必要时初始化它，并把当前
+ * 空闲空间记入 FSM。
  *
- * The main use for this is when, during vacuuming, an uninitialized page is
- * found, which could be the result of relation extension followed by a crash
- * before the page can be used.
+ * 主要用途是：清理期间发现未初始化的页，这可能是
+ * 关系扩展之后、该页投入使用之前发生崩溃
+ * 造成的。
  *
- * Here, we don't bother to update upper FSM pages, instead expecting that our
- * caller (brin_vacuum_scan) will fix them at the end of the scan.  Elsewhere
- * in this file, it's generally a good idea to propagate additions of free
- * space into the upper FSM pages immediately.
+ * 这里不费心更新上层 FSM 页，而是指望调用者
+ * （brin_vacuum_scan）在扫描结束时修正它们。本文件
+ * 其他地方通常应把新增的空闲空间立即传播到
+ * 上层 FSM 页。
  */
 void
 brin_page_cleanup(Relation idxrel, Buffer buf)
@@ -627,14 +627,14 @@ brin_page_cleanup(Relation idxrel, Buffer buf)
 	Page		page = BufferGetPage(buf);
 
 	/*
-	 * If a page was left uninitialized, initialize it now; also record it in
-	 * FSM.
+	 * 若某页被留在未初始化状态，现在初始化它；
+	 * 同时把它记入 FSM。
 	 *
-	 * Somebody else might be extending the relation concurrently.  To avoid
-	 * re-initializing the page before they can grab the buffer lock, we
-	 * acquire the extension lock momentarily.  Since they hold the extension
-	 * lock from before getting the page and after its been initialized, we're
-	 * sure to see their initialization.
+	 * 可能有人正在并发扩展该关系。为避免在他们取得
+	 * 缓冲区锁之前重新初始化该页，我们短暂取得扩展锁。
+	 * 由于他们从取得该页之前一直持有扩展锁，
+	 * 直到该页初始化之后，我们一定能看到
+	 * 他们的初始化。
 	 */
 	if (PageIsNew(page))
 	{
@@ -651,41 +651,41 @@ brin_page_cleanup(Relation idxrel, Buffer buf)
 		LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 	}
 
-	/* Nothing to be done for non-regular index pages */
+	/* 非常规索引页无需处理 */
 	if (BRIN_IS_META_PAGE(BufferGetPage(buf)) ||
 		BRIN_IS_REVMAP_PAGE(BufferGetPage(buf)))
 		return;
 
-	/* Measure free space and record it */
+	/* 测量空闲空间并记录它 */
 	RecordPageWithFreeSpace(idxrel, BufferGetBlockNumber(buf),
 							br_page_get_freespace(page));
 }
 
 /*
- * Return a pinned and exclusively locked buffer which can be used to insert an
- * index item of size itemsz (caller must ensure not to request sizes
- * impossible to fulfill).  If oldbuf is a valid buffer, it is also locked (in
- * an order determined to avoid deadlocks).
+ * 返回一个已钉住且排他锁住的缓冲区，可用于插入
+ * 大小为 itemsz 的索引项（调用者必须确保不请求
+ * 无法满足的大小）。若 oldbuf 是有效缓冲区，
+ * 也会被锁住（加锁顺序经过安排，以避免死锁）。
  *
- * If we find that the old page is no longer a regular index page (because
- * of a revmap extension), the old buffer is unlocked and we return
- * InvalidBuffer.
+ * 若发现旧页已不再是常规索引页（因为 revmap
+ * 扩展），则解锁旧缓冲区并返回
+ * InvalidBuffer。
  *
- * If there's no existing page with enough free space to accommodate the new
- * item, the relation is extended.  If this happens, *extended is set to true,
- * and it is the caller's responsibility to initialize the page (and WAL-log
- * that fact) prior to use.  The caller should also update the FSM with the
- * page's remaining free space after the insertion.
+ * 若没有任何现有页有足够空闲空间容纳新项，
+ * 就扩展关系。若发生这种情况，*extended 被置为真，
+ * 调用者有责任在使用前初始化该页（并把这一事实
+ * 记入 WAL）。调用者还应在插入后用该页剩余空闲空间
+ * 更新 FSM。
  *
- * Note that the caller is not expected to update FSM unless *extended is set
- * true.  This policy means that we'll update FSM when a page is created, and
- * when it's found to have too little space for a desired tuple insertion,
- * but not every single time we add a tuple to the page.
+ * 注意，除非 *extended 被置为真，否则并不预期调用者
+ * 更新 FSM。这一策略意味着：创建页时，以及发现页
+ * 空间不足以插入所需元组时，我们会更新 FSM；但并非
+ * 每次向该页添加元组都更新。
  *
- * Note that in some corner cases it is possible for this routine to extend
- * the relation and then not return the new page.  It is this routine's
- * responsibility to WAL-log the page initialization and to record the page in
- * FSM if that happens, since the caller certainly can't do it.
+ * 注意，在某些极端情况下，本例程可能扩展了关系
+ * 却不返回新页。若发生这种情况，本例程有责任把页
+ * 初始化记入 WAL，并把该页记入 FSM，因为调用者
+ * 肯定做不到。
  */
 static Buffer
 brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
@@ -696,7 +696,7 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 	Page		page;
 	Size		freespace;
 
-	/* callers must have checked */
+	/* 调用者必须已经检查过 */
 	Assert(itemsz <= BrinMaxItemSize);
 
 	if (BufferIsValid(oldbuf))
@@ -704,16 +704,16 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 	else
 		oldblk = InvalidBlockNumber;
 
-	/* Choose initial target page, re-using existing target if known */
+	/* 选择初始目标页；若已知现有目标则复用 */
 	newblk = RelationGetTargetBlock(irel);
 	if (newblk == InvalidBlockNumber)
 		newblk = GetPageWithFreeSpace(irel, itemsz);
 
 	/*
-	 * Loop until we find a page with sufficient free space.  By the time we
-	 * return to caller out of this loop, both buffers are valid and locked;
-	 * if we have to restart here, neither page is locked and newblk isn't
-	 * pinned (if it's even valid).
+	 * 循环直到找到空闲空间足够的页。从该循环返回给
+	 * 调用者时，两个缓冲区都有效且已上锁；若必须在此
+	 * 重新开始，则两页都未上锁，且 newblk 未被钉住
+	 * （若它确实有效的话）。
 	 */
 	for (;;)
 	{
@@ -727,13 +727,13 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 		if (newblk == InvalidBlockNumber)
 		{
 			/*
-			 * There's not enough free space in any existing index page,
-			 * according to the FSM: extend the relation to obtain a shiny new
-			 * page.
+			 * 按 FSM 的说法，任何现有索引页
+			 * 都没有足够空闲空间：扩展关系以取得
+			 * 一张崭新的页。
 			 *
-			 * XXX: It's likely possible to use RBM_ZERO_AND_LOCK here,
-			 * which'd avoid the need to hold the extension lock during buffer
-			 * reclaim.
+			 * XXX：这里很可能可以用 RBM_ZERO_AND_LOCK，
+			 * 从而不必在缓冲区回收期间
+			 * 一直持有扩展锁。
 			 */
 			if (!RELATION_IS_LOCAL(irel))
 			{
@@ -750,8 +750,8 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 		else if (newblk == oldblk)
 		{
 			/*
-			 * There's an odd corner-case here where the FSM is out-of-date,
-			 * and gave us the old page.
+			 * 这里有个古怪的极端情况：FSM 已过时，
+			 * 给了我们旧页。
 			 */
 			buf = oldbuf;
 		}
@@ -761,10 +761,10 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 		}
 
 		/*
-		 * We lock the old buffer first, if it's earlier than the new one; but
-		 * then we need to check that it hasn't been turned into a revmap page
-		 * concurrently.  If we detect that that happened, give up and tell
-		 * caller to start over.
+		 * 若旧缓冲区比新的更靠前，先锁旧缓冲区；但随后
+		 * 必须检查它没有被并发变成 revmap 页。若检测到
+		 * 发生了这种情况，就放弃，并告诉调用者
+		 * 从头再来。
 		 */
 		if (BufferIsValid(oldbuf) && oldblk < newblk)
 		{
@@ -774,12 +774,12 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 				LockBuffer(oldbuf, BUFFER_LOCK_UNLOCK);
 
 				/*
-				 * It is possible that the new page was obtained from
-				 * extending the relation.  In that case, we must be sure to
-				 * record it in the FSM before leaving, because otherwise the
-				 * space would be lost forever.  However, we cannot let an
-				 * uninitialized page get in the FSM, so we need to initialize
-				 * it first.
+				 * 新页有可能是通过扩展关系得到的。
+				 * 若是这样，
+				 * 离开前必须把它记入 FSM，
+				 * 否则这块空间会永远丢失。
+				 * 不过，无法让未初始化的页进入 FSM，
+				 * 所以需要先初始化它。
 				 */
 				if (*extended)
 					brin_initialize_empty_new_buffer(irel, buf);
@@ -792,7 +792,7 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 				if (*extended)
 				{
 					FreeSpaceMapVacuumRange(irel, newblk, newblk + 1);
-					/* shouldn't matter, but don't confuse caller */
+					/* 应当无关紧要，但不要迷惑调用者 */
 					*extended = false;
 				}
 
@@ -808,10 +808,10 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 		page = BufferGetPage(buf);
 
 		/*
-		 * We have a new buffer to insert into.  Check that the new page has
-		 * enough free space, and return it if it does; otherwise start over.
-		 * (br_page_get_freespace also checks that the FSM didn't hand us a
-		 * page that has since been repurposed for the revmap.)
+		 * 我们有一个可插入的新缓冲区。检查新页是否有足够
+		 * 空闲空间，若有则返回它；否则从头再来。
+		 * （br_page_get_freespace 还会检查 FSM 没有交给我们
+		 * 一页后来被改作 revmap 的页。）
 		 */
 		freespace = *extended ?
 			BrinMaxItemSize : br_page_get_freespace(page);
@@ -820,10 +820,10 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 			RelationSetTargetBlock(irel, newblk);
 
 			/*
-			 * Lock the old buffer if not locked already.  Note that in this
-			 * case we know for sure it's a regular page: it's later than the
-			 * new page we just got, which is not a revmap page, and revmap
-			 * pages are always consecutive.
+			 * 若旧缓冲区尚未上锁，则锁住它。注意，此时可以
+			 * 确定它是常规页：它位于刚取得的新页之后，
+			 * 而新页不是 revmap 页，且 revmap 页
+			 * 总是连续的。
 			 */
 			if (BufferIsValid(oldbuf) && oldblk > newblk)
 			{
@@ -834,24 +834,24 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 			return buf;
 		}
 
-		/* This page is no good. */
+		/* 这一页不行。 */
 
 		/*
-		 * If an entirely new page does not contain enough free space for the
-		 * new item, then surely that item is oversized.  Complain loudly; but
-		 * first make sure we initialize the page and record it as free, for
-		 * next time.
+		 * 若一张全新的页都放不下新项所需的空闲空间，
+		 * 那么该项肯定过大。大声报错；但首先确保
+		 * 初始化该页并把它记为空闲，
+		 * 以备下次使用。
 		 */
 		if (*extended)
 		{
 			brin_initialize_empty_new_buffer(irel, buf);
-			/* since this should not happen, skip FreeSpaceMapVacuum */
+			/* 既然这不该发生，就跳过 FreeSpaceMapVacuum */
 
 			ereport(ERROR,
 					(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 					 errmsg("index row size %zu exceeds maximum %zu for index \"%s\"",
 							itemsz, freespace, RelationGetRelationName(irel))));
-			return InvalidBuffer;	/* keep compiler quiet */
+			return InvalidBuffer;	/* 消除编译器告警 */
 		}
 
 		if (newblk != oldblk)
@@ -860,26 +860,26 @@ brin_getinsertbuffer(Relation irel, Buffer oldbuf, Size itemsz,
 			LockBuffer(oldbuf, BUFFER_LOCK_UNLOCK);
 
 		/*
-		 * Update the FSM with the new, presumably smaller, freespace value
-		 * for this page, then search for a new target page.
+		 * 用该页新的、想必更小的空闲空间值更新 FSM，然后
+		 * 搜索新的目标页。
 		 */
 		newblk = RecordAndGetPageWithFreeSpace(irel, newblk, freespace, itemsz);
 	}
 }
 
 /*
- * Initialize a page as an empty regular BRIN page, WAL-log this, and record
- * the page in FSM.
+ * 把一页初始化为空的常规 BRIN 页，把这记入 WAL，
+ * 并把该页记入 FSM。
  *
- * There are several corner situations in which we extend the relation to
- * obtain a new page and later find that we cannot use it immediately.  When
- * that happens, we don't want to leave the page go unrecorded in FSM, because
- * there is no mechanism to get the space back and the index would bloat.
- * Also, because we would not WAL-log the action that would initialize the
- * page, the page would go uninitialized in a standby (or after recovery).
+ * 有几种极端情况：我们扩展关系以取得新页，
+ * 后来发现无法立即使用它。这时不应让该页
+ * 不记入 FSM，因为没有机制能把空间收回，
+ * 索引会膨胀。另外，因为我们不会把本应
+ * 初始化该页的动作记入 WAL，该页在备库上
+ * （或恢复之后）会保持未初始化。
  *
- * While we record the page in FSM here, caller is responsible for doing FSM
- * upper-page update if that seems appropriate.
+ * 虽然这里把该页记入了 FSM，若合适的话，
+ * 调用者仍负责做 FSM 上层页更新。
  */
 static void
 brin_initialize_empty_new_buffer(Relation idxrel, Buffer buffer)
@@ -898,9 +898,9 @@ brin_initialize_empty_new_buffer(Relation idxrel, Buffer buffer)
 	END_CRIT_SECTION();
 
 	/*
-	 * We update the FSM for this page, but this is not WAL-logged.  This is
-	 * acceptable because VACUUM will scan the index and update the FSM with
-	 * pages whose FSM records were forgotten in a crash.
+	 * 我们更新该页的 FSM，但这不记入 WAL。这是可以接受的，
+	 * 因为 VACUUM 会扫描索引，并用那些在崩溃中被遗忘了
+	 * FSM 记录的页来更新 FSM。
 	 */
 	RecordPageWithFreeSpace(idxrel, BufferGetBlockNumber(buffer),
 							br_page_get_freespace(page));
@@ -908,10 +908,10 @@ brin_initialize_empty_new_buffer(Relation idxrel, Buffer buffer)
 
 
 /*
- * Return the amount of free space on a regular BRIN index page.
+ * 返回常规 BRIN 索引页上的空闲空间量。
  *
- * If the page is not a regular page, or has been marked with the
- * BRIN_EVACUATE_PAGE flag, returns 0.
+ * 若该页不是常规页，或已被标记 BRIN_EVACUATE_PAGE
+ * 标志，则返回 0。
  */
 static Size
 br_page_get_freespace(Page page)

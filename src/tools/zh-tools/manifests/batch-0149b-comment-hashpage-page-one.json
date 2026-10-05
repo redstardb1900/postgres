@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0149b-comment-hashpage-page-one",
+ "title": "zh: fix hashpage NOTES page-one wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ba07a83dedcb47e8e038de4a2ca9bc25b3c349af",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/hash/hashpage.c",
+   "kind": "c_comment",
+   "note": "Composer P1: Pages one and higher ≠ 第一页"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0149b-comment-hashpage-page-one.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/hash/hashpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 132,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "NOTES: Pages one and higher → 页号 1 及更高"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0149b-comment-hashpage-page-one.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0149"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0149b"
+  }
+ ],
+ "notes": "Composer P1 on 0149: 'Pages one and higher' was mistranslated as 第一页及更高的页, conflicting with page zero as 第一页; corrected to 页号 1 及更高的页."
+}

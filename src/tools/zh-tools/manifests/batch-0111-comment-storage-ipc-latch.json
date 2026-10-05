@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0111-comment-storage-ipc-latch",
+ "title": "zh: translate latch comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "382af70e48cd5ed0dfa8f77ca1afb37ad9ddf1b2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "note": "latches and wait events"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0111-comment-storage-ipc-latch.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 177,
+   "translated": 175,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "latches and wait events; phrasebook requires 锁存器"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0111-comment-storage-ipc-latch.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0111 translates src/backend/storage/ipc/latch.c. Phrasebook P68 forbids 闩锁 and requires 锁存器, so the committed wording uses 锁存器. Wait events are 等待事件. Latch/WaitLatch identifiers stay English."
+}

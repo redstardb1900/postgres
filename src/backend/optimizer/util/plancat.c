@@ -55,10 +55,10 @@
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 
-/* GUC parameter */
+/* GUC 参数 */
 int			constraint_exclusion = CONSTRAINT_EXCLUSION_PARTITION;
 
-/* Hook for plugins to get control in get_relation_info() */
+/* 供插件在 get_relation_info() 中取得控制权的钩子 */
 get_relation_info_hook_type get_relation_info_hook = NULL;
 
 
@@ -86,33 +86,33 @@ static void set_baserel_partition_constraint(Relation relation,
 
 /*
  * get_relation_info -
- *	  Retrieves catalog information for a given relation.
+ *	  取出给定关系的目录信息。
  *
- * Given the Oid of the relation, return the following info into fields
- * of the RelOptInfo struct:
+ * 给定关系的 Oid，把下列信息填进
+ * RelOptInfo 结构的成员：
  *
- *	min_attr	lowest valid AttrNumber
- *	max_attr	highest valid AttrNumber
- *	indexlist	list of IndexOptInfos for relation's indexes
- *	statlist	list of StatisticExtInfo for relation's statistic objects
- *	serverid	if it's a foreign table, the server OID
- *	fdwroutine	if it's a foreign table, the FDW function pointers
- *	pages		number of pages
- *	tuples		number of tuples
- *	rel_parallel_workers user-defined number of parallel workers
+ *	min_attr	最低的有效 AttrNumber
+ *	max_attr	最高的有效 AttrNumber
+ *	indexlist	该关系各索引的 IndexOptInfos 列表
+ *	statlist	该关系统计对象的 StatisticExtInfo 列表
+ *	serverid	若是外部表，则为服务器 OID
+ *	fdwroutine	若是外部表，则为 FDW 函数指针
+ *	pages		页数
+ *	tuples		元组数
+ *	rel_parallel_workers 用户定义的并行工作进程数
  *
- * Also, add information about the relation's foreign keys to root->fkey_list.
+ * 也把该关系外键的信息加进 root->fkey_list。
  *
- * Also, initialize the attr_needed[] and attr_widths[] arrays.  In most
- * cases these are left as zeroes, but sometimes we need to compute attr
- * widths here, and we may as well cache the results for costsize.c.
+ * 同时初始化 attr_needed[] 和 attr_widths[] 数组。多数
+ * 情况下它们留为零，但有时需要在这里计算属性
+ * 宽度，不妨把结果缓存给 costsize.c。
  *
- * If inhparent is true, all we need to do is set up the attr arrays:
- * the RelOptInfo actually represents the appendrel formed by an inheritance
- * tree, and so the parent rel's physical size and index information isn't
- * important for it, however, for partitioned tables, we do populate the
- * indexlist as the planner uses unique indexes as unique proofs for certain
- * optimizations.
+ * 若 inhparent 为真，只需把属性数组建好：
+ * RelOptInfo 实际代表继承树形成的 appendrel，
+ * 因此父关系的物理大小和索引信息对它并不
+ * 重要；不过对分区表，我们会填充
+ * indexlist，因为规划器把唯一索引当作某些
+ * 优化的唯一性证明。
  */
 void
 get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
@@ -124,18 +124,18 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 	List	   *indexinfos = NIL;
 
 	/*
-	 * We need not lock the relation since it was already locked, either by
-	 * the rewriter or when expand_inherited_rtentry() added it to the query's
-	 * rangetable.
+	 * 不必锁这个关系，因为重写器已经锁过，或者
+	 * expand_inherited_rtentry() 把它加进查询的
+	 * 范围表时已经锁过。
 	 */
 	relation = table_open(relationObjectId, NoLock);
 
 	/*
-	 * Relations without a table AM can be used in a query only if they are of
-	 * special-cased relkinds.  This check prevents us from crashing later if,
-	 * for example, a view's ON SELECT rule has gone missing.  Note that
-	 * table_open() already rejected indexes and composite types; spell the
-	 * error the same way it does.
+	 * 没有表访问方法的关系，只有属于
+	 * 特判 relkind 时才能用于查询。这个检查防止以后崩溃，例如
+	 * 视图的 ON SELECT 规则已经缺少。注意
+	 * table_open() 已经拒绝了索引和复合类型；报错
+	 * 用词与它保持一致。
 	 */
 	if (!relation->rd_tableam)
 	{
@@ -148,7 +148,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 					 errdetail_relkind_not_supported(relation->rd_rel->relkind)));
 	}
 
-	/* Temporary and unlogged relations are inaccessible during recovery. */
+	/* 恢复期间无法访问临时关系和未记录关系。 */
 	if (!RelationIsPermanent(relation) && RecoveryInProgress())
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -165,24 +165,24 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 		palloc0((rel->max_attr - rel->min_attr + 1) * sizeof(int32));
 
 	/*
-	 * Estimate relation size --- unless it's an inheritance parent, in which
-	 * case the size we want is not the rel's own size but the size of its
-	 * inheritance tree.  That will be computed in set_append_rel_size().
+	 * 估计关系大小——除非它是继承父表，那时
+	 * 我们要的不是该关系自身的大小，而是它的
+	 * 继承树的大小。那会在 set_append_rel_size() 里计算。
 	 */
 	if (!inhparent)
 		estimate_rel_size(relation, rel->attr_widths - rel->min_attr,
 						  &rel->pages, &rel->tuples, &rel->allvisfrac);
 
-	/* Retrieve the parallel_workers reloption, or -1 if not set. */
+	/* 取出 parallel_workers 关系选项，未设置则为 -1。 */
 	rel->rel_parallel_workers = RelationGetParallelWorkers(relation, -1);
 
 	/*
-	 * Make list of indexes.  Ignore indexes on system catalogs if told to.
-	 * Don't bother with indexes from traditional inheritance parents.  For
-	 * partitioned tables, we need a list of at least unique indexes as these
-	 * serve as unique proofs for certain planner optimizations.  However,
-	 * let's not discriminate here and just record all partitioned indexes
-	 * whether they're unique indexes or not.
+	 * 建立索引列表。若被告知，则忽略系统目录上的索引。
+	 * 不必理会传统继承父表的索引。对
+	 * 分区表，至少需要一份唯一索引列表，因为它们
+	 * 充当某些规划器优化的唯一性证明。不过
+	 * 这里不必区别对待，把所有分区索引都记下来，
+	 * 不论它们是不是唯一索引。
 	 */
 	if ((inhparent && relation->rd_rel->relkind != RELKIND_PARTITIONED_TABLE)
 		|| (IgnoreSystemIndexes && IsSystemRelation(relation)))
@@ -199,12 +199,12 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 		indexoidlist = RelationGetIndexList(relation);
 
 		/*
-		 * For each index, we get the same type of lock that the executor will
-		 * need, and do not release it.  This saves a couple of trips to the
-		 * shared lock manager while not creating any real loss of
-		 * concurrency, because no schema changes could be happening on the
-		 * index while we hold lock on the parent rel, and no lock type used
-		 * for queries blocks any other kind of index operation.
+		 * 对每个索引，取得执行器将会
+		 * 需要的同一种锁，并且不释放。这样少跑几趟
+		 * 共享锁管理器，又不会真正损失
+		 * 并发，因为我们持有父关系的锁时，索引上不可能发生
+		 * 模式变更，而且查询所用的锁类型
+		 * 不会阻塞任何其他种类的索引操作。
 		 */
 		lmode = root->simple_rte_array[varno]->rellockmode;
 
@@ -220,17 +220,17 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			int			i;
 
 			/*
-			 * Extract info from the relation descriptor for the index.
+			 * 从索引的关系描述符中抽出信息。
 			 */
 			indexRelation = index_open(indexoid, lmode);
 			index = indexRelation->rd_index;
 
 			/*
-			 * Ignore invalid indexes, since they can't safely be used for
-			 * queries.  Note that this is OK because the data structure we
-			 * are constructing is only used by the planner --- the executor
-			 * still needs to insert into "invalid" indexes, if they're marked
-			 * indisready.
+			 * 忽略无效索引，因为查询不能安全地使用它们。
+			 * 注意这没问题，因为我们正在构造的数据结构
+			 * 只供规划器使用——执行器
+			 * 仍须向标成 indisready 的无效
+			 * 索引里插入。
 			 */
 			if (!index->indisvalid)
 			{
@@ -239,9 +239,9 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			}
 
 			/*
-			 * If the index is valid, but cannot yet be used, ignore it; but
-			 * mark the plan we are generating as transient. See
-			 * src/backend/access/heap/README.HOT for discussion.
+			 * 若索引有效，但还无法使用，就忽略它；但
+			 * 把正在生成的计划标成临时的。讨论见
+			 * src/backend/access/heap/README.HOT。
 			 */
 			if (index->indcheckxmin &&
 				!TransactionIdPrecedes(HeapTupleHeaderGetXmin(indexRelation->rd_indextuple->t_data),
@@ -283,12 +283,12 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			info->relam = indexRelation->rd_rel->relam;
 
 			/*
-			 * We don't have an AM for partitioned indexes, so we'll just
-			 * NULLify the AM related fields for those.
+			 * 分区索引没有访问方法，因此只把
+			 * 与访问方法有关的成员 NULLify 掉。
 			 */
 			if (indexRelation->rd_rel->relkind != RELKIND_PARTITIONED_INDEX)
 			{
-				/* We copy just the fields we need, not all of rd_indam */
+				/* 只复制需要的成员，不是 rd_indam 的全部 */
 				amroutine = indexRelation->rd_indam;
 				info->amcanorderbyop = amroutine->amcanorderbyop;
 				info->amoptionalkey = amroutine->amoptionalkey;
@@ -303,17 +303,17 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 				info->amcostestimate = amroutine->amcostestimate;
 				Assert(info->amcostestimate != NULL);
 
-				/* Fetch index opclass options */
+				/* 取出索引操作符类选项 */
 				info->opclassoptions = RelationGetIndexAttOptions(indexRelation, true);
 
 				/*
-				 * Fetch the ordering information for the index, if any.
+				 * 若有的话，取出该索引的排序信息。
 				 */
 				if (info->relam == BTREE_AM_OID)
 				{
 					/*
-					 * If it's a btree index, we can use its opfamily OIDs
-					 * directly as the sort ordering opfamily OIDs.
+					 * 若它是 btree 索引，可以直接把它的操作符族 OIDs
+					 * 当作排序所用的操作符族 OIDs。
 					 */
 					Assert(amroutine->amcanorder);
 
@@ -332,19 +332,19 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 				else if (amroutine->amcanorder)
 				{
 					/*
-					 * Otherwise, identify the corresponding btree opfamilies
-					 * by trying to map this index's "<" operators into btree.
-					 * Since "<" uniquely defines the behavior of a sort
-					 * order, this is a sufficient test.
+					 * 否则，试着把这个索引的 < 操作符映射到 btree，
+					 * 从而找出对应的 btree 操作符族。
+					 * 因为 < 唯一决定一种排序
+					 * 顺序的行为，这个检验就够了。
 					 *
-					 * XXX This method is rather slow and also requires the
-					 * undesirable assumption that the other index AM numbers
-					 * its strategies the same as btree.  It'd be better to
-					 * have a way to explicitly declare the corresponding
-					 * btree opfamily for each opfamily of the other index
-					 * type.  But given the lack of current or foreseeable
-					 * amcanorder index types, it's not worth expending more
-					 * effort on now.
+					 * XXX 这个办法相当慢，而且需要
+					 * 一个不受欢迎的假定：其他索引访问方法
+					 * 给策略编号的方式与 btree 相同。最好能
+					 * 显式声明其他索引类型的每个操作符族
+					 * 所对应的 btree 操作符族。
+					 * 但鉴于目前和可预见的将来都缺少
+					 * amcanorder 索引类型，现在不值得再
+					 * 多花力气。
 					 */
 					info->sortopfamily = (Oid *) palloc(sizeof(Oid) * nkeycolumns);
 					info->reverse_sort = (bool *) palloc(sizeof(bool) * nkeycolumns);
@@ -373,12 +373,12 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 							btopcintype == info->opcintype[i] &&
 							btstrategy == BTLessStrategyNumber)
 						{
-							/* Successful mapping */
+							/* 映射成功 */
 							info->sortopfamily[i] = btopfamily;
 						}
 						else
 						{
-							/* Fail ... quietly treat index as unordered */
+							/* 失败……悄悄把索引当成无序的 */
 							info->sortopfamily = NULL;
 							info->reverse_sort = NULL;
 							info->nulls_first = NULL;
@@ -411,10 +411,10 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			}
 
 			/*
-			 * Fetch the index expressions and predicate, if any.  We must
-			 * modify the copies we obtain from the relcache to have the
-			 * correct varno for the parent relation, so that they match up
-			 * correctly against qual clauses.
+			 * 若有的话，取出索引表达式和谓词。必须
+			 * 修改从 relcache 得到的副本，使它们具有
+			 * 父关系的正确 varno，以便与限定子句
+			 * 正确对应。
 			 */
 			info->indexprs = RelationGetIndexExpressions(indexRelation);
 			info->indpred = RelationGetIndexPredicate(indexRelation);
@@ -423,22 +423,22 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			if (info->indpred && varno != 1)
 				ChangeVarNodes((Node *) info->indpred, 1, varno, 0);
 
-			/* Build targetlist using the completed indexprs data */
+			/* 用填好的 indexprs 数据建立目标列表 */
 			info->indextlist = build_index_tlist(root, info, relation);
 
-			info->indrestrictinfo = NIL;	/* set later, in indxpath.c */
-			info->predOK = false;	/* set later, in indxpath.c */
+			info->indrestrictinfo = NIL;	/* 以后在 indxpath.c 里设置 */
+			info->predOK = false;	/* 以后在 indxpath.c 里设置 */
 			info->unique = index->indisunique;
 			info->immediate = index->indimmediate;
 			info->hypothetical = false;
 
 			/*
-			 * Estimate the index size.  If it's not a partial index, we lock
-			 * the number-of-tuples estimate to equal the parent table; if it
-			 * is partial then we have to use the same methods as we would for
-			 * a table, except we can be sure that the index is not larger
-			 * than the table.  We must ignore partitioned indexes here as
-			 * there are not physical indexes.
+			 * 估计索引大小。若不是部分索引，就把
+			 * 元组数估计锁成等于父表；若
+			 * 是部分索引，就得用与表相同的办法，
+			 * 只是可以肯定索引不会大于
+			 * 表。这里必须忽略分区索引，因为
+			 * 它们不是物理索引。
 			 */
 			if (indexRelation->rd_rel->relkind != RELKIND_PARTITIONED_INDEX)
 			{
@@ -449,7 +449,7 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 				}
 				else
 				{
-					double		allvisfrac; /* dummy */
+					double		allvisfrac; /* 哑（占位） */
 
 					estimate_rel_size(indexRelation, NULL,
 									  &info->pages, &info->tuples, &allvisfrac);
@@ -460,20 +460,20 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 				if (info->relam == BTREE_AM_OID)
 				{
 					/*
-					 * For btrees, get tree height while we have the index
-					 * open
+					 * 对 btree，趁索引还开着取出
+					 * 树高
 					 */
 					info->tree_height = _bt_getrootheight(indexRelation);
 				}
 				else
 				{
-					/* For other index types, just set it to "unknown" for now */
+					/* 对其他索引类型，目前先设成未知 */
 					info->tree_height = -1;
 				}
 			}
 			else
 			{
-				/* Zero these out for partitioned indexes */
+				/* 分区索引把这些清零 */
 				info->pages = 0;
 				info->tuples = 0.0;
 				info->tree_height = -1;
@@ -482,11 +482,11 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 			index_close(indexRelation, NoLock);
 
 			/*
-			 * We've historically used lcons() here.  It'd make more sense to
-			 * use lappend(), but that causes the planner to change behavior
-			 * in cases where two indexes seem equally attractive.  For now,
-			 * stick with lcons() --- few tables should have so many indexes
-			 * that the O(N^2) behavior of lcons() is really a problem.
+			 * 这里历来用 lcons()。用 lappend() 更合理，
+			 * 但那样会在两个索引看起来同样有吸引力时，让规划器
+			 * 改变行为。目前
+			 * 仍用 lcons()——很少有表的索引多到
+			 * lcons() 的 O(N^2) 行为真成问题。
 			 */
 			indexinfos = lcons(info, indexinfos);
 		}
@@ -498,13 +498,13 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 
 	rel->statlist = get_relation_statistics(rel, relation);
 
-	/* Grab foreign-table info using the relcache, while we have it */
+	/* 趁 relcache 还在，用它抓取外部表信息 */
 	if (relation->rd_rel->relkind == RELKIND_FOREIGN_TABLE)
 	{
-		/* Check if the access to foreign tables is restricted */
+		/* 检查对外部表的访问是否受限制 */
 		if (unlikely((restrict_nonsystem_relation_kind & RESTRICT_RELKIND_FOREIGN_TABLE) != 0))
 		{
-			/* there must not be built-in foreign tables */
+			/* 不得存在内建的外部表 */
 			Assert(RelationGetRelid(relation) >= FirstNormalObjectId);
 
 			ereport(ERROR,
@@ -521,18 +521,18 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 		rel->fdwroutine = NULL;
 	}
 
-	/* Collect info about relation's foreign keys, if relevant */
+	/* 若相关，收集该关系外键的信息 */
 	get_relation_foreign_keys(root, rel, relation, inhparent);
 
-	/* Collect info about functions implemented by the rel's table AM. */
+	/* 收集由该关系的表访问方法实现的函数信息。 */
 	if (relation->rd_tableam &&
 		relation->rd_tableam->scan_set_tidrange != NULL &&
 		relation->rd_tableam->scan_getnextslot_tidrange != NULL)
 		rel->amflags |= AMFLAG_HAS_TID_RANGE;
 
 	/*
-	 * Collect info about relation's partitioning scheme, if any. Only
-	 * inheritance parents may be partitioned.
+	 * 若有的话，收集该关系的分区方案信息。只有
+	 * 继承父表才可能被分区。
 	 */
 	if (inhparent && relation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		set_relation_partition_info(root, rel, relation);
@@ -540,9 +540,9 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 	table_close(relation, NoLock);
 
 	/*
-	 * Allow a plugin to editorialize on the info we obtained from the
-	 * catalogs.  Actions might include altering the assumed relation size,
-	 * removing an index, or adding a hypothetical index to the indexlist.
+	 * 允许插件对从目录取得的信息发表意见。
+	 * 动作可以包括改掉假定的关系大小、
+	 * 去掉一个索引，或往 indexlist 里加一个假想索引。
 	 */
 	if (get_relation_info_hook)
 		(*get_relation_info_hook) (root, relationObjectId, inhparent, rel);
@@ -550,13 +550,13 @@ get_relation_info(PlannerInfo *root, Oid relationObjectId, bool inhparent,
 
 /*
  * get_relation_foreign_keys -
- *	  Retrieves foreign key information for a given relation.
+ *	  取出给定关系的外键信息。
  *
- * ForeignKeyOptInfos for relevant foreign keys are created and added to
- * root->fkey_list.  We do this now while we have the relcache entry open.
- * We could sometimes avoid making useless ForeignKeyOptInfos if we waited
- * until all RelOptInfos have been built, but the cost of re-opening the
- * relcache entries would probably exceed any savings.
+ * 为相关外键建立 ForeignKeyOptInfos，并加进
+ * root->fkey_list。趁 relcache 项还开着现在就做。
+ * 若等到全部 RelOptInfos 建好，有时可以避免建立无用的
+ * ForeignKeyOptInfos，但重新打开
+ * relcache 项的代价多半超过任何节省。
  */
 static void
 get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
@@ -567,41 +567,41 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 	ListCell   *lc;
 
 	/*
-	 * If it's not a baserel, we don't care about its FKs.  Also, if the query
-	 * references only a single relation, we can skip the lookup since no FKs
-	 * could satisfy the requirements below.
+	 * 若它不是基关系，我们不关心它的外键。另外，若查询
+	 * 只引用一个关系，可以跳过查找，因为没有外键
+	 * 能满足下面的条件。
 	 */
 	if (rel->reloptkind != RELOPT_BASEREL ||
 		list_length(rtable) < 2)
 		return;
 
 	/*
-	 * If it's the parent of an inheritance tree, ignore its FKs.  We could
-	 * make useful FK-based deductions if we found that all members of the
-	 * inheritance tree have equivalent FK constraints, but detecting that
-	 * would require code that hasn't been written.
+	 * 若它是继承树的父表，忽略它的外键。若发现
+	 * 继承树的全部成员都有等价的外键约束，本可以做出
+	 * 有用的基于外键的推导，但检测这一点
+	 * 需要尚未写出的代码。
 	 */
 	if (inhparent)
 		return;
 
 	/*
-	 * Extract data about relation's FKs from the relcache.  Note that this
-	 * list belongs to the relcache and might disappear in a cache flush, so
-	 * we must not do any further catalog access within this function.
+	 * 从 relcache 抽出该关系外键的数据。注意这个
+	 * 列表属于 relcache，缓存刷新时可能消失，因此
+	 * 在本函数里不得再做任何目录访问。
 	 */
 	cachedfkeys = RelationGetFKeyList(relation);
 
 	/*
-	 * Figure out which FKs are of interest for this query, and create
-	 * ForeignKeyOptInfos for them.  We want only FKs that reference some
-	 * other RTE of the current query.  In queries containing self-joins,
-	 * there might be more than one other RTE for a referenced table, and we
-	 * should make a ForeignKeyOptInfo for each occurrence.
+	 * 弄清哪些外键与本查询有关，并为它们建立
+	 * ForeignKeyOptInfos。只要引用当前查询某个
+	 * 其他 RTE 的外键。在含有自连接的查询里，
+	 * 被引用的表可能还有不止一个其他 RTE，应当
+	 * 为每一次出现建立一个 ForeignKeyOptInfo。
 	 *
-	 * Ideally, we would ignore RTEs that correspond to non-baserels, but it's
-	 * too hard to identify those here, so we might end up making some useless
-	 * ForeignKeyOptInfos.  If so, match_foreign_keys_to_quals() will remove
-	 * them again.
+	 * 理想情况下会忽略对应非基关系的 RTEs，但在这里
+	 * 很难认出它们，因此也许会建立一些无用的
+	 * ForeignKeyOptInfos。若如此，match_foreign_keys_to_quals() 会再
+	 * 把它们去掉。
 	 */
 	foreach(lc, cachedfkeys)
 	{
@@ -609,10 +609,10 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 		Index		rti;
 		ListCell   *lc2;
 
-		/* conrelid should always be that of the table we're considering */
+		/* conrelid 应当总是我们正在考虑的那张表 */
 		Assert(cachedfk->conrelid == RelationGetRelid(relation));
 
-		/* Scan to find other RTEs matching confrelid */
+		/* 扫描以找出匹配 confrelid 的其他 RTEs */
 		rti = 0;
 		foreach(lc2, rtable)
 		{
@@ -620,18 +620,18 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 			ForeignKeyOptInfo *info;
 
 			rti++;
-			/* Ignore if not the correct table */
+			/* 若不是正确的表则忽略 */
 			if (rte->rtekind != RTE_RELATION ||
 				rte->relid != cachedfk->confrelid)
 				continue;
-			/* Ignore if it's an inheritance parent; doesn't really match */
+			/* 若它是继承父表则忽略；并不真正匹配 */
 			if (rte->inh)
 				continue;
-			/* Ignore self-referential FKs; we only care about joins */
+			/* 忽略自引用外键；我们只关心连接 */
 			if (rti == rel->relid)
 				continue;
 
-			/* OK, let's make an entry */
+			/* 好，建立一项 */
 			info = makeNode(ForeignKeyOptInfo);
 			info->con_relid = rel->relid;
 			info->ref_relid = rti;
@@ -639,7 +639,7 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 			memcpy(info->conkey, cachedfk->conkey, sizeof(info->conkey));
 			memcpy(info->confkey, cachedfk->confkey, sizeof(info->confkey));
 			memcpy(info->conpfeqop, cachedfk->conpfeqop, sizeof(info->conpfeqop));
-			/* zero out fields to be filled by match_foreign_keys_to_quals */
+			/* 把将由 match_foreign_keys_to_quals 填写的成员清零 */
 			info->nmatched_ec = 0;
 			info->nconst_ec = 0;
 			info->nmatched_rcols = 0;
@@ -655,35 +655,35 @@ get_relation_foreign_keys(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * infer_arbiter_indexes -
- *	  Determine the unique indexes used to arbitrate speculative insertion.
+ *	  确定用于仲裁推测性插入的唯一索引。
  *
- * Uses user-supplied inference clause expressions and predicate to match a
- * unique index from those defined and ready on the heap relation (target).
- * An exact match is required on columns/expressions (although they can appear
- * in any order).  However, the predicate given by the user need only restrict
- * insertion to a subset of some part of the table covered by some particular
- * unique index (in particular, a partial unique index) in order to be
- * inferred.
+ * 用用户给出的推断子句表达式和谓词，去匹配
+ * 堆关系（目标）上已定义且就绪的
+ * 唯一索引。
+ * 列和表达式必须精确匹配（尽管它们可以
+ * 以任何顺序出现）。不过用户给出的谓词只需把
+ * 插入限制到某张表被某个特定
+ * 唯一索引覆盖的某一部分的子集（尤其是部分唯一索引），即可被推断出来。
  *
- * The implementation does not consider which B-Tree operator class any
- * particular available unique index attribute uses, unless one was specified
- * in the inference specification. The same is true of collations.  In
- * particular, there is no system dependency on the default operator class for
- * the purposes of inference.  If no opclass (or collation) is specified, then
- * all matching indexes (that may or may not match the default in terms of
- * each attribute opclass/collation) are used for inference.
+ * 实现并不考虑任何可用唯一索引属性使用哪个 B-树操作符类，
+ * 除非推断说明里指定了一个。
+ * 排序规则也一样。尤其是，
+ * 推断并不依赖系统的默认操作符类。
+ * 若没有指定操作符类（或排序规则），则
+ * 所有匹配的索引（就各属性的操作符类/排序规则而言，
+ * 它们也许匹配默认，也许不匹配）都用于推断。
  *
- * Note: during index CONCURRENTLY operations, different transactions may
- * reference different sets of arbiter indexes. This can lead to false unique
- * constraint violations that wouldn't occur during normal operations.  For
- * more information, see insert.sgml.
+ * 注意：在索引 CONCURRENTLY 操作期间，不同事务可能
+ * 引用不同的仲裁索引集合。这会导致正常操作中不会出现的
+ * 假唯一约束违反。更多
+ * 信息见 insert.sgml。
  */
 List *
 infer_arbiter_indexes(PlannerInfo *root)
 {
 	OnConflictExpr *onconflict = root->parse->onConflict;
 
-	/* Iteration state */
+	/* 迭代状态 */
 	Index		varno;
 	RangeTblEntry *rte;
 	Relation	relation;
@@ -691,27 +691,27 @@ infer_arbiter_indexes(PlannerInfo *root)
 	List	   *indexList;
 	ListCell   *l;
 
-	/* Normalized inference attributes and inference expressions: */
+	/* 规范化后的推断属性和推断表达式： */
 	Bitmapset  *inferAttrs = NULL;
 	List	   *inferElems = NIL;
 
-	/* Results */
+	/* 结果 */
 	List	   *results = NIL;
 
 	/*
-	 * Quickly return NIL for ON CONFLICT DO NOTHING without an inference
-	 * specification or named constraint.  ON CONFLICT DO UPDATE statements
-	 * must always provide one or the other (but parser ought to have caught
-	 * that already).
+	 * 对没有推断说明或具名约束的 ON CONFLICT DO NOTHING，迅速返回 NIL。
+	 * ON CONFLICT DO UPDATE 语句
+	 * 必须总是提供其中之一（不过解析器应当已经
+	 * 抓住了这一点）。
 	 */
 	if (onconflict->arbiterElems == NIL &&
 		onconflict->constraint == InvalidOid)
 		return NIL;
 
 	/*
-	 * We need not lock the relation since it was already locked, either by
-	 * the rewriter or when expand_inherited_rtentry() added it to the query's
-	 * rangetable.
+	 * 不必锁这个关系，因为重写器已经锁过，或者
+	 * expand_inherited_rtentry() 把它加进查询的
+	 * 范围表时已经锁过。
 	 */
 	varno = root->parse->resultRelation;
 	rte = rt_fetch(varno, root->parse->rtable);
@@ -719,9 +719,9 @@ infer_arbiter_indexes(PlannerInfo *root)
 	relation = table_open(rte->relid, NoLock);
 
 	/*
-	 * Build normalized/BMS representation of plain indexed attributes, as
-	 * well as a separate list of expression items.  This simplifies matching
-	 * the cataloged definition of indexes.
+	 * 为普通索引属性建立规范化的位图集表示，
+	 * 另外再单独列出表达式项。这简化了与
+	 * 目录中索引定义的匹配。
 	 */
 	foreach(l, onconflict->arbiterElems)
 	{
@@ -731,7 +731,7 @@ infer_arbiter_indexes(PlannerInfo *root)
 
 		if (!IsA(elem->expr, Var))
 		{
-			/* If not a plain Var, just shove it in inferElems for now */
+			/* 若不是普通 Var，先塞进 inferElems */
 			inferElems = lappend(inferElems, elem->expr);
 			continue;
 		}
@@ -749,8 +749,8 @@ infer_arbiter_indexes(PlannerInfo *root)
 	}
 
 	/*
-	 * Lookup named constraint's index.  This is not immediately returned
-	 * because some additional sanity checks are required.
+	 * 查找具名约束的索引。不会立刻返回，
+	 * 因为还需要一些额外的健全性检查。
 	 */
 	if (onconflict->constraint != InvalidOid)
 	{
@@ -763,8 +763,8 @@ infer_arbiter_indexes(PlannerInfo *root)
 	}
 
 	/*
-	 * Using that representation, iterate through the list of indexes on the
-	 * target relation to try and find a match
+	 * 用那种表示，遍历目标关系上的索引列表，
+	 * 试着找出匹配
 	 */
 	indexList = RelationGetIndexList(relation);
 
@@ -780,12 +780,12 @@ infer_arbiter_indexes(PlannerInfo *root)
 		ListCell   *el;
 
 		/*
-		 * Extract info from the relation descriptor for the index.  Obtain
-		 * the same lock type that the executor will ultimately use.
+		 * 从索引的关系描述符中抽出信息。取得
+		 * 执行器最终会使用的同一种锁。
 		 *
-		 * Let executor complain about !indimmediate case directly, because
-		 * enforcement needs to occur there anyway when an inference clause is
-		 * omitted.
+		 * 让执行器直接抱怨非 indimmediate 的情形，因为
+		 * 省略推断子句时，强制执行反正也得
+		 * 发生在那里。
 		 */
 		idxRel = index_open(indexoid, rte->rellockmode);
 		idxForm = idxRel->rd_index;
@@ -794,15 +794,15 @@ infer_arbiter_indexes(PlannerInfo *root)
 			goto next;
 
 		/*
-		 * Note that we do not perform a check against indcheckxmin (like e.g.
-		 * get_relation_info()) here to eliminate candidates, because
-		 * uniqueness checking only cares about the most recently committed
-		 * tuple versions.
+		 * 注意这里不像 get_relation_info() 那样对照 indcheckxmin
+		 * 做检查来淘汰候选，因为
+		 * 唯一性检查只关心最近提交的
+		 * 元组版本。
 		 */
 
 		/*
-		 * Look for match on "ON constraint_name" variant, which may not be
-		 * unique constraint.  This can only be a constraint name.
+		 * 寻找 ON constraint_name 这种变体的匹配，它也许不是
+		 * 唯一约束。这只能是约束名。
 		 */
 		if (indexOidFromConstraint == idxForm->indexrelid)
 		{
@@ -819,19 +819,19 @@ infer_arbiter_indexes(PlannerInfo *root)
 		}
 		else if (indexOidFromConstraint != InvalidOid)
 		{
-			/* No point in further work for index in named constraint case */
+			/* 具名约束情形下，索引不必再做进一步工作 */
 			goto next;
 		}
 
 		/*
-		 * Only considering conventional inference at this point (not named
-		 * constraints), so index under consideration can be immediately
-		 * skipped if it's not unique
+		 * 此刻只考虑常规推断（不是具名
+		 * 约束），因此若考虑中的索引不唯一，
+		 * 可以立刻跳过
 		 */
 		if (!idxForm->indisunique)
 			goto next;
 
-		/* Build BMS representation of plain (non expression) index attrs */
+		/* 为普通（非表达式）索引属性建立位图集表示 */
 		indexedAttrs = NULL;
 		for (natt = 0; natt < idxForm->indnkeyatts; natt++)
 		{
@@ -842,11 +842,11 @@ infer_arbiter_indexes(PlannerInfo *root)
 											  attno - FirstLowInvalidHeapAttributeNumber);
 		}
 
-		/* Non-expression attributes (if any) must match */
+		/* 非表达式属性（若有）必须匹配 */
 		if (!bms_equal(indexedAttrs, inferAttrs))
 			goto next;
 
-		/* Expression attributes (if any) must match */
+		/* 表达式属性（若有）必须匹配 */
 		idxExprs = RelationGetIndexExpressions(idxRel);
 		if (idxExprs && varno != 1)
 			ChangeVarNodes((Node *) idxExprs, 1, varno, 0);
@@ -856,28 +856,28 @@ infer_arbiter_indexes(PlannerInfo *root)
 			InferenceElem *elem = (InferenceElem *) lfirst(el);
 
 			/*
-			 * Ensure that collation/opclass aspects of inference expression
-			 * element match.  Even though this loop is primarily concerned
-			 * with matching expressions, it is a convenient point to check
-			 * this for both expressions and ordinary (non-expression)
-			 * attributes appearing as inference elements.
+			 * 确保推断表达式
+			 * 元素的排序规则和操作符类方面匹配。尽管这个循环主要关心
+			 * 匹配表达式，这里也便于同时检查
+			 * 作为推断元素出现的表达式和普通（非表达式）
+			 * 属性。
 			 */
 			if (!infer_collation_opclass_match(elem, idxRel, idxExprs))
 				goto next;
 
 			/*
-			 * Plain Vars don't factor into count of expression elements, and
-			 * the question of whether or not they satisfy the index
-			 * definition has already been considered (they must).
+			 * 普通 Var 不计入表达式元素的个数，而且
+			 * 它们是否满足索引
+			 * 定义已经考虑过了（它们必须满足）。
 			 */
 			if (IsA(elem->expr, Var))
 				continue;
 
 			/*
-			 * Might as well avoid redundant check in the rare cases where
-			 * infer_collation_opclass_match() is required to do real work.
-			 * Otherwise, check that element expression appears in cataloged
-			 * index definition.
+			 * 在少数 infer_collation_opclass_match() 需要做实事的情形里，
+			 * 不妨避免重复检查。
+			 * 否则，检查元素表达式是否出现在目录中的
+			 * 索引定义里。
 			 */
 			if (elem->infercollid != InvalidOid ||
 				elem->inferopclass != InvalidOid ||
@@ -888,18 +888,18 @@ infer_arbiter_indexes(PlannerInfo *root)
 		}
 
 		/*
-		 * Now that all inference elements were matched, ensure that the
-		 * expression elements from inference clause are not missing any
-		 * cataloged expressions.  This does the right thing when unique
-		 * indexes redundantly repeat the same attribute, or if attributes
-		 * redundantly appear multiple times within an inference clause.
+		 * 既然全部推断元素都匹配上了，确保推断子句里的
+		 * 表达式元素没有缺少任何
+		 * 目录中的表达式。当唯一
+		 * 索引多余地重复同一属性，或属性
+		 * 在推断子句里多余地出现多次时，这样做是对的。
 		 */
 		if (list_difference(idxExprs, inferElems) != NIL)
 			goto next;
 
 		/*
-		 * If it's a partial index, its predicate must be implied by the ON
-		 * CONFLICT's WHERE clause.
+		 * 若它是部分索引，其谓词必须被 ON
+		 * CONFLICT 的 WHERE 子句所蕴含。
 		 */
 		predExprs = RelationGetIndexPredicate(idxRel);
 		if (predExprs && varno != 1)
@@ -925,50 +925,50 @@ next:
 }
 
 /*
- * infer_collation_opclass_match - ensure infer element opclass/collation match
+ * infer_collation_opclass_match：确保推断元素的操作符类和排序规则匹配。
  *
- * Given unique index inference element from inference specification, if
- * collation was specified, or if opclass was specified, verify that there is
- * at least one matching indexed attribute (occasionally, there may be more).
- * Skip this in the common case where inference specification does not include
- * collation or opclass (instead matching everything, regardless of cataloged
- * collation/opclass of indexed attribute).
+ * 给定推断说明中的唯一索引推断元素，若
+ * 指定了排序规则，或指定了操作符类，就验证至少有
+ * 一个匹配的索引属性（偶尔可能不止一个）。
+ * 常见情形是推断说明不含
+ * 排序规则或操作符类（那时一律匹配，不论索引属性在目录里的
+ * 排序规则和操作符类），则跳过这一步。
  *
- * At least historically, Postgres has not offered collations or opclasses
- * with alternative-to-default notions of equality, so these additional
- * criteria should only be required infrequently.
+ * 至少在历史上，Postgres 没有提供把等值理解成
+ * 不同于默认的排序规则或操作符类，因此这些额外
+ * 标准应当很少才需要。
  *
- * Don't give up immediately when an inference element matches some attribute
- * cataloged as indexed but not matching additional opclass/collation
- * criteria.  This is done so that the implementation is as forgiving as
- * possible of redundancy within cataloged index attributes (or, less
- * usefully, within inference specification elements).  If collations actually
- * differ between apparently redundantly indexed attributes (redundant within
- * or across indexes), then there really is no redundancy as such.
+ * 当某个推断元素匹配了目录里标成已索引、
+ * 但不符合额外操作符类或排序规则标准的属性时，不要立刻放弃。
+ * 这样做是为了尽可能宽容
+ * 目录索引属性中的冗余（或者，用处较小地，
+ * 推断说明元素中的冗余）。若排序规则在
+ * 看似冗余的已索引属性之间实际不同（索引内部或
+ * 跨索引的冗余），那就其实没有这种冗余。
  *
- * Note that if an inference element specifies an opclass and a collation at
- * once, both must match in at least one particular attribute within index
- * catalog definition in order for that inference element to be considered
- * inferred/satisfied.
+ * 注意，若一个推断元素同时指定了操作符类和排序规则，
+ * 则索引目录定义里至少要有一个特定属性
+ * 两者都匹配，该推断元素才算
+ * 已被推断或满足。
  */
 static bool
 infer_collation_opclass_match(InferenceElem *elem, Relation idxRel,
 							  List *idxExprs)
 {
 	AttrNumber	natt;
-	Oid			inferopfamily = InvalidOid; /* OID of opclass opfamily */
-	Oid			inferopcinputtype = InvalidOid; /* OID of opclass input type */
-	int			nplain = 0;		/* # plain attrs observed */
+	Oid			inferopfamily = InvalidOid; /* 操作符类所属操作符族的 OID */
+	Oid			inferopcinputtype = InvalidOid; /* 操作符类输入类型的 OID */
+	int			nplain = 0;		/* 观察到的普通属性个数 */
 
 	/*
-	 * If inference specification element lacks collation/opclass, then no
-	 * need to check for exact match.
+	 * 若推断说明元素没有排序规则或操作符类，就
+	 * 不必检查精确匹配。
 	 */
 	if (elem->infercollid == InvalidOid && elem->inferopclass == InvalidOid)
 		return true;
 
 	/*
-	 * Lookup opfamily and input type, for matching indexes
+	 * 查找操作符族和输入类型，以便匹配索引
 	 */
 	if (elem->inferopclass)
 	{
@@ -989,18 +989,18 @@ infer_collation_opclass_match(InferenceElem *elem, Relation idxRel,
 		if (elem->inferopclass != InvalidOid &&
 			(inferopfamily != opfamily || inferopcinputtype != opcinputtype))
 		{
-			/* Attribute needed to match opclass, but didn't */
+			/* 属性需要匹配操作符类，但没有 */
 			continue;
 		}
 
 		if (elem->infercollid != InvalidOid &&
 			elem->infercollid != collation)
 		{
-			/* Attribute needed to match collation, but didn't */
+			/* 属性需要匹配排序规则，但没有 */
 			continue;
 		}
 
-		/* If one matching index att found, good enough -- return true */
+		/* 若找到一个匹配的索引属性，就够了——返回真 */
 		if (IsA(elem->expr, Var))
 		{
 			if (((Var *) elem->expr)->varattno == attno)
@@ -1011,9 +1011,9 @@ infer_collation_opclass_match(InferenceElem *elem, Relation idxRel,
 			Node	   *nattExpr = list_nth(idxExprs, (natt - 1) - nplain);
 
 			/*
-			 * Note that unlike routines like match_index_to_operand() we
-			 * don't need to care about RelabelType.  Neither the index
-			 * definition nor the inference clause should contain them.
+			 * 注意，与 match_index_to_operand() 一类例程不同，我们
+			 * 不必在意 RelabelType。索引
+			 * 定义和推断子句都不应当含有它们。
 			 */
 			if (equal(elem->expr, nattExpr))
 				return true;
@@ -1024,14 +1024,14 @@ infer_collation_opclass_match(InferenceElem *elem, Relation idxRel,
 }
 
 /*
- * estimate_rel_size - estimate # pages and # tuples in a table or index
+ * estimate_rel_size：估计表或索引的页数和元组数
  *
- * We also estimate the fraction of the pages that are marked all-visible in
- * the visibility map, for use in estimation of index-only scans.
+ * 也估计可见性映射中标成全部可见的页所占比例，
+ * 供估计仅索引扫描时使用。
  *
- * If attr_widths isn't NULL, it points to the zero-index entry of the
- * relation's attr_widths[] cache; we fill this in if we have need to compute
- * the attribute widths for estimation purposes.
+ * 若 attr_widths 不是 NULL，它指向该
+ * 关系 attr_widths[] 缓存的零下标项；若为估计而需要计算
+ * 属性宽度，就填上它。
  */
 void
 estimate_rel_size(Relation rel, int32 *attr_widths,
@@ -1051,16 +1051,16 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 	else if (rel->rd_rel->relkind == RELKIND_INDEX)
 	{
 		/*
-		 * XXX: It'd probably be good to move this into a callback, individual
-		 * index types e.g. know if they have a metapage.
+		 * XXX：大概最好把这个移进回调，各种
+		 * 索引类型例如自己知道有没有元页。
 		 */
 
-		/* it has storage, ok to call the smgr */
+		/* 它有存储，可以调用 smgr */
 		curpages = RelationGetNumberOfBlocks(rel);
 
-		/* report estimated # pages */
+		/* 报告估计的页数 */
 		*pages = curpages;
-		/* quick exit if rel is clearly empty */
+		/* 若关系明显为空，迅速退出 */
 		if (curpages == 0)
 		{
 			*tuples = 0;
@@ -1068,16 +1068,16 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 			return;
 		}
 
-		/* coerce values in pg_class to more desirable types */
+		/* 把 pg_class 里的值强制成更合意的类型 */
 		relpages = (BlockNumber) rel->rd_rel->relpages;
 		reltuples = (double) rel->rd_rel->reltuples;
 		relallvisible = (BlockNumber) rel->rd_rel->relallvisible;
 
 		/*
-		 * Discount the metapage while estimating the number of tuples. This
-		 * is a kluge because it assumes more than it ought to about index
-		 * structure.  Currently it's OK for btree, hash, and GIN indexes but
-		 * suspect for GiST indexes.
+		 * 估计元组数时把元页打折。这
+		 * 是权宜凑合，因为它对索引
+		 * 结构假定得过多。目前对 btree、散列和 GIN 索引还可以，
+		 * 对 GiST 索引则可疑。
 		 */
 		if (relpages > 0)
 		{
@@ -1085,43 +1085,43 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 			relpages--;
 		}
 
-		/* estimate number of tuples from previous tuple density */
+		/* 按先前的元组密度估计元组数 */
 		if (reltuples >= 0 && relpages > 0)
 			density = reltuples / (double) relpages;
 		else
 		{
 			/*
-			 * If we have no data because the relation was never vacuumed,
-			 * estimate tuple width from attribute datatypes.  We assume here
-			 * that the pages are completely full, which is OK for tables
-			 * (since they've presumably not been VACUUMed yet) but is
-			 * probably an overestimate for indexes.  Fortunately
-			 * get_relation_info() can clamp the overestimate to the parent
-			 * table's size.
+			 * 若因为该关系从未被清理而没有数据，
+			 * 就从属性数据类型估计元组宽度。这里假定
+			 * 页是完全满的，对表来说可以
+			 * （因为它们大概还没被 VACUUMed），但对索引
+			 * 多半是高估。好在
+			 * get_relation_info() 可以把高估钳到父
+			 * 表的大小。
 			 *
-			 * Note: this code intentionally disregards alignment
-			 * considerations, because (a) that would be gilding the lily
-			 * considering how crude the estimate is, and (b) it creates
-			 * platform dependencies in the default plans which are kind of a
-			 * headache for regression testing.
+			 * 注意：这段代码有意不考虑对齐
+			 * 问题，因为（a）估计已经这么粗，那样做是画蛇添足，
+			 * 而且（b）它会让默认计划出现
+			 * 平台依赖，对回归测试相当
+			 * 头疼。
 			 *
-			 * XXX: Should this logic be more index specific?
+			 * XXX：这段逻辑是否应当更针对具体索引？
 			 */
 			int32		tuple_width;
 
 			tuple_width = get_rel_data_width(rel, attr_widths);
 			tuple_width += MAXALIGN(SizeofHeapTupleHeader);
 			tuple_width += sizeof(ItemIdData);
-			/* note: integer division is intentional here */
+			/* 注意：这里有意做整数除法 */
 			density = (BLCKSZ - SizeOfPageHeaderData) / tuple_width;
 		}
 		*tuples = rint(density * (double) curpages);
 
 		/*
-		 * We use relallvisible as-is, rather than scaling it up like we do
-		 * for the pages and tuples counts, on the theory that any pages added
-		 * since the last VACUUM are most likely not marked all-visible.  But
-		 * costsize.c wants it converted to a fraction.
+		 * relallvisible 按原样使用，不像页数和元组数那样放大，
+		 * 理由是自上次 VACUUM 以来新增的页
+		 * 最可能没有标成全部可见。但
+		 * costsize.c 要的是把它换成一个比例。
 		 */
 		if (relallvisible == 0 || curpages <= 0)
 			*allvisfrac = 0;
@@ -1133,10 +1133,10 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 	else
 	{
 		/*
-		 * Just use whatever's in pg_class.  This covers foreign tables,
-		 * sequences, and also relkinds without storage (shouldn't get here?);
-		 * see initializations in AddNewRelationTuple().  Note that FDW must
-		 * cope if reltuples is -1!
+		 * 就用 pg_class 里已有的值。这覆盖外部表、
+		 * 序列，以及没有存储的 relkind（不该走到这里？）；
+		 * 见 AddNewRelationTuple() 里的初始化。注意 FDW 必须
+		 * 能应付 reltuples 为 -1！
 		 */
 		*pages = rel->rd_rel->relpages;
 		*tuples = rel->rd_rel->reltuples;
@@ -1148,15 +1148,15 @@ estimate_rel_size(Relation rel, int32 *attr_widths,
 /*
  * get_rel_data_width
  *
- * Estimate the average width of (the data part of) the relation's tuples.
+ * 估计该关系元组（数据部分）的平均宽度。
  *
- * If attr_widths isn't NULL, it points to the zero-index entry of the
- * relation's attr_widths[] cache; use and update that cache as appropriate.
+ * 若 attr_widths 不是 NULL，它指向该
+ * 关系 attr_widths[] 缓存的零下标项；适当时使用并更新该缓存。
  *
- * Currently we ignore dropped columns.  Ideally those should be included
- * in the result, but we haven't got any way to get info about them; and
- * since they might be mostly NULLs, treating them as zero-width is not
- * necessarily the wrong thing anyway.
+ * 目前忽略已删除的列。理想情况下它们也该计入
+ * 结果，但没有任何办法取得它们的信息；而且
+ * 既然它们可能大部分是 NULLs，把它们当成零宽度
+ * 也未必就错。
  */
 int32
 get_rel_data_width(Relation rel, int32 *attr_widths)
@@ -1172,14 +1172,14 @@ get_rel_data_width(Relation rel, int32 *attr_widths)
 		if (att->attisdropped)
 			continue;
 
-		/* use previously cached data, if any */
+		/* 若有的话，使用先前缓存的数据 */
 		if (attr_widths != NULL && attr_widths[i] > 0)
 		{
 			tuple_width += attr_widths[i];
 			continue;
 		}
 
-		/* This should match set_rel_width() in costsize.c */
+		/* 这应当与 costsize.c 里的 set_rel_width() 一致 */
 		item_width = get_attavgwidth(RelationGetRelid(rel), i);
 		if (item_width <= 0)
 		{
@@ -1197,8 +1197,8 @@ get_rel_data_width(Relation rel, int32 *attr_widths)
 /*
  * get_relation_data_width
  *
- * External API for get_rel_data_width: same behavior except we have to
- * open the relcache entry.
+ * get_rel_data_width 的外部 API：行为相同，只是必须
+ * 打开 relcache 项。
  */
 int32
 get_relation_data_width(Oid relid, int32 *attr_widths)
@@ -1206,7 +1206,7 @@ get_relation_data_width(Oid relid, int32 *attr_widths)
 	int32		result;
 	Relation	relation;
 
-	/* As above, assume relation is already locked */
+	/* 同上，假定关系已经被安全地锁住 */
 	relation = table_open(relid, NoLock);
 
 	result = get_rel_data_width(relation, attr_widths);
@@ -1220,25 +1220,25 @@ get_relation_data_width(Oid relid, int32 *attr_widths)
 /*
  * get_relation_constraints
  *
- * Retrieve the applicable constraint expressions of the given relation.
+ * 取出给定关系适用的约束表达式。
  *
- * Returns a List (possibly empty) of constraint expressions.  Each one
- * has been canonicalized, and its Vars are changed to have the varno
- * indicated by rel->relid.  This allows the expressions to be easily
- * compared to expressions taken from WHERE.
+ * 返回约束表达式的 List（可能为空）。每一条
+ * 都已规范化，其 Var 被改成具有
+ * rel->relid 所指示的 varno。这样这些表达式就容易
+ * 与取自 WHERE 的表达式比较。
  *
- * If include_noinherit is true, it's okay to include constraints that
- * are marked NO INHERIT.
+ * 若 include_noinherit 为真，可以纳入标成
+ * NO INHERIT 的约束。
  *
- * If include_notnull is true, "col IS NOT NULL" expressions are generated
- * and added to the result for each column that's marked attnotnull.
+ * 若 include_notnull 为真，会为每个标了 attnotnull 的列
+ * 生成 col IS NOT NULL 表达式并加入结果。
  *
- * If include_partition is true, and the relation is a partition,
- * also include the partitioning constraints.
+ * 若 include_partition 为真，且该关系是分区，
+ * 也纳入分区约束。
  *
- * Note: at present this is invoked at most once per relation per planner
- * run, and in many cases it won't be invoked at all, so there seems no
- * point in caching the data in RelOptInfo.
+ * 注意：目前每个关系在每次规划器运行中最多调用一次，
+ * 而且许多情况下根本不会调用，因此似乎没有
+ * 必要把数据缓存在 RelOptInfo 里。
  */
 static List *
 get_relation_constraints(PlannerInfo *root,
@@ -1253,7 +1253,7 @@ get_relation_constraints(PlannerInfo *root,
 	TupleConstr *constr;
 
 	/*
-	 * We assume the relation has already been safely locked.
+	 * 假定该关系已经被安全地锁住。
 	 */
 	relation = table_open(relationObjectId, NoLock);
 
@@ -1268,9 +1268,9 @@ get_relation_constraints(PlannerInfo *root,
 			Node	   *cexpr;
 
 			/*
-			 * If this constraint hasn't been fully validated yet, we must
-			 * ignore it here.  Also ignore if NO INHERIT and we weren't told
-			 * that that's safe.
+			 * 若这条约束尚未完全验证，这里必须
+			 * 忽略它。若是 NO INHERIT 且没有被告知
+			 * 那样做是安全的，也忽略。
 			 */
 			if (!constr->check[i].ccvalid)
 				continue;
@@ -1280,32 +1280,32 @@ get_relation_constraints(PlannerInfo *root,
 			cexpr = stringToNode(constr->check[i].ccbin);
 
 			/*
-			 * Run each expression through const-simplification and
-			 * canonicalization.  This is not just an optimization, but is
-			 * necessary, because we will be comparing it to
-			 * similarly-processed qual clauses, and may fail to detect valid
-			 * matches without this.  This must match the processing done to
-			 * qual clauses in preprocess_expression()!  (We can skip the
-			 * stuff involving subqueries, however, since we don't allow any
-			 * in check constraints.)
+			 * 把每个表达式送过常量简化和
+			 * 规范化。这不只是优化，而且是
+			 * 必要的，因为我们会把它与
+			 * 同样处理过的限定子句比较，不这样做可能发现不了有效
+			 * 匹配。这必须与 preprocess_expression() 对
+			 * 限定子句所做的处理一致！（可以跳过
+			 * 涉及子查询的部分，因为检查约束里不允许
+			 * 有子查询。）
 			 */
 			cexpr = eval_const_expressions(root, cexpr);
 
 			cexpr = (Node *) canonicalize_qual((Expr *) cexpr, true);
 
-			/* Fix Vars to have the desired varno */
+			/* 把 Var 改成所要的 varno */
 			if (varno != 1)
 				ChangeVarNodes(cexpr, 1, varno, 0);
 
 			/*
-			 * Finally, convert to implicit-AND format (that is, a List) and
-			 * append the resulting item(s) to our output list.
+			 * 最后，转换成隐式 AND 形式（也就是 List），并
+			 * 把得到的项追加到输出列表。
 			 */
 			result = list_concat(result,
 								 make_ands_implicit((Expr *) cexpr));
 		}
 
-		/* Add NOT NULL constraints in expression form, if requested */
+		/* 若要求，以表达式形式加入 NOT NULL 约束 */
 		if (include_notnull && constr->has_not_null)
 		{
 			int			natts = relation->rd_att->natts;
@@ -1327,9 +1327,9 @@ get_relation_constraints(PlannerInfo *root,
 					ntest->nulltesttype = IS_NOT_NULL;
 
 					/*
-					 * argisrow=false is correct even for a composite column,
-					 * because attnotnull does not represent a SQL-spec IS NOT
-					 * NULL test in such a case, just IS DISTINCT FROM NULL.
+					 * 即使对复合列，argisrow=false 也是对的，
+					 * 因为在这种情形下 attnotnull 并不表示 SQL 规范的 IS NOT
+					 * NULL 检验，只是 IS DISTINCT FROM NULL。
 					 */
 					ntest->argisrow = false;
 					ntest->location = -1;
@@ -1340,11 +1340,11 @@ get_relation_constraints(PlannerInfo *root,
 	}
 
 	/*
-	 * Add partitioning constraints, if requested.
+	 * 若要求，加入分区约束。
 	 */
 	if (include_partition && relation->rd_rel->relispartition)
 	{
-		/* make sure rel->partition_qual is set */
+		/* 确保已设置 rel->partition_qual */
 		set_baserel_partition_constraint(relation, rel);
 		result = list_concat(result, rel->partition_qual);
 	}
@@ -1355,10 +1355,10 @@ get_relation_constraints(PlannerInfo *root,
 }
 
 /*
- * Try loading data for the statistics object.
+ * 尝试装入该统计对象的数据。
  *
- * We don't know if the data (specified by statOid and inh value) exist.
- * The result is stored in stainfos list.
+ * 我们不知道由 statOid 和 inh 值指定的数据是否存在。
+ * 结果存放在 stainfos 列表里。
  */
 static void
 get_relation_statistics_worker(List **stainfos, RelOptInfo *rel,
@@ -1375,7 +1375,7 @@ get_relation_statistics_worker(List **stainfos, RelOptInfo *rel,
 
 	dataForm = (Form_pg_statistic_ext_data) GETSTRUCT(dtup);
 
-	/* add one StatisticExtInfo for each kind built */
+	/* 为每种已建立的统计加一个 StatisticExtInfo */
 	if (statext_is_kind_built(dtup, STATS_EXT_NDISTINCT))
 	{
 		StatisticExtInfo *info = makeNode(StatisticExtInfo);
@@ -1437,11 +1437,11 @@ get_relation_statistics_worker(List **stainfos, RelOptInfo *rel,
 
 /*
  * get_relation_statistics
- *		Retrieve extended statistics defined on the table.
+ *		取出定义在该表上的扩展统计。
  *
- * Returns a List (possibly empty) of StatisticExtInfo objects describing
- * the statistics.  Note that this doesn't load the actual statistics data,
- * just the identifying metadata.  Only stats actually built are considered.
+ * 返回描述这些统计的 StatisticExtInfo 对象的 List（可能为空）。
+ * 注意这并不装入实际的统计数据，
+ * 只是标识用的元数据。只考虑实际已建立的统计。
  */
 static List *
 get_relation_statistics(RelOptInfo *rel, Relation relation)
@@ -1468,27 +1468,27 @@ get_relation_statistics(RelOptInfo *rel, Relation relation)
 		staForm = (Form_pg_statistic_ext) GETSTRUCT(htup);
 
 		/*
-		 * First, build the array of columns covered.  This is ultimately
-		 * wasted if no stats within the object have actually been built, but
-		 * it doesn't seem worth troubling over that case.
+		 * 首先建立所覆盖列的数组。若该对象里
+		 * 没有任何统计实际建立过，这最终会被浪费，但
+		 * 似乎不值得为那种情形费心。
 		 */
 		for (i = 0; i < staForm->stxkeys.dim1; i++)
 			keys = bms_add_member(keys, staForm->stxkeys.values[i]);
 
 		/*
-		 * Preprocess expressions (if any). We read the expressions, run them
-		 * through eval_const_expressions, and fix the varnos.
+		 * 预处理表达式（若有）。我们读入表达式，送过
+		 * eval_const_expressions，并修正 varno。
 		 *
-		 * XXX We don't know yet if there are any data for this stats object,
-		 * with either stxdinherit value. But it's reasonable to assume there
-		 * is at least one of those, possibly both. So it's better to process
-		 * keys and expressions here.
+		 * XXX 我们还不知道这个统计对象是否有数据，
+		 * 对两个 stxdinherit 值都一样。但合理的假定是至少有
+		 * 其中一个，也可能两个都有。因此最好在这里处理
+		 * 键和表达式。
 		 */
 		{
 			bool		isnull;
 			Datum		datum;
 
-			/* decode expression (if any) */
+			/* 解码表达式（若有） */
 			datum = SysCacheGetAttr(STATEXTOID, htup,
 									Anum_pg_statistic_ext_stxexprs, &isnull);
 
@@ -1501,29 +1501,29 @@ get_relation_statistics(RelOptInfo *rel, Relation relation)
 				pfree(exprsString);
 
 				/*
-				 * Run the expressions through eval_const_expressions. This is
-				 * not just an optimization, but is necessary, because the
-				 * planner will be comparing them to similarly-processed qual
-				 * clauses, and may fail to detect valid matches without this.
-				 * We must not use canonicalize_qual, however, since these
-				 * aren't qual expressions.
+				 * 把这些表达式送过 eval_const_expressions。这
+				 * 不只是优化，而且是必要的，因为
+				 * 规划器会把它们与同样处理过的限定
+				 * 子句比较，不这样做可能发现不了有效匹配。
+				 * 不过不得使用 canonicalize_qual，因为这些
+				 * 并不是限定表达式。
 				 */
 				exprs = (List *) eval_const_expressions(NULL, (Node *) exprs);
 
-				/* May as well fix opfuncids too */
+				/* 不妨也修正 opfuncids */
 				fix_opfuncids((Node *) exprs);
 
 				/*
-				 * Modify the copies we obtain from the relcache to have the
-				 * correct varno for the parent relation, so that they match
-				 * up correctly against qual clauses.
+				 * 修改从 relcache 得到的副本，使它们具有
+				 * 父关系的正确 varno，以便与限定子句
+				 * 正确对应。
 				 */
 				if (varno != 1)
 					ChangeVarNodes((Node *) exprs, 1, varno, 0);
 			}
 		}
 
-		/* extract statistics for possible values of stxdinherit flag */
+		/* 抽出 stxdinherit 标志可能取值的统计 */
 
 		get_relation_statistics_worker(&stainfos, rel, statOid, true, keys, exprs);
 
@@ -1541,13 +1541,13 @@ get_relation_statistics(RelOptInfo *rel, Relation relation)
 /*
  * relation_excluded_by_constraints
  *
- * Detect whether the relation need not be scanned because it has either
- * self-inconsistent restrictions, or restrictions inconsistent with the
- * relation's applicable constraints.
+ * 检测该关系是否不必扫描，因为它要么有
+ * 自相矛盾的限制，要么有与该
+ * 关系适用约束不一致的限制。
  *
- * Note: this examines only rel->relid, rel->reloptkind, and
- * rel->baserestrictinfo; therefore it can be called before filling in
- * other fields of the RelOptInfo.
+ * 注意：这里只检查 rel->relid、rel->reloptkind 和
+ * rel->baserestrictinfo；因此可以在填上
+ * RelOptInfo 的其他成员之前调用。
  */
 bool
 relation_excluded_by_constraints(PlannerInfo *root,
@@ -1561,24 +1561,24 @@ relation_excluded_by_constraints(PlannerInfo *root,
 	List	   *safe_constraints;
 	ListCell   *lc;
 
-	/* As of now, constraint exclusion works only with simple relations. */
+	/* 目前，约束排除只对简单关系有效。 */
 	Assert(IS_SIMPLE_REL(rel));
 
 	/*
-	 * If there are no base restriction clauses, we have no hope of proving
-	 * anything below, so fall out quickly.
+	 * 若没有基限制子句，下面就没有希望证明
+	 * 任何东西，因此迅速退出。
 	 */
 	if (rel->baserestrictinfo == NIL)
 		return false;
 
 	/*
-	 * Regardless of the setting of constraint_exclusion, detect
-	 * constant-FALSE-or-NULL restriction clauses.  Because const-folding will
-	 * reduce "anything AND FALSE" to just "FALSE", any such case should
-	 * result in exactly one baserestrictinfo entry.  This doesn't fire very
-	 * often, but it seems cheap enough to be worth doing anyway.  (Without
-	 * this, we'd miss some optimizations that 9.5 and earlier found via much
-	 * more roundabout methods.)
+	 * 不论 constraint_exclusion 如何设置，都检测
+	 * 常量 FALSE 或 NULL 的限制子句。因为常量折叠会把
+	 * 任何东西 AND FALSE 化成仅仅 FALSE，这种情形应当
+	 * 恰好得到一条 baserestrictinfo。这并不经常
+	 * 触发，但似乎足够便宜，值得做。（没有
+	 * 这一步，就会错过 9.5 及更早版本用迂回得多的
+	 * 办法找到的一些优化。）
 	 */
 	if (list_length(rel->baserestrictinfo) == 1)
 	{
@@ -1592,47 +1592,47 @@ relation_excluded_by_constraints(PlannerInfo *root,
 	}
 
 	/*
-	 * Skip further tests, depending on constraint_exclusion.
+	 * 依 constraint_exclusion 跳过进一步的检验。
 	 */
 	switch (constraint_exclusion)
 	{
 		case CONSTRAINT_EXCLUSION_OFF:
-			/* In 'off' mode, never make any further tests */
+			/* 在 off 模式下，不再做任何进一步检验 */
 			return false;
 
 		case CONSTRAINT_EXCLUSION_PARTITION:
 
 			/*
-			 * When constraint_exclusion is set to 'partition' we only handle
-			 * appendrel members.  Partition pruning has already been applied,
-			 * so there is no need to consider the rel's partition constraints
-			 * here.
+			 * 当 constraint_exclusion 设为 partition 时，
+			 * 我们只处理 appendrel 成员。
+			 * 分区裁剪已经应用过，因此这里不必
+			 * 再考虑该关系的分区约束。
 			 */
 			if (rel->reloptkind == RELOPT_OTHER_MEMBER_REL)
-				break;			/* appendrel member, so process it */
+				break;			/* 是 appendrel 成员，因此处理它 */
 			return false;
 
 		case CONSTRAINT_EXCLUSION_ON:
 
 			/*
-			 * In 'on' mode, always apply constraint exclusion.  If we are
-			 * considering a baserel that is a partition (i.e., it was
-			 * directly named rather than expanded from a parent table), then
-			 * its partition constraints haven't been considered yet, so
-			 * include them in the processing here.
+			 * 在 on 模式下，总是应用约束排除。若我们正在
+			 * 考虑一个本身是分区的基关系（也就是它被
+			 * 直接点名，而不是从父表展开），那么
+			 * 它的分区约束还没被考虑过，因此
+			 * 在这里的处理中纳入它们。
 			 */
 			if (rel->reloptkind == RELOPT_BASEREL)
 				include_partition = true;
-			break;				/* always try to exclude */
+			break;				/* 总是尝试排除 */
 	}
 
 	/*
-	 * Check for self-contradictory restriction clauses.  We dare not make
-	 * deductions with non-immutable functions, but any immutable clauses that
-	 * are self-contradictory allow us to conclude the scan is unnecessary.
+	 * 检查自相矛盾的限制子句。我们不敢用
+	 * 非不可变函数做推导，但任何自相矛盾的不可变子句
+	 * 都让我们断定不必扫描。
 	 *
-	 * Note: strip off RestrictInfo because predicate_refuted_by() isn't
-	 * expecting to see any in its predicate argument.
+	 * 注意：剥掉 RestrictInfo，因为 predicate_refuted_by() 的
+	 * 谓词参数里并不预期见到它们。
 	 */
 	safe_restrictions = NIL;
 	foreach(lc, rel->baserestrictinfo)
@@ -1644,35 +1644,35 @@ relation_excluded_by_constraints(PlannerInfo *root,
 	}
 
 	/*
-	 * We can use weak refutation here, since we're comparing restriction
-	 * clauses with restriction clauses.
+	 * 这里可以用弱反驳，因为我们是在把限制
+	 * 子句与限制子句比较。
 	 */
 	if (predicate_refuted_by(safe_restrictions, safe_restrictions, true))
 		return true;
 
 	/*
-	 * Only plain relations have constraints, so stop here for other rtekinds.
+	 * 只有普通关系才有约束，因此其他 rtekinds 到此为止。
 	 */
 	if (rte->rtekind != RTE_RELATION)
 		return false;
 
 	/*
-	 * If we are scanning just this table, we can use NO INHERIT constraints,
-	 * but not if we're scanning its children too.  (Note that partitioned
-	 * tables should never have NO INHERIT constraints; but it's not necessary
-	 * for us to assume that here.)
+	 * 若只扫描这一张表，可以使用 NO INHERIT 约束，
+	 * 但若也扫描它的子表就不行。（注意分区
+	 * 表不应当有 NO INHERIT 约束；但这里不必
+	 * 由我们假定这一点。）
 	 */
 	include_noinherit = !rte->inh;
 
 	/*
-	 * Currently, attnotnull constraints must be treated as NO INHERIT unless
-	 * this is a partitioned table.  In future we might track their
-	 * inheritance status more accurately, allowing this to be refined.
+	 * 目前，除非这是分区表，attnotnull 约束必须当作 NO INHERIT。
+	 * 将来也许会更准确地跟踪它们的
+	 * 继承状态，从而细化这一点。
 	 */
 	include_notnull = (!rte->inh || rte->relkind == RELKIND_PARTITIONED_TABLE);
 
 	/*
-	 * Fetch the appropriate set of constraint expressions.
+	 * 取出适当的那一组约束表达式。
 	 */
 	constraint_pred = get_relation_constraints(root, rte->relid, rel,
 											   include_noinherit,
@@ -1680,11 +1680,11 @@ relation_excluded_by_constraints(PlannerInfo *root,
 											   include_partition);
 
 	/*
-	 * We do not currently enforce that CHECK constraints contain only
-	 * immutable functions, so it's necessary to check here. We daren't draw
-	 * conclusions from plan-time evaluation of non-immutable functions. Since
-	 * they're ANDed, we can just ignore any mutable constraints in the list,
-	 * and reason about the rest.
+	 * 目前我们并不强制 CHECK 约束只含
+	 * 不可变函数，因此这里必须检查。我们不敢从
+	 * 对非不可变函数的规划时求值得出结论。既然它们是
+	 * ANDed 在一起的，可以忽略列表中任何可变约束，
+	 * 只对其余的做推理。
 	 */
 	safe_constraints = NIL;
 	foreach(lc, constraint_pred)
@@ -1696,17 +1696,17 @@ relation_excluded_by_constraints(PlannerInfo *root,
 	}
 
 	/*
-	 * The constraints are effectively ANDed together, so we can just try to
-	 * refute the entire collection at once.  This may allow us to make proofs
-	 * that would fail if we took them individually.
+	 * 这些约束实际上是 ANDed 在一起的，因此可以一次尝试
+	 * 反驳整个集合。这也许能让我们做出
+	 * 逐条拿来就会失败的证明。
 	 *
-	 * Note: we use rel->baserestrictinfo, not safe_restrictions as might seem
-	 * an obvious optimization.  Some of the clauses might be OR clauses that
-	 * have volatile and nonvolatile subclauses, and it's OK to make
-	 * deductions with the nonvolatile parts.
+	 * 注意：我们用 rel->baserestrictinfo，而不是看似明显的优化 safe_restrictions。
+	 * 有些子句可能是 OR 子句，其中
+	 * 既有易变也有非易变的子子句，用非易变部分做
+	 * 推导是可以的。
 	 *
-	 * We need strong refutation because we have to prove that the constraints
-	 * would yield false, not just NULL.
+	 * 我们需要强反驳，因为必须证明约束
+	 * 会得出假，而不只是 NULL。
 	 */
 	if (predicate_refuted_by(safe_constraints, rel->baserestrictinfo, false))
 		return true;
@@ -1718,23 +1718,23 @@ relation_excluded_by_constraints(PlannerInfo *root,
 /*
  * build_physical_tlist
  *
- * Build a targetlist consisting of exactly the relation's user attributes,
- * in order.  The executor can special-case such tlists to avoid a projection
- * step at runtime, so we use such tlists preferentially for scan nodes.
+ * 建立恰好由该关系用户属性组成的目标列表，
+ * 按顺序排列。执行器可以对这种目标列表做特殊处理，从而避免运行时的投影
+ * 步骤，因此扫描节点优先使用这种目标列表。
  *
- * Exception: if there are any dropped or missing columns, we punt and return
- * NIL.  Ideally we would like to handle these cases too.  However this
- * creates problems for ExecTypeFromTL, which may be asked to build a tupdesc
- * for a tlist that includes vars of no-longer-existent types.  In theory we
- * could dig out the required info from the pg_attribute entries of the
- * relation, but that data is not readily available to ExecTypeFromTL.
- * For now, we don't apply the physical-tlist optimization when there are
- * dropped cols.
+ * 例外：若有任何已删除或缺少的列，就放弃并返回
+ * NIL。理想情况下这些情形也想处理。但这
+ * 会给 ExecTypeFromTL 带来问题，它可能被要求为含有
+ * 已不存在类型的 var 的目标列表建立 tupdesc。理论上我们可以
+ * 从该关系的 pg_attribute 项里挖出所需信息，
+ * 但那些数据并不是 ExecTypeFromTL 现成能用的。
+ * 目前，有已删除的列时
+ * 就不做物理目标列表优化。
  *
- * We also support building a "physical" tlist for subqueries, functions,
- * values lists, table expressions, and CTEs, since the same optimization can
- * occur in SubqueryScan, FunctionScan, ValuesScan, CteScan, TableFunc,
- * NamedTuplestoreScan, and WorkTableScan nodes.
+ * 我们也支持为子查询、函数、
+ * 值列表、表表达式和 CTEs 建立物理目标列表，因为同样的优化可以
+ * 发生在 SubqueryScan、FunctionScan、ValuesScan、CteScan、TableFunc、
+ * NamedTuplestoreScan 和 WorkTableScan 节点上。
  */
 List *
 build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
@@ -1753,7 +1753,7 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 	switch (rte->rtekind)
 	{
 		case RTE_RELATION:
-			/* Assume we already have adequate lock */
+			/* 假定已经有足够的锁 */
 			relation = table_open(rte->relid, NoLock);
 
 			numattrs = RelationGetNumberOfAttributes(relation);
@@ -1764,7 +1764,7 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 
 				if (att_tup->attisdropped || att_tup->atthasmissing)
 				{
-					/* found a dropped or missing col, so punt */
+					/* 发现已删除或缺少的列，因此放弃 */
 					tlist = NIL;
 					break;
 				}
@@ -1793,8 +1793,8 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 				TargetEntry *tle = (TargetEntry *) lfirst(l);
 
 				/*
-				 * A resjunk column of the subquery can be reflected as
-				 * resjunk in the physical tlist; we need not punt.
+				 * 子查询的废列可以反映为
+				 * 物理目标列表里的废列；不必放弃。
 				 */
 				var = makeVarFromTargetEntry(varno, tle);
 
@@ -1812,16 +1812,16 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 		case RTE_CTE:
 		case RTE_NAMEDTUPLESTORE:
 		case RTE_RESULT:
-			/* Not all of these can have dropped cols, but share code anyway */
-			expandRTE(rte, varno, 0, -1, true /* include dropped */ ,
+			/* 并非所有这些都能有已删除的列，但反正共用代码 */
+			expandRTE(rte, varno, 0, -1, true /* 包括已删除的 */ ,
 					  NULL, &colvars);
 			foreach(l, colvars)
 			{
 				var = (Var *) lfirst(l);
 
 				/*
-				 * A non-Var in expandRTE's output means a dropped column;
-				 * must punt.
+				 * expandRTE 的输出里若有非 Var，就表示已删除的列；
+				 * 必须放弃。
 				 */
 				if (!IsA(var, Var))
 				{
@@ -1838,7 +1838,7 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 			break;
 
 		default:
-			/* caller error */
+			/* 调用者错误 */
 			elog(ERROR, "unsupported RTE kind %d in build_physical_tlist",
 				 (int) rte->rtekind);
 			break;
@@ -1850,12 +1850,12 @@ build_physical_tlist(PlannerInfo *root, RelOptInfo *rel)
 /*
  * build_index_tlist
  *
- * Build a targetlist representing the columns of the specified index.
- * Each column is represented by a Var for the corresponding base-relation
- * column, or an expression in base-relation Vars, as appropriate.
+ * 建立表示指定索引各列的目标列表。
+ * 每一列用对应基关系
+ * 列的 Var 表示，或用基关系 Var 上的表达式，视情况而定。
  *
- * There are never any dropped columns in indexes, so unlike
- * build_physical_tlist, we need no failure case.
+ * 索引里从来没有已删除的列，因此与
+ * build_physical_tlist 不同，这里不需要失败情形。
  */
 static List *
 build_index_tlist(PlannerInfo *root, IndexOptInfo *index,
@@ -1874,7 +1874,7 @@ build_index_tlist(PlannerInfo *root, IndexOptInfo *index,
 
 		if (indexkey != 0)
 		{
-			/* simple column */
+			/* 简单列 */
 			const FormData_pg_attribute *att_tup;
 
 			if (indexkey < 0)
@@ -1891,7 +1891,7 @@ build_index_tlist(PlannerInfo *root, IndexOptInfo *index,
 		}
 		else
 		{
-			/* expression column */
+			/* 表达式列 */
 			if (indexpr_item == NULL)
 				elog(ERROR, "wrong number of index expressions");
 			indexvar = (Expr *) lfirst(indexpr_item);
@@ -1913,11 +1913,11 @@ build_index_tlist(PlannerInfo *root, IndexOptInfo *index,
 /*
  * restriction_selectivity
  *
- * Returns the selectivity of a specified restriction operator clause.
- * This code executes registered procedures stored in the
- * operator relation, by calling the function manager.
+ * 返回指定限制操作符子句的选择率。
+ * 这段代码通过调用函数管理器，执行登记在
+ * 操作符关系里的过程。
  *
- * See clause_selectivity() for the meaning of the additional parameters.
+ * 其余参数的含义见 clause_selectivity()。
  */
 Selectivity
 restriction_selectivity(PlannerInfo *root,
@@ -1930,8 +1930,8 @@ restriction_selectivity(PlannerInfo *root,
 	float8		result;
 
 	/*
-	 * if the oprrest procedure is missing for whatever reason, use a
-	 * selectivity of 0.5
+	 * 若 oprrest 过程因任何原因缺少，就用
+	 * 0.5 的选择率
 	 */
 	if (!oprrest)
 		return (Selectivity) 0.5;
@@ -1952,11 +1952,11 @@ restriction_selectivity(PlannerInfo *root,
 /*
  * join_selectivity
  *
- * Returns the selectivity of a specified join operator clause.
- * This code executes registered procedures stored in the
- * operator relation, by calling the function manager.
+ * 返回指定连接操作符子句的选择率。
+ * 这段代码通过调用函数管理器，执行登记在
+ * 操作符关系里的过程。
  *
- * See clause_selectivity() for the meaning of the additional parameters.
+ * 其余参数的含义见 clause_selectivity()。
  */
 Selectivity
 join_selectivity(PlannerInfo *root,
@@ -1970,8 +1970,8 @@ join_selectivity(PlannerInfo *root,
 	float8		result;
 
 	/*
-	 * if the oprjoin procedure is missing for whatever reason, use a
-	 * selectivity of 0.5
+	 * 若 oprjoin 过程因任何原因缺少，就用
+	 * 0.5 的选择率
 	 */
 	if (!oprjoin)
 		return (Selectivity) 0.5;
@@ -1993,11 +1993,11 @@ join_selectivity(PlannerInfo *root,
 /*
  * function_selectivity
  *
- * Returns the selectivity of a specified boolean function clause.
- * This code executes registered procedures stored in the
- * pg_proc relation, by calling the function manager.
+ * 返回指定布尔函数子句的选择率。
+ * 这段代码通过调用函数管理器，执行登记在
+ * pg_proc 关系里的过程。
  *
- * See clause_selectivity() for the meaning of the additional parameters.
+ * 其余参数的含义见 clause_selectivity()。
  */
 Selectivity
 function_selectivity(PlannerInfo *root,
@@ -2014,11 +2014,11 @@ function_selectivity(PlannerInfo *root,
 	SupportRequestSelectivity *sresult;
 
 	/*
-	 * If no support function is provided, use our historical default
-	 * estimate, 0.3333333.  This seems a pretty unprincipled choice, but
-	 * Postgres has been using that estimate for function calls since 1992.
-	 * The hoariness of this behavior suggests that we should not be in too
-	 * much hurry to use another value.
+	 * 若没有提供支持函数，就用我们历史上的默认
+	 * 估计 0.3333333。这似乎是个没什么道理的选择，但
+	 * Postgres 从 1992 年起就对函数调用用这个估计。
+	 * 这行为年头这么久，说明我们不必
+	 * 急着改用别的值。
 	 */
 	if (!prosupport)
 		return (Selectivity) 0.3333333;
@@ -2032,13 +2032,13 @@ function_selectivity(PlannerInfo *root,
 	req.varRelid = varRelid;
 	req.jointype = jointype;
 	req.sjinfo = sjinfo;
-	req.selectivity = -1;		/* to catch failure to set the value */
+	req.selectivity = -1;		/* 用来抓住没把值设上的失败 */
 
 	sresult = (SupportRequestSelectivity *)
 		DatumGetPointer(OidFunctionCall1(prosupport,
 										 PointerGetDatum(&req)));
 
-	/* If support function fails, use default */
+	/* 若支持函数失败，就用默认值 */
 	if (sresult != &req)
 		return (Selectivity) 0.3333333;
 
@@ -2051,15 +2051,15 @@ function_selectivity(PlannerInfo *root,
 /*
  * add_function_cost
  *
- * Get an estimate of the execution cost of a function, and *add* it to
- * the contents of *cost.  The estimate may include both one-time and
- * per-tuple components, since QualCost does.
+ * 估计一个函数的执行代价，并把它加到
+ * *cost 的内容上。估计可以同时包含一次性的和
+ * 按元组的部分，因为 QualCost 就是这样。
  *
- * The funcid must always be supplied.  If it is being called as the
- * implementation of a specific parsetree node (FuncExpr, OpExpr,
- * WindowFunc, etc), pass that as "node", else pass NULL.
+ * funcid 必须总是提供。若它是作为某个
+ * 特定语法树节点（FuncExpr、OpExpr、
+ * WindowFunc 等）的实现被调用，就把该节点作为 node 传入，否则传 NULL。
  *
- * In some usages root might be NULL, too.
+ * 有些用法里 root 也可能是 NULL。
  */
 void
 add_function_cost(PlannerInfo *root, Oid funcid, Node *node,
@@ -2083,7 +2083,7 @@ add_function_cost(PlannerInfo *root, Oid funcid, Node *node,
 		req.funcid = funcid;
 		req.node = node;
 
-		/* Initialize cost fields so that support function doesn't have to */
+		/* 初始化代价成员，这样支持函数就不必自己做 */
 		req.startup = 0;
 		req.per_tuple = 0;
 
@@ -2093,7 +2093,7 @@ add_function_cost(PlannerInfo *root, Oid funcid, Node *node,
 
 		if (sresult == &req)
 		{
-			/* Success, so accumulate support function's estimate into *cost */
+			/* 成功，因此把支持函数的估计累加进 *cost */
 			cost->startup += req.startup;
 			cost->per_tuple += req.per_tuple;
 			ReleaseSysCache(proctup);
@@ -2101,7 +2101,7 @@ add_function_cost(PlannerInfo *root, Oid funcid, Node *node,
 		}
 	}
 
-	/* No support function, or it failed, so rely on procost */
+	/* 没有支持函数，或它失败了，因此依赖 procost */
 	cost->per_tuple += procform->procost * cpu_operator_cost;
 
 	ReleaseSysCache(proctup);
@@ -2110,17 +2110,17 @@ add_function_cost(PlannerInfo *root, Oid funcid, Node *node,
 /*
  * get_function_rows
  *
- * Get an estimate of the number of rows returned by a set-returning function.
+ * 估计集合返回函数返回的行数。
  *
- * The funcid must always be supplied.  In current usage, the calling node
- * will always be supplied, and will be either a FuncExpr or OpExpr.
- * But it's a good idea to not fail if it's NULL.
+ * funcid 必须总是提供。按当前用法，调用节点
+ * 总会提供，并且是 FuncExpr 或 OpExpr。
+ * 但若它是 NULL 也不失败，是个好主意。
  *
- * In some usages root might be NULL, too.
+ * 有些用法里 root 也可能是 NULL。
  *
- * Note: this returns the unfiltered result of the support function, if any.
- * It's usually a good idea to apply clamp_row_est() to the result, but we
- * leave it to the caller to do so.
+ * 注意：这返回支持函数未经过滤的结果（若有）。
+ * 通常最好对结果应用 clamp_row_est()，但
+ * 留给调用者去做。
  */
 double
 get_function_rows(PlannerInfo *root, Oid funcid, Node *node)
@@ -2134,7 +2134,7 @@ get_function_rows(PlannerInfo *root, Oid funcid, Node *node)
 		elog(ERROR, "cache lookup failed for function %u", funcid);
 	procform = (Form_pg_proc) GETSTRUCT(proctup);
 
-	Assert(procform->proretset);	/* else caller error */
+	Assert(procform->proretset);	/* 否则是调用者错误 */
 
 	if (OidIsValid(procform->prosupport))
 	{
@@ -2146,7 +2146,7 @@ get_function_rows(PlannerInfo *root, Oid funcid, Node *node)
 		req.funcid = funcid;
 		req.node = node;
 
-		req.rows = 0;			/* just for sanity */
+		req.rows = 0;			/* 只是为了健全性 */
 
 		sresult = (SupportRequestRows *)
 			DatumGetPointer(OidFunctionCall1(procform->prosupport,
@@ -2154,13 +2154,13 @@ get_function_rows(PlannerInfo *root, Oid funcid, Node *node)
 
 		if (sresult == &req)
 		{
-			/* Success */
+			/* 成功 */
 			ReleaseSysCache(proctup);
 			return req.rows;
 		}
 	}
 
-	/* No support function, or it failed, so rely on prorows */
+	/* 没有支持函数，或它失败了，因此依赖 prorows */
 	result = procform->prorows;
 
 	ReleaseSysCache(proctup);
@@ -2171,14 +2171,14 @@ get_function_rows(PlannerInfo *root, Oid funcid, Node *node)
 /*
  * has_unique_index
  *
- * Detect whether there is a unique index on the specified attribute
- * of the specified relation, thus allowing us to conclude that all
- * the (non-null) values of the attribute are distinct.
+ * 检测指定关系的指定属性上是否有唯一索引，
+ * 从而可以断定该属性的所有
+ * （非空）值都不同。
  *
- * This function does not check the index's indimmediate property, which
- * means that uniqueness may transiently fail to hold intra-transaction.
- * That's appropriate when we are making statistical estimates, but beware
- * of using this for any correctness proofs.
+ * 本函数不检查索引的 indimmediate 属性，这
+ * 意味着唯一性在事务内部可能暂时不成立。
+ * 做统计估计时这样是合适的，但
+ * 用它做任何正确性证明时要当心。
  */
 bool
 has_unique_index(RelOptInfo *rel, AttrNumber attno)
@@ -2190,12 +2190,12 @@ has_unique_index(RelOptInfo *rel, AttrNumber attno)
 		IndexOptInfo *index = (IndexOptInfo *) lfirst(ilist);
 
 		/*
-		 * Note: ignore partial indexes, since they don't allow us to conclude
-		 * that all attr values are distinct, *unless* they are marked predOK
-		 * which means we know the index's predicate is satisfied by the
-		 * query. We don't take any interest in expressional indexes either.
-		 * Also, a multicolumn unique index doesn't allow us to conclude that
-		 * just the specified attr is unique.
+		 * 注意：忽略部分索引，因为它们不能让我们断定
+		 * 所有属性值都不同，除非它们标了 predOK，
+		 * 那表示我们知道该索引的谓词被
+		 * 查询满足。我们也不关心表达式索引。
+		 * 另外，多列唯一索引也不能让我们断定
+		 * 仅仅指定的那个属性是唯一的。
 		 */
 		if (index->unique &&
 			index->nkeycolumns == 1 &&
@@ -2210,7 +2210,7 @@ has_unique_index(RelOptInfo *rel, AttrNumber attno)
 /*
  * has_row_triggers
  *
- * Detect whether the specified relation has any row-level triggers for event.
+ * 检测指定关系对给定事件是否有任何行级触发器。
  */
 bool
 has_row_triggers(PlannerInfo *root, Index rti, CmdType event)
@@ -2220,7 +2220,7 @@ has_row_triggers(PlannerInfo *root, Index rti, CmdType event)
 	TriggerDesc *trigDesc;
 	bool		result = false;
 
-	/* Assume we already have adequate lock */
+	/* 假定已经有足够的锁 */
 	relation = table_open(rte->relid, NoLock);
 
 	trigDesc = relation->trigdesc;
@@ -2244,7 +2244,7 @@ has_row_triggers(PlannerInfo *root, Index rti, CmdType event)
 				 trigDesc->trig_delete_before_row))
 				result = true;
 			break;
-			/* There is no separate event for MERGE, only INSERT/UPDATE/DELETE */
+			/* MERGE 没有单独的事件，只有 INSERT/UPDATE/DELETE */
 		case CMD_MERGE:
 			result = false;
 			break;
@@ -2260,7 +2260,7 @@ has_row_triggers(PlannerInfo *root, Index rti, CmdType event)
 /*
  * has_transition_tables
  *
- * Detect whether the specified relation has any transition tables for event.
+ * 检测指定关系对给定事件是否有任何转换表。
  */
 bool
 has_transition_tables(PlannerInfo *root, Index rti, CmdType event)
@@ -2272,11 +2272,11 @@ has_transition_tables(PlannerInfo *root, Index rti, CmdType event)
 
 	Assert(rte->rtekind == RTE_RELATION);
 
-	/* Currently foreign tables cannot have transition tables */
+	/* 目前外部表无法拥有转换表 */
 	if (rte->relkind == RELKIND_FOREIGN_TABLE)
 		return result;
 
-	/* Assume we already have adequate lock */
+	/* 假定已经有足够的锁 */
 	relation = table_open(rte->relid, NoLock);
 
 	trigDesc = relation->trigdesc;
@@ -2298,7 +2298,7 @@ has_transition_tables(PlannerInfo *root, Index rti, CmdType event)
 				trigDesc->trig_delete_old_table)
 				result = true;
 			break;
-			/* There is no separate event for MERGE, only INSERT/UPDATE/DELETE */
+			/* MERGE 没有单独的事件，只有 INSERT/UPDATE/DELETE */
 		case CMD_MERGE:
 			result = false;
 			break;
@@ -2314,7 +2314,7 @@ has_transition_tables(PlannerInfo *root, Index rti, CmdType event)
 /*
  * has_stored_generated_columns
  *
- * Does table identified by RTI have any STORED GENERATED columns?
+ * 由 RTI 标识的表是否有任何 STORED GENERATED 列？
  */
 bool
 has_stored_generated_columns(PlannerInfo *root, Index rti)
@@ -2324,7 +2324,7 @@ has_stored_generated_columns(PlannerInfo *root, Index rti)
 	TupleDesc	tupdesc;
 	bool		result = false;
 
-	/* Assume we already have adequate lock */
+	/* 假定已经有足够的锁 */
 	relation = table_open(rte->relid, NoLock);
 
 	tupdesc = RelationGetDescr(relation);
@@ -2338,10 +2338,10 @@ has_stored_generated_columns(PlannerInfo *root, Index rti)
 /*
  * get_dependent_generated_columns
  *
- * Get the column numbers of any STORED GENERATED columns of the relation
- * that depend on any column listed in target_cols.  Both the input and
- * result bitmapsets contain column numbers offset by
- * FirstLowInvalidHeapAttributeNumber.
+ * 取出该关系中依赖 target_cols 所列任一列的
+ * 任何 STORED GENERATED 列的列号。输入和
+ * 结果位图集里的列号都偏移了
+ * FirstLowInvalidHeapAttributeNumber。
  */
 Bitmapset *
 get_dependent_generated_columns(PlannerInfo *root, Index rti,
@@ -2353,7 +2353,7 @@ get_dependent_generated_columns(PlannerInfo *root, Index rti,
 	TupleDesc	tupdesc;
 	TupleConstr *constr;
 
-	/* Assume we already have adequate lock */
+	/* 假定已经有足够的锁 */
 	relation = table_open(rte->relid, NoLock);
 
 	tupdesc = RelationGetDescr(relation);
@@ -2367,11 +2367,11 @@ get_dependent_generated_columns(PlannerInfo *root, Index rti,
 			Node	   *expr;
 			Bitmapset  *attrs_used = NULL;
 
-			/* skip if not generated column */
+			/* 若不是生成列则跳过 */
 			if (!TupleDescAttr(tupdesc, defval->adnum - 1)->attgenerated)
 				continue;
 
-			/* identify columns this generated column depends on */
+			/* 认出这个生成列依赖哪些列 */
 			expr = stringToNode(defval->adbin);
 			pull_varattnos(expr, 1, &attrs_used);
 
@@ -2389,7 +2389,7 @@ get_dependent_generated_columns(PlannerInfo *root, Index rti,
 /*
  * set_relation_partition_info
  *
- * Set partitioning scheme and related information for a partitioned table.
+ * 为分区表设置分区方案及相关信息。
  */
 static void
 set_relation_partition_info(PlannerInfo *root, RelOptInfo *rel,
@@ -2398,7 +2398,7 @@ set_relation_partition_info(PlannerInfo *root, RelOptInfo *rel,
 	PartitionDesc partdesc;
 
 	/*
-	 * Create the PartitionDirectory infrastructure if we didn't already.
+	 * 若还没有，就建立 PartitionDirectory 基础设施。
 	 */
 	if (root->glob->partition_directory == NULL)
 	{
@@ -2419,7 +2419,7 @@ set_relation_partition_info(PlannerInfo *root, RelOptInfo *rel,
 /*
  * find_partition_scheme
  *
- * Find or create a PartitionScheme for this Relation.
+ * 为这个 Relation 查找或建立一个 PartitionScheme。
  */
 static PartitionScheme
 find_partition_scheme(PlannerInfo *root, Relation relation)
@@ -2430,22 +2430,22 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 				i;
 	PartitionScheme part_scheme;
 
-	/* A partitioned table should have a partition key. */
+	/* 分区表应当有分区键。 */
 	Assert(partkey != NULL);
 
 	partnatts = partkey->partnatts;
 
-	/* Search for a matching partition scheme and return if found one. */
+	/* 寻找匹配的分区方案，找到就返回。 */
 	foreach(lc, root->part_schemes)
 	{
 		part_scheme = lfirst(lc);
 
-		/* Match partitioning strategy and number of keys. */
+		/* 匹配分区策略和键的个数。 */
 		if (partkey->strategy != part_scheme->strategy ||
 			partnatts != part_scheme->partnatts)
 			continue;
 
-		/* Match partition key type properties. */
+		/* 匹配分区键的类型属性。 */
 		if (memcmp(partkey->partopfamily, part_scheme->partopfamily,
 				   sizeof(Oid) * partnatts) != 0 ||
 			memcmp(partkey->partopcintype, part_scheme->partopcintype,
@@ -2455,8 +2455,8 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 			continue;
 
 		/*
-		 * Length and byval information should match when partopcintype
-		 * matches.
+		 * 当 partopcintype 匹配时，长度和 byval 信息
+		 * 也应当匹配。
 		 */
 		Assert(memcmp(partkey->parttyplen, part_scheme->parttyplen,
 					  sizeof(int16) * partnatts) == 0);
@@ -2464,11 +2464,11 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 					  sizeof(bool) * partnatts) == 0);
 
 		/*
-		 * If partopfamily and partopcintype matched, must have the same
-		 * partition comparison functions.  Note that we cannot reliably
-		 * Assert the equality of function structs themselves for they might
-		 * be different across PartitionKey's, so just Assert for the function
-		 * OIDs.
+		 * 若 partopfamily 和 partopcintype 匹配，就必须有相同的
+		 * 分区比较函数。注意我们无法可靠地
+		 * 对函数结构本身做相等 Assert，因为它们在不同
+		 * PartitionKey 之间可能不同，所以只对函数
+		 * OIDs 做 Assert。
 		 */
 #ifdef USE_ASSERT_CHECKING
 		for (i = 0; i < partkey->partnatts; i++)
@@ -2476,15 +2476,15 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 				   part_scheme->partsupfunc[i].fn_oid);
 #endif
 
-		/* Found matching partition scheme. */
+		/* 找到了匹配的分区方案。 */
 		return part_scheme;
 	}
 
 	/*
-	 * Did not find matching partition scheme. Create one copying relevant
-	 * information from the relcache. We need to copy the contents of the
-	 * array since the relcache entry may not survive after we have closed the
-	 * relation.
+	 * 没有找到匹配的分区方案。复制有关
+	 * 信息，从 relcache 建立一个。需要复制数组的内容，
+	 * 因为我们关闭
+	 * 关系之后，relcache 项也许留不下来。
 	 */
 	part_scheme = (PartitionScheme) palloc0(sizeof(PartitionSchemeData));
 	part_scheme->strategy = partkey->strategy;
@@ -2516,7 +2516,7 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 		fmgr_info_copy(&part_scheme->partsupfunc[i], &partkey->partsupfunc[i],
 					   CurrentMemoryContext);
 
-	/* Add the partitioning scheme to PlannerInfo. */
+	/* 把分区方案加进 PlannerInfo。 */
 	root->part_schemes = lappend(root->part_schemes, part_scheme);
 
 	return part_scheme;
@@ -2525,8 +2525,8 @@ find_partition_scheme(PlannerInfo *root, Relation relation)
 /*
  * set_baserel_partition_key_exprs
  *
- * Builds partition key expressions for the given base relation and fills
- * rel->partexprs.
+ * 为给定基关系建立分区键表达式，并填入
+ * rel->partexprs。
  */
 static void
 set_baserel_partition_key_exprs(Relation relation,
@@ -2541,7 +2541,7 @@ set_baserel_partition_key_exprs(Relation relation,
 
 	Assert(IS_SIMPLE_REL(rel) && rel->relid > 0);
 
-	/* A partitioned table should have a partition key. */
+	/* 分区表应当有分区键。 */
 	Assert(partkey != NULL);
 
 	partnatts = partkey->partnatts;
@@ -2555,7 +2555,7 @@ set_baserel_partition_key_exprs(Relation relation,
 
 		if (attno != InvalidAttrNumber)
 		{
-			/* Single column partition key is stored as a Var node. */
+			/* 单列分区键存成一个 Var 节点。 */
 			Assert(attno > 0);
 
 			partexpr = (Expr *) makeVar(varno, attno,
@@ -2568,23 +2568,23 @@ set_baserel_partition_key_exprs(Relation relation,
 			if (lc == NULL)
 				elog(ERROR, "wrong number of partition key expressions");
 
-			/* Re-stamp the expression with given varno. */
+			/* 用给定的 varno 重新标记该表达式。 */
 			partexpr = (Expr *) copyObject(lfirst(lc));
 			ChangeVarNodes((Node *) partexpr, 1, varno, 0);
 			lc = lnext(partkey->partexprs, lc);
 		}
 
-		/* Base relations have a single expression per key. */
+		/* 基关系的每个键只有一个表达式。 */
 		partexprs[cnt] = list_make1(partexpr);
 	}
 
 	rel->partexprs = partexprs;
 
 	/*
-	 * A base relation does not have nullable partition key expressions, since
-	 * no outer join is involved.  We still allocate an array of empty
-	 * expression lists to keep partition key expression handling code simple.
-	 * See build_joinrel_partition_info() and match_expr_to_partition_keys().
+	 * 基关系没有可空的分区键表达式，因为
+	 * 不涉及外连接。我们仍然分配一个空
+	 * 表达式列表的数组，好让分区键表达式的处理代码保持简单。
+	 * 见 build_joinrel_partition_info() 和 match_expr_to_partition_keys()。
 	 */
 	rel->nullable_partexprs = (List **) palloc0(sizeof(List *) * partnatts);
 }
@@ -2592,24 +2592,24 @@ set_baserel_partition_key_exprs(Relation relation,
 /*
  * set_baserel_partition_constraint
  *
- * Builds the partition constraint for the given base relation and sets it
- * in the given RelOptInfo.  All Var nodes are restamped with the relid of the
- * given relation.
+ * 为给定基关系建立分区约束，并设置到
+ * 给定的 RelOptInfo 里。所有 Var 节点都用该关系的 relid
+ * 重新标记。
  */
 static void
 set_baserel_partition_constraint(Relation relation, RelOptInfo *rel)
 {
 	List	   *partconstr;
 
-	if (rel->partition_qual)	/* already done */
+	if (rel->partition_qual)	/* 已经做过 */
 		return;
 
 	/*
-	 * Run the partition quals through const-simplification similar to check
-	 * constraints.  We skip canonicalize_qual, though, because partition
-	 * quals should be in canonical form already; also, since the qual is in
-	 * implicit-AND format, we'd have to explicitly convert it to explicit-AND
-	 * format and back again.
+	 * 把分区限定条件送过与检查
+	 * 约束类似的常量简化。不过跳过 canonicalize_qual，因为分区
+	 * 限定条件应当已经是规范形式；另外，由于限定条件是
+	 * 隐式 AND 形式，还得显式转换成显式 AND
+	 * 形式再转回来。
 	 */
 	partconstr = RelationGetPartitionQual(relation);
 	if (partconstr)

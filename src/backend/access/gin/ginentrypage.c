@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginentrypage.c
- *	  routines for handling GIN entry tree pages.
+ *	  处理 GIN 条目树页的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -27,19 +27,19 @@ static void entrySplitPage(GinBtree btree, Buffer origbuf,
 						   Page *newlpage, Page *newrpage);
 
 /*
- * Form a tuple for entry tree.
+ * 为条目树构造元组。
  *
- * If the tuple would be too big to be stored, function throws a suitable
- * error if errorTooBig is true, or returns NULL if errorTooBig is false.
+ * 若元组太大而无法存储，则 errorTooBig 为 true 时函数报出合适的
+ * 错误，errorTooBig 为 false 时返回 NULL。
  *
- * See src/backend/access/gin/README for a description of the index tuple
- * format that is being built here.  We build on the assumption that we
- * are making a leaf-level key entry containing a posting list of nipd items.
- * If the caller is actually trying to make a posting-tree entry, non-leaf
- * entry, or pending-list entry, it should pass dataSize = 0 and then overwrite
- * the t_tid fields as necessary.  In any case, 'data' can be NULL to skip
- * filling in the posting list; the caller is responsible for filling it
- * afterwards if data = NULL and nipd > 0.
+ * 此处构建的索引元组格式见 src/backend/access/gin/README。
+ * 我们假定正在构造一条叶子层键条目，其中含有
+ * nipd 个项的倒排列表。
+ * 若调用者实际要构造倒排树条目、非叶子条目或
+ * 挂起列表条目，则应传入 dataSize = 0，再按需要覆盖
+ * t_tid 字段。无论哪种情况，'data' 都可以为 NULL，以跳过
+ * 填入倒排列表；若 data = NULL 且 nipd > 0，则由调用者负责
+ * 随后填入。
  */
 IndexTuple
 GinFormTuple(GinState *ginstate,
@@ -52,7 +52,7 @@ GinFormTuple(GinState *ginstate,
 	IndexTuple	itup;
 	uint32		newsize;
 
-	/* Build the basic tuple: optional column number, plus key datum */
+	/* 构建基本元组：可选列号，加上键 datum */
 	if (ginstate->oneCol)
 	{
 		datums[0] = key;
@@ -69,14 +69,14 @@ GinFormTuple(GinState *ginstate,
 	itup = index_form_tuple(ginstate->tupdesc[attnum - 1], datums, isnull);
 
 	/*
-	 * Determine and store offset to the posting list, making sure there is
-	 * room for the category byte if needed.
+	 * 确定并保存倒排列表的偏移，确保需要时
+	 * 留有类别字节的空间。
 	 *
-	 * Note: because index_form_tuple MAXALIGNs the tuple size, there may well
-	 * be some wasted pad space.  Is it worth recomputing the data length to
-	 * prevent that?  That would also allow us to Assert that the real data
-	 * doesn't overlap the GinNullCategory byte, which this code currently
-	 * takes on faith.
+	 * 注意：因为 index_form_tuple 会对元组大小做 MAXALIGNs，很可能
+	 * 存在一些浪费的填充空间。值得重新计算数据长度来
+	 * 避免这一点吗？那样也让我们能 Assert 真实数据
+	 * 不会与 GinNullCategory 字节重叠，而这段代码目前
+	 * 对此只是想当然。
 	 */
 	newsize = IndexTupleSize(itup);
 
@@ -95,8 +95,8 @@ GinFormTuple(GinState *ginstate,
 	GinSetNPosting(itup, nipd);
 
 	/*
-	 * Add space needed for posting list, if any.  Then check that the tuple
-	 * won't be too big to store.
+	 * 若有倒排列表，则为它加上所需空间。然后检查元组
+	 * 不会大到无法存储。
 	 */
 	newsize += dataSize;
 
@@ -115,25 +115,25 @@ GinFormTuple(GinState *ginstate,
 	}
 
 	/*
-	 * Resize tuple if needed
+	 * 需要时调整元组大小
 	 */
 	if (newsize != IndexTupleSize(itup))
 	{
 		itup = repalloc(itup, newsize);
 
 		/*
-		 * PostgreSQL 9.3 and earlier did not clear this new space, so we
-		 * might find uninitialized padding when reading tuples from disk.
+		 * PostgreSQL 9.3 及更早版本没有清零这块新空间，因此
+		 * 从磁盘读元组时可能会遇到未初始化的填充。
 		 */
 		memset((char *) itup + IndexTupleSize(itup),
 			   0, newsize - IndexTupleSize(itup));
-		/* set new size in tuple header */
+		/* 在元组头中设置新大小 */
 		itup->t_info &= ~INDEX_SIZE_MASK;
 		itup->t_info |= newsize;
 	}
 
 	/*
-	 * Copy in the posting list, if provided
+	 * 若提供了倒排列表，则把它复制进去
 	 */
 	if (data)
 	{
@@ -143,7 +143,7 @@ GinFormTuple(GinState *ginstate,
 	}
 
 	/*
-	 * Insert category byte, if needed
+	 * 需要时插入类别字节
 	 */
 	if (category != GIN_CAT_NORM_KEY)
 	{
@@ -154,10 +154,10 @@ GinFormTuple(GinState *ginstate,
 }
 
 /*
- * Read item pointers from leaf entry tuple.
+ * 从叶子条目元组中读取项指针。
  *
- * Returns a palloc'd array of ItemPointers. The number of items is returned
- * in *nitems.
+ * 返回经 palloc 分配的 ItemPointers 数组。项的个数
+ * 经 *nitems 返回。
  */
 ItemPointer
 ginReadTuple(GinState *ginstate, OffsetNumber attnum, IndexTuple itup,
@@ -192,11 +192,11 @@ ginReadTuple(GinState *ginstate, OffsetNumber attnum, IndexTuple itup,
 }
 
 /*
- * Form a non-leaf entry tuple by copying the key data from the given tuple,
- * which can be either a leaf or non-leaf entry tuple.
+ * 从给定元组复制键数据，构造一条非叶子条目元组；
+ * 给定元组可以是叶子或非叶子条目元组。
  *
- * Any posting list in the source tuple is not copied.  The specified child
- * block number is inserted into t_tid.
+ * 源元组中的倒排列表不会被复制。指定的
+ * 子块号插入 t_tid。
  */
 static IndexTuple
 GinFormInteriorTuple(IndexTuple itup, Page page, BlockNumber childblk)
@@ -205,32 +205,32 @@ GinFormInteriorTuple(IndexTuple itup, Page page, BlockNumber childblk)
 
 	if (GinPageIsLeaf(page) && !GinIsPostingTree(itup))
 	{
-		/* Tuple contains a posting list, just copy stuff before that */
+		/* 元组含有倒排列表，只复制它之前的内容 */
 		uint32		origsize = GinGetPostingOffset(itup);
 
 		origsize = MAXALIGN(origsize);
 		nitup = (IndexTuple) palloc(origsize);
 		memcpy(nitup, itup, origsize);
-		/* ... be sure to fix the size header field ... */
+		/* ... 务必修正头中的大小字段 ... */
 		nitup->t_info &= ~INDEX_SIZE_MASK;
 		nitup->t_info |= origsize;
 	}
 	else
 	{
-		/* Copy the tuple as-is */
+		/* 原样复制该元组 */
 		nitup = (IndexTuple) palloc(IndexTupleSize(itup));
 		memcpy(nitup, itup, IndexTupleSize(itup));
 	}
 
-	/* Now insert the correct downlink */
+	/* 现在插入正确的下行指针 */
 	GinSetDownlink(nitup, childblk);
 
 	return nitup;
 }
 
 /*
- * Entry tree is a "static", ie tuple never deletes from it,
- * so we don't use right bound, we use rightmost key instead.
+ * 条目树是"静态"的，即从不删除其中的元组，
+ * 因此不用右边界，而改用最右键。
  */
 static IndexTuple
 getRightMostTuple(Page page)
@@ -264,8 +264,8 @@ entryIsMoveRight(GinBtree btree, Page page)
 }
 
 /*
- * Find correct tuple in non-leaf page. It supposed that
- * page correctly chosen and searching value SHOULD be on page
+ * 在非叶子页中找到正确的元组。假定
+ * 页已正确选定，且要搜索的值 SHOULD 在该页上
  */
 static BlockNumber
 entryLocateEntry(GinBtree btree, GinBtreeStack *stack)
@@ -299,7 +299,7 @@ entryLocateEntry(GinBtree btree, GinBtreeStack *stack)
 
 		if (mid == maxoff && GinPageRightMost(page))
 		{
-			/* Right infinity */
+			/* 右无穷 */
 			result = -1;
 		}
 		else
@@ -339,9 +339,9 @@ entryLocateEntry(GinBtree btree, GinBtreeStack *stack)
 }
 
 /*
- * Searches correct position for value on leaf page.
- * Page should be correctly chosen.
- * Returns true if value found on page.
+ * 在叶子页上搜索该值的正确位置。
+ * 页应当已被正确选定。
+ * 若在页上找到该值则返回 true。
  */
 static bool
 entryLocateLeafEntry(GinBtree btree, GinBtreeStack *stack)
@@ -412,7 +412,7 @@ entryFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber sto
 	Assert(!GinPageIsLeaf(page));
 	Assert(!GinPageIsData(page));
 
-	/* if page isn't changed, we returns storedOff */
+	/* 若页未改变，则返回 storedOff */
 	if (storedOff >= FirstOffsetNumber && storedOff <= maxoff)
 	{
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, storedOff));
@@ -420,8 +420,8 @@ entryFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber sto
 			return storedOff;
 
 		/*
-		 * we hope, that needed pointer goes to right. It's true if there
-		 * wasn't a deletion
+		 * 我们希望所需指针在更右侧。若未发生
+		 * 删除，这一点成立
 		 */
 		for (i = storedOff + 1; i <= maxoff; i++)
 		{
@@ -432,7 +432,7 @@ entryFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber sto
 		maxoff = storedOff - 1;
 	}
 
-	/* last chance */
+	/* 最后机会 */
 	for (i = FirstOffsetNumber; i <= maxoff; i++)
 	{
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, i));
@@ -483,9 +483,9 @@ entryIsEnoughSpace(GinBtree btree, Buffer buf, OffsetNumber off,
 }
 
 /*
- * Delete tuple on leaf page if tuples existed and we
- * should update it, update old child blkno to new right page
- * if child split occurred
+ * 若叶子页上元组已存在且我们
+ * 应当更新它，则删除该元组；若子页发生了分裂，
+ * 则把旧的子块号更新为指向新右页
  */
 static void
 entryPreparePage(GinBtree btree, Page page, OffsetNumber off,
@@ -509,20 +509,20 @@ entryPreparePage(GinBtree btree, Page page, OffsetNumber off,
 }
 
 /*
- * Prepare to insert data on an entry page.
+ * 准备向条目页插入数据。
  *
- * If it will fit, return GPTP_INSERT after doing whatever setup is needed
- * before we enter the insertion critical section.  *ptp_workspace can be
- * set to pass information along to the execPlaceToPage function.
+ * 若放得下，则在进入插入临界区之前做完所需的准备，
+ * 然后返回 GPTP_INSERT。可以设置 *ptp_workspace，
+ * 以便把信息传给 execPlaceToPage 函数。
  *
- * If it won't fit, perform a page split and return two temporary page
- * images into *newlpage and *newrpage, with result GPTP_SPLIT.
+ * 若放不下，则执行页分裂，并把两张临时页
+ * 映像返回到 *newlpage 和 *newrpage，结果为 GPTP_SPLIT。
  *
- * In neither case should the given page buffer be modified here.
+ * 两种情况下都不应在此处修改给定的页缓冲区。
  *
- * Note: on insertion to an internal node, in addition to inserting the given
- * item, the downlink of the existing item at stack->off will be updated to
- * point to updateblkno.
+ * 注意：向内部节点插入时，除了插入给定
+ * 项之外，stack->off 处现有项的下行指针也会被更新为
+ * 指向 updateblkno。
  */
 static GinPlaceToPageRC
 entryBeginPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -533,7 +533,7 @@ entryBeginPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	GinBtreeEntryInsertData *insertData = insertPayload;
 	OffsetNumber off = stack->off;
 
-	/* If it doesn't fit, deal with split case */
+	/* 若放不下，则处理分裂情形 */
 	if (!entryIsEnoughSpace(btree, buf, off, insertData))
 	{
 		entrySplitPage(btree, buf, stack, insertData, updateblkno,
@@ -541,15 +541,15 @@ entryBeginPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		return GPTP_SPLIT;
 	}
 
-	/* Else, we're ready to proceed with insertion */
+	/* 否则，已准备好继续插入 */
 	return GPTP_INSERT;
 }
 
 /*
- * Perform data insertion after beginPlaceToPage has decided it will fit.
+ * 在 beginPlaceToPage 判定放得下之后执行数据插入。
  *
- * This is invoked within a critical section, and XLOG record creation (if
- * needed) is already started.  The target buffer is registered in slot 0.
+ * 本函数在临界区内调用，且 XLOG 记录的创建（若
+ * 需要）已经开始。目标缓冲区登记在槽 0 中。
  */
 static void
 entryExecPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -574,9 +574,9 @@ entryExecPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 	{
 		/*
-		 * This must be static, because it has to survive until XLogInsert,
-		 * and we can't palloc here.  Ugly, but the XLogInsert infrastructure
-		 * isn't reentrant anyway.
+		 * 它必须是 static 的，因为它要一直存活到 XLogInsert，
+		 * 而这里无法 palloc。虽不雅，但 XLogInsert 的基础设施
+		 * 反正也不可重入。
 		 */
 		static ginxlogInsertEntry data;
 
@@ -591,10 +591,10 @@ entryExecPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Split entry page and insert new data.
+ * 分裂条目页并插入新数据。
  *
- * Returns new temp pages to *newlpage and *newrpage.
- * The original buffer is left untouched.
+ * 把新的临时页返回到 *newlpage 和 *newrpage。
+ * 原始缓冲区保持不动。
  */
 static void
 entrySplitPage(GinBtree btree, Buffer origbuf,
@@ -616,13 +616,13 @@ entrySplitPage(GinBtree btree, Buffer origbuf,
 	Page		lpage = PageGetTempPageCopy(BufferGetPage(origbuf));
 	Page		rpage = PageGetTempPageCopy(BufferGetPage(origbuf));
 	Size		pageSize = PageGetPageSize(lpage);
-	PGAlignedBlock tupstore[2]; /* could need 2 pages' worth of tuples */
+	PGAlignedBlock tupstore[2]; /* 可能需要两页那么多的元组 */
 
 	entryPreparePage(btree, lpage, off, insertData, updateblkno);
 
 	/*
-	 * First, append all the existing tuples and the new tuple we're inserting
-	 * one after another in a temporary workspace.
+	 * 首先，把全部已有元组和正在插入的新元组
+	 * 依次追加到临时工作区中。
 	 */
 	maxoff = PageGetMaxOffsetNumber(lpage);
 	ptr = tupstore[0].data;
@@ -652,8 +652,8 @@ entrySplitPage(GinBtree btree, Buffer origbuf,
 	}
 
 	/*
-	 * Initialize the left and right pages, and copy all the tuples back to
-	 * them.
+	 * 初始化左页和右页，并把全部元组
+	 * 复制回去。
 	 */
 	GinInitPage(rpage, GinPageGetOpaque(lpage)->flags, pageSize);
 	GinInitPage(lpage, GinPageGetOpaque(rpage)->flags, pageSize);
@@ -668,8 +668,8 @@ entrySplitPage(GinBtree btree, Buffer origbuf,
 		itup = (IndexTuple) ptr;
 
 		/*
-		 * Decide where to split.  We try to equalize the pages' total data
-		 * size, not number of tuples.
+		 * 决定在何处分裂。我们尽量使两页的数据总量
+		 * 相等，而不是元组个数相等。
 		 */
 		if (lsize > totalsize / 2)
 		{
@@ -688,13 +688,13 @@ entrySplitPage(GinBtree btree, Buffer origbuf,
 		ptr += MAXALIGN(IndexTupleSize(itup));
 	}
 
-	/* return temp pages to caller */
+	/* 把临时页返回给调用者 */
 	*newlpage = lpage;
 	*newrpage = rpage;
 }
 
 /*
- * Construct insertion payload for inserting the downlink for given buffer.
+ * 构造插入有效载荷，用于插入给定缓冲区的下行指针。
  */
 static void *
 entryPrepareDownlink(GinBtree btree, Buffer lbuf)
@@ -714,8 +714,8 @@ entryPrepareDownlink(GinBtree btree, Buffer lbuf)
 }
 
 /*
- * Fills new root by rightest values from child.
- * Also called from ginxlog, should not use btree
+ * 用子页的最右值填充新根。
+ * 也会从 ginxlog 调用，不应使用 btree
  */
 void
 ginEntryFillRoot(GinBtree btree, Page root,
@@ -736,10 +736,10 @@ ginEntryFillRoot(GinBtree btree, Page root,
 }
 
 /*
- * Set up GinBtree for entry page access
+ * 为访问条目页设置 GinBtree
  *
- * Note: during WAL recovery, there may be no valid data in ginstate
- * other than a faked-up Relation pointer; the key datum is bogus too.
+ * 注意：WAL 恢复期间，ginstate 中除了一个伪造的 Relation
+ * 指针之外可能没有有效数据；键 datum 也是假的。
  */
 void
 ginPrepareEntryScan(GinBtree btree, OffsetNumber attnum,

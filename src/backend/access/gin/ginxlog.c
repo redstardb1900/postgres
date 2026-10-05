@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginxlog.c
- *	  WAL replay logic for inverted index.
+ *	  倒排索引的 WAL 重放逻辑。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -19,7 +19,7 @@
 #include "access/xlogutils.h"
 #include "utils/memutils.h"
 
-static MemoryContext opCtx;		/* working memory for operations */
+static MemoryContext opCtx;		/* 操作用的工作内存 */
 
 static void
 ginRedoClearIncompleteSplit(XLogReaderState *record, uint8 block_id)
@@ -56,7 +56,7 @@ ginRedoCreatePTree(XLogReaderState *record)
 
 	ptr = XLogRecGetData(record) + sizeof(ginxlogCreatePostingTree);
 
-	/* Place page data */
+	/* 放入页数据 */
 	memcpy(GinDataLeafPageGetPostingList(page), ptr, data->size);
 
 	GinDataPageSetDataSize(page, data->size);
@@ -77,7 +77,7 @@ ginRedoInsertEntry(Buffer buffer, bool isLeaf, BlockNumber rightblkno, void *rda
 
 	if (rightblkno != InvalidBlockNumber)
 	{
-		/* update link to right page after split */
+		/* 分裂后更新指向右页的链接 */
 		Assert(!GinPageIsLeaf(page));
 		Assert(offset >= FirstOffsetNumber && offset <= PageGetMaxOffsetNumber(page));
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offset));
@@ -106,12 +106,12 @@ ginRedoInsertEntry(Buffer buffer, bool isLeaf, BlockNumber rightblkno, void *rda
 }
 
 /*
- * Redo recompression of posting list.  Doing all the changes in-place is not
- * always possible, because it might require more space than we've on the page.
- * Instead, once modification is required we copy unprocessed tail of the page
- * into separately allocated chunk of memory for further reading original
- * versions of segments.  Thanks to that we don't bother about moving page data
- * in-place.
+ * 重放倒排列表的重压缩。并非总是能就地完成全部修改，
+ * 因为它需要的空间可能超过页上已有的空间。
+ * 因此，一旦需要修改，就把页上尚未处理的尾部
+ * 复制到单独分配的内存块中，以便继续读取各段的
+ * 原始版本。这样一来，就不必操心就地移动
+ * 页数据。
  */
 static void
 ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
@@ -127,7 +127,7 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 	Pointer		segptr;
 
 	/*
-	 * If the page is in pre-9.4 format, convert to new format first.
+	 * 若页是 9.4 之前的格式，先转换成新格式。
 	 */
 	if (!GinPageIsCompressed(page))
 	{
@@ -136,10 +136,10 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 		int			npacked;
 
 		/*
-		 * Empty leaf pages are deleted as part of vacuum, but leftmost and
-		 * rightmost pages are never deleted.  So, pg_upgrade'd from pre-9.4
-		 * instances might contain empty leaf pages, and we need to handle
-		 * them correctly.
+		 * 空叶子页会作为清理的一部分被删除，但最左页和
+		 * 最右页从不删除。因此，经 pg_upgrade 从 9.4 之前
+		 * 升级来的实例可能含有空叶子页，我们需要正确
+		 * 处理它们。
 		 */
 		if (nuncompressed > 0)
 		{
@@ -183,7 +183,7 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 		int			nnewitems;
 		int			segsize;
 
-		/* Extract all the information we need from the WAL record */
+		/* 从 WAL 记录中取出我们需要的全部信息 */
 		if (a_action == GIN_SEGMENT_INSERT ||
 			a_action == GIN_SEGMENT_REPLACE)
 		{
@@ -200,13 +200,13 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 			walbuf += nitems * sizeof(ItemPointerData);
 		}
 
-		/* Skip to the segment that this action concerns */
+		/* 跳到本动作所涉及的段 */
 		Assert(segno <= a_segno);
 		while (segno < a_segno)
 		{
 			/*
-			 * Once modification is started and page tail is copied, we've to
-			 * copy unmodified segments.
+			 * 一旦开始修改并已复制页尾，就必须
+			 * 复制未修改的段。
 			 */
 			segsize = SizeOfGinPostingList(oldseg);
 			if (tailCopy)
@@ -220,9 +220,9 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 		}
 
 		/*
-		 * ADDITEMS action is handled like REPLACE, but the new segment to
-		 * replace the old one is reconstructed using the old segment from
-		 * disk and the new items from the WAL record.
+		 * ADDITEMS 动作的处理类似 REPLACE，但用来替换旧段的
+		 * 新段要由磁盘上的旧段与 WAL 记录中的新项
+		 * 重新构造。
 		 */
 		if (a_action == GIN_SEGMENT_ADDITEMS)
 		{
@@ -249,16 +249,16 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 		else
 		{
 			/*
-			 * Positioned after the last existing segment. Only INSERTs
-			 * expected here.
+			 * 定位在最后一个已有段之后。这里只应出现
+			 * INSERTs。
 			 */
 			Assert(a_action == GIN_SEGMENT_INSERT);
 			segsize = 0;
 		}
 
 		/*
-		 * We're about to start modification of the page.  So, copy tail of
-		 * the page if it's not done already.
+		 * 即将开始修改该页。因此，若尚未复制页尾，
+		 * 先把页尾复制出来。
 		 */
 		if (!tailCopy && segptr != segmentend)
 		{
@@ -279,14 +279,14 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 				break;
 
 			case GIN_SEGMENT_INSERT:
-				/* copy the new segment in place */
+				/* 把新段就地复制 */
 				Assert(writePtr + newsegsize <= PageGetSpecialPointer(page));
 				memcpy(writePtr, newseg, newsegsize);
 				writePtr += newsegsize;
 				break;
 
 			case GIN_SEGMENT_REPLACE:
-				/* copy the new version of segment in place */
+				/* 把该段的新版本就地复制 */
 				Assert(writePtr + newsegsize <= PageGetSpecialPointer(page));
 				memcpy(writePtr, newseg, newsegsize);
 				writePtr += newsegsize;
@@ -300,7 +300,7 @@ ginRedoRecompress(Page page, ginxlogRecompressDataLeaf *data)
 		oldseg = (GinPostingList *) segptr;
 	}
 
-	/* Copy the rest of unmodified segments if any. */
+	/* 若还有未修改的段，则复制其余部分。 */
 	segptr = (Pointer) oldseg;
 	if (segptr != segmentend && tailCopy)
 	{
@@ -335,7 +335,7 @@ ginRedoInsertData(Buffer buffer, bool isLeaf, BlockNumber rightblkno, void *rdat
 
 		Assert(!GinPageIsLeaf(page));
 
-		/* update link to right page after split */
+		/* 分裂后更新指向右页的链接 */
 		oldpitem = GinDataPageGetPostingItem(page, data->offset);
 		PostingItemSetBlockNumber(oldpitem, rightblkno);
 
@@ -356,8 +356,8 @@ ginRedoInsert(XLogReaderState *record)
 	bool		isLeaf = (data->flags & GIN_INSERT_ISLEAF) != 0;
 
 	/*
-	 * First clear incomplete-split flag on child page if this finishes a
-	 * split.
+	 * 若本次完成一次分裂，先清除子页上的未完成分裂
+	 * 标志。
 	 */
 	if (!isLeaf)
 	{
@@ -379,7 +379,7 @@ ginRedoInsert(XLogReaderState *record)
 		Size		len;
 		char	   *payload = XLogRecGetBlockData(record, 0, &len);
 
-		/* How to insert the payload is tree-type specific */
+		/* 如何插入有效载荷取决于树类型 */
 		if (data->flags & GIN_INSERT_ISDATA)
 		{
 			Assert(GinPageIsData(page));
@@ -409,8 +409,8 @@ ginRedoSplit(XLogReaderState *record)
 	bool		isRoot = (data->flags & GIN_SPLIT_ROOT) != 0;
 
 	/*
-	 * First clear incomplete-split flag on child page if this finishes a
-	 * split
+	 * 若本次完成一次分裂，先清除子页上的未完成分裂
+	 * 标志
 	 */
 	if (!isLeaf)
 		ginRedoClearIncompleteSplit(record, 3);
@@ -433,8 +433,8 @@ ginRedoSplit(XLogReaderState *record)
 }
 
 /*
- * VACUUM_PAGE record contains simply a full image of the page, similar to
- * an XLOG_FPI record.
+ * VACUUM_PAGE 记录只含该页的整页映像，类似于
+ * 一条 XLOG_FPI 记录。
  */
 static void
 ginRedoVacuumPage(XLogReaderState *record)
@@ -484,8 +484,8 @@ ginRedoDeletePage(XLogReaderState *record)
 	Page		page;
 
 	/*
-	 * Lock left page first in order to prevent possible deadlock with
-	 * ginStepRight().
+	 * 先锁定左页，以免与 ginStepRight()
+	 * 发生死锁。
 	 */
 	if (XLogReadBufferForRedo(record, 2, &lbuffer) == BLK_NEEDS_REDO)
 	{
@@ -534,9 +534,9 @@ ginRedoUpdateMetapage(XLogReaderState *record)
 	Buffer		buffer;
 
 	/*
-	 * Restore the metapage. This is essentially the same as a full-page
-	 * image, so restore the metapage unconditionally without looking at the
-	 * LSN, to avoid torn page hazards.
+	 * 恢复元页。这本质上与整页映像相同，
+	 * 因此无条件恢复元页，而不查看
+	 * LSN，以避免撕裂页风险。
 	 */
 	metabuffer = XLogInitBufferForRedo(record, 0);
 	Assert(BufferGetBlockNumber(metabuffer) == GIN_METAPAGE_BLKNO);
@@ -550,7 +550,7 @@ ginRedoUpdateMetapage(XLogReaderState *record)
 	if (data->ntuples > 0)
 	{
 		/*
-		 * insert into tail page
+		 * 插入到尾页
 		 */
 		if (XLogReadBufferForRedo(record, 1, &buffer) == BLK_NEEDS_REDO)
 		{
@@ -585,7 +585,7 @@ ginRedoUpdateMetapage(XLogReaderState *record)
 			Assert(payload + totaltupsize == (char *) tuples);
 
 			/*
-			 * Increase counter of heap tuples
+			 * 增加堆元组计数
 			 */
 			GinPageGetOpaque(page)->maxoff++;
 
@@ -598,7 +598,7 @@ ginRedoUpdateMetapage(XLogReaderState *record)
 	else if (data->prevTail != InvalidBlockNumber)
 	{
 		/*
-		 * New tail
+		 * 新的尾页
 		 */
 		if (XLogReadBufferForRedo(record, 1, &buffer) == BLK_NEEDS_REDO)
 		{
@@ -631,7 +631,7 @@ ginRedoInsertListPage(XLogReaderState *record)
 	IndexTuple	tuples;
 	Size		totaltupsize;
 
-	/* We always re-initialize the page. */
+	/* 我们总是重新初始化该页。 */
 	buffer = XLogInitBufferForRedo(record, 0);
 	page = BufferGetPage(buffer);
 
@@ -639,7 +639,7 @@ ginRedoInsertListPage(XLogReaderState *record)
 	GinPageGetOpaque(page)->rightlink = data->rightlink;
 	if (data->rightlink == InvalidBlockNumber)
 	{
-		/* tail of sublist */
+		/* 子列表的尾部 */
 		GinPageSetFullRow(page);
 		GinPageGetOpaque(page)->maxoff = 1;
 	}
@@ -691,19 +691,19 @@ ginRedoDeleteListPages(XLogReaderState *record)
 	MarkBufferDirty(metabuffer);
 
 	/*
-	 * In normal operation, shiftList() takes exclusive lock on all the
-	 * pages-to-be-deleted simultaneously.  During replay, however, it should
-	 * be all right to lock them one at a time.  This is dependent on the fact
-	 * that we are deleting pages from the head of the list, and that readers
-	 * share-lock the next page before releasing the one they are on. So we
-	 * cannot get past a reader that is on, or due to visit, any page we are
-	 * going to delete.  New incoming readers will block behind our metapage
-	 * lock and then see a fully updated page list.
+	 * 正常操作中，shiftList() 同时对所有待删除
+	 * 页取排他锁。不过重放期间，一次锁一页
+	 * 应当没问题。这依赖于如下事实：我们从列表
+	 * 头部删除页，且读者在释放当前页之前
+	 * 会对下一页加共享锁。因此，正位于或即将访问
+	 * 我们要删除的任一页的读者，我们都无法越过。新来的
+	 * 读者会阻塞在我们的元页锁之后，然后看到
+	 * 已完全更新的页列表。
 	 *
-	 * No full-page images are taken of the deleted pages. Instead, they are
-	 * re-initialized as empty, deleted pages. Their right-links don't need to
-	 * be preserved, because no new readers can see the pages, as explained
-	 * above.
+	 * 不对被删除页做整页映像。它们会被
+	 * 重新初始化为空的已删除页。其右链接不必
+	 * 保留，因为没有新读者能看到这些页，原因如
+	 * 上所述。
 	 */
 	for (i = 0; i < data->ndeleted; i++)
 	{
@@ -729,9 +729,9 @@ gin_redo(XLogReaderState *record)
 	MemoryContext oldCtx;
 
 	/*
-	 * GIN indexes do not require any conflict processing. NB: If we ever
-	 * implement a similar optimization as we have in b-tree, and remove
-	 * killed tuples outside VACUUM, we'll need to handle that here.
+	 * GIN 索引不需要任何冲突处理。注意：若将来
+	 * 实现与 B-树类似的优化，并在 VACUUM 之外移除
+	 * 已杀死的元组，就需要在这里处理。
 	 */
 
 	oldCtx = MemoryContextSwitchTo(opCtx);
@@ -787,7 +787,7 @@ gin_xlog_cleanup(void)
 }
 
 /*
- * Mask a GIN page before running consistency checks on it.
+ * 在对 GIN 页做一致性检查之前先屏蔽它。
  */
 void
 gin_mask(char *pagedata, BlockNumber blkno)
@@ -802,9 +802,9 @@ gin_mask(char *pagedata, BlockNumber blkno)
 	mask_page_hint_bits(page);
 
 	/*
-	 * For a GIN_DELETED page, the page is initialized to empty.  Hence, mask
-	 * the whole page content.  For other pages, mask the hole if pd_lower
-	 * appears to have been set correctly.
+	 * 对 GIN_DELETED 页，该页被初始化为空。因此屏蔽
+	 * 整页内容。对其他页，若 pd_lower
+	 * 看起来已被正确设置，则屏蔽空洞。
 	 */
 	if (opaque->flags & GIN_DELETED)
 		mask_page_content(page);

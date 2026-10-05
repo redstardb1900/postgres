@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0111b-comment-latch-condition",
+ "title": "zh: fix latch condition wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "51621cda967a80d978761329b412d9ba8d35fc85",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "note": "WaitLatch return mask says 条件"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0111b-comment-latch-condition.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 177,
+   "translated": 175,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "say 条件; English still says condition(s)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0111b-comment-latch-condition.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0111b says 条件 in the WaitLatch return-mask comment. The English still says condition(s), so verify reports W7_IDENT_LOST and exits 0."
+}

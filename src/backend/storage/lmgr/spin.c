@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * spin.c
- *	   Hardware-independent implementation of spinlocks.
+ *	   与硬件无关的自旋锁实现。
  *
  *
- * For machines that have test-and-set (TAS) instructions, s_lock.h/.c
- * define the spinlock implementation.  This file contains only a stub
- * implementation for spinlocks using PGSemaphores.  Unless semaphores
- * are implemented in a way that doesn't involve a kernel call, this
- * is too slow to be very useful :-(
+ * 对于具备测试并设置（TAS）指令的机器，由 s_lock.h/.c
+ * 定义自旋锁的实现。本文件只包含借助 PGSemaphores 的
+ * 自旋锁桩实现。除非信号量的实现
+ * 不涉及内核调用，否则这种做法
+ * 慢得实在没什么用 :-(
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -30,26 +30,26 @@
 #ifndef HAVE_SPINLOCKS
 
 /*
- * No TAS, so spinlocks are implemented as PGSemaphores.
+ * 没有 TAS，因此自旋锁实现为 PGSemaphores。
  */
 
 #ifndef HAVE_ATOMICS
 #define NUM_EMULATION_SEMAPHORES (NUM_SPINLOCK_SEMAPHORES + NUM_ATOMICS_SEMAPHORES)
 #else
 #define NUM_EMULATION_SEMAPHORES (NUM_SPINLOCK_SEMAPHORES)
-#endif							/* HAVE_ATOMICS */
+#endif							/* HAVE_ATOMICS（原子操作） */
 
 PGSemaphore *SpinlockSemaArray;
 
-#else							/* !HAVE_SPINLOCKS */
+#else							/* !HAVE_SPINLOCKS（无自旋锁） */
 
 #define NUM_EMULATION_SEMAPHORES 0
 
-#endif							/* HAVE_SPINLOCKS */
+#endif							/* HAVE_SPINLOCKS（有自旋锁） */
 
 /*
- * Report the amount of shared memory needed to store semaphores for spinlock
- * support.
+ * 报告为支持自旋锁而存放信号量所需的
+ * 共享内存大小。
  */
 Size
 SpinlockSemaSize(void)
@@ -58,7 +58,7 @@ SpinlockSemaSize(void)
 }
 
 /*
- * Report number of semaphores needed to support spinlocks.
+ * 报告支持自旋锁所需的信号量个数。
  */
 int
 SpinlockSemas(void)
@@ -69,9 +69,9 @@ SpinlockSemas(void)
 #ifndef HAVE_SPINLOCKS
 
 /*
- * Initialize spinlock emulation.
+ * 初始化自旋锁模拟。
  *
- * This must be called after PGReserveSemaphores().
+ * 必须在 PGReserveSemaphores() 之后调用。
  */
 void
 SpinlockSemaInit(void)
@@ -81,8 +81,8 @@ SpinlockSemaInit(void)
 	int			i;
 
 	/*
-	 * We must use ShmemAllocUnlocked(), since the spinlock protecting
-	 * ShmemAlloc() obviously can't be ready yet.
+	 * 必须使用 ShmemAllocUnlocked()，因为保护
+	 * ShmemAlloc() 的那把自旋锁显然还不可能就绪。
 	 */
 	spinsemas = (PGSemaphore *) ShmemAllocUnlocked(SpinlockSemaSize());
 	for (i = 0; i < nsemas; ++i)
@@ -91,23 +91,23 @@ SpinlockSemaInit(void)
 }
 
 /*
- * s_lock.h hardware-spinlock emulation using semaphores
+ * s_lock.h 用信号量来模拟硬件自旋锁
  *
- * We map all spinlocks onto NUM_EMULATION_SEMAPHORES semaphores.  It's okay to
- * map multiple spinlocks onto one semaphore because no process should ever
- * hold more than one at a time.  We just need enough semaphores so that we
- * aren't adding too much extra contention from that.
+ * 我们把全部自旋锁映射到 NUM_EMULATION_SEMAPHORES 个信号量上。把
+ * 多把自旋锁映射到同一个信号量上是可以的，因为任何进程都不应当
+ * 同时持有多于一把。只要信号量够多，就不至于
+ * 由此增加太多额外竞争。
  *
- * There is one exception to the restriction of only holding one spinlock at a
- * time, which is that it's ok if emulated atomic operations are nested inside
- * spinlocks. To avoid the danger of spinlocks and atomic using the same sema,
- * we make sure "normal" spinlocks and atomics backed by spinlocks use
- * distinct semaphores (see the nested argument to s_init_lock_sema).
+ * 一次只持有一把自旋锁，这一限制有一个例外：
+ * 模拟的原子操作嵌套在
+ * 自旋锁内部是允许的。为避免自旋锁与原子操作共用同一个信号量，
+ * 我们确保 "普通" 自旋锁和由自旋锁支撑的原子操作使用
+ * 彼此不同的信号量（见 s_init_lock_sema 的 nested 参数）。
  *
- * slock_t is just an int for this implementation; it holds the spinlock
- * number from 1..NUM_EMULATION_SEMAPHORES.  We intentionally ensure that 0
- * is not a valid value, so that testing with this code can help find
- * failures to initialize spinlocks.
+ * 在本实现里 slock_t 只是一个 int；它保存自旋锁
+ * 编号，范围是 1..NUM_EMULATION_SEMAPHORES。我们有意保证 0
+ * 不是有效值，这样用这段代码来测试，就有助于发现
+ * 自旋锁没有初始化的问题。
  */
 
 static inline void
@@ -128,8 +128,8 @@ s_init_lock_sema(volatile slock_t *lock, bool nested)
 	if (nested)
 	{
 		/*
-		 * To allow nesting atomics inside spinlocked sections, use a
-		 * different spinlock. See comment above.
+		 * 为了让原子操作能嵌套在持有自旋锁的区段里，要使用
+		 * 另一把自旋锁。见上面的注释。
 		 */
 		offset = 1 + NUM_SPINLOCK_SEMAPHORES;
 		sema_total = NUM_ATOMICS_SEMAPHORES;
@@ -142,7 +142,7 @@ s_init_lock_sema(volatile slock_t *lock, bool nested)
 
 	idx = (counter++ % sema_total) + offset;
 
-	/* double check we did things correctly */
+	/* 再核对一次我们是否做对了 */
 	s_check_valid(idx);
 
 	*lock = idx;
@@ -161,7 +161,7 @@ s_unlock_sema(volatile slock_t *lock)
 bool
 s_lock_free_sema(volatile slock_t *lock)
 {
-	/* We don't currently use S_LOCK_FREE anyway */
+	/* 反正我们目前并不使用 S_LOCK_FREE */
 	elog(ERROR, "spin.c does not support S_LOCK_FREE()");
 	return false;
 }
@@ -173,8 +173,8 @@ tas_sema(volatile slock_t *lock)
 
 	s_check_valid(lockndx);
 
-	/* Note that TAS macros return 0 if *success* */
+	/* 注意：TAS 宏在成功时返回 0 */
 	return !PGSemaphoreTryLock(SpinlockSemaArray[lockndx - 1]);
 }
 
-#endif							/* !HAVE_SPINLOCKS */
+#endif							/* !HAVE_SPINLOCKS（无自旋锁） */

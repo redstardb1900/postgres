@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0122-comment-storage-lmgr-cv-spin",
+ "title": "zh: translate condition_variable spin and s_lock comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c992b214cf860df269d8c4019ef919b557f6e1e3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/condition_variable.c",
+   "kind": "c_comment",
+   "note": "condition variables"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/spin.c",
+   "kind": "c_comment",
+   "note": "spinlock semaphore emulation"
+  },
+  {
+   "pattern": "src/backend/storage/lmgr/s_lock.c",
+   "kind": "c_comment",
+   "note": "contended spin delay"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0122-comment-storage-lmgr-cv-spin.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/condition_variable.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright lines"
+   ],
+   "note": "condition variable prepare, sleep, signal, and broadcast"
+  },
+  {
+   "path": "src/backend/storage/lmgr/spin.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 14,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "PGSemaphore spinlock emulation"
+  },
+  {
+   "path": "src/backend/storage/lmgr/s_lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "spin delay; non-prose banner rule left unchanged"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0122-comment-storage-lmgr-cv-spin.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0122 translates body comments in condition_variable.c, spin.c, and s_lock.c. Terms: 条件变量, 自旋锁, 锁存器, 信号量. LWLock stays LWLock. The s_lock.c banner rule is non-prose and left unchanged. Next batch should be deadlock.c alone."
+}

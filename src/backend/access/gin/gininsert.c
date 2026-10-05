@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gininsert.c
- *	  insert routines for the postgres inverted index access method.
+ *	  Postgres 倒排索引访问方法的插入例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -39,11 +39,11 @@ typedef struct
 
 
 /*
- * Adds array of item pointers to tuple's posting list, or
- * creates posting tree and tuple pointing to tree in case
- * of not enough space.  Max size of tuple is defined in
- * GinFormTuple().  Returns a new, modified index tuple.
- * items[] must be in sorted order with no duplicates.
+ * 把项指针数组加入元组的倒排列表；若
+ * 空间不够，则创建倒排树以及指向该树的元组。
+ * 元组的最大尺寸在
+ * GinFormTuple() 中定义。返回一个新的、修改后的索引元组。
+ * items[] 必须已排序且无重复。
  */
 static IndexTuple
 addItemPointersToLeafTuple(GinState *ginstate,
@@ -66,14 +66,14 @@ addItemPointersToLeafTuple(GinState *ginstate,
 	attnum = gintuple_get_attrnum(ginstate, old);
 	key = gintuple_get_key(ginstate, old, &category);
 
-	/* merge the old and new posting lists */
+	/* 合并新旧倒排列表 */
 	oldItems = ginReadTuple(ginstate, attnum, old, &oldNPosting);
 
 	newItems = ginMergeItemPointers(items, nitem,
 									oldItems, oldNPosting,
 									&newNPosting);
 
-	/* Compress the posting list, and try to a build tuple with room for it */
+	/* 压缩倒排列表，并尝试构建一个放得下它的元组 */
 	res = NULL;
 	compressedList = ginCompressPostingList(newItems, newNPosting, GinMaxItemSize,
 											NULL);
@@ -89,13 +89,13 @@ addItemPointersToLeafTuple(GinState *ginstate,
 	}
 	if (!res)
 	{
-		/* posting list would be too big, convert to posting tree */
+		/* 倒排列表会太大，转换为倒排树 */
 		BlockNumber postingRoot;
 
 		/*
-		 * Initialize posting tree with the old tuple's posting list.  It's
-		 * surely small enough to fit on one posting-tree page, and should
-		 * already be in order with no duplicates.
+		 * 用旧元组的倒排列表初始化倒排树。它
+		 * 肯定小到能放进一张倒排树页，并且应当
+		 * 已经有序且无重复。
 		 */
 		postingRoot = createPostingTree(ginstate->index,
 										oldItems,
@@ -103,12 +103,12 @@ addItemPointersToLeafTuple(GinState *ginstate,
 										buildStats,
 										buffer);
 
-		/* Now insert the TIDs-to-be-added into the posting tree */
+		/* 现在把待加入的 TIDs 插入倒排树 */
 		ginInsertItemPointers(ginstate->index, postingRoot,
 							  items, nitem,
 							  buildStats);
 
-		/* And build a new posting-tree-only result tuple */
+		/* 然后构建只含倒排树的新结果元组 */
 		res = GinFormTuple(ginstate, attnum, key, category, NULL, 0, 0, true);
 		GinSetPostingTree(res, postingRoot);
 	}
@@ -118,12 +118,12 @@ addItemPointersToLeafTuple(GinState *ginstate,
 }
 
 /*
- * Build a fresh leaf tuple, either posting-list or posting-tree format
- * depending on whether the given items list will fit.
- * items[] must be in sorted order with no duplicates.
+ * 构建一条新的叶子元组，采用倒排列表或倒排树格式，
+ * 取决于给定 items 列表是否放得下。
+ * items[] 必须已排序且无重复。
  *
- * This is basically the same logic as in addItemPointersToLeafTuple,
- * but working from slightly different input.
+ * 这与 addItemPointersToLeafTuple 中的逻辑基本相同，
+ * 只是输入略有不同。
  */
 static IndexTuple
 buildFreshLeafTuple(GinState *ginstate,
@@ -134,7 +134,7 @@ buildFreshLeafTuple(GinState *ginstate,
 	IndexTuple	res = NULL;
 	GinPostingList *compressedList;
 
-	/* try to build a posting list tuple with all the items */
+	/* 尝试用全部项构建一个倒排列表元组 */
 	compressedList = ginCompressPostingList(items, nitem, GinMaxItemSize, NULL);
 	if (compressedList)
 	{
@@ -146,22 +146,22 @@ buildFreshLeafTuple(GinState *ginstate,
 	}
 	if (!res)
 	{
-		/* posting list would be too big, build posting tree */
+		/* 倒排列表会太大，构建倒排树 */
 		BlockNumber postingRoot;
 
 		/*
-		 * Build posting-tree-only result tuple.  We do this first so as to
-		 * fail quickly if the key is too big.
+		 * 构建只含倒排树的结果元组。先做这一步，以便
+		 * 在键太大时尽快失败。
 		 */
 		res = GinFormTuple(ginstate, attnum, key, category, NULL, 0, 0, true);
 
 		/*
-		 * Initialize a new posting tree with the TIDs.
+		 * 用这些 TIDs 初始化一棵新的倒排树。
 		 */
 		postingRoot = createPostingTree(ginstate->index, items, nitem,
 										buildStats, buffer);
 
-		/* And save the root link in the result tuple */
+		/* 然后把根链接存入结果元组 */
 		GinSetPostingTree(res, postingRoot);
 	}
 
@@ -169,11 +169,11 @@ buildFreshLeafTuple(GinState *ginstate,
 }
 
 /*
- * Insert one or more heap TIDs associated with the given key value.
- * This will either add a single key entry, or enlarge a pre-existing entry.
+ * 插入与给定键值关联的一个或多个堆 TIDs。
+ * 这要么加入单条键条目，要么扩大一条已有条目。
  *
- * During an index build, buildStats is non-null and the counters
- * it contains should be incremented as needed.
+ * 索引构建期间，buildStats 非空，其中的计数器
+ * 应按需递增。
  */
 void
 ginEntryInsert(GinState *ginstate,
@@ -197,19 +197,19 @@ ginEntryInsert(GinState *ginstate,
 
 	if (btree.findItem(&btree, stack))
 	{
-		/* found pre-existing entry */
+		/* 找到已有条目 */
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, stack->off));
 
 		if (GinIsPostingTree(itup))
 		{
-			/* add entries to existing posting tree */
+			/* 向已有倒排树加入条目 */
 			BlockNumber rootPostingTree = GinGetPostingTree(itup);
 
-			/* release all stack */
+			/* 释放整个栈 */
 			LockBuffer(stack->buffer, GIN_UNLOCK);
 			freeGinBtreeStack(stack);
 
-			/* insert into posting tree */
+			/* 插入到倒排树中 */
 			ginInsertItemPointers(ginstate->index, rootPostingTree,
 								  items, nitem,
 								  buildStats);
@@ -218,7 +218,7 @@ ginEntryInsert(GinState *ginstate,
 
 		CheckForSerializableConflictIn(ginstate->index, NULL,
 									   BufferGetBlockNumber(stack->buffer));
-		/* modify an existing leaf entry */
+		/* 修改已有的叶子条目 */
 		itup = addItemPointersToLeafTuple(ginstate, itup,
 										  items, nitem, buildStats, stack->buffer);
 
@@ -228,29 +228,29 @@ ginEntryInsert(GinState *ginstate,
 	{
 		CheckForSerializableConflictIn(ginstate->index, NULL,
 									   BufferGetBlockNumber(stack->buffer));
-		/* no match, so construct a new leaf entry */
+		/* 没有匹配，因此构造一条新的叶子条目 */
 		itup = buildFreshLeafTuple(ginstate, attnum, key, category,
 								   items, nitem, buildStats, stack->buffer);
 
 		/*
-		 * nEntries counts leaf tuples, so increment it only when we make a
-		 * new one.
+		 * nEntries 统计叶子元组，因此只在新建
+		 * 一条时才递增。
 		 */
 		if (buildStats)
 			buildStats->nEntries++;
 	}
 
-	/* Insert the new or modified leaf tuple */
+	/* 插入新建或修改后的叶子元组 */
 	insertdata.entry = itup;
 	ginInsertValue(&btree, stack, &insertdata, buildStats);
 	pfree(itup);
 }
 
 /*
- * Extract index entries for a single indexable item, and add them to the
- * BuildAccumulator's state.
+ * 为单个可索引项提取索引条目，并加入
+ * BuildAccumulator 的状态。
  *
- * This function is used only during initial index creation.
+ * 此函数只在最初创建索引时使用。
  */
 static void
 ginHeapTupleBulkInsert(GinBuildState *buildstate, OffsetNumber attnum,
@@ -290,7 +290,7 @@ ginBuildCallback(Relation index, ItemPointer tid, Datum *values,
 		ginHeapTupleBulkInsert(buildstate, (OffsetNumber) (i + 1),
 							   values[i], isnull[i], tid);
 
-	/* If we've maxed out our available memory, dump everything to the index */
+	/* 若可用内存已经用尽，就把全部内容写入索引 */
 	if (buildstate->accum.allocatedMemory >= (Size) maintenance_work_mem * 1024L)
 	{
 		ItemPointerData *list;
@@ -303,7 +303,7 @@ ginBuildCallback(Relation index, ItemPointer tid, Datum *values,
 		while ((list = ginGetBAEntry(&buildstate->accum,
 									 &attnum, &key, &category, &nlist)) != NULL)
 		{
-			/* there could be many entries, so be willing to abort here */
+			/* 条目可能很多，因此这里愿意中止 */
 			CHECK_FOR_INTERRUPTS();
 			ginEntryInsert(&buildstate->ginstate, attnum, key, category,
 						   list, nlist, &buildstate->buildStats);
@@ -339,10 +339,10 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	buildstate.indtuples = 0;
 	memset(&buildstate.buildStats, 0, sizeof(GinStatsData));
 
-	/* initialize the meta page */
+	/* 初始化元页 */
 	MetaBuffer = GinNewBuffer(index);
 
-	/* initialize the root page */
+	/* 初始化根页 */
 	RootBuffer = GinNewBuffer(index);
 
 	START_CRIT_SECTION();
@@ -356,20 +356,20 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	UnlockReleaseBuffer(RootBuffer);
 	END_CRIT_SECTION();
 
-	/* count the root as first entry page */
+	/* 把根页计为第一张条目页 */
 	buildstate.buildStats.nEntryPages++;
 
 	/*
-	 * create a temporary memory context that is used to hold data not yet
-	 * dumped out to the index
+	 * 创建一个临时内存上下文，用来保存尚未
+	 * 写入索引的数据
 	 */
 	buildstate.tmpCtx = AllocSetContextCreate(CurrentMemoryContext,
 											  "Gin build temporary context",
 											  ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * create a temporary memory context that is used for calling
-	 * ginExtractEntries(), and can be reset after each tuple
+	 * 创建一个临时内存上下文，用于调用
+	 * ginExtractEntries()，并可在每个元组之后重置
 	 */
 	buildstate.funcCtx = AllocSetContextCreate(CurrentMemoryContext,
 											   "Gin build temporary context for user-defined function",
@@ -379,20 +379,20 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	ginInitBA(&buildstate.accum);
 
 	/*
-	 * Do the heap scan.  We disallow sync scan here because dataPlaceToPage
-	 * prefers to receive tuples in TID order.
+	 * 执行堆扫描。这里不允许同步扫描，因为 dataPlaceToPage
+	 * 更希望按 TID 顺序接收元组。
 	 */
 	reltuples = table_index_build_scan(heap, index, indexInfo, false, true,
 									   ginBuildCallback, (void *) &buildstate,
 									   NULL);
 
-	/* dump remaining entries to the index */
+	/* 把剩余条目写入索引 */
 	oldCtx = MemoryContextSwitchTo(buildstate.tmpCtx);
 	ginBeginBAScan(&buildstate.accum);
 	while ((list = ginGetBAEntry(&buildstate.accum,
 								 &attnum, &key, &category, &nlist)) != NULL)
 	{
-		/* there could be many entries, so be willing to abort here */
+		/* 条目可能很多，因此这里愿意中止 */
 		CHECK_FOR_INTERRUPTS();
 		ginEntryInsert(&buildstate.ginstate, attnum, key, category,
 					   list, nlist, &buildstate.buildStats);
@@ -403,14 +403,14 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	MemoryContextDelete(buildstate.tmpCtx);
 
 	/*
-	 * Update metapage stats
+	 * 更新元页统计信息
 	 */
 	buildstate.buildStats.nTotalPages = RelationGetNumberOfBlocks(index);
 	ginUpdateStats(index, &buildstate.buildStats, true);
 
 	/*
-	 * We didn't write WAL records as we built the index, so if WAL-logging is
-	 * required, write all pages to the WAL now.
+	 * 构建索引时没有写 WAL 记录，因此若需要记录 WAL，
+	 * 现在就把所有页写入 WAL。
 	 */
 	if (RelationNeedsWAL(index))
 	{
@@ -420,7 +420,7 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	}
 
 	/*
-	 * Return statistics
+	 * 返回统计信息
 	 */
 	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
 
@@ -431,7 +431,7 @@ ginbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 }
 
 /*
- *	ginbuildempty() -- build an empty gin index in the initialization fork
+ *	ginbuildempty() -- 在初始化分支中构建一个空的 GIN 索引
  */
 void
 ginbuildempty(Relation index)
@@ -439,13 +439,13 @@ ginbuildempty(Relation index)
 	Buffer		RootBuffer,
 				MetaBuffer;
 
-	/* An empty GIN index has two pages. */
+	/* 空的 GIN 索引有两页。 */
 	MetaBuffer = ExtendBufferedRel(BMR_REL(index), INIT_FORKNUM, NULL,
 								   EB_LOCK_FIRST | EB_SKIP_EXTENSION_LOCK);
 	RootBuffer = ExtendBufferedRel(BMR_REL(index), INIT_FORKNUM, NULL,
 								   EB_LOCK_FIRST | EB_SKIP_EXTENSION_LOCK);
 
-	/* Initialize and xlog metabuffer and root buffer. */
+	/* 初始化元页缓冲区和根缓冲区，并写入 WAL。 */
 	START_CRIT_SECTION();
 	GinInitMetabuffer(MetaBuffer);
 	MarkBufferDirty(MetaBuffer);
@@ -455,14 +455,14 @@ ginbuildempty(Relation index)
 	log_newpage_buffer(RootBuffer, false);
 	END_CRIT_SECTION();
 
-	/* Unlock and release the buffers. */
+	/* 解锁并释放这些缓冲区。 */
 	UnlockReleaseBuffer(MetaBuffer);
 	UnlockReleaseBuffer(RootBuffer);
 }
 
 /*
- * Insert index entries for a single indexable item during "normal"
- * (non-fast-update) insertion
+ * 在"常规"（非快速更新）插入期间，
+ * 为单个可索引项插入索引条目
  */
 static void
 ginHeapTupleInsert(GinState *ginstate, OffsetNumber attnum,
@@ -494,7 +494,7 @@ gininsert(Relation index, Datum *values, bool *isnull,
 	MemoryContext insertCtx;
 	int			i;
 
-	/* Initialize GinState cache if first call in this statement */
+	/* 若本语句首次调用，则初始化 GinState 缓存 */
 	if (ginstate == NULL)
 	{
 		oldCtx = MemoryContextSwitchTo(indexInfo->ii_Context);

@@ -249,21 +249,21 @@ toast_save_datum(Relation rel, Datum value,
 				toast_pointer.va_valueid = old_toast_pointer.va_valueid;
 
 				/*
-				 * There is a corner case here: the table rewrite might have
-				 * to copy both live and recently-dead versions of a row, and
-				 * those versions could easily reference the same toast value.
-				 * When we copy the second or later version of such a row,
-				 * reusing the OID will mean we select an OID that's already
-				 * in the new toast table.  Check for that, and if so, just
-				 * fall through without writing the data again.
+				 * 这里有一个角落情形：表重写可能必须同时复制某一行的
+				 * 存活版本与最近死亡版本，而这些版本很容易引用同一个
+				 * toast 值。当我们复制这样一行的第二个或更晚版本时，
+				 * 复用 OID 会意味着我们选到的 OID 在新 toast 表中
+				 * 已经存在。检查这种情况，若已存在则直接往下走，
+				 * 不再把数据写一遍。
 				 *
-				 * While annoying and ugly-looking, this is a good thing
-				 * because it ensures that we wind up with only one copy of
-				 * the toast value when there is only one copy in the old
-				 * toast table.  Before we detected this case, we'd have made
-				 * multiple copies, wasting space; and what's worse, the
-				 * copies belonging to already-deleted heap tuples would not
-				 * be reclaimed by VACUUM.
+				 * 虽然难看、讨厌，但这是好事：当旧 toast 表里只有
+				 * 一份拷贝时，我们最终也只会有一份 toast 值。在发现
+				 * 该情形之前，我们会做出多份拷贝，浪费空间；更糟的是，
+				 * 属于已删除堆元组的那些拷贝不会被 VACUUM
+				 * 回收。
+				 * （对应原文：fall through without writing，即跳过
+				 * 再次写入。）
+				 *
 				 */
 				if (toastrel_valueid_exists(toastrel,
 											toast_pointer.va_valueid))

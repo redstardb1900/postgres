@@ -157,6 +157,15 @@ class FixedCases(unittest.TestCase):
         marker = b"/* NB: need to fall through to munmap()! */\n"
         self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
 
+    def test_toast_rewrite_fallthrough_prose_is_translatable(self):
+        old = (
+            b"/*\n"
+            b" * Check for that, and if so, just\n"
+            b" * fall through without writing the data again.\n"
+            b" */\n"
+        )
+        self.assertIsNone(c_verify.protected_reason(old))
+
     def test_banner_fallthrough_prose_is_translatable(self):
         """File headers may document switch fall-through; not a GCC marker."""
         old = (

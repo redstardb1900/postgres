@@ -139,6 +139,12 @@ _FSM_FALLTHROUGH_PROSE = re.compile(
 _FILEZERO_FALLTHROUGH_PROSE = re.compile(
     rb"fall through to the FileZero\(\) backed implementation")
 
+# toast_internals "fall through without writing the data again" is prose
+# about skipping a second write when reusing a toast OID during rewrite,
+# not a switch fall-through annotation.
+_TOAST_REWRITE_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through without writing the data again")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -205,7 +211,8 @@ def protected_reason(old_text):
                     old_text.startswith(b"/*-")
                     or _WAITIO_FALLTHROUGH_PROSE.search(old_text)
                     or _FSM_FALLTHROUGH_PROSE.search(old_text)
-                    or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)):
+                    or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)
+                    or _TOAST_REWRITE_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

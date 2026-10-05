@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0086b-comment-clauses-wording",
+ "title": "zh: fix clauses wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e1e01a30998c8a91c09b58ba78e5b276cb7992f7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "note": "wording: level field, catch, conservatism"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0086b-comment-clauses-wording.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/clauses.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 452,
+   "translated": 440,
+   "preserved": 12,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "wording: level field, catch, conservatism"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0086b-comment-clauses-wording.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0086b fixes clauses.c wording for level field, catch, and erring on the side of conservatism."
+}

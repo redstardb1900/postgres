@@ -208,7 +208,7 @@ contain_agg_clause_walker(Node *node, void *context)
  * contain_window_function
  *	  在子句里递归查找 WindowFunc 节点。
  *
- * 窗口函数没有层次成员，而是硬连到
+ * 窗口函数没有层次字段，而是硬连到
  * 当前查询层次，因此这与
  * rewriteManip.c 里的函数一样。
  */
@@ -262,7 +262,7 @@ find_window_functions_walker(Node *node, WindowFuncLists *lists)
 		 * 我们假定解析器已经检查过参数或过滤子句里
 		 * 没有窗口函数。因此不必递归进入它们。
 		 * （若解析器或规划器在这一点上出错，
-		 * 执行器仍会抓住；见 ExecInitExpr。）
+		 * 执行器仍会捕获；见 ExecInitExpr。）
 		 */
 		return false;
 	}
@@ -1412,7 +1412,7 @@ contain_leaked_vars_walker(Node *node, void *context)
  *
  * 返回子句里以如下方式引用的全部 Relids：
  * 其中任何一个是全 NULL 行时，该子句就无法
- * 返回 TRUE。（偏保守出错可以接受，因此
+ * 返回 TRUE。（偏保守（分析不足）可以接受，因此
  * 这里的分析从简。）
  *
  * 这里的语义与 contain_nonstrict_functions 略有不同：
@@ -1666,7 +1666,7 @@ find_nonnullable_rels_walker(Node *node, bool top_level)
  *
  * 返回子句里以如下方式引用的全部零层 Vars：
  * 其中任何一个为 NULL 时，该子句就无法
- * 返回 TRUE。（偏保守出错可以接受，因此
+ * 返回 TRUE。（偏保守（分析不足）可以接受，因此
  * 这里的分析从简。）
  *
  * 这里的语义与 contain_nonstrict_functions 略有不同：
@@ -1890,7 +1890,7 @@ find_nonnullable_vars_walker(Node *node, bool top_level)
  *		确定哪些 Vars 必须为 NULL，给定子句才会返回 TRUE。
  *
  * 这是 find_nonnullable_vars 的补集：找出零层 Vars，
- * 它们必须为 NULL，子句才会返回 TRUE。（偏保守出错
+ * 它们必须为 NULL，子句才会返回 TRUE。（偏保守（分析不足）
  * 可以接受，因此这里的分析从简。事实上，
  * 我们只检测顶层简单的 var IS NULL 测试。）
  *
@@ -4121,7 +4121,7 @@ simplify_function(Oid funcid, Oid result_type, int32 result_typmod,
 			DatumGetPointer(OidFunctionCall1(func_form->prosupport,
 											 PointerGetDatum(&req)));
 
-		/* 抓住可能的 API 误解 */
+		/* 捕获可能的 API 误解 */
 		Assert(newexpr != (Expr *) &fexpr);
 	}
 

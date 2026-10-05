@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0119-comment-storage-ipc-sinvaladt-shm-mq",
+ "title": "zh: translate sinvaladt and shm_mq comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c3bdf773e54b09f96b531db1a18aa106d297fe2d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/sinvaladt.c",
+   "kind": "c_comment",
+   "note": "shared invalidation buffer"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/shm_mq.c",
+   "kind": "c_comment",
+   "note": "single-reader single-writer shared memory queue"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0119-comment-storage-ipc-sinvaladt-shm-mq.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/sinvaladt.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 81,
+   "translated": 80,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SI message buffer, cleanup, and local XIDs"
+  },
+  {
+   "path": "src/backend/storage/ipc/shm_mq.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 110,
+   "translated": 109,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright lines"
+   ],
+   "note": "shared memory queue; give-license line kept verbatim"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0119-comment-storage-ipc-sinvaladt-shm-mq.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0119 translates body comments in sinvaladt.c and shm_mq.c. The shm_mq synchronization comment keeps the original line containing \"license\" verbatim (licence-line rule). Terms: 锁存器, 自旋锁, 热备, 数据库集簇. standby.c remains."
+}

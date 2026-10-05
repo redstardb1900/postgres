@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * shm_mq.c
- *	  single-reader, single-writer shared memory message queue
+ *	  单读者、单写者的共享内存消息队列
  *
- * Both the sender and the receiver must have a PGPROC; their respective
- * process latches are used for synchronization.  Only the sender may send,
- * and only the receiver may receive.  This is intended to allow a user
- * backend to communicate with worker backends that it has registered.
+ * 发送方和接收方都必须有一个 PGPROC；各自的
+ * 进程锁存器用于同步。只有发送方可以发送，
+ * 也只有接收方可以接收。这是为了让用户
+ * 后端与它注册的工作后端通信。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,46 +28,46 @@
 #include "utils/memutils.h"
 
 /*
- * This structure represents the actual queue, stored in shared memory.
+ * 本结构表示实际的队列，存放在共享内存中。
  *
- * Some notes on synchronization:
+ * 关于同步的若干说明：
  *
- * mq_receiver and mq_bytes_read can only be changed by the receiver; and
- * mq_sender and mq_bytes_written can only be changed by the sender.
- * mq_receiver and mq_sender are protected by mq_mutex, although, importantly,
- * they cannot change once set, and thus may be read without a lock once this
- * is known to be the case.
+ * mq_receiver 和 mq_bytes_read 只能由接收方修改；
+ * mq_sender 和 mq_bytes_written 只能由发送方修改。
+ * mq_receiver 和 mq_sender 由 mq_mutex 保护，不过重要的是，
+ * 它们一旦设置就无法再改变，因此在已知这一点之后，
+ * 可以不加锁读取。
  *
- * mq_bytes_read and mq_bytes_written are not protected by the mutex.  Instead,
- * they are written atomically using 8 byte loads and stores.  Memory barriers
- * must be carefully used to synchronize reads and writes of these values with
- * reads and writes of the actual data in mq_ring.
+ * mq_bytes_read 和 mq_bytes_written 不受该互斥锁保护。相反，
+ * 它们用 8 字节的加载和存储原子地写入。必须小心地使用内存屏障，
+ * 把对这些值的读写与
+ * 对 mq_ring 中实际数据的读写同步起来。
  *
- * mq_detached needs no locking.  It can be set by either the sender or the
- * receiver, but only ever from false to true, so redundant writes don't
- * matter.  It is important that if we set mq_detached and then set the
- * counterparty's latch, the counterparty must be certain to see the change
- * after waking up.  Since SetLatch begins with a memory barrier and ResetLatch
- * ends with one, this should be OK.
+ * mq_detached 不需要加锁。发送方或
+ * 接收方都可以设置它，但只会从 false 变成 true，因此重复写也
+ * 没关系。重要的是，若我们设置 mq_detached 然后再设置
+ * 对端的锁存器，对端在醒来之后必须能看见这一变更。
+ * 由于 SetLatch 以内存屏障开始，ResetLatch
+ * 以内存屏障结束，这样就应当没问题。
  *
- * mq_ring_size and mq_ring_offset never change after initialization, and
- * can therefore be read without the lock.
+ * mq_ring_size 和 mq_ring_offset 在初始化之后不再改变，
+ * 因此可以不加锁读取。
  *
- * Importantly, mq_ring can be safely read and written without a lock.
- * At any given time, the difference between mq_bytes_read and
- * mq_bytes_written defines the number of bytes within mq_ring that contain
- * unread data, and mq_bytes_read defines the position where those bytes
- * begin.  The sender can increase the number of unread bytes at any time,
+ * 重要的是，mq_ring 可以不加锁地安全读写。
+ * 在任一时刻，mq_bytes_read 与
+ * mq_bytes_written 之差决定 mq_ring 里有多少字节
+ * 含有未读数据，而 mq_bytes_read 决定这些字节
+ * 从哪里开始。发送方随时可以增加未读字节数，
  * but only the receiver can give license to overwrite those bytes, by
- * incrementing mq_bytes_read.  Therefore, it's safe for the receiver to read
- * the unread bytes it knows to be present without the lock.  Conversely,
- * the sender can write to the unused portion of the ring buffer without
- * the lock, because nobody else can be reading or writing those bytes.  The
- * receiver could be making more bytes unused by incrementing mq_bytes_read,
- * but that's OK.  Note that it would be unsafe for the receiver to read any
- * data it's already marked as read, or to write any data; and it would be
- * unsafe for the sender to reread any data after incrementing
- * mq_bytes_written, but fortunately there's no need for any of that.
+ * 增加 mq_bytes_read。因此，接收方不加锁读取
+ * 它知道存在的未读字节是安全的。反过来，
+ * 发送方也可以不加锁地写入环形缓冲区中未使用的部分，
+ * 因为没有别人会去读或写那些字节。
+ * 接收方可能通过增加 mq_bytes_read 让更多字节变为未使用，
+ * 但这没关系。注意，接收方去读任何
+ * 已经标为已读的数据，或者写入任何数据，都是不安全的；发送方在增加
+ * mq_bytes_written 之后再重读任何数据也是不安全的，好在
+ * 这些事都没有必要。
  */
 struct shm_mq
 {
@@ -83,57 +83,57 @@ struct shm_mq
 };
 
 /*
- * This structure is a backend-private handle for access to a queue.
+ * 本结构是访问队列的后端私有句柄。
  *
- * mqh_queue is a pointer to the queue we've attached, and mqh_segment is
- * an optional pointer to the dynamic shared memory segment that contains it.
- * (If mqh_segment is provided, we register an on_dsm_detach callback to
- * make sure we detach from the queue before detaching from DSM.)
+ * mqh_queue 指向我们已挂接的队列，mqh_segment 是
+ * 指向包含该队列的动态共享内存段的可选指针。
+ * （若提供了 mqh_segment，我们就登记一个 on_dsm_detach 回调，
+ * 以确保在脱离 DSM 之前先脱离队列。）
  *
- * If this queue is intended to connect the current process with a background
- * worker that started it, the user can pass a pointer to the worker handle
- * to shm_mq_attach(), and we'll store it in mqh_handle.  The point of this
- * is to allow us to begin sending to or receiving from that queue before the
- * process we'll be communicating with has even been started.  If it fails
- * to start, the handle will allow us to notice that and fail cleanly, rather
- * than waiting forever; see shm_mq_wait_internal.  This is mostly useful in
- * simple cases - e.g. where there are just 2 processes communicating; in
- * more complex scenarios, every process may not have a BackgroundWorkerHandle
- * available, or may need to watch for the failure of more than one other
- * process at a time.
+ * 若这个队列打算把当前进程与启动它的后台
+ * 工作进程连起来，用户可以把工作进程句柄的指针
+ * 传给 shm_mq_attach()，我们会把它存进 mqh_handle。这样做的意义
+ * 是让我们在将要通信的进程甚至还没启动时，
+ * 就能开始向该队列发送或从中接收。若它启动
+ * 失败，这个句柄让我们能够察觉并干净地失败，而不是
+ * 永远等下去；见 shm_mq_wait_internal。这主要在
+ * 简单情形下有用——例如只有 2 个进程在通信；在
+ * 更复杂的场景里，并非每个进程都有 BackgroundWorkerHandle
+ * 可用，或者可能得同时留意不止一个其他
+ * 进程的失败。
  *
- * When a message exists as a contiguous chunk of bytes in the queue - that is,
- * it is smaller than the size of the ring buffer and does not wrap around
- * the end - we return the message to the caller as a pointer into the buffer.
- * For messages that are larger or happen to wrap, we reassemble the message
- * locally by copying the chunks into a backend-local buffer.  mqh_buffer is
- * the buffer, and mqh_buflen is the number of bytes allocated for it.
+ * 当一条消息作为连续的字节块存在于队列中时——也就是说，
+ * 它小于环形缓冲区的大小，并且没有绕过
+ * 末尾——我们就把指向缓冲区内部的指针返回给调用方。
+ * 对于更大或恰好回绕的消息，我们在本地重新组装，
+ * 把各块拷贝进后端本地缓冲区。mqh_buffer 就是
+ * 这块缓冲区，mqh_buflen 是为它分配的字节数。
  *
- * mqh_send_pending, is number of bytes that is written to the queue but not
- * yet updated in the shared memory.  We will not update it until the written
- * data is 1/4th of the ring size or the tuple queue is full.  This will
- * prevent frequent CPU cache misses, and it will also avoid frequent
- * SetLatch() calls, which are quite expensive.
+ * mqh_send_pending 是已经写入队列、但尚未
+ * 在共享内存中更新的字节数。要等到已写
+ * 数据达到环形区大小的 1/4，或元组队列已满，我们才会更新它。这样可以
+ * 避免频繁的 CPU 缓存未命中，也可以避免频繁
+ * 调用 SetLatch()，那相当昂贵。
  *
- * mqh_partial_bytes, mqh_expected_bytes, and mqh_length_word_complete
- * are used to track the state of non-blocking operations.  When the caller
- * attempts a non-blocking operation that returns SHM_MQ_WOULD_BLOCK, they
- * are expected to retry the call at a later time with the same argument;
- * we need to retain enough state to pick up where we left off.
- * mqh_length_word_complete tracks whether we are done sending or receiving
- * (whichever we're doing) the entire length word.  mqh_partial_bytes tracks
- * the number of bytes read or written for either the length word or the
- * message itself, and mqh_expected_bytes - which is used only for reads -
- * tracks the expected total size of the payload.
+ * mqh_partial_bytes、mqh_expected_bytes 和 mqh_length_word_complete
+ * 用来跟踪非阻塞操作的状态。当调用方
+ * 尝试一次返回 SHM_MQ_WOULD_BLOCK 的非阻塞操作时，
+ * 预期稍后用同样的参数重试这次调用；
+ * 我们得保留足够的状态，以便从停下的地方继续。
+ * mqh_length_word_complete 跟踪我们是否已经发送或接收完
+ * （看我们正在做哪一件）整个长度字。mqh_partial_bytes 跟踪
+ * 长度字或消息本身已经读或写的字节数，
+ * 而 mqh_expected_bytes——只用于读取——
+ * 跟踪有效载荷的预期总大小。
  *
- * mqh_counterparty_attached tracks whether we know the counterparty to have
- * attached to the queue at some previous point.  This lets us avoid some
- * mutex acquisitions.
+ * mqh_counterparty_attached 跟踪我们是否已经知道对端
+ * 在先前某个时刻挂接了队列。这样就可以省掉一些
+ * 互斥锁获取。
  *
- * mqh_context is the memory context in effect at the time we attached to
- * the shm_mq.  The shm_mq_handle itself is allocated in this context, and
- * we make sure any other allocations we do happen in this context as well,
- * to avoid nasty surprises.
+ * mqh_context 是我们挂接 shm_mq 时生效的内存上下文。
+ * shm_mq_handle 本身就分配在这个上下文里，并且
+ * 我们确保所做的其他分配也发生在这个上下文里，
+ * 以免出现讨厌的意外。
  */
 struct shm_mq_handle
 {
@@ -165,14 +165,14 @@ static void shm_mq_inc_bytes_read(shm_mq *mq, Size n);
 static void shm_mq_inc_bytes_written(shm_mq *mq, Size n);
 static void shm_mq_detach_callback(dsm_segment *seg, Datum arg);
 
-/* Minimum queue size is enough for header and at least one chunk of data. */
+/* 最小队列大小足以放下头部，外加至少一块数据。 */
 const Size	shm_mq_minimum_size =
 MAXALIGN(offsetof(shm_mq, mq_ring)) + MAXIMUM_ALIGNOF;
 
 #define MQH_INITIAL_BUFSIZE				8192
 
 /*
- * Initialize a new shared message queue.
+ * 初始化一个新的共享消息队列。
  */
 shm_mq *
 shm_mq_create(void *address, Size size)
@@ -180,13 +180,13 @@ shm_mq_create(void *address, Size size)
 	shm_mq	   *mq = address;
 	Size		data_offset = MAXALIGN(offsetof(shm_mq, mq_ring));
 
-	/* If the size isn't MAXALIGN'd, just discard the odd bytes. */
+	/* 若大小没有按 MAXALIGN 对齐，就丢掉多余的字节。 */
 	size = MAXALIGN_DOWN(size);
 
-	/* Queue size must be large enough to hold some data. */
+	/* 队列大小必须大到能放下一些数据。 */
 	Assert(size > data_offset);
 
-	/* Initialize queue header. */
+	/* 初始化队列头部。 */
 	SpinLockInit(&mq->mq_mutex);
 	mq->mq_receiver = NULL;
 	mq->mq_sender = NULL;
@@ -200,8 +200,8 @@ shm_mq_create(void *address, Size size)
 }
 
 /*
- * Set the identity of the process that will receive from a shared message
- * queue.
+ * 设置将从共享消息
+ * 队列接收的进程身份。
  */
 void
 shm_mq_set_receiver(shm_mq *mq, PGPROC *proc)
@@ -219,7 +219,7 @@ shm_mq_set_receiver(shm_mq *mq, PGPROC *proc)
 }
 
 /*
- * Set the identity of the process that will send to a shared message queue.
+ * 设置将向共享消息队列发送的进程身份。
  */
 void
 shm_mq_set_sender(shm_mq *mq, PGPROC *proc)
@@ -237,7 +237,7 @@ shm_mq_set_sender(shm_mq *mq, PGPROC *proc)
 }
 
 /*
- * Get the configured receiver.
+ * 取得已配置的接收方。
  */
 PGPROC *
 shm_mq_get_receiver(shm_mq *mq)
@@ -252,7 +252,7 @@ shm_mq_get_receiver(shm_mq *mq)
 }
 
 /*
- * Get the configured sender.
+ * 取得已配置的发送方。
  */
 PGPROC *
 shm_mq_get_sender(shm_mq *mq)
@@ -267,25 +267,25 @@ shm_mq_get_sender(shm_mq *mq)
 }
 
 /*
- * Attach to a shared message queue so we can send or receive messages.
+ * 挂接共享消息队列，以便发送或接收消息。
  *
- * The memory context in effect at the time this function is called should
- * be one which will last for at least as long as the message queue itself.
- * We'll allocate the handle in that context, and future allocations that
- * are needed to buffer incoming data will happen in that context as well.
+ * 调用本函数时生效的内存上下文应当
+ * 至少与消息队列本身活得一样久。
+ * 我们会在该上下文中分配句柄，以后为缓冲进入数据
+ * 所需的分配也会发生在该上下文中。
  *
- * If seg != NULL, the queue will be automatically detached when that dynamic
- * shared memory segment is detached.
+ * 若 seg != NULL，那段动态共享内存脱离时，
+ * 队列会自动脱离。
  *
- * If handle != NULL, the queue can be read or written even before the
- * other process has attached.  We'll wait for it to do so if needed.  The
- * handle must be for a background worker initialized with bgw_notify_pid
- * equal to our PID.
+ * 若 handle != NULL，即使另一个进程还没
+ * 挂接，也可以读写队列。需要的话我们会等它挂接。该
+ * 句柄必须属于一个后台工作进程，其 bgw_notify_pid
+ * 等于我们的 PID。
  *
- * shm_mq_detach() should be called when done.  This will free the
- * shm_mq_handle and mark the queue itself as detached, so that our
- * counterpart won't get stuck waiting for us to fill or drain the queue
- * after we've already lost interest.
+ * 用完后应当调用 shm_mq_detach()。这会释放
+ * shm_mq_handle，并把队列本身标为已脱离，这样我们的
+ * 对端就不会在我们已经失去兴趣之后，还卡在等待我们
+ * 填满或排空队列。
  */
 shm_mq_handle *
 shm_mq_attach(shm_mq *mq, dsm_segment *seg, BackgroundWorkerHandle *handle)
@@ -313,8 +313,8 @@ shm_mq_attach(shm_mq *mq, dsm_segment *seg, BackgroundWorkerHandle *handle)
 }
 
 /*
- * Associate a BackgroundWorkerHandle with a shm_mq_handle just as if it had
- * been passed to shm_mq_attach.
+ * 把 BackgroundWorkerHandle 关联到 shm_mq_handle，就像它
+ * 当初被传给 shm_mq_attach 一样。
  */
 void
 shm_mq_set_handle(shm_mq_handle *mqh, BackgroundWorkerHandle *handle)
@@ -324,7 +324,7 @@ shm_mq_set_handle(shm_mq_handle *mqh, BackgroundWorkerHandle *handle)
 }
 
 /*
- * Write a message into a shared message queue.
+ * 把一条消息写入共享消息队列。
  */
 shm_mq_result
 shm_mq_send(shm_mq_handle *mqh, Size nbytes, const void *data, bool nowait,
@@ -339,24 +339,24 @@ shm_mq_send(shm_mq_handle *mqh, Size nbytes, const void *data, bool nowait,
 }
 
 /*
- * Write a message into a shared message queue, gathered from multiple
- * addresses.
+ * 把从多个地址汇集来的一条消息
+ * 写入共享消息队列。
  *
- * When nowait = false, we'll wait on our process latch when the ring buffer
- * fills up, and then continue writing once the receiver has drained some data.
- * The process latch is reset after each wait.
+ * 当 nowait = false 时，环形缓冲区写满后我们会在自己的进程锁存器上等待，
+ * 等接收方排掉一些数据后再继续写。
+ * 每次等待之后都会重置进程锁存器。
  *
- * When nowait = true, we do not manipulate the state of the process latch;
- * instead, if the buffer becomes full, we return SHM_MQ_WOULD_BLOCK.  In
- * this case, the caller should call this function again, with the same
- * arguments, each time the process latch is set.  (Once begun, the sending
- * of a message cannot be aborted except by detaching from the queue; changing
- * the length or payload will corrupt the queue.)
+ * 当 nowait = true 时，我们不改动进程锁存器的状态；
+ * 相反，若缓冲区变满，就返回 SHM_MQ_WOULD_BLOCK。在
+ * 这种情况下，每当进程锁存器被设置，调用方都应当用同样的
+ * 参数再次调用本函数。（一旦开始，除了脱离队列之外，
+ * 消息的发送无法中止；改变
+ * 长度或有效载荷会破坏队列。）
  *
- * When force_flush = true, we immediately update the shm_mq's mq_bytes_written
- * and notify the receiver (if it is already attached).  Otherwise, we don't
- * update it until we have written an amount of data greater than 1/4th of the
- * ring size.
+ * 当 force_flush = true 时，我们立即更新 shm_mq 的 mq_bytes_written，
+ * 并通知接收方（若它已经挂接）。否则，要等到已写数据
+ * 超过环形区大小的 1/4，我们才
+ * 更新它。
  */
 shm_mq_result
 shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
@@ -373,18 +373,18 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 
 	Assert(mq->mq_sender == MyProc);
 
-	/* Compute total size of write. */
+	/* 计算写入的总大小。 */
 	for (i = 0; i < iovcnt; ++i)
 		nbytes += iov[i].len;
 
-	/* Prevent writing messages overwhelming the receiver. */
+	/* 防止写出的消息压垮接收方。 */
 	if (nbytes > MaxAllocSize)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
 				 errmsg("cannot send a message of size %zu via shared memory queue",
 						nbytes)));
 
-	/* Try to write, or finish writing, the length word into the buffer. */
+	/* 尝试把长度字写入缓冲区，或把没写完的写完。 */
 	while (!mqh->mqh_length_word_complete)
 	{
 		Assert(mqh->mqh_partial_bytes < sizeof(Size));
@@ -394,7 +394,7 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 
 		if (res == SHM_MQ_DETACHED)
 		{
-			/* Reset state in case caller tries to send another message. */
+			/* 重置状态，以防调用方再发送另一条消息。 */
 			mqh->mqh_partial_bytes = 0;
 			mqh->mqh_length_word_complete = false;
 			return res;
@@ -412,18 +412,18 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 		if (res != SHM_MQ_SUCCESS)
 			return res;
 
-		/* Length word can't be split unless bigger than required alignment. */
+		/* 除非大于所需对齐，否则长度字无法被拆开。 */
 		Assert(mqh->mqh_length_word_complete || sizeof(Size) > MAXIMUM_ALIGNOF);
 	}
 
-	/* Write the actual data bytes into the buffer. */
+	/* 把实际的数据字节写入缓冲区。 */
 	Assert(mqh->mqh_partial_bytes <= nbytes);
 	offset = mqh->mqh_partial_bytes;
 	do
 	{
 		Size		chunksize;
 
-		/* Figure out which bytes need to be sent next. */
+		/* 弄清接下来要发送哪些字节。 */
 		if (offset >= iov[which_iov].len)
 		{
 			offset -= iov[which_iov].len;
@@ -434,13 +434,13 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 		}
 
 		/*
-		 * We want to avoid copying the data if at all possible, but every
-		 * chunk of bytes we write into the queue has to be MAXALIGN'd, except
-		 * the last.  Thus, if a chunk other than the last one ends on a
-		 * non-MAXALIGN'd boundary, we have to combine the tail end of its
-		 * data with data from one or more following chunks until we either
-		 * reach the last chunk or accumulate a number of bytes which is
-		 * MAXALIGN'd.
+		 * 我们想尽可能避免拷贝数据，但写入队列的
+		 * 每一块字节都必须按 MAXALIGN 对齐，最后一块
+		 * 除外。因此，若非最后一块结束在
+		 * 非 MAXALIGN 对齐的边界上，就必须把它尾部的
+		 * 数据与后面一块或多块的数据拼起来，直到
+		 * 到达最后一块，或者累计的字节数
+		 * 已经按 MAXALIGN 对齐。
 		 */
 		if (which_iov + 1 < iovcnt &&
 			offset + MAXIMUM_ALIGNOF > iov[which_iov].len)
@@ -471,7 +471,7 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 
 			if (res == SHM_MQ_DETACHED)
 			{
-				/* Reset state in case caller tries to send another message. */
+				/* 重置状态，以防调用方再发送另一条消息。 */
 				mqh->mqh_partial_bytes = 0;
 				mqh->mqh_length_word_complete = false;
 				return res;
@@ -484,9 +484,9 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 		}
 
 		/*
-		 * If this is the last chunk, we can write all the data, even if it
-		 * isn't a multiple of MAXIMUM_ALIGNOF.  Otherwise, we need to
-		 * MAXALIGN_DOWN the write size.
+		 * 若这是最后一块，即使它
+		 * 不是 MAXIMUM_ALIGNOF 的倍数，也可以把数据全部写出。否则，写入大小需要
+		 * 按 MAXALIGN_DOWN 向下对齐。
 		 */
 		chunksize = iov[which_iov].len - offset;
 		if (which_iov + 1 < iovcnt)
@@ -496,7 +496,7 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 
 		if (res == SHM_MQ_DETACHED)
 		{
-			/* Reset state in case caller tries to send another message. */
+			/* 重置状态，以防调用方再发送另一条消息。 */
 			mqh->mqh_length_word_complete = false;
 			mqh->mqh_partial_bytes = 0;
 			return res;
@@ -508,17 +508,17 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 			return res;
 	} while (mqh->mqh_partial_bytes < nbytes);
 
-	/* Reset for next message. */
+	/* 为下一条消息重置。 */
 	mqh->mqh_partial_bytes = 0;
 	mqh->mqh_length_word_complete = false;
 
-	/* If queue has been detached, let caller know. */
+	/* 若队列已脱离，通知调用方。 */
 	if (mq->mq_detached)
 		return SHM_MQ_DETACHED;
 
 	/*
-	 * If the counterparty is known to have attached, we can read mq_receiver
-	 * without acquiring the spinlock.  Otherwise, more caution is needed.
+	 * 若已知对端已经挂接，就可以不加自旋锁地读取 mq_receiver。
+	 * 否则需要更谨慎。
 	 */
 	if (mqh->mqh_counterparty_attached)
 		receiver = mq->mq_receiver;
@@ -532,9 +532,9 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 	}
 
 	/*
-	 * If the caller has requested force flush or we have written more than
-	 * 1/4 of the ring size, mark it as written in shared memory and notify
-	 * the receiver.
+	 * 若调用方要求强制刷出，或者我们已经写了超过
+	 * 环形区大小的 1/4，就在共享内存中把它标为已写，并通知
+	 * 接收方。
 	 */
 	if (force_flush || mqh->mqh_send_pending > (mq->mq_ring_size >> 2))
 	{
@@ -548,26 +548,26 @@ shm_mq_sendv(shm_mq_handle *mqh, shm_mq_iovec *iov, int iovcnt, bool nowait,
 }
 
 /*
- * Receive a message from a shared message queue.
+ * 从共享消息队列接收一条消息。
  *
- * We set *nbytes to the message length and *data to point to the message
- * payload.  If the entire message exists in the queue as a single,
- * contiguous chunk, *data will point directly into shared memory; otherwise,
- * it will point to a temporary buffer.  This mostly avoids data copying in
- * the hoped-for case where messages are short compared to the buffer size,
- * while still allowing longer messages.  In either case, the return value
- * remains valid until the next receive operation is performed on the queue.
+ * 我们把 *nbytes 设为消息长度，把 *data 指向消息
+ * 有效载荷。若整条消息在队列里是单独的、
+ * 连续的一块，*data 会直接指向共享内存；否则
+ * 会指向一块临时缓冲区。在消息相对缓冲区较短这一
+ * 所希望的常见情形下，这大多避免了数据拷贝，
+ * 同时仍然允许更长的消息。无论哪种情况，返回值
+ * 都保持有效，直到对该队列执行下一次接收操作。
  *
- * When nowait = false, we'll wait on our process latch when the ring buffer
- * is empty and we have not yet received a full message.  The sender will
- * set our process latch after more data has been written, and we'll resume
- * processing.  Each call will therefore return a complete message
- * (unless the sender detaches the queue).
+ * 当 nowait = false 时，环形缓冲区为空且我们还没收到完整消息时，
+ * 会在自己的进程锁存器上等待。发送方
+ * 写入更多数据后会设置我们的进程锁存器，然后我们继续
+ * 处理。因此每次调用都会返回一条完整消息
+ * （除非发送方脱离了队列）。
  *
- * When nowait = true, we do not manipulate the state of the process latch;
- * instead, whenever the buffer is empty and we need to read from it, we
- * return SHM_MQ_WOULD_BLOCK.  In this case, the caller should call this
- * function again after the process latch has been set.
+ * 当 nowait = true 时，我们不改动进程锁存器的状态；
+ * 相反，每当缓冲区为空而我们又需要从中读取时，就
+ * 返回 SHM_MQ_WOULD_BLOCK。在这种情况下，进程锁存器被设置之后，
+ * 调用方应当再次调用本函数。
  */
 shm_mq_result
 shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
@@ -580,7 +580,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 
 	Assert(mq->mq_receiver == MyProc);
 
-	/* We can't receive data until the sender has attached. */
+	/* 发送方挂接之前，我们无法接收数据。 */
 	if (!mqh->mqh_counterparty_attached)
 	{
 		if (nowait)
@@ -588,15 +588,15 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			int			counterparty_gone;
 
 			/*
-			 * We shouldn't return at this point at all unless the sender
-			 * hasn't attached yet.  However, the correct return value depends
-			 * on whether the sender is still attached.  If we first test
-			 * whether the sender has ever attached and then test whether the
-			 * sender has detached, there's a race condition: a sender that
-			 * attaches and detaches very quickly might fool us into thinking
-			 * the sender never attached at all.  So, test whether our
-			 * counterparty is definitively gone first, and only afterwards
-			 * check whether the sender ever attached in the first place.
+			 * 除非发送方
+			 * 还没挂接，否则此刻根本不应当返回。不过，正确的返回值取决于
+			 * 发送方是否仍然挂接着。若先测试
+			 * 发送方是否曾经挂接，再测试发送方是否已
+			 * 脱离，就有竞态：一个很快挂接又很快脱离的发送方
+			 * 可能骗过我们，让我们以为
+			 * 发送方从未挂接。因此，先测试我们的
+			 * 对端是否已经确定离开，然后再
+			 * 检查发送方当初是否曾经挂接。
 			 */
 			counterparty_gone = shm_mq_counterparty_gone(mq, mqh->mqh_handle);
 			if (shm_mq_get_sender(mq) == NULL)
@@ -617,11 +617,11 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 	}
 
 	/*
-	 * If we've consumed an amount of data greater than 1/4th of the ring
-	 * size, mark it consumed in shared memory.  We try to avoid doing this
-	 * unnecessarily when only a small amount of data has been consumed,
-	 * because SetLatch() is fairly expensive and we don't want to do it too
-	 * often.
+	 * 若已经消费的数据量超过环形区大小的 1/4，
+	 * 就在共享内存中把它标为已消费。只有消费了少量数据时，
+	 * 我们尽量避免做这件事，
+	 * 因为 SetLatch() 相当贵，我们不想做得太
+	 * 频繁。
 	 */
 	if (mqh->mqh_consume_pending > mq->mq_ring_size / 4)
 	{
@@ -629,10 +629,10 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 		mqh->mqh_consume_pending = 0;
 	}
 
-	/* Try to read, or finish reading, the length word from the buffer. */
+	/* 尝试从缓冲区读出长度字，或把没读完的读完。 */
 	while (!mqh->mqh_length_word_complete)
 	{
-		/* Try to receive the message length word. */
+		/* 尝试接收消息长度字。 */
 		Assert(mqh->mqh_partial_bytes < sizeof(Size));
 		res = shm_mq_receive_bytes(mqh, sizeof(Size) - mqh->mqh_partial_bytes,
 								   nowait, &rb, &rawdata);
@@ -640,9 +640,9 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			return res;
 
 		/*
-		 * Hopefully, we'll receive the entire message length word at once.
-		 * But if sizeof(Size) > MAXIMUM_ALIGNOF, then it might be split over
-		 * multiple reads.
+		 * 最好能一次收到整个消息长度字。
+		 * 但若 sizeof(Size) > MAXIMUM_ALIGNOF，它就可能被拆到
+		 * 多次读取里。
 		 */
 		if (mqh->mqh_partial_bytes == 0 && rb >= sizeof(Size))
 		{
@@ -650,7 +650,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 
 			nbytes = *(Size *) rawdata;
 
-			/* If we've already got the whole message, we're done. */
+			/* 若已经拿到整条消息，就完成了。 */
 			needed = MAXALIGN(sizeof(Size)) + MAXALIGN(nbytes);
 			if (rb >= needed)
 			{
@@ -661,8 +661,8 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			}
 
 			/*
-			 * We don't have the whole message, but we at least have the whole
-			 * length word.
+			 * 我们还没有整条消息，但至少已经有了整个
+			 * 长度字。
 			 */
 			mqh->mqh_expected_bytes = nbytes;
 			mqh->mqh_length_word_complete = true;
@@ -673,10 +673,10 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 		{
 			Size		lengthbytes;
 
-			/* Can't be split unless bigger than required alignment. */
+			/* 除非大于所需对齐，否则无法被拆开。 */
 			Assert(sizeof(Size) > MAXIMUM_ALIGNOF);
 
-			/* Message word is split; need buffer to reassemble. */
+			/* 消息字被拆开了；需要缓冲区来重新组装。 */
 			if (mqh->mqh_buffer == NULL)
 			{
 				mqh->mqh_buffer = MemoryContextAlloc(mqh->mqh_context,
@@ -685,7 +685,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			}
 			Assert(mqh->mqh_buflen >= sizeof(Size));
 
-			/* Copy partial length word; remember to consume it. */
+			/* 拷贝不完整的长度字；记住要消费它。 */
 			if (mqh->mqh_partial_bytes + rb > sizeof(Size))
 				lengthbytes = sizeof(Size) - mqh->mqh_partial_bytes;
 			else
@@ -696,7 +696,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			mqh->mqh_consume_pending += MAXALIGN(lengthbytes);
 			rb -= lengthbytes;
 
-			/* If we now have the whole word, we're ready to read payload. */
+			/* 若现在已经有了整个字，就可以读有效载荷了。 */
 			if (mqh->mqh_partial_bytes >= sizeof(Size))
 			{
 				Assert(mqh->mqh_partial_bytes == sizeof(Size));
@@ -709,9 +709,9 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 	nbytes = mqh->mqh_expected_bytes;
 
 	/*
-	 * Should be disallowed on the sending side already, but better check and
-	 * error out on the receiver side as well rather than trying to read a
-	 * prohibitively large message.
+	 * 发送方那边应当已经禁止了，但最好在接收方也检查并
+	 * 报错，而不是试图去读一条
+	 * 大得离谱的消息。
 	 */
 	if (nbytes > MaxAllocSize)
 		ereport(ERROR,
@@ -722,9 +722,9 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 	if (mqh->mqh_partial_bytes == 0)
 	{
 		/*
-		 * Try to obtain the whole message in a single chunk.  If this works,
-		 * we need not copy the data and can return a pointer directly into
-		 * shared memory.
+		 * 尝试一次拿到整条消息。若成功，
+		 * 就不必拷贝数据，可以直接返回指向
+		 * 共享内存的指针。
 		 */
 		res = shm_mq_receive_bytes(mqh, nbytes, nowait, &rb, &rawdata);
 		if (res != SHM_MQ_SUCCESS)
@@ -739,17 +739,17 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 		}
 
 		/*
-		 * The message has wrapped the buffer.  We'll need to copy it in order
-		 * to return it to the client in one chunk.  First, make sure we have
-		 * a large enough buffer available.
+		 * 消息已经绕过缓冲区末端。为了把它作为一整块
+		 * 返回给客户端，需要拷贝。首先，确保有
+		 * 一块足够大的缓冲区可用。
 		 */
 		if (mqh->mqh_buflen < nbytes)
 		{
 			Size		newbuflen;
 
 			/*
-			 * Increase size to the next power of 2 that's >= nbytes, but
-			 * limit to MaxAllocSize.
+			 * 把大小增到 >= nbytes 的下一个 2 的幂，但
+			 * 限制在 MaxAllocSize 以内。
 			 */
 			newbuflen = pg_nextpower2_size_t(nbytes);
 			newbuflen = Min(newbuflen, MaxAllocSize);
@@ -765,12 +765,12 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 		}
 	}
 
-	/* Loop until we've copied the entire message. */
+	/* 循环，直到拷贝完整条消息。 */
 	for (;;)
 	{
 		Size		still_needed;
 
-		/* Copy as much as we can. */
+		/* 能拷贝多少就拷贝多少。 */
 		Assert(mqh->mqh_partial_bytes + rb <= nbytes);
 		if (rb > 0)
 		{
@@ -779,19 +779,19 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 		}
 
 		/*
-		 * Update count of bytes that can be consumed, accounting for
-		 * alignment padding.  Note that this will never actually insert any
-		 * padding except at the end of a message, because the buffer size is
-		 * a multiple of MAXIMUM_ALIGNOF, and each read and write is as well.
+		 * 更新可以消费的字节计数，把对齐
+		 * 填充计算在内。注意，除了在消息末尾，这里实际上
+		 * 永远不会插入填充，因为缓冲区大小是
+		 * MAXIMUM_ALIGNOF 的倍数，每次读写也是如此。
 		 */
 		Assert(mqh->mqh_partial_bytes == nbytes || rb == MAXALIGN(rb));
 		mqh->mqh_consume_pending += MAXALIGN(rb);
 
-		/* If we got all the data, exit the loop. */
+		/* 若已经拿到全部数据，就退出循环。 */
 		if (mqh->mqh_partial_bytes >= nbytes)
 			break;
 
-		/* Wait for some more data. */
+		/* 再等一些数据。 */
 		still_needed = nbytes - mqh->mqh_partial_bytes;
 		res = shm_mq_receive_bytes(mqh, still_needed, nowait, &rb, &rawdata);
 		if (res != SHM_MQ_SUCCESS)
@@ -800,7 +800,7 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 			rb = still_needed;
 	}
 
-	/* Return the complete message, and reset for next message. */
+	/* 返回完整消息，并为下一条消息重置。 */
 	*nbytesp = nbytes;
 	*datap = mqh->mqh_buffer;
 	mqh->mqh_length_word_complete = false;
@@ -809,13 +809,13 @@ shm_mq_receive(shm_mq_handle *mqh, Size *nbytesp, void **datap, bool nowait)
 }
 
 /*
- * Wait for the other process that's supposed to use this queue to attach
- * to it.
+ * 等待应当使用本队列的另一个进程挂接
+ * 上来。
  *
- * The return value is SHM_MQ_DETACHED if the worker has already detached or
- * if it dies; it is SHM_MQ_SUCCESS if we detect that the worker has attached.
- * Note that we will only be able to detect that the worker has died before
- * attaching if a background worker handle was passed to shm_mq_attach().
+ * 若工作进程已经脱离或已经死亡，返回值是 SHM_MQ_DETACHED；
+ * 若检测到工作进程已经挂接，返回值是 SHM_MQ_SUCCESS。
+ * 注意，只有把后台工作进程句柄传给 shm_mq_attach() 时，
+ * 我们才能检测到工作进程在挂接之前死亡。
  */
 shm_mq_result
 shm_mq_wait_for_attach(shm_mq_handle *mqh)
@@ -838,46 +838,46 @@ shm_mq_wait_for_attach(shm_mq_handle *mqh)
 }
 
 /*
- * Detach from a shared message queue, and destroy the shm_mq_handle.
+ * 脱离共享消息队列，并销毁 shm_mq_handle。
  */
 void
 shm_mq_detach(shm_mq_handle *mqh)
 {
-	/* Before detaching, notify the receiver about any already-written data. */
+	/* 脱离之前，把已经写过的数据通知接收方。 */
 	if (mqh->mqh_send_pending > 0)
 	{
 		shm_mq_inc_bytes_written(mqh->mqh_queue, mqh->mqh_send_pending);
 		mqh->mqh_send_pending = 0;
 	}
 
-	/* Notify counterparty that we're outta here. */
+	/* 通知对端我们这就走了。 */
 	shm_mq_detach_internal(mqh->mqh_queue);
 
-	/* Cancel on_dsm_detach callback, if any. */
+	/* 若有 on_dsm_detach 回调，就取消它。 */
 	if (mqh->mqh_segment)
 		cancel_on_dsm_detach(mqh->mqh_segment,
 							 shm_mq_detach_callback,
 							 PointerGetDatum(mqh->mqh_queue));
 
-	/* Release local memory associated with handle. */
+	/* 释放与句柄关联的本地内存。 */
 	if (mqh->mqh_buffer != NULL)
 		pfree(mqh->mqh_buffer);
 	pfree(mqh);
 }
 
 /*
- * Notify counterparty that we're detaching from shared message queue.
+ * 通知对端我们正在脱离共享消息队列。
  *
- * The purpose of this function is to make sure that the process
- * with which we're communicating doesn't block forever waiting for us to
- * fill or drain the queue once we've lost interest.  When the sender
- * detaches, the receiver can read any messages remaining in the queue;
- * further reads will return SHM_MQ_DETACHED.  If the receiver detaches,
- * further attempts to send messages will likewise return SHM_MQ_DETACHED.
+ * 本函数的目的是确保与我们通信的进程
+ * 不会在我们已经失去兴趣之后，还永远阻塞着等待我们
+ * 去填满或排空队列。发送方
+ * 脱离后，接收方仍可以读队列里剩余的消息；
+ * 再读就会返回 SHM_MQ_DETACHED。若接收方脱离，
+ * 以后再尝试发送消息同样会返回 SHM_MQ_DETACHED。
  *
- * This is separated out from shm_mq_detach() because if the on_dsm_detach
- * callback fires, we only want to do this much.  We do not try to touch
- * the local shm_mq_handle, as it may have been pfree'd already.
+ * 把它从 shm_mq_detach() 里拆出来，是因为若 on_dsm_detach
+ * 回调触发，我们只想做到这一步。我们不去碰
+ * 本地的 shm_mq_handle，因为它可能已经被 pfree 掉了。
  */
 static void
 shm_mq_detach_internal(shm_mq *mq)
@@ -900,7 +900,7 @@ shm_mq_detach_internal(shm_mq *mq)
 }
 
 /*
- * Get the shm_mq from handle.
+ * 从句柄取得 shm_mq。
  */
 shm_mq *
 shm_mq_get_queue(shm_mq_handle *mqh)
@@ -909,7 +909,7 @@ shm_mq_get_queue(shm_mq_handle *mqh)
 }
 
 /*
- * Write bytes into a shared message queue.
+ * 把字节写入共享消息队列。
  */
 static shm_mq_result
 shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
@@ -926,7 +926,7 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 		uint64		rb;
 		uint64		wb;
 
-		/* Compute number of ring buffer bytes used and available. */
+		/* 计算环形缓冲区已用和可用的字节数。 */
 		rb = pg_atomic_read_u64(&mq->mq_bytes_read);
 		wb = pg_atomic_read_u64(&mq->mq_bytes_written) + mqh->mqh_send_pending;
 		Assert(wb >= rb);
@@ -935,13 +935,13 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 		available = Min(ringsize - used, nbytes - sent);
 
 		/*
-		 * Bail out if the queue has been detached.  Note that we would be in
-		 * trouble if the compiler decided to cache the value of
-		 * mq->mq_detached in a register or on the stack across loop
-		 * iterations.  It probably shouldn't do that anyway since we'll
-		 * always return, call an external function that performs a system
-		 * call, or reach a memory barrier at some point later in the loop,
-		 * but just to be sure, insert a compiler barrier here.
+		 * 若队列已脱离就退出。注意，若编译器决定把
+		 * mq->mq_detached 的值缓存起来，
+		 * 放进寄存器或栈上并跨过循环
+		 * 各次迭代，我们就会有麻烦。它大概本来也不该这么做，因为我们
+		 * 总会返回、调用一个执行系统
+		 * 调用的外部函数，或在循环稍后某处遇到内存屏障，
+		 * 但为了保险，这里插入一道编译器屏障。
 		 */
 		pg_compiler_barrier();
 		if (mq->mq_detached)
@@ -953,8 +953,8 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 		if (available == 0 && !mqh->mqh_counterparty_attached)
 		{
 			/*
-			 * The queue is full, so if the receiver isn't yet known to be
-			 * attached, we must wait for that to happen.
+			 * 队列已满，因此若还不知道接收方已经
+			 * 挂接，就必须等那件事发生。
 			 */
 			if (nowait)
 			{
@@ -979,30 +979,30 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			mqh->mqh_counterparty_attached = true;
 
 			/*
-			 * The receiver may have read some data after attaching, so we
-			 * must not wait without rechecking the queue state.
+			 * 接收方挂接之后可能已经读过一些数据，因此
+			 * 不重新检查队列状态就不得等待。
 			 */
 		}
 		else if (available == 0)
 		{
-			/* Update the pending send bytes in the shared memory. */
+			/* 把待发送字节更新到共享内存中。 */
 			shm_mq_inc_bytes_written(mq, mqh->mqh_send_pending);
 
 			/*
-			 * Since mq->mqh_counterparty_attached is known to be true at this
-			 * point, mq_receiver has been set, and it can't change once set.
-			 * Therefore, we can read it without acquiring the spinlock.
+			 * 既然此时已知 mq->mqh_counterparty_attached 为真，
+			 * mq_receiver 已经被设置，而且一旦设置就不会再变。
+			 * 因此可以不加自旋锁地读取它。
 			 */
 			Assert(mqh->mqh_counterparty_attached);
 			SetLatch(&mq->mq_receiver->procLatch);
 
 			/*
-			 * We have just updated the mqh_send_pending bytes in the shared
-			 * memory so reset it.
+			 * 刚刚已经把 mqh_send_pending 字节更新到共享
+			 * 内存里，所以把它清零。
 			 */
 			mqh->mqh_send_pending = 0;
 
-			/* Skip manipulation of our latch if nowait = true. */
+			/* 若 nowait = true，就跳过对我们锁存器的操作。 */
 			if (nowait)
 			{
 				*bytes_written = sent;
@@ -1010,19 +1010,19 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			}
 
 			/*
-			 * Wait for our latch to be set.  It might already be set for some
-			 * unrelated reason, but that'll just result in one extra trip
-			 * through the loop.  It's worth it to avoid resetting the latch
-			 * at top of loop, because setting an already-set latch is much
-			 * cheaper than setting one that has been reset.
+			 * 等待我们的锁存器被设置。它可能已经因某个
+			 * 无关的原因被设置了，那不过是多绕循环
+			 * 一圈。值得这么做，是为了避免在循环顶部重置锁存器，
+			 * 因为设置一个已经设置的锁存器，比设置一个
+			 * 已被重置的锁存器便宜得多。
 			 */
 			(void) WaitLatch(MyLatch, WL_LATCH_SET | WL_EXIT_ON_PM_DEATH, 0,
 							 WAIT_EVENT_MQ_SEND);
 
-			/* Reset the latch so we don't spin. */
+			/* 重置锁存器，以免自旋。 */
 			ResetLatch(MyLatch);
 
-			/* An interrupt may have occurred while we were waiting. */
+			/* 等待期间可能发生了中断。 */
 			CHECK_FOR_INTERRUPTS();
 		}
 		else
@@ -1034,11 +1034,11 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			sendnow = Min(available, ringsize - offset);
 
 			/*
-			 * Write as much data as we can via a single memcpy(). Make sure
-			 * these writes happen after the read of mq_bytes_read, above.
-			 * This barrier pairs with the one in shm_mq_inc_bytes_read.
-			 * (Since we're separating the read of mq_bytes_read from a
-			 * subsequent write to mq_ring, we need a full barrier here.)
+			 * 用一次 memcpy() 尽可能多地写出数据。确保
+			 * 这些写发生在上面读取 mq_bytes_read 之后。
+			 * 这道屏障与 shm_mq_inc_bytes_read 里的那道成对。
+			 * （因为我们把读取 mq_bytes_read 与随后对 mq_ring 的写分开，
+			 * 这里需要一道全屏障。）
 			 */
 			pg_memory_barrier();
 			memcpy(&mq->mq_ring[mq->mq_ring_offset + offset],
@@ -1046,18 +1046,18 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 			sent += sendnow;
 
 			/*
-			 * Update count of bytes written, with alignment padding.  Note
-			 * that this will never actually insert any padding except at the
-			 * end of a run of bytes, because the buffer size is a multiple of
-			 * MAXIMUM_ALIGNOF, and each read is as well.
+			 * 更新已写字节计数，带上对齐填充。注意
+			 * 除了在一串字节的末尾，这里实际上永远不会插入填充，
+			 * 因为缓冲区大小是 MAXIMUM_ALIGNOF 的倍数，
+			 * 每次读取也是如此。
 			 */
 			Assert(sent == nbytes || sendnow == MAXALIGN(sendnow));
 
 			/*
-			 * For efficiency, we don't update the bytes written in the shared
-			 * memory and also don't set the reader's latch here.  Refer to
-			 * the comments atop the shm_mq_handle structure for more
-			 * information.
+			 * 为了效率，这里不更新共享内存中的已写字节，
+			 * 也不在这里设置读者的锁存器。更多
+			 * 说明见 shm_mq_handle 结构顶部的
+			 * 注释。
 			 */
 			mqh->mqh_send_pending += MAXALIGN(sendnow);
 		}
@@ -1068,13 +1068,13 @@ shm_mq_send_bytes(shm_mq_handle *mqh, Size nbytes, const void *data,
 }
 
 /*
- * Wait until at least *nbytesp bytes are available to be read from the
- * shared message queue, or until the buffer wraps around.  If the queue is
- * detached, returns SHM_MQ_DETACHED.  If nowait is specified and a wait
- * would be required, returns SHM_MQ_WOULD_BLOCK.  Otherwise, *datap is set
- * to the location at which data bytes can be read, *nbytesp is set to the
- * number of bytes which can be read at that address, and the return value
- * is SHM_MQ_SUCCESS.
+ * 一直等到共享消息队列里至少有 *nbytesp 字节可供读取，
+ * 或者等到缓冲区回绕。若队列已
+ * 脱离，返回 SHM_MQ_DETACHED。若指定了 nowait 并且需要等待，
+ * 则返回 SHM_MQ_WOULD_BLOCK。否则，把 *datap 设为
+ * 可以读取数据字节的位置，把 *nbytesp 设为
+ * 该地址处可以读取的字节数，返回值
+ * 为 SHM_MQ_SUCCESS。
  */
 static shm_mq_result
 shm_mq_receive_bytes(shm_mq_handle *mqh, Size bytes_needed, bool nowait,
@@ -1090,12 +1090,12 @@ shm_mq_receive_bytes(shm_mq_handle *mqh, Size bytes_needed, bool nowait,
 		Size		offset;
 		uint64		read;
 
-		/* Get bytes written, so we can compute what's available to read. */
+		/* 取得已写字节数，以便计算有多少可读。 */
 		written = pg_atomic_read_u64(&mq->mq_bytes_written);
 
 		/*
-		 * Get bytes read.  Include bytes we could consume but have not yet
-		 * consumed.
+		 * 取得已读字节数。把我们可以消费但尚未
+		 * 消费的字节也算进去。
 		 */
 		read = pg_atomic_read_u64(&mq->mq_bytes_read) +
 			mqh->mqh_consume_pending;
@@ -1103,36 +1103,36 @@ shm_mq_receive_bytes(shm_mq_handle *mqh, Size bytes_needed, bool nowait,
 		Assert(used <= ringsize);
 		offset = read % (uint64) ringsize;
 
-		/* If we have enough data or buffer has wrapped, we're done. */
+		/* 若数据已经够，或缓冲区已经回绕，就完成了。 */
 		if (used >= bytes_needed || offset + used >= ringsize)
 		{
 			*nbytesp = Min(used, ringsize - offset);
 			*datap = &mq->mq_ring[mq->mq_ring_offset + offset];
 
 			/*
-			 * Separate the read of mq_bytes_written, above, from caller's
-			 * attempt to read the data itself.  Pairs with the barrier in
-			 * shm_mq_inc_bytes_written.
+			 * 把上面读取 mq_bytes_written 与调用方
+			 * 试图读取数据本身分开。与 shm_mq_inc_bytes_written
+			 * 里的屏障成对。
 			 */
 			pg_read_barrier();
 			return SHM_MQ_SUCCESS;
 		}
 
 		/*
-		 * Fall out before waiting if the queue has been detached.
+		 * 若队列已脱离，就在等待之前先退出。
 		 *
-		 * Note that we don't check for this until *after* considering whether
-		 * the data already available is enough, since the receiver can finish
-		 * receiving a message stored in the buffer even after the sender has
-		 * detached.
+		 * 注意，我们直到 *考虑过* 已经可用的数据
+		 * 是否足够之后才检查这一点，因为接收方即使在发送方已经
+		 * 脱离之后，仍可以把缓冲区里存放的消息
+		 * 接收完。
 		 */
 		if (mq->mq_detached)
 		{
 			/*
-			 * If the writer advanced mq_bytes_written and then set
-			 * mq_detached, we might not have read the final value of
-			 * mq_bytes_written above.  Insert a read barrier and then check
-			 * again if mq_bytes_written has advanced.
+			 * 若写者先推进了 mq_bytes_written，然后才设置
+			 * mq_detached，我们上面可能还没读到 mq_bytes_written 的
+			 * 最终值。插入一道读屏障，然后再检查
+			 * mq_bytes_written 是否又向前走了。
 			 */
 			pg_read_barrier();
 			if (written != pg_atomic_read_u64(&mq->mq_bytes_written))
@@ -1142,8 +1142,8 @@ shm_mq_receive_bytes(shm_mq_handle *mqh, Size bytes_needed, bool nowait,
 		}
 
 		/*
-		 * We didn't get enough data to satisfy the request, so mark any data
-		 * previously-consumed as read to make more buffer space.
+		 * 数据不够满足请求，因此把先前已消费、
+		 * 但尚未标为已读的数据标成已读，以便腾出更多缓冲区空间。
 		 */
 		if (mqh->mqh_consume_pending > 0)
 		{
@@ -1151,69 +1151,69 @@ shm_mq_receive_bytes(shm_mq_handle *mqh, Size bytes_needed, bool nowait,
 			mqh->mqh_consume_pending = 0;
 		}
 
-		/* Skip manipulation of our latch if nowait = true. */
+		/* 若 nowait = true，就跳过对我们锁存器的操作。 */
 		if (nowait)
 			return SHM_MQ_WOULD_BLOCK;
 
 		/*
-		 * Wait for our latch to be set.  It might already be set for some
-		 * unrelated reason, but that'll just result in one extra trip through
-		 * the loop.  It's worth it to avoid resetting the latch at top of
-		 * loop, because setting an already-set latch is much cheaper than
-		 * setting one that has been reset.
+		 * 等待我们的锁存器被设置。它可能已经因某个
+		 * 无关的原因被设置了，那不过是多绕循环
+		 * 一圈。值得这么做，是为了避免在循环顶部重置锁存器，
+		 * 因为设置一个已经设置的锁存器，比设置一个
+		 * 已被重置的锁存器便宜得多。
 		 */
 		(void) WaitLatch(MyLatch, WL_LATCH_SET | WL_EXIT_ON_PM_DEATH, 0,
 						 WAIT_EVENT_MQ_RECEIVE);
 
-		/* Reset the latch so we don't spin. */
+		/* 重置锁存器，以免自旋。 */
 		ResetLatch(MyLatch);
 
-		/* An interrupt may have occurred while we were waiting. */
+		/* 等待期间可能发生了中断。 */
 		CHECK_FOR_INTERRUPTS();
 	}
 }
 
 /*
- * Test whether a counterparty who may not even be alive yet is definitely gone.
+ * 测试一个也许甚至还没活着的对端是否已经确定离开。
  */
 static bool
 shm_mq_counterparty_gone(shm_mq *mq, BackgroundWorkerHandle *handle)
 {
 	pid_t		pid;
 
-	/* If the queue has been detached, counterparty is definitely gone. */
+	/* 若队列已脱离，对端就肯定已经离开。 */
 	if (mq->mq_detached)
 		return true;
 
-	/* If there's a handle, check worker status. */
+	/* 若有句柄，就检查工作进程状态。 */
 	if (handle != NULL)
 	{
 		BgwHandleStatus status;
 
-		/* Check for unexpected worker death. */
+		/* 检查是否有意外的工作进程死亡。 */
 		status = GetBackgroundWorkerPid(handle, &pid);
 		if (status != BGWH_STARTED && status != BGWH_NOT_YET_STARTED)
 		{
-			/* Mark it detached, just to make it official. */
+			/* 把它标为已脱离，好让这件事成为正式状态。 */
 			mq->mq_detached = true;
 			return true;
 		}
 	}
 
-	/* Counterparty is not definitively gone. */
+	/* 对端还没有确定离开。 */
 	return false;
 }
 
 /*
- * This is used when a process is waiting for its counterpart to attach to the
- * queue.  We exit when the other process attaches as expected, or, if
- * handle != NULL, when the referenced background process or the postmaster
- * dies.  Note that if handle == NULL, and the process fails to attach, we'll
- * potentially get stuck here forever waiting for a process that may never
- * start.  We do check for interrupts, though.
+ * 当进程正在等待对端挂接队列时使用本函数。
+ * 当另一个进程按预期挂接时我们退出；或者，若
+ * handle != NULL，当所引用的后台进程或 postmaster
+ * 死亡时我们也退出。注意，若 handle == NULL，而该进程又没能挂接，
+ * 我们可能会永远卡在这里，等待一个也许永远不会
+ * 启动的进程。不过我们确实会检查中断。
  *
- * ptr is a pointer to the memory address that we're expecting to become
- * non-NULL when our counterpart attaches to the queue.
+ * ptr 指向我们预期会变成
+ * 非 NULL 的内存地址，那表示对端已经挂接队列。
  */
 static bool
 shm_mq_wait_internal(shm_mq *mq, PGPROC **ptr, BackgroundWorkerHandle *handle)
@@ -1225,12 +1225,12 @@ shm_mq_wait_internal(shm_mq *mq, PGPROC **ptr, BackgroundWorkerHandle *handle)
 		BgwHandleStatus status;
 		pid_t		pid;
 
-		/* Acquire the lock just long enough to check the pointer. */
+		/* 获锁的时间只够检查这个指针。 */
 		SpinLockAcquire(&mq->mq_mutex);
 		result = (*ptr != NULL);
 		SpinLockRelease(&mq->mq_mutex);
 
-		/* Fail if detached; else succeed if initialized. */
+		/* 若已脱离则失败；否则若已初始化则成功。 */
 		if (mq->mq_detached)
 		{
 			result = false;
@@ -1241,7 +1241,7 @@ shm_mq_wait_internal(shm_mq *mq, PGPROC **ptr, BackgroundWorkerHandle *handle)
 
 		if (handle != NULL)
 		{
-			/* Check for unexpected worker death. */
+			/* 检查是否有意外的工作进程死亡。 */
 			status = GetBackgroundWorkerPid(handle, &pid);
 			if (status != BGWH_STARTED && status != BGWH_NOT_YET_STARTED)
 			{
@@ -1250,14 +1250,14 @@ shm_mq_wait_internal(shm_mq *mq, PGPROC **ptr, BackgroundWorkerHandle *handle)
 			}
 		}
 
-		/* Wait to be signaled. */
+		/* 等待被信号唤醒。 */
 		(void) WaitLatch(MyLatch, WL_LATCH_SET | WL_EXIT_ON_PM_DEATH, 0,
 						 WAIT_EVENT_MQ_INTERNAL);
 
-		/* Reset the latch so we don't spin. */
+		/* 重置锁存器，以免自旋。 */
 		ResetLatch(MyLatch);
 
-		/* An interrupt may have occurred while we were waiting. */
+		/* 等待期间可能发生了中断。 */
 		CHECK_FOR_INTERRUPTS();
 	}
 
@@ -1265,7 +1265,7 @@ shm_mq_wait_internal(shm_mq *mq, PGPROC **ptr, BackgroundWorkerHandle *handle)
 }
 
 /*
- * Increment the number of bytes read.
+ * 增加已读字节数。
  */
 static void
 shm_mq_inc_bytes_read(shm_mq *mq, Size n)
@@ -1273,24 +1273,24 @@ shm_mq_inc_bytes_read(shm_mq *mq, Size n)
 	PGPROC	   *sender;
 
 	/*
-	 * Separate prior reads of mq_ring from the increment of mq_bytes_read
-	 * which follows.  This pairs with the full barrier in
-	 * shm_mq_send_bytes(). We only need a read barrier here because the
-	 * increment of mq_bytes_read is actually a read followed by a dependent
-	 * write.
+	 * 把此前对 mq_ring 的读取与随后对 mq_bytes_read 的
+	 * 增加分开。这与 shm_mq_send_bytes() 里的全屏障成对。
+	 * 这里只需要读屏障，因为 mq_bytes_read 的增加实际上是一次读，
+	 * 后面跟着一次依赖于它的
+	 * 写。
 	 */
 	pg_read_barrier();
 
 	/*
-	 * There's no need to use pg_atomic_fetch_add_u64 here, because nobody
-	 * else can be changing this value.  This method should be cheaper.
+	 * 这里不必使用 pg_atomic_fetch_add_u64，因为没有别人
+	 * 会在改这个值。这个办法应当更便宜。
 	 */
 	pg_atomic_write_u64(&mq->mq_bytes_read,
 						pg_atomic_read_u64(&mq->mq_bytes_read) + n);
 
 	/*
-	 * We shouldn't have any bytes to read without a sender, so we can read
-	 * mq_sender here without a lock.  Once it's initialized, it can't change.
+	 * 没有发送方就不应当有任何可读字节，因此这里可以不加锁地
+	 * 读取 mq_sender。一旦它被初始化，就不会再变。
 	 */
 	sender = mq->mq_sender;
 	Assert(sender != NULL);
@@ -1298,28 +1298,28 @@ shm_mq_inc_bytes_read(shm_mq *mq, Size n)
 }
 
 /*
- * Increment the number of bytes written.
+ * 增加已写字节数。
  */
 static void
 shm_mq_inc_bytes_written(shm_mq *mq, Size n)
 {
 	/*
-	 * Separate prior reads of mq_ring from the write of mq_bytes_written
-	 * which we're about to do.  Pairs with the read barrier found in
-	 * shm_mq_receive_bytes.
+	 * 把此前对 mq_ring 的读取与即将进行的 mq_bytes_written
+	 * 写入分开。与 shm_mq_receive_bytes 里的
+	 * 读屏障成对。
 	 */
 	pg_write_barrier();
 
 	/*
-	 * There's no need to use pg_atomic_fetch_add_u64 here, because nobody
-	 * else can be changing this value.  This method avoids taking the bus
-	 * lock unnecessarily.
+	 * 这里不必使用 pg_atomic_fetch_add_u64，因为没有别人
+	 * 会在改这个值。这个办法避免不必要地
+	 * 获取总线锁。
 	 */
 	pg_atomic_write_u64(&mq->mq_bytes_written,
 						pg_atomic_read_u64(&mq->mq_bytes_written) + n);
 }
 
-/* Shim for on_dsm_detach callback. */
+/* on_dsm_detach 回调的转接。 */
 static void
 shm_mq_detach_callback(dsm_segment *seg, Datum arg)
 {

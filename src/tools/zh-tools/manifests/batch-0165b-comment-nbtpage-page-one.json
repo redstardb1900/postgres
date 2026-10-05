@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0165b-comment-nbtpage-page-one",
+ "title": "zh: fix nbtpage NOTES page-one wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "513400c2ec42859940155024d7b95cfdd36da374",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/nbtree/nbtpage.c",
+   "kind": "c_comment",
+   "note": "Composer P1: Pages one and higher ≠ 第一页"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0165b-comment-nbtpage-page-one.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/nbtree/nbtpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 251,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "NOTES: Pages one and higher → 页号 1 及更高"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0165b-comment-nbtpage-page-one.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0165"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0165b"
+  }
+ ],
+ "notes": "Composer P1 on 0165: same page-one ambiguity as hashpage 0149b; corrected to 页号 1 及更高的页."
+}

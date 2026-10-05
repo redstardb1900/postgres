@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0089b-comment-partdesc-catalog",
+ "title": "zh: fix partdesc catalog wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "14ed5807f0ed7286fd69eca7c28c91ff3f24503e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "note": "catalog corruption and catalog scan"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0089b-comment-partdesc-catalog.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "catalog corruption and catalog scan"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0089b-comment-partdesc-catalog.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0089b names the system catalog in the partdesc corruption and scan comments."
+}

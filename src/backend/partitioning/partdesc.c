@@ -262,7 +262,7 @@ retry:
 			 * 我们只做一次，有两个理由：第一，
 			 * 同一时刻只有一个 DETACH CONCURRENTLY 会话能影响我们，
 			 * 因为它们每一个都得等待本函数正在使用的快照；第二，
-			 * 以免目录损坏时可能出现无限
+			 * 以免系统目录损坏时可能出现无限
 			 * 循环。
 			 *
 			 * 注意当前内存上下文寿命足够短，因此
@@ -285,7 +285,7 @@ retry:
 		/*
 		 * 若 PartitionBoundSpec 说这是默认分区，它的
 		 * OID 应当匹配 pg_partitioned_table.partdefid；若不匹配，
-		 * 目录就是损坏的。
+		 * 系统目录就是损坏的。
 		 */
 		if (boundspec->is_default)
 		{
@@ -361,7 +361,7 @@ retry:
 	 * 我们处理的是略去已分离分区的描述符，还是
 	 * 包含它的那一份？
 	 *
-	 * 注意：若目录扫描发现某个分区已
+	 * 注意：若系统目录扫描发现某个分区已
 	 * 分离，但说明这一点的 pg_inherit 元组对
 	 * 活动快照不可见（那种情况下 find_inheritance_children_extended 不会设置
 	 * detached_xmin），我们就认为没有可略去的

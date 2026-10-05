@@ -31,17 +31,17 @@ static void ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname,
 
 typedef struct
 {
-	Oid			reloid;			/* hash key */
+	Oid			reloid;			/* 散列键 */
 } unlogged_relation_entry;
 
 /*
- * Reset unlogged relations from before the last restart.
+ * 重置上次重启之前的未记录关系。
  *
- * If op includes UNLOGGED_RELATION_CLEANUP, we remove all forks of any
- * relation with an "init" fork, except for the "init" fork itself.
+ * 若 op 包含 UNLOGGED_RELATION_CLEANUP，我们就去掉任何
+ * 带 init 分叉的关系的全部分叉，但 init 分叉本身除外。
  *
- * If op includes UNLOGGED_RELATION_INIT, we copy the "init" fork to the main
- * fork.
+ * 若 op 包含 UNLOGGED_RELATION_INIT，我们把 init 分叉复制到主
+ * 分叉。
  */
 void
 ResetUnloggedRelations(int op)
@@ -52,30 +52,30 @@ ResetUnloggedRelations(int op)
 	MemoryContext tmpctx,
 				oldctx;
 
-	/* Log it. */
+	/* 记下来。 */
 	elog(DEBUG1, "resetting unlogged relations: cleanup %d init %d",
 		 (op & UNLOGGED_RELATION_CLEANUP) != 0,
 		 (op & UNLOGGED_RELATION_INIT) != 0);
 
 	/*
-	 * Just to be sure we don't leak any memory, let's create a temporary
-	 * memory context for this operation.
+	 * 为了确保不泄漏任何内存，我们为这次操作创建一个临时
+	 * 内存上下文。
 	 */
 	tmpctx = AllocSetContextCreate(CurrentMemoryContext,
 								   "ResetUnloggedRelations",
 								   ALLOCSET_DEFAULT_SIZES);
 	oldctx = MemoryContextSwitchTo(tmpctx);
 
-	/* Prepare to report progress resetting unlogged relations. */
+	/* 准备报告重置未记录关系的进度。 */
 	begin_startup_progress_phase();
 
 	/*
-	 * First process unlogged files in pg_default ($PGDATA/base)
+	 * 首先处理 pg_default（$PGDATA/base）里的未记录文件
 	 */
 	ResetUnloggedRelationsInTablespaceDir("base", op);
 
 	/*
-	 * Cycle through directories for all non-default tablespaces.
+	 * 遍历所有非默认表空间的目录。
 	 */
 	spc_dir = AllocateDir("pg_tblspc");
 
@@ -93,14 +93,14 @@ ResetUnloggedRelations(int op)
 	FreeDir(spc_dir);
 
 	/*
-	 * Restore memory context.
+	 * 恢复内存上下文。
 	 */
 	MemoryContextSwitchTo(oldctx);
 	MemoryContextDelete(tmpctx);
 }
 
 /*
- * Process one tablespace directory for ResetUnloggedRelations
+ * 为 ResetUnloggedRelations 处理一个表空间目录
  */
 static void
 ResetUnloggedRelationsInTablespaceDir(const char *tsdirname, int op)
@@ -112,12 +112,12 @@ ResetUnloggedRelationsInTablespaceDir(const char *tsdirname, int op)
 	ts_dir = AllocateDir(tsdirname);
 
 	/*
-	 * If we get ENOENT on a tablespace directory, log it and return.  This
-	 * can happen if a previous DROP TABLESPACE crashed between removing the
-	 * tablespace directory and removing the symlink in pg_tblspc.  We don't
-	 * really want to prevent database startup in that scenario, so let it
-	 * pass instead.  Any other type of error will be reported by ReadDir
-	 * (causing a startup failure).
+	 * 若在表空间目录上得到 ENOENT，就记日志并返回。这
+	 * 可能发生在先前的 DROP TABLESPACE 在去掉表空间目录和
+	 * 去掉 pg_tblspc 里的符号链接之间崩溃时。我们并不
+	 * 真想在那种情形下阻止数据库启动，因此让它
+	 * 通过。任何其他类型的错误会由 ReadDir
+	 * 报告（从而导致启动失败）。
 	 */
 	if (ts_dir == NULL && errno == ENOENT)
 	{
@@ -131,9 +131,9 @@ ResetUnloggedRelationsInTablespaceDir(const char *tsdirname, int op)
 	while ((de = ReadDir(ts_dir, tsdirname)) != NULL)
 	{
 		/*
-		 * We're only interested in the per-database directories, which have
-		 * numeric names.  Note that this code will also (properly) ignore "."
-		 * and "..".
+		 * 我们只关心每个数据库的目录，它们的
+		 * 名字是数字。注意这段代码也会（正确地）忽略 .
+		 * 和 ..。
 		 */
 		if (strspn(de->d_name, "0123456789") != strlen(de->d_name))
 			continue;
@@ -155,7 +155,7 @@ ResetUnloggedRelationsInTablespaceDir(const char *tsdirname, int op)
 }
 
 /*
- * Process one per-dbspace directory for ResetUnloggedRelations
+ * 为 ResetUnloggedRelations 处理一个每数据库空间目录
  */
 static void
 ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
@@ -164,13 +164,13 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 	struct dirent *de;
 	char		rm_path[MAXPGPATH * 2];
 
-	/* Caller must specify at least one operation. */
+	/* 调用者必须至少指定一种操作。 */
 	Assert((op & (UNLOGGED_RELATION_CLEANUP | UNLOGGED_RELATION_INIT)) != 0);
 
 	/*
-	 * Cleanup is a two-pass operation.  First, we go through and identify all
-	 * the files with init forks.  Then, we go through again and nuke
-	 * everything with the same OID except the init fork.
+	 * 清理是两遍操作。第一遍，我们找出所有
+	 * 带 init 分叉的文件。然后我们再走一遍，清掉
+	 * 除 init 分叉以外、OID 相同的一切。
 	 */
 	if ((op & UNLOGGED_RELATION_CLEANUP) != 0)
 	{
@@ -178,11 +178,11 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 		HASHCTL		ctl;
 
 		/*
-		 * It's possible that someone could create a ton of unlogged relations
-		 * in the same database & tablespace, so we'd better use a hash table
-		 * rather than an array or linked list to keep track of which files
-		 * need to be reset.  Otherwise, this cleanup operation would be
-		 * O(n^2).
+		 * 有人可能在同一个数据库和表空间里创建大量未记录关系，
+		 * 因此我们最好用散列表
+		 * 而不是数组或链表来跟踪哪些文件
+		 * 需要重置。否则这次清理操作会是
+		 * O(n^2)。
 		 */
 		ctl.keysize = sizeof(Oid);
 		ctl.entrysize = sizeof(unlogged_relation_entry);
@@ -190,7 +190,7 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 		hash = hash_create("unlogged relation OIDs", 32, &ctl,
 						   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
-		/* Scan the directory. */
+		/* 扫描该目录。 */
 		dbspace_dir = AllocateDir(dbspacedirname);
 		while ((de = ReadDir(dbspace_dir, dbspacedirname)) != NULL)
 		{
@@ -198,29 +198,29 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 			int			relnumchars;
 			unlogged_relation_entry ent;
 
-			/* Skip anything that doesn't look like a relation data file. */
+			/* 跳过任何看起来不像关系数据文件的东西。 */
 			if (!parse_filename_for_nontemp_relation(de->d_name, &relnumchars,
 													 &forkNum))
 				continue;
 
-			/* Also skip it unless this is the init fork. */
+			/* 除非这是 init 分叉，否则也跳过。 */
 			if (forkNum != INIT_FORKNUM)
 				continue;
 
 			/*
-			 * Put the OID portion of the name into the hash table, if it
-			 * isn't already.
+			 * 把名字里的 OID 部分放进散列表，若
+			 * 还没有的话。
 			 */
 			ent.reloid = atooid(de->d_name);
 			(void) hash_search(hash, &ent, HASH_ENTER, NULL);
 		}
 
-		/* Done with the first pass. */
+		/* 第一遍完成。 */
 		FreeDir(dbspace_dir);
 
 		/*
-		 * If we didn't find any init forks, there's no point in continuing;
-		 * we can bail out now.
+		 * 若没有找到任何 init 分叉，就没有必要继续；
+		 * 现在可以退出。
 		 */
 		if (hash_get_num_entries(hash) == 0)
 		{
@@ -229,7 +229,7 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 		}
 
 		/*
-		 * Now, make a second pass and remove anything that matches.
+		 * 现在做第二遍，去掉任何匹配的东西。
 		 */
 		dbspace_dir = AllocateDir(dbspacedirname);
 		while ((de = ReadDir(dbspace_dir, dbspacedirname)) != NULL)
@@ -238,18 +238,18 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 			int			relnumchars;
 			unlogged_relation_entry ent;
 
-			/* Skip anything that doesn't look like a relation data file. */
+			/* 跳过任何看起来不像关系数据文件的东西。 */
 			if (!parse_filename_for_nontemp_relation(de->d_name, &relnumchars,
 													 &forkNum))
 				continue;
 
-			/* We never remove the init fork. */
+			/* 我们从不去掉 init 分叉。 */
 			if (forkNum == INIT_FORKNUM)
 				continue;
 
 			/*
-			 * See whether the OID portion of the name shows up in the hash
-			 * table.  If so, nuke it!
+			 * 看看名字里的 OID 部分是否出现在散列
+			 * 表里。若是，就清掉它！
 			 */
 			ent.reloid = atooid(de->d_name);
 			if (hash_search(hash, &ent, HASH_FIND, NULL))
@@ -266,21 +266,21 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 			}
 		}
 
-		/* Cleanup is complete. */
+		/* 清理完成。 */
 		FreeDir(dbspace_dir);
 		hash_destroy(hash);
 	}
 
 	/*
-	 * Initialization happens after cleanup is complete: we copy each init
-	 * fork file to the corresponding main fork file.  Note that if we are
-	 * asked to do both cleanup and init, we may never get here: if the
-	 * cleanup code determines that there are no init forks in this dbspace,
-	 * it will return before we get to this point.
+	 * 初始化发生在清理完成之后：我们把每个 init
+	 * 分叉文件复制到对应的主分叉文件。注意，若我们被
+	 * 要求同时做清理和初始化，我们可能永远到不了这里：若
+	 * 清理代码断定这个数据库空间里没有 init 分叉，
+	 * 它会在我们到达这里之前返回。
 	 */
 	if ((op & UNLOGGED_RELATION_INIT) != 0)
 	{
-		/* Scan the directory. */
+		/* 扫描该目录。 */
 		dbspace_dir = AllocateDir(dbspacedirname);
 		while ((de = ReadDir(dbspace_dir, dbspacedirname)) != NULL)
 		{
@@ -290,27 +290,27 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 			char		srcpath[MAXPGPATH * 2];
 			char		dstpath[MAXPGPATH];
 
-			/* Skip anything that doesn't look like a relation data file. */
+			/* 跳过任何看起来不像关系数据文件的东西。 */
 			if (!parse_filename_for_nontemp_relation(de->d_name, &relnumchars,
 													 &forkNum))
 				continue;
 
-			/* Also skip it unless this is the init fork. */
+			/* 除非这是 init 分叉，否则也跳过。 */
 			if (forkNum != INIT_FORKNUM)
 				continue;
 
-			/* Construct source pathname. */
+			/* 构造源路径名。 */
 			snprintf(srcpath, sizeof(srcpath), "%s/%s",
 					 dbspacedirname, de->d_name);
 
-			/* Construct destination pathname. */
+			/* 构造目标路径名。 */
 			memcpy(relnumbuf, de->d_name, relnumchars);
 			relnumbuf[relnumchars] = '\0';
 			snprintf(dstpath, sizeof(dstpath), "%s/%s%s",
 					 dbspacedirname, relnumbuf, de->d_name + relnumchars + 1 +
 					 strlen(forkNames[INIT_FORKNUM]));
 
-			/* OK, we're ready to perform the actual copy. */
+			/* 好，可以执行实际的复制了。 */
 			elog(DEBUG2, "copying %s to %s", srcpath, dstpath);
 			copy_file(srcpath, dstpath);
 		}
@@ -318,11 +318,11 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 		FreeDir(dbspace_dir);
 
 		/*
-		 * copy_file() above has already called pg_flush_data() on the files
-		 * it created. Now we need to fsync those files, because a checkpoint
-		 * won't do it for us while we're in recovery. We do this in a
-		 * separate pass to allow the kernel to perform all the flushes
-		 * (especially the metadata ones) at once.
+		 * 上面的 copy_file() 已经对它创建的文件调用了 pg_flush_data()。
+		 * 现在我们需要对那些文件做 fsync，因为我们处于恢复期间时，
+		 * 检查点不会为我们做这件事。我们把这放在
+		 * 单独的一遍里，以便内核一次完成所有刷出
+		 * （尤其是元数据刷出）。
 		 */
 		dbspace_dir = AllocateDir(dbspacedirname);
 		while ((de = ReadDir(dbspace_dir, dbspacedirname)) != NULL)
@@ -332,16 +332,16 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 			char		relnumbuf[OIDCHARS + 1];
 			char		mainpath[MAXPGPATH];
 
-			/* Skip anything that doesn't look like a relation data file. */
+			/* 跳过任何看起来不像关系数据文件的东西。 */
 			if (!parse_filename_for_nontemp_relation(de->d_name, &relnumchars,
 													 &forkNum))
 				continue;
 
-			/* Also skip it unless this is the init fork. */
+			/* 除非这是 init 分叉，否则也跳过。 */
 			if (forkNum != INIT_FORKNUM)
 				continue;
 
-			/* Construct main fork pathname. */
+			/* 构造主分叉路径名。 */
 			memcpy(relnumbuf, de->d_name, relnumchars);
 			relnumbuf[relnumchars] = '\0';
 			snprintf(mainpath, sizeof(mainpath), "%s/%s%s",
@@ -354,28 +354,28 @@ ResetUnloggedRelationsInDbspaceDir(const char *dbspacedirname, int op)
 		FreeDir(dbspace_dir);
 
 		/*
-		 * Lastly, fsync the database directory itself, ensuring the
-		 * filesystem remembers the file creations and deletions we've done.
-		 * We don't bother with this during a call that does only
-		 * UNLOGGED_RELATION_CLEANUP, because if recovery crashes before we
-		 * get to doing UNLOGGED_RELATION_INIT, we'll redo the cleanup step
-		 * too at the next startup attempt.
+		 * 最后，对数据库目录本身做 fsync，确保
+		 * 文件系统记住我们做过的文件创建和删除。
+		 * 若这次调用只做
+		 * UNLOGGED_RELATION_CLEANUP，我们就不必费这个事，因为若恢复在我们
+		 * 做到 UNLOGGED_RELATION_INIT 之前崩溃，下一次启动尝试时
+		 * 我们也会重做清理这一步。
 		 */
 		fsync_fname(dbspacedirname, true);
 	}
 }
 
 /*
- * Basic parsing of putative relation filenames.
+ * 对假定的关系文件名做基本解析。
  *
- * This function returns true if the file appears to be in the correct format
- * for a non-temporary relation and false otherwise.
+ * 若文件看起来符合非临时关系的正确格式，本函数返回真，
+ * 否则返回假。
  *
- * NB: If this function returns true, the caller is entitled to assume that
- * *relnumchars has been set to a value no more than OIDCHARS, and thus
- * that a buffer of OIDCHARS+1 characters is sufficient to hold the
- * RelFileNumber portion of the filename.  This is critical to protect against
- * a possible buffer overrun.
+ * 注意：若本函数返回真，调用者可以假定
+ * *relnumchars 已被设为一个不超过 OIDCHARS 的值，因此
+ * 一块 OIDCHARS+1 个字符的缓冲区就足以容纳文件名里的
+ * RelFileNumber 部分。这对防止
+ * 可能的缓冲区越界至关重要。
  */
 bool
 parse_filename_for_nontemp_relation(const char *name, int *relnumchars,
@@ -383,14 +383,14 @@ parse_filename_for_nontemp_relation(const char *name, int *relnumchars,
 {
 	int			pos;
 
-	/* Look for a non-empty string of digits (that isn't too long). */
+	/* 寻找一串非空数字（而且不能太长）。 */
 	for (pos = 0; isdigit((unsigned char) name[pos]); ++pos)
 		;
 	if (pos == 0 || pos > OIDCHARS)
 		return false;
 	*relnumchars = pos;
 
-	/* Check for a fork name. */
+	/* 检查分叉名。 */
 	if (name[pos] != '_')
 		*fork = MAIN_FORKNUM;
 	else
@@ -403,7 +403,7 @@ parse_filename_for_nontemp_relation(const char *name, int *relnumchars,
 		pos += forkchar + 1;
 	}
 
-	/* Check for a segment number. */
+	/* 检查段号。 */
 	if (name[pos] == '.')
 	{
 		int			segchar;
@@ -415,7 +415,7 @@ parse_filename_for_nontemp_relation(const char *name, int *relnumchars,
 		pos += segchar;
 	}
 
-	/* Now we should be at the end. */
+	/* 现在应当到了末尾。 */
 	if (name[pos] != '\0')
 		return false;
 	return true;

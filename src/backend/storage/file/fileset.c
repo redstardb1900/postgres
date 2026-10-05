@@ -36,19 +36,19 @@ static void FilePath(char *path, FileSet *fileset, const char *name);
 static Oid	ChooseTablespace(const FileSet *fileset, const char *name);
 
 /*
- * Initialize a space for temporary files. This API can be used by shared
- * fileset as well as if the temporary files are used only by single backend
- * but the files need to be opened and closed multiple times and also the
- * underlying files need to survive across transactions.
+ * 为临时文件初始化一块空间。这个 API 既可用于共享
+ * 文件集，也可用于仅由单个后端使用的临时文件，但这些文件得多次
+ * 打开和关闭，而且底层文件得跨事务
+ * 存活。
  *
- * The callers are expected to explicitly remove such files by using
- * FileSetDelete/FileSetDeleteAll.
+ * 预期调用者会用
+ * FileSetDelete/FileSetDeleteAll 显式去掉这些文件。
  *
- * Files will be distributed over the tablespaces configured in
- * temp_tablespaces.
+ * 文件会分布到 temp_tablespaces
+ * 所配置的表空间上。
  *
- * Under the covers the set is one or more directories which will eventually
- * be deleted.
+ * 在内部，这个集合是一个或多个目录，最终
+ * 会被删除。
  */
 void
 FileSetInit(FileSet *fileset)
@@ -59,14 +59,14 @@ FileSetInit(FileSet *fileset)
 	fileset->number = counter;
 	counter = (counter + 1) % INT_MAX;
 
-	/* Capture the tablespace OIDs so that all backends agree on them. */
+	/* 记下表空间 OIDs，使所有后端对它们达成一致。 */
 	PrepareTempTablespaces();
 	fileset->ntablespaces =
 		GetTempTablespaces(&fileset->tablespaces[0],
 						   lengthof(fileset->tablespaces));
 	if (fileset->ntablespaces == 0)
 	{
-		/* If the GUC is empty, use current database's default tablespace */
+		/* 若该 GUC 为空，则使用当前数据库的默认表空间 */
 		fileset->tablespaces[0] = MyDatabaseTableSpace;
 		fileset->ntablespaces = 1;
 	}
@@ -75,9 +75,9 @@ FileSetInit(FileSet *fileset)
 		int			i;
 
 		/*
-		 * An entry of InvalidOid means use the default tablespace for the
-		 * current database.  Replace that now, to be sure that all users of
-		 * the FileSet agree on what to do.
+		 * InvalidOid 项表示使用当前数据库的默认表空间。
+		 * 现在就替换它，以确保该 FileSet 的所有使用者
+		 * 对做法达成一致。
 		 */
 		for (i = 0; i < fileset->ntablespaces; i++)
 		{
@@ -88,7 +88,7 @@ FileSetInit(FileSet *fileset)
 }
 
 /*
- * Create a new file in the given set.
+ * 在给定集合里创建一个新文件。
  */
 File
 FileSetCreate(FileSet *fileset, const char *name)
@@ -99,7 +99,7 @@ FileSetCreate(FileSet *fileset, const char *name)
 	FilePath(path, fileset, name);
 	file = PathNameCreateTemporaryFile(path, false);
 
-	/* If we failed, see if we need to create the directory on demand. */
+	/* 若失败了，看看是否需要按需创建目录。 */
 	if (file <= 0)
 	{
 		char		tempdirpath[MAXPGPATH];
@@ -116,7 +116,7 @@ FileSetCreate(FileSet *fileset, const char *name)
 }
 
 /*
- * Open a file that was created with FileSetCreate() */
+ * 打开一个用 FileSetCreate() 创建的文件。 */
 File
 FileSetOpen(FileSet *fileset, const char *name, int mode)
 {
@@ -130,9 +130,9 @@ FileSetOpen(FileSet *fileset, const char *name, int mode)
 }
 
 /*
- * Delete a file that was created with FileSetCreate().
+ * 删除一个用 FileSetCreate() 创建的文件。
  *
- * Return true if the file existed, false if didn't.
+ * 若文件存在则返回真，若不存在则返回假。
  */
 bool
 FileSetDelete(FileSet *fileset, const char *name,
@@ -146,7 +146,7 @@ FileSetDelete(FileSet *fileset, const char *name,
 }
 
 /*
- * Delete all files in the set.
+ * 删除集合里的所有文件。
  */
 void
 FileSetDeleteAll(FileSet *fileset)
@@ -155,9 +155,9 @@ FileSetDeleteAll(FileSet *fileset)
 	int			i;
 
 	/*
-	 * Delete the directory we created in each tablespace.  Doesn't fail
-	 * because we use this in error cleanup paths, but can generate LOG
-	 * message on IO error.
+	 * 删除我们在每个表空间里创建的目录。这里不因失败而中断，
+	 * 因为我们在错误清理路径上使用它，但发生 IO 错误时可以产生 LOG
+	 * 消息。
 	 */
 	for (i = 0; i < fileset->ntablespaces; ++i)
 	{
@@ -167,8 +167,8 @@ FileSetDeleteAll(FileSet *fileset)
 }
 
 /*
- * Build the path for the directory holding the files backing a FileSet in a
- * given tablespace.
+ * 构造在给定表空间里支撑 FileSet 的文件所在目录的
+ * 路径。
  */
 static void
 FileSetPath(char *path, FileSet *fileset, Oid tablespace)
@@ -182,7 +182,7 @@ FileSetPath(char *path, FileSet *fileset, Oid tablespace)
 }
 
 /*
- * Sorting has to determine which tablespace a given temporary file belongs in.
+ * 排序必须确定给定临时文件属于哪个表空间。
  */
 static Oid
 ChooseTablespace(const FileSet *fileset, const char *name)
@@ -193,7 +193,7 @@ ChooseTablespace(const FileSet *fileset, const char *name)
 }
 
 /*
- * Compute the full path of a file in a FileSet.
+ * 计算 FileSet 里一个文件的完整路径。
  */
 static void
 FilePath(char *path, FileSet *fileset, const char *name)

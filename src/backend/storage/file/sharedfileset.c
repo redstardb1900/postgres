@@ -32,31 +32,31 @@
 static void SharedFileSetOnDetach(dsm_segment *segment, Datum datum);
 
 /*
- * Initialize a space for temporary files that can be opened by other backends.
- * Other backends must attach to it before accessing it.  Associate this
- * SharedFileSet with 'seg'.  Any contained files will be deleted when the
- * last backend detaches.
+ * 为其他后端也能打开的临时文件初始化一块空间。
+ * 其他后端在访问之前必须挂接上来。把这个
+ * SharedFileSet 与 seg 关联。所含文件会在
+ * 最后一个后端脱离时被删除。
  *
- * Under the covers the set is one or more directories which will eventually
- * be deleted.
+ * 在内部，这个集合是一个或多个目录，最终
+ * 会被删除。
  */
 void
 SharedFileSetInit(SharedFileSet *fileset, dsm_segment *seg)
 {
-	/* Initialize the shared fileset specific members. */
+	/* 初始化共享文件集特有的成员。 */
 	SpinLockInit(&fileset->mutex);
 	fileset->refcnt = 1;
 
-	/* Initialize the fileset. */
+	/* 初始化该文件集。 */
 	FileSetInit(&fileset->fs);
 
-	/* Register our cleanup callback. */
+	/* 登记我们的清理回调。 */
 	if (seg)
 		on_dsm_detach(seg, SharedFileSetOnDetach, PointerGetDatum(fileset));
 }
 
 /*
- * Attach to a set of directories that was created with SharedFileSetInit.
+ * 挂接到用 SharedFileSetInit 创建的一组目录。
  */
 void
 SharedFileSetAttach(SharedFileSet *fileset, dsm_segment *seg)
@@ -78,12 +78,12 @@ SharedFileSetAttach(SharedFileSet *fileset, dsm_segment *seg)
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("could not attach to a SharedFileSet that is already destroyed")));
 
-	/* Register our cleanup callback. */
+	/* 登记我们的清理回调。 */
 	on_dsm_detach(seg, SharedFileSetOnDetach, PointerGetDatum(fileset));
 }
 
 /*
- * Delete all files in the set.
+ * 删除集合里的所有文件。
  */
 void
 SharedFileSetDeleteAll(SharedFileSet *fileset)
@@ -92,11 +92,11 @@ SharedFileSetDeleteAll(SharedFileSet *fileset)
 }
 
 /*
- * Callback function that will be invoked when this backend detaches from a
- * DSM segment holding a SharedFileSet that it has created or attached to.  If
- * we are the last to detach, then try to remove the directories and
- * everything in them.  We can't raise an error on failures, because this runs
- * in error cleanup paths.
+ * 当本后端脱离一个持有它所创建或挂接的 SharedFileSet 的
+ * DSM 段时，会调用这个回调函数。若
+ * 我们是最后一个脱离的，就尝试去掉这些目录以及
+ * 其中的一切。失败时没法抛出错误，因为这运行在
+ * 错误清理路径上。
  */
 static void
 SharedFileSetOnDetach(dsm_segment *segment, Datum datum)
@@ -111,9 +111,9 @@ SharedFileSetOnDetach(dsm_segment *segment, Datum datum)
 	SpinLockRelease(&fileset->mutex);
 
 	/*
-	 * If we are the last to detach, we delete the directory in all
-	 * tablespaces.  Note that we are still actually attached for the rest of
-	 * this function so we can safely access its data.
+	 * 若我们是最后一个脱离的，就删除所有
+	 * 表空间里的目录。注意，本函数其余部分我们实际上仍然挂接着，
+	 * 因此可以安全地访问它的数据。
 	 */
 	if (unlink_all)
 		FileSetDeleteAll(&fileset->fs);

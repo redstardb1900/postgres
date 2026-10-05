@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0107-comment-storage-file-rest",
+ "title": "zh: translate fileset reinit and sharedfileset comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4430f9becedb91d970c27cbcdc12ba64ac247397",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/file/fileset.c",
+   "kind": "c_comment",
+   "note": "temporary file sets"
+  },
+  {
+   "pattern": "src/backend/storage/file/reinit.c",
+   "kind": "c_comment",
+   "note": "unlogged relation reset"
+  },
+  {
+   "pattern": "src/backend/storage/file/sharedfileset.c",
+   "kind": "c_comment",
+   "note": "shared temporary file sets"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0107-comment-storage-file-rest.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/file/fileset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "temporary file sets"
+  },
+  {
+   "path": "src/backend/storage/file/reinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 43,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "unlogged relation reset"
+  },
+  {
+   "path": "src/backend/storage/file/sharedfileset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "shared temporary file sets"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0107-comment-storage-file-rest.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0107 translates src/backend/storage/file/fileset.c, reinit.c, and sharedfileset.c."
+}

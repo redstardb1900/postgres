@@ -11,7 +11,7 @@
  *	  src/backend/access/table/tableam.c
  *
  * 说明（NOTES）
- *	  注意，这里的大多数函数写在 tableam.h 里，而不是
+ *	  注意，这里的大多数函数的说明写在 tableam.h 里，而不是
  *	  这里。因为 tableam.h 中有大量内联函数，若不断
  *	  在文件之间来回切换，会更难理解。
  *

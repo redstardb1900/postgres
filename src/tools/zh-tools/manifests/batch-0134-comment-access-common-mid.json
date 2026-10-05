@@ -1,0 +1,113 @@
+{
+ "schema_version": 1,
+ "batch_id": "0134-comment-access-common-mid",
+ "title": "zh: translate access/common mid comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "675b467272d23e94c6830fa0f532eef560bbe509",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/indextuple.c",
+   "kind": "c_comment",
+   "note": "index tuple form, deform, getattr, and truncation"
+  },
+  {
+   "pattern": "src/backend/access/common/detoast.c",
+   "kind": "c_comment",
+   "note": "detoast external, compressed, and sliced varlena values"
+  },
+  {
+   "pattern": "src/backend/access/common/toast_internals.c",
+   "kind": "c_comment",
+   "note": "toast compress, save, delete, and snapshot helpers"
+  },
+  {
+   "pattern": "src/backend/access/common/tupdesc.c",
+   "kind": "c_comment",
+   "note": "tuple descriptor create, copy, compare, and init"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0134-comment-access-common-mid.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/indextuple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 56,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "index tuple form, deform, getattr, and truncation"
+  },
+  {
+   "path": "src/backend/access/common/detoast.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 61,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "detoast external, compressed, and sliced varlena values"
+  },
+  {
+   "path": "src/backend/access/common/toast_internals.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 66,
+   "translated": 64,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through prose protected by the verifier"
+   ],
+   "note": "toast compress, save, delete, and snapshot helpers"
+  },
+  {
+   "path": "src/backend/access/common/tupdesc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 54,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "tuple descriptor create, copy, compare, and init"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0134-comment-access-common-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0134 translates comments in src/backend/access/common/indextuple.c, detoast.c, toast_internals.c, and tupdesc.c. The toast_internals.c corner-case comment is left in English because it contains fall-through prose that the verifier protects. heaptuple.c is next; reloptions.c follows that."
+}

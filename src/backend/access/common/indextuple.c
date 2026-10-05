@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * indextuple.c
- *	   This file contains index tuple accessor and mutator routines,
- *	   as well as various tuple utilities.
+ *	   本文件包含索引元组的访问例程与修改例程，
+ *	   以及各种元组实用函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,21 +23,21 @@
 #include "access/toast_internals.h"
 
 /*
- * This enables de-toasting of index entries.  Needed until VACUUM is
- * smart enough to rebuild indexes from scratch.
+ * 启用索引项的还原。在 VACUUM 清理足以
+ * 从头重建索引之前，仍需要这样做。
  */
 #define TOAST_INDEX_HACK
 
 /* ----------------------------------------------------------------
- *				  index_ tuple interface routines
+ *				  index_ 元组接口例程
  * ----------------------------------------------------------------
  */
 
  /* ----------------
   *		index_form_tuple
   *
-  *		As index_form_tuple_context, but allocates the returned tuple in the
-  *		CurrentMemoryContext.
+  *		与 index_form_tuple_context 相同，但把返回的元组分配在
+  *		CurrentMemoryContext 中。
   * ----------------
   */
 IndexTuple
@@ -52,13 +52,13 @@ index_form_tuple(TupleDesc tupleDescriptor,
 /* ----------------
  *		index_form_tuple_context
  *
- *		This shouldn't leak any memory; otherwise, callers such as
- *		tuplesort_putindextuplevalues() will be very unhappy.
+ *		这里不应泄漏任何内存，否则诸如
+ *		tuplesort_putindextuplevalues() 这样的调用方会非常不满。
  *
- *		This shouldn't perform external table access provided caller
- *		does not pass values that are stored EXTERNAL.
+ *		只要调用方不传入以 EXTERNAL 方式存储的值，
+ *		这里就不应访问外部表。
  *
- *		Allocates returned tuple in provided 'context'.
+ *		在给定的 'context' 中分配返回的元组。
  * ----------------
  */
 IndexTuple
@@ -67,8 +67,8 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 						 bool *isnull,
 						 MemoryContext context)
 {
-	char	   *tp;				/* tuple pointer */
-	IndexTuple	tuple;			/* return tuple */
+	char	   *tp;				/* 元组指针 */
+	IndexTuple	tuple;			/* 返回的元组 */
 	Size		size,
 				data_size,
 				hoff;
@@ -97,13 +97,13 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 		untoasted_values[i] = values[i];
 		untoasted_free[i] = false;
 
-		/* Do nothing if value is NULL or not of varlena type */
+		/* 值为 NULL 或不是 varlena 类型时什么都不做 */
 		if (isnull[i] || att->attlen != -1)
 			continue;
 
 		/*
-		 * If value is stored EXTERNAL, must fetch it so we are not depending
-		 * on outside storage.  This should be improved someday.
+		 * 若值以 EXTERNAL 方式存储，必须取回它，这样才不依赖
+		 * 外部存储。将来应当改进这一点。
 		 */
 		if (VARATT_IS_EXTERNAL(DatumGetPointer(values[i])))
 		{
@@ -114,8 +114,8 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 		}
 
 		/*
-		 * If value is above size target, and is of a compressible datatype,
-		 * try to compress it in-line.
+		 * 若值超过目标大小，且数据类型可压缩，
+		 * 就尝试就地压缩。
 		 */
 		if (!VARATT_IS_EXTENDED(DatumGetPointer(untoasted_values[i])) &&
 			VARSIZE(DatumGetPointer(untoasted_values[i])) > TOAST_INDEX_TARGET &&
@@ -129,7 +129,7 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 
 			if (DatumGetPointer(cvalue) != NULL)
 			{
-				/* successful compression */
+				/* 压缩成功 */
 				if (untoasted_free[i])
 					pfree(DatumGetPointer(untoasted_values[i]));
 				untoasted_values[i] = cvalue;
@@ -160,7 +160,7 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 									   values, isnull);
 #endif
 	size = hoff + data_size;
-	size = MAXALIGN(size);		/* be conservative */
+	size = MAXALIGN(size);		/* 取得保守一些 */
 
 	tp = (char *) MemoryContextAllocZero(context, size);
 	tuple = (IndexTuple) tp;
@@ -186,22 +186,22 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 #endif
 
 	/*
-	 * We do this because heap_fill_tuple wants to initialize a "tupmask"
-	 * which is used for HeapTuples, but we want an indextuple infomask. The
-	 * only relevant info is the "has variable attributes" field. We have
-	 * already set the hasnull bit above.
+	 * 这样做是因为 heap_fill_tuple 要初始化一个供
+	 * HeapTuples 使用的 "tupmask"，而我们要的是索引元组 infomask。唯一
+	 * 有关的信息是 "has variable attributes" 字段。上面已经
+	 * 设置过 hasnull 位。
 	 */
 	if (tupmask & HEAP_HASVARWIDTH)
 		infomask |= INDEX_VAR_MASK;
 
-	/* Also assert we got rid of external attributes */
+	/* 同时断言外部属性已被去掉 */
 #ifdef TOAST_INDEX_HACK
 	Assert((tupmask & HEAP_HASEXTERNAL) == 0);
 #endif
 
 	/*
-	 * Here we make sure that the size will fit in the field reserved for it
-	 * in t_info.
+	 * 这里确认大小放得进为它保留的字段，
+	 * 该字段位于 t_info 中。
 	 */
 	if ((size & INDEX_SIZE_MASK) != size)
 		ereport(ERROR,
@@ -212,7 +212,7 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 	infomask |= size;
 
 	/*
-	 * initialize metadata
+	 * 初始化元数据
 	 */
 	tuple->t_info = infomask;
 	return tuple;
@@ -221,20 +221,20 @@ index_form_tuple_context(TupleDesc tupleDescriptor,
 /* ----------------
  *		nocache_index_getattr
  *
- *		This gets called from index_getattr() macro, and only in cases
- *		where we can't use cacheoffset and the value is not null.
+ *		由 index_getattr() 宏调用，而且只在无法使用
+ *		cacheoffset 且该值非空的情况下。
  *
- *		This caches attribute offsets in the attribute descriptor.
+ *		它把属性偏移缓存在属性描述符中。
  *
- *		An alternative way to speed things up would be to cache offsets
- *		with the tuple, but that seems more difficult unless you take
- *		the storage hit of actually putting those offsets into the
- *		tuple you send to disk.  Yuck.
+ *		另一种加速办法是把偏移随元组一起缓存，但那似乎更难，
+ *		除非真把这些偏移写进送往磁盘的元组，并承担那份
+ *		存储开销。
+ *		真难看。
  *
- *		This scheme will be slightly slower than that, but should
- *		perform well for queries which hit large #'s of tuples.  After
- *		you cache the offsets once, examining all the other tuples using
- *		the same attribute descriptor will go much quicker. -cim 5/4/91
+ *		本方案会比那种略慢一些，但对命中大量元组的查询
+ *		应当表现良好。把偏移缓存一次之后，再用同一个
+ *		属性描述符检查其余所有元组，
+ *		就会快得多。-cim 5/4/91
  * ----------------
  */
 Datum
@@ -242,18 +242,18 @@ nocache_index_getattr(IndexTuple tup,
 					  int attnum,
 					  TupleDesc tupleDesc)
 {
-	char	   *tp;				/* ptr to data part of tuple */
-	bits8	   *bp = NULL;		/* ptr to null bitmap in tuple */
-	bool		slow = false;	/* do we have to walk attrs? */
-	int			data_off;		/* tuple data offset */
-	int			off;			/* current offset within data */
+	char	   *tp;				/* 指向元组数据部分的指针 */
+	bits8	   *bp = NULL;		/* 指向元组中空值位图的指针 */
+	bool		slow = false;	/* 是否必须逐个属性遍历？ */
+	int			data_off;		/* 元组数据偏移 */
+	int			off;			/* 数据内的当前偏移 */
 
 	/* ----------------
-	 *	 Three cases:
+	 *	 三种情形：
 	 *
-	 *	 1: No nulls and no variable-width attributes.
-	 *	 2: Has a null or a var-width AFTER att.
-	 *	 3: Has nulls or var-widths BEFORE att.
+	 *	 1：没有空值，也没有变长属性。
+	 *	 2：在 att 之后（AFTER）有空值或变长。
+	 *	 3：在 att 之前（BEFORE）有空值或变长。
 	 * ----------------
 	 */
 
@@ -264,27 +264,27 @@ nocache_index_getattr(IndexTuple tup,
 	if (IndexTupleHasNulls(tup))
 	{
 		/*
-		 * there's a null somewhere in the tuple
+		 * 元组中某处有空值
 		 *
-		 * check to see if desired att is null
+		 * 检查目标 att 是否为空
 		 */
 
-		/* XXX "knows" t_bits are just after fixed tuple header! */
+		/* XXX 这里 "知道" t_bits 紧跟在固定元组头之后！ */
 		bp = (bits8 *) ((char *) tup + sizeof(IndexTupleData));
 
 		/*
-		 * Now check to see if any preceding bits are null...
+		 * 现在检查前面是否有任何位为空...
 		 */
 		{
 			int			byte = attnum >> 3;
 			int			finalbit = attnum & 0x07;
 
-			/* check for nulls "before" final bit of last byte */
+			/* 检查最后一个字节的最终位 "before" 是否有空值 */
 			if ((~bp[byte]) & ((1 << finalbit) - 1))
 				slow = true;
 			else
 			{
-				/* check for nulls in any "earlier" bytes */
+				/* 检查任何 "earlier" 字节中是否有空值 */
 				int			i;
 
 				for (i = 0; i < byte; i++)
@@ -306,17 +306,17 @@ nocache_index_getattr(IndexTuple tup,
 		Form_pg_attribute att;
 
 		/*
-		 * If we get here, there are no nulls up to and including the target
-		 * attribute.  If we have a cached offset, we can use it.
+		 * 若走到这里，直到目标属性（含）都没有空值。
+		 * 若已有缓存的偏移，就可以用它。
 		 */
 		att = TupleDescAttr(tupleDesc, attnum);
 		if (att->attcacheoff >= 0)
 			return fetchatt(att, tp + att->attcacheoff);
 
 		/*
-		 * Otherwise, check for non-fixed-length attrs up to and including
-		 * target.  If there aren't any, it's safe to cheaply initialize the
-		 * cached offsets for these attrs.
+		 * 否则，检查直到目标（含）是否有非定长属性。
+		 * 如果没有，就可以低成本地初始化这些属性
+		 * 已缓存的偏移。
 		 */
 		if (IndexTupleHasVarwidths(tup))
 		{
@@ -339,17 +339,17 @@ nocache_index_getattr(IndexTuple tup,
 		int			j = 1;
 
 		/*
-		 * If we get here, we have a tuple with no nulls or var-widths up to
-		 * and including the target attribute, so we can use the cached offset
-		 * ... only we don't have it yet, or we'd not have got here.  Since
-		 * it's cheap to compute offsets for fixed-width columns, we take the
-		 * opportunity to initialize the cached offsets for *all* the leading
-		 * fixed-width columns, in hope of avoiding future visits to this
-		 * routine.
+		 * 若走到这里，直到目标属性（含）的元组都没有空值或变长，
+		 * 因此可以用已缓存的偏移
+		 * ……只不过还没有这份偏移，否则也不会走到这里。既然
+		 * 计算定长列的偏移并不贵，就趁机
+		 * 为前面*所有*前导定长列初始化已缓存的偏移，
+		 * 希望以后不必再进入这个
+		 * 例程。
 		 */
 		TupleDescAttr(tupleDesc, 0)->attcacheoff = 0;
 
-		/* we might have set some offsets in the slow path previously */
+		/* 慢路径上先前可能已经设置过一些偏移 */
 		while (j < natts && TupleDescAttr(tupleDesc, j)->attcacheoff > 0)
 			j++;
 
@@ -380,36 +380,36 @@ nocache_index_getattr(IndexTuple tup,
 		int			i;
 
 		/*
-		 * Now we know that we have to walk the tuple CAREFULLY.  But we still
-		 * might be able to cache some offsets for next time.
+		 * 现在我们知道必须 CAREFULLY 地遍历这个元组。但下次
+		 * 仍可能缓存一些偏移。
 		 *
-		 * Note - This loop is a little tricky.  For each non-null attribute,
-		 * we have to first account for alignment padding before the attr,
-		 * then advance over the attr based on its length.  Nulls have no
-		 * storage and no alignment padding either.  We can use/set
-		 * attcacheoff until we reach either a null or a var-width attribute.
+		 * 注意：这个循环有点绕。对每个非空属性，先计入
+		 * 该属性之前的对齐填充，再按其长度跨过它。
+		 * 空值既没有存储，也没有对齐填充。在遇到空值
+		 * 或变长属性之前，都可以使用或设置
+		 * attcacheoff。
 		 */
 		off = 0;
-		for (i = 0;; i++)		/* loop exit is at "break" */
+		for (i = 0;; i++)		/* 循环在 "break" 处退出 */
 		{
 			Form_pg_attribute att = TupleDescAttr(tupleDesc, i);
 
 			if (IndexTupleHasNulls(tup) && att_isnull(i, bp))
 			{
 				usecache = false;
-				continue;		/* this cannot be the target att */
+				continue;		/* 这无法成为目标 att */
 			}
 
-			/* If we know the next offset, we can skip the rest */
+			/* 若已知下一偏移，就可以跳过其余部分 */
 			if (usecache && att->attcacheoff >= 0)
 				off = att->attcacheoff;
 			else if (att->attlen == -1)
 			{
 				/*
-				 * We can only cache the offset for a varlena attribute if the
-				 * offset is already suitably aligned, so that there would be
-				 * no pad bytes in any case: then the offset will be valid for
-				 * either an aligned or unaligned value.
+				 * 只有当偏移已经适当对齐，因而任何情况下
+				 * 都不会出现填充字节时，才能缓存 varlena
+				 * 属性的偏移：此时该偏移对对齐或未对齐的
+				 * 值都有效。
 				 */
 				if (usecache &&
 					off == att_align_nominal(off, att->attalign))
@@ -423,7 +423,7 @@ nocache_index_getattr(IndexTuple tup,
 			}
 			else
 			{
-				/* not varlena, so safe to use att_align_nominal */
+				/* 不是 varlena，因此可以安全使用 att_align_nominal */
 				off = att_align_nominal(off, att->attalign);
 
 				if (usecache)
@@ -444,22 +444,22 @@ nocache_index_getattr(IndexTuple tup,
 }
 
 /*
- * Convert an index tuple into Datum/isnull arrays.
+ * 把索引元组转换成 Datum/isnull 数组。
  *
- * The caller must allocate sufficient storage for the output arrays.
- * (INDEX_MAX_KEYS entries should be enough.)
+ * 调用方必须为输出数组分配足够的存储。
+ * （INDEX_MAX_KEYS 项应该就够了。）
  *
- * This is nearly the same as heap_deform_tuple(), but for IndexTuples.
- * One difference is that the tuple should never have any missing columns.
+ * 这与 heap_deform_tuple() 几乎相同，不过针对的是 IndexTuples。
+ * 一处差别是：元组绝不应该有任何缺少的列。
  */
 void
 index_deform_tuple(IndexTuple tup, TupleDesc tupleDescriptor,
 				   Datum *values, bool *isnull)
 {
-	char	   *tp;				/* ptr to tuple data */
-	bits8	   *bp;				/* ptr to null bitmap in tuple */
+	char	   *tp;				/* 指向元组数据的指针 */
+	bits8	   *bp;				/* 指向元组中空值位图的指针 */
 
-	/* XXX "knows" t_bits are just after fixed tuple header! */
+	/* XXX 这里 "知道" t_bits 紧跟在固定元组头之后！ */
 	bp = (bits8 *) ((char *) tup + sizeof(IndexTupleData));
 
 	tp = (char *) tup + IndexInfoFindDataOffset(tup->t_info);
@@ -469,23 +469,23 @@ index_deform_tuple(IndexTuple tup, TupleDesc tupleDescriptor,
 }
 
 /*
- * Convert an index tuple into Datum/isnull arrays,
- * without assuming any specific layout of the index tuple header.
+ * 把索引元组转换成 Datum/isnull 数组，
+ * 不假定索引元组头有任何特定布局。
  *
- * Caller must supply pointer to data area, pointer to nulls bitmap
- * (which can be NULL if !hasnulls), and hasnulls flag.
+ * 调用方必须提供数据区指针、空值位图指针
+ * （若 !hasnulls 则可以为 NULL）以及 hasnulls 标志。
  */
 void
 index_deform_tuple_internal(TupleDesc tupleDescriptor,
 							Datum *values, bool *isnull,
 							char *tp, bits8 *bp, int hasnulls)
 {
-	int			natts = tupleDescriptor->natts; /* number of atts to extract */
+	int			natts = tupleDescriptor->natts; /* 要抽出的属性数 */
 	int			attnum;
-	int			off = 0;		/* offset in tuple data */
-	bool		slow = false;	/* can we use/set attcacheoff? */
+	int			off = 0;		/* 元组数据中的偏移 */
+	bool		slow = false;	/* 能否使用或设置 attcacheoff？ */
 
-	/* Assert to protect callers who allocate fixed-size arrays */
+	/* 断言，以保护分配了定长数组的调用方 */
 	Assert(natts <= INDEX_MAX_KEYS);
 
 	for (attnum = 0; attnum < natts; attnum++)
@@ -496,7 +496,7 @@ index_deform_tuple_internal(TupleDesc tupleDescriptor,
 		{
 			values[attnum] = (Datum) 0;
 			isnull[attnum] = true;
-			slow = true;		/* can't use attcacheoff anymore */
+			slow = true;		/* 此后不能再用 attcacheoff */
 			continue;
 		}
 
@@ -507,10 +507,10 @@ index_deform_tuple_internal(TupleDesc tupleDescriptor,
 		else if (thisatt->attlen == -1)
 		{
 			/*
-			 * We can only cache the offset for a varlena attribute if the
-			 * offset is already suitably aligned, so that there would be no
-			 * pad bytes in any case: then the offset will be valid for either
-			 * an aligned or unaligned value.
+			 * 只有当偏移已经适当对齐，因而任何情况下
+			 * 都不会出现填充字节，才能缓存该 varlena 属性的偏移：
+			 * 这样该偏移对对齐或未对齐的值
+			 * 都有效。
 			 */
 			if (!slow &&
 				off == att_align_nominal(off, thisatt->attalign))
@@ -524,7 +524,7 @@ index_deform_tuple_internal(TupleDesc tupleDescriptor,
 		}
 		else
 		{
-			/* not varlena, so safe to use att_align_nominal */
+			/* 不是 varlena，因此可以安全使用 att_align_nominal */
 			off = att_align_nominal(off, thisatt->attalign);
 
 			if (!slow)
@@ -536,12 +536,12 @@ index_deform_tuple_internal(TupleDesc tupleDescriptor,
 		off = att_addlength_pointer(off, thisatt->attlen, tp + off);
 
 		if (thisatt->attlen <= 0)
-			slow = true;		/* can't use attcacheoff anymore */
+			slow = true;		/* 此后不能再用 attcacheoff */
 	}
 }
 
 /*
- * Create a palloc'd copy of an index tuple.
+ * 创建索引元组的一份 palloc 副本。
  */
 IndexTuple
 CopyIndexTuple(IndexTuple source)
@@ -556,21 +556,21 @@ CopyIndexTuple(IndexTuple source)
 }
 
 /*
- * Create a palloc'd copy of an index tuple, leaving only the first
- * leavenatts attributes remaining.
+ * 创建索引元组的一份 palloc 副本，只留下前
+ * leavenatts 个属性。
  *
- * Truncation is guaranteed to result in an index tuple that is no
- * larger than the original.  It is safe to use the IndexTuple with
- * the original tuple descriptor, but caller must avoid actually
- * accessing truncated attributes from returned tuple!  In practice
- * this means that index_getattr() must be called with special care,
- * and that the truncated tuple should only ever be accessed by code
- * under caller's direct control.
+ * 截断保证得到的索引元组不会比原来更大。可以拿这份
+ * IndexTuple 配原来的元组描述符使用，但调用方必须避免
+ * 真正访问返回元组里已被截断的属性！实践中，这意味着
+ * 调用 index_getattr() 必须特别小心，而且被截断的元组
+ * 只应由处于调用方直接控制之下的代码
+ * 访问。
+ * 调用方须自行守住这条边界。
  *
- * It's safe to call this function with a buffer lock held, since it
- * never performs external table access.  If it ever became possible
- * for index tuples to contain EXTERNAL TOAST values, then this would
- * have to be revisited.
+ * 持有缓冲锁时调用本函数是安全的，因为它从不
+ * 做外部表访问。万一索引元组将来可能包含
+ * EXTERNAL TOAST 值，就得重新审视
+ * 这一点。
  */
 IndexTuple
 index_truncate_tuple(TupleDesc sourceDescriptor, IndexTuple source,
@@ -583,24 +583,24 @@ index_truncate_tuple(TupleDesc sourceDescriptor, IndexTuple source,
 
 	Assert(leavenatts <= sourceDescriptor->natts);
 
-	/* Easy case: no truncation actually required */
+	/* 简单情形：实际上不需要截断 */
 	if (leavenatts == sourceDescriptor->natts)
 		return CopyIndexTuple(source);
 
-	/* Create temporary descriptor to scribble on */
+	/* 创建一份可供临时改写的临时描述符 */
 	truncdesc = palloc(TupleDescSize(sourceDescriptor));
 	TupleDescCopy(truncdesc, sourceDescriptor);
 	truncdesc->natts = leavenatts;
 
-	/* Deform, form copy of tuple with fewer attributes */
+	/* 拆开再组装一份属性更少的元组副本 */
 	index_deform_tuple(source, truncdesc, values, isnull);
 	truncated = index_form_tuple(truncdesc, values, isnull);
 	truncated->t_tid = source->t_tid;
 	Assert(IndexTupleSize(truncated) <= IndexTupleSize(source));
 
 	/*
-	 * Cannot leak memory here, TupleDescCopy() doesn't allocate any inner
-	 * structure, so, plain pfree() should clean all allocated memory
+	 * 这里无法泄漏内存。TupleDescCopy() 不分配任何内部
+	 * 结构，因此普通的 pfree() 就能清掉全部分配的内存
 	 */
 	pfree(truncdesc);
 

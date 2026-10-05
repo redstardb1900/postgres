@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * toast_internals.c
- *	  Functions for internal use by the TOAST system.
+ *	  供 TOAST 系统内部使用的函数。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -33,14 +33,14 @@ static bool toastid_valueid_exists(Oid toastrelid, Oid valueid);
 /* ----------
  * toast_compress_datum -
  *
- *	Create a compressed version of a varlena datum
+ *	创建 varlena datum 的压缩版本
  *
- *	If we fail (ie, compressed result is actually bigger than original)
- *	then return NULL.  We must not use compressed data if it'd expand
- *	the tuple!
+ *	若失败（即压缩结果实际上比原来更大），
+ *	则返回 NULL。若压缩数据会让元组变大，就不得使用
+ *	这些压缩数据！
  *
- *	We use VAR{SIZE,DATA}_ANY so we can handle short varlenas here without
- *	copying them.  But we can't handle external or compressed datums.
+ *	这里用 VAR{SIZE,DATA}_ANY，这样不必复制就能处理短 varlena。
+ *	但不能处理外部或已压缩的 datum。
  * ----------
  */
 Datum
@@ -55,12 +55,12 @@ toast_compress_datum(Datum value, char cmethod)
 
 	valsize = VARSIZE_ANY_EXHDR(DatumGetPointer(value));
 
-	/* If the compression method is not valid, use the current default */
+	/* 若压缩方法无效，就用当前默认值 */
 	if (!CompressionMethodIsValid(cmethod))
 		cmethod = default_toast_compression;
 
 	/*
-	 * Call appropriate compression routine for the compression method.
+	 * 按该压缩方法调用相应的压缩例程。
 	 */
 	switch (cmethod)
 	{
@@ -80,25 +80,25 @@ toast_compress_datum(Datum value, char cmethod)
 		return PointerGetDatum(NULL);
 
 	/*
-	 * We recheck the actual size even if compression reports success, because
-	 * it might be satisfied with having saved as little as one byte in the
-	 * compressed data --- which could turn into a net loss once you consider
-	 * header and alignment padding.  Worst case, the compressed format might
-	 * require three padding bytes (plus header, which is included in
-	 * VARSIZE(tmp)), whereas the uncompressed format would take only one
-	 * header byte and no padding if the value is short enough.  So we insist
-	 * on a savings of more than 2 bytes to ensure we have a gain.
+	 * 即使压缩报告成功，我们也再核对实际大小，因为它
+	 * 可能只在压缩数据里省下一个字节就满足了 --- 一旦计入
+	 * 头和对齐填充，这可能变成净亏损。最坏情况下，压缩格式
+	 * 可能需要三个填充字节（外加头，VARSIZE(tmp) 已含该头），
+	 * 而未压缩格式在值足够短时只会占用一个头字节，
+	 * 并且没有任何填充。因此我们坚持
+	 * 节省必须超过 2 字节，才能确保有收益。
+	 * 这样才算真正有收益。
 	 */
 	if (VARSIZE(tmp) < valsize - 2)
 	{
-		/* successful compression */
+		/* 压缩成功 */
 		Assert(cmid != TOAST_INVALID_COMPRESSION_ID);
 		TOAST_COMPRESS_SET_SIZE_AND_COMPRESS_METHOD(tmp, valsize, cmid);
 		return PointerGetDatum(tmp);
 	}
 	else
 	{
-		/* incompressible data */
+		/* 不可压缩的数据 */
 		pfree(tmp);
 		return PointerGetDatum(NULL);
 	}
@@ -107,13 +107,13 @@ toast_compress_datum(Datum value, char cmethod)
 /* ----------
  * toast_save_datum -
  *
- *	Save one single datum into the secondary relation and return
- *	a Datum reference for it.
+ *	把单个 datum 存入次级关系，并返回
+ *	一个指向它的 Datum 引用。
  *
- * rel: the main relation we're working with (not the toast rel!)
- * value: datum to be pushed to toast storage
- * oldexternal: if not NULL, toast pointer previously representing the datum
- * options: options to be passed to heap_insert() for toast rows
+ * rel：正在处理的主关系（不是 toast 关系！）
+ * value：要推入 toast 存储的 datum
+ * oldexternal：若非 NULL，是先前代表该 datum 的 toast 指针
+ * options：要传给 heap_insert()、用于 toast 行的选项
  * ----------
  */
 Datum
@@ -132,11 +132,11 @@ toast_save_datum(Relation rel, Datum value,
 	union
 	{
 		struct varlena hdr;
-		/* this is to make the union big enough for a chunk: */
+		/* 这是为了让联合体大到能放下一个块： */
 		char		data[TOAST_MAX_CHUNK_SIZE + VARHDRSZ];
-		/* ensure union is aligned well enough: */
+		/* 确保联合体对齐得足够好： */
 		int32		align_it;
-	}			chunk_data = {0};	/* silence compiler warning */
+	}			chunk_data = {0};	/* 消除编译器告警 */
 	int32		chunk_size;
 	int32		chunk_seq = 0;
 	char	   *data_p;
@@ -148,47 +148,47 @@ toast_save_datum(Relation rel, Datum value,
 	Assert(!VARATT_IS_EXTERNAL(value));
 
 	/*
-	 * Open the toast relation and its indexes.  We can use the index to check
-	 * uniqueness of the OID we assign to the toasted item, even though it has
-	 * additional columns besides OID.
+	 * 打开 toast 关系及其索引。可以用该索引检查我们分配给
+	 * 已 TOAST 项的 OID 是否唯一，尽管除 OID 之外
+	 * 它还有其他列。
 	 */
 	toastrel = table_open(rel->rd_rel->reltoastrelid, RowExclusiveLock);
 	toasttupDesc = toastrel->rd_att;
 
-	/* Open all the toast indexes and look for the valid one */
+	/* 打开全部 toast 索引并找出有效的那一个 */
 	validIndex = toast_open_indexes(toastrel,
 									RowExclusiveLock,
 									&toastidxs,
 									&num_indexes);
 
 	/*
-	 * Get the data pointer and length, and compute va_rawsize and va_extinfo.
+	 * 取得数据指针和长度，并计算 va_rawsize 与 va_extinfo。
 	 *
-	 * va_rawsize is the size of the equivalent fully uncompressed datum, so
-	 * we have to adjust for short headers.
+	 * va_rawsize 是等价的完全未压缩 datum 的大小，
+	 * 因此必须针对短头做调整。
 	 *
-	 * va_extinfo stored the actual size of the data payload in the toast
-	 * records and the compression method in first 2 bits if data is
-	 * compressed.
+	 * va_extinfo 存放 toast 记录里数据有效载荷的实际大小，
+	 * 并且在数据已压缩时，用前 2 位存放
+	 * 压缩方法。
 	 */
 	if (VARATT_IS_SHORT(dval))
 	{
 		data_p = VARDATA_SHORT(dval);
 		data_todo = VARSIZE_SHORT(dval) - VARHDRSZ_SHORT;
-		toast_pointer.va_rawsize = data_todo + VARHDRSZ;	/* as if not short */
+		toast_pointer.va_rawsize = data_todo + VARHDRSZ;	/* 当作不是短头 */
 		toast_pointer.va_extinfo = data_todo;
 	}
 	else if (VARATT_IS_COMPRESSED(dval))
 	{
 		data_p = VARDATA(dval);
 		data_todo = VARSIZE(dval) - VARHDRSZ;
-		/* rawsize in a compressed datum is just the size of the payload */
+		/* 压缩 datum 里的 rawsize 只是有效载荷大小 */
 		toast_pointer.va_rawsize = VARDATA_COMPRESSED_GET_EXTSIZE(dval) + VARHDRSZ;
 
-		/* set external size and compression method */
+		/* 设置外部大小和压缩方法 */
 		VARATT_EXTERNAL_SET_SIZE_AND_COMPRESS_METHOD(toast_pointer, data_todo,
 													 VARDATA_COMPRESSED_GET_COMPRESS_METHOD(dval));
-		/* Assert that the numbers look like it's compressed */
+		/* 断言这些数字看起来像是已压缩的 */
 		Assert(VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer));
 	}
 	else
@@ -200,12 +200,12 @@ toast_save_datum(Relation rel, Datum value,
 	}
 
 	/*
-	 * Insert the correct table OID into the result TOAST pointer.
+	 * 把正确的表 OID 写入结果 TOAST 指针。
 	 *
-	 * Normally this is the actual OID of the target toast table, but during
-	 * table-rewriting operations such as CLUSTER, we have to insert the OID
-	 * of the table's real permanent toast table instead.  rd_toastoid is set
-	 * if we have to substitute such an OID.
+	 * 通常这就是目标 toast 表的实际 OID，但在诸如 CLUSTER
+	 * 这样的表重写操作期间，必须改为写入该表真正的永久
+	 * toast 表的 OID。若必须替换这样的 OID，
+	 * 就会设置 rd_toastoid。
 	 */
 	if (OidIsValid(rel->rd_toastoid))
 		toast_pointer.va_toastrelid = rel->rd_toastoid;
@@ -213,20 +213,20 @@ toast_save_datum(Relation rel, Datum value,
 		toast_pointer.va_toastrelid = RelationGetRelid(toastrel);
 
 	/*
-	 * Choose an OID to use as the value ID for this toast value.
+	 * 为这个 toast 值选择一个用作值 ID 的 OID。
 	 *
-	 * Normally we just choose an unused OID within the toast table.  But
-	 * during table-rewriting operations where we are preserving an existing
-	 * toast table OID, we want to preserve toast value OIDs too.  So, if
-	 * rd_toastoid is set and we had a prior external value from that same
-	 * toast table, re-use its value ID.  If we didn't have a prior external
-	 * value (which is a corner case, but possible if the table's attstorage
-	 * options have been changed), we have to pick a value ID that doesn't
-	 * conflict with either new or existing toast value OIDs.
+	 * 通常只在 toast 表中选一个未使用的 OID。但在
+	 * 保留已有 toast 表 OID 的表重写期间，我们也要保留
+	 * toast 值 OIDs。因此，若已设置 rd_toastoid，且先前有
+	 * 来自同一张 toast 表的外部值，就复用它的值 ID。
+	 * 若没有先前的外部值（这是角落情形，但若该表的
+	 * attstorage 选项已被修改就可能发生），就必须选一个
+	 * 与新 toast 值 OID 或已有 toast 值 OID 都不冲突的
+	 * 值 ID。
 	 */
 	if (!OidIsValid(rel->rd_toastoid))
 	{
-		/* normal case: just choose an unused OID */
+		/* 普通情形：选一个未使用的 OID */
 		toast_pointer.va_valueid =
 			GetNewOidWithIndex(toastrel,
 							   RelationGetRelid(toastidxs[validIndex]),
@@ -234,18 +234,18 @@ toast_save_datum(Relation rel, Datum value,
 	}
 	else
 	{
-		/* rewrite case: check to see if value was in old toast table */
+		/* 重写情形：检查该值是否在旧 toast 表中 */
 		toast_pointer.va_valueid = InvalidOid;
 		if (oldexternal != NULL)
 		{
 			struct varatt_external old_toast_pointer;
 
 			Assert(VARATT_IS_EXTERNAL_ONDISK(oldexternal));
-			/* Must copy to access aligned fields */
+			/* 必须复制才能访问已对齐的字段 */
 			VARATT_EXTERNAL_GET_POINTER(old_toast_pointer, oldexternal);
 			if (old_toast_pointer.va_toastrelid == rel->rd_toastoid)
 			{
-				/* This value came from the old toast table; reuse its OID */
+				/* 该值来自旧 toast 表；复用它的 OID */
 				toast_pointer.va_valueid = old_toast_pointer.va_valueid;
 
 				/*
@@ -268,7 +268,7 @@ toast_save_datum(Relation rel, Datum value,
 				if (toastrel_valueid_exists(toastrel,
 											toast_pointer.va_valueid))
 				{
-					/* Match, so short-circuit the data storage loop below */
+					/* 匹配，于是短路下面的数据存储循环 */
 					data_todo = 0;
 				}
 			}
@@ -276,8 +276,8 @@ toast_save_datum(Relation rel, Datum value,
 		if (toast_pointer.va_valueid == InvalidOid)
 		{
 			/*
-			 * new value; must choose an OID that doesn't conflict in either
-			 * old or new toast table
+			 * 新值；必须选一个在旧 toast 表和新 toast 表中
+			 * 都不冲突的 OID
 			 */
 			do
 			{
@@ -291,7 +291,7 @@ toast_save_datum(Relation rel, Datum value,
 	}
 
 	/*
-	 * Initialize constant parts of the tuple data
+	 * 初始化元组数据中的常量部分
 	 */
 	t_values[0] = ObjectIdGetDatum(toast_pointer.va_valueid);
 	t_values[2] = PointerGetDatum(&chunk_data);
@@ -300,7 +300,7 @@ toast_save_datum(Relation rel, Datum value,
 	t_isnull[2] = false;
 
 	/*
-	 * Split up the item into chunks
+	 * 把该项拆成多个块
 	 */
 	while (data_todo > 0)
 	{
@@ -309,12 +309,12 @@ toast_save_datum(Relation rel, Datum value,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Calculate the size of this chunk
+		 * 计算这个块的大小
 		 */
 		chunk_size = Min(TOAST_MAX_CHUNK_SIZE, data_todo);
 
 		/*
-		 * Build a tuple and store it
+		 * 构造元组并存储它
 		 */
 		t_values[1] = Int32GetDatum(chunk_seq++);
 		SET_VARSIZE(&chunk_data, chunk_size + VARHDRSZ);
@@ -324,19 +324,19 @@ toast_save_datum(Relation rel, Datum value,
 		heap_insert(toastrel, toasttup, mycid, options, NULL);
 
 		/*
-		 * Create the index entry.  We cheat a little here by not using
-		 * FormIndexDatum: this relies on the knowledge that the index columns
-		 * are the same as the initial columns of the table for all the
-		 * indexes.  We also cheat by not providing an IndexInfo: this is okay
-		 * for now because btree doesn't need one, but we might have to be
-		 * more honest someday.
+		 * 创建索引项。这里有点偷懒，没有使用
+		 * FormIndexDatum：这依赖于一项知识，即对这些索引而言，
+		 * 索引列与表的初始列相同。
+		 * 我们也不提供 IndexInfo，同样是偷懒：目前没问题，
+		 * 因为 btree 并不需要它，但将来某一天
+		 * 也许得更老实一些。
 		 *
-		 * Note also that there had better not be any user-created index on
-		 * the TOAST table, since we don't bother to update anything else.
+		 * 还要注意，TOAST 表上最好不要有任何用户创建的索引，
+		 * 因为我们不会去更新其他任何东西。
 		 */
 		for (i = 0; i < num_indexes; i++)
 		{
-			/* Only index relations marked as ready can be updated */
+			/* 只有标记为就绪的索引关系才能更新 */
 			if (toastidxs[i]->rd_index->indisready)
 				index_insert(toastidxs[i], t_values, t_isnull,
 							 &(toasttup->t_self),
@@ -347,27 +347,27 @@ toast_save_datum(Relation rel, Datum value,
 		}
 
 		/*
-		 * Free memory
+		 * 释放内存
 		 */
 		heap_freetuple(toasttup);
 
 		/*
-		 * Move on to next chunk
+		 * 前进到下一块
 		 */
 		data_todo -= chunk_size;
 		data_p += chunk_size;
 	}
 
 	/*
-	 * Done - close toast relation and its indexes but keep the lock until
-	 * commit, so as a concurrent reindex done directly on the toast relation
-	 * would be able to wait for this transaction.
+	 * 完成 --- 关闭 toast 关系及其索引，但把锁保持到提交，
+	 * 这样直接在该 toast 关系上并发进行的重建索引就能
+	 * 等待本事务。
 	 */
 	toast_close_indexes(toastidxs, num_indexes, NoLock);
 	table_close(toastrel, NoLock);
 
 	/*
-	 * Create the TOAST pointer value that we'll return
+	 * 创建我们将返回的 TOAST 指针值
 	 */
 	result = (struct varlena *) palloc(TOAST_POINTER_SIZE);
 	SET_VARTAG_EXTERNAL(result, VARTAG_ONDISK);
@@ -379,7 +379,7 @@ toast_save_datum(Relation rel, Datum value,
 /* ----------
  * toast_delete_datum -
  *
- *	Delete a single external stored value.
+ *	删除单个外部存储的值。
  * ----------
  */
 void
@@ -399,22 +399,22 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
 	if (!VARATT_IS_EXTERNAL_ONDISK(attr))
 		return;
 
-	/* Must copy to access aligned fields */
+	/* 必须复制才能访问已对齐的字段 */
 	VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
 	/*
-	 * Open the toast relation and its indexes
+	 * 打开 toast 关系及其索引
 	 */
 	toastrel = table_open(toast_pointer.va_toastrelid, RowExclusiveLock);
 
-	/* Fetch valid relation used for process */
+	/* 取得处理所用的有效关系 */
 	validIndex = toast_open_indexes(toastrel,
 									RowExclusiveLock,
 									&toastidxs,
 									&num_indexes);
 
 	/*
-	 * Setup a scan key to find chunks with matching va_valueid
+	 * 设置扫描键，以查找 va_valueid 匹配的块
 	 */
 	ScanKeyInit(&toastkey,
 				(AttrNumber) 1,
@@ -422,9 +422,9 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
 				ObjectIdGetDatum(toast_pointer.va_valueid));
 
 	/*
-	 * Find all the chunks.  (We don't actually care whether we see them in
-	 * sequence or not, but since we've already locked the index we might as
-	 * well use systable_beginscan_ordered.)
+	 * 找出所有块。（我们其实不在乎是否按顺序看到它们，
+	 * 但既然已经锁住了索引，不妨使用
+	 * systable_beginscan_ordered。）
 	 */
 	init_toast_snapshot(&SnapshotToast);
 	toastscan = systable_beginscan_ordered(toastrel, toastidxs[validIndex],
@@ -432,7 +432,7 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
 	while ((toasttup = systable_getnext_ordered(toastscan, ForwardScanDirection)) != NULL)
 	{
 		/*
-		 * Have a chunk, delete it
+		 * 有一个块，删掉它
 		 */
 		if (is_speculative)
 			heap_abort_speculative(toastrel, &toasttup->t_self);
@@ -441,9 +441,9 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
 	}
 
 	/*
-	 * End scan and close relations but keep the lock until commit, so as a
-	 * concurrent reindex done directly on the toast relation would be able to
-	 * wait for this transaction.
+	 * 结束扫描并关闭各关系，但把锁保持到提交，以便直接在该
+	 * toast 关系上并发进行的重建索引能够等待
+	 * 本事务。
 	 */
 	systable_endscan_ordered(toastscan);
 	toast_close_indexes(toastidxs, num_indexes, NoLock);
@@ -453,9 +453,9 @@ toast_delete_datum(Relation rel, Datum value, bool is_speculative)
 /* ----------
  * toastrel_valueid_exists -
  *
- *	Test whether a toast value with the given ID exists in the toast relation.
- *	For safety, we consider a value to exist if there are either live or dead
- *	toast rows with that ID; see notes for GetNewOidWithIndex().
+ *	测试给定 ID 的 toast 值是否存在于该 toast 关系中。
+ *	为安全起见，只要存在该 ID 的活行或死行，就认为该值存在；
+ *	参见 GetNewOidWithIndex() 的说明。
  * ----------
  */
 static bool
@@ -468,14 +468,14 @@ toastrel_valueid_exists(Relation toastrel, Oid valueid)
 	int			validIndex;
 	Relation   *toastidxs;
 
-	/* Fetch a valid index relation */
+	/* 取得一个有效的索引关系 */
 	validIndex = toast_open_indexes(toastrel,
 									RowExclusiveLock,
 									&toastidxs,
 									&num_indexes);
 
 	/*
-	 * Setup a scan key to find chunks with matching va_valueid
+	 * 设置扫描键，以查找 va_valueid 匹配的块
 	 */
 	ScanKeyInit(&toastkey,
 				(AttrNumber) 1,
@@ -483,7 +483,7 @@ toastrel_valueid_exists(Relation toastrel, Oid valueid)
 				ObjectIdGetDatum(valueid));
 
 	/*
-	 * Is there any such chunk?
+	 * 有没有这样的块？
 	 */
 	toastscan = systable_beginscan(toastrel,
 								   RelationGetRelid(toastidxs[validIndex]),
@@ -494,7 +494,7 @@ toastrel_valueid_exists(Relation toastrel, Oid valueid)
 
 	systable_endscan(toastscan);
 
-	/* Clean up */
+	/* 做清理 */
 	toast_close_indexes(toastidxs, num_indexes, RowExclusiveLock);
 
 	return result;
@@ -503,7 +503,7 @@ toastrel_valueid_exists(Relation toastrel, Oid valueid)
 /* ----------
  * toastid_valueid_exists -
  *
- *	As above, but work from toast rel's OID not an open relation
+ *	同上，但根据 toast 关系的 OID 工作，而不是已打开的关系
  * ----------
  */
 static bool
@@ -524,8 +524,8 @@ toastid_valueid_exists(Oid toastrelid, Oid valueid)
 /* ----------
  * toast_get_valid_index
  *
- *	Get OID of valid index associated to given toast relation. A toast
- *	relation can have only one valid index at the same time.
+ *	取得与给定 toast 关系相关联的有效索引的 OID。一张 toast
+ *	关系在同一时刻只能有一个有效索引。
  */
 Oid
 toast_get_valid_index(Oid toastoid, LOCKMODE lock)
@@ -536,17 +536,17 @@ toast_get_valid_index(Oid toastoid, LOCKMODE lock)
 	Relation   *toastidxs;
 	Relation	toastrel;
 
-	/* Open the toast relation */
+	/* 打开 toast 关系 */
 	toastrel = table_open(toastoid, lock);
 
-	/* Look for the valid index of the toast relation */
+	/* 寻找该 toast 关系的有效索引 */
 	validIndex = toast_open_indexes(toastrel,
 									lock,
 									&toastidxs,
 									&num_indexes);
 	validIndexOid = RelationGetRelid(toastidxs[validIndex]);
 
-	/* Close the toast relation and all its indexes */
+	/* 关闭 toast 关系及其全部索引 */
 	toast_close_indexes(toastidxs, num_indexes, NoLock);
 	table_close(toastrel, NoLock);
 
@@ -556,10 +556,10 @@ toast_get_valid_index(Oid toastoid, LOCKMODE lock)
 /* ----------
  * toast_open_indexes
  *
- *	Get an array of the indexes associated to the given toast relation
- *	and return as well the position of the valid index used by the toast
- *	relation in this array. It is the responsibility of the caller of this
- *	function to close the indexes as well as free them.
+ *	取得与给定 toast 关系相关联的索引数组，同时返回
+ *	该 toast 关系在此数组中所使用的有效索引的位置。
+ *	调用本函数的调用方有责任关闭这些索引，
+ *	并释放它们。
  */
 int
 toast_open_indexes(Relation toastrel,
@@ -573,18 +573,18 @@ toast_open_indexes(Relation toastrel,
 	List	   *indexlist;
 	ListCell   *lc;
 
-	/* Get index list of the toast relation */
+	/* 取得 toast 关系的索引列表 */
 	indexlist = RelationGetIndexList(toastrel);
 	Assert(indexlist != NIL);
 
 	*num_indexes = list_length(indexlist);
 
-	/* Open all the index relations */
+	/* 打开全部索引关系 */
 	*toastidxs = (Relation *) palloc(*num_indexes * sizeof(Relation));
 	foreach(lc, indexlist)
 		(*toastidxs)[i++] = index_open(lfirst_oid(lc), lock);
 
-	/* Fetch the first valid index in list */
+	/* 取列表中第一个有效索引 */
 	for (i = 0; i < *num_indexes; i++)
 	{
 		Relation	toastidx = (*toastidxs)[i];
@@ -598,14 +598,14 @@ toast_open_indexes(Relation toastrel,
 	}
 
 	/*
-	 * Free index list, not necessary anymore as relations are opened and a
-	 * valid index has been found.
+	 * 释放索引列表。关系已经打开，并且已经找到有效索引，
+	 * 不再需要这份列表。
 	 */
 	list_free(indexlist);
 
 	/*
-	 * The toast relation should have one valid index, so something is going
-	 * wrong if there is nothing.
+	 * toast 关系应当有一个有效索引，若什么都没有，
+	 * 就说明出了问题。
 	 */
 	if (!found)
 		elog(ERROR, "no valid index found for toast relation with Oid %u",
@@ -617,15 +617,15 @@ toast_open_indexes(Relation toastrel,
 /* ----------
  * toast_close_indexes
  *
- *	Close an array of indexes for a toast relation and free it. This should
- *	be called for a set of indexes opened previously with toast_open_indexes.
+ *	关闭 toast 关系的索引数组并释放它。应当对先前用
+ *	toast_open_indexes 打开的那组索引调用本函数。
  */
 void
 toast_close_indexes(Relation *toastidxs, int num_indexes, LOCKMODE lock)
 {
 	int			i;
 
-	/* Close relations and clean up things */
+	/* 关闭关系并做清理 */
 	for (i = 0; i < num_indexes; i++)
 		index_close(toastidxs[i], lock);
 	pfree(toastidxs);
@@ -634,10 +634,10 @@ toast_close_indexes(Relation *toastidxs, int num_indexes, LOCKMODE lock)
 /* ----------
  * init_toast_snapshot
  *
- *	Initialize an appropriate TOAST snapshot.  We must use an MVCC snapshot
- *	to initialize the TOAST snapshot; since we don't know which one to use,
- *	just use the oldest one.  This is safe: at worst, we will get a "snapshot
- *	too old" error that might have been avoided otherwise.
+ *	初始化一份合适的 TOAST 快照。必须用一份 MVCC 快照来
+ *	初始化 TOAST 快照；既然不知道该用哪一份，就用最旧的。
+ *	这样做是安全的：最坏会得到一个本可避免的 "snapshot
+ *	too old"（快照过旧）错误。
  */
 void
 init_toast_snapshot(Snapshot toast_snapshot)
@@ -645,27 +645,27 @@ init_toast_snapshot(Snapshot toast_snapshot)
 	Snapshot	snapshot = GetOldestSnapshot();
 
 	/*
-	 * GetOldestSnapshot returns NULL if the session has no active snapshots.
-	 * We can get that if, for example, a procedure fetches a toasted value
-	 * into a local variable, commits, and then tries to detoast the value.
-	 * Such coding is unsafe, because once we commit there is nothing to
-	 * prevent the toast data from being deleted.  Detoasting *must* happen in
-	 * the same transaction that originally fetched the toast pointer.  Hence,
-	 * rather than trying to band-aid over the problem, throw an error.  (This
-	 * is not very much protection, because in many scenarios the procedure
-	 * would have already created a new transaction snapshot, preventing us
-	 * from detecting the problem.  But it's better than nothing, and for sure
-	 * we shouldn't expend code on masking the problem more.)
+	 * 若会话没有活动快照，GetOldestSnapshot 就返回 NULL。
+	 * 例如，一个过程把已 TOAST 的值取进局部变量，
+	 * 提交之后又试图还原该值，就会碰到这种情况。
+	 * 这样写并不安全，因为一旦提交，就没有任何东西
+	 * 能阻止 toast 数据被删除。还原*必须*发生在
+	 * 最初取出 toast 指针的同一个事务中。因此，
+	 * 与其试图把问题补上，不如直接抛出错误。（这算不上
+	 * 多少保护，因为在许多情形下该过程已经建立了新的
+	 * 事务快照，使我们发现不了这个问题。
+	 * 但总比没有好，而且我们当然不该再花代码
+	 * 去把问题掩盖得更深。）
 	 */
 	if (snapshot == NULL)
 		elog(ERROR, "cannot fetch toast data without an active snapshot");
 
 	/*
-	 * Catalog snapshots can be returned by GetOldestSnapshot() even if not
-	 * registered or active. That easily hides bugs around not having a
-	 * snapshot set up - most of the time there is a valid catalog snapshot.
-	 * So additionally insist that the current snapshot is registered or
-	 * active.
+	 * 即使未注册或未活动，GetOldestSnapshot() 也可能返回
+	 * 系统目录快照。这很容易掩盖没有设好快照的缺陷 ---
+	 * 大多数时候都存在一份有效的系统目录快照。
+	 * 因此再额外坚持：当前快照必须已注册，
+	 * 或者处于活动状态。
 	 */
 	Assert(HaveRegisteredOrActiveSnapshot());
 

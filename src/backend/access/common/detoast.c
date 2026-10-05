@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * detoast.c
- *	  Retrieve compressed or external variable size attributes.
+ *	  取回经过压缩或外部存储的变长属性。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -32,13 +32,13 @@ static struct varlena *toast_decompress_datum_slice(struct varlena *attr, int32 
 /* ----------
  * detoast_external_attr -
  *
- *	Public entry point to get back a toasted value from
- *	external source (possibly still in compressed format).
+ *	从外部来源取回已 TOAST 的值的公开入口
+ *	（结果仍可能是压缩格式）。
  *
- * This will return a datum that contains all the data internally, ie, not
- * relying on external storage or memory, but it can still be compressed or
- * have a short header.  Note some callers assume that if the input is an
- * EXTERNAL datum, the result will be a pfree'able chunk.
+ * 返回的 datum 在内部包含全部数据，也就是不依赖
+ * 外部存储或内存，但仍可能是压缩的，或带有短头。
+ * 注意：有些调用方假定若输入是
+ * EXTERNAL datum，结果将是可用 pfree() 释放的块。
  * ----------
  */
 struct varlena *
@@ -49,30 +49,30 @@ detoast_external_attr(struct varlena *attr)
 	if (VARATT_IS_EXTERNAL_ONDISK(attr))
 	{
 		/*
-		 * This is an external stored plain value
+		 * 这是外部存储的普通值
 		 */
 		result = toast_fetch_datum(attr);
 	}
 	else if (VARATT_IS_EXTERNAL_INDIRECT(attr))
 	{
 		/*
-		 * This is an indirect pointer --- dereference it
+		 * 这是间接指针 --- 解引用它
 		 */
 		struct varatt_indirect redirect;
 
 		VARATT_EXTERNAL_GET_POINTER(redirect, attr);
 		attr = (struct varlena *) redirect.pointer;
 
-		/* nested indirect Datums aren't allowed */
+		/* 不允许嵌套的间接 Datum */
 		Assert(!VARATT_IS_EXTERNAL_INDIRECT(attr));
 
-		/* recurse if value is still external in some other way */
+		/* 若值仍以其他方式存放在外部，则递归 */
 		if (VARATT_IS_EXTERNAL(attr))
 			return detoast_external_attr(attr);
 
 		/*
-		 * Copy into the caller's memory context, in case caller tries to
-		 * pfree the result.
+		 * 复制到调用方的内存上下文，以防调用方试图
+		 * 对结果做 pfree。
 		 */
 		result = (struct varlena *) palloc(VARSIZE_ANY(attr));
 		memcpy(result, attr, VARSIZE_ANY(attr));
@@ -80,7 +80,7 @@ detoast_external_attr(struct varlena *attr)
 	else if (VARATT_IS_EXTERNAL_EXPANDED(attr))
 	{
 		/*
-		 * This is an expanded-object pointer --- get flat format
+		 * 这是展开对象指针 --- 取得扁平格式
 		 */
 		ExpandedObjectHeader *eoh;
 		Size		resultsize;
@@ -93,7 +93,7 @@ detoast_external_attr(struct varlena *attr)
 	else
 	{
 		/*
-		 * This is a plain value inside of the main tuple - why am I called?
+		 * 这是主元组里的普通值 --- 为什么会调用我？
 		 */
 		result = attr;
 	}
@@ -105,11 +105,11 @@ detoast_external_attr(struct varlena *attr)
 /* ----------
  * detoast_attr -
  *
- *	Public entry point to get back a toasted value from compression
- *	or external storage.  The result is always non-extended varlena form.
+ *	从压缩或外部存储取回已 TOAST 值的公开入口。
+ *	结果始终是非扩展的 varlena 形式。
  *
- * Note some callers assume that if the input is an EXTERNAL or COMPRESSED
- * datum, the result will be a pfree'able chunk.
+ * 注意：有些调用方假定若输入是 EXTERNAL 或 COMPRESSED
+ * datum，结果将是可用 pfree() 释放的块。
  * ----------
  */
 struct varlena *
@@ -118,10 +118,10 @@ detoast_attr(struct varlena *attr)
 	if (VARATT_IS_EXTERNAL_ONDISK(attr))
 	{
 		/*
-		 * This is an externally stored datum --- fetch it back from there
+		 * 这是外部存储的 datum --- 从那里取回
 		 */
 		attr = toast_fetch_datum(attr);
-		/* If it's compressed, decompress it */
+		/* 若它是压缩的，就解压 */
 		if (VARATT_IS_COMPRESSED(attr))
 		{
 			struct varlena *tmp = attr;
@@ -133,20 +133,20 @@ detoast_attr(struct varlena *attr)
 	else if (VARATT_IS_EXTERNAL_INDIRECT(attr))
 	{
 		/*
-		 * This is an indirect pointer --- dereference it
+		 * 这是间接指针 --- 解引用它
 		 */
 		struct varatt_indirect redirect;
 
 		VARATT_EXTERNAL_GET_POINTER(redirect, attr);
 		attr = (struct varlena *) redirect.pointer;
 
-		/* nested indirect Datums aren't allowed */
+		/* 不允许嵌套的间接 Datum */
 		Assert(!VARATT_IS_EXTERNAL_INDIRECT(attr));
 
-		/* recurse in case value is still extended in some other way */
+		/* 若值仍以其他方式处于扩展形式，则递归 */
 		attr = detoast_attr(attr);
 
-		/* if it isn't, we'd better copy it */
+		/* 若并非如此，最好复制一份 */
 		if (attr == (struct varlena *) redirect.pointer)
 		{
 			struct varlena *result;
@@ -159,23 +159,23 @@ detoast_attr(struct varlena *attr)
 	else if (VARATT_IS_EXTERNAL_EXPANDED(attr))
 	{
 		/*
-		 * This is an expanded-object pointer --- get flat format
+		 * 这是展开对象指针 --- 取得扁平格式
 		 */
 		attr = detoast_external_attr(attr);
-		/* flatteners are not allowed to produce compressed/short output */
+		/* 展平函数不允许产生压缩或短头输出 */
 		Assert(!VARATT_IS_EXTENDED(attr));
 	}
 	else if (VARATT_IS_COMPRESSED(attr))
 	{
 		/*
-		 * This is a compressed value inside of the main tuple
+		 * 这是主元组内部的压缩值
 		 */
 		attr = toast_decompress_datum(attr);
 	}
 	else if (VARATT_IS_SHORT(attr))
 	{
 		/*
-		 * This is a short-header varlena --- convert to 4-byte header format
+		 * 这是短头 varlena --- 转换成 4 字节头格式
 		 */
 		Size		data_size = VARSIZE_SHORT(attr) - VARHDRSZ_SHORT;
 		Size		new_size = data_size + VARHDRSZ;
@@ -194,11 +194,11 @@ detoast_attr(struct varlena *attr)
 /* ----------
  * detoast_attr_slice -
  *
- *		Public entry point to get back part of a toasted value
- *		from compression or external storage.
+ *		从压缩或外部存储取回已 TOAST 值
+ *		一部分的公开入口。
  *
- * sliceoffset is where to start (zero or more)
- * If slicelength < 0, return everything beyond sliceoffset
+ * sliceoffset 是起始位置（零或更大）
+ * 若 slicelength < 0，则返回 sliceoffset 之后的全部内容
  * ----------
  */
 struct varlena *
@@ -215,8 +215,8 @@ detoast_attr_slice(struct varlena *attr,
 		elog(ERROR, "invalid sliceoffset: %d", sliceoffset);
 
 	/*
-	 * Compute slicelimit = offset + length, or -1 if we must fetch all of the
-	 * value.  In case of integer overflow, we must fetch all.
+	 * 计算 slicelimit = 偏移 + 长度；若必须取回整个值则为 -1。
+	 * 整数溢出时必须全部取回。
 	 */
 	if (slicelength < 0)
 		slicelimit = -1;
@@ -229,35 +229,35 @@ detoast_attr_slice(struct varlena *attr,
 
 		VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
-		/* fast path for non-compressed external datums */
+		/* 未压缩外部 datum 的快速路径 */
 		if (!VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer))
 			return toast_fetch_datum_slice(attr, sliceoffset, slicelength);
 
 		/*
-		 * For compressed values, we need to fetch enough slices to decompress
-		 * at least the requested part (when a prefix is requested).
-		 * Otherwise, just fetch all slices.
+		 * 对压缩值，需要取回足够的切片，以便至少解压
+		 * 出所请求的部分（当请求的是前缀时）。
+		 * 否则就取回全部切片。
 		 */
 		if (slicelimit >= 0)
 		{
 			int32		max_size = VARATT_EXTERNAL_GET_EXTSIZE(toast_pointer);
 
 			/*
-			 * Determine maximum amount of compressed data needed for a prefix
-			 * of a given length (after decompression).
+			 * 确定给定长度的前缀（解压之后）最多需要
+			 * 多少压缩数据。
 			 *
-			 * At least for now, if it's LZ4 data, we'll have to fetch the
-			 * whole thing, because there doesn't seem to be an API call to
-			 * determine how much compressed data we need to be sure of being
-			 * able to decompress the required slice.
+			 * 至少目前，若是 LZ4 数据，就得整段取回，
+			 * 因为似乎没有哪个 API 调用能确定需要多少
+			 * 压缩数据，才能有把握解压出
+			 * 所需的切片。
 			 */
 			if (VARATT_EXTERNAL_GET_COMPRESS_METHOD(toast_pointer) ==
 				TOAST_PGLZ_COMPRESSION_ID)
 				max_size = pglz_maximum_compressed_size(slicelimit, max_size);
 
 			/*
-			 * Fetch enough compressed slices (compressed marker will get set
-			 * automatically).
+			 * 取回足够的压缩切片（压缩标记会
+			 * 自动设置）。
 			 */
 			preslice = toast_fetch_datum_slice(attr, 0, max_size);
 		}
@@ -270,7 +270,7 @@ detoast_attr_slice(struct varlena *attr,
 
 		VARATT_EXTERNAL_GET_POINTER(redirect, attr);
 
-		/* nested indirect Datums aren't allowed */
+		/* 不允许嵌套的间接 Datum */
 		Assert(!VARATT_IS_EXTERNAL_INDIRECT(redirect.pointer));
 
 		return detoast_attr_slice(redirect.pointer,
@@ -278,7 +278,7 @@ detoast_attr_slice(struct varlena *attr,
 	}
 	else if (VARATT_IS_EXTERNAL_EXPANDED(attr))
 	{
-		/* pass it off to detoast_external_attr to flatten */
+		/* 交给 detoast_external_attr 去做扁平化 */
 		preslice = detoast_external_attr(attr);
 	}
 	else
@@ -290,7 +290,7 @@ detoast_attr_slice(struct varlena *attr,
 	{
 		struct varlena *tmp = preslice;
 
-		/* Decompress enough to encompass the slice and the offset */
+		/* 解压到足以覆盖该切片和偏移 */
 		if (slicelimit >= 0)
 			preslice = toast_decompress_datum_slice(tmp, slicelimit);
 		else
@@ -311,7 +311,7 @@ detoast_attr_slice(struct varlena *attr,
 		attrsize = VARSIZE(preslice) - VARHDRSZ;
 	}
 
-	/* slicing of datum for compressed cases and plain value */
+	/* 对压缩情形和普通值做 datum 切片 */
 
 	if (sliceoffset >= attrsize)
 	{
@@ -335,8 +335,8 @@ detoast_attr_slice(struct varlena *attr,
 /* ----------
  * toast_fetch_datum -
  *
- *	Reconstruct an in memory Datum from the chunks saved
- *	in the toast relation
+ *	根据保存在 toast 关系中的各个块，
+ *	在内存里重组出 Datum
  * ----------
  */
 static struct varlena *
@@ -350,7 +350,7 @@ toast_fetch_datum(struct varlena *attr)
 	if (!VARATT_IS_EXTERNAL_ONDISK(attr))
 		elog(ERROR, "toast_fetch_datum shouldn't be called for non-ondisk datums");
 
-	/* Must copy to access aligned fields */
+	/* 必须复制才能访问已对齐的字段 */
 	VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
 	attrsize = VARATT_EXTERNAL_GET_EXTSIZE(toast_pointer);
@@ -363,19 +363,19 @@ toast_fetch_datum(struct varlena *attr)
 		SET_VARSIZE(result, attrsize + VARHDRSZ);
 
 	if (attrsize == 0)
-		return result;			/* Probably shouldn't happen, but just in
-								 * case. */
+		return result;			/* 按理不该发生，不过
+								 * 以防万一。 */
 
 	/*
-	 * Open the toast relation and its indexes
+	 * 打开 toast 关系及其索引
 	 */
 	toastrel = table_open(toast_pointer.va_toastrelid, AccessShareLock);
 
-	/* Fetch all chunks */
+	/* 取回全部块 */
 	table_relation_fetch_toast_slice(toastrel, toast_pointer.va_valueid,
 									 attrsize, 0, attrsize, result);
 
-	/* Close toast table */
+	/* 关闭 toast 表 */
 	table_close(toastrel, AccessShareLock);
 
 	return result;
@@ -384,12 +384,12 @@ toast_fetch_datum(struct varlena *attr)
 /* ----------
  * toast_fetch_datum_slice -
  *
- *	Reconstruct a segment of a Datum from the chunks saved
- *	in the toast relation
+ *	根据保存在 toast 关系中的各个块，重组出 Datum 的一段
+ *	在内存里重组出 Datum
  *
- *	Note that this function supports non-compressed external datums
- *	and compressed external datums (in which case the requested slice
- *	has to be a prefix, i.e. sliceoffset has to be 0).
+ *	注意：本函数支持未压缩的外部 datum，
+ *	也支持压缩的外部 datum（此时所请求的切片
+ *	必须是前缀，即 sliceoffset 必须为 0）。
  * ----------
  */
 static struct varlena *
@@ -404,13 +404,13 @@ toast_fetch_datum_slice(struct varlena *attr, int32 sliceoffset,
 	if (!VARATT_IS_EXTERNAL_ONDISK(attr))
 		elog(ERROR, "toast_fetch_datum_slice shouldn't be called for non-ondisk datums");
 
-	/* Must copy to access aligned fields */
+	/* 必须复制才能访问已对齐的字段 */
 	VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
 	/*
-	 * It's nonsense to fetch slices of a compressed datum unless when it's a
-	 * prefix -- this isn't lo_* we can't return a compressed datum which is
-	 * meaningful to toast later.
+	 * 除非取的是前缀，否则去取压缩 datum 的切片毫无意义
+	 * --- 这不是 lo_*，我们不能返回一份以后对 toast
+	 * 仍有意义的压缩 datum。
 	 */
 	Assert(!VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer) || 0 == sliceoffset);
 
@@ -423,17 +423,17 @@ toast_fetch_datum_slice(struct varlena *attr, int32 sliceoffset,
 	}
 
 	/*
-	 * When fetching a prefix of a compressed external datum, account for the
-	 * space required by va_tcinfo, which is stored at the beginning as an
-	 * int32 value.
+	 * 取压缩外部 datum 的前缀时，要计入 va_tcinfo
+	 * 所需的空间。它以 int32 值的形式
+	 * 存放在开头。
 	 */
 	if (VARATT_EXTERNAL_IS_COMPRESSED(toast_pointer) && slicelength > 0)
 		slicelength = slicelength + sizeof(int32);
 
 	/*
-	 * Adjust length request if needed.  (Note: our sole caller,
-	 * detoast_attr_slice, protects us against sliceoffset + slicelength
-	 * overflowing.)
+	 * 必要时调整长度请求。（注意：唯一的调用方
+	 * detoast_attr_slice 会防止 sliceoffset + slicelength
+	 * 溢出。）
 	 */
 	if (((sliceoffset + slicelength) > attrsize) || slicelength < 0)
 		slicelength = attrsize - sliceoffset;
@@ -446,17 +446,17 @@ toast_fetch_datum_slice(struct varlena *attr, int32 sliceoffset,
 		SET_VARSIZE(result, slicelength + VARHDRSZ);
 
 	if (slicelength == 0)
-		return result;			/* Can save a lot of work at this point! */
+		return result;			/* 此时可以省下大量工作！ */
 
-	/* Open the toast relation */
+	/* 打开 toast 关系 */
 	toastrel = table_open(toast_pointer.va_toastrelid, AccessShareLock);
 
-	/* Fetch all chunks */
+	/* 取回全部块 */
 	table_relation_fetch_toast_slice(toastrel, toast_pointer.va_valueid,
 									 attrsize, sliceoffset, slicelength,
 									 result);
 
-	/* Close toast table */
+	/* 关闭 toast 表 */
 	table_close(toastrel, AccessShareLock);
 
 	return result;
@@ -465,7 +465,7 @@ toast_fetch_datum_slice(struct varlena *attr, int32 sliceoffset,
 /* ----------
  * toast_decompress_datum -
  *
- * Decompress a compressed version of a varlena datum
+ * 解压 varlena datum 的压缩版本
  */
 static struct varlena *
 toast_decompress_datum(struct varlena *attr)
@@ -475,8 +475,8 @@ toast_decompress_datum(struct varlena *attr)
 	Assert(VARATT_IS_COMPRESSED(attr));
 
 	/*
-	 * Fetch the compression method id stored in the compression header and
-	 * decompress the data using the appropriate decompression routine.
+	 * 取出存放在压缩头里的压缩方法 id，并用相应的
+	 * 解压例程解压数据。
 	 */
 	cmid = TOAST_COMPRESS_METHOD(attr);
 	switch (cmid)
@@ -487,7 +487,7 @@ toast_decompress_datum(struct varlena *attr)
 			return lz4_decompress_datum(attr);
 		default:
 			elog(ERROR, "invalid compression method id %d", cmid);
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 消除编译器告警 */
 	}
 }
 
@@ -495,9 +495,9 @@ toast_decompress_datum(struct varlena *attr)
 /* ----------
  * toast_decompress_datum_slice -
  *
- * Decompress the front of a compressed version of a varlena datum.
- * offset handling happens in detoast_attr_slice.
- * Here we just decompress a slice from the front.
+ * 解压 varlena datum 压缩版本的前部。
+ * 偏移处理在 detoast_attr_slice 中完成。
+ * 这里只从前部解压一个切片。
  */
 static struct varlena *
 toast_decompress_datum_slice(struct varlena *attr, int32 slicelength)
@@ -507,19 +507,19 @@ toast_decompress_datum_slice(struct varlena *attr, int32 slicelength)
 	Assert(VARATT_IS_COMPRESSED(attr));
 
 	/*
-	 * Some callers may pass a slicelength that's more than the actual
-	 * decompressed size.  If so, just decompress normally.  This avoids
-	 * possibly allocating a larger-than-necessary result object, and may be
-	 * faster and/or more robust as well.  Notably, some versions of liblz4
-	 * have been seen to give wrong results if passed an output size that is
-	 * more than the data's true decompressed size.
+	 * 有些调用方传入的 slicelength 可能大于实际
+	 * 解压后的大小。若是这样，就按普通方式解压。这样
+	 * 可以避免分配一个比所需更大的结果对象，而且可能
+	 * 更快，也更稳妥。特别是，曾见过某些版本的 liblz4
+	 * 在传入的输出大小大于数据真实解压大小时
+	 * 给出错误结果。
 	 */
 	if ((uint32) slicelength >= TOAST_COMPRESS_EXTSIZE(attr))
 		return toast_decompress_datum(attr);
 
 	/*
-	 * Fetch the compression method id stored in the compression header and
-	 * decompress the data slice using the appropriate decompression routine.
+	 * 取出存放在压缩头里的压缩方法 id，并用相应的
+	 * 解压例程解压数据切片。
 	 */
 	cmid = TOAST_COMPRESS_METHOD(attr);
 	switch (cmid)
@@ -530,15 +530,15 @@ toast_decompress_datum_slice(struct varlena *attr, int32 slicelength)
 			return lz4_decompress_datum_slice(attr, slicelength);
 		default:
 			elog(ERROR, "invalid compression method id %d", cmid);
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 消除编译器告警 */
 	}
 }
 
 /* ----------
  * toast_raw_datum_size -
  *
- *	Return the raw (detoasted) size of a varlena datum
- *	(including the VARHDRSZ header)
+ *	返回 varlena datum 的原始（还原后）大小
+ *	（含 VARHDRSZ 头）
  * ----------
  */
 Size
@@ -549,7 +549,7 @@ toast_raw_datum_size(Datum value)
 
 	if (VARATT_IS_EXTERNAL_ONDISK(attr))
 	{
-		/* va_rawsize is the size of the original datum -- including header */
+		/* va_rawsize 是原始 datum 的大小 -- 含头部 */
 		struct varatt_external toast_pointer;
 
 		VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
@@ -561,7 +561,7 @@ toast_raw_datum_size(Datum value)
 
 		VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
-		/* nested indirect Datums aren't allowed */
+		/* 不允许嵌套的间接 Datum */
 		Assert(!VARATT_IS_EXTERNAL_INDIRECT(toast_pointer.pointer));
 
 		return toast_raw_datum_size(PointerGetDatum(toast_pointer.pointer));
@@ -572,20 +572,20 @@ toast_raw_datum_size(Datum value)
 	}
 	else if (VARATT_IS_COMPRESSED(attr))
 	{
-		/* here, va_rawsize is just the payload size */
+		/* 这里 va_rawsize 只是有效载荷大小 */
 		result = VARDATA_COMPRESSED_GET_EXTSIZE(attr) + VARHDRSZ;
 	}
 	else if (VARATT_IS_SHORT(attr))
 	{
 		/*
-		 * we have to normalize the header length to VARHDRSZ or else the
-		 * callers of this function will be confused.
+		 * 必须把头长度规范化为 VARHDRSZ，否则本函数的
+		 * 调用方会搞混。
 		 */
 		result = VARSIZE_SHORT(attr) - VARHDRSZ_SHORT + VARHDRSZ;
 	}
 	else
 	{
-		/* plain untoasted datum */
+		/* 普通的未还原 datum */
 		result = VARSIZE(attr);
 	}
 	return result;
@@ -594,7 +594,7 @@ toast_raw_datum_size(Datum value)
 /* ----------
  * toast_datum_size
  *
- *	Return the physical storage size (possibly compressed) of a varlena datum
+ *	返回 varlena datum 的物理存储大小（可能已压缩）
  * ----------
  */
 Size
@@ -606,9 +606,9 @@ toast_datum_size(Datum value)
 	if (VARATT_IS_EXTERNAL_ONDISK(attr))
 	{
 		/*
-		 * Attribute is stored externally - return the extsize whether
-		 * compressed or not.  We do not count the size of the toast pointer
-		 * ... should we?
+		 * 属性存放在外部 --- 无论是否压缩都返回 extsize。
+		 * 我们不把 toast 指针的大小计算在内
+		 * ……应该算吗？
 		 */
 		struct varatt_external toast_pointer;
 
@@ -621,7 +621,7 @@ toast_datum_size(Datum value)
 
 		VARATT_EXTERNAL_GET_POINTER(toast_pointer, attr);
 
-		/* nested indirect Datums aren't allowed */
+		/* 不允许嵌套的间接 Datum */
 		Assert(!VARATT_IS_EXTERNAL_INDIRECT(attr));
 
 		return toast_datum_size(PointerGetDatum(toast_pointer.pointer));
@@ -637,8 +637,8 @@ toast_datum_size(Datum value)
 	else
 	{
 		/*
-		 * Attribute is stored inline either compressed or not, just calculate
-		 * the size of the datum in either case.
+		 * 属性以内联方式存放，无论是否压缩，两种情况下
+		 * 都只计算 datum 的大小。
 		 */
 		result = VARSIZE(attr);
 	}

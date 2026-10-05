@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0138-comment-access-heap-prune-rewrite",
+ "title": "zh: translate pruneheap and rewriteheap comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d91726031ce978e3f94ed39707b5ea90c70ccfe4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "note": "heap page pruning and HOT chain management"
+  },
+  {
+   "pattern": "src/backend/access/heap/rewriteheap.c",
+   "kind": "c_comment",
+   "note": "heap rewrite preserving visibility and update chains"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0138-comment-access-heap-prune-rewrite.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 111,
+   "translated": 110,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "heap page pruning and HOT chain management"
+  },
+  {
+   "path": "src/backend/access/heap/rewriteheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 135,
+   "translated": 134,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "heap rewrite preserving visibility and update chains"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0138-comment-access-heap-prune-rewrite.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0138 translates comments in src/backend/access/heap/pruneheap.c and rewriteheap.c. No fall-through exemption. Next suggested: heapam_visibility.c."
+}

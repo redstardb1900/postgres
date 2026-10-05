@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pruneheap.c
- *	  heap page pruning and HOT-chain management code
+ *	  堆页面剪枝与 HOT 链管理代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,57 +28,57 @@
 #include "utils/rel.h"
 #include "utils/snapmgr.h"
 
-/* Working data for heap_page_prune and subroutines */
+/* heap_page_prune 及其子程序的工作数据 */
 typedef struct
 {
 	Relation	rel;
 
-	/* State used to test tuple visibility; Initialized for the relation */
+	/* 用于测试元组可见性的状态；按关系初始化 */
 	TransactionId oldest_xmin;
 	GlobalVisState *vistest;
 
 	/*
-	 * Thresholds set by TransactionIdLimitedForOldSnapshots() if they have
-	 * been computed (done on demand, and only if
-	 * OldSnapshotThresholdActive()). The first time a tuple is about to be
-	 * removed based on the limited horizon, old_snap_used is set to true, and
-	 * SetOldSnapshotThresholdTimestamp() is called. See
+	 * 由 TransactionIdLimitedForOldSnapshots() 设置的阈值，若它们已经
+	 * 被计算出来（按需进行，且仅当
+	 * OldSnapshotThresholdActive()）。第一次即将基于
+	 * 受限视界移除某个元组时，把 old_snap_used 设为 true，并
+	 * 调用 SetOldSnapshotThresholdTimestamp()。参见
 	 * heap_prune_satisfies_vacuum().
 	 */
 	TimestampTz old_snap_ts;
 	TransactionId old_snap_xmin;
 	bool		old_snap_used;
 
-	TransactionId new_prune_xid;	/* new prune hint value for page */
-	TransactionId snapshotConflictHorizon;	/* latest xid removed */
-	int			nredirected;	/* numbers of entries in arrays below */
+	TransactionId new_prune_xid;	/* 该页新的剪枝提示值 */
+	TransactionId snapshotConflictHorizon;	/* 被移除的最新 xid */
+	int			nredirected;	/* 下面各数组中的条目数 */
 	int			ndead;
 	int			nunused;
-	/* arrays that accumulate indexes of items to be changed */
+	/* 累积待变更项下标的数组 */
 	OffsetNumber redirected[MaxHeapTuplesPerPage * 2];
 	OffsetNumber nowdead[MaxHeapTuplesPerPage];
 	OffsetNumber nowunused[MaxHeapTuplesPerPage];
 
 	/*
-	 * marked[i] is true if item i is entered in one of the above arrays.
+	 * 若项 i 已进入上面某个数组，则 marked[i] 为真。
 	 *
-	 * This needs to be MaxHeapTuplesPerPage + 1 long as FirstOffsetNumber is
-	 * 1. Otherwise every access would need to subtract 1.
+	 * 由于 FirstOffsetNumber 为 1，长度须为 MaxHeapTuplesPerPage + 1。
+	 * 否则每次访问都要减 1。
 	 */
 	bool		marked[MaxHeapTuplesPerPage + 1];
 
 	/*
-	 * Tuple visibility is only computed once for each tuple, for correctness
-	 * and efficiency reasons; see comment in heap_page_prune() for details.
-	 * This is of type int8[], instead of HTSV_Result[], so we can use -1 to
-	 * indicate no visibility has been computed, e.g. for LP_DEAD items.
+	 * 每个元组的可见性只计算一次，这是出于正确性
+	 * 与效率；细节见 heap_page_prune() 中的注释。
+	 * 类型用 int8[] 而不是 HTSV_Result[]，这样可以用 -1
+	 * 表示尚未计算可见性，例如对 LP_DEAD 项。
 	 *
-	 * Same indexing as ->marked.
+	 * 下标方式与 ->marked 相同。
 	 */
 	int8		htsv[MaxHeapTuplesPerPage + 1];
 } PruneState;
 
-/* Local functions */
+/* 局部函数 */
 static HTSV_Result heap_prune_satisfies_vacuum(PruneState *prstate,
 											   HeapTuple tup,
 											   Buffer buffer);
@@ -94,16 +94,16 @@ static void page_verify_redirects(Page page);
 
 
 /*
- * Optionally prune and repair fragmentation in the specified page.
+ * 按需对指定页面做剪枝并修复碎片。
  *
- * This is an opportunistic function.  It will perform housekeeping
- * only if the page heuristically looks like a candidate for pruning and we
- * can acquire buffer cleanup lock without blocking.
+ * 这是一个伺机函数。它只在如下条件下做整理：
+ * 页面按启发式看起来是剪枝候选，并且我们
+ * 能够在不阻塞的情况下取得缓冲区清理锁。
  *
- * Note: this is called quite often.  It's important that it fall out quickly
- * if there's not any use in pruning.
+ * 注意：此函数调用很频繁。若剪枝并无用处，它必须迅速返回，
+ * 这一点很重要。
  *
- * Caller must have pin on the buffer, and must *not* have a lock on it.
+ * 调用方必须已钉住该缓冲区，并且不得持有其上的锁。
  */
 void
 heap_page_prune_opt(Relation relation, Buffer buffer)
@@ -116,47 +116,47 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 	Size		minfree;
 
 	/*
-	 * We can't write WAL in recovery mode, so there's no point trying to
-	 * clean the page. The primary will likely issue a cleaning WAL record
-	 * soon anyway, so this is no particular loss.
+	 * 恢复模式下无法写 WAL，因此没有必要尝试
+	 * 清理该页。主库很可能很快就会发出一条清理用的 WAL 记录，
+	 * 所以这并没有什么特别损失。
 	 */
 	if (RecoveryInProgress())
 		return;
 
 	/*
-	 * XXX: Magic to keep old_snapshot_threshold tests appear "working". They
-	 * currently are broken, and discussion of what to do about them is
-	 * ongoing. See
+	 * XXX: 权宜手段，让 old_snapshot_threshold 测试看起来"还能工作"。它们
+	 * 目前是坏的，关于如何处理的讨论
+	 * 仍在进行。参见
 	 * https://www.postgresql.org/message-id/20200403001235.e6jfdll3gh2ygbuc%40alap3.anarazel.de
 	 */
 	if (old_snapshot_threshold == 0)
 		SnapshotTooOldMagicForTest();
 
 	/*
-	 * First check whether there's any chance there's something to prune,
-	 * determining the appropriate horizon is a waste if there's no prune_xid
-	 * (i.e. no updates/deletes left potentially dead tuples around).
+	 * 首先检查是否还有任何东西值得剪枝，
+	 * 若没有 prune_xid，去确定合适的视界就是浪费
+	 * （也就是没有更新/删除留下可能已死的元组）。
 	 */
 	prune_xid = ((PageHeader) page)->pd_prune_xid;
 	if (!TransactionIdIsValid(prune_xid))
 		return;
 
 	/*
-	 * Check whether prune_xid indicates that there may be dead rows that can
-	 * be cleaned up.
+	 * 检查 prune_xid 是否表明可能有死行可以
+	 * 被清理。
 	 *
-	 * It is OK to check the old snapshot limit before acquiring the cleanup
-	 * lock because the worst that can happen is that we are not quite as
-	 * aggressive about the cleanup (by however many transaction IDs are
-	 * consumed between this point and acquiring the lock).  This allows us to
-	 * save significant overhead in the case where the page is found not to be
-	 * prunable.
+	 * 在取得清理锁之前检查旧快照限制是可以的，
+	 * 因为最坏情况不过是清理没有那么
+	 * 激进（相差的事务 ID 数目，就是从此时到取得锁之间
+	 * 所消耗的那些）。这样我们就能够
+	 * 在发现该页不可剪枝时省下可观的
+	 * 开销。
 	 *
-	 * Even if old_snapshot_threshold is set, we first check whether the page
-	 * can be pruned without. Both because
-	 * TransactionIdLimitedForOldSnapshots() is not cheap, and because not
-	 * unnecessarily relying on old_snapshot_threshold avoids causing
-	 * conflicts.
+	 * 即便设置了 old_snapshot_threshold，我们也先检查该页
+	 * 能否在不依赖它的情况下剪枝。一方面是因为
+	 * TransactionIdLimitedForOldSnapshots() 并不便宜，另一方面只有在
+	 * 必要时才依赖 old_snapshot_threshold，以免引发
+	 * 冲突。
 	 */
 	vistest = GlobalVisTestFor(relation);
 
@@ -175,16 +175,16 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 	}
 
 	/*
-	 * We prune when a previous UPDATE failed to find enough space on the page
-	 * for a new tuple version, or when free space falls below the relation's
-	 * fill-factor target (but not less than 10%).
+	 * 若先前一次 UPDATE 在该页上找不到足够空间来存放
+	 * 新的元组版本，或者空闲空间低于该关系的
+	 * 填充因子目标（但不低于 10%），我们就做剪枝。
 	 *
-	 * Checking free space here is questionable since we aren't holding any
-	 * lock on the buffer; in the worst case we could get a bogus answer. It's
-	 * unlikely to be *seriously* wrong, though, since reading either pd_lower
-	 * or pd_upper is probably atomic.  Avoiding taking a lock seems more
-	 * important than sometimes getting a wrong answer in what is after all
-	 * just a heuristic estimate.
+	 * 在这里检查空闲空间值得商榷，因为我们并未持有
+	 * 缓冲区上的任何锁；最坏情况下会得到错误答案。不过
+	 * 它不太可能*严重*出错，因为读取 pd_lower
+	 * 或 pd_upper 很可能是原子的。避免加锁似乎比
+	 * 偶尔得到错误答案更重要，毕竟这终究
+	 * 只是启发式估计。
 	 */
 	minfree = RelationGetTargetPageFreeSpace(relation,
 											 HEAP_DEFAULT_FILLFACTOR);
@@ -192,14 +192,14 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 
 	if (PageIsFull(page) || PageGetHeapFreeSpace(page) < minfree)
 	{
-		/* OK, try to get exclusive buffer lock */
+		/* 好，尝试取得排他缓冲区锁 */
 		if (!ConditionalLockBufferForCleanup(buffer))
 			return;
 
 		/*
-		 * Now that we have buffer lock, get accurate information about the
-		 * page's free space, and recheck the heuristic about whether to
-		 * prune.
+		 * 既然已经持有缓冲区锁，就取得关于
+		 * 该页空闲空间的准确信息，并重新检查是否应当
+		 * 剪枝这一启发式判断。
 		 */
 		if (PageIsFull(page) || PageGetHeapFreeSpace(page) < minfree)
 		{
@@ -211,60 +211,60 @@ heap_page_prune_opt(Relation relation, Buffer buffer)
 									   limited_ts, &nnewlpdead, NULL);
 
 			/*
-			 * Report the number of tuples reclaimed to pgstats.  This is
-			 * ndeleted minus the number of newly-LP_DEAD-set items.
+			 * 向 pgstats 报告回收的元组数。这等于
+			 * ndeleted 减去新被设为 LP_DEAD 的项数。
 			 *
-			 * We derive the number of dead tuples like this to avoid totally
-			 * forgetting about items that were set to LP_DEAD, since they
-			 * still need to be cleaned up by VACUUM.  We only want to count
-			 * heap-only tuples that just became LP_UNUSED in our report,
-			 * which don't.
+			 * 我们这样推导死元组数目，以免完全
+			 * 忘掉被设为 LP_DEAD 的项，因为它们
+			 * 仍需由 VACUUM 清理。我们的报告只想计入
+			 * 刚刚变成 LP_UNUSED 的堆内元组，
+			 * 那些项并不计入。
 			 *
-			 * VACUUM doesn't have to compensate in the same way when it
-			 * tracks ndeleted, since it will set the same LP_DEAD items to
-			 * LP_UNUSED separately.
+			 * VACUUM 跟踪 ndeleted 时不必以同样方式补偿，
+			 * 因为它会把同样这些 LP_DEAD 项
+			 * 另行设为 LP_UNUSED。
 			 */
 			if (ndeleted > nnewlpdead)
 				pgstat_update_heap_dead_tuples(relation,
 											   ndeleted - nnewlpdead);
 		}
 
-		/* And release buffer lock */
+		/* 然后释放缓冲区锁 */
 		LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
 		/*
-		 * We avoid reuse of any free space created on the page by unrelated
-		 * UPDATEs/INSERTs by opting to not update the FSM at this point.  The
-		 * free space should be reused by UPDATEs to *this* page.
+		 * 我们选择此时不更新空闲空间映射（FSM），以免无关的
+		 * UPDATEs/INSERTs 复用该页上新产生的空闲空间。这些
+		 * 空闲空间应当由对本页的 UPDATEs 来复用。
 		 */
 	}
 }
 
 
 /*
- * Prune and repair fragmentation in the specified page.
+ * 对指定页面做剪枝并修复碎片。
  *
- * Caller must have pin and buffer cleanup lock on the page.  Note that we
- * don't update the FSM information for page on caller's behalf.  Caller might
- * also need to account for a reduction in the length of the line pointer
- * array following array truncation by us.
+ * 调用方必须已钉住该页并持有缓冲区清理锁。注意我们
+ * 不会替调用方更新该页的 FSM 信息。调用方可能
+ * 还需要计入行指针数组长度的缩短，
+ * 那是我们截断该数组造成的。
  *
- * vistest and oldest_xmin are used to distinguish whether tuples are DEAD or
- * RECENTLY_DEAD (see heap_prune_satisfies_vacuum and
- * HeapTupleSatisfiesVacuum). If oldest_xmin is provided by the caller, it is
- * used before consulting GlobalVisState.
+ * vistest 与 oldest_xmin 用来区分元组是 DEAD 还是
+ * RECENTLY_DEAD（见 heap_prune_satisfies_vacuum 与
+ * HeapTupleSatisfiesVacuum）。若调用方提供了 oldest_xmin，则
+ * 在查阅 GlobalVisState 之前先使用它。
  *
- * old_snap_xmin / old_snap_ts need to either have been set by
- * TransactionIdLimitedForOldSnapshots, or InvalidTransactionId/0
- * respectively.
+ * old_snap_xmin / old_snap_ts 必须已经由
+ * TransactionIdLimitedForOldSnapshots 设置，或者分别为 InvalidTransactionId/0，
+ * 二者一一对应。
  *
- * Sets *nnewlpdead for caller, indicating the number of items that were
- * newly set LP_DEAD during prune operation.
+ * 为调用方设置 *nnewlpdead，表示那些项的数目，它们
+ * 在剪枝操作期间新被设为 LP_DEAD。
  *
- * off_loc is the offset location required by the caller to use in error
- * callback.
+ * off_loc 是调用方要求在错误
+ * 回调中使用的偏移位置。
  *
- * Returns the number of tuples deleted from the page during this call.
+ * 返回本次调用从该页删除的元组数。
  */
 int
 heap_page_prune(Relation relation, Buffer buffer,
@@ -284,15 +284,15 @@ heap_page_prune(Relation relation, Buffer buffer,
 	HeapTupleData tup;
 
 	/*
-	 * Our strategy is to scan the page and make lists of items to change,
-	 * then apply the changes within a critical section.  This keeps as much
-	 * logic as possible out of the critical section, and also ensures that
-	 * WAL replay will work the same as the normal case.
+	 * 策略是先扫描该页，列出待变更的项，
+	 * 再在临界区内应用这些变更。这样可以把尽可能多的
+	 * 逻辑留在临界区之外，并且保证
+	 * WAL 重放与正常情形行为一致。
 	 *
-	 * First, initialize the new pd_prune_xid value to zero (indicating no
-	 * prunable tuples).  If we find any tuples which may soon become
-	 * prunable, we will save the lowest relevant XID in new_prune_xid. Also
-	 * initialize the rest of our working state.
+	 * 首先把新的 pd_prune_xid 初始化为零（表示没有
+	 * 可剪枝元组）。若发现任何可能很快变得
+	 * 可剪枝的元组，就把相关的最低 XID 存入 new_prune_xid。同时
+	 * 初始化其余工作状态。
 	 */
 	prstate.new_prune_xid = InvalidTransactionId;
 	prstate.rel = relation;
@@ -309,24 +309,24 @@ heap_page_prune(Relation relation, Buffer buffer,
 	tup.t_tableOid = RelationGetRelid(prstate.rel);
 
 	/*
-	 * Determine HTSV for all tuples.
+	 * 为所有元组确定 HTSV。
 	 *
-	 * This is required for correctness to deal with cases where running HTSV
-	 * twice could result in different results (e.g. RECENTLY_DEAD can turn to
-	 * DEAD if another checked item causes GlobalVisTestIsRemovableFullXid()
-	 * to update the horizon, INSERT_IN_PROGRESS can change to DEAD if the
-	 * inserting transaction aborts, ...). That in turn could cause
-	 * heap_prune_chain() to behave incorrectly if a tuple is reached twice,
-	 * once directly via a heap_prune_chain() and once following a HOT chain.
+	 * 出于正确性必须这样做，以处理把 HTSV
+	 * 运行两次会得到不同结果的情形（例如 RECENTLY_DEAD 可以变成
+	 * DEAD，若另一个被检查的项使 GlobalVisTestIsRemovableFullXid()
+	 * 更新了视界；INSERT_IN_PROGRESS 可以变成 DEAD，若插入
+	 * 事务中止，……）。那又可能导致
+	 * heap_prune_chain() 在同一元组被到达两次时行为不正确，
+	 * 一次直接经由 heap_prune_chain()，一次沿着 HOT 链。
 	 *
-	 * It's also good for performance. Most commonly tuples within a page are
-	 * stored at decreasing offsets (while the items are stored at increasing
-	 * offsets). When processing all tuples on a page this leads to reading
-	 * memory at decreasing offsets within a page, with a variable stride.
-	 * That's hard for CPU prefetchers to deal with. Processing the items in
-	 * reverse order (and thus the tuples in increasing order) increases
-	 * prefetching efficiency significantly / decreases the number of cache
-	 * misses.
+	 * 这对性能也有好处。页内元组最常见的存放方式是
+	 * 偏移递减（而项本身按递增的
+	 * 偏移存放）。处理一页上的全部元组时，就会按递减偏移读取
+	 * 页内内存，而且步长不固定。
+	 * CPU 预取器很难应付。按相反顺序处理这些项
+	 * （于是元组按递增顺序被处理）能显著提高
+	 * 预取效率，并减少缓存
+	 * 未命中次数。
 	 */
 	for (offnum = maxoff;
 		 offnum >= FirstOffsetNumber;
@@ -335,7 +335,7 @@ heap_page_prune(Relation relation, Buffer buffer,
 		ItemId		itemid = PageGetItemId(page, offnum);
 		HeapTupleHeader htup;
 
-		/* Nothing to do if slot doesn't contain a tuple */
+		/* 若槽位不含元组则无事可做 */
 		if (!ItemIdIsNormal(itemid))
 		{
 			prstate.htsv[offnum] = -1;
@@ -348,8 +348,8 @@ heap_page_prune(Relation relation, Buffer buffer,
 		ItemPointerSet(&(tup.t_self), blockno, offnum);
 
 		/*
-		 * Set the offset number so that we can display it along with any
-		 * error that occurred while processing this tuple.
+		 * 设置偏移号，以便连同处理该元组时发生的任何
+		 * 错误一起显示出来。
 		 */
 		if (off_loc)
 			*off_loc = offnum;
@@ -358,43 +358,43 @@ heap_page_prune(Relation relation, Buffer buffer,
 														   buffer);
 	}
 
-	/* Scan the page */
+	/* 扫描该页 */
 	for (offnum = FirstOffsetNumber;
 		 offnum <= maxoff;
 		 offnum = OffsetNumberNext(offnum))
 	{
 		ItemId		itemid;
 
-		/* Ignore items already processed as part of an earlier chain */
+		/* 忽略已经作为更早某条链的一部分处理过的项 */
 		if (prstate.marked[offnum])
 			continue;
 
-		/* see preceding loop */
+		/* 见前面的循环 */
 		if (off_loc)
 			*off_loc = offnum;
 
-		/* Nothing to do if slot is empty or already dead */
+		/* 若槽位为空或已经死亡则无事可做 */
 		itemid = PageGetItemId(page, offnum);
 		if (!ItemIdIsUsed(itemid) || ItemIdIsDead(itemid))
 			continue;
 
-		/* Process this item or chain of items */
+		/* 处理此项，或由此项开始的一串项 */
 		ndeleted += heap_prune_chain(buffer, offnum, &prstate);
 	}
 
-	/* Clear the offset information once we have processed the given page. */
+	/* 处理完给定页面后，清除偏移信息。 */
 	if (off_loc)
 		*off_loc = InvalidOffsetNumber;
 
-	/* Any error while applying the changes is critical */
+	/* 应用这些变更时的任何错误都是致命的 */
 	START_CRIT_SECTION();
 
-	/* Have we found any prunable items? */
+	/* 是否找到了可剪枝的项？ */
 	if (prstate.nredirected > 0 || prstate.ndead > 0 || prstate.nunused > 0)
 	{
 		/*
-		 * Apply the planned item changes, then repair page fragmentation, and
-		 * update the page's hint bit about whether it has free line pointers.
+		 * 应用计划中的项变更，然后修复页面碎片，并
+		 * 更新该页关于是否还有空闲行指针的提示位。
 		 */
 		heap_page_prune_execute(buffer,
 								prstate.redirected, prstate.nredirected,
@@ -402,22 +402,22 @@ heap_page_prune(Relation relation, Buffer buffer,
 								prstate.nowunused, prstate.nunused);
 
 		/*
-		 * Update the page's pd_prune_xid field to either zero, or the lowest
-		 * XID of any soon-prunable tuple.
+		 * 把该页的 pd_prune_xid 字段更新为零，或更新为最低的那个
+		 * 即将可剪枝元组的 XID。
 		 */
 		((PageHeader) page)->pd_prune_xid = prstate.new_prune_xid;
 
 		/*
-		 * Also clear the "page is full" flag, since there's no point in
-		 * repeating the prune/defrag process until something else happens to
-		 * the page.
+		 * 同时清除"页面已满"标志，因为没有必要
+		 * 重复剪枝/碎片整理过程，直到别的事情发生在
+		 * 该页上。
 		 */
 		PageClearFull(page);
 
 		MarkBufferDirty(buffer);
 
 		/*
-		 * Emit a WAL XLOG_HEAP2_PRUNE record showing what we did
+		 * 发出一条 WAL 记录 XLOG_HEAP2_PRUNE，说明我们所做的事
 		 */
 		if (RelationNeedsWAL(relation))
 		{
@@ -435,9 +435,9 @@ heap_page_prune(Relation relation, Buffer buffer,
 			XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 
 			/*
-			 * The OffsetNumber arrays are not actually in the buffer, but we
-			 * pretend that they are.  When XLogInsert stores the whole
-			 * buffer, the offset arrays need not be stored too.
+			 * 这些 OffsetNumber 数组实际上并不在缓冲区里，但我们
+			 * 假装它们在。当 XLogInsert 存储整个
+			 * 缓冲区时，偏移数组就不必再存一遍。
 			 */
 			if (prstate.nredirected > 0)
 				XLogRegisterBufData(0, (char *) prstate.redirected,
@@ -460,13 +460,13 @@ heap_page_prune(Relation relation, Buffer buffer,
 	else
 	{
 		/*
-		 * If we didn't prune anything, but have found a new value for the
-		 * pd_prune_xid field, update it and mark the buffer dirty. This is
-		 * treated as a non-WAL-logged hint.
+		 * 若没有剪掉任何东西，但为
+		 * pd_prune_xid 字段找到了新值，就更新它并把缓冲区标脏。这被
+		 * 当作不记 WAL 的提示。
 		 *
-		 * Also clear the "page is full" flag if it is set, since there's no
-		 * point in repeating the prune/defrag process until something else
-		 * happens to the page.
+		 * 若已设置"页面已满"标志，也把它清除，因为没有
+		 * 必要重复剪枝/碎片整理过程，直到别的事情
+		 * 发生在该页上。
 		 */
 		if (((PageHeader) page)->pd_prune_xid != prstate.new_prune_xid ||
 			PageIsFull(page))
@@ -479,7 +479,7 @@ heap_page_prune(Relation relation, Buffer buffer,
 
 	END_CRIT_SECTION();
 
-	/* Record number of newly-set-LP_DEAD items for caller */
+	/* 为调用方记录新被设为 LP_DEAD 的项数 */
 	*nnewlpdead = prstate.ndead;
 
 	return ndeleted;
@@ -487,20 +487,20 @@ heap_page_prune(Relation relation, Buffer buffer,
 
 
 /*
- * Perform visibility checks for heap pruning.
+ * 为堆剪枝执行可见性检查。
  *
- * This is more complicated than just using GlobalVisTestIsRemovableXid()
- * because of old_snapshot_threshold. We only want to increase the threshold
- * that triggers errors for old snapshots when we actually decide to remove a
- * row based on the limited horizon.
+ * 这比只使用 GlobalVisTestIsRemovableXid() 更复杂，
+ * 原因是 old_snapshot_threshold。我们只想在真正决定移除一行时
+ * 才提高那个会让旧快照报错的阈值，而且移除必须是
+ * 基于受限视界做出的。
  *
- * Due to its cost we also only want to call
- * TransactionIdLimitedForOldSnapshots() if necessary, i.e. we might not have
- * done so in heap_page_prune_opt() if pd_prune_xid was old enough. But we
- * still want to be able to remove rows that are too new to be removed
- * according to prstate->vistest, but that can be removed based on
- * old_snapshot_threshold. So we call TransactionIdLimitedForOldSnapshots() on
- * demand in here, if appropriate.
+ * 由于其代价，我们也只想在必要时才调用
+ * TransactionIdLimitedForOldSnapshots()，也就是说，若 pd_prune_xid 已经足够旧，
+ * 在 heap_page_prune_opt() 里可能还没有调用过。但我们
+ * 仍希望能移除那些按 prstate->vistest 看来太新、尚不能移除，
+ * 却可以基于
+ * old_snapshot_threshold 移除的行。因此我们在这里按需调用 TransactionIdLimitedForOldSnapshots()，
+ * 在合适的时候。
  */
 static HTSV_Result
 heap_prune_satisfies_vacuum(PruneState *prstate, HeapTuple tup, Buffer buffer)
@@ -514,8 +514,8 @@ heap_prune_satisfies_vacuum(PruneState *prstate, HeapTuple tup, Buffer buffer)
 		return res;
 
 	/*
-	 * If we are already relying on the limited xmin, there is no need to
-	 * delay doing so anymore.
+	 * 若我们已经在依赖这个受限 xmin，就没有必要
+	 * 再推迟这样做。
 	 */
 	if (prstate->old_snap_used)
 	{
@@ -527,33 +527,33 @@ heap_prune_satisfies_vacuum(PruneState *prstate, HeapTuple tup, Buffer buffer)
 	}
 
 	/*
-	 * For VACUUM, we must be sure to prune tuples with xmax older than
-	 * oldest_xmin -- a visibility cutoff determined at the beginning of
-	 * vacuuming the relation. oldest_xmin is used for freezing determination
-	 * and we cannot freeze dead tuples' xmaxes.
+	 * 对 VACUUM 而言，必须剪掉 xmax 早于
+	 * oldest_xmin 的元组——oldest_xmin 是开始
+	 * 清理该关系时确定的可见性截止点。oldest_xmin 用于冻结判定，
+	 * 而我们无法冻结死元组的 xmax。
 	 */
 	if (TransactionIdIsValid(prstate->oldest_xmin) &&
 		NormalTransactionIdPrecedes(dead_after, prstate->oldest_xmin))
 		return HEAPTUPLE_DEAD;
 
 	/*
-	 * Determine whether or not the tuple is considered dead when compared
-	 * with the provided GlobalVisState. On-access pruning does not provide
-	 * oldest_xmin. And for vacuum, even if the tuple's xmax is not older than
-	 * oldest_xmin, GlobalVisTestIsRemovableXid() could find the row dead if
-	 * the GlobalVisState has been updated since the beginning of vacuuming
-	 * the relation.
+	 * 判断与所提供的 GlobalVisState 相比，该元组是否视为已死。
+	 * 访问时剪枝并不提供
+	 * oldest_xmin。而对清理而言，即便元组的 xmax 并不早于
+	 * oldest_xmin，GlobalVisTestIsRemovableXid() 仍可能判定该行已死，只要
+	 * GlobalVisState 自开始清理
+	 * 该关系以来已被更新。
 	 */
 	if (GlobalVisTestIsRemovableXid(prstate->vistest, dead_after))
 		return HEAPTUPLE_DEAD;
 
 	/*
-	 * If GlobalVisTestIsRemovableXid() is not sufficient to find the row dead
-	 * and old_snapshot_threshold is enabled, try to use the lowered horizon.
+	 * 若 GlobalVisTestIsRemovableXid() 不足以判定该行已死，
+	 * 并且启用了 old_snapshot_threshold，就尝试使用降低后的视界。
 	 */
 	if (OldSnapshotThresholdActive())
 	{
-		/* haven't determined limited horizon yet, requests */
+		/* 尚未确定受限视界，此处发起请求 */
 		if (!TransactionIdIsValid(prstate->old_snap_xmin))
 		{
 			TransactionId horizon =
@@ -568,8 +568,8 @@ heap_prune_satisfies_vacuum(PruneState *prstate, HeapTuple tup, Buffer buffer)
 			TransactionIdPrecedes(dead_after, prstate->old_snap_xmin))
 		{
 			/*
-			 * About to remove row based on snapshot_too_old. Need to raise
-			 * the threshold so problematic accesses would error.
+			 * 即将基于 snapshot_too_old 移除该行。需要提高
+			 * 阈值，以便有问题的访问会报错。
 			 */
 			Assert(!prstate->old_snap_used);
 			SetOldSnapshotThresholdTimestamp(prstate->old_snap_ts,
@@ -584,33 +584,33 @@ heap_prune_satisfies_vacuum(PruneState *prstate, HeapTuple tup, Buffer buffer)
 
 
 /*
- * Prune specified line pointer or a HOT chain originating at line pointer.
+ * 剪枝指定的行指针，或从该行指针出发的一条 HOT 链。
  *
- * If the item is an index-referenced tuple (i.e. not a heap-only tuple),
- * the HOT chain is pruned by removing all DEAD tuples at the start of the HOT
- * chain.  We also prune any RECENTLY_DEAD tuples preceding a DEAD tuple.
- * This is OK because a RECENTLY_DEAD tuple preceding a DEAD tuple is really
- * DEAD, our visibility test is just too coarse to detect it.
+ * 若该项是被索引引用的元组（也就是不是堆内元组），
+ * HOT 链的剪枝方式是移除 HOT 链开头的全部 DEAD 元组。
+ * 位于某个 DEAD 元组之前的 RECENTLY_DEAD 元组也一并剪掉。
+ * 这样做可以，因为 DEAD 元组之前的 RECENTLY_DEAD 元组其实已经
+ * DEAD，只是我们的可见性测试太粗，检测不出来。
  *
- * In general, pruning must never leave behind a DEAD tuple that still has
- * tuple storage.  VACUUM isn't prepared to deal with that case.  That's why
- * VACUUM prunes the same heap page a second time (without dropping its lock
- * in the interim) when it sees a newly DEAD tuple that we initially saw as
- * in-progress.  Retrying pruning like this can only happen when an inserting
- * transaction concurrently aborts.
+ * 一般而言，剪枝绝不能留下仍然占有元组存储的 DEAD 元组。
+ * VACUUM 没准备处理那种情形。因此
+ * VACUUM 会再次剪枝同一堆页，并且中途不放开它的锁，
+ * 当它看到一个新变成 DEAD、而我们最初看成进行中的元组时。
+ * 只有插入
+ * 事务并发中止时，才会这样重试剪枝。
  *
- * The root line pointer is redirected to the tuple immediately after the
- * latest DEAD tuple.  If all tuples in the chain are DEAD, the root line
- * pointer is marked LP_DEAD.  (This includes the case of a DEAD simple
- * tuple, which we treat as a chain of length 1.)
+ * 根行指针被重定向到紧接在
+ * 最近一个 DEAD 元组之后的元组。若链中元组全部 DEAD，根行
+ * 指针被标为 LP_DEAD。（这也包括单独一个 DEAD
+ * 元组的情形，我们把它当作长度为 1 的链。）
  *
- * We don't actually change the page here. We just add entries to the arrays in
- * prstate showing the changes to be made.  Items to be redirected are added
- * to the redirected[] array (two entries per redirection); items to be set to
- * LP_DEAD state are added to nowdead[]; and items to be set to LP_UNUSED
- * state are added to nowunused[].
+ * 这里并不真正修改页面。只是向 prstate 里的数组添加条目，
+ * 以表示将要做的变更。待重定向的项被加入
+ * redirected[] 数组（每次重定向占两项）；要设为
+ * LP_DEAD 状态的项加入 nowdead[]；要设为 LP_UNUSED
+ * 状态的项加入 nowunused[]。
  *
- * Returns the number of tuples (to be) deleted from the page.
+ * 返回（将要）从该页删除的元组数。
  */
 static int
 heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
@@ -630,7 +630,7 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 	rootlp = PageGetItemId(dp, rootoffnum);
 
 	/*
-	 * If it's a heap-only tuple, then it is not the start of a HOT chain.
+	 * 若它是堆内元组，就不是一条 HOT 链的起点。
 	 */
 	if (ItemIdIsNormal(rootlp))
 	{
@@ -640,22 +640,22 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 		if (HeapTupleHeaderIsHeapOnly(htup))
 		{
 			/*
-			 * If the tuple is DEAD and doesn't chain to anything else, mark
-			 * it unused immediately.  (If it does chain, we can only remove
-			 * it as part of pruning its chain.)
+			 * 若该元组是 DEAD，并且不再链接到任何其他元组，就把它标为
+			 * 未使用，立即进行。（若它确实还链接着，我们就只能在
+			 * 剪枝其所属链时把它移除。）
 			 *
-			 * We need this primarily to handle aborted HOT updates, that is,
-			 * XMIN_INVALID heap-only tuples.  Those might not be linked to by
-			 * any chain, since the parent tuple might be re-updated before
-			 * any pruning occurs.  So we have to be able to reap them
-			 * separately from chain-pruning.  (Note that
-			 * HeapTupleHeaderIsHotUpdated will never return true for an
-			 * XMIN_INVALID tuple, so this code will work even when there were
-			 * sequential updates within the aborted transaction.)
+			 * 这主要用来处理已中止的 HOT 更新，也就是
+			 * XMIN_INVALID 的堆内元组。它们可能没有被任何
+			 * 链链接到，因为父元组可能在剪枝发生之前又被更新了一次。
+			 * 因此我们必须能够单独回收它们，
+			 * 与按链剪枝分开。（注意
+			 * HeapTupleHeaderIsHotUpdated 对一个
+			 * XMIN_INVALID 元组永远不会返回真，因此即便
+			 * 已中止的事务内部有过一连串更新，这段代码仍然有效。）
 			 *
-			 * Note that we might first arrive at a dead heap-only tuple
-			 * either here or while following a chain below.  Whichever path
-			 * gets there first will mark the tuple unused.
+			 * 注意，我们第一次遇到已死的堆内元组，
+			 * 可能是在这里，也可能是在下面跟随某条链时。哪条路径
+			 * 先到达，就会把该元组标为未使用。
 			 */
 			if (prstate->htsv[rootoffnum] == HEAPTUPLE_DEAD &&
 				!HeapTupleHeaderIsHotUpdated(htup))
@@ -666,60 +666,60 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 				ndeleted++;
 			}
 
-			/* Nothing more to do */
+			/* 没有更多事情要做 */
 			return ndeleted;
 		}
 	}
 
-	/* Start from the root tuple */
+	/* 从根元组开始 */
 	offnum = rootoffnum;
 
-	/* while not end of the chain */
+	/* 当尚未到达链的末端时 */
 	for (;;)
 	{
 		ItemId		lp;
 		bool		tupdead,
 					recent_dead;
 
-		/* Sanity check (pure paranoia) */
+		/* 健全性检查（纯粹的偏执） */
 		if (offnum < FirstOffsetNumber)
 			break;
 
 		/*
-		 * An offset past the end of page's line pointer array is possible
-		 * when the array was truncated (original item must have been unused)
+		 * 偏移超出该页行指针数组的末尾是可能的，
+		 * 当数组已被截断时（原项必定未曾使用）
 		 */
 		if (offnum > maxoff)
 			break;
 
-		/* If item is already processed, stop --- it must not be same chain */
+		/* 若该项已经处理过，就停止——它不得属于同一条链 */
 		if (prstate->marked[offnum])
 			break;
 
 		lp = PageGetItemId(dp, offnum);
 
-		/* Unused item obviously isn't part of the chain */
+		/* 未使用的项显然不属于这条链 */
 		if (!ItemIdIsUsed(lp))
 			break;
 
 		/*
-		 * If we are looking at the redirected root line pointer, jump to the
-		 * first normal tuple in the chain.  If we find a redirect somewhere
-		 * else, stop --- it must not be same chain.
+		 * 若看到的是已重定向的根行指针，就跳到
+		 * 链中第一个普通元组。若在别的地方发现重定向，
+		 * 就停止——它不得属于同一条链。
 		 */
 		if (ItemIdIsRedirected(lp))
 		{
 			if (nchain > 0)
-				break;			/* not at start of chain */
+				break;			/* 不在链的起点 */
 			chainitems[nchain++] = offnum;
 			offnum = ItemIdGetRedirect(rootlp);
 			continue;
 		}
 
 		/*
-		 * Likewise, a dead line pointer can't be part of the chain. (We
-		 * already eliminated the case of dead root tuple outside this
-		 * function.)
+		 * 同样，死行指针不可能属于这条链。（我们
+		 * 已经在本函数之外排除了死根元组的情形，
+		 * ）
 		 */
 		if (ItemIdIsDead(lp))
 			break;
@@ -729,19 +729,19 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 		htup = (HeapTupleHeader) PageGetItem(dp, lp);
 
 		/*
-		 * Check the tuple XMIN against prior XMAX, if any
+		 * 若有的话，对照先前的 XMAX 检查该元组的 XMIN
 		 */
 		if (TransactionIdIsValid(priorXmax) &&
 			!TransactionIdEquals(HeapTupleHeaderGetXmin(htup), priorXmax))
 			break;
 
 		/*
-		 * OK, this tuple is indeed a member of the chain.
+		 * 好，这个元组确实是该链的成员。
 		 */
 		chainitems[nchain++] = offnum;
 
 		/*
-		 * Check tuple's visibility status.
+		 * 检查该元组的可见性状态。
 		 */
 		tupdead = recent_dead = false;
 
@@ -755,8 +755,8 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 				recent_dead = true;
 
 				/*
-				 * This tuple may soon become DEAD.  Update the hint field so
-				 * that the page is reconsidered for pruning in future.
+				 * 这个元组可能很快变成 DEAD。更新提示字段，以便
+				 * 将来重新考虑对该页做剪枝。
 				 */
 				heap_prune_record_prunable(prstate,
 										   HeapTupleHeaderGetUpdateXid(htup));
@@ -765,8 +765,8 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 			case HEAPTUPLE_DELETE_IN_PROGRESS:
 
 				/*
-				 * This tuple may soon become DEAD.  Update the hint field so
-				 * that the page is reconsidered for pruning in future.
+				 * 这个元组可能很快变成 DEAD。更新提示字段，以便
+				 * 将来重新考虑对该页做剪枝。
 				 */
 				heap_prune_record_prunable(prstate,
 										   HeapTupleHeaderGetUpdateXid(htup));
@@ -776,10 +776,10 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 			case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 				/*
-				 * If we wanted to optimize for aborts, we might consider
-				 * marking the page prunable when we see INSERT_IN_PROGRESS.
-				 * But we don't.  See related decisions about when to mark the
-				 * page prunable in heapam.c.
+				 * 若想为中止情形做优化，我们可能会考虑
+				 * 一看到 INSERT_IN_PROGRESS 就把该页标为可剪枝。
+				 * 但我们不这么做。关于何时把该页标为
+				 * 可剪枝，见 heapam.c 中的相关决定。
 				 */
 				break;
 
@@ -789,11 +789,11 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 		}
 
 		/*
-		 * Remember the last DEAD tuple seen.  We will advance past
-		 * RECENTLY_DEAD tuples just in case there's a DEAD one after them;
-		 * but we can't advance past anything else.  We have to make sure that
-		 * we don't miss any DEAD tuples, since DEAD tuples that still have
-		 * tuple storage after pruning will confuse VACUUM.
+		 * 记住最后看到的 DEAD 元组。我们会越过
+		 * RECENTLY_DEAD 元组，以防万一它们后面还有 DEAD 元组；
+		 * 但不能越过任何其他状态。我们必须确保
+		 * 不漏掉任何 DEAD 元组，因为剪枝之后仍然占有
+		 * 元组存储的 DEAD 元组会使 VACUUM 混淆。
 		 */
 		if (tupdead)
 		{
@@ -805,17 +805,17 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 			break;
 
 		/*
-		 * If the tuple is not HOT-updated, then we are at the end of this
-		 * HOT-update chain.
+		 * 若该元组不是 HOT 更新产生的，那么我们就到了这条
+		 * HOT 更新链的末端。
 		 */
 		if (!HeapTupleHeaderIsHotUpdated(htup))
 			break;
 
-		/* HOT implies it can't have moved to different partition */
+		/* HOT 意味着它不可能已被移到不同分区 */
 		Assert(!HeapTupleHeaderIndicatesMovedPartitions(htup));
 
 		/*
-		 * Advance to next chain member.
+		 * 前进到链的下一个成员。
 		 */
 		Assert(ItemPointerGetBlockNumber(&htup->t_ctid) ==
 			   BufferGetBlockNumber(buffer));
@@ -824,18 +824,18 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 	}
 
 	/*
-	 * If we found a DEAD tuple in the chain, adjust the HOT chain so that all
-	 * the DEAD tuples at the start of the chain are removed and the root line
-	 * pointer is appropriately redirected.
+	 * 若在链中找到 DEAD 元组，就调整 HOT 链，使开头全部
+	 * DEAD 元组被移除，并且根行
+	 * 指针被恰当地重定向。
 	 */
 	if (OffsetNumberIsValid(latestdead))
 	{
 		/*
-		 * Mark as unused each intermediate item that we are able to remove
-		 * from the chain.
+		 * 把每一个能够从链中移除的中间项标为未使用，
+		 * 并把它们从链中去掉。
 		 *
-		 * When the previous item is the last dead tuple seen, we are at the
-		 * right candidate for redirection.
+		 * 当前一项就是最后看到的死元组时，我们就处在
+		 * 适合做重定向的候选位置。
 		 */
 		for (i = 1; (i < nchain) && (chainitems[i - 1] != latestdead); i++)
 		{
@@ -844,17 +844,17 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 		}
 
 		/*
-		 * If the root entry had been a normal tuple, we are deleting it, so
-		 * count it in the result.  But changing a redirect (even to DEAD
-		 * state) doesn't count.
+		 * 若根条目原来是普通元组，我们正在删除它，因此
+		 * 把它计入结果。但改变一个重定向（即便改成 DEAD
+		 * 状态）并不计入。
 		 */
 		if (ItemIdIsNormal(rootlp))
 			ndeleted++;
 
 		/*
-		 * If the DEAD tuple is at the end of the chain, the entire chain is
-		 * dead and the root line pointer can be marked dead.  Otherwise just
-		 * redirect the root to the correct chain member.
+		 * 若这个 DEAD 元组位于链的末端，则整条链都已
+		 * 死亡，根行指针可以标为死。否则只是
+		 * 把根重定向到正确的链成员。
 		 */
 		if (i >= nchain)
 			heap_prune_record_dead(prstate, rootoffnum);
@@ -864,11 +864,11 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 	else if (nchain < 2 && ItemIdIsRedirected(rootlp))
 	{
 		/*
-		 * We found a redirect item that doesn't point to a valid follow-on
-		 * item.  This can happen if the loop in heap_page_prune caused us to
-		 * visit the dead successor of a redirect item before visiting the
-		 * redirect item.  We can clean up by setting the redirect item to
-		 * DEAD state.
+		 * 我们发现一个重定向项，它没有指向有效的后续
+		 * 项。若 heap_page_prune 里的循环使我们
+		 * 在访问该重定向项之前先访问了它的已死后继，
+		 * 就会发生这种情况。可以把该重定向项设为
+		 * DEAD 状态来完成清理。
 		 */
 		heap_prune_record_dead(prstate, rootoffnum);
 	}
@@ -876,13 +876,13 @@ heap_prune_chain(Buffer buffer, OffsetNumber rootoffnum, PruneState *prstate)
 	return ndeleted;
 }
 
-/* Record lowest soon-prunable XID */
+/* 记录最低的即将可剪枝 XID */
 static void
 heap_prune_record_prunable(PruneState *prstate, TransactionId xid)
 {
 	/*
-	 * This should exactly match the PageSetPrunable macro.  We can't store
-	 * directly into the page header yet, so we update working state.
+	 * 这应当与 PageSetPrunable 宏完全一致。我们还无法
+	 * 直接写入页头，因此先更新工作状态。
 	 */
 	Assert(TransactionIdIsNormal(xid));
 	if (!TransactionIdIsValid(prstate->new_prune_xid) ||
@@ -890,7 +890,7 @@ heap_prune_record_prunable(PruneState *prstate, TransactionId xid)
 		prstate->new_prune_xid = xid;
 }
 
-/* Record line pointer to be redirected */
+/* 记录待重定向的行指针 */
 static void
 heap_prune_record_redirect(PruneState *prstate,
 						   OffsetNumber offnum, OffsetNumber rdoffnum)
@@ -905,7 +905,7 @@ heap_prune_record_redirect(PruneState *prstate,
 	prstate->marked[rdoffnum] = true;
 }
 
-/* Record line pointer to be marked dead */
+/* 记录待标为死的行指针 */
 static void
 heap_prune_record_dead(PruneState *prstate, OffsetNumber offnum)
 {
@@ -916,7 +916,7 @@ heap_prune_record_dead(PruneState *prstate, OffsetNumber offnum)
 	prstate->marked[offnum] = true;
 }
 
-/* Record line pointer to be marked unused */
+/* 记录待标为未使用的行指针 */
 static void
 heap_prune_record_unused(PruneState *prstate, OffsetNumber offnum)
 {
@@ -929,9 +929,9 @@ heap_prune_record_unused(PruneState *prstate, OffsetNumber offnum)
 
 
 /*
- * Perform the actual page changes needed by heap_page_prune.
- * It is expected that the caller has a full cleanup lock on the
- * buffer.
+ * 执行 heap_page_prune 所需的实际页面变更。
+ * 预期调用方对该
+ * 缓冲区持有完整的清理锁。
  */
 void
 heap_page_prune_execute(Buffer buffer,
@@ -943,10 +943,10 @@ heap_page_prune_execute(Buffer buffer,
 	OffsetNumber *offnum;
 	HeapTupleHeader htup PG_USED_FOR_ASSERTS_ONLY;
 
-	/* Shouldn't be called unless there's something to do */
+	/* 除非真有事情要做，否则不应调用 */
 	Assert(nredirected > 0 || ndead > 0 || nunused > 0);
 
-	/* Update all redirected line pointers */
+	/* 更新所有已重定向的行指针 */
 	offnum = redirected;
 	for (int i = 0; i < nredirected; i++)
 	{
@@ -958,11 +958,11 @@ heap_page_prune_execute(Buffer buffer,
 #ifdef USE_ASSERT_CHECKING
 
 		/*
-		 * Any existing item that we set as an LP_REDIRECT (any 'from' item)
-		 * must be the first item from a HOT chain.  If the item has tuple
-		 * storage then it can't be a heap-only tuple.  Otherwise we are just
-		 * maintaining an existing LP_REDIRECT from an existing HOT chain that
-		 * has been pruned at least once before now.
+		 * 任何被我们设为 LP_REDIRECT 的现有项（任一 'from' 项）
+		 * 都必须是某条 HOT 链的第一项。若该项仍有元组
+		 * 存储，它就不可能是堆内元组。否则我们只是在
+		 * 维护一条既有 HOT 链上已经存在的 LP_REDIRECT，而该链
+		 * 在此之前至少已经被剪枝过一次。
 		 */
 		if (!ItemIdIsRedirected(fromlp))
 		{
@@ -973,26 +973,26 @@ heap_page_prune_execute(Buffer buffer,
 		}
 		else
 		{
-			/* We shouldn't need to redundantly set the redirect */
+			/* 应当不需要把这个重定向再设置一遍 */
 			Assert(ItemIdGetRedirect(fromlp) != tooff);
 		}
 
 		/*
-		 * The item that we're about to set as an LP_REDIRECT (the 'from'
-		 * item) will point to an existing item (the 'to' item) that is
-		 * already a heap-only tuple.  There can be at most one LP_REDIRECT
-		 * item per HOT chain.
+		 * 即将被设为 LP_REDIRECT 的项（'from'
+		 * 项）会指向一个已经存在的项（'to' 项），而该目标
+		 * 已经是堆内元组。每条 HOT 链上至多有一个 LP_REDIRECT
+		 * 项。
 		 *
-		 * We need to keep around an LP_REDIRECT item (after original
-		 * non-heap-only root tuple gets pruned away) so that it's always
-		 * possible for VACUUM to easily figure out what TID to delete from
-		 * indexes when an entire HOT chain becomes dead.  A heap-only tuple
-		 * can never become LP_DEAD; an LP_REDIRECT item or a regular heap
-		 * tuple can.
+		 * 需要保留一个 LP_REDIRECT 项（在原来那个
+		 * 非堆内根元组被剪掉之后），这样才始终
+		 * 能够让 VACUUM 方便地弄清要从索引中删除哪个 TID，
+		 * 当整条 HOT 链变成死链时。堆内元组
+		 * 永远不能变成 LP_DEAD；LP_REDIRECT 项或普通的堆
+		 * 元组则可以。
 		 *
-		 * This check may miss problems, e.g. the target of a redirect could
-		 * be marked as unused subsequently. The page_verify_redirects() check
-		 * below will catch such problems.
+		 * 这项检查可能漏掉问题，例如重定向的目标随后可能
+		 * 被标为未使用。下面的 page_verify_redirects() 检查
+		 * 会抓住这类问题。
 		 */
 		tolp = PageGetItemId(page, tooff);
 		Assert(ItemIdHasStorage(tolp) && ItemIdIsNormal(tolp));
@@ -1003,7 +1003,7 @@ heap_page_prune_execute(Buffer buffer,
 		ItemIdSetRedirect(fromlp, tooff);
 	}
 
-	/* Update all now-dead line pointers */
+	/* 更新所有现已死亡的行指针 */
 	offnum = nowdead;
 	for (int i = 0; i < ndead; i++)
 	{
@@ -1013,11 +1013,11 @@ heap_page_prune_execute(Buffer buffer,
 #ifdef USE_ASSERT_CHECKING
 
 		/*
-		 * An LP_DEAD line pointer must be left behind when the original item
-		 * (which is dead to everybody) could still be referenced by a TID in
-		 * an index.  This should never be necessary with any individual
-		 * heap-only tuple item, though. (It's not clear how much of a problem
-		 * that would be, but there is no reason to allow it.)
+		 * 必须留下 LP_DEAD 行指针，当原始项
+		 * （对所有人都已死亡）仍可能被索引中的某个 TID 引用时。
+		 * 对任何一个单独的项，这永远不应当是必要的。
+		 * 对堆内元组项也是如此。（不清楚那会有多大问题，
+		 * 但没有理由允许它。）
 		 */
 		if (ItemIdHasStorage(lp))
 		{
@@ -1027,7 +1027,7 @@ heap_page_prune_execute(Buffer buffer,
 		}
 		else
 		{
-			/* Whole HOT chain becomes dead */
+			/* 整条 HOT 链变为死亡 */
 			Assert(ItemIdIsRedirected(lp));
 		}
 #endif
@@ -1035,7 +1035,7 @@ heap_page_prune_execute(Buffer buffer,
 		ItemIdSetDead(lp);
 	}
 
-	/* Update all now-unused line pointers */
+	/* 更新所有现已未使用的行指针 */
 	offnum = nowunused;
 	for (int i = 0; i < nunused; i++)
 	{
@@ -1045,9 +1045,9 @@ heap_page_prune_execute(Buffer buffer,
 #ifdef USE_ASSERT_CHECKING
 
 		/*
-		 * Only heap-only tuples can become LP_UNUSED during pruning.  They
-		 * don't need to be left in place as LP_DEAD items until VACUUM gets
-		 * around to doing index vacuuming.
+		 * 剪枝期间只有堆内元组可以变成 LP_UNUSED。它们
+		 * 不必作为 LP_DEAD 项留在原地，直到 VACUUM 着手
+		 * 做索引清理。
 		 */
 		Assert(ItemIdHasStorage(lp) && ItemIdIsNormal(lp));
 		htup = (HeapTupleHeader) PageGetItem(page, lp);
@@ -1058,31 +1058,31 @@ heap_page_prune_execute(Buffer buffer,
 	}
 
 	/*
-	 * Finally, repair any fragmentation, and update the page's hint bit about
-	 * whether it has free pointers.
+	 * 最后修复任何碎片，并更新该页的提示位，说明
+	 * 它是否还有空闲指针。
 	 */
 	PageRepairFragmentation(page);
 
 	/*
-	 * Now that the page has been modified, assert that redirect items still
-	 * point to valid targets.
+	 * 页面已经修改，现在断言各重定向项仍然
+	 * 指向有效目标。
 	 */
 	page_verify_redirects(page);
 }
 
 
 /*
- * If built with assertions, verify that all LP_REDIRECT items point to a
- * valid item.
+ * 若以带断言的方式构建，则验证每个 LP_REDIRECT 项都指向一个
+ * 有效项。
  *
- * One way that bugs related to HOT pruning show is redirect items pointing to
- * removed tuples. It's not trivial to reliably check that marking an item
- * unused will not orphan a redirect item during heap_prune_chain() /
- * heap_page_prune_execute(), so we additionally check the whole page after
- * pruning. Without this check such bugs would typically only cause asserts
- * later, potentially well after the corruption has been introduced.
+ * HOT 剪枝相关缺陷的一种表现是：重定向项指向
+ * 已被移除的元组。要可靠地检查：把某项标为
+ * 未使用，不会在 heap_prune_chain() /
+ * heap_page_prune_execute() 期间把某个重定向项变成孤立项，并不容易，因此我们在
+ * 剪枝之后再检查整页。没有这项检查，这类缺陷通常只会在稍后引发断言，
+ * 而且可能远在损坏被引入之后。
  *
- * Also check comments in heap_page_prune_execute()'s redirection loop.
+ * 同时参见 heap_page_prune_execute() 重定向循环里的注释。
  */
 static void
 page_verify_redirects(Page page)
@@ -1118,19 +1118,19 @@ page_verify_redirects(Page page)
 
 
 /*
- * For all items in this page, find their respective root line pointers.
- * If item k is part of a HOT-chain with root at item j, then we set
+ * 对本页的每一项，找出它各自的根行指针。
+ * 若项 k 属于以项 j 为根的 HOT 链，则设置
  * root_offsets[k - 1] = j.
  *
- * The passed-in root_offsets array must have MaxHeapTuplesPerPage entries.
- * Unused entries are filled with InvalidOffsetNumber (zero).
+ * 传入的 root_offsets 数组必须有 MaxHeapTuplesPerPage 个条目。
+ * 未使用的条目填入 InvalidOffsetNumber（零）。
  *
- * The function must be called with at least share lock on the buffer, to
- * prevent concurrent prune operations.
+ * 调用本函数时，至少须对缓冲区持有共享锁，以
+ * 防止并发剪枝。
  *
- * Note: The information collected here is valid only as long as the caller
- * holds a pin on the buffer. Once pin is released, a tuple might be pruned
- * and reused by a completely unrelated tuple.
+ * 注意：此处收集的信息只在调用方
+ * 一直钉住该缓冲区期间有效。一旦解除钉住，元组就可能被剪枝，
+ * 并被一个完全无关的元组复用。
  */
 void
 heap_get_root_tuples(Page page, OffsetNumber *root_offsets)
@@ -1149,7 +1149,7 @@ heap_get_root_tuples(Page page, OffsetNumber *root_offsets)
 		OffsetNumber nextoffnum;
 		TransactionId priorXmax;
 
-		/* skip unused and dead items */
+		/* 跳过未使用的项和死项 */
 		if (!ItemIdIsUsed(lp) || ItemIdIsDead(lp))
 			continue;
 
@@ -1158,60 +1158,60 @@ heap_get_root_tuples(Page page, OffsetNumber *root_offsets)
 			htup = (HeapTupleHeader) PageGetItem(page, lp);
 
 			/*
-			 * Check if this tuple is part of a HOT-chain rooted at some other
-			 * tuple. If so, skip it for now; we'll process it when we find
-			 * its root.
+			 * 检查这个元组是否属于以其他某个
+			 * 元组为根的 HOT 链。若是，暂时跳过；等我们找到
+			 * 它的根时再处理。
 			 */
 			if (HeapTupleHeaderIsHeapOnly(htup))
 				continue;
 
 			/*
-			 * This is either a plain tuple or the root of a HOT-chain.
-			 * Remember it in the mapping.
+			 * 这要么是普通元组，要么是一条 HOT 链的根。
+			 * 把它记入映射。
 			 */
 			root_offsets[offnum - 1] = offnum;
 
-			/* If it's not the start of a HOT-chain, we're done with it */
+			/* 若它不是一条 HOT 链的起点，对它的处理就结束了 */
 			if (!HeapTupleHeaderIsHotUpdated(htup))
 				continue;
 
-			/* Set up to scan the HOT-chain */
+			/* 准备扫描这条 HOT 链 */
 			nextoffnum = ItemPointerGetOffsetNumber(&htup->t_ctid);
 			priorXmax = HeapTupleHeaderGetUpdateXid(htup);
 		}
 		else
 		{
-			/* Must be a redirect item. We do not set its root_offsets entry */
+			/* 这必须是重定向项。我们不设置它的 root_offsets 条目 */
 			Assert(ItemIdIsRedirected(lp));
-			/* Set up to scan the HOT-chain */
+			/* 准备扫描这条 HOT 链 */
 			nextoffnum = ItemIdGetRedirect(lp);
 			priorXmax = InvalidTransactionId;
 		}
 
 		/*
-		 * Now follow the HOT-chain and collect other tuples in the chain.
+		 * 现在沿着 HOT 链走，并收集链中的其他元组。
 		 *
-		 * Note: Even though this is a nested loop, the complexity of the
-		 * function is O(N) because a tuple in the page should be visited not
-		 * more than twice, once in the outer loop and once in HOT-chain
-		 * chases.
+		 * 注意：尽管这是嵌套循环，本函数的复杂度
+		 * 仍是 O(N)，因为页中的元组被访问的次数不应
+		 * 超过两次：一次在外层循环，一次在追逐 HOT 链的
+		 * 过程中。
 		 */
 		for (;;)
 		{
-			/* Sanity check (pure paranoia) */
+			/* 健全性检查（纯粹的偏执） */
 			if (offnum < FirstOffsetNumber)
 				break;
 
 			/*
-			 * An offset past the end of page's line pointer array is possible
-			 * when the array was truncated
+			 * 偏移超出该页行指针数组的末尾是可能的，
+			 * 当数组已被截断时
 			 */
 			if (offnum > maxoff)
 				break;
 
 			lp = PageGetItemId(page, nextoffnum);
 
-			/* Check for broken chains */
+			/* 检查是否有断裂的链 */
 			if (!ItemIdIsNormal(lp))
 				break;
 
@@ -1221,14 +1221,14 @@ heap_get_root_tuples(Page page, OffsetNumber *root_offsets)
 				!TransactionIdEquals(priorXmax, HeapTupleHeaderGetXmin(htup)))
 				break;
 
-			/* Remember the root line pointer for this item */
+			/* 记住此项的根行指针 */
 			root_offsets[nextoffnum - 1] = offnum;
 
-			/* Advance to next chain member, if any */
+			/* 若还有的话，前进到链的下一个成员 */
 			if (!HeapTupleHeaderIsHotUpdated(htup))
 				break;
 
-			/* HOT implies it can't have moved to different partition */
+			/* HOT 意味着它不可能已被移到不同分区 */
 			Assert(!HeapTupleHeaderIndicatesMovedPartitions(htup));
 
 			nextoffnum = ItemPointerGetOffsetNumber(&htup->t_ctid);

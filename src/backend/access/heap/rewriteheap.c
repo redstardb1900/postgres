@@ -1,95 +1,95 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteheap.c
- *	  Support functions to rewrite tables.
+ *	  重写表所用的支持函数。
  *
- * These functions provide a facility to completely rewrite a heap, while
- * preserving visibility information and update chains.
+ * 这些函数提供一套手段，可以完整重写一个堆，同时
+ * 保留可见性信息与更新链。
  *
- * INTERFACE
+ * 接口（INTERFACE）
  *
- * The caller is responsible for creating the new heap, all catalog
- * changes, supplying the tuples to be written to the new heap, and
- * rebuilding indexes.  The caller must hold AccessExclusiveLock on the
- * target table, because we assume no one else is writing into it.
+ * 调用方负责创建新堆、完成全部系统目录
+ * 变更、提供要写入新堆的元组，以及
+ * 重建索引。调用方必须对目标表持有 AccessExclusiveLock，
+ * 因为我们假定没有别人正在向它写入。
  *
- * To use the facility:
+ * 使用方法：
  *
  * begin_heap_rewrite
- * while (fetch next tuple)
+ * while (取下一个元组)
  * {
- *	   if (tuple is dead)
+ *	   if (元组已死)
  *		   rewrite_heap_dead_tuple
  *	   else
  *	   {
- *		   // do any transformations here if required
+ *		   // 若需要，在此做任何变换
  *		   rewrite_heap_tuple
  *	   }
  * }
  * end_heap_rewrite
  *
- * The contents of the new relation shouldn't be relied on until after
- * end_heap_rewrite is called.
+ * 在调用 end_heap_rewrite 之前，不应依赖
+ * 新关系的内容。
  *
  *
- * IMPLEMENTATION
+ * 实现（IMPLEMENTATION）
  *
- * This would be a fairly trivial affair, except that we need to maintain
- * the ctid chains that link versions of an updated tuple together.
- * Since the newly stored tuples will have tids different from the original
- * ones, if we just copied t_ctid fields to the new table the links would
- * be wrong.  When we are required to copy a (presumably recently-dead or
- * delete-in-progress) tuple whose ctid doesn't point to itself, we have
- * to substitute the correct ctid instead.
+ * 若不是必须维护把同一行各更新版本链接起来的 ctid 链，
+ * 这件事本来相当简单。
+ * 新存入的元组其 tid 与原来的不同，
+ * 若只是把 t_ctid 字段复制到新表，链接就会
+ * 是错的。当必须复制一个（多半是最近已死或
+ * 删除进行中的）元组，且其 ctid 并不指向自身时，我们
+ * 必须改填正确的 ctid。
  *
- * For each ctid reference from A -> B, we might encounter either A first
- * or B first.  (Note that a tuple in the middle of a chain is both A and B
- * of different pairs.)
+ * 对每一处从 A 指向 B 的 ctid 引用，我们可能先遇到 A，
+ * 也可能先遇到 B。（注意，链中间的元组既是 A 也是 B，
+ * 只是分属不同的配对。）
  *
- * If we encounter A first, we'll store the tuple in the unresolved_tups
- * hash table. When we later encounter B, we remove A from the hash table,
- * fix the ctid to point to the new location of B, and insert both A and B
- * to the new heap.
+ * 若先遇到 A，就把该元组存入 unresolved_tups
+ * 哈希表。稍后遇到 B 时，把 A 从哈希表中移除，
+ * 把 ctid 改成指向 B 的新位置，并把 A 和 B 都插入
+ * 新堆。
  *
- * If we encounter B first, we can insert B to the new heap right away.
- * We then add an entry to the old_new_tid_map hash table showing B's
- * original tid (in the old heap) and new tid (in the new heap).
- * When we later encounter A, we get the new location of B from the table,
- * and can write A immediately with the correct ctid.
+ * 若先遇到 B，就可以立刻把 B 插入新堆。
+ * 然后往 old_new_tid_map 哈希表加一条，记下 B 的
+ * 原 tid（在旧堆中）和新 tid（在新堆中）。
+ * 稍后遇到 A 时，从表中取得 B 的新位置，
+ * 就可以立刻写入带有正确 ctid 的 A。
  *
- * Entries in the hash tables can be removed as soon as the later tuple
- * is encountered.  That helps to keep the memory usage down.  At the end,
- * both tables are usually empty; we should have encountered both A and B
- * of each pair.  However, it's possible for A to be RECENTLY_DEAD and B
- * entirely DEAD according to HeapTupleSatisfiesVacuum, because the test
- * for deadness using OldestXmin is not exact.  In such a case we might
- * encounter B first, and skip it, and find A later.  Then A would be added
- * to unresolved_tups, and stay there until end of the rewrite.  Since
- * this case is very unusual, we don't worry about the memory usage.
+ * 一旦遇到配对中较晚的那个元组，哈希表条目就可以移除。
+ * 这有助于压低内存用量。到结束时，
+ * 两张表通常都是空的；每一对的 A 和 B
+ * 我们都应该遇到过。不过按 HeapTupleSatisfiesVacuum，A 可能是 RECENTLY_DEAD，而 B
+ * 则完全是 DEAD，这是按 HeapTupleSatisfiesVacuum 得出的，因为该项测试
+ * 用 OldestXmin 判断死亡并不精确。在这种情况下我们可能
+ * 先遇到 B 并跳过它，稍后才找到 A。于是 A 会被加入
+ * unresolved_tups，并一直留到重写结束。由于
+ * 这种情形非常少见，我们不担心其内存用量。
  *
- * Using in-memory hash tables means that we use some memory for each live
- * update chain in the table, from the time we find one end of the
- * reference until we find the other end.  That shouldn't be a problem in
- * practice, but if you do something like an UPDATE without a where-clause
- * on a large table, and then run CLUSTER in the same transaction, you
- * could run out of memory.  It doesn't seem worthwhile to add support for
- * spill-to-disk, as there shouldn't be that many RECENTLY_DEAD tuples in a
- * table under normal circumstances.  Furthermore, in the typical scenario
- * of CLUSTERing on an unchanging key column, we'll see all the versions
- * of a given tuple together anyway, and so the peak memory usage is only
- * proportional to the number of RECENTLY_DEAD versions of a single row, not
- * in the whole table.  Note that if we do fail halfway through a CLUSTER,
- * the old table is still valid, so failure is not catastrophic.
+ * 使用内存中的哈希表意味着，对表里每一条仍然活着的
+ * 更新链，从找到引用的一端开始，
+ * 直到找到另一端，都要占用一些内存。实践中这不应当成为问题。
+ * 但若你在大表上做一次不带 WHERE 子句的 UPDATE，
+ * 然后在同一事务里运行 CLUSTER，
+ * 就可能内存不足。似乎不值得为此增加
+ * 溢出到磁盘的支持，因为正常情况下表里不该有那么多 RECENTLY_DEAD 元组。
+ * 此外，在典型情形中，
+ * 对一个不变的键列做 CLUSTERing 时，某一元组的所有版本
+ * 反正会一起出现，因此内存峰值只
+ * 与单行的 RECENTLY_DEAD 版本数成正比，而不是
+ * 与整张表成正比。注意，若 CLUSTER 做到一半失败，
+ * 旧表仍然有效，所以失败并非灾难性的。
  *
- * We can't use the normal heap_insert function to insert into the new
- * heap, because heap_insert overwrites the visibility information.
- * We use a special-purpose raw_heap_insert function instead, which
- * is optimized for bulk inserting a lot of tuples, knowing that we have
- * exclusive access to the heap.  raw_heap_insert builds new pages in
- * local storage.  When a page is full, or at the end of the process,
- * we insert it to WAL as a single record and then write it to disk
- * directly through smgr.  Note, however, that any data sent to the new
- * heap's TOAST table will go through the normal bufmgr.
+ * 不能用普通的 heap_insert 函数往新
+ * 堆里插入，因为 heap_insert 会覆盖可见性信息。
+ * 我们改用专用的 raw_heap_insert 函数，它
+ * 针对批量插入大量元组做了优化，并且知道我们
+ * 对该堆拥有排他访问。raw_heap_insert 在
+ * 本地存储中构建新页。当一页已满，或过程结束时，
+ * 我们把它作为单条记录插入 WAL，然后直接经 smgr
+ * 写到磁盘。不过请注意，发往新
+ * 堆的 TOAST 表的任何数据仍走正常的 bufmgr。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -126,111 +126,111 @@
 #include "utils/rel.h"
 
 /*
- * State associated with a rewrite operation. This is opaque to the user
- * of the rewrite facility.
+ * 与一次重写操作相关联的状态。它对
+ * 重写功能的使用者而言是不透明的。
  */
 typedef struct RewriteStateData
 {
-	Relation	rs_old_rel;		/* source heap */
-	Relation	rs_new_rel;		/* destination heap */
-	Page		rs_buffer;		/* page currently being built */
-	BlockNumber rs_blockno;		/* block where page will go */
-	bool		rs_buffer_valid;	/* T if any tuples in buffer */
-	bool		rs_logical_rewrite; /* do we need to do logical rewriting */
-	TransactionId rs_oldest_xmin;	/* oldest xmin used by caller to determine
-									 * tuple visibility */
-	TransactionId rs_freeze_xid;	/* Xid that will be used as freeze cutoff
-									 * point */
-	TransactionId rs_logical_xmin;	/* Xid that will be used as cutoff point
-									 * for logical rewrites */
-	MultiXactId rs_cutoff_multi;	/* MultiXactId that will be used as cutoff
-									 * point for multixacts */
-	MemoryContext rs_cxt;		/* for hash tables and entries and tuples in
-								 * them */
-	XLogRecPtr	rs_begin_lsn;	/* XLogInsertLsn when starting the rewrite */
-	HTAB	   *rs_unresolved_tups; /* unmatched A tuples */
-	HTAB	   *rs_old_new_tid_map; /* unmatched B tuples */
-	HTAB	   *rs_logical_mappings;	/* logical remapping files */
-	uint32		rs_num_rewrite_mappings;	/* # in memory mappings */
+	Relation	rs_old_rel;		/* 源堆 */
+	Relation	rs_new_rel;		/* 目标堆 */
+	Page		rs_buffer;		/* 当前正在构建的页 */
+	BlockNumber rs_blockno;		/* 该页将放入的块 */
+	bool		rs_buffer_valid;	/* 若缓冲区中有任何元组则为 T */
+	bool		rs_logical_rewrite; /* 是否需要做逻辑重写 */
+	TransactionId rs_oldest_xmin;	/* 调用方用来判定
+									 * 元组可见性的最旧 xmin */
+	TransactionId rs_freeze_xid;	/* 将用作冻结截止
+									 * 点的事务 ID（Xid） */
+	TransactionId rs_logical_xmin;	/* 将用作截止点的事务 ID（Xid），
+									 * 供逻辑重写使用 */
+	MultiXactId rs_cutoff_multi;	/* 将用作截止点的 MultiXactId，
+									 * 针对多事务 */
+	MemoryContext rs_cxt;		/* 供哈希表、其中的条目以及
+								 * 其中的元组使用 */
+	XLogRecPtr	rs_begin_lsn;	/* 开始重写时的 XLogInsertLsn */
+	HTAB	   *rs_unresolved_tups; /* 尚未配对的 A 元组 */
+	HTAB	   *rs_old_new_tid_map; /* 尚未配对的 B 元组 */
+	HTAB	   *rs_logical_mappings;	/* 逻辑重映射文件 */
+	uint32		rs_num_rewrite_mappings;	/* 内存中的映射条数 */
 }			RewriteStateData;
 
 /*
- * The lookup keys for the hash tables are tuple TID and xmin (we must check
- * both to avoid false matches from dead tuples).  Beware that there is
- * probably some padding space in this struct; it must be zeroed out for
- * correct hashtable operation.
+ * 哈希表的查找键是元组 TID 与 xmin（两者都必须检查，
+ * 以免死元组造成假匹配）。注意这个结构里
+ * 可能有填充空隙；为使哈希表正确工作，必须把它清零。
+ * 正确工作。
  */
 typedef struct
 {
-	TransactionId xmin;			/* tuple xmin */
-	ItemPointerData tid;		/* tuple location in old heap */
+	TransactionId xmin;			/* 元组的 xmin */
+	ItemPointerData tid;		/* 元组在旧堆中的位置 */
 } TidHashKey;
 
 /*
- * Entry structures for the hash tables
+ * 哈希表的条目结构
  */
 typedef struct
 {
-	TidHashKey	key;			/* expected xmin/old location of B tuple */
-	ItemPointerData old_tid;	/* A's location in the old heap */
-	HeapTuple	tuple;			/* A's tuple contents */
+	TidHashKey	key;			/* B 元组预期的 xmin/旧位置 */
+	ItemPointerData old_tid;	/* A 在旧堆中的位置 */
+	HeapTuple	tuple;			/* A 的元组内容 */
 } UnresolvedTupData;
 
 typedef UnresolvedTupData *UnresolvedTup;
 
 typedef struct
 {
-	TidHashKey	key;			/* actual xmin/old location of B tuple */
-	ItemPointerData new_tid;	/* where we put it in the new heap */
+	TidHashKey	key;			/* B 元组实际的 xmin/旧位置 */
+	ItemPointerData new_tid;	/* 我们把它放在新堆中的位置 */
 } OldToNewMappingData;
 
 typedef OldToNewMappingData *OldToNewMapping;
 
 /*
- * In-Memory data for an xid that might need logical remapping entries
- * to be logged.
+ * 某个 xid 的内存数据，该 xid 可能需要把逻辑重映射条目
+ * 记入日志。
  */
 typedef struct RewriteMappingFile
 {
-	TransactionId xid;			/* xid that might need to see the row */
-	int			vfd;			/* fd of mappings file */
-	off_t		off;			/* how far have we written yet */
-	dclist_head mappings;		/* list of in-memory mappings */
-	char		path[MAXPGPATH];	/* path, for error messages */
+	TransactionId xid;			/* 可能需要看到该行的 xid */
+	int			vfd;			/* 映射文件的 fd */
+	off_t		off;			/* 目前已经写到的位置 */
+	dclist_head mappings;		/* 内存中的映射列表 */
+	char		path[MAXPGPATH];	/* 路径，用于错误信息 */
 } RewriteMappingFile;
 
 /*
- * A single In-Memory logical rewrite mapping, hanging off
+ * 单条内存中的逻辑重写映射，挂在
  * RewriteMappingFile->mappings.
  */
 typedef struct RewriteMappingDataEntry
 {
-	LogicalRewriteMappingData map;	/* map between old and new location of the
-									 * tuple */
+	LogicalRewriteMappingData map;	/* 元组旧位置与新位置之间的
+									 * 映射 */
 	dlist_node	node;
 } RewriteMappingDataEntry;
 
 
-/* prototypes for internal functions */
+/* 内部函数的原型 */
 static void raw_heap_insert(RewriteState state, HeapTuple tup);
 
-/* internal logical remapping prototypes */
+/* 内部逻辑重映射函数的原型 */
 static void logical_begin_heap_rewrite(RewriteState state);
 static void logical_rewrite_heap_tuple(RewriteState state, ItemPointerData old_tid, HeapTuple new_tuple);
 static void logical_end_heap_rewrite(RewriteState state);
 
 
 /*
- * Begin a rewrite of a table
+ * 开始重写一张表
  *
- * old_heap		old, locked heap relation tuples will be read from
- * new_heap		new, locked heap relation to insert tuples to
- * oldest_xmin	xid used by the caller to determine which tuples are dead
- * freeze_xid	xid before which tuples will be frozen
- * cutoff_multi	multixact before which multis will be removed
+ * old_heap		从中读取元组的、已锁定的旧堆关系
+ * new_heap		要插入元组的、已锁定的新堆关系
+ * oldest_xmin	调用方用来判定哪些元组已死的 xid
+ * freeze_xid	此 xid 之前的元组将被冻结
+ * cutoff_multi	此多事务之前的多事务将被移除
  *
- * Returns an opaque RewriteState, allocated in current memory context,
- * to be used in subsequent calls to the other functions.
+ * 返回一个不透明的 RewriteState，分配在当前内存上下文中，
+ * 供随后调用其他函数时使用。
  */
 RewriteState
 begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xmin,
@@ -242,21 +242,21 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 	HASHCTL		hash_ctl;
 
 	/*
-	 * To ease cleanup, make a separate context that will contain the
-	 * RewriteState struct itself plus all subsidiary data.
+	 * 为便于清理，单独建一个上下文，其中将包含
+	 * RewriteState 结构本身以及全部附属数据。
 	 */
 	rw_cxt = AllocSetContextCreate(CurrentMemoryContext,
 								   "Table rewrite",
 								   ALLOCSET_DEFAULT_SIZES);
 	old_cxt = MemoryContextSwitchTo(rw_cxt);
 
-	/* Create and fill in the state struct */
+	/* 创建并填写状态结构 */
 	state = palloc0(sizeof(RewriteStateData));
 
 	state->rs_old_rel = old_heap;
 	state->rs_new_rel = new_heap;
 	state->rs_buffer = (Page) palloc_aligned(BLCKSZ, PG_IO_ALIGN_SIZE, 0);
-	/* new_heap needn't be empty, just locked */
+	/* new_heap 不必为空，只要已锁定即可 */
 	state->rs_blockno = RelationGetNumberOfBlocks(new_heap);
 	state->rs_buffer_valid = false;
 	state->rs_oldest_xmin = oldest_xmin;
@@ -264,14 +264,14 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 	state->rs_cutoff_multi = cutoff_multi;
 	state->rs_cxt = rw_cxt;
 
-	/* Initialize hash tables used to track update chains */
+	/* 初始化用于跟踪更新链的哈希表 */
 	hash_ctl.keysize = sizeof(TidHashKey);
 	hash_ctl.entrysize = sizeof(UnresolvedTupData);
 	hash_ctl.hcxt = state->rs_cxt;
 
 	state->rs_unresolved_tups =
 		hash_create("Rewrite / Unresolved ctids",
-					128,		/* arbitrary initial size */
+					128,		/* 任意的初始大小 */
 					&hash_ctl,
 					HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
@@ -279,7 +279,7 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 
 	state->rs_old_new_tid_map =
 		hash_create("Rewrite / Old to new tid map",
-					128,		/* arbitrary initial size */
+					128,		/* 任意的初始大小 */
 					&hash_ctl,
 					HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
@@ -291,9 +291,9 @@ begin_heap_rewrite(Relation old_heap, Relation new_heap, TransactionId oldest_xm
 }
 
 /*
- * End a rewrite.
+ * 结束一次重写。
  *
- * state and any other resources are freed.
+ * state 以及其他任何资源都被释放。
  */
 void
 end_heap_rewrite(RewriteState state)
@@ -302,8 +302,8 @@ end_heap_rewrite(RewriteState state)
 	UnresolvedTup unresolved;
 
 	/*
-	 * Write any remaining tuples in the UnresolvedTups table. If we have any
-	 * left, they should in fact be dead, but let's err on the safe side.
+	 * 写出 UnresolvedTups 表中剩余的元组。若还有剩余，
+	 * 它们其实应当已经死亡，但我们宁可保守处理。
 	 */
 	hash_seq_init(&seq_status, state->rs_unresolved_tups);
 
@@ -313,7 +313,7 @@ end_heap_rewrite(RewriteState state)
 		raw_heap_insert(state, unresolved->tuple);
 	}
 
-	/* Write the last page, if any */
+	/* 若还有最后一页，把它写出去 */
 	if (state->rs_buffer_valid)
 	{
 		if (RelationNeedsWAL(state->rs_new_rel))
@@ -330,31 +330,31 @@ end_heap_rewrite(RewriteState state)
 	}
 
 	/*
-	 * When we WAL-logged rel pages, we must nonetheless fsync them.  The
-	 * reason is the same as in storage.c's RelationCopyStorage(): we're
-	 * writing data that's not in shared buffers, and so a CHECKPOINT
-	 * occurring during the rewriteheap operation won't have fsync'd data we
-	 * wrote before the checkpoint.
+	 * 即便这些关系页已经记入 WAL，我们仍必须对它们 fsync。原因
+	 * 与 storage.c 中 RelationCopyStorage() 相同：我们写的
+	 * 数据不在共享缓冲池里，因此重写期间发生的 CHECKPOINT
+	 * 不会对属于这次 rewriteheap 操作的数据做 fsync，那些数据写在检查点
+	 * 之前。
 	 */
 	if (RelationNeedsWAL(state->rs_new_rel))
 		smgrimmedsync(RelationGetSmgr(state->rs_new_rel), MAIN_FORKNUM);
 
 	logical_end_heap_rewrite(state);
 
-	/* Deleting the context frees everything */
+	/* 删除该上下文就会释放一切 */
 	MemoryContextDelete(state->rs_cxt);
 }
 
 /*
- * Add a tuple to the new heap.
+ * 把一个元组加入新堆。
  *
- * Visibility information is copied from the original tuple, except that
- * we "freeze" very-old tuples.  Note that since we scribble on new_tuple,
- * it had better be temp storage not a pointer to the original tuple.
+ * 可见性信息从原始元组复制而来，只是
+ * 我们会"冻结"非常旧的元组。注意，由于我们会就地改写 new_tuple，
+ * 它最好是临时存储，而不是指向原始元组的指针。
  *
- * state		opaque state as returned by begin_heap_rewrite
- * old_tuple	original tuple in the old heap
- * new_tuple	new, rewritten tuple to be inserted to new heap
+ * state		由 begin_heap_rewrite 返回的不透明状态
+ * old_tuple	旧堆中的原始元组
+ * new_tuple	要插入新堆的、重写后的新元组
  */
 void
 rewrite_heap_tuple(RewriteState state,
@@ -369,10 +369,10 @@ rewrite_heap_tuple(RewriteState state,
 	old_cxt = MemoryContextSwitchTo(state->rs_cxt);
 
 	/*
-	 * Copy the original tuple's visibility information into new_tuple.
+	 * 把原始元组的可见性信息复制到 new_tuple。
 	 *
-	 * XXX we might later need to copy some t_infomask2 bits, too? Right now,
-	 * we intentionally clear the HOT status bits.
+	 * XXX 以后是否还需要复制一些 t_infomask2 位？目前
+	 * 我们有意清除 HOT 状态位。
 	 */
 	memcpy(&new_tuple->t_data->t_choice.t_heap,
 		   &old_tuple->t_data->t_choice.t_heap,
@@ -384,8 +384,8 @@ rewrite_heap_tuple(RewriteState state,
 		old_tuple->t_data->t_infomask & HEAP_XACT_MASK;
 
 	/*
-	 * While we have our hands on the tuple, we may as well freeze any
-	 * eligible xmin or xmax, so that future VACUUM effort can be saved.
+	 * 既然手里正拿着这个元组，不妨把任何
+	 * 符合条件的 xmin 或 xmax 冻结，以便将来省下 VACUUM 的工作。
 	 */
 	heap_freeze_tuple(new_tuple->t_data,
 					  state->rs_old_rel->rd_rel->relfrozenxid,
@@ -394,13 +394,13 @@ rewrite_heap_tuple(RewriteState state,
 					  state->rs_cutoff_multi);
 
 	/*
-	 * Invalid ctid means that ctid should point to the tuple itself. We'll
-	 * override it later if the tuple is part of an update chain.
+	 * 无效的 ctid 表示 ctid 应当指向元组自身。若该元组
+	 * 属于一条更新链，我们稍后会改写它。
 	 */
 	ItemPointerSetInvalid(&new_tuple->t_data->t_ctid);
 
 	/*
-	 * If the tuple has been updated, check the old-to-new mapping hash table.
+	 * 若元组已被更新，就查旧到新的映射哈希表。
 	 */
 	if (!((old_tuple->t_data->t_infomask & HEAP_XMAX_INVALID) ||
 		  HeapTupleHeaderIsOnlyLocked(old_tuple->t_data)) &&
@@ -421,13 +421,13 @@ rewrite_heap_tuple(RewriteState state,
 		if (mapping != NULL)
 		{
 			/*
-			 * We've already copied the tuple that t_ctid points to, so we can
-			 * set the ctid of this tuple to point to the new location, and
-			 * insert it right away.
+			 * t_ctid 指向的元组我们已经复制过，因此可以把
+			 * 这个元组的 ctid 设为指向新位置，并且
+			 * 立刻插入它。
 			 */
 			new_tuple->t_data->t_ctid = mapping->new_tid;
 
-			/* We don't need the mapping entry anymore */
+			/* 这条映射条目不再需要 */
 			hash_search(state->rs_old_new_tid_map, &hashkey,
 						HASH_REMOVE, &found);
 			Assert(found);
@@ -435,8 +435,8 @@ rewrite_heap_tuple(RewriteState state,
 		else
 		{
 			/*
-			 * We haven't seen the tuple t_ctid points to yet. Stash this
-			 * tuple into unresolved_tups to be written later.
+			 * 还没见过 t_ctid 指向的元组。把这个
+			 * 元组暂存进 unresolved_tups，稍后再写。
 			 */
 			UnresolvedTup unresolved;
 
@@ -448,8 +448,8 @@ rewrite_heap_tuple(RewriteState state,
 			unresolved->tuple = heap_copytuple(new_tuple);
 
 			/*
-			 * We can't do anything more now, since we don't know where the
-			 * tuple will be written.
+			 * 现在不能再做什么，因为我们还不知道这个
+			 * 元组将被写到哪里。
 			 */
 			MemoryContextSwitchTo(old_cxt);
 			return;
@@ -457,10 +457,10 @@ rewrite_heap_tuple(RewriteState state,
 	}
 
 	/*
-	 * Now we will write the tuple, and then check to see if it is the B tuple
-	 * in any new or known pair.  When we resolve a known pair, we will be
-	 * able to write that pair's A tuple, and then we have to check if it
-	 * resolves some other pair.  Hence, we need a loop here.
+	 * 现在写出该元组，然后检查它是否是某个新的或已知配对中的 B 元组。
+	 * 解析一个已知配对后，我们就能够
+	 * 写出该配对的 A 元组，接着还得检查它是否
+	 * 又解析了别的配对。因此这里需要一个循环。
 	 */
 	old_tid = old_tuple->t_self;
 	free_new = false;
@@ -469,26 +469,26 @@ rewrite_heap_tuple(RewriteState state,
 	{
 		ItemPointerData new_tid;
 
-		/* Insert the tuple and find out where it's put in new_heap */
+		/* 插入该元组，并查明它在 new_heap 中的位置 */
 		raw_heap_insert(state, new_tuple);
 		new_tid = new_tuple->t_self;
 
 		logical_rewrite_heap_tuple(state, old_tid, new_tuple);
 
 		/*
-		 * If the tuple is the updated version of a row, and the prior version
-		 * wouldn't be DEAD yet, then we need to either resolve the prior
-		 * version (if it's waiting in rs_unresolved_tups), or make an entry
-		 * in rs_old_new_tid_map (so we can resolve it when we do see it). The
-		 * previous tuple's xmax would equal this one's xmin, so it's
-		 * RECENTLY_DEAD if and only if the xmin is not before OldestXmin.
+		 * 若该元组是某行的更新版本，且前一版本
+		 * 还不会是 DEAD，则要么解析前一
+		 * 版本（若它正在 rs_unresolved_tups 中等待），要么在
+		 * rs_old_new_tid_map 中加一条（以便我们见到它时再解析）。前一个
+		 * 元组的 xmax 等于这一个的 xmin，因此当且仅当 xmin 不早于 OldestXmin 时，它才是
+		 * RECENTLY_DEAD。
 		 */
 		if ((new_tuple->t_data->t_infomask & HEAP_UPDATED) &&
 			!TransactionIdPrecedes(HeapTupleHeaderGetXmin(new_tuple->t_data),
 								   state->rs_oldest_xmin))
 		{
 			/*
-			 * Okay, this is B in an update pair.  See if we've seen A.
+			 * 好，这是更新配对中的 B。看看我们是否已经见过 A。
 			 */
 			UnresolvedTup unresolved;
 
@@ -502,9 +502,9 @@ rewrite_heap_tuple(RewriteState state,
 			if (unresolved != NULL)
 			{
 				/*
-				 * We have seen and memorized the previous tuple already. Now
-				 * that we know where we inserted the tuple its t_ctid points
-				 * to, fix its t_ctid and insert it to the new heap.
+				 * 前一个元组我们已经见过并记住了。现在
+				 * 既然知道所插入的、被其 t_ctid 指向的元组
+				 * 位于何处，就修正它的 t_ctid 并插入新堆。
 				 */
 				if (free_new)
 					heap_freetuple(new_tuple);
@@ -514,21 +514,21 @@ rewrite_heap_tuple(RewriteState state,
 				new_tuple->t_data->t_ctid = new_tid;
 
 				/*
-				 * We don't need the hash entry anymore, but don't free its
-				 * tuple just yet.
+				 * 这条哈希条目不再需要，但先不要释放它的
+				 * 元组。
 				 */
 				hash_search(state->rs_unresolved_tups, &hashkey,
 							HASH_REMOVE, &found);
 				Assert(found);
 
-				/* loop back to insert the previous tuple in the chain */
+				/* 循环回去，插入链中的前一个元组 */
 				continue;
 			}
 			else
 			{
 				/*
-				 * Remember the new tid of this tuple. We'll use it to set the
-				 * ctid when we find the previous tuple in the chain.
+				 * 记住这个元组的新 tid。找到链中前一个元组时，我们用它来设置
+				 * ctid。
 				 */
 				OldToNewMapping mapping;
 
@@ -540,7 +540,7 @@ rewrite_heap_tuple(RewriteState state,
 			}
 		}
 
-		/* Done with this (chain of) tuples, for now */
+		/* 这一（串）元组暂时处理完了 */
 		if (free_new)
 			heap_freetuple(new_tuple);
 		break;
@@ -550,31 +550,31 @@ rewrite_heap_tuple(RewriteState state,
 }
 
 /*
- * Register a dead tuple with an ongoing rewrite. Dead tuples are not
- * copied to the new table, but we still make note of them so that we
- * can release some resources earlier.
+ * 向正在进行的重写登记一个死元组。死元组不会
+ * 被复制到新表，但我们仍记下它们，以便
+ * 更早释放一些资源。
  *
- * Returns true if a tuple was removed from the unresolved_tups table.
- * This indicates that that tuple, previously thought to be "recently dead",
- * is now known really dead and won't be written to the output.
+ * 若从 unresolved_tups 表中移除了一个元组，则返回真。
+ * 这表示该元组原先被认为"最近已死"，
+ * 现在已知确实已死，不会被写到输出中。
  */
 bool
 rewrite_heap_dead_tuple(RewriteState state, HeapTuple old_tuple)
 {
 	/*
-	 * If we have already seen an earlier tuple in the update chain that
-	 * points to this tuple, let's forget about that earlier tuple. It's in
-	 * fact dead as well, our simple xmax < OldestXmin test in
-	 * HeapTupleSatisfiesVacuum just wasn't enough to detect it. It happens
-	 * when xmin of a tuple is greater than xmax, which sounds
-	 * counter-intuitive but is perfectly valid.
+	 * 若我们已经见过更新链中更早的、指向
+	 * 这个元组的那个元组，就忘掉那个更早的元组。它其实
+	 * 同样已死，只是 HeapTupleSatisfiesVacuum 里简单的 xmax < OldestXmin 测试
+	 * 不足以发现这一点。这种情况出现在
+	 * 元组的 xmin 大于 xmax 的时候，听起来
+	 * 违反直觉，但完全有效。
 	 *
-	 * We don't bother to try to detect the situation the other way round,
-	 * when we encounter the dead tuple first and then the recently dead one
-	 * that points to it. If that happens, we'll have some unmatched entries
-	 * in the UnresolvedTups hash table at the end. That can happen anyway,
-	 * because a vacuum might have removed the dead tuple in the chain before
-	 * us.
+	 * 我们不费力去检测相反的情形，
+	 * 即先遇到死元组，然后才遇到指向它的最近已死元组。
+	 * 若发生那种情况，结束时 UnresolvedTups 哈希表里会有一些无法配对的条目。
+	 * 反正也可能发生，
+	 * 因为清理可能在我们之前就已经移除了链中的死元组。
+	 * 赶在我们之前。
 	 */
 	UnresolvedTup unresolved;
 	TidHashKey	hashkey;
@@ -589,7 +589,7 @@ rewrite_heap_dead_tuple(RewriteState state, HeapTuple old_tuple)
 
 	if (unresolved != NULL)
 	{
-		/* Need to free the contained tuple as well as the hashtable entry */
+		/* 需要释放其中包含的元组以及哈希表条目 */
 		heap_freetuple(unresolved->tuple);
 		hash_search(state->rs_unresolved_tups, &hashkey,
 					HASH_REMOVE, &found);
@@ -601,12 +601,12 @@ rewrite_heap_dead_tuple(RewriteState state, HeapTuple old_tuple)
 }
 
 /*
- * Insert a tuple to the new relation.  This has to track heap_insert
- * and its subsidiary functions!
+ * 把元组插入新关系。这必须跟上 heap_insert
+ * 及其附属函数！
  *
- * t_self of the tuple is set to the new TID of the tuple. If t_ctid of the
- * tuple is invalid on entry, it's replaced with the new TID as well (in
- * the inserted data only, not in the caller's copy).
+ * 元组的 t_self 被设为该元组的新 TID。若进入时元组的 t_ctid
+ * 无效，则同样替换为新 TID（只改
+ * 插入的数据，不改调用方的副本）。
  */
 static void
 raw_heap_insert(RewriteState state, HeapTuple tup)
@@ -619,15 +619,15 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 	HeapTuple	heaptup;
 
 	/*
-	 * If the new tuple is too big for storage or contains already toasted
-	 * out-of-line attributes from some other relation, invoke the toaster.
+	 * 若新元组大到无法存储，或含有来自其他关系的、已经做过 TOAST 的
+	 * 行外属性，就调用 TOAST 处理。
 	 *
-	 * Note: below this point, heaptup is the data we actually intend to store
-	 * into the relation; tup is the caller's original untoasted data.
+	 * 注意：从此往下，heaptup 是我们实际要存入
+	 * 该关系的数据；tup 是调用方原来的、未做 TOAST 的数据。
 	 */
 	if (state->rs_new_rel->rd_rel->relkind == RELKIND_TOASTVALUE)
 	{
-		/* toast table entries should never be recursively toasted */
+		/* TOAST 表的条目绝不应当被递归地做 TOAST */
 		Assert(!HeapTupleHasExternal(tup));
 		heaptup = tup;
 	}
@@ -636,9 +636,9 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 		int			options = HEAP_INSERT_SKIP_FSM;
 
 		/*
-		 * While rewriting the heap for VACUUM FULL / CLUSTER, make sure data
-		 * for the TOAST table are not logically decoded.  The main heap is
-		 * WAL-logged as XLOG FPI records, which are not logically decoded.
+		 * 为 VACUUM FULL / CLUSTER 重写堆时，确保
+		 * TOAST 表的数据不会被逻辑解码。主堆以
+		 * XLOG 整页镜像（FPI）记录的形式记入 WAL，而那些记录不会被逻辑解码。
 		 */
 		options |= HEAP_INSERT_NO_LOGICAL;
 
@@ -648,10 +648,10 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 	else
 		heaptup = tup;
 
-	len = MAXALIGN(heaptup->t_len); /* be conservative */
+	len = MAXALIGN(heaptup->t_len); /* 采取保守做法 */
 
 	/*
-	 * If we're gonna fail for oversize tuple, do it right away
+	 * 若会因元组过大而失败，就立刻失败
 	 */
 	if (len > MaxHeapTupleSize)
 		ereport(ERROR,
@@ -659,11 +659,11 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 				 errmsg("row is too big: size %zu, maximum size %zu",
 						len, MaxHeapTupleSize)));
 
-	/* Compute desired extra freespace due to fillfactor option */
+	/* 按 fillfactor 选项计算期望的额外空闲空间 */
 	saveFreeSpace = RelationGetTargetPageFreeSpace(state->rs_new_rel,
 												   HEAP_DEFAULT_FILLFACTOR);
 
-	/* Now we can check to see if there's enough free space already. */
+	/* 现在可以检查是否已经有足够的空闲空间。 */
 	if (state->rs_buffer_valid)
 	{
 		pageFreeSpace = PageGetHeapFreeSpace(page);
@@ -671,12 +671,12 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 		if (len + saveFreeSpace > pageFreeSpace)
 		{
 			/*
-			 * Doesn't fit, so write out the existing page.  It always
-			 * contains a tuple.  Hence, unlike RelationGetBufferForTuple(),
-			 * enforce saveFreeSpace unconditionally.
+			 * 放不下，因此把现有页写出去。该页总是
+			 * 含有一个元组。因此与 RelationGetBufferForTuple() 不同，
+			 * 无条件地强制 saveFreeSpace。
 			 */
 
-			/* XLOG stuff */
+			/* XLOG 相关处理 */
 			if (RelationNeedsWAL(state->rs_new_rel))
 				log_newpage(&state->rs_new_rel->rd_locator,
 							MAIN_FORKNUM,
@@ -685,9 +685,9 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 							true);
 
 			/*
-			 * Now write the page. We say skipFsync = true because there's no
-			 * need for smgr to schedule an fsync for this write; we'll do it
-			 * ourselves in end_heap_rewrite.
+			 * 现在写这一页。我们令 skipFsync = true，因为没有
+			 * 必要让 smgr 为这次写入安排 fsync；我们会在
+			 * end_heap_rewrite 里自己做。
 			 */
 			PageSetChecksumInplace(page, state->rs_blockno);
 
@@ -701,23 +701,23 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 
 	if (!state->rs_buffer_valid)
 	{
-		/* Initialize a new empty page */
+		/* 初始化一个新的空页 */
 		PageInit(page, BLCKSZ, 0);
 		state->rs_buffer_valid = true;
 	}
 
-	/* And now we can insert the tuple into the page */
+	/* 现在可以把元组插入该页 */
 	newoff = PageAddItem(page, (Item) heaptup->t_data, heaptup->t_len,
 						 InvalidOffsetNumber, false, true);
 	if (newoff == InvalidOffsetNumber)
 		elog(ERROR, "failed to add tuple");
 
-	/* Update caller's t_self to the actual position where it was stored */
+	/* 把调用方的 t_self 更新为它实际被存放的位置 */
 	ItemPointerSet(&(tup->t_self), state->rs_blockno, newoff);
 
 	/*
-	 * Insert the correct position into CTID of the stored tuple, too, if the
-	 * caller didn't supply a valid CTID.
+	 * 若调用方没有提供有效的 CTID，也把正确位置写入所存元组的 CTID。
+	 * 调用方没有提供有效 CTID 时才这样做。
 	 */
 	if (!ItemPointerIsValid(&tup->t_data->t_ctid))
 	{
@@ -730,64 +730,64 @@ raw_heap_insert(RewriteState state, HeapTuple tup)
 		onpage_tup->t_ctid = tup->t_self;
 	}
 
-	/* If heaptup is a private copy, release it. */
+	/* 若 heaptup 是私有副本，就释放它。 */
 	if (heaptup != tup)
 		heap_freetuple(heaptup);
 }
 
 /* ------------------------------------------------------------------------
- * Logical rewrite support
+ * 逻辑重写支持
  *
- * When doing logical decoding - which relies on using cmin/cmax of catalog
- * tuples, via xl_heap_new_cid records - heap rewrites have to log enough
- * information to allow the decoding backend to update its internal mapping
- * of (relfilelocator,ctid) => (cmin, cmax) to be correct for the rewritten heap.
+ * 做逻辑解码时——它依赖系统目录元组的 cmin/cmax，
+ * 经由 xl_heap_new_cid 记录——堆重写必须记下足够的
+ * 信息，让执行解码的后端更新其内部映射，
+ * 使 (relfilelocator,ctid) => (cmin, cmax) 对重写后的堆仍然正确。
  *
- * For that, every time we find a tuple that's been modified in a catalog
- * relation within the xmin horizon of any decoding slot, we log a mapping
- * from the old to the new location.
+ * 为此，每当发现一个在系统目录关系中被修改过的元组，
+ * 且落在任一解码复制槽的 xmin 视界之内，我们就记录一条从旧位置到新位置的映射。
+ * 从旧位置到新位置。
  *
- * To deal with rewrites that abort the filename of a mapping file contains
- * the xid of the transaction performing the rewrite, which then can be
- * checked before being read in.
+ * 为处理会中止的重写，映射文件名包含
+ * 执行重写的事务的 xid，读入之前可以据此
+ * 加以检查。
  *
- * For efficiency we don't immediately spill every single map mapping for a
- * row to disk but only do so in batches when we've collected several of them
- * in memory or when end_heap_rewrite() has been called.
+ * 为了效率，我们不会立刻把每一条映射都溢出写到
+ * 磁盘，而是攒够若干条再成批写，
+ * 或者在调用了 end_heap_rewrite() 时再写。
  *
- * Crash-Safety: This module diverts from the usual patterns of doing WAL
- * since it cannot rely on checkpoint flushing out all buffers and thus
- * waiting for exclusive locks on buffers. Usually the XLogInsert() covering
- * buffer modifications is performed while the buffer(s) that are being
- * modified are exclusively locked guaranteeing that both the WAL record and
- * the modified heap are on either side of the checkpoint. But since the
- * mapping files we log aren't in shared_buffers that interlock doesn't work.
+ * 崩溃安全：本模块偏离了通常的 WAL 写法，
+ * 因为它无法依赖检查点把全部缓冲区刷出，从而
+ * 等待缓冲区上的排他锁。通常，覆盖缓冲区修改的 XLogInsert()
+ * 是在被修改的 buffer(s) 正被
+ * 排他锁定时执行的，从而保证 WAL 记录和
+ * 被修改的堆分别落在检查点的两侧。但因为我们记录的
+ * 映射文件不在 shared_buffers 中，那种互锁不起作用。
  *
- * Instead we simply write the mapping files out to disk, *before* the
- * XLogInsert() is performed. That guarantees that either the XLogInsert() is
- * inserted after the checkpoint's redo pointer or that the checkpoint (via
- * CheckPointLogicalRewriteHeap()) has flushed the (partial) mapping file to
- * disk. That leaves the tail end that has not yet been flushed open to
- * corruption, which is solved by including the current offset in the
- * xl_heap_rewrite_mapping records and truncating the mapping file to it
- * during replay. Every time a rewrite is finished all generated mapping files
- * are synced to disk.
+ * 因此我们只是在 XLogInsert() 之前就把映射文件写到磁盘。
+ * *先*写盘。这样可以保证，要么 XLogInsert()
+ * 被插在检查点的重做指针之后，要么检查点（经由
+ * CheckPointLogicalRewriteHeap()）已经把（部分）映射文件刷到
+ * 磁盘。尚未刷出的尾部仍可能
+ * 损坏，解决办法是在 xl_heap_rewrite_mapping 记录中带上当前偏移，
+ * 并在重放时把映射文件截断到该偏移。
+ * 每次重写结束时，把生成的全部映射文件同步到磁盘。
+ * 同步到磁盘。
  *
- * Note that if we were only concerned about crash safety we wouldn't have to
- * deal with WAL logging at all - an fsync() at the end of a rewrite would be
- * sufficient for crash safety. Any mapping that hasn't been safely flushed to
- * disk has to be by an aborted (explicitly or via a crash) transaction and is
- * ignored by virtue of the xid in its name being subject to a
- * TransactionDidCommit() check. But we want to support having standbys via
- * physical replication, both for availability and to do logical decoding
- * there.
+ * 注意，若我们只关心崩溃安全，就完全不必
+ * 处理 WAL 日志——重写结束时一次 fsync()
+ * 就足以保证崩溃安全。任何尚未安全刷到
+ * 磁盘的映射，必定属于一个已中止（显式中止或因崩溃而中止）的事务，
+ * 并且会因文件名中的 xid 要经过
+ * TransactionDidCommit() 检查而被忽略。但我们希望经由物理复制支持备库，
+ * 既为了可用性，也为了在那里做逻辑解码。
+ * 在备库上做。
  * ------------------------------------------------------------------------
  */
 
 /*
- * Do preparations for logging logical mappings during a rewrite if
- * necessary. If we detect that we don't need to log anything we'll prevent
- * any further action by the various logical rewrite functions.
+ * 若有必要，为在重写期间记录逻辑映射做准备。
+ * 若检测到不需要记录任何东西，就阻止
+ * 各个逻辑重写函数再做进一步动作。
  */
 static void
 logical_begin_heap_rewrite(RewriteState state)
@@ -796,9 +796,9 @@ logical_begin_heap_rewrite(RewriteState state)
 	TransactionId logical_xmin;
 
 	/*
-	 * We only need to persist these mappings if the rewritten table can be
-	 * accessed during logical decoding, if not, we can skip doing any
-	 * additional work.
+	 * 只有当重写后的表在逻辑解码期间可以被访问时，才需要持久化这些映射；
+	 * 否则就可以跳过任何
+	 * 额外工作。
 	 */
 	state->rs_logical_rewrite =
 		RelationIsAccessibleInLogicalDecoding(state->rs_old_rel);
@@ -809,9 +809,9 @@ logical_begin_heap_rewrite(RewriteState state)
 	ProcArrayGetReplicationSlotXmin(NULL, &logical_xmin);
 
 	/*
-	 * If there are no logical slots in progress we don't need to do anything,
-	 * there cannot be any remappings for relevant rows yet. The relation's
-	 * lock protects us against races.
+	 * 若没有正在进行的逻辑复制槽，就什么都不必做，
+	 * 相关行还不可能已有重映射。该关系上的
+	 * 锁保护我们免于竞态。
 	 */
 	if (logical_xmin == InvalidTransactionId)
 	{
@@ -829,13 +829,13 @@ logical_begin_heap_rewrite(RewriteState state)
 
 	state->rs_logical_mappings =
 		hash_create("Logical rewrite mapping",
-					128,		/* arbitrary initial size */
+					128,		/* 任意的初始大小 */
 					&hash_ctl,
 					HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 }
 
 /*
- * Flush all logical in-memory mappings to disk, but don't fsync them yet.
+ * 把全部逻辑内存映射刷到磁盘，但先不要 fsync。
  */
 static void
 logical_heap_rewrite_flush_mappings(RewriteState state)
@@ -846,7 +846,7 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 
 	Assert(state->rs_logical_rewrite);
 
-	/* no logical rewrite in progress, no need to iterate over mappings */
+	/* 没有正在进行的逻辑重写，不必遍历映射 */
 	if (state->rs_num_rewrite_mappings == 0)
 		return;
 
@@ -864,7 +864,7 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 		int			written;
 		uint32		num_mappings = dclist_count(&src->mappings);
 
-		/* this file hasn't got any new mappings */
+		/* 这个文件没有任何新映射 */
 		if (num_mappings == 0)
 			continue;
 
@@ -880,12 +880,12 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 		xlrec.offset = src->off;
 		xlrec.start_lsn = state->rs_begin_lsn;
 
-		/* write all mappings consecutively */
+		/* 把所有映射连续写出 */
 		len = num_mappings * sizeof(LogicalRewriteMappingData);
 		waldata_start = waldata = palloc(len);
 
 		/*
-		 * collect data we need to write out, but don't modify ondisk data yet
+		 * 收集需要写出的数据，但先不要修改磁盘上的数据
 		 */
 		dclist_foreach_modify(iter, &src->mappings)
 		{
@@ -896,11 +896,11 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 			memcpy(waldata, &pmap->map, sizeof(pmap->map));
 			waldata += sizeof(pmap->map);
 
-			/* remove from the list and free */
+			/* 从列表中移除并释放 */
 			dclist_delete_from(&src->mappings, &pmap->node);
 			pfree(pmap);
 
-			/* update bookkeeping */
+			/* 更新簿记 */
 			state->rs_num_rewrite_mappings--;
 		}
 
@@ -908,8 +908,8 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 		Assert(waldata == waldata_start + len);
 
 		/*
-		 * Note that we deviate from the usual WAL coding practices here,
-		 * check the above "Logical rewrite support" comment for reasoning.
+		 * 注意，这里我们偏离了通常的 WAL 编码做法，
+		 * 理由见上面的"逻辑重写支持"注释。
 		 */
 		written = FileWrite(src->vfd, waldata_start, len, src->off,
 							WAIT_EVENT_LOGICAL_REWRITE_WRITE);
@@ -924,7 +924,7 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 		XLogRegisterData((char *) (&xlrec), sizeof(xlrec));
 		XLogRegisterData(waldata_start, len);
 
-		/* write xlog record */
+		/* 写 xlog 记录 */
 		XLogInsert(RM_HEAP2_ID, XLOG_HEAP2_REWRITE);
 
 		pfree(waldata_start);
@@ -933,7 +933,7 @@ logical_heap_rewrite_flush_mappings(RewriteState state)
 }
 
 /*
- * Logical remapping part of end_heap_rewrite().
+ * end_heap_rewrite() 中的逻辑重映射部分。
  */
 static void
 logical_end_heap_rewrite(RewriteState state)
@@ -941,15 +941,15 @@ logical_end_heap_rewrite(RewriteState state)
 	HASH_SEQ_STATUS seq_status;
 	RewriteMappingFile *src;
 
-	/* done, no logical rewrite in progress */
+	/* 完成，没有正在进行的逻辑重写 */
 	if (!state->rs_logical_rewrite)
 		return;
 
-	/* writeout remaining in-memory entries */
+	/* 把剩余的内存条目写出 */
 	if (state->rs_num_rewrite_mappings > 0)
 		logical_heap_rewrite_flush_mappings(state);
 
-	/* Iterate over all mappings we have written and fsync the files. */
+	/* 遍历我们已经写下的全部映射，并对文件做 fsync。 */
 	hash_seq_init(&seq_status, state->rs_logical_mappings);
 	while ((src = (RewriteMappingFile *) hash_seq_search(&seq_status)) != NULL)
 	{
@@ -959,11 +959,11 @@ logical_end_heap_rewrite(RewriteState state)
 					 errmsg("could not fsync file \"%s\": %m", src->path)));
 		FileClose(src->vfd);
 	}
-	/* memory context cleanup will deal with the rest */
+	/* 其余的由内存上下文清理来处理 */
 }
 
 /*
- * Log a single (old->new) mapping for 'xid'.
+ * 为 'xid' 记录一条（旧->新）映射。
  */
 static void
 logical_rewrite_log_mapping(RewriteState state, TransactionId xid,
@@ -976,13 +976,13 @@ logical_rewrite_log_mapping(RewriteState state, TransactionId xid,
 
 	relid = RelationGetRelid(state->rs_old_rel);
 
-	/* look for existing mappings for this 'mapped' xid */
+	/* 查找这个被映射 xid 的已有映射 */
 	src = hash_search(state->rs_logical_mappings, &xid,
 					  HASH_ENTER, &found);
 
 	/*
-	 * We haven't yet had the need to map anything for this xid, create
-	 * per-xid data structures.
+	 * 还没有必要为这个 xid 做任何映射，创建
+	 * 按 xid 划分的数据结构。
 	 */
 	if (!found)
 	{
@@ -1018,16 +1018,16 @@ logical_rewrite_log_mapping(RewriteState state, TransactionId xid,
 	state->rs_num_rewrite_mappings++;
 
 	/*
-	 * Write out buffer every time we've too many in-memory entries across all
-	 * mapping files.
+	 * 当所有映射文件里的内存条目过多时，就把缓冲区写出。
+	 * 映射文件。
 	 */
-	if (state->rs_num_rewrite_mappings >= 1000 /* arbitrary number */ )
+	if (state->rs_num_rewrite_mappings >= 1000 /* 任意的数目 */ )
 		logical_heap_rewrite_flush_mappings(state);
 }
 
 /*
- * Perform logical remapping for a tuple that's mapped from old_tid to
- * new_tuple->t_self by rewrite_heap_tuple() if necessary for the tuple.
+ * 若有必要，对由 rewrite_heap_tuple() 从 old_tid 映射到
+ * new_tuple->t_self 的元组做逻辑重映射。
  */
 static void
 logical_rewrite_heap_tuple(RewriteState state, ItemPointerData old_tid,
@@ -1041,16 +1041,16 @@ logical_rewrite_heap_tuple(RewriteState state, ItemPointerData old_tid,
 	bool		do_log_xmax = false;
 	LogicalRewriteMappingData map;
 
-	/* no logical rewrite in progress, we don't need to log anything */
+	/* 没有正在进行的逻辑重写，不必记录任何东西 */
 	if (!state->rs_logical_rewrite)
 		return;
 
 	xmin = HeapTupleHeaderGetXmin(new_tuple->t_data);
-	/* use *GetUpdateXid to correctly deal with multixacts */
+	/* 使用 *GetUpdateXid 以正确处理多事务 */
 	xmax = HeapTupleHeaderGetUpdateXid(new_tuple->t_data);
 
 	/*
-	 * Log the mapping iff the tuple has been created recently.
+	 * 当且仅当该元组是最近创建的，才记下这条映射。
 	 */
 	if (TransactionIdIsNormal(xmin) && !TransactionIdPrecedes(xmin, cutoff))
 		do_log_xmin = true;
@@ -1058,50 +1058,50 @@ logical_rewrite_heap_tuple(RewriteState state, ItemPointerData old_tid,
 	if (!TransactionIdIsNormal(xmax))
 	{
 		/*
-		 * no xmax is set, can't have any permanent ones, so this check is
-		 * sufficient
+		 * 没有设置 xmax，不可能有任何永久性的，因此这项检查
+		 * 就足够了
 		 */
 	}
 	else if (HEAP_XMAX_IS_LOCKED_ONLY(new_tuple->t_data->t_infomask))
 	{
-		/* only locked, we don't care */
+		/* 仅仅被锁定，我们不关心 */
 	}
 	else if (!TransactionIdPrecedes(xmax, cutoff))
 	{
-		/* tuple has been deleted recently, log */
+		/* 元组最近被删除了，记下来 */
 		do_log_xmax = true;
 	}
 
-	/* if neither needs to be logged, we're done */
+	/* 若两者都不需要记录，就结束 */
 	if (!do_log_xmin && !do_log_xmax)
 		return;
 
-	/* fill out mapping information */
+	/* 填写映射信息 */
 	map.old_locator = state->rs_old_rel->rd_locator;
 	map.old_tid = old_tid;
 	map.new_locator = state->rs_new_rel->rd_locator;
 	map.new_tid = new_tid;
 
 	/* ---
-	 * Now persist the mapping for the individual xids that are affected. We
-	 * need to log for both xmin and xmax if they aren't the same transaction
-	 * since the mapping files are per "affected" xid.
-	 * We don't muster all that much effort detecting whether xmin and xmax
-	 * are actually the same transaction, we just check whether the xid is the
-	 * same disregarding subtransactions. Logging too much is relatively
-	 * harmless and we could never do the check fully since subtransaction
-	 * data is thrown away during restarts.
+	 * 现在为受到影响的各个 xid 持久化映射。若 xmin 与 xmax
+	 * 不是同一事务，两者都要记录，
+	 * 因为映射文件是按"受影响"的 xid 分开的。
+	 * 我们并不费太多力气去检测 xmin 与 xmax
+	 * 是否其实是同一事务，只检查 xid 是否相同，
+	 * 不考虑子事务。多记一些相对
+	 * 无害，而且我们永远无法把检查做完整，因为子事务
+	 * 数据在重启时会被丢掉。
 	 * ---
 	 */
 	if (do_log_xmin)
 		logical_rewrite_log_mapping(state, xmin, &map);
-	/* separately log mapping for xmax unless it'd be redundant */
+	/* 除非会冗余，否则单独为 xmax 记录映射 */
 	if (do_log_xmax && !TransactionIdEquals(xmin, xmax))
 		logical_rewrite_log_mapping(state, xmax, &map);
 }
 
 /*
- * Replay XLOG_HEAP2_REWRITE records
+ * 重放 XLOG_HEAP2_REWRITE 记录
  */
 void
 heap_xlog_logical_rewrite(XLogReaderState *r)
@@ -1128,8 +1128,8 @@ heap_xlog_logical_rewrite(XLogReaderState *r)
 				 errmsg("could not create file \"%s\": %m", path)));
 
 	/*
-	 * Truncate all data that's not guaranteed to have been safely fsynced (by
-	 * previous record or by the last checkpoint).
+	 * 截断所有不能保证已被安全 fsync 过的数据（由
+	 * 先前的记录或上一个检查点保证）。
 	 */
 	pgstat_report_wait_start(WAIT_EVENT_LOGICAL_REWRITE_TRUNCATE);
 	if (ftruncate(fd, xlrec->offset) != 0)
@@ -1143,12 +1143,12 @@ heap_xlog_logical_rewrite(XLogReaderState *r)
 
 	len = xlrec->num_mappings * sizeof(LogicalRewriteMappingData);
 
-	/* write out tail end of mapping file (again) */
+	/* （再次）写出映射文件的尾部 */
 	errno = 0;
 	pgstat_report_wait_start(WAIT_EVENT_LOGICAL_REWRITE_MAPPING_WRITE);
 	if (pg_pwrite(fd, data, len, xlrec->offset) != len)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若写入没有设置 errno，就假定问题是没有磁盘空间 */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(ERROR,
@@ -1158,9 +1158,9 @@ heap_xlog_logical_rewrite(XLogReaderState *r)
 	pgstat_report_wait_end();
 
 	/*
-	 * Now fsync all previously written data. We could improve things and only
-	 * do this for the last write to a file, but the required bookkeeping
-	 * doesn't seem worth the trouble.
+	 * 现在对先前写下的全部数据做 fsync。我们可以改进，只对
+	 * 一个文件的最后一次写入这样做，但所需的簿记
+	 * 似乎不值得为此费事。
 	 */
 	pgstat_report_wait_start(WAIT_EVENT_LOGICAL_REWRITE_MAPPING_SYNC);
 	if (pg_fsync(fd) != 0)
@@ -1176,13 +1176,13 @@ heap_xlog_logical_rewrite(XLogReaderState *r)
 }
 
 /* ---
- * Perform a checkpoint for logical rewrite mappings
+ * 为逻辑重写映射执行一次检查点
  *
- * This serves two tasks:
- * 1) Remove all mappings not needed anymore based on the logical restart LSN
- * 2) Flush all remaining mappings to disk, so that replay after a checkpoint
- *	  only has to deal with the parts of a mapping that have been written out
- *	  after the checkpoint started.
+ * 这完成两件事：
+ * 1) 按逻辑重启 LSN 移除所有不再需要的映射
+ * 2) 把剩余映射全部刷到磁盘，这样检查点之后的重放
+ *	  只需要处理在检查点开始之后才写出的那部分映射。
+ *	  检查点开始之后的部分。
  * ---
  */
 void
@@ -1195,15 +1195,15 @@ CheckPointLogicalRewriteHeap(void)
 	char		path[MAXPGPATH + 20];
 
 	/*
-	 * We start of with a minimum of the last redo pointer. No new decoding
-	 * slot will start before that, so that's a safe upper bound for removal.
+	 * 我们从上次重做指针的最小值开始。不会有新的解码
+	 * 复制槽在那之前启动，因此这是移除操作的安全上界。
 	 */
 	redo = GetRedoRecPtr();
 
-	/* now check for the restart ptrs from existing slots */
+	/* 现在检查现有复制槽的重启指针 */
 	cutoff = ReplicationSlotsComputeLogicalRestartLSN();
 
-	/* don't start earlier than the restart lsn */
+	/* 不要早于重启 LSN 开始 */
 	if (cutoff != InvalidXLogRecPtr && redo < cutoff)
 		cutoff = redo;
 
@@ -1229,7 +1229,7 @@ CheckPointLogicalRewriteHeap(void)
 		if (de_type != PGFILETYPE_ERROR && de_type != PGFILETYPE_REG)
 			continue;
 
-		/* Skip over files that cannot be ours. */
+		/* 跳过无法属于我们的文件。 */
 		if (strncmp(mapping_de->d_name, "map-", 4) != 0)
 			continue;
 
@@ -1249,13 +1249,13 @@ CheckPointLogicalRewriteHeap(void)
 		}
 		else
 		{
-			/* on some operating systems fsyncing a file requires O_RDWR */
+			/* 在某些操作系统上，对文件做 fsync 需要 O_RDWR */
 			int			fd = OpenTransientFile(path, O_RDWR | PG_BINARY);
 
 			/*
-			 * The file cannot vanish due to concurrency since this function
-			 * is the only one removing logical mappings and only one
-			 * checkpoint can be in progress at a time.
+			 * 该文件无法因并发而消失，因为本函数
+			 * 是唯一移除逻辑映射的函数，并且同一时刻只能有一个
+			 * 检查点在进行。
 			 */
 			if (fd < 0)
 				ereport(ERROR,
@@ -1263,9 +1263,9 @@ CheckPointLogicalRewriteHeap(void)
 						 errmsg("could not open file \"%s\": %m", path)));
 
 			/*
-			 * We could try to avoid fsyncing files that either haven't
-			 * changed or have only been created since the checkpoint's start,
-			 * but it's currently not deemed worth the effort.
+			 * 我们可以设法避免对那些要么没有
+			 * 改变、要么只是在检查点开始之后才创建的文件做 fsync，
+			 * 但目前认为不值得花这个力气。
 			 */
 			pgstat_report_wait_start(WAIT_EVENT_LOGICAL_REWRITE_CHECKPOINT_SYNC);
 			if (pg_fsync(fd) != 0)
@@ -1282,6 +1282,6 @@ CheckPointLogicalRewriteHeap(void)
 	}
 	FreeDir(mappings_dir);
 
-	/* persist directory entries to disk */
+	/* 把目录项持久化到磁盘 */
 	fsync_fname("pg_logical/mappings", true);
 }

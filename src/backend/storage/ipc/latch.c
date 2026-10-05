@@ -2130,13 +2130,13 @@ WaitEventSetWaitBlock(WaitEventSet *set, int cur_timeout,
 			occurred_events->events |= WL_SOCKET_READABLE;
 
 			/*------
-			 * WaitForMultipleObjects doesn't guarantee that a read event will
-			 * be returned if the latch is set at the same time.  Even if it
-			 * did, the caller might drop that event expecting it to reoccur
-			 * on next call.  So, we must force the event to be reset if this
-			 * WaitEventSet is used again in order to avoid an indefinite
-			 * hang.  Refer https://msdn.microsoft.com/en-us/library/windows/desktop/ms741576(v=vs.85).aspx
-			 * for the behavior of socket events.
+			 * 若锁存器同时被设置，WaitForMultipleObjects 并不保证
+			 * 仍会返回读事件。即便会返回，调用者也可能丢掉该事件，
+			 * 指望它在下次调用时再次出现。因此，若此
+			 * WaitEventSet 还会被再次使用，就必须强制重置该事件，
+			 * 以免无限期挂起。套接字事件的行为参见
+			 * https://msdn.microsoft.com/en-us/library/windows/desktop/ms741576(v=vs.85).aspx
+			 * 该页的说明。
 			 *------
 			 */
 			cur_event->reset = true;

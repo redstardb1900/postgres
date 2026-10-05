@@ -120,39 +120,39 @@ int			min_dynamic_shared_memory;
 #define SEGMENT_NAME_PREFIX			"Global/PostgreSQL"
 
 /*------
- * Perform a low-level shared memory operation in a platform-specific way,
- * as dictated by the selected implementation.  Each implementation is
- * required to implement the following primitives.
+ * 按所选实现，以平台相关的方式执行低层共享内存操作，
+ * 具体做法由该实现决定。每种实现
+ * 都必须实现下列原语。
  *
- * DSM_OP_CREATE.  Create a segment whose size is the request_size and
- * map it.
+ * DSM_OP_CREATE。创建一个大小为 request_size 的段，并
+ * 映射它。
  *
- * DSM_OP_ATTACH.  Map the segment, whose size must be the request_size.
+ * DSM_OP_ATTACH。映射该段，其大小必须等于 request_size。
  *
- * DSM_OP_DETACH.  Unmap the segment.
+ * DSM_OP_DETACH。解除该段的映射。
  *
- * DSM_OP_DESTROY.  Unmap the segment, if it is mapped.  Destroy the
- * segment.
+ * DSM_OP_DESTROY。若该段已映射则解除映射。销毁
+ * 该段。
  *
- * Arguments:
- *	 op: The operation to be performed.
- *	 handle: The handle of an existing object, or for DSM_OP_CREATE, the
- *	   a new handle the caller wants created.
- *	 request_size: For DSM_OP_CREATE, the requested size.  Otherwise, 0.
- *	 impl_private: Private, implementation-specific data.  Will be a pointer
- *	   to NULL for the first operation on a shared memory segment within this
- *	   backend; thereafter, it will point to the value to which it was set
- *	   on the previous call.
- *	 mapped_address: Pointer to start of current mapping; pointer to NULL
- *	   if none.  Updated with new mapping address.
- *	 mapped_size: Pointer to size of current mapping; pointer to 0 if none.
- *	   Updated with new mapped size.
- *	 elevel: Level at which to log errors.
+ * 参数：
+ *	 op：要执行的操作。
+ *	 handle：已有对象的句柄；对 DSM_OP_CREATE 而言，则是
+ *	   调用者希望创建的新句柄。
+ *	 request_size：对 DSM_OP_CREATE 为请求的大小，否则为 0。
+ *	 impl_private：实现私有的数据。
+ *	   在此后台进程里，对某个共享内存段的第一次操作时，
+ *	   它指向 NULL；此后则指向上一次调用
+ *	   为它所设置的值。
+ *	 mapped_address：指向当前映射的起点；若尚未映射则指向 NULL。
+ *	   返回时更新为新的映射地址。
+ *	 mapped_size：指向当前映射的大小；若尚未映射则指向 0。
+ *	   返回时更新为新的映射大小。
+ *	 elevel：记录错误时使用的级别。
  *
- * Return value: true on success, false on failure.  When false is returned,
- * a message should first be logged at the specified elevel, except in the
- * case where DSM_OP_CREATE experiences a name collision, which should
- * silently return false.
+ * 返回值：成功为 true，失败为 false。在返回 false 之前，
+ * 应先按指定的 elevel 记一条消息；例外是
+ * DSM_OP_CREATE 遇到名称冲突时，应当
+ * 静默返回 false。
  *-----
  */
 bool

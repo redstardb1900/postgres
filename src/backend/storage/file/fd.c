@@ -11,7 +11,7 @@
  *
  * 说明：
  *
- * 这段代码管理一个“虚拟”文件描述符（VFDs）缓存。
+ * 这段代码管理一个 "虚拟" 文件描述符（VFDs）缓存。
  * 服务器出于多种原因打开许多文件描述符，
  * 包括基表、草稿文件（例如排序和散列的假脱机
  * 文件），以及对 C 库例程如 system(3) 的随意调用；很容易
@@ -292,26 +292,26 @@ static int	nextTempTableSpace = 0;
 
 /*--------------------
  *
- * Private Routines
+ * 私有例程
  *
- * Delete		   - delete a file from the Lru ring
- * LruDelete	   - remove a file from the Lru ring and close its FD
- * Insert		   - put a file at the front of the Lru ring
- * LruInsert	   - put a file at the front of the Lru ring and open it
- * ReleaseLruFile  - Release an fd by closing the last entry in the Lru ring
- * ReleaseLruFiles - Release fd(s) until we're under the max_safe_fds limit
- * AllocateVfd	   - grab a free (or new) file record (from VfdCache)
- * FreeVfd		   - free a file record
+ * Delete		   - 从 LRU 环中删除一个文件
+ * LruDelete	   - 从 LRU 环中移除一个文件并关闭其文件描述符
+ * Insert		   - 把一个文件放到 LRU 环的前端
+ * LruInsert	   - 把一个文件放到 LRU 环的前端并打开它
+ * ReleaseLruFile  - 关闭 LRU 环的最后一项，从而释放一个文件描述符
+ * ReleaseLruFiles - 释放文件描述符，直到低于 max_safe_fds 限制
+ * AllocateVfd	   - 取得一条空闲的（或新建的）文件记录（来自 VfdCache）
+ * FreeVfd		   - 释放一条文件记录
  *
- * The Least Recently Used ring is a doubly linked list that begins and
- * ends on element zero.  Element zero is special -- it doesn't represent
- * a file and its "fd" field always == VFD_CLOSED.  Element zero is just an
- * anchor that shows us the beginning/end of the ring.
- * Only VFD elements that are currently really open (have an FD assigned) are
- * in the Lru ring.  Elements that are "virtually" open can be recognized
- * by having a non-null fileName field.
+ * 最近最少使用（LRU）环是一条双向链表，起点和
+ * 终点都是元素零。元素零很特殊——它不代表
+ * 某个文件，其 "fd" 字段始终 == VFD_CLOSED。元素零只是
+ * 标明环的起点与终点的锚点。
+ * 只有当前真正打开（已分配文件描述符）的 VFD 元素
+ * 才位于 LRU 环中。"虚拟" 打开的元素
+ * 可以通过 fileName 字段非空来识别。
  *
- * example:
+ * 示例：
  *
  *	   /--less----\				   /---------\
  *	   v		   \			  v			  \
@@ -998,11 +998,11 @@ set_max_safe_fds(void)
 	int			already_open;
 
 	/*----------
-	 * We want to set max_safe_fds to
+	 * 希望把 max_safe_fds 设为
 	 *			MIN(usable_fds, max_files_per_process - already_open)
-	 * less the slop factor for files that are opened without consulting
-	 * fd.c.  This ensures that we won't exceed either max_files_per_process
-	 * or the experimentally-determined EMFILE limit.
+	 * 再减去为那些不经 fd.c 就打开的文件预留的余量。
+	 * 这样既不会超过 max_files_per_process，
+	 * 也不会超过实验测得的 EMFILE 限制。
 	 *----------
 	 */
 	count_usable_fds(max_files_per_process,
@@ -2339,8 +2339,8 @@ retry:
 	errno = returnCode;
 
 	/*
-	 * Return in cases of a "real" failure, if fallocate is not supported,
-	 * fall through to the FileZero() backed implementation.
+	 * 若是 "真正" 的失败则返回；若 fallocate 不受支持，
+	 * 则落到由 FileZero() 支撑的实现。
 	 */
 	if (returnCode != EINVAL && returnCode != EOPNOTSUPP)
 		return -1;

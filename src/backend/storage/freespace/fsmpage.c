@@ -14,7 +14,7 @@
  *
  *	本文件中的公开函数构成一套 API，它隐藏 FSM 页的内部
  *	结构。这样 freespace.c 就可以把每个 FSM 页
- *	当成有 SlotsPerPage 个“槽”的黑盒。fsm_set_avail() 与
+ *	当成有 SlotsPerPage 个 "槽" 的黑盒。fsm_set_avail() 与
  *	fsm_get_avail() 用来读取或设置某个槽的值，
  *	fsm_search_avail() 用来搜索值 >= X 的槽。
  *
@@ -184,29 +184,29 @@ restart:
 	target += NonLeafNodesPerPage;
 
 	/*----------
-	 * Start the search from the target slot.  At every step, move one
-	 * node to the right, then climb up to the parent.  Stop when we reach
-	 * a node with enough free space (as we must, since the root has enough
-	 * space).
+	 * 从目标槽开始搜索。每一步先向右移动一个结点，
+	 * 再向上爬到父结点。遇到空闲空间足够的结点
+	 * 就停止。根结点的空闲空间一定足够，所以
+	 * 搜索总会停下来。
 	 *
-	 * The idea is to gradually expand our "search triangle", that is, all
-	 * nodes covered by the current node, and to be sure we search to the
-	 * right from the start point.  At the first step, only the target slot
-	 * is examined.  When we move up from a left child to its parent, we are
-	 * adding the right-hand subtree of that parent to the search triangle.
-	 * When we move right then up from a right child, we are dropping the
-	 * current search triangle (which we know doesn't contain any suitable
-	 * page) and instead looking at the next-larger-size triangle to its
-	 * right.  So we never look left from our original start point, and at
-	 * each step the size of the search triangle doubles, ensuring it takes
-	 * only log2(N) work to search N pages.
+	 * 思路是逐步扩大 "搜索三角"，
+	 * 也就是当前结点所覆盖的全部结点，
+	 * 并保证从起点向右搜索。第一步只检查目标槽。
+	 * 从左子结点上移到其父结点时，
+	 * 是把该父结点的右子树加入搜索三角。
+	 * 从右子结点先向右再向上时，
+	 * 是丢掉当前搜索三角
+	 * （已知其中没有合适的页），
+	 * 改为查看其右侧下一个更大的三角。
+	 * 因此从不向原来的起点左侧看，而且每一步
+	 * 搜索三角的大小都加倍，搜索 N 页只需 log2(N)。
 	 *
-	 * The "move right" operation will wrap around if it hits the right edge
-	 * of the tree, so the behavior is still good if we start near the right.
-	 * Note also that the move-and-climb behavior ensures that we can't end
-	 * up on one of the missing nodes at the right of the leaf level.
+	 * "向右移动" 若碰到树的右边缘就会回绕，
+	 * 所以即使从靠近右侧的地方开始，行为仍然正确。
+	 * 另外，这种先移动再上爬的做法也保证
+	 * 我们不会停在叶层右侧那些缺少的结点上。
 	 *
-	 * For example, consider this tree:
+	 * 例如，考虑下面这棵树：
 	 *
 	 *		   7
 	 *	   7	   6
@@ -214,14 +214,14 @@ restart:
 	 *	4 5 5 7 2 6 5 2
 	 *				T
 	 *
-	 * Assume that the target node is the node indicated by the letter T,
-	 * and we're searching for a node with value of 6 or higher. The search
-	 * begins at T. At the first iteration, we move to the right, then to the
-	 * parent, arriving at the rightmost 5. At the second iteration, we move
-	 * to the right, wrapping around, then climb up, arriving at the 7 on the
-	 * third level.  7 satisfies our search, so we descend down to the bottom,
-	 * following the path of sevens.  This is in fact the first suitable page
-	 * to the right of (allowing for wraparound) our start point.
+	 * 设目标结点就是字母 T 所标出的那个结点，
+	 * 要找的是值大于等于 6 的结点。搜索从 T 开始。
+	 * 第一次迭代先向右，再到父结点，
+	 * 到达最右边的 5。第二次迭代向右并回绕，
+	 * 然后向上爬，到达第三层上的 7。
+	 * 7 满足条件，于是向下走到最底层，
+	 * 沿着一串 7 走。这实际上就是起点右侧
+	 * （允许回绕）第一个合适的页。
 	 *----------
 	 */
 	nodeno = target;

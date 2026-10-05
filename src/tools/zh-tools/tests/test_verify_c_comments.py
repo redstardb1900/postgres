@@ -134,6 +134,29 @@ class FixedCases(unittest.TestCase):
         marker = b"/* FALLTHROUGH */\n"
         self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
 
+    def test_filezero_fallthrough_prose_is_translatable(self):
+        old = (
+            "/*\n"
+            " * Return in cases of a \"real\" failure, if fallocate is not supported,\n"
+            " * fall through to the FileZero() backed implementation.\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        new = (
+            "/*\n"
+            " * 若是 \"真正\" 的失败则返回；若 fallocate 不受支持，\n"
+            " * 则落到由 FileZero() 支撑的实现。\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        comment = c_lexer.lex(old).comments[0].text
+        self.assertIsNone(c_verify.protected_reason(comment))
+        res = c_verify.compare_files(old, new, path="filezero-prose")
+        self.assertEqual(res.violations, [],
+                         [f.to_dict() for f in res.violations])
+        marker = b"/* NB: need to fall through to munmap()! */\n"
+        self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
+
     def test_banner_fallthrough_prose_is_translatable(self):
         """File headers may document switch fall-through; not a GCC marker."""
         old = (

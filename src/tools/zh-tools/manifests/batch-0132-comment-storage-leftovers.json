@@ -1,0 +1,143 @@
+{
+ "schema_version": 1,
+ "batch_id": "0132-comment-storage-leftovers",
+ "title": "zh: translate storage leftover comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "61221f8ed0e69f1b363a5e7404e2c02da53d4e1b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "note": "LRU ring directory, max_safe_fds formula, FileZero prose"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/fsmpage.c",
+   "kind": "c_comment",
+   "note": "FSM search-triangle comment"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "note": "WaitForMultipleObjects socket-event reset"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "note": "DSM_OP platform primitives"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "FileZero fall-through prose is not a switch annotation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "note": "FileZero prose stays translatable; munmap fall-through stays protected"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0132-comment-storage-leftovers.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 298,
+   "translated": 296,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through"
+   ],
+   "note": "leftover: Private Routines / LRU ring, max_safe_fds formula, FileZero prose. munmap fall-through marker stays. LRU diagram labels stay. header curly quotes became ASCII quotes"
+  },
+  {
+   "path": "src/backend/storage/freespace/fsmpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 27,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "leftover: FSM search triangle. header curly quotes became ASCII quotes. tree figure unchanged"
+  },
+  {
+   "path": "src/backend/storage/ipc/latch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 177,
+   "translated": 176,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "leftover: WaitForMultipleObjects does not guarantee a read event when the latch is also set; force a reset"
+  },
+  {
+   "path": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 61,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "leftover: DSM_OP_CREATE/ATTACH/DETACH/DESTROY primitives and arguments"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FileZero fall-through prose is not a switch annotation"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FileZero prose stays translatable; munmap fall-through stays protected"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0132-comment-storage-leftovers.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0132 fills leftover English comments in fd.c, fsmpage.c, latch.c, and dsm_impl.c. FileFallocate's fall-through sentence is prose (EINVAL/EOPNOTSUPP continues into FileZero), not a switch annotation; the munmap NB marker stays in English. Two pre-existing header curly quotes were changed to ASCII quotes so TL11 passes. Next batch should start at src/backend/access/common/ smaller files."
+}

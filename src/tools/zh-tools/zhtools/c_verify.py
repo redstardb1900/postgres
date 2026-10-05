@@ -132,6 +132,13 @@ _WAITIO_FALLTHROUGH_PROSE = re.compile(rb"WaitIO will fall through")
 _FSM_FALLTHROUGH_PROSE = re.compile(
     rb"possible to fall through and return the buffer")
 
+# FileFallocate "fall through to the FileZero() backed implementation" is
+# prose: a real posix_fallocate failure returns immediately, and EINVAL /
+# EOPNOTSUPP continues into FileZero().  Not a switch annotation, and GCC
+# -Wimplicit-fallthrough does not consult it.
+_FILEZERO_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to the FileZero\(\) backed implementation")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -197,7 +204,8 @@ def protected_reason(old_text):
             if name == "fallthrough" and (
                     old_text.startswith(b"/*-")
                     or _WAITIO_FALLTHROUGH_PROSE.search(old_text)
-                    or _FSM_FALLTHROUGH_PROSE.search(old_text)):
+                    or _FSM_FALLTHROUGH_PROSE.search(old_text)
+                    or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0128-comment-storage-lmgr-predicate",
+ "title": "zh: translate predicate comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4afb955b20780fc7dff78fe593aba790c1dff5ec",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/predicate.c",
+   "kind": "c_comment",
+   "note": "serializable snapshot isolation predicate locks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0128-comment-storage-lmgr-predicate.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/predicate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 360,
+   "translated": 348,
+   "preserved": 12,
+   "preserved_reasons": [
+    "TEST_SUMMARIZE_SERIAL define",
+    "numbered section markers",
+    "separator lines"
+   ],
+   "note": "SSI predicate locks, rw-conflicts, and dangerous structures"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0128-comment-storage-lmgr-predicate.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0128 translates body comments in predicate.c. Terms: 谓词锁, 可串行化快照隔离（SSI）, 读写依赖（rw-conflict）, 危险结构, 安全重试, SLRU. Copyright and IDENTIFICATION lines stay verbatim. Section markers and the TEST_SUMMARIZE_SERIAL define stay English. Next batch should be src/backend/storage/page/ (bufpage.c and related)."
+}

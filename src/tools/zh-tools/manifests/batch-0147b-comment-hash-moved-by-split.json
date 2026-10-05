@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0147b-comment-hash-moved-by-split",
+ "title": "zh: fix hash moved-by-split wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "11cf20cd88223ec97e5e4ad4d91fdef8a77cefbd",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/hash/hash.c",
+   "kind": "c_comment",
+   "note": "Composer P1: moved by split direction"
+  },
+  {
+   "pattern": "src/backend/access/hash/hashsearch.c",
+   "kind": "c_comment",
+   "note": "Composer P1: moved by split neutral wording"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0147b-comment-hash-moved-by-split.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/hash/hash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 81,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "移来/移走 → 因分裂而移动的"
+  },
+  {
+   "path": "src/backend/access/hash/hashsearch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "移走 → 因分裂而移动的 (2)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0147b-comment-hash-moved-by-split.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0147"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0147b"
+  }
+ ],
+ "notes": "Composer P1 on 0147: unify 'moved by split' as 因分裂而移动的 to avoid 移来/移走 direction errors across old-bucket cleanup and new-bucket scan skip paths."
+}

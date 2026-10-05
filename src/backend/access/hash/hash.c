@@ -518,7 +518,7 @@ loop_top:
 		bucket_opaque = HashPageGetOpaque(page);
 
 		/*
-		 * 若桶中含有被分裂移来的元组，就需要
+		 * 若桶中含有因分裂而移动的元组，就需要
 		 * 删除这些元组。若该桶上的分裂
 		 * 操作尚未完成，就不能删除，因为扫描还需要它们。
 		 */
@@ -746,7 +746,7 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 			}
 			else if (split_cleanup)
 			{
-				/* 删除被分裂移走的元组。 */
+				/* 删除因分裂而移动的元组。 */
 				bucket = _hash_hashkey2bucket(_hash_get_indextuple_hashkey(itup),
 											  maxbucket,
 											  highmask,
@@ -873,10 +873,10 @@ hashbucketcleanup(Relation rel, Bucket cur_bucket, Buffer bucket_buf,
 	}
 
 	/*
-	 * 删除被分裂移走的元组之后，清除桶上的垃圾标志。
+	 * 删除因分裂而移动的元组之后，清除桶上的垃圾标志。
 	 * 我们有意在挤压桶之前清除该标志，
-	 * 这样重启之后，VACUUM 不会再次试图删除被分裂
-	 * 移走的元组。
+	 * 这样重启之后，VACUUM 不会再次试图删除因分裂
+	 * 而移动的元组。
 	 */
 	if (split_cleanup)
 	{

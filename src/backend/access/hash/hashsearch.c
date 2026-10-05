@@ -626,8 +626,8 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offnum));
 
 			/*
-			 * 对在分裂进行期间开始的扫描，跳过被分裂操作
-			 * 移走的元组。同时跳过
+			 * 对在分裂进行期间开始的扫描，跳过因分裂而
+			 * 移动的元组。同时跳过
 			 * 已标为死的元组。
 			 */
 			if ((so->hashso_buc_populated && !so->hashso_buc_split &&
@@ -672,8 +672,8 @@ _hash_load_qualified_items(IndexScanDesc scan, Page page,
 			itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, offnum));
 
 			/*
-			 * 对在分裂进行期间开始的扫描，跳过被分裂操作
-			 * 移走的元组。同时跳过
+			 * 对在分裂进行期间开始的扫描，跳过因分裂而
+			 * 移动的元组。同时跳过
 			 * 已标为死的元组。
 			 */
 			if ((so->hashso_buc_populated && !so->hashso_buc_split &&

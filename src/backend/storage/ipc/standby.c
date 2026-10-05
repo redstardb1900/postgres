@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * standby.c
- *	  Misc functions used in Hot Standby mode.
+ *	  热备模式下使用的杂项函数。
  *
- *	All functions for handling RM_STANDBY_ID, which relate to
- *	AccessExclusiveLocks and starting snapshots for Hot Standby mode.
- *	Plus conflict recovery processing.
+ *	处理 RM_STANDBY_ID 的全部函数，涉及
+ *	AccessExclusiveLocks 以及为热备模式建立快照。
+ *	另有冲突恢复处理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,36 +37,36 @@
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 
-/* User-settable GUC parameters */
+/* 用户可设置的 GUC 参数 */
 int			max_standby_archive_delay = 30 * 1000;
 int			max_standby_streaming_delay = 30 * 1000;
 bool		log_recovery_conflict_waits = false;
 
 /*
- * Keep track of all the exclusive locks owned by original transactions.
- * For each known exclusive lock, there is a RecoveryLockEntry in the
- * RecoveryLockHash hash table.  All RecoveryLockEntrys belonging to a
- * given XID are chained together so that we can find them easily.
- * For each original transaction that is known to have any such locks,
- * there is a RecoveryLockXidEntry in the RecoveryLockXidHash hash table,
- * which stores the head of the chain of its locks.
+ * 跟踪原事务持有的全部排他锁。
+ * 每个已知排他锁在 RecoveryLockHash 哈希表里都有一条
+ * RecoveryLockEntry。属于同一给定 XID 的全部 RecoveryLockEntrys
+ * 串成一条链，以便查找。
+ * 每个已知持有此类锁的原事务，在 RecoveryLockXidHash
+ * 哈希表里都有一条 RecoveryLockXidEntry，
+ * 其中存放该事务锁链的链头。
  */
 typedef struct RecoveryLockEntry
 {
-	xl_standby_lock key;		/* hash key: xid, dbOid, relOid */
-	struct RecoveryLockEntry *next; /* chain link */
+	xl_standby_lock key;		/* 哈希键：xid, dbOid, relOid */
+	struct RecoveryLockEntry *next; /* 链节 */
 } RecoveryLockEntry;
 
 typedef struct RecoveryLockXidEntry
 {
-	TransactionId xid;			/* hash key -- must be first */
-	struct RecoveryLockEntry *head; /* chain head */
+	TransactionId xid;			/* 哈希键 -- 必须放在首位 */
+	struct RecoveryLockEntry *head; /* 链头 */
 } RecoveryLockXidEntry;
 
 static HTAB *RecoveryLockHash = NULL;
 static HTAB *RecoveryLockXidHash = NULL;
 
-/* Flags set by timeout handlers */
+/* 超时处理函数设置的标志 */
 static volatile sig_atomic_t got_standby_deadlock_timeout = false;
 static volatile sig_atomic_t got_standby_delay_timeout = false;
 static volatile sig_atomic_t got_standby_lock_timeout = false;
@@ -82,15 +82,15 @@ static const char *get_recovery_conflict_desc(ProcSignalReason reason);
 
 /*
  * InitRecoveryTransactionEnvironment
- *		Initialize tracking of our primary's in-progress transactions.
+ *		初始化对主库进行中事务的跟踪。
  *
- * We need to issue shared invalidations and hold locks. Holding locks
- * means others may want to wait on us, so we need to make a lock table
- * vxact entry like a real transaction. We could create and delete
- * lock table entries for each transaction but its simpler just to create
- * one permanent entry and leave it there all the time. Locks are then
- * acquired and released as needed. Yes, this means you can see the
- * Startup process in pg_locks once we have run this.
+ * 我们需要发出共享失效并持有锁。持有锁
+ * 意味着别人可能要等我们，因此需要像真实事务那样建立一条锁表
+ * vxact 项。可以为每个事务创建并删除
+ * 锁表项，但更简单的做法是只创建
+ * 一条永久项并始终留着。然后按需
+ * 获取和释放锁。是的，这意味着一旦运行过本函数，就能在
+ * pg_locks 里看到启动进程。
  */
 void
 InitRecoveryTransactionEnvironment(void)
@@ -98,11 +98,11 @@ InitRecoveryTransactionEnvironment(void)
 	VirtualTransactionId vxid;
 	HASHCTL		hash_ctl;
 
-	Assert(RecoveryLockHash == NULL);	/* don't run this twice */
+	Assert(RecoveryLockHash == NULL);	/* 不要运行两次 */
 
 	/*
-	 * Initialize the hash tables for tracking the locks held by each
-	 * transaction.
+	 * 初始化哈希表，用以跟踪每个事务
+	 * 持有的锁。
 	 */
 	hash_ctl.keysize = sizeof(xl_standby_lock);
 	hash_ctl.entrysize = sizeof(RecoveryLockEntry);
@@ -118,24 +118,24 @@ InitRecoveryTransactionEnvironment(void)
 									  HASH_ELEM | HASH_BLOBS);
 
 	/*
-	 * Initialize shared invalidation management for Startup process, being
-	 * careful to register ourselves as a sendOnly process so we don't need to
-	 * read messages, nor will we get signaled when the queue starts filling
-	 * up.
+	 * 为启动进程初始化共享失效管理，
+	 * 注意把自己登记为 sendOnly 进程，这样不必
+	 * 读取消息，队列开始积满时也不会
+	 * 收到信号。
 	 */
 	SharedInvalBackendInit(true);
 
 	/*
-	 * Lock a virtual transaction id for Startup process.
+	 * 为启动进程锁定一个虚拟事务 id。
 	 *
-	 * We need to do GetNextLocalTransactionId() because
-	 * SharedInvalBackendInit() leaves localTransactionId invalid and the lock
-	 * manager doesn't like that at all.
+	 * 需要调用 GetNextLocalTransactionId()，因为
+	 * SharedInvalBackendInit() 留下的 localTransactionId 无效，锁
+	 * 管理器完全不能接受。
 	 *
-	 * Note that we don't need to run XactLockTableInsert() because nobody
-	 * needs to wait on xids. That sounds a little strange, but table locks
-	 * are held by vxids and row level locks are held by xids. All queries
-	 * hold AccessShareLocks so never block while we write or lock new rows.
+	 * 注意不必运行 XactLockTableInsert()，因为没有人
+	 * 需要等待 xid。这听起来有点奇怪，但表锁
+	 * 由 vxid 持有，行级锁由 xid 持有。所有查询
+	 * 都持有 AccessShareLocks，因此在我们写入或锁定新行时绝不会阻塞。
 	 */
 	vxid.backendId = MyBackendId;
 	vxid.localTransactionId = GetNextLocalTransactionId();
@@ -146,56 +146,56 @@ InitRecoveryTransactionEnvironment(void)
 
 /*
  * ShutdownRecoveryTransactionEnvironment
- *		Shut down transaction tracking
+ *		关闭事务跟踪
  *
- * Prepare to switch from hot standby mode to normal operation. Shut down
- * recovery-time transaction tracking.
+ * 准备从热备模式切换到正常运行。关闭
+ * 恢复期间的事务跟踪。
  *
- * This must be called even in shutdown of startup process if transaction
- * tracking has been initialized. Otherwise some locks the tracked
- * transactions were holding will not be released and may interfere with
- * the processes still running (but will exit soon later) at the exit of
- * startup process.
+ * 即便在关闭启动进程时，只要事务
+ * 跟踪已经初始化，也必须调用本函数。否则被跟踪
+ * 事务持有的某些锁不会释放，并可能在启动进程退出时
+ * 干扰仍在运行（但很快也会退出）的
+ * 进程。
  */
 void
 ShutdownRecoveryTransactionEnvironment(void)
 {
 	/*
-	 * Do nothing if RecoveryLockHash is NULL because that means that
-	 * transaction tracking has not yet been initialized or has already been
-	 * shut down.  This makes it safe to have possibly-redundant calls of this
-	 * function during process exit.
+	 * 若 RecoveryLockHash 为 NULL 则什么都不做，因为这意味着
+	 * 事务跟踪尚未初始化，或已经
+	 * 关闭。这样在进程退出期间即便重复调用本
+	 * 函数也是安全的。
 	 */
 	if (RecoveryLockHash == NULL)
 		return;
 
-	/* Mark all tracked in-progress transactions as finished. */
+	/* 把所有被跟踪的进行中事务标记为已结束。 */
 	ExpireAllKnownAssignedTransactionIds();
 
-	/* Release all locks the tracked transactions were holding */
+	/* 释放被跟踪事务所持有的全部锁 */
 	StandbyReleaseAllLocks();
 
-	/* Destroy the lock hash tables. */
+	/* 销毁锁哈希表。 */
 	hash_destroy(RecoveryLockHash);
 	hash_destroy(RecoveryLockXidHash);
 	RecoveryLockHash = NULL;
 	RecoveryLockXidHash = NULL;
 
-	/* Cleanup our VirtualTransaction */
+	/* 清理我们的 VirtualTransaction */
 	VirtualXactLockTableCleanup();
 }
 
 
 /*
  * -----------------------------------------------------
- *		Standby wait timers and backend cancel logic
+ *		备库等待计时器与后端取消逻辑
  * -----------------------------------------------------
  */
 
 /*
- * Determine the cutoff time at which we want to start canceling conflicting
- * transactions.  Returns zero (a time safely in the past) if we are willing
- * to wait forever.
+ * 确定我们希望开始取消冲突
+ * 事务的截止时刻。若愿意一直等待，则返回零（一个肯定处于过去的
+ * 时刻）。
  */
 static TimestampTz
 GetStandbyLimitTime(void)
@@ -204,20 +204,20 @@ GetStandbyLimitTime(void)
 	bool		fromStream;
 
 	/*
-	 * The cutoff time is the last WAL data receipt time plus the appropriate
-	 * delay variable.  Delay of -1 means wait forever.
+	 * 截止时刻是最近一次收到 WAL 数据的时间加上相应的
+	 * 延迟变量。延迟为 -1 表示一直等待。
 	 */
 	GetXLogReceiptTime(&rtime, &fromStream);
 	if (fromStream)
 	{
 		if (max_standby_streaming_delay < 0)
-			return 0;			/* wait forever */
+			return 0;			/* 一直等待 */
 		return TimestampTzPlusMilliseconds(rtime, max_standby_streaming_delay);
 	}
 	else
 	{
 		if (max_standby_archive_delay < 0)
-			return 0;			/* wait forever */
+			return 0;			/* 一直等待 */
 		return TimestampTzPlusMilliseconds(rtime, max_standby_archive_delay);
 	}
 }
@@ -226,9 +226,9 @@ GetStandbyLimitTime(void)
 static int	standbyWait_us = STANDBY_INITIAL_WAIT_US;
 
 /*
- * Standby wait logic for ResolveRecoveryConflictWithVirtualXIDs.
- * We wait here for a while then return. If we decide we can't wait any
- * more then we return true, if we can wait some more return false.
+ * ResolveRecoveryConflictWithVirtualXIDs 的备库等待逻辑。
+ * 在此等待一会儿然后返回。若判定不能再等待，
+ * 则返回 true；若还能再等一会儿，则返回 false。
  */
 static bool
 WaitExceedsMaxStandbyDelay(uint32 wait_event_info)
@@ -237,21 +237,21 @@ WaitExceedsMaxStandbyDelay(uint32 wait_event_info)
 
 	CHECK_FOR_INTERRUPTS();
 
-	/* Are we past the limit time? */
+	/* 是否已超过截止时刻？ */
 	ltime = GetStandbyLimitTime();
 	if (ltime && GetCurrentTimestamp() >= ltime)
 		return true;
 
 	/*
-	 * Sleep a bit (this is essential to avoid busy-waiting).
+	 * 睡眠一小会儿（这对避免忙等是必需的）。
 	 */
 	pgstat_report_wait_start(wait_event_info);
 	pg_usleep(standbyWait_us);
 	pgstat_report_wait_end();
 
 	/*
-	 * Progressively increase the sleep times, but not to more than 1s, since
-	 * pg_usleep isn't interruptible on some platforms.
+	 * 逐步加长睡眠时间，但不超过 1 秒，因为
+	 * 在某些平台上 pg_usleep 不可中断。
 	 */
 	standbyWait_us *= 2;
 	if (standbyWait_us > 1000000)
@@ -261,14 +261,14 @@ WaitExceedsMaxStandbyDelay(uint32 wait_event_info)
 }
 
 /*
- * Log the recovery conflict.
+ * 记录恢复冲突。
  *
- * wait_start is the timestamp when the caller started to wait.
- * now is the timestamp when this function has been called.
- * wait_list is the list of virtual transaction ids assigned to
- * conflicting processes. still_waiting indicates whether
- * the startup process is still waiting for the recovery conflict
- * to be resolved or not.
+ * wait_start 是调用方开始等待的时间戳。
+ * now 是调用本函数时的时间戳。
+ * wait_list 是分配给冲突进程的
+ * 虚拟事务 id 列表。still_waiting 表示
+ * 启动进程是否仍在等待恢复冲突
+ * 得到解决。
  */
 void
 LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
@@ -282,8 +282,8 @@ LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 	int			nprocs = 0;
 
 	/*
-	 * There must be no conflicting processes when the recovery conflict has
-	 * already been resolved.
+	 * 恢复冲突已经解决时，
+	 * 不得再有冲突进程。
 	 */
 	Assert(still_waiting || wait_list == NULL);
 
@@ -295,13 +295,13 @@ LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 	{
 		VirtualTransactionId *vxids;
 
-		/* Construct a string of list of the conflicting processes */
+		/* 构造冲突进程列表的字符串 */
 		vxids = wait_list;
 		while (VirtualTransactionIdIsValid(*vxids))
 		{
 			PGPROC	   *proc = BackendIdGetProc(vxids->backendId);
 
-			/* proc can be NULL if the target backend is not active */
+			/* 若目标后端不活跃，proc 可以为 NULL */
 			if (proc)
 			{
 				if (nprocs == 0)
@@ -320,9 +320,9 @@ LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 	}
 
 	/*
-	 * If wait_list is specified, report the list of PIDs of active
-	 * conflicting backends in a detail message. Note that if all the backends
-	 * in the list are not active, no detail message is logged.
+	 * 若指定了 wait_list，则在详细信息中报告活跃
+	 * 冲突后端的 PIDs 列表。注意若列表中的后端
+	 * 都不活跃，则不记录详细信息。
 	 */
 	if (still_waiting)
 	{
@@ -345,16 +345,16 @@ LogRecoveryConflict(ProcSignalReason reason, TimestampTz wait_start,
 }
 
 /*
- * This is the main executioner for any query backend that conflicts with
- * recovery processing. Judgement has already been passed on it within
- * a specific rmgr. Here we just issue the orders to the procs. The procs
- * then throw the required error as instructed.
+ * 这是与恢复处理冲突的任何查询后端的主要执行者。
+ * 具体 rmgr 内已经做出裁决。
+ * 这里只向这些进程发出指令。这些进程
+ * 再按指示抛出所需的错误。
  *
- * If report_waiting is true, "waiting" is reported in PS display and the
- * wait for recovery conflict is reported in the log, if necessary. If
- * the caller is responsible for reporting them, report_waiting should be
- * false. Otherwise, both the caller and this function report the same
- * thing unexpectedly.
+ * 若 report_waiting 为 true，则在 PS 显示中报告 "waiting"，并在
+ * 必要时把等待恢复冲突记入日志。若
+ * 由调用方负责报告，则 report_waiting 应为
+ * false。否则调用方和本函数会意外地报告
+ * 同一件事。
  */
 static void
 ResolveRecoveryConflictWithVirtualXIDs(VirtualTransactionId *waitlist,
@@ -365,36 +365,36 @@ ResolveRecoveryConflictWithVirtualXIDs(VirtualTransactionId *waitlist,
 	bool		waiting = false;
 	bool		logged_recovery_conflict = false;
 
-	/* Fast exit, to avoid a kernel call if there's no work to be done. */
+	/* 快速退出，若无事可做则避免一次内核调用。 */
 	if (!VirtualTransactionIdIsValid(*waitlist))
 		return;
 
-	/* Set the wait start timestamp for reporting */
+	/* 设置用于报告的等待开始时间戳 */
 	if (report_waiting && (log_recovery_conflict_waits || update_process_title))
 		waitStart = GetCurrentTimestamp();
 
 	while (VirtualTransactionIdIsValid(*waitlist))
 	{
-		/* reset standbyWait_us for each xact we wait for */
+		/* 为每个等待的事务重置 standbyWait_us */
 		standbyWait_us = STANDBY_INITIAL_WAIT_US;
 
-		/* wait until the virtual xid is gone */
+		/* 一直等到该虚拟 xid 消失 */
 		while (!VirtualXactLock(*waitlist, false))
 		{
-			/* Is it time to kill it? */
+			/* 是否到了该杀掉它的时候？ */
 			if (WaitExceedsMaxStandbyDelay(wait_event_info))
 			{
 				pid_t		pid;
 
 				/*
-				 * Now find out who to throw out of the balloon.
+				 * 现在找出该取消的是谁。
 				 */
 				Assert(VirtualTransactionIdIsValid(*waitlist));
 				pid = CancelVirtualTransaction(*waitlist, reason);
 
 				/*
-				 * Wait a little bit for it to die so that we avoid flooding
-				 * an unresponsive backend when system is heavily loaded.
+				 * 稍等片刻让它退出，以免在系统负载很高时
+				 * 向无响应的后端洪泛发送信号。
 				 */
 				if (pid != 0)
 					pg_usleep(5000L);
@@ -409,13 +409,13 @@ ResolveRecoveryConflictWithVirtualXIDs(VirtualTransactionId *waitlist,
 				maybe_log_conflict = (log_recovery_conflict_waits && !logged_recovery_conflict);
 				maybe_update_title = (update_process_title && !waiting);
 
-				/* Get the current timestamp if not report yet */
+				/* 若尚未报告，则取当前时间戳 */
 				if (maybe_log_conflict || maybe_update_title)
 					now = GetCurrentTimestamp();
 
 				/*
-				 * Report via ps if we have been waiting for more than 500
-				 * msec (should that be configurable?)
+				 * 若已等待超过 500
+				 * 毫秒，则通过 ps 报告（这应当可配置吗？）
 				 */
 				if (maybe_update_title &&
 					TimestampDifferenceExceeds(waitStart, now, 500))
@@ -425,8 +425,8 @@ ResolveRecoveryConflictWithVirtualXIDs(VirtualTransactionId *waitlist,
 				}
 
 				/*
-				 * Emit the log message if the startup process is waiting
-				 * longer than deadlock_timeout for recovery conflict.
+				 * 若启动进程等待恢复冲突的时间
+				 * 超过 deadlock_timeout，则发出日志消息。
 				 */
 				if (maybe_log_conflict &&
 					TimestampDifferenceExceeds(waitStart, now, DeadlockTimeout))
@@ -437,32 +437,32 @@ ResolveRecoveryConflictWithVirtualXIDs(VirtualTransactionId *waitlist,
 			}
 		}
 
-		/* The virtual transaction is gone now, wait for the next one */
+		/* 该虚拟事务现已消失，等待下一个 */
 		waitlist++;
 	}
 
 	/*
-	 * Emit the log message if recovery conflict was resolved but the startup
-	 * process waited longer than deadlock_timeout for it.
+	 * 若恢复冲突已解决，但启动进程
+	 * 等待它的时间超过了 deadlock_timeout，则发出日志消息。
 	 */
 	if (logged_recovery_conflict)
 		LogRecoveryConflict(reason, waitStart, GetCurrentTimestamp(),
 							NULL, false);
 
-	/* reset ps display to remove the suffix if we added one */
+	/* 若曾添加后缀，则重置 ps 显示以去掉它 */
 	if (waiting)
 		set_ps_display_remove_suffix();
 
 }
 
 /*
- * Generate whatever recovery conflicts are needed to eliminate snapshots that
- * might see XIDs <= snapshotConflictHorizon as still running.
+ * 生成消除这类快照所需的恢复冲突：它们可能仍把
+ * XIDs <= snapshotConflictHorizon 视为正在运行。
  *
- * snapshotConflictHorizon cutoffs are our standard approach to generating
- * granular recovery conflicts.  Note that InvalidTransactionId values are
- * interpreted as "definitely don't need any conflicts" here, which is a
- * general convention that WAL records can (and often do) depend on.
+ * 以 snapshotConflictHorizon 为截止点是生成
+ * 细粒度恢复冲突的标准做法。注意此处把 InvalidTransactionId
+ * 解释为 "肯定不需要任何冲突"，这是 WAL 记录可以（而且经常）
+ * 依赖的一般约定。
  */
 void
 ResolveRecoveryConflictWithSnapshot(TransactionId snapshotConflictHorizon,
@@ -472,15 +472,15 @@ ResolveRecoveryConflictWithSnapshot(TransactionId snapshotConflictHorizon,
 	VirtualTransactionId *backends;
 
 	/*
-	 * If we get passed InvalidTransactionId then we do nothing (no conflict).
+	 * 若传入的是 InvalidTransactionId，则什么都不做（没有冲突）。
 	 *
-	 * This can happen when replaying already-applied WAL records after a
-	 * standby crash or restart, or when replaying an XLOG_HEAP2_VISIBLE
-	 * record that marks as frozen a page which was already all-visible.  It's
-	 * also quite common with records generated during index deletion
-	 * (original execution of the deletion can reason that a recovery conflict
-	 * which is sufficient for the deletion operation must take place before
-	 * replay of the deletion record itself).
+	 * 这可能发生在备库崩溃或重启后重放已经应用过的 WAL 记录时，
+	 * 或重放一条把已经全部可见的页标记为冻结的 XLOG_HEAP2_VISIBLE
+	 * 记录时。索引删除期间产生的记录
+	 * 也相当常见
+	 * （删除的原始执行可以推断：对删除操作而言足够的恢复冲突
+	 * 必须发生在
+	 * 重放删除记录本身之前）。
 	 */
 	if (!TransactionIdIsValid(snapshotConflictHorizon))
 		return;
@@ -494,10 +494,10 @@ ResolveRecoveryConflictWithSnapshot(TransactionId snapshotConflictHorizon,
 										   true);
 
 	/*
-	 * Note that WaitExceedsMaxStandbyDelay() is not taken into account here
-	 * (as opposed to ResolveRecoveryConflictWithVirtualXIDs() above). That
-	 * seems OK, given that this kind of conflict should not normally be
-	 * reached, e.g. due to using a physical replication slot.
+	 * 注意这里没有考虑 WaitExceedsMaxStandbyDelay()
+	 * （与上面的 ResolveRecoveryConflictWithVirtualXIDs() 不同）。这
+	 * 似乎没问题，因为正常情况下不应当走到这类冲突，
+	 * 例如因为使用了物理复制槽。
 	 */
 	if (wal_level >= WAL_LEVEL_LOGICAL && isCatalogRel)
 		InvalidateObsoleteReplicationSlots(RS_INVAL_HORIZON, 0, locator.dbOid,
@@ -505,8 +505,8 @@ ResolveRecoveryConflictWithSnapshot(TransactionId snapshotConflictHorizon,
 }
 
 /*
- * Variant of ResolveRecoveryConflictWithSnapshot that works with
- * FullTransactionId values
+ * ResolveRecoveryConflictWithSnapshot 的变体，用于
+ * FullTransactionId 值
  */
 void
 ResolveRecoveryConflictWithSnapshotFullXid(FullTransactionId snapshotConflictHorizon,
@@ -514,10 +514,10 @@ ResolveRecoveryConflictWithSnapshotFullXid(FullTransactionId snapshotConflictHor
 										   RelFileLocator locator)
 {
 	/*
-	 * ResolveRecoveryConflictWithSnapshot operates on 32-bit TransactionIds,
-	 * so truncate the logged FullTransactionId.  If the logged value is very
-	 * old, so that XID wrap-around already happened on it, there can't be any
-	 * snapshots that still see it.
+	 * ResolveRecoveryConflictWithSnapshot 处理的是 32 位 TransactionIds，
+	 * 因此截断已记录的 FullTransactionId。若记录的值非常
+	 * 旧，以至于已经发生过 XID 回卷，就不会再有
+	 * 仍能看见它的快照。
 	 */
 	FullTransactionId nextXid = ReadNextFullTransactionId();
 	uint64		diff;
@@ -541,21 +541,21 @@ ResolveRecoveryConflictWithTablespace(Oid tsid)
 	VirtualTransactionId *temp_file_users;
 
 	/*
-	 * Standby users may be currently using this tablespace for their
-	 * temporary files. We only care about current users because
-	 * temp_tablespace parameter will just ignore tablespaces that no longer
-	 * exist.
+	 * 备库用户当前可能正在用这个表空间存放自己的
+	 * 临时文件。我们只关心当前用户，因为
+	 * temp_tablespace 参数会直接忽略已经不再
+	 * 存在的表空间。
 	 *
-	 * Ask everybody to cancel their queries immediately so we can ensure no
-	 * temp files remain and we can remove the tablespace. Nuke the entire
-	 * site from orbit, it's the only way to be sure.
+	 * 让所有人立刻取消查询，以便确认没有
+	 * 临时文件残留，从而可以删除该表空间。从轨道上把整个
+	 * 现场炸掉，这是唯一能确定的办法。
 	 *
-	 * XXX: We could work out the pids of active backends using this
-	 * tablespace by examining the temp filenames in the directory. We would
-	 * then convert the pids into VirtualXIDs before attempting to cancel
-	 * them.
+	 * XXX：可以检查目录里的临时文件名，找出正在使用这个
+	 * 表空间的活跃后端 pid。接着会
+	 * 把这些 pid 转换成 VirtualXIDs，然后再尝试取消
+	 * 它们。
 	 *
-	 * We don't wait for commit because drop tablespace is non-transactional.
+	 * 我们不等待提交，因为删除表空间不是事务性的。
 	 */
 	temp_file_users = GetConflictingVirtualXIDs(InvalidTransactionId,
 												InvalidOid);
@@ -569,55 +569,55 @@ void
 ResolveRecoveryConflictWithDatabase(Oid dbid)
 {
 	/*
-	 * We don't do ResolveRecoveryConflictWithVirtualXIDs() here since that
-	 * only waits for transactions and completely idle sessions would block
-	 * us. This is rare enough that we do this as simply as possible: no wait,
-	 * just force them off immediately.
+	 * 这里不调用 ResolveRecoveryConflictWithVirtualXIDs()，因为它
+	 * 只等待事务，完全空闲的会话会挡住
+	 * 我们。这种情况很少，所以尽量简单处理：不等待，
+	 * 直接立刻把它们赶下去。
 	 *
-	 * No locking is required here because we already acquired
-	 * AccessExclusiveLock. Anybody trying to connect while we do this will
-	 * block during InitPostgres() and then disconnect when they see the
-	 * database has been removed.
+	 * 这里不需要加锁，因为我们已经取得
+	 * AccessExclusiveLock。在此期间尝试连接的人会
+	 * 在 InitPostgres() 中阻塞，然后看到
+	 * 数据库已被删除就断开连接。
 	 */
 	while (CountDBBackends(dbid) > 0)
 	{
 		CancelDBBackends(dbid, PROCSIG_RECOVERY_CONFLICT_DATABASE, true);
 
 		/*
-		 * Wait awhile for them to die so that we avoid flooding an
-		 * unresponsive backend when system is heavily loaded.
+		 * 稍等片刻让它们退出，以免在系统负载很高时
+		 * 向无响应的后端洪泛发送。
 		 */
 		pg_usleep(10000);
 	}
 }
 
 /*
- * ResolveRecoveryConflictWithLock is called from ProcSleep()
- * to resolve conflicts with other backends holding relation locks.
+ * ResolveRecoveryConflictWithLock 由 ProcSleep()
+ * 调用，用来解决与其他持有关系锁的后端之间的冲突。
  *
- * The WaitLatch sleep normally done in ProcSleep()
- * (when not InHotStandby) is performed here, for code clarity.
+ * 通常在 ProcSleep() 中完成的 WaitLatch 睡眠
+ * （非 InHotStandby 时）改在这里执行，以便代码更清晰。
  *
- * We either resolve conflicts immediately or set a timeout to wake us at
- * the limit of our patience.
+ * 我们要么立刻解决冲突，要么设置超时，在
+ * 耐心耗尽时唤醒自己。
  *
- * Resolve conflicts by canceling to all backends holding a conflicting
- * lock.  As we are already queued to be granted the lock, no new lock
- * requests conflicting with ours will be granted in the meantime.
+ * 解决冲突的办法是取消所有持有冲突
+ * 锁的后端。由于我们已经排在授予该锁的队列中，其间不会再授予
+ * 与我们冲突的新锁请求。
  *
- * We also must check for deadlocks involving the Startup process and
- * hot-standby backend processes. If deadlock_timeout is reached in
- * this function, all the backends holding the conflicting locks are
- * requested to check themselves for deadlocks.
+ * 还必须检查涉及启动进程和
+ * 热备后端进程的死锁。若在
+ * 本函数中到达 deadlock_timeout，则所有持有冲突锁的后端
+ * 都会被要求自行检查死锁。
  *
- * logging_conflict should be true if the recovery conflict has not been
- * logged yet even though logging is enabled. After deadlock_timeout is
- * reached and the request for deadlock check is sent, we wait again to
- * be signaled by the release of the lock if logging_conflict is false.
- * Otherwise we return without waiting again so that the caller can report
- * the recovery conflict. In this case, then, this function is called again
- * with logging_conflict=false (because the recovery conflict has already
- * been logged) and we will wait again for the lock to be released.
+ * 若已启用日志但恢复冲突尚未
+ * 记录，则 logging_conflict 应为 true。在到达 deadlock_timeout
+ * 并发出死锁检查请求之后，若 logging_conflict 为 false，我们会再次等待
+ * 锁释放的信号。
+ * 否则不再等待就返回，以便调用方报告
+ * 恢复冲突。这种情况下，本函数会再次被调用，
+ * 且 logging_conflict=false（因为恢复冲突已经
+ * 记录过），然后我们会再次等待锁被释放。
  */
 void
 ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
@@ -631,21 +631,21 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 	now = GetCurrentTimestamp();
 
 	/*
-	 * Update waitStart if first time through after the startup process
-	 * started waiting for the lock. It should not be updated every time
-	 * ResolveRecoveryConflictWithLock() is called during the wait.
+	 * 若这是启动进程开始等待该锁之后的第一次经过，则更新 waitStart。
+	 * 等待期间每次调用
+	 * ResolveRecoveryConflictWithLock() 时不应更新它。
 	 *
-	 * Use the current time obtained for comparison with ltime as waitStart
-	 * (i.e., the time when this process started waiting for the lock). Since
-	 * getting the current time newly can cause overhead, we reuse the
-	 * already-obtained time to avoid that overhead.
+	 * 把为了与 ltime 比较而取得的当前时间用作 waitStart
+	 * （即本进程开始等待该锁的时刻）。由于
+	 * 重新取当前时间会带来开销，我们复用
+	 * 已经取得的时间以避免该开销。
 	 *
-	 * Note that waitStart is updated without holding the lock table's
-	 * partition lock, to avoid the overhead by additional lock acquisition.
-	 * This can cause "waitstart" in pg_locks to become NULL for a very short
-	 * period of time after the wait started even though "granted" is false.
-	 * This is OK in practice because we can assume that users are likely to
-	 * look at "waitstart" when waiting for the lock for a long time.
+	 * 注意更新 waitStart 时不持有锁表的
+	 * 分区锁，以避免额外获取锁的开销。
+	 * 这可能导致 pg_locks 中的 "waitstart" 在等待开始后的极短
+	 * 时间内变为 NULL，尽管 "granted" 为 false。
+	 * 实践中这没问题，因为可以假定用户多半会在
+	 * 长时间等待该锁时才去看 "waitstart"。
 	 */
 	if (pg_atomic_read_u64(&MyProc->waitStart) == 0)
 		pg_atomic_write_u64(&MyProc->waitStart, now);
@@ -653,16 +653,16 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 	if (now >= ltime && ltime != 0)
 	{
 		/*
-		 * We're already behind, so clear a path as quickly as possible.
+		 * 我们已经落后，所以尽快清出一条路。
 		 */
 		VirtualTransactionId *backends;
 
 		backends = GetLockConflicts(&locktag, AccessExclusiveLock, NULL);
 
 		/*
-		 * Prevent ResolveRecoveryConflictWithVirtualXIDs() from reporting
-		 * "waiting" in PS display by disabling its argument report_waiting
-		 * because the caller, WaitOnLock(), has already reported that.
+		 * 禁止 ResolveRecoveryConflictWithVirtualXIDs() 在 PS 显示中报告
+		 * "waiting"：把它的参数 report_waiting 关掉，
+		 * 因为调用方 WaitOnLock() 已经报告过了。
 		 */
 		ResolveRecoveryConflictWithVirtualXIDs(backends,
 											   PROCSIG_RECOVERY_CONFLICT_LOCK,
@@ -672,8 +672,8 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 	else
 	{
 		/*
-		 * Wait (or wait again) until ltime, and check for deadlocks as well
-		 * if we will be waiting longer than deadlock_timeout
+		 * 等待（或再次等待）直到 ltime，并且若等待时间将超过
+		 * deadlock_timeout，则同时检查死锁
 		 */
 		EnableTimeoutParams timeouts[2];
 		int			cnt = 0;
@@ -696,13 +696,13 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 		enable_timeouts(timeouts, cnt);
 	}
 
-	/* Wait to be signaled by the release of the Relation Lock */
+	/* 等待关系锁释放时发出的信号 */
 	ProcWaitForSignal(PG_WAIT_LOCK | locktag.locktag_type);
 
 	/*
-	 * Exit if ltime is reached. Then all the backends holding conflicting
-	 * locks will be canceled in the next ResolveRecoveryConflictWithLock()
-	 * call.
+	 * 若已到达 ltime 则退出。随后，所有持有冲突
+	 * 锁的后端会在下一次 ResolveRecoveryConflictWithLock()
+	 * 调用中被取消。
 	 */
 	if (got_standby_lock_timeout)
 		goto cleanup;
@@ -713,13 +713,13 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 
 		backends = GetLockConflicts(&locktag, AccessExclusiveLock, NULL);
 
-		/* Quick exit if there's no work to be done */
+		/* 若无事可做则快速退出 */
 		if (!VirtualTransactionIdIsValid(*backends))
 			goto cleanup;
 
 		/*
-		 * Send signals to all the backends holding the conflicting locks, to
-		 * ask them to check themselves for deadlocks.
+		 * 向所有持有冲突锁的后端发送信号，
+		 * 让它们自行检查死锁。
 		 */
 		while (VirtualTransactionIdIsValid(*backends))
 		{
@@ -730,20 +730,20 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 		}
 
 		/*
-		 * Exit if the recovery conflict has not been logged yet even though
-		 * logging is enabled, so that the caller can log that. Then
-		 * RecoveryConflictWithLock() is called again and we will wait again
-		 * for the lock to be released.
+		 * 若已启用日志但恢复冲突尚未记录，则退出，
+		 * 以便调用方去记录。随后
+		 * RecoveryConflictWithLock() 会再次被调用，我们会再次等待
+		 * 锁被释放。
 		 */
 		if (logging_conflict)
 			goto cleanup;
 
 		/*
-		 * Wait again here to be signaled by the release of the Relation Lock,
-		 * to prevent the subsequent RecoveryConflictWithLock() from causing
-		 * deadlock_timeout and sending a request for deadlocks check again.
-		 * Otherwise the request continues to be sent every deadlock_timeout
-		 * until the relation locks are released or ltime is reached.
+		 * 在此再次等待关系锁释放的信号，
+		 * 以防随后的 RecoveryConflictWithLock() 再次触发
+		 * deadlock_timeout 并再次发送死锁检查请求。
+		 * 否则该请求会每个 deadlock_timeout 持续发送，
+		 * 直到关系锁被释放或到达 ltime。
 		 */
 		got_standby_deadlock_timeout = false;
 		ProcWaitForSignal(PG_WAIT_LOCK | locktag.locktag_type);
@@ -752,10 +752,10 @@ ResolveRecoveryConflictWithLock(LOCKTAG locktag, bool logging_conflict)
 cleanup:
 
 	/*
-	 * Clear any timeout requests established above.  We assume here that the
-	 * Startup process doesn't have any other outstanding timeouts than those
-	 * used by this function. If that stops being true, we could cancel the
-	 * timeouts individually, but that'd be slower.
+	 * 清除上面建立的所有超时请求。这里假定
+	 * 启动进程除本函数使用的超时外，没有其他未完成的超时。
+	 * 若这一假定不再成立，可以逐个取消
+	 * 这些超时，但那样会更慢。
 	 */
 	disable_all_timeouts(false);
 	got_standby_lock_timeout = false;
@@ -763,31 +763,31 @@ cleanup:
 }
 
 /*
- * ResolveRecoveryConflictWithBufferPin is called from LockBufferForCleanup()
- * to resolve conflicts with other backends holding buffer pins.
+ * ResolveRecoveryConflictWithBufferPin 由 LockBufferForCleanup()
+ * 调用，用来解决与其他持有缓冲区钉住的后端之间的冲突。
  *
- * The ProcWaitForSignal() sleep normally done in LockBufferForCleanup()
- * (when not InHotStandby) is performed here, for code clarity.
+ * 通常在 LockBufferForCleanup() 中完成的 ProcWaitForSignal() 睡眠
+ * （非 InHotStandby 时）改在这里执行，以便代码更清晰。
  *
- * We either resolve conflicts immediately or set a timeout to wake us at
- * the limit of our patience.
+ * 我们要么立刻解决冲突，要么设置超时，在
+ * 耐心耗尽时唤醒自己。
  *
- * Resolve conflicts by sending a PROCSIG signal to all backends to check if
- * they hold one of the buffer pins that is blocking Startup process. If so,
- * those backends will take an appropriate error action, ERROR or FATAL.
+ * 解决冲突的办法是向所有后端发送 PROCSIG 信号，检查它们是否
+ * 持有挡住启动进程的某个缓冲区钉住。若是，
+ * 这些后端会采取适当的错误动作，ERROR 或 FATAL。
  *
- * We also must check for deadlocks.  Deadlocks occur because if queries
- * wait on a lock, that must be behind an AccessExclusiveLock, which can only
- * be cleared if the Startup process replays a transaction completion record.
- * If Startup process is also waiting then that is a deadlock. The deadlock
- * can occur if the query is waiting and then the Startup sleeps, or if
- * Startup is sleeping and the query waits on a lock. We protect against
- * only the former sequence here, the latter sequence is checked prior to
- * the query sleeping, in CheckRecoveryConflictDeadlock().
+ * 还必须检查死锁。死锁的产生是因为：若查询
+ * 在等待一把锁，该锁必定排在某个 AccessExclusiveLock 之后，而后者只能
+ * 在启动进程重放一条事务完成记录后才能清除。
+ * 若启动进程也在等待，那就是死锁。死锁
+ * 可能发生在查询正在等待、然后启动进程睡眠时，或者
+ * 启动进程正在睡眠、而查询去等待一把锁时。这里只防范
+ * 前一种顺序，后一种顺序在
+ * 查询睡眠之前由 CheckRecoveryConflictDeadlock() 检查。
  *
- * Deadlocks are extremely rare, and relatively expensive to check for,
- * so we don't do a deadlock check right away ... only if we have had to wait
- * at least deadlock_timeout.
+ * 死锁极其少见，检查起来也相对昂贵，
+ * 所以不立刻做死锁检查 ... 只有在已经不得不等待
+ * 至少 deadlock_timeout 时才检查。
  */
 void
 ResolveRecoveryConflictWithBufferPin(void)
@@ -801,15 +801,15 @@ ResolveRecoveryConflictWithBufferPin(void)
 	if (GetCurrentTimestamp() >= ltime && ltime != 0)
 	{
 		/*
-		 * We're already behind, so clear a path as quickly as possible.
+		 * 我们已经落后，所以尽快清出一条路。
 		 */
 		SendRecoveryConflictWithBufferPin(PROCSIG_RECOVERY_CONFLICT_BUFFERPIN);
 	}
 	else
 	{
 		/*
-		 * Wake up at ltime, and check for deadlocks as well if we will be
-		 * waiting longer than deadlock_timeout
+		 * 在 ltime 醒来，并且若等待时间将超过
+		 * deadlock_timeout，则同时检查死锁
 		 */
 		EnableTimeoutParams timeouts[2];
 		int			cnt = 0;
@@ -832,13 +832,13 @@ ResolveRecoveryConflictWithBufferPin(void)
 	}
 
 	/*
-	 * Wait to be signaled by UnpinBuffer() or for the wait to be interrupted
-	 * by one of the timeouts established above.
+	 * 等待 UnpinBuffer() 的信号，或等待上面建立的某个超时
+	 * 打断这次等待。
 	 *
-	 * We assume that only UnpinBuffer() and the timeout requests established
-	 * above can wake us up here. WakeupRecovery() called by walreceiver or
-	 * SIGHUP signal handler, etc cannot do that because it uses the different
-	 * latch from that ProcWaitForSignal() waits on.
+	 * 假定这里只有 UnpinBuffer() 和上面建立的超时请求
+	 * 能把我们唤醒。walreceiver 或
+	 * SIGHUP 信号处理函数等调用的 WakeupRecovery() 做不到这一点，因为它用的
+	 * 锁存器与 ProcWaitForSignal() 等待的不是同一个。
 	 */
 	ProcWaitForSignal(PG_WAIT_BUFFER_PIN);
 
@@ -847,26 +847,26 @@ ResolveRecoveryConflictWithBufferPin(void)
 	else if (got_standby_deadlock_timeout)
 	{
 		/*
-		 * Send out a request for hot-standby backends to check themselves for
-		 * deadlocks.
+		 * 向热备后端发出请求，让它们自行检查
+		 * 死锁。
 		 *
-		 * XXX The subsequent ResolveRecoveryConflictWithBufferPin() will wait
-		 * to be signaled by UnpinBuffer() again and send a request for
-		 * deadlocks check if deadlock_timeout happens. This causes the
-		 * request to continue to be sent every deadlock_timeout until the
-		 * buffer is unpinned or ltime is reached. This would increase the
-		 * workload in the startup process and backends. In practice it may
-		 * not be so harmful because the period that the buffer is kept pinned
-		 * is basically no so long. But we should fix this?
+		 * XXX 随后的 ResolveRecoveryConflictWithBufferPin() 会再次等待
+		 * UnpinBuffer() 的信号，并在发生 deadlock_timeout 时再次发送
+		 * 死锁检查请求。这会导致
+		 * 该请求每个 deadlock_timeout 持续发送，直到
+		 * 缓冲区被解除钉住或到达 ltime。这会增加
+		 * 启动进程和各后端的工作量。实践中也许
+		 * 危害不大，因为缓冲区保持钉住的时间
+		 * 基本上并不长。但我们应当修掉这个问题吗？
 		 */
 		SendRecoveryConflictWithBufferPin(PROCSIG_RECOVERY_CONFLICT_STARTUP_DEADLOCK);
 	}
 
 	/*
-	 * Clear any timeout requests established above.  We assume here that the
-	 * Startup process doesn't have any other timeouts than what this function
-	 * uses.  If that stops being true, we could cancel the timeouts
-	 * individually, but that'd be slower.
+	 * 清除上面建立的所有超时请求。这里假定
+	 * 启动进程除本函数使用的超时外没有其他超时。
+	 * 若这一假定不再成立，可以逐个取消
+	 * 这些超时，但那样会更慢。
 	 */
 	disable_all_timeouts(false);
 	got_standby_delay_timeout = false;
@@ -880,41 +880,41 @@ SendRecoveryConflictWithBufferPin(ProcSignalReason reason)
 		   reason == PROCSIG_RECOVERY_CONFLICT_STARTUP_DEADLOCK);
 
 	/*
-	 * We send signal to all backends to ask them if they are holding the
-	 * buffer pin which is delaying the Startup process. We must not set the
-	 * conflict flag yet, since most backends will be innocent. Let the
-	 * SIGUSR1 handling in each backend decide their own fate.
+	 * 向所有后端发送信号，询问它们是否持有
+	 * 拖延启动进程的那个缓冲区钉住。还不能设置
+	 * 冲突标志，因为大多数后端是无辜的。让每个后端自己的
+	 * SIGUSR1 处理去决定它们的命运。
 	 */
 	CancelDBBackends(InvalidOid, reason, false);
 }
 
 /*
- * In Hot Standby perform early deadlock detection.  We abort the lock
- * wait if we are about to sleep while holding the buffer pin that Startup
- * process is waiting for.
+ * 在热备中提前检测死锁。若即将在持有启动
+ * 进程正在等待的缓冲区钉住时睡眠，就中止这次锁
+ * 等待。
  *
- * Note: this code is pessimistic, because there is no way for it to
- * determine whether an actual deadlock condition is present: the lock we
- * need to wait for might be unrelated to any held by the Startup process.
- * Sooner or later, this mechanism should get ripped out in favor of somehow
- * accounting for buffer locks in DeadLockCheck().  However, errors here
- * seem to be very low-probability in practice, so for now it's not worth
- * the trouble.
+ * 注意：这段代码是悲观的，因为它无法
+ * 判定是否真的存在死锁：我们
+ * 需要等待的锁可能与启动进程持有的任何锁都无关。
+ * 迟早应当拆掉这套机制，改为在 DeadLockCheck() 中以某种方式
+ * 把缓冲区锁也算进去。不过这里的错误
+ * 在实践中概率似乎很低，所以眼下不值得
+ * 为此费事。
  */
 void
 CheckRecoveryConflictDeadlock(void)
 {
-	Assert(!InRecovery);		/* do not call in Startup process */
+	Assert(!InRecovery);		/* 不要在启动进程中调用 */
 
 	if (!HoldingBufferPinThatDelaysRecovery())
 		return;
 
 	/*
-	 * Error message should match ProcessInterrupts() but we avoid calling
-	 * that because we aren't handling an interrupt at this point. Note that
-	 * we only cancel the current transaction here, so if we are in a
-	 * subtransaction and the pin is held by a parent, then the Startup
-	 * process will continue to wait even though we have avoided deadlock.
+	 * 错误消息应与 ProcessInterrupts() 一致，但这里不调用
+	 * 它，因为此时并不是在处理中断。注意
+	 * 这里只取消当前事务，因此若处于
+	 * 子事务中且钉住由父事务持有，那么启动
+	 * 进程仍会继续等待，尽管我们已经避免了死锁。
 	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_T_R_DEADLOCK_DETECTED),
@@ -924,13 +924,13 @@ CheckRecoveryConflictDeadlock(void)
 
 
 /* --------------------------------
- *		timeout handler routines
+ *		超时处理例程
  * --------------------------------
  */
 
 /*
- * StandbyDeadLockHandler() will be called if STANDBY_DEADLOCK_TIMEOUT is
- * exceeded.
+ * 若超过 STANDBY_DEADLOCK_TIMEOUT，将调用
+ * StandbyDeadLockHandler()。
  */
 void
 StandbyDeadLockHandler(void)
@@ -939,7 +939,7 @@ StandbyDeadLockHandler(void)
 }
 
 /*
- * StandbyTimeoutHandler() will be called if STANDBY_TIMEOUT is exceeded.
+ * 若超过 STANDBY_TIMEOUT，将调用 StandbyTimeoutHandler()。
  */
 void
 StandbyTimeoutHandler(void)
@@ -948,7 +948,7 @@ StandbyTimeoutHandler(void)
 }
 
 /*
- * StandbyLockTimeoutHandler() will be called if STANDBY_LOCK_TIMEOUT is exceeded.
+ * 若超过 STANDBY_LOCK_TIMEOUT，将调用 StandbyLockTimeoutHandler()。
  */
 void
 StandbyLockTimeoutHandler(void)
@@ -958,27 +958,27 @@ StandbyLockTimeoutHandler(void)
 
 /*
  * -----------------------------------------------------
- * Locking in Recovery Mode
+ * 恢复模式下的锁
  * -----------------------------------------------------
  *
- * All locks are held by the Startup process using a single virtual
- * transaction. This implementation is both simpler and in some senses,
- * more correct. The locks held mean "some original transaction held
- * this lock, so query access is not allowed at this time". So the Startup
- * process is the proxy by which the original locks are implemented.
+ * 全部锁由启动进程用一个虚拟
+ * 事务持有。这种实现既更简单，在某些意义上
+ * 也更正确。所持的锁表示 "某个原事务持有
+ * 过这把锁，因此此时不允许查询访问"。因此启动
+ * 进程是实现这些原锁的代理。
  *
- * We only keep track of AccessExclusiveLocks, which are only ever held by
- * one transaction on one relation.
+ * 我们只跟踪 AccessExclusiveLocks，它们始终只由
+ * 一个事务在一个关系上持有。
  *
- * We keep a table of known locks in the RecoveryLockHash hash table.
- * The point of that table is to let us efficiently de-duplicate locks,
- * which is important because checkpoints will re-report the same locks
- * already held.  There is also a RecoveryLockXidHash table with one entry
- * per xid, which allows us to efficiently find all the locks held by a
- * given original transaction.
+ * 已知锁记在 RecoveryLockHash 哈希表中。
+ * 该表的作用是高效地去除重复锁，
+ * 这很重要，因为检查点会再次报告已经持有的
+ * 同一批锁。另外还有 RecoveryLockXidHash 表，每个 xid 一条，
+ * 用来高效找出某个
+ * 给定原事务持有的全部锁。
  *
- * We use session locks rather than normal locks so we don't need
- * ResourceOwners.
+ * 我们使用会话锁而不是普通锁，这样就不需要
+ * ResourceOwners。
  */
 
 
@@ -991,7 +991,7 @@ StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid)
 	LOCKTAG		locktag;
 	bool		found;
 
-	/* Already processed? */
+	/* 已经处理过？ */
 	if (!TransactionIdIsValid(xid) ||
 		TransactionIdDidCommit(xid) ||
 		TransactionIdDidAbort(xid))
@@ -1000,29 +1000,29 @@ StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid)
 	elog(trace_recovery(DEBUG4),
 		 "adding recovery lock: db %u rel %u", dbOid, relOid);
 
-	/* dbOid is InvalidOid when we are locking a shared relation. */
+	/* 锁定共享关系时 dbOid 为 InvalidOid。 */
 	Assert(OidIsValid(relOid));
 
-	/* Create a hash entry for this xid, if we don't have one already. */
+	/* 若还没有，则为这个 xid 创建一条哈希项。 */
 	xidentry = hash_search(RecoveryLockXidHash, &xid, HASH_ENTER, &found);
 	if (!found)
 	{
-		Assert(xidentry->xid == xid);	/* dynahash should have set this */
+		Assert(xidentry->xid == xid);	/* dynahash 应当已经设置好 */
 		xidentry->head = NULL;
 	}
 
-	/* Create a hash entry for this lock, unless we have one already. */
+	/* 为这把锁创建一条哈希项，除非已经有了。 */
 	key.xid = xid;
 	key.dbOid = dbOid;
 	key.relOid = relOid;
 	lockentry = hash_search(RecoveryLockHash, &key, HASH_ENTER, &found);
 	if (!found)
 	{
-		/* It's new, so link it into the XID's list ... */
+		/* 这是新的，所以链入该 XID 的列表 ... */
 		lockentry->next = xidentry->head;
 		xidentry->head = lockentry;
 
-		/* ... and acquire the lock locally. */
+		/* ... 并在本地获取该锁。 */
 		SET_LOCKTAG_RELATION(locktag, dbOid, relOid);
 
 		(void) LockAcquire(&locktag, AccessExclusiveLock, true, false);
@@ -1030,7 +1030,7 @@ StandbyAcquireAccessExclusiveLock(TransactionId xid, Oid dbOid, Oid relOid)
 }
 
 /*
- * Release all the locks associated with this RecoveryLockXidEntry.
+ * 释放与这条 RecoveryLockXidEntry 关联的全部锁。
  */
 static void
 StandbyReleaseXidEntryLocks(RecoveryLockXidEntry *xidentry)
@@ -1045,7 +1045,7 @@ StandbyReleaseXidEntryLocks(RecoveryLockXidEntry *xidentry)
 		elog(trace_recovery(DEBUG4),
 			 "releasing recovery lock: xid %u db %u rel %u",
 			 entry->key.xid, entry->key.dbOid, entry->key.relOid);
-		/* Release the lock ... */
+		/* 释放该锁 ... */
 		SET_LOCKTAG_RELATION(locktag, entry->key.dbOid, entry->key.relOid);
 		if (!LockRelease(&locktag, AccessExclusiveLock, true))
 		{
@@ -1054,16 +1054,16 @@ StandbyReleaseXidEntryLocks(RecoveryLockXidEntry *xidentry)
 				 entry->key.xid, entry->key.dbOid, entry->key.relOid);
 			Assert(false);
 		}
-		/* ... and remove the per-lock hash entry */
+		/* ... 并删除这条按锁存放的哈希项 */
 		next = entry->next;
 		hash_search(RecoveryLockHash, entry, HASH_REMOVE, NULL);
 	}
 
-	xidentry->head = NULL;		/* just for paranoia */
+	xidentry->head = NULL;		/* 只是出于谨慎 */
 }
 
 /*
- * Release locks for specific XID, or all locks if it's InvalidXid.
+ * 释放指定 XID 的锁；若为 InvalidXid，则释放全部锁。
  */
 static void
 StandbyReleaseLocks(TransactionId xid)
@@ -1083,11 +1083,11 @@ StandbyReleaseLocks(TransactionId xid)
 }
 
 /*
- * Release locks for a transaction tree, starting at xid down, from
- * RecoveryLockXidHash.
+ * 从 xid 向下释放一棵事务树的锁，数据来自
+ * RecoveryLockXidHash。
  *
- * Called during WAL replay of COMMIT/ROLLBACK when in hot standby mode,
- * to remove any AccessExclusiveLocks requested by a transaction.
+ * 在热备模式下重放 COMMIT/ROLLBACK 的 WAL 时调用，
+ * 用来去掉某事务所请求的 AccessExclusiveLocks。
  */
 void
 StandbyReleaseLockTree(TransactionId xid, int nsubxids, TransactionId *subxids)
@@ -1101,7 +1101,7 @@ StandbyReleaseLockTree(TransactionId xid, int nsubxids, TransactionId *subxids)
 }
 
 /*
- * Called at end of recovery and when we see a shutdown checkpoint.
+ * 在恢复结束时以及看到关闭检查点时调用。
  */
 void
 StandbyReleaseAllLocks(void)
@@ -1121,8 +1121,8 @@ StandbyReleaseAllLocks(void)
 
 /*
  * StandbyReleaseOldLocks
- *		Release standby locks held by top-level XIDs that aren't running,
- *		as long as they're not prepared transactions.
+ *		释放未在运行的顶层 XIDs 所持的备库锁，
+ *		只要它们不是已准备事务。
  */
 void
 StandbyReleaseOldLocks(TransactionId oldxid)
@@ -1135,15 +1135,15 @@ StandbyReleaseOldLocks(TransactionId oldxid)
 	{
 		Assert(TransactionIdIsValid(entry->xid));
 
-		/* Skip if prepared transaction. */
+		/* 若是已准备事务则跳过。 */
 		if (StandbyTransactionIdIsPrepared(entry->xid))
 			continue;
 
-		/* Skip if >= oldxid. */
+		/* 若 >= oldxid 则跳过。 */
 		if (!TransactionIdPrecedes(entry->xid, oldxid))
 			continue;
 
-		/* Remove all locks and hash table entry. */
+		/* 删除全部锁以及哈希表项。 */
 		StandbyReleaseXidEntryLocks(entry);
 		hash_search(RecoveryLockXidHash, entry, HASH_REMOVE, NULL);
 	}
@@ -1151,9 +1151,9 @@ StandbyReleaseOldLocks(TransactionId oldxid)
 
 /*
  * --------------------------------------------------------------------
- *		Recovery handling for Rmgr RM_STANDBY_ID
+ *		资源管理器 RM_STANDBY_ID 的恢复处理
  *
- * These record types will only be created if XLogStandbyInfoActive()
+ * 这些记录类型仅在 XLogStandbyInfoActive() 时才会创建
  * --------------------------------------------------------------------
  */
 
@@ -1162,10 +1162,10 @@ standby_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in standby records */
+	/* 备库记录不使用备份块 */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
-	/* Do nothing if we're not in hot standby mode */
+	/* 若不在热备模式则什么都不做 */
 	if (standbyState == STANDBY_DISABLED)
 		return;
 
@@ -1195,11 +1195,11 @@ standby_redo(XLogReaderState *record)
 		ProcArrayApplyRecoveryInfo(&running);
 
 		/*
-		 * The startup process currently has no convenient way to schedule
-		 * stats to be reported. XLOG_RUNNING_XACTS records issued at a
-		 * regular cadence, making this a convenient location to report stats.
-		 * While these records aren't generated with wal_level=minimal, stats
-		 * also cannot be accessed during WAL replay.
+		 * 启动进程目前没有方便的办法安排
+		 * 统计信息的报告。XLOG_RUNNING_XACTS 记录以
+		 * 固定节奏发出，因此这里是报告统计信息的方便位置。
+		 * 虽然 wal_level=minimal 时不会生成这些记录，但
+		 * WAL 重放期间也无法访问统计信息。
 		 */
 		pgstat_report_stat(true);
 	}
@@ -1218,70 +1218,70 @@ standby_redo(XLogReaderState *record)
 }
 
 /*
- * Log details of the current snapshot to WAL. This allows the snapshot state
- * to be reconstructed on the standby and for logical decoding.
+ * 把当前快照的细节记入 WAL。这样备库和逻辑解码
+ * 都能重建快照状态。
  *
- * This is used for Hot Standby as follows:
+ * 热备按如下方式使用它：
  *
- * We can move directly to STANDBY_SNAPSHOT_READY at startup if we
- * start from a shutdown checkpoint because we know nothing was running
- * at that time and our recovery snapshot is known empty. In the more
- * typical case of an online checkpoint we need to jump through a few
- * hoops to get a correct recovery snapshot and this requires a two or
- * sometimes a three stage process.
+ * 若从关闭检查点启动，可以直接进入 STANDBY_SNAPSHOT_READY，
+ * 因为我们知道那时没有任何东西在运行，
+ * 恢复快照已知为空。更典型的
+ * 在线检查点情形下，要拿到正确的恢复快照得费一番
+ * 周折，这是两步，或者
+ * 有时是三步过程。
  *
- * The initial snapshot must contain all running xids and all current
- * AccessExclusiveLocks at a point in time on the standby. Assembling
- * that information while the server is running requires many and
- * various LWLocks, so we choose to derive that information piece by
- * piece and then re-assemble that info on the standby. When that
- * information is fully assembled we move to STANDBY_SNAPSHOT_READY.
+ * 初始快照必须包含备库上某一时刻全部正在运行的 xid 以及全部当前
+ * AccessExclusiveLocks。在服务器运行期间组装
+ * 这些信息会用到许多不同的
+ * LWLocks，因此我们选择逐段推导这些信息，
+ * 再在备库上重新组装。当这些
+ * 信息全部组装完成时，我们进入 STANDBY_SNAPSHOT_READY。
  *
- * Since locking on the primary when we derive the information is not
- * strict, we note that there is a time window between the derivation and
- * writing to WAL of the derived information. That allows race conditions
- * that we must resolve, since xids and locks may enter or leave the
- * snapshot during that window. This creates the issue that an xid or
- * lock may start *after* the snapshot has been derived yet *before* the
- * snapshot is logged in the running xacts WAL record. We resolve this by
- * starting to accumulate changes at a point just prior to when we derive
- * the snapshot on the primary, then ignore duplicates when we later apply
- * the snapshot from the running xacts record. This is implemented during
- * CreateCheckPoint() where we use the logical checkpoint location as
- * our starting point and then write the running xacts record immediately
- * before writing the main checkpoint WAL record. Since we always start
- * up from a checkpoint and are immediately at our starting point, we
- * unconditionally move to STANDBY_INITIALIZED. After this point we
- * must do 4 things:
- *	* move shared nextXid forwards as we see new xids
- *	* extend the clog and subtrans with each new xid
- *	* keep track of uncommitted known assigned xids
- *	* keep track of uncommitted AccessExclusiveLocks
+ * 由于在主库上推导这些信息时加锁并不
+ * 严格，我们注意到：推导与
+ * 把推导结果写入 WAL 之间存在一个时间窗口。由此带来
+ * 必须解决的竞态，因为在该窗口内 xid 和锁可能进入或离开
+ * 快照。由此产生的问题是：某个 xid 或锁可能
+ * 在快照推导完成 *之后*、却在快照被记入
+ * running xacts WAL 记录 *之前* 才开始。解决办法是
+ * 在主库上、于推导快照之前的某一点就开始积累变更，
+ * 稍后应用 running xacts 记录中的快照时再忽略重复项。
+ * 这在 CreateCheckPoint() 期间实现：我们把逻辑检查点位置
+ * 当作起点，然后紧挨着
+ * 主检查点 WAL 记录之前写入 running xacts 记录。由于我们总是从
+ * 检查点启动，并且立刻就在起点上，
+ * 因此我们无条件进入 STANDBY_INITIALIZED。
+ * 过了这一点之后，我们必须做
+ * 4 件事：
+ *	* 看到新的 xid 时把共享的 nextXid 向前推进
+ *	* 每个新 xid 都扩展 clog 和 subtrans
+ *	* 跟踪未提交的 known assigned xid
+ *	* 跟踪未提交的 AccessExclusiveLocks
  *
- * When we see a commit/abort we must remove known assigned xids and locks
- * from the completing transaction. Attempted removals that cannot locate
- * an entry are expected and must not cause an error when we are in state
- * STANDBY_INITIALIZED. This is implemented in StandbyReleaseLocks() and
- * KnownAssignedXidsRemove().
+ * 看到提交/中止时，必须去掉正在完成的事务中的
+ * known assigned xid 和锁。找不到对应项的删除尝试是预期之中的，
+ * 处于 STANDBY_INITIALIZED 状态时不得因此报错。
+ * 这在 StandbyReleaseLocks() 和
+ * KnownAssignedXidsRemove() 中实现。
  *
- * Later, when we apply the running xact data we must be careful to ignore
- * transactions already committed, since those commits raced ahead when
- * making WAL entries.
+ * 稍后应用 running xact 数据时，必须小心忽略
+ * 已经提交的事务，因为那些提交在
+ * 生成 WAL 记录时抢先发生了。
  *
- * The loose timing also means that locks may be recorded that have a
- * zero xid, since xids are removed from procs before locks are removed.
- * So we must prune the lock list down to ensure we hold locks only for
- * currently running xids, performed by StandbyReleaseOldLocks().
- * Zero xids should no longer be possible, but we may be replaying WAL
- * from a time when they were possible.
+ * 宽松的时序还意味着可能记录到 xid 为
+ * 零的锁，因为 xid 会在锁被去掉之前先从 proc 中去掉。
+ * 因此必须修剪锁列表，确保只为
+ * 当前正在运行的 xid 持有锁，由 StandbyReleaseOldLocks() 完成。
+ * 零 xid 按理已不可能，但我们可能在重放
+ * 它们仍可能出现的那个时期的 WAL。
  *
- * For logical decoding only the running xacts information is needed;
- * there's no need to look at the locking information, but it's logged anyway,
- * as there's no independent knob to just enable logical decoding. For
- * details of how this is used, check snapbuild.c's introductory comment.
+ * 逻辑解码只需 running xacts 信息；
+ * 不必查看加锁信息，但反正也会记下来，
+ * 因为没有单独的开关只打开逻辑解码。关于
+ * 其用法的细节，见 snapbuild.c 开头的注释。
  *
  *
- * Returns the RecPtr of the last inserted record.
+ * 返回最后插入记录的 RecPtr。
  */
 XLogRecPtr
 LogStandbySnapshot(void)
@@ -1294,7 +1294,7 @@ LogStandbySnapshot(void)
 	Assert(XLogStandbyInfoActive());
 
 	/*
-	 * Get details of any AccessExclusiveLocks being held at the moment.
+	 * 取得此刻正被持有的所有 AccessExclusiveLocks 的细节。
 	 */
 	locks = GetRunningTransactionLocks(&nlocks);
 	if (nlocks > 0)
@@ -1302,46 +1302,46 @@ LogStandbySnapshot(void)
 	pfree(locks);
 
 	/*
-	 * Log details of all in-progress transactions. This should be the last
-	 * record we write, because standby will open up when it sees this.
+	 * 记录所有进行中事务的细节。这应当是我们写入的最后一条
+	 * 记录，因为备库看到它就会开放查询。
 	 */
 	running = GetRunningTransactionData();
 
 	/*
-	 * GetRunningTransactionData() acquired ProcArrayLock, we must release it.
-	 * For Hot Standby this can be done before inserting the WAL record
-	 * because ProcArrayApplyRecoveryInfo() rechecks the commit status using
-	 * the clog. For logical decoding, though, the lock can't be released
-	 * early because the clog might be "in the future" from the POV of the
-	 * historic snapshot. This would allow for situations where we're waiting
-	 * for the end of a transaction listed in the xl_running_xacts record
-	 * which, according to the WAL, has committed before the xl_running_xacts
-	 * record. Fortunately this routine isn't executed frequently, and it's
-	 * only a shared lock.
+	 * GetRunningTransactionData() 取得了 ProcArrayLock，必须释放它。
+	 * 对热备而言，可以在插入 WAL 记录之前做这件事，
+	 * 因为 ProcArrayApplyRecoveryInfo() 会用
+	 * clog 重新检查提交状态。但对逻辑解码，不能过早
+	 * 释放这把锁，因为从历史快照的视角看，clog 可能 "在未来"。
+	 * 否则会出现这种情况：我们正在等待
+	 * xl_running_xacts 记录中列出的某个事务结束，
+	 * 而按 WAL 来看，它在 xl_running_xacts
+	 * 记录之前就已经提交。好在本例程执行并不频繁，而且
+	 * 只是一把共享锁。
 	 */
 	if (wal_level < WAL_LEVEL_LOGICAL)
 		LWLockRelease(ProcArrayLock);
 
 	recptr = LogCurrentRunningXacts(running);
 
-	/* Release lock if we kept it longer ... */
+	/* 若把锁留得更久，则释放它 ... */
 	if (wal_level >= WAL_LEVEL_LOGICAL)
 		LWLockRelease(ProcArrayLock);
 
-	/* GetRunningTransactionData() acquired XidGenLock, we must release it */
+	/* GetRunningTransactionData() 取得了 XidGenLock，必须释放它 */
 	LWLockRelease(XidGenLock);
 
 	return recptr;
 }
 
 /*
- * Record an enhanced snapshot of running transactions into WAL.
+ * 把正在运行事务的增强快照记入 WAL。
  *
- * The definitions of RunningTransactionsData and xl_running_xacts are
- * similar. We keep them separate because xl_running_xacts is a contiguous
- * chunk of memory and never exists fully until it is assembled in WAL.
- * The inserted records are marked as not being important for durability,
- * to avoid triggering superfluous checkpoint / archiving activity.
+ * RunningTransactionsData 与 xl_running_xacts 的定义
+ * 相似。分开保存是因为 xl_running_xacts 是一块连续
+ * 内存，直到在 WAL 中组装完成前从不以完整形式存在。
+ * 插入的记录被标记为对持久性不重要，
+ * 以免触发多余的检查点 / 归档活动。
  */
 static XLogRecPtr
 LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
@@ -1356,12 +1356,12 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
 	xlrec.oldestRunningXid = CurrRunningXacts->oldestRunningXid;
 	xlrec.latestCompletedXid = CurrRunningXacts->latestCompletedXid;
 
-	/* Header */
+	/* 头部 */
 	XLogBeginInsert();
 	XLogSetRecordFlags(XLOG_MARK_UNIMPORTANT);
 	XLogRegisterData((char *) (&xlrec), MinSizeOfXactRunningXacts);
 
-	/* array of TransactionIds */
+	/* TransactionIds 数组 */
 	if (xlrec.xcnt > 0)
 		XLogRegisterData((char *) CurrRunningXacts->xids,
 						 (xlrec.xcnt + xlrec.subxcnt) * sizeof(TransactionId));
@@ -1386,13 +1386,13 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
 			 CurrRunningXacts->nextXid);
 
 	/*
-	 * Ensure running_xacts information is synced to disk not too far in the
-	 * future. We don't want to stall anything though (i.e. use XLogFlush()),
-	 * so we let the wal writer do it during normal operation.
-	 * XLogSetAsyncXactLSN() conveniently will mark the LSN as to-be-synced
-	 * and nudge the WALWriter into action if sleeping. Check
-	 * XLogBackgroundFlush() for details why a record might not be flushed
-	 * without it.
+	 * 确保 running_xacts 信息在不太远的
+	 * 将来同步到磁盘。但不想因此拖住任何事情（即不使用 XLogFlush()），
+	 * 所以在正常运行期间让 WAL 写入器来做。
+	 * XLogSetAsyncXactLSN() 会顺手把该 LSN 标为待同步，
+	 * 并在 WALWriter 睡眠时推动它行动。关于为何没有它
+	 * 记录可能不被刷出的细节，见
+	 * XLogBackgroundFlush()。
 	 */
 	XLogSetAsyncXactLSN(recptr);
 
@@ -1400,8 +1400,8 @@ LogCurrentRunningXacts(RunningTransactions CurrRunningXacts)
 }
 
 /*
- * Wholesale logging of AccessExclusiveLocks. Other lock types need not be
- * logged, as described in backend/storage/lmgr/README.
+ * 批量记录 AccessExclusiveLocks。其他锁类型不必
+ * 记录，见 backend/storage/lmgr/README。
  */
 static void
 LogAccessExclusiveLocks(int nlocks, xl_standby_lock *locks)
@@ -1419,7 +1419,7 @@ LogAccessExclusiveLocks(int nlocks, xl_standby_lock *locks)
 }
 
 /*
- * Individual logging of AccessExclusiveLocks for use during LockAcquire()
+ * 在 LockAcquire() 期间逐条记录 AccessExclusiveLocks
  */
 void
 LogAccessExclusiveLock(Oid dbOid, Oid relOid)
@@ -1436,29 +1436,29 @@ LogAccessExclusiveLock(Oid dbOid, Oid relOid)
 }
 
 /*
- * Prepare to log an AccessExclusiveLock, for use during LockAcquire()
+ * 准备记录一把 AccessExclusiveLock，供 LockAcquire() 期间使用
  */
 void
 LogAccessExclusiveLockPrepare(void)
 {
 	/*
-	 * Ensure that a TransactionId has been assigned to this transaction, for
-	 * two reasons, both related to lock release on the standby. First, we
-	 * must assign an xid so that RecordTransactionCommit() and
-	 * RecordTransactionAbort() do not optimise away the transaction
-	 * completion record which recovery relies upon to release locks. It's a
-	 * hack, but for a corner case not worth adding code for into the main
-	 * commit path. Second, we must assign an xid before the lock is recorded
-	 * in shared memory, otherwise a concurrently executing
-	 * GetRunningTransactionLocks() might see a lock associated with an
-	 * InvalidTransactionId which we later assert cannot happen.
+	 * 确保本事务已经分配了 TransactionId，有
+	 * 两个原因，都与备库上的锁释放有关。首先，必须
+	 * 分配一个 xid，这样 RecordTransactionCommit() 和
+	 * RecordTransactionAbort() 才不会把恢复赖以释放锁的事务
+	 * 完成记录优化掉。这是个
+	 * 权宜之计，但这个边角情形不值得往主
+	 * 提交路径里加代码。其次，必须在锁被记入
+	 * 共享内存之前分配 xid，否则并发执行的
+	 * GetRunningTransactionLocks() 可能看到一把与
+	 * InvalidTransactionId 关联的锁，而我们稍后会断言这不可能发生。
 	 */
 	(void) GetCurrentTransactionId();
 }
 
 /*
- * Emit WAL for invalidations. This currently is only used for commits without
- * an xid but which contain invalidations.
+ * 为失效消息发出 WAL。目前只用于没有
+ * xid 但包含失效消息的提交。
  */
 void
 LogStandbyInvalidations(int nmsgs, SharedInvalidationMessage *msgs,
@@ -1466,14 +1466,14 @@ LogStandbyInvalidations(int nmsgs, SharedInvalidationMessage *msgs,
 {
 	xl_invalidations xlrec;
 
-	/* prepare record */
+	/* 准备记录 */
 	memset(&xlrec, 0, sizeof(xlrec));
 	xlrec.dbId = MyDatabaseId;
 	xlrec.tsId = MyDatabaseTableSpace;
 	xlrec.relcacheInitFileInval = relcacheInitFileInval;
 	xlrec.nmsgs = nmsgs;
 
-	/* perform insertion */
+	/* 执行插入 */
 	XLogBeginInsert();
 	XLogRegisterData((char *) (&xlrec), MinSizeOfInvalidations);
 	XLogRegisterData((char *) msgs,
@@ -1481,7 +1481,7 @@ LogStandbyInvalidations(int nmsgs, SharedInvalidationMessage *msgs,
 	XLogInsert(RM_STANDBY_ID, XLOG_INVALIDATIONS);
 }
 
-/* Return the description of recovery conflict */
+/* 返回恢复冲突的描述 */
 static const char *
 get_recovery_conflict_desc(ProcSignalReason reason)
 {

@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0135b-comment-heaptuple-nocachegetattr",
+ "title": "zh: fix heaptuple nocachegetattr case wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "64dcd64250a98904bb0a9e8520f0191c61e54615",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/heaptuple.c",
+   "kind": "c_comment",
+   "note": "Composer P1 AFTER/BEFORE"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0135b-comment-heaptuple-nocachegetattr.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/heaptuple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 123,
+   "translated": 4,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "nocachegetattr AFTER/BEFORE; REQUIRED/CAREFULLY/column(s)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0135b-comment-heaptuple-nocachegetattr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0135"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0135b"
+  }
+ ],
+ "notes": "Composer P1: nocachegetattr cases 2/3 AFTER/BEFORE. Also P2: REQUIRED/CAREFULLY/column(s)."
+}

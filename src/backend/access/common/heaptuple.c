@@ -395,7 +395,7 @@ fill_val(Form_pg_attribute att,
  * 同时填入空值位图（若有），并设置反映元组
  * 数据内容的 infomask 位。
  *
- * 注意：现在 REQUIRED 调用方预先把数据区域清零。
+ * 注意：现在要求调用方预先把数据区域清零。
  */
 void
 heap_fill_tuple(TupleDesc tupleDesc,
@@ -531,8 +531,8 @@ nocachegetattr(HeapTuple tup,
 	 *	 三种情形：
 	 *
 	 *	 1：没有空值，也没有变长属性。
-	 *	 2：有空值，或变长属性位于 att AFTER。
-	 *	 3：有空值或变长属性位于 att BEFORE。
+	 *	 2：在 att 之后有空值或变长属性。
+	 *	 3：在 att 之前有空值或变长属性。
 	 * ----------------
 	 */
 
@@ -648,7 +648,7 @@ nocachegetattr(HeapTuple tup,
 		int			i;
 
 		/*
-		 * 现在已知必须 CAREFULLY 地遍历该元组。不过仍
+		 * 现在已知必须小心地遍历该元组。不过仍
 		 * 可能为下一次缓存一些偏移。
 		 *
 		 * 注意：这个循环有点微妙。对每个非空属性，
@@ -1267,7 +1267,7 @@ heap_modify_tuple(HeapTuple tuple,
  *		由旧元组和一组替换值构成新元组。
  *
  * 与 heap_modify_tuple 类似，但不用布尔映射指定替换哪些
- * column(s)，而用目标列号数组。当要替换的列数
+ * 列，而用目标列号数组。当要替换的列数
  * 固定时，这通常更方便。replCols、replValues 与 replIsnull
  * 数组长度必须为 nCols。目标列号
  * 从 1 开始编号。

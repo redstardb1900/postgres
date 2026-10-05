@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0090-comment-statistics-dependencies",
+ "title": "zh: translate dependencies comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3457b7b19f458322818af4ac161da5152d1f81cf",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/statistics/dependencies.c",
+   "kind": "c_comment",
+   "note": "functional dependency extended statistics"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0090-comment-statistics-dependencies.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/statistics/dependencies.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 197,
+   "translated": 196,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "functional dependency extended statistics"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0090-comment-statistics-dependencies.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0090 translates src/backend/statistics/dependencies.c."
+}

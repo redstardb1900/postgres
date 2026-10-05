@@ -36,32 +36,32 @@
 #include "utils/syscache.h"
 #include "utils/typcache.h"
 
-/* size of the struct header fields (magic, type, ndeps) */
+/* 结构头成员的大小（magic、type、ndeps） */
 #define SizeOfHeader		(3 * sizeof(uint32))
 
-/* size of a serialized dependency (degree, natts, atts) */
+/* 一条序列化依赖的大小（degree、natts、atts） */
 #define SizeOfItem(natts) \
 	(sizeof(double) + sizeof(AttrNumber) * (1 + (natts)))
 
-/* minimal size of a dependency (with two attributes) */
+/* 一条依赖的最小大小（含两个属性） */
 #define MinSizeOfItem	SizeOfItem(2)
 
-/* minimal size of dependencies, when all deps are minimal */
+/* 当所有依赖都取最小大小时，依赖数据的最小大小 */
 #define MinSizeOfItems(ndeps) \
 	(SizeOfHeader + (ndeps) * MinSizeOfItem)
 
 /*
- * Internal state for DependencyGenerator of dependencies. Dependencies are similar to
- * k-permutations of n elements, except that the order does not matter for the
- * first (k-1) elements. That is, (a,b=>c) and (b,a=>c) are equivalent.
+ * DependencyGenerator 的内部状态。函数依赖类似于
+ * n 个元素的 k-排列，只是前 (k-1) 个元素的顺序
+ * 无关紧要。也就是说，(a,b=>c) 与 (b,a=>c) 等价。
  */
 typedef struct DependencyGeneratorData
 {
-	int			k;				/* size of the dependency */
-	int			n;				/* number of possible attributes */
-	int			current;		/* next dependency to return (index) */
-	AttrNumber	ndependencies;	/* number of dependencies generated */
-	AttrNumber *dependencies;	/* array of pre-generated dependencies	*/
+	int			k;				/* 该依赖的大小 */
+	int			n;				/* 可能的属性个数 */
+	int			current;		/* 下一个要返回的依赖（下标） */
+	AttrNumber	ndependencies;	/* 已生成的依赖个数 */
+	AttrNumber *dependencies;	/* 预先生成的依赖数组	*/
 } DependencyGeneratorData;
 
 typedef DependencyGeneratorData *DependencyGenerator;
@@ -94,16 +94,16 @@ generate_dependencies_recurse(DependencyGenerator state, int index,
 							  AttrNumber start, AttrNumber *current)
 {
 	/*
-	 * The generator handles the first (k-1) elements differently from the
-	 * last element.
+	 * 生成器对前 (k-1) 个元素的处理与
+	 * 最后一个元素不同。
 	 */
 	if (index < (state->k - 1))
 	{
 		AttrNumber	i;
 
 		/*
-		 * The first (k-1) values have to be in ascending order, which we
-		 * generate recursively.
+		 * 前 (k-1) 个值必须按升序，我们
+		 * 用递归来生成它们。
 		 */
 
 		for (i = start; i < state->n; i++)
@@ -117,9 +117,9 @@ generate_dependencies_recurse(DependencyGenerator state, int index,
 		int			i;
 
 		/*
-		 * the last element is the implied value, which does not respect the
-		 * ascending order. We just need to check that the value is not in the
-		 * first (k-1) elements.
+		 * 最后一个元素是被蕴含的值，它不遵守
+		 * 升序。我们只需检查该值不在
+		 * 前 (k-1) 个元素里。
 		 */
 
 		for (i = 0; i < state->n; i++)
@@ -139,8 +139,8 @@ generate_dependencies_recurse(DependencyGenerator state, int index,
 			}
 
 			/*
-			 * If the value is not found in the first part of the dependency,
-			 * we're done.
+			 * 若在依赖的前半部分没有找到该值，
+			 * 就完成了。
 			 */
 			if (!match)
 			{
@@ -154,7 +154,7 @@ generate_dependencies_recurse(DependencyGenerator state, int index,
 	}
 }
 
-/* generate all dependencies (k-permutations of n elements) */
+/* 生成全部依赖（n 个元素的 k-排列） */
 static void
 generate_dependencies(DependencyGenerator state)
 {
@@ -166,10 +166,10 @@ generate_dependencies(DependencyGenerator state)
 }
 
 /*
- * initialize the DependencyGenerator of variations, and prebuild the variations
+ * 初始化变体的 DependencyGenerator，并预先构造这些变体。
  *
- * This pre-builds all the variations. We could also generate them in
- * DependencyGenerator_next(), but this seems simpler.
+ * 这里预先构造全部变体。也可以在
+ * DependencyGenerator_next() 里生成它们，但这样似乎更简单。
  */
 static DependencyGenerator
 DependencyGenerator_init(int n, int k)
@@ -178,7 +178,7 @@ DependencyGenerator_init(int n, int k)
 
 	Assert((n >= k) && (k > 0));
 
-	/* allocate the DependencyGenerator state */
+	/* 分配 DependencyGenerator 状态 */
 	state = (DependencyGenerator) palloc0(sizeof(DependencyGeneratorData));
 	state->dependencies = (AttrNumber *) palloc(k * sizeof(AttrNumber));
 
@@ -187,13 +187,13 @@ DependencyGenerator_init(int n, int k)
 	state->k = k;
 	state->n = n;
 
-	/* now actually pre-generate all the variations */
+	/* 现在实际预先生成全部变体 */
 	generate_dependencies(state);
 
 	return state;
 }
 
-/* free the DependencyGenerator state */
+/* 释放 DependencyGenerator 状态 */
 static void
 DependencyGenerator_free(DependencyGenerator state)
 {
@@ -201,7 +201,7 @@ DependencyGenerator_free(DependencyGenerator state)
 	pfree(state);
 }
 
-/* generate next combination */
+/* 生成下一种组合 */
 static AttrNumber *
 DependencyGenerator_next(DependencyGenerator state)
 {
@@ -213,11 +213,11 @@ DependencyGenerator_next(DependencyGenerator state)
 
 
 /*
- * validates functional dependency on the data
+ * 在数据上验证函数依赖。
  *
- * An actual work horse of detecting functional dependencies. Given a variation
- * of k attributes, it checks that the first (k-1) are sufficient to determine
- * the last one.
+ * 检测函数依赖的实际主力。给定 k 个属性的一种
+ * 变体，它检查前 (k-1) 个是否足以决定
+ * 最后一个。
  */
 static double
 dependency_degree(StatsBuildData *data, int k, AttrNumber *dependency)
@@ -228,116 +228,116 @@ dependency_degree(StatsBuildData *data, int k, AttrNumber *dependency)
 	SortItem   *items;
 	AttrNumber *attnums_dep;
 
-	/* counters valid within a group */
+	/* 在一组内有效的计数器 */
 	int			group_size = 0;
 	int			n_violations = 0;
 
-	/* total number of rows supporting (consistent with) the dependency */
+	/* 支持（与之一致）该依赖的行总数 */
 	int			n_supporting_rows = 0;
 
-	/* Make sure we have at least two input attributes. */
+	/* 确保至少有两个输入属性。 */
 	Assert(k >= 2);
 
-	/* sort info for all attributes columns */
+	/* 所有属性列的排序信息 */
 	mss = multi_sort_init(k);
 
 	/*
-	 * Translate the array of indexes to regular attnums for the dependency
-	 * (we will need this to identify the columns in StatsBuildData).
+	 * 把下标数组翻译成该依赖的普通 attnum
+	 * （在 StatsBuildData 里识别这些列时需要它）。
 	 */
 	attnums_dep = (AttrNumber *) palloc(k * sizeof(AttrNumber));
 	for (i = 0; i < k; i++)
 		attnums_dep[i] = data->attnums[dependency[i]];
 
 	/*
-	 * Verify the dependency (a,b,...)->z, using a rather simple algorithm:
+	 * 用相当简单的算法验证依赖 (a,b,...)->z：
 	 *
-	 * (a) sort the data lexicographically
+	 * (a) 按字典序对数据排序。
 	 *
-	 * (b) split the data into groups by first (k-1) columns
+	 * (b) 按前 (k-1) 列把数据分成组。
 	 *
-	 * (c) for each group count different values in the last column
+	 * (c) 对每一组，统计最后一列里不同的值。
 	 *
-	 * We use the column data types' default sort operators and collations;
-	 * perhaps at some point it'd be worth using column-specific collations?
+	 * 我们使用列数据类型的默认排序操作符和排序规则；
+	 * 也许将来值得使用列专用的排序规则？
 	 */
 
-	/* prepare the sort function for the dimensions */
+	/* 为各个维度准备排序函数 */
 	for (i = 0; i < k; i++)
 	{
 		VacAttrStats *colstat = data->stats[dependency[i]];
 		TypeCacheEntry *type;
 
 		type = lookup_type_cache(colstat->attrtypid, TYPECACHE_LT_OPR);
-		if (type->lt_opr == InvalidOid) /* shouldn't happen */
+		if (type->lt_opr == InvalidOid) /* 不应当发生 */
 			elog(ERROR, "cache lookup failed for ordering operator for type %u",
 				 colstat->attrtypid);
 
-		/* prepare the sort function for this dimension */
+		/* 为这个维度准备排序函数 */
 		multi_sort_add_dimension(mss, i, type->lt_opr, colstat->attrcollid);
 	}
 
 	/*
-	 * build an array of SortItem(s) sorted using the multi-sort support
+	 * 构造用多键排序支持排好序的 SortItem 数组。
 	 *
-	 * XXX This relies on all stats entries pointing to the same tuple
-	 * descriptor.  For now that assumption holds, but it might change in the
-	 * future for example if we support statistics on multiple tables.
+	 * XXX 这依赖于所有统计项指向同一个元组
+	 * 描述符。目前该假设成立，但将来可能改变，
+	 * 例如若我们支持多张表上的统计信息。
 	 */
 	items = build_sorted_items(data, &nitems, mss, k, attnums_dep);
 
 	/*
-	 * Walk through the sorted array, split it into rows according to the
-	 * first (k-1) columns. If there's a single value in the last column, we
-	 * count the group as 'supporting' the functional dependency. Otherwise we
-	 * count it as contradicting.
+	 * 遍历排好序的数组，按前 (k-1) 列把它分成若干行。
+	 * 若最后一列只有单个值，就把该组计为
+	 * 支持该函数依赖。否则就把它计为
+	 * 矛盾。
 	 */
 
-	/* start with the first row forming a group */
+	/* 从构成一组的第一行开始 */
 	group_size = 1;
 
-	/* loop 1 beyond the end of the array so that we count the final group */
+	/* 循环到数组末尾之后 1 的位置，以便计入最后一组 */
 	for (i = 1; i <= nitems; i++)
 	{
 		/*
-		 * Check if the group ended, which may be either because we processed
-		 * all the items (i==nitems), or because the i-th item is not equal to
-		 * the preceding one.
+		 * 检查该组是否结束。结束可能是因为我们已经处理了
+		 * 全部项（i==nitems），也可能是因为第 i 项不等于
+		 * 前一项。
 		 */
 		if (i == nitems ||
 			multi_sort_compare_dims(0, k - 2, &items[i - 1], &items[i], mss) != 0)
 		{
 			/*
-			 * If no violations were found in the group then track the rows of
-			 * the group as supporting the functional dependency.
+			 * 若该组里没有发现违反，就把该组的行
+			 * 记为支持该函数依赖。
 			 */
 			if (n_violations == 0)
 				n_supporting_rows += group_size;
 
-			/* Reset counters for the new group */
+			/* 为新的一组重置计数器 */
 			n_violations = 0;
 			group_size = 1;
 			continue;
 		}
-		/* first columns match, but the last one does not (so contradicting) */
+		/* 前面的列匹配，但最后一列不匹配（因此矛盾） */
 		else if (multi_sort_compare_dim(k - 1, &items[i - 1], &items[i], mss) != 0)
 			n_violations++;
 
 		group_size++;
 	}
 
-	/* Compute the 'degree of validity' as (supporting/total). */
+	/* 把有效度计算为（支持的/总数）。 */
 	return (n_supporting_rows * 1.0 / data->numrows);
 }
 
 /*
- * detects functional dependencies between groups of columns
+ * 检测列组之间的函数依赖。
  *
- * Generates all possible subsets of columns (variations) and computes
- * the degree of validity for each one. For example when creating statistics
- * on three columns (a,b,c) there are 9 possible dependencies
+ * 生成所有可能的列子集（变体），并为每一个计算
+ * 有效度。例如在三列 (a,b,c) 上创建统计信息时，
+ * 有 9 种可能的依赖。
  *
- *	   two columns			  three columns
+ *	   两列					三列：
  *	   -----------			  -------------
  *	   (a) -> b				  (a,b) -> c
  *	   (a) -> c				  (a,c) -> b
@@ -352,48 +352,48 @@ statext_dependencies_build(StatsBuildData *data)
 	int			i,
 				k;
 
-	/* result */
+	/* 结果 */
 	MVDependencies *dependencies = NULL;
 	MemoryContext cxt;
 
 	Assert(data->nattnums >= 2);
 
-	/* tracks memory allocated by dependency_degree calls */
+	/* 跟踪 dependency_degree 调用分配的内存 */
 	cxt = AllocSetContextCreate(CurrentMemoryContext,
 								"dependency_degree cxt",
 								ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * We'll try build functional dependencies starting from the smallest ones
-	 * covering just 2 columns, to the largest ones, covering all columns
-	 * included in the statistics object.  We start from the smallest ones
-	 * because we want to be able to skip already implied ones.
+	 * 我们将尝试从最小的函数依赖开始构造，它们只覆盖
+	 * 2 列，直到最大的、覆盖统计对象所含
+	 * 全部列的那些。我们从最小的开始，
+	 * 因为我们希望能跳过已经被蕴含的依赖。
 	 */
 	for (k = 2; k <= data->nattnums; k++)
 	{
-		AttrNumber *dependency; /* array with k elements */
+		AttrNumber *dependency; /* 含 k 个元素的数组 */
 
-		/* prepare a DependencyGenerator of variation */
+		/* 准备一个变体的 DependencyGenerator */
 		DependencyGenerator DependencyGenerator = DependencyGenerator_init(data->nattnums, k);
 
-		/* generate all possible variations of k values (out of n) */
+		/* 生成 k 个值（从 n 个里取）的全部可能变体 */
 		while ((dependency = DependencyGenerator_next(DependencyGenerator)))
 		{
 			double		degree;
 			MVDependency *d;
 			MemoryContext oldcxt;
 
-			/* release memory used by dependency degree calculation */
+			/* 释放依赖度计算使用的内存 */
 			oldcxt = MemoryContextSwitchTo(cxt);
 
-			/* compute how valid the dependency seems */
+			/* 计算该依赖看起来有多有效 */
 			degree = dependency_degree(data, k, dependency);
 
 			MemoryContextSwitchTo(oldcxt);
 			MemoryContextReset(cxt);
 
 			/*
-			 * if the dependency seems entirely invalid, don't store it
+			 * 若该依赖看起来完全无效，就不要存储它
 			 */
 			if (degree == 0.0)
 				continue;
@@ -401,13 +401,13 @@ statext_dependencies_build(StatsBuildData *data)
 			d = (MVDependency *) palloc0(offsetof(MVDependency, attributes)
 										 + k * sizeof(AttrNumber));
 
-			/* copy the dependency (and keep the indexes into stxkeys) */
+			/* 复制该依赖（并保留指向 stxkeys 的下标） */
 			d->degree = degree;
 			d->nattributes = k;
 			for (i = 0; i < k; i++)
 				d->attributes[i] = data->attnums[dependency[i]];
 
-			/* initialize the list of dependencies */
+			/* 初始化依赖列表 */
 			if (dependencies == NULL)
 			{
 				dependencies
@@ -427,7 +427,7 @@ statext_dependencies_build(StatsBuildData *data)
 		}
 
 		/*
-		 * we're done with variations of k elements, so free the
+		 * k 个元素的变体已经处理完，因此释放
 		 * DependencyGenerator
 		 */
 		DependencyGenerator_free(DependencyGenerator);
@@ -440,7 +440,7 @@ statext_dependencies_build(StatsBuildData *data)
 
 
 /*
- * Serialize list of dependencies into a bytea value.
+ * 把依赖列表序列化成一个 bytea 值。
  */
 bytea *
 statext_dependencies_serialize(MVDependencies *dependencies)
@@ -450,10 +450,10 @@ statext_dependencies_serialize(MVDependencies *dependencies)
 	char	   *tmp;
 	Size		len;
 
-	/* we need to store ndeps, with a number of attributes for each one */
+	/* 我们需要存储 ndeps，以及每一条的属性个数 */
 	len = VARHDRSZ + SizeOfHeader;
 
-	/* and also include space for the actual attribute numbers and degrees */
+	/* 并且还要为实际的属性号和依赖度留出空间 */
 	for (i = 0; i < dependencies->ndeps; i++)
 		len += SizeOfItem(dependencies->deps[i]->nattributes);
 
@@ -462,7 +462,7 @@ statext_dependencies_serialize(MVDependencies *dependencies)
 
 	tmp = VARDATA(output);
 
-	/* Store the base struct values (magic, type, ndeps) */
+	/* 存储基本结构的值（magic、type、ndeps） */
 	memcpy(tmp, &dependencies->magic, sizeof(uint32));
 	tmp += sizeof(uint32);
 	memcpy(tmp, &dependencies->type, sizeof(uint32));
@@ -470,7 +470,7 @@ statext_dependencies_serialize(MVDependencies *dependencies)
 	memcpy(tmp, &dependencies->ndeps, sizeof(uint32));
 	tmp += sizeof(uint32);
 
-	/* store number of attributes and attribute numbers for each dependency */
+	/* 为每条依赖存储属性个数和属性号 */
 	for (i = 0; i < dependencies->ndeps; i++)
 	{
 		MVDependency *d = dependencies->deps[i];
@@ -484,18 +484,18 @@ statext_dependencies_serialize(MVDependencies *dependencies)
 		memcpy(tmp, d->attributes, sizeof(AttrNumber) * d->nattributes);
 		tmp += sizeof(AttrNumber) * d->nattributes;
 
-		/* protect against overflow */
+		/* 防止溢出 */
 		Assert(tmp <= ((char *) output + len));
 	}
 
-	/* make sure we've produced exactly the right amount of data */
+	/* 确保我们产生的数据量恰好正确 */
 	Assert(tmp == ((char *) output + len));
 
 	return output;
 }
 
 /*
- * Reads serialized dependencies into MVDependencies structure.
+ * 把序列化的依赖读入 MVDependencies 结构。
  */
 MVDependencies *
 statext_dependencies_deserialize(bytea *data)
@@ -512,13 +512,13 @@ statext_dependencies_deserialize(bytea *data)
 		elog(ERROR, "invalid MVDependencies size %zu (expected at least %zu)",
 			 VARSIZE_ANY_EXHDR(data), SizeOfHeader);
 
-	/* read the MVDependencies header */
+	/* 读取 MVDependencies 头 */
 	dependencies = (MVDependencies *) palloc0(sizeof(MVDependencies));
 
-	/* initialize pointer to the data part (skip the varlena header) */
+	/* 把指针初始化到数据部分（跳过 varlena 头） */
 	tmp = VARDATA_ANY(data);
 
-	/* read the header fields and perform basic sanity checks */
+	/* 读取头成员并做基本的健全性检查 */
 	memcpy(&dependencies->magic, tmp, sizeof(uint32));
 	tmp += sizeof(uint32);
 	memcpy(&dependencies->type, tmp, sizeof(uint32));
@@ -537,14 +537,14 @@ statext_dependencies_deserialize(bytea *data)
 	if (dependencies->ndeps == 0)
 		elog(ERROR, "invalid zero-length item array in MVDependencies");
 
-	/* what minimum bytea size do we expect for those parameters */
+	/* 对这些参数，我们预期的最小 bytea 大小是多少 */
 	min_expected_size = SizeOfItem(dependencies->ndeps);
 
 	if (VARSIZE_ANY_EXHDR(data) < min_expected_size)
 		elog(ERROR, "invalid dependencies size %zu (expected at least %zu)",
 			 VARSIZE_ANY_EXHDR(data), min_expected_size);
 
-	/* allocate space for the MCV items */
+	/* 为 MCV 项分配空间 */
 	dependencies = repalloc(dependencies, offsetof(MVDependencies, deps)
 							+ (dependencies->ndeps * sizeof(MVDependency *)));
 
@@ -554,35 +554,35 @@ statext_dependencies_deserialize(bytea *data)
 		AttrNumber	k;
 		MVDependency *d;
 
-		/* degree of validity */
+		/* 有效度 */
 		memcpy(&degree, tmp, sizeof(double));
 		tmp += sizeof(double);
 
-		/* number of attributes */
+		/* 属性个数 */
 		memcpy(&k, tmp, sizeof(AttrNumber));
 		tmp += sizeof(AttrNumber);
 
-		/* is the number of attributes valid? */
+		/* 属性个数有效吗？ */
 		Assert((k >= 2) && (k <= STATS_MAX_DIMENSIONS));
 
-		/* now that we know the number of attributes, allocate the dependency */
+		/* 既然已经知道属性个数，就分配该依赖 */
 		d = (MVDependency *) palloc0(offsetof(MVDependency, attributes)
 									 + (k * sizeof(AttrNumber)));
 
 		d->degree = degree;
 		d->nattributes = k;
 
-		/* copy attribute numbers */
+		/* 复制属性号 */
 		memcpy(d->attributes, tmp, sizeof(AttrNumber) * d->nattributes);
 		tmp += sizeof(AttrNumber) * d->nattributes;
 
 		dependencies->deps[i] = d;
 
-		/* still within the bytea */
+		/* 仍然在 bytea 之内 */
 		Assert(tmp <= ((char *) data + VARSIZE_ANY(data)));
 	}
 
-	/* we should have consumed the whole bytea exactly */
+	/* 我们应当恰好用完整个 bytea */
 	Assert(tmp == ((char *) data + VARSIZE_ANY(data)));
 
 	return dependencies;
@@ -590,8 +590,8 @@ statext_dependencies_deserialize(bytea *data)
 
 /*
  * dependency_is_fully_matched
- *		checks that a functional dependency is fully matched given clauses on
- *		attributes (assuming the clauses are suitable equality clauses)
+ *		检查在给定属性上的子句时，一条函数依赖是否被完全匹配
+ *		（假定这些子句是合适的相等子句）
  */
 static bool
 dependency_is_fully_matched(MVDependency *dependency, Bitmapset *attnums)
@@ -599,8 +599,8 @@ dependency_is_fully_matched(MVDependency *dependency, Bitmapset *attnums)
 	int			j;
 
 	/*
-	 * Check that the dependency actually is fully covered by clauses. We have
-	 * to translate all attribute numbers, as those are referenced
+	 * 检查该依赖是否真的被子句完全覆盖。我们
+	 * 必须翻译所有属性号，因为引用的是那些号
 	 */
 	for (j = 0; j < dependency->nattributes; j++)
 	{
@@ -615,7 +615,7 @@ dependency_is_fully_matched(MVDependency *dependency, Bitmapset *attnums)
 
 /*
  * statext_dependencies_load
- *		Load the functional dependencies for the indicated pg_statistic_ext tuple
+ *		为指定的 pg_statistic_ext 元组装载函数依赖
  */
 MVDependencies *
 statext_dependencies_load(Oid mvoid, bool inh)
@@ -646,27 +646,27 @@ statext_dependencies_load(Oid mvoid, bool inh)
 }
 
 /*
- * pg_dependencies_in		- input routine for type pg_dependencies.
+ * pg_dependencies_in		- 类型 pg_dependencies 的输入例程。
  *
- * pg_dependencies is real enough to be a table column, but it has no operations
- * of its own, and disallows input too
+ * pg_dependencies 真实到足以作为表列，但它没有自己的操作，
+ * 也不允许输入。
  */
 Datum
 pg_dependencies_in(PG_FUNCTION_ARGS)
 {
 	/*
-	 * pg_node_list stores the data in binary form and parsing text input is
-	 * not needed, so disallow this.
+	 * pg_node_list 以二进制形式存储数据，不需要解析文本输入，
+	 * 因此不允许这样做。
 	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_dependencies")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 /*
- * pg_dependencies		- output routine for type pg_dependencies.
+ * pg_dependencies		- 类型 pg_dependencies 的输出例程。
  */
 Datum
 pg_dependencies_out(PG_FUNCTION_ARGS)
@@ -706,7 +706,7 @@ pg_dependencies_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_dependencies_recv		- binary input routine for type pg_dependencies.
+ * pg_dependencies_recv		- 类型 pg_dependencies 的二进制输入例程。
  */
 Datum
 pg_dependencies_recv(PG_FUNCTION_ARGS)
@@ -715,14 +715,14 @@ pg_dependencies_recv(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_dependencies")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 /*
- * pg_dependencies_send		- binary output routine for type pg_dependencies.
+ * pg_dependencies_send		- 类型 pg_dependencies 的二进制输出例程。
  *
- * Functional dependencies are serialized in a bytea value (although the type
- * is named differently), so let's just send that.
+ * 函数依赖被序列化在一个 bytea 值里（尽管类型
+ * 的名字不同），因此直接发送它即可。
  */
 Datum
 pg_dependencies_send(PG_FUNCTION_ARGS)
@@ -732,12 +732,12 @@ pg_dependencies_send(PG_FUNCTION_ARGS)
 
 /*
  * dependency_is_compatible_clause
- *		Determines if the clause is compatible with functional dependencies
+ *		判断该子句是否与函数依赖相容。
  *
- * Only clauses that have the form of equality to a pseudoconstant, or can be
- * interpreted that way, are currently accepted.  Furthermore the variable
- * part of the clause must be a simple Var belonging to the specified
- * relation, whose attribute number we return in *attnum on success.
+ * 目前只接受形式为与伪常量相等、或可以
+ * 按这种方式解释的子句。此外，子句的变量
+ * 部分必须是属于指定关系的简单 Var，成功时我们把其
+ * 属性号返回到 *attnum。
  */
 static bool
 dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
@@ -749,11 +749,11 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 	{
 		RestrictInfo *rinfo = (RestrictInfo *) clause;
 
-		/* Pseudoconstants are not interesting (they couldn't contain a Var) */
+		/* 伪常量没有意义（它们没法含有 Var） */
 		if (rinfo->pseudoconstant)
 			return false;
 
-		/* Clauses referencing multiple, or no, varnos are incompatible */
+		/* 引用多个 varno 或一个都不引用的子句不相容 */
 		if (bms_membership(rinfo->clause_relids) != BMS_SINGLETON)
 			return false;
 
@@ -762,14 +762,14 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 
 	if (is_opclause(clause))
 	{
-		/* If it's an opclause, check for Var = Const or Const = Var. */
+		/* 若它是操作子句，就检查 Var = Const 或 Const = Var。 */
 		OpExpr	   *expr = (OpExpr *) clause;
 
-		/* Only expressions with two arguments are candidates. */
+		/* 只有两个参数的表达式才是候选。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
-		/* Make sure non-selected argument is a pseudoconstant. */
+		/* 确保未被选中的参数是伪常量。 */
 		if (is_pseudo_constant_clause(lsecond(expr->args)))
 			clause_expr = linitial(expr->args);
 		else if (is_pseudo_constant_clause(linitial(expr->args)))
@@ -778,43 +778,43 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 			return false;
 
 		/*
-		 * If it's not an "=" operator, just ignore the clause, as it's not
-		 * compatible with functional dependencies.
+		 * 若它不是 "=" 操作符，就忽略该子句，因为它与
+		 * 函数依赖不相容。
 		 *
-		 * This uses the function for estimating selectivity, not the operator
-		 * directly (a bit awkward, but well ...).
+		 * 这里用的是估计选择率的函数，而不是直接用
+		 * 操作符（有点别扭，但也只能如此……）。
 		 *
-		 * XXX this is pretty dubious; probably it'd be better to check btree
-		 * or hash opclass membership, so as not to be fooled by custom
-		 * selectivity functions, and to be more consistent with decisions
-		 * elsewhere in the planner.
+		 * XXX 这相当可疑；也许最好检查 btree
+		 * 或哈希操作符类成员资格，以免被自定义
+		 * 选择率函数误导，并且与规划器
+		 * 其他地方的决定更加一致。
 		 */
 		if (get_oprrest(expr->opno) != F_EQSEL)
 			return false;
 
-		/* OK to proceed with checking "var" */
+		/* 可以继续检查 var */
 	}
 	else if (IsA(clause, ScalarArrayOpExpr))
 	{
-		/* If it's an scalar array operator, check for Var IN Const. */
+		/* 若它是标量数组操作符，就检查 Var IN Const。 */
 		ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) clause;
 
 		/*
-		 * Reject ALL() variant, we only care about ANY/IN.
+		 * 拒绝 ALL() 变体，我们只关心 ANY/IN。
 		 *
-		 * XXX Maybe we should check if all the values are the same, and allow
-		 * ALL in that case? Doesn't seem very practical, though.
+		 * XXX 也许应当检查是否所有值都相同，并在那种情况下允许
+		 * ALL？不过这似乎不太实用。
 		 */
 		if (!expr->useOr)
 			return false;
 
-		/* Only expressions with two arguments are candidates. */
+		/* 只有两个参数的表达式才是候选。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
 		/*
-		 * We know it's always (Var IN Const), so we assume the var is the
-		 * first argument, and pseudoconstant is the second one.
+		 * 我们知道它总是 (Var IN Const)，因此假定 var 是
+		 * 第一个参数，伪常量是第二个。
 		 */
 		if (!is_pseudo_constant_clause(lsecond(expr->args)))
 			return false;
@@ -822,23 +822,23 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 		clause_expr = linitial(expr->args);
 
 		/*
-		 * If it's not an "=" operator, just ignore the clause, as it's not
-		 * compatible with functional dependencies. The operator is identified
-		 * simply by looking at which function it uses to estimate
-		 * selectivity. That's a bit strange, but it's what other similar
-		 * places do.
+		 * 若它不是 "=" 操作符，就忽略该子句，因为它与
+		 * 函数依赖不相容。识别该操作符的方法只是
+		 * 看它用哪个函数来估计
+		 * 选择率。这有点奇怪，但其他类似的
+		 * 地方也是这么做的。
 		 */
 		if (get_oprrest(expr->opno) != F_EQSEL)
 			return false;
 
-		/* OK to proceed with checking "var" */
+		/* 可以继续检查 var */
 	}
 	else if (is_orclause(clause))
 	{
 		BoolExpr   *bool_expr = (BoolExpr *) clause;
 		ListCell   *lc;
 
-		/* start with no attribute number */
+		/* 一开始没有属性号 */
 		*attnum = InvalidAttrNumber;
 
 		foreach(lc, bool_expr->args)
@@ -846,8 +846,8 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 			AttrNumber	clause_attnum;
 
 			/*
-			 * Had we found incompatible clause in the arguments, treat the
-			 * whole clause as incompatible.
+			 * 若在参数里发现了不相容的子句，就把
+			 * 整个子句当作不相容。
 			 */
 			if (!dependency_is_compatible_clause((Node *) lfirst(lc),
 												 relid, &clause_attnum))
@@ -856,54 +856,54 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 			if (*attnum == InvalidAttrNumber)
 				*attnum = clause_attnum;
 
-			/* ensure all the variables are the same (same attnum) */
+			/* 确保所有变量都相同（相同的 attnum） */
 			if (*attnum != clause_attnum)
 				return false;
 		}
 
-		/* the Var is already checked by the recursive call */
+		/* 该 Var 已经由递归调用检查过 */
 		return true;
 	}
 	else if (is_notclause(clause))
 	{
 		/*
-		 * "NOT x" can be interpreted as "x = false", so get the argument and
-		 * proceed with seeing if it's a suitable Var.
+		 * "NOT x" 可以解释成 "x = false"，因此取出参数并
+		 * 继续看它是否为合适的 Var。
 		 */
 		clause_expr = (Node *) get_notclausearg(clause);
 	}
 	else
 	{
 		/*
-		 * A boolean expression "x" can be interpreted as "x = true", so
-		 * proceed with seeing if it's a suitable Var.
+		 * 布尔表达式 "x" 可以解释成 "x = true"，因此
+		 * 继续看它是否为合适的 Var。
 		 */
 		clause_expr = (Node *) clause;
 	}
 
 	/*
-	 * We may ignore any RelabelType node above the operand.  (There won't be
-	 * more than one, since eval_const_expressions has been applied already.)
+	 * 可以忽略操作数上方的任何 RelabelType 节点。（不会有
+	 * 多于一个，因为已经应用过 eval_const_expressions。）
 	 */
 	if (IsA(clause_expr, RelabelType))
 		clause_expr = (Node *) ((RelabelType *) clause_expr)->arg;
 
-	/* We only support plain Vars for now */
+	/* 目前只支持普通 Var */
 	if (!IsA(clause_expr, Var))
 		return false;
 
-	/* OK, we know we have a Var */
+	/* 好，我们知道有一个 Var */
 	var = (Var *) clause_expr;
 
-	/* Ensure Var is from the correct relation */
+	/* 确保 Var 来自正确的关系 */
 	if (var->varno != relid)
 		return false;
 
-	/* We also better ensure the Var is from the current level */
+	/* 最好也确保 Var 来自当前层次 */
 	if (var->varlevelsup != 0)
 		return false;
 
-	/* Also ignore system attributes (we don't allow stats on those) */
+	/* 也忽略系统属性（我们不允许在那些属性上建立统计信息） */
 	if (!AttrNumberIsForUserDefinedAttr(var->varattno))
 		return false;
 
@@ -913,19 +913,19 @@ dependency_is_compatible_clause(Node *clause, Index relid, AttrNumber *attnum)
 
 /*
  * find_strongest_dependency
- *		find the strongest dependency on the attributes
+ *		找出属性上最强的依赖。
  *
- * When applying functional dependencies, we start with the strongest
- * dependencies. That is, we select the dependency that:
+ * 应用函数依赖时，我们从最强的
+ * 依赖开始。也就是说，我们选择这样的依赖：
  *
- * (a) has all attributes covered by equality clauses
+ * (a) 所有属性都被相等子句覆盖。
  *
- * (b) has the most attributes
+ * (b) 属性最多。
  *
- * (c) has the highest degree of validity
+ * (c) 有效度最高。
  *
- * This guarantees that we eliminate the most redundant conditions first
- * (see the comment in dependencies_clauselist_selectivity).
+ * 这保证我们先消除最冗余的条件
+ * （见 dependencies_clauselist_selectivity 里的注释）。
  */
 static MVDependency *
 find_strongest_dependency(MVDependencies **dependencies, int ndependencies,
@@ -935,13 +935,13 @@ find_strongest_dependency(MVDependencies **dependencies, int ndependencies,
 				j;
 	MVDependency *strongest = NULL;
 
-	/* number of attnums in clauses */
+	/* 子句里的 attnum 个数 */
 	int			nattnums = bms_num_members(attnums);
 
 	/*
-	 * Iterate over the MVDependency items and find the strongest one from the
-	 * fully-matched dependencies. We do the cheap checks first, before
-	 * matching it against the attnums.
+	 * 遍历 MVDependency 项，从完全匹配的依赖里找出最强的一条。
+	 * 我们先做便宜的检查，然后再
+	 * 把它与 attnum 匹配。
 	 */
 	for (i = 0; i < ndependencies; i++)
 	{
@@ -950,31 +950,31 @@ find_strongest_dependency(MVDependencies **dependencies, int ndependencies,
 			MVDependency *dependency = dependencies[i]->deps[j];
 
 			/*
-			 * Skip dependencies referencing more attributes than available
-			 * clauses, as those can't be fully matched.
+			 * 跳过引用的属性比可用子句更多的依赖，
+			 * 因为那些无法被完全匹配。
 			 */
 			if (dependency->nattributes > nattnums)
 				continue;
 
 			if (strongest)
 			{
-				/* skip dependencies on fewer attributes than the strongest. */
+				/* 也跳过属性比最强依赖更少的依赖。 */
 				if (dependency->nattributes < strongest->nattributes)
 					continue;
 
-				/* also skip weaker dependencies when attribute count matches */
+				/* 属性个数相同时，也跳过更弱的依赖 */
 				if (strongest->nattributes == dependency->nattributes &&
 					strongest->degree > dependency->degree)
 					continue;
 			}
 
 			/*
-			 * this dependency is stronger, but we must still check that it's
-			 * fully matched to these attnums. We perform this check last as
-			 * it's slightly more expensive than the previous checks.
+			 * 这条依赖更强，但仍必须检查它是否
+			 * 与这些 attnum 完全匹配。我们把这项检查放在最后，因为
+			 * 它比前面的检查略贵。
 			 */
 			if (dependency_is_fully_matched(dependency, attnums))
-				strongest = dependency; /* save new best match */
+				strongest = dependency; /* 保存新的最佳匹配 */
 		}
 	}
 
@@ -983,34 +983,34 @@ find_strongest_dependency(MVDependencies **dependencies, int ndependencies,
 
 /*
  * clauselist_apply_dependencies
- *		Apply the specified functional dependencies to a list of clauses and
- *		return the estimated selectivity of the clauses that are compatible
- *		with any of the given dependencies.
+ *		把指定的函数依赖应用到子句列表，并
+ *		返回与任一给定依赖相容的那些子句的
+ *		估计选择率。
  *
- * This will estimate all not-already-estimated clauses that are compatible
- * with functional dependencies, and which have an attribute mentioned by any
- * of the given dependencies (either as an implying or implied attribute).
+ * 这里将估计所有尚未估计、且与函数依赖相容、
+ * 并且有属性被任一给定依赖提及（无论是作为蕴含属性还是
+ * 被蕴含属性）的子句。
  *
- * Given (lists of) clauses on attributes (a,b) and a functional dependency
- * (a=>b), the per-column selectivities P(a) and P(b) are notionally combined
- * using the formula
+ * 给定属性 (a,b) 上的子句（列表）以及函数依赖
+ * (a=>b)，按列选择率 P(a) 和 P(b) 在概念上用下面的公式
+ * 组合起来。
  *
- *		P(a,b) = f * P(a) + (1-f) * P(a) * P(b)
+ *		P(a,b) = f * P(a) + (1-f) * P(a) * P(b)。
  *
- * where 'f' is the degree of dependency.  This reflects the fact that we
- * expect a fraction f of all rows to be consistent with the dependency
- * (a=>b), and so have a selectivity of P(a), while the remaining rows are
- * treated as independent.
+ * 其中 f 是依赖度。这反映了这样一个事实：我们
+ * 预期所有行中有比例为 f 的部分与依赖
+ * (a=>b) 一致，因此选择率为 P(a)，而其余的行被
+ * 当作独立的。
  *
- * In practice, we use a slightly modified version of this formula, which uses
- * a selectivity of Min(P(a), P(b)) for the dependent rows, since the result
- * should obviously not exceed either column's individual selectivity.  I.e.,
- * we actually combine selectivities using the formula
+ * 实践中我们使用该公式的一个略加修改的版本，它对依赖行使用
+ * 选择率 Min(P(a), P(b))，因为结果
+ * 显然不应当超过任一列各自的选择率。也就是说，
+ * 我们实际用来组合选择率的公式是：
  *
- *		P(a,b) = f * Min(P(a), P(b)) + (1-f) * P(a) * P(b)
+ *		P(a,b) = f * Min(P(a), P(b)) + (1-f) * P(a) * P(b)。
  *
- * This can make quite a difference if the specific values matching the
- * clauses are not consistent with the functional dependency.
+ * 若匹配子句的具体值与函数依赖不一致，
+ * 这会带来相当大的差别。
  */
 static Selectivity
 clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
@@ -1031,10 +1031,10 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 	Selectivity s1;
 
 	/*
-	 * Extract the attnums of all implying and implied attributes from all the
-	 * given dependencies.  Each of these attributes is expected to have at
-	 * least 1 not-already-estimated compatible clause that we will estimate
-	 * here.
+	 * 从所有给定依赖里取出全部蕴含属性和被蕴含属性的 attnum。
+	 * 这些属性中的每一个都预期至少有
+	 * 1 个尚未估计的相容子句，我们将在
+	 * 这里估计它。
 	 */
 	attnums = NULL;
 	for (i = 0; i < ndependencies; i++)
@@ -1048,8 +1048,8 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 	}
 
 	/*
-	 * Compute per-column selectivity estimates for each of these attributes,
-	 * and mark all the corresponding clauses as estimated.
+	 * 为这些属性中的每一个计算按列选择率估计，
+	 * 并把所有对应的子句标记为已估计。
 	 */
 	nattrs = bms_num_members(attnums);
 	attr_sel = (Selectivity *) palloc(sizeof(Selectivity) * nattrs);
@@ -1080,28 +1080,28 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 	}
 
 	/*
-	 * Now combine these selectivities using the dependency information.  For
-	 * chains of dependencies such as a -> b -> c, the b -> c dependency will
-	 * come before the a -> b dependency in the array, so we traverse the
-	 * array backwards to ensure such chains are computed in the right order.
+	 * 现在用依赖信息组合这些选择率。对于
+	 * a -> b -> c 这样的依赖链，数组里 b -> c 依赖会
+	 * 排在 a -> b 依赖之前，因此我们反向遍历
+	 * 数组，以保证这类链按正确顺序计算。
 	 *
-	 * As explained above, pairs of selectivities are combined using the
-	 * formula
+	 * 如上所述，成对的选择率用下面的公式
+	 * 组合。
 	 *
-	 * P(a,b) = f * Min(P(a), P(b)) + (1-f) * P(a) * P(b)
+	 * P(a,b) = f * Min(P(a), P(b)) + (1-f) * P(a) * P(b)。
 	 *
-	 * to ensure that the combined selectivity is never greater than either
-	 * individual selectivity.
+	 * 以保证组合后的选择率永远不大于任一
+	 * 单独的选择率。
 	 *
-	 * Where multiple dependencies apply (e.g., a -> b -> c), we use
-	 * conditional probabilities to compute the overall result as follows:
+	 * 在多个依赖适用时（例如 a -> b -> c），我们用
+	 * 条件概率按下面的方式计算总结果：
 	 *
-	 * P(a,b,c) = P(c|a,b) * P(a,b) = P(c|a,b) * P(b|a) * P(a)
+	 * P(a,b,c) = P(c|a,b) * P(a,b) = P(c|a,b) * P(b|a) * P(a)。
 	 *
-	 * so we replace the selectivities of all implied attributes with
-	 * conditional probabilities, that are conditional on all their implying
-	 * attributes.  The selectivities of all other non-implied attributes are
-	 * left as they are.
+	 * 因此我们把所有被蕴含属性的选择率替换成
+	 * 条件概率，这些概率以它们全部的蕴含
+	 * 属性为条件。所有其他未被蕴含属性的选择率
+	 * 保持原样。
 	 */
 	for (i = ndependencies - 1; i >= 0; i--)
 	{
@@ -1110,7 +1110,7 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 		Selectivity s2;
 		double		f;
 
-		/* Selectivity of all the implying attributes */
+		/* 全部蕴含属性的选择率 */
 		s1 = 1.0;
 		for (j = 0; j < dependency->nattributes - 1; j++)
 		{
@@ -1119,19 +1119,19 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 			s1 *= attr_sel[attidx];
 		}
 
-		/* Original selectivity of the implied attribute */
+		/* 被蕴含属性原来的选择率 */
 		attnum = dependency->attributes[j];
 		attidx = bms_member_index(attnums, attnum);
 		s2 = attr_sel[attidx];
 
 		/*
-		 * Replace s2 with the conditional probability s2 given s1, computed
-		 * using the formula P(b|a) = P(a,b) / P(a), which simplifies to
+		 * 用公式 P(b|a) = P(a,b) / P(a) 计算给定 s1 时 s2 的条件概率来
+		 * 替换 s2，该公式简化为：
 		 *
-		 * P(b|a) = f * Min(P(a), P(b)) / P(a) + (1-f) * P(b)
+		 * P(b|a) = f * Min(P(a), P(b)) / P(a) + (1-f) * P(b)。
 		 *
-		 * where P(a) = s1, the selectivity of the implying attributes, and
-		 * P(b) = s2, the selectivity of the implied attribute.
+		 * 其中 P(a) = s1，即蕴含属性的选择率，而
+		 * P(b) = s2，即被蕴含属性的选择率。
 		 */
 		f = dependency->degree;
 
@@ -1142,9 +1142,9 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 	}
 
 	/*
-	 * The overall selectivity of all the clauses on all these attributes is
-	 * then the product of all the original (non-implied) probabilities and
-	 * the new conditional (implied) probabilities.
+	 * 于是，所有这些属性上全部子句的总选择率
+	 * 就是所有原来的（未被蕴含的）概率与
+	 * 新的条件（被蕴含的）概率的乘积。
 	 */
 	s1 = 1.0;
 	for (i = 0; i < nattrs; i++)
@@ -1160,11 +1160,11 @@ clauselist_apply_dependencies(PlannerInfo *root, List *clauses,
 
 /*
  * dependency_is_compatible_expression
- *		Determines if the expression is compatible with functional dependencies
+ *		判断该表达式是否与函数依赖相容。
  *
- * Similar to dependency_is_compatible_clause, but doesn't enforce that the
- * expression is a simple Var.  On success, return the matching statistics
- * expression into *expr.
+ * 与 dependency_is_compatible_clause 类似，但不强制
+ * 表达式是简单 Var。成功时，把匹配的统计
+ * 表达式返回到 *expr。
  */
 static bool
 dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, Node **expr)
@@ -1177,11 +1177,11 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 	{
 		RestrictInfo *rinfo = (RestrictInfo *) clause;
 
-		/* Pseudoconstants are not interesting (they couldn't contain a Var) */
+		/* 伪常量没有意义（它们没法含有 Var） */
 		if (rinfo->pseudoconstant)
 			return false;
 
-		/* Clauses referencing multiple, or no, varnos are incompatible */
+		/* 引用多个 varno 或一个都不引用的子句不相容 */
 		if (bms_membership(rinfo->clause_relids) != BMS_SINGLETON)
 			return false;
 
@@ -1190,14 +1190,14 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 
 	if (is_opclause(clause))
 	{
-		/* If it's an opclause, check for Var = Const or Const = Var. */
+		/* 若它是操作子句，就检查 Var = Const 或 Const = Var。 */
 		OpExpr	   *expr = (OpExpr *) clause;
 
-		/* Only expressions with two arguments are candidates. */
+		/* 只有两个参数的表达式才是候选。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
-		/* Make sure non-selected argument is a pseudoconstant. */
+		/* 确保未被选中的参数是伪常量。 */
 		if (is_pseudo_constant_clause(lsecond(expr->args)))
 			clause_expr = linitial(expr->args);
 		else if (is_pseudo_constant_clause(linitial(expr->args)))
@@ -1206,43 +1206,43 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 			return false;
 
 		/*
-		 * If it's not an "=" operator, just ignore the clause, as it's not
-		 * compatible with functional dependencies.
+		 * 若它不是 "=" 操作符，就忽略该子句，因为它与
+		 * 函数依赖不相容。
 		 *
-		 * This uses the function for estimating selectivity, not the operator
-		 * directly (a bit awkward, but well ...).
+		 * 这里用的是估计选择率的函数，而不是直接用
+		 * 操作符（有点别扭，但也只能如此……）。
 		 *
-		 * XXX this is pretty dubious; probably it'd be better to check btree
-		 * or hash opclass membership, so as not to be fooled by custom
-		 * selectivity functions, and to be more consistent with decisions
-		 * elsewhere in the planner.
+		 * XXX 这相当可疑；也许最好检查 btree
+		 * 或哈希操作符类成员资格，以免被自定义
+		 * 选择率函数误导，并且与规划器
+		 * 其他地方的决定更加一致。
 		 */
 		if (get_oprrest(expr->opno) != F_EQSEL)
 			return false;
 
-		/* OK to proceed with checking "var" */
+		/* 可以继续检查 var */
 	}
 	else if (IsA(clause, ScalarArrayOpExpr))
 	{
-		/* If it's an scalar array operator, check for Var IN Const. */
+		/* 若它是标量数组操作符，就检查 Var IN Const。 */
 		ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) clause;
 
 		/*
-		 * Reject ALL() variant, we only care about ANY/IN.
+		 * 拒绝 ALL() 变体，我们只关心 ANY/IN。
 		 *
-		 * FIXME Maybe we should check if all the values are the same, and
-		 * allow ALL in that case? Doesn't seem very practical, though.
+		 * FIXME 也许应当检查是否所有值都相同，并
+		 * 在那种情况下允许 ALL？不过这似乎不太实用。
 		 */
 		if (!expr->useOr)
 			return false;
 
-		/* Only expressions with two arguments are candidates. */
+		/* 只有两个参数的表达式才是候选。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
 		/*
-		 * We know it's always (Var IN Const), so we assume the var is the
-		 * first argument, and pseudoconstant is the second one.
+		 * 我们知道它总是 (Var IN Const)，因此假定 var 是
+		 * 第一个参数，伪常量是第二个。
 		 */
 		if (!is_pseudo_constant_clause(lsecond(expr->args)))
 			return false;
@@ -1250,22 +1250,22 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 		clause_expr = linitial(expr->args);
 
 		/*
-		 * If it's not an "=" operator, just ignore the clause, as it's not
-		 * compatible with functional dependencies. The operator is identified
-		 * simply by looking at which function it uses to estimate
-		 * selectivity. That's a bit strange, but it's what other similar
-		 * places do.
+		 * 若它不是 "=" 操作符，就忽略该子句，因为它与
+		 * 函数依赖不相容。识别该操作符的方法只是
+		 * 看它用哪个函数来估计
+		 * 选择率。这有点奇怪，但其他类似的
+		 * 地方也是这么做的。
 		 */
 		if (get_oprrest(expr->opno) != F_EQSEL)
 			return false;
 
-		/* OK to proceed with checking "var" */
+		/* 可以继续检查 var */
 	}
 	else if (is_orclause(clause))
 	{
 		BoolExpr   *bool_expr = (BoolExpr *) clause;
 
-		/* start with no expression (we'll use the first match) */
+		/* 一开始没有表达式（我们将使用第一个匹配） */
 		*expr = NULL;
 
 		foreach(lc, bool_expr->args)
@@ -1273,8 +1273,8 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 			Node	   *or_expr = NULL;
 
 			/*
-			 * Had we found incompatible expression in the arguments, treat
-			 * the whole expression as incompatible.
+			 * 若在参数里发现了不相容的表达式，就把
+			 * 整个表达式当作不相容。
 			 */
 			if (!dependency_is_compatible_expression((Node *) lfirst(lc), relid,
 													 statlist, &or_expr))
@@ -1283,46 +1283,46 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 			if (*expr == NULL)
 				*expr = or_expr;
 
-			/* ensure all the expressions are the same */
+			/* 确保所有表达式都相同 */
 			if (!equal(or_expr, *expr))
 				return false;
 		}
 
-		/* the expression is already checked by the recursive call */
+		/* 该表达式已经由递归调用检查过 */
 		return true;
 	}
 	else if (is_notclause(clause))
 	{
 		/*
-		 * "NOT x" can be interpreted as "x = false", so get the argument and
-		 * proceed with seeing if it's a suitable Var.
+		 * "NOT x" 可以解释成 "x = false"，因此取出参数并
+		 * 继续看它是否为合适的 Var。
 		 */
 		clause_expr = (Node *) get_notclausearg(clause);
 	}
 	else
 	{
 		/*
-		 * A boolean expression "x" can be interpreted as "x = true", so
-		 * proceed with seeing if it's a suitable Var.
+		 * 布尔表达式 "x" 可以解释成 "x = true"，因此
+		 * 继续看它是否为合适的 Var。
 		 */
 		clause_expr = (Node *) clause;
 	}
 
 	/*
-	 * We may ignore any RelabelType node above the operand.  (There won't be
-	 * more than one, since eval_const_expressions has been applied already.)
+	 * 可以忽略操作数上方的任何 RelabelType 节点。（不会有
+	 * 多于一个，因为已经应用过 eval_const_expressions。）
 	 */
 	if (IsA(clause_expr, RelabelType))
 		clause_expr = (Node *) ((RelabelType *) clause_expr)->arg;
 
 	/*
-	 * Search for a matching statistics expression.
+	 * 搜索匹配的统计表达式。
 	 */
 	foreach(lc, statlist)
 	{
 		StatisticExtInfo *info = (StatisticExtInfo *) lfirst(lc);
 
-		/* ignore stats without dependencies */
+		/* 忽略没有依赖的统计信息 */
 		if (info->kind != STATS_EXT_DEPENDENCIES)
 			continue;
 
@@ -1343,30 +1343,30 @@ dependency_is_compatible_expression(Node *clause, Index relid, List *statlist, N
 
 /*
  * dependencies_clauselist_selectivity
- *		Return the estimated selectivity of (a subset of) the given clauses
- *		using functional dependency statistics, or 1.0 if no useful functional
- *		dependency statistic exists.
+ *		用函数依赖统计信息返回给定子句（的一个子集）的
+ *		估计选择率，若没有有用的函数
+ *		依赖统计信息则返回 1.0。
  *
- * 'estimatedclauses' is an input/output argument that gets a bit set
- * corresponding to the (zero-based) list index of each clause that is included
- * in the estimated selectivity.
+ * estimatedclauses 是输入/输出参数，对纳入
+ * 估计选择率的每个子句，按其（从零起计的）列表下标
+ * 置上相应的位。
  *
- * Given equality clauses on attributes (a,b) we find the strongest dependency
- * between them, i.e. either (a=>b) or (b=>a). Assuming (a=>b) is the selected
- * dependency, we then combine the per-clause selectivities using the formula
+ * 给定属性 (a,b) 上的相等子句，我们找出它们之间最强的依赖，
+ * 即 (a=>b) 或 (b=>a)。假定选中的依赖是 (a=>b)，
+ * 然后用下面的公式组合按子句的选择率。
  *
- *	   P(a,b) = f * P(a) + (1-f) * P(a) * P(b)
+ *	   P(a,b) = f * P(a) + (1-f) * P(a) * P(b)。
  *
- * where 'f' is the degree of the dependency.  (Actually we use a slightly
- * modified version of this formula -- see clauselist_apply_dependencies()).
+ * 其中 f 是依赖度。（实际上我们使用该公式的一个略加
+ * 修改的版本，见 clauselist_apply_dependencies()。）
  *
- * With clauses on more than two attributes, the dependencies are applied
- * recursively, starting with the widest/strongest dependencies. For example
- * P(a,b,c) is first split like this:
+ * 当子句涉及两个以上的属性时，依赖被
+ * 递归应用，从最宽/最强的依赖开始。例如
+ * P(a,b,c) 首先被这样拆开：
  *
- *	   P(a,b,c) = f * P(a,b) + (1-f) * P(a,b) * P(c)
+ *	   P(a,b,c) = f * P(a,b) + (1-f) * P(a,b) * P(c)。
  *
- * assuming (a,b=>c) is the strongest dependency.
+ * 假定 (a,b=>c) 是最强的依赖。
  */
 Selectivity
 dependencies_clauselist_selectivity(PlannerInfo *root,
@@ -1391,11 +1391,11 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 	AttrNumber	attnum_offset;
 	RangeTblEntry *rte = planner_rt_fetch(rel->relid, root);
 
-	/* unique expressions */
+	/* 唯一表达式 */
 	Node	  **unique_exprs;
 	int			unique_exprs_cnt;
 
-	/* check if there's any stats that might be useful for us. */
+	/* 检查是否有任何可能对我们有用的统计信息。 */
 	if (!has_stats_of_kind(rel->statlist, STATS_EXT_DEPENDENCIES))
 		return 1.0;
 
@@ -1403,29 +1403,29 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 										 list_length(clauses));
 
 	/*
-	 * We allocate space as if every clause was a unique expression, although
-	 * that's probably overkill. Some will be simple column references that
-	 * we'll translate to attnums, and there might be duplicates. But it's
-	 * easier and cheaper to just do one allocation than repalloc later.
+	 * 我们按每个子句都是唯一表达式来分配空间，尽管
+	 * 这大概是过剩的。有些将是简单的列引用，我们会
+	 * 把它们翻译成 attnum，而且可能有重复。但一次分配
+	 * 比以后再 repalloc 更简单也更便宜。
 	 */
 	unique_exprs = (Node **) palloc(sizeof(Node *) * list_length(clauses));
 	unique_exprs_cnt = 0;
 
 	/*
-	 * Pre-process the clauses list to extract the attnums seen in each item.
-	 * We need to determine if there's any clauses which will be useful for
-	 * dependency selectivity estimations. Along the way we'll record all of
-	 * the attnums for each clause in a list which we'll reference later so we
-	 * don't need to repeat the same work again. We'll also keep track of all
-	 * attnums seen.
+	 * 预处理子句列表，提取每一项里见到的 attnum。
+	 * 我们需要判断是否有任何子句对
+	 * 依赖选择率估计有用。沿途我们会把每个子句的
+	 * 全部 attnum 记入一个列表，稍后引用它，这样
+	 * 就不必再重复同样的工作。我们也会跟踪见到的全部
+	 * attnum。
 	 *
-	 * We also skip clauses that we already estimated using different types of
-	 * statistics (we treat them as incompatible).
+	 * 我们也会跳过已经用其他类型的
+	 * 统计信息估计过的子句（把它们当作不相容）。
 	 *
-	 * To handle expressions, we assign them negative attnums, as if it was a
-	 * system attribute (this is fine, as we only allow extended stats on user
-	 * attributes). And then we offset everything by the number of
-	 * expressions, so that we can store the values in a bitmapset.
+	 * 为了处理表达式，我们给它们分配负的 attnum，就像它是
+	 * 系统属性一样（这没问题，因为我们只允许在用户
+	 * 属性上建立扩展统计）。然后我们把一切都偏移表达式的
+	 * 个数，以便把这些值存进 bitmapset。
 	 */
 	listidx = 0;
 	foreach(l, clauses)
@@ -1434,15 +1434,15 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		AttrNumber	attnum;
 		Node	   *expr = NULL;
 
-		/* ignore clause by default */
+		/* 默认忽略该子句 */
 		list_attnums[listidx] = InvalidAttrNumber;
 
 		if (!bms_is_member(listidx, *estimatedclauses))
 		{
 			/*
-			 * If it's a simple column reference, just extract the attnum. If
-			 * it's an expression, assign a negative attnum as if it was a
-			 * system attribute.
+			 * 若它是简单的列引用，就只提取 attnum。若
+			 * 它是表达式，就分配一个负的 attnum，就像它是
+			 * 系统属性一样。
 			 */
 			if (dependency_is_compatible_clause(clause, rel->relid, &attnum))
 			{
@@ -1452,32 +1452,32 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 														 rel->statlist,
 														 &expr))
 			{
-				/* special attnum assigned to this expression */
+				/* 分配给该表达式的特殊 attnum */
 				attnum = InvalidAttrNumber;
 
 				Assert(expr != NULL);
 
-				/* If the expression is duplicate, use the same attnum. */
+				/* 若该表达式是重复的，就使用同一个 attnum。 */
 				for (i = 0; i < unique_exprs_cnt; i++)
 				{
 					if (equal(unique_exprs[i], expr))
 					{
-						/* negative attribute number to expression */
+						/* 从负属性号到表达式 */
 						attnum = -(i + 1);
 						break;
 					}
 				}
 
-				/* not found in the list, so add it */
+				/* 列表里没有找到，因此加入它 */
 				if (attnum == InvalidAttrNumber)
 				{
 					unique_exprs[unique_exprs_cnt++] = expr;
 
-					/* after incrementing the value, to get -1, -2, ... */
+					/* 在递增该值之后，以得到 -1、-2、…… */
 					attnum = (-unique_exprs_cnt);
 				}
 
-				/* remember which attnum was assigned to this clause */
+				/* 记住分配给该子句的 attnum */
 				list_attnums[listidx] = attnum;
 			}
 		}
@@ -1488,9 +1488,9 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 	Assert(listidx == list_length(clauses));
 
 	/*
-	 * How much we need to offset the attnums? If there are no expressions,
-	 * then no offset is needed. Otherwise we need to offset enough for the
-	 * lowest value (-unique_exprs_cnt) to become 1.
+	 * attnum 需要偏移多少？若没有表达式，
+	 * 就不需要偏移。否则需要偏移到足以让
+	 * 最低值（-unique_exprs_cnt）变成 1。
 	 */
 	if (unique_exprs_cnt > 0)
 		attnum_offset = (unique_exprs_cnt + 1);
@@ -1498,40 +1498,40 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		attnum_offset = 0;
 
 	/*
-	 * Now that we know how many expressions there are, we can offset the
-	 * values just enough to build the bitmapset.
+	 * 既然已经知道有多少表达式，就可以把这些值
+	 * 偏移到刚好能构造 bitmapset。
 	 */
 	for (i = 0; i < list_length(clauses); i++)
 	{
 		AttrNumber	attnum;
 
-		/* ignore incompatible or already estimated clauses */
+		/* 忽略不相容或已经估计过的子句 */
 		if (list_attnums[i] == InvalidAttrNumber)
 			continue;
 
-		/* make sure the attnum is in the expected range */
+		/* 确保 attnum 在预期范围内 */
 		Assert(list_attnums[i] >= (-unique_exprs_cnt));
 		Assert(list_attnums[i] <= MaxHeapAttributeNumber);
 
-		/* make sure the attnum is positive (valid AttrNumber) */
+		/* 确保 attnum 为正（有效的 AttrNumber） */
 		attnum = list_attnums[i] + attnum_offset;
 
 		/*
-		 * Either it's a regular attribute, or it's an expression, in which
-		 * case we must not have seen it before (expressions are unique).
+		 * 要么它是普通属性，要么它是表达式，那种
+		 * 情况下我们不得曾经见过它（表达式是唯一的）。
 		 *
-		 * XXX Check whether it's a regular attribute has to be done using the
-		 * original attnum, while the second check has to use the value with
-		 * an offset.
+		 * XXX 检查它是否为普通属性必须用
+		 * 原来的 attnum，而第二项检查必须用
+		 * 带偏移的值。
 		 */
 		Assert(AttrNumberIsForUserDefinedAttr(list_attnums[i]) ||
 			   !bms_is_member(attnum, clauses_attnums));
 
 		/*
-		 * Remember the offset attnum, both for attributes and expressions.
-		 * We'll pass list_attnums to clauselist_apply_dependencies, which
-		 * uses it to identify clauses in a bitmap. We could also pass the
-		 * offset, but this is more convenient.
+		 * 记住偏移后的 attnum，属性和表达式都要记。
+		 * 我们将把 list_attnums 传给 clauselist_apply_dependencies，它
+		 * 用这个来在 bitmap 里识别子句。我们也可以传入
+		 * 偏移，但这样更方便。
 		 */
 		list_attnums[i] = attnum;
 
@@ -1539,9 +1539,9 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 	}
 
 	/*
-	 * If there's not at least two distinct attnums and expressions, then
-	 * reject the whole list of clauses. We must return 1.0 so the calling
-	 * function's selectivity is unaffected.
+	 * 若不同的 attnum 和表达式不足两个，就
+	 * 拒绝整个子句列表。我们必须返回 1.0，以免调用
+	 * 函数的选择率受到影响。
 	 */
 	if (bms_membership(clauses_attnums) != BMS_MULTIPLE)
 	{
@@ -1551,15 +1551,15 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 	}
 
 	/*
-	 * Load all functional dependencies matching at least two parameters. We
-	 * can simply consider all dependencies at once, without having to search
-	 * for the best statistics object.
+	 * 装载所有至少匹配两个参数的函数依赖。我们可以
+	 * 简单地同时考虑全部依赖，而不必搜索
+	 * 最佳的统计对象。
 	 *
-	 * To not waste cycles and memory, we deserialize dependencies only for
-	 * statistics that match at least two attributes. The array is allocated
-	 * with the assumption that all objects match - we could grow the array to
-	 * make it just the right size, but it's likely wasteful anyway thanks to
-	 * moving the freed chunks to freelists etc.
+	 * 为了不浪费周期和内存，我们只为
+	 * 至少匹配两个属性的统计信息反序列化依赖。数组按
+	 * 所有对象都匹配的假设来分配。我们可以增长数组，使它
+	 * 恰好合适，但由于把释放的块移到空闲列表等原因，
+	 * 那反正可能是浪费。
 	 */
 	func_dependencies = (MVDependencies **) palloc(sizeof(MVDependencies *) *
 												   list_length(rel->statlist));
@@ -1574,19 +1574,19 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		int			k;
 		MVDependencies *deps;
 
-		/* skip statistics that are not of the correct type */
+		/* 跳过类型不正确的统计信息 */
 		if (stat->kind != STATS_EXT_DEPENDENCIES)
 			continue;
 
-		/* skip statistics with mismatching stxdinherit value */
+		/* 跳过 stxdinherit 值不匹配的统计信息 */
 		if (stat->inherit != rte->inh)
 			continue;
 
 		/*
-		 * Count matching attributes - we have to undo the attnum offsets. The
-		 * input attribute numbers are not offset (expressions are not
-		 * included in stat->keys, so it's not necessary). But we need to
-		 * offset it before checking against clauses_attnums.
+		 * 统计匹配的属性：我们必须撤销 attnum 偏移。输入的
+		 * 属性号没有偏移（表达式不
+		 * 包含在 stat->keys 里，因此没有必要）。但在对照
+		 * clauses_attnums 检查之前，我们需要先偏移它。
 		 */
 		nmatched = 0;
 		k = -1;
@@ -1594,18 +1594,18 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		{
 			AttrNumber	attnum = (AttrNumber) k;
 
-			/* skip expressions */
+			/* 跳过表达式 */
 			if (!AttrNumberIsForUserDefinedAttr(attnum))
 				continue;
 
-			/* apply the same offset as above */
+			/* 应用与上面相同的偏移 */
 			attnum += attnum_offset;
 
 			if (bms_is_member(attnum, clauses_attnums))
 				nmatched++;
 		}
 
-		/* count matching expressions */
+		/* 统计匹配的表达式 */
 		nexprs = 0;
 		for (i = 0; i < unique_exprs_cnt; i++)
 		{
@@ -1615,15 +1615,15 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 			{
 				Node	   *stat_expr = (Node *) lfirst(lc);
 
-				/* try to match it */
+				/* 试着匹配它 */
 				if (equal(stat_expr, unique_exprs[i]))
 					nexprs++;
 			}
 		}
 
 		/*
-		 * Skip objects matching fewer than two attributes/expressions from
-		 * clauses.
+		 * 跳过匹配到的子句属性/表达式少于两个的
+		 * 对象。
 		 */
 		if (nmatched + nexprs < 2)
 			continue;
@@ -1631,30 +1631,30 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		deps = statext_dependencies_load(stat->statOid, rte->inh);
 
 		/*
-		 * The expressions may be represented by different attnums in the
-		 * stats, we need to remap them to be consistent with the clauses.
-		 * That will make the later steps (e.g. picking the strongest item and
-		 * so on) much simpler and cheaper, because it won't need to care
-		 * about the offset at all.
+		 * 表达式在统计信息里可能由不同的 attnum
+		 * 表示，我们需要重映射它们，使之与子句一致。
+		 * 这会让后面的步骤（例如挑选最强的项
+		 * 等等）简单得多也便宜得多，因为它完全不必关心
+		 * 偏移。
 		 *
-		 * When we're at it, we can ignore dependencies that are not fully
-		 * matched by clauses (i.e. referencing attributes or expressions that
-		 * are not in the clauses).
+		 * 既然如此，我们可以忽略没有被子句完全
+		 * 匹配的依赖（也就是引用了不在子句里的
+		 * 属性或表达式的那些）。
 		 *
-		 * We have to do this for all statistics, as long as there are any
-		 * expressions - we need to shift the attnums in all dependencies.
+		 * 只要有任何表达式，我们就必须对所有统计信息做这件事，
+		 * 因为我们需要移动所有依赖里的 attnum。
 		 *
-		 * XXX Maybe we should do this always, because it also eliminates some
-		 * of the dependencies early. It might be cheaper than having to walk
-		 * the longer list in find_strongest_dependency later, especially as
-		 * we need to do that repeatedly?
+		 * XXX 也许应当总是做这件事，因为它也会提前消除一些
+		 * 依赖。这可能比以后在 find_strongest_dependency 里走
+		 * 更长的列表更便宜，尤其是
+		 * 我们需要反复做这件事？
 		 *
-		 * XXX We have to do this even when there are no expressions in
-		 * clauses, otherwise find_strongest_dependency may fail for stats
-		 * with expressions (due to lookup of negative value in bitmap). So we
-		 * need to at least filter out those dependencies. Maybe we could do
-		 * it in a cheaper way (if there are no expr clauses, we can just
-		 * discard all negative attnums without any lookups).
+		 * XXX 即使子句里没有表达式，我们也必须做这件事，
+		 * 否则对带表达式的统计信息，find_strongest_dependency 可能失败
+		 * （因为在 bitmap 里查找负值）。因此我们
+		 * 至少需要滤掉那些依赖。也许可以用
+		 * 更便宜的方式做（若没有表达式子句，我们可以直接
+		 * 丢掉所有负 attnum，而不做任何查找）。
 		 */
 		if (unique_exprs_cnt > 0 || stat->exprs != NIL)
 		{
@@ -1673,14 +1673,14 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 					AttrNumber	unique_attnum = InvalidAttrNumber;
 					AttrNumber	attnum;
 
-					/* undo the per-statistics offset */
+					/* 撤销按统计信息的偏移 */
 					attnum = dep->attributes[j];
 
 					/*
-					 * For regular attributes we can simply check if it
-					 * matches any clause. If there's no matching clause, we
-					 * can just ignore it. We need to offset the attnum
-					 * though.
+					 * 对普通属性，我们可以简单地检查它是否
+					 * 匹配任何子句。若没有匹配的子句，就可以
+					 * 直接忽略它。不过我们需要偏移
+					 * attnum。
 					 */
 					if (AttrNumberIsForUserDefinedAttr(attnum))
 					{
@@ -1696,32 +1696,32 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 					}
 
 					/*
-					 * the attnum should be a valid system attnum (-1, -2,
+					 * attnum 应当是有效的系统 attnum（-1、-2，
 					 * ...)
 					 */
 					Assert(AttributeNumberIsValid(attnum));
 
 					/*
-					 * For expressions, we need to do two translations. First
-					 * we have to translate the negative attnum to index in
-					 * the list of expressions (in the statistics object).
-					 * Then we need to see if there's a matching clause. The
-					 * index of the unique expression determines the attnum
-					 * (and we offset it).
+					 * 对表达式，我们需要做两次翻译。首先
+					 * 必须把负 attnum 翻译成表达式列表
+					 * （在统计对象里）的下标。
+					 * 然后需要看是否有匹配的子句。唯一
+					 * 表达式的下标决定 attnum
+					 * （并且我们把它偏移）。
 					 */
 					idx = -(1 + attnum);
 
-					/* Is the expression index is valid? */
+					/* 表达式下标有效吗？ */
 					Assert((idx >= 0) && (idx < list_length(stat->exprs)));
 
 					expr = (Node *) list_nth(stat->exprs, idx);
 
-					/* try to find the expression in the unique list */
+					/* 试着在唯一列表里找出该表达式 */
 					for (int m = 0; m < unique_exprs_cnt; m++)
 					{
 						/*
-						 * found a matching unique expression, use the attnum
-						 * (derived from index of the unique expression)
+						 * 找到了匹配的唯一表达式，就使用该 attnum
+						 * （由唯一表达式的下标导出）
 						 */
 						if (equal(unique_exprs[m], expr))
 						{
@@ -1731,9 +1731,9 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 					}
 
 					/*
-					 * Found no matching expression, so we can simply skip
-					 * this dependency, because there's no chance it will be
-					 * fully covered.
+					 * 没有找到匹配的表达式，因此可以直接跳过
+					 * 这条依赖，因为它没有机会被
+					 * 完全覆盖。
 					 */
 					if (unique_attnum == InvalidAttrNumber)
 					{
@@ -1741,14 +1741,14 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 						break;
 					}
 
-					/* otherwise remap it to the new attnum */
+					/* 否则就把它重映射到新的 attnum */
 					dep->attributes[j] = unique_attnum;
 				}
 
-				/* if found a matching dependency, keep it */
+				/* 若找到了匹配的依赖，就保留它 */
 				if (!skip)
 				{
-					/* maybe we've skipped something earlier, so move it */
+					/* 也许前面跳过了一些，因此把它移过来 */
 					if (ndeps != i)
 						deps->deps[ndeps] = deps->deps[i];
 
@@ -1760,8 +1760,8 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		}
 
 		/*
-		 * It's possible we've removed all dependencies, in which case we
-		 * don't bother adding it to the list.
+		 * 有可能我们已经去掉了全部依赖，那种情况下
+		 * 就不必把它加入列表。
 		 */
 		if (deps->ndeps > 0)
 		{
@@ -1771,7 +1771,7 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		}
 	}
 
-	/* if no matching stats could be found then we've nothing to do */
+	/* 若找不到匹配的统计信息，就没有事情可做 */
 	if (nfunc_dependencies == 0)
 	{
 		pfree(func_dependencies);
@@ -1782,8 +1782,8 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 	}
 
 	/*
-	 * Work out which dependencies we can apply, starting with the
-	 * widest/strongest ones, and proceeding to smaller/weaker ones.
+	 * 算出可以应用哪些依赖，从最宽/最强的
+	 * 开始，再处理更小/更弱的。
 	 */
 	dependencies = (MVDependency **) palloc(sizeof(MVDependency *) *
 											total_ndeps);
@@ -1794,7 +1794,7 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 		MVDependency *dependency;
 		AttrNumber	attnum;
 
-		/* the widest/strongest dependency, fully matched by clauses */
+		/* 最宽/最强、且被子句完全匹配的依赖 */
 		dependency = find_strongest_dependency(func_dependencies,
 											   nfunc_dependencies,
 											   clauses_attnums);
@@ -1803,21 +1803,21 @@ dependencies_clauselist_selectivity(PlannerInfo *root,
 
 		dependencies[ndependencies++] = dependency;
 
-		/* Ignore dependencies using this implied attribute in later loops */
+		/* 在后面的循环里忽略使用这个被蕴含属性的依赖 */
 		attnum = dependency->attributes[dependency->nattributes - 1];
 		clauses_attnums = bms_del_member(clauses_attnums, attnum);
 	}
 
 	/*
-	 * If we found applicable dependencies, use them to estimate all
-	 * compatible clauses on attributes that they refer to.
+	 * 若找到了可应用的依赖，就用它们来估计它们所引用属性上的
+	 * 全部相容子句。
 	 */
 	if (ndependencies != 0)
 		s1 = clauselist_apply_dependencies(root, clauses, varRelid, jointype,
 										   sjinfo, dependencies, ndependencies,
 										   list_attnums, estimatedclauses);
 
-	/* free deserialized functional dependencies (and then the array) */
+	/* 释放反序列化的函数依赖（然后释放该数组） */
 	for (i = 0; i < nfunc_dependencies; i++)
 		pfree(func_dependencies[i]);
 

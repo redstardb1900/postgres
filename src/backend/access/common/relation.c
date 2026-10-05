@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relation.c
- *	  Generic relation related routines.
+ *	  与关系相关的通用例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,10 +10,10 @@
  * IDENTIFICATION
  *	  src/backend/access/common/relation.c
  *
- * NOTES
- *	  This file contains relation_ routines that implement access to relations
- *	  (tables, indexes, etc). Support that's specific to subtypes of relations
- *	  should go into their respective files, not here.
+ * 说明
+ *	  本文件包含实现关系访问的 relation_ 例程
+ *	  （表、索引等）。针对关系子类型的支持
+ *	  应放进各自的文件，而不是这里。
  *
  *-------------------------------------------------------------------------
  */
@@ -31,17 +31,17 @@
 
 
 /* ----------------
- *		relation_open - open any relation by relation OID
+ *		relation_open - 按关系 OID 打开任意关系
  *
- *		If lockmode is not "NoLock", the specified kind of lock is
- *		obtained on the relation.  (Generally, NoLock should only be
- *		used if the caller knows it has some appropriate lock on the
- *		relation already.)
+ *		若 lockmode 不是 "NoLock"，就在该关系上取得
+ *		指定种类的锁。（一般而言，只有当调用方知道
+ *		自己已经持有该关系上某种适当的锁时，
+ *		才应使用 NoLock。）
  *
- *		An error is raised if the relation does not exist.
+ *		若关系不存在，则报错。
  *
- *		NB: a "relation" is anything with a pg_class entry.  The caller is
- *		expected to check whether the relkind is something it can handle.
+ *		注意：所谓 "关系"，是指任何拥有 pg_class 项的对象。调用方
+ *		应当检查 relkind 是否是自己能够处理的种类。
  * ----------------
  */
 Relation
@@ -51,25 +51,25 @@ relation_open(Oid relationId, LOCKMODE lockmode)
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 
-	/* Get the lock before trying to open the relcache entry */
+	/* 在尝试打开 relcache 项之前先取得锁 */
 	if (lockmode != NoLock)
 		LockRelationOid(relationId, lockmode);
 
-	/* The relcache does all the real work... */
+	/* relcache 完成全部实际工作... */
 	r = RelationIdGetRelation(relationId);
 
 	if (!RelationIsValid(r))
 		elog(ERROR, "could not open relation with OID %u", relationId);
 
 	/*
-	 * If we didn't get the lock ourselves, assert that caller holds one,
-	 * except in bootstrap mode where no locks are used.
+	 * 若锁不是我们自己取得的，则断言调用方持有一把锁，
+	 * 引导模式除外，那种模式下不使用锁。
 	 */
 	Assert(lockmode != NoLock ||
 		   IsBootstrapProcessingMode() ||
 		   CheckRelationLockedByMe(r, AccessShareLock, true));
 
-	/* Make note that we've accessed a temporary relation */
+	/* 记下我们访问过临时关系 */
 	if (RelationUsesLocalBuffers(r))
 		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
@@ -79,10 +79,10 @@ relation_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
- *		try_relation_open - open any relation by relation OID
+ *		try_relation_open - 按关系 OID 打开任意关系
  *
- *		Same as relation_open, except return NULL instead of failing
- *		if the relation does not exist.
+ *		与 relation_open 相同，只是关系不存在时
+ *		返回 NULL，而不是失败。
  * ----------------
  */
 Relation
@@ -92,34 +92,34 @@ try_relation_open(Oid relationId, LOCKMODE lockmode)
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 
-	/* Get the lock first */
+	/* 先取得锁 */
 	if (lockmode != NoLock)
 		LockRelationOid(relationId, lockmode);
 
 	/*
-	 * Now that we have the lock, probe to see if the relation really exists
-	 * or not.
+	 * 既然已经持有锁，就探查该关系
+	 * 是否真的存在。
 	 */
 	if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(relationId)))
 	{
-		/* Release useless lock */
+		/* 释放无用的锁 */
 		if (lockmode != NoLock)
 			UnlockRelationOid(relationId, lockmode);
 
 		return NULL;
 	}
 
-	/* Should be safe to do a relcache load */
+	/* 现在做 relcache 装载应当是安全的 */
 	r = RelationIdGetRelation(relationId);
 
 	if (!RelationIsValid(r))
 		elog(ERROR, "could not open relation with OID %u", relationId);
 
-	/* If we didn't get the lock ourselves, assert that caller holds one */
+	/* 若锁不是我们自己取得的，则断言调用方持有一把锁 */
 	Assert(lockmode != NoLock ||
 		   CheckRelationLockedByMe(r, AccessShareLock, true));
 
-	/* Make note that we've accessed a temporary relation */
+	/* 记下我们访问过临时关系 */
 	if (RelationUsesLocalBuffers(r))
 		MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
@@ -129,9 +129,9 @@ try_relation_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
- *		relation_openrv - open any relation specified by a RangeVar
+ *		relation_openrv - 打开由 RangeVar 指定的任意关系
  *
- *		Same as relation_open, but the relation is specified by a RangeVar.
+ *		与 relation_open 相同，但关系由 RangeVar 指定。
  * ----------------
  */
 Relation
@@ -140,33 +140,33 @@ relation_openrv(const RangeVar *relation, LOCKMODE lockmode)
 	Oid			relOid;
 
 	/*
-	 * Check for shared-cache-inval messages before trying to open the
-	 * relation.  This is needed even if we already hold a lock on the
-	 * relation, because GRANT/REVOKE are executed without taking any lock on
-	 * the target relation, and we want to be sure we see current ACL
-	 * information.  We can skip this if asked for NoLock, on the assumption
-	 * that such a call is not the first one in the current command, and so we
-	 * should be reasonably up-to-date already.  (XXX this all could stand to
-	 * be redesigned, but for the moment we'll keep doing this like it's been
+	 * 在尝试打开关系之前，先检查共享缓存失效消息。
+	 * 即使我们已经持有该关系上的锁，这也是需要的，
+	 * 因为 GRANT/REVOKE 执行时并不对目标关系加任何锁，
+	 * 而我们要确保看到当前的 ACL 信息。若请求的是 NoLock，
+	 * 可以跳过，假定这样的调用并非当前命令中的第一次，
+	 * 因此我们应当已经相当新了。（XXX 这一切都值得
+	 * 重新设计，但目前我们仍按历来的做法
+	 * 继续做。）
 	 * done historically.)
 	 */
 	if (lockmode != NoLock)
 		AcceptInvalidationMessages();
 
-	/* Look up and lock the appropriate relation using namespace search */
+	/* 用名字空间搜索查找并锁定相应的关系 */
 	relOid = RangeVarGetRelid(relation, lockmode, false);
 
-	/* Let relation_open do the rest */
+	/* 其余工作交给 relation_open */
 	return relation_open(relOid, NoLock);
 }
 
 /* ----------------
- *		relation_openrv_extended - open any relation specified by a RangeVar
+ *		relation_openrv_extended - 打开由 RangeVar 指定的任意关系
  *
- *		Same as relation_openrv, but with an additional missing_ok argument
- *		allowing a NULL return rather than an error if the relation is not
- *		found.  (Note that some other causes, such as permissions problems,
- *		will still result in an ereport.)
+ *		与 relation_openrv 相同，但多一个 missing_ok 参数，
+ *		允许在找不到关系时返回 NULL 而不是报错。
+ *		（注意，其他原因，例如权限问题，
+ *		仍会导致 ereport。）
  * ----------------
  */
 Relation
@@ -176,30 +176,30 @@ relation_openrv_extended(const RangeVar *relation, LOCKMODE lockmode,
 	Oid			relOid;
 
 	/*
-	 * Check for shared-cache-inval messages before trying to open the
-	 * relation.  See comments in relation_openrv().
+	 * 在尝试打开关系之前，先检查共享缓存失效消息。
+	 * 见 relation_openrv() 中的注释。
 	 */
 	if (lockmode != NoLock)
 		AcceptInvalidationMessages();
 
-	/* Look up and lock the appropriate relation using namespace search */
+	/* 用名字空间搜索查找并锁定相应的关系 */
 	relOid = RangeVarGetRelid(relation, lockmode, missing_ok);
 
-	/* Return NULL on not-found */
+	/* 找不到时返回 NULL */
 	if (!OidIsValid(relOid))
 		return NULL;
 
-	/* Let relation_open do the rest */
+	/* 其余工作交给 relation_open */
 	return relation_open(relOid, NoLock);
 }
 
 /* ----------------
- *		relation_close - close any relation
+ *		relation_close - 关闭任意关系
  *
- *		If lockmode is not "NoLock", we then release the specified lock.
+ *		若 lockmode 不是 "NoLock"，随后就释放指定的锁。
  *
- *		Note that it is often sensible to hold a lock beyond relation_close;
- *		in that case, the lock is released automatically at xact end.
+ *		注意，把锁保持到 relation_close 之后常常是合理的；
+ *		那种情况下，锁会在事务结束时自动释放。
  * ----------------
  */
 void
@@ -209,7 +209,7 @@ relation_close(Relation relation, LOCKMODE lockmode)
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 
-	/* The relcache does the real work... */
+	/* relcache 完成实际工作... */
 	RelationClose(relation);
 
 	if (lockmode != NoLock)

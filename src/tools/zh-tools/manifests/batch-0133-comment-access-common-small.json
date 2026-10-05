@@ -1,0 +1,214 @@
+{
+ "schema_version": 1,
+ "batch_id": "0133-comment-access-common-small",
+ "title": "zh: translate access/common small comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "049c8c54f73de5cb371fe401a2e5dd41c7e5a7b1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/scankey.c",
+   "kind": "c_comment",
+   "note": "scan key initialization; C_COLLATION_OID for catalog lookups"
+  },
+  {
+   "pattern": "src/backend/access/common/bufmask.c",
+   "kind": "c_comment",
+   "note": "WAL consistency masks for LSN, hint bits, and line pointers"
+  },
+  {
+   "pattern": "src/backend/access/common/printsimple.c",
+   "kind": "c_comment",
+   "note": "RowDescription and DataRow without catalog access"
+  },
+  {
+   "pattern": "src/backend/access/common/session.c",
+   "kind": "c_comment",
+   "note": "per-session DSM and DSA shared state for parallel workers"
+  },
+  {
+   "pattern": "src/backend/access/common/relation.c",
+   "kind": "c_comment",
+   "note": "relation_open family; relcache, NoLock, and RangeVar"
+  },
+  {
+   "pattern": "src/backend/access/common/tupconvert.c",
+   "kind": "c_comment",
+   "note": "tuple conversion maps by position and by name"
+  },
+  {
+   "pattern": "src/backend/access/common/toast_compression.c",
+   "kind": "c_comment",
+   "note": "PGLZ and LZ4 varlena compression and decompression"
+  },
+  {
+   "pattern": "src/backend/access/common/syncscan.c",
+   "kind": "c_comment",
+   "note": "synchronized sequential scans and the scan-position LRU"
+  },
+  {
+   "pattern": "src/backend/access/common/attmap.c",
+   "kind": "c_comment",
+   "note": "attribute maps for inheritance and partition trees"
+  },
+  {
+   "pattern": "src/backend/access/common/printtup.c",
+   "kind": "c_comment",
+   "note": "frontend tuple printing, DataRow and RowDescription"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0133-comment-access-common-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/scankey.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 3,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "scan key initialization; C_COLLATION_OID for catalog lookups"
+  },
+  {
+   "path": "src/backend/access/common/bufmask.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 11,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL consistency masks for LSN, hint bits, and line pointers"
+  },
+  {
+   "path": "src/backend/access/common/printsimple.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 12,
+   "translated": 11,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "RowDescription and DataRow without catalog access"
+  },
+  {
+   "path": "src/backend/access/common/session.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "per-session DSM and DSA shared state for parallel workers"
+  },
+  {
+   "path": "src/backend/access/common/relation.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "relation_open family; relcache, NoLock, and RangeVar"
+  },
+  {
+   "path": "src/backend/access/common/tupconvert.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "tuple conversion maps by position and by name"
+  },
+  {
+   "path": "src/backend/access/common/toast_compression.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "PGLZ and LZ4 varlena compression and decompression"
+  },
+  {
+   "path": "src/backend/access/common/syncscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "synchronized sequential scans and the scan-position LRU"
+  },
+  {
+   "path": "src/backend/access/common/attmap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "attribute maps for inheritance and partition trees"
+  },
+  {
+   "path": "src/backend/access/common/printtup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 56,
+   "translated": 55,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "frontend tuple printing, DataRow and RowDescription"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0133-comment-access-common-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0133 translates comments in the smaller and mid-size src/backend/access/common .c files: scankey.c, bufmask.c, printsimple.c, session.c, relation.c, tupconvert.c, toast_compression.c, syncscan.c, attmap.c, and printtup.c. heaptuple.c and reloptions.c are left for later. Next batch should be indextuple.c, detoast.c, toast_internals.c, and tupdesc.c."
+}

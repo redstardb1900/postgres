@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * printtup.c
- *	  Routines to print out tuples to the destination (both frontend
- *	  clients and standalone backends are supported here).
+ *	  把元组打印到目标的例程（这里同时支持前端
+ *	  客户端和独立后端）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -31,40 +31,40 @@ static void printtup_shutdown(DestReceiver *self);
 static void printtup_destroy(DestReceiver *self);
 
 /* ----------------------------------------------------------------
- *		printtup / debugtup support
+ *		printtup / debugtup 支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		Private state for a printtup destination object
+ *		printtup 目标对象的私有状态
  *
- * NOTE: finfo is the lookup info for either typoutput or typsend, whichever
- * we are using for this column.
+ * 注意：finfo 是 typoutput 或 typsend 的查找信息，取
+ * 我们为本列所用的那一个。
  * ----------------
  */
 typedef struct
-{								/* Per-attribute information */
-	Oid			typoutput;		/* Oid for the type's text output fn */
-	Oid			typsend;		/* Oid for the type's binary output fn */
-	bool		typisvarlena;	/* is it varlena (ie possibly toastable)? */
-	int16		format;			/* format code for this column */
-	FmgrInfo	finfo;			/* Precomputed call info for output fn */
+{								/* 每个属性的信息 */
+	Oid			typoutput;		/* 该类型文本输出函数的 OID */
+	Oid			typsend;		/* 该类型二进制输出函数的 OID */
+	bool		typisvarlena;	/* 是否为 varlena（即可被 TOAST）？ */
+	int16		format;			/* 本列的格式代码 */
+	FmgrInfo	finfo;			/* 输出函数的预计算调用信息 */
 } PrinttupAttrInfo;
 
 typedef struct
 {
-	DestReceiver pub;			/* publicly-known function pointers */
-	Portal		portal;			/* the Portal we are printing from */
-	bool		sendDescrip;	/* send RowDescription at startup? */
-	TupleDesc	attrinfo;		/* The attr info we are set up for */
+	DestReceiver pub;			/* 公开的函数指针 */
+	Portal		portal;			/* 我们正在从中打印的 Portal */
+	bool		sendDescrip;	/* 启动时发送 RowDescription？ */
+	TupleDesc	attrinfo;		/* 我们已为之建好的属性信息 */
 	int			nattrs;
-	PrinttupAttrInfo *myinfo;	/* Cached info about each attr */
-	StringInfoData buf;			/* output buffer (*not* in tmpcontext) */
-	MemoryContext tmpcontext;	/* Memory context for per-row workspace */
+	PrinttupAttrInfo *myinfo;	/* 每个属性的缓存信息 */
+	StringInfoData buf;			/* 输出缓冲区（不在 tmpcontext 中） */
+	MemoryContext tmpcontext;	/* 每行工作区的内存上下文 */
 } DR_printtup;
 
 /* ----------------
- *		Initialize: create a DestReceiver for printtup
+ *		初始化：为 printtup 创建一个 DestReceiver
  * ----------------
  */
 DestReceiver *
@@ -72,15 +72,15 @@ printtup_create_DR(CommandDest dest)
 {
 	DR_printtup *self = (DR_printtup *) palloc0(sizeof(DR_printtup));
 
-	self->pub.receiveSlot = printtup;	/* might get changed later */
+	self->pub.receiveSlot = printtup;	/* 以后可能会改 */
 	self->pub.rStartup = printtup_startup;
 	self->pub.rShutdown = printtup_shutdown;
 	self->pub.rDestroy = printtup_destroy;
 	self->pub.mydest = dest;
 
 	/*
-	 * Send T message automatically if DestRemote, but not if
-	 * DestRemoteExecute
+	 * 若是 DestRemote 就自动发送 T 消息，若是
+	 * DestRemoteExecute 则不发送
 	 */
 	self->sendDescrip = (dest == DestRemote);
 
@@ -94,7 +94,7 @@ printtup_create_DR(CommandDest dest)
 }
 
 /*
- * Set parameters for a DestRemote (or DestRemoteExecute) receiver
+ * 为 DestRemote（或 DestRemoteExecute）接收器设置参数
  */
 void
 SetRemoteDestReceiverParams(DestReceiver *self, Portal portal)
@@ -114,24 +114,24 @@ printtup_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	Portal		portal = myState->portal;
 
 	/*
-	 * Create I/O buffer to be used for all messages.  This cannot be inside
-	 * tmpcontext, since we want to re-use it across rows.
+	 * 创建供全部消息使用的 I/O 缓冲区。它无法放在
+	 * tmpcontext 里，因为我们要跨行复用它。
 	 */
 	initStringInfo(&myState->buf);
 
 	/*
-	 * Create a temporary memory context that we can reset once per row to
-	 * recover palloc'd memory.  This avoids any problems with leaks inside
-	 * datatype output routines, and should be faster than retail pfree's
-	 * anyway.
+	 * 创建一个临时内存上下文，每行重置一次，以
+	 * 回收 palloc 分配的内存。这样可以避免数据类型输出例程
+	 * 内部泄漏的问题，而且应当比逐个 pfree
+	 * 更快。
 	 */
 	myState->tmpcontext = AllocSetContextCreate(CurrentMemoryContext,
 												"printtup",
 												ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * If we are supposed to emit row descriptions, then send the tuple
-	 * descriptor of the tuples.
+	 * 若应当发出行描述，就发送这些元组的
+	 * 元组描述符。
 	 */
 	if (myState->sendDescrip)
 		SendRowDescriptionMessage(&myState->buf,
@@ -140,27 +140,27 @@ printtup_startup(DestReceiver *self, int operation, TupleDesc typeinfo)
 								  portal->formats);
 
 	/* ----------------
-	 * We could set up the derived attr info at this time, but we postpone it
-	 * until the first call of printtup, for 2 reasons:
-	 * 1. We don't waste time (compared to the old way) if there are no
-	 *	  tuples at all to output.
-	 * 2. Checking in printtup allows us to handle the case that the tuples
-	 *	  change type midway through (although this probably can't happen in
-	 *	  the current executor).
+	 * 此时本可以建立派生的属性信息，但我们推迟到
+	 * printtup 的第一次调用，原因有二：
+	 * 1. 若根本没有元组要输出，就不会浪费时间
+	 *	  （与旧做法相比）。
+	 * 2. 在 printtup 中检查，使我们能处理元组中途
+	 *	  改变类型的情形（尽管在当前执行器里
+	 *	  这大概不会发生）。
 	 * ----------------
 	 */
 }
 
 /*
- * SendRowDescriptionMessage --- send a RowDescription message to the frontend
+ * SendRowDescriptionMessage --- 向前端发送一条 RowDescription 消息
  *
- * Notes: the TupleDesc has typically been manufactured by ExecTypeFromTL()
- * or some similar function; it does not contain a full set of fields.
- * The targetlist will be NIL when executing a utility function that does
- * not have a plan.  If the targetlist isn't NIL then it is a Query node's
- * targetlist; it is up to us to ignore resjunk columns in it.  The formats[]
- * array pointer might be NULL (if we are doing Describe on a prepared stmt);
- * send zeroes for the format codes in that case.
+ * 说明：TupleDesc 通常由 ExecTypeFromTL()
+ * 或某个类似函数制造；它并不包含全套属性。
+ * 执行没有计划的实用函数时，目标列表为 NIL。
+ * 若目标列表不是 NIL，则它是 Query 结点的目标列表；
+ * 忽略其中的 resjunk 列是我们的责任。formats[] 数组指针
+ * 可能为 NULL（若正在对预备语句做 Describe）；
+ * 那种情况下，格式代码发送零。
  */
 void
 SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
@@ -170,26 +170,26 @@ SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
 	int			i;
 	ListCell   *tlist_item = list_head(targetlist);
 
-	/* tuple descriptor message type */
+	/* 元组描述符消息类型 */
 	pq_beginmessage_reuse(buf, 'T');
-	/* # of attrs in tuples */
+	/* 元组中的属性数 */
 	pq_sendint16(buf, natts);
 
 	/*
-	 * Preallocate memory for the entire message to be sent. That allows to
-	 * use the significantly faster inline pqformat.h functions and to avoid
-	 * reallocations.
+	 * 为即将发送的整条消息预分配内存。这样就可以使用
+	 * 快得多的内联 pqformat.h 函数，并避免
+	 * 重新分配。
 	 *
-	 * Have to overestimate the size of the column-names, to account for
-	 * character set overhead.
+	 * 必须高估列名的大小，以计入
+	 * 字符集开销。
 	 */
-	enlargeStringInfo(buf, (NAMEDATALEN * MAX_CONVERSION_GROWTH /* attname */
-							+ sizeof(Oid)	/* resorigtbl */
-							+ sizeof(AttrNumber)	/* resorigcol */
-							+ sizeof(Oid)	/* atttypid */
-							+ sizeof(int16) /* attlen */
-							+ sizeof(int32) /* attypmod */
-							+ sizeof(int16) /* format */
+	enlargeStringInfo(buf, (NAMEDATALEN * MAX_CONVERSION_GROWTH /* 属性名 */
+							+ sizeof(Oid)	/* 来源表 */
+							+ sizeof(AttrNumber)	/* 来源列 */
+							+ sizeof(Oid)	/* 类型 OID */
+							+ sizeof(int16) /* 类型长度 */
+							+ sizeof(int32) /* 类型修饰 */
+							+ sizeof(int16) /* 格式 */
 							) * natts);
 
 	for (i = 0; i < natts; ++i)
@@ -202,12 +202,12 @@ SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
 		int16		format;
 
 		/*
-		 * If column is a domain, send the base type and typmod instead.
-		 * Lookup before sending any ints, for efficiency.
+		 * 若列是域，则改为发送基类型和 typmod。
+		 * 在发送任何整数之前先查找，以提高效率。
 		 */
 		atttypid = getBaseTypeAndTypmod(atttypid, &atttypmod);
 
-		/* Do we have a non-resjunk tlist item? */
+		/* 是否有非 resjunk 的目标列表项？ */
 		while (tlist_item &&
 			   ((TargetEntry *) lfirst(tlist_item))->resjunk)
 			tlist_item = lnext(targetlist, tlist_item);
@@ -221,7 +221,7 @@ SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
 		}
 		else
 		{
-			/* No info available, so send zeroes */
+			/* 没有可用信息，因此发送零 */
 			resorigtbl = 0;
 			resorigcol = 0;
 		}
@@ -244,7 +244,7 @@ SendRowDescriptionMessage(StringInfo buf, TupleDesc typeinfo,
 }
 
 /*
- * Get the lookup info that printtup() needs
+ * 取得 printtup() 所需的查找信息
  */
 static void
 printtup_prepare_info(DR_printtup *myState, TupleDesc typeinfo, int numAttrs)
@@ -252,7 +252,7 @@ printtup_prepare_info(DR_printtup *myState, TupleDesc typeinfo, int numAttrs)
 	int16	   *formats = myState->portal->formats;
 	int			i;
 
-	/* get rid of any old data */
+	/* 丢掉任何旧数据 */
 	if (myState->myinfo)
 		pfree(myState->myinfo);
 	myState->myinfo = NULL;
@@ -294,7 +294,7 @@ printtup_prepare_info(DR_printtup *myState, TupleDesc typeinfo, int numAttrs)
 }
 
 /* ----------------
- *		printtup --- send a tuple to the client
+ *		printtup --- 向客户端发送一个元组
  * ----------------
  */
 static bool
@@ -307,25 +307,25 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 	int			natts = typeinfo->natts;
 	int			i;
 
-	/* Set or update my derived attribute info, if needed */
+	/* 若需要，设置或更新派生的属性信息 */
 	if (myState->attrinfo != typeinfo || myState->nattrs != natts)
 		printtup_prepare_info(myState, typeinfo, natts);
 
-	/* Make sure the tuple is fully deconstructed */
+	/* 确保元组已被完全拆开 */
 	slot_getallattrs(slot);
 
-	/* Switch into per-row context so we can recover memory below */
+	/* 切换到每行上下文，以便下面回收内存 */
 	oldcontext = MemoryContextSwitchTo(myState->tmpcontext);
 
 	/*
-	 * Prepare a DataRow message (note buffer is in per-row context)
+	 * 准备一条 DataRow 消息（注意缓冲区在每行上下文中）
 	 */
 	pq_beginmessage_reuse(buf, 'D');
 
 	pq_sendint16(buf, natts);
 
 	/*
-	 * send the attributes of this tuple
+	 * 发送这个元组的各个属性
 	 */
 	for (i = 0; i < natts; ++i)
 	{
@@ -339,11 +339,11 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 		}
 
 		/*
-		 * Here we catch undefined bytes in datums that are returned to the
-		 * client without hitting disk; see comments at the related check in
-		 * PageAddItem().  This test is most useful for uncompressed,
-		 * non-external datums, but we're quite likely to see such here when
-		 * testing new C functions.
+		 * 这里抓住那些返回给客户端、却未落盘的 Datum 中的
+		 * 未定义字节；见 PageAddItem() 里相关检查处的注释。
+		 * 这项测试对未压缩、非外部的 Datum 最有用，
+		 * 但测试新的 C 函数时，这里很可能会
+		 * 见到这样的 Datum。
 		 */
 		if (thisState->typisvarlena)
 			VALGRIND_CHECK_MEM_IS_DEFINED(DatumGetPointer(attr),
@@ -351,7 +351,7 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 
 		if (thisState->format == 0)
 		{
-			/* Text output */
+			/* 文本输出 */
 			char	   *outputstr;
 
 			outputstr = OutputFunctionCall(&thisState->finfo, attr);
@@ -359,7 +359,7 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 		}
 		else
 		{
-			/* Binary output */
+			/* 二进制输出 */
 			bytea	   *outputbytes;
 
 			outputbytes = SendFunctionCall(&thisState->finfo, attr);
@@ -371,7 +371,7 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 
 	pq_endmessage_reuse(buf);
 
-	/* Return to caller's context, and flush row's temporary memory */
+	/* 返回调用方的上下文，并清掉该行的临时内存 */
 	MemoryContextSwitchTo(oldcontext);
 	MemoryContextReset(myState->tmpcontext);
 
@@ -379,7 +379,7 @@ printtup(TupleTableSlot *slot, DestReceiver *self)
 }
 
 /* ----------------
- *		printtup_shutdown
+ *		printtup_shutdown - 关闭
  * ----------------
  */
 static void
@@ -403,7 +403,7 @@ printtup_shutdown(DestReceiver *self)
 }
 
 /* ----------------
- *		printtup_destroy
+ *		printtup_destroy - 销毁
  * ----------------
  */
 static void
@@ -413,7 +413,7 @@ printtup_destroy(DestReceiver *self)
 }
 
 /* ----------------
- *		printatt
+ *		printatt - 打印一个属性
  * ----------------
  */
 static void
@@ -434,7 +434,7 @@ printatt(unsigned attributeId,
 }
 
 /* ----------------
- *		debugStartup - prepare to print tuples for an interactive backend
+ *		debugStartup - 准备为交互式后端打印元组
  * ----------------
  */
 void
@@ -444,7 +444,7 @@ debugStartup(DestReceiver *self, int operation, TupleDesc typeinfo)
 	int			i;
 
 	/*
-	 * show the return type of the tuples
+	 * 显示这些元组的返回类型
 	 */
 	for (i = 0; i < natts; ++i)
 		printatt((unsigned) i + 1, TupleDescAttr(typeinfo, i), NULL);
@@ -452,7 +452,7 @@ debugStartup(DestReceiver *self, int operation, TupleDesc typeinfo)
 }
 
 /* ----------------
- *		debugtup - print one tuple for an interactive backend
+ *		debugtup - 为交互式后端打印一个元组
  * ----------------
  */
 bool

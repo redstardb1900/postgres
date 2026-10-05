@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * scankey.c
- *	  scan key support code
+ *	  扫描键支持代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -20,13 +20,13 @@
 
 /*
  * ScanKeyEntryInitialize
- *		Initializes a scan key entry given all the field values.
- *		The target procedure is specified by OID (but can be invalid
- *		if SK_SEARCHNULL or SK_SEARCHNOTNULL is set).
+ *		用给出的全部字段值初始化一个扫描键项。
+ *		目标过程由 OID 指定（但若设置了
+ *		SK_SEARCHNULL 或 SK_SEARCHNOTNULL，则它可以无效）。
  *
- * Note: CurrentMemoryContext at call should be as long-lived as the ScanKey
- * itself, because that's what will be used for any subsidiary info attached
- * to the ScanKey's FmgrInfo record.
+ * 注意：调用时的 CurrentMemoryContext 应与 ScanKey
+ * 本身一样长寿，因为挂在 ScanKey 的 FmgrInfo 记录上的
+ * 任何附属信息都会使用它。
  */
 void
 ScanKeyEntryInitialize(ScanKey entry,
@@ -57,20 +57,20 @@ ScanKeyEntryInitialize(ScanKey entry,
 
 /*
  * ScanKeyInit
- *		Shorthand version of ScanKeyEntryInitialize: flags and subtype
- *		are assumed to be zero (the usual value), and collation is defaulted.
+ *		ScanKeyEntryInitialize 的简写：假定 flags 与 subtype
+ *		为零（通常如此），排序规则取默认值。
  *
- * This is the recommended version for hardwired lookups in system catalogs.
- * It cannot handle NULL arguments, unary operators, or nondefault operators,
- * but we need none of those features for most hardwired lookups.
+ * 这是系统目录中硬编码查找的推荐版本。
+ * 它无法处理 NULL 参数、一元操作符或非默认操作符，
+ * 但大多数硬编码查找并不需要这些功能。
  *
- * We set collation to C_COLLATION_OID always.  This is the correct value
- * for all collation-aware columns in system catalogs, and it will be ignored
- * for other column types, so it's not worth trying to be more finicky.
+ * 我们总是把排序规则设为 C_COLLATION_OID。对系统目录中
+ * 所有感知排序规则的列，这都是正确值，对其余列类型
+ * 则会被忽略，因此不值得再讲究。
  *
- * Note: CurrentMemoryContext at call should be as long-lived as the ScanKey
- * itself, because that's what will be used for any subsidiary info attached
- * to the ScanKey's FmgrInfo record.
+ * 注意：调用时的 CurrentMemoryContext 应与 ScanKey
+ * 本身一样长寿，因为挂在 ScanKey 的 FmgrInfo 记录上的
+ * 任何附属信息都会使用它。
  */
 void
 ScanKeyInit(ScanKey entry,
@@ -90,12 +90,12 @@ ScanKeyInit(ScanKey entry,
 
 /*
  * ScanKeyEntryInitializeWithInfo
- *		Initializes a scan key entry using an already-completed FmgrInfo
- *		function lookup record.
+ *		用一份已经完成的 FmgrInfo 函数查找记录
+ *		初始化扫描键项。
  *
- * Note: CurrentMemoryContext at call should be as long-lived as the ScanKey
- * itself, because that's what will be used for any subsidiary info attached
- * to the ScanKey's FmgrInfo record.
+ * 注意：调用时的 CurrentMemoryContext 应与 ScanKey
+ * 本身一样长寿，因为挂在 ScanKey 的 FmgrInfo 记录上的
+ * 任何附属信息都会使用它。
  */
 void
 ScanKeyEntryInitializeWithInfo(ScanKey entry,

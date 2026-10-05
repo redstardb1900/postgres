@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * tupconvert.c
- *	  Tuple conversion support.
+ *	  元组转换支持。
  *
- * These functions provide conversion between rowtypes that are logically
- * equivalent but might have columns in a different order or different sets of
- * dropped columns.
+ * 这些函数提供逻辑上等价、但列的顺序可能不同、
+ * 或已删除列的集合可能不同的行类型之间的
+ * 转换。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -23,37 +23,37 @@
 
 
 /*
- * The conversion setup routines have the following common API:
+ * 转换准备例程有如下公共 API：
  *
- * The setup routine checks using attmap.c whether the given source and
- * destination tuple descriptors are logically compatible.  If not, it throws
- * an error.  If so, it returns NULL if they are physically compatible (ie, no
- * conversion is needed), else a TupleConversionMap that can be used by
- * execute_attr_map_tuple or execute_attr_map_slot to perform the conversion.
+ * 准备例程借助 attmap.c 检查给定的源元组描述符与
+ * 目标元组描述符在逻辑上是否兼容。若不兼容，就抛出
+ * 错误。若兼容，则当它们在物理上也兼容时（即无需
+ * 转换）返回 NULL，否则返回一份可供 execute_attr_map_tuple
+ * 或 execute_attr_map_slot 用来执行转换的 TupleConversionMap。
  *
- * The TupleConversionMap, if needed, is palloc'd in the caller's memory
- * context.  Also, the given tuple descriptors are referenced by the map,
- * so they must survive as long as the map is needed.
+ * 若需要 TupleConversionMap，则在调用方的内存上下文中
+ * 用 palloc 分配。另外，该映射会引用给定的元组描述符，
+ * 因此它们的寿命必须不短于该映射的需要。
  *
- * The caller must supply a suitable primary error message to be used if
- * a compatibility error is thrown.  Recommended coding practice is to use
- * gettext_noop() on this string, so that it is translatable but won't
- * actually be translated unless the error gets thrown.
+ * 若抛出兼容性错误，调用方必须提供一条合适的主错误消息。
+ * 推荐的做法是对该字符串使用 gettext_noop()，使它可以翻译，
+ * 但除非错误真的被抛出，否则不会实际
+ * 翻译。
  *
  *
- * Implementation notes:
+ * 实现说明：
  *
- * The key component of a TupleConversionMap is an attrMap[] array with
- * one entry per output column.  This entry contains the 1-based index of
- * the corresponding input column, or zero to force a NULL value (for
- * a dropped output column).  The TupleConversionMap also contains workspace
- * arrays.
+ * TupleConversionMap 的关键组成部分是 attrMap[] 数组，
+ * 每个输出列对应一项。该项含有对应输入列从 1 开始的下标，
+ * 或者为零，以强制一个 NULL 值（用于
+ * 已删除的输出列）。TupleConversionMap 还包含工作区
+ * 数组。
  */
 
 
 /*
- * Set up for tuple conversion, matching input and output columns by
- * position.  (Dropped columns are ignored in both input and output.)
+ * 为元组转换做准备，按位置匹配输入列与输出列。
+ * （输入和输出中的已删除列都忽略。）
  */
 TupleConversionMap *
 convert_tuples_by_position(TupleDesc indesc,
@@ -64,39 +64,39 @@ convert_tuples_by_position(TupleDesc indesc,
 	int			n;
 	AttrMap    *attrMap;
 
-	/* Verify compatibility and prepare attribute-number map */
+	/* 验证兼容性并准备属性号映射 */
 	attrMap = build_attrmap_by_position(indesc, outdesc, msg);
 
 	if (attrMap == NULL)
 	{
-		/* runtime conversion is not needed */
+		/* 不需要运行时转换 */
 		return NULL;
 	}
 
-	/* Prepare the map structure */
+	/* 准备映射结构 */
 	map = (TupleConversionMap *) palloc(sizeof(TupleConversionMap));
 	map->indesc = indesc;
 	map->outdesc = outdesc;
 	map->attrMap = attrMap;
-	/* preallocate workspace for Datum arrays */
-	n = outdesc->natts + 1;		/* +1 for NULL */
+	/* 为 Datum 数组预分配工作区 */
+	n = outdesc->natts + 1;		/* 为 NULL 加 1 */
 	map->outvalues = (Datum *) palloc(n * sizeof(Datum));
 	map->outisnull = (bool *) palloc(n * sizeof(bool));
-	n = indesc->natts + 1;		/* +1 for NULL */
+	n = indesc->natts + 1;		/* 为 NULL 加 1 */
 	map->invalues = (Datum *) palloc(n * sizeof(Datum));
 	map->inisnull = (bool *) palloc(n * sizeof(bool));
-	map->invalues[0] = (Datum) 0;	/* set up the NULL entry */
+	map->invalues[0] = (Datum) 0;	/* 设置 NULL 项 */
 	map->inisnull[0] = true;
 
 	return map;
 }
 
 /*
- * Set up for tuple conversion, matching input and output columns by name.
- * (Dropped columns are ignored in both input and output.)	This is intended
- * for use when the rowtypes are related by inheritance, so we expect an exact
- * match of both type and typmod.  The error messages will be a bit unhelpful
- * unless both rowtypes are named composite types.
+ * 为元组转换做准备，按名称匹配输入列与输出列。
+ * （输入和输出中的已删除列都忽略。）这是为
+ * 由继承相关联的行类型准备的，因此类型与 typmod
+ * 都应当精确匹配。除非两种行类型都是命名的复合类型，
+ * 否则错误消息会不太有帮助。
  */
 TupleConversionMap *
 convert_tuples_by_name(TupleDesc indesc,
@@ -104,12 +104,12 @@ convert_tuples_by_name(TupleDesc indesc,
 {
 	AttrMap    *attrMap;
 
-	/* Verify compatibility and prepare attribute-number map */
+	/* 验证兼容性并准备属性号映射 */
 	attrMap = build_attrmap_by_name_if_req(indesc, outdesc, false);
 
 	if (attrMap == NULL)
 	{
-		/* runtime conversion is not needed */
+		/* 不需要运行时转换 */
 		return NULL;
 	}
 
@@ -117,8 +117,8 @@ convert_tuples_by_name(TupleDesc indesc,
 }
 
 /*
- * Set up tuple conversion for input and output TupleDescs using the given
- * AttrMap.
+ * 用给定的 AttrMap，为输入与输出 TupleDescs
+ * 建立元组转换。
  */
 TupleConversionMap *
 convert_tuples_by_name_attrmap(TupleDesc indesc,
@@ -130,25 +130,25 @@ convert_tuples_by_name_attrmap(TupleDesc indesc,
 
 	Assert(attrMap != NULL);
 
-	/* Prepare the map structure */
+	/* 准备映射结构 */
 	map = (TupleConversionMap *) palloc(sizeof(TupleConversionMap));
 	map->indesc = indesc;
 	map->outdesc = outdesc;
 	map->attrMap = attrMap;
-	/* preallocate workspace for Datum arrays */
+	/* 为 Datum 数组预分配工作区 */
 	map->outvalues = (Datum *) palloc(n * sizeof(Datum));
 	map->outisnull = (bool *) palloc(n * sizeof(bool));
-	n = indesc->natts + 1;		/* +1 for NULL */
+	n = indesc->natts + 1;		/* 为 NULL 加 1 */
 	map->invalues = (Datum *) palloc(n * sizeof(Datum));
 	map->inisnull = (bool *) palloc(n * sizeof(bool));
-	map->invalues[0] = (Datum) 0;	/* set up the NULL entry */
+	map->invalues[0] = (Datum) 0;	/* 设置 NULL 项 */
 	map->inisnull[0] = true;
 
 	return map;
 }
 
 /*
- * Perform conversion of a tuple according to the map.
+ * 按该映射执行元组转换。
  */
 HeapTuple
 execute_attr_map_tuple(HeapTuple tuple, TupleConversionMap *map)
@@ -161,14 +161,14 @@ execute_attr_map_tuple(HeapTuple tuple, TupleConversionMap *map)
 	int			i;
 
 	/*
-	 * Extract all the values of the old tuple, offsetting the arrays so that
-	 * invalues[0] is left NULL and invalues[1] is the first source attribute;
-	 * this exactly matches the numbering convention in attrMap.
+	 * 抽出旧元组的全部值，并把数组偏移，使
+	 * invalues[0] 留作 NULL，invalues[1] 为第一个源属性；
+	 * 这与 attrMap 中的编号约定完全一致。
 	 */
 	heap_deform_tuple(tuple, map->indesc, invalues + 1, inisnull + 1);
 
 	/*
-	 * Transpose into proper fields of the new tuple.
+	 * 转置到新元组的适当字段中。
 	 */
 	Assert(attrMap->maplen == map->outdesc->natts);
 	for (i = 0; i < attrMap->maplen; i++)
@@ -180,13 +180,13 @@ execute_attr_map_tuple(HeapTuple tuple, TupleConversionMap *map)
 	}
 
 	/*
-	 * Now form the new tuple.
+	 * 现在构造新元组。
 	 */
 	return heap_form_tuple(map->outdesc, outvalues, outisnull);
 }
 
 /*
- * Perform conversion of a tuple slot according to the map.
+ * 按该映射转换一个元组槽。
  */
 TupleTableSlot *
 execute_attr_map_slot(AttrMap *attrMap,
@@ -200,17 +200,17 @@ execute_attr_map_slot(AttrMap *attrMap,
 	int			outnatts;
 	int			i;
 
-	/* Sanity checks */
+	/* 健全性检查 */
 	Assert(in_slot->tts_tupleDescriptor != NULL &&
 		   out_slot->tts_tupleDescriptor != NULL);
 	Assert(in_slot->tts_values != NULL && out_slot->tts_values != NULL);
 
 	outnatts = out_slot->tts_tupleDescriptor->natts;
 
-	/* Extract all the values of the in slot. */
+	/* 抽出输入槽的全部值。 */
 	slot_getallattrs(in_slot);
 
-	/* Before doing the mapping, clear any old contents from the out slot */
+	/* 做映射之前，清除输出槽中的旧内容 */
 	ExecClearTuple(out_slot);
 
 	invalues = in_slot->tts_values;
@@ -218,12 +218,12 @@ execute_attr_map_slot(AttrMap *attrMap,
 	outvalues = out_slot->tts_values;
 	outisnull = out_slot->tts_isnull;
 
-	/* Transpose into proper fields of the out slot. */
+	/* 转置到输出槽的适当字段中。 */
 	for (i = 0; i < outnatts; i++)
 	{
 		int			j = attrMap->attnums[i] - 1;
 
-		/* attrMap->attnums[i] == 0 means it's a NULL datum. */
+		/* attrMap->attnums[i] == 0 表示这是一个 NULL Datum。 */
 		if (j == -1)
 		{
 			outvalues[i] = (Datum) 0;
@@ -242,11 +242,11 @@ execute_attr_map_slot(AttrMap *attrMap,
 }
 
 /*
- * Perform conversion of bitmap of columns according to the map.
+ * 按该映射转换列的位图。
  *
- * The input and output bitmaps are offset by
- * FirstLowInvalidHeapAttributeNumber to accommodate system cols, like the
- * column-bitmaps in RangeTblEntry.
+ * 输入与输出位图都按 FirstLowInvalidHeapAttributeNumber
+ * 做了偏移，以便容纳系统列，如同 RangeTblEntry 中的
+ * 列位图。
  */
 Bitmapset *
 execute_attr_map_cols(AttrMap *attrMap, Bitmapset *in_cols)
@@ -254,12 +254,12 @@ execute_attr_map_cols(AttrMap *attrMap, Bitmapset *in_cols)
 	Bitmapset  *out_cols;
 	int			out_attnum;
 
-	/* fast path for the common trivial case */
+	/* 常见平凡情形的快速路径 */
 	if (in_cols == NULL)
 		return NULL;
 
 	/*
-	 * For each output column, check which input column it corresponds to.
+	 * 对每个输出列，检查它对应哪个输入列。
 	 */
 	out_cols = NULL;
 
@@ -271,14 +271,14 @@ execute_attr_map_cols(AttrMap *attrMap, Bitmapset *in_cols)
 
 		if (out_attnum < 0)
 		{
-			/* System column. No mapping. */
+			/* 系统列。无需映射。 */
 			in_attnum = out_attnum;
 		}
 		else if (out_attnum == 0)
 			continue;
 		else
 		{
-			/* normal user column */
+			/* 普通用户列 */
 			in_attnum = attrMap->attnums[out_attnum - 1];
 
 			if (in_attnum == 0)
@@ -293,12 +293,12 @@ execute_attr_map_cols(AttrMap *attrMap, Bitmapset *in_cols)
 }
 
 /*
- * Free a TupleConversionMap structure.
+ * 释放 TupleConversionMap 结构。
  */
 void
 free_conversion_map(TupleConversionMap *map)
 {
-	/* indesc and outdesc are not ours to free */
+	/* indesc 与 outdesc 不由我们释放 */
 	free_attrmap(map->attrMap);
 	pfree(map->invalues);
 	pfree(map->inisnull);

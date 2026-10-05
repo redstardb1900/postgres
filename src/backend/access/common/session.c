@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * session.c
- *		Encapsulation of user session.
+ *		用户会话的封装。
  *
- * This is intended to contain data that needs to be shared between backends
- * performing work for a client session.  In particular such a session is
- * shared between the leader and worker processes for parallel queries.  At
- * some later point it might also become useful infrastructure for separating
- * backends from client connections, e.g. for the purpose of pooling.
+ * 这里存放需要在为同一客户端会话工作的多个后端之间
+ * 共享的数据。具体而言，并行查询的领导进程与工作进程
+ * 会共享这样一个会话。以后它也可能成为把后端
+ * 与客户端连接分开的基础设施，例如用于
+ * 连接池。
  *
- * Currently this infrastructure is used to share:
- * - typemod registry for ephemeral row-types, i.e. BlessTupleDesc etc.
+ * 目前这套基础设施用于共享：
+ * - 临时行类型的 typemod 注册表，即 BlessTupleDesc 等。
  *
  * Portions Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *
@@ -26,29 +26,29 @@
 #include "utils/memutils.h"
 #include "utils/typcache.h"
 
-/* Magic number for per-session DSM TOC. */
+/* 每会话动态共享内存 TOC 的魔数。 */
 #define SESSION_MAGIC						0xabb0fbc9
 
 /*
- * We want to create a DSA area to store shared state that has the same
- * lifetime as a session.  So far, it's only used to hold the shared record
- * type registry.  We don't want it to have to create any DSM segments just
- * yet in common cases, so we'll give it enough space to hold a very small
- * SharedRecordTypmodRegistry.
+ * 我们要创建一个 DSA 区，存放与会话寿命相同的共享状态。
+ * 到目前为止，它只用来保存共享的记录类型注册表。
+ * 我们不希望在常见情况下它立刻就得创建任何动态共享内存段，
+ * 因此给它足够的空间，以放下一个很小的
+ * SharedRecordTypmodRegistry。
  */
 #define SESSION_DSA_SIZE					0x30000
 
 /*
- * Magic numbers for state sharing in the per-session DSM area.
+ * 每会话动态共享内存区中用于状态共享的魔数。
  */
 #define SESSION_KEY_DSA						UINT64CONST(0xFFFFFFFFFFFF0001)
 #define SESSION_KEY_RECORD_TYPMOD_REGISTRY	UINT64CONST(0xFFFFFFFFFFFF0002)
 
-/* This backend's current session. */
+/* 本后端的当前会话。 */
 Session    *CurrentSession = NULL;
 
 /*
- * Set up CurrentSession to point to an empty Session object.
+ * 让 CurrentSession 指向一个空的 Session 对象。
  */
 void
 InitializeSession(void)
@@ -57,14 +57,14 @@ InitializeSession(void)
 }
 
 /*
- * Initialize the per-session DSM segment if it isn't already initialized, and
- * return its handle so that worker processes can attach to it.
+ * 若每会话动态共享内存段尚未初始化，则把它初始化，并
+ * 返回其句柄，以便工作进程能够挂接。
  *
- * Unlike the per-context DSM segment, this segment and its contents are
- * reused for future parallel queries.
+ * 与按上下文划分的动态共享内存段不同，本段及其内容
+ * 会被以后的并行查询复用。
  *
- * Return DSM_HANDLE_INVALID if a segment can't be allocated due to lack of
- * resources.
+ * 若因资源不足而无法分配段，则返回
+ * DSM_HANDLE_INVALID。
  */
 dsm_handle
 GetSessionDsmHandle(void)
@@ -80,27 +80,27 @@ GetSessionDsmHandle(void)
 	MemoryContext old_context;
 
 	/*
-	 * If we have already created a session-scope DSM segment in this backend,
-	 * return its handle.  The same segment will be used for the rest of this
-	 * backend's lifetime.
+	 * 若本后端已经创建了会话范围的动态共享内存段，
+	 * 就返回其句柄。在本后端的余下生命期内
+	 * 都会使用同一段。
 	 */
 	if (CurrentSession->segment != NULL)
 		return dsm_segment_handle(CurrentSession->segment);
 
-	/* Otherwise, prepare to set one up. */
+	/* 否则，准备建立一个。 */
 	old_context = MemoryContextSwitchTo(TopMemoryContext);
 	shm_toc_initialize_estimator(&estimator);
 
-	/* Estimate space for the per-session DSA area. */
+	/* 估算每会话 DSA 区所需的空间。 */
 	shm_toc_estimate_keys(&estimator, 1);
 	shm_toc_estimate_chunk(&estimator, SESSION_DSA_SIZE);
 
-	/* Estimate space for the per-session record typmod registry. */
+	/* 估算每会话记录 typemod 注册表所需的空间。 */
 	typmod_registry_size = SharedRecordTypmodRegistryEstimate();
 	shm_toc_estimate_keys(&estimator, 1);
 	shm_toc_estimate_chunk(&estimator, typmod_registry_size);
 
-	/* Set up segment and TOC. */
+	/* 建立段和 TOC。 */
 	size = shm_toc_estimate(&estimator);
 	seg = dsm_create(size, DSM_CREATE_NULL_IF_MAXSEGMENTS);
 	if (seg == NULL)
@@ -113,7 +113,7 @@ GetSessionDsmHandle(void)
 						 dsm_segment_address(seg),
 						 size);
 
-	/* Create per-session DSA area. */
+	/* 创建每会话 DSA 区。 */
 	dsa_space = shm_toc_allocate(toc, SESSION_DSA_SIZE);
 	dsa = dsa_create_in_place(dsa_space,
 							  SESSION_DSA_SIZE,
@@ -122,7 +122,7 @@ GetSessionDsmHandle(void)
 	shm_toc_insert(toc, SESSION_KEY_DSA, dsa_space);
 
 
-	/* Create session-scoped shared record typmod registry. */
+	/* 创建会话范围的共享记录 typemod 注册表。 */
 	typmod_registry_space = shm_toc_allocate(toc, typmod_registry_size);
 	SharedRecordTypmodRegistryInit((SharedRecordTypmodRegistry *)
 								   typmod_registry_space, seg, dsa);
@@ -130,16 +130,16 @@ GetSessionDsmHandle(void)
 				   typmod_registry_space);
 
 	/*
-	 * If we got this far, we can pin the shared memory so it stays mapped for
-	 * the rest of this backend's life.  If we don't make it this far, cleanup
-	 * callbacks for anything we installed above (ie currently
-	 * SharedRecordTypmodRegistry) will run when the DSM segment is detached
-	 * by CurrentResourceOwner so we aren't left with a broken CurrentSession.
+	 * 若能走到这里，就可以钉住共享内存，使映射在
+	 * 本后端的余下生命期内保持。若走不到这里，上面安装的
+	 * 任何东西（即目前的 SharedRecordTypmodRegistry）的清理
+	 * 回调会在 CurrentResourceOwner 脱离该动态共享内存段时运行，
+	 * 这样就不会留下一个损坏的 CurrentSession。
 	 */
 	dsm_pin_mapping(seg);
 	dsa_pin_mapping(dsa);
 
-	/* Make segment and area available via CurrentSession. */
+	/* 经由 CurrentSession 提供该段和该区。 */
 	CurrentSession->segment = seg;
 	CurrentSession->area = dsa;
 
@@ -149,7 +149,7 @@ GetSessionDsmHandle(void)
 }
 
 /*
- * Attach to a per-session DSM segment provided by a parallel leader.
+ * 挂接到并行领导进程提供的每会话动态共享内存段。
  */
 void
 AttachSession(dsm_handle handle)
@@ -163,27 +163,27 @@ AttachSession(dsm_handle handle)
 
 	old_context = MemoryContextSwitchTo(TopMemoryContext);
 
-	/* Attach to the DSM segment. */
+	/* 挂接到该动态共享内存段。 */
 	seg = dsm_attach(handle);
 	if (seg == NULL)
 		elog(ERROR, "could not attach to per-session DSM segment");
 	toc = shm_toc_attach(SESSION_MAGIC, dsm_segment_address(seg));
 
-	/* Attach to the DSA area. */
+	/* 挂接到该 DSA 区。 */
 	dsa_space = shm_toc_lookup(toc, SESSION_KEY_DSA, false);
 	dsa = dsa_attach_in_place(dsa_space, seg);
 
-	/* Make them available via the current session. */
+	/* 经由当前会话提供它们。 */
 	CurrentSession->segment = seg;
 	CurrentSession->area = dsa;
 
-	/* Attach to the shared record typmod registry. */
+	/* 挂接到共享记录 typemod 注册表。 */
 	typmod_registry_space =
 		shm_toc_lookup(toc, SESSION_KEY_RECORD_TYPMOD_REGISTRY, false);
 	SharedRecordTypmodRegistryAttach((SharedRecordTypmodRegistry *)
 									 typmod_registry_space);
 
-	/* Remain attached until end of backend or DetachSession(). */
+	/* 保持挂接，直到后端结束或调用 DetachSession()。 */
 	dsm_pin_mapping(seg);
 	dsa_pin_mapping(dsa);
 
@@ -191,16 +191,16 @@ AttachSession(dsm_handle handle)
 }
 
 /*
- * Detach from the current session DSM segment.  It's not strictly necessary
- * to do this explicitly since we'll detach automatically at backend exit, but
- * if we ever reuse parallel workers it will become important for workers to
- * detach from one session before attaching to another.  Note that this runs
- * detach hooks.
+ * 脱离当前会话的动态共享内存段。由于后端退出时会自动
+ * 脱离，显式这样做并非严格必要；但若将来复用并行
+ * 工作进程，工作进程在挂接到另一个会话之前先脱离
+ * 当前会话就会变得重要。注意，这里会运行
+ * 脱离钩子。
  */
 void
 DetachSession(void)
 {
-	/* Runs detach hooks. */
+	/* 运行脱离钩子。 */
 	dsm_detach(CurrentSession->segment);
 	CurrentSession->segment = NULL;
 	dsa_detach(CurrentSession->area);

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0113b-comment-dsm-header-wording",
+ "title": "zh: fix dsm header wording for segment removal",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7c5f569385d21ceed9f5594ed2b93befb52ac204",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "note": "header: 映射时，段会被移除"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0113b-comment-dsm-header-wording.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 119,
+   "translated": 119,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "fix header 映射时段→映射时，段会被移除; content landed in 262cafd20667"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0113b-comment-dsm-header-wording.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "retrospective batch for 262cafd2066"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0113b"
+  }
+ ],
+ "notes": "Retrospective manifest for wording fix already in 262cafd20667cec93a6671d2536f1cbc1eeca951 (Composer P1 on batch-0113). Aligns with 0109b/0111b follow-up style."
+}

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0092-comment-statistics-mcv",
+ "title": "zh: translate mcv comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e37a868c8e91132d011bede1e2810f9aa1049bd4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/statistics/mcv.c",
+   "kind": "c_comment",
+   "note": "MCV list build and selectivity"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0092-comment-statistics-mcv.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/statistics/mcv.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 256,
+   "translated": 255,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "MCV list build and selectivity"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0092-comment-statistics-mcv.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0092 translates src/backend/statistics/mcv.c."
+}

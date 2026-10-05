@@ -37,20 +37,20 @@
 #include "utils/typcache.h"
 
 /*
- * Computes size of a serialized MCV item, depending on the number of
- * dimensions (columns) the statistic is defined on. The datum values are
- * stored in a separate array (deduplicated, to minimize the size), and
- * so the serialized items only store uint16 indexes into that array.
+ * 根据统计所定义的维度（列）个数，
+ * 计算一条序列化 MCV 项的大小。datum 值
+ * 存放在单独的数组里（去重，以尽量减小大小），
+ * 因此序列化的项只存放指向该数组的 uint16 下标。
  *
- * Each serialized item stores (in this order):
+ * 每个序列化项按此顺序存放：
  *
- * - indexes to values	  (ndim * sizeof(uint16))
- * - null flags			  (ndim * sizeof(bool))
- * - frequency			  (sizeof(double))
- * - base_frequency		  (sizeof(double))
+ * - 指向值的下标	  （ndim * sizeof(uint16)）
+ * - 空标志			  （ndim * sizeof(bool)）
+ * - 频率			  （sizeof(double)）
+ * - base_frequency		  （sizeof(double)）。
  *
- * There is no alignment padding within an MCV item.
- * So in total each MCV item requires this many bytes:
+ * MCV 项内部没有对齐填充。
+ * 因此每个 MCV 项总共需要这么多字节：
  *
  *	 ndim * (sizeof(uint16) + sizeof(bool)) + 2 * sizeof(double)
  */
@@ -58,16 +58,16 @@
 	((ndims) * (sizeof(uint16) + sizeof(bool)) + 2 * sizeof(double))
 
 /*
- * Used to compute size of serialized MCV list representation.
+ * 用来计算序列化 MCV 列表表示的大小。
  */
 #define MinSizeOfMCVList		\
 	(VARHDRSZ + sizeof(uint32) * 3 + sizeof(AttrNumber))
 
 /*
- * Size of the serialized MCV list, excluding the space needed for
- * deduplicated per-dimension values. The macro is meant to be used
- * when it's not yet safe to access the serialized info about amount
- * of data for each column.
+ * 序列化 MCV 列表的大小，不含按维度
+ * 去重的值所需空间。这个宏用于尚不能
+ * 安全访问每一列数据量的
+ * 序列化信息时。
  */
 #define SizeOfMCVList(ndims,nitems)	\
 	((MinSizeOfMCVList + sizeof(Oid) * (ndims)) + \
@@ -86,67 +86,67 @@ static int	count_distinct_groups(int numrows, SortItem *items,
 								  MultiSortSupport mss);
 
 /*
- * Compute new value for bitmap item, considering whether it's used for
- * clauses connected by AND/OR.
+ * 计算 bitmap 项的新值，要考虑它是用于
+ * 用 AND/OR 连接的子句。
  */
 #define RESULT_MERGE(value, is_or, match) \
 	((is_or) ? ((value) || (match)) : ((value) && (match)))
 
 /*
- * When processing a list of clauses, the bitmap item may get set to a value
- * such that additional clauses can't change it. For example, when processing
- * a list of clauses connected to AND, as soon as the item gets set to 'false'
- * then it'll remain like that. Similarly clauses connected by OR and 'true'.
+ * 处理子句列表时，bitmap 项可能被设成某个值，
+ * 使得额外子句没法再改变它。例如在处理
+ * 用 AND 连接的子句列表时，一旦该项被设为 false，
+ * 它就会保持那样。用 OR 连接的子句和 true 也类似。
  *
- * Returns true when the value in the bitmap can't change no matter how the
- * remaining clauses are evaluated.
+ * 当 bitmap 里的值无论剩余子句如何求值都没法改变时，
+ * 返回真。
  */
 #define RESULT_IS_FINAL(value, is_or)	((is_or) ? (value) : (!(value)))
 
 /*
  * get_mincount_for_mcv_list
- * 		Determine the minimum number of times a value needs to appear in
- * 		the sample for it to be included in the MCV list.
+ * 		确定一个值要被纳入 MCV 列表，在样本里
+ * 		须出现的最少次数。
  *
- * We want to keep only values that appear sufficiently often in the
- * sample that it is reasonable to extrapolate their sample frequencies to
- * the entire table.  We do this by placing an upper bound on the relative
- * standard error of the sample frequency, so that any estimates the
- * planner generates from the MCV statistics can be expected to be
- * reasonably accurate.
+ * 我们只想保留在样本里出现得足够频繁、
+ * 因而有理由把其样本频率外推到
+ * 整张表的那些值。做法是给样本频率的相对
+ * 标准误差加一个上界，从而使规划器根据 MCV 统计信息
+ * 产生的任何估计都可以预期相当
+ * 准确。
  *
- * Since we are sampling without replacement, the sample frequency of a
- * particular value is described by a hypergeometric distribution.  A
- * common rule of thumb when estimating errors in this situation is to
- * require at least 10 instances of the value in the sample, in which case
- * the distribution can be approximated by a normal distribution, and
- * standard error analysis techniques can be applied.  Given a sample size
- * of n, a population size of N, and a sample frequency of p=cnt/n, the
- * standard error of the proportion p is given by
- *		SE = sqrt(p*(1-p)/n) * sqrt((N-n)/(N-1))
- * where the second term is the finite population correction.  To get
- * reasonably accurate planner estimates, we impose an upper bound on the
- * relative standard error of 20% -- i.e., SE/p < 0.2.  This 20% relative
- * error bound is fairly arbitrary, but has been found empirically to work
- * well.  Rearranging this formula gives a lower bound on the number of
- * instances of the value seen:
- *		cnt > n*(N-n) / (N-n+0.04*n*(N-1))
- * This bound is at most 25, and approaches 0 as n approaches 0 or N. The
- * case where n approaches 0 cannot happen in practice, since the sample
- * size is at least 300.  The case where n approaches N corresponds to
- * sampling the whole table, in which case it is reasonable to keep
- * the whole MCV list (have no lower bound), so it makes sense to apply
- * this formula for all inputs, even though the above derivation is
- * technically only valid when the right hand side is at least around 10.
+ * 由于我们是无放回抽样，某个特定值的样本频率
+ * 服从超几何分布。在这种情形下估计误差时，
+ * 一条常用的经验法则是：样本里该值须至少出现
+ * 10 次，那种情况下该分布可以用正态分布近似，并且
+ * 可以应用标准误差分析技术。给定样本大小
+ * 为 n、总体大小为 N、样本频率为 p=cnt/n 时，比例 p 的
+ * 标准误差由下式给出：
+ * SE = sqrt(p*(1-p)/n) * sqrt((N-n)/(N-1))
+ *		其中第二项是有限总体校正。为了得到
+ * 相当准确的规划器估计，
+ * 我们对相对标准误差施加 20% 的上界，即 SE/p < 0.2。这个 20%
+ * 相对误差界相当任意，但经验表明它
+ * 效果很好。整理该公式，就得到见到该值的
+ * 实例数下界：
+ * cnt > n*(N-n) / (N-n+0.04*n*(N-1))
+ *		该下界最多为 25，并且当 n 趋近 0 或 N 时
+ * 趋近于 0。n 趋近 0 的情形在实践中无法发生，因为样本
+ * 大小至少为 300。n 趋近 N 的情形对应于
+ * 对整张表抽样，那种情况下保留
+ * 整个 MCV 列表（没有下界）是合理的，因此对所有输入
+ * 应用该公式是有意义的，尽管上面的推导
+ * 在严格意义上只在右端大约至少为 10 时
+ * 才有效。
  *
- * An alternative way to look at this formula is as follows -- assume that
- * the number of instances of the value seen scales up to the entire
- * table, so that the population count is K=N*cnt/n. Then the distribution
- * in the sample is a hypergeometric distribution parameterised by N, n
- * and K, and the bound above is mathematically equivalent to demanding
- * that the standard deviation of that distribution is less than 20% of
- * its mean.  Thus the relative errors in any planner estimates produced
- * from the MCV statistics are likely to be not too large.
+ * 看待该公式的另一种方式如下：假定
+ * 该值被见到的实例数按比例放大到整张
+ * 表，从而总体计数为 K=N*cnt/n。于是样本中的分布
+ * 是由 N、n 和 K 参数化的超几何分布，
+ * 而上面的界在数学上等价于：该分布的标准差须
+ * 小于其均值的 20%。因此，由 MCV 统计信息产生的
+ * 任何规划器估计的相对误差
+ * 不太可能太大。
  */
 static double
 get_mincount_for_mcv_list(int samplerows, double totalrows)
@@ -159,7 +159,7 @@ get_mincount_for_mcv_list(int samplerows, double totalrows)
 	numer = n * (N - n);
 	denom = N - n + 0.04 * n * (N - 1);
 
-	/* Guard against division by zero (possible if n = N = 1) */
+	/* 防止除以零（若 n = N = 1 就可能发生） */
 	if (denom == 0.0)
 		return 0.0;
 
@@ -167,17 +167,17 @@ get_mincount_for_mcv_list(int samplerows, double totalrows)
 }
 
 /*
- * Builds MCV list from the set of sampled rows.
+ * 根据采样行的集合构造 MCV 列表。
  *
- * The algorithm is quite simple:
+ * 算法相当简单：
  *
- *	   (1) sort the data (default collation, '<' for the data type)
+ *	   (1) 对数据排序（默认排序规则，该数据类型的 '<'）。
  *
- *	   (2) count distinct groups, decide how many to keep
+ *	   (2) 统计不同的组，决定保留多少。
  *
- *	   (3) build the MCV list using the threshold determined in (2)
+ *	   (3) 用 (2) 里确定的阈值构造 MCV 列表。
  *
- *	   (4) remove rows represented by the MCV from the sample
+ *	   (4) 从样本中去掉由 MCV 表示的行
  *
  */
 MCVList *
@@ -194,56 +194,56 @@ statext_mcv_build(StatsBuildData *data, double totalrows, int stattarget)
 	MCVList    *mcvlist = NULL;
 	MultiSortSupport mss;
 
-	/* comparator for all the columns */
+	/* 所有列的比较器 */
 	mss = build_mss(data);
 
-	/* sort the rows */
+	/* 对行排序 */
 	items = build_sorted_items(data, &nitems, mss,
 							   data->nattnums, data->attnums);
 
 	if (!items)
 		return NULL;
 
-	/* for convenience */
+	/* 为方便起见 */
 	numattrs = data->nattnums;
 	numrows = data->numrows;
 
-	/* transform the sorted rows into groups (sorted by frequency) */
+	/* 把排好序的行变成组（按频率排序） */
 	groups = build_distinct_groups(nitems, items, mss, &ngroups);
 
 	/*
-	 * The maximum number of MCV items to store, based on the statistics
-	 * target we computed for the statistics object (from the target set for
-	 * the object itself, attributes and the system default). In any case, we
-	 * can't keep more groups than we have available.
+	 * 要存储的 MCV 项最大个数，基于我们为该统计对象
+	 * 算出的统计目标（来自对象本身、属性以及系统默认
+	 * 设置的目标）。无论如何，我们
+	 * 没法保留比现有组更多的组。
 	 */
 	nitems = stattarget;
 	if (nitems > ngroups)
 		nitems = ngroups;
 
 	/*
-	 * Decide how many items to keep in the MCV list. We can't use the same
-	 * algorithm as per-column MCV lists, because that only considers the
-	 * actual group frequency - but we're primarily interested in how the
-	 * actual frequency differs from the base frequency (product of simple
-	 * per-column frequencies, as if the columns were independent).
+	 * 决定 MCV 列表里保留多少项。我们没法使用与
+	 * 按列 MCV 列表相同的算法，因为那个算法只考虑
+	 * 实际的组频率，而我们主要关心实际频率与基频率
+	 * （简单按列频率的乘积，仿佛这些列相互独立）
+	 * 相差多少。
 	 *
-	 * Using the same algorithm might exclude items that are close to the
-	 * "average" frequency of the sample. But that does not say whether the
-	 * observed frequency is close to the base frequency or not. We also need
-	 * to consider unexpectedly uncommon items (again, compared to the base
-	 * frequency), and the single-column algorithm does not have to.
+	 * 使用同一算法可能会排除接近样本
+	 * 平均频率的项。但那并不能说明观察到的
+	 * 频率是否接近基频率。我们还需要
+	 * 考虑出乎意料地不常见的项（同样是相对基频率），
+	 * 而单列算法不必考虑这一点。
 	 *
-	 * We simply decide how many items to keep by computing the minimum count
-	 * using get_mincount_for_mcv_list() and then keep all items that seem to
-	 * be more common than that.
+	 * 我们只是用 get_mincount_for_mcv_list() 算出最小计数，
+	 * 从而决定保留多少项，然后保留所有看起来比
+	 * 那个计数更常见的项。
 	 */
 	mincount = get_mincount_for_mcv_list(numrows, totalrows);
 
 	/*
-	 * Walk the groups until we find the first group with a count below the
-	 * mincount threshold (the index of that group is the number of groups we
-	 * want to keep).
+	 * 沿着这些组走，直到找到第一个计数低于
+	 * mincount 阈值的组（该组的下标就是我们
+	 * 想保留的组数）。
 	 */
 	for (i = 0; i < nitems; i++)
 	{
@@ -255,9 +255,9 @@ statext_mcv_build(StatsBuildData *data, double totalrows, int stattarget)
 	}
 
 	/*
-	 * At this point, we know the number of items for the MCV list. There
-	 * might be none (for uniform distribution with many groups), and in that
-	 * case, there will be no MCV list. Otherwise, construct the MCV list.
+	 * 至此我们知道 MCV 列表的项数。可能
+	 * 一个都没有（组很多的均匀分布），那种
+	 * 情况下就不会有 MCV 列表。否则就构造 MCV 列表。
 	 */
 	if (nitems > 0)
 	{
@@ -265,20 +265,20 @@ statext_mcv_build(StatsBuildData *data, double totalrows, int stattarget)
 		SortItem	key;
 		MultiSortSupport tmp;
 
-		/* frequencies for values in each attribute */
+		/* 每个属性里的值的频率 */
 		SortItem  **freqs;
 		int		   *nfreqs;
 
-		/* used to search values */
+		/* 用于搜索值 */
 		tmp = (MultiSortSupport) palloc(offsetof(MultiSortSupportData, ssup)
 										+ sizeof(SortSupportData));
 
-		/* compute frequencies for values in each column */
+		/* 计算每一列里的值的频率 */
 		nfreqs = (int *) palloc0(sizeof(int) * numattrs);
 		freqs = build_column_frequencies(groups, ngroups, mss, nfreqs);
 
 		/*
-		 * Allocate the MCV list structure, set the global parameters.
+		 * 分配 MCV 列表结构，设置全局参数。
 		 */
 		mcvlist = (MCVList *) palloc0(offsetof(MCVList, items) +
 									  sizeof(MCVItem) * nitems);
@@ -288,40 +288,40 @@ statext_mcv_build(StatsBuildData *data, double totalrows, int stattarget)
 		mcvlist->ndimensions = numattrs;
 		mcvlist->nitems = nitems;
 
-		/* store info about data type OIDs */
+		/* 存储数据类型 OIDs 的信息 */
 		for (i = 0; i < numattrs; i++)
 			mcvlist->types[i] = data->stats[i]->attrtypid;
 
-		/* Copy the first chunk of groups into the result. */
+		/* 把第一段组复制进结果。 */
 		for (i = 0; i < nitems; i++)
 		{
-			/* just point to the proper place in the list */
+			/* 只是指向列表里的正确位置 */
 			MCVItem    *item = &mcvlist->items[i];
 
 			item->values = (Datum *) palloc(sizeof(Datum) * numattrs);
 			item->isnull = (bool *) palloc(sizeof(bool) * numattrs);
 
-			/* copy values for the group */
+			/* 复制该组的值 */
 			memcpy(item->values, groups[i].values, sizeof(Datum) * numattrs);
 			memcpy(item->isnull, groups[i].isnull, sizeof(bool) * numattrs);
 
-			/* groups should be sorted by frequency in descending order */
+			/* 组应当按频率降序排列 */
 			Assert((i == 0) || (groups[i - 1].count >= groups[i].count));
 
-			/* group frequency */
+			/* 组频率 */
 			item->frequency = (double) groups[i].count / numrows;
 
-			/* base frequency, if the attributes were independent */
+			/* 若这些属性相互独立时的基频率 */
 			item->base_frequency = 1.0;
 			for (j = 0; j < numattrs; j++)
 			{
 				SortItem   *freq;
 
-				/* single dimension */
+				/* 单个维度 */
 				tmp->ndims = 1;
 				tmp->ssup[0] = mss->ssup[j];
 
-				/* fill search key */
+				/* 填充查找键 */
 				key.values = &groups[i].values[j];
 				key.isnull = &groups[i].isnull[j];
 
@@ -345,7 +345,7 @@ statext_mcv_build(StatsBuildData *data, double totalrows, int stattarget)
 
 /*
  * build_mss
- *		Build a MultiSortSupport for the given StatsBuildData.
+ *		为给定的 StatsBuildData 构造一个 MultiSortSupport。
  */
 static MultiSortSupport
 build_mss(StatsBuildData *data)
@@ -353,17 +353,17 @@ build_mss(StatsBuildData *data)
 	int			i;
 	int			numattrs = data->nattnums;
 
-	/* Sort by multiple columns (using array of SortSupport) */
+	/* 按多列排序（使用 SortSupport 数组） */
 	MultiSortSupport mss = multi_sort_init(numattrs);
 
-	/* prepare the sort functions for all the attributes */
+	/* 为所有属性准备排序函数 */
 	for (i = 0; i < numattrs; i++)
 	{
 		VacAttrStats *colstat = data->stats[i];
 		TypeCacheEntry *type;
 
 		type = lookup_type_cache(colstat->attrtypid, TYPECACHE_LT_OPR);
-		if (type->lt_opr == InvalidOid) /* shouldn't happen */
+		if (type->lt_opr == InvalidOid) /* 不应当发生 */
 			elog(ERROR, "cache lookup failed for ordering operator for type %u",
 				 colstat->attrtypid);
 
@@ -375,9 +375,9 @@ build_mss(StatsBuildData *data)
 
 /*
  * count_distinct_groups
- *		Count distinct combinations of SortItems in the array.
+ *		统计数组里不同的 SortItems 组合个数。
  *
- * The array is assumed to be sorted according to the MultiSortSupport.
+ * 假定该数组已按 MultiSortSupport 排序。
  */
 static int
 count_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss)
@@ -388,7 +388,7 @@ count_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss)
 	ndistinct = 1;
 	for (i = 1; i < numrows; i++)
 	{
-		/* make sure the array really is sorted */
+		/* 确保该数组确实已排序 */
 		Assert(multi_sort_compare(&items[i], &items[i - 1], mss) >= 0);
 
 		if (multi_sort_compare(&items[i], &items[i - 1], mss) != 0)
@@ -400,8 +400,8 @@ count_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss)
 
 /*
  * compare_sort_item_count
- *		Comparator for sorting items by count (frequencies) in descending
- *		order.
+ *		按计数（频率）降序
+ *		对项排序的比较器。
  */
 static int
 compare_sort_item_count(const void *a, const void *b, void *arg)
@@ -419,10 +419,10 @@ compare_sort_item_count(const void *a, const void *b, void *arg)
 
 /*
  * build_distinct_groups
- *		Build an array of SortItems for distinct groups and counts matching
- *		items.
+ *		为不同的组以及匹配项的计数构造 SortItems
+ *		数组。
  *
- * The 'items' array is assumed to be sorted.
+ * 假定 items 数组已排序。
  */
 static SortItem *
 build_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss,
@@ -440,10 +440,10 @@ build_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss,
 
 	for (i = 1; i < numrows; i++)
 	{
-		/* Assume sorted in ascending order. */
+		/* 假定按升序排列。 */
 		Assert(multi_sort_compare(&items[i], &items[i - 1], mss) >= 0);
 
-		/* New distinct group detected. */
+		/* 检测到新的不同组。 */
 		if (multi_sort_compare(&items[i], &items[i - 1], mss) != 0)
 		{
 			groups[++j] = items[i];
@@ -453,10 +453,10 @@ build_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss,
 		groups[j].count++;
 	}
 
-	/* ensure we filled the expected number of distinct groups */
+	/* 确保我们填入了预期个数的不同组 */
 	Assert(j + 1 == ngroups);
 
-	/* Sort the distinct groups by frequency (in descending order). */
+	/* 按频率（降序）对不同的组排序。 */
 	qsort_interruptible(groups, ngroups, sizeof(SortItem),
 						compare_sort_item_count, NULL);
 
@@ -464,7 +464,7 @@ build_distinct_groups(int numrows, SortItem *items, MultiSortSupport mss,
 	return groups;
 }
 
-/* compare sort items (single dimension) */
+/* 比较排序项（单个维度） */
 static int
 sort_item_compare(const void *a, const void *b, void *arg)
 {
@@ -479,16 +479,16 @@ sort_item_compare(const void *a, const void *b, void *arg)
 
 /*
  * build_column_frequencies
- *		Compute frequencies of values in each column.
+ *		计算每一列里的值的频率。
  *
- * This returns an array of SortItems for each attribute the MCV is built
- * on, with a frequency (number of occurrences) for each value. This is
- * then used to compute "base" frequency of MCV items.
+ * 这为 MCV 所基于的每个属性返回一个 SortItems 数组，
+ * 其中每个值都有一个频率（出现次数）。这随后
+ * 用来计算 MCV 项的基频率。
  *
- * All the memory is allocated in a single chunk, so that a single pfree
- * is enough to release it. We do not allocate space for values/isnull
- * arrays in the SortItems, because we can simply point into the input
- * groups directly.
+ * 所有内存都分配在单个块里，因此一次 pfree
+ * 就足以释放。我们不为 SortItems 里的 values/isnull
+ * 数组分配空间，因为可以直接指向输入
+ * 组。
  */
 static SortItem **
 build_column_frequencies(SortItem *groups, int ngroups,
@@ -502,11 +502,11 @@ build_column_frequencies(SortItem *groups, int ngroups,
 	Assert(groups);
 	Assert(ncounts);
 
-	/* allocate arrays for all columns as a single chunk */
+	/* 把所有列的数组作为单个块来分配 */
 	ptr = palloc(MAXALIGN(sizeof(SortItem *) * mss->ndims) +
 				 mss->ndims * MAXALIGN(sizeof(SortItem) * ngroups));
 
-	/* initial array of pointers */
+	/* 指针的初始数组 */
 	result = (SortItem **) ptr;
 	ptr += MAXALIGN(sizeof(SortItem *) * mss->ndims);
 
@@ -514,27 +514,27 @@ build_column_frequencies(SortItem *groups, int ngroups,
 	{
 		SortSupport ssup = &mss->ssup[dim];
 
-		/* array of values for a single column */
+		/* 单列的值数组 */
 		result[dim] = (SortItem *) ptr;
 		ptr += MAXALIGN(sizeof(SortItem) * ngroups);
 
-		/* extract data for the dimension */
+		/* 提取该维度的数据 */
 		for (i = 0; i < ngroups; i++)
 		{
-			/* point into the input groups */
+			/* 指向输入组 */
 			result[dim][i].values = &groups[i].values[dim];
 			result[dim][i].isnull = &groups[i].isnull[dim];
 			result[dim][i].count = groups[i].count;
 		}
 
-		/* sort the values, deduplicate */
+		/* 对值排序并去重 */
 		qsort_interruptible(result[dim], ngroups, sizeof(SortItem),
 							sort_item_compare, ssup);
 
 		/*
-		 * Identify distinct values, compute frequency (there might be
-		 * multiple MCV items containing this value, so we need to sum counts
-		 * from all of them.
+		 * 识别不同的值并计算频率（可能有
+		 * 多个含该值的 MCV 项，因此需要把
+		 * 它们的计数全部加起来。
 		 */
 		ncounts[dim] = 1;
 		for (i = 1; i < ngroups; i++)
@@ -556,7 +556,7 @@ build_column_frequencies(SortItem *groups, int ngroups,
 
 /*
  * statext_mcv_load
- *		Load the MCV list for the indicated pg_statistic_ext_data tuple.
+ *		为指定的 pg_statistic_ext_data 元组装载 MCV 列表。
  */
 MCVList *
 statext_mcv_load(Oid mvoid, bool inh)
@@ -588,38 +588,38 @@ statext_mcv_load(Oid mvoid, bool inh)
 
 /*
  * statext_mcv_serialize
- *		Serialize MCV list into a pg_mcv_list value.
+ *		把 MCV 列表序列化成 pg_mcv_list 值。
  *
- * The MCV items may include values of various data types, and it's reasonable
- * to expect redundancy (values for a given attribute, repeated for multiple
- * MCV list items). So we deduplicate the values into arrays, and then replace
- * the values by indexes into those arrays.
+ * MCV 项可能含各种数据类型的值，而且有理由
+ * 预期同一属性的值会在多个
+ * MCV 列表项里重复。因此我们把值去重放进数组，然后用
+ * 指向那些数组的下标替换这些值。
  *
- * The overall structure of the serialized representation looks like this:
+ * 序列化表示的整体结构如下：
  *
  * +---------------+----------------+---------------------+-------+
- * | header fields | dimension info | deduplicated values | items |
+ * | 头成员 | 维度信息 | 去重后的值 | 项 |：
  * +---------------+----------------+---------------------+-------+
  *
- * Where dimension info stores information about the type of the K-th
- * attribute (e.g. typlen, typbyval and length of deduplicated values).
- * Deduplicated values store deduplicated values for each attribute.  And
- * items store the actual MCV list items, with values replaced by indexes into
- * the arrays.
+ * 维度信息存放第 K 个
+ * 属性的类型信息（例如 typlen、typbyval，以及去重后的值的长度）。
+ * 去重后的值存放每个属性去重后的值。而
+ * 项存放实际的 MCV 列表项，值被替换成指向
+ * 这些数组的下标。
  *
- * When serializing the items, we use uint16 indexes. The number of MCV items
- * is limited by the statistics target (which is capped to 10k at the moment).
- * We might increase this to 65k and still fit into uint16, so there's a bit of
- * slack. Furthermore, this limit is on the number of distinct values per column,
- * and we usually have few of those (and various combinations of them for the
- * those MCV list). So uint16 seems fine for now.
+ * 序列化这些项时，我们使用 uint16 下标。MCV 项的个数
+ * 受统计目标限制（目前上限是 10k）。
+ * 我们也许可以把上限提高到 65k，仍然放得进 uint16，所以还有一点
+ * 余量。此外，这个限制是针对每列不同值的个数，
+ * 而我们通常只有很少这样的值（以及它们在
+ * 那些 MCV 列表里的各种组合）。因此目前 uint16 似乎够用。
  *
- * We don't really expect the serialization to save as much space as for
- * histograms, as we are not doing any bucket splits (which is the source
- * of high redundancy in histograms).
+ * 我们并不真预期序列化能像直方图那样省下那么多空间，
+ * 因为我们不做任何桶拆分（那是直方图里
+ * 高度冗余的来源）。
  *
- * TODO: Consider packing boolean flags (NULL) for each item into a single char
- * (or a longer type) instead of using an array of bool items.
+ * TODO：考虑把每个项的布尔标志（NULL）打包进单个 char
+ * （或更长的类型），而不是使用 bool 项的数组。
  */
 bytea *
 statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
@@ -633,63 +633,63 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 
 	Size		total_length;
 
-	/* serialized items (indexes into arrays, etc.) */
+	/* 序列化的项（指向数组的下标等） */
 	bytea	   *raw;
 	char	   *ptr;
 	char	   *endptr PG_USED_FOR_ASSERTS_ONLY;
 
-	/* values per dimension (and number of non-NULL values) */
+	/* 每个维度的值（以及非 NULL 值的个数） */
 	Datum	  **values = (Datum **) palloc0(sizeof(Datum *) * ndims);
 	int		   *counts = (int *) palloc0(sizeof(int) * ndims);
 
 	/*
-	 * We'll include some rudimentary information about the attribute types
-	 * (length, by-val flag), so that we don't have to look them up while
-	 * deserializing the MCV list (we already have the type OID in the
-	 * header).  This is safe because when changing the type of the attribute
-	 * the statistics gets dropped automatically.  We need to store the info
-	 * about the arrays of deduplicated values anyway.
+	 * 我们会加入一些关于属性类型的粗略信息
+	 * （长度、按值标志），这样反序列化 MCV 列表时就不必查找它们
+	 * （头里已经有类型 OID）。这是安全的，因为改变属性类型时
+	 * 统计信息会自动被删除。反正我们也需要
+	 * 存储关于去重值
+	 * 数组的信息。
 	 */
 	info = (DimensionInfo *) palloc0(sizeof(DimensionInfo) * ndims);
 
-	/* sort support data for all attributes included in the MCV list */
+	/* MCV 列表所含全部属性的排序支持数据 */
 	ssup = (SortSupport) palloc0(sizeof(SortSupportData) * ndims);
 
-	/* collect and deduplicate values for each dimension (attribute) */
+	/* 为每个维度（属性）收集并去重值 */
 	for (dim = 0; dim < ndims; dim++)
 	{
 		int			ndistinct;
 		TypeCacheEntry *typentry;
 
 		/*
-		 * Lookup the LT operator (can't get it from stats extra_data, as we
-		 * don't know how to interpret that - scalar vs. array etc.).
+		 * 查找 LT 操作符（没法从统计的 extra_data 取得，因为我们
+		 * 不知道如何解释它：标量还是数组等）。
 		 */
 		typentry = lookup_type_cache(stats[dim]->attrtypid, TYPECACHE_LT_OPR);
 
-		/* copy important info about the data type (length, by-value) */
+		/* 复制数据类型的重要信息（长度、是否按值） */
 		info[dim].typlen = stats[dim]->attrtype->typlen;
 		info[dim].typbyval = stats[dim]->attrtype->typbyval;
 
-		/* allocate space for values in the attribute and collect them */
+		/* 为该属性里的值分配空间并收集它们 */
 		values[dim] = (Datum *) palloc0(sizeof(Datum) * mcvlist->nitems);
 
 		for (i = 0; i < mcvlist->nitems; i++)
 		{
-			/* skip NULL values - we don't need to deduplicate those */
+			/* 跳过 NULL 值：那些不需要去重 */
 			if (mcvlist->items[i].isnull[dim])
 				continue;
 
-			/* append the value at the end */
+			/* 把该值追加到末尾 */
 			values[dim][counts[dim]] = mcvlist->items[i].values[dim];
 			counts[dim] += 1;
 		}
 
-		/* if there are just NULL values in this dimension, we're done */
+		/* 若该维度里全是 NULL 值，就完成了 */
 		if (counts[dim] == 0)
 			continue;
 
-		/* sort and deduplicate the data */
+		/* 对数据排序并去重 */
 		ssup[dim].ssup_cxt = CurrentMemoryContext;
 		ssup[dim].ssup_collation = stats[dim]->attrcollid;
 		ssup[dim].ssup_nulls_first = false;
@@ -700,18 +700,18 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 							compare_scalars_simple, &ssup[dim]);
 
 		/*
-		 * Walk through the array and eliminate duplicate values, but keep the
-		 * ordering (so that we can do a binary search later). We know there's
-		 * at least one item as (counts[dim] != 0), so we can skip the first
-		 * element.
+		 * 遍历数组并消除重复值，但保持
+		 * 顺序（以便稍后做二分查找）。我们知道至少有
+		 * 一项，因为 (counts[dim] != 0)，因此可以跳过第一个
+		 * 元素。
 		 */
-		ndistinct = 1;			/* number of distinct values */
+		ndistinct = 1;			/* 不同值的个数 */
 		for (i = 1; i < counts[dim]; i++)
 		{
-			/* expect sorted array */
+			/* 预期是已排序的数组 */
 			Assert(compare_datums_simple(values[dim][i - 1], values[dim][i], &ssup[dim]) <= 0);
 
-			/* if the value is the same as the previous one, we can skip it */
+			/* 若该值与前一个相同，就可以跳过 */
 			if (!compare_datums_simple(values[dim][i - 1], values[dim][i], &ssup[dim]))
 				continue;
 
@@ -719,42 +719,42 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 			ndistinct += 1;
 		}
 
-		/* we must not exceed PG_UINT16_MAX, as we use uint16 indexes */
+		/* 我们不得超过 PG_UINT16_MAX，因为使用的是 uint16 下标 */
 		Assert(ndistinct <= PG_UINT16_MAX);
 
 		/*
-		 * Store additional info about the attribute - number of deduplicated
-		 * values, and also size of the serialized data. For fixed-length data
-		 * types this is trivial to compute, for varwidth types we need to
-		 * actually walk the array and sum the sizes.
+		 * 存储关于该属性的额外信息：去重后的
+		 * 值的个数，以及序列化数据的大小。对定长数据
+		 * 类型这很容易计算，对变宽类型则需要
+		 * 实际遍历数组并把大小加起来。
 		 */
 		info[dim].nvalues = ndistinct;
 
-		if (info[dim].typbyval) /* by-value data types */
+		if (info[dim].typbyval) /* 按值传递的数据类型 */
 		{
 			info[dim].nbytes = info[dim].nvalues * info[dim].typlen;
 
 			/*
-			 * We copy the data into the MCV item during deserialization, so
-			 * we don't need to allocate any extra space.
+			 * 反序列化时我们把数据复制进 MCV 项，因此
+			 * 不必分配任何额外空间。
 			 */
 			info[dim].nbytes_aligned = 0;
 		}
-		else if (info[dim].typlen > 0)	/* fixed-length by-ref */
+		else if (info[dim].typlen > 0)	/* 定长的按引用传递 */
 		{
 			/*
-			 * We don't care about alignment in the serialized data, so we
-			 * pack the data as much as possible. But we also track how much
-			 * data will be needed after deserialization, and in that case we
-			 * need to account for alignment of each item.
+			 * 我们不关心序列化数据里的对齐，因此尽可能
+			 * 把数据打包。但我们也跟踪反序列化之后
+			 * 需要多少数据，那种情况下
+			 * 必须计入每一项的对齐。
 			 *
-			 * Note: As the items are fixed-length, we could easily compute
-			 * this during deserialization, but we do it here anyway.
+			 * 注意：由于这些项是定长的，反序列化时很容易
+			 * 计算这一点，但我们还是在这里做。
 			 */
 			info[dim].nbytes = info[dim].nvalues * info[dim].typlen;
 			info[dim].nbytes_aligned = info[dim].nvalues * MAXALIGN(info[dim].typlen);
 		}
-		else if (info[dim].typlen == -1)	/* varlena */
+		else if (info[dim].typlen == -1)	/* varlena（变长） */
 		{
 			info[dim].nbytes = 0;
 			info[dim].nbytes_aligned = 0;
@@ -763,26 +763,26 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 				Size		len;
 
 				/*
-				 * For varlena values, we detoast the values and store the
-				 * length and data separately. We don't bother with alignment
-				 * here, which means that during deserialization we need to
-				 * copy the fields and only access the copies.
+				 * 对 varlena 值，我们把值去 toast，并分别存储
+				 * 长度和数据。这里不费心对齐，
+				 * 这意味着反序列化时需要
+				 * 把成员复制出来，并且只访问副本。
 				 */
 				values[dim][i] = PointerGetDatum(PG_DETOAST_DATUM(values[dim][i]));
 
-				/* serialized length (uint32 length + data) */
+				/* 序列化长度（uint32 长度 + 数据） */
 				len = VARSIZE_ANY_EXHDR(values[dim][i]);
-				info[dim].nbytes += sizeof(uint32); /* length */
-				info[dim].nbytes += len;	/* value (no header) */
+				info[dim].nbytes += sizeof(uint32); /* 长度 */
+				info[dim].nbytes += len;	/* 值（没有头） */
 
 				/*
-				 * During deserialization we'll build regular varlena values
-				 * with full headers, and we need to align them properly.
+				 * 反序列化时我们将构造带完整头的普通 varlena 值，
+				 * 并且需要正确地对齐它们。
 				 */
 				info[dim].nbytes_aligned += MAXALIGN(VARHDRSZ + len);
 			}
 		}
-		else if (info[dim].typlen == -2)	/* cstring */
+		else if (info[dim].typlen == -2)	/* cstring（C 字符串） */
 		{
 			info[dim].nbytes = 0;
 			info[dim].nbytes_aligned = 0;
@@ -791,51 +791,51 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 				Size		len;
 
 				/*
-				 * cstring is handled similar to varlena - first we store the
-				 * length as uint32 and then the data. We don't care about
-				 * alignment, which means that during deserialization we need
-				 * to copy the fields and only access the copies.
+				 * cstring 的处理与 varlena 类似：先把长度存成
+				 * uint32，再存数据。我们不关心
+				 * 对齐，这意味着反序列化时需要
+				 * 把成员复制出来，并且只访问副本。
 				 */
 
-				/* c-strings include terminator, so +1 byte */
+				/* c 字符串含终止符，因此 +1 字节 */
 				len = strlen(DatumGetCString(values[dim][i])) + 1;
-				info[dim].nbytes += sizeof(uint32); /* length */
-				info[dim].nbytes += len;	/* value */
+				info[dim].nbytes += sizeof(uint32); /* 长度 */
+				info[dim].nbytes += len;	/* 值 */
 
-				/* space needed for properly aligned deserialized copies */
+				/* 正确对齐的反序列化副本所需的空间 */
 				info[dim].nbytes_aligned += MAXALIGN(len);
 			}
 		}
 
-		/* we know (count>0) so there must be some data */
+		/* 我们知道 (count>0)，因此一定有一些数据 */
 		Assert(info[dim].nbytes > 0);
 	}
 
 	/*
-	 * Now we can finally compute how much space we'll actually need for the
-	 * whole serialized MCV list (varlena header, MCV header, dimension info
-	 * for each attribute, deduplicated values and items).
+	 * 现在终于可以计算整个序列化 MCV 列表实际需要多少空间
+	 * （varlena 头、MCV 头、每个属性的维度信息、
+	 * 去重后的值和项）。
 	 */
-	total_length = (3 * sizeof(uint32)) /* magic + type + nitems */
-		+ sizeof(AttrNumber)	/* ndimensions */
-		+ (ndims * sizeof(Oid));	/* attribute types */
+	total_length = (3 * sizeof(uint32)) /* magic + type + nitems（魔数、类型与项数） */
+		+ sizeof(AttrNumber)	/* ndimensions（维数） */
+		+ (ndims * sizeof(Oid));	/* 属性类型 */
 
-	/* dimension info */
+	/* 维度信息 */
 	total_length += ndims * sizeof(DimensionInfo);
 
-	/* add space for the arrays of deduplicated values */
+	/* 加上去重值数组的空间 */
 	for (i = 0; i < ndims; i++)
 		total_length += info[i].nbytes;
 
 	/*
-	 * And finally account for the items (those are fixed-length, thanks to
-	 * replacing values with uint16 indexes into the deduplicated arrays).
+	 * 最后计入这些项（由于把值替换成指向去重数组的
+	 * uint16 下标，它们是定长的）。
 	 */
 	total_length += mcvlist->nitems * ITEM_SIZE(dim);
 
 	/*
-	 * Allocate space for the whole serialized MCV list (we'll skip bytes, so
-	 * we set them to zero to make the result more compressible).
+	 * 为整个序列化 MCV 列表分配空间（我们会跳过一些字节，因此
+	 * 把它们设为零，使结果更容易压缩）。
 	 */
 	raw = (bytea *) palloc0(VARHDRSZ + total_length);
 	SET_VARSIZE(raw, VARHDRSZ + total_length);
@@ -843,7 +843,7 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 	ptr = VARDATA(raw);
 	endptr = ptr + total_length;
 
-	/* copy the MCV list header fields, one by one */
+	/* 逐个复制 MCV 列表的头成员 */
 	memcpy(ptr, &mcvlist->magic, sizeof(uint32));
 	ptr += sizeof(uint32);
 
@@ -859,86 +859,86 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 	memcpy(ptr, mcvlist->types, sizeof(Oid) * ndims);
 	ptr += (sizeof(Oid) * ndims);
 
-	/* store information about the attributes (data amounts, ...) */
+	/* 存储关于属性的信息（数据量等） */
 	memcpy(ptr, info, sizeof(DimensionInfo) * ndims);
 	ptr += sizeof(DimensionInfo) * ndims;
 
-	/* Copy the deduplicated values for all attributes to the output. */
+	/* 把所有属性去重后的值复制到输出。 */
 	for (dim = 0; dim < ndims; dim++)
 	{
-		/* remember the starting point for Asserts later */
+		/* 记住起点，供稍后的 Assert 使用 */
 		char	   *start PG_USED_FOR_ASSERTS_ONLY = ptr;
 
 		for (i = 0; i < info[dim].nvalues; i++)
 		{
 			Datum		value = values[dim][i];
 
-			if (info[dim].typbyval) /* passed by value */
+			if (info[dim].typbyval) /* 按值传递 */
 			{
 				Datum		tmp;
 
 				/*
-				 * For byval types, we need to copy just the significant bytes
-				 * - we can't use memcpy directly, as that assumes
-				 * little-endian behavior.  store_att_byval does almost what
-				 * we need, but it requires a properly aligned buffer - the
-				 * output buffer does not guarantee that. So we simply use a
-				 * local Datum variable (which guarantees proper alignment),
-				 * and then copy the value from it.
+				 * 对按值类型，我们只需复制有意义的字节。
+				 * 不能直接用 memcpy，因为它假定
+				 * 小端行为。store_att_byval 几乎做了我们
+				 * 需要的事，但它需要正确对齐的缓冲区，而
+				 * 输出缓冲区并不保证这一点。因此我们简单地使用一个
+				 * 局部 Datum 变量（它保证正确对齐），
+				 * 然后再从它复制该值。
 				 */
 				store_att_byval(&tmp, value, info[dim].typlen);
 
 				memcpy(ptr, &tmp, info[dim].typlen);
 				ptr += info[dim].typlen;
 			}
-			else if (info[dim].typlen > 0)	/* passed by reference */
+			else if (info[dim].typlen > 0)	/* 按引用传递 */
 			{
-				/* no special alignment needed, treated as char array */
+				/* 不需要特殊对齐，当作字符数组处理 */
 				memcpy(ptr, DatumGetPointer(value), info[dim].typlen);
 				ptr += info[dim].typlen;
 			}
-			else if (info[dim].typlen == -1)	/* varlena */
+			else if (info[dim].typlen == -1)	/* varlena（变长） */
 			{
 				uint32		len = VARSIZE_ANY_EXHDR(DatumGetPointer(value));
 
-				/* copy the length */
+				/* 复制长度 */
 				memcpy(ptr, &len, sizeof(uint32));
 				ptr += sizeof(uint32);
 
-				/* data from the varlena value (without the header) */
+				/* 来自 varlena 值的数据（不含头） */
 				memcpy(ptr, VARDATA_ANY(DatumGetPointer(value)), len);
 				ptr += len;
 			}
-			else if (info[dim].typlen == -2)	/* cstring */
+			else if (info[dim].typlen == -2)	/* cstring（C 字符串） */
 			{
 				uint32		len = (uint32) strlen(DatumGetCString(value)) + 1;
 
-				/* copy the length */
+				/* 复制长度 */
 				memcpy(ptr, &len, sizeof(uint32));
 				ptr += sizeof(uint32);
 
-				/* value */
+				/* 值 */
 				memcpy(ptr, DatumGetCString(value), len);
 				ptr += len;
 			}
 
-			/* no underflows or overflows */
+			/* 没有下溢或上溢 */
 			Assert((ptr > start) && ((ptr - start) <= info[dim].nbytes));
 		}
 
-		/* we should get exactly nbytes of data for this dimension */
+		/* 该维度应当恰好得到 nbytes 的数据 */
 		Assert((ptr - start) == info[dim].nbytes);
 	}
 
-	/* Serialize the items, with uint16 indexes instead of the values. */
+	/* 序列化这些项，用 uint16 下标代替值。 */
 	for (i = 0; i < mcvlist->nitems; i++)
 	{
 		MCVItem    *mcvitem = &mcvlist->items[i];
 
-		/* don't write beyond the allocated space */
+		/* 不要写到已分配空间之外 */
 		Assert(ptr <= (endptr - ITEM_SIZE(dim)));
 
-		/* copy NULL and frequency flags into the serialized MCV */
+		/* 把 NULL 和频率标志复制进序列化的 MCV */
 		memcpy(ptr, mcvitem->isnull, sizeof(bool) * ndims);
 		ptr += sizeof(bool) * ndims;
 
@@ -948,39 +948,39 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 		memcpy(ptr, &mcvitem->base_frequency, sizeof(double));
 		ptr += sizeof(double);
 
-		/* store the indexes last */
+		/* 最后存储下标 */
 		for (dim = 0; dim < ndims; dim++)
 		{
 			uint16		index = 0;
 			Datum	   *value;
 
-			/* do the lookup only for non-NULL values */
+			/* 只对非 NULL 值做查找 */
 			if (!mcvitem->isnull[dim])
 			{
 				value = (Datum *) bsearch_arg(&mcvitem->values[dim], values[dim],
 											  info[dim].nvalues, sizeof(Datum),
 											  compare_scalars_simple, &ssup[dim]);
 
-				Assert(value != NULL);	/* serialization or deduplication
-										 * error */
+				Assert(value != NULL);	/* 序列化或去重
+										 * 出错 */
 
-				/* compute index within the deduplicated array */
+				/* 计算在去重数组里的下标 */
 				index = (uint16) (value - values[dim]);
 
-				/* check the index is within expected bounds */
+				/* 检查下标是否在预期范围内 */
 				Assert(index < info[dim].nvalues);
 			}
 
-			/* copy the index into the serialized MCV */
+			/* 把下标复制进序列化的 MCV */
 			memcpy(ptr, &index, sizeof(uint16));
 			ptr += sizeof(uint16);
 		}
 
-		/* make sure we don't overflow the allocated value */
+		/* 确保我们不超出已分配的值 */
 		Assert(ptr <= endptr);
 	}
 
-	/* at this point we expect to match the total_length exactly */
+	/* 此时我们预期恰好匹配 total_length */
 	Assert(ptr == endptr);
 
 	pfree(values);
@@ -991,10 +991,10 @@ statext_mcv_serialize(MCVList *mcvlist, VacAttrStats **stats)
 
 /*
  * statext_mcv_deserialize
- *		Reads serialized MCV list into MCVList structure.
+ *		把序列化的 MCV 列表读入 MCVList 结构。
  *
- * All the memory needed by the MCV list is allocated as a single chunk, so
- * it's possible to simply pfree() it at once.
+ * MCV 列表所需的全部内存都作为单个块分配，因此
+ * 可以一次 pfree() 掉。
  */
 MCVList *
 statext_mcv_deserialize(bytea *data)
@@ -1011,13 +1011,13 @@ statext_mcv_deserialize(bytea *data)
 				nitems;
 	DimensionInfo *info = NULL;
 
-	/* local allocation buffer (used only for deserialization) */
+	/* 本地分配缓冲区（只用于反序列化） */
 	Datum	  **map = NULL;
 
-	/* MCV list */
+	/* MCV 列表 */
 	Size		mcvlen;
 
-	/* buffer used for the result */
+	/* 用于结果的缓冲区 */
 	Size		datalen;
 	char	   *dataptr;
 	char	   *valuesptr;
@@ -1027,23 +1027,23 @@ statext_mcv_deserialize(bytea *data)
 		return NULL;
 
 	/*
-	 * We can't possibly deserialize a MCV list if there's not even a complete
-	 * header. We need an explicit formula here, because we serialize the
-	 * header fields one by one, so we need to ignore struct alignment.
+	 * 若连完整的头都没有，就不可能反序列化 MCV 列表。
+	 * 这里需要一个显式公式，因为我们是逐个序列化
+	 * 头成员的，因此必须忽略结构对齐。
 	 */
 	if (VARSIZE_ANY(data) < MinSizeOfMCVList)
 		elog(ERROR, "invalid MCV size %zu (expected at least %zu)",
 			 VARSIZE_ANY(data), MinSizeOfMCVList);
 
-	/* read the MCV list header */
+	/* 读取 MCV 列表头 */
 	mcvlist = (MCVList *) palloc0(offsetof(MCVList, items));
 
-	/* pointer to the data part (skip the varlena header) */
+	/* 指向数据部分的指针（跳过 varlena 头） */
 	raw = (char *) data;
 	ptr = VARDATA_ANY(raw);
 	endptr = (char *) raw + VARSIZE_ANY(data);
 
-	/* get the header and perform further sanity checks */
+	/* 取得头并做进一步的健全性检查 */
 	memcpy(&mcvlist->magic, ptr, sizeof(uint32));
 	ptr += sizeof(uint32);
 
@@ -1081,37 +1081,37 @@ statext_mcv_deserialize(bytea *data)
 	ndims = mcvlist->ndimensions;
 
 	/*
-	 * Check amount of data including DimensionInfo for all dimensions and
-	 * also the serialized items (including uint16 indexes). Also, walk
-	 * through the dimension information and add it to the sum.
+	 * 检查数据量，包括所有维度的 DimensionInfo，以及
+	 * 序列化的项（含 uint16 下标）。同时遍历
+	 * 维度信息并把它加进总和。
 	 */
 	expected_size = SizeOfMCVList(ndims, nitems);
 
 	/*
-	 * Check that we have at least the dimension and info records, along with
-	 * the items. We don't know the size of the serialized values yet. We need
-	 * to do this check first, before accessing the dimension info.
+	 * 检查至少有维度和信息记录，以及
+	 * 这些项。我们还不知道序列化值的大小。需要
+	 * 先做这项检查，然后再访问维度信息。
 	 */
 	if (VARSIZE_ANY(data) < expected_size)
 		elog(ERROR, "invalid MCV size %zu (expected %zu)",
 			 VARSIZE_ANY(data), expected_size);
 
-	/* Now copy the array of type Oids. */
+	/* 现在复制类型 Oid 的数组。 */
 	memcpy(mcvlist->types, ptr, sizeof(Oid) * ndims);
 	ptr += (sizeof(Oid) * ndims);
 
-	/* Now it's safe to access the dimension info. */
+	/* 现在可以安全访问维度信息。 */
 	info = palloc(ndims * sizeof(DimensionInfo));
 
 	memcpy(info, ptr, ndims * sizeof(DimensionInfo));
 	ptr += (ndims * sizeof(DimensionInfo));
 
-	/* account for the value arrays */
+	/* 计入值数组 */
 	for (dim = 0; dim < ndims; dim++)
 	{
 		/*
-		 * XXX I wonder if we can/should rely on asserts here. Maybe those
-		 * checks should be done every time?
+		 * XXX 我不确定这里能否依赖断言。也许这些
+		 * 检查每次都该做？
 		 */
 		Assert(info[dim].nvalues >= 0);
 		Assert(info[dim].nbytes >= 0);
@@ -1120,57 +1120,57 @@ statext_mcv_deserialize(bytea *data)
 	}
 
 	/*
-	 * Now we know the total expected MCV size, including all the pieces
-	 * (header, dimension info. items and deduplicated data). So do the final
-	 * check on size.
+	 * 现在我们知道预期的 MCV 总大小，包括所有部分
+	 * （头、维度信息、项和去重后的数据）。于是做最后的
+	 * 大小检查。
 	 */
 	if (VARSIZE_ANY(data) != expected_size)
 		elog(ERROR, "invalid MCV size %zu (expected %zu)",
 			 VARSIZE_ANY(data), expected_size);
 
 	/*
-	 * We need an array of Datum values for each dimension, so that we can
-	 * easily translate the uint16 indexes later. We also need a top-level
-	 * array of pointers to those per-dimension arrays.
+	 * 每个维度都需要一个 Datum 值数组，以便稍后
+	 * 方便地把 uint16 下标翻译过来。还需要一个顶层
+	 * 指向这些按维度数组的指针数组。
 	 *
-	 * While allocating the arrays for dimensions, compute how much space we
-	 * need for a copy of the by-ref data, as we can't simply point to the
-	 * original values (it might go away).
+	 * 分配各维度的数组时，计算按引用数据的副本
+	 * 需要多少空间，因为没法直接指向
+	 * 原始值（它可能会消失）。
 	 */
-	datalen = 0;				/* space for by-ref data */
+	datalen = 0;				/* 按引用数据的空间 */
 	map = (Datum **) palloc(ndims * sizeof(Datum *));
 
 	for (dim = 0; dim < ndims; dim++)
 	{
 		map[dim] = (Datum *) palloc(sizeof(Datum) * info[dim].nvalues);
 
-		/* space needed for a copy of data for by-ref types */
+		/* 按引用类型的数据副本所需空间 */
 		datalen += info[dim].nbytes_aligned;
 	}
 
 	/*
-	 * Now resize the MCV list so that the allocation includes all the data.
+	 * 现在调整 MCV 列表的大小，使分配包含全部数据。
 	 *
-	 * Allocate space for a copy of the data, as we can't simply reference the
-	 * serialized data - it's not aligned properly, and it may disappear while
-	 * we're still using the MCV list, e.g. due to catcache release.
+	 * 为数据副本分配空间，因为没法直接引用
+	 * 序列化数据：它没有正确对齐，而且在我们仍在使用
+	 * MCV 列表时它可能消失，例如因为 catcache 释放。
 	 *
-	 * We do care about alignment here, because we will allocate all the
-	 * pieces at once, but then use pointers to different parts.
+	 * 这里我们确实关心对齐，因为会一次性分配所有
+	 * 部分，然后用指针指向不同的部分。
 	 */
 	mcvlen = MAXALIGN(offsetof(MCVList, items) + (sizeof(MCVItem) * nitems));
 
-	/* arrays of values and isnull flags for all MCV items */
+	/* 所有 MCV 项的值和 isnull 标志数组 */
 	mcvlen += nitems * MAXALIGN(sizeof(Datum) * ndims);
 	mcvlen += nitems * MAXALIGN(sizeof(bool) * ndims);
 
-	/* we don't quite need to align this, but it makes some asserts easier */
+	/* 并不真需要对齐它，但这样让某些断言更容易 */
 	mcvlen += MAXALIGN(datalen);
 
-	/* now resize the deserialized MCV list, and compute pointers to parts */
+	/* 现在调整反序列化后的 MCV 列表大小，并计算各部分的指针 */
 	mcvlist = repalloc(mcvlist, mcvlen);
 
-	/* pointer to the beginning of values/isnull arrays */
+	/* 指向 values/isnull 数组开头的指针 */
 	valuesptr = (char *) mcvlist
 		+ MAXALIGN(offsetof(MCVList, items) + (sizeof(MCVItem) * nitems));
 
@@ -1179,17 +1179,17 @@ statext_mcv_deserialize(bytea *data)
 	dataptr = isnullptr + (nitems * MAXALIGN(sizeof(bool) * ndims));
 
 	/*
-	 * Build mapping (index => value) for translating the serialized data into
-	 * the in-memory representation.
+	 * 建立映射（下标 => 值），把序列化数据翻译成
+	 * 内存中的表示。
 	 */
 	for (dim = 0; dim < ndims; dim++)
 	{
-		/* remember start position in the input array */
+		/* 记住输入数组里的起始位置 */
 		char	   *start PG_USED_FOR_ASSERTS_ONLY = ptr;
 
 		if (info[dim].typbyval)
 		{
-			/* for by-val types we simply copy data into the mapping */
+			/* 对按值类型，我们只是把数据复制进映射 */
 			for (i = 0; i < info[dim].nvalues; i++)
 			{
 				Datum		v = 0;
@@ -1199,15 +1199,15 @@ statext_mcv_deserialize(bytea *data)
 
 				map[dim][i] = fetch_att(&v, true, info[dim].typlen);
 
-				/* no under/overflow of input array */
+				/* 输入数组没有下溢或上溢 */
 				Assert(ptr <= (start + info[dim].nbytes));
 			}
 		}
 		else
 		{
-			/* for by-ref types we need to also make a copy of the data */
+			/* 对按引用类型，还需要复制一份数据 */
 
-			/* passed by reference, but fixed length (name, tid, ...) */
+			/* 按引用传递，但是定长（name、tid 等） */
 			if (info[dim].typlen > 0)
 			{
 				for (i = 0; i < info[dim].nvalues; i++)
@@ -1215,37 +1215,37 @@ statext_mcv_deserialize(bytea *data)
 					memcpy(dataptr, ptr, info[dim].typlen);
 					ptr += info[dim].typlen;
 
-					/* just point into the array */
+					/* 只是指向数组内部 */
 					map[dim][i] = PointerGetDatum(dataptr);
 					dataptr += MAXALIGN(info[dim].typlen);
 				}
 			}
 			else if (info[dim].typlen == -1)
 			{
-				/* varlena */
+				/* varlena（变长） */
 				for (i = 0; i < info[dim].nvalues; i++)
 				{
 					uint32		len;
 
-					/* read the uint32 length */
+					/* 读取 uint32 长度 */
 					memcpy(&len, ptr, sizeof(uint32));
 					ptr += sizeof(uint32);
 
-					/* the length is data-only */
+					/* 该长度只含数据 */
 					SET_VARSIZE(dataptr, len + VARHDRSZ);
 					memcpy(VARDATA(dataptr), ptr, len);
 					ptr += len;
 
-					/* just point into the array */
+					/* 只是指向数组内部 */
 					map[dim][i] = PointerGetDatum(dataptr);
 
-					/* skip to place of the next deserialized value */
+					/* 跳到下一个反序列化值的位置 */
 					dataptr += MAXALIGN(len + VARHDRSZ);
 				}
 			}
 			else if (info[dim].typlen == -2)
 			{
-				/* cstring */
+				/* cstring（C 字符串） */
 				for (i = 0; i < info[dim].nvalues; i++)
 				{
 					uint32		len;
@@ -1256,27 +1256,27 @@ statext_mcv_deserialize(bytea *data)
 					memcpy(dataptr, ptr, len);
 					ptr += len;
 
-					/* just point into the array */
+					/* 只是指向数组内部 */
 					map[dim][i] = PointerGetDatum(dataptr);
 					dataptr += MAXALIGN(len);
 				}
 			}
 
-			/* no under/overflow of input array */
+			/* 输入数组没有下溢或上溢 */
 			Assert(ptr <= (start + info[dim].nbytes));
 
-			/* no overflow of the output mcv value */
+			/* 输出 mcv 值没有上溢 */
 			Assert(dataptr <= ((char *) mcvlist + mcvlen));
 		}
 
-		/* check we consumed input data for this dimension exactly */
+		/* 检查恰好消耗了该维度的输入数据 */
 		Assert(ptr == (start + info[dim].nbytes));
 	}
 
-	/* we should have also filled the MCV list exactly */
+	/* 也应当恰好填满 MCV 列表 */
 	Assert(dataptr == ((char *) mcvlist + mcvlen));
 
-	/* deserialize the MCV items and translate the indexes to Datums */
+	/* 反序列化 MCV 项，并把下标翻译成 Datum */
 	for (i = 0; i < nitems; i++)
 	{
 		MCVItem    *item = &mcvlist->items[i];
@@ -1296,7 +1296,7 @@ statext_mcv_deserialize(bytea *data)
 		memcpy(&item->base_frequency, ptr, sizeof(double));
 		ptr += sizeof(double);
 
-		/* finally translate the indexes (for non-NULL only) */
+		/* 最后翻译下标（仅非 NULL） */
 		for (dim = 0; dim < ndims; dim++)
 		{
 			uint16		index;
@@ -1310,14 +1310,14 @@ statext_mcv_deserialize(bytea *data)
 			item->values[dim] = map[dim][index];
 		}
 
-		/* check we're not overflowing the input */
+		/* 检查没有溢出输入 */
 		Assert(ptr <= endptr);
 	}
 
-	/* check that we processed all the data */
+	/* 检查已处理全部数据 */
 	Assert(ptr == endptr);
 
-	/* release the buffers used for mapping */
+	/* 释放用于映射的缓冲区 */
 	for (dim = 0; dim < ndims; dim++)
 		pfree(map[dim]);
 
@@ -1327,45 +1327,45 @@ statext_mcv_deserialize(bytea *data)
 }
 
 /*
- * SRF with details about buckets of a histogram:
+ * 关于直方图桶细节的 SRF：
  *
- * - item ID (0...nitems)
- * - values (string array)
- * - nulls only (boolean array)
- * - frequency (double precision)
- * - base_frequency (double precision)
+ * - 项 ID（0...nitems）
+ * - 值（字符串数组）
+ * - 仅空（布尔数组）
+ * - 频率（double precision）
+ * - base_frequency（double precision）。
  *
- * The input is the OID of the statistics, and there are no rows returned if
- * the statistics contains no histogram.
+ * 输入是统计信息的 OID，若统计信息不含直方图，
+ * 就不返回任何行。
  */
 Datum
 pg_stats_ext_mcvlist_items(PG_FUNCTION_ARGS)
 {
 	FuncCallContext *funcctx;
 
-	/* stuff done only on the first call of the function */
+	/* 只在函数第一次调用时做的事 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		MemoryContext oldcontext;
 		MCVList    *mcvlist;
 		TupleDesc	tupdesc;
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
-		/* switch to memory context appropriate for multiple function calls */
+		/* 切换到适合多次函数调用的内存上下文 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		mcvlist = statext_mcv_deserialize(PG_GETARG_BYTEA_P(0));
 
 		funcctx->user_fctx = mcvlist;
 
-		/* total number of tuples to be returned */
+		/* 要返回的元组总数 */
 		funcctx->max_calls = 0;
 		if (funcctx->user_fctx != NULL)
 			funcctx->max_calls = mcvlist->nitems;
 
-		/* Build a tuple descriptor for our result type */
+		/* 为我们的结果类型构造一个元组描述符 */
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1374,19 +1374,19 @@ pg_stats_ext_mcvlist_items(PG_FUNCTION_ARGS)
 		tupdesc = BlessTupleDesc(tupdesc);
 
 		/*
-		 * generate attribute metadata needed later to produce tuples from raw
-		 * C strings
+		 * 生成稍后从原始 C 字符串产生元组所需的
+		 * 属性元数据
 		 */
 		funcctx->attinmeta = TupleDescGetAttInMetadata(tupdesc);
 
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 每次调用函数时做的事 */
 	funcctx = SRF_PERCALL_SETUP();
 
-	if (funcctx->call_cntr < funcctx->max_calls)	/* do when there is more
-													 * left to send */
+	if (funcctx->call_cntr < funcctx->max_calls)	/* 还有更多要发送时
+													 * 执行 */
 	{
 		Datum		values[5];
 		bool		nulls[5];
@@ -1422,7 +1422,7 @@ pg_stats_ext_mcvlist_items(PG_FUNCTION_ARGS)
 				Datum		val;
 				text	   *txt;
 
-				/* lookup output func for the type */
+				/* 查找该类型的输出函数 */
 				getTypeOutputInfo(mcvlist->types[i], &outfunc, &isvarlena);
 				fmgr_info(outfunc, &fmgrinfo);
 
@@ -1449,54 +1449,54 @@ pg_stats_ext_mcvlist_items(PG_FUNCTION_ARGS)
 		values[3] = Float8GetDatum(item->frequency);
 		values[4] = Float8GetDatum(item->base_frequency);
 
-		/* no NULLs in the tuple */
+		/* 元组里没有 NULLs */
 		memset(nulls, 0, sizeof(nulls));
 
-		/* build a tuple */
+		/* 构造一个元组 */
 		tuple = heap_form_tuple(funcctx->attinmeta->tupdesc, values, nulls);
 
-		/* make the tuple into a datum */
+		/* 把元组做成 datum */
 		result = HeapTupleGetDatum(tuple);
 
 		SRF_RETURN_NEXT(funcctx, result);
 	}
-	else						/* do when there is no more left */
+	else						/* 没有更多要发送时执行 */
 	{
 		SRF_RETURN_DONE(funcctx);
 	}
 }
 
 /*
- * pg_mcv_list_in		- input routine for type pg_mcv_list.
+ * pg_mcv_list_in		- 类型 pg_mcv_list 的输入例程。
  *
- * pg_mcv_list is real enough to be a table column, but it has no operations
- * of its own, and disallows input too
+ * pg_mcv_list 真实到足以作为表列，但它没有自己的操作，
+ * 也不允许输入。
  */
 Datum
 pg_mcv_list_in(PG_FUNCTION_ARGS)
 {
 	/*
-	 * pg_mcv_list stores the data in binary form and parsing text input is
-	 * not needed, so disallow this.
+	 * pg_mcv_list 以二进制形式存放数据，不需要解析文本输入，
+	 * 因此不允许这样做。
 	 */
 	ereport(ERROR,
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_mcv_list")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 
 /*
- * pg_mcv_list_out		- output routine for type pg_mcv_list.
+ * pg_mcv_list_out		- 类型 pg_mcv_list 的输出例程。
  *
- * MCV lists are serialized into a bytea value, so we simply call byteaout()
- * to serialize the value into text. But it'd be nice to serialize that into
- * a meaningful representation (e.g. for inspection by people).
+ * MCV 列表被序列化成 bytea 值，因此我们直接调用 byteaout()
+ * 把它序列化成文本。但最好能把它序列化成
+ * 一种有意义的表示（例如供人查看）。
  *
- * XXX This should probably return something meaningful, similar to what
- * pg_dependencies_out does. Not sure how to deal with the deduplicated
- * values, though - do we want to expand that or not?
+ * XXX 这里也许应当返回某种有意义的内容，类似于
+ * pg_dependencies_out 所做的。不过不确定如何处理去重后的
+ * 值：要不要展开它们？
  */
 Datum
 pg_mcv_list_out(PG_FUNCTION_ARGS)
@@ -1505,7 +1505,7 @@ pg_mcv_list_out(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_mcv_list_recv		- binary input routine for type pg_mcv_list.
+ * pg_mcv_list_recv		- 类型 pg_mcv_list 的二进制输入例程。
  */
 Datum
 pg_mcv_list_recv(PG_FUNCTION_ARGS)
@@ -1514,14 +1514,14 @@ pg_mcv_list_recv(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_mcv_list")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 /*
- * pg_mcv_list_send		- binary output routine for type pg_mcv_list.
+ * pg_mcv_list_send		- 类型 pg_mcv_list 的二进制输出例程。
  *
- * MCV lists are serialized in a bytea value (although the type is named
- * differently), so let's just send that.
+ * MCV 列表被序列化在 bytea 值里（尽管类型名
+ * 不同），因此直接发送它即可。
  */
 Datum
 pg_mcv_list_send(PG_FUNCTION_ARGS)
@@ -1530,10 +1530,10 @@ pg_mcv_list_send(PG_FUNCTION_ARGS)
 }
 
 /*
- * match the attribute/expression to a dimension of the statistic
+ * 把属性或表达式匹配到统计的某个维度。
  *
- * Returns the zero-based index of the matching statistics dimension.
- * Optionally determines the collation.
+ * 返回匹配的统计维度的从零开始的下标。
+ * 可选地确定排序规则。
  */
 static int
 mcv_match_expression(Node *expr, Bitmapset *keys, List *exprs, Oid *collid)
@@ -1542,7 +1542,7 @@ mcv_match_expression(Node *expr, Bitmapset *keys, List *exprs, Oid *collid)
 
 	if (IsA(expr, Var))
 	{
-		/* simple Var, so just lookup using varattno */
+		/* 简单 Var，因此直接用 varattno 查找 */
 		Var		   *var = (Var *) expr;
 
 		if (collid)
@@ -1555,13 +1555,13 @@ mcv_match_expression(Node *expr, Bitmapset *keys, List *exprs, Oid *collid)
 	}
 	else
 	{
-		/* expression - lookup in stats expressions */
+		/* 表达式：在统计表达式里查找 */
 		ListCell   *lc;
 
 		if (collid)
 			*collid = exprCollation(expr);
 
-		/* expressions are stored after the simple columns */
+		/* 表达式存放在简单列之后 */
 		idx = bms_num_members(keys);
 		foreach(lc, exprs)
 		{
@@ -1582,22 +1582,22 @@ mcv_match_expression(Node *expr, Bitmapset *keys, List *exprs, Oid *collid)
 
 /*
  * mcv_get_match_bitmap
- *	Evaluate clauses using the MCV list, and update the match bitmap.
+ *	用 MCV 列表对子句求值，并更新匹配 bitmap。
  *
- * A match bitmap keeps match/mismatch status for each MCV item, and we
- * update it based on additional clauses. We also use it to skip items
- * that can't possibly match (e.g. item marked as "mismatch" can't change
- * to "match" when evaluating AND clause list).
+ * 匹配 bitmap 为每个 MCV 项保存匹配/不匹配状态，我们
+ * 根据额外的子句更新它。我们也用它跳过
+ * 不可能匹配的项（例如标记为不匹配的项，在求值 AND 子句列表时
+ * 没法变成匹配）。
  *
- * The function also returns a flag indicating whether there was an
- * equality condition for all attributes, the minimum frequency in the MCV
- * list, and a total MCV frequency (sum of frequencies for all items).
+ * 本函数还返回一个标志，表明是否对所有属性都有
+ * 相等条件、MCV 列表里的最小频率，
+ * 以及总的 MCV 频率（所有项的频率之和）。
  *
- * XXX Currently the match bitmap uses a bool for each MCV item, which is
- * somewhat wasteful as we could do with just a single bit, thus reducing
- * the size to ~1/8. It would also allow us to combine bitmaps simply using
- * & and |, which should be faster than min/max. The bitmaps are fairly
- * small, though (thanks to the cap on the MCV list size).
+ * XXX 目前匹配 bitmap 对每个 MCV 项用一个 bool，这有些
+ * 浪费，因为我们只用一位就够了，从而把
+ * 大小减到大约 1/8。这也让我们能简单地用
+ * & 和 | 组合 bitmap，这应当比 min/max 更快。不过这些 bitmap
+ * 相当小（这要归功于 MCV 列表大小的上限）。
  */
 static bool *
 mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
@@ -1607,7 +1607,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 	ListCell   *l;
 	bool	   *matches;
 
-	/* The bitmap may be partially built. */
+	/* bitmap 可能只构造了一部分。 */
 	Assert(clauses != NIL);
 	Assert(mcvlist != NULL);
 	Assert(mcvlist->nitems > 0);
@@ -1617,19 +1617,19 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 	memset(matches, !is_or, sizeof(bool) * mcvlist->nitems);
 
 	/*
-	 * Loop through the list of clauses, and for each of them evaluate all the
-	 * MCV items not yet eliminated by the preceding clauses.
+	 * 遍历子句列表，对其中每条子句求值所有尚未被
+	 * 前面的子句排除的 MCV 项。
 	 */
 	foreach(l, clauses)
 	{
 		Node	   *clause = (Node *) lfirst(l);
 
-		/* if it's a RestrictInfo, then extract the clause */
+		/* 若它是 RestrictInfo，则取出子句 */
 		if (IsA(clause, RestrictInfo))
 			clause = (Node *) ((RestrictInfo *) clause)->clause;
 
 		/*
-		 * Handle the various types of clauses - OpClause, NullTest and
+		 * 处理各类子句：OpClause、NullTest 以及
 		 * AND/OR/NOT
 		 */
 		if (is_opclause(clause))
@@ -1637,7 +1637,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 			OpExpr	   *expr = (OpExpr *) clause;
 			FmgrInfo	opproc;
 
-			/* valid only after examine_opclause_args returns true */
+			/* 仅在 examine_opclause_args 返回真之后有效 */
 			Node	   *clause_expr;
 			Const	   *cst;
 			bool		expronleft;
@@ -1646,17 +1646,17 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 
 			fmgr_info(get_opcode(expr->opno), &opproc);
 
-			/* extract the var/expr and const from the expression */
+			/* 从表达式中取出 var/expr 和 const */
 			if (!examine_opclause_args(expr->args, &clause_expr, &cst, &expronleft))
 				elog(ERROR, "incompatible clause");
 
-			/* match the attribute/expression to a dimension of the statistic */
+			/* 把属性或表达式匹配到统计的某个维度 */
 			idx = mcv_match_expression(clause_expr, keys, exprs, &collid);
 
 			/*
-			 * Walk through the MCV items and evaluate the current clause. We
-			 * can skip items that were already ruled out, and terminate if
-			 * there are no remaining MCV items that might possibly match.
+			 * 遍历 MCV 项并对当前子句求值。可以跳过
+			 * 已经被排除的项，若不再有可能匹配的
+			 * 剩余 MCV 项则终止。
 			 */
 			for (int i = 0; i < mcvlist->nitems; i++)
 			{
@@ -1666,9 +1666,9 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 				Assert(idx >= 0);
 
 				/*
-				 * When the MCV item or the Const value is NULL we can treat
-				 * this as a mismatch. We must not call the operator because
-				 * of strictness.
+				 * 当 MCV 项或 Const 值为 NULL 时，可以把它
+				 * 当作不匹配。由于严格性，我们不得调用
+				 * 该操作符。
 				 */
 				if (item->isnull[idx] || cst->constisnull)
 				{
@@ -1677,24 +1677,24 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 				}
 
 				/*
-				 * Skip MCV items that can't change result in the bitmap. Once
-				 * the value gets false for AND-lists, or true for OR-lists,
-				 * we don't need to look at more clauses.
+				 * 跳过 bitmap 里结果不会再变的 MCV 项。一旦
+				 * AND 列表里该值变成 false，或 OR 列表里变成 true，
+				 * 就不需要再看更多子句。
 				 */
 				if (RESULT_IS_FINAL(matches[i], is_or))
 					continue;
 
 				/*
-				 * First check whether the constant is below the lower
-				 * boundary (in that case we can skip the bucket, because
-				 * there's no overlap).
+				 * 首先检查常量是否低于下界
+				 * （那种情况下可以跳过该桶，因为
+				 * 没有重叠）。
 				 *
-				 * We don't store collations used to build the statistics, but
-				 * we can use the collation for the attribute itself, as
-				 * stored in varcollid. We do reset the statistics after a
-				 * type change (including collation change), so this is OK.
-				 * For expressions, we use the collation extracted from the
-				 * expression itself.
+				 * 我们不存储构造统计信息时用的排序规则，但
+				 * 可以用属性本身的排序规则，即
+				 * 存放在 varcollid 里的那个。类型变更（包括排序规则
+				 * 变更）之后我们会重置统计信息，因此这样做没问题。
+				 * 对表达式，我们使用从表达式本身取出的
+				 * 排序规则。
 				 */
 				if (expronleft)
 					match = DatumGetBool(FunctionCall2Coll(&opproc,
@@ -1707,7 +1707,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 														   cst->constvalue,
 														   item->values[idx]));
 
-				/* update the match bitmap with the result */
+				/* 用结果更新匹配 bitmap */
 				matches[i] = RESULT_MERGE(matches[i], is_or, match);
 			}
 		}
@@ -1716,14 +1716,14 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 			ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) clause;
 			FmgrInfo	opproc;
 
-			/* valid only after examine_opclause_args returns true */
+			/* 仅在 examine_opclause_args 返回真之后有效 */
 			Node	   *clause_expr;
 			Const	   *cst;
 			bool		expronleft;
 			Oid			collid;
 			int			idx;
 
-			/* array evaluation */
+			/* 数组求值 */
 			ArrayType  *arrayval;
 			int16		elmlen;
 			bool		elmbyval;
@@ -1734,17 +1734,17 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 
 			fmgr_info(get_opcode(expr->opno), &opproc);
 
-			/* extract the var/expr and const from the expression */
+			/* 从表达式中取出 var/expr 和 const */
 			if (!examine_opclause_args(expr->args, &clause_expr, &cst, &expronleft))
 				elog(ERROR, "incompatible clause");
 
-			/* We expect Var on left */
+			/* 我们预期左边是 Var */
 			if (!expronleft)
 				elog(ERROR, "incompatible clause");
 
 			/*
-			 * Deconstruct the array constant, unless it's NULL (we'll cover
-			 * that case below)
+			 * 拆开数组常量，除非它是 NULL（那种情况
+			 * 下面会处理）
 			 */
 			if (!cst->constisnull)
 			{
@@ -1757,13 +1757,13 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 								  &elem_values, &elem_nulls, &num_elems);
 			}
 
-			/* match the attribute/expression to a dimension of the statistic */
+			/* 把属性或表达式匹配到统计的某个维度 */
 			idx = mcv_match_expression(clause_expr, keys, exprs, &collid);
 
 			/*
-			 * Walk through the MCV items and evaluate the current clause. We
-			 * can skip items that were already ruled out, and terminate if
-			 * there are no remaining MCV items that might possibly match.
+			 * 遍历 MCV 项并对当前子句求值。可以跳过
+			 * 已经被排除的项，若不再有可能匹配的
+			 * 剩余 MCV 项则终止。
 			 */
 			for (int i = 0; i < mcvlist->nitems; i++)
 			{
@@ -1772,9 +1772,9 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 				MCVItem    *item = &mcvlist->items[i];
 
 				/*
-				 * When the MCV item or the Const value is NULL we can treat
-				 * this as a mismatch. We must not call the operator because
-				 * of strictness.
+				 * 当 MCV 项或 Const 值为 NULL 时，可以把它
+				 * 当作不匹配。由于严格性，我们不得调用
+				 * 该操作符。
 				 */
 				if (item->isnull[idx] || cst->constisnull)
 				{
@@ -1783,9 +1783,9 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 				}
 
 				/*
-				 * Skip MCV items that can't change result in the bitmap. Once
-				 * the value gets false for AND-lists, or true for OR-lists,
-				 * we don't need to look at more clauses.
+				 * 跳过 bitmap 里结果不会再变的 MCV 项。一旦
+				 * AND 列表里该值变成 false，或 OR 列表里变成 true，
+				 * 就不需要再看更多子句。
 				 */
 				if (RESULT_IS_FINAL(matches[i], is_or))
 					continue;
@@ -1796,7 +1796,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 					bool		elem_isnull = elem_nulls[j];
 					bool		elem_match;
 
-					/* NULL values always evaluate as not matching. */
+					/* NULL 值求值结果总是不匹配。 */
 					if (elem_isnull)
 					{
 						match = RESULT_MERGE(match, expr->useOr, false);
@@ -1804,9 +1804,9 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 					}
 
 					/*
-					 * Stop evaluating the array elements once we reach a
-					 * matching value that can't change - ALL() is the same as
-					 * AND-list, ANY() is the same as OR-list.
+					 * 一旦到达一个不会再改变结果的匹配值，就停止
+					 * 对数组元素求值：ALL() 与 AND 列表相同，
+					 * ANY() 与 OR 列表相同。
 					 */
 					if (RESULT_IS_FINAL(match, expr->useOr))
 						break;
@@ -1819,7 +1819,7 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 					match = RESULT_MERGE(match, expr->useOr, elem_match);
 				}
 
-				/* update the match bitmap with the result */
+				/* 用结果更新匹配 bitmap */
 				matches[i] = RESULT_MERGE(matches[i], is_or, match);
 			}
 		}
@@ -1828,20 +1828,20 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 			NullTest   *expr = (NullTest *) clause;
 			Node	   *clause_expr = (Node *) (expr->arg);
 
-			/* match the attribute/expression to a dimension of the statistic */
+			/* 把属性或表达式匹配到统计的某个维度 */
 			int			idx = mcv_match_expression(clause_expr, keys, exprs, NULL);
 
 			/*
-			 * Walk through the MCV items and evaluate the current clause. We
-			 * can skip items that were already ruled out, and terminate if
-			 * there are no remaining MCV items that might possibly match.
+			 * 遍历 MCV 项并对当前子句求值。可以跳过
+			 * 已经被排除的项，若不再有可能匹配的
+			 * 剩余 MCV 项则终止。
 			 */
 			for (int i = 0; i < mcvlist->nitems; i++)
 			{
-				bool		match = false;	/* assume mismatch */
+				bool		match = false;	/* 假定不匹配 */
 				MCVItem    *item = &mcvlist->items[i];
 
-				/* if the clause mismatches the MCV item, update the bitmap */
+				/* 若该子句与 MCV 项不匹配，则更新 bitmap */
 				switch (expr->nulltesttype)
 				{
 					case IS_NULL:
@@ -1853,32 +1853,32 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 						break;
 				}
 
-				/* now, update the match bitmap, depending on OR/AND type */
+				/* 现在根据 OR/AND 类型更新匹配 bitmap */
 				matches[i] = RESULT_MERGE(matches[i], is_or, match);
 			}
 		}
 		else if (is_orclause(clause) || is_andclause(clause))
 		{
-			/* AND/OR clause, with all subclauses being compatible */
+			/* AND/OR 子句，所有子子句都兼容 */
 
 			int			i;
 			BoolExpr   *bool_clause = ((BoolExpr *) clause);
 			List	   *bool_clauses = bool_clause->args;
 
-			/* match/mismatch bitmap for each MCV item */
+			/* 每个 MCV 项的匹配/不匹配 bitmap */
 			bool	   *bool_matches = NULL;
 
 			Assert(bool_clauses != NIL);
 			Assert(list_length(bool_clauses) >= 2);
 
-			/* build the match bitmap for the OR-clauses */
+			/* 为 OR 子句构造匹配 bitmap */
 			bool_matches = mcv_get_match_bitmap(root, bool_clauses, keys, exprs,
 												mcvlist, is_orclause(clause));
 
 			/*
-			 * Merge the bitmap produced by mcv_get_match_bitmap into the
-			 * current one. We need to consider if we're evaluating AND or OR
-			 * condition when merging the results.
+			 * 把 mcv_get_match_bitmap 产生的 bitmap 合并进
+			 * 当前的 bitmap。合并结果时需要考虑正在求值的是
+			 * AND 还是 OR 条件。
 			 */
 			for (i = 0; i < mcvlist->nitems; i++)
 				matches[i] = RESULT_MERGE(matches[i], is_or, bool_matches[i]);
@@ -1887,26 +1887,26 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 		}
 		else if (is_notclause(clause))
 		{
-			/* NOT clause, with all subclauses compatible */
+			/* NOT 子句，所有子子句都兼容 */
 
 			int			i;
 			BoolExpr   *not_clause = ((BoolExpr *) clause);
 			List	   *not_args = not_clause->args;
 
-			/* match/mismatch bitmap for each MCV item */
+			/* 每个 MCV 项的匹配/不匹配 bitmap */
 			bool	   *not_matches = NULL;
 
 			Assert(not_args != NIL);
 			Assert(list_length(not_args) == 1);
 
-			/* build the match bitmap for the NOT-clause */
+			/* 为 NOT 子句构造匹配 bitmap */
 			not_matches = mcv_get_match_bitmap(root, not_args, keys, exprs,
 											   mcvlist, false);
 
 			/*
-			 * Merge the bitmap produced by mcv_get_match_bitmap into the
-			 * current one. We're handling a NOT clause, so invert the result
-			 * before merging it into the global bitmap.
+			 * 把 mcv_get_match_bitmap 产生的 bitmap 合并进
+			 * 当前的 bitmap。我们在处理 NOT 子句，因此在合并进
+			 * 全局 bitmap 之前先把结果取反。
 			 */
 			for (i = 0; i < mcvlist->nitems; i++)
 				matches[i] = RESULT_MERGE(matches[i], is_or, !not_matches[i]);
@@ -1915,55 +1915,55 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 		}
 		else if (IsA(clause, Var))
 		{
-			/* Var (has to be a boolean Var, possibly from below NOT) */
+			/* Var（必须是布尔 Var，可能来自下面的 NOT） */
 
 			Var		   *var = (Var *) (clause);
 
-			/* match the attribute to a dimension of the statistic */
+			/* 把属性匹配到统计的某个维度 */
 			int			idx = bms_member_index(keys, var->varattno);
 
 			Assert(var->vartype == BOOLOID);
 
 			/*
-			 * Walk through the MCV items and evaluate the current clause. We
-			 * can skip items that were already ruled out, and terminate if
-			 * there are no remaining MCV items that might possibly match.
+			 * 遍历 MCV 项并对当前子句求值。可以跳过
+			 * 已经被排除的项，若不再有可能匹配的
+			 * 剩余 MCV 项则终止。
 			 */
 			for (int i = 0; i < mcvlist->nitems; i++)
 			{
 				MCVItem    *item = &mcvlist->items[i];
 				bool		match = false;
 
-				/* if the item is NULL, it's a mismatch */
+				/* 若该项为 NULL，就是不匹配 */
 				if (!item->isnull[idx] && DatumGetBool(item->values[idx]))
 					match = true;
 
-				/* update the result bitmap */
+				/* 更新结果 bitmap */
 				matches[i] = RESULT_MERGE(matches[i], is_or, match);
 			}
 		}
 		else
 		{
-			/* Otherwise, it must be a bare boolean-returning expression */
+			/* 否则，它必须是一个返回布尔值的裸表达式 */
 			int			idx;
 
-			/* match the expression to a dimension of the statistic */
+			/* 把表达式匹配到统计的某个维度 */
 			idx = mcv_match_expression(clause, keys, exprs, NULL);
 
 			/*
-			 * Walk through the MCV items and evaluate the current clause. We
-			 * can skip items that were already ruled out, and terminate if
-			 * there are no remaining MCV items that might possibly match.
+			 * 遍历 MCV 项并对当前子句求值。可以跳过
+			 * 已经被排除的项，若不再有可能匹配的
+			 * 剩余 MCV 项则终止。
 			 */
 			for (int i = 0; i < mcvlist->nitems; i++)
 			{
 				bool		match;
 				MCVItem    *item = &mcvlist->items[i];
 
-				/* "match" just means it's bool TRUE */
+				/* "匹配"只表示它是布尔 TRUE */
 				match = !item->isnull[idx] && DatumGetBool(item->values[idx]);
 
-				/* now, update the match bitmap, depending on OR/AND type */
+				/* 现在根据 OR/AND 类型更新匹配 bitmap */
 				matches[i] = RESULT_MERGE(matches[i], is_or, match);
 			}
 		}
@@ -1975,36 +1975,36 @@ mcv_get_match_bitmap(PlannerInfo *root, List *clauses,
 
 /*
  * mcv_combine_selectivities
- * 		Combine per-column and multi-column MCV selectivity estimates.
+ * 		组合按列和多列 MCV 选择率估计。
  *
- * simple_sel is a "simple" selectivity estimate (produced without using any
- * extended statistics, essentially assuming independence of columns/clauses).
+ * simple_sel 是简单选择率估计（不使用任何
+ * 扩展统计信息，本质上假定列和子句相互独立）。
  *
- * mcv_sel and mcv_basesel are sums of the frequencies and base frequencies of
- * all matching MCV items.  The difference (mcv_sel - mcv_basesel) is then
- * essentially interpreted as a correction to be added to simple_sel, as
- * described below.
+ * mcv_sel 和 mcv_basesel 是所有匹配 MCV 项的频率与基频率之和。
+ * 差值（mcv_sel - mcv_basesel）随后
+ * 本质上被解释为要加到 simple_sel 上的修正，如下面
+ * 所述。
  *
- * mcv_totalsel is the sum of the frequencies of all MCV items (not just the
- * matching ones).  This is used as an upper bound on the portion of the
- * selectivity estimates not covered by the MCV statistics.
+ * mcv_totalsel 是所有 MCV 项（不只是
+ * 匹配的那些）的频率之和。它被用作 MCV 统计信息未覆盖的
+ * 那部分选择率估计的上界。
  *
- * Note: While simple and base selectivities are defined in a quite similar
- * way, the values are computed differently and are not therefore equal. The
- * simple selectivity is computed as a product of per-clause estimates, while
- * the base selectivity is computed by adding up base frequencies of matching
- * items of the multi-column MCV list. So the values may differ for two main
- * reasons - (a) the MCV list may not cover 100% of the data and (b) some of
- * the MCV items did not match the estimated clauses.
+ * 注意：虽然简单选择率和基选择率的定义方式相当相似，
+ * 但数值的计算方式不同，因此并不相等。
+ * 简单选择率是按子句估计的乘积，而
+ * 基选择率是把多列 MCV 列表中匹配
+ * 项的基频率加起来。因此这两个值可能因两个主要
+ * 原因而不同：（a）MCV 列表可能没有覆盖 100% 的数据，（b）有些
+ * MCV 项没有匹配被估计的子句。
  *
- * As both (a) and (b) reduce the base selectivity value, it generally holds
- * that (simple_sel >= mcv_basesel). If the MCV list covers all the data, the
- * values may be equal.
+ * 由于 (a) 和 (b) 都会降低基选择率的值，一般有
+ * (simple_sel >= mcv_basesel)。若 MCV 列表覆盖全部数据，
+ * 这两个值可能相等。
  *
- * So, other_sel = (simple_sel - mcv_basesel) is an estimate for the part not
- * covered by the MCV list, and (mcv_sel - mcv_basesel) may be seen as a
- * correction for the part covered by the MCV list. Those two statements are
- * actually equivalent.
+ * 因此，other_sel = (simple_sel - mcv_basesel) 是对 MCV 列表未
+ * 覆盖部分的估计，而 (mcv_sel - mcv_basesel) 可以看成对
+ * MCV 列表所覆盖部分的修正。这两个说法
+ * 实际上是等价的。
  */
 Selectivity
 mcv_combine_selectivities(Selectivity simple_sel,
@@ -2015,15 +2015,15 @@ mcv_combine_selectivities(Selectivity simple_sel,
 	Selectivity other_sel;
 	Selectivity sel;
 
-	/* estimated selectivity of values not covered by MCV matches */
+	/* MCV 匹配未覆盖的值的估计选择率 */
 	other_sel = simple_sel - mcv_basesel;
 	CLAMP_PROBABILITY(other_sel);
 
-	/* this non-MCV selectivity cannot exceed 1 - mcv_totalsel */
+	/* 这份非 MCV 选择率无法超过 1 - mcv_totalsel */
 	if (other_sel > 1.0 - mcv_totalsel)
 		other_sel = 1.0 - mcv_totalsel;
 
-	/* overall selectivity is the sum of the MCV and non-MCV parts */
+	/* 总选择率是 MCV 部分与非 MCV 部分之和 */
 	sel = mcv_sel + other_sel;
 	CLAMP_PROBABILITY(sel);
 
@@ -2033,20 +2033,20 @@ mcv_combine_selectivities(Selectivity simple_sel,
 
 /*
  * mcv_clauselist_selectivity
- *		Use MCV statistics to estimate the selectivity of an implicitly-ANDed
- *		list of clauses.
+ *		用 MCV 统计信息估计隐式 ANDed
+ *		子句列表的选择率。
  *
- * This determines which MCV items match every clause in the list and returns
- * the sum of the frequencies of those items.
+ * 这确定哪些 MCV 项匹配列表里的每个子句，并返回
+ * 那些项的频率之和。
  *
- * In addition, it returns the sum of the base frequencies of each of those
- * items (that is the sum of the selectivities that each item would have if
- * the columns were independent of one another), and the total selectivity of
- * all the MCV items (not just the matching ones).  These are expected to be
- * used together with a "simple" selectivity estimate (one based only on
- * per-column statistics) to produce an overall selectivity estimate that
- * makes use of both per-column and multi-column statistics --- see
- * mcv_combine_selectivities().
+ * 此外，它返回那些项各自的
+ * 基频率之和（也就是若各列彼此独立，
+ * 每个项本会有的选择率之和），以及所有
+ * MCV 项（不只是匹配的那些）的总选择率。
+ * 这些预期与一个简单选择率估计一起使用
+ * （只基于按列统计信息的那个），以产生同时利用
+ * 按列和多列统计信息的总选择率估计。见
+ * mcv_combine_selectivities()。
  */
 Selectivity
 mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
@@ -2060,17 +2060,17 @@ mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
 	Selectivity s = 0.0;
 	RangeTblEntry *rte = root->simple_rte_array[rel->relid];
 
-	/* match/mismatch bitmap for each MCV item */
+	/* 每个 MCV 项的匹配/不匹配 bitmap */
 	bool	   *matches = NULL;
 
-	/* load the MCV list stored in the statistics object */
+	/* 装载存放在统计对象里的 MCV 列表 */
 	mcv = statext_mcv_load(stat->statOid, rte->inh);
 
-	/* build a match bitmap for the clauses */
+	/* 为这些子句构造匹配 bitmap */
 	matches = mcv_get_match_bitmap(root, clauses, stat->keys, stat->exprs,
 								   mcv, false);
 
-	/* sum frequencies for all the matching MCV items */
+	/* 把所有匹配的 MCV 项的频率加总 */
 	*basesel = 0.0;
 	*totalsel = 0.0;
 	for (i = 0; i < mcv->nitems; i++)
@@ -2090,41 +2090,41 @@ mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
 
 /*
  * mcv_clause_selectivity_or
- *		Use MCV statistics to estimate the selectivity of a clause that
- *		appears in an ORed list of clauses.
+ *		用 MCV 统计信息估计出现在 ORed
+ *		子句列表里的一条子句的选择率。
  *
- * As with mcv_clauselist_selectivity() this determines which MCV items match
- * the clause and returns both the sum of the frequencies and the sum of the
- * base frequencies of those items, as well as the sum of the frequencies of
- * all MCV items (not just the matching ones) so that this information can be
- * used by mcv_combine_selectivities() to produce a selectivity estimate that
- * makes use of both per-column and multi-column statistics.
+ * 与 mcv_clauselist_selectivity() 一样，这确定哪些 MCV 项匹配
+ * 该子句，并返回那些项的频率之和与
+ * 基频率之和，以及所有 MCV 项（不只是匹配的那些）的
+ * 频率之和，以便 mcv_combine_selectivities() 能用这些信息
+ * 产生同时利用按列和多列统计信息的
+ * 选择率估计。
  *
- * Additionally, we return information to help compute the overall selectivity
- * of the ORed list of clauses assumed to contain this clause.  This function
- * is intended to be called for each clause in the ORed list of clauses,
- * allowing the overall selectivity to be computed using the following
- * algorithm:
+ * 此外，我们返回有助于计算假定包含该子句的 ORed 子句列表
+ * 总选择率的信息。本函数
+ * 打算对 ORed 子句列表里的每个子句调用，
+ * 从而可以用下面的
+ * 算法计算总选择率：
  *
- * Suppose P[n] = P(C[1] OR C[2] OR ... OR C[n]) is the combined selectivity
- * of the first n clauses in the list.  Then the combined selectivity taking
- * into account the next clause C[n+1] can be written as
+ * 设 P[n] = P(C[1] OR C[2] OR ... OR C[n]) 是列表中前 n 条
+ * 子句的组合选择率。那么计入下一条子句 C[n+1] 之后的
+ * 组合选择率可以写成：
  *
- *		P[n+1] = P[n] + P(C[n+1]) - P((C[1] OR ... OR C[n]) AND C[n+1])
+ *		P[n+1] = P[n] + P(C[n+1]) - P((C[1] OR ... OR C[n]) AND C[n+1])。
  *
- * The final term above represents the overlap between the clauses examined so
- * far and the (n+1)'th clause.  To estimate its selectivity, we track the
- * match bitmap for the ORed list of clauses examined so far and examine its
- * intersection with the match bitmap for the (n+1)'th clause.
+ * 上面最后一项表示迄今检查过的子句与
+ * 第 (n+1) 条子句之间的重叠。为了估计它的选择率，我们跟踪
+ * 迄今检查过的 ORed 子句列表的匹配 bitmap，并检查它与
+ * 第 (n+1) 条子句的匹配 bitmap 的交集。
  *
- * We then also return the sums of the MCV item frequencies and base
- * frequencies for the match bitmap intersection corresponding to the overlap
- * term above, so that they can be combined with a simple selectivity estimate
- * for that term.
+ * 然后我们还返回对应于上面那个重叠项的匹配 bitmap 交集的
+ * MCV 项频率之和与基
+ * 频率之和，以便它们能与该重叠项的简单选择率估计
+ * 组合起来。
  *
- * The parameter "or_matches" is an in/out parameter tracking the match bitmap
- * for the clauses examined so far.  The caller is expected to set it to NULL
- * the first time it calls this function.
+ * 参数 or_matches 是跟踪迄今检查过的子句的
+ * 匹配 bitmap 的输入/输出参数。调用者预期在
+ * 第一次调用本函数时把它设为 NULL。
  */
 Selectivity
 mcv_clause_selectivity_or(PlannerInfo *root, StatisticExtInfo *stat,
@@ -2136,18 +2136,18 @@ mcv_clause_selectivity_or(PlannerInfo *root, StatisticExtInfo *stat,
 	bool	   *new_matches;
 	int			i;
 
-	/* build the OR-matches bitmap, if not built already */
+	/* 若尚未构造，则构造 OR 匹配 bitmap */
 	if (*or_matches == NULL)
 		*or_matches = palloc0(sizeof(bool) * mcv->nitems);
 
-	/* build the match bitmap for the new clause */
+	/* 为新子句构造匹配 bitmap */
 	new_matches = mcv_get_match_bitmap(root, list_make1(clause), stat->keys,
 									   stat->exprs, mcv, false);
 
 	/*
-	 * Sum the frequencies for all the MCV items matching this clause and also
-	 * those matching the overlap between this clause and any of the preceding
-	 * clauses as described above.
+	 * 把匹配本子句的所有 MCV 项的频率加总，也把
+	 * 匹配本子句与前面任一子句之间重叠的那些项
+	 * 按上面所述加总。
 	 */
 	*basesel = 0.0;
 	*overlap_mcvsel = 0.0;
@@ -2169,7 +2169,7 @@ mcv_clause_selectivity_or(PlannerInfo *root, StatisticExtInfo *stat,
 			}
 		}
 
-		/* update the OR-matches bitmap for the next clause */
+		/* 为下一条子句更新 OR 匹配 bitmap */
 		(*or_matches)[i] = (*or_matches)[i] || new_matches[i];
 	}
 

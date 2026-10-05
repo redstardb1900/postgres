@@ -173,6 +173,32 @@ class FixedCases(unittest.TestCase):
         self.assertEqual(
             c_verify.protected_reason(b"/* fall through */"), "fallthrough")
 
+    def test_heapam_fallthrough_prose_is_translatable(self):
+        samples = [
+            (
+                b"/*\n"
+                b" * Reset these bits and restart; otherwise fall through to\n"
+                b" * create a new multi below.\n"
+                b" */\n"
+            ),
+            (
+                b"/*\n"
+                b" * otherwise we can fall through to lock this tuple\n"
+                b" * version without waiting.\n"
+                b" */\n"
+            ),
+            (
+                b"/*\n"
+                b" * we can fall through to allow the current\n"
+                b" * transaction to lock the tuple.\n"
+                b" */\n"
+            ),
+        ]
+        for old in samples:
+            self.assertIsNone(c_verify.protected_reason(old), old)
+        self.assertEqual(
+            c_verify.protected_reason(b"/* fall through */"), "fallthrough")
+
     def test_banner_fallthrough_prose_is_translatable(self):
         """File headers may document switch fall-through; not a GCC marker."""
         old = (

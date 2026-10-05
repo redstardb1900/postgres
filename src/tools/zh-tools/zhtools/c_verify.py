@@ -151,6 +151,18 @@ _TOAST_REWRITE_FALLTHROUGH_PROSE = re.compile(
 _DIRTY_XMAX_FALLTHROUGH_PROSE = re.compile(
     rb"shouldn't we fall through to look at xmax")
 
+# heapam.c control-flow prose (not switch annotations):
+# compute_new_xmax_infomask restarts via goto; the "fall through" branch
+# continues into MultiXactIdExpand below.
+_HEAPAM_MULTI_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to\s*\n\s*\*\s*create a new multi below")
+# test_lockmode_for_conflict: lock modes do not conflict, proceed to lock.
+_HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to lock this tuple\s*\n\s*\*\s*version without waiting")
+# same function: committed locker/updater with non-conflicting modes.
+_HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE = re.compile(
+    rb"fall through to allow the current\s*\n\s*\*\s*transaction to lock the tuple")
+
 
 def legal_protected_segments(old_text):
     """Return Copyright/IDENTIFICATION/licence line blobs that must survive.
@@ -219,7 +231,10 @@ def protected_reason(old_text):
                     or _FSM_FALLTHROUGH_PROSE.search(old_text)
                     or _FILEZERO_FALLTHROUGH_PROSE.search(old_text)
                     or _TOAST_REWRITE_FALLTHROUGH_PROSE.search(old_text)
-                    or _DIRTY_XMAX_FALLTHROUGH_PROSE.search(old_text)):
+                    or _DIRTY_XMAX_FALLTHROUGH_PROSE.search(old_text)
+                    or _HEAPAM_MULTI_FALLTHROUGH_PROSE.search(old_text)
+                    or _HEAPAM_LOCK_NOWAIT_FALLTHROUGH_PROSE.search(old_text)
+                    or _HEAPAM_LOCK_ALLOW_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

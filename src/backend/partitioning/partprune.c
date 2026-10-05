@@ -262,7 +262,7 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 			 * 沿途收集父关系的 relid；但若到达
 			 * parentrel 就停止。（通常，pathrel 最顶层的已分区父关系
 			 * 要么是 parentrel，要么是 parentrel 的一个 UNION ALL 追加关系孩子。
-			 * 但在处理多层分区树的分区智能连接时，
+			 * 但在处理多层分区树的分区连接时，
 			 * 我们可能看到一条追加路径，其
 			 * parentrel 是中间的已分区表。）
 			 */

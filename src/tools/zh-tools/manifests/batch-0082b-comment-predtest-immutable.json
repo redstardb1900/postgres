@@ -1,0 +1,65 @@
+{
+ "schema_version": 1,
+ "batch_id": "0082b-comment-predtest-immutable",
+ "title": "zh: fix predtest immutable polarity",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5fb82f9f7e4b9c7c01046ac88478c8343421d918",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "note": "immutable polarity and BT table layout"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0082b-comment-predtest-immutable.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 215,
+   "translated": 210,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent predicate_implied_by_recurse",
+    "pgindent predicate_refuted_by_recurse",
+    "pgindent predicate_implied_by_simple_clause",
+    "pgindent predicate_refuted_by_simple_clause"
+   ],
+   "note": "immutable polarity and BT table layout"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0082b-comment-predtest-immutable.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0082b fixes the immutable polarity in predtest.c clause_is_strict_for, and aligns the btree implication table comment."
+}

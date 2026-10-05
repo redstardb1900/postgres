@@ -1390,7 +1390,7 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
 	/*
 	 * 若操作符或函数严格，则只要任一输入被 subexpr
 	 * 迫使为 NULL，就保证结果为 NULL。即使该操作符或
-	 * 函数不可变也没关系，因为 NULL 输入上根本不会调用它。
+	 * 函数并非不可变也没关系，因为 NULL 输入上根本不会调用它。
 	 */
 	if (is_opclause(clause) &&
 		op_strict(((OpExpr *) clause)->opno))
@@ -1524,16 +1524,16 @@ clause_is_strict_for(Node *clause, Node *subexpr, bool allow_false)
  *
  * 当两个子表达式相同时，使用 BT_implies_table[] 与 BT_refutes_table[]，
  * 用来判断一个操作符表达式是否蕴含或反驳另一个。
- * 若子句是 EXPR1 clause_op EXPR2，
- * 谓词是同一对不可变子表达式上的 EXPR1 pred_op EXPR2，则：
- * BT_implies_table[clause_op-1][pred_op-1]
- *		在子句蕴含谓词时为真。
- *			BT_refutes_table[clause_op-1][pred_op-1]
- *		在子句反驳谓词时为真。
- *			其中 clause_op 与 pred_op 是同一 btree 操作符族里
- * 从 1 到 6 的策略号。
- * 例如 x < y 蕴含 x <= y，
- * 并反驳 x > y。
+ * 也就是，若子句是 EXPR1 clause_op EXPR2，
+ * 谓词是同一对不可变子表达式上的 EXPR1 pred_op EXPR2：
+ * 对这两个相同的不可变子表达式：
+ *		BT_implies_table[clause_op-1][pred_op-1]
+ *			在子句蕴含谓词时为真。
+ *		BT_refutes_table[clause_op-1][pred_op-1]
+ *			在子句反驳谓词时为真。
+ * 其中 clause_op 与 pred_op 是同一 btree 操作符族里从 1 到 6 的策略号。
+ * 例如 x < y 蕴含 x <= y，并反驳
+ * x > y。
  *
  * 有两个需要比较的常量时，使用 BT_implic_table[] 和 BT_refute_table[]。
  * 其含义是：
@@ -1986,7 +1986,7 @@ typedef struct OprProofCacheKey
 
 typedef struct OprProofCacheEntry
 {
-	/* 散列查找键必须放在 FIRST */
+	/* 散列查找键必须排在结构最前（MUST BE FIRST） */
 	OprProofCacheKey key;
 
 	bool		have_implic;	/* 我们知道蕴含结果吗？ */

@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0095-comment-rewrite-handler",
+ "title": "zh: translate rewriteHandler comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "fc7d60bc610b85a86fd43a30a9d4a88b04d26ac2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "note": "query rewriter and row security"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0095-comment-rewrite-handler.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 285,
+   "translated": 280,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "query rewriter and row security"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0095-comment-rewrite-handler.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0095 translates src/backend/rewrite/rewriteHandler.c."
+}

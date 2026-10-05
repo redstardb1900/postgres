@@ -1,0 +1,108 @@
+{
+ "schema_version": 1,
+ "batch_id": "0102b-comment-bufmgr-invalidate-wait",
+ "title": "zh: translate InvalidateBuffer wait comment",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "18d362809e259575939ce99b5221ad4ec2fb921c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "note": "InvalidateBuffer wait comment"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "note": "drop redundant BEFORE; refcount 计数表示"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "WaitIO fall-through prose is not a switch annotation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "note": "WaitIO prose stays translatable; switch fall-through stays protected"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0102b-comment-bufmgr-invalidate-wait.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 469,
+   "translated": 468,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "InvalidateBuffer wait comment"
+  },
+  {
+   "path": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "drop redundant BEFORE; refcount 计数表示"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "WaitIO fall-through prose is not a switch annotation"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "WaitIO prose stays translatable; switch fall-through stays protected"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0102b-comment-bufmgr-invalidate-wait.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0102b translates the InvalidateBuffer wait comment in bufmgr.c. WaitIO will fall through is functional prose, not a switch annotation, so it counts as translated and is no longer preserved as fall-through. Also drops the redundant BEFORE gloss and says 计数表示 for refcount in buf_init.c."
+}

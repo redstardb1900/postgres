@@ -108,9 +108,18 @@ class FileResult(object):
         }
 
 
+# WaitIO "will fall through" is prose: the waiter returns immediately because
+# StartBufferIO has not begun.  It is not a switch annotation, and GCC
+# -Wimplicit-fallthrough does not consult it.  Real fall-through comments stay
+# protected.
+_WAITIO_FALLTHROUGH_PROSE = re.compile(rb"WaitIO will fall through")
+
+
 def protected_reason(old_text):
     for name, rx in _PROTECT_RULES:
         if rx.search(old_text):
+            if name == "fallthrough" and _WAITIO_FALLTHROUGH_PROSE.search(old_text):
+                continue
             return name
     return None
 

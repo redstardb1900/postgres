@@ -66,6 +66,31 @@ class FixedCases(unittest.TestCase):
         self.assertIn("fallthrough", reasons)
         self.assertIn("pg_attribute", reasons)
 
+    def test_waitio_fallthrough_prose_is_translatable(self):
+        old = (
+            "/*\n"
+            " * Note that if the other guy has pinned the buffer but not\n"
+            " * yet done StartBufferIO, WaitIO will fall through and we'll\n"
+            " * be busy-looping here.\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        new = (
+            "/*\n"
+            " * 注意，若对方已经钉住该缓冲区，但尚未\n"
+            " * 调用 StartBufferIO，WaitIO 会直接返回，我们\n"
+            " * 会在这里忙等。\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        comment = c_lexer.lex(old).comments[0].text
+        self.assertIsNone(c_verify.protected_reason(comment))
+        res = c_verify.compare_files(old, new, path="waitio-prose")
+        self.assertEqual(res.violations, [],
+                         [f.to_dict() for f in res.violations])
+        marker = b"/* FALLTHROUGH */\n"
+        self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
+
     def test_no_strict_lines_demotes_rule6(self):
         old = b"/* one two */\nint a;\n"
         new = b"/* \xe4\xb8\x80\n * \xe4\xba\x8c */\nint a;\n"

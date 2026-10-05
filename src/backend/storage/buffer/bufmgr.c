@@ -1459,13 +1459,13 @@ retry:
 	}
 
 	/*
-	 * We assume the only reason for it to be pinned is that someone else is
-	 * flushing the page out.  Wait for them to finish.  (This could be an
-	 * infinite loop if the refcount is messed up... it would be nice to time
-	 * out after awhile, but there seems no way to be sure how many loops may
-	 * be needed.  Note that if the other guy has pinned the buffer but not
-	 * yet done StartBufferIO, WaitIO will fall through and we'll effectively
-	 * be busy-looping here.)
+	 * 我们假定它仍被钉住的唯一原因是别人正在
+	 * 把该页刷出。等待其完成。（若 refcount 搞乱，
+	 * 这可能死循环……过一会儿超时会好一些，但似乎
+	 * 没法确定需要多少次循环。注意，若对方已经钉住
+	 * 该缓冲区，但尚未调用 StartBufferIO，
+	 * WaitIO 会直接返回，我们实际上
+	 * 会在这里忙等。）
 	 */
 	if (BUF_STATE_GET_REFCOUNT(buf_state) != 0)
 	{

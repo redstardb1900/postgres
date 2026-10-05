@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * setrefs.c
- *	  Post-processing of a completed plan tree: fix references to subplan
- *	  vars, compute regproc values for operators, etc
+ *	  对已完成的计划树做后处理：修正对子计划
+ *	  var 的引用，计算操作符的 regproc 值，等等
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

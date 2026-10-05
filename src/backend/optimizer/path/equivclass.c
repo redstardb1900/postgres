@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * equivclass.c
- *	  Routines for managing EquivalenceClasses
+ *	  管理 EquivalenceClasses 的例程
  *
- * See src/backend/optimizer/README for discussion of EquivalenceClasses.
+ * 关于 EquivalenceClasses 的讨论，见 src/backend/optimizer/README。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,22 +1,22 @@
 /*-------------------------------------------------------------------------
  *
  * prepqual.c
- *	  Routines for preprocessing qualification expressions
+ *	  预处理限定表达式的例程
  *
  *
- * While the parser will produce flattened (N-argument) AND/OR trees from
- * simple sequences of AND'ed or OR'ed clauses, there might be an AND clause
- * directly underneath another AND, or OR underneath OR, if the input was
- * oddly parenthesized.  Also, rule expansion and subquery flattening could
- * produce such parsetrees.  The planner wants to flatten all such cases
- * to ensure consistent optimization behavior.
+ * 解析器会从简单的 AND 或 OR 连接的子句序列产生
+ * 平坦的（N 元）AND/OR 树，但若输入的括号不寻常，
+ * 仍可能有一个 AND 子句直接位于另一个 AND 之下，或 OR 位于 OR 之下。
+ * 规则展开和子查询展平也可能产生这种语法分析树。规划器希望
+ * 把所有这些情况都展平，
+ * 以保证规划行为一致。
  *
- * Formerly, this module was responsible for doing the initial flattening,
- * but now we leave it to eval_const_expressions to do that since it has to
- * make a complete pass over the expression tree anyway.  Instead, we just
- * have to ensure that our manipulations preserve AND/OR flatness.
- * pull_ands() and pull_ors() are used to maintain flatness of the AND/OR
- * tree after local transformations that might introduce nested AND/ORs.
+ * 以前，本模块负责做最初的展平，
+ * 但现在交给 eval_const_expressions 来做，因为它反正要对
+ * 表达式树做完整的一遍扫描。现在我们只需要
+ * 确保自己的操作保持 AND/OR 的平坦性。
+ * pull_ands() 与 pull_ors() 用来在局部变换之后维持 AND/OR
+ * 树的平坦性，这些变换可能会引入嵌套的 AND/OR。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

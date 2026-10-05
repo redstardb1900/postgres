@@ -1,28 +1,28 @@
 /*-------------------------------------------------------------------------
  *
  * preptlist.c
- *	  Routines to preprocess the parse tree target list
+ *	  预处理语法分析树目标列表的例程
  *
- * For an INSERT, the targetlist must contain an entry for each attribute of
- * the target relation in the correct order.
+ * 对于 INSERT，目标列表必须按正确顺序包含目标关系
+ * 每个属性的一项。
  *
- * For an UPDATE, the targetlist just contains the expressions for the new
- * column values.
+ * 对于 UPDATE，目标列表只包含新列值的
+ * 表达式。
  *
- * For UPDATE and DELETE queries, the targetlist must also contain "junk"
- * tlist entries needed to allow the executor to identify the rows to be
- * updated or deleted; for example, the ctid of a heap row.  (The planner
- * adds these; they're not in what we receive from the parser/rewriter.)
+ * 对于 UPDATE 与 DELETE 查询，目标列表还必须包含 "junk" 废列
+ * 目标列表项，以便执行器识别要被
+ * 更新或删除的行；例如堆行的 ctid。（规划器
+ * 会加上这些；它们并不在我们从解析器/重写器收到的内容里。）
  *
- * For all query types, there can be additional junk tlist entries, such as
- * sort keys, Vars needed for a RETURNING list, and row ID information needed
- * for SELECT FOR UPDATE locking and/or EvalPlanQual checking.
+ * 对所有查询类型，还可能有额外的 junk 废列目标列表项，例如
+ * 排序键、RETURNING 列表需要的 Var，以及
+ * SELECT FOR UPDATE 锁定和/或 EvalPlanQual 检查需要的行标识信息。
  *
- * The query rewrite phase also does preprocessing of the targetlist (see
- * rewriteTargetListIU).  The division of labor between here and there is
- * partially historical, but it's not entirely arbitrary.  The stuff done
- * here is closely connected to physical access to tables, whereas the
- * rewriter's work is more concerned with SQL semantics.
+ * 查询重写阶段也会预处理目标列表（见
+ * rewriteTargetListIU）。这里与那里的分工
+ * 有一部分是历史原因，但并不完全任意。这里做的事情
+ * 与对表的物理访问紧密相关，而
+ * 重写器的工作更关心 SQL 语义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

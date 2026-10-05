@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * value.c
- *	  implementation of value nodes
+ *	  value 节点的实现
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group

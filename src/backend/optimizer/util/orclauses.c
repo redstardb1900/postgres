@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * orclauses.c
- *	  Routines to extract restriction OR clauses from join OR clauses
+ *	  从连接 OR 子句中提取限制 OR 子句的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

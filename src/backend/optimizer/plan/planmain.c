@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * planmain.c
- *	  Routines to plan a single query
+ *	  规划单个查询的例程
  *
- * What's in a name, anyway?  The top-level entry point of the planner/
- * optimizer is over in planner.c, not here as you might think from the
- * file name.  But this is the main code for planning a basic join operation,
- * shorn of features like subselects, inheritance, aggregates, grouping,
- * and so on.  (Those are the things planner.c deals with.)
+ * 名字说明不了什么。规划器的顶层入口在
+ * planner.c，并不是看了文件名就会以为的这里。但这里是
+ * 规划基本连接操作的主要代码，去掉了子查询、继承、聚合、分组
+ * 之类的特性。
+ * （那些是 planner.c 处理的事情。）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

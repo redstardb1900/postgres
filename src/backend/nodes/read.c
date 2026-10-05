@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * read.c
- *	  routines to convert a string (legal ascii representation of node) back
- *	  to nodes
+ *	  把字符串（节点的合法 ASCII 表示）转换回
+ *	  节点的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,7 +13,7 @@
  *
  * HISTORY
  *	  AUTHOR			DATE			MAJOR EVENT
- *	  Andrew Yu			Nov 2, 1994		file creation
+ *	  Andrew Yu			Nov 2, 1994		创建本文件
  *
  *-------------------------------------------------------------------------
  */

@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * prepunion.c
- *	  Routines to plan set-operation queries.  The filename is a leftover
- *	  from a time when only UNIONs were implemented.
+ *	  规划集合运算查询的例程。文件名是遗留的，
+ *	  来自当年只实现了 UNIONs 的时候。
  *
- * There are two code paths in the planner for set-operation queries.
- * If a subquery consists entirely of simple UNION ALL operations, it
- * is converted into an "append relation".  Otherwise, it is handled
- * by the general code in this module (plan_set_operations and its
- * subroutines).  There is some support code here for the append-relation
- * case, but most of the heavy lifting for that is done elsewhere,
- * notably in prepjointree.c and allpaths.c.
+ * 规划器里集合运算查询有两条代码路径。
+ * 若子查询完全由简单的 UNION ALL 运算组成，就
+ * 把它转换成 "append 关系"。否则，由本模块的一般代码
+ * （plan_set_operations 及其
+ * 子例程）处理。这里有一些支持 append 关系
+ * 情形的代码，但大部分重活在别处完成，
+ * 尤其是 prepjointree.c 与 allpaths.c。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

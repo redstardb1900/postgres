@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * readfuncs.c
- *	  Reader functions for Postgres tree nodes.
+ *	  Postgres 树节点的读取函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,16 +11,16 @@
  *	  src/backend/nodes/readfuncs.c
  *
  * NOTES
- *	  Parse location fields are written out by outfuncs.c, but only for
- *	  debugging use.  When reading a location field, we normally discard
- *	  the stored value and set the location field to -1 (ie, "unknown").
- *	  This is because nodes coming from a stored rule should not be thought
- *	  to have a known location in the current query's text.
+ *	  语法分析位置字段由 outfuncs.c 写出，但只供
+ *	  调试使用。读取位置字段时，我们通常丢弃
+ *	  所存的值，并把位置字段设为 -1（即 "unknown"）。
+ *	  这是因为来自已存储规则的节点不应被视为
+ *	  在当前查询文本中具有已知位置。
  *
- *	  However, if restore_location_fields is true, we do restore location
- *	  fields from the string.  This is currently intended only for use by the
- *	  WRITE_READ_PARSE_PLAN_TREES test code, which doesn't want to cause
- *	  any change in the node contents.
+ *	  不过，若 restore_location_fields 为真，我们就从字符串中
+ *	  恢复位置字段。目前这只打算给
+ *	  WRITE_READ_PARSE_PLAN_TREES 测试代码使用，它不希望引起
+ *	  节点内容的任何变化。
  *
  *-------------------------------------------------------------------------
  */

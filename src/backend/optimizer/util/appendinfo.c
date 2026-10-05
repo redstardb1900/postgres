@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * appendinfo.c
- *	  Routines for mapping between append parent(s) and children
+ *	  在 append parent(s) 与子关系之间做映射的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

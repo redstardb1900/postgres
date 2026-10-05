@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * joinpath.c
- *	  Routines to find all possible paths for processing a set of joins
+ *	  为处理一组连接寻找全部可能路径的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,20 +1,20 @@
 /*-------------------------------------------------------------------------
  *
  * planagg.c
- *	  Special planning for aggregate queries.
+ *	  聚合查询的专门规划。
  *
- * This module tries to replace MIN/MAX aggregate functions by subqueries
- * of the form
+ * 本模块试图用子查询替换 MIN/MAX 聚合函数，
+ * 其形式为
  *		(SELECT col FROM tab
- *		 WHERE col IS NOT NULL AND existing-quals
+ *		 WHERE col IS NOT NULL AND 已有限定条件
  *		 ORDER BY col ASC/DESC
  *		 LIMIT 1)
- * Given a suitable index on tab.col, this can be much faster than the
- * generic scan-all-the-rows aggregation plan.  We can handle multiple
- * MIN/MAX aggregates by generating multiple subqueries, and their
- * orderings can be different.  However, if the query contains any
- * non-optimizable aggregates, there's no point since we'll have to
- * scan all the rows anyway.
+ * 若 tab.col 上有合适的索引，这可以比
+ * 通用的扫描全部行的聚合计划快得多。我们可以处理多个
+ * MIN/MAX 聚合，办法是生成多个子查询，而且它们的
+ * 排序可以不同。不过，若查询含有任何
+ * 不能这样规划的聚合，就没有意义了，因为我们反正得
+ * 把所有行都扫描一遍。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

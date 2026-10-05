@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * subselect.c
- *	  Planning routines for subselects.
+ *	  子查询的规划例程。
  *
- * This module deals with SubLinks and CTEs, but not subquery RTEs (i.e.,
- * not sub-SELECT-in-FROM cases).
+ * 本模块处理 SubLinks 与 CTEs，但不处理子查询 RTEs（也就是
+ * 不处理 FROM 中的子 SELECT）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------
  *
  * geqo_eval.c
- *	  Routines to evaluate query trees
+ *	  对查询树求值的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

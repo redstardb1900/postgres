@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * prepjointree.c
- *	  Planner preprocessing for subqueries and join tree manipulation.
+ *	  规划器对子查询的预处理，以及连接树操作。
  *
- * NOTE: the intended sequence for invoking these operations is
+ * 说明：调用这些操作的预定顺序是
  *		replace_empty_jointree
  *		pull_up_sublinks
  *		preprocess_function_rtes
  *		pull_up_subqueries
  *		flatten_simple_union_all
- *		do expression preprocessing (including flattening JOIN alias vars)
+ *		做表达式预处理（包括展平 JOIN 别名 Var）
  *		reduce_outer_joins
  *		remove_useless_result_rtes
  *

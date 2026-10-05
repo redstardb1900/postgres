@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * allpaths.c
- *	  Routines to find possible search paths for processing a query
+ *	  为处理查询寻找可能搜索路径的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

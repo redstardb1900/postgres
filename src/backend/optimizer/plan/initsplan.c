@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * initsplan.c
- *	  Target list, qualification, joininfo initialization routines
+ *	  目标列表、限定条件与 joininfo 的初始化例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

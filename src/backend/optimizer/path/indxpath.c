@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * indxpath.c
- *	  Routines to determine which indexes are usable for scanning a
- *	  given relation, and create Paths accordingly.
+ *	  判断哪些索引可用于扫描给定
+ *	  关系，并据此创建 Path 的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

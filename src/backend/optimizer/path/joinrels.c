@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * joinrels.c
- *	  Routines to determine which relations should be joined
+ *	  判断哪些关系应当连接起来的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

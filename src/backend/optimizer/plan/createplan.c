@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * createplan.c
- *	  Routines to create the desired plan for processing a query.
- *	  Planning is complete, we just need to convert the selected
- *	  Path into a Plan.
+ *	  创建用于处理查询的目标计划的例程。
+ *	  规划已经完成，只需把选中的
+ *	  Path 转换成 Plan。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pathnode.c
- *	  Routines to manipulate pathlists and create path nodes
+ *	  操作路径列表并创建路径节点的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * clauses.c
- *	  routines to manipulate qualification clauses
+ *	  操作限定子句的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,7 +12,7 @@
  *
  * HISTORY
  *	  AUTHOR			DATE			MAJOR EVENT
- *	  Andrew Yu			Nov 3, 1994		clause.c and clauses.c combined
+ *	  Andrew Yu			Nov 3, 1994		合并 clause.c 与 clauses.c
  *
  *-------------------------------------------------------------------------
  */

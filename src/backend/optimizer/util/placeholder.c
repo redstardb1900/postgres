@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * placeholder.c
- *	  PlaceHolderVar and PlaceHolderInfo manipulation routines
+ *	  操作 PlaceHolderVar 与 PlaceHolderInfo 的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,63 +1,63 @@
 /*-------------------------------------------------------------------------
  *
  * costsize.c
- *	  Routines to compute (and set) relation sizes and path costs
+ *	  计算（并设置）关系大小与路径代价的例程
  *
- * Path costs are measured in arbitrary units established by these basic
- * parameters:
+ * 路径代价用任意单位度量，这些单位由下列基本
+ * 参数确立：
  *
- *	seq_page_cost		Cost of a sequential page fetch
- *	random_page_cost	Cost of a non-sequential page fetch
- *	cpu_tuple_cost		Cost of typical CPU time to process a tuple
- *	cpu_index_tuple_cost  Cost of typical CPU time to process an index tuple
- *	cpu_operator_cost	Cost of CPU time to execute an operator or function
- *	parallel_tuple_cost Cost of CPU time to pass a tuple from worker to leader backend
- *	parallel_setup_cost Cost of setting up shared memory for parallelism
+ *	seq_page_cost		顺序读取一页的代价
+ *	random_page_cost	非顺序读取一页的代价
+ *	cpu_tuple_cost		处理一个元组的典型 CPU 时间代价
+ *	cpu_index_tuple_cost  处理一个索引元组的典型 CPU 时间代价
+ *	cpu_operator_cost	执行一个操作符或函数的 CPU 时间代价
+ *	parallel_tuple_cost 把一个元组从工作进程传给领导进程的 CPU 时间代价
+ *	parallel_setup_cost 为并行设置共享内存的代价
  *
- * We expect that the kernel will typically do some amount of read-ahead
- * optimization; this in conjunction with seek costs means that seq_page_cost
- * is normally considerably less than random_page_cost.  (However, if the
- * database is fully cached in RAM, it is reasonable to set them equal.)
+ * 我们预期内核通常会做一定程度的预读
+ * 优化；再加上寻道代价，这意味着 seq_page_cost
+ * 通常远小于 random_page_cost。（不过，若
+ * 数据库已完全缓存在内存中，把二者设成相等是合理的。）
  *
- * We also use a rough estimate "effective_cache_size" of the number of
- * disk pages in Postgres + OS-level disk cache.  (We can't simply use
- * NBuffers for this purpose because that would ignore the effects of
- * the kernel's disk cache.)
+ * 我们还用粗略估计 "effective_cache_size" 表示
+ * Postgres 与操作系统级磁盘缓存中的磁盘页数。（不能简单地用
+ * NBuffers 来充当，因为那会忽略
+ * 内核磁盘缓存的影响。）
  *
- * Obviously, taking constants for these values is an oversimplification,
- * but it's tough enough to get any useful estimates even at this level of
- * detail.  Note that all of these parameters are user-settable, in case
- * the default values are drastically off for a particular platform.
+ * 显然，把这些值取成常量是一种过度简化，
+ * 但即便在这个细节层次上，要得到有用的估计也已经
+ * 够难了。注意这些参数都可以由用户设置，以防
+ * 默认值对某个特定平台严重偏离。
  *
- * seq_page_cost and random_page_cost can also be overridden for an individual
- * tablespace, in case some data is on a fast disk and other data is on a slow
- * disk.  Per-tablespace overrides never apply to temporary work files such as
- * an external sort or a materialize node that overflows work_mem.
+ * 也可以为单个表空间覆盖 seq_page_cost 与 random_page_cost，
+ * 以防有的数据在快速磁盘上，有的数据在慢速
+ * 磁盘上。按表空间的覆盖从不应用于临时工作文件，例如
+ * 外部排序，或溢出 work_mem 的物化节点。
  *
- * We compute two separate costs for each path:
- *		total_cost: total estimated cost to fetch all tuples
- *		startup_cost: cost that is expended before first tuple is fetched
- * In some scenarios, such as when there is a LIMIT or we are implementing
- * an EXISTS(...) sub-select, it is not necessary to fetch all tuples of the
- * path's result.  A caller can estimate the cost of fetching a partial
- * result by interpolating between startup_cost and total_cost.  In detail:
+ * 我们为每条路径计算两种代价：
+ *		total_cost：取出全部元组的总估计代价
+ *		startup_cost：取出第一个元组之前付出的代价
+ * 在某些情形下，例如存在 LIMIT，或我们正在实现
+ * EXISTS(...) 子查询时，不必取出该路径结果的全部元组。
+ * 调用者可以估计取出部分结果的代价，办法是在 startup_cost 与
+ * total_cost 之间插值。具体而言：
  *		actual_cost = startup_cost +
  *			(total_cost - startup_cost) * tuples_to_fetch / path->rows;
- * Note that a base relation's rows count (and, by extension, plan_rows for
- * plan nodes below the LIMIT node) are set without regard to any LIMIT, so
- * that this equation works properly.  (Note: while path->rows is never zero
- * for ordinary relations, it is zero for paths for provably-empty relations,
- * so beware of division-by-zero.)	The LIMIT is applied as a top-level
- * plan node.
+ * 注意，基关系的行数（进而 LIMIT 节点之下计划节点的 plan_rows）
+ * 在设置时不考虑任何 LIMIT，这样
+ * 这个等式才能成立。（注意：普通关系的 path->rows 从不为零，
+ * 但可证明为空的关系，其路径上该值为零，
+ * 因此要当心除以零。）LIMIT 作为顶层
+ * 计划节点施加。
  *
- * For largely historical reasons, most of the routines in this module use
- * the passed result Path only to store their results (rows, startup_cost and
- * total_cost) into.  All the input data they need is passed as separate
- * parameters, even though much of it could be extracted from the Path.
- * An exception is made for the cost_XXXjoin() routines, which expect all
- * the other fields of the passed XXXPath to be filled in, and similarly
- * cost_index() assumes the passed IndexPath is valid except for its output
- * values.
+ * 主要出于历史原因，本模块的大多数例程只用
+ * 传入的结果 Path 来存放结果（rows、startup_cost 与
+ * total_cost）。它们需要的全部输入数据都作为单独的
+ * 参数传入，尽管其中很多可以从 Path 里取出。
+ * cost_XXXjoin() 例程是例外，它们期望传入的 XXXPath 的
+ * 其他字段都已填好；类似地，
+ * cost_index() 假定传入的 IndexPath 除输出
+ * 值之外都是有效的。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

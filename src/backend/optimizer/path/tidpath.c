@@ -1,31 +1,31 @@
 /*-------------------------------------------------------------------------
  *
  * tidpath.c
- *	  Routines to determine which TID conditions are usable for scanning
- *	  a given relation, and create TidPaths and TidRangePaths accordingly.
+ *	  判断哪些 TID 条件可用于扫描
+ *	  给定关系，并据此创建 TidPaths 与 TidRangePaths 的例程。
  *
- * For TidPaths, we look for WHERE conditions of the form
- * "CTID = pseudoconstant", which can be implemented by just fetching
- * the tuple directly via heap_fetch().  We can also handle OR'd conditions
- * such as (CTID = const1) OR (CTID = const2), as well as ScalarArrayOpExpr
- * conditions of the form CTID = ANY(pseudoconstant_array).  In particular
- * this allows
+ * 对于 TidPaths，我们寻找形如
+ * "CTID = 伪常量" 的 WHERE 条件，这只需通过 heap_fetch()
+ * 直接取出元组即可实现。我们也能处理用 OR 连起来的条件，
+ * 例如 (CTID = const1) OR (CTID = const2)，以及形如
+ * CTID = ANY(pseudoconstant_array) 的 ScalarArrayOpExpr 条件。尤其是
+ * 这允许
  *		WHERE ctid IN (tid1, tid2, ...)
  *
- * As with indexscans, our definition of "pseudoconstant" is pretty liberal:
- * we allow anything that doesn't involve a volatile function or a Var of
- * the relation under consideration.  Vars belonging to other relations of
- * the query are allowed, giving rise to parameterized TID scans.
+ * 和索引扫描一样，我们对 "伪常量" 的定义相当宽松：
+ * 只要不涉及 volatile 函数，也不涉及所考虑关系的 Var，
+ * 我们都允许。属于该查询中其他关系的 Var 是允许的，
+ * 由此产生参数化的 TID 扫描。
  *
- * We also support "WHERE CURRENT OF cursor" conditions (CurrentOfExpr),
- * which amount to "CTID = run-time-determined-TID".  These could in
- * theory be translated to a simple comparison of CTID to the result of
- * a function, but in practice it works better to keep the special node
- * representation all the way through to execution.
+ * 我们也支持 "WHERE CURRENT OF cursor" 条件（CurrentOfExpr），
+ * 它相当于 "CTID = 运行时才能确定的 TID"。理论上
+ * 可以把这翻译成把 CTID 与某个函数的结果做简单比较，
+ * 但实践中更好的做法是把这种特殊节点表示
+ * 一直保留到执行。
  *
- * Additionally, TidRangePaths may be created for conditions of the form
- * "CTID relop pseudoconstant", where relop is one of >,>=,<,<=, and
- * AND-clauses composed of such conditions.
+ * 此外，对于形如
+ * "CTID relop 伪常量" 的条件也可以创建 TidRangePaths，其中 relop 是 >、>=、<、<= 之一，以及
+ * 由这类条件组成的 AND 子句。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

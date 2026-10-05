@@ -1,15 +1,15 @@
 /*-------------------------------------------------------------------------
  *
  * analyzejoins.c
- *	  Routines for simplifying joins after initial query analysis
+ *	  初步查询分析之后简化连接的例程
  *
- * While we do a great deal of join simplification in prep/prepjointree.c,
- * certain optimizations cannot be performed at that stage for lack of
- * detailed information about the query.  The routines here are invoked
- * after initsplan.c has done its work, and can do additional join removal
- * and simplification steps based on the information extracted.  The penalty
- * is that we have to work harder to clean up after ourselves when we modify
- * the query, since the derived data structures have to be updated too.
+ * 虽然我们在 prep/prepjointree.c 里做了大量连接简化，
+ * 某些步骤在那个阶段无法进行，因为缺少
+ * 关于查询的详细信息。这里的例程在
+ * initsplan.c 完成工作之后被调用，并能根据提取出的信息做额外的连接移除
+ * 与简化。代价是
+ * 我们修改查询之后必须更费力地收拾现场，
+ * 因为派生的数据结构也必须更新。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

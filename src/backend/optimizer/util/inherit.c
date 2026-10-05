@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * inherit.c
- *	  Routines to process child relations in inheritance trees
+ *	  处理继承树中子关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

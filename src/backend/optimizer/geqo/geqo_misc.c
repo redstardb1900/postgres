@@ -1,7 +1,7 @@
 /*------------------------------------------------------------------------
  *
  * geqo_misc.c
- *	   misc. printout and debug stuff
+ *	   杂项打印与调试代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

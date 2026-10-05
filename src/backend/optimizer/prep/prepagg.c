@@ -1,26 +1,26 @@
 /*-------------------------------------------------------------------------
  *
  * prepagg.c
- *	  Routines to preprocess aggregate function calls
+ *	  预处理聚合函数调用的例程
  *
- * If there are identical aggregate calls in the query, they only need to
- * be computed once.  Also, some aggregate functions can share the same
- * transition state, so that we only need to call the final function for
- * them separately.  These optimizations are independent of how the
- * aggregates are executed.
+ * 若查询中有相同的聚合调用，它们只需要
+ * 被计算一次。另外，有些聚合函数可以共享同一个
+ * 转换状态，于是我们只需分别为它们调用最终函数。
+ * 这些处理与聚合如何执行
+ * 无关。
  *
- * preprocess_aggrefs() detects those cases, creates AggInfo and
- * AggTransInfo structs for each aggregate and transition state that needs
- * to be computed, and sets the 'aggno' and 'transno' fields in the Aggrefs
- * accordingly.  It also resolves polymorphic transition types, and sets
- * the 'aggtranstype' fields accordingly.
+ * preprocess_aggrefs() 检测这些情况，为每个需要
+ * 计算的聚合和转换状态创建 AggInfo 与
+ * AggTransInfo 结构，并相应地设置 Aggrefs 中的 'aggno' 与 'transno' 字段。
+ * 它也解析多态转换类型，并相应地设置
+ * 'aggtranstype' 字段。
  *
- * XXX: The AggInfo and AggTransInfo structs are thrown away after
- * planning, so executor startup has to perform some of the same lookups
- * of transition functions and initial values that we do here.  One day, we
- * might want to carry that information to the Agg nodes to save the effort
- * at executor startup.  The Agg nodes are constructed much later in the
- * planning, however, so it's not trivial.
+ * XXX：规划结束后 AggInfo 与 AggTransInfo 结构就被丢掉，
+ * 因此执行器启动时不得不做一些与我们这里相同的查找，
+ * 去找转换函数和初值。将来我们也许
+ * 想把这些信息带到 Agg 节点上，以省掉
+ * 执行器启动时的这番工夫。不过 Agg 节点要到规划的
+ * 很后面才构造，所以这并不简单。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

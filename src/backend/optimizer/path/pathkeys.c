@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * pathkeys.c
- *	  Utilities for matching and building path keys
+ *	  匹配并构建路径键的实用函数
  *
- * See src/backend/optimizer/README for a great deal of information about
- * the nature and use of path keys.
+ * 关于路径键的性质与用法，src/backend/optimizer/README 里有
+ * 大量说明。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

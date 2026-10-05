@@ -1,8 +1,8 @@
 /*------------------------------------------------------------------------
  *
  * geqo_main.c
- *	  solution to the query optimization problem
- *	  by means of a Genetic Algorithm (GA)
+ *	  查询规划问题的求解
+ *	  借助于遗传算法（GA）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

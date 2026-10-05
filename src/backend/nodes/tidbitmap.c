@@ -1,32 +1,32 @@
 /*-------------------------------------------------------------------------
  *
  * tidbitmap.c
- *	  PostgreSQL tuple-id (TID) bitmap package
+ *	  PostgreSQL 元组标识符（TID）位图包
  *
- * This module provides bitmap data structures that are spiritually
- * similar to Bitmapsets, but are specially adapted to store sets of
- * tuple identifiers (TIDs), or ItemPointers.  In particular, the division
- * of an ItemPointer into BlockNumber and OffsetNumber is catered for.
- * Also, since we wish to be able to store very large tuple sets in
- * memory with this data structure, we support "lossy" storage, in which
- * we no longer remember individual tuple offsets on a page but only the
- * fact that a particular page needs to be visited.
+ * 本模块提供的位图数据结构在精神上
+ * 与 Bitmapsets 相似，但专门用来存放
+ * 元组标识符（TIDs），也就是 ItemPointers 的集合。尤其照顾了
+ * 把 ItemPointer 分成 BlockNumber 与 OffsetNumber 这一点。
+ * 另外，由于希望用这种数据结构在
+ * 内存中存放非常大的元组集合，我们支持 "有损" 存储：此时
+ * 不再记住一页上各个元组的偏移，而只记住
+ * 某一页需要被访问这一事实。
  *
- * The "lossy" storage uses one bit per disk page, so at the standard 8K
- * BLCKSZ, we can represent all pages in 64Gb of disk space in about 1Mb
- * of memory.  People pushing around tables of that size should have a
- * couple of Mb to spare, so we don't worry about providing a second level
- * of lossiness.  In theory we could fall back to page ranges at some
- * point, but for now that seems useless complexity.
+ * "有损" 存储对每个磁盘页使用一位，因此按标准 8K
+ * BLCKSZ，大约 1Mb 内存就能表示 64Gb 磁盘空间中的
+ * 全部页。推动这种规模的表的人应当有
+ * 几 Mb 富余，因此我们不操心再提供第二级
+ * 有损。理论上某个时候可以退回到页范围，
+ * 但目前那看起来是无用的复杂性。
  *
- * We also support the notion of candidate matches, or rechecking.  This
- * means we know that a search need visit only some tuples on a page,
- * but we are not certain that all of those tuples are real matches.
- * So the eventual heap scan must recheck the quals for these tuples only,
- * rather than rechecking the quals for all tuples on the page as in the
- * lossy-bitmap case.  Rechecking can be specified when TIDs are inserted
- * into a bitmap, and it can also happen internally when we AND a lossy
- * and a non-lossy page.
+ * 我们也支持候选匹配，或者说复查。这
+ * 意味着我们知道搜索只需访问一页上的部分元组，
+ * 但不能确定这些元组全都是真正的匹配。
+ * 因此最终的堆扫描必须只对这些元组复查限定条件，
+ * 而不是像有损位图那样对页上全部元组复查限定条件。
+ * 把 TID 插入位图时可以指定复查，
+ * 并且在把有损页与非有损页做 AND 时，
+ * 内部也可能产生复查。
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group

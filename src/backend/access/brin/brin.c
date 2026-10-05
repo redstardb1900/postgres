@@ -1,8 +1,8 @@
 /*
  * brin.c
- *		Implementation of BRIN indexes for Postgres
+ *		PostgreSQL 的 BRIN 索引实现
  *
- * See src/backend/access/brin/README for details.
+ * 详见 src/backend/access/brin/README。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,7 +11,7 @@
  *	  src/backend/access/brin/brin.c
  *
  * TODO
- *		* ScalarArrayOpExpr (amsearcharray -> SK_SEARCHARRAY)
+ *		* 支持 ScalarArrayOpExpr (amsearcharray -> SK_SEARCHARRAY)
  */
 #include "postgres.h"
 
@@ -43,8 +43,8 @@
 
 
 /*
- * We use a BrinBuildState during initial construction of a BRIN index.
- * The running state is kept in a BrinMemTuple.
+ * 构建 BRIN 索引的初始阶段使用 BrinBuildState。
+ * 运行中的状态保存在 BrinMemTuple 里。
  */
 typedef struct BrinBuildState
 {
@@ -59,7 +59,7 @@ typedef struct BrinBuildState
 } BrinBuildState;
 
 /*
- * Struct used as "opaque" during index scans
+ * 索引扫描期间用作 "opaque" 的结构
  */
 typedef struct BrinOpaque
 {
@@ -84,8 +84,8 @@ static bool add_values_to_range(Relation idxRel, BrinDesc *bdesc,
 static bool check_null_keys(BrinValues *bval, ScanKey *nullkeys, int nnullkeys);
 
 /*
- * BRIN handler function: return IndexAmRoutine with access method parameters
- * and callbacks.
+ * BRIN 处理函数：返回带有访问方法参数的 IndexAmRoutine
+ * 以及各个回调。
  */
 Datum
 brinhandler(PG_FUNCTION_ARGS)
@@ -141,16 +141,16 @@ brinhandler(PG_FUNCTION_ARGS)
 }
 
 /*
- * A tuple in the heap is being inserted.  To keep a brin index up to date,
- * we need to obtain the relevant index tuple and compare its stored values
- * with those of the new tuple.  If the tuple values are not consistent with
- * the summary tuple, we need to update the index tuple.
+ * 正在向堆插入一个元组。为使 BRIN 索引保持最新，
+ * 需要取得相应的索引元组，并把其中保存的值
+ * 与新元组的值比较。若这些值与
+ * 汇总元组不一致，就需要更新索引元组。
  *
- * If autosummarization is enabled, check if we need to summarize the previous
- * page range.
+ * 若启用了自动摘要，检查是否需要对前一个
+ * 页范围做摘要。
  *
- * If the range is not currently summarized (i.e. the revmap returns NULL for
- * it), there's nothing to do for this tuple.
+ * 若该范围当前尚未摘要（即 revmap 对其返回 NULL），
+ * 则对此元组无事可做。
  */
 bool
 brininsert(Relation idxRel, Datum *values, bool *nulls,
@@ -172,8 +172,8 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 	revmap = brinRevmapInitialize(idxRel, &pagesPerRange, NULL);
 
 	/*
-	 * origHeapBlk is the block number where the insertion occurred.  heapBlk
-	 * is the first block in the corresponding page range.
+	 * origHeapBlk 是发生插入的块号。heapBlk
+	 * 是对应页范围的第一个块。
 	 */
 	origHeapBlk = ItemPointerGetBlockNumber(heaptid);
 	heapBlk = (origHeapBlk / pagesPerRange) * pagesPerRange;
@@ -188,9 +188,9 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * If auto-summarization is enabled and we just inserted the first
-		 * tuple into the first block of a new non-first page range, request a
-		 * summarization run of the previous range.
+		 * 若启用了自动摘要，且刚刚把第一个
+		 * 元组插入某个新的、非首个页范围的第一个块，则请求对
+		 * 前一个范围做一次摘要。
 		 */
 		if (autosummarize &&
 			heapBlk > 0 &&
@@ -224,11 +224,11 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 		brtup = brinGetTupleForHeapBlock(revmap, heapBlk, &buf, &off,
 										 NULL, BUFFER_LOCK_SHARE, NULL);
 
-		/* if range is unsummarized, there's nothing to do */
+		/* 若范围未摘要，则无事可做 */
 		if (!brtup)
 			break;
 
-		/* First time through in this statement? */
+		/* 本语句中第一次执行？ */
 		if (bdesc == NULL)
 		{
 			MemoryContextSwitchTo(indexInfo->ii_Context);
@@ -236,7 +236,7 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 			indexInfo->ii_AmCache = (void *) bdesc;
 			MemoryContextSwitchTo(oldcxt);
 		}
-		/* First time through in this brininsert call? */
+		/* 本次 brininsert 调用中第一次？ */
 		if (tupcxt == NULL)
 		{
 			tupcxt = AllocSetContextCreate(CurrentMemoryContext,
@@ -252,8 +252,8 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 		if (!need_insert)
 		{
 			/*
-			 * The tuple is consistent with the new values, so there's nothing
-			 * to do.
+			 * 该元组与新值一致，因此无事
+			 * 可做。
 			 */
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 		}
@@ -268,41 +268,41 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 			bool		samepage;
 
 			/*
-			 * Make a copy of the old tuple, so that we can compare it after
-			 * re-acquiring the lock.
+			 * 复制旧元组，以便在
+			 * 重新取得锁之后进行比较。
 			 */
 			origsz = ItemIdGetLength(lp);
 			origtup = brin_copy_tuple(brtup, origsz, NULL, NULL);
 
 			/*
-			 * Before releasing the lock, check if we can attempt a same-page
-			 * update.  Another process could insert a tuple concurrently in
-			 * the same page though, so downstream we must be prepared to cope
-			 * if this turns out to not be possible after all.
+			 * 释放锁之前，检查能否尝试同页
+			 * 更新。不过另一进程可能并发地向
+			 * 同一页插入元组，因此后续必须准备好应对
+			 * 最终发现这并不可行的情况。
 			 */
 			newtup = brin_form_tuple(bdesc, heapBlk, dtup, &newsz);
 			samepage = brin_can_do_samepage_update(buf, origsz, newsz);
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
 			/*
-			 * Try to update the tuple.  If this doesn't work for whatever
-			 * reason, we need to restart from the top; the revmap might be
-			 * pointing at a different tuple for this block now, so we need to
-			 * recompute to ensure both our new heap tuple and the other
-			 * inserter's are covered by the combined tuple.  It might be that
-			 * we don't need to update at all.
+			 * 尝试更新该元组。若因任何原因
+			 * 没有成功，就需要从头再来；revmap 现在可能
+			 * 指向此块的另一个元组，因此需要
+			 * 重新计算，以确保新的堆元组与另一插入
+			 * 进程的元组都被合并后的元组覆盖。也可能
+			 * 根本不需要更新。
 			 */
 			if (!brin_doupdate(idxRel, pagesPerRange, revmap, heapBlk,
 							   buf, off, origtup, origsz, newtup, newsz,
 							   samepage))
 			{
-				/* no luck; start over */
+				/* 未成功；从头再来 */
 				MemoryContextResetAndDeleteChildren(tupcxt);
 				continue;
 			}
 		}
 
-		/* success! */
+		/* 成功！ */
 		break;
 	}
 
@@ -317,11 +317,11 @@ brininsert(Relation idxRel, Datum *values, bool *nulls,
 }
 
 /*
- * Initialize state for a BRIN index scan.
+ * 初始化 BRIN 索引扫描的状态。
  *
- * We read the metapage here to determine the pages-per-range number that this
- * index was built with.  Note that since this cannot be changed while we're
- * holding lock on index, it's not necessary to recompute it during brinrescan.
+ * 在此读取元页，以确定构建本索引时使用的
+ * 每范围页数。注意，持有索引锁期间该值无法更改，
+ * 因此不必在 brinrescan 期间重新计算。
  */
 IndexScanDesc
 brinbeginscan(Relation r, int nkeys, int norderbys)
@@ -341,16 +341,16 @@ brinbeginscan(Relation r, int nkeys, int norderbys)
 }
 
 /*
- * Execute the index scan.
+ * 执行索引扫描。
  *
- * This works by reading index TIDs from the revmap, and obtaining the index
- * tuples pointed to by them; the summary values in the index tuples are
- * compared to the scan keys.  We return into the TID bitmap all the pages in
- * ranges corresponding to index tuples that match the scan keys.
+ * 做法是从 revmap 读取索引 TIDs，再取得它们指向的索引
+ * 元组；把索引元组中的摘要值
+ * 与扫描键比较。把与扫描键匹配的索引元组所对应
+ * 范围内的全部页返回到 TID 位图中。
  *
- * If a TID from the revmap is read as InvalidTID, we know that range is
- * unsummarized.  Pages in those ranges need to be returned regardless of scan
- * keys.
+ * 若从 revmap 读到的 TID 为 InvalidTID，则知道该范围
+ * 尚未摘要。这些范围内的页必须返回，与扫描
+ * 键无关。
  */
 int64
 bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
@@ -382,8 +382,8 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	pgstat_count_index_scan(idxRel);
 
 	/*
-	 * We need to know the size of the table so that we know how long to
-	 * iterate on the revmap.
+	 * 需要知道表的大小，才能知道要在
+	 * revmap 上迭代多久。
 	 */
 	heapOid = IndexGetRelation(RelationGetRelid(idxRel), false);
 	heapRel = table_open(heapOid, AccessShareLock);
@@ -391,35 +391,35 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	table_close(heapRel, AccessShareLock);
 
 	/*
-	 * Make room for the consistent support procedures of indexed columns.  We
-	 * don't look them up here; we do that lazily the first time we see a scan
-	 * key reference each of them.  We rely on zeroing fn_oid to InvalidOid.
+	 * 为被索引列的 consistent 支持过程留出空间。此处
+	 * 不查找它们；等到第一次看到引用其中每一个的扫描
+	 * 键时再惰性查找。这依赖于把 fn_oid 清零为 InvalidOid。
 	 */
 	consistentFn = palloc0_array(FmgrInfo, bdesc->bd_tupdesc->natts);
 
 	/*
-	 * Make room for per-attribute lists of scan keys that we'll pass to the
-	 * consistent support procedure. We don't know which attributes have scan
-	 * keys, so we allocate space for all attributes. That may use more memory
-	 * but it's probably cheaper than determining which attributes are used.
+	 * 为将传给 consistent 支持过程的、按属性分组的扫描键
+	 * 列表留出空间。不知道哪些属性带有扫描
+	 * 键，因此为全部属性分配空间。这可能多用一些内存，
+	 * 但多半比先判定哪些属性被用到更省。
 	 *
-	 * We keep null and regular keys separate, so that we can pass just the
-	 * regular keys to the consistent function easily.
+	 * 把空值键和常规键分开存放，以便能方便地只把
+	 * 常规键传给 consistent 函数。
 	 *
-	 * To reduce the allocation overhead, we allocate one big chunk and then
-	 * carve it into smaller arrays ourselves. All the pieces have exactly the
-	 * same lifetime, so that's OK.
+	 * 为降低分配开销，先分配一大块，再
+	 * 自己把它切成较小的数组。所有这些片段的生命期完全
+	 * 相同，因此这样做没问题。
 	 *
-	 * XXX The widest index can have 32 attributes, so the amount of wasted
-	 * memory is negligible. We could invent a more compact approach (with
-	 * just space for used attributes) but that would make the matching more
-	 * complex so it's not a good trade-off.
+	 * XXX 最宽的索引可以有 32 个属性，因此浪费的
+	 * 内存可以忽略。可以设计更紧凑的做法（只为
+	 * 用到的属性留空间），但那会使匹配更
+	 * 复杂，并不划算。
 	 */
 	len =
-		MAXALIGN(sizeof(ScanKey *) * bdesc->bd_tupdesc->natts) +	/* regular keys */
+		MAXALIGN(sizeof(ScanKey *) * bdesc->bd_tupdesc->natts) +	/* 常规键 */
 		MAXALIGN(sizeof(ScanKey) * scan->numberOfKeys) * bdesc->bd_tupdesc->natts +
 		MAXALIGN(sizeof(int) * bdesc->bd_tupdesc->natts) +
-		MAXALIGN(sizeof(ScanKey *) * bdesc->bd_tupdesc->natts) +	/* NULL keys */
+		MAXALIGN(sizeof(ScanKey *) * bdesc->bd_tupdesc->natts) +	/* NULL 键 */
 		MAXALIGN(sizeof(ScanKey) * scan->numberOfKeys) * bdesc->bd_tupdesc->natts +
 		MAXALIGN(sizeof(int) * bdesc->bd_tupdesc->natts);
 
@@ -449,20 +449,20 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 
 	Assert(tmp + len == ptr);
 
-	/* zero the number of keys */
+	/* 把键的数量清零 */
 	memset(nkeys, 0, sizeof(int) * bdesc->bd_tupdesc->natts);
 	memset(nnullkeys, 0, sizeof(int) * bdesc->bd_tupdesc->natts);
 
-	/* Preprocess the scan keys - split them into per-attribute arrays. */
+	/* 预处理扫描键，拆成按属性分组的数组。 */
 	for (int keyno = 0; keyno < scan->numberOfKeys; keyno++)
 	{
 		ScanKey		key = &scan->keyData[keyno];
 		AttrNumber	keyattno = key->sk_attno;
 
 		/*
-		 * The collation of the scan key must match the collation used in the
-		 * index column (but only if the search is not IS NULL/ IS NOT NULL).
-		 * Otherwise we shouldn't be using this index ...
+		 * 扫描键的排序规则必须与索引
+		 * 列所用的排序规则一致（但仅当搜索不是 IS NULL/ IS NOT NULL 时）。
+		 * 否则就不该使用这个索引……
 		 */
 		Assert((key->sk_flags & SK_ISNULL) ||
 			   (key->sk_collation ==
@@ -470,20 +470,20 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 							  keyattno - 1)->attcollation));
 
 		/*
-		 * First time we see this index attribute, so init as needed.
+		 * 第一次看到这个索引属性，按需初始化。
 		 *
-		 * This is a bit of an overkill - we don't know how many scan keys are
-		 * there for this attribute, so we simply allocate the largest number
-		 * possible (as if all keys were for this attribute). This may waste a
-		 * bit of memory, but we only expect small number of scan keys in
-		 * general, so this should be negligible, and repeated repalloc calls
-		 * are not free either.
+		 * 这有些过度——不知道该属性有多少扫描键，
+		 * 因此简单地按可能的最大数量分配
+		 * （就好像全部键都属于该属性）。这可能浪费一点
+		 * 内存，但一般只预期少量扫描键，
+		 * 因此这点浪费可以忽略，而反复调用 repalloc
+		 * 也并非没有代价。
 		 */
 		if (consistentFn[keyattno - 1].fn_oid == InvalidOid)
 		{
 			FmgrInfo   *tmp;
 
-			/* First time we see this attribute, so no key/null keys. */
+			/* 第一次看到该属性，因此还没有键或空值键。 */
 			Assert(nkeys[keyattno - 1] == 0);
 			Assert(nnullkeys[keyattno - 1] == 0);
 
@@ -493,7 +493,7 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 						   CurrentMemoryContext);
 		}
 
-		/* Add key to the proper per-attribute array. */
+		/* 把键加入对应的按属性数组。 */
 		if (key->sk_flags & SK_ISNULL)
 		{
 			nullkeys[keyattno - 1][nnullkeys[keyattno - 1]] = key;
@@ -506,12 +506,12 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 		}
 	}
 
-	/* allocate an initial in-memory tuple, out of the per-range memcxt */
+	/* 从按范围的内存上下文中分配初始内存元组 */
 	dtup = brin_new_memtuple(bdesc);
 
 	/*
-	 * Setup and use a per-range memory context, which is reset every time we
-	 * loop below.  This avoids having to free the tuples within the loop.
+	 * 建立并使用按范围的内存上下文，每次在下面
+	 * 循环时重置。这样就不需要在循环内释放元组。
 	 */
 	perRangeCxt = AllocSetContextCreate(CurrentMemoryContext,
 										"bringetbitmap cxt",
@@ -519,10 +519,10 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	oldcxt = MemoryContextSwitchTo(perRangeCxt);
 
 	/*
-	 * Now scan the revmap.  We start by querying for heap page 0,
-	 * incrementing by the number of pages per range; this gives us a full
-	 * view of the table.  We make use of uint64 for heapBlk as a BlockNumber
-	 * could wrap for tables with close to 2^32 pages.
+	 * 现在扫描 revmap。从堆页 0 开始查询，
+	 * 每次增加每范围的页数；这样就能得到整张
+	 * 表的完整视图。heapBlk 使用 uint64，因为 BlockNumber
+	 * 在接近 2^32 页的表上可能回绕。
 	 */
 	for (uint64 heapBlk = 0; heapBlk < nblocks; heapBlk += opaque->bo_pagesPerRange)
 	{
@@ -547,8 +547,8 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 		}
 
 		/*
-		 * For page ranges with no indexed tuple, we must return the whole
-		 * range; otherwise, compare it to the scan keys.
+		 * 对于没有索引元组的页范围，必须返回整个
+		 * 范围；否则，把它与扫描键比较。
 		 */
 		if (!gottuple)
 		{
@@ -560,8 +560,8 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 			if (dtup->bt_placeholder)
 			{
 				/*
-				 * Placeholder tuples are always returned, regardless of the
-				 * values stored in them.
+				 * 占位元组一律返回，无论其中
+				 * 存放的值是什么。
 				 */
 				addrange = true;
 			}
@@ -570,11 +570,11 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 				int			attno;
 
 				/*
-				 * Compare scan keys with summary values stored for the range.
-				 * If scan keys are matched, the page range must be added to
-				 * the bitmap.  We initially assume the range needs to be
-				 * added; in particular this serves the case where there are
-				 * no keys.
+				 * 把扫描键与该范围所存的摘要值比较。
+				 * 若与扫描键匹配，必须把该页范围加入
+				 * 位图。一开始假定需要加入该范围；
+				 * 尤其可以覆盖没有任何
+				 * 键的情形。
 				 */
 				addrange = true;
 				for (attno = 1; attno <= bdesc->bd_tupdesc->natts; attno++)
@@ -584,8 +584,8 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					Oid			collation;
 
 					/*
-					 * skip attributes without any scan keys (both regular and
-					 * IS [NOT] NULL)
+					 * 跳过没有任何扫描键的属性（包括常规键和
+					 * IS [NOT] NULL）
 					 */
 					if (nkeys[attno - 1] == 0 && nnullkeys[attno - 1] == 0)
 						continue;
@@ -593,9 +593,9 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					bval = &dtup->bt_columns[attno - 1];
 
 					/*
-					 * If the BRIN tuple indicates that this range is empty,
-					 * we can skip it: there's nothing to match.  We don't
-					 * need to examine the next columns.
+					 * 若 BRIN 元组表明该范围为空，
+					 * 可以跳过：没有可匹配的内容。不必
+					 * 再检查后面的列。
 					 */
 					if (dtup->bt_empty_range)
 					{
@@ -604,42 +604,42 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					}
 
 					/*
-					 * First check if there are any IS [NOT] NULL scan keys,
-					 * and if we're violating them. In that case we can
-					 * terminate early, without invoking the support function.
+					 * 先检查是否有 IS [NOT] NULL 扫描键，
+					 * 以及是否违反了它们。若是，可以
+					 * 提前终止，不必调用支持函数。
 					 *
-					 * As there may be more keys, we can only determine
-					 * mismatch within this loop.
+					 * 因为可能还有更多键，只能在
+					 * 本循环内判定不匹配。
 					 */
 					if (bdesc->bd_info[attno - 1]->oi_regular_nulls &&
 						!check_null_keys(bval, nullkeys[attno - 1],
 										 nnullkeys[attno - 1]))
 					{
 						/*
-						 * If any of the IS [NOT] NULL keys failed, the page
-						 * range as a whole can't pass. So terminate the loop.
+						 * 若任一 IS [NOT] NULL 键失败，整个页
+						 * 范围都无法通过。因此终止循环。
 						 */
 						addrange = false;
 						break;
 					}
 
 					/*
-					 * So either there are no IS [NOT] NULL keys, or all
-					 * passed. If there are no regular scan keys, we're done -
-					 * the page range matches. If there are regular keys, but
-					 * the page range is marked as 'all nulls' it can't
-					 * possibly pass (we're assuming the operators are
-					 * strict).
+					 * 因此，要么没有 IS [NOT] NULL 键，要么全部
+					 * 已通过。若没有常规扫描键，则已完成——
+					 * 该页范围匹配。若有常规键，但
+					 * 该页范围被标为 "all nulls"，则不可能
+					 * 通过（这里假定操作符是
+					 * 严格的）。
 					 */
 
-					/* No regular scan keys - page range as a whole passes. */
+					/* 没有常规扫描键，整个页范围通过。 */
 					if (!nkeys[attno - 1])
 						continue;
 
 					Assert((nkeys[attno - 1] > 0) &&
 						   (nkeys[attno - 1] <= scan->numberOfKeys));
 
-					/* If it is all nulls, it cannot possibly be consistent. */
+					/* 若全为空值，则不可能一致。 */
 					if (bval->bv_allnulls)
 					{
 						addrange = false;
@@ -647,25 +647,25 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					}
 
 					/*
-					 * Collation from the first key (has to be the same for
-					 * all keys for the same attribute).
+					 * 排序规则取自第一个键（同一属性的
+					 * 全部键必须相同）。
 					 */
 					collation = keys[attno - 1][0]->sk_collation;
 
 					/*
-					 * Check whether the scan key is consistent with the page
-					 * range values; if so, have the pages in the range added
-					 * to the output bitmap.
+					 * 检查扫描键是否与该页
+					 * 范围的值一致；若一致，就把该范围内的页加入
+					 * 输出位图。
 					 *
-					 * The opclass may or may not support processing of
-					 * multiple scan keys. We can determine that based on the
-					 * number of arguments - functions with extra parameter
-					 * (number of scan keys) do support this, otherwise we
-					 * have to simply pass the scan keys one by one.
+					 * 操作符类未必支持一次处理
+					 * 多个扫描键。可以根据
+					 * 参数个数来判断：带有额外参数
+					 * （扫描键个数）的函数支持这样做，否则
+					 * 只能逐个传入扫描键。
 					 */
 					if (consistentFn[attno - 1].fn_nargs >= 4)
 					{
-						/* Check all keys at once */
+						/* 一次检查全部键 */
 						add = FunctionCall4Coll(&consistentFn[attno - 1],
 												collation,
 												PointerGetDatum(bdesc),
@@ -677,12 +677,12 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					else
 					{
 						/*
-						 * Check keys one by one
+						 * 逐个检查键
 						 *
-						 * When there are multiple scan keys, failure to meet
-						 * the criteria for a single one of them is enough to
-						 * discard the range as a whole, so break out of the
-						 * loop as soon as a false return value is obtained.
+						 * 有多个扫描键时，只要其中一个
+						 * 不满足条件，就足以
+						 * 把整个范围丢弃，因此一旦得到假的返回值
+						 * 就跳出循环。
 						 */
 						int			keyno;
 
@@ -700,8 +700,8 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 					}
 
 					/*
-					 * If we found a scan key eliminating the range, no need
-					 * to check additional ones.
+					 * 若已有扫描键排除了该范围，就不必
+					 * 再检查其余的键。
 					 */
 					if (!addrange)
 						break;
@@ -709,7 +709,7 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 			}
 		}
 
-		/* add the pages in the range to the output bitmap, if needed */
+		/* 若需要，把该范围内的页加入输出位图 */
 		if (addrange)
 		{
 			uint64		pageno;
@@ -733,26 +733,26 @@ bringetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 		ReleaseBuffer(buf);
 
 	/*
-	 * XXX We have an approximation of the number of *pages* that our scan
-	 * returns, but we don't have a precise idea of the number of heap tuples
-	 * involved.
+	 * XXX 扫描返回的*页*数只是近似值，
+	 * 但并不确切知道涉及的堆元组
+	 * 有多少。
 	 */
 	return totalpages * 10;
 }
 
 /*
- * Re-initialize state for a BRIN index scan
+ * 重新初始化 BRIN 索引扫描的状态
  */
 void
 brinrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 		   ScanKey orderbys, int norderbys)
 {
 	/*
-	 * Other index AMs preprocess the scan keys at this point, or sometime
-	 * early during the scan; this lets them optimize by removing redundant
-	 * keys, or doing early returns when they are impossible to satisfy; see
-	 * _bt_preprocess_keys for an example.  Something like that could be added
-	 * here someday, too.
+	 * 其他索引访问方法会在此处，或在扫描
+	 * 早期预处理扫描键；这样它们就可以去掉冗余
+	 * 键来做优化，或在无法满足时提前返回；参见
+	 * _bt_preprocess_keys 的例子。将来这里也可以
+	 * 加上类似处理。
 	 */
 
 	if (scankey && scan->numberOfKeys > 0)
@@ -761,7 +761,7 @@ brinrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 }
 
 /*
- * Close down a BRIN index scan
+ * 结束 BRIN 索引扫描
  */
 void
 brinendscan(IndexScanDesc scan)
@@ -774,11 +774,11 @@ brinendscan(IndexScanDesc scan)
 }
 
 /*
- * Per-heap-tuple callback for table_index_build_scan.
+ * table_index_build_scan 的按堆元组回调。
  *
- * Note we don't worry about the page range at the end of the table here; it is
- * present in the build state struct after we're called the last time, but not
- * inserted into the index.  Caller must ensure to do so, if appropriate.
+ * 注意，这里不必操心表末尾的页范围；它在
+ * 最后一次调用我们之后仍留在构建状态结构中，但尚未
+ * 插入索引。若合适，调用者必须保证把它插入。
  */
 static void
 brinbuildCallback(Relation index,
@@ -794,10 +794,10 @@ brinbuildCallback(Relation index,
 	thisblock = ItemPointerGetBlockNumber(tid);
 
 	/*
-	 * If we're in a block that belongs to a future range, summarize what
-	 * we've got and start afresh.  Note the scan might have skipped many
-	 * pages, if they were devoid of live tuples; make sure to insert index
-	 * tuples for those too.
+	 * 若当前块属于将来的范围，先把已有内容做摘要，
+	 * 再重新开始。注意扫描可能跳过许多
+	 * 页（若其中没有活元组）；那些页也要确保插入索引
+	 * 元组。
 	 */
 	while (thisblock > state->bs_currRangeStart + state->bs_pagesPerRange - 1)
 	{
@@ -807,23 +807,23 @@ brinbuildCallback(Relation index,
 				   state->bs_currRangeStart,
 				   state->bs_currRangeStart + state->bs_pagesPerRange));
 
-		/* create the index tuple and insert it */
+		/* 创建索引元组并插入 */
 		form_and_insert_tuple(state);
 
-		/* set state to correspond to the next range */
+		/* 使状态对应下一个范围 */
 		state->bs_currRangeStart += state->bs_pagesPerRange;
 
-		/* re-initialize state for it */
+		/* 为它重新初始化状态 */
 		brin_memtuple_initialize(state->bs_dtuple, state->bs_bdesc);
 	}
 
-	/* Accumulate the current tuple into the running state */
+	/* 把当前元组累积到运行状态中 */
 	(void) add_values_to_range(index, state->bs_bdesc, state->bs_dtuple,
 							   values, isnull);
 }
 
 /*
- * brinbuild() -- build a new BRIN index.
+ * brinbuild() -- 构建一个新的 BRIN 索引。
  */
 IndexBuildResult *
 brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
@@ -837,15 +837,15 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	BlockNumber pagesPerRange;
 
 	/*
-	 * We expect to be called exactly once for any index relation.
+	 * 预期对任一索引关系只调用一次。
 	 */
 	if (RelationGetNumberOfBlocks(index) != 0)
 		elog(ERROR, "index \"%s\" already contains data",
 			 RelationGetRelationName(index));
 
 	/*
-	 * Critical section not required, because on error the creation of the
-	 * whole relation will be rolled back.
+	 * 不需要临界区，因为出错时整个关系的
+	 * 创建都会回滚。
 	 */
 
 	meta = ExtendBufferedRel(BMR_REL(index), MAIN_FORKNUM, NULL,
@@ -878,28 +878,28 @@ brinbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	UnlockReleaseBuffer(meta);
 
 	/*
-	 * Initialize our state, including the deformed tuple state.
+	 * 初始化状态，包括变形元组的状态。
 	 */
 	revmap = brinRevmapInitialize(index, &pagesPerRange, NULL);
 	state = initialize_brin_buildstate(index, revmap, pagesPerRange);
 
 	/*
-	 * Now scan the relation.  No syncscan allowed here because we want the
-	 * heap blocks in physical order.
+	 * 现在扫描该关系。这里不允许同步扫描，因为需要
+	 * 堆块按物理顺序排列。
 	 */
 	reltuples = table_index_build_scan(heap, index, indexInfo, false, true,
 									   brinbuildCallback, (void *) state, NULL);
 
-	/* process the final batch */
+	/* 处理最后一批 */
 	form_and_insert_tuple(state);
 
-	/* release resources */
+	/* 释放资源 */
 	idxtuples = state->bs_numtuples;
 	brinRevmapTerminate(state->bs_rmAccess);
 	terminate_brin_buildstate(state);
 
 	/*
-	 * Return statistics
+	 * 返回统计信息
 	 */
 	result = palloc_object(IndexBuildResult);
 
@@ -914,11 +914,11 @@ brinbuildempty(Relation index)
 {
 	Buffer		metabuf;
 
-	/* An empty BRIN index has a metapage only. */
+	/* 空的 BRIN 索引只有一个元页。 */
 	metabuf = ExtendBufferedRel(BMR_REL(index), INIT_FORKNUM, NULL,
 								EB_LOCK_FIRST | EB_SKIP_EXTENSION_LOCK);
 
-	/* Initialize and xlog metabuffer. */
+	/* 初始化元页缓冲区并记入 WAL。 */
 	START_CRIT_SECTION();
 	brin_metapage_init(BufferGetPage(metabuf), BrinGetPagesPerRange(index),
 					   BRIN_CURRENT_VERSION);
@@ -931,18 +931,18 @@ brinbuildempty(Relation index)
 
 /*
  * brinbulkdelete
- *		Since there are no per-heap-tuple index tuples in BRIN indexes,
- *		there's not a lot we can do here.
+ *		由于 BRIN 索引没有按堆元组一一对应的索引元组，
+ *		这里能做的不多。
  *
- * XXX we could mark item tuples as "dirty" (when a minimum or maximum heap
- * tuple is deleted), meaning the need to re-run summarization on the affected
- * range.  Would need to add an extra flag in brintuples for that.
+ * XXX 可以把项元组标为 "dirty"（当最小或最大的堆
+ * 元组被删除时），表示需要对受影响的范围重新做摘要。
+ * 为此需要在 BRIN 元组中增加一个额外标志。
  */
 IndexBulkDeleteResult *
 brinbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			   IndexBulkDeleteCallback callback, void *callback_state)
 {
-	/* allocate stats if first time through, else re-use existing struct */
+	/* 若是第一次则分配统计结构，否则复用已有结构 */
 	if (stats == NULL)
 		stats = palloc0_object(IndexBulkDeleteResult);
 
@@ -950,22 +950,22 @@ brinbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 }
 
 /*
- * This routine is in charge of "vacuuming" a BRIN index: we just summarize
- * ranges that are currently unsummarized.
+ * 本例程负责"清理" BRIN 索引：只对当前
+ * 尚未摘要的范围做摘要。
  */
 IndexBulkDeleteResult *
 brinvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 {
 	Relation	heapRel;
 
-	/* No-op in ANALYZE ONLY mode */
+	/* ANALYZE ONLY 模式下为空操作 */
 	if (info->analyze_only)
 		return stats;
 
 	if (!stats)
 		stats = palloc0_object(IndexBulkDeleteResult);
 	stats->num_pages = RelationGetNumberOfBlocks(info->index);
-	/* rest of stats is initialized by zeroing */
+	/* 统计信息的其余部分由清零来初始化 */
 
 	heapRel = table_open(IndexGetRelation(RelationGetRelid(info->index), false),
 						 AccessShareLock);
@@ -981,7 +981,7 @@ brinvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 }
 
 /*
- * reloptions processor for BRIN indexes
+ * BRIN 索引的关系选项处理器
  */
 bytea *
 brinoptions(Datum reloptions, bool validate)
@@ -998,8 +998,8 @@ brinoptions(Datum reloptions, bool validate)
 }
 
 /*
- * SQL-callable function to scan through an index and summarize all ranges
- * that are not currently summarized.
+ * 可由 SQL 调用的函数：扫描索引，并对当前尚未
+ * 摘要的全部范围做摘要。
  */
 Datum
 brin_summarize_new_values(PG_FUNCTION_ARGS)
@@ -1012,9 +1012,9 @@ brin_summarize_new_values(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-callable function to summarize the indicated page range, if not already
- * summarized.  If the second argument is BRIN_ALL_BLOCKRANGES, all
- * unsummarized ranges are summarized.
+ * 可由 SQL 调用的函数：若指定页范围尚未
+ * 摘要，则对其做摘要。若第二个参数为 BRIN_ALL_BLOCKRANGES，则对全部
+ * 未摘要范围做摘要。
  */
 Datum
 brin_summarize_range(PG_FUNCTION_ARGS)
@@ -1044,10 +1044,10 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 	heapBlk = (BlockNumber) heapBlk64;
 
 	/*
-	 * We must lock table before index to avoid deadlocks.  However, if the
-	 * passed indexoid isn't an index then IndexGetRelation() will fail.
-	 * Rather than emitting a not-very-helpful error message, postpone
-	 * complaining, expecting that the is-it-an-index test below will fail.
+	 * 必须先锁表再锁索引，以避免死锁。不过，若传入的
+	 * indexoid 不是索引，则 IndexGetRelation() 会失败。
+	 * 与其发出一条帮助不大的错误信息，不如推迟
+	 * 报错，预期下面的 "是否为索引" 检查会失败。
 	 */
 	heapoid = IndexGetRelation(indexoid, true);
 	if (OidIsValid(heapoid))
@@ -1055,12 +1055,12 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 		heapRel = table_open(heapoid, ShareUpdateExclusiveLock);
 
 		/*
-		 * Autovacuum calls us.  For its benefit, switch to the table owner's
-		 * userid, so that any index functions are run as that user.  Also
-		 * lock down security-restricted operations and arrange to make GUC
-		 * variable changes local to this command.  This is harmless, albeit
-		 * unnecessary, when called from SQL, because we fail shortly if the
-		 * user does not own the index.
+		 * 自动清理会调用我们。为它着想，切换到表所有者的
+		 * userid，以便任何索引函数都以该用户身份运行。同时
+		 * 锁定安全受限操作，并使 GUC
+		 * 变量的改动仅限于本命令。从 SQL 调用时这并无害处，
+		 * 尽管也无必要，因为若用户并不拥有该索引，
+		 * 我们很快就会失败。
 		 */
 		GetUserIdAndSecContext(&save_userid, &save_sec_context);
 		SetUserIdAndSecContext(heapRel->rd_rel->relowner,
@@ -1070,7 +1070,7 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 	else
 	{
 		heapRel = NULL;
-		/* Set these just to suppress "uninitialized variable" warnings */
+		/* 设置这些只是为了抑制 "未初始化变量" 告警 */
 		save_userid = InvalidOid;
 		save_sec_context = -1;
 		save_nestlevel = -1;
@@ -1078,7 +1078,7 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 
 	indexRel = index_open(indexoid, ShareUpdateExclusiveLock);
 
-	/* Must be a BRIN index */
+	/* 必须是 BRIN 索引 */
 	if (indexRel->rd_rel->relkind != RELKIND_INDEX ||
 		indexRel->rd_rel->relam != BRIN_AM_OID)
 		ereport(ERROR,
@@ -1086,15 +1086,15 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 				 errmsg("\"%s\" is not a BRIN index",
 						RelationGetRelationName(indexRel))));
 
-	/* User must own the index (comparable to privileges needed for VACUUM) */
+	/* 用户必须拥有该索引（与 VACUUM 所需权限相当） */
 	if (heapRel != NULL && !object_ownercheck(RelationRelationId, indexoid, save_userid))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_INDEX,
 					   RelationGetRelationName(indexRel));
 
 	/*
-	 * Since we did the IndexGetRelation call above without any lock, it's
-	 * barely possible that a race against an index drop/recreation could have
-	 * netted us the wrong table.  Recheck.
+	 * 上面调用 IndexGetRelation 时没有加任何锁，因此
+	 * 与索引删除/重建的竞争有很小的可能使我们
+	 * 得到错误的表。重新检查。
 	 */
 	if (heapRel == NULL || heapoid != IndexGetRelation(indexoid, false))
 		ereport(ERROR,
@@ -1102,7 +1102,7 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 				 errmsg("could not open parent table of index \"%s\"",
 						RelationGetRelationName(indexRel))));
 
-	/* see gin_clean_pending_list() */
+	/* 参见 gin_clean_pending_list() */
 	if (indexRel->rd_index->indisvalid)
 		brinsummarize(indexRel, heapRel, heapBlk, true, &numSummarized, NULL);
 	else
@@ -1111,10 +1111,10 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 				 errmsg("index \"%s\" is not valid",
 						RelationGetRelationName(indexRel))));
 
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数执行的任何 GUC 改动 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 与安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
 	relation_close(indexRel, ShareUpdateExclusiveLock);
@@ -1124,7 +1124,7 @@ brin_summarize_range(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-callable interface to mark a range as no longer summarized
+ * 可由 SQL 调用的接口，用于把一个范围标记为未摘要
  */
 Datum
 brin_desummarize_range(PG_FUNCTION_ARGS)
@@ -1151,13 +1151,13 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 	heapBlk = (BlockNumber) heapBlk64;
 
 	/*
-	 * We must lock table before index to avoid deadlocks.  However, if the
-	 * passed indexoid isn't an index then IndexGetRelation() will fail.
-	 * Rather than emitting a not-very-helpful error message, postpone
-	 * complaining, expecting that the is-it-an-index test below will fail.
+	 * 必须先锁表再锁索引，以避免死锁。不过，若传入的
+	 * indexoid 不是索引，则 IndexGetRelation() 会失败。
+	 * 与其发出一条帮助不大的错误信息，不如推迟
+	 * 报错，预期下面的 "是否为索引" 检查会失败。
 	 *
-	 * Unlike brin_summarize_range(), autovacuum never calls this.  Hence, we
-	 * don't switch userid.
+	 * 与 brin_summarize_range() 不同，自动清理从不调用本函数。因此
+	 * 不切换 userid。
 	 */
 	heapoid = IndexGetRelation(indexoid, true);
 	if (OidIsValid(heapoid))
@@ -1167,7 +1167,7 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 
 	indexRel = index_open(indexoid, ShareUpdateExclusiveLock);
 
-	/* Must be a BRIN index */
+	/* 必须是 BRIN 索引 */
 	if (indexRel->rd_rel->relkind != RELKIND_INDEX ||
 		indexRel->rd_rel->relam != BRIN_AM_OID)
 		ereport(ERROR,
@@ -1175,15 +1175,15 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 				 errmsg("\"%s\" is not a BRIN index",
 						RelationGetRelationName(indexRel))));
 
-	/* User must own the index (comparable to privileges needed for VACUUM) */
+	/* 用户必须拥有该索引（与 VACUUM 所需权限相当） */
 	if (!object_ownercheck(RelationRelationId, indexoid, GetUserId()))
 		aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_INDEX,
 					   RelationGetRelationName(indexRel));
 
 	/*
-	 * Since we did the IndexGetRelation call above without any lock, it's
-	 * barely possible that a race against an index drop/recreation could have
-	 * netted us the wrong table.  Recheck.
+	 * 上面调用 IndexGetRelation 时没有加任何锁，因此
+	 * 与索引删除/重建的竞争有很小的可能使我们
+	 * 得到错误的表。重新检查。
 	 */
 	if (heapRel == NULL || heapoid != IndexGetRelation(indexoid, false))
 		ereport(ERROR,
@@ -1191,10 +1191,10 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 				 errmsg("could not open parent table of index \"%s\"",
 						RelationGetRelationName(indexRel))));
 
-	/* see gin_clean_pending_list() */
+	/* 参见 gin_clean_pending_list() */
 	if (indexRel->rd_index->indisvalid)
 	{
-		/* the revmap does the hard work */
+		/* 具体工作由 revmap 完成 */
 		do
 		{
 			done = brinRevmapDesummarizeRange(indexRel, heapBlk);
@@ -1214,7 +1214,7 @@ brin_desummarize_range(PG_FUNCTION_ARGS)
 }
 
 /*
- * Build a BrinDesc used to create or scan a BRIN index
+ * 构建用于创建或扫描 BRIN 索引的 BrinDesc
  */
 BrinDesc *
 brin_build_desc(Relation rel)
@@ -1235,8 +1235,8 @@ brin_build_desc(Relation rel)
 	tupdesc = RelationGetDescr(rel);
 
 	/*
-	 * Obtain BrinOpcInfo for each indexed column.  While at it, accumulate
-	 * the number of columns stored, since the number is opclass-defined.
+	 * 为每个被索引列取得 BrinOpcInfo。同时累计
+	 * 所存储的列数，因为该数量由操作符类定义。
 	 */
 	opcinfo = palloc_array(BrinOpcInfo *, tupdesc->natts);
 	for (keyno = 0; keyno < tupdesc->natts; keyno++)
@@ -1251,7 +1251,7 @@ brin_build_desc(Relation rel)
 		totalstored += opcinfo[keyno]->oi_nstored;
 	}
 
-	/* Allocate our result struct and fill it in */
+	/* 分配结果结构并填入 */
 	totalsize = offsetof(BrinDesc, bd_info) +
 		sizeof(BrinOpcInfo *) * tupdesc->natts;
 
@@ -1259,7 +1259,7 @@ brin_build_desc(Relation rel)
 	bdesc->bd_context = cxt;
 	bdesc->bd_index = rel;
 	bdesc->bd_tupdesc = tupdesc;
-	bdesc->bd_disktdesc = NULL; /* generated lazily */
+	bdesc->bd_disktdesc = NULL; /* 惰性生成 */
 	bdesc->bd_totalstored = totalstored;
 
 	for (keyno = 0; keyno < tupdesc->natts; keyno++)
@@ -1274,14 +1274,14 @@ brin_build_desc(Relation rel)
 void
 brin_free_desc(BrinDesc *bdesc)
 {
-	/* make sure the tupdesc is still valid */
+	/* 确认 tupdesc 仍然有效 */
 	Assert(bdesc->bd_tupdesc->tdrefcount >= 1);
-	/* no need for retail pfree */
+	/* 不必逐个 pfree */
 	MemoryContextDelete(bdesc->bd_context);
 }
 
 /*
- * Fetch index's statistical data into *stats
+ * 把索引的统计数据取入 *stats
  */
 void
 brinGetStats(Relation index, BrinStatsData *stats)
@@ -1302,7 +1302,7 @@ brinGetStats(Relation index, BrinStatsData *stats)
 }
 
 /*
- * Initialize a BrinBuildState appropriate to create tuples on the given index.
+ * 初始化一个适合在给定索引上创建元组的 BrinBuildState。
  */
 static BrinBuildState *
 initialize_brin_buildstate(Relation idxRel, BrinRevmap *revmap,
@@ -1325,14 +1325,14 @@ initialize_brin_buildstate(Relation idxRel, BrinRevmap *revmap,
 }
 
 /*
- * Release resources associated with a BrinBuildState.
+ * 释放与 BrinBuildState 关联的资源。
  */
 static void
 terminate_brin_buildstate(BrinBuildState *state)
 {
 	/*
-	 * Release the last index buffer used.  We might as well ensure that
-	 * whatever free space remains in that page is available in FSM, too.
+	 * 释放最后使用的索引缓冲区。不妨同时确保
+	 * 该页剩余的空闲空间也记入 FSM。
 	 */
 	if (!BufferIsInvalid(state->bs_currentInsertBuf))
 	{
@@ -1354,23 +1354,23 @@ terminate_brin_buildstate(BrinBuildState *state)
 }
 
 /*
- * On the given BRIN index, summarize the heap page range that corresponds
- * to the heap block number given.
+ * 在给定的 BRIN 索引上，对与给定堆块号对应的
+ * 堆页范围做摘要。
  *
- * This routine can run in parallel with insertions into the heap.  To avoid
- * missing those values from the summary tuple, we first insert a placeholder
- * index tuple into the index, then execute the heap scan; transactions
- * concurrent with the scan update the placeholder tuple.  After the scan, we
- * union the placeholder tuple with the one computed by this routine.  The
- * update of the index value happens in a loop, so that if somebody updates
- * the placeholder tuple after we read it, we detect the case and try again.
- * This ensures that the concurrently inserted tuples are not lost.
+ * 本例程可以与向堆的插入并行运行。为避免
+ * 汇总元组漏掉这些值，先向索引插入一个占位
+ * 索引元组，再执行堆扫描；与扫描并发的事务
+ * 会更新占位元组。扫描之后，把
+ * 占位元组与本例程算出的元组合并。索引值的
+ * 更新在循环中进行，这样若有人在我们读过之后更新了
+ * 占位元组，就能发现这种情况并重试。
+ * 这保证并发插入的元组不会被漏掉。
  *
- * A further corner case is this routine being asked to summarize the partial
- * range at the end of the table.  heapNumBlocks is the (possibly outdated)
- * table size; if we notice that the requested range lies beyond that size,
- * we re-compute the table size after inserting the placeholder tuple, to
- * avoid missing pages that were appended recently.
+ * 还有一种极端情况：本例程被要求对表末尾的未满
+ * 范围做摘要。heapNumBlocks 是（可能已过时的）
+ * 表大小；若发现所请求的范围超出该大小，
+ * 则在插入占位元组之后重新计算表大小，以免
+ * 漏掉最近追加的页。
  */
 static void
 summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
@@ -1383,7 +1383,7 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 	BlockNumber scanNumBlks;
 
 	/*
-	 * Insert the placeholder tuple
+	 * 插入占位元组
 	 */
 	phbuf = InvalidBuffer;
 	phtup = brin_form_placeholder_tuple(state->bs_bdesc, heapBlk, &phsz);
@@ -1392,41 +1392,41 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 						   heapBlk, phtup, phsz);
 
 	/*
-	 * Compute range end.  We hold ShareUpdateExclusive lock on table, so it
-	 * cannot shrink concurrently (but it can grow).
+	 * 计算范围终点。我们对表持有 ShareUpdateExclusive 锁，因此它
+	 * 无法并发收缩（但可以增长）。
 	 */
 	Assert(heapBlk % state->bs_pagesPerRange == 0);
 	if (heapBlk + state->bs_pagesPerRange > heapNumBlks)
 	{
 		/*
-		 * If we're asked to scan what we believe to be the final range on the
-		 * table (i.e. a range that might be partial) we need to recompute our
-		 * idea of what the latest page is after inserting the placeholder
-		 * tuple.  Anyone that grows the table later will update the
-		 * placeholder tuple, so it doesn't matter that we won't scan these
-		 * pages ourselves.  Careful: the table might have been extended
-		 * beyond the current range, so clamp our result.
+		 * 若被要求扫描我们认为是表上最后一个范围
+		 * （即可能未满的范围），需要在插入占位
+		 * 元组之后，重新计算我们所认为的最新页。
+		 * 之后扩展该表的人会更新
+		 * 占位元组，因此我们自己不扫描这些
+		 * 页也没关系。注意：表可能已被扩展到
+		 * 当前范围之外，因此要把结果钳制住。
 		 *
-		 * Fortunately, this should occur infrequently.
+		 * 好在这种情况应当很少发生。
 		 */
 		scanNumBlks = Min(RelationGetNumberOfBlocks(heapRel) - heapBlk,
 						  state->bs_pagesPerRange);
 	}
 	else
 	{
-		/* Easy case: range is known to be complete */
+		/* 简单情形：已知该范围是完整的 */
 		scanNumBlks = state->bs_pagesPerRange;
 	}
 
 	/*
-	 * Execute the partial heap scan covering the heap blocks in the specified
-	 * page range, summarizing the heap tuples in it.  This scan stops just
-	 * short of brinbuildCallback creating the new index entry.
+	 * 对指定页范围内的堆块执行部分堆扫描，
+	 * 并摘要其中的堆元组。这次扫描刚好停在
+	 * brinbuildCallback 创建新索引项之前。
 	 *
-	 * Note that it is critical we use the "any visible" mode of
-	 * table_index_build_range_scan here: otherwise, we would miss tuples
-	 * inserted by transactions that are still in progress, among other corner
-	 * cases.
+	 * 注意，这里必须使用 table_index_build_range_scan 的
+	 * "any visible" 模式：否则会错过仍在进行中的事务
+	 * 所插入的元组，以及其他极端
+	 * 情况。
 	 */
 	state->bs_currRangeStart = heapBlk;
 	table_index_build_range_scan(heapRel, state->bs_irel, indexInfo, false, true, false,
@@ -1434,10 +1434,10 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 								 brinbuildCallback, (void *) state, NULL);
 
 	/*
-	 * Now we update the values obtained by the scan with the placeholder
-	 * tuple.  We do this in a loop which only terminates if we're able to
-	 * update the placeholder tuple successfully; if we are not, this means
-	 * somebody else modified the placeholder tuple after we read it.
+	 * 现在用占位元组更新扫描得到的值。
+	 * 这在一个循环中进行，只有成功
+	 * 更新占位元组循环才会终止；若没有成功，说明
+	 * 有人在我们读取之后修改了占位元组。
 	 */
 	for (;;)
 	{
@@ -1449,7 +1449,7 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Update the summary tuple and try to update.
+		 * 更新汇总元组并尝试更新。
 		 */
 		newtup = brin_form_tuple(state->bs_bdesc,
 								 heapBlk, state->bs_dtuple, &newsize);
@@ -1461,27 +1461,27 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 		brin_free_tuple(phtup);
 		brin_free_tuple(newtup);
 
-		/* If the update succeeded, we're done. */
+		/* 若更新成功，则已完成。 */
 		if (didupdate)
 			break;
 
 		/*
-		 * If the update didn't work, it might be because somebody updated the
-		 * placeholder tuple concurrently.  Extract the new version, union it
-		 * with the values we have from the scan, and start over.  (There are
-		 * other reasons for the update to fail, but it's simple to treat them
-		 * the same.)
+		 * 若更新没有成功，可能是有人并发更新了
+		 * 占位元组。取出新版本，把它与
+		 * 扫描所得的值合并，然后从头再来。（更新失败还有
+		 * 其他原因，但对它们做同样处理很
+		 * 简单。）
 		 */
 		phtup = brinGetTupleForHeapBlock(state->bs_rmAccess, heapBlk, &phbuf,
 										 &offset, &phsz, BUFFER_LOCK_SHARE,
 										 NULL);
-		/* the placeholder tuple must exist */
+		/* 占位元组必须存在 */
 		if (phtup == NULL)
 			elog(ERROR, "missing placeholder tuple");
 		phtup = brin_copy_tuple(phtup, phsz, NULL, NULL);
 		LockBuffer(phbuf, BUFFER_LOCK_UNLOCK);
 
-		/* merge it into the tuple from the heap scan */
+		/* 把它合并进堆扫描得到的元组 */
 		union_tuples(state->bs_bdesc, state->bs_dtuple, phtup);
 	}
 
@@ -1489,15 +1489,15 @@ summarize_range(IndexInfo *indexInfo, BrinBuildState *state, Relation heapRel,
 }
 
 /*
- * Summarize page ranges that are not already summarized.  If pageRange is
- * BRIN_ALL_BLOCKRANGES then the whole table is scanned; otherwise, only the
- * page range containing the given heap page number is scanned.
- * If include_partial is true, then the partial range at the end of the table
- * is summarized, otherwise not.
+ * 对尚未摘要的页范围做摘要。若 pageRange 为
+ * BRIN_ALL_BLOCKRANGES，则扫描整张表；否则只扫描
+ * 包含给定堆页号的页范围。
+ * 若 include_partial 为真，则对表末尾的未满范围
+ * 做摘要，否则不做。
  *
- * For each new index tuple inserted, *numSummarized (if not NULL) is
- * incremented; for each existing tuple, *numExisting (if not NULL) is
- * incremented.
+ * 每插入一个新索引元组，*numSummarized（若非 NULL）就
+ * 递增；每遇到一个已有元组，*numExisting（若非 NULL）就
+ * 递增。
  */
 static void
 brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
@@ -1513,7 +1513,7 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 
 	revmap = brinRevmapInitialize(index, &pagesPerRange, NULL);
 
-	/* determine range of pages to process */
+	/* 确定要处理的页范围 */
 	heapNumBlocks = RelationGetNumberOfBlocks(heapRel);
 	if (pageRange == BRIN_ALL_BLOCKRANGES)
 		startBlk = 0;
@@ -1524,13 +1524,13 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 	}
 	if (startBlk > heapNumBlocks)
 	{
-		/* Nothing to do if start point is beyond end of table */
+		/* 若起点超出表尾，则无事可做 */
 		brinRevmapTerminate(revmap);
 		return;
 	}
 
 	/*
-	 * Scan the revmap to find unsummarized items.
+	 * 扫描 revmap，找出未摘要的项。
 	 */
 	buf = InvalidBuffer;
 	for (; startBlk < heapNumBlocks; startBlk += pagesPerRange)
@@ -1539,11 +1539,11 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 		OffsetNumber off;
 
 		/*
-		 * Unless requested to summarize even a partial range, go away now if
-		 * we think the next range is partial.  Caller would pass true when it
-		 * is typically run once bulk data loading is done
-		 * (brin_summarize_new_values), and false when it is typically the
-		 * result of arbitrarily-scheduled maintenance command (vacuuming).
+		 * 除非被要求连未满范围也做摘要，否则若认为
+		 * 下一个范围是未满的，现在就返回。调用者在批量装载
+		 * 数据通常已完成时传入真
+		 * （brin_summarize_new_values），在它通常是任意调度的
+		 * 维护命令（清理）的结果时传入假。
 		 */
 		if (!include_partial &&
 			(startBlk + pagesPerRange > heapNumBlocks))
@@ -1555,10 +1555,10 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 									   BUFFER_LOCK_SHARE, NULL);
 		if (tup == NULL)
 		{
-			/* no revmap entry for this heap range. Summarize it. */
+			/* 该堆范围没有 revmap 项。对它做摘要。 */
 			if (state == NULL)
 			{
-				/* first time through */
+				/* 第一次执行 */
 				Assert(!indexInfo);
 				state = initialize_brin_buildstate(index, revmap,
 												   pagesPerRange);
@@ -1566,7 +1566,7 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 			}
 			summarize_range(indexInfo, state, heapRel, startBlk, heapNumBlocks);
 
-			/* and re-initialize state for the next range */
+			/* 并为下一个范围重新初始化状态 */
 			brin_memtuple_initialize(state->bs_dtuple, state->bs_bdesc);
 
 			if (numSummarized)
@@ -1583,7 +1583,7 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 	if (BufferIsValid(buf))
 		ReleaseBuffer(buf);
 
-	/* free resources */
+	/* 释放资源 */
 	brinRevmapTerminate(revmap);
 	if (state)
 	{
@@ -1593,8 +1593,8 @@ brinsummarize(Relation index, Relation heapRel, BlockNumber pageRange,
 }
 
 /*
- * Given a deformed tuple in the build state, convert it into the on-disk
- * format and insert it into the index, making the revmap point to it.
+ * 给定构建状态中的变形元组，把它转换成磁盘
+ * 格式并插入索引，使 revmap 指向它。
  */
 static void
 form_and_insert_tuple(BrinBuildState *state)
@@ -1613,8 +1613,8 @@ form_and_insert_tuple(BrinBuildState *state)
 }
 
 /*
- * Given two deformed tuples, adjust the first one so that it's consistent
- * with the summary values in both.
+ * 给定两个变形元组，调整第一个，使它与两者中的
+ * 摘要值都一致。
  */
 static void
 union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
@@ -1624,7 +1624,7 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 	MemoryContext cxt;
 	MemoryContext oldcxt;
 
-	/* Use our own memory context to avoid retail pfree */
+	/* 使用自己的内存上下文，以避免逐个 pfree */
 	cxt = AllocSetContextCreate(CurrentMemoryContext,
 								"brin union",
 								ALLOCSET_DEFAULT_SIZES);
@@ -1633,30 +1633,30 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 	MemoryContextSwitchTo(oldcxt);
 
 	/*
-	 * Check if the ranges are empty.
+	 * 检查这些范围是否为空。
 	 *
-	 * If at least one of them is empty, we don't need to call per-key union
-	 * functions at all. If "b" is empty, we just use "a" as the result (it
-	 * might be empty fine, but that's fine). If "a" is empty but "b" is not,
-	 * we use "b" as the result (but we have to copy the data into "a" first).
+	 * 若其中至少一个为空，就完全不必调用逐键的 union
+	 * 函数。若 "b" 为空，就直接用 "a" 作为结果（即使
+	 * "a" 为空也无妨）。若 "a" 为空而 "b" 不为空，
+	 * 则用 "b" 作为结果（但必须先把数据复制到 "a"）。
 	 *
-	 * Only when both ranges are non-empty, we actually do the per-key merge.
+	 * 只有两个范围都不为空时，才真正做逐键合并。
 	 */
 
-	/* If "b" is empty - ignore it and just use "a" (even if it's empty etc.). */
+	/* 若 "b" 为空则忽略它，直接使用 "a"（即使它为空等也如此）。 */
 	if (db->bt_empty_range)
 	{
-		/* skip the per-key merge */
+		/* 跳过逐键合并 */
 		MemoryContextDelete(cxt);
 		return;
 	}
 
 	/*
-	 * Now we know "b" is not empty. If "a" is empty, then "b" is the result.
-	 * But we need to copy the data from "b" to "a" first, because that's how
-	 * we pass result out.
+	 * 现在知道 "b" 不为空。若 "a" 为空，则结果是 "b"。
+	 * 但必须先把数据从 "b" 复制到 "a"，因为结果就是
+	 * 这样传出去的。
 	 *
-	 * We have to copy all the global/per-key flags etc. too.
+	 * 全局标志和逐键标志等也都必须复制。
 	 */
 	if (a->bt_empty_range)
 	{
@@ -1670,7 +1670,7 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 			col_a->bv_allnulls = col_b->bv_allnulls;
 			col_a->bv_hasnulls = col_b->bv_hasnulls;
 
-			/* If "b" has no data, we're done. */
+			/* 若 "b" 没有数据，则已完成。 */
 			if (col_b->bv_allnulls)
 				continue;
 
@@ -1681,15 +1681,15 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 							  opcinfo->oi_typcache[i]->typlen);
 		}
 
-		/* "a" started empty, but "b" was not empty, so remember that */
+		/* "a" 一开始为空，但 "b" 不为空，因此记住这一点 */
 		a->bt_empty_range = false;
 
-		/* skip the per-key merge */
+		/* 跳过逐键合并 */
 		MemoryContextDelete(cxt);
 		return;
 	}
 
-	/* Now we know neither range is empty. */
+	/* 现在知道两个范围都不为空。 */
 	for (keyno = 0; keyno < bdesc->bd_tupdesc->natts; keyno++)
 	{
 		FmgrInfo   *unionFn;
@@ -1699,26 +1699,26 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 
 		if (opcinfo->oi_regular_nulls)
 		{
-			/* Does the "b" summary represent any NULL values? */
+			/* "b" 的摘要是否表示任何 NULL 值？ */
 			bool		b_has_nulls = (col_b->bv_hasnulls || col_b->bv_allnulls);
 
-			/* Adjust "hasnulls". */
+			/* 调整 "hasnulls"。 */
 			if (!col_a->bv_allnulls && b_has_nulls)
 				col_a->bv_hasnulls = true;
 
-			/* If there are no values in B, there's nothing left to do. */
+			/* 若 B 中没有值，就没有剩下要做的事。 */
 			if (col_b->bv_allnulls)
 				continue;
 
 			/*
-			 * Adjust "allnulls".  If A doesn't have values, just copy the
-			 * values from B into A, and we're done.  We cannot run the
-			 * operators in this case, because values in A might contain
-			 * garbage.  Note we already established that B contains values.
+			 * 调整 "allnulls"。若 A 没有值，就把 B 的
+			 * 值复制到 A，然后结束。此时无法运行
+			 * 操作符，因为 A 中的值可能含有
+			 * 垃圾。注意，已经确定 B 含有值。
 			 *
-			 * Also adjust "hasnulls" in order not to forget the summary
-			 * represents NULL values. This is not redundant with the earlier
-			 * update, because that only happens when allnulls=false.
+			 * 同时调整 "hasnulls"，以免忘记该摘要
+			 * 表示 NULL 值。这与前面的更新并不重复，
+			 * 因为那只在 allnulls=false 时发生。
 			 */
 			if (col_a->bv_allnulls)
 			{
@@ -1751,11 +1751,11 @@ union_tuples(BrinDesc *bdesc, BrinMemTuple *a, BrinTuple *b)
 
 /*
  * brin_vacuum_scan
- *		Do a complete scan of the index during VACUUM.
+ *		在 VACUUM 期间对索引做一次完整扫描。
  *
- * This routine scans the complete index looking for uncatalogued index pages,
- * i.e. those that might have been lost due to a crash after index extension
- * and such.
+ * 本例程扫描整个索引，寻找未登记的索引页，
+ * 即索引扩展之后因崩溃等原因可能丢失的
+ * 那些页。
  */
 static void
 brin_vacuum_scan(Relation idxrel, BufferAccessStrategy strategy)
@@ -1764,8 +1764,8 @@ brin_vacuum_scan(Relation idxrel, BufferAccessStrategy strategy)
 	BlockNumber blkno;
 
 	/*
-	 * Scan the index in physical order, and clean up any possible mess in
-	 * each page.
+	 * 按物理顺序扫描索引，并清理每一页上
+	 * 可能存在的混乱。
 	 */
 	nblocks = RelationGetNumberOfBlocks(idxrel);
 	for (blkno = 0; blkno < nblocks; blkno++)
@@ -1783,9 +1783,9 @@ brin_vacuum_scan(Relation idxrel, BufferAccessStrategy strategy)
 	}
 
 	/*
-	 * Update all upper pages in the index's FSM, as well.  This ensures not
-	 * only that we propagate leaf-page FSM updates made by brin_page_cleanup,
-	 * but also that any pre-existing damage or out-of-dateness is repaired.
+	 * 同时更新索引 FSM 中的全部上层页。这不仅确保
+	 * 传播 brin_page_cleanup 对叶页 FSM 所做的更新，
+	 * 也修复任何原先已有的损坏或过时。
 	 */
 	FreeSpaceMapVacuum(idxrel);
 }
@@ -1796,15 +1796,15 @@ add_values_to_range(Relation idxRel, BrinDesc *bdesc, BrinMemTuple *dtup,
 {
 	int			keyno;
 
-	/* If the range starts empty, we're certainly going to modify it. */
+	/* 若范围一开始为空，则肯定会修改它。 */
 	bool		modified = dtup->bt_empty_range;
 
 	/*
-	 * Compare the key values of the new tuple to the stored index values; our
-	 * deformed tuple will get updated if the new tuple doesn't fit the
-	 * original range (note this means we can't break out of the loop early).
-	 * Make a note of whether this happens, so that we know to insert the
-	 * modified tuple later.
+	 * 把新元组的键值与索引中存放的值比较；若新元组
+	 * 放不进原来的范围，变形元组就会被更新（注意，这意味着
+	 * 无法提前跳出循环）。记下是否发生了这种情况，
+	 * 以便稍后知道要插入修改后的
+	 * 元组。
 	 */
 	for (keyno = 0; keyno < bdesc->bd_tupdesc->natts; keyno++)
 	{
@@ -1816,24 +1816,24 @@ add_values_to_range(Relation idxRel, BrinDesc *bdesc, BrinMemTuple *dtup,
 		bval = &dtup->bt_columns[keyno];
 
 		/*
-		 * Does the range have actual NULL values? Either of the flags can be
-		 * set, but we ignore the state before adding first row.
+		 * 该范围是否含有实际的 NULL 值？两个标志都可能被
+		 * 置位，但在加入第一行之前忽略该状态。
 		 *
-		 * We have to remember this, because we'll modify the flags and we
-		 * need to know if the range started as empty.
+		 * 必须记住这一点，因为接下来会修改标志，而且
+		 * 需要知道该范围一开始是否为空。
 		 */
 		has_nulls = ((!dtup->bt_empty_range) &&
 					 (bval->bv_hasnulls || bval->bv_allnulls));
 
 		/*
-		 * If the value we're adding is NULL, handle it locally. Otherwise
-		 * call the BRIN_PROCNUM_ADDVALUE procedure.
+		 * 若要加入的值是 NULL，就在本地处理。否则
+		 * 调用 BRIN_PROCNUM_ADDVALUE 过程。
 		 */
 		if (bdesc->bd_info[keyno]->oi_regular_nulls && nulls[keyno])
 		{
 			/*
-			 * If the new value is null, we record that we saw it if it's the
-			 * first one; otherwise, there's nothing to do.
+			 * 若新值是空值，且这是第一个，就记下见过它；
+			 * 否则无事可做。
 			 */
 			if (!bval->bv_hasnulls)
 			{
@@ -1852,17 +1852,17 @@ add_values_to_range(Relation idxRel, BrinDesc *bdesc, BrinMemTuple *dtup,
 								   PointerGetDatum(bval),
 								   values[keyno],
 								   nulls[keyno]);
-		/* if that returned true, we need to insert the updated tuple */
+		/* 若该调用返回真，就需要插入更新后的元组 */
 		modified |= DatumGetBool(result);
 
 		/*
-		 * If the range was had actual NULL values (i.e. did not start empty),
-		 * make sure we don't forget about the NULL values. Either the
-		 * allnulls flag is still set to true, or (if the opclass cleared it)
-		 * we need to set hasnulls=true.
+		 * 若该范围曾含有实际的 NULL 值（即一开始不为空），
+		 * 务必不要忘记这些 NULL 值。要么
+		 * allnulls 标志仍为真，要么（若操作符类把它清掉了）
+		 * 需要把 hasnulls 设为真。
 		 *
-		 * XXX This can only happen when the opclass modified the tuple, so
-		 * the modified flag should be set.
+		 * XXX 这只在操作符类修改了元组时才会发生，因此
+		 * modified 标志应当已置位。
 		 */
 		if (has_nulls && !(bval->bv_hasnulls || bval->bv_allnulls))
 		{
@@ -1872,11 +1872,11 @@ add_values_to_range(Relation idxRel, BrinDesc *bdesc, BrinMemTuple *dtup,
 	}
 
 	/*
-	 * After updating summaries for all the keys, mark it as not empty.
+	 * 更新完所有键的摘要后，把它标为非空。
 	 *
-	 * If we're actually changing the flag value (i.e. tuple started as
-	 * empty), we should have modified the tuple. So we should not see empty
-	 * range that was not modified.
+	 * 若确实在改变该标志的值（即元组一开始是
+	 * 空的），就应当已经修改了元组。因此不应当看到
+	 * 未被修改的空范围。
 	 */
 	Assert(!dtup->bt_empty_range || modified);
 	dtup->bt_empty_range = false;
@@ -1890,8 +1890,8 @@ check_null_keys(BrinValues *bval, ScanKey *nullkeys, int nnullkeys)
 	int			keyno;
 
 	/*
-	 * First check if there are any IS [NOT] NULL scan keys, and if we're
-	 * violating them.
+	 * 先检查是否有 IS [NOT] NULL 扫描键，以及是否
+	 * 违反了它们。
 	 */
 	for (keyno = 0; keyno < nnullkeys; keyno++)
 	{
@@ -1899,21 +1899,21 @@ check_null_keys(BrinValues *bval, ScanKey *nullkeys, int nnullkeys)
 
 		Assert(key->sk_attno == bval->bv_attno);
 
-		/* Handle only IS NULL/IS NOT NULL tests */
+		/* 只处理 IS NULL/IS NOT NULL 测试 */
 		if (!(key->sk_flags & SK_ISNULL))
 			continue;
 
 		if (key->sk_flags & SK_SEARCHNULL)
 		{
-			/* IS NULL scan key, but range has no NULLs */
+			/* IS NULL 扫描键，但范围中没有 NULLs */
 			if (!bval->bv_allnulls && !bval->bv_hasnulls)
 				return false;
 		}
 		else if (key->sk_flags & SK_SEARCHNOTNULL)
 		{
 			/*
-			 * For IS NOT NULL, we can only skip ranges that are known to have
-			 * only nulls.
+			 * 对于 IS NOT NULL，只能跳过已知仅含
+			 * 空值的范围。
 			 */
 			if (bval->bv_allnulls)
 				return false;
@@ -1921,9 +1921,9 @@ check_null_keys(BrinValues *bval, ScanKey *nullkeys, int nnullkeys)
 		else
 		{
 			/*
-			 * Neither IS NULL nor IS NOT NULL was used; assume all indexable
-			 * operators are strict and thus return false with NULL value in
-			 * the scan key.
+			 * 既没有使用 IS NULL，也没有使用 IS NOT NULL；假定所有可索引
+			 * 操作符都是严格的，因此扫描键中的值为 NULL 时
+			 * 返回假。
 			 */
 			return false;
 		}

@@ -89,12 +89,12 @@
 static inline bool BarrierDetachImpl(Barrier *barrier, bool arrive);
 
 /*
- * Initialize this barrier.  To use a static party size, provide the number of
- * participants to wait for at each phase indicating that that number of
- * backends is implicitly attached.  To use a dynamic party size, specify zero
- * here and then use BarrierAttach() and
- * BarrierDetach()/BarrierArriveAndDetach() to register and deregister
- * participants explicitly.
+ * 初始化此屏障。若使用静态参与者数量，给出每个阶段
+ * 要等待的参与者数，表示该数目的后端已隐式挂接。
+ * 若使用动态参与者数量，这里指定零，然后用
+ * BarrierAttach() 与
+ * BarrierDetach()/BarrierArriveAndDetach() 显式登记和
+ * 注销参与者。
  */
 void
 BarrierInit(Barrier *barrier, int participants)
@@ -109,17 +109,17 @@ BarrierInit(Barrier *barrier, int participants)
 }
 
 /*
- * Arrive at this barrier, wait for all other attached participants to arrive
- * too and then return.  Increments the current phase.  The caller must be
- * attached.
+ * 到达此屏障，等待所有其他已挂接的参与者也到达，
+ * 然后返回。当前阶段加一。调用方必须已经
+ * 挂接。
  *
- * While waiting, pg_stat_activity shows a wait_event_type and wait_event
- * controlled by the wait_event_info passed in, which should be a value from
- * one of the WaitEventXXX enums defined in pgstat.h.
+ * 等待期间，pg_stat_activity 显示的 wait_event_type 与 wait_event
+ * 由传入的 wait_event_info 控制，该值应取自
+ * pgstat.h 里的某个 WaitEventXXX 枚举。
  *
- * Return true in one arbitrarily chosen participant.  Return false in all
- * others.  The return code can be used to elect one participant to execute a
- * phase of work that must be done serially while other participants wait.
+ * 在任意选出的一个参与者中返回真，在其余所有
+ * 参与者中返回假。返回值可用来选出一个参与者，执行
+ * 必须串行完成的一阶段工作，其余参与者则等待。
  */
 bool
 BarrierArriveAndWait(Barrier *barrier, uint32 wait_event_info)
@@ -143,9 +143,9 @@ BarrierArriveAndWait(Barrier *barrier, uint32 wait_event_info)
 	SpinLockRelease(&barrier->mutex);
 
 	/*
-	 * If we were the last expected participant to arrive, we can release our
-	 * peers and return true to indicate that this backend has been elected to
-	 * perform any serial work.
+	 * 若我们是最后一个到达的预期参与者，就可以放开
+	 * 同伴并返回真，表示此后端已被选出，
+	 * 去执行任何串行工作。
 	 */
 	if (release)
 	{
@@ -155,20 +155,20 @@ BarrierArriveAndWait(Barrier *barrier, uint32 wait_event_info)
 	}
 
 	/*
-	 * Otherwise we have to wait for the last participant to arrive and
-	 * advance the phase.
+	 * 否则必须等待最后一个参与者到达，
+	 * 并推进阶段。
 	 */
 	elected = false;
 	ConditionVariablePrepareToSleep(&barrier->condition_variable);
 	for (;;)
 	{
 		/*
-		 * We know that phase must either be start_phase, indicating that we
-		 * need to keep waiting, or next_phase, indicating that the last
-		 * participant that we were waiting for has either arrived or detached
-		 * so that the next phase has begun.  The phase cannot advance any
-		 * further than that without this backend's participation, because
-		 * this backend is attached.
+		 * 我们知道 phase 要么是 start_phase，表示我们
+		 * 还要继续等待，要么是 next_phase，表示我们正在
+		 * 等待的最后一个参与者已经到达或已脱离，
+		 * 因而下一阶段已经开始。没有此后端参与，
+		 * 阶段无法再向前推进，因为
+		 * 此后端处于挂接状态。
 		 */
 		SpinLockAcquire(&barrier->mutex);
 		Assert(barrier->phase == start_phase || barrier->phase == next_phase);
@@ -176,11 +176,11 @@ BarrierArriveAndWait(Barrier *barrier, uint32 wait_event_info)
 		if (release && barrier->elected != next_phase)
 		{
 			/*
-			 * Usually the backend that arrives last and releases the other
-			 * backends is elected to return true (see above), so that it can
-			 * begin processing serial work while it has a CPU timeslice.
-			 * However, if the barrier advanced because someone detached, then
-			 * one of the backends that is awoken will need to be elected.
+			 * 通常由最后到达并放开其他后端的那个后端
+			 * 被选出来返回真（见上文），以便它能在自己的
+			 * CPU 时间片里开始处理串行工作。
+			 * 不过，若屏障是因为有人脱离而推进的，那么
+			 * 就得从被唤醒的后端里选出一个。
 			 */
 			barrier->elected = barrier->phase;
 			elected = true;
@@ -196,8 +196,8 @@ BarrierArriveAndWait(Barrier *barrier, uint32 wait_event_info)
 }
 
 /*
- * Arrive at this barrier, but detach rather than waiting.  Returns true if
- * the caller was the last to detach.
+ * 到达此屏障，但脱离而不是等待。若调用方是
+ * 最后一个脱离的，则返回真。
  */
 bool
 BarrierArriveAndDetach(Barrier *barrier)
@@ -206,8 +206,8 @@ BarrierArriveAndDetach(Barrier *barrier)
 }
 
 /*
- * Arrive at a barrier, and detach all but the last to arrive.  Returns true if
- * the caller was the last to arrive, and is therefore still attached.
+ * 到达屏障，除最后到达者外全部脱离。若调用方是
+ * 最后到达的、因而仍然挂接，则返回真。
  */
 bool
 BarrierArriveAndDetachExceptLast(Barrier *barrier)
@@ -228,9 +228,9 @@ BarrierArriveAndDetachExceptLast(Barrier *barrier)
 }
 
 /*
- * Attach to a barrier.  All waiting participants will now wait for this
- * participant to call BarrierArriveAndWait(), BarrierDetach() or
- * BarrierArriveAndDetach().  Return the current phase.
+ * 挂接到屏障。所有正在等待的参与者现在都会等待此
+ * 参与者调用 BarrierArriveAndWait()、BarrierDetach() 或
+ * BarrierArriveAndDetach()。返回当前阶段。
  */
 int
 BarrierAttach(Barrier *barrier)
@@ -248,9 +248,9 @@ BarrierAttach(Barrier *barrier)
 }
 
 /*
- * Detach from a barrier.  This may release other waiters from
- * BarrierArriveAndWait() and advance the phase if they were only waiting for
- * this backend.  Return true if this participant was the last to detach.
+ * 从屏障脱离。这可能把其他等待者从
+ * BarrierArriveAndWait() 里放开，并在他们只是在等
+ * 此后端时推进阶段。若此参与者是最后一个脱离的，返回真。
  */
 bool
 BarrierDetach(Barrier *barrier)
@@ -259,23 +259,23 @@ BarrierDetach(Barrier *barrier)
 }
 
 /*
- * Return the current phase of a barrier.  The caller must be attached.
+ * 返回屏障的当前阶段。调用方必须已挂接。
  */
 int
 BarrierPhase(Barrier *barrier)
 {
 	/*
-	 * It is OK to read barrier->phase without locking, because it can't
-	 * change without us (we are attached to it), and we executed a memory
-	 * barrier when we either attached or participated in changing it last
-	 * time.
+	 * 不加锁读取 barrier->phase 是可以的，因为它不会在
+	 * 没有我们的情况下改变（我们挂接在上面），而且上次
+	 * 挂接或参与改变它时，我们已经执行过一次
+	 * 内存屏障。
 	 */
 	return barrier->phase;
 }
 
 /*
- * Return an instantaneous snapshot of the number of participants currently
- * attached to this barrier.  For debugging purposes only.
+ * 返回当前挂接在此屏障上的参与者数量的瞬时快照。
+ * 仅供调试。
  */
 int
 BarrierParticipants(Barrier *barrier)
@@ -290,11 +290,11 @@ BarrierParticipants(Barrier *barrier)
 }
 
 /*
- * Detach from a barrier.  If 'arrive' is true then also increment the phase
- * if there are no other participants.  If there are other participants
- * waiting, then the phase will be advanced and they'll be released if they
- * were only waiting for the caller.  Return true if this participant was the
- * last to detach.
+ * 从屏障脱离。若 arrive 为真，且没有其他参与者，
+ * 则阶段也加一。若有其他参与者在等待，则当他们
+ * 只是在等调用方时，阶段会推进并放开他们。
+ * 若此参与者是最后一个脱离的，
+ * 返回真。
  */
 static inline bool
 BarrierDetachImpl(Barrier *barrier, bool arrive)
@@ -309,9 +309,9 @@ BarrierDetachImpl(Barrier *barrier, bool arrive)
 	--barrier->participants;
 
 	/*
-	 * If any other participants are waiting and we were the last participant
-	 * waited for, release them.  If no other participants are waiting, but
-	 * this is a BarrierArriveAndDetach() call, then advance the phase too.
+	 * 若有其他参与者在等待，且我们是他们等待的最后一个
+	 * 参与者，就放开他们。若没有其他参与者在等待，但这是
+	 * 一次 BarrierArriveAndDetach() 调用，则阶段也向前推进。
 	 */
 	if ((arrive || barrier->participants > 0) &&
 		barrier->arrived == barrier->participants)

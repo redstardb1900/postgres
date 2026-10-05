@@ -53,7 +53,7 @@
 
 #define INVALID_CONTROL_SLOT		((uint32) -1)
 
-/* Backend-local tracking for on-detach callbacks. */
+/* 脱离回调的后端本地跟踪。 */
 typedef struct dsm_segment_detach_callback
 {
 	on_dsm_detach_callback function;
@@ -61,31 +61,31 @@ typedef struct dsm_segment_detach_callback
 	slist_node	node;
 } dsm_segment_detach_callback;
 
-/* Backend-local state for a dynamic shared memory segment. */
+/* 一个动态共享内存段的后端本地状态。 */
 struct dsm_segment
 {
-	dlist_node	node;			/* List link in dsm_segment_list. */
-	ResourceOwner resowner;		/* Resource owner. */
-	dsm_handle	handle;			/* Segment name. */
-	uint32		control_slot;	/* Slot in control segment. */
-	void	   *impl_private;	/* Implementation-specific private data. */
-	void	   *mapped_address; /* Mapping address, or NULL if unmapped. */
-	Size		mapped_size;	/* Size of our mapping. */
-	slist_head	on_detach;		/* On-detach callbacks. */
+	dlist_node	node;			/* dsm_segment_list 中的链表结点。 */
+	ResourceOwner resowner;		/* 资源所有者。 */
+	dsm_handle	handle;			/* 段名。 */
+	uint32		control_slot;	/* 控制段中的槽。 */
+	void	   *impl_private;	/* 特定实现的私有数据。 */
+	void	   *mapped_address; /* 映射地址；若未映射则为 NULL。 */
+	Size		mapped_size;	/* 我们这块映射的大小。 */
+	slist_head	on_detach;		/* 脱离时的回调。 */
 };
 
-/* Shared-memory state for a dynamic shared memory segment. */
+/* 一个动态共享内存段的共享内存状态。 */
 typedef struct dsm_control_item
 {
 	dsm_handle	handle;
-	uint32		refcnt;			/* 2+ = active, 1 = moribund, 0 = gone */
+	uint32		refcnt;			/* 2 及以上表示活动，1 表示垂死，0 表示已消失 */
 	size_t		first_page;
 	size_t		npages;
-	void	   *impl_private_pm_handle; /* only needed on Windows */
+	void	   *impl_private_pm_handle; /* 仅 Windows 需要 */
 	bool		pinned;
 } dsm_control_item;
 
-/* Layout of the dynamic shared memory control segment. */
+/* 动态共享内存控制段的布局。 */
 typedef struct dsm_control_header
 {
 	uint32		magic;
@@ -103,37 +103,37 @@ static uint64 dsm_control_bytes_needed(uint32 nitems);
 static inline dsm_handle make_main_region_dsm_handle(int slot);
 static inline bool is_main_region_dsm_handle(dsm_handle handle);
 
-/* Has this backend initialized the dynamic shared memory system yet? */
+/* 此后端是否已经初始化动态共享内存系统？ */
 static bool dsm_init_done = false;
 
-/* Preallocated DSM space in the main shared memory region. */
+/* 主共享内存区中预分配的动态共享内存空间。 */
 static void *dsm_main_space_begin = NULL;
 
 /*
- * List of dynamic shared memory segments used by this backend.
+ * 本后端使用的动态共享内存段列表。
  *
- * At process exit time, we must decrement the reference count of each
- * segment we have attached; this list makes it possible to find all such
- * segments.
+ * 进程退出时，我们必须把每个已挂接段的
+ * 引用计数减一；这份列表使找出所有这样的
+ * 段成为可能。
  *
- * This list should always be empty in the postmaster.  We could probably
- * allow the postmaster to map dynamic shared memory segments before it
- * begins to start child processes, provided that each process adjusted
- * the reference counts for those segments in the control segment at
- * startup time, but there's no obvious need for such a facility, which
- * would also be complex to handle in the EXEC_BACKEND case.  Once the
- * postmaster has begun spawning children, there's an additional problem:
- * each new mapping would require an update to the control segment,
- * which requires locking, in which the postmaster must not be involved.
+ * 这份列表在 postmaster 里应当始终为空。我们也许可以
+ * 允许 postmaster 在开始启动子进程之前映射动态共享内存段，
+ * 只要每个进程在启动时调整控制段里那些段的
+ * 引用计数，但看不出对这种机制有明显的需要，
+ * 而且在 EXEC_BACKEND 情形下处理起来也会很复杂。一旦
+ * postmaster 开始派生子进程，还有一个额外问题：
+ * 每次新映射都需要更新控制段，
+ * 而更新需要上锁，
+ * postmaster 不得卷入其中。
  */
 static dlist_head dsm_segment_list = DLIST_STATIC_INIT(dsm_segment_list);
 
 /*
- * Control segment information.
+ * 控制段信息。
  *
- * Unlike ordinary shared memory segments, the control segment is not
- * reference counted; instead, it lasts for the postmaster's entire
- * life cycle.  For simplicity, it doesn't have a dsm_segment object either.
+ * 与普通共享内存段不同，控制段不按引用计数；
+ * 它的寿命与 postmaster 的整个生命周期相同。为简单起见，
+ * 它也没有 dsm_segment 对象。
  */
 static dsm_handle dsm_control_handle;
 static dsm_control_header *dsm_control;
@@ -141,10 +141,10 @@ static Size dsm_control_mapped_size = 0;
 static void *dsm_control_impl_private = NULL;
 
 /*
- * Start up the dynamic shared memory system.
+ * 启动动态共享内存系统。
  *
- * This is called just once during each cluster lifetime, at postmaster
- * startup time.
+ * 每个数据目录的生命周期里只在 postmaster
+ * 启动时调用一次。
  */
 void
 dsm_postmaster_startup(PGShmemHeader *shim)
@@ -156,15 +156,15 @@ dsm_postmaster_startup(PGShmemHeader *shim)
 	Assert(!IsUnderPostmaster);
 
 	/*
-	 * If we're using the mmap implementations, clean up any leftovers.
-	 * Cleanup isn't needed on Windows, and happens earlier in startup for
-	 * POSIX and System V shared memory, via a direct call to
-	 * dsm_cleanup_using_control_segment.
+	 * 若使用 mmap 实现，清掉任何残留。
+	 * Windows 上不需要清理，POSIX 与 System V 共享内存
+	 * 则在启动更早的时候，通过直接调用
+	 * dsm_cleanup_using_control_segment 完成清理。
 	 */
 	if (dynamic_shared_memory_type == DSM_IMPL_MMAP)
 		dsm_cleanup_for_mmap();
 
-	/* Determine size for new control segment. */
+	/* 确定新控制段的大小。 */
 	maxitems = PG_DYNSHMEM_FIXED_SLOTS
 		+ PG_DYNSHMEM_SLOTS_PER_BACKEND * MaxBackends;
 	elog(DEBUG2, "dynamic shared memory system will support %u segments",
@@ -172,15 +172,15 @@ dsm_postmaster_startup(PGShmemHeader *shim)
 	segsize = dsm_control_bytes_needed(maxitems);
 
 	/*
-	 * Loop until we find an unused identifier for the new control segment. We
-	 * sometimes use DSM_HANDLE_INVALID as a sentinel value indicating "no
-	 * control segment", so avoid generating that value for a real handle.
+	 * 循环直到为新控制段找到一个未使用的标识。我们
+	 * 有时用 DSM_HANDLE_INVALID 作为哨兵，表示没有
+	 * 控制段，因此要避免为真实句柄生成该值。
 	 */
 	for (;;)
 	{
 		Assert(dsm_control_address == NULL);
 		Assert(dsm_control_mapped_size == 0);
-		/* Use even numbers only */
+		/* 只使用偶数 */
 		dsm_control_handle = pg_prng_uint32(&pg_global_prng_state) << 1;
 		if (dsm_control_handle == DSM_HANDLE_INVALID)
 			continue;
@@ -196,16 +196,16 @@ dsm_postmaster_startup(PGShmemHeader *shim)
 		 dsm_control_handle, segsize);
 	shim->dsm_control = dsm_control_handle;
 
-	/* Initialize control segment. */
+	/* 初始化控制段。 */
 	dsm_control->magic = PG_DYNSHMEM_CONTROL_MAGIC;
 	dsm_control->nitems = 0;
 	dsm_control->maxitems = maxitems;
 }
 
 /*
- * Determine whether the control segment from the previous postmaster
- * invocation still exists.  If so, remove the dynamic shared memory
- * segments to which it refers, and then the control segment itself.
+ * 判断上一次 postmaster 调用留下的控制段是否仍在。
+ * 若仍在，去掉它所引用的动态共享内存段，
+ * 然后再去掉控制段本身。
  */
 void
 dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
@@ -221,18 +221,18 @@ dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
 	dsm_control_header *old_control;
 
 	/*
-	 * Try to attach the segment.  If this fails, it probably just means that
-	 * the operating system has been rebooted and the segment no longer
-	 * exists, or an unrelated process has used the same shm ID.  So just fall
-	 * out quietly.
+	 * 尝试挂接该段。若失败，多半只是操作系统已重启，
+	 * 该段不再存在，或是无关进程用过同一个 shm 标识。
+	 * 因此不必声张，
+	 * 悄悄返回即可。
 	 */
 	if (!dsm_impl_op(DSM_OP_ATTACH, old_control_handle, 0, &impl_private,
 					 &mapped_address, &mapped_size, DEBUG1))
 		return;
 
 	/*
-	 * We've managed to reattach it, but the contents might not be sane. If
-	 * they aren't, we disregard the segment after all.
+	 * 我们设法重新挂上了它，但内容未必健全。若不健全，
+	 * 最终还是忽略该段。
 	 */
 	old_control = (dsm_control_header *) mapped_address;
 	if (!dsm_control_segment_sane(old_control, mapped_size))
@@ -243,8 +243,8 @@ dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
 	}
 
 	/*
-	 * OK, the control segment looks basically valid, so we can use it to get
-	 * a list of segments that need to be removed.
+	 * 好，控制段看起来基本有效，因此可以用它取得
+	 * 需要去掉的段的列表。
 	 */
 	nitems = old_control->nitems;
 	for (i = 0; i < nitems; ++i)
@@ -252,26 +252,26 @@ dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
 		dsm_handle	handle;
 		uint32		refcnt;
 
-		/* If the reference count is 0, the slot is actually unused. */
+		/* 若引用计数为 0，该槽实际上未使用。 */
 		refcnt = old_control->item[i].refcnt;
 		if (refcnt == 0)
 			continue;
 
-		/* If it was using the main shmem area, there is nothing to do. */
+		/* 若它使用的是主共享内存区，就无事可做。 */
 		handle = old_control->item[i].handle;
 		if (is_main_region_dsm_handle(handle))
 			continue;
 
-		/* Log debugging information. */
+		/* 记录调试信息。 */
 		elog(DEBUG2, "cleaning up orphaned dynamic shared memory with ID %u (reference count %u)",
 			 handle, refcnt);
 
-		/* Destroy the referenced segment. */
+		/* 销毁被引用的段。 */
 		dsm_impl_op(DSM_OP_DESTROY, handle, 0, &junk_impl_private,
 					&junk_mapped_address, &junk_mapped_size, LOG);
 	}
 
-	/* Destroy the old control segment, too. */
+	/* 把旧的控制段也销毁。 */
 	elog(DEBUG2,
 		 "cleaning up dynamic shared memory control segment with ID %u",
 		 old_control_handle);
@@ -280,14 +280,14 @@ dsm_cleanup_using_control_segment(dsm_handle old_control_handle)
 }
 
 /*
- * When we're using the mmap shared memory implementation, "shared memory"
- * segments might even manage to survive an operating system reboot.
- * But there's no guarantee as to exactly what will survive: some segments
- * may survive, and others may not, and the contents of some may be out
- * of date.  In particular, the control segment may be out of date, so we
- * can't rely on it to figure out what to remove.  However, since we know
- * what directory contains the files we used as shared memory, we can simply
- * scan the directory and blow everything away that shouldn't be there.
+ * 使用 mmap 共享内存实现时，所谓共享内存段甚至可能
+ * 挺过操作系统重启。但究竟哪些能留下来并没有保证：
+ * 有的段可能还在，有的可能没有，有的内容可能已经
+ * 过时。尤其是控制段可能过时，因此不能靠它来判断
+ * 该去掉什么。不过，既然我们知道用作共享内存的文件
+ * 放在哪个目录里，只要扫描该目录，
+ * 把不该留在那里的
+ * 东西全部清掉即可。
  */
 static void
 dsm_cleanup_for_mmap(void)
@@ -295,7 +295,7 @@ dsm_cleanup_for_mmap(void)
 	DIR		   *dir;
 	struct dirent *dent;
 
-	/* Scan the directory for something with a name of the correct format. */
+	/* 扫描该目录，寻找名字格式正确的项。 */
 	dir = AllocateDir(PG_DYNSHMEM_DIR);
 
 	while ((dent = ReadDir(dir, PG_DYNSHMEM_DIR)) != NULL)
@@ -309,7 +309,7 @@ dsm_cleanup_for_mmap(void)
 
 			elog(DEBUG2, "removing file \"%s\"", buf);
 
-			/* We found a matching file; so remove it. */
+			/* 找到了匹配的文件，于是把它去掉。 */
 			if (unlink(buf) != 0)
 				ereport(ERROR,
 						(errcode_for_file_access(),
@@ -317,15 +317,15 @@ dsm_cleanup_for_mmap(void)
 		}
 	}
 
-	/* Cleanup complete. */
+	/* 清理完成。 */
 	FreeDir(dir);
 }
 
 /*
- * At shutdown time, we iterate over the control segment and remove all
- * remaining dynamic shared memory segments.  We avoid throwing errors here;
- * the postmaster is shutting down either way, and this is just non-critical
- * resource cleanup.
+ * 关闭时，我们遍历控制段，去掉所有剩余的
+ * 动态共享内存段。这里避免抛出错误；
+ * postmaster 反正正在关闭，而这只是非关键的
+ * 资源清理。
  */
 static void
 dsm_postmaster_shutdown(int code, Datum arg)
@@ -339,11 +339,11 @@ dsm_postmaster_shutdown(int code, Datum arg)
 	PGShmemHeader *shim = (PGShmemHeader *) DatumGetPointer(arg);
 
 	/*
-	 * If some other backend exited uncleanly, it might have corrupted the
-	 * control segment while it was dying.  In that case, we warn and ignore
-	 * the contents of the control segment.  This may end up leaving behind
-	 * stray shared memory segments, but there's not much we can do about that
-	 * if the metadata is gone.
+	 * 若某个其他后端不干净地退出，它可能在临终时
+	 * 弄坏了控制段。这种情况下我们发出警告并忽略
+	 * 控制段的内容。这可能留下散落的共享内存段，
+	 * 但元数据已经没了，
+	 * 我们也没有多少办法。
 	 */
 	nitems = dsm_control->nitems;
 	if (!dsm_control_segment_sane(dsm_control, dsm_control_mapped_size))
@@ -353,12 +353,12 @@ dsm_postmaster_shutdown(int code, Datum arg)
 		return;
 	}
 
-	/* Remove any remaining segments. */
+	/* 去掉任何剩余的段。 */
 	for (i = 0; i < nitems; ++i)
 	{
 		dsm_handle	handle;
 
-		/* If the reference count is 0, the slot is actually unused. */
+		/* 若引用计数为 0，该槽实际上未使用。 */
 		if (dsm_control->item[i].refcnt == 0)
 			continue;
 
@@ -366,16 +366,16 @@ dsm_postmaster_shutdown(int code, Datum arg)
 		if (is_main_region_dsm_handle(handle))
 			continue;
 
-		/* Log debugging information. */
+		/* 记录调试信息。 */
 		elog(DEBUG2, "cleaning up orphaned dynamic shared memory with ID %u",
 			 handle);
 
-		/* Destroy the segment. */
+		/* 销毁该段。 */
 		dsm_impl_op(DSM_OP_DESTROY, handle, 0, &junk_impl_private,
 					&junk_mapped_address, &junk_mapped_size, LOG);
 	}
 
-	/* Remove the control segment itself. */
+	/* 去掉控制段本身。 */
 	elog(DEBUG2,
 		 "cleaning up dynamic shared memory control segment with ID %u",
 		 dsm_control_handle);
@@ -388,9 +388,9 @@ dsm_postmaster_shutdown(int code, Datum arg)
 }
 
 /*
- * Prepare this backend for dynamic shared memory usage.  Under EXEC_BACKEND,
- * we must reread the state file and map the control segment; in other cases,
- * we'll have inherited the postmaster's mapping and global variables.
+ * 让此后端准备好使用动态共享内存。在 EXEC_BACKEND 下，
+ * 我们必须重读状态文件并映射控制段；其他情况下，
+ * 会继承 postmaster 的映射和全局变量。
  */
 static void
 dsm_backend_startup(void)
@@ -400,13 +400,13 @@ dsm_backend_startup(void)
 	{
 		void	   *control_address = NULL;
 
-		/* Attach control segment. */
+		/* 挂接控制段。 */
 		Assert(dsm_control_handle != 0);
 		dsm_impl_op(DSM_OP_ATTACH, dsm_control_handle, 0,
 					&dsm_control_impl_private, &control_address,
 					&dsm_control_mapped_size, ERROR);
 		dsm_control = control_address;
-		/* If control segment doesn't look sane, something is badly wrong. */
+		/* 若控制段看起来不健全，就有严重问题。 */
 		if (!dsm_control_segment_sane(dsm_control, dsm_control_mapped_size))
 		{
 			dsm_impl_op(DSM_OP_DETACH, dsm_control_handle, 0,
@@ -424,9 +424,9 @@ dsm_backend_startup(void)
 
 #ifdef EXEC_BACKEND
 /*
- * When running under EXEC_BACKEND, we get a callback here when the main
- * shared memory segment is re-attached, so that we can record the control
- * handle retrieved from it.
+ * 在 EXEC_BACKEND 下运行时，主共享内存段重新挂接时
+ * 会在这里得到回调，以便记下从中取出的控制
+ * 句柄。
  */
 void
 dsm_set_control_handle(dsm_handle h)
@@ -437,7 +437,7 @@ dsm_set_control_handle(dsm_handle h)
 #endif
 
 /*
- * Reserve some space in the main shared memory segment for DSM segments.
+ * 在主共享内存段里为动态共享内存段预留一些空间。
  */
 size_t
 dsm_estimate_size(void)
@@ -446,7 +446,7 @@ dsm_estimate_size(void)
 }
 
 /*
- * Initialize space in the main shared memory segment for DSM segments.
+ * 初始化主共享内存段里给动态共享内存段用的空间。
  */
 void
 dsm_shmem_init(void)
@@ -464,11 +464,11 @@ dsm_shmem_init(void)
 		size_t		first_page = 0;
 		size_t		pages;
 
-		/* Reserve space for the FreePageManager. */
+		/* 为 FreePageManager 预留空间。 */
 		while (first_page * FPM_PAGE_SIZE < sizeof(FreePageManager))
 			++first_page;
 
-		/* Initialize it and give it all the rest of the space. */
+		/* 初始化它，并把其余空间都交给它。 */
 		FreePageManagerInitialize(fpm, dsm_main_space_begin);
 		pages = (size / FPM_PAGE_SIZE) - first_page;
 		FreePageManagerPut(fpm, first_page, pages);
@@ -476,14 +476,14 @@ dsm_shmem_init(void)
 }
 
 /*
- * Create a new dynamic shared memory segment.
+ * 创建一段新的动态共享内存。
  *
- * If there is a non-NULL CurrentResourceOwner, the new segment is associated
- * with it and must be detached before the resource owner releases, or a
- * warning will be logged.  If CurrentResourceOwner is NULL, the segment
- * remains attached until explicitly detached or the session ends.
- * Creating with a NULL CurrentResourceOwner is equivalent to creating
- * with a non-NULL CurrentResourceOwner and then calling dsm_pin_mapping.
+ * 若 CurrentResourceOwner 非 NULL，新段与它关联，
+ * 并且必须在资源所有者释放之前脱离，否则会记一条
+ * 警告。若 CurrentResourceOwner 为 NULL，该段一直保持
+ * 挂接，直到显式脱离或会话结束。以 NULL 的
+ * CurrentResourceOwner 创建，等价于以非 NULL 的
+ * CurrentResourceOwner 创建后再调用 dsm_pin_mapping。
  */
 dsm_segment *
 dsm_create(Size size, int flags)
@@ -497,21 +497,21 @@ dsm_create(Size size, int flags)
 	bool		using_main_dsm_region = false;
 
 	/*
-	 * Unsafe in postmaster. It might seem pointless to allow use of dsm in
-	 * single user mode, but otherwise some subsystems will need dedicated
-	 * single user mode code paths.
+	 * 在 postmaster 中不安全。允许单用户模式使用 dsm 看似
+	 * 没有意义，但否则有些子系统就得为单用户模式准备
+	 * 专门的代码路径。
 	 */
 	Assert(IsUnderPostmaster || !IsPostmasterEnvironment);
 
 	if (!dsm_init_done)
 		dsm_backend_startup();
 
-	/* Create a new segment descriptor. */
+	/* 创建一个新的段描述符。 */
 	seg = dsm_create_descriptor();
 
 	/*
-	 * Lock the control segment while we try to allocate from the main shared
-	 * memory area, if configured.
+	 * 若已配置，在尝试从主共享内存区分配时锁住
+	 * 控制段。
 	 */
 	if (dsm_main_space_fpm)
 	{
@@ -522,29 +522,29 @@ dsm_create(Size size, int flags)
 		LWLockAcquire(DynamicSharedMemoryControlLock, LW_EXCLUSIVE);
 		if (FreePageManagerGet(dsm_main_space_fpm, npages, &first_page))
 		{
-			/* We can carve out a piece of the main shared memory segment. */
+			/* 我们可以从主共享内存段里切出一块。 */
 			seg->mapped_address = (char *) dsm_main_space_begin +
 				first_page * FPM_PAGE_SIZE;
 			seg->mapped_size = npages * FPM_PAGE_SIZE;
 			using_main_dsm_region = true;
-			/* We'll choose a handle below. */
+			/* 句柄留到下面再选。 */
 		}
 	}
 
 	if (!using_main_dsm_region)
 	{
 		/*
-		 * We need to create a new memory segment.  Loop until we find an
-		 * unused segment identifier.
+		 * 我们得创建一段新的内存。循环直到找到一个
+		 * 未使用的段标识。
 		 */
 		if (dsm_main_space_fpm)
 			LWLockRelease(DynamicSharedMemoryControlLock);
 		for (;;)
 		{
 			Assert(seg->mapped_address == NULL && seg->mapped_size == 0);
-			/* Use even numbers only */
+			/* 只使用偶数 */
 			seg->handle = pg_prng_uint32(&pg_global_prng_state) << 1;
-			if (seg->handle == DSM_HANDLE_INVALID)	/* Reserve sentinel */
+			if (seg->handle == DSM_HANDLE_INVALID)	/* 保留哨兵值 */
 				continue;
 			if (dsm_impl_op(DSM_OP_CREATE, seg->handle, size, &seg->impl_private,
 							&seg->mapped_address, &seg->mapped_size, ERROR))
@@ -553,7 +553,7 @@ dsm_create(Size size, int flags)
 		LWLockAcquire(DynamicSharedMemoryControlLock, LW_EXCLUSIVE);
 	}
 
-	/* Search the control segment for an unused slot. */
+	/* 在控制段里搜索一个未使用的槽。 */
 	nitems = dsm_control->nitems;
 	for (i = 0; i < nitems; ++i)
 	{
@@ -568,7 +568,7 @@ dsm_create(Size size, int flags)
 			else
 				Assert(!is_main_region_dsm_handle(seg->handle));
 			dsm_control->item[i].handle = seg->handle;
-			/* refcnt of 1 triggers destruction, so start at 2 */
+			/* refcnt 为 1 会触发销毁，所以从 2 开始 */
 			dsm_control->item[i].refcnt = 2;
 			dsm_control->item[i].impl_private_pm_handle = NULL;
 			dsm_control->item[i].pinned = false;
@@ -578,7 +578,7 @@ dsm_create(Size size, int flags)
 		}
 	}
 
-	/* Verify that we can support an additional mapping. */
+	/* 确认我们还能再支持一份映射。 */
 	if (nitems >= dsm_control->maxitems)
 	{
 		if (using_main_dsm_region)
@@ -599,7 +599,7 @@ dsm_create(Size size, int flags)
 				 errmsg("too many dynamic shared memory segments")));
 	}
 
-	/* Enter the handle into a new array slot. */
+	/* 把句柄放进一个新的数组槽。 */
 	if (using_main_dsm_region)
 	{
 		seg->handle = make_main_region_dsm_handle(nitems);
@@ -607,7 +607,7 @@ dsm_create(Size size, int flags)
 		dsm_control->item[i].npages = npages;
 	}
 	dsm_control->item[nitems].handle = seg->handle;
-	/* refcnt of 1 triggers destruction, so start at 2 */
+	/* refcnt 为 1 会触发销毁，所以从 2 开始 */
 	dsm_control->item[nitems].refcnt = 2;
 	dsm_control->item[nitems].impl_private_pm_handle = NULL;
 	dsm_control->item[nitems].pinned = false;
@@ -619,20 +619,20 @@ dsm_create(Size size, int flags)
 }
 
 /*
- * Attach a dynamic shared memory segment.
+ * 挂接一段动态共享内存。
  *
- * See comments for dsm_segment_handle() for an explanation of how this
- * is intended to be used.
+ * 关于预期用法的说明，见 dsm_segment_handle()
+ * 的注释。
  *
- * This function will return NULL if the segment isn't known to the system.
- * This can happen if we're asked to attach the segment, but then everyone
- * else detaches it (causing it to be destroyed) before we get around to
- * attaching it.
+ * 若系统不知道该段，本函数返回 NULL。
+ * 若我们被请求挂接该段，但在真正挂上之前
+ * 其他人都已脱离（导致该段被销毁），
+ * 就会发生这种情况。
  *
- * If there is a non-NULL CurrentResourceOwner, the attached segment is
- * associated with it and must be detached before the resource owner releases,
- * or a warning will be logged.  Otherwise the segment remains attached until
- * explicitly detached or the session ends.  See the note atop dsm_create().
+ * 若 CurrentResourceOwner 非 NULL，挂接的段就与它关联，
+ * 并且必须在资源所有者释放之前脱离，否则会记一条警告。
+ * 否则该段一直保持挂接，直到显式脱离或会话结束。
+ * 见 dsm_create() 顶部的说明。
  */
 dsm_segment *
 dsm_attach(dsm_handle h)
@@ -642,21 +642,21 @@ dsm_attach(dsm_handle h)
 	uint32		i;
 	uint32		nitems;
 
-	/* Unsafe in postmaster (and pointless in a stand-alone backend). */
+	/* 在 postmaster 中不安全（在独立后端里也没有意义）。 */
 	Assert(IsUnderPostmaster);
 
 	if (!dsm_init_done)
 		dsm_backend_startup();
 
 	/*
-	 * Since this is just a debugging cross-check, we could leave it out
-	 * altogether, or include it only in assert-enabled builds.  But since the
-	 * list of attached segments should normally be very short, let's include
-	 * it always for right now.
+	 * 这只是调试用的交叉检查，本来可以整个省掉，
+	 * 或只放进启用断言的构建里。但已挂接段的列表
+	 * 通常应当很短，所以目前
+	 * 总是把它包括进来。
 	 *
-	 * If you're hitting this error, you probably want to attempt to find an
-	 * existing mapping via dsm_find_mapping() before calling dsm_attach() to
-	 * create a new one.
+	 * 若你撞上这个错误，多半想在调用 dsm_attach()
+	 * 创建新映射之前，先用 dsm_find_mapping()
+	 * 找一份已有的映射。
 	 */
 	dlist_foreach(iter, &dsm_segment_list)
 	{
@@ -665,30 +665,30 @@ dsm_attach(dsm_handle h)
 			elog(ERROR, "can't attach the same segment more than once");
 	}
 
-	/* Create a new segment descriptor. */
+	/* 创建一个新的段描述符。 */
 	seg = dsm_create_descriptor();
 	seg->handle = h;
 
-	/* Bump reference count for this segment in shared memory. */
+	/* 增加该段在共享内存中的引用计数。 */
 	LWLockAcquire(DynamicSharedMemoryControlLock, LW_EXCLUSIVE);
 	nitems = dsm_control->nitems;
 	for (i = 0; i < nitems; ++i)
 	{
 		/*
-		 * If the reference count is 0, the slot is actually unused.  If the
-		 * reference count is 1, the slot is still in use, but the segment is
-		 * in the process of going away; even if the handle matches, another
-		 * slot may already have started using the same handle value by
-		 * coincidence so we have to keep searching.
+		 * 若引用计数为 0，该槽实际上未使用。若引用计数
+		 * 为 1，槽仍在使用，但该段正在消失；即便句柄匹配，
+		 * 另一个槽也可能碰巧已经开始使用
+		 * 同一个句柄值，所以我们必须
+		 * 继续搜索。
 		 */
 		if (dsm_control->item[i].refcnt <= 1)
 			continue;
 
-		/* If the handle doesn't match, it's not the slot we want. */
+		/* 若句柄不匹配，就不是我们要的槽。 */
 		if (dsm_control->item[i].handle != seg->handle)
 			continue;
 
-		/* Otherwise we've found a match. */
+		/* 否则我们就找到了匹配项。 */
 		dsm_control->item[i].refcnt++;
 		seg->control_slot = i;
 		if (is_main_region_dsm_handle(seg->handle))
@@ -702,10 +702,10 @@ dsm_attach(dsm_handle h)
 	LWLockRelease(DynamicSharedMemoryControlLock);
 
 	/*
-	 * If we didn't find the handle we're looking for in the control segment,
-	 * it probably means that everyone else who had it mapped, including the
-	 * original creator, died before we got to this point. It's up to the
-	 * caller to decide what to do about that.
+	 * 若在控制段里找不到要找的句柄，多半意味着包括
+	 * 最初创建者在内、所有映射过它的人都在我们到达
+	 * 这里之前死掉了。
+	 * 如何处理由调用方决定。
 	 */
 	if (seg->control_slot == INVALID_CONTROL_SLOT)
 	{
@@ -713,7 +713,7 @@ dsm_attach(dsm_handle h)
 		return NULL;
 	}
 
-	/* Here's where we actually try to map the segment. */
+	/* 真正尝试映射该段的地方在这里。 */
 	if (!is_main_region_dsm_handle(seg->handle))
 		dsm_impl_op(DSM_OP_ATTACH, seg->handle, 0, &seg->impl_private,
 					&seg->mapped_address, &seg->mapped_size, ERROR);
@@ -722,9 +722,9 @@ dsm_attach(dsm_handle h)
 }
 
 /*
- * At backend shutdown time, detach any segments that are still attached.
- * (This is similar to dsm_detach_all, except that there's no reason to
- * unmap the control segment before exiting, so we don't bother.)
+ * 后端关闭时，脱离仍然挂接的段。
+ * （这与 dsm_detach_all 类似，只是没有理由在退出前
+ * 解除控制段的映射，所以我们不这么做。）
  */
 void
 dsm_backend_shutdown(void)
@@ -739,10 +739,10 @@ dsm_backend_shutdown(void)
 }
 
 /*
- * Detach all shared memory segments, including the control segments.  This
- * should be called, along with PGSharedMemoryDetach, in processes that
- * might inherit mappings but are not intended to be connected to dynamic
- * shared memory.
+ * 脱离所有共享内存段，包括控制段。那些可能继承了
+ * 映射、但并不打算连接到动态共享内存的进程，
+ * 应当连同 PGSharedMemoryDetach
+ * 一起调用本函数。
  */
 void
 dsm_detach_all(void)
@@ -764,24 +764,24 @@ dsm_detach_all(void)
 }
 
 /*
- * Detach from a shared memory segment, destroying the segment if we
- * remove the last reference.
+ * 脱离共享内存段；若去掉的是最后一次引用，就销毁该段。
+ * 本函数绝不应当失败。
  *
- * This function should never fail.  It will often be invoked when aborting
- * a transaction, and a further error won't serve any purpose.  It's not a
- * complete disaster if we fail to unmap or destroy the segment; it means a
- * resource leak, but that doesn't necessarily preclude further operations.
+ * 它常常在中止事务时被调用，再产生错误也没有用处。
+ * 未能解除映射或销毁该段并不是彻底的灾难：
+ * 那意味着资源泄漏，但不一定
+ * 妨碍后续操作。
  */
 void
 dsm_detach(dsm_segment *seg)
 {
 	/*
-	 * Invoke registered callbacks.  Just in case one of those callbacks
-	 * throws a further error that brings us back here, pop the callback
-	 * before invoking it, to avoid infinite error recursion.  Don't allow
-	 * interrupts while running the individual callbacks in non-error code
-	 * paths, to avoid leaving cleanup work unfinished if we're interrupted by
-	 * a statement timeout or similar.
+	 * 调用已登记的回调。万一其中某个回调再抛出错误
+	 * 把我们带回这里，就在调用之前先弹出该回调，
+	 * 以免错误无限递归。在非错误代码路径上运行各个
+	 * 回调时不允许中断，以免被语句超时或类似情况打断，
+	 * 从而留下未完成的
+	 * 清理工作。
 	 */
 	HOLD_INTERRUPTS();
 	while (!slist_is_empty(&seg->on_detach))
@@ -802,12 +802,12 @@ dsm_detach(dsm_segment *seg)
 	RESUME_INTERRUPTS();
 
 	/*
-	 * Try to remove the mapping, if one exists.  Normally, there will be, but
-	 * maybe not, if we failed partway through a create or attach operation.
-	 * We remove the mapping before decrementing the reference count so that
-	 * the process that sees a zero reference count can be certain that no
-	 * remaining mappings exist.  Even if this fails, we pretend that it
-	 * works, because retrying is likely to fail in the same way.
+	 * 若存在映射，就尝试去掉它。通常会有，但若创建或
+	 * 挂接做到一半失败了，也许没有。我们在减少引用计数
+	 * 之前去掉映射，这样看到引用计数为零的进程可以确信
+	 * 已经没有残留映射。即便这一步失败，我们也假装
+	 * 它成功了，因为重试很可能
+	 * 以同样的方式失败。
 	 */
 	if (seg->mapped_address != NULL)
 	{
@@ -819,7 +819,7 @@ dsm_detach(dsm_segment *seg)
 		seg->mapped_size = 0;
 	}
 
-	/* Reduce reference count, if we previously increased it. */
+	/* 若先前增加过引用计数，就把它减下来。 */
 	if (seg->control_slot != INVALID_CONTROL_SLOT)
 	{
 		uint32		refcnt;
@@ -832,26 +832,26 @@ dsm_detach(dsm_segment *seg)
 		seg->control_slot = INVALID_CONTROL_SLOT;
 		LWLockRelease(DynamicSharedMemoryControlLock);
 
-		/* If new reference count is 1, try to destroy the segment. */
+		/* 若新的引用计数为 1，尝试销毁该段。 */
 		if (refcnt == 1)
 		{
-			/* A pinned segment should never reach 1. */
+			/* 被钉住的段绝不应当降到 1。 */
 			Assert(!dsm_control->item[control_slot].pinned);
 
 			/*
-			 * If we fail to destroy the segment here, or are killed before we
-			 * finish doing so, the reference count will remain at 1, which
-			 * will mean that nobody else can attach to the segment.  At
-			 * postmaster shutdown time, or when a new postmaster is started
-			 * after a hard kill, another attempt will be made to remove the
-			 * segment.
+			 * 若我们在这里没能销毁该段，或在做完之前被杀掉，
+			 * 引用计数会停在 1。这意味着别人都无法再挂接该段。
+			 * postmaster 关闭时，或在硬杀掉之后启动新的
+			 * postmaster 时，会再做一次尝试，把该段
+			 * 去掉。
+			 * 这里主要担心在完成去掉之前被信号杀掉。
 			 *
-			 * The main case we're worried about here is being killed by a
-			 * signal before we can finish removing the segment.  In that
-			 * case, it's important to be sure that the segment still gets
-			 * removed. If we actually fail to remove the segment for some
-			 * other reason, the postmaster may not have any better luck than
-			 * we did.  There's not much we can do about that, though.
+			 * 那种情况下，必须确保该段仍然会被去掉。
+			 * 若我们因为别的原因真的没能去掉该段，
+			 * postmaster 未必比我们更幸运。
+			 * 不过对此我们也没有多少办法，
+			 * 只能接受
+			 * 这个结果。
 			 */
 			if (is_main_region_dsm_handle(seg->handle) ||
 				dsm_impl_op(DSM_OP_DESTROY, seg->handle, 0, &seg->impl_private,
@@ -870,7 +870,7 @@ dsm_detach(dsm_segment *seg)
 		}
 	}
 
-	/* Clean up our remaining backend-private data structures. */
+	/* 清理我们剩余的后端私有数据结构。 */
 	if (seg->resowner != NULL)
 		ResourceOwnerForgetDSM(seg->resowner, seg);
 	dlist_delete(&seg->node);
@@ -878,11 +878,11 @@ dsm_detach(dsm_segment *seg)
 }
 
 /*
- * Keep a dynamic shared memory mapping until end of session.
+ * 把动态共享内存映射保持到会话结束。
  *
- * By default, mappings are owned by the current resource owner, which
- * typically means they stick around for the duration of the current query
- * only.
+ * 默认情况下，映射归当前资源所有者拥有。
+ * 这通常意味着它们只存在于
+ * 当前查询期间。
  */
 void
 dsm_pin_mapping(dsm_segment *seg)
@@ -895,13 +895,13 @@ dsm_pin_mapping(dsm_segment *seg)
 }
 
 /*
- * Arrange to remove a dynamic shared memory mapping at cleanup time.
+ * 安排在清理时去掉一段动态共享内存映射。
  *
- * dsm_pin_mapping() can be used to preserve a mapping for the entire
- * lifetime of a process; this function reverses that decision, making
- * the segment owned by the current resource owner.  This may be useful
- * just before performing some operation that will invalidate the segment
- * for future use by this backend.
+ * dsm_pin_mapping() 可以把映射保留到进程的整个
+ * 生命期；本函数撤销那个决定，使该段归当前资源
+ * 所有者拥有。若即将做的操作会使该段对此后端以后的
+ * 使用失效，
+ * 这可能有用。
  */
 void
 dsm_unpin_mapping(dsm_segment *seg)
@@ -913,16 +913,16 @@ dsm_unpin_mapping(dsm_segment *seg)
 }
 
 /*
- * Keep a dynamic shared memory segment until postmaster shutdown, or until
- * dsm_unpin_segment is called.
+ * 把一段动态共享内存一直保留到 postmaster 关闭，或直到
+ * 调用 dsm_unpin_segment。
  *
- * This function should not be called more than once per segment, unless the
- * segment is explicitly unpinned with dsm_unpin_segment in between calls.
+ * 每个段调用本函数不应超过一次，除非在两次调用之间
+ * 用 dsm_unpin_segment 显式解除钉住。
  *
- * Note that this function does not arrange for the current process to
- * keep the segment mapped indefinitely; if that behavior is desired,
- * dsm_pin_mapping() should be used from each process that needs to
- * retain the mapping.
+ * 注意：本函数并不让当前进程无限期保持该段已映射。
+ * 若想要那种行为，每个需要保留该映射的进程
+ * 都应当自行调用
+ * dsm_pin_mapping()。
  */
 void
 dsm_pin_segment(dsm_segment *seg)
@@ -930,10 +930,10 @@ dsm_pin_segment(dsm_segment *seg)
 	void	   *handle = NULL;
 
 	/*
-	 * Bump reference count for this segment in shared memory. This will
-	 * ensure that even if there is no session which is attached to this
-	 * segment, it will remain until postmaster shutdown or an explicit call
-	 * to unpin.
+	 * 增加该段在共享内存中的引用计数。这样，即便没有任何
+	 * 会话挂接在这段上，它也会保留到 postmaster 关闭，
+	 * 或直到有人显式调用
+	 * 解除钉住。
 	 */
 	LWLockAcquire(DynamicSharedMemoryControlLock, LW_EXCLUSIVE);
 	if (dsm_control->item[seg->control_slot].pinned)
@@ -947,15 +947,15 @@ dsm_pin_segment(dsm_segment *seg)
 }
 
 /*
- * Unpin a dynamic shared memory segment that was previously pinned with
- * dsm_pin_segment.  This function should not be called unless dsm_pin_segment
- * was previously called for this segment.
+ * 解除先前用 dsm_pin_segment 钉住的一段动态共享内存。
+ * 除非先前曾对该段调用过 dsm_pin_segment，
+ * 否则不应调用本函数。
  *
- * The argument is a dsm_handle rather than a dsm_segment in case you want
- * to unpin a segment to which you haven't attached.  This turns out to be
- * useful if, for example, a reference to one shared memory segment is stored
- * within another shared memory segment.  You might want to unpin the
- * referenced segment before destroying the referencing segment.
+ * 参数是 dsm_handle 而不是 dsm_segment，以便解除钉住
+ * 一段尚未挂接的段。这很有用，例如当对一个
+ * 共享内存段的引用存放在另一个共享内存段里时。
+ * 你可能想在销毁实施引用的那段之前，
+ * 先解除被引用段的钉住。
  */
 void
 dsm_unpin_segment(dsm_handle handle)
@@ -964,15 +964,15 @@ dsm_unpin_segment(dsm_handle handle)
 	bool		destroy = false;
 	uint32		i;
 
-	/* Find the control slot for the given handle. */
+	/* 按给定句柄找到控制槽。 */
 	LWLockAcquire(DynamicSharedMemoryControlLock, LW_EXCLUSIVE);
 	for (i = 0; i < dsm_control->nitems; ++i)
 	{
-		/* Skip unused slots and segments that are concurrently going away. */
+		/* 跳过未使用的槽，以及正在并发消失的段。 */
 		if (dsm_control->item[i].refcnt <= 1)
 			continue;
 
-		/* If we've found our handle, we can stop searching. */
+		/* 若已找到我们的句柄，就可以停止搜索。 */
 		if (dsm_control->item[i].handle == handle)
 		{
 			control_slot = i;
@@ -981,9 +981,9 @@ dsm_unpin_segment(dsm_handle handle)
 	}
 
 	/*
-	 * We should definitely have found the slot, and it should not already be
-	 * in the process of going away, because this function should only be
-	 * called on a segment which is pinned.
+	 * 我们肯定应当已经找到该槽，而且它不应当已经
+	 * 处于正在消失的过程中，因为本函数只应当对
+	 * 已钉住的段调用。
 	 */
 	if (control_slot == INVALID_CONTROL_SLOT)
 		elog(ERROR, "cannot unpin unknown segment handle");
@@ -992,23 +992,23 @@ dsm_unpin_segment(dsm_handle handle)
 	Assert(dsm_control->item[control_slot].refcnt > 1);
 
 	/*
-	 * Allow implementation-specific code to run.  We have to do this before
-	 * releasing the lock, because impl_private_pm_handle may get modified by
-	 * dsm_impl_unpin_segment.
+	 * 允许特定实现的代码运行。必须在放开锁之前做，
+	 * 因为 impl_private_pm_handle 可能被
+	 * dsm_impl_unpin_segment 修改。
 	 */
 	if (!is_main_region_dsm_handle(handle))
 		dsm_impl_unpin_segment(handle,
 							   &dsm_control->item[control_slot].impl_private_pm_handle);
 
-	/* Note that 1 means no references (0 means unused slot). */
+	/* 注意：1 表示没有引用（0 表示未使用的槽）。 */
 	if (--dsm_control->item[control_slot].refcnt == 1)
 		destroy = true;
 	dsm_control->item[control_slot].pinned = false;
 
-	/* Now we can release the lock. */
+	/* 现在可以放开锁。 */
 	LWLockRelease(DynamicSharedMemoryControlLock);
 
-	/* Clean up resources if that was the last reference. */
+	/* 若那是最后一次引用，就清理资源。 */
 	if (destroy)
 	{
 		void	   *junk_impl_private = NULL;
@@ -1016,14 +1016,14 @@ dsm_unpin_segment(dsm_handle handle)
 		Size		junk_mapped_size = 0;
 
 		/*
-		 * For an explanation of how error handling works in this case, see
-		 * comments in dsm_detach.  Note that if we reach this point, the
-		 * current process certainly does not have the segment mapped, because
-		 * if it did, the reference count would have still been greater than 1
-		 * even after releasing the reference count held by the pin.  The fact
-		 * that there can't be a dsm_segment for this handle makes it OK to
-		 * pass the mapped size, mapped address, and private data as NULL
-		 * here.
+		 * 关于这种情况下错误处理如何工作，见
+		 * dsm_detach 里的注释。注意，若走到这里，当前进程
+		 * 肯定没有映射该段，因为若映射了，即便放开钉住
+		 * 所持的引用计数，计数也仍然会大于 1。既然这个
+		 * 句柄不可能有 dsm_segment，这里把映射大小、映射
+		 * 地址和私有数据都作为 NULL
+		 * 传入
+		 * 就是可以的。
 		 */
 		if (is_main_region_dsm_handle(handle) ||
 			dsm_impl_op(DSM_OP_DESTROY, handle, 0, &junk_impl_private,
@@ -1043,7 +1043,7 @@ dsm_unpin_segment(dsm_handle handle)
 }
 
 /*
- * Find an existing mapping for a shared memory segment, if there is one.
+ * 若已有共享内存段的映射，就找到它。
  */
 dsm_segment *
 dsm_find_mapping(dsm_handle handle)
@@ -1062,7 +1062,7 @@ dsm_find_mapping(dsm_handle handle)
 }
 
 /*
- * Get the address at which a dynamic shared memory segment is mapped.
+ * 取得动态共享内存段被映射到的地址。
  */
 void *
 dsm_segment_address(dsm_segment *seg)
@@ -1072,7 +1072,7 @@ dsm_segment_address(dsm_segment *seg)
 }
 
 /*
- * Get the size of a mapping.
+ * 取得映射的大小。
  */
 Size
 dsm_segment_map_length(dsm_segment *seg)
@@ -1082,15 +1082,15 @@ dsm_segment_map_length(dsm_segment *seg)
 }
 
 /*
- * Get a handle for a mapping.
+ * 取得一份映射的句柄。
  *
- * To establish communication via dynamic shared memory between two backends,
- * one of them should first call dsm_create() to establish a new shared
- * memory mapping.  That process should then call dsm_segment_handle() to
- * obtain a handle for the mapping, and pass that handle to the
- * coordinating backend via some means (e.g. bgw_main_arg, or via the
- * main shared memory segment).  The recipient, once in possession of the
- * handle, should call dsm_attach().
+ * 要让两个后端经动态共享内存通信，其中一个应先
+ * 调用 dsm_create() 建立新的共享内存映射。该进程
+ * 接着应调用 dsm_segment_handle() 取得该映射的
+ * 句柄，并用某种办法把句柄传给协调后端
+ * （例如 bgw_main_arg，或经主共享内存段）。
+ * 收到句柄的一方一旦持有它，就应调用
+ * dsm_attach()。
  */
 dsm_handle
 dsm_segment_handle(dsm_segment *seg)
@@ -1099,7 +1099,7 @@ dsm_segment_handle(dsm_segment *seg)
 }
 
 /*
- * Register an on-detach callback for a dynamic shared memory segment.
+ * 为一段动态共享内存登记脱离回调。
  */
 void
 on_dsm_detach(dsm_segment *seg, on_dsm_detach_callback function, Datum arg)
@@ -1114,7 +1114,7 @@ on_dsm_detach(dsm_segment *seg, on_dsm_detach_callback function, Datum arg)
 }
 
 /*
- * Unregister an on-detach callback for a dynamic shared memory segment.
+ * 为一段动态共享内存注销脱离回调。
  */
 void
 cancel_on_dsm_detach(dsm_segment *seg, on_dsm_detach_callback function,
@@ -1137,7 +1137,7 @@ cancel_on_dsm_detach(dsm_segment *seg, on_dsm_detach_callback function,
 }
 
 /*
- * Discard all registered on-detach callbacks without executing them.
+ * 丢掉所有已登记的脱离回调，而不执行它们。
  */
 void
 reset_on_dsm_detach(void)
@@ -1148,7 +1148,7 @@ reset_on_dsm_detach(void)
 	{
 		dsm_segment *seg = dlist_container(dsm_segment, node, iter.cur);
 
-		/* Throw away explicit on-detach actions one by one. */
+		/* 逐个丢掉显式的脱离动作。 */
 		while (!slist_is_empty(&seg->on_detach))
 		{
 			slist_node *node;
@@ -1160,15 +1160,15 @@ reset_on_dsm_detach(void)
 		}
 
 		/*
-		 * Decrementing the reference count is a sort of implicit on-detach
-		 * action; make sure we don't do that, either.
+		 * 减少引用计数是一种隐式的脱离动作；
+		 * 也要确保我们不那么做。
 		 */
 		seg->control_slot = INVALID_CONTROL_SLOT;
 	}
 }
 
 /*
- * Create a segment descriptor.
+ * 创建一个段描述符。
  */
 static dsm_segment *
 dsm_create_descriptor(void)
@@ -1181,7 +1181,7 @@ dsm_create_descriptor(void)
 	seg = MemoryContextAlloc(TopMemoryContext, sizeof(dsm_segment));
 	dlist_push_head(&dsm_segment_list, &seg->node);
 
-	/* seg->handle must be initialized by the caller */
+	/* seg->handle 必须由调用方初始化 */
 	seg->control_slot = INVALID_CONTROL_SLOT;
 	seg->impl_private = NULL;
 	seg->mapped_address = NULL;
@@ -1197,32 +1197,32 @@ dsm_create_descriptor(void)
 }
 
 /*
- * Sanity check a control segment.
+ * 对控制段做健全性检查。
  *
- * The goal here isn't to detect everything that could possibly be wrong with
- * the control segment; there's not enough information for that.  Rather, the
- * goal is to make sure that someone can iterate over the items in the segment
- * without overrunning the end of the mapping and crashing.  We also check
- * the magic number since, if that's messed up, this may not even be one of
- * our segments at all.
+ * 这里的目标不是查出控制段上一切可能的问题；
+ * 信息不够。目标是确保有人可以遍历段中的项，
+ * 而不会越过映射末尾导致崩溃。我们也检查魔数，
+ * 因为若魔数乱了，这甚至可能
+ * 根本不是
+ * 我们的段。
  */
 static bool
 dsm_control_segment_sane(dsm_control_header *control, Size mapped_size)
 {
 	if (mapped_size < offsetof(dsm_control_header, item))
-		return false;			/* Mapped size too short to read header. */
+		return false;			/* 映射长度太短，读不了头部。 */
 	if (control->magic != PG_DYNSHMEM_CONTROL_MAGIC)
-		return false;			/* Magic number doesn't match. */
+		return false;			/* 魔数不匹配。 */
 	if (dsm_control_bytes_needed(control->maxitems) > mapped_size)
-		return false;			/* Max item count won't fit in map. */
+		return false;			/* 最大项数放不进映射。 */
 	if (control->nitems > control->maxitems)
-		return false;			/* Overfull. */
+		return false;			/* 过满。 */
 	return true;
 }
 
 /*
- * Compute the number of control-segment bytes needed to store a given
- * number of items.
+ * 计算存放给定数量的项
+ * 所需的控制段字节数。
  */
 static uint64
 dsm_control_bytes_needed(uint32 nitems)
@@ -1237,12 +1237,12 @@ make_main_region_dsm_handle(int slot)
 	dsm_handle	handle;
 
 	/*
-	 * We need to create a handle that doesn't collide with any existing extra
-	 * segment created by dsm_impl_op(), so we'll make it odd.  It also
-	 * mustn't collide with any other main area pseudo-segment, so we'll
-	 * include the slot number in some of the bits.  We also want to make an
-	 * effort to avoid newly created and recently destroyed handles from being
-	 * confused, so we'll make the rest of the bits random.
+	 * 我们得造一个句柄，不与 dsm_impl_op() 创建的任何
+	 * 已有额外段相撞，因此把它做成奇数。它也不得与
+	 * 主区域中的其他伪段相撞，所以若干位里会纳入槽号。
+	 * 我们还希望尽量避免新创建的句柄和最近销毁的句柄
+	 * 被混淆，因此其余的位
+	 * 做成随机数。
 	 */
 	handle = 1;
 	handle |= slot << 1;

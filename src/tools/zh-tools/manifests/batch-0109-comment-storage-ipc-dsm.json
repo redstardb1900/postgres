@@ -1,0 +1,97 @@
+{
+ "schema_version": 1,
+ "batch_id": "0109-comment-storage-ipc-dsm",
+ "title": "zh: translate barrier dsm and dsm_impl comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1bd22ea8612d75154e5d5b661d985d39563ca38e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/barrier.c",
+   "kind": "c_comment",
+   "note": "process barriers"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "note": "dynamic shared memory"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "note": "dynamic shared memory implementations"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0109-comment-storage-ipc-dsm.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/barrier.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 15,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through"
+   ],
+   "note": "header includes a switch fall-through example"
+  },
+  {
+   "path": "src/backend/storage/ipc/dsm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 119,
+   "translated": 118,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "dynamic shared memory"
+  },
+  {
+   "path": "src/backend/storage/ipc/dsm_impl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 60,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks"
+   ],
+   "note": "dynamic shared memory implementations"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0109-comment-storage-ipc-dsm.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0109 translates src/backend/storage/ipc/barrier.c, dsm.c, and dsm_impl.c. The barrier.c file header stays English; it is a pgindent block and also contains a switch fall-through example."
+}

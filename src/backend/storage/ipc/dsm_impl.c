@@ -108,13 +108,13 @@ const struct config_enum_entry dynamic_shared_memory_options[] = {
 	{NULL, 0, false}
 };
 
-/* Implementation selector. */
+/* 实现选择器。 */
 int			dynamic_shared_memory_type = DEFAULT_DYNAMIC_SHARED_MEMORY_TYPE;
 
-/* Amount of space reserved for DSM segments in the main area. */
+/* 主区域里为动态共享内存段保留的空间量。 */
 int			min_dynamic_shared_memory;
 
-/* Size of buffer to be used for zero-filling. */
+/* 用于填零的缓冲区大小。 */
 #define ZBUFFER_SIZE				8192
 
 #define SEGMENT_NAME_PREFIX			"Global/PostgreSQL"
@@ -195,18 +195,18 @@ dsm_impl_op(dsm_op op, dsm_handle handle, Size request_size,
 
 #ifdef USE_DSM_POSIX
 /*
- * Operating system primitives to support POSIX shared memory.
+ * 支持 POSIX 共享内存的操作系统原语。
  *
- * POSIX shared memory segments are created and attached using shm_open()
- * and shm_unlink(); other operations, such as sizing or mapping the
- * segment, are performed as if the shared memory segments were files.
+ * POSIX 共享内存段用 shm_open() 创建并挂接，
+ * 用 shm_unlink() 解除；调整大小或映射等其他操作
+ * 则当作这些共享内存段是文件来做。
  *
- * Indeed, on some platforms, they may be implemented that way.  While
- * POSIX shared memory segments seem intended to exist in a flat namespace,
- * some operating systems may implement them as files, even going so far
- * to treat a request for /xyz as a request to create a file by that name
- * in the root directory.  Users of such broken platforms should select
- * a different shared memory implementation.
+ * 事实上，在某些平台上它们也许就是这样实现的。虽然
+ * POSIX 共享内存段似乎打算存在于扁平名字空间里，
+ * 有些操作系统却可能把它们实现成文件，甚至把对 /xyz
+ * 的请求当成在根目录里按该名字创建文件的请求。
+ * 使用这种有缺陷平台的用户应当另选一种
+ * 共享内存实现。
  */
 static bool
 dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
@@ -220,7 +220,7 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 
 	snprintf(name, 64, "/PostgreSQL.%u", handle);
 
-	/* Handle teardown cases. */
+	/* 处理拆除情形。 */
 	if (op == DSM_OP_DETACH || op == DSM_OP_DESTROY)
 	{
 		if (*mapped_address != NULL
@@ -246,12 +246,12 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 	}
 
 	/*
-	 * Create new segment or open an existing one for attach.
+	 * 创建新段，或打开已有段以便挂接。
 	 *
-	 * Even though we will close the FD before returning, it seems desirable
-	 * to use Reserve/ReleaseExternalFD, to reduce the probability of EMFILE
-	 * failure.  The fact that we won't hold the FD open long justifies using
-	 * ReserveExternalFD rather than AcquireExternalFD, though.
+	 * 尽管返回前会关闭该文件描述符，使用
+	 * ReserveExternalFD/ReleaseExternalFD 以降低 EMFILE
+	 * 失败的概率看来仍是可取的。我们不会长时间持有该
+	 * 文件描述符，这一点说明应当用 ReserveExternalFD 而不是 AcquireExternalFD。
 	 */
 	ReserveExternalFD();
 
@@ -268,8 +268,8 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 	}
 
 	/*
-	 * If we're attaching the segment, determine the current size; if we are
-	 * creating the segment, set the size to the requested value.
+	 * 若是在挂接该段，就确定当前大小；若是在
+	 * 创建该段，就把大小设成所请求的值。
 	 */
 	if (op == DSM_OP_ATTACH)
 	{
@@ -279,7 +279,7 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 		{
 			int			save_errno;
 
-			/* Back out what's already been done. */
+			/* 回退已经做过的部分。 */
 			save_errno = errno;
 			close(fd);
 			ReleaseExternalFD();
@@ -297,7 +297,7 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 	{
 		int			save_errno;
 
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		close(fd);
 		ReleaseExternalFD();
@@ -311,14 +311,14 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 		return false;
 	}
 
-	/* Map it. */
+	/* 映射它。 */
 	address = mmap(NULL, request_size, PROT_READ | PROT_WRITE,
 				   MAP_SHARED | MAP_HASSEMAPHORE | MAP_NOSYNC, fd, 0);
 	if (address == MAP_FAILED)
 	{
 		int			save_errno;
 
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		close(fd);
 		ReleaseExternalFD();
@@ -341,11 +341,11 @@ dsm_impl_posix(dsm_op op, dsm_handle handle, Size request_size,
 }
 
 /*
- * Set the size of a virtual memory region associated with a file descriptor.
- * If necessary, also ensure that virtual memory is actually allocated by the
- * operating system, to avoid nasty surprises later.
+ * 设置与文件描述符关联的虚拟内存区域的大小。
+ * 如有必要，还要确保操作系统真正分配了虚拟内存，
+ * 以免以后出现讨厌的意外。
  *
- * Returns non-zero if either truncation or allocation fails, and sets errno.
+ * 若截断或分配失败则返回非零，并设置 errno。
  */
 static int
 dsm_impl_posix_resize(int fd, off_t size)
@@ -355,10 +355,10 @@ dsm_impl_posix_resize(int fd, off_t size)
 	sigset_t	save_sigmask;
 
 	/*
-	 * Block all blockable signals, except SIGQUIT.  posix_fallocate() can run
-	 * for quite a long time, and is an all-or-nothing operation.  If we
-	 * allowed SIGUSR1 to interrupt us repeatedly (for example, due to
-	 * recovery conflicts), the retry loop might never succeed.
+	 * 阻塞所有可阻塞的信号，但 SIGQUIT 除外。posix_fallocate() 可能
+	 * 运行相当长的时间，而且是要么全成要么全败的操作。若允许
+	 * SIGUSR1 反复中断我们（例如由于恢复冲突），
+	 * 重试循环可能永远成功不了。
 	 */
 	if (IsUnderPostmaster)
 		sigprocmask(SIG_SETMASK, &BlockSig, &save_sigmask);
@@ -367,16 +367,16 @@ dsm_impl_posix_resize(int fd, off_t size)
 #if defined(HAVE_POSIX_FALLOCATE) && defined(__linux__)
 
 	/*
-	 * On Linux, a shm_open fd is backed by a tmpfs file.  If we were to use
-	 * ftruncate, the file would contain a hole.  Accessing memory backed by a
-	 * hole causes tmpfs to allocate pages, which fails with SIGBUS if there
-	 * is no more tmpfs space available.  So we ask tmpfs to allocate pages
-	 * here, so we can fail gracefully with ENOSPC now rather than risking
-	 * SIGBUS later.
+	 * 在 Linux 上，shm_open 的文件描述符由 tmpfs 文件支撑。
+	 * 若使用 ftruncate，文件里会有一个洞。访问由洞支撑的
+	 * 内存会让 tmpfs 分配页面；若没有更多 tmpfs 空间，
+	 * 就会因 SIGBUS 失败。所以我们在这里让 tmpfs 分配页面，
+	 * 以便现在就能以 ENOSPC 得体地失败，
+	 * 而不是以后冒 SIGBUS 的风险。
 	 *
-	 * We still use a traditional EINTR retry loop to handle SIGCONT.
-	 * posix_fallocate() doesn't restart automatically, and we don't want this
-	 * to fail if you attach a debugger.
+	 * 我们仍用传统的 EINTR 重试循环来处理 SIGCONT。
+	 * posix_fallocate() 不会自动重新开始，而且我们不希望
+	 * 你挂上调试器时这件事失败。
 	 */
 	do
 	{
@@ -384,13 +384,13 @@ dsm_impl_posix_resize(int fd, off_t size)
 	} while (rc == EINTR);
 
 	/*
-	 * The caller expects errno to be set, but posix_fallocate() doesn't set
-	 * it.  Instead it returns error numbers directly.  So set errno, even
-	 * though we'll also return rc to indicate success or failure.
+	 * 调用方预期 errno 会被设置，但 posix_fallocate() 并不设置
+	 * 它，而是直接返回错误号。所以要设置 errno，即便
+	 * 我们也会返回 rc 来表示成功或失败。
 	 */
 	errno = rc;
 #else
-	/* Extend the file to the requested size. */
+	/* 把文件扩展到所请求的大小。 */
 	do
 	{
 		rc = ftruncate(fd, size);
@@ -408,16 +408,16 @@ dsm_impl_posix_resize(int fd, off_t size)
 	return rc;
 }
 
-#endif							/* USE_DSM_POSIX */
+#endif							/* 条件编译宏 USE_DSM_POSIX */
 
 #ifdef USE_DSM_SYSV
 /*
- * Operating system primitives to support System V shared memory.
+ * 支持 System V 共享内存的操作系统原语。
  *
- * System V shared memory segments are manipulated using shmget(), shmat(),
- * shmdt(), and shmctl().  As the default allocation limits for System V
- * shared memory are usually quite low, the POSIX facilities may be
- * preferable; but those are not supported everywhere.
+ * System V 共享内存段用 shmget()、shmat()、
+ * shmdt() 和 shmctl() 来操作。System V 共享内存的
+ * 默认分配限额通常相当低，POSIX 设施也许更可取；
+ * 但那些设施并非到处都支持。
  */
 static bool
 dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
@@ -431,38 +431,38 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 	int		   *ident_cache;
 
 	/*
-	 * POSIX shared memory and mmap-based shared memory identify segments with
-	 * names.  To avoid needless error message variation, we use the handle as
-	 * the name.
+	 * POSIX 共享内存和基于 mmap 的共享内存用名字标识段。
+	 * 为避免错误信息无谓地不一致，我们用句柄作为
+	 * 名字。
 	 */
 	snprintf(name, 64, "%u", handle);
 
 	/*
-	 * The System V shared memory namespace is very restricted; names are of
-	 * type key_t, which is expected to be some sort of integer data type, but
-	 * not necessarily the same one as dsm_handle.  Since we use dsm_handle to
-	 * identify shared memory segments across processes, this might seem like
-	 * a problem, but it's really not.  If dsm_handle is bigger than key_t,
-	 * the cast below might truncate away some bits from the handle the
-	 * user-provided, but it'll truncate exactly the same bits away in exactly
-	 * the same fashion every time we use that handle, which is all that
-	 * really matters.  Conversely, if dsm_handle is smaller than key_t, we
-	 * won't use the full range of available key space, but that's no big deal
-	 * either.
+	 * System V 共享内存的名字空间非常受限。名字的类型
+	 * 是 key_t，预期为某种整数类型，但不一定和
+	 * dsm_handle 相同。我们用 dsm_handle 在各进程之间
+	 * 标识共享内存段，这看起来像个问题，其实并不是。
+	 * 若 dsm_handle 比 key_t 更大，下面的强制转换可能
+	 * 截掉用户所给句柄里的若干位，但每次使用该句柄时
+	 * 都会以完全相同的方式截掉完全相同的那些位，
+	 * 而这才是真正要紧的全部。反过来，若 dsm_handle
+	 * 比 key_t 更小，我们就用不完可用的键空间，
+	 * 不过那也
+	 * 没什么大不了。
 	 *
-	 * We do make sure that the key isn't negative, because that might not be
-	 * portable.
+	 * 我们确实要保证键不为负，因为那可能
+	 * 不可移植。
 	 */
 	key = (key_t) handle;
-	if (key < 1)				/* avoid compiler warning if type is unsigned */
+	if (key < 1)				/* 若类型为无符号，避免编译器告警 */
 		key = -key;
 
 	/*
-	 * There's one special key, IPC_PRIVATE, which can't be used.  If we end
-	 * up with that value by chance during a create operation, just pretend it
-	 * already exists, so that caller will retry.  If we run into it anywhere
-	 * else, the caller has passed a handle that doesn't correspond to
-	 * anything we ever created, which should not happen.
+	 * 有一个特殊键 IPC_PRIVATE 不能使用。若创建操作中
+	 * 碰巧得到该值，就假装它已存在，让调用方重试。
+	 * 若在别处碰上它，说明调用方传入的句柄并不对应
+	 * 我们曾经创建过的任何东西，
+	 * 这不应当发生。
 	 */
 	if (key == IPC_PRIVATE)
 	{
@@ -473,9 +473,9 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 	}
 
 	/*
-	 * Before we can do anything with a shared memory segment, we have to map
-	 * the shared memory key to a shared memory identifier using shmget(). To
-	 * avoid repeated lookups, we store the key using impl_private.
+	 * 对共享内存段做任何事之前，必须用 shmget() 把
+	 * 共享内存键映射成共享内存标识。为避免反复查找，
+	 * 我们用 impl_private 存放该键。
 	 */
 	if (*impl_private != NULL)
 	{
@@ -488,15 +488,15 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 		size_t		segsize;
 
 		/*
-		 * Allocate the memory BEFORE acquiring the resource, so that we don't
-		 * leak the resource if memory allocation fails.
+		 * 先把内存分配好 BEFORE 再取得资源，以免分配失败时
+		 * 泄漏该资源。
 		 */
 		ident_cache = MemoryContextAlloc(TopMemoryContext, sizeof(int));
 
 		/*
-		 * When using shmget to find an existing segment, we must pass the
-		 * size as 0.  Passing a non-zero size which is greater than the
-		 * actual size will result in EINVAL.
+		 * 用 shmget 寻找已有段时，必须把大小作为 0 传入。
+		 * 传入大于实际大小的非零大小会得到
+		 * EINVAL。
 		 */
 		segsize = 0;
 
@@ -525,7 +525,7 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 		*impl_private = ident_cache;
 	}
 
-	/* Handle teardown cases. */
+	/* 处理拆除情形。 */
 	if (op == DSM_OP_DETACH || op == DSM_OP_DESTROY)
 	{
 		pfree(ident_cache);
@@ -551,7 +551,7 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 		return true;
 	}
 
-	/* If we're attaching it, we must use IPC_STAT to determine the size. */
+	/* 若是在挂接它，必须用 IPC_STAT 来确定大小。 */
 	if (op == DSM_OP_ATTACH)
 	{
 		struct shmid_ds shm;
@@ -567,13 +567,13 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 		request_size = shm.shm_segsz;
 	}
 
-	/* Map it. */
+	/* 映射它。 */
 	address = shmat(ident, NULL, PG_SHMAT_FLAGS);
 	if (address == (void *) -1)
 	{
 		int			save_errno;
 
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		if (op == DSM_OP_CREATE)
 			shmctl(ident, IPC_RMID, NULL);
@@ -594,17 +594,17 @@ dsm_impl_sysv(dsm_op op, dsm_handle handle, Size request_size,
 
 #ifdef USE_DSM_WINDOWS
 /*
- * Operating system primitives to support Windows shared memory.
+ * 支持 Windows 共享内存的操作系统原语。
  *
- * Windows shared memory implementation is done using file mapping
- * which can be backed by either physical file or system paging file.
- * Current implementation uses system paging file as other effects
- * like performance are not clear for physical file and it is used in similar
- * way for main shared memory in windows.
+ * Windows 的共享内存用文件映射实现，底层可以是
+ * 物理文件，也可以是系统分页文件。当前实现使用
+ * 系统分页文件，因为物理文件在性能等方面的影响
+ * 尚不清楚，而且主共享内存在 Windows 上也以
+ * 类似方式使用。
  *
- * A memory mapping object is a kernel object - they always get deleted when
- * the last reference to them goes away, either explicitly via a CloseHandle or
- * when the process containing the reference exits.
+ * 内存映射对象是内核对象：当指向它们的最后一次引用
+ * 消失时总会被删除，要么通过 CloseHandle 显式删除，
+ * 要么在持有该引用的进程退出时删除。
  */
 static bool
 dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
@@ -617,18 +617,18 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 	MEMORY_BASIC_INFORMATION info;
 
 	/*
-	 * Storing the shared memory segment in the Global\ namespace, can allow
-	 * any process running in any session to access that file mapping object
-	 * provided that the caller has the required access rights. But to avoid
-	 * issues faced in main shared memory, we are using the naming convention
-	 * similar to main shared memory. We can change here once issue mentioned
-	 * in GetSharedMemName is resolved.
+	 * 把共享内存段放在 Global\ 名字空间里，可以让任何
+	 * 会话中运行的任何进程访问该文件映射对象，只要
+	 * 调用方拥有所需的访问权限。但为避免主共享内存里
+	 * 遇到过的问题，我们采用与主共享内存相似的命名
+	 * 约定。等 GetSharedMemName 里提到的问题解决后，
+	 * 这里可以再改。
 	 */
 	snprintf(name, 64, "%s.%u", SEGMENT_NAME_PREFIX, handle);
 
 	/*
-	 * Handle teardown cases.  Since Windows automatically destroys the object
-	 * when no references remain, we can treat it the same as detach.
+	 * 处理拆除情形。Windows 在没有剩余引用时会自动销毁对象，
+	 * 因此可以把它当成与脱离相同。
 	 */
 	if (op == DSM_OP_DETACH || op == DSM_OP_DESTROY)
 	{
@@ -659,14 +659,14 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 		return true;
 	}
 
-	/* Create new segment or open an existing one for attach. */
+	/* 创建新段，或打开已有段以便挂接。 */
 	if (op == DSM_OP_CREATE)
 	{
 		DWORD		size_high;
 		DWORD		size_low;
 		DWORD		errcode;
 
-		/* Shifts >= the width of the type are undefined. */
+		/* 移位量大于等于类型宽度时，行为未定义。 */
 #ifdef _WIN64
 		size_high = request_size >> 32;
 #else
@@ -674,25 +674,25 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 #endif
 		size_low = (DWORD) request_size;
 
-		/* CreateFileMapping might not clear the error code on success */
+		/* CreateFileMapping 成功时未必会清掉错误码 */
 		SetLastError(0);
 
-		hmap = CreateFileMapping(INVALID_HANDLE_VALUE,	/* Use the pagefile */
-								 NULL,	/* Default security attrs */
-								 PAGE_READWRITE,	/* Memory is read/write */
-								 size_high, /* Upper 32 bits of size */
-								 size_low,	/* Lower 32 bits of size */
+		hmap = CreateFileMapping(INVALID_HANDLE_VALUE,	/* 使用分页文件 */
+								 NULL,	/* 默认安全属性 */
+								 PAGE_READWRITE,	/* 内存可读可写 */
+								 size_high, /* 大小的高 32 位 */
+								 size_low,	/* 大小的低 32 位 */
 								 name);
 
 		errcode = GetLastError();
 		if (errcode == ERROR_ALREADY_EXISTS || errcode == ERROR_ACCESS_DENIED)
 		{
 			/*
-			 * On Windows, when the segment already exists, a handle for the
-			 * existing segment is returned.  We must close it before
-			 * returning.  However, if the existing segment is created by a
-			 * service, then it returns ERROR_ACCESS_DENIED. We don't do
-			 * _dosmaperr here, so errno won't be modified.
+			 * 在 Windows 上，当该段已存在时，会返回已有段的
+			 * 句柄。返回之前必须把它关掉。不过，若已有段是
+			 * 由服务创建的，则会返回 ERROR_ACCESS_DENIED。
+			 * 这里不做 _dosmaperr，
+			 * 因此 errno 不会被修改。
 			 */
 			if (hmap)
 				CloseHandle(hmap);
@@ -712,8 +712,8 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 	else
 	{
 		hmap = OpenFileMapping(FILE_MAP_WRITE | FILE_MAP_READ,
-							   FALSE,	/* do not inherit the name */
-							   name);	/* name of mapping object */
+							   FALSE,	/* 不继承该名字 */
+							   name);	/* 映射对象的名字 */
 		if (!hmap)
 		{
 			_dosmaperr(GetLastError());
@@ -725,7 +725,7 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 		}
 	}
 
-	/* Map it. */
+	/* 映射它。 */
 	address = MapViewOfFile(hmap, FILE_MAP_WRITE | FILE_MAP_READ,
 							0, 0, 0);
 	if (!address)
@@ -733,7 +733,7 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 		int			save_errno;
 
 		_dosmaperr(GetLastError());
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		CloseHandle(hmap);
 		errno = save_errno;
@@ -746,17 +746,17 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 	}
 
 	/*
-	 * VirtualQuery gives size in page_size units, which is 4K for Windows. We
-	 * need size only when we are attaching, but it's better to get the size
-	 * when creating new segment to keep size consistent both for
-	 * DSM_OP_CREATE and DSM_OP_ATTACH.
+	 * VirtualQuery 给出的大小以 page_size 为单位，在 Windows 上是 4K。
+	 * 只有挂接时才需要大小，但创建新段时也取一下更好，
+	 * 这样 DSM_OP_CREATE 与 DSM_OP_ATTACH 两边的大小
+	 * 保持一致。
 	 */
 	if (VirtualQuery(address, &info, sizeof(info)) == 0)
 	{
 		int			save_errno;
 
 		_dosmaperr(GetLastError());
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		UnmapViewOfFile(address);
 		CloseHandle(hmap);
@@ -779,14 +779,14 @@ dsm_impl_windows(dsm_op op, dsm_handle handle, Size request_size,
 
 #ifdef USE_DSM_MMAP
 /*
- * Operating system primitives to support mmap-based shared memory.
+ * 支持基于 mmap 的共享内存的操作系统原语。
  *
- * Calling this "shared memory" is somewhat of a misnomer, because what
- * we're really doing is creating a bunch of files and mapping them into
- * our address space.  The operating system may feel obliged to
- * synchronize the contents to disk even if nothing is being paged out,
- * which will not serve us well.  The user can relocate the pg_dynshmem
- * directory to a ramdisk to avoid this problem, if available.
+ * 把这叫做共享内存有点名不副实，因为我们真正做的
+ * 是创建一批文件并把它们映射进自己的地址空间。
+ * 操作系统可能觉得有义务把内容同步到磁盘，即便
+ * 并没有页面被换出，这对我们没有好处。若有内存盘，
+ * 用户可以把 pg_dynshmem 目录挪到内存盘上，以避开
+ * 这个问题。
  */
 static bool
 dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
@@ -801,7 +801,7 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 	snprintf(name, 64, PG_DYNSHMEM_DIR "/" PG_DYNSHMEM_MMAP_FILE_PREFIX "%u",
 			 handle);
 
-	/* Handle teardown cases. */
+	/* 处理拆除情形。 */
 	if (op == DSM_OP_DETACH || op == DSM_OP_DESTROY)
 	{
 		if (*mapped_address != NULL
@@ -826,7 +826,7 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 		return true;
 	}
 
-	/* Create new segment or open an existing one for attach. */
+	/* 创建新段，或打开已有段以便挂接。 */
 	flags = O_RDWR | (op == DSM_OP_CREATE ? O_CREAT | O_EXCL : 0);
 	if ((fd = OpenTransientFile(name, flags)) == -1)
 	{
@@ -839,8 +839,8 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 	}
 
 	/*
-	 * If we're attaching the segment, determine the current size; if we are
-	 * creating the segment, set the size to the requested value.
+	 * 若是在挂接该段，就确定当前大小；若是在
+	 * 创建该段，就把大小设成所请求的值。
 	 */
 	if (op == DSM_OP_ATTACH)
 	{
@@ -850,7 +850,7 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 		{
 			int			save_errno;
 
-			/* Back out what's already been done. */
+			/* 回退已经做过的部分。 */
 			save_errno = errno;
 			CloseTransientFile(fd);
 			errno = save_errno;
@@ -866,21 +866,21 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 	else
 	{
 		/*
-		 * Allocate a buffer full of zeros.
+		 * 分配一块全为零的缓冲区。
 		 *
-		 * Note: palloc zbuffer, instead of just using a local char array, to
-		 * ensure it is reasonably well-aligned; this may save a few cycles
-		 * transferring data to the kernel.
+		 * 注意：用 palloc 分配 zbuffer，而不是只用局部字符数组，
+		 * 以保证它对齐得还算好；把数据送到内核时
+		 * 这也许能省几个周期。
 		 */
 		char	   *zbuffer = (char *) palloc0(ZBUFFER_SIZE);
 		Size		remaining = request_size;
 		bool		success = true;
 
 		/*
-		 * Zero-fill the file. We have to do this the hard way to ensure that
-		 * all the file space has really been allocated, so that we don't
-		 * later seg fault when accessing the memory mapping.  This is pretty
-		 * pessimal.
+		 * 把文件填零。必须用这种笨办法，才能确保文件空间
+		 * 真的都已分配，这样以后访问内存映射时才不会
+		 * 段错误。这相当
+		 * 低效。
 		 */
 		while (success && remaining > 0)
 		{
@@ -900,7 +900,7 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 		{
 			int			save_errno;
 
-			/* Back out what's already been done. */
+			/* 回退已经做过的部分。 */
 			save_errno = errno;
 			CloseTransientFile(fd);
 			unlink(name);
@@ -914,14 +914,14 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 		}
 	}
 
-	/* Map it. */
+	/* 映射它。 */
 	address = mmap(NULL, request_size, PROT_READ | PROT_WRITE,
 				   MAP_SHARED | MAP_HASSEMAPHORE | MAP_NOSYNC, fd, 0);
 	if (address == MAP_FAILED)
 	{
 		int			save_errno;
 
-		/* Back out what's already been done. */
+		/* 回退已经做过的部分。 */
 		save_errno = errno;
 		CloseTransientFile(fd);
 		if (op == DSM_OP_CREATE)
@@ -951,13 +951,13 @@ dsm_impl_mmap(dsm_op op, dsm_handle handle, Size request_size,
 #endif
 
 /*
- * Implementation-specific actions that must be performed when a segment is to
- * be preserved even when no backend has it attached.
+ * 当一段即使没有任何后端挂接也要保留时，必须执行的
+ * 特定实现动作。
  *
- * Except on Windows, we don't need to do anything at all.  But since Windows
- * cleans up segments automatically when no references remain, we duplicate
- * the segment handle into the postmaster process.  The postmaster needn't
- * do anything to receive the handle; Windows transfers it automatically.
+ * 除 Windows 外，我们完全不必做什么。但 Windows 会在
+ * 没有剩余引用时自动清理段，因此我们把段句柄复制到
+ * postmaster 进程里。postmaster 不必为接收该句柄做任何事；
+ * Windows 会自动把它传过去。
  */
 void
 dsm_impl_pin_segment(dsm_handle handle, void *impl_private,
@@ -986,11 +986,11 @@ dsm_impl_pin_segment(dsm_handle handle, void *impl_private,
 				}
 
 				/*
-				 * Here, we remember the handle that we created in the
-				 * postmaster process.  This handle isn't actually usable in
-				 * any process other than the postmaster, but that doesn't
-				 * matter.  We're just holding onto it so that, if the segment
-				 * is unpinned, dsm_impl_unpin_segment can close it.
+				 * 这里记住我们在 postmaster 进程里创建的句柄。
+				 * 这个句柄实际上除了 postmaster 之外任何进程都
+				 * 用不了，但那没关系。我们只是握着它，以便
+				 * 该段被解除钉住时，dsm_impl_unpin_segment
+				 * 可以把它关掉。
 				 */
 				*impl_private_pm_handle = hmap;
 			}
@@ -1002,13 +1002,13 @@ dsm_impl_pin_segment(dsm_handle handle, void *impl_private,
 }
 
 /*
- * Implementation-specific actions that must be performed when a segment is no
- * longer to be preserved, so that it will be cleaned up when all backends
- * have detached from it.
+ * 当一段不再需要保留、从而会在所有后端都脱离之后
+ * 被清理时，必须执行的特定实现动作如下。
+ * 除 Windows 外，我们完全不必做什么。
  *
- * Except on Windows, we don't need to do anything at all.  For Windows, we
- * close the extra handle that dsm_impl_pin_segment created in the
- * postmaster's process space.
+ * 对 Windows，我们关掉 dsm_impl_pin_segment
+ * 在 postmaster 进程空间里创建的
+ * 那个额外句柄。
  */
 void
 dsm_impl_unpin_segment(dsm_handle handle, void **impl_private)

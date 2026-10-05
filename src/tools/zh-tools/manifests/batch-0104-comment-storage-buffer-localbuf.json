@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0104-comment-storage-buffer-localbuf",
+ "title": "zh: translate localbuf comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "a09aea1fed19aa9cff8693aad919d4e8e1236ee9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "note": "local buffer manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0104-comment-storage-buffer-localbuf.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 72,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "local buffer manager"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0104-comment-storage-buffer-localbuf.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0104 translates src/backend/storage/buffer/localbuf.c."
+}

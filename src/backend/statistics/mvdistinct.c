@@ -333,7 +333,7 @@ statext_ndistinct_deserialize(bytea *data)
  * pg_ndistinct_in
  *		类型 pg_ndistinct 的输入例程。
  *
- * pg_ndistinct 真实到足以作为表列，但它没有
+ * pg_ndistinct 足以作为表列类型使用，但它没有
  * 自己的操作，并且不允许输入（就像 pg_node_tree 一样）。
  */
 Datum

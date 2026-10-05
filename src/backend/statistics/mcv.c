@@ -1469,7 +1469,7 @@ pg_stats_ext_mcvlist_items(PG_FUNCTION_ARGS)
 /*
  * pg_mcv_list_in		- 类型 pg_mcv_list 的输入例程。
  *
- * pg_mcv_list 真实到足以作为表列，但它没有自己的操作，
+ * pg_mcv_list 足以作为表列类型使用，但它没有自己的操作，
  * 也不允许输入。
  */
 Datum
@@ -2033,7 +2033,7 @@ mcv_combine_selectivities(Selectivity simple_sel,
 
 /*
  * mcv_clauselist_selectivity
- *		用 MCV 统计信息估计隐式 ANDed
+ *		用 MCV 统计信息估计按 AND 组合的隐式 ANDed
  *		子句列表的选择率。
  *
  * 这确定哪些 MCV 项匹配列表里的每个子句，并返回
@@ -2090,7 +2090,7 @@ mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
 
 /*
  * mcv_clause_selectivity_or
- *		用 MCV 统计信息估计出现在 ORed
+ *		用 MCV 统计信息估计出现在按 OR 组合的 ORed
  *		子句列表里的一条子句的选择率。
  *
  * 与 mcv_clauselist_selectivity() 一样，这确定哪些 MCV 项匹配
@@ -2100,9 +2100,9 @@ mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
  * 产生同时利用按列和多列统计信息的
  * 选择率估计。
  *
- * 此外，我们返回有助于计算假定包含该子句的 ORed 子句列表
+ * 此外，我们返回有助于计算假定包含该子句的按 OR 组合的子句列表
  * 总选择率的信息。本函数
- * 打算对 ORed 子句列表里的每个子句调用，
+ * 打算对按 OR 组合的子句列表里的每个子句调用，
  * 从而可以用下面的
  * 算法计算总选择率：
  *
@@ -2114,7 +2114,7 @@ mcv_clauselist_selectivity(PlannerInfo *root, StatisticExtInfo *stat,
  *
  * 上面最后一项表示迄今检查过的子句与
  * 第 (n+1) 条子句之间的重叠。为了估计它的选择率，我们跟踪
- * 迄今检查过的 ORed 子句列表的匹配 bitmap，并检查它与
+ * 迄今检查过的按 OR 组合的子句列表的匹配 bitmap，并检查它与
  * 第 (n+1) 条子句的匹配 bitmap 的交集。
  *
  * 然后我们还返回对应于上面那个重叠项的匹配 bitmap 交集的

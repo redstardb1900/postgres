@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "0143-comment-access-index",
+ "title": "zh: translate access/index comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "faf6da17c81203f9883db4aa997205728d3fece8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/index/amapi.c",
+   "kind": "c_comment",
+   "note": "index AM API lookup"
+  },
+  {
+   "pattern": "src/backend/access/index/amvalidate.c",
+   "kind": "c_comment",
+   "note": "opclass and opfamily validation helpers"
+  },
+  {
+   "pattern": "src/backend/access/index/genam.c",
+   "kind": "c_comment",
+   "note": "general index scan and systable scan helpers"
+  },
+  {
+   "pattern": "src/backend/access/index/indexam.c",
+   "kind": "c_comment",
+   "note": "index_ access-method interface"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0143-comment-access-index.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/index/amapi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "index AM API lookup; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/index/amvalidate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 16,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "opclass and opfamily validation helpers; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/index/genam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 57,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "general index scan and systable scan helpers; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/index/indexam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 73,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "index_ access-method interface; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0143-comment-access-index.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0143 translates comments in src/backend/access/index/amapi.c, amvalidate.c, genam.c, and indexam.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. After this batch, src/backend/access/index .c comments are complete. Next suggested: src/backend/access/table/."
+}

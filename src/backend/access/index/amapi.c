@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * amapi.c
- *	  Support routines for API for Postgres index access methods.
+ *	  Postgres 索引访问方法 API 的支持例程。
  *
  * Copyright (c) 2015-2023, PostgreSQL Global Development Group
  *
@@ -22,12 +22,12 @@
 
 
 /*
- * GetIndexAmRoutine - call the specified access method handler routine to get
- * its IndexAmRoutine struct, which will be palloc'd in the caller's context.
+ * GetIndexAmRoutine - 调用指定的访问方法处理器例程，取得
+ * 其 IndexAmRoutine 结构，该结构在调用方上下文中 palloc。
  *
- * Note that if the amhandler function is built-in, this will not involve
- * any catalog access.  It's therefore safe to use this while bootstrapping
- * indexes for the system catalogs.  relcache.c relies on that.
+ * 注意：若 amhandler 函数是内置的，则不会访问任何系统目录。
+ * 因此在为系统目录引导索引时可以安全使用。
+ * relcache.c 依赖这一点。
  */
 IndexAmRoutine *
 GetIndexAmRoutine(Oid amhandler)
@@ -46,11 +46,11 @@ GetIndexAmRoutine(Oid amhandler)
 }
 
 /*
- * GetIndexAmRoutineByAmId - look up the handler of the index access method
- * with the given OID, and get its IndexAmRoutine struct.
+ * GetIndexAmRoutineByAmId - 按给定 OID 查找索引访问方法的
+ * 处理器，并取得其 IndexAmRoutine 结构。
  *
- * If the given OID isn't a valid index access method, returns NULL if
- * noerror is true, else throws error.
+ * 若给定 OID 不是有效的索引访问方法，则 noerror 为真时返回 NULL，
+ * 否则抛出错误。
  */
 IndexAmRoutine *
 GetIndexAmRoutineByAmId(Oid amoid, bool noerror)
@@ -59,7 +59,7 @@ GetIndexAmRoutineByAmId(Oid amoid, bool noerror)
 	Form_pg_am	amform;
 	regproc		amhandler;
 
-	/* Get handler function OID for the access method */
+	/* 取得该访问方法的处理器函数 OID */
 	tuple = SearchSysCache1(AMOID, ObjectIdGetDatum(amoid));
 	if (!HeapTupleIsValid(tuple))
 	{
@@ -70,7 +70,7 @@ GetIndexAmRoutineByAmId(Oid amoid, bool noerror)
 	}
 	amform = (Form_pg_am) GETSTRUCT(tuple);
 
-	/* Check if it's an index access method as opposed to some other AM */
+	/* 检查它是索引访问方法，而不是其他某种 AM */
 	if (amform->amtype != AMTYPE_INDEX)
 	{
 		if (noerror)
@@ -86,7 +86,7 @@ GetIndexAmRoutineByAmId(Oid amoid, bool noerror)
 
 	amhandler = amform->amhandler;
 
-	/* Complain if handler OID is invalid */
+	/* 若处理器 OID 无效则报错 */
 	if (!RegProcedureIsValid(amhandler))
 	{
 		if (noerror)
@@ -102,13 +102,13 @@ GetIndexAmRoutineByAmId(Oid amoid, bool noerror)
 
 	ReleaseSysCache(tuple);
 
-	/* And finally, call the handler function to get the API struct. */
+	/* 最后调用处理器函数以取得 API 结构。 */
 	return GetIndexAmRoutine(amhandler);
 }
 
 
 /*
- * Ask appropriate access method to validate the specified opclass.
+ * 请适当的访问方法校验指定的操作符类。
  */
 Datum
 amvalidate(PG_FUNCTION_ARGS)

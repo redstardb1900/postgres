@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * indexam.c
- *	  general index access method routines
+ *	  通用索引访问方法例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,33 +10,33 @@
  * IDENTIFICATION
  *	  src/backend/access/index/indexam.c
  *
- * INTERFACE ROUTINES
- *		index_open		- open an index relation by relation OID
- *		index_close		- close an index relation
- *		index_beginscan - start a scan of an index with amgettuple
- *		index_beginscan_bitmap - start a scan of an index with amgetbitmap
- *		index_rescan	- restart a scan of an index
- *		index_endscan	- end a scan
- *		index_insert	- insert an index tuple into a relation
- *		index_markpos	- mark a scan position
- *		index_restrpos	- restore a scan position
- *		index_parallelscan_estimate - estimate shared memory for parallel scan
- *		index_parallelscan_initialize - initialize parallel scan
- *		index_parallelrescan  - (re)start a parallel scan of an index
- *		index_beginscan_parallel - join parallel index scan
- *		index_getnext_tid	- get the next TID from a scan
- *		index_fetch_heap		- get the scan's next heap tuple
- *		index_getnext_slot	- get the next tuple from a scan
- *		index_getbitmap - get all tuples from a scan
- *		index_bulk_delete	- bulk deletion of index tuples
- *		index_vacuum_cleanup	- post-deletion cleanup of an index
- *		index_can_return	- does index support index-only scans?
- *		index_getprocid - get a support procedure OID
- *		index_getprocinfo - get a support procedure's lookup info
+ * 接口例程（INTERFACE ROUTINES）
+ *		index_open		- 按关系 OID 打开索引关系
+ *		index_close		- 关闭索引关系
+ *		index_beginscan - 用 amgettuple 开始索引扫描
+ *		index_beginscan_bitmap - 用 amgetbitmap 开始索引扫描
+ *		index_rescan	- 重新开始索引扫描
+ *		index_endscan	- 结束扫描
+ *		index_insert	- 向关系中插入索引元组
+ *		index_markpos	- 标记扫描位置
+ *		index_restrpos	- 恢复扫描位置
+ *		index_parallelscan_estimate - 估算并行扫描的共享内存
+ *		index_parallelscan_initialize - 初始化并行扫描
+ *		index_parallelrescan  - （重新）开始索引的并行扫描
+ *		index_beginscan_parallel - 加入并行索引扫描
+ *		index_getnext_tid	- 从扫描取得下一个 TID
+ *		index_fetch_heap		- 取得扫描的下一个堆元组
+ *		index_getnext_slot	- 从扫描取得下一个元组
+ *		index_getbitmap - 从扫描取得全部元组
+ *		index_bulk_delete	- 批量删除索引元组
+ *		index_vacuum_cleanup	- 删除之后清理索引
+ *		index_can_return	- 索引是否支持仅索引扫描？
+ *		index_getprocid - 取得支持过程 OID
+ *		index_getprocinfo - 取得支持过程的查找信息
  *
- * NOTES
- *		This file contains the index_ routines which used
- *		to be a scattered collection of stuff in access/genam.
+ * 说明（NOTES）
+ *		本文件包含原先散落在 access/genam 中的
+ *		index_ 例程。
  *
  *-------------------------------------------------------------------------
  */
@@ -65,16 +65,16 @@
 
 
 /* ----------------------------------------------------------------
- *					macros used in index_ routines
+ *					index_ 例程中使用的宏
  *
- * Note: the ReindexIsProcessingIndex() check in RELATION_CHECKS is there
- * to check that we don't try to scan or do retail insertions into an index
- * that is currently being rebuilt or pending rebuild.  This helps to catch
- * things that don't work when reindexing system catalogs, as well as prevent
- * user errors like index expressions that access their own tables.  The check
- * doesn't prevent the actual rebuild because we don't use RELATION_CHECKS
- * when calling the index AM's ambuild routine, and there is no reason for
- * ambuild to call its subsidiary routines through this file.
+ * 注意：RELATION_CHECKS 中的 ReindexIsProcessingIndex() 检查，
+ * 是为了确认我们不会去扫描，或向正在重建或等待
+ * 重建的索引做逐条插入。这有助于抓住重建系统目录
+ * 索引时行不通的事情，并防止用户错误，例如访问
+ * 自身表的索引表达式。该检查并不阻止实际重建，
+ * 因为调用索引 AM 的 ambuild 例程时我们不用
+ * RELATION_CHECKS，而且 ambuild 没有理由通过本文件
+ * 调用其子例程。
  * ----------------------------------------------------------------
  */
 #define RELATION_CHECKS \
@@ -116,22 +116,22 @@ static inline void validate_relation_kind(Relation r);
 
 
 /* ----------------------------------------------------------------
- *				   index_ interface functions
+ *				   index_ 接口函数
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		index_open - open an index relation by relation OID
+ *		index_open - 按关系 OID 打开索引关系
  *
- *		If lockmode is not "NoLock", the specified kind of lock is
- *		obtained on the index.  (Generally, NoLock should only be
- *		used if the caller knows it has some appropriate lock on the
- *		index already.)
+ *		若 lockmode 不是 "NoLock"，则在索引上取得
+ *		指定种类的锁。（一般而言，只有调用方已知
+ *		自己已经持有索引上某种适当的锁时，
+ *		才应使用 NoLock。）
  *
- *		An error is raised if the index does not exist.
+ *		若索引不存在则报错。
  *
- *		This is a convenience routine adapted for indexscan use.
- *		Some callers may prefer to use relation_open directly.
+ *		这是为索引扫描使用而改写的便捷例程。
+ *		有些调用方可能更愿意直接使用 relation_open。
  * ----------------
  */
 Relation
@@ -147,10 +147,10 @@ index_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
- *		try_index_open - open a index relation by relation OID
+ *		try_index_open - 按关系 OID 打开索引关系
  *
- *		Same as index_open, except return NULL instead of failing
- *		if the relation does not exist.
+ *		与 index_open 相同，只是关系不存在时
+ *		返回 NULL 而不是失败。
  * ----------------
  */
 Relation
@@ -160,7 +160,7 @@ try_index_open(Oid relationId, LOCKMODE lockmode)
 
 	r = try_relation_open(relationId, lockmode);
 
-	/* leave if index does not exist */
+	/* 若索引不存在则离开 */
 	if (!r)
 		return NULL;
 
@@ -170,12 +170,12 @@ try_index_open(Oid relationId, LOCKMODE lockmode)
 }
 
 /* ----------------
- *		index_close - close an index relation
+ *		index_close - 关闭索引关系
  *
- *		If lockmode is not "NoLock", we then release the specified lock.
+ *		若 lockmode 不是 "NoLock"，则接着释放指定的锁。
  *
- *		Note that it is often sensible to hold a lock beyond index_close;
- *		in that case, the lock is released automatically at xact end.
+ *		注意：把锁保持到 index_close 之后常常是合理的；
+ *		那种情况下，锁在事务结束时自动释放。
  * ----------------
  */
 void
@@ -185,7 +185,7 @@ index_close(Relation relation, LOCKMODE lockmode)
 
 	Assert(lockmode >= NoLock && lockmode < MAX_LOCKMODES);
 
-	/* The relcache does the real work... */
+	/* relcache 做真正的工作... */
 	RelationClose(relation);
 
 	if (lockmode != NoLock)
@@ -193,9 +193,9 @@ index_close(Relation relation, LOCKMODE lockmode)
 }
 
 /* ----------------
- *		validate_relation_kind - check the relation's kind
+ *		validate_relation_kind - 检查关系的种类
  *
- *		Make sure relkind is an index or a partitioned index.
+ *		确保 relkind 是索引或分区索引。
  * ----------------
  */
 static inline void
@@ -211,7 +211,7 @@ validate_relation_kind(Relation r)
 
 
 /* ----------------
- *		index_insert - insert an index tuple into a relation
+ *		index_insert - 向关系中插入索引元组
  * ----------------
  */
 bool
@@ -239,9 +239,9 @@ index_insert(Relation indexRelation,
 }
 
 /*
- * index_beginscan - start a scan of an index with amgettuple
+ * index_beginscan - 用 amgettuple 开始索引扫描
  *
- * Caller must be holding suitable locks on the heap and the index.
+ * 调用方必须在堆和索引上持有合适的锁。
  */
 IndexScanDesc
 index_beginscan(Relation heapRelation,
@@ -256,23 +256,23 @@ index_beginscan(Relation heapRelation,
 	scan = index_beginscan_internal(indexRelation, nkeys, norderbys, snapshot, NULL, false);
 
 	/*
-	 * Save additional parameters into the scandesc.  Everything else was set
-	 * up by RelationGetIndexScan.
+	 * 把额外参数存入 scandesc。其余都已由
+	 * RelationGetIndexScan 设好。
 	 */
 	scan->heapRelation = heapRelation;
 	scan->xs_snapshot = snapshot;
 
-	/* prepare to fetch index matches from table */
+	/* 准备从表中取出索引匹配 */
 	scan->xs_heapfetch = table_index_fetch_begin(heapRelation);
 
 	return scan;
 }
 
 /*
- * index_beginscan_bitmap - start a scan of an index with amgetbitmap
+ * index_beginscan_bitmap - 用 amgetbitmap 开始索引扫描
  *
- * As above, caller had better be holding some lock on the parent heap
- * relation, even though it's not explicitly mentioned here.
+ * 同上，调用方最好在父堆关系上持有某把锁，
+ * 尽管这里没有明确提到它。
  */
 IndexScanDesc
 index_beginscan_bitmap(Relation indexRelation,
@@ -286,8 +286,8 @@ index_beginscan_bitmap(Relation indexRelation,
 	scan = index_beginscan_internal(indexRelation, nkeys, 0, snapshot, NULL, false);
 
 	/*
-	 * Save additional parameters into the scandesc.  Everything else was set
-	 * up by RelationGetIndexScan.
+	 * 把额外参数存入 scandesc。其余都已由
+	 * RelationGetIndexScan 设好。
 	 */
 	scan->xs_snapshot = snapshot;
 
@@ -295,7 +295,7 @@ index_beginscan_bitmap(Relation indexRelation,
 }
 
 /*
- * index_beginscan_internal --- common code for index_beginscan variants
+ * index_beginscan_internal --- index_beginscan 各变体的公共代码
  */
 static IndexScanDesc
 index_beginscan_internal(Relation indexRelation,
@@ -311,16 +311,16 @@ index_beginscan_internal(Relation indexRelation,
 		PredicateLockRelation(indexRelation, snapshot);
 
 	/*
-	 * We hold a reference count to the relcache entry throughout the scan.
+	 * 整个扫描期间持有 relcache 项的引用计数。
 	 */
 	RelationIncrementReferenceCount(indexRelation);
 
 	/*
-	 * Tell the AM to open a scan.
+	 * 让 AM 打开一次扫描。
 	 */
 	scan = indexRelation->rd_indam->ambeginscan(indexRelation, nkeys,
 												norderbys);
-	/* Initialize information for parallel scan. */
+	/* 初始化并行扫描的信息。 */
 	scan->parallel_scan = pscan;
 	scan->xs_temp_snap = temp_snap;
 
@@ -328,15 +328,15 @@ index_beginscan_internal(Relation indexRelation,
 }
 
 /* ----------------
- *		index_rescan  - (re)start a scan of an index
+ *		index_rescan  - （重新）开始索引扫描
  *
- * During a restart, the caller may specify a new set of scankeys and/or
- * orderbykeys; but the number of keys cannot differ from what index_beginscan
- * was told.  (Later we might relax that to "must not exceed", but currently
- * the index AMs tend to assume that scan->numberOfKeys is what to believe.)
- * To restart the scan without changing keys, pass NULL for the key arrays.
- * (Of course, keys *must* be passed on the first call, unless
- * scan->numberOfKeys is zero.)
+ * 重新开始时，调用方可以指定一套新的 scankeys 和/或
+ * orderbykeys；但键的数目必须与 index_beginscan
+ * 当初所知的相同。（以后也许放宽为 "不得超出"，但目前
+ * 索引 AM 倾向于相信 scan->numberOfKeys。）
+ * 要不改键就重新开始扫描，给键数组传 NULL。
+ * （当然，除非 scan->numberOfKeys 为零，否则第一次
+ * 调用 *必须* 传入键。）
  * ----------------
  */
 void
@@ -350,11 +350,11 @@ index_rescan(IndexScanDesc scan,
 	Assert(nkeys == scan->numberOfKeys);
 	Assert(norderbys == scan->numberOfOrderBys);
 
-	/* Release resources (like buffer pins) from table accesses */
+	/* 释放表访问留下的资源（例如缓冲区钉住） */
 	if (scan->xs_heapfetch)
 		table_index_fetch_reset(scan->xs_heapfetch);
 
-	scan->kill_prior_tuple = false; /* for safety */
+	scan->kill_prior_tuple = false; /* 为安全起见 */
 	scan->xs_heap_continue = false;
 
 	scan->indexRelation->rd_indam->amrescan(scan, keys, nkeys,
@@ -362,7 +362,7 @@ index_rescan(IndexScanDesc scan,
 }
 
 /* ----------------
- *		index_endscan - end a scan
+ *		index_endscan - 结束扫描
  * ----------------
  */
 void
@@ -371,28 +371,28 @@ index_endscan(IndexScanDesc scan)
 	SCAN_CHECKS;
 	CHECK_SCAN_PROCEDURE(amendscan);
 
-	/* Release resources (like buffer pins) from table accesses */
+	/* 释放表访问留下的资源（例如缓冲区钉住） */
 	if (scan->xs_heapfetch)
 	{
 		table_index_fetch_end(scan->xs_heapfetch);
 		scan->xs_heapfetch = NULL;
 	}
 
-	/* End the AM's scan */
+	/* 结束 AM 的扫描 */
 	scan->indexRelation->rd_indam->amendscan(scan);
 
-	/* Release index refcount acquired by index_beginscan */
+	/* 释放 index_beginscan 取得的索引引用计数 */
 	RelationDecrementReferenceCount(scan->indexRelation);
 
 	if (scan->xs_temp_snap)
 		UnregisterSnapshot(scan->xs_snapshot);
 
-	/* Release the scan data structure itself */
+	/* 释放扫描数据结构本身 */
 	IndexScanEnd(scan);
 }
 
 /* ----------------
- *		index_markpos  - mark a scan position
+ *		index_markpos  - 标记扫描位置
  * ----------------
  */
 void
@@ -405,18 +405,18 @@ index_markpos(IndexScanDesc scan)
 }
 
 /* ----------------
- *		index_restrpos	- restore a scan position
+ *		index_restrpos	- 恢复扫描位置
  *
- * NOTE: this only restores the internal scan state of the index AM.  See
- * comments for ExecRestrPos().
+ * 注意：这只恢复索引 AM 的内部扫描状态。见
+ * ExecRestrPos() 的注释。
  *
- * NOTE: For heap, in the presence of HOT chains, mark/restore only works
- * correctly if the scan's snapshot is MVCC-safe; that ensures that there's at
- * most one returnable tuple in each HOT chain, and so restoring the prior
- * state at the granularity of the index AM is sufficient.  Since the only
- * current user of mark/restore functionality is nodeMergejoin.c, this
- * effectively means that merge-join plans only work for MVCC snapshots.  This
- * could be fixed if necessary, but for now it seems unimportant.
+ * 注意：对堆而言，存在 HOT 链时，标记/恢复只有在
+ * 扫描快照是 MVCC 安全的时候才正确；这保证每条 HOT 链
+ * 最多有一个可返回的元组，因此按索引 AM 的粒度
+ * 恢复先前状态就够了。由于标记/恢复目前唯一的
+ * 用户是 nodeMergejoin.c，这实际上意味着归并连接计划
+ * 只适用于 MVCC 快照。必要时可以修，
+ * 但眼下似乎并不重要。
  * ----------------
  */
 void
@@ -427,22 +427,22 @@ index_restrpos(IndexScanDesc scan)
 	SCAN_CHECKS;
 	CHECK_SCAN_PROCEDURE(amrestrpos);
 
-	/* release resources (like buffer pins) from table accesses */
+	/* 释放表访问留下的资源（例如缓冲区钉住） */
 	if (scan->xs_heapfetch)
 		table_index_fetch_reset(scan->xs_heapfetch);
 
-	scan->kill_prior_tuple = false; /* for safety */
+	scan->kill_prior_tuple = false; /* 为安全起见 */
 	scan->xs_heap_continue = false;
 
 	scan->indexRelation->rd_indam->amrestrpos(scan);
 }
 
 /*
- * index_parallelscan_estimate - estimate shared memory for parallel scan
+ * index_parallelscan_estimate - 估算并行扫描的共享内存
  *
- * Currently, we don't pass any information to the AM-specific estimator,
- * so it can probably only return a constant.  In the future, we might need
- * to pass more information.
+ * 目前我们不向 AM 专用的估算器传递任何信息，
+ * 因此它大概只能返回一个常量。将来也许需要
+ * 传递更多信息。
  */
 Size
 index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
@@ -458,9 +458,9 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
 	nbytes = MAXALIGN(nbytes);
 
 	/*
-	 * If amestimateparallelscan is not provided, assume there is no
-	 * AM-specific data needed.  (It's hard to believe that could work, but
-	 * it's easy enough to cater to it here.)
+	 * 若未提供 amestimateparallelscan，则假定不需要
+	 * AM 专用数据。（很难相信那样能工作，
+	 * 但在这里迁就它很容易。）
 	 */
 	if (indexRelation->rd_indam->amestimateparallelscan != NULL)
 		nbytes = add_size(nbytes,
@@ -470,14 +470,14 @@ index_parallelscan_estimate(Relation indexRelation, Snapshot snapshot)
 }
 
 /*
- * index_parallelscan_initialize - initialize parallel scan
+ * index_parallelscan_initialize - 初始化并行扫描
  *
- * We initialize both the ParallelIndexScanDesc proper and the AM-specific
- * information which follows it.
+ * 我们既初始化 ParallelIndexScanDesc 本身，也初始化
+ * 紧随其后的 AM 专用信息。
  *
- * This function calls access method specific initialization routine to
- * initialize am specific information.  Call this just once in the leader
- * process; then, individual workers attach via index_beginscan_parallel.
+ * 本函数调用访问方法专用的初始化例程，以初始化
+ * am 专用信息。只在领导者进程中调用一次；
+ * 然后各个工作进程通过 index_beginscan_parallel 接入。
  */
 void
 index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
@@ -498,7 +498,7 @@ index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
 	target->ps_offset = offset;
 	SerializeSnapshot(snapshot, target->ps_snapshot_data);
 
-	/* aminitparallelscan is optional; assume no-op if not provided by AM */
+	/* aminitparallelscan 可选；AM 未提供则假定为空操作 */
 	if (indexRelation->rd_indam->aminitparallelscan != NULL)
 	{
 		void	   *amtarget;
@@ -509,7 +509,7 @@ index_parallelscan_initialize(Relation heapRelation, Relation indexRelation,
 }
 
 /* ----------------
- *		index_parallelrescan  - (re)start a parallel scan of an index
+ *		index_parallelrescan  - （重新）开始索引的并行扫描
  * ----------------
  */
 void
@@ -520,15 +520,15 @@ index_parallelrescan(IndexScanDesc scan)
 	if (scan->xs_heapfetch)
 		table_index_fetch_reset(scan->xs_heapfetch);
 
-	/* amparallelrescan is optional; assume no-op if not provided by AM */
+	/* amparallelrescan 可选；AM 未提供则假定为空操作 */
 	if (scan->indexRelation->rd_indam->amparallelrescan != NULL)
 		scan->indexRelation->rd_indam->amparallelrescan(scan);
 }
 
 /*
- * index_beginscan_parallel - join parallel index scan
+ * index_beginscan_parallel - 加入并行索引扫描
  *
- * Caller must be holding suitable locks on the heap and the index.
+ * 调用方必须在堆和索引上持有合适的锁。
  */
 IndexScanDesc
 index_beginscan_parallel(Relation heaprel, Relation indexrel, int nkeys,
@@ -544,23 +544,23 @@ index_beginscan_parallel(Relation heaprel, Relation indexrel, int nkeys,
 									pscan, true);
 
 	/*
-	 * Save additional parameters into the scandesc.  Everything else was set
-	 * up by index_beginscan_internal.
+	 * 把额外参数存入 scandesc。其余都已由
+	 * index_beginscan_internal 设好。
 	 */
 	scan->heapRelation = heaprel;
 	scan->xs_snapshot = snapshot;
 
-	/* prepare to fetch index matches from table */
+	/* 准备从表中取出索引匹配 */
 	scan->xs_heapfetch = table_index_fetch_begin(heaprel);
 
 	return scan;
 }
 
 /* ----------------
- * index_getnext_tid - get the next TID from a scan
+ * index_getnext_tid - 从扫描取得下一个 TID
  *
- * The result is the next TID satisfying the scan keys,
- * or NULL if no more matching tuples exist.
+ * 结果是满足扫描键的下一个 TID，
+ * 若不再有匹配元组则为 NULL。
  * ----------------
  */
 ItemPointer
@@ -571,25 +571,25 @@ index_getnext_tid(IndexScanDesc scan, ScanDirection direction)
 	SCAN_CHECKS;
 	CHECK_SCAN_PROCEDURE(amgettuple);
 
-	/* XXX: we should assert that a snapshot is pushed or registered */
+	/* XXX：应当断言已压入或已登记快照 */
 	Assert(TransactionIdIsValid(RecentXmin));
 
 	/*
-	 * The AM's amgettuple proc finds the next index entry matching the scan
-	 * keys, and puts the TID into scan->xs_heaptid.  It should also set
-	 * scan->xs_recheck and possibly scan->xs_itup/scan->xs_hitup, though we
-	 * pay no attention to those fields here.
+	 * AM 的 amgettuple 过程找出下一个匹配扫描键的索引项，
+	 * 并把 TID 放入 scan->xs_heaptid。它还应设置 scan->xs_recheck，
+	 * 并可能设置 scan->xs_itup/scan->xs_hitup，不过我们在这里
+	 * 不关注那些字段。
 	 */
 	found = scan->indexRelation->rd_indam->amgettuple(scan, direction);
 
-	/* Reset kill flag immediately for safety */
+	/* 为安全起见立即复位杀死标志 */
 	scan->kill_prior_tuple = false;
 	scan->xs_heap_continue = false;
 
-	/* If we're out of index entries, we're done */
+	/* 若索引项已用尽，则结束 */
 	if (!found)
 	{
-		/* release resources (like buffer pins) from table accesses */
+		/* 释放表访问留下的资源（例如缓冲区钉住） */
 		if (scan->xs_heapfetch)
 			table_index_fetch_reset(scan->xs_heapfetch);
 
@@ -599,26 +599,26 @@ index_getnext_tid(IndexScanDesc scan, ScanDirection direction)
 
 	pgstat_count_index_tuples(scan->indexRelation, 1);
 
-	/* Return the TID of the tuple we found. */
+	/* 返回找到的元组的 TID。 */
 	return &scan->xs_heaptid;
 }
 
 /* ----------------
- *		index_fetch_heap - get the scan's next heap tuple
+ *		index_fetch_heap - 取得扫描的下一个堆元组
  *
- * The result is a visible heap tuple associated with the index TID most
- * recently fetched by index_getnext_tid, or NULL if no more matching tuples
- * exist.  (There can be more than one matching tuple because of HOT chains,
- * although when using an MVCC snapshot it should be impossible for more than
- * one such tuple to exist.)
+ * 结果是与 index_getnext_tid 最近取出的索引 TID
+ * 相关联的可见堆元组，若不再有匹配元组则为 NULL。
+ * （由于 HOT 链，可能有多于一个匹配元组，
+ * 不过使用 MVCC 快照时，不可能存在多于
+ * 一个这样的元组。）
  *
- * On success, the buffer containing the heap tup is pinned (the pin will be
- * dropped in a future index_getnext_tid, index_fetch_heap or index_endscan
- * call).
+ * 成功时，含有该堆元组的缓冲区被钉住（该钉住将在
+ * 将来的 index_getnext_tid、index_fetch_heap 或
+ * index_endscan 调用中解除）。
  *
- * Note: caller must check scan->xs_recheck, and perform rechecking of the
- * scan keys if required.  We do not do that here because we don't have
- * enough information to do it efficiently in the general case.
+ * 注意：调用方必须检查 scan->xs_recheck，并在需要时
+ * 重查扫描键。我们不在这里做，因为一般情况下
+ * 没有足够信息可以高效地做。
  * ----------------
  */
 bool
@@ -635,11 +635,11 @@ index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot)
 		pgstat_count_heap_fetch(scan->indexRelation);
 
 	/*
-	 * If we scanned a whole HOT chain and found only dead tuples, tell index
-	 * AM to kill its entry for that TID (this will take effect in the next
-	 * amgettuple call, in index_getnext_tid).  We do not do this when in
-	 * recovery because it may violate MVCC to do so.  See comments in
-	 * RelationGetIndexScan().
+	 * 若扫完整条 HOT 链却只找到死元组，则告诉索引
+	 * AM 杀死该 TID 的项（这将在下一次 amgettuple 调用中
+	 * 生效，位于 index_getnext_tid）。恢复期间不这样做，
+	 * 因为那样可能破坏 MVCC。见
+	 * RelationGetIndexScan() 中的注释。
 	 */
 	if (!scan->xactStartedInRecovery)
 		scan->kill_prior_tuple = all_dead;
@@ -648,18 +648,18 @@ index_fetch_heap(IndexScanDesc scan, TupleTableSlot *slot)
 }
 
 /* ----------------
- *		index_getnext_slot - get the next tuple from a scan
+ *		index_getnext_slot - 从扫描取得下一个元组
  *
- * The result is true if a tuple satisfying the scan keys and the snapshot was
- * found, false otherwise.  The tuple is stored in the specified slot.
+ * 若找到满足扫描键和快照的元组则结果为真，
+ * 否则为假。元组存放在指定的槽中。
  *
- * On success, resources (like buffer pins) are likely to be held, and will be
- * dropped by a future index_getnext_tid, index_fetch_heap or index_endscan
- * call).
+ * 成功时，多半会持有资源（例如缓冲区钉住），并将由
+ * 将来的 index_getnext_tid、index_fetch_heap 或 index_endscan
+ * 调用解除。
  *
- * Note: caller must check scan->xs_recheck, and perform rechecking of the
- * scan keys if required.  We do not do that here because we don't have
- * enough information to do it efficiently in the general case.
+ * 注意：调用方必须检查 scan->xs_recheck，并在需要时
+ * 重查扫描键。我们不在这里做，因为一般情况下
+ * 没有足够信息可以高效地做。
  * ----------------
  */
 bool
@@ -671,10 +671,10 @@ index_getnext_slot(IndexScanDesc scan, ScanDirection direction, TupleTableSlot *
 		{
 			ItemPointer tid;
 
-			/* Time to fetch the next TID from the index */
+			/* 该从索引取出下一个 TID 了 */
 			tid = index_getnext_tid(scan, direction);
 
-			/* If we're out of index entries, we're done */
+			/* 若索引项已用尽，则结束 */
 			if (tid == NULL)
 				break;
 
@@ -682,9 +682,9 @@ index_getnext_slot(IndexScanDesc scan, ScanDirection direction, TupleTableSlot *
 		}
 
 		/*
-		 * Fetch the next (or only) visible heap tuple for this index entry.
-		 * If we don't find anything, loop around and grab the next TID from
-		 * the index.
+		 * 为这个索引项取出下一个（或仅有的）可见堆元组。
+		 * 若什么都没找到，则循环回去，从索引抓取
+		 * 下一个 TID。
 		 */
 		Assert(ItemPointerIsValid(&scan->xs_heaptid));
 		if (index_fetch_heap(scan, slot))
@@ -695,16 +695,16 @@ index_getnext_slot(IndexScanDesc scan, ScanDirection direction, TupleTableSlot *
 }
 
 /* ----------------
- *		index_getbitmap - get all tuples at once from an index scan
+ *		index_getbitmap - 从索引扫描一次取得全部元组
  *
- * Adds the TIDs of all heap tuples satisfying the scan keys to a bitmap.
- * Since there's no interlock between the index scan and the eventual heap
- * access, this is only safe to use with MVCC-based snapshots: the heap
- * item slot could have been replaced by a newer tuple by the time we get
- * to it.
+ * 把满足扫描键的全部堆元组的 TIDs 加入位图。
+ * 由于索引扫描与最终的堆访问之间没有互锁，
+ * 这只对基于 MVCC 的快照安全：等到我们
+ * 访问堆项槽时，它可能已被更新的元组
+ * 替换。
  *
- * Returns the number of matching tuples found.  (Note: this might be only
- * approximate, so it should only be used for statistical purposes.)
+ * 返回找到的匹配元组数。（注意：这可能只是
+ * 近似值，因此只应用于统计目的。）
  * ----------------
  */
 int64
@@ -715,11 +715,11 @@ index_getbitmap(IndexScanDesc scan, TIDBitmap *bitmap)
 	SCAN_CHECKS;
 	CHECK_SCAN_PROCEDURE(amgetbitmap);
 
-	/* just make sure this is false... */
+	/* 只是确保它为假... */
 	scan->kill_prior_tuple = false;
 
 	/*
-	 * have the am's getbitmap proc do all the work.
+	 * 让 am 的 getbitmap 过程做全部工作。
 	 */
 	ntids = scan->indexRelation->rd_indam->amgetbitmap(scan, bitmap);
 
@@ -729,12 +729,12 @@ index_getbitmap(IndexScanDesc scan, TIDBitmap *bitmap)
 }
 
 /* ----------------
- *		index_bulk_delete - do mass deletion of index entries
+ *		index_bulk_delete - 批量删除索引项
  *
- *		callback routine tells whether a given main-heap tuple is
- *		to be deleted
+ *		回调例程告知给定的主堆元组
+ *		是否应删除
  *
- *		return value is an optional palloc'd struct of statistics
+ *		返回值是可选的、palloc 出来的统计信息结构
  * ----------------
  */
 IndexBulkDeleteResult *
@@ -753,9 +753,9 @@ index_bulk_delete(IndexVacuumInfo *info,
 }
 
 /* ----------------
- *		index_vacuum_cleanup - do post-deletion cleanup of an index
+ *		index_vacuum_cleanup - 删除之后清理索引
  *
- *		return value is an optional palloc'd struct of statistics
+ *		返回值是可选的、palloc 出来的统计信息结构
  * ----------------
  */
 IndexBulkDeleteResult *
@@ -773,8 +773,8 @@ index_vacuum_cleanup(IndexVacuumInfo *info,
 /* ----------------
  *		index_can_return
  *
- *		Does the index access method support index-only scans for the given
- *		column?
+ *		索引访问方法是否支持给定列的
+ *		仅索引扫描？
  * ----------------
  */
 bool
@@ -782,7 +782,7 @@ index_can_return(Relation indexRelation, int attno)
 {
 	RELATION_CHECKS;
 
-	/* amcanreturn is optional; assume false if not provided by AM */
+	/* amcanreturn 可选；AM 未提供则假定为假 */
 	if (indexRelation->rd_indam->amcanreturn == NULL)
 		return false;
 
@@ -792,27 +792,27 @@ index_can_return(Relation indexRelation, int attno)
 /* ----------------
  *		index_getprocid
  *
- *		Index access methods typically require support routines that are
- *		not directly the implementation of any WHERE-clause query operator
- *		and so cannot be kept in pg_amop.  Instead, such routines are kept
- *		in pg_amproc.  These registered procedure OIDs are assigned numbers
- *		according to a convention established by the access method.
- *		The general index code doesn't know anything about the routines
- *		involved; it just builds an ordered list of them for
- *		each attribute on which an index is defined.
+ *		索引访问方法通常需要一些支持例程，它们
+ *		并不直接实现任何 WHERE 子句的查询操作符 operator(s)，
+ *		因此无法放在 pg_amop 中。这类例程改放在
+ *		pg_amproc 中。这些已登记的过程 OIDs
+ *		按访问方法确立的约定编号。
+ *		通用索引代码对涉及的例程一无所知；
+ *		它只是为定义了索引的每个属性
+ *		建立它们的有序列表。
  *
- *		As of Postgres 8.3, support routines within an operator family
- *		are further subdivided by the "left type" and "right type" of the
- *		query operator(s) that they support.  The "default" functions for a
- *		particular indexed attribute are those with both types equal to
- *		the index opclass' opcintype (note that this is subtly different
- *		from the indexed attribute's own type: it may be a binary-compatible
- *		type instead).  Only the default functions are stored in relcache
- *		entries --- access methods can use the syscache to look up non-default
- *		functions.
+ *		自 Postgres 8.3 起，操作符族内的支持例程
+ *		进一步按它们所支持的查询操作符的 "left type"
+ *		与 "right type" 细分。特定被索引属性的
+ *		"default" 函数，是两种类型都等于索引操作符类
+ *		opcintype 的那些（注意这与被索引属性自身的类型
+ *		有细微差别：它可能是二进制兼容类型）。
+ *		只有默认函数存放在 relcache 项中 ---
+ *		访问方法可用 syscache 查找非默认
+ *		函数。
  *
- *		This routine returns the requested default procedure OID for a
- *		particular indexed attribute.
+ *		本例程返回特定被索引属性所请求的
+ *		默认过程 OID。
  * ----------------
  */
 RegProcedure
@@ -840,13 +840,13 @@ index_getprocid(Relation irel,
 /* ----------------
  *		index_getprocinfo
  *
- *		This routine allows index AMs to keep fmgr lookup info for
- *		support procs in the relcache.  As above, only the "default"
- *		functions for any particular indexed attribute are cached.
+ *		本例程让索引 AM 把支持过程的 fmgr 查找信息
+ *		留在 relcache 中。同上，只有 "default" 函数
+ *		会被缓存，针对任何特定被索引属性。
  *
- * Note: the return value points into cached data that will be lost during
- * any relcache rebuild!  Therefore, either use the callinfo right away,
- * or save it only after having acquired some type of lock on the index rel.
+ * 注意：返回值指向缓存数据，任何 relcache 重建都会丢失它！
+ * 因此要么立刻使用 callinfo，要么只在已取得索引关系上
+ * 某种锁之后再保存它。
  * ----------------
  */
 FmgrInfo *
@@ -872,7 +872,7 @@ index_getprocinfo(Relation irel,
 
 	locinfo += procindex;
 
-	/* Initialize the lookup info if first time through */
+	/* 若是第一次经过，则初始化查找信息 */
 	if (locinfo->fn_oid == InvalidOid)
 	{
 		RegProcedure *loc = irel->rd_support;
@@ -883,10 +883,10 @@ index_getprocinfo(Relation irel,
 		procId = loc[procindex];
 
 		/*
-		 * Complain if function was not found during IndexSupportInitialize.
-		 * This should not happen unless the system tables contain bogus
-		 * entries for the index opclass.  (If an AM wants to allow a support
-		 * function to be optional, it can use index_getprocid.)
+		 * 若 IndexSupportInitialize 期间未找到函数则报错。
+		 * 除非系统表含有该索引操作符类的虚假项，
+		 * 否则不该发生。（若 AM 想允许支持函数
+		 * 可选，可以使用 index_getprocid。）
 		 */
 		if (!RegProcedureIsValid(procId))
 			elog(ERROR, "missing support function %d for attribute %d of index \"%s\"",
@@ -896,7 +896,7 @@ index_getprocinfo(Relation irel,
 
 		if (procnum != optsproc)
 		{
-			/* Initialize locinfo->fn_expr with opclass options Const */
+			/* 用操作符类选项 Const 初始化 locinfo->fn_expr */
 			bytea	  **attoptions = RelationGetIndexAttOptions(irel, false);
 			MemoryContext oldcxt = MemoryContextSwitchTo(irel->rd_indexcxt);
 
@@ -912,9 +912,9 @@ index_getprocinfo(Relation irel,
 /* ----------------
  *		index_store_float8_orderby_distances
  *
- *		Convert AM distance function's results (that can be inexact)
- *		to ORDER BY types and save them into xs_orderbyvals/xs_orderbynulls
- *		for a possible recheck.
+ *		把 AM 距离函数的结果（可能不精确）
+ *		转换成 ORDER BY 类型，并存入
+ *		xs_orderbyvals/xs_orderbynulls，以便可能的重查。
  * ----------------
  */
 void
@@ -933,7 +933,7 @@ index_store_float8_orderby_distances(IndexScanDesc scan, Oid *orderByTypes,
 		if (orderByTypes[i] == FLOAT8OID)
 		{
 #ifndef USE_FLOAT8_BYVAL
-			/* must free any old value to avoid memory leakage */
+			/* 必须释放任何旧值，以免内存泄漏 */
 			if (!scan->xs_orderbynulls[i])
 				pfree(DatumGetPointer(scan->xs_orderbyvals[i]));
 #endif
@@ -950,7 +950,7 @@ index_store_float8_orderby_distances(IndexScanDesc scan, Oid *orderByTypes,
 		}
 		else if (orderByTypes[i] == FLOAT4OID)
 		{
-			/* convert distance function's result to ORDER BY type */
+			/* 把距离函数的结果转换成 ORDER BY 类型 */
 			if (distances && !distances[i].isnull)
 			{
 				scan->xs_orderbyvals[i] = Float4GetDatum((float4) distances[i].value);
@@ -965,12 +965,12 @@ index_store_float8_orderby_distances(IndexScanDesc scan, Oid *orderByTypes,
 		else
 		{
 			/*
-			 * If the ordering operator's return value is anything else, we
-			 * don't know how to convert the float8 bound calculated by the
-			 * distance function to that.  The executor won't actually need
-			 * the order by values we return here, if there are no lossy
-			 * results, so only insist on converting if the *recheck flag is
-			 * set.
+			 * 若排序操作符的返回值是其他类型，我们
+			 * 不知道如何把距离函数算出的 float8 界限
+			 * 转换成那个类型。若没有有损结果，执行器实际上
+			 * 并不需要我们这里返回的 order by 值，因此
+			 * 只在设置了 *recheck 标志时
+			 * 才坚持转换。
 			 */
 			if (scan->xs_recheckorderby)
 				elog(ERROR, "ORDER BY operator must return float8 or float4 if the distance function is lossy");
@@ -982,7 +982,7 @@ index_store_float8_orderby_distances(IndexScanDesc scan, Oid *orderByTypes,
 /* ----------------
  *      index_opclass_options
  *
- *      Parse opclass-specific options for index column.
+ *      解析索引列的操作符类专用选项。
  * ----------------
  */
 bytea *
@@ -994,7 +994,7 @@ index_opclass_options(Relation indrel, AttrNumber attnum, Datum attoptions,
 	FmgrInfo   *procinfo;
 	local_relopts relopts;
 
-	/* fetch options support procedure if specified */
+	/* 若已指定，则取出选项支持过程 */
 	if (amoptsprocnum != 0)
 		procid = index_getprocid(indrel, attnum, amoptsprocnum);
 
@@ -1005,11 +1005,11 @@ index_opclass_options(Relation indrel, AttrNumber attnum, Datum attoptions,
 		oidvector  *indclass;
 
 		if (!DatumGetPointer(attoptions))
-			return NULL;		/* ok, no options, no procedure */
+			return NULL;		/* 好，没有选项，也没有过程 */
 
 		/*
-		 * Report an error if the opclass's options-parsing procedure does not
-		 * exist but the opclass options are specified.
+		 * 若操作符类的选项解析过程不存在，
+		 * 但指定了操作符类选项，则报错。
 		 */
 		indclassDatum = SysCacheGetAttrNotNull(INDEXRELID, indrel->rd_indextuple,
 											   Anum_pg_index_indclass);

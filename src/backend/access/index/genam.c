@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * genam.c
- *	  general index access method routines
+ *	  通用索引访问方法例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,9 +10,9 @@
  * IDENTIFICATION
  *	  src/backend/access/index/genam.c
  *
- * NOTES
- *	  many of the old access method routines have been turned into
- *	  macros and moved to genam.h -cim 4/30/91
+ * 说明（NOTES）
+ *	  许多旧的访问方法例程已改成
+ *	  宏并移到 genam.h -cim 4/30/91
  *
  *-------------------------------------------------------------------------
  */
@@ -40,41 +40,41 @@
 
 
 /* ----------------------------------------------------------------
- *		general access method routines
+ *		通用访问方法例程
  *
- *		All indexed access methods use an identical scan structure.
- *		We don't know how the various AMs do locking, however, so we don't
- *		do anything about that here.
+ *		所有索引访问方法使用相同的扫描结构。
+ *		不过我们不知道各个 AM 如何加锁，因此这里
+ *		不做任何加锁处理。
  *
- *		The intent is that an AM implementor will define a beginscan routine
- *		that calls RelationGetIndexScan, to fill in the scan, and then does
- *		whatever kind of locking he wants.
+ *		意图是 AM 实现者定义一个 beginscan 例程，
+ *		它调用 RelationGetIndexScan 填好扫描，然后再做
+ *		它所要的那种加锁。
  *
- *		At the end of a scan, the AM's endscan routine undoes the locking,
- *		but does *not* call IndexScanEnd --- the higher-level index_endscan
- *		routine does that.  (We can't do it in the AM because index_endscan
- *		still needs to touch the IndexScanDesc after calling the AM.)
+ *		扫描结束时，AM 的 endscan 例程撤销加锁，
+ *		但 *不* 调用 IndexScanEnd --- 更高层的 index_endscan
+ *		例程才做这件事。（不能在 AM 里做，因为 index_endscan
+ *		在调用 AM 之后仍需触碰 IndexScanDesc。）
  *
- *		Because of this, the AM does not have a choice whether to call
- *		RelationGetIndexScan or not; its beginscan routine must return an
- *		object made by RelationGetIndexScan.  This is kinda ugly but not
- *		worth cleaning up now.
+ *		因此 AM 无权选择是否调用
+ *		RelationGetIndexScan；其 beginscan 例程必须返回
+ *		由 RelationGetIndexScan 构造的对象。这有点难看，但
+ *		现在不值得清理。
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *	RelationGetIndexScan -- Create and fill an IndexScanDesc.
+ *	RelationGetIndexScan -- 创建并填写 IndexScanDesc。
  *
- *		This routine creates an index scan structure and sets up initial
- *		contents for it.
+ *		本例程创建索引扫描结构并设置其初始
+ *		内容。
  *
- *		Parameters:
- *				indexRelation -- index relation for scan.
- *				nkeys -- count of scan keys (index qual conditions).
- *				norderbys -- count of index order-by operators.
+ *		参数：
+ *				indexRelation -- 供扫描的索引关系。
+ *				nkeys -- 扫描键数目（索引限定条件）。
+ *				norderbys -- 索引 order-by 操作符数目。
  *
- *		Returns:
- *				An initialized IndexScanDesc.
+ *		返回：
+ *				已初始化的 IndexScanDesc。
  * ----------------
  */
 IndexScanDesc
@@ -84,15 +84,15 @@ RelationGetIndexScan(Relation indexRelation, int nkeys, int norderbys)
 
 	scan = (IndexScanDesc) palloc(sizeof(IndexScanDescData));
 
-	scan->heapRelation = NULL;	/* may be set later */
+	scan->heapRelation = NULL;	/* 稍后可能设置 */
 	scan->xs_heapfetch = NULL;
 	scan->indexRelation = indexRelation;
-	scan->xs_snapshot = InvalidSnapshot;	/* caller must initialize this */
+	scan->xs_snapshot = InvalidSnapshot;	/* 调用方必须初始化此项 */
 	scan->numberOfKeys = nkeys;
 	scan->numberOfOrderBys = norderbys;
 
 	/*
-	 * We allocate key workspace here, but it won't get filled until amrescan.
+	 * 这里分配键的工作空间，但要到 amrescan 才会填入。
 	 */
 	if (nkeys > 0)
 		scan->keyData = (ScanKey) palloc(sizeof(ScanKeyData) * nkeys);
@@ -103,17 +103,17 @@ RelationGetIndexScan(Relation indexRelation, int nkeys, int norderbys)
 	else
 		scan->orderByData = NULL;
 
-	scan->xs_want_itup = false; /* may be set later */
+	scan->xs_want_itup = false; /* 稍后可能设置 */
 
 	/*
-	 * During recovery we ignore killed tuples and don't bother to kill them
-	 * either. We do this because the xmin on the primary node could easily be
-	 * later than the xmin on the standby node, so that what the primary
-	 * thinks is killed is supposed to be visible on standby. So for correct
-	 * MVCC for queries during recovery we must ignore these hints and check
-	 * all tuples. Do *not* set ignore_killed_tuples to true when running in a
-	 * transaction that was started during recovery. xactStartedInRecovery
-	 * should not be altered by index AMs.
+	 * 恢复期间我们忽略已杀死的元组，也不费心去杀死
+	 * 它们。这样做是因为主库上的 xmin 很容易
+	 * 晚于备库上的 xmin，于是主库认为已杀死的元组
+	 * 在备库上应当可见。因此，为使恢复期间查询的
+	 * MVCC 正确，必须忽略这些提示并检查全部元组。
+	 * 在恢复期间启动的事务中运行时，*不要* 把
+	 * ignore_killed_tuples 设为真。索引 AM 不应改动
+	 * xactStartedInRecovery。
 	 */
 	scan->kill_prior_tuple = false;
 	scan->xactStartedInRecovery = TransactionStartedDuringRecovery();
@@ -130,15 +130,15 @@ RelationGetIndexScan(Relation indexRelation, int nkeys, int norderbys)
 }
 
 /* ----------------
- *	IndexScanEnd -- End an index scan.
+ *	IndexScanEnd -- 结束一次索引扫描。
  *
- *		This routine just releases the storage acquired by
- *		RelationGetIndexScan().  Any AM-level resources are
- *		assumed to already have been released by the AM's
- *		endscan routine.
+ *		本例程只释放由 RelationGetIndexScan()
+ *		取得的存储。任何 AM 级资源都假定
+ *		已由该 AM 的 endscan 例程
+ *		释放。
  *
- *	Returns:
- *		None.
+ *	返回：
+ *		无。
  * ----------------
  */
 void
@@ -155,23 +155,23 @@ IndexScanEnd(IndexScanDesc scan)
 /*
  * BuildIndexValueDescription
  *
- * Construct a string describing the contents of an index entry, in the
- * form "(key_name, ...)=(key_value, ...)".  This is currently used
- * for building unique-constraint and exclusion-constraint error messages,
- * so only key columns of the index are checked and printed.
+ * 构造描述索引项内容的字符串，形式为
+ * "(key_name, ...)=(key_value, ...)"。目前用于
+ * 构造唯一约束与排他约束的错误消息，
+ * 因此只检查并打印索引的键列。
  *
- * Note that if the user does not have permissions to view all of the
- * columns involved then a NULL is returned.  Returning a partial key seems
- * unlikely to be useful and we have no way to know which of the columns the
- * user provided (unlike in ExecBuildSlotValueDescription).
+ * 注意：若用户无权查看涉及的全部
+ * 列，则返回 NULL。返回部分键看来
+ * 不大有用，而且我们无法知道用户提供了哪些
+ * 列（与 ExecBuildSlotValueDescription 不同）。
  *
- * The passed-in values/nulls arrays are the "raw" input to the index AM,
- * e.g. results of FormIndexDatum --- this is not necessarily what is stored
- * in the index, but it's what the user perceives to be stored.
+ * 传入的 values/nulls 数组是索引 AM 的 "原始" 输入，
+ * 例如 FormIndexDatum 的结果 --- 这不一定是索引里
+ * 实际存放的内容，而是用户所感知的存储内容。
  *
- * Note: if you change anything here, check whether
- * ExecBuildSlotPartitionKeyDescription() in execMain.c needs a similar
- * change.
+ * 注意：若此处有任何改动，请检查
+ * execMain.c 中的 ExecBuildSlotPartitionKeyDescription() 是否需要类似
+ * 改动。
  */
 char *
 BuildIndexValueDescription(Relation indexRelation,
@@ -189,46 +189,46 @@ BuildIndexValueDescription(Relation indexRelation,
 	indnkeyatts = IndexRelationGetNumberOfKeyAttributes(indexRelation);
 
 	/*
-	 * Check permissions- if the user does not have access to view all of the
-	 * key columns then return NULL to avoid leaking data.
+	 * 检查权限：若用户无权查看全部键列，
+	 * 则返回 NULL，以免泄露数据。
 	 *
-	 * First check if RLS is enabled for the relation.  If so, return NULL to
-	 * avoid leaking data.
+	 * 先检查该关系是否启用了 RLS。若是，返回 NULL，
+	 * 以免泄露数据。
 	 *
-	 * Next we need to check table-level SELECT access and then, if there is
-	 * no access there, check column-level permissions.
+	 * 接下来需要检查表级 SELECT 访问，若那里没有访问权，
+	 * 再检查列级权限。
 	 */
 	idxrec = indexRelation->rd_index;
 	indrelid = idxrec->indrelid;
 	Assert(indexrelid == idxrec->indexrelid);
 
-	/* RLS check- if RLS is enabled then we don't return anything. */
+	/* RLS 检查：若启用了 RLS，则什么都不返回。 */
 	if (check_enable_rls(indrelid, InvalidOid, true) == RLS_ENABLED)
 		return NULL;
 
-	/* Table-level SELECT is enough, if the user has it */
+	/* 若用户拥有表级 SELECT，则已足够 */
 	aclresult = pg_class_aclcheck(indrelid, GetUserId(), ACL_SELECT);
 	if (aclresult != ACLCHECK_OK)
 	{
 		/*
-		 * No table-level access, so step through the columns in the index and
-		 * make sure the user has SELECT rights on all of them.
+		 * 没有表级访问权，因此逐个检查索引中的列，
+		 * 确保用户对它们全部拥有 SELECT 权限。
 		 */
 		for (keyno = 0; keyno < indnkeyatts; keyno++)
 		{
 			AttrNumber	attnum = idxrec->indkey.values[keyno];
 
 			/*
-			 * Note that if attnum == InvalidAttrNumber, then this is an index
-			 * based on an expression and we return no detail rather than try
-			 * to figure out what column(s) the expression includes and if the
-			 * user has SELECT rights on them.
+			 * 注意：若 attnum == InvalidAttrNumber，则这是基于
+			 * 表达式的索引，我们不返回细节，而不是试图
+			 * 弄清表达式包含哪些列 column(s)，以及用户
+			 * 是否对它们拥有 SELECT 权限。
 			 */
 			if (attnum == InvalidAttrNumber ||
 				pg_attribute_aclcheck(indrelid, attnum, GetUserId(),
 									  ACL_SELECT) != ACLCHECK_OK)
 			{
-				/* No access, so clean up and return */
+				/* 没有访问权，清理并返回 */
 				return NULL;
 			}
 		}
@@ -250,14 +250,14 @@ BuildIndexValueDescription(Relation indexRelation,
 			bool		typisvarlena;
 
 			/*
-			 * The provided data is not necessarily of the type stored in the
-			 * index; rather it is of the index opclass's input type. So look
-			 * at rd_opcintype not the index tupdesc.
+			 * 提供的数据不一定是索引中存储的类型，
+			 * 而是索引操作符类的输入类型。因此查看
+			 * rd_opcintype，而不是索引 tupdesc。
 			 *
-			 * Note: this is a bit shaky for opclasses that have pseudotype
-			 * input types such as ANYARRAY or RECORD.  Currently, the
-			 * typoutput functions associated with the pseudotypes will work
-			 * okay, but we might have to try harder in future.
+			 * 注意：对输入类型为伪类型的操作符类，这有点不稳，
+			 * 例如 ANYARRAY 或 RECORD。目前与这些伪类型关联的
+			 * typoutput 函数可以正常工作，但将来也许得
+			 * 再加把劲。
 			 */
 			getTypeOutputInfo(indexRelation->rd_opcintype[i],
 							  &foutoid, &typisvarlena);
@@ -275,20 +275,20 @@ BuildIndexValueDescription(Relation indexRelation,
 }
 
 /*
- * Get the snapshotConflictHorizon from the table entries pointed to by the
- * index tuples being deleted using an AM-generic approach.
+ * 用与 AM 无关的方法，从即将删除的索引元组所指向的
+ * 表项取得 snapshotConflictHorizon。
  *
- * This is a table_index_delete_tuples() shim used by index AMs that only need
- * to consult the tableam to get a snapshotConflictHorizon value, and only
- * expect to delete index tuples that are already known deletable (typically
- * due to having LP_DEAD bits set).  When a snapshotConflictHorizon value
- * isn't needed in index AM's deletion WAL record, it is safe for it to skip
- * calling here entirely.
+ * 这是 table_index_delete_tuples() 的垫片，供那些只需
+ * 咨询 tableam 以取得 snapshotConflictHorizon 值、且只
+ * 预期删除已知可删的索引元组（通常因为已设置
+ * LP_DEAD 位）的索引 AM 使用。若删除 WAL record
+ * 不需要 snapshotConflictHorizon 值，则完全可以
+ * 跳过此处的调用。
  *
- * We assume that caller index AM uses the standard IndexTuple representation,
- * with table TIDs stored in the t_tid field.  We also expect (and assert)
- * that the line pointers on page for 'itemnos' offsets are already marked
- * LP_DEAD.
+ * 我们假定调用方索引 AM 使用标准 IndexTuple 表示，
+ * 表 TIDs 存在 t_tid 字段中。我们还预期（并断言）
+ * 页上 'itemnos' 偏移对应的行指针已标记为
+ * LP_DEAD。
  */
 TransactionId
 index_compute_xid_horizon_for_tuples(Relation irel,
@@ -312,7 +312,7 @@ index_compute_xid_horizon_for_tuples(Relation irel,
 	delstate.deltids = palloc(nitems * sizeof(TM_IndexDelete));
 	delstate.status = palloc(nitems * sizeof(TM_IndexStatus));
 
-	/* identify what the index tuples about to be deleted point to */
+	/* 辨明即将删除的索引元组指向什么 */
 	for (int i = 0; i < nitems; i++)
 	{
 		OffsetNumber offnum = itemnos[i];
@@ -326,17 +326,17 @@ index_compute_xid_horizon_for_tuples(Relation irel,
 		ItemPointerCopy(&itup->t_tid, &delstate.deltids[i].tid);
 		delstate.deltids[i].id = delstate.ndeltids;
 		delstate.status[i].idxoffnum = offnum;
-		delstate.status[i].knowndeletable = true;	/* LP_DEAD-marked */
-		delstate.status[i].promising = false;	/* unused */
-		delstate.status[i].freespace = 0;	/* unused */
+		delstate.status[i].knowndeletable = true;	/* 已标记 LP_DEAD */
+		delstate.status[i].promising = false;	/* 未使用 */
+		delstate.status[i].freespace = 0;	/* 未使用 */
 
 		delstate.ndeltids++;
 	}
 
-	/* determine the actual xid horizon */
+	/* 确定实际的 xid 界限 */
 	snapshotConflictHorizon = table_index_delete_tuples(hrel, &delstate);
 
-	/* assert tableam agrees that all items are deletable */
+	/* 断言 tableam 同意所有项都可删除 */
 	Assert(delstate.ndeltids == nitems);
 
 	pfree(delstate.deltids);
@@ -347,41 +347,41 @@ index_compute_xid_horizon_for_tuples(Relation irel,
 
 
 /* ----------------------------------------------------------------
- *		heap-or-index-scan access to system catalogs
+ *		系统目录的堆扫描或索引扫描访问
  *
- *		These functions support system catalog accesses that normally use
- *		an index but need to be capable of being switched to heap scans
- *		if the system indexes are unavailable.
+ *		这些函数支持通常使用索引、
+ *		但在系统索引不可用时必须能切换到堆扫描的
+ *		系统目录访问。
  *
- *		The specified scan keys must be compatible with the named index.
- *		Generally this means that they must constrain either all columns
- *		of the index, or the first K columns of an N-column index.
+ *		指定的扫描键必须与指名的索引兼容。
+ *		一般这意味着它们必须约束索引的全部列，
+ *		或 N 列索引的前 K 列。
  *
- *		These routines could work with non-system tables, actually,
- *		but they're only useful when there is a known index to use with
- *		the given scan keys; so in practice they're only good for
- *		predetermined types of scans of system catalogs.
+ *		这些例程其实也能用于非系统表，
+ *		但只有在已知有索引可配合给定扫描键时才有用；
+ *		因此实践中只适合系统目录上
+ *		预先确定类型的扫描。
  * ----------------------------------------------------------------
  */
 
 /*
- * systable_beginscan --- set up for heap-or-index scan
+ * systable_beginscan --- 为堆扫描或索引扫描做准备
  *
- *	rel: catalog to scan, already opened and suitably locked
- *	indexId: OID of index to conditionally use
- *	indexOK: if false, forces a heap scan (see notes below)
- *	snapshot: time qual to use (NULL for a recent catalog snapshot)
- *	nkeys, key: scan keys
+ *	rel: 要扫描的目录，已打开并适当加锁
+ *	indexId: 有条件使用的索引 OID
+ *	indexOK: 若为假，则强制堆扫描（见下面的说明）
+ *	snapshot: 使用的时间限定（NULL 表示最近的目录快照）
+ *	nkeys, key: 扫描键
  *
- * The attribute numbers in the scan key should be set for the heap case.
- * If we choose to index, we reset them to 1..n to reference the index
- * columns.  Note this means there must be one scankey qualification per
- * index column!  This is checked by the Asserts in the normal, index-using
- * case, but won't be checked if the heapscan path is taken.
+ * 扫描键中的属性号应按堆的情形设置。
+ * 若选择走索引，则把它们重设为 1..n，以引用索引
+ * 列。注意这意味着每个索引列必须有一条 scankey 限定！
+ * 正常走索引的情形由 Asserts 检查，但若走
+ * heapscan 路径则不会检查。
  *
- * The routine checks the normal cases for whether an indexscan is safe,
- * but caller can make additional checks and pass indexOK=false if needed.
- * In standard case indexOK can simply be constant TRUE.
+ * 本例程检查索引扫描是否安全的常规情形，
+ * 但调用方可以做额外检查，必要时传入 indexOK=false。
+ * 标准情形下 indexOK 可以就是常量 TRUE。
  */
 SysScanDesc
 systable_beginscan(Relation heapRelation,
@@ -415,7 +415,7 @@ systable_beginscan(Relation heapRelation,
 	}
 	else
 	{
-		/* Caller is responsible for any snapshot. */
+		/* 调用方负责任何快照。 */
 		sysscan->snapshot = NULL;
 	}
 
@@ -423,7 +423,7 @@ systable_beginscan(Relation heapRelation,
 	{
 		int			i;
 
-		/* Change attribute numbers to be index column numbers. */
+		/* 把属性号改成索引列号。 */
 		for (i = 0; i < nkeys; i++)
 		{
 			int			j;
@@ -448,11 +448,11 @@ systable_beginscan(Relation heapRelation,
 	else
 	{
 		/*
-		 * We disallow synchronized scans when forced to use a heapscan on a
-		 * catalog.  In most cases the desired rows are near the front, so
-		 * that the unpredictable start point of a syncscan is a serious
-		 * disadvantage; and there are no compensating advantages, because
-		 * it's unlikely that such scans will occur in parallel.
+		 * 被迫对目录做堆扫描时，不允许同步扫描。
+		 * 多数情况下想要的行靠近前面，因此
+		 * 同步扫描不可预测的起点是严重缺点；
+		 * 也没有补偿性的好处，因为这类扫描
+		 * 不太可能并行发生。
 		 */
 		sysscan->scan = table_beginscan_strat(heapRelation, snapshot,
 											  nkeys, key,
@@ -461,9 +461,9 @@ systable_beginscan(Relation heapRelation,
 	}
 
 	/*
-	 * If CheckXidAlive is set then set a flag to indicate that system table
-	 * scan is in-progress.  See detailed comments in xact.c where these
-	 * variables are declared.
+	 * 若设置了 CheckXidAlive，则置标志表示系统表扫描
+	 * 正在进行。这些变量的声明处见 xact.c 中的
+	 * 详细注释。
 	 */
 	if (TransactionIdIsValid(CheckXidAlive))
 		bsysscan = true;
@@ -472,12 +472,12 @@ systable_beginscan(Relation heapRelation,
 }
 
 /*
- * HandleConcurrentAbort - Handle concurrent abort of the CheckXidAlive.
+ * HandleConcurrentAbort - 处理 CheckXidAlive 的并发中止。
  *
- * Error out, if CheckXidAlive is aborted. We can't directly use
- * TransactionIdDidAbort as after crash such transaction might not have been
- * marked as aborted.  See detailed comments in xact.c where the variable
- * is declared.
+ * 若 CheckXidAlive 已中止则报错。不能直接使用
+ * TransactionIdDidAbort，因为崩溃之后这样的事务可能
+ * 尚未被标记为已中止。该变量的声明处
+ * 见 xact.c 中的详细注释。
  */
 static inline void
 HandleConcurrentAbort()
@@ -491,16 +491,16 @@ HandleConcurrentAbort()
 }
 
 /*
- * systable_getnext --- get next tuple in a heap-or-index scan
+ * systable_getnext --- 在堆扫描或索引扫描中取下一个元组
  *
- * Returns NULL if no more tuples available.
+ * 若没有更多元组则返回 NULL。
  *
- * Note that returned tuple is a reference to data in a disk buffer;
- * it must not be modified, and should be presumed inaccessible after
- * next getnext() or endscan() call.
+ * 注意：返回的元组是磁盘缓冲区中数据的引用；
+ * 不得修改它，并且应假定在下一次 getnext() 或 endscan()
+ * 调用之后就不能再访问。
  *
- * XXX: It'd probably make sense to offer a slot based interface, at least
- * optionally.
+ * XXX：至少可选地提供基于槽的接口，
+ * 大概是有意义的。
  */
 HeapTuple
 systable_getnext(SysScanDesc sysscan)
@@ -517,12 +517,12 @@ systable_getnext(SysScanDesc sysscan)
 			Assert(!shouldFree);
 
 			/*
-			 * We currently don't need to support lossy index operators for
-			 * any system catalog scan.  It could be done here, using the scan
-			 * keys to drive the operator calls, if we arranged to save the
-			 * heap attnums during systable_beginscan(); this is practical
-			 * because we still wouldn't need to support indexes on
-			 * expressions.
+			 * 目前不需要为任何系统目录扫描
+			 * 支持有损索引操作符。可以在这里做，用扫描
+			 * 键驱动操作符调用，只要在 systable_beginscan()
+			 * 期间保存堆的 attnums；这是可行的，
+			 * 因为我们仍然不需要支持表达式上的
+			 * 索引。
 			 */
 			if (sysscan->iscan->xs_recheck)
 				elog(ERROR, "system catalog scans with lossy index conditions are not implemented");
@@ -540,8 +540,8 @@ systable_getnext(SysScanDesc sysscan)
 	}
 
 	/*
-	 * Handle the concurrent abort while fetching the catalog tuple during
-	 * logical streaming of a transaction.
+	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();
 
@@ -549,17 +549,17 @@ systable_getnext(SysScanDesc sysscan)
 }
 
 /*
- * systable_recheck_tuple --- recheck visibility of most-recently-fetched tuple
+ * systable_recheck_tuple --- 复查最近取出的元组的可见性
  *
- * In particular, determine if this tuple would be visible to a catalog scan
- * that started now.  We don't handle the case of a non-MVCC scan snapshot,
- * because no caller needs that yet.
+ * 具体而言，判断该元组对此刻开始的目录扫描
+ * 是否可见。我们不处理非 MVCC 扫描快照的情形，
+ * 因为还没有调用方需要。
  *
- * This is useful to test whether an object was deleted while we waited to
- * acquire lock on it.
+ * 这可用于测试：在我们等待获取其上的锁时，
+ * 对象是否已被删除。
  *
- * Note: we don't actually *need* the tuple to be passed in, but it's a
- * good crosscheck that the caller is interested in the right tuple.
+ * 注意：其实 *不需要* 把元组传进来，但这是
+ * 很好的交叉检查，确认调用方关心的是正确的元组。
  */
 bool
 systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
@@ -570,10 +570,10 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 	Assert(tup == ExecFetchSlotHeapTuple(sysscan->slot, false, NULL));
 
 	/*
-	 * Trust that table_tuple_satisfies_snapshot() and its subsidiaries
-	 * (commonly LockBuffer() and HeapTupleSatisfiesMVCC()) do not themselves
-	 * acquire snapshots, so we need not register the snapshot.  Those
-	 * facilities are too low-level to have any business scanning tables.
+	 * 相信 table_tuple_satisfies_snapshot() 及其子例程
+	 * （常见的是 LockBuffer() 与 HeapTupleSatisfiesMVCC()）自身不会获取快照，
+	 * 因此不必登记该快照。那些设施层次太低，
+	 * 不该去扫描表。
 	 */
 	freshsnap = GetCatalogSnapshot(RelationGetRelid(sysscan->heap_rel));
 
@@ -582,8 +582,8 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 											freshsnap);
 
 	/*
-	 * Handle the concurrent abort while fetching the catalog tuple during
-	 * logical streaming of a transaction.
+	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();
 
@@ -591,9 +591,9 @@ systable_recheck_tuple(SysScanDesc sysscan, HeapTuple tup)
 }
 
 /*
- * systable_endscan --- close scan, release resources
+ * systable_endscan --- 关闭扫描，释放资源
  *
- * Note that it's still up to the caller to close the heap relation.
+ * 注意：关闭堆关系仍由调用方负责。
  */
 void
 systable_endscan(SysScanDesc sysscan)
@@ -616,8 +616,8 @@ systable_endscan(SysScanDesc sysscan)
 		UnregisterSnapshot(sysscan->snapshot);
 
 	/*
-	 * Reset the bsysscan flag at the end of the systable scan.  See detailed
-	 * comments in xact.c where these variables are declared.
+	 * 在系统表扫描结束时复位 bsysscan 标志。这些变量的声明处
+	 * 见 xact.c 中的详细注释。
 	 */
 	if (TransactionIdIsValid(CheckXidAlive))
 		bsysscan = false;
@@ -627,20 +627,20 @@ systable_endscan(SysScanDesc sysscan)
 
 
 /*
- * systable_beginscan_ordered --- set up for ordered catalog scan
+ * systable_beginscan_ordered --- 为有序目录扫描做准备
  *
- * These routines have essentially the same API as systable_beginscan etc,
- * except that they guarantee to return multiple matching tuples in
- * index order.  Also, for largely historical reasons, the index to use
- * is opened and locked by the caller, not here.
+ * 这些例程的 API 与 systable_beginscan 等基本相同，
+ * 只是保证按索引顺序返回多个匹配元组。
+ * 另外，很大程度上出于历史原因，要使用的索引
+ * 由调用方打开并加锁，而不是在这里。
  *
- * Currently we do not support non-index-based scans here.  (In principle
- * we could do a heapscan and sort, but the uses are in places that
- * probably don't need to still work with corrupted catalog indexes.)
- * For the moment, therefore, these functions are merely the thinest of
- * wrappers around index_beginscan/index_getnext_slot.  The main reason for
- * their existence is to centralize possible future support of lossy operators
- * in catalog scans.
+ * 目前这里不支持非基于索引的扫描。（原则上
+ * 可以做堆扫描再排序，但使用处大概不需要
+ * 在目录索引损坏时仍能工作。）
+ * 因此眼下这些函数只是
+ * index_beginscan/index_getnext_slot
+ * 最薄的包装。它们存在的主要原因，是把目录扫描中
+ * 将来可能对有损操作符的支持集中起来。
  */
 SysScanDesc
 systable_beginscan_ordered(Relation heapRelation,
@@ -651,13 +651,13 @@ systable_beginscan_ordered(Relation heapRelation,
 	SysScanDesc sysscan;
 	int			i;
 
-	/* REINDEX can probably be a hard error here ... */
+	/* REINDEX 在这里大概可以是硬错误 ... */
 	if (ReindexIsProcessingIndex(RelationGetRelid(indexRelation)))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot access index \"%s\" while it is being reindexed",
 						RelationGetRelationName(indexRelation))));
-	/* ... but we only throw a warning about violating IgnoreSystemIndexes */
+	/* ... 但对违反 IgnoreSystemIndexes 只发警告 */
 	if (IgnoreSystemIndexes)
 		elog(WARNING, "using index \"%s\" despite IgnoreSystemIndexes",
 			 RelationGetRelationName(indexRelation));
@@ -677,11 +677,11 @@ systable_beginscan_ordered(Relation heapRelation,
 	}
 	else
 	{
-		/* Caller is responsible for any snapshot. */
+		/* 调用方负责任何快照。 */
 		sysscan->snapshot = NULL;
 	}
 
-	/* Change attribute numbers to be index column numbers. */
+	/* 把属性号改成索引列号。 */
 	for (i = 0; i < nkeys; i++)
 	{
 		int			j;
@@ -704,9 +704,9 @@ systable_beginscan_ordered(Relation heapRelation,
 	sysscan->scan = NULL;
 
 	/*
-	 * If CheckXidAlive is set then set a flag to indicate that system table
-	 * scan is in-progress.  See detailed comments in xact.c where these
-	 * variables are declared.
+	 * 若设置了 CheckXidAlive，则置标志表示系统表扫描
+	 * 正在进行。这些变量的声明处见 xact.c 中的
+	 * 详细注释。
 	 */
 	if (TransactionIdIsValid(CheckXidAlive))
 		bsysscan = true;
@@ -715,7 +715,7 @@ systable_beginscan_ordered(Relation heapRelation,
 }
 
 /*
- * systable_getnext_ordered --- get next tuple in an ordered catalog scan
+ * systable_getnext_ordered --- 在有序目录扫描中取下一个元组
  */
 HeapTuple
 systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
@@ -726,13 +726,13 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 	if (index_getnext_slot(sysscan->iscan, direction, sysscan->slot))
 		htup = ExecFetchSlotHeapTuple(sysscan->slot, false, NULL);
 
-	/* See notes in systable_getnext */
+	/* 见 systable_getnext 中的说明 */
 	if (htup && sysscan->iscan->xs_recheck)
 		elog(ERROR, "system catalog scans with lossy index conditions are not implemented");
 
 	/*
-	 * Handle the concurrent abort while fetching the catalog tuple during
-	 * logical streaming of a transaction.
+	 * 在事务的逻辑流式传输期间取出目录元组时，
+	 * 处理并发中止。
 	 */
 	HandleConcurrentAbort();
 
@@ -740,7 +740,7 @@ systable_getnext_ordered(SysScanDesc sysscan, ScanDirection direction)
 }
 
 /*
- * systable_endscan_ordered --- close scan, release resources
+ * systable_endscan_ordered --- 关闭扫描，释放资源
  */
 void
 systable_endscan_ordered(SysScanDesc sysscan)
@@ -757,8 +757,8 @@ systable_endscan_ordered(SysScanDesc sysscan)
 		UnregisterSnapshot(sysscan->snapshot);
 
 	/*
-	 * Reset the bsysscan flag at the end of the systable scan.  See detailed
-	 * comments in xact.c where these variables are declared.
+	 * 在系统表扫描结束时复位 bsysscan 标志。这些变量的声明处
+	 * 见 xact.c 中的详细注释。
 	 */
 	if (TransactionIdIsValid(CheckXidAlive))
 		bsysscan = false;
@@ -767,30 +767,30 @@ systable_endscan_ordered(SysScanDesc sysscan)
 }
 
 /*
- * systable_inplace_update_begin --- update a row "in place" (overwrite it)
+ * systable_inplace_update_begin --- 原地更新一行（覆盖它）
  *
- * Overwriting violates both MVCC and transactional safety, so the uses of
- * this function in Postgres are extremely limited.  Nonetheless we find some
- * places to use it.  See README.tuplock section "Locking to write
- * inplace-updated tables" and later sections for expectations of readers and
- * writers of a table that gets inplace updates.  Standard flow:
+ * 覆盖既破坏 MVCC，也破坏事务安全性，因此本函数在 Postgres 中的
+ * 用途极其有限。尽管如此，我们还是找到一些地方使用它。
+ * 读者与写者对接受原地更新的表有何预期，见 README.tuplock
+ * 中 "Locking to write inplace-updated tables" 一节及后续各节。
+ * 标准流程：
  *
- * ... [any slow preparation not requiring oldtup] ...
+ * ... [任何不需要 oldtup 的慢速准备] ...
  * systable_inplace_update_begin([...], &tup, &inplace_state);
  * if (!HeapTupleIsValid(tup))
  *	elog(ERROR, [...]);
- * ... [buffer is exclusive-locked; mutate "tup"] ...
+ * ... [缓冲区已排他锁定；修改 "tup"] ...
  * if (dirty)
  *	systable_inplace_update_finish(inplace_state, tup);
  * else
  *	systable_inplace_update_cancel(inplace_state);
  *
- * The first several params duplicate the systable_beginscan() param list.
- * "oldtupcopy" is an output parameter, assigned NULL if the key ceases to
- * find a live tuple.  (In PROC_IN_VACUUM, that is a low-probability transient
- * condition.)  If "oldtupcopy" gets non-NULL, you must pass output parameter
- * "state" to systable_inplace_update_finish() or
- * systable_inplace_update_cancel().
+ * 前几个参数重复 systable_beginscan() 的参数列表。
+ * "oldtupcopy" 是输出参数，若键不再能找到活元组，则赋为 NULL。
+ * （在 PROC_IN_VACUUM 中，这是低概率的瞬时状况。）
+ * 若 "oldtupcopy" 得到非 NULL，必须把输出参数 "state" 传给
+ * systable_inplace_update_finish() 或
+ * systable_inplace_update_cancel()。
  */
 void
 systable_inplace_update_begin(Relation relation,
@@ -808,10 +808,10 @@ systable_inplace_update_begin(Relation relation,
 	BufferHeapTupleTableSlot *bslot;
 
 	/*
-	 * For now, we don't allow parallel updates.  Unlike a regular update,
-	 * this should never create a combo CID, so it might be possible to relax
-	 * this restriction, but not without more thought and testing.  It's not
-	 * clear that it would be useful, anyway.
+	 * 目前不允许并行更新。与普通更新不同，
+	 * 这里绝不应该创建组合 CID，因此也许可以放宽
+	 * 这一限制，但需要更多思考和测试。况且
+	 * 也不清楚那样是否有用。
 	 */
 	if (IsInParallelMode())
 		ereport(ERROR,
@@ -819,14 +819,14 @@ systable_inplace_update_begin(Relation relation,
 				 errmsg("cannot update tuples during a parallel operation")));
 
 	/*
-	 * Accept a snapshot argument, for symmetry, but this function advances
-	 * its snapshot as needed to reach the tail of the updated tuple chain.
+	 * 为对称起见接受快照参数，但本函数会按需要推进其快照，
+	 * 以到达已更新元组链的尾部。
 	 */
 	Assert(snapshot == NULL);
 
 	Assert(IsInplaceUpdateRelation(relation) || !IsSystemRelation(relation));
 
-	/* Loop for an exclusive-locked buffer of a non-updated tuple. */
+	/* 循环以取得非更新元组的排他锁定缓冲区。 */
 	do
 	{
 		TupleTableSlot *slot;
@@ -834,9 +834,9 @@ systable_inplace_update_begin(Relation relation,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Processes issuing heap_update (e.g. GRANT) at maximum speed could
-		 * drive us to this error.  A hostile table owner has stronger ways to
-		 * damage their own table, so that's minor.
+		 * 以最高速度发出 heap_update（例如 GRANT）的进程
+		 * 可能把我们逼到这个错误。恶意的表所有者有更强的办法
+		 * 损坏自己的表，所以这算小事。
 		 */
 		if (retries++ > 10000)
 			elog(ERROR, "giving up after too many tries to overwrite row");
@@ -864,10 +864,10 @@ systable_inplace_update_begin(Relation relation,
 }
 
 /*
- * systable_inplace_update_finish --- second phase of inplace update
+ * systable_inplace_update_finish --- 原地更新的第二阶段
  *
- * The tuple cannot change size, and therefore its header fields and null
- * bitmap (if any) don't change either.
+ * 元组无法改变大小，因此其头部字段和空值位图
+ * （若有）也不会改变。
  */
 void
 systable_inplace_update_finish(void *state, HeapTuple tuple)
@@ -884,9 +884,9 @@ systable_inplace_update_finish(void *state, HeapTuple tuple)
 }
 
 /*
- * systable_inplace_update_cancel --- abandon inplace update
+ * systable_inplace_update_cancel --- 放弃原地更新
  *
- * This is an alternative to making a no-op update.
+ * 这是不做空操作更新的替代办法。
  */
 void
 systable_inplace_update_cancel(void *state)

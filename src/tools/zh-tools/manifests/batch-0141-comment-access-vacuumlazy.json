@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0141-comment-access-vacuumlazy",
+ "title": "zh: translate vacuumlazy comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9ae87f1759e1927617a15994268ade5dcf10d0c1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/vacuumlazy.c",
+   "kind": "c_comment",
+   "note": "lazy vacuum of heap relations"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0141-comment-access-vacuumlazy.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/vacuumlazy.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 314,
+   "translated": 314,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "lazy vacuum; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0141-comment-access-vacuumlazy.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0141 translates comments in src/backend/access/heap/vacuumlazy.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: heapam.c."
+}

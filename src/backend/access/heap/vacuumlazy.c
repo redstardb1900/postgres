@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * vacuumlazy.c
- *	  Concurrent ("lazy") vacuuming.
+ *	  并发（"惰性"）清理。
  *
- * The major space usage for vacuuming is storage for the array of dead TIDs
- * that are to be removed from indexes.  We want to ensure we can vacuum even
- * the very largest relations with finite memory space usage.  To do that, we
- * set upper bounds on the number of TIDs we can keep track of at once.
+ * 清理占用的主要空间，是存放待从索引中移除的死 TIDs
+ * 数组。我们希望即使用有限的内存，也能清理
+ * 最大的关系。为此，我们对一次能够跟踪的
+ * TID 数量设置上限。
  *
- * We are willing to use at most maintenance_work_mem (or perhaps
- * autovacuum_work_mem) memory space to keep track of dead TIDs.  We initially
- * allocate an array of TIDs of that size, with an upper limit that depends on
- * table size (this limit ensures we don't allocate a huge area uselessly for
- * vacuuming small tables).  If the array threatens to overflow, we must call
- * lazy_vacuum to vacuum indexes (and to vacuum the pages that we've pruned).
- * This frees up the memory space dedicated to storing dead TIDs.
+ * 我们最多愿意使用 maintenance_work_mem（或者
+ * autovacuum_work_mem）的内存来跟踪死 TID。起初
+ * 按该大小分配一个 TID 数组，上限还取决于
+ * 表大小（该限制确保不会为清理小表而无谓分配巨大区域）。
+ * 若数组即将溢出，就必须调用
+ * lazy_vacuum 来清理索引（并清理我们已经剪枝的页面）。
+ * 这样就能释放专用于存放死 TID 的内存。
  *
- * In practice VACUUM will often complete its initial pass over the target
- * heap relation without ever running out of space to store TIDs.  This means
- * that there only needs to be one call to lazy_vacuum, after the initial pass
- * completes.
+ * 实践中 VACUUM 往往能走完对目标
+ * 堆关系的初始扫描，而不会耗尽存放 TID 的空间。这意味着
+ * 初始扫描结束后只需要调用一次 lazy_vacuum，
+ * 即可完成。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -67,67 +67,67 @@
 
 
 /*
- * Space/time tradeoff parameters: do these need to be user-tunable?
+ * 空间/时间权衡参数：这些需要做成可由用户调节的吗？
  *
- * To consider truncating the relation, we want there to be at least
- * REL_TRUNCATE_MINIMUM or (relsize / REL_TRUNCATE_FRACTION) (whichever
- * is less) potentially-freeable pages.
+ * 要考虑截断该关系，我们希望至少有
+ * REL_TRUNCATE_MINIMUM 或 (relsize / REL_TRUNCATE_FRACTION)（取
+ * 较小者）那么多可能可释放的页。
  */
 #define REL_TRUNCATE_MINIMUM	1000
 #define REL_TRUNCATE_FRACTION	16
 
 /*
- * Timing parameters for truncate locking heuristics.
+ * 截断加锁启发式的计时参数。
  *
- * These were not exposed as user tunable GUC values because it didn't seem
- * that the potential for improvement was great enough to merit the cost of
- * supporting them.
+ * 这些没有作为可由用户调节的 GUC 暴露出来，因为看起来
+ * 改进的潜力还不足以抵消
+ * 支持它们的代价。
  */
-#define VACUUM_TRUNCATE_LOCK_CHECK_INTERVAL		20	/* ms */
-#define VACUUM_TRUNCATE_LOCK_WAIT_INTERVAL		50	/* ms */
-#define VACUUM_TRUNCATE_LOCK_TIMEOUT			5000	/* ms */
+#define VACUUM_TRUNCATE_LOCK_CHECK_INTERVAL		20	/* 毫秒 */
+#define VACUUM_TRUNCATE_LOCK_WAIT_INTERVAL		50	/* 毫秒 */
+#define VACUUM_TRUNCATE_LOCK_TIMEOUT			5000	/* 毫秒 */
 
 /*
- * Threshold that controls whether we bypass index vacuuming and heap
- * vacuuming as an optimization
+ * 控制是否把绕过索引清理和堆
+ * 清理当作一种优化的阈值
  */
-#define BYPASS_THRESHOLD_PAGES	0.02	/* i.e. 2% of rel_pages */
+#define BYPASS_THRESHOLD_PAGES	0.02	/* 即 rel_pages 的 2% */
 
 /*
- * Perform a failsafe check each time we scan another 4GB of pages.
- * (Note that this is deliberately kept to a power-of-two, usually 2^19.)
+ * 每再扫描 4GB 的页，就做一次故障安全检查。
+ * （注意这里有意保持为 2 的幂，通常是 2^19。）
  */
 #define FAILSAFE_EVERY_PAGES \
 	((BlockNumber) (((uint64) 4 * 1024 * 1024 * 1024) / BLCKSZ))
 
 /*
- * When a table has no indexes, vacuum the FSM after every 8GB, approximately
- * (it won't be exact because we only vacuum FSM after processing a heap page
- * that has some removable tuples).  When there are indexes, this is ignored,
- * and we vacuum FSM after each index/heap cleaning pass.
+ * 当表没有索引时，大约每 8GB 清理一次 FSM
+ * （不会精确，因为我们只在处理完含有可移除元组的堆页之后
+ * 才清理 FSM）。有索引时忽略这一点，
+ * 并在每一趟索引/堆清理之后清理 FSM。
  */
 #define VACUUM_FSM_EVERY_PAGES \
 	((BlockNumber) (((uint64) 8 * 1024 * 1024 * 1024) / BLCKSZ))
 
 /*
- * Before we consider skipping a page that's marked as clean in
- * visibility map, we must've seen at least this many clean pages.
+ * 在考虑跳过可见性映射中标记为干净的页之前，
+ * 我们必须已经见过至少这么多干净页。
  */
 #define SKIP_PAGES_THRESHOLD	((BlockNumber) 32)
 
 /*
- * Size of the prefetch window for lazy vacuum backwards truncation scan.
- * Needs to be a power of 2.
+ * 惰性清理反向截断扫描的预取窗口大小。
+ * 必须是 2 的幂。
  */
 #define PREFETCH_SIZE			((BlockNumber) 32)
 
 /*
- * Macro to check if we are in a parallel vacuum.  If true, we are in the
- * parallel mode and the DSM segment is initialized.
+ * 检查我们是否处于并行清理中的宏。若为真，则处于
+ * 并行模式，且 DSM 段已初始化。
  */
 #define ParallelVacuumIsActive(vacrel) ((vacrel)->pvs != NULL)
 
-/* Phases of vacuum during which we report error context. */
+/* 报告错误上下文的清理阶段。 */
 typedef enum
 {
 	VACUUM_ERRCB_PHASE_UNKNOWN,
@@ -140,97 +140,97 @@ typedef enum
 
 typedef struct LVRelState
 {
-	/* Target heap relation and its indexes */
+	/* 目标堆关系及其索引 */
 	Relation	rel;
 	Relation   *indrels;
 	int			nindexes;
 
-	/* Buffer access strategy and parallel vacuum state */
+	/* 缓冲区访问策略与并行清理状态 */
 	BufferAccessStrategy bstrategy;
 	ParallelVacuumState *pvs;
 
-	/* Aggressive VACUUM? (must set relfrozenxid >= FreezeLimit) */
+	/* 积极 VACUUM？（必须把 relfrozenxid 设为 >= FreezeLimit） */
 	bool		aggressive;
-	/* Use visibility map to skip? (disabled by DISABLE_PAGE_SKIPPING) */
+	/* 用可见性映射来跳过？（由 DISABLE_PAGE_SKIPPING 禁用） */
 	bool		skipwithvm;
-	/* Consider index vacuuming bypass optimization? */
+	/* 考虑索引清理绕过优化？ */
 	bool		consider_bypass_optimization;
 
-	/* Doing index vacuuming, index cleanup, rel truncation? */
+	/* 正在做索引清理、索引善后、关系截断？ */
 	bool		do_index_vacuuming;
 	bool		do_index_cleanup;
 	bool		do_rel_truncate;
 
-	/* VACUUM operation's cutoffs for freezing and pruning */
+	/* VACUUM 操作用于冻结和剪枝的截止值 */
 	struct VacuumCutoffs cutoffs;
 	GlobalVisState *vistest;
-	/* Tracks oldest extant XID/MXID for setting relfrozenxid/relminmxid */
+	/* 跟踪现存最旧的 XID/MXID，以便设置 relfrozenxid/relminmxid */
 	TransactionId NewRelfrozenXid;
 	MultiXactId NewRelminMxid;
 	bool		skippedallvis;
 
-	/* Error reporting state */
+	/* 错误报告状态 */
 	char	   *dbname;
 	char	   *relnamespace;
 	char	   *relname;
-	char	   *indname;		/* Current index name */
-	BlockNumber blkno;			/* used only for heap operations */
-	OffsetNumber offnum;		/* used only for heap operations */
+	char	   *indname;		/* 当前索引名 */
+	BlockNumber blkno;			/* 仅用于堆操作 */
+	OffsetNumber offnum;		/* 仅用于堆操作 */
 	VacErrPhase phase;
-	bool		verbose;		/* VACUUM VERBOSE? */
+	bool		verbose;		/* VACUUM VERBOSE？ */
 
 	/*
-	 * dead_items stores TIDs whose index tuples are deleted by index
-	 * vacuuming. Each TID points to an LP_DEAD line pointer from a heap page
-	 * that has been processed by lazy_scan_prune.  Also needed by
-	 * lazy_vacuum_heap_rel, which marks the same LP_DEAD line pointers as
-	 * LP_UNUSED during second heap pass.
+	 * dead_items 存放其索引元组将由索引
+	 * 清理删除的 TIDs。每个 TID 指向堆页上一个 LP_DEAD 行指针，
+	 * 该堆页已由 lazy_scan_prune 处理。lazy_vacuum_heap_rel
+	 * 也需要它，后者在第二次堆扫描中把同样的 LP_DEAD 行指针
+	 * 标为 LP_UNUSED。
 	 */
-	VacDeadItems *dead_items;	/* TIDs whose index tuples we'll delete */
-	BlockNumber rel_pages;		/* total number of pages */
-	BlockNumber scanned_pages;	/* # pages examined (not skipped via VM) */
-	BlockNumber removed_pages;	/* # pages removed by relation truncation */
-	BlockNumber frozen_pages;	/* # pages with newly frozen tuples */
-	BlockNumber lpdead_item_pages;	/* # pages with LP_DEAD items */
-	BlockNumber missed_dead_pages;	/* # pages with missed dead tuples */
-	BlockNumber nonempty_pages; /* actually, last nonempty page + 1 */
+	VacDeadItems *dead_items;	/* 我们将删除其索引元组的 TIDs */
+	BlockNumber rel_pages;		/* 总页数 */
+	BlockNumber scanned_pages;	/* 已检查页数（未经由 VM 跳过） */
+	BlockNumber removed_pages;	/* 关系截断移除的页数 */
+	BlockNumber frozen_pages;	/* 含有新冻结元组的页数 */
+	BlockNumber lpdead_item_pages;	/* 含有 LP_DEAD 项的页数 */
+	BlockNumber missed_dead_pages;	/* 含有遗漏死元组的页数 */
+	BlockNumber nonempty_pages; /* 实际上是最后一个非空页 + 1 */
 
-	/* Statistics output by us, for table */
-	double		new_rel_tuples; /* new estimated total # of tuples */
-	double		new_live_tuples;	/* new estimated total # of live tuples */
-	/* Statistics output by index AMs */
+	/* 我们为表输出的统计信息 */
+	double		new_rel_tuples; /* 新估计的元组总数 */
+	double		new_live_tuples;	/* 新估计的活元组总数 */
+	/* 索引 AM 输出的统计信息 */
 	IndexBulkDeleteResult **indstats;
 
-	/* Instrumentation counters */
+	/* 测量计数器 */
 	int			num_index_scans;
-	/* Counters that follow are only for scanned_pages */
-	int64		tuples_deleted; /* # deleted from table */
-	int64		tuples_frozen;	/* # newly frozen */
-	int64		lpdead_items;	/* # deleted from indexes */
-	int64		live_tuples;	/* # live tuples remaining */
-	int64		recently_dead_tuples;	/* # dead, but not yet removable */
-	int64		missed_dead_tuples; /* # removable, but not removed */
+	/* 以下计数器仅针对 scanned_pages */
+	int64		tuples_deleted; /* 从表中删除的数目 */
+	int64		tuples_frozen;	/* 新冻结的数目 */
+	int64		lpdead_items;	/* 从索引中删除的数目 */
+	int64		live_tuples;	/* 剩余的活元组数 */
+	int64		recently_dead_tuples;	/* 已死但尚不可移除的数目 */
+	int64		missed_dead_tuples; /* 可移除但未移除的数目 */
 } LVRelState;
 
 /*
- * State returned by lazy_scan_prune()
+ * lazy_scan_prune() 返回的状态
  */
 typedef struct LVPagePruneState
 {
-	bool		hastup;			/* Page prevents rel truncation? */
-	bool		has_lpdead_items;	/* includes existing LP_DEAD items */
+	bool		hastup;			/* 此页使关系截断不安全？ */
+	bool		has_lpdead_items;	/* 包括已有的 LP_DEAD 项 */
 
 	/*
-	 * State describes the proper VM bit states to set for the page following
-	 * pruning and freezing.  all_visible implies !has_lpdead_items, but don't
-	 * trust all_frozen result unless all_visible is also set to true.
+	 * 该状态描述剪枝和冻结之后应为该页设置的
+	 * 正确 VM 位。all_visible 蕴含 !has_lpdead_items，但除非
+	 * all_visible 也设为真，否则不要信任 all_frozen 的结果。
 	 */
-	bool		all_visible;	/* Every item visible to all? */
-	bool		all_frozen;		/* provided all_visible is also true */
-	TransactionId visibility_cutoff_xid;	/* For recovery conflicts */
+	bool		all_visible;	/* 每一项对所有事务都可见？ */
+	bool		all_frozen;		/* 前提是 all_visible 也为真 */
+	TransactionId visibility_cutoff_xid;	/* 用于恢复冲突 */
 } LVPagePruneState;
 
-/* Struct for saving and restoring vacuum error information. */
+/* 用于保存和恢复清理错误信息的结构体。 */
 typedef struct LVSavedErrInfo
 {
 	BlockNumber blkno;
@@ -239,7 +239,7 @@ typedef struct LVSavedErrInfo
 } LVSavedErrInfo;
 
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static void lazy_scan_heap(LVRelState *vacrel);
 static BlockNumber lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer,
 								  BlockNumber next_block,
@@ -289,15 +289,15 @@ static void restore_vacuum_error_info(LVRelState *vacrel,
 
 
 /*
- *	heap_vacuum_rel() -- perform VACUUM for one heap relation
+ *	heap_vacuum_rel() -- 对一个堆关系执行 VACUUM
  *
- *		This routine sets things up for and then calls lazy_scan_heap, where
- *		almost all work actually takes place.  Finalizes everything after call
- *		returns by managing relation truncation and updating rel's pg_class
- *		entry. (Also updates pg_class entries for any indexes that need it.)
+ *		本例程先做好准备，然后调用 lazy_scan_heap，
+ *		几乎所有工作都在那里进行。调用返回后，通过管理关系截断
+ *		并更新该关系的 pg_class
+ *		项来收尾。（也会更新任何需要更新的索引的 pg_class 项。）
  *
- *		At entry, we have already established a transaction and opened
- *		and locked the relation.
+ *		进入时，我们已经建立了事务，并打开
+ *		且锁定了该关系。
  */
 void
 heap_vacuum_rel(Relation rel, VacuumParams *params,
@@ -339,16 +339,16 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 								  RelationGetRelid(rel));
 
 	/*
-	 * Setup error traceback support for ereport() first.  The idea is to set
-	 * up an error context callback to display additional information on any
-	 * error during a vacuum.  During different phases of vacuum, we update
-	 * the state so that the error context callback always display current
-	 * information.
+	 * 先为 ereport() 设置错误回溯支持。想法是设置
+	 * 一个错误上下文回调，以便在清理期间的任何
+	 * 错误上显示附加信息。在清理的不同阶段，我们更新
+	 * 该状态，使错误上下文回调始终显示当前
+	 * 信息。
 	 *
-	 * Copy the names of heap rel into local memory for error reporting
-	 * purposes, too.  It isn't always safe to assume that we can get the name
-	 * of each rel.  It's convenient for code in lazy_scan_heap to always use
-	 * these temp copies.
+	 * 把堆关系的名字复制到本地内存，也是为了错误报告。
+	 * 不能总是放心地假设我们能取得每个
+	 * 关系的名字。lazy_scan_heap 中的代码始终使用
+	 * 这些临时副本会更方便。
 	 */
 	vacrel = (LVRelState *) palloc0(sizeof(LVRelState));
 	vacrel->dbname = get_database_name(MyDatabaseId);
@@ -362,35 +362,35 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* Set up high level stuff about rel and its indexes */
+	/* 建立关于 rel 及其索引的高层信息 */
 	vacrel->rel = rel;
 	vac_open_indexes(vacrel->rel, RowExclusiveLock, &vacrel->nindexes,
 					 &vacrel->indrels);
 	vacrel->bstrategy = bstrategy;
 	if (instrument && vacrel->nindexes > 0)
 	{
-		/* Copy index names used by instrumentation (not error reporting) */
+		/* 复制测量所用的索引名（不是为了错误报告） */
 		indnames = palloc(sizeof(char *) * vacrel->nindexes);
 		for (int i = 0; i < vacrel->nindexes; i++)
 			indnames[i] = pstrdup(RelationGetRelationName(vacrel->indrels[i]));
 	}
 
 	/*
-	 * The index_cleanup param either disables index vacuuming and cleanup or
-	 * forces it to go ahead when we would otherwise apply the index bypass
-	 * optimization.  The default is 'auto', which leaves the final decision
-	 * up to lazy_vacuum().
+	 * index_cleanup 参数要么禁用索引清理和索引善后，要么
+	 * 在我们本来会采用索引绕过
+	 * 优化时强制继续。默认是 'auto'，把最终决定
+	 * 留给 lazy_vacuum()。
 	 *
-	 * The truncate param allows user to avoid attempting relation truncation,
-	 * though it can't force truncation to happen.
+	 * truncate 参数允许用户避免尝试关系截断，
+	 * 但不能强制截断发生。
 	 */
 	Assert(params->index_cleanup != VACOPTVALUE_UNSPECIFIED);
 	Assert(params->truncate != VACOPTVALUE_UNSPECIFIED &&
 		   params->truncate != VACOPTVALUE_AUTO);
 
 	/*
-	 * While VacuumFailSafeActive is reset to false before calling this, we
-	 * still need to reset it here due to recursive calls.
+	 * 虽然在调用本函数之前 VacuumFailSafeActive 会被重置为 false，
+	 * 由于递归调用，这里仍需要再重置一次。
 	 */
 	VacuumFailsafeActive = false;
 	vacrel->consider_bypass_optimization = true;
@@ -399,37 +399,37 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	vacrel->do_rel_truncate = (params->truncate != VACOPTVALUE_DISABLED);
 	if (params->index_cleanup == VACOPTVALUE_DISABLED)
 	{
-		/* Force disable index vacuuming up-front */
+		/* 预先强制禁用索引清理 */
 		vacrel->do_index_vacuuming = false;
 		vacrel->do_index_cleanup = false;
 	}
 	else if (params->index_cleanup == VACOPTVALUE_ENABLED)
 	{
-		/* Force index vacuuming.  Note that failsafe can still bypass. */
+		/* 强制进行索引清理。注意故障安全仍可绕过。 */
 		vacrel->consider_bypass_optimization = false;
 	}
 	else
 	{
-		/* Default/auto, make all decisions dynamically */
+		/* 默认/auto，所有决定都动态做出 */
 		Assert(params->index_cleanup == VACOPTVALUE_AUTO);
 	}
 
-	/* Initialize page counters explicitly (be tidy) */
+	/* 显式初始化页计数器（以求整齐） */
 	vacrel->scanned_pages = 0;
 	vacrel->removed_pages = 0;
 	vacrel->frozen_pages = 0;
 	vacrel->lpdead_item_pages = 0;
 	vacrel->missed_dead_pages = 0;
 	vacrel->nonempty_pages = 0;
-	/* dead_items_alloc allocates vacrel->dead_items later on */
+	/* dead_items_alloc 稍后才分配 vacrel->dead_items */
 
-	/* Allocate/initialize output statistics state */
+	/* 分配/初始化输出统计状态 */
 	vacrel->new_rel_tuples = 0;
 	vacrel->new_live_tuples = 0;
 	vacrel->indstats = (IndexBulkDeleteResult **)
 		palloc0(vacrel->nindexes * sizeof(IndexBulkDeleteResult *));
 
-	/* Initialize remaining counters (be tidy) */
+	/* 初始化其余计数器（以求整齐） */
 	vacrel->num_index_scans = 0;
 	vacrel->tuples_deleted = 0;
 	vacrel->tuples_frozen = 0;
@@ -439,24 +439,24 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	vacrel->missed_dead_tuples = 0;
 
 	/*
-	 * Get cutoffs that determine which deleted tuples are considered DEAD,
-	 * not just RECENTLY_DEAD, and which XIDs/MXIDs to freeze.  Then determine
-	 * the extent of the blocks that we'll scan in lazy_scan_heap.  It has to
-	 * happen in this order to ensure that the OldestXmin cutoff field works
-	 * as an upper bound on the XIDs stored in the pages we'll actually scan
-	 * (NewRelfrozenXid tracking must never be allowed to miss unfrozen XIDs).
+	 * 取得截止值，以判定哪些已删除元组视为 DEAD，
+	 * 而不只是 RECENTLY_DEAD，以及要冻结哪些 XIDs/MXIDs。然后确定
+	 * 我们将在 lazy_scan_heap 中扫描的块范围。必须
+	 * 按这个顺序进行，以确保 OldestXmin 截止字段
+	 * 作为我们将实际扫描的页中所存 XID 的上界
+	 * （NewRelfrozenXid 跟踪绝不能漏掉未冻结的 XID）。
 	 *
-	 * Next acquire vistest, a related cutoff that's used in heap_page_prune.
-	 * We expect vistest will always make heap_page_prune remove any deleted
-	 * tuple whose xmax is < OldestXmin.  lazy_scan_prune must never become
-	 * confused about whether a tuple should be frozen or removed.  (In the
-	 * future we might want to teach lazy_scan_prune to recompute vistest from
-	 * time to time, to increase the number of dead tuples it can prune away.)
+	 * 接着取得 vistest，这是 heap_page_prune 使用的相关截止值。
+	 * 我们预期 vistest 总会让 heap_page_prune 移除任何 xmax
+	 * < OldestXmin 的已删除元组。lazy_scan_prune 绝不能
+	 * 搞混一个元组该冻结还是该移除。（将来
+	 * 我们也许想让 lazy_scan_prune 不时重新计算 vistest，
+	 * 以增加它能剪掉的死元组数量。）
 	 */
 	vacrel->aggressive = vacuum_get_cutoffs(rel, params, &vacrel->cutoffs);
 	vacrel->rel_pages = orig_rel_pages = RelationGetNumberOfBlocks(rel);
 	vacrel->vistest = GlobalVisTestFor(rel);
-	/* Initialize state used to track oldest extant XID/MXID */
+	/* 初始化用于跟踪现存最旧 XID/MXID 的状态 */
 	vacrel->NewRelfrozenXid = vacrel->cutoffs.OldestXmin;
 	vacrel->NewRelminMxid = vacrel->cutoffs.OldestMxact;
 	vacrel->skippedallvis = false;
@@ -464,8 +464,8 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	if (params->options & VACOPT_DISABLE_PAGE_SKIPPING)
 	{
 		/*
-		 * Force aggressive mode, and disable skipping blocks using the
-		 * visibility map (even those set all-frozen)
+		 * 强制进入积极模式，并禁用借助
+		 * 可见性映射跳过块（即使那些已设为全冻结的块）
 		 */
 		vacrel->aggressive = true;
 		skipwithvm = false;
@@ -488,57 +488,57 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	}
 
 	/*
-	 * Allocate dead_items array memory using dead_items_alloc.  This handles
-	 * parallel VACUUM initialization as part of allocating shared memory
-	 * space used for dead_items.  (But do a failsafe precheck first, to
-	 * ensure that parallel VACUUM won't be attempted at all when relfrozenxid
-	 * is already dangerously old.)
+	 * 用 dead_items_alloc 分配 dead_items 数组内存。这会在分配
+	 * dead_items 所用共享内存时处理
+	 * 并行 VACUUM 的初始化。（但先做一次故障安全预检，
+	 * 以确保当 relfrozenxid
+	 * 已经危险地过旧时，根本不会尝试并行 VACUUM。）
 	 */
 	lazy_check_wraparound_failsafe(vacrel);
 	dead_items_alloc(vacrel, params->nworkers);
 
 	/*
-	 * Call lazy_scan_heap to perform all required heap pruning, index
-	 * vacuuming, and heap vacuuming (plus related processing)
+	 * 调用 lazy_scan_heap，完成所需的堆剪枝、索引
+	 * 清理和堆清理（以及相关处理）
 	 */
 	lazy_scan_heap(vacrel);
 
 	/*
-	 * Free resources managed by dead_items_alloc.  This ends parallel mode in
-	 * passing when necessary.
+	 * 释放 dead_items_alloc 管理的资源。必要时
+	 * 顺带结束并行模式。
 	 */
 	dead_items_cleanup(vacrel);
 	Assert(!IsInParallelMode());
 
 	/*
-	 * Update pg_class entries for each of rel's indexes where appropriate.
+	 * 在适当处更新 rel 每个索引的 pg_class 项。
 	 *
-	 * Unlike the later update to rel's pg_class entry, this is not critical.
-	 * Maintains relpages/reltuples statistics used by the planner only.
+	 * 与稍后更新 rel 自身的 pg_class 项不同，这一步并非关键。
+	 * 它只维护规划器使用的 relpages/reltuples 统计信息。
 	 */
 	if (vacrel->do_index_cleanup)
 		update_relstats_all_indexes(vacrel);
 
-	/* Done with rel's indexes */
+	/* rel 的索引已处理完 */
 	vac_close_indexes(vacrel->nindexes, vacrel->indrels, NoLock);
 
-	/* Optionally truncate rel */
+	/* 可选地截断 rel */
 	if (should_attempt_truncation(vacrel))
 		lazy_truncate_heap(vacrel);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈 */
 	error_context_stack = errcallback.previous;
 
-	/* Report that we are now doing final cleanup */
+	/* 报告我们现在正在做最终善后 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 								 PROGRESS_VACUUM_PHASE_FINAL_CLEANUP);
 
 	/*
-	 * Prepare to update rel's pg_class entry.
+	 * 准备更新 rel 的 pg_class 项。
 	 *
-	 * Aggressive VACUUMs must always be able to advance relfrozenxid to a
-	 * value >= FreezeLimit, and relminmxid to a value >= MultiXactCutoff.
-	 * Non-aggressive VACUUMs may advance them by any amount, or not at all.
+	 * 积极 VACUUMs 必须始终能把 relfrozenxid 推进到
+	 * >= FreezeLimit 的值，并把 relminmxid 推进到 >= MultiXactCutoff 的值。
+	 * 非积极 VACUUM 可以把它们推进任意量，也可以完全不推进。
 	 */
 	Assert(vacrel->NewRelfrozenXid == vacrel->cutoffs.OldestXmin ||
 		   TransactionIdPrecedesOrEquals(vacrel->aggressive ? vacrel->cutoffs.FreezeLimit :
@@ -551,9 +551,9 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	if (vacrel->skippedallvis)
 	{
 		/*
-		 * Must keep original relfrozenxid in a non-aggressive VACUUM that
-		 * chose to skip an all-visible page range.  The state that tracks new
-		 * values will have missed unfrozen XIDs from the pages we skipped.
+		 * 在选择跳过一段全可见页范围的非积极 VACUUM 中，
+		 * 必须保留原来的 relfrozenxid。跟踪新
+		 * 值的状态会漏掉我们跳过的页中未冻结的 XIDs。
 		 */
 		Assert(!vacrel->aggressive);
 		vacrel->NewRelfrozenXid = InvalidTransactionId;
@@ -561,20 +561,20 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 	}
 
 	/*
-	 * For safety, clamp relallvisible to be not more than what we're setting
-	 * pg_class.relpages to
+	 * 为安全起见，把 relallvisible 钳制为不超过我们将设置的
+	 * pg_class.relpages
 	 */
-	new_rel_pages = vacrel->rel_pages;	/* After possible rel truncation */
+	new_rel_pages = vacrel->rel_pages;	/* 在可能的关系截断之后 */
 	visibilitymap_count(rel, &new_rel_allvisible, NULL);
 	if (new_rel_allvisible > new_rel_pages)
 		new_rel_allvisible = new_rel_pages;
 
 	/*
-	 * Now actually update rel's pg_class entry.
+	 * 现在真正更新 rel 的 pg_class 项。
 	 *
-	 * In principle new_live_tuples could be -1 indicating that we (still)
-	 * don't know the tuple count.  In practice that can't happen, since we
-	 * scan every page that isn't skipped using the visibility map.
+	 * 原则上 new_live_tuples 可能是 -1，表示我们（仍然）
+	 * 不知道元组数。实践中这不会发生，因为我们
+	 * 会扫描每一页未被可见性映射跳过的页。
 	 */
 	vac_update_relstats(rel, new_rel_pages, vacrel->new_live_tuples,
 						new_rel_allvisible, vacrel->nindexes > 0,
@@ -582,14 +582,14 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 						&frozenxid_updated, &minmulti_updated, false);
 
 	/*
-	 * Report results to the cumulative stats system, too.
+	 * 也把结果报告给累积统计系统。
 	 *
-	 * Deliberately avoid telling the stats system about LP_DEAD items that
-	 * remain in the table due to VACUUM bypassing index and heap vacuuming.
-	 * ANALYZE will consider the remaining LP_DEAD items to be dead "tuples".
-	 * It seems like a good idea to err on the side of not vacuuming again too
-	 * soon in cases where the failsafe prevented significant amounts of heap
-	 * vacuuming.
+	 * 有意不把由于 VACUUM 绕过索引清理和堆清理
+	 * 而仍留在表中的 LP_DEAD 项告诉统计系统。
+	 * ANALYZE 会把剩余的 LP_DEAD 项视为死"元组"。
+	 * 宁可不要过快再次清理，这似乎是个好主意，
+	 * 在故障安全阻止了大量堆
+	 * 清理的情况下尤其如此。
 	 */
 	pgstat_report_vacuum(RelationGetRelid(rel),
 						 rel->rd_rel->relisshared,
@@ -626,8 +626,8 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 			if (verbose)
 			{
 				/*
-				 * Aggressiveness already reported earlier, in dedicated
-				 * VACUUM VERBOSE ereport
+				 * 积极程度已在更早的专用
+				 * VACUUM VERBOSE ereport 中报告过
 				 */
 				Assert(!params->is_wraparound);
 				msgfmt = _("finished vacuuming \"%s.%s.%s\": index scans: %d\n");
@@ -635,10 +635,10 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 			else if (params->is_wraparound)
 			{
 				/*
-				 * While it's possible for a VACUUM to be both is_wraparound
-				 * and !aggressive, that's just a corner-case -- is_wraparound
-				 * implies aggressive.  Produce distinct output for the corner
-				 * case all the same, just in case.
+				 * VACUUM 有可能同时是 is_wraparound
+				 * 和 !aggressive，但这只是边角情况 -- is_wraparound
+				 * 蕴含 aggressive。尽管如此，仍为该边角
+				 * 情况产生不同的输出，以防万一。
 				 */
 				if (vacrel->aggressive)
 					msgfmt = _("automatic aggressive vacuum to prevent wraparound of table \"%s.%s.%s\": index scans: %d\n");
@@ -772,7 +772,7 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 		}
 	}
 
-	/* Cleanup index statistics and index names */
+	/* 清理索引统计信息和索引名 */
 	for (int i = 0; i < vacrel->nindexes; i++)
 	{
 		if (vacrel->indstats[i])
@@ -784,40 +784,40 @@ heap_vacuum_rel(Relation rel, VacuumParams *params,
 }
 
 /*
- *	lazy_scan_heap() -- workhorse function for VACUUM
+ *	lazy_scan_heap() -- VACUUM 的主力函数
  *
- *		This routine prunes each page in the heap, and considers the need to
- *		freeze remaining tuples with storage (not including pages that can be
- *		skipped using the visibility map).  Also performs related maintenance
- *		of the FSM and visibility map.  These steps all take place during an
- *		initial pass over the target heap relation.
+ *		本例程剪枝堆中的每一页，并考虑是否需要
+ *		冻结仍带存储的剩余元组（不包括可用
+ *		可见性映射跳过的页）。也会对 FSM 和可见性映射
+ *		做相关维护。这些步骤都发生在对
+ *		目标堆关系的初始扫描期间。
  *
- *		Also invokes lazy_vacuum_all_indexes to vacuum indexes, which largely
- *		consists of deleting index tuples that point to LP_DEAD items left in
- *		heap pages following pruning.  Earlier initial pass over the heap will
- *		have collected the TIDs whose index tuples need to be removed.
+ *		也会调用 lazy_vacuum_all_indexes 来清理索引，这主要
+ *		是删除指向剪枝后留在堆页上的 LP_DEAD 项的
+ *		索引元组。更早的堆初始扫描
+ *		已经收集了需要移除其索引元组的 TIDs。
  *
- *		Finally, invokes lazy_vacuum_heap_rel to vacuum heap pages, which
- *		largely consists of marking LP_DEAD items (from collected TID array)
- *		as LP_UNUSED.  This has to happen in a second, final pass over the
- *		heap, to preserve a basic invariant that all index AMs rely on: no
- *		extant index tuple can ever be allowed to contain a TID that points to
- *		an LP_UNUSED line pointer in the heap.  We must disallow premature
- *		recycling of line pointers to avoid index scans that get confused
- *		about which TID points to which tuple immediately after recycling.
- *		(Actually, this isn't a concern when target heap relation happens to
- *		have no indexes, which allows us to safely apply the one-pass strategy
- *		as an optimization).
+ *		最后调用 lazy_vacuum_heap_rel 来清理堆页，这
+ *		主要是把 LP_DEAD 项（来自收集到的 TID 数组）
+ *		标为 LP_UNUSED。这必须在第二次、也是最后一次堆扫描中
+ *		进行，以保持所有索引 AM 依赖的基本不变量：任何
+ *		现存索引元组都绝不能包含指向堆中
+ *		LP_UNUSED 行指针的 TID。我们必须禁止过早
+ *		回收行指针，以免索引扫描在回收之后立刻
+ *		搞混哪个 TID 指向哪个元组。
+ *		（实际上，当目标堆关系恰好
+ *		没有索引时这不是问题，因此我们可以安全地把单遍策略
+ *		当作优化来用）。
  *
- *		In practice we often have enough space to fit all TIDs, and so won't
- *		need to call lazy_vacuum more than once, after our initial pass over
- *		the heap has totally finished.  Otherwise things are slightly more
- *		complicated: our "initial pass" over the heap applies only to those
- *		pages that were pruned before we needed to call lazy_vacuum, and our
- *		"final pass" over the heap only vacuums these same heap pages.
- *		However, we process indexes in full every time lazy_vacuum is called,
- *		which makes index processing very inefficient when memory is in short
- *		supply.
+ *		实践中我们常常有足够空间放下所有 TID，因此
+ *		在对堆的初始扫描完全结束后，不需要
+ *		多次调用 lazy_vacuum。否则情况会稍微
+ *		复杂一些：我们的堆"初始扫描"只适用于在需要调用
+ *		lazy_vacuum 之前已经剪枝的那些页，而堆的
+ *		"最终扫描"也只清理同样这些堆页。
+ *		然而，每次调用 lazy_vacuum 都会完整处理索引，
+ *		这使内存在
+ *		不足时索引处理非常低效。
  */
 static void
 lazy_scan_heap(LVRelState *vacrel)
@@ -837,13 +837,13 @@ lazy_scan_heap(LVRelState *vacrel)
 	};
 	int64		initprog_val[3];
 
-	/* Report that we're scanning the heap, advertising total # of blocks */
+	/* 报告我们正在扫描堆，并通告总块数 */
 	initprog_val[0] = PROGRESS_VACUUM_PHASE_SCAN_HEAP;
 	initprog_val[1] = rel_pages;
 	initprog_val[2] = dead_items->max_items;
 	pgstat_progress_update_multi_param(3, initprog_index, initprog_val);
 
-	/* Set up an initial range of skippable blocks using the visibility map */
+	/* 用可见性映射建立初始的可跳过块范围 */
 	next_unskippable_block = lazy_scan_skip(vacrel, &vmbuffer, 0,
 											&next_unskippable_allvis,
 											&skipping_current_range);
@@ -857,8 +857,8 @@ lazy_scan_heap(LVRelState *vacrel)
 		if (blkno == next_unskippable_block)
 		{
 			/*
-			 * Can't skip this page safely.  Must scan the page.  But
-			 * determine the next skippable range after the page first.
+			 * 无法安全跳过此页。必须扫描该页。但
+			 * 先确定该页之后的下一个可跳过范围。
 			 */
 			all_visible_according_to_vm = next_unskippable_allvis;
 			next_unskippable_block = lazy_scan_skip(vacrel, &vmbuffer,
@@ -870,19 +870,19 @@ lazy_scan_heap(LVRelState *vacrel)
 		}
 		else
 		{
-			/* Last page always scanned (may need to set nonempty_pages) */
+			/* 最后一页总是扫描（可能需要设置 nonempty_pages） */
 			Assert(blkno < rel_pages - 1);
 
 			if (skipping_current_range)
 				continue;
 
-			/* Current range is too small to skip -- just scan the page */
+			/* 当前范围太小，不值得跳过 -- 直接扫描该页 */
 			all_visible_according_to_vm = true;
 		}
 
 		vacrel->scanned_pages++;
 
-		/* Report as block scanned, update error traceback information */
+		/* 报告该块已扫描，并更新错误回溯信息 */
 		pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_SCANNED, blkno);
 		update_vacuum_error_info(vacrel, NULL, VACUUM_ERRCB_PHASE_SCAN_HEAP,
 								 blkno, InvalidOffsetNumber);
@@ -890,31 +890,31 @@ lazy_scan_heap(LVRelState *vacrel)
 		vacuum_delay_point();
 
 		/*
-		 * Regularly check if wraparound failsafe should trigger.
+		 * 定期检查回卷故障安全是否应触发。
 		 *
-		 * There is a similar check inside lazy_vacuum_all_indexes(), but
-		 * relfrozenxid might start to look dangerously old before we reach
-		 * that point.  This check also provides failsafe coverage for the
-		 * one-pass strategy, and the two-pass strategy with the index_cleanup
-		 * param set to 'off'.
+		 * lazy_vacuum_all_indexes() 里有类似检查，但
+		 * relfrozenxid 可能在我们到达
+		 * 那一点之前就开始显得危险地过旧。本检查也为
+		 * 单遍策略，以及 index_cleanup
+		 * 参数设为 'off' 的两遍策略提供故障安全覆盖。
 		 */
 		if (vacrel->scanned_pages % FAILSAFE_EVERY_PAGES == 0)
 			lazy_check_wraparound_failsafe(vacrel);
 
 		/*
-		 * Consider if we definitely have enough space to process TIDs on page
-		 * already.  If we are close to overrunning the available space for
-		 * dead_items TIDs, pause and do a cycle of vacuuming before we tackle
-		 * this page.
+		 * 考虑我们是否肯定已有足够空间处理该页上的
+		 * TIDs。若接近用尽 dead_items TID 的
+		 * 可用空间，就先暂停并做一轮清理，再处理
+		 * 此页。
 		 */
 		Assert(dead_items->max_items >= MaxHeapTuplesPerPage);
 		if (dead_items->max_items - dead_items->num_items < MaxHeapTuplesPerPage)
 		{
 			/*
-			 * Before beginning index vacuuming, we release any pin we may
-			 * hold on the visibility map page.  This isn't necessary for
-			 * correctness, but we do it anyway to avoid holding the pin
-			 * across a lengthy, unrelated operation.
+			 * 开始索引清理之前，释放我们可能
+			 * 在可见性映射页上持有的任何钉住。这对
+			 * 正确性并非必要，但我们仍然这样做，以避免在一次
+			 * 耗时很长且无关的操作期间一直钉住。
 			 */
 			if (BufferIsValid(vmbuffer))
 			{
@@ -922,35 +922,35 @@ lazy_scan_heap(LVRelState *vacrel)
 				vmbuffer = InvalidBuffer;
 			}
 
-			/* Perform a round of index and heap vacuuming */
+			/* 执行一轮索引清理和堆清理 */
 			vacrel->consider_bypass_optimization = false;
 			lazy_vacuum(vacrel);
 
 			/*
-			 * Vacuum the Free Space Map to make newly-freed space visible on
-			 * upper-level FSM pages.  Note we have not yet processed blkno.
+			 * 清理空闲空间映射，使新释放的空间在
+			 * 上层 FSM 页上可见。注意我们尚未处理 blkno。
 			 */
 			FreeSpaceMapVacuumRange(vacrel->rel, next_fsm_block_to_vacuum,
 									blkno);
 			next_fsm_block_to_vacuum = blkno;
 
-			/* Report that we are once again scanning the heap */
+			/* 报告我们再次开始扫描堆 */
 			pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 										 PROGRESS_VACUUM_PHASE_SCAN_HEAP);
 		}
 
 		/*
-		 * Pin the visibility map page in case we need to mark the page
-		 * all-visible.  In most cases this will be very cheap, because we'll
-		 * already have the correct page pinned anyway.
+		 * 钉住可见性映射页，以防需要把该页标为
+		 * 全可见。多数情况下这非常便宜，因为我们
+		 * 反正已经钉住了正确的页。
 		 */
 		visibilitymap_pin(vacrel->rel, blkno, &vmbuffer);
 
 		/*
-		 * We need a buffer cleanup lock to prune HOT chains and defragment
-		 * the page in lazy_scan_prune.  But when it's not possible to acquire
-		 * a cleanup lock right away, we may be able to settle for reduced
-		 * processing using lazy_scan_noprune.
+		 * 我们需要缓冲区清理锁，以便在 lazy_scan_prune 中剪枝 HOT 链并
+		 * 对该页做碎片整理。但若不能立刻取得
+		 * 清理锁，也许可以退而求其次，用 lazy_scan_noprune
+		 * 做缩减处理。
 		 */
 		buf = ReadBufferExtended(vacrel->rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
 								 vacrel->bstrategy);
@@ -962,25 +962,25 @@ lazy_scan_heap(LVRelState *vacrel)
 
 			LockBuffer(buf, BUFFER_LOCK_SHARE);
 
-			/* Check for new or empty pages before lazy_scan_noprune call */
+			/* 在调用 lazy_scan_noprune 之前检查新页或空页 */
 			if (lazy_scan_new_or_empty(vacrel, buf, blkno, page, true,
 									   vmbuffer))
 			{
-				/* Processed as new/empty page (lock and pin released) */
+				/* 已按新页/空页处理（锁和钉住已释放） */
 				continue;
 			}
 
-			/* Collect LP_DEAD items in dead_items array, count tuples */
+			/* 在 dead_items 数组中收集 LP_DEAD 项，并清点元组 */
 			if (lazy_scan_noprune(vacrel, buf, blkno, page, &hastup,
 								  &recordfreespace))
 			{
 				Size		freespace = 0;
 
 				/*
-				 * Processed page successfully (without cleanup lock) -- just
-				 * need to perform rel truncation and FSM steps, much like the
-				 * lazy_scan_prune case.  Don't bother trying to match its
-				 * visibility map setting steps, though.
+				 * 已成功处理该页（没有清理锁）-- 只需
+				 * 执行关系截断和 FSM 步骤，很像
+				 * lazy_scan_prune 的情形。不过不必费力去匹配它的
+				 * 可见性映射设置步骤。
 				 */
 				if (hastup)
 					vacrel->nonempty_pages = blkno + 1;
@@ -993,47 +993,47 @@ lazy_scan_heap(LVRelState *vacrel)
 			}
 
 			/*
-			 * lazy_scan_noprune could not do all required processing.  Wait
-			 * for a cleanup lock, and call lazy_scan_prune in the usual way.
+			 * lazy_scan_noprune 无法完成全部所需处理。等待
+			 * 清理锁，然后按通常方式调用 lazy_scan_prune。
 			 */
 			Assert(vacrel->aggressive);
 			LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 			LockBufferForCleanup(buf);
 		}
 
-		/* Check for new or empty pages before lazy_scan_prune call */
+		/* 在调用 lazy_scan_prune 之前检查新页或空页 */
 		if (lazy_scan_new_or_empty(vacrel, buf, blkno, page, false, vmbuffer))
 		{
-			/* Processed as new/empty page (lock and pin released) */
+			/* 已按新页/空页处理（锁和钉住已释放） */
 			continue;
 		}
 
 		/*
-		 * Prune, freeze, and count tuples.
+		 * 剪枝、冻结并清点元组。
 		 *
-		 * Accumulates details of remaining LP_DEAD line pointers on page in
-		 * dead_items array.  This includes LP_DEAD line pointers that we
-		 * pruned ourselves, as well as existing LP_DEAD line pointers that
-		 * were pruned some time earlier.  Also considers freezing XIDs in the
-		 * tuple headers of remaining items with storage.
+		 * 把该页上剩余 LP_DEAD 行指针的细节累积到
+		 * dead_items 数组中。这包括我们自己
+		 * 剪枝得到的 LP_DEAD 行指针，以及更早时候
+		 * 剪枝留下的已有 LP_DEAD 行指针。也会考虑冻结仍带存储的
+		 * 剩余项的元组头中的 XIDs。
 		 */
 		lazy_scan_prune(vacrel, buf, blkno, page, &prunestate);
 
 		Assert(!prunestate.all_visible || !prunestate.has_lpdead_items);
 
-		/* Remember the location of the last page with nonremovable tuples */
+		/* 记住最后一个含有不可移除元组的页的位置 */
 		if (prunestate.hastup)
 			vacrel->nonempty_pages = blkno + 1;
 
 		if (vacrel->nindexes == 0)
 		{
 			/*
-			 * Consider the need to do page-at-a-time heap vacuuming when
-			 * using the one-pass strategy now.
+			 * 现在考虑在使用单遍策略时，是否需要
+			 * 一次一页地做堆清理。
 			 *
-			 * The one-pass strategy will never call lazy_vacuum().  The steps
-			 * performed here can be thought of as the one-pass equivalent of
-			 * a call to lazy_vacuum().
+			 * 单遍策略永远不会调用 lazy_vacuum()。这里执行的
+			 * 步骤可以看作一次 lazy_vacuum()
+			 * 调用在单遍策略下的对应物。
 			 */
 			if (prunestate.has_lpdead_items)
 			{
@@ -1041,13 +1041,13 @@ lazy_scan_heap(LVRelState *vacrel)
 
 				lazy_vacuum_heap_page(vacrel, blkno, buf, 0, vmbuffer);
 
-				/* Forget the LP_DEAD items that we just vacuumed */
+				/* 忘掉我们刚刚清理掉的 LP_DEAD 项 */
 				dead_items->num_items = 0;
 
 				/*
-				 * Periodically perform FSM vacuuming to make newly-freed
-				 * space visible on upper FSM pages.  Note we have not yet
-				 * performed FSM processing for blkno.
+				 * 定期清理 FSM，使新释放的
+				 * 空间在上层 FSM 页上可见。注意我们尚未
+				 * 对 blkno 做 FSM 处理。
 				 */
 				if (blkno - next_fsm_block_to_vacuum >= VACUUM_FSM_EVERY_PAGES)
 				{
@@ -1057,13 +1057,13 @@ lazy_scan_heap(LVRelState *vacrel)
 				}
 
 				/*
-				 * Now perform FSM processing for blkno, and move on to next
-				 * page.
+				 * 现在对 blkno 做 FSM 处理，然后转到下一
+				 * 页。
 				 *
-				 * Our call to lazy_vacuum_heap_page() will have considered if
-				 * it's possible to set all_visible/all_frozen independently
-				 * of lazy_scan_prune().  Note that prunestate was invalidated
-				 * by lazy_vacuum_heap_page() call.
+				 * 我们对 lazy_vacuum_heap_page() 的调用会考虑是否
+				 * 可以独立于 lazy_scan_prune() 设置 all_visible/all_frozen。
+				 * 注意 prunestate 已被
+				 * lazy_vacuum_heap_page() 调用作废。
 				 */
 				freespace = PageGetHeapFreeSpace(page);
 
@@ -1073,18 +1073,18 @@ lazy_scan_heap(LVRelState *vacrel)
 			}
 
 			/*
-			 * There was no call to lazy_vacuum_heap_page() because pruning
-			 * didn't encounter/create any LP_DEAD items that needed to be
-			 * vacuumed.  Prune state has not been invalidated, so proceed
-			 * with prunestate-driven visibility map and FSM steps (just like
-			 * the two-pass strategy).
+			 * 没有调用 lazy_vacuum_heap_page()，因为剪枝
+			 * 没有遇到/产生任何需要
+			 * 清理的 LP_DEAD 项。剪枝状态没有作废，因此继续
+			 * 由 prunestate 驱动的可见性映射和 FSM 步骤（就像
+			 * 两遍策略那样）。
 			 */
 			Assert(dead_items->num_items == 0);
 		}
 
 		/*
-		 * Handle setting visibility map bit based on information from the VM
-		 * (as of last lazy_scan_skip() call), and from prunestate
+		 * 根据来自 VM 的信息
+		 * （截至上次 lazy_scan_skip() 调用）以及 prunestate，处理可见性映射位的设置
 		 */
 		if (!all_visible_according_to_vm && prunestate.all_visible)
 		{
@@ -1097,17 +1097,17 @@ lazy_scan_heap(LVRelState *vacrel)
 			}
 
 			/*
-			 * It should never be the case that the visibility map page is set
-			 * while the page-level bit is clear, but the reverse is allowed
-			 * (if checksums are not enabled).  Regardless, set both bits so
-			 * that we get back in sync.
+			 * 可见性映射页被置位
+			 * 而页级位却清除，这种情况绝不应当发生，但反过来是允许的
+			 * （若未启用校验和）。无论如何都把两个位都设上，
+			 * 以便重新同步。
 			 *
-			 * NB: If the heap page is all-visible but the VM bit is not set,
-			 * we don't need to dirty the heap page.  However, if checksums
-			 * are enabled, we do need to make sure that the heap page is
-			 * dirtied before passing it to visibilitymap_set(), because it
-			 * may be logged.  Given that this situation should only happen in
-			 * rare cases after a crash, it is not worth optimizing.
+			 * 注意：若堆页是全可见的但 VM 位未设置，
+			 * 我们不需要把堆页标脏。但是，若启用了校验和，
+			 * 我们确实需要确保堆页
+			 * 在传给 visibilitymap_set() 之前被标脏，因为它
+			 * 可能会被记入日志。鉴于这种情况只应在
+			 * 崩溃后的罕见情形中发生，不值得优化。
 			 */
 			PageSetAllVisible(page);
 			MarkBufferDirty(buf);
@@ -1117,10 +1117,10 @@ lazy_scan_heap(LVRelState *vacrel)
 		}
 
 		/*
-		 * As of PostgreSQL 9.2, the visibility map bit should never be set if
-		 * the page-level bit is clear.  However, it's possible that the bit
-		 * got cleared after lazy_scan_skip() was called, so we must recheck
-		 * with buffer lock before concluding that the VM is corrupt.
+		 * 自 PostgreSQL 9.2 起，若
+		 * 页级位是清除的，可见性映射位就绝不应当被设置。不过，该位有可能
+		 * 在调用 lazy_scan_skip() 之后被清除，所以在断定 VM 损坏之前，我们必须
+		 * 在持有缓冲区锁的情况下重新检查。
 		 */
 		else if (all_visible_according_to_vm && !PageIsAllVisible(page) &&
 				 visibilitymap_get_status(vacrel->rel, blkno, &vmbuffer) != 0)
@@ -1132,19 +1132,19 @@ lazy_scan_heap(LVRelState *vacrel)
 		}
 
 		/*
-		 * It's possible for the value returned by
-		 * GetOldestNonRemovableTransactionId() to move backwards, so it's not
-		 * wrong for us to see tuples that appear to not be visible to
-		 * everyone yet, while PD_ALL_VISIBLE is already set. The real safe
-		 * xmin value never moves backwards, but
-		 * GetOldestNonRemovableTransactionId() is conservative and sometimes
-		 * returns a value that's unnecessarily small, so if we see that
-		 * contradiction it just means that the tuples that we think are not
-		 * visible to everyone yet actually are, and the PD_ALL_VISIBLE flag
-		 * is correct.
+		 * GetOldestNonRemovableTransactionId()
+		 * 返回的值有可能回退，因此我们看到似乎尚未对
+		 * 所有人都可见的元组，而 PD_ALL_VISIBLE 已经设置，这并不
+		 * 算错。真正安全的
+		 * xmin 值从不回退，但
+		 * GetOldestNonRemovableTransactionId() 是保守的，有时
+		 * 返回一个不必要地偏小的值，所以若我们看到这种
+		 * 矛盾，那只是说明我们认为尚未
+		 * 对所有人可见的元组实际上已经可见，而 PD_ALL_VISIBLE 标志
+		 * 是正确的。
 		 *
-		 * There should never be LP_DEAD items on a page with PD_ALL_VISIBLE
-		 * set, however.
+		 * 不过，在设置了 PD_ALL_VISIBLE 的页上
+		 * 绝不应当有 LP_DEAD 项。
 		 */
 		else if (prunestate.has_lpdead_items && PageIsAllVisible(page))
 		{
@@ -1157,18 +1157,18 @@ lazy_scan_heap(LVRelState *vacrel)
 		}
 
 		/*
-		 * If the all-visible page is all-frozen but not marked as such yet,
-		 * mark it as all-frozen.  Note that all_frozen is only valid if
-		 * all_visible is true, so we must check both prunestate fields.
+		 * 若全可见页已经全冻结但尚未这样标记，
+		 * 就把它标为全冻结。注意只有 all_visible
+		 * 为真时 all_frozen 才有效，所以必须检查 prunestate 的两个字段。
 		 */
 		else if (all_visible_according_to_vm && prunestate.all_visible &&
 				 prunestate.all_frozen &&
 				 !VM_ALL_FROZEN(vacrel->rel, blkno, &vmbuffer))
 		{
 			/*
-			 * Avoid relying on all_visible_according_to_vm as a proxy for the
-			 * page-level PD_ALL_VISIBLE bit being set, since it might have
-			 * become stale -- even when all_visible is set in prunestate
+			 * 不要把 all_visible_according_to_vm 当作
+			 * 页级 PD_ALL_VISIBLE 位已设置的代理，因为它可能已经
+			 * 过时 -- 即使 prunestate 中设置了 all_visible
 			 */
 			if (!PageIsAllVisible(page))
 			{
@@ -1177,11 +1177,11 @@ lazy_scan_heap(LVRelState *vacrel)
 			}
 
 			/*
-			 * Set the page all-frozen (and all-visible) in the VM.
+			 * 在 VM 中把该页设为全冻结（以及全可见）。
 			 *
-			 * We can pass InvalidTransactionId as our visibility_cutoff_xid,
-			 * since a snapshotConflictHorizon sufficient to make everything
-			 * safe for REDO was logged when the page's tuples were frozen.
+			 * 我们可以把 InvalidTransactionId 作为 visibility_cutoff_xid 传入，
+			 * 因为在冻结该页元组时已经记入了足以使一切
+			 * 对 REDO 都安全的 snapshotConflictHorizon。
 			 */
 			Assert(!TransactionIdIsValid(prunestate.visibility_cutoff_xid));
 			visibilitymap_set(vacrel->rel, blkno, buf, InvalidXLogRecPtr,
@@ -1191,28 +1191,28 @@ lazy_scan_heap(LVRelState *vacrel)
 		}
 
 		/*
-		 * Final steps for block: drop cleanup lock, record free space in the
+		 * 该块的最后步骤：放下清理锁，把空闲空间记入
 		 * FSM
 		 */
 		if (prunestate.has_lpdead_items && vacrel->do_index_vacuuming)
 		{
 			/*
-			 * Wait until lazy_vacuum_heap_rel() to save free space.  This
-			 * doesn't just save us some cycles; it also allows us to record
-			 * any additional free space that lazy_vacuum_heap_page() will
-			 * make available in cases where it's possible to truncate the
-			 * page's line pointer array.
+			 * 等到 lazy_vacuum_heap_rel() 再保存空闲空间。这
+			 * 不只是省下一些开销；它还让我们能记录
+			 * lazy_vacuum_heap_page() 在可以截断
+			 * 该页行指针数组时
+			 * 将额外腾出的空闲空间。
 			 *
-			 * Note: It's not in fact 100% certain that we really will call
-			 * lazy_vacuum_heap_rel() -- lazy_vacuum() might yet opt to skip
-			 * index vacuuming (and so must skip heap vacuuming).  This is
-			 * deemed okay because it only happens in emergencies, or when
-			 * there is very little free space anyway. (Besides, we start
-			 * recording free space in the FSM once index vacuuming has been
-			 * abandoned.)
+			 * 注意：我们并非 100% 确定真的会调用
+			 * lazy_vacuum_heap_rel() -- lazy_vacuum() 仍可能选择跳过
+			 * 索引清理（因此也必须跳过堆清理）。这被
+			 * 认为可以接受，因为它只发生在紧急情况下，或
+			 * 空闲空间本来就很少时。（此外，一旦放弃
+			 * 索引清理，我们就开始
+			 * 把空闲空间记入 FSM。）
 			 *
-			 * Note: The one-pass (no indexes) case is only supposed to make
-			 * it this far when there were no LP_DEAD items during pruning.
+			 * 注意：单遍（无索引）情形只有在剪枝期间
+			 * 没有 LP_DEAD 项时，才应当走到这里。
 			 */
 			Assert(vacrel->nindexes > 0);
 			UnlockReleaseBuffer(buf);
@@ -1230,65 +1230,65 @@ lazy_scan_heap(LVRelState *vacrel)
 	if (BufferIsValid(vmbuffer))
 		ReleaseBuffer(vmbuffer);
 
-	/* report that everything is now scanned */
+	/* 报告现在一切都已扫描 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_SCANNED, blkno);
 
-	/* now we can compute the new value for pg_class.reltuples */
+	/* 现在可以计算 pg_class.reltuples 的新值 */
 	vacrel->new_live_tuples = vac_estimate_reltuples(vacrel->rel, rel_pages,
 													 vacrel->scanned_pages,
 													 vacrel->live_tuples);
 
 	/*
-	 * Also compute the total number of surviving heap entries.  In the
-	 * (unlikely) scenario that new_live_tuples is -1, take it as zero.
+	 * 同时计算幸存的堆项总数。在
+	 * new_live_tuples 为 -1 这种（不太可能的）情形下，把它当作零。
 	 */
 	vacrel->new_rel_tuples =
 		Max(vacrel->new_live_tuples, 0) + vacrel->recently_dead_tuples +
 		vacrel->missed_dead_tuples;
 
 	/*
-	 * Do index vacuuming (call each index's ambulkdelete routine), then do
-	 * related heap vacuuming
+	 * 做索引清理（调用每个索引的 ambulkdelete 例程），然后做
+	 * 相关的堆清理
 	 */
 	if (dead_items->num_items > 0)
 		lazy_vacuum(vacrel);
 
 	/*
-	 * Vacuum the remainder of the Free Space Map.  We must do this whether or
-	 * not there were indexes, and whether or not we bypassed index vacuuming.
+	 * 清理空闲空间映射的剩余部分。无论是否
+	 * 有索引，也无论是否绕过了索引清理，都必须这样做。
 	 */
 	if (blkno > next_fsm_block_to_vacuum)
 		FreeSpaceMapVacuumRange(vacrel->rel, next_fsm_block_to_vacuum, blkno);
 
-	/* report all blocks vacuumed */
+	/* 报告所有块都已清理 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_VACUUMED, blkno);
 
-	/* Do final index cleanup (call each index's amvacuumcleanup routine) */
+	/* 做最终的索引善后（调用每个索引的 amvacuumcleanup 例程） */
 	if (vacrel->nindexes > 0 && vacrel->do_index_cleanup)
 		lazy_cleanup_all_indexes(vacrel);
 }
 
 /*
- *	lazy_scan_skip() -- set up range of skippable blocks using visibility map.
+ *	lazy_scan_skip() -- 用可见性映射建立可跳过块的范围。
  *
- * lazy_scan_heap() calls here every time it needs to set up a new range of
- * blocks to skip via the visibility map.  Caller passes the next block in
- * line.  We return a next_unskippable_block for this range.  When there are
- * no skippable blocks we just return caller's next_block.  The all-visible
- * status of the returned block is set in *next_unskippable_allvis for caller,
- * too.  Block usually won't be all-visible (since it's unskippable), but it
- * can be during aggressive VACUUMs (as well as in certain edge cases).
+ * 每次需要用可见性映射建立新的
+ * 可跳过块范围时，lazy_scan_heap() 都会调用到这里。调用方传入下一个
+ * 待处理的块。我们为该范围返回 next_unskippable_block。若没有
+ * 可跳过的块，就只返回调用方的 next_block。返回块的全可见
+ * 状态也在 *next_unskippable_allvis 中为调用方设置。
+ * 该块通常不会是全可见的（因为它不可跳过），但在
+ * 积极 VACUUMs 期间（以及某些边角情况中）可以是。
  *
- * Sets *skipping_current_range to indicate if caller should skip this range.
- * Costs and benefits drive our decision.  Very small ranges won't be skipped.
+ * 设置 *skipping_current_range，表示调用方是否应跳过该范围。
+ * 代价和收益驱动我们的决定。非常小的范围不会被跳过。
  *
- * Note: our opinion of which blocks can be skipped can go stale immediately.
- * It's okay if caller "misses" a page whose all-visible or all-frozen marking
- * was concurrently cleared, though.  All that matters is that caller scan all
- * pages whose tuples might contain XIDs < OldestXmin, or MXIDs < OldestMxact.
- * (Actually, non-aggressive VACUUMs can choose to skip all-visible pages with
- * older XIDs/MXIDs.  The vacrel->skippedallvis flag will be set here when the
- * choice to skip such a range is actually made, making everything safe.)
+ * 注意：我们对哪些块可以跳过的判断可能立刻过时。
+ * 不过，若调用方"错过"了一个全可见或全冻结标记
+ * 被并发清除的页，那也没关系。重要的是调用方扫描所有
+ * 其元组可能含有 XIDs < OldestXmin 或 MXIDs < OldestMxact 的页。
+ * （实际上，非积极 VACUUM 可以选择跳过含有
+ * 更旧 XID/MXID 的全可见页。当真正做出
+ * 跳过这样一段范围的选择时，这里会设置 vacrel->skippedallvis 标志，从而使一切安全。）
  */
 static BlockNumber
 lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer, BlockNumber next_block,
@@ -1314,26 +1314,26 @@ lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer, BlockNumber next_block,
 		}
 
 		/*
-		 * Caller must scan the last page to determine whether it has tuples
-		 * (caller must have the opportunity to set vacrel->nonempty_pages).
-		 * This rule avoids having lazy_truncate_heap() take access-exclusive
-		 * lock on rel to attempt a truncation that fails anyway, just because
-		 * there are tuples on the last page (it is likely that there will be
-		 * tuples on other nearby pages as well, but those can be skipped).
+		 * 调用方必须扫描最后一页，以判断它是否有元组
+		 * （调用方必须有机会设置 vacrel->nonempty_pages）。
+		 * 这条规则避免 lazy_truncate_heap() 对 rel 取得访问排他
+		 * 锁，只因为最后一页上有元组就去尝试一次反正会失败的截断
+		 * （附近其他页上很可能
+		 * 也有元组，但那些可以跳过）。
 		 *
-		 * Implement this by always treating the last block as unsafe to skip.
+		 * 实现方式是始终把最后一块视为跳过不安全。
 		 */
 		if (next_unskippable_block == rel_pages - 1)
 			break;
 
-		/* DISABLE_PAGE_SKIPPING makes all skipping unsafe */
+		/* DISABLE_PAGE_SKIPPING 使一切跳过都不安全 */
 		if (!vacrel->skipwithvm)
 			break;
 
 		/*
-		 * Aggressive VACUUM caller can't skip pages just because they are
-		 * all-visible.  They may still skip all-frozen pages, which can't
-		 * contain XIDs < OldestXmin (XIDs that aren't already frozen by now).
+		 * 积极 VACUUM 的调用方不能仅仅因为页是
+		 * 全可见的就跳过它们。它们仍可跳过全冻结页，那些页不可能
+		 * 含有 < OldestXmin 的 XIDs（现在尚未冻结的 XID）。
 		 */
 		if ((mapbits & VISIBILITYMAP_ALL_FROZEN) == 0)
 		{
@@ -1341,8 +1341,8 @@ lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer, BlockNumber next_block,
 				break;
 
 			/*
-			 * All-visible block is safe to skip in non-aggressive case.  But
-			 * remember that the final range contains such a block for later.
+			 * 在非积极情形下，全可见块可以安全跳过。但
+			 * 要记住最终范围包含这样一块，供以后使用。
 			 */
 			skipsallvis = true;
 		}
@@ -1353,14 +1353,14 @@ lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer, BlockNumber next_block,
 	}
 
 	/*
-	 * We only skip a range with at least SKIP_PAGES_THRESHOLD consecutive
-	 * pages.  Since we're reading sequentially, the OS should be doing
-	 * readahead for us, so there's no gain in skipping a page now and then.
-	 * Skipping such a range might even discourage sequential detection.
+	 * 我们只跳过至少有 SKIP_PAGES_THRESHOLD 个连续
+	 * 页的范围。因为我们在顺序读取，OS 应当在为我们
+	 * 做预读，所以偶尔跳过一页没有好处。
+	 * 跳过这样的范围甚至可能妨碍顺序检测。
 	 *
-	 * This test also enables more frequent relfrozenxid advancement during
-	 * non-aggressive VACUUMs.  If the range has any all-visible pages then
-	 * skipping makes updating relfrozenxid unsafe, which is a real downside.
+	 * 这项测试也使非积极 VACUUMs 期间 relfrozenxid 的推进更频繁。
+	 * 若该范围含有任何全可见页，那么
+	 * 跳过会使更新 relfrozenxid 变得不安全，这是真正的缺点。
 	 */
 	if (nskippable_blocks < SKIP_PAGES_THRESHOLD)
 		*skipping_current_range = false;
@@ -1375,32 +1375,32 @@ lazy_scan_skip(LVRelState *vacrel, Buffer *vmbuffer, BlockNumber next_block,
 }
 
 /*
- *	lazy_scan_new_or_empty() -- lazy_scan_heap() new/empty page handling.
+ *	lazy_scan_new_or_empty() -- lazy_scan_heap() 对新页/空页的处理。
  *
- * Must call here to handle both new and empty pages before calling
- * lazy_scan_prune or lazy_scan_noprune, since they're not prepared to deal
- * with new or empty pages.
+ * 在调用 lazy_scan_prune 或 lazy_scan_noprune 之前，必须调用这里
+ * 来处理新页和空页，因为它们没有准备好对付
+ * 新页或空页。
  *
- * It's necessary to consider new pages as a special case, since the rules for
- * maintaining the visibility map and FSM with empty pages are a little
- * different (though new pages can be truncated away during rel truncation).
+ * 有必要把新页当作特殊情况，因为用空页维护
+ * 可见性映射和 FSM 的规则略有
+ * 不同（不过新页可以在关系截断期间被截掉）。
  *
- * Empty pages are not really a special case -- they're just heap pages that
- * have no allocated tuples (including even LP_UNUSED items).  You might
- * wonder why we need to handle them here all the same.  It's only necessary
- * because of a corner-case involving a hard crash during heap relation
- * extension.  If we ever make relation-extension crash safe, then it should
- * no longer be necessary to deal with empty pages here (or new pages, for
- * that matter).
+ * 空页其实不是特殊情况 -- 它们只是
+ * 没有已分配元组的堆页（甚至包括 LP_UNUSED 项）。你也许
+ * 会奇怪为什么这里仍然要处理它们。这只是因为
+ * 堆关系扩展期间硬崩溃这一边角情况
+ * 才有必要。若我们有朝一日让关系扩展对崩溃安全，那么
+ * 这里就不再需要处理空页（就此而言，
+ * 也不再需要处理新页）。
  *
- * Caller must hold at least a shared lock.  We might need to escalate the
- * lock in that case, so the type of lock caller holds needs to be specified
- * using 'sharelock' argument.
+ * 调用方必须至少持有共享锁。那种情况下我们可能需要升级
+ * 该锁，所以必须用 'sharelock' 参数
+ * 指明调用方持有的锁类型。
  *
- * Returns false in common case where caller should go on to call
- * lazy_scan_prune (or lazy_scan_noprune).  Otherwise returns true, indicating
- * that lazy_scan_heap is done processing the page, releasing lock on caller's
- * behalf.
+ * 在常见情形下返回假，调用方应继续调用
+ * lazy_scan_prune（或 lazy_scan_noprune）。否则返回真，表示
+ * lazy_scan_heap 已处理完该页，并代调用方
+ * 释放了锁。
  */
 static bool
 lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
@@ -1411,23 +1411,23 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 	if (PageIsNew(page))
 	{
 		/*
-		 * All-zeroes pages can be left over if either a backend extends the
-		 * relation by a single page, but crashes before the newly initialized
-		 * page has been written out, or when bulk-extending the relation
-		 * (which creates a number of empty pages at the tail end of the
-		 * relation), and then enters them into the FSM.
+		 * 全零页可能残留下来：要么某个后端把关系
+		 * 扩展了一页，但在新初始化的
+		 * 页写出之前崩溃了；要么在批量扩展该关系
+		 * （这会在关系尾部创建若干空页）
+		 * 之后把它们记入 FSM。
 		 *
-		 * Note we do not enter the page into the visibilitymap. That has the
-		 * downside that we repeatedly visit this page in subsequent vacuums,
-		 * but otherwise we'll never discover the space on a promoted standby.
-		 * The harm of repeated checking ought to normally not be too bad. The
-		 * space usually should be used at some point, otherwise there
-		 * wouldn't be any regular vacuums.
+		 * 注意我们不把该页记入 visibilitymap。这样做的
+		 * 缺点是后续清理会反复访问此页，
+		 * 否则在提升后的备库上我们将永远发现不了这块空间。
+		 * 反复检查的害处通常不应太严重。这些
+		 * 空间通常总会在某个时候被用掉，否则
+		 * 就不会有常规清理。
 		 *
-		 * Make sure these pages are in the FSM, to ensure they can be reused.
-		 * Do that by testing if there's any space recorded for the page. If
-		 * not, enter it. We do so after releasing the lock on the heap page,
-		 * the FSM is approximate, after all.
+		 * 确保这些页在 FSM 中，以便它们能被重用。
+		 * 做法是测试该页是否记录了任何空间。若
+		 * 没有，就记入。我们在释放堆页上的锁之后才这样做，
+		 * 毕竟 FSM 是近似的。
 		 */
 		UnlockReleaseBuffer(buf);
 
@@ -1444,9 +1444,9 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 	if (PageIsEmpty(page))
 	{
 		/*
-		 * It seems likely that caller will always be able to get a cleanup
-		 * lock on an empty page.  But don't take any chances -- escalate to
-		 * an exclusive lock (still don't need a cleanup lock, though).
+		 * 调用方似乎总能在空页上取得清理
+		 * 锁。但不要冒险 -- 升级到
+		 * 排他锁（不过仍然不需要清理锁）。
 		 */
 		if (sharelock)
 		{
@@ -1455,34 +1455,34 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 
 			if (!PageIsEmpty(page))
 			{
-				/* page isn't new or empty -- keep lock and pin for now */
+				/* 页不是新页或空页 -- 暂时保留锁和钉住 */
 				return false;
 			}
 		}
 		else
 		{
-			/* Already have a full cleanup lock (which is more than enough) */
+			/* 已经持有完整的清理锁（这已经绰绰有余） */
 		}
 
 		/*
-		 * Unlike new pages, empty pages are always set all-visible and
-		 * all-frozen.
+		 * 与新页不同，空页总是被设为全可见和
+		 * 全冻结。
 		 */
 		if (!PageIsAllVisible(page))
 		{
 			START_CRIT_SECTION();
 
-			/* mark buffer dirty before writing a WAL record */
+			/* 在写 WAL 记录之前把缓冲区标脏 */
 			MarkBufferDirty(buf);
 
 			/*
-			 * It's possible that another backend has extended the heap,
-			 * initialized the page, and then failed to WAL-log the page due
-			 * to an ERROR.  Since heap extension is not WAL-logged, recovery
-			 * might try to replay our record setting the page all-visible and
-			 * find that the page isn't initialized, which will cause a PANIC.
-			 * To prevent that, check whether the page has been previously
-			 * WAL-logged, and if not, do that now.
+			 * 另一个后端可能已经扩展了堆，
+			 * 初始化了该页，然后由于
+			 * ERROR 而未能把该页写入 WAL。因为堆扩展不记入 WAL，恢复
+			 * 可能会重放我们把该页设为全可见的记录，并
+			 * 发现该页尚未初始化，这会导致 PANIC。
+			 * 为防止这种情况，检查该页先前是否
+			 * 已记入 WAL，若没有，现在就记。
 			 */
 			if (RelationNeedsWAL(vacrel->rel) &&
 				PageGetLSN(page) == InvalidXLogRecPtr)
@@ -1501,29 +1501,29 @@ lazy_scan_new_or_empty(LVRelState *vacrel, Buffer buf, BlockNumber blkno,
 		return true;
 	}
 
-	/* page isn't new or empty -- keep lock and pin */
+	/* 页不是新页或空页 -- 保留锁和钉住 */
 	return false;
 }
 
 /*
- *	lazy_scan_prune() -- lazy_scan_heap() pruning and freezing.
+ *	lazy_scan_prune() -- lazy_scan_heap() 的剪枝与冻结。
  *
- * Caller must hold pin and buffer cleanup lock on the buffer.
+ * 调用方必须钉住该缓冲区并持有缓冲区清理锁。
  *
- * Prior to PostgreSQL 14 there were very rare cases where heap_page_prune()
- * was allowed to disagree with our HeapTupleSatisfiesVacuum() call about
- * whether or not a tuple should be considered DEAD.  This happened when an
- * inserting transaction concurrently aborted (after our heap_page_prune()
- * call, before our HeapTupleSatisfiesVacuum() call).  There was rather a lot
- * of complexity just so we could deal with tuples that were DEAD to VACUUM,
- * but nevertheless were left with storage after pruning.
+ * PostgreSQL 14 之前，有极罕见的情况允许 heap_page_prune()
+ * 与我们的 HeapTupleSatisfiesVacuum() 调用在
+ * 一个元组是否应视为 DEAD 上意见不一。这发生在某个
+ * 插入事务并发中止时（在我们的 heap_page_prune()
+ * 调用之后、HeapTupleSatisfiesVacuum() 调用之前）。当时有相当多
+ * 的复杂性，只为了处理对 VACUUM 而言已是 DEAD、
+ * 但剪枝之后仍留有存储的元组。
  *
- * The approach we take now is to restart pruning when the race condition is
- * detected.  This allows heap_page_prune() to prune the tuples inserted by
- * the now-aborted transaction.  This is a little crude, but it guarantees
- * that any items that make it into the dead_items array are simple LP_DEAD
- * line pointers, and that every remaining item with tuple storage is
- * considered as a candidate for freezing.
+ * 我们现在的做法是在检测到该竞态时
+ * 重新开始剪枝。这让 heap_page_prune() 能够剪掉
+ * 现已中止的事务所插入的元组。这有些粗略，但它保证
+ * 进入 dead_items 数组的任何项都是简单的 LP_DEAD
+ * 行指针，并且每一个仍带元组存储的剩余项
+ * 都被当作冻结候选。
  */
 static void
 lazy_scan_prune(LVRelState *vacrel,
@@ -1552,15 +1552,15 @@ lazy_scan_prune(LVRelState *vacrel,
 	Assert(BufferGetBlockNumber(buf) == blkno);
 
 	/*
-	 * maxoff might be reduced following line pointer array truncation in
-	 * heap_page_prune.  That's safe for us to ignore, since the reclaimed
-	 * space will continue to look like LP_UNUSED items below.
+	 * heap_page_prune 中的行指针数组截断之后，maxoff 可能会减小。
+	 * 我们可以安全地忽略这一点，因为回收的
+	 * 空间在下面看起来仍会像 LP_UNUSED 项。
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
 
 retry:
 
-	/* Initialize (or reset) page-level state */
+	/* 初始化（或重置）页级状态 */
 	pagefrz.freeze_required = false;
 	pagefrz.FreezePageRelfrozenXid = vacrel->NewRelfrozenXid;
 	pagefrz.FreezePageRelminMxid = vacrel->NewRelminMxid;
@@ -1573,13 +1573,13 @@ retry:
 	recently_dead_tuples = 0;
 
 	/*
-	 * Prune all HOT-update chains in this page.
+	 * 剪枝此页上的所有 HOT 更新链。
 	 *
-	 * We count tuples removed by the pruning step as tuples_deleted.  Its
-	 * final value can be thought of as the number of tuples that have been
-	 * deleted from the table.  It should not be confused with lpdead_items;
-	 * lpdead_items's final value can be thought of as the number of tuples
-	 * that were deleted from indexes.
+	 * 我们把剪枝步骤移除的元组计为 tuples_deleted。它的
+	 * 最终值可以理解为已从该表
+	 * 删除的元组数。不应把它和 lpdead_items 搞混；
+	 * lpdead_items 的最终值可以理解为已从索引
+	 * 删除的元组数。
 	 */
 	tuples_deleted = heap_page_prune(rel, buf, vacrel->cutoffs.OldestXmin,
 									 vacrel->vistest,
@@ -1587,8 +1587,8 @@ retry:
 									 &vacrel->offnum);
 
 	/*
-	 * Now scan the page to collect LP_DEAD items and check for tuples
-	 * requiring freezing among remaining tuples with storage
+	 * 现在扫描该页以收集 LP_DEAD 项，并检查仍带存储的
+	 * 剩余元组中需要冻结的元组
 	 */
 	prunestate->hastup = false;
 	prunestate->has_lpdead_items = false;
@@ -1603,8 +1603,8 @@ retry:
 		bool		totally_frozen;
 
 		/*
-		 * Set the offset number so that we can display it along with any
-		 * error that occurred while processing this tuple.
+		 * 设置偏移号，以便在处理此元组时若发生
+		 * 任何错误，可以把它一起显示出来。
 		 */
 		vacrel->offnum = offnum;
 		itemid = PageGetItemId(page, offnum);
@@ -1612,10 +1612,10 @@ retry:
 		if (!ItemIdIsUsed(itemid))
 			continue;
 
-		/* Redirect items mustn't be touched */
+		/* 不得触碰重定向项 */
 		if (ItemIdIsRedirected(itemid))
 		{
-			/* page makes rel truncation unsafe */
+			/* 此页使关系截断不安全 */
 			prunestate->hastup = true;
 			continue;
 		}
@@ -1623,18 +1623,18 @@ retry:
 		if (ItemIdIsDead(itemid))
 		{
 			/*
-			 * Deliberately don't set hastup for LP_DEAD items.  We make the
-			 * soft assumption that any LP_DEAD items encountered here will
-			 * become LP_UNUSED later on, before count_nondeletable_pages is
-			 * reached.  If we don't make this assumption then rel truncation
-			 * will only happen every other VACUUM, at most.  Besides, VACUUM
-			 * must treat hastup/nonempty_pages as provisional no matter how
-			 * LP_DEAD items are handled (handled here, or handled later on).
+			 * 有意不为 LP_DEAD 项设置 hastup。我们做一个
+			 * 宽松假设：这里遇到的任何 LP_DEAD 项稍后都会
+			 * 变成 LP_UNUSED，且发生在到达 count_nondeletable_pages
+			 * 之前。若不做这个假设，关系截断
+			 * 最多只会每隔一次 VACUUM 发生。此外，无论
+			 * LP_DEAD 项如何处理（在这里处理，或稍后处理），VACUUM
+			 * 都必须把 hastup/nonempty_pages 当作临时值。
 			 *
-			 * Also deliberately delay unsetting all_visible until just before
-			 * we return to lazy_scan_heap caller, as explained in full below.
-			 * (This is another case where it's useful to anticipate that any
-			 * LP_DEAD items will become LP_UNUSED during the ongoing VACUUM.)
+			 * 也有意把清除 all_visible 推迟到
+			 * 返回 lazy_scan_heap 调用方的前一刻，下文会完整解释。
+			 * （这是另一个有用的情形：预期任何
+			 * LP_DEAD 项都会在本次 VACUUM 期间变成 LP_UNUSED。）
 			 */
 			deadoffsets[lpdead_items++] = offnum;
 			continue;
@@ -1648,10 +1648,10 @@ retry:
 		tuple.t_tableOid = RelationGetRelid(rel);
 
 		/*
-		 * DEAD tuples are almost always pruned into LP_DEAD line pointers by
-		 * heap_page_prune(), but it's possible that the tuple state changed
-		 * since heap_page_prune() looked.  Handle that here by restarting.
-		 * (See comments at the top of function for a full explanation.)
+		 * DEAD 元组几乎总是被 heap_page_prune() 剪成 LP_DEAD 行指针，
+		 * 但自 heap_page_prune() 查看以来，元组状态有可能已经
+		 * 改变。这里通过重新开始来处理。
+		 * （完整解释见函数顶部的注释。）
 		 */
 		res = HeapTupleSatisfiesVacuum(&tuple, vacrel->cutoffs.OldestXmin,
 									   buf);
@@ -1660,41 +1660,41 @@ retry:
 			goto retry;
 
 		/*
-		 * The criteria for counting a tuple as live in this block need to
-		 * match what analyze.c's acquire_sample_rows() does, otherwise VACUUM
-		 * and ANALYZE may produce wildly different reltuples values, e.g.
-		 * when there are many recently-dead tuples.
+		 * 在本块中把元组计为活元组的标准需要
+		 * 与 analyze.c 的 acquire_sample_rows() 一致，否则 VACUUM
+		 * 和 ANALYZE 可能产生差异极大的 reltuples 值，例如
+		 * 有许多最近死亡元组时。
 		 *
-		 * The logic here is a bit simpler than acquire_sample_rows(), as
-		 * VACUUM can't run inside a transaction block, which makes some cases
-		 * impossible (e.g. in-progress insert from the same transaction).
+		 * 这里的逻辑比 acquire_sample_rows() 简单一些，因为
+		 * VACUUM 不能在事务块内运行，这使某些情形
+		 * 不可能发生（例如同一事务中进行中的插入）。
 		 *
-		 * We treat LP_DEAD items (which are the closest thing to DEAD tuples
-		 * that might be seen here) differently, too: we assume that they'll
-		 * become LP_UNUSED before VACUUM finishes.  This difference is only
-		 * superficial.  VACUUM effectively agrees with ANALYZE about DEAD
-		 * items, in the end.  VACUUM won't remember LP_DEAD items, but only
-		 * because they're not supposed to be left behind when it is done.
-		 * (Cases where we bypass index vacuuming will violate this optimistic
-		 * assumption, but the overall impact of that should be negligible.)
+		 * 我们也区别对待 LP_DEAD 项（它们是这里可能见到的
+		 * 最接近 DEAD 元组的东西）：我们假设它们会在
+		 * VACUUM 结束前变成 LP_UNUSED。这种差别只是
+		 * 表面的。最终 VACUUM 在 DEAD
+		 * 项上实际上与 ANALYZE 一致。VACUUM 不会记住 LP_DEAD 项，但这只是
+		 * 因为它们在 VACUUM 结束时不应当被留下。
+		 * （绕过索引清理的情形会违反这一乐观
+		 * 假设，但其总体影响应当可以忽略。）
 		 */
 		switch (res)
 		{
 			case HEAPTUPLE_LIVE:
 
 				/*
-				 * Count it as live.  Not only is this natural, but it's also
-				 * what acquire_sample_rows() does.
+				 * 把它计为活的。这不仅自然，而且也是
+				 * acquire_sample_rows() 的做法。
 				 */
 				live_tuples++;
 
 				/*
-				 * Is the tuple definitely visible to all transactions?
+				 * 该元组是否肯定对所有事务可见？
 				 *
-				 * NB: Like with per-tuple hint bits, we can't set the
-				 * PD_ALL_VISIBLE flag if the inserter committed
-				 * asynchronously. See SetHintBits for more info. Check that
-				 * the tuple is hinted xmin-committed because of that.
+				 * 注意：和逐元组提示位一样，若插入者
+				 * 异步提交，我们不能设置
+				 * PD_ALL_VISIBLE 标志。详见 SetHintBits。因此要检查
+				 * 该元组的提示位表明 xmin 已提交。
 				 */
 				if (prunestate->all_visible)
 				{
@@ -1707,8 +1707,8 @@ retry:
 					}
 
 					/*
-					 * The inserter definitely committed. But is it old enough
-					 * that everyone sees it as committed?
+					 * 插入者肯定已提交。但它是否足够旧，
+					 * 以至于所有人都把它看作已提交？
 					 */
 					xmin = HeapTupleHeaderGetXmin(tuple.t_data);
 					if (!TransactionIdPrecedes(xmin,
@@ -1718,7 +1718,7 @@ retry:
 						break;
 					}
 
-					/* Track newest xmin on page. */
+					/* 跟踪该页上最新的 xmin。 */
 					if (TransactionIdFollows(xmin, prunestate->visibility_cutoff_xid) &&
 						TransactionIdIsNormal(xmin))
 						prunestate->visibility_cutoff_xid = xmin;
@@ -1727,9 +1727,9 @@ retry:
 			case HEAPTUPLE_RECENTLY_DEAD:
 
 				/*
-				 * If tuple is recently dead then we must not remove it from
-				 * the relation.  (We only remove items that are LP_DEAD from
-				 * pruning.)
+				 * 若元组是最近死亡的，则不得把它从
+				 * 关系中移除。（我们只移除剪枝得到的
+				 * LP_DEAD 项。）
 				 */
 				recently_dead_tuples++;
 				prunestate->all_visible = false;
@@ -1737,22 +1737,22 @@ retry:
 			case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 				/*
-				 * We do not count these rows as live, because we expect the
-				 * inserting transaction to update the counters at commit, and
-				 * we assume that will happen only after we report our
-				 * results.  This assumption is a bit shaky, but it is what
-				 * acquire_sample_rows() does, so be consistent.
+				 * 我们不把这些行计为活的，因为我们预期
+				 * 插入事务会在提交时更新计数器，并且
+				 * 我们假设那只会在我们报告
+				 * 结果之后发生。这个假设不太牢靠，但这正是
+				 * acquire_sample_rows() 的做法，所以保持一致。
 				 */
 				prunestate->all_visible = false;
 				break;
 			case HEAPTUPLE_DELETE_IN_PROGRESS:
-				/* This is an expected case during concurrent vacuum */
+				/* 这是并发清理期间的预期情形 */
 				prunestate->all_visible = false;
 
 				/*
-				 * Count such rows as live.  As above, we assume the deleting
-				 * transaction will commit and update the counters after we
-				 * report.
+				 * 把这样的行计为活的。同上，我们假设删除
+				 * 事务会在我们报告之后提交并更新
+				 * 计数器。
 				 */
 				live_tuples++;
 				break;
@@ -1761,46 +1761,46 @@ retry:
 				break;
 		}
 
-		prunestate->hastup = true;	/* page makes rel truncation unsafe */
+		prunestate->hastup = true;	/* 此页使关系截断不安全 */
 
-		/* Tuple with storage -- consider need to freeze */
+		/* 带存储的元组 -- 考虑是否需要冻结 */
 		if (heap_prepare_freeze_tuple(tuple.t_data, &vacrel->cutoffs, &pagefrz,
 									  &frozen[tuples_frozen], &totally_frozen))
 		{
-			/* Save prepared freeze plan for later */
+			/* 保存准备好的冻结计划，供以后使用 */
 			frozen[tuples_frozen++].offset = offnum;
 		}
 
 		/*
-		 * If any tuple isn't either totally frozen already or eligible to
-		 * become totally frozen (according to its freeze plan), then the page
-		 * definitely cannot be set all-frozen in the visibility map later on
+		 * 若任何元组既不是已经完全冻结，也没有资格
+		 * 变成完全冻结（按其冻结计划），那么该页
+		 * 以后肯定无法在可见性映射中设为全冻结
 		 */
 		if (!totally_frozen)
 			prunestate->all_frozen = false;
 	}
 
 	/*
-	 * We have now divided every item on the page into either an LP_DEAD item
-	 * that will need to be vacuumed in indexes later, or a LP_NORMAL tuple
-	 * that remains and needs to be considered for freezing now (LP_UNUSED and
-	 * LP_REDIRECT items also remain, but are of no further interest to us).
+	 * 现在该页上的每一项都被分成：要么是稍后需要
+	 * 在索引中清理的 LP_DEAD 项，要么是留下并需要
+	 * 现在考虑冻结的 LP_NORMAL 元组（LP_UNUSED 和
+	 * LP_REDIRECT 项也会留下，但我们对它们没有进一步兴趣）。
 	 */
 	vacrel->offnum = InvalidOffsetNumber;
 
 	/*
-	 * Freeze the page when heap_prepare_freeze_tuple indicates that at least
-	 * one XID/MXID from before FreezeLimit/MultiXactCutoff is present.  Also
-	 * freeze when pruning generated an FPI, if doing so means that we set the
-	 * page all-frozen afterwards (might not happen until final heap pass).
+	 * 当 heap_prepare_freeze_tuple 表明至少存在一个
+	 * 早于 FreezeLimit/MultiXactCutoff 的 XID/MXID 时，冻结该页。若剪枝
+	 * 产生了 FPI，且这样做意味着我们随后把该页
+	 * 设为全冻结，也要冻结（也许要到最后一次堆扫描才发生）。
 	 */
 	if (pagefrz.freeze_required || tuples_frozen == 0 ||
 		(prunestate->all_visible && prunestate->all_frozen &&
 		 fpi_before != pgWalUsage.wal_fpi))
 	{
 		/*
-		 * We're freezing the page.  Our final NewRelfrozenXid doesn't need to
-		 * be affected by the XIDs that are just about to be frozen anyway.
+		 * 我们正在冻结该页。最终的 NewRelfrozenXid 不需要
+		 * 受那些马上就要被冻结的 XIDs 影响。
 		 */
 		vacrel->NewRelfrozenXid = pagefrz.FreezePageRelfrozenXid;
 		vacrel->NewRelminMxid = pagefrz.FreezePageRelminMxid;
@@ -1808,17 +1808,17 @@ retry:
 		if (tuples_frozen == 0)
 		{
 			/*
-			 * We have no freeze plans to execute, so there's no added cost
-			 * from following the freeze path.  That's why it was chosen. This
-			 * is important in the case where the page only contains totally
-			 * frozen tuples at this point (perhaps only following pruning).
-			 * Such pages can be marked all-frozen in the VM by our caller,
-			 * even though none of its tuples were newly frozen here (note
-			 * that the "no freeze" path never sets pages all-frozen).
+			 * 我们没有要执行的冻结计划，因此走冻结路径
+			 * 没有额外代价。这就是选择它的原因。这一点
+			 * 在该页此刻只含有完全
+			 * 冻结元组时很重要（也许只是在剪枝之后）。
+			 * 调用方仍可在 VM 中把这样的页标为全冻结，
+			 * 即使这里没有任何元组是新冻结的（注意
+			 * "no freeze" 路径从不把页设为全冻结）。
 			 *
-			 * We never increment the frozen_pages instrumentation counter
-			 * here, since it only counts pages with newly frozen tuples
-			 * (don't confuse that with pages newly set all-frozen in VM).
+			 * 我们在这里从不增加 frozen_pages 测量计数器，
+			 * 因为它只统计含有新冻结元组的页
+			 * （不要把它和 VM 中新设为全冻结的页搞混）。
 			 */
 		}
 		else
@@ -1828,25 +1828,25 @@ retry:
 			vacrel->frozen_pages++;
 
 			/*
-			 * We can use visibility_cutoff_xid as our cutoff for conflicts
-			 * when the whole page is eligible to become all-frozen in the VM
-			 * once we're done with it.  Otherwise we generate a conservative
-			 * cutoff by stepping back from OldestXmin.
+			 * 当整页有资格在我们处理完之后
+			 * 在 VM 中变成全冻结时，我们可以用 visibility_cutoff_xid 作为冲突
+			 * 截止值。否则我们通过从 OldestXmin
+			 * 回退来生成一个保守的截止值。
 			 */
 			if (prunestate->all_visible && prunestate->all_frozen)
 			{
-				/* Using same cutoff when setting VM is now unnecessary */
+				/* 现在设置 VM 时不必再用同一个截止值 */
 				snapshotConflictHorizon = prunestate->visibility_cutoff_xid;
 				prunestate->visibility_cutoff_xid = InvalidTransactionId;
 			}
 			else
 			{
-				/* Avoids false conflicts when hot_standby_feedback in use */
+				/* 在使用 hot_standby_feedback 时避免虚假冲突 */
 				snapshotConflictHorizon = vacrel->cutoffs.OldestXmin;
 				TransactionIdRetreat(snapshotConflictHorizon);
 			}
 
-			/* Execute all freeze plans for page as a single atomic action */
+			/* 把该页的所有冻结计划作为一次原子动作执行 */
 			heap_freeze_execute_prepared(vacrel->rel, buf,
 										 snapshotConflictHorizon,
 										 frozen, tuples_frozen);
@@ -1855,24 +1855,24 @@ retry:
 	else
 	{
 		/*
-		 * Page requires "no freeze" processing.  It might be set all-visible
-		 * in the visibility map, but it can never be set all-frozen.
+		 * 该页需要 "no freeze" 处理。它也许可以在
+		 * 可见性映射中设为全可见，但绝不能设为全冻结。
 		 */
 		vacrel->NewRelfrozenXid = pagefrz.NoFreezePageRelfrozenXid;
 		vacrel->NewRelminMxid = pagefrz.NoFreezePageRelminMxid;
 		prunestate->all_frozen = false;
-		tuples_frozen = 0;		/* avoid miscounts in instrumentation */
+		tuples_frozen = 0;		/* 避免测量中的计数错误 */
 	}
 
 	/*
-	 * VACUUM will call heap_page_is_all_visible() during the second pass over
-	 * the heap to determine all_visible and all_frozen for the page -- this
-	 * is a specialized version of the logic from this function.  Now that
-	 * we've finished pruning and freezing, make sure that we're in total
-	 * agreement with heap_page_is_all_visible() using an assertion.
+	 * VACUUM 会在对堆的第二次扫描期间调用 heap_page_is_all_visible()，
+	 * 以确定该页的 all_visible 和 all_frozen -- 这是
+	 * 本函数逻辑的一个专用版本。现在
+	 * 剪枝和冻结已经完成，用断言确保我们与
+	 * heap_page_is_all_visible() 完全一致。
 	 */
 #ifdef USE_ASSERT_CHECKING
-	/* Note that all_frozen value does not matter when !all_visible */
+	/* 注意当 !all_visible 时 all_frozen 的值无关紧要 */
 	if (prunestate->all_visible && lpdead_items == 0)
 	{
 		TransactionId cutoff;
@@ -1887,7 +1887,7 @@ retry:
 #endif
 
 	/*
-	 * Now save details of the LP_DEAD items from the page in vacrel
+	 * 现在把该页上 LP_DEAD 项的细节保存到 vacrel 中
 	 */
 	if (lpdead_items > 0)
 	{
@@ -1910,20 +1910,20 @@ retry:
 									 dead_items->num_items);
 
 		/*
-		 * It was convenient to ignore LP_DEAD items in all_visible earlier on
-		 * to make the choice of whether or not to freeze the page unaffected
-		 * by the short-term presence of LP_DEAD items.  These LP_DEAD items
-		 * were effectively assumed to be LP_UNUSED items in the making.  It
-		 * doesn't matter which heap pass (initial pass or final pass) ends up
-		 * setting the page all-frozen, as long as the ongoing VACUUM does it.
+		 * 早先在 all_visible 中忽略 LP_DEAD 项比较方便，
+		 * 这样是否冻结该页的选择就不会受
+		 * LP_DEAD 项的短期存在影响。这些 LP_DEAD 项
+		 * 实际上被假设为即将变成的 LP_UNUSED 项。只要本次 VACUUM
+		 * 做到这一点，由哪一次堆扫描（初始扫描或最终扫描）
+		 * 最终把该页设为全冻结并不重要。
 		 *
-		 * Now that freezing has been finalized, unset all_visible.  It needs
-		 * to reflect the present state of things, as expected by our caller.
+		 * 冻结已经定案，现在清除 all_visible。它应当
+		 * 反映当前状态，正如调用方所预期的。
 		 */
 		prunestate->all_visible = false;
 	}
 
-	/* Finally, add page-local counts to whole-VACUUM counts */
+	/* 最后，把页内计数加到整个 VACUUM 的计数上 */
 	vacrel->tuples_deleted += tuples_deleted;
 	vacrel->tuples_frozen += tuples_frozen;
 	vacrel->lpdead_items += lpdead_items;
@@ -1932,23 +1932,23 @@ retry:
 }
 
 /*
- *	lazy_scan_noprune() -- lazy_scan_prune() without pruning or freezing
+ *	lazy_scan_noprune() -- 不做剪枝或冻结的 lazy_scan_prune()
  *
- * Caller need only hold a pin and share lock on the buffer, unlike
- * lazy_scan_prune, which requires a full cleanup lock.  While pruning isn't
- * performed here, it's quite possible that an earlier opportunistic pruning
- * operation left LP_DEAD items behind.  We'll at least collect any such items
- * in the dead_items array for removal from indexes.
+ * 调用方只需钉住缓冲区并持有共享锁，不像
+ * lazy_scan_prune 那样需要完整的清理锁。这里虽然不做
+ * 剪枝，但更早的机会性剪枝
+ * 操作很有可能留下了 LP_DEAD 项。我们至少会把任何这样的项
+ * 收集到 dead_items 数组中，以便从索引中移除。
  *
- * For aggressive VACUUM callers, we may return false to indicate that a full
- * cleanup lock is required for processing by lazy_scan_prune.  This is only
- * necessary when the aggressive VACUUM needs to freeze some tuple XIDs from
- * one or more tuples on the page.  We always return true for non-aggressive
- * callers.
+ * 对积极 VACUUM 的调用方，我们可能返回假，表示需要完整的
+ * 清理锁，以便由 lazy_scan_prune 处理。这只在
+ * 积极 VACUUM 需要冻结该页上一个或多个
+ * 元组中的某些元组 XIDs 时才有必要。对非积极
+ * 调用方，我们总是返回真。
  *
- * See lazy_scan_prune for an explanation of hastup return flag.
- * recordfreespace flag instructs caller on whether or not it should do
- * generic FSM processing for page.
+ * hastup 返回标志的解释见 lazy_scan_prune。
+ * recordfreespace 标志指示调用方是否应对该页做
+ * 常规的 FSM 处理。
  */
 static bool
 lazy_scan_noprune(LVRelState *vacrel,
@@ -1971,8 +1971,8 @@ lazy_scan_noprune(LVRelState *vacrel,
 
 	Assert(BufferGetBlockNumber(buf) == blkno);
 
-	*hastup = false;			/* for now */
-	*recordfreespace = false;	/* for now */
+	*hastup = false;			/* 暂时如此 */
+	*recordfreespace = false;	/* 暂时如此 */
 
 	lpdead_items = 0;
 	live_tuples = 0;
@@ -2002,44 +2002,44 @@ lazy_scan_noprune(LVRelState *vacrel,
 		if (ItemIdIsDead(itemid))
 		{
 			/*
-			 * Deliberately don't set hastup=true here.  See same point in
-			 * lazy_scan_prune for an explanation.
+			 * 这里有意不设置 hastup=true。解释见
+			 * lazy_scan_prune 中的同一处。
 			 */
 			deadoffsets[lpdead_items++] = offnum;
 			continue;
 		}
 
-		*hastup = true;			/* page prevents rel truncation */
+		*hastup = true;			/* 此页阻止关系截断 */
 		tupleheader = (HeapTupleHeader) PageGetItem(page, itemid);
 		if (heap_tuple_should_freeze(tupleheader, &vacrel->cutoffs,
 									 &NoFreezePageRelfrozenXid,
 									 &NoFreezePageRelminMxid))
 		{
-			/* Tuple with XID < FreezeLimit (or MXID < MultiXactCutoff) */
+			/* 元组的 XID < FreezeLimit（或 MXID < MultiXactCutoff） */
 			if (vacrel->aggressive)
 			{
 				/*
-				 * Aggressive VACUUMs must always be able to advance rel's
-				 * relfrozenxid to a value >= FreezeLimit (and be able to
-				 * advance rel's relminmxid to a value >= MultiXactCutoff).
-				 * The ongoing aggressive VACUUM won't be able to do that
-				 * unless it can freeze an XID (or MXID) from this tuple now.
+				 * 积极 VACUUMs 必须始终能把该关系的
+				 * relfrozenxid 推进到 >= FreezeLimit 的值（并且能把
+				 * 该关系的 relminmxid 推进到 >= MultiXactCutoff 的值）。
+				 * 正在进行的积极 VACUUM 做不到这一点，
+				 * 除非它现在就能冻结此元组中的一个 XID（或 MXID）。
 				 *
-				 * The only safe option is to have caller perform processing
-				 * of this page using lazy_scan_prune.  Caller might have to
-				 * wait a while for a cleanup lock, but it can't be helped.
+				 * 唯一安全的选择是让调用方用 lazy_scan_prune
+				 * 处理此页。调用方也许不得不等待
+				 * 一会儿才能取得清理锁，但这是没办法的。
 				 */
 				vacrel->offnum = InvalidOffsetNumber;
 				return false;
 			}
 
 			/*
-			 * Non-aggressive VACUUMs are under no obligation to advance
-			 * relfrozenxid (even by one XID).  We can be much laxer here.
+			 * 非积极 VACUUMs 没有义务推进
+			 * relfrozenxid（哪怕一个 XID）。这里我们可以宽松得多。
 			 *
-			 * Currently we always just accept an older final relfrozenxid
-			 * and/or relminmxid value.  We never make caller wait or work a
-			 * little harder, even when it likely makes sense to do so.
+			 * 目前我们总是直接接受一个更旧的最终 relfrozenxid
+			 * 和/或 relminmxid 值。我们从不让调用方等待或
+			 * 多做一点工作，即使这样做很可能有意义。
 			 */
 		}
 
@@ -2055,7 +2055,7 @@ lazy_scan_noprune(LVRelState *vacrel,
 			case HEAPTUPLE_LIVE:
 
 				/*
-				 * Count both cases as live, just like lazy_scan_prune
+				 * 两种情形都计为活的，就像 lazy_scan_prune 那样
 				 */
 				live_tuples++;
 
@@ -2063,22 +2063,22 @@ lazy_scan_noprune(LVRelState *vacrel,
 			case HEAPTUPLE_DEAD:
 
 				/*
-				 * There is some useful work for pruning to do, that won't be
-				 * done due to failure to get a cleanup lock.
+				 * 有一些对剪枝有用的工作，由于
+				 * 未能取得清理锁而不会完成。
 				 */
 				missed_dead_tuples++;
 				break;
 			case HEAPTUPLE_RECENTLY_DEAD:
 
 				/*
-				 * Count in recently_dead_tuples, just like lazy_scan_prune
+				 * 计入 recently_dead_tuples，就像 lazy_scan_prune 那样
 				 */
 				recently_dead_tuples++;
 				break;
 			case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 				/*
-				 * Do not count these rows as live, just like lazy_scan_prune
+				 * 不要把这些行计为活的，就像 lazy_scan_prune 那样
 				 */
 				break;
 			default:
@@ -2090,26 +2090,26 @@ lazy_scan_noprune(LVRelState *vacrel,
 	vacrel->offnum = InvalidOffsetNumber;
 
 	/*
-	 * By here we know for sure that caller can put off freezing and pruning
-	 * this particular page until the next VACUUM.  Remember its details now.
-	 * (lazy_scan_prune expects a clean slate, so we have to do this last.)
+	 * 到这里我们可以确定，调用方可以把此特定页的冻结和剪枝
+	 * 推迟到下一次 VACUUM。现在记住它的细节。
+	 * （lazy_scan_prune 期望一块干净的初始状态，所以我们必须最后做这件事。）
 	 */
 	vacrel->NewRelfrozenXid = NoFreezePageRelfrozenXid;
 	vacrel->NewRelminMxid = NoFreezePageRelminMxid;
 
-	/* Save any LP_DEAD items found on the page in dead_items array */
+	/* 把该页上找到的任何 LP_DEAD 项保存到 dead_items 数组中 */
 	if (vacrel->nindexes == 0)
 	{
-		/* Using one-pass strategy (since table has no indexes) */
+		/* 使用单遍策略（因为表没有索引） */
 		if (lpdead_items > 0)
 		{
 			/*
-			 * Perfunctory handling for the corner case where a single pass
-			 * strategy VACUUM cannot get a cleanup lock, and it turns out
-			 * that there is one or more LP_DEAD items: just count the LP_DEAD
-			 * items as missed_dead_tuples instead. (This is a bit dishonest,
-			 * but it beats having to maintain specialized heap vacuuming code
-			 * forever, for vanishingly little benefit.)
+			 * 对单遍
+			 * 策略 VACUUM 无法取得清理锁、并且结果
+			 * 有一个或多个 LP_DEAD 项这一边角情况，做权宜处理：只把这些 LP_DEAD
+			 * 项改计为 missed_dead_tuples。（这有点不够诚实，
+			 * 但也好过永远维护专门的堆清理代码，
+			 * 因为好处微乎其微。）
 			 */
 			*hastup = true;
 			missed_dead_tuples += lpdead_items;
@@ -2120,8 +2120,8 @@ lazy_scan_noprune(LVRelState *vacrel,
 	else if (lpdead_items == 0)
 	{
 		/*
-		 * Won't be vacuuming this page later, so record page's freespace in
-		 * the FSM now
+		 * 以后不会清理此页，所以现在把该页的空闲空间记入
+		 * FSM
 		 */
 		*recordfreespace = true;
 	}
@@ -2131,9 +2131,9 @@ lazy_scan_noprune(LVRelState *vacrel,
 		ItemPointerData tmp;
 
 		/*
-		 * Page has LP_DEAD items, and so any references/TIDs that remain in
-		 * indexes will be deleted during index vacuuming (and then marked
-		 * LP_UNUSED in the heap)
+		 * 该页有 LP_DEAD 项，因此索引中残留的任何引用/TIDs
+		 * 都会在索引清理期间被删除（然后在堆中标为
+		 * LP_UNUSED）
 		 */
 		vacrel->lpdead_item_pages++;
 
@@ -2152,14 +2152,14 @@ lazy_scan_noprune(LVRelState *vacrel,
 		vacrel->lpdead_items += lpdead_items;
 
 		/*
-		 * Assume that we'll go on to vacuum this heap page during final pass
-		 * over the heap.  Don't record free space until then.
+		 * 假设我们将在对堆的最终扫描期间
+		 * 继续清理此堆页。在那之前不要记录空闲空间。
 		 */
 		*recordfreespace = false;
 	}
 
 	/*
-	 * Finally, add relevant page-local counts to whole-VACUUM counts
+	 * 最后，把相关的页内计数加到整个 VACUUM 的计数上
 	 */
 	vacrel->live_tuples += live_tuples;
 	vacrel->recently_dead_tuples += recently_dead_tuples;
@@ -2167,29 +2167,29 @@ lazy_scan_noprune(LVRelState *vacrel,
 	if (missed_dead_tuples > 0)
 		vacrel->missed_dead_pages++;
 
-	/* Caller won't need to call lazy_scan_prune with same page */
+	/* 调用方不需要再对同一页调用 lazy_scan_prune */
 	return true;
 }
 
 /*
- * Main entry point for index vacuuming and heap vacuuming.
+ * 索引清理和堆清理的主入口。
  *
- * Removes items collected in dead_items from table's indexes, then marks the
- * same items LP_UNUSED in the heap.  See the comments above lazy_scan_heap
- * for full details.
+ * 从该表的索引中移除 dead_items 里收集的项，然后把
+ * 同样的项在堆中标为 LP_UNUSED。完整细节见
+ * lazy_scan_heap 上方的注释。
  *
- * Also empties dead_items, freeing up space for later TIDs.
+ * 同时清空 dead_items，为以后的 TIDs 腾出空间。
  *
- * We may choose to bypass index vacuuming at this point, though only when the
- * ongoing VACUUM operation will definitely only have one index scan/round of
- * index vacuuming.
+ * 此时我们可以选择绕过索引清理，但仅当本次
+ * VACUUM 操作肯定只会有一次索引扫描/一轮
+ * 索引清理时。
  */
 static void
 lazy_vacuum(LVRelState *vacrel)
 {
 	bool		bypass;
 
-	/* Should not end up here with no indexes */
+	/* 没有索引时不应当走到这里 */
 	Assert(vacrel->nindexes > 0);
 	Assert(vacrel->lpdead_item_pages > 0);
 
@@ -2201,23 +2201,23 @@ lazy_vacuum(LVRelState *vacrel)
 	}
 
 	/*
-	 * Consider bypassing index vacuuming (and heap vacuuming) entirely.
+	 * 考虑完全绕过索引清理（以及堆清理）。
 	 *
-	 * We currently only do this in cases where the number of LP_DEAD items
-	 * for the entire VACUUM operation is close to zero.  This avoids sharp
-	 * discontinuities in the duration and overhead of successive VACUUM
-	 * operations that run against the same table with a fixed workload.
-	 * Ideally, successive VACUUM operations will behave as if there are
-	 * exactly zero LP_DEAD items in cases where there are close to zero.
+	 * 目前我们只在整个 VACUUM 操作的 LP_DEAD 项
+	 * 数量接近零时才这样做。这避免针对同一张表、
+	 * 固定工作负载连续运行的 VACUUM
+	 * 操作在持续时间和开销上出现陡峭
+	 * 间断。理想情况下，在接近零时，连续的 VACUUM 操作
+	 * 应当表现得好像 LP_DEAD 项
 	 *
-	 * This is likely to be helpful with a table that is continually affected
-	 * by UPDATEs that can mostly apply the HOT optimization, but occasionally
-	 * have small aberrations that lead to just a few heap pages retaining
-	 * only one or two LP_DEAD items.  This is pretty common; even when the
-	 * DBA goes out of their way to make UPDATEs use HOT, it is practically
-	 * impossible to predict whether HOT will be applied in 100% of cases.
-	 * It's far easier to ensure that 99%+ of all UPDATEs against a table use
-	 * HOT through careful tuning.
+	 * 恰好为零。
+	 * 这对于持续受到
+	 * 大多能应用 HOT 优化的 UPDATEs 影响、但偶尔
+	 * 出现小偏差、导致少数堆页只保留
+	 * 一两个 LP_DEAD 项的表可能有帮助。这相当常见；即使
+	 * DBA 特意让 UPDATE 使用 HOT，实际上
+	 * 也不可能预测 HOT 是否会在 100% 的情况下被应用。
+	 * 通过仔细调节，确保一张表上 99%+ 的 UPDATE 都使用 HOT，要容易得多。
 	 */
 	bypass = false;
 	if (vacrel->consider_bypass_optimization && vacrel->rel_pages > 0)
@@ -2230,26 +2230,26 @@ lazy_vacuum(LVRelState *vacrel)
 		Assert(vacrel->do_index_cleanup);
 
 		/*
-		 * This crossover point at which we'll start to do index vacuuming is
-		 * expressed as a percentage of the total number of heap pages in the
-		 * table that are known to have at least one LP_DEAD item.  This is
-		 * much more important than the total number of LP_DEAD items, since
-		 * it's a proxy for the number of heap pages whose visibility map bits
-		 * cannot be set on account of bypassing index and heap vacuuming.
+		 * 我们将开始做索引清理的这个转折点，
+		 * 表示为该表中已知至少有一个 LP_DEAD 项的
+		 * 堆页总数的百分比。这比
+		 * LP_DEAD 项的总数重要得多，因为它
+		 * 是那些由于绕过索引清理和堆清理而无法设置
+		 * 可见性映射位的堆页数量的代理。
 		 *
-		 * We apply one further precautionary test: the space currently used
-		 * to store the TIDs (TIDs that now all point to LP_DEAD items) must
-		 * not exceed 32MB.  This limits the risk that we will bypass index
-		 * vacuuming again and again until eventually there is a VACUUM whose
-		 * dead_items space is not CPU cache resident.
+		 * 我们再加一项预防性测试：当前用于
+		 * 存放 TIDs 的空间（这些 TID 现在都指向 LP_DEAD 项）不得
+		 * 超过 32MB。这限制了我们一遍又一遍绕过索引
+		 * 清理、直到最终某次 VACUUM 的
+		 * dead_items 空间不再驻留于 CPU 缓存的风险。
 		 *
-		 * We don't take any special steps to remember the LP_DEAD items (such
-		 * as counting them in our final update to the stats system) when the
-		 * optimization is applied.  Though the accounting used in analyze.c's
-		 * acquire_sample_rows() will recognize the same LP_DEAD items as dead
-		 * rows in its own stats report, that's okay. The discrepancy should
-		 * be negligible.  If this optimization is ever expanded to cover more
-		 * cases then this may need to be reconsidered.
+		 * 应用该优化时，我们不采取任何特殊步骤去记住 LP_DEAD 项
+		 * （例如在对统计系统的最终更新中清点它们）。
+		 * 尽管 analyze.c 的
+		 * acquire_sample_rows() 所用的记账会在它自己的统计报告中把同样的 LP_DEAD 项认作死
+		 * 行，那也没关系。差异应当
+		 * 可以忽略。若这项优化将来扩大到覆盖更多
+		 * 情形，这一点也许需要重新考虑。
 		 */
 		threshold = (double) vacrel->rel_pages * BYPASS_THRESHOLD_PAGES;
 		bypass = (vacrel->lpdead_item_pages < threshold &&
@@ -2259,55 +2259,55 @@ lazy_vacuum(LVRelState *vacrel)
 	if (bypass)
 	{
 		/*
-		 * There are almost zero TIDs.  Behave as if there were precisely
-		 * zero: bypass index vacuuming, but do index cleanup.
+		 * TIDs 几乎为零。表现得好像恰好
+		 * 为零：绕过索引清理，但做索引善后。
 		 *
-		 * We expect that the ongoing VACUUM operation will finish very
-		 * quickly, so there is no point in considering speeding up as a
-		 * failsafe against wraparound failure. (Index cleanup is expected to
-		 * finish very quickly in cases where there were no ambulkdelete()
-		 * calls.)
+		 * 我们预期本次 VACUUM 操作会很快
+		 * 结束，所以没有必要考虑把它当作针对回卷失败的
+		 * 故障安全来加速。（在没有 ambulkdelete()
+		 * 调用的情形下，索引善后预期会
+		 * 很快结束。）
 		 */
 		vacrel->do_index_vacuuming = false;
 	}
 	else if (lazy_vacuum_all_indexes(vacrel))
 	{
 		/*
-		 * We successfully completed a round of index vacuuming.  Do related
-		 * heap vacuuming now.
+		 * 我们成功完成了一轮索引清理。现在做相关的
+		 * 堆清理。
 		 */
 		lazy_vacuum_heap_rel(vacrel);
 	}
 	else
 	{
 		/*
-		 * Failsafe case.
+		 * 故障安全情形。
 		 *
-		 * We attempted index vacuuming, but didn't finish a full round/full
-		 * index scan.  This happens when relfrozenxid or relminmxid is too
-		 * far in the past.
+		 * 我们尝试了索引清理，但没有完成完整一轮/完整
+		 * 索引扫描。这发生在 relfrozenxid 或 relminmxid
+		 * 过于久远时。
 		 *
-		 * From this point on the VACUUM operation will do no further index
-		 * vacuuming or heap vacuuming.  This VACUUM operation won't end up
-		 * back here again.
+		 * 从此以后，本次 VACUUM 操作不再做进一步的索引
+		 * 清理或堆清理。本次 VACUUM 操作不会
+		 * 再次回到这里。
 		 */
 		Assert(VacuumFailsafeActive);
 	}
 
 	/*
-	 * Forget the LP_DEAD items that we just vacuumed (or just decided to not
-	 * vacuum)
+	 * 忘掉我们刚刚清理掉的（或刚刚决定不
+	 * 清理的）LP_DEAD 项
 	 */
 	vacrel->dead_items->num_items = 0;
 }
 
 /*
- *	lazy_vacuum_all_indexes() -- Main entry for index vacuuming
+ *	lazy_vacuum_all_indexes() -- 索引清理的主入口
  *
- * Returns true in the common case when all indexes were successfully
- * vacuumed.  Returns false in rare cases where we determined that the ongoing
- * VACUUM operation is at risk of taking too long to finish, leading to
- * wraparound failure.
+ * 在常见情形下，当所有索引都成功
+ * 清理时返回真。在罕见情形下，若我们判定本次
+ * VACUUM 操作有耗时过长、导致
+ * 回卷失败的风险，则返回假。
  */
 static bool
 lazy_vacuum_all_indexes(LVRelState *vacrel)
@@ -2319,14 +2319,14 @@ lazy_vacuum_all_indexes(LVRelState *vacrel)
 	Assert(vacrel->do_index_vacuuming);
 	Assert(vacrel->do_index_cleanup);
 
-	/* Precheck for XID wraparound emergencies */
+	/* XID 回卷紧急情况的预检 */
 	if (lazy_check_wraparound_failsafe(vacrel))
 	{
-		/* Wraparound emergency -- don't even start an index scan */
+		/* 回卷紧急情况 -- 甚至不要开始索引扫描 */
 		return false;
 	}
 
-	/* Report that we are now vacuuming indexes */
+	/* 报告我们现在正在清理索引 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 								 PROGRESS_VACUUM_PHASE_VACUUM_INDEX);
 
@@ -2343,7 +2343,7 @@ lazy_vacuum_all_indexes(LVRelState *vacrel)
 
 			if (lazy_check_wraparound_failsafe(vacrel))
 			{
-				/* Wraparound emergency -- end current index scan */
+				/* 回卷紧急情况 -- 结束当前索引扫描 */
 				allindexes = false;
 				break;
 			}
@@ -2351,34 +2351,34 @@ lazy_vacuum_all_indexes(LVRelState *vacrel)
 	}
 	else
 	{
-		/* Outsource everything to parallel variant */
+		/* 把一切都交给并行变体 */
 		parallel_vacuum_bulkdel_all_indexes(vacrel->pvs, old_live_tuples,
 											vacrel->num_index_scans);
 
 		/*
-		 * Do a postcheck to consider applying wraparound failsafe now.  Note
-		 * that parallel VACUUM only gets the precheck and this postcheck.
+		 * 做一次事后检查，考虑现在是否应用回卷故障安全。注意
+		 * 并行 VACUUM 只有这次预检和这次事后检查。
 		 */
 		if (lazy_check_wraparound_failsafe(vacrel))
 			allindexes = false;
 	}
 
 	/*
-	 * We delete all LP_DEAD items from the first heap pass in all indexes on
-	 * each call here (except calls where we choose to do the failsafe). This
-	 * makes the next call to lazy_vacuum_heap_rel() safe (except in the event
-	 * of the failsafe triggering, which prevents the next call from taking
-	 * place).
+	 * 每次在这里调用时，我们都从所有索引中删除第一次堆扫描的全部 LP_DEAD 项
+	 * （选择做故障安全的那些调用除外）。这
+	 * 使下一次 lazy_vacuum_heap_rel() 调用是安全的（除非
+	 * 故障安全触发，从而阻止下一次调用
+	 * 发生）。
 	 */
 	Assert(vacrel->num_index_scans > 0 ||
 		   vacrel->dead_items->num_items == vacrel->lpdead_items);
 	Assert(allindexes || VacuumFailsafeActive);
 
 	/*
-	 * Increase and report the number of index scans.
+	 * 增加并报告索引扫描次数。
 	 *
-	 * We deliberately include the case where we started a round of bulk
-	 * deletes that we weren't able to finish due to the failsafe triggering.
+	 * 我们有意包括已经开始一轮批量
+	 * 删除、但由于故障安全触发而未能完成的情形。
 	 */
 	vacrel->num_index_scans++;
 	pgstat_progress_update_param(PROGRESS_VACUUM_NUM_INDEX_VACUUMS,
@@ -2388,22 +2388,22 @@ lazy_vacuum_all_indexes(LVRelState *vacrel)
 }
 
 /*
- *	lazy_vacuum_heap_rel() -- second pass over the heap for two pass strategy
+ *	lazy_vacuum_heap_rel() -- 两遍策略中对堆的第二次扫描
  *
- * This routine marks LP_DEAD items in vacrel->dead_items array as LP_UNUSED.
- * Pages that never had lazy_scan_prune record LP_DEAD items are not visited
- * at all.
+ * 本例程把 vacrel->dead_items 数组中的 LP_DEAD 项标为 LP_UNUSED。
+ * lazy_scan_prune 从未记下过 LP_DEAD 项的页
+ * 完全不会被访问。
  *
- * We may also be able to truncate the line pointer array of the heap pages we
- * visit.  If there is a contiguous group of LP_UNUSED items at the end of the
- * array, it can be reclaimed as free space.  These LP_UNUSED items usually
- * start out as LP_DEAD items recorded by lazy_scan_prune (we set items from
- * each page to LP_UNUSED, and then consider if it's possible to truncate the
- * page's line pointer array).
+ * 我们也许还能截断所访问堆页的行指针数组。
+ * 若数组末尾有一组连续的 LP_UNUSED 项，
+ * 它可以作为空闲空间回收。这些 LP_UNUSED 项通常
+ * 起初是 lazy_scan_prune 记下的 LP_DEAD 项（我们把
+ * 每一页的项设为 LP_UNUSED，然后考虑是否可以截断
+ * 该页的行指针数组）。
  *
- * Note: the reason for doing this as a second pass is we cannot remove the
- * tuples until we've removed their index entries, and we want to process
- * index entry removal in batches as large as possible.
+ * 注意：之所以作为第二次扫描来做，是因为在移除索引项之前
+ * 我们无法移除元组，而且我们希望
+ * 尽可能大批地处理索引项的移除。
  */
 static void
 lazy_vacuum_heap_rel(LVRelState *vacrel)
@@ -2417,11 +2417,11 @@ lazy_vacuum_heap_rel(LVRelState *vacrel)
 	Assert(vacrel->do_index_cleanup);
 	Assert(vacrel->num_index_scans > 0);
 
-	/* Report that we are now vacuuming the heap */
+	/* 报告我们现在正在清理堆 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 								 PROGRESS_VACUUM_PHASE_VACUUM_HEAP);
 
-	/* Update error traceback information */
+	/* 更新错误回溯信息 */
 	update_vacuum_error_info(vacrel, &saved_err_info,
 							 VACUUM_ERRCB_PHASE_VACUUM_HEAP,
 							 InvalidBlockNumber, InvalidOffsetNumber);
@@ -2439,19 +2439,19 @@ lazy_vacuum_heap_rel(LVRelState *vacrel)
 		vacrel->blkno = blkno;
 
 		/*
-		 * Pin the visibility map page in case we need to mark the page
-		 * all-visible.  In most cases this will be very cheap, because we'll
-		 * already have the correct page pinned anyway.
+		 * 钉住可见性映射页，以防需要把该页标为
+		 * 全可见。多数情况下这非常便宜，因为我们
+		 * 反正已经钉住了正确的页。
 		 */
 		visibilitymap_pin(vacrel->rel, blkno, &vmbuffer);
 
-		/* We need a non-cleanup exclusive lock to mark dead_items unused */
+		/* 我们需要非清理用的排他锁，以便把 dead_items 标为未使用 */
 		buf = ReadBufferExtended(vacrel->rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
 								 vacrel->bstrategy);
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 		index = lazy_vacuum_heap_page(vacrel, blkno, buf, index, vmbuffer);
 
-		/* Now that we've vacuumed the page, record its available space */
+		/* 既然已经清理了该页，就记录它的可用空间 */
 		page = BufferGetPage(buf);
 		freespace = PageGetHeapFreeSpace(page);
 
@@ -2465,8 +2465,8 @@ lazy_vacuum_heap_rel(LVRelState *vacrel)
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * We set all LP_DEAD items from the first heap pass to LP_UNUSED during
-	 * the second heap pass.  No more, no less.
+	 * 我们在第二次堆扫描期间把第一次堆扫描的全部 LP_DEAD 项设为 LP_UNUSED。
+	 * 不多也不少。
 	 */
 	Assert(index > 0);
 	Assert(vacrel->num_index_scans > 1 ||
@@ -2477,21 +2477,21 @@ lazy_vacuum_heap_rel(LVRelState *vacrel)
 			(errmsg("table \"%s\": removed %lld dead item identifiers in %u pages",
 					vacrel->relname, (long long) index, vacuumed_pages)));
 
-	/* Revert to the previous phase information for error traceback */
+	/* 恢复先前的阶段信息，供错误回溯使用 */
 	restore_vacuum_error_info(vacrel, &saved_err_info);
 }
 
 /*
- *	lazy_vacuum_heap_page() -- free page's LP_DEAD items listed in the
- *						  vacrel->dead_items array.
+ *	lazy_vacuum_heap_page() -- 释放 vacrel->dead_items 数组中
+ *						  列出的该页 LP_DEAD 项。
  *
- * Caller must have an exclusive buffer lock on the buffer (though a full
- * cleanup lock is also acceptable).  vmbuffer must be valid and already have
- * a pin on blkno's visibility map page.
+ * 调用方必须在该缓冲区上持有排他缓冲区锁（完整的
+ * 清理锁也可以）。vmbuffer 必须有效，并且已经
+ * 钉住 blkno 的可见性映射页。
  *
- * index is an offset into the vacrel->dead_items array for the first listed
- * LP_DEAD item on the page.  The return value is the first index immediately
- * after all LP_DEAD items for the same page in the array.
+ * index 是 vacrel->dead_items 数组中该页第一个列出的
+ * LP_DEAD 项的偏移。返回值是数组中同一页全部
+ * LP_DEAD 项之后紧接着的第一个下标。
  */
 static int
 lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
@@ -2509,7 +2509,7 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 
 	pgstat_progress_update_param(PROGRESS_VACUUM_HEAP_BLKS_VACUUMED, blkno);
 
-	/* Update error traceback information */
+	/* 更新错误回溯信息 */
 	update_vacuum_error_info(vacrel, &saved_err_info,
 							 VACUUM_ERRCB_PHASE_VACUUM_HEAP, blkno,
 							 InvalidOffsetNumber);
@@ -2524,7 +2524,7 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 
 		tblk = ItemPointerGetBlockNumber(&dead_items->items[index]);
 		if (tblk != blkno)
-			break;				/* past end of tuples for this block */
+			break;				/* 已超过本块元组的末尾 */
 		toff = ItemPointerGetOffsetNumber(&dead_items->items[index]);
 		itemid = PageGetItemId(page, toff);
 
@@ -2535,15 +2535,15 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 
 	Assert(nunused > 0);
 
-	/* Attempt to truncate line pointer array now */
+	/* 现在尝试截断行指针数组 */
 	PageTruncateLinePointerArray(page);
 
 	/*
-	 * Mark buffer dirty before we write WAL.
+	 * 在写 WAL 之前把缓冲区标脏。
 	 */
 	MarkBufferDirty(buffer);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(vacrel->rel))
 	{
 		xl_heap_vacuum xlrec;
@@ -2563,18 +2563,18 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 	}
 
 	/*
-	 * End critical section, so we safely can do visibility tests (which
-	 * possibly need to perform IO and allocate memory!). If we crash now the
-	 * page (including the corresponding vm bit) might not be marked all
-	 * visible, but that's fine. A later vacuum will fix that.
+	 * 结束临界区，这样我们就能安全地做可见性测试（它们
+	 * 可能需要执行 I/O 并分配内存！）。若我们现在崩溃，该
+	 * 页（包括对应的 vm 位）也许不会被标为全
+	 * 可见，但那没关系。以后的清理会修好。
 	 */
 	END_CRIT_SECTION();
 
 	/*
-	 * Now that we have removed the LP_DEAD items from the page, once again
-	 * check if the page has become all-visible.  The page is already marked
-	 * dirty, exclusively locked, and, if needed, a full page image has been
-	 * emitted.
+	 * 既然已经从该页移除了 LP_DEAD 项，再次
+	 * 检查该页是否已变成全可见。该页已经被标
+	 * 脏、排他锁定，并且如果需要，已经发出了
+	 * 整页映像。
 	 */
 	Assert(!PageIsAllVisible(page));
 	if (heap_page_is_all_visible(vacrel, buffer, &visibility_cutoff_xid,
@@ -2593,27 +2593,27 @@ lazy_vacuum_heap_page(LVRelState *vacrel, BlockNumber blkno, Buffer buffer,
 						  vmbuffer, visibility_cutoff_xid, flags);
 	}
 
-	/* Revert to the previous phase information for error traceback */
+	/* 恢复先前的阶段信息，供错误回溯使用 */
 	restore_vacuum_error_info(vacrel, &saved_err_info);
 	return index;
 }
 
 /*
- * Trigger the failsafe to avoid wraparound failure when vacrel table has a
- * relfrozenxid and/or relminmxid that is dangerously far in the past.
- * Triggering the failsafe makes the ongoing VACUUM bypass any further index
- * vacuuming and heap vacuuming.  Truncating the heap is also bypassed.
+ * 当 vacrel 表的 relfrozenxid 和/或 relminmxid
+ * 危险地过于久远时，触发故障安全以避免回卷失败。
+ * 触发故障安全会使本次 VACUUM 绕过任何进一步的索引
+ * 清理和堆清理。堆截断也会被绕过。
  *
- * Any remaining work (work that VACUUM cannot just bypass) is typically sped
- * up when the failsafe triggers.  VACUUM stops applying any cost-based delay
- * that it started out with.
+ * 任何剩余工作（VACUUM 无法直接绕过的工作）通常会在
+ * 故障安全触发时被加速。VACUUM 停止应用它开始时
+ * 采用的任何基于代价的延迟。
  *
- * Returns true when failsafe has been triggered.
+ * 故障安全已触发时返回真。
  */
 static bool
 lazy_check_wraparound_failsafe(LVRelState *vacrel)
 {
-	/* Don't warn more than once per VACUUM */
+	/* 每次 VACUUM 不要警告超过一次 */
 	if (VacuumFailsafeActive)
 		return true;
 
@@ -2622,13 +2622,13 @@ lazy_check_wraparound_failsafe(LVRelState *vacrel)
 		VacuumFailsafeActive = true;
 
 		/*
-		 * Abandon use of a buffer access strategy to allow use of all of
-		 * shared buffers.  We assume the caller who allocated the memory for
-		 * the BufferAccessStrategy will free it.
+		 * 放弃使用缓冲区访问策略，以便使用全部
+		 * 共享缓冲区。我们假设分配 BufferAccessStrategy
+		 * 内存的调用方会释放它。
 		 */
 		vacrel->bstrategy = NULL;
 
-		/* Disable index vacuuming, index cleanup, and heap rel truncation */
+		/* 禁用索引清理、索引善后和堆关系截断 */
 		vacrel->do_index_vacuuming = false;
 		vacrel->do_index_cleanup = false;
 		vacrel->do_rel_truncate = false;
@@ -2641,7 +2641,7 @@ lazy_check_wraparound_failsafe(LVRelState *vacrel)
 				 errhint("Consider increasing configuration parameter \"maintenance_work_mem\" or \"autovacuum_work_mem\".\n"
 						 "You might also need to consider other ways for VACUUM to keep up with the allocation of transaction IDs.")));
 
-		/* Stop applying cost limits from this point on */
+		/* 从这里起停止应用代价限制 */
 		VacuumCostActive = false;
 		VacuumCostBalance = 0;
 
@@ -2652,7 +2652,7 @@ lazy_check_wraparound_failsafe(LVRelState *vacrel)
 }
 
 /*
- *	lazy_cleanup_all_indexes() -- cleanup all indexes of relation.
+ *	lazy_cleanup_all_indexes() -- 对该关系的所有索引做善后。
  */
 static void
 lazy_cleanup_all_indexes(LVRelState *vacrel)
@@ -2663,7 +2663,7 @@ lazy_cleanup_all_indexes(LVRelState *vacrel)
 	Assert(vacrel->do_index_cleanup);
 	Assert(vacrel->nindexes > 0);
 
-	/* Report that we are now cleaning up indexes */
+	/* 报告我们现在正在对索引做善后 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 								 PROGRESS_VACUUM_PHASE_INDEX_CLEANUP);
 
@@ -2681,7 +2681,7 @@ lazy_cleanup_all_indexes(LVRelState *vacrel)
 	}
 	else
 	{
-		/* Outsource everything to parallel variant */
+		/* 把一切都交给并行变体 */
 		parallel_vacuum_cleanup_all_indexes(vacrel->pvs, reltuples,
 											vacrel->num_index_scans,
 											estimated_count);
@@ -2689,17 +2689,17 @@ lazy_cleanup_all_indexes(LVRelState *vacrel)
 }
 
 /*
- *	lazy_vacuum_one_index() -- vacuum index relation.
+ *	lazy_vacuum_one_index() -- 清理索引关系。
  *
- *		Delete all the index tuples containing a TID collected in
- *		vacrel->dead_items array.  Also update running statistics.
- *		Exact details depend on index AM's ambulkdelete routine.
+ *		删除所有包含 vacrel->dead_items 数组中
+ *		收集到的 TID 的索引元组。同时更新运行中的统计信息。
+ *		具体细节取决于索引 AM 的 ambulkdelete 例程。
  *
- *		reltuples is the number of heap tuples to be passed to the
- *		bulkdelete callback.  It's always assumed to be estimated.
- *		See indexam.sgml for more info.
+ *		reltuples 是要传给
+ *		bulkdelete 回调的堆元组数。它总是被假定为估计值。
+ *		更多信息见 indexam.sgml。
  *
- * Returns bulk delete stats derived from input stats
+ * 返回从输入统计信息导出的批量删除统计信息
  */
 static IndexBulkDeleteResult *
 lazy_vacuum_one_index(Relation indrel, IndexBulkDeleteResult *istat,
@@ -2718,10 +2718,10 @@ lazy_vacuum_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 	ivinfo.strategy = vacrel->bstrategy;
 
 	/*
-	 * Update error traceback information.
+	 * 更新错误回溯信息。
 	 *
-	 * The index name is saved during this phase and restored immediately
-	 * after this phase.  See vacuum_error_callback.
+	 * 本阶段保存索引名，并在本阶段
+	 * 结束后立即恢复。见 vacuum_error_callback。
 	 */
 	Assert(vacrel->indname == NULL);
 	vacrel->indname = pstrdup(RelationGetRelationName(indrel));
@@ -2729,10 +2729,10 @@ lazy_vacuum_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 							 VACUUM_ERRCB_PHASE_VACUUM_INDEX,
 							 InvalidBlockNumber, InvalidOffsetNumber);
 
-	/* Do bulk deletion */
+	/* 执行批量删除 */
 	istat = vac_bulkdel_one_index(&ivinfo, istat, (void *) vacrel->dead_items);
 
-	/* Revert to the previous phase information for error traceback */
+	/* 恢复先前的阶段信息，供错误回溯使用 */
 	restore_vacuum_error_info(vacrel, &saved_err_info);
 	pfree(vacrel->indname);
 	vacrel->indname = NULL;
@@ -2741,13 +2741,13 @@ lazy_vacuum_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 }
 
 /*
- *	lazy_cleanup_one_index() -- do post-vacuum cleanup for index relation.
+ *	lazy_cleanup_one_index() -- 对索引关系做清理后的善后。
  *
- *		Calls index AM's amvacuumcleanup routine.  reltuples is the number
- *		of heap tuples and estimated_count is true if reltuples is an
- *		estimated value.  See indexam.sgml for more info.
+ *		调用索引 AM 的 amvacuumcleanup 例程。reltuples 是堆元组
+ *		数，若 reltuples 是估计值则 estimated_count 为真。
+ *		更多信息见 indexam.sgml。
  *
- * Returns bulk delete stats derived from input stats
+ * 返回从输入统计信息导出的批量删除统计信息
  */
 static IndexBulkDeleteResult *
 lazy_cleanup_one_index(Relation indrel, IndexBulkDeleteResult *istat,
@@ -2768,10 +2768,10 @@ lazy_cleanup_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 	ivinfo.strategy = vacrel->bstrategy;
 
 	/*
-	 * Update error traceback information.
+	 * 更新错误回溯信息。
 	 *
-	 * The index name is saved during this phase and restored immediately
-	 * after this phase.  See vacuum_error_callback.
+	 * 本阶段保存索引名，并在本阶段
+	 * 结束后立即恢复。见 vacuum_error_callback。
 	 */
 	Assert(vacrel->indname == NULL);
 	vacrel->indname = pstrdup(RelationGetRelationName(indrel));
@@ -2781,7 +2781,7 @@ lazy_cleanup_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 
 	istat = vac_cleanup_one_index(&ivinfo, istat);
 
-	/* Revert to the previous phase information for error traceback */
+	/* 恢复先前的阶段信息，供错误回溯使用 */
 	restore_vacuum_error_info(vacrel, &saved_err_info);
 	pfree(vacrel->indname);
 	vacrel->indname = NULL;
@@ -2790,28 +2790,28 @@ lazy_cleanup_one_index(Relation indrel, IndexBulkDeleteResult *istat,
 }
 
 /*
- * should_attempt_truncation - should we attempt to truncate the heap?
+ * should_attempt_truncation - 我们是否应尝试截断堆？
  *
- * Don't even think about it unless we have a shot at releasing a goodly
- * number of pages.  Otherwise, the time taken isn't worth it, mainly because
- * an AccessExclusive lock must be replayed on any hot standby, where it can
- * be particularly disruptive.
+ * 除非我们有机会释放相当多的
+ * 页，否则想都不要想。否则花费的时间不值得，主要因为
+ * AccessExclusive 锁必须在任何热备上重放，在那里它可能
+ * 特别扰人。
  *
- * Also don't attempt it if wraparound failsafe is in effect.  The entire
- * system might be refusing to allocate new XIDs at this point.  The system
- * definitely won't return to normal unless and until VACUUM actually advances
- * the oldest relfrozenxid -- which hasn't happened for target rel just yet.
- * If lazy_truncate_heap attempted to acquire an AccessExclusiveLock to
- * truncate the table under these circumstances, an XID exhaustion error might
- * make it impossible for VACUUM to fix the underlying XID exhaustion problem.
- * There is very little chance of truncation working out when the failsafe is
- * in effect in any case.  lazy_scan_prune makes the optimistic assumption
- * that any LP_DEAD items it encounters will always be LP_UNUSED by the time
- * we're called.
+ * 若回卷故障安全正在生效，也不要尝试。此时整个
+ * 系统可能正在拒绝分配新的 XIDs。除非 VACUUM 真正推进
+ * 最旧的 relfrozenxid，系统肯定不会恢复正常
+ * -- 对目标 rel 来说这还没发生。
+ * 若 lazy_truncate_heap 在这种情况下试图取得 AccessExclusiveLock 来
+ * 截断该表，一次 XID 耗尽错误可能
+ * 使 VACUUM 无法修复底层的 XID 耗尽问题。
+ * 故障安全生效时，截断成功的机会
+ * 本来就很小。lazy_scan_prune 做一个乐观假设：
+ * 它遇到的任何 LP_DEAD 项在我们被调用时
+ * 总会已经是 LP_UNUSED。
  *
- * Also don't attempt it if we are doing early pruning/vacuuming, because a
- * scan which cannot find a truncated heap page cannot determine that the
- * snapshot is too old to read that page.
+ * 若我们正在做提前剪枝/清理，也不要尝试，因为
+ * 找不到被截断堆页的扫描无法判定
+ * 快照是否过旧而无法读取该页。
  */
 static bool
 should_attempt_truncation(LVRelState *vacrel)
@@ -2832,7 +2832,7 @@ should_attempt_truncation(LVRelState *vacrel)
 }
 
 /*
- * lazy_truncate_heap - try to truncate off any empty pages at the end
+ * lazy_truncate_heap - 尝试截掉末尾的任何空页
  */
 static void
 lazy_truncate_heap(LVRelState *vacrel)
@@ -2842,25 +2842,25 @@ lazy_truncate_heap(LVRelState *vacrel)
 	bool		lock_waiter_detected;
 	int			lock_retry;
 
-	/* Report that we are now truncating */
+	/* 报告我们现在正在截断 */
 	pgstat_progress_update_param(PROGRESS_VACUUM_PHASE,
 								 PROGRESS_VACUUM_PHASE_TRUNCATE);
 
-	/* Update error traceback information one last time */
+	/* 最后一次更新错误回溯信息 */
 	update_vacuum_error_info(vacrel, NULL, VACUUM_ERRCB_PHASE_TRUNCATE,
 							 vacrel->nonempty_pages, InvalidOffsetNumber);
 
 	/*
-	 * Loop until no more truncating can be done.
+	 * 循环，直到不能再截断。
 	 */
 	do
 	{
 		/*
-		 * We need full exclusive lock on the relation in order to do
-		 * truncation. If we can't get it, give up rather than waiting --- we
-		 * don't want to block other backends, and we don't want to deadlock
-		 * (which is quite possible considering we already hold a lower-grade
-		 * lock).
+		 * 为了做截断，我们需要该关系上的完整排他
+		 * 锁。若拿不到，就放弃而不是等待 --- 我们
+		 * 不想阻塞其他后端，也不想死锁
+		 * （考虑到我们已经持有较低级别的
+		 * 锁，这很有可能）。
 		 */
 		lock_waiter_detected = false;
 		lock_retry = 0;
@@ -2870,8 +2870,8 @@ lazy_truncate_heap(LVRelState *vacrel)
 				break;
 
 			/*
-			 * Check for interrupts while trying to (re-)acquire the exclusive
-			 * lock.
+			 * 在尝试（重新）取得排他
+			 * 锁时检查中断。
 			 */
 			CHECK_FOR_INTERRUPTS();
 
@@ -2879,8 +2879,8 @@ lazy_truncate_heap(LVRelState *vacrel)
 								VACUUM_TRUNCATE_LOCK_WAIT_INTERVAL))
 			{
 				/*
-				 * We failed to establish the lock in the specified number of
-				 * retries. This means we give up truncating.
+				 * 我们未能在指定的重试次数内建立起锁。
+				 * 这意味着我们放弃截断。
 				 */
 				ereport(vacrel->verbose ? INFO : DEBUG2,
 						(errmsg("\"%s\": stopping truncate due to conflicting lock request",
@@ -2896,58 +2896,58 @@ lazy_truncate_heap(LVRelState *vacrel)
 		}
 
 		/*
-		 * Now that we have exclusive lock, look to see if the rel has grown
-		 * whilst we were vacuuming with non-exclusive lock.  If so, give up;
-		 * the newly added pages presumably contain non-deletable tuples.
+		 * 既然已经持有排他锁，看看该关系在我们以非排他
+		 * 锁进行清理期间是否增长了。若是，就放弃；
+		 * 新增加的页大概含有不可删除的元组。
 		 */
 		new_rel_pages = RelationGetNumberOfBlocks(vacrel->rel);
 		if (new_rel_pages != orig_rel_pages)
 		{
 			/*
-			 * Note: we intentionally don't update vacrel->rel_pages with the
-			 * new rel size here.  If we did, it would amount to assuming that
-			 * the new pages are empty, which is unlikely. Leaving the numbers
-			 * alone amounts to assuming that the new pages have the same
-			 * tuple density as existing ones, which is less unlikely.
+			 * 注意：我们有意不在这里用新的关系大小更新 vacrel->rel_pages。
+			 * 若那样做，就等于假设
+			 * 新页是空的，这不太可能。保持数字
+			 * 不动等于假设新页与现有页有相同的
+			 * 元组密度，这不那么不可能。
 			 */
 			UnlockRelation(vacrel->rel, AccessExclusiveLock);
 			return;
 		}
 
 		/*
-		 * Scan backwards from the end to verify that the end pages actually
-		 * contain no tuples.  This is *necessary*, not optional, because
-		 * other backends could have added tuples to these pages whilst we
-		 * were vacuuming.
+		 * 从末尾反向扫描，以核实末尾的页实际上
+		 * 不含元组。这是必要的，不是可选的，因为
+		 * 其他后端可能在我们
+		 * 清理期间向这些页添加了元组。
 		 */
 		new_rel_pages = count_nondeletable_pages(vacrel, &lock_waiter_detected);
 		vacrel->blkno = new_rel_pages;
 
 		if (new_rel_pages >= orig_rel_pages)
 		{
-			/* can't do anything after all */
+			/* 毕竟什么也做不了 */
 			UnlockRelation(vacrel->rel, AccessExclusiveLock);
 			return;
 		}
 
 		/*
-		 * Okay to truncate.
+		 * 可以截断。
 		 */
 		RelationTruncate(vacrel->rel, new_rel_pages);
 
 		/*
-		 * We can release the exclusive lock as soon as we have truncated.
-		 * Other backends can't safely access the relation until they have
-		 * processed the smgr invalidation that smgrtruncate sent out ... but
-		 * that should happen as part of standard invalidation processing once
-		 * they acquire lock on the relation.
+		 * 一旦截断完成，就可以释放排他锁。
+		 * 其他后端在处理完 smgrtruncate 发出的 smgr 失效之前，
+		 * 不能安全访问该关系 ... 但
+		 * 那应当在它们取得该关系上的锁之后，
+		 * 作为标准失效处理的一部分发生。
 		 */
 		UnlockRelation(vacrel->rel, AccessExclusiveLock);
 
 		/*
-		 * Update statistics.  Here, it *is* correct to adjust rel_pages
-		 * without also touching reltuples, since the tuple count wasn't
-		 * changed by the truncation.
+		 * 更新统计信息。这里只调整 rel_pages
+		 * 而不动 reltuples 是正确的，因为元组数
+		 * 没有因截断而改变。
 		 */
 		vacrel->removed_pages += orig_rel_pages - new_rel_pages;
 		vacrel->rel_pages = new_rel_pages;
@@ -2961,9 +2961,9 @@ lazy_truncate_heap(LVRelState *vacrel)
 }
 
 /*
- * Rescan end pages to verify that they are (still) empty of tuples.
+ * 重新扫描末尾的页，以核实它们（仍然）没有元组。
  *
- * Returns number of nondeletable pages (last nonempty page + 1).
+ * 返回不可删除页的数量（最后一个非空页 + 1）。
  */
 static BlockNumber
 count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
@@ -2972,14 +2972,14 @@ count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
 	BlockNumber prefetchedUntil;
 	instr_time	starttime;
 
-	/* Initialize the starttime if we check for conflicting lock requests */
+	/* 若我们检查冲突的锁请求，就初始化 starttime */
 	INSTR_TIME_SET_CURRENT(starttime);
 
 	/*
-	 * Start checking blocks at what we believe relation end to be and move
-	 * backwards.  (Strange coding of loop control is needed because blkno is
-	 * unsigned.)  To make the scan faster, we prefetch a few blocks at a time
-	 * in forward direction, so that OS-level readahead can kick in.
+	 * 从我们认为的关系末尾开始检查块，并
+	 * 反向移动。（循环控制的写法有点奇怪，是因为 blkno
+	 * 是无符号的。）为了让扫描更快，我们一次向前
+	 * 预取几个块，以便 OS 级预读能够生效。
 	 */
 	blkno = vacrel->rel_pages;
 	StaticAssertStmt((PREFETCH_SIZE & (PREFETCH_SIZE - 1)) == 0,
@@ -2994,12 +2994,12 @@ count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
 		bool		hastup;
 
 		/*
-		 * Check if another process requests a lock on our relation. We are
-		 * holding an AccessExclusiveLock here, so they will be waiting. We
-		 * only do this once per VACUUM_TRUNCATE_LOCK_CHECK_INTERVAL, and we
-		 * only check if that interval has elapsed once every 32 blocks to
-		 * keep the number of system calls and actual shared lock table
-		 * lookups to a minimum.
+		 * 检查是否有另一个进程请求我们关系上的锁。我们在这里
+		 * 持有 AccessExclusiveLock，所以它们会在等待。我们
+		 * 每个 VACUUM_TRUNCATE_LOCK_CHECK_INTERVAL 只做一次，并且
+		 * 每 32 个块才检查一次该间隔是否已过，
+		 * 以便把系统调用和实际的共享锁表
+		 * 查找次数降到最低。
 		 */
 		if ((blkno % 32) == 0)
 		{
@@ -3026,15 +3026,15 @@ count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
 		}
 
 		/*
-		 * We don't insert a vacuum delay point here, because we have an
-		 * exclusive lock on the table which we want to hold for as short a
-		 * time as possible.  We still need to check for interrupts however.
+		 * 这里不插入清理延迟点，因为我们持有
+		 * 表上的排他锁，希望持有的
+		 * 时间尽可能短。不过仍然需要检查中断。
 		 */
 		CHECK_FOR_INTERRUPTS();
 
 		blkno--;
 
-		/* If we haven't prefetched this lot yet, do so now. */
+		/* 若这一批还没预取，现在就预取。 */
 		if (prefetchedUntil > blkno)
 		{
 			BlockNumber prefetchStart;
@@ -3052,7 +3052,7 @@ count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
 		buf = ReadBufferExtended(vacrel->rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
 								 vacrel->bstrategy);
 
-		/* In this phase we only need shared access to the buffer */
+		/* 本阶段我们只需要对缓冲区的共享访问 */
 		LockBuffer(buf, BUFFER_LOCK_SHARE);
 
 		page = BufferGetPage(buf);
@@ -3074,39 +3074,39 @@ count_nondeletable_pages(LVRelState *vacrel, bool *lock_waiter_detected)
 			itemid = PageGetItemId(page, offnum);
 
 			/*
-			 * Note: any non-unused item should be taken as a reason to keep
-			 * this page.  Even an LP_DEAD item makes truncation unsafe, since
-			 * we must not have cleaned out its index entries.
+			 * 注意：任何非未使用项都应作为保留
+			 * 此页的理由。即使一个 LP_DEAD 项也会使截断不安全，因为
+			 * 我们肯定还没有清掉它的索引项。
 			 */
 			if (ItemIdIsUsed(itemid))
 			{
 				hastup = true;
-				break;			/* can stop scanning */
+				break;			/* 可以停止扫描 */
 			}
-		}						/* scan along page */
+		}						/* 沿该页扫描 */
 
 		UnlockReleaseBuffer(buf);
 
-		/* Done scanning if we found a tuple here */
+		/* 若在这里找到元组，就扫描完毕 */
 		if (hastup)
 			return blkno + 1;
 	}
 
 	/*
-	 * If we fall out of the loop, all the previously-thought-to-be-empty
-	 * pages still are; we need not bother to look at the last known-nonempty
-	 * page.
+	 * 若我们跳出该循环，则所有先前认为是空的
+	 * 页仍然是空的；不必再看最后一页已知非空的
+	 * 页。
 	 */
 	return vacrel->nonempty_pages;
 }
 
 /*
- * Returns the number of dead TIDs that VACUUM should allocate space to
- * store, given a heap rel of size vacrel->rel_pages, and given current
- * maintenance_work_mem setting (or current autovacuum_work_mem setting,
- * when applicable).
+ * 返回 VACUUM 应当分配空间来存放的死 TIDs 数量，
+ * 给定大小为 vacrel->rel_pages 的堆关系，以及当前的
+ * maintenance_work_mem 设置（或在适用时当前的 autovacuum_work_mem
+ * 设置）。
  *
- * See the comments at the head of this file for rationale.
+ * 理由见本文件开头的注释。
  */
 static int
 dead_items_max_items(LVRelState *vacrel)
@@ -3124,16 +3124,16 @@ dead_items_max_items(LVRelState *vacrel)
 		max_items = Min(max_items, INT_MAX);
 		max_items = Min(max_items, MAXDEADITEMS(MaxAllocSize));
 
-		/* curious coding here to ensure the multiplication can't overflow */
+		/* 这里的写法有意确保乘法不会溢出 */
 		if ((BlockNumber) (max_items / MaxHeapTuplesPerPage) > rel_pages)
 			max_items = rel_pages * MaxHeapTuplesPerPage;
 
-		/* stay sane if small maintenance_work_mem */
+		/* 若 maintenance_work_mem 很小，保持合理 */
 		max_items = Max(max_items, MaxHeapTuplesPerPage);
 	}
 	else
 	{
-		/* One-pass case only stores a single heap page's TIDs at a time */
+		/* 单遍情形一次只存放单个堆页的 TIDs */
 		max_items = MaxHeapTuplesPerPage;
 	}
 
@@ -3141,11 +3141,11 @@ dead_items_max_items(LVRelState *vacrel)
 }
 
 /*
- * Allocate dead_items (either using palloc, or in dynamic shared memory).
- * Sets dead_items in vacrel for caller.
+ * 分配 dead_items（用 palloc，或放在动态共享内存中）。
+ * 为调用方在 vacrel 中设置 dead_items。
  *
- * Also handles parallel initialization as part of allocating dead_items in
- * DSM when required.
+ * 需要时，也在 DSM 中分配 dead_items 的过程中
+ * 处理并行初始化。
  */
 static void
 dead_items_alloc(LVRelState *vacrel, int nworkers)
@@ -3157,21 +3157,21 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 	Assert(max_items >= MaxHeapTuplesPerPage);
 
 	/*
-	 * Initialize state for a parallel vacuum.  As of now, only one worker can
-	 * be used for an index, so we invoke parallelism only if there are at
-	 * least two indexes on a table.
+	 * 初始化并行清理的状态。到目前为止，一个索引只能使用
+	 * 一个工作进程，所以只有当表上至少有
+	 * 两个索引时我们才启用并行。
 	 */
 	if (nworkers >= 0 && vacrel->nindexes > 1 && vacrel->do_index_vacuuming)
 	{
 		/*
-		 * Since parallel workers cannot access data in temporary tables, we
-		 * can't perform parallel vacuum on them.
+		 * 由于并行工作进程无法访问临时表中的数据，我们
+		 * 无法对它们执行并行清理。
 		 */
 		if (RelationUsesLocalBuffers(vacrel->rel))
 		{
 			/*
-			 * Give warning only if the user explicitly tries to perform a
-			 * parallel vacuum on the temporary table.
+			 * 仅当用户显式尝试对临时表
+			 * 执行并行清理时才给出警告。
 			 */
 			if (nworkers > 0)
 				ereport(WARNING,
@@ -3185,7 +3185,7 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 											   vacrel->verbose ? INFO : DEBUG2,
 											   vacrel->bstrategy);
 
-		/* If parallel mode started, dead_items space is allocated in DSM */
+		/* 若并行模式已启动，dead_items 空间在 DSM 中分配 */
 		if (ParallelVacuumIsActive(vacrel))
 		{
 			vacrel->dead_items = parallel_vacuum_get_dead_items(vacrel->pvs);
@@ -3193,7 +3193,7 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 		}
 	}
 
-	/* Serial VACUUM case */
+	/* 串行 VACUUM 情形 */
 	dead_items = (VacDeadItems *) palloc(vac_max_items_to_alloc_size(max_items));
 	dead_items->max_items = max_items;
 	dead_items->num_items = 0;
@@ -3202,32 +3202,32 @@ dead_items_alloc(LVRelState *vacrel, int nworkers)
 }
 
 /*
- * Perform cleanup for resources allocated in dead_items_alloc
+ * 对 dead_items_alloc 中分配的资源做清理
  */
 static void
 dead_items_cleanup(LVRelState *vacrel)
 {
 	if (!ParallelVacuumIsActive(vacrel))
 	{
-		/* Don't bother with pfree here */
+		/* 这里不必费心 pfree */
 		return;
 	}
 
-	/* End parallel mode */
+	/* 结束并行模式 */
 	parallel_vacuum_end(vacrel->pvs, vacrel->indstats);
 	vacrel->pvs = NULL;
 }
 
 /*
- * Check if every tuple in the given page is visible to all current and future
- * transactions. Also return the visibility_cutoff_xid which is the highest
- * xmin amongst the visible tuples.  Set *all_frozen to true if every tuple
- * on this page is frozen.
+ * 检查给定页中的每个元组是否对所有当前和未来的
+ * 事务可见。同时返回 visibility_cutoff_xid，即可见元组中
+ * 最高的 xmin。若此页上每个元组
+ * 都已冻结，则把 *all_frozen 设为真。
  *
- * This is a stripped down version of lazy_scan_prune().  If you change
- * anything here, make sure that everything stays in sync.  Note that an
- * assertion calls us to verify that everybody still agrees.  Be sure to avoid
- * introducing new side-effects here.
+ * 这是 lazy_scan_prune() 的精简版。若你改动
+ * 这里的任何东西，请确保一切保持同步。注意有一个
+ * 断言会调用我们来核实大家仍然一致。务必避免
+ * 在这里引入新的副作用。
  */
 static bool
 heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
@@ -3252,21 +3252,21 @@ heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
 		HeapTupleData tuple;
 
 		/*
-		 * Set the offset number so that we can display it along with any
-		 * error that occurred while processing this tuple.
+		 * 设置偏移号，以便在处理此元组时若发生
+		 * 任何错误，可以把它一起显示出来。
 		 */
 		vacrel->offnum = offnum;
 		itemid = PageGetItemId(page, offnum);
 
-		/* Unused or redirect line pointers are of no interest */
+		/* 未使用或重定向的行指针没有意义 */
 		if (!ItemIdIsUsed(itemid) || ItemIdIsRedirected(itemid))
 			continue;
 
 		ItemPointerSet(&(tuple.t_self), blockno, offnum);
 
 		/*
-		 * Dead line pointers can have index pointers pointing to them. So
-		 * they can't be treated as visible
+		 * 死行指针可能有指向它们的索引指针。所以
+		 * 不能把它们当作可见
 		 */
 		if (ItemIdIsDead(itemid))
 		{
@@ -3288,7 +3288,7 @@ heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
 				{
 					TransactionId xmin;
 
-					/* Check comments in lazy_scan_prune. */
+					/* 查看 lazy_scan_prune 中的注释。 */
 					if (!HeapTupleHeaderXminCommitted(tuple.t_data))
 					{
 						all_visible = false;
@@ -3297,8 +3297,8 @@ heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
 					}
 
 					/*
-					 * The inserter definitely committed. But is it old enough
-					 * that everyone sees it as committed?
+					 * 插入者肯定已提交。但它是否足够旧，
+					 * 以至于所有人都把它看作已提交？
 					 */
 					xmin = HeapTupleHeaderGetXmin(tuple.t_data);
 					if (!TransactionIdPrecedes(xmin,
@@ -3309,12 +3309,12 @@ heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
 						break;
 					}
 
-					/* Track newest xmin on page. */
+					/* 跟踪该页上最新的 xmin。 */
 					if (TransactionIdFollows(xmin, *visibility_cutoff_xid) &&
 						TransactionIdIsNormal(xmin))
 						*visibility_cutoff_xid = xmin;
 
-					/* Check whether this tuple is already frozen or not */
+					/* 检查此元组是否已经冻结 */
 					if (all_visible && *all_frozen &&
 						heap_tuple_needs_eventual_freeze(tuple.t_data))
 						*all_frozen = false;
@@ -3334,16 +3334,16 @@ heap_page_is_all_visible(LVRelState *vacrel, Buffer buf,
 				elog(ERROR, "unexpected HeapTupleSatisfiesVacuum result");
 				break;
 		}
-	}							/* scan along page */
+	}							/* 沿该页扫描 */
 
-	/* Clear the offset information once we have processed the given page. */
+	/* 处理完给定页后，清除偏移信息。 */
 	vacrel->offnum = InvalidOffsetNumber;
 
 	return all_visible;
 }
 
 /*
- * Update index statistics in pg_class if the statistics are accurate.
+ * 若统计信息准确，就更新 pg_class 中的索引统计信息。
  */
 static void
 update_relstats_all_indexes(LVRelState *vacrel)
@@ -3362,7 +3362,7 @@ update_relstats_all_indexes(LVRelState *vacrel)
 		if (istat == NULL || istat->estimated_count)
 			continue;
 
-		/* Update index statistics */
+		/* 更新索引统计信息 */
 		vac_update_relstats(indrel,
 							istat->num_pages,
 							istat->num_index_tuples,
@@ -3375,10 +3375,10 @@ update_relstats_all_indexes(LVRelState *vacrel)
 }
 
 /*
- * Error context callback for errors occurring during vacuum.  The error
- * context messages for index phases should match the messages set in parallel
- * vacuum.  If you change this function for those phases, change
- * parallel_vacuum_error_callback() as well.
+ * 清理期间发生错误时的错误上下文回调。索引阶段的错误
+ * 上下文消息应当与并行
+ * 清理中设置的消息一致。若你为那些阶段改动本函数，也要改
+ * parallel_vacuum_error_callback()。
  */
 static void
 vacuum_error_callback(void *arg)
@@ -3435,14 +3435,14 @@ vacuum_error_callback(void *arg)
 
 		case VACUUM_ERRCB_PHASE_UNKNOWN:
 		default:
-			return;				/* do nothing; the errinfo may not be
-								 * initialized */
+			return;				/* 什么也不做；errinfo 可能尚未
+								 * 初始化 */
 	}
 }
 
 /*
- * Updates the information required for vacuum error callback.  This also saves
- * the current information which can be later restored via restore_vacuum_error_info.
+ * 更新清理错误回调所需的信息。同时保存
+ * 当前信息，以后可以通过 restore_vacuum_error_info 恢复。
  */
 static void
 update_vacuum_error_info(LVRelState *vacrel, LVSavedErrInfo *saved_vacrel,
@@ -3461,7 +3461,7 @@ update_vacuum_error_info(LVRelState *vacrel, LVSavedErrInfo *saved_vacrel,
 }
 
 /*
- * Restores the vacuum information saved via a prior call to update_vacuum_error_info.
+ * 恢复先前调用 update_vacuum_error_info 时保存的清理信息。
  */
 static void
 restore_vacuum_error_info(LVRelState *vacrel,

@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0106-comment-storage-file-fd",
+ "title": "zh: translate fd comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "eaa626df407a79ee187be097f01abc6874a169f1",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "note": "virtual file descriptor manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0106-comment-storage-file-fd.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 298,
+   "translated": 293,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "pgindent blocks",
+    "fall-through"
+   ],
+   "note": "virtual file descriptor manager"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0106-comment-storage-file-fd.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0106 translates src/backend/storage/file/fd.c. Two real fall-through comments and three pgindent blocks stay in English."
+}

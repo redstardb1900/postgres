@@ -75,7 +75,7 @@
 #include <dirent.h>
 #include <sys/file.h>
 #include <sys/param.h>
-#include <sys/resource.h>		/* for getrlimit */
+#include <sys/resource.h>		/* 供 getrlimit 使用 */
 #include <sys/stat.h>
 #include <sys/types.h>
 #ifndef WIN32
@@ -102,7 +102,7 @@
 #include "utils/resowner_private.h"
 #include "utils/varlena.h"
 
-/* Define PG_FLUSH_DATA_WORKS if we have an implementation for pg_flush_data */
+/* 若我们有 pg_flush_data 的实现，则定义 PG_FLUSH_DATA_WORKS */
 #if defined(HAVE_SYNC_FILE_RANGE)
 #define PG_FLUSH_DATA_WORKS 1
 #elif !defined(WIN32) && defined(MS_ASYNC)
@@ -112,62 +112,62 @@
 #endif
 
 /*
- * We must leave some file descriptors free for system(), the dynamic loader,
- * and other code that tries to open files without consulting fd.c.  This
- * is the number left free.  (While we try fairly hard to prevent EMFILE
- * errors, there's never any guarantee that we won't get ENFILE due to
- * other processes chewing up FDs.  So it's a bad idea to try to open files
- * without consulting fd.c.  Nonetheless we cannot control all code.)
+ * 我们必须留出一些文件描述符给 system()、动态加载器、
+ * 以及其他不经 fd.c 就试图打开文件的代码。这就是
+ * 留出的个数。（我们相当努力地防止 EMFILE
+ * 错误，但绝无把握不会因为其他进程吃掉文件描述符
+ * 而得到 ENFILE。因此不经 fd.c 就打开文件是坏主意。
+ * 尽管如此，我们无法控制所有代码。）
  *
- * Because this is just a fixed setting, we are effectively assuming that
- * no such code will leave FDs open over the long term; otherwise the slop
- * is likely to be insufficient.  Note in particular that we expect that
- * loading a shared library does not result in any permanent increase in
- * the number of open files.  (This appears to be true on most if not
- * all platforms as of Feb 2004.)
+ * 因为这只是一个固定设置，我们实际上假定
+ * 这类代码不会长期占用文件描述符；否则这份余量
+ * 很可能不够。特别要注意，我们预期
+ * 加载共享库不会使打开文件数永久增加。
+ * （截至 2004 年 2 月，这在多数乃至
+ * 所有平台上似乎都成立。）
  */
 #define NUM_RESERVED_FDS		10
 
 /*
- * If we have fewer than this many usable FDs after allowing for the reserved
- * ones, choke.  (This value is chosen to work with "ulimit -n 64", but not
- * much less than that.  Note that this value ensures numExternalFDs can be
- * at least 16; as of this writing, the contrib/postgres_fdw regression tests
- * will not pass unless that can grow to at least 14.)
+ * 扣掉保留的之后，若可用文件描述符少于此数，就拒绝继续。
+ * （这个值选来配合 ulimit -n 64，但再小很多就不行。
+ * 注意，这个值保证 numExternalFDs 至少能到
+ * 16；就目前而言，contrib/postgres_fdw 的回归测试
+ * 除非它至少能增长到 14，否则不会通过。）
  */
 #define FD_MINFREE				48
 
 /*
- * A number of platforms allow individual processes to open many more files
- * than they can really support when *many* processes do the same thing.
- * This GUC parameter lets the DBA limit max_safe_fds to something less than
- * what the postmaster's initial probe suggests will work.
+ * 不少平台允许单个进程打开的文件数，远多于
+ * 许多进程同时这么做时真正能支撑的数量。
+ * 这个 GUC 参数让数据库管理员把 max_safe_fds 限制到
+ * 低于 postmaster 初始探测所建议的值。
  */
 int			max_files_per_process = 1000;
 
 /*
- * Maximum number of file descriptors to open for operations that fd.c knows
- * about (VFDs, AllocateFile etc, or "external" FDs).  This is initialized
- * to a conservative value, and remains that way indefinitely in bootstrap or
- * standalone-backend cases.  In normal postmaster operation, the postmaster
- * calls set_max_safe_fds() late in initialization to update the value, and
- * that value is then inherited by forked subprocesses.
+ * fd.c 所知道的操作用以打开的文件描述符最大个数
+ * （VFDs、AllocateFile 等，或外部文件描述符）。它被初始化为
+ * 一个保守值，在引导或独立后端情形下会一直保持这样。
+ * 在正常的 postmaster 运行中，postmaster
+ * 在初始化后期调用 set_max_safe_fds() 来更新该值，
+ * 然后由派生出的子进程继承。
  *
- * Note: the value of max_files_per_process is taken into account while
- * setting this variable, and so need not be tested separately.
+ * 注意：设置这个变量时已经考虑了 max_files_per_process，
+ * 因此不必再单独测试它。
  */
-int			max_safe_fds = FD_MINFREE;	/* default if not changed */
+int			max_safe_fds = FD_MINFREE;	/* 若未改变则用默认值 */
 
-/* Whether it is safe to continue running after fsync() fails. */
+/* fsync() 失败后是否仍可安全地继续运行。 */
 bool		data_sync_retry = false;
 
-/* How SyncDataDirectory() should do its job. */
+/* SyncDataDirectory() 应当如何完成其工作。 */
 int			recovery_init_sync_method = RECOVERY_INIT_SYNC_METHOD_FSYNC;
 
-/* Which kinds of files should be opened with PG_O_DIRECT. */
+/* 哪些种类的文件应当以 PG_O_DIRECT 打开。 */
 int			io_direct_flags;
 
-/* Debugging.... */
+/* 调试用…… */
 
 #ifdef FDDEBUG
 #define DO_DB(A) \
@@ -188,61 +188,61 @@ int			io_direct_flags;
 
 #define FileIsNotOpen(file) (VfdCache[file].fd == VFD_CLOSED)
 
-/* these are the assigned bits in fdstate below: */
-#define FD_DELETE_AT_CLOSE	(1 << 0)	/* T = delete when closed */
-#define FD_CLOSE_AT_EOXACT	(1 << 1)	/* T = close at eoXact */
-#define FD_TEMP_FILE_LIMIT	(1 << 2)	/* T = respect temp_file_limit */
+/* 下面是 fdstate 里已分配的位： */
+#define FD_DELETE_AT_CLOSE	(1 << 0)	/* 为真则关闭时删除 */
+#define FD_CLOSE_AT_EOXACT	(1 << 1)	/* 为真则在事务结束时关闭 */
+#define FD_TEMP_FILE_LIMIT	(1 << 2)	/* 为真则遵守 temp_file_limit */
 
 typedef struct vfd
 {
-	int			fd;				/* current FD, or VFD_CLOSED if none */
-	unsigned short fdstate;		/* bitflags for VFD's state */
-	ResourceOwner resowner;		/* owner, for automatic cleanup */
-	File		nextFree;		/* link to next free VFD, if in freelist */
-	File		lruMoreRecently;	/* doubly linked recency-of-use list */
+	int			fd;				/* 当前文件描述符，若没有则为 VFD_CLOSED */
+	unsigned short fdstate;		/* VFD 状态的位标志 */
+	ResourceOwner resowner;		/* 所有者，用于自动清理 */
+	File		nextFree;		/* 若在空闲链表中，则指向下一个空闲 VFD */
+	File		lruMoreRecently;	/* 按最近使用情况组织的双向链表 */
 	File		lruLessRecently;
-	off_t		fileSize;		/* current size of file (0 if not temporary) */
-	char	   *fileName;		/* name of file, or NULL for unused VFD */
-	/* NB: fileName is malloc'd, and must be free'd when closing the VFD */
-	int			fileFlags;		/* open(2) flags for (re)opening the file */
-	mode_t		fileMode;		/* mode to pass to open(2) */
+	off_t		fileSize;		/* 文件当前大小（若不是临时文件则为 0） */
+	char	   *fileName;		/* 文件名，未使用的 VFD 则为 NULL */
+	/* 注意：fileName 由 malloc 分配，关闭该 VFD 时必须 free */
+	int			fileFlags;		/* 用于（重新）打开文件的 open(2) 标志 */
+	mode_t		fileMode;		/* 传给 open(2) 的模式 */
 } Vfd;
 
 /*
- * Virtual File Descriptor array pointer and size.  This grows as
- * needed.  'File' values are indexes into this array.
- * Note that VfdCache[0] is not a usable VFD, just a list header.
+ * 虚拟文件描述符数组的指针和大小。它按
+ * 需要增长。File 值是这个数组的下标。
+ * 注意 VfdCache[0] 不是可用的 VFD，只是链表头。
  */
 static Vfd *VfdCache;
 static Size SizeVfdCache = 0;
 
 /*
- * Number of file descriptors known to be in use by VFD entries.
+ * 已知被 VFD 项占用的文件描述符个数。
  */
 static int	nfile = 0;
 
 /*
- * Flag to tell whether it's worth scanning VfdCache looking for temp files
- * to close
+ * 标志：是否值得扫描 VfdCache，寻找要关闭的
+ * 临时文件
  */
 static bool have_xact_temporary_files = false;
 
 /*
- * Tracks the total size of all temporary files.  Note: when temp_file_limit
- * is being enforced, this cannot overflow since the limit cannot be more
- * than INT_MAX kilobytes.  When not enforcing, it could theoretically
- * overflow, but we don't care.
+ * 跟踪所有临时文件的总大小。注意：在强制执行 temp_file_limit
+ * 时，这个值无法溢出，因为限制无法超过
+ * INT_MAX 千字节。不强制执行时，理论上它可能
+ * 溢出，但我们不在乎。
  */
 static uint64 temporary_files_size = 0;
 
-/* Temporary file access initialized and not yet shut down? */
+/* 临时文件访问已初始化且尚未关闭？ */
 #ifdef USE_ASSERT_CHECKING
 static bool temporary_files_allowed = false;
 #endif
 
 /*
- * List of OS handles opened with AllocateFile, AllocateDir and
- * OpenTransientFile.
+ * 用 AllocateFile、AllocateDir 和
+ * OpenTransientFile 打开的操作系统句柄列表。
  */
 typedef enum
 {
@@ -269,21 +269,21 @@ static int	maxAllocatedDescs = 0;
 static AllocateDesc *allocatedDescs = NULL;
 
 /*
- * Number of open "external" FDs reported to Reserve/ReleaseExternalFD.
+ * 报告给 Reserve/ReleaseExternalFD 的已打开外部文件描述符个数。
  */
 static int	numExternalFDs = 0;
 
 /*
- * Number of temporary files opened during the current session;
- * this is used in generation of tempfile names.
+ * 当前会话中打开的临时文件个数；
+ * 用于生成临时文件名。
  */
 static long tempFileCounter = 0;
 
 /*
- * Array of OIDs of temp tablespaces.  (Some entries may be InvalidOid,
- * indicating that the current database's default tablespace should be used.)
- * When numTempTableSpaces is -1, this has not been set in the current
- * transaction.
+ * 临时表空间的 OIDs 数组。（有些项可能是 InvalidOid，
+ * 表示应当使用当前数据库的默认表空间。）
+ * 当 numTempTableSpaces 为 -1 时，当前
+ * 事务里还没有设置它。
  */
 static Oid *tempTableSpaces = NULL;
 static int	numTempTableSpaces = -1;
@@ -355,7 +355,7 @@ static int	fsync_parent_path(const char *fname, int elevel);
 
 
 /*
- * pg_fsync --- do fsync with or without writethrough
+ * pg_fsync --- 做带或不带写穿透的 fsync
  */
 int
 pg_fsync(int fd)
@@ -364,22 +364,22 @@ pg_fsync(int fd)
 	struct stat st;
 
 	/*
-	 * Some operating system implementations of fsync() have requirements
-	 * about the file access modes that were used when their file descriptor
-	 * argument was opened, and these requirements differ depending on whether
-	 * the file descriptor is for a directory.
+	 * 某些操作系统的 fsync() 实现对其文件描述符
+	 * 参数在打开时所使用的文件访问模式有要求，
+	 * 而且这些要求取决于该文件描述符
+	 * 是不是目录。
 	 *
-	 * For any file descriptor that may eventually be handed to fsync(), we
-	 * should have opened it with access modes that are compatible with
-	 * fsync() on all supported systems, otherwise the code may not be
-	 * portable, even if it runs ok on the current system.
+	 * 对任何最终可能交给 fsync() 的文件描述符，
+	 * 我们都应当以与所有受支持系统上的
+	 * fsync() 兼容的访问模式打开它，否则代码可能不可
+	 * 移植，即使它在当前系统上运行正常。
 	 *
-	 * We assert here that a descriptor for a file was opened with write
-	 * permissions (i.e., not O_RDONLY) and for a directory without write
-	 * permissions (O_RDONLY).  Notice that the assertion check is made even
-	 * if fsync() is disabled.
+	 * 这里我们断言：文件的描述符是以写
+	 * 权限打开的（即不是 O_RDONLY），目录则没有写
+	 * 权限（O_RDONLY）。注意，即使
+	 * fsync() 被禁用，这个断言检查仍会进行。
 	 *
-	 * If fstat() fails, ignore it and let the follow-up fsync() complain.
+	 * 若 fstat() 失败，则忽略它，让随后的 fsync() 去报错。
 	 */
 	if (fstat(fd, &st) == 0)
 	{
@@ -395,7 +395,7 @@ pg_fsync(int fd)
 	errno = 0;
 #endif
 
-	/* #if is to skip the sync_method test if there's no need for it */
+	/* 若没有必要做 sync_method 测试，这个 #if 用来跳过它 */
 #if defined(HAVE_FSYNC_WRITETHROUGH) && !defined(FSYNC_WRITETHROUGH_IS_FSYNC)
 	if (sync_method == SYNC_METHOD_FSYNC_WRITETHROUGH)
 		return pg_fsync_writethrough(fd);
@@ -406,8 +406,8 @@ pg_fsync(int fd)
 
 
 /*
- * pg_fsync_no_writethrough --- same as fsync except does nothing if
- *	enableFsync is off
+ * pg_fsync_no_writethrough --- 与 fsync 相同，但在
+ *	enableFsync 关闭时什么也不做
  */
 int
 pg_fsync_no_writethrough(int fd)
@@ -427,7 +427,7 @@ retry:
 }
 
 /*
- * pg_fsync_writethrough
+ * pg_fsync_writethrough 写穿透版
  */
 int
 pg_fsync_writethrough(int fd)
@@ -448,7 +448,7 @@ pg_fsync_writethrough(int fd)
 }
 
 /*
- * pg_fdatasync --- same as fdatasync except does nothing if enableFsync is off
+ * pg_fdatasync --- 与 fdatasync 相同，但在 enableFsync 关闭时什么也不做
  */
 int
 pg_fdatasync(int fd)
@@ -468,25 +468,25 @@ retry:
 }
 
 /*
- * pg_flush_data --- advise OS that the described dirty data should be flushed
+ * pg_flush_data --- 建议操作系统刷出所述的脏数据。
  *
- * offset of 0 with nbytes 0 means that the entire file should be flushed
+ * 偏移为 0 且 nbytes 为 0 表示应当刷出整个文件
  */
 void
 pg_flush_data(int fd, off_t offset, off_t nbytes)
 {
 	/*
-	 * Right now file flushing is primarily used to avoid making later
-	 * fsync()/fdatasync() calls have less impact. Thus don't trigger flushes
-	 * if fsyncs are disabled - that's a decision we might want to make
-	 * configurable at some point.
+	 * 目前刷出文件主要是为了减轻稍后
+	 * fsync()/fdatasync() 调用的影响。因此若禁用了 fsync，
+	 * 就不要触发刷出。这个决定我们也许将来
+	 * 会做成可配置的。
 	 */
 	if (!enableFsync)
 		return;
 
 	/*
-	 * We compile all alternatives that are supported on the current platform,
-	 * to find portability problems more easily.
+	 * 当前平台上支持的各种替代实现我们都编译进来，
+	 * 以便更容易发现可移植性问题。
 	 */
 #if defined(HAVE_SYNC_FILE_RANGE)
 	{
@@ -499,13 +499,13 @@ pg_flush_data(int fd, off_t offset, off_t nbytes)
 retry:
 
 		/*
-		 * sync_file_range(SYNC_FILE_RANGE_WRITE), currently linux specific,
-		 * tells the OS that writeback for the specified blocks should be
-		 * started, but that we don't want to wait for completion.  Note that
-		 * this call might block if too much dirty data exists in the range.
-		 * This is the preferable method on OSs supporting it, as it works
-		 * reliably when available (contrast to msync()) and doesn't flush out
-		 * clean data (like FADV_DONTNEED).
+		 * sync_file_range(SYNC_FILE_RANGE_WRITE) 目前是 Linux 特有的，
+		 * 它告诉操作系统应当开始对指定块做回写，
+		 * 但我们不想等待完成。注意，
+		 * 若该范围内已有过多脏数据，这次调用可能阻塞。
+		 * 在支持它的操作系统上这是首选方法，因为可用时它工作
+		 * 可靠（与 msync() 相反），并且不会把
+		 * 干净数据刷出去（不像 FADV_DONTNEED）。
 		 */
 		rc = sync_file_range(fd, offset, nbytes,
 							 SYNC_FILE_RANGE_WRITE);
@@ -517,9 +517,9 @@ retry:
 				goto retry;
 
 			/*
-			 * For systems that don't have an implementation of
-			 * sync_file_range() such as Windows WSL, generate only one
-			 * warning and then suppress all further attempts by this process.
+			 * 对没有 sync_file_range() 实现的系统，例如 Windows WSL，
+			 * 只产生一次警告，然后抑制本进程
+			 * 此后的所有尝试。
 			 */
 			if (errno == ENOSYS)
 			{
@@ -543,17 +543,17 @@ retry:
 		static int	pagesize = 0;
 
 		/*
-		 * On several OSs msync(MS_ASYNC) on a mmap'ed file triggers
-		 * writeback. On linux it only does so if MS_SYNC is specified, but
-		 * then it does the writeback synchronously. Luckily all common linux
-		 * systems have sync_file_range().  This is preferable over
-		 * FADV_DONTNEED because it doesn't flush out clean data.
+		 * 在若干操作系统上，对 mmap 的文件做 msync(MS_ASYNC)
+		 * 会触发回写。在 Linux 上只有指定 MS_SYNC 才会这样，但
+		 * 那样回写是同步的。幸好常见的 Linux
+		 * 系统都有 sync_file_range()。这比
+		 * FADV_DONTNEED 更好，因为它不会把干净数据刷出去。
 		 *
-		 * We map the file (mmap()), tell the kernel to sync back the contents
-		 * (msync()), and then remove the mapping again (munmap()).
+		 * 我们映射该文件（mmap()），让内核把内容同步回去
+		 * （msync()），然后再去掉映射（munmap()）。
 		 */
 
-		/* mmap() needs actual length if we want to map whole file */
+		/* 若要映射整个文件，mmap() 需要实际长度 */
 		if (offset == 0 && nbytes == 0)
 		{
 			nbytes = lseek(fd, 0, SEEK_END);
@@ -567,27 +567,27 @@ retry:
 		}
 
 		/*
-		 * Some platforms reject partial-page mmap() attempts.  To deal with
-		 * that, just truncate the request to a page boundary.  If any extra
-		 * bytes don't get flushed, well, it's only a hint anyway.
+		 * 有些平台拒绝跨页不完整的 mmap() 尝试。为了处理
+		 * 这一点，就把请求截断到页边界。若多出来的
+		 * 字节没被刷出，反正这也只是一个提示。
 		 */
 
-		/* fetch pagesize only once */
+		/* 页大小只取一次 */
 		if (pagesize == 0)
 			pagesize = sysconf(_SC_PAGESIZE);
 
-		/* align length to pagesize, dropping any fractional page */
+		/* 把长度对齐到页大小，丢掉不足一页的部分 */
 		if (pagesize > 0)
 			nbytes = (nbytes / pagesize) * pagesize;
 
-		/* fractional-page request is a no-op */
+		/* 不足一页的请求是空操作 */
 		if (nbytes <= 0)
 			return;
 
 		/*
-		 * mmap could well fail, particularly on 32-bit platforms where there
-		 * may simply not be enough address space.  If so, silently fall
-		 * through to the next implementation.
+		 * mmap 很可能失败，尤其在 32 位平台上，那里
+		 * 地址空间可能根本不够。若如此，就静默地落到
+		 * 下一种实现。
 		 */
 		if (nbytes <= (off_t) SSIZE_MAX)
 			p = mmap(NULL, nbytes, PROT_READ, MAP_SHARED, fd, offset);
@@ -610,7 +610,7 @@ retry:
 			rc = munmap(p, (size_t) nbytes);
 			if (rc != 0)
 			{
-				/* FATAL error because mapping would remain */
+				/* 映射会留下来，因此这是 FATAL 错误 */
 				ereport(FATAL,
 						(errcode_for_file_access(),
 						 errmsg("could not munmap() while flushing data: %m")));
@@ -625,18 +625,18 @@ retry:
 		int			rc;
 
 		/*
-		 * Signal the kernel that the passed in range should not be cached
-		 * anymore. This has the, desired, side effect of writing out dirty
-		 * data, and the, undesired, side effect of likely discarding useful
-		 * clean cached blocks.  For the latter reason this is the least
-		 * preferable method.
+		 * 通知内核，传入的范围不应当再被缓存。
+		 * 这有一个我们想要的副作用：写出脏
+		 * 数据；也有一个不想要的副作用：很可能丢掉有用的
+		 * 干净缓存块。由于后一个原因，这是最不
+		 * 优先的方法。
 		 */
 
 		rc = posix_fadvise(fd, offset, nbytes, POSIX_FADV_DONTNEED);
 
 		if (rc != 0)
 		{
-			/* don't error out, this is just a performance optimization */
+			/* 不要报错，这只是性能上的优化 */
 			ereport(WARNING,
 					(errcode_for_file_access(),
 					 errmsg("could not flush dirty data: %m")));
@@ -648,7 +648,7 @@ retry:
 }
 
 /*
- * Truncate an open file to a given length.
+ * 把一个已打开的文件截断到给定长度。
  */
 static int
 pg_ftruncate(int fd, off_t length)
@@ -665,7 +665,7 @@ retry:
 }
 
 /*
- * Truncate a file to a given length by name.
+ * 按名字把文件截断到给定长度。
  */
 int
 pg_truncate(const char *path, off_t length)
@@ -698,10 +698,10 @@ retry:
 }
 
 /*
- * fsync_fname -- fsync a file or directory, handling errors properly
+ * fsync_fname -- 对文件或目录做 fsync，并正确处理错误。
  *
- * Try to fsync a file or directory. When doing the latter, ignore errors that
- * indicate the OS just doesn't allow/require fsyncing directories.
+ * 尝试对文件或目录做 fsync。做后者时，忽略那些
+ * 表示操作系统根本不允许或不需要对目录做 fsync 的错误。
  */
 void
 fsync_fname(const char *fname, bool isdir)
@@ -710,24 +710,24 @@ fsync_fname(const char *fname, bool isdir)
 }
 
 /*
- * durable_rename -- rename(2) wrapper, issuing fsyncs required for durability
+ * durable_rename -- rename(2) 的包装，发出持久性所需的 fsync。
  *
- * This routine ensures that, after returning, the effect of renaming file
- * persists in case of a crash. A crash while this routine is running will
- * leave you with either the pre-existing or the moved file in place of the
- * new file; no mixed state or truncated files are possible.
+ * 本例程确保返回之后，重命名文件的效果
+ * 在崩溃时仍然保持。本例程运行期间若崩溃，
+ * 新文件的位置上只会留下原先已有的文件或已移动的文件；
+ * 不会出现混合状态或被截断的文件。
  *
- * It does so by using fsync on the old filename and the possibly existing
- * target filename before the rename, and the target file and directory after.
+ * 做法是在 rename 之前对旧文件名和可能已存在的
+ * 目标文件名做 fsync，之后再对目标文件和目录做 fsync。
  *
- * Note that rename() cannot be used across arbitrary directories, as they
- * might not be on the same filesystem. Therefore this routine does not
- * support renaming across directories.
+ * 注意，rename() 无法跨任意目录使用，因为它们
+ * 可能不在同一个文件系统上。因此本例程不
+ * 支持跨目录重命名。
  *
- * Log errors with the caller specified severity.
+ * 按调用者指定的严重级别记录错误。
  *
- * Returns 0 if the operation succeeded, -1 otherwise. Note that errno is not
- * valid upon return.
+ * 成功返回 0，否则返回 -1。注意返回时 errno
+ * 无效。
  */
 int
 durable_rename(const char *oldfile, const char *newfile, int elevel)
@@ -735,11 +735,11 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 	int			fd;
 
 	/*
-	 * First fsync the old and target path (if it exists), to ensure that they
-	 * are properly persistent on disk. Syncing the target file is not
-	 * strictly necessary, but it makes it easier to reason about crashes;
-	 * because it's then guaranteed that either source or target file exists
-	 * after a crash.
+	 * 首先对旧路径和目标路径（若存在）做 fsync，以确保它们
+	 * 在磁盘上真正持久。同步目标文件并非
+	 * 严格必要，但它让崩溃推理更容易；
+	 * 因为那样就能保证崩溃之后源文件或目标文件
+	 * 至少有一个存在。
 	 */
 	if (fsync_fname_ext(oldfile, false, false, elevel) != 0)
 		return -1;
@@ -761,7 +761,7 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 		{
 			int			save_errno;
 
-			/* close file upon error, might not be in transaction context */
+			/* 出错时关闭文件，此时可能不在事务上下文里 */
 			save_errno = errno;
 			CloseTransientFile(fd);
 			errno = save_errno;
@@ -781,7 +781,7 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 		}
 	}
 
-	/* Time to do the real deal... */
+	/* 该做真正的操作了…… */
 	if (rename(oldfile, newfile) < 0)
 	{
 		ereport(elevel,
@@ -792,8 +792,8 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 	}
 
 	/*
-	 * To guarantee renaming the file is persistent, fsync the file with its
-	 * new name, and its containing directory.
+	 * 为了保证重命名持久，用新名字对该文件
+	 * 及其所在目录做 fsync。
 	 */
 	if (fsync_fname_ext(newfile, false, false, elevel) != 0)
 		return -1;
@@ -805,19 +805,19 @@ durable_rename(const char *oldfile, const char *newfile, int elevel)
 }
 
 /*
- * durable_unlink -- remove a file in a durable manner
+ * durable_unlink -- 以持久的方式删除文件。
  *
- * This routine ensures that, after returning, the effect of removing file
- * persists in case of a crash. A crash while this routine is running will
- * leave the system in no mixed state.
+ * 本例程确保返回之后，删除文件的效果
+ * 在崩溃时仍然保持。本例程运行期间若崩溃，
+ * 系统不会处于混合状态。
  *
- * It does so by using fsync on the parent directory of the file after the
- * actual removal is done.
+ * 做法是在实际删除完成之后，对文件的父目录
+ * 做 fsync。
  *
- * Log errors with the severity specified by caller.
+ * 按调用者指定的严重级别记录错误。
  *
- * Returns 0 if the operation succeeded, -1 otherwise. Note that errno is not
- * valid upon return.
+ * 成功返回 0，否则返回 -1。注意返回时 errno
+ * 无效。
  */
 int
 durable_unlink(const char *fname, int elevel)
@@ -832,8 +832,8 @@ durable_unlink(const char *fname, int elevel)
 	}
 
 	/*
-	 * To guarantee that the removal of the file is persistent, fsync its
-	 * parent directory.
+	 * 为了保证删除文件是持久的，对其
+	 * 父目录做 fsync。
 	 */
 	if (fsync_parent_path(fname, elevel) != 0)
 		return -1;
@@ -842,20 +842,20 @@ durable_unlink(const char *fname, int elevel)
 }
 
 /*
- * InitFileAccess --- initialize this module during backend startup
+ * InitFileAccess --- 在后端启动期间初始化本模块。
  *
- * This is called during either normal or standalone backend start.
- * It is *not* called in the postmaster.
+ * 这在正常后端或独立后端启动时调用。
+ * postmaster 里不会调用它。
  *
- * Note that this does not initialize temporary file access, that is
- * separately initialized via InitTemporaryFileAccess().
+ * 注意，这并不初始化临时文件访问，那是
+ * 经由 InitTemporaryFileAccess() 单独初始化的。
  */
 void
 InitFileAccess(void)
 {
-	Assert(SizeVfdCache == 0);	/* call me only once */
+	Assert(SizeVfdCache == 0);	/* 只调用我一次 */
 
-	/* initialize cache header entry */
+	/* 初始化缓存头项 */
 	VfdCache = (Vfd *) malloc(sizeof(Vfd));
 	if (VfdCache == NULL)
 		ereport(FATAL,
@@ -869,26 +869,26 @@ InitFileAccess(void)
 }
 
 /*
- * InitTemporaryFileAccess --- initialize temporary file access during startup
+ * InitTemporaryFileAccess --- 在启动期间初始化临时文件访问。
  *
- * This is called during either normal or standalone backend start.
- * It is *not* called in the postmaster.
+ * 这在正常后端或独立后端启动时调用。
+ * postmaster 里不会调用它。
  *
- * This is separate from InitFileAccess() because temporary file cleanup can
- * cause pgstat reporting. As pgstat is shut down during before_shmem_exit(),
- * our reporting has to happen before that. Low level file access should be
- * available for longer, hence the separate initialization / shutdown of
- * temporary file handling.
+ * 它与 InitFileAccess() 分开，因为临时文件清理会
+ * 引起 pgstat 报告。pgstat 在 before_shmem_exit() 期间关闭，
+ * 我们的报告必须发生在那之前。低层文件访问应当
+ * 可用得更久，因此临时文件处理的初始化与关闭
+ * 是分开的。
  */
 void
 InitTemporaryFileAccess(void)
 {
-	Assert(SizeVfdCache != 0);	/* InitFileAccess() needs to have run */
-	Assert(!temporary_files_allowed);	/* call me only once */
+	Assert(SizeVfdCache != 0);	/* InitFileAccess() 必须已经运行过 */
+	Assert(!temporary_files_allowed);	/* 只调用我一次 */
 
 	/*
-	 * Register before-shmem-exit hook to ensure temp files are dropped while
-	 * we can still report stats.
+	 * 注册共享内存退出前的钩子，以确保在仍能
+	 * 报告统计时丢掉临时文件。
 	 */
 	before_shmem_exit(BeforeShmemExit_Files, 0);
 
@@ -898,18 +898,18 @@ InitTemporaryFileAccess(void)
 }
 
 /*
- * count_usable_fds --- count how many FDs the system will let us open,
- *		and estimate how many are already open.
+ * count_usable_fds --- 统计系统允许我们打开多少文件描述符，
+ *		并估计已经打开了多少。
  *
- * We stop counting if usable_fds reaches max_to_probe.  Note: a small
- * value of max_to_probe might result in an underestimate of already_open;
- * we must fill in any "gaps" in the set of used FDs before the calculation
- * of already_open will give the right answer.  In practice, max_to_probe
- * of a couple of dozen should be enough to ensure good results.
+ * 若 usable_fds 达到 max_to_probe 就停止计数。注意：较小的
+ * max_to_probe 可能导致低估 already_open；
+ * 我们必须先填上已用文件描述符集合里的空隙，
+ * already_open 的计算才会给出正确答案。
+ * 实践中几十个 max_to_probe 就够。
  *
- * We assume stderr (FD 2) is available for dup'ing.  While the calling
- * script could theoretically close that, it would be a really bad idea,
- * since then one risks loss of error messages from, e.g., libc.
+ * 我们假定 stderr（文件描述符 2）可以用来 dup。调用
+ * 脚本理论上可以关掉它，但那真是个坏主意，
+ * 因为那样就有丢失例如 libc 错误消息的风险。
  */
 static void
 count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
@@ -932,9 +932,9 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 	getrlimit_status = getrlimit(RLIMIT_NOFILE, &rlim);
 	if (getrlimit_status != 0)
 		ereport(WARNING, (errmsg("getrlimit failed: %m")));
-#endif							/* HAVE_GETRLIMIT */
+#endif							/* 具备 HAVE_GETRLIMIT */
 
-	/* dup until failure or probe limit reached */
+	/* 一直 dup，直到失败或达到探测上限 */
 	for (;;)
 	{
 		int			thisfd;
@@ -942,8 +942,8 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 #ifdef HAVE_GETRLIMIT
 
 		/*
-		 * don't go beyond RLIMIT_NOFILE; causes irritating kernel logs on
-		 * some platforms
+		 * 不要超过 RLIMIT_NOFILE；在某些平台上会
+		 * 引起烦人的内核日志
 		 */
 		if (getrlimit_status == 0 && highestfd >= rlim.rlim_cur - 1)
 			break;
@@ -952,7 +952,7 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 		thisfd = dup(2);
 		if (thisfd < 0)
 		{
-			/* Expect EMFILE or ENFILE, else it's fishy */
+			/* 预期是 EMFILE 或 ENFILE，否则就可疑 */
 			if (errno != EMFILE && errno != ENFILE)
 				elog(WARNING, "duplicating stderr file descriptor failed after %d successes: %m", used);
 			break;
@@ -972,16 +972,16 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 			break;
 	}
 
-	/* release the files we opened */
+	/* 释放我们打开的文件 */
 	for (j = 0; j < used; j++)
 		close(fd[j]);
 
 	pfree(fd);
 
 	/*
-	 * Return results.  usable_fds is just the number of successful dups. We
-	 * assume that the system limit is highestfd+1 (remember 0 is a legal FD
-	 * number) and so already_open is highestfd+1 - usable_fds.
+	 * 返回结果。usable_fds 就是成功 dup 的次数。我们
+	 * 假定系统限制是 highestfd+1（记住 0 是合法的文件描述符
+	 * 号），因此 already_open 是 highestfd+1 减去 usable_fds。
 	 */
 	*usable_fds = used;
 	*already_open = highestfd + 1 - used;
@@ -989,7 +989,7 @@ count_usable_fds(int max_to_probe, int *usable_fds, int *already_open)
 
 /*
  * set_max_safe_fds
- *		Determine number of file descriptors that fd.c is allowed to use
+ *		确定 fd.c 被允许使用的文件描述符个数
  */
 void
 set_max_safe_fds(void)
@@ -1011,12 +1011,12 @@ set_max_safe_fds(void)
 	max_safe_fds = Min(usable_fds, max_files_per_process - already_open);
 
 	/*
-	 * Take off the FDs reserved for system() etc.
+	 * 去掉为 system() 等保留的文件描述符。
 	 */
 	max_safe_fds -= NUM_RESERVED_FDS;
 
 	/*
-	 * Make sure we still have enough to get by.
+	 * 确保我们仍然够用。
 	 */
 	if (max_safe_fds < FD_MINFREE)
 		ereport(FATAL,
@@ -1031,8 +1031,8 @@ set_max_safe_fds(void)
 }
 
 /*
- * Open a file with BasicOpenFilePerm() and pass default file mode for the
- * fileMode parameter.
+ * 用 BasicOpenFilePerm() 打开文件，并把默认文件模式传给
+ * fileMode 参数。
  */
 int
 BasicOpenFile(const char *fileName, int fileFlags)
@@ -1041,20 +1041,20 @@ BasicOpenFile(const char *fileName, int fileFlags)
 }
 
 /*
- * BasicOpenFilePerm --- same as open(2) except can free other FDs if needed
+ * BasicOpenFilePerm --- 与 open(2) 相同，只是必要时可以释放其他文件描述符。
  *
- * This is exported for use by places that really want a plain kernel FD,
- * but need to be proof against running out of FDs.  Once an FD has been
- * successfully returned, it is the caller's responsibility to ensure that
- * it will not be leaked on ereport()!	Most users should *not* call this
- * routine directly, but instead use the VFD abstraction level, which
- * provides protection against descriptor leaks as well as management of
- * files that need to be open for more than a short period of time.
+ * 这是导出给那些确实想要普通内核文件描述符、
+ * 但又必须能抵御文件描述符耗尽的地方使用的。一旦成功
+ * 返回一个文件描述符，调用者就有责任确保
+ * 它不会在 ereport() 时泄漏！多数用户不应当直接
+ * 调用本例程，而应使用 VFD 抽象层，它
+ * 既能防止描述符泄漏，也能管理
+ * 需要打开超过一小段时间的文件。
  *
- * Ideally this should be the *only* direct call of open() in the backend.
- * In practice, the postmaster calls open() directly, and there are some
- * direct open() calls done early in backend startup.  Those are OK since
- * this module wouldn't have any open files to close at that point anyway.
+ * 理想情况下，这应当是后端里对 open() 的唯一直接调用。
+ * 实践中，postmaster 会直接调用 open()，而且后端启动早期
+ * 也有一些直接的 open() 调用。那些是可以的，因为
+ * 那时本模块本来也没有任何已打开的文件可以关闭。
  */
 int
 BasicOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
@@ -1065,8 +1065,8 @@ tryAgain:
 #ifdef PG_O_DIRECT_USE_F_NOCACHE
 
 	/*
-	 * The value we defined to stand in for O_DIRECT when simulating it with
-	 * F_NOCACHE had better not collide with any of the standard flags.
+	 * 我们定义用来代替 O_DIRECT、并用 F_NOCACHE 模拟它的那个值，
+	 * 最好不要与任何标准标志冲突。
 	 */
 	StaticAssertStmt((PG_O_DIRECT &
 					  (O_APPEND |
@@ -1101,7 +1101,7 @@ tryAgain:
 		}
 #endif
 
-		return fd;				/* success! */
+		return fd;				/* 成功！ */
 	}
 
 	if (errno == EMFILE || errno == ENFILE)
@@ -1117,28 +1117,28 @@ tryAgain:
 		errno = save_errno;
 	}
 
-	return -1;					/* failure */
+	return -1;					/* 失败 */
 }
 
 /*
- * AcquireExternalFD - attempt to reserve an external file descriptor
+ * AcquireExternalFD - 尝试保留一个外部文件描述符。
  *
- * This should be used by callers that need to hold a file descriptor open
- * over more than a short interval, but cannot use any of the other facilities
- * provided by this module.
+ * 需要把文件描述符保持打开超过一小段时间、
+ * 但又无法使用本模块提供的其他设施的调用者，
+ * 应当使用这个。
  *
- * The difference between this and the underlying ReserveExternalFD function
- * is that this will report failure (by setting errno and returning false)
- * if "too many" external FDs are already reserved.  This should be used in
- * any code where the total number of FDs to be reserved is not predictable
- * and small.
+ * 它与底层的 ReserveExternalFD 函数的差别
+ * 在于：若已经保留了过多外部文件描述符，
+ * 它会报告失败（设置 errno 并返回假）。
+ * 凡是要保留的文件描述符总数不可预测
+ * 且并不小的代码，都应当使用它。
  */
 bool
 AcquireExternalFD(void)
 {
 	/*
-	 * We don't want more than max_safe_fds / 3 FDs to be consumed for
-	 * "external" FDs.
+	 * 我们不希望超过 max_safe_fds / 3 个文件描述符被
+	 * 外部文件描述符消耗掉。
 	 */
 	if (numExternalFDs < max_safe_fds / 3)
 	{
@@ -1150,31 +1150,31 @@ AcquireExternalFD(void)
 }
 
 /*
- * ReserveExternalFD - report external consumption of a file descriptor
+ * ReserveExternalFD - 报告外部消耗了一个文件描述符。
  *
- * This should be used by callers that need to hold a file descriptor open
- * over more than a short interval, but cannot use any of the other facilities
- * provided by this module.  This just tracks the use of the FD and closes
- * VFDs if needed to ensure we keep NUM_RESERVED_FDS FDs available.
+ * 需要把文件描述符保持打开超过一小段时间、
+ * 但又无法使用本模块提供的其他设施的调用者，
+ * 应当使用这个。它只跟踪该文件描述符的使用，并在需要时关闭
+ * VFDs，以确保我们留有 NUM_RESERVED_FDS 个文件描述符可用。
  *
- * Call this directly only in code where failure to reserve the FD would be
- * fatal; for example, the WAL-writing code does so, since the alternative is
- * session failure.  Also, it's very unwise to do so in code that could
- * consume more than one FD per process.
+ * 只有在保留文件描述符失败会是
+ * 致命的代码里才直接调用它；例如 WAL 写入代码就这样做，因为否则
+ * 就是会话失败。而且，在可能
+ * 每个进程消耗不止一个文件描述符的代码里这样做非常不明智。
  *
- * Note: as long as everybody plays nice so that NUM_RESERVED_FDS FDs remain
- * available, it doesn't matter too much whether this is called before or
- * after actually opening the FD; but doing so beforehand reduces the risk of
- * an EMFILE failure if not everybody played nice.  In any case, it's solely
- * caller's responsibility to keep the external-FD count in sync with reality.
+ * 注意：只要大家都守规矩，使 NUM_RESERVED_FDS 个文件描述符仍然
+ * 可用，在实际打开文件描述符之前或
+ * 之后调用这个都关系不大；但事先调用能降低
+ * 并非人人守规矩时出现 EMFILE 失败的风险。无论如何，
+ * 使外部文件描述符计数与现实保持同步完全是调用者的责任。
  */
 void
 ReserveExternalFD(void)
 {
 	/*
-	 * Release VFDs if needed to stay safe.  Because we do this before
-	 * incrementing numExternalFDs, the final state will be as desired, i.e.,
-	 * nfile + numAllocatedDescs + numExternalFDs <= max_safe_fds.
+	 * 必要时释放 VFDs 以保持安全。因为我们在
+	 * 增加 numExternalFDs 之前这样做，最终状态会如所期望，即
+	 * nfile + numAllocatedDescs + numExternalFDs <= max_safe_fds。
 	 */
 	ReleaseLruFiles();
 
@@ -1182,9 +1182,9 @@ ReserveExternalFD(void)
 }
 
 /*
- * ReleaseExternalFD - report release of an external file descriptor
+ * ReleaseExternalFD - 报告释放了一个外部文件描述符。
  *
- * This is guaranteed not to change errno, so it can be used in failure paths.
+ * 它保证不改变 errno，因此可以在失败路径上使用。
  */
 void
 ReleaseExternalFD(void)
@@ -1213,7 +1213,7 @@ _dump_lru(void)
 	snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "LEAST");
 	elog(LOG, "%s", buf);
 }
-#endif							/* FDDEBUG */
+#endif							/* 调试宏 FDDEBUG */
 
 static void
 Delete(File file)
@@ -1247,8 +1247,8 @@ LruDelete(File file)
 	vfdP = &VfdCache[file];
 
 	/*
-	 * Close the file.  We aren't expecting this to fail; if it does, better
-	 * to leak the FD than to mess up our internal state.
+	 * 关闭该文件。我们不预期这会失败；若失败了，
+	 * 泄漏这个文件描述符也比弄乱内部状态要好。
 	 */
 	if (close(vfdP->fd) != 0)
 		elog(vfdP->fdstate & FD_TEMP_FILE_LIMIT ? LOG : data_sync_elevel(LOG),
@@ -1256,7 +1256,7 @@ LruDelete(File file)
 	vfdP->fd = VFD_CLOSED;
 	--nfile;
 
-	/* delete the vfd record from the LRU ring */
+	/* 把该 vfd 记录从 LRU 环里删掉 */
 	Delete(file);
 }
 
@@ -1281,7 +1281,7 @@ Insert(File file)
 	DO_DB(_dump_lru());
 }
 
-/* returns 0 on success, -1 on re-open failure (with errno set) */
+/* 成功返回 0，重新打开失败返回 -1（并设置 errno） */
 static int
 LruInsert(File file)
 {
@@ -1296,13 +1296,13 @@ LruInsert(File file)
 
 	if (FileIsNotOpen(file))
 	{
-		/* Close excess kernel FDs. */
+		/* 关闭多余的内核文件描述符。 */
 		ReleaseLruFiles();
 
 		/*
-		 * The open could still fail for lack of file descriptors, eg due to
-		 * overall system file table being full.  So, be prepared to release
-		 * another FD if necessary...
+		 * 打开仍可能因缺少文件描述符而失败，例如由于
+		 * 整个系统的文件表已满。因此要准备好在必要时
+		 * 再释放一个文件描述符……
 		 */
 		vfdP->fd = BasicOpenFilePerm(vfdP->fileName, vfdP->fileFlags,
 									 vfdP->fileMode);
@@ -1318,7 +1318,7 @@ LruInsert(File file)
 	}
 
 	/*
-	 * put it at the head of the Lru ring
+	 * 把它放到 Lru 环的头部
 	 */
 
 	Insert(file);
@@ -1327,7 +1327,7 @@ LruInsert(File file)
 }
 
 /*
- * Release one kernel FD by closing the least-recently-used VFD.
+ * 关闭最近最少使用的 VFD，从而释放一个内核文件描述符。
  */
 static bool
 ReleaseLruFile(void)
@@ -1337,19 +1337,19 @@ ReleaseLruFile(void)
 	if (nfile > 0)
 	{
 		/*
-		 * There are opened files and so there should be at least one used vfd
-		 * in the ring.
+		 * 已经有打开的文件，因此环里应当至少有一个
+		 * 正在使用的 vfd。
 		 */
 		Assert(VfdCache[0].lruMoreRecently != 0);
 		LruDelete(VfdCache[0].lruMoreRecently);
-		return true;			/* freed a file */
+		return true;			/* 释放了一个文件 */
 	}
-	return false;				/* no files available to free */
+	return false;				/* 没有可释放的文件 */
 }
 
 /*
- * Release kernel FDs as needed to get under the max_safe_fds limit.
- * After calling this, it's OK to try to open another file.
+ * 按需要释放内核文件描述符，以落到 max_safe_fds 限制之下。
+ * 调用这个之后，就可以尝试再打开一个文件。
  */
 static void
 ReleaseLruFiles(void)
@@ -1369,14 +1369,14 @@ AllocateVfd(void)
 
 	DO_DB(elog(LOG, "AllocateVfd. Size %zu", SizeVfdCache));
 
-	Assert(SizeVfdCache > 0);	/* InitFileAccess not called? */
+	Assert(SizeVfdCache > 0);	/* 还没调用 InitFileAccess？ */
 
 	if (VfdCache[0].nextFree == 0)
 	{
 		/*
-		 * The free list is empty so it is time to increase the size of the
-		 * array.  We choose to double it each time this happens. However,
-		 * there's not much point in starting *real* small.
+		 * 空闲链表是空的，因此该增大
+		 * 数组了。每次发生时我们选择把它加倍。不过，
+		 * 从特别小的规模开始也没什么意义。
 		 */
 		Size		newCacheSize = SizeVfdCache * 2;
 		Vfd		   *newVfdCache;
@@ -1385,7 +1385,7 @@ AllocateVfd(void)
 			newCacheSize = 32;
 
 		/*
-		 * Be careful not to clobber VfdCache ptr if realloc fails.
+		 * 若 realloc 失败，小心不要覆盖 VfdCache 指针。
 		 */
 		newVfdCache = (Vfd *) realloc(VfdCache, sizeof(Vfd) * newCacheSize);
 		if (newVfdCache == NULL)
@@ -1395,7 +1395,7 @@ AllocateVfd(void)
 		VfdCache = newVfdCache;
 
 		/*
-		 * Initialize the new entries and link them into the free list.
+		 * 初始化新项并把它们链进空闲链表。
 		 */
 		for (i = SizeVfdCache; i < newCacheSize; i++)
 		{
@@ -1407,7 +1407,7 @@ AllocateVfd(void)
 		VfdCache[0].nextFree = SizeVfdCache;
 
 		/*
-		 * Record the new size
+		 * 记录新的大小
 		 */
 		SizeVfdCache = newCacheSize;
 	}
@@ -1438,7 +1438,7 @@ FreeVfd(File file)
 	VfdCache[0].nextFree = file;
 }
 
-/* returns 0 on success, -1 on re-open failure (with errno set) */
+/* 成功返回 0，重新打开失败返回 -1（并设置 errno） */
 static int
 FileAccess(File file)
 {
@@ -1448,8 +1448,8 @@ FileAccess(File file)
 			   file, VfdCache[file].fileName));
 
 	/*
-	 * Is the file open?  If not, open it and put it at the head of the LRU
-	 * ring (possibly closing the least recently used file to get an FD).
+	 * 文件打开了吗？若没有，就打开它并放到 LRU
+	 * 环的头部（必要时关闭最近最少使用的文件以取得文件描述符）。
 	 */
 
 	if (FileIsNotOpen(file))
@@ -1461,8 +1461,8 @@ FileAccess(File file)
 	else if (VfdCache[0].lruLessRecently != file)
 	{
 		/*
-		 * We now know that the file is open and that it is not the last one
-		 * accessed, so we need to move it to the head of the Lru ring.
+		 * 现在我们知道该文件已打开，而且它不是最近
+		 * 访问的那个，因此需要把它移到 Lru 环的头部。
 		 */
 
 		Delete(file);
@@ -1473,7 +1473,7 @@ FileAccess(File file)
 }
 
 /*
- * Called whenever a temporary file is deleted to report its size.
+ * 每当删除一个临时文件时调用，以报告其大小。
  */
 static void
 ReportTemporaryFileUsage(const char *path, off_t size)
@@ -1490,9 +1490,9 @@ ReportTemporaryFileUsage(const char *path, off_t size)
 }
 
 /*
- * Called to register a temporary file for automatic close.
- * ResourceOwnerEnlargeFiles(CurrentResourceOwner) must have been called
- * before the file was opened.
+ * 调用它来登记一个临时文件，以便自动关闭。
+ * 打开该文件之前必须已经调用过
+ * ResourceOwnerEnlargeFiles(CurrentResourceOwner)。
  */
 static void
 RegisterTemporaryFile(File file)
@@ -1500,13 +1500,13 @@ RegisterTemporaryFile(File file)
 	ResourceOwnerRememberFile(CurrentResourceOwner, file);
 	VfdCache[file].resowner = CurrentResourceOwner;
 
-	/* Backup mechanism for closing at end of xact. */
+	/* 事务结束时关闭的后备机制。 */
 	VfdCache[file].fdstate |= FD_CLOSE_AT_EOXACT;
 	have_xact_temporary_files = true;
 }
 
 /*
- *	Called when we get a shared invalidation message on some relation.
+ *	当我们收到某个关系的共享失效消息时调用。
  */
 #ifdef NOT_USED
 void
@@ -1519,8 +1519,8 @@ FileInvalidate(File file)
 #endif
 
 /*
- * Open a file with PathNameOpenFilePerm() and pass default file mode for the
- * fileMode parameter.
+ * 用 PathNameOpenFilePerm() 打开文件，并把默认文件模式传给
+ * fileMode 参数。
  */
 File
 PathNameOpenFile(const char *fileName, int fileFlags)
@@ -1529,11 +1529,11 @@ PathNameOpenFile(const char *fileName, int fileFlags)
 }
 
 /*
- * open a file in an arbitrary directory
+ * 在任意目录里打开一个文件。
  *
- * NB: if the passed pathname is relative (which it usually is),
- * it will be interpreted relative to the process' working directory
- * (which should always be $PGDATA when this code is running).
+ * 注意：若传入的路径名是相对的（通常如此），
+ * 它将相对于进程的工作目录来解释
+ * （本代码运行时工作目录应当总是 $PGDATA）。
  */
 File
 PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
@@ -1546,7 +1546,7 @@ PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 			   fileName, fileFlags, fileMode));
 
 	/*
-	 * We need a malloc'd copy of the file name; fail cleanly if no room.
+	 * 我们需要一份 malloc 出来的文件名副本；若没有空间就干净地失败。
 	 */
 	fnamecopy = strdup(fileName);
 	if (fnamecopy == NULL)
@@ -1557,14 +1557,14 @@ PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 	file = AllocateVfd();
 	vfdP = &VfdCache[file];
 
-	/* Close excess kernel FDs. */
+	/* 关闭多余的内核文件描述符。 */
 	ReleaseLruFiles();
 
 	/*
-	 * Descriptors managed by VFDs are implicitly marked O_CLOEXEC.  The
-	 * client shouldn't be expected to know which kernel descriptors are
-	 * currently open, so it wouldn't make sense for them to be inherited by
-	 * executed subprograms.
+	 * 由 VFDs 管理的描述符被隐式标为 O_CLOEXEC。
+	 * 客户端不应当被预期知道当前哪些内核描述符
+	 * 是打开的，因此让被执行的子程序继承它们
+	 * 没有意义。
 	 */
 	fileFlags |= O_CLOEXEC;
 
@@ -1584,7 +1584,7 @@ PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 			   vfdP->fd));
 
 	vfdP->fileName = fnamecopy;
-	/* Saved flags are adjusted to be OK for re-opening file */
+	/* 保存的标志已调整为适合重新打开文件 */
 	vfdP->fileFlags = fileFlags & ~(O_CREAT | O_TRUNC | O_EXCL);
 	vfdP->fileMode = fileMode;
 	vfdP->fileSize = 0;
@@ -1597,15 +1597,15 @@ PathNameOpenFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 }
 
 /*
- * Create directory 'directory'.  If necessary, create 'basedir', which must
- * be the directory above it.  This is designed for creating the top-level
- * temporary directory on demand before creating a directory underneath it.
- * Do nothing if the directory already exists.
+ * 创建目录 directory。必要时创建 basedir，它必须
+ * 是其上一级目录。这是为了在其下创建目录之前按需创建顶层
+ * 临时目录。
+ * 若该目录已存在，则什么也不做。
  *
- * Directories created within the top-level temporary directory should begin
- * with PG_TEMP_FILE_PREFIX, so that they can be identified as temporary and
- * deleted at startup by RemovePgTempFiles().  Further subdirectories below
- * that do not need any particular prefix.
+ * 在顶层临时目录里创建的目录应当以
+ * PG_TEMP_FILE_PREFIX 开头，以便被识别为临时的，并在
+ * 启动时由 RemovePgTempFiles() 删除。再往下的子目录
+ * 不需要任何特定前缀。
 */
 void
 PathNameCreateTemporaryDir(const char *basedir, const char *directory)
@@ -1616,9 +1616,9 @@ PathNameCreateTemporaryDir(const char *basedir, const char *directory)
 			return;
 
 		/*
-		 * Failed.  Try to create basedir first in case it's missing. Tolerate
-		 * EEXIST to close a race against another process following the same
-		 * algorithm.
+		 * 失败了。先尝试创建 basedir，以防它缺少。容忍
+		 * EEXIST，以消除另一个进程遵循同一
+		 * 算法时的竞争。
 		 */
 		if (MakePGDirectory(basedir) < 0 && errno != EEXIST)
 			ereport(ERROR,
@@ -1626,7 +1626,7 @@ PathNameCreateTemporaryDir(const char *basedir, const char *directory)
 					 errmsg("cannot create temporary directory \"%s\": %m",
 							basedir)));
 
-		/* Try again. */
+		/* 重试。 */
 		if (MakePGDirectory(directory) < 0 && errno != EEXIST)
 			ereport(ERROR,
 					(errcode_for_file_access(),
@@ -1636,63 +1636,63 @@ PathNameCreateTemporaryDir(const char *basedir, const char *directory)
 }
 
 /*
- * Delete a directory and everything in it, if it exists.
+ * 若目录存在，则删除该目录及其全部内容。
  */
 void
 PathNameDeleteTemporaryDir(const char *dirname)
 {
 	struct stat statbuf;
 
-	/* Silently ignore missing directory. */
+	/* 静默忽略缺少的目录。 */
 	if (stat(dirname, &statbuf) != 0 && errno == ENOENT)
 		return;
 
 	/*
-	 * Currently, walkdir doesn't offer a way for our passed in function to
-	 * maintain state.  Perhaps it should, so that we could tell the caller
-	 * whether this operation succeeded or failed.  Since this operation is
-	 * used in a cleanup path, we wouldn't actually behave differently: we'll
-	 * just log failures.
+	 * 目前 walkdir 没有办法让我们传入的函数
+	 * 保持状态。也许它应当提供，这样我们就能告诉调用者
+	 * 这次操作成功还是失败。由于这个操作
+	 * 用在清理路径上，我们实际上不会有不同行为：
+	 * 只会记录失败。
 	 */
 	walkdir(dirname, unlink_if_exists_fname, false, LOG);
 }
 
 /*
- * Open a temporary file that will disappear when we close it.
+ * 打开一个关闭时就会消失的临时文件。
  *
- * This routine takes care of generating an appropriate tempfile name.
- * There's no need to pass in fileFlags or fileMode either, since only
- * one setting makes any sense for a temp file.
+ * 本例程负责生成合适的临时文件名。
+ * 也不必传入 fileFlags 或 fileMode，因为对临时文件
+ * 只有一种设置有意义。
  *
- * Unless interXact is true, the file is remembered by CurrentResourceOwner
- * to ensure it's closed and deleted when it's no longer needed, typically at
- * the end-of-transaction. In most cases, you don't want temporary files to
- * outlive the transaction that created them, so this should be false -- but
- * if you need "somewhat" temporary storage, this might be useful. In either
- * case, the file is removed when the File is explicitly closed.
+ * 除非 interXact 为真，该文件会被 CurrentResourceOwner
+ * 记住，以确保不再需要时关闭并删除它，通常是在
+ * 事务末尾。多数情况下，你不希望临时文件
+ * 比创建它的事务活得更久，因此这里应当为假；但
+ * 若你需要某种程度上临时的存储，这也许有用。无论哪种
+ * 情况，当 File 被显式关闭时，该文件都会被删除。
  */
 File
 OpenTemporaryFile(bool interXact)
 {
 	File		file = 0;
 
-	Assert(temporary_files_allowed);	/* check temp file access is up */
+	Assert(temporary_files_allowed);	/* 检查临时文件访问已经启用 */
 
 	/*
-	 * Make sure the current resource owner has space for this File before we
-	 * open it, if we'll be registering it below.
+	 * 若下面要登记这个 File，则在打开它之前，确保当前资源所有者
+	 * 有容纳它的空间。
 	 */
 	if (!interXact)
 		ResourceOwnerEnlargeFiles(CurrentResourceOwner);
 
 	/*
-	 * If some temp tablespace(s) have been given to us, try to use the next
-	 * one.  If a given tablespace can't be found, we silently fall back to
-	 * the database's default tablespace.
+	 * 若给了我们一些临时表空间，就尝试使用下一个。
+	 * 若找不到给定的 tablespace，我们就静默地退回到
+	 * 数据库的默认表空间。
 	 *
-	 * BUT: if the temp file is slated to outlive the current transaction,
-	 * force it into the database's default tablespace, so that it will not
-	 * pose a threat to possible tablespace drop attempts.
+	 * 但是：若该临时文件打算活过当前事务，
+	 * 就强制把它放进数据库的默认表空间，这样它就不会
+	 * 对可能的删除表空间尝试构成威胁。
 	 */
 	if (numTempTableSpaces > 0 && !interXact)
 	{
@@ -1703,9 +1703,9 @@ OpenTemporaryFile(bool interXact)
 	}
 
 	/*
-	 * If not, or if tablespace is bad, create in database's default
-	 * tablespace.  MyDatabaseTableSpace should normally be set before we get
-	 * here, but just in case it isn't, fall back to pg_default tablespace.
+	 * 若不是，或者 tablespace 不好，就在数据库的默认
+	 * 表空间里创建。到达这里之前通常应当已经设置 MyDatabaseTableSpace，
+	 * 但万一没有，就退回到 pg_default 表空间。
 	 */
 	if (file <= 0)
 		file = OpenTemporaryFileInTablespace(MyDatabaseTableSpace ?
@@ -1713,10 +1713,10 @@ OpenTemporaryFile(bool interXact)
 											 DEFAULTTABLESPACE_OID,
 											 true);
 
-	/* Mark it for deletion at close and temporary file size limit */
+	/* 标记为关闭时删除，并计入临时文件大小限制 */
 	VfdCache[file].fdstate |= FD_DELETE_AT_CLOSE | FD_TEMP_FILE_LIMIT;
 
-	/* Register it with the current resource owner */
+	/* 向当前资源所有者登记它 */
 	if (!interXact)
 		RegisterTemporaryFile(file);
 
@@ -1724,15 +1724,15 @@ OpenTemporaryFile(bool interXact)
 }
 
 /*
- * Return the path of the temp directory in a given tablespace.
+ * 返回给定表空间里临时目录的路径。
  */
 void
 TempTablespacePath(char *path, Oid tablespace)
 {
 	/*
-	 * Identify the tempfile directory for this tablespace.
+	 * 识别该表空间的临时文件目录。
 	 *
-	 * If someone tries to specify pg_global, use pg_default instead.
+	 * 若有人试图指定 pg_global，则改用 pg_default。
 	 */
 	if (tablespace == InvalidOid ||
 		tablespace == DEFAULTTABLESPACE_OID ||
@@ -1740,7 +1740,7 @@ TempTablespacePath(char *path, Oid tablespace)
 		snprintf(path, MAXPGPATH, "base/%s", PG_TEMP_FILES_DIR);
 	else
 	{
-		/* All other tablespaces are accessed via symlinks */
+		/* 所有其他表空间都通过符号链接访问 */
 		snprintf(path, MAXPGPATH, "pg_tblspc/%u/%s/%s",
 				 tablespace, TABLESPACE_VERSION_DIRECTORY,
 				 PG_TEMP_FILES_DIR);
@@ -1748,8 +1748,8 @@ TempTablespacePath(char *path, Oid tablespace)
 }
 
 /*
- * Open a temporary file in a specific tablespace.
- * Subroutine for OpenTemporaryFile, which see for details.
+ * 在指定表空间里打开一个临时文件。
+ * OpenTemporaryFile 的子例程，细节见该函数。
  */
 static File
 OpenTemporaryFileInTablespace(Oid tblspcOid, bool rejectError)
@@ -1761,27 +1761,27 @@ OpenTemporaryFileInTablespace(Oid tblspcOid, bool rejectError)
 	TempTablespacePath(tempdirpath, tblspcOid);
 
 	/*
-	 * Generate a tempfile name that should be unique within the current
-	 * database instance.
+	 * 生成一个在当前
+	 * 数据库实例内应当唯一的临时文件名。
 	 */
 	snprintf(tempfilepath, sizeof(tempfilepath), "%s/%s%d.%ld",
 			 tempdirpath, PG_TEMP_FILE_PREFIX, MyProcPid, tempFileCounter++);
 
 	/*
-	 * Open the file.  Note: we don't use O_EXCL, in case there is an orphaned
-	 * temp file that can be reused.
+	 * 打开该文件。注意：我们不用 O_EXCL，以防有一个被遗弃的
+	 * 临时文件可以重用。
 	 */
 	file = PathNameOpenFile(tempfilepath,
 							O_RDWR | O_CREAT | O_TRUNC | PG_BINARY);
 	if (file <= 0)
 	{
 		/*
-		 * We might need to create the tablespace's tempfile directory, if no
-		 * one has yet done so.
+		 * 若还没有人创建过该表空间的临时文件目录，
+		 * 我们可能需要创建它。
 		 *
-		 * Don't check for an error from MakePGDirectory; it could fail if
-		 * someone else just did the same thing.  If it doesn't work then
-		 * we'll bomb out on the second create attempt, instead.
+		 * 不要检查 MakePGDirectory 的错误；若刚好有
+		 * 别人做了同样的事，它可能失败。若它不行，
+		 * 我们会在第二次创建尝试时失败。
 		 */
 		(void) MakePGDirectory(tempdirpath);
 
@@ -1797,29 +1797,29 @@ OpenTemporaryFileInTablespace(Oid tblspcOid, bool rejectError)
 
 
 /*
- * Create a new file.  The directory containing it must already exist.  Files
- * created this way are subject to temp_file_limit and are automatically
- * closed at end of transaction, but are not automatically deleted on close
- * because they are intended to be shared between cooperating backends.
+ * 创建一个新文件。包含它的目录必须已存在。这样
+ * 创建的文件受 temp_file_limit 约束，并在事务
+ * 结束时自动关闭，但关闭时不会自动删除，
+ * 因为它们打算在协作的后端之间共享。
  *
- * If the file is inside the top-level temporary directory, its name should
- * begin with PG_TEMP_FILE_PREFIX so that it can be identified as temporary
- * and deleted at startup by RemovePgTempFiles().  Alternatively, it can be
- * inside a directory created with PathNameCreateTemporaryDir(), in which case
- * the prefix isn't needed.
+ * 若该文件在顶层临时目录里，其名字应当
+ * 以 PG_TEMP_FILE_PREFIX 开头，以便被识别为临时的，
+ * 并在启动时由 RemovePgTempFiles() 删除。或者，它可以
+ * 位于用 PathNameCreateTemporaryDir() 创建的目录里，
+ * 此时不需要该前缀。
  */
 File
 PathNameCreateTemporaryFile(const char *path, bool error_on_failure)
 {
 	File		file;
 
-	Assert(temporary_files_allowed);	/* check temp file access is up */
+	Assert(temporary_files_allowed);	/* 检查临时文件访问已经启用 */
 
 	ResourceOwnerEnlargeFiles(CurrentResourceOwner);
 
 	/*
-	 * Open the file.  Note: we don't use O_EXCL, in case there is an orphaned
-	 * temp file that can be reused.
+	 * 打开该文件。注意：我们不用 O_EXCL，以防有一个被遗弃的
+	 * 临时文件可以重用。
 	 */
 	file = PathNameOpenFile(path, O_RDWR | O_CREAT | O_TRUNC | PG_BINARY);
 	if (file <= 0)
@@ -1833,33 +1833,33 @@ PathNameCreateTemporaryFile(const char *path, bool error_on_failure)
 			return file;
 	}
 
-	/* Mark it for temp_file_limit accounting. */
+	/* 标记它以便计入 temp_file_limit。 */
 	VfdCache[file].fdstate |= FD_TEMP_FILE_LIMIT;
 
-	/* Register it for automatic close. */
+	/* 登记它以便自动关闭。 */
 	RegisterTemporaryFile(file);
 
 	return file;
 }
 
 /*
- * Open a file that was created with PathNameCreateTemporaryFile, possibly in
- * another backend.  Files opened this way don't count against the
- * temp_file_limit of the caller, are automatically closed at the end of the
- * transaction but are not deleted on close.
+ * 打开一个由 PathNameCreateTemporaryFile 创建的文件，可能是在
+ * 另一个后端里。这样打开的文件不计入调用者的
+ * temp_file_limit，在事务结束时自动关闭，
+ * 但关闭时不删除。
  */
 File
 PathNameOpenTemporaryFile(const char *path, int mode)
 {
 	File		file;
 
-	Assert(temporary_files_allowed);	/* check temp file access is up */
+	Assert(temporary_files_allowed);	/* 检查临时文件访问已经启用 */
 
 	ResourceOwnerEnlargeFiles(CurrentResourceOwner);
 
 	file = PathNameOpenFile(path, mode | PG_BINARY);
 
-	/* If no such file, then we don't raise an error. */
+	/* 若没有这样的文件，我们就不报错。 */
 	if (file <= 0 && errno != ENOENT)
 		ereport(ERROR,
 				(errcode_for_file_access(),
@@ -1868,7 +1868,7 @@ PathNameOpenTemporaryFile(const char *path, int mode)
 
 	if (file > 0)
 	{
-		/* Register it for automatic close. */
+		/* 登记它以便自动关闭。 */
 		RegisterTemporaryFile(file);
 	}
 
@@ -1876,8 +1876,8 @@ PathNameOpenTemporaryFile(const char *path, int mode)
 }
 
 /*
- * Delete a file by pathname.  Return true if the file existed, false if
- * didn't.
+ * 按路径名删除文件。若文件存在则返回真，若不
+ * 存在则返回假。
  */
 bool
 PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
@@ -1885,16 +1885,16 @@ PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
 	struct stat filestats;
 	int			stat_errno;
 
-	/* Get the final size for pgstat reporting. */
+	/* 取得最终大小，供 pgstat 报告。 */
 	if (stat(path, &filestats) != 0)
 		stat_errno = errno;
 	else
 		stat_errno = 0;
 
 	/*
-	 * Unlike FileClose's automatic file deletion code, we tolerate
-	 * non-existence to support BufFileDeleteFileSet which doesn't know how
-	 * many segments it has to delete until it runs out.
+	 * 与 FileClose 的自动删除文件代码不同，我们容忍
+	 * 不存在，以支持 BufFileDeleteFileSet，它在用完之前
+	 * 不知道要删除多少段。
 	 */
 	if (stat_errno == ENOENT)
 		return false;
@@ -1923,7 +1923,7 @@ PathNameDeleteTemporaryFile(const char *path, bool error_on_failure)
 }
 
 /*
- * close a file when done with it
+ * 用完后关闭文件
  */
 void
 FileClose(File file)
@@ -1939,12 +1939,12 @@ FileClose(File file)
 
 	if (!FileIsNotOpen(file))
 	{
-		/* close the file */
+		/* 关闭该文件 */
 		if (close(vfdP->fd) != 0)
 		{
 			/*
-			 * We may need to panic on failure to close non-temporary files;
-			 * see LruDelete.
+			 * 关闭非临时文件失败时我们可能需要恐慌；
+			 * 见 LruDelete。
 			 */
 			elog(vfdP->fdstate & FD_TEMP_FILE_LIMIT ? LOG : data_sync_elevel(LOG),
 				 "could not close file \"%s\": %m", vfdP->fileName);
@@ -1953,19 +1953,19 @@ FileClose(File file)
 		--nfile;
 		vfdP->fd = VFD_CLOSED;
 
-		/* remove the file from the lru ring */
+		/* 把该文件从 lru 环里去掉 */
 		Delete(file);
 	}
 
 	if (vfdP->fdstate & FD_TEMP_FILE_LIMIT)
 	{
-		/* Subtract its size from current usage (do first in case of error) */
+		/* 从当前用量里减去它的大小（出错时先做这个） */
 		temporary_files_size -= vfdP->fileSize;
 		vfdP->fileSize = 0;
 	}
 
 	/*
-	 * Delete the file if it was temporary, and make a log entry if wanted
+	 * 若它是临时文件就删除，并在需要时写一条日志
 	 */
 	if (vfdP->fdstate & FD_DELETE_AT_CLOSE)
 	{
@@ -1973,28 +1973,28 @@ FileClose(File file)
 		int			stat_errno;
 
 		/*
-		 * If we get an error, as could happen within the ereport/elog calls,
-		 * we'll come right back here during transaction abort.  Reset the
-		 * flag to ensure that we can't get into an infinite loop.  This code
-		 * is arranged to ensure that the worst-case consequence is failing to
-		 * emit log message(s), not failing to attempt the unlink.
+		 * 若我们得到错误，例如可能发生在 ereport/elog 调用内部，
+		 * 事务中止期间会马上回到这里。重置该
+		 * 标志，以确保我们没法陷入死循环。这段代码
+		 * 的安排保证最坏后果是没能发出
+		 * 日志消息，而不是没能尝试 unlink。
 		 */
 		vfdP->fdstate &= ~FD_DELETE_AT_CLOSE;
 
 
-		/* first try the stat() */
+		/* 先尝试 stat() */
 		if (stat(vfdP->fileName, &filestats))
 			stat_errno = errno;
 		else
 			stat_errno = 0;
 
-		/* in any case do the unlink */
+		/* 无论如何都做 unlink */
 		if (unlink(vfdP->fileName))
 			ereport(LOG,
 					(errcode_for_file_access(),
 					 errmsg("could not delete file \"%s\": %m", vfdP->fileName)));
 
-		/* and last report the stat results */
+		/* 最后报告 stat 的结果 */
 		if (stat_errno == 0)
 			ReportTemporaryFileUsage(vfdP->fileName, filestats.st_size);
 		else
@@ -2006,24 +2006,24 @@ FileClose(File file)
 		}
 	}
 
-	/* Unregister it from the resource owner */
+	/* 从资源所有者那里注销它 */
 	if (vfdP->resowner)
 		ResourceOwnerForgetFile(vfdP->resowner, file);
 
 	/*
-	 * Return the Vfd slot to the free list
+	 * 把该 Vfd 槽归还到空闲链表
 	 */
 	FreeVfd(file);
 }
 
 /*
- * FilePrefetch - initiate asynchronous read of a given range of the file.
+ * FilePrefetch - 对文件的给定范围发起异步读取。
  *
- * Currently the only implementation of this function is using posix_fadvise
- * which is the simplest standardized interface that accomplishes this.
- * We could add an implementation using libaio in the future; but note that
- * this API is inappropriate for libaio, which wants to have a buffer provided
- * to read into.
+ * 目前本函数的唯一实现是使用 posix_fadvise，
+ * 这是完成此事的最简单的标准化接口。
+ * 将来我们可以增加使用 libaio 的实现；但要注意，
+ * 这个 API 不适合 libaio，后者想要提供一个缓冲区
+ * 来读入。
  */
 int
 FilePrefetch(File file, off_t offset, off_t amount, uint32 wait_event_info)
@@ -2111,11 +2111,11 @@ retry:
 	if (returnCode < 0)
 	{
 		/*
-		 * Windows may run out of kernel buffers and return "Insufficient
-		 * system resources" error.  Wait a bit and retry to solve it.
+		 * Windows 可能会用尽内核缓冲区并返回系统资源
+		 * 不足的错误。稍等再重试就能解决。
 		 *
-		 * It is rumored that EINTR is also possible on some Unix filesystems,
-		 * in which case immediate retry is indicated.
+		 * 据说在某些 Unix 文件系统上也可能出现 EINTR，
+		 * 那种情况下应当立即重试。
 		 */
 #ifdef WIN32
 		DWORD		error = GetLastError();
@@ -2131,7 +2131,7 @@ retry:
 				break;
 		}
 #endif
-		/* OK to retry if interrupted */
+		/* 若被中断，可以重试 */
 		if (errno == EINTR)
 			goto retry;
 	}
@@ -2160,12 +2160,12 @@ FileWrite(File file, const void *buffer, size_t amount, off_t offset,
 	vfdP = &VfdCache[file];
 
 	/*
-	 * If enforcing temp_file_limit and it's a temp file, check to see if the
-	 * write would overrun temp_file_limit, and throw error if so.  Note: it's
-	 * really a modularity violation to throw error here; we should set errno
-	 * and return -1.  However, there's no way to report a suitable error
-	 * message if we do that.  All current callers would just throw error
-	 * immediately anyway, so this is safe at present.
+	 * 若正在强制 temp_file_limit 且这是临时文件，就检查
+	 * 这次写是否会超出 temp_file_limit，若会则抛出错误。注意：在这里
+	 * 抛出错误其实违反了模块边界；我们应当设置 errno
+	 * 并返回 -1。然而那样就没法报告合适的错误
+	 * 消息。目前所有调用者反正都会立刻
+	 * 抛出错误，因此眼下这样做是安全的。
 	 */
 	if (temp_file_limit >= 0 && (vfdP->fdstate & FD_TEMP_FILE_LIMIT))
 	{
@@ -2190,14 +2190,14 @@ retry:
 	returnCode = pg_pwrite(VfdCache[file].fd, buffer, amount, offset);
 	pgstat_report_wait_end();
 
-	/* if write didn't set errno, assume problem is no disk space */
+	/* 若写操作没有设置 errno，就假定问题是磁盘空间不足 */
 	if (returnCode != amount && errno == 0)
 		errno = ENOSPC;
 
 	if (returnCode >= 0)
 	{
 		/*
-		 * Maintain fileSize and temporary_files_size if it's a temp file.
+		 * 若是临时文件，则维护 fileSize 和 temporary_files_size。
 		 */
 		if (vfdP->fdstate & FD_TEMP_FILE_LIMIT)
 		{
@@ -2213,7 +2213,7 @@ retry:
 	else
 	{
 		/*
-		 * See comments in FileRead()
+		 * 见 FileRead() 里的注释
 		 */
 #ifdef WIN32
 		DWORD		error = GetLastError();
@@ -2229,7 +2229,7 @@ retry:
 				break;
 		}
 #endif
-		/* OK to retry if interrupted */
+		/* 若被中断，可以重试 */
 		if (errno == EINTR)
 			goto retry;
 	}
@@ -2259,10 +2259,10 @@ FileSync(File file, uint32 wait_event_info)
 }
 
 /*
- * Zero a region of the file.
+ * 把文件的一个区域清零。
  *
- * Returns 0 on success, -1 otherwise. In the latter case errno is set to the
- * appropriate error.
+ * 成功返回 0，否则返回 -1。后一种情况下 errno 被设为
+ * 相应的错误。
  */
 int
 FileZero(File file, off_t offset, off_t amount, uint32 wait_event_info)
@@ -2288,7 +2288,7 @@ FileZero(File file, off_t offset, off_t amount, uint32 wait_event_info)
 		return -1;
 	else if (written != amount)
 	{
-		/* if errno is unset, assume problem is no disk space */
+		/* 若 errno 未设置，就假定问题是磁盘空间不足 */
 		if (errno == 0)
 			errno = ENOSPC;
 		return -1;
@@ -2298,16 +2298,16 @@ FileZero(File file, off_t offset, off_t amount, uint32 wait_event_info)
 }
 
 /*
- * Try to reserve file space with posix_fallocate(). If posix_fallocate() is
- * not implemented on the operating system or fails with EINVAL / EOPNOTSUPP,
- * use FileZero() instead.
+ * 尝试用 posix_fallocate() 预留文件空间。若操作系统没有实现
+ * posix_fallocate()，或它以 EINVAL / EOPNOTSUPP 失败，
+ * 则改用 FileZero()。
  *
- * Note that at least glibc() implements posix_fallocate() in userspace if not
- * implemented by the filesystem. That's not the case for all environments
- * though.
+ * 注意，至少 glibc() 会在文件系统未实现时于用户空间实现 posix_fallocate()。
+ * 不过并非所有环境
+ * 都如此。
  *
- * Returns 0 on success, -1 otherwise. In the latter case errno is set to the
- * appropriate error.
+ * 成功返回 0，否则返回 -1。后一种情况下 errno 被设为
+ * 相应的错误。
  */
 int
 FileFallocate(File file, off_t offset, off_t amount, uint32 wait_event_info)
@@ -2335,7 +2335,7 @@ retry:
 	else if (returnCode == EINTR)
 		goto retry;
 
-	/* for compatibility with %m printing etc */
+	/* 为了与 %m 打印等兼容 */
 	errno = returnCode;
 
 	/*
@@ -2386,7 +2386,7 @@ FileTruncate(File file, off_t offset, uint32 wait_event_info)
 
 	if (returnCode == 0 && VfdCache[file].fileSize > offset)
 	{
-		/* adjust our state for truncation of a temp file */
+		/* 若截断的是临时文件，则调整我们的状态 */
 		Assert(VfdCache[file].fdstate & FD_TEMP_FILE_LIMIT);
 		temporary_files_size -= VfdCache[file].fileSize - offset;
 		VfdCache[file].fileSize = offset;
@@ -2396,10 +2396,10 @@ FileTruncate(File file, off_t offset, uint32 wait_event_info)
 }
 
 /*
- * Return the pathname associated with an open file.
+ * 返回与已打开文件关联的路径名。
  *
- * The returned string points to an internal buffer, which is valid until
- * the file is closed.
+ * 返回的字符串指向一个内部缓冲区，在
+ * 该文件关闭之前一直有效。
  */
 char *
 FilePathName(File file)
@@ -2410,12 +2410,12 @@ FilePathName(File file)
 }
 
 /*
- * Return the raw file descriptor of an opened file.
+ * 返回已打开文件的原始文件描述符。
  *
- * The returned file descriptor will be valid until the file is closed, but
- * there are a lot of things that can make that happen.  So the caller should
- * be careful not to do much of anything else before it finishes using the
- * returned file descriptor.
+ * 返回的文件描述符在该文件关闭之前一直有效，但
+ * 有很多事情会导致关闭。因此调用者应当
+ * 小心，在用完返回的
+ * 文件描述符之前不要做太多别的事。
  */
 int
 FileGetRawDesc(File file)
@@ -2425,7 +2425,7 @@ FileGetRawDesc(File file)
 }
 
 /*
- * FileGetRawFlags - returns the file flags on open(2)
+ * FileGetRawFlags - 返回 open(2) 时的文件标志
  */
 int
 FileGetRawFlags(File file)
@@ -2435,7 +2435,7 @@ FileGetRawFlags(File file)
 }
 
 /*
- * FileGetRawMode - returns the mode bitmask passed to open(2)
+ * FileGetRawMode - 返回传给 open(2) 的模式位掩码
  */
 mode_t
 FileGetRawMode(File file)
@@ -2445,8 +2445,8 @@ FileGetRawMode(File file)
 }
 
 /*
- * Make room for another allocatedDescs[] array entry if needed and possible.
- * Returns true if an array element is available.
+ * 必要时并且可能的话，为 allocatedDescs[] 数组再腾出一个项。
+ * 若有数组元素可用则返回真。
  */
 static bool
 reserveAllocatedDesc(void)
@@ -2454,21 +2454,21 @@ reserveAllocatedDesc(void)
 	AllocateDesc *newDescs;
 	int			newMax;
 
-	/* Quick out if array already has a free slot. */
+	/* 若数组里已经有空闲槽，就快速返回。 */
 	if (numAllocatedDescs < maxAllocatedDescs)
 		return true;
 
 	/*
-	 * If the array hasn't yet been created in the current process, initialize
-	 * it with FD_MINFREE / 3 elements.  In many scenarios this is as many as
-	 * we will ever need, anyway.  We don't want to look at max_safe_fds
-	 * immediately because set_max_safe_fds() may not have run yet.
+	 * 若当前进程里还没创建该数组，就用
+	 * FD_MINFREE / 3 个元素初始化它。在许多情形下，这反正就是
+	 * 我们永远需要的那么多。我们不想立刻去看 max_safe_fds，
+	 * 因为 set_max_safe_fds() 可能还没运行。
 	 */
 	if (allocatedDescs == NULL)
 	{
 		newMax = FD_MINFREE / 3;
 		newDescs = (AllocateDesc *) malloc(newMax * sizeof(AllocateDesc));
-		/* Out of memory already?  Treat as fatal error. */
+		/* 已经内存不足？当作致命错误处理。 */
 		if (newDescs == NULL)
 			ereport(ERROR,
 					(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -2479,22 +2479,22 @@ reserveAllocatedDesc(void)
 	}
 
 	/*
-	 * Consider enlarging the array beyond the initial allocation used above.
-	 * By the time this happens, max_safe_fds should be known accurately.
+	 * 考虑把数组扩大到超出上面所用的初始分配。
+	 * 到这时，max_safe_fds 应当已经准确知道。
 	 *
-	 * We mustn't let allocated descriptors hog all the available FDs, and in
-	 * practice we'd better leave a reasonable number of FDs for VFD use.  So
-	 * set the maximum to max_safe_fds / 3.  (This should certainly be at
-	 * least as large as the initial size, FD_MINFREE / 3, so we aren't
-	 * tightening the restriction here.)  Recall that "external" FDs are
-	 * allowed to consume another third of max_safe_fds.
+	 * 我们不得让已分配的描述符占光所有可用文件描述符，实践中
+	 * 最好为 VFD 留出合理数量的文件描述符。因此
+	 * 把最大值设为 max_safe_fds / 3。（这肯定应当
+	 * 至少和初始大小 FD_MINFREE / 3 一样大，所以这里并没有
+	 * 收紧限制。）记住，外部文件描述符
+	 * 还可以再消耗 max_safe_fds 的三分之一。
 	 */
 	newMax = max_safe_fds / 3;
 	if (newMax > maxAllocatedDescs)
 	{
 		newDescs = (AllocateDesc *) realloc(allocatedDescs,
 											newMax * sizeof(AllocateDesc));
-		/* Treat out-of-memory as a non-fatal error. */
+		/* 把内存不足当作非致命错误处理。 */
 		if (newDescs == NULL)
 			return false;
 		allocatedDescs = newDescs;
@@ -2502,26 +2502,26 @@ reserveAllocatedDesc(void)
 		return true;
 	}
 
-	/* Can't enlarge allocatedDescs[] any more. */
+	/* 无法再扩大 allocatedDescs[]。 */
 	return false;
 }
 
 /*
- * Routines that want to use stdio (ie, FILE*) should use AllocateFile
- * rather than plain fopen().  This lets fd.c deal with freeing FDs if
- * necessary to open the file.  When done, call FreeFile rather than fclose.
+ * 想使用 stdio（即 FILE*）的例程应当使用 AllocateFile，
+ * 而不是普通的 fopen()。这样 fd.c 就能在必要时释放文件描述符
+ * 来打开该文件。用完后调用 FreeFile，而不是 fclose。
  *
- * Note that files that will be open for any significant length of time
- * should NOT be handled this way, since they cannot share kernel file
- * descriptors with other files; there is grave risk of running out of FDs
- * if anyone locks down too many FDs.  Most callers of this routine are
- * simply reading a config file that they will read and close immediately.
+ * 注意，会打开任何可观时长的文件
+ * 不应当用这种方式处理，因为它们无法与其他文件共享内核文件
+ * 描述符；若有人锁住过多文件描述符，
+ * 就有耗尽文件描述符的严重风险。本例程的多数调用者
+ * 只是在读一个马上就会读完并关闭的配置文件。
  *
- * fd.c will automatically close all files opened with AllocateFile at
- * transaction commit or abort; this prevents FD leakage if a routine
- * that calls AllocateFile is terminated prematurely by ereport(ERROR).
+ * fd.c 会在事务提交或撤销时自动关闭所有用 AllocateFile
+ * 打开的文件；这样，若调用 AllocateFile 的例程
+ * 被 ereport(ERROR) 提前打断，就不会泄漏文件描述符。
  *
- * Ideally this should be the *only* direct call of fopen() in the backend.
+ * 理想情况下，这应当是后端里对 fopen() 的唯一直接调用。
  */
 FILE *
 AllocateFile(const char *name, const char *mode)
@@ -2531,14 +2531,14 @@ AllocateFile(const char *name, const char *mode)
 	DO_DB(elog(LOG, "AllocateFile: Allocated %d (%s)",
 			   numAllocatedDescs, name));
 
-	/* Can we allocate another non-virtual FD? */
+	/* 我们还能再分配一个非虚拟文件描述符吗？ */
 	if (!reserveAllocatedDesc())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"",
 						maxAllocatedDescs, name)));
 
-	/* Close excess kernel FDs. */
+	/* 关闭多余的内核文件描述符。 */
 	ReleaseLruFiles();
 
 TryAgain:
@@ -2570,8 +2570,8 @@ TryAgain:
 }
 
 /*
- * Open a file with OpenTransientFilePerm() and pass default file mode for
- * the fileMode parameter.
+ * 用 OpenTransientFilePerm() 打开文件，并把默认文件模式传给
+ * fileMode 参数。
  */
 int
 OpenTransientFile(const char *fileName, int fileFlags)
@@ -2580,7 +2580,7 @@ OpenTransientFile(const char *fileName, int fileFlags)
 }
 
 /*
- * Like AllocateFile, but returns an unbuffered fd like open(2)
+ * 与 AllocateFile 类似，但返回像 open(2) 那样无缓冲的文件描述符
  */
 int
 OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
@@ -2590,14 +2590,14 @@ OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 	DO_DB(elog(LOG, "OpenTransientFile: Allocated %d (%s)",
 			   numAllocatedDescs, fileName));
 
-	/* Can we allocate another non-virtual FD? */
+	/* 我们还能再分配一个非虚拟文件描述符吗？ */
 	if (!reserveAllocatedDesc())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("exceeded maxAllocatedDescs (%d) while trying to open file \"%s\"",
 						maxAllocatedDescs, fileName)));
 
-	/* Close excess kernel FDs. */
+	/* 关闭多余的内核文件描述符。 */
 	ReleaseLruFiles();
 
 	fd = BasicOpenFilePerm(fileName, fileFlags, fileMode);
@@ -2614,17 +2614,17 @@ OpenTransientFilePerm(const char *fileName, int fileFlags, mode_t fileMode)
 		return fd;
 	}
 
-	return -1;					/* failure */
+	return -1;					/* 失败 */
 }
 
 /*
- * Routines that want to initiate a pipe stream should use OpenPipeStream
- * rather than plain popen().  This lets fd.c deal with freeing FDs if
- * necessary.  When done, call ClosePipeStream rather than pclose.
+ * 想发起管道流的例程应当使用 OpenPipeStream，
+ * 而不是普通的 popen()。这样 fd.c 就能在必要时释放文件描述符。
+ * 用完后调用 ClosePipeStream，而不是 pclose。
  *
- * This function also ensures that the popen'd program is run with default
- * SIGPIPE processing, rather than the SIG_IGN setting the backend normally
- * uses.  This ensures desirable response to, eg, closing a read pipe early.
+ * 本函数还确保 popen 出来的程序以默认的
+ * SIGPIPE 处理来运行，而不是后端通常使用的 SIG_IGN 设置。
+ * 这保证了对例如过早关闭读管道的期望响应。
  */
 FILE *
 OpenPipeStream(const char *command, const char *mode)
@@ -2635,14 +2635,14 @@ OpenPipeStream(const char *command, const char *mode)
 	DO_DB(elog(LOG, "OpenPipeStream: Allocated %d (%s)",
 			   numAllocatedDescs, command));
 
-	/* Can we allocate another non-virtual FD? */
+	/* 我们还能再分配一个非虚拟文件描述符吗？ */
 	if (!reserveAllocatedDesc())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("exceeded maxAllocatedDescs (%d) while trying to execute command \"%s\"",
 						maxAllocatedDescs, command)));
 
-	/* Close excess kernel FDs. */
+	/* 关闭多余的内核文件描述符。 */
 	ReleaseLruFiles();
 
 TryAgain:
@@ -2678,16 +2678,16 @@ TryAgain:
 }
 
 /*
- * Free an AllocateDesc of any type.
+ * 释放任意类型的 AllocateDesc。
  *
- * The argument *must* point into the allocatedDescs[] array.
+ * 参数必须指向 allocatedDescs[] 数组内部。
  */
 static int
 FreeDesc(AllocateDesc *desc)
 {
 	int			result;
 
-	/* Close the underlying object */
+	/* 关闭底层对象 */
 	switch (desc->kind)
 	{
 		case AllocateDescFile:
@@ -2704,11 +2704,11 @@ FreeDesc(AllocateDesc *desc)
 			break;
 		default:
 			elog(ERROR, "AllocateDesc kind not recognized");
-			result = 0;			/* keep compiler quiet */
+			result = 0;			/* 消除编译器告警 */
 			break;
 	}
 
-	/* Compact storage in the allocatedDescs array */
+	/* 紧缩 allocatedDescs 数组里的存储 */
 	numAllocatedDescs--;
 	*desc = allocatedDescs[numAllocatedDescs];
 
@@ -2716,10 +2716,10 @@ FreeDesc(AllocateDesc *desc)
 }
 
 /*
- * Close a file returned by AllocateFile.
+ * 关闭 AllocateFile 返回的文件。
  *
- * Note we do not check fclose's return value --- it is up to the caller
- * to handle close errors.
+ * 注意我们不检查 fclose 的返回值，由调用者
+ * 来处理关闭错误。
  */
 int
 FreeFile(FILE *file)
@@ -2728,7 +2728,7 @@ FreeFile(FILE *file)
 
 	DO_DB(elog(LOG, "FreeFile: Allocated %d", numAllocatedDescs));
 
-	/* Remove file from list of allocated files, if it's present */
+	/* 若该文件在已分配文件列表里，就把它去掉 */
 	for (i = numAllocatedDescs; --i >= 0;)
 	{
 		AllocateDesc *desc = &allocatedDescs[i];
@@ -2737,17 +2737,17 @@ FreeFile(FILE *file)
 			return FreeDesc(desc);
 	}
 
-	/* Only get here if someone passes us a file not in allocatedDescs */
+	/* 只有当有人传给我们一个不在 allocatedDescs 里的文件时才会到这里 */
 	elog(WARNING, "file passed to FreeFile was not obtained from AllocateFile");
 
 	return fclose(file);
 }
 
 /*
- * Close a file returned by OpenTransientFile.
+ * 关闭 OpenTransientFile 返回的文件。
  *
- * Note we do not check close's return value --- it is up to the caller
- * to handle close errors.
+ * 注意我们不检查 close 的返回值，由调用者
+ * 来处理关闭错误。
  */
 int
 CloseTransientFile(int fd)
@@ -2756,7 +2756,7 @@ CloseTransientFile(int fd)
 
 	DO_DB(elog(LOG, "CloseTransientFile: Allocated %d", numAllocatedDescs));
 
-	/* Remove fd from list of allocated files, if it's present */
+	/* 若该文件描述符在已分配文件列表里，就把它去掉 */
 	for (i = numAllocatedDescs; --i >= 0;)
 	{
 		AllocateDesc *desc = &allocatedDescs[i];
@@ -2765,23 +2765,23 @@ CloseTransientFile(int fd)
 			return FreeDesc(desc);
 	}
 
-	/* Only get here if someone passes us a file not in allocatedDescs */
+	/* 只有当有人传给我们一个不在 allocatedDescs 里的文件时才会到这里 */
 	elog(WARNING, "fd passed to CloseTransientFile was not obtained from OpenTransientFile");
 
 	return close(fd);
 }
 
 /*
- * Routines that want to use <dirent.h> (ie, DIR*) should use AllocateDir
- * rather than plain opendir().  This lets fd.c deal with freeing FDs if
- * necessary to open the directory, and with closing it after an elog.
- * When done, call FreeDir rather than closedir.
+ * 想使用 <dirent.h>（即 DIR*）的例程应当使用 AllocateDir，
+ * 而不是普通的 opendir()。这样 fd.c 就能在必要时释放文件描述符
+ * 来打开该目录，并在 elog 之后关闭它。
+ * 用完后调用 FreeDir，而不是 closedir。
  *
- * Returns NULL, with errno set, on failure.  Note that failure detection
- * is commonly left to the following call of ReadDir or ReadDirExtended;
- * see the comments for ReadDir.
+ * 失败时返回 NULL，并设置 errno。注意，失败检测
+ * 通常留给随后的 ReadDir 或 ReadDirExtended 调用；
+ * 见 ReadDir 的注释。
  *
- * Ideally this should be the *only* direct call of opendir() in the backend.
+ * 理想情况下，这应当是后端里对 opendir() 的唯一直接调用。
  */
 DIR *
 AllocateDir(const char *dirname)
@@ -2791,14 +2791,14 @@ AllocateDir(const char *dirname)
 	DO_DB(elog(LOG, "AllocateDir: Allocated %d (%s)",
 			   numAllocatedDescs, dirname));
 
-	/* Can we allocate another non-virtual FD? */
+	/* 我们还能再分配一个非虚拟文件描述符吗？ */
 	if (!reserveAllocatedDesc())
 		ereport(ERROR,
 				(errcode(ERRCODE_INSUFFICIENT_RESOURCES),
 				 errmsg("exceeded maxAllocatedDescs (%d) while trying to open directory \"%s\"",
 						maxAllocatedDescs, dirname)));
 
-	/* Close excess kernel FDs. */
+	/* 关闭多余的内核文件描述符。 */
 	ReleaseLruFiles();
 
 TryAgain:
@@ -2830,24 +2830,24 @@ TryAgain:
 }
 
 /*
- * Read a directory opened with AllocateDir, ereport'ing any error.
+ * 读取用 AllocateDir 打开的目录，并用 ereport 报告任何错误。
  *
- * This is easier to use than raw readdir() since it takes care of some
- * otherwise rather tedious and error-prone manipulation of errno.  Also,
- * if you are happy with a generic error message for AllocateDir failure,
- * you can just do
+ * 这比原始的 readdir() 更容易使用，因为它处理了一些
+ * 原本相当繁琐且容易出错的 errno 操作。另外，
+ * 若你满意 AllocateDir 失败时的通用错误消息，
+ * 就可以直接写成：
  *
  *		dir = AllocateDir(path);
  *		while ((dirent = ReadDir(dir, path)) != NULL)
- *			process dirent;
- *		FreeDir(dir);
+ *			处理 dirent;
+ *		FreeDir(dir)。
  *
- * since a NULL dir parameter is taken as indicating AllocateDir failed.
- * (Make sure errno isn't changed between AllocateDir and ReadDir if you
- * use this shortcut.)
+ * 因为 dir 参数为 NULL 被当作表示 AllocateDir 失败。
+ * （若使用这个简写，请确保在 AllocateDir 和 ReadDir 之间
+ * 不要改变 errno。）
  *
- * The pathname passed to AllocateDir must be passed to this routine too,
- * but it is only used for error reporting.
+ * 传给 AllocateDir 的路径名也必须传给本例程，
+ * 但它只用于错误报告。
  */
 struct dirent *
 ReadDir(DIR *dir, const char *dirname)
@@ -2856,20 +2856,20 @@ ReadDir(DIR *dir, const char *dirname)
 }
 
 /*
- * Alternate version of ReadDir that allows caller to specify the elevel
- * for any error report (whether it's reporting an initial failure of
- * AllocateDir or a subsequent directory read failure).
+ * ReadDir 的另一个版本，允许调用者指定任何错误报告的
+ * elevel（无论是报告 AllocateDir 的初始失败，
+ * 还是随后的目录读取失败）。
  *
- * If elevel < ERROR, returns NULL after any error.  With the normal coding
- * pattern, this will result in falling out of the loop immediately as
- * though the directory contained no (more) entries.
+ * 若 elevel < ERROR，则任何错误之后都返回 NULL。按通常的编码
+ * 模式，这会导致立刻退出循环，就好像
+ * 该目录不再包含更多项。
  */
 struct dirent *
 ReadDirExtended(DIR *dir, const char *dirname, int elevel)
 {
 	struct dirent *dent;
 
-	/* Give a generic message for AllocateDir failure, if caller didn't */
+	/* 若调用者没有给出，就为 AllocateDir 失败给出一条通用消息 */
 	if (dir == NULL)
 	{
 		ereport(elevel,
@@ -2892,27 +2892,27 @@ ReadDirExtended(DIR *dir, const char *dirname, int elevel)
 }
 
 /*
- * Close a directory opened with AllocateDir.
+ * 关闭用 AllocateDir 打开的目录。
  *
- * Returns closedir's return value (with errno set if it's not 0).
- * Note we do not check the return value --- it is up to the caller
- * to handle close errors if wanted.
+ * 返回 closedir 的返回值（若不是 0 则设置了 errno）。
+ * 注意我们不检查返回值，由调用者
+ * 在需要时处理关闭错误。
  *
- * Does nothing if dir == NULL; we assume that directory open failure was
- * already reported if desired.
+ * 若 dir == NULL 则什么也不做；我们假定目录打开失败
+ * 在需要时已经报告过了。
  */
 int
 FreeDir(DIR *dir)
 {
 	int			i;
 
-	/* Nothing to do if AllocateDir failed */
+	/* 若 AllocateDir 失败，则无事可做 */
 	if (dir == NULL)
 		return 0;
 
 	DO_DB(elog(LOG, "FreeDir: Allocated %d", numAllocatedDescs));
 
-	/* Remove dir from list of allocated dirs, if it's present */
+	/* 若该目录在已分配目录列表里，就把它去掉 */
 	for (i = numAllocatedDescs; --i >= 0;)
 	{
 		AllocateDesc *desc = &allocatedDescs[i];
@@ -2921,7 +2921,7 @@ FreeDir(DIR *dir)
 			return FreeDesc(desc);
 	}
 
-	/* Only get here if someone passes us a dir not in allocatedDescs */
+	/* 只有当有人传给我们一个不在 allocatedDescs 里的目录时才会到这里 */
 	elog(WARNING, "dir passed to FreeDir was not obtained from AllocateDir");
 
 	return closedir(dir);
@@ -2929,7 +2929,7 @@ FreeDir(DIR *dir)
 
 
 /*
- * Close a pipe stream returned by OpenPipeStream.
+ * 关闭 OpenPipeStream 返回的管道流。
  */
 int
 ClosePipeStream(FILE *file)
@@ -2938,7 +2938,7 @@ ClosePipeStream(FILE *file)
 
 	DO_DB(elog(LOG, "ClosePipeStream: Allocated %d", numAllocatedDescs));
 
-	/* Remove file from list of allocated files, if it's present */
+	/* 若该文件在已分配文件列表里，就把它去掉 */
 	for (i = numAllocatedDescs; --i >= 0;)
 	{
 		AllocateDesc *desc = &allocatedDescs[i];
@@ -2947,7 +2947,7 @@ ClosePipeStream(FILE *file)
 			return FreeDesc(desc);
 	}
 
-	/* Only get here if someone passes us a file not in allocatedDescs */
+	/* 只有当有人传给我们一个不在 allocatedDescs 里的文件时才会到这里 */
 	elog(WARNING, "file passed to ClosePipeStream was not obtained from OpenPipeStream");
 
 	return pclose(file);
@@ -2956,9 +2956,9 @@ ClosePipeStream(FILE *file)
 /*
  * closeAllVfds
  *
- * Force all VFDs into the physically-closed state, so that the fewest
- * possible number of kernel file descriptors are in use.  There is no
- * change in the logical state of the VFDs.
+ * 强制所有 VFDs 进入物理关闭状态，从而使正在使用的
+ * 内核文件描述符尽可能少。VFDs 的逻辑状态
+ * 没有变化。
  */
 void
 closeAllVfds(void)
@@ -2967,7 +2967,7 @@ closeAllVfds(void)
 
 	if (SizeVfdCache > 0)
 	{
-		Assert(FileIsNotOpen(0));	/* Make sure ring not corrupted */
+		Assert(FileIsNotOpen(0));	/* 确保环没有损坏 */
 		for (i = 1; i < SizeVfdCache; i++)
 		{
 			if (!FileIsNotOpen(i))
@@ -2980,14 +2980,14 @@ closeAllVfds(void)
 /*
  * SetTempTablespaces
  *
- * Define a list (actually an array) of OIDs of tablespaces to use for
- * temporary files.  This list will be used until end of transaction,
- * unless this function is called again before then.  It is caller's
- * responsibility that the passed-in array has adequate lifespan (typically
- * it'd be allocated in TopTransactionContext).
+ * 定义一个用于临时文件的表空间 OIDs 列表（实际上是数组）。
+ * 这个列表会一直用到事务结束，
+ * 除非在那之前再次调用本函数。调用者
+ * 有责任使传入的数组有足够的寿命（通常
+ * 它会分配在 TopTransactionContext 里）。
  *
- * Some entries of the array may be InvalidOid, indicating that the current
- * database's default tablespace should be used.
+ * 数组的某些项可能是 InvalidOid，表示应当使用当前
+ * 数据库的默认表空间。
  */
 void
 SetTempTablespaces(Oid *tableSpaces, int numSpaces)
@@ -2997,12 +2997,12 @@ SetTempTablespaces(Oid *tableSpaces, int numSpaces)
 	numTempTableSpaces = numSpaces;
 
 	/*
-	 * Select a random starting point in the list.  This is to minimize
-	 * conflicts between backends that are most likely sharing the same list
-	 * of temp tablespaces.  Note that if we create multiple temp files in the
-	 * same transaction, we'll advance circularly through the list --- this
-	 * ensures that large temporary sort files are nicely spread across all
-	 * available tablespaces.
+	 * 在列表里选一个随机起点。这是为了尽量减少
+	 * 最可能共享同一临时表空间列表的后端之间的
+	 * 冲突。注意，若我们在同一事务里创建多个临时文件，
+	 * 就会沿列表循环前进。这
+	 * 确保大型临时排序文件能很好地分布到所有
+	 * 可用的表空间上。
 	 */
 	if (numSpaces > 1)
 		nextTempTableSpace = pg_prng_uint64_range(&pg_global_prng_state,
@@ -3014,9 +3014,9 @@ SetTempTablespaces(Oid *tableSpaces, int numSpaces)
 /*
  * TempTablespacesAreSet
  *
- * Returns true if SetTempTablespaces has been called in current transaction.
- * (This is just so that tablespaces.c doesn't need its own per-transaction
- * state.)
+ * 若当前事务里已经调用过 SetTempTablespaces，则返回真。
+ * （这只是为了让 tablespaces.c 不必有自己的每事务
+ * 状态。）
  */
 bool
 TempTablespacesAreSet(void)
@@ -3027,11 +3027,11 @@ TempTablespacesAreSet(void)
 /*
  * GetTempTablespaces
  *
- * Populate an array with the OIDs of the tablespaces that should be used for
- * temporary files.  (Some entries may be InvalidOid, indicating that the
- * current database's default tablespace should be used.)  At most numSpaces
- * entries will be filled.
- * Returns the number of OIDs that were copied into the output array.
+ * 用应当用于临时文件的表空间 OIDs 填充一个数组。
+ * （有些项可能是 InvalidOid，表示应当使用
+ * 当前数据库的默认表空间。）最多填充 numSpaces
+ * 项。
+ * 返回复制到输出数组里的 OID 个数。
  */
 int
 GetTempTablespaces(Oid *tableSpaces, int numSpaces)
@@ -3048,15 +3048,15 @@ GetTempTablespaces(Oid *tableSpaces, int numSpaces)
 /*
  * GetNextTempTableSpace
  *
- * Select the next temp tablespace to use.  A result of InvalidOid means
- * to use the current database's default tablespace.
+ * 选择下一个要使用的临时表空间。结果为 InvalidOid 表示
+ * 使用当前数据库的默认表空间。
  */
 Oid
 GetNextTempTableSpace(void)
 {
 	if (numTempTableSpaces > 0)
 	{
-		/* Advance nextTempTableSpace counter with wraparound */
+		/* 推进 nextTempTableSpace 计数器，并在末尾回绕 */
 		if (++nextTempTableSpace >= numTempTableSpaces)
 			nextTempTableSpace = 0;
 		return tempTableSpaces[nextTempTableSpace];
@@ -3068,9 +3068,9 @@ GetNextTempTableSpace(void)
 /*
  * AtEOSubXact_Files
  *
- * Take care of subtransaction commit/abort.  At abort, we close temp files
- * that the subtransaction may have opened.  At commit, we reassign the
- * files that were opened to the parent subtransaction.
+ * 处理子事务的提交或中止。中止时，我们关闭该子事务
+ * 可能打开的临时文件。提交时，我们把
+ * 已打开的文件重新赋给父级子事务。
  */
 void
 AtEOSubXact_Files(bool isCommit, SubTransactionId mySubid,
@@ -3086,7 +3086,7 @@ AtEOSubXact_Files(bool isCommit, SubTransactionId mySubid,
 				allocatedDescs[i].create_subid = parentSubid;
 			else
 			{
-				/* have to recheck the item after FreeDesc (ugly) */
+				/* FreeDesc 之后必须重新检查该项（不漂亮） */
 				FreeDesc(&allocatedDescs[i--]);
 			}
 		}
@@ -3096,14 +3096,14 @@ AtEOSubXact_Files(bool isCommit, SubTransactionId mySubid,
 /*
  * AtEOXact_Files
  *
- * This routine is called during transaction commit or abort.  All still-open
- * per-transaction temporary file VFDs are closed, which also causes the
- * underlying files to be deleted (although they should've been closed already
- * by the ResourceOwner cleanup). Furthermore, all "allocated" stdio files are
- * closed. We also forget any transaction-local temp tablespace list.
+ * 本例程在事务提交或中止期间调用。所有仍打开的
+ * 每事务临时文件 VFDs 都会关闭，这也会导致
+ * 底层文件被删除（尽管它们应当已经由
+ * ResourceOwner 清理关闭了）。此外，所有已分配的 stdio 文件都会
+ * 被关闭。我们还忘掉任何事务局部的临时表空间列表。
  *
- * The isCommit flag is used only to decide whether to emit warnings about
- * unclosed files.
+ * isCommit 标志只用来决定是否对
+ * 未关闭的文件发出警告。
  */
 void
 AtEOXact_Files(bool isCommit)
@@ -3116,31 +3116,31 @@ AtEOXact_Files(bool isCommit)
 /*
  * BeforeShmemExit_Files
  *
- * before_shmem_exit hook to clean up temp files during backend shutdown.
- * Here, we want to clean up *all* temp files including interXact ones.
+ * before_shmem_exit 钩子，在后端关闭期间清理临时文件。
+ * 这里我们要清理包括 interXact 在内的全部临时文件。
  */
 static void
 BeforeShmemExit_Files(int code, Datum arg)
 {
 	CleanupTempFiles(false, true);
 
-	/* prevent further temp files from being created */
+	/* 阻止再创建临时文件 */
 #ifdef USE_ASSERT_CHECKING
 	temporary_files_allowed = false;
 #endif
 }
 
 /*
- * Close temporary files and delete their underlying files.
+ * 关闭临时文件并删除其底层文件。
  *
- * isCommit: if true, this is normal transaction commit, and we don't
- * expect any remaining files; warn if there are some.
+ * isCommit：若为真，这是正常的事务提交，我们不
+ * 预期还会剩下文件；若还有就警告。
  *
- * isProcExit: if true, this is being called as the backend process is
- * exiting. If that's the case, we should remove all temporary files; if
- * that's not the case, we are being called for transaction commit/abort
- * and should only remove transaction-local temp files.  In either case,
- * also clean up "allocated" stdio files, dirs and fds.
+ * isProcExit：若为真，这是在后端进程
+ * 退出时调用。若是这种情况，我们应当去掉所有临时文件；若
+ * 不是，则我们是在为事务提交或中止而调用，
+ * 应当只去掉事务局部的临时文件。无论哪种情况，
+ * 也要清理已分配的 stdio 文件、目录和文件描述符。
  */
 static void
 CleanupTempFiles(bool isCommit, bool isProcExit)
@@ -3148,12 +3148,12 @@ CleanupTempFiles(bool isCommit, bool isProcExit)
 	Index		i;
 
 	/*
-	 * Careful here: at proc_exit we need extra cleanup, not just
-	 * xact_temporary files.
+	 * 这里要小心：在 proc_exit 时我们需要额外清理，不只是
+	 * xact_temporary 临时文件。
 	 */
 	if (isProcExit || have_xact_temporary_files)
 	{
-		Assert(FileIsNotOpen(0));	/* Make sure ring not corrupted */
+		Assert(FileIsNotOpen(0));	/* 确保环没有损坏 */
 		for (i = 1; i < SizeVfdCache; i++)
 		{
 			unsigned short fdstate = VfdCache[i].fdstate;
@@ -3162,11 +3162,11 @@ CleanupTempFiles(bool isCommit, bool isProcExit)
 				VfdCache[i].fileName != NULL)
 			{
 				/*
-				 * If we're in the process of exiting a backend process, close
-				 * all temporary files. Otherwise, only close temporary files
-				 * local to the current transaction. They should be closed by
-				 * the ResourceOwner mechanism already, so this is just a
-				 * debugging cross-check.
+				 * 若我们正在退出一个后端进程，就关闭
+				 * 所有临时文件。否则只关闭当前事务
+				 * 局部的临时文件。它们应当已经由
+				 * ResourceOwner 机制关闭，因此这只是
+				 * 一道调试用的交叉检查。
 				 */
 				if (isProcExit)
 					FileClose(i);
@@ -3183,36 +3183,36 @@ CleanupTempFiles(bool isCommit, bool isProcExit)
 		have_xact_temporary_files = false;
 	}
 
-	/* Complain if any allocated files remain open at commit. */
+	/* 若提交时仍有已分配的文件打开，就抱怨。 */
 	if (isCommit && numAllocatedDescs > 0)
 		elog(WARNING, "%d temporary files and directories not closed at end-of-transaction",
 			 numAllocatedDescs);
 
-	/* Clean up "allocated" stdio files, dirs and fds. */
+	/* 清理已分配的 stdio 文件、目录和文件描述符。 */
 	while (numAllocatedDescs > 0)
 		FreeDesc(&allocatedDescs[0]);
 }
 
 
 /*
- * Remove temporary and temporary relation files left over from a prior
- * postmaster session
+ * 去掉先前
+ * postmaster 会话留下的临时文件和临时关系文件。
  *
- * This should be called during postmaster startup.  It will forcibly
- * remove any leftover files created by OpenTemporaryFile and any leftover
- * temporary relation files created by mdcreate.
+ * 这应当在 postmaster 启动期间调用。它会强制
+ * 去掉 OpenTemporaryFile 与 mdcreate 留下的
+ * 临时关系文件和临时文件。
  *
- * During post-backend-crash restart cycle, this routine is called when
- * remove_temp_files_after_crash GUC is enabled. Multiple crashes while
- * queries are using temp files could result in useless storage usage that can
- * only be reclaimed by a service restart. The argument against enabling it is
- * that someone might want to examine the temporary files for debugging
- * purposes. This does however mean that OpenTemporaryFile had better allow for
- * collision with an existing temp file name.
+ * 在后端崩溃后的重启循环里，当
+ * remove_temp_files_after_crash 这个 GUC 启用时会调用本例程。
+ * 查询使用临时文件时多次崩溃，可能导致无用的存储占用，
+ * 只能靠服务重启来回收。反对启用它的理由是，
+ * 有人可能想检查临时文件以便调试。不过这确实意味着
+ * OpenTemporaryFile 最好能容忍与已有
+ * 临时文件名的冲突。
  *
- * NOTE: this function and its subroutines generally report syscall failures
- * with ereport(LOG) and keep going.  Removing temp files is not so critical
- * that we should fail to start the database when we can't do it.
+ * 注意：本函数及其子例程通常用 ereport(LOG)
+ * 报告系统调用失败并继续。去掉临时文件并没有重要到
+ * 我们做不到时就不应当启动数据库的程度。
  */
 void
 RemovePgTempFiles(void)
@@ -3222,14 +3222,14 @@ RemovePgTempFiles(void)
 	struct dirent *spc_de;
 
 	/*
-	 * First process temp files in pg_default ($PGDATA/base)
+	 * 首先处理 pg_default（$PGDATA/base）里的临时文件
 	 */
 	snprintf(temp_path, sizeof(temp_path), "base/%s", PG_TEMP_FILES_DIR);
 	RemovePgTempFilesInDir(temp_path, true, false);
 	RemovePgTempRelationFiles("base");
 
 	/*
-	 * Cycle through temp directories for all non-default tablespaces.
+	 * 遍历所有非默认表空间的临时目录。
 	 */
 	spc_dir = AllocateDir("pg_tblspc");
 
@@ -3251,27 +3251,27 @@ RemovePgTempFiles(void)
 	FreeDir(spc_dir);
 
 	/*
-	 * In EXEC_BACKEND case there is a pgsql_tmp directory at the top level of
-	 * DataDir as well.  However, that is *not* cleaned here because doing so
-	 * would create a race condition.  It's done separately, earlier in
-	 * postmaster startup.
+	 * 在 EXEC_BACKEND 情形下，DataDir 顶层也有一个 pgsql_tmp 目录。
+	 * 不过这里不清理它，因为那样做
+	 * 会造成竞争。它在 postmaster 启动更早的时候
+	 * 单独完成。
 	 */
 }
 
 /*
- * Process one pgsql_tmp directory for RemovePgTempFiles.
+ * 为 RemovePgTempFiles 处理一个 pgsql_tmp 目录。
  *
- * If missing_ok is true, it's all right for the named directory to not exist.
- * Any other problem results in a LOG message.  (missing_ok should be true at
- * the top level, since pgsql_tmp directories are not created until needed.)
+ * 若 missing_ok 为真，指定的目录不存在也没关系。
+ * 任何其他问题都会产生一条 LOG 消息。（在顶层 missing_ok 应当为真，
+ * 因为 pgsql_tmp 目录直到需要时才创建。）
  *
- * At the top level, this should be called with unlink_all = false, so that
- * only files matching the temporary name prefix will be unlinked.  When
- * recursing it will be called with unlink_all = true to unlink everything
- * under a top-level temporary directory.
+ * 在顶层，应当以 unlink_all = false 调用，这样
+ * 只会 unlink 匹配临时名前缀的文件。递归时
+ * 会以 unlink_all = true 调用，以 unlink 顶层临时目录下的
+ * 一切。
  *
- * (These two flags could be replaced by one, but it seems clearer to keep
- * them separate.)
+ * （这两个标志可以合成一个，但分开
+ * 似乎更清楚。）
  */
 void
 RemovePgTempFilesInDir(const char *tmpdirname, bool missing_ok, bool unlink_all)
@@ -3305,7 +3305,7 @@ RemovePgTempFilesInDir(const char *tmpdirname, bool missing_ok, bool unlink_all)
 				continue;
 			else if (type == PGFILETYPE_DIR)
 			{
-				/* recursively remove contents, then directory itself */
+				/* 递归去掉内容，然后去掉目录本身 */
 				RemovePgTempFilesInDir(rm_path, false, true);
 
 				if (rmdir(rm_path) < 0)
@@ -3332,7 +3332,7 @@ RemovePgTempFilesInDir(const char *tmpdirname, bool missing_ok, bool unlink_all)
 	FreeDir(temp_dir);
 }
 
-/* Process one tablespace directory, look for per-DB subdirectories */
+/* 处理一个表空间目录，寻找每个数据库的子目录 */
 static void
 RemovePgTempRelationFiles(const char *tsdirname)
 {
@@ -3345,9 +3345,9 @@ RemovePgTempRelationFiles(const char *tsdirname)
 	while ((de = ReadDirExtended(ts_dir, tsdirname, LOG)) != NULL)
 	{
 		/*
-		 * We're only interested in the per-database directories, which have
-		 * numeric names.  Note that this code will also (properly) ignore "."
-		 * and "..".
+		 * 我们只关心每个数据库的目录，它们的
+		 * 名字是数字。注意这段代码也会（正确地）忽略 .
+		 * 和 ..。
 		 */
 		if (strspn(de->d_name, "0123456789") != strlen(de->d_name))
 			continue;
@@ -3360,7 +3360,7 @@ RemovePgTempRelationFiles(const char *tsdirname)
 	FreeDir(ts_dir);
 }
 
-/* Process one per-dbspace directory for RemovePgTempRelationFiles */
+/* 为 RemovePgTempRelationFiles 处理一个每数据库空间目录 */
 static void
 RemovePgTempRelationFilesInDbspace(const char *dbspacedirname)
 {
@@ -3388,30 +3388,30 @@ RemovePgTempRelationFilesInDbspace(const char *dbspacedirname)
 	FreeDir(dbspace_dir);
 }
 
-/* t<digits>_<digits>, or t<digits>_<digits>_<forkname> */
+/* t<数字>_<数字>，或 t<数字>_<数字>_<forkname> */
 bool
 looks_like_temp_rel_name(const char *name)
 {
 	int			pos;
 	int			savepos;
 
-	/* Must start with "t". */
+	/* 必须以 t 开头。 */
 	if (name[0] != 't')
 		return false;
 
-	/* Followed by a non-empty string of digits and then an underscore. */
+	/* 随后是一串非空数字，然后是一个下划线。 */
 	for (pos = 1; isdigit((unsigned char) name[pos]); ++pos)
 		;
 	if (pos == 1 || name[pos] != '_')
 		return false;
 
-	/* Followed by another nonempty string of digits. */
+	/* 随后是另一串非空数字。 */
 	for (savepos = ++pos; isdigit((unsigned char) name[pos]); ++pos)
 		;
 	if (savepos == pos)
 		return false;
 
-	/* We might have _forkname or .segment or both. */
+	/* 我们可能有 _forkname，或 .segment，或两者都有。 */
 	if (name[pos] == '_')
 	{
 		int			forkchar = forkname_chars(&name[pos + 1], NULL);
@@ -3431,7 +3431,7 @@ looks_like_temp_rel_name(const char *name)
 		pos += segchar;
 	}
 
-	/* Now we should be at the end. */
+	/* 现在应当到了末尾。 */
 	if (name[pos] != '\0')
 		return false;
 	return true;
@@ -3463,39 +3463,39 @@ do_syncfs(const char *path)
 #endif
 
 /*
- * Issue fsync recursively on PGDATA and all its contents, or issue syncfs for
- * all potential filesystem, depending on recovery_init_sync_method setting.
+ * 根据 recovery_init_sync_method 的设置，对 PGDATA 及其全部内容
+ * 递归发出 fsync，或对所有可能的文件系统发出 syncfs。
  *
- * We fsync regular files and directories wherever they are, but we
- * follow symlinks only for pg_wal and immediately under pg_tblspc.
- * Other symlinks are presumed to point at files we're not responsible
- * for fsyncing, and might not have privileges to write at all.
+ * 无论文件和目录在哪里，我们都对它们做 fsync，但只跟随
+ * pg_wal 以及 pg_tblspc 紧下方的符号链接。
+ * 其他符号链接被假定指向我们不负责做 fsync 的文件，
+ * 而且我们可能根本没有写权限。
  *
- * Errors are logged but not considered fatal; that's because this is used
- * only during database startup, to deal with the possibility that there are
- * issued-but-unsynced writes pending against the data directory.  We want to
- * ensure that such writes reach disk before anything that's done in the new
- * run.  However, aborting on error would result in failure to start for
- * harmless cases such as read-only files in the data directory, and that's
- * not good either.
+ * 错误会被记录，但不视为致命；这只在
+ * 数据库启动期间使用，用来处理数据目录上
+ * 可能还有已发出但未同步的写。我们希望
+ * 这类写在新的一次运行做任何事之前到达磁盘。
+ * 然而，出错就中止会导致无害情形也无法启动，
+ * 例如数据目录里的只读文件，
+ * 那也不好。
  *
- * Note that if we previously crashed due to a PANIC on fsync(), we'll be
- * rewriting all changes again during recovery.
+ * 注意，若我们先前因 fsync() 上的 PANIC 而崩溃，
+ * 恢复期间会再次重写所有更改。
  *
- * Note we assume we're chdir'd into PGDATA to begin with.
+ * 注意，我们假定一开始就已经 chdir 到 PGDATA。
  */
 void
 SyncDataDirectory(void)
 {
 	bool		xlog_is_symlink;
 
-	/* We can skip this whole thing if fsync is disabled. */
+	/* 若禁用了 fsync，就可以整个跳过。 */
 	if (!enableFsync)
 		return;
 
 	/*
-	 * If pg_wal is a symlink, we'll need to recurse into it separately,
-	 * because the first walkdir below will ignore it.
+	 * 若 pg_wal 是符号链接，我们需要单独递归进入它，
+	 * 因为下面第一次 walkdir 会忽略它。
 	 */
 	xlog_is_symlink = false;
 
@@ -3518,19 +3518,19 @@ SyncDataDirectory(void)
 		struct dirent *de;
 
 		/*
-		 * On Linux, we don't have to open every single file one by one.  We
-		 * can use syncfs() to sync whole filesystems.  We only expect
-		 * filesystem boundaries to exist where we tolerate symlinks, namely
-		 * pg_wal and the tablespaces, so we call syncfs() for each of those
-		 * directories.
+		 * 在 Linux 上，我们不必逐个打开每一个文件。
+		 * 可以用 syncfs() 同步整个文件系统。我们只预期
+		 * 文件系统边界出现在我们容忍符号链接的地方，即
+		 * pg_wal 和表空间，因此我们对那些
+		 * 目录分别调用 syncfs()。
 		 */
 
-		/* Prepare to report progress syncing the data directory via syncfs. */
+		/* 准备报告经由 syncfs 同步数据目录的进度。 */
 		begin_startup_progress_phase();
 
-		/* Sync the top level pgdata directory. */
+		/* 同步顶层 pgdata 目录。 */
 		do_syncfs(".");
-		/* If any tablespaces are configured, sync each of those. */
+		/* 若配置了任何表空间，就逐个同步。 */
 		dir = AllocateDir("pg_tblspc");
 		while ((de = ReadDirExtended(dir, "pg_tblspc", LOG)))
 		{
@@ -3543,21 +3543,21 @@ SyncDataDirectory(void)
 			do_syncfs(path);
 		}
 		FreeDir(dir);
-		/* If pg_wal is a symlink, process that too. */
+		/* 若 pg_wal 是符号链接，也处理它。 */
 		if (xlog_is_symlink)
 			do_syncfs("pg_wal");
 		return;
 	}
-#endif							/* !HAVE_SYNCFS */
+#endif							/* 没有 HAVE_SYNCFS */
 
 #ifdef PG_FLUSH_DATA_WORKS
-	/* Prepare to report progress of the pre-fsync phase. */
+	/* 准备报告 fsync 之前阶段的进度。 */
 	begin_startup_progress_phase();
 
 	/*
-	 * If possible, hint to the kernel that we're soon going to fsync the data
-	 * directory and its contents.  Errors in this step are even less
-	 * interesting than normal, so log them only at DEBUG1.
+	 * 若可能，提示内核我们很快就要对数据
+	 * 目录及其内容做 fsync。这一步的错误比平常
+	 * 更不值得关心，因此只在 DEBUG1 记录它们。
 	 */
 	walkdir(".", pre_sync_fname, false, DEBUG1);
 	if (xlog_is_symlink)
@@ -3565,17 +3565,17 @@ SyncDataDirectory(void)
 	walkdir("pg_tblspc", pre_sync_fname, true, DEBUG1);
 #endif
 
-	/* Prepare to report progress syncing the data directory via fsync. */
+	/* 准备报告经由 fsync 同步数据目录的进度。 */
 	begin_startup_progress_phase();
 
 	/*
-	 * Now we do the fsync()s in the same order.
+	 * 现在我们按同样的顺序做 fsync()。
 	 *
-	 * The main call ignores symlinks, so in addition to specially processing
-	 * pg_wal if it's a symlink, pg_tblspc has to be visited separately with
-	 * process_symlinks = true.  Note that if there are any plain directories
-	 * in pg_tblspc, they'll get fsync'd twice.  That's not an expected case
-	 * so we don't worry about optimizing it.
+	 * 主调用会忽略符号链接，因此除了在 pg_wal 是符号链接时
+	 * 专门处理它之外，还必须单独访问 pg_tblspc，并令
+	 * process_symlinks = true。注意，若 pg_tblspc 里有任何普通目录，
+	 * 它们会被 fsync 两次。那不是预期情形，
+	 * 所以我们不操心去优化它。
 	 */
 	walkdir(".", datadir_fsync_fname, false, LOG);
 	if (xlog_is_symlink)
@@ -3584,19 +3584,19 @@ SyncDataDirectory(void)
 }
 
 /*
- * walkdir: recursively walk a directory, applying the action to each
- * regular file and directory (including the named directory itself).
+ * walkdir：递归遍历一个目录，对每个
+ * 普通文件和目录（包括指名的目录本身）施加动作。
  *
- * If process_symlinks is true, the action and recursion are also applied
- * to regular files and directories that are pointed to by symlinks in the
- * given directory; otherwise symlinks are ignored.  Symlinks are always
- * ignored in subdirectories, ie we intentionally don't pass down the
- * process_symlinks flag to recursive calls.
+ * 若 process_symlinks 为真，动作和递归也施加于
+ * 给定目录里符号链接所指向的普通文件和目录；
+ * 否则忽略符号链接。子目录里的符号链接始终
+ * 被忽略，也就是我们有意不把
+ * process_symlinks 标志传给递归调用。
  *
- * Errors are reported at level elevel, which might be ERROR or less.
+ * 错误按 elevel 报告，它可以是 ERROR 或更低。
  *
- * See also walkdir in file_utils.c, which is a frontend version of this
- * logic.
+ * 另见 file_utils.c 里的 walkdir，那是这段
+ * 逻辑的前端版本。
  */
 static void
 walkdir(const char *path,
@@ -3632,21 +3632,21 @@ walkdir(const char *path,
 			default:
 
 				/*
-				 * Errors are already reported directly by get_dirent_type(),
-				 * and any remaining symlinks and unknown file types are
-				 * ignored.
+				 * 错误已经由 get_dirent_type() 直接报告，
+				 * 剩下的符号链接和未知文件类型都会
+				 * 被忽略。
 				 */
 				break;
 		}
 	}
 
-	FreeDir(dir);				/* we ignore any error here */
+	FreeDir(dir);				/* 这里我们忽略任何错误 */
 
 	/*
-	 * It's important to fsync the destination directory itself as individual
-	 * file fsyncs don't guarantee that the directory entry for the file is
-	 * synced.  However, skip this if AllocateDir failed; the action function
-	 * might not be robust against that.
+	 * 对目标目录本身做 fsync 很重要，因为对单个
+	 * 文件做 fsync 并不保证该文件的目录项已经
+	 * 同步。不过，若 AllocateDir 失败就跳过这一步；动作函数
+	 * 对那种情况可能不够稳健。
 	 */
 	if (dir)
 		(*action) (path, true, elevel);
@@ -3654,10 +3654,10 @@ walkdir(const char *path,
 
 
 /*
- * Hint to the OS that it should get ready to fsync() this file.
+ * 提示操作系统应当准备好对该文件做 fsync()。
  *
- * Ignores errors trying to open unreadable files, and logs other errors at a
- * caller-specified level.
+ * 忽略打开不可读文件时的错误，并把其他错误按
+ * 调用者指定的级别记录。
  */
 #ifdef PG_FLUSH_DATA_WORKS
 
@@ -3666,7 +3666,7 @@ pre_sync_fname(const char *fname, bool isdir, int elevel)
 {
 	int			fd;
 
-	/* Don't try to flush directories, it'll likely just fail */
+	/* 不要尝试刷出目录，那多半只会失败 */
 	if (isdir)
 		return;
 
@@ -3686,8 +3686,8 @@ pre_sync_fname(const char *fname, bool isdir, int elevel)
 	}
 
 	/*
-	 * pg_flush_data() ignores errors, which is ok because this is only a
-	 * hint.
+	 * pg_flush_data() 忽略错误，这没问题，因为这只是
+	 * 一个提示。
 	 */
 	pg_flush_data(fd, 0, 0);
 
@@ -3697,7 +3697,7 @@ pre_sync_fname(const char *fname, bool isdir, int elevel)
 				 errmsg("could not close file \"%s\": %m", fname)));
 }
 
-#endif							/* PG_FLUSH_DATA_WORKS */
+#endif							/* 具备 PG_FLUSH_DATA_WORKS */
 
 static void
 datadir_fsync_fname(const char *fname, bool isdir, int elevel)
@@ -3706,8 +3706,8 @@ datadir_fsync_fname(const char *fname, bool isdir, int elevel)
 							 fname);
 
 	/*
-	 * We want to silently ignoring errors about unreadable files.  Pass that
-	 * desire on to fsync_fname_ext().
+	 * 我们想静默地忽略关于不可读文件的错误。把这个
+	 * 意愿传给 fsync_fname_ext()。
 	 */
 	fsync_fname_ext(fname, isdir, true, elevel);
 }
@@ -3724,18 +3724,18 @@ unlink_if_exists_fname(const char *fname, bool isdir, int elevel)
 	}
 	else
 	{
-		/* Use PathNameDeleteTemporaryFile to report filesize */
+		/* 用 PathNameDeleteTemporaryFile 来报告文件大小 */
 		PathNameDeleteTemporaryFile(fname, false);
 	}
 }
 
 /*
- * fsync_fname_ext -- Try to fsync a file or directory
+ * fsync_fname_ext -- 尝试对文件或目录做 fsync。
  *
- * If ignore_perm is true, ignore errors upon trying to open unreadable
- * files. Logs other errors at a caller-specified level.
+ * 若 ignore_perm 为真，则忽略试图打开不可读
+ * 文件时的错误。其他错误按调用者指定的级别记录。
  *
- * Returns 0 if the operation succeeded, -1 otherwise.
+ * 成功返回 0，否则返回 -1。
  */
 int
 fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
@@ -3745,10 +3745,10 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 	int			returncode;
 
 	/*
-	 * Some OSs require directories to be opened read-only whereas other
-	 * systems don't allow us to fsync files opened read-only; so we need both
-	 * cases here.  Using O_RDWR will cause us to fail to fsync files that are
-	 * not writable by our userid, but we assume that's OK.
+	 * 有些操作系统需要以只读方式打开目录，而另一些
+	 * 系统不允许我们对以只读方式打开的文件做 fsync；因此这里两种
+	 * 情形都需要。使用 O_RDWR 会使我们无法 fsync 那些
+	 * 我们的用户标识不能写的文件，但我们假定那是可以的。
 	 */
 	flags = PG_BINARY;
 	if (!isdir)
@@ -3759,9 +3759,9 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 	fd = OpenTransientFile(fname, flags);
 
 	/*
-	 * Some OSs don't allow us to open directories at all (Windows returns
-	 * EACCES), just ignore the error in that case.  If desired also silently
-	 * ignoring errors about unreadable files. Log others.
+	 * 有些操作系统根本不允许我们打开目录（Windows 返回
+	 * EACCES），那种情况下就忽略错误。若需要，也静默地
+	 * 忽略关于不可读文件的错误。其他的则记录日志。
 	 */
 	if (fd < 0 && isdir && (errno == EISDIR || errno == EACCES))
 		return 0;
@@ -3778,14 +3778,14 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 	returncode = pg_fsync(fd);
 
 	/*
-	 * Some OSes don't allow us to fsync directories at all, so we can ignore
-	 * those errors. Anything else needs to be logged.
+	 * 有些 OSes 根本不允许我们对目录做 fsync，因此可以忽略
+	 * 那些错误。其他任何情况都需要记日志。
 	 */
 	if (returncode != 0 && !(isdir && (errno == EBADF || errno == EINVAL)))
 	{
 		int			save_errno;
 
-		/* close file upon error, might not be in transaction context */
+		/* 出错时关闭文件，此时可能不在事务上下文里 */
 		save_errno = errno;
 		(void) CloseTransientFile(fd);
 		errno = save_errno;
@@ -3808,10 +3808,10 @@ fsync_fname_ext(const char *fname, bool isdir, bool ignore_perm, int elevel)
 }
 
 /*
- * fsync_parent_path -- fsync the parent path of a file or directory
+ * fsync_parent_path -- 对文件或目录的父路径做 fsync。
  *
- * This is aimed at making file operations persistent on disk in case of
- * an OS crash or power failure.
+ * 这是为了在操作系统崩溃或断电时，使文件操作
+ * 在磁盘上持久。
  */
 static int
 fsync_parent_path(const char *fname, int elevel)
@@ -3822,9 +3822,9 @@ fsync_parent_path(const char *fname, int elevel)
 	get_parent_directory(parentpath);
 
 	/*
-	 * get_parent_directory() returns an empty string if the input argument is
-	 * just a file name (see comments in path.c), so handle that as being the
-	 * current directory.
+	 * 若输入参数只是一个文件名，get_parent_directory() 返回空字符串
+	 * （见 path.c 里的注释），因此把这种情况当作
+	 * 当前目录来处理。
 	 */
 	if (strlen(parentpath) == 0)
 		strlcpy(parentpath, ".", MAXPGPATH);
@@ -3836,22 +3836,22 @@ fsync_parent_path(const char *fname, int elevel)
 }
 
 /*
- * Create a PostgreSQL data sub-directory
+ * 创建一个 PostgreSQL 数据子目录。
  *
- * The data directory itself, and most of its sub-directories, are created at
- * initdb time, but we do have some occasions when we create directories in
- * the backend (CREATE TABLESPACE, for example).  In those cases, we want to
- * make sure that those directories are created consistently.  Today, that means
- * making sure that the created directory has the correct permissions, which is
- * what pg_dir_create_mode tracks for us.
+ * 数据目录本身及其多数子目录是在
+ * initdb 时创建的，但我们确实有些场合要在
+ * 后端里创建目录（例如 CREATE TABLESPACE）。在那些情况下，我们希望
+ * 确保这些目录的创建方式一致。今天，这意味着
+ * 确保创建出的目录有正确的权限，而这正是
+ * pg_dir_create_mode 为我们跟踪的。
  *
- * Note that we also set the umask() based on what we understand the correct
- * permissions to be (see file_perm.c).
+ * 注意，我们还会根据自己所理解的正确
+ * 权限来设置 umask()（见 file_perm.c）。
  *
- * For permissions other than the default, mkdir() can be used directly, but
- * be sure to consider carefully such cases -- a sub-directory with incorrect
- * permissions in a PostgreSQL data directory could cause backups and other
- * processes to fail.
+ * 对于默认以外的权限，可以直接使用 mkdir()，但
+ * 请务必仔细考虑这类情况：PostgreSQL 数据目录里权限不正确的
+ * 子目录可能导致备份和其他
+ * 进程失败。
  */
 int
 MakePGDirectory(const char *directoryName)
@@ -3860,21 +3860,21 @@ MakePGDirectory(const char *directoryName)
 }
 
 /*
- * Return the passed-in error level, or PANIC if data_sync_retry is off.
+ * 返回传入的错误级别；若 data_sync_retry 关闭，则返回 PANIC。
  *
- * Failure to fsync any data file is cause for immediate panic, unless
- * data_sync_retry is enabled.  Data may have been written to the operating
- * system and removed from our buffer pool already, and if we are running on
- * an operating system that forgets dirty data on write-back failure, there
- * may be only one copy of the data remaining: in the WAL.  A later attempt to
- * fsync again might falsely report success.  Therefore we must not allow any
- * further checkpoints to be attempted.  data_sync_retry can in theory be
- * enabled on systems known not to drop dirty buffered data on write-back
- * failure (with the likely outcome that checkpoints will continue to fail
- * until the underlying problem is fixed).
+ * 任何数据文件 fsync 失败都是立即恐慌的理由，除非
+ * 启用了 data_sync_retry。数据可能已经写给操作系统，
+ * 并且已经从我们的缓冲池里去掉，若我们运行在
+ * 回写失败时会忘掉脏数据的操作系统上，
+ * 数据可能只剩下一份副本：在 WAL 里。稍后再次
+ * 尝试 fsync 可能会虚假地报告成功。因此我们不得允许
+ * 再尝试任何检查点。理论上可以在已知不会在回写
+ * 失败时丢掉脏的缓冲区数据的系统上启用 data_sync_retry
+ * （很可能的结果是，在底层问题修好之前，检查点会继续
+ * 失败）。
  *
- * Any code that reports a failure from fsync() or related functions should
- * filter the error level with this function.
+ * 任何报告 fsync() 或相关函数失败的代码都应当
+ * 用本函数过滤错误级别。
  */
 int
 data_sync_elevel(int elevel)
@@ -3900,7 +3900,7 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 	ListCell   *l;
 	char	   *rawstring;
 
-	/* Need a modifiable copy of string */
+	/* 需要一份可修改的字符串副本 */
 	rawstring = pstrdup(*newval);
 
 	if (!SplitGUCList(rawstring, ',', &elemlist))
@@ -3932,8 +3932,8 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * It's possible to configure block sizes smaller than our assumed I/O
-	 * alignment size, which could result in invalid I/O requests.
+	 * 可以把块大小配置得小于我们所假定的 I/O
+	 * 对齐大小，这可能导致无效的 I/O 请求。
 	 */
 #if XLOG_BLCKSZ < PG_IO_ALIGN_SIZE
 	if (result && (flags & (IO_DIRECT_WAL | IO_DIRECT_WAL_INIT)))
@@ -3957,7 +3957,7 @@ check_debug_io_direct(char **newval, void **extra, GucSource source)
 	if (!result)
 		return result;
 
-	/* Save the flags in *extra, for use by assign_debug_io_direct */
+	/* 把标志保存在 *extra 里，供 assign_debug_io_direct 使用 */
 	*extra = guc_malloc(ERROR, sizeof(int));
 	*((int *) *extra) = flags;
 

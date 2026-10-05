@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0096-comment-rewrite-manip",
+ "title": "zh: translate rewriteManip comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "22a8eee3549a0139092e6638e7a2fb13e39de21d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rewriteManip.c",
+   "kind": "c_comment",
+   "note": "query tree rewrite manipulation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0096-comment-rewrite-manip.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rewriteManip.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 144,
+   "translated": 120,
+   "preserved": 24,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through"
+   ],
+   "note": "query tree rewrite manipulation"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0096-comment-rewrite-manip.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0096 translates src/backend/rewrite/rewriteManip.c."
+}

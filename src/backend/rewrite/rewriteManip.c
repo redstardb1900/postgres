@@ -73,14 +73,14 @@ static Node *remove_nulling_relids_mutator(Node *node,
 
 /*
  * contain_aggs_of_level -
- *	Check if an expression contains an aggregate function call of a
- *	specified query level.
+ *	检查表达式是否含有指定查询层次的
+ *	聚合函数调用。
  *
- * The objective of this routine is to detect whether there are aggregates
- * belonging to the given query level.  Aggregates belonging to subqueries
- * or outer queries do NOT cause a true result.  We must recurse into
- * subqueries to detect outer-reference aggregates that logically belong to
- * the specified query level.
+ * 本例程的目的是检测是否有属于
+ * 给定查询层次的聚合。
+ * 属于子查询或外层查询的聚合不会导致返回真。我们必须递归进入
+ * 子查询，以检测逻辑上属于
+ * 指定查询层次的外层引用聚合。
  */
 bool
 contain_aggs_of_level(Node *node, int levelsup)
@@ -90,8 +90,8 @@ contain_aggs_of_level(Node *node, int levelsup)
 	context.sublevels_up = levelsup;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	return query_or_expression_tree_walker(node,
 										   contain_aggs_of_level_walker,
@@ -108,7 +108,7 @@ contain_aggs_of_level_walker(Node *node,
 	if (IsA(node, Aggref))
 	{
 		if (((Aggref *) node)->agglevelsup == context->sublevels_up)
-			return true;		/* abort the tree traversal and return true */
+			return true;		/* 中止树遍历并返回真 */
 		/* else fall through to examine argument */
 	}
 	if (IsA(node, GroupingFunc))
@@ -119,7 +119,7 @@ contain_aggs_of_level_walker(Node *node,
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -135,28 +135,28 @@ contain_aggs_of_level_walker(Node *node,
 
 /*
  * locate_agg_of_level -
- *	  Find the parse location of any aggregate of the specified query level.
+ *	  找出指定查询层次的任何聚合的解析位置。
  *
- * Returns -1 if no such agg is in the querytree, or if they all have
- * unknown parse location.  (The former case is probably caller error,
- * but we don't bother to distinguish it from the latter case.)
+ * 若查询树里没有这样的聚合，或它们的解析位置都
+ * 未知，则返回 -1。（前一种情形大概是调用者错误，
+ * 但我们不费心把它和后一种情形区分开。）
  *
- * Note: it might seem appropriate to merge this functionality into
- * contain_aggs_of_level, but that would complicate that function's API.
- * Currently, the only uses of this function are for error reporting,
- * and so shaving cycles probably isn't very important.
+ * 注意：把这项功能并进
+ * contain_aggs_of_level 似乎合适，但那会使该函数的 API 变复杂。
+ * 目前，本函数的唯一用途是报错，
+ * 因此省下若干周期大概并不很重要。
  */
 int
 locate_agg_of_level(Node *node, int levelsup)
 {
 	locate_agg_of_level_context context;
 
-	context.agg_location = -1;	/* in case we find nothing */
+	context.agg_location = -1;	/* 以防什么都找不到 */
 	context.sublevels_up = levelsup;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	(void) query_or_expression_tree_walker(node,
 										   locate_agg_of_level_walker,
@@ -178,7 +178,7 @@ locate_agg_of_level_walker(Node *node,
 			((Aggref *) node)->location >= 0)
 		{
 			context->agg_location = ((Aggref *) node)->location;
-			return true;		/* abort the tree traversal and return true */
+			return true;		/* 中止树遍历并返回真 */
 		}
 		/* else fall through to examine argument */
 	}
@@ -188,12 +188,12 @@ locate_agg_of_level_walker(Node *node,
 			((GroupingFunc *) node)->location >= 0)
 		{
 			context->agg_location = ((GroupingFunc *) node)->location;
-			return true;		/* abort the tree traversal and return true */
+			return true;		/* 中止树遍历并返回真 */
 		}
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -209,15 +209,15 @@ locate_agg_of_level_walker(Node *node,
 
 /*
  * contain_windowfuncs -
- *	Check if an expression contains a window function call of the
- *	current query level.
+ *	检查表达式是否含有当前查询层次的
+ *	窗口函数调用。
  */
 bool
 contain_windowfuncs(Node *node)
 {
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	return query_or_expression_tree_walker(node,
 										   contain_windowfuncs_walker,
@@ -231,35 +231,35 @@ contain_windowfuncs_walker(Node *node, void *context)
 	if (node == NULL)
 		return false;
 	if (IsA(node, WindowFunc))
-		return true;			/* abort the tree traversal and return true */
-	/* Mustn't recurse into subselects */
+		return true;			/* 中止树遍历并返回真 */
+	/* 不得递归进入子查询 */
 	return expression_tree_walker(node, contain_windowfuncs_walker,
 								  (void *) context);
 }
 
 /*
  * locate_windowfunc -
- *	  Find the parse location of any windowfunc of the current query level.
+ *	  找出当前查询层次的任何窗口函数的解析位置。
  *
- * Returns -1 if no such windowfunc is in the querytree, or if they all have
- * unknown parse location.  (The former case is probably caller error,
- * but we don't bother to distinguish it from the latter case.)
+ * 若查询树里没有这样的窗口函数，或它们的解析位置都
+ * 未知，则返回 -1。（前一种情形大概是调用者错误，
+ * 但我们不费心把它和后一种情形区分开。）
  *
- * Note: it might seem appropriate to merge this functionality into
- * contain_windowfuncs, but that would complicate that function's API.
- * Currently, the only uses of this function are for error reporting,
- * and so shaving cycles probably isn't very important.
+ * 注意：把这项功能并进
+ * contain_windowfuncs 似乎合适，但那会使该函数的 API 变复杂。
+ * 目前，本函数的唯一用途是报错，
+ * 因此省下若干周期大概并不很重要。
  */
 int
 locate_windowfunc(Node *node)
 {
 	locate_windowfunc_context context;
 
-	context.win_location = -1;	/* in case we find nothing */
+	context.win_location = -1;	/* 以防什么都找不到 */
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	(void) query_or_expression_tree_walker(node,
 										   locate_windowfunc_walker,
@@ -279,25 +279,25 @@ locate_windowfunc_walker(Node *node, locate_windowfunc_context *context)
 		if (((WindowFunc *) node)->location >= 0)
 		{
 			context->win_location = ((WindowFunc *) node)->location;
-			return true;		/* abort the tree traversal and return true */
+			return true;		/* 中止树遍历并返回真 */
 		}
 		/* else fall through to examine argument */
 	}
-	/* Mustn't recurse into subselects */
+	/* 不得递归进入子查询 */
 	return expression_tree_walker(node, locate_windowfunc_walker,
 								  (void *) context);
 }
 
 /*
  * checkExprHasSubLink -
- *	Check if an expression contains a SubLink.
+ *	检查表达式是否含有 SubLink。
  */
 bool
 checkExprHasSubLink(Node *node)
 {
 	/*
-	 * If a Query is passed, examine it --- but we should not recurse into
-	 * sub-Queries that are in its rangetable or CTE list.
+	 * 若传入的是 Query，就检查它，但我们不应当递归进入
+	 * 它的范围表或 CTE 列表里的子 Query。
 	 */
 	return query_or_expression_tree_walker(node,
 										   checkExprHasSubLink_walker,
@@ -311,15 +311,15 @@ checkExprHasSubLink_walker(Node *node, void *context)
 	if (node == NULL)
 		return false;
 	if (IsA(node, SubLink))
-		return true;			/* abort the tree traversal and return true */
+		return true;			/* 中止树遍历并返回真 */
 	return expression_tree_walker(node, checkExprHasSubLink_walker, context);
 }
 
 /*
- * Check for MULTIEXPR Param within expression tree
+ * 检查表达式树里的 MULTIEXPR Param。
  *
- * We intentionally don't descend into SubLinks: only Params at the current
- * query level are of interest.
+ * 我们有意不下降进入 SubLinks：只有当前
+ * 查询层次的 Param 才有意义。
  */
 static bool
 contains_multiexpr_param(Node *node, void *context)
@@ -329,7 +329,7 @@ contains_multiexpr_param(Node *node, void *context)
 	if (IsA(node, Param))
 	{
 		if (((Param *) node)->paramkind == PARAM_MULTIEXPR)
-			return true;		/* abort the tree traversal and return true */
+			return true;		/* 中止树遍历并返回真 */
 		return false;
 	}
 	return expression_tree_walker(node, contains_multiexpr_param, context);
@@ -337,15 +337,15 @@ contains_multiexpr_param(Node *node, void *context)
 
 /*
  * CombineRangeTables
- * 		Adds the RTEs of 'src_rtable' into 'dst_rtable'
+ * 		把 src_rtable 的 RTEs 加入 dst_rtable。
  *
- * This also adds the RTEPermissionInfos of 'src_perminfos' (belonging to the
- * RTEs in 'src_rtable') into *dst_perminfos and also updates perminfoindex of
- * the RTEs in 'src_rtable' to now point to the perminfos' indexes in
- * *dst_perminfos.
+ * 这也把 src_perminfos 的 RTEPermissionInfos（属于
+ * src_rtable 里的 RTEs）加入 *dst_perminfos，并更新 src_rtable 里
+ * 那些 RTEs 的 perminfoindex，使它们现在指向
+ * *dst_perminfos 里这些 perminfo 的下标。
  *
- * Note that this changes both 'dst_rtable' and 'dst_perminfos' destructively,
- * so the caller should have better passed safe-to-modify copies.
+ * 注意这会破坏性地改动 dst_rtable 和 dst_perminfos，
+ * 因此调用者最好传入可以安全修改的副本。
  */
 void
 CombineRangeTables(List **dst_rtable, List **dst_perminfos,
@@ -370,16 +370,16 @@ CombineRangeTables(List **dst_rtable, List **dst_perminfos,
 }
 
 /*
- * OffsetVarNodes - adjust Vars when appending one query's RT to another
+ * OffsetVarNodes - 把一个查询的 RT 追加到另一个时调整 Vars。
  *
- * Find all Var nodes in the given tree with varlevelsup == sublevels_up,
- * and increment their varno fields (rangetable indexes) by 'offset'.
- * The varnosyn fields are adjusted similarly.  Also, adjust other nodes
- * that contain rangetable indexes, such as RangeTblRef and JoinExpr.
+ * 找出给定树里 varlevelsup == sublevels_up 的全部 Var 节点，
+ * 并把它们的 varno 成员（范围表下标）增加 offset。
+ * varnosyn 成员也类似地调整。同时调整其他含有
+ * 范围表下标的节点，例如 RangeTblRef 和 JoinExpr。
  *
- * NOTE: although this has the form of a walker, we cheat and modify the
- * nodes in-place.  The given expression tree should have been copied
- * earlier to ensure that no unwanted side-effects occur!
+ * 注意：虽然这具有遍历器的形式，我们取巧并就地修改
+ * 这些节点。给定的表达式树应当事先已经复制过，
+ * 以确保不会发生不想要的副作用！
  */
 
 typedef struct
@@ -421,7 +421,7 @@ OffsetVarNodes_walker(Node *node, OffsetVarNodes_context *context)
 
 		if (context->sublevels_up == 0)
 			rtr->rtindex += context->offset;
-		/* the subquery itself is visited separately */
+		/* 子查询本身被单独访问 */
 		return false;
 	}
 	if (IsA(node, JoinExpr))
@@ -456,7 +456,7 @@ OffsetVarNodes_walker(Node *node, OffsetVarNodes_context *context)
 		}
 		/* fall through to examine children */
 	}
-	/* Shouldn't need to handle other planner auxiliary nodes here */
+	/* 这里不应当需要处理其他规划器辅助节点 */
 	Assert(!IsA(node, PlanRowMark));
 	Assert(!IsA(node, SpecialJoinInfo));
 	Assert(!IsA(node, PlaceHolderInfo));
@@ -464,7 +464,7 @@ OffsetVarNodes_walker(Node *node, OffsetVarNodes_context *context)
 
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -486,20 +486,20 @@ OffsetVarNodes(Node *node, int offset, int sublevels_up)
 	context.sublevels_up = sublevels_up;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, go straight to query_tree_walker to make sure that
-	 * sublevels_up doesn't get incremented prematurely.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，就直接进入 query_tree_walker，以确保
+	 * sublevels_up 不会被过早递增。
 	 */
 	if (node && IsA(node, Query))
 	{
 		Query	   *qry = (Query *) node;
 
 		/*
-		 * If we are starting at a Query, and sublevels_up is zero, then we
-		 * must also fix rangetable indexes in the Query itself --- namely
-		 * resultRelation, exclRelIndex and rowMarks entries.  sublevels_up
-		 * cannot be zero when recursing into a subquery, so there's no need
-		 * to have the same logic inside OffsetVarNodes_walker.
+		 * 若我们从 Query 开始，且 sublevels_up 为零，则我们
+		 * 还必须修正 Query 自身里的范围表下标，即
+		 * resultRelation、exclRelIndex 和 rowMarks 项。递归进入子查询时
+		 * sublevels_up 无法为零，因此不必在
+		 * OffsetVarNodes_walker 内部放同样的逻辑。
 		 */
 		if (sublevels_up == 0)
 		{
@@ -538,16 +538,16 @@ offset_relid_set(Relids relids, int offset)
 }
 
 /*
- * ChangeVarNodes - adjust Var nodes for a specific change of RT index
+ * ChangeVarNodes - 为 RT 下标的一次特定变更调整 Var 节点。
  *
- * Find all Var nodes in the given tree belonging to a specific relation
- * (identified by sublevels_up and rt_index), and change their varno fields
- * to 'new_index'.  The varnosyn fields are changed too.  Also, adjust other
- * nodes that contain rangetable indexes, such as RangeTblRef and JoinExpr.
+ * 找出给定树里属于特定关系的全部 Var 节点
+ * （由 sublevels_up 和 rt_index 标识），并把它们的 varno 成员
+ * 改成 new_index。varnosyn 成员也改。同时调整其他
+ * 含有范围表下标的节点，例如 RangeTblRef 和 JoinExpr。
  *
- * NOTE: although this has the form of a walker, we cheat and modify the
- * nodes in-place.  The given expression tree should have been copied
- * earlier to ensure that no unwanted side-effects occur!
+ * 注意：虽然这具有遍历器的形式，我们取巧并就地修改
+ * 这些节点。给定的表达式树应当事先已经复制过，
+ * 以确保不会发生不想要的副作用！
  */
 
 typedef struct
@@ -594,7 +594,7 @@ ChangeVarNodes_walker(Node *node, ChangeVarNodes_context *context)
 		if (context->sublevels_up == 0 &&
 			rtr->rtindex == context->rt_index)
 			rtr->rtindex = context->new_index;
-		/* the subquery itself is visited separately */
+		/* 子查询本身被单独访问 */
 		return false;
 	}
 	if (IsA(node, JoinExpr))
@@ -647,14 +647,14 @@ ChangeVarNodes_walker(Node *node, ChangeVarNodes_context *context)
 		}
 		/* fall through to examine children */
 	}
-	/* Shouldn't need to handle other planner auxiliary nodes here */
+	/* 这里不应当需要处理其他规划器辅助节点 */
 	Assert(!IsA(node, SpecialJoinInfo));
 	Assert(!IsA(node, PlaceHolderInfo));
 	Assert(!IsA(node, MinMaxAggInfo));
 
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -677,20 +677,20 @@ ChangeVarNodes(Node *node, int rt_index, int new_index, int sublevels_up)
 	context.sublevels_up = sublevels_up;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, go straight to query_tree_walker to make sure that
-	 * sublevels_up doesn't get incremented prematurely.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，就直接进入 query_tree_walker，以确保
+	 * sublevels_up 不会被过早递增。
 	 */
 	if (node && IsA(node, Query))
 	{
 		Query	   *qry = (Query *) node;
 
 		/*
-		 * If we are starting at a Query, and sublevels_up is zero, then we
-		 * must also fix rangetable indexes in the Query itself --- namely
-		 * resultRelation and rowMarks entries.  sublevels_up cannot be zero
-		 * when recursing into a subquery, so there's no need to have the same
-		 * logic inside ChangeVarNodes_walker.
+		 * 若我们从 Query 开始，且 sublevels_up 为零，则我们
+		 * 还必须修正 Query 自身里的范围表下标，即
+		 * resultRelation 和 rowMarks 项。递归进入子查询时 sublevels_up
+		 * 无法为零，因此不必在
+		 * ChangeVarNodes_walker 内部放同样的逻辑。
 		 */
 		if (sublevels_up == 0)
 		{
@@ -699,7 +699,7 @@ ChangeVarNodes(Node *node, int rt_index, int new_index, int sublevels_up)
 			if (qry->resultRelation == rt_index)
 				qry->resultRelation = new_index;
 
-			/* this is unlikely to ever be used, but ... */
+			/* 这不大可能被用到，但是…… */
 			if (qry->onConflict && qry->onConflict->exclRelIndex == rt_index)
 				qry->onConflict->exclRelIndex = new_index;
 
@@ -719,21 +719,21 @@ ChangeVarNodes(Node *node, int rt_index, int new_index, int sublevels_up)
 }
 
 /*
- * Substitute newrelid for oldrelid in a Relid set
+ * 在 Relid 集合里用 newrelid 替换 oldrelid。
  *
- * Note: some extensions may pass a special varno such as INDEX_VAR for
- * oldrelid.  bms_is_member won't like that, but we should tolerate it.
- * (Perhaps newrelid could also be a special varno, but there had better
- * not be a reason to inject that into a nullingrels or phrels set.)
+ * 注意：有些扩展可能把 INDEX_VAR 之类的特殊 varno 当作
+ * oldrelid 传入。bms_is_member 不会喜欢那样，但我们应当容忍。
+ * （也许 newrelid 也可以是特殊 varno，但最好
+ * 没有理由把它注入 nullingrels 或 phrels 集合。）
  */
 static Relids
 adjust_relid_set(Relids relids, int oldrelid, int newrelid)
 {
 	if (!IS_SPECIAL_VARNO(oldrelid) && bms_is_member(oldrelid, relids))
 	{
-		/* Ensure we have a modifiable copy */
+		/* 确保我们有一份可修改的副本 */
 		relids = bms_copy(relids);
-		/* Remove old, add new */
+		/* 去掉旧的，加上新的 */
 		relids = bms_del_member(relids, oldrelid);
 		relids = bms_add_member(relids, newrelid);
 	}
@@ -741,22 +741,22 @@ adjust_relid_set(Relids relids, int oldrelid, int newrelid)
 }
 
 /*
- * IncrementVarSublevelsUp - adjust Var nodes when pushing them down in tree
+ * IncrementVarSublevelsUp - 把 Var 节点在树中下推时调整它们。
  *
- * Find all Var nodes in the given tree having varlevelsup >= min_sublevels_up,
- * and add delta_sublevels_up to their varlevelsup value.  This is needed when
- * an expression that's correct for some nesting level is inserted into a
- * subquery.  Ordinarily the initial call has min_sublevels_up == 0 so that
- * all Vars are affected.  The point of min_sublevels_up is that we can
- * increment it when we recurse into a sublink, so that local variables in
- * that sublink are not affected, only outer references to vars that belong
- * to the expression's original query level or parents thereof.
+ * 找出给定树里 varlevelsup >= min_sublevels_up 的全部 Var 节点，
+ * 并把 delta_sublevels_up 加到它们的 varlevelsup 上。当把
+ * 对某个嵌套层次正确的表达式插入
+ * 子查询时需要这样做。通常初次调用时 min_sublevels_up == 0，从而
+ * 所有 Var 都受影响。min_sublevels_up 的意义在于，递归进入子链接时
+ * 我们可以递增它，从而使该子链接里的局部变量
+ * 不受影响，只有对外层的引用、属于
+ * 该表达式原来的查询层次或其父层次的 var 才受影响。
  *
- * Likewise for other nodes containing levelsup fields, such as Aggref.
+ * 对含有 levelsup 成员的其他节点也一样，例如 Aggref。
  *
- * NOTE: although this has the form of a walker, we cheat and modify the
- * Var nodes in-place.  The given expression tree should have been copied
- * earlier to ensure that no unwanted side-effects occur!
+ * 注意：虽然这具有遍历器的形式，我们取巧并就地修改
+ * Var 节点。给定的表达式树应当事先已经复制过，
+ * 以确保不会发生不想要的副作用！
  */
 
 typedef struct
@@ -777,11 +777,11 @@ IncrementVarSublevelsUp_walker(Node *node,
 
 		if (var->varlevelsup >= context->min_sublevels_up)
 			var->varlevelsup += context->delta_sublevels_up;
-		return false;			/* done here */
+		return false;			/* 到此完成 */
 	}
 	if (IsA(node, CurrentOfExpr))
 	{
-		/* this should not happen */
+		/* 这不应当发生 */
 		if (context->min_sublevels_up == 0)
 			elog(ERROR, "cannot push down CurrentOfExpr");
 		return false;
@@ -819,11 +819,11 @@ IncrementVarSublevelsUp_walker(Node *node,
 			if (rte->ctelevelsup >= context->min_sublevels_up)
 				rte->ctelevelsup += context->delta_sublevels_up;
 		}
-		return false;			/* allow range_table_walker to continue */
+		return false;			/* 允许 range_table_walker 继续 */
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->min_sublevels_up++;
@@ -848,8 +848,8 @@ IncrementVarSublevelsUp(Node *node, int delta_sublevels_up,
 	context.min_sublevels_up = min_sublevels_up;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	query_or_expression_tree_walker(node,
 									IncrementVarSublevelsUp_walker,
@@ -859,7 +859,7 @@ IncrementVarSublevelsUp(Node *node, int delta_sublevels_up,
 
 /*
  * IncrementVarSublevelsUp_rtable -
- *	Same as IncrementVarSublevelsUp, but to be invoked on a range table.
+ *	与 IncrementVarSublevelsUp 相同，但要在范围表上调用。
  */
 void
 IncrementVarSublevelsUp_rtable(List *rtable, int delta_sublevels_up,
@@ -878,8 +878,8 @@ IncrementVarSublevelsUp_rtable(List *rtable, int delta_sublevels_up,
 
 
 /*
- * rangeTableEntry_used - detect whether an RTE is referenced somewhere
- *	in var nodes or join or setOp trees of a query or expression.
+ * rangeTableEntry_used - 检测某个 RTE 是否在查询或表达式的
+ *	var 节点、连接或集合操作树里某处被引用。
  */
 
 typedef struct
@@ -920,7 +920,7 @@ rangeTableEntry_used_walker(Node *node,
 		if (rtr->rtindex == context->rt_index &&
 			context->sublevels_up == 0)
 			return true;
-		/* the subquery itself is visited separately */
+		/* 子查询本身被单独访问 */
 		return false;
 	}
 	if (IsA(node, JoinExpr))
@@ -932,7 +932,7 @@ rangeTableEntry_used_walker(Node *node,
 			return true;
 		/* fall through to examine children */
 	}
-	/* Shouldn't need to handle planner auxiliary nodes here */
+	/* 这里不应当需要处理规划器辅助节点 */
 	Assert(!IsA(node, PlaceHolderVar));
 	Assert(!IsA(node, PlanRowMark));
 	Assert(!IsA(node, SpecialJoinInfo));
@@ -942,7 +942,7 @@ rangeTableEntry_used_walker(Node *node,
 
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -964,8 +964,8 @@ rangeTableEntry_used(Node *node, int rt_index, int sublevels_up)
 	context.sublevels_up = sublevels_up;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	return query_or_expression_tree_walker(node,
 										   rangeTableEntry_used_walker,
@@ -975,17 +975,17 @@ rangeTableEntry_used(Node *node, int rt_index, int sublevels_up)
 
 
 /*
- * If the given Query is an INSERT ... SELECT construct, extract and
- * return the sub-Query node that represents the SELECT part.  Otherwise
- * return the given Query.
+ * 若给定 Query 是 INSERT ... SELECT 构造，就取出并
+ * 返回表示 SELECT 部分的子 Query 节点。否则
+ * 返回给定的 Query。
  *
- * If subquery_ptr is not NULL, then *subquery_ptr is set to the location
- * of the link to the SELECT subquery inside parsetree, or NULL if not an
- * INSERT ... SELECT.
+ * 若 subquery_ptr 非 NULL，则把 *subquery_ptr 设为
+ * parsetree 内部指向 SELECT 子查询的链接位置，若不是
+ * INSERT ... SELECT 则设为 NULL。
  *
- * This is a hack needed because transformations on INSERT ... SELECTs that
- * appear in rule actions should be applied to the source SELECT, not to the
- * INSERT part.  Perhaps this can be cleaned up with redesigned querytrees.
+ * 这是权宜做法，因为出现在规则动作里的 INSERT ... SELECTs 上的变换
+ * 应当作用于源 SELECT，而不是
+ * INSERT 部分。也许可以用重新设计的查询树把这清理掉。
  */
 Query *
 getInsertSelectQuery(Query *parsetree, Query ***subquery_ptr)
@@ -1003,10 +1003,10 @@ getInsertSelectQuery(Query *parsetree, Query ***subquery_ptr)
 		return parsetree;
 
 	/*
-	 * Currently, this is ONLY applied to rule-action queries, and so we
-	 * expect to find the OLD and NEW placeholder entries in the given query.
-	 * If they're not there, it must be an INSERT/SELECT in which they've been
-	 * pushed down to the SELECT.
+	 * 目前，这只应用于规则动作查询，因此我们
+	 * 预期在给定查询里找到 OLD 和 NEW 占位项。
+	 * 若它们不在那里，那必定是 INSERT/SELECT，其中它们已被
+	 * 下推到 SELECT。
 	 */
 	if (list_length(parsetree->rtable) >= 2 &&
 		strcmp(rt_fetch(PRS2_OLD_VARNO, parsetree->rtable)->eref->aliasname,
@@ -1038,12 +1038,12 @@ getInsertSelectQuery(Query *parsetree, Query ***subquery_ptr)
 		return selectquery;
 	}
 	elog(ERROR, "could not find rule placeholders");
-	return NULL;				/* not reached */
+	return NULL;				/* 不会到达 */
 }
 
 
 /*
- * Add the given qualifier condition to the query's WHERE clause
+ * 把给定的限定条件加到查询的 WHERE 子句
  */
 void
 AddQual(Query *parsetree, Node *qual)
@@ -1056,17 +1056,17 @@ AddQual(Query *parsetree, Node *qual)
 	if (parsetree->commandType == CMD_UTILITY)
 	{
 		/*
-		 * There's noplace to put the qual on a utility statement.
+		 * 实用语句上没有地方放这个限定条件。
 		 *
-		 * If it's a NOTIFY, silently ignore the qual; this means that the
-		 * NOTIFY will execute, whether or not there are any qualifying rows.
-		 * While clearly wrong, this is much more useful than refusing to
-		 * execute the rule at all, and extra NOTIFY events are harmless for
-		 * typical uses of NOTIFY.
+		 * 若它是 NOTIFY，就静默忽略该限定条件；这意味着
+		 * NOTIFY 会执行，不论是否有任何符合条件的行。
+		 * 这显然是错的，但比完全拒绝
+		 * 执行该规则有用得多，而且额外的 NOTIFY 事件对
+		 * NOTIFY 的典型用途是无害的。
 		 *
-		 * If it isn't a NOTIFY, error out, since unconditional execution of
-		 * other utility stmts is unlikely to be wanted.  (This case is not
-		 * currently allowed anyway, but keep the test for safety.)
+		 * 若它不是 NOTIFY，就报错，因为无条件执行
+		 * 其他实用语句多半不是想要的。（这种情形目前
+		 * 反正不被允许，但为安全起见保留这项测试。）
 		 */
 		if (parsetree->utilityStmt && IsA(parsetree->utilityStmt, NotifyStmt))
 			return;
@@ -1079,29 +1079,29 @@ AddQual(Query *parsetree, Node *qual)
 	if (parsetree->setOperations != NULL)
 	{
 		/*
-		 * There's noplace to put the qual on a setop statement, either. (This
-		 * could be fixed, but right now the planner simply ignores any qual
-		 * condition on a setop query.)
+		 * 集合操作语句上也没有地方放这个限定条件。（这
+		 * 可以修好，但目前规划器会直接忽略集合操作查询上的
+		 * 任何限定条件。）
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("conditional UNION/INTERSECT/EXCEPT statements are not implemented")));
 	}
 
-	/* INTERSECT wants the original, but we need to copy - Jan */
+	/* INTERSECT 想要原来的，但我们需要复制。Jan */
 	copy = copyObject(qual);
 
 	parsetree->jointree->quals = make_and_qual(parsetree->jointree->quals,
 											   copy);
 
 	/*
-	 * We had better not have stuck an aggregate into the WHERE clause.
+	 * 我们最好不要把聚合塞进 WHERE 子句。
 	 */
 	Assert(!contain_aggs_of_level(copy, 0));
 
 	/*
-	 * Make sure query is marked correctly if added qual has sublinks. Need
-	 * not search qual when query is already marked.
+	 * 若加入的限定条件含有子链接，确保查询被正确标记。查询已经
+	 * 标过时不必搜索该限定条件。
 	 */
 	if (!parsetree->hasSubLinks)
 		parsetree->hasSubLinks = checkExprHasSubLink(copy);
@@ -1109,9 +1109,9 @@ AddQual(Query *parsetree, Node *qual)
 
 
 /*
- * Invert the given clause and add it to the WHERE qualifications of the
- * given querytree.  Inversion means "x IS NOT TRUE", not just "NOT x",
- * else we will do the wrong thing when x evaluates to NULL.
+ * 把给定子句取反并加到给定查询树的 WHERE 限定条件上。
+ * 取反的意思是 x IS NOT TRUE，而不只是 NOT x，
+ * 否则当 x 求值为 NULL 时我们会做错事。
  */
 void
 AddInvertedQual(Query *parsetree, Node *qual)
@@ -1121,7 +1121,7 @@ AddInvertedQual(Query *parsetree, Node *qual)
 	if (qual == NULL)
 		return;
 
-	/* Need not copy input qual, because AddQual will... */
+	/* 不必复制输入限定条件，因为 AddQual 会…… */
 	invqual = makeNode(BooleanTest);
 	invqual->arg = (Expr *) qual;
 	invqual->booltesttype = IS_NOT_TRUE;
@@ -1132,10 +1132,10 @@ AddInvertedQual(Query *parsetree, Node *qual)
 
 
 /*
- * add_nulling_relids() finds Vars and PlaceHolderVars that belong to any
- * of the target_relids, and adds added_relids to their varnullingrels
- * and phnullingrels fields.  If target_relids is NULL, all level-zero
- * Vars and PHVs are modified.
+ * add_nulling_relids() 找出属于任何一个
+ * target_relids 的 Var 和 PlaceHolderVars，并把 added_relids 加到它们的 varnullingrels
+ * 和 phnullingrels 成员上。若 target_relids 为 NULL，则修改全部零层次
+ * Var 和 PHVs。
  */
 Node *
 add_nulling_relids(Node *node,
@@ -1170,9 +1170,9 @@ add_nulling_relids_mutator(Node *node,
 			Relids		newnullingrels = bms_union(var->varnullingrels,
 												   context->added_relids);
 
-			/* Copy the Var ... */
+			/* 复制该 Var…… */
 			var = copyObject(var);
-			/* ... and replace the copy's varnullingrels field */
+			/* ……并替换副本的 varnullingrels 成员 */
 			var->varnullingrels = newnullingrels;
 			return (Node *) var;
 		}
@@ -1190,14 +1190,14 @@ add_nulling_relids_mutator(Node *node,
 												   context->added_relids);
 
 			/*
-			 * We don't modify the contents of the PHV's expression, only add
-			 * to phnullingrels.  This corresponds to assuming that the PHV
-			 * will be evaluated at the same level as before, then perhaps be
-			 * nulled as it bubbles up.  Hence, just flat-copy the node ...
+			 * 我们不修改 PHV 表达式的内容，只往
+			 * phnullingrels 上加。这对应于假定该 PHV
+			 * 仍在原来的层次求值，然后也许在上浮时被
+			 * 置空。因此，只平铺复制该节点……
 			 */
 			phv = makeNode(PlaceHolderVar);
 			memcpy(phv, node, sizeof(PlaceHolderVar));
-			/* ... and replace the copy's phnullingrels field */
+			/* ……并替换副本的 phnullingrels 成员 */
 			phv->phnullingrels = newnullingrels;
 			return (Node *) phv;
 		}
@@ -1205,7 +1205,7 @@ add_nulling_relids_mutator(Node *node,
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE or sublink subquery */
+		/* 递归进入 RTE 或子链接子查询 */
 		Query	   *newnode;
 
 		context->sublevels_up++;
@@ -1221,10 +1221,10 @@ add_nulling_relids_mutator(Node *node,
 }
 
 /*
- * remove_nulling_relids() removes mentions of the specified RT index(es)
- * in Var.varnullingrels and PlaceHolderVar.phnullingrels fields within
- * the given expression, except in nodes belonging to rels listed in
- * except_relids.
+ * remove_nulling_relids() 去掉给定表达式里
+ * Var.varnullingrels 和 PlaceHolderVar.phnullingrels 成员中
+ * 提到的指定 RT 下标，
+ * 属于 except_relids 所列关系的节点除外。
  */
 Node *
 remove_nulling_relids(Node *node,
@@ -1256,9 +1256,9 @@ remove_nulling_relids_mutator(Node *node,
 			!bms_is_member(var->varno, context->except_relids) &&
 			bms_overlap(var->varnullingrels, context->removable_relids))
 		{
-			/* Copy the Var ... */
+			/* 复制该 Var…… */
 			var = copyObject(var);
-			/* ... and replace the copy's varnullingrels field */
+			/* ……并替换副本的 varnullingrels 成员 */
 			var->varnullingrels = bms_difference(var->varnullingrels,
 												 context->removable_relids);
 			return (Node *) var;
@@ -1273,20 +1273,20 @@ remove_nulling_relids_mutator(Node *node,
 			!bms_overlap(phv->phrels, context->except_relids))
 		{
 			/*
-			 * Note: it might seem desirable to remove the PHV altogether if
-			 * phnullingrels goes to empty.  Currently we dare not do that
-			 * because we use PHVs in some cases to enforce separate identity
-			 * of subexpressions; see wrap_non_vars usages in prepjointree.c.
+			 * 注意：若 phnullingrels 变成空，把 PHV 整个去掉似乎
+			 * 可取。目前我们不敢那样做，
+			 * 因为有些情形我们用 PHVs 来强制子表达式的
+			 * 各自身份；见 prepjointree.c 里 wrap_non_vars 的用法。
 			 */
-			/* Copy the PlaceHolderVar and mutate what's below ... */
+			/* 复制 PlaceHolderVar 并修改其下的内容…… */
 			phv = (PlaceHolderVar *)
 				expression_tree_mutator(node,
 										remove_nulling_relids_mutator,
 										(void *) context);
-			/* ... and replace the copy's phnullingrels field */
+			/* ……并替换副本的 phnullingrels 成员 */
 			phv->phnullingrels = bms_difference(phv->phnullingrels,
 												context->removable_relids);
-			/* We must also update phrels, if it contains a removable RTI */
+			/* 若 phrels 含有可去掉的 RTI，我们也必须更新它 */
 			phv->phrels = bms_difference(phv->phrels,
 										 context->removable_relids);
 			Assert(!bms_is_empty(phv->phrels));
@@ -1296,7 +1296,7 @@ remove_nulling_relids_mutator(Node *node,
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE or sublink subquery */
+		/* 递归进入 RTE 或子链接子查询 */
 		Query	   *newnode;
 
 		context->sublevels_up++;
@@ -1313,26 +1313,26 @@ remove_nulling_relids_mutator(Node *node,
 
 
 /*
- * replace_rte_variables() finds all Vars in an expression tree
- * that reference a particular RTE, and replaces them with substitute
- * expressions obtained from a caller-supplied callback function.
+ * replace_rte_variables() 找出表达式树里
+ * 引用特定 RTE 的全部 Var，并用调用者提供的回调函数
+ * 取得的替换表达式替换它们。
  *
- * When invoking replace_rte_variables on a portion of a Query, pass the
- * address of the containing Query's hasSubLinks field as outer_hasSubLinks.
- * Otherwise, pass NULL, but inserting a SubLink into a non-Query expression
- * will then cause an error.
+ * 对 Query 的一部分调用 replace_rte_variables 时，把
+ * 包含它的 Query 的 hasSubLinks 成员地址作为 outer_hasSubLinks 传入。
+ * 否则传入 NULL，但那时把 SubLink 插入非 Query 表达式
+ * 就会导致错误。
  *
- * Note: the business with inserted_sublink is needed to update hasSubLinks
- * in subqueries when the replacement adds a subquery inside a subquery.
- * Messy, isn't it?  We do not need to do similar pushups for hasAggs,
- * because it isn't possible for this transformation to insert a level-zero
- * aggregate reference into a subquery --- it could only insert outer aggs.
- * Likewise for hasWindowFuncs.
+ * 注意：inserted_sublink 这套做法是为了在替换把子查询加进子查询内部时
+ * 更新子查询里的 hasSubLinks。
+ * 很乱，对吧？我们不必对 hasAggs 做类似的折腾，
+ * 因为这种变换不可能把零层次的
+ * 聚合引用插入子查询，它只能插入外层聚合。
+ * 对 hasWindowFuncs 也一样。
  *
- * Note: usually, we'd not expose the mutator function or context struct
- * for a function like this.  We do so because callbacks often find it
- * convenient to recurse directly to the mutator on sub-expressions of
- * what they will return.
+ * 注意：对这样的函数，我们通常不会暴露修改器函数或上下文结构。
+ * 我们这样做，是因为回调常常发现
+ * 直接对它们将要返回的子表达式递归到修改器
+ * 很方便。
  */
 Node *
 replace_rte_variables(Node *node, int target_varno, int sublevels_up,
@@ -1349,8 +1349,8 @@ replace_rte_variables(Node *node, int target_varno, int sublevels_up,
 	context.sublevels_up = sublevels_up;
 
 	/*
-	 * We try to initialize inserted_sublink to true if there is no need to
-	 * detect new sublinks because the query already has some.
+	 * 若不必检测新子链接，因为查询已经有一些，
+	 * 我们就尝试把 inserted_sublink 初始化为真。
 	 */
 	if (node && IsA(node, Query))
 		context.inserted_sublink = ((Query *) node)->hasSubLinks;
@@ -1360,8 +1360,8 @@ replace_rte_variables(Node *node, int target_varno, int sublevels_up,
 		context.inserted_sublink = false;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	result = query_or_expression_tree_mutator(node,
 											  replace_rte_variables_mutator,
@@ -1394,11 +1394,11 @@ replace_rte_variables_mutator(Node *node,
 		if (var->varno == context->target_varno &&
 			var->varlevelsup == context->sublevels_up)
 		{
-			/* Found a matching variable, make the substitution */
+			/* 找到匹配的变量，做替换 */
 			Node	   *newnode;
 
 			newnode = context->callback(var, context);
-			/* Detect if we are adding a sublink to query */
+			/* 检测我们是否在给查询加子链接 */
 			if (!context->inserted_sublink)
 				context->inserted_sublink = checkExprHasSubLink(newnode);
 			return newnode;
@@ -1413,10 +1413,10 @@ replace_rte_variables_mutator(Node *node,
 			context->sublevels_up == 0)
 		{
 			/*
-			 * We get here if a WHERE CURRENT OF expression turns out to apply
-			 * to a view.  Someday we might be able to translate the
-			 * expression to apply to an underlying table of the view, but
-			 * right now it's not implemented.
+			 * 若 WHERE CURRENT OF 表达式结果作用于
+			 * 一个视图，我们就到这里。将来也许能把该
+			 * 表达式翻译成作用于视图的底层表，但
+			 * 目前尚未实现。
 			 */
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -1426,7 +1426,7 @@ replace_rte_variables_mutator(Node *node,
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE subquery or not-yet-planned sublink subquery */
+		/* 递归进入 RTE 子查询或尚未规划的子链接子查询 */
 		Query	   *newnode;
 		bool		save_inserted_sublink;
 
@@ -1448,36 +1448,36 @@ replace_rte_variables_mutator(Node *node,
 
 
 /*
- * map_variable_attnos() finds all user-column Vars in an expression tree
- * that reference a particular RTE, and adjusts their varattnos according
- * to the given mapping array (varattno n is replaced by attno_map[n-1]).
- * Vars for system columns are not modified.
+ * map_variable_attnos() 找出表达式树里引用特定 RTE 的
+ * 全部用户列 Var，并按给定的映射数组调整它们的 varattno
+ * （varattno n 被替换成 attno_map[n-1]）。
+ * 系统列的 Var 不被修改。
  *
- * A zero in the mapping array represents a dropped column, which should not
- * appear in the expression.
+ * 映射数组里的零表示已删除的列，它不应当
+ * 出现在表达式里。
  *
- * If the expression tree contains a whole-row Var for the target RTE,
- * *found_whole_row is set to true.  In addition, if to_rowtype is
- * not InvalidOid, we replace the Var with a Var of that vartype, inserting
- * a ConvertRowtypeExpr to map back to the rowtype expected by the expression.
- * (Therefore, to_rowtype had better be a child rowtype of the rowtype of the
- * RTE we're changing references to.)  Callers that don't provide to_rowtype
- * should report an error if *found_whole_row is true; we don't do that here
- * because we don't know exactly what wording for the error message would
- * be most appropriate.  The caller will be aware of the context.
+ * 若表达式树含有目标 RTE 的整行 Var，
+ * 就把 *found_whole_row 设为真。此外，若 to_rowtype
+ * 不是 InvalidOid，我们把该 Var 替换成该 vartype 的 Var，并插入
+ * 一个 ConvertRowtypeExpr，映射回表达式所预期的行类型。
+ * （因此，to_rowtype 最好是我们正在改引用的那个
+ * RTE 的行类型的子行类型。）不提供 to_rowtype 的调用者
+ * 应当在 *found_whole_row 为真时报错；我们不在这里做，
+ * 因为我们不知道错误信息用什么措辞
+ * 最合适。调用者会了解上下文。
  *
- * This could be built using replace_rte_variables and a callback function,
- * but since we don't ever need to insert sublinks, replace_rte_variables is
- * overly complicated.
+ * 这可以用 replace_rte_variables 和一个回调函数来构造，
+ * 但因为我们从不会插入子链接，replace_rte_variables
+ * 过于复杂。
  */
 
 typedef struct
 {
-	int			target_varno;	/* RTE index to search for */
-	int			sublevels_up;	/* (current) nesting depth */
-	const AttrMap *attno_map;	/* map array for user attnos */
-	Oid			to_rowtype;		/* change whole-row Vars to this type */
-	bool	   *found_whole_row;	/* output flag */
+	int			target_varno;	/* 要搜索的 RTE 下标 */
+	int			sublevels_up;	/* （当前）嵌套深度 */
+	const AttrMap *attno_map;	/* 用户属性号的映射数组 */
+	Oid			to_rowtype;		/* 把整行 Var 改成这个类型 */
+	bool	   *found_whole_row;	/* 输出标志 */
 } map_variable_attnos_context;
 
 static Node *
@@ -1493,44 +1493,44 @@ map_variable_attnos_mutator(Node *node,
 		if (var->varno == context->target_varno &&
 			var->varlevelsup == context->sublevels_up)
 		{
-			/* Found a matching variable, make the substitution */
+			/* 找到匹配的变量，做替换 */
 			Var		   *newvar = (Var *) palloc(sizeof(Var));
 			int			attno = var->varattno;
 
-			*newvar = *var;		/* initially copy all fields of the Var */
+			*newvar = *var;		/* 先复制该 Var 的全部成员 */
 
 			if (attno > 0)
 			{
-				/* user-defined column, replace attno */
+				/* 用户定义的列，替换属性号 */
 				if (attno > context->attno_map->maplen ||
 					context->attno_map->attnums[attno - 1] == 0)
 					elog(ERROR, "unexpected varattno %d in expression to be mapped",
 						 attno);
 				newvar->varattno = context->attno_map->attnums[attno - 1];
-				/* If the syntactic referent is same RTE, fix it too */
+				/* 若语法引用对象是同一个 RTE，也修正它 */
 				if (newvar->varnosyn == context->target_varno)
 					newvar->varattnosyn = newvar->varattno;
 			}
 			else if (attno == 0)
 			{
-				/* whole-row variable, warn caller */
+				/* 整行变量，警告调用者 */
 				*(context->found_whole_row) = true;
 
-				/* If the caller expects us to convert the Var, do so. */
+				/* 若调用者预期我们转换该 Var，就这样做。 */
 				if (OidIsValid(context->to_rowtype) &&
 					context->to_rowtype != var->vartype)
 				{
 					ConvertRowtypeExpr *r;
 
-					/* This certainly won't work for a RECORD variable. */
+					/* 这对 RECORD 变量肯定行不通。 */
 					Assert(var->vartype != RECORDOID);
 
-					/* Var itself is changed to the requested type. */
+					/* Var 本身被改成所请求的类型。 */
 					newvar->vartype = context->to_rowtype;
 
 					/*
-					 * Add a conversion node on top to convert back to the
-					 * original type expected by the expression.
+					 * 在顶上加一个转换节点，转换回表达式
+					 * 所预期的原始类型。
 					 */
 					r = makeNode(ConvertRowtypeExpr);
 					r->arg = (Expr *) newvar;
@@ -1551,11 +1551,11 @@ map_variable_attnos_mutator(Node *node,
 		Var		   *var = (Var *) r->arg;
 
 		/*
-		 * If this is coercing a whole-row Var that we need to convert, then
-		 * just convert the Var without adding an extra ConvertRowtypeExpr.
-		 * Effectively we're simplifying var::parenttype::grandparenttype into
-		 * just var::grandparenttype.  This avoids building stacks of CREs if
-		 * this function is applied repeatedly.
+		 * 若这是在强制转换我们需要转换的整行 Var，则
+		 * 只转换该 Var，不再额外加 ConvertRowtypeExpr。
+		 * 效果上是把 var::parenttype::grandparenttype 简化成
+		 * 只剩 var::grandparenttype。这样若本函数被反复应用，
+		 * 就可以避免堆起一叠 CREs。
 		 */
 		if (IsA(var, Var) &&
 			var->varno == context->target_varno &&
@@ -1567,19 +1567,19 @@ map_variable_attnos_mutator(Node *node,
 			ConvertRowtypeExpr *newnode;
 			Var		   *newvar = (Var *) palloc(sizeof(Var));
 
-			/* whole-row variable, warn caller */
+			/* 整行变量，警告调用者 */
 			*(context->found_whole_row) = true;
 
-			*newvar = *var;		/* initially copy all fields of the Var */
+			*newvar = *var;		/* 先复制该 Var 的全部成员 */
 
-			/* This certainly won't work for a RECORD variable. */
+			/* 这对 RECORD 变量肯定行不通。 */
 			Assert(var->vartype != RECORDOID);
 
-			/* Var itself is changed to the requested type. */
+			/* Var 本身被改成所请求的类型。 */
 			newvar->vartype = context->to_rowtype;
 
 			newnode = (ConvertRowtypeExpr *) palloc(sizeof(ConvertRowtypeExpr));
-			*newnode = *r;		/* initially copy all fields of the CRE */
+			*newnode = *r;		/* 先复制该 CRE 的全部成员 */
 			newnode->arg = (Expr *) newvar;
 
 			return (Node *) newnode;
@@ -1588,7 +1588,7 @@ map_variable_attnos_mutator(Node *node,
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE subquery or not-yet-planned sublink subquery */
+		/* 递归进入 RTE 子查询或尚未规划的子链接子查询 */
 		Query	   *newnode;
 
 		context->sublevels_up++;
@@ -1620,8 +1620,8 @@ map_variable_attnos(Node *node,
 	*found_whole_row = false;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree; if
-	 * it's a Query, we don't want to increment sublevels_up.
+	 * 必须准备好从 Query 或裸表达式树开始；若
+	 * 它是 Query，我们不想递增 sublevels_up。
 	 */
 	return query_or_expression_tree_mutator(node,
 											map_variable_attnos_mutator,
@@ -1631,22 +1631,22 @@ map_variable_attnos(Node *node,
 
 
 /*
- * ReplaceVarsFromTargetList - replace Vars with items from a targetlist
+ * ReplaceVarsFromTargetList - 用目标列表里的项替换 Vars。
  *
- * Vars matching target_varno and sublevels_up are replaced by the
- * entry with matching resno from targetlist, if there is one.
+ * 匹配 target_varno 和 sublevels_up 的 Var 被替换成
+ * 目标列表里 resno 匹配的项，若有的话。
  *
- * If there is no matching resno for such a Var, the action depends on the
- * nomatch_option:
- *	REPLACEVARS_REPORT_ERROR: throw an error
- *	REPLACEVARS_CHANGE_VARNO: change Var's varno to nomatch_varno
- *	REPLACEVARS_SUBSTITUTE_NULL: replace Var with a NULL Const of same type
+ * 若这样的 Var 没有匹配的 resno，动作取决于
+ * nomatch_option：
+ *	REPLACEVARS_REPORT_ERROR：报错
+ *	REPLACEVARS_CHANGE_VARNO：把 Var 的 varno 改成 nomatch_varno
+ *	REPLACEVARS_SUBSTITUTE_NULL：把 Var 替换成同类型的 NULL Const。
  *
- * The caller must also provide target_rte, the RTE describing the target
- * relation.  This is needed to handle whole-row Vars referencing the target.
- * We expand such Vars into RowExpr constructs.
+ * 调用者还必须提供 target_rte，即描述目标
+ * 关系的 RTE。这是为了处理引用目标的整行 Var。
+ * 我们把这样的 Var 展开成 RowExpr 构造。
  *
- * outer_hasSubLinks works the same as for replace_rte_variables().
+ * outer_hasSubLinks 的工作方式与 replace_rte_variables() 相同。
  */
 
 typedef struct
@@ -1666,23 +1666,23 @@ ReplaceVarsFromTargetList_callback(Var *var,
 
 	if (var->varattno == InvalidAttrNumber)
 	{
-		/* Must expand whole-tuple reference into RowExpr */
+		/* 必须把整元组引用展开成 RowExpr */
 		RowExpr    *rowexpr;
 		List	   *colnames;
 		List	   *fields;
 
 		/*
-		 * If generating an expansion for a var of a named rowtype (ie, this
-		 * is a plain relation RTE), then we must include dummy items for
-		 * dropped columns.  If the var is RECORD (ie, this is a JOIN), then
-		 * omit dropped columns.  In the latter case, attach column names to
-		 * the RowExpr for use of the executor and ruleutils.c.
+		 * 若要为具名行类型的 var 生成展开（即这
+		 * 是普通关系 RTE），则必须为
+		 * 已删除的列包括哑项。若该 var 是 RECORD（即这是 JOIN），则
+		 * 略去已删除的列。后一种情形下，把列名挂到
+		 * RowExpr 上，供执行器和 ruleutils.c 使用。
 		 */
 		expandRTE(rcon->target_rte,
 				  var->varno, var->varlevelsup, var->location,
 				  (var->vartype != RECORDOID),
 				  &colnames, &fields);
-		/* Adjust the generated per-field Vars... */
+		/* 调整生成的按成员 Var…… */
 		fields = (List *) replace_rte_variables_mutator((Node *) fields,
 														context);
 		rowexpr = makeNode(RowExpr);
@@ -1695,12 +1695,12 @@ ReplaceVarsFromTargetList_callback(Var *var,
 		return (Node *) rowexpr;
 	}
 
-	/* Normal case referencing one targetlist element */
+	/* 引用一个目标列表元素的普通情形 */
 	tle = get_tle_by_resno(rcon->targetlist, var->varattno);
 
 	if (tle == NULL || tle->resjunk)
 	{
-		/* Failed to find column in targetlist */
+		/* 未能在目标列表里找到该列 */
 		switch (rcon->nomatch_option)
 		{
 			case REPLACEVARS_REPORT_ERROR:
@@ -1710,14 +1710,14 @@ ReplaceVarsFromTargetList_callback(Var *var,
 			case REPLACEVARS_CHANGE_VARNO:
 				var = (Var *) copyObject(var);
 				var->varno = rcon->nomatch_varno;
-				/* we leave the syntactic referent alone */
+				/* 我们不改动语法引用对象 */
 				return (Node *) var;
 
 			case REPLACEVARS_SUBSTITUTE_NULL:
 				{
 					/*
-					 * If Var is of domain type, we must add a CoerceToDomain
-					 * node, in case there is a NOT NULL domain constraint.
+					 * 若 Var 是域类型，我们必须加一个 CoerceToDomain
+					 * 节点，以防有 NOT NULL 域约束。
 					 */
 					int16		vartyplen;
 					bool		vartypbyval;
@@ -1732,26 +1732,26 @@ ReplaceVarsFromTargetList_callback(Var *var,
 		}
 		elog(ERROR, "could not find replacement targetlist entry for attno %d",
 			 var->varattno);
-		return NULL;			/* keep compiler quiet */
+		return NULL;			/* 消除编译器告警 */
 	}
 	else
 	{
-		/* Make a copy of the tlist item to return */
+		/* 复制目标列表项再返回 */
 		Expr	   *newnode = copyObject(tle->expr);
 
-		/* Must adjust varlevelsup if tlist item is from higher query */
+		/* 若目标列表项来自更高的查询，必须调整 varlevelsup */
 		if (var->varlevelsup > 0)
 			IncrementVarSublevelsUp((Node *) newnode, var->varlevelsup, 0);
 
 		/*
-		 * Check to see if the tlist item contains a PARAM_MULTIEXPR Param,
-		 * and throw error if so.  This case could only happen when expanding
-		 * an ON UPDATE rule's NEW variable and the referenced tlist item in
-		 * the original UPDATE command is part of a multiple assignment. There
-		 * seems no practical way to handle such cases without multiple
-		 * evaluation of the multiple assignment's sub-select, which would
-		 * create semantic oddities that users of rules would probably prefer
-		 * not to cope with.  So treat it as an unimplemented feature.
+		 * 检查目标列表项是否含有 PARAM_MULTIEXPR Param，
+		 * 若有则报错。这种情形只可能发生在展开
+		 * ON UPDATE 规则的 NEW 变量时，且被引用的目标列表项
+		 * 位于原始 UPDATE 命令里，并且是多重赋值的一部分。
+		 * 似乎没有实用的办法处理这类情形，除非对
+		 * 多重赋值的子查询做多次求值，那会造成
+		 * 规则系统使用者大概不愿应对的语义怪异。
+		 * 因此把它当作尚未实现的特性。
 		 */
 		if (contains_multiexpr_param((Node *) newnode, NULL))
 			ereport(ERROR,

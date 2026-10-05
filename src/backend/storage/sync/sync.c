@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sync.c
- *	  File synchronization management code.
+ *	  文件同步管理代码。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,53 +38,53 @@
 #include "utils/memutils.h"
 
 /*
- * In some contexts (currently, standalone backends and the checkpointer)
- * we keep track of pending fsync operations: we need to remember all relation
- * segments that have been written since the last checkpoint, so that we can
- * fsync them down to disk before completing the next checkpoint.  This hash
- * table remembers the pending operations.  We use a hash table mostly as
- * a convenient way of merging duplicate requests.
+ * 在某些情形下（目前是独立后端和检查点进程），
+ * 我们跟踪待处理的 fsync 操作：需要记住自上次检查点以来
+ * 写过的全部关系段，以便在完成下一次检查点之前
+ * 把它们 fsync 到磁盘。这张散列表
+ * 记住这些待处理操作。我们用散列表，主要是当作
+ * 合并重复请求的方便办法。
  *
- * We use a similar mechanism to remember no-longer-needed files that can
- * be deleted after the next checkpoint, but we use a linked list instead of
- * a hash table, because we don't expect there to be any duplicate requests.
+ * 我们用类似的机制记住下次检查点之后可以
+ * 删除的、不再需要的文件，但用的是链表而不是
+ * 散列表，因为预计不会有重复请求。
  *
- * These mechanisms are only used for non-temp relations; we never fsync
- * temp rels, nor do we need to postpone their deletion (see comments in
- * mdunlink).
+ * 这些机制只用于非临时关系；我们从不对
+ * 临时关系做 fsync，也不需要推迟删除它们（见
+ * mdunlink 里的注释）。
  *
- * (Regular backends do not track pending operations locally, but forward
- * them to the checkpointer.)
+ * （普通后端不在本地跟踪待处理操作，而是把它们
+ * 转发给检查点进程。）
  */
-typedef uint16 CycleCtr;		/* can be any convenient integer size */
+typedef uint16 CycleCtr;		/* 可以是任何方便的整数宽度 */
 
 typedef struct
 {
-	FileTag		tag;			/* identifies handler and file */
-	CycleCtr	cycle_ctr;		/* sync_cycle_ctr of oldest request */
-	bool		canceled;		/* canceled is true if we canceled "recently" */
+	FileTag		tag;			/* 标识处理程序和文件 */
+	CycleCtr	cycle_ctr;		/* 最旧请求的 sync_cycle_ctr */
+	bool		canceled;		/* 若我们 "最近" 取消过，则 canceled 为 true */
 } PendingFsyncEntry;
 
 typedef struct
 {
-	FileTag		tag;			/* identifies handler and file */
-	CycleCtr	cycle_ctr;		/* checkpoint_cycle_ctr when request was made */
-	bool		canceled;		/* true if request has been canceled */
+	FileTag		tag;			/* 标识处理程序和文件 */
+	CycleCtr	cycle_ctr;		/* 发出请求时的 checkpoint_cycle_ctr */
+	bool		canceled;		/* 若请求已被取消则为 true */
 } PendingUnlinkEntry;
 
 static HTAB *pendingOps = NULL;
 static List *pendingUnlinks = NIL;
-static MemoryContext pendingOpsCxt; /* context for the above  */
+static MemoryContext pendingOpsCxt; /* 供上面这些使用的上下文 */
 
 static CycleCtr sync_cycle_ctr = 0;
 static CycleCtr checkpoint_cycle_ctr = 0;
 
-/* Intervals for calling AbsorbSyncRequests */
+/* 调用 AbsorbSyncRequests 的间隔 */
 #define FSYNCS_PER_ABSORB		10
 #define UNLINKS_PER_ABSORB		10
 
 /*
- * Function pointers for handling sync and unlink requests.
+ * 处理同步请求和 unlink 请求的函数指针。
  */
 typedef struct SyncOps
 {
@@ -95,10 +95,10 @@ typedef struct SyncOps
 } SyncOps;
 
 /*
- * These indexes must correspond to the values of the SyncRequestHandler enum.
+ * 这些下标必须与 SyncRequestHandler 枚举的取值对应。
  */
 static const SyncOps syncsw[] = {
-	/* magnetic disk */
+	/* 磁盘 */
 	[SYNC_HANDLER_MD] = {
 		.sync_syncfiletag = mdsyncfiletag,
 		.sync_unlinkfiletag = mdunlinkfiletag,
@@ -112,39 +112,39 @@ static const SyncOps syncsw[] = {
 	[SYNC_HANDLER_COMMIT_TS] = {
 		.sync_syncfiletag = committssyncfiletag
 	},
-	/* pg_multixact/offsets */
+	/* pg_multixact/offsets 目录 */
 	[SYNC_HANDLER_MULTIXACT_OFFSET] = {
 		.sync_syncfiletag = multixactoffsetssyncfiletag
 	},
-	/* pg_multixact/members */
+	/* pg_multixact/members 目录 */
 	[SYNC_HANDLER_MULTIXACT_MEMBER] = {
 		.sync_syncfiletag = multixactmemberssyncfiletag
 	}
 };
 
 /*
- * Initialize data structures for the file sync tracking.
+ * 初始化文件同步跟踪所用的数据结构。
  */
 void
 InitSync(void)
 {
 	/*
-	 * Create pending-operations hashtable if we need it.  Currently, we need
-	 * it if we are standalone (not under a postmaster) or if we are a
-	 * checkpointer auxiliary process.
+	 * 若需要，就创建待处理操作散列表。目前，仅当我们是独立后端
+	 * （不在 postmaster 之下），或我们是检查点进程
+	 * 这种辅助进程时，才需要它。
 	 */
 	if (!IsUnderPostmaster || AmCheckpointerProcess())
 	{
 		HASHCTL		hash_ctl;
 
 		/*
-		 * XXX: The checkpointer needs to add entries to the pending ops table
-		 * when absorbing fsync requests.  That is done within a critical
-		 * section, which isn't usually allowed, but we make an exception. It
-		 * means that there's a theoretical possibility that you run out of
-		 * memory while absorbing fsync requests, which leads to a PANIC.
-		 * Fortunately the hash table is small so that's unlikely to happen in
-		 * practice.
+		 * XXX: 检查点进程吸收 fsync 请求时，需要往待处理操作表
+		 * 里添加表项。这件事是在临界区内做的，
+		 * 通常并不允许，但这里破例。这意味着
+		 * 吸收 fsync 请求时理论上可能内存不足，
+		 * 从而导致 PANIC。
+		 * 好在散列表很小，所以实践中
+		 * 不太可能发生。
 		 */
 		pendingOpsCxt = AllocSetContextCreate(TopMemoryContext,
 											  "Pending ops context",
@@ -163,45 +163,45 @@ InitSync(void)
 }
 
 /*
- * SyncPreCheckpoint() -- Do pre-checkpoint work
+ * SyncPreCheckpoint() -- 做检查点之前的工作
  *
- * To distinguish unlink requests that arrived before this checkpoint
- * started from those that arrived during the checkpoint, we use a cycle
- * counter similar to the one we use for fsync requests. That cycle
- * counter is incremented here.
+ * 为区分本检查点开始之前到达的 unlink 请求
+ * 和检查点进行期间到达的那些，我们使用一个周期
+ * 计数器，与 fsync 请求所用的类似。该周期
+ * 计数器在这里递增。
  *
- * This must be called *before* the checkpoint REDO point is determined.
- * That ensures that we won't delete files too soon.  Since this calls
- * AbsorbSyncRequests(), which performs memory allocations, it cannot be
- * called within a critical section.
+ * 必须在确定检查点 REDO 点 *之前* 调用。
+ * 这样才能保证不会过早删除文件。由于这里会调用
+ * AbsorbSyncRequests()，而它会分配内存，因此无法
+ * 在临界区内调用。
  *
- * Note that we can't do anything here that depends on the assumption
- * that the checkpoint will be completed.
+ * 注意，切勿在这里做任何依赖于如下假定的事情：
+ * 这次检查点将会完成。
  */
 void
 SyncPreCheckpoint(void)
 {
 	/*
-	 * Operations such as DROP TABLESPACE assume that the next checkpoint will
-	 * process all recently forwarded unlink requests, but if they aren't
-	 * absorbed prior to advancing the cycle counter, they won't be processed
-	 * until a future checkpoint.  The following absorb ensures that any
-	 * unlink requests forwarded before the checkpoint began will be processed
-	 * in the current checkpoint.
+	 * DROP TABLESPACE 之类的操作假定下一次检查点会
+	 * 处理最近转发来的全部 unlink 请求，但若在推进周期计数器
+	 * 之前没有吸收它们，就要等到以后的某次检查点
+	 * 才会处理。下面这次吸收保证：凡是在检查点开始前转发的
+	 * unlink 请求，都会在当前这次
+	 * 检查点中得到处理。
 	 */
 	AbsorbSyncRequests();
 
 	/*
-	 * Any unlink requests arriving after this point will be assigned the next
-	 * cycle counter, and won't be unlinked until next checkpoint.
+	 * 此点之后到达的任何 unlink 请求都会被赋上下一个
+	 * 周期计数器，要到下一次检查点才会 unlink。
 	 */
 	checkpoint_cycle_ctr++;
 }
 
 /*
- * SyncPostCheckpoint() -- Do post-checkpoint work
+ * SyncPostCheckpoint() -- 做检查点之后的工作
  *
- * Remove any lingering files that can now be safely removed.
+ * 删除现在可以安全删掉的任何残留文件。
  */
 void
 SyncPostCheckpoint(void)
@@ -215,32 +215,32 @@ SyncPostCheckpoint(void)
 		PendingUnlinkEntry *entry = (PendingUnlinkEntry *) lfirst(lc);
 		char		path[MAXPGPATH];
 
-		/* Skip over any canceled entries */
+		/* 跳过任何已取消的表项 */
 		if (entry->canceled)
 			continue;
 
 		/*
-		 * New entries are appended to the end, so if the entry is new we've
-		 * reached the end of old entries.
+		 * 新表项追加在末尾，因此若这个表项是新的，就说明
+		 * 已经走到了旧表项的尽头。
 		 *
-		 * Note: if just the right number of consecutive checkpoints fail, we
-		 * could be fooled here by cycle_ctr wraparound.  However, the only
-		 * consequence is that we'd delay unlinking for one more checkpoint,
-		 * which is perfectly tolerable.
+		 * 注意：若连续失败的检查点次数刚好，这里可能会被
+		 * cycle_ctr 回绕误导。不过唯一的
+		 * 后果是 unlink 会再推迟一个检查点，
+		 * 这完全可以容忍。
 		 */
 		if (entry->cycle_ctr == checkpoint_cycle_ctr)
 			break;
 
-		/* Unlink the file */
+		/* unlink 该文件 */
 		if (syncsw[entry->tag.handler].sync_unlinkfiletag(&entry->tag,
 														  path) < 0)
 		{
 			/*
-			 * There's a race condition, when the database is dropped at the
-			 * same time that we process the pending unlink requests. If the
-			 * DROP DATABASE deletes the file before we do, we will get ENOENT
-			 * here. rmtree() also has to ignore ENOENT errors, to deal with
-			 * the possibility that we delete the file first.
+			 * 这里有竞争：删除数据库的同时，我们正在处理
+			 * 待处理的 unlink 请求。若 DROP DATABASE
+			 * 比我们更早删掉该文件，这里就会得到 ENOENT。
+			 * rmtree() 也必须忽略 ENOENT 错误，以便应对
+			 * 我们先删掉该文件的可能。
 			 */
 			if (errno != ENOENT)
 				ereport(WARNING,
@@ -248,13 +248,13 @@ SyncPostCheckpoint(void)
 						 errmsg("could not remove file \"%s\": %m", path)));
 		}
 
-		/* Mark the list entry as canceled, just in case */
+		/* 把该链表表项标为已取消，以防万一 */
 		entry->canceled = true;
 
 		/*
-		 * As in ProcessSyncRequests, we don't want to stop absorbing fsync
-		 * requests for a long time when there are many deletions to be done.
-		 * We can safely call AbsorbSyncRequests() at this point in the loop.
+		 * 与 ProcessSyncRequests 中一样，有很多删除要做时，我们不想
+		 * 长时间停止吸收 fsync 请求。
+		 * 在循环的这一点可以安全调用 AbsorbSyncRequests()。
 		 */
 		if (--absorb_counter <= 0)
 		{
@@ -264,9 +264,9 @@ SyncPostCheckpoint(void)
 	}
 
 	/*
-	 * If we reached the end of the list, we can just remove the whole list
-	 * (remembering to pfree all the PendingUnlinkEntry objects).  Otherwise,
-	 * we must keep the entries at or after "lc".
+	 * 若已走到链表末尾，就可以直接拆掉整条链表
+	 * （记得 pfree 全部 PendingUnlinkEntry 对象）。否则，
+	 * 必须保留 "lc" 及其之后的表项。
 	 */
 	if (lc == NULL)
 	{
@@ -285,7 +285,7 @@ SyncPostCheckpoint(void)
 }
 
 /*
- *	ProcessSyncRequests() -- Process queued fsync requests.
+ *	ProcessSyncRequests() -- 处理排队的 fsync 请求。
  */
 void
 ProcessSyncRequests(void)
@@ -296,7 +296,7 @@ ProcessSyncRequests(void)
 	PendingFsyncEntry *entry;
 	int			absorb_counter;
 
-	/* Statistics on sync times */
+	/* 同步耗时统计 */
 	int			processed = 0;
 	instr_time	sync_start,
 				sync_end,
@@ -306,50 +306,50 @@ ProcessSyncRequests(void)
 	uint64		total_elapsed = 0;
 
 	/*
-	 * This is only called during checkpoints, and checkpoints should only
-	 * occur in processes that have created a pendingOps.
+	 * 本函数只在检查点期间调用，而检查点只应当发生在
+	 * 已经创建了 pendingOps 的进程中。
 	 */
 	if (!pendingOps)
 		elog(ERROR, "cannot sync without a pendingOps table");
 
 	/*
-	 * If we are in the checkpointer, the sync had better include all fsync
-	 * requests that were queued by backends up to this point.  The tightest
-	 * race condition that could occur is that a buffer that must be written
-	 * and fsync'd for the checkpoint could have been dumped by a backend just
-	 * before it was visited by BufferSync().  We know the backend will have
-	 * queued an fsync request before clearing the buffer's dirtybit, so we
-	 * are safe as long as we do an Absorb after completing BufferSync().
+	 * 若我们处于检查点进程中，这次同步最好包含截至此时
+	 * 各后端已经排入队列的全部 fsync 请求。窗口最窄的
+	 * 竞争是：某个必须为检查点写出并 fsync 的缓冲区，可能刚好在
+	 * BufferSync() 访问它之前被某个后端写出。我们知道该后端会在
+	 * 清除该缓冲区的脏位之前先排入一条 fsync 请求，因此只要在
+	 * 做完 BufferSync() 之后再执行一次 Absorb，
+	 * 就是安全的。
 	 */
 	AbsorbSyncRequests();
 
 	/*
-	 * To avoid excess fsync'ing (in the worst case, maybe a never-terminating
-	 * checkpoint), we want to ignore fsync requests that are entered into the
-	 * hashtable after this point --- they should be processed next time,
-	 * instead.  We use sync_cycle_ctr to tell old entries apart from new
-	 * ones: new ones will have cycle_ctr equal to the incremented value of
-	 * sync_cycle_ctr.
+	 * 为避免过量 fsync（最坏情况下，检查点也许永远不会
+	 * 终止），我们要忽略在此之后才进入
+	 * 散列表的 fsync 请求——它们应当留到下一次
+	 * 再处理。我们用 sync_cycle_ctr 把旧表项和新表项
+	 * 区分开：新表项的 cycle_ctr 等于递增之后的
+	 * sync_cycle_ctr。
 	 *
-	 * In normal circumstances, all entries present in the table at this point
-	 * will have cycle_ctr exactly equal to the current (about to be old)
-	 * value of sync_cycle_ctr.  However, if we fail partway through the
-	 * fsync'ing loop, then older values of cycle_ctr might remain when we
-	 * come back here to try again.  Repeated checkpoint failures would
-	 * eventually wrap the counter around to the point where an old entry
-	 * might appear new, causing us to skip it, possibly allowing a checkpoint
-	 * to succeed that should not have.  To forestall wraparound, any time the
-	 * previous ProcessSyncRequests() failed to complete, run through the
-	 * table and forcibly set cycle_ctr = sync_cycle_ctr.
+	 * 正常情况下，此时表中已有的全部表项，其
+	 * cycle_ctr 都恰好等于 sync_cycle_ctr 当前
+	 * （即将变旧）的值。然而，若我们在 fsync
+	 * 循环中途失败，等回到这里重试时，可能还留着
+	 * 更旧的 cycle_ctr。检查点反复失败
+	 * 最终会把计数器回绕到这种程度：旧表项
+	 * 看起来像新的，于是我们跳过它，可能让一次
+	 * 本不该成功的检查点成功。为防止回绕，每当
+	 * 上一次 ProcessSyncRequests() 未能完成时，就遍历
+	 * 整张表，并强制令 cycle_ctr = sync_cycle_ctr。
 	 *
-	 * Think not to merge this loop with the main loop, as the problem is
-	 * exactly that that loop may fail before having visited all the entries.
-	 * From a performance point of view it doesn't matter anyway, as this path
-	 * will never be taken in a system that's functioning normally.
+	 * 不要想把这个循环并进主循环，问题恰恰在于
+	 * 那个循环可能在访问完所有表项之前就失败。
+	 * 从性能上看这也无关紧要，因为在正常运转的系统里
+	 * 根本不会走到这条路径。
 	 */
 	if (sync_in_progress)
 	{
-		/* prior try failed, so update any stale cycle_ctr values */
+		/* 上次尝试失败，因此更新任何陈旧的 cycle_ctr 值 */
 		hash_seq_init(&hstat, pendingOps);
 		while ((entry = (PendingFsyncEntry *) hash_seq_search(&hstat)) != NULL)
 		{
@@ -357,13 +357,13 @@ ProcessSyncRequests(void)
 		}
 	}
 
-	/* Advance counter so that new hashtable entries are distinguishable */
+	/* 推进计数器，使新的散列表表项可以区分 */
 	sync_cycle_ctr++;
 
-	/* Set flag to detect failure if we don't reach the end of the loop */
+	/* 设置标志，以便在未到达循环末尾时察觉失败 */
 	sync_in_progress = true;
 
-	/* Now scan the hashtable for fsync requests to process */
+	/* 现在扫描散列表，找出要处理的 fsync 请求 */
 	absorb_counter = FSYNCS_PER_ABSORB;
 	hash_seq_init(&hstat, pendingOps);
 	while ((entry = (PendingFsyncEntry *) hash_seq_search(&hstat)) != NULL)
@@ -371,29 +371,29 @@ ProcessSyncRequests(void)
 		int			failures;
 
 		/*
-		 * If the entry is new then don't process it this time; it is new.
-		 * Note "continue" bypasses the hash-remove call at the bottom of the
-		 * loop.
+		 * 若表项是新的，这次就不处理；它是新的。
+		 * 注意 "continue" 会绕过循环底部的
+		 * hash-remove 调用。
 		 */
 		if (entry->cycle_ctr == sync_cycle_ctr)
 			continue;
 
-		/* Else assert we haven't missed it */
+		/* 否则断言我们没有漏掉它 */
 		Assert((CycleCtr) (entry->cycle_ctr + 1) == sync_cycle_ctr);
 
 		/*
-		 * If fsync is off then we don't have to bother opening the file at
-		 * all.  (We delay checking until this point so that changing fsync on
-		 * the fly behaves sensibly.)
+		 * 若关闭了 fsync，就完全不必费心去打开文件。
+		 * （把检查推迟到这里，这样在运行期间修改 fsync
+		 * 时，行为仍然合理。）
 		 */
 		if (enableFsync)
 		{
 			/*
-			 * If in checkpointer, we want to absorb pending requests every so
-			 * often to prevent overflow of the fsync request queue.  It is
-			 * unspecified whether newly-added entries will be visited by
-			 * hash_seq_search, but we don't care since we don't need to
-			 * process them anyway.
+			 * 若在检查点进程中，我们希望时常吸收待处理请求，
+			 * 以免 fsync 请求队列溢出。新加入的表项
+			 * 会不会被 hash_seq_search 访问到，并无规定，
+			 * 但我们并不在意，因为反正
+			 * 也不需要处理它们。
 			 */
 			if (--absorb_counter <= 0)
 			{
@@ -402,15 +402,15 @@ ProcessSyncRequests(void)
 			}
 
 			/*
-			 * The fsync table could contain requests to fsync segments that
-			 * have been deleted (unlinked) by the time we get to them. Rather
-			 * than just hoping an ENOENT (or EACCES on Windows) error can be
-			 * ignored, what we do on error is absorb pending requests and
-			 * then retry. Since mdunlink() queues a "cancel" message before
-			 * actually unlinking, the fsync request is guaranteed to be
-			 * marked canceled after the absorb if it really was this case.
-			 * DROP DATABASE likewise has to tell us to forget fsync requests
-			 * before it starts deletions.
+			 * fsync 表里可能含有对某些段的 fsync 请求，等我们处理到
+			 * 它们时，这些段可能已被删除（unlink）。我们并不是
+			 * 仅仅指望 ENOENT（Windows 上则为 EACCES）错误可以
+			 * 被忽略；出错时的做法是先吸收待处理请求，然后
+			 * 重试。由于 mdunlink() 在真正 unlink 之前会先排队一条
+			 * "cancel" 消息，若确实属于这种情况，吸收之后该
+			 * fsync 请求保证已被标为 canceled。
+			 * DROP DATABASE 同样必须在开始删除之前告诉
+			 * 我们忘掉相关的 fsync 请求。
 			 */
 			for (failures = 0; !entry->canceled; failures++)
 			{
@@ -420,7 +420,7 @@ ProcessSyncRequests(void)
 				if (syncsw[entry->tag.handler].sync_syncfiletag(&entry->tag,
 																path) == 0)
 				{
-					/* Success; update statistics about sync timing */
+					/* 成功；更新有关同步耗时的统计 */
 					INSTR_TIME_SET_CURRENT(sync_end);
 					sync_diff = sync_end;
 					INSTR_TIME_SUBTRACT(sync_diff, sync_start);
@@ -436,14 +436,14 @@ ProcessSyncRequests(void)
 							 path,
 							 (double) elapsed / 1000);
 
-					break;		/* out of retry loop */
+					break;		/* 跳出重试循环 */
 				}
 
 				/*
-				 * It is possible that the relation has been dropped or
-				 * truncated since the fsync request was entered. Therefore,
-				 * allow ENOENT, but only if we didn't fail already on this
-				 * file.
+				 * 自 fsync 请求记入以来，该关系可能已被删除
+				 * 或截断。因此允许 ENOENT，但仅当
+				 * 我们还没有在这个文件上
+				 * 失败过。
 				 */
 				if (!FILE_POSSIBLY_DELETED(errno) || failures > 0)
 					ereport(data_sync_elevel(ERROR),
@@ -457,36 +457,36 @@ ProcessSyncRequests(void)
 											 path)));
 
 				/*
-				 * Absorb incoming requests and check to see if a cancel
-				 * arrived for this relation fork.
+				 * 吸收新到的请求，并检查该关系分叉
+				 * 是否已有取消到达。
 				 */
 				AbsorbSyncRequests();
-				absorb_counter = FSYNCS_PER_ABSORB; /* might as well... */
-			}					/* end retry loop */
+				absorb_counter = FSYNCS_PER_ABSORB; /* 不妨如此... */
+			}					/* 重试循环结束 */
 		}
 
-		/* We are done with this entry, remove it */
+		/* 这个表项已处理完，删掉它 */
 		if (hash_search(pendingOps, &entry->tag, HASH_REMOVE, NULL) == NULL)
 			elog(ERROR, "pendingOps corrupted");
-	}							/* end loop over hashtable entries */
+	}							/* 遍历散列表表项的循环结束 */
 
-	/* Return sync performance metrics for report at checkpoint end */
+	/* 返回同步性能指标，供检查点结束时报告 */
 	CheckpointStats.ckpt_sync_rels = processed;
 	CheckpointStats.ckpt_longest_sync = longest;
 	CheckpointStats.ckpt_agg_sync_time = total_elapsed;
 
-	/* Flag successful completion of ProcessSyncRequests */
+	/* 标记 ProcessSyncRequests 成功完成 */
 	sync_in_progress = false;
 }
 
 /*
- * RememberSyncRequest() -- callback from checkpointer side of sync request
+ * RememberSyncRequest() -- 检查点进程一侧的同步请求回调
  *
- * We stuff fsync requests into the local hash table for execution
- * during the checkpointer's next checkpoint.  UNLINK requests go into a
- * separate linked list, however, because they get processed separately.
+ * 我们把 fsync 请求放进本地散列表，以便在
+ * 检查点进程的下一次检查点期间执行。不过 UNLINK 请求进入
+ * 另一条链表，因为它们要分开处理。
  *
- * See sync.h for more information on the types of sync requests supported.
+ * 支持哪些同步请求类型，详见 sync.h。
  */
 void
 RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
@@ -497,7 +497,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 	{
 		PendingFsyncEntry *entry;
 
-		/* Cancel previously entered request */
+		/* 取消先前登记的请求 */
 		entry = (PendingFsyncEntry *) hash_search(pendingOps,
 												  ftag,
 												  HASH_FIND,
@@ -511,7 +511,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 		PendingFsyncEntry *pfe;
 		ListCell   *cell;
 
-		/* Cancel matching fsync requests */
+		/* 取消匹配的 fsync 请求 */
 		hash_seq_init(&hstat, pendingOps);
 		while ((pfe = (PendingFsyncEntry *) hash_seq_search(&hstat)) != NULL)
 		{
@@ -520,7 +520,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 				pfe->canceled = true;
 		}
 
-		/* Cancel matching unlink requests */
+		/* 取消匹配的 unlink 请求 */
 		foreach(cell, pendingUnlinks)
 		{
 			PendingUnlinkEntry *pue = (PendingUnlinkEntry *) lfirst(cell);
@@ -532,7 +532,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 	}
 	else if (type == SYNC_UNLINK_REQUEST)
 	{
-		/* Unlink request: put it in the linked list */
+		/* unlink 请求：放入链表 */
 		MemoryContext oldcxt = MemoryContextSwitchTo(pendingOpsCxt);
 		PendingUnlinkEntry *entry;
 
@@ -547,7 +547,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 	}
 	else
 	{
-		/* Normal case: enter a request to fsync this segment */
+		/* 正常情形：登记一条对该段做 fsync 的请求 */
 		MemoryContext oldcxt = MemoryContextSwitchTo(pendingOpsCxt);
 		PendingFsyncEntry *entry;
 		bool		found;
@@ -558,7 +558,7 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 												  ftag,
 												  HASH_ENTER,
 												  &found);
-		/* if new entry, or was previously canceled, initialize it */
+		/* 若是新表项，或先前已取消，则初始化它 */
 		if (!found || entry->canceled)
 		{
 			entry->cycle_ctr = sync_cycle_ctr;
@@ -566,9 +566,9 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 		}
 
 		/*
-		 * NB: it's intentional that we don't change cycle_ctr if the entry
-		 * already exists.  The cycle_ctr must represent the oldest fsync
-		 * request that could be in the entry.
+		 * NB: 若表项已存在就不改 cycle_ctr，这是有意为之。
+		 * cycle_ctr 必须代表该表项中可能存在的最早那次
+		 * fsync 请求。
 		 */
 
 		MemoryContextSwitchTo(oldcxt);
@@ -576,10 +576,10 @@ RememberSyncRequest(const FileTag *ftag, SyncRequestType type)
 }
 
 /*
- * Register the sync request locally, or forward it to the checkpointer.
+ * 在本地登记同步请求，或者转发给检查点进程。
  *
- * If retryOnError is true, we'll keep trying if there is no space in the
- * queue.  Return true if we succeeded, or false if there wasn't space.
+ * 若 retryOnError 为 true，队列没有空位时就继续尝试。
+ * 成功则返回 true；没有空位则返回 false。
  */
 bool
 RegisterSyncRequest(const FileTag *ftag, SyncRequestType type,
@@ -589,7 +589,7 @@ RegisterSyncRequest(const FileTag *ftag, SyncRequestType type,
 
 	if (pendingOps != NULL)
 	{
-		/* standalone backend or startup process: fsync state is local */
+		/* 独立后端或启动进程：fsync 状态在本地 */
 		RememberSyncRequest(ftag, type);
 		return true;
 	}
@@ -597,21 +597,21 @@ RegisterSyncRequest(const FileTag *ftag, SyncRequestType type,
 	for (;;)
 	{
 		/*
-		 * Notify the checkpointer about it.  If we fail to queue a message in
-		 * retryOnError mode, we have to sleep and try again ... ugly, but
-		 * hopefully won't happen often.
+		 * 把这件事通知检查点进程。若在 retryOnError 模式下未能把消息
+		 * 排入队列，就得睡眠后重试...很难看，但
+		 * 希望不会经常发生。
 		 *
-		 * XXX should we CHECK_FOR_INTERRUPTS in this loop?  Escaping with an
-		 * error in the case of SYNC_UNLINK_REQUEST would leave the
-		 * no-longer-used file still present on disk, which would be bad, so
-		 * I'm inclined to assume that the checkpointer will always empty the
-		 * queue soon.
+		 * XXX 这个循环里是否应当 CHECK_FOR_INTERRUPTS？若在
+		 * SYNC_UNLINK_REQUEST 时带着错误逃出，会让不再使用的
+		 * 文件仍然留在磁盘上，那就糟了，因此
+		 * 我倾向于假定检查点进程总会很快把队列
+		 * 排空。
 		 */
 		ret = ForwardSyncRequest(ftag, type);
 
 		/*
-		 * If we are successful in queueing the request, or we failed and were
-		 * instructed not to retry on error, break.
+		 * 若请求已成功排入队列，或者失败且被告知
+		 * 出错时不要重试，就 break。
 		 */
 		if (ret || (!ret && !retryOnError))
 			break;

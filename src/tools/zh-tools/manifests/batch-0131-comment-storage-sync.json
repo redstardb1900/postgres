@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0131-comment-storage-sync",
+ "title": "zh: translate sync comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b1cfb595416db37216e34e9460a2c6c060e53ee8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/sync/sync.c",
+   "kind": "c_comment",
+   "note": "pending fsync and unlink requests"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0131-comment-storage-sync.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/sync/sync.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 67,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "pending fsync and unlink requests; pg_xact and pg_commit_ts labels stay as directory names"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0131-comment-storage-sync.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0131 translates body comments in sync.c. Terms: 同步请求, fsync, 检查点, 检查点进程, 散列表, 临界区, unlink, 关系分叉. Copyright and IDENTIFICATION lines stay verbatim. pg_xact and pg_commit_ts handler labels stay as directory names. Next batch should start at src/backend/access/common/."
+}

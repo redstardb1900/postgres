@@ -91,6 +91,29 @@ class FixedCases(unittest.TestCase):
         marker = b"/* FALLTHROUGH */\n"
         self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
 
+    def test_fsm_fallthrough_prose_is_translatable(self):
+        old = (
+            "/*\n"
+            " * lock, it's possible to fall through and return the buffer while someone\n"
+            " * else is still initializing the page. PageGetContents() does not require that.\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        new = (
+            "/*\n"
+            " * 没有锁，因此可能跳过初始化并返回该缓冲区，而别人\n"
+            " * 仍在初始化该页。PageGetContents() 并不要求页头内容正确。\n"
+            " */\n"
+            "int x;\n"
+        ).encode("utf-8")
+        comment = c_lexer.lex(old).comments[0].text
+        self.assertIsNone(c_verify.protected_reason(comment))
+        res = c_verify.compare_files(old, new, path="fsm-prose")
+        self.assertEqual(res.violations, [],
+                         [f.to_dict() for f in res.violations])
+        marker = b"/* FALLTHROUGH */\n"
+        self.assertEqual(c_verify.protected_reason(marker), "fallthrough")
+
     def test_no_strict_lines_demotes_rule6(self):
         old = b"/* one two */\nint a;\n"
         new = b"/* \xe4\xb8\x80\n * \xe4\xba\x8c */\nint a;\n"

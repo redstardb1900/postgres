@@ -1,0 +1,91 @@
+{
+ "schema_version": 1,
+ "batch_id": "0108b-comment-freespace-init-race",
+ "title": "zh: translate freespace init race comment",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f82b71b406c79a16a19a45793f3121a3e18eb4cd",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "note": "init race comment is prose, not a switch fall-through"
+  },
+  {
+   "pattern": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "note": "FSM fall-through prose is not a switch annotation"
+  },
+  {
+   "pattern": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "note": "FSM prose stays translatable; switch fall-through stays protected"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0108b-comment-freespace-init-race.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 84,
+   "translated": 83,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "init race comment is prose, not a switch fall-through"
+  },
+  {
+   "path": "src/tools/zh-tools/zhtools/c_verify.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FSM fall-through prose is not a switch annotation"
+  },
+  {
+   "path": "src/tools/zh-tools/tests/test_verify_c_comments.py",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "FSM prose stays translatable; switch fall-through stays protected"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0108b-comment-freespace-init-race.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0108b translates the fsm_readbuf initialization-race comment. The phrase possible to fall through and return the buffer is prose, not a switch annotation. Real FALLTHROUGH comments stay English."
+}

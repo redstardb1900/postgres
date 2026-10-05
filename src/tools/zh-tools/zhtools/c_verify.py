@@ -114,11 +114,19 @@ class FileResult(object):
 # protected.
 _WAITIO_FALLTHROUGH_PROSE = re.compile(rb"WaitIO will fall through")
 
+# fsm_readbuf "possible to fall through and return the buffer" is prose: the
+# unlocked PageIsNew check can skip PageInit and hand back a buffer another
+# backend is still initializing.  Not a switch annotation.
+_FSM_FALLTHROUGH_PROSE = re.compile(
+    rb"possible to fall through and return the buffer")
+
 
 def protected_reason(old_text):
     for name, rx in _PROTECT_RULES:
         if rx.search(old_text):
-            if name == "fallthrough" and _WAITIO_FALLTHROUGH_PROSE.search(old_text):
+            if name == "fallthrough" and (
+                    _WAITIO_FALLTHROUGH_PROSE.search(old_text)
+                    or _FSM_FALLTHROUGH_PROSE.search(old_text)):
                 continue
             return name
     return None

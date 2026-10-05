@@ -603,19 +603,19 @@ fsm_readbuf(Relation rel, FSMAddress addr, bool extend)
 		buf = ReadBufferExtended(rel, FSM_FORKNUM, blkno, RBM_ZERO_ON_ERROR, NULL);
 
 	/*
-	 * Initializing the page when needed is trickier than it looks, because of
-	 * the possibility of multiple backends doing this concurrently, and our
-	 * desire to not uselessly take the buffer lock in the normal path where
-	 * the page is OK.  We must take the lock to initialize the page, so
-	 * recheck page newness after we have the lock, in case someone else
-	 * already did it.  Also, because we initially check PageIsNew with no
-	 * lock, it's possible to fall through and return the buffer while someone
-	 * else is still initializing the page (i.e., we might see pd_upper as set
-	 * but other page header fields are still zeroes).  This is harmless for
-	 * callers that will take a buffer lock themselves, but some callers
-	 * inspect the page without any lock at all.  The latter is OK only so
-	 * long as it doesn't depend on the page header having correct contents.
-	 * Current usage is safe because PageGetContents() does not require that.
+	 * 需要时才初始化该页，这比看上去更棘手，因为
+	 * 可能有多个后端同时在做，而我们希望在页
+	 * 正常的常见路径上，不要无谓地拿缓冲区锁。
+	 * 初始化该页必须拿锁，所以拿到锁之后要重新
+	 * 检查它是否仍是新页，以免别人已经初始化过。
+	 * 另外，最初检查 PageIsNew 时并没有拿锁，
+	 * 因此可能跳过初始化、直接返回该缓冲区，而别人
+	 * 仍在初始化该页（例如看到 pd_upper 已设置，
+	 * 页头其余字段却仍是零）。自己会拿缓冲区锁的
+	 * 调用方不受此影响，但有些调用方查看该页时
+	 * 完全不上锁。后者只有在不依赖页头内容正确时
+	 * 才成立。当前用法是安全的，因为 PageGetContents()
+	 * 并不需要页头内容正确。
 	 */
 	if (PageIsNew(BufferGetPage(buf)))
 	{

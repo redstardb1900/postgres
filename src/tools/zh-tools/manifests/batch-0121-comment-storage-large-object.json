@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0121-comment-storage-large-object",
+ "title": "zh: translate large_object inv_api comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "140af80a8144eb80b2e4e1e7515789de32bfa916",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/large_object/inv_api.c",
+   "kind": "c_comment",
+   "note": "inversion large-object user interface"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0121-comment-storage-large-object.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/large_object/inv_api.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 76,
+   "translated": 75,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "large object create/open/read/write/truncate"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0121-comment-storage-large-object.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0121 translates body comments in inv_api.c. Terms: 大对象, 快照, 元组, 空洞, 截断. Makefile and meson.build in this directory are path or copyright boilerplate and are left unchanged. src/backend/storage/large_object .c files are complete after this batch."
+}

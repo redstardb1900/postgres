@@ -42,11 +42,11 @@
 #include "utils/syscache.h"
 
 /*
- * When qsort'ing partition bounds after reading from the catalog, each bound
- * is represented with one of the following structs.
+ * 从系统目录读出后对分区边界做 qsort 时，每个边界
+ * 用下列结构之一表示。
  */
 
-/* One bound of a hash partition */
+/* 哈希分区的一个边界 */
 typedef struct PartitionHashBound
 {
 	int			modulus;
@@ -54,38 +54,38 @@ typedef struct PartitionHashBound
 	int			index;
 } PartitionHashBound;
 
-/* One value coming from some (index'th) list partition */
+/* 来自某个（第 index 个）列表分区的一个值 */
 typedef struct PartitionListValue
 {
 	int			index;
 	Datum		value;
 } PartitionListValue;
 
-/* One bound of a range partition */
+/* 区间分区的一个边界 */
 typedef struct PartitionRangeBound
 {
 	int			index;
-	Datum	   *datums;			/* range bound datums */
-	PartitionRangeDatumKind *kind;	/* the kind of each datum */
-	bool		lower;			/* this is the lower (vs upper) bound */
+	Datum	   *datums;			/* 区间边界的 datum */
+	PartitionRangeDatumKind *kind;	/* 每个 datum 的种类 */
+	bool		lower;			/* 这是下界（相对上界而言） */
 } PartitionRangeBound;
 
 /*
- * Mapping from partitions of a joining relation to partitions of a join
- * relation being computed (a.k.a merged partitions)
+ * 从被连接关系的分区到正在计算的连接
+ * 关系的分区的映射（即合并后的分区）
  */
 typedef struct PartitionMap
 {
-	int			nparts;			/* number of partitions */
-	int		   *merged_indexes; /* indexes of merged partitions */
-	bool	   *merged;			/* flags to indicate whether partitions are
-								 * merged with non-dummy partitions */
-	bool		did_remapping;	/* did we re-map partitions? */
-	int		   *old_indexes;	/* old indexes of merged partitions if
-								 * did_remapping */
+	int			nparts;			/* 分区个数 */
+	int		   *merged_indexes; /* 合并后分区的下标 */
+	bool	   *merged;			/* 表示分区是否
+								 * 与非哑分区合并的标志 */
+	bool		did_remapping;	/* 我们是否重新映射了分区？ */
+	int		   *old_indexes;	/* 若 did_remapping，合并后分区的
+								 * 旧下标 */
 } PartitionMap;
 
-/* Macro for comparing two range bounds */
+/* 比较两个区间边界的宏 */
 #define compare_range_bounds(partnatts, partsupfunc, partcollations, \
 							 bound1, bound2) \
 	(partition_rbound_cmp(partnatts, partsupfunc, partcollations, \
@@ -243,8 +243,8 @@ static List *get_range_nulltest(PartitionKey key);
 
 /*
  * get_qual_from_partbound
- *		Given a parser node for partition bound, return the list of executable
- *		expressions as partition constraint
+ *		给定分区边界的解析器节点，返回作为分区约束的
+ *		可执行表达式列表
  */
 List *
 get_qual_from_partbound(Relation parent, PartitionBoundSpec *spec)
@@ -277,24 +277,24 @@ get_qual_from_partbound(Relation parent, PartitionBoundSpec *spec)
 
 /*
  *	partition_bounds_create
- *		Build a PartitionBoundInfo struct from a list of PartitionBoundSpec
- *		nodes
+ *		从 PartitionBoundSpec 节点列表构造
+ *		PartitionBoundInfo 结构。
  *
- * This function creates a PartitionBoundInfo and fills the values of its
- * various members based on the input list.  Importantly, 'datums' array will
- * contain Datum representation of individual bounds (possibly after
- * de-duplication as in case of range bounds), sorted in a canonical order
- * defined by qsort_partition_* functions of respective partitioning methods.
- * 'indexes' array will contain as many elements as there are bounds (specific
- * exceptions to this rule are listed in the function body), which represent
- * the 0-based canonical positions of partitions.
+ * 本函数创建 PartitionBoundInfo，并按输入列表填写其
+ * 各个成员。重要的是，datums 数组将包含
+ * 各个边界的 Datum 表示（区间边界时可能经过
+ * 去重），并按相应分区方法的 qsort_partition_
+ * 函数所定义的规范次序排序。
+ * indexes 数组的元素个数与边界个数相同（本函数体内
+ * 列出了这条规则的具体例外），它们表示
+ * 分区从 0 起计的规范位置。
  *
- * Upon return from this function, *mapping is set to an array of
- * list_length(boundspecs) elements, each of which maps the original index of
- * a partition to its canonical index.
+ * 本函数返回时，*mapping 被设为一个有
+ * list_length(boundspecs) 个元素的数组，每个元素把分区的
+ * 原始下标映射到其规范下标。
  *
- * Note: The objects returned by this function are wholly allocated in the
- * current memory context.
+ * 注意：本函数返回的对象全部在
+ * 当前内存上下文中分配。
  */
 PartitionBoundInfo
 partition_bounds_create(PartitionBoundSpec **boundspecs, int nparts,
@@ -305,20 +305,20 @@ partition_bounds_create(PartitionBoundSpec **boundspecs, int nparts,
 	Assert(nparts > 0);
 
 	/*
-	 * For each partitioning method, we first convert the partition bounds
-	 * from their parser node representation to the internal representation,
-	 * along with any additional preprocessing (such as de-duplicating range
-	 * bounds).  Resulting bound datums are then added to the 'datums' array
-	 * in PartitionBoundInfo.  For each datum added, an integer indicating the
-	 * canonical partition index is added to the 'indexes' array.
+	 * 对每种分区方法，我们先把分区边界
+	 * 从解析器节点表示转换成内部表示，
+	 * 并做任何额外预处理（例如对区间
+	 * 边界去重）。得到的边界 datum 再加入
+	 * PartitionBoundInfo 的 datums 数组。每加入一个 datum，就把表示
+	 * 规范分区下标的整数加入 indexes 数组。
 	 *
-	 * For each bound, we remember its partition's position (0-based) in the
-	 * original list to later map it to the canonical index.
+	 * 对每个边界，我们记住它的分区在
+	 * 原始列表中的位置（从 0 起计），以便稍后映射到规范下标。
 	 */
 
 	/*
-	 * Initialize mapping array with invalid values, this is filled within
-	 * each sub-routine below depending on the bound type.
+	 * 用无效值初始化映射数组，具体填充
+	 * 由下面各子程序按边界类型完成。
 	 */
 	*mapping = (int *) palloc(sizeof(int) * nparts);
 	for (i = 0; i < nparts; i++)
@@ -337,12 +337,12 @@ partition_bounds_create(PartitionBoundSpec **boundspecs, int nparts,
 	}
 
 	Assert(false);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 /*
  * create_hash_bounds
- *		Create a PartitionBoundInfo for a hash partitioned table
+ *		为哈希分区表创建 PartitionBoundInfo
  */
 static PartitionBoundInfo
 create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
@@ -357,14 +357,14 @@ create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	boundinfo = (PartitionBoundInfoData *)
 		palloc0(sizeof(PartitionBoundInfoData));
 	boundinfo->strategy = key->strategy;
-	/* No special hash partitions. */
+	/* 没有特殊的哈希分区。 */
 	boundinfo->null_index = -1;
 	boundinfo->default_index = -1;
 
 	hbounds = (PartitionHashBound *)
 		palloc(nparts * sizeof(PartitionHashBound));
 
-	/* Convert from node to the internal representation */
+	/* 从节点转换成内部表示 */
 	for (i = 0; i < nparts; i++)
 	{
 		PartitionBoundSpec *spec = boundspecs[i];
@@ -377,11 +377,11 @@ create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		hbounds[i].index = i;
 	}
 
-	/* Sort all the bounds in ascending order */
+	/* 把全部分区边界按升序排序 */
 	qsort(hbounds, nparts, sizeof(PartitionHashBound),
 		  qsort_partition_hbound_cmp);
 
-	/* After sorting, moduli are now stored in ascending order. */
+	/* 排序之后，模数现在按升序存放。 */
 	greatest_modulus = hbounds[nparts - 1].modulus;
 
 	boundinfo->ndatums = nparts;
@@ -394,16 +394,16 @@ create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		boundinfo->indexes[i] = -1;
 
 	/*
-	 * In the loop below, to save from allocating a series of small datum
-	 * arrays, here we just allocate a single array and below we'll just
-	 * assign a portion of this array per partition.
+	 * 为了避免在下面的循环里分配一串小的 datum
+	 * 数组，这里只分配一个数组，下面再为每个分区
+	 * 分配该数组的一段。
 	 */
 	boundDatums = (Datum *) palloc(nparts * 2 * sizeof(Datum));
 
 	/*
-	 * For hash partitioning, there are as many datums (modulus and remainder
-	 * pairs) as there are partitions.  Indexes are simply values ranging from
-	 * 0 to (nparts - 1).
+	 * 对哈希分区，datum（模数与余数
+	 * 对）的个数与分区个数相同。下标就是从
+	 * 0 到 (nparts - 1) 的值。
 	 */
 	for (i = 0; i < nparts; i++)
 	{
@@ -416,7 +416,7 @@ create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
 
 		while (remainder < greatest_modulus)
 		{
-			/* overlap? */
+			/* 重叠？ */
 			Assert(boundinfo->indexes[remainder] == -1);
 			boundinfo->indexes[remainder] = i;
 			remainder += modulus;
@@ -431,7 +431,7 @@ create_hash_bounds(PartitionBoundSpec **boundspecs, int nparts,
 
 /*
  * get_non_null_list_datum_count
- * 		Counts the number of non-null Datums in each partition.
+ * 		统计每个分区里非空 Datum 的个数。
  */
 static int
 get_non_null_list_datum_count(PartitionBoundSpec **boundspecs, int nparts)
@@ -457,7 +457,7 @@ get_non_null_list_datum_count(PartitionBoundSpec **boundspecs, int nparts)
 
 /*
  * create_list_bounds
- *		Create a PartitionBoundInfo for a list partitioned table
+ *		为列表分区表创建 PartitionBoundInfo
  */
 static PartitionBoundInfo
 create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
@@ -476,7 +476,7 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	boundinfo = (PartitionBoundInfoData *)
 		palloc0(sizeof(PartitionBoundInfoData));
 	boundinfo->strategy = key->strategy;
-	/* Will be set correctly below. */
+	/* 下面会正确设置。 */
 	boundinfo->null_index = -1;
 	boundinfo->default_index = -1;
 
@@ -484,7 +484,7 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	all_values = (PartitionListValue *)
 		palloc(ndatums * sizeof(PartitionListValue));
 
-	/* Create a unified list of non-null values across all partitions. */
+	/* 建立跨全部分区的非空值统一列表。 */
 	for (j = 0, i = 0; i < nparts; i++)
 	{
 		PartitionBoundSpec *spec = boundspecs[i];
@@ -494,9 +494,9 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			elog(ERROR, "invalid strategy in partition bound spec");
 
 		/*
-		 * Note the index of the partition bound spec for the default
-		 * partition.  There's no datum to add to the list on non-null datums
-		 * for this partition.
+		 * 记下默认分区的分区边界说明的下标。
+		 * 这个分区没有要加入非空 datum
+		 * 列表的 datum。
 		 */
 		if (spec->is_default)
 		{
@@ -517,8 +517,8 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			else
 			{
 				/*
-				 * Never put a null into the values array; save the index of
-				 * the partition that stores nulls, instead.
+				 * 绝不把空值放进 values 数组；改为保存
+				 * 存放空值的那个分区的下标。
 				 */
 				if (null_index != -1)
 					elog(ERROR, "found null more than once");
@@ -527,7 +527,7 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		}
 	}
 
-	/* ensure we found a Datum for every slot in the all_values array */
+	/* 确保 all_values 数组的每个槽位都找到了 Datum */
 	Assert(j == ndatums);
 
 	qsort_arg(all_values, ndatums, sizeof(PartitionListValue),
@@ -541,17 +541,17 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	boundinfo->indexes = (int *) palloc(ndatums * sizeof(int));
 
 	/*
-	 * In the loop below, to save from allocating a series of small datum
-	 * arrays, here we just allocate a single array and below we'll just
-	 * assign a portion of this array per datum.
+	 * 为了避免在下面的循环里分配一串小的 datum
+	 * 数组，这里只分配一个数组，下面再为每个 datum
+	 * 分配该数组的一段。
 	 */
 	boundDatums = (Datum *) palloc(ndatums * sizeof(Datum));
 
 	/*
-	 * Copy values.  Canonical indexes are values ranging from 0 to (nparts -
-	 * 1) assigned to each partition such that all datums of a given partition
-	 * receive the same value. The value for a given partition is the index of
-	 * that partition's smallest datum in the all_values[] array.
+	 * 复制值。规范下标是赋给每个分区的、从 0 到 (nparts -
+	 * 1) 的值，使给定分区的全部 datum
+	 * 得到同一个值。给定分区的这个值，是该分区最小 datum
+	 * 在 all_values[] 数组中的下标。
 	 */
 	for (i = 0; i < ndatums; i++)
 	{
@@ -562,7 +562,7 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 											key->parttypbyval[0],
 											key->parttyplen[0]);
 
-		/* If the old index has no mapping, assign one */
+		/* 若旧下标还没有映射，就分配一个 */
 		if ((*mapping)[orig_index] == -1)
 			(*mapping)[orig_index] = next_index++;
 
@@ -572,12 +572,12 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	pfree(all_values);
 
 	/*
-	 * Set the canonical value for null_index, if any.
+	 * 若有 null_index，设置它的规范值。
 	 *
-	 * It is possible that the null-accepting partition has not been assigned
-	 * an index yet, which could happen if such partition accepts only null
-	 * and hence not handled in the above loop which only looked at non-null
-	 * values.
+	 * 接受空值的分区可能还没有被分配
+	 * 下标，若该分区只接受空值
+	 * 就会这样，因为上面的循环只看了非空
+	 * 值。
 	 */
 	if (null_index != -1)
 	{
@@ -587,13 +587,13 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		boundinfo->null_index = (*mapping)[null_index];
 	}
 
-	/* Set the canonical value for default_index, if any. */
+	/* 若有 default_index，设置它的规范值。 */
 	if (default_index != -1)
 	{
 		/*
-		 * The default partition accepts any value not specified in the lists
-		 * of other partitions, hence it should not get mapped index while
-		 * assigning those for non-null datums.
+		 * 默认分区接受其他分区列表里没有指定的任何值，
+		 * 因此在为非空 datum 分配映射下标时，
+		 * 它不应当得到映射下标。
 		 */
 		Assert(default_index >= 0);
 		Assert((*mapping)[default_index] == -1);
@@ -602,22 +602,22 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	}
 
 	/*
-	 * Calculate interleaved partitions.  Here we look for partitions which
-	 * might be interleaved with other partitions and set a bit in
-	 * interleaved_parts for any partitions which may be interleaved with
-	 * another partition.
+	 * 计算交错分区。这里查找可能与其他分区
+	 * 交错的分区，并对任何可能与
+	 * 另一分区交错的分区，在
+	 * interleaved_parts 里置位。
 	 */
 
 	/*
-	 * There must be multiple partitions to have any interleaved partitions,
-	 * otherwise there's nothing to interleave with.
+	 * 必须有多个分区才可能有交错分区，
+	 * 否则没有可以交错的对象。
 	 */
 	if (nparts > 1)
 	{
 		/*
-		 * Short-circuit check to see if only 1 Datum is allowed per
-		 * partition.  When this is true there's no need to do the more
-		 * expensive checks to look for interleaved values.
+		 * 短路检查：是否每个分区只允许 1 个 Datum。
+		 * 若是，就不必做更
+		 * 贵的检查去找交错值。
 		 */
 		if (boundinfo->ndatums +
 			partition_bound_accepts_nulls(boundinfo) +
@@ -626,10 +626,10 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			int			last_index = -1;
 
 			/*
-			 * Since the indexes array is sorted in Datum order, if any
-			 * partitions are interleaved then it will show up by the
-			 * partition indexes not being in ascending order.  Here we check
-			 * for that and record all partitions that are out of order.
+			 * 因为 indexes 数组按 Datum 次序排序，若有
+			 * 分区交错，就会表现为
+			 * 分区下标不是升序。这里检查
+			 * 这一点，并记录所有次序不对的分区。
 			 */
 			for (i = 0; i < boundinfo->nindexes; i++)
 			{
@@ -640,9 +640,9 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 																  index);
 
 				/*
-				 * Otherwise, if the null_index exists in the indexes array,
-				 * then the NULL partition must also allow some other Datum,
-				 * therefore it's "interleaved".
+				 * 否则，若 null_index 出现在 indexes 数组里，
+				 * 则 NULL 分区还必须允许某个其他 Datum，
+				 * 因此它是交错的。
 				 */
 				else if (partition_bound_accepts_nulls(boundinfo) &&
 						 index == boundinfo->null_index)
@@ -654,10 +654,10 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		}
 
 		/*
-		 * The DEFAULT partition is the "catch-all" partition that can contain
-		 * anything that does not belong to any other partition.  If there are
-		 * any other partitions then the DEFAULT partition must be marked as
-		 * interleaved.
+		 * DEFAULT 分区是可以包含
+		 * 不属于任何其他分区的任何东西的兜底分区。若还有
+		 * 任何其他分区，就必须把 DEFAULT 分区标成
+		 * 交错的。
 		 */
 		if (partition_bound_has_default(boundinfo))
 			boundinfo->interleaved_parts = bms_add_member(boundinfo->interleaved_parts,
@@ -665,14 +665,14 @@ create_list_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	}
 
 
-	/* All partitions must now have been assigned canonical indexes. */
+	/* 现在全部分区都应当已分配规范下标。 */
 	Assert(next_index == nparts);
 	return boundinfo;
 }
 
 /*
  * create_range_bounds
- *		Create a PartitionBoundInfo for a range partitioned table
+ *		为区间分区表创建 PartitionBoundInfo
  */
 static PartitionBoundInfo
 create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
@@ -694,15 +694,15 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	boundinfo = (PartitionBoundInfoData *)
 		palloc0(sizeof(PartitionBoundInfoData));
 	boundinfo->strategy = key->strategy;
-	/* There is no special null-accepting range partition. */
+	/* 没有专门接受空值的区间分区。 */
 	boundinfo->null_index = -1;
-	/* Will be set correctly below. */
+	/* 下面会正确设置。 */
 	boundinfo->default_index = -1;
 
 	all_bounds = (PartitionRangeBound **)
 		palloc0(2 * nparts * sizeof(PartitionRangeBound *));
 
-	/* Create a unified list of range bounds across all the partitions. */
+	/* 建立跨全部分区的区间边界统一列表。 */
 	ndatums = 0;
 	for (i = 0; i < nparts; i++)
 	{
@@ -714,9 +714,9 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			elog(ERROR, "invalid strategy in partition bound spec");
 
 		/*
-		 * Note the index of the partition bound spec for the default
-		 * partition.  There's no datum to add to the all_bounds array for
-		 * this partition.
+		 * 记下默认分区的分区边界说明的下标。
+		 * 这个分区没有要加入 all_bounds 数组的
+		 * datum。
 		 */
 		if (spec->is_default)
 		{
@@ -733,13 +733,13 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	Assert(ndatums == nparts * 2 ||
 		   (default_index != -1 && ndatums == (nparts - 1) * 2));
 
-	/* Sort all the bounds in ascending order */
+	/* 把全部分区边界按升序排序 */
 	qsort_arg(all_bounds, ndatums,
 			  sizeof(PartitionRangeBound *),
 			  qsort_partition_rbound_cmp,
 			  key);
 
-	/* Save distinct bounds from all_bounds into rbounds. */
+	/* 把 all_bounds 里互异的边界存进 rbounds。 */
 	rbounds = (PartitionRangeBound **)
 		palloc(ndatums * sizeof(PartitionRangeBound *));
 	k = 0;
@@ -750,7 +750,7 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		bool		is_distinct = false;
 		int			j;
 
-		/* Is the current bound distinct from the previous one? */
+		/* 当前边界与前一个不同吗？ */
 		for (j = 0; j < key->partnatts; j++)
 		{
 			Datum		cmpval;
@@ -762,9 +762,9 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 			}
 
 			/*
-			 * If the bounds are both MINVALUE or MAXVALUE, stop now and treat
-			 * them as equal, since any values after this point must be
-			 * ignored.
+			 * 若两个边界都是 MINVALUE 或都是 MAXVALUE，现在就停止并当作
+			 * 它们相等，因为这一点之后的任何值都必须
+			 * 忽略。
 			 */
 			if (cur->kind[j] != PARTITION_RANGE_DATUM_VALUE)
 				break;
@@ -781,8 +781,8 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		}
 
 		/*
-		 * Only if the bound is distinct save it into a temporary array, i.e,
-		 * rbounds which is later copied into boundinfo datums array.
+		 * 只有边界互异时才把它存进临时数组，即
+		 * 稍后复制进 boundinfo datum 数组的 rbounds。
 		 */
 		if (is_distinct)
 			rbounds[k++] = all_bounds[i];
@@ -792,16 +792,16 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 
 	pfree(all_bounds);
 
-	/* Update ndatums to hold the count of distinct datums. */
+	/* 把 ndatums 更新为互异 datum 的个数。 */
 	ndatums = k;
 
 	/*
-	 * Add datums to boundinfo.  Canonical indexes are values ranging from 0
-	 * to nparts - 1, assigned in that order to each partition's upper bound.
-	 * For 'datums' elements that are lower bounds, there is -1 in the
-	 * 'indexes' array to signify that no partition exists for the values less
-	 * than such a bound and greater than or equal to the previous upper
-	 * bound.
+	 * 把 datum 加入 boundinfo。规范下标是从 0
+	 * 到 nparts - 1 的值，按该次序赋给每个分区的上界。
+	 * 对作为下界的 datums 元素，indexes 数组里放 -1，
+	 * 表示小于该边界、且大于等于上一上界的那些值
+	 * 不属于任何
+	 * 分区。
 	 */
 	boundinfo->ndatums = ndatums;
 	boundinfo->datums = (Datum **) palloc0(ndatums * sizeof(Datum *));
@@ -811,17 +811,17 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 	boundinfo->interleaved_parts = NULL;
 
 	/*
-	 * For range partitioning, an additional value of -1 is stored as the last
-	 * element of the indexes[] array.
+	 * 对区间分区，indexes[] 数组的最后一个元素
+	 * 额外存放一个 -1。
 	 */
 	boundinfo->nindexes = ndatums + 1;
 	boundinfo->indexes = (int *) palloc((ndatums + 1) * sizeof(int));
 
 	/*
-	 * In the loop below, to save from allocating a series of small arrays,
-	 * here we just allocate a single array for Datums and another for
-	 * PartitionRangeDatumKinds, below we'll just assign a portion of these
-	 * arrays in each loop.
+	 * 为了避免在下面的循环里分配一串小数组，
+	 * 这里只为 Datum 分配一个数组，再为
+	 * PartitionRangeDatumKinds 分配另一个，下面再在每次循环里
+	 * 分配这些数组的一段。
 	 */
 	partnatts = key->partnatts;
 	boundDatums = (Datum *) palloc(ndatums * partnatts * sizeof(Datum));
@@ -845,12 +845,12 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		}
 
 		/*
-		 * There is no mapping for invalid indexes.
+		 * 无效下标没有映射。
 		 *
-		 * Any lower bounds in the rbounds array have invalid indexes
-		 * assigned, because the values between the previous bound (if there
-		 * is one) and this (lower) bound are not part of the range of any
-		 * existing partition.
+		 * rbounds 数组里的任何下界都被赋了无效下标，
+		 * 因为上一边界（若有）与这个（下）边界之间的值
+		 * 不属于任何
+		 * 现有分区的区间。
 		 */
 		if (rbounds[i]->lower)
 			boundinfo->indexes[i] = -1;
@@ -858,7 +858,7 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		{
 			int			orig_index = rbounds[i]->index;
 
-			/* If the old index has no mapping, assign one */
+			/* 若旧下标还没有映射，就分配一个 */
 			if ((*mapping)[orig_index] == -1)
 				(*mapping)[orig_index] = next_index++;
 
@@ -868,7 +868,7 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 
 	pfree(rbounds);
 
-	/* Set the canonical value for default_index, if any. */
+	/* 若有 default_index，设置它的规范值。 */
 	if (default_index != -1)
 	{
 		Assert(default_index >= 0 && (*mapping)[default_index] == -1);
@@ -876,22 +876,22 @@ create_range_bounds(PartitionBoundSpec **boundspecs, int nparts,
 		boundinfo->default_index = (*mapping)[default_index];
 	}
 
-	/* The extra -1 element. */
+	/* 额外的那个 -1 元素。 */
 	Assert(i == ndatums);
 	boundinfo->indexes[i] = -1;
 
-	/* All partitions must now have been assigned canonical indexes. */
+	/* 现在全部分区都应当已分配规范下标。 */
 	Assert(next_index == nparts);
 	return boundinfo;
 }
 
 /*
- * Are two partition bound collections logically equal?
+ * 两套分区边界集合在逻辑上相等吗？
  *
- * Used in the keep logic of relcache.c (ie, in RelationClearRelation()).
- * This is also useful when b1 and b2 are bound collections of two separate
- * relations, respectively, because PartitionBoundInfo is a canonical
- * representation of partition bounds.
+ * 用于 relcache.c 的保留逻辑（即 RelationClearRelation()）。
+ * 当 b1 和 b2 分别是两个不同
+ * 关系的边界集合时这也有用，因为 PartitionBoundInfo 是分区边界的
+ * 规范表示。
  */
 bool
 partition_bounds_equal(int partnatts, int16 *parttyplen, bool *parttypbyval,
@@ -914,30 +914,30 @@ partition_bounds_equal(int partnatts, int16 *parttyplen, bool *parttypbyval,
 	if (b1->default_index != b2->default_index)
 		return false;
 
-	/* For all partition strategies, the indexes[] arrays have to match */
+	/* 对所有分区策略，indexes[] 数组都必须匹配 */
 	for (i = 0; i < b1->nindexes; i++)
 	{
 		if (b1->indexes[i] != b2->indexes[i])
 			return false;
 	}
 
-	/* Finally, compare the datums[] arrays */
+	/* 最后比较 datums[] 数组 */
 	if (b1->strategy == PARTITION_STRATEGY_HASH)
 	{
 		/*
-		 * We arrange the partitions in the ascending order of their moduli
-		 * and remainders.  Also every modulus is factor of next larger
-		 * modulus.  Therefore we can safely store index of a given partition
-		 * in indexes array at remainder of that partition.  Also entries at
-		 * (remainder + N * modulus) positions in indexes array are all same
-		 * for (modulus, remainder) specification for any partition.  Thus the
-		 * datums arrays from the given bounds are the same, if and only if
-		 * their indexes arrays are the same.  So, it suffices to compare the
-		 * indexes arrays.
+		 * 我们按模数和余数的升序安排分区。
+		 * 而且每个模数都是下一个更大
+		 * 模数的因子。因此可以安全地把给定分区的下标
+		 * 存在 indexes 数组里该分区余数的位置。并且对任何分区的
+		 * (模数, 余数) 说明，indexes 数组里
+		 * (余数 + N * 模数) 位置的项全都相同。因此给定边界的
+		 * datums 数组相同，当且仅当
+		 * 它们的 indexes 数组相同。所以比较
+		 * indexes 数组就够了。
 		 *
-		 * Nonetheless make sure that the bounds are indeed the same when the
-		 * indexes match.  Hash partition bound stores modulus and remainder
-		 * at b1->datums[i][0] and b1->datums[i][1] position respectively.
+		 * 尽管如此，在下标匹配时仍要确认边界确实相同。
+		 * 哈希分区边界把模数和余数
+		 * 分别存在 b1->datums[i][0] 和 b1->datums[i][1]。
 		 */
 #ifdef USE_ASSERT_CHECKING
 		for (i = 0; i < b1->ndatums; i++)
@@ -953,33 +953,33 @@ partition_bounds_equal(int partnatts, int16 *parttyplen, bool *parttypbyval,
 
 			for (j = 0; j < partnatts; j++)
 			{
-				/* For range partitions, the bounds might not be finite. */
+				/* 对区间分区，边界可能不是有限的。 */
 				if (b1->kind != NULL)
 				{
-					/* The different kinds of bound all differ from each other */
+					/* 不同种类的边界彼此都不同 */
 					if (b1->kind[i][j] != b2->kind[i][j])
 						return false;
 
 					/*
-					 * Non-finite bounds are equal without further
-					 * examination.
+					 * 非有限边界无需进一步
+					 * 检查即相等。
 					 */
 					if (b1->kind[i][j] != PARTITION_RANGE_DATUM_VALUE)
 						continue;
 				}
 
 				/*
-				 * Compare the actual values. Note that it would be both
-				 * incorrect and unsafe to invoke the comparison operator
-				 * derived from the partitioning specification here.  It would
-				 * be incorrect because we want the relcache entry to be
-				 * updated for ANY change to the partition bounds, not just
-				 * those that the partitioning operator thinks are
-				 * significant.  It would be unsafe because we might reach
-				 * this code in the context of an aborted transaction, and an
-				 * arbitrary partitioning operator might not be safe in that
-				 * context.  datumIsEqual() should be simple enough to be
-				 * safe.
+				 * 比较实际的值。注意，在这里调用
+				 * 由分区说明导出的比较操作符既
+				 * 不正确也不安全。不正确是因为我们希望关系缓存项对分区边界的
+				 * 任何变化都更新，而不只是
+				 * 分区操作符认为
+				 * 有意义的那些。不安全是因为我们可能在
+				 * 已中止事务的上下文里到达
+				 * 这段代码，任意的分区操作符在该
+				 * 上下文里可能不安全。datumIsEqual() 应当
+				 * 简单到足够
+				 * 安全。
 				 */
 				if (!datumIsEqual(b1->datums[i][j], b2->datums[i][j],
 								  parttypbyval[j], parttyplen[j]))
@@ -991,13 +991,13 @@ partition_bounds_equal(int partnatts, int16 *parttyplen, bool *parttypbyval,
 }
 
 /*
- * Return a copy of given PartitionBoundInfo structure. The data types of bounds
- * are described by given partition key specification.
+ * 返回给定 PartitionBoundInfo 结构的副本。边界的数据类型
+ * 由给定的分区键说明描述。
  *
- * Note: it's important that this function and its callees not do any catalog
- * access, nor anything else that would result in allocating memory other than
- * the returned data structure.  Since this is called in a long-lived context,
- * that would result in unwanted memory leaks.
+ * 注意：本函数及其被调用者不要做任何系统目录
+ * 访问，也不要做任何会导致在返回的数据结构之外分配内存的事。
+ * 因为这是在长寿命上下文里调用的，
+ * 否则会造成不想要的内存泄漏。
  */
 PartitionBoundInfo
 partition_bounds_copy(PartitionBoundInfo src,
@@ -1019,7 +1019,7 @@ partition_bounds_copy(PartitionBoundInfo src,
 	nindexes = dest->nindexes = src->nindexes;
 	partnatts = key->partnatts;
 
-	/* List partitioned tables have only a single partition key. */
+	/* 列表分区表只有单个分区键。 */
 	Assert(key->strategy != PARTITION_STRATEGY_LIST || partnatts == 1);
 
 	dest->datums = (Datum **) palloc(sizeof(Datum *) * ndatums);
@@ -1028,16 +1028,16 @@ partition_bounds_copy(PartitionBoundInfo src,
 	{
 		PartitionRangeDatumKind *boundKinds;
 
-		/* only RANGE partition should have a non-NULL kind */
+		/* 只有 RANGE 分区才应有非 NULL 的 kind */
 		Assert(key->strategy == PARTITION_STRATEGY_RANGE);
 
 		dest->kind = (PartitionRangeDatumKind **) palloc(ndatums *
 														 sizeof(PartitionRangeDatumKind *));
 
 		/*
-		 * In the loop below, to save from allocating a series of small arrays
-		 * for storing the PartitionRangeDatumKind, we allocate a single chunk
-		 * here and use a smaller portion of it for each datum.
+		 * 为了避免在下面的循环里为存放 PartitionRangeDatumKind 分配一串小数组，
+		 * 这里分配一整块，
+		 * 再为每个 datum 使用其中较小的一段。
 		 */
 		boundKinds = (PartitionRangeDatumKind *) palloc(ndatums * partnatts *
 														sizeof(PartitionRangeDatumKind));
@@ -1052,12 +1052,12 @@ partition_bounds_copy(PartitionBoundInfo src,
 	else
 		dest->kind = NULL;
 
-	/* copy interleaved partitions for LIST partitioned tables */
+	/* 为 LIST 分区表复制交错分区 */
 	dest->interleaved_parts = bms_copy(src->interleaved_parts);
 
 	/*
-	 * For hash partitioning, datums array will have two elements - modulus
-	 * and remainder.
+	 * 对哈希分区，datums 数组有两个元素：模数
+	 * 和余数。
 	 */
 	hash_part = (key->strategy == PARTITION_STRATEGY_HASH);
 	natts = hash_part ? 2 : partnatts;
@@ -1076,8 +1076,8 @@ partition_bounds_copy(PartitionBoundInfo src,
 
 			if (hash_part)
 			{
-				typlen = sizeof(int32); /* Always int4 */
-				byval = true;	/* int4 is pass-by-value */
+				typlen = sizeof(int32); /* 始终是 int4 */
+				byval = true;	/* int4 按值传递 */
 			}
 			else
 			{
@@ -1103,17 +1103,17 @@ partition_bounds_copy(PartitionBoundInfo src,
 
 /*
  * partition_bounds_merge
- *		Check to see whether every partition of 'outer_rel' matches/overlaps
- *		one partition of 'inner_rel' at most, and vice versa; and if so, build
- *		and return the partition bounds for a join relation between the rels,
- *		generating two lists of the matching/overlapping partitions, which are
- *		returned to *outer_parts and *inner_parts respectively.
+ *		检查 outer_rel 的每个分区是否最多匹配/重叠
+ *		inner_rel 的一个分区，反之亦然；若是，就构造
+ *		并返回这两个关系之间连接关系的分区边界，
+ *		生成两份匹配/重叠分区的列表，分别
+ *		返回到 *outer_parts 和 *inner_parts。
  *
- * The lists contain the same number of partitions, and the partitions at the
- * same positions in the lists indicate join pairs used for partitioned join.
- * If a partition on one side matches/overlaps multiple partitions on the other
- * side, this function returns NULL, setting *outer_parts and *inner_parts to
- * NIL.
+ * 这两份列表含有相同个数的分区，相同位置上的分区
+ * 表示用于分区连接的连接对。
+ * 若一侧的一个分区匹配/重叠另一侧的多个分区，
+ * 本函数返回 NULL，并把 *outer_parts 和 *inner_parts 设为
+ * NIL。
  */
 PartitionBoundInfo
 partition_bounds_merge(int partnatts,
@@ -1123,14 +1123,14 @@ partition_bounds_merge(int partnatts,
 					   List **outer_parts, List **inner_parts)
 {
 	/*
-	 * Currently, this function is called only from try_partitionwise_join(),
-	 * so the join type should be INNER, LEFT, FULL, SEMI, or ANTI.
+	 * 目前本函数只从 try_partitionwise_join() 调用，
+	 * 因此连接类型应当是 INNER、LEFT、FULL、SEMI 或 ANTI。
 	 */
 	Assert(jointype == JOIN_INNER || jointype == JOIN_LEFT ||
 		   jointype == JOIN_FULL || jointype == JOIN_SEMI ||
 		   jointype == JOIN_ANTI);
 
-	/* The partitioning strategies should be the same. */
+	/* 分区策略应当相同。 */
 	Assert(outer_rel->boundinfo->strategy == inner_rel->boundinfo->strategy);
 
 	*outer_parts = *inner_parts = NIL;
@@ -1139,18 +1139,18 @@ partition_bounds_merge(int partnatts,
 		case PARTITION_STRATEGY_HASH:
 
 			/*
-			 * For hash partitioned tables, we currently support partitioned
-			 * join only when they have exactly the same partition bounds.
+			 * 对哈希分区表，目前只在它们的分区边界
+			 * 完全相同时才支持分区连接。
 			 *
-			 * XXX: it might be possible to relax the restriction to support
-			 * cases where hash partitioned tables have missing partitions
-			 * and/or different moduli, but it's not clear if it would be
-			 * useful to support the former case since it's unusual to have
-			 * missing partitions.  On the other hand, it would be useful to
-			 * support the latter case, but in that case, there is a high
-			 * probability that a partition on one side will match multiple
-			 * partitions on the other side, which is the scenario the current
-			 * implementation of partitioned join can't handle.
+			 * XXX：也许可以放宽限制，以支持
+			 * 哈希分区表缺少分区
+			 * 和/或模数不同的情形，但不清楚
+			 * 支持前一种情形是否有用，因为
+			 * 缺少分区并不常见。另一方面，
+			 * 支持后一种情形会有用，但那种情况下，
+			 * 一侧的一个分区很有可能匹配
+			 * 另一侧的多个分区，而这正是当前
+			 * 分区连接实现没法处理的情形。
 			 */
 			return NULL;
 
@@ -1179,21 +1179,21 @@ partition_bounds_merge(int partnatts,
 
 /*
  * merge_list_bounds
- *		Create the partition bounds for a join relation between list
- *		partitioned tables, if possible
+ *		若可能，为列表
+ *		分区表之间的连接关系创建分区边界。
  *
- * In this function we try to find sets of matching partitions from both sides
- * by comparing list values stored in their partition bounds.  Since the list
- * values appear in the ascending order, an algorithm similar to merge join is
- * used for that.  If a partition on one side doesn't have a matching
- * partition on the other side, the algorithm tries to match it with the
- * default partition on the other side if any; if not, the algorithm tries to
- * match it with a dummy partition on the other side if it's on the
- * non-nullable side of an outer join.  Also, if both sides have the default
- * partitions, the algorithm tries to match them with each other.  We give up
- * if the algorithm finds a partition matching multiple partitions on the
- * other side, which is the scenario the current implementation of partitioned
- * join can't handle.
+ * 本函数试图通过比较分区边界里存放的列表值，
+ * 找出两侧匹配的分区集合。因为列表
+ * 值按升序出现，这里用类似归并连接的
+ * 算法。
+ * 若一侧的分区在另一侧没有匹配
+ * 分区，算法就试着把它配上另一侧的
+ * 默认分区（若有）；若没有，且它在
+ * 外连接的非空一侧，算法就试着把它配上
+ * 另一侧的哑分区。另外，若两侧都有默认
+ * 分区，算法就试着让它们彼此匹配。若算法发现
+ * 一个分区匹配另一侧的多个分区，我们就放弃，
+ * 这是当前分区连接实现没法处理的情形。
  */
 static PartitionBoundInfo
 merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
@@ -1224,15 +1224,15 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 	Assert(*inner_parts == NIL);
 	Assert(outer_bi->strategy == inner_bi->strategy &&
 		   outer_bi->strategy == PARTITION_STRATEGY_LIST);
-	/* List partitioning doesn't require kinds. */
+	/* 列表分区不需要 kinds。 */
 	Assert(!outer_bi->kind && !inner_bi->kind);
 
 	init_partition_map(outer_rel, &outer_map);
 	init_partition_map(inner_rel, &inner_map);
 
 	/*
-	 * If the default partitions (if any) have been proven empty, deem them
-	 * non-existent.
+	 * 若默认分区（若有）已被证明为空，就当作它们
+	 * 不存在。
 	 */
 	if (outer_has_default && is_dummy_partition(outer_rel, outer_default))
 		outer_has_default = false;
@@ -1240,11 +1240,11 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 		inner_has_default = false;
 
 	/*
-	 * Merge partitions from both sides.  In each iteration we compare a pair
-	 * of list values, one from each side, and decide whether the
-	 * corresponding partitions match or not.  If the two values match
-	 * exactly, move to the next pair of list values, otherwise move to the
-	 * next list value on the side with a smaller list value.
+	 * 合并两侧的分区。每次迭代比较一对
+	 * 列表值，每侧一个，并决定
+	 * 对应分区是否匹配。若两个值
+	 * 完全匹配，就移到下一对列表值，否则移到
+	 * 列表值较小那一侧的下一个列表值。
 	 */
 	outer_pos = inner_pos = 0;
 	while (outer_pos < outer_bi->ndatums || inner_pos < inner_bi->ndatums)
@@ -1260,8 +1260,8 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 		if (outer_pos < outer_bi->ndatums)
 		{
 			/*
-			 * If the partition on the outer side has been proven empty,
-			 * ignore it and move to the next datum on the outer side.
+			 * 若外侧分区已被证明为空，
+			 * 就忽略它并移到外侧的下一个 datum。
 			 */
 			outer_index = outer_bi->indexes[outer_pos];
 			if (is_dummy_partition(outer_rel, outer_index))
@@ -1273,8 +1273,8 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 		if (inner_pos < inner_bi->ndatums)
 		{
 			/*
-			 * If the partition on the inner side has been proven empty,
-			 * ignore it and move to the next datum on the inner side.
+			 * 若内侧分区已被证明为空，
+			 * 就忽略它并移到内侧的下一个 datum。
 			 */
 			inner_index = inner_bi->indexes[inner_pos];
 			if (is_dummy_partition(inner_rel, inner_index))
@@ -1284,20 +1284,20 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 			}
 		}
 
-		/* Get the list values. */
+		/* 取得列表值。 */
 		outer_datums = outer_pos < outer_bi->ndatums ?
 			outer_bi->datums[outer_pos] : NULL;
 		inner_datums = inner_pos < inner_bi->ndatums ?
 			inner_bi->datums[inner_pos] : NULL;
 
 		/*
-		 * We run this loop till both sides finish.  This allows us to avoid
-		 * duplicating code to handle the remaining values on the side which
-		 * finishes later.  For that we set the comparison parameter cmpval in
-		 * such a way that it appears as if the side which finishes earlier
-		 * has an extra value higher than any other value on the unfinished
-		 * side. That way we advance the values on the unfinished side till
-		 * all of its values are exhausted.
+		 * 这个循环一直跑到两侧都结束。这样可以避免
+		 * 为较晚结束那一侧剩余的值重复写代码。
+		 * 为此我们把比较参数 cmpval 设成看起来像
+		 * 较早结束的那一侧还有一个额外值，
+		 * 比未结束一侧的任何值都高。这样我们就推进
+		 * 未结束一侧的值，直到它的
+		 * 全部值都用完。
 		 */
 		if (outer_pos >= outer_bi->ndatums)
 			cmpval = 1;
@@ -1314,15 +1314,15 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 
 		if (cmpval == 0)
 		{
-			/* Two list values match exactly. */
+			/* 两个列表值完全匹配。 */
 			Assert(outer_pos < outer_bi->ndatums);
 			Assert(inner_pos < inner_bi->ndatums);
 			Assert(outer_index >= 0);
 			Assert(inner_index >= 0);
 
 			/*
-			 * Try merging both partitions.  If successful, add the list value
-			 * and index of the merged partition below.
+			 * 尝试合并两个分区。若成功，就在下面加入列表值
+			 * 和合并后分区的下标。
 			 */
 			merged_index = merge_matching_partitions(&outer_map, &inner_map,
 													 outer_index, inner_index,
@@ -1332,24 +1332,24 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 
 			merged_datum = outer_datums;
 
-			/* Move to the next pair of list values. */
+			/* 移到下一对列表值。 */
 			outer_pos++;
 			inner_pos++;
 		}
 		else if (cmpval < 0)
 		{
-			/* A list value missing from the inner side. */
+			/* 内层缺少的一个列表值。 */
 			Assert(outer_pos < outer_bi->ndatums);
 
 			/*
-			 * If the inner side has the default partition, or this is an
-			 * outer join, try to assign a merged partition to the outer
-			 * partition (see process_outer_partition()).  Otherwise, the
-			 * outer partition will not contribute to the result.
+			 * 若内侧有默认分区，或这是
+			 * 外连接，就试着给外侧分区分配一个合并后的分区
+			 * （见 process_outer_partition()）。否则，外侧
+			 * 分区不会对结果有贡献。
 			 */
 			if (inner_has_default || IS_OUTER_JOIN(jointype))
 			{
-				/* Get the outer partition. */
+				/* 取得外侧分区。 */
 				outer_index = outer_bi->indexes[outer_pos];
 				Assert(outer_index >= 0);
 				merged_index = process_outer_partition(&outer_map,
@@ -1366,24 +1366,24 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 				merged_datum = outer_datums;
 			}
 
-			/* Move to the next list value on the outer side. */
+			/* 移到外侧的下一个列表值。 */
 			outer_pos++;
 		}
 		else
 		{
-			/* A list value missing from the outer side. */
+			/* 外层缺少的一个列表值。 */
 			Assert(cmpval > 0);
 			Assert(inner_pos < inner_bi->ndatums);
 
 			/*
-			 * If the outer side has the default partition, or this is a FULL
-			 * join, try to assign a merged partition to the inner partition
-			 * (see process_inner_partition()).  Otherwise, the inner
-			 * partition will not contribute to the result.
+			 * 若外侧有默认分区，或这是 FULL
+			 * 连接，就试着给内侧分区分配一个合并后的分区
+			 * （见 process_inner_partition()）。否则，内侧
+			 * 分区不会对结果有贡献。
 			 */
 			if (outer_has_default || jointype == JOIN_FULL)
 			{
-				/* Get the inner partition. */
+				/* 取得内侧分区。 */
 				inner_index = inner_bi->indexes[inner_pos];
 				Assert(inner_index >= 0);
 				merged_index = process_inner_partition(&outer_map,
@@ -1400,13 +1400,13 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 				merged_datum = inner_datums;
 			}
 
-			/* Move to the next list value on the inner side. */
+			/* 移到内侧的下一个列表值。 */
 			inner_pos++;
 		}
 
 		/*
-		 * If we assigned a merged partition, add the list value and index of
-		 * the merged partition if appropriate.
+		 * 若已分配合并后的分区，就在适当时候加入列表值以及
+		 * 该合并后分区的下标。
 		 */
 		if (merged_index >= 0 && merged_index != default_index)
 		{
@@ -1416,8 +1416,8 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 	}
 
 	/*
-	 * If the NULL partitions (if any) have been proven empty, deem them
-	 * non-existent.
+	 * 若 NULL 分区（若有）已被证明为空，就当作它们
+	 * 不存在。
 	 */
 	if (outer_has_null &&
 		is_dummy_partition(outer_rel, outer_bi->null_index))
@@ -1426,7 +1426,7 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 		is_dummy_partition(inner_rel, inner_bi->null_index))
 		inner_has_null = false;
 
-	/* Merge the NULL partitions if any. */
+	/* 若有 NULL 分区，就合并它们。 */
 	if (outer_has_null || inner_has_null)
 		merge_null_partitions(&outer_map, &inner_map,
 							  outer_has_null, inner_has_null,
@@ -1435,7 +1435,7 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 	else
 		Assert(null_index == -1);
 
-	/* Merge the default partitions if any. */
+	/* 若有默认分区，就合并它们。 */
 	if (outer_has_default || inner_has_default)
 		merge_default_partitions(&outer_map, &inner_map,
 								 outer_has_default, inner_has_default,
@@ -1444,10 +1444,10 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 	else
 		Assert(default_index == -1);
 
-	/* If we have merged partitions, create the partition bounds. */
+	/* 若已有合并后的分区，就创建分区边界。 */
 	if (next_index > 0)
 	{
-		/* Fix the merged_indexes list if necessary. */
+		/* 必要时修正 merged_indexes 列表。 */
 		if (outer_map.did_remapping || inner_map.did_remapping)
 		{
 			Assert(jointype == JOIN_FULL);
@@ -1455,7 +1455,7 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 							   next_index, merged_indexes);
 		}
 
-		/* Use maps to match partitions from inputs. */
+		/* 用映射去匹配输入的分区。 */
 		generate_matching_part_pairs(outer_rel, inner_rel,
 									 &outer_map, &inner_map,
 									 next_index,
@@ -1465,7 +1465,7 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 		Assert(list_length(*outer_parts) == list_length(*inner_parts));
 		Assert(list_length(*outer_parts) <= next_index);
 
-		/* Make a PartitionBoundInfo struct to return. */
+		/* 构造一个 PartitionBoundInfo 结构以便返回。 */
 		merged_bounds = build_merged_partition_bounds(outer_bi->strategy,
 													  merged_datums,
 													  NIL,
@@ -1476,7 +1476,7 @@ merge_list_bounds(FmgrInfo *partsupfunc, Oid *partcollation,
 	}
 
 cleanup:
-	/* Free local memory before returning. */
+	/* 返回前释放局部内存。 */
 	list_free(merged_datums);
 	list_free(merged_indexes);
 	free_partition_map(&outer_map);
@@ -1487,21 +1487,21 @@ cleanup:
 
 /*
  * merge_range_bounds
- *		Create the partition bounds for a join relation between range
- *		partitioned tables, if possible
+ *		若可能，为区间
+ *		分区表之间的连接关系创建分区边界。
  *
- * In this function we try to find sets of overlapping partitions from both
- * sides by comparing ranges stored in their partition bounds.  Since the
- * ranges appear in the ascending order, an algorithm similar to merge join is
- * used for that.  If a partition on one side doesn't have an overlapping
- * partition on the other side, the algorithm tries to match it with the
- * default partition on the other side if any; if not, the algorithm tries to
- * match it with a dummy partition on the other side if it's on the
- * non-nullable side of an outer join.  Also, if both sides have the default
- * partitions, the algorithm tries to match them with each other.  We give up
- * if the algorithm finds a partition overlapping multiple partitions on the
- * other side, which is the scenario the current implementation of partitioned
- * join can't handle.
+ * 本函数试图通过比较分区边界里存放的区间，
+ * 找出两侧重叠的分区集合。因为
+ * 区间按升序出现，这里用类似归并连接的
+ * 算法。
+ * 若一侧的分区在另一侧没有重叠
+ * 分区，算法就试着把它配上另一侧的
+ * 默认分区（若有）；若没有，且它在
+ * 外连接的非空一侧，算法就试着把它配上
+ * 另一侧的哑分区。另外，若两侧都有默认
+ * 分区，算法就试着让它们彼此匹配。若算法发现
+ * 一个分区重叠另一侧的多个分区，我们就放弃，
+ * 这是当前分区连接实现没法处理的情形。
  */
 static PartitionBoundInfo
 merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
@@ -1542,8 +1542,8 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 	init_partition_map(inner_rel, &inner_map);
 
 	/*
-	 * If the default partitions (if any) have been proven empty, deem them
-	 * non-existent.
+	 * 若默认分区（若有）已被证明为空，就当作它们
+	 * 不存在。
 	 */
 	if (outer_has_default && is_dummy_partition(outer_rel, outer_default))
 		outer_has_default = false;
@@ -1551,13 +1551,13 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		inner_has_default = false;
 
 	/*
-	 * Merge partitions from both sides.  In each iteration we compare a pair
-	 * of ranges, one from each side, and decide whether the corresponding
-	 * partitions match or not.  If the two ranges overlap, move to the next
-	 * pair of ranges, otherwise move to the next range on the side with a
-	 * lower range.  outer_lb_pos/inner_lb_pos keep track of the positions of
-	 * lower bounds in the datums arrays in the outer/inner
-	 * PartitionBoundInfos respectively.
+	 * 合并两侧的分区。每次迭代比较一对
+	 * 区间，每侧一个，并决定对应
+	 * 分区是否匹配。若两个区间重叠，就移到下一
+	 * 对区间，否则移到区间更低那一侧的下一个区间。
+	 * outer_lb_pos/inner_lb_pos 跟踪外/内
+	 * PartitionBoundInfos 的 datums 数组里
+	 * 下界的位置。
 	 */
 	outer_lb_pos = inner_lb_pos = 0;
 	outer_index = get_range_partition(outer_rel, outer_bi, &outer_lb_pos,
@@ -1574,13 +1574,13 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		int			merged_index = -1;
 
 		/*
-		 * We run this loop till both sides finish.  This allows us to avoid
-		 * duplicating code to handle the remaining ranges on the side which
-		 * finishes later.  For that we set the comparison parameter cmpval in
-		 * such a way that it appears as if the side which finishes earlier
-		 * has an extra range higher than any other range on the unfinished
-		 * side. That way we advance the ranges on the unfinished side till
-		 * all of its ranges are exhausted.
+		 * 这个循环一直跑到两侧都结束。这样可以避免
+		 * 为较晚结束那一侧剩余的区间重复写代码。
+		 * 为此我们把比较参数 cmpval 设成看起来像
+		 * 较早结束的那一侧还有一个额外区间，
+		 * 比未结束一侧的任何区间都高。这样我们就推进
+		 * 未结束一侧的区间，直到它的
+		 * 全部区间都用完。
 		 */
 		if (outer_index == -1)
 		{
@@ -1603,12 +1603,12 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 
 		if (overlap)
 		{
-			/* Two ranges overlap; form a join pair. */
+			/* 两个区间重叠；组成一个连接对。 */
 
 			PartitionRangeBound save_outer_ub;
 			PartitionRangeBound save_inner_ub;
 
-			/* Both partitions should not have been merged yet. */
+			/* 两个分区都应当还没被合并。 */
 			Assert(outer_index >= 0);
 			Assert(outer_map.merged_indexes[outer_index] == -1 &&
 				   outer_map.merged[outer_index] == false);
@@ -1617,15 +1617,15 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 				   inner_map.merged[inner_index] == false);
 
 			/*
-			 * Get the index of the merged partition.  Both partitions aren't
-			 * merged yet, so the partitions should be merged successfully.
+			 * 取得合并后分区的下标。两个分区都还
+			 * 没合并，因此应当能成功合并。
 			 */
 			merged_index = merge_matching_partitions(&outer_map, &inner_map,
 													 outer_index, inner_index,
 													 &next_index);
 			Assert(merged_index >= 0);
 
-			/* Get the range bounds of the merged partition. */
+			/* 取得合并后分区的区间边界。 */
 			get_merged_range_bounds(partnatts, partsupfuncs,
 									partcollations, jointype,
 									&outer_lb, &outer_ub,
@@ -1633,22 +1633,22 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 									lb_cmpval, ub_cmpval,
 									&merged_lb, &merged_ub);
 
-			/* Save the upper bounds of both partitions for use below. */
+			/* 保存两个分区的上界，供下面使用。 */
 			save_outer_ub = outer_ub;
 			save_inner_ub = inner_ub;
 
-			/* Move to the next pair of ranges. */
+			/* 移到下一对区间。 */
 			outer_index = get_range_partition(outer_rel, outer_bi, &outer_lb_pos,
 											  &outer_lb, &outer_ub);
 			inner_index = get_range_partition(inner_rel, inner_bi, &inner_lb_pos,
 											  &inner_lb, &inner_ub);
 
 			/*
-			 * If the range of a partition on one side overlaps the range of
-			 * the next partition on the other side, that will cause the
-			 * partition on one side to match at least two partitions on the
-			 * other side, which is the case that we currently don't support
-			 * partitioned join for; give up.
+			 * 若一侧某分区的区间重叠另一侧
+			 * 下一个分区的区间，就会使
+			 * 一侧的分区至少匹配另一侧的两个分区，
+			 * 这是目前不支持分区连接的情形；
+			 * 放弃。
 			 */
 			if (ub_cmpval > 0 && inner_index >= 0 &&
 				compare_range_bounds(partnatts, partsupfuncs, partcollations,
@@ -1660,10 +1660,10 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 				goto cleanup;
 
 			/*
-			 * A row from a non-overlapping portion (if any) of a partition on
-			 * one side might find its join partner in the default partition
-			 * (if any) on the other side, causing the same situation as
-			 * above; give up in that case.
+			 * 来自一侧分区不重叠部分（若有）的行
+			 * 可能在另一侧的默认分区
+			 * （若有）里找到连接伙伴，造成与上面相同的局面；
+			 * 那种情况下放弃。
 			 */
 			if ((outer_has_default && (lb_cmpval > 0 || ub_cmpval < 0)) ||
 				(inner_has_default && (lb_cmpval < 0 || ub_cmpval > 0)))
@@ -1671,18 +1671,18 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		}
 		else if (ub_cmpval < 0)
 		{
-			/* A non-overlapping outer range. */
+			/* 一个不重叠的外侧区间。 */
 
-			/* The outer partition should not have been merged yet. */
+			/* 外侧分区应当还没被合并。 */
 			Assert(outer_index >= 0);
 			Assert(outer_map.merged_indexes[outer_index] == -1 &&
 				   outer_map.merged[outer_index] == false);
 
 			/*
-			 * If the inner side has the default partition, or this is an
-			 * outer join, try to assign a merged partition to the outer
-			 * partition (see process_outer_partition()).  Otherwise, the
-			 * outer partition will not contribute to the result.
+			 * 若内侧有默认分区，或这是
+			 * 外连接，就试着给外侧分区分配一个合并后的分区
+			 * （见 process_outer_partition()）。否则，外侧
+			 * 分区不会对结果有贡献。
 			 */
 			if (inner_has_default || IS_OUTER_JOIN(jointype))
 			{
@@ -1701,25 +1701,25 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 				merged_ub = outer_ub;
 			}
 
-			/* Move to the next range on the outer side. */
+			/* 移到外侧的下一个区间。 */
 			outer_index = get_range_partition(outer_rel, outer_bi, &outer_lb_pos,
 											  &outer_lb, &outer_ub);
 		}
 		else
 		{
-			/* A non-overlapping inner range. */
+			/* 一个不重叠的内侧区间。 */
 			Assert(ub_cmpval > 0);
 
-			/* The inner partition should not have been merged yet. */
+			/* 内侧分区应当还没被合并。 */
 			Assert(inner_index >= 0);
 			Assert(inner_map.merged_indexes[inner_index] == -1 &&
 				   inner_map.merged[inner_index] == false);
 
 			/*
-			 * If the outer side has the default partition, or this is a FULL
-			 * join, try to assign a merged partition to the inner partition
-			 * (see process_inner_partition()).  Otherwise, the inner
-			 * partition will not contribute to the result.
+			 * 若外侧有默认分区，或这是 FULL
+			 * 连接，就试着给内侧分区分配一个合并后的分区
+			 * （见 process_inner_partition()）。否则，内侧
+			 * 分区不会对结果有贡献。
 			 */
 			if (outer_has_default || jointype == JOIN_FULL)
 			{
@@ -1738,14 +1738,14 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 				merged_ub = inner_ub;
 			}
 
-			/* Move to the next range on the inner side. */
+			/* 移到内侧的下一个区间。 */
 			inner_index = get_range_partition(inner_rel, inner_bi, &inner_lb_pos,
 											  &inner_lb, &inner_ub);
 		}
 
 		/*
-		 * If we assigned a merged partition, add the range bounds and index
-		 * of the merged partition if appropriate.
+		 * 若已分配合并后的分区，就在适当时候加入区间边界以及
+		 * 该合并后分区的下标。
 		 */
 		if (merged_index >= 0 && merged_index != default_index)
 			add_merged_range_bounds(partnatts, partsupfuncs, partcollations,
@@ -1754,7 +1754,7 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 									&merged_indexes);
 	}
 
-	/* Merge the default partitions if any. */
+	/* 若有默认分区，就合并它们。 */
 	if (outer_has_default || inner_has_default)
 		merge_default_partitions(&outer_map, &inner_map,
 								 outer_has_default, inner_has_default,
@@ -1763,17 +1763,17 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 	else
 		Assert(default_index == -1);
 
-	/* If we have merged partitions, create the partition bounds. */
+	/* 若已有合并后的分区，就创建分区边界。 */
 	if (next_index > 0)
 	{
 		/*
-		 * Unlike the case of list partitioning, we wouldn't have re-merged
-		 * partitions, so did_remapping should be left alone.
+		 * 与列表分区不同，我们不会重新合并
+		 * 分区，因此 did_remapping 应当保持不动。
 		 */
 		Assert(!outer_map.did_remapping);
 		Assert(!inner_map.did_remapping);
 
-		/* Use maps to match partitions from inputs. */
+		/* 用映射去匹配输入的分区。 */
 		generate_matching_part_pairs(outer_rel, inner_rel,
 									 &outer_map, &inner_map,
 									 next_index,
@@ -1783,7 +1783,7 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		Assert(list_length(*outer_parts) == list_length(*inner_parts));
 		Assert(list_length(*outer_parts) == next_index);
 
-		/* Make a PartitionBoundInfo struct to return. */
+		/* 构造一个 PartitionBoundInfo 结构以便返回。 */
 		merged_bounds = build_merged_partition_bounds(outer_bi->strategy,
 													  merged_datums,
 													  merged_kinds,
@@ -1794,7 +1794,7 @@ merge_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 	}
 
 cleanup:
-	/* Free local memory before returning. */
+	/* 返回前释放局部内存。 */
 	list_free(merged_datums);
 	list_free(merged_kinds);
 	list_free(merged_indexes);
@@ -1806,7 +1806,7 @@ cleanup:
 
 /*
  * init_partition_map
- *		Initialize a PartitionMap struct for given relation
+ *		为给定关系初始化 PartitionMap 结构
  */
 static void
 init_partition_map(RelOptInfo *rel, PartitionMap *map)
@@ -1827,7 +1827,7 @@ init_partition_map(RelOptInfo *rel, PartitionMap *map)
 }
 
 /*
- * free_partition_map
+ * free_partition_map：释放分区映射
  */
 static void
 free_partition_map(PartitionMap *map)
@@ -1838,7 +1838,7 @@ free_partition_map(PartitionMap *map)
 }
 
 /*
- * is_dummy_partition --- has partition been proven empty?
+ * is_dummy_partition：分区是否已被证明为空？
  */
 static bool
 is_dummy_partition(RelOptInfo *rel, int part_index)
@@ -1854,10 +1854,10 @@ is_dummy_partition(RelOptInfo *rel, int part_index)
 
 /*
  * merge_matching_partitions
- *		Try to merge given outer/inner partitions, and return the index of a
- *		merged partition produced from them if successful, -1 otherwise
+ *		尝试合并给定的外/内分区，成功时返回由它们产生的
+ *		合并后分区的下标，否则返回 -1。
  *
- * If the merged partition is newly created, *next_index is incremented.
+ * 若合并后的分区是新创建的，*next_index 就递增。
  */
 static int
 merge_matching_partitions(PartitionMap *outer_map, PartitionMap *inner_map,
@@ -1876,17 +1876,17 @@ merge_matching_partitions(PartitionMap *outer_map, PartitionMap *inner_map,
 	inner_merged = inner_map->merged[inner_index];
 
 	/*
-	 * Handle cases where we have already assigned a merged partition to each
-	 * of the given partitions.
+	 * 处理已经给每个
+	 * 给定分区分配了合并后分区的情形。
 	 */
 	if (outer_merged_index >= 0 && inner_merged_index >= 0)
 	{
 		/*
-		 * If the merged partitions are the same, no need to do anything;
-		 * return the index of the merged partitions.  Otherwise, if each of
-		 * the given partitions has been merged with a dummy partition on the
-		 * other side, re-map them to either of the two merged partitions.
-		 * Otherwise, they can't be merged, so return -1.
+		 * 若合并后的分区相同，就不必做任何事；
+		 * 返回这些合并后分区的下标。否则，若每个
+		 * 给定分区都已与另一侧的哑分区合并，
+		 * 就把它们重新映射到这两个合并后分区之一。
+		 * 否则它们没法合并，因此返回 -1。
 		 */
 		if (outer_merged_index == inner_merged_index)
 		{
@@ -1897,11 +1897,11 @@ merge_matching_partitions(PartitionMap *outer_map, PartitionMap *inner_map,
 		if (!outer_merged && !inner_merged)
 		{
 			/*
-			 * This can only happen for a list-partitioning case.  We re-map
-			 * them to the merged partition with the smaller of the two merged
-			 * indexes to preserve the property that the canonical order of
-			 * list partitions is determined by the indexes assigned to the
-			 * smallest list value of each partition.
+			 * 这只可能发生在列表分区的情形。我们把它们
+			 * 重新映射到两个合并下标中较小的那个合并后分区，
+			 * 以保持这条性质：列表分区的规范次序
+			 * 由赋给每个分区
+			 * 最小列表值的下标决定。
 			 */
 			if (outer_merged_index < inner_merged_index)
 			{
@@ -1925,14 +1925,14 @@ merge_matching_partitions(PartitionMap *outer_map, PartitionMap *inner_map,
 		return -1;
 	}
 
-	/* At least one of the given partitions should not have yet been merged. */
+	/* 给定分区中至少有一个应当还没被合并。 */
 	Assert(outer_merged_index == -1 || inner_merged_index == -1);
 
 	/*
-	 * If neither of them has been merged, merge them.  Otherwise, if one has
-	 * been merged with a dummy partition on the other side (and the other
-	 * hasn't yet been merged with anything), re-merge them.  Otherwise, they
-	 * can't be merged, so return -1.
+	 * 若两者都还没合并，就合并它们。否则，若其中一个已
+	 * 与另一侧的哑分区合并（而另一个
+	 * 还没与任何东西合并），就重新合并它们。否则它们
+	 * 没法合并，因此返回 -1。
 	 */
 	if (outer_merged_index == -1 && inner_merged_index == -1)
 	{
@@ -1970,12 +1970,12 @@ merge_matching_partitions(PartitionMap *outer_map, PartitionMap *inner_map,
 
 /*
  * process_outer_partition
- *		Try to assign given outer partition a merged partition, and return the
- *		index of the merged partition if successful, -1 otherwise
+ *		试着给给定的外侧分区分配一个合并后的分区，成功时返回
+ *		该合并后分区的下标，否则返回 -1。
  *
- * If the partition is newly created, *next_index is incremented.  Also, if it
- * is the default partition of the join relation, *default_index is set to the
- * index if not already done.
+ * 若该分区是新创建的，*next_index 就递增。另外，若它
+ * 是连接关系的默认分区，且尚未设置，就把 *default_index
+ * 设为该下标。
  */
 static int
 process_outer_partition(PartitionMap *outer_map,
@@ -1993,23 +1993,23 @@ process_outer_partition(PartitionMap *outer_map,
 	Assert(outer_index >= 0);
 
 	/*
-	 * If the inner side has the default partition, a row from the outer
-	 * partition might find its join partner in the default partition; try
-	 * merging the outer partition with the default partition.  Otherwise,
-	 * this should be an outer join, in which case the outer partition has to
-	 * be scanned all the way anyway; merge the outer partition with a dummy
-	 * partition on the other side.
+	 * 若内侧有默认分区，来自外侧
+	 * 分区的行可能在默认分区里找到连接伙伴；试着
+	 * 把外侧分区与默认分区合并。否则，
+	 * 这应当是外连接，那种情况下外侧分区反正
+	 * 必须全程扫描；把外侧分区与另一侧的哑
+	 * 分区合并。
 	 */
 	if (inner_has_default)
 	{
 		Assert(inner_default >= 0);
 
 		/*
-		 * If the outer side has the default partition as well, the default
-		 * partition on the inner side will have two matching partitions on
-		 * the other side: the outer partition and the default partition on
-		 * the outer side.  Partitionwise join doesn't handle this scenario
-		 * yet.
+		 * 若外侧也有默认分区，内侧的默认
+		 * 分区在另一侧就会有两个匹配分区：
+		 * 外侧分区，以及外侧的
+		 * 默认分区。分区连接还不能处理
+		 * 这种情形。
 		 */
 		if (outer_has_default)
 			return -1;
@@ -2021,12 +2021,12 @@ process_outer_partition(PartitionMap *outer_map,
 			return -1;
 
 		/*
-		 * If this is a FULL join, the default partition on the inner side has
-		 * to be scanned all the way anyway, so the resulting partition will
-		 * contain all key values from the default partition, which any other
-		 * partition of the join relation will not contain.  Thus the
-		 * resulting partition will act as the default partition of the join
-		 * relation; record the index in *default_index if not already done.
+		 * 若这是 FULL 连接，内侧的默认分区反正
+		 * 必须全程扫描，因此得到的分区将
+		 * 包含默认分区的全部键值，而连接关系的任何其他
+		 * 分区都不会包含这些值。因此
+		 * 得到的分区将充当连接
+		 * 关系的默认分区；若尚未记录，就把下标记在 *default_index 里。
 		 */
 		if (jointype == JOIN_FULL)
 		{
@@ -2041,7 +2041,7 @@ process_outer_partition(PartitionMap *outer_map,
 		Assert(IS_OUTER_JOIN(jointype));
 		Assert(jointype != JOIN_RIGHT);
 
-		/* If we have already assigned a partition, no need to do anything. */
+		/* 若已经分配了分区，就不必做任何事。 */
 		merged_index = outer_map->merged_indexes[outer_index];
 		if (merged_index == -1)
 			merged_index = merge_partition_with_dummy(outer_map, outer_index,
@@ -2052,12 +2052,12 @@ process_outer_partition(PartitionMap *outer_map,
 
 /*
  * process_inner_partition
- *		Try to assign given inner partition a merged partition, and return the
- *		index of the merged partition if successful, -1 otherwise
+ *		试着给给定的内侧分区分配一个合并后的分区，成功时返回
+ *		该合并后分区的下标，否则返回 -1。
  *
- * If the partition is newly created, *next_index is incremented.  Also, if it
- * is the default partition of the join relation, *default_index is set to the
- * index if not already done.
+ * 若该分区是新创建的，*next_index 就递增。另外，若它
+ * 是连接关系的默认分区，且尚未设置，就把 *default_index
+ * 设为该下标。
  */
 static int
 process_inner_partition(PartitionMap *outer_map,
@@ -2075,23 +2075,23 @@ process_inner_partition(PartitionMap *outer_map,
 	Assert(inner_index >= 0);
 
 	/*
-	 * If the outer side has the default partition, a row from the inner
-	 * partition might find its join partner in the default partition; try
-	 * merging the inner partition with the default partition.  Otherwise,
-	 * this should be a FULL join, in which case the inner partition has to be
-	 * scanned all the way anyway; merge the inner partition with a dummy
-	 * partition on the other side.
+	 * 若外侧有默认分区，来自内侧
+	 * 分区的行可能在默认分区里找到连接伙伴；试着
+	 * 把内侧分区与默认分区合并。否则，
+	 * 这应当是 FULL 连接，那种情况下内侧分区反正必须
+	 * 全程扫描；把内侧分区与另一侧的哑
+	 * 分区合并。
 	 */
 	if (outer_has_default)
 	{
 		Assert(outer_default >= 0);
 
 		/*
-		 * If the inner side has the default partition as well, the default
-		 * partition on the outer side will have two matching partitions on
-		 * the other side: the inner partition and the default partition on
-		 * the inner side.  Partitionwise join doesn't handle this scenario
-		 * yet.
+		 * 若内侧也有默认分区，外侧的默认
+		 * 分区在另一侧就会有两个匹配分区：
+		 * 内侧分区，以及内侧的
+		 * 默认分区。分区连接还不能处理
+		 * 这种情形。
 		 */
 		if (inner_has_default)
 			return -1;
@@ -2103,12 +2103,12 @@ process_inner_partition(PartitionMap *outer_map,
 			return -1;
 
 		/*
-		 * If this is an outer join, the default partition on the outer side
-		 * has to be scanned all the way anyway, so the resulting partition
-		 * will contain all key values from the default partition, which any
-		 * other partition of the join relation will not contain.  Thus the
-		 * resulting partition will act as the default partition of the join
-		 * relation; record the index in *default_index if not already done.
+		 * 若这是外连接，外侧的默认分区
+		 * 反正必须全程扫描，因此得到的分区
+		 * 将包含默认分区的全部键值，而连接关系的任何
+		 * 其他分区都不会包含这些值。因此
+		 * 得到的分区将充当连接
+		 * 关系的默认分区；若尚未记录，就把下标记在 *default_index 里。
 		 */
 		if (IS_OUTER_JOIN(jointype))
 		{
@@ -2123,7 +2123,7 @@ process_inner_partition(PartitionMap *outer_map,
 	{
 		Assert(jointype == JOIN_FULL);
 
-		/* If we have already assigned a partition, no need to do anything. */
+		/* 若已经分配了分区，就不必做任何事。 */
 		merged_index = inner_map->merged_indexes[inner_index];
 		if (merged_index == -1)
 			merged_index = merge_partition_with_dummy(inner_map, inner_index,
@@ -2134,15 +2134,15 @@ process_inner_partition(PartitionMap *outer_map,
 
 /*
  * merge_null_partitions
- *		Merge the NULL partitions from a join's outer and inner sides.
+ *		合并连接外侧和内侧的 NULL 分区。
  *
- * If the merged partition produced from them is the NULL partition of the join
- * relation, *null_index is set to the index of the merged partition.
+ * 若由它们产生的合并分区是连接
+ * 关系的 NULL 分区，就把 *null_index 设为该合并分区的下标。
  *
- * Note: We assume here that the join clause for a partitioned join is strict
- * because have_partkey_equi_join() requires that the corresponding operator
- * be mergejoinable, and we currently assume that mergejoinable operators are
- * strict (see MJEvalOuterValues()/MJEvalInnerValues()).
+ * 注意：这里假定分区连接的连接子句是严格的，
+ * 因为 have_partkey_equi_join() 需要对应操作符
+ * 可归并连接，而我们目前假定可归并连接的操作符是
+ * 严格的（见 MJEvalOuterValues()/MJEvalInnerValues()）。
  */
 static void
 merge_null_partitions(PartitionMap *outer_map,
@@ -2162,8 +2162,8 @@ merge_null_partitions(PartitionMap *outer_map,
 	Assert(*null_index == -1);
 
 	/*
-	 * Check whether the NULL partitions have already been merged and if so,
-	 * set the consider_outer_null/consider_inner_null flags.
+	 * 检查 NULL 分区是否已经合并，若是，
+	 * 就设置 consider_outer_null/consider_inner_null 标志。
 	 */
 	if (outer_has_null)
 	{
@@ -2178,7 +2178,7 @@ merge_null_partitions(PartitionMap *outer_map,
 			consider_inner_null = true;
 	}
 
-	/* If both flags are set false, we don't need to do anything. */
+	/* 若两个标志都设为假，就不必做任何事。 */
 	if (!consider_outer_null && !consider_inner_null)
 		return;
 
@@ -2187,12 +2187,12 @@ merge_null_partitions(PartitionMap *outer_map,
 		Assert(outer_has_null);
 
 		/*
-		 * If this is an outer join, the NULL partition on the outer side has
-		 * to be scanned all the way anyway; merge the NULL partition with a
-		 * dummy partition on the other side.  In that case
-		 * consider_outer_null means that the NULL partition only contains
-		 * NULL values as the key values, so the merged partition will do so;
-		 * treat it as the NULL partition of the join relation.
+		 * 若这是外连接，外侧的 NULL 分区反正
+		 * 必须全程扫描；把该 NULL 分区与另一侧的
+		 * 哑分区合并。那种情况下
+		 * consider_outer_null 表示该 NULL 分区的键值只含
+		 * NULL，因此合并后的分区也会如此；
+		 * 把它当作连接关系的 NULL 分区。
 		 */
 		if (IS_OUTER_JOIN(jointype))
 		{
@@ -2206,12 +2206,12 @@ merge_null_partitions(PartitionMap *outer_map,
 		Assert(inner_has_null);
 
 		/*
-		 * If this is a FULL join, the NULL partition on the inner side has to
-		 * be scanned all the way anyway; merge the NULL partition with a
-		 * dummy partition on the other side.  In that case
-		 * consider_inner_null means that the NULL partition only contains
-		 * NULL values as the key values, so the merged partition will do so;
-		 * treat it as the NULL partition of the join relation.
+		 * 若这是 FULL 连接，内侧的 NULL 分区反正必须
+		 * 全程扫描；把该 NULL 分区与另一侧的
+		 * 哑分区合并。那种情况下
+		 * consider_inner_null 表示该 NULL 分区的键值只含
+		 * NULL，因此合并后的分区也会如此；
+		 * 把它当作连接关系的 NULL 分区。
 		 */
 		if (jointype == JOIN_FULL)
 			*null_index = merge_partition_with_dummy(inner_map, inner_null,
@@ -2224,17 +2224,17 @@ merge_null_partitions(PartitionMap *outer_map,
 		Assert(inner_has_null);
 
 		/*
-		 * If this is an outer join, the NULL partition on the outer side (and
-		 * that on the inner side if this is a FULL join) have to be scanned
-		 * all the way anyway, so merge them.  Note that each of the NULL
-		 * partitions isn't merged yet, so they should be merged successfully.
-		 * Like the above, each of the NULL partitions only contains NULL
-		 * values as the key values, so the merged partition will do so; treat
-		 * it as the NULL partition of the join relation.
+		 * 若这是外连接，外侧的 NULL 分区（以及
+		 * 若这是 FULL 连接时内侧的那个）反正必须
+		 * 全程扫描，因此把它们合并。注意每个 NULL
+		 * 分区都还没合并，所以应当能成功合并。
+		 * 同上，每个 NULL 分区的键值只含 NULL
+		 * 值，因此合并后的分区也会如此；把它
+		 * 当作连接关系的 NULL 分区。
 		 *
-		 * Note: if this an INNER/SEMI join, the join clause will never be
-		 * satisfied by two NULL values (see comments above), so both the NULL
-		 * partitions can be eliminated.
+		 * 注意：若这是 INNER/SEMI 连接，连接子句永远不会被
+		 * 两个 NULL 值满足（见上面的注释），因此两个 NULL
+		 * 分区都可以去掉。
 		 */
 		if (IS_OUTER_JOIN(jointype))
 		{
@@ -2249,10 +2249,10 @@ merge_null_partitions(PartitionMap *outer_map,
 
 /*
  * merge_default_partitions
- *		Merge the default partitions from a join's outer and inner sides.
+ *		合并连接外侧和内侧的默认分区。
  *
- * If the merged partition produced from them is the default partition of the
- * join relation, *default_index is set to the index of the merged partition.
+ * 若由它们产生的合并分区是连接
+ * 关系的默认分区，就把 *default_index 设为该合并分区的下标。
  */
 static void
 merge_default_partitions(PartitionMap *outer_map,
@@ -2270,7 +2270,7 @@ merge_default_partitions(PartitionMap *outer_map,
 
 	Assert(outer_has_default || inner_has_default);
 
-	/* Get the merged partition indexes for the default partitions. */
+	/* 取得默认分区的合并后分区下标。 */
 	if (outer_has_default)
 	{
 		Assert(outer_default >= 0 && outer_default < outer_map->nparts);
@@ -2285,12 +2285,12 @@ merge_default_partitions(PartitionMap *outer_map,
 	if (outer_has_default && !inner_has_default)
 	{
 		/*
-		 * If this is an outer join, the default partition on the outer side
-		 * has to be scanned all the way anyway; if we have not yet assigned a
-		 * partition, merge the default partition with a dummy partition on
-		 * the other side.  The merged partition will act as the default
-		 * partition of the join relation (see comments in
-		 * process_inner_partition()).
+		 * 若这是外连接，外侧的默认分区
+		 * 反正必须全程扫描；若还没有分配
+		 * 分区，就把默认分区与另一侧的哑分区
+		 * 合并。合并后的分区将充当默认
+		 * 分区（见
+		 * process_inner_partition() 里的注释）。
 		 */
 		if (IS_OUTER_JOIN(jointype))
 		{
@@ -2311,12 +2311,12 @@ merge_default_partitions(PartitionMap *outer_map,
 	else if (!outer_has_default && inner_has_default)
 	{
 		/*
-		 * If this is a FULL join, the default partition on the inner side has
-		 * to be scanned all the way anyway; if we have not yet assigned a
-		 * partition, merge the default partition with a dummy partition on
-		 * the other side.  The merged partition will act as the default
-		 * partition of the join relation (see comments in
-		 * process_outer_partition()).
+		 * 若这是 FULL 连接，内侧的默认分区反正
+		 * 必须全程扫描；若还没有分配
+		 * 分区，就把默认分区与另一侧的哑分区
+		 * 合并。合并后的分区将充当默认
+		 * 分区（见
+		 * process_outer_partition() 里的注释）。
 		 */
 		if (jointype == JOIN_FULL)
 		{
@@ -2338,11 +2338,11 @@ merge_default_partitions(PartitionMap *outer_map,
 		Assert(outer_has_default && inner_has_default);
 
 		/*
-		 * The default partitions have to be joined with each other, so merge
-		 * them.  Note that each of the default partitions isn't merged yet
-		 * (see, process_outer_partition()/process_inner_partition()), so they
-		 * should be merged successfully.  The merged partition will act as
-		 * the default partition of the join relation.
+		 * 默认分区必须彼此连接，因此把它们
+		 * 合并。注意每个默认分区都还没合并
+		 * （见 process_outer_partition()/process_inner_partition()），所以它们
+		 * 应当能成功合并。合并后的分区将充当
+		 * 连接关系的默认分区。
 		 */
 		Assert(outer_merged_index == -1);
 		Assert(inner_merged_index == -1);
@@ -2358,11 +2358,11 @@ merge_default_partitions(PartitionMap *outer_map,
 
 /*
  * merge_partition_with_dummy
- *		Assign given partition a new partition of a join relation
+ *		给给定分区分配连接关系的一个新分区。
  *
- * Note: The caller assumes that the given partition doesn't have a non-dummy
- * matching partition on the other side, but if the given partition finds the
- * matching partition later, we will adjust the assignment.
+ * 注意：调用方假定给定分区在另一侧没有非哑的
+ * 匹配分区，但若该分区后来找到了
+ * 匹配分区，我们会调整这次分配。
  */
 static int
 merge_partition_with_dummy(PartitionMap *map, int index, int *next_index)
@@ -2373,14 +2373,14 @@ merge_partition_with_dummy(PartitionMap *map, int index, int *next_index)
 	Assert(map->merged_indexes[index] == -1);
 	Assert(!map->merged[index]);
 	map->merged_indexes[index] = merged_index;
-	/* Leave the merged flag alone! */
+	/* 别动合并标志！ */
 	*next_index = *next_index + 1;
 	return merged_index;
 }
 
 /*
  * fix_merged_indexes
- *		Adjust merged indexes of re-merged partitions
+ *		调整重新合并的分区的合并下标
  */
 static void
 fix_merged_indexes(PartitionMap *outer_map, PartitionMap *inner_map,
@@ -2397,7 +2397,7 @@ fix_merged_indexes(PartitionMap *outer_map, PartitionMap *inner_map,
 	for (i = 0; i < nmerged; i++)
 		new_indexes[i] = -1;
 
-	/* Build the mapping of old merged indexes to new merged indexes. */
+	/* 建立旧合并下标到新合并下标的映射。 */
 	if (outer_map->did_remapping)
 	{
 		for (i = 0; i < outer_map->nparts; i++)
@@ -2417,7 +2417,7 @@ fix_merged_indexes(PartitionMap *outer_map, PartitionMap *inner_map,
 		}
 	}
 
-	/* Fix the merged_indexes list using the mapping. */
+	/* 用该映射修正 merged_indexes 列表。 */
 	foreach(lc, merged_indexes)
 	{
 		merged_index = lfirst_int(lc);
@@ -2431,10 +2431,10 @@ fix_merged_indexes(PartitionMap *outer_map, PartitionMap *inner_map,
 
 /*
  * generate_matching_part_pairs
- *		Generate a pair of lists of partitions that produce merged partitions
+ *		生成产生合并后分区的一对分区列表。
  *
- * The lists of partitions are built in the order of merged partition indexes,
- * and returned in *outer_parts and *inner_parts.
+ * 分区列表按合并后分区下标的次序建立，
+ * 并返回到 *outer_parts 和 *inner_parts。
  */
 static void
 generate_matching_part_pairs(RelOptInfo *outer_rel, RelOptInfo *inner_rel,
@@ -2458,7 +2458,7 @@ generate_matching_part_pairs(RelOptInfo *outer_rel, RelOptInfo *inner_rel,
 	for (i = 0; i < nmerged; i++)
 		outer_indexes[i] = inner_indexes[i] = -1;
 
-	/* Set pairs of matching partitions. */
+	/* 设置匹配分区对。 */
 	Assert(outer_nparts == outer_rel->nparts);
 	Assert(inner_nparts == inner_rel->nparts);
 	max_nparts = Max(outer_nparts, inner_nparts);
@@ -2486,17 +2486,17 @@ generate_matching_part_pairs(RelOptInfo *outer_rel, RelOptInfo *inner_rel,
 		}
 	}
 
-	/* Build the list pairs. */
+	/* 建立列表对。 */
 	for (i = 0; i < nmerged; i++)
 	{
 		int			outer_index = outer_indexes[i];
 		int			inner_index = inner_indexes[i];
 
 		/*
-		 * If both partitions are dummy, it means the merged partition that
-		 * had been assigned to the outer/inner partition was removed when
-		 * re-merging the outer/inner partition in
-		 * merge_matching_partitions(); ignore the merged partition.
+		 * 若两个分区都是哑的，就表示曾经分配给外/内分区的
+		 * 合并后分区，在
+		 * merge_matching_partitions() 里重新合并外/内分区时被去掉了；
+		 * 忽略该合并后分区。
 		 */
 		if (outer_index == -1 && inner_index == -1)
 			continue;
@@ -2513,7 +2513,7 @@ generate_matching_part_pairs(RelOptInfo *outer_rel, RelOptInfo *inner_rel,
 
 /*
  * build_merged_partition_bounds
- *		Create a PartitionBoundInfo struct from merged partition bounds
+ *		从合并后的分区边界创建 PartitionBoundInfo 结构
  */
 static PartitionBoundInfo
 build_merged_partition_bounds(char strategy, List *merged_datums,
@@ -2543,7 +2543,7 @@ build_merged_partition_bounds(char strategy, List *merged_datums,
 		foreach(lc, merged_kinds)
 			merged_bounds->kind[pos++] = (PartitionRangeDatumKind *) lfirst(lc);
 
-		/* There are ndatums+1 indexes in the case of range partitioning. */
+		/* 区间分区时有 ndatums+1 个下标。 */
 		merged_indexes = lappend_int(merged_indexes, -1);
 		ndatums++;
 	}
@@ -2554,7 +2554,7 @@ build_merged_partition_bounds(char strategy, List *merged_datums,
 		merged_bounds->kind = NULL;
 	}
 
-	/* interleaved_parts is always NULL for join relations. */
+	/* 对连接关系，interleaved_parts 始终为 NULL。 */
 	merged_bounds->interleaved_parts = NULL;
 
 	Assert(list_length(merged_indexes) == ndatums);
@@ -2572,11 +2572,11 @@ build_merged_partition_bounds(char strategy, List *merged_datums,
 
 /*
  * get_range_partition
- *		Get the next non-dummy partition of a range-partitioned relation,
- *		returning the index of that partition
+ *		取得区间分区关系的下一个非哑分区，
+ *		返回该分区的下标。
  *
- * *lb and *ub are set to the lower and upper bounds of that partition
- * respectively, and *lb_pos is advanced to the next lower bound, if any.
+ * *lb 和 *ub 分别设为该分区的下界和上界，
+ * 若还有下一个下界，*lb_pos 就前进到它。
  */
 static int
 get_range_partition(RelOptInfo *rel,
@@ -2605,39 +2605,39 @@ get_range_partition_internal(PartitionBoundInfo bi,
 							 PartitionRangeBound *lb,
 							 PartitionRangeBound *ub)
 {
-	/* Return the index as -1 if we've exhausted all lower bounds. */
+	/* 若下界已用完，就把下标作为 -1 返回。 */
 	if (*lb_pos >= bi->ndatums)
 		return -1;
 
-	/* A lower bound should have at least one more bound after it. */
+	/* 下界之后至少还应有一个边界。 */
 	Assert(*lb_pos + 1 < bi->ndatums);
 
-	/* Set the lower bound. */
+	/* 设置下界。 */
 	lb->index = bi->indexes[*lb_pos];
 	lb->datums = bi->datums[*lb_pos];
 	lb->kind = bi->kind[*lb_pos];
 	lb->lower = true;
-	/* Set the upper bound. */
+	/* 设置上界。 */
 	ub->index = bi->indexes[*lb_pos + 1];
 	ub->datums = bi->datums[*lb_pos + 1];
 	ub->kind = bi->kind[*lb_pos + 1];
 	ub->lower = false;
 
-	/* The index assigned to an upper bound should be valid. */
+	/* 赋给上界的下标应当有效。 */
 	Assert(ub->index >= 0);
 
 	/*
-	 * Advance the position to the next lower bound.  If there are no bounds
-	 * left beyond the upper bound, we have reached the last lower bound.
+	 * 把位置前进到下一个下界。若上界之外已经没有边界，
+	 * 我们就到达了最后一个下界。
 	 */
 	if (*lb_pos + 2 >= bi->ndatums)
 		*lb_pos = bi->ndatums;
 	else
 	{
 		/*
-		 * If the index assigned to the bound next to the upper bound isn't
-		 * valid, that is the next lower bound; else, the upper bound is also
-		 * the lower bound of the next range partition.
+		 * 若紧挨上界的下一个边界所赋的下标
+		 * 无效，那就是下一个下界；否则，该上界同时也是
+		 * 下一个区间分区的下界。
 		 */
 		if (bi->indexes[*lb_pos + 2] < 0)
 			*lb_pos = *lb_pos + 2;
@@ -2650,14 +2650,14 @@ get_range_partition_internal(PartitionBoundInfo bi,
 
 /*
  * compare_range_partitions
- *		Compare the bounds of two range partitions, and return true if the
- *		two partitions overlap, false otherwise
+ *		比较两个区间分区的边界，若两个分区
+ *		重叠就返回真，否则返回假。
  *
- * *lb_cmpval is set to -1, 0, or 1 if the outer partition's lower bound is
- * lower than, equal to, or higher than the inner partition's lower bound
- * respectively.  Likewise, *ub_cmpval is set to -1, 0, or 1 if the outer
- * partition's upper bound is lower than, equal to, or higher than the inner
- * partition's upper bound respectively.
+ * *lb_cmpval 在外侧分区的下界
+ * 低于、等于或高于内侧分区的下界时分别设为 -1、0 或 1。
+ * 同样，*ub_cmpval 在外侧
+ * 分区的上界低于、等于或高于内侧
+ * 分区的上界时分别设为 -1、0 或 1。
  */
 static bool
 compare_range_partitions(int partnatts, FmgrInfo *partsupfuncs,
@@ -2669,8 +2669,8 @@ compare_range_partitions(int partnatts, FmgrInfo *partsupfuncs,
 						 int *lb_cmpval, int *ub_cmpval)
 {
 	/*
-	 * Check if the outer partition's upper bound is lower than the inner
-	 * partition's lower bound; if so the partitions aren't overlapping.
+	 * 检查外侧分区的上界是否低于内侧
+	 * 分区的下界；若是，两个分区就不重叠。
 	 */
 	if (compare_range_bounds(partnatts, partsupfuncs, partcollations,
 							 outer_ub, inner_lb) < 0)
@@ -2681,8 +2681,8 @@ compare_range_partitions(int partnatts, FmgrInfo *partsupfuncs,
 	}
 
 	/*
-	 * Check if the outer partition's lower bound is higher than the inner
-	 * partition's upper bound; if so the partitions aren't overlapping.
+	 * 检查外侧分区的下界是否高于内侧
+	 * 分区的上界；若是，两个分区就不重叠。
 	 */
 	if (compare_range_bounds(partnatts, partsupfuncs, partcollations,
 							 outer_lb, inner_ub) > 0)
@@ -2692,7 +2692,7 @@ compare_range_partitions(int partnatts, FmgrInfo *partsupfuncs,
 		return false;
 	}
 
-	/* All other cases indicate overlapping partitions. */
+	/* 其他情形都表示分区重叠。 */
 	*lb_cmpval = compare_range_bounds(partnatts, partsupfuncs, partcollations,
 									  outer_lb, inner_lb);
 	*ub_cmpval = compare_range_bounds(partnatts, partsupfuncs, partcollations,
@@ -2702,11 +2702,11 @@ compare_range_partitions(int partnatts, FmgrInfo *partsupfuncs,
 
 /*
  * get_merged_range_bounds
- *		Given the bounds of range partitions to be joined, determine the bounds
- *		of a merged partition produced from the range partitions
+ *		给定要连接的区间分区的边界，确定由这些区间分区产生的
+ *		合并分区的边界。
  *
- * *merged_lb and *merged_ub are set to the lower and upper bounds of the
- * merged partition.
+ * *merged_lb 和 *merged_ub 分别设为该
+ * 合并分区的下界和上界。
  */
 static void
 get_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
@@ -2730,10 +2730,10 @@ get_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		case JOIN_SEMI:
 
 			/*
-			 * An INNER/SEMI join will have the rows that fit both sides, so
-			 * the lower bound of the merged partition will be the higher of
-			 * the two lower bounds, and the upper bound of the merged
-			 * partition will be the lower of the two upper bounds.
+			 * INNER/SEMI 连接会有同时适合两侧的行，因此
+			 * 合并分区的下界将是两个下界中较高的那个，
+			 * 合并
+			 * 分区的上界将是两个上界中较低的那个。
 			 */
 			*merged_lb = (lb_cmpval > 0) ? *outer_lb : *inner_lb;
 			*merged_ub = (ub_cmpval < 0) ? *outer_ub : *inner_ub;
@@ -2743,9 +2743,9 @@ get_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		case JOIN_ANTI:
 
 			/*
-			 * A LEFT/ANTI join will have all the rows from the outer side, so
-			 * the bounds of the merged partition will be the same as the
-			 * outer bounds.
+			 * LEFT/ANTI 连接会有来自外侧的全部行，因此
+			 * 合并分区的边界将与
+			 * 外侧边界相同。
 			 */
 			*merged_lb = *outer_lb;
 			*merged_ub = *outer_ub;
@@ -2754,10 +2754,10 @@ get_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		case JOIN_FULL:
 
 			/*
-			 * A FULL join will have all the rows from both sides, so the
-			 * lower bound of the merged partition will be the lower of the
-			 * two lower bounds, and the upper bound of the merged partition
-			 * will be the higher of the two upper bounds.
+			 * FULL 连接会有来自两侧的全部行，因此
+			 * 合并分区的下界将是两个
+			 * 下界中较低的那个，合并分区的上界
+			 * 将是两个上界中较高的那个。
 			 */
 			*merged_lb = (lb_cmpval < 0) ? *outer_lb : *inner_lb;
 			*merged_ub = (ub_cmpval > 0) ? *outer_ub : *inner_ub;
@@ -2770,7 +2770,7 @@ get_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 
 /*
  * add_merged_range_bounds
- *		Add the bounds of a merged partition to the lists of range bounds
+ *		把合并分区的边界加入区间边界列表
  */
 static void
 add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
@@ -2786,7 +2786,7 @@ add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 
 	if (!*merged_datums)
 	{
-		/* First merged partition */
+		/* 第一个合并分区 */
 		Assert(!*merged_kinds);
 		Assert(!*merged_indexes);
 		cmpval = 1;
@@ -2799,17 +2799,17 @@ add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		Assert(*merged_kinds);
 		Assert(*merged_indexes);
 
-		/* Get the last upper bound. */
+		/* 取得最后一个上界。 */
 		prev_ub.index = llast_int(*merged_indexes);
 		prev_ub.datums = (Datum *) llast(*merged_datums);
 		prev_ub.kind = (PartitionRangeDatumKind *) llast(*merged_kinds);
 		prev_ub.lower = false;
 
 		/*
-		 * We pass lower1 = false to partition_rbound_cmp() to prevent it from
-		 * considering the last upper bound to be smaller than the lower bound
-		 * of the merged partition when the values of the two range bounds
-		 * compare equal.
+		 * 我们向 partition_rbound_cmp() 传入 lower1 = false，
+		 * 以免在两个区间边界的值比较相等时，
+		 * 它把最后一个上界看成小于合并分区的
+		 * 下界。
 		 */
 		cmpval = partition_rbound_cmp(partnatts, partsupfuncs, partcollations,
 									  merged_lb->datums, merged_lb->kind,
@@ -2818,10 +2818,10 @@ add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 	}
 
 	/*
-	 * If the lower bound is higher than the last upper bound, add the lower
-	 * bound with the index as -1 indicating that that is a lower bound; else,
-	 * the last upper bound will be reused as the lower bound of the merged
-	 * partition, so skip this.
+	 * 若下界高于最后一个上界，就把下界
+	 * 连同下标 -1 加入，表示那是下界；否则，
+	 * 最后一个上界会被复用为合并
+	 * 分区的下界，因此跳过这一步。
 	 */
 	if (cmpval > 0)
 	{
@@ -2830,7 +2830,7 @@ add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 		*merged_indexes = lappend_int(*merged_indexes, -1);
 	}
 
-	/* Add the upper bound and index of the merged partition. */
+	/* 加入合并分区的上界和下标。 */
 	*merged_datums = lappend(*merged_datums, merged_ub->datums);
 	*merged_kinds = lappend(*merged_kinds, merged_ub->kind);
 	*merged_indexes = lappend_int(*merged_indexes, merged_index);
@@ -2838,16 +2838,16 @@ add_merged_range_bounds(int partnatts, FmgrInfo *partsupfuncs,
 
 /*
  * partitions_are_ordered
- *		Determine whether the partitions described by 'boundinfo' are ordered,
- *		that is partitions appearing earlier in the PartitionDesc sequence
- *		contain partition keys strictly less than those appearing later.
- *		Also, if NULL values are possible, they must come in the last
- *		partition defined in the PartitionDesc.  'live_parts' marks which
- *		partitions we should include when checking the ordering.  Partitions
- *		that do not appear in 'live_parts' are ignored.
+ *		判断 boundinfo 所描述的分区是否有序，
+ *		也就是 PartitionDesc 序列里较早出现的分区
+ *		所含的分区键严格小于较晚出现的那些。
+ *		另外，若可能有 NULL 值，它们必须出现在
+ *		PartitionDesc 里定义的最后一个分区中。live_parts 标出检查次序时
+ *		应当包含哪些分区。不出现在 live_parts 里的分区
+ *		被忽略。
  *
- * If out of order, or there is insufficient info to know the order,
- * then we return false.
+ * 若次序不对，或信息不足以知道次序，
+ * 就返回假。
  */
 bool
 partitions_are_ordered(PartitionBoundInfo boundinfo, Bitmapset *live_parts)
@@ -2859,11 +2859,11 @@ partitions_are_ordered(PartitionBoundInfo boundinfo, Bitmapset *live_parts)
 		case PARTITION_STRATEGY_RANGE:
 
 			/*
-			 * RANGE-type partitioning guarantees that the partitions can be
-			 * scanned in the order that they're defined in the PartitionDesc
-			 * to provide sequential, non-overlapping ranges of tuples.
-			 * However, if a DEFAULT partition exists and it's contained
-			 * within live_parts, then the partitions are not ordered.
+			 * RANGE 型分区保证可以按分区在 PartitionDesc
+			 * 里定义的次序扫描，
+			 * 以提供顺序、互不重叠的元组区间。
+			 * 不过，若存在 DEFAULT 分区且它包含在
+			 * live_parts 里，则这些分区不是有序的。
 			 */
 			if (!partition_bound_has_default(boundinfo) ||
 				!bms_is_member(boundinfo->default_index, live_parts))
@@ -2873,8 +2873,8 @@ partitions_are_ordered(PartitionBoundInfo boundinfo, Bitmapset *live_parts)
 		case PARTITION_STRATEGY_LIST:
 
 			/*
-			 * LIST partitioned are ordered providing none of live_parts
-			 * overlap with the partitioned table's interleaved partitions.
+			 * 只要 live_parts 都不与分区表的交错分区重叠，
+			 * LIST 分区就是有序的。
 			 */
 			if (!bms_overlap(live_parts, boundinfo->interleaved_parts))
 				return true;
@@ -2890,8 +2890,8 @@ partitions_are_ordered(PartitionBoundInfo boundinfo, Bitmapset *live_parts)
 /*
  * check_new_partition_bound
  *
- * Checks if the new partition's bound overlaps any of the existing partitions
- * of parent.  Also performs additional checks as necessary per strategy.
+ * 检查新分区的边界是否与父表任何现有分区重叠。
+ * 并按策略做必要的额外检查。
  */
 void
 check_new_partition_bound(char *relname, Relation parent,
@@ -2907,15 +2907,15 @@ check_new_partition_bound(char *relname, Relation parent,
 	if (spec->is_default)
 	{
 		/*
-		 * The default partition bound never conflicts with any other
-		 * partition's; if that's what we're attaching, the only possible
-		 * problem is that one already exists, so check for that and we're
-		 * done.
+		 * 默认分区边界从不与任何其他
+		 * 分区冲突；若我们挂接的就是它，唯一可能的
+		 * 问题是已存在一个，因此检查这一点后就
+		 * 完成了。
 		 */
 		if (boundinfo == NULL || !partition_bound_has_default(boundinfo))
 			return;
 
-		/* Default partition already exists, error out. */
+		/* 默认分区已存在，报错退出。 */
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("partition \"%s\" conflicts with existing default partition \"%s\"",
@@ -2937,22 +2937,22 @@ check_new_partition_bound(char *relname, Relation parent,
 					int			offset;
 
 					/*
-					 * Check rule that every modulus must be a factor of the
-					 * next larger modulus.  (For example, if you have a bunch
-					 * of partitions that all have modulus 5, you can add a
-					 * new partition with modulus 10 or a new partition with
-					 * modulus 15, but you cannot add both a partition with
-					 * modulus 10 and a partition with modulus 15, because 10
-					 * is not a factor of 15.)  We need only check the next
-					 * smaller and next larger existing moduli, relying on
-					 * previous enforcement of this rule to be sure that the
-					 * rest are in line.
+					 * 检查这条规则：每个模数都必须是
+					 * 下一个更大模数的因子。（例如，若有一批
+					 * 分区的模数都是 5，可以添加
+					 * 一个模数为 10 的新分区，或一个模数为
+					 * 15 的新分区，但无法同时添加模数为 10
+					 * 的分区和模数为 15 的分区，因为 10
+					 * 不是 15 的因子。）我们只需检查下一个
+					 * 更小和下一个更大的现有模数，依靠先前
+					 * 对这条规则的强制执行，即可确信
+					 * 其余的都符合。
 					 */
 
 					/*
-					 * Get the greatest (modulus, remainder) pair contained in
-					 * boundinfo->datums that is less than or equal to the
-					 * (spec->modulus, spec->remainder) pair.
+					 * 取得 boundinfo->datums 里小于等于
+					 * (spec->modulus, spec->remainder) 对的、最大的
+					 * (模数, 余数) 对。
 					 */
 					offset = partition_hash_bsearch(boundinfo,
 													spec->modulus,
@@ -2962,9 +2962,9 @@ check_new_partition_bound(char *relname, Relation parent,
 						int			next_modulus;
 
 						/*
-						 * All existing moduli are greater or equal, so the
-						 * new one must be a factor of the smallest one, which
-						 * is first in the boundinfo.
+						 * 现有模数都大于或等于新模数，因此
+						 * 新模数必须是最小那个的因子，而最小的
+						 * 是 boundinfo 里的第一个。
 						 */
 						next_modulus = DatumGetInt32(boundinfo->datums[0][0]);
 						if (next_modulus % spec->modulus != 0)
@@ -2980,9 +2980,9 @@ check_new_partition_bound(char *relname, Relation parent,
 						int			prev_modulus;
 
 						/*
-						 * We found the largest (modulus, remainder) pair less
-						 * than or equal to the new one.  That modulus must be
-						 * a divisor of, or equal to, the new modulus.
+						 * 我们找到了小于等于新对的最大
+						 * (模数, 余数) 对。该模数必须能整除
+						 * 新模数，或与它相等。
 						 */
 						prev_modulus = DatumGetInt32(boundinfo->datums[offset][0]);
 
@@ -3000,11 +3000,11 @@ check_new_partition_bound(char *relname, Relation parent,
 							int			next_modulus;
 
 							/*
-							 * Look at the next higher (modulus, remainder)
-							 * pair.  That could have the same modulus and a
-							 * larger remainder than the new pair, in which
-							 * case we're good.  If it has a larger modulus,
-							 * the new modulus must divide that one.
+							 * 看下一个更高的 (模数, 余数)
+							 * 对。它可能模数相同而余数
+							 * 比新对更大，那种情况下就没问题。
+							 * 若它的模数更大，新模数必须能
+							 * 整除那个模数。
 							 */
 							next_modulus = DatumGetInt32(boundinfo->datums[offset + 1][0]);
 
@@ -3022,15 +3022,15 @@ check_new_partition_bound(char *relname, Relation parent,
 					remainder = spec->remainder;
 
 					/*
-					 * Normally, the lowest remainder that could conflict with
-					 * the new partition is equal to the remainder specified
-					 * for the new partition, but when the new partition has a
-					 * modulus higher than any used so far, we need to adjust.
+					 * 通常，可能与新分区冲突的最低余数
+					 * 等于为新分区指定的余数，但当新分区的
+					 * 模数高于迄今用过的任何模数时，
+					 * 我们需要调整。
 					 */
 					if (remainder >= greatest_modulus)
 						remainder = remainder % greatest_modulus;
 
-					/* Check every potentially-conflicting remainder. */
+					/* 检查每一个可能冲突的余数。 */
 					do
 					{
 						if (boundinfo->indexes[remainder] != -1)
@@ -3106,10 +3106,10 @@ check_new_partition_bound(char *relname, Relation parent,
 				upper = make_one_partition_rbound(key, -1, spec->upperdatums, false);
 
 				/*
-				 * First check if the resulting range would be empty with
-				 * specified lower and upper bounds.  partition_rbound_cmp
-				 * cannot return zero here, since the lower-bound flags are
-				 * different.
+				 * 首先检查用指定的下界和上界得到的区间是否为空。
+				 * partition_rbound_cmp
+				 * 在这里无法返回零，因为下界标志
+				 * 不同。
 				 */
 				cmpval = partition_rbound_cmp(key->partnatts,
 											  key->partsupfunc,
@@ -3119,7 +3119,7 @@ check_new_partition_bound(char *relname, Relation parent,
 				Assert(cmpval != 0);
 				if (cmpval > 0)
 				{
-					/* Point to problematic key in the lower datums list. */
+					/* 指向下界 datum 列表里出问题的键。 */
 					PartitionRangeDatum *datum = list_nth(spec->lowerdatums,
 														  cmpval - 1);
 
@@ -3143,19 +3143,19 @@ check_new_partition_bound(char *relname, Relation parent,
 							partition_bound_has_default(boundinfo)));
 
 					/*
-					 * Test whether the new lower bound (which is treated
-					 * inclusively as part of the new partition) lies inside
-					 * an existing partition, or in a gap.
+					 * 测试新下界（它被当作
+					 * 新分区的一部分，含端点）是落在
+					 * 现有分区内部，还是落在间隙里。
 					 *
-					 * If it's inside an existing partition, the bound at
-					 * offset + 1 will be the upper bound of that partition,
-					 * and its index will be >= 0.
+					 * 若它在现有分区内部，偏移 + 1 处的边界
+					 * 就是该分区的上界，
+					 * 其下标将 >= 0。
 					 *
-					 * If it's in a gap, the bound at offset + 1 will be the
-					 * lower bound of the next partition, and its index will
-					 * be -1. This is also true if there is no next partition,
-					 * since the index array is initialised with an extra -1
-					 * at the end.
+					 * 若它在间隙里，偏移 + 1 处的边界将是
+					 * 下一个分区的下界，其下标将
+					 * 是 -1。若没有下一个分区也是如此，
+					 * 因为下标数组末尾
+					 * 额外初始化了一个 -1。
 					 */
 					offset = partition_range_bsearch(key->partnatts,
 													 key->partsupfunc,
@@ -3166,10 +3166,10 @@ check_new_partition_bound(char *relname, Relation parent,
 					if (boundinfo->indexes[offset + 1] < 0)
 					{
 						/*
-						 * Check that the new partition will fit in the gap.
-						 * For it to fit, the new upper bound must be less
-						 * than or equal to the lower bound of the next
-						 * partition, if there is one.
+						 * 检查新分区能否放进这个间隙。
+						 * 要放得下，新上界必须小于
+						 * 或等于下一个分区的下界，
+						 * 若存在下一个分区的话。
 						 */
 						if (offset + 1 < boundinfo->ndatums)
 						{
@@ -3189,16 +3189,16 @@ check_new_partition_bound(char *relname, Relation parent,
 							if (cmpval < 0)
 							{
 								/*
-								 * Point to problematic key in the upper
-								 * datums list.
+								 * 指向上界
+								 * datum 列表里出问题的键。
 								 */
 								PartitionRangeDatum *datum =
 									list_nth(spec->upperdatums, abs(cmpval) - 1);
 
 								/*
-								 * The new partition overlaps with the
-								 * existing partition between offset + 1 and
-								 * offset + 2.
+								 * 新分区与
+								 * 偏移 + 1 和
+								 * 偏移 + 2 之间的现有分区重叠。
 								 */
 								overlap = true;
 								overlap_location = datum->location;
@@ -3209,14 +3209,14 @@ check_new_partition_bound(char *relname, Relation parent,
 					else
 					{
 						/*
-						 * The new partition overlaps with the existing
-						 * partition between offset and offset + 1.
+						 * 新分区与偏移和偏移 + 1 之间的现有
+						 * 分区重叠。
 						 */
 						PartitionRangeDatum *datum;
 
 						/*
-						 * Point to problematic key in the lower datums list;
-						 * if we have equality, point to the first one.
+						 * 指向下界 datum 列表里出问题的键；
+						 * 若相等，就指向第一个。
 						 */
 						datum = cmpval == 0 ? linitial(spec->lowerdatums) :
 							list_nth(spec->lowerdatums, abs(cmpval) - 1);
@@ -3244,9 +3244,9 @@ check_new_partition_bound(char *relname, Relation parent,
 /*
  * check_default_partition_contents
  *
- * This function checks if there exists a row in the default partition that
- * would properly belong to the new partition being added.  If it finds one,
- * it throws an error.
+ * 本函数检查默认分区里是否存在一行，
+ * 它本应属于正在添加的新分区。若找到一行，
+ * 就抛出错误。
  */
 void
 check_default_partition_contents(Relation parent, Relation default_rel,
@@ -3264,17 +3264,17 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 		get_proposed_default_constraint(new_part_constraints);
 
 	/*
-	 * Map the Vars in the constraint expression from parent's attnos to
-	 * default_rel's.
+	 * 把约束表达式里的 Var 从父表的属性号映射到
+	 * default_rel 的属性号。
 	 */
 	def_part_constraints =
 		map_partition_varattnos(def_part_constraints, 1, default_rel,
 								parent);
 
 	/*
-	 * If the existing constraints on the default partition imply that it will
-	 * not contain any row that would belong to the new partition, we can
-	 * avoid scanning the default partition.
+	 * 若默认分区上的现有约束蕴含它不会
+	 * 包含任何属于新分区的行，就可以
+	 * 避免扫描默认分区。
 	 */
 	if (PartConstraintImpliedByRelConstraint(default_rel, def_part_constraints))
 	{
@@ -3285,8 +3285,8 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 	}
 
 	/*
-	 * Scan the default partition and its subpartitions, and check for rows
-	 * that do not satisfy the revised partition constraints.
+	 * 扫描默认分区及其子分区，并检查
+	 * 不满足修订后分区约束的行。
 	 */
 	if (default_rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		all_parts = find_all_inheritors(RelationGetRelid(default_rel),
@@ -3307,14 +3307,14 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 		MemoryContext oldCxt;
 		TupleTableSlot *tupslot;
 
-		/* Lock already taken above. */
+		/* 锁已经在上面取得。 */
 		if (part_relid != RelationGetRelid(default_rel))
 		{
 			part_rel = table_open(part_relid, NoLock);
 
 			/*
-			 * Map the Vars in the constraint expression from default_rel's
-			 * the sub-partition's.
+			 * 把约束表达式里的 Var 从 default_rel 的
+			 * 映射到子分区的。
 			 */
 			partition_constraint = make_ands_explicit(def_part_constraints);
 			partition_constraint = (Expr *)
@@ -3322,9 +3322,9 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 										part_rel, default_rel);
 
 			/*
-			 * If the partition constraints on default partition child imply
-			 * that it will not contain any row that would belong to the new
-			 * partition, we can avoid scanning the child table.
+			 * 若默认分区子表上的分区约束蕴含
+			 * 它不会包含任何属于新
+			 * 分区的行，就可以避免扫描该子表。
 			 */
 			if (PartConstraintImpliedByRelConstraint(part_rel,
 													 def_part_constraints))
@@ -3344,8 +3344,8 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 		}
 
 		/*
-		 * Only RELKIND_RELATION relations (i.e. leaf partitions) need to be
-		 * scanned.
+		 * 只有 RELKIND_RELATION 关系（即叶子分区）需要被
+		 * 扫描。
 		 */
 		if (part_rel->rd_rel->relkind != RELKIND_RELATION)
 		{
@@ -3364,7 +3364,7 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 
 		estate = CreateExecutorState();
 
-		/* Build expression execution states for partition check quals */
+		/* 为分区检查限定条件建立表达式执行状态 */
 		partqualstate = ExecPrepareExpr(partition_constraint, estate);
 
 		econtext = GetPerTupleExprContext(estate);
@@ -3373,8 +3373,8 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 		scan = table_beginscan(part_rel, snapshot, 0, NULL);
 
 		/*
-		 * Switch to per-tuple memory context and reset it for each tuple
-		 * produced, so we don't leak memory.
+		 * 切换到每元组内存上下文，并为产生的每个元组重置它，
+		 * 以免泄漏内存。
 		 */
 		oldCxt = MemoryContextSwitchTo(GetPerTupleMemoryContext(estate));
 
@@ -3400,16 +3400,16 @@ check_default_partition_contents(Relation parent, Relation default_rel,
 		FreeExecutorState(estate);
 
 		if (RelationGetRelid(default_rel) != RelationGetRelid(part_rel))
-			table_close(part_rel, NoLock);	/* keep the lock until commit */
+			table_close(part_rel, NoLock);	/* 把锁保持到提交 */
 	}
 }
 
 /*
  * get_hash_partition_greatest_modulus
  *
- * Returns the greatest modulus of the hash partition bound.
- * This is no longer used in the core code, but we keep it around
- * in case external modules are using it.
+ * 返回哈希分区边界的最大模数。
+ * 核心代码里已经不再使用它，但我们留着它，
+ * 以防外部模块还在用。
  */
 int
 get_hash_partition_greatest_modulus(PartitionBoundInfo bound)
@@ -3421,9 +3421,9 @@ get_hash_partition_greatest_modulus(PartitionBoundInfo bound)
 /*
  * make_one_partition_rbound
  *
- * Return a PartitionRangeBound given a list of PartitionRangeDatum elements
- * and a flag telling whether the bound is lower or not.  Made into a function
- * because there are multiple sites that want to use this facility.
+ * 给定 PartitionRangeDatum 元素列表
+ * 以及说明该边界是否为下界的标志，返回 PartitionRangeBound。做成函数
+ * 是因为有多处想用这个功能。
  */
 static PartitionRangeBound *
 make_one_partition_rbound(PartitionKey key, int index, List *datums, bool lower)
@@ -3446,7 +3446,7 @@ make_one_partition_rbound(PartitionKey key, int index, List *datums, bool lower)
 	{
 		PartitionRangeDatum *datum = lfirst_node(PartitionRangeDatum, lc);
 
-		/* What's contained in this range datum? */
+		/* 这个区间 datum 里装的是什么？ */
 		bound->kind[i] = datum->kind;
 
 		if (datum->kind == PARTITION_RANGE_DATUM_VALUE)
@@ -3467,23 +3467,23 @@ make_one_partition_rbound(PartitionKey key, int index, List *datums, bool lower)
 /*
  * partition_rbound_cmp
  *
- * For two range bounds this decides whether the 1st one (specified by
- * datums1, kind1, and lower1) is <, =, or > the bound specified in *b2.
+ * 对两个区间边界，判断第 1 个（由
+ * datums1、kind1 和 lower1 指定）是 <、= 还是 > *b2 里的边界。
  *
- * 0 is returned if they are equal, otherwise a non-zero integer whose sign
- * indicates the ordering, and whose absolute value gives the 1-based
- * partition key number of the first mismatching column.
+ * 相等时返回 0，否则返回非零整数，其符号
+ * 表示次序，其绝对值给出第一个不匹配列的
+ * 从 1 起计的分区键号。
  *
- * partnatts, partsupfunc and partcollation give the number of attributes in the
- * bounds to be compared, comparison function to be used and the collations of
- * attributes, respectively.
+ * partnatts、partsupfunc 和 partcollation 分别给出要比较的
+ * 边界里的属性个数、要用的比较函数，以及
+ * 属性的排序规则。
  *
- * Note that if the values of the two range bounds compare equal, then we take
- * into account whether they are upper or lower bounds, and an upper bound is
- * considered to be smaller than a lower bound. This is important to the way
- * that RelationBuildPartitionDesc() builds the PartitionBoundInfoData
- * structure, which only stores the upper bound of a common boundary between
- * two contiguous partitions.
+ * 注意：若两个区间边界的值比较相等，就要考虑
+ * 它们是上界还是下界，上界被认为小于下界。
+ * 这对 RelationBuildPartitionDesc() 构造 PartitionBoundInfoData
+ * 结构的方式很重要。该结构对两个相邻分区
+ * 的公共边界
+ * 只保存上界。
  */
 static int32
 partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
@@ -3492,7 +3492,7 @@ partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
 					 bool lower1, PartitionRangeBound *b2)
 {
 	int32		colnum = 0;
-	int32		cmpval = 0;		/* placate compiler */
+	int32		cmpval = 0;		/* 消除编译器告警 */
 	int			i;
 	Datum	   *datums2 = b2->datums;
 	PartitionRangeDatumKind *kind2 = b2->kind;
@@ -3500,14 +3500,14 @@ partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
 
 	for (i = 0; i < partnatts; i++)
 	{
-		/* Track column number in case we need it for result */
+		/* 跟踪列号，以防结果需要它 */
 		colnum++;
 
 		/*
-		 * First, handle cases where the column is unbounded, which should not
-		 * invoke the comparison procedure, and should not consider any later
-		 * columns. Note that the PartitionRangeDatumKind enum elements
-		 * compare the same way as the values they represent.
+		 * 首先处理该列无界的情形，这时不应当
+		 * 调用比较过程，也不应当考虑任何后面的
+		 * 列。注意 PartitionRangeDatumKind 枚举元素
+		 * 的比较方式与它们所表示的值相同。
 		 */
 		if (kind1[i] < kind2[i])
 			return -colnum;
@@ -3516,9 +3516,9 @@ partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
 		else if (kind1[i] != PARTITION_RANGE_DATUM_VALUE)
 		{
 			/*
-			 * The column bounds are both MINVALUE or both MAXVALUE. No later
-			 * columns should be considered, but we still need to compare
-			 * whether they are upper or lower bounds.
+			 * 列边界都是 MINVALUE 或都是 MAXVALUE。不应当再考虑后面的
+			 * 列，但仍然需要比较
+			 * 它们是上界还是下界。
 			 */
 			break;
 		}
@@ -3532,10 +3532,10 @@ partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
 	}
 
 	/*
-	 * If the comparison is anything other than equal, we're done. If they
-	 * compare equal though, we still have to consider whether the boundaries
-	 * are inclusive or exclusive.  Exclusive one is considered smaller of the
-	 * two.
+	 * 若比较结果不是相等，就完成了。若它们
+	 * 比较相等，仍然必须考虑边界
+	 * 是包含端点还是排除端点。排除端点的那个被认为是两者中
+	 * 较小的。
 	 */
 	if (cmpval == 0 && lower1 != lower2)
 		cmpval = lower1 ? 1 : -1;
@@ -3546,12 +3546,12 @@ partition_rbound_cmp(int partnatts, FmgrInfo *partsupfunc,
 /*
  * partition_rbound_datum_cmp
  *
- * Return whether range bound (specified in rb_datums and rb_kind)
- * is <, =, or > partition key of tuple (tuple_datums)
+ * 返回区间边界（由 rb_datums 和 rb_kind 指定）
+ * 是 <、= 还是 > 元组的分区键（tuple_datums）
  *
- * n_tuple_datums, partsupfunc and partcollation give number of attributes in
- * the bounds to be compared, comparison function to be used and the collations
- * of attributes resp.
+ * n_tuple_datums、partsupfunc 和 partcollation 分别给出要比较的
+ * 边界里的属性个数、要用的比较函数，以及
+ * 属性的排序规则。
  */
 int32
 partition_rbound_datum_cmp(FmgrInfo *partsupfunc, Oid *partcollation,
@@ -3582,7 +3582,7 @@ partition_rbound_datum_cmp(FmgrInfo *partsupfunc, Oid *partcollation,
 /*
  * partition_hbound_cmp
  *
- * Compares modulus first, then remainder if modulus is equal.
+ * 先比较模数，模数相等再比较余数。
  */
 static int32
 partition_hbound_cmp(int modulus1, int remainder1, int modulus2, int remainder2)
@@ -3598,11 +3598,11 @@ partition_hbound_cmp(int modulus1, int remainder1, int modulus2, int remainder2)
 
 /*
  * partition_list_bsearch
- *		Returns the index of the greatest bound datum that is less than equal
- * 		to the given value or -1 if all of the bound datums are greater
+ *		返回小于等于给定值的最大边界 datum 的下标，
+ * 		若全部边界 datum 都更大则返回 -1。
  *
- * *is_equal is set to true if the bound datum at the returned index is equal
- * to the input value.
+ * 若返回下标处的边界 datum 等于
+ * 输入值，就把 *is_equal 设为真。
  */
 int
 partition_list_bsearch(FmgrInfo *partsupfunc, Oid *partcollation,
@@ -3640,15 +3640,15 @@ partition_list_bsearch(FmgrInfo *partsupfunc, Oid *partcollation,
 
 /*
  * partition_range_bsearch
- *		Returns the index of the greatest range bound that is less than or
- *		equal to the given range bound or -1 if all of the range bounds are
- *		greater
+ *		返回小于或等于给定区间边界的最大区间边界的下标，
+ *		若全部区间边界都更大
+ *		则返回 -1。
  *
- * Upon return from this function, *cmpval is set to 0 if the bound at the
- * returned index matches the input range bound exactly, otherwise a
- * non-zero integer whose sign indicates the ordering, and whose absolute
- * value gives the 1-based partition key number of the first mismatching
- * column.
+ * 本函数返回时，若返回下标处的边界与输入区间边界
+ * 完全匹配，*cmpval 设为 0，否则是一个
+ * 非零整数，其符号表示次序，其绝对值
+ * 给出第一个不匹配列的
+ * 从 1 起计的分区键号。
  */
 static int
 partition_range_bsearch(int partnatts, FmgrInfo *partsupfunc,
@@ -3686,11 +3686,11 @@ partition_range_bsearch(int partnatts, FmgrInfo *partsupfunc,
 
 /*
  * partition_range_datum_bsearch
- *		Returns the index of the greatest range bound that is less than or
- *		equal to the given tuple or -1 if all of the range bounds are greater
+ *		返回小于或等于给定元组的最大区间边界的下标，
+ *		若全部区间边界都更大则返回 -1。
  *
- * *is_equal is set to true if the range bound at the returned index is equal
- * to the input tuple.
+ * 若返回下标处的区间边界等于
+ * 输入元组，就把 *is_equal 设为真。
  */
 int
 partition_range_datum_bsearch(FmgrInfo *partsupfunc, Oid *partcollation,
@@ -3731,9 +3731,9 @@ partition_range_datum_bsearch(FmgrInfo *partsupfunc, Oid *partcollation,
 
 /*
  * partition_hash_bsearch
- *		Returns the index of the greatest (modulus, remainder) pair that is
- *		less than or equal to the given (modulus, remainder) pair or -1 if
- *		all of them are greater
+ *		返回小于或等于给定 (模数, 余数) 对的
+ *		最大 (模数, 余数) 对的下标，若全部都更大
+ *		则返回 -1。
  */
 int
 partition_hash_bsearch(PartitionBoundInfo boundinfo,
@@ -3773,7 +3773,7 @@ partition_hash_bsearch(PartitionBoundInfo boundinfo,
 /*
  * qsort_partition_hbound_cmp
  *
- * Hash bounds are sorted by modulus, then by remainder.
+ * 哈希边界先按模数排序，再按余数排序。
  */
 static int32
 qsort_partition_hbound_cmp(const void *a, const void *b)
@@ -3788,7 +3788,7 @@ qsort_partition_hbound_cmp(const void *a, const void *b)
 /*
  * qsort_partition_list_value_cmp
  *
- * Compare two list partition bound datums.
+ * 比较两个列表分区边界 datum。
  */
 static int32
 qsort_partition_list_value_cmp(const void *a, const void *b, void *arg)
@@ -3805,7 +3805,7 @@ qsort_partition_list_value_cmp(const void *a, const void *b, void *arg)
 /*
  * qsort_partition_rbound_cmp
  *
- * Used when sorting range bounds across all range partitions.
+ * 在对所有区间分区的区间边界排序时使用。
  */
 static int32
 qsort_partition_rbound_cmp(const void *a, const void *b, void *arg)
@@ -3822,12 +3822,12 @@ qsort_partition_rbound_cmp(const void *a, const void *b, void *arg)
 /*
  * get_partition_operator
  *
- * Return oid of the operator of the given strategy for the given partition
- * key column.  It is assumed that the partitioning key is of the same type as
- * the chosen partitioning opclass, or at least binary-compatible.  In the
- * latter case, *need_relabel is set to true if the opclass is not of a
- * polymorphic type (indicating a RelabelType node needed on top), otherwise
- * false.
+ * 返回给定分区
+ * 键列、给定策略的操作符 oid。假定分区键与
+ * 所选分区操作符类类型相同，或至少二进制兼容。在
+ * 后一种情况下，若操作符类不是
+ * 多态类型（表示上面需要一个 RelabelType 节点），就把 *need_relabel 设为真，否则
+ * 设为假。
  */
 static Oid
 get_partition_operator(PartitionKey key, int col, StrategyNumber strategy,
@@ -3836,8 +3836,8 @@ get_partition_operator(PartitionKey key, int col, StrategyNumber strategy,
 	Oid			operoid;
 
 	/*
-	 * Get the operator in the partitioning opfamily using the opclass'
-	 * declared input type as both left- and righttype.
+	 * 用操作符类声明的输入类型同时作为左类型和右类型，
+	 * 在分区操作符族里取得操作符。
 	 */
 	operoid = get_opfamily_member(key->partopfamily[col],
 								  key->partopcintype[col],
@@ -3849,9 +3849,9 @@ get_partition_operator(PartitionKey key, int col, StrategyNumber strategy,
 			 key->partopfamily[col]);
 
 	/*
-	 * If the partition key column is not of the same type as the operator
-	 * class and not polymorphic, tell caller to wrap the non-Const expression
-	 * in a RelabelType.  This matches what parse_coerce.c does.
+	 * 若分区键列与操作符
+	 * 类类型不同且不是多态的，就告诉调用方把非 Const 表达式
+	 * 包进 RelabelType。这与 parse_coerce.c 的做法一致。
 	 */
 	*need_relabel = (key->parttypid[col] != key->partopcintype[col] &&
 					 key->partopcintype[col] != RECORDOID &&
@@ -3862,8 +3862,8 @@ get_partition_operator(PartitionKey key, int col, StrategyNumber strategy,
 
 /*
  * make_partition_op_expr
- *		Returns an Expr for the given partition key column with arg1 and
- *		arg2 as its leftop and rightop, respectively
+ *		返回给定分区键列的 Expr，arg1 和
+ *		arg2 分别作为它的左操作数和右操作数
  */
 static Expr *
 make_partition_op_expr(PartitionKey key, int keynum,
@@ -3873,13 +3873,13 @@ make_partition_op_expr(PartitionKey key, int keynum,
 	bool		need_relabel = false;
 	Expr	   *result = NULL;
 
-	/* Get the correct btree operator for this partitioning column */
+	/* 取得这个分区列的正确 btree 操作符 */
 	operoid = get_partition_operator(key, keynum, strategy, &need_relabel);
 
 	/*
-	 * Chosen operator may be such that the non-Const operand needs to be
-	 * coerced, so apply the same; see the comment in
-	 * get_partition_operator().
+	 * 所选操作符可能使非 Const 操作数需要被
+	 * 转换，因此照做；见
+	 * get_partition_operator() 里的注释。
 	 */
 	if (!IsA(arg1, Const) &&
 		(need_relabel ||
@@ -3890,7 +3890,7 @@ make_partition_op_expr(PartitionKey key, int keynum,
 										key->partcollation[keynum],
 										COERCE_EXPLICIT_CAST);
 
-	/* Generate the actual expression */
+	/* 生成实际的表达式 */
 	switch (key->strategy)
 	{
 		case PARTITION_STRATEGY_LIST:
@@ -3907,7 +3907,7 @@ make_partition_op_expr(PartitionKey key, int keynum,
 					ArrayExpr  *arrexpr;
 					ScalarArrayOpExpr *saopexpr;
 
-					/* Construct an ArrayExpr for the right-hand inputs */
+					/* 为右侧输入构造 ArrayExpr */
 					arrexpr = makeNode(ArrayExpr);
 					arrexpr->array_typeid =
 						get_array_type(key->parttypid[keynum]);
@@ -3917,7 +3917,7 @@ make_partition_op_expr(PartitionKey key, int keynum,
 					arrexpr->multidims = false;
 					arrexpr->location = -1;
 
-					/* Build leftop = ANY (rightop) */
+					/* 构造 leftop = ANY (rightop) */
 					saopexpr = makeNode(ScalarArrayOpExpr);
 					saopexpr->opno = operoid;
 					saopexpr->opfuncid = get_opcode(operoid);
@@ -3974,11 +3974,11 @@ make_partition_op_expr(PartitionKey key, int keynum,
 /*
  * get_qual_for_hash
  *
- * Returns a CHECK constraint expression to use as a hash partition's
- * constraint, given the parent relation and partition bound structure.
+ * 给定父关系和分区边界结构，返回用作哈希分区
+ * 约束的 CHECK 约束表达式。
  *
- * The partition constraint for a hash partition is always a call to the
- * built-in function satisfies_hash_partition().
+ * 哈希分区的分区约束始终是对
+ * 内建函数 satisfies_hash_partition() 的调用。
  */
 static List *
 get_qual_for_hash(Relation parent, PartitionBoundSpec *spec)
@@ -3992,7 +3992,7 @@ get_qual_for_hash(Relation parent, PartitionBoundSpec *spec)
 	ListCell   *partexprs_item;
 	int			i;
 
-	/* Fixed arguments. */
+	/* 固定参数。 */
 	relidConst = (Node *) makeConst(OIDOID,
 									-1,
 									InvalidOid,
@@ -4020,12 +4020,12 @@ get_qual_for_hash(Relation parent, PartitionBoundSpec *spec)
 	args = list_make3(relidConst, modulusConst, remainderConst);
 	partexprs_item = list_head(key->partexprs);
 
-	/* Add an argument for each key column. */
+	/* 为每个键列加一个参数。 */
 	for (i = 0; i < key->partnatts; i++)
 	{
 		Node	   *keyCol;
 
-		/* Left operand */
+		/* 左操作数 */
 		if (key->partattrs[i] != 0)
 		{
 			keyCol = (Node *) makeVar(1,
@@ -4057,11 +4057,11 @@ get_qual_for_hash(Relation parent, PartitionBoundSpec *spec)
 /*
  * get_qual_for_list
  *
- * Returns an implicit-AND list of expressions to use as a list partition's
- * constraint, given the parent relation and partition bound structure.
+ * 给定父关系和分区边界结构，返回用作列表分区
+ * 约束的隐式 AND 表达式列表。
  *
- * The function returns NIL for a default partition when it's the only
- * partition since in that case there is no constraint.
+ * 当默认分区是唯一
+ * 分区时函数返回 NIL，因为那种情况下没有约束。
  */
 static List *
 get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
@@ -4076,12 +4076,12 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	bool		list_has_null = false;
 
 	/*
-	 * Only single-column list partitioning is supported, so we are worried
-	 * only about the partition key with index 0.
+	 * 只支持单列列表分区，因此我们只关心
+	 * 下标为 0 的分区键。
 	 */
 	Assert(key->partnatts == 1);
 
-	/* Construct Var or expression representing the partition column */
+	/* 构造表示分区列的 Var 或表达式 */
 	if (key->partattrs[0] != 0)
 		keyCol = (Expr *) makeVar(1,
 								  key->partattrs[0],
@@ -4093,9 +4093,9 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 		keyCol = (Expr *) copyObject(linitial(key->partexprs));
 
 	/*
-	 * For default list partition, collect datums for all the partitions. The
-	 * default partition constraint should check that the partition key is
-	 * equal to none of those.
+	 * 对默认列表分区，收集全部分区的 datum。默认
+	 * 分区约束应当检查分区键
+	 * 不等于其中任何一个。
 	 */
 	if (spec->is_default)
 	{
@@ -4113,8 +4113,8 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 		}
 
 		/*
-		 * If default is the only partition, there need not be any partition
-		 * constraint on it.
+		 * 若默认分区是唯一的分区，它上面不必有任何分区
+		 * 约束。
 		 */
 		if (ndatums == 0 && !list_has_null)
 			return NIL;
@@ -4124,9 +4124,9 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 			Const	   *val;
 
 			/*
-			 * Construct Const from known-not-null datum.  We must be careful
-			 * to copy the value, because our result has to be able to outlive
-			 * the relcache entry we're copying from.
+			 * 从已知非空的 datum 构造 Const。必须小心地
+			 * 复制该值，因为我们的结果必须能够活得比
+			 * 正在复制的关系缓存项更久。
 			 */
 			val = makeConst(key->parttypid[0],
 							key->parttypmod[0],
@@ -4135,7 +4135,7 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 							datumCopy(*boundinfo->datums[i],
 									  key->parttypbyval[0],
 									  key->parttyplen[0]),
-							false,	/* isnull */
+							false,	/* isnull（是否为空） */
 							key->parttypbyval[0]);
 
 			elems = lappend(elems, val);
@@ -4144,7 +4144,7 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	else
 	{
 		/*
-		 * Create list of Consts for the allowed values, excluding any nulls.
+		 * 为允许的值建立 Const 列表，排除任何空值。
 		 */
 		foreach(cell, spec->listdatums)
 		{
@@ -4160,8 +4160,8 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	if (elems)
 	{
 		/*
-		 * Generate the operator expression from the non-null partition
-		 * values.
+		 * 从非空分区
+		 * 值生成操作符表达式。
 		 */
 		opexpr = make_partition_op_expr(key, 0, BTEqualStrategyNumber,
 										keyCol, (Expr *) elems);
@@ -4169,8 +4169,8 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	else
 	{
 		/*
-		 * If there are no partition values, we don't need an operator
-		 * expression.
+		 * 若没有分区值，就不需要操作符
+		 * 表达式。
 		 */
 		opexpr = NULL;
 	}
@@ -4178,9 +4178,9 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	if (!list_has_null)
 	{
 		/*
-		 * Gin up a "col IS NOT NULL" test that will be ANDed with the main
-		 * expression.  This might seem redundant, but the partition routing
-		 * machinery needs it.
+		 * 造一个将与主表达式 ANDed 的 col IS NOT NULL 测试。
+		 * 这看起来可能多余，但分区路由
+		 * 机制需要它。
 		 */
 		nulltest = makeNode(NullTest);
 		nulltest->arg = keyCol;
@@ -4193,8 +4193,8 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	else
 	{
 		/*
-		 * Gin up a "col IS NULL" test that will be OR'd with the main
-		 * expression.
+		 * 造一个将与主表达式做 OR 的
+		 * col IS NULL 测试。
 		 */
 		nulltest = makeNode(NullTest);
 		nulltest->arg = keyCol;
@@ -4214,10 +4214,10 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 	}
 
 	/*
-	 * Note that, in general, applying NOT to a constraint expression doesn't
-	 * necessarily invert the set of rows it accepts, because NOT (NULL) is
-	 * NULL.  However, the partition constraints we construct here never
-	 * evaluate to NULL, so applying NOT works as intended.
+	 * 注意，一般而言，对约束表达式加 NOT 并不
+	 * 必然反转它所接受的行集合，因为 NOT (NULL) 是
+	 * NULL。不过，我们在这里构造的分区约束从不
+	 * 求值为 NULL，因此加 NOT 能按预期工作。
 	 */
 	if (spec->is_default)
 	{
@@ -4231,12 +4231,12 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
 /*
  * get_qual_for_range
  *
- * Returns an implicit-AND list of expressions to use as a range partition's
- * constraint, given the parent relation and partition bound structure.
+ * 给定父关系和分区边界结构，返回用作区间分区
+ * 约束的隐式 AND 表达式列表。
  *
- * For a multi-column range partition key, say (a, b, c), with (al, bl, cl)
- * as the lower bound tuple and (au, bu, cu) as the upper bound tuple, we
- * generate an expression tree of the following form:
+ * 对多列区间分区键，例如 (a, b, c)，以下界元组 (al, bl, cl)
+ * 和上界元组 (au, bu, cu)，我们
+ * 生成如下形式的表达式树：
  *
  *	(a IS NOT NULL) and (b IS NOT NULL) and (c IS NOT NULL)
  *		AND
@@ -4244,9 +4244,9 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
  *		AND
  *	(a < au OR (a = au AND b < bu) OR (a = au AND b = bu AND c < cu))
  *
- * It is often the case that a prefix of lower and upper bound tuples contains
- * the same values, for example, (al = au), in which case, we will emit an
- * expression tree of the following form:
+ * 下界元组和上界元组的前缀常常含有
+ * 相同的值，例如 (al = au)，那种情况下我们会发出
+ * 如下形式的表达式树：
  *
  *	(a IS NOT NULL) and (b IS NOT NULL) and (c IS NOT NULL)
  *		AND
@@ -4256,21 +4256,21 @@ get_qual_for_list(Relation parent, PartitionBoundSpec *spec)
  *		AND
  *	(b < bu OR (b = bu AND c < cu))
  *
- * If a bound datum is either MINVALUE or MAXVALUE, these expressions are
- * simplified using the fact that any value is greater than MINVALUE and less
- * than MAXVALUE. So, for example, if cu = MAXVALUE, c < cu is automatically
- * true, and we need not emit any expression for it, and the last line becomes
+ * 若某个边界 datum 是 MINVALUE 或 MAXVALUE，这些表达式就利用
+ * 任何值都大于 MINVALUE 且小于
+ * MAXVALUE 这一事实来简化。例如，若 cu = MAXVALUE，c < cu 自动
+ * 为真，就不必为它发出任何表达式，最后一行变成：
  *
- *	(b < bu) OR (b = bu), which is simplified to (b <= bu)
+ *	(b < bu) OR (b = bu)，这被简化为 (b <= bu)
  *
- * In most common cases with only one partition column, say a, the following
- * expression tree will be generated: a IS NOT NULL AND a >= al AND a < au
+ * 最常见的只有一个分区列的情形，例如 a，会生成如下
+ * 表达式树：a IS NOT NULL AND a >= al AND a < au。
  *
- * For default partition, it returns the negation of the constraints of all
- * the other partitions.
+ * 对默认分区，它返回所有
+ * 其他分区约束的否定。
  *
- * External callers should pass for_default as false; we set it to true only
- * when recursing.
+ * 外部调用方应当把 for_default 传为假；只有
+ * 递归时我们才把它设为真。
  */
 static List *
 get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
@@ -4331,7 +4331,7 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 				part_qual = get_qual_for_range(parent, bspec, true);
 
 				/*
-				 * AND the constraints of the partition and add to
+				 * 把该分区的约束 AND 起来并加入
 				 * or_expr_args
 				 */
 				or_expr_args = lappend(or_expr_args, list_length(part_qual) > 1
@@ -4346,10 +4346,10 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 			Expr	   *other_parts_constr;
 
 			/*
-			 * Combine the constraints obtained for non-default partitions
-			 * using OR.  As requested, each of the OR's args doesn't include
-			 * the NOT NULL test for partition keys (which is to avoid its
-			 * useless repetition).  Add the same now.
+			 * 用 OR 组合为非默认分区得到的约束。
+			 * 按要求，每个 OR 参数都不包含
+			 * 分区键的 NOT NULL 测试（以免
+			 * 无用地重复）。现在把同样的测试加上。
 			 */
 			other_parts_constr =
 				makeBoolExpr(AND_EXPR,
@@ -4361,8 +4361,8 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 							 -1);
 
 			/*
-			 * Finally, the default partition contains everything *NOT*
-			 * contained in the non-default partitions.
+			 * 最后，默认分区包含非默认分区里所含一切的
+			 * *NOT*。
 			 */
 			result = list_make1(makeBoolExpr(NOT_EXPR,
 											 list_make1(other_parts_constr), -1));
@@ -4372,23 +4372,23 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 	}
 
 	/*
-	 * If it is the recursive call for default, we skip the get_range_nulltest
-	 * to avoid accumulating the NullTest on the same keys for each partition.
+	 * 若这是为默认分区做的递归调用，就跳过 get_range_nulltest，
+	 * 以免对每个分区在相同键上累积 NullTest。
 	 */
 	if (!for_default)
 		result = get_range_nulltest(key);
 
 	/*
-	 * Iterate over the key columns and check if the corresponding lower and
-	 * upper datums are equal using the btree equality operator for the
-	 * column's type.  If equal, we emit single keyCol = common_value
-	 * expression.  Starting from the first column for which the corresponding
-	 * lower and upper bound datums are not equal, we generate OR expressions
-	 * as shown in the function's header comment.
+	 * 遍历键列，用该列类型的 btree 相等操作符
+	 * 检查对应的下界和上界 datum 是否相等。若相等，
+	 * 就发出单个 keyCol = common_value 表达式。
+	 * 从对应下界和上界 datum 不相等的第一列开始，
+	 * 我们生成函数头注释里
+	 * 所示的 OR 表达式。
 	 */
 	i = 0;
 	partexprs_item = list_head(key->partexprs);
-	partexprs_item_saved = partexprs_item;	/* placate compiler */
+	partexprs_item_saved = partexprs_item;	/* 消除编译器告警 */
 	forboth(cell1, spec->lowerdatums, cell2, spec->upperdatums)
 	{
 		EState	   *estate;
@@ -4402,9 +4402,9 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 		udatum = lfirst_node(PartitionRangeDatum, cell2);
 
 		/*
-		 * Since get_range_key_properties() modifies partexprs_item, and we
-		 * might need to start over from the previous expression in the later
-		 * part of this function, save away the current value.
+		 * 因为 get_range_key_properties() 会修改 partexprs_item，而本函数后面
+		 * 可能需要从前一个表达式重新开始，
+		 * 所以把当前值存起来。
 		 */
 		partexprs_item_saved = partexprs_item;
 
@@ -4414,15 +4414,15 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 								 &lower_val, &upper_val);
 
 		/*
-		 * If either value is NULL, the corresponding partition bound is
-		 * either MINVALUE or MAXVALUE, and we treat them as unequal, because
-		 * even if they're the same, there is no common value to equate the
-		 * key column with.
+		 * 若任一值为 NULL，对应的分区边界就是
+		 * MINVALUE 或 MAXVALUE，我们把它们当作不相等，因为
+		 * 即使它们相同，也没有可以把键列等同起来的
+		 * 公共值。
 		 */
 		if (!lower_val || !upper_val)
 			break;
 
-		/* Create the test expression */
+		/* 创建测试表达式 */
 		estate = CreateExecutorState();
 		oldcxt = MemoryContextSwitchTo(estate->es_query_cxt);
 		test_expr = make_partition_op_expr(key, i, BTEqualStrategyNumber,
@@ -4436,19 +4436,19 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 		MemoryContextSwitchTo(oldcxt);
 		FreeExecutorState(estate);
 
-		/* If not equal, go generate the OR expressions */
+		/* 若不相等，就去生成 OR 表达式 */
 		if (!DatumGetBool(test_result))
 			break;
 
 		/*
-		 * The bounds for the last key column can't be equal, because such a
-		 * range partition would never be allowed to be defined (it would have
-		 * an empty range otherwise).
+		 * 最后一列键的边界不能相等，因为这样的
+		 * 区间分区永远不会被允许定义（否则它会有
+		 * 空区间）。
 		 */
 		if (i == key->partnatts - 1)
 			elog(ERROR, "invalid range bound specification");
 
-		/* Equal, so generate keyCol = lower_val expression */
+		/* 相等，因此生成 keyCol = lower_val 表达式 */
 		result = lappend(result,
 						 make_partition_op_expr(key, i, BTEqualStrategyNumber,
 												keyCol, (Expr *) lower_val));
@@ -4456,11 +4456,11 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 		i++;
 	}
 
-	/* First pair of lower_val and upper_val that are not equal. */
+	/* 第一对不相等的 lower_val 和 upper_val。 */
 	lower_or_start_datum = cell1;
 	upper_or_start_datum = cell2;
 
-	/* OR will have as many arms as there are key columns left. */
+	/* OR 的分支数等于剩下的键列数。 */
 	num_or_arms = key->partnatts - i;
 	current_or_arm = 0;
 	lower_or_arms = upper_or_arms = NIL;
@@ -4470,7 +4470,7 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 		List	   *lower_or_arm_args = NIL,
 				   *upper_or_arm_args = NIL;
 
-		/* Restart scan of columns from the i'th one */
+		/* 从第 i 列重新开始扫描列 */
 		j = i;
 		partexprs_item = partexprs_item_saved;
 
@@ -4498,10 +4498,10 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 				uint16		strategy;
 
 				/*
-				 * For the non-last columns of this arm, use the EQ operator.
-				 * For the last column of this arm, use GT, unless this is the
-				 * last column of the whole bound check, or the next bound
-				 * datum is MINVALUE, in which case use GE.
+				 * 对本分支的非最后几列，使用 EQ 操作符。
+				 * 对本分支的最后一列，使用 GT，除非这是
+				 * 整个边界检查的最后一列，或下一个边界
+				 * datum 是 MINVALUE，那种情况下使用 GE。
 				 */
 				if (j - i < current_or_arm)
 					strategy = BTEqualStrategyNumber;
@@ -4524,9 +4524,9 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 				uint16		strategy;
 
 				/*
-				 * For the non-last columns of this arm, use the EQ operator.
-				 * For the last column of this arm, use LT, unless the next
-				 * bound datum is MAXVALUE, in which case use LE.
+				 * 对本分支的非最后几列，使用 EQ 操作符。
+				 * 对本分支的最后一列，使用 LT，除非下一个
+				 * 边界 datum 是 MAXVALUE，那种情况下使用 LE。
 				 */
 				if (j - i < current_or_arm)
 					strategy = BTEqualStrategyNumber;
@@ -4544,16 +4544,16 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 			}
 
 			/*
-			 * Did we generate enough of OR's arguments?  First arm considers
-			 * the first of the remaining columns, second arm considers first
-			 * two of the remaining columns, and so on.
+			 * OR 的参数够了吗？第一分支考虑
+			 * 剩余列中的第一列，第二分支考虑剩余列中的前
+			 * 两列，依此类推。
 			 */
 			++j;
 			if (j - i > current_or_arm)
 			{
 				/*
-				 * We must not emit any more arms if the new column that will
-				 * be considered is unbounded, or this one was.
+				 * 若将要考虑的新列无界，或这一列已经无界，
+				 * 就不得再发出更多分支。
 				 */
 				if (!lower_val || !ldatum_next ||
 					ldatum_next->kind != PARTITION_RANGE_DATUM_VALUE)
@@ -4577,7 +4577,7 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 									? makeBoolExpr(AND_EXPR, upper_or_arm_args, -1)
 									: linitial(upper_or_arm_args));
 
-		/* If no work to do in the next iteration, break away. */
+		/* 若下一次迭代无事可做，就跳出。 */
 		if (!need_next_lower_arm && !need_next_upper_arm)
 			break;
 
@@ -4585,9 +4585,9 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 	}
 
 	/*
-	 * Generate the OR expressions for each of lower and upper bounds (if
-	 * required), and append to the list of implicitly ANDed list of
-	 * expressions.
+	 * 为下界和上界（若
+	 * 需要）各自生成 OR 表达式，并追加到隐式 ANDed 的
+	 * 表达式列表。
 	 */
 	if (lower_or_arms != NIL)
 		result = lappend(result,
@@ -4601,10 +4601,10 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 						 : linitial(upper_or_arms));
 
 	/*
-	 * As noted above, for non-default, we return list with constant TRUE. If
-	 * the result is NIL during the recursive call for default, it implies
-	 * this is the only other partition which can hold every value of the key
-	 * except NULL. Hence we return the NullTest result skipped earlier.
+	 * 如上所述，对非默认分区，我们返回含常量 TRUE 的列表。若
+	 * 为默认分区做递归调用时结果是 NIL，就意味着
+	 * 这是唯一另一个能容纳该键除 NULL 外每个值的分区。
+	 * 因此返回先前跳过的 NullTest 结果。
 	 */
 	if (result == NIL)
 		result = for_default
@@ -4616,18 +4616,18 @@ get_qual_for_range(Relation parent, PartitionBoundSpec *spec,
 
 /*
  * get_range_key_properties
- *		Returns range partition key information for a given column
+ *		返回给定列的区间分区键信息。
  *
- * This is a subroutine for get_qual_for_range, and its API is pretty
- * specialized to that caller.
+ * 这是 get_qual_for_range 的子程序，其 API 相当
+ * 专门服务于该调用方。
  *
- * Constructs an Expr for the key column (returned in *keyCol) and Consts
- * for the lower and upper range limits (returned in *lower_val and
- * *upper_val).  For MINVALUE/MAXVALUE limits, NULL is returned instead of
- * a Const.  All of these structures are freshly palloc'd.
+ * 为键列构造 Expr（经 *keyCol 返回），并为下界和上界
+ * 构造 Const（经 *lower_val 和
+ * *upper_val 返回）。对 MINVALUE/MAXVALUE 界限，返回 NULL 而不是
+ * Const。这些结构都是新 palloc 的。
  *
- * *partexprs_item points to the cell containing the next expression in
- * the key->partexprs list, or NULL.  It may be advanced upon return.
+ * *partexprs_item 指向 key->partexprs 列表里下一个表达式所在的单元，
+ * 或为 NULL。返回时它可能前进一步。
  */
 static void
 get_range_key_properties(PartitionKey key, int keynum,
@@ -4637,7 +4637,7 @@ get_range_key_properties(PartitionKey key, int keynum,
 						 Expr **keyCol,
 						 Const **lower_val, Const **upper_val)
 {
-	/* Get partition key expression for this column */
+	/* 取得这一列的分区键表达式 */
 	if (key->partattrs[keynum] != 0)
 	{
 		*keyCol = (Expr *) makeVar(1,
@@ -4655,7 +4655,7 @@ get_range_key_properties(PartitionKey key, int keynum,
 		*partexprs_item = lnext(key->partexprs, *partexprs_item);
 	}
 
-	/* Get appropriate Const nodes for the bounds */
+	/* 为边界取得适当的 Const 节点 */
 	if (ldatum->kind == PARTITION_RANGE_DATUM_VALUE)
 		*lower_val = castNode(Const, copyObject(ldatum->value));
 	else
@@ -4670,8 +4670,8 @@ get_range_key_properties(PartitionKey key, int keynum,
 /*
  * get_range_nulltest
  *
- * A non-default range partition table does not currently allow partition
- * keys to be null, so emit an IS NOT NULL expression for each key column.
+ * 非默认区间分区表目前不允许分区
+ * 键为 null，因此为每个键列发出 IS NOT NULL 表达式。
  */
 static List *
 get_range_nulltest(PartitionKey key)
@@ -4717,7 +4717,7 @@ get_range_nulltest(PartitionKey key)
 /*
  * compute_partition_hash_value
  *
- * Compute the hash value for given partition key values.
+ * 计算给定分区键值的哈希值。
  */
 uint64
 compute_partition_hash_value(int partnatts, FmgrInfo *partsupfunc, Oid *partcollation,
@@ -4729,7 +4729,7 @@ compute_partition_hash_value(int partnatts, FmgrInfo *partsupfunc, Oid *partcoll
 
 	for (i = 0; i < partnatts; i++)
 	{
-		/* Nulls are just ignored */
+		/* 空值直接忽略 */
 		if (!isnull[i])
 		{
 			Datum		hash;
@@ -4737,14 +4737,14 @@ compute_partition_hash_value(int partnatts, FmgrInfo *partsupfunc, Oid *partcoll
 			Assert(OidIsValid(partsupfunc[i].fn_oid));
 
 			/*
-			 * Compute hash for each datum value by calling respective
-			 * datatype-specific hash functions of each partition key
-			 * attribute.
+			 * 调用每个分区键
+			 * 属性各自的数据类型专用哈希函数，
+			 * 计算每个 datum 值的哈希。
 			 */
 			hash = FunctionCall2Coll(&partsupfunc[i], partcollation[i],
 									 values[i], seed);
 
-			/* Form a single 64-bit hash value */
+			/* 合成一个 64 位哈希值 */
 			rowHash = hash_combine64(rowHash, DatumGetUInt64(hash));
 		}
 	}
@@ -4755,18 +4755,18 @@ compute_partition_hash_value(int partnatts, FmgrInfo *partsupfunc, Oid *partcoll
 /*
  * satisfies_hash_partition
  *
- * This is an SQL-callable function for use in hash partition constraints.
- * The first three arguments are the parent table OID, modulus, and remainder.
- * The remaining arguments are the value of the partitioning columns (or
- * expressions); these are hashed and the results are combined into a single
- * hash value by calling hash_combine64.
+ * 这是供哈希分区约束使用的 SQL 可调用函数。
+ * 前三个参数是父表 OID、模数和余数。
+ * 其余参数是分区列的值（或
+ * 表达式）；它们被哈希，结果通过调用 hash_combine64
+ * 合成一个哈希值。
  *
- * Returns true if remainder produced when this computed single hash value is
- * divided by the given modulus is equal to given remainder, otherwise false.
- * NB: it's important that this never return null, as the constraint machinery
- * would consider that to be a "pass".
+ * 若这个计算出的单个哈希值除以给定模数得到的余数
+ * 等于给定余数，就返回真，否则返回假。
+ * 注意：它绝不能返回 null，因为约束机制
+ * 会把那当成通过。
  *
- * See get_qual_for_hash() for usage.
+ * 用法见 get_qual_for_hash()。
  */
 Datum
 satisfies_hash_partition(PG_FUNCTION_ARGS)
@@ -4789,14 +4789,14 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 	ColumnsHashData *my_extra;
 	uint64		rowHash = 0;
 
-	/* Return false if the parent OID, modulus, or remainder is NULL. */
+	/* 若父 OID、模数或余数为 NULL，就返回假。 */
 	if (PG_ARGISNULL(0) || PG_ARGISNULL(1) || PG_ARGISNULL(2))
 		PG_RETURN_BOOL(false);
 	parentId = PG_GETARG_OID(0);
 	modulus = PG_GETARG_INT32(1);
 	remainder = PG_GETARG_INT32(2);
 
-	/* Sanity check modulus and remainder. */
+	/* 对模数和余数做健全性检查。 */
 	if (modulus <= 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -4811,7 +4811,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 				 errmsg("remainder for hash partition must be less than modulus")));
 
 	/*
-	 * Cache hash function information.
+	 * 缓存哈希函数信息。
 	 */
 	my_extra = (ColumnsHashData *) fcinfo->flinfo->fn_extra;
 	if (my_extra == NULL || my_extra->relid != parentId)
@@ -4820,11 +4820,11 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 		PartitionKey key;
 		int			j;
 
-		/* Open parent relation and fetch partition key info */
+		/* 打开父关系并取出分区键信息 */
 		parent = relation_open(parentId, AccessShareLock);
 		key = RelationGetPartitionKey(parent);
 
-		/* Reject parent table that is not hash-partitioned. */
+		/* 拒绝不是哈希分区的父表。 */
 		if (key == NULL || key->strategy != PARTITION_STRATEGY_HASH)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -4835,14 +4835,14 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 		{
 			int			nargs = PG_NARGS() - 3;
 
-			/* complain if wrong number of column values */
+			/* 若列值个数不对就报错 */
 			if (key->partnatts != nargs)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("number of partitioning columns (%d) does not match number of partition keys provided (%d)",
 								key->partnatts, nargs)));
 
-			/* allocate space for our cache */
+			/* 为我们的缓存分配空间 */
 			fcinfo->flinfo->fn_extra =
 				MemoryContextAllocZero(fcinfo->flinfo->fn_mcxt,
 									   offsetof(ColumnsHashData, partsupfunc) +
@@ -4853,7 +4853,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 			memcpy(my_extra->partcollid, key->partcollation,
 				   key->partnatts * sizeof(Oid));
 
-			/* check argument types and save fmgr_infos */
+			/* 检查参数类型并保存 fmgr_infos */
 			for (j = 0; j < key->partnatts; ++j)
 			{
 				Oid			argtype = get_fn_expr_argtype(fcinfo->flinfo, j + 3);
@@ -4873,7 +4873,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 		{
 			ArrayType  *variadic_array = PG_GETARG_ARRAYTYPE_P(3);
 
-			/* allocate space for our cache -- just one FmgrInfo in this case */
+			/* 为我们的缓存分配空间，这里只有一个 FmgrInfo */
 			fcinfo->flinfo->fn_extra =
 				MemoryContextAllocZero(fcinfo->flinfo->fn_mcxt,
 									   offsetof(ColumnsHashData, partsupfunc) +
@@ -4888,7 +4888,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 								 &my_extra->variadic_typalign);
 			my_extra->partcollid[0] = key->partcollation[0];
 
-			/* check argument types */
+			/* 检查参数类型 */
 			for (j = 0; j < key->partnatts; ++j)
 				if (key->parttypid[j] != my_extra->variadic_type)
 					ereport(ERROR,
@@ -4903,7 +4903,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 						   fcinfo->flinfo->fn_mcxt);
 		}
 
-		/* Hold lock until commit */
+		/* 把锁保持到提交 */
 		relation_close(parent, NoLock);
 	}
 
@@ -4913,16 +4913,16 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 		int			i;
 
 		/*
-		 * For a non-variadic call, neither the number of arguments nor their
-		 * types can change across calls, so avoid the expense of rechecking
-		 * here.
+		 * 对非可变参数调用，参数个数和类型
+		 * 都不会在各次调用之间改变，因此避免在这里
+		 * 再花检查的开销。
 		 */
 
 		for (i = 0; i < nkeys; i++)
 		{
 			Datum		hash;
 
-			/* keys start from fourth argument of function. */
+			/* 键从函数的第四个参数开始。 */
 			int			argno = i + 3;
 
 			if (PG_ARGISNULL(argno))
@@ -4933,7 +4933,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 									 PG_GETARG_DATUM(argno),
 									 seed);
 
-			/* Form a single 64-bit hash value */
+			/* 合成一个 64 位哈希值 */
 			rowHash = hash_combine64(rowHash, DatumGetUInt64(hash));
 		}
 	}
@@ -4952,7 +4952,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 						  my_extra->variadic_typalign,
 						  &datum, &isnull, &nelems);
 
-		/* complain if wrong number of column values */
+		/* 若列值个数不对就报错 */
 		if (nelems != my_extra->nkeys)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -4971,7 +4971,7 @@ satisfies_hash_partition(PG_FUNCTION_ARGS)
 									 datum[i],
 									 seed);
 
-			/* Form a single 64-bit hash value */
+			/* 合成一个 64 位哈希值 */
 			rowHash = hash_combine64(rowHash, DatumGetUInt64(hash));
 		}
 	}

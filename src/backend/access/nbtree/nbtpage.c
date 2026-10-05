@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * nbtpage.c
- *	  BTree-specific page management code for the Postgres btree access
- *	  method.
+ *	  Postgres BTree（B-树）访问方法专用的页管理
+ *	  代码。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,12 +11,12 @@
  * IDENTIFICATION
  *	  src/backend/access/nbtree/nbtpage.c
  *
- *	NOTES
- *	   Postgres btree pages look like ordinary relation pages.  The opaque
- *	   data at high addresses includes pointers to left and right siblings
- *	   and flag data describing page state.  The first page in a btree, page
- *	   zero, is special -- it stores meta-information describing the tree.
- *	   Pages one and higher store the actual tree data.
+ *	说明（NOTES）
+ *	   Postgres 的 B-树页看起来与普通关系页一样。高地址处的不透明
+ *	   数据包含指向左右兄弟的指针，
+ *	   以及描述页状态的标志数据。B-树的第一页，即第
+ *	   零页，是特殊的——它存放描述整棵树的元信息。
+ *	   第一页及更高页存放实际的树数据。
  *
  *-------------------------------------------------------------------------
  */
@@ -61,7 +61,7 @@ static void _bt_pendingfsm_add(BTVacState *vstate, BlockNumber target,
 							   FullTransactionId safexid);
 
 /*
- *	_bt_initmetapage() -- Fill a page buffer with a correct metapage image
+ *	_bt_initmetapage() -- 用正确的元页映像填充页缓冲区
  */
 void
 _bt_initmetapage(Page page, BlockNumber rootbknum, uint32 level,
@@ -87,21 +87,21 @@ _bt_initmetapage(Page page, BlockNumber rootbknum, uint32 level,
 	metaopaque->btpo_flags = BTP_META;
 
 	/*
-	 * Set pd_lower just past the end of the metadata.  This is essential,
-	 * because without doing so, metadata will be lost if xlog.c compresses
-	 * the page.
+	 * 把 pd_lower 设到元数据末尾之后。这一点至关重要，
+	 * 因为若不这样做，xlog.c 压缩该页时
+	 * 元数据就会丢失。
 	 */
 	((PageHeader) page)->pd_lower =
 		((char *) metad + sizeof(BTMetaPageData)) - (char *) page;
 }
 
 /*
- *	_bt_upgrademetapage() -- Upgrade a meta-page from an old format to version
- *		3, the last version that can be updated without broadly affecting
- *		on-disk compatibility.  (A REINDEX is required to upgrade to v4.)
+ *	_bt_upgrademetapage() -- 把元页从旧格式升级到版本
+ *		3，这是不必广泛影响磁盘兼容性就能更新的最后一个版本。
+ *		（升级到 v4 需要 REINDEX。）
  *
- *		This routine does purely in-memory image upgrade.  Caller is
- *		responsible for locking, WAL-logging etc.
+ *		本例程只在内存中升级映像。调用者
+ *		负责加锁、记 WAL 等。
  */
 void
 _bt_upgrademetapage(Page page)
@@ -112,31 +112,31 @@ _bt_upgrademetapage(Page page)
 	metad = BTPageGetMeta(page);
 	metaopaque = BTPageGetOpaque(page);
 
-	/* It must be really a meta page of upgradable version */
+	/* 它必须确实是可升级版本的元页 */
 	Assert(metaopaque->btpo_flags & BTP_META);
 	Assert(metad->btm_version < BTREE_NOVAC_VERSION);
 	Assert(metad->btm_version >= BTREE_MIN_VERSION);
 
-	/* Set version number and fill extra fields added into version 3 */
+	/* 设置版本号，并填入版本 3 新增的额外字段 */
 	metad->btm_version = BTREE_NOVAC_VERSION;
 	metad->btm_last_cleanup_num_delpages = 0;
 	metad->btm_last_cleanup_num_heap_tuples = -1.0;
-	/* Only a REINDEX can set this field */
+	/* 只有 REINDEX 才能设置该字段 */
 	Assert(!metad->btm_allequalimage);
 	metad->btm_allequalimage = false;
 
-	/* Adjust pd_lower (see _bt_initmetapage() for details) */
+	/* 调整 pd_lower（细节见 _bt_initmetapage()） */
 	((PageHeader) page)->pd_lower =
 		((char *) metad + sizeof(BTMetaPageData)) - (char *) page;
 }
 
 /*
- * Get metadata from share-locked buffer containing metapage, while performing
- * standard sanity checks.
+ * 从持有共享锁、内含元页的缓冲区取得元数据，同时做
+ * 标准的健全性检查。
  *
- * Callers that cache data returned here in local cache should note that an
- * on-the-fly upgrade using _bt_upgrademetapage() can change the version field
- * and BTREE_NOVAC_VERSION specific fields without invalidating local cache.
+ * 把这里返回的数据缓存在本地的调用者应当注意：
+ * 用 _bt_upgrademetapage() 做的即时升级可以改变版本字段
+ * 以及 BTREE_NOVAC_VERSION 专有字段，却不会使本地缓存失效。
  */
 static BTMetaPageData *
 _bt_getmeta(Relation rel, Buffer metabuf)
@@ -149,7 +149,7 @@ _bt_getmeta(Relation rel, Buffer metabuf)
 	metaopaque = BTPageGetOpaque(metapg);
 	metad = BTPageGetMeta(metapg);
 
-	/* sanity-check the metapage */
+	/* 对元页做健全性检查 */
 	if (!P_ISMETA(metaopaque) ||
 		metad->btm_magic != BTREE_MAGIC)
 		ereport(ERROR,
@@ -170,10 +170,10 @@ _bt_getmeta(Relation rel, Buffer metabuf)
 }
 
 /*
- * _bt_vacuum_needs_cleanup() -- Checks if index needs cleanup
+ * _bt_vacuum_needs_cleanup() -- 检查索引是否需要清理
  *
- * Called by btvacuumcleanup when btbulkdelete was never called because no
- * index tuples needed to be deleted.
+ * 当没有任何索引元组需要删除、因而从未调用 btbulkdelete 时，
+ * 由 btvacuumcleanup 调用。
  */
 bool
 _bt_vacuum_needs_cleanup(Relation rel)
@@ -185,9 +185,9 @@ _bt_vacuum_needs_cleanup(Relation rel)
 	BlockNumber prev_num_delpages;
 
 	/*
-	 * Copy details from metapage to local variables quickly.
+	 * 尽快把元页上的细节复制到局部变量。
 	 *
-	 * Note that we deliberately avoid using cached version of metapage here.
+	 * 注意，这里故意不用元页的缓存版本。
 	 */
 	metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_READ);
 	metapg = BufferGetPage(metabuf);
@@ -197,8 +197,8 @@ _bt_vacuum_needs_cleanup(Relation rel)
 	if (btm_version < BTREE_NOVAC_VERSION)
 	{
 		/*
-		 * Metapage needs to be dynamically upgraded to store fields that are
-		 * only present when btm_version >= BTREE_NOVAC_VERSION
+		 * 元页需要动态升级，以便存放仅当
+		 * btm_version >= BTREE_NOVAC_VERSION 时才存在的字段
 		 */
 		_bt_relbuf(rel, metabuf);
 		return true;
@@ -208,12 +208,12 @@ _bt_vacuum_needs_cleanup(Relation rel)
 	_bt_relbuf(rel, metabuf);
 
 	/*
-	 * Trigger cleanup in rare cases where prev_num_delpages exceeds 5% of the
-	 * total size of the index.  We can reasonably expect (though are not
-	 * guaranteed) to be able to recycle this many pages if we decide to do a
-	 * btvacuumscan call during the ongoing btvacuumcleanup.  For further
-	 * details see the nbtree/README section on placing deleted pages in the
-	 * FSM.
+	 * 在少数情况下，若 prev_num_delpages 超过索引总大小的 5%，
+	 * 就触发清理。若决定在正在进行的 btvacuumcleanup 期间
+	 * 调用 btvacuumscan，我们有理由期望（尽管不能保证）
+	 * 能够回收这么多页。
+	 * 进一步细节见 nbtree/README 中关于把已删除页放入
+	 * FSM 的一节。
 	 */
 	if (prev_num_delpages > 0 &&
 		prev_num_delpages > RelationGetNumberOfBlocks(rel) / 20)
@@ -223,10 +223,10 @@ _bt_vacuum_needs_cleanup(Relation rel)
 }
 
 /*
- * _bt_set_cleanup_info() -- Update metapage for btvacuumcleanup.
+ * _bt_set_cleanup_info() -- 为 btvacuumcleanup 更新元页。
  *
- * Called at the end of btvacuumcleanup, when num_delpages value has been
- * finalized.
+ * 在 btvacuumcleanup 结束、num_delpages 的值已经
+ * 定稿时调用。
  */
 void
 _bt_set_cleanup_info(Relation rel, BlockNumber num_delpages)
@@ -236,52 +236,52 @@ _bt_set_cleanup_info(Relation rel, BlockNumber num_delpages)
 	BTMetaPageData *metad;
 
 	/*
-	 * On-disk compatibility note: The btm_last_cleanup_num_delpages metapage
-	 * field started out as a TransactionId field called btm_oldest_btpo_xact.
-	 * Both "versions" are just uint32 fields.  It was convenient to repurpose
-	 * the field when we began to use 64-bit XIDs in deleted pages.
+	 * 磁盘兼容性说明：元页字段 btm_last_cleanup_num_delpages
+	 * 起初是名为 btm_oldest_btpo_xact 的 TransactionId 字段。
+	 * 两种"版本"都只是 uint32 字段。开始在已删除页上使用
+	 * 64 位 XIDs 时，复用该字段很方便。
 	 *
-	 * It's possible that a pg_upgrade'd database will contain an XID value in
-	 * what is now recognized as the metapage's btm_last_cleanup_num_delpages
-	 * field.  _bt_vacuum_needs_cleanup() may even believe that this value
-	 * indicates that there are lots of pages that it needs to recycle, when
-	 * in reality there are only one or two.  The worst that can happen is
-	 * that there will be a call to btvacuumscan a little earlier, which will
-	 * set btm_last_cleanup_num_delpages to a sane value when we're called.
+	 * 经过 pg_upgrade 的数据库有可能在
+	 * 如今被认作元页 btm_last_cleanup_num_delpages
+	 * 字段的位置留下一个 XID 值。_bt_vacuum_needs_cleanup() 甚至可能认为该值
+	 * 表明有大量页需要回收，而
+	 * 实际上只有一两页。最坏的情况是
+	 * 会稍早调用一次 btvacuumscan，而当我们被调用时它会
+	 * 把 btm_last_cleanup_num_delpages 设成合理的值。
 	 *
-	 * Note also that the metapage's btm_last_cleanup_num_heap_tuples field is
-	 * no longer used as of PostgreSQL 14.  We set it to -1.0 on rewrite, just
-	 * to be consistent.
+	 * 还要注意，自 PostgreSQL 14 起，元页的 btm_last_cleanup_num_heap_tuples 字段
+	 * 已不再使用。重写时我们把它设为 -1.0，只是
+	 * 为了保持一致。
 	 */
 	metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_READ);
 	metapg = BufferGetPage(metabuf);
 	metad = BTPageGetMeta(metapg);
 
-	/* Don't miss chance to upgrade index/metapage when BTREE_MIN_VERSION */
+	/* BTREE_MIN_VERSION 时不要错过升级索引/元页的机会 */
 	if (metad->btm_version >= BTREE_NOVAC_VERSION &&
 		metad->btm_last_cleanup_num_delpages == num_delpages)
 	{
-		/* Usually means index continues to have num_delpages of 0 */
+		/* 通常意味着索引的 num_delpages 仍为 0 */
 		_bt_relbuf(rel, metabuf);
 		return;
 	}
 
-	/* trade in our read lock for a write lock */
+	/* 把读锁换成写锁 */
 	_bt_unlockbuf(rel, metabuf);
 	_bt_lockbuf(rel, metabuf, BT_WRITE);
 
 	START_CRIT_SECTION();
 
-	/* upgrade meta-page if needed */
+	/* 需要时升级元页 */
 	if (metad->btm_version < BTREE_NOVAC_VERSION)
 		_bt_upgrademetapage(metapg);
 
-	/* update cleanup-related information */
+	/* 更新与清理相关的信息 */
 	metad->btm_last_cleanup_num_delpages = num_delpages;
 	metad->btm_last_cleanup_num_heap_tuples = -1.0;
 	MarkBufferDirty(metabuf);
 
-	/* write wal record if needed */
+	/* 需要时写入 WAL 记录 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_btree_metadata md;
@@ -312,33 +312,33 @@ _bt_set_cleanup_info(Relation rel, BlockNumber num_delpages)
 }
 
 /*
- *	_bt_getroot() -- Get the root page of the btree.
+ *	_bt_getroot() -- 取得 B-树的根页。
  *
- *		Since the root page can move around the btree file, we have to read
- *		its location from the metadata page, and then read the root page
- *		itself.  If no root page exists yet, we have to create one.
+ *		由于根页可能在 B-树文件中移动，我们必须从
+ *		元页读出它的位置，然后再读根页
+ *		本身。若根页尚不存在，就必须创建一个。
  *
- *		The access type parameter (BT_READ or BT_WRITE) controls whether
- *		a new root page will be created or not.  If access = BT_READ,
- *		and no root page exists, we just return InvalidBuffer.  For
- *		BT_WRITE, we try to create the root page if it doesn't exist.
- *		NOTE that the returned root page will have only a read lock set
- *		on it even if access = BT_WRITE!
+ *		访问类型参数（BT_READ 或 BT_WRITE）控制是否
+ *		创建新根页。若 access = BT_READ，
+ *		且根页不存在，就只返回 InvalidBuffer。对于
+ *		BT_WRITE，若根页不存在，我们会尝试创建它。
+ *		注意：即使 access = BT_WRITE，返回的根页上也只设置
+ *		读锁！
  *
- *		If access = BT_WRITE, heaprel must be set; otherwise caller can just
- *		pass NULL.  See _bt_allocbuf for an explanation.
+ *		若 access = BT_WRITE，必须设置 heaprel；否则调用者可以只
+ *		传入 NULL。说明见 _bt_allocbuf。
  *
- *		The returned page is not necessarily the true root --- it could be
- *		a "fast root" (a page that is alone in its level due to deletions).
- *		Also, if the root page is split while we are "in flight" to it,
- *		what we will return is the old root, which is now just the leftmost
- *		page on a probably-not-very-wide level.  For most purposes this is
- *		as good as or better than the true root, so we do not bother to
- *		insist on finding the true root.  We do, however, guarantee to
- *		return a live (not deleted or half-dead) page.
+ *		返回的页不一定是真正的根——它可能是
+ *		"快速根"（因删除而在其所在层上单独存在的一页）。
+ *		另外，若我们"在途中"时根页发生分裂，
+ *		返回的将是旧根，它现在只是
+ *		某一层（可能并不很宽）上最左边的页。对大多数用途而言，这
+ *		与真正的根一样好，甚至更好，因此我们并不费力
+ *		坚持找到真正的根。不过我们保证
+ *		返回的是活页（不是已删除或半死的页）。
  *
- *		On successful return, the root page is pinned and read-locked.
- *		The metadata page is not locked or pinned on exit.
+ *		成功返回时，根页已被钉住并加上读锁。
+ *		退出时元页既不加锁也不钉住。
  */
 Buffer
 _bt_getroot(Relation rel, Relation heaprel, int access)
@@ -354,14 +354,14 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 	Assert(access == BT_READ || heaprel != NULL);
 
 	/*
-	 * Try to use previously-cached metapage data to find the root.  This
-	 * normally saves one buffer access per index search, which is a very
-	 * helpful savings in bufmgr traffic and hence contention.
+	 * 尝试用先前缓存的元页数据来找根。这
+	 * 通常每次索引搜索能省一次缓冲区访问，对
+	 * bufmgr 流量乃至争用都是很有帮助的节省。
 	 */
 	if (rel->rd_amcache != NULL)
 	{
 		metad = (BTMetaPageData *) rel->rd_amcache;
-		/* We shouldn't have cached it if any of these fail */
+		/* 若下列任一检查失败，我们本不该缓存它 */
 		Assert(metad->btm_magic == BTREE_MAGIC);
 		Assert(metad->btm_version >= BTREE_MIN_VERSION);
 		Assert(metad->btm_version <= BTREE_VERSION);
@@ -378,22 +378,22 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 		rootopaque = BTPageGetOpaque(rootpage);
 
 		/*
-		 * Since the cache might be stale, we check the page more carefully
-		 * here than normal.  We *must* check that it's not deleted. If it's
-		 * not alone on its level, then we reject too --- this may be overly
-		 * paranoid but better safe than sorry.  Note we don't check P_ISROOT,
-		 * because that's not set in a "fast root".
+		 * 由于缓存可能过时，这里对页的检查比平常
+		 * 更仔细。我们必须检查它未被删除。若它
+		 * 在所在层上并不单独存在，也拒绝它——这也许过于
+		 * 谨慎，但宁可安全。注意我们不检查 P_ISROOT，
+		 * 因为"快速根"上并不设置该标志。
 		 */
 		if (!P_IGNORE(rootopaque) &&
 			rootopaque->btpo_level == rootlevel &&
 			P_LEFTMOST(rootopaque) &&
 			P_RIGHTMOST(rootopaque))
 		{
-			/* OK, accept cached page as the root */
+			/* 可以，把缓存页当作根接受 */
 			return rootbuf;
 		}
 		_bt_relbuf(rel, rootbuf);
-		/* Cache is stale, throw it away */
+		/* 缓存已过时，丢掉它 */
 		if (rel->rd_amcache)
 			pfree(rel->rd_amcache);
 		rel->rd_amcache = NULL;
@@ -402,43 +402,43 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 	metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_READ);
 	metad = _bt_getmeta(rel, metabuf);
 
-	/* if no root page initialized yet, do it */
+	/* 若根页尚未初始化，就初始化它 */
 	if (metad->btm_root == P_NONE)
 	{
 		Page		metapg;
 
-		/* If access = BT_READ, caller doesn't want us to create root yet */
+		/* 若 access = BT_READ，调用者还不希望我们创建根 */
 		if (access == BT_READ)
 		{
 			_bt_relbuf(rel, metabuf);
 			return InvalidBuffer;
 		}
 
-		/* trade in our read lock for a write lock */
+		/* 把读锁换成写锁 */
 		_bt_unlockbuf(rel, metabuf);
 		_bt_lockbuf(rel, metabuf, BT_WRITE);
 
 		/*
-		 * Race condition:	if someone else initialized the metadata between
-		 * the time we released the read lock and acquired the write lock, we
-		 * must avoid doing it again.
+		 * 竞态：若在我们释放读锁与取得写锁之间
+		 * 已有别人初始化了元数据，我们
+		 * 必须避免再做一次。
 		 */
 		if (metad->btm_root != P_NONE)
 		{
 			/*
-			 * Metadata initialized by someone else.  In order to guarantee no
-			 * deadlocks, we have to release the metadata page and start all
-			 * over again.  (Is that really true? But it's hardly worth trying
-			 * to optimize this case.)
+			 * 元数据已由别人初始化。为了保证不会
+			 * 死锁，我们必须释放元页并从头
+			 * 再来。（这真的必要吗？不过这种情形几乎不值得
+			 * 去优化。）
 			 */
 			_bt_relbuf(rel, metabuf);
 			return _bt_getroot(rel, heaprel, access);
 		}
 
 		/*
-		 * Get, initialize, write, and leave a lock of the appropriate type on
-		 * the new root page.  Since this is the first page in the tree, it's
-		 * a leaf as well as the root.
+		 * 取得、初始化、写出新根页，并在其上留下适当类型的锁。
+		 * 由于这是树中的第一页，它既是叶子
+		 * 也是根。
 		 */
 		rootbuf = _bt_allocbuf(rel, heaprel);
 		rootblkno = BufferGetBlockNumber(rootbuf);
@@ -448,13 +448,13 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 		rootopaque->btpo_flags = (BTP_LEAF | BTP_ROOT);
 		rootopaque->btpo_level = 0;
 		rootopaque->btpo_cycleid = 0;
-		/* Get raw page pointer for metapage */
+		/* 取得元页的原始页指针 */
 		metapg = BufferGetPage(metabuf);
 
-		/* NO ELOG(ERROR) till meta is updated */
+		/* 元页更新之前不要 ELOG(ERROR) */
 		START_CRIT_SECTION();
 
-		/* upgrade metapage if needed */
+		/* 需要时升级元页 */
 		if (metad->btm_version < BTREE_NOVAC_VERSION)
 			_bt_upgrademetapage(metapg);
 
@@ -468,7 +468,7 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 		MarkBufferDirty(rootbuf);
 		MarkBufferDirty(metabuf);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(rel))
 		{
 			xl_btree_newroot xlrec;
@@ -504,14 +504,14 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 		END_CRIT_SECTION();
 
 		/*
-		 * swap root write lock for read lock.  There is no danger of anyone
-		 * else accessing the new root page while it's unlocked, since no one
-		 * else knows where it is yet.
+		 * 把根上的写锁换成读锁。新根页在解锁期间
+		 * 没有别人会访问它的危险，因为还没有人
+		 * 知道它在哪里。
 		 */
 		_bt_unlockbuf(rel, rootbuf);
 		_bt_lockbuf(rel, rootbuf, BT_READ);
 
-		/* okay, metadata is correct, release lock on it without caching */
+		/* 好，元数据正确，释放其上的锁且不缓存 */
 		_bt_relbuf(rel, metabuf);
 	}
 	else
@@ -521,15 +521,15 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 		rootlevel = metad->btm_fastlevel;
 
 		/*
-		 * Cache the metapage data for next time
+		 * 缓存元页数据，供下次使用
 		 */
 		rel->rd_amcache = MemoryContextAlloc(rel->rd_indexcxt,
 											 sizeof(BTMetaPageData));
 		memcpy(rel->rd_amcache, metad, sizeof(BTMetaPageData));
 
 		/*
-		 * We are done with the metapage; arrange to release it via first
-		 * _bt_relandgetbuf call
+		 * 元页已经用完；安排在第一次
+		 * _bt_relandgetbuf 调用时释放它
 		 */
 		rootbuf = metabuf;
 
@@ -542,7 +542,7 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 			if (!P_IGNORE(rootopaque))
 				break;
 
-			/* it's dead, Jim.  step right one page */
+			/* 此页已死，向右走一页 */
 			if (P_RIGHTMOST(rootopaque))
 				elog(ERROR, "no live root page found in index \"%s\"",
 					 RelationGetRelationName(rel));
@@ -556,25 +556,25 @@ _bt_getroot(Relation rel, Relation heaprel, int access)
 	}
 
 	/*
-	 * By here, we have a pin and read lock on the root page, and no lock set
-	 * on the metadata page.  Return the root page's buffer.
+	 * 到这里，我们在根页上持有钉住和读锁，元页上
+	 * 没有设置锁。返回根页的缓冲区。
 	 */
 	return rootbuf;
 }
 
 /*
- *	_bt_gettrueroot() -- Get the true root page of the btree.
+ *	_bt_gettrueroot() -- 取得 B-树的真正根页。
  *
- *		This is the same as the BT_READ case of _bt_getroot(), except
- *		we follow the true-root link not the fast-root link.
+ *		这与 _bt_getroot() 的 BT_READ 情形相同，只是
+ *		我们跟随真正根的链接，而不是快速根的链接。
  *
- * By the time we acquire lock on the root page, it might have been split and
- * not be the true root anymore.  This is okay for the present uses of this
- * routine; we only really need to be able to move up at least one tree level
- * from whatever non-root page we were at.  If we ever do need to lock the
- * one true root page, we could loop here, re-reading the metapage on each
- * failure.  (Note that it wouldn't do to hold the lock on the metapage while
- * moving to the root --- that'd deadlock against any concurrent root split.)
+ * 等到我们取得根页上的锁时，它可能已经分裂，
+ * 不再是真正的根。对目前本例程的用途而言这没问题；
+ * 我们真正需要的只是至少能从所在的任何非根页
+ * 向上移动一层。若将来确实需要锁住
+ * 那一个真正的根页，可以在这里循环，每次失败都重新读元页。
+ * （注意，在移向根页时持有元页上的锁是不行的——
+ * 那会与任何并发的根分裂死锁。）
  */
 Buffer
 _bt_gettrueroot(Relation rel)
@@ -590,10 +590,10 @@ _bt_gettrueroot(Relation rel)
 	BTMetaPageData *metad;
 
 	/*
-	 * We don't try to use cached metapage data here, since (a) this path is
-	 * not performance-critical, and (b) if we are here it suggests our cache
-	 * is out-of-date anyway.  In light of point (b), it's probably safest to
-	 * actively flush any cached metapage info.
+	 * 这里不尝试使用缓存的元页数据，因为 (a) 这条路径
+	 * 对性能不关键，并且 (b) 我们走到这里本身就说明缓存
+	 * 反正已经过时。鉴于 (b)，主动丢掉任何已缓存的
+	 * 元页信息大概最安全。
 	 */
 	if (rel->rd_amcache)
 		pfree(rel->rd_amcache);
@@ -620,7 +620,7 @@ _bt_gettrueroot(Relation rel)
 						RelationGetRelationName(rel),
 						metad->btm_version, BTREE_VERSION, BTREE_MIN_VERSION)));
 
-	/* if no root page initialized yet, fail */
+	/* 若根页尚未初始化，则失败 */
 	if (metad->btm_root == P_NONE)
 	{
 		_bt_relbuf(rel, metabuf);
@@ -631,8 +631,8 @@ _bt_gettrueroot(Relation rel)
 	rootlevel = metad->btm_level;
 
 	/*
-	 * We are done with the metapage; arrange to release it via first
-	 * _bt_relandgetbuf call
+	 * 元页已经用完；安排在第一次
+	 * _bt_relandgetbuf 调用时释放它
 	 */
 	rootbuf = metabuf;
 
@@ -645,7 +645,7 @@ _bt_gettrueroot(Relation rel)
 		if (!P_IGNORE(rootopaque))
 			break;
 
-		/* it's dead, Jim.  step right one page */
+		/* 此页已死，向右走一页 */
 		if (P_RIGHTMOST(rootopaque))
 			elog(ERROR, "no live root page found in index \"%s\"",
 				 RelationGetRelationName(rel));
@@ -661,15 +661,15 @@ _bt_gettrueroot(Relation rel)
 }
 
 /*
- *	_bt_getrootheight() -- Get the height of the btree search tree.
+ *	_bt_getrootheight() -- 取得 B-树搜索树的高度。
  *
- *		We return the level (counting from zero) of the current fast root.
- *		This represents the number of tree levels we'd have to descend through
- *		to start any btree index search.
+ *		我们返回当前快速根的层号（从零计起）。
+ *		它表示开始任何 B-树索引搜索时
+ *		必须下降经过的树层数。
  *
- *		This is used by the planner for cost-estimation purposes.  Since it's
- *		only an estimate, slightly-stale data is fine, hence we don't worry
- *		about updating previously cached data.
+ *		规划器用它做代价估计。既然只是
+ *		估计，略为过时的数据也没问题，因此我们不操心
+ *		更新先前缓存的数据。
  */
 int
 _bt_getrootheight(Relation rel)
@@ -684,9 +684,9 @@ _bt_getrootheight(Relation rel)
 		metad = _bt_getmeta(rel, metabuf);
 
 		/*
-		 * If there's no root page yet, _bt_getroot() doesn't expect a cache
-		 * to be made, so just stop here and report the index height is zero.
-		 * (XXX perhaps _bt_getroot() should be changed to allow this case.)
+		 * 若根页尚不存在，_bt_getroot() 并不期望建立缓存，
+		 * 因此就停在这里，并报告索引高度为零。
+		 * （XXX 也许应当改 _bt_getroot() 以允许这种情形。）
 		 */
 		if (metad->btm_root == P_NONE)
 		{
@@ -695,7 +695,7 @@ _bt_getrootheight(Relation rel)
 		}
 
 		/*
-		 * Cache the metapage data for next time
+		 * 缓存元页数据，供下次使用
 		 */
 		rel->rd_amcache = MemoryContextAlloc(rel->rd_indexcxt,
 											 sizeof(BTMetaPageData));
@@ -703,9 +703,9 @@ _bt_getrootheight(Relation rel)
 		_bt_relbuf(rel, metabuf);
 	}
 
-	/* Get cached page */
+	/* 取得缓存页 */
 	metad = (BTMetaPageData *) rel->rd_amcache;
-	/* We shouldn't have cached it if any of these fail */
+	/* 若下列任一检查失败，我们本不该缓存它 */
 	Assert(metad->btm_magic == BTREE_MAGIC);
 	Assert(metad->btm_version >= BTREE_MIN_VERSION);
 	Assert(metad->btm_version <= BTREE_VERSION);
@@ -717,23 +717,23 @@ _bt_getrootheight(Relation rel)
 }
 
 /*
- *	_bt_metaversion() -- Get version/status info from metapage.
+ *	_bt_metaversion() -- 从元页取得版本/状态信息。
  *
- *		Sets caller's *heapkeyspace and *allequalimage arguments using data
- *		from the B-Tree metapage (could be locally-cached version).  This
- *		information needs to be stashed in insertion scankey, so we provide a
- *		single function that fetches both at once.
+ *		用 B-树元页中的数据（可以是本地缓存的版本）设置调用者的
+ *		*heapkeyspace 和 *allequalimage 参数。这些
+ *		信息需要塞进插入扫描键，因此我们提供一个
+ *		一次取回两者的函数。
  *
- *		This is used to determine the rules that must be used to descend a
- *		btree.  Version 4 indexes treat heap TID as a tiebreaker attribute.
- *		pg_upgrade'd version 3 indexes need extra steps to preserve reasonable
- *		performance when inserting a new BTScanInsert-wise duplicate tuple
- *		among many leaf pages already full of such duplicates.
+ *		这用来确定下降 B-树时必须使用的规则。
+ *		版本 4 索引把堆 TID 当作决胜属性。
+ *		经 pg_upgrade 的版本 3 索引在插入一个新的、按 BTScanInsert 来看
+ *		与许多已满叶子页上的重复项重复的元组时，需要额外步骤
+ *		才能保持合理性能。
  *
- *		Also sets allequalimage field, which indicates whether or not it is
- *		safe to apply deduplication.  We rely on the assumption that
- *		btm_allequalimage will be zero'ed on heapkeyspace indexes that were
- *		pg_upgrade'd from Postgres 12.
+ *		还设置 allequalimage 字段，它表示是否
+ *		可以安全地应用去重。我们依赖这样的假定：
+ *		从 Postgres 12 pg_upgrade 来的 heapkeyspace 索引上，
+ *		btm_allequalimage 会被清零。
  */
 void
 _bt_metaversion(Relation rel, bool *heapkeyspace, bool *allequalimage)
@@ -748,9 +748,9 @@ _bt_metaversion(Relation rel, bool *heapkeyspace, bool *allequalimage)
 		metad = _bt_getmeta(rel, metabuf);
 
 		/*
-		 * If there's no root page yet, _bt_getroot() doesn't expect a cache
-		 * to be made, so just stop here.  (XXX perhaps _bt_getroot() should
-		 * be changed to allow this case.)
+		 * 若根页尚不存在，_bt_getroot() 并不期望建立缓存，
+		 * 因此就停在这里。（XXX 也许应当改 _bt_getroot()
+		 * 以允许这种情形。）
 		 */
 		if (metad->btm_root == P_NONE)
 		{
@@ -762,13 +762,13 @@ _bt_metaversion(Relation rel, bool *heapkeyspace, bool *allequalimage)
 		}
 
 		/*
-		 * Cache the metapage data for next time
+		 * 缓存元页数据，供下次使用
 		 *
-		 * An on-the-fly version upgrade performed by _bt_upgrademetapage()
-		 * can change the nbtree version for an index without invalidating any
-		 * local cache.  This is okay because it can only happen when moving
-		 * from version 2 to version 3, both of which are !heapkeyspace
-		 * versions.
+		 * _bt_upgrademetapage() 做的即时版本升级
+		 * 可以改变索引的 nbtree 版本，却不会使任何
+		 * 本地缓存失效。这没问题，因为它只会在从
+		 * 版本 2 升到版本 3 时发生，两者都是 !heapkeyspace
+		 * 版本。
 		 */
 		rel->rd_amcache = MemoryContextAlloc(rel->rd_indexcxt,
 											 sizeof(BTMetaPageData));
@@ -776,9 +776,9 @@ _bt_metaversion(Relation rel, bool *heapkeyspace, bool *allequalimage)
 		_bt_relbuf(rel, metabuf);
 	}
 
-	/* Get cached page */
+	/* 取得缓存页 */
 	metad = (BTMetaPageData *) rel->rd_amcache;
-	/* We shouldn't have cached it if any of these fail */
+	/* 若下列任一检查失败，我们本不该缓存它 */
 	Assert(metad->btm_magic == BTREE_MAGIC);
 	Assert(metad->btm_version >= BTREE_MIN_VERSION);
 	Assert(metad->btm_version <= BTREE_VERSION);
@@ -791,7 +791,7 @@ _bt_metaversion(Relation rel, bool *heapkeyspace, bool *allequalimage)
 }
 
 /*
- *	_bt_checkpage() -- Verify that a freshly-read page looks sane.
+ *	_bt_checkpage() -- 验证刚读入的页看起来健全。
  */
 void
 _bt_checkpage(Relation rel, Buffer buf)
@@ -799,10 +799,10 @@ _bt_checkpage(Relation rel, Buffer buf)
 	Page		page = BufferGetPage(buf);
 
 	/*
-	 * ReadBuffer verifies that every newly-read page passes
-	 * PageHeaderIsValid, which means it either contains a reasonably sane
-	 * page header or is all-zero.  We have to defend against the all-zero
-	 * case, however.
+	 * ReadBuffer 会验证每个新读入的页都通过
+	 * PageHeaderIsValid，这意味着它要么含有相当健全的
+	 * 页头，要么全为零。不过我们必须防备全零
+	 * 这种情形。
 	 */
 	if (PageIsNew(page))
 		ereport(ERROR,
@@ -813,7 +813,7 @@ _bt_checkpage(Relation rel, Buffer buf)
 				 errhint("Please REINDEX it.")));
 
 	/*
-	 * Additionally check that the special area looks sane.
+	 * 另外检查特殊区看起来健全。
 	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(BTPageOpaqueData)))
 		ereport(ERROR,
@@ -825,21 +825,21 @@ _bt_checkpage(Relation rel, Buffer buf)
 }
 
 /*
- *	_bt_getbuf() -- Get an existing block in a buffer, for read or write.
+ *	_bt_getbuf() -- 取得缓冲区中的一个已有块，供读或写。
  *
- *		The general rule in nbtree is that it's never okay to access a
- *		page without holding both a buffer pin and a buffer lock on
- *		the page's buffer.
+ *		nbtree 的一般规则是：访问一页时，必须同时持有该页
+ *		缓冲区上的缓冲区钉住和缓冲区锁，
+ *		否则就不可以访问。
  *
- *		When this routine returns, the appropriate lock is set on the
- *		requested buffer and its reference count has been incremented
- *		(ie, the buffer is "locked and pinned").  Also, we apply
- *		_bt_checkpage to sanity-check the page, and perform Valgrind
- *		client requests that help Valgrind detect unsafe page accesses.
+ *		本例程返回时，所请求的缓冲区上已设置适当的锁，
+ *		并且其引用计数已增加
+ *		（即缓冲区"已锁定并钉住"）。我们还用
+ *		_bt_checkpage 对该页做健全性检查，并执行 Valgrind
+ *		客户端请求，以帮助 Valgrind 检测不安全的页访问。
  *
- *		Note: raw LockBuffer() calls are disallowed in nbtree; all
- *		buffer lock requests need to go through wrapper functions such
- *		as _bt_lockbuf().
+ *		注意：nbtree 中不允许直接调用 LockBuffer()；所有
+ *		缓冲区锁请求都要经过包装函数，例如
+ *		_bt_lockbuf()。
  */
 Buffer
 _bt_getbuf(Relation rel, BlockNumber blkno, int access)
@@ -848,7 +848,7 @@ _bt_getbuf(Relation rel, BlockNumber blkno, int access)
 
 	Assert(BlockNumberIsValid(blkno));
 
-	/* Read an existing block of the relation */
+	/* 读取关系中的一个已有块 */
 	buf = ReadBuffer(rel, blkno);
 	_bt_lockbuf(rel, buf, access);
 	_bt_checkpage(rel, buf);
@@ -857,13 +857,13 @@ _bt_getbuf(Relation rel, BlockNumber blkno, int access)
 }
 
 /*
- *	_bt_allocbuf() -- Allocate a new block/page.
+ *	_bt_allocbuf() -- 分配一个新块/页。
  *
- * Returns a write-locked buffer containing an unallocated nbtree page.
+ * 返回一个持有写锁的缓冲区，其中是尚未分配的 nbtree 页。
  *
- * Callers are required to pass a valid heaprel.  We need heaprel so that we
- * can handle generating a snapshotConflictHorizon that makes reusing a page
- * from the FSM safe for queries that may be running on standbys.
+ * 调用者必须传入有效的 heaprel。我们需要 heaprel，以便
+ * 生成 snapshotConflictHorizon，使从 FSM 重用一页
+ * 对可能在备库上运行的查询是安全的。
  */
 Buffer
 _bt_allocbuf(Relation rel, Relation heaprel)
@@ -875,28 +875,28 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 	Assert(heaprel != NULL);
 
 	/*
-	 * First see if the FSM knows of any free pages.
+	 * 先看 FSM 是否知道有空闲页。
 	 *
-	 * We can't trust the FSM's report unreservedly; we have to check that the
-	 * page is still free.  (For example, an already-free page could have been
-	 * re-used between the time the last VACUUM scanned it and the time the
-	 * VACUUM made its FSM updates.)
+	 * 不能无保留地信任 FSM 的报告；我们必须检查该
+	 * 页仍然空闲。（例如，一张已经空闲的页可能在上次 VACUUM
+	 * 扫描它之后、VACUUM 更新 FSM 之前
+	 * 就被重新使用了。）
 	 *
-	 * In fact, it's worse than that: we can't even assume that it's safe to
-	 * take a lock on the reported page.  If somebody else has a lock on it,
-	 * or even worse our own caller does, we could deadlock.  (The own-caller
-	 * scenario is actually not improbable. Consider an index on a serial or
-	 * timestamp column.  Nearly all splits will be at the rightmost page, so
-	 * it's entirely likely that _bt_split will call us while holding a lock
-	 * on the page most recently acquired from FSM. A VACUUM running
-	 * concurrently with the previous split could well have placed that page
-	 * back in FSM.)
+	 * 实际上比这更糟：我们甚至不能假定对所报告的页
+	 * 加锁是安全的。若别人持有它的锁，
+	 * 或者更糟，我们自己的调用者持有，就可能死锁。（调用者自己
+	 * 持锁的情形其实并非罕见。考虑 serial 或
+	 * timestamp 列上的索引。几乎所有分裂都发生在最右页，因此
+	 * _bt_split 完全可能在持有最近从 FSM 取得的那一页的锁时
+	 * 调用我们。与上一次分裂并发运行的 VACUUM
+	 * 很可能已经把那一页
+	 * 放回了 FSM。）
 	 *
-	 * To get around that, we ask for only a conditional lock on the reported
-	 * page.  If we fail, then someone else is using the page, and we may
-	 * reasonably assume it's not free.  (If we happen to be wrong, the worst
-	 * consequence is the page will be lost to use till the next VACUUM, which
-	 * is no big problem.)
+	 * 为绕过这一点，我们只对所报告的页请求条件锁。
+	 * 若失败，则别人正在使用该页，我们就可以
+	 * 合理地假定它并不空闲。（若我们碰巧错了，最坏
+	 * 后果是该页直到下次 VACUUM 之前无法使用，这
+	 * 不是大问题。）
 	 */
 	for (;;)
 	{
@@ -909,15 +909,15 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 			page = BufferGetPage(buf);
 
 			/*
-			 * It's possible to find an all-zeroes page in an index.  For
-			 * example, a backend might successfully extend the relation one
-			 * page and then crash before it is able to make a WAL entry for
-			 * adding the page.  If we find a zeroed page then reclaim it
-			 * immediately.
+			 * 索引中有可能找到全零页。例如，
+			 * 某个后端可能成功把关系扩展了
+			 * 一页，然后在能为加入该页
+			 * 写下 WAL 记录之前崩溃。若找到全零页，
+			 * 就立即收回它。
 			 */
 			if (PageIsNew(page))
 			{
-				/* Okay to use page.  Initialize and return it. */
+				/* 可以使用该页。初始化并返回它。 */
 				_bt_pageinit(page, BufferGetPageSize(buf));
 				return buf;
 			}
@@ -925,21 +925,21 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 			if (BTPageIsRecyclable(page, heaprel))
 			{
 				/*
-				 * If we are generating WAL for Hot Standby then create a WAL
-				 * record that will allow us to conflict with queries running
-				 * on standby, in case they have snapshots older than safexid
-				 * value
+				 * 若正在为热备生成 WAL，就创建一条 WAL
+				 * 记录，以便与备库上运行的查询产生冲突，
+				 * 以防它们的快照比 safexid
+				 * 值更旧
 				 */
 				if (RelationNeedsWAL(rel) && XLogStandbyInfoActive())
 				{
 					xl_btree_reuse_page xlrec_reuse;
 
 					/*
-					 * Note that we don't register the buffer with the record,
-					 * because this operation doesn't modify the page (that
-					 * already happened, back when VACUUM deleted the page).
-					 * This record only exists to provide a conflict point for
-					 * Hot Standby.  See record REDO routine comments.
+					 * 注意我们不把该缓冲区登记到这条记录上，
+					 * 因为这次操作并不修改该页（那
+					 * 已经发生过了，是在 VACUUM 删除该页时）。
+					 * 这条记录的存在只是为热备提供一个冲突点。
+					 * 见该记录 REDO 例程的注释。
 					 */
 					xlrec_reuse.locator = rel->rd_locator;
 					xlrec_reuse.block = blkno;
@@ -953,7 +953,7 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 					XLogInsert(RM_BTREE_ID, XLOG_BTREE_REUSE_PAGE);
 				}
 
-				/* Okay to use page.  Re-initialize and return it. */
+				/* 可以使用该页。重新初始化并返回它。 */
 				_bt_pageinit(page, BufferGetPageSize(buf));
 				return buf;
 			}
@@ -963,23 +963,23 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 		else
 		{
 			elog(DEBUG2, "FSM returned nonlockable page");
-			/* couldn't get lock, so just drop pin */
+			/* 没能拿到锁，因此只放下钉住 */
 			ReleaseBuffer(buf);
 		}
 	}
 
 	/*
-	 * Extend the relation by one page. Need to use RBM_ZERO_AND_LOCK or we
-	 * risk a race condition against btvacuumscan --- see comments therein.
-	 * This forces us to repeat the valgrind request that _bt_lockbuf()
-	 * otherwise would make, as we can't use _bt_lockbuf() without introducing
-	 * a race.
+	 * 把关系扩展一页。必须使用 RBM_ZERO_AND_LOCK，否则
+	 * 会与 btvacuumscan 出现竞态——见其中的注释。
+	 * 这迫使我们重复 _bt_lockbuf() 原本会发出的
+	 * valgrind 请求，因为若使用 _bt_lockbuf() 就会引入
+	 * 竞态。
 	 */
 	buf = ExtendBufferedRel(BMR_REL(rel), MAIN_FORKNUM, NULL, EB_LOCK_FIRST);
 	if (!RelationUsesLocalBuffers(rel))
 		VALGRIND_MAKE_MEM_DEFINED(BufferGetPage(buf), BLCKSZ);
 
-	/* Initialize the new page before returning it */
+	/* 返回之前先初始化新页 */
 	page = BufferGetPage(buf);
 	Assert(PageIsNew(page));
 	_bt_pageinit(page, BufferGetPageSize(buf));
@@ -988,16 +988,16 @@ _bt_allocbuf(Relation rel, Relation heaprel)
 }
 
 /*
- *	_bt_relandgetbuf() -- release a locked buffer and get another one.
+ *	_bt_relandgetbuf() -- 释放一个已锁定的缓冲区，再取得另一个。
  *
- * This is equivalent to _bt_relbuf followed by _bt_getbuf.  Also, if obuf is
- * InvalidBuffer then it reduces to just _bt_getbuf; allowing this case
- * simplifies some callers.
+ * 这等价于先 _bt_relbuf 再 _bt_getbuf。另外，若 obuf 是
+ * InvalidBuffer，它就退化为只做 _bt_getbuf；允许这种情形
+ * 可以简化某些调用者。
  *
- * The original motivation for using this was to avoid two entries to the
- * bufmgr when one would do.  However, now it's mainly just a notational
- * convenience.  The only case where it saves work over _bt_relbuf/_bt_getbuf
- * is when the target page is the same one already in the buffer.
+ * 最初使用它是为了避免进两次 bufmgr，而一次就够。
+ * 不过现在主要只是写法上的方便。与 _bt_relbuf/_bt_getbuf 相比，
+ * 它真正省事的唯一情形是目标页
+ * 已经就在这个缓冲区里。
  */
 Buffer
 _bt_relandgetbuf(Relation rel, Buffer obuf, BlockNumber blkno, int access)
@@ -1015,9 +1015,9 @@ _bt_relandgetbuf(Relation rel, Buffer obuf, BlockNumber blkno, int access)
 }
 
 /*
- *	_bt_relbuf() -- release a locked buffer.
+ *	_bt_relbuf() -- 释放一个已锁定的缓冲区。
  *
- * Lock and pin (refcount) are both dropped.
+ * 锁和钉住（引用计数）都会放下。
  */
 void
 _bt_relbuf(Relation rel, Buffer buf)
@@ -1027,55 +1027,55 @@ _bt_relbuf(Relation rel, Buffer buf)
 }
 
 /*
- *	_bt_lockbuf() -- lock a pinned buffer.
+ *	_bt_lockbuf() -- 锁住一个已钉住的缓冲区。
  *
- * Lock is acquired without acquiring another pin.  This is like a raw
- * LockBuffer() call, but performs extra steps needed by Valgrind.
+ * 取得锁时不再另取钉住。这像一次直接的
+ * LockBuffer() 调用，但会执行 Valgrind 所需的额外步骤。
  *
- * Note: Caller may need to call _bt_checkpage() with buf when pin on buf
- * wasn't originally acquired in _bt_getbuf() or _bt_relandgetbuf().
+ * 注意：若 buf 上的钉住最初不是在 _bt_getbuf() 或
+ * _bt_relandgetbuf() 中取得的，调用者可能需要对 buf 调用 _bt_checkpage()。
  */
 void
 _bt_lockbuf(Relation rel, Buffer buf, int access)
 {
-	/* LockBuffer() asserts that pin is held by this backend */
+	/* LockBuffer() 断言钉住由本后端持有 */
 	LockBuffer(buf, access);
 
 	/*
-	 * It doesn't matter that _bt_unlockbuf() won't get called in the event of
-	 * an nbtree error (e.g. a unique violation error).  That won't cause
-	 * Valgrind false positives.
+	 * 即使发生 nbtree 错误（例如唯一性违反错误）时不会调用
+	 * _bt_unlockbuf()，也没关系。那不会造成
+	 * Valgrind 误报。
 	 *
-	 * The nbtree client requests are superimposed on top of the bufmgr.c
-	 * buffer pin client requests.  In the event of an nbtree error the buffer
-	 * will certainly get marked as defined when the backend once again
-	 * acquires its first pin on the buffer. (Of course, if the backend never
-	 * touches the buffer again then it doesn't matter that it remains
-	 * non-accessible to Valgrind.)
+	 * nbtree 的客户端请求叠加在 bufmgr.c
+	 * 缓冲区钉住客户端请求之上。发生 nbtree 错误时，该缓冲区
+	 * 肯定会在后端再次
+	 * 取得它的第一次钉住时被标为已定义。（当然，若该后端再也不
+	 * 碰这个缓冲区，那么它对 Valgrind 仍然不可访问
+	 * 也无关紧要。）
 	 *
-	 * Note: When an IndexTuple C pointer gets computed using an ItemId read
-	 * from a page while a lock was held, the C pointer becomes unsafe to
-	 * dereference forever as soon as the lock is released.  Valgrind can only
-	 * detect cases where the pointer gets dereferenced with no _current_
-	 * lock/pin held, though.
+	 * 注意：若用持锁期间从页上读出的 ItemId 算出一个 IndexTuple 的 C 指针，
+	 * 一旦释放锁，该 C 指针就永远不再能安全地
+	 * 解引用。不过 Valgrind 只能
+	 * 检测在没有 _current_
+	 * 锁/钉住时解引用该指针的情形。
 	 */
 	if (!RelationUsesLocalBuffers(rel))
 		VALGRIND_MAKE_MEM_DEFINED(BufferGetPage(buf), BLCKSZ);
 }
 
 /*
- *	_bt_unlockbuf() -- unlock a pinned buffer.
+ *	_bt_unlockbuf() -- 解锁一个已钉住的缓冲区。
  */
 void
 _bt_unlockbuf(Relation rel, Buffer buf)
 {
 	/*
-	 * Buffer is pinned and locked, which means that it is expected to be
-	 * defined and addressable.  Check that proactively.
+	 * 缓冲区已钉住并锁定，因此预期它是
+	 * 已定义且可寻址的。主动检查这一点。
 	 */
 	VALGRIND_CHECK_MEM_IS_DEFINED(BufferGetPage(buf), BLCKSZ);
 
-	/* LockBuffer() asserts that pin is held by this backend */
+	/* LockBuffer() 断言钉住由本后端持有 */
 	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 
 	if (!RelationUsesLocalBuffers(rel))
@@ -1083,16 +1083,16 @@ _bt_unlockbuf(Relation rel, Buffer buf)
 }
 
 /*
- *	_bt_conditionallockbuf() -- conditionally BT_WRITE lock pinned
- *	buffer.
+ *	_bt_conditionallockbuf() -- 有条件地对已钉住的
+ *	缓冲区加 BT_WRITE 锁。
  *
- * Note: Caller may need to call _bt_checkpage() with buf when pin on buf
- * wasn't originally acquired in _bt_getbuf() or _bt_relandgetbuf().
+ * 注意：若 buf 上的钉住最初不是在 _bt_getbuf() 或
+ * _bt_relandgetbuf() 中取得的，调用者可能需要对 buf 调用 _bt_checkpage()。
  */
 bool
 _bt_conditionallockbuf(Relation rel, Buffer buf)
 {
-	/* ConditionalLockBuffer() asserts that pin is held by this backend */
+	/* ConditionalLockBuffer() 断言钉住由本后端持有 */
 	if (!ConditionalLockBuffer(buf))
 		return false;
 
@@ -1103,27 +1103,27 @@ _bt_conditionallockbuf(Relation rel, Buffer buf)
 }
 
 /*
- *	_bt_upgradelockbufcleanup() -- upgrade lock to a full cleanup lock.
+ *	_bt_upgradelockbufcleanup() -- 把锁升级为完整的清理锁。
  */
 void
 _bt_upgradelockbufcleanup(Relation rel, Buffer buf)
 {
 	/*
-	 * Buffer is pinned and locked, which means that it is expected to be
-	 * defined and addressable.  Check that proactively.
+	 * 缓冲区已钉住并锁定，因此预期它是
+	 * 已定义且可寻址的。主动检查这一点。
 	 */
 	VALGRIND_CHECK_MEM_IS_DEFINED(BufferGetPage(buf), BLCKSZ);
 
-	/* LockBuffer() asserts that pin is held by this backend */
+	/* LockBuffer() 断言钉住由本后端持有 */
 	LockBuffer(buf, BUFFER_LOCK_UNLOCK);
 	LockBufferForCleanup(buf);
 }
 
 /*
- *	_bt_pageinit() -- Initialize a new page.
+ *	_bt_pageinit() -- 初始化一个新页。
  *
- * On return, the page header is initialized; data space is empty;
- * special space is zeroed out.
+ * 返回时，页头已初始化；数据区为空；
+ * 特殊区已清零。
  */
 void
 _bt_pageinit(Page page, Size size)
@@ -1132,23 +1132,23 @@ _bt_pageinit(Page page, Size size)
 }
 
 /*
- * Delete item(s) from a btree leaf page during VACUUM.
+ * 在 VACUUM 期间从 B-树叶子页删除 item(s)。
  *
- * This routine assumes that the caller already has a full cleanup lock on
- * the buffer.  Also, the given deletable and updatable arrays *must* be
- * sorted in ascending order.
+ * 本例程假定调用者已经在
+ * 缓冲区上持有完整的清理锁。另外，给定的 deletable 与 updatable 数组*必须*
+ * 按升序排列。
  *
- * Routine deals with deleting TIDs when some (but not all) of the heap TIDs
- * in an existing posting list item are to be removed.  This works by
- * updating/overwriting an existing item with caller's new version of the item
- * (a version that lacks the TIDs that are to be deleted).
+ * 本例程处理这样的情形：现有倒排列表项中的部分（但不是全部）堆 TIDs
+ * 要被删除。做法是
+ * 用调用者给出的该项新版本更新/覆盖现有项
+ * （新版本去掉了待删除的 TIDs）。
  *
- * We record VACUUMs and b-tree deletes differently in WAL.  Deletes must
- * generate their own snapshotConflictHorizon directly from the tableam,
- * whereas VACUUMs rely on the initial VACUUM table scan performing
- * WAL-logging that takes care of the issue for the table's indexes
- * indirectly.  Also, we remove the VACUUM cycle ID from pages, which b-tree
- * deletes don't do.
+ * 我们在 WAL 中对 VACUUMs 与 B-树删除的记法不同。删除必须
+ * 直接从 tableam 生成自己的 snapshotConflictHorizon，
+ * 而 VACUUM 则依赖最初的 VACUUM 表扫描所做的
+ * WAL 记录，间接地为该表的索引
+ * 处理这个问题。另外，我们会从页上去掉 VACUUM 周期 ID，B-树
+ * 删除并不这样做。
  */
 void
 _bt_delitems_vacuum(Relation rel, Buffer buf,
@@ -1162,29 +1162,29 @@ _bt_delitems_vacuum(Relation rel, Buffer buf,
 	Size		updatedbuflen = 0;
 	OffsetNumber updatedoffsets[MaxIndexTuplesPerPage];
 
-	/* Shouldn't be called unless there's something to do */
+	/* 除非有事可做，否则不该被调用 */
 	Assert(ndeletable > 0 || nupdatable > 0);
 
-	/* Generate new version of posting lists without deleted TIDs */
+	/* 生成去掉已删除 TIDs 的倒排列表新版本 */
 	if (nupdatable > 0)
 		updatedbuf = _bt_delitems_update(updatable, nupdatable,
 										 updatedoffsets, &updatedbuflen,
 										 needswal);
 
-	/* No ereport(ERROR) until changes are logged */
+	/* 变更记入日志之前不要 ereport(ERROR) */
 	START_CRIT_SECTION();
 
 	/*
-	 * Handle posting tuple updates.
+	 * 处理倒排元组更新。
 	 *
-	 * Deliberately do this before handling simple deletes.  If we did it the
-	 * other way around (i.e. WAL record order -- simple deletes before
-	 * updates) then we'd have to make compensating changes to the 'updatable'
-	 * array of offset numbers.
+	 * 故意在处理简单删除之前做这件事。若顺序相反
+	 * （即 WAL 日志顺序——先简单删除再
+	 * 更新），就必须对偏移号数组 'updatable'
+	 * 做补偿性修改。
 	 *
-	 * PageIndexTupleOverwrite() won't unset each item's LP_DEAD bit when it
-	 * happens to already be set.  It's important that we not interfere with
-	 * any future simple index tuple deletion operations.
+	 * PageIndexTupleOverwrite() 在某一项的 LP_DEAD 位碰巧已经设置时
+	 * 不会清除它。重要的是我们不要干扰
+	 * 将来任何简单索引元组删除操作。
 	 */
 	for (int i = 0; i < nupdatable; i++)
 	{
@@ -1200,30 +1200,30 @@ _bt_delitems_vacuum(Relation rel, Buffer buf,
 				 BufferGetBlockNumber(buf), RelationGetRelationName(rel));
 	}
 
-	/* Now handle simple deletes of entire tuples */
+	/* 现在处理整个元组的简单删除 */
 	if (ndeletable > 0)
 		PageIndexMultiDelete(page, deletable, ndeletable);
 
 	/*
-	 * We can clear the vacuum cycle ID since this page has certainly been
-	 * processed by the current vacuum scan.
+	 * 可以清除清理周期 ID，因为当前清理扫描
+	 * 肯定已经处理过这一页。
 	 */
 	opaque = BTPageGetOpaque(page);
 	opaque->btpo_cycleid = 0;
 
 	/*
-	 * Clear the BTP_HAS_GARBAGE page flag.
+	 * 清除 BTP_HAS_GARBAGE 页标志。
 	 *
-	 * This flag indicates the presence of LP_DEAD items on the page (though
-	 * not reliably).  Note that we only rely on it with pg_upgrade'd
-	 * !heapkeyspace indexes.  That's why clearing it here won't usually
-	 * interfere with simple index tuple deletion.
+	 * 该标志表示页上存在 LP_DEAD 项（尽管
+	 * 并不可靠）。注意我们只对经 pg_upgrade 的
+	 * !heapkeyspace 索引依赖它。因此在这里清除它通常不会
+	 * 干扰简单索引元组删除。
 	 */
 	opaque->btpo_flags &= ~BTP_HAS_GARBAGE;
 
 	MarkBufferDirty(buf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (needswal)
 	{
 		XLogRecPtr	recptr;
@@ -1254,31 +1254,31 @@ _bt_delitems_vacuum(Relation rel, Buffer buf,
 
 	END_CRIT_SECTION();
 
-	/* can't leak memory here */
+	/* 这里不能泄漏内存 */
 	if (updatedbuf != NULL)
 		pfree(updatedbuf);
-	/* free tuples allocated within _bt_delitems_update() */
+	/* 释放 _bt_delitems_update() 内分配的元组 */
 	for (int i = 0; i < nupdatable; i++)
 		pfree(updatable[i]->itup);
 }
 
 /*
- * Delete item(s) from a btree leaf page during single-page cleanup.
+ * 在单页清理期间从 B-树叶子页删除 item(s)。
  *
- * This routine assumes that the caller has pinned and write locked the
- * buffer.  Also, the given deletable and updatable arrays *must* be sorted in
- * ascending order.
+ * 本例程假定调用者已钉住并写锁定
+ * 缓冲区。另外，给定的 deletable 与 updatable 数组*必须*按
+ * 升序排列。
  *
- * Routine deals with deleting TIDs when some (but not all) of the heap TIDs
- * in an existing posting list item are to be removed.  This works by
- * updating/overwriting an existing item with caller's new version of the item
- * (a version that lacks the TIDs that are to be deleted).
+ * 本例程处理这样的情形：现有倒排列表项中的部分（但不是全部）堆 TIDs
+ * 要被删除。做法是
+ * 用调用者给出的该项新版本更新/覆盖现有项
+ * （新版本去掉了待删除的 TIDs）。
  *
- * This is nearly the same as _bt_delitems_vacuum as far as what it does to
- * the page, but it needs its own snapshotConflictHorizon and isCatalogRel
- * (from the tableam).  This is used by the REDO routine to generate recovery
- * conflicts.  The other difference is that only _bt_delitems_vacuum will
- * clear page's VACUUM cycle ID.
+ * 就对页所做的事而言，这与 _bt_delitems_vacuum 几乎相同，
+ * 但它需要自己的 snapshotConflictHorizon 和 isCatalogRel
+ * （来自 tableam）。REDO 例程用它们来产生恢复
+ * 冲突。另一处差别是只有 _bt_delitems_vacuum 会
+ * 清除页上的 VACUUM 周期 ID。
  */
 static void
 _bt_delitems_delete(Relation rel, Buffer buf,
@@ -1293,19 +1293,19 @@ _bt_delitems_delete(Relation rel, Buffer buf,
 	Size		updatedbuflen = 0;
 	OffsetNumber updatedoffsets[MaxIndexTuplesPerPage];
 
-	/* Shouldn't be called unless there's something to do */
+	/* 除非有事可做，否则不该被调用 */
 	Assert(ndeletable > 0 || nupdatable > 0);
 
-	/* Generate new versions of posting lists without deleted TIDs */
+	/* 生成去掉已删除 TIDs 的倒排列表新版本 */
 	if (nupdatable > 0)
 		updatedbuf = _bt_delitems_update(updatable, nupdatable,
 										 updatedoffsets, &updatedbuflen,
 										 needswal);
 
-	/* No ereport(ERROR) until changes are logged */
+	/* 变更记入日志之前不要 ereport(ERROR) */
 	START_CRIT_SECTION();
 
-	/* Handle updates and deletes just like _bt_delitems_vacuum */
+	/* 像 _bt_delitems_vacuum 那样处理更新和删除 */
 	for (int i = 0; i < nupdatable; i++)
 	{
 		OffsetNumber updatedoffset = updatedoffsets[i];
@@ -1324,23 +1324,23 @@ _bt_delitems_delete(Relation rel, Buffer buf,
 		PageIndexMultiDelete(page, deletable, ndeletable);
 
 	/*
-	 * Unlike _bt_delitems_vacuum, we *must not* clear the vacuum cycle ID at
-	 * this point.  The VACUUM command alone controls vacuum cycle IDs.
+	 * 与 _bt_delitems_vacuum 不同，此时*绝不能*清除清理周期 ID。
+	 * 只有 VACUUM 命令控制清理周期 ID。
 	 */
 	opaque = BTPageGetOpaque(page);
 
 	/*
-	 * Clear the BTP_HAS_GARBAGE page flag.
+	 * 清除 BTP_HAS_GARBAGE 页标志。
 	 *
-	 * This flag indicates the presence of LP_DEAD items on the page (though
-	 * not reliably).  Note that we only rely on it with pg_upgrade'd
-	 * !heapkeyspace indexes.
+	 * 该标志表示页上存在 LP_DEAD 项（尽管
+	 * 并不可靠）。注意我们只对经 pg_upgrade 的
+	 * !heapkeyspace 索引依赖它。
 	 */
 	opaque->btpo_flags &= ~BTP_HAS_GARBAGE;
 
 	MarkBufferDirty(buf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (needswal)
 	{
 		XLogRecPtr	recptr;
@@ -1373,33 +1373,33 @@ _bt_delitems_delete(Relation rel, Buffer buf,
 
 	END_CRIT_SECTION();
 
-	/* can't leak memory here */
+	/* 这里不能泄漏内存 */
 	if (updatedbuf != NULL)
 		pfree(updatedbuf);
-	/* free tuples allocated within _bt_delitems_update() */
+	/* 释放 _bt_delitems_update() 内分配的元组 */
 	for (int i = 0; i < nupdatable; i++)
 		pfree(updatable[i]->itup);
 }
 
 /*
- * Set up state needed to delete TIDs from posting list tuples via "updating"
- * the tuple.  Performs steps common to both _bt_delitems_vacuum and
- * _bt_delitems_delete.  These steps must take place before each function's
- * critical section begins.
+ * 建立通过"更新"元组来从倒排列表元组删除 TIDs 所需的状态。
+ * 执行 _bt_delitems_vacuum 与
+ * _bt_delitems_delete 共同的步骤。这些步骤必须在每个函数的
+ * 临界区开始之前完成。
  *
- * updatable and nupdatable are inputs, though note that we will use
- * _bt_update_posting() to replace the original itup with a pointer to a final
- * version in palloc()'d memory.  Caller should free the tuples when its done.
+ * updatable 与 nupdatable 是输入，不过注意我们将用
+ * _bt_update_posting() 把原来的 itup 替换为指向最终
+ * 版本的指针，该版本在 palloc() 的内存中。调用者应在完成后释放这些元组。
  *
- * The first nupdatable entries from updatedoffsets are set to the page offset
- * number for posting list tuples that caller updates.  This is mostly useful
- * because caller may need to WAL-log the page offsets (though we always do
- * this for caller out of convenience).
+ * updatedoffsets 的前 nupdatable 项被设为调用者所更新的
+ * 倒排列表元组的页偏移号。这主要有用，
+ * 因为调用者可能需要对页偏移记 WAL（不过为了方便，
+ * 我们总是替调用者做这件事）。
  *
- * Returns buffer consisting of an array of xl_btree_update structs that
- * describe the steps we perform here for caller (though only when needswal is
- * true).  Also sets *updatedbuflen to the final size of the buffer.  This
- * buffer is used by caller when WAL logging is required.
+ * 返回由 xl_btree_update 结构数组组成的缓冲区，
+ * 描述我们在这里为调用者执行的步骤（不过仅当 needswal 为
+ * true 时）。还把 *updatedbuflen 设为该缓冲区的最终大小。调用者在
+ * 需要 WAL 日志时使用这个缓冲区。
  */
 static char *
 _bt_delitems_update(BTVacuumPosting *updatable, int nupdatable,
@@ -1409,7 +1409,7 @@ _bt_delitems_update(BTVacuumPosting *updatable, int nupdatable,
 	char	   *updatedbuf = NULL;
 	Size		buflen = 0;
 
-	/* Shouldn't be called unless there's something to do */
+	/* 除非有事可做，否则不该被调用 */
 	Assert(nupdatable > 0);
 
 	for (int i = 0; i < nupdatable; i++)
@@ -1417,23 +1417,23 @@ _bt_delitems_update(BTVacuumPosting *updatable, int nupdatable,
 		BTVacuumPosting vacposting = updatable[i];
 		Size		itemsz;
 
-		/* Replace work area IndexTuple with updated version */
+		/* 用更新后的版本替换工作区中的 IndexTuple */
 		_bt_update_posting(vacposting);
 
-		/* Keep track of size of xl_btree_update for updatedbuf in passing */
+		/* 顺便记录 updatedbuf 中 xl_btree_update 的大小 */
 		itemsz = SizeOfBtreeUpdate + vacposting->ndeletedtids * sizeof(uint16);
 		buflen += itemsz;
 
-		/* Build updatedoffsets buffer in passing */
+		/* 顺便构造 updatedoffsets 缓冲区 */
 		updatedoffsets[i] = vacposting->updatedoffset;
 	}
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (needswal)
 	{
 		Size		offset = 0;
 
-		/* Allocate, set final size for caller */
+		/* 分配，并为调用者设置最终大小 */
 		updatedbuf = palloc(buflen);
 		*updatedbuflen = buflen;
 		for (int i = 0; i < nupdatable; i++)
@@ -1457,8 +1457,8 @@ _bt_delitems_update(BTVacuumPosting *updatable, int nupdatable,
 }
 
 /*
- * Comparator used by _bt_delitems_delete_check() to restore deltids array
- * back to its original leaf-page-wise sort order
+ * _bt_delitems_delete_check() 用来把 deltids 数组
+ * 恢复成原来的叶子页排序顺序的比较器
  */
 static int
 _bt_delitems_cmp(const void *a, const void *b)
@@ -1477,42 +1477,42 @@ _bt_delitems_cmp(const void *a, const void *b)
 }
 
 /*
- * Try to delete item(s) from a btree leaf page during single-page cleanup.
+ * 在单页清理期间尝试从 B-树叶子页删除 item(s)。
  *
- * nbtree interface to table_index_delete_tuples().  Deletes a subset of index
- * tuples from caller's deltids array: those whose TIDs are found safe to
- * delete by the tableam (or already marked LP_DEAD in index, and so already
- * known to be deletable by our simple index deletion caller).  We physically
- * delete index tuples from buf leaf page last of all (for index tuples where
- * that is known to be safe following our table_index_delete_tuples() call).
+ * nbtree 对 table_index_delete_tuples() 的接口。从调用者的 deltids 数组中删除一部分索引
+ * 元组：那些 TIDs 被 tableam 判定可以安全
+ * 删除的（或已在索引中标为 LP_DEAD，因而已被
+ * 我们的简单索引删除调用者知道可删除的）。我们最后才从 buf 叶子页上物理
+ * 删除索引元组（仅限在 table_index_delete_tuples() 调用之后
+ * 已知这样做安全的那些索引元组）。
  *
- * Simple index deletion caller only includes TIDs from index tuples marked
- * LP_DEAD, as well as extra TIDs it found on the same leaf page that can be
- * included without increasing the total number of distinct table blocks for
- * the deletion operation as a whole.  This approach often allows us to delete
- * some extra index tuples that were practically free for tableam to check in
- * passing (when they actually turn out to be safe to delete).  It probably
- * only makes sense for the tableam to go ahead with these extra checks when
- * it is block-oriented (otherwise the checks probably won't be practically
- * free, which we rely on).  The tableam interface requires the tableam side
- * to handle the problem, though, so this is okay (we as an index AM are free
- * to make the simplifying assumption that all tableams must be block-based).
+ * 简单索引删除的调用者只纳入来自已标
+ * LP_DEAD 的索引元组的 TIDs，以及它在同一叶子页上发现、可以
+ * 纳入却不增加整个删除操作所涉及的不同表块
+ * 总数的额外 TIDs。这种做法常常让我们删掉
+ * 一些对 tableam 来说几乎不花代价就能顺带检查的额外索引元组
+ * （当它们实际上可以安全删除时）。大概只有当
+ * tableam 是按块组织的，继续做这些额外检查才有意义
+ * （否则检查大概不会几乎不花代价，而我们依赖这一点）。
+ * 不过 tableam 接口需要 tableam 一侧来处理这个问题，所以这样没问题
+ * （我们作为索引访问方法可以
+ * 做简化假定：所有 tableam 都必须是基于块的）。
  *
- * Bottom-up index deletion caller provides all the TIDs from the leaf page,
- * without expecting that tableam will check most of them.  The tableam has
- * considerable discretion around which entries/blocks it checks.  Our role in
- * costing the bottom-up deletion operation is strictly advisory.
+ * 自底向上索引删除的调用者提供叶子页上的全部 TIDs，
+ * 并不期望 tableam 会检查其中的大多数。tableam 对
+ * 检查哪些项/块有相当大的裁量权。我们在
+ * 为自底向上删除操作估价时的角色严格说只是建议性的。
  *
- * Note: Caller must have added deltids entries (i.e. entries that go in
- * delstate's main array) in leaf-page-wise order: page offset number order,
- * TID order among entries taken from the same posting list tuple (tiebreak on
- * TID).  This order is convenient to work with here.
+ * 注意：调用者必须已按叶子页顺序加入 deltids 项（即进入
+ * delstate 主数组的项）：页偏移号顺序，
+ * 同一倒排列表元组中的项按 TID 顺序（以
+ * TID 决胜）。这里用这种顺序很方便。
  *
- * Note: We also rely on the id field of each deltids element "capturing" this
- * original leaf-page-wise order.  That is, we expect to be able to get back
- * to the original leaf-page-wise order just by sorting deltids on the id
- * field (tableam will sort deltids for its own reasons, so we'll need to put
- * it back in leaf-page-wise order afterwards).
+ * 注意：我们还依赖每个 deltids 元素的 id 字段"记下"这一
+ * 原始的叶子页顺序。也就是说，我们期望只靠按 id
+ * 字段对 deltids 排序就能回到
+ * 原始的叶子页顺序（tableam 会出于自己的原因对 deltids 排序，
+ * 因此之后需要把它放回叶子页顺序）。
  */
 void
 _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
@@ -1527,24 +1527,24 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 	OffsetNumber deletable[MaxIndexTuplesPerPage];
 	BTVacuumPosting updatable[MaxIndexTuplesPerPage];
 
-	/* Use tableam interface to determine which tuples to delete first */
+	/* 先用 tableam 接口确定要删除哪些元组 */
 	snapshotConflictHorizon = table_index_delete_tuples(heapRel, delstate);
 	isCatalogRel = RelationIsAccessibleInLogicalDecoding(heapRel);
 
-	/* Should not WAL-log snapshotConflictHorizon unless it's required */
+	/* 除非有必要，否则不应对 snapshotConflictHorizon 记 WAL */
 	if (!XLogStandbyInfoActive())
 		snapshotConflictHorizon = InvalidTransactionId;
 
 	/*
-	 * Construct a leaf-page-wise description of what _bt_delitems_delete()
-	 * needs to do to physically delete index tuples from the page.
+	 * 构造一份按叶子页顺序的描述，说明 _bt_delitems_delete()
+	 * 需要做什么才能从该页物理删除索引元组。
 	 *
-	 * Must sort deltids array to restore leaf-page-wise order (original order
-	 * before call to tableam).  This is the order that the loop expects.
+	 * 必须对 deltids 数组排序，以恢复叶子页顺序（调用
+	 * tableam 之前的原始顺序）。这是该循环所期望的顺序。
 	 *
-	 * Note that deltids array might be a lot smaller now.  It might even have
-	 * no entries at all (with bottom-up deletion caller), in which case there
-	 * is nothing left to do.
+	 * 注意 deltids 数组现在可能小得多。它甚至可能
+	 * 一项都没有（自底向上删除的调用者就是如此），这种情况下
+	 * 就没有什么可做的了。
 	 */
 	qsort(delstate->deltids, delstate->ndeltids, sizeof(TM_IndexDelete),
 		  _bt_delitems_cmp);
@@ -1554,7 +1554,7 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 		return;
 	}
 
-	/* We definitely have to delete at least one index tuple (or one TID) */
+	/* 我们肯定至少要删除一个索引元组（或一个 TID） */
 	for (int i = 0; i < delstate->ndeltids; i++)
 	{
 		TM_IndexStatus *dstatus = delstate->status + delstate->deltids[i].id;
@@ -1570,8 +1570,8 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 		if (idxoffnum == postingidxoffnum)
 		{
 			/*
-			 * This deltid entry is a TID from a posting list tuple that has
-			 * already been completely processed
+			 * 这条 deltid 项是来自倒排列表元组的 TID，该元组
+			 * 已经被完整处理过
 			 */
 			Assert(BTreeTupleIsPosting(itup));
 			Assert(ItemPointerCompare(BTreeTupleGetHeapTID(itup),
@@ -1583,7 +1583,7 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 
 		if (!BTreeTupleIsPosting(itup))
 		{
-			/* Plain non-pivot tuple */
+			/* 普通的非枢轴元组 */
 			Assert(ItemPointerEquals(&itup->t_tid, &delstate->deltids[i].tid));
 			if (dstatus->knowndeletable)
 				deletable[ndeletable++] = idxoffnum;
@@ -1591,16 +1591,16 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 		}
 
 		/*
-		 * itup is a posting list tuple whose lowest deltids entry (which may
-		 * or may not be for the first TID from itup) is considered here now.
-		 * We should process all of the deltids entries for the posting list
-		 * together now, though (not just the lowest).  Remember to skip over
-		 * later itup-related entries during later iterations of outermost
-		 * loop.
+		 * itup 是倒排列表元组，其最低的 deltids 项（它可能
+		 * 是也可能不是 itup 的第一个 TID）现在在这里考虑。
+		 * 不过现在应当把该倒排列表的全部 deltids 项
+		 * 放在一起处理（不只是最低的那项）。记住在最外层
+		 * 循环的后续迭代中跳过
+		 * 后来与 itup 相关的项。
 		 */
-		postingidxoffnum = idxoffnum;	/* Remember work in outermost loop */
-		nestedi = i;			/* Initialize for first itup deltids entry */
-		vacposting = NULL;		/* Describes final action for itup */
+		postingidxoffnum = idxoffnum;	/* 记住最外层循环中的工作 */
+		nestedi = i;			/* 为第一条 itup deltids 项做初始化 */
+		vacposting = NULL;		/* 描述对 itup 的最终动作 */
 		nitem = BTreeTupleGetNPosting(itup);
 		for (int p = 0; p < nitem; p++)
 		{
@@ -1608,39 +1608,39 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 			int			ptidcmp = -1;
 
 			/*
-			 * This nested loop reuses work across ptid TIDs taken from itup.
-			 * We take advantage of the fact that both itup's TIDs and deltids
-			 * entries (within a single itup/posting list grouping) must both
-			 * be in ascending TID order.
+			 * 这个嵌套循环在取自 itup 的各个 ptid TID 之间复用工作。
+			 * 我们利用这样的事实：itup 的 TIDs 与 deltids
+			 * 项（在单个 itup/倒排列表分组内）都必须
+			 * 按 TID 升序排列。
 			 */
 			for (; nestedi < delstate->ndeltids; nestedi++)
 			{
 				TM_IndexDelete *tcdeltid = &delstate->deltids[nestedi];
 				TM_IndexStatus *tdstatus = (delstate->status + tcdeltid->id);
 
-				/* Stop once we get past all itup related deltids entries */
+				/* 一旦走过所有与 itup 相关的 deltids 项就停止 */
 				Assert(tdstatus->idxoffnum >= idxoffnum);
 				if (tdstatus->idxoffnum != idxoffnum)
 					break;
 
-				/* Skip past non-deletable itup related entries up front */
+				/* 事先跳过与 itup 相关、不可删除的项 */
 				if (!tdstatus->knowndeletable)
 					continue;
 
-				/* Entry is first partial ptid match (or an exact match)? */
+				/* 该项是第一个部分 ptid 匹配（或精确匹配）吗？ */
 				ptidcmp = ItemPointerCompare(&tcdeltid->tid, ptid);
 				if (ptidcmp >= 0)
 				{
-					/* Greater than or equal (partial or exact) match... */
+					/* 大于或等于（部分或精确）匹配…… */
 					break;
 				}
 			}
 
-			/* ...exact ptid match to a deletable deltids entry? */
+			/* ……与可删除 deltids 项的精确 ptid 匹配？ */
 			if (ptidcmp != 0)
 				continue;
 
-			/* Exact match for deletable deltids entry -- ptid gets deleted */
+			/* 与可删除 deltids 项精确匹配——ptid 将被删除 */
 			if (vacposting == NULL)
 			{
 				vacposting = palloc(offsetof(BTVacuumPostingData, deletetids) +
@@ -1652,49 +1652,49 @@ _bt_delitems_delete_check(Relation rel, Buffer buf, Relation heapRel,
 			vacposting->deletetids[vacposting->ndeletedtids++] = p;
 		}
 
-		/* Final decision on itup, a posting list tuple */
+		/* 对 itup（一个倒排列表元组）的最终决定 */
 
 		if (vacposting == NULL)
 		{
-			/* No TIDs to delete from itup -- do nothing */
+			/* itup 中没有要删除的 TIDs——什么也不做 */
 		}
 		else if (vacposting->ndeletedtids == nitem)
 		{
-			/* Straight delete of itup (to delete all TIDs) */
+			/* 直接删除 itup（以删除全部 TIDs） */
 			deletable[ndeletable++] = idxoffnum;
-			/* Turns out we won't need granular information */
+			/* 结果是我们不需要细粒度信息 */
 			pfree(vacposting);
 		}
 		else
 		{
-			/* Delete some (but not all) TIDs from itup */
+			/* 从 itup 删除部分（但不是全部）TIDs */
 			Assert(vacposting->ndeletedtids > 0 &&
 				   vacposting->ndeletedtids < nitem);
 			updatable[nupdatable++] = vacposting;
 		}
 	}
 
-	/* Physically delete tuples (or TIDs) using deletable (or updatable) */
+	/* 用 deletable（或 updatable）物理删除元组（或 TIDs） */
 	_bt_delitems_delete(rel, buf, snapshotConflictHorizon, isCatalogRel,
 						deletable, ndeletable, updatable, nupdatable);
 
-	/* be tidy */
+	/* 收拾干净 */
 	for (int i = 0; i < nupdatable; i++)
 		pfree(updatable[i]);
 }
 
 /*
- * Check that leftsib page (the btpo_prev of target page) is not marked with
- * INCOMPLETE_SPLIT flag.  Used during page deletion.
+ * 检查 leftsib 页（目标页的 btpo_prev）没有被标上
+ * INCOMPLETE_SPLIT 标志。页删除期间使用。
  *
- * Returning true indicates that page flag is set in leftsib (which is
- * definitely still the left sibling of target).  When that happens, the
- * target doesn't have a downlink in parent, and the page deletion algorithm
- * isn't prepared to handle that.  Deletion of the target page (or the whole
- * subtree that contains the target page) cannot take place.
+ * 返回 true 表示 leftsib 上设置了该页标志（它
+ * 肯定仍是目标的左兄弟）。发生这种情况时，
+ * 目标在父页中没有下行链接，而页删除算法
+ * 没有准备处理这一点。无法删除目标页（或包含
+ * 目标页的整棵子树）。
  *
- * Caller should not have a lock on the target page itself, since pages on the
- * same level must always be locked left to right to avoid deadlocks.
+ * 调用者本身不应当持有目标页上的锁，因为同一层上的页
+ * 必须总是从左到右加锁，以避免死锁。
  */
 static bool
 _bt_leftsib_splitflag(Relation rel, BlockNumber leftsib, BlockNumber target)
@@ -1704,7 +1704,7 @@ _bt_leftsib_splitflag(Relation rel, BlockNumber leftsib, BlockNumber target)
 	BTPageOpaque opaque;
 	bool		result;
 
-	/* Easy case: No left sibling */
+	/* 简单情形：没有左兄弟 */
 	if (leftsib == P_NONE)
 		return false;
 
@@ -1713,12 +1713,12 @@ _bt_leftsib_splitflag(Relation rel, BlockNumber leftsib, BlockNumber target)
 	opaque = BTPageGetOpaque(page);
 
 	/*
-	 * If the left sibling was concurrently split, so that its next-pointer
-	 * doesn't point to the current page anymore, the split that created
-	 * target must be completed.  Caller can reasonably expect that there will
-	 * be a downlink to the target page that it can relocate using its stack.
-	 * (We don't allow splitting an incompletely split page again until the
-	 * previous split has been completed.)
+	 * 若左兄弟被并发分裂，以至于它的 next 指针
+	 * 不再指向当前页，则创建
+	 * 目标的那次分裂必须已经完成。调用者可以合理地期望
+	 * 会有一条指向目标页的下行链接，并能用其栈来重新定位。
+	 * （在上一次分裂完成之前，我们不允许再次分裂一张
+	 * 未完成分裂的页。）
 	 */
 	result = (opaque->btpo_next == target && P_INCOMPLETE_SPLIT(opaque));
 	_bt_relbuf(rel, buf);
@@ -1727,31 +1727,31 @@ _bt_leftsib_splitflag(Relation rel, BlockNumber leftsib, BlockNumber target)
 }
 
 /*
- * Check that leafrightsib page (the btpo_next of target leaf page) is not
- * marked with ISHALFDEAD flag.  Used during page deletion.
+ * 检查 leafrightsib 页（目标叶子页的 btpo_next）没有
+ * 被标上 ISHALFDEAD 标志。页删除期间使用。
  *
- * Returning true indicates that page flag is set in leafrightsib, so page
- * deletion cannot go ahead.  Our caller is not prepared to deal with the case
- * where the parent page does not have a pivot tuples whose downlink points to
- * leafrightsib (due to an earlier interrupted VACUUM operation).  It doesn't
- * seem worth going to the trouble of teaching our caller to deal with it.
- * The situation will be resolved after VACUUM finishes the deletion of the
- * half-dead page (when a future VACUUM operation reaches the target page
- * again).
+ * 返回 true 表示 leafrightsib 上设置了该页标志，因此页
+ * 删除无法继续。调用者没有准备处理这种情形：
+ * 父页没有枢轴元组，其下行链接指向
+ * leafrightsib（由于更早一次被中断的 VACUUM 操作）。不值得
+ * 费力去教调用者处理它。
+ * 等 VACUUM 完成对该
+ * 半死页的删除之后，局面就会解决（未来某次 VACUUM 操作再次到达目标页
+ * 时）。
  *
- * _bt_leftsib_splitflag() is called for both leaf pages and internal pages.
- * _bt_rightsib_halfdeadflag() is only called for leaf pages, though.  This is
- * okay because of the restriction on deleting pages that are the rightmost
- * page of their parent (i.e. that such deletions can only take place when the
- * entire subtree must be deleted).  The leaf level check made here will apply
- * to a right "cousin" leaf page rather than a simple right sibling leaf page
- * in cases where caller actually goes on to attempt deleting pages that are
- * above the leaf page.  The right cousin leaf page is representative of the
- * left edge of the subtree to the right of the to-be-deleted subtree as a
- * whole, which is exactly the condition that our caller cares about.
- * (Besides, internal pages are never marked half-dead, so it isn't even
- * possible to _directly_ assess if an internal page is part of some other
- * to-be-deleted subtree.)
+ * _bt_leftsib_splitflag() 对叶子页和内部页都会调用。
+ * 不过 _bt_rightsib_halfdeadflag() 只对叶子页调用。这
+ * 没问题，因为对作为其父页最右页的页有删除限制
+ * （即只有必须删除
+ * 整棵子树时才能做这种删除）。这里做的叶子层检查将作用于
+ * 右"堂兄弟"叶子页，而不是简单的右兄弟叶子页，
+ * 当调用者实际上继续尝试删除位于
+ * 叶子页之上的页时就是如此。右堂兄弟叶子页代表
+ * 待删除子树右侧那棵子树的
+ * 左缘，而这正是调用者关心的条件。
+ * （此外，内部页从不会被标为半死，因此甚至
+ * 不可能 _directly_ 判断某一内部页是否属于另一棵
+ * 待删除子树。）
  */
 static bool
 _bt_rightsib_halfdeadflag(Relation rel, BlockNumber leafrightsib)
@@ -1775,33 +1775,33 @@ _bt_rightsib_halfdeadflag(Relation rel, BlockNumber leafrightsib)
 }
 
 /*
- * _bt_pagedel() -- Delete a leaf page from the b-tree, if legal to do so.
+ * _bt_pagedel() -- 若合法，就从 B-树删除一张叶子页。
  *
- * This action unlinks the leaf page from the b-tree structure, removing all
- * pointers leading to it --- but not touching its own left and right links.
- * The page cannot be physically reclaimed right away, since other processes
- * may currently be trying to follow links leading to the page; they have to
- * be allowed to use its right-link to recover.  See nbtree/README.
+ * 这一动作把叶子页从 B-树结构中解除链接，去掉所有
+ * 通向它的指针——但不碰它自己的左右链接。
+ * 该页无法立刻被物理收回，因为其他进程
+ * 可能正在跟随通向该页的链接；必须
+ * 允许它们用它的右链接来恢复。见 nbtree/README。
  *
- * On entry, the target buffer must be pinned and locked (either read or write
- * lock is OK).  The page must be an empty leaf page, which may be half-dead
- * already (a half-dead page should only be passed to us when an earlier
- * VACUUM operation was interrupted, though).  Note in particular that caller
- * should never pass a buffer containing an existing deleted page here.  The
- * lock and pin on caller's buffer will be dropped before we return.
+ * 进入时，目标缓冲区必须已钉住并锁定（读锁或写
+ * 锁都可以）。该页必须是空叶子页，它可能已经
+ * 半死（不过半死页只应在更早一次
+ * VACUUM 操作被中断时传给我们）。特别要注意，调用者
+ * 绝不应当在这里传入含有已存在的已删除页的缓冲区。
+ * 返回之前会放下调用者缓冲区上的锁和钉住。
  *
- * Maintains bulk delete stats for caller, which are taken from vstate.  We
- * need to cooperate closely with caller here so that whole VACUUM operation
- * reliably avoids any double counting of subsidiary-to-leafbuf pages that we
- * delete in passing.  If such pages happen to be from a block number that is
- * ahead of the current scanblkno position, then caller is expected to count
- * them directly later on.  It's simpler for us to understand caller's
- * requirements than it would be for caller to understand when or how a
- * deleted page became deleted after the fact.
+ * 为调用者维护批量删除统计，这些统计取自 vstate。我们
+ * 这里要与调用者密切配合，使整个 VACUUM 操作
+ * 可靠地避免对我们顺带删除的、从属于 leafbuf 的页
+ * 重复计数。若这些页的块号
+ * 超前于当前 scanblkno 位置，则预期调用者
+ * 稍后直接计数。由我们来理解调用者的
+ * 要求，比让调用者理解一张
+ * 已删除页事后是何时以及如何变成已删除的，要简单。
  *
- * NOTE: this leaks memory.  Rather than trying to clean up everything
- * carefully, it's better to run it in a temp context that can be reset
- * frequently.
+ * 注意：这里会泄漏内存。与其试图把一切
+ * 仔细清理干净，不如在可以频繁重置的临时上下文中
+ * 运行它。
  */
 void
 _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
@@ -1812,22 +1812,22 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 	BTPageOpaque opaque;
 
 	/*
-	 * Save original leafbuf block number from caller.  Only deleted blocks
-	 * that are <= scanblkno are added to bulk delete stat's pages_deleted
-	 * count.
+	 * 保存调用者原来的 leafbuf 块号。只有
+	 * <= scanblkno 的已删除块才计入批量删除统计的 pages_deleted
+	 * 计数。
 	 */
 	BlockNumber scanblkno = BufferGetBlockNumber(leafbuf);
 
 	/*
-	 * "stack" is a search stack leading (approximately) to the target page.
-	 * It is initially NULL, but when iterating, we keep it to avoid
-	 * duplicated search effort.
+	 * "stack" 是通向（大约）目标页的搜索栈。
+	 * 它最初为 NULL，但迭代时我们保留它，以避免
+	 * 重复的搜索工作。
 	 *
-	 * Also, when "stack" is not NULL, we have already checked that the
-	 * current page is not the right half of an incomplete split, i.e. the
-	 * left sibling does not have its INCOMPLETE_SPLIT flag set, including
-	 * when the current target page is to the right of caller's initial page
-	 * (the scanblkno page).
+	 * 另外，当 "stack" 不为 NULL 时，我们已经检查过
+	 * 当前页不是未完成分裂的右半，即
+	 * 左兄弟没有设置 INCOMPLETE_SPLIT 标志，包括
+	 * 当前目标页位于调用者初始页
+	 * （scanblkno 页）右侧的情形。
 	 */
 	BTStack		stack = NULL;
 
@@ -1837,28 +1837,28 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 		opaque = BTPageGetOpaque(page);
 
 		/*
-		 * Internal pages are never deleted directly, only as part of deleting
-		 * the whole subtree all the way down to leaf level.
+		 * 内部页从不被直接删除，只作为删除
+		 * 一直下到叶子层的整棵子树的一部分。
 		 *
-		 * Also check for deleted pages here.  Caller never passes us a fully
-		 * deleted page.  Only VACUUM can delete pages, so there can't have
-		 * been a concurrent deletion.  Assume that we reached any deleted
-		 * page encountered here by following a sibling link, and that the
-		 * index is corrupt.
+		 * 这里也检查已删除页。调用者从不传给我们完全
+		 * 删除的页。只有 VACUUM 能删除页，因此不可能发生过
+		 * 并发删除。假定我们是通过跟随兄弟链接到达这里遇到的任何
+		 * 已删除页的，并且
+		 * 索引已损坏。
 		 */
 		Assert(!P_ISDELETED(opaque));
 		if (!P_ISLEAF(opaque) || P_ISDELETED(opaque))
 		{
 			/*
-			 * Pre-9.4 page deletion only marked internal pages as half-dead,
-			 * but now we only use that flag on leaf pages. The old algorithm
-			 * was never supposed to leave half-dead pages in the tree, it was
-			 * just a transient state, but it was nevertheless possible in
-			 * error scenarios. We don't know how to deal with them here. They
-			 * are harmless as far as searches are considered, but inserts
-			 * into the deleted keyspace could add out-of-order downlinks in
-			 * the upper levels. Log a notice, hopefully the admin will notice
-			 * and reindex.
+			 * 9.4 之前的页删除只把内部页标为半死，
+			 * 但现在我们只在叶子页上使用该标志。旧算法
+			 * 本来就不该把半死页留在树里，它只是
+			 * 一种瞬态，但在错误情形下仍然可能发生。
+			 * 我们不知道在这里如何处理它们。就搜索而言它们
+			 * 是无害的，但向已删除键空间插入
+			 * 可能在更高层加入乱序的下行链接。记一条通知，
+			 * 希望管理员会注意到
+			 * 并重建索引。
 			 */
 			if (P_ISHALFDEAD(opaque))
 				ereport(LOG,
@@ -1880,29 +1880,29 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 		}
 
 		/*
-		 * We can never delete rightmost pages nor root pages.  While at it,
-		 * check that page is empty, since it's possible that the leafbuf page
-		 * was empty a moment ago, but has since had some inserts.
+		 * 我们绝不能删除最右页或根页。同时，
+		 * 检查该页为空，因为 leafbuf 页
+		 * 片刻之前可能是空的，但此后可能有过插入。
 		 *
-		 * To keep the algorithm simple, we also never delete an incompletely
-		 * split page (they should be rare enough that this doesn't make any
-		 * meaningful difference to disk usage):
+		 * 为保持算法简单，我们也从不删除未完成
+		 * 分裂的页（它们应当足够少，因此这对磁盘用量
+		 * 不会有任何有意义的差别）：
 		 *
-		 * The INCOMPLETE_SPLIT flag on the page tells us if the page is the
-		 * left half of an incomplete split, but ensuring that it's not the
-		 * right half is more complicated.  For that, we have to check that
-		 * the left sibling doesn't have its INCOMPLETE_SPLIT flag set using
-		 * _bt_leftsib_splitflag().  On the first iteration, we temporarily
-		 * release the lock on scanblkno/leafbuf, check the left sibling, and
-		 * construct a search stack to scanblkno.  On subsequent iterations,
-		 * we know we stepped right from a page that passed these tests, so
-		 * it's OK.
+		 * 页上的 INCOMPLETE_SPLIT 标志告诉我们该页是否是
+		 * 未完成分裂的左半，但要确保它不是
+		 * 右半就更复杂。为此，我们必须用
+		 * _bt_leftsib_splitflag() 检查左兄弟没有设置 INCOMPLETE_SPLIT 标志。
+		 * 在第一次迭代中，我们暂时
+		 * 释放 scanblkno/leafbuf 上的锁，检查左兄弟，并
+		 * 构造通向 scanblkno 的搜索栈。在后续迭代中，
+		 * 我们知道是从通过了这些检查的页向右走来的，因此
+		 * 没问题。
 		 */
 		if (P_RIGHTMOST(opaque) || P_ISROOT(opaque) ||
 			P_FIRSTDATAKEY(opaque) <= PageGetMaxOffsetNumber(page) ||
 			P_INCOMPLETE_SPLIT(opaque))
 		{
-			/* Should never fail to delete a half-dead page */
+			/* 删除半死页绝不应当失败 */
 			Assert(!P_ISHALFDEAD(opaque));
 
 			_bt_relbuf(rel, leafbuf);
@@ -1910,21 +1910,21 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 		}
 
 		/*
-		 * First, remove downlink pointing to the page (or a parent of the
-		 * page, if we are going to delete a taller subtree), and mark the
-		 * leafbuf page half-dead
+		 * 首先，去掉指向该页的下行链接（若要删除更高的子树，
+		 * 则是指向该页的父页的下行链接），并把
+		 * leafbuf 页标为半死
 		 */
 		if (!P_ISHALFDEAD(opaque))
 		{
 			/*
-			 * We need an approximate pointer to the page's parent page.  We
-			 * use a variant of the standard search mechanism to search for
-			 * the page's high key; this will give us a link to either the
-			 * current parent or someplace to its left (if there are multiple
-			 * equal high keys, which is possible with !heapkeyspace indexes).
+			 * 我们需要一个指向该页父页的近似指针。我们
+			 * 用标准搜索机制的一个变体来搜索
+			 * 该页的高键；这将给我们一条链接，指向当前父页，
+			 * 或指向它左侧的某处（若存在多个
+			 * 相等的高键，这在 !heapkeyspace 索引上是可能的）。
 			 *
-			 * Also check if this is the right-half of an incomplete split
-			 * (see comment above).
+			 * 还要检查这是否是未完成分裂的右半
+			 * （见上面的注释）。
 			 */
 			if (!stack)
 			{
@@ -1942,14 +1942,14 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 				leafblkno = BufferGetBlockNumber(leafbuf);
 
 				/*
-				 * To avoid deadlocks, we'd better drop the leaf page lock
-				 * before going further.
+				 * 为避免死锁，最好先放下叶子页锁
+				 * 再继续。
 				 */
 				_bt_unlockbuf(rel, leafbuf);
 
 				/*
-				 * Check that the left sibling of leafbuf (if any) is not
-				 * marked with INCOMPLETE_SPLIT flag before proceeding
+				 * 继续之前，检查 leafbuf 的左兄弟（若有）没有
+				 * 被标上 INCOMPLETE_SPLIT 标志
 				 */
 				Assert(leafblkno == scanblkno);
 				if (_bt_leftsib_splitflag(rel, leftsib, leafblkno))
@@ -1958,40 +1958,40 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 					return;
 				}
 
-				/* we need an insertion scan key for the search, so build one */
+				/* 搜索需要插入型扫描键，因此构造一个 */
 				itup_key = _bt_mkscankey(rel, targetkey);
-				/* find the leftmost leaf page with matching pivot/high key */
+				/* 找到高键/枢轴匹配的最左叶子页 */
 				itup_key->pivotsearch = true;
 				stack = _bt_search(rel, NULL, itup_key, &sleafbuf, BT_READ,
 								   NULL);
-				/* won't need a second lock or pin on leafbuf */
+				/* 不需要在 leafbuf 上再取第二把锁或钉住 */
 				_bt_relbuf(rel, sleafbuf);
 
 				/*
-				 * Re-lock the leaf page, and start over to use our stack
-				 * within _bt_mark_page_halfdead.  We must do it that way
-				 * because it's possible that leafbuf can no longer be
-				 * deleted.  We need to recheck.
+				 * 重新锁住叶子页，并重新开始，以便在
+				 * _bt_mark_page_halfdead 中使用我们的栈。必须那样做，
+				 * 因为 leafbuf 可能已经不能再
+				 * 删除。我们需要重新检查。
 				 *
-				 * Note: We can't simply hold on to the sleafbuf lock instead,
-				 * because it's barely possible that sleafbuf is not the same
-				 * page as leafbuf.  This happens when leafbuf split after our
-				 * original lock was dropped, but before _bt_search finished
-				 * its descent.  We rely on the assumption that we'll find
-				 * leafbuf isn't safe to delete anymore in this scenario.
-				 * (Page deletion can cope with the stack being to the left of
-				 * leafbuf, but not to the right of leafbuf.)
+				 * 注意：不能简单地改持有 sleafbuf 的锁，
+				 * 因为 sleafbuf 刚好可能不是
+				 * 与 leafbuf 同一页。这发生在我们原来的锁被放下之后、
+				 * _bt_search 完成下降之前，leafbuf 发生了分裂。
+				 * 我们依赖这样的假定：在这种情形下会发现
+				 * leafbuf 已经不再能安全删除。
+				 * （页删除能应付栈位于 leafbuf 左侧，
+				 * 但不能应付栈位于 leafbuf 右侧。）
 				 */
 				_bt_lockbuf(rel, leafbuf, BT_WRITE);
 				continue;
 			}
 
 			/*
-			 * See if it's safe to delete the leaf page, and determine how
-			 * many parent/internal pages above the leaf level will be
-			 * deleted.  If it's safe then _bt_mark_page_halfdead will also
-			 * perform the first phase of deletion, which includes marking the
-			 * leafbuf page half-dead.
+			 * 看删除叶子页是否安全，并确定叶子层之上
+			 * 有多少父页/内部页将被
+			 * 删除。若安全，则 _bt_mark_page_halfdead 还会
+			 * 执行删除的第一阶段，其中包括把
+			 * leafbuf 页标为半死。
 			 */
 			Assert(P_ISLEAF(opaque) && !P_IGNORE(opaque));
 			if (!_bt_mark_page_halfdead(rel, vstate->info->heaprel, leafbuf,
@@ -2003,25 +2003,25 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 		}
 
 		/*
-		 * Then unlink it from its siblings.  Each call to
-		 * _bt_unlink_halfdead_page unlinks the topmost page from the subtree,
-		 * making it shallower.  Iterate until the leafbuf page is deleted.
+		 * 然后把它从兄弟中解除链接。每次调用
+		 * _bt_unlink_halfdead_page 都把子树最顶上的页解除链接，
+		 * 使子树变矮。迭代直到 leafbuf 页被删除。
 		 */
 		rightsib_empty = false;
 		Assert(P_ISLEAF(opaque) && P_ISHALFDEAD(opaque));
 		while (P_ISHALFDEAD(opaque))
 		{
-			/* Check for interrupts in _bt_unlink_halfdead_page */
+			/* 在 _bt_unlink_halfdead_page 中检查中断 */
 			if (!_bt_unlink_halfdead_page(rel, leafbuf, scanblkno,
 										  &rightsib_empty, vstate))
 			{
 				/*
-				 * _bt_unlink_halfdead_page should never fail, since we
-				 * established that deletion is generally safe in
-				 * _bt_mark_page_halfdead -- index must be corrupt.
+				 * _bt_unlink_halfdead_page 绝不应当失败，因为我们
+				 * 已在 _bt_mark_page_halfdead 中确定删除总体上是安全的
+				 * ——索引必定已损坏。
 				 *
-				 * Note that _bt_unlink_halfdead_page already released the
-				 * lock and pin on leafbuf for us.
+				 * 注意 _bt_unlink_halfdead_page 已经替我们释放了
+				 * leafbuf 上的锁和钉住。
 				 */
 				Assert(false);
 				return;
@@ -2035,25 +2035,25 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 		_bt_relbuf(rel, leafbuf);
 
 		/*
-		 * Check here, as calling loops will have locks held, preventing
-		 * interrupts from being processed.
+		 * 在这里检查，因为调用循环会持有锁，使
+		 * 中断无法被处理。
 		 */
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * The page has now been deleted. If its right sibling is completely
-		 * empty, it's possible that the reason we haven't deleted it earlier
-		 * is that it was the rightmost child of the parent. Now that we
-		 * removed the downlink for this page, the right sibling might now be
-		 * the only child of the parent, and could be removed. It would be
-		 * picked up by the next vacuum anyway, but might as well try to
-		 * remove it now, so loop back to process the right sibling.
+		 * 该页现已被删除。若其右兄弟完全
+		 * 为空，我们先前没有删除它的原因可能是
+		 * 它曾是父页的最右子页。既然我们
+		 * 去掉了指向这一页的下行链接，右兄弟现在可能是
+		 * 父页的唯一子页，因而可以被删除。下一次清理反正会
+		 * 把它捡起来，但不妨现在就尝试
+		 * 删除它，因此循环回去处理右兄弟。
 		 *
-		 * Note: This relies on the assumption that _bt_getstackbuf() will be
-		 * able to reuse our original descent stack with a different child
-		 * block (provided that the child block is to the right of the
-		 * original leaf page reached by _bt_search()). It will even update
-		 * the descent stack each time we loop around, avoiding repeated work.
+		 * 注意：这依赖这样的假定：_bt_getstackbuf()
+		 * 能够用不同的子块复用我们原来的下降栈
+		 * （只要该子块位于 _bt_search() 所到达的
+		 * 原来叶子页的右侧）。每次循环它甚至会更新
+		 * 下降栈，避免重复工作。
 		 */
 		if (!rightsib_empty)
 			break;
@@ -2063,22 +2063,22 @@ _bt_pagedel(Relation rel, Buffer leafbuf, BTVacState *vstate)
 }
 
 /*
- * First stage of page deletion.
+ * 页删除的第一阶段。
  *
- * Establish the height of the to-be-deleted subtree with leafbuf at its
- * lowest level, remove the downlink to the subtree, and mark leafbuf
- * half-dead.  The final to-be-deleted subtree is usually just leafbuf itself,
- * but may include additional internal pages (at most one per level of the
- * tree below the root).
+ * 确定待删除子树的高度，leafbuf 位于其
+ * 最低层，去掉指向该子树的下行链接，并把 leafbuf
+ * 标为半死。最终的待删除子树通常只是 leafbuf 本身，
+ * 但可能还包括额外的内部页（根之下的每一层
+ * 至多一页）。
  *
- * Caller must pass a valid heaprel, since it's just about possible that our
- * call to _bt_lock_subtree_parent will need to allocate a new index page to
- * complete a page split.  Every call to _bt_allocbuf needs to pass a heaprel.
+ * 调用者必须传入有效的 heaprel，因为我们
+ * 调用 _bt_lock_subtree_parent 时刚好可能需要分配新的索引页，
+ * 以完成一次页分裂。每次调用 _bt_allocbuf 都需要传入 heaprel。
  *
- * Returns 'false' if leafbuf is unsafe to delete, usually because leafbuf is
- * the rightmost child of its parent (and parent has more than one downlink).
- * Returns 'true' when the first stage of page deletion completed
- * successfully.
+ * 若 leafbuf 不能安全删除，返回 'false'，通常是因为 leafbuf 是
+ * 其父页的最右子页（且父页有不止一条下行链接）。
+ * 页删除的第一阶段成功完成时
+ * 返回 'true'。
  */
 static bool
 _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
@@ -2106,17 +2106,17 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 	Assert(heaprel != NULL);
 
 	/*
-	 * Save info about the leaf page.
+	 * 保存关于叶子页的信息。
 	 */
 	leafblkno = BufferGetBlockNumber(leafbuf);
 	leafrightsib = opaque->btpo_next;
 
 	/*
-	 * Before attempting to lock the parent page, check that the right sibling
-	 * is not in half-dead state.  A half-dead right sibling would have no
-	 * downlink in the parent, which would be highly confusing later when we
-	 * delete the downlink.  It would fail the "right sibling of target page
-	 * is also the next child in parent page" cross-check below.
+	 * 在尝试锁住父页之前，检查右兄弟
+	 * 不处于半死状态。半死的右兄弟在
+	 * 父页中不会有下行链接，稍后我们
+	 * 删除下行链接时会非常令人困惑。它通不过下面的交叉检查：
+	 * "目标页的右兄弟也是父页中的下一个子页"。
 	 */
 	if (_bt_rightsib_halfdeadflag(rel, leafrightsib))
 	{
@@ -2126,19 +2126,19 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 	}
 
 	/*
-	 * We cannot delete a page that is the rightmost child of its immediate
-	 * parent, unless it is the only child --- in which case the parent has to
-	 * be deleted too, and the same condition applies recursively to it. We
-	 * have to check this condition all the way up before trying to delete,
-	 * and lock the parent of the root of the to-be-deleted subtree (the
-	 * "subtree parent").  _bt_lock_subtree_parent() locks the subtree parent
-	 * for us.  We remove the downlink to the "top parent" page (subtree root
-	 * page) from the subtree parent page below.
+	 * 我们无法删除作为其直接
+	 * 父页最右子页的页，除非它是唯一的子页——这种情况下父页也必须
+	 * 被删除，并且同样的条件递归地适用于它。在尝试删除之前，我们
+	 * 必须一直向上检查这个条件，
+	 * 并锁住待删除子树之根的父页（
+	 * "子树父页"）。_bt_lock_subtree_parent() 为我们锁住子树父页。
+	 * 下面我们从子树父页去掉指向"顶父页"（子树根
+	 * 页）的下行链接。
 	 *
-	 * Initialize topparent to be leafbuf page now.  The final to-be-deleted
-	 * subtree is often a degenerate one page subtree consisting only of the
-	 * leafbuf page.  When that happens, the leafbuf page is the final subtree
-	 * root page/top parent page.
+	 * 现在把 topparent 初始化为 leafbuf 页。最终的待删除
+	 * 子树常常是只由
+	 * leafbuf 页组成的退化单页子树。发生这种情况时，leafbuf 页就是最终的子树
+	 * 根页/顶父页。
 	 */
 	topparent = leafblkno;
 	topparentrightsib = leafrightsib;
@@ -2153,8 +2153,8 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 #ifdef USE_ASSERT_CHECKING
 
 	/*
-	 * This is just an assertion because _bt_lock_subtree_parent should have
-	 * guaranteed tuple has the expected contents
+	 * 这只是断言，因为 _bt_lock_subtree_parent 应当已经
+	 * 保证元组具有预期的内容
 	 */
 	itemid = PageGetItemId(page, poffset);
 	itup = (IndexTuple) PageGetItem(page, itemid);
@@ -2166,11 +2166,11 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 	itup = (IndexTuple) PageGetItem(page, itemid);
 
 	/*
-	 * Check that the parent-page index items we're about to delete/overwrite
-	 * in subtree parent page contain what we expect.  This can fail if the
-	 * index has become corrupt for some reason.  When that happens we back
-	 * out of deletion of the leafbuf subtree.  (This is just like the case
-	 * where _bt_lock_subtree_parent() cannot "re-find" leafbuf's downlink.)
+	 * 检查我们即将在子树父页中删除/覆盖的
+	 * 父页索引项含有我们所期望的内容。若索引
+	 * 因某种原因已损坏，这可能失败。发生这种情况时，我们退出
+	 * 对 leafbuf 子树的删除。（这正像
+	 * _bt_lock_subtree_parent() 无法"重新找到" leafbuf 下行链接的情形。）
 	 */
 	if (BTreeTupleGetDownLink(itup) != topparentrightsib)
 	{
@@ -2188,25 +2188,25 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 	}
 
 	/*
-	 * Any insert which would have gone on the leaf block will now go to its
-	 * right sibling.  In other words, the key space moves right.
+	 * 本来会落到该叶子块上的任何插入，现在都会落到它的
+	 * 右兄弟。换句话说，键空间向右移动。
 	 */
 	PredicateLockPageCombine(rel, leafblkno, leafrightsib);
 
-	/* No ereport(ERROR) until changes are logged */
+	/* 变更记入日志之前不要 ereport(ERROR) */
 	START_CRIT_SECTION();
 
 	/*
-	 * Update parent of subtree.  We want to delete the downlink to the top
-	 * parent page/root of the subtree, and the *following* key.  Easiest way
-	 * is to copy the right sibling's downlink over the downlink that points
-	 * to top parent page, and then delete the right sibling's original pivot
-	 * tuple.
+	 * 更新子树的父页。我们要删除指向顶
+	 * 父页/子树根的下行链接，以及*随后*的那个键。最简单的办法
+	 * 是把右兄弟的下行链接复制到指向
+	 * 顶父页的那条下行链接上，然后删除右兄弟原来的枢轴
+	 * 元组。
 	 *
-	 * Lanin and Shasha make the key space move left when deleting a page,
-	 * whereas the key space moves right here.  That's why we cannot simply
-	 * delete the pivot tuple with the downlink to the top parent page.  See
-	 * nbtree/README.
+	 * Lanin 与 Shasha 在删除一页时让键空间向左移动，
+	 * 而这里键空间向右移动。因此我们无法简单地
+	 * 删除带有指向顶父页下行链接的枢轴元组。见
+	 * nbtree/README。
 	 */
 	page = BufferGetPage(subtreeparent);
 	opaque = BTPageGetOpaque(page);
@@ -2219,9 +2219,9 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 	PageIndexTupleDelete(page, nextoffset);
 
 	/*
-	 * Mark the leaf page as half-dead, and stamp it with a link to the top
-	 * parent page.  When the leaf page is also the top parent page, the link
-	 * is set to InvalidBlockNumber.
+	 * 把叶子页标为半死，并在上面盖上指向顶
+	 * 父页的链接。当叶子页同时也是顶父页时，该链接
+	 * 被设为 InvalidBlockNumber。
 	 */
 	page = BufferGetPage(leafbuf);
 	opaque = BTPageGetOpaque(page);
@@ -2239,11 +2239,11 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 								 IndexTupleSize(&trunctuple)))
 		elog(ERROR, "could not overwrite high key in half-dead page");
 
-	/* Must mark buffers dirty before XLogInsert */
+	/* XLogInsert 之前必须把缓冲区标为脏 */
 	MarkBufferDirty(subtreeparent);
 	MarkBufferDirty(leafbuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_btree_mark_page_halfdead xlrec;
@@ -2282,29 +2282,29 @@ _bt_mark_page_halfdead(Relation rel, Relation heaprel, Buffer leafbuf,
 }
 
 /*
- * Second stage of page deletion.
+ * 页删除的第二阶段。
  *
- * Unlinks a single page (in the subtree undergoing deletion) from its
- * siblings.  Also marks the page deleted.
+ * 把正在删除的子树中的单页从其
+ * 兄弟解除链接。同时把该页标为已删除。
  *
- * To get rid of the whole subtree, including the leaf page itself, call here
- * until the leaf page is deleted.  The original "top parent" established in
- * the first stage of deletion is deleted in the first call here, while the
- * leaf page is deleted in the last call here.  Note that the leaf page itself
- * is often the initial top parent page.
+ * 要去掉整棵子树，包括叶子页本身，就在这里反复调用，
+ * 直到叶子页被删除。第一阶段确立的原来的"顶父页"
+ * 在这里的第一次调用中被删除，而
+ * 叶子页在这里的最后一次调用中被删除。注意叶子页本身
+ * 常常就是最初的顶父页。
  *
- * Returns 'false' if the page could not be unlinked (shouldn't happen).  If
- * the right sibling of the current target page is empty, *rightsib_empty is
- * set to true, allowing caller to delete the target's right sibling page in
- * passing.  Note that *rightsib_empty is only actually used by caller when
- * target page is leafbuf, following last call here for leafbuf/the subtree
- * containing leafbuf.  (We always set *rightsib_empty for caller, just to be
- * consistent.)
+ * 若该页无法解除链接，返回 'false'（不应当发生）。若
+ * 当前目标页的右兄弟为空，*rightsib_empty 被
+ * 设为 true，允许调用者顺带删除目标的右兄弟页。
+ * 注意 *rightsib_empty 实际上只在
+ * 目标页是 leafbuf 时才被调用者使用，即对 leafbuf/包含
+ * leafbuf 的子树在这里做完最后一次调用之后。（我们总是为调用者设置 *rightsib_empty，只是为了
+ * 保持一致。）
  *
- * Must hold pin and lock on leafbuf at entry (read or write doesn't matter).
- * On success exit, we'll be holding pin and write lock.  On failure exit,
- * we'll release both pin and lock before returning (we define it that way
- * to avoid having to reacquire a lock we already released).
+ * 进入时必须在 leafbuf 上持有钉住和锁（读或写无所谓）。
+ * 成功退出时，我们将持有钉住和写锁。失败退出时，
+ * 返回之前会释放钉住和锁（我们这样定义，
+ * 是为了避免重新获取已经释放过的锁）。
  */
 static bool
 _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
@@ -2338,7 +2338,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	Assert(P_ISLEAF(opaque) && !P_ISDELETED(opaque) && P_ISHALFDEAD(opaque));
 
 	/*
-	 * Remember some information about the leaf page.
+	 * 记住关于叶子页的一些信息。
 	 */
 	itemid = PageGetItemId(page, P_HIKEY);
 	leafhikey = (IndexTuple) PageGetItem(page, itemid);
@@ -2349,15 +2349,15 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	_bt_unlockbuf(rel, leafbuf);
 
 	/*
-	 * Check here, as calling loops will have locks held, preventing
-	 * interrupts from being processed.
+	 * 在这里检查，因为调用循环会持有锁，使
+	 * 中断无法被处理。
 	 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* Unlink the current top parent of the subtree */
+	/* 解除子树当前顶父页的链接 */
 	if (!BlockNumberIsValid(target))
 	{
-		/* Target is leaf page (or leaf page is top parent, if you prefer) */
+		/* 目标是叶子页（或者，如果你愿意，叶子页就是顶父页） */
 		target = leafblkno;
 
 		buf = leafbuf;
@@ -2366,10 +2366,10 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	}
 	else
 	{
-		/* Target is the internal page taken from leaf's top parent link */
+		/* 目标是取自叶子顶父链接的内部页 */
 		Assert(target != leafblkno);
 
-		/* Fetch the block number of the target's left sibling */
+		/* 取目标左兄弟的块号 */
 		buf = _bt_getbuf(rel, target, BT_READ);
 		page = BufferGetPage(buf);
 		opaque = BTPageGetOpaque(page);
@@ -2378,20 +2378,20 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 		Assert(targetlevel > 0);
 
 		/*
-		 * To avoid deadlocks, we'd better drop the target page lock before
-		 * going further.
+		 * 为避免死锁，最好先放下目标页锁
+		 * 再继续。
 		 */
 		_bt_unlockbuf(rel, buf);
 	}
 
 	/*
-	 * We have to lock the pages we need to modify in the standard order:
-	 * moving right, then up.  Else we will deadlock against other writers.
+	 * 我们必须按标准顺序锁住需要修改的页：
+	 * 先向右，再向上。否则会与其他写者死锁。
 	 *
-	 * So, first lock the leaf page, if it's not the target.  Then find and
-	 * write-lock the current left sibling of the target page.  The sibling
-	 * that was current a moment ago could have split, so we may have to move
-	 * right.
+	 * 因此，若叶子页不是目标，先锁住它。然后找到并
+	 * 写锁住目标页当前的左兄弟。片刻之前
+	 * 还是当前兄弟的那一页可能已经分裂，因此我们可能必须向
+	 * 右走。
 	 */
 	if (target != leafblkno)
 		_bt_lockbuf(rel, leafbuf, BT_WRITE);
@@ -2405,13 +2405,13 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 			bool		leftsibvalid = true;
 
 			/*
-			 * Before we follow the link from the page that was the left
-			 * sibling mere moments ago, validate its right link.  This
-			 * reduces the opportunities for loop to fail to ever make any
-			 * progress in the presence of index corruption.
+			 * 在跟随片刻之前还是左
+			 * 兄弟的那一页上的链接之前，先验证它的右链接。这
+			 * 减少了在索引损坏时循环永远无法取得任何
+			 * 进展的机会。
 			 *
-			 * Note: we rely on the assumption that there can only be one
-			 * vacuum process running at a time (against the same index).
+			 * 注意：我们依赖这样的假定：同一时刻只能有一个
+			 * 清理进程在运行（针对同一个索引）。
 			 */
 			if (P_RIGHTMOST(opaque) || P_ISDELETED(opaque) ||
 				leftsib == opaque->btpo_next)
@@ -2423,9 +2423,9 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 			if (!leftsibvalid)
 			{
 				/*
-				 * This is known to fail in the field; sibling link corruption
-				 * is relatively common.  Press on with vacuuming rather than
-				 * just throwing an ERROR.
+				 * 现场已知这会失败；兄弟链接损坏
+				 * 相对常见。继续清理，而不是
+				 * 直接抛出 ERROR。
 				 */
 				ereport(LOG,
 						(errcode(ERRCODE_INDEX_CORRUPTED),
@@ -2434,7 +2434,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 										 leftsib, target, leafblkno, scanblkno,
 										 targetlevel, RelationGetRelationName(rel))));
 
-				/* Must release all pins and locks on failure exit */
+				/* 失败退出时必须释放全部钉住和锁 */
 				ReleaseBuffer(buf);
 				if (target != leafblkno)
 					_bt_relbuf(rel, leafbuf);
@@ -2444,7 +2444,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 
 			CHECK_FOR_INTERRUPTS();
 
-			/* step right one page */
+			/* 向右走一页 */
 			lbuf = _bt_getbuf(rel, leftsib, BT_WRITE);
 			page = BufferGetPage(lbuf);
 			opaque = BTPageGetOpaque(page);
@@ -2453,15 +2453,15 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	else
 		lbuf = InvalidBuffer;
 
-	/* Next write-lock the target page itself */
+	/* 接下来写锁住目标页本身 */
 	_bt_lockbuf(rel, buf, BT_WRITE);
 	page = BufferGetPage(buf);
 	opaque = BTPageGetOpaque(page);
 
 	/*
-	 * Check page is still empty etc, else abandon deletion.  This is just for
-	 * paranoia's sake; a half-dead page cannot resurrect because there can be
-	 * only one vacuum process running at a time.
+	 * 检查该页仍然为空等等，否则放弃删除。这只是出于
+	 * 谨慎；半死页不可能复活，因为同一时刻只能有
+	 * 一个清理进程在运行。
 	 */
 	if (P_RIGHTMOST(opaque) || P_ISROOT(opaque) || P_ISDELETED(opaque))
 		elog(ERROR, "target page changed status unexpectedly in block %u of index \"%s\"",
@@ -2481,7 +2481,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 			elog(ERROR, "target leaf page changed status unexpectedly in block %u of index \"%s\"",
 				 target, RelationGetRelationName(rel));
 
-		/* Leaf page is also target page: don't set leaftopparent */
+		/* 叶子页也是目标页：不要设置 leaftopparent */
 		leaftopparent = InvalidBlockNumber;
 	}
 	else
@@ -2493,20 +2493,20 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 			elog(ERROR, "target internal page on level %u changed status unexpectedly in block %u of index \"%s\"",
 				 targetlevel, target, RelationGetRelationName(rel));
 
-		/* Target is internal: set leaftopparent for next call here...  */
+		/* 目标是内部页：为这里的下一次调用设置 leaftopparent……  */
 		itemid = PageGetItemId(page, P_FIRSTDATAKEY(opaque));
 		finaldataitem = (IndexTuple) PageGetItem(page, itemid);
 		leaftopparent = BTreeTupleGetDownLink(finaldataitem);
-		/* ...except when it would be a redundant pointer-to-self */
+		/* ……除非那会成为指向自身的冗余指针 */
 		if (leaftopparent == leafblkno)
 			leaftopparent = InvalidBlockNumber;
 	}
 
-	/* No leaftopparent for level 0 (leaf page) or level 1 target */
+	/* 第 0 层（叶子页）或第 1 层目标没有 leaftopparent */
 	Assert(!BlockNumberIsValid(leaftopparent) || targetlevel > 1);
 
 	/*
-	 * And next write-lock the (current) right sibling.
+	 * 接下来写锁住（当前的）右兄弟。
 	 */
 	rightsib = opaque->btpo_next;
 	rbuf = _bt_getbuf(rel, rightsib, BT_WRITE);
@@ -2514,16 +2514,16 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	opaque = BTPageGetOpaque(page);
 
 	/*
-	 * Validate target's right sibling page.  Its left link must point back to
-	 * the target page.
+	 * 验证目标的右兄弟页。它的左链接必须指回
+	 * 目标页。
 	 */
 	if (opaque->btpo_prev != target)
 	{
 		/*
-		 * This is known to fail in the field; sibling link corruption is
-		 * relatively common.  Press on with vacuuming rather than just
-		 * throwing an ERROR (same approach used for left-sibling's-right-link
-		 * validation check a moment ago).
+		 * 现场已知这会失败；兄弟链接损坏
+		 * 相对常见。继续清理，而不是直接
+		 * 抛出 ERROR（与片刻之前对左兄弟右链接的
+		 * 验证检查所用方法相同）。
 		 */
 		ereport(LOG,
 				(errcode(ERRCODE_INDEX_CORRUPTED),
@@ -2535,7 +2535,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 								 scanblkno, opaque->btpo_prev,
 								 targetlevel, RelationGetRelationName(rel))));
 
-		/* Must release all pins and locks on failure exit */
+		/* 失败退出时必须释放全部钉住和锁 */
 		if (BufferIsValid(lbuf))
 			_bt_relbuf(rel, lbuf);
 		_bt_relbuf(rel, rbuf);
@@ -2550,13 +2550,13 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	*rightsib_empty = (P_FIRSTDATAKEY(opaque) > PageGetMaxOffsetNumber(page));
 
 	/*
-	 * If we are deleting the next-to-last page on the target's level, then
-	 * the rightsib is a candidate to become the new fast root. (In theory, it
-	 * might be possible to push the fast root even further down, but the odds
-	 * of doing so are slim, and the locking considerations daunting.)
+	 * 若我们正在删除目标所在层的倒数第二页，则
+	 * rightsib 有资格成为新的快速根。（理论上，
+	 * 也许还能把快速根再往下推，但这样做的机会
+	 * 很小，加锁方面的考虑也很棘手。）
 	 *
-	 * We can safely acquire a lock on the metapage here --- see comments for
-	 * _bt_newlevel().
+	 * 这里可以安全地取得元页上的锁——见
+	 * _bt_newlevel() 的注释。
 	 */
 	if (leftsib == P_NONE && rightsib_is_rightmost)
 	{
@@ -2564,19 +2564,19 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 		opaque = BTPageGetOpaque(page);
 		if (P_RIGHTMOST(opaque))
 		{
-			/* rightsib will be the only one left on the level */
+			/* rightsib 将成为该层上剩下的唯一一页 */
 			metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_WRITE);
 			metapg = BufferGetPage(metabuf);
 			metad = BTPageGetMeta(metapg);
 
 			/*
-			 * The expected case here is btm_fastlevel == targetlevel+1; if
-			 * the fastlevel is <= targetlevel, something is wrong, and we
-			 * choose to overwrite it to fix it.
+			 * 这里预期的情形是 btm_fastlevel == targetlevel+1；若
+			 * fastlevel <= targetlevel，则有问题，我们
+			 * 选择覆盖它来修复。
 			 */
 			if (metad->btm_fastlevel > targetlevel + 1)
 			{
-				/* no update wanted */
+				/* 不需要更新 */
 				_bt_relbuf(rel, metabuf);
 				metabuf = InvalidBuffer;
 			}
@@ -2584,16 +2584,16 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	}
 
 	/*
-	 * Here we begin doing the deletion.
+	 * 这里开始执行删除。
 	 */
 
-	/* No ereport(ERROR) until changes are logged */
+	/* 变更记入日志之前不要 ereport(ERROR) */
 	START_CRIT_SECTION();
 
 	/*
-	 * Update siblings' side-links.  Note the target page's side-links will
-	 * continue to point to the siblings.  Asserts here are just rechecking
-	 * things we already verified above.
+	 * 更新兄弟的侧向链接。注意目标页的侧向链接将
+	 * 继续指向这些兄弟。这里的断言只是重新检查
+	 * 我们上面已经验证过的事情。
 	 */
 	if (BufferIsValid(lbuf))
 	{
@@ -2608,45 +2608,45 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	opaque->btpo_prev = leftsib;
 
 	/*
-	 * If we deleted a parent of the targeted leaf page, instead of the leaf
-	 * itself, update the leaf to point to the next remaining child in the
-	 * subtree.
+	 * 若我们删除的是目标叶子页的父页，而不是叶子
+	 * 本身，就把叶子更新为指向子树中
+	 * 下一个仍然存在的子页。
 	 *
-	 * Note: We rely on the fact that a buffer pin on the leaf page has been
-	 * held since leafhikey was initialized.  This is safe, though only
-	 * because the page was already half-dead at that point.  The leaf page
-	 * cannot have been modified by any other backend during the period when
-	 * no lock was held.
+	 * 注意：我们依赖这样的事实：自 leafhikey 初始化以来，叶子页上的
+	 * 缓冲区钉住一直被持有。这是安全的，不过只是
+	 * 因为那时该页已经半死。在没有持有锁的
+	 * 那段时间里，叶子页不可能被任何其他后端
+	 * 修改。
 	 */
 	if (target != leafblkno)
 		BTreeTupleSetTopParent(leafhikey, leaftopparent);
 
 	/*
-	 * Mark the page itself deleted.  It can be recycled when all current
-	 * transactions are gone.  Storing GetTopTransactionId() would work, but
-	 * we're in VACUUM and would not otherwise have an XID.  Having already
-	 * updated links to the target, ReadNextFullTransactionId() suffices as an
-	 * upper bound.  Any scan having retained a now-stale link is advertising
-	 * in its PGPROC an xmin less than or equal to the value we read here.  It
-	 * will continue to do so, holding back the xmin horizon, for the duration
-	 * of that scan.
+	 * 把该页本身标为已删除。当所有当前
+	 * 事务都消失后，它就可以回收。存放 GetTopTransactionId() 也能工作，但
+	 * 我们正处于 VACUUM 中，否则不会有 XID。既然已经
+	 * 更新了指向目标的链接，ReadNextFullTransactionId() 作为
+	 * 上界就够了。任何仍持有一条现已过时链接的扫描，都在其
+	 * PGPROC 中公布一个小于或等于我们这里读到的值的 xmin。
+	 * 在该扫描持续期间，它会继续这样做，从而拖住 xmin
+	 * 视界。
 	 */
 	page = BufferGetPage(buf);
 	opaque = BTPageGetOpaque(page);
 	Assert(P_ISHALFDEAD(opaque) || !P_ISLEAF(opaque));
 
 	/*
-	 * Store upper bound XID that's used to determine when deleted page is no
-	 * longer needed as a tombstone
+	 * 存放上界 XID，用来判断已删除页何时不再
+	 * 需要充当墓碑
 	 */
 	safexid = ReadNextFullTransactionId();
 	BTPageSetDeleted(page, safexid);
 	opaque->btpo_cycleid = 0;
 
-	/* And update the metapage, if needed */
+	/* 需要时也更新元页 */
 	if (BufferIsValid(metabuf))
 	{
-		/* upgrade metapage if needed */
+		/* 需要时升级元页 */
 		if (metad->btm_version < BTREE_NOVAC_VERSION)
 			_bt_upgrademetapage(metapg);
 		metad->btm_fastroot = rightsib;
@@ -2654,7 +2654,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 		MarkBufferDirty(metabuf);
 	}
 
-	/* Must mark buffers dirty before XLogInsert */
+	/* XLogInsert 之前必须把缓冲区标为脏 */
 	MarkBufferDirty(rbuf);
 	MarkBufferDirty(buf);
 	if (BufferIsValid(lbuf))
@@ -2662,7 +2662,7 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 	if (target != leafblkno)
 		MarkBufferDirty(leafbuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_btree_unlink_page xlrec;
@@ -2679,13 +2679,13 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 		if (target != leafblkno)
 			XLogRegisterBuffer(3, leafbuf, REGBUF_WILL_INIT);
 
-		/* information stored on the target/to-be-unlinked block */
+		/* 存放在目标/待解除链接块上的信息 */
 		xlrec.leftsib = leftsib;
 		xlrec.rightsib = rightsib;
 		xlrec.level = targetlevel;
 		xlrec.safexid = safexid;
 
-		/* information needed to recreate the leaf block (if not the target) */
+		/* 重建叶子块所需的信息（若它不是目标） */
 		xlrec.leafleftsib = leafleftsib;
 		xlrec.leafrightsib = leafrightsib;
 		xlrec.leaftopparent = leaftopparent;
@@ -2735,75 +2735,75 @@ _bt_unlink_halfdead_page(Relation rel, Buffer leafbuf, BlockNumber scanblkno,
 
 	END_CRIT_SECTION();
 
-	/* release metapage */
+	/* 释放元页 */
 	if (BufferIsValid(metabuf))
 		_bt_relbuf(rel, metabuf);
 
-	/* release siblings */
+	/* 释放兄弟 */
 	if (BufferIsValid(lbuf))
 		_bt_relbuf(rel, lbuf);
 	_bt_relbuf(rel, rbuf);
 
-	/* If the target is not leafbuf, we're done with it now -- release it */
+	/* 若目标不是 leafbuf，现在已经用完——释放它 */
 	if (target != leafblkno)
 		_bt_relbuf(rel, buf);
 
 	/*
-	 * Maintain pages_newly_deleted, which is simply the number of pages
-	 * deleted by the ongoing VACUUM operation.
+	 * 维护 pages_newly_deleted，它就是
+	 * 正在进行的 VACUUM 操作所删除的页数。
 	 *
-	 * Maintain pages_deleted in a way that takes into account how
-	 * btvacuumpage() will count deleted pages that have yet to become
-	 * scanblkno -- only count page when it's not going to get that treatment
-	 * later on.
+	 * 维护 pages_deleted 时要考虑到
+	 * btvacuumpage() 将如何计数那些尚未成为
+	 * scanblkno 的已删除页——只有当该页稍后不会得到那种处理时
+	 * 才计数。
 	 */
 	stats->pages_newly_deleted++;
 	if (target <= scanblkno)
 		stats->pages_deleted++;
 
 	/*
-	 * Remember information about the target page (now a newly deleted page)
-	 * in dedicated vstate space for later.  The page will be considered as a
-	 * candidate to place in the FSM at the end of the current btvacuumscan()
-	 * call.
+	 * 把关于目标页（现在是新删除的页）的信息
+	 * 记在专用的 vstate 空间里，供稍后使用。该页将在当前 btvacuumscan()
+	 * 调用结束时被当作放入
+	 * FSM 的候选。
 	 */
 	_bt_pendingfsm_add(vstate, target, safexid);
 
-	/* Success - hold on to lock on leafbuf (might also have been target) */
+	/* 成功——继续持有 leafbuf 上的锁（它也可能曾是目标） */
 	return true;
 }
 
 /*
- * Establish how tall the to-be-deleted subtree will be during the first stage
- * of page deletion.
+ * 确定页删除第一阶段中待删除子树
+ * 将有多高。
  *
- * Caller's child argument is the block number of the page caller wants to
- * delete (this is leafbuf's block number, except when we're called
- * recursively).  stack is a search stack leading to it.  Note that we will
- * update the stack entry(s) to reflect current downlink positions --- this is
- * similar to the corresponding point in page split handling.
+ * 调用者的 child 参数是调用者想要删除的页的块号
+ * （这是 leafbuf 的块号，除非我们被递归调用）。
+ * stack 是通向它的搜索栈。注意我们将更新栈 entry(s)，
+ * 以反映当前的下行链接位置——这与
+ * 页分裂处理中的对应之处类似。
  *
- * If "first stage" caller cannot go ahead with deleting _any_ pages, returns
- * false.  Returns true on success, in which case caller can use certain
- * details established here to perform the first stage of deletion.  This
- * function is the last point at which page deletion may be deemed unsafe
- * (barring index corruption, or unexpected concurrent page deletions).
+ * 若"第一阶段"调用者无法继续删除 _any_ 页，返回
+ * false。成功时返回 true，此时调用者可以使用这里确立的某些
+ * 细节来执行删除的第一阶段。本函数是页删除
+ * 仍可能被判定为不安全的最后一点
+ * （索引损坏或意外的并发页删除除外）。
  *
- * We write lock the parent of the root of the to-be-deleted subtree for
- * caller on success (i.e. we leave our lock on the *subtreeparent buffer for
- * caller).  Caller will have to remove a downlink from *subtreeparent.  We
- * also set a *subtreeparent offset number in *poffset, to indicate the
- * location of the pivot tuple that contains the relevant downlink.
+ * 成功时我们为调用者写锁住待删除子树之根的父页
+ * （即把 *subtreeparent 缓冲区上的锁留给调用者）。
+ * 调用者必须从 *subtreeparent 去掉一条下行链接。我们
+ * 还在 *poffset 中设置 *subtreeparent 的偏移号，以指出
+ * 含有相关下行链接的枢轴元组的位置。
  *
- * The root of the to-be-deleted subtree is called the "top parent".  Note
- * that the leafbuf page is often the final "top parent" page (you can think
- * of the leafbuf page as a degenerate single page subtree when that happens).
- * Caller should initialize *topparent to the target leafbuf page block number
- * (while *topparentrightsib should be set to leafbuf's right sibling block
- * number).  We will update *topparent (and *topparentrightsib) for caller
- * here, though only when it turns out that caller will delete at least one
- * internal page (i.e. only when caller needs to store a valid link to the top
- * parent block in the leafbuf page using BTreeTupleSetTopParent()).
+ * 待删除子树的根称为"顶父页"。注意
+ * leafbuf 页常常就是最终的"顶父页"（发生这种情况时，可以把
+ * leafbuf 页看成一棵退化的单页子树）。
+ * 调用者应当把 *topparent 初始化为目标 leafbuf 页的块号
+ * （同时 *topparentrightsib 应设为 leafbuf 的右兄弟块号）。
+ * 我们将在这里为调用者更新 *topparent（以及 *topparentrightsib），
+ * 不过仅当结果是调用者将至少删除一页内部页时
+ * （即仅当调用者需要用 BTreeTupleSetTopParent()
+ * 在 leafbuf 页中存放一条指向顶父块的有效链接时）。
  */
 static bool
 _bt_lock_subtree_parent(Relation rel, Relation heaprel, BlockNumber child,
@@ -2820,23 +2820,23 @@ _bt_lock_subtree_parent(Relation rel, Relation heaprel, BlockNumber child,
 	BTPageOpaque opaque;
 
 	/*
-	 * Locate the pivot tuple whose downlink points to "child".  Write lock
-	 * the parent page itself.
+	 * 定位下行链接指向 "child" 的枢轴元组。写锁住
+	 * 父页本身。
 	 */
 	pbuf = _bt_getstackbuf(rel, heaprel, stack, child);
 	if (pbuf == InvalidBuffer)
 	{
 		/*
-		 * Failed to "re-find" a pivot tuple whose downlink matched our child
-		 * block number on the parent level -- the index must be corrupt.
-		 * Don't even try to delete the leafbuf subtree.  Just report the
-		 * issue and press on with vacuuming the index.
+		 * 未能"重新找到"下行链接与我们的子
+		 * 块号在父层上匹配的枢轴元组——索引必定已损坏。
+		 * 甚至不要尝试删除 leafbuf 子树。只报告
+		 * 问题，并继续清理该索引。
 		 *
-		 * Note: _bt_getstackbuf() recovers from concurrent page splits that
-		 * take place on the parent level.  Its approach is a near-exhaustive
-		 * linear search.  This also gives it a surprisingly good chance of
-		 * recovering in the event of a buggy or inconsistent opclass.  But we
-		 * don't rely on that here.
+		 * 注意：_bt_getstackbuf() 能从发生在
+		 * 父层上的并发页分裂中恢复。它的方法是近乎穷尽的
+		 * 线性搜索。这还使它在操作符类有缺陷或不一致时
+		 * 有出人意料的好机会恢复。但我们
+		 * 在这里并不依赖这一点。
 		 */
 		ereport(LOG,
 				(errcode(ERRCODE_INDEX_CORRUPTED),
@@ -2855,24 +2855,24 @@ _bt_lock_subtree_parent(Relation rel, Relation heaprel, BlockNumber child,
 	leftsibparent = opaque->btpo_prev;
 
 	/*
-	 * _bt_getstackbuf() completes page splits on returned parent buffer when
-	 * required.
+	 * 需要时，_bt_getstackbuf() 会在返回的父缓冲区上
+	 * 完成页分裂。
 	 *
-	 * In general it's a bad idea for VACUUM to use up more disk space, which
-	 * is why page deletion does not finish incomplete page splits most of the
-	 * time.  We allow this limited exception because the risk is much lower,
-	 * and the potential downside of not proceeding is much higher:  A single
-	 * internal page with the INCOMPLETE_SPLIT flag set might otherwise
-	 * prevent us from deleting hundreds of empty leaf pages from one level
-	 * down.
+	 * 一般而言，VACUUM 再占用更多磁盘空间是个坏主意，这
+	 * 就是页删除大多数时候并不完成未完成页分裂的原因。
+	 * 我们允许这一有限例外，因为风险低得多，
+	 * 而不继续下去的潜在坏处高得多：单独一页
+	 * 设置了 INCOMPLETE_SPLIT 标志的内部页，否则可能
+	 * 阻止我们删除下一层
+	 * 成百上千的空叶子页。
 	 */
 	Assert(!P_INCOMPLETE_SPLIT(opaque));
 
 	if (parentoffset < maxoff)
 	{
 		/*
-		 * Child is not the rightmost child in parent, so it's safe to delete
-		 * the subtree whose root/topparent is child page
+		 * 子页不是父页中的最右子页，因此可以安全地删除
+		 * 根/顶父页为该子页的子树
 		 */
 		*subtreeparent = pbuf;
 		*poffset = parentoffset;
@@ -2880,71 +2880,71 @@ _bt_lock_subtree_parent(Relation rel, Relation heaprel, BlockNumber child,
 	}
 
 	/*
-	 * Child is the rightmost child of parent.
+	 * 子页是父页的最右子页。
 	 *
-	 * Since it's the rightmost child of parent, deleting the child (or
-	 * deleting the subtree whose root/topparent is the child page) is only
-	 * safe when it's also possible to delete the parent.
+	 * 既然它是父页的最右子页，删除该子页（或
+	 * 删除根/顶父页为该子页的子树）只有在
+	 * 同时也可以删除父页时才安全。
 	 */
 	Assert(parentoffset == maxoff);
 	if (parentoffset != P_FIRSTDATAKEY(opaque) || P_RIGHTMOST(opaque))
 	{
 		/*
-		 * Child isn't parent's only child, or parent is rightmost on its
-		 * entire level.  Definitely cannot delete any pages.
+		 * 子页不是父页的唯一子页，或者父页在其
+		 * 整层上是最右的。肯定无法删除任何页。
 		 */
 		_bt_relbuf(rel, pbuf);
 		return false;
 	}
 
 	/*
-	 * Now make sure that the parent deletion is itself safe by examining the
-	 * child's grandparent page.  Recurse, passing the parent page as the
-	 * child page (child's grandparent is the parent on the next level up). If
-	 * parent deletion is unsafe, then child deletion must also be unsafe (in
-	 * which case caller cannot delete any pages at all).
+	 * 现在通过检查
+	 * 子页的祖父页，确保删除父页本身是安全的。递归，把父页当作
+	 * 子页传入（子页的祖父是再上一层的父页）。若
+	 * 删除父页不安全，则删除子页也必定不安全（在
+	 * 这种情况下调用者根本无法删除任何页）。
 	 */
 	*topparent = parent;
 	*topparentrightsib = opaque->btpo_next;
 
 	/*
-	 * Release lock on parent before recursing.
+	 * 递归之前先释放父页上的锁。
 	 *
-	 * It's OK to release page locks on parent before recursive call locks
-	 * grandparent.  An internal page can only acquire an entry if the child
-	 * is split, but that cannot happen as long as we still hold a lock on the
-	 * leafbuf page.
+	 * 在递归调用锁住
+	 * 祖父页之前释放父页上的页锁是可以的。内部页只有在子页
+	 * 分裂时才能获得新项，但只要我们仍然持有
+	 * leafbuf 页上的锁，那就不可能发生。
 	 */
 	_bt_relbuf(rel, pbuf);
 
 	/*
-	 * Before recursing, check that the left sibling of parent (if any) is not
-	 * marked with INCOMPLETE_SPLIT flag first (must do so after we drop the
-	 * parent lock).
+	 * 递归之前，先检查父页的左兄弟（若有）没有
+	 * 被标上 INCOMPLETE_SPLIT 标志（必须在放下
+	 * 父页锁之后做）。
 	 *
-	 * Note: We deliberately avoid completing incomplete splits here.
+	 * 注意：这里故意不完成未完成的分裂。
 	 */
 	if (_bt_leftsib_splitflag(rel, leftsibparent, parent))
 		return false;
 
-	/* Recurse to examine child page's grandparent page */
+	/* 递归以检查子页的祖父页 */
 	return _bt_lock_subtree_parent(rel, heaprel, parent, stack->bts_parent,
 								   subtreeparent, poffset,
 								   topparent, topparentrightsib);
 }
 
 /*
- * Initialize local memory state used by VACUUM for _bt_pendingfsm_finalize
- * optimization.
+ * 初始化 VACUUM 为 _bt_pendingfsm_finalize
+ * 优化所使用的本地内存状态。
  *
- * Called at the start of a btvacuumscan().  Caller's cleanuponly argument
- * indicates if ongoing VACUUM has not (and will not) call btbulkdelete().
+ * 在 btvacuumscan() 开始时调用。调用者的 cleanuponly 参数
+ * 表示正在进行的 VACUUM 没有（也不会）调用 btbulkdelete()。
  *
- * We expect to allocate memory inside VACUUM's top-level memory context here.
- * The working buffer is subject to a limit based on work_mem.  Our strategy
- * when the array can no longer grow within the bounds of that limit is to
- * stop saving additional newly deleted pages, while proceeding as usual with
- * the pages that we can fit.
+ * 我们期望在这里于 VACUUM 的顶层内存上下文中分配内存。
+ * 工作缓冲区受基于 work_mem 的限制。当数组不能再在该限制内
+ * 增长时，我们的策略是停止再保存额外的新删除页，
+ * 同时照常处理
+ * 能够放下的那些页。
  */
 void
 _bt_pendingfsm_init(Relation rel, BTVacState *vstate, bool cleanuponly)
@@ -2952,40 +2952,40 @@ _bt_pendingfsm_init(Relation rel, BTVacState *vstate, bool cleanuponly)
 	int64		maxbufsize;
 
 	/*
-	 * Don't bother with optimization in cleanup-only case -- we don't expect
-	 * any newly deleted pages.  Besides, cleanup-only calls to btvacuumscan()
-	 * can only take place because this optimization didn't work out during
-	 * the last VACUUM.
+	 * 在仅清理的情形下不必费心做优化——我们不期望
+	 * 有任何新删除的页。此外，对 btvacuumscan() 的仅清理调用
+	 * 之所以会发生，只是因为上一次 VACUUM 期间
+	 * 这项优化没有奏效。
 	 */
 	if (cleanuponly)
 		return;
 
 	/*
-	 * Cap maximum size of array so that we always respect work_mem.  Avoid
-	 * int overflow here.
+	 * 限制数组的最大大小，以便始终尊重 work_mem。这里避免
+	 * int 溢出。
 	 */
 	vstate->bufsize = 256;
 	maxbufsize = (work_mem * 1024L) / sizeof(BTPendingFSM);
 	maxbufsize = Min(maxbufsize, INT_MAX);
 	maxbufsize = Min(maxbufsize, MaxAllocSize / sizeof(BTPendingFSM));
-	/* Stay sane with small work_mem */
+	/* work_mem 很小时保持清醒 */
 	maxbufsize = Max(maxbufsize, vstate->bufsize);
 	vstate->maxbufsize = maxbufsize;
 
-	/* Allocate buffer, indicate that there are currently 0 pending pages */
+	/* 分配缓冲区，并表明当前有 0 个待处理页 */
 	vstate->pendingpages = palloc(sizeof(BTPendingFSM) * vstate->bufsize);
 	vstate->npendingpages = 0;
 }
 
 /*
- * Place any newly deleted pages (i.e. pages that _bt_pagedel() deleted during
- * the ongoing VACUUM operation) into the free space map -- though only when
- * it is actually safe to do so by now.
+ * 把任何新删除的页（即正在进行的 VACUUM 操作期间
+ * _bt_pagedel() 删除的页）放入空闲空间映射——不过仅当
+ * 到现在这样做实际上已经安全时。
  *
- * Called at the end of a btvacuumscan(), just before free space map vacuuming
- * takes place.
+ * 在 btvacuumscan() 结束时调用，就在空闲空间映射清理
+ * 开始之前。
  *
- * Frees memory allocated by _bt_pendingfsm_init(), if any.
+ * 释放 _bt_pendingfsm_init() 分配的内存，若有的话。
  */
 void
 _bt_pendingfsm_finalize(Relation rel, BTVacState *vstate)
@@ -2998,7 +2998,7 @@ _bt_pendingfsm_finalize(Relation rel, BTVacState *vstate)
 
 	if (vstate->npendingpages == 0)
 	{
-		/* Just free memory when nothing to do */
+		/* 无事可做时只释放内存 */
 		if (vstate->pendingpages)
 			pfree(vstate->pendingpages);
 
@@ -3008,22 +3008,22 @@ _bt_pendingfsm_finalize(Relation rel, BTVacState *vstate)
 #ifdef DEBUG_BTREE_PENDING_FSM
 
 	/*
-	 * Debugging aid: Sleep for 5 seconds to greatly increase the chances of
-	 * placing pending pages in the FSM.  Note that the optimization will
-	 * never be effective without some other backend concurrently consuming an
-	 * XID.
+	 * 调试辅助：睡眠 5 秒，以大大增加把
+	 * 待处理页放入 FSM 的机会。注意，若没有某个其他后端并发消耗
+	 * XID，这项优化
+	 * 永远不会生效。
 	 */
 	pg_usleep(5000000L);
 #endif
 
 	/*
-	 * Recompute VACUUM XID boundaries.
+	 * 重新计算 VACUUM 的 XID 边界。
 	 *
-	 * We don't actually care about the oldest non-removable XID.  Computing
-	 * the oldest such XID has a useful side-effect that we rely on: it
-	 * forcibly updates the XID horizon state for this backend.  This step is
-	 * essential; GlobalVisCheckRemovableFullXid() will not reliably recognize
-	 * that it is now safe to recycle newly deleted pages without this step.
+	 * 我们实际上并不关心最老的不可移除 XID。计算
+	 * 这样一个最老的 XID 有一个我们依赖的有用副作用：它
+	 * 强制更新本后端的 XID 视界状态。这一步
+	 * 必不可少；没有这一步，GlobalVisCheckRemovableFullXid() 不会可靠地识别出
+	 * 现在回收新删除的页已经安全。
 	 */
 	GetOldestNonRemovableTransactionId(heaprel);
 
@@ -3033,12 +3033,12 @@ _bt_pendingfsm_finalize(Relation rel, BTVacState *vstate)
 		FullTransactionId safexid = vstate->pendingpages[i].safexid;
 
 		/*
-		 * Do the equivalent of checking BTPageIsRecyclable(), but without
-		 * accessing the page again a second time.
+		 * 做与检查 BTPageIsRecyclable() 等价的事，但不再
+		 * 第二次访问该页。
 		 *
-		 * Give up on finding the first non-recyclable page -- all later pages
-		 * must be non-recyclable too, since _bt_pendingfsm_add() adds pages
-		 * to the array in safexid order.
+		 * 放弃寻找第一张不可回收的页——后面的页
+		 * 也必定不可回收，因为 _bt_pendingfsm_add() 按
+		 * safexid 顺序把页加入数组。
 		 */
 		if (!GlobalVisCheckRemovableFullXid(heaprel, safexid))
 			break;
@@ -3051,8 +3051,8 @@ _bt_pendingfsm_finalize(Relation rel, BTVacState *vstate)
 }
 
 /*
- * Maintain array of pages that were deleted during current btvacuumscan()
- * call, for use in _bt_pendingfsm_finalize()
+ * 维护当前 btvacuumscan()
+ * 调用期间被删除的页的数组，供 _bt_pendingfsm_finalize() 使用
  */
 static void
 _bt_pendingfsm_add(BTVacState *vstate,
@@ -3065,9 +3065,9 @@ _bt_pendingfsm_add(BTVacState *vstate,
 #ifdef USE_ASSERT_CHECKING
 
 	/*
-	 * Verify an assumption made by _bt_pendingfsm_finalize(): pages from the
-	 * array will always be in safexid order (since that is the order that we
-	 * save them in here)
+	 * 验证 _bt_pendingfsm_finalize() 所做的一个假定：数组中的页
+	 * 将始终按 safexid 顺序排列（因为我们
+	 * 在这里就是按这个顺序保存它们的）
 	 */
 	if (vstate->npendingpages > 0)
 	{
@@ -3079,21 +3079,21 @@ _bt_pendingfsm_add(BTVacState *vstate,
 #endif
 
 	/*
-	 * If temp buffer reaches maxbufsize/work_mem capacity then we discard
-	 * information about this page.
+	 * 若临时缓冲区达到 maxbufsize/work_mem 容量，就丢掉
+	 * 关于这一页的信息。
 	 *
-	 * Note that this also covers the case where we opted to not use the
-	 * optimization in _bt_pendingfsm_init().
+	 * 注意这也覆盖了我们在 _bt_pendingfsm_init() 中
+	 * 选择不使用该优化的情形。
 	 */
 	if (vstate->npendingpages == vstate->maxbufsize)
 		return;
 
-	/* Consider enlarging buffer */
+	/* 考虑扩大缓冲区 */
 	if (vstate->npendingpages == vstate->bufsize)
 	{
 		int			newbufsize = vstate->bufsize * 2;
 
-		/* Respect work_mem */
+		/* 尊重 work_mem */
 		if (newbufsize > vstate->maxbufsize)
 			newbufsize = vstate->maxbufsize;
 
@@ -3103,7 +3103,7 @@ _bt_pendingfsm_add(BTVacState *vstate,
 					 sizeof(BTPendingFSM) * vstate->bufsize);
 	}
 
-	/* Save metadata for newly deleted page */
+	/* 保存新删除页的元数据 */
 	vstate->pendingpages[vstate->npendingpages].target = target;
 	vstate->pendingpages[vstate->npendingpages].safexid = safexid;
 	vstate->npendingpages++;

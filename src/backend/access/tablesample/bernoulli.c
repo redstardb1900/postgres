@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * bernoulli.c
- *	  support routines for BERNOULLI tablesample method
+ *	  BERNOULLI 表采样方法的支持例程
  *
- * To ensure repeatability of samples, it is necessary that selection of a
- * given tuple be history-independent; otherwise syncscanning would break
- * repeatability, to say nothing of logically-irrelevant maintenance such
- * as physical extension or shortening of the relation.
+ * 为保证样本可重复，对给定元组的选择必须
+ * 与历史无关；否则同步扫描会破坏可重复性，
+ * 更不必说逻辑上无关的维护，例如关系的
+ * 物理扩展或缩短。
  *
- * To achieve that, we proceed by hashing each candidate TID together with
- * the active seed, and then selecting it if the hash is less than the
- * cutoff value computed from the selection probability by BeginSampleScan.
+ * 为此，我们把每个候选 TID 与当前生效的种子
+ * 一起做哈希，若哈希小于 BeginSampleScan 按选择
+ * 概率算出的截止值，就选中它。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -33,12 +33,12 @@
 #include "utils/builtins.h"
 
 
-/* Private state */
+/* 私有状态 */
 typedef struct
 {
-	uint64		cutoff;			/* select tuples with hash less than this */
-	uint32		seed;			/* random seed */
-	OffsetNumber lt;			/* last tuple returned from current block */
+	uint64		cutoff;			/* 选择哈希小于此值的元组 */
+	uint32		seed;			/* 随机种子 */
+	OffsetNumber lt;			/* 当前块已返回的最后一个元组 */
 } BernoulliSamplerData;
 
 
@@ -59,7 +59,7 @@ static OffsetNumber bernoulli_nextsampletuple(SampleScanState *node,
 
 
 /*
- * Create a TsmRoutine descriptor for the BERNOULLI method.
+ * 为 BERNOULLI 方法创建 TsmRoutine 描述符。
  */
 Datum
 tsm_bernoulli_handler(PG_FUNCTION_ARGS)
@@ -80,7 +80,7 @@ tsm_bernoulli_handler(PG_FUNCTION_ARGS)
 }
 
 /*
- * Sample size estimation.
+ * 采样规模估计。
  */
 static void
 bernoulli_samplescangetsamplesize(PlannerInfo *root,
@@ -92,7 +92,7 @@ bernoulli_samplescangetsamplesize(PlannerInfo *root,
 	Node	   *pctnode;
 	float4		samplefract;
 
-	/* Try to extract an estimate for the sample percentage */
+	/* 尝试提取采样百分比的估计值 */
 	pctnode = (Node *) linitial(paramexprs);
 	pctnode = estimate_expression_value(root, pctnode);
 
@@ -104,24 +104,24 @@ bernoulli_samplescangetsamplesize(PlannerInfo *root,
 			samplefract /= 100.0f;
 		else
 		{
-			/* Default samplefract if the value is bogus */
+			/* 若该值无效，则使用默认的 samplefract */
 			samplefract = 0.1f;
 		}
 	}
 	else
 	{
-		/* Default samplefract if we didn't obtain a non-null Const */
+		/* 若未得到非空 Const，则使用默认的 samplefract */
 		samplefract = 0.1f;
 	}
 
-	/* We'll visit all pages of the baserel */
+	/* 我们将访问 baserel 的全部页 */
 	*pages = baserel->pages;
 
 	*tuples = clamp_row_est(baserel->tuples * samplefract);
 }
 
 /*
- * Initialize during executor setup.
+ * 在执行器建立期间初始化。
  */
 static void
 bernoulli_initsamplescan(SampleScanState *node, int eflags)
@@ -130,7 +130,7 @@ bernoulli_initsamplescan(SampleScanState *node, int eflags)
 }
 
 /*
- * Examine parameters and prepare for a sample scan.
+ * 检查参数，并准备一次采样扫描。
  */
 static void
 bernoulli_beginsamplescan(SampleScanState *node,
@@ -148,9 +148,9 @@ bernoulli_beginsamplescan(SampleScanState *node,
 				 errmsg("sample percentage must be between 0 and 100")));
 
 	/*
-	 * The cutoff is sample probability times (PG_UINT32_MAX + 1); we have to
-	 * store that as a uint64, of course.  Note that this gives strictly
-	 * correct behavior at the limits of zero or one probability.
+	 * 截止值是采样概率乘以 (PG_UINT32_MAX + 1)；当然必须
+	 * 把它存成 uint64。注意，这在概率为 0 或 1 的
+	 * 边界上给出严格正确的行为。
 	 */
 	dcutoff = rint(((double) PG_UINT32_MAX + 1) * percent / 100);
 	sampler->cutoff = (uint64) dcutoff;
@@ -158,24 +158,24 @@ bernoulli_beginsamplescan(SampleScanState *node,
 	sampler->lt = InvalidOffsetNumber;
 
 	/*
-	 * Use bulkread, since we're scanning all pages.  But pagemode visibility
-	 * checking is a win only at larger sampling fractions.  The 25% cutoff
-	 * here is based on very limited experimentation.
+	 * 使用批量读，因为我们要扫描全部页。但页模式可见性
+	 * 检查只在较大的采样比例下才划算。这里的 25% 截止
+	 * 值基于非常有限的实验。
 	 */
 	node->use_bulkread = true;
 	node->use_pagemode = (percent >= 25);
 }
 
 /*
- * Select next sampled tuple in current block.
+ * 选择当前块中下一个被采样的元组。
  *
- * It is OK here to return an offset without knowing if the tuple is visible
- * (or even exists).  The reason is that we do the coinflip for every tuple
- * offset in the table.  Since all tuples have the same probability of being
- * returned, it doesn't matter if we do extra coinflips for invisible tuples.
+ * 这里可以在不知道元组是否可见（甚至是否
+ * 存在）的情况下返回偏移。原因是我们对表中每个
+ * 元组偏移都做抛硬币判定。由于所有元组被返回的
+ * 概率相同，对不可见元组多做几次抛硬币也无妨。
  *
- * When we reach end of the block, return InvalidOffsetNumber which tells
- * SampleScan to go to next block.
+ * 到达块尾时返回 InvalidOffsetNumber，告知
+ * SampleScan 转到下一块。
  */
 static OffsetNumber
 bernoulli_nextsampletuple(SampleScanState *node,
@@ -186,27 +186,27 @@ bernoulli_nextsampletuple(SampleScanState *node,
 	OffsetNumber tupoffset = sampler->lt;
 	uint32		hashinput[3];
 
-	/* Advance to first/next tuple in block */
+	/* 前进到块中的第一个或下一个元组 */
 	if (tupoffset == InvalidOffsetNumber)
 		tupoffset = FirstOffsetNumber;
 	else
 		tupoffset++;
 
 	/*
-	 * We compute the hash by applying hash_any to an array of 3 uint32's
-	 * containing the block, offset, and seed.  This is efficient to set up,
-	 * and with the current implementation of hash_any, it gives
-	 * machine-independent results, which is a nice property for regression
-	 * testing.
+	 * 我们把包含块号、偏移和种子的 3 个 uint32
+	 * 数组交给 hash_any 来计算哈希。这样建立起来很高效，
+	 * 而且按 hash_any 的当前实现，它给出
+	 * 与机器无关的结果，这对回归
+	 * 测试是个好性质。
 	 *
-	 * These words in the hash input are the same throughout the block:
+	 * 哈希输入中的这些字在整个块内保持不变：
 	 */
 	hashinput[0] = blockno;
 	hashinput[2] = sampler->seed;
 
 	/*
-	 * Loop over tuple offsets until finding suitable TID or reaching end of
-	 * block.
+	 * 遍历元组偏移，直到找到合适的 TID，或到达
+	 * 块尾。
 	 */
 	for (; tupoffset <= maxoffset; tupoffset++)
 	{

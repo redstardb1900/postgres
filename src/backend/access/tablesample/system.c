@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * system.c
- *	  support routines for SYSTEM tablesample method
+ *	  SYSTEM 表采样方法的支持例程
  *
- * To ensure repeatability of samples, it is necessary that selection of a
- * given tuple be history-independent; otherwise syncscanning would break
- * repeatability, to say nothing of logically-irrelevant maintenance such
- * as physical extension or shortening of the relation.
+ * 为保证样本可重复，对给定元组的选择必须
+ * 与历史无关；否则同步扫描会破坏可重复性，
+ * 更不必说逻辑上无关的维护，例如关系的
+ * 物理扩展或缩短。
  *
- * To achieve that, we proceed by hashing each candidate block number together
- * with the active seed, and then selecting it if the hash is less than the
- * cutoff value computed from the selection probability by BeginSampleScan.
+ * 为此，我们把每个候选块号与当前生效的种子
+ * 一起做哈希，若哈希小于 BeginSampleScan 按选择
+ * 概率算出的截止值，就选中它。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -34,13 +34,13 @@
 #include "utils/builtins.h"
 
 
-/* Private state */
+/* 私有状态 */
 typedef struct
 {
-	uint64		cutoff;			/* select blocks with hash less than this */
-	uint32		seed;			/* random seed */
-	BlockNumber nextblock;		/* next block to consider sampling */
-	OffsetNumber lt;			/* last tuple returned from current block */
+	uint64		cutoff;			/* 选择哈希小于此值的块 */
+	uint32		seed;			/* 随机种子 */
+	BlockNumber nextblock;		/* 下一个考虑采样的块 */
+	OffsetNumber lt;			/* 当前块已返回的最后一个元组 */
 } SystemSamplerData;
 
 
@@ -62,7 +62,7 @@ static OffsetNumber system_nextsampletuple(SampleScanState *node,
 
 
 /*
- * Create a TsmRoutine descriptor for the SYSTEM method.
+ * 为 SYSTEM 方法创建 TsmRoutine 描述符。
  */
 Datum
 tsm_system_handler(PG_FUNCTION_ARGS)
@@ -83,7 +83,7 @@ tsm_system_handler(PG_FUNCTION_ARGS)
 }
 
 /*
- * Sample size estimation.
+ * 采样规模估计。
  */
 static void
 system_samplescangetsamplesize(PlannerInfo *root,
@@ -95,7 +95,7 @@ system_samplescangetsamplesize(PlannerInfo *root,
 	Node	   *pctnode;
 	float4		samplefract;
 
-	/* Try to extract an estimate for the sample percentage */
+	/* 尝试提取采样百分比的估计值 */
 	pctnode = (Node *) linitial(paramexprs);
 	pctnode = estimate_expression_value(root, pctnode);
 
@@ -107,25 +107,25 @@ system_samplescangetsamplesize(PlannerInfo *root,
 			samplefract /= 100.0f;
 		else
 		{
-			/* Default samplefract if the value is bogus */
+			/* 若该值无效，则使用默认的 samplefract */
 			samplefract = 0.1f;
 		}
 	}
 	else
 	{
-		/* Default samplefract if we didn't obtain a non-null Const */
+		/* 若未得到非空 Const，则使用默认的 samplefract */
 		samplefract = 0.1f;
 	}
 
-	/* We'll visit a sample of the pages ... */
+	/* 我们将访问这些页中的一个样本 ... */
 	*pages = clamp_row_est(baserel->pages * samplefract);
 
-	/* ... and hopefully get a representative number of tuples from them */
+	/* ... 并有望从中得到数量有代表性的元组 */
 	*tuples = clamp_row_est(baserel->tuples * samplefract);
 }
 
 /*
- * Initialize during executor setup.
+ * 在执行器建立期间初始化。
  */
 static void
 system_initsamplescan(SampleScanState *node, int eflags)
@@ -134,7 +134,7 @@ system_initsamplescan(SampleScanState *node, int eflags)
 }
 
 /*
- * Examine parameters and prepare for a sample scan.
+ * 检查参数，并准备一次采样扫描。
  */
 static void
 system_beginsamplescan(SampleScanState *node,
@@ -152,9 +152,9 @@ system_beginsamplescan(SampleScanState *node,
 				 errmsg("sample percentage must be between 0 and 100")));
 
 	/*
-	 * The cutoff is sample probability times (PG_UINT32_MAX + 1); we have to
-	 * store that as a uint64, of course.  Note that this gives strictly
-	 * correct behavior at the limits of zero or one probability.
+	 * 截止值是采样概率乘以 (PG_UINT32_MAX + 1)；当然必须
+	 * 把它存成 uint64。注意，这在概率为 0 或 1 的
+	 * 边界上给出严格正确的行为。
 	 */
 	dcutoff = rint(((double) PG_UINT32_MAX + 1) * percent / 100);
 	sampler->cutoff = (uint64) dcutoff;
@@ -163,17 +163,17 @@ system_beginsamplescan(SampleScanState *node,
 	sampler->lt = InvalidOffsetNumber;
 
 	/*
-	 * Bulkread buffer access strategy probably makes sense unless we're
-	 * scanning a very small fraction of the table.  The 1% cutoff here is a
-	 * guess.  We should use pagemode visibility checking, since we scan all
-	 * tuples on each selected page.
+	 * 除非扫描的只是表中很小的一部分，否则批量读缓冲区
+	 * 访问策略大概是合适的。这里的 1% 截止值只是
+	 * 猜测。应当使用页模式可见性检查，因为我们会扫描
+	 * 每个选中页上的全部元组。
 	 */
 	node->use_bulkread = (percent >= 1);
 	node->use_pagemode = true;
 }
 
 /*
- * Select next block to sample.
+ * 选择下一个要采样的块。
  */
 static BlockNumber
 system_nextsampleblock(SampleScanState *node, BlockNumber nblocks)
@@ -183,19 +183,19 @@ system_nextsampleblock(SampleScanState *node, BlockNumber nblocks)
 	uint32		hashinput[2];
 
 	/*
-	 * We compute the hash by applying hash_any to an array of 2 uint32's
-	 * containing the block number and seed.  This is efficient to set up, and
-	 * with the current implementation of hash_any, it gives
-	 * machine-independent results, which is a nice property for regression
-	 * testing.
+	 * 我们把包含块号和种子的 2 个 uint32
+	 * 数组交给 hash_any 来计算哈希。这样建立起来很高效，
+	 * 而且按 hash_any 的当前实现，它给出
+	 * 与机器无关的结果，这对回归
+	 * 测试是个好性质。
 	 *
-	 * These words in the hash input are the same throughout the block:
+	 * 哈希输入中的这些字在整个块内保持不变：
 	 */
 	hashinput[1] = sampler->seed;
 
 	/*
-	 * Loop over block numbers until finding suitable block or reaching end of
-	 * relation.
+	 * 遍历块号，直到找到合适的块，或到达
+	 * 关系末尾。
 	 */
 	for (; nextblock < nblocks; nextblock++)
 	{
@@ -211,27 +211,27 @@ system_nextsampleblock(SampleScanState *node, BlockNumber nblocks)
 
 	if (nextblock < nblocks)
 	{
-		/* Found a suitable block; remember where we should start next time */
+		/* 找到合适的块；记住下次应当从哪里开始 */
 		sampler->nextblock = nextblock + 1;
 		return nextblock;
 	}
 
-	/* Done, but let's reset nextblock to 0 for safety. */
+	/* 已经完成，但为安全起见把 nextblock 重置为 0。 */
 	sampler->nextblock = 0;
 	return InvalidBlockNumber;
 }
 
 /*
- * Select next sampled tuple in current block.
+ * 选择当前块中下一个被采样的元组。
  *
- * In block sampling, we just want to sample all the tuples in each selected
- * block.
+ * 在块采样中，我们只想采样每个选中块里的
+ * 全部元组。
  *
- * It is OK here to return an offset without knowing if the tuple is visible
- * (or even exists); nodeSamplescan.c will deal with that.
+ * 这里可以在不知道元组是否可见（甚至是否存在）的
+ * 情况下返回偏移；nodeSamplescan.c 会处理这一点。
  *
- * When we reach end of the block, return InvalidOffsetNumber which tells
- * SampleScan to go to next block.
+ * 到达块尾时返回 InvalidOffsetNumber，告知
+ * SampleScan 转到下一块。
  */
 static OffsetNumber
 system_nextsampletuple(SampleScanState *node,
@@ -241,13 +241,13 @@ system_nextsampletuple(SampleScanState *node,
 	SystemSamplerData *sampler = (SystemSamplerData *) node->tsm_state;
 	OffsetNumber tupoffset = sampler->lt;
 
-	/* Advance to next possible offset on page */
+	/* 前进到页上下一个可能的偏移 */
 	if (tupoffset == InvalidOffsetNumber)
 		tupoffset = FirstOffsetNumber;
 	else
 		tupoffset++;
 
-	/* Done? */
+	/* 完成了？ */
 	if (tupoffset > maxoffset)
 		tupoffset = InvalidOffsetNumber;
 

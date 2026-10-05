@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tablesample.c
- *		  Support functions for TABLESAMPLE feature
+ *		  TABLESAMPLE 特性的支持函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,9 +19,9 @@
 
 
 /*
- * GetTsmRoutine --- get a TsmRoutine struct by invoking the handler.
+ * GetTsmRoutine --- 调用处理函数以取得 TsmRoutine 结构。
  *
- * This is a convenience routine that's just meant to check for errors.
+ * 这是一个仅用于检查错误的便捷例程。
  */
 TsmRoutine *
 GetTsmRoutine(Oid tsmhandler)

@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0145-comment-access-tablesample",
+ "title": "zh: translate access/tablesample comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4cbe80ad068eba36f14078b5439ad5dbd6694c54",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/tablesample/tablesample.c",
+   "kind": "c_comment",
+   "note": "TABLESAMPLE handler lookup"
+  },
+  {
+   "pattern": "src/backend/access/tablesample/bernoulli.c",
+   "kind": "c_comment",
+   "note": "BERNOULLI tablesample method"
+  },
+  {
+   "pattern": "src/backend/access/tablesample/system.c",
+   "kind": "c_comment",
+   "note": "SYSTEM block-sampling method"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0145-comment-access-tablesample.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/tablesample/tablesample.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "TABLESAMPLE handler lookup; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/tablesample/bernoulli.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 19,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "BERNOULLI tablesample method; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/tablesample/system.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 25,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SYSTEM tablesample method; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0145-comment-access-tablesample.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0145 translates comments in src/backend/access/tablesample/tablesample.c, bernoulli.c, and system.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. After this batch, src/backend/access/tablesample .c comments are complete. Next suggested: src/backend/access/hash/ (smaller than brin/)."
+}

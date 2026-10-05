@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0124-comment-storage-lmgr-lmgr",
+ "title": "zh: translate lmgr comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "66b6e96c41c5f5a56c5ec006b0e82db5f2517897",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/lmgr.c",
+   "kind": "c_comment",
+   "note": "lock manager relation and object locks"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0124-comment-storage-lmgr-lmgr.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/lmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 68,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "relation locks, object locks, and transaction lock waits"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0124-comment-storage-lmgr-lmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0124 translates body comments in lmgr.c. Terms: 锁管理器, 关系锁, 对象锁, 死锁, 推测插入令牌, 会话级锁. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be proc.c."
+}

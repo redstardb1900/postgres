@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lmgr.c
- *	  POSTGRES lock manager code
+ *	  POSTGRES 锁管理器代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,28 +30,28 @@
 
 
 /*
- * Per-backend counter for generating speculative insertion tokens.
+ * 每个后端用于生成推测插入令牌的计数器。
  *
- * This may wrap around, but that's OK as it's only used for the short
- * duration between inserting a tuple and checking that there are no (unique)
- * constraint violations.  It's theoretically possible that a backend sees a
- * tuple that was speculatively inserted by another backend, but before it has
- * started waiting on the token, the other backend completes its insertion,
- * and then performs 2^32 unrelated insertions.  And after all that, the
- * first backend finally calls SpeculativeInsertionLockAcquire(), with the
- * intention of waiting for the first insertion to complete, but ends up
- * waiting for the latest unrelated insertion instead.  Even then, nothing
- * particularly bad happens: in the worst case they deadlock, causing one of
- * the transactions to abort.
+ * 它可能回绕，但这没关系，因为它只用在
+ * 插入元组与确认没有违反（唯一）约束
+ * 的短暂期间。理论上，一个后端
+ * 可能看见另一个后端推测插入的元组，但在开始
+ * 等待该令牌之前，另一个后端已经完成插入，
+ * 接着又做了 2^32 次无关插入。这一切之后，
+ * 第一个后端终于调用 SpeculativeInsertionLockAcquire()，
+ * 本意是等待第一次插入完成，结果却在等待
+ * 最近一次无关插入。即便如此也不会特别糟糕：
+ * 最坏情况下它们会死锁，导致其中一个
+ * 事务中止。
  */
 static uint32 speculativeInsertionToken = 0;
 
 
 /*
- * Struct to hold context info for transaction lock waits.
+ * 保存事务锁等待的上下文信息的结构体。
  *
- * 'oper' is the operation that needs to wait for the other transaction; 'rel'
- * and 'ctid' specify the address of the tuple being waited for.
+ * 'oper' 是需要等待另一事务的操作；'rel'
+ * 与 'ctid' 指定所等待元组的地址。
  */
 typedef struct XactLockTableWaitInfo
 {
@@ -64,9 +64,9 @@ static void XactLockTableWaitErrorCb(void *arg);
 
 /*
  * RelationInitLockInfo
- *		Initializes the lock information in a relation descriptor.
+ *		初始化关系描述符中的锁信息。
  *
- *		relcache.c must call this during creation of any reldesc.
+ *		relcache.c 创建任何 reldesc 时必须调用本函数。
  */
 void
 RelationInitLockInfo(Relation relation)
@@ -84,7 +84,7 @@ RelationInitLockInfo(Relation relation)
 
 /*
  * SetLocktagRelationOid
- *		Set up a locktag for a relation, given only relation OID
+ *		只根据关系 OID 为该关系设置 locktag
  */
 static inline void
 SetLocktagRelationOid(LOCKTAG *tag, Oid relid)
@@ -102,8 +102,8 @@ SetLocktagRelationOid(LOCKTAG *tag, Oid relid)
 /*
  *		LockRelationOid
  *
- * Lock a relation given only its OID.  This should generally be used
- * before attempting to open the relation's relcache entry.
+ * 只根据 OID 给关系加锁。一般应在尝试打开
+ * 该关系的 relcache 项之前使用。
  */
 void
 LockRelationOid(Oid relid, LOCKMODE lockmode)
@@ -117,20 +117,20 @@ LockRelationOid(Oid relid, LOCKMODE lockmode)
 	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
 
 	/*
-	 * Now that we have the lock, check for invalidation messages, so that we
-	 * will update or flush any stale relcache entry before we try to use it.
-	 * RangeVarGetRelid() specifically relies on us for this.  We can skip
-	 * this in the not-uncommon case that we already had the same type of lock
-	 * being requested, since then no one else could have modified the
-	 * relcache entry in an undesirable way.  (In the case where our own xact
-	 * modifies the rel, the relcache update happens via
-	 * CommandCounterIncrement, not here.)
+	 * 拿到锁之后，检查失效消息，以便在使用之前
+	 * 更新或清除任何过期的 relcache 项。
+	 * RangeVarGetRelid() 专门依赖我们完成这件事。若已经持有
+	 * 所请求的同一种锁（这种情况并不少见），就可以跳过，
+	 * 因为此时别人不可能以不当方式修改
+	 * relcache 项。（若是本事务自己修改了该关系，
+	 * relcache 更新经由
+	 * CommandCounterIncrement 完成，而不是在这里。）
 	 *
-	 * However, in corner cases where code acts on tables (usually catalogs)
-	 * recursively, we might get here while still processing invalidation
-	 * messages in some outer execution of this function or a sibling.  The
-	 * "cleared" status of the lock tells us whether we really are done
-	 * absorbing relevant inval messages.
+	 * 不过，当代码递归地操作表（通常是系统目录）时，
+	 * 极端情况下，可能在本函数或兄弟函数的外层执行
+	 * 仍在处理失效消息时又进入这里。锁的
+	 * "cleared" 状态表明我们是否真的已经
+	 * 吸收完相关的失效消息。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -142,11 +142,11 @@ LockRelationOid(Oid relid, LOCKMODE lockmode)
 /*
  *		ConditionalLockRelationOid
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true iff the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 当且仅当已获得锁时返回真。
  *
- * NOTE: we do not currently need conditional versions of all the
- * LockXXX routines in this file, but they could easily be added if needed.
+ * 注意：目前并不需要为本文件里全部
+ * LockXXX 例程提供条件版本，但需要时可以很容易补上。
  */
 bool
 ConditionalLockRelationOid(Oid relid, LOCKMODE lockmode)
@@ -163,8 +163,8 @@ ConditionalLockRelationOid(Oid relid, LOCKMODE lockmode)
 		return false;
 
 	/*
-	 * Now that we have the lock, check for invalidation messages; see notes
-	 * in LockRelationOid.
+	 * 拿到锁之后检查失效消息；说明见
+	 * LockRelationOid。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -178,8 +178,8 @@ ConditionalLockRelationOid(Oid relid, LOCKMODE lockmode)
 /*
  *		LockRelationId
  *
- * Lock, given a LockRelId.  Same as LockRelationOid but take LockRelId as an
- * input.
+ * 根据 LockRelId 加锁。与 LockRelationOid 相同，但以 LockRelId 作为
+ * 输入。
  */
 void
 LockRelationId(LockRelId *relid, LOCKMODE lockmode)
@@ -193,8 +193,8 @@ LockRelationId(LockRelId *relid, LOCKMODE lockmode)
 	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
 
 	/*
-	 * Now that we have the lock, check for invalidation messages; see notes
-	 * in LockRelationOid.
+	 * 拿到锁之后检查失效消息；说明见
+	 * LockRelationOid。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -206,8 +206,8 @@ LockRelationId(LockRelId *relid, LOCKMODE lockmode)
 /*
  *		UnlockRelationId
  *
- * Unlock, given a LockRelId.  This is preferred over UnlockRelationOid
- * for speed reasons.
+ * 根据 LockRelId 解锁。出于速度原因，优先于 UnlockRelationOid
+ * 使用本函数。
  */
 void
 UnlockRelationId(LockRelId *relid, LOCKMODE lockmode)
@@ -222,7 +222,7 @@ UnlockRelationId(LockRelId *relid, LOCKMODE lockmode)
 /*
  *		UnlockRelationOid
  *
- * Unlock, given only a relation Oid.  Use UnlockRelationId if you can.
+ * 只根据关系 OID 解锁。若可以，请改用 UnlockRelationId。
  */
 void
 UnlockRelationOid(Oid relid, LOCKMODE lockmode)
@@ -237,9 +237,9 @@ UnlockRelationOid(Oid relid, LOCKMODE lockmode)
 /*
  *		LockRelation
  *
- * This is a convenience routine for acquiring an additional lock on an
- * already-open relation.  Never try to do "relation_open(foo, NoLock)"
- * and then lock with this.
+ * 这是在已经打开的关系上再取一把锁的便捷例程。切勿先调用
+ * "relation_open(foo, NoLock)"，
+ * 然后再用本函数加锁。
  */
 void
 LockRelation(Relation relation, LOCKMODE lockmode)
@@ -255,8 +255,8 @@ LockRelation(Relation relation, LOCKMODE lockmode)
 	res = LockAcquireExtended(&tag, lockmode, false, false, true, &locallock);
 
 	/*
-	 * Now that we have the lock, check for invalidation messages; see notes
-	 * in LockRelationOid.
+	 * 拿到锁之后检查失效消息；说明见
+	 * LockRelationOid。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -268,9 +268,9 @@ LockRelation(Relation relation, LOCKMODE lockmode)
 /*
  *		ConditionalLockRelation
  *
- * This is a convenience routine for acquiring an additional lock on an
- * already-open relation.  Never try to do "relation_open(foo, NoLock)"
- * and then lock with this.
+ * 这是在已经打开的关系上再取一把锁的便捷例程。切勿先调用
+ * "relation_open(foo, NoLock)"，
+ * 然后再用本函数加锁。
  */
 bool
 ConditionalLockRelation(Relation relation, LOCKMODE lockmode)
@@ -289,8 +289,8 @@ ConditionalLockRelation(Relation relation, LOCKMODE lockmode)
 		return false;
 
 	/*
-	 * Now that we have the lock, check for invalidation messages; see notes
-	 * in LockRelationOid.
+	 * 拿到锁之后检查失效消息；说明见
+	 * LockRelationOid。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -304,8 +304,8 @@ ConditionalLockRelation(Relation relation, LOCKMODE lockmode)
 /*
  *		UnlockRelation
  *
- * This is a convenience routine for unlocking a relation without also
- * closing it.
+ * 这是只解锁关系、并不一并
+ * 关闭它的便捷例程。
  */
 void
 UnlockRelation(Relation relation, LOCKMODE lockmode)
@@ -322,10 +322,10 @@ UnlockRelation(Relation relation, LOCKMODE lockmode)
 /*
  *		CheckRelationLockedByMe
  *
- * Returns true if current transaction holds a lock on 'relation' of mode
- * 'lockmode'.  If 'orstronger' is true, a stronger lockmode is also OK.
- * ("Stronger" is defined as "numerically higher", which is a bit
- * semantically dubious but is OK for the purposes we use this for.)
+ * 若当前事务以 'lockmode' 模式持有 'relation' 上的锁，则返回真。
+ * 若 'orstronger' 为真，更强的锁模式也可以。
+ * （"更强" 定义为 "数值更高"，语义上
+ * 略有可疑，但对我们的用途来说没有问题。）
  */
 bool
 CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger)
@@ -344,7 +344,7 @@ CheckRelationLockedByMe(Relation relation, LOCKMODE lockmode, bool orstronger)
 /*
  *		CheckRelationOidLockedByMe
  *
- * Like the above, but takes an OID as argument.
+ * 与上面类似，但参数是 OID。
  */
 bool
 CheckRelationOidLockedByMe(Oid relid, LOCKMODE lockmode, bool orstronger)
@@ -361,8 +361,8 @@ CheckRelationOidLockedByMe(Oid relid, LOCKMODE lockmode, bool orstronger)
 /*
  *		LockHasWaitersRelation
  *
- * This is a function to check whether someone else is waiting for a
- * lock which we are currently holding.
+ * 本函数检查是否有别人正在等待
+ * 我们当前持有的那把锁。
  */
 bool
 LockHasWaitersRelation(Relation relation, LOCKMODE lockmode)
@@ -379,14 +379,14 @@ LockHasWaitersRelation(Relation relation, LOCKMODE lockmode)
 /*
  *		LockRelationIdForSession
  *
- * This routine grabs a session-level lock on the target relation.  The
- * session lock persists across transaction boundaries.  It will be removed
- * when UnlockRelationIdForSession() is called, or if an ereport(ERROR) occurs,
- * or if the backend exits.
+ * 本例程获取目标关系上的会话级锁。该
+ * 会话锁跨越事务边界持续存在。它会在调用
+ * UnlockRelationIdForSession()、发生 ereport(ERROR)，
+ * 或后端退出时被去掉。
  *
- * Note that one should also grab a transaction-level lock on the rel
- * in any transaction that actually uses the rel, to ensure that the
- * relcache entry is up to date.
+ * 注意：在实际使用该关系的任何事务中，还应再获取
+ * 一把事务级锁，以确保
+ * relcache 项是最新的。
  */
 void
 LockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode)
@@ -399,7 +399,7 @@ LockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode)
 }
 
 /*
- *		UnlockRelationIdForSession
+ *		UnlockRelationIdForSession -- 释放会话级关系锁
  */
 void
 UnlockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode)
@@ -414,12 +414,12 @@ UnlockRelationIdForSession(LockRelId *relid, LOCKMODE lockmode)
 /*
  *		LockRelationForExtension
  *
- * This lock tag is used to interlock addition of pages to relations.
- * We need such locking because bufmgr/smgr definition of P_NEW is not
- * race-condition-proof.
+ * 此锁标签用来互锁向关系追加页面的操作。
+ * 需要这种锁定，是因为 bufmgr/smgr 对 P_NEW 的定义
+ * 并不能防止竞态条件。
  *
- * We assume the caller is already holding some type of regular lock on
- * the relation, so no AcceptInvalidationMessages call is needed here.
+ * 假定调用者已经持有该关系上某种常规锁，
+ * 因此这里不必调用 AcceptInvalidationMessages。
  */
 void
 LockRelationForExtension(Relation relation, LOCKMODE lockmode)
@@ -436,8 +436,8 @@ LockRelationForExtension(Relation relation, LOCKMODE lockmode)
 /*
  *		ConditionalLockRelationForExtension
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true iff the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 当且仅当已获得锁时返回真。
  */
 bool
 ConditionalLockRelationForExtension(Relation relation, LOCKMODE lockmode)
@@ -454,7 +454,7 @@ ConditionalLockRelationForExtension(Relation relation, LOCKMODE lockmode)
 /*
  *		RelationExtensionLockWaiterCount
  *
- * Count the number of processes waiting for the given relation extension lock.
+ * 统计正在等待给定关系扩展锁的进程数。
  */
 int
 RelationExtensionLockWaiterCount(Relation relation)
@@ -469,7 +469,7 @@ RelationExtensionLockWaiterCount(Relation relation)
 }
 
 /*
- *		UnlockRelationForExtension
+ *		UnlockRelationForExtension -- 释放关系扩展锁
  */
 void
 UnlockRelationForExtension(Relation relation, LOCKMODE lockmode)
@@ -486,7 +486,7 @@ UnlockRelationForExtension(Relation relation, LOCKMODE lockmode)
 /*
  *		LockDatabaseFrozenIds
  *
- * This allows one backend per database to execute vac_update_datfrozenxid().
+ * 允许每个数据库有一个后端执行 vac_update_datfrozenxid()。
  */
 void
 LockDatabaseFrozenIds(LOCKMODE lockmode)
@@ -501,8 +501,8 @@ LockDatabaseFrozenIds(LOCKMODE lockmode)
 /*
  *		LockPage
  *
- * Obtain a page-level lock.  This is currently used by some index access
- * methods to lock individual index pages.
+ * 获取页级锁。目前某些索引访问
+ * 方法用它锁定各个索引页。
  */
 void
 LockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
@@ -520,8 +520,8 @@ LockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
 /*
  *		ConditionalLockPage
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true iff the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 当且仅当已获得锁时返回真。
  */
 bool
 ConditionalLockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
@@ -537,7 +537,7 @@ ConditionalLockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
 }
 
 /*
- *		UnlockPage
+ *		UnlockPage -- 释放页级锁
  */
 void
 UnlockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
@@ -555,9 +555,9 @@ UnlockPage(Relation relation, BlockNumber blkno, LOCKMODE lockmode)
 /*
  *		LockTuple
  *
- * Obtain a tuple-level lock.  This is used in a less-than-intuitive fashion
- * because we can't afford to keep a separate lock in shared memory for every
- * tuple.  See heap_lock_tuple before using this!
+ * 获取元组级锁。用法并不那么直观，
+ * 因为我们无法为每个元组在共享内存里单独放一把锁。
+ * 使用之前请先看 heap_lock_tuple！
  */
 void
 LockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
@@ -576,8 +576,8 @@ LockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
 /*
  *		ConditionalLockTuple
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true iff the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 当且仅当已获得锁时返回真。
  */
 bool
 ConditionalLockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
@@ -594,7 +594,7 @@ ConditionalLockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
 }
 
 /*
- *		UnlockTuple
+ *		UnlockTuple -- 释放元组级锁
  */
 void
 UnlockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
@@ -613,9 +613,9 @@ UnlockTuple(Relation relation, ItemPointer tid, LOCKMODE lockmode)
 /*
  *		XactLockTableInsert
  *
- * Insert a lock showing that the given transaction ID is running ---
- * this is done when an XID is acquired by a transaction or subtransaction.
- * The lock can then be used to wait for the transaction to finish.
+ * 插入一把锁，表明给定的事务 ID 正在运行——
+ * 当事务或子事务获得 XID 时做这件事。
+ * 随后可以用这把锁等待该事务结束。
  */
 void
 XactLockTableInsert(TransactionId xid)
@@ -630,9 +630,9 @@ XactLockTableInsert(TransactionId xid)
 /*
  *		XactLockTableDelete
  *
- * Delete the lock showing that the given transaction ID is running.
- * (This is never used for main transaction IDs; those locks are only
- * released implicitly at transaction end.  But we do use it for subtrans IDs.)
+ * 删掉表明给定事务 ID 正在运行的那把锁。
+ * （主事务 ID 从不用它；那些锁只在
+ * 事务结束时隐式释放。但子事务 ID 会用到。）
  */
 void
 XactLockTableDelete(TransactionId xid)
@@ -647,16 +647,16 @@ XactLockTableDelete(TransactionId xid)
 /*
  *		XactLockTableWait
  *
- * Wait for the specified transaction to commit or abort.  If an operation
- * is specified, an error context callback is set up.  If 'oper' is passed as
- * None, no error context callback is set up.
+ * 等待指定事务提交或中止。若指定了某项操作，
+ * 就建立错误上下文回调。若传入的 'oper' 为
+ * None，则不建立错误上下文回调。
  *
- * Note that this does the right thing for subtransactions: if we wait on a
- * subtransaction, we will exit as soon as it aborts or its top parent commits.
- * It takes some extra work to ensure this, because to save on shared memory
- * the XID lock of a subtransaction is released when it ends, whether
- * successfully or unsuccessfully.  So we have to check if it's "still running"
- * and if so wait for its parent.
+ * 注意：这对子事务也能正确处理：若等待的是
+ * 子事务，则它一中止或其顶层父事务一提交，我们就会退出。
+ * 为保证这一点需要多做一些工作，因为为节省共享内存，
+ * 子事务收尾时就会释放它的 XID 锁，无论
+ * 成功还是失败。因此必须检查它是否 "仍在运行"，
+ * 若是则转而等待其父事务。
  */
 void
 XactLockTableWait(TransactionId xid, Relation rel, ItemPointer ctid,
@@ -668,8 +668,8 @@ XactLockTableWait(TransactionId xid, Relation rel, ItemPointer ctid,
 	bool		first = true;
 
 	/*
-	 * If an operation is specified, set up our verbose error context
-	 * callback.
+	 * 若指定了操作，就建立我们的详细错误上下文
+	 * 回调。
 	 */
 	if (oper != XLTW_None)
 	{
@@ -701,19 +701,19 @@ XactLockTableWait(TransactionId xid, Relation rel, ItemPointer ctid,
 			break;
 
 		/*
-		 * If the Xid belonged to a subtransaction, then the lock would have
-		 * gone away as soon as it was finished; for correct tuple visibility,
-		 * the right action is to wait on its parent transaction to go away.
-		 * But instead of going levels up one by one, we can just wait for the
-		 * topmost transaction to finish with the same end result, which also
-		 * incurs less locktable traffic.
+		 * 若该 Xid 属于某个子事务，锁会在它
+		 * 一结束就消失；为了得到正确的元组可见性，
+		 * 正确的做法是等待其父事务消失。
+		 * 但不必逐级向上，可以直接等待
+		 * 最顶层事务结束，最终结果相同，而且
+		 * 锁表访问量也更少。
 		 *
-		 * Some uses of this function don't involve tuple visibility -- such
-		 * as when building snapshots for logical decoding.  It is possible to
-		 * see a transaction in ProcArray before it registers itself in the
-		 * locktable.  The topmost transaction in that case is the same xid,
-		 * so we try again after a short sleep.  (Don't sleep the first time
-		 * through, to avoid slowing down the normal case.)
+		 * 本函数的某些用途并不涉及元组可见性，例如
+		 * 为逻辑解码构建快照时。有可能在事务
+		 * 向锁表登记自己之前，就在 ProcArray 中看到它。
+		 * 此时最顶层事务就是同一个 xid，
+		 * 于是短暂睡眠后重试。（第一次经过时不要睡眠，
+		 * 以免拖慢正常情况。）
 		 */
 		if (!first)
 		{
@@ -731,8 +731,8 @@ XactLockTableWait(TransactionId xid, Relation rel, ItemPointer ctid,
 /*
  *		ConditionalXactLockTableWait
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true if the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 若已获得锁则返回真。
  */
 bool
 ConditionalXactLockTableWait(TransactionId xid)
@@ -755,7 +755,7 @@ ConditionalXactLockTableWait(TransactionId xid)
 		if (!TransactionIdIsInProgress(xid))
 			break;
 
-		/* See XactLockTableWait about this case */
+		/* 这种情况见 XactLockTableWait */
 		if (!first)
 		{
 			CHECK_FOR_INTERRUPTS();
@@ -771,13 +771,13 @@ ConditionalXactLockTableWait(TransactionId xid)
 /*
  *		SpeculativeInsertionLockAcquire
  *
- * Insert a lock showing that the given transaction ID is inserting a tuple,
- * but hasn't yet decided whether it's going to keep it.  The lock can then be
- * used to wait for the decision to go ahead with the insertion, or aborting
- * it.
+ * 插入一把锁，表明给定事务 ID 正在插入元组，
+ * 但还没决定是否保留它。随后可以用这把锁
+ * 来等待那个决定：继续完成插入，还是
+ * 将这次插入中止。
  *
- * The token is used to distinguish multiple insertions by the same
- * transaction.  It is returned to caller.
+ * 令牌用来区分同一事务的多次
+ * 插入。它会返回给调用者。
  */
 uint32
 SpeculativeInsertionLockAcquire(TransactionId xid)
@@ -787,7 +787,7 @@ SpeculativeInsertionLockAcquire(TransactionId xid)
 	speculativeInsertionToken++;
 
 	/*
-	 * Check for wrap-around. Zero means no token is held, so don't use that.
+	 * 检查回绕。零表示没有持有令牌，因此不要用零。
 	 */
 	if (speculativeInsertionToken == 0)
 		speculativeInsertionToken = 1;
@@ -802,8 +802,8 @@ SpeculativeInsertionLockAcquire(TransactionId xid)
 /*
  *		SpeculativeInsertionLockRelease
  *
- * Delete the lock showing that the given transaction is speculatively
- * inserting a tuple.
+ * 删掉表明给定事务正在做推测
+ * 插入元组的那把锁。
  */
 void
 SpeculativeInsertionLockRelease(TransactionId xid)
@@ -818,8 +818,8 @@ SpeculativeInsertionLockRelease(TransactionId xid)
 /*
  *		SpeculativeInsertionWait
  *
- * Wait for the specified transaction to finish or abort the insertion of a
- * tuple.
+ * 等待指定事务完成或中止对一个
+ * 元组的插入。
  */
 void
 SpeculativeInsertionWait(TransactionId xid, uint32 token)
@@ -837,7 +837,7 @@ SpeculativeInsertionWait(TransactionId xid, uint32 token)
 
 /*
  * XactLockTableWaitErrorCb
- *		Error context callback for transaction lock waits.
+ *		事务锁等待的错误上下文回调。
  */
 static void
 XactLockTableWaitErrorCb(void *arg)
@@ -845,8 +845,8 @@ XactLockTableWaitErrorCb(void *arg)
 	XactLockTableWaitInfo *info = (XactLockTableWaitInfo *) arg;
 
 	/*
-	 * We would like to print schema name too, but that would require a
-	 * syscache lookup.
+	 * 我们也想打印模式名，但那需要一次
+	 * 系统缓存查找。
 	 */
 	if (info->oper != XLTW_None &&
 		ItemPointerIsValid(info->ctid) && RelationIsValid(info->rel))
@@ -893,16 +893,16 @@ XactLockTableWaitErrorCb(void *arg)
 
 /*
  * WaitForLockersMultiple
- *		Wait until no transaction holds locks that conflict with the given
- *		locktags at the given lockmode.
+ *		一直等到没有事务以给定 lockmode 持有
+ *		与给定 locktags 冲突的锁。
  *
- * To do this, obtain the current list of lockers, and wait on their VXIDs
- * until they are finished.
+ * 做法是取得当前持锁者列表，等待它们的 VXIDs，
+ * 直到这些持锁者结束。
  *
- * Note we don't try to acquire the locks on the given locktags, only the
- * VXIDs and XIDs of their lock holders; if somebody grabs a conflicting lock
- * on the objects after we obtained our initial list of lockers, we will not
- * wait for them.
+ * 注意：我们并不去获取给定 locktags 上的锁，只用
+ * 持锁者的 VXIDs 与 XIDs；若有人在我们取得初始
+ * 持锁者列表之后，又在这些对象上拿到冲突锁，我们不会
+ * 等待他们。
  */
 void
 WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress)
@@ -912,11 +912,11 @@ WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress)
 	int			total = 0;
 	int			done = 0;
 
-	/* Done if no locks to wait for */
+	/* 若没有需要等待的锁，则直接返回 */
 	if (locktags == NIL)
 		return;
 
-	/* Collect the transactions we need to wait on */
+	/* 收集需要等待的那些事务 */
 	foreach(lc, locktags)
 	{
 		LOCKTAG    *locktag = lfirst(lc);
@@ -933,18 +933,18 @@ WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress)
 		pgstat_progress_update_param(PROGRESS_WAITFOR_TOTAL, total);
 
 	/*
-	 * Note: GetLockConflicts() never reports our own xid, hence we need not
-	 * check for that.  Also, prepared xacts are reported and awaited.
+	 * 注意：GetLockConflicts() 从不报告我们自己的 xid，因此不必
+	 * 为此检查。预备事务也会被报告并等待。
 	 */
 
-	/* Finally wait for each such transaction to complete */
+	/* 最后等待每一个这样的事务完成 */
 	foreach(lc, holders)
 	{
 		VirtualTransactionId *lockholders = lfirst(lc);
 
 		while (VirtualTransactionIdIsValid(*lockholders))
 		{
-			/* If requested, publish who we're going to wait for. */
+			/* 若有请求，就公布我们将要等待的是谁。 */
 			if (progress)
 			{
 				PGPROC	   *holder = BackendIdGetProc(lockholders->backendId);
@@ -980,7 +980,7 @@ WaitForLockersMultiple(List *locktags, LOCKMODE lockmode, bool progress)
 /*
  * WaitForLockers
  *
- * Same as WaitForLockersMultiple, for a single lock tag.
+ * 与 WaitForLockersMultiple 相同，但只针对单个锁标签。
  */
 void
 WaitForLockers(LOCKTAG heaplocktag, LOCKMODE lockmode, bool progress)
@@ -996,10 +996,10 @@ WaitForLockers(LOCKTAG heaplocktag, LOCKMODE lockmode, bool progress)
 /*
  *		LockDatabaseObject
  *
- * Obtain a lock on a general object of the current database.  Don't use
- * this for shared objects (such as tablespaces).  It's unwise to apply it
- * to relations, also, since a lock taken this way will NOT conflict with
- * locks taken via LockRelation and friends.
+ * 获取当前数据库中一般对象上的锁。不要把它用于
+ * 共享对象（例如表空间）。用于关系也不适宜，
+ * 因为这样取得的锁不会与经由 LockRelation
+ * 及其同类函数取得的锁冲突。
  */
 void
 LockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
@@ -1015,15 +1015,15 @@ LockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 
 	(void) LockAcquire(&tag, lockmode, false, false);
 
-	/* Make sure syscaches are up-to-date with any changes we waited for */
+	/* 确保系统缓存反映我们所等待的那些变更 */
 	AcceptInvalidationMessages();
 }
 
 /*
  *		ConditionalLockDatabaseObject
  *
- * As above, but only lock if we can get the lock without blocking.
- * Returns true iff the lock was acquired.
+ * 同上，但仅在不阻塞就能获得锁时才加锁。
+ * 当且仅当已获得锁时返回真。
  */
 bool
 ConditionalLockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
@@ -1045,8 +1045,8 @@ ConditionalLockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 		return false;
 
 	/*
-	 * Now that we have the lock, check for invalidation messages; see notes
-	 * in LockRelationOid.
+	 * 拿到锁之后检查失效消息；说明见
+	 * LockRelationOid。
 	 */
 	if (res != LOCKACQUIRE_ALREADY_CLEAR)
 	{
@@ -1058,7 +1058,7 @@ ConditionalLockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 }
 
 /*
- *		UnlockDatabaseObject
+ *		UnlockDatabaseObject -- 释放数据库对象锁
  */
 void
 UnlockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
@@ -1078,7 +1078,7 @@ UnlockDatabaseObject(Oid classid, Oid objid, uint16 objsubid,
 /*
  *		LockSharedObject
  *
- * Obtain a lock on a shared-across-databases object.
+ * 获取跨数据库共享的对象上的锁。
  */
 void
 LockSharedObject(Oid classid, Oid objid, uint16 objsubid,
@@ -1094,12 +1094,12 @@ LockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 
 	(void) LockAcquire(&tag, lockmode, false, false);
 
-	/* Make sure syscaches are up-to-date with any changes we waited for */
+	/* 确保系统缓存反映我们所等待的那些变更 */
 	AcceptInvalidationMessages();
 }
 
 /*
- *		UnlockSharedObject
+ *		UnlockSharedObject -- 释放共享对象锁
  */
 void
 UnlockSharedObject(Oid classid, Oid objid, uint16 objsubid,
@@ -1119,8 +1119,8 @@ UnlockSharedObject(Oid classid, Oid objid, uint16 objsubid,
 /*
  *		LockSharedObjectForSession
  *
- * Obtain a session-level lock on a shared-across-databases object.
- * See LockRelationIdForSession for notes about session-level locks.
+ * 获取跨数据库共享对象上的会话级锁。
+ * 关于会话级锁的说明见 LockRelationIdForSession。
  */
 void
 LockSharedObjectForSession(Oid classid, Oid objid, uint16 objsubid,
@@ -1138,7 +1138,7 @@ LockSharedObjectForSession(Oid classid, Oid objid, uint16 objsubid,
 }
 
 /*
- *		UnlockSharedObjectForSession
+ *		UnlockSharedObjectForSession -- 释放会话级共享对象锁
  */
 void
 UnlockSharedObjectForSession(Oid classid, Oid objid, uint16 objsubid,
@@ -1158,9 +1158,9 @@ UnlockSharedObjectForSession(Oid classid, Oid objid, uint16 objsubid,
 /*
  *		LockApplyTransactionForSession
  *
- * Obtain a session-level lock on a transaction being applied on a logical
- * replication subscriber. See LockRelationIdForSession for notes about
- * session-level locks.
+ * 获取正在逻辑复制订阅者上
+ * 应用的事务的会话级锁。会话级锁的说明
+ * 见 LockRelationIdForSession。
  */
 void
 LockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16 objid,
@@ -1178,7 +1178,7 @@ LockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16 objid,
 }
 
 /*
- *		UnlockApplyTransactionForSession
+ *		UnlockApplyTransactionForSession -- 释放会话级应用事务锁
  */
 void
 UnlockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16 objid,
@@ -1196,11 +1196,11 @@ UnlockApplyTransactionForSession(Oid suboid, TransactionId xid, uint16 objid,
 }
 
 /*
- * Append a description of a lockable object to buf.
+ * 把可加锁对象的描述追加到 buf。
  *
- * Ideally we would print names for the numeric values, but that requires
- * getting locks on system tables, which might cause problems since this is
- * typically used to report deadlock situations.
+ * 理想情况下会为这些数值打印名称，但那需要
+ * 获取系统表上的锁，而这可能出问题，因为本函数
+ * 通常用来报告死锁情况。
  */
 void
 DescribeLockTag(StringInfo buf, const LOCKTAG *tag)
@@ -1264,7 +1264,7 @@ DescribeLockTag(StringInfo buf, const LOCKTAG *tag)
 							 tag->locktag_field1);
 			break;
 		case LOCKTAG_USERLOCK:
-			/* reserved for old contrib code, now on pgfoundry */
+			/* 保留给旧的 contrib 代码，现位于 pgfoundry */
 			appendStringInfo(buf,
 							 _("user lock [%u,%u,%u]"),
 							 tag->locktag_field1,
@@ -1297,7 +1297,7 @@ DescribeLockTag(StringInfo buf, const LOCKTAG *tag)
 /*
  * GetLockNameFromTagType
  *
- *	Given locktag type, return the corresponding lock name.
+ *	给定 locktag 类型，返回对应的锁名称。
  */
 const char *
 GetLockNameFromTagType(uint16 locktag_type)

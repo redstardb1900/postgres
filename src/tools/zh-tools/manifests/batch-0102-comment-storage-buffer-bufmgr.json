@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0102-comment-storage-buffer-bufmgr",
+ "title": "zh: translate bufmgr comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "873d6d56f2148235eb60541fedd42814da3bb33e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "note": "shared buffer manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0102-comment-storage-buffer-bufmgr.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 469,
+   "translated": 467,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through"
+   ],
+   "note": "shared buffer manager"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0102-comment-storage-buffer-bufmgr.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0102 translates src/backend/storage/buffer/bufmgr.c."
+}

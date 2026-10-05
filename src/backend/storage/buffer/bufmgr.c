@@ -13,20 +13,20 @@
  *-------------------------------------------------------------------------
  */
 /*
- * Principal entry points:
+ * 主要入口：
  *
- * ReadBuffer() -- find or create a buffer holding the requested page,
- *		and pin it so that no one can destroy it while this process
- *		is using it.
+ * ReadBuffer() 查找或创建持有所请求页的缓冲区，
+ *		并钉住它，使本进程使用期间
+ *		没有人能销毁它。
  *
- * ReleaseBuffer() -- unpin a buffer
+ * ReleaseBuffer() 解除对缓冲区的钉住。
  *
- * MarkBufferDirty() -- mark a pinned buffer's contents as "dirty".
- *		The disk write is delayed until buffer replacement or checkpoint.
+ * MarkBufferDirty() 把已钉住缓冲区的内容标为脏页。
+ *		磁盘写被推迟到缓冲区替换或检查点。
  *
- * See also these files:
- *		freelist.c -- chooses victim for buffer replacement
- *		buf_table.c -- manages the buffer lookup table
+ * 另见这些文件：
+ *		freelist.c 为缓冲区替换选择牺牲者
+ *		buf_table.c 管理缓冲区查找表
  */
 #include "postgres.h"
 
@@ -59,25 +59,25 @@
 #include "utils/timestamp.h"
 
 
-/* Note: these two macros only work on shared buffers, not local ones! */
+/* 注意：这两个宏只对共享缓冲区有效，对本地缓冲区无效！ */
 #define BufHdrGetBlock(bufHdr)	((Block) (BufferBlocks + ((Size) (bufHdr)->buf_id) * BLCKSZ))
 #define BufferGetLSN(bufHdr)	(PageGetLSN(BufHdrGetBlock(bufHdr)))
 
-/* Note: this macro only works on local buffers, not shared ones! */
+/* 注意：这个宏只对本地缓冲区有效，对共享缓冲区无效！ */
 #define LocalBufHdrGetBlock(bufHdr) \
 	LocalBufferBlockPointers[-((bufHdr)->buf_id + 2)]
 
-/* Bits in SyncOneBuffer's return value */
+/* SyncOneBuffer 返回值里的各个位 */
 #define BUF_WRITTEN				0x01
 #define BUF_REUSABLE			0x02
 
 #define RELS_BSEARCH_THRESHOLD		20
 
 /*
- * This is the size (in the number of blocks) above which we scan the
- * entire buffer pool to remove the buffers for all the pages of relation
- * being dropped. For the relations with size below this threshold, we find
- * the buffers by doing lookups in BufMapping table.
+ * 关系大小（以块数计）超过这个阈值时，我们扫描
+ * 整个缓冲池，以去掉被删除关系全部页的缓冲区。
+ * 对低于该阈值的关系，我们通过在 BufMapping 表里
+ * 查找来找到那些缓冲区。
  */
 #define BUF_DROP_FULL_SCAN_THRESHOLD		(uint64) (NBuffers / 32)
 
@@ -87,111 +87,111 @@ typedef struct PrivateRefCountEntry
 	int32		refcount;
 } PrivateRefCountEntry;
 
-/* 64 bytes, about the size of a cache line on common systems */
+/* 64 字节，大约是常见系统上一条缓存行的大小 */
 #define REFCOUNT_ARRAY_ENTRIES 8
 
 /*
- * Status of buffers to checkpoint for a particular tablespace, used
- * internally in BufferSync.
+ * 某个表空间里待检查点缓冲区的状态，供
+ * BufferSync 内部使用。
  */
 typedef struct CkptTsStatus
 {
-	/* oid of the tablespace */
+	/* 表空间的 oid */
 	Oid			tsId;
 
 	/*
-	 * Checkpoint progress for this tablespace. To make progress comparable
-	 * between tablespaces the progress is, for each tablespace, measured as a
-	 * number between 0 and the total number of to-be-checkpointed pages. Each
-	 * page checkpointed in this tablespace increments this space's progress
-	 * by progress_slice.
+	 * 该表空间的检查点进度。为使各表空间之间的进度可比，
+	 * 对每个表空间，进度都用一个介于 0 和
+	 * 待检查点页总数之间的数来衡量。在该表空间里
+	 * 每检查点一页，就把该空间的进度
+	 * 增加 progress_slice。
 	 */
 	float8		progress;
 	float8		progress_slice;
 
-	/* number of to-be checkpointed pages in this tablespace */
+	/* 该表空间里待检查点的页数 */
 	int			num_to_scan;
-	/* already processed pages in this tablespace */
+	/* 该表空间里已经处理的页数 */
 	int			num_scanned;
 
-	/* current offset in CkptBufferIds for this tablespace */
+	/* 该表空间在 CkptBufferIds 里的当前偏移 */
 	int			index;
 } CkptTsStatus;
 
 /*
- * Type for array used to sort SMgrRelations
+ * 用于排序 SMgrRelations 的数组的类型。
  *
- * FlushRelationsAllBuffers shares the same comparator function with
- * DropRelationsAllBuffers. Pointer to this struct and RelFileLocator must be
- * compatible.
+ * FlushRelationsAllBuffers 与 DropRelationsAllBuffers 共用同一个比较函数。
+ * 指向该结构的指针与 RelFileLocator 必须
+ * 兼容。
  */
 typedef struct SMgrSortArray
 {
-	RelFileLocator rlocator;	/* This must be the first member */
+	RelFileLocator rlocator;	/* 这必须是第一个成员 */
 	SMgrRelation srel;
 } SMgrSortArray;
 
-/* GUC variables */
+/* GUC 变量 */
 bool		zero_damaged_pages = false;
 int			bgwriter_lru_maxpages = 100;
 double		bgwriter_lru_multiplier = 2.0;
 bool		track_io_timing = false;
 
 /*
- * How many buffers PrefetchBuffer callers should try to stay ahead of their
- * ReadBuffer calls by.  Zero means "never prefetch".  This value is only used
- * for buffers not belonging to tablespaces that have their
- * effective_io_concurrency parameter set.
+ * PrefetchBuffer 的调用者应当试图领先其
+ * ReadBuffer 调用多少个缓冲区。零表示从不预取。该值只用于
+ * 不属于已设置 effective_io_concurrency 参数的表空间的
+ * 缓冲区。
  */
 int			effective_io_concurrency = DEFAULT_EFFECTIVE_IO_CONCURRENCY;
 
 /*
- * Like effective_io_concurrency, but used by maintenance code paths that might
- * benefit from a higher setting because they work on behalf of many sessions.
- * Overridden by the tablespace setting of the same name.
+ * 与 effective_io_concurrency 类似，但用于可能
+ * 因代表许多会话工作而受益于更高设置的维护代码路径。
+ * 会被同名的表空间设置覆盖。
  */
 int			maintenance_io_concurrency = DEFAULT_MAINTENANCE_IO_CONCURRENCY;
 
 /*
- * GUC variables about triggering kernel writeback for buffers written; OS
- * dependent defaults are set via the GUC mechanism.
+ * 关于触发已写缓冲区的内核回写的 GUC 变量；与操作系统
+ * 相关的默认值通过 GUC 机制设置。
  */
 int			checkpoint_flush_after = DEFAULT_CHECKPOINT_FLUSH_AFTER;
 int			bgwriter_flush_after = DEFAULT_BGWRITER_FLUSH_AFTER;
 int			backend_flush_after = DEFAULT_BACKEND_FLUSH_AFTER;
 
-/* local state for LockBufferForCleanup */
+/* LockBufferForCleanup 的本地状态 */
 static BufferDesc *PinCountWaitBuf = NULL;
 
 /*
- * Backend-Private refcount management:
+ * 后端私有的引用计数管理：
  *
- * Each buffer also has a private refcount that keeps track of the number of
- * times the buffer is pinned in the current process.  This is so that the
- * shared refcount needs to be modified only once if a buffer is pinned more
- * than once by an individual backend.  It's also used to check that no buffers
- * are still pinned at the end of transactions and when exiting.
- *
- *
- * To avoid - as we used to - requiring an array with NBuffers entries to keep
- * track of local buffers, we use a small sequentially searched array
- * (PrivateRefCountArray) and an overflow hash table (PrivateRefCountHash) to
- * keep track of backend local pins.
- *
- * Until no more than REFCOUNT_ARRAY_ENTRIES buffers are pinned at once, all
- * refcounts are kept track of in the array; after that, new array entries
- * displace old ones into the hash table. That way a frequently used entry
- * can't get "stuck" in the hashtable while infrequent ones clog the array.
- *
- * Note that in most scenarios the number of pinned buffers will not exceed
- * REFCOUNT_ARRAY_ENTRIES.
+ * 每个缓冲区还有一个私有引用计数，记录
+ * 当前进程钉住该缓冲区的次数。这样，若单个后端
+ * 多次钉住一个缓冲区，共享引用计数只需要修改
+ * 一次。它也用来检查事务末尾以及退出时
+ * 没有缓冲区仍被钉住。
  *
  *
- * To enter a buffer into the refcount tracking mechanism first reserve a free
- * entry using ReservePrivateRefCountEntry() and then later, if necessary,
- * fill it with NewPrivateRefCountEntry(). That split lets us avoid doing
- * memory allocations in NewPrivateRefCountEntry() which can be important
- * because in some scenarios it's called with a spinlock held...
+ * 为避免像过去那样需要一个有 NBuffers 项的数组来跟踪
+ * 本地缓冲区，我们用一个小型顺序查找数组
+ * （PrivateRefCountArray）和一个溢出散列表（PrivateRefCountHash）来
+ * 跟踪后端本地的钉住。
+ *
+ * 在同时钉住的缓冲区不超过 REFCOUNT_ARRAY_ENTRIES 之前，全部
+ * 引用计数都记在数组里；此后，新的数组项
+ * 会把旧项挤进散列表。这样，常用项
+ * 不会卡在散列表里，而不常用项堵住数组。
+ *
+ * 注意，在多数情形下，被钉住的缓冲区数量不会超过
+ * REFCOUNT_ARRAY_ENTRIES。
+ *
+ *
+ * 要把一个缓冲区纳入引用计数跟踪，先用
+ * ReservePrivateRefCountEntry() 保留一个空闲项，然后在必要时
+ * 用 NewPrivateRefCountEntry() 填入。这种拆分让我们避免在
+ * NewPrivateRefCountEntry() 里做内存分配，这点可能很重要，
+ * 因为有些情形下调用它时持有自旋锁……
  */
 static struct PrivateRefCountEntry PrivateRefCountArray[REFCOUNT_ARRAY_ENTRIES];
 static HTAB *PrivateRefCountHash = NULL;
@@ -206,20 +206,20 @@ static inline int32 GetPrivateRefCount(Buffer buffer);
 static void ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref);
 
 /*
- * Ensure that the PrivateRefCountArray has sufficient space to store one more
- * entry. This has to be called before using NewPrivateRefCountEntry() to fill
- * a new entry - but it's perfectly fine to not use a reserved entry.
+ * 确保 PrivateRefCountArray 有足够空间再存一项。
+ * 这必须在用 NewPrivateRefCountEntry() 填入
+ * 新项之前调用，但不用掉已保留的项也完全没问题。
  */
 static void
 ReservePrivateRefCountEntry(void)
 {
-	/* Already reserved (or freed), nothing to do */
+	/* 已经保留（或已释放），无事可做 */
 	if (ReservedRefCountEntry != NULL)
 		return;
 
 	/*
-	 * First search for a free entry the array, that'll be sufficient in the
-	 * majority of cases.
+	 * 先在数组里找一个空闲项，多数情形下
+	 * 这就够了。
 	 */
 	{
 		int			i;
@@ -239,25 +239,25 @@ ReservePrivateRefCountEntry(void)
 	}
 
 	/*
-	 * No luck. All array entries are full. Move one array entry into the hash
-	 * table.
+	 * 没找到。数组项都满了。把一个数组项移进散
+	 * 列表。
 	 */
 	{
 		/*
-		 * Move entry from the current clock position in the array into the
-		 * hashtable. Use that slot.
+		 * 把数组里当前时钟位置的项移进
+		 * 散列表。使用那个槽。
 		 */
 		PrivateRefCountEntry *hashent;
 		bool		found;
 
-		/* select victim slot */
+		/* 选择牺牲槽 */
 		ReservedRefCountEntry =
 			&PrivateRefCountArray[PrivateRefCountClock++ % REFCOUNT_ARRAY_ENTRIES];
 
-		/* Better be used, otherwise we shouldn't get here. */
+		/* 最好是在用的，否则我们不该到这里。 */
 		Assert(ReservedRefCountEntry->buffer != InvalidBuffer);
 
-		/* enter victim array entry into hashtable */
+		/* 把牺牲数组项放进散列表 */
 		hashent = hash_search(PrivateRefCountHash,
 							  &(ReservedRefCountEntry->buffer),
 							  HASH_ENTER,
@@ -265,7 +265,7 @@ ReservePrivateRefCountEntry(void)
 		Assert(!found);
 		hashent->refcount = ReservedRefCountEntry->refcount;
 
-		/* clear the now free array slot */
+		/* 清空现在空闲的数组槽 */
 		ReservedRefCountEntry->buffer = InvalidBuffer;
 		ReservedRefCountEntry->refcount = 0;
 
@@ -274,21 +274,21 @@ ReservePrivateRefCountEntry(void)
 }
 
 /*
- * Fill a previously reserved refcount entry.
+ * 填入先前保留的引用计数项。
  */
 static PrivateRefCountEntry *
 NewPrivateRefCountEntry(Buffer buffer)
 {
 	PrivateRefCountEntry *res;
 
-	/* only allowed to be called when a reservation has been made */
+	/* 只允许在已经做过保留之后调用 */
 	Assert(ReservedRefCountEntry != NULL);
 
-	/* use up the reserved entry */
+	/* 用掉已保留的项 */
 	res = ReservedRefCountEntry;
 	ReservedRefCountEntry = NULL;
 
-	/* and fill it */
+	/* 并填入它 */
 	res->buffer = buffer;
 	res->refcount = 0;
 
@@ -296,11 +296,11 @@ NewPrivateRefCountEntry(Buffer buffer)
 }
 
 /*
- * Return the PrivateRefCount entry for the passed buffer.
+ * 返回传入缓冲区的 PrivateRefCount 项。
  *
- * Returns NULL if a buffer doesn't have a refcount entry. Otherwise, if
- * do_move is true, and the entry resides in the hashtable the entry is
- * optimized for frequent access by moving it to the array.
+ * 若缓冲区没有引用计数项，就返回 NULL。否则，若
+ * do_move 为真，且该项位于散列表中，就把该项移到数组里，
+ * 以便频繁访问。
  */
 static PrivateRefCountEntry *
 GetPrivateRefCountEntry(Buffer buffer, bool do_move)
@@ -312,8 +312,8 @@ GetPrivateRefCountEntry(Buffer buffer, bool do_move)
 	Assert(!BufferIsLocal(buffer));
 
 	/*
-	 * First search for references in the array, that'll be sufficient in the
-	 * majority of cases.
+	 * 先在数组里查找引用，多数情形下
+	 * 这就够了。
 	 */
 	for (i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++)
 	{
@@ -324,11 +324,11 @@ GetPrivateRefCountEntry(Buffer buffer, bool do_move)
 	}
 
 	/*
-	 * By here we know that the buffer, if already pinned, isn't residing in
-	 * the array.
+	 * 到这里我们知道，该缓冲区若已被钉住，并不位于
+	 * 数组中。
 	 *
-	 * Only look up the buffer in the hashtable if we've previously overflowed
-	 * into it.
+	 * 只有在我们先前已经溢出到散列表时，
+	 * 才在散列表里查找该缓冲区。
 	 */
 	if (PrivateRefCountOverflowed == 0)
 		return NULL;
@@ -339,29 +339,29 @@ GetPrivateRefCountEntry(Buffer buffer, bool do_move)
 		return NULL;
 	else if (!do_move)
 	{
-		/* caller doesn't want us to move the hash entry into the array */
+		/* 调用者不希望我们把散列项移进数组 */
 		return res;
 	}
 	else
 	{
-		/* move buffer from hashtable into the free array slot */
+		/* 把缓冲区从散列表移到空闲数组槽 */
 		bool		found;
 		PrivateRefCountEntry *free;
 
-		/* Ensure there's a free array slot */
+		/* 确保有一个空闲数组槽 */
 		ReservePrivateRefCountEntry();
 
-		/* Use up the reserved slot */
+		/* 用掉已保留的槽 */
 		Assert(ReservedRefCountEntry != NULL);
 		free = ReservedRefCountEntry;
 		ReservedRefCountEntry = NULL;
 		Assert(free->buffer == InvalidBuffer);
 
-		/* and fill it */
+		/* 并填入它 */
 		free->buffer = buffer;
 		free->refcount = res->refcount;
 
-		/* delete from hashtable */
+		/* 从散列表中删除 */
 		hash_search(PrivateRefCountHash, &buffer, HASH_REMOVE, &found);
 		Assert(found);
 		Assert(PrivateRefCountOverflowed > 0);
@@ -372,9 +372,9 @@ GetPrivateRefCountEntry(Buffer buffer, bool do_move)
 }
 
 /*
- * Returns how many times the passed buffer is pinned by this backend.
+ * 返回本后端钉住传入缓冲区的次数。
  *
- * Only works for shared memory buffers!
+ * 只对共享内存缓冲区有效！
  */
 static inline int32
 GetPrivateRefCount(Buffer buffer)
@@ -385,8 +385,8 @@ GetPrivateRefCount(Buffer buffer)
 	Assert(!BufferIsLocal(buffer));
 
 	/*
-	 * Not moving the entry - that's ok for the current users, but we might
-	 * want to change this one day.
+	 * 不移动该项。对当前使用者没问题，但我们也许
+	 * 有一天会改掉这一点。
 	 */
 	ref = GetPrivateRefCountEntry(buffer, false);
 
@@ -396,8 +396,8 @@ GetPrivateRefCount(Buffer buffer)
 }
 
 /*
- * Release resources used to track the reference count of a buffer which we no
- * longer have pinned and don't want to pin again immediately.
+ * 释放用来跟踪某个缓冲区引用计数的资源，我们不再
+ * 钉住它，也不想立刻再次钉住。
  */
 static void
 ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref)
@@ -410,9 +410,9 @@ ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref)
 		ref->buffer = InvalidBuffer;
 
 		/*
-		 * Mark the just used entry as reserved - in many scenarios that
-		 * allows us to avoid ever having to search the array/hash for free
-		 * entries.
+		 * 把刚用过的项标为已保留。在许多情形下，这
+		 * 让我们根本不必在数组或散列表里搜索空闲
+		 * 项。
 		 */
 		ReservedRefCountEntry = ref;
 	}
@@ -430,10 +430,10 @@ ForgetPrivateRefCountEntry(PrivateRefCountEntry *ref)
 
 /*
  * BufferIsPinned
- *		True iff the buffer is pinned (also checks for valid buffer number).
+ *		当且仅当该缓冲区被钉住时为真（也检查缓冲区号是否有效）。
  *
- *		NOTE: what we check here is that *this* backend holds a pin on
- *		the buffer.  We do not care whether some other backend does.
+ *		注意：这里检查的是本后端持有对该
+ *		缓冲区的钉住。我们不关心其他后端是否持有。
  */
 #define BufferIsPinned(bufnum) \
 ( \
@@ -505,7 +505,7 @@ static int	ts_ckpt_progress_comparator(Datum a, Datum b, void *arg);
 
 
 /*
- * Implementation of PrefetchBuffer() for shared buffers.
+ * PrefetchBuffer() 对共享缓冲区的实现。
  */
 PrefetchBufferResult
 PrefetchSharedBuffer(SMgrRelation smgr_reln,
@@ -513,89 +513,89 @@ PrefetchSharedBuffer(SMgrRelation smgr_reln,
 					 BlockNumber blockNum)
 {
 	PrefetchBufferResult result = {InvalidBuffer, false};
-	BufferTag	newTag;			/* identity of requested block */
-	uint32		newHash;		/* hash value for newTag */
-	LWLock	   *newPartitionLock;	/* buffer partition lock for it */
+	BufferTag	newTag;			/* 所请求块的标识 */
+	uint32		newHash;		/* newTag 的散列值 */
+	LWLock	   *newPartitionLock;	/* 它的缓冲区分区锁 */
 	int			buf_id;
 
 	Assert(BlockNumberIsValid(blockNum));
 
-	/* create a tag so we can lookup the buffer */
+	/* 创建一个标签，以便查找该缓冲区 */
 	InitBufferTag(&newTag, &smgr_reln->smgr_rlocator.locator,
 				  forkNum, blockNum);
 
-	/* determine its hash code and partition lock ID */
+	/* 确定它的散列码和分区锁标识 */
 	newHash = BufTableHashCode(&newTag);
 	newPartitionLock = BufMappingPartitionLock(newHash);
 
-	/* see if the block is in the buffer pool already */
+	/* 看该块的缓冲区是否已在缓冲池中 */
 	LWLockAcquire(newPartitionLock, LW_SHARED);
 	buf_id = BufTableLookup(&newTag, newHash);
 	LWLockRelease(newPartitionLock);
 
-	/* If not in buffers, initiate prefetch */
+	/* 若不在缓冲区里，就发起预取 */
 	if (buf_id < 0)
 	{
 #ifdef USE_PREFETCH
 		/*
-		 * Try to initiate an asynchronous read.  This returns false in
-		 * recovery if the relation file doesn't exist.
+		 * 尝试发起一次异步读。若在恢复中且关系文件
+		 * 不存在，这会返回假。
 		 */
 		if ((io_direct_flags & IO_DIRECT_DATA) == 0 &&
 			smgrprefetch(smgr_reln, forkNum, blockNum))
 		{
 			result.initiated_io = true;
 		}
-#endif							/* USE_PREFETCH */
+#endif							/* USE_PREFETCH（预取） */
 	}
 	else
 	{
 		/*
-		 * Report the buffer it was in at that time.  The caller may be able
-		 * to avoid a buffer table lookup, but it's not pinned and it must be
-		 * rechecked!
+		 * 报告它当时所在的缓冲区。调用者也许能
+		 * 避免一次缓冲区表查找，但它没有被钉住，必须
+		 * 重新检查！
 		 */
 		result.recent_buffer = buf_id + 1;
 	}
 
 	/*
-	 * If the block *is* in buffers, we do nothing.  This is not really ideal:
-	 * the block might be just about to be evicted, which would be stupid
-	 * since we know we are going to need it soon.  But the only easy answer
-	 * is to bump the usage_count, which does not seem like a great solution:
-	 * when the caller does ultimately touch the block, usage_count would get
-	 * bumped again, resulting in too much favoritism for blocks that are
-	 * involved in a prefetch sequence. A real fix would involve some
-	 * additional per-buffer state, and it's not clear that there's enough of
-	 * a problem to justify that.
+	 * 若该块已经在缓冲区里，我们什么也不做。这并不理想：
+	 * 该块可能正要被逐出，而我们知道很快就要用它，
+	 * 那样做就很蠢。但唯一容易的办法
+	 * 是增加 usage_count，这看来不是好办法：
+	 * 当调用者最终触及该块时，usage_count 会再次
+	 * 被增加，结果对参与预取序列的块
+	 * 过于偏袒。真正的修复需要一些
+	 * 额外的每缓冲区状态，而且不清楚问题是否
+	 * 严重到值得那样做。
 	 */
 
 	return result;
 }
 
 /*
- * PrefetchBuffer -- initiate asynchronous read of a block of a relation
+ * PrefetchBuffer -- 发起对关系某个块的异步读。
  *
- * This is named by analogy to ReadBuffer but doesn't actually allocate a
- * buffer.  Instead it tries to ensure that a future ReadBuffer for the given
- * block will not be delayed by the I/O.  Prefetching is optional.
+ * 它按 ReadBuffer 类比命名，但实际上不分配
+ * 缓冲区。它试图确保将来对该块的 ReadBuffer
+ * 不会被 I/O 耽误。预取是可选的。
  *
- * There are three possible outcomes:
+ * 有三种可能的结果：
  *
- * 1.  If the block is already cached, the result includes a valid buffer that
- * could be used by the caller to avoid the need for a later buffer lookup, but
- * it's not pinned, so the caller must recheck it.
+ * 1. 若该块已被缓存，结果包含一个有效缓冲区，调用者
+ * 可用它来避免稍后的缓冲区查找，但它
+ * 没有被钉住，因此调用者必须重新检查。
  *
- * 2.  If the kernel has been asked to initiate I/O, the initiated_io member is
- * true.  Currently there is no way to know if the data was already cached by
- * the kernel and therefore didn't really initiate I/O, and no way to know when
- * the I/O completes other than using synchronous ReadBuffer().
+ * 2. 若已请求内核发起 I/O，则 initiated_io 成员为
+ * 真。目前无法知道数据是否已被内核缓存、因而
+ * 并没有真正发起 I/O，也只能靠同步的 ReadBuffer()
+ * 才能知道 I/O 何时完成。
  *
- * 3.  Otherwise, the buffer wasn't already cached by PostgreSQL, and
- * USE_PREFETCH is not defined (this build doesn't support prefetching due to
- * lack of a kernel facility), direct I/O is enabled, or the underlying
- * relation file wasn't found and we are in recovery.  (If the relation file
- * wasn't found and we are not in recovery, an error is raised).
+ * 3. 否则，该缓冲区尚未被 PostgreSQL 缓存，并且
+ * 未定义 USE_PREFETCH（本构建因缺少内核设施而不支持预取），
+ * 或者启用了直接 I/O，或者底层
+ * 关系文件未找到且我们处于恢复中。（若关系文件
+ * 未找到且我们不在恢复中，就会报错）。
  */
 PrefetchBufferResult
 PrefetchBuffer(Relation reln, ForkNumber forkNum, BlockNumber blockNum)
@@ -605,28 +605,28 @@ PrefetchBuffer(Relation reln, ForkNumber forkNum, BlockNumber blockNum)
 
 	if (RelationUsesLocalBuffers(reln))
 	{
-		/* see comments in ReadBufferExtended */
+		/* 见 ReadBufferExtended 里的注释 */
 		if (RELATION_IS_OTHER_TEMP(reln))
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot access temporary tables of other sessions")));
 
-		/* pass it off to localbuf.c */
+		/* 把它交给 localbuf.c */
 		return PrefetchLocalBuffer(RelationGetSmgr(reln), forkNum, blockNum);
 	}
 	else
 	{
-		/* pass it to the shared buffer version */
+		/* 把它交给共享缓冲区版本 */
 		return PrefetchSharedBuffer(RelationGetSmgr(reln), forkNum, blockNum);
 	}
 }
 
 /*
- * ReadRecentBuffer -- try to pin a block in a recently observed buffer
+ * ReadRecentBuffer -- 尝试钉住最近观察过的缓冲区里的块。
  *
- * Compared to ReadBuffer(), this avoids a buffer mapping lookup when it's
- * successful.  Return true if the buffer is valid and still has the expected
- * tag.  In that case, the buffer is pinned and the usage count is bumped.
+ * 与 ReadBuffer() 相比，成功时这避免了一次缓冲区映射查找。
+ * 若缓冲区有效且仍具有预期的标签，就返回真。
+ * 此时缓冲区被钉住，并且使用计数被增加。
  */
 bool
 ReadRecentBuffer(RelFileLocator rlocator, ForkNumber forkNum, BlockNumber blockNum,
@@ -650,7 +650,7 @@ ReadRecentBuffer(RelFileLocator rlocator, ForkNumber forkNum, BlockNumber blockN
 		bufHdr = GetLocalBufferDescriptor(b);
 		buf_state = pg_atomic_read_u32(&bufHdr->state);
 
-		/* Is it still valid and holding the right tag? */
+		/* 它是否仍然有效并持有正确的标签？ */
 		if ((buf_state & BM_VALID) && BufferTagsEqual(&tag, &bufHdr->tag))
 		{
 			PinLocalBuffer(bufHdr, true);
@@ -666,9 +666,9 @@ ReadRecentBuffer(RelFileLocator rlocator, ForkNumber forkNum, BlockNumber blockN
 		have_private_ref = GetPrivateRefCount(recent_buffer) > 0;
 
 		/*
-		 * Do we already have this buffer pinned with a private reference?  If
-		 * so, it must be valid and it is safe to check the tag without
-		 * locking.  If not, we have to lock the header first and then check.
+		 * 我们是否已经用私有引用钉住了这个缓冲区？若
+		 * 是，它必定有效，不持锁检查标签也是安全的。
+		 * 若不是，我们必须先锁住缓冲区描述符，然后再检查。
 		 */
 		if (have_private_ref)
 			buf_state = pg_atomic_read_u32(&bufHdr->state);
@@ -678,21 +678,21 @@ ReadRecentBuffer(RelFileLocator rlocator, ForkNumber forkNum, BlockNumber blockN
 		if ((buf_state & BM_VALID) && BufferTagsEqual(&tag, &bufHdr->tag))
 		{
 			/*
-			 * It's now safe to pin the buffer.  We can't pin first and ask
-			 * questions later, because it might confuse code paths like
-			 * InvalidateBuffer() if we pinned a random non-matching buffer.
+			 * 现在钉住该缓冲区是安全的。我们不能先钉住再
+			 * 提问，因为若钉住了一个随便的不匹配缓冲区，
+			 * 可能会迷惑 InvalidateBuffer() 之类的代码路径。
 			 */
 			if (have_private_ref)
-				PinBuffer(bufHdr, NULL);	/* bump pin count */
+				PinBuffer(bufHdr, NULL);	/* 增加钉住计数 */
 			else
-				PinBuffer_Locked(bufHdr);	/* pin for first time */
+				PinBuffer_Locked(bufHdr);	/* 第一次钉住 */
 
 			pgBufferUsage.shared_blks_hit++;
 
 			return true;
 		}
 
-		/* If we locked the header above, now unlock. */
+		/* 若上面锁住了缓冲区描述符，现在解锁。 */
 		if (!have_private_ref)
 			UnlockBufHdr(bufHdr, buf_state);
 	}
@@ -701,8 +701,8 @@ ReadRecentBuffer(RelFileLocator rlocator, ForkNumber forkNum, BlockNumber blockN
 }
 
 /*
- * ReadBuffer -- a shorthand for ReadBufferExtended, for reading from main
- *		fork with RBM_NORMAL mode and default strategy.
+ * ReadBuffer -- ReadBufferExtended 的简写，用于以 RBM_NORMAL 模式和默认策略
+ *		从主分叉读取。
  */
 Buffer
 ReadBuffer(Relation reln, BlockNumber blockNum)
@@ -711,45 +711,45 @@ ReadBuffer(Relation reln, BlockNumber blockNum)
 }
 
 /*
- * ReadBufferExtended -- returns a buffer containing the requested
- *		block of the requested relation.  If the blknum
- *		requested is P_NEW, extend the relation file and
- *		allocate a new block.  (Caller is responsible for
- *		ensuring that only one backend tries to extend a
- *		relation at the same time!)
+ * ReadBufferExtended -- 返回包含所请求关系的
+ *		所请求块的缓冲区。若请求的 blknum
+ *		是 P_NEW，就扩展关系文件并
+ *		分配一个新块。（调用者负责
+ *		确保同一时刻只有一个后端试图扩展
+ *		一个关系！）
  *
- * Returns: the buffer number for the buffer containing
- *		the block read.  The returned buffer has been pinned.
- *		Does not return on error --- elog's instead.
+ * 返回值：包含所读块的缓冲区号。
+ *		返回的缓冲区已被钉住。
+ *		出错时不返回，而是 elog。
  *
- * Assume when this function is called, that reln has been opened already.
+ * 假定调用本函数时，reln 已经打开。
  *
- * In RBM_NORMAL mode, the page is read from disk, and the page header is
- * validated.  An error is thrown if the page header is not valid.  (But
- * note that an all-zero page is considered "valid"; see
- * PageIsVerifiedExtended().)
+ * 在 RBM_NORMAL 模式下，从磁盘读取该页，并校验页头。
+ * 若页头无效就报错。（但
+ * 注意全零页被视为有效；见
+ * PageIsVerifiedExtended()。）
  *
- * RBM_ZERO_ON_ERROR is like the normal mode, but if the page header is not
- * valid, the page is zeroed instead of throwing an error. This is intended
- * for non-critical data, where the caller is prepared to repair errors.
+ * RBM_ZERO_ON_ERROR 与普通模式类似，但若页头无效，
+ * 就把该页清零，而不是报错。这用于
+ * 非关键数据，调用者准备好修复错误。
  *
- * In RBM_ZERO_AND_LOCK mode, if the page isn't in buffer cache already, it's
- * filled with zeros instead of reading it from disk.  Useful when the caller
- * is going to fill the page from scratch, since this saves I/O and avoids
- * unnecessary failure if the page-on-disk has corrupt page headers.
- * The page is returned locked to ensure that the caller has a chance to
- * initialize the page before it's made visible to others.
- * Caution: do not use this mode to read a page that is beyond the relation's
- * current physical EOF; that is likely to cause problems in md.c when
- * the page is modified and written out. P_NEW is OK, though.
+ * 在 RBM_ZERO_AND_LOCK 模式下，若该页尚未在缓冲池中，就
+ * 用零填充它，而不是从磁盘读取。当调用者
+ * 要从头填充该页时有用，因为这省掉 I/O，并避免
+ * 磁盘上的页有损坏页头时不必要的失败。
+ * 返回的页是锁定的，以确保调用者有机会在
+ * 它对其它人可见之前初始化该页。
+ * 注意：不要用这种模式读取超出关系
+ * 当前物理 EOF 的页；当该页被修改并写出时，
+ * 这很可能在 md.c 里造成问题。不过 P_NEW 是可以的。
  *
- * RBM_ZERO_AND_CLEANUP_LOCK is the same as RBM_ZERO_AND_LOCK, but acquires
- * a cleanup-strength lock on the page.
+ * RBM_ZERO_AND_CLEANUP_LOCK 与 RBM_ZERO_AND_LOCK 相同，但取得
+ * 该页上的清理强度锁。
  *
- * RBM_NORMAL_NO_LOG mode is treated the same as RBM_NORMAL here.
+ * RBM_NORMAL_NO_LOG 模式在这里与 RBM_NORMAL 同样处理。
  *
- * If strategy is not NULL, a nondefault buffer access strategy is used.
- * See buffer/README for details.
+ * 若 strategy 不是 NULL，就使用非默认的缓冲区访问策略。
+ * 详见 buffer/README。
  */
 Buffer
 ReadBufferExtended(Relation reln, ForkNumber forkNum, BlockNumber blockNum,
@@ -759,9 +759,9 @@ ReadBufferExtended(Relation reln, ForkNumber forkNum, BlockNumber blockNum,
 	Buffer		buf;
 
 	/*
-	 * Reject attempts to read non-local temporary relations; we would be
-	 * likely to get wrong data since we have no visibility into the owning
-	 * session's local buffers.
+	 * 拒绝读取非本地临时关系的尝试；由于我们看不到
+	 * 拥有者会话的本地缓冲区，我们很可能会
+	 * 得到错误的数据。
 	 */
 	if (RELATION_IS_OTHER_TEMP(reln))
 		ereport(ERROR,
@@ -769,8 +769,8 @@ ReadBufferExtended(Relation reln, ForkNumber forkNum, BlockNumber blockNum,
 				 errmsg("cannot access temporary tables of other sessions")));
 
 	/*
-	 * Read the buffer, and update pgstat counters to reflect a cache hit or
-	 * miss.
+	 * 读取该缓冲区，并更新 pgstat 计数器以反映缓存命中或
+	 * 未命中。
 	 */
 	pgstat_count_buffer_read(reln);
 	buf = ReadBuffer_common(RelationGetSmgr(reln), reln->rd_rel->relpersistence,
@@ -782,14 +782,14 @@ ReadBufferExtended(Relation reln, ForkNumber forkNum, BlockNumber blockNum,
 
 
 /*
- * ReadBufferWithoutRelcache -- like ReadBufferExtended, but doesn't require
- *		a relcache entry for the relation.
+ * ReadBufferWithoutRelcache -- 像 ReadBufferExtended，但不需要
+ *		该关系的 relcache 项。
  *
- * Pass permanent = true for a RELPERSISTENCE_PERMANENT relation, and
- * permanent = false for a RELPERSISTENCE_UNLOGGED relation. This function
- * cannot be used for temporary relations (and making that work might be
- * difficult, unless we only want to read temporary relations for our own
- * BackendId).
+ * 对 RELPERSISTENCE_PERMANENT 关系传入 permanent = true，对
+ * RELPERSISTENCE_UNLOGGED 关系传入 permanent = false。本函数
+ * 无法用于临时关系（除非我们只想读取自己的
+ * BackendId 的临时关系，否则让它工作可能
+ * 很困难）。
  */
 Buffer
 ReadBufferWithoutRelcache(RelFileLocator rlocator, ForkNumber forkNum,
@@ -806,7 +806,7 @@ ReadBufferWithoutRelcache(RelFileLocator rlocator, ForkNumber forkNum,
 }
 
 /*
- * Convenience wrapper around ExtendBufferedRelBy() extending by one block.
+ * ExtendBufferedRelBy() 的便捷包装，只扩展一个块。
  */
 Buffer
 ExtendBufferedRel(BufferManagerRelation bmr,
@@ -824,21 +824,21 @@ ExtendBufferedRel(BufferManagerRelation bmr,
 }
 
 /*
- * Extend relation by multiple blocks.
+ * 把关系扩展多个块。
  *
- * Tries to extend the relation by extend_by blocks. Depending on the
- * availability of resources the relation may end up being extended by a
- * smaller number of pages (unless an error is thrown, always by at least one
- * page). *extended_by is updated to the number of pages the relation has been
- * extended to.
+ * 试图把关系扩展 extend_by 个块。取决于
+ * 资源是否可用，关系最终可能只扩展了
+ * 更少的页（除非报错，否则至少扩展一
+ * 页）。*extended_by 被更新为关系被扩展到的
+ * 页数。
  *
- * buffers needs to be an array that is at least extend_by long. Upon
- * completion, the first extend_by array elements will point to a pinned
- * buffer.
+ * buffers 必须是长度至少为 extend_by 的数组。完成
+ * 后，前 extend_by 个数组元素将指向已钉住的
+ * 缓冲区。
  *
- * If EB_LOCK_FIRST is part of flags, the first returned buffer is
- * locked. This is useful for callers that want a buffer that is guaranteed to
- * be empty.
+ * 若 flags 含有 EB_LOCK_FIRST，返回的第一个缓冲区是
+ * 锁定的。这对想要一个保证为
+ * 空的缓冲区的调用者有用。
  */
 BlockNumber
 ExtendBufferedRelBy(BufferManagerRelation bmr,
@@ -865,12 +865,12 @@ ExtendBufferedRelBy(BufferManagerRelation bmr,
 }
 
 /*
- * Extend the relation so it is at least extend_to blocks large, return buffer
- * (extend_to - 1).
+ * 扩展关系，使它至少有 extend_to 个块，返回缓冲区
+ * (extend_to - 1)。
  *
- * This is useful for callers that want to write a specific page, regardless
- * of the current size of the relation (e.g. useful for visibilitymap and for
- * crash recovery).
+ * 这对想写特定页、而不管
+ * 关系当前大小的调用者有用（例如对可见性映射和
+ * 崩溃恢复有用）。
  */
 Buffer
 ExtendBufferedRelTo(BufferManagerRelation bmr,
@@ -896,9 +896,9 @@ ExtendBufferedRelTo(BufferManagerRelation bmr,
 	}
 
 	/*
-	 * If desired, create the file if it doesn't exist.  If
-	 * smgr_cached_nblocks[fork] is positive then it must exist, no need for
-	 * an smgrexists call.
+	 * 若希望如此，文件不存在就创建它。若
+	 * smgr_cached_nblocks[fork] 为正，则它必定存在，不必
+	 * 调用 smgrexists。
 	 */
 	if ((flags & EB_CREATE_FORK_IF_NEEDED) &&
 		(bmr.smgr->smgr_cached_nblocks[fork] == 0 ||
@@ -907,11 +907,11 @@ ExtendBufferedRelTo(BufferManagerRelation bmr,
 	{
 		LockRelationForExtension(bmr.rel, ExclusiveLock);
 
-		/* could have been closed while waiting for lock */
+		/* 等待锁期间可能已被关闭 */
 		if (bmr.rel)
 			bmr.smgr = RelationGetSmgr(bmr.rel);
 
-		/* recheck, fork might have been created concurrently */
+		/* 重新检查，分叉可能已被并发创建 */
 		if (!smgrexists(bmr.smgr, fork))
 			smgrcreate(bmr.smgr, fork, flags & EB_PERFORMING_RECOVERY);
 
@@ -919,23 +919,23 @@ ExtendBufferedRelTo(BufferManagerRelation bmr,
 	}
 
 	/*
-	 * If requested, invalidate size cache, so that smgrnblocks asks the
-	 * kernel.
+	 * 若有请求，就使大小缓存失效，以便 smgrnblocks 去问
+	 * 内核。
 	 */
 	if (flags & EB_CLEAR_SIZE_CACHE)
 		bmr.smgr->smgr_cached_nblocks[fork] = InvalidBlockNumber;
 
 	/*
-	 * Estimate how many pages we'll need to extend by. This avoids acquiring
-	 * unnecessarily many victim buffers.
+	 * 估计我们需要扩展多少页。这避免取得
+	 * 不必要的那么多牺牲缓冲区。
 	 */
 	current_size = smgrnblocks(bmr.smgr, fork);
 
 	/*
-	 * Since no-one else can be looking at the page contents yet, there is no
-	 * difference between an exclusive lock and a cleanup-strength lock. Note
-	 * that we pass the original mode to ReadBuffer_common() below, when
-	 * falling back to reading the buffer to a concurrent relation extension.
+	 * 由于还没有其他人能查看页内容，排他锁和
+	 * 清理强度的锁没有区别。注意
+	 * 回退到读取缓冲区以应对并发的关系扩展时，我们把原来的模式传给
+	 * 下面的 ReadBuffer_common()。
 	 */
 	if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
 		flags |= EB_LOCK_TARGET;
@@ -965,10 +965,10 @@ ExtendBufferedRelTo(BufferManagerRelation bmr,
 	}
 
 	/*
-	 * It's possible that another backend concurrently extended the relation.
-	 * In that case read the buffer.
+	 * 另一个后端可能并发地扩展了该关系。
+	 * 那种情况下就读取该缓冲区。
 	 *
-	 * XXX: Should we control this via a flag?
+	 * XXX：我们是否应当用一个标志来控制这一点？
 	 */
 	if (buffer == InvalidBuffer)
 	{
@@ -984,9 +984,9 @@ ExtendBufferedRelTo(BufferManagerRelation bmr,
 }
 
 /*
- * ReadBuffer_common -- common logic for all ReadBuffer variants
+ * ReadBuffer_common -- 所有 ReadBuffer 变体的公共逻辑。
  *
- * *hit is set to true if the request was satisfied from shared buffer cache.
+ * 若请求由共享缓冲区满足，*hit 被设为真。
  */
 static Buffer
 ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
@@ -1003,18 +1003,18 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	*hit = false;
 
 	/*
-	 * Backward compatibility path, most code should use ExtendBufferedRel()
-	 * instead, as acquiring the extension lock inside ExtendBufferedRel()
-	 * scales a lot better.
+	 * 向后兼容路径，多数代码应当改用 ExtendBufferedRel()，
+	 * 因为在 ExtendBufferedRel() 内部取得扩展锁
+	 * 伸缩性好得多。
 	 */
 	if (unlikely(blockNum == P_NEW))
 	{
 		uint32		flags = EB_SKIP_EXTENSION_LOCK;
 
 		/*
-		 * Since no-one else can be looking at the page contents yet, there is
-		 * no difference between an exclusive lock and a cleanup-strength
-		 * lock.
+		 * 由于还没有其他人能查看页内容，
+		 * 排他锁和清理强度的
+		 * 锁没有区别。
 		 */
 		if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
 			flags |= EB_LOCK_FIRST;
@@ -1023,7 +1023,7 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 								 forkNum, strategy, flags);
 	}
 
-	/* Make sure we will have room to remember the buffer pin */
+	/* 确保我们有地方记住这次缓冲区钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	TRACE_POSTGRESQL_BUFFER_READ_START(forkNum, blockNum,
@@ -1035,10 +1035,10 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	if (isLocalBuf)
 	{
 		/*
-		 * We do not use a BufferAccessStrategy for I/O of temporary tables.
-		 * However, in some cases, the "strategy" may not be NULL, so we can't
-		 * rely on IOContextForStrategy() to set the right IOContext for us.
-		 * This may happen in cases like CREATE TEMPORARY TABLE AS...
+		 * 临时表的 I/O 不使用 BufferAccessStrategy。
+		 * 不过有些情形下 strategy 可能不是 NULL，因此我们没法
+		 * 靠 IOContextForStrategy() 为我们设置正确的 IOContext。
+		 * CREATE TEMPORARY TABLE AS... 之类的情形可能如此。
 		 */
 		io_context = IOCONTEXT_NORMAL;
 		io_object = IOOBJECT_TEMP_RELATION;
@@ -1052,8 +1052,8 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	else
 	{
 		/*
-		 * lookup the buffer.  IO_IN_PROGRESS is set if the requested block is
-		 * not currently in memory.
+		 * 查找该缓冲区。若请求的块目前
+		 * 不在内存中，就设置 IO_IN_PROGRESS。
 		 */
 		io_context = IOContextForStrategy(strategy);
 		io_object = IOOBJECT_RELATION;
@@ -1066,12 +1066,12 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 			pgBufferUsage.shared_blks_read++;
 	}
 
-	/* At this point we do NOT hold any locks. */
+	/* 此刻我们不持有任何锁。 */
 
-	/* if it was already in the buffer pool, we're done */
+	/* 若该缓冲区已在缓冲池中，我们就完成了 */
 	if (found)
 	{
-		/* Just need to update stats before we exit */
+		/* 退出前只需更新统计信息 */
 		*hit = true;
 		VacuumPageHit++;
 		pgstat_count_io_op(io_object, io_context, IOOP_HIT);
@@ -1087,8 +1087,8 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 										  found);
 
 		/*
-		 * In RBM_ZERO_AND_LOCK mode the caller expects the page to be locked
-		 * on return.
+		 * 在 RBM_ZERO_AND_LOCK 模式下，调用者预期返回时该页
+		 * 已被锁定。
 		 */
 		if (!isLocalBuf)
 		{
@@ -1103,17 +1103,17 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	}
 
 	/*
-	 * if we have gotten to this point, we have allocated a buffer for the
-	 * page but its contents are not yet valid.  IO_IN_PROGRESS is set for it,
-	 * if it's a shared buffer.
+	 * 若我们到了这一步，已经为该页分配了缓冲区，
+	 * 但其内容尚未有效。若它是共享缓冲区，
+	 * 就为它设置了 IO_IN_PROGRESS。
 	 */
-	Assert(!(pg_atomic_read_u32(&bufHdr->state) & BM_VALID));	/* spinlock not needed */
+	Assert(!(pg_atomic_read_u32(&bufHdr->state) & BM_VALID));	/* 不需要自旋锁 */
 
 	bufBlock = isLocalBuf ? LocalBufHdrGetBlock(bufHdr) : BufHdrGetBlock(bufHdr);
 
 	/*
-	 * Read in the page, unless the caller intends to overwrite it and just
-	 * wants us to allocate a buffer.
+	 * 读入该页，除非调用者打算覆盖它，只是
+	 * 想让我们分配一个缓冲区。
 	 */
 	if (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK)
 		MemSet((char *) bufBlock, 0, BLCKSZ);
@@ -1126,7 +1126,7 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		pgstat_count_io_op_time(io_object, io_context,
 								IOOP_READ, io_start, 1);
 
-		/* check for garbage data */
+		/* 检查垃圾数据 */
 		if (!PageIsVerifiedExtended((Page) bufBlock, blockNum,
 									PIV_LOG_WARNING | PIV_REPORT_STAT))
 		{
@@ -1149,15 +1149,15 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	}
 
 	/*
-	 * In RBM_ZERO_AND_LOCK / RBM_ZERO_AND_CLEANUP_LOCK mode, grab the buffer
-	 * content lock before marking the page as valid, to make sure that no
-	 * other backend sees the zeroed page before the caller has had a chance
-	 * to initialize it.
+	 * 在 RBM_ZERO_AND_LOCK / RBM_ZERO_AND_CLEANUP_LOCK 模式下，在把页标为有效之前
+	 * 先取得缓冲区内容锁，以确保没有
+	 * 其他后端在调用者有机会初始化它之前
+	 * 看到被清零的页。
 	 *
-	 * Since no-one else can be looking at the page contents yet, there is no
-	 * difference between an exclusive lock and a cleanup-strength lock. (Note
-	 * that we cannot use LockBuffer() or LockBufferForCleanup() here, because
-	 * they assert that the buffer is already valid.)
+	 * 由于还没有其他人能查看页内容，排他锁和
+	 * 清理强度的锁没有区别。（注意
+	 * 这里无法使用 LockBuffer() 或 LockBufferForCleanup()，因为
+	 * 它们断言缓冲区已经有效。）
 	 */
 	if ((mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK) &&
 		!isLocalBuf)
@@ -1167,7 +1167,7 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 
 	if (isLocalBuf)
 	{
-		/* Only need to adjust flags */
+		/* 只需调整标志 */
 		uint32		buf_state = pg_atomic_read_u32(&bufHdr->state);
 
 		buf_state |= BM_VALID;
@@ -1175,7 +1175,7 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	}
 	else
 	{
-		/* Set BM_VALID, terminate IO, and wake up any waiters */
+		/* 设置 BM_VALID，结束 IO，并唤醒任何等待者 */
 		TerminateBufferIO(bufHdr, false, BM_VALID);
 	}
 
@@ -1194,27 +1194,27 @@ ReadBuffer_common(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 }
 
 /*
- * BufferAlloc -- subroutine for ReadBuffer.  Handles lookup of a shared
- *		buffer.  If no buffer exists already, selects a replacement
- *		victim and evicts the old page, but does NOT read in new page.
+ * BufferAlloc -- ReadBuffer 的子例程。处理共享
+ *		缓冲区的查找。若尚不存在缓冲区，就选择一个替换
+ *		牺牲者并逐出旧页，但不读入新页。
  *
- * "strategy" can be a buffer replacement strategy object, or NULL for
- * the default strategy.  The selected buffer's usage_count is advanced when
- * using the default strategy, but otherwise possibly not (see PinBuffer).
+ * strategy 可以是缓冲区替换策略对象，或者对
+ * 默认策略为 NULL。使用默认策略时，所选缓冲区的 usage_count 会前进，
+ * 否则可能不会（见 PinBuffer）。
  *
- * The returned buffer is pinned and is already marked as holding the
- * desired page.  If it already did have the desired page, *foundPtr is
- * set true.  Otherwise, *foundPtr is set false and the buffer is marked
- * as IO_IN_PROGRESS; ReadBuffer will now need to do I/O to fill it.
+ * 返回的缓冲区已被钉住，并已被标为持有
+ * 想要的页。若它本来就有想要的页，*foundPtr 被
+ * 设为真。否则 *foundPtr 被设为假，并且缓冲区被标为
+ * IO_IN_PROGRESS；ReadBuffer 现在需要做 I/O 来填充它。
  *
- * *foundPtr is actually redundant with the buffer's BM_VALID flag, but
- * we keep it for simplicity in ReadBuffer.
+ * *foundPtr 实际上与缓冲区的 BM_VALID 标志重复，但
+ * 我们为了 ReadBuffer 里的简单而保留它。
  *
- * io_context is passed as an output parameter to avoid calling
- * IOContextForStrategy() when there is a shared buffers hit and no IO
- * statistics need be captured.
+ * 把 io_context 作为输出参数传递，以便在共享缓冲区命中且
+ * 不必采集 IO 统计信息时，避免调用
+ * IOContextForStrategy()。
  *
- * No locks are held either at entry or exit.
+ * 入口和出口都不持有锁。
  */
 static BufferDesc *
 BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
@@ -1222,22 +1222,22 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 			BufferAccessStrategy strategy,
 			bool *foundPtr, IOContext io_context)
 {
-	BufferTag	newTag;			/* identity of requested block */
-	uint32		newHash;		/* hash value for newTag */
-	LWLock	   *newPartitionLock;	/* buffer partition lock for it */
+	BufferTag	newTag;			/* 所请求块的标识 */
+	uint32		newHash;		/* newTag 的散列值 */
+	LWLock	   *newPartitionLock;	/* 它的缓冲区分区锁 */
 	int			existing_buf_id;
 	Buffer		victim_buffer;
 	BufferDesc *victim_buf_hdr;
 	uint32		victim_buf_state;
 
-	/* create a tag so we can lookup the buffer */
+	/* 创建一个标签，以便查找该缓冲区 */
 	InitBufferTag(&newTag, &smgr->smgr_rlocator.locator, forkNum, blockNum);
 
-	/* determine its hash code and partition lock ID */
+	/* 确定它的散列码和分区锁标识 */
 	newHash = BufTableHashCode(&newTag);
 	newPartitionLock = BufMappingPartitionLock(newHash);
 
-	/* see if the block is in the buffer pool already */
+	/* 看该块的缓冲区是否已在缓冲池中 */
 	LWLockAcquire(newPartitionLock, LW_SHARED);
 	existing_buf_id = BufTableLookup(&newTag, newHash);
 	if (existing_buf_id >= 0)
@@ -1246,15 +1246,15 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		bool		valid;
 
 		/*
-		 * Found it.  Now, pin the buffer so no one can steal it from the
-		 * buffer pool, and check to see if the correct data has been loaded
-		 * into the buffer.
+		 * 找到了。现在钉住该缓冲区，以免有人把它从
+		 * 缓冲池里偷走，并检查正确的数据是否已装入
+		 * 该缓冲区。
 		 */
 		buf = GetBufferDescriptor(existing_buf_id);
 
 		valid = PinBuffer(buf, strategy);
 
-		/* Can release the mapping lock as soon as we've pinned it */
+		/* 一旦钉住它，就可以释放映射锁 */
 		LWLockRelease(newPartitionLock);
 
 		*foundPtr = true;
@@ -1262,17 +1262,17 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		if (!valid)
 		{
 			/*
-			 * We can only get here if (a) someone else is still reading in
-			 * the page, or (b) a previous read attempt failed.  We have to
-			 * wait for any active read attempt to finish, and then set up our
-			 * own read attempt if the page is still not BM_VALID.
-			 * StartBufferIO does it all.
+			 * 我们只有在 (a) 别人仍在读入
+			 * 该页，或 (b) 先前的读尝试失败时才能到这里。我们必须
+			 * 等待任何进行中的读尝试结束，然后若该页仍不是 BM_VALID，
+			 * 就安排我们自己的读尝试。
+			 * StartBufferIO 把这些都做了。
 			 */
 			if (StartBufferIO(buf, true))
 			{
 				/*
-				 * If we get here, previous attempts to read the buffer must
-				 * have failed ... but we shall bravely try again.
+				 * 若我们到了这里，先前读取该缓冲区的尝试必定
+				 * 已经失败……但我们将勇敢地重试。
 				 */
 				*foundPtr = false;
 			}
@@ -1282,23 +1282,23 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	}
 
 	/*
-	 * Didn't find it in the buffer pool.  We'll have to initialize a new
-	 * buffer.  Remember to unlock the mapping lock while doing the work.
+	 * 在缓冲池里没找到它。我们必须初始化一个新
+	 * 缓冲区。做这项工作时记得解开映射锁。
 	 */
 	LWLockRelease(newPartitionLock);
 
 	/*
-	 * Acquire a victim buffer. Somebody else might try to do the same, we
-	 * don't hold any conflicting locks. If so we'll have to undo our work
-	 * later.
+	 * 取得一个牺牲缓冲区。别人可能也想做同样的事，我们
+	 * 不持有任何冲突的锁。若如此，我们稍后得撤销
+	 * 自己的工作。
 	 */
 	victim_buffer = GetVictimBuffer(strategy, io_context);
 	victim_buf_hdr = GetBufferDescriptor(victim_buffer - 1);
 
 	/*
-	 * Try to make a hashtable entry for the buffer under its new tag. If
-	 * somebody else inserted another buffer for the tag, we'll release the
-	 * victim buffer we acquired and use the already inserted one.
+	 * 试图用新标签为该缓冲区做一条散列表项。若
+	 * 别人已经为该标签插入了另一个缓冲区，我们就释放
+	 * 取得的牺牲缓冲区，改用已经插入的那个。
 	 */
 	LWLockAcquire(newPartitionLock, LW_EXCLUSIVE);
 	existing_buf_id = BufTableInsert(&newTag, newHash, victim_buf_hdr->buf_id);
@@ -1308,31 +1308,31 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		bool		valid;
 
 		/*
-		 * Got a collision. Someone has already done what we were about to do.
-		 * We'll just handle this as if it were found in the buffer pool in
-		 * the first place.  First, give up the buffer we were planning to
-		 * use.
+		 * 发生了冲突。别人已经做了我们正要做的事。
+		 * 我们就把它当作一开始就在缓冲池里
+		 * 找到的来处理。首先，放弃我们原本打算
+		 * 使用的缓冲区。
 		 *
-		 * We could do this after releasing the partition lock, but then we'd
-		 * have to call ResourceOwnerEnlargeBuffers() &
-		 * ReservePrivateRefCountEntry() before acquiring the lock, for the
-		 * rare case of such a collision.
+		 * 我们可以在释放分区锁之后做这件事，但那样我们就得
+		 * 在取得锁之前调用 ResourceOwnerEnlargeBuffers() 和
+		 * ReservePrivateRefCountEntry()，以应对
+		 * 这种少见的冲突。
 		 */
 		UnpinBuffer(victim_buf_hdr);
 
 		/*
-		 * The victim buffer we acquired previously is clean and unused, let
-		 * it be found again quickly
+		 * 我们先前取得的牺牲缓冲区是干净且未使用的，让
+		 * 它能很快被再次找到
 		 */
 		StrategyFreeBuffer(victim_buf_hdr);
 
-		/* remaining code should match code at top of routine */
+		/* 其余代码应当与例程顶部的代码匹配 */
 
 		existing_buf_hdr = GetBufferDescriptor(existing_buf_id);
 
 		valid = PinBuffer(existing_buf_hdr, strategy);
 
-		/* Can release the mapping lock as soon as we've pinned it */
+		/* 一旦钉住它，就可以释放映射锁 */
 		LWLockRelease(newPartitionLock);
 
 		*foundPtr = true;
@@ -1340,17 +1340,17 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 		if (!valid)
 		{
 			/*
-			 * We can only get here if (a) someone else is still reading in
-			 * the page, or (b) a previous read attempt failed.  We have to
-			 * wait for any active read attempt to finish, and then set up our
-			 * own read attempt if the page is still not BM_VALID.
-			 * StartBufferIO does it all.
+			 * 我们只有在 (a) 别人仍在读入
+			 * 该页，或 (b) 先前的读尝试失败时才能到这里。我们必须
+			 * 等待任何进行中的读尝试结束，然后若该页仍不是 BM_VALID，
+			 * 就安排我们自己的读尝试。
+			 * StartBufferIO 把这些都做了。
 			 */
 			if (StartBufferIO(existing_buf_hdr, true))
 			{
 				/*
-				 * If we get here, previous attempts to read the buffer must
-				 * have failed ... but we shall bravely try again.
+				 * 若我们到了这里，先前读取该缓冲区的尝试必定
+				 * 已经失败……但我们将勇敢地重试。
 				 */
 				*foundPtr = false;
 			}
@@ -1360,21 +1360,21 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	}
 
 	/*
-	 * Need to lock the buffer header too in order to change its tag.
+	 * 为了改它的标签，也需要锁住缓冲区描述符。
 	 */
 	victim_buf_state = LockBufHdr(victim_buf_hdr);
 
-	/* some sanity checks while we hold the buffer header lock */
+	/* 持有缓冲区描述符锁时做一些健全性检查 */
 	Assert(BUF_STATE_GET_REFCOUNT(victim_buf_state) == 1);
 	Assert(!(victim_buf_state & (BM_TAG_VALID | BM_VALID | BM_DIRTY | BM_IO_IN_PROGRESS)));
 
 	victim_buf_hdr->tag = newTag;
 
 	/*
-	 * Make sure BM_PERMANENT is set for buffers that must be written at every
-	 * checkpoint.  Unlogged buffers only need to be written at shutdown
-	 * checkpoints, except for their "init" forks, which need to be treated
-	 * just like permanent relations.
+	 * 确保对每次检查点都必须写出的缓冲区设置 BM_PERMANENT。
+	 * 未日志记录的缓冲区只需要在关闭
+	 * 检查点时写出，但其 init 分叉除外，那些需要被当作
+	 * 与永久关系一样。
 	 */
 	victim_buf_state |= BM_TAG_VALID | BUF_USAGECOUNT_ONE;
 	if (relpersistence == RELPERSISTENCE_PERMANENT || forkNum == INIT_FORKNUM)
@@ -1385,10 +1385,10 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 	LWLockRelease(newPartitionLock);
 
 	/*
-	 * Buffer contents are currently invalid.  Try to obtain the right to
-	 * start I/O.  If StartBufferIO returns false, then someone else managed
-	 * to read it before we did, so there's nothing left for BufferAlloc() to
-	 * do.
+	 * 缓冲区内容目前无效。试图取得开始
+	 * I/O 的权利。若 StartBufferIO 返回假，则别人赶在
+	 * 我们之前把它读了进来，因此 BufferAlloc() 就
+	 * 无事可做了。
 	 */
 	if (StartBufferIO(victim_buf_hdr, true))
 		*foundPtr = false;
@@ -1399,32 +1399,32 @@ BufferAlloc(SMgrRelation smgr, char relpersistence, ForkNumber forkNum,
 }
 
 /*
- * InvalidateBuffer -- mark a shared buffer invalid and return it to the
- * freelist.
+ * InvalidateBuffer -- 把共享缓冲区标为无效，并把它放回
+ * 空闲链表。
  *
- * The buffer header spinlock must be held at entry.  We drop it before
- * returning.  (This is sane because the caller must have locked the
- * buffer in order to be sure it should be dropped.)
+ * 入口时必须持有缓冲区描述符自旋锁。我们在
+ * 返回前放下它。（这是合理的，因为调用者必须已经锁住
+ * 该缓冲区，才能确定它应当被丢掉。）
  *
- * This is used only in contexts such as dropping a relation.  We assume
- * that no other backend could possibly be interested in using the page,
- * so the only reason the buffer might be pinned is if someone else is
- * trying to write it out.  We have to let them finish before we can
- * reclaim the buffer.
+ * 这只用于丢掉关系之类的情形。我们假定
+ * 不可能有其他后端有兴趣使用该页，
+ * 因此该缓冲区被钉住的唯一原因是别人
+ * 正试图把它写出。我们必须让他们完成，然后才能
+ * 收回该缓冲区。
  *
- * The buffer could get reclaimed by someone else while we are waiting
- * to acquire the necessary locks; if so, don't mess it up.
+ * 我们等待取得必要的锁时，该缓冲区可能被别人
+ * 收回；若如此，就不要把它弄乱。
  */
 static void
 InvalidateBuffer(BufferDesc *buf)
 {
 	BufferTag	oldTag;
-	uint32		oldHash;		/* hash value for oldTag */
-	LWLock	   *oldPartitionLock;	/* buffer partition lock for it */
+	uint32		oldHash;		/* oldTag 的散列值 */
+	LWLock	   *oldPartitionLock;	/* 它的缓冲区分区锁 */
 	uint32		oldFlags;
 	uint32		buf_state;
 
-	/* Save the original buffer tag before dropping the spinlock */
+	/* 在放下自旋锁之前保存原来的缓冲区标签 */
 	oldTag = buf->tag;
 
 	buf_state = pg_atomic_read_u32(&buf->state);
@@ -1432,9 +1432,9 @@ InvalidateBuffer(BufferDesc *buf)
 	UnlockBufHdr(buf, buf_state);
 
 	/*
-	 * Need to compute the old tag's hashcode and partition lock ID. XXX is it
-	 * worth storing the hashcode in BufferDesc so we need not recompute it
-	 * here?  Probably not.
+	 * 需要计算旧标签的散列码和分区锁标识。XXX 把散列码存在
+	 * BufferDesc 里、免得在这里重算，是否
+	 * 值得？大概不值得。
 	 */
 	oldHash = BufTableHashCode(&oldTag);
 	oldPartitionLock = BufMappingPartitionLock(oldHash);
@@ -1442,15 +1442,15 @@ InvalidateBuffer(BufferDesc *buf)
 retry:
 
 	/*
-	 * Acquire exclusive mapping lock in preparation for changing the buffer's
-	 * association.
+	 * 取得排他映射锁，为改变该缓冲区的
+	 * 关联做准备。
 	 */
 	LWLockAcquire(oldPartitionLock, LW_EXCLUSIVE);
 
-	/* Re-lock the buffer header */
+	/* 重新锁住缓冲区描述符 */
 	buf_state = LockBufHdr(buf);
 
-	/* If it's changed while we were waiting for lock, do nothing */
+	/* 若我们等锁时它变了，就什么也不做 */
 	if (!BufferTagsEqual(&buf->tag, &oldTag))
 	{
 		UnlockBufHdr(buf, buf_state);
@@ -1471,7 +1471,7 @@ retry:
 	{
 		UnlockBufHdr(buf, buf_state);
 		LWLockRelease(oldPartitionLock);
-		/* safety check: should definitely not be our *own* pin */
+		/* 安全检查：肯定不应当是我们自己的钉住 */
 		if (GetPrivateRefCount(BufferDescriptorGetBuffer(buf)) > 0)
 			elog(ERROR, "buffer is pinned in InvalidateBuffer");
 		WaitIO(buf);
@@ -1479,8 +1479,8 @@ retry:
 	}
 
 	/*
-	 * Clear out the buffer's tag and flags.  We must do this to ensure that
-	 * linear scans of the buffer array don't think the buffer is valid.
+	 * 清掉该缓冲区的标签和标志。我们必须这样做，以确保
+	 * 对缓冲区数组的线性扫描不会认为该缓冲区有效。
 	 */
 	oldFlags = buf_state & BUF_FLAG_MASK;
 	ClearBufferTag(&buf->tag);
@@ -1488,30 +1488,30 @@ retry:
 	UnlockBufHdr(buf, buf_state);
 
 	/*
-	 * Remove the buffer from the lookup hashtable, if it was in there.
+	 * 若该缓冲区在查找散列表里，就把它去掉。
 	 */
 	if (oldFlags & BM_TAG_VALID)
 		BufTableDelete(&oldTag, oldHash);
 
 	/*
-	 * Done with mapping lock.
+	 * 映射锁用完了。
 	 */
 	LWLockRelease(oldPartitionLock);
 
 	/*
-	 * Insert the buffer at the head of the list of free buffers.
+	 * 把该缓冲区插到空闲缓冲区链表的头部。
 	 */
 	StrategyFreeBuffer(buf);
 }
 
 /*
- * Helper routine for GetVictimBuffer()
+ * GetVictimBuffer() 的辅助例程。
  *
- * Needs to be called on a buffer with a valid tag, pinned, but without the
- * buffer header spinlock held.
+ * 需要对一个标签有效、已钉住、但未持有
+ * 缓冲区描述符自旋锁的缓冲区调用。
  *
- * Returns true if the buffer can be reused, in which case the buffer is only
- * pinned by this backend and marked as invalid, false otherwise.
+ * 若该缓冲区可以重用就返回真，此时它只被
+ * 本后端钉住并被标为无效，否则返回假。
  */
 static bool
 InvalidateVictimBuffer(BufferDesc *buf_hdr)
@@ -1523,7 +1523,7 @@ InvalidateVictimBuffer(BufferDesc *buf_hdr)
 
 	Assert(GetPrivateRefCount(BufferDescriptorGetBuffer(buf_hdr)) == 1);
 
-	/* have buffer pinned, so it's safe to read tag without lock */
+	/* 缓冲区已被钉住，因此不持锁读标签是安全的 */
 	tag = buf_hdr->tag;
 
 	hash = BufTableHashCode(&tag);
@@ -1531,20 +1531,20 @@ InvalidateVictimBuffer(BufferDesc *buf_hdr)
 
 	LWLockAcquire(partition_lock, LW_EXCLUSIVE);
 
-	/* lock the buffer header */
+	/* 锁住缓冲区描述符 */
 	buf_state = LockBufHdr(buf_hdr);
 
 	/*
-	 * We have the buffer pinned nobody else should have been able to unset
-	 * this concurrently.
+	 * 我们已经钉住该缓冲区，别人应当无法同时把
+	 * 这一点清掉。
 	 */
 	Assert(buf_state & BM_TAG_VALID);
 	Assert(BUF_STATE_GET_REFCOUNT(buf_state) > 0);
 	Assert(BufferTagsEqual(&buf_hdr->tag, &tag));
 
 	/*
-	 * If somebody else pinned the buffer since, or even worse, dirtied it,
-	 * give up on this buffer: It's clearly in use.
+	 * 若此后别人钉住了该缓冲区，或者更糟，把它弄成脏页，
+	 * 就放弃这个缓冲区：它显然在使用中。
 	 */
 	if (BUF_STATE_GET_REFCOUNT(buf_state) != 1 || (buf_state & BM_DIRTY))
 	{
@@ -1557,11 +1557,11 @@ InvalidateVictimBuffer(BufferDesc *buf_hdr)
 	}
 
 	/*
-	 * Clear out the buffer's tag and flags and usagecount.  This is not
-	 * strictly required, as BM_TAG_VALID/BM_VALID needs to be checked before
-	 * doing anything with the buffer. But currently it's beneficial, as the
-	 * cheaper pre-check for several linear scans of shared buffers use the
-	 * tag (see e.g. FlushDatabaseBuffers()).
+	 * 清掉该缓冲区的标签、标志和使用计数。这并非
+	 * 严格必须，因为做任何事之前都要检查 BM_TAG_VALID/BM_VALID。
+	 * 但目前这样做有好处，因为对共享缓冲区的几次线性扫描，
+	 * 较便宜的预检查使用该标签
+	 * （例如见 FlushDatabaseBuffers()）。
 	 */
 	ClearBufferTag(&buf_hdr->tag);
 	buf_state &= ~(BUF_FLAG_MASK | BUF_USAGECOUNT_MASK);
@@ -1569,7 +1569,7 @@ InvalidateVictimBuffer(BufferDesc *buf_hdr)
 
 	Assert(BUF_STATE_GET_REFCOUNT(buf_state) > 0);
 
-	/* finally delete buffer from the buffer mapping table */
+	/* 最后从缓冲区映射表中删除该缓冲区 */
 	BufTableDelete(&tag, hash);
 
 	LWLockRelease(partition_lock);
@@ -1590,38 +1590,38 @@ GetVictimBuffer(BufferAccessStrategy strategy, IOContext io_context)
 	bool		from_ring;
 
 	/*
-	 * Ensure, while the spinlock's not yet held, that there's a free refcount
-	 * entry.
+	 * 在尚未持有自旋锁时，确保有一个空闲的引用计数
+	 * 项。
 	 */
 	ReservePrivateRefCountEntry();
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
-	/* we return here if a prospective victim buffer gets used concurrently */
+	/* 若预期的牺牲缓冲区被并发使用，我们就返回到这里 */
 again:
 
 	/*
-	 * Select a victim buffer.  The buffer is returned with its header
-	 * spinlock still held!
+	 * 选择一个牺牲缓冲区。返回时其描述符
+	 * 自旋锁仍然持有！
 	 */
 	buf_hdr = StrategyGetBuffer(strategy, &buf_state, &from_ring);
 	buf = BufferDescriptorGetBuffer(buf_hdr);
 
 	Assert(BUF_STATE_GET_REFCOUNT(buf_state) == 0);
 
-	/* Pin the buffer and then release the buffer spinlock */
+	/* 钉住该缓冲区，然后释放缓冲区自旋锁 */
 	PinBuffer_Locked(buf_hdr);
 
 	/*
-	 * We shouldn't have any other pins for this buffer.
+	 * 我们不应当对该缓冲区还有任何其他钉住。
 	 */
 	CheckBufferIsPinnedOnce(buf);
 
 	/*
-	 * If the buffer was dirty, try to write it out.  There is a race
-	 * condition here, in that someone might dirty it after we released the
-	 * buffer header lock above, or even while we are writing it out (since
-	 * our share-lock won't prevent hint-bit updates).  We will recheck the
-	 * dirty bit after re-locking the buffer header.
+	 * 若该缓冲区是脏页，就试图把它写出。这里有一个竞态，
+	 * 别人可能在我们上面释放缓冲区描述符锁之后把它弄脏，
+	 * 甚至在我们写出它时也如此（因为
+	 * 我们的共享锁不能阻止提示位更新）。重新锁住缓冲区描述符后，
+	 * 我们会重新检查脏位。
 	 */
 	if (buf_state & BM_DIRTY)
 	{
@@ -1631,42 +1631,42 @@ again:
 		Assert(buf_state & BM_VALID);
 
 		/*
-		 * We need a share-lock on the buffer contents to write it out (else
-		 * we might write invalid data, eg because someone else is compacting
-		 * the page contents while we write).  We must use a conditional lock
-		 * acquisition here to avoid deadlock.  Even though the buffer was not
-		 * pinned (and therefore surely not locked) when StrategyGetBuffer
-		 * returned it, someone else could have pinned and exclusive-locked it
-		 * by the time we get here. If we try to get the lock unconditionally,
-		 * we'd block waiting for them; if they later block waiting for us,
-		 * deadlock ensues. (This has been observed to happen when two
-		 * backends are both trying to split btree index pages, and the second
-		 * one just happens to be trying to split the page the first one got
-		 * from StrategyGetBuffer.)
+		 * 我们需要缓冲区内容上的共享锁才能把它写出（否则
+		 * 我们可能写出无效数据，例如因为别人在我们写的时候
+		 * 正在压缩页内容）。这里必须使用条件锁
+		 * 获取，以避免死锁。即使 StrategyGetBuffer
+		 * 返回它时该缓冲区未被钉住（因而肯定未锁定），
+		 * 别人也可能在我们到达这里之前已经钉住并排他锁定了它。
+		 * 若我们无条件地试图取得锁，
+		 * 我们就会阻塞等待他们；若他们稍后阻塞等待我们，
+		 * 就会死锁。（已经观察到两个
+		 * 后端都试图分裂 B 树索引页时发生这种情况，而第二个
+		 * 恰好试图分裂第一个从
+		 * StrategyGetBuffer 得到的那一页。）
 		 */
 		content_lock = BufferDescriptorGetContentLock(buf_hdr);
 		if (!LWLockConditionalAcquire(content_lock, LW_SHARED))
 		{
 			/*
-			 * Someone else has locked the buffer, so give it up and loop back
-			 * to get another one.
+			 * 别人已经锁住了该缓冲区，因此放弃它并循环回去
+			 * 再取一个。
 			 */
 			UnpinBuffer(buf_hdr);
 			goto again;
 		}
 
 		/*
-		 * If using a nondefault strategy, and writing the buffer would
-		 * require a WAL flush, let the strategy decide whether to go ahead
-		 * and write/reuse the buffer or to choose another victim.  We need a
-		 * lock to inspect the page LSN, so this can't be done inside
-		 * StrategyGetBuffer.
+		 * 若使用非默认策略，且写出该缓冲区会
+		 * 需要一次 WAL 刷写，就让策略决定是继续
+		 * 写出并重用该缓冲区，还是另选一个牺牲者。我们需要
+		 * 锁才能查看页的 LSN，因此这不能在
+		 * StrategyGetBuffer 内部完成。
 		 */
 		if (strategy != NULL)
 		{
 			XLogRecPtr	lsn;
 
-			/* Read the LSN while holding buffer header lock */
+			/* 持有缓冲区描述符锁时读取 LSN */
 			buf_state = LockBufHdr(buf_hdr);
 			lsn = BufferGetLSN(buf_hdr);
 			UnlockBufHdr(buf_hdr, buf_state);
@@ -1680,7 +1680,7 @@ again:
 			}
 		}
 
-		/* OK, do the I/O */
+		/* 好，做 I/O */
 		FlushBuffer(buf_hdr, NULL, IOOBJECT_RELATION, io_context);
 		LWLockRelease(content_lock);
 
@@ -1692,29 +1692,29 @@ again:
 	if (buf_state & BM_VALID)
 	{
 		/*
-		 * When a BufferAccessStrategy is in use, blocks evicted from shared
-		 * buffers are counted as IOOP_EVICT in the corresponding context
-		 * (e.g. IOCONTEXT_BULKWRITE). Shared buffers are evicted by a
-		 * strategy in two cases: 1) while initially claiming buffers for the
-		 * strategy ring 2) to replace an existing strategy ring buffer
-		 * because it is pinned or in use and cannot be reused.
+		 * 使用 BufferAccessStrategy 时，从共享
+		 * 缓冲区逐出的块在相应上下文里按 IOOP_EVICT 计数
+		 * （例如 IOCONTEXT_BULKWRITE）。策略在两种情况下逐出共享缓冲区：
+		 * 1) 最初为策略环认领缓冲区时
+		 * 2) 替换已有的策略环缓冲区，
+		 * 因为它被钉住或正在使用而无法重用。
 		 *
-		 * Blocks evicted from buffers already in the strategy ring are
-		 * counted as IOOP_REUSE in the corresponding strategy context.
+		 * 从已经在策略环里的缓冲区逐出的块，
+		 * 在相应策略上下文里按 IOOP_REUSE 计数。
 		 *
-		 * At this point, we can accurately count evictions and reuses,
-		 * because we have successfully claimed the valid buffer. Previously,
-		 * we may have been forced to release the buffer due to concurrent
-		 * pinners or erroring out.
+		 * 到这一步，我们可以准确地统计逐出和重用，
+		 * 因为我们已经成功认领了有效缓冲区。此前，
+		 * 我们可能因并发的钉住者或出错而被迫
+		 * 释放该缓冲区。
 		 */
 		pgstat_count_io_op(IOOBJECT_RELATION, io_context,
 						   from_ring ? IOOP_REUSE : IOOP_EVICT);
 	}
 
 	/*
-	 * If the buffer has an entry in the buffer mapping table, delete it. This
-	 * can fail because another backend could have pinned or dirtied the
-	 * buffer.
+	 * 若该缓冲区在缓冲区映射表里有项，就删掉它。这
+	 * 可能失败，因为另一个后端可能已经钉住或把它弄成脏页
+	 * 了。
 	 */
 	if ((buf_state & BM_TAG_VALID) && !InvalidateVictimBuffer(buf_hdr))
 	{
@@ -1722,7 +1722,7 @@ again:
 		goto again;
 	}
 
-	/* a final set of sanity checks */
+	/* 最后一组健全性检查 */
 #ifdef USE_ASSERT_CHECKING
 	buf_state = pg_atomic_read_u32(&buf_hdr->state);
 
@@ -1736,16 +1736,16 @@ again:
 }
 
 /*
- * Limit the number of pins a batch operation may additionally acquire, to
- * avoid running out of pinnable buffers.
+ * 限制一次批量操作可以额外取得的钉住数量，以免
+ * 用尽可钉住的缓冲区。
  *
- * One additional pin is always allowed, as otherwise the operation likely
- * cannot be performed at all.
+ * 始终允许再多一个钉住，否则该操作很可能
+ * 根本无法执行。
  *
- * The number of allowed pins for a backend is computed based on
- * shared_buffers and the maximum number of connections possible. That's very
- * pessimistic, but outside of toy-sized shared_buffers it should allow
- * sufficient pins.
+ * 一个后端允许的钉住数根据
+ * shared_buffers 和可能的最大连接数计算。这非常
+ * 悲观，但在玩具大小的 shared_buffers 之外，它应当允许
+ * 足够的钉住。
  */
 static void
 LimitAdditionalPins(uint32 *additional_pins)
@@ -1760,10 +1760,10 @@ LimitAdditionalPins(uint32 *additional_pins)
 	max_proportional_pins = NBuffers / max_backends;
 
 	/*
-	 * Subtract the approximate number of buffers already pinned by this
-	 * backend. We get the number of "overflowed" pins for free, but don't
-	 * know the number of pins in PrivateRefCountArray. The cost of
-	 * calculating that exactly doesn't seem worth it, so just assume the max.
+	 * 减去本后端已经钉住的缓冲区的大致数量。
+	 * 溢出的钉住数我们可以免费得到，但不知道
+	 * PrivateRefCountArray 里的钉住数。精确
+	 * 计算它的代价似乎不值得，因此就假定最大值。
 	 */
 	max_proportional_pins -= PrivateRefCountOverflowed + REFCOUNT_ARRAY_ENTRIES;
 
@@ -1775,8 +1775,8 @@ LimitAdditionalPins(uint32 *additional_pins)
 }
 
 /*
- * Logic shared between ExtendBufferedRelBy(), ExtendBufferedRelTo(). Just to
- * avoid duplicating the tracing and relpersistence related logic.
+ * ExtendBufferedRelBy() 与 ExtendBufferedRelTo() 之间共享的逻辑。只是为了
+ * 避免重复跟踪和 relpersistence 相关的逻辑。
  */
 static BlockNumber
 ExtendBufferedRelCommon(BufferManagerRelation bmr,
@@ -1819,8 +1819,8 @@ ExtendBufferedRelCommon(BufferManagerRelation bmr,
 }
 
 /*
- * Implementation of ExtendBufferedRelBy() and ExtendBufferedRelTo() for
- * shared buffers.
+ * ExtendBufferedRelBy() 和 ExtendBufferedRelTo() 对
+ * 共享缓冲区的实现。
  */
 static BlockNumber
 ExtendBufferedRelShared(BufferManagerRelation bmr,
@@ -1839,14 +1839,14 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 	LimitAdditionalPins(&extend_by);
 
 	/*
-	 * Acquire victim buffers for extension without holding extension lock.
-	 * Writing out victim buffers is the most expensive part of extending the
-	 * relation, particularly when doing so requires WAL flushes. Zeroing out
-	 * the buffers is also quite expensive, so do that before holding the
-	 * extension lock as well.
+	 * 不持有扩展锁就为扩展取得牺牲缓冲区。
+	 * 写出牺牲缓冲区是扩展关系最贵的部分，
+	 * 尤其是当这样做需要 WAL 刷写时。把缓冲区
+	 * 清零也很贵，因此也在持有
+	 * 扩展锁之前做。
 	 *
-	 * These pages are pinned by us and not valid. While we hold the pin they
-	 * can't be acquired as victim buffers by another backend.
+	 * 这些页由我们钉住且无效。我们持有钉住期间，
+	 * 它们不能被另一个后端当作牺牲缓冲区取得。
 	 */
 	for (uint32 i = 0; i < extend_by; i++)
 	{
@@ -1855,22 +1855,22 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 		buffers[i] = GetVictimBuffer(strategy, io_context);
 		buf_block = BufHdrGetBlock(GetBufferDescriptor(buffers[i] - 1));
 
-		/* new buffers are zero-filled */
+		/* 新缓冲区用零填充 */
 		MemSet((char *) buf_block, 0, BLCKSZ);
 	}
 
-	/* in case we need to pin an existing buffer below */
+	/* 以防下面需要钉住一个已有缓冲区 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	/*
-	 * Lock relation against concurrent extensions, unless requested not to.
+	 * 对关系加锁以防止并发扩展，除非请求不要这样做。
 	 *
-	 * We use the same extension lock for all forks. That's unnecessarily
-	 * restrictive, but currently extensions for forks don't happen often
-	 * enough to make it worth locking more granularly.
+	 * 所有分叉我们使用同一把扩展锁。这不必要地
+	 * 有限制，但目前分叉的扩展发生得不够
+	 * 频繁，不值得更细地加锁。
 	 *
-	 * Note that another backend might have extended the relation by the time
-	 * we get the lock.
+	 * 注意，我们取得锁时，另一个后端可能已经
+	 * 扩展了该关系。
 	 */
 	if (!(flags & EB_SKIP_EXTENSION_LOCK))
 	{
@@ -1880,8 +1880,8 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 	}
 
 	/*
-	 * If requested, invalidate size cache, so that smgrnblocks asks the
-	 * kernel.
+	 * 若有请求，就使大小缓存失效，以便 smgrnblocks 去问
+	 * 内核。
 	 */
 	if (flags & EB_CLEAR_SIZE_CACHE)
 		bmr.smgr->smgr_cached_nblocks[fork] = InvalidBlockNumber;
@@ -1889,10 +1889,10 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 	first_block = smgrnblocks(bmr.smgr, fork);
 
 	/*
-	 * Now that we have the accurate relation size, check if the caller wants
-	 * us to extend to only up to a specific size. If there were concurrent
-	 * extensions, we might have acquired too many buffers and need to release
-	 * them.
+	 * 既然我们有了准确的关系大小，就检查调用者是否只想
+	 * 让我们扩展到某个特定大小。若有并发
+	 * 扩展，我们可能取得了过多的缓冲区，需要释放
+	 * 它们。
 	 */
 	if (extend_upto != InvalidBlockNumber)
 	{
@@ -1908,8 +1908,8 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 			BufferDesc *buf_hdr = GetBufferDescriptor(buffers[i] - 1);
 
 			/*
-			 * The victim buffer we acquired previously is clean and unused,
-			 * let it be found again quickly
+			 * 我们先前取得的牺牲缓冲区是干净且未使用的，
+			 * 让它能很快被再次找到
 			 */
 			StrategyFreeBuffer(buf_hdr);
 			UnpinBuffer(buf_hdr);
@@ -1924,7 +1924,7 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 		}
 	}
 
-	/* Fail if relation is already at maximum possible length */
+	/* 若关系已经达到最大可能长度就失败 */
 	if ((uint64) first_block + extend_by >= MaxBlockNumber)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -1933,10 +1933,10 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 						MaxBlockNumber)));
 
 	/*
-	 * Insert buffers into buffer table, mark as IO_IN_PROGRESS.
+	 * 把缓冲区插入缓冲区表，并标为 IO_IN_PROGRESS。
 	 *
-	 * This needs to happen before we extend the relation, because as soon as
-	 * we do, other backends can start to read in those pages.
+	 * 这必须在我们扩展关系之前发生，因为一旦
+	 * 我们扩展，其他后端就可以开始读入那些页。
 	 */
 	for (int i = 0; i < extend_by; i++)
 	{
@@ -1956,18 +1956,18 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 		existing_id = BufTableInsert(&tag, hash, victim_buf_hdr->buf_id);
 
 		/*
-		 * We get here only in the corner case where we are trying to extend
-		 * the relation but we found a pre-existing buffer. This can happen
-		 * because a prior attempt at extending the relation failed, and
-		 * because mdread doesn't complain about reads beyond EOF (when
-		 * zero_damaged_pages is ON) and so a previous attempt to read a block
-		 * beyond EOF could have left a "valid" zero-filled buffer.
-		 * Unfortunately, we have also seen this case occurring because of
-		 * buggy Linux kernels that sometimes return an lseek(SEEK_END) result
-		 * that doesn't account for a recent write. In that situation, the
-		 * pre-existing buffer would contain valid data that we don't want to
-		 * overwrite.  Since the legitimate cases should always have left a
-		 * zero-filled buffer, complain if not PageIsNew.
+		 * 我们只在试图扩展
+		 * 关系却发现已有缓冲区这一角落情形才到这里。这可能发生，
+		 * 因为先前扩展关系的尝试失败了，并且
+		 * mdread 对超出 EOF 的读不抱怨（当
+		 * zero_damaged_pages 为 ON 时），因此先前试图读取超出
+		 * EOF 的块可能留下一个有效的零填充缓冲区。
+		 * 不幸的是，我们也见过这种情况，因为
+		 * 有缺陷的 Linux 内核有时返回的 lseek(SEEK_END) 结果
+		 * 没有计入最近的写。在那种情况下，
+		 * 已有缓冲区会含有我们不想
+		 * 覆盖的有效数据。由于合法情形应当总是留下
+		 * 零填充的缓冲区，若不是 PageIsNew 就抱怨。
 		 */
 		if (existing_id >= 0)
 		{
@@ -1976,16 +1976,16 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 			bool		valid;
 
 			/*
-			 * Pin the existing buffer before releasing the partition lock,
-			 * preventing it from being evicted.
+			 * 在释放分区锁之前钉住已有缓冲区，
+			 * 防止它被逐出。
 			 */
 			valid = PinBuffer(existing_hdr, strategy);
 
 			LWLockRelease(partition_lock);
 
 			/*
-			 * The victim buffer we acquired previously is clean and unused,
-			 * let it be found again quickly
+			 * 我们先前取得的牺牲缓冲区是干净且未使用的，
+			 * 让它能很快被再次找到
 			 */
 			StrategyFreeBuffer(victim_buf_hdr);
 			UnpinBuffer(victim_buf_hdr);
@@ -2000,14 +2000,14 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 						 errhint("This has been seen to occur with buggy kernels; consider updating your system.")));
 
 			/*
-			 * We *must* do smgr[zero]extend before succeeding, else the page
-			 * will not be reserved by the kernel, and the next P_NEW call
-			 * will decide to return the same page.  Clear the BM_VALID bit,
-			 * do StartBufferIO() and proceed.
+			 * 我们必须在成功之前做 smgr[zero]extend，否则该页
+			 * 不会被内核保留，下一次 P_NEW 调用
+			 * 会决定返回同一页。清除 BM_VALID 位，
+			 * 做 StartBufferIO() 并继续。
 			 *
-			 * Loop to handle the very small possibility that someone re-sets
-			 * BM_VALID between our clearing it and StartBufferIO inspecting
-			 * it.
+			 * 循环以处理有人在我们清除它和 StartBufferIO 检查
+			 * 它之间重新设置
+			 * BM_VALID 的极小可能性。
 			 */
 			do
 			{
@@ -2023,7 +2023,7 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 
 			buf_state = LockBufHdr(victim_buf_hdr);
 
-			/* some sanity checks while we hold the buffer header lock */
+			/* 持有缓冲区描述符锁时做一些健全性检查 */
 			Assert(!(buf_state & (BM_VALID | BM_TAG_VALID | BM_DIRTY | BM_JUST_DIRTIED)));
 			Assert(BUF_STATE_GET_REFCOUNT(buf_state) == 1);
 
@@ -2037,7 +2037,7 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 
 			LWLockRelease(partition_lock);
 
-			/* XXX: could combine the locked operations in it with the above */
+			/* XXX：可以把其中持锁的操作与上面的合并 */
 			StartBufferIO(victim_buf_hdr, true);
 		}
 	}
@@ -2045,23 +2045,23 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 	io_start = pgstat_prepare_io_time();
 
 	/*
-	 * Note: if smgrzeroextend fails, we will end up with buffers that are
-	 * allocated but not marked BM_VALID.  The next relation extension will
-	 * still select the same block number (because the relation didn't get any
-	 * longer on disk) and so future attempts to extend the relation will find
-	 * the same buffers (if they have not been recycled) but come right back
-	 * here to try smgrzeroextend again.
+	 * 注意：若 smgrzeroextend 失败，我们会留下已分配
+	 * 但未标为 BM_VALID 的缓冲区。下一次关系扩展
+	 * 仍会选择同一个块号（因为关系在磁盘上没有
+	 * 变长），因此以后扩展关系的尝试会找到
+	 * 同样的缓冲区（若它们尚未被回收），但会直接回到
+	 * 这里再试 smgrzeroextend。
 	 *
-	 * We don't need to set checksum for all-zero pages.
+	 * 全零页不需要设置校验和。
 	 */
 	smgrzeroextend(bmr.smgr, fork, first_block, extend_by, false);
 
 	/*
-	 * Release the file-extension lock; it's now OK for someone else to extend
-	 * the relation some more.
+	 * 释放文件扩展锁；现在别人可以再把
+	 * 该关系扩展一些了。
 	 *
-	 * We remove IO_IN_PROGRESS after this, as waking up waiting backends can
-	 * take noticeable time.
+	 * 此后我们去掉 IO_IN_PROGRESS，因为唤醒等待的后端可能
+	 * 花掉可观的时间。
 	 */
 	if (!(flags & EB_SKIP_EXTENSION_LOCK))
 		UnlockRelationForExtension(bmr.rel, ExclusiveLock);
@@ -2069,7 +2069,7 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 	pgstat_count_io_op_time(IOOBJECT_RELATION, io_context, IOOP_EXTEND,
 							io_start, extend_by);
 
-	/* Set BM_VALID, terminate IO, and wake up any waiters */
+	/* 设置 BM_VALID，结束 IO，并唤醒任何等待者 */
 	for (int i = 0; i < extend_by; i++)
 	{
 		Buffer		buf = buffers[i];
@@ -2101,11 +2101,11 @@ ExtendBufferedRelShared(BufferManagerRelation bmr,
 /*
  * MarkBufferDirty
  *
- *		Marks buffer contents as dirty (actual write happens later).
+ *		把缓冲区内容标为脏页（实际写发生在稍后）。
  *
- * Buffer must be pinned and exclusive-locked.  (If caller does not hold
- * exclusive lock, then somebody could be in process of writing the buffer,
- * leading to risk of bad data written to disk.)
+ * 缓冲区必须被钉住并排他锁定。（若调用者不持有
+ * 排他锁，就可能有人正在写出该缓冲区，
+ * 导致坏数据被写到磁盘的风险。）
  */
 void
 MarkBufferDirty(Buffer buffer)
@@ -2146,7 +2146,7 @@ MarkBufferDirty(Buffer buffer)
 	}
 
 	/*
-	 * If the buffer was not dirty already, do vacuum accounting.
+	 * 若该缓冲区原先不是脏页，就做 vacuum 记账。
 	 */
 	if (!(old_buf_state & BM_DIRTY))
 	{
@@ -2158,17 +2158,17 @@ MarkBufferDirty(Buffer buffer)
 }
 
 /*
- * ReleaseAndReadBuffer -- combine ReleaseBuffer() and ReadBuffer()
+ * ReleaseAndReadBuffer -- 把 ReleaseBuffer() 和 ReadBuffer() 合在一起。
  *
- * Formerly, this saved one cycle of acquiring/releasing the BufMgrLock
- * compared to calling the two routines separately.  Now it's mainly just
- * a convenience function.  However, if the passed buffer is valid and
- * already contains the desired block, we just return it as-is; and that
- * does save considerable work compared to a full release and reacquire.
+ * 从前，与分别调用这两个例程相比，这省掉了一轮
+ * 取得和释放 BufMgrLock。现在它主要只是
+ * 一个便捷函数。不过，若传入的缓冲区有效且
+ * 已经包含想要的块，我们就原样返回它；这与完整的
+ * 释放再重新取得相比，确实省掉相当多的工作。
  *
- * Note: it is OK to pass buffer == InvalidBuffer, indicating that no old
- * buffer actually needs to be released.  This case is the same as ReadBuffer,
- * but can save some tests in the caller.
+ * 注意：可以传入 buffer == InvalidBuffer，表示实际上不需要
+ * 释放旧缓冲区。这种情形与 ReadBuffer 相同，
+ * 但可以给调用者省掉一些测试。
  */
 Buffer
 ReleaseAndReadBuffer(Buffer buffer,
@@ -2193,7 +2193,7 @@ ReleaseAndReadBuffer(Buffer buffer,
 		else
 		{
 			bufHdr = GetBufferDescriptor(buffer - 1);
-			/* we have pin, so it's ok to examine tag without spinlock */
+			/* 我们有钉住，因此不持自旋锁检查标签没问题 */
 			if (bufHdr->tag.blockNum == blockNum &&
 				BufTagMatchesRelFileLocator(&bufHdr->tag, &relation->rd_locator) &&
 				BufTagGetForkNum(&bufHdr->tag) == forkNum)
@@ -2206,26 +2206,26 @@ ReleaseAndReadBuffer(Buffer buffer,
 }
 
 /*
- * PinBuffer -- make buffer unavailable for replacement.
+ * PinBuffer -- 使缓冲区不能被替换。
  *
- * For the default access strategy, the buffer's usage_count is incremented
- * when we first pin it; for other strategies we just make sure the usage_count
- * isn't zero.  (The idea of the latter is that we don't want synchronized
- * heap scans to inflate the count, but we need it to not be zero to discourage
- * other backends from stealing buffers from our ring.  As long as we cycle
- * through the ring faster than the global clock-sweep cycles, buffers in
- * our ring won't be chosen as victims for replacement by other backends.)
+ * 对默认访问策略，我们第一次钉住它时增加该缓冲区的 usage_count；
+ * 对其他策略，我们只确保 usage_count
+ * 不是零。（后者的想法是，我们不希望同步的
+ * 堆扫描把计数抬高，但需要它不是零，以劝阻
+ * 其他后端从我们的环里偷缓冲区。只要我们循环
+ * 遍历环的速度快于全局时钟清扫，我们环里的缓冲区
+ * 就不会被其他后端选作替换的牺牲者。）
  *
- * This should be applied only to shared buffers, never local ones.
+ * 这只应当用于共享缓冲区，决不要用于本地缓冲区。
  *
- * Since buffers are pinned/unpinned very frequently, pin buffers without
- * taking the buffer header lock; instead update the state variable in loop of
- * CAS operations. Hopefully it's just a single CAS.
+ * 由于缓冲区被钉住和解除钉住非常频繁，钉住缓冲区时不
+ * 拿缓冲区描述符锁；而是在 CAS 操作的循环里更新状态变量。
+ * 希望只是一次 CAS。
  *
- * Note that ResourceOwnerEnlargeBuffers must have been done already.
+ * 注意 ResourceOwnerEnlargeBuffers 必须已经做过。
  *
- * Returns true if buffer is BM_VALID, else false.  This provision allows
- * some callers to avoid an extra spinlock cycle.
+ * 若缓冲区是 BM_VALID 就返回真，否则返回假。这项规定让
+ * 某些调用者避免额外一轮自旋锁。
  */
 static bool
 PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy)
@@ -2254,20 +2254,20 @@ PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy)
 
 			buf_state = old_buf_state;
 
-			/* increase refcount */
+			/* 增加引用计数 */
 			buf_state += BUF_REFCOUNT_ONE;
 
 			if (strategy == NULL)
 			{
-				/* Default case: increase usagecount unless already max. */
+				/* 默认情形：除非已经最大，否则增加使用计数。 */
 				if (BUF_STATE_GET_USAGECOUNT(buf_state) < BM_MAX_USAGE_COUNT)
 					buf_state += BUF_USAGECOUNT_ONE;
 			}
 			else
 			{
 				/*
-				 * Ring buffers shouldn't evict others from pool.  Thus we
-				 * don't make usagecount more than 1.
+				 * 环缓冲区不应当把别人从池里逐出。因此我们
+				 * 不把使用计数弄到超过 1。
 				 */
 				if (BUF_STATE_GET_USAGECOUNT(buf_state) == 0)
 					buf_state += BUF_USAGECOUNT_ONE;
@@ -2279,11 +2279,11 @@ PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy)
 				result = (buf_state & BM_VALID) != 0;
 
 				/*
-				 * Assume that we acquired a buffer pin for the purposes of
-				 * Valgrind buffer client checks (even in !result case) to
-				 * keep things simple.  Buffers that are unsafe to access are
-				 * not generally guaranteed to be marked undefined or
-				 * non-accessible in any case.
+				 * 为了让事情简单，假定我们为 Valgrind 缓冲区客户端检查
+				 * 取得了一次缓冲区钉住（即使在 !result 情形下也如此）。
+				 * 无论如何，不安全访问的缓冲区
+				 * 一般并不保证被标为未定义或
+				 * 不可访问。
 				 */
 				VALGRIND_MAKE_MEM_DEFINED(BufHdrGetBlock(buf), BLCKSZ);
 				break;
@@ -2293,14 +2293,14 @@ PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy)
 	else
 	{
 		/*
-		 * If we previously pinned the buffer, it must surely be valid.
+		 * 若我们先前钉住过该缓冲区，它肯定有效。
 		 *
-		 * Note: We deliberately avoid a Valgrind client request here.
-		 * Individual access methods can optionally superimpose buffer page
-		 * client requests on top of our client requests to enforce that
-		 * buffers are only accessed while locked (and pinned).  It's possible
-		 * that the buffer page is legitimately non-accessible here.  We
-		 * cannot meddle with that.
+		 * 注意：我们有意避免这里的 Valgrind 客户端请求。
+		 * 各个访问方法可以有选择地在我们的客户端请求之上
+		 * 叠加缓冲区页客户端请求，以强制缓冲区只在锁定
+		 * （且钉住）时被访问。这里缓冲区页合法地
+		 * 不可访问是可能的。我们
+		 * 无法插手那件事。
 		 */
 		result = true;
 	}
@@ -2312,25 +2312,25 @@ PinBuffer(BufferDesc *buf, BufferAccessStrategy strategy)
 }
 
 /*
- * PinBuffer_Locked -- as above, but caller already locked the buffer header.
- * The spinlock is released before return.
+ * PinBuffer_Locked -- 同上，但调用者已经锁住了缓冲区描述符。
+ * 返回前释放自旋锁。
  *
- * As this function is called with the spinlock held, the caller has to
- * previously call ReservePrivateRefCountEntry().
+ * 由于本函数在持有自旋锁时调用，调用者必须
+ * 事先调用 ReservePrivateRefCountEntry()。
  *
- * Currently, no callers of this function want to modify the buffer's
- * usage_count at all, so there's no need for a strategy parameter.
- * Also we don't bother with a BM_VALID test (the caller could check that for
- * itself).
+ * 目前，本函数的调用者都不想修改该缓冲区的
+ * usage_count，因此不需要策略参数。
+ * 我们也不费心做 BM_VALID 测试（调用者可以自己
+ * 检查）。
  *
- * Also all callers only ever use this function when it's known that the
- * buffer can't have a preexisting pin by this backend. That allows us to skip
- * searching the private refcount array & hash, which is a boon, because the
- * spinlock is still held.
+ * 而且所有调用者只在已知该
+ * 缓冲区不可能已有本后端的钉住时使用本函数。这让我们可以跳过
+ * 搜索私有引用计数数组和散列表，这是好事，因为
+ * 自旋锁仍被持有。
  *
- * Note: use of this routine is frequently mandatory, not just an optimization
- * to save a spin lock/unlock cycle, because we need to pin a buffer before
- * its state can change under us.
+ * 注意：使用本例程常常是强制的，不只是为了省掉一次
+ * 自旋锁加锁与解锁，因为我们需要在
+ * 它的状态能在我们手下改变之前钉住缓冲区。
  */
 static void
 PinBuffer_Locked(BufferDesc *buf)
@@ -2340,21 +2340,21 @@ PinBuffer_Locked(BufferDesc *buf)
 	uint32		buf_state;
 
 	/*
-	 * As explained, We don't expect any preexisting pins. That allows us to
-	 * manipulate the PrivateRefCount after releasing the spinlock
+	 * 如所解释的，我们不预期任何已有的钉住。这让我们可以在释放自旋锁之后
+	 * 操作 PrivateRefCount。
 	 */
 	Assert(GetPrivateRefCountEntry(BufferDescriptorGetBuffer(buf), false) == NULL);
 
 	/*
-	 * Buffer can't have a preexisting pin, so mark its page as defined to
-	 * Valgrind (this is similar to the PinBuffer() case where the backend
-	 * doesn't already have a buffer pin)
+	 * 缓冲区不可能已有钉住，因此把它的页对
+	 * Valgrind 标为已定义（这类似于 PinBuffer() 里后端
+	 * 尚未持有缓冲区钉住的情形）
 	 */
 	VALGRIND_MAKE_MEM_DEFINED(BufHdrGetBlock(buf), BLCKSZ);
 
 	/*
-	 * Since we hold the buffer spinlock, we can update the buffer state and
-	 * release the lock in one operation.
+	 * 由于我们持有缓冲区自旋锁，我们可以更新缓冲区状态并
+	 * 在一次操作里释放锁。
 	 */
 	buf_state = pg_atomic_read_u32(&buf->state);
 	Assert(buf_state & BM_LOCKED);
@@ -2370,10 +2370,10 @@ PinBuffer_Locked(BufferDesc *buf)
 }
 
 /*
- * UnpinBuffer -- make buffer available for replacement.
+ * UnpinBuffer -- 使缓冲区可以被替换。
  *
- * This should be applied only to shared buffers, never local ones.  This
- * always adjusts CurrentResourceOwner.
+ * 这只应当用于共享缓冲区，决不要用于本地缓冲区。这
+ * 总是调整 CurrentResourceOwner。
  */
 static void
 UnpinBuffer(BufferDesc *buf)
@@ -2383,7 +2383,7 @@ UnpinBuffer(BufferDesc *buf)
 
 	Assert(!BufferIsLocal(b));
 
-	/* not moving as we're likely deleting it soon anyway */
+	/* 不移动，因为我们很可能马上就要删掉它 */
 	ref = GetPrivateRefCountEntry(b, false);
 	Assert(ref != NULL);
 
@@ -2397,22 +2397,22 @@ UnpinBuffer(BufferDesc *buf)
 		uint32		old_buf_state;
 
 		/*
-		 * Mark buffer non-accessible to Valgrind.
+		 * 把缓冲区对 Valgrind 标为不可访问。
 		 *
-		 * Note that the buffer may have already been marked non-accessible
-		 * within access method code that enforces that buffers are only
-		 * accessed while a buffer lock is held.
+		 * 注意，缓冲区可能已经在强制缓冲区只在持有缓冲区锁时
+		 * 才能访问的访问方法代码里被标为
+		 * 不可访问。
 		 */
 		VALGRIND_MAKE_MEM_NOACCESS(BufHdrGetBlock(buf), BLCKSZ);
 
-		/* I'd better not still hold the buffer content lock */
+		/* 我最好不要仍持有缓冲区内容锁 */
 		Assert(!LWLockHeldByMe(BufferDescriptorGetContentLock(buf)));
 
 		/*
-		 * Decrement the shared reference count.
+		 * 减少共享引用计数。
 		 *
-		 * Since buffer spinlock holder can update status using just write,
-		 * it's not safe to use atomic decrement here; thus use a CAS loop.
+		 * 由于缓冲区自旋锁持有者可以只用写来更新状态，
+		 * 这里用原子减不安全；因此用 CAS 循环。
 		 */
 		old_buf_state = pg_atomic_read_u32(&buf->state);
 		for (;;)
@@ -2429,22 +2429,22 @@ UnpinBuffer(BufferDesc *buf)
 				break;
 		}
 
-		/* Support LockBufferForCleanup() */
+		/* 支持 LockBufferForCleanup() */
 		if (buf_state & BM_PIN_COUNT_WAITER)
 		{
 			/*
-			 * Acquire the buffer header lock, re-check that there's a waiter.
-			 * Another backend could have unpinned this buffer, and already
-			 * woken up the waiter.  There's no danger of the buffer being
-			 * replaced after we unpinned it above, as it's pinned by the
-			 * waiter.
+			 * 取得缓冲区描述符锁，重新检查是否有等待者。
+			 * 另一个后端可能已经解除了该缓冲区的钉住，并且已经
+			 * 唤醒了等待者。我们上面解除钉住之后，没有该缓冲区被
+			 * 替换的危险，因为它被
+			 * 等待者钉住。
 			 */
 			buf_state = LockBufHdr(buf);
 
 			if ((buf_state & BM_PIN_COUNT_WAITER) &&
 				BUF_STATE_GET_REFCOUNT(buf_state) == 1)
 			{
-				/* we just released the last pin other than the waiter's */
+				/* 我们刚刚释放了除等待者之外的最后一个钉住 */
 				int			wait_backend_pgprocno = buf->wait_backend_pgprocno;
 
 				buf_state &= ~BM_PIN_COUNT_WAITER;
@@ -2466,14 +2466,14 @@ UnpinBuffer(BufferDesc *buf)
 #include <lib/sort_template.h>
 
 /*
- * BufferSync -- Write out all dirty buffers in the pool.
+ * BufferSync -- 把池里全部脏页写出。
  *
- * This is called at checkpoint time to write out all dirty shared buffers.
- * The checkpoint request flags should be passed in.  If CHECKPOINT_IMMEDIATE
- * is set, we disable delays between writes; if CHECKPOINT_IS_SHUTDOWN,
- * CHECKPOINT_END_OF_RECOVERY or CHECKPOINT_FLUSH_ALL is set, we write even
- * unlogged buffers, which are otherwise skipped.  The remaining flags
- * currently have no effect here.
+ * 这在检查点时调用，写出全部脏的共享缓冲区。
+ * 应当传入检查点请求标志。若设置了 CHECKPOINT_IMMEDIATE，
+ * 我们就关掉写之间的延迟；若设置了 CHECKPOINT_IS_SHUTDOWN、
+ * CHECKPOINT_END_OF_RECOVERY 或 CHECKPOINT_FLUSH_ALL，我们甚至写出
+ * 未日志记录的缓冲区，否则会跳过它们。其余标志
+ * 目前在这里没有作用。
  */
 static void
 BufferSync(int flags)
@@ -2491,33 +2491,33 @@ BufferSync(int flags)
 	int			mask = BM_DIRTY;
 	WritebackContext wb_context;
 
-	/* Make sure we can handle the pin inside SyncOneBuffer */
+	/* 确保我们能处理 SyncOneBuffer 内部的钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	/*
-	 * Unless this is a shutdown checkpoint or we have been explicitly told,
-	 * we write only permanent, dirty buffers.  But at shutdown or end of
-	 * recovery, we write all dirty buffers.
+	 * 除非这是关闭检查点，或者我们被明确告知，
+	 * 我们只写永久缓冲区里的脏页。但在关闭或恢复
+	 * 结束时，我们写出全部脏页。
 	 */
 	if (!((flags & (CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_END_OF_RECOVERY |
 					CHECKPOINT_FLUSH_ALL))))
 		mask |= BM_PERMANENT;
 
 	/*
-	 * Loop over all buffers, and mark the ones that need to be written with
-	 * BM_CHECKPOINT_NEEDED.  Count them as we go (num_to_scan), so that we
-	 * can estimate how much work needs to be done.
+	 * 遍历全部缓冲区，把需要写出的那些标上
+	 * BM_CHECKPOINT_NEEDED。一边走一边计数（num_to_scan），以便
+	 * 估计需要做多少工作。
 	 *
-	 * This allows us to write only those pages that were dirty when the
-	 * checkpoint began, and not those that get dirtied while it proceeds.
-	 * Whenever a page with BM_CHECKPOINT_NEEDED is written out, either by us
-	 * later in this function, or by normal backends or the bgwriter cleaning
-	 * scan, the flag is cleared.  Any buffer dirtied after this point won't
-	 * have the flag set.
+	 * 这让我们只写检查点开始时就是脏页的那些页，
+	 * 而不写检查点进行期间变脏的那些。
+	 * 每当带有 BM_CHECKPOINT_NEEDED 的页被写出，无论是我们
+	 * 稍后在本函数里，还是普通后端或 bgwriter 的清理
+	 * 扫描，该标志都被清除。此后变脏的任何缓冲区都不会
+	 * 带有该标志。
 	 *
-	 * Note that if we fail to write some buffer, we may leave buffers with
-	 * BM_CHECKPOINT_NEEDED still set.  This is OK since any such buffer would
-	 * certainly need to be written for the next checkpoint attempt, too.
+	 * 注意，若我们没能写出某个缓冲区，可能会留下仍设置着
+	 * BM_CHECKPOINT_NEEDED 的缓冲区。这没问题，因为任何这样的缓冲区
+	 * 下一次检查点尝试肯定也需要写出。
 	 */
 	num_to_scan = 0;
 	for (buf_id = 0; buf_id < NBuffers; buf_id++)
@@ -2525,8 +2525,8 @@ BufferSync(int flags)
 		BufferDesc *bufHdr = GetBufferDescriptor(buf_id);
 
 		/*
-		 * Header spinlock is enough to examine BM_DIRTY, see comment in
-		 * SyncOneBuffer.
+		 * 检查 BM_DIRTY 有缓冲区描述符自旋锁就够了，见
+		 * SyncOneBuffer 里的注释。
 		 */
 		buf_state = LockBufHdr(bufHdr);
 
@@ -2546,32 +2546,32 @@ BufferSync(int flags)
 
 		UnlockBufHdr(bufHdr, buf_state);
 
-		/* Check for barrier events in case NBuffers is large. */
+		/* 以防 NBuffers 很大，检查屏障事件。 */
 		if (ProcSignalBarrierPending)
 			ProcessProcSignalBarrier();
 	}
 
 	if (num_to_scan == 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	WritebackContextInit(&wb_context, &checkpoint_flush_after);
 
 	TRACE_POSTGRESQL_BUFFER_SYNC_START(NBuffers, num_to_scan);
 
 	/*
-	 * Sort buffers that need to be written to reduce the likelihood of random
-	 * IO. The sorting is also important for the implementation of balancing
-	 * writes between tablespaces. Without balancing writes we'd potentially
-	 * end up writing to the tablespaces one-by-one; possibly overloading the
-	 * underlying system.
+	 * 对需要写出的缓冲区排序，以降低随机
+	 * IO 的可能性。排序对在表空间之间平衡
+	 * 写的实现也很重要。没有写平衡，我们可能会
+	 * 最终一个表空间一个表空间地写；可能使底层系统
+	 * 过载。
 	 */
 	sort_checkpoint_bufferids(CkptBufferIds, num_to_scan);
 
 	num_spaces = 0;
 
 	/*
-	 * Allocate progress status for each tablespace with buffers that need to
-	 * be flushed. This requires the to-be-flushed array to be sorted.
+	 * 为每个有需要刷写的缓冲区的表空间分配进度状态。
+	 * 这需要待刷写数组已经排好序。
 	 */
 	last_tsid = InvalidOid;
 	for (i = 0; i < num_to_scan; i++)
@@ -2582,8 +2582,8 @@ BufferSync(int flags)
 		cur_tsid = CkptBufferIds[i].tsId;
 
 		/*
-		 * Grow array of per-tablespace status structs, every time a new
-		 * tablespace is found.
+		 * 每当发现新的表空间，就增长
+		 * 每表空间状态结构的数组。
 		 */
 		if (last_tsid == InvalidOid || last_tsid != cur_tsid)
 		{
@@ -2592,8 +2592,8 @@ BufferSync(int flags)
 			num_spaces++;
 
 			/*
-			 * Not worth adding grow-by-power-of-2 logic here - even with a
-			 * few hundred tablespaces this should be fine.
+			 * 这里不值得加按 2 的幂增长的逻辑，即使有
+			 * 几百个表空间也应当没问题。
 			 */
 			sz = sizeof(CkptTsStatus) * num_spaces;
 
@@ -2607,15 +2607,15 @@ BufferSync(int flags)
 			s->tsId = cur_tsid;
 
 			/*
-			 * The first buffer in this tablespace. As CkptBufferIds is sorted
-			 * by tablespace all (s->num_to_scan) buffers in this tablespace
-			 * will follow afterwards.
+			 * 该表空间里的第一个缓冲区。由于 CkptBufferIds 按
+			 * 表空间排序，该表空间里全部 (s->num_to_scan) 个缓冲区
+			 * 都会跟在后面。
 			 */
 			s->index = i;
 
 			/*
-			 * progress_slice will be determined once we know how many buffers
-			 * are in each tablespace, i.e. after this loop.
+			 * 一旦我们知道每个表空间里有多少缓冲区，
+			 * 即本循环之后，就会确定 progress_slice。
 			 */
 
 			last_tsid = cur_tsid;
@@ -2627,7 +2627,7 @@ BufferSync(int flags)
 
 		s->num_to_scan++;
 
-		/* Check for barrier events. */
+		/* 检查屏障事件。 */
 		if (ProcSignalBarrierPending)
 			ProcessProcSignalBarrier();
 	}
@@ -2635,9 +2635,9 @@ BufferSync(int flags)
 	Assert(num_spaces > 0);
 
 	/*
-	 * Build a min-heap over the write-progress in the individual tablespaces,
-	 * and compute how large a portion of the total progress a single
-	 * processed buffer is.
+	 * 在各个表空间的写出进度上建一个最小堆，
+	 * 并计算单个已处理缓冲区占
+	 * 总进度的多大一份。
 	 */
 	ts_heap = binaryheap_allocate(num_spaces,
 								  ts_ckpt_progress_comparator,
@@ -2655,10 +2655,10 @@ BufferSync(int flags)
 	binaryheap_build(ts_heap);
 
 	/*
-	 * Iterate through to-be-checkpointed buffers and write the ones (still)
-	 * marked with BM_CHECKPOINT_NEEDED. The writes are balanced between
-	 * tablespaces; otherwise the sorting would lead to only one tablespace
-	 * receiving writes at a time, making inefficient use of the hardware.
+	 * 遍历待检查点的缓冲区，写出那些（仍然）
+	 * 标有 BM_CHECKPOINT_NEEDED 的。写在表空间之间平衡；
+	 * 否则排序会导致一次只有一个表空间
+	 * 接收写，不能有效利用硬件。
 	 */
 	num_processed = 0;
 	num_written = 0;
@@ -2676,16 +2676,16 @@ BufferSync(int flags)
 		num_processed++;
 
 		/*
-		 * We don't need to acquire the lock here, because we're only looking
-		 * at a single bit. It's possible that someone else writes the buffer
-		 * and clears the flag right after we check, but that doesn't matter
-		 * since SyncOneBuffer will then do nothing.  However, there is a
-		 * further race condition: it's conceivable that between the time we
-		 * examine the bit here and the time SyncOneBuffer acquires the lock,
-		 * someone else not only wrote the buffer but replaced it with another
-		 * page and dirtied it.  In that improbable case, SyncOneBuffer will
-		 * write the buffer though we didn't need to.  It doesn't seem worth
-		 * guarding against this, though.
+		 * 这里不需要取得锁，因为我们只看
+		 * 一个位。别人可能在我们检查之后马上写出该缓冲区
+		 * 并清除该标志，但这没关系，
+		 * 因为 SyncOneBuffer 那时会什么也不做。不过还有
+		 * 进一步的竞态：可以设想，在我们
+		 * 在这里检查该位和 SyncOneBuffer 取得锁之间，
+		 * 别人不仅写出了该缓冲区，还把它换成了另一
+		 * 页并弄脏了它。在那种不大可能的情况下，SyncOneBuffer 会
+		 * 写出该缓冲区，尽管我们并不需要。不过，似乎不值得
+		 * 防范这一点。
 		 */
 		if (pg_atomic_read_u32(&bufHdr->state) & BM_CHECKPOINT_NEEDED)
 		{
@@ -2698,35 +2698,35 @@ BufferSync(int flags)
 		}
 
 		/*
-		 * Measure progress independent of actually having to flush the buffer
-		 * - otherwise writing become unbalanced.
+		 * 独立于实际是否必须刷写该缓冲区来衡量进度，
+		 * 否则写会变得不平衡。
 		 */
 		ts_stat->progress += ts_stat->progress_slice;
 		ts_stat->num_scanned++;
 		ts_stat->index++;
 
-		/* Have all the buffers from the tablespace been processed? */
+		/* 该表空间的缓冲区是否都已处理？ */
 		if (ts_stat->num_scanned == ts_stat->num_to_scan)
 		{
 			binaryheap_remove_first(ts_heap);
 		}
 		else
 		{
-			/* update heap with the new progress */
+			/* 用新进度更新堆 */
 			binaryheap_replace_first(ts_heap, PointerGetDatum(ts_stat));
 		}
 
 		/*
-		 * Sleep to throttle our I/O rate.
+		 * 睡眠以限制我们的 I/O 速率。
 		 *
-		 * (This will check for barrier events even if it doesn't sleep.)
+		 * （即使它不睡眠，这也会检查屏障事件。）
 		 */
 		CheckpointWriteDelay(flags, (double) num_processed / num_to_scan);
 	}
 
 	/*
-	 * Issue all pending flushes. Only checkpointer calls BufferSync(), so
-	 * IOContext will always be IOCONTEXT_NORMAL.
+	 * 发出全部待处理的刷写。只有检查点进程调用 BufferSync()，因此
+	 * IOContext 将始终是 IOCONTEXT_NORMAL。
 	 */
 	IssuePendingWritebacks(&wb_context, IOCONTEXT_NORMAL);
 
@@ -2735,8 +2735,8 @@ BufferSync(int flags)
 	binaryheap_free(ts_heap);
 
 	/*
-	 * Update checkpoint statistics. As noted above, this doesn't include
-	 * buffers written by other backends or bgwriter scan.
+	 * 更新检查点统计信息。如上所述，这不包括
+	 * 其他后端或 bgwriter 扫描写出的缓冲区。
 	 */
 	CheckpointStats.ckpt_bufs_written += num_written;
 
@@ -2744,27 +2744,27 @@ BufferSync(int flags)
 }
 
 /*
- * BgBufferSync -- Write out some dirty buffers in the pool.
+ * BgBufferSync -- 写出池里的一些脏页。
  *
- * This is called periodically by the background writer process.
+ * 这由后台写进程周期性地调用。
  *
- * Returns true if it's appropriate for the bgwriter process to go into
- * low-power hibernation mode.  (This happens if the strategy clock sweep
- * has been "lapped" and no buffer allocations have occurred recently,
- * or if the bgwriter has been effectively disabled by setting
- * bgwriter_lru_maxpages to 0.)
+ * 若 bgwriter 进程进入低功耗休眠模式是合适的，就返回真。
+ * （若策略时钟清扫已经被套圈，且最近没有发生缓冲区分配，
+ * 或者通过把
+ * bgwriter_lru_maxpages 设为 0
+ * 而实际上禁用了 bgwriter，就会发生这种情况。）
  */
 bool
 BgBufferSync(WritebackContext *wb_context)
 {
-	/* info obtained from freelist.c */
+	/* 从 freelist.c 得到的信息 */
 	int			strategy_buf_id;
 	uint32		strategy_passes;
 	uint32		recent_alloc;
 
 	/*
-	 * Information saved between calls so we can determine the strategy
-	 * point's advance rate and avoid scanning already-cleaned buffers.
+	 * 调用之间保存的信息，以便我们确定策略
+	 * 点的前进速率，并避免扫描已经清理过的缓冲区。
 	 */
 	static bool saved_info_valid = false;
 	static int	prev_strategy_buf_id;
@@ -2772,15 +2772,15 @@ BgBufferSync(WritebackContext *wb_context)
 	static int	next_to_clean;
 	static uint32 next_passes;
 
-	/* Moving averages of allocation rate and clean-buffer density */
+	/* 分配率和干净缓冲区密度的移动平均 */
 	static float smoothed_alloc = 0;
 	static float smoothed_density = 10.0;
 
-	/* Potentially these could be tunables, but for now, not */
+	/* 这些也许可以做成可调参数，但目前不是 */
 	float		smoothing_samples = 16;
 	float		scan_whole_pool_milliseconds = 120000.0;
 
-	/* Used to compute how far we scan ahead */
+	/* 用来计算我们向前扫描多远 */
 	long		strategy_delta;
 	int			bufs_to_lap;
 	int			bufs_ahead;
@@ -2789,28 +2789,28 @@ BgBufferSync(WritebackContext *wb_context)
 	int			upcoming_alloc_est;
 	int			min_scan_buffers;
 
-	/* Variables for the scanning loop proper */
+	/* 扫描循环本身的变量 */
 	int			num_to_scan;
 	int			num_written;
 	int			reusable_buffers;
 
-	/* Variables for final smoothed_density update */
+	/* 最终 smoothed_density 更新的变量 */
 	long		new_strategy_delta;
 	uint32		new_recent_alloc;
 
 	/*
-	 * Find out where the freelist clock sweep currently is, and how many
-	 * buffer allocations have happened since our last call.
+	 * 找出空闲链表时钟清扫目前在哪里，以及自上次调用以来
+	 * 发生了多少次缓冲区分配。
 	 */
 	strategy_buf_id = StrategySyncStart(&strategy_passes, &recent_alloc);
 
-	/* Report buffer alloc counts to pgstat */
+	/* 向 pgstat 报告缓冲区分配计数 */
 	PendingBgWriterStats.buf_alloc += recent_alloc;
 
 	/*
-	 * If we're not running the LRU scan, just stop after doing the stats
-	 * stuff.  We mark the saved state invalid so that we can recover sanely
-	 * if LRU scan is turned back on later.
+	 * 若我们不在跑 LRU 扫描，做完统计
+	 * 就停。我们把保存的状态标为无效，以便以后重新打开
+	 * LRU 扫描时能正常恢复。
 	 */
 	if (bgwriter_lru_maxpages <= 0)
 	{
@@ -2819,12 +2819,12 @@ BgBufferSync(WritebackContext *wb_context)
 	}
 
 	/*
-	 * Compute strategy_delta = how many buffers have been scanned by the
-	 * clock sweep since last time.  If first time through, assume none. Then
-	 * see if we are still ahead of the clock sweep, and if so, how many
-	 * buffers we could scan before we'd catch up with it and "lap" it. Note:
-	 * weird-looking coding of xxx_passes comparisons are to avoid bogus
-	 * behavior when the passes counts wrap around.
+	 * 计算 strategy_delta，即自上次以来时钟清扫扫描了多少缓冲区。
+	 * 若是第一次通过，就假定一个都没有。然后
+	 * 看我们是否仍领先于时钟清扫，若是，在追上它并套圈之前
+	 * 还能扫描多少缓冲区。注意：
+	 * xxx_passes 比较看起来奇怪的写法是为了避免遍数回绕时的
+	 * 虚假行为。
 	 */
 	if (saved_info_valid)
 	{
@@ -2837,7 +2837,7 @@ BgBufferSync(WritebackContext *wb_context)
 
 		if ((int32) (next_passes - strategy_passes) > 0)
 		{
-			/* we're one pass ahead of the strategy point */
+			/* 我们比策略点领先一圈 */
 			bufs_to_lap = strategy_buf_id - next_to_clean;
 #ifdef BGW_DEBUG
 			elog(DEBUG2, "bgwriter ahead: bgw %u-%u strategy %u-%u delta=%ld lap=%d",
@@ -2849,7 +2849,7 @@ BgBufferSync(WritebackContext *wb_context)
 		else if (next_passes == strategy_passes &&
 				 next_to_clean >= strategy_buf_id)
 		{
-			/* on same pass, but ahead or at least not behind */
+			/* 在同一圈上，但领先，或至少不落后 */
 			bufs_to_lap = NBuffers - (next_to_clean - strategy_buf_id);
 #ifdef BGW_DEBUG
 			elog(DEBUG2, "bgwriter ahead: bgw %u-%u strategy %u-%u delta=%ld lap=%d",
@@ -2861,8 +2861,8 @@ BgBufferSync(WritebackContext *wb_context)
 		else
 		{
 			/*
-			 * We're behind, so skip forward to the strategy point and start
-			 * cleaning from there.
+			 * 我们落后了，因此向前跳到策略点，并从那里开始
+			 * 清理。
 			 */
 #ifdef BGW_DEBUG
 			elog(DEBUG2, "bgwriter behind: bgw %u-%u strategy %u-%u delta=%ld",
@@ -2878,8 +2878,8 @@ BgBufferSync(WritebackContext *wb_context)
 	else
 	{
 		/*
-		 * Initializing at startup or after LRU scanning had been off. Always
-		 * start at the strategy point.
+		 * 在启动时初始化，或在 LRU 扫描曾经关闭之后。始终
+		 * 从策略点开始。
 		 */
 #ifdef BGW_DEBUG
 		elog(DEBUG2, "bgwriter initializing: strategy %u-%u",
@@ -2891,16 +2891,16 @@ BgBufferSync(WritebackContext *wb_context)
 		bufs_to_lap = NBuffers;
 	}
 
-	/* Update saved info for next time */
+	/* 更新保存的信息供下次使用 */
 	prev_strategy_buf_id = strategy_buf_id;
 	prev_strategy_passes = strategy_passes;
 	saved_info_valid = true;
 
 	/*
-	 * Compute how many buffers had to be scanned for each new allocation, ie,
-	 * 1/density of reusable buffers, and track a moving average of that.
+	 * 计算每次新分配必须扫描多少缓冲区，即
+	 * 可重用缓冲区密度的倒数，并跟踪它的移动平均。
 	 *
-	 * If the strategy point didn't move, we don't update the density estimate
+	 * 若策略点没动，我们就不更新密度估计
 	 */
 	if (strategy_delta > 0 && recent_alloc > 0)
 	{
@@ -2910,17 +2910,17 @@ BgBufferSync(WritebackContext *wb_context)
 	}
 
 	/*
-	 * Estimate how many reusable buffers there are between the current
-	 * strategy point and where we've scanned ahead to, based on the smoothed
-	 * density estimate.
+	 * 根据平滑后的密度估计，估计当前
+	 * 策略点和我们已经向前扫描到的地方之间有多少可重用
+	 * 缓冲区。
 	 */
 	bufs_ahead = NBuffers - bufs_to_lap;
 	reusable_buffers_est = (float) bufs_ahead / smoothed_density;
 
 	/*
-	 * Track a moving average of recent buffer allocations.  Here, rather than
-	 * a true average we want a fast-attack, slow-decline behavior: we
-	 * immediately follow any increase.
+	 * 跟踪最近缓冲区分配的移动平均。这里我们要的不是
+	 * 真正的平均，而是快升慢降：我们
+	 * 立刻跟随任何增加。
 	 */
 	if (smoothed_alloc <= (float) recent_alloc)
 		smoothed_alloc = recent_alloc;
@@ -2928,29 +2928,29 @@ BgBufferSync(WritebackContext *wb_context)
 		smoothed_alloc += ((float) recent_alloc - smoothed_alloc) /
 			smoothing_samples;
 
-	/* Scale the estimate by a GUC to allow more aggressive tuning. */
+	/* 用一个 GUC 缩放该估计，以便更激进地调节。 */
 	upcoming_alloc_est = (int) (smoothed_alloc * bgwriter_lru_multiplier);
 
 	/*
-	 * If recent_alloc remains at zero for many cycles, smoothed_alloc will
-	 * eventually underflow to zero, and the underflows produce annoying
-	 * kernel warnings on some platforms.  Once upcoming_alloc_est has gone to
-	 * zero, there's no point in tracking smaller and smaller values of
-	 * smoothed_alloc, so just reset it to exactly zero to avoid this
-	 * syndrome.  It will pop back up as soon as recent_alloc increases.
+	 * 若 recent_alloc 许多周期都保持为零，smoothed_alloc 最终会
+	 * 下溢到零，而下溢在某些平台上产生烦人的
+	 * 内核警告。一旦 upcoming_alloc_est 变成
+	 * 零，再跟踪越来越小的 smoothed_alloc 就没有意义，
+	 * 因此把它正好重置为零以避免这种
+	 * 症状。recent_alloc 一增加，它就会弹回来。
 	 */
 	if (upcoming_alloc_est == 0)
 		smoothed_alloc = 0;
 
 	/*
-	 * Even in cases where there's been little or no buffer allocation
-	 * activity, we want to make a small amount of progress through the buffer
-	 * cache so that as many reusable buffers as possible are clean after an
-	 * idle period.
+	 * 即使缓冲区分配活动很少或没有，我们也想
+	 * 在缓冲区缓存里取得少量进展，以便空闲
+	 * 一段时间后尽可能多的可重用缓冲区
+	 * 是干净的。
 	 *
-	 * (scan_whole_pool_milliseconds / BgWriterDelay) computes how many times
-	 * the BGW will be called during the scan_whole_pool time; slice the
-	 * buffer pool into that many sections.
+	 * （scan_whole_pool_milliseconds / BgWriterDelay）计算在 scan_whole_pool 时间内
+	 * BGW 会被调用多少次；把缓冲池切成
+	 * 那么多段。
 	 */
 	min_scan_buffers = (int) (NBuffers / (scan_whole_pool_milliseconds / BgWriterDelay));
 
@@ -2964,20 +2964,20 @@ BgBufferSync(WritebackContext *wb_context)
 	}
 
 	/*
-	 * Now write out dirty reusable buffers, working forward from the
-	 * next_to_clean point, until we have lapped the strategy scan, or cleaned
-	 * enough buffers to match our estimate of the next cycle's allocation
-	 * requirements, or hit the bgwriter_lru_maxpages limit.
+	 * 现在写出可重用的脏页，从 next_to_clean 点向前工作，
+	 * 直到我们套过策略扫描，或清理了足够的缓冲区以匹配我们对下一周期分配
+	 * 需求的估计，或达到
+	 * bgwriter_lru_maxpages 限制。
 	 */
 
-	/* Make sure we can handle the pin inside SyncOneBuffer */
+	/* 确保我们能处理 SyncOneBuffer 内部的钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	num_to_scan = bufs_to_lap;
 	num_written = 0;
 	reusable_buffers = reusable_buffers_est;
 
-	/* Execute the LRU scan */
+	/* 执行 LRU 扫描 */
 	while (num_to_scan > 0 && reusable_buffers < upcoming_alloc_est)
 	{
 		int			sync_state = SyncOneBuffer(next_to_clean, true,
@@ -3015,12 +3015,12 @@ BgBufferSync(WritebackContext *wb_context)
 #endif
 
 	/*
-	 * Consider the above scan as being like a new allocation scan.
-	 * Characterize its density and update the smoothed one based on it. This
-	 * effectively halves the moving average period in cases where both the
-	 * strategy and the background writer are doing some useful scanning,
-	 * which is helpful because a long memory isn't as desirable on the
-	 * density estimates.
+	 * 把上面的扫描看作一次新的分配扫描。
+	 * 刻画它的密度，并据此更新平滑后的那个。
+	 * 在策略和后台写进程都在做一些有用扫描的情形下，
+	 * 这实际上把移动平均周期减半，
+	 * 这有帮助，因为密度估计上的长记忆
+	 * 并不那么可取。
 	 */
 	new_strategy_delta = bufs_to_lap - num_to_scan;
 	new_recent_alloc = reusable_buffers - reusable_buffers_est;
@@ -3037,25 +3037,25 @@ BgBufferSync(WritebackContext *wb_context)
 #endif
 	}
 
-	/* Return true if OK to hibernate */
+	/* 若可以休眠就返回真 */
 	return (bufs_to_lap == 0 && recent_alloc == 0);
 }
 
 /*
- * SyncOneBuffer -- process a single buffer during syncing.
+ * SyncOneBuffer -- 同步期间处理单个缓冲区。
  *
- * If skip_recently_used is true, we don't write currently-pinned buffers, nor
- * buffers marked recently used, as these are not replacement candidates.
+ * 若 skip_recently_used 为真，我们不写当前被钉住的缓冲区，也不写
+ * 标为最近使用的缓冲区，因为它们不是替换候选。
  *
- * Returns a bitmask containing the following flag bits:
- *	BUF_WRITTEN: we wrote the buffer.
- *	BUF_REUSABLE: buffer is available for replacement, ie, it has
- *		pin count 0 and usage count 0.
+ * 返回包含下列标志位的位掩码：
+ *	BUF_WRITTEN：我们写出了该缓冲区。
+ *	BUF_REUSABLE：缓冲区可供替换，即它的
+ *		钉住计数为 0 且使用计数为 0。
  *
- * (BUF_WRITTEN could be set in error if FlushBuffer finds the buffer clean
- * after locking it, but we don't care all that much.)
+ * （若 FlushBuffer 锁住缓冲区后发现它是干净的，BUF_WRITTEN 可能被错误设置，
+ * 但我们并不太在意。）
  *
- * Note: caller must have done ResourceOwnerEnlargeBuffers.
+ * 注意：调用者必须已经做过 ResourceOwnerEnlargeBuffers。
  */
 static int
 SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
@@ -3068,13 +3068,13 @@ SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
 	ReservePrivateRefCountEntry();
 
 	/*
-	 * Check whether buffer needs writing.
+	 * 检查缓冲区是否需要写出。
 	 *
-	 * We can make this check without taking the buffer content lock so long
-	 * as we mark pages dirty in access methods *before* logging changes with
-	 * XLogInsert(): if someone marks the buffer dirty just after our check we
-	 * don't worry because our checkpoint.redo points before log record for
-	 * upcoming changes and so we are not required to write such dirty buffer.
+	 * 只要我们在访问方法里把页标为脏页是在用
+	 * XLogInsert() 记录变更之前，就可以不拿缓冲区内容锁做这项检查：
+	 * 若有人刚好在我们检查之后把缓冲区弄脏，我们
+	 * 不担心，因为我们的 checkpoint.redo 指向即将到来的变更的日志记录之前，
+	 * 因此我们不必写出这样的脏页。
 	 */
 	buf_state = LockBufHdr(bufHdr);
 
@@ -3085,21 +3085,21 @@ SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
 	}
 	else if (skip_recently_used)
 	{
-		/* Caller told us not to write recently-used buffers */
+		/* 调用者告诉我们不要写最近使用的缓冲区 */
 		UnlockBufHdr(bufHdr, buf_state);
 		return result;
 	}
 
 	if (!(buf_state & BM_VALID) || !(buf_state & BM_DIRTY))
 	{
-		/* It's clean, so nothing to do */
+		/* 它是干净的，因此无事可做 */
 		UnlockBufHdr(bufHdr, buf_state);
 		return result;
 	}
 
 	/*
-	 * Pin it, share-lock it, write it.  (FlushBuffer will do nothing if the
-	 * buffer is clean by the time we've locked it.)
+	 * 钉住它，共享锁定它，写出它。（若我们锁住时缓冲区是干净的，
+	 * FlushBuffer 会什么也不做。）
 	 */
 	PinBuffer_Locked(bufHdr);
 	LWLockAcquire(BufferDescriptorGetContentLock(bufHdr), LW_SHARED);
@@ -3113,8 +3113,8 @@ SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
 	UnpinBuffer(bufHdr);
 
 	/*
-	 * SyncOneBuffer() is only called by checkpointer and bgwriter, so
-	 * IOContext will always be IOCONTEXT_NORMAL.
+	 * SyncOneBuffer() 只由检查点进程和 bgwriter 调用，因此
+	 * IOContext 将始终是 IOCONTEXT_NORMAL。
 	 */
 	ScheduleBufferTagForWriteback(wb_context, IOCONTEXT_NORMAL, &tag);
 
@@ -3122,11 +3122,11 @@ SyncOneBuffer(int buf_id, bool skip_recently_used, WritebackContext *wb_context)
 }
 
 /*
- *		AtEOXact_Buffers - clean up at end of transaction.
+ *		AtEOXact_Buffers - 在事务结束时清理。
  *
- *		As of PostgreSQL 8.0, buffer pins should get released by the
- *		ResourceOwner mechanism.  This routine is just a debugging
- *		cross-check that no pins remain.
+ *		自 PostgreSQL 8.0 起，缓冲区钉住应当由
+ *		ResourceOwner 机制释放。本例程只是一个调试用的
+ *		交叉检查，确认没有钉住残留。
  */
 void
 AtEOXact_Buffers(bool isCommit)
@@ -3139,11 +3139,11 @@ AtEOXact_Buffers(bool isCommit)
 }
 
 /*
- * Initialize access to shared buffer pool
+ * 初始化对共享缓冲区缓冲池的访问。
  *
- * This is called during backend startup (whether standalone or under the
- * postmaster).  It sets up for this backend's access to the already-existing
- * buffer pool.
+ * 这在后端启动期间调用（无论独立还是在
+ * postmaster 之下）。它为该后端访问已经存在的
+ * 缓冲池做准备。
  */
 void
 InitBufferPoolAccess(void)
@@ -3159,16 +3159,16 @@ InitBufferPoolAccess(void)
 									  HASH_ELEM | HASH_BLOBS);
 
 	/*
-	 * AtProcExit_Buffers needs LWLock access, and thereby has to be called at
-	 * the corresponding phase of backend shutdown.
+	 * AtProcExit_Buffers 需要 LWLock 访问，因此必须在
+	 * 后端关闭的相应阶段调用。
 	 */
 	Assert(MyProc != NULL);
 	on_shmem_exit(AtProcExit_Buffers, 0);
 }
 
 /*
- * During backend exit, ensure that we released all shared-buffer locks and
- * assert that we have no remaining pins.
+ * 后端退出期间，确保我们释放了全部共享缓冲区锁，
+ * 并断言我们没有残留的钉住。
  */
 static void
 AtProcExit_Buffers(int code, Datum arg)
@@ -3177,16 +3177,16 @@ AtProcExit_Buffers(int code, Datum arg)
 
 	CheckForBufferLeaks();
 
-	/* localbuf.c needs a chance too */
+	/* localbuf.c 也需要一个机会 */
 	AtProcExit_LocalBuffers();
 }
 
 /*
- *		CheckForBufferLeaks - ensure this backend holds no buffer pins
+ *		CheckForBufferLeaks - 确保本后端不持有缓冲区钉住。
  *
- *		As of PostgreSQL 8.0, buffer pins should get released by the
- *		ResourceOwner mechanism.  This routine is just a debugging
- *		cross-check that no pins remain.
+ *		自 PostgreSQL 8.0 起，缓冲区钉住应当由
+ *		ResourceOwner 机制释放。本例程只是一个调试用的
+ *		交叉检查，确认没有钉住残留。
  */
 static void
 CheckForBufferLeaks(void)
@@ -3196,7 +3196,7 @@ CheckForBufferLeaks(void)
 	PrivateRefCountEntry *res;
 	int			i;
 
-	/* check the array */
+	/* 检查数组 */
 	for (i = 0; i < REFCOUNT_ARRAY_ENTRIES; i++)
 	{
 		res = &PrivateRefCountArray[i];
@@ -3208,7 +3208,7 @@ CheckForBufferLeaks(void)
 		}
 	}
 
-	/* if necessary search the hash */
+	/* 必要时搜索散列表 */
 	if (PrivateRefCountOverflowed)
 	{
 		HASH_SEQ_STATUS hstat;
@@ -3226,7 +3226,7 @@ CheckForBufferLeaks(void)
 }
 
 /*
- * Helper routine to issue warnings when a buffer is unexpectedly pinned
+ * 缓冲区被意外钉住时发出警告的辅助例程
  */
 void
 PrintBufferLeakWarning(Buffer buffer)
@@ -3251,7 +3251,7 @@ PrintBufferLeakWarning(Buffer buffer)
 		backend = InvalidBackendId;
 	}
 
-	/* theoretically we should lock the bufhdr here */
+	/* 理论上这里我们应当锁住 bufhdr */
 	path = relpathbackend(BufTagGetRelFileLocator(&buf->tag), backend,
 						  BufTagGetForkNum(&buf->tag));
 	buf_state = pg_atomic_read_u32(&buf->state);
@@ -3267,10 +3267,10 @@ PrintBufferLeakWarning(Buffer buffer)
 /*
  * CheckPointBuffers
  *
- * Flush all dirty blocks in buffer pool to disk at checkpoint time.
+ * 检查点时把缓冲池里各缓冲区的全部脏页刷到磁盘。
  *
- * Note: temporary relations do not participate in checkpoints, so they don't
- * need to be flushed.
+ * 注意：临时关系不参与检查点，因此它们不必
+ * 被刷写。
  */
 void
 CheckPointBuffers(int flags)
@@ -3280,11 +3280,11 @@ CheckPointBuffers(int flags)
 
 /*
  * BufferGetBlockNumber
- *		Returns the block number associated with a buffer.
+ *		返回与缓冲区关联的块号。
  *
- * Note:
- *		Assumes that the buffer is valid and pinned, else the
- *		value may be obsolete immediately...
+ * 注意：
+ *		假定该缓冲区有效且已钉住，否则
+ *		该值可能马上就过时……
  */
 BlockNumber
 BufferGetBlockNumber(Buffer buffer)
@@ -3298,14 +3298,14 @@ BufferGetBlockNumber(Buffer buffer)
 	else
 		bufHdr = GetBufferDescriptor(buffer - 1);
 
-	/* pinned, so OK to read tag without spinlock */
+	/* 已钉住，因此不持自旋锁读标签没问题 */
 	return bufHdr->tag.blockNum;
 }
 
 /*
  * BufferGetTag
- *		Returns the relfilelocator, fork number and block number associated with
- *		a buffer.
+ *		返回与缓冲区关联的 relfilelocator、分叉号和
+ *		块号。
  */
 void
 BufferGetTag(Buffer buffer, RelFileLocator *rlocator, ForkNumber *forknum,
@@ -3313,7 +3313,7 @@ BufferGetTag(Buffer buffer, RelFileLocator *rlocator, ForkNumber *forknum,
 {
 	BufferDesc *bufHdr;
 
-	/* Do the same checks as BufferGetBlockNumber. */
+	/* 做与 BufferGetBlockNumber 相同的检查。 */
 	Assert(BufferIsPinned(buffer));
 
 	if (BufferIsLocal(buffer))
@@ -3321,7 +3321,7 @@ BufferGetTag(Buffer buffer, RelFileLocator *rlocator, ForkNumber *forknum,
 	else
 		bufHdr = GetBufferDescriptor(buffer - 1);
 
-	/* pinned, so OK to read tag without spinlock */
+	/* 已钉住，因此不持自旋锁读标签没问题 */
 	*rlocator = BufTagGetRelFileLocator(&bufHdr->tag);
 	*forknum = BufTagGetForkNum(&bufHdr->tag);
 	*blknum = bufHdr->tag.blockNum;
@@ -3329,22 +3329,22 @@ BufferGetTag(Buffer buffer, RelFileLocator *rlocator, ForkNumber *forknum,
 
 /*
  * FlushBuffer
- *		Physically write out a shared buffer.
+ *		物理地写出一个共享缓冲区。
  *
- * NOTE: this actually just passes the buffer contents to the kernel; the
- * real write to disk won't happen until the kernel feels like it.  This
- * is okay from our point of view since we can redo the changes from WAL.
- * However, we will need to force the changes to disk via fsync before
- * we can checkpoint WAL.
+ * 注意：这实际上只是把缓冲区内容交给内核；真正写到
+ * 磁盘要等到内核愿意时才发生。从我们的角度看这没问题，
+ * 因为我们可以从 WAL 重做这些变更。
+ * 不过，在我们能对 WAL 做检查点之前，需要用 fsync
+ * 把这些变更强制到磁盘。
  *
- * The caller must hold a pin on the buffer and have share-locked the
- * buffer contents.  (Note: a share-lock does not prevent updates of
- * hint bits in the buffer, so the page could change while the write
- * is in progress, but we assume that that will not invalidate the data
- * written.)
+ * 调用者必须对该缓冲区持有钉住，并共享锁定了
+ * 缓冲区内容。（注意：共享锁不阻止更新
+ * 缓冲区里的提示位，因此写进行期间该页可能改变，
+ * 但我们假定那不会使已写出的数据
+ * 失效。）
  *
- * If the caller has an smgr reference for the buffer's relation, pass it
- * as the second parameter.  If not, pass NULL.
+ * 若调用者持有该缓冲区关系的 smgr 引用，就把它作为
+ * 第二个参数传入。若没有，就传入 NULL。
  */
 static void
 FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
@@ -3358,20 +3358,20 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 	uint32		buf_state;
 
 	/*
-	 * Try to start an I/O operation.  If StartBufferIO returns false, then
-	 * someone else flushed the buffer before we could, so we need not do
-	 * anything.
+	 * 试图开始一次 I/O 操作。若 StartBufferIO 返回假，则
+	 * 别人赶在我们之前刷写了该缓冲区，因此我们不必
+	 * 做任何事。
 	 */
 	if (!StartBufferIO(buf, false))
 		return;
 
-	/* Setup error traceback support for ereport() */
+	/* 为 ereport() 设置错误回溯支持 */
 	errcallback.callback = shared_buffer_write_error_callback;
 	errcallback.arg = (void *) buf;
 	errcallback.previous = error_context_stack;
 	error_context_stack = &errcallback;
 
-	/* Find smgr relation for buffer */
+	/* 查找缓冲区的 smgr 关系 */
 	if (reln == NULL)
 		reln = smgropen(BufTagGetRelFileLocator(&buf->tag), InvalidBackendId);
 
@@ -3384,53 +3384,53 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 	buf_state = LockBufHdr(buf);
 
 	/*
-	 * Run PageGetLSN while holding header lock, since we don't have the
-	 * buffer locked exclusively in all cases.
+	 * 持有描述符锁时运行 PageGetLSN，因为并非所有情形
+	 * 我们都排他锁定了缓冲区。
 	 */
 	recptr = BufferGetLSN(buf);
 
-	/* To check if block content changes while flushing. - vadim 01/17/97 */
+	/* 检查刷写期间块内容是否改变。- vadim 01/17/97 */
 	buf_state &= ~BM_JUST_DIRTIED;
 	UnlockBufHdr(buf, buf_state);
 
 	/*
-	 * Force XLOG flush up to buffer's LSN.  This implements the basic WAL
-	 * rule that log updates must hit disk before any of the data-file changes
-	 * they describe do.
+	 * 强制把 XLOG 刷到该缓冲区的 LSN。这实现了基本的 WAL
+	 * 规则：日志更新必须先落到磁盘，然后它们所描述的任何数据文件变更
+	 * 才能落到磁盘。
 	 *
-	 * However, this rule does not apply to unlogged relations, which will be
-	 * lost after a crash anyway.  Most unlogged relation pages do not bear
-	 * LSNs since we never emit WAL records for them, and therefore flushing
-	 * up through the buffer LSN would be useless, but harmless.  However,
-	 * GiST indexes use LSNs internally to track page-splits, and therefore
-	 * unlogged GiST pages bear "fake" LSNs generated by
-	 * GetFakeLSNForUnloggedRel.  It is unlikely but possible that the fake
-	 * LSN counter could advance past the WAL insertion point; and if it did
-	 * happen, attempting to flush WAL through that location would fail, with
-	 * disastrous system-wide consequences.  To make sure that can't happen,
-	 * skip the flush if the buffer isn't permanent.
+	 * 不过，这条规则不适用于未日志记录的关系，它们在崩溃后
+	 * 反正会丢失。多数未日志记录关系的页不带
+	 * LSNs，因为我们从不为它们发出 WAL 记录，因此刷到
+	 * 缓冲区 LSN 没有用，但也无害。不过，
+	 * GiST 索引在内部用 LSNs 跟踪页分裂，因此
+	 * 未日志记录的 GiST 页带有由
+	 * GetFakeLSNForUnloggedRel 生成的假 LSN。假
+	 * LSN 计数器推进超过 WAL 插入点不太可能，但有可能；若真的
+	 * 发生，试图把 WAL 刷到那个位置会失败，带来
+	 * 灾难性的全系统后果。为确保那不会发生，
+	 * 若该缓冲区不是永久的，就跳过这次刷写。
 	 */
 	if (buf_state & BM_PERMANENT)
 		XLogFlush(recptr);
 
 	/*
-	 * Now it's safe to write buffer to disk. Note that no one else should
-	 * have been able to write it while we were busy with log flushing because
-	 * only one process at a time can set the BM_IO_IN_PROGRESS bit.
+	 * 现在把缓冲区写到磁盘是安全的。注意，我们忙于刷日志时，
+	 * 别人应当无法写它，因为
+	 * 同一时刻只有一个进程能设置 BM_IO_IN_PROGRESS 位。
 	 */
 	bufBlock = BufHdrGetBlock(buf);
 
 	/*
-	 * Update page checksum if desired.  Since we have only shared lock on the
-	 * buffer, other processes might be updating hint bits in it, so we must
-	 * copy the page to private storage if we do checksumming.
+	 * 若希望如此，就更新页校验和。由于我们只对该
+	 * 缓冲区持有共享锁，其他进程可能正在更新它的提示位，因此若做校验和，
+	 * 我们必须把该页复制到私有存储。
 	 */
 	bufToWrite = PageSetChecksumCopy((Page) bufBlock, buf->tag.blockNum);
 
 	io_start = pgstat_prepare_io_time();
 
 	/*
-	 * bufToWrite is either the shared buffer or a copy, as appropriate.
+	 * 视情况，bufToWrite 要么是共享缓冲区，要么是一份副本。
 	 */
 	smgrwrite(reln,
 			  BufTagGetForkNum(&buf->tag),
@@ -3439,22 +3439,22 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 			  false);
 
 	/*
-	 * When a strategy is in use, only flushes of dirty buffers already in the
-	 * strategy ring are counted as strategy writes (IOCONTEXT
-	 * [BULKREAD|BULKWRITE|VACUUM] IOOP_WRITE) for the purpose of IO
-	 * statistics tracking.
+	 * 使用策略时，只有已经在
+	 * 策略环里的脏页刷写才算作策略写（IOCONTEXT
+	 * [BULKREAD|BULKWRITE|VACUUM] IOOP_WRITE），以便
+	 * IO 统计跟踪。
 	 *
-	 * If a shared buffer initially added to the ring must be flushed before
-	 * being used, this is counted as an IOCONTEXT_NORMAL IOOP_WRITE.
+	 * 若最初加入环的共享缓冲区在使用前必须被刷写，
+	 * 这算作 IOCONTEXT_NORMAL IOOP_WRITE。
 	 *
-	 * If a shared buffer which was added to the ring later because the
-	 * current strategy buffer is pinned or in use or because all strategy
-	 * buffers were dirty and rejected (for BAS_BULKREAD operations only)
-	 * requires flushing, this is counted as an IOCONTEXT_NORMAL IOOP_WRITE
-	 * (from_ring will be false).
+	 * 若一个共享缓冲区是后来才加入环的，因为
+	 * 当前策略缓冲区被钉住或正在使用，或因为全部策略
+	 * 缓冲区都是脏页而被拒绝（仅对 BAS_BULKREAD 操作），
+	 * 并且需要刷写，这算作 IOCONTEXT_NORMAL IOOP_WRITE
+	 * （from_ring 将为假）。
 	 *
-	 * When a strategy is not in use, the write can only be a "regular" write
-	 * of a dirty shared buffer (IOCONTEXT_NORMAL IOOP_WRITE).
+	 * 不使用策略时，这次写只能是脏的共享缓冲区的普通写
+	 * （IOCONTEXT_NORMAL IOOP_WRITE）。
 	 */
 	pgstat_count_io_op_time(IOOBJECT_RELATION, io_context,
 							IOOP_WRITE, io_start, 1);
@@ -3462,8 +3462,8 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 	pgBufferUsage.shared_blks_written++;
 
 	/*
-	 * Mark the buffer as clean (unless BM_JUST_DIRTIED has become set) and
-	 * end the BM_IO_IN_PROGRESS state.
+	 * 把缓冲区标为干净（除非 BM_JUST_DIRTIED 已被设置），并
+	 * 结束 BM_IO_IN_PROGRESS 状态。
 	 */
 	TerminateBufferIO(buf, true, 0);
 
@@ -3473,17 +3473,17 @@ FlushBuffer(BufferDesc *buf, SMgrRelation reln, IOObject io_object,
 									   reln->smgr_rlocator.locator.dbOid,
 									   reln->smgr_rlocator.locator.relNumber);
 
-	/* Pop the error context stack */
+	/* 弹出错误上下文栈 */
 	error_context_stack = errcallback.previous;
 }
 
 /*
  * RelationGetNumberOfBlocksInFork
- *		Determines the current number of pages in the specified relation fork.
+ *		确定指定关系分叉里的当前页数。
  *
- * Note that the accuracy of the result will depend on the details of the
- * relation's storage. For builtin AMs it'll be accurate, but for external AMs
- * it might not be.
+ * 注意，结果的准确性取决于该关系存储的细节。
+ * 对内建访问方法它是准确的，但对外部访问方法
+ * 可能不准。
  */
 BlockNumber
 RelationGetNumberOfBlocksInFork(Relation relation, ForkNumber forkNum)
@@ -3491,10 +3491,10 @@ RelationGetNumberOfBlocksInFork(Relation relation, ForkNumber forkNum)
 	if (RELKIND_HAS_TABLE_AM(relation->rd_rel->relkind))
 	{
 		/*
-		 * Not every table AM uses BLCKSZ wide fixed size blocks. Therefore
-		 * tableam returns the size in bytes - but for the purpose of this
-		 * routine, we want the number of blocks. Therefore divide, rounding
-		 * up.
+		 * 并非每个表访问方法都使用 BLCKSZ 宽的固定大小块。因此
+		 * tableam 以字节返回大小，但对本例程的目的，
+		 * 我们要的是块数。因此做除法，向上
+		 * 取整。
 		 */
 		uint64		szbytes;
 
@@ -3509,33 +3509,33 @@ RelationGetNumberOfBlocksInFork(Relation relation, ForkNumber forkNum)
 	else
 		Assert(false);
 
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 消除编译器告警 */
 }
 
 /*
  * BufferIsPermanent
- *		Determines whether a buffer will potentially still be around after
- *		a crash.  Caller must hold a buffer pin.
+ *		判断一个缓冲区在崩溃之后是否仍可能存在。
+ *		调用者必须持有缓冲区钉住。
  */
 bool
 BufferIsPermanent(Buffer buffer)
 {
 	BufferDesc *bufHdr;
 
-	/* Local buffers are used only for temp relations. */
+	/* 本地缓冲区只用于临时关系。 */
 	if (BufferIsLocal(buffer))
 		return false;
 
-	/* Make sure we've got a real buffer, and that we hold a pin on it. */
+	/* 确保我们拿到的是真正的缓冲区，并且我们对它持有钉住。 */
 	Assert(BufferIsValid(buffer));
 	Assert(BufferIsPinned(buffer));
 
 	/*
-	 * BM_PERMANENT can't be changed while we hold a pin on the buffer, so we
-	 * need not bother with the buffer header spinlock.  Even if someone else
-	 * changes the buffer header state while we're doing this, the state is
-	 * changed atomically, so we'll read the old value or the new value, but
-	 * not random garbage.
+	 * 我们持有对该缓冲区的钉住时，BM_PERMANENT 不能被改变，因此
+	 * 不必费心拿缓冲区描述符自旋锁。即使别人
+	 * 在我们做这件事时改变了缓冲区描述符状态，该状态是
+	 * 原子地改变的，因此我们读到的是旧值或新值，而不是
+	 * 随机垃圾。
 	 */
 	bufHdr = GetBufferDescriptor(buffer - 1);
 	return (pg_atomic_read_u32(&bufHdr->state) & BM_PERMANENT) != 0;
@@ -3543,9 +3543,9 @@ BufferIsPermanent(Buffer buffer)
 
 /*
  * BufferGetLSNAtomic
- *		Retrieves the LSN of the buffer atomically using a buffer header lock.
- *		This is necessary for some callers who may not have an exclusive lock
- *		on the buffer.
+ *		用缓冲区描述符锁原子地取得该缓冲区的 LSN。
+ *		这对某些可能没有对该缓冲区排他锁的
+ *		调用者是必要的。
  */
 XLogRecPtr
 BufferGetLSNAtomic(Buffer buffer)
@@ -3556,12 +3556,12 @@ BufferGetLSNAtomic(Buffer buffer)
 	uint32		buf_state;
 
 	/*
-	 * If we don't need locking for correctness, fastpath out.
+	 * 若正确性不需要加锁，就走快路径出去。
 	 */
 	if (!XLogHintBitIsNeeded() || BufferIsLocal(buffer))
 		return PageGetLSN(page);
 
-	/* Make sure we've got a real buffer, and that we hold a pin on it. */
+	/* 确保我们拿到的是真正的缓冲区，并且我们对它持有钉住。 */
 	Assert(BufferIsValid(buffer));
 	Assert(BufferIsPinned(buffer));
 
@@ -3576,22 +3576,22 @@ BufferGetLSNAtomic(Buffer buffer)
 /* ---------------------------------------------------------------------
  *		DropRelationBuffers
  *
- *		This function removes from the buffer pool all the pages of the
- *		specified relation forks that have block numbers >= firstDelBlock.
- *		(In particular, with firstDelBlock = 0, all pages are removed.)
- *		Dirty pages are simply dropped, without bothering to write them
- *		out first.  Therefore, this is NOT rollback-able, and so should be
- *		used only with extreme caution!
+ *		本函数从缓冲池去掉指定关系分叉中
+ *		块号 >= firstDelBlock 的全部页。
+ *		（特别地，firstDelBlock = 0 时去掉全部页。）
+ *		脏页被直接丢掉，不费心先把它们
+ *		写出。因此这不能回滚，所以只应当
+ *		极其谨慎地使用！
  *
- *		Currently, this is called only from smgr.c when the underlying file
- *		is about to be deleted or truncated (firstDelBlock is needed for
- *		the truncation case).  The data in the affected pages would therefore
- *		be deleted momentarily anyway, and there is no point in writing it.
- *		It is the responsibility of higher-level code to ensure that the
- *		deletion or truncation does not lose any data that could be needed
- *		later.  It is also the responsibility of higher-level code to ensure
- *		that no other process could be trying to load more pages of the
- *		relation into buffers.
+ *		目前，这只在底层文件即将被删除或截断时
+ *		从 smgr.c 调用（截断情形需要 firstDelBlock）。
+ *		受影响页里的数据反正马上就会被删除，
+ *		写出去没有意义。
+ *		确保删除或截断不会丢失以后可能需要的
+ *		任何数据，是更高层代码的责任。
+ *		确保没有其他进程试图把该关系的更多页
+ *		装入缓冲区，也是更高层代码的
+ *		责任。
  * --------------------------------------------------------------------
  */
 void
@@ -3606,7 +3606,7 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 
 	rlocator = smgr_reln->smgr_rlocator;
 
-	/* If it's a local relation, it's localbuf.c's problem. */
+	/* 若它是本地关系，那就是 localbuf.c 的问题。 */
 	if (RelFileLocatorBackendIsTemp(rlocator))
 	{
 		if (rlocator.backend == MyBackendId)
@@ -3619,30 +3619,30 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 	}
 
 	/*
-	 * To remove all the pages of the specified relation forks from the buffer
-	 * pool, we need to scan the entire buffer pool but we can optimize it by
-	 * finding the buffers from BufMapping table provided we know the exact
-	 * size of each fork of the relation. The exact size is required to ensure
-	 * that we don't leave any buffer for the relation being dropped as
-	 * otherwise the background writer or checkpointer can lead to a PANIC
-	 * error while flushing buffers corresponding to files that don't exist.
+	 * 要从缓冲池去掉指定关系分叉的全部页，
+	 * 我们需要扫描整个缓冲池，但若我们知道该关系每个分叉的
+	 * 准确大小，就可以通过从 BufMapping 表找出缓冲区来加快。
+	 * 准确大小是必需的，以确保我们不会留下被丢掉关系的任何缓冲区，
+	 * 否则后台写进程或检查点进程在刷写对应不存在文件的缓冲区时
+	 * 可能导致 PANIC
+	 * 错误。
 	 *
-	 * To know the exact size, we rely on the size cached for each fork by us
-	 * during recovery which limits the optimization to recovery and on
-	 * standbys but we can easily extend it once we have shared cache for
-	 * relation size.
+	 * 为知道准确大小，我们依赖恢复期间为每个分叉缓存的大小，
+	 * 这把这种加快限制在恢复和
+	 * 后备机上，但一旦我们有了关系大小的共享缓存，
+	 * 就可以很容易地扩展它。
 	 *
-	 * In recovery, we cache the value returned by the first lseek(SEEK_END)
-	 * and the future writes keeps the cached value up-to-date. See
-	 * smgrextend. It is possible that the value of the first lseek is smaller
-	 * than the actual number of existing blocks in the file due to buggy
-	 * Linux kernels that might not have accounted for the recent write. But
-	 * that should be fine because there must not be any buffers after that
-	 * file size.
+	 * 在恢复中，我们缓存第一次 lseek(SEEK_END) 返回的值，
+	 * 以后的写保持缓存值是最新的。见
+	 * smgrextend。第一次 lseek 的值可能小于
+	 * 文件里实际存在的块数，因为有缺陷的
+	 * Linux 内核可能没有计入最近的写。但
+	 * 那应当没问题，因为该文件大小之后
+	 * 不得有任何缓冲区。
 	 */
 	for (i = 0; i < nforks; i++)
 	{
-		/* Get the number of blocks for a relation's fork */
+		/* 取得关系某个分叉的块数 */
 		nForkBlock[i] = smgrnblocks_cached(smgr_reln, forkNum[i]);
 
 		if (nForkBlock[i] == InvalidBlockNumber)
@@ -3651,13 +3651,13 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 			break;
 		}
 
-		/* calculate the number of blocks to be invalidated */
+		/* 计算要失效的块数 */
 		nBlocksToInvalidate += (nForkBlock[i] - firstDelBlock[i]);
 	}
 
 	/*
-	 * We apply the optimization iff the total number of blocks to invalidate
-	 * is below the BUF_DROP_FULL_SCAN_THRESHOLD.
+	 * 当且仅当要失效的块总数低于
+	 * BUF_DROP_FULL_SCAN_THRESHOLD 时，我们才应用这种加快。
 	 */
 	if (BlockNumberIsValid(nBlocksToInvalidate) &&
 		nBlocksToInvalidate < BUF_DROP_FULL_SCAN_THRESHOLD)
@@ -3674,20 +3674,20 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 		uint32		buf_state;
 
 		/*
-		 * We can make this a tad faster by prechecking the buffer tag before
-		 * we attempt to lock the buffer; this saves a lot of lock
-		 * acquisitions in typical cases.  It should be safe because the
-		 * caller must have AccessExclusiveLock on the relation, or some other
-		 * reason to be certain that no one is loading new pages of the rel
-		 * into the buffer pool.  (Otherwise we might well miss such pages
-		 * entirely.)  Therefore, while the tag might be changing while we
-		 * look at it, it can't be changing *to* a value we care about, only
-		 * *away* from such a value.  So false negatives are impossible, and
-		 * false positives are safe because we'll recheck after getting the
-		 * buffer lock.
+		 * 我们可以先预检查缓冲区标签，再试图
+		 * 锁住缓冲区，从而稍快一点；这在典型情形下
+		 * 省掉大量锁获取。这应当是安全的，因为
+		 * 调用者必须对该关系持有 AccessExclusiveLock，或有别的
+		 * 理由确信没有人在把该关系的新页装入
+		 * 缓冲池。（否则我们很可能完全错过这样的页。）
+		 * 因此，我们看它时标签可能正在变，但它不能
+		 * 变成我们关心的值，只能离开这样的值。
+		 * 因此假阴性不可能，而假阳性是安全的，
+		 * 因为取得缓冲区锁之后
+		 * 我们会重新检查。
 		 *
-		 * We could check forkNum and blockNum as well as the rlocator, but
-		 * the incremental win from doing so seems small.
+		 * 我们也可以检查 forkNum 和 blockNum 以及 rlocator，但
+		 * 这样做的额外收益似乎很小。
 		 */
 		if (!BufTagMatchesRelFileLocator(&bufHdr->tag, &rlocator.locator))
 			continue;
@@ -3700,7 +3700,7 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 				BufTagGetForkNum(&bufHdr->tag) == forkNum[j] &&
 				bufHdr->tag.blockNum >= firstDelBlock[j])
 			{
-				InvalidateBuffer(bufHdr);	/* releases spinlock */
+				InvalidateBuffer(bufHdr);	/* 释放自旋锁 */
 				break;
 			}
 		}
@@ -3712,9 +3712,9 @@ DropRelationBuffers(SMgrRelation smgr_reln, ForkNumber *forkNum,
 /* ---------------------------------------------------------------------
  *		DropRelationsAllBuffers
  *
- *		This function removes from the buffer pool all the pages of all
- *		forks of the specified relations.  It's equivalent to calling
- *		DropRelationBuffers once per fork per relation with firstDelBlock = 0.
+ *		本函数从缓冲池去掉指定关系全部缓冲区的
+ *		分叉的全部页。它等价于对每个关系的每个分叉以 firstDelBlock = 0
+ *		调用一次 DropRelationBuffers。
  *		--------------------------------------------------------------------
  */
 void
@@ -3732,9 +3732,9 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 	if (nlocators == 0)
 		return;
 
-	rels = palloc(sizeof(SMgrRelation) * nlocators);	/* non-local relations */
+	rels = palloc(sizeof(SMgrRelation) * nlocators);	/* 非本地关系 */
 
-	/* If it's a local relation, it's localbuf.c's problem. */
+	/* 若它是本地关系，那就是 localbuf.c 的问题。 */
 	for (i = 0; i < nlocators; i++)
 	{
 		if (RelFileLocatorBackendIsTemp(smgr_reln[i]->smgr_rlocator))
@@ -3747,8 +3747,8 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 	}
 
 	/*
-	 * If there are no non-local relations, then we're done. Release the
-	 * memory and return.
+	 * 若没有非本地关系，我们就完成了。释放
+	 * 内存并返回。
 	 */
 	if (n == 0)
 	{
@@ -3757,24 +3757,24 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 	}
 
 	/*
-	 * This is used to remember the number of blocks for all the relations
-	 * forks.
+	 * 这用来记住全部关系
+	 * 分叉的块数。
 	 */
 	block = (BlockNumber (*)[MAX_FORKNUM + 1])
 		palloc(sizeof(BlockNumber) * n * (MAX_FORKNUM + 1));
 
 	/*
-	 * We can avoid scanning the entire buffer pool if we know the exact size
-	 * of each of the given relation forks. See DropRelationBuffers.
+	 * 若我们知道每个给定关系分叉的准确大小，就可以避免扫描缓冲池里的全部缓冲区。
+	 * 见 DropRelationBuffers。
 	 */
 	for (i = 0; i < n && cached; i++)
 	{
 		for (int j = 0; j <= MAX_FORKNUM; j++)
 		{
-			/* Get the number of blocks for a relation's fork. */
+			/* 取得关系某个分叉的块数。 */
 			block[i][j] = smgrnblocks_cached(rels[i], j);
 
-			/* We need to only consider the relation forks that exists. */
+			/* 我们只需要考虑存在的关系分叉。 */
 			if (block[i][j] == InvalidBlockNumber)
 			{
 				if (!smgrexists(rels[i], j))
@@ -3783,14 +3783,14 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 				break;
 			}
 
-			/* calculate the total number of blocks to be invalidated */
+			/* 计算要失效的块总数 */
 			nBlocksToInvalidate += block[i][j];
 		}
 	}
 
 	/*
-	 * We apply the optimization iff the total number of blocks to invalidate
-	 * is below the BUF_DROP_FULL_SCAN_THRESHOLD.
+	 * 当且仅当要失效的块总数低于
+	 * BUF_DROP_FULL_SCAN_THRESHOLD 时，我们才应用这种加快。
 	 */
 	if (cached && nBlocksToInvalidate < BUF_DROP_FULL_SCAN_THRESHOLD)
 	{
@@ -3798,11 +3798,11 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 		{
 			for (int j = 0; j <= MAX_FORKNUM; j++)
 			{
-				/* ignore relation forks that doesn't exist */
+				/* 忽略不存在的关系分叉 */
 				if (!BlockNumberIsValid(block[i][j]))
 					continue;
 
-				/* drop all the buffers for a particular relation fork */
+				/* 丢掉某个关系分叉的全部缓冲区 */
 				FindAndDropRelationBuffers(rels[i]->smgr_rlocator.locator,
 										   j, block[i][j], 0);
 			}
@@ -3814,19 +3814,19 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 	}
 
 	pfree(block);
-	locators = palloc(sizeof(RelFileLocator) * n);	/* non-local relations */
+	locators = palloc(sizeof(RelFileLocator) * n);	/* 非本地关系 */
 	for (i = 0; i < n; i++)
 		locators[i] = rels[i]->smgr_rlocator.locator;
 
 	/*
-	 * For low number of relations to drop just use a simple walk through, to
-	 * save the bsearch overhead. The threshold to use is rather a guess than
-	 * an exactly determined value, as it depends on many factors (CPU and RAM
-	 * speeds, amount of shared buffers etc.).
+	 * 对要丢掉的关系数量较少时，就用简单遍历，以
+	 * 省掉二分查找的开销。所用阈值与其说是精确测定的值，
+	 * 不如说是猜测，因为它取决于许多因素（CPU 和内存
+	 * 速度、共享缓冲区数量等）。
 	 */
 	use_bsearch = n > RELS_BSEARCH_THRESHOLD;
 
-	/* sort the list of rlocators if necessary */
+	/* 必要时对 rlocator 列表排序 */
 	if (use_bsearch)
 		pg_qsort(locators, n, sizeof(RelFileLocator), rlocator_comparator);
 
@@ -3837,8 +3837,8 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 		uint32		buf_state;
 
 		/*
-		 * As in DropRelationBuffers, an unlocked precheck should be safe and
-		 * saves some cycles.
+		 * 与 DropRelationBuffers 一样，不加锁的预检查应当安全，
+		 * 并省掉一些周期。
 		 */
 
 		if (!use_bsearch)
@@ -3864,13 +3864,13 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 							   rlocator_comparator);
 		}
 
-		/* buffer doesn't belong to any of the given relfilelocators; skip it */
+		/* 缓冲区不属于任何给定的 relfilelocator；跳过它 */
 		if (rlocator == NULL)
 			continue;
 
 		buf_state = LockBufHdr(bufHdr);
 		if (BufTagMatchesRelFileLocator(&bufHdr->tag, rlocator))
-			InvalidateBuffer(bufHdr);	/* releases spinlock */
+			InvalidateBuffer(bufHdr);	/* 释放自旋锁 */
 		else
 			UnlockBufHdr(bufHdr, buf_state);
 	}
@@ -3882,10 +3882,10 @@ DropRelationsAllBuffers(SMgrRelation *smgr_reln, int nlocators)
 /* ---------------------------------------------------------------------
  *		FindAndDropRelationBuffers
  *
- *		This function performs look up in BufMapping table and removes from the
- *		buffer pool all the pages of the specified relation fork that has block
- *		number >= firstDelBlock. (In particular, with firstDelBlock = 0, all
- *		pages are removed.)
+ *		本函数在 BufMapping 表里查找，并从缓冲池去掉这些缓冲区，即
+ *		指定关系分叉中块号 >= firstDelBlock 的全部页。
+ *		（特别地，firstDelBlock = 0 时去掉全部
+ *		页。）
  * --------------------------------------------------------------------
  */
 static void
@@ -3897,21 +3897,21 @@ FindAndDropRelationBuffers(RelFileLocator rlocator, ForkNumber forkNum,
 
 	for (curBlock = firstDelBlock; curBlock < nForkBlock; curBlock++)
 	{
-		uint32		bufHash;	/* hash value for tag */
-		BufferTag	bufTag;		/* identity of requested block */
-		LWLock	   *bufPartitionLock;	/* buffer partition lock for it */
+		uint32		bufHash;	/* 标签的散列值 */
+		BufferTag	bufTag;		/* 所请求块的标识 */
+		LWLock	   *bufPartitionLock;	/* 它的缓冲区分区锁 */
 		int			buf_id;
 		BufferDesc *bufHdr;
 		uint32		buf_state;
 
-		/* create a tag so we can lookup the buffer */
+		/* 创建一个标签，以便查找该缓冲区 */
 		InitBufferTag(&bufTag, &rlocator, forkNum, curBlock);
 
-		/* determine its hash code and partition lock ID */
+		/* 确定它的散列码和分区锁标识 */
 		bufHash = BufTableHashCode(&bufTag);
 		bufPartitionLock = BufMappingPartitionLock(bufHash);
 
-		/* Check that it is in the buffer pool. If not, do nothing. */
+		/* 检查该缓冲区是否在缓冲池中。若不在，就什么也不做。 */
 		LWLockAcquire(bufPartitionLock, LW_SHARED);
 		buf_id = BufTableLookup(&bufTag, bufHash);
 		LWLockRelease(bufPartitionLock);
@@ -3922,17 +3922,17 @@ FindAndDropRelationBuffers(RelFileLocator rlocator, ForkNumber forkNum,
 		bufHdr = GetBufferDescriptor(buf_id);
 
 		/*
-		 * We need to lock the buffer header and recheck if the buffer is
-		 * still associated with the same block because the buffer could be
-		 * evicted by some other backend loading blocks for a different
-		 * relation after we release lock on the BufMapping table.
+		 * 我们需要锁住缓冲区描述符，并重新检查该缓冲区是否
+		 * 仍与同一块关联，因为我们释放 BufMapping 表上的锁之后，
+		 * 该缓冲区可能被某个其他后端为另一个
+		 * 关系装入块而逐出。
 		 */
 		buf_state = LockBufHdr(bufHdr);
 
 		if (BufTagMatchesRelFileLocator(&bufHdr->tag, &rlocator) &&
 			BufTagGetForkNum(&bufHdr->tag) == forkNum &&
 			bufHdr->tag.blockNum >= firstDelBlock)
-			InvalidateBuffer(bufHdr);	/* releases spinlock */
+			InvalidateBuffer(bufHdr);	/* 释放自旋锁 */
 		else
 			UnlockBufHdr(bufHdr, buf_state);
 	}
@@ -3941,12 +3941,12 @@ FindAndDropRelationBuffers(RelFileLocator rlocator, ForkNumber forkNum,
 /* ---------------------------------------------------------------------
  *		DropDatabaseBuffers
  *
- *		This function removes all the buffers in the buffer cache for a
- *		particular database.  Dirty pages are simply dropped, without
- *		bothering to write them out first.  This is used when we destroy a
- *		database, to avoid trying to flush data to disk when the directory
- *		tree no longer exists.  Implementation is pretty similar to
- *		DropRelationBuffers() which is for destroying just one relation.
+ *		本函数去掉缓冲池里某个
+ *		特定数据库的全部缓冲区。脏页被直接丢掉，不
+ *		费心先把它们写出。这在我们销毁
+ *		数据库时使用，以避免目录树不再存在时
+ *		还试图把数据刷到磁盘。实现与只销毁一个关系的
+ *		DropRelationBuffers() 相当类似。
  * --------------------------------------------------------------------
  */
 void
@@ -3955,8 +3955,8 @@ DropDatabaseBuffers(Oid dbid)
 	int			i;
 
 	/*
-	 * We needn't consider local buffers, since by assumption the target
-	 * database isn't our own.
+	 * 我们不必考虑本地缓冲区，因为按假定目标
+	 * 数据库不是我们自己的。
 	 */
 
 	for (i = 0; i < NBuffers; i++)
@@ -3965,15 +3965,15 @@ DropDatabaseBuffers(Oid dbid)
 		uint32		buf_state;
 
 		/*
-		 * As in DropRelationBuffers, an unlocked precheck should be safe and
-		 * saves some cycles.
+		 * 与 DropRelationBuffers 一样，不加锁的预检查应当安全，
+		 * 并省掉一些周期。
 		 */
 		if (bufHdr->tag.dbOid != dbid)
 			continue;
 
 		buf_state = LockBufHdr(bufHdr);
 		if (bufHdr->tag.dbOid == dbid)
-			InvalidateBuffer(bufHdr);	/* releases spinlock */
+			InvalidateBuffer(bufHdr);	/* 释放自旋锁 */
 		else
 			UnlockBufHdr(bufHdr, buf_state);
 	}
@@ -3982,8 +3982,8 @@ DropDatabaseBuffers(Oid dbid)
 /* -----------------------------------------------------------------
  *		PrintBufferDescs
  *
- *		this function prints all the buffer descriptors, for debugging
- *		use only.
+ *		本函数打印全部缓冲区描述符，仅供调试
+ *		使用。
  * -----------------------------------------------------------------
  */
 #ifdef NOT_USED
@@ -3997,7 +3997,7 @@ PrintBufferDescs(void)
 		BufferDesc *buf = GetBufferDescriptor(i);
 		Buffer		b = BufferDescriptorGetBuffer(buf);
 
-		/* theoretically we should lock the bufhdr here */
+		/* 理论上这里我们应当锁住 bufhdr */
 		elog(LOG,
 			 "[%02d] (freeNext=%d, rel=%s, "
 			 "blockNum=%u, flags=0x%x, refcount=%u %d)",
@@ -4023,7 +4023,7 @@ PrintPinnedBufs(void)
 
 		if (GetPrivateRefCount(b) > 0)
 		{
-			/* theoretically we should lock the bufhdr here */
+			/* 理论上这里我们应当锁住 bufhdr */
 			elog(LOG,
 				 "[%02d] (freeNext=%d, rel=%s, "
 				 "blockNum=%u, flags=0x%x, refcount=%u %d)",
@@ -4040,19 +4040,19 @@ PrintPinnedBufs(void)
 /* ---------------------------------------------------------------------
  *		FlushRelationBuffers
  *
- *		This function writes all dirty pages of a relation out to disk
- *		(or more accurately, out to kernel disk buffers), ensuring that the
- *		kernel has an up-to-date view of the relation.
+ *		本函数把一个关系的全部脏页写出到磁盘
+ *		（更准确地说，写出到内核磁盘缓冲区），确保内核
+ *		对该关系有最新视图。
  *
- *		Generally, the caller should be holding AccessExclusiveLock on the
- *		target relation to ensure that no other backend is busy dirtying
- *		more blocks of the relation; the effects can't be expected to last
- *		after the lock is released.
+ *		通常，调用者应当对目标关系持有 AccessExclusiveLock，
+ *		以确保没有其他后端正忙着把该关系的更多块
+ *		弄成脏页；锁释放之后，不能预期
+ *		这些效果还会持续。
  *
- *		XXX currently it sequentially searches the buffer pool, should be
- *		changed to more clever ways of searching.  This routine is not
- *		used in any performance-critical code paths, so it's not worth
- *		adding additional overhead to normal paths to make it go faster.
+ *		XXX 目前它顺序搜索缓冲池，应当改成
+ *		更聪明的搜索方式。本例程不用于任何性能关键路径，
+ *		因此不值得给正常路径增加额外开销来让它
+ *		更快。
  * --------------------------------------------------------------------
  */
 void
@@ -4078,7 +4078,7 @@ FlushRelationBuffers(Relation rel)
 
 				localpage = (char *) LocalBufHdrGetBlock(bufHdr);
 
-				/* Setup error traceback support for ereport() */
+				/* 为 ereport() 设置错误回溯支持 */
 				errcallback.callback = local_buffer_write_error_callback;
 				errcallback.arg = (void *) bufHdr;
 				errcallback.previous = error_context_stack;
@@ -4103,7 +4103,7 @@ FlushRelationBuffers(Relation rel)
 
 				pgBufferUsage.local_blks_written++;
 
-				/* Pop the error context stack */
+				/* 弹出错误上下文栈 */
 				error_context_stack = errcallback.previous;
 			}
 		}
@@ -4111,7 +4111,7 @@ FlushRelationBuffers(Relation rel)
 		return;
 	}
 
-	/* Make sure we can handle the pin inside the loop */
+	/* 确保我们能处理循环里的钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	for (i = 0; i < NBuffers; i++)
@@ -4121,8 +4121,8 @@ FlushRelationBuffers(Relation rel)
 		bufHdr = GetBufferDescriptor(i);
 
 		/*
-		 * As in DropRelationBuffers, an unlocked precheck should be safe and
-		 * saves some cycles.
+		 * 与 DropRelationBuffers 一样，不加锁的预检查应当安全，
+		 * 并省掉一些周期。
 		 */
 		if (!BufTagMatchesRelFileLocator(&bufHdr->tag, &rel->rd_locator))
 			continue;
@@ -4147,10 +4147,10 @@ FlushRelationBuffers(Relation rel)
 /* ---------------------------------------------------------------------
  *		FlushRelationsAllBuffers
  *
- *		This function flushes out of the buffer pool all the pages of all
- *		forks of the specified smgr relations.  It's equivalent to calling
- *		FlushRelationBuffers once per relation.  The relations are assumed not
- *		to use local buffers.
+ *		本函数把指定 smgr 关系全部
+ *		分叉的全部页从缓冲池刷出。它等价于对每个关系调用一次
+ *		FlushRelationBuffers。假定这些关系不
+ *		使用本地缓冲区。
  * --------------------------------------------------------------------
  */
 void
@@ -4163,7 +4163,7 @@ FlushRelationsAllBuffers(SMgrRelation *smgrs, int nrels)
 	if (nrels == 0)
 		return;
 
-	/* fill-in array for qsort */
+	/* 供 qsort 填入的数组 */
 	srels = palloc(sizeof(SMgrSortArray) * nrels);
 
 	for (i = 0; i < nrels; i++)
@@ -4175,16 +4175,16 @@ FlushRelationsAllBuffers(SMgrRelation *smgrs, int nrels)
 	}
 
 	/*
-	 * Save the bsearch overhead for low number of relations to sync. See
-	 * DropRelationsAllBuffers for details.
+	 * 对要同步的关系数量较少时省掉二分查找开销。详见
+	 * DropRelationsAllBuffers。
 	 */
 	use_bsearch = nrels > RELS_BSEARCH_THRESHOLD;
 
-	/* sort the list of SMgrRelations if necessary */
+	/* 必要时对 SMgrRelations 列表排序 */
 	if (use_bsearch)
 		pg_qsort(srels, nrels, sizeof(SMgrSortArray), rlocator_comparator);
 
-	/* Make sure we can handle the pin inside the loop */
+	/* 确保我们能处理循环里的钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	for (i = 0; i < NBuffers; i++)
@@ -4194,8 +4194,8 @@ FlushRelationsAllBuffers(SMgrRelation *smgrs, int nrels)
 		uint32		buf_state;
 
 		/*
-		 * As in DropRelationBuffers, an unlocked precheck should be safe and
-		 * saves some cycles.
+		 * 与 DropRelationBuffers 一样，不加锁的预检查应当安全，
+		 * 并省掉一些周期。
 		 */
 
 		if (!use_bsearch)
@@ -4221,7 +4221,7 @@ FlushRelationsAllBuffers(SMgrRelation *smgrs, int nrels)
 							  rlocator_comparator);
 		}
 
-		/* buffer doesn't belong to any of the given relfilelocators; skip it */
+		/* 缓冲区不属于任何给定的 relfilelocator；跳过它 */
 		if (srelent == NULL)
 			continue;
 
@@ -4247,11 +4247,11 @@ FlushRelationsAllBuffers(SMgrRelation *smgrs, int nrels)
 /* ---------------------------------------------------------------------
  *		RelationCopyStorageUsingBuffer
  *
- *		Copy fork's data using bufmgr.  Same as RelationCopyStorage but instead
- *		of using smgrread and smgrextend this will copy using bufmgr APIs.
+ *		用 bufmgr 复制分叉的数据。与 RelationCopyStorage 相同，但不用
+ *		smgrread 和 smgrextend，而是用 bufmgr APIs 复制。
  *
- *		Refer comments atop CreateAndCopyRelationData() for details about
- *		'permanent' parameter.
+ *		关于 permanent 参数的细节，见
+ *		CreateAndCopyRelationData() 顶部的注释。
  * --------------------------------------------------------------------
  */
 static void
@@ -4271,38 +4271,38 @@ RelationCopyStorageUsingBuffer(RelFileLocator srclocator,
 	BufferAccessStrategy bstrategy_dst;
 
 	/*
-	 * In general, we want to write WAL whenever wal_level > 'minimal', but we
-	 * can skip it when copying any fork of an unlogged relation other than
-	 * the init fork.
+	 * 一般而言，只要 wal_level > 'minimal' 我们就想写 WAL，但复制
+	 * 未日志记录关系除 init 分叉以外的任何分叉时，我们可以
+	 * 跳过它。
 	 */
 	use_wal = XLogIsNeeded() && (permanent || forkNum == INIT_FORKNUM);
 
-	/* Get number of blocks in the source relation. */
+	/* 取得源关系的块数。 */
 	nblocks = smgrnblocks(smgropen(srclocator, InvalidBackendId),
 						  forkNum);
 
-	/* Nothing to copy; just return. */
+	/* 没有什么要复制；直接返回。 */
 	if (nblocks == 0)
 		return;
 
 	/*
-	 * Bulk extend the destination relation of the same size as the source
-	 * relation before starting to copy block by block.
+	 * 开始逐块复制之前，把目标关系批量扩展到与源
+	 * 关系相同的大小。
 	 */
 	memset(buf.data, 0, BLCKSZ);
 	smgrextend(smgropen(dstlocator, InvalidBackendId), forkNum, nblocks - 1,
 			   buf.data, true);
 
-	/* This is a bulk operation, so use buffer access strategies. */
+	/* 这是批量操作，因此使用缓冲区访问策略。 */
 	bstrategy_src = GetAccessStrategy(BAS_BULKREAD);
 	bstrategy_dst = GetAccessStrategy(BAS_BULKWRITE);
 
-	/* Iterate over each block of the source relation file. */
+	/* 遍历源关系文件的每个块。 */
 	for (blkno = 0; blkno < nblocks; blkno++)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* Read block from source relation. */
+		/* 从源关系读取块。 */
 		srcBuf = ReadBufferWithoutRelcache(srclocator, forkNum, blkno,
 										   RBM_NORMAL, bstrategy_src,
 										   permanent);
@@ -4316,11 +4316,11 @@ RelationCopyStorageUsingBuffer(RelFileLocator srclocator,
 
 		START_CRIT_SECTION();
 
-		/* Copy page data from the source to the destination. */
+		/* 把页数据从源复制到目标。 */
 		memcpy(dstPage, srcPage, BLCKSZ);
 		MarkBufferDirty(dstBuf);
 
-		/* WAL-log the copied page. */
+		/* WAL 记录被复制的页。 */
 		if (use_wal)
 			log_newpage_buffer(dstBuf, true);
 
@@ -4337,12 +4337,12 @@ RelationCopyStorageUsingBuffer(RelFileLocator srclocator,
 /* ---------------------------------------------------------------------
  *		CreateAndCopyRelationData
  *
- *		Create destination relation storage and copy all forks from the
- *		source relation to the destination.
+ *		创建目标关系存储，并把源关系的全部分叉
+ *		复制到目标。
  *
- *		Pass permanent as true for permanent relations and false for
- *		unlogged relations.  Currently this API is not supported for
- *		temporary relations.
+ *		对永久关系把 permanent 传为真，对
+ *		未日志记录关系传为假。目前这个 API 不支持
+ *		临时关系。
  * --------------------------------------------------------------------
  */
 void
@@ -4352,23 +4352,23 @@ CreateAndCopyRelationData(RelFileLocator src_rlocator,
 	RelFileLocatorBackend rlocator;
 	char		relpersistence;
 
-	/* Set the relpersistence. */
+	/* 设置 relpersistence。 */
 	relpersistence = permanent ?
 		RELPERSISTENCE_PERMANENT : RELPERSISTENCE_UNLOGGED;
 
 	/*
-	 * Create and copy all forks of the relation.  During create database we
-	 * have a separate cleanup mechanism which deletes complete database
-	 * directory.  Therefore, each individual relation doesn't need to be
-	 * registered for cleanup.
+	 * 创建并复制该关系的全部分叉。创建数据库期间我们
+	 * 有单独的清理机制，它删除整个数据库
+	 * 目录。因此每个单独的关系不必
+	 * 登记以便清理。
 	 */
 	RelationCreateStorage(dst_rlocator, relpersistence, false);
 
-	/* copy main fork. */
+	/* 复制主分叉。 */
 	RelationCopyStorageUsingBuffer(src_rlocator, dst_rlocator, MAIN_FORKNUM,
 								   permanent);
 
-	/* copy those extra forks that exist */
+	/* 复制那些存在的额外分叉 */
 	for (ForkNumber forkNum = MAIN_FORKNUM + 1;
 		 forkNum <= MAX_FORKNUM; forkNum++)
 	{
@@ -4377,19 +4377,19 @@ CreateAndCopyRelationData(RelFileLocator src_rlocator,
 			smgrcreate(smgropen(dst_rlocator, InvalidBackendId), forkNum, false);
 
 			/*
-			 * WAL log creation if the relation is persistent, or this is the
-			 * init fork of an unlogged relation.
+			 * 若该关系是持久的，或者这是未日志记录关系的
+			 * init 分叉，就 WAL 记录创建。
 			 */
 			if (permanent || forkNum == INIT_FORKNUM)
 				log_smgrcreate(&dst_rlocator, forkNum);
 
-			/* Copy a fork's data, block by block. */
+			/* 逐块复制一个分叉的数据。 */
 			RelationCopyStorageUsingBuffer(src_rlocator, dst_rlocator, forkNum,
 										   permanent);
 		}
 	}
 
-	/* close source and destination smgr if exists. */
+	/* 若存在，就关闭源和目标 smgr。 */
 	rlocator.backend = InvalidBackendId;
 
 	rlocator.locator = src_rlocator;
@@ -4402,16 +4402,16 @@ CreateAndCopyRelationData(RelFileLocator src_rlocator,
 /* ---------------------------------------------------------------------
  *		FlushDatabaseBuffers
  *
- *		This function writes all dirty pages of a database out to disk
- *		(or more accurately, out to kernel disk buffers), ensuring that the
- *		kernel has an up-to-date view of the database.
+ *		本函数把一个数据库的全部脏页写出到磁盘
+ *		（更准确地说，写出到内核磁盘缓冲区），确保内核
+ *		对该数据库有最新视图。
  *
- *		Generally, the caller should be holding an appropriate lock to ensure
- *		no other backend is active in the target database; otherwise more
- *		pages could get dirtied.
+ *		通常，调用者应当持有适当的锁，以确保
+ *		目标数据库里没有其他后端在活动；否则可能有更多
+ *		页被弄成脏页。
  *
- *		Note we don't worry about flushing any pages of temporary relations.
- *		It's assumed these wouldn't be interesting.
+ *		注意我们不担心刷写临时关系的任何页。
+ *		假定那些不会有人感兴趣。
  * --------------------------------------------------------------------
  */
 void
@@ -4420,7 +4420,7 @@ FlushDatabaseBuffers(Oid dbid)
 	int			i;
 	BufferDesc *bufHdr;
 
-	/* Make sure we can handle the pin inside the loop */
+	/* 确保我们能处理循环里的钉住 */
 	ResourceOwnerEnlargeBuffers(CurrentResourceOwner);
 
 	for (i = 0; i < NBuffers; i++)
@@ -4430,8 +4430,8 @@ FlushDatabaseBuffers(Oid dbid)
 		bufHdr = GetBufferDescriptor(i);
 
 		/*
-		 * As in DropRelationBuffers, an unlocked precheck should be safe and
-		 * saves some cycles.
+		 * 与 DropRelationBuffers 一样，不加锁的预检查应当安全，
+		 * 并省掉一些周期。
 		 */
 		if (bufHdr->tag.dbOid != dbid)
 			continue;
@@ -4454,15 +4454,15 @@ FlushDatabaseBuffers(Oid dbid)
 }
 
 /*
- * Flush a previously, shared or exclusively, locked and pinned buffer to the
- * OS.
+ * 把一个先前以共享或排他方式锁定并钉住的缓冲区刷到
+ * 操作系统。
  */
 void
 FlushOneBuffer(Buffer buffer)
 {
 	BufferDesc *bufHdr;
 
-	/* currently not needed, but no fundamental reason not to support */
+	/* 目前不需要，但没有根本理由不支持 */
 	Assert(!BufferIsLocal(buffer));
 
 	Assert(BufferIsPinned(buffer));
@@ -4475,7 +4475,7 @@ FlushOneBuffer(Buffer buffer)
 }
 
 /*
- * ReleaseBuffer -- release the pin on a buffer
+ * ReleaseBuffer -- 释放对缓冲区的钉住
  */
 void
 ReleaseBuffer(Buffer buffer)
@@ -4490,9 +4490,9 @@ ReleaseBuffer(Buffer buffer)
 }
 
 /*
- * UnlockReleaseBuffer -- release the content lock and pin on a buffer
+ * UnlockReleaseBuffer -- 释放缓冲区上的内容锁和钉住。
  *
- * This is just a shorthand for a common combination.
+ * 这只是常见组合的简写。
  */
 void
 UnlockReleaseBuffer(Buffer buffer)
@@ -4503,11 +4503,11 @@ UnlockReleaseBuffer(Buffer buffer)
 
 /*
  * IncrBufferRefCount
- *		Increment the pin count on a buffer that we have *already* pinned
- *		at least once.
+ *		增加我们已经至少钉住
+ *		过一次的缓冲区上的钉住计数。
  *
- *		This function cannot be used on a buffer we do not have pinned,
- *		because it doesn't change the shared buffer state.
+ *		本函数无法用于我们没有钉住的缓冲区，
+ *		因为它不改变共享缓冲区状态。
  */
 void
 IncrBufferRefCount(Buffer buffer)
@@ -4530,16 +4530,16 @@ IncrBufferRefCount(Buffer buffer)
 /*
  * MarkBufferDirtyHint
  *
- *	Mark a buffer dirty for non-critical changes.
+ *	把缓冲区标为脏页，用于非关键变更。
  *
- * This is essentially the same as MarkBufferDirty, except:
+ * 这本质上与 MarkBufferDirty 相同，除了：
  *
- * 1. The caller does not write WAL; so if checksums are enabled, we may need
- *	  to write an XLOG_FPI_FOR_HINT WAL record to protect against torn pages.
- * 2. The caller might have only share-lock instead of exclusive-lock on the
- *	  buffer's content lock.
- * 3. This function does not guarantee that the buffer is always marked dirty
- *	  (due to a race condition), so it cannot be used for important changes.
+ * 1. 调用者不写 WAL；因此若启用了校验和，我们可能需要
+ *	  写一条 XLOG_FPI_FOR_HINT WAL 记录，以防止撕裂页。
+ * 2. 调用者可能只对缓冲区的内容锁持有共享锁，
+ *	  而不是排他锁。
+ * 3. 本函数不保证缓冲区总是被标为脏页
+ *	  （由于竞态），因此它无法用于重要变更。
  */
 void
 MarkBufferDirtyHint(Buffer buffer, bool buffer_std)
@@ -4559,19 +4559,19 @@ MarkBufferDirtyHint(Buffer buffer, bool buffer_std)
 	bufHdr = GetBufferDescriptor(buffer - 1);
 
 	Assert(GetPrivateRefCount(buffer) > 0);
-	/* here, either share or exclusive lock is OK */
+	/* 这里共享锁或排他锁都可以 */
 	Assert(LWLockHeldByMe(BufferDescriptorGetContentLock(bufHdr)));
 
 	/*
-	 * This routine might get called many times on the same page, if we are
-	 * making the first scan after commit of an xact that added/deleted many
-	 * tuples. So, be as quick as we can if the buffer is already dirty.  We
-	 * do this by not acquiring spinlock if it looks like the status bits are
-	 * already set.  Since we make this test unlocked, there's a chance we
-	 * might fail to notice that the flags have just been cleared, and failed
-	 * to reset them, due to memory-ordering issues.  But since this function
-	 * is only intended to be used in cases where failing to write out the
-	 * data would be harmless anyway, it doesn't really matter.
+	 * 若一个事务提交时增加或删除了许多元组，第一次扫描时
+	 * 我们可能对同一页多次调用本例程。因此，若缓冲区已经是脏页，
+	 * 就尽量快。我们通过在状态位看起来已经设置时
+	 * 不取得自旋锁来做到这一点。由于我们不加锁做这项测试，
+	 * 有可能我们没注意到标志刚刚被清除，
+	 * 并且由于内存序问题而没能重新设置它们。
+	 * 但由于本函数只打算用于即使没能写出
+	 * 数据也无害的情形，
+	 * 这其实没关系。
 	 */
 	if ((pg_atomic_read_u32(&bufHdr->state) & (BM_DIRTY | BM_JUST_DIRTIED)) !=
 		(BM_DIRTY | BM_JUST_DIRTIED))
@@ -4582,51 +4582,51 @@ MarkBufferDirtyHint(Buffer buffer, bool buffer_std)
 		uint32		buf_state;
 
 		/*
-		 * If we need to protect hint bit updates from torn writes, WAL-log a
-		 * full page image of the page. This full page image is only necessary
-		 * if the hint bit update is the first change to the page since the
-		 * last checkpoint.
+		 * 若我们需要保护提示位更新免于撕裂写，就 WAL 记录
+		 * 该页的整页映像。仅当这次提示位更新是自上次
+		 * 检查点以来对该页的第一次变更时，
+		 * 这个整页映像才有必要。
 		 *
-		 * We don't check full_page_writes here because that logic is included
-		 * when we call XLogInsert() since the value changes dynamically.
+		 * 这里我们不检查 full_page_writes，因为那个逻辑包含在
+		 * 我们调用 XLogInsert() 时，因为该值会动态变化。
 		 */
 		if (XLogHintBitIsNeeded() &&
 			(pg_atomic_read_u32(&bufHdr->state) & BM_PERMANENT))
 		{
 			/*
-			 * If we must not write WAL, due to a relfilelocator-specific
-			 * condition or being in recovery, don't dirty the page.  We can
-			 * set the hint, just not dirty the page as a result so the hint
-			 * is lost when we evict the page or shutdown.
+			 * 若由于特定于 relfilelocator 的条件或正处于恢复中，
+			 * 我们不得写 WAL，就不要把该页弄成脏页。我们可以
+			 * 设置提示，只是不要因此把该页弄成脏页，这样当我们逐出该页或关闭时
+			 * 提示就丢失了。
 			 *
-			 * See src/backend/storage/page/README for longer discussion.
+			 * 更长的讨论见 src/backend/storage/page/README。
 			 */
 			if (RecoveryInProgress() ||
 				RelFileLocatorSkippingWAL(BufTagGetRelFileLocator(&bufHdr->tag)))
 				return;
 
 			/*
-			 * If the block is already dirty because we either made a change
-			 * or set a hint already, then we don't need to write a full page
-			 * image.  Note that aggressive cleaning of blocks dirtied by hint
-			 * bit setting would increase the call rate. Bulk setting of hint
-			 * bits would reduce the call rate...
+			 * 若该块已经是脏页，因为我们已经做了变更
+			 * 或已经设置了提示，那我们就不需要写整页
+			 * 映像。注意，激进地清理因设置提示位而变脏的块
+			 * 会提高调用率。批量设置提示
+			 * 位会降低调用率。
 			 *
-			 * We must issue the WAL record before we mark the buffer dirty.
-			 * Otherwise we might write the page before we write the WAL. That
-			 * causes a race condition, since a checkpoint might occur between
-			 * writing the WAL record and marking the buffer dirty. We solve
-			 * that with a kluge, but one that is already in use during
-			 * transaction commit to prevent race conditions. Basically, we
-			 * simply prevent the checkpoint WAL record from being written
-			 * until we have marked the buffer dirty. We don't start the
-			 * checkpoint flush until we have marked dirty, so our checkpoint
-			 * must flush the change to disk successfully or the checkpoint
-			 * never gets written, so crash recovery will fix.
+			 * 我们必须在把缓冲区标为脏页之前发出 WAL 记录。
+			 * 否则我们可能在写 WAL 之前写出该页。那
+			 * 会造成竞态，因为检查点可能发生在
+			 * 写 WAL 记录和把缓冲区标为脏页之间。我们用一种
+			 * 权宜之计解决，而这种办法在事务提交期间已经在用，
+			 * 以防止竞态。基本上，我们
+			 * 简单地阻止检查点 WAL 记录被写出，
+			 * 直到我们把缓冲区标为脏页。我们在标成脏页之前不开始
+			 * 检查点刷写，因此我们的检查点
+			 * 必须成功地把该变更刷到磁盘，否则检查点
+			 * 永远不会被写出，于是崩溃恢复会修复。
 			 *
-			 * It's possible we may enter here without an xid, so it is
-			 * essential that CreateCheckPoint waits for virtual transactions
-			 * rather than full transactionids.
+			 * 我们可能在没有 xid 的情况下进入这里，因此
+			 * CreateCheckPoint 等待虚拟事务而不是完整的 transactionid
+			 * 是必要的。
 			 */
 			Assert((MyProc->delayChkptFlags & DELAY_CHKPT_START) == 0);
 			MyProc->delayChkptFlags |= DELAY_CHKPT_START;
@@ -4640,20 +4640,20 @@ MarkBufferDirtyHint(Buffer buffer, bool buffer_std)
 
 		if (!(buf_state & BM_DIRTY))
 		{
-			dirtied = true;		/* Means "will be dirtied by this action" */
+			dirtied = true;		/* 表示将被本动作弄成脏页 */
 
 			/*
-			 * Set the page LSN if we wrote a backup block. We aren't supposed
-			 * to set this when only holding a share lock but as long as we
-			 * serialise it somehow we're OK. We choose to set LSN while
-			 * holding the buffer header lock, which causes any reader of an
-			 * LSN who holds only a share lock to also obtain a buffer header
-			 * lock before using PageGetLSN(), which is enforced in
-			 * BufferGetLSNAtomic().
+			 * 若我们写了备份块，就设置页 LSN。只持有共享锁时
+			 * 我们本不该设置它，但只要我们
+			 * 以某种方式串行化就没问题。
+			 * 我们选择在持有缓冲区描述符锁时设置 LSN，这使任何
+			 * 只持有共享锁的 LSN 读者在使用 PageGetLSN() 之前
+			 * 也要取得缓冲区描述符锁，这在
+			 * BufferGetLSNAtomic() 里被强制。
 			 *
-			 * If checksums are enabled, you might think we should reset the
-			 * checksum here. That will happen when the page is written
-			 * sometime later in this checkpoint cycle.
+			 * 若启用了校验和，你也许认为我们应当在这里重置
+			 * 校验和。那会在本检查点周期稍后写出该页时
+			 * 发生。
 			 */
 			if (!XLogRecPtrIsInvalid(lsn))
 				PageSetLSN(page, lsn);
@@ -4676,13 +4676,13 @@ MarkBufferDirtyHint(Buffer buffer, bool buffer_std)
 }
 
 /*
- * Release buffer content locks for shared buffers.
+ * 释放共享缓冲区的内容锁。
  *
- * Used to clean up after errors.
+ * 用于出错后的清理。
  *
- * Currently, we can expect that lwlock.c's LWLockReleaseAll() took care
- * of releasing buffer content locks per se; the only thing we need to deal
- * with here is clearing any PIN_COUNT request that was in progress.
+ * 目前，我们可以预期 lwlock.c 的 LWLockReleaseAll() 已经负责
+ * 释放缓冲区内容锁本身；这里我们唯一需要处理的
+ * 是清除任何正在进行的 PIN_COUNT 请求。
  */
 void
 UnlockBuffers(void)
@@ -4696,8 +4696,8 @@ UnlockBuffers(void)
 		buf_state = LockBufHdr(buf);
 
 		/*
-		 * Don't complain if flag bit not set; it could have been reset but we
-		 * got a cancel/die interrupt before getting the signal.
+		 * 若标志位没设置，不要抱怨；它可能已被重置，但我们
+		 * 在收到信号之前就收到了取消或死亡中断。
 		 */
 		if ((buf_state & BM_PIN_COUNT_WAITER) != 0 &&
 			buf->wait_backend_pgprocno == MyProc->pgprocno)
@@ -4710,7 +4710,7 @@ UnlockBuffers(void)
 }
 
 /*
- * Acquire or release the content_lock for the buffer.
+ * 取得或释放该缓冲区的 content_lock。
  */
 void
 LockBuffer(Buffer buffer, int mode)
@@ -4719,7 +4719,7 @@ LockBuffer(Buffer buffer, int mode)
 
 	Assert(BufferIsPinned(buffer));
 	if (BufferIsLocal(buffer))
-		return;					/* local buffers need no lock */
+		return;					/* 本地缓冲区不需要锁 */
 
 	buf = GetBufferDescriptor(buffer - 1);
 
@@ -4734,9 +4734,9 @@ LockBuffer(Buffer buffer, int mode)
 }
 
 /*
- * Acquire the content_lock for the buffer, but only if we don't have to wait.
+ * 取得该缓冲区的 content_lock，但仅当我们不必等待时。
  *
- * This assumes the caller wants BUFFER_LOCK_EXCLUSIVE mode.
+ * 这假定调用者想要 BUFFER_LOCK_EXCLUSIVE 模式。
  */
 bool
 ConditionalLockBuffer(Buffer buffer)
@@ -4745,7 +4745,7 @@ ConditionalLockBuffer(Buffer buffer)
 
 	Assert(BufferIsPinned(buffer));
 	if (BufferIsLocal(buffer))
-		return true;			/* act as though we got it */
+		return true;			/* 装作我们拿到了它 */
 
 	buf = GetBufferDescriptor(buffer - 1);
 
@@ -4754,10 +4754,10 @@ ConditionalLockBuffer(Buffer buffer)
 }
 
 /*
- * Verify that this backend is pinning the buffer exactly once.
+ * 验证本后端恰好钉住该缓冲区一次。
  *
- * NOTE: Like in BufferIsPinned(), what we check here is that *this* backend
- * holds a pin on the buffer.  We do not care whether some other backend does.
+ * 注意：与 BufferIsPinned() 一样，这里检查的是本后端
+ * 持有对该缓冲区的钉住。我们不关心其他后端是否持有。
  */
 void
 CheckBufferIsPinnedOnce(Buffer buffer)
@@ -4777,20 +4777,20 @@ CheckBufferIsPinnedOnce(Buffer buffer)
 }
 
 /*
- * LockBufferForCleanup - lock a buffer in preparation for deleting items
+ * LockBufferForCleanup - 为删除项而锁定缓冲区。
  *
- * Items may be deleted from a disk page only when the caller (a) holds an
- * exclusive lock on the buffer and (b) has observed that no other backend
- * holds a pin on the buffer.  If there is a pin, then the other backend
- * might have a pointer into the buffer (for example, a heapscan reference
- * to an item --- see README for more details).  It's OK if a pin is added
- * after the cleanup starts, however; the newly-arrived backend will be
- * unable to look at the page until we release the exclusive lock.
+ * 只有当调用者 (a) 对该缓冲区持有排他锁，且 (b) 已观察到
+ * 没有其他后端持有对该缓冲区的钉住时，才能从磁盘页删除项。
+ * 若有钉住，则另一个后端
+ * 可能持有指向缓冲区内部的指针（例如堆扫描对某个项的引用，
+ * 详见 README）。不过，清理开始之后再增加钉住是可以的；
+ * 新来的后端在我们释放排他锁之前
+ * 将无法查看该页。
  *
- * To implement this protocol, a would-be deleter must pin the buffer and
- * then call LockBufferForCleanup().  LockBufferForCleanup() is similar to
- * LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE), except that it loops until
- * it has successfully observed pin count = 1.
+ * 要实现这个协议，想删除的一方必须钉住该缓冲区，然后
+ * 调用 LockBufferForCleanup()。LockBufferForCleanup() 类似于
+ * LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE)，只是它循环直到
+ * 成功观察到钉住计数 = 1。
  */
 void
 LockBufferForCleanup(Buffer buffer)
@@ -4805,7 +4805,7 @@ LockBufferForCleanup(Buffer buffer)
 
 	CheckBufferIsPinnedOnce(buffer);
 
-	/* Nobody else to wait for */
+	/* 没有别人要等 */
 	if (BufferIsLocal(buffer))
 		return;
 
@@ -4815,20 +4815,20 @@ LockBufferForCleanup(Buffer buffer)
 	{
 		uint32		buf_state;
 
-		/* Try to acquire lock */
+		/* 试图取得锁 */
 		LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 		buf_state = LockBufHdr(bufHdr);
 
 		Assert(BUF_STATE_GET_REFCOUNT(buf_state) > 0);
 		if (BUF_STATE_GET_REFCOUNT(buf_state) == 1)
 		{
-			/* Successfully acquired exclusive lock with pincount 1 */
+			/* 成功取得钉住计数为 1 的排他锁 */
 			UnlockBufHdr(bufHdr, buf_state);
 
 			/*
-			 * Emit the log message if recovery conflict on buffer pin was
-			 * resolved but the startup process waited longer than
-			 * deadlock_timeout for it.
+			 * 若缓冲区钉住上的恢复冲突已解决，但启动进程等待的时间
+			 * 超过了
+			 * deadlock_timeout，就发出日志消息。
 			 */
 			if (logged_recovery_conflict)
 				LogRecoveryConflict(PROCSIG_RECOVERY_CONFLICT_BUFFERPIN,
@@ -4837,13 +4837,13 @@ LockBufferForCleanup(Buffer buffer)
 
 			if (waiting)
 			{
-				/* reset ps display to remove the suffix if we added one */
+				/* 若我们加过后缀，就把 ps 显示重置以去掉后缀 */
 				set_ps_display_remove_suffix();
 				waiting = false;
 			}
 			return;
 		}
-		/* Failed, so mark myself as waiting for pincount 1 */
+		/* 失败了，因此把自己标为正在等待钉住计数为 1 */
 		if (buf_state & BM_PIN_COUNT_WAITER)
 		{
 			UnlockBufHdr(bufHdr, buf_state);
@@ -4856,23 +4856,23 @@ LockBufferForCleanup(Buffer buffer)
 		UnlockBufHdr(bufHdr, buf_state);
 		LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
-		/* Wait to be signaled by UnpinBuffer() */
+		/* 等待被 UnpinBuffer() 发信号 */
 		if (InHotStandby)
 		{
 			if (!waiting)
 			{
-				/* adjust the process title to indicate that it's waiting */
+				/* 调整进程标题以表明它在等待 */
 				set_ps_display_suffix("waiting");
 				waiting = true;
 			}
 
 			/*
-			 * Emit the log message if the startup process is waiting longer
-			 * than deadlock_timeout for recovery conflict on buffer pin.
+			 * 若启动进程等待缓冲区钉住上的恢复冲突的时间
+			 * 超过 deadlock_timeout，就发出日志消息。
 			 *
-			 * Skip this if first time through because the startup process has
-			 * not started waiting yet in this case. So, the wait start
-			 * timestamp is set after this logic.
+			 * 若是第一次通过就跳过，因为这种情况下启动进程
+			 * 还没开始等待。因此等待开始
+			 * 时间戳在这段逻辑之后设置。
 			 */
 			if (waitStart != 0 && !logged_recovery_conflict)
 			{
@@ -4888,29 +4888,29 @@ LockBufferForCleanup(Buffer buffer)
 			}
 
 			/*
-			 * Set the wait start timestamp if logging is enabled and first
-			 * time through.
+			 * 若启用了日志且是第一次通过，就设置等待开始
+			 * 时间戳。
 			 */
 			if (log_recovery_conflict_waits && waitStart == 0)
 				waitStart = GetCurrentTimestamp();
 
-			/* Publish the bufid that Startup process waits on */
+			/* 发布启动进程正在等待的 bufid */
 			SetStartupBufferPinWaitBufId(buffer - 1);
-			/* Set alarm and then wait to be signaled by UnpinBuffer() */
+			/* 设置闹钟，然后等待被 UnpinBuffer() 发信号 */
 			ResolveRecoveryConflictWithBufferPin();
-			/* Reset the published bufid */
+			/* 重置已发布的 bufid */
 			SetStartupBufferPinWaitBufId(-1);
 		}
 		else
 			ProcWaitForSignal(PG_WAIT_BUFFER_PIN);
 
 		/*
-		 * Remove flag marking us as waiter. Normally this will not be set
-		 * anymore, but ProcWaitForSignal() can return for other signals as
-		 * well.  We take care to only reset the flag if we're the waiter, as
-		 * theoretically another backend could have started waiting. That's
-		 * impossible with the current usages due to table level locking, but
-		 * better be safe.
+		 * 去掉把我们标为等待者的标志。通常它不会再被设置，
+		 * 但 ProcWaitForSignal() 也可能因其他信号返回。
+		 * 我们小心地只在我们是等待者时重置该标志，因为
+		 * 理论上另一个后端可能已经开始等待。由于表级锁定，
+		 * 以目前的用法这不可能，但
+		 * 还是安全为好。
 		 */
 		buf_state = LockBufHdr(bufHdr);
 		if ((buf_state & BM_PIN_COUNT_WAITER) != 0 &&
@@ -4919,13 +4919,13 @@ LockBufferForCleanup(Buffer buffer)
 		UnlockBufHdr(bufHdr, buf_state);
 
 		PinCountWaitBuf = NULL;
-		/* Loop back and try again */
+		/* 循环回去重试 */
 	}
 }
 
 /*
- * Check called from RecoveryConflictInterrupt handler when Startup
- * process requests cancellation of all pin holders that are blocking it.
+ * 当启动进程请求取消所有挡住它的钉住持有者时，从
+ * RecoveryConflictInterrupt 处理器调用的检查。
  */
 bool
 HoldingBufferPinThatDelaysRecovery(void)
@@ -4933,10 +4933,10 @@ HoldingBufferPinThatDelaysRecovery(void)
 	int			bufid = GetStartupBufferPinWaitBufId();
 
 	/*
-	 * If we get woken slowly then it's possible that the Startup process was
-	 * already woken by other backends before we got here. Also possible that
-	 * we get here by multiple interrupts or interrupts at inappropriate
-	 * times, so make sure we do nothing if the bufid is not set.
+	 * 若我们被慢慢唤醒，启动进程可能在我们到达这里之前
+	 * 已经被其他后端唤醒。也可能我们因多次中断或在不合适的
+	 * 时刻中断而到达这里，因此若 bufid 未设置，
+	 * 就确保什么也不做。
 	 */
 	if (bufid < 0)
 		return false;
@@ -4948,10 +4948,10 @@ HoldingBufferPinThatDelaysRecovery(void)
 }
 
 /*
- * ConditionalLockBufferForCleanup - as above, but don't wait to get the lock
+ * ConditionalLockBufferForCleanup - 同上，但不等待取得锁。
  *
- * We won't loop, but just check once to see if the pin count is OK.  If
- * not, return false with no lock held.
+ * 我们不循环，只检查一次钉住计数是否可以。若
+ * 不行，就返回假，且不持有锁。
  */
 bool
 ConditionalLockBufferForCleanup(Buffer buffer)
@@ -4965,21 +4965,21 @@ ConditionalLockBufferForCleanup(Buffer buffer)
 	if (BufferIsLocal(buffer))
 	{
 		refcount = LocalRefCount[-buffer - 1];
-		/* There should be exactly one pin */
+		/* 应当恰好有一个钉住 */
 		Assert(refcount > 0);
 		if (refcount != 1)
 			return false;
-		/* Nobody else to wait for */
+		/* 没有别人要等 */
 		return true;
 	}
 
-	/* There should be exactly one local pin */
+	/* 应当恰好有一个本地钉住 */
 	refcount = GetPrivateRefCount(buffer);
 	Assert(refcount);
 	if (refcount != 1)
 		return false;
 
-	/* Try to acquire lock */
+	/* 试图取得锁 */
 	if (!ConditionalLockBuffer(buffer))
 		return false;
 
@@ -4990,24 +4990,24 @@ ConditionalLockBufferForCleanup(Buffer buffer)
 	Assert(refcount > 0);
 	if (refcount == 1)
 	{
-		/* Successfully acquired exclusive lock with pincount 1 */
+		/* 成功取得钉住计数为 1 的排他锁 */
 		UnlockBufHdr(bufHdr, buf_state);
 		return true;
 	}
 
-	/* Failed, so release the lock */
+	/* 失败了，因此释放锁 */
 	UnlockBufHdr(bufHdr, buf_state);
 	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 	return false;
 }
 
 /*
- * IsBufferCleanupOK - as above, but we already have the lock
+ * IsBufferCleanupOK - 同上，但我们已经有锁。
  *
- * Check whether it's OK to perform cleanup on a buffer we've already
- * locked.  If we observe that the pin count is 1, our exclusive lock
- * happens to be a cleanup lock, and we can proceed with anything that
- * would have been allowable had we sought a cleanup lock originally.
+ * 检查对一个我们已经锁定的缓冲区做清理是否可以。
+ * 若我们观察到钉住计数为 1，我们的排他锁
+ * 恰好就是清理锁，我们就可以进行任何
+ * 当初寻求清理锁时被允许的事。
  */
 bool
 IsBufferCleanupOK(Buffer buffer)
@@ -5019,20 +5019,20 @@ IsBufferCleanupOK(Buffer buffer)
 
 	if (BufferIsLocal(buffer))
 	{
-		/* There should be exactly one pin */
+		/* 应当恰好有一个钉住 */
 		if (LocalRefCount[-buffer - 1] != 1)
 			return false;
-		/* Nobody else to wait for */
+		/* 没有别人要等 */
 		return true;
 	}
 
-	/* There should be exactly one local pin */
+	/* 应当恰好有一个本地钉住 */
 	if (GetPrivateRefCount(buffer) != 1)
 		return false;
 
 	bufHdr = GetBufferDescriptor(buffer - 1);
 
-	/* caller must hold exclusive lock on buffer */
+	/* 调用者必须对该缓冲区持有排他锁 */
 	Assert(LWLockHeldByMeInMode(BufferDescriptorGetContentLock(bufHdr),
 								LW_EXCLUSIVE));
 
@@ -5041,7 +5041,7 @@ IsBufferCleanupOK(Buffer buffer)
 	Assert(BUF_STATE_GET_REFCOUNT(buf_state) > 0);
 	if (BUF_STATE_GET_REFCOUNT(buf_state) == 1)
 	{
-		/* pincount is OK. */
+		/* 钉住计数可以。 */
 		UnlockBufHdr(bufHdr, buf_state);
 		return true;
 	}
@@ -5052,16 +5052,16 @@ IsBufferCleanupOK(Buffer buffer)
 
 
 /*
- *	Functions for buffer I/O handling
+ *	缓冲区 I/O 处理的函数。
  *
- *	Note: We assume that nested buffer I/O never occurs.
- *	i.e at most one BM_IO_IN_PROGRESS bit is set per proc.
+ *	注意：我们假定不会发生嵌套的缓冲区 I/O。
+ *	即每个进程最多设置一个 BM_IO_IN_PROGRESS 位。
  *
- *	Also note that these are used only for shared buffers, not local ones.
+ *	还要注意，这些只用于共享缓冲区，不用于本地缓冲区。
  */
 
 /*
- * WaitIO -- Block until the IO_IN_PROGRESS flag on 'buf' is cleared.
+ * WaitIO -- 阻塞直到 buf 上的 IO_IN_PROGRESS 标志被清除。
  */
 static void
 WaitIO(BufferDesc *buf)
@@ -5074,9 +5074,9 @@ WaitIO(BufferDesc *buf)
 		uint32		buf_state;
 
 		/*
-		 * It may not be necessary to acquire the spinlock to check the flag
-		 * here, but since this test is essential for correctness, we'd better
-		 * play it safe.
+		 * 这里也许不必取得自旋锁来检查该标志，
+		 * 但由于这项测试对正确性至关重要，我们最好
+		 * 稳妥行事。
 		 */
 		buf_state = LockBufHdr(buf);
 		UnlockBufHdr(buf, buf_state);
@@ -5089,22 +5089,22 @@ WaitIO(BufferDesc *buf)
 }
 
 /*
- * StartBufferIO: begin I/O on this buffer
- *	(Assumptions)
- *	My process is executing no IO
- *	The buffer is Pinned
+ * StartBufferIO：开始对该缓冲区做 I/O
+ *	（假定）
+ *	我的进程没有在执行 IO
+ *	该缓冲区已被钉住。
  *
- * In some scenarios there are race conditions in which multiple backends
- * could attempt the same I/O operation concurrently.  If someone else
- * has already started I/O on this buffer then we will block on the
- * I/O condition variable until he's done.
+ * 有些情形下有竞态，多个后端可能
+ * 试图并发做同一 I/O 操作。若别人
+ * 已经开始对该缓冲区做 I/O，我们就在
+ * I/O 条件变量上阻塞，直到他做完。
  *
- * Input operations are only attempted on buffers that are not BM_VALID,
- * and output operations only on buffers that are BM_VALID and BM_DIRTY,
- * so we can always tell if the work is already done.
+ * 输入操作只对不是 BM_VALID 的缓冲区尝试，
+ * 输出操作只对是 BM_VALID 且 BM_DIRTY 的缓冲区尝试，
+ * 因此我们总能判断工作是否已经完成。
  *
- * Returns true if we successfully marked the buffer as I/O busy,
- * false if someone else already did the work.
+ * 若我们成功把缓冲区标为 I/O 忙就返回真，
+ * 若别人已经做完工作就返回假。
  */
 static bool
 StartBufferIO(BufferDesc *buf, bool forInput)
@@ -5123,11 +5123,11 @@ StartBufferIO(BufferDesc *buf, bool forInput)
 		WaitIO(buf);
 	}
 
-	/* Once we get here, there is definitely no I/O active on this buffer */
+	/* 一旦我们到了这里，该缓冲区上肯定没有活动的 I/O */
 
 	if (forInput ? (buf_state & BM_VALID) : !(buf_state & BM_DIRTY))
 	{
-		/* someone else already did the I/O */
+		/* 别人已经做了 I/O */
 		UnlockBufHdr(buf, buf_state);
 		return false;
 	}
@@ -5142,20 +5142,20 @@ StartBufferIO(BufferDesc *buf, bool forInput)
 }
 
 /*
- * TerminateBufferIO: release a buffer we were doing I/O on
- *	(Assumptions)
- *	My process is executing IO for the buffer
- *	BM_IO_IN_PROGRESS bit is set for the buffer
- *	The buffer is Pinned
+ * TerminateBufferIO：释放一个我们正在做 I/O 的缓冲区
+ *	（假定）
+ *	我的进程正在为该缓冲区执行 IO
+ *	该缓冲区设置了 BM_IO_IN_PROGRESS 位
+ *	该缓冲区已被钉住。
  *
- * If clear_dirty is true and BM_JUST_DIRTIED is not set, we clear the
- * buffer's BM_DIRTY flag.  This is appropriate when terminating a
- * successful write.  The check on BM_JUST_DIRTIED is necessary to avoid
- * marking the buffer clean if it was re-dirtied while we were writing.
+ * 若 clear_dirty 为真且未设置 BM_JUST_DIRTIED，我们就清除
+ * 该缓冲区的 BM_DIRTY 标志。这适用于结束一次
+ * 成功的写。对 BM_JUST_DIRTIED 的检查是必要的，以避免
+ * 在我们写的时候它又被弄脏时把缓冲区标为干净。
  *
- * set_flag_bits gets ORed into the buffer's flags.  It must include
- * BM_IO_ERROR in a failure case.  For successful completion it could
- * be 0, or BM_VALID if we just finished reading in the page.
+ * set_flag_bits 被 ORed 进该缓冲区的标志。失败时它必须包含
+ * BM_IO_ERROR。成功完成时它可以
+ * 是 0，或者若我们刚读入该页则为 BM_VALID。
  */
 static void
 TerminateBufferIO(BufferDesc *buf, bool clear_dirty, uint32 set_flag_bits)
@@ -5180,13 +5180,13 @@ TerminateBufferIO(BufferDesc *buf, bool clear_dirty, uint32 set_flag_bits)
 }
 
 /*
- * AbortBufferIO: Clean up active buffer I/O after an error.
+ * AbortBufferIO：出错后清理活动的缓冲区 I/O。
  *
- *	All LWLocks we might have held have been released,
- *	but we haven't yet released buffer pins, so the buffer is still pinned.
+ *	我们可能持有的全部 LWLocks 都已释放，
+ *	但我们还没释放缓冲区钉住，因此该缓冲区仍被钉住。
  *
- *	If I/O was in progress, we always set BM_IO_ERROR, even though it's
- *	possible the error condition wasn't related to the I/O.
+ *	若 I/O 正在进行，我们总是设置 BM_IO_ERROR，即使
+ *	错误条件可能与 I/O 无关。
  */
 void
 AbortBufferIO(Buffer buffer)
@@ -5207,10 +5207,10 @@ AbortBufferIO(Buffer buffer)
 		Assert(buf_state & BM_DIRTY);
 		UnlockBufHdr(buf_hdr, buf_state);
 
-		/* Issue notice if this is not the first failure... */
+		/* 若这不是第一次失败，就发出通知…… */
 		if (buf_state & BM_IO_ERROR)
 		{
-			/* Buffer is pinned, so we can read tag without spinlock */
+			/* 缓冲区已被钉住，因此我们可以不持自旋锁读标签 */
 			char	   *path;
 
 			path = relpathperm(BufTagGetRelFileLocator(&buf_hdr->tag),
@@ -5228,14 +5228,14 @@ AbortBufferIO(Buffer buffer)
 }
 
 /*
- * Error context callback for errors occurring during shared buffer writes.
+ * 共享缓冲区写期间发生错误的错误上下文回调。
  */
 static void
 shared_buffer_write_error_callback(void *arg)
 {
 	BufferDesc *bufHdr = (BufferDesc *) arg;
 
-	/* Buffer is pinned, so we can read the tag without locking the spinlock */
+	/* 缓冲区已被钉住，因此我们可以不锁自旋锁就读标签 */
 	if (bufHdr != NULL)
 	{
 		char	   *path = relpathperm(BufTagGetRelFileLocator(&bufHdr->tag),
@@ -5248,7 +5248,7 @@ shared_buffer_write_error_callback(void *arg)
 }
 
 /*
- * Error context callback for errors occurring during local buffer writes.
+ * 本地缓冲区写期间发生错误的错误上下文回调。
  */
 static void
 local_buffer_write_error_callback(void *arg)
@@ -5268,7 +5268,7 @@ local_buffer_write_error_callback(void *arg)
 }
 
 /*
- * RelFileLocator qsort/bsearch comparator; see RelFileLocatorEquals.
+ * RelFileLocator 的 qsort/bsearch 比较器；见 RelFileLocatorEquals。
  */
 static int
 rlocator_comparator(const void *p1, const void *p2)
@@ -5295,7 +5295,7 @@ rlocator_comparator(const void *p1, const void *p2)
 }
 
 /*
- * Lock buffer header - set BM_LOCKED in buffer state.
+ * 锁住缓冲区描述符，在缓冲区状态里设置 BM_LOCKED。
  */
 uint32
 LockBufHdr(BufferDesc *desc)
@@ -5309,9 +5309,9 @@ LockBufHdr(BufferDesc *desc)
 
 	while (true)
 	{
-		/* set BM_LOCKED flag */
+		/* 设置 BM_LOCKED 标志 */
 		old_buf_state = pg_atomic_fetch_or_u32(&desc->state, BM_LOCKED);
-		/* if it wasn't set before we're OK */
+		/* 若它先前没设置，我们就没问题 */
 		if (!(old_buf_state & BM_LOCKED))
 			break;
 		perform_spin_delay(&delayStatus);
@@ -5321,11 +5321,11 @@ LockBufHdr(BufferDesc *desc)
 }
 
 /*
- * Wait until the BM_LOCKED flag isn't set anymore and return the buffer's
- * state at that point.
+ * 等到 BM_LOCKED 标志不再设置，并返回那时该缓冲区的
+ * 状态。
  *
- * Obviously the buffer could be locked by the time the value is returned, so
- * this is primarily useful in CAS style loops.
+ * 显然，值返回时该缓冲区可能又被锁住，因此
+ * 这主要用于 CAS 风格的循环。
  */
 static uint32
 WaitBufHdrUnlocked(BufferDesc *buf)
@@ -5349,7 +5349,7 @@ WaitBufHdrUnlocked(BufferDesc *buf)
 }
 
 /*
- * BufferTag comparator.
+ * BufferTag 比较器。
  */
 static inline int
 buffertag_comparator(const BufferTag *ba, const BufferTag *bb)
@@ -5380,41 +5380,41 @@ buffertag_comparator(const BufferTag *ba, const BufferTag *bb)
 }
 
 /*
- * Comparator determining the writeout order in a checkpoint.
+ * 确定检查点中写出顺序的比较器。
  *
- * It is important that tablespaces are compared first, the logic balancing
- * writes between tablespaces relies on it.
+ * 表空间先比较是重要的，在表空间之间平衡写的逻辑
+ * 依赖这一点。
  */
 static inline int
 ckpt_buforder_comparator(const CkptSortItem *a, const CkptSortItem *b)
 {
-	/* compare tablespace */
+	/* 比较表空间 */
 	if (a->tsId < b->tsId)
 		return -1;
 	else if (a->tsId > b->tsId)
 		return 1;
-	/* compare relation */
+	/* 比较关系 */
 	if (a->relNumber < b->relNumber)
 		return -1;
 	else if (a->relNumber > b->relNumber)
 		return 1;
-	/* compare fork */
+	/* 比较分叉 */
 	else if (a->forkNum < b->forkNum)
 		return -1;
 	else if (a->forkNum > b->forkNum)
 		return 1;
-	/* compare block number */
+	/* 比较块号 */
 	else if (a->blockNum < b->blockNum)
 		return -1;
 	else if (a->blockNum > b->blockNum)
 		return 1;
-	/* equal page IDs are unlikely, but not impossible */
+	/* 相等的页标识不大可能，但并非不可能 */
 	return 0;
 }
 
 /*
- * Comparator for a Min-Heap over the per-tablespace checkpoint completion
- * progress.
+ * 各表空间检查点完成进度上的最小堆的
+ * 比较器。
  */
 static int
 ts_ckpt_progress_comparator(Datum a, Datum b, void *arg)
@@ -5422,7 +5422,7 @@ ts_ckpt_progress_comparator(Datum a, Datum b, void *arg)
 	CkptTsStatus *sa = (CkptTsStatus *) a;
 	CkptTsStatus *sb = (CkptTsStatus *) b;
 
-	/* we want a min-heap, so return 1 for the a < b */
+	/* 我们要最小堆，因此 a < b 时返回 1 */
 	if (sa->progress < sb->progress)
 		return 1;
 	else if (sa->progress == sb->progress)
@@ -5432,12 +5432,12 @@ ts_ckpt_progress_comparator(Datum a, Datum b, void *arg)
 }
 
 /*
- * Initialize a writeback context, discarding potential previous state.
+ * 初始化一个回写上下文，丢掉可能的先前状态。
  *
- * *max_pending is a pointer instead of an immediate value, so the coalesce
- * limits can easily changed by the GUC mechanism, and so calling code does
- * not have to check the current configuration. A value of 0 means that no
- * writeback control will be performed.
+ * *max_pending 是指针而不是立即值，以便合并
+ * 限制可以很容易地被 GUC 机制改变，并且调用代码不必
+ * 检查当前配置。值为 0 表示不会执行
+ * 回写控制。
  */
 void
 WritebackContextInit(WritebackContext *context, int *max_pending)
@@ -5449,7 +5449,7 @@ WritebackContextInit(WritebackContext *context, int *max_pending)
 }
 
 /*
- * Add buffer to list of pending writeback requests.
+ * 把缓冲区加入待回写请求列表。
  */
 void
 ScheduleBufferTagForWriteback(WritebackContext *wb_context, IOContext io_context,
@@ -5461,8 +5461,8 @@ ScheduleBufferTagForWriteback(WritebackContext *wb_context, IOContext io_context
 		return;
 
 	/*
-	 * Add buffer to the pending writeback array, unless writeback control is
-	 * disabled.
+	 * 把缓冲区加入待回写数组，除非回写控制被
+	 * 禁用。
 	 */
 	if (*wb_context->max_pending > 0)
 	{
@@ -5474,9 +5474,9 @@ ScheduleBufferTagForWriteback(WritebackContext *wb_context, IOContext io_context
 	}
 
 	/*
-	 * Perform pending flushes if the writeback limit is exceeded. This
-	 * includes the case where previously an item has been added, but control
-	 * is now disabled.
+	 * 若超过回写限制，就执行待处理的刷写。这
+	 * 包括先前已加入一项、但现在控制
+	 * 被禁用的情形。
 	 */
 	if (wb_context->nr_pending >= *wb_context->max_pending)
 		IssuePendingWritebacks(wb_context, io_context);
@@ -5490,11 +5490,11 @@ ScheduleBufferTagForWriteback(WritebackContext *wb_context, IOContext io_context
 #include <lib/sort_template.h>
 
 /*
- * Issue all pending writeback requests, previously scheduled with
- * ScheduleBufferTagForWriteback, to the OS.
+ * 发出先前用 ScheduleBufferTagForWriteback 安排的
+ * 全部待回写请求给操作系统。
  *
- * Because this is only used to improve the OSs IO scheduling we try to never
- * error out - it's just a hint.
+ * 因为这只用于改善操作系统的 IO 调度，我们尽量永不
+ * 出错，它只是一个提示。
  */
 void
 IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
@@ -5506,8 +5506,8 @@ IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
 		return;
 
 	/*
-	 * Executing the writes in-order can make them a lot faster, and allows to
-	 * merge writeback requests to consecutive blocks into larger writebacks.
+	 * 按顺序执行写可以让它们快很多，并允许把对连续块的回写请求
+	 * 合并成更大的回写。
 	 */
 	sort_pending_writebacks(wb_context->pending_writebacks,
 							wb_context->nr_pending);
@@ -5515,9 +5515,9 @@ IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
 	io_start = pgstat_prepare_io_time();
 
 	/*
-	 * Coalesce neighbouring writes, but nothing else. For that we iterate
-	 * through the, now sorted, array of pending flushes, and look forward to
-	 * find all neighbouring (or identical) writes.
+	 * 合并相邻的写，但不合并别的。为此我们遍历
+	 * 现在已排序的待刷写数组，并向前看以找出全部相邻
+	 * （或相同）的写。
 	 */
 	for (i = 0; i < wb_context->nr_pending; i++)
 	{
@@ -5534,25 +5534,25 @@ IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
 		currlocator = BufTagGetRelFileLocator(&tag);
 
 		/*
-		 * Peek ahead, into following writeback requests, to see if they can
-		 * be combined with the current one.
+		 * 向前看随后的回写请求，看它们能否
+		 * 与当前这个合并。
 		 */
 		for (ahead = 0; i + ahead + 1 < wb_context->nr_pending; ahead++)
 		{
 
 			next = &wb_context->pending_writebacks[i + ahead + 1];
 
-			/* different file, stop */
+			/* 不同的文件，停止 */
 			if (!RelFileLocatorEquals(currlocator,
 									  BufTagGetRelFileLocator(&next->tag)) ||
 				BufTagGetForkNum(&cur->tag) != BufTagGetForkNum(&next->tag))
 				break;
 
-			/* ok, block queued twice, skip */
+			/* 好，块被排队了两次，跳过 */
 			if (cur->tag.blockNum == next->tag.blockNum)
 				continue;
 
-			/* only merge consecutive writes */
+			/* 只合并连续的写 */
 			if (cur->tag.blockNum + 1 != next->tag.blockNum)
 				break;
 
@@ -5562,14 +5562,14 @@ IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
 
 		i += ahead;
 
-		/* and finally tell the kernel to write the data to storage */
+		/* 最后告诉内核把数据写到存储 */
 		reln = smgropen(currlocator, InvalidBackendId);
 		smgrwriteback(reln, BufTagGetForkNum(&tag), tag.blockNum, nblocks);
 	}
 
 	/*
-	 * Assume that writeback requests are only issued for buffers containing
-	 * blocks of permanent relations.
+	 * 假定回写请求只对包含永久关系
+	 * 块的缓冲区发出。
 	 */
 	pgstat_count_io_op_time(IOOBJECT_RELATION, io_context,
 							IOOP_WRITEBACK, io_start, wb_context->nr_pending);
@@ -5579,10 +5579,10 @@ IssuePendingWritebacks(WritebackContext *wb_context, IOContext io_context)
 
 
 /*
- * Implement slower/larger portions of TestForOldSnapshot
+ * 实现 TestForOldSnapshot 中较慢、较大的部分。
  *
- * Smaller/faster portions are put inline, but the entire set of logic is too
- * big for that.
+ * 较小、较快的部分被放成内联，但整套逻辑对那样来说
+ * 太大了。
  */
 void
 TestForOldSnapshot_impl(Snapshot snapshot, Relation relation)

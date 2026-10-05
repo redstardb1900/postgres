@@ -1,0 +1,63 @@
+{
+ "schema_version": 1,
+ "batch_id": "0089-comment-partitioning-partprune",
+ "title": "zh: translate partprune comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "410de9cf4541b002cc25fe6ad7e839ded263d3ea",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "note": "partition pruning"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0089-comment-partitioning-partprune.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 293,
+   "translated": 284,
+   "preserved": 9,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "partition pruning"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0089-comment-partitioning-partprune.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0089 translates src/backend/partitioning/partprune.c."
+}

@@ -58,22 +58,22 @@
 
 
 /*
- * Information about a clause matched with a partition key.
+ * 与分区键匹配的子句的信息。
  */
 typedef struct PartClauseInfo
 {
-	int			keyno;			/* Partition key number (0 to partnatts - 1) */
-	Oid			opno;			/* operator used to compare partkey to expr */
-	bool		op_is_ne;		/* is clause's original operator <> ? */
-	Expr	   *expr;			/* expr the partition key is compared to */
-	Oid			cmpfn;			/* Oid of function to compare 'expr' to the
-								 * partition key */
-	int			op_strategy;	/* btree strategy identifying the operator */
+	int			keyno;			/* 分区键号（0 到 partnatts - 1） */
+	Oid			opno;			/* 用来比较分区键与 expr 的操作符 */
+	bool		op_is_ne;		/* 子句原来的操作符是 <> 吗？ */
+	Expr	   *expr;			/* 与分区键相比较的 expr */
+	Oid			cmpfn;			/* 用来把 expr 与
+								 * 分区键相比较的函数的 Oid */
+	int			op_strategy;	/* 标识该操作符的 btree 策略 */
 } PartClauseInfo;
 
 /*
  * PartClauseMatchStatus
- *		Describes the result of match_clause_to_partition_key()
+ *		描述 match_clause_to_partition_key() 的结果
  */
 typedef enum PartClauseMatchStatus
 {
@@ -87,54 +87,54 @@ typedef enum PartClauseMatchStatus
 
 /*
  * PartClauseTarget
- *		Identifies which qual clauses we can use for generating pruning steps
+ *		标识哪些限定子句可以用来生成剪枝步骤
  */
 typedef enum PartClauseTarget
 {
-	PARTTARGET_PLANNER,			/* want to prune during planning */
-	PARTTARGET_INITIAL,			/* want to prune during executor startup */
-	PARTTARGET_EXEC				/* want to prune during each plan node scan */
+	PARTTARGET_PLANNER,			/* 希望在规划期间做剪枝 */
+	PARTTARGET_INITIAL,			/* 希望在执行器启动期间做剪枝 */
+	PARTTARGET_EXEC				/* 希望在每个计划节点扫描期间做剪枝 */
 } PartClauseTarget;
 
 /*
  * GeneratePruningStepsContext
- *		Information about the current state of generation of "pruning steps"
- *		for a given set of clauses
+ *		为一组子句生成剪枝步骤时
+ *		当前状态的信息。
  *
- * gen_partprune_steps() initializes and returns an instance of this struct.
+ * gen_partprune_steps() 初始化并返回该结构的一个实例。
  *
- * Note that has_mutable_op, has_mutable_arg, and has_exec_param are set if
- * we found any potentially-useful-for-pruning clause having those properties,
- * whether or not we actually used the clause in the steps list.  This
- * definition allows us to skip the PARTTARGET_EXEC pass in some cases.
+ * 注意：若我们发现任何可能对剪枝有用、且具有这些性质的子句，
+ * 就会设置 has_mutable_op、has_mutable_arg 和 has_exec_param，
+ * 不论是否真的在步骤列表里用了该子句。这个
+ * 定义让我们在某些情况下可以跳过 PARTTARGET_EXEC 趟。
  */
 typedef struct GeneratePruningStepsContext
 {
-	/* Copies of input arguments for gen_partprune_steps: */
-	RelOptInfo *rel;			/* the partitioned relation */
-	PartClauseTarget target;	/* use-case we're generating steps for */
-	/* Result data: */
-	List	   *steps;			/* list of PartitionPruneSteps */
-	bool		has_mutable_op; /* clauses include any stable operators */
-	bool		has_mutable_arg;	/* clauses include any mutable comparison
-									 * values, *other than* exec params */
-	bool		has_exec_param; /* clauses include any PARAM_EXEC params */
-	bool		contradictory;	/* clauses were proven self-contradictory */
-	/* Working state: */
+	/* gen_partprune_steps 输入参数的副本： */
+	RelOptInfo *rel;			/* 已分区关系 */
+	PartClauseTarget target;	/* 正在为其生成步骤的使用场景 */
+	/* 结果数据： */
+	List	   *steps;			/* PartitionPruneSteps 的列表 */
+	bool		has_mutable_op; /* 子句含有任何稳定操作符 */
+	bool		has_mutable_arg;	/* 子句含有任何可变的比较
+									 * 值，但执行期参数除外 */
+	bool		has_exec_param; /* 子句含有任何 PARAM_EXEC 参数 */
+	bool		contradictory;	/* 子句已被证明自相矛盾 */
+	/* 工作状态： */
 	int			next_step_id;
 } GeneratePruningStepsContext;
 
-/* The result of performing one PartitionPruneStep */
+/* 执行一个 PartitionPruneStep 的结果 */
 typedef struct PruneStepResult
 {
 	/*
-	 * The offsets of bounds (in a table's boundinfo) whose partition is
-	 * selected by the pruning step.
+	 * 边界的偏移（在表的 boundinfo 里），其分区被
+	 * 该剪枝步骤选中。
 	 */
 	Bitmapset  *bound_offsets;
 
-	bool		scan_default;	/* Scan the default partition? */
-	bool		scan_null;		/* Scan the partition for NULL values? */
+	bool		scan_default;	/* 扫描默认分区吗？ */
+	bool		scan_null;		/* 扫描 NULL 值的分区吗？ */
 } PruneStepResult;
 
 
@@ -208,14 +208,14 @@ static void partkey_datum_from_expr(PartitionPruneContext *context,
 
 /*
  * make_partition_pruneinfo
- *		Builds a PartitionPruneInfo which can be used in the executor to allow
- *		additional partition pruning to take place.  Returns NULL when
- *		partition pruning would be useless.
+ *		构造 PartitionPruneInfo，供执行器用来允许
+ *		进行额外的分区剪枝。当分区剪枝
+ *		没有用处时返回 NULL。
  *
- * 'parentrel' is the RelOptInfo for an appendrel, and 'subpaths' is the list
- * of scan paths for its child rels.
- * 'prunequal' is a list of potential pruning quals (i.e., restriction
- * clauses that are applicable to the appendrel).
+ * parentrel 是某个追加关系的 RelOptInfo，subpaths 是其孩子关系的
+ * 扫描路径列表。
+ * prunequal 是可能用于剪枝的限定条件列表（即适用于该
+ * 追加关系的限制子句）。
  */
 PartitionPruneInfo *
 make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
@@ -231,16 +231,16 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 	int			i;
 
 	/*
-	 * Scan the subpaths to see which ones are scans of partition child
-	 * relations, and identify their parent partitioned rels.  (Note: we must
-	 * restrict the parent partitioned rels to be parentrel or children of
-	 * parentrel, otherwise we couldn't translate prunequal to match.)
+	 * 扫描子路径，看哪些是分区孩子
+	 * 关系的扫描，并识别它们的父已分区关系。（注意：必须
+	 * 把父已分区关系限制为 parentrel 或其孩子，
+	 * 否则就没法把 prunequal 翻译成匹配的形式。）
 	 *
-	 * Also construct a temporary array to map from partition-child-relation
-	 * relid to the index in 'subpaths' of the scan plan for that partition.
-	 * (Use of "subplan" rather than "subpath" is a bit of a misnomer, but
-	 * we'll let it stand.)  For convenience, we use 1-based indexes here, so
-	 * that zero can represent an un-filled array entry.
+	 * 另外构造一个临时数组，把分区孩子关系的
+	 * relid 映射到该分区扫描计划在 subpaths 里的下标。
+	 * （这里用 subplan 而不是 subpath 有点用词不当，但
+	 * 我们就沿用它。）为方便起见，这里用从 1 起计的下标，这样
+	 * 零可以表示尚未填充的数组项。
 	 */
 	allpartrelids = NIL;
 	relid_subplan_map = palloc0(sizeof(int) * root->simple_rel_array_size);
@@ -251,20 +251,20 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		Path	   *path = (Path *) lfirst(lc);
 		RelOptInfo *pathrel = path->parent;
 
-		/* We don't consider partitioned joins here */
+		/* 这里不考虑已分区连接 */
 		if (pathrel->reloptkind == RELOPT_OTHER_MEMBER_REL)
 		{
 			RelOptInfo *prel = pathrel;
 			Bitmapset  *partrelids = NULL;
 
 			/*
-			 * Traverse up to the pathrel's topmost partitioned parent,
-			 * collecting parent relids as we go; but stop if we reach
-			 * parentrel.  (Normally, a pathrel's topmost partitioned parent
-			 * is either parentrel or a UNION ALL appendrel child of
-			 * parentrel.  But when handling partitionwise joins of
-			 * multi-level partitioning trees, we can see an append path whose
-			 * parentrel is an intermediate partitioned table.)
+			 * 向上走到 pathrel 最顶层的已分区父关系，
+			 * 沿途收集父关系的 relid；但若到达
+			 * parentrel 就停止。（通常，pathrel 最顶层的已分区父关系
+			 * 要么是 parentrel，要么是 parentrel 的一个 UNION ALL 追加关系孩子。
+			 * 但在处理多层分区树的分区智能连接时，
+			 * 我们可能看到一条追加路径，其
+			 * parentrel 是中间的已分区表。）
 			 */
 			do
 			{
@@ -274,23 +274,23 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 				appinfo = root->append_rel_array[prel->relid];
 				prel = find_base_rel(root, appinfo->parent_relid);
 				if (!IS_PARTITIONED_REL(prel))
-					break;		/* reached a non-partitioned parent */
-				/* accept this level as an interesting parent */
+					break;		/* 到达了非分区的父关系 */
+				/* 接受这一层作为值得关注的父关系 */
 				partrelids = bms_add_member(partrelids, prel->relid);
 				if (prel == parentrel)
-					break;		/* don't traverse above parentrel */
+					break;		/* 不要遍历到 parentrel 之上 */
 			} while (prel->reloptkind == RELOPT_OTHER_MEMBER_REL);
 
 			if (partrelids)
 			{
 				/*
-				 * Found some relevant parent partitions, which may or may not
-				 * overlap with partition trees we already found.  Add new
-				 * information to the allpartrelids list.
+				 * 找到了一些相关的父分区，它们可能与已经找到的
+				 * 分区树重叠，也可能不重叠。把新
+				 * 信息加入 allpartrelids 列表。
 				 */
 				allpartrelids = add_part_relids(allpartrelids, partrelids);
-				/* Also record the subplan in relid_subplan_map[] */
-				/* No duplicates please */
+				/* 同时把该子计划记入 relid_subplan_map[] */
+				/* 请不要重复 */
 				Assert(relid_subplan_map[pathrel->relid] == 0);
 				relid_subplan_map[pathrel->relid] = i;
 			}
@@ -299,8 +299,8 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 	}
 
 	/*
-	 * We now build a PartitionedRelPruneInfo for each topmost partitioned rel
-	 * (omitting any that turn out not to have useful pruning quals).
+	 * 现在为每个最顶层的已分区关系构造一个 PartitionedRelPruneInfo
+	 * （略去那些结果没有有用剪枝限定条件的）。
 	 */
 	prunerelinfos = NIL;
 	foreach(lc, allpartrelids)
@@ -315,7 +315,7 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 												  relid_subplan_map,
 												  &matchedsubplans);
 
-		/* When pruning is possible, record the matched subplans */
+		/* 在可以剪枝时，记录匹配到的子计划 */
 		if (pinfolist != NIL)
 		{
 			prunerelinfos = lappend(prunerelinfos, pinfolist);
@@ -327,28 +327,28 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 	pfree(relid_subplan_map);
 
 	/*
-	 * If none of the partition hierarchies had any useful run-time pruning
-	 * quals, then we can just not bother with run-time pruning.
+	 * 若没有哪个分区层次有任何有用的运行期剪枝
+	 * 限定条件，就可以不必费心做运行期剪枝。
 	 */
 	if (prunerelinfos == NIL)
 		return NULL;
 
-	/* Else build the result data structure */
+	/* 否则构造结果数据结构 */
 	pruneinfo = makeNode(PartitionPruneInfo);
 	pruneinfo->prune_infos = prunerelinfos;
 
 	/*
-	 * Some subplans may not belong to any of the identified partitioned rels.
-	 * This can happen for UNION ALL queries which include a non-partitioned
-	 * table, or when some of the hierarchies aren't run-time prunable.  Build
-	 * a bitmapset of the indexes of all such subplans, so that the executor
-	 * can identify which subplans should never be pruned.
+	 * 有些子计划可能不属于任何已识别的已分区关系。
+	 * 这可能发生在 UNION ALL 查询包含非分区
+	 * 表时，或某些层次无法做运行期剪枝时。构造
+	 * 所有这些子计划的下标 bitmapset，以便执行器
+	 * 能识别哪些子计划永远不应当被剪枝。
 	 */
 	if (bms_num_members(allmatchedsubplans) < list_length(subpaths))
 	{
 		Bitmapset  *other_subplans;
 
-		/* Create the complement of allmatchedsubplans */
+		/* 构造 allmatchedsubplans 的补集 */
 		other_subplans = bms_add_range(NULL, 0, list_length(subpaths) - 1);
 		other_subplans = bms_del_members(other_subplans, allmatchedsubplans);
 
@@ -362,32 +362,32 @@ make_partition_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 
 /*
  * add_part_relids
- *		Add new info to a list of Bitmapsets of partitioned relids.
+ *		把新信息加入已分区关系 relid 的 Bitmapset 列表。
  *
- * Within 'allpartrelids', there is one Bitmapset for each topmost parent
- * partitioned rel.  Each Bitmapset contains the RT indexes of the topmost
- * parent as well as its relevant non-leaf child partitions.  Since (by
- * construction of the rangetable list) parent partitions must have lower
- * RT indexes than their children, we can distinguish the topmost parent
- * as being the lowest set bit in the Bitmapset.
+ * 在 allpartrelids 里，每个最顶层的父
+ * 已分区关系有一个 Bitmapset。每个 Bitmapset 含最顶层
+ * 父关系的 RT 下标，以及其相关的非叶孩子分区。由于（按
+ * 范围表列表的构造）父分区的 RT 下标必须低于
+ * 其子分区，我们可以把最顶层父关系
+ * 辨认为 Bitmapset 里最低的那个置位。
  *
- * 'partrelids' contains the RT indexes of a parent partitioned rel, and
- * possibly some non-leaf children, that are newly identified as parents of
- * some subpath rel passed to make_partition_pruneinfo().  These are added
- * to an appropriate member of 'allpartrelids'.
+ * partrelids 含一个父已分区关系的 RT 下标，以及
+ * 可能的一些非叶孩子，它们刚被识别为传给
+ * make_partition_pruneinfo() 的某个子路径关系的父关系。这些被加入
+ * allpartrelids 的某个合适成员。
  *
- * Note that the list contains only RT indexes of partitioned tables that
- * are parents of some scan-level relation appearing in the 'subpaths' that
- * make_partition_pruneinfo() is dealing with.  Also, "topmost" parents are
- * not allowed to be higher than the 'parentrel' associated with the append
- * path.  In this way, we avoid expending cycles on partitioned rels that
- * can't contribute useful pruning information for the problem at hand.
- * (It is possible for 'parentrel' to be a child partitioned table, and it
- * is also possible for scan-level relations to be child partitioned tables
- * rather than leaf partitions.  Hence we must construct this relation set
- * with reference to the particular append path we're dealing with, rather
- * than looking at the full partitioning structure represented in the
- * RelOptInfos.)
+ * 注意，该列表只含这样的已分区表的 RT 下标：它们
+ * 是 make_partition_pruneinfo() 正在处理的 subpaths 里
+ * 出现的某个扫描层关系的父关系。另外，最顶层父关系
+ * 不允许高于与该追加路径相关联的 parentrel。
+ * 这样，我们就避免在对当前问题没法贡献有用剪枝信息的
+ * 已分区关系上耗费周期。
+ * （parentrel 可能是孩子已分区表，而且
+ * 扫描层关系也可能是孩子已分区表，
+ * 而不是叶分区。因此我们必须参照
+ * 正在处理的特定追加路径来构造这个关系集合，而不是
+ * 去看 RelOptInfos 里表示的
+ * 完整分区结构。）
  */
 static List *
 add_part_relids(List *allpartrelids, Bitmapset *partrelids)
@@ -395,11 +395,11 @@ add_part_relids(List *allpartrelids, Bitmapset *partrelids)
 	Index		targetpart;
 	ListCell   *lc;
 
-	/* We can easily get the lowest set bit this way: */
+	/* 用这种方式很容易取得最低的置位： */
 	targetpart = bms_next_member(partrelids, -1);
 	Assert(targetpart > 0);
 
-	/* Look for a matching topmost parent */
+	/* 寻找匹配的最顶层父关系 */
 	foreach(lc, allpartrelids)
 	{
 		Bitmapset  *currpartrelids = (Bitmapset *) lfirst(lc);
@@ -407,33 +407,33 @@ add_part_relids(List *allpartrelids, Bitmapset *partrelids)
 
 		if (targetpart == currtarget)
 		{
-			/* Found a match, so add any new RT indexes to this hierarchy */
+			/* 找到了匹配，就把任何新的 RT 下标加入该层次 */
 			currpartrelids = bms_add_members(currpartrelids, partrelids);
 			lfirst(lc) = currpartrelids;
 			return allpartrelids;
 		}
 	}
-	/* No match, so add the new partition hierarchy to the list */
+	/* 没有匹配，就把新的分区层次加入列表 */
 	return lappend(allpartrelids, partrelids);
 }
 
 /*
  * make_partitionedrel_pruneinfo
- *		Build a List of PartitionedRelPruneInfos, one for each interesting
- *		partitioned rel in a partitioning hierarchy.  These can be used in the
- *		executor to allow additional partition pruning to take place.
+ *		构造 PartitionedRelPruneInfos 的 List，分区层次里每个值得关注的
+ *		已分区关系各一个。执行器可以用它们来允许
+ *		进行额外的分区剪枝。
  *
- * parentrel: rel associated with the appendpath being considered
- * prunequal: potential pruning quals, represented for parentrel
- * partrelids: Set of RT indexes identifying relevant partitioned tables
- *   within a single partitioning hierarchy
- * relid_subplan_map[]: maps child relation relids to subplan indexes
- * matchedsubplans: on success, receives the set of subplan indexes which
- *   were matched to this partition hierarchy
+ * parentrel：与正在考虑的追加路径相关联的关系
+ * prunequal：可能用于剪枝的限定条件，按 parentrel 表示
+ * partrelids：标识相关已分区表的 RT 下标集合，
+ *   这些表位于单个分区层次之内
+ * relid_subplan_map[]：把孩子关系的 relid 映射到子计划下标
+ * matchedsubplans：成功时接收与该
+ *   分区层次相匹配的子计划下标集合。
  *
- * If we cannot find any useful run-time pruning steps, return NIL.
- * However, on success, each rel identified in partrelids will have
- * an element in the result list, even if some of them are useless.
+ * 若无法找到任何有用的运行期剪枝步骤，就返回 NIL。
+ * 不过，成功时 partrelids 里标识的每个关系都会在
+ * 结果列表里有一个元素，即使其中一些没有用处。
  */
 static List *
 make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
@@ -452,12 +452,12 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 	int			i;
 
 	/*
-	 * Examine each partitioned rel, constructing a temporary array to map
-	 * from planner relids to index of the partitioned rel, and building a
-	 * PartitionedRelPruneInfo for each partitioned rel.
+	 * 逐个检查已分区关系，构造一个临时数组，把
+	 * 规划器 relid 映射到该已分区关系的下标，并为每个已分区关系
+	 * 构造一个 PartitionedRelPruneInfo。
 	 *
-	 * In this phase we discover whether runtime pruning is needed at all; if
-	 * not, we can avoid doing further work.
+	 * 在这一阶段我们发现是否需要运行期剪枝；若不需要，
+	 * 就可以避免做进一步的工作。
 	 */
 	relid_subpart_map = palloc0(sizeof(int) * root->simple_rel_array_size);
 
@@ -474,32 +474,32 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		GeneratePruningStepsContext context;
 
 		/*
-		 * Fill the mapping array.
+		 * 填充映射数组。
 		 *
-		 * relid_subpart_map maps relid of a non-leaf partition to the index
-		 * in the returned PartitionedRelPruneInfo list of the info for that
-		 * partition.  We use 1-based indexes here, so that zero can represent
-		 * an un-filled array entry.
+		 * relid_subpart_map 把非叶分区的 relid 映射到
+		 * 返回的 PartitionedRelPruneInfo 列表里该分区
+		 * 信息的下标。这里用从 1 起计的下标，这样零可以表示
+		 * 尚未填充的数组项。
 		 */
 		Assert(rti < root->simple_rel_array_size);
 		relid_subpart_map[rti] = i++;
 
 		/*
-		 * Translate pruning qual, if necessary, for this partition.
+		 * 必要时为该分区翻译剪枝限定条件。
 		 *
-		 * The first item in the list is the target partitioned relation.
+		 * 列表的第一项是目标已分区关系。
 		 */
 		if (!targetpart)
 		{
 			targetpart = subpart;
 
 			/*
-			 * The prunequal is presented to us as a qual for 'parentrel'.
-			 * Frequently this rel is the same as targetpart, so we can skip
-			 * an adjust_appendrel_attrs step.  But it might not be, and then
-			 * we have to translate.  We update the prunequal parameter here,
-			 * because in later iterations of the loop for child partitions,
-			 * we want to translate from parent to child variables.
+			 * prunequal 是作为 parentrel 的限定条件交给我们的。
+			 * 这个关系常常与 targetpart 相同，因此可以跳过
+			 * adjust_appendrel_attrs 这一步。但它也可能不同，那时
+			 * 就必须翻译。这里更新 prunequal 参数，
+			 * 因为在稍后针对孩子分区的循环迭代里，
+			 * 我们要从父变量翻译到孩子变量。
 			 */
 			if (!bms_equal(parentrel->relids, subpart->relids))
 			{
@@ -521,9 +521,9 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		else
 		{
 			/*
-			 * For sub-partitioned tables the columns may not be in the same
-			 * order as the parent, so we must translate the prunequal to make
-			 * it compatible with this relation.
+			 * 对子分区表，列的顺序可能与父表
+			 * 不同，因此必须翻译 prunequal，使它
+			 * 与该关系相容。
 			 */
 			partprunequal = (List *)
 				adjust_appendrel_attrs_multilevel(root,
@@ -533,11 +533,11 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		}
 
 		/*
-		 * Convert pruning qual to pruning steps.  We may need to do this
-		 * twice, once to obtain executor startup pruning steps, and once for
-		 * executor per-scan pruning steps.  This first pass creates startup
-		 * pruning steps and detects whether there's any possibly-useful quals
-		 * that would require per-scan pruning.
+		 * 把剪枝限定条件转换成剪枝步骤。我们可能需要做这
+		 * 两次：一次取得执行器启动剪枝步骤，一次取得
+		 * 执行器按扫描剪枝步骤。第一趟创建启动
+		 * 剪枝步骤，并检测是否有任何可能有用、且
+		 * 需要按扫描剪枝的限定条件。
 		 */
 		gen_partprune_steps(subpart, partprunequal, PARTTARGET_INITIAL,
 							&context);
@@ -545,21 +545,21 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		if (context.contradictory)
 		{
 			/*
-			 * This shouldn't happen as the planner should have detected this
-			 * earlier. However, we do use additional quals from parameterized
-			 * paths here. These do only compare Params to the partition key,
-			 * so this shouldn't cause the discovery of any new qual
-			 * contradictions that were not previously discovered as the Param
-			 * values are unknown during planning.  Anyway, we'd better do
-			 * something sane here, so let's just disable run-time pruning.
+			 * 这不应当发生，因为规划器应当更早检测到
+			 * 这一点。不过，我们在这里确实使用来自参数化
+			 * 路径的额外限定条件。它们只把参数与分区键
+			 * 比较，因此不应当发现任何先前在规划期间
+			 * 未发现的新的限定条件矛盾，因为规划期间参数
+			 * 值是未知的。无论如何，这里最好做点
+			 * 合理的事，所以干脆禁用运行期剪枝。
 			 */
 			return NIL;
 		}
 
 		/*
-		 * If no mutable operators or expressions appear in usable pruning
-		 * clauses, then there's no point in running startup pruning, because
-		 * plan-time pruning should have pruned everything prunable.
+		 * 若可用的剪枝子句里没有可变操作符或表达式，
+		 * 就没有必要做启动剪枝，因为
+		 * 规划期剪枝应当已经剪掉了所有可剪的部分。
 		 */
 		if (context.has_mutable_op || context.has_mutable_arg)
 			initial_pruning_steps = context.steps;
@@ -567,27 +567,27 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 			initial_pruning_steps = NIL;
 
 		/*
-		 * If no exec Params appear in potentially-usable pruning clauses,
-		 * then there's no point in even thinking about per-scan pruning.
+		 * 若可能有用的剪枝子句里没有执行期参数，
+		 * 就没有必要考虑按扫描剪枝。
 		 */
 		if (context.has_exec_param)
 		{
-			/* ... OK, we'd better think about it */
+			/* ……好，我们最好考虑一下 */
 			gen_partprune_steps(subpart, partprunequal, PARTTARGET_EXEC,
 								&context);
 
 			if (context.contradictory)
 			{
-				/* As above, skip run-time pruning if anything fishy happens */
+				/* 同上，若出现异常情况，就跳过运行期剪枝 */
 				return NIL;
 			}
 
 			exec_pruning_steps = context.steps;
 
 			/*
-			 * Detect which exec Params actually got used; the fact that some
-			 * were in available clauses doesn't mean we actually used them.
-			 * Skip per-scan pruning if there are none.
+			 * 检测实际用到了哪些执行期参数；某些参数出现在
+			 * 可用子句里并不意味着我们真的用了它们。
+			 * 若一个都没有，就跳过按扫描剪枝。
 			 */
 			execparamids = get_partkey_exec_paramids(exec_pruning_steps);
 
@@ -596,7 +596,7 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		}
 		else
 		{
-			/* No exec Params anywhere, so forget about scan-time pruning */
+			/* 任何地方都没有执行期参数，因此忘掉扫描期剪枝 */
 			exec_pruning_steps = NIL;
 			execparamids = NULL;
 		}
@@ -604,31 +604,31 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		if (initial_pruning_steps || exec_pruning_steps)
 			doruntimeprune = true;
 
-		/* Begin constructing the PartitionedRelPruneInfo for this rel */
+		/* 开始为该关系构造 PartitionedRelPruneInfo */
 		pinfo = makeNode(PartitionedRelPruneInfo);
 		pinfo->rtindex = rti;
 		pinfo->initial_pruning_steps = initial_pruning_steps;
 		pinfo->exec_pruning_steps = exec_pruning_steps;
 		pinfo->execparamids = execparamids;
-		/* Remaining fields will be filled in the next loop */
+		/* 其余字段在下一轮循环里填充 */
 
 		pinfolist = lappend(pinfolist, pinfo);
 	}
 
 	if (!doruntimeprune)
 	{
-		/* No run-time pruning required. */
+		/* 不需要运行期剪枝。 */
 		pfree(relid_subpart_map);
 		return NIL;
 	}
 
 	/*
-	 * Run-time pruning will be required, so initialize other information.
-	 * That includes two maps -- one needed to convert partition indexes of
-	 * leaf partitions to the indexes of their subplans in the subplan list,
-	 * another needed to convert partition indexes of sub-partitioned
-	 * partitions to the indexes of their PartitionedRelPruneInfo in the
-	 * PartitionedRelPruneInfo list.
+	 * 将需要运行期剪枝，因此初始化其他信息。
+	 * 其中包括两张映射：一张用来把叶分区的分区下标
+	 * 转换成它们在子计划列表里的子计划下标，
+	 * 另一张用来把子分区的分区下标
+	 * 转换成它们的 PartitionedRelPruneInfo 在
+	 * PartitionedRelPruneInfo 列表里的下标。
 	 */
 	foreach(lc, pinfolist)
 	{
@@ -641,10 +641,10 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		Oid		   *relid_map;
 
 		/*
-		 * Construct the subplan and subpart maps for this partitioning level.
-		 * Here we convert to zero-based indexes, with -1 for empty entries.
-		 * Also construct a Bitmapset of all partitions that are present (that
-		 * is, not pruned already).
+		 * 为这一分区层构造子计划和子分区映射。
+		 * 这里转换成从 0 起计的下标，空项用 -1。
+		 * 同时构造当前存在（也就是
+		 * 尚未被剪掉）的全部分区的 Bitmapset。
 		 */
 		subplan_map = (int *) palloc(nparts * sizeof(int));
 		memset(subplan_map, -1, nparts * sizeof(int));
@@ -669,7 +669,7 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 			{
 				present_parts = bms_add_member(present_parts, i);
 
-				/* Record finding this subplan  */
+				/* 记录发现了该子计划  */
 				subplansfound = bms_add_member(subplansfound, subplanidx);
 			}
 			else if (subpartidx >= 0)
@@ -677,13 +677,13 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 		}
 
 		/*
-		 * Ensure there were no stray PartitionedRelPruneInfo generated for
-		 * partitioned tables that we have no sub-paths or
-		 * sub-PartitionedRelPruneInfo for.
+		 * 确保没有为那些我们既没有子路径、
+		 * 也没有子 PartitionedRelPruneInfo 的已分区表
+		 * 生成多余的 PartitionedRelPruneInfo。
 		 */
 		Assert(!bms_is_empty(present_parts));
 
-		/* Record the maps and other information. */
+		/* 记录这些映射和其他信息。 */
 		pinfo->present_parts = present_parts;
 		pinfo->nparts = nparts;
 		pinfo->subplan_map = subplan_map;
@@ -700,52 +700,52 @@ make_partitionedrel_pruneinfo(PlannerInfo *root, RelOptInfo *parentrel,
 
 /*
  * gen_partprune_steps
- *		Process 'clauses' (typically a rel's baserestrictinfo list of clauses)
- *		and create a list of "partition pruning steps".
+ *		处理 clauses（通常是关系的 baserestrictinfo 子句列表），
+ *		并创建剪枝步骤列表。
  *
- * 'target' tells whether to generate pruning steps for planning (use
- * immutable clauses only), or for executor startup (use any allowable
- * clause except ones containing PARAM_EXEC Params), or for executor
- * per-scan pruning (use any allowable clause).
+ * target 指明是为规划生成剪枝步骤（只用
+ * 不可变子句），还是为执行器启动生成（除含 PARAM_EXEC 参数的
+ * 子句外，任何允许的子句都可以用），还是为执行器
+ * 按扫描剪枝生成（任何允许的子句都可以用）。
  *
- * 'context' is an output argument that receives the steps list as well as
- * some subsidiary flags; see the GeneratePruningStepsContext typedef.
+ * context 是输出参数，接收步骤列表以及
+ * 一些附属标志；见 GeneratePruningStepsContext 类型定义。
  */
 static void
 gen_partprune_steps(RelOptInfo *rel, List *clauses, PartClauseTarget target,
 					GeneratePruningStepsContext *context)
 {
-	/* Initialize all output values to zero/false/NULL */
+	/* 把所有输出值初始化为零、假或 NULL */
 	memset(context, 0, sizeof(GeneratePruningStepsContext));
 	context->rel = rel;
 	context->target = target;
 
 	/*
-	 * If this partitioned table is in turn a partition, and it shares any
-	 * partition keys with its parent, then it's possible that the hierarchy
-	 * allows the parent a narrower range of values than some of its
-	 * partitions (particularly the default one).  This is normally not
-	 * useful, but it can be to prune the default partition.
+	 * 若该已分区表本身又是一个分区，并且与其父表共享任何
+	 * 分区键，则层次结构可能允许父表的取值范围比它的某些
+	 * 分区更窄（尤其是默认分区）。
+	 * 这通常没有用处，但可以用来
+	 * 剪掉默认分区。
 	 */
 	if (partition_bound_has_default(rel->boundinfo) && rel->partition_qual)
 	{
-		/* Make a copy to avoid modifying the passed-in List */
+		/* 做一份副本，以免修改传入的 List */
 		clauses = list_concat_copy(clauses, rel->partition_qual);
 	}
 
-	/* Down into the rabbit-hole. */
+	/* 接下来进入递归处理。 */
 	(void) gen_partprune_steps_internal(context, clauses);
 }
 
 /*
  * prune_append_rel_partitions
- *		Process rel's baserestrictinfo and make use of quals which can be
- *		evaluated during query planning in order to determine the minimum set
- *		of partitions which must be scanned to satisfy these quals.  Returns
- *		the matching partitions in the form of a Bitmapset containing the
- *		partitions' indexes in the rel's part_rels array.
+ *		处理关系的 baserestrictinfo，并利用能在
+ *		查询规划期间求值的限定条件，确定为满足这些限定条件
+ *		必须扫描的最小分区集合。以 Bitmapset 形式返回
+ *		匹配的分区，其中含这些分区在该关系 part_rels 数组里的
+ *		下标。
  *
- * Callers must ensure that 'rel' is a partitioned table.
+ * 调用者必须保证 rel 是已分区表。
  */
 Bitmapset *
 prune_append_rel_partitions(RelOptInfo *rel)
@@ -757,21 +757,21 @@ prune_append_rel_partitions(RelOptInfo *rel)
 
 	Assert(rel->part_scheme != NULL);
 
-	/* If there are no partitions, return the empty set */
+	/* 若没有分区，就返回空集 */
 	if (rel->nparts == 0)
 		return NULL;
 
 	/*
-	 * If pruning is disabled or if there are no clauses to prune with, return
-	 * all partitions.
+	 * 若禁用了剪枝，或没有可用于剪枝的子句，就返回
+	 * 全部分区。
 	 */
 	if (!enable_partition_pruning || clauses == NIL)
 		return bms_add_range(NULL, 0, rel->nparts - 1);
 
 	/*
-	 * Process clauses to extract pruning steps that are usable at plan time.
-	 * If the clauses are found to be contradictory, we can return the empty
-	 * set.
+	 * 处理子句，提取在规划期可用的剪枝步骤。
+	 * 若发现子句互相矛盾，就可以返回空
+	 * 集。
 	 */
 	gen_partprune_steps(rel, clauses, PARTTARGET_PLANNER,
 						&gcontext);
@@ -779,11 +779,11 @@ prune_append_rel_partitions(RelOptInfo *rel)
 		return NULL;
 	pruning_steps = gcontext.steps;
 
-	/* If there's nothing usable, return all partitions */
+	/* 若没有可用的，就返回全部分区 */
 	if (pruning_steps == NIL)
 		return bms_add_range(NULL, 0, rel->nparts - 1);
 
-	/* Set up PartitionPruneContext */
+	/* 设置 PartitionPruneContext */
 	context.strategy = rel->part_scheme->strategy;
 	context.partnatts = rel->part_scheme->partnatts;
 	context.nparts = rel->nparts;
@@ -795,24 +795,24 @@ prune_append_rel_partitions(RelOptInfo *rel)
 												list_length(pruning_steps));
 	context.ppccontext = CurrentMemoryContext;
 
-	/* These are not valid when being called from the planner */
+	/* 从规划器调用时这些无效 */
 	context.planstate = NULL;
 	context.exprcontext = NULL;
 	context.exprstates = NULL;
 
-	/* Actual pruning happens here. */
+	/* 实际的剪枝在这里发生。 */
 	return get_matching_partitions(&context, pruning_steps);
 }
 
 /*
  * get_matching_partitions
- *		Determine partitions that survive partition pruning
+ *		确定在分区剪枝后仍然保留的分区。
  *
- * Note: context->exprcontext must be valid when the pruning_steps were
- * generated with a target other than PARTTARGET_PLANNER.
+ * 注意：当 pruning_steps 的生成目标不是 PARTTARGET_PLANNER 时，
+ * context->exprcontext 必须有效。
  *
- * Returns a Bitmapset of the RelOptInfo->part_rels indexes of the surviving
- * partitions.
+ * 返回幸存分区在 RelOptInfo->part_rels 里的
+ * 下标 Bitmapset。
  */
 Bitmapset *
 get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
@@ -825,7 +825,7 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 	ListCell   *lc;
 	bool		scan_default;
 
-	/* If there are no pruning steps then all partitions match. */
+	/* 若没有剪枝步骤，则所有分区都匹配。 */
 	if (num_steps == 0)
 	{
 		Assert(context->nparts > 0);
@@ -833,11 +833,11 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 	}
 
 	/*
-	 * Allocate space for individual pruning steps to store its result.  Each
-	 * slot will hold a PruneStepResult after performing a given pruning step.
-	 * Later steps may use the result of one or more earlier steps.  The
-	 * result of applying all pruning steps is the value contained in the slot
-	 * of the last pruning step.
+	 * 为各个剪枝步骤分配存放结果的空间。每个
+	 * 槽在执行给定剪枝步骤后将保存一个 PruneStepResult。
+	 * 后面的步骤可能使用一个或多个更早步骤的结果。
+	 * 应用全部剪枝步骤的结果，就是最后一个剪枝步骤
+	 * 那个槽里的值。
 	 */
 	results = (PruneStepResult **)
 		palloc0(num_steps * sizeof(PruneStepResult *));
@@ -867,9 +867,9 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 	}
 
 	/*
-	 * At this point we know the offsets of all the datums whose corresponding
-	 * partitions need to be in the result, including special null-accepting
-	 * and default partitions.  Collect the actual partition indexes now.
+	 * 至此我们知道所有 datum 的偏移，其对应
+	 * 分区需要出现在结果里，包括特殊的接受 NULL 的
+	 * 分区和默认分区。现在收集实际的分区下标。
 	 */
 	final_result = results[num_steps - 1];
 	Assert(final_result != NULL);
@@ -886,15 +886,15 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 		if (partindex < 0)
 		{
 			/*
-			 * In range partitioning cases, if a partition index is -1 it
-			 * means that the bound at the offset is the upper bound for a
-			 * range not covered by any partition (other than a possible
-			 * default partition).  In hash partitioning, the same means no
-			 * partition has been defined for the corresponding remainder
-			 * value.
+			 * 在区间分区情形下，若分区下标为 -1，
+			 * 就表示该偏移处的边界是某个区间的上界，而该区间
+			 * 不被任何分区覆盖（可能存在的
+			 * 默认分区除外）。在哈希分区中，这同样表示
+			 * 没有为对应的余数
+			 * 定义分区。
 			 *
-			 * In either case, the value is still part of the queried range of
-			 * values, so mark to scan the default partition if one exists.
+			 * 无论哪种情形，该值仍然属于被查询的值
+			 * 区间，因此若存在默认分区，就标记为扫描它。
 			 */
 			scan_default |= partition_bound_has_default(context->boundinfo);
 			continue;
@@ -903,7 +903,7 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 		result = bms_add_member(result, partindex);
 	}
 
-	/* Add the null and/or default partition if needed and present. */
+	/* 若需要且存在，就把 NULL 分区和/或默认分区加进去。 */
 	if (final_result->scan_null)
 	{
 		Assert(context->strategy == PARTITION_STRATEGY_LIST);
@@ -923,40 +923,40 @@ get_matching_partitions(PartitionPruneContext *context, List *pruning_steps)
 
 /*
  * gen_partprune_steps_internal
- *		Processes 'clauses' to generate a List of partition pruning steps.  We
- *		return NIL when no steps were generated.
+ *		处理 clauses 以生成分区剪枝步骤的 List。若没有生成
+ *		任何步骤，就返回 NIL。
  *
- * These partition pruning steps come in 2 forms; operator steps and combine
- * steps.
+ * 这些分区剪枝步骤有两种形式：操作符步骤和组合
+ * 步骤。
  *
- * Operator steps (PartitionPruneStepOp) contain details of clauses that we
- * determined that we can use for partition pruning.  These contain details of
- * the expression which is being compared to the partition key and the
- * comparison function.
+ * 操作符步骤（PartitionPruneStepOp）含我们判定可以用于
+ * 分区剪枝的子句细节。其中含正在与分区键比较的
+ * 表达式以及
+ * 比较函数的细节。
  *
- * Combine steps (PartitionPruneStepCombine) instruct the partition pruning
- * code how it should produce a single set of partitions from multiple input
- * operator and other combine steps.  A PARTPRUNE_COMBINE_INTERSECT type
- * combine step will merge its input steps to produce a result which only
- * contains the partitions which are present in all of the input operator
- * steps.  A PARTPRUNE_COMBINE_UNION combine step will produce a result that
- * has all of the partitions from each of the input operator steps.
+ * 组合步骤（PartitionPruneStepCombine）指示分区剪枝
+ * 代码如何从多个输入
+ * 操作符步骤和其他组合步骤产生单一分区集合。PARTPRUNE_COMBINE_INTERSECT 类型的
+ * 组合步骤会合并其输入步骤，产生的结果只
+ * 含所有输入操作符
+ * 步骤里都出现的分区。PARTPRUNE_COMBINE_UNION 组合步骤产生的结果
+ * 含每个输入操作符步骤的全部分区。
  *
- * For BoolExpr clauses, each argument is processed recursively. Steps
- * generated from processing an OR BoolExpr will be combined using
- * PARTPRUNE_COMBINE_UNION.  AND BoolExprs get combined using
- * PARTPRUNE_COMBINE_INTERSECT.
+ * 对 BoolExpr 子句，每个参数都递归处理。处理 OR BoolExpr
+ * 所生成的步骤用
+ * PARTPRUNE_COMBINE_UNION 组合。AND 的 BoolExprs 用
+ * PARTPRUNE_COMBINE_INTERSECT 组合。
  *
- * Otherwise, the list of clauses we receive we assume to be mutually ANDed.
- * We generate all of the pruning steps we can based on these clauses and then
- * at the end, if we have more than 1 step, we combine each step with a
- * PARTPRUNE_COMBINE_INTERSECT combine step.  Single steps are returned as-is.
+ * 否则，我们假定收到的子句列表彼此 ANDed。
+ * 我们基于这些子句生成能生成的全部剪枝步骤，然后
+ * 在末尾，若步骤多于 1 个，就用
+ * PARTPRUNE_COMBINE_INTERSECT 组合步骤把每个步骤组合起来。单个步骤则原样返回。
  *
- * If we find clauses that are mutually contradictory, or contradictory with
- * the partitioning constraint, or a pseudoconstant clause that contains
- * false, we set context->contradictory to true and return NIL (that is, no
- * pruning steps).  Caller should consider all partitions as pruned in that
- * case.
+ * 若我们发现彼此矛盾的子句，或与
+ * 分区约束矛盾的子句，或含有
+ * false 的伪常量子句，就把 context->contradictory 设为真并返回 NIL
+ * （也就是没有剪枝步骤）。那种情况下，调用者应认为
+ * 所有分区都已被剪枝。
  */
 static List *
 gen_partprune_steps_internal(GeneratePruningStepsContext *context,
@@ -971,16 +971,16 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 	ListCell   *lc;
 
 	/*
-	 * If this partitioned relation has a default partition and is itself a
-	 * partition (as evidenced by partition_qual being not NIL), we first
-	 * check if the clauses contradict the partition constraint.  If they do,
-	 * there's no need to generate any steps as it'd already be proven that no
-	 * partitions need to be scanned.
+	 * 若该已分区关系有默认分区，并且它自身也是
+	 * 分区（partition_qual 不是 NIL 即表明这一点），我们先
+	 * 检查子句是否与分区约束矛盾。若矛盾，
+	 * 就不必生成任何步骤，因为已经可以证明没有
+	 * 分区需要被扫描。
 	 *
-	 * This is a measure of last resort only to be used because the default
-	 * partition cannot be pruned using the steps generated from clauses that
-	 * contradict the parent's partition constraint; regular pruning, which is
-	 * cheaper, is sufficient when no default partition exists.
+	 * 这只是不得已的最后手段，因为默认
+	 * 分区无法根据与父分区约束相矛盾的子句所生成的步骤来剪枝；当不存在
+	 * 默认分区时，更便宜的常规剪枝
+	 * 就足够了。
 	 */
 	if (partition_bound_has_default(context->rel->boundinfo) &&
 		predicate_refuted_by(context->rel->partition_qual, clauses, false))
@@ -995,11 +995,11 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 		Expr	   *clause = (Expr *) lfirst(lc);
 		int			i;
 
-		/* Look through RestrictInfo, if any */
+		/* 若有 RestrictInfo，就看穿它 */
 		if (IsA(clause, RestrictInfo))
 			clause = ((RestrictInfo *) clause)->clause;
 
-		/* Constant-false-or-null is contradictory */
+		/* 常量假或空是矛盾的 */
 		if (IsA(clause, Const) &&
 			(((Const *) clause)->constisnull ||
 			 !DatumGetBool(((Const *) clause)->constvalue)))
@@ -1008,16 +1008,16 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 			return NIL;
 		}
 
-		/* Get the BoolExpr's out of the way. */
+		/* 先把 BoolExpr 处理掉。 */
 		if (IsA(clause, BoolExpr))
 		{
 			/*
-			 * Generate steps for arguments.
+			 * 为参数生成步骤。
 			 *
-			 * While steps generated for the arguments themselves will be
-			 * added to context->steps during recursion and will be evaluated
-			 * independently, collect their step IDs to be stored in the
-			 * combine step we'll be creating.
+			 * 参数本身生成的步骤会在递归期间
+			 * 加入 context->steps，并会被
+			 * 独立求值，这里收集它们的步骤 ID，存入
+			 * 我们将创建的组合步骤。
 			 */
 			if (is_orclause(clause))
 			{
@@ -1026,14 +1026,14 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 				ListCell   *lc1;
 
 				/*
-				 * We can share the outer context area with the recursive
-				 * call, but contradictory had better not be true yet.
+				 * 递归调用可以共用外层的上下文区域，
+				 * 但 contradictory 此时最好还不是真。
 				 */
 				Assert(!context->contradictory);
 
 				/*
-				 * Get pruning step for each arg.  If we get contradictory for
-				 * all args, it means the OR expression is false as a whole.
+				 * 为每个参数取得剪枝步骤。若所有参数都得到矛盾，
+				 * 就意味着整个 OR 表达式为假。
 				 */
 				foreach(lc1, ((BoolExpr *) clause)->args)
 				{
@@ -1044,12 +1044,12 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					argsteps = gen_partprune_steps_internal(context,
 															list_make1(arg));
 					arg_contradictory = context->contradictory;
-					/* Keep context->contradictory clear till we're done */
+					/* 在做完之前保持 context->contradictory 为清除状态 */
 					context->contradictory = false;
 
 					if (arg_contradictory)
 					{
-						/* Just ignore self-contradictory arguments. */
+						/* 直接忽略自相矛盾的参数。 */
 						continue;
 					}
 					else
@@ -1058,11 +1058,11 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					if (argsteps != NIL)
 					{
 						/*
-						 * gen_partprune_steps_internal() always adds a single
-						 * combine step when it generates multiple steps, so
-						 * here we can just pay attention to the last one in
-						 * the list.  If it just generated one, then the last
-						 * one in the list is still the one we want.
+						 * gen_partprune_steps_internal() 在生成多个步骤时总会加入单个
+						 * 组合步骤，因此
+						 * 这里只需关注列表里的最后一个。若它只
+						 * 生成了一个，则列表里的最后一个
+						 * 仍然是我们要的那个。
 						 */
 						PartitionPruneStep *last = llast(argsteps);
 
@@ -1073,11 +1073,11 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 						PartitionPruneStep *orstep;
 
 						/*
-						 * The arg didn't contain a clause matching this
-						 * partition key.  We cannot prune using such an arg.
-						 * To indicate that to the pruning code, we must
-						 * construct a dummy PartitionPruneStepCombine whose
-						 * source_stepids is set to an empty List.
+						 * 该参数不含匹配该
+						 * 分区键的子句。我们无法用这种参数做剪枝。
+						 * 为了向剪枝代码表明这一点，必须
+						 * 构造一个哑的 PartitionPruneStepCombine，其
+						 * source_stepids 被设为空 List。
 						 */
 						orstep = gen_prune_step_combine(context, NIL,
 														PARTPRUNE_COMBINE_UNION);
@@ -1085,7 +1085,7 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					}
 				}
 
-				/* If all the OR arms are contradictory, we can stop */
+				/* 若所有 OR 分支都矛盾，就可以停止 */
 				if (all_args_contradictory)
 				{
 					context->contradictory = true;
@@ -1108,22 +1108,22 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 				List	   *argsteps;
 
 				/*
-				 * args may itself contain clauses of arbitrary type, so just
-				 * recurse and later combine the component partitions sets
-				 * using a combine step.
+				 * args 本身可能含任意类型的子句，因此直接
+				 * 递归，稍后用一个组合步骤把各成分分区集合
+				 * 组合起来。
 				 */
 				argsteps = gen_partprune_steps_internal(context, args);
 
-				/* If any AND arm is contradictory, we can stop immediately */
+				/* 若任何 AND 分支矛盾，就可以立即停止 */
 				if (context->contradictory)
 					return NIL;
 
 				/*
-				 * gen_partprune_steps_internal() always adds a single combine
-				 * step when it generates multiple steps, so here we can just
-				 * pay attention to the last one in the list.  If it just
-				 * generated one, then the last one in the list is still the
-				 * one we want.
+				 * gen_partprune_steps_internal() 在生成多个步骤时总会加入单个组合
+				 * 步骤，因此这里只需
+				 * 关注列表里的最后一个。若它只
+				 * 生成了一个，则列表里的最后一个仍然是
+				 * 我们要的那个。
 				 */
 				if (argsteps != NIL)
 					result = lappend(result, llast(argsteps));
@@ -1140,7 +1140,7 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 		}
 
 		/*
-		 * See if we can match this clause to any of the partition keys.
+		 * 看看能否把该子句匹配到任何一个分区键。
 		 */
 		for (i = 0; i < part_scheme->partnatts; i++)
 		{
@@ -1158,8 +1158,8 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					Assert(pc != NULL);
 
 					/*
-					 * Since we only allow strict operators, check for any
-					 * contradicting IS NULL.
+					 * 由于只允许严格操作符，检查是否有任何
+					 * 相矛盾的 IS NULL。
 					 */
 					if (bms_is_member(i, nullkeys))
 					{
@@ -1174,8 +1174,8 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					if (!clause_is_not_null)
 					{
 						/*
-						 * check for conflicting IS NOT NULL as well as
-						 * contradicting strict clauses
+						 * 检查冲突的 IS NOT NULL，以及
+						 * 相矛盾的严格子句
 						 */
 						if (bms_is_member(i, notnullkeys) ||
 							keyclauses[i] != NIL)
@@ -1187,7 +1187,7 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					}
 					else
 					{
-						/* check for conflicting IS NULL */
+						/* 检查冲突的 IS NULL */
 						if (bms_is_member(i, nullkeys))
 						{
 							context->contradictory = true;
@@ -1203,24 +1203,24 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 					break;
 
 				case PARTCLAUSE_MATCH_CONTRADICT:
-					/* We've nothing more to do if a contradiction was found. */
+					/* 若发现了矛盾，就没有更多事情要做。 */
 					context->contradictory = true;
 					return NIL;
 
 				case PARTCLAUSE_NOMATCH:
 
 					/*
-					 * Clause didn't match this key, but it might match the
-					 * next one.
+					 * 子句不匹配该键，但它可能匹配
+					 * 下一个。
 					 */
 					continue;
 
 				case PARTCLAUSE_UNSUPPORTED:
-					/* This clause cannot be used for pruning. */
+					/* 本子句无法用于剪枝。 */
 					break;
 			}
 
-			/* done; go check the next clause. */
+			/* 完成；去检查下一个子句。 */
 			break;
 		}
 	}
@@ -1255,7 +1255,7 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 	{
 		PartitionPruneStep *step;
 
-		/* Strategy 1 */
+		/* 策略 1 */
 		step = gen_prune_step_op(context, InvalidStrategy,
 								 false, NIL, NIL, nullkeys);
 		result = lappend(result, step);
@@ -1264,7 +1264,7 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 	{
 		List	   *opsteps;
 
-		/* Strategy 2 */
+		/* 策略 2 */
 		opsteps = gen_prune_steps_from_opexps(context, keyclauses, nullkeys);
 		result = list_concat(result, opsteps);
 	}
@@ -1272,16 +1272,16 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 	{
 		PartitionPruneStep *step;
 
-		/* Strategy 3 */
+		/* 策略 3 */
 		step = gen_prune_step_op(context, InvalidStrategy,
 								 false, NIL, NIL, NULL);
 		result = lappend(result, step);
 	}
 
 	/*
-	 * Finally, if there are multiple steps, since the 'clauses' are mutually
-	 * ANDed, add an INTERSECT step to combine the partition sets resulting
-	 * from them and append it to the result list.
+	 * 最后，若有多个步骤，由于 clauses 彼此
+	 * ANDed，就加入一个 INTERSECT 步骤，把由它们得到的分区集合
+	 * 组合起来，并追加到结果列表。
 	 */
 	if (list_length(result) > 1)
 	{
@@ -1305,10 +1305,10 @@ gen_partprune_steps_internal(GeneratePruningStepsContext *context,
 
 /*
  * gen_prune_step_op
- *		Generate a pruning step for a specific operator
+ *		为特定操作符生成一个剪枝步骤。
  *
- * The step is assigned a unique step identifier and added to context's 'steps'
- * list.
+ * 该步骤被赋予唯一的步骤标识符，并加入 context 的 steps
+ * 列表。
  */
 static PartitionPruneStep *
 gen_prune_step_op(GeneratePruningStepsContext *context,
@@ -1321,9 +1321,9 @@ gen_prune_step_op(GeneratePruningStepsContext *context,
 	opstep->step.step_id = context->next_step_id++;
 
 	/*
-	 * For clauses that contain an <> operator, set opstrategy to
-	 * InvalidStrategy to signal get_matching_list_bounds to do the right
-	 * thing.
+	 * 对含有 <> 操作符的子句，把 opstrategy 设为
+	 * InvalidStrategy，以告知 get_matching_list_bounds 去做正确的
+	 * 事。
 	 */
 	opstep->opstrategy = op_is_ne ? InvalidStrategy : opstrategy;
 	Assert(list_length(exprs) == list_length(cmpfns));
@@ -1338,10 +1338,10 @@ gen_prune_step_op(GeneratePruningStepsContext *context,
 
 /*
  * gen_prune_step_combine
- *		Generate a pruning step for a combination of several other steps
+ *		为若干其他步骤的组合生成一个剪枝步骤。
  *
- * The step is assigned a unique step identifier and added to context's
- * 'steps' list.
+ * 该步骤被赋予唯一的步骤标识符，并加入 context 的
+ * steps 列表。
  */
 static PartitionPruneStep *
 gen_prune_step_combine(GeneratePruningStepsContext *context,
@@ -1361,24 +1361,24 @@ gen_prune_step_combine(GeneratePruningStepsContext *context,
 
 /*
  * gen_prune_steps_from_opexps
- *		Generate and return a list of PartitionPruneStepOp that are based on
- *		OpExpr and BooleanTest clauses that have been matched to the partition
- *		key.
+ *		生成并返回基于已匹配到分区
+ *		键的 OpExpr 和 BooleanTest 子句的 PartitionPruneStepOp
+ *		列表。
  *
- * 'keyclauses' is an array of List pointers, indexed by the partition key's
- * index.  Each List element in the array can contain clauses that match to
- * the corresponding partition key column.  Partition key columns without any
- * matched clauses will have an empty List.
+ * keyclauses 是 List 指针数组，按下标索引，下标即分区键的
+ * 下标。数组里的每个 List 元素可以含匹配到
+ * 对应分区键列的子句。没有任何
+ * 匹配子句的分区键列将有一个空 List。
  *
- * Some partitioning strategies allow pruning to still occur when we only have
- * clauses for a prefix of the partition key columns, for example, RANGE
- * partitioning.  Other strategies, such as HASH partitioning, require clauses
- * for all partition key columns.
+ * 有些分区策略在我们只有
+ * 分区键列前缀的子句时仍允许剪枝，例如 RANGE
+ * 分区。其他策略，例如哈希分区，需要
+ * 全部分区键列的子句。
  *
- * When we return multiple pruning steps here, it's up to the caller to add a
- * relevant "combine" step to combine the returned steps.  This is not done
- * here as callers may wish to include additional pruning steps before
- * combining them all.
+ * 这里返回多个剪枝步骤时，由调用者加入
+ * 相应的组合步骤来组合返回的步骤。这里不
+ * 做这件事，因为调用者可能希望在
+ * 把它们全部组合之前再纳入额外的剪枝步骤。
  */
 static List *
 gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
@@ -1399,17 +1399,17 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 		bool		consider_next_key = true;
 
 		/*
-		 * For range partitioning, if we have no clauses for the current key,
-		 * we can't consider any later keys either, so we can stop here.
+		 * 对区间分区，若当前键没有子句，
+		 * 也就没法考虑任何更后面的键，因此可以在这里停止。
 		 */
 		if (part_scheme->strategy == PARTITION_STRATEGY_RANGE &&
 			clauselist == NIL)
 			break;
 
 		/*
-		 * For hash partitioning, if a column doesn't have the necessary
-		 * equality clause, there should be an IS NULL clause, otherwise
-		 * pruning is not possible.
+		 * 对哈希分区，若某列没有必要的
+		 * 相等子句，就应当有 IS NULL 子句，否则
+		 * 剪枝是不可能的。
 		 */
 		if (part_scheme->strategy == PARTITION_STRATEGY_HASH &&
 			clauselist == NIL && !bms_is_member(i, nullkeys))
@@ -1421,7 +1421,7 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 			Oid			lefttype,
 						righttype;
 
-			/* Look up the operator's btree/hash strategy number. */
+			/* 查找该操作符的 btree/哈希策略号。 */
 			if (pc->op_strategy == InvalidStrategy)
 				get_op_opfamily_properties(pc->opno,
 										   part_scheme->partopfamily[i],
@@ -1438,9 +1438,9 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 						lappend(btree_clauses[pc->op_strategy], pc);
 
 					/*
-					 * We can't consider subsequent partition keys if the
-					 * clause for the current key contains a non-inclusive
-					 * operator.
+					 * 若当前键的子句含有非包含
+					 * 操作符，我们就没法考虑后续的
+					 * 分区键。
 					 */
 					if (pc->op_strategy == BTLessStrategyNumber ||
 						pc->op_strategy == BTGreaterStrategyNumber)
@@ -1462,19 +1462,19 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 		}
 
 		/*
-		 * If we've decided that clauses for subsequent partition keys
-		 * wouldn't be useful for pruning, don't search any further.
+		 * 若已判定后续分区键的子句
+		 * 对剪枝没有用，就不要再往下搜索。
 		 */
 		if (!consider_next_key)
 			break;
 	}
 
 	/*
-	 * Now, we have divided clauses according to their operator strategies.
-	 * Check for each strategy if we can generate pruning step(s) by
-	 * collecting a list of expressions whose values will constitute a vector
-	 * that can be used as a lookup key by a partition bound searching
-	 * function.
+	 * 现在，我们已经按操作符策略把子句分开。
+	 * 对每种策略，检查能否通过
+	 * 收集一组表达式来生成剪枝步骤，这些表达式的值将构成一个向量，
+	 * 分区边界搜索
+	 * 函数可以把它当作查找键。
 	 */
 	switch (part_scheme->strategy)
 	{
@@ -1487,16 +1487,16 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 				int			strat;
 
 				/*
-				 * For each clause under consideration for a given strategy,
-				 * we collect expressions from clauses for earlier keys, whose
-				 * operator strategy is inclusive, into a list called
-				 * 'prefix'. By appending the clause's own expression to the
-				 * 'prefix', we'll generate one step using the so generated
-				 * vector and assign the current strategy to it.  Actually,
-				 * 'prefix' might contain multiple clauses for the same key,
-				 * in which case, we must generate steps for various
-				 * combinations of expressions of different keys, which
-				 * get_steps_using_prefix takes care of for us.
+				 * 对给定策略下考虑的每个子句，
+				 * 我们把更早键的子句里、操作符策略为包含的
+				 * 那些表达式收集到一个名为
+				 * prefix 的列表里。把该子句自己的表达式追加到
+				 * prefix 之后，我们将用如此生成的向量生成一个步骤，
+				 * 并把当前策略赋给它。实际上，
+				 * prefix 可能对同一个键含有多个子句，
+				 * 那种情况下，我们必须为不同键的表达式的各种
+				 * 组合生成步骤，这由
+				 * get_steps_using_prefix 为我们处理。
 				 */
 				for (strat = 1; strat <= BTMaxStrategyNumber; strat++)
 				{
@@ -1514,13 +1514,13 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 						int			keyno;
 
 						/*
-						 * If this is a clause for the first partition key,
-						 * there are no preceding expressions; generate a
-						 * pruning step without a prefix.
+						 * 若这是第一个分区键的子句，
+						 * 就没有在前的表达式；生成一个
+						 * 不带前缀的剪枝步骤。
 						 *
-						 * Note that we pass NULL for step_nullkeys, because
-						 * we don't search list/range partition bounds where
-						 * some keys are NULL.
+						 * 注意，我们为 step_nullkeys 传入 NULL，因为
+						 * 我们不搜索某些键为 NULL 的列表/区间分区
+						 * 边界。
 						 */
 						if (pc->keyno == 0)
 						{
@@ -1540,16 +1540,16 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 						ge_start = list_head(ge_clauses);
 
 						/*
-						 * We arrange clauses into prefix in ascending order
-						 * of their partition key numbers.
+						 * 我们按分区键号的升序
+						 * 把子句排进 prefix。
 						 */
 						for (keyno = 0; keyno < pc->keyno; keyno++)
 						{
 							pk_has_clauses = false;
 
 							/*
-							 * Expressions from = clauses can always be in the
-							 * prefix, provided they're from an earlier key.
+							 * 来自 = 子句的表达式总可以放进
+							 * 前缀，只要它们来自更早的键。
 							 */
 							for_each_cell(lc1, eq_clauses, eq_start)
 							{
@@ -1569,9 +1569,9 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 							eq_start = lc1;
 
 							/*
-							 * If we're generating steps for </<= strategy, we
-							 * can add other <= clauses to the prefix,
-							 * provided they're from an earlier key.
+							 * 若正在为 </<= 策略生成步骤，就可以
+							 * 把其他 <= 子句加入前缀，
+							 * 只要它们来自更早的键。
 							 */
 							if (strat == BTLessStrategyNumber ||
 								strat == BTLessEqualStrategyNumber)
@@ -1595,9 +1595,9 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 							}
 
 							/*
-							 * If we're generating steps for >/>= strategy, we
-							 * can add other >= clauses to the prefix,
-							 * provided they're from an earlier key.
+							 * 若正在为 >/>= 策略生成步骤，就可以
+							 * 把其他 >= 子句加入前缀，
+							 * 只要它们来自更早的键。
 							 */
 							if (strat == BTGreaterStrategyNumber ||
 								strat == BTGreaterEqualStrategyNumber)
@@ -1621,8 +1621,8 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 							}
 
 							/*
-							 * If this key has no clauses, prefix is not valid
-							 * anymore.
+							 * 若该键没有子句，prefix 就不再
+							 * 有效。
 							 */
 							if (!pk_has_clauses)
 							{
@@ -1632,20 +1632,20 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 						}
 
 						/*
-						 * If prefix_valid, generate PartitionPruneStepOps.
-						 * Otherwise, we would not find clauses for a valid
-						 * subset of the partition keys anymore for the
-						 * strategy; give up on generating partition pruning
-						 * steps further for the strategy.
+						 * 若 prefix_valid，就生成 PartitionPruneStepOps。
+						 * 否则，对该策略来说，我们已经找不到
+						 * 分区键的有效
+						 * 子集的子句了；放弃为该策略
+						 * 继续生成分区剪枝步骤。
 						 *
-						 * As mentioned above, if 'prefix' contains multiple
-						 * expressions for the same key, the following will
-						 * generate multiple steps, one for each combination
-						 * of the expressions for different keys.
+						 * 如上所述，若 prefix 对同一个键含有多个
+						 * 表达式，下面就会
+						 * 生成多个步骤，每个步骤对应不同键的
+						 * 表达式的一种组合。
 						 *
-						 * Note that we pass NULL for step_nullkeys, because
-						 * we don't search list/range partition bounds where
-						 * some keys are NULL.
+						 * 注意，我们为 step_nullkeys 传入 NULL，因为
+						 * 我们不搜索某些键为 NULL 的列表/区间分区
+						 * 边界。
 						 */
 						if (prefix_valid)
 						{
@@ -1669,7 +1669,7 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 			{
 				List	   *eq_clauses = hash_clauses[HTEqualStrategyNumber];
 
-				/* For hash partitioning, we have just the = strategy. */
+				/* 对哈希分区，我们只有 = 策略。 */
 				if (eq_clauses != NIL)
 				{
 					PartClauseInfo *pc;
@@ -1679,17 +1679,17 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 					ListCell   *lc1;
 
 					/*
-					 * Locate the clause for the greatest column.  This may
-					 * not belong to the last partition key, but it is the
-					 * clause belonging to the last partition key we found a
-					 * clause for above.
+					 * 定位最大列的子句。它可能
+					 * 不属于最后一个分区键，但它是上面我们为之找到
+					 * 子句的最后一个分区键
+					 * 所属的子句。
 					 */
 					pc = llast(eq_clauses);
 
 					/*
-					 * There might be multiple clauses which matched to that
-					 * partition key; find the first such clause.  While at
-					 * it, add all the clauses before that one to 'prefix'.
+					 * 可能有多个子句匹配到该
+					 * 分区键；找出第一个这样的子句。与此同时，
+					 * 把该子句之前的所有子句加入 prefix。
 					 */
 					last_keyno = pc->keyno;
 					foreach(lc, eq_clauses)
@@ -1701,24 +1701,24 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 					}
 
 					/*
-					 * For each clause for the "last" column, after appending
-					 * the clause's own expression to the 'prefix', we'll
-					 * generate one step using the so generated vector and
-					 * assign = as its strategy.  Actually, 'prefix' might
-					 * contain multiple clauses for the same key, in which
-					 * case, we must generate steps for various combinations
-					 * of expressions of different keys, which
-					 * get_steps_using_prefix will take care of for us.
+					 * 对最后一列的每个子句，在把
+					 * 该子句自己的表达式追加到 prefix 之后，我们将
+					 * 用如此生成的向量生成一个步骤，并
+					 * 把 = 赋为其策略。实际上，prefix 可能
+					 * 对同一个键含有多个子句，那种
+					 * 情况下，我们必须为不同键的表达式的各种组合
+					 * 生成步骤，这由
+					 * get_steps_using_prefix 为我们处理。
 					 */
 					for_each_cell(lc1, eq_clauses, lc)
 					{
 						pc = lfirst(lc1);
 
 						/*
-						 * Note that we pass nullkeys for step_nullkeys,
-						 * because we need to tell hash partition bound search
-						 * function which of the keys we found IS NULL clauses
-						 * for.
+						 * 注意，我们为 step_nullkeys 传入 nullkeys，
+						 * 因为需要告诉哈希分区边界搜索
+						 * 函数，我们发现哪些键有 IS NULL
+						 * 子句。
 						 */
 						Assert(pc->op_strategy == HTEqualStrategyNumber);
 						pc_steps =
@@ -1745,47 +1745,47 @@ gen_prune_steps_from_opexps(GeneratePruningStepsContext *context,
 }
 
 /*
- * If the partition key has a collation, then the clause must have the same
- * input collation.  If the partition key is non-collatable, we assume the
- * collation doesn't matter, because while collation wasn't considered when
- * performing partitioning, the clause still may have a collation assigned
- * due to the other input being of a collatable type.
+ * 若分区键有排序规则，则子句必须有相同的
+ * 输入排序规则。若分区键不可排序，我们就假定
+ * 排序规则无关紧要，因为执行分区时并未考虑排序规则，
+ * 子句仍可能被赋予排序规则，
+ * 这是因为另一个输入属于可排序类型。
  *
- * See also IndexCollMatchesExprColl.
+ * 另见 IndexCollMatchesExprColl。
  */
 #define PartCollMatchesExprColl(partcoll, exprcoll) \
 	((partcoll) == InvalidOid || (partcoll) == (exprcoll))
 
 /*
  * match_clause_to_partition_key
- *		Attempt to match the given 'clause' with the specified partition key.
+ *		试图把给定的 clause 与指定的分区键相匹配。
  *
- * Return value is:
- * * PARTCLAUSE_NOMATCH if the clause doesn't match this partition key (but
- *   caller should keep trying, because it might match a subsequent key).
- *   Output arguments: none set.
+ * 返回值是：
+ * * PARTCLAUSE_NOMATCH：子句不匹配该分区键（但
+ *   调用者应继续尝试，因为它可能匹配后续的键）。
+ *   输出参数：均不设置。
  *
- * * PARTCLAUSE_MATCH_CLAUSE if there is a match.
- *   Output arguments: *pc is set to a PartClauseInfo constructed for the
- *   matched clause.
+ * * PARTCLAUSE_MATCH_CLAUSE：存在匹配。
+ *   输出参数：把 *pc 设为为该
+ *   匹配子句构造的 PartClauseInfo。
  *
- * * PARTCLAUSE_MATCH_NULLNESS if there is a match, and the matched clause was
- *   either a "a IS NULL" or "a IS NOT NULL" clause.
- *   Output arguments: *clause_is_not_null is set to false in the former case
- *   true otherwise.
+ * * PARTCLAUSE_MATCH_NULLNESS：存在匹配，且匹配的子句是
+ *   a IS NULL 或 a IS NOT NULL 子句。
+ *   输出参数：前一种情形把 *clause_is_not_null 设为假，
+ *   否则设为真。
  *
- * * PARTCLAUSE_MATCH_STEPS if there is a match.
- *   Output arguments: *clause_steps is set to the list of recursively
- *   generated steps for the clause.
+ * * PARTCLAUSE_MATCH_STEPS：存在匹配。
+ *   输出参数：把 *clause_steps 设为为该子句
+ *   递归生成的步骤列表。
  *
- * * PARTCLAUSE_MATCH_CONTRADICT if the clause is self-contradictory, ie
- *   it provably returns FALSE or NULL.
- *   Output arguments: none set.
+ * * PARTCLAUSE_MATCH_CONTRADICT：子句自相矛盾，即
+ *   它可以证明返回 FALSE 或 NULL。
+ *   输出参数：均不设置。
  *
- * * PARTCLAUSE_UNSUPPORTED if the clause doesn't match this partition key
- *   and couldn't possibly match any other one either, due to its form or
- *   properties (such as containing a volatile function).
- *   Output arguments: none set.
+ * * PARTCLAUSE_UNSUPPORTED：子句不匹配该分区键，
+ *   并且由于其形式或性质（例如含有易变函数）
+ *   也不可能匹配任何其他键。
+ *   输出参数：均不设置。
  */
 static PartClauseMatchStatus
 match_clause_to_partition_key(GeneratePruningStepsContext *context,
@@ -1801,7 +1801,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 	bool		noteq;
 
 	/*
-	 * Recognize specially shaped clauses that match a Boolean partition key.
+	 * 识别匹配布尔分区键的特殊形状子句。
 	 */
 	boolmatchstatus = match_boolean_partition_clause(partopfamily, clause,
 													 partkey, &expr, &noteq);
@@ -1811,12 +1811,12 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 		PartClauseInfo *partclause;
 
 		/*
-		 * For bool tests in the form of partkey IS NOT true and IS NOT false,
-		 * we invert these clauses.  Effectively, "partkey IS NOT true"
-		 * becomes "partkey IS false OR partkey IS NULL".  We do this by
-		 * building an OR BoolExpr and forming a clause just like that and
-		 * punt it off to gen_partprune_steps_internal() to generate pruning
-		 * steps.
+		 * 对 partkey IS NOT true 和 IS NOT false 形式的布尔测试，
+		 * 我们把这些子句取反。实际上，partkey IS NOT true
+		 * 变成 partkey IS false OR partkey IS NULL。我们通过
+		 * 构造一个 OR BoolExpr、形成恰好那样的子句，并把它
+		 * 交给 gen_partprune_steps_internal() 来生成剪枝
+		 * 步骤。
 		 */
 		if (noteq)
 		{
@@ -1825,10 +1825,10 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			BooleanTest *new_booltest = (BooleanTest *) copyObject(clause);
 			NullTest   *nulltest;
 
-			/* We expect 'noteq' to only be set to true for BooleanTests */
+			/* 我们预期 noteq 只对 BooleanTests 被设为真 */
 			Assert(IsA(clause, BooleanTest));
 
-			/* reverse the bool test */
+			/* 反转该布尔测试 */
 			if (new_booltest->booltesttype == IS_NOT_TRUE)
 				new_booltest->booltesttype = IS_FALSE;
 			else if (new_booltest->booltesttype == IS_NOT_FALSE)
@@ -1836,9 +1836,9 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			else
 			{
 				/*
-				 * We only expect match_boolean_partition_clause to match for
-				 * IS_NOT_TRUE and IS_NOT_FALSE.  IS_NOT_UNKNOWN is not
-				 * supported.
+				 * 我们只预期 match_boolean_partition_clause 匹配
+				 * IS_NOT_TRUE 和 IS_NOT_FALSE。不支持
+				 * IS_NOT_UNKNOWN。
 				 */
 				Assert(false);
 			}
@@ -1852,23 +1852,23 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			new_clauses = list_make2(new_booltest, nulltest);
 			or_clause = list_make1(makeBoolExpr(OR_EXPR, new_clauses, -1));
 
-			/* Finally, generate steps */
+			/* 最后，生成步骤 */
 			*clause_steps = gen_partprune_steps_internal(context, or_clause);
 
 			if (context->contradictory)
-				return PARTCLAUSE_MATCH_CONTRADICT; /* shouldn't happen */
+				return PARTCLAUSE_MATCH_CONTRADICT; /* 不应当发生 */
 			else if (*clause_steps == NIL)
-				return PARTCLAUSE_UNSUPPORTED;	/* step generation failed */
+				return PARTCLAUSE_UNSUPPORTED;	/* 步骤生成失败 */
 			return PARTCLAUSE_MATCH_STEPS;
 		}
 
 		partclause = (PartClauseInfo *) palloc(sizeof(PartClauseInfo));
 		partclause->keyno = partkeyidx;
-		/* Do pruning with the Boolean equality operator. */
+		/* 用布尔相等操作符做剪枝。 */
 		partclause->opno = BooleanEqualOperator;
 		partclause->op_is_ne = false;
 		partclause->expr = expr;
-		/* We know that expr is of Boolean type. */
+		/* 我们知道 expr 是布尔类型。 */
 		partclause->cmpfn = part_scheme->partsupfunc[partkeyidx].fn_oid;
 		partclause->op_strategy = InvalidStrategy;
 
@@ -1899,16 +1899,16 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			rightop = ((RelabelType *) rightop)->arg;
 		opno = opclause->opno;
 
-		/* check if the clause matches this partition key */
+		/* 检查该子句是否匹配这个分区键 */
 		if (equal(leftop, partkey))
 			expr = rightop;
 		else if (equal(rightop, partkey))
 		{
 			/*
-			 * It's only useful if we can commute the operator to put the
-			 * partkey on the left.  If we can't, the clause can be deemed
-			 * UNSUPPORTED.  Even if its leftop matches some later partkey, we
-			 * now know it has Vars on the right, so it's no use.
+			 * 只有能交换操作符、把分区键放到左边时，它才有用。若没法
+			 * 交换，该子句就可以被判定为
+			 * UNSUPPORTED。即使它的 leftop 匹配某个更后面的分区键，我们
+			 * 现在也知道右边有 Var，因此没有用。
 			 */
 			opno = get_commutator(opno);
 			if (!OidIsValid(opno))
@@ -1916,29 +1916,29 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			expr = leftop;
 		}
 		else
-			/* clause does not match this partition key, but perhaps next. */
+			/* 子句不匹配这个分区键，但也许匹配下一个。 */
 			return PARTCLAUSE_NOMATCH;
 
 		/*
-		 * Partition key match also requires collation match.  There may be
-		 * multiple partkeys with the same expression but different
-		 * collations, so failure is NOMATCH.
+		 * 分区键匹配还需要排序规则匹配。可能有
+		 * 多个表达式相同但排序规则不同的分区键，
+		 * 因此失败是 NOMATCH。
 		 */
 		if (!PartCollMatchesExprColl(partcoll, opclause->inputcollid))
 			return PARTCLAUSE_NOMATCH;
 
 		/*
-		 * See if the operator is relevant to the partitioning opfamily.
+		 * 查看该操作符是否与分区操作符族相关。
 		 *
-		 * Normally we only care about operators that are listed as being part
-		 * of the partitioning operator family.  But there is one exception:
-		 * the not-equals operators are not listed in any operator family
-		 * whatsoever, but their negators (equality) are.  We can use one of
-		 * those if we find it, but only for list partitioning.
+		 * 通常我们只关心被列为分区操作符族
+		 * 一部分的操作符。但有一个例外：
+		 * 不等操作符不会被列入任何操作符族，
+		 * 但它们的否定符（相等）会。若找到这样的否定符就可以用，但只用于列表
+		 * 分区。
 		 *
-		 * Note: we report NOMATCH on failure, in case a later partkey has the
-		 * same expression but different opfamily.  That's unlikely, but not
-		 * much more so than duplicate expressions with different collations.
+		 * 注意：失败时我们报告 NOMATCH，以防更后面的分区键有
+		 * 相同的表达式但不同的操作符族。这不太可能，但并不比
+		 * 排序规则不同的重复表达式更不可能多少。
 		 */
 		if (op_in_opfamily(opno, partopfamily))
 		{
@@ -1951,7 +1951,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			if (part_scheme->strategy != PARTITION_STRATEGY_LIST)
 				return PARTCLAUSE_NOMATCH;
 
-			/* See if the negator is equality */
+			/* 查看否定符是否为相等 */
 			negator = get_negator(opno);
 			if (OidIsValid(negator) && op_in_opfamily(negator, partopfamily))
 			{
@@ -1959,71 +1959,71 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 										   &op_strategy, &op_lefttype,
 										   &op_righttype);
 				if (op_strategy == BTEqualStrategyNumber)
-					is_opne_listp = true;	/* bingo */
+					is_opne_listp = true;	/* 正是 */
 			}
 
-			/* Nope, it's not <> either. */
+			/* 不是，它也不是 <>。 */
 			if (!is_opne_listp)
 				return PARTCLAUSE_NOMATCH;
 		}
 
 		/*
-		 * Only allow strict operators.  This will guarantee nulls are
-		 * filtered.  (This test is likely useless, since btree and hash
-		 * comparison operators are generally strict.)
+		 * 只允许严格操作符。这将保证空值被
+		 * 滤掉。（这个测试很可能没有用，因为 btree 和哈希
+		 * 比较操作符通常都是严格的。）
 		 */
 		if (!op_strict(opno))
 			return PARTCLAUSE_UNSUPPORTED;
 
 		/*
-		 * OK, we have a match to the partition key and a suitable operator.
-		 * Examine the other argument to see if it's usable for pruning.
+		 * 好，我们有与分区键的匹配以及合适的操作符。
+		 * 检查另一个参数，看它能否用于剪枝。
 		 *
-		 * In most of these cases, we can return UNSUPPORTED because the same
-		 * failure would occur no matter which partkey it's matched to.  (In
-		 * particular, now that we've successfully matched one side of the
-		 * opclause to a partkey, there is no chance that matching the other
-		 * side to another partkey will produce a usable result, since that'd
-		 * mean there are Vars on both sides.)
+		 * 在这些情形的大多数里，我们可以返回 UNSUPPORTED，因为无论
+		 * 匹配到哪个分区键，同样的
+		 * 失败都会发生。（特别是，既然我们已经成功把操作子句的
+		 * 一侧匹配到某个分区键，再把另一
+		 * 侧匹配到另一个分区键就不会产生可用结果，因为那
+		 * 意味着两侧都有 Var。）
 		 *
-		 * Also, if we reject an argument for a target-dependent reason, set
-		 * appropriate fields of *context to report that.  We postpone these
-		 * tests until after matching the partkey and the operator, so as to
-		 * reduce the odds of setting the context fields for clauses that do
-		 * not end up contributing to pruning steps.
+		 * 另外，若我们因与目标相关的原因拒绝某个参数，就设置
+		 * *context 的相应字段来报告这一点。我们把这些
+		 * 测试推迟到匹配分区键和操作符之后，以便
+		 * 降低为最终并不贡献剪枝步骤的子句
+		 * 设置上下文字段的几率。
 		 *
-		 * First, check for non-Const argument.  (We assume that any immutable
-		 * subexpression will have been folded to a Const already.)
+		 * 首先检查非 Const 参数。（我们假定任何不可变
+		 * 子表达式都已经被折叠成 Const。）
 		 */
 		if (!IsA(expr, Const))
 		{
 			Bitmapset  *paramids;
 
 			/*
-			 * When pruning in the planner, we only support pruning using
-			 * comparisons to constants.  We cannot prune on the basis of
-			 * anything that's not immutable.  (Note that has_mutable_arg and
-			 * has_exec_param do not get set for this target value.)
+			 * 在规划器里做剪枝时，我们只支持用与
+			 * 常量的比较来剪枝。我们无法依据
+			 * 并非不可变的任何东西做剪枝。（注意，对该目标值
+			 * 不会设置 has_mutable_arg 和 has_exec_param。）
 			 */
 			if (context->target == PARTTARGET_PLANNER)
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * We can never prune using an expression that contains Vars.
+			 * 我们永远无法用含有 Var 的表达式做剪枝。
 			 */
 			if (contain_var_clause((Node *) expr))
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * And we must reject anything containing a volatile function.
-			 * Stable functions are OK though.
+			 * 而且必须拒绝任何含有易变函数的东西。
+			 * 稳定函数则可以。
 			 */
 			if (contain_volatile_functions((Node *) expr))
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * See if there are any exec Params.  If so, we can only use this
-			 * expression during per-scan pruning.
+			 * 查看是否有任何执行期参数。若有，就只能在
+			 * 按扫描剪枝期间使用该表达式。
 			 */
 			paramids = pull_exec_paramids(expr);
 			if (!bms_is_empty(paramids))
@@ -2034,34 +2034,34 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			}
 			else
 			{
-				/* It's potentially usable, but mutable */
+				/* 它可能可用，但是可变的 */
 				context->has_mutable_arg = true;
 			}
 		}
 
 		/*
-		 * Check whether the comparison operator itself is immutable.  (We
-		 * assume anything that's in a btree or hash opclass is at least
-		 * stable, but we need to check for immutability.)
+		 * 检查比较操作符本身是否不可变。（我们
+		 * 假定 btree 或哈希操作符类里的任何东西至少是
+		 * 稳定的，但仍需要检查不可变性。）
 		 */
 		if (op_volatile(opno) != PROVOLATILE_IMMUTABLE)
 		{
 			context->has_mutable_op = true;
 
 			/*
-			 * When pruning in the planner, we cannot prune with mutable
-			 * operators.
+			 * 在规划器里做剪枝时，无法用可变
+			 * 操作符做剪枝。
 			 */
 			if (context->target == PARTTARGET_PLANNER)
 				return PARTCLAUSE_UNSUPPORTED;
 		}
 
 		/*
-		 * Now find the procedure to use, based on the types.  If the clause's
-		 * other argument is of the same type as the partitioning opclass's
-		 * declared input type, we can use the procedure cached in
-		 * PartitionKey.  If not, search for a cross-type one in the same
-		 * opfamily; if one doesn't exist, report no match.
+		 * 现在按类型找出要用的过程。若子句的
+		 * 另一个参数与分区操作符类声明的输入类型
+		 * 相同，就可以用缓存在
+		 * PartitionKey 里的过程。否则，在同一
+		 * 操作符族里搜索跨类型过程；若不存在，就报告不匹配。
 		 */
 		if (op_righttype == part_scheme->partopcintype[partkeyidx])
 			cmpfn = part_scheme->partsupfunc[partkeyidx].fn_oid;
@@ -2070,9 +2070,9 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			switch (part_scheme->strategy)
 			{
 					/*
-					 * For range and list partitioning, we need the ordering
-					 * procedure with lefttype being the partition key's type,
-					 * and righttype the clause's operator's right type.
+					 * 对区间和列表分区，我们需要排序
+					 * 过程，其 lefttype 是分区键的类型，
+					 * righttype 是子句操作符的右类型。
 					 */
 				case PARTITION_STRATEGY_LIST:
 				case PARTITION_STRATEGY_RANGE:
@@ -2083,8 +2083,8 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 					break;
 
 					/*
-					 * For hash partitioning, we need the hashing procedure
-					 * for the clause's type.
+					 * 对哈希分区，我们需要该子句类型的
+					 * 哈希过程。
 					 */
 				case PARTITION_STRATEGY_HASH:
 					cmpfn =
@@ -2096,7 +2096,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 				default:
 					elog(ERROR, "invalid partition strategy: %c",
 						 part_scheme->strategy);
-					cmpfn = InvalidOid; /* keep compiler quiet */
+					cmpfn = InvalidOid; /* 消除编译器告警 */
 					break;
 			}
 
@@ -2105,7 +2105,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 		}
 
 		/*
-		 * Build the clause, passing the negator if applicable.
+		 * 构造该子句，若适用就传入否定符。
 		 */
 		partclause = (PartClauseInfo *) palloc(sizeof(PartClauseInfo));
 		partclause->keyno = partkeyidx;
@@ -2143,18 +2143,18 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 		if (IsA(leftop, RelabelType))
 			leftop = ((RelabelType *) leftop)->arg;
 
-		/* check if the LHS matches this partition key */
+		/* 检查左部是否匹配这个分区键 */
 		if (!equal(leftop, partkey) ||
 			!PartCollMatchesExprColl(partcoll, saop->inputcollid))
 			return PARTCLAUSE_NOMATCH;
 
 		/*
-		 * See if the operator is relevant to the partitioning opfamily.
+		 * 查看该操作符是否与分区操作符族相关。
 		 *
-		 * In case of NOT IN (..), we get a '<>', which we handle if list
-		 * partitioning is in use and we're able to confirm that it's negator
-		 * is a btree equality operator belonging to the partitioning operator
-		 * family.  As above, report NOMATCH for non-matching operator.
+		 * 对 NOT IN (..)，我们得到 <>，若正在使用列表
+		 * 分区，并且能确认它的否定符
+		 * 是属于分区操作符族的 btree 相等操作符，就处理它。
+		 * 如上，对不匹配的操作符报告 NOMATCH。
 		 */
 		if (!op_in_opfamily(saop_op, partopfamily))
 		{
@@ -2177,51 +2177,51 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 					return PARTCLAUSE_NOMATCH;
 			}
 			else
-				return PARTCLAUSE_NOMATCH;	/* no useful negator */
+				return PARTCLAUSE_NOMATCH;	/* 没有有用的否定符 */
 		}
 
 		/*
-		 * Only allow strict operators.  This will guarantee nulls are
-		 * filtered.  (This test is likely useless, since btree and hash
-		 * comparison operators are generally strict.)
+		 * 只允许严格操作符。这将保证空值被
+		 * 滤掉。（这个测试很可能没有用，因为 btree 和哈希
+		 * 比较操作符通常都是严格的。）
 		 */
 		if (!op_strict(saop_op))
 			return PARTCLAUSE_UNSUPPORTED;
 
 		/*
-		 * OK, we have a match to the partition key and a suitable operator.
-		 * Examine the array argument to see if it's usable for pruning.  This
-		 * is identical to the logic for a plain OpExpr.
+		 * 好，我们有与分区键的匹配以及合适的操作符。
+		 * 检查数组参数，看它能否用于剪枝。这
+		 * 与普通 OpExpr 的逻辑相同。
 		 */
 		if (!IsA(rightop, Const))
 		{
 			Bitmapset  *paramids;
 
 			/*
-			 * When pruning in the planner, we only support pruning using
-			 * comparisons to constants.  We cannot prune on the basis of
-			 * anything that's not immutable.  (Note that has_mutable_arg and
-			 * has_exec_param do not get set for this target value.)
+			 * 在规划器里做剪枝时，我们只支持用与
+			 * 常量的比较来剪枝。我们无法依据
+			 * 并非不可变的任何东西做剪枝。（注意，对该目标值
+			 * 不会设置 has_mutable_arg 和 has_exec_param。）
 			 */
 			if (context->target == PARTTARGET_PLANNER)
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * We can never prune using an expression that contains Vars.
+			 * 我们永远无法用含有 Var 的表达式做剪枝。
 			 */
 			if (contain_var_clause((Node *) rightop))
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * And we must reject anything containing a volatile function.
-			 * Stable functions are OK though.
+			 * 而且必须拒绝任何含有易变函数的东西。
+			 * 稳定函数则可以。
 			 */
 			if (contain_volatile_functions((Node *) rightop))
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * See if there are any exec Params.  If so, we can only use this
-			 * expression during per-scan pruning.
+			 * 查看是否有任何执行期参数。若有，就只能在
+			 * 按扫描剪枝期间使用该表达式。
 			 */
 			paramids = pull_exec_paramids(rightop);
 			if (!bms_is_empty(paramids))
@@ -2232,37 +2232,37 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			}
 			else
 			{
-				/* It's potentially usable, but mutable */
+				/* 它可能可用，但是可变的 */
 				context->has_mutable_arg = true;
 			}
 		}
 
 		/*
-		 * Check whether the comparison operator itself is immutable.  (We
-		 * assume anything that's in a btree or hash opclass is at least
-		 * stable, but we need to check for immutability.)
+		 * 检查比较操作符本身是否不可变。（我们
+		 * 假定 btree 或哈希操作符类里的任何东西至少是
+		 * 稳定的，但仍需要检查不可变性。）
 		 */
 		if (op_volatile(saop_op) != PROVOLATILE_IMMUTABLE)
 		{
 			context->has_mutable_op = true;
 
 			/*
-			 * When pruning in the planner, we cannot prune with mutable
-			 * operators.
+			 * 在规划器里做剪枝时，无法用可变
+			 * 操作符做剪枝。
 			 */
 			if (context->target == PARTTARGET_PLANNER)
 				return PARTCLAUSE_UNSUPPORTED;
 		}
 
 		/*
-		 * Examine the contents of the array argument.
+		 * 检查数组参数的内容。
 		 */
 		elem_exprs = NIL;
 		if (IsA(rightop, Const))
 		{
 			/*
-			 * For a constant array, convert the elements to a list of Const
-			 * nodes, one for each array element (excepting nulls).
+			 * 对常量数组，把元素转换成 Const
+			 * 节点列表，每个数组元素一个（空值除外）。
 			 */
 			Const	   *arr = (Const *) rightop;
 			ArrayType  *arrval;
@@ -2274,7 +2274,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			int			num_elems,
 						i;
 
-			/* If the array itself is null, the saop returns null */
+			/* 若数组本身为空，saop 就返回空 */
 			if (arr->constisnull)
 				return PARTCLAUSE_MATCH_CONTRADICT;
 
@@ -2291,9 +2291,9 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 				Const	   *elem_expr;
 
 				/*
-				 * A null array element must lead to a null comparison result,
-				 * since saop_op is known strict.  We can ignore it in the
-				 * useOr case, but otherwise it implies self-contradiction.
+				 * 空数组元素必然导致空的比较结果，
+				 * 因为已知 saop_op 是严格的。在 useOr 情形下可以忽略它，
+				 * 否则就意味着自相矛盾。
 				 */
 				if (elem_nulls[i])
 				{
@@ -2313,27 +2313,27 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 			ArrayExpr  *arrexpr = castNode(ArrayExpr, rightop);
 
 			/*
-			 * For a nested ArrayExpr, we don't know how to get the actual
-			 * scalar values out into a flat list, so we give up doing
-			 * anything with this ScalarArrayOpExpr.
+			 * 对嵌套的 ArrayExpr，我们不知道如何把实际的
+			 * 标量值取成一个扁平列表，因此放弃对该
+			 * ScalarArrayOpExpr 做任何处理。
 			 */
 			if (arrexpr->multidims)
 				return PARTCLAUSE_UNSUPPORTED;
 
 			/*
-			 * Otherwise, we can just use the list of element values.
+			 * 否则，可以直接使用元素值列表。
 			 */
 			elem_exprs = arrexpr->elements;
 		}
 		else
 		{
-			/* Give up on any other clause types. */
+			/* 对任何其他子句类型都放弃。 */
 			return PARTCLAUSE_UNSUPPORTED;
 		}
 
 		/*
-		 * Now generate a list of clauses, one for each array element, of the
-		 * form leftop saop_op elem_expr
+		 * 现在为每个数组元素生成一个子句列表，形式为
+		 * leftop saop_op elem_expr
 		 */
 		elem_clauses = NIL;
 		foreach(lc1, elem_exprs)
@@ -2347,18 +2347,18 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 		}
 
 		/*
-		 * If we have an ANY clause and multiple elements, now turn the list
-		 * of clauses into an OR expression.
+		 * 若有 ANY 子句且有多个元素，现在把子句
+		 * 列表变成一个 OR 表达式。
 		 */
 		if (saop->useOr && list_length(elem_clauses) > 1)
 			elem_clauses = list_make1(makeBoolExpr(OR_EXPR, elem_clauses, -1));
 
-		/* Finally, generate steps */
+		/* 最后，生成步骤 */
 		*clause_steps = gen_partprune_steps_internal(context, elem_clauses);
 		if (context->contradictory)
 			return PARTCLAUSE_MATCH_CONTRADICT;
 		else if (*clause_steps == NIL)
-			return PARTCLAUSE_UNSUPPORTED;	/* step generation failed */
+			return PARTCLAUSE_UNSUPPORTED;	/* 步骤生成失败 */
 		return PARTCLAUSE_MATCH_STEPS;
 	}
 	else if (IsA(clause, NullTest))
@@ -2369,7 +2369,7 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 		if (IsA(arg, RelabelType))
 			arg = ((RelabelType *) arg)->arg;
 
-		/* Does arg match with this partition key column? */
+		/* arg 是否匹配该分区键列？ */
 		if (!equal(arg, partkey))
 			return PARTCLAUSE_NOMATCH;
 
@@ -2379,49 +2379,49 @@ match_clause_to_partition_key(GeneratePruningStepsContext *context,
 	}
 
 	/*
-	 * If we get here then the return value depends on the result of the
-	 * match_boolean_partition_clause call above.  If the call returned
-	 * PARTCLAUSE_UNSUPPORTED then we're either not dealing with a bool qual
-	 * or the bool qual is not suitable for pruning.  Since the qual didn't
-	 * match up to any of the other qual types supported here, then trying to
-	 * match it against any other partition key is a waste of time, so just
-	 * return PARTCLAUSE_UNSUPPORTED.  If the qual just couldn't be matched to
-	 * this partition key, then it may match another, so return
-	 * PARTCLAUSE_NOMATCH.  The only other value that
-	 * match_boolean_partition_clause can return is PARTCLAUSE_MATCH_CLAUSE,
-	 * and since that value was already dealt with above, then we can just
-	 * return boolmatchstatus.
+	 * 若执行到这里，返回值取决于上面
+	 * match_boolean_partition_clause 调用的结果。若该调用返回
+	 * PARTCLAUSE_UNSUPPORTED，则我们要么不是在处理布尔限定条件，
+	 * 要么该布尔限定条件不适合剪枝。既然该限定条件没有
+	 * 匹配这里支持的任何其他限定条件类型，那么试着把它
+	 * 与任何其他分区键匹配就是浪费时间，因此直接
+	 * 返回 PARTCLAUSE_UNSUPPORTED。若该限定条件只是无法匹配
+	 * 这个分区键，则它可能匹配另一个，因此返回
+	 * PARTCLAUSE_NOMATCH。match_boolean_partition_clause 还能返回的唯一其他值是
+	 * PARTCLAUSE_MATCH_CLAUSE，
+	 * 而该值上面已经处理过，因此我们可以直接
+	 * 返回 boolmatchstatus。
 	 */
 	return boolmatchstatus;
 }
 
 /*
  * get_steps_using_prefix
- *		Generate a list of PartitionPruneStepOps based on the given input.
+ *		基于给定输入生成 PartitionPruneStepOps 列表。
  *
- * 'step_lastexpr' and 'step_lastcmpfn' are the Expr and comparison function
- * belonging to the final partition key that we have a clause for.  'prefix'
- * is a list of PartClauseInfos for partition key numbers prior to the given
- * 'step_lastexpr' and 'step_lastcmpfn'.  'prefix' may contain multiple
- * PartClauseInfos belonging to a single partition key.  We will generate a
- * PartitionPruneStepOp for each combination of the given PartClauseInfos
- * using, at most, one PartClauseInfo per partition key.
+ * step_lastexpr 和 step_lastcmpfn 是我们有子句的最后一个分区键
+ * 所属的 Expr 和比较函数。prefix
+ * 是该 step_lastexpr 和 step_lastcmpfn 之前的分区键号的 PartClauseInfos 列表。
+ * prefix 可能含属于同一个分区键的多个
+ * PartClauseInfos。我们将为给定 PartClauseInfos 的每种组合
+ * 生成一个 PartitionPruneStepOp，
+ * 每个分区键最多使用一个 PartClauseInfo。
  *
- * For LIST and RANGE partitioned tables, callers must ensure that
- * step_nullkeys is NULL, and that prefix contains at least one clause for
- * each of the partition keys prior to the key that 'step_lastexpr' and
- * 'step_lastcmpfn' belong to.
+ * 对 LIST 和 RANGE 已分区表，调用者必须保证
+ * step_nullkeys 为 NULL，并且 prefix 对
+ * step_lastexpr 和 step_lastcmpfn 所属键之前的每个分区键
+ * 都至少含一个子句。
  *
- * For HASH partitioned tables, callers must ensure that 'prefix' contains at
- * least one clause for each of the partition keys apart from the final key
- * (the expr and comparison function for the final key are in 'step_lastexpr'
- * and 'step_lastcmpfn').  A bit set in step_nullkeys can substitute clauses
- * in the 'prefix' list for any given key.  If a bit is set in 'step_nullkeys'
- * for a given key, then there must be no PartClauseInfo for that key in the
- * 'prefix' list.
+ * 对哈希已分区表，调用者必须保证 prefix 对
+ * 除最后一个键之外的每个分区键都至少含一个子句
+ * （最后一个键的表达式和比较函数在 step_lastexpr
+ * 和 step_lastcmpfn 里）。step_nullkeys 里置位可以代替
+ * prefix 列表里任意给定键的子句。若某个给定键在 step_nullkeys
+ * 里置了位，则 prefix 列表里不得有该键的
+ * PartClauseInfo。
  *
- * For each of the above cases, callers must ensure that PartClauseInfos in
- * 'prefix' are sorted in ascending order of keyno.
+ * 对上述每种情形，调用者必须保证 prefix 里的 PartClauseInfos
+ * 按 keyno 升序排列。
  */
 static List *
 get_steps_using_prefix(GeneratePruningStepsContext *context,
@@ -2432,13 +2432,13 @@ get_steps_using_prefix(GeneratePruningStepsContext *context,
 					   Bitmapset *step_nullkeys,
 					   List *prefix)
 {
-	/* step_nullkeys must be empty for RANGE and LIST partitioned tables */
+	/* 对 RANGE 和 LIST 已分区表，step_nullkeys 必须为空 */
 	Assert(step_nullkeys == NULL ||
 		   context->rel->part_scheme->strategy == PARTITION_STRATEGY_HASH);
 
 	/*
-	 * No recursive processing is required when 'prefix' is an empty list.
-	 * This occurs when there is only 1 partition key column.
+	 * 当 prefix 为空列表时，不需要递归处理。
+	 * 这发生在只有 1 个分区键列时。
 	 */
 	if (prefix == NIL)
 	{
@@ -2453,7 +2453,7 @@ get_steps_using_prefix(GeneratePruningStepsContext *context,
 		return list_make1(step);
 	}
 
-	/* Recurse to generate steps for every combination of clauses. */
+	/* 递归，为子句的每种组合生成步骤。 */
 	return get_steps_using_prefix_recurse(context,
 										  step_opstrategy,
 										  step_op_is_ne,
@@ -2467,19 +2467,19 @@ get_steps_using_prefix(GeneratePruningStepsContext *context,
 
 /*
  * get_steps_using_prefix_recurse
- *		Generate and return a list of PartitionPruneStepOps using the 'prefix'
- *		list of PartClauseInfos starting at the 'start' cell.
+ *		用从 start 单元开始的 prefix
+ *		PartClauseInfos 列表生成并返回 PartitionPruneStepOps 列表。
  *
- * When 'prefix' contains multiple PartClauseInfos for a single partition key
- * we create a PartitionPruneStepOp for each combination of duplicated
- * PartClauseInfos.  The returned list will contain a PartitionPruneStepOp
- * for each unique combination of input PartClauseInfos containing at most one
- * PartClauseInfo per partition key.
+ * 当 prefix 对单个分区键含有多个 PartClauseInfos 时，
+ * 我们为重复的 PartClauseInfos 的每种组合创建一个
+ * PartitionPruneStepOp。返回的列表对输入 PartClauseInfos 的
+ * 每种唯一组合都含一个 PartitionPruneStepOp，
+ * 每个分区键最多含一个 PartClauseInfo。
  *
- * 'prefix' is the input list of PartClauseInfos sorted by keyno.
- * 'start' marks the cell that searching the 'prefix' list should start from.
- * 'step_exprs' and 'step_cmpfns' each contains the expressions and cmpfns
- * we've generated so far from the clauses for the previous part keys.
+ * prefix 是按 keyno 排序的 PartClauseInfos 输入列表。
+ * start 标出搜索 prefix 列表应当开始的单元。
+ * step_exprs 和 step_cmpfns 分别含我们迄今从
+ * 前面分区键的子句生成的表达式和比较函数。
  */
 static List *
 get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
@@ -2498,23 +2498,23 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 	int			cur_keyno;
 	int			final_keyno;
 
-	/* Actually, recursion would be limited by PARTITION_MAX_KEYS. */
+	/* 实际上，递归会受到 PARTITION_MAX_KEYS 的限制。 */
 	check_stack_depth();
 
 	Assert(start != NULL);
 	cur_keyno = ((PartClauseInfo *) lfirst(start))->keyno;
 	final_keyno = ((PartClauseInfo *) llast(prefix))->keyno;
 
-	/* Check if we need to recurse. */
+	/* 检查是否需要递归。 */
 	if (cur_keyno < final_keyno)
 	{
 		PartClauseInfo *pc;
 		ListCell   *next_start;
 
 		/*
-		 * Find the first PartClauseInfo belonging to the next partition key,
-		 * the next recursive call must start iteration of the prefix list
-		 * from that point.
+		 * 找出属于下一个分区键的第一个 PartClauseInfo，
+		 * 下一次递归调用必须从那一点开始迭代
+		 * prefix 列表。
 		 */
 		for_each_cell(lc, prefix, start)
 		{
@@ -2524,13 +2524,13 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 				break;
 		}
 
-		/* record where to start iterating in the next recursive call */
+		/* 记录下一次递归调用从哪里开始迭代 */
 		next_start = lc;
 
 		/*
-		 * For each PartClauseInfo with keyno set to cur_keyno, add its expr
-		 * and cmpfn to step_exprs and step_cmpfns, respectively, and recurse
-		 * using 'next_start' as the starting point in the 'prefix' list.
+		 * 对每个 keyno 设为 cur_keyno 的 PartClauseInfo，把它的 expr
+		 * 和 cmpfn 分别加入 step_exprs 和 step_cmpfns，并用
+		 * next_start 作为 prefix 列表的起点来递归。
 		 */
 		for_each_cell(lc, prefix, start)
 		{
@@ -2541,17 +2541,17 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 			pc = lfirst(lc);
 			if (pc->keyno == cur_keyno)
 			{
-				/* Leave the original step_exprs unmodified. */
+				/* 保持原来的 step_exprs 不被修改。 */
 				step_exprs1 = list_copy(step_exprs);
 				step_exprs1 = lappend(step_exprs1, pc->expr);
 
-				/* Leave the original step_cmpfns unmodified. */
+				/* 保持原来的 step_cmpfns 不被修改。 */
 				step_cmpfns1 = list_copy(step_cmpfns);
 				step_cmpfns1 = lappend_oid(step_cmpfns1, pc->cmpfn);
 			}
 			else
 			{
-				/* check the 'prefix' list is sorted correctly */
+				/* 检查 prefix 列表是否按正确顺序排列 */
 				Assert(pc->keyno > cur_keyno);
 				break;
 			}
@@ -2575,21 +2575,21 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 	else
 	{
 		/*
-		 * End the current recursion cycle and start generating steps, one for
-		 * each clause with cur_keyno, which is all clauses from here onward
-		 * till the end of the list.  Note that for hash partitioning,
-		 * step_nullkeys is allowed to be non-empty, in which case step_exprs
-		 * would only contain expressions for the partition keys that are not
-		 * specified in step_nullkeys.
+		 * 结束当前递归周期并开始生成步骤，对每个
+		 * cur_keyno 的子句各一个，也就是从这里起直到
+		 * 列表末尾的全部子句。注意，对哈希分区，
+		 * 允许 step_nullkeys 非空，那种情况下 step_exprs
+		 * 只会含那些没有在 step_nullkeys 里
+		 * 指定的分区键的表达式。
 		 */
 		Assert(list_length(step_exprs) == cur_keyno ||
 			   !bms_is_empty(step_nullkeys));
 
 		/*
-		 * Note also that for hash partitioning, each partition key should
-		 * have either equality clauses or an IS NULL clause, so if a
-		 * partition key doesn't have an expression, it would be specified in
-		 * step_nullkeys.
+		 * 还要注意，对哈希分区，每个分区键应当
+		 * 要么有相等子句，要么有 IS NULL 子句，因此若某个
+		 * 分区键没有表达式，它就会在
+		 * step_nullkeys 里被指定。
 		 */
 		Assert(context->rel->part_scheme->strategy
 			   != PARTITION_STRATEGY_HASH ||
@@ -2604,12 +2604,12 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 
 			Assert(pc->keyno == cur_keyno);
 
-			/* Leave the original step_exprs unmodified. */
+			/* 保持原来的 step_exprs 不被修改。 */
 			step_exprs1 = list_copy(step_exprs);
 			step_exprs1 = lappend(step_exprs1, pc->expr);
 			step_exprs1 = lappend(step_exprs1, step_lastexpr);
 
-			/* Leave the original step_cmpfns unmodified. */
+			/* 保持原来的 step_cmpfns 不被修改。 */
 			step_cmpfns1 = list_copy(step_cmpfns);
 			step_cmpfns1 = lappend_oid(step_cmpfns1, pc->cmpfn);
 			step_cmpfns1 = lappend_oid(step_cmpfns1, step_lastcmpfn);
@@ -2627,26 +2627,26 @@ get_steps_using_prefix_recurse(GeneratePruningStepsContext *context,
 
 /*
  * get_matching_hash_bounds
- *		Determine offset of the hash bound matching the specified values,
- *		considering that all the non-null values come from clauses containing
- *		a compatible hash equality operator and any keys that are null come
- *		from an IS NULL clause.
+ *		确定与指定值匹配的哈希边界的偏移，
+ *		考虑到所有非空值都来自含有
+ *		相容哈希相等操作符的子句，而任何为空的键都来自
+ *		IS NULL 子句。
  *
- * Generally this function will return a single matching bound offset,
- * although if a partition has not been setup for a given modulus then we may
- * return no matches.  If the number of clauses found don't cover the entire
- * partition key, then we'll need to return all offsets.
+ * 通常本函数返回单个匹配的边界偏移，
+ * 不过若某个给定模数尚未建立分区，我们可能
+ * 返回零个匹配。若找到的子句数没有覆盖整个
+ * 分区键，就需要返回全部偏移。
  *
- * 'opstrategy' if non-zero must be HTEqualStrategyNumber.
+ * opstrategy 若非零，则必须是 HTEqualStrategyNumber。
  *
- * 'values' contains Datums indexed by the partition key to use for pruning.
+ * values 含按下标索引的 Datum，下标即用于剪枝的分区键。
  *
- * 'nvalues', the number of Datums in the 'values' array.
+ * nvalues 是 values 数组里的 Datum 个数。
  *
- * 'partsupfunc' contains partition hashing functions that can produce correct
- * hash for the type of the values contained in 'values'.
+ * partsupfunc 含能为 values 里所含值的类型产生正确
+ * 哈希的分区哈希函数。
  *
- * 'nullkeys' is the set of partition keys that are null.
+ * nullkeys 是为空的分区键集合。
  */
 static PruneStepResult *
 get_matching_hash_bounds(PartitionPruneContext *context,
@@ -2666,15 +2666,15 @@ get_matching_hash_bounds(PartitionPruneContext *context,
 	Assert(context->strategy == PARTITION_STRATEGY_HASH);
 
 	/*
-	 * For hash partitioning we can only perform pruning based on equality
-	 * clauses to the partition key or IS NULL clauses.  We also can only
-	 * prune if we got values for all keys.
+	 * 对哈希分区，我们只能基于与分区键的相等
+	 * 子句或 IS NULL 子句来剪枝。而且只有在
+	 * 取得了全部键的值时才能剪枝。
 	 */
 	if (nvalues + bms_num_members(nullkeys) == partnatts)
 	{
 		/*
-		 * If there are any values, they must have come from clauses
-		 * containing an equality operator compatible with hash partitioning.
+		 * 若有任何值，它们必须来自含有与哈希分区
+		 * 相容的相等操作符的子句。
 		 */
 		Assert(opstrategy == HTEqualStrategyNumber || nvalues == 0);
 
@@ -2691,14 +2691,14 @@ get_matching_hash_bounds(PartitionPruneContext *context,
 	}
 	else
 	{
-		/* Report all valid offsets into the boundinfo->indexes array. */
+		/* 报告 boundinfo->indexes 数组里所有有效偏移。 */
 		result->bound_offsets = bms_add_range(NULL, 0,
 											  boundinfo->nindexes - 1);
 	}
 
 	/*
-	 * There is neither a special hash null partition or the default hash
-	 * partition.
+	 * 既没有特殊的哈希空分区，也没有默认的哈希
+	 * 分区。
 	 */
 	result->scan_null = result->scan_default = false;
 
@@ -2707,23 +2707,23 @@ get_matching_hash_bounds(PartitionPruneContext *context,
 
 /*
  * get_matching_list_bounds
- *		Determine the offsets of list bounds matching the specified value,
- *		according to the semantics of the given operator strategy
+ *		按给定操作符策略的语义，确定与指定值
+ *		匹配的列表边界的偏移。
  *
- * scan_default will be set in the returned struct, if the default partition
- * needs to be scanned, provided one exists at all.  scan_null will be set if
- * the special null-accepting partition needs to be scanned.
+ * 若默认分区需要被扫描（前提是确实存在一个），返回的结构里会设置
+ * scan_default。若特殊的接受 NULL 的分区需要被扫描，会设置
+ * scan_null。
  *
- * 'opstrategy' if non-zero must be a btree strategy number.
+ * opstrategy 若非零，则必须是 btree 策略号。
  *
- * 'value' contains the value to use for pruning.
+ * value 含用于剪枝的值。
  *
- * 'nvalues', if non-zero, should be exactly 1, because of list partitioning.
+ * nvalues 若非零，则应当恰好为 1，因为这是列表分区。
  *
- * 'partsupfunc' contains the list partitioning comparison function to be used
- * to perform partition_list_bsearch
+ * partsupfunc 含要用来执行 partition_list_bsearch 的
+ * 列表分区比较函数。
  *
- * 'nullkeys' is the set of partition keys that are null.
+ * nullkeys 是为空的分区键集合。
  */
 static PruneStepResult *
 get_matching_list_bounds(PartitionPruneContext *context,
@@ -2747,9 +2747,9 @@ get_matching_list_bounds(PartitionPruneContext *context,
 	if (!bms_is_empty(nullkeys))
 	{
 		/*
-		 * Nulls may exist in only one partition - the partition whose
-		 * accepted set of values includes null or the default partition if
-		 * the former doesn't exist.
+		 * 空值可能只存在于一个分区里：其
+		 * 接受的值集合包含空的那个分区，或者若前者不存在，则是
+		 * 默认分区。
 		 */
 		if (partition_bound_accepts_nulls(boundinfo))
 			result->scan_null = true;
@@ -2759,8 +2759,8 @@ get_matching_list_bounds(PartitionPruneContext *context,
 	}
 
 	/*
-	 * If there are no datums to compare keys with, but there are partitions,
-	 * just return the default partition if one exists.
+	 * 若没有可与键比较的 datum，但有分区，
+	 * 若存在默认分区就只返回它。
 	 */
 	if (boundinfo->ndatums == 0)
 	{
@@ -2772,9 +2772,9 @@ get_matching_list_bounds(PartitionPruneContext *context,
 	maxoff = boundinfo->ndatums - 1;
 
 	/*
-	 * If there are no values to compare with the datums in boundinfo, it
-	 * means the caller asked for partitions for all non-null datums.  Add
-	 * indexes of *all* partitions, including the default if any.
+	 * 若没有可与 boundinfo 里的 datum 比较的值，就
+	 * 意味着调用者要求所有非空 datum 的分区。把
+	 * *所有*分区的下标加进去，包括默认分区（若有）。
 	 */
 	if (nvalues == 0)
 	{
@@ -2785,11 +2785,11 @@ get_matching_list_bounds(PartitionPruneContext *context,
 		return result;
 	}
 
-	/* Special case handling of values coming from a <> operator clause. */
+	/* 对来自 <> 操作符子句的值做特殊处理。 */
 	if (opstrategy == InvalidStrategy)
 	{
 		/*
-		 * First match to all bounds.  We'll remove any matching datums below.
+		 * 先匹配全部分界。下面会去掉任何匹配的 datum。
 		 */
 		Assert(boundinfo->ndatums > 0);
 		result->bound_offsets = bms_add_range(NULL, 0,
@@ -2800,25 +2800,25 @@ get_matching_list_bounds(PartitionPruneContext *context,
 		if (off >= 0 && is_equal)
 		{
 
-			/* We have a match. Remove from the result. */
+			/* 我们有一个匹配。从结果里去掉它。 */
 			Assert(boundinfo->indexes[off] >= 0);
 			result->bound_offsets = bms_del_member(result->bound_offsets,
 												   off);
 		}
 
-		/* Always include the default partition if any. */
+		/* 若有默认分区，总是把它包括进去。 */
 		result->scan_default = partition_bound_has_default(boundinfo);
 
 		return result;
 	}
 
 	/*
-	 * With range queries, always include the default list partition, because
-	 * list partitions divide the key space in a discontinuous manner, not all
-	 * values in the given range will have a partition assigned.  This may not
-	 * technically be true for some data types (e.g. integer types), however,
-	 * we currently lack any sort of infrastructure to provide us with proofs
-	 * that would allow us to do anything smarter here.
+	 * 对区间查询，总是包括默认列表分区，因为
+	 * 列表分区以不连续的方式划分键空间，给定区间里并非所有
+	 * 值都分配了分区。对某些数据类型（例如整数类型）这在技术上
+	 * 可能并不成立，然而
+	 * 我们目前缺少任何能为我们提供证明的基础设施，
+	 * 因而没法在这里做得更聪明。
 	 */
 	if (opstrategy != BTEqualStrategyNumber)
 		result->scan_default = partition_bound_has_default(boundinfo);
@@ -2849,24 +2849,24 @@ get_matching_list_bounds(PartitionPruneContext *context,
 										 &is_equal);
 			if (off >= 0)
 			{
-				/* We don't want the matched datum to be in the result. */
+				/* 我们不希望匹配的 datum 出现在结果里。 */
 				if (!is_equal || !inclusive)
 					off++;
 			}
 			else
 			{
 				/*
-				 * This case means all partition bounds are greater, which in
-				 * turn means that all partitions satisfy this key.
+				 * 这种情形意味着所有分区边界都更大，这
+				 * 进而意味着所有分区都满足该键。
 				 */
 				off = 0;
 			}
 
 			/*
-			 * off is greater than the numbers of datums we have partitions
-			 * for.  The only possible partition that could contain a match is
-			 * the default partition, but we must've set context->scan_default
-			 * above anyway if one exists.
+			 * off 大于我们有分区的 datum 个数。
+			 * 唯一可能含有匹配的分区是
+			 * 默认分区，但若存在一个，我们上面反正已经设置了
+			 * context->scan_default。
 			 */
 			if (off > boundinfo->ndatums - 1)
 				return result;
@@ -2886,10 +2886,10 @@ get_matching_list_bounds(PartitionPruneContext *context,
 				off--;
 
 			/*
-			 * off is smaller than the datums of all non-default partitions.
-			 * The only possible partition that could contain a match is the
-			 * default partition, but we must've set context->scan_default
-			 * above anyway if one exists.
+			 * off 小于所有非默认分区的 datum。
+			 * 唯一可能含有匹配的分区是
+			 * 默认分区，但若存在一个，我们上面反正已经设置了
+			 * context->scan_default。
 			 */
 			if (off < 0)
 				return result;
@@ -2910,31 +2910,31 @@ get_matching_list_bounds(PartitionPruneContext *context,
 
 /*
  * get_matching_range_bounds
- *		Determine the offsets of range bounds matching the specified values,
- *		according to the semantics of the given operator strategy
+ *		按给定操作符策略的语义，确定与指定值
+ *		匹配的区间边界的偏移。
  *
- * Each datum whose offset is in result is to be treated as the upper bound of
- * the partition that will contain the desired values.
+ * 结果里偏移所对应的每个 datum 都要当作
+ * 将含有所需值的分区的上界。
  *
- * scan_default is set in the returned struct if a default partition exists
- * and we're absolutely certain that it needs to be scanned.  We do *not* set
- * it just because values match portions of the key space uncovered by
- * partitions other than default (space which we normally assume to belong to
- * the default partition): the final set of bounds obtained after combining
- * multiple pruning steps might exclude it, so we infer its inclusion
- * elsewhere.
+ * 若存在默认分区，并且我们完全确定需要扫描它，
+ * 返回的结构里会设置 scan_default。我们并不
+ * 仅仅因为值匹配了默认分区以外的分区未覆盖的键空间
+ * 部分就设置它（我们通常假定这些空间属于
+ * 默认分区）：组合多个剪枝步骤后得到的最终边界集合
+ * 可能把它排除，因此我们在
+ * 别处推断是否纳入它。
  *
- * 'opstrategy' if non-zero must be a btree strategy number.
+ * opstrategy 若非零，则必须是 btree 策略号。
  *
- * 'values' contains Datums indexed by the partition key to use for pruning.
+ * values 含按下标索引的 Datum，下标即用于剪枝的分区键。
  *
- * 'nvalues', number of Datums in 'values' array. Must be <= context->partnatts.
+ * nvalues 是 values 数组里的 Datum 个数。必须 <= context->partnatts。
  *
- * 'partsupfunc' contains the range partitioning comparison functions to be
- * used to perform partition_range_datum_bsearch or partition_rbound_datum_cmp
- * using.
+ * partsupfunc 含区间分区比较函数，用来
+ * 执行 partition_range_datum_bsearch 或
+ * partition_rbound_datum_cmp。
  *
- * 'nullkeys' is the set of partition keys that are null.
+ * nullkeys 是为空的分区键集合。
  */
 static PruneStepResult *
 get_matching_range_bounds(PartitionPruneContext *context,
@@ -2958,8 +2958,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	result->scan_null = result->scan_default = false;
 
 	/*
-	 * If there are no datums to compare keys with, or if we got an IS NULL
-	 * clause just return the default partition, if it exists.
+	 * 若没有可与键比较的 datum，或者我们得到了 IS NULL
+	 * 子句，若存在默认分区就只返回它。
 	 */
 	if (boundinfo->ndatums == 0 || !bms_is_empty(nullkeys))
 	{
@@ -2971,14 +2971,14 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	maxoff = boundinfo->ndatums;
 
 	/*
-	 * If there are no values to compare with the datums in boundinfo, it
-	 * means the caller asked for partitions for all non-null datums.  Add
-	 * indexes of *all* partitions, including the default partition if one
-	 * exists.
+	 * 若没有可与 boundinfo 里的 datum 比较的值，就
+	 * 意味着调用者要求所有非空 datum 的分区。把
+	 * *所有*分区的下标加进去，包括默认分区（若
+	 * 存在一个）。
 	 */
 	if (nvalues == 0)
 	{
-		/* ignore key space not covered by any partitions */
+		/* 忽略任何分区都未覆盖的键空间 */
 		if (partindices[minoff] < 0)
 			minoff++;
 		if (partindices[maxoff] < 0)
@@ -2993,8 +2993,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	}
 
 	/*
-	 * If the query does not constrain all key columns, we'll need to scan the
-	 * default partition, if any.
+	 * 若查询没有约束全部键列，就需要扫描
+	 * 默认分区（若有）。
 	 */
 	if (nvalues < partnatts)
 		result->scan_default = partition_bound_has_default(boundinfo);
@@ -3002,7 +3002,7 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	switch (opstrategy)
 	{
 		case BTEqualStrategyNumber:
-			/* Look for the smallest bound that is = lookup value. */
+			/* 寻找等于查找值的最小边界。 */
 			off = partition_range_datum_bsearch(partsupfunc,
 												partcollation,
 												boundinfo,
@@ -3013,7 +3013,7 @@ get_matching_range_bounds(PartitionPruneContext *context,
 			{
 				if (nvalues == partnatts)
 				{
-					/* There can only be zero or one matching partition. */
+					/* 匹配的分区只能有零个或一个。 */
 					result->bound_offsets = bms_make_singleton(off + 1);
 					return result;
 				}
@@ -3022,16 +3022,16 @@ get_matching_range_bounds(PartitionPruneContext *context,
 					int			saved_off = off;
 
 					/*
-					 * Since the lookup value contains only a prefix of keys,
-					 * we must find other bounds that may also match the
-					 * prefix.  partition_range_datum_bsearch() returns the
-					 * offset of one of them, find others by checking adjacent
-					 * bounds.
+					 * 由于查找值只含键的前缀，
+					 * 我们必须找出也可能匹配该
+					 * 前缀的其他边界。partition_range_datum_bsearch() 返回
+					 * 其中之一的偏移，通过检查相邻
+					 * 边界来找出其余的。
 					 */
 
 					/*
-					 * First find greatest bound that's smaller than the
-					 * lookup value.
+					 * 先找出小于查找
+					 * 值的最大边界。
 					 */
 					while (off >= 1)
 					{
@@ -3056,12 +3056,12 @@ get_matching_range_bounds(PartitionPruneContext *context,
 													  values, nvalues));
 
 					/*
-					 * We can treat 'off' as the offset of the smallest bound
-					 * to be included in the result, if we know it is the
-					 * upper bound of the partition in which the lookup value
-					 * could possibly exist.  One case it couldn't is if the
-					 * bound, or precisely the matched portion of its prefix,
-					 * is not inclusive.
+					 * 若我们知道 off 是查找值
+					 * 可能存在的那个分区的上界，就可以把 off 当作
+					 * 要纳入结果的最小边界的偏移。
+					 * 它不可能是的一种情形是：该边界，
+					 * 或者精确地说其前缀中匹配的那一部分，
+					 * 不是闭的。
 					 */
 					if (boundinfo->kind[off][nvalues] ==
 						PARTITION_RANGE_DATUM_MINVALUE)
@@ -3070,8 +3070,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 					minoff = off;
 
 					/*
-					 * Now find smallest bound that's greater than the lookup
-					 * value.
+					 * 现在找出大于查找
+					 * 值的最小边界。
 					 */
 					off = saved_off;
 					while (off < boundinfo->ndatums - 1)
@@ -3096,8 +3096,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 													  values, nvalues));
 
 					/*
-					 * off + 1, then would be the offset of the greatest bound
-					 * to be included in the result.
+					 * 那么 off + 1 就是要纳入结果的
+					 * 最大边界的偏移。
 					 */
 					maxoff = off + 1;
 				}
@@ -3108,13 +3108,13 @@ get_matching_range_bounds(PartitionPruneContext *context,
 			else
 			{
 				/*
-				 * The lookup value falls in the range between some bounds in
-				 * boundinfo.  'off' would be the offset of the greatest bound
-				 * that is <= lookup value, so add off + 1 to the result
-				 * instead as the offset of the upper bound of the only
-				 * partition that may contain the lookup value.  If 'off' is
-				 * -1 indicating that all bounds are greater, then we simply
-				 * end up adding the first bound's offset, that is, 0.
+				 * 查找值落在 boundinfo 里某些边界之间的区间中。
+				 * off 会是 <= 查找值的最大边界的
+				 * 偏移，因此改为把 off + 1 加入结果，
+				 * 作为可能含有查找值的唯一
+				 * 分区的上界偏移。若 off
+				 * 为 -1，表示所有边界都更大，那么我们只是
+				 * 最终加入第一个边界的偏移，也就是 0。
 				 */
 				result->bound_offsets = bms_make_singleton(off + 1);
 			}
@@ -3127,8 +3127,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 		case BTGreaterStrategyNumber:
 
 			/*
-			 * Look for the smallest bound that is > or >= lookup value and
-			 * set minoff to its offset.
+			 * 寻找 > 或 >= 查找值的最小边界，并
+			 * 把它的偏移设为 minoff。
 			 */
 			off = partition_range_datum_bsearch(partsupfunc,
 												partcollation,
@@ -3138,8 +3138,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 			if (off < 0)
 			{
 				/*
-				 * All bounds are greater than the lookup value, so include
-				 * all of them in the result.
+				 * 所有边界都大于查找值，因此把
+				 * 它们全部纳入结果。
 				 */
 				minoff = 0;
 			}
@@ -3148,17 +3148,17 @@ get_matching_range_bounds(PartitionPruneContext *context,
 				if (is_equal && nvalues < partnatts)
 				{
 					/*
-					 * Since the lookup value contains only a prefix of keys,
-					 * we must find other bounds that may also match the
-					 * prefix.  partition_range_datum_bsearch() returns the
-					 * offset of one of them, find others by checking adjacent
-					 * bounds.
+					 * 由于查找值只含键的前缀，
+					 * 我们必须找出也可能匹配该
+					 * 前缀的其他边界。partition_range_datum_bsearch() 返回
+					 * 其中之一的偏移，通过检查相邻
+					 * 边界来找出其余的。
 					 *
-					 * Based on whether the lookup values are inclusive or
-					 * not, we must either include the indexes of all such
-					 * bounds in the result (that is, set minoff to the index
-					 * of smallest such bound) or find the smallest one that's
-					 * greater than the lookup values and set minoff to that.
+					 * 根据查找值是否为闭区间，
+					 * 我们必须要么把所有这些
+					 * 边界的下标纳入结果（也就是把 minoff 设为
+					 * 最小的那个边界的下标），要么找出大于查找值的
+					 * 最小边界并把 minoff 设为它。
 					 */
 					while (off >= 1 && off < boundinfo->ndatums - 1)
 					{
@@ -3191,11 +3191,11 @@ get_matching_range_bounds(PartitionPruneContext *context,
 				{
 
 					/*
-					 * lookup value falls in the range between some bounds in
-					 * boundinfo.  off would be the offset of the greatest
-					 * bound that is <= lookup value, so add off + 1 to the
-					 * result instead as the offset of the upper bound of the
-					 * smallest partition that may contain the lookup value.
+					 * 查找值落在 boundinfo 里某些边界之间的区间中。
+					 * off 会是 <= 查找值的最大
+					 * 边界的偏移，因此改为把 off + 1 加入
+					 * 结果，作为可能含有查找值的最小
+					 * 分区的上界偏移。
 					 */
 					minoff = off + 1;
 				}
@@ -3208,8 +3208,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 		case BTLessStrategyNumber:
 
 			/*
-			 * Look for the greatest bound that is < or <= lookup value and
-			 * set maxoff to its offset.
+			 * 寻找 < 或 <= 查找值的最大边界，并
+			 * 把它的偏移设为 maxoff。
 			 */
 			off = partition_range_datum_bsearch(partsupfunc,
 												partcollation,
@@ -3219,7 +3219,7 @@ get_matching_range_bounds(PartitionPruneContext *context,
 			if (off >= 0)
 			{
 				/*
-				 * See the comment above.
+				 * 见上面的注释。
 				 */
 				if (is_equal && nvalues < partnatts)
 				{
@@ -3251,13 +3251,13 @@ get_matching_range_bounds(PartitionPruneContext *context,
 				}
 
 				/*
-				 * The lookup value falls in the range between some bounds in
-				 * boundinfo.  'off' would be the offset of the greatest bound
-				 * that is <= lookup value, so add off + 1 to the result
-				 * instead as the offset of the upper bound of the greatest
-				 * partition that may contain lookup value.  If the lookup
-				 * value had exactly matched the bound, but it isn't
-				 * inclusive, no need add the adjacent partition.
+				 * 查找值落在 boundinfo 里某些边界之间的区间中。
+				 * off 会是 <= 查找值的最大边界的
+				 * 偏移，因此改为把 off + 1 加入结果，
+				 * 作为可能含有查找值的最大
+				 * 分区的上界偏移。若查找
+				 * 值恰好匹配了该边界，但它不是
+				 * 闭的，就不必加入相邻分区。
 				 */
 				else if (!is_equal || inclusive)
 					maxoff = off + 1;
@@ -3267,8 +3267,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 			else
 			{
 				/*
-				 * 'off' is -1 indicating that all bounds are greater, so just
-				 * set the first bound's offset as maxoff.
+				 * off 为 -1，表示所有边界都更大，因此就把
+				 * 第一个边界的偏移设为 maxoff。
 				 */
 				maxoff = off + 1;
 			}
@@ -3283,10 +3283,10 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	Assert(maxoff >= 0 && maxoff <= boundinfo->ndatums);
 
 	/*
-	 * If the smallest partition to return has MINVALUE (negative infinity) as
-	 * its lower bound, increment it to point to the next finite bound
-	 * (supposedly its upper bound), so that we don't inadvertently end up
-	 * scanning the default partition.
+	 * 若要返回的最小分区以 MINVALUE（负无穷）作为
+	 * 其下界，就把它递增，指向下一个有限边界
+	 * （应当是它的上界），以免无意中
+	 * 去扫描默认分区。
 	 */
 	if (minoff < boundinfo->ndatums && partindices[minoff] < 0)
 	{
@@ -3301,11 +3301,11 @@ get_matching_range_bounds(PartitionPruneContext *context,
 	}
 
 	/*
-	 * If the previous greatest partition has MAXVALUE (positive infinity) as
-	 * its upper bound (something only possible to do with multi-column range
-	 * partitioning), we scan switch to it as the greatest partition to
-	 * return.  Again, so that we don't inadvertently end up scanning the
-	 * default partition.
+	 * 若前一个最大分区的上界是 MAXVALUE（正无穷）
+	 * （只有多列区间
+	 * 分区才能这样），我们可以改用它作为要返回的最大
+	 * 分区。同样是为了避免无意中去扫描
+	 * 默认分区。
 	 */
 	if (maxoff >= 1 && partindices[maxoff] < 0)
 	{
@@ -3328,8 +3328,8 @@ get_matching_range_bounds(PartitionPruneContext *context,
 
 /*
  * pull_exec_paramids
- *		Returns a Bitmapset containing the paramids of all Params with
- *		paramkind = PARAM_EXEC in 'expr'.
+ *		返回一个 Bitmapset，含 expr 里所有
+ *		paramkind = PARAM_EXEC 的参数的 paramid。
  */
 static Bitmapset *
 pull_exec_paramids(Expr *expr)
@@ -3360,10 +3360,10 @@ pull_exec_paramids_walker(Node *node, Bitmapset **context)
 
 /*
  * get_partkey_exec_paramids
- *		Loop through given pruning steps and find out which exec Params
- *		are used.
+ *		遍历给定的剪枝步骤，找出用到了哪些执行期
+ *		参数。
  *
- * Returns a Bitmapset of Param IDs.
+ * 返回参数 ID 的 Bitmapset。
  */
 static Bitmapset *
 get_partkey_exec_paramids(List *steps)
@@ -3383,7 +3383,7 @@ get_partkey_exec_paramids(List *steps)
 		{
 			Expr	   *expr = lfirst(lc2);
 
-			/* We can be quick for plain Consts */
+			/* 对普通 Const 可以走快路径 */
 			if (!IsA(expr, Const))
 				execparamids = bms_join(execparamids,
 										pull_exec_paramids(expr));
@@ -3395,11 +3395,11 @@ get_partkey_exec_paramids(List *steps)
 
 /*
  * perform_pruning_base_step
- *		Determines the indexes of datums that satisfy conditions specified in
- *		'opstep'.
+ *		确定满足 opstep 里指定条件的 datum
+ *		下标。
  *
- * Result also contains whether special null-accepting and/or default
- * partition need to be scanned.
+ * 结果还含是否需要扫描特殊的接受 NULL 分区和/或默认
+ * 分区。
  */
 static PruneStepResult *
 perform_pruning_base_step(PartitionPruneContext *context,
@@ -3414,7 +3414,7 @@ perform_pruning_base_step(PartitionPruneContext *context,
 	int			stateidx;
 
 	/*
-	 * There better be the same number of expressions and compare functions.
+	 * 表达式和比较函数的个数最好相同。
 	 */
 	Assert(list_length(opstep->exprs) == list_length(opstep->cmpfns));
 
@@ -3423,22 +3423,22 @@ perform_pruning_base_step(PartitionPruneContext *context,
 	lc2 = list_head(opstep->cmpfns);
 
 	/*
-	 * Generate the partition lookup key that will be used by one of the
-	 * get_matching_*_bounds functions called below.
+	 * 生成下面将调用的某个 get_matching_*_bounds 函数
+	 * 要用的分区查找键。
 	 */
 	for (keyno = 0; keyno < context->partnatts; keyno++)
 	{
 		/*
-		 * For hash partitioning, it is possible that values of some keys are
-		 * not provided in operator clauses, but instead the planner found
-		 * that they appeared in a IS NULL clause.
+		 * 对哈希分区，某些键的值可能
+		 * 没有在操作符子句里提供，而是规划器发现
+		 * 它们出现在 IS NULL 子句里。
 		 */
 		if (bms_is_member(keyno, opstep->nullkeys))
 			continue;
 
 		/*
-		 * For range partitioning, we must only perform pruning with values
-		 * for either all partition keys or a prefix thereof.
+		 * 对区间分区，我们必须只用全部分区键的值，
+		 * 或者其前缀的值来剪枝。
 		 */
 		if (keyno > nvalues && context->strategy == PARTITION_STRATEGY_RANGE)
 			break;
@@ -3457,9 +3457,9 @@ perform_pruning_base_step(PartitionPruneContext *context,
 									&datum, &isnull);
 
 			/*
-			 * Since we only allow strict operators in pruning steps, any
-			 * null-valued comparison value must cause the comparison to fail,
-			 * so that no partitions could match.
+			 * 由于剪枝步骤里只允许严格操作符，任何
+			 * 空的比较值都必然使比较失败，
+			 * 从而没有任何分区能够匹配。
 			 */
 			if (isnull)
 			{
@@ -3473,16 +3473,16 @@ perform_pruning_base_step(PartitionPruneContext *context,
 				return result;
 			}
 
-			/* Set up the stepcmpfuncs entry, unless we already did */
+			/* 设置 stepcmpfuncs 项，除非已经设置过 */
 			cmpfn = lfirst_oid(lc2);
 			Assert(OidIsValid(cmpfn));
 			if (cmpfn != context->stepcmpfuncs[stateidx].fn_oid)
 			{
 				/*
-				 * If the needed support function is the same one cached in
-				 * the relation's partition key, copy the cached FmgrInfo.
-				 * Otherwise (i.e., when we have a cross-type comparison), an
-				 * actual lookup is required.
+				 * 若所需的支持函数就是缓存在
+				 * 该关系分区键里的那个，就复制缓存的 FmgrInfo。
+				 * 否则（也就是跨类型比较时），
+				 * 需要做一次实际查找。
 				 */
 				if (cmpfn == context->partsupfunc[keyno].fn_oid)
 					fmgr_info_copy(&context->stepcmpfuncs[stateidx],
@@ -3502,8 +3502,8 @@ perform_pruning_base_step(PartitionPruneContext *context,
 	}
 
 	/*
-	 * Point partsupfunc to the entry for the 0th key of this step; the
-	 * additional support functions, if any, follow consecutively.
+	 * 让 partsupfunc 指向该步骤第 0 个键的项；若还有
+	 * 其他支持函数，就紧接着连续排列。
 	 */
 	stateidx = PruneCxtStateIdx(context->partnatts, opstep->step.step_id, 0);
 	partsupfunc = &context->stepcmpfuncs[stateidx];
@@ -3542,12 +3542,12 @@ perform_pruning_base_step(PartitionPruneContext *context,
 
 /*
  * perform_pruning_combine_step
- *		Determines the indexes of datums obtained by combining those given
- *		by the steps identified by cstep->source_stepids using the specified
- *		combination method
+ *		用指定的组合方法，确定把 cstep->source_stepids
+ *		所标识的步骤给出的那些 datum 组合起来之后
+ *		得到的下标。
  *
- * Since cstep may refer to the result of earlier steps, we also receive
- * step_results here.
+ * 由于 cstep 可能引用更早步骤的结果，这里也接收
+ * step_results。
  */
 static PruneStepResult *
 perform_pruning_combine_step(PartitionPruneContext *context,
@@ -3559,8 +3559,8 @@ perform_pruning_combine_step(PartitionPruneContext *context,
 	ListCell   *lc1;
 
 	/*
-	 * A combine step without any source steps is an indication to not perform
-	 * any partition pruning.  Return all datum indexes in that case.
+	 * 没有源步骤的组合步骤表示不要做
+	 * 任何分区剪枝。那种情况下返回全部 datum 下标。
 	 */
 	if (cstep->source_stepids == NIL)
 	{
@@ -3582,21 +3582,21 @@ perform_pruning_combine_step(PartitionPruneContext *context,
 				PruneStepResult *step_result;
 
 				/*
-				 * step_results[step_id] must contain a valid result, which is
-				 * confirmed by the fact that cstep's step_id is greater than
-				 * step_id and the fact that results of the individual steps
-				 * are evaluated in sequence of their step_ids.
+				 * step_results[step_id] 必须含有有效结果，这一点由
+				 * cstep 的 step_id 大于
+				 * step_id、以及各个步骤的结果
+				 * 按其 step_ids 的顺序求值这两点来确认。
 				 */
 				if (step_id >= cstep->step.step_id)
 					elog(ERROR, "invalid pruning combine step argument");
 				step_result = step_results[step_id];
 				Assert(step_result != NULL);
 
-				/* Record any additional datum indexes from this step */
+				/* 记录来自该步骤的任何额外 datum 下标 */
 				result->bound_offsets = bms_add_members(result->bound_offsets,
 														step_result->bound_offsets);
 
-				/* Update whether to scan null and default partitions. */
+				/* 更新是否扫描空分区和默认分区。 */
 				if (!result->scan_null)
 					result->scan_null = step_result->scan_null;
 				if (!result->scan_default)
@@ -3618,7 +3618,7 @@ perform_pruning_combine_step(PartitionPruneContext *context,
 
 				if (firststep)
 				{
-					/* Copy step's result the first time. */
+					/* 第一次时复制该步骤的结果。 */
 					result->bound_offsets =
 						bms_copy(step_result->bound_offsets);
 					result->scan_null = step_result->scan_null;
@@ -3627,12 +3627,12 @@ perform_pruning_combine_step(PartitionPruneContext *context,
 				}
 				else
 				{
-					/* Record datum indexes common to both steps */
+					/* 记录两个步骤共有的 datum 下标 */
 					result->bound_offsets =
 						bms_int_members(result->bound_offsets,
 										step_result->bound_offsets);
 
-					/* Update whether to scan null and default partitions. */
+					/* 更新是否扫描空分区和默认分区。 */
 					if (result->scan_null)
 						result->scan_null = step_result->scan_null;
 					if (result->scan_default)
@@ -3648,14 +3648,14 @@ perform_pruning_combine_step(PartitionPruneContext *context,
 /*
  * match_boolean_partition_clause
  *
- * If we're able to match the clause to the partition key as specially-shaped
- * boolean clause, set *outconst to a Const containing a true or false value,
- * set *noteq according to if the clause was in the "not" form, i.e. "is not
- * true" or "is not false", and return PARTCLAUSE_MATCH_CLAUSE.  Returns
- * PARTCLAUSE_UNSUPPORTED if the clause is not a boolean clause or if the
- * boolean clause is unsuitable for partition pruning.  Returns
- * PARTCLAUSE_NOMATCH if it's a bool quals but just does not match this
- * partition key.  *outconst is set to NULL in the latter two cases.
+ * 若我们能把该子句作为特殊形状的
+ * 布尔子句匹配到分区键，就把 *outconst 设为含真值或假值的 Const，
+ * 按子句是否为否定形式（即 is not
+ * true 或 is not false）设置 *noteq，并返回 PARTCLAUSE_MATCH_CLAUSE。若子句不是布尔子句，或该
+ * 布尔子句不适合分区剪枝，则返回
+ * PARTCLAUSE_UNSUPPORTED。若它是布尔限定条件但就是不匹配该
+ * 分区键，则返回 PARTCLAUSE_NOMATCH。后两种情形把
+ * *outconst 设为 NULL。
  */
 static PartClauseMatchStatus
 match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
@@ -3667,8 +3667,8 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
 	*noteq = false;
 
 	/*
-	 * Partitioning currently can only use built-in AMs, so checking for
-	 * built-in boolean opfamilies is good enough.
+	 * 分区目前只能使用内建访问方法，因此检查
+	 * 内建布尔操作符族就足够了。
 	 */
 	if (!IsBuiltinBooleanOpfamily(partopfamily))
 		return PARTCLAUSE_UNSUPPORTED;
@@ -3677,7 +3677,7 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
 	{
 		BooleanTest *btest = (BooleanTest *) clause;
 
-		/* Only IS [NOT] TRUE/FALSE are any good to us */
+		/* 只有 IS [NOT] TRUE/FALSE 对我们有用 */
 		if (btest->booltesttype == IS_UNKNOWN ||
 			btest->booltesttype == IS_NOT_UNKNOWN)
 			return PARTCLAUSE_UNSUPPORTED;
@@ -3718,7 +3718,7 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
 		if (IsA(leftop, RelabelType))
 			leftop = ((RelabelType *) leftop)->arg;
 
-		/* Compare to the partition key, and make up a clause ... */
+		/* 与分区键比较，并编造一个子句…… */
 		if (equal(leftop, partkey))
 			*outconst = (Expr *) makeBoolConst(!is_not_clause, false);
 		else if (equal(negate_clause((Node *) leftop), partkey))
@@ -3733,17 +3733,17 @@ match_boolean_partition_clause(Oid partopfamily, Expr *clause, Expr *partkey,
 
 /*
  * partkey_datum_from_expr
- *		Evaluate expression for potential partition pruning
+ *		为可能的分区剪枝对表达式求值。
  *
- * Evaluate 'expr'; set *value and *isnull to the resulting Datum and nullflag.
+ * 对 expr 求值；把 *value 和 *isnull 设为得到的 Datum 和空标志。
  *
- * If expr isn't a Const, its ExprState is in stateidx of the context
- * exprstate array.
+ * 若 expr 不是 Const，其 ExprState 在 context
+ * 表达式状态数组的 stateidx 处。
  *
- * Note that the evaluated result may be in the per-tuple memory context of
- * context->exprcontext, and we may have leaked other memory there too.
- * This memory must be recovered by resetting that ExprContext after
- * we're done with the pruning operation (see execPartition.c).
+ * 注意，求值结果可能位于 context->exprcontext 的
+ * 按元组内存上下文里，我们也可能在那里泄漏了其他内存。
+ * 这次剪枝操作结束后，必须通过重置该 ExprContext 来回收
+ * 这些内存（见 execPartition.c）。
  */
 static void
 partkey_datum_from_expr(PartitionPruneContext *context,
@@ -3752,7 +3752,7 @@ partkey_datum_from_expr(PartitionPruneContext *context,
 {
 	if (IsA(expr, Const))
 	{
-		/* We can always determine the value of a constant */
+		/* 我们总是能确定常量的值 */
 		Const	   *con = (Const *) expr;
 
 		*value = con->constvalue;
@@ -3764,11 +3764,11 @@ partkey_datum_from_expr(PartitionPruneContext *context,
 		ExprContext *ectx;
 
 		/*
-		 * We should never see a non-Const in a step unless the caller has
-		 * passed a valid ExprContext.
+		 * 除非调用者传入了有效的 ExprContext，否则步骤里不应当出现
+		 * 非 Const。
 		 *
-		 * When context->planstate is valid, context->exprcontext is same as
-		 * context->planstate->ps_ExprContext.
+		 * 当 context->planstate 有效时，context->exprcontext 与
+		 * context->planstate->ps_ExprContext 相同。
 		 */
 		Assert(context->planstate != NULL || context->exprcontext != NULL);
 		Assert(context->planstate == NULL ||

@@ -86,24 +86,24 @@ static void add_with_check_options(Relation rel,
 static bool check_role_for_policy(ArrayType *policy_roles, Oid user_id);
 
 /*
- * hooks to allow extensions to add their own security policies
+ * 允许扩展加入自己的安全性策略的钩子。
  *
- * row_security_policy_hook_permissive can be used to add policies which
- * are combined with the other permissive policies, using OR.
+ * row_security_policy_hook_permissive 可用于加入与其他
+ * 宽松策略用 OR 组合的策略。
  *
- * row_security_policy_hook_restrictive can be used to add policies which
- * are enforced, regardless of other policies (they are combined using AND).
+ * row_security_policy_hook_restrictive 可用于加入无论如何
+ * 都会强制执行的策略（它们用 AND 组合）。
  */
 row_security_policy_hook_type row_security_policy_hook_permissive = NULL;
 row_security_policy_hook_type row_security_policy_hook_restrictive = NULL;
 
 /*
- * Get any row security quals and WithCheckOption checks that should be
- * applied to the specified RTE.
+ * 取得应当应用到指定 RTE 的任何行安全性限定条件
+ * 和 WithCheckOption 检查。
  *
- * In addition, hasRowSecurity is set to true if row-level security is enabled
- * (even if this RTE doesn't have any row security quals), and hasSubLinks is
- * set to true if any of the quals returned contain sublinks.
+ * 此外，若启用了行安全性，就把 hasRowSecurity 设为真
+ * （即使这个 RTE 没有任何行安全性限定条件），若返回的任何限定条件
+ * 含有子链接，就把 hasSubLinks 设为真。
  */
 void
 get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
@@ -118,7 +118,7 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	List	   *restrictive_policies;
 	RTEPermissionInfo *perminfo;
 
-	/* Defaults for the return values */
+	/* 返回值的默认值 */
 	*securityQuals = NIL;
 	*withCheckOptions = NIL;
 	*hasRowSecurity = false;
@@ -126,35 +126,35 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 
 	Assert(rte->rtekind == RTE_RELATION);
 
-	/* If this is not a normal relation, just return immediately */
+	/* 若这不是普通关系，立即返回 */
 	if (rte->relkind != RELKIND_RELATION &&
 		rte->relkind != RELKIND_PARTITIONED_TABLE)
 		return;
 
 	perminfo = getRTEPermissionInfo(root->rteperminfos, rte);
 
-	/* Switch to checkAsUser if it's set */
+	/* 若设置了 checkAsUser，就切换过去 */
 	user_id = OidIsValid(perminfo->checkAsUser) ?
 		perminfo->checkAsUser : GetUserId();
 
-	/* Determine the state of RLS for this, pass checkAsUser explicitly */
+	/* 确定这里的行安全性状态，显式传入 checkAsUser */
 	rls_status = check_enable_rls(rte->relid, perminfo->checkAsUser, false);
 
-	/* If there is no RLS on this table at all, nothing to do */
+	/* 若这张表完全没有行安全性，就无事可做 */
 	if (rls_status == RLS_NONE)
 		return;
 
 	/*
-	 * RLS_NONE_ENV means we are not doing any RLS now, but that may change
-	 * with changes to the environment, so we mark it as hasRowSecurity to
-	 * force a re-plan when the environment changes.
+	 * RLS_NONE_ENV 表示我们现在不做任何行安全性检查，但环境变化后
+	 * 情况可能改变，因此我们把它标成 hasRowSecurity，以便
+	 * 环境变化时强制重新规划。
 	 */
 	if (rls_status == RLS_NONE_ENV)
 	{
 		/*
-		 * Indicate that this query may involve RLS and must therefore be
-		 * replanned if the environment changes (GUCs, role), but we are not
-		 * adding anything here.
+		 * 表明此查询可能涉及行安全性，因而环境变化时必须
+		 * 重新规划（GUCs、角色），但我们这里
+		 * 不加入任何东西。
 		 */
 		*hasRowSecurity = true;
 
@@ -162,13 +162,13 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	}
 
 	/*
-	 * RLS is enabled for this relation.
+	 * 此关系已启用行安全性。
 	 *
-	 * Get the security policies that should be applied, based on the command
-	 * type.  Note that if this isn't the target relation, we actually want
-	 * the relation's SELECT policies, regardless of the query command type,
-	 * for example in UPDATE t1 ... FROM t2 we need to apply t1's UPDATE
-	 * policies and t2's SELECT policies.
+	 * 按命令类型取得应当应用的安全性策略。注意，若这不是
+	 * 目标关系，我们实际想要的是该关系的 SELECT 策略，
+	 * 与查询命令类型无关，例如在 UPDATE t1 ... FROM t2 里，
+	 * 我们需要应用 t1 的 UPDATE 策略和 t2 的 SELECT
+	 * 策略。
 	 */
 	rel = table_open(rte->relid, NoLock);
 
@@ -176,32 +176,32 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 		root->commandType : CMD_SELECT;
 
 	/*
-	 * In some cases, we need to apply USING policies (which control the
-	 * visibility of records) associated with multiple command types (see
-	 * specific cases below).
+	 * 有些情形下，我们需要应用与多种命令类型关联的
+	 * USING 策略（它们控制记录的可见性）（见
+	 * 下面的具体情形）。
 	 *
-	 * When considering the order in which to apply these USING policies, we
-	 * prefer to apply higher privileged policies, those which allow the user
-	 * to lock records (UPDATE and DELETE), first, followed by policies which
-	 * don't (SELECT).
+	 * 考虑这些 USING 策略的应用顺序时，我们
+	 * 优先应用权限更高的策略，即允许用户
+	 * 锁定记录的那些（UPDATE 和 DELETE），然后是不
+	 * 允许的那些（SELECT）。
 	 *
-	 * Note that the optimizer is free to push down and reorder quals which
-	 * use leakproof functions.
+	 * 注意，规划器可以自由下推并重排使用
+	 * 防泄漏函数的限定条件。
 	 *
-	 * In all cases, if there are no policy clauses allowing access to rows in
-	 * the table for the specific type of operation, then a single
-	 * always-false clause (a default-deny policy) will be added (see
-	 * add_security_quals).
+	 * 在所有情形下，若没有策略子句允许对特定操作类型
+	 * 访问表中的行，就会加入一条
+	 * 始终为假的子句（默认拒绝策略）（见
+	 * add_security_quals）。
 	 */
 
 	/*
-	 * For a SELECT, if UPDATE privileges are required (eg: the user has
-	 * specified FOR [KEY] UPDATE/SHARE), then add the UPDATE USING quals
-	 * first.
+	 * 对 SELECT，若需要 UPDATE 权限（例如用户
+	 * 指定了 FOR [KEY] UPDATE/SHARE），则先加入 UPDATE USING
+	 * 限定条件。
 	 *
-	 * This way, we filter out any records from the SELECT FOR SHARE/UPDATE
-	 * which the user does not have access to via the UPDATE USING policies,
-	 * similar to how we require normal UPDATE rights for these queries.
+	 * 这样，我们滤掉用户不能通过 UPDATE USING 策略
+	 * 访问的 SELECT FOR SHARE/UPDATE 记录，
+	 * 类似于这些查询需要普通的 UPDATE 权限。
 	 */
 	if (commandType == CMD_SELECT && perminfo->requiredPerms & ACL_UPDATE)
 	{
@@ -220,10 +220,10 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	}
 
 	/*
-	 * For SELECT, UPDATE and DELETE, add security quals to enforce the USING
-	 * policies.  These security quals control access to existing table rows.
-	 * Restrictive policies are combined together using AND, and permissive
-	 * policies are combined together using OR.
+	 * 对 SELECT、UPDATE 和 DELETE，加入安全性限定条件以强制 USING
+	 * 策略。这些安全性限定条件控制对已有表行的访问。
+	 * 限制性策略用 AND 组合在一起，宽松
+	 * 策略用 OR 组合在一起。
 	 */
 
 	get_policies_for_relation(rel, commandType, user_id, &permissive_policies,
@@ -239,14 +239,14 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 						   hasSubLinks);
 
 	/*
-	 * Similar to above, during an UPDATE, DELETE, or MERGE, if SELECT rights
-	 * are also required (eg: when a RETURNING clause exists, or the user has
-	 * provided a WHERE clause which involves columns from the relation), we
-	 * collect up CMD_SELECT policies and add them via add_security_quals
-	 * first.
+	 * 与上面类似，在 UPDATE、DELETE 或 MERGE 期间，若还需要 SELECT 权限
+	 * （例如存在 RETURNING 子句，或用户提供了涉及该关系
+	 * 各列的 WHERE 子句），我们收集 CMD_SELECT 策略，并先通过
+	 * add_security_quals
+	 * 加入它们。
 	 *
-	 * This way, we filter out any records which are not visible through an
-	 * ALL or SELECT USING policy.
+	 * 这样，我们滤掉通过 ALL 或 SELECT USING 策略
+	 * 不可见的任何记录。
 	 */
 	if ((commandType == CMD_UPDATE || commandType == CMD_DELETE ||
 		 commandType == CMD_MERGE) &&
@@ -267,14 +267,14 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	}
 
 	/*
-	 * For INSERT and UPDATE, add withCheckOptions to verify that any new
-	 * records added are consistent with the security policies.  This will use
-	 * each policy's WITH CHECK clause, or its USING clause if no explicit
-	 * WITH CHECK clause is defined.
+	 * 对 INSERT 和 UPDATE，加入 withCheckOptions，以验证任何新
+	 * 加入的记录与安全性策略一致。这将使用
+	 * 每条策略的 WITH CHECK 子句，若没有显式
+	 * WITH CHECK 子句，则使用它的 USING 子句。
 	 */
 	if (commandType == CMD_INSERT || commandType == CMD_UPDATE)
 	{
-		/* This should be the target relation */
+		/* 这应当是目标关系 */
 		Assert(rt_index == root->resultRelation);
 
 		add_with_check_options(rel, rt_index,
@@ -287,11 +287,11 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 							   false);
 
 		/*
-		 * Get and add ALL/SELECT policies, if SELECT rights are required for
-		 * this relation (eg: when RETURNING is used).  These are added as WCO
-		 * policies rather than security quals to ensure that an error is
-		 * raised if a policy is violated; otherwise, we might end up silently
-		 * dropping rows to be added.
+		 * 若此关系需要 SELECT 权限（例如使用了 RETURNING），
+		 * 取得并加入 ALL/SELECT 策略。它们作为 WCO
+		 * 策略而不是安全性限定条件加入，以确保策略被违反时
+		 * 会报错；否则，我们可能最终静默
+		 * 丢掉要加入的行。
 		 */
 		if (perminfo->requiredPerms & ACL_SELECT)
 		{
@@ -312,8 +312,8 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 		}
 
 		/*
-		 * For INSERT ... ON CONFLICT DO UPDATE we need additional policy
-		 * checks for the UPDATE which may be applied to the same RTE.
+		 * 对 INSERT ... ON CONFLICT DO UPDATE，我们需要对可能应用到同一 RTE 的
+		 * UPDATE 做额外的策略检查。
 		 */
 		if (commandType == CMD_INSERT &&
 			root->onConflict && root->onConflict->action == ONCONFLICT_UPDATE)
@@ -323,16 +323,16 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 			List	   *conflict_select_permissive_policies = NIL;
 			List	   *conflict_select_restrictive_policies = NIL;
 
-			/* Get the policies that apply to the auxiliary UPDATE */
+			/* 取得应用到辅助 UPDATE 的策略 */
 			get_policies_for_relation(rel, CMD_UPDATE, user_id,
 									  &conflict_permissive_policies,
 									  &conflict_restrictive_policies);
 
 			/*
-			 * Enforce the USING clauses of the UPDATE policies using WCOs
-			 * rather than security quals.  This ensures that an error is
-			 * raised if the conflicting row cannot be updated due to RLS,
-			 * rather than the change being silently dropped.
+			 * 用 WCOs 而不是安全性限定条件来强制 UPDATE 策略的 USING 子句。
+			 * 这确保若冲突行因行安全性而无法被更新，
+			 * 就会报错，
+			 * 而不是静默丢掉这次改动。
 			 */
 			add_with_check_options(rel, rt_index,
 								   WCO_RLS_CONFLICT_CHECK,
@@ -343,11 +343,11 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 								   true);
 
 			/*
-			 * Get and add ALL/SELECT policies, as WCO_RLS_CONFLICT_CHECK WCOs
-			 * to ensure they are considered when taking the UPDATE path of an
-			 * INSERT .. ON CONFLICT DO UPDATE, if SELECT rights are required
-			 * for this relation, also as WCO policies, again, to avoid
-			 * silently dropping data.  See above.
+			 * 取得并加入 ALL/SELECT 策略，作为 WCO_RLS_CONFLICT_CHECK WCOs，
+			 * 以确保走 INSERT .. ON CONFLICT DO UPDATE 的 UPDATE 路径时
+			 * 会考虑它们，若此关系需要 SELECT 权限，同样作为 WCO 策略，
+			 * 同样是为了避免静默丢掉数据。
+			 * 见上文。
 			 */
 			if (perminfo->requiredPerms & ACL_SELECT)
 			{
@@ -363,7 +363,7 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 									   true);
 			}
 
-			/* Enforce the WITH CHECK clauses of the UPDATE policies */
+			/* 强制 UPDATE 策略的 WITH CHECK 子句 */
 			add_with_check_options(rel, rt_index,
 								   WCO_RLS_UPDATE_CHECK,
 								   conflict_permissive_policies,
@@ -373,10 +373,10 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 								   false);
 
 			/*
-			 * Add ALL/SELECT policies as WCO_RLS_UPDATE_CHECK WCOs, to ensure
-			 * that the final updated row is visible when taking the UPDATE
-			 * path of an INSERT .. ON CONFLICT DO UPDATE, if SELECT rights
-			 * are required for this relation.
+			 * 把 ALL/SELECT 策略作为 WCO_RLS_UPDATE_CHECK WCOs 加入，以确保
+			 * 走 INSERT .. ON CONFLICT DO UPDATE 的 UPDATE 路径时，
+			 * 最终更新后的行可见，前提是此关系
+			 * 需要 SELECT 权限。
 			 */
 			if (perminfo->requiredPerms & ACL_SELECT)
 				add_with_check_options(rel, rt_index,
@@ -390,27 +390,27 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	}
 
 	/*
-	 * FOR MERGE, we fetch policies for UPDATE, DELETE and INSERT (and ALL)
-	 * and set them up so that we can enforce the appropriate policy depending
-	 * on the final action we take.
+	 * 对 MERGE，我们取得 UPDATE、DELETE 和 INSERT（以及 ALL）的策略，
+	 * 并设置它们，以便按我们最终采取的动作
+	 * 强制相应的策略。
 	 *
-	 * We already fetched the SELECT policies above, to check existing rows,
-	 * but we must also check that new rows created by UPDATE actions are
-	 * visible, if SELECT rights are required for this relation. We don't do
-	 * this for INSERT actions, since an INSERT command would only do this
-	 * check if it had a RETURNING list, and MERGE does not support RETURNING.
+	 * 上面我们已经取得了 SELECT 策略来检查已有行，
+	 * 但若此关系需要 SELECT 权限，我们还必须检查 UPDATE 动作
+	 * 创建的新行是否可见。对 INSERT 动作我们不这样做，
+	 * 因为 INSERT 命令只有在有 RETURNING 列表时才会做这项
+	 * 检查，而 MERGE 不支持 RETURNING。
 	 *
-	 * We don't push the UPDATE/DELETE USING quals to the RTE because we don't
-	 * really want to apply them while scanning the relation since we don't
-	 * know whether we will be doing an UPDATE or a DELETE at the end. We
-	 * apply the respective policy once we decide the final action on the
-	 * target tuple.
+	 * 我们不把 UPDATE/DELETE 的 USING 限定条件下推到 RTE，
+	 * 因为我们并不真想在扫描该关系时应用它们，
+	 * 因为我们不知道最后会做 UPDATE 还是 DELETE。
+	 * 一旦决定对目标元组的最终动作，
+	 * 我们就应用相应的策略。
 	 *
-	 * XXX We are setting up USING quals as WITH CHECK. If RLS prohibits
-	 * UPDATE/DELETE on the target row, we shall throw an error instead of
-	 * silently ignoring the row. This is different than how normal
-	 * UPDATE/DELETE works and more in line with INSERT ON CONFLICT DO UPDATE
-	 * handling.
+	 * XXX 我们把 USING 限定条件设置成 WITH CHECK。若行安全性禁止
+	 * 对目标行做 UPDATE/DELETE，我们会报错，而不是
+	 * 静默忽略该行。这与普通
+	 * UPDATE/DELETE 的做法不同，更接近 INSERT ON CONFLICT DO UPDATE
+	 * 的处理。
 	 */
 	if (commandType == CMD_MERGE)
 	{
@@ -422,16 +422,16 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 		List	   *merge_insert_restrictive_policies;
 
 		/*
-		 * Fetch the UPDATE policies and set them up to execute on the
-		 * existing target row before doing UPDATE.
+		 * 取得 UPDATE 策略，并设置它们在做 UPDATE 之前
+		 * 对已有目标行执行。
 		 */
 		get_policies_for_relation(rel, CMD_UPDATE, user_id,
 								  &merge_update_permissive_policies,
 								  &merge_update_restrictive_policies);
 
 		/*
-		 * WCO_RLS_MERGE_UPDATE_CHECK is used to check UPDATE USING quals on
-		 * the existing target row.
+		 * WCO_RLS_MERGE_UPDATE_CHECK 用来检查已有目标行上的
+		 * UPDATE USING 限定条件。
 		 */
 		add_with_check_options(rel, rt_index,
 							   WCO_RLS_MERGE_UPDATE_CHECK,
@@ -441,7 +441,7 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 							   hasSubLinks,
 							   true);
 
-		/* Enforce the WITH CHECK clauses of the UPDATE policies */
+		/* 强制 UPDATE 策略的 WITH CHECK 子句 */
 		add_with_check_options(rel, rt_index,
 							   WCO_RLS_UPDATE_CHECK,
 							   merge_update_permissive_policies,
@@ -451,9 +451,9 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 							   false);
 
 		/*
-		 * Add ALL/SELECT policies as WCO_RLS_UPDATE_CHECK WCOs, to ensure
-		 * that the updated row is visible when executing an UPDATE action, if
-		 * SELECT rights are required for this relation.
+		 * 把 ALL/SELECT 策略作为 WCO_RLS_UPDATE_CHECK WCOs 加入，以确保
+		 * 执行 UPDATE 动作时更新后的行可见，前提是
+		 * 此关系需要 SELECT 权限。
 		 */
 		if (perminfo->requiredPerms & ACL_SELECT)
 		{
@@ -473,16 +473,16 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 		}
 
 		/*
-		 * Fetch the DELETE policies and set them up to execute on the
-		 * existing target row before doing DELETE.
+		 * 取得 DELETE 策略，并设置它们在做 DELETE 之前
+		 * 对已有目标行执行。
 		 */
 		get_policies_for_relation(rel, CMD_DELETE, user_id,
 								  &merge_delete_permissive_policies,
 								  &merge_delete_restrictive_policies);
 
 		/*
-		 * WCO_RLS_MERGE_DELETE_CHECK is used to check DELETE USING quals on
-		 * the existing target row.
+		 * WCO_RLS_MERGE_DELETE_CHECK 用来检查已有目标行上的
+		 * DELETE USING 限定条件。
 		 */
 		add_with_check_options(rel, rt_index,
 							   WCO_RLS_MERGE_DELETE_CHECK,
@@ -493,9 +493,9 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 							   true);
 
 		/*
-		 * No special handling is required for INSERT policies. They will be
-		 * checked and enforced during ExecInsert(). But we must add them to
-		 * withCheckOptions.
+		 * INSERT 策略不需要特殊处理。它们会在
+		 * ExecInsert() 期间被检查并强制执行。但我们必须把它们加入
+		 * withCheckOptions。
 		 */
 		get_policies_for_relation(rel, CMD_INSERT, user_id,
 								  &merge_insert_permissive_policies,
@@ -513,15 +513,15 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 	table_close(rel, NoLock);
 
 	/*
-	 * Copy checkAsUser to the row security quals and WithCheckOption checks,
-	 * in case they contain any subqueries referring to other relations.
+	 * 把 checkAsUser 复制到行安全性限定条件和 WithCheckOption 检查里，
+	 * 以防它们含有引用其他关系的子查询。
 	 */
 	setRuleCheckAsUser((Node *) *securityQuals, perminfo->checkAsUser);
 	setRuleCheckAsUser((Node *) *withCheckOptions, perminfo->checkAsUser);
 
 	/*
-	 * Mark this query as having row security, so plancache can invalidate it
-	 * when necessary (eg: role changes)
+	 * 把此查询标为具有行安全性，以便 plancache 在必要时
+	 * 使它失效（例如角色变化）
 	 */
 	*hasRowSecurity = true;
 }
@@ -529,10 +529,10 @@ get_row_security_policies(Query *root, RangeTblEntry *rte, int rt_index,
 /*
  * get_policies_for_relation
  *
- * Returns lists of permissive and restrictive policies to be applied to the
- * specified relation, based on the command type and role.
+ * 返回要应用到指定关系的宽松策略和限制性策略清单，
+ * 依据是命令类型和角色。
  *
- * This includes any policies added by extensions.
+ * 这包括扩展加入的任何策略。
  */
 static void
 get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
@@ -544,18 +544,18 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 	*permissive_policies = NIL;
 	*restrictive_policies = NIL;
 
-	/* First find all internal policies for the relation. */
+	/* 先找出该关系的全部内部策略。 */
 	foreach(item, relation->rd_rsdesc->policies)
 	{
 		bool		cmd_matches = false;
 		RowSecurityPolicy *policy = (RowSecurityPolicy *) lfirst(item);
 
-		/* Always add ALL policies, if they exist. */
+		/* 若存在 ALL 策略，始终加入它们。 */
 		if (policy->polcmd == '*')
 			cmd_matches = true;
 		else
 		{
-			/* Check whether the policy applies to the specified command type */
+			/* 检查该策略是否适用于指定的命令类型 */
 			switch (cmd)
 			{
 				case CMD_SELECT:
@@ -577,9 +577,9 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 				case CMD_MERGE:
 
 					/*
-					 * We do not support a separate policy for MERGE command.
-					 * Instead it derives from the policies defined for other
-					 * commands.
+					 * 我们不支持为 MERGE 命令单独设策略。
+					 * 它改为从为其他
+					 * 命令定义的策略派生。
 					 */
 					break;
 				default:
@@ -590,8 +590,8 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 		}
 
 		/*
-		 * Add this policy to the relevant list of policies if it applies to
-		 * the specified role.
+		 * 若该策略适用于指定角色，
+		 * 就把它加入相应的策略清单。
 		 */
 		if (cmd_matches && check_role_for_policy(policy->roles, user_id))
 		{
@@ -603,15 +603,15 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 	}
 
 	/*
-	 * We sort restrictive policies by name so that any WCOs they generate are
-	 * checked in a well-defined order.
+	 * 我们按名称对限制性策略排序，使它们生成的任何 WCOs 按
+	 * 明确的顺序被检查。
 	 */
 	sort_policies_by_name(*restrictive_policies);
 
 	/*
-	 * Then add any permissive or restrictive policies defined by extensions.
-	 * These are simply appended to the lists of internal policies, if they
-	 * apply to the specified role.
+	 * 然后加入扩展定义的任何宽松或限制性策略。
+	 * 若它们适用于指定角色，就直接追加到
+	 * 内部策略清单。
 	 */
 	if (row_security_policy_hook_restrictive)
 	{
@@ -619,10 +619,10 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 			(*row_security_policy_hook_restrictive) (cmd, relation);
 
 		/*
-		 * As with built-in restrictive policies, we sort any hook-provided
-		 * restrictive policies by name also.  Note that we also intentionally
-		 * always check all built-in restrictive policies, in name order,
-		 * before checking restrictive policies added by hooks, in name order.
+		 * 与内建限制性策略一样，我们也按名称对钩子提供的
+		 * 限制性策略排序。注意，我们也有意
+		 * 始终先按名称顺序检查全部内建限制性策略，
+		 * 再按名称顺序检查钩子加入的限制性策略。
 		 */
 		sort_policies_by_name(hook_policies);
 
@@ -653,10 +653,10 @@ get_policies_for_relation(Relation relation, CmdType cmd, Oid user_id,
 /*
  * sort_policies_by_name
  *
- * This is only used for restrictive policies, ensuring that any
- * WithCheckOptions they generate are applied in a well-defined order.
- * This is not necessary for permissive policies, since they are all combined
- * together using OR into a single WithCheckOption check.
+ * 这只用于限制性策略，确保它们生成的任何
+ * WithCheckOptions 按明确的顺序应用。
+ * 对宽松策略没有必要，因为它们全部用 OR
+ * 组合成一次 WithCheckOption 检查。
  */
 static void
 sort_policies_by_name(List *policies)
@@ -665,7 +665,7 @@ sort_policies_by_name(List *policies)
 }
 
 /*
- * list_sort comparator to sort RowSecurityPolicy entries by name
+ * 按名称对 RowSecurityPolicy 项排序的 list_sort 比较器
  */
 static int
 row_security_policy_cmp(const ListCell *a, const ListCell *b)
@@ -673,7 +673,7 @@ row_security_policy_cmp(const ListCell *a, const ListCell *b)
 	const RowSecurityPolicy *pa = (const RowSecurityPolicy *) lfirst(a);
 	const RowSecurityPolicy *pb = (const RowSecurityPolicy *) lfirst(b);
 
-	/* Guard against NULL policy names from extensions */
+	/* 防范扩展给出的 NULL 策略名 */
 	if (pa->policy_name == NULL)
 		return pb->policy_name == NULL ? 0 : 1;
 	if (pb->policy_name == NULL)
@@ -685,13 +685,13 @@ row_security_policy_cmp(const ListCell *a, const ListCell *b)
 /*
  * add_security_quals
  *
- * Add security quals to enforce the specified RLS policies, restricting
- * access to existing data in a table.  If there are no policies controlling
- * access to the table, then all access is prohibited --- i.e., an implicit
- * default-deny policy is used.
+ * 加入安全性限定条件，以强制指定的行安全性策略，限制
+ * 对表中已有数据的访问。若没有策略控制
+ * 对该表的访问，则禁止全部访问，即使用隐式的
+ * 默认拒绝策略。
  *
- * New security quals are added to securityQuals, and hasSubLinks is set to
- * true if any of the quals added contain sublink subqueries.
+ * 新的安全性限定条件被加入 securityQuals，若加入的任何限定条件
+ * 含有子链接子查询，就把 hasSubLinks 设为真。
  */
 static void
 add_security_quals(int rt_index,
@@ -705,8 +705,8 @@ add_security_quals(int rt_index,
 	Expr	   *rowsec_expr;
 
 	/*
-	 * First collect up the permissive quals.  If we do not find any
-	 * permissive policies then no rows are visible (this is handled below).
+	 * 先收集宽松限定条件。若找不到任何
+	 * 宽松策略，就没有任何行可见（这在下面处理）。
 	 */
 	foreach(item, permissive_policies)
 	{
@@ -721,18 +721,18 @@ add_security_quals(int rt_index,
 	}
 
 	/*
-	 * We must have permissive quals, always, or no rows are visible.
+	 * 我们必须始终有宽松限定条件，否则没有任何行可见。
 	 *
-	 * If we do not, then we simply return a single 'false' qual which results
-	 * in no rows being visible.
+	 * 若没有，我们就只返回一条结果为假的限定条件，
+	 * 从而没有任何行可见。
 	 */
 	if (permissive_quals != NIL)
 	{
 		/*
-		 * We now know that permissive policies exist, so we can now add
-		 * security quals based on the USING clauses from the restrictive
-		 * policies.  Since these need to be combined together using AND, we
-		 * can just add them one at a time.
+		 * 现在我们知道存在宽松策略，因此可以加入
+		 * 基于限制性策略 USING 子句的安全性限定条件。
+		 * 由于它们需要用 AND 组合在一起，我们可以
+		 * 一次加一条。
 		 */
 		foreach(item, restrictive_policies)
 		{
@@ -750,8 +750,8 @@ add_security_quals(int rt_index,
 		}
 
 		/*
-		 * Then add a single security qual combining together the USING
-		 * clauses from all the permissive policies using OR.
+		 * 然后加入一条安全性限定条件，把所有宽松策略的 USING
+		 * 子句用 OR 组合在一起。
 		 */
 		if (list_length(permissive_quals) == 1)
 			rowsec_expr = (Expr *) linitial(permissive_quals);
@@ -764,9 +764,9 @@ add_security_quals(int rt_index,
 	else
 
 		/*
-		 * A permissive policy must exist for rows to be visible at all.
-		 * Therefore, if there were no permissive policies found, return a
-		 * single always-false clause.
+		 * 必须存在宽松策略，行才可能可见。
+		 * 因此，若没有找到宽松策略，就返回一条
+		 * 始终为假的子句。
 		 */
 		*securityQuals = lappend(*securityQuals,
 								 makeConst(BOOLOID, -1, InvalidOid,
@@ -777,17 +777,17 @@ add_security_quals(int rt_index,
 /*
  * add_with_check_options
  *
- * Add WithCheckOptions of the specified kind to check that new records
- * added by an INSERT or UPDATE are consistent with the specified RLS
- * policies.  Normally new data must satisfy the WITH CHECK clauses from the
- * policies.  If a policy has no explicit WITH CHECK clause, its USING clause
- * is used instead.  In the special case of an UPDATE arising from an
- * INSERT ... ON CONFLICT DO UPDATE, existing records are first checked using
- * a WCO_RLS_CONFLICT_CHECK WithCheckOption, which always uses the USING
- * clauses from RLS policies.
+ * 加入指定种类的 WithCheckOptions，以检查 INSERT 或 UPDATE
+ * 加入的新记录与指定的行安全性
+ * 策略一致。通常新数据必须满足策略的 WITH CHECK 子句。
+ * 若策略没有显式 WITH CHECK 子句，就改用它的 USING 子句。
+ * 在由 INSERT ... ON CONFLICT DO UPDATE 产生的
+ * UPDATE 这一特殊情形里，已有记录先用
+ * WCO_RLS_CONFLICT_CHECK WithCheckOption 检查，它始终使用
+ * 行安全性策略的 USING 子句。
  *
- * New WCOs are added to withCheckOptions, and hasSubLinks is set to true if
- * any of the check clauses added contain sublink subqueries.
+ * 新的 WCOs 被加入 withCheckOptions，若加入的任何检查子句
+ * 含有子链接子查询，就把 hasSubLinks 设为真。
  */
 static void
 add_with_check_options(Relation rel,
@@ -808,8 +808,8 @@ add_with_check_options(Relation rel,
 	  (policy)->with_check_qual : (policy)->qual )
 
 	/*
-	 * First collect up the permissive policy clauses, similar to
-	 * add_security_quals.
+	 * 先收集宽松策略子句，类似于
+	 * add_security_quals。
 	 */
 	foreach(item, permissive_policies)
 	{
@@ -833,11 +833,11 @@ add_with_check_options(Relation rel,
 	if (permissive_quals != NIL)
 	{
 		/*
-		 * Add a single WithCheckOption for all the permissive policy clauses,
-		 * combining them together using OR.  This check has no policy name,
-		 * since if the check fails it means that no policy granted permission
-		 * to perform the update, rather than any particular policy being
-		 * violated.
+		 * 为全部宽松策略子句加入一条 WithCheckOption，
+		 * 用 OR 把它们组合起来。这次检查没有策略名，
+		 * 因为检查失败意味着没有任何策略授予执行
+		 * 更新的权限，而不是某条特定策略被
+		 * 违反。
 		 */
 		WithCheckOption *wco;
 
@@ -857,10 +857,10 @@ add_with_check_options(Relation rel,
 		*withCheckOptions = list_append_unique(*withCheckOptions, wco);
 
 		/*
-		 * Now add WithCheckOptions for each of the restrictive policy clauses
-		 * (which will be combined together using AND).  We use a separate
-		 * WithCheckOption for each restrictive policy to allow the policy
-		 * name to be included in error reports if the policy is violated.
+		 * 现在为每条限制性策略子句加入 WithCheckOptions
+		 * （它们将用 AND 组合在一起）。我们为每条限制性策略使用单独的
+		 * WithCheckOption，以便策略被违反时能把策略
+		 * 名放进错误报告。
 		 */
 		foreach(item, restrictive_policies)
 		{
@@ -887,8 +887,8 @@ add_with_check_options(Relation rel,
 	else
 	{
 		/*
-		 * If there were no policy clauses to check new data, add a single
-		 * always-false WCO (a default-deny policy).
+		 * 若没有用来检查新数据的策略子句，就加入一条
+		 * 始终为假的 WCO（默认拒绝策略）。
 		 */
 		WithCheckOption *wco;
 
@@ -907,7 +907,7 @@ add_with_check_options(Relation rel,
 
 /*
  * check_role_for_policy -
- *	 determines if the policy should be applied for the current role
+ *	 判断当前角色是否应当应用该策略
  */
 static bool
 check_role_for_policy(ArrayType *policy_roles, Oid user_id)

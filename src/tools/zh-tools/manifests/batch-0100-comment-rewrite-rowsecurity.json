@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0100-comment-rewrite-rowsecurity",
+ "title": "zh: translate rowsecurity comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c243df5f2b9b0fe1a1f8b06262d2149c4f178191",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rowsecurity.c",
+   "kind": "c_comment",
+   "note": "row security policies"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0100-comment-rewrite-rowsecurity.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rowsecurity.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 60,
+   "translated": 57,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright",
+    "fall-through"
+   ],
+   "note": "row security policies"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0100-comment-rewrite-rowsecurity.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0100 translates src/backend/rewrite/rowsecurity.c."
+}

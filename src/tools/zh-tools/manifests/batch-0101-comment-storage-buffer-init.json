@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0101-comment-storage-buffer-init",
+ "title": "zh: translate buffer init and table comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "70b42d04be447a1be8606745981e604d60eceb76",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "note": "shared buffer pool initialization"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/buf_table.c",
+   "kind": "c_comment",
+   "note": "buffer lookup hashtable"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0101-comment-storage-buffer-init.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "shared buffer pool initialization"
+  },
+  {
+   "path": "src/backend/storage/buffer/buf_table.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 15,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "buffer lookup hashtable"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0101-comment-storage-buffer-init.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0101 translates src/backend/storage/buffer/buf_init.c and buf_table.c."
+}

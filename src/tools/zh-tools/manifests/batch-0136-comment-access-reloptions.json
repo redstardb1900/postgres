@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0136-comment-access-reloptions",
+ "title": "zh: translate reloptions comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4b4aed20a04b46f6ba9e8f85a958fbc9a8149921",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/reloptions.c",
+   "kind": "c_comment",
+   "note": "relation option parsing, lock levels, and StdRdOptions"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0136-comment-access-reloptions.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/reloptions.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 95,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "relation option parsing, lock levels, and StdRdOptions"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0136-comment-access-reloptions.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0136 translates comments in src/backend/access/common/reloptions.c. After this batch, src/backend/access/common .c comments are complete. Next is src/backend/access/heap/."
+}

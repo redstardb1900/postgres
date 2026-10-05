@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * reloptions.c
- *	  Core support for relation options (pg_class.reloptions)
+ *	  关系选项（pg_class.reloptions）的核心支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,59 +38,59 @@
 #include "utils/rel.h"
 
 /*
- * Contents of pg_class.reloptions
+ * pg_class.reloptions 的内容
  *
- * To add an option:
+ * 增加一个选项的步骤：
  *
- * (i) decide on a type (integer, real, bool, string), name, default value,
- * upper and lower bounds (if applicable); for strings, consider a validation
- * routine.
- * (ii) add a record below (or use add_<type>_reloption).
- * (iii) add it to the appropriate options struct (perhaps StdRdOptions)
- * (iv) add it to the appropriate handling routine (perhaps
- * default_reloptions)
- * (v) make sure the lock level is set correctly for that operation
- * (vi) don't forget to document the option
+ * (i) 确定类型（整数、实数、布尔、字符串）、名称、默认值，
+ * 以及上下界（若适用）；对于字符串，考虑准备一个校验
+ * 例程。
+ * (ii) 在下面增加一条记录（或使用 add_<type>_reloption）。
+ * (iii) 把它加入合适的选项结构体（或许是 StdRdOptions）
+ * (iv) 把它加入合适的处理例程（或许是
+ * default_reloptions）
+ * (v) 确保该操作的锁级别设置正确
+ * (vi) 不要忘记为该选项编写文档
  *
- * The default choice for any new option should be AccessExclusiveLock.
- * In some cases the lock level can be reduced from there, but the lock
- * level chosen should always conflict with itself to ensure that multiple
- * changes aren't lost when we attempt concurrent changes.
- * The choice of lock level depends completely upon how that parameter
- * is used within the server, not upon how and when you'd like to change it.
- * Safety first. Existing choices are documented here, and elsewhere in
- * backend code where the parameters are used.
+ * 任何新选项的默认选择都应是 AccessExclusiveLock。
+ * 某些情况下可以从这里降低锁级别，但所选的锁
+ * 级别必须始终与自身冲突，这样在尝试并发修改时，多次
+ * 修改才不会丢失。
+ * 锁级别的选择完全取决于该参数
+ * 在服务器内部如何使用，而不是你希望如何以及何时修改它。
+ * 安全优先。现有选择记录在这里，以及使用这些参数的
+ * 其他后端代码中。
  *
- * In general, anything that affects the results obtained from a SELECT must be
- * protected by AccessExclusiveLock.
+ * 一般而言，任何会影响 SELECT 所得结果的内容都必须由
+ * AccessExclusiveLock 保护。
  *
- * Autovacuum related parameters can be set at ShareUpdateExclusiveLock
- * since they are only used by the AV procs and don't change anything
- * currently executing.
+ * 与自动清理相关的参数可以在 ShareUpdateExclusiveLock 下设置，
+ * 因为它们只被自动清理进程使用，并且不会改变任何
+ * 当前正在执行的工作。
  *
- * Fillfactor can be set because it applies only to subsequent changes made to
- * data blocks, as documented in hio.c
+ * 填充因子可以设置，因为它只作用于此后对
+ * 数据块所做的修改，如 hio.c 中所记载
  *
- * n_distinct options can be set at ShareUpdateExclusiveLock because they
- * are only used during ANALYZE, which uses a ShareUpdateExclusiveLock,
- * so the ANALYZE will not be affected by in-flight changes. Changing those
- * values has no effect until the next ANALYZE, so no need for stronger lock.
+ * n_distinct 选项可以在 ShareUpdateExclusiveLock 下设置，因为它们
+ * 只在 ANALYZE 期间使用，而 ANALYZE 使用 ShareUpdateExclusiveLock，
+ * 因此进行中的修改不会影响这次 ANALYZE。修改这些
+ * 值要到下一次 ANALYZE 才生效，因此不必用更强的锁。
  *
- * Planner-related parameters can be set with ShareUpdateExclusiveLock because
- * they only affect planning and not the correctness of the execution. Plans
- * cannot be changed in mid-flight, so changes here could not easily result in
- * new improved plans in any case. So we allow existing queries to continue
- * and existing plans to survive, a small price to pay for allowing better
- * plans to be introduced concurrently without interfering with users.
+ * 与规划器相关的参数可以用 ShareUpdateExclusiveLock 设置，因为
+ * 它们只影响规划，不影响执行的正确性。计划
+ * 无法在执行途中改变，因此这里的修改也无法轻易产生
+ * 新的改进计划。于是我们允许现有查询继续
+ * 执行、现有计划继续保留；为了允许更好的
+ * 计划并发引入且不干扰用户，这点代价值得付出。
  *
- * Setting parallel_workers is safe, since it acts the same as
- * max_parallel_workers_per_gather which is a USERSET parameter that doesn't
- * affect existing plans or queries.
+ * 设置 parallel_workers 是安全的，因为它的作用与
+ * max_parallel_workers_per_gather 相同，后者是 USERSET 参数，不会
+ * 影响现有计划或查询。
  *
- * vacuum_truncate can be set at ShareUpdateExclusiveLock because it
- * is only used during VACUUM, which uses a ShareUpdateExclusiveLock,
- * so the VACUUM will not be affected by in-flight changes. Changing its
- * value has no effect until the next VACUUM, so no need for stronger lock.
+ * vacuum_truncate 可以在 ShareUpdateExclusiveLock 下设置，因为它
+ * 只在 VACUUM 期间使用，而 VACUUM 使用 ShareUpdateExclusiveLock，
+ * 因此进行中的修改不会影响这次 VACUUM。修改它的
+ * 值要到下一次 VACUUM 才生效，因此不必用更强的锁。
  */
 
 static relopt_bool boolRelOpts[] =
@@ -163,12 +163,12 @@ static relopt_bool boolRelOpts[] =
 			"deduplicate_items",
 			"Enables \"deduplicate items\" feature for this btree index",
 			RELOPT_KIND_BTREE,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		true
 	},
-	/* list terminator */
+	/* 列表终止符 */
 	{{NULL}}
 };
 
@@ -179,8 +179,8 @@ static relopt_int intRelOpts[] =
 			"fillfactor",
 			"Packs table pages only to this percentage",
 			RELOPT_KIND_HEAP,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		HEAP_DEFAULT_FILLFACTOR, HEAP_MIN_FILLFACTOR, 100
 	},
@@ -189,8 +189,8 @@ static relopt_int intRelOpts[] =
 			"fillfactor",
 			"Packs btree index pages only to this percentage",
 			RELOPT_KIND_BTREE,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		BTREE_DEFAULT_FILLFACTOR, BTREE_MIN_FILLFACTOR, 100
 	},
@@ -199,8 +199,8 @@ static relopt_int intRelOpts[] =
 			"fillfactor",
 			"Packs hash index pages only to this percentage",
 			RELOPT_KIND_HASH,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		HASH_DEFAULT_FILLFACTOR, HASH_MIN_FILLFACTOR, 100
 	},
@@ -209,8 +209,8 @@ static relopt_int intRelOpts[] =
 			"fillfactor",
 			"Packs gist index pages only to this percentage",
 			RELOPT_KIND_GIST,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		GIST_DEFAULT_FILLFACTOR, GIST_MIN_FILLFACTOR, 100
 	},
@@ -219,8 +219,8 @@ static relopt_int intRelOpts[] =
 			"fillfactor",
 			"Packs spgist index pages only to this percentage",
 			RELOPT_KIND_SPGIST,
-			ShareUpdateExclusiveLock	/* since it applies only to later
-										 * inserts */
+			ShareUpdateExclusiveLock	/* 因为它只作用于之后的
+										 * 插入 */
 		},
 		SPGIST_DEFAULT_FILLFACTOR, SPGIST_MIN_FILLFACTOR, 100
 	},
@@ -383,7 +383,7 @@ static relopt_int intRelOpts[] =
 		-1, 0, 1024
 	},
 
-	/* list terminator */
+	/* 列表终止符 */
 	{{NULL}}
 };
 
@@ -470,11 +470,11 @@ static relopt_real realRelOpts[] =
 		},
 		-1, 0.0, 1e10
 	},
-	/* list terminator */
+	/* 列表终止符 */
 	{{NULL}}
 };
 
-/* values from StdRdOptIndexCleanup */
+/* 取值来自 StdRdOptIndexCleanup */
 static relopt_enum_elt_def StdRdOptIndexCleanupValues[] =
 {
 	{"auto", STDRD_OPTION_VACUUM_INDEX_CLEANUP_AUTO},
@@ -486,25 +486,25 @@ static relopt_enum_elt_def StdRdOptIndexCleanupValues[] =
 	{"no", STDRD_OPTION_VACUUM_INDEX_CLEANUP_OFF},
 	{"1", STDRD_OPTION_VACUUM_INDEX_CLEANUP_ON},
 	{"0", STDRD_OPTION_VACUUM_INDEX_CLEANUP_OFF},
-	{(const char *) NULL}		/* list terminator */
+	{(const char *) NULL}		/* 列表终止符 */
 };
 
-/* values from GistOptBufferingMode */
+/* 取值来自 GistOptBufferingMode */
 static relopt_enum_elt_def gistBufferingOptValues[] =
 {
 	{"auto", GIST_OPTION_BUFFERING_AUTO},
 	{"on", GIST_OPTION_BUFFERING_ON},
 	{"off", GIST_OPTION_BUFFERING_OFF},
-	{(const char *) NULL}		/* list terminator */
+	{(const char *) NULL}		/* 列表终止符 */
 };
 
-/* values from ViewOptCheckOption */
+/* 取值来自 ViewOptCheckOption */
 static relopt_enum_elt_def viewCheckOptValues[] =
 {
-	/* no value for NOT_SET */
+	/* NOT_SET 没有对应取值 */
 	{"local", VIEW_OPTION_CHECK_OPTION_LOCAL},
 	{"cascaded", VIEW_OPTION_CHECK_OPTION_CASCADED},
-	{(const char *) NULL}		/* list terminator */
+	{(const char *) NULL}		/* 列表终止符 */
 };
 
 static relopt_enum enumRelOpts[] =
@@ -542,13 +542,13 @@ static relopt_enum enumRelOpts[] =
 		VIEW_OPTION_CHECK_OPTION_NOT_SET,
 		gettext_noop("Valid values are \"local\" and \"cascaded\".")
 	},
-	/* list terminator */
+	/* 列表终止符 */
 	{{NULL}}
 };
 
 static relopt_string stringRelOpts[] =
 {
-	/* list terminator */
+	/* 列表终止符 */
 	{{NULL}}
 };
 
@@ -564,9 +564,9 @@ static void parse_one_reloption(relopt_value *option, char *text_str,
 								int text_len, bool validate);
 
 /*
- * Get the length of a string reloption (either default or the user-defined
- * value).  This is used for allocation purposes when building a set of
- * relation options.
+ * 取得字符串关系选项的长度（默认值或用户定义的
+ * 值）。构造一组关系选项时，用它来
+ * 分配空间。
  */
 #define GET_STRING_RELOPTION_LEN(option) \
 	((option).isset ? strlen((option).values.string_val) : \
@@ -574,9 +574,9 @@ static void parse_one_reloption(relopt_value *option, char *text_str,
 
 /*
  * initialize_reloptions
- *		initialization routine, must be called before parsing
+ *		初始化例程，必须在解析之前调用
  *
- * Initialize the relOpts array and fill each variable's type and name length.
+ * 初始化 relOpts 数组，并填入每个变量的类型与名称长度。
  */
 static void
 initialize_reloptions(void)
@@ -669,22 +669,22 @@ initialize_reloptions(void)
 		j++;
 	}
 
-	/* add a list terminator */
+	/* 加上列表终止符 */
 	relOpts[j] = NULL;
 
-	/* flag the work is complete */
+	/* 标记这项工作已完成 */
 	need_initialization = false;
 }
 
 /*
  * add_reloption_kind
- *		Create a new relopt_kind value, to be used in custom reloptions by
- *		user-defined AMs.
+ *		创建一个新的 relopt_kind 值，供用户定义的访问方法
+ *		在自定义关系选项中使用。
  */
 relopt_kind
 add_reloption_kind(void)
 {
-	/* don't hand out the last bit so that the enum's behavior is portable */
+	/* 不交出最后一位，以便该枚举的行为可移植 */
 	if (last_assigned_kind >= RELOPT_KIND_MAX)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -695,8 +695,8 @@ add_reloption_kind(void)
 
 /*
  * add_reloption
- *		Add an already-created custom reloption to the list, and recompute the
- *		main parser table.
+ *		把已创建的自定义关系选项加入列表，并重新计算
+ *		主解析表。
  */
 static void
 add_reloption(relopt_gen *newoption)
@@ -729,8 +729,8 @@ add_reloption(relopt_gen *newoption)
 
 /*
  * init_local_reloptions
- *		Initialize local reloptions that will parsed into bytea structure of
- * 		'relopt_struct_size'.
+ *		初始化局部关系选项，它们将被解析进大小为
+ * 		'relopt_struct_size' 的 bytea 结构。
  */
 void
 init_local_reloptions(local_relopts *relopts, Size relopt_struct_size)
@@ -742,8 +742,8 @@ init_local_reloptions(local_relopts *relopts, Size relopt_struct_size)
 
 /*
  * register_reloptions_validator
- *		Register custom validation callback that will be called at the end of
- *		build_local_reloptions().
+ *		注册自定义校验回调，它会在
+ *		build_local_reloptions() 结束时被调用。
  */
 void
 register_reloptions_validator(local_relopts *relopts, relopts_validator validator)
@@ -753,7 +753,7 @@ register_reloptions_validator(local_relopts *relopts, relopts_validator validato
 
 /*
  * add_local_reloption
- *		Add an already-created custom reloption to the local list.
+ *		把已创建的自定义关系选项加入局部列表。
  */
 static void
 add_local_reloption(local_relopts *relopts, relopt_gen *newoption, int offset)
@@ -770,8 +770,8 @@ add_local_reloption(local_relopts *relopts, relopt_gen *newoption, int offset)
 
 /*
  * allocate_reloption
- *		Allocate a new reloption and initialize the type-agnostic fields
- *		(for types other than string)
+ *		分配一个新的关系选项，并初始化与类型无关的字段
+ *		（字符串类型除外）
  */
 static relopt_gen *
 allocate_reloption(bits32 kinds, int type, const char *name, const char *desc,
@@ -805,7 +805,7 @@ allocate_reloption(bits32 kinds, int type, const char *name, const char *desc,
 			break;
 		default:
 			elog(ERROR, "unsupported reloption type %d", type);
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 让编译器保持安静 */
 	}
 
 	newoption = palloc(size);
@@ -828,7 +828,7 @@ allocate_reloption(bits32 kinds, int type, const char *name, const char *desc,
 
 /*
  * init_bool_reloption
- *		Allocate and initialize a new boolean reloption
+ *		分配并初始化一个新的布尔关系选项
  */
 static relopt_bool *
 init_bool_reloption(bits32 kinds, const char *name, const char *desc,
@@ -845,7 +845,7 @@ init_bool_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_bool_reloption
- *		Add a new boolean reloption
+ *		增加一个新的布尔关系选项
  */
 void
 add_bool_reloption(bits32 kinds, const char *name, const char *desc,
@@ -859,9 +859,9 @@ add_bool_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_local_bool_reloption
- *		Add a new boolean local reloption
+ *		增加一个新的局部布尔关系选项
  *
- * 'offset' is offset of bool-typed field.
+ * 'offset' 是布尔类型字段的偏移。
  */
 void
 add_local_bool_reloption(local_relopts *relopts, const char *name,
@@ -877,7 +877,7 @@ add_local_bool_reloption(local_relopts *relopts, const char *name,
 
 /*
  * init_real_reloption
- *		Allocate and initialize a new integer reloption
+ *		分配并初始化一个新的整数关系选项
  */
 static relopt_int *
 init_int_reloption(bits32 kinds, const char *name, const char *desc,
@@ -897,7 +897,7 @@ init_int_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_int_reloption
- *		Add a new integer reloption
+ *		增加一个新的整数关系选项
  */
 void
 add_int_reloption(bits32 kinds, const char *name, const char *desc, int default_val,
@@ -912,9 +912,9 @@ add_int_reloption(bits32 kinds, const char *name, const char *desc, int default_
 
 /*
  * add_local_int_reloption
- *		Add a new local integer reloption
+ *		增加一个新的局部整数关系选项
  *
- * 'offset' is offset of int-typed field.
+ * 'offset' 是整数类型字段的偏移。
  */
 void
 add_local_int_reloption(local_relopts *relopts, const char *name,
@@ -930,7 +930,7 @@ add_local_int_reloption(local_relopts *relopts, const char *name,
 
 /*
  * init_real_reloption
- *		Allocate and initialize a new real reloption
+ *		分配并初始化一个新的实数关系选项
  */
 static relopt_real *
 init_real_reloption(bits32 kinds, const char *name, const char *desc,
@@ -950,7 +950,7 @@ init_real_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_real_reloption
- *		Add a new float reloption
+ *		增加一个新的浮点关系选项
  */
 void
 add_real_reloption(bits32 kinds, const char *name, const char *desc,
@@ -966,9 +966,9 @@ add_real_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_local_real_reloption
- *		Add a new local float reloption
+ *		增加一个新的局部浮点关系选项
  *
- * 'offset' is offset of double-typed field.
+ * 'offset' 是 double 类型字段的偏移。
  */
 void
 add_local_real_reloption(local_relopts *relopts, const char *name,
@@ -985,7 +985,7 @@ add_local_real_reloption(local_relopts *relopts, const char *name,
 
 /*
  * init_enum_reloption
- *		Allocate and initialize a new enum reloption
+ *		分配并初始化一个新的枚举关系选项
  */
 static relopt_enum *
 init_enum_reloption(bits32 kinds, const char *name, const char *desc,
@@ -1006,15 +1006,15 @@ init_enum_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_enum_reloption
- *		Add a new enum reloption
+ *		增加一个新的枚举关系选项
  *
- * The members array must have a terminating NULL entry.
+ * members 数组必须以一个 NULL 项结尾。
  *
- * The detailmsg is shown when unsupported values are passed, and has this
- * form:   "Valid values are \"foo\", \"bar\", and \"bar\"."
+ * 传入不支持的值时会显示 detailmsg，其形式为
+ *    "Valid values are \"foo\", \"bar\", and \"bar\"."
  *
- * The members array and detailmsg are not copied -- caller must ensure that
- * they are valid throughout the life of the process.
+ * members 数组和 detailmsg 不会被复制——调用者必须确保
+ * 它们在进程的整个生命周期内一直有效。
  */
 void
 add_enum_reloption(bits32 kinds, const char *name, const char *desc,
@@ -1030,9 +1030,9 @@ add_enum_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_local_enum_reloption
- *		Add a new local enum reloption
+ *		增加一个新的局部枚举关系选项
  *
- * 'offset' is offset of int-typed field.
+ * 'offset' 是整数类型字段的偏移。
  */
 void
 add_local_enum_reloption(local_relopts *relopts, const char *name,
@@ -1049,7 +1049,7 @@ add_local_enum_reloption(local_relopts *relopts, const char *name,
 
 /*
  * init_string_reloption
- *		Allocate and initialize a new string reloption
+ *		分配并初始化一个新的字符串关系选项
  */
 static relopt_string *
 init_string_reloption(bits32 kinds, const char *name, const char *desc,
@@ -1060,7 +1060,7 @@ init_string_reloption(bits32 kinds, const char *name, const char *desc,
 {
 	relopt_string *newoption;
 
-	/* make sure the validator/default combination is sane */
+	/* 确保 validator 与默认值的组合是合理的 */
 	if (validator)
 		(validator) (default_val);
 
@@ -1089,12 +1089,12 @@ init_string_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_string_reloption
- *		Add a new string reloption
+ *		增加一个新的字符串关系选项
  *
- * "validator" is an optional function pointer that can be used to test the
- * validity of the values.  It must elog(ERROR) when the argument string is
- * not acceptable for the variable.  Note that the default value must pass
- * the validation.
+ * "validator" 是可选的函数指针，可用于检验
+ * 值是否有效。当参数字符串不被该变量接受时，必须
+ * elog(ERROR)。注意，默认值必须通过
+ * 校验。
  */
 void
 add_string_reloption(bits32 kinds, const char *name, const char *desc,
@@ -1111,10 +1111,10 @@ add_string_reloption(bits32 kinds, const char *name, const char *desc,
 
 /*
  * add_local_string_reloption
- *		Add a new local string reloption
+ *		增加一个新的局部字符串关系选项
  *
- * 'offset' is offset of int-typed field that will store offset of string value
- * in the resulting bytea structure.
+ * 'offset' 是整数类型字段的偏移，该字段存放字符串值
+ * 在结果 bytea 结构中的偏移。
  */
 void
 add_local_string_reloption(local_relopts *relopts, const char *name,
@@ -1132,27 +1132,27 @@ add_local_string_reloption(local_relopts *relopts, const char *name,
 }
 
 /*
- * Transform a relation options list (list of DefElem) into the text array
- * format that is kept in pg_class.reloptions, including only those options
- * that are in the passed namespace.  The output values do not include the
- * namespace.
+ * 把关系选项列表（DefElem 的列表）转换成保存在
+ * pg_class.reloptions 中的文本数组格式，只包含
+ * 传入命名空间里的那些选项。输出值不包含
+ * 命名空间。
  *
- * This is used for three cases: CREATE TABLE/INDEX, ALTER TABLE SET, and
- * ALTER TABLE RESET.  In the ALTER cases, oldOptions is the existing
- * reloptions value (possibly NULL), and we replace or remove entries
- * as needed.
+ * 这用于三种情形：CREATE TABLE/INDEX、ALTER TABLE SET，以及
+ * ALTER TABLE RESET。在 ALTER 情形中，oldOptions 是现有的
+ * reloptions 值（可能为 NULL），我们按需要替换或删除
+ * 条目。
  *
- * If acceptOidsOff is true, then we allow oids = false, but throw error when
- * on. This is solely needed for backwards compatibility.
+ * 若 acceptOidsOff 为真，则允许 oids = false，但为 on 时抛出错误。
+ * 这仅仅是为了向后兼容。
  *
- * Note that this is not responsible for determining whether the options
- * are valid, but it does check that namespaces for all the options given are
- * listed in validnsps.  The NULL namespace is always valid and need not be
- * explicitly listed.  Passing a NULL pointer means that only the NULL
- * namespace is valid.
+ * 注意，这里不负责判断这些选项是否
+ * 有效，但会检查所给选项的命名空间是否都
+ * 列在 validnsps 中。NULL 命名空间始终有效，不必
+ * 显式列出。传入 NULL 指针意味着只有 NULL
+ * 命名空间有效。
  *
- * Both oldOptions and the result are text arrays (or NULL for "default"),
- * but we declare them as Datums to avoid including array.h in reloptions.h.
+ * oldOptions 和结果都是文本数组（NULL 表示默认），
+ * 但我们把它们声明为 Datum，以避免在 reloptions.h 中包含 array.h。
  */
 Datum
 transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
@@ -1162,14 +1162,14 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 	ArrayBuildState *astate;
 	ListCell   *cell;
 
-	/* no change if empty list */
+	/* 空列表则不变 */
 	if (defList == NIL)
 		return oldOptions;
 
-	/* We build new array using accumArrayResult */
+	/* 用 accumArrayResult 构造新数组 */
 	astate = NULL;
 
-	/* Copy any oldOptions that aren't to be replaced */
+	/* 复制所有不会被替换的 oldOptions */
 	if (PointerIsValid(DatumGetPointer(oldOptions)))
 	{
 		ArrayType  *array = DatumGetArrayTypeP(oldOptions);
@@ -1184,13 +1184,13 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 			char	   *text_str = VARDATA(oldoptions[i]);
 			int			text_len = VARSIZE(oldoptions[i]) - VARHDRSZ;
 
-			/* Search for a match in defList */
+			/* 在 defList 中查找匹配 */
 			foreach(cell, defList)
 			{
 				DefElem    *def = (DefElem *) lfirst(cell);
 				int			kw_len;
 
-				/* ignore if not in the same namespace */
+				/* 若不在同一命名空间则忽略 */
 				if (namspace == NULL)
 				{
 					if (def->defnamespace != NULL)
@@ -1208,7 +1208,7 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 			}
 			if (!cell)
 			{
-				/* No match, so keep old option */
+				/* 没有匹配，因此保留旧选项 */
 				astate = accumArrayResult(astate, oldoptions[i],
 										  false, TEXTOID,
 										  CurrentMemoryContext);
@@ -1217,9 +1217,9 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 	}
 
 	/*
-	 * If CREATE/SET, add new options to array; if RESET, just check that the
-	 * user didn't say RESET (option=val).  (Must do this because the grammar
-	 * doesn't enforce it.)
+	 * 若是 CREATE/SET，把新选项加入数组；若是 RESET，只检查用户
+	 * 没有写成 RESET (option=val)。（必须这样做，因为语法
+	 * 并不强制这一点。）
 	 */
 	foreach(cell, defList)
 	{
@@ -1240,8 +1240,8 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 			Size		len;
 
 			/*
-			 * Error out if the namespace is not valid.  A NULL namespace is
-			 * always valid.
+			 * 若命名空间无效则报错。NULL 命名空间
+			 * 始终有效。
 			 */
 			if (def->defnamespace != NULL)
 			{
@@ -1267,7 +1267,7 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 									def->defnamespace)));
 			}
 
-			/* ignore if not in the same namespace */
+			/* 若不在同一命名空间则忽略 */
 			if (namspace == NULL)
 			{
 				if (def->defnamespace != NULL)
@@ -1279,9 +1279,9 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 				continue;
 
 			/*
-			 * Flatten the DefElem into a text string like "name=arg". If we
-			 * have just "name", assume "name=true" is meant.  Note: the
-			 * namespace is not output.
+			 * 把 DefElem 展平成类似 "name=arg" 的文本字符串。若
+			 * 只有 "name"，则假定意为 "name=true"。注意：
+			 * 不输出命名空间。
 			 */
 			name = def->defname;
 			if (def->arg != NULL)
@@ -1289,7 +1289,7 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 			else
 				value = "true";
 
-			/* Insist that name not contain "=", else "a=b=c" is ambiguous */
+			/* 坚持 name 不得包含 "="，否则 "a=b=c" 有歧义 */
 			if (strchr(name, '=') != NULL)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -1297,10 +1297,10 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 								name)));
 
 			/*
-			 * This is not a great place for this test, but there's no other
-			 * convenient place to filter the option out. As WITH (oids =
-			 * false) will be removed someday, this seems like an acceptable
-			 * amount of ugly.
+			 * 这里并不是做这项检查的好地方，但没有其他
+			 * 方便的地方能把该选项滤掉。由于 WITH (oids =
+			 * false) 将来会被去掉，这点难看似乎还在
+			 * 可接受的范围内。
 			 */
 			if (acceptOidsOff && def->defnamespace == NULL &&
 				strcmp(name, "oids") == 0)
@@ -1309,12 +1309,12 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 					ereport(ERROR,
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("tables declared WITH OIDS are not supported")));
-				/* skip over option, reloptions machinery doesn't know it */
+				/* 跳过该选项，关系选项机制不认识它 */
 				continue;
 			}
 
 			len = VARHDRSZ + strlen(name) + 1 + strlen(value);
-			/* +1 leaves room for sprintf's trailing null */
+			/* +1 为 sprintf 的结尾空字符留出空间 */
 			t = (text *) palloc(len + 1);
 			SET_VARSIZE(t, len);
 			sprintf(VARDATA(t), "%s=%s", name, value);
@@ -1335,8 +1335,8 @@ transformRelOptions(Datum oldOptions, List *defList, const char *namspace,
 
 
 /*
- * Convert the text-array format of reloptions into a List of DefElem.
- * This is the inverse of transformRelOptions().
+ * 把 reloptions 的文本数组格式转换成 DefElem 的 List。
+ * 这是 transformRelOptions() 的逆操作。
  */
 List *
 untransformRelOptions(Datum options)
@@ -1347,7 +1347,7 @@ untransformRelOptions(Datum options)
 	int			noptions;
 	int			i;
 
-	/* Nothing to do if no options */
+	/* 没有选项则无需处理 */
 	if (!PointerIsValid(DatumGetPointer(options)))
 		return result;
 
@@ -1375,16 +1375,16 @@ untransformRelOptions(Datum options)
 }
 
 /*
- * Extract and parse reloptions from a pg_class tuple.
+ * 从 pg_class 元组中提取并解析 reloptions。
  *
- * This is a low-level routine, expected to be used by relcache code and
- * callers that do not have a table's relcache entry (e.g. autovacuum).  For
- * other uses, consider grabbing the rd_options pointer from the relcache entry
- * instead.
+ * 这是低层例程，预期由 relcache 代码以及
+ * 没有表的 relcache 项的调用者使用（例如自动清理）。对于
+ * 其他用途，应改为从 relcache 项取得 rd_options 指针
+ * 来代替本函数。
  *
- * tupdesc is pg_class' tuple descriptor.  amoptions is a pointer to the index
- * AM's options parser function in the case of a tuple corresponding to an
- * index, or NULL otherwise.
+ * tupdesc 是 pg_class 的元组描述符。若元组对应一个
+ * 索引，amoptions 是该索引访问方法的选项解析函数指针，
+ * 否则为 NULL。
  */
 bytea *
 extractRelOptions(HeapTuple tuple, TupleDesc tupdesc,
@@ -1404,7 +1404,7 @@ extractRelOptions(HeapTuple tuple, TupleDesc tupdesc,
 
 	classForm = (Form_pg_class) GETSTRUCT(tuple);
 
-	/* Parse into appropriate format; don't error out here */
+	/* 解析成合适的格式；这里不要报错 */
 	switch (classForm->relkind)
 	{
 		case RELKIND_RELATION:
@@ -1426,8 +1426,8 @@ extractRelOptions(HeapTuple tuple, TupleDesc tupdesc,
 			options = NULL;
 			break;
 		default:
-			Assert(false);		/* can't get here */
-			options = NULL;		/* keep compiler quiet */
+			Assert(false);		/* 到不了这里 */
+			options = NULL;		/* 让编译器保持安静 */
 			break;
 	}
 
@@ -1451,7 +1451,7 @@ parseRelOptionsInternal(Datum options, bool validate,
 		int			text_len = VARSIZE(optiondatums[i]) - VARHDRSZ;
 		int			j;
 
-		/* Search for a match in reloptions */
+		/* 在 reloptions 中查找匹配 */
 		for (j = 0; j < numoptions; j++)
 		{
 			int			kw_len = reloptions[j].gen->namelen;
@@ -1480,7 +1480,7 @@ parseRelOptionsInternal(Datum options, bool validate,
 		}
 	}
 
-	/* It's worth avoiding memory leaks in this function */
+	/* 这个函数里值得避免内存泄漏 */
 	pfree(optiondatums);
 
 	if (((void *) array) != DatumGetPointer(options))
@@ -1488,23 +1488,23 @@ parseRelOptionsInternal(Datum options, bool validate,
 }
 
 /*
- * Interpret reloptions that are given in text-array format.
+ * 解释以文本数组格式给出的 reloptions。
  *
- * options is a reloption text array as constructed by transformRelOptions.
- * kind specifies the family of options to be processed.
+ * options 是由 transformRelOptions 构造的关系选项文本数组。
+ * kind 指定要处理的选项族。
  *
- * The return value is a relopt_value * array on which the options actually
- * set in the options array are marked with isset=true.  The length of this
- * array is returned in *numrelopts.  Options not set are also present in the
- * array; this is so that the caller can easily locate the default values.
+ * 返回值是 relopt_value * 数组，选项数组中实际
+ * 设置的选项标记为 isset=true。该数组的长度
+ * 经 *numrelopts 返回。未设置的选项也在该
+ * 数组中，以便调用者容易找到默认值。
  *
- * If there are no options of the given kind, numrelopts is set to 0 and NULL
- * is returned (unless options are illegally supplied despite none being
- * defined, in which case an error occurs).
+ * 若给定种类没有任何选项，则把 numrelopts 置为 0 并
+ * 返回 NULL（除非在一个都没有定义时仍非法提供了选项，
+ * 此时会报错）。
  *
- * Note: values of type int, bool and real are allocated as part of the
- * returned array.  Values of type string are allocated separately and must
- * be freed by the caller.
+ * 注意：int、bool 和 real 类型的值作为
+ * 返回数组的一部分分配。string 类型的值单独分配，必须
+ * 由调用者释放。
  */
 static relopt_value *
 parseRelOptions(Datum options, bool validate, relopt_kind kind,
@@ -1518,7 +1518,7 @@ parseRelOptions(Datum options, bool validate, relopt_kind kind,
 	if (need_initialization)
 		initialize_reloptions();
 
-	/* Build a list of expected options, based on kind */
+	/* 按 kind 构造预期选项的列表 */
 
 	for (i = 0; relOpts[i]; i++)
 		if (relOpts[i]->kinds & kind)
@@ -1539,7 +1539,7 @@ parseRelOptions(Datum options, bool validate, relopt_kind kind,
 		}
 	}
 
-	/* Done if no options */
+	/* 没有选项则结束 */
 	if (PointerIsValid(DatumGetPointer(options)))
 		parseRelOptionsInternal(options, validate, reloptions, numoptions);
 
@@ -1547,7 +1547,7 @@ parseRelOptions(Datum options, bool validate, relopt_kind kind,
 	return reloptions;
 }
 
-/* Parse local unregistered options. */
+/* 解析局部未注册选项。 */
 static relopt_value *
 parseLocalRelOptions(local_relopts *relopts, Datum options, bool validate)
 {
@@ -1573,8 +1573,8 @@ parseLocalRelOptions(local_relopts *relopts, Datum options, bool validate)
 }
 
 /*
- * Subroutine for parseRelOptions, to parse and validate a single option's
- * value
+ * parseRelOptions 的子例程，用于解析并校验单个选项的
+ * 值
  */
 static void
 parse_one_reloption(relopt_value *option, char *text_str, int text_len,
@@ -1672,8 +1672,8 @@ parse_one_reloption(relopt_value *option, char *text_str, int text_len,
 							 errdetail_internal("%s", _(optenum->detailmsg)) : 0));
 
 				/*
-				 * If value is not among the allowed string values, but we are
-				 * not asked to validate, just use the default numeric value.
+				 * 若值不在允许的字符串值之中，但并未
+				 * 要求我们校验，则直接使用默认的数值。
 				 */
 				if (!parsed)
 					option->values.enum_val = optenum->default_val;
@@ -1692,7 +1692,7 @@ parse_one_reloption(relopt_value *option, char *text_str, int text_len,
 			break;
 		default:
 			elog(ERROR, "unsupported reloption type %d", option->gen->type);
-			parsed = true;		/* quiet compiler */
+			parsed = true;		/* 让编译器保持安静 */
 			break;
 	}
 
@@ -1703,11 +1703,11 @@ parse_one_reloption(relopt_value *option, char *text_str, int text_len,
 }
 
 /*
- * Given the result from parseRelOptions, allocate a struct that's of the
- * specified base size plus any extra space that's needed for string variables.
+ * 给定 parseRelOptions 的结果，分配一个结构体，其大小为
+ * 指定的基础大小，再加上字符串变量所需的额外空间。
  *
- * "base" should be sizeof(struct) of the reloptions struct (StdRdOptions or
- * equivalent).
+ * "base" 应为关系选项结构体的 sizeof(struct)（StdRdOptions 或
+ * 与之相当的结构）。
  */
 static void *
 allocateReloptStruct(Size base, relopt_value *options, int numoptions)
@@ -1739,15 +1739,15 @@ allocateReloptStruct(Size base, relopt_value *options, int numoptions)
 }
 
 /*
- * Given the result of parseRelOptions and a parsing table, fill in the
- * struct (previously allocated with allocateReloptStruct) with the parsed
- * values.
+ * 给定 parseRelOptions 的结果和一张解析表，把解析出的
+ * 值填入结构体（先前已用 allocateReloptStruct
+ * 分配）。
  *
- * rdopts is the pointer to the allocated struct to be filled.
- * basesize is the sizeof(struct) that was passed to allocateReloptStruct.
- * options, of length numoptions, is parseRelOptions' output.
- * elems, of length numelems, is the table describing the allowed options.
- * When validate is true, it is expected that all options appear in elems.
+ * rdopts 是待填充分配结构体的指针。
+ * basesize 是传给 allocateReloptStruct 的 sizeof(struct)。
+ * options 长度为 numoptions，是 parseRelOptions 的输出。
+ * elems 长度为 numelems，是描述允许选项的表。
+ * validate 为真时，预期所有选项都出现在 elems 中。
  */
 static void
 fillRelOptions(void *rdopts, Size basesize,
@@ -1843,7 +1843,7 @@ fillRelOptions(void *rdopts, Size basesize,
 
 
 /*
- * Option parser for anything that uses StdRdOptions.
+ * 使用 StdRdOptions 的选项解析器。
  */
 bytea *
 default_reloptions(Datum reloptions, bool validate, relopt_kind kind)
@@ -1902,18 +1902,18 @@ default_reloptions(Datum reloptions, bool validate, relopt_kind kind)
 /*
  * build_reloptions
  *
- * Parses "reloptions" provided by the caller, returning them in a
- * structure containing the parsed options.  The parsing is done with
- * the help of a parsing table describing the allowed options, defined
- * by "relopt_elems" of length "num_relopt_elems".
+ * 解析调用者提供的 "reloptions"，放在一个
+ * 含有已解析选项的结构体中返回。解析借助
+ * 一张描述允许选项的解析表完成，该表由
+ * 长度为 "num_relopt_elems" 的 "relopt_elems" 定义。
  *
- * "validate" must be true if reloptions value is freshly built by
- * transformRelOptions(), as opposed to being read from the catalog, in which
- * case the values contained in it must already be valid.
+ * 若 reloptions 值是刚由 transformRelOptions() 构造的，则 "validate"
+ * 必须为真；与此相对，若是从系统目录读出，则其中
+ * 所含的值必须已经有效。
  *
- * NULL is returned if the passed-in options did not match any of the options
- * in the parsing table, unless validate is true in which case an error would
- * be reported.
+ * 若传入的选项与解析表中的任何选项都不匹配，
+ * 则返回 NULL，除非 validate 为真，此时会
+ * 报告错误。
  */
 void *
 build_reloptions(Datum reloptions, bool validate,
@@ -1926,18 +1926,18 @@ build_reloptions(Datum reloptions, bool validate,
 	relopt_value *options;
 	void	   *rdopts;
 
-	/* parse options specific to given relation option kind */
+	/* 解析给定关系选项种类所特有的选项 */
 	options = parseRelOptions(reloptions, validate, kind, &numoptions);
 	Assert(numoptions <= num_relopt_elems);
 
-	/* if none set, we're done */
+	/* 若一个都没有，则结束 */
 	if (numoptions == 0)
 	{
 		Assert(options == NULL);
 		return NULL;
 	}
 
-	/* allocate and fill the structure */
+	/* 分配并填充该结构体 */
 	rdopts = allocateReloptStruct(relopt_struct_size, options, numoptions);
 	fillRelOptions(rdopts, relopt_struct_size, options, numoptions,
 				   validate, relopt_elems, num_relopt_elems);
@@ -1948,9 +1948,9 @@ build_reloptions(Datum reloptions, bool validate,
 }
 
 /*
- * Parse local options, allocate a bytea struct that's of the specified
- * 'base_size' plus any extra space that's needed for string variables,
- * fill its option's fields located at the given offsets and return it.
+ * 解析局部选项，分配一个 bytea 结构，大小为指定的
+ * 'base_size' 再加上字符串变量所需的额外空间，
+ * 按给定偏移填入其选项字段并返回。
  */
 void *
 build_local_reloptions(local_relopts *relopts, Datum options, bool validate)
@@ -1989,7 +1989,7 @@ build_local_reloptions(local_relopts *relopts, Datum options, bool validate)
 }
 
 /*
- * Option parser for partitioned tables
+ * 分区表的选项解析器
  */
 bytea *
 partitioned_table_reloptions(Datum reloptions, bool validate)
@@ -2003,7 +2003,7 @@ partitioned_table_reloptions(Datum reloptions, bool validate)
 }
 
 /*
- * Option parser for views
+ * 视图的选项解析器
  */
 bytea *
 view_reloptions(Datum reloptions, bool validate)
@@ -2024,7 +2024,7 @@ view_reloptions(Datum reloptions, bool validate)
 }
 
 /*
- * Parse options for heaps, views and toast tables.
+ * 解析堆、视图和 TOAST 表的选项。
  */
 bytea *
 heap_reloptions(char relkind, Datum reloptions, bool validate)
@@ -2038,7 +2038,7 @@ heap_reloptions(char relkind, Datum reloptions, bool validate)
 				default_reloptions(reloptions, validate, RELOPT_KIND_TOAST);
 			if (rdopts != NULL)
 			{
-				/* adjust default-only parameters for TOAST relations */
+				/* 调整 TOAST 关系上只取默认值的参数 */
 				rdopts->fillfactor = 100;
 				rdopts->autovacuum.analyze_threshold = -1;
 				rdopts->autovacuum.analyze_scale_factor = -1;
@@ -2048,25 +2048,25 @@ heap_reloptions(char relkind, Datum reloptions, bool validate)
 		case RELKIND_MATVIEW:
 			return default_reloptions(reloptions, validate, RELOPT_KIND_HEAP);
 		default:
-			/* other relkinds are not supported */
+			/* 不支持其他 relkind */
 			return NULL;
 	}
 }
 
 
 /*
- * Parse options for indexes.
+ * 解析索引的选项。
  *
- *	amoptions	index AM's option parser function
- *	reloptions	options as text[] datum
- *	validate	error flag
+ *	amoptions	索引访问方法的选项解析函数
+ *	reloptions	作为 text[] datum 的选项
+ *	validate	是否报错的标志
  */
 bytea *
 index_reloptions(amoptions_function amoptions, Datum reloptions, bool validate)
 {
 	Assert(amoptions != NULL);
 
-	/* Assume function is strict */
+	/* 假定该函数是 strict 的 */
 	if (!PointerIsValid(DatumGetPointer(reloptions)))
 		return NULL;
 
@@ -2074,7 +2074,7 @@ index_reloptions(amoptions_function amoptions, Datum reloptions, bool validate)
 }
 
 /*
- * Option parser for attribute reloptions
+ * 属性关系选项的解析器
  */
 bytea *
 attribute_reloptions(Datum reloptions, bool validate)
@@ -2091,7 +2091,7 @@ attribute_reloptions(Datum reloptions, bool validate)
 }
 
 /*
- * Option parser for tablespace reloptions
+ * 表空间关系选项的解析器
  */
 bytea *
 tablespace_reloptions(Datum reloptions, bool validate)
@@ -2110,10 +2110,10 @@ tablespace_reloptions(Datum reloptions, bool validate)
 }
 
 /*
- * Determine the required LOCKMODE from an option list.
+ * 根据选项列表确定所需的 LOCKMODE。
  *
- * Called from AlterTableGetLockLevel(), see that function
- * for a longer explanation of how this works.
+ * 由 AlterTableGetLockLevel() 调用，该函数中有
+ * 关于其工作方式的更长说明。
  */
 LOCKMODE
 AlterTableGetRelOptionsLockLevel(List *defList)

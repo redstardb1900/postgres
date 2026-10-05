@@ -1,0 +1,79 @@
+{
+ "schema_version": 1,
+ "batch_id": "0104b-comment-buffer-wording",
+ "title": "zh: fix localbuf LBDEBUG and freelist wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "53b40edb9fd73124dbf07bc3e225618dd74a962a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "note": "restore uncomment-to-enable LBDEBUG"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "note": "冒险陷入"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0104b-comment-buffer-wording.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 71,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "uncomment-to-enable LBDEBUG"
+   ],
+   "note": "restore uncomment-to-enable LBDEBUG"
+  },
+  {
+   "path": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 85,
+   "translated": 84,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "冒险陷入"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0104b-comment-buffer-wording.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0104b restores /*#define LBDEBUG*/ so the debug toggle can be enabled by uncommenting, and changes 冒陷入 to 冒险陷入 in freelist.c."
+}

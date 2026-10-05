@@ -26,7 +26,7 @@
 #include "utils/resowner_private.h"
 
 
-/*调试开关 LBDEBUG*/
+/*#define LBDEBUG*/
 
 /* 缓冲区查找散列表的条目 */
 typedef struct

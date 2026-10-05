@@ -346,7 +346,7 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 			 * 我们扫描了全部缓冲区而没有改变任何状态，
 			 * 因此全部缓冲区都被钉住（或我们看它们时是钉住的）。
 			 * 我们可以希望最终有人会释放一个，但
-			 * 失败大概比冒陷入
+			 * 失败大概比冒险陷入
 			 * 无限循环的风险更好。
 			 */
 			UnlockBufHdr(buf, local_buf_state);

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0127-comment-storage-lmgr-lwlock",
+ "title": "zh: translate lwlock comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "abf5db0f7b590e3b3acb1f742cace8454df32316",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/lwlock.c",
+   "kind": "c_comment",
+   "note": "lightweight lock manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0127-comment-storage-lmgr-lwlock.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/lwlock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 199,
+   "translated": 198,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "LWLock atomic acquire, wait queue, and tranches"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0127-comment-storage-lmgr-lwlock.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0127 translates body comments in lwlock.c. Terms: 轻量锁, LWLock, 锁管理器, 等待队列, 自旋锁, 共享/排他, 分组（tranche）. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be predicate.c."
+}

@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-be.h
- *	  This file contains definitions for structures and externs used
- *	  by the postmaster during client authentication.
+ *	  本文件包含 postmaster 在客户端认证期间使用的
+ *	  结构与 extern 声明的定义。
  *
- *	  Note that this is backend-internal and is NOT exported to clients.
- *	  Structs that need to be client-visible are in pqcomm.h.
+ *	  注意：本文件只供后端内部使用，不会导出给客户端。
+ *	  需要让客户端可见的结构位于 pqcomm.h 中。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

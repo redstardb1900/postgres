@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * sasl.h
- *	  Defines the SASL mechanism interface for the backend.
+ *	  定义后端的 SASL 机制接口。
  *
- * Each SASL mechanism defines a frontend and a backend callback structure.
+ * 每种 SASL 机制都定义一个前端回调结构和一个后端回调结构。
  *
- * See src/interfaces/libpq/fe-auth-sasl.h for the frontend counterpart.
+ * 前端的对应部分见 src/interfaces/libpq/fe-auth-sasl.h。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

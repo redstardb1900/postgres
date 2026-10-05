@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * libpq.h
- *	  POSTGRES LIBPQ buffer structure definitions.
+ *	  POSTGRES LIBPQ 缓冲区结构定义。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

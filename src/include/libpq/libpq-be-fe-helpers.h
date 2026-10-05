@@ -1,24 +1,24 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-be-fe-helpers.h
- *	  Helper functions for using libpq in extensions
+ *	  在扩展中使用 libpq 的辅助函数
  *
- * Code built directly into the backend is not allowed to link to libpq
- * directly. Extension code is allowed to use libpq however. However, libpq
- * used in extensions has to be careful to block inside libpq, otherwise
- * interrupts will not be processed, leading to issues like unresolvable
- * deadlocks. Backend code also needs to take care to acquire/release an
- * external fd for the connection, otherwise fd.c's accounting of fd's is
- * broken.
+ * 直接构建进后端的代码不允许直接链接到 libpq。
+ * 扩展代码则允许使用 libpq。不过，扩展中使用的 libpq
+ * 在 libpq 内部阻塞时必须小心，否则
+ * 中断将得不到处理，从而造成无法解除的
+ * 死锁之类的问题。后端代码还须注意为该连接
+ * 获取并释放一个外部 fd，否则 fd.c 对 fd 的记账
+ * 就会出错。
  *
- * This file provides helper functions to make it easier to comply with these
- * rules. It is a header only library as it needs to be linked into each
- * extension using libpq, and it seems too small to be worth adding a
- * dedicated static library for.
+ * 本文件提供辅助函数，以便更容易遵守这些
+ * 规则。它是一个仅含头文件的库，因为需要链接进每一个
+ * 使用 libpq 的扩展，而且它看起来太小，不值得为此
+ * 再增加一个专用的静态库。
  *
- * TODO: For historical reasons the connections established here are not put
- * into non-blocking mode. That can lead to blocking even when only the async
- * libpq functions are used. This should be fixed.
+ * TODO：出于历史原因，这里建立的连接没有被置为
+ * 非阻塞模式。即便只用异步的 libpq 函数，
+ * 这也可能导致阻塞。这一点应当修正。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

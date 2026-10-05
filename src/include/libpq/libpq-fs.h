@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * libpq-fs.h
- *	  definitions for using Inversion file system routines (ie, large objects)
+ *	  使用 Inversion 文件系统例程（即大对象）的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

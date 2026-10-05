@@ -1,0 +1,210 @@
+{
+ "schema_version": 1,
+ "batch_id": "0117-comment-headers-include-libpq",
+ "title": "zh: translate file-header module descriptions (include/libpq)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7e074045e5ec34efa22bb70a58d5e85b620ec693",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/libpq-be.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/libpq-fs.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/libpq.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/pqcomm.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/pqformat.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/pqsignal.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/sasl.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/scram.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0117-comment-headers-include-libpq.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/include/libpq/libpq-be-fe-helpers.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 33,
+   "translated": 31,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/libpq-be.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 54,
+   "translated": 47,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "preprocessor guard comments",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/libpq-fs.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 1,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/libpq.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 6,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "GUCs sentinel",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/pqcomm.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 29,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/pqformat.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 12,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/pqsignal.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 2,
+   "preserved": 3,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "WIN32 guard comment",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/sasl.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 3,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent blocks",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/scram.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0117-comment-headers-include-libpq.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Backfill file-header module descriptions after the line-level Copyright/IDENTIFICATION protect rule. Covers the remaining src/include/libpq headers. Legal lines stay byte-identical."
+}

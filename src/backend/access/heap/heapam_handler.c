@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * heapam_handler.c
- *	  heap table access method code
+ *	  堆表访问方法代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,8 +12,8 @@
  *
  *
  * NOTES
- *	  This files wires up the lower level heapam.c et al routines with the
- *	  tableam abstraction.
+ *	  本文件把下层 heapam.c 等例程接到
+ *	  表 AM 抽象上。
  *
  *-------------------------------------------------------------------------
  */
@@ -59,7 +59,7 @@ static const TableAmRoutine heapam_methods;
 
 
 /* ------------------------------------------------------------------------
- * Slot related callbacks for heap AM
+ * 堆 AM 的槽相关回调
  * ------------------------------------------------------------------------
  */
 
@@ -71,7 +71,7 @@ heapam_slot_callbacks(Relation relation)
 
 
 /* ------------------------------------------------------------------------
- * Index Scan Callbacks for heap AM
+ * 堆 AM 的索引扫描回调
  * ------------------------------------------------------------------------
  */
 
@@ -121,10 +121,10 @@ heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
 
 	Assert(TTS_IS_BUFFERTUPLE(slot));
 
-	/* We can skip the buffer-switching logic if we're in mid-HOT chain. */
+	/* 若正处于 HOT 链中途，可以跳过切换缓冲区的逻辑。 */
 	if (!*call_again)
 	{
-		/* Switch to correct buffer if we don't have it already */
+		/* 若还没有正确的缓冲区，就切换过去 */
 		Buffer		prev_buf = hscan->xs_cbuf;
 
 		hscan->xs_cbuf = ReleaseAndReadBuffer(hscan->xs_cbuf,
@@ -132,13 +132,13 @@ heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
 											  ItemPointerGetBlockNumber(tid));
 
 		/*
-		 * Prune page, but only if we weren't already on this page
+		 * 剪枝该页，但仅当我们原先不在这一页上
 		 */
 		if (prev_buf != hscan->xs_cbuf)
 			heap_page_prune_opt(hscan->xs_base.rel, hscan->xs_cbuf);
 	}
 
-	/* Obtain share-lock on the buffer so we can examine visibility */
+	/* 取得缓冲区上的共享锁，以便检查可见性 */
 	LockBuffer(hscan->xs_cbuf, BUFFER_LOCK_SHARE);
 	got_heap_tuple = heap_hot_search_buffer(tid,
 											hscan->xs_base.rel,
@@ -153,8 +153,8 @@ heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
 	if (got_heap_tuple)
 	{
 		/*
-		 * Only in a non-MVCC snapshot can more than one member of the HOT
-		 * chain be visible.
+		 * 只有在非 MVCC 快照下，HOT 链上才可能
+		 * 有不止一个成员可见。
 		 */
 		*call_again = !IsMVCCSnapshot(snapshot);
 
@@ -163,7 +163,7 @@ heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
 	}
 	else
 	{
-		/* We've reached the end of the HOT chain. */
+		/* 已经到达 HOT 链的末端。 */
 		*call_again = false;
 	}
 
@@ -172,7 +172,7 @@ heapam_index_fetch_tuple(struct IndexFetchTableData *scan,
 
 
 /* ------------------------------------------------------------------------
- * Callbacks for non-modifying operations on individual tuples for heap AM
+ * 堆 AM 中对单个元组的非修改操作回调
  * ------------------------------------------------------------------------
  */
 
@@ -190,7 +190,7 @@ heapam_fetch_row_version(Relation relation,
 	bslot->base.tupdata.t_self = *tid;
 	if (heap_fetch(relation, snapshot, &bslot->base.tupdata, &buffer, false))
 	{
-		/* store in slot, transferring existing pin */
+		/* 存入槽中，并移交既有的钉 */
 		ExecStorePinnedBufferHeapTuple(&bslot->base.tupdata, slot, buffer);
 		slot->tts_tableOid = RelationGetRelid(relation);
 
@@ -220,8 +220,8 @@ heapam_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
 	Assert(BufferIsValid(bslot->buffer));
 
 	/*
-	 * We need buffer pin and lock to call HeapTupleSatisfiesVisibility.
-	 * Caller should be holding pin, but not lock.
+	 * 调用 HeapTupleSatisfiesVisibility 需要缓冲区的钉和锁。
+	 * 调用方应当持有钉，但不应持有锁。
 	 */
 	LockBuffer(bslot->buffer, BUFFER_LOCK_SHARE);
 	res = HeapTupleSatisfiesVisibility(bslot->base.tuple, snapshot,
@@ -233,7 +233,7 @@ heapam_tuple_satisfies_snapshot(Relation rel, TupleTableSlot *slot,
 
 
 /* ----------------------------------------------------------------------------
- *  Functions for manipulations of physical tuples for heap AM.
+ *  堆 AM 物理元组操作函数。
  * ----------------------------------------------------------------------------
  */
 
@@ -244,11 +244,11 @@ heapam_tuple_insert(Relation relation, TupleTableSlot *slot, CommandId cid,
 	bool		shouldFree = true;
 	HeapTuple	tuple = ExecFetchSlotHeapTuple(slot, true, &shouldFree);
 
-	/* Update the tuple with table oid */
+	/* 把表 OID 填入该元组 */
 	slot->tts_tableOid = RelationGetRelid(relation);
 	tuple->t_tableOid = slot->tts_tableOid;
 
-	/* Perform the insertion, and copy the resulting ItemPointer */
+	/* 执行插入，并复制得到的 ItemPointer */
 	heap_insert(relation, tuple, cid, options, bistate);
 	ItemPointerCopy(&tuple->t_self, &slot->tts_tid);
 
@@ -264,14 +264,14 @@ heapam_tuple_insert_speculative(Relation relation, TupleTableSlot *slot,
 	bool		shouldFree = true;
 	HeapTuple	tuple = ExecFetchSlotHeapTuple(slot, true, &shouldFree);
 
-	/* Update the tuple with table oid */
+	/* 把表 OID 填入该元组 */
 	slot->tts_tableOid = RelationGetRelid(relation);
 	tuple->t_tableOid = slot->tts_tableOid;
 
 	HeapTupleHeaderSetSpeculativeToken(tuple->t_data, specToken);
 	options |= HEAP_INSERT_SPECULATIVE;
 
-	/* Perform the insertion, and copy the resulting ItemPointer */
+	/* 执行插入，并复制得到的 ItemPointer */
 	heap_insert(relation, tuple, cid, options, bistate);
 	ItemPointerCopy(&tuple->t_self, &slot->tts_tid);
 
@@ -286,7 +286,7 @@ heapam_tuple_complete_speculative(Relation relation, TupleTableSlot *slot,
 	bool		shouldFree = true;
 	HeapTuple	tuple = ExecFetchSlotHeapTuple(slot, true, &shouldFree);
 
-	/* adjust the tuple's state accordingly */
+	/* 据此调整元组的状态 */
 	if (succeeded)
 		heap_finish_speculative(relation, &slot->tts_tid);
 	else
@@ -302,9 +302,9 @@ heapam_tuple_delete(Relation relation, ItemPointer tid, CommandId cid,
 					TM_FailureData *tmfd, bool changingPart)
 {
 	/*
-	 * Currently Deleting of index tuples are handled at vacuum, in case if
-	 * the storage itself is cleaning the dead tuples by itself, it is the
-	 * time to call the index tuple deletion also.
+	 * 目前，索引元组的删除在 VACUUM 时处理；若存储层自己
+	 * 正在清理死元组，那也正是一并调用
+	 * 索引元组删除的时机。
 	 */
 	return heap_delete(relation, tid, cid, crosscheck, wait, tmfd, changingPart);
 }
@@ -320,7 +320,7 @@ heapam_tuple_update(Relation relation, ItemPointer otid, TupleTableSlot *slot,
 	HeapTuple	tuple = ExecFetchSlotHeapTuple(slot, true, &shouldFree);
 	TM_Result	result;
 
-	/* Update the tuple with table oid */
+	/* 把表 OID 填入该元组 */
 	slot->tts_tableOid = RelationGetRelid(relation);
 	tuple->t_tableOid = slot->tts_tableOid;
 
@@ -329,14 +329,14 @@ heapam_tuple_update(Relation relation, ItemPointer otid, TupleTableSlot *slot,
 	ItemPointerCopy(&tuple->t_self, &slot->tts_tid);
 
 	/*
-	 * Decide whether new index entries are needed for the tuple
+	 * 决定该元组是否需要新的索引项
 	 *
-	 * Note: heap_update returns the tid (location) of the new tuple in the
-	 * t_self field.
+	 * 注意：heap_update 把新元组的 tid（位置）放在
+	 * t_self 中返回。
 	 *
-	 * If the update is not HOT, we must update all indexes. If the update is
-	 * HOT, it could be that we updated summarized columns, so we either
-	 * update only summarized indexes, or none at all.
+	 * 若这次更新不是 HOT，就必须更新全部索引。若更新是
+	 * HOT，则可能改了汇总列，因此我们要么只更新
+	 * 汇总索引，要么一个都不更新。
 	 */
 	if (result != TM_Ok)
 	{
@@ -380,7 +380,7 @@ tuple_lock_retry:
 	if (result == TM_Updated &&
 		(flags & TUPLE_LOCK_FLAG_FIND_LAST_VERSION))
 	{
-		/* Should not encounter speculative tuple on recheck */
+		/* 复查时不应当遇到推测元组 */
 		Assert(!HeapTupleHeaderIsSpeculative(tuple->t_data));
 
 		ReleaseBuffer(buffer);
@@ -390,18 +390,18 @@ tuple_lock_retry:
 			SnapshotData SnapshotDirty;
 			TransactionId priorXmax;
 
-			/* it was updated, so look at the updated version */
+			/* 它已被更新，因此查看更新后的版本 */
 			*tid = tmfd->ctid;
-			/* updated row should have xmin matching this xmax */
+			/* 更新后的行，其 xmin 应当与这个 xmax 匹配 */
 			priorXmax = tmfd->xmax;
 
-			/* signal that a tuple later in the chain is getting locked */
+			/* 表明链上更靠后的元组即将被锁定 */
 			tmfd->traversed = true;
 
 			/*
-			 * fetch target tuple
+			 * 取回目标元组
 			 *
-			 * Loop here to deal with updated or busy tuples
+			 * 在此循环，以处理已更新或正忙的元组
 			 */
 			InitDirtySnapshot(SnapshotDirty);
 			for (;;)
@@ -415,14 +415,14 @@ tuple_lock_retry:
 				if (heap_fetch(relation, &SnapshotDirty, tuple, &buffer, true))
 				{
 					/*
-					 * If xmin isn't what we're expecting, the slot must have
-					 * been recycled and reused for an unrelated tuple.  This
-					 * implies that the latest version of the row was deleted,
-					 * so we need do nothing.  (Should be safe to examine xmin
-					 * without getting buffer's content lock.  We assume
-					 * reading a TransactionId to be atomic, and Xmin never
-					 * changes in an existing tuple, except to invalid or
-					 * frozen, and neither of those can match priorXmax.)
+					 * 若 xmin 不是我们所预期的，该槽位必定
+					 * 已被回收，并重用于一个无关元组。这
+					 * 意味着该行的最新版本已被删除，
+					 * 因此我们无需做任何事。（不取得缓冲区的
+					 * 内容锁就检查 xmin 应当是安全的。我们假定
+					 * 读取 TransactionId 是原子的，并且已有元组里的 Xmin
+					 * 除了变成无效或冻结之外从不会改变，
+					 * 而这两种取值都不可能与 priorXmax 匹配。）
 					 */
 					if (!TransactionIdEquals(HeapTupleHeaderGetXmin(tuple->t_data),
 											 priorXmax))
@@ -431,7 +431,7 @@ tuple_lock_retry:
 						return TM_Deleted;
 					}
 
-					/* otherwise xmin should not be dirty... */
+					/* 否则 xmin 不应当是脏的... */
 					if (TransactionIdIsValid(SnapshotDirty.xmin))
 						ereport(ERROR,
 								(errcode(ERRCODE_DATA_CORRUPTED),
@@ -442,8 +442,8 @@ tuple_lock_retry:
 												 RelationGetRelationName(relation))));
 
 					/*
-					 * If tuple is being updated by other transaction then we
-					 * have to wait for its commit/abort, or die trying.
+					 * 若元组正被其他事务更新，我们就必须等待其提交或中止，
+					 * 否则就报错退出。
 					 */
 					if (TransactionIdIsValid(SnapshotDirty.xmax))
 					{
@@ -457,7 +457,7 @@ tuple_lock_retry:
 								break;
 							case LockWaitSkip:
 								if (!ConditionalXactLockTableWait(SnapshotDirty.xmax))
-									/* skip instead of waiting */
+									/* 跳过，而不是等待 */
 									return TM_WouldBlock;
 								break;
 							case LockWaitError:
@@ -468,20 +468,20 @@ tuple_lock_retry:
 													RelationGetRelationName(relation))));
 								break;
 						}
-						continue;	/* loop back to repeat heap_fetch */
+						continue;	/* 回到循环开头，再次 heap_fetch */
 					}
 
 					/*
-					 * If tuple was inserted by our own transaction, we have
-					 * to check cmin against cid: cmin >= current CID means
-					 * our command cannot see the tuple, so we should ignore
-					 * it. Otherwise heap_lock_tuple() will throw an error,
-					 * and so would any later attempt to update or delete the
-					 * tuple.  (We need not check cmax because
-					 * HeapTupleSatisfiesDirty will consider a tuple deleted
-					 * by our transaction dead, regardless of cmax.)  We just
-					 * checked that priorXmax == xmin, so we can test that
-					 * variable instead of doing HeapTupleHeaderGetXmin again.
+					 * 若元组是我们自己的事务插入的，就必须
+					 * 用 cmin 对照 cid 检查：cmin >= 当前 CID 表示
+					 * 我们的命令无法看见该元组，因此应当忽略
+					 * 它。否则 heap_lock_tuple() 会报错，
+					 * 之后任何更新或删除该元组的尝试也会
+					 * 报错。（不必检查 cmax，因为
+					 * HeapTupleSatisfiesDirty 会把本事务删除的
+					 * 元组视为死亡，与 cmax 无关。）我们刚刚
+					 * 已经确认 priorXmax == xmin，因此可以检查该
+					 * 变量，而不必再次调用 HeapTupleHeaderGetXmin。
 					 */
 					if (TransactionIdIsCurrentTransactionId(priorXmax) &&
 						HeapTupleHeaderGetCmin(tuple->t_data) >= cid)
@@ -489,8 +489,8 @@ tuple_lock_retry:
 						tmfd->xmax = priorXmax;
 
 						/*
-						 * Cmin is the problematic value, so store that. See
-						 * above.
+						 * 有问题的取值是 Cmin，因此存下它。见
+						 * 上文。
 						 */
 						tmfd->cmax = HeapTupleHeaderGetCmin(tuple->t_data);
 						ReleaseBuffer(buffer);
@@ -498,16 +498,16 @@ tuple_lock_retry:
 					}
 
 					/*
-					 * This is a live tuple, so try to lock it again.
+					 * 这是活元组，因此再次尝试锁定它。
 					 */
 					ReleaseBuffer(buffer);
 					goto tuple_lock_retry;
 				}
 
 				/*
-				 * If the referenced slot was actually empty, the latest
-				 * version of the row must have been deleted, so we need do
-				 * nothing.
+				 * 若所引用的槽位实际上是空的，该行的最新
+				 * 版本必定已被删除，因此我们无需
+				 * 做任何事。
 				 */
 				if (tuple->t_data == NULL)
 				{
@@ -516,7 +516,7 @@ tuple_lock_retry:
 				}
 
 				/*
-				 * As above, if xmin isn't what we're expecting, do nothing.
+				 * 同上，若 xmin 不是我们所预期的，就什么都不做。
 				 */
 				if (!TransactionIdEquals(HeapTupleHeaderGetXmin(tuple->t_data),
 										 priorXmax))
@@ -526,37 +526,37 @@ tuple_lock_retry:
 				}
 
 				/*
-				 * If we get here, the tuple was found but failed
-				 * SnapshotDirty. Assuming the xmin is either a committed xact
-				 * or our own xact (as it certainly should be if we're trying
-				 * to modify the tuple), this must mean that the row was
-				 * updated or deleted by either a committed xact or our own
-				 * xact.  If it was deleted, we can ignore it; if it was
-				 * updated then chain up to the next version and repeat the
-				 * whole process.
+				 * 若执行到这里，说明找到了元组，但它没有通过
+				 * SnapshotDirty。假定 xmin 要么是已提交事务，
+				 * 要么是我们自己的事务（如果我们正试图
+				 * 修改该元组，就必定应当如此），这就意味着该行
+				 * 已被某个已提交事务或我们自己的事务
+				 * 更新或删除。若已删除，可以忽略它；若已
+				 * 更新，则顺着链走到下一版本，并重复
+				 * 整个过程。
 				 *
-				 * As above, it should be safe to examine xmax and t_ctid
-				 * without the buffer content lock, because they can't be
-				 * changing.  We'd better hold a buffer pin though.
+				 * 同上，不持有缓冲区内容锁就检查 xmax 与 t_ctid
+				 * 应当是安全的，因为它们不可能正在改变。
+				 * 不过我们最好仍然持有一个缓冲区钉。
 				 */
 				if (ItemPointerEquals(&tuple->t_self, &tuple->t_data->t_ctid))
 				{
-					/* deleted, so forget about it */
+					/* 已删除，因此不再管它 */
 					ReleaseBuffer(buffer);
 					return TM_Deleted;
 				}
 
-				/* updated, so look at the updated row */
+				/* 已更新，因此查看更新后的行 */
 				*tid = tuple->t_data->t_ctid;
-				/* updated row should have xmin matching this xmax */
+				/* 更新后的行，其 xmin 应当与这个 xmax 匹配 */
 				priorXmax = HeapTupleHeaderGetUpdateXid(tuple->t_data);
 				ReleaseBuffer(buffer);
-				/* loop back to fetch next in chain */
+				/* 回到循环开头，取链上下一个 */
 			}
 		}
 		else
 		{
-			/* tuple was deleted, so give up */
+			/* 元组已被删除，因此放弃 */
 			return TM_Deleted;
 		}
 	}
@@ -564,7 +564,7 @@ tuple_lock_retry:
 	slot->tts_tableOid = RelationGetRelid(relation);
 	tuple->t_tableOid = slot->tts_tableOid;
 
-	/* store in slot, transferring existing pin */
+	/* 存入槽中，并移交既有的钉 */
 	ExecStorePinnedBufferHeapTuple(tuple, slot, buffer);
 
 	return result;
@@ -572,7 +572,7 @@ tuple_lock_retry:
 
 
 /* ------------------------------------------------------------------------
- * DDL related callbacks for heap AM.
+ * 堆 AM 的 DDL 相关回调。
  * ------------------------------------------------------------------------
  */
 
@@ -586,32 +586,32 @@ heapam_relation_set_new_filelocator(Relation rel,
 	SMgrRelation srel;
 
 	/*
-	 * Initialize to the minimum XID that could put tuples in the table. We
-	 * know that no xacts older than RecentXmin are still running, so that
-	 * will do.
+	 * 初始化为可能把元组放入该表的最小 XID。我们
+	 * 知道比 RecentXmin 更旧的事务都已不再运行，因此
+	 * 这样就够了。
 	 */
 	*freezeXid = RecentXmin;
 
 	/*
-	 * Similarly, initialize the minimum Multixact to the first value that
-	 * could possibly be stored in tuples in the table.  Running transactions
-	 * could reuse values from their local cache, so we are careful to
-	 * consider all currently running multis.
+	 * 类似地，把最小 Multixact 初始化为可能存入
+	 * 该表元组中的第一个值。正在运行的事务
+	 * 可能复用其本地缓存中的值，因此我们小心地
+	 * 把当前正在运行的全部多事务都考虑在内。
 	 *
-	 * XXX this could be refined further, but is it worth the hassle?
+	 * XXX 这里还可以再细化，但值得为此费事吗？
 	 */
 	*minmulti = GetOldestMultiXactId();
 
 	srel = RelationCreateStorage(*newrlocator, persistence, true);
 
 	/*
-	 * If required, set up an init fork for an unlogged table so that it can
-	 * be correctly reinitialized on restart.  An immediate sync is required
-	 * even if the page has been logged, because the write did not go through
-	 * shared_buffers and therefore a concurrent checkpoint may have moved the
-	 * redo pointer past our xlog record.  Recovery may as well remove it
-	 * while replaying, for example, XLOG_DBASE_CREATE* or XLOG_TBLSPC_CREATE
-	 * record. Therefore, logging is necessary even if wal_level=minimal.
+	 * 若有需要，为不记录 WAL 的表建立初始分支，以便
+	 * 重启时能正确重新初始化。即使该页已经记入日志，
+	 * 也必须立即同步，因为写入没有经过
+	 * shared_buffers，并发检查点可能已经把重做指针
+	 * 移过我们的 xlog 记录。恢复在重放时也可能删掉它，
+	 * 例如重放 XLOG_DBASE_CREATE* 或 XLOG_TBLSPC_CREATE
+	 * 记录时。因此即使 wal_level=minimal 也有必要记日志。
 	 */
 	if (persistence == RELPERSISTENCE_UNLOGGED)
 	{
@@ -640,27 +640,27 @@ heapam_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 	dstrel = smgropen(*newrlocator, rel->rd_backend);
 
 	/*
-	 * Since we copy the file directly without looking at the shared buffers,
-	 * we'd better first flush out any pages of the source relation that are
-	 * in shared buffers.  We assume no new changes will be made while we are
-	 * holding exclusive lock on the rel.
+	 * 因为我们直接复制文件，而不查看共享缓冲区，
+	 * 最好先把源关系中位于共享缓冲区里的页面
+	 * 全部刷出。我们假定在持有该关系的排他锁期间，
+	 * 不会再有新的修改。
 	 */
 	FlushRelationBuffers(rel);
 
 	/*
-	 * Create and copy all forks of the relation, and schedule unlinking of
-	 * old physical files.
+	 * 创建并复制该关系的全部分支，并安排删除
+	 * 旧的物理文件。
 	 *
-	 * NOTE: any conflict in relfilenumber value will be caught in
-	 * RelationCreateStorage().
+	 * 注意：relfilenumber 值的任何冲突都会在
+	 * RelationCreateStorage() 中被发现。
 	 */
 	RelationCreateStorage(*newrlocator, rel->rd_rel->relpersistence, true);
 
-	/* copy main fork */
+	/* 复制主分支 */
 	RelationCopyStorage(RelationGetSmgr(rel), dstrel, MAIN_FORKNUM,
 						rel->rd_rel->relpersistence);
 
-	/* copy those extra forks that exist */
+	/* 复制那些存在的其余分支 */
 	for (ForkNumber forkNum = MAIN_FORKNUM + 1;
 		 forkNum <= MAX_FORKNUM; forkNum++)
 	{
@@ -669,8 +669,8 @@ heapam_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 			smgrcreate(dstrel, forkNum, false);
 
 			/*
-			 * WAL log creation if the relation is persistent, or this is the
-			 * init fork of an unlogged relation.
+			 * 若关系是持久的，或这是不记录 WAL 的关系的
+			 * 初始分支，就为创建记 WAL 日志。
 			 */
 			if (RelationIsPermanent(rel) ||
 				(rel->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED &&
@@ -682,7 +682,7 @@ heapam_relation_copy_data(Relation rel, const RelFileLocator *newrlocator)
 	}
 
 
-	/* drop old relation, and close new one */
+	/* 删除旧关系，并关闭新关系 */
 	RelationDropStorage(rel);
 	smgrclose(dstrel);
 }
@@ -712,26 +712,26 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 	BufferHeapTupleTableSlot *hslot;
 	BlockNumber prev_cblock = InvalidBlockNumber;
 
-	/* Remember if it's a system catalog */
+	/* 记住它是否为系统目录 */
 	is_system_catalog = IsSystemRelation(OldHeap);
 
 	/*
-	 * Valid smgr_targblock implies something already wrote to the relation.
-	 * This may be harmless, but this function hasn't planned for it.
+	 * 有效的 smgr_targblock 意味着已有东西写入过该关系。
+	 * 这也许无害，但本函数没有为此做准备。
 	 */
 	Assert(RelationGetTargetBlock(NewHeap) == InvalidBlockNumber);
 
-	/* Preallocate values/isnull arrays */
+	/* 预先分配 values/isnull 数组 */
 	natts = newTupDesc->natts;
 	values = (Datum *) palloc(natts * sizeof(Datum));
 	isnull = (bool *) palloc(natts * sizeof(bool));
 
-	/* Initialize the rewrite operation */
+	/* 初始化重写操作 */
 	rwstate = begin_heap_rewrite(OldHeap, NewHeap, OldestXmin, *xid_cutoff,
 								 *multi_cutoff);
 
 
-	/* Set up sorting if wanted */
+	/* 若需要排序，就把它建好 */
 	if (use_sort)
 		tuplesort = tuplesort_begin_cluster(oldTupDesc, OldIndex,
 											maintenance_work_mem,
@@ -740,9 +740,9 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		tuplesort = NULL;
 
 	/*
-	 * Prepare to scan the OldHeap.  To ensure we see recently-dead tuples
-	 * that still need to be copied, we scan with SnapshotAny and use
-	 * HeapTupleSatisfiesVacuum for the visibility test.
+	 * 准备扫描 OldHeap。为确保能看到仍需复制的
+	 * 最近死亡元组，我们用 SnapshotAny 扫描，并用
+	 * HeapTupleSatisfiesVacuum 做可见性测试。
 	 */
 	if (OldIndex != NULL && !use_sort)
 	{
@@ -752,7 +752,7 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		};
 		int64		ci_val[2];
 
-		/* Set phase and OIDOldIndex to columns */
+		/* 把阶段和 OIDOldIndex 填入各列 */
 		ci_val[0] = PROGRESS_CLUSTER_PHASE_INDEX_SCAN_HEAP;
 		ci_val[1] = RelationGetRelid(OldIndex);
 		pgstat_progress_update_multi_param(2, ci_index, ci_val);
@@ -764,7 +764,7 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 	}
 	else
 	{
-		/* In scan-and-sort mode and also VACUUM FULL, set phase */
+		/* 在扫描并排序模式以及 VACUUM FULL 下，设置阶段 */
 		pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 									 PROGRESS_CLUSTER_PHASE_SEQ_SCAN_HEAP);
 
@@ -772,7 +772,7 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		heapScan = (HeapScanDesc) tableScan;
 		indexScan = NULL;
 
-		/* Set total heap blocks */
+		/* 设置堆块总数 */
 		pgstat_progress_update_param(PROGRESS_CLUSTER_TOTAL_HEAP_BLKS,
 									 heapScan->rs_nblocks);
 	}
@@ -781,10 +781,10 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 	hslot = (BufferHeapTupleTableSlot *) slot;
 
 	/*
-	 * Scan through the OldHeap, either in OldIndex order or sequentially;
-	 * copy each tuple into the NewHeap, or transiently to the tuplesort
-	 * module.  Note that we don't bother sorting dead tuples (they won't get
-	 * to the new table anyway).
+	 * 扫描 OldHeap，或按 OldIndex 顺序，或顺序扫描；
+	 * 把每个元组复制进 NewHeap，或暂时交给 tuplesort
+	 * 模块。注意我们不费心对死元组排序（它们反正
+	 * 不会进入新表）。
 	 */
 	for (;;)
 	{
@@ -799,7 +799,7 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 			if (!index_getnext_slot(indexScan, ForwardScanDirection, slot))
 				break;
 
-			/* Since we used no scan keys, should never need to recheck */
+			/* 因为没有使用扫描键，绝不应当需要复查 */
 			if (indexScan->xs_recheck)
 				elog(ERROR, "CLUSTER does not support lossy index conditions");
 		}
@@ -808,12 +808,12 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 			if (!table_scan_getnextslot(tableScan, ForwardScanDirection, slot))
 			{
 				/*
-				 * If the last pages of the scan were empty, we would go to
-				 * the next phase while heap_blks_scanned != heap_blks_total.
-				 * Instead, to ensure that heap_blks_scanned is equivalent to
-				 * heap_blks_total after the table scan phase, this parameter
-				 * is manually updated to the correct value when the table
-				 * scan finishes.
+				 * 若扫描的最后几页是空的，我们会在
+				 * heap_blks_scanned != heap_blks_total 的情况下进入
+				 * 下一阶段。相反，为确保表扫描阶段结束后
+				 * heap_blks_scanned 与 heap_blks_total 相等，
+				 * 在表扫描完成时，手工把该参数
+				 * 更新为正确的值。
 				 */
 				pgstat_progress_update_param(PROGRESS_CLUSTER_HEAP_BLKS_SCANNED,
 											 heapScan->rs_nblocks);
@@ -821,13 +821,13 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 			}
 
 			/*
-			 * In scan-and-sort mode and also VACUUM FULL, set heap blocks
-			 * scanned
+			 * 在扫描并排序模式以及 VACUUM FULL 下，设置已扫描的
+			 * 堆块数
 			 *
-			 * Note that heapScan may start at an offset and wrap around, i.e.
-			 * rs_startblock may be >0, and rs_cblock may end with a number
-			 * below rs_startblock. To prevent showing this wraparound to the
-			 * user, we offset rs_cblock by rs_startblock (modulo rs_nblocks).
+			 * 注意 heapScan 可能从某个偏移开始并回绕，即
+			 * rs_startblock 可能 >0，而 rs_cblock 结束时的编号
+			 * 可能小于 rs_startblock。为避免向用户展示这种回绕，
+			 * 我们用 rs_startblock 对 rs_cblock 做偏移（对 rs_nblocks 取模）。
 			 */
 			if (prev_cblock != heapScan->rs_cblock)
 			{
@@ -848,49 +848,49 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		switch (HeapTupleSatisfiesVacuum(tuple, OldestXmin, buf))
 		{
 			case HEAPTUPLE_DEAD:
-				/* Definitely dead */
+				/* 确已死亡 */
 				isdead = true;
 				break;
 			case HEAPTUPLE_RECENTLY_DEAD:
 				*tups_recently_dead += 1;
 				/* fall through */
 			case HEAPTUPLE_LIVE:
-				/* Live or recently dead, must copy it */
+				/* 活的或最近死亡，必须复制 */
 				isdead = false;
 				break;
 			case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 				/*
-				 * Since we hold exclusive lock on the relation, normally the
-				 * only way to see this is if it was inserted earlier in our
-				 * own transaction.  However, it can happen in system
-				 * catalogs, since we tend to release write lock before commit
-				 * there.  Give a warning if neither case applies; but in any
-				 * case we had better copy it.
+				 * 因为我们对关系持有排他锁，通常只有一种可能
+				 * 看到这种情况：它是在我们自己的事务里更早
+				 * 插入的。不过系统目录里也可能发生，因为我们
+				 * 往往在提交之前就释放那里的写锁。若两种情形
+				 * 都不成立，就发出警告；但无论如何，
+				 * 我们最好还是复制它。
 				 */
 				if (!is_system_catalog &&
 					!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetXmin(tuple->t_data)))
 					elog(WARNING, "concurrent insert in progress within table \"%s\"",
 						 RelationGetRelationName(OldHeap));
-				/* treat as live */
+				/* 按活元组处理 */
 				isdead = false;
 				break;
 			case HEAPTUPLE_DELETE_IN_PROGRESS:
 
 				/*
-				 * Similar situation to INSERT_IN_PROGRESS case.
+				 * 与 INSERT_IN_PROGRESS 情形类似。
 				 */
 				if (!is_system_catalog &&
 					!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetUpdateXid(tuple->t_data)))
 					elog(WARNING, "concurrent delete in progress within table \"%s\"",
 						 RelationGetRelationName(OldHeap));
-				/* treat as recently dead */
+				/* 按最近死亡处理 */
 				*tups_recently_dead += 1;
 				isdead = false;
 				break;
 			default:
 				elog(ERROR, "unexpected HeapTupleSatisfiesVacuum result");
-				isdead = false; /* keep compiler quiet */
+				isdead = false; /* 让编译器保持安静 */
 				break;
 		}
 
@@ -899,10 +899,10 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		if (isdead)
 		{
 			*tups_vacuumed += 1;
-			/* heap rewrite module still needs to see it... */
+			/* 堆重写模块仍然需要看到它... */
 			if (rewrite_heap_dead_tuple(rwstate, tuple))
 			{
-				/* A previous recently-dead tuple is now known dead */
+				/* 先前一个最近死亡的元组现在已知已死 */
 				*tups_vacuumed += 1;
 				*tups_recently_dead -= 1;
 			}
@@ -915,8 +915,8 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 			tuplesort_putheaptuple(tuplesort, tuple);
 
 			/*
-			 * In scan-and-sort mode, report increase in number of tuples
-			 * scanned
+			 * 在扫描并排序模式下，报告已扫描元组数
+			 * 的增加
 			 */
 			pgstat_progress_update_param(PROGRESS_CLUSTER_HEAP_TUPLES_SCANNED,
 										 *num_tuples);
@@ -933,8 +933,8 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 									 values, isnull, rwstate);
 
 			/*
-			 * In indexscan mode and also VACUUM FULL, report increase in
-			 * number of tuples scanned and written
+			 * 在索引扫描模式以及 VACUUM FULL 下，报告已扫描
+			 * 和已写入的元组数的增加
 			 */
 			ct_val[0] = *num_tuples;
 			ct_val[1] = *num_tuples;
@@ -950,20 +950,20 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		ExecDropSingleTupleTableSlot(slot);
 
 	/*
-	 * In scan-and-sort mode, complete the sort, then read out all live tuples
-	 * from the tuplestore and write them to the new relation.
+	 * 在扫描并排序模式下，完成排序，然后从 tuplestore
+	 * 读出全部活元组，并写入新关系。
 	 */
 	if (tuplesort != NULL)
 	{
 		double		n_tuples = 0;
 
-		/* Report that we are now sorting tuples */
+		/* 报告我们现在正在对元组排序 */
 		pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 									 PROGRESS_CLUSTER_PHASE_SORT_TUPLES);
 
 		tuplesort_performsort(tuplesort);
 
-		/* Report that we are now writing new heap */
+		/* 报告我们现在正在写入新堆 */
 		pgstat_progress_update_param(PROGRESS_CLUSTER_PHASE,
 									 PROGRESS_CLUSTER_PHASE_WRITE_NEW_HEAP);
 
@@ -982,7 +982,7 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 									 OldHeap, NewHeap,
 									 values, isnull,
 									 rwstate);
-			/* Report n_tuples */
+			/* 报告 n_tuples */
 			pgstat_progress_update_param(PROGRESS_CLUSTER_HEAP_TUPLES_WRITTEN,
 										 n_tuples);
 		}
@@ -990,10 +990,10 @@ heapam_relation_copy_for_cluster(Relation OldHeap, Relation NewHeap,
 		tuplesort_end(tuplesort);
 	}
 
-	/* Write out any remaining tuples, and fsync if needed */
+	/* 写出剩余元组，并在需要时 fsync */
 	end_heap_rewrite(rwstate);
 
-	/* Clean up */
+	/* 清理 */
 	pfree(values);
 	pfree(isnull);
 }
@@ -1005,13 +1005,13 @@ heapam_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
 	HeapScanDesc hscan = (HeapScanDesc) scan;
 
 	/*
-	 * We must maintain a pin on the target page's buffer to ensure that
-	 * concurrent activity - e.g. HOT pruning - doesn't delete tuples out from
-	 * under us.  Hence, pin the page until we are done looking at it.  We
-	 * also choose to hold sharelock on the buffer throughout --- we could
-	 * release and re-acquire sharelock for each tuple, but since we aren't
-	 * doing much work per tuple, the extra lock traffic is probably better
-	 * avoided.
+	 * 我们必须保持对目标页缓冲区的钉，以确保
+	 * 并发活动（例如 HOT 剪枝）不会在我们查看期间
+	 * 把元组删掉。因此，在看完该页之前一直钉住它。我们
+	 * 还选择在整个过程中持有缓冲区上的共享锁——也可以
+	 * 对每个元组释放并重新取得共享锁，但因为每个元组
+	 * 上做的工作不多，额外的锁往来大概还是
+	 * 避免为好。
 	 */
 	hscan->rs_cblock = blockno;
 	hscan->rs_cindex = FirstOffsetNumber;
@@ -1019,7 +1019,7 @@ heapam_scan_analyze_next_block(TableScanDesc scan, BlockNumber blockno,
 										blockno, RBM_NORMAL, bstrategy);
 	LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_SHARE);
 
-	/* in heap all blocks can contain tuples, so always return true */
+	/* 在堆中，所有块都可以包含元组，因此总是返回真 */
 	return true;
 }
 
@@ -1039,7 +1039,7 @@ heapam_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 	targpage = BufferGetPage(hscan->rs_cbuf);
 	maxoffset = PageGetMaxOffsetNumber(targpage);
 
-	/* Inner loop over all tuples on the selected page */
+	/* 内层循环，遍历所选页上的全部元组 */
 	for (; hscan->rs_cindex <= maxoffset; hscan->rs_cindex++)
 	{
 		ItemId		itemid;
@@ -1049,10 +1049,10 @@ heapam_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 		itemid = PageGetItemId(targpage, hscan->rs_cindex);
 
 		/*
-		 * We ignore unused and redirect line pointers.  DEAD line pointers
-		 * should be counted as dead, because we need vacuum to run to get rid
-		 * of them.  Note that this rule agrees with the way that
-		 * heap_page_prune() counts things.
+		 * 我们忽略未使用的和重定向行指针。DEAD 行指针
+		 * 应当计为死亡，因为需要 VACUUM 来清除
+		 * 它们。注意这条规则与 heap_page_prune()
+		 * 的计数方式一致。
 		 */
 		if (!ItemIdIsNormal(itemid))
 		{
@@ -1077,29 +1077,29 @@ heapam_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 
 			case HEAPTUPLE_DEAD:
 			case HEAPTUPLE_RECENTLY_DEAD:
-				/* Count dead and recently-dead rows */
+				/* 把死亡行和最近死亡行计入 */
 				*deadrows += 1;
 				break;
 
 			case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 				/*
-				 * Insert-in-progress rows are not counted.  We assume that
-				 * when the inserting transaction commits or aborts, it will
-				 * send a stats message to increment the proper count.  This
-				 * works right only if that transaction ends after we finish
-				 * analyzing the table; if things happen in the other order,
-				 * its stats update will be overwritten by ours.  However, the
-				 * error will be large only if the other transaction runs long
-				 * enough to insert many tuples, so assuming it will finish
-				 * after us is the safer option.
+				 * 正在插入的行不计入。我们假定
+				 * 插入事务提交或中止时，会
+				 * 发出统计消息来增加正确的计数。这
+				 * 只有在该事务于我们分析完该表之后结束时才正确；若事情
+				 * 以相反的顺序发生，
+				 * 它的统计更新会被我们的覆盖。不过，
+				 * 只有当另一事务运行得足够久、
+				 * 插入了许多元组时，误差才会很大，因此假定它会在我们
+				 * 之后结束是更稳妥的选择。
 				 *
-				 * A special case is that the inserting transaction might be
-				 * our own.  In this case we should count and sample the row,
-				 * to accommodate users who load a table and analyze it in one
-				 * transaction.  (pgstat_report_analyze has to adjust the
-				 * numbers we report to the cumulative stats system to make
-				 * this come out right.)
+				 * 一种特殊情形是，插入事务可能就是
+				 * 我们自己的。这时应当计入并采样该行，
+				 * 以照顾那些在同一事务中装入表并加以分析的
+				 * 用户。（pgstat_report_analyze 必须调整
+				 * 我们报告给累积统计系统的数字，才能使
+				 * 结果正确。）
 				 */
 				if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetXmin(targtuple->t_data)))
 				{
@@ -1111,26 +1111,26 @@ heapam_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 			case HEAPTUPLE_DELETE_IN_PROGRESS:
 
 				/*
-				 * We count and sample delete-in-progress rows the same as
-				 * live ones, so that the stats counters come out right if the
-				 * deleting transaction commits after us, per the same
-				 * reasoning given above.
+				 * 我们把正在删除的行与活行同样计入并采样，以便
+				 * 删除事务在我们之后提交时，统计计数器的结果仍然正确，
+				 * 依据与上文
+				 * 相同的理由。
 				 *
-				 * If the delete was done by our own transaction, however, we
-				 * must count the row as dead to make pgstat_report_analyze's
-				 * stats adjustments come out right.  (Note: this works out
-				 * properly when the row was both inserted and deleted in our
-				 * xact.)
+				 * 不过，若删除是由我们自己的事务完成的，就必须
+				 * 把该行计为死亡，才能使 pgstat_report_analyze 的
+				 * 统计调整结果正确。（注意：当该行在我们的事务中
+				 * 既被插入又被删除时，这样处理
+				 * 正好合适。）
 				 *
-				 * The net effect of these choices is that we act as though an
-				 * IN_PROGRESS transaction hasn't happened yet, except if it
-				 * is our own transaction, which we assume has happened.
+				 * 这些选择的净效果是：我们表现得仿佛一个
+				 * IN_PROGRESS 事务尚未发生，除非它
+				 * 是我们自己的事务，而我们假定它已经发生。
 				 *
-				 * This approach ensures that we behave sanely if we see both
-				 * the pre-image and post-image rows for a row being updated
-				 * by a concurrent transaction: we will sample the pre-image
-				 * but not the post-image.  We also get sane results if the
-				 * concurrent transaction never commits.
+				 * 这种方法保证，若我们同时看到某一行的前映像和后映像，
+				 * 而该行正被并发事务更新，行为是合理的：我们会采样
+				 * 前映像，而不会采样后映像。若该并发事务
+				 * 从不提交，
+				 * 得到的结果也同样合理。
 				 */
 				if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetUpdateXid(targtuple->t_data)))
 					*deadrows += 1;
@@ -1151,16 +1151,16 @@ heapam_scan_analyze_next_tuple(TableScanDesc scan, TransactionId OldestXmin,
 			ExecStoreBufferHeapTuple(targtuple, slot, hscan->rs_cbuf);
 			hscan->rs_cindex++;
 
-			/* note that we leave the buffer locked here! */
+			/* 注意，这里我们让缓冲区保持锁定！ */
 			return true;
 		}
 	}
 
-	/* Now release the lock and pin on the page */
+	/* 现在释放该页上的锁和钉 */
 	UnlockReleaseBuffer(hscan->rs_cbuf);
 	hscan->rs_cbuf = InvalidBuffer;
 
-	/* also prevent old slot contents from having pin on page */
+	/* 同时避免旧的槽内容仍然钉住该页 */
 	ExecClearTuple(slot);
 
 	return false;
@@ -1198,57 +1198,57 @@ heapam_index_build_range_scan(Relation heapRelation,
 	OffsetNumber root_offsets[MaxHeapTuplesPerPage];
 
 	/*
-	 * sanity checks
+	 * 健全性检查
 	 */
 	Assert(OidIsValid(indexRelation->rd_rel->relam));
 
-	/* Remember if it's a system catalog */
+	/* 记住它是否为系统目录 */
 	is_system_catalog = IsSystemRelation(heapRelation);
 
-	/* See whether we're verifying uniqueness/exclusion properties */
+	/* 查看我们是否在验证唯一性或排他属性 */
 	checking_uniqueness = (indexInfo->ii_Unique ||
 						   indexInfo->ii_ExclusionOps != NULL);
 
 	/*
-	 * "Any visible" mode is not compatible with uniqueness checks; make sure
-	 * only one of those is requested.
+	 * "任何可见"模式与唯一性检查不兼容；确保
+	 * 只请求了其中之一。
 	 */
 	Assert(!(anyvisible && checking_uniqueness));
 
 	/*
-	 * Need an EState for evaluation of index expressions and partial-index
-	 * predicates.  Also a slot to hold the current tuple.
+	 * 求值索引表达式和部分索引谓词需要一个 EState。
+	 * 还需要一个槽来保存当前元组。
 	 */
 	estate = CreateExecutorState();
 	econtext = GetPerTupleExprContext(estate);
 	slot = table_slot_create(heapRelation, NULL);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为受测元组 */
 	econtext->ecxt_scantuple = slot;
 
-	/* Set up execution state for predicate, if any. */
+	/* 若有谓词，为其建立执行状态。 */
 	predicate = ExecPrepareQual(indexInfo->ii_Predicate, estate);
 
 	/*
-	 * Prepare for scan of the base relation.  In a normal index build, we use
-	 * SnapshotAny because we must retrieve all tuples and do our own time
-	 * qual checks (because we have to index RECENTLY_DEAD tuples). In a
-	 * concurrent build, or during bootstrap, we take a regular MVCC snapshot
-	 * and index whatever's live according to that.
+	 * 准备扫描基础关系。普通索引构建使用
+	 * SnapshotAny，因为我们必须取出全部元组并自行做时间
+	 * 限定检查（因为必须为 RECENTLY_DEAD 元组建索引）。并发
+	 * 构建时，或在 bootstrap 期间，我们取一份常规 MVCC 快照，
+	 * 并按该快照为仍然活着的内容建索引。
 	 */
 	OldestXmin = InvalidTransactionId;
 
-	/* okay to ignore lazy VACUUMs here */
+	/* 这里可以忽略惰性 VACUUMs */
 	if (!IsBootstrapProcessingMode() && !indexInfo->ii_Concurrent)
 		OldestXmin = GetOldestNonRemovableTransactionId(heapRelation);
 
 	if (!scan)
 	{
 		/*
-		 * Serial index build.
+		 * 串行索引构建。
 		 *
-		 * Must begin our own heap scan in this case.  We may also need to
-		 * register a snapshot whose lifetime is under our direct control.
+		 * 这种情况下必须自己开始堆扫描。我们也许还需要
+		 * 注册一个生命周期由我们直接控制的快照。
 		 */
 		if (!TransactionIdIsValid(OldestXmin))
 		{
@@ -1258,21 +1258,21 @@ heapam_index_build_range_scan(Relation heapRelation,
 		else
 			snapshot = SnapshotAny;
 
-		scan = table_beginscan_strat(heapRelation,	/* relation */
-									 snapshot,	/* snapshot */
-									 0, /* number of keys */
-									 NULL,	/* scan key */
-									 true,	/* buffer access strategy OK */
-									 allow_sync);	/* syncscan OK? */
+		scan = table_beginscan_strat(heapRelation,	/* 关系 */
+									 snapshot,	/* 快照 */
+									 0, /* 键的个数 */
+									 NULL,	/* 扫描键 */
+									 true,	/* 允许缓冲区访问策略 */
+									 allow_sync);	/* 允许同步扫描？ */
 	}
 	else
 	{
 		/*
-		 * Parallel index build.
+		 * 并行索引构建。
 		 *
-		 * Parallel case never registers/unregisters own snapshot.  Snapshot
-		 * is taken from parallel heap scan, and is SnapshotAny or an MVCC
-		 * snapshot, based on same criteria as serial case.
+		 * 并行情形从不自行注册或注销快照。快照
+		 * 取自并行堆扫描，按与串行情形相同的标准，
+		 * 它是 SnapshotAny 或一份 MVCC 快照。
 		 */
 		Assert(!IsBootstrapProcessingMode());
 		Assert(allow_sync);
@@ -1282,17 +1282,17 @@ heapam_index_build_range_scan(Relation heapRelation,
 	hscan = (HeapScanDesc) scan;
 
 	/*
-	 * Must have called GetOldestNonRemovableTransactionId() if using
-	 * SnapshotAny.  Shouldn't have for an MVCC snapshot. (It's especially
-	 * worth checking this for parallel builds, since ambuild routines that
-	 * support parallel builds must work these details out for themselves.)
+	 * 若使用 SnapshotAny，就必须已调用过 GetOldestNonRemovableTransactionId()。
+	 * 对 MVCC 快照则不应当调用。（并行构建尤其
+	 * 值得检查这一点，因为支持并行构建的 ambuild 例程
+	 * 必须自己把这些细节理清。）
 	 */
 	Assert(snapshot == SnapshotAny || IsMVCCSnapshot(snapshot));
 	Assert(snapshot == SnapshotAny ? TransactionIdIsValid(OldestXmin) :
 		   !TransactionIdIsValid(OldestXmin));
 	Assert(snapshot == SnapshotAny || !anyvisible);
 
-	/* Publish number of blocks to scan */
+	/* 公布要扫描的块数 */
 	if (progress)
 	{
 		BlockNumber nblocks;
@@ -1311,12 +1311,12 @@ heapam_index_build_range_scan(Relation heapRelation,
 									 nblocks);
 	}
 
-	/* set our scan endpoints */
+	/* 设置我们的扫描端点 */
 	if (!allow_sync)
 		heap_setscanlimits(scan, start_blockno, numblocks);
 	else
 	{
-		/* syncscan can only be requested on whole relation */
+		/* 同步扫描只能对整个关系请求 */
 		Assert(start_blockno == 0);
 		Assert(numblocks == InvalidBlockNumber);
 	}
@@ -1324,7 +1324,7 @@ heapam_index_build_range_scan(Relation heapRelation,
 	reltuples = 0;
 
 	/*
-	 * Scan all tuples in the base relation.
+	 * 扫描基础关系中的全部元组。
 	 */
 	while ((heapTuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
@@ -1332,7 +1332,7 @@ heapam_index_build_range_scan(Relation heapRelation,
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Report scan progress, if asked to. */
+		/* 若被要求，就报告扫描进度。 */
 		if (progress)
 		{
 			BlockNumber blocks_done = heapam_scan_get_blocks_done(hscan);
@@ -1346,35 +1346,35 @@ heapam_index_build_range_scan(Relation heapRelation,
 		}
 
 		/*
-		 * When dealing with a HOT-chain of updated tuples, we want to index
-		 * the values of the live tuple (if any), but index it under the TID
-		 * of the chain's root tuple.  This approach is necessary to preserve
-		 * the HOT-chain structure in the heap. So we need to be able to find
-		 * the root item offset for every tuple that's in a HOT-chain.  When
-		 * first reaching a new page of the relation, call
-		 * heap_get_root_tuples() to build a map of root item offsets on the
-		 * page.
+		 * 处理已更新元组组成的 HOT 链时，我们希望为
+		 * 活元组（若有）的值建索引，但索引时使用该链
+		 * 根元组的 TID。要保持堆里的
+		 * HOT 链结构，就必须这样做。因此，对处于 HOT 链中的每个元组，
+		 * 我们都要能找到其根项偏移。当
+		 * 第一次到达该关系的新页时，调用
+		 * heap_get_root_tuples()，为该页建立根项偏移
+		 * 映射。
 		 *
-		 * It might look unsafe to use this information across buffer
-		 * lock/unlock.  However, we hold ShareLock on the table so no
-		 * ordinary insert/update/delete should occur; and we hold pin on the
-		 * buffer continuously while visiting the page, so no pruning
-		 * operation can occur either.
+		 * 跨缓冲区加锁与解锁来使用这些信息，看起来也许不安全。
+		 * 不过我们对表持有 ShareLock，因此不应当发生
+		 * 普通的插入、更新或删除；而且在访问该页的整个期间
+		 * 我们都钉住缓冲区，因此也不会发生剪枝
+		 * 操作。
 		 *
-		 * In cases with only ShareUpdateExclusiveLock on the table, it's
-		 * possible for some HOT tuples to appear that we didn't know about
-		 * when we first read the page.  To handle that case, we re-obtain the
-		 * list of root offsets when a HOT tuple points to a root item that we
-		 * don't know about.
+		 * 若对表只持有 ShareUpdateExclusiveLock，
+		 * 就可能出现一些我们在第一次读该页时
+		 * 还不知道的 HOT 元组。为处理这种情况，当某个 HOT 元组指向
+		 * 一个我们不知道的根项时，就重新取得
+		 * 根偏移列表。
 		 *
-		 * Also, although our opinions about tuple liveness could change while
-		 * we scan the page (due to concurrent transaction commits/aborts),
-		 * the chain root locations won't, so this info doesn't need to be
-		 * rebuilt after waiting for another transaction.
+		 * 另外，虽然扫描该页时，我们对元组是否存活的判断可能改变
+		 * （由于并发事务的提交或中止），
+		 * 链根的位置不会变，因此这份信息不需要在
+		 * 等待另一事务之后重建。
 		 *
-		 * Note the implied assumption that there is no more than one live
-		 * tuple per HOT-chain --- else we could create more than one index
-		 * entry pointing to the same root tuple.
+		 * 注意隐含假定：每条 HOT 链上活元组不超过一个
+		 * ——否则我们可能创建出不止一个索引
+		 * 项，都指向同一个根元组。
 		 */
 		if (hscan->rs_cblock != root_blkno)
 		{
@@ -1389,74 +1389,74 @@ heapam_index_build_range_scan(Relation heapRelation,
 
 		if (snapshot == SnapshotAny)
 		{
-			/* do our own time qual check */
+			/* 自行做时间限定检查 */
 			bool		indexIt;
 			TransactionId xwait;
 
 	recheck:
 
 			/*
-			 * We could possibly get away with not locking the buffer here,
-			 * since caller should hold ShareLock on the relation, but let's
-			 * be conservative about it.  (This remark is still correct even
-			 * with HOT-pruning: our pin on the buffer prevents pruning.)
+			 * 这里也许可以不加锁就检查缓冲区，
+			 * 因为调用方应当对关系持有 ShareLock，但我们
+			 * 还是保守一些。（即使有 HOT 剪枝，这句话仍然正确：
+			 * 我们对缓冲区的钉会阻止剪枝。）
 			 */
 			LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_SHARE);
 
 			/*
-			 * The criteria for counting a tuple as live in this block need to
-			 * match what analyze.c's heapam_scan_analyze_next_tuple() does,
-			 * otherwise CREATE INDEX and ANALYZE may produce wildly different
-			 * reltuples values, e.g. when there are many recently-dead
-			 * tuples.
+			 * 本段里把元组计为活的标准，必须与
+			 * analyze.c 中 heapam_scan_analyze_next_tuple() 的做法一致，
+			 * 否则 CREATE INDEX 与 ANALYZE 可能得到差异极大的
+			 * reltuples 值，例如存在许多最近死亡
+			 * 元组时。
 			 */
 			switch (HeapTupleSatisfiesVacuum(heapTuple, OldestXmin,
 											 hscan->rs_cbuf))
 			{
 				case HEAPTUPLE_DEAD:
-					/* Definitely dead, we can ignore it */
+					/* 确已死亡，可以忽略 */
 					indexIt = false;
 					tupleIsAlive = false;
 					break;
 				case HEAPTUPLE_LIVE:
-					/* Normal case, index and unique-check it */
+					/* 正常情形，为其建索引并做唯一性检查 */
 					indexIt = true;
 					tupleIsAlive = true;
-					/* Count it as live, too */
+					/* 也把它计为活的 */
 					reltuples += 1;
 					break;
 				case HEAPTUPLE_RECENTLY_DEAD:
 
 					/*
-					 * If tuple is recently deleted then we must index it
-					 * anyway to preserve MVCC semantics.  (Pre-existing
-					 * transactions could try to use the index after we finish
-					 * building it, and may need to see such tuples.)
+					 * 若元组是最近删除的，仍然必须为它建索引，
+					 * 以保持 MVCC 语义。（先前已经存在的
+					 * 事务可能在我们建完索引后去使用它，
+					 * 并且可能需要看到这些元组。）
 					 *
-					 * However, if it was HOT-updated then we must only index
-					 * the live tuple at the end of the HOT-chain.  Since this
-					 * breaks semantics for pre-existing snapshots, mark the
-					 * index as unusable for them.
+					 * 不过，若它是 HOT 更新产生的，就只能为
+					 * HOT 链末端的活元组建索引。由于这会
+					 * 破坏已有快照的语义，把该索引
+					 * 标为对那些快照不可用。
 					 *
-					 * We don't count recently-dead tuples in reltuples, even
-					 * if we index them; see heapam_scan_analyze_next_tuple().
+					 * 即使为最近死亡的元组建了索引，也不把它们计入 reltuples；
+					 * 见 heapam_scan_analyze_next_tuple()。
 					 */
 					if (HeapTupleIsHotUpdated(heapTuple))
 					{
 						indexIt = false;
-						/* mark the index as unsafe for old snapshots */
+						/* 把索引标为对旧快照不安全 */
 						indexInfo->ii_BrokenHotChain = true;
 					}
 					else
 						indexIt = true;
-					/* In any case, exclude the tuple from unique-checking */
+					/* 无论如何，都不对该元组做唯一性检查 */
 					tupleIsAlive = false;
 					break;
 				case HEAPTUPLE_INSERT_IN_PROGRESS:
 
 					/*
-					 * In "anyvisible" mode, this tuple is visible and we
-					 * don't need any further checks.
+					 * 在 "anyvisible" 模式下，该元组是可见的，
+					 * 不需要进一步检查。
 					 */
 					if (anyvisible)
 					{
@@ -1467,12 +1467,12 @@ heapam_index_build_range_scan(Relation heapRelation,
 					}
 
 					/*
-					 * Since caller should hold ShareLock or better, normally
-					 * the only way to see this is if it was inserted earlier
-					 * in our own transaction.  However, it can happen in
-					 * system catalogs, since we tend to release write lock
-					 * before commit there.  Give a warning if neither case
-					 * applies.
+					 * 因为调用方应当持有 ShareLock 或更强的锁，通常
+					 * 只有一种可能看到这种情况：它是在我们自己的事务里
+					 * 更早插入的。不过系统目录里也可能发生，因为我们
+					 * 往往在提交之前就释放那里的写锁。若两种情形
+					 * 都不成立，
+					 * 就发出警告。
 					 */
 					xwait = HeapTupleHeaderGetXmin(heapTuple->t_data);
 					if (!TransactionIdIsCurrentTransactionId(xwait))
@@ -1482,15 +1482,15 @@ heapam_index_build_range_scan(Relation heapRelation,
 								 RelationGetRelationName(heapRelation));
 
 						/*
-						 * If we are performing uniqueness checks, indexing
-						 * such a tuple could lead to a bogus uniqueness
-						 * failure.  In that case we wait for the inserting
-						 * transaction to finish and check again.
+						 * 若我们正在做唯一性检查，为这样的元组
+						 * 建索引可能导致虚假的唯一性
+						 * 失败。这种情况下我们等待插入
+						 * 事务结束，然后再检查一次。
 						 */
 						if (checking_uniqueness)
 						{
 							/*
-							 * Must drop the lock on the buffer before we wait
+							 * 等待之前必须先放下缓冲区上的锁
 							 */
 							LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_UNLOCK);
 							XactLockTableWait(xwait, heapRelation,
@@ -1503,17 +1503,17 @@ heapam_index_build_range_scan(Relation heapRelation,
 					else
 					{
 						/*
-						 * For consistency with
-						 * heapam_scan_analyze_next_tuple(), count
-						 * HEAPTUPLE_INSERT_IN_PROGRESS tuples as live only
-						 * when inserted by our own transaction.
+						 * 为了与
+						 * heapam_scan_analyze_next_tuple() 保持一致，仅当
+						 * HEAPTUPLE_INSERT_IN_PROGRESS 元组是由我们自己的
+						 * 事务插入时，才把它计为活的。
 						 */
 						reltuples += 1;
 					}
 
 					/*
-					 * We must index such tuples, since if the index build
-					 * commits then they're good.
+					 * 我们必须为这些元组建索引，因为若索引构建
+					 * 提交，它们就是有效的。
 					 */
 					indexIt = true;
 					tupleIsAlive = true;
@@ -1521,9 +1521,9 @@ heapam_index_build_range_scan(Relation heapRelation,
 				case HEAPTUPLE_DELETE_IN_PROGRESS:
 
 					/*
-					 * As with INSERT_IN_PROGRESS case, this is unexpected
-					 * unless it's our own deletion or a system catalog; but
-					 * in anyvisible mode, this tuple is visible.
+					 * 与 INSERT_IN_PROGRESS 情形一样，这是意外的，
+					 * 除非是我们自己的删除，或发生在系统目录中；但在
+					 * anyvisible 模式下，该元组是可见的。
 					 */
 					if (anyvisible)
 					{
@@ -1541,24 +1541,24 @@ heapam_index_build_range_scan(Relation heapRelation,
 								 RelationGetRelationName(heapRelation));
 
 						/*
-						 * If we are performing uniqueness checks, assuming
-						 * the tuple is dead could lead to missing a
-						 * uniqueness violation.  In that case we wait for the
-						 * deleting transaction to finish and check again.
+						 * 若我们正在做唯一性检查，把该元组
+						 * 假定为已死，可能导致漏掉一次
+						 * 唯一性违反。这种情况下，我们等待
+						 * 删除事务结束，然后再检查一次。
 						 *
-						 * Also, if it's a HOT-updated tuple, we should not
-						 * index it but rather the live tuple at the end of
-						 * the HOT-chain.  However, the deleting transaction
-						 * could abort, possibly leaving this tuple as live
-						 * after all, in which case it has to be indexed. The
-						 * only way to know what to do is to wait for the
-						 * deleting transaction to finish and check again.
+						 * 另外，若它是经过 HOT 更新的元组，不应当为它
+						 * 建索引，而应当为 HOT 链末端的活元组建索引。
+						 * 不过删除事务可能中止，最终仍可能让
+						 * 这个元组成为活的，那时就必须为它建索引。
+						 * 要知道该怎么做，唯一办法就是等待
+						 * 删除事务结束，
+						 * 然后再检查一次。
 						 */
 						if (checking_uniqueness ||
 							HeapTupleIsHotUpdated(heapTuple))
 						{
 							/*
-							 * Must drop the lock on the buffer before we wait
+							 * 等待之前必须先放下缓冲区上的锁
 							 */
 							LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_UNLOCK);
 							XactLockTableWait(xwait, heapRelation,
@@ -1569,47 +1569,47 @@ heapam_index_build_range_scan(Relation heapRelation,
 						}
 
 						/*
-						 * Otherwise index it but don't check for uniqueness,
-						 * the same as a RECENTLY_DEAD tuple.
+						 * 否则就为它建索引，但不检查唯一性，
+						 * 与 RECENTLY_DEAD 元组相同。
 						 */
 						indexIt = true;
 
 						/*
-						 * Count HEAPTUPLE_DELETE_IN_PROGRESS tuples as live,
-						 * if they were not deleted by the current
-						 * transaction.  That's what
-						 * heapam_scan_analyze_next_tuple() does, and we want
-						 * the behavior to be consistent.
+						 * 把 HEAPTUPLE_DELETE_IN_PROGRESS 元组计为活的，
+						 * 若它们不是由当前事务
+						 * 删除的。heapam_scan_analyze_next_tuple()
+						 * 就是这样做的，我们希望
+						 * 行为保持一致。
 						 */
 						reltuples += 1;
 					}
 					else if (HeapTupleIsHotUpdated(heapTuple))
 					{
 						/*
-						 * It's a HOT-updated tuple deleted by our own xact.
-						 * We can assume the deletion will commit (else the
-						 * index contents don't matter), so treat the same as
-						 * RECENTLY_DEAD HOT-updated tuples.
+						 * 这是由我们自己的事务删除的、经过 HOT 更新的元组。
+						 * 可以假定删除会提交（否则索引内容
+						 * 无关紧要），因此与 RECENTLY_DEAD 的、经过
+						 * HOT 更新的元组同样处理。
 						 */
 						indexIt = false;
-						/* mark the index as unsafe for old snapshots */
+						/* 把索引标为对旧快照不安全 */
 						indexInfo->ii_BrokenHotChain = true;
 					}
 					else
 					{
 						/*
-						 * It's a regular tuple deleted by our own xact. Index
-						 * it, but don't check for uniqueness nor count in
-						 * reltuples, the same as a RECENTLY_DEAD tuple.
+						 * 这是由我们自己的事务删除的普通元组。为它
+						 * 建索引，但不检查唯一性，也不计入
+						 * reltuples，与 RECENTLY_DEAD 元组相同。
 						 */
 						indexIt = true;
 					}
-					/* In any case, exclude the tuple from unique-checking */
+					/* 无论如何，都不对该元组做唯一性检查 */
 					tupleIsAlive = false;
 					break;
 				default:
 					elog(ERROR, "unexpected HeapTupleSatisfiesVacuum result");
-					indexIt = tupleIsAlive = false; /* keep compiler quiet */
+					indexIt = tupleIsAlive = false; /* 让编译器保持安静 */
 					break;
 			}
 
@@ -1620,19 +1620,19 @@ heapam_index_build_range_scan(Relation heapRelation,
 		}
 		else
 		{
-			/* heap_getnext did the time qual check */
+			/* heap_getnext 已经做过时间限定检查 */
 			tupleIsAlive = true;
 			reltuples += 1;
 		}
 
 		MemoryContextReset(econtext->ecxt_per_tuple_memory);
 
-		/* Set up for predicate or expression evaluation */
+		/* 为谓词或表达式求值做准备 */
 		ExecStoreBufferHeapTuple(heapTuple, slot, hscan->rs_cbuf);
 
 		/*
-		 * In a partial index, discard tuples that don't satisfy the
-		 * predicate.
+		 * 在部分索引中，丢弃不满足
+		 * 谓词的元组。
 		 */
 		if (predicate != NULL)
 		{
@@ -1641,9 +1641,9 @@ heapam_index_build_range_scan(Relation heapRelation,
 		}
 
 		/*
-		 * For the current heap tuple, extract all the attributes we use in
-		 * this index, and note which are null.  This also performs evaluation
-		 * of any expressions needed.
+		 * 对当前堆元组，取出本索引使用的全部属性，
+		 * 并记下哪些为空。这也会对所需的
+		 * 任何表达式求值。
 		 */
 		FormIndexDatum(indexInfo,
 					   slot,
@@ -1652,16 +1652,16 @@ heapam_index_build_range_scan(Relation heapRelation,
 					   isnull);
 
 		/*
-		 * You'd think we should go ahead and build the index tuple here, but
-		 * some index AMs want to do further processing on the data first.  So
-		 * pass the values[] and isnull[] arrays, instead.
+		 * 你也许以为应当在这里直接构造索引元组，但
+		 * 有些索引 AM 想先对数据做进一步处理。因此
+		 * 改为传入 values[] 与 isnull[] 数组。
 		 */
 
 		if (HeapTupleIsHeapOnly(heapTuple))
 		{
 			/*
-			 * For a heap-only tuple, pretend its TID is that of the root. See
-			 * src/backend/access/heap/README.HOT for discussion.
+			 * 对堆内元组，把它的 TID 假装成根的 TID。讨论见
+			 * src/backend/access/heap/README.HOT。
 			 */
 			ItemPointerData tid;
 			OffsetNumber offnum;
@@ -1669,9 +1669,9 @@ heapam_index_build_range_scan(Relation heapRelation,
 			offnum = ItemPointerGetOffsetNumber(&heapTuple->t_self);
 
 			/*
-			 * If a HOT tuple points to a root that we don't know about,
-			 * obtain root items afresh.  If that still fails, report it as
-			 * corruption.
+			 * 若 HOT 元组指向一个我们不知道的根，
+			 * 就重新取得根项。若仍然失败，就把它报告为
+			 * 损坏。
 			 */
 			if (root_offsets[offnum - 1] == InvalidOffsetNumber)
 			{
@@ -1693,19 +1693,19 @@ heapam_index_build_range_scan(Relation heapRelation,
 			ItemPointerSet(&tid, ItemPointerGetBlockNumber(&heapTuple->t_self),
 						   root_offsets[offnum - 1]);
 
-			/* Call the AM's callback routine to process the tuple */
+			/* 调用该 AM 的回调例程来处理元组 */
 			callback(indexRelation, &tid, values, isnull, tupleIsAlive,
 					 callback_state);
 		}
 		else
 		{
-			/* Call the AM's callback routine to process the tuple */
+			/* 调用该 AM 的回调例程来处理元组 */
 			callback(indexRelation, &heapTuple->t_self, values, isnull,
 					 tupleIsAlive, callback_state);
 		}
 	}
 
-	/* Report scan progress one last time. */
+	/* 最后再报告一次扫描进度。 */
 	if (progress)
 	{
 		BlockNumber blks_done;
@@ -1726,7 +1726,7 @@ heapam_index_build_range_scan(Relation heapRelation,
 
 	table_endscan(scan);
 
-	/* we can now forget our snapshot, if set and registered by us */
+	/* 若快照是我们设置并注册的，现在可以忘掉它 */
 	if (need_unregister_snapshot)
 		UnregisterSnapshot(snapshot);
 
@@ -1734,7 +1734,7 @@ heapam_index_build_range_scan(Relation heapRelation,
 
 	FreeExecutorState(estate);
 
-	/* These may have been pointing to the now-gone estate */
+	/* 这些可能一直指向已经消失的 estate */
 	indexInfo->ii_ExpressionsState = NIL;
 	indexInfo->ii_PredicateState = NULL;
 
@@ -1762,50 +1762,50 @@ heapam_index_validate_scan(Relation heapRelation,
 	bool		in_index[MaxHeapTuplesPerPage];
 	BlockNumber previous_blkno = InvalidBlockNumber;
 
-	/* state variables for the merge */
+	/* 归并所用的状态变量 */
 	ItemPointer indexcursor = NULL;
 	ItemPointerData decoded;
 	bool		tuplesort_empty = false;
 
 	/*
-	 * sanity checks
+	 * 健全性检查
 	 */
 	Assert(OidIsValid(indexRelation->rd_rel->relam));
 
 	/*
-	 * Need an EState for evaluation of index expressions and partial-index
-	 * predicates.  Also a slot to hold the current tuple.
+	 * 求值索引表达式和部分索引谓词需要一个 EState。
+	 * 还需要一个槽来保存当前元组。
 	 */
 	estate = CreateExecutorState();
 	econtext = GetPerTupleExprContext(estate);
 	slot = MakeSingleTupleTableSlot(RelationGetDescr(heapRelation),
 									&TTSOpsHeapTuple);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为受测元组 */
 	econtext->ecxt_scantuple = slot;
 
-	/* Set up execution state for predicate, if any. */
+	/* 若有谓词，为其建立执行状态。 */
 	predicate = ExecPrepareQual(indexInfo->ii_Predicate, estate);
 
 	/*
-	 * Prepare for scan of the base relation.  We need just those tuples
-	 * satisfying the passed-in reference snapshot.  We must disable syncscan
-	 * here, because it's critical that we read from block zero forward to
-	 * match the sorted TIDs.
+	 * 准备扫描基础关系。我们只需要满足传入的
+	 * 参照快照的那些元组。这里必须禁用同步扫描，
+	 * 因为我们必须从第零块向前读，才能与
+	 * 已排序的 TIDs 对齐。
 	 */
-	scan = table_beginscan_strat(heapRelation,	/* relation */
-								 snapshot,	/* snapshot */
-								 0, /* number of keys */
-								 NULL,	/* scan key */
-								 true,	/* buffer access strategy OK */
-								 false);	/* syncscan not OK */
+	scan = table_beginscan_strat(heapRelation,	/* 关系 */
+								 snapshot,	/* 快照 */
+								 0, /* 键的个数 */
+								 NULL,	/* 扫描键 */
+								 true,	/* 允许缓冲区访问策略 */
+								 false);	/* 不允许同步扫描 */
 	hscan = (HeapScanDesc) scan;
 
 	pgstat_progress_update_param(PROGRESS_SCAN_BLOCKS_TOTAL,
 								 hscan->rs_nblocks);
 
 	/*
-	 * Scan all tuples matching the snapshot.
+	 * 扫描所有匹配该快照的元组。
 	 */
 	while ((heapTuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
@@ -1826,18 +1826,18 @@ heapam_index_validate_scan(Relation heapRelation,
 		}
 
 		/*
-		 * As commented in table_index_build_scan, we should index heap-only
-		 * tuples under the TIDs of their root tuples; so when we advance onto
-		 * a new heap page, build a map of root item offsets on the page.
+		 * 正如 table_index_build_scan 中的注释所说，堆内
+		 * 元组应当按其根元组的 TIDs 来索引；因此当我们进入
+		 * 新的堆页时，为该页建立根项偏移的映射。
 		 *
-		 * This complicates merging against the tuplesort output: we will
-		 * visit the live tuples in order by their offsets, but the root
-		 * offsets that we need to compare against the index contents might be
-		 * ordered differently.  So we might have to "look back" within the
-		 * tuplesort output, but only within the current page.  We handle that
-		 * by keeping a bool array in_index[] showing all the
-		 * already-passed-over tuplesort output TIDs of the current page. We
-		 * clear that array here, when advancing onto a new heap page.
+		 * 这使与 tuplesort 输出做归并变得复杂：我们会
+		 * 按偏移顺序访问活元组，但要与索引内容比较的根
+		 * 偏移，顺序可能不同。因此也许得在 tuplesort
+		 * 输出内部"回头看"，但只在当前页之内。我们的处理办法是
+		 * 保留 bool 数组 in_index[]，标出当前页上所有
+		 * 已经略过的 tuplesort 输出 TIDs。当我们
+		 * 前进到新的堆页时，
+		 * 在这里清空该数组。
 		 */
 		if (hscan->rs_cblock != root_blkno)
 		{
@@ -1852,7 +1852,7 @@ heapam_index_validate_scan(Relation heapRelation,
 			root_blkno = hscan->rs_cblock;
 		}
 
-		/* Convert actual tuple TID to root TID */
+		/* 把实际元组 TID 转换成根 TID */
 		rootTuple = *heapcursor;
 		root_offnum = ItemPointerGetOffsetNumber(heapcursor);
 
@@ -1870,8 +1870,8 @@ heapam_index_validate_scan(Relation heapRelation,
 		}
 
 		/*
-		 * "merge" by skipping through the index tuples until we find or pass
-		 * the current root tuple.
+		 * "归并"的做法是跳过索引元组，直到找到或越过
+		 * 当前根元组。
 		 */
 		while (!tuplesort_empty &&
 			   (!indexcursor ||
@@ -1883,7 +1883,7 @@ heapam_index_validate_scan(Relation heapRelation,
 			if (indexcursor)
 			{
 				/*
-				 * Remember index items seen earlier on the current heap page
+				 * 记住当前堆页上较早见过的索引项
 				 */
 				if (ItemPointerGetBlockNumber(indexcursor) == root_blkno)
 					in_index[ItemPointerGetOffsetNumber(indexcursor) - 1] = true;
@@ -1900,14 +1900,14 @@ heapam_index_validate_scan(Relation heapRelation,
 			}
 			else
 			{
-				/* Be tidy */
+				/* 保持整洁 */
 				indexcursor = NULL;
 			}
 		}
 
 		/*
-		 * If the tuplesort has overshot *and* we didn't see a match earlier,
-		 * then this tuple is missing from the index, so insert it.
+		 * 若 tuplesort 已经越过，并且我们先前没有见过匹配，
+		 * 则索引中缺少该元组，因此插入它。
 		 */
 		if ((tuplesort_empty ||
 			 ItemPointerCompare(indexcursor, &rootTuple) > 0) &&
@@ -1915,12 +1915,12 @@ heapam_index_validate_scan(Relation heapRelation,
 		{
 			MemoryContextReset(econtext->ecxt_per_tuple_memory);
 
-			/* Set up for predicate or expression evaluation */
+			/* 为谓词或表达式求值做准备 */
 			ExecStoreHeapTuple(heapTuple, slot, false);
 
 			/*
-			 * In a partial index, discard tuples that don't satisfy the
-			 * predicate.
+			 * 在部分索引中，丢弃不满足
+			 * 谓词的元组。
 			 */
 			if (predicate != NULL)
 			{
@@ -1929,9 +1929,9 @@ heapam_index_validate_scan(Relation heapRelation,
 			}
 
 			/*
-			 * For the current heap tuple, extract all the attributes we use
-			 * in this index, and note which are null.  This also performs
-			 * evaluation of any expressions needed.
+			 * 对当前堆元组，取出我们在本索引中使用的全部
+			 * 属性，并记下哪些为空。这也会对所需的
+			 * 任何表达式求值。
 			 */
 			FormIndexDatum(indexInfo,
 						   slot,
@@ -1940,21 +1940,21 @@ heapam_index_validate_scan(Relation heapRelation,
 						   isnull);
 
 			/*
-			 * You'd think we should go ahead and build the index tuple here,
-			 * but some index AMs want to do further processing on the data
-			 * first. So pass the values[] and isnull[] arrays, instead.
+			 * 你也许以为应当在这里直接构造索引元组，
+			 * 但有些索引 AM 想先对数据做进一步处理。
+			 * 因此改为传入 values[] 与 isnull[] 数组。
 			 */
 
 			/*
-			 * If the tuple is already committed dead, you might think we
-			 * could suppress uniqueness checking, but this is no longer true
-			 * in the presence of HOT, because the insert is actually a proxy
-			 * for a uniqueness check on the whole HOT-chain.  That is, the
-			 * tuple we have here could be dead because it was already
-			 * HOT-updated, and if so the updating transaction will not have
-			 * thought it should insert index entries.  The index AM will
-			 * check the whole HOT-chain and correctly detect a conflict if
-			 * there is one.
+			 * 若该元组已经提交死亡，你也许以为
+			 * 可以省去唯一性检查，但有了 HOT 之后这不再成立，
+			 * 因为这次插入实际上是整条 HOT 链上
+			 * 唯一性检查的代理。也就是说，这里的
+			 * 元组可能因为已经 HOT 更新过而是死的；若是这样，
+			 * 更新事务不会认为自己应当插入索引项。
+			 * 索引 AM 会检查整条 HOT 链，
+			 * 并在确实存在冲突时
+			 * 正确地发现它。
 			 */
 
 			index_insert(indexRelation,
@@ -1977,16 +1977,16 @@ heapam_index_validate_scan(Relation heapRelation,
 
 	FreeExecutorState(estate);
 
-	/* These may have been pointing to the now-gone estate */
+	/* 这些可能一直指向已经消失的 estate */
 	indexInfo->ii_ExpressionsState = NIL;
 	indexInfo->ii_PredicateState = NULL;
 }
 
 /*
- * Return the number of blocks that have been read by this scan since
- * starting.  This is meant for progress reporting rather than be fully
- * accurate: in a parallel scan, workers can be concurrently reading blocks
- * further ahead than what we report.
+ * 返回本次扫描自开始以来已经读过的块数。
+ * 这是给进度报告用的，并不要求完全
+ * 精确：并行扫描中，工作进程可能正在并发读取
+ * 比我们所报告的更靠前的块。
  */
 static BlockNumber
 heapam_scan_get_blocks_done(HeapScanDesc hscan)
@@ -2004,8 +2004,8 @@ heapam_scan_get_blocks_done(HeapScanDesc hscan)
 		startblock = hscan->rs_startblock;
 
 	/*
-	 * Might have wrapped around the end of the relation, if startblock was
-	 * not zero.
+	 * 若 startblock 不是零，可能已经绕过关系的
+	 * 末端回到开头。
 	 */
 	if (hscan->rs_cblock > startblock)
 		blocks_done = hscan->rs_cblock - startblock;
@@ -2023,15 +2023,15 @@ heapam_scan_get_blocks_done(HeapScanDesc hscan)
 
 
 /* ------------------------------------------------------------------------
- * Miscellaneous callbacks for the heap AM
+ * 堆 AM 的杂项回调
  * ------------------------------------------------------------------------
  */
 
 /*
- * Check to see whether the table needs a TOAST table.  It does only if
- * (1) there are any toastable attributes, and (2) the maximum length
- * of a tuple could exceed TOAST_TUPLE_THRESHOLD.  (We don't want to
- * create a toast table for something like "f1 varchar(20)".)
+ * 检查该表是否需要 TOAST 表。仅当同时满足时才需要：
+ * （1）存在任何可 TOAST 的属性，并且（2）元组的最大长度
+ * 可能超过 TOAST_TUPLE_THRESHOLD。（我们不想为
+ * "f1 varchar(20)" 这类东西创建 TOAST 表。）
  */
 static bool
 heapam_relation_needs_toast_table(Relation rel)
@@ -2052,7 +2052,7 @@ heapam_relation_needs_toast_table(Relation rel)
 		data_length = att_align_nominal(data_length, att->attalign);
 		if (att->attlen > 0)
 		{
-			/* Fixed-length types are never toastable */
+			/* 定长类型从不可 TOAST */
 			data_length += att->attlen;
 		}
 		else
@@ -2069,9 +2069,9 @@ heapam_relation_needs_toast_table(Relation rel)
 		}
 	}
 	if (!has_toastable_attrs)
-		return false;			/* nothing to toast? */
+		return false;			/* 没有需要 TOAST 的内容？ */
 	if (maxlength_unknown)
-		return true;			/* any unlimited-length attrs? */
+		return true;			/* 有长度不限的属性吗？ */
 	tuple_length = MAXALIGN(SizeofHeapTupleHeader +
 							BITMAPLEN(tupdesc->natts)) +
 		MAXALIGN(data_length);
@@ -2079,7 +2079,7 @@ heapam_relation_needs_toast_table(Relation rel)
 }
 
 /*
- * TOAST tables for heap relations are just heap relations.
+ * 堆关系的 TOAST 表本身也只是堆关系。
  */
 static Oid
 heapam_relation_toast_am(Relation rel)
@@ -2089,7 +2089,7 @@ heapam_relation_toast_am(Relation rel)
 
 
 /* ------------------------------------------------------------------------
- * Planner related callbacks for the heap AM
+ * 堆 AM 的规划器相关回调
  * ------------------------------------------------------------------------
  */
 
@@ -2111,7 +2111,7 @@ heapam_estimate_rel_size(Relation rel, int32 *attr_widths,
 
 
 /* ------------------------------------------------------------------------
- * Executor related callbacks for the heap AM
+ * 堆 AM 的执行器相关回调
  * ------------------------------------------------------------------------
  */
 
@@ -2129,18 +2129,18 @@ heapam_scan_bitmap_next_block(TableScanDesc scan,
 	hscan->rs_ntuples = 0;
 
 	/*
-	 * Ignore any claimed entries past what we think is the end of the
-	 * relation. It may have been extended after the start of our scan (we
-	 * only hold an AccessShareLock, and it could be inserts from this
-	 * backend).  We don't take this optimization in SERIALIZABLE isolation
-	 * though, as we need to examine all invisible tuples reachable by the
-	 * index.
+	 * 忽略任何我们认为已经超出关系末端的声称项。
+	 * 扫描开始之后关系可能已被扩展（我们只持有
+	 * AccessShareLock，而且可能是本后端自己的插入）。
+	 * 不过在 SERIALIZABLE 隔离级别下不做这一优化，
+	 * 因为我们必须检查索引能够到达的全部不可见
+	 * 元组。
 	 */
 	if (!IsolationIsSerializable() && block >= hscan->rs_nblocks)
 		return false;
 
 	/*
-	 * Acquire pin on the target heap page, trading in any pin we held before.
+	 * 取得目标堆页上的钉，换掉我们先前持有的任何钉。
 	 */
 	hscan->rs_cbuf = ReleaseAndReadBuffer(hscan->rs_cbuf,
 										  scan->rs_rd,
@@ -2152,26 +2152,26 @@ heapam_scan_bitmap_next_block(TableScanDesc scan,
 	ntup = 0;
 
 	/*
-	 * Prune and repair fragmentation for the whole page, if possible.
+	 * 若可能，对整页做剪枝并修复碎片。
 	 */
 	heap_page_prune_opt(scan->rs_rd, buffer);
 
 	/*
-	 * We must hold share lock on the buffer content while examining tuple
-	 * visibility.  Afterwards, however, the tuples we have found to be
-	 * visible are guaranteed good as long as we hold the buffer pin.
+	 * 检查元组可见性时，必须持有缓冲区内容上的共享锁。
+	 * 不过此后，只要我们仍持有缓冲区钉，已判定为
+	 * 可见的元组就保证仍然有效。
 	 */
 	LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
 	/*
-	 * We need two separate strategies for lossy and non-lossy cases.
+	 * 有损与非有损两种情形需要两套不同的策略。
 	 */
 	if (tbmres->ntuples >= 0)
 	{
 		/*
-		 * Bitmap is non-lossy, so we just look through the offsets listed in
-		 * tbmres; but we have to follow any HOT chain starting at each such
-		 * offset.
+		 * 位图是非有损的，因此只查看 tbmres 里列出的
+		 * 偏移；但必须跟随从每个这种偏移开始的
+		 * 任何 HOT 链。
 		 */
 		int			curslot;
 
@@ -2190,8 +2190,8 @@ heapam_scan_bitmap_next_block(TableScanDesc scan,
 	else
 	{
 		/*
-		 * Bitmap is lossy, so we must examine each line pointer on the page.
-		 * But we can ignore HOT chains, since we'll check each tuple anyway.
+		 * 位图是有损的，因此必须检查该页上的每个行指针。
+		 * 但可以忽略 HOT 链，因为我们反正会检查每个元组。
 		 */
 		Page		page = BufferGetPage(buffer);
 		OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
@@ -2241,7 +2241,7 @@ heapam_scan_bitmap_next_tuple(TableScanDesc scan,
 	ItemId		lp;
 
 	/*
-	 * Out of range?  If so, nothing more to look at on this page
+	 * 超出范围？若是，这一页上没有更多要看的了
 	 */
 	if (hscan->rs_cindex < 0 || hscan->rs_cindex >= hscan->rs_ntuples)
 		return false;
@@ -2259,8 +2259,8 @@ heapam_scan_bitmap_next_tuple(TableScanDesc scan,
 	pgstat_count_heap_fetch(scan->rs_rd);
 
 	/*
-	 * Set up the result slot to point to this tuple.  Note that the slot
-	 * acquires a pin on the buffer.
+	 * 让结果槽指向这个元组。注意该槽
+	 * 会取得缓冲区上的钉。
 	 */
 	ExecStoreBufferHeapTuple(&hscan->rs_ctup,
 							 slot,
@@ -2278,7 +2278,7 @@ heapam_scan_sample_next_block(TableScanDesc scan, SampleScanState *scanstate)
 	TsmRoutine *tsm = scanstate->tsmroutine;
 	BlockNumber blockno;
 
-	/* return false immediately if relation is empty */
+	/* 若关系为空，立即返回假 */
 	if (hscan->rs_nblocks == 0)
 		return false;
 
@@ -2289,7 +2289,7 @@ heapam_scan_sample_next_block(TableScanDesc scan, SampleScanState *scanstate)
 	}
 	else
 	{
-		/* scanning table sequentially */
+		/* 正在顺序扫描表 */
 
 		if (hscan->rs_cblock == InvalidBlockNumber)
 		{
@@ -2304,19 +2304,19 @@ heapam_scan_sample_next_block(TableScanDesc scan, SampleScanState *scanstate)
 
 			if (blockno >= hscan->rs_nblocks)
 			{
-				/* wrap to beginning of rel, might not have started at 0 */
+				/* 绕回关系开头；开始时未必是 0 */
 				blockno = 0;
 			}
 
 			/*
-			 * Report our new scan position for synchronization purposes.
+			 * 出于同步的目的，报告新的扫描位置。
 			 *
-			 * Note: we do this before checking for end of scan so that the
-			 * final state of the position hint is back at the start of the
-			 * rel.  That's not strictly necessary, but otherwise when you run
-			 * the same query multiple times the starting position would shift
-			 * a little bit backwards on every invocation, which is confusing.
-			 * We don't guarantee any specific ordering in general, though.
+			 * 注意：我们在检查扫描是否结束之前做这件事，以便
+			 * 位置提示的最终状态回到该关系的
+			 * 开头。这并不是严格必要的，但否则当你
+			 * 多次运行同一查询时，每次调用的起始位置都会
+			 * 稍微往回退一点，这会让人困惑。
+			 * 不过一般来说，我们并不保证任何特定的顺序。
 			 */
 			if (scan->rs_flags & SO_ALLOW_SYNC)
 				ss_report_location(scan->rs_rd, blockno);
@@ -2359,8 +2359,8 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 	OffsetNumber maxoffset;
 
 	/*
-	 * When not using pagemode, we must lock the buffer during tuple
-	 * visibility checks.
+	 * 未使用页模式时，在元组可见性检查期间
+	 * 必须锁定缓冲区。
 	 */
 	if (!pagemode)
 		LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_SHARE);
@@ -2376,7 +2376,7 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Ask the tablesample method which tuples to check on this page. */
+		/* 询问表采样方法要检查本页上的哪些元组。 */
 		tupoffset = tsm->NextSampleTuple(scanstate,
 										 blockno,
 										 maxoffset);
@@ -2387,7 +2387,7 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 			bool		visible;
 			HeapTuple	tuple = &(hscan->rs_ctup);
 
-			/* Skip invalid tuple pointers. */
+			/* 跳过无效的元组指针。 */
 			itemid = PageGetItemId(page, tupoffset);
 			if (!ItemIdIsNormal(itemid))
 				continue;
@@ -2403,22 +2403,22 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 				visible = SampleHeapTupleVisible(scan, hscan->rs_cbuf,
 												 tuple, tupoffset);
 
-			/* in pagemode, heapgetpage did this for us */
+			/* 在页模式下，heapgetpage 已经替我们做过这件事 */
 			if (!pagemode)
 				HeapCheckForSerializableConflictOut(visible, scan->rs_rd, tuple,
 													hscan->rs_cbuf, scan->rs_snapshot);
 
-			/* Try next tuple from same page. */
+			/* 尝试同一页上的下一个元组。 */
 			if (!visible)
 				continue;
 
-			/* Found visible tuple, return it. */
+			/* 找到可见元组，返回它。 */
 			if (!pagemode)
 				LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_UNLOCK);
 
 			ExecStoreBufferHeapTuple(tuple, slot, hscan->rs_cbuf);
 
-			/* Count successfully-fetched tuples as heap fetches */
+			/* 把成功取到的元组计入堆获取 */
 			pgstat_count_heap_getnext(scan->rs_rd);
 
 			return true;
@@ -2426,8 +2426,8 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 		else
 		{
 			/*
-			 * If we get here, it means we've exhausted the items on this page
-			 * and it's time to move to the next.
+			 * 若执行到这里，说明本页上的项已经用尽，
+			 * 该前进到下一页了。
 			 */
 			if (!pagemode)
 				LockBuffer(hscan->rs_cbuf, BUFFER_LOCK_UNLOCK);
@@ -2442,25 +2442,25 @@ heapam_scan_sample_next_tuple(TableScanDesc scan, SampleScanState *scanstate,
 
 
 /* ----------------------------------------------------------------------------
- *  Helper functions for the above.
+ *  上述函数的辅助函数。
  * ----------------------------------------------------------------------------
  */
 
 /*
- * Reconstruct and rewrite the given tuple
+ * 重构并重写给定的元组
  *
- * We cannot simply copy the tuple as-is, for several reasons:
+ * 我们无法原样复制该元组，原因有几方面：
  *
- * 1. We'd like to squeeze out the values of any dropped columns, both
- * to save space and to ensure we have no corner-case failures. (It's
- * possible for example that the new table hasn't got a TOAST table
- * and so is unable to store any large values of dropped cols.)
+ * 1. 我们希望挤掉任何已删除列的值，既为了
+ * 节省空间，也避免边角情形下的失败。（例如
+ * 新表可能没有 TOAST 表，因而无法存放已删除列的
+ * 任何大值。）
  *
- * 2. The tuple might not even be legal for the new table; this is
- * currently only known to happen as an after-effect of ALTER TABLE
- * SET WITHOUT OIDS.
+ * 2. 该元组对新表而言甚至可能不合法；目前
+ * 已知这只会作为 ALTER TABLE
+ * SET WITHOUT OIDS 的后续影响出现。
  *
- * So, we must reconstruct the tuple from component Datums.
+ * 因此，必须由组成它的各个 Datum 来重构该元组。
  */
 static void
 reform_and_rewrite_tuple(HeapTuple tuple,
@@ -2474,7 +2474,7 @@ reform_and_rewrite_tuple(HeapTuple tuple,
 
 	heap_deform_tuple(tuple, oldTupDesc, values, isnull);
 
-	/* Be sure to null out any dropped columns */
+	/* 务必把任何已删除列置为空 */
 	for (i = 0; i < newTupDesc->natts; i++)
 	{
 		if (TupleDescAttr(newTupDesc, i)->attisdropped)
@@ -2483,14 +2483,14 @@ reform_and_rewrite_tuple(HeapTuple tuple,
 
 	copiedTuple = heap_form_tuple(newTupDesc, values, isnull);
 
-	/* The heap rewrite module does the rest */
+	/* 其余工作由堆重写模块完成 */
 	rewrite_heap_tuple(rwstate, tuple, copiedTuple);
 
 	heap_freetuple(copiedTuple);
 }
 
 /*
- * Check visibility of the tuple.
+ * 检查该元组的可见性。
  */
 static bool
 SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
@@ -2502,13 +2502,13 @@ SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
 	if (scan->rs_flags & SO_ALLOW_PAGEMODE)
 	{
 		/*
-		 * In pageatatime mode, heapgetpage() already did visibility checks,
-		 * so just look at the info it left in rs_vistuples[].
+		 * 在一次一页模式下，heapgetpage() 已经做过可见性检查，
+		 * 因此只需查看它留在 rs_vistuples[] 里的信息。
 		 *
-		 * We use a binary search over the known-sorted array.  Note: we could
-		 * save some effort if we insisted that NextSampleTuple select tuples
-		 * in increasing order, but it's not clear that there would be enough
-		 * gain to justify the restriction.
+		 * 我们对已知有序的数组做二分查找。注意：若坚持让
+		 * NextSampleTuple 按递增顺序选择元组，可以省一些工夫，
+		 * 但还不清楚收益是否大到值得加上
+		 * 这一限制。
 		 */
 		int			start = 0,
 					end = hscan->rs_ntuples - 1;
@@ -2530,7 +2530,7 @@ SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
 	}
 	else
 	{
-		/* Otherwise, we have to check the tuple individually. */
+		/* 否则，就必须单独检查该元组。 */
 		return HeapTupleSatisfiesVisibility(tuple, scan->rs_snapshot,
 											buffer);
 	}
@@ -2538,7 +2538,7 @@ SampleHeapTupleVisible(TableScanDesc scan, Buffer buffer,
 
 
 /* ------------------------------------------------------------------------
- * Definition of the heap table access method.
+ * 堆表访问方法的定义。
  * ------------------------------------------------------------------------
  */
 

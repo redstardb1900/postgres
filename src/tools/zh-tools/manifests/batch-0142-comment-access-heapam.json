@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0142-comment-access-heapam",
+ "title": "zh: translate heapam comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4fa27426f39254f11e243424fdf1b3ac8a5aca54",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "note": "heap access method"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0142-comment-access-heapam.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/heapam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 797,
+   "translated": 797,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "heap access method; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0142-comment-access-heapam.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0142 translates comments in src/backend/access/heap/heapam.c. Copyright and IDENTIFICATION lines stay in English. Three fall-through prose comments are translated. After this batch, src/backend/access/heap .c comments are complete. Next suggested: src/backend/access/index/."
+}

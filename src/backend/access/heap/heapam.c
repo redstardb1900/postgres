@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * heapam.c
- *	  heap access method code
+ *	  堆访问方法代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,21 +11,21 @@
  *	  src/backend/access/heap/heapam.c
  *
  *
- * INTERFACE ROUTINES
- *		heap_beginscan	- begin relation scan
- *		heap_rescan		- restart a relation scan
- *		heap_endscan	- end relation scan
- *		heap_getnext	- retrieve next tuple in scan
- *		heap_fetch		- retrieve tuple with given tid
- *		heap_insert		- insert tuple into a relation
- *		heap_multi_insert - insert multiple tuples into a relation
- *		heap_delete		- delete a tuple from a relation
- *		heap_update		- replace a tuple in a relation with another tuple
+ * 接口例程（INTERFACE ROUTINES）
+ *		heap_beginscan	- 开始关系扫描
+ *		heap_rescan		- 重新开始一次关系扫描
+ *		heap_endscan	- 结束关系扫描
+ *		heap_getnext	- 取出扫描中的下一个元组
+ *		heap_fetch		- 按给定 tid 取出元组
+ *		heap_insert		- 向关系中插入元组
+ *		heap_multi_insert - 向关系中插入多个元组
+ *		heap_delete		- 从关系中删除元组
+ *		heap_update		- 用另一个元组替换关系中的元组
  *
- * NOTES
- *	  This file contains the heap_ routines which implement
- *	  the POSTGRES heap access method used for all POSTGRES
- *	  relations.
+ * 说明（NOTES）
+ *	  本文件包含实现 POSTGRES 堆访问方法的
+ *	  heap_ 例程，所有 POSTGRES
+ *	  关系都使用该方法。
  *
  *-------------------------------------------------------------------------
  */
@@ -127,16 +127,16 @@ static HeapTuple ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool ke
 
 
 /*
- * Each tuple lock mode has a corresponding heavyweight lock, and one or two
- * corresponding MultiXactStatuses (one to merely lock tuples, another one to
- * update them).  This table (and the macros below) helps us determine the
- * heavyweight lock mode and MultiXactStatus values to use for any particular
- * tuple lock strength.
+ * 每种元组锁模式都对应一种重量级锁，以及一个或两个
+ * 对应的 MultiXactStatus（一个仅用于锁定元组，另一个用于
+ * 更新它们）。本表（以及下面的宏）帮助我们确定
+ * 任意特定元组锁强度所应使用的重量级锁模式
+ * 与 MultiXactStatus 值。
  *
- * These interact with InplaceUpdateTupleLock, an alias for ExclusiveLock.
+ * 它们与 InplaceUpdateTupleLock 交互，后者是 ExclusiveLock 的别名。
  *
- * Don't look at lockstatus/updstatus directly!  Use get_mxact_status_for_lock
- * instead.
+ * 不要直接查看 lockstatus/updstatus！请改用
+ * get_mxact_status_for_lock。
  */
 static const struct
 {
@@ -147,36 +147,36 @@ static const struct
 
 			tupleLockExtraInfo[MaxLockTupleMode + 1] =
 {
-	{							/* LockTupleKeyShare */
+	{							/* LockTupleKeyShare：键共享 */
 		AccessShareLock,
 		MultiXactStatusForKeyShare,
-		-1						/* KeyShare does not allow updating tuples */
+		-1						/* KeyShare 不允许更新元组 */
 	},
-	{							/* LockTupleShare */
+	{							/* LockTupleShare：共享 */
 		RowShareLock,
 		MultiXactStatusForShare,
-		-1						/* Share does not allow updating tuples */
+		-1						/* Share 不允许更新元组 */
 	},
-	{							/* LockTupleNoKeyExclusive */
+	{							/* LockTupleNoKeyExclusive：非键排他 */
 		ExclusiveLock,
 		MultiXactStatusForNoKeyUpdate,
 		MultiXactStatusNoKeyUpdate
 	},
-	{							/* LockTupleExclusive */
+	{							/* LockTupleExclusive：排他 */
 		AccessExclusiveLock,
 		MultiXactStatusForUpdate,
 		MultiXactStatusUpdate
 	}
 };
 
-/* Get the LOCKMODE for a given MultiXactStatus */
+/* 取得给定 MultiXactStatus 对应的 LOCKMODE */
 #define LOCKMODE_from_mxstatus(status) \
 			(tupleLockExtraInfo[TUPLOCK_from_mxstatus((status))].hwlock)
 
 /*
- * Acquire heavyweight locks on tuples, using a LockTupleMode strength value.
- * This is more readable than having every caller translate it to lock.h's
- * LOCKMODE.
+ * 按 LockTupleMode 强度值获取元组上的重量级锁。
+ * 这比让每个调用方自己把它翻译成 lock.h 中的
+ * LOCKMODE 更易读。
  */
 #define LockTupleTuplock(rel, tup, mode) \
 	LockTuple((rel), (tup), tupleLockExtraInfo[mode].hwlock)
@@ -187,8 +187,8 @@ static const struct
 
 #ifdef USE_PREFETCH
 /*
- * heap_index_delete_tuples and index_delete_prefetch_buffer use this
- * structure to coordinate prefetching activity
+ * heap_index_delete_tuples 与 index_delete_prefetch_buffer 用此
+ * 结构来协调预取活动
  */
 typedef struct
 {
@@ -199,78 +199,78 @@ typedef struct
 } IndexDeletePrefetchState;
 #endif
 
-/* heap_index_delete_tuples bottom-up index deletion costing constants */
+/* heap_index_delete_tuples 自底向上索引删除的代价常量 */
 #define BOTTOMUP_MAX_NBLOCKS			6
 #define BOTTOMUP_TOLERANCE_NBLOCKS		3
 
 /*
- * heap_index_delete_tuples uses this when determining which heap blocks it
- * must visit to help its bottom-up index deletion caller
+ * heap_index_delete_tuples 在确定必须访问哪些堆块时使用它，
+ * 以便帮助其自底向上的索引删除调用方
  */
 typedef struct IndexDeleteCounts
 {
-	int16		npromisingtids; /* Number of "promising" TIDs in group */
-	int16		ntids;			/* Number of TIDs in group */
-	int16		ifirsttid;		/* Offset to group's first deltid */
+	int16		npromisingtids; /* 组内"有希望"的 TID 个数 */
+	int16		ntids;			/* 组内 TID 个数 */
+	int16		ifirsttid;		/* 组内第一个 deltid 的偏移 */
 } IndexDeleteCounts;
 
 /*
- * This table maps tuple lock strength values for each particular
- * MultiXactStatus value.
+ * 本表为每一种 MultiXactStatus
+ * 映射元组锁强度值。
  */
 static const int MultiXactStatusLock[MaxMultiXactStatus + 1] =
 {
-	LockTupleKeyShare,			/* ForKeyShare */
-	LockTupleShare,				/* ForShare */
-	LockTupleNoKeyExclusive,	/* ForNoKeyUpdate */
-	LockTupleExclusive,			/* ForUpdate */
-	LockTupleNoKeyExclusive,	/* NoKeyUpdate */
-	LockTupleExclusive			/* Update */
+	LockTupleKeyShare,			/* ForKeyShare：用于键共享 */
+	LockTupleShare,				/* ForShare：用于共享 */
+	LockTupleNoKeyExclusive,	/* ForNoKeyUpdate：用于非键更新 */
+	LockTupleExclusive,			/* ForUpdate：用于更新 */
+	LockTupleNoKeyExclusive,	/* NoKeyUpdate：非键更新 */
+	LockTupleExclusive			/* Update：更新 */
 };
 
-/* Get the LockTupleMode for a given MultiXactStatus */
+/* 取得给定 MultiXactStatus 对应的 LockTupleMode */
 #define TUPLOCK_from_mxstatus(status) \
 			(MultiXactStatusLock[(status)])
 
 /*
- * Check that we have a valid snapshot if we might need TOAST access.
+ * 若可能需要访问 TOAST，则检查我们持有有效快照。
  */
 static inline void
 AssertHasSnapshotForToast(Relation rel)
 {
 #ifdef USE_ASSERT_CHECKING
 
-	/* bootstrap mode in particular breaks this rule */
+	/* 引导模式尤其会打破这条规则 */
 	if (!IsNormalProcessingMode())
 		return;
 
-	/* if the relation doesn't have a TOAST table, we are good */
+	/* 若该关系没有 TOAST 表，则没有问题 */
 	if (!OidIsValid(rel->rd_rel->reltoastrelid))
 		return;
 
 	/*
-	 * Commit 16bf24e fixed accesses to pg_replication_origin without a
-	 * an active snapshot by removing its TOAST table.  On older branches,
-	 * these bugs are left in place.  Its only varlena column is roname (the
-	 * replication origin name), so this is only a problem if the name
-	 * requires out-of-line storage, which seems unlikely.  In any case,
-	 * fixing it doesn't seem worth extra code churn on the back-branches.
+	 * 提交 16bf24e 通过去掉 pg_replication_origin 的 TOAST 表，修复了
+	 * 在没有活动快照时访问它的问题。在更旧的分支上，
+	 * 这些缺陷仍留在原地。它唯一的 varlena 列是 roname（复制源
+	 * 名称），因此只有名称
+	 * 需要行外存储时才会出问题，这看起来不太可能。无论如何，
+	 * 在后向分支上为修复它增加额外代码改动似乎不值得。
 	 */
 	if (RelationGetRelid(rel) == ReplicationOriginRelationId)
 		return;
 
 	Assert(HaveRegisteredOrActiveSnapshot());
 
-#endif							/* USE_ASSERT_CHECKING */
+#endif							/* USE_ASSERT_CHECKING：断言检查 */
 }
 
 /* ----------------------------------------------------------------
- *						 heap support routines
+ *						 堆支持例程
  * ----------------------------------------------------------------
  */
 
 /* ----------------
- *		initscan - scan code common to heap_beginscan and heap_rescan
+ *		initscan - heap_beginscan 与 heap_rescan 共用的扫描代码
  * ----------------
  */
 static void
@@ -281,15 +281,15 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 	bool		allow_sync;
 
 	/*
-	 * Determine the number of blocks we have to scan.
+	 * 确定我们必须扫描的块数。
 	 *
-	 * It is sufficient to do this once at scan start, since any tuples added
-	 * while the scan is in progress will be invisible to my snapshot anyway.
-	 * (That is not true when using a non-MVCC snapshot.  However, we couldn't
-	 * guarantee to return tuples added after scan start anyway, since they
-	 * might go into pages we already scanned.  To guarantee consistent
-	 * results for a non-MVCC snapshot, the caller must hold some higher-level
-	 * lock that ensures the interesting tuple(s) won't change.)
+	 * 在扫描开始时做一次就够了，因为扫描进行期间新增的任何元组
+	 * 对我的快照反正都不可见。
+	 * （使用非 MVCC 快照时并非如此。不过，我们反正也无法
+	 * 保证返回扫描开始之后新增的元组，因为它们
+	 * 可能落在我们已经扫过的页上。要为非 MVCC 快照保证
+	 * 结果一致，调用方必须持有某种更高层的
+	 * 锁，以确保感兴趣的元组不会改变。）
 	 */
 	if (scan->rs_base.rs_parallel != NULL)
 	{
@@ -300,16 +300,16 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 		scan->rs_nblocks = RelationGetNumberOfBlocks(scan->rs_base.rs_rd);
 
 	/*
-	 * If the table is large relative to NBuffers, use a bulk-read access
-	 * strategy and enable synchronized scanning (see syncscan.c).  Although
-	 * the thresholds for these features could be different, we make them the
-	 * same so that there are only two behaviors to tune rather than four.
-	 * (However, some callers need to be able to disable one or both of these
-	 * behaviors, independently of the size of the table; also there is a GUC
-	 * variable that can disable synchronized scanning.)
+	 * 若表相对于 NBuffers 较大，则使用批量读访问
+	 * 策略，并启用同步扫描（见 syncscan.c）。尽管
+	 * 这些功能的阈值可以不同，我们仍把它们设成
+	 * 相同，这样需要调节的行为只有两种而不是四种。
+	 * （不过，有些调用方需要能够独立于表的大小，
+	 * 单独禁用其中一项或两项；另外还有一个 GUC
+	 * 变量可以禁用同步扫描。）
 	 *
-	 * Note that table_block_parallelscan_initialize has a very similar test;
-	 * if you change this, consider changing that one, too.
+	 * 注意 table_block_parallelscan_initialize 里有非常相似的测试；
+	 * 若改这里，也请考虑改那里。
 	 */
 	if (!RelationUsesLocalBuffers(scan->rs_base.rs_rd) &&
 		scan->rs_nblocks > NBuffers / 4)
@@ -322,7 +322,7 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 
 	if (allow_strat)
 	{
-		/* During a rescan, keep the previous strategy object. */
+		/* 重新扫描期间，保留先前的策略对象。 */
 		if (scan->rs_strategy == NULL)
 			scan->rs_strategy = GetAccessStrategy(BAS_BULKREAD);
 	}
@@ -335,7 +335,7 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 
 	if (scan->rs_base.rs_parallel != NULL)
 	{
-		/* For parallel scan, believe whatever ParallelTableScanDesc says. */
+		/* 对并行扫描，采信 ParallelTableScanDesc 所说的一切。 */
 		if (scan->rs_base.rs_parallel->phs_syncscan)
 			scan->rs_base.rs_flags |= SO_ALLOW_SYNC;
 		else
@@ -344,9 +344,9 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 	else if (keep_startblock)
 	{
 		/*
-		 * When rescanning, we want to keep the previous startblock setting,
-		 * so that rewinding a cursor doesn't generate surprising results.
-		 * Reset the active syncscan setting, though.
+		 * 重新扫描时，我们希望保留先前的 startblock 设置，
+		 * 这样回绕游标就不会产生令人意外的结果。
+		 * 不过要重置当前生效的同步扫描设置。
 		 */
 		if (allow_sync && synchronize_seqscans)
 			scan->rs_base.rs_flags |= SO_ALLOW_SYNC;
@@ -371,39 +371,39 @@ initscan(HeapScanDesc scan, ScanKey key, bool keep_startblock)
 	scan->rs_cbuf = InvalidBuffer;
 	scan->rs_cblock = InvalidBlockNumber;
 
-	/* page-at-a-time fields are always invalid when not rs_inited */
+	/* 尚未 rs_inited 时，一次一页的字段总是无效 */
 
 	/*
-	 * copy the scan key, if appropriate
+	 * 在合适时复制扫描键
 	 */
 	if (key != NULL && scan->rs_base.rs_nkeys > 0)
 		memcpy(scan->rs_base.rs_key, key, scan->rs_base.rs_nkeys * sizeof(ScanKeyData));
 
 	/*
-	 * Currently, we only have a stats counter for sequential heap scans (but
-	 * e.g for bitmap scans the underlying bitmap index scans will be counted,
-	 * and for sample scans we update stats for tuple fetches).
+	 * 目前我们只为顺序堆扫描设了统计计数器（不过
+	 * 例如位图扫描中底层的位图索引扫描会被计数，
+	 * 采样扫描则会更新元组抓取的统计）。
 	 */
 	if (scan->rs_base.rs_flags & SO_TYPE_SEQSCAN)
 		pgstat_count_heap_scan(scan->rs_base.rs_rd);
 }
 
 /*
- * heap_setscanlimits - restrict range of a heapscan
+ * heap_setscanlimits - 限制堆扫描的范围
  *
- * startBlk is the page to start at
- * numBlks is number of pages to scan (InvalidBlockNumber means "all")
+ * startBlk 是开始扫描的页
+ * numBlks 是要扫描的页数（InvalidBlockNumber 表示"全部"）
  */
 void
 heap_setscanlimits(TableScanDesc sscan, BlockNumber startBlk, BlockNumber numBlks)
 {
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
-	Assert(!scan->rs_inited);	/* else too late to change */
-	/* else rs_startblock is significant */
+	Assert(!scan->rs_inited);	/* 否则再改就太晚了 */
+	/* 否则 rs_startblock 是有意义的 */
 	Assert(!(scan->rs_base.rs_flags & SO_ALLOW_SYNC));
 
-	/* Check startBlk is valid (but allow case of zero blocks...) */
+	/* 检查 startBlk 有效（但允许块数为零的情形……） */
 	Assert(startBlk == 0 || startBlk < scan->rs_nblocks);
 
 	scan->rs_startblock = startBlk;
@@ -411,11 +411,11 @@ heap_setscanlimits(TableScanDesc sscan, BlockNumber startBlk, BlockNumber numBlk
 }
 
 /*
- * heapgetpage - subroutine for heapgettup()
+ * heapgetpage - heapgettup() 的子例程
  *
- * This routine reads and pins the specified page of the relation.
- * In page-at-a-time mode it performs additional work, namely determining
- * which tuples on the page are visible.
+ * 本例程读取并钉住关系中指定的页。
+ * 在一次一页模式下它还要做额外工作，即判定
+ * 该页上哪些元组可见。
  */
 void
 heapgetpage(TableScanDesc sscan, BlockNumber block)
@@ -431,7 +431,7 @@ heapgetpage(TableScanDesc sscan, BlockNumber block)
 
 	Assert(block < scan->rs_nblocks);
 
-	/* release previous scan buffer, if any */
+	/* 若有先前的扫描缓冲区，则释放它 */
 	if (BufferIsValid(scan->rs_cbuf))
 	{
 		ReleaseBuffer(scan->rs_cbuf);
@@ -439,13 +439,13 @@ heapgetpage(TableScanDesc sscan, BlockNumber block)
 	}
 
 	/*
-	 * Be sure to check for interrupts at least once per page.  Checks at
-	 * higher code levels won't be able to stop a seqscan that encounters many
-	 * pages' worth of consecutive dead tuples.
+	 * 至少每页检查一次中断。更高层代码里的检查
+	 * 无法停下一次遇到许多
+	 * 页连续死元组的顺序扫描。
 	 */
 	CHECK_FOR_INTERRUPTS();
 
-	/* read page using selected strategy */
+	/* 用选定的策略读取页面 */
 	scan->rs_cbuf = ReadBufferExtended(scan->rs_base.rs_rd, MAIN_FORKNUM, block,
 									   RBM_NORMAL, scan->rs_strategy);
 	scan->rs_cblock = block;
@@ -457,14 +457,14 @@ heapgetpage(TableScanDesc sscan, BlockNumber block)
 	snapshot = scan->rs_base.rs_snapshot;
 
 	/*
-	 * Prune and repair fragmentation for the whole page, if possible.
+	 * 若可能，对整页做剪枝并修复碎片。
 	 */
 	heap_page_prune_opt(scan->rs_base.rs_rd, buffer);
 
 	/*
-	 * We must hold share lock on the buffer content while examining tuple
-	 * visibility.  Afterwards, however, the tuples we have found to be
-	 * visible are guaranteed good as long as we hold the buffer pin.
+	 * 检查元组可见性时，必须持有缓冲区内容上的共享锁。
+	 * 不过此后，只要我们仍钉住该缓冲区，已判定为
+	 * 可见的元组就保证仍然有效。
 	 */
 	LockBuffer(buffer, BUFFER_LOCK_SHARE);
 
@@ -474,24 +474,24 @@ heapgetpage(TableScanDesc sscan, BlockNumber block)
 	ntup = 0;
 
 	/*
-	 * If the all-visible flag indicates that all tuples on the page are
-	 * visible to everyone, we can skip the per-tuple visibility tests.
+	 * 若全可见标志表明该页上所有元组
+	 * 对所有人都可见，就可以跳过逐元组的可见性测试。
 	 *
-	 * Note: In hot standby, a tuple that's already visible to all
-	 * transactions on the primary might still be invisible to a read-only
-	 * transaction in the standby. We partly handle this problem by tracking
-	 * the minimum xmin of visible tuples as the cut-off XID while marking a
-	 * page all-visible on the primary and WAL log that along with the
-	 * visibility map SET operation. In hot standby, we wait for (or abort)
-	 * all transactions that can potentially may not see one or more tuples on
-	 * the page. That's how index-only scans work fine in hot standby. A
-	 * crucial difference between index-only scans and heap scans is that the
-	 * index-only scan completely relies on the visibility map where as heap
-	 * scan looks at the page-level PD_ALL_VISIBLE flag. We are not sure if
-	 * the page-level flag can be trusted in the same way, because it might
-	 * get propagated somehow without being explicitly WAL-logged, e.g. via a
-	 * full page write. Until we can prove that beyond doubt, let's check each
-	 * tuple for visibility the hard way.
+	 * 注意：在热备中，一个已经对所有
+	 * 事务可见的元组，对只读
+	 * 事务在备库中仍可能不可见。我们部分地处理这个问题：跟踪
+	 * 可见元组的最小 xmin，作为在主库上把页面标为
+	 * 全可见时的截止 XID，并随可见性映射 SET 操作一起写入 WAL。
+	 * 在热备中，我们等待（或中止）
+	 * 所有有可能看不到该页上一个或多个元组的
+	 * 事务。仅索引扫描因此才能在热备中正常工作。仅索引
+	 * 扫描与堆扫描的一个关键差别是：
+	 * 仅索引扫描完全依赖可见性映射，而堆
+	 * 扫描查看的是页面级 PD_ALL_VISIBLE 标志。我们不确定
+	 * 页面级标志能否以同样方式被信任，因为它可能
+	 * 未经显式 WAL 记录就以某种方式传播过来，例如经由
+	 * 整页写入。在能够毫无疑问地证明这一点之前，
+	 * 还是用较费事的办法逐个检查元组的可见性。
 	 */
 	all_visible = PageIsAllVisible(page) && !snapshot->takenDuringRecovery;
 
@@ -528,34 +528,34 @@ heapgetpage(TableScanDesc sscan, BlockNumber block)
 }
 
 /*
- * heapgettup_initial_block - return the first BlockNumber to scan
+ * heapgettup_initial_block - 返回要扫描的第一个 BlockNumber
  *
- * Returns InvalidBlockNumber when there are no blocks to scan.  This can
- * occur with empty tables and in parallel scans when parallel workers get all
- * of the pages before we can get a chance to get our first page.
+ * 没有块可扫描时返回 InvalidBlockNumber。空表会出现这种情况，
+ * 并行扫描中并行工作进程在我们有机会取得第一页之前
+ * 就把所有页都取走时也会出现。
  */
 static BlockNumber
 heapgettup_initial_block(HeapScanDesc scan, ScanDirection dir)
 {
 	Assert(!scan->rs_inited);
 
-	/* When there are no pages to scan, return InvalidBlockNumber */
+	/* 没有页可扫描时，返回 InvalidBlockNumber */
 	if (scan->rs_nblocks == 0 || scan->rs_numblocks == 0)
 		return InvalidBlockNumber;
 
 	if (ScanDirectionIsForward(dir))
 	{
-		/* serial scan */
+		/* 串行扫描 */
 		if (scan->rs_base.rs_parallel == NULL)
 			return scan->rs_startblock;
 		else
 		{
-			/* parallel scan */
+			/* 并行扫描 */
 			table_block_parallelscan_startblock_init(scan->rs_base.rs_rd,
 													 scan->rs_parallelworkerdata,
 													 (ParallelBlockTableScanDesc) scan->rs_base.rs_parallel);
 
-			/* may return InvalidBlockNumber if there are no more blocks */
+			/* 若没有更多块，可能返回 InvalidBlockNumber */
 			return table_block_parallelscan_nextpage(scan->rs_base.rs_rd,
 													 scan->rs_parallelworkerdata,
 													 (ParallelBlockTableScanDesc) scan->rs_base.rs_parallel);
@@ -563,20 +563,20 @@ heapgettup_initial_block(HeapScanDesc scan, ScanDirection dir)
 	}
 	else
 	{
-		/* backward parallel scan not supported */
+		/* 不支持反向并行扫描 */
 		Assert(scan->rs_base.rs_parallel == NULL);
 
 		/*
-		 * Disable reporting to syncscan logic in a backwards scan; it's not
-		 * very likely anyone else is doing the same thing at the same time,
-		 * and much more likely that we'll just bollix things for forward
-		 * scanners.
+		 * 反向扫描时不要向同步扫描逻辑报告位置；不太
+		 * 可能同时还有别人在做同样的事，
+		 * 更可能的是我们只会搅乱正向
+		 * 扫描者。
 		 */
 		scan->rs_base.rs_flags &= ~SO_ALLOW_SYNC;
 
 		/*
-		 * Start from last page of the scan.  Ensure we take into account
-		 * rs_numblocks if it's been adjusted by heap_setscanlimits().
+		 * 从扫描的最后一页开始。务必计入
+		 * 已被 heap_setscanlimits() 调整过的 rs_numblocks。
 		 */
 		if (scan->rs_numblocks != InvalidBlockNumber)
 			return (scan->rs_startblock + scan->rs_numblocks - 1) % scan->rs_nblocks;
@@ -590,12 +590,12 @@ heapgettup_initial_block(HeapScanDesc scan, ScanDirection dir)
 
 
 /*
- * heapgettup_start_page - helper function for heapgettup()
+ * heapgettup_start_page - heapgettup() 的辅助函数
  *
- * Return the next page to scan based on the scan->rs_cbuf and set *linesleft
- * to the number of tuples on this page.  Also set *lineoff to the first
- * offset to scan with forward scans getting the first offset and backward
- * getting the final offset on the page.
+ * 根据 scan->rs_cbuf 返回要扫描的下一页，并把 *linesleft
+ * 设为该页上的元组数。同时把 *lineoff 设为第一个要扫描的
+ * 偏移：正向扫描取第一个偏移，反向扫描
+ * 取该页上的最后一个偏移。
  */
 static Page
 heapgettup_start_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
@@ -606,7 +606,7 @@ heapgettup_start_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
 	Assert(scan->rs_inited);
 	Assert(BufferIsValid(scan->rs_cbuf));
 
-	/* Caller is responsible for ensuring buffer is locked if needed */
+	/* 若需要，由调用方负责确保缓冲区已上锁 */
 	page = BufferGetPage(scan->rs_cbuf);
 
 	TestForOldSnapshot(scan->rs_base.rs_snapshot, scan->rs_base.rs_rd, page);
@@ -618,17 +618,17 @@ heapgettup_start_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
 	else
 		*lineoff = (OffsetNumber) (*linesleft);
 
-	/* lineoff now references the physically previous or next tid */
+	/* lineoff 现在指向物理上的前一个或后一个 tid */
 	return page;
 }
 
 
 /*
- * heapgettup_continue_page - helper function for heapgettup()
+ * heapgettup_continue_page - heapgettup() 的辅助函数
  *
- * Return the next page to scan based on the scan->rs_cbuf and set *linesleft
- * to the number of tuples left to scan on this page.  Also set *lineoff to
- * the next offset to scan according to the ScanDirection in 'dir'.
+ * 根据 scan->rs_cbuf 返回要扫描的下一页，并把 *linesleft
+ * 设为该页上剩余要扫描的元组数。同时把 *lineoff 设为
+ * 按 'dir' 中的 ScanDirection 确定的下一个要扫描偏移。
  */
 static inline Page
 heapgettup_continue_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
@@ -639,7 +639,7 @@ heapgettup_continue_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
 	Assert(scan->rs_inited);
 	Assert(BufferIsValid(scan->rs_cbuf));
 
-	/* Caller is responsible for ensuring buffer is locked if needed */
+	/* 若需要，由调用方负责确保缓冲区已上锁 */
 	page = BufferGetPage(scan->rs_cbuf);
 
 	TestForOldSnapshot(scan->rs_base.rs_snapshot, scan->rs_base.rs_rd, page);
@@ -652,31 +652,31 @@ heapgettup_continue_page(HeapScanDesc scan, ScanDirection dir, int *linesleft,
 	else
 	{
 		/*
-		 * The previous returned tuple may have been vacuumed since the
-		 * previous scan when we use a non-MVCC snapshot, so we must
-		 * re-establish the lineoff <= PageGetMaxOffsetNumber(page) invariant
+		 * 使用非 MVCC 快照时，上次返回的元组可能自
+		 * 上次扫描以来已被清理，因此我们必须
+		 * 重新确立 lineoff <= PageGetMaxOffsetNumber(page) 这一不变量
 		 */
 		*lineoff = Min(PageGetMaxOffsetNumber(page), OffsetNumberPrev(scan->rs_coffset));
 		*linesleft = *lineoff;
 	}
 
-	/* lineoff now references the physically previous or next tid */
+	/* lineoff 现在指向物理上的前一个或后一个 tid */
 	return page;
 }
 
 /*
- * heapgettup_advance_block - helper for heapgettup() and heapgettup_pagemode()
+ * heapgettup_advance_block - heapgettup() 与 heapgettup_pagemode() 的辅助函数
  *
- * Given the current block number, the scan direction, and various information
- * contained in the scan descriptor, calculate the BlockNumber to scan next
- * and return it.  If there are no further blocks to scan, return
- * InvalidBlockNumber to indicate this fact to the caller.
+ * 根据当前块号、扫描方向以及扫描描述符中
+ * 包含的各种信息，计算下一个要扫描的 BlockNumber
+ * 并返回它。若没有更多块可扫描，则返回
+ * InvalidBlockNumber，以此告知调用方。
  *
- * This should not be called to determine the initial block number -- only for
- * subsequent blocks.
+ * 不应当用它来确定初始块号——只用于
+ * 后续的块。
  *
- * This also adjusts rs_numblocks when a limit has been imposed by
- * heap_setscanlimits().
+ * 当 heap_setscanlimits() 施加了限制时，它也会调整
+ * rs_numblocks。
  */
 static inline BlockNumber
 heapgettup_advance_block(HeapScanDesc scan, BlockNumber block, ScanDirection dir)
@@ -687,30 +687,30 @@ heapgettup_advance_block(HeapScanDesc scan, BlockNumber block, ScanDirection dir
 		{
 			block++;
 
-			/* wrap back to the start of the heap */
+			/* 回绕到堆的起点 */
 			if (block >= scan->rs_nblocks)
 				block = 0;
 
 			/*
-			 * Report our new scan position for synchronization purposes. We
-			 * don't do that when moving backwards, however. That would just
-			 * mess up any other forward-moving scanners.
+			 * 为同步目的报告新的扫描位置。不过
+			 * 向后移动时不这样做。那样只会
+			 * 搅乱其他正向移动的扫描者。
 			 *
-			 * Note: we do this before checking for end of scan so that the
-			 * final state of the position hint is back at the start of the
-			 * rel.  That's not strictly necessary, but otherwise when you run
-			 * the same query multiple times the starting position would shift
-			 * a little bit backwards on every invocation, which is confusing.
-			 * We don't guarantee any specific ordering in general, though.
+			 * 注意：我们在检查扫描是否结束之前就这样做，以便
+			 * 位置提示的最终状态回到关系的起点。
+			 * 这并非严格必要，但否则当你多次运行
+			 * 同一查询时，起始位置每次调用都会
+			 * 略微向后移，令人困惑。
+			 * 不过一般来说我们并不保证任何特定顺序。
 			 */
 			if (scan->rs_base.rs_flags & SO_ALLOW_SYNC)
 				ss_report_location(scan->rs_base.rs_rd, block);
 
-			/* we're done if we're back at where we started */
+			/* 若回到起点，则扫描结束 */
 			if (block == scan->rs_startblock)
 				return InvalidBlockNumber;
 
-			/* check if the limit imposed by heap_setscanlimits() is met */
+			/* 检查是否已达到 heap_setscanlimits() 施加的限制 */
 			if (scan->rs_numblocks != InvalidBlockNumber)
 			{
 				if (--scan->rs_numblocks == 0)
@@ -728,18 +728,18 @@ heapgettup_advance_block(HeapScanDesc scan, BlockNumber block, ScanDirection dir
 	}
 	else
 	{
-		/* we're done if the last block is the start position */
+		/* 若最后一块就是起始位置，则扫描结束 */
 		if (block == scan->rs_startblock)
 			return InvalidBlockNumber;
 
-		/* check if the limit imposed by heap_setscanlimits() is met */
+		/* 检查是否已达到 heap_setscanlimits() 施加的限制 */
 		if (scan->rs_numblocks != InvalidBlockNumber)
 		{
 			if (--scan->rs_numblocks == 0)
 				return InvalidBlockNumber;
 		}
 
-		/* wrap to the end of the heap when the last page was page 0 */
+		/* 上一页是第 0 页时，回绕到堆的末尾 */
 		if (block == 0)
 			block = scan->rs_nblocks;
 
@@ -750,23 +750,23 @@ heapgettup_advance_block(HeapScanDesc scan, BlockNumber block, ScanDirection dir
 }
 
 /* ----------------
- *		heapgettup - fetch next heap tuple
+ *		heapgettup - 取出下一个堆元组
  *
- *		Initialize the scan if not already done; then advance to the next
- *		tuple as indicated by "dir"; return the next tuple in scan->rs_ctup,
- *		or set scan->rs_ctup.t_data = NULL if no more tuples.
+ *		若尚未完成则先初始化扫描；然后按 "dir" 前进到下一个
+ *		元组；把下一个元组放在 scan->rs_ctup 中返回，
+ *		若没有更多元组则把 scan->rs_ctup.t_data 设为 NULL。
  *
- * Note: the reason nkeys/key are passed separately, even though they are
- * kept in the scan descriptor, is that the caller may not want us to check
- * the scankeys.
+ * 注意：nkeys/key 之所以单独传入，尽管它们
+ * 保存在扫描描述符里，是因为调用方可能不希望我们检查
+ * 扫描键。
  *
- * Note: when we fall off the end of the scan in either direction, we
- * reset rs_inited.  This means that a further request with the same
- * scan direction will restart the scan, which is a bit odd, but a
- * request with the opposite scan direction will start a fresh scan
- * in the proper direction.  The latter is required behavior for cursors,
- * while the former case is generally undefined behavior in Postgres
- * so we don't care too much.
+ * 注意：无论哪个方向，一旦扫出扫描范围，我们就
+ * 重置 rs_inited。这意味着同方向的下一次请求
+ * 会重新开始扫描，这有点古怪，但
+ * 反方向的请求会按正确方向开始一次新的扫描。
+ * 后者是游标所需的行为，
+ * 而前者在 Postgres 中一般是未定义行为，
+ * 所以我们不太在意。
  * ----------------
  */
 static void
@@ -784,13 +784,13 @@ heapgettup(HeapScanDesc scan,
 	if (unlikely(!scan->rs_inited))
 	{
 		block = heapgettup_initial_block(scan, dir);
-		/* ensure rs_cbuf is invalid when we get InvalidBlockNumber */
+		/* 得到 InvalidBlockNumber 时，确保 rs_cbuf 无效 */
 		Assert(block != InvalidBlockNumber || !BufferIsValid(scan->rs_cbuf));
 		scan->rs_inited = true;
 	}
 	else
 	{
-		/* continue from previously returned page/tuple */
+		/* 从先前返回的页或元组继续 */
 		block = scan->rs_cblock;
 
 		LockBuffer(scan->rs_cbuf, BUFFER_LOCK_SHARE);
@@ -799,8 +799,8 @@ heapgettup(HeapScanDesc scan,
 	}
 
 	/*
-	 * advance the scan until we find a qualifying tuple or run out of stuff
-	 * to scan
+	 * 推进扫描，直到找到符合条件的元组，或没有更多内容
+	 * 可扫描
 	 */
 	while (block != InvalidBlockNumber)
 	{
@@ -810,11 +810,11 @@ heapgettup(HeapScanDesc scan,
 continue_page:
 
 		/*
-		 * Only continue scanning the page while we have lines left.
+		 * 只有在本页还有行时才继续扫描。
 		 *
-		 * Note that this protects us from accessing line pointers past
-		 * PageGetMaxOffsetNumber(); both for forward scans when we resume the
-		 * table scan, and for when we start scanning a new page.
+		 * 注意这能防止我们访问超出
+		 * PageGetMaxOffsetNumber() 的行指针；无论是恢复
+		 * 表扫描时的正向扫描，还是开始扫描新页时都是如此。
 		 */
 		for (; linesleft > 0; linesleft--, lineoff += dir)
 		{
@@ -836,11 +836,11 @@ continue_page:
 												tuple, scan->rs_cbuf,
 												scan->rs_base.rs_snapshot);
 
-			/* skip tuples not visible to this snapshot */
+			/* 跳过对本快照不可见的元组 */
 			if (!visible)
 				continue;
 
-			/* skip any tuples that don't match the scan key */
+			/* 跳过任何不匹配扫描键的元组 */
 			if (key != NULL &&
 				!HeapKeyTest(tuple, RelationGetDescr(scan->rs_base.rs_rd),
 							 nkeys, key))
@@ -852,16 +852,16 @@ continue_page:
 		}
 
 		/*
-		 * if we get here, it means we've exhausted the items on this page and
-		 * it's time to move to the next.
+		 * 若执行到这里，说明本页上的项已经用尽，
+		 * 该移到下一页了。
 		 */
 		LockBuffer(scan->rs_cbuf, BUFFER_LOCK_UNLOCK);
 
-		/* get the BlockNumber to scan next */
+		/* 取得下一个要扫描的 BlockNumber */
 		block = heapgettup_advance_block(scan, block, dir);
 	}
 
-	/* end of scan */
+	/* 扫描结束 */
 	if (BufferIsValid(scan->rs_cbuf))
 		ReleaseBuffer(scan->rs_cbuf);
 
@@ -872,16 +872,16 @@ continue_page:
 }
 
 /* ----------------
- *		heapgettup_pagemode - fetch next heap tuple in page-at-a-time mode
+ *		heapgettup_pagemode - 以一次一页模式取出下一个堆元组
  *
- *		Same API as heapgettup, but used in page-at-a-time mode
+ *		API 与 heapgettup 相同，但用于一次一页模式
  *
- * The internal logic is much the same as heapgettup's too, but there are some
- * differences: we do not take the buffer content lock (that only needs to
- * happen inside heapgetpage), and we iterate through just the tuples listed
- * in rs_vistuples[] rather than all tuples on the page.  Notice that
- * lineindex is 0-based, where the corresponding loop variable lineoff in
- * heapgettup is 1-based.
+ * 内部逻辑也与 heapgettup 大体相同，但有一些
+ * 差别：我们不获取缓冲区内容锁（那只需要在
+ * heapgetpage 内部发生），并且只遍历列出的元组
+ * 即 rs_vistuples[] 中的那些，而不是该页上的全部元组。注意
+ * lineindex 从 0 起计，而 heapgettup 中对应的循环变量 lineoff
+ * 从 1 起计。
  * ----------------
  */
 static void
@@ -899,14 +899,14 @@ heapgettup_pagemode(HeapScanDesc scan,
 	if (unlikely(!scan->rs_inited))
 	{
 		block = heapgettup_initial_block(scan, dir);
-		/* ensure rs_cbuf is invalid when we get InvalidBlockNumber */
+		/* 得到 InvalidBlockNumber 时，确保 rs_cbuf 无效 */
 		Assert(block != InvalidBlockNumber || !BufferIsValid(scan->rs_cbuf));
 		scan->rs_inited = true;
 	}
 	else
 	{
-		/* continue from previously returned page/tuple */
-		block = scan->rs_cblock;	/* current page */
+		/* 从先前返回的页或元组继续 */
+		block = scan->rs_cblock;	/* 当前页 */
 		page = BufferGetPage(scan->rs_cbuf);
 		TestForOldSnapshot(scan->rs_base.rs_snapshot, scan->rs_base.rs_rd, page);
 
@@ -915,14 +915,14 @@ heapgettup_pagemode(HeapScanDesc scan,
 			linesleft = scan->rs_ntuples - lineindex;
 		else
 			linesleft = scan->rs_cindex;
-		/* lineindex now references the next or previous visible tid */
+		/* lineindex 现在指向下一个或上一个可见 tid */
 
 		goto continue_page;
 	}
 
 	/*
-	 * advance the scan until we find a qualifying tuple or run out of stuff
-	 * to scan
+	 * 推进扫描，直到找到符合条件的元组，或没有更多内容
+	 * 可扫描
 	 */
 	while (block != InvalidBlockNumber)
 	{
@@ -932,7 +932,7 @@ heapgettup_pagemode(HeapScanDesc scan,
 		linesleft = scan->rs_ntuples;
 		lineindex = ScanDirectionIsForward(dir) ? 0 : linesleft - 1;
 
-		/* lineindex now references the next or previous visible tid */
+		/* lineindex 现在指向下一个或上一个可见 tid */
 continue_page:
 
 		for (; linesleft > 0; linesleft--, lineindex += dir)
@@ -948,7 +948,7 @@ continue_page:
 			tuple->t_len = ItemIdGetLength(lpp);
 			ItemPointerSet(&(tuple->t_self), block, lineoff);
 
-			/* skip any tuples that don't match the scan key */
+			/* 跳过任何不匹配扫描键的元组 */
 			if (key != NULL &&
 				!HeapKeyTest(tuple, RelationGetDescr(scan->rs_base.rs_rd),
 							 nkeys, key))
@@ -958,11 +958,11 @@ continue_page:
 			return;
 		}
 
-		/* get the BlockNumber to scan next */
+		/* 取得下一个要扫描的 BlockNumber */
 		block = heapgettup_advance_block(scan, block, dir);
 	}
 
-	/* end of scan */
+	/* 扫描结束 */
 	if (BufferIsValid(scan->rs_cbuf))
 		ReleaseBuffer(scan->rs_cbuf);
 	scan->rs_cbuf = InvalidBuffer;
@@ -973,7 +973,7 @@ continue_page:
 
 
 /* ----------------------------------------------------------------
- *					 heap access method interface
+ *					 堆访问方法接口
  * ----------------------------------------------------------------
  */
 
@@ -987,16 +987,16 @@ heap_beginscan(Relation relation, Snapshot snapshot,
 	HeapScanDesc scan;
 
 	/*
-	 * increment relation ref count while scanning relation
+	 * 扫描关系期间增加关系引用计数
 	 *
-	 * This is just to make really sure the relcache entry won't go away while
-	 * the scan has a pointer to it.  Caller should be holding the rel open
-	 * anyway, so this is redundant in all normal scenarios...
+	 * 这只是为了切实保证：扫描持有指向它的指针时，
+	 * relcache 项不会消失。调用方反正应当保持该关系打开，
+	 * 所以在所有正常情形下这都是多余的……
 	 */
 	RelationIncrementReferenceCount(relation);
 
 	/*
-	 * allocate and initialize scan descriptor
+	 * 分配并初始化扫描描述符
 	 */
 	scan = (HeapScanDesc) palloc(sizeof(HeapScanDescData));
 
@@ -1005,44 +1005,44 @@ heap_beginscan(Relation relation, Snapshot snapshot,
 	scan->rs_base.rs_nkeys = nkeys;
 	scan->rs_base.rs_flags = flags;
 	scan->rs_base.rs_parallel = parallel_scan;
-	scan->rs_strategy = NULL;	/* set in initscan */
+	scan->rs_strategy = NULL;	/* 在 initscan 中设置 */
 
 	/*
-	 * Disable page-at-a-time mode if it's not a MVCC-safe snapshot.
+	 * 若快照不是 MVCC 安全的，则禁用一次一页模式。
 	 */
 	if (!(snapshot && IsMVCCSnapshot(snapshot)))
 		scan->rs_base.rs_flags &= ~SO_ALLOW_PAGEMODE;
 
 	/*
-	 * For seqscan and sample scans in a serializable transaction, acquire a
-	 * predicate lock on the entire relation. This is required not only to
-	 * lock all the matching tuples, but also to conflict with new insertions
-	 * into the table. In an indexscan, we take page locks on the index pages
-	 * covering the range specified in the scan qual, but in a heap scan there
-	 * is nothing more fine-grained to lock. A bitmap scan is a different
-	 * story, there we have already scanned the index and locked the index
-	 * pages covering the predicate. But in that case we still have to lock
-	 * any matching heap tuples. For sample scan we could optimize the locking
-	 * to be at least page-level granularity, but we'd need to add per-tuple
-	 * locking for that.
+	 * 对可串行化事务中的顺序扫描和采样扫描，获取整个关系上的
+	 * 谓词锁。这不仅是为了
+	 * 锁住所有匹配的元组，也是为了与新插入到
+	 * 表中的行冲突。索引扫描时，我们对覆盖扫描条件所指定范围的索引页
+	 * 取页锁，但堆扫描没有
+	 * 更细粒度的东西可锁。位图扫描则是另一回事，
+	 * 那时我们已经扫描了索引并锁住了覆盖该谓词的索引
+	 * 页。但即便如此，我们仍必须锁住
+	 * 任何匹配的堆元组。对采样扫描可以把锁定
+	 * 优化到至少页级粒度，但那就需要增加逐元组
+	 * 锁定。
 	 */
 	if (scan->rs_base.rs_flags & (SO_TYPE_SEQSCAN | SO_TYPE_SAMPLESCAN))
 	{
 		/*
-		 * Ensure a missing snapshot is noticed reliably, even if the
-		 * isolation mode means predicate locking isn't performed (and
-		 * therefore the snapshot isn't used here).
+		 * 确保缺少快照时能可靠地被注意到，即便
+		 * 隔离模式意味着不会执行谓词锁定（因此
+		 * 这里也不会使用该快照）。
 		 */
 		Assert(snapshot);
 		PredicateLockRelation(relation, snapshot);
 	}
 
-	/* we only need to set this up once */
+	/* 我们只需要设置一次 */
 	scan->rs_ctup.t_tableOid = RelationGetRelid(relation);
 
 	/*
-	 * Allocate memory to keep track of page allocation for parallel workers
-	 * when doing a parallel scan.
+	 * 分配内存，以便在做并行扫描时跟踪并行工作进程的
+	 * 页面分配。
 	 */
 	if (parallel_scan != NULL)
 		scan->rs_parallelworkerdata = palloc(sizeof(ParallelBlockTableScanWorkerData));
@@ -1050,8 +1050,8 @@ heap_beginscan(Relation relation, Snapshot snapshot,
 		scan->rs_parallelworkerdata = NULL;
 
 	/*
-	 * we do this here instead of in initscan() because heap_rescan also calls
-	 * initscan() and we don't want to allocate memory again
+	 * 放在这里而不是 initscan() 里，是因为 heap_rescan 也会调用
+	 * initscan()，而我们不想再次分配内存
 	 */
 	if (nkeys > 0)
 		scan->rs_base.rs_key = (ScanKey) palloc(sizeof(ScanKeyData) * nkeys);
@@ -1089,13 +1089,13 @@ heap_rescan(TableScanDesc sscan, ScanKey key, bool set_params,
 	}
 
 	/*
-	 * unpin scan buffers
+	 * 解除扫描缓冲区的钉住
 	 */
 	if (BufferIsValid(scan->rs_cbuf))
 		ReleaseBuffer(scan->rs_cbuf);
 
 	/*
-	 * reinitialize scan descriptor
+	 * 重新初始化扫描描述符
 	 */
 	initscan(scan, key, true);
 }
@@ -1105,16 +1105,16 @@ heap_endscan(TableScanDesc sscan)
 {
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
-	/* Note: no locking manipulations needed */
+	/* 注意：不需要做锁操作 */
 
 	/*
-	 * unpin scan buffers
+	 * 解除扫描缓冲区的钉住
 	 */
 	if (BufferIsValid(scan->rs_cbuf))
 		ReleaseBuffer(scan->rs_cbuf);
 
 	/*
-	 * decrement relation reference count and free scan descriptor storage
+	 * 减少关系引用计数并释放扫描描述符的存储
 	 */
 	RelationDecrementReferenceCount(scan->rs_base.rs_rd);
 
@@ -1139,11 +1139,11 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
 	/*
-	 * This is still widely used directly, without going through table AM, so
-	 * add a safety check.  It's possible we should, at a later point,
-	 * downgrade this to an assert. The reason for checking the AM routine,
-	 * rather than the AM oid, is that this allows to write regression tests
-	 * that create another AM reusing the heap handler.
+	 * 它仍被广泛地直接使用，不经过表访问方法，因此
+	 * 加上安全检查。以后也许应当
+	 * 把它降级为断言。检查访问方法例程
+	 * 而不是访问方法 oid 的原因是，这样可以编写回归测试，
+	 * 创建另一个复用堆处理器的访问方法。
 	 */
 	if (unlikely(sscan->rs_rd->rd_tableam != GetHeapamTableAmRoutine()))
 		ereport(ERROR,
@@ -1151,16 +1151,16 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 				 errmsg_internal("only heap AM is supported")));
 
 	/*
-	 * We don't expect direct calls to heap_getnext with valid CheckXidAlive
-	 * for catalog or regular tables.  See detailed comments in xact.c where
-	 * these variables are declared.  Normally we have such a check at tableam
-	 * level API but this is called from many places so we need to ensure it
-	 * here.
+	 * 我们不预期对系统目录表或普通表直接调用 heap_getnext
+	 * 时带着有效的 CheckXidAlive。详见 xact.c 中
+	 * 这些变量的声明处注释。正常情况下我们在 tableam
+	 * 层 API 已有此类检查，但这里被许多地方调用，所以需要在
+	 * 此处保证这一点。
 	 */
 	if (unlikely(TransactionIdIsValid(CheckXidAlive) && !bsysscan))
 		elog(ERROR, "unexpected heap_getnext call during logical decoding");
 
-	/* Note: no locking manipulations needed */
+	/* 注意：不需要做锁操作 */
 
 	if (scan->rs_base.rs_flags & SO_ALLOW_PAGEMODE)
 		heapgettup_pagemode(scan, direction,
@@ -1173,8 +1173,8 @@ heap_getnext(TableScanDesc sscan, ScanDirection direction)
 		return NULL;
 
 	/*
-	 * if we get here it means we have a new current scan tuple, so point to
-	 * the proper return buffer and return the tuple.
+	 * 若执行到这里，说明有了新的当前扫描元组，于是指向
+	 * 合适的返回缓冲区并返回该元组。
 	 */
 
 	pgstat_count_heap_getnext(scan->rs_base.rs_rd);
@@ -1187,7 +1187,7 @@ heap_getnextslot(TableScanDesc sscan, ScanDirection direction, TupleTableSlot *s
 {
 	HeapScanDesc scan = (HeapScanDesc) sscan;
 
-	/* Note: no locking manipulations needed */
+	/* 注意：不需要做锁操作 */
 
 	if (sscan->rs_flags & SO_ALLOW_PAGEMODE)
 		heapgettup_pagemode(scan, direction, sscan->rs_nkeys, sscan->rs_key);
@@ -1201,8 +1201,8 @@ heap_getnextslot(TableScanDesc sscan, ScanDirection direction, TupleTableSlot *s
 	}
 
 	/*
-	 * if we get here it means we have a new current scan tuple, so point to
-	 * the proper return buffer and return the tuple.
+	 * 若执行到这里，说明有了新的当前扫描元组，于是指向
+	 * 合适的返回缓冲区并返回该元组。
 	 */
 
 	pgstat_count_heap_getnext(scan->rs_base.rs_rd);
@@ -1223,64 +1223,64 @@ heap_set_tidrange(TableScanDesc sscan, ItemPointer mintid,
 	ItemPointerData lowestItem;
 
 	/*
-	 * For relations without any pages, we can simply leave the TID range
-	 * unset.  There will be no tuples to scan, therefore no tuples outside
-	 * the given TID range.
+	 * 对没有任何页的关系，可以直接让 TID 范围
+	 * 保持未设置。不会有元组可扫描，因此也不会有元组落在
+	 * 给定 TID 范围之外。
 	 */
 	if (scan->rs_nblocks == 0)
 		return;
 
 	/*
-	 * Set up some ItemPointers which point to the first and last possible
-	 * tuples in the heap.
+	 * 设置一些 ItemPointer，指向堆中第一个和最后一个可能的
+	 * 元组。
 	 */
 	ItemPointerSet(&highestItem, scan->rs_nblocks - 1, MaxOffsetNumber);
 	ItemPointerSet(&lowestItem, 0, FirstOffsetNumber);
 
 	/*
-	 * If the given maximum TID is below the highest possible TID in the
-	 * relation, then restrict the range to that, otherwise we scan to the end
-	 * of the relation.
+	 * 若给定的最大 TID 低于关系中可能的最高 TID，
+	 * 就把范围限制到该值，否则一直扫描到关系的
+	 * 末尾。
 	 */
 	if (ItemPointerCompare(maxtid, &highestItem) < 0)
 		ItemPointerCopy(maxtid, &highestItem);
 
 	/*
-	 * If the given minimum TID is above the lowest possible TID in the
-	 * relation, then restrict the range to only scan for TIDs above that.
+	 * 若给定的最小 TID 高于关系中可能的最低 TID，
+	 * 就把范围限制为只扫描高于该值的 TID。
 	 */
 	if (ItemPointerCompare(mintid, &lowestItem) > 0)
 		ItemPointerCopy(mintid, &lowestItem);
 
 	/*
-	 * Check for an empty range and protect from would be negative results
-	 * from the numBlks calculation below.
+	 * 检查空范围，并防止下面的 numBlks 计算
+	 * 出现本会为负的结果。
 	 */
 	if (ItemPointerCompare(&highestItem, &lowestItem) < 0)
 	{
-		/* Set an empty range of blocks to scan */
+		/* 设置一个空的待扫描块范围 */
 		heap_setscanlimits(sscan, 0, 0);
 		return;
 	}
 
 	/*
-	 * Calculate the first block and the number of blocks we must scan. We
-	 * could be more aggressive here and perform some more validation to try
-	 * and further narrow the scope of blocks to scan by checking if the
-	 * lowestItem has an offset above MaxOffsetNumber.  In this case, we could
-	 * advance startBlk by one.  Likewise, if highestItem has an offset of 0
-	 * we could scan one fewer blocks.  However, such an optimization does not
-	 * seem worth troubling over, currently.
+	 * 计算第一个块以及我们必须扫描的块数。这里
+	 * 可以更激进一些，做更多校验，试图
+	 * 进一步收窄要扫描的块范围：检查
+	 * lowestItem 的偏移是否高于 MaxOffsetNumber。若是，可以把
+	 * startBlk 加一。同样，若 highestItem 的偏移为 0，
+	 * 可以少扫描一块。不过这种优化目前
+	 * 似乎不值得费心。
 	 */
 	startBlk = ItemPointerGetBlockNumberNoCheck(&lowestItem);
 
 	numBlks = ItemPointerGetBlockNumberNoCheck(&highestItem) -
 		ItemPointerGetBlockNumberNoCheck(&lowestItem) + 1;
 
-	/* Set the start block and number of blocks to scan */
+	/* 设置起始块和要扫描的块数 */
 	heap_setscanlimits(sscan, startBlk, numBlks);
 
-	/* Finally, set the TID range in sscan */
+	/* 最后，在 sscan 中设置 TID 范围 */
 	ItemPointerCopy(&lowestItem, &sscan->rs_mintid);
 	ItemPointerCopy(&highestItem, &sscan->rs_maxtid);
 }
@@ -1293,7 +1293,7 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 	ItemPointer mintid = &sscan->rs_mintid;
 	ItemPointer maxtid = &sscan->rs_maxtid;
 
-	/* Note: no locking manipulations needed */
+	/* 注意：不需要做锁操作 */
 	for (;;)
 	{
 		if (sscan->rs_flags & SO_ALLOW_PAGEMODE)
@@ -1308,19 +1308,19 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 		}
 
 		/*
-		 * heap_set_tidrange will have used heap_setscanlimits to limit the
-		 * range of pages we scan to only ones that can contain the TID range
-		 * we're scanning for.  Here we must filter out any tuples from these
-		 * pages that are outside of that range.
+		 * heap_set_tidrange 会用 heap_setscanlimits 把我们扫描的
+		 * 页范围限制为只包含可能含有目标 TID 范围的那些页。
+		 * 这里必须滤掉这些
+		 * 页上落在该范围之外的任何元组。
 		 */
 		if (ItemPointerCompare(&scan->rs_ctup.t_self, mintid) < 0)
 		{
 			ExecClearTuple(slot);
 
 			/*
-			 * When scanning backwards, the TIDs will be in descending order.
-			 * Future tuples in this direction will be lower still, so we can
-			 * just return false to indicate there will be no more tuples.
+			 * 反向扫描时，TID 按降序排列。
+			 * 这个方向上后续的元组还会更小，因此可以
+			 * 直接返回 false，表示不会再有元组。
 			 */
 			if (ScanDirectionIsBackward(direction))
 				return false;
@@ -1329,17 +1329,17 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 		}
 
 		/*
-		 * Likewise for the final page, we must filter out TIDs greater than
-		 * maxtid.
+		 * 对最后一页同样如此，必须滤掉大于
+		 * maxtid 的 TID。
 		 */
 		if (ItemPointerCompare(&scan->rs_ctup.t_self, maxtid) > 0)
 		{
 			ExecClearTuple(slot);
 
 			/*
-			 * When scanning forward, the TIDs will be in ascending order.
-			 * Future tuples in this direction will be higher still, so we can
-			 * just return false to indicate there will be no more tuples.
+			 * 正向扫描时，TID 按升序排列。
+			 * 这个方向上后续的元组还会更大，因此可以
+			 * 直接返回 false，表示不会再有元组。
 			 */
 			if (ScanDirectionIsForward(direction))
 				return false;
@@ -1350,8 +1350,8 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 	}
 
 	/*
-	 * if we get here it means we have a new current scan tuple, so point to
-	 * the proper return buffer and return the tuple.
+	 * 若执行到这里，说明有了新的当前扫描元组，于是指向
+	 * 合适的返回缓冲区并返回该元组。
 	 */
 	pgstat_count_heap_getnext(scan->rs_base.rs_rd);
 
@@ -1360,37 +1360,37 @@ heap_getnextslot_tidrange(TableScanDesc sscan, ScanDirection direction,
 }
 
 /*
- *	heap_fetch		- retrieve tuple with given tid
+ *	heap_fetch		- 按给定 tid 取出元组
  *
- * On entry, tuple->t_self is the TID to fetch.  We pin the buffer holding
- * the tuple, fill in the remaining fields of *tuple, and check the tuple
- * against the specified snapshot.
+ * 进入时，tuple->t_self 是要取出的 TID。我们钉住持有
+ * 该元组的缓冲区，填好 *tuple 的其余字段，并对照
+ * 指定的快照检查该元组。
  *
- * If successful (tuple found and passes snapshot time qual), then *userbuf
- * is set to the buffer holding the tuple and true is returned.  The caller
- * must unpin the buffer when done with the tuple.
+ * 若成功（找到元组且通过快照时间限定），则把 *userbuf
+ * 设为持有该元组的缓冲区并返回 true。调用方
+ * 用完该元组后必须解除缓冲区的钉住。
  *
- * If the tuple is not found (ie, item number references a deleted slot),
- * then tuple->t_data is set to NULL, *userbuf is set to InvalidBuffer,
- * and false is returned.
+ * 若未找到元组（即项号引用了已删除的槽），
+ * 则把 tuple->t_data 设为 NULL，把 *userbuf 设为 InvalidBuffer，
+ * 并返回 false。
  *
- * If the tuple is found but fails the time qual check, then the behavior
- * depends on the keep_buf parameter.  If keep_buf is false, the results
- * are the same as for the tuple-not-found case.  If keep_buf is true,
- * then tuple->t_data and *userbuf are returned as for the success case,
- * and again the caller must unpin the buffer; but false is returned.
+ * 若找到元组但未通过时间限定检查，则行为
+ * 取决于 keep_buf 参数。若 keep_buf 为 false，结果
+ * 与未找到元组的情形相同。若 keep_buf 为 true，
+ * 则像成功情形那样返回 tuple->t_data 和 *userbuf，
+ * 调用方同样必须解除缓冲区的钉住；但返回 false。
  *
- * heap_fetch does not follow HOT chains: only the exact TID requested will
- * be fetched.
+ * heap_fetch 不跟随 HOT 链：只会取出
+ * 所请求的确切 TID。
  *
- * It is somewhat inconsistent that we ereport() on invalid block number but
- * return false on invalid item number.  There are a couple of reasons though.
- * One is that the caller can relatively easily check the block number for
- * validity, but cannot check the item number without reading the page
- * himself.  Another is that when we are following a t_ctid link, we can be
- * reasonably confident that the page number is valid (since VACUUM shouldn't
- * truncate off the destination page without having killed the referencing
- * tuple first), but the item number might well not be good.
+ * 对无效块号我们 ereport()，对无效项号却
+ * 返回 false，这有些不一致。不过有两个原因。
+ * 其一是调用方可以比较容易地检查块号是否
+ * 有效，但如果不自己读页就无法检查项号。
+ * 其二是跟随 t_ctid 链接时，我们可以
+ * 相当有把握地认为页号有效（因为 VACUUM 不应当
+ * 在没有先杀掉引用元组的情况下截掉目标页），
+ * 但项号很可能并不正确。
  */
 bool
 heap_fetch(Relation relation,
@@ -1407,20 +1407,20 @@ heap_fetch(Relation relation,
 	bool		valid;
 
 	/*
-	 * Fetch and pin the appropriate page of the relation.
+	 * 取出并钉住关系中相应的页。
 	 */
 	buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(tid));
 
 	/*
-	 * Need share lock on buffer to examine tuple commit status.
+	 * 需要缓冲区上的共享锁，以便检查元组的提交状态。
 	 */
 	LockBuffer(buffer, BUFFER_LOCK_SHARE);
 	page = BufferGetPage(buffer);
 	TestForOldSnapshot(snapshot, relation, page);
 
 	/*
-	 * We'd better check for out-of-range offnum in case of VACUUM since the
-	 * TID was obtained.
+	 * 最好检查 offnum 是否越界，以防自取得该
+	 * TID 以来发生过 VACUUM。
 	 */
 	offnum = ItemPointerGetOffsetNumber(tid);
 	if (offnum < FirstOffsetNumber || offnum > PageGetMaxOffsetNumber(page))
@@ -1433,12 +1433,12 @@ heap_fetch(Relation relation,
 	}
 
 	/*
-	 * get the item line pointer corresponding to the requested tid
+	 * 取得与所请求 tid 对应的项行指针
 	 */
 	lp = PageGetItemId(page, offnum);
 
 	/*
-	 * Must check for deleted tuple.
+	 * 必须检查元组是否已被删除。
 	 */
 	if (!ItemIdIsNormal(lp))
 	{
@@ -1450,14 +1450,14 @@ heap_fetch(Relation relation,
 	}
 
 	/*
-	 * fill in *tuple fields
+	 * 填好 *tuple 的字段
 	 */
 	tuple->t_data = (HeapTupleHeader) PageGetItem(page, lp);
 	tuple->t_len = ItemIdGetLength(lp);
 	tuple->t_tableOid = RelationGetRelid(relation);
 
 	/*
-	 * check tuple visibility, then release lock
+	 * 检查元组可见性，然后释放锁
 	 */
 	valid = HeapTupleSatisfiesVisibility(tuple, snapshot, buffer);
 
@@ -1472,15 +1472,15 @@ heap_fetch(Relation relation,
 	if (valid)
 	{
 		/*
-		 * All checks passed, so return the tuple as valid. Caller is now
-		 * responsible for releasing the buffer.
+		 * 全部检查都通过了，因此把元组作为有效元组返回。现在由调用方
+		 * 负责释放缓冲区。
 		 */
 		*userbuf = buffer;
 
 		return true;
 	}
 
-	/* Tuple failed time qual, but maybe caller wants to see it anyway. */
+	/* 元组未通过时间限定，但调用方也许仍想看到它。 */
 	if (keep_buf)
 		*userbuf = buffer;
 	else
@@ -1494,24 +1494,24 @@ heap_fetch(Relation relation,
 }
 
 /*
- *	heap_hot_search_buffer	- search HOT chain for tuple satisfying snapshot
+ *	heap_hot_search_buffer	- 在 HOT 链中搜索满足快照的元组
  *
- * On entry, *tid is the TID of a tuple (either a simple tuple, or the root
- * of a HOT chain), and buffer is the buffer holding this tuple.  We search
- * for the first chain member satisfying the given snapshot.  If one is
- * found, we update *tid to reference that tuple's offset number, and
- * return true.  If no match, return false without modifying *tid.
+ * 进入时，*tid 是某个元组的 TID（要么是普通元组，要么是
+ * HOT 链的根），buffer 是持有该元组的缓冲区。我们搜索
+ * 满足给定快照的第一个链成员。若找到一个，
+ * 就把 *tid 更新为该元组的偏移号，并
+ * 返回 true。若没有匹配，则返回 false 且不修改 *tid。
  *
- * heapTuple is a caller-supplied buffer.  When a match is found, we return
- * the tuple here, in addition to updating *tid.  If no match is found, the
- * contents of this buffer on return are undefined.
+ * heapTuple 是调用方提供的缓冲区。找到匹配时，除了更新 *tid，
+ * 我们也把元组放在这里返回。若没有找到匹配，返回时
+ * 该缓冲区的内容未定义。
  *
- * If all_dead is not NULL, we check non-visible tuples to see if they are
- * globally dead; *all_dead is set true if all members of the HOT chain
- * are vacuumable, false if not.
+ * 若 all_dead 不是 NULL，我们检查不可见元组是否
+ * 对全局都已死亡；若 HOT 链的全部成员
+ * 都可清理，则把 *all_dead 设为 true，否则设为 false。
  *
- * Unlike heap_fetch, the caller must already have pin and (at least) share
- * lock on the buffer; it is still pinned/locked at exit.
+ * 与 heap_fetch 不同，调用方必须已经钉住缓冲区并至少持有共享
+ * 锁；退出时它仍然钉住并上锁。
  */
 bool
 heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
@@ -1527,7 +1527,7 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 	bool		skip;
 	GlobalVisState *vistest = NULL;
 
-	/* If this is not the first call, previous call returned a (live!) tuple */
+	/* 若这不是第一次调用，上次调用返回了一个（活的！）元组 */
 	if (all_dead)
 		*all_dead = first_call;
 
@@ -1536,41 +1536,41 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 	at_chain_start = first_call;
 	skip = !first_call;
 
-	/* XXX: we should assert that a snapshot is pushed or registered */
+	/* XXX：应当断言已压入或注册了一个快照 */
 	Assert(TransactionIdIsValid(RecentXmin));
 	Assert(BufferGetBlockNumber(buffer) == blkno);
 
-	/* Scan through possible multiple members of HOT-chain */
+	/* 扫描 HOT 链上可能的多个成员 */
 	for (;;)
 	{
 		ItemId		lp;
 
-		/* check for bogus TID */
+		/* 检查虚假的 TID */
 		if (offnum < FirstOffsetNumber || offnum > PageGetMaxOffsetNumber(page))
 			break;
 
 		lp = PageGetItemId(page, offnum);
 
-		/* check for unused, dead, or redirected items */
+		/* 检查未使用、已死或已重定向的项 */
 		if (!ItemIdIsNormal(lp))
 		{
-			/* We should only see a redirect at start of chain */
+			/* 只应在链的起点看到重定向 */
 			if (ItemIdIsRedirected(lp) && at_chain_start)
 			{
-				/* Follow the redirect */
+				/* 跟随重定向 */
 				offnum = ItemIdGetRedirect(lp);
 				at_chain_start = false;
 				continue;
 			}
-			/* else must be end of chain */
+			/* 否则必定是链的末端 */
 			break;
 		}
 
 		/*
-		 * Update heapTuple to point to the element of the HOT chain we're
-		 * currently investigating. Having t_self set correctly is important
-		 * because the SSI checks and the *Satisfies routine for historical
-		 * MVCC snapshots need the correct tid to decide about the visibility.
+		 * 更新 heapTuple，使它指向我们正在
+		 * 查看的 HOT 链元素。正确设置 t_self 很重要，
+		 * 因为 SSI 检查以及历史
+		 * MVCC 快照的 *Satisfies 例程需要正确的 tid 来判定可见性。
 		 */
 		heapTuple->t_data = (HeapTupleHeader) PageGetItem(page, lp);
 		heapTuple->t_len = ItemIdGetLength(lp);
@@ -1578,14 +1578,14 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		ItemPointerSet(&heapTuple->t_self, blkno, offnum);
 
 		/*
-		 * Shouldn't see a HEAP_ONLY tuple at chain start.
+		 * 不应当在链的起点看到 HEAP_ONLY 元组。
 		 */
 		if (at_chain_start && HeapTupleIsHeapOnly(heapTuple))
 			break;
 
 		/*
-		 * The xmin should match the previous xmax value, else chain is
-		 * broken.
+		 * xmin 应当与前一个 xmax 值匹配，否则链已
+		 * 断裂。
 		 */
 		if (TransactionIdIsValid(prev_xmax) &&
 			!TransactionIdEquals(prev_xmax,
@@ -1593,15 +1593,15 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 			break;
 
 		/*
-		 * When first_call is true (and thus, skip is initially false) we'll
-		 * return the first tuple we find.  But on later passes, heapTuple
-		 * will initially be pointing to the tuple we returned last time.
-		 * Returning it again would be incorrect (and would loop forever), so
-		 * we skip it and return the next match we find.
+		 * 当 first_call 为 true（因此 skip 最初为 false）时，我们会
+		 * 返回找到的第一个元组。但在后续轮次，heapTuple
+		 * 起初会指向上次返回的元组。
+		 * 再次返回它是不正确的（而且会无限循环），所以
+		 * 跳过它，返回我们找到的下一个匹配。
 		 */
 		if (!skip)
 		{
-			/* If it's visible per the snapshot, we must return it */
+			/* 若按该快照它可见，就必须返回它 */
 			valid = HeapTupleSatisfiesVisibility(heapTuple, snapshot, buffer);
 			HeapCheckForSerializableConflictOut(valid, relation, heapTuple,
 												buffer, snapshot);
@@ -1619,12 +1619,12 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		skip = false;
 
 		/*
-		 * If we can't see it, maybe no one else can either.  At caller
-		 * request, check whether all chain members are dead to all
-		 * transactions.
+		 * 若我们看不到它，也许别人也看不到。按调用方
+		 * 的请求，检查链上所有成员是否对所有
+		 * 事务都已死亡。
 		 *
-		 * Note: if you change the criterion here for what is "dead", fix the
-		 * planner's get_actual_variable_range() function to match.
+		 * 注意：若改变这里对"dead"的判定标准，请一并修改
+		 * 规划器的 get_actual_variable_range() 函数以保持一致。
 		 */
 		if (all_dead && *all_dead)
 		{
@@ -1636,8 +1636,8 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 		}
 
 		/*
-		 * Check to see if HOT chain continues past this tuple; if so fetch
-		 * the next offnum and loop around.
+		 * 检查 HOT 链是否在此元组之后继续；若是，则取出
+		 * 下一个 offnum 并回到循环。
 		 */
 		if (HeapTupleIsHotUpdated(heapTuple))
 		{
@@ -1648,22 +1648,22 @@ heap_hot_search_buffer(ItemPointer tid, Relation relation, Buffer buffer,
 			prev_xmax = HeapTupleHeaderGetUpdateXid(heapTuple->t_data);
 		}
 		else
-			break;				/* end of chain */
+			break;				/* 链的末端 */
 	}
 
 	return false;
 }
 
 /*
- *	heap_get_latest_tid -  get the latest tid of a specified tuple
+ *	heap_get_latest_tid - 取得指定元组的最新 tid
  *
- * Actually, this gets the latest version that is visible according to the
- * scan's snapshot.  Create a scan using SnapshotDirty to get the very latest,
- * possibly uncommitted version.
+ * 实际上，它取得按扫描快照可见的最新版本。
+ * 用 SnapshotDirty 创建扫描，才能取得真正最新的、
+ * 可能尚未提交的版本。
  *
- * *tid is both an input and an output parameter: it is updated to
- * show the latest version of the row.  Note that it will not be changed
- * if no version of the row passes the snapshot test.
+ * *tid 既是输入也是输出参数：它会被更新为
+ * 该行的最新版本。注意若该行没有任何版本通过快照测试，
+ * 它就不会被改变。
  */
 void
 heap_get_latest_tid(TableScanDesc sscan,
@@ -1675,23 +1675,23 @@ heap_get_latest_tid(TableScanDesc sscan,
 	TransactionId priorXmax;
 
 	/*
-	 * table_tuple_get_latest_tid() verified that the passed in tid is valid.
-	 * Assume that t_ctid links are valid however - there shouldn't be invalid
-	 * ones in the table.
+	 * table_tuple_get_latest_tid() 已验证传入的 tid 有效。
+	 * 不过假定 t_ctid 链接是有效的——表中不应当有无效
+	 * 的链接。
 	 */
 	Assert(ItemPointerIsValid(tid));
 
 	/*
-	 * Loop to chase down t_ctid links.  At top of loop, ctid is the tuple we
-	 * need to examine, and *tid is the TID we will return if ctid turns out
-	 * to be bogus.
+	 * 循环追逐 t_ctid 链接。循环顶部，ctid 是我们
+	 * 需要检查的元组，若 ctid 结果是虚假的，*tid 就是我们将返回的
+	 * TID。
 	 *
-	 * Note that we will loop until we reach the end of the t_ctid chain.
-	 * Depending on the snapshot passed, there might be at most one visible
-	 * version of the row, but we don't try to optimize for that.
+	 * 注意我们会一直循环到 t_ctid 链的末端。
+	 * 取决于传入的快照，该行最多可能有一个可见
+	 * 版本，但我们不为此做专门优化。
 	 */
 	ctid = *tid;
-	priorXmax = InvalidTransactionId;	/* cannot check first XMIN */
+	priorXmax = InvalidTransactionId;	/* 无法检查第一个 XMIN */
 	for (;;)
 	{
 		Buffer		buffer;
@@ -1702,7 +1702,7 @@ heap_get_latest_tid(TableScanDesc sscan,
 		bool		valid;
 
 		/*
-		 * Read, pin, and lock the page.
+		 * 读取、钉住并锁定该页。
 		 */
 		buffer = ReadBuffer(relation, ItemPointerGetBlockNumber(&ctid));
 		LockBuffer(buffer, BUFFER_LOCK_SHARE);
@@ -1710,9 +1710,9 @@ heap_get_latest_tid(TableScanDesc sscan,
 		TestForOldSnapshot(snapshot, relation, page);
 
 		/*
-		 * Check for bogus item number.  This is not treated as an error
-		 * condition because it can happen while following a t_ctid link. We
-		 * just assume that the prior tid is OK and return it unchanged.
+		 * 检查虚假的项号。这不当作错误
+		 * 条件，因为它可能在跟随 t_ctid 链接时发生。我们
+		 * 只假定先前的 tid 没问题，并原样返回它。
 		 */
 		offnum = ItemPointerGetOffsetNumber(&ctid);
 		if (offnum < FirstOffsetNumber || offnum > PageGetMaxOffsetNumber(page))
@@ -1727,15 +1727,15 @@ heap_get_latest_tid(TableScanDesc sscan,
 			break;
 		}
 
-		/* OK to access the tuple */
+		/* 可以访问该元组 */
 		tp.t_self = ctid;
 		tp.t_data = (HeapTupleHeader) PageGetItem(page, lp);
 		tp.t_len = ItemIdGetLength(lp);
 		tp.t_tableOid = RelationGetRelid(relation);
 
 		/*
-		 * After following a t_ctid link, we might arrive at an unrelated
-		 * tuple.  Check for XMIN match.
+		 * 跟随 t_ctid 链接之后，我们可能到达一个无关的
+		 * 元组。检查 XMIN 是否匹配。
 		 */
 		if (TransactionIdIsValid(priorXmax) &&
 			!TransactionIdEquals(priorXmax, HeapTupleHeaderGetXmin(tp.t_data)))
@@ -1745,8 +1745,8 @@ heap_get_latest_tid(TableScanDesc sscan,
 		}
 
 		/*
-		 * Check tuple visibility; if visible, set it as the new result
-		 * candidate.
+		 * 检查元组可见性；若可见，把它设为新的结果
+		 * 候选。
 		 */
 		valid = HeapTupleSatisfiesVisibility(&tp, snapshot, buffer);
 		HeapCheckForSerializableConflictOut(valid, relation, &tp, buffer, snapshot);
@@ -1754,7 +1754,7 @@ heap_get_latest_tid(TableScanDesc sscan,
 			*tid = ctid;
 
 		/*
-		 * If there's a valid t_ctid link, follow it, else we're done.
+		 * 若有有效的 t_ctid 链接就跟随它，否则结束。
 		 */
 		if ((tp.t_data->t_infomask & HEAP_XMAX_INVALID) ||
 			HeapTupleHeaderIsOnlyLocked(tp.t_data) ||
@@ -1768,25 +1768,25 @@ heap_get_latest_tid(TableScanDesc sscan,
 		ctid = tp.t_data->t_ctid;
 		priorXmax = HeapTupleHeaderGetUpdateXid(tp.t_data);
 		UnlockReleaseBuffer(buffer);
-	}							/* end of loop */
+	}							/* 循环结束 */
 }
 
 
 /*
- * UpdateXmaxHintBits - update tuple hint bits after xmax transaction ends
+ * UpdateXmaxHintBits - xmax 事务结束后更新元组提示位
  *
- * This is called after we have waited for the XMAX transaction to terminate.
- * If the transaction aborted, we guarantee the XMAX_INVALID hint bit will
- * be set on exit.  If the transaction committed, we set the XMAX_COMMITTED
- * hint bit if possible --- but beware that that may not yet be possible,
- * if the transaction committed asynchronously.
+ * 在我们等待 XMAX 事务终止之后调用。
+ * 若事务已中止，我们保证 XMAX_INVALID 提示位会在
+ * 退出时设置。若事务已提交，则设置 XMAX_COMMITTED
+ * 提示位（若可能）——但要注意此时也许还做不到，
+ * 如果事务是异步提交的。
  *
- * Note that if the transaction was a locker only, we set HEAP_XMAX_INVALID
- * even if it commits.
+ * 注意若该事务只是加锁者，我们设置 HEAP_XMAX_INVALID，
+ * 即使它提交也是如此。
  *
- * Hence callers should look only at XMAX_INVALID.
+ * 因此调用方应当只查看 XMAX_INVALID。
  *
- * Note this is not allowed for tuples whose xmax is a multixact.
+ * 注意：xmax 为 multixact 的元组不允许这样做。
  */
 static void
 UpdateXmaxHintBits(HeapTupleHeader tuple, Buffer buffer, TransactionId xid)
@@ -1808,7 +1808,7 @@ UpdateXmaxHintBits(HeapTupleHeader tuple, Buffer buffer, TransactionId xid)
 
 
 /*
- * GetBulkInsertState - prepare status object for a bulk insert
+ * GetBulkInsertState - 为批量插入准备状态对象
  */
 BulkInsertState
 GetBulkInsertState(void)
@@ -1825,7 +1825,7 @@ GetBulkInsertState(void)
 }
 
 /*
- * FreeBulkInsertState - clean up after finishing a bulk insert
+ * FreeBulkInsertState - 批量插入结束后清理
  */
 void
 FreeBulkInsertState(BulkInsertState bistate)
@@ -1837,7 +1837,7 @@ FreeBulkInsertState(BulkInsertState bistate)
 }
 
 /*
- * ReleaseBulkInsertStatePin - release a buffer currently held in bistate
+ * ReleaseBulkInsertStatePin - 释放 bistate 当前持有的缓冲区
  */
 void
 ReleaseBulkInsertStatePin(BulkInsertState bistate)
@@ -1847,12 +1847,12 @@ ReleaseBulkInsertStatePin(BulkInsertState bistate)
 	bistate->current_buf = InvalidBuffer;
 
 	/*
-	 * Despite the name, we also reset bulk relation extension state.
-	 * Otherwise we can end up erroring out due to looking for free space in
-	 * ->next_free of one partition, even though ->next_free was set when
-	 * extending another partition. It could obviously also be bad for
-	 * efficiency to look at existing blocks at offsets from another
-	 * partition, even if we don't error out.
+	 * 尽管名字不这么说，我们也重置批量关系扩展状态。
+	 * 否则可能因为在某个分区的
+	 * ->next_free 里找空闲空间而报错，即使 ->next_free 是在
+	 * 扩展另一个分区时设置的。即便不报错，去看另一个
+	 * 分区偏移处的已有块，对
+	 * 效率显然也不好。
 	 */
 	bistate->next_free = InvalidBlockNumber;
 	bistate->last_free = InvalidBlockNumber;
@@ -1860,22 +1860,22 @@ ReleaseBulkInsertStatePin(BulkInsertState bistate)
 
 
 /*
- *	heap_insert		- insert tuple into a heap
+ *	heap_insert		- 向堆中插入元组
  *
- * The new tuple is stamped with current transaction ID and the specified
- * command ID.
+ * 新元组盖上当前事务 ID 和指定的
+ * 命令 ID。
  *
- * See table_tuple_insert for comments about most of the input flags, except
- * that this routine directly takes a tuple rather than a slot.
+ * 关于大多数输入标志的说明见 table_tuple_insert，只是
+ * 本例程直接接受元组而不是槽。
  *
- * There's corresponding HEAP_INSERT_ options to all the TABLE_INSERT_
- * options, and there additionally is HEAP_INSERT_SPECULATIVE which is used to
- * implement table_tuple_insert_speculative().
+ * 所有 TABLE_INSERT_ 选项都有对应的 HEAP_INSERT_
+ * 选项，另外还有 HEAP_INSERT_SPECULATIVE，用来
+ * 实现 table_tuple_insert_speculative()。
  *
- * On return the header fields of *tup are updated to match the stored tuple;
- * in particular tup->t_self receives the actual TID where the tuple was
- * stored.  But note that any toasting of fields within the tuple data is NOT
- * reflected into *tup.
+ * 返回时 *tup 的头部字段会更新为与已存储元组一致；
+ * 特别是 tup->t_self 收到元组实际存储位置的 TID。
+ * 但注意元组数据内部字段的任何 TOAST 处理都不会
+ * 反映到 *tup 中。
  */
 void
 heap_insert(Relation relation, HeapTuple tup, CommandId cid,
@@ -1887,23 +1887,23 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 	Buffer		vmbuffer = InvalidBuffer;
 	bool		all_visible_cleared = false;
 
-	/* Cheap, simplistic check that the tuple matches the rel's rowtype. */
+	/* 粗略、简单的检查：元组是否匹配关系的行类型。 */
 	Assert(HeapTupleHeaderGetNatts(tup->t_data) <=
 		   RelationGetNumberOfAttributes(relation));
 
 	AssertHasSnapshotForToast(relation);
 
 	/*
-	 * Fill in tuple header fields and toast the tuple if necessary.
+	 * 填好元组头部字段，必要时对元组做 TOAST。
 	 *
-	 * Note: below this point, heaptup is the data we actually intend to store
-	 * into the relation; tup is the caller's original untoasted data.
+	 * 注意：从此往下，heaptup 是我们实际打算存入
+	 * 关系的数据；tup 是调用方原始的、未做 TOAST 的数据。
 	 */
 	heaptup = heap_prepare_insert(relation, tup, xid, cid, options);
 
 	/*
-	 * Find buffer to insert this tuple into.  If the page is all visible,
-	 * this will also pin the requisite visibility map page.
+	 * 寻找用来插入该元组的缓冲区。若该页全可见，
+	 * 这里也会钉住所需的可见性映射页。
 	 */
 	buffer = RelationGetBufferForTuple(relation, heaptup->t_len,
 									   InvalidBuffer, options, bistate,
@@ -1911,23 +1911,23 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 									   0);
 
 	/*
-	 * We're about to do the actual insert -- but check for conflict first, to
-	 * avoid possibly having to roll back work we've just done.
+	 * 即将做实际插入——但先检查冲突，以免
+	 * 可能不得不回滚刚刚做完的工作。
 	 *
-	 * This is safe without a recheck as long as there is no possibility of
-	 * another process scanning the page between this check and the insert
-	 * being visible to the scan (i.e., an exclusive buffer content lock is
-	 * continuously held from this point until the tuple insert is visible).
+	 * 只要不可能有另一个进程在本次检查与插入
+	 * 对扫描可见之间扫描该页，不做复查也是安全的（也就是
+	 * 从此时起一直持有排他的缓冲区内容锁，
+	 * 直到元组插入变为可见）。
 	 *
-	 * For a heap insert, we only need to check for table-level SSI locks. Our
-	 * new tuple can't possibly conflict with existing tuple locks, and heap
-	 * page locks are only consolidated versions of tuple locks; they do not
-	 * lock "gaps" as index page locks do.  So we don't need to specify a
-	 * buffer when making the call, which makes for a faster check.
+	 * 对堆插入，我们只需要检查表级 SSI 锁。我们的
+	 * 新元组不可能与已有元组锁冲突，而堆
+	 * 页锁只是元组锁的汇总形式；它们不像索引页锁那样
+	 * 锁定"间隙"。因此调用时不必指定
+	 * 缓冲区，检查也就更快。
 	 */
 	CheckForSerializableConflictIn(relation, NULL, InvalidBlockNumber);
 
-	/* NO EREPORT(ERROR) from here till changes are logged */
+	/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
 	RelationPutHeapTuple(relation, buffer, heaptup,
@@ -1943,19 +1943,19 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 	}
 
 	/*
-	 * XXX Should we set PageSetPrunable on this page ?
+	 * XXX 是否应当在此页上设置 PageSetPrunable？
 	 *
-	 * The inserting transaction may eventually abort thus making this tuple
-	 * DEAD and hence available for pruning. Though we don't want to optimize
-	 * for aborts, if no other tuple in this page is UPDATEd/DELETEd, the
-	 * aborted tuple will never be pruned until next vacuum is triggered.
+	 * 插入事务最终可能中止，从而使该元组
+	 * 变为 DEAD，因而可以剪枝。虽然我们不想为中止做优化，
+	 * 但若本页没有其他元组被更新或删除，这个
+	 * 已中止的元组要等到下一次触发清理才会被剪枝。
 	 *
-	 * If you do add PageSetPrunable here, add it in heap_xlog_insert too.
+	 * 若确实在这里加上 PageSetPrunable，也请加到 heap_xlog_insert 中。
 	 */
 
 	MarkBufferDirty(buffer);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(relation))
 	{
 		xl_heap_insert xlrec;
@@ -1966,16 +1966,16 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 		int			bufflags = 0;
 
 		/*
-		 * If this is a catalog, we need to transmit combo CIDs to properly
-		 * decode, so log that as well.
+		 * 若这是系统目录，需要传送组合 CID 才能正确
+		 * 解码，因此也把它记入日志。
 		 */
 		if (RelationIsAccessibleInLogicalDecoding(relation))
 			log_heap_new_cid(relation, heaptup);
 
 		/*
-		 * If this is the single and first tuple on page, we can reinit the
-		 * page instead of restoring the whole thing.  Set flag, and hide
-		 * buffer references from XLogInsert.
+		 * 若这是该页上唯一且第一个元组，可以重新初始化该
+		 * 页，而不必恢复整页。设置标志，并向 XLogInsert
+		 * 隐藏缓冲区引用。
 		 */
 		if (ItemPointerGetOffsetNumber(&(heaptup->t_self)) == FirstOffsetNumber &&
 			PageGetMaxOffsetNumber(page) == FirstOffsetNumber)
@@ -1993,9 +1993,9 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 		Assert(ItemPointerGetBlockNumber(&heaptup->t_self) == BufferGetBlockNumber(buffer));
 
 		/*
-		 * For logical decoding, we need the tuple even if we're doing a full
-		 * page write, so make sure it's included even if we take a full-page
-		 * image. (XXX We could alternatively store a pointer into the FPW).
+		 * 为了逻辑解码，即使正在做整页
+		 * 写入，我们也需要该元组，因此即使拍了整页
+		 * 映像也要把它包含进去。（XXX 也可以改成在 FPW 里存一个指针）。
 		 */
 		if (RelationIsLogicallyLogged(relation) &&
 			!(options & HEAP_INSERT_NO_LOGICAL))
@@ -2015,18 +2015,18 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 		xlhdr.t_hoff = heaptup->t_data->t_hoff;
 
 		/*
-		 * note we mark xlhdr as belonging to buffer; if XLogInsert decides to
-		 * write the whole page to the xlog, we don't need to store
-		 * xl_heap_header in the xlog.
+		 * 注意我们把 xlhdr 标成属于该缓冲区；若 XLogInsert 决定把
+		 * 整页写入 xlog，就不需要在 xlog 里存储
+		 * xl_heap_header。
 		 */
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD | bufflags);
 		XLogRegisterBufData(0, (char *) &xlhdr, SizeOfHeapHeader);
-		/* PG73FORMAT: write bitmap [+ padding] [+ oid] + data */
+		/* PG73FORMAT：写入位图 [+ 填充] [+ oid] + 数据 */
 		XLogRegisterBufData(0,
 							(char *) heaptup->t_data + SizeofHeapTupleHeader,
 							heaptup->t_len - SizeofHeapTupleHeader);
 
-		/* filtering by origin on a row level is much more efficient */
+		/* 按行过滤复制源要高效得多 */
 		XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 		recptr = XLogInsert(RM_HEAP_ID, info);
@@ -2041,19 +2041,19 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * If tuple is cachable, mark it for invalidation from the caches in case
-	 * we abort.  Note it is OK to do this after releasing the buffer, because
-	 * the heaptup data structure is all in local memory, not in the shared
-	 * buffer.
+	 * 若元组可缓存，则标记它，以便在我们中止时从缓存中失效。
+	 * 注意在释放缓冲区之后做这件事是可以的，因为
+	 * heaptup 数据结构全在本地内存里，不在共享
+	 * 缓冲区中。
 	 */
 	CacheInvalidateHeapTuple(relation, heaptup, NULL);
 
-	/* Note: speculative insertions are counted too, even if aborted later */
+	/* 注意：推测性插入也会被计数，即使后来中止 */
 	pgstat_count_heap_insert(relation, 1);
 
 	/*
-	 * If heaptup is a private copy, release it.  Don't forget to copy t_self
-	 * back to the caller's image, too.
+	 * 若 heaptup 是私有副本，则释放它。别忘了把 t_self
+	 * 也复制回调用方的映像。
 	 */
 	if (heaptup != tup)
 	{
@@ -2063,20 +2063,20 @@ heap_insert(Relation relation, HeapTuple tup, CommandId cid,
 }
 
 /*
- * Subroutine for heap_insert(). Prepares a tuple for insertion. This sets the
- * tuple header fields and toasts the tuple if necessary.  Returns a toasted
- * version of the tuple if it was toasted, or the original tuple if not. Note
- * that in any case, the header fields are also set in the original tuple.
+ * heap_insert() 的子例程。为插入准备元组。它设置
+ * 元组头部字段，并在必要时做 TOAST。若做过 TOAST，返回该元组的 TOAST
+ * 版本，否则返回原元组。注意
+ * 无论哪种情况，原元组的头部字段也会被设置。
  */
 static HeapTuple
 heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
 					CommandId cid, int options)
 {
 	/*
-	 * To allow parallel inserts, we need to ensure that they are safe to be
-	 * performed in workers. We have the infrastructure to allow parallel
-	 * inserts in general except for the cases where inserts generate a new
-	 * CommandId (eg. inserts into a table having a foreign key column).
+	 * 为允许并行插入，需要确保它们在工作进程中执行是安全的。
+	 * 除了插入会生成新 CommandId 的情形
+	 * （例如向带外键列的表插入），我们一般已有允许并行
+	 * 插入的基础设施。
 	 */
 	if (IsParallelWorker())
 		ereport(ERROR,
@@ -2091,17 +2091,17 @@ heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
 		HeapTupleHeaderSetXminFrozen(tup->t_data);
 
 	HeapTupleHeaderSetCmin(tup->t_data, cid);
-	HeapTupleHeaderSetXmax(tup->t_data, 0); /* for cleanliness */
+	HeapTupleHeaderSetXmax(tup->t_data, 0); /* 为了整洁 */
 	tup->t_tableOid = RelationGetRelid(relation);
 
 	/*
-	 * If the new tuple is too big for storage or contains already toasted
-	 * out-of-line attributes from some other relation, invoke the toaster.
+	 * 若新元组太大而无法存储，或含有来自其他关系的、已经做过 TOAST 的
+	 * 行外属性，则调用 toaster。
 	 */
 	if (relation->rd_rel->relkind != RELKIND_RELATION &&
 		relation->rd_rel->relkind != RELKIND_MATVIEW)
 	{
-		/* toast table entries should never be recursively toasted */
+		/* TOAST 表项绝不应当被递归做 TOAST */
 		Assert(!HeapTupleHasExternal(tup));
 		return tup;
 	}
@@ -2112,9 +2112,9 @@ heap_prepare_insert(Relation relation, HeapTuple tup, TransactionId xid,
 }
 
 /*
- * Helper for heap_multi_insert() that computes the number of entire pages
- * that inserting the remaining heaptuples requires. Used to determine how
- * much the relation needs to be extended by.
+ * heap_multi_insert() 的辅助函数，计算插入剩余 heaptuple 需要的
+ * 整页数量。用来确定
+ * 关系需要扩展多少。
  */
 static int
 heap_multi_insert_pages(HeapTuple *heaptuples, int done, int ntuples, Size saveFreeSpace)
@@ -2138,15 +2138,15 @@ heap_multi_insert_pages(HeapTuple *heaptuples, int done, int ntuples, Size saveF
 }
 
 /*
- *	heap_multi_insert	- insert multiple tuples into a heap
+ *	heap_multi_insert	- 向堆中插入多个元组
  *
- * This is like heap_insert(), but inserts multiple tuples in one operation.
- * That's faster than calling heap_insert() in a loop, because when multiple
- * tuples can be inserted on a single page, we can write just a single WAL
- * record covering all of them, and only need to lock/unlock the page once.
+ * 与 heap_insert() 类似，但一次操作插入多个元组。
+ * 这比循环调用 heap_insert() 更快，因为多个
+ * 元组可以插在同一页上时，我们可以只写一条 WAL
+ * 记录覆盖全部元组，并且该页只需要加锁/解锁一次。
  *
- * Note: this leaks memory into the current memory context. You can create a
- * temporary context before calling this, if that's a problem.
+ * 注意：这会把内存泄漏到当前内存上下文。若这是问题，
+ * 可以在调用前创建一个临时上下文。
  */
 void
 heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
@@ -2167,7 +2167,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 	int			npages = 0;
 	int			npages_used = 0;
 
-	/* currently not needed (thus unsupported) for heap_multi_insert() */
+	/* 目前 heap_multi_insert() 不需要（因此不支持） */
 	Assert(!(options & HEAP_INSERT_NO_LOGICAL));
 
 	AssertHasSnapshotForToast(relation);
@@ -2176,7 +2176,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 	saveFreeSpace = RelationGetTargetPageFreeSpace(relation,
 												   HEAP_DEFAULT_FILLFACTOR);
 
-	/* Toast and set header data in all the slots */
+	/* 对所有槽做 TOAST 并设置头部数据 */
 	heaptuples = palloc(ntuples * sizeof(HeapTuple));
 	for (i = 0; i < ntuples; i++)
 	{
@@ -2190,27 +2190,27 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 	}
 
 	/*
-	 * We're about to do the actual inserts -- but check for conflict first,
-	 * to minimize the possibility of having to roll back work we've just
-	 * done.
+	 * 即将做实际插入——但先检查冲突，
+	 * 以尽量降低不得不回滚刚刚做完的工作的
+	 * 可能。
 	 *
-	 * A check here does not definitively prevent a serialization anomaly;
-	 * that check MUST be done at least past the point of acquiring an
-	 * exclusive buffer content lock on every buffer that will be affected,
-	 * and MAY be done after all inserts are reflected in the buffers and
-	 * those locks are released; otherwise there is a race condition.  Since
-	 * multiple buffers can be locked and unlocked in the loop below, and it
-	 * would not be feasible to identify and lock all of those buffers before
-	 * the loop, we must do a final check at the end.
+	 * 这里的检查并不能确定性地防止序列化异常；
+	 * 该检查必须至少在取得将受影响的每个缓冲区上的
+	 * 排他缓冲区内容锁之后进行，
+	 * 也可以在所有插入都反映到缓冲区并且
+	 * 那些锁已释放之后进行；否则存在竞态条件。由于
+	 * 下面的循环里多个缓冲区会被加锁又解锁，而且
+	 * 在循环之前找出并锁住所有这些缓冲区并不可行，
+	 * 我们必须在结束时做一次最终检查。
 	 *
-	 * The check here could be omitted with no loss of correctness; it is
-	 * present strictly as an optimization.
+	 * 这里的检查可以省略而不损失正确性；它
+	 * 纯粹是一种优化。
 	 *
-	 * For heap inserts, we only need to check for table-level SSI locks. Our
-	 * new tuples can't possibly conflict with existing tuple locks, and heap
-	 * page locks are only consolidated versions of tuple locks; they do not
-	 * lock "gaps" as index page locks do.  So we don't need to specify a
-	 * buffer when making the call, which makes for a faster check.
+	 * 对堆插入，我们只需要检查表级 SSI 锁。我们的
+	 * 新元组不可能与已有元组锁冲突，而堆
+	 * 页锁只是元组锁的汇总形式；它们不像索引页锁那样
+	 * 锁定"间隙"。因此调用时不必指定
+	 * 缓冲区，检查也就更快。
 	 */
 	CheckForSerializableConflictIn(relation, NULL, InvalidBlockNumber);
 
@@ -2225,14 +2225,14 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Compute number of pages needed to fit the to-be-inserted tuples in
-		 * the worst case.  This will be used to determine how much to extend
-		 * the relation by in RelationGetBufferForTuple(), if needed.  If we
-		 * filled a prior page from scratch, we can just update our last
-		 * computation, but if we started with a partially filled page,
-		 * recompute from scratch, the number of potentially required pages
-		 * can vary due to tuples needing to fit onto the page, page headers
-		 * etc.
+		 * 计算最坏情况下容纳待插入元组所需的页数。
+		 * 若需要，RelationGetBufferForTuple() 会用它
+		 * 来确定把关系扩展多少。
+		 * 若我们刚从空白填满了前一页，
+		 * 只需更新上一次计算，但若是从部分填充的页开始，
+		 * 就要从头重算，潜在所需页数
+		 * 会因元组需要放进页面、页头
+		 * 等因素而变化。
 		 */
 		if (ndone == 0 || !starting_with_empty_page)
 		{
@@ -2244,11 +2244,11 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			npages_used++;
 
 		/*
-		 * Find buffer where at least the next tuple will fit.  If the page is
-		 * all-visible, this will also pin the requisite visibility map page.
+		 * 寻找至少能放下下一个元组的缓冲区。若该页
+		 * 全可见，这里也会钉住所需的可见性映射页。
 		 *
-		 * Also pin visibility map page if COPY FREEZE inserts tuples into an
-		 * empty page. See all_frozen_set below.
+		 * 若 COPY FREEZE 把元组插入空页，也要钉住可见性映射页。
+		 * 见下面的 all_frozen_set。
 		 */
 		buffer = RelationGetBufferForTuple(relation, heaptuples[ndone]->t_len,
 										   InvalidBuffer, options, bistate,
@@ -2261,18 +2261,18 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 		if (starting_with_empty_page && (options & HEAP_INSERT_FROZEN))
 			all_frozen_set = true;
 
-		/* NO EREPORT(ERROR) from here till changes are logged */
+		/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 		START_CRIT_SECTION();
 
 		/*
-		 * RelationGetBufferForTuple has ensured that the first tuple fits.
-		 * Put that on the page, and then as many other tuples as fit.
+		 * RelationGetBufferForTuple 已确保第一个元组放得下。
+		 * 把它放到页上，然后尽量放下其他元组。
 		 */
 		RelationPutHeapTuple(relation, buffer, heaptuples[ndone], false);
 
 		/*
-		 * For logical decoding we need combo CIDs to properly decode the
-		 * catalog.
+		 * 为了逻辑解码，我们需要组合 CID 才能正确解码
+		 * 系统目录。
 		 */
 		if (needwal && need_cids)
 			log_heap_new_cid(relation, heaptuples[ndone]);
@@ -2287,19 +2287,19 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			RelationPutHeapTuple(relation, buffer, heaptup, false);
 
 			/*
-			 * For logical decoding we need combo CIDs to properly decode the
-			 * catalog.
+			 * 为了逻辑解码，我们需要组合 CID 才能正确解码
+			 * 系统目录。
 			 */
 			if (needwal && need_cids)
 				log_heap_new_cid(relation, heaptup);
 		}
 
 		/*
-		 * If the page is all visible, need to clear that, unless we're only
-		 * going to add further frozen rows to it.
+		 * 若该页全可见，需要清除该标志，除非我们只打算
+		 * 再往里添加已冻结的行。
 		 *
-		 * If we're only adding already frozen rows to a previously empty
-		 * page, mark it as all-visible.
+		 * 若只是向先前为空的页添加已经冻结的行，
+		 * 则把它标为全可见。
 		 */
 		if (PageIsAllVisible(page) && !(options & HEAP_INSERT_FROZEN))
 		{
@@ -2313,12 +2313,12 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			PageSetAllVisible(page);
 
 		/*
-		 * XXX Should we set PageSetPrunable on this page ? See heap_insert()
+		 * XXX 是否应当在此页上设置 PageSetPrunable？见 heap_insert()
 		 */
 
 		MarkBufferDirty(buffer);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (needwal)
 		{
 			XLogRecPtr	recptr;
@@ -2331,28 +2331,28 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			int			bufflags = 0;
 
 			/*
-			 * If the page was previously empty, we can reinit the page
-			 * instead of restoring the whole thing.
+			 * 若该页先前为空，可以重新初始化该页，
+			 * 而不必恢复整页。
 			 */
 			init = starting_with_empty_page;
 
-			/* allocate xl_heap_multi_insert struct from the scratch area */
+			/* 从暂存区分配 xl_heap_multi_insert 结构 */
 			xlrec = (xl_heap_multi_insert *) scratchptr;
 			scratchptr += SizeOfHeapMultiInsert;
 
 			/*
-			 * Allocate offsets array. Unless we're reinitializing the page,
-			 * in that case the tuples are stored in order starting at
-			 * FirstOffsetNumber and we don't need to store the offsets
-			 * explicitly.
+			 * 分配偏移数组。除非我们正在重新初始化该页，
+			 * 那种情况下元组按顺序存放，起点是
+			 * FirstOffsetNumber，因而不需要显式
+			 * 存储这些偏移。
 			 */
 			if (!init)
 				scratchptr += nthispage * sizeof(OffsetNumber);
 
-			/* the rest of the scratch space is used for tuple data */
+			/* 暂存空间的其余部分用于元组数据 */
 			tupledata = scratchptr;
 
-			/* check that the mutually exclusive flags are not both set */
+			/* 检查互斥的标志没有被同时设置 */
 			Assert(!(all_visible_cleared && all_frozen_set));
 
 			xlrec->flags = 0;
@@ -2364,8 +2364,8 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			xlrec->ntuples = nthispage;
 
 			/*
-			 * Write out an xl_multi_insert_tuple and the tuple data itself
-			 * for each tuple.
+			 * 为每个元组写出一个 xl_multi_insert_tuple 以及元组数据
+			 * 本身。
 			 */
 			for (i = 0; i < nthispage; i++)
 			{
@@ -2375,7 +2375,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 
 				if (!init)
 					xlrec->offsets[i] = ItemPointerGetOffsetNumber(&heaptup->t_self);
-				/* xl_multi_insert_tuple needs two-byte alignment. */
+				/* xl_multi_insert_tuple 需要两字节对齐。 */
 				tuphdr = (xl_multi_insert_tuple *) SHORTALIGN(scratchptr);
 				scratchptr = ((char *) tuphdr) + SizeOfMultiInsertTuple;
 
@@ -2383,7 +2383,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 				tuphdr->t_infomask = heaptup->t_data->t_infomask;
 				tuphdr->t_hoff = heaptup->t_data->t_hoff;
 
-				/* write bitmap [+ padding] [+ oid] + data */
+				/* 写入位图 [+ 填充] [+ oid] + 数据 */
 				datalen = heaptup->t_len - SizeofHeapTupleHeader;
 				memcpy(scratchptr,
 					   (char *) heaptup->t_data + SizeofHeapTupleHeader,
@@ -2398,9 +2398,9 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 				xlrec->flags |= XLH_INSERT_CONTAINS_NEW_TUPLE;
 
 			/*
-			 * Signal that this is the last xl_heap_multi_insert record
-			 * emitted by this call to heap_multi_insert(). Needed for logical
-			 * decoding so it knows when to cleanup temporary data.
+			 * 表明这是本次 heap_multi_insert() 调用发出的最后一条
+			 * xl_heap_multi_insert 记录。逻辑解码需要它，
+			 * 以便知道何时清理临时数据。
 			 */
 			if (ndone + nthispage == ntuples)
 				xlrec->flags |= XLH_INSERT_LAST_IN_MULTI;
@@ -2412,8 +2412,8 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			}
 
 			/*
-			 * If we're doing logical decoding, include the new tuple data
-			 * even if we take a full-page image of the page.
+			 * 若正在做逻辑解码，即使对该页拍了整页映像，
+			 * 也要包含新元组数据。
 			 */
 			if (need_tuple_data)
 				bufflags |= REGBUF_KEEP_DATA;
@@ -2424,7 +2424,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 
 			XLogRegisterBufData(0, tupledata, totaldatalen);
 
-			/* filtering by origin on a row level is much more efficient */
+			/* 按行过滤复制源要高效得多 */
 			XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 			recptr = XLogInsert(RM_HEAP2_ID, info);
@@ -2435,8 +2435,8 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 		END_CRIT_SECTION();
 
 		/*
-		 * If we've frozen everything on the page, update the visibilitymap.
-		 * We're already holding pin on the vmbuffer.
+		 * 若我们已经冻结了该页上的一切，就更新可见性映射。
+		 * 我们已经钉住了 vmbuffer。
 		 */
 		if (all_frozen_set)
 		{
@@ -2444,9 +2444,9 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			Assert(visibilitymap_pin_ok(BufferGetBlockNumber(buffer), vmbuffer));
 
 			/*
-			 * It's fine to use InvalidTransactionId here - this is only used
-			 * when HEAP_INSERT_FROZEN is specified, which intentionally
-			 * violates visibility rules.
+			 * 这里使用 InvalidTransactionId 没问题——它只在指定了
+			 * HEAP_INSERT_FROZEN 时使用，而该选项有意
+			 * 违反可见性规则。
 			 */
 			visibilitymap_set(relation, BufferGetBlockNumber(buffer), buffer,
 							  InvalidXLogRecPtr, vmbuffer,
@@ -2458,37 +2458,37 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 		ndone += nthispage;
 
 		/*
-		 * NB: Only release vmbuffer after inserting all tuples - it's fairly
-		 * likely that we'll insert into subsequent heap pages that are likely
-		 * to use the same vm page.
+		 * 注意：要等所有元组都插入之后再释放 vmbuffer——我们很
+		 * 可能接着插入后续堆页，而那些页很
+		 * 可能使用同一张可见性映射页。
 		 */
 	}
 
-	/* We're done with inserting all tuples, so release the last vmbuffer. */
+	/* 所有元组都插入完了，于是释放最后一个 vmbuffer。 */
 	if (vmbuffer != InvalidBuffer)
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * We're done with the actual inserts.  Check for conflicts again, to
-	 * ensure that all rw-conflicts in to these inserts are detected.  Without
-	 * this final check, a sequential scan of the heap may have locked the
-	 * table after the "before" check, missing one opportunity to detect the
-	 * conflict, and then scanned the table before the new tuples were there,
-	 * missing the other chance to detect the conflict.
+	 * 实际插入已经完成。再次检查冲突，以
+	 * 确保所有这些插入上的读写冲突都被检测到。若没有
+	 * 这最后一次检查，堆的顺序扫描可能在"之前"检查之后
+	 * 才锁住
+	 * 表，错过一次检测冲突的机会，然后又在新元组出现之前扫过该表，
+	 * 错过另一次检测冲突的机会。
 	 *
-	 * For heap inserts, we only need to check for table-level SSI locks. Our
-	 * new tuples can't possibly conflict with existing tuple locks, and heap
-	 * page locks are only consolidated versions of tuple locks; they do not
-	 * lock "gaps" as index page locks do.  So we don't need to specify a
-	 * buffer when making the call.
+	 * 对堆插入，我们只需要检查表级 SSI 锁。我们的
+	 * 新元组不可能与已有元组锁冲突，而堆
+	 * 页锁只是元组锁的汇总形式；它们不像索引页锁那样
+	 * 锁定"间隙"。因此调用时不必指定
+	 * 缓冲区。
 	 */
 	CheckForSerializableConflictIn(relation, NULL, InvalidBlockNumber);
 
 	/*
-	 * If tuples are cachable, mark them for invalidation from the caches in
-	 * case we abort.  Note it is OK to do this after releasing the buffer,
-	 * because the heaptuples data structure is all in local memory, not in
-	 * the shared buffer.
+	 * 若元组可缓存，则标记它们，以便在我们中止时从缓存中失效。
+	 * 注意在释放缓冲区之后做这件事是可以的，
+	 * 因为 heaptuples 数据结构全在本地内存里，不在
+	 * 共享缓冲区中。
 	 */
 	if (IsCatalogRelation(relation))
 	{
@@ -2496,7 +2496,7 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 			CacheInvalidateHeapTuple(relation, heaptuples[i], NULL);
 	}
 
-	/* copy t_self fields back to the caller's slots */
+	/* 把 t_self 字段复制回调用方的槽 */
 	for (i = 0; i < ntuples; i++)
 		slots[i]->tts_tid = heaptuples[i]->t_self;
 
@@ -2504,13 +2504,13 @@ heap_multi_insert(Relation relation, TupleTableSlot **slots, int ntuples,
 }
 
 /*
- *	simple_heap_insert - insert a tuple
+ *	simple_heap_insert - 插入一个元组
  *
- * Currently, this routine differs from heap_insert only in supplying
- * a default command ID and not allowing access to the speedup options.
+ * 目前，本例程与 heap_insert 的差别只是提供
+ * 一个默认命令 ID，并且不允许使用加速选项。
  *
- * This should be used rather than using heap_insert directly in most places
- * where we are modifying system catalogs.
+ * 在修改系统目录的大多数地方，应当使用它，
+ * 而不是直接使用 heap_insert。
  */
 void
 simple_heap_insert(Relation relation, HeapTuple tup)
@@ -2519,11 +2519,11 @@ simple_heap_insert(Relation relation, HeapTuple tup)
 }
 
 /*
- * Given infomask/infomask2, compute the bits that must be saved in the
- * "infobits" field of xl_heap_delete, xl_heap_update, xl_heap_lock,
- * xl_heap_lock_updated WAL records.
+ * 给定 infomask/infomask2，计算必须保存在
+ * xl_heap_delete、xl_heap_update、xl_heap_lock、
+ * xl_heap_lock_updated 这些 WAL 记录的 "infobits" 字段中的位。
  *
- * See fix_infomask_from_infobits.
+ * 见 fix_infomask_from_infobits。
  */
 static uint8
 compute_infobits(uint16 infomask, uint16 infomask2)
@@ -2532,20 +2532,20 @@ compute_infobits(uint16 infomask, uint16 infomask2)
 		((infomask & HEAP_XMAX_IS_MULTI) != 0 ? XLHL_XMAX_IS_MULTI : 0) |
 		((infomask & HEAP_XMAX_LOCK_ONLY) != 0 ? XLHL_XMAX_LOCK_ONLY : 0) |
 		((infomask & HEAP_XMAX_EXCL_LOCK) != 0 ? XLHL_XMAX_EXCL_LOCK : 0) |
-	/* note we ignore HEAP_XMAX_SHR_LOCK here */
+	/* 注意这里忽略 HEAP_XMAX_SHR_LOCK */
 		((infomask & HEAP_XMAX_KEYSHR_LOCK) != 0 ? XLHL_XMAX_KEYSHR_LOCK : 0) |
 		((infomask2 & HEAP_KEYS_UPDATED) != 0 ?
 		 XLHL_KEYS_UPDATED : 0);
 }
 
 /*
- * Given two versions of the same t_infomask for a tuple, compare them and
- * return whether the relevant status for a tuple Xmax has changed.  This is
- * used after a buffer lock has been released and reacquired: we want to ensure
- * that the tuple state continues to be the same it was when we previously
- * examined it.
+ * 给定同一元组 t_infomask 的两个版本，比较它们并
+ * 返回与元组 Xmax 相关的状态是否已经改变。这用在
+ * 缓冲区锁被释放后又重新获取之后：我们要确保
+ * 元组状态仍然与我们先前
+ * 检查它时相同。
  *
- * Note the Xmax field itself must be compared separately.
+ * 注意 Xmax 字段本身必须单独比较。
  */
 static inline bool
 xmax_infomask_changed(uint16 new_infomask, uint16 old_infomask)
@@ -2560,15 +2560,15 @@ xmax_infomask_changed(uint16 new_infomask, uint16 old_infomask)
 }
 
 /*
- *	heap_delete - delete a tuple
+ *	heap_delete - 删除一个元组
  *
- * See table_tuple_delete() for an explanation of the parameters, except that
- * this routine directly takes a tuple rather than a slot.
+ * 参数说明见 table_tuple_delete()，只是
+ * 本例程直接接受元组而不是槽。
  *
- * In the failure cases, the routine fills *tmfd with the tuple's t_ctid,
- * t_xmax (resolving a possible MultiXact, if necessary), and t_cmax (the last
- * only for TM_SelfModified, since we cannot obtain cmax from a combo CID
- * generated by another transaction).
+ * 失败时，本例程用该元组的 t_ctid、
+ * t_xmax（必要时解析可能的 MultiXact）和 t_cmax 填好 *tmfd（后者
+ * 仅用于 TM_SelfModified，因为我们无法从另一个事务生成的组合 CID
+ * 取得 cmax）。
  */
 TM_Result
 heap_delete(Relation relation, ItemPointer tid,
@@ -2589,7 +2589,7 @@ heap_delete(Relation relation, ItemPointer tid,
 	bool		have_tuple_lock = false;
 	bool		iscombo;
 	bool		all_visible_cleared = false;
-	HeapTuple	old_key_tuple = NULL;	/* replica identity of the tuple */
+	HeapTuple	old_key_tuple = NULL;	/* 该元组的副本标识 */
 	bool		old_key_copied = false;
 
 	Assert(ItemPointerIsValid(tid));
@@ -2597,9 +2597,9 @@ heap_delete(Relation relation, ItemPointer tid,
 	AssertHasSnapshotForToast(relation);
 
 	/*
-	 * Forbid this during a parallel operation, lest it allocate a combo CID.
-	 * Other workers might need that combo CID for visibility checks, and we
-	 * have no provision for broadcasting it to them.
+	 * 并行操作期间禁止这样做，以免它分配组合 CID。
+	 * 其他工作进程做可见性检查时可能需要该组合 CID，而我们
+	 * 没有把它广播给它们的机制。
 	 */
 	if (IsInParallelMode())
 		ereport(ERROR,
@@ -2611,10 +2611,10 @@ heap_delete(Relation relation, ItemPointer tid,
 	page = BufferGetPage(buffer);
 
 	/*
-	 * Before locking the buffer, pin the visibility map page if it appears to
-	 * be necessary.  Since we haven't got the lock yet, someone else might be
-	 * in the middle of changing this, so we'll need to recheck after we have
-	 * the lock.
+	 * 锁定缓冲区之前，若看起来有必要，先钉住可见性映射页。
+	 * 由于我们还没拿到锁，别人可能正在
+	 * 改它，所以拿到锁之后
+	 * 还需要再检查一次。
 	 */
 	if (PageIsAllVisible(page))
 		visibilitymap_pin(relation, block, &vmbuffer);
@@ -2632,10 +2632,10 @@ heap_delete(Relation relation, ItemPointer tid,
 l1:
 
 	/*
-	 * If we didn't pin the visibility map page and the page has become all
-	 * visible while we were busy locking the buffer, we'll have to unlock and
-	 * re-lock, to avoid holding the buffer lock across an I/O.  That's a bit
-	 * unfortunate, but hopefully shouldn't happen often.
+	 * 若我们没有钉住可见性映射页，而该页在我们忙着锁缓冲区时变成了全
+	 * 可见，就得解锁再重新加锁，以免跨一次 I/O 持有缓冲区锁。这有点
+	 * 不幸，但希望
+	 * 不会经常发生。
 	 */
 	if (vmbuffer == InvalidBuffer && PageIsAllVisible(page))
 	{
@@ -2658,22 +2658,22 @@ l1:
 		TransactionId xwait;
 		uint16		infomask;
 
-		/* must copy state data before unlocking buffer */
+		/* 解锁缓冲区之前必须复制状态数据 */
 		xwait = HeapTupleHeaderGetRawXmax(tp.t_data);
 		infomask = tp.t_data->t_infomask;
 
 		/*
-		 * Sleep until concurrent transaction ends -- except when there's a
-		 * single locker and it's our own transaction.  Note we don't care
-		 * which lock mode the locker has, because we need the strongest one.
+		 * 睡到并发事务结束——除非只有一个
+		 * 加锁者且就是我们自己的事务。注意我们不关心
+		 * 加锁者持有哪种锁模式，因为我们需要最强的那种。
 		 *
-		 * Before sleeping, we need to acquire tuple lock to establish our
-		 * priority for the tuple (see heap_lock_tuple).  LockTuple will
-		 * release us when we are next-in-line for the tuple.
+		 * 睡眠之前，需要获取元组锁以确立我们对该
+		 * 元组的优先级（见 heap_lock_tuple）。
+		 * 当我们成为该元组的下一位时，
+		 * LockTuple 会唤醒我们。
 		 *
-		 * If we are forced to "start over" below, we keep the tuple lock;
-		 * this arranges that we stay at the head of the line while rechecking
-		 * tuple state.
+		 * 若下面被迫"重新开始"，我们保留元组锁；
+		 * 这样在重新检查元组状态时，我们仍排在队列前面。
 		 */
 		if (infomask & HEAP_XMAX_IS_MULTI)
 		{
@@ -2685,26 +2685,26 @@ l1:
 				LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
 				/*
-				 * Acquire the lock, if necessary (but skip it when we're
-				 * requesting a lock and already have one; avoids deadlock).
+				 * 必要时获取锁（但当我们正在
+				 * 请求一把锁并且已经持有时则跳过；避免死锁）。
 				 */
 				if (!current_is_member)
 					heap_acquire_tuplock(relation, &(tp.t_self), LockTupleExclusive,
 										 LockWaitBlock, &have_tuple_lock);
 
-				/* wait for multixact */
+				/* 等待 multixact */
 				MultiXactIdWait((MultiXactId) xwait, MultiXactStatusUpdate, infomask,
 								relation, &(tp.t_self), XLTW_Delete,
 								NULL);
 				LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 				/*
-				 * If xwait had just locked the tuple then some other xact
-				 * could update this tuple before we get to this point.  Check
-				 * for xmax change, and start over if so.
+				 * 若 xwait 刚刚锁过该元组，那么在我们到达这里之前，别的事务
+				 * 可能已经更新了它。检查
+				 * xmax 是否改变，若改变则重新开始。
 				 *
-				 * We also must start over if we didn't pin the VM page, and
-				 * the page has become all visible.
+				 * 若我们没有钉住 VM 页，并且
+				 * 该页已变为全可见，也必须重新开始。
 				 */
 				if ((vmbuffer == InvalidBuffer && PageIsAllVisible(page)) ||
 					xmax_infomask_changed(tp.t_data->t_infomask, infomask) ||
@@ -2714,20 +2714,20 @@ l1:
 			}
 
 			/*
-			 * You might think the multixact is necessarily done here, but not
-			 * so: it could have surviving members, namely our own xact or
-			 * other subxacts of this backend.  It is legal for us to delete
-			 * the tuple in either case, however (the latter case is
-			 * essentially a situation of upgrading our former shared lock to
-			 * exclusive).  We don't bother changing the on-disk hint bits
-			 * since we are about to overwrite the xmax altogether.
+			 * 你也许以为这里 multixact 必然已经结束，但并非
+			 * 如此：它可能还有存活成员，即我们自己的事务或
+			 * 本后端的其他子事务。无论哪种情况，我们删除
+			 * 该元组都是合法的（后一种情况
+			 * 本质上是把先前的共享锁升级为
+			 * 排他锁）。我们不必费心去改磁盘上的提示位，
+			 * 因为马上就要整个覆盖 xmax。
 			 */
 		}
 		else if (!TransactionIdIsCurrentTransactionId(xwait))
 		{
 			/*
-			 * Wait for regular transaction to end; but first, acquire tuple
-			 * lock.
+			 * 等待普通事务结束；但首先获取元组
+			 * 锁。
 			 */
 			LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 			heap_acquire_tuplock(relation, &(tp.t_self), LockTupleExclusive,
@@ -2736,12 +2736,12 @@ l1:
 			LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 			/*
-			 * xwait is done, but if xwait had just locked the tuple then some
-			 * other xact could update this tuple before we get to this point.
-			 * Check for xmax change, and start over if so.
+			 * xwait 已经结束，但若 xwait 刚刚锁过该元组，那么在我们
+			 * 到达这里之前，别的事务可能已经更新了它。
+			 * 检查 xmax 是否改变，若改变则重新开始。
 			 *
-			 * We also must start over if we didn't pin the VM page, and the
-			 * page has become all visible.
+			 * 若我们没有钉住 VM 页，并且
+			 * 该页已变为全可见，也必须重新开始。
 			 */
 			if ((vmbuffer == InvalidBuffer && PageIsAllVisible(page)) ||
 				xmax_infomask_changed(tp.t_data->t_infomask, infomask) ||
@@ -2749,13 +2749,13 @@ l1:
 									 xwait))
 				goto l1;
 
-			/* Otherwise check if it committed or aborted */
+			/* 否则检查它是已提交还是已中止 */
 			UpdateXmaxHintBits(tp.t_data, buffer, xwait);
 		}
 
 		/*
-		 * We may overwrite if previous xmax aborted, or if it committed but
-		 * only locked the tuple without updating it.
+		 * 若先前的 xmax 已中止，或者它已提交但
+		 * 只锁了元组而没有更新它，则我们可以覆盖。
 		 */
 		if ((tp.t_data->t_infomask & HEAP_XMAX_INVALID) ||
 			HEAP_XMAX_IS_LOCKED_ONLY(tp.t_data->t_infomask) ||
@@ -2767,7 +2767,7 @@ l1:
 			result = TM_Deleted;
 	}
 
-	/* sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
+	/* 对 HeapTupleSatisfiesUpdate() 的结果和上面的逻辑做健全性检查 */
 	if (result != TM_Ok)
 	{
 		Assert(result == TM_SelfModified ||
@@ -2781,7 +2781,7 @@ l1:
 
 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
 	{
-		/* Perform additional check for transaction-snapshot mode RI updates */
+		/* 对事务快照模式的 RI 更新做额外检查 */
 		if (!HeapTupleSatisfiesVisibility(&tp, crosscheck, buffer))
 			result = TM_Updated;
 	}
@@ -2803,32 +2803,32 @@ l1:
 	}
 
 	/*
-	 * We're about to do the actual delete -- check for conflict first, to
-	 * avoid possibly having to roll back work we've just done.
+	 * 即将做实际删除——先检查冲突，以免
+	 * 可能不得不回滚刚刚做完的工作。
 	 *
-	 * This is safe without a recheck as long as there is no possibility of
-	 * another process scanning the page between this check and the delete
-	 * being visible to the scan (i.e., an exclusive buffer content lock is
-	 * continuously held from this point until the tuple delete is visible).
+	 * 只要不可能有另一个进程在本次检查与删除
+	 * 对扫描可见之间扫描该页，不做复查也是安全的（也就是
+	 * 从此时起一直持有排他的缓冲区内容锁，
+	 * 直到元组删除变为可见）。
 	 */
 	CheckForSerializableConflictIn(relation, tid, BufferGetBlockNumber(buffer));
 
-	/* replace cid with a combo CID if necessary */
+	/* 必要时用组合 CID 替换 cid */
 	HeapTupleHeaderAdjustCmax(tp.t_data, &cid, &iscombo);
 
 	/*
-	 * Compute replica identity tuple before entering the critical section so
-	 * we don't PANIC upon a memory allocation failure.
+	 * 进入临界区之前先计算副本标识元组，这样
+	 * 内存分配失败时就不会 PANIC。
 	 */
 	old_key_tuple = ExtractReplicaIdentity(relation, &tp, true, &old_key_copied);
 
 	/*
-	 * If this is the first possibly-multixact-able operation in the current
-	 * transaction, set my per-backend OldestMemberMXactId setting. We can be
-	 * certain that the transaction will never become a member of any older
-	 * MultiXactIds than that.  (We have to do this even if we end up just
-	 * using our own TransactionId below, since some other backend could
-	 * incorporate our XID into a MultiXact immediately afterwards.)
+	 * 若这是当前事务中第一次可能涉及 multixact 的操作，
+	 * 设置本后端的 OldestMemberMXactId。我们可以
+	 * 确定该事务绝不会成为任何比它更老的
+	 * MultiXactId 的成员。（即使下面最终只用
+	 * 我们自己的 TransactionId，也必须这样做，因为别的后端可能
+	 * 随即把我们的 XID 并入一个 MultiXact。）
 	 */
 	MultiXactIdSetOldestMember();
 
@@ -2840,11 +2840,11 @@ l1:
 	START_CRIT_SECTION();
 
 	/*
-	 * If this transaction commits, the tuple will become DEAD sooner or
-	 * later.  Set flag that this page is a candidate for pruning once our xid
-	 * falls below the OldestXmin horizon.  If the transaction finally aborts,
-	 * the subsequent page pruning will be a no-op and the hint will be
-	 * cleared.
+	 * 若本事务提交，该元组迟早会变成 DEAD。
+	 * 设置标志，表明一旦我们的 xid 落到 OldestXmin 视界之下，
+	 * 此页就是剪枝候选。若事务最终中止，
+	 * 随后的页面剪枝将是空操作，该提示也会被
+	 * 清除。
 	 */
 	PageSetPrunable(page, xid);
 
@@ -2856,7 +2856,7 @@ l1:
 							vmbuffer, VISIBILITYMAP_VALID_BITS);
 	}
 
-	/* store transaction information of xact deleting the tuple */
+	/* 存储删除该元组的事务信息 */
 	tp.t_data->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
 	tp.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
 	tp.t_data->t_infomask |= new_infomask;
@@ -2864,20 +2864,20 @@ l1:
 	HeapTupleHeaderClearHotUpdated(tp.t_data);
 	HeapTupleHeaderSetXmax(tp.t_data, new_xmax);
 	HeapTupleHeaderSetCmax(tp.t_data, cid, iscombo);
-	/* Make sure there is no forward chain link in t_ctid */
+	/* 确保 t_ctid 中没有向前的链链接 */
 	tp.t_data->t_ctid = tp.t_self;
 
-	/* Signal that this is actually a move into another partition */
+	/* 表明这实际上是移动到另一个分区 */
 	if (changingPart)
 		HeapTupleHeaderSetMovedPartitions(tp.t_data);
 
 	MarkBufferDirty(buffer);
 
 	/*
-	 * XLOG stuff
+	 * XLOG 相关
 	 *
-	 * NB: heap_abort_speculative() uses the same xlog record and replay
-	 * routines.
+	 * 注意：heap_abort_speculative() 使用相同的 xlog 记录和重放
+	 * 例程。
 	 */
 	if (RelationNeedsWAL(relation))
 	{
@@ -2886,8 +2886,8 @@ l1:
 		XLogRecPtr	recptr;
 
 		/*
-		 * For logical decode we need combo CIDs to properly decode the
-		 * catalog
+		 * 为了逻辑解码，我们需要组合 CID 才能正确解码
+		 * 系统目录
 		 */
 		if (RelationIsAccessibleInLogicalDecoding(relation))
 			log_heap_new_cid(relation, &tp);
@@ -2916,7 +2916,7 @@ l1:
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 
 		/*
-		 * Log replica identity of the deleted tuple if there is one
+		 * 若有，则记录被删除元组的副本标识
 		 */
 		if (old_key_tuple != NULL)
 		{
@@ -2931,7 +2931,7 @@ l1:
 							 - SizeofHeapTupleHeader);
 		}
 
-		/* filtering by origin on a row level is much more efficient */
+		/* 按行过滤复制源要高效得多 */
 		XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_DELETE);
@@ -2947,32 +2947,32 @@ l1:
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * If the tuple has toasted out-of-line attributes, we need to delete
-	 * those items too.  We have to do this before releasing the buffer
-	 * because we need to look at the contents of the tuple, but it's OK to
-	 * release the content lock on the buffer first.
+	 * 若元组有经过 TOAST 的行外属性，也需要删除
+	 * 那些项。必须在释放缓冲区之前做这件事，
+	 * 因为我们需要查看元组内容，但可以先
+	 * 释放缓冲区上的内容锁。
 	 */
 	if (relation->rd_rel->relkind != RELKIND_RELATION &&
 		relation->rd_rel->relkind != RELKIND_MATVIEW)
 	{
-		/* toast table entries should never be recursively toasted */
+		/* TOAST 表项绝不应当被递归做 TOAST */
 		Assert(!HeapTupleHasExternal(&tp));
 	}
 	else if (HeapTupleHasExternal(&tp))
 		heap_toast_delete(relation, &tp, false);
 
 	/*
-	 * Mark tuple for invalidation from system caches at next command
-	 * boundary. We have to do this before releasing the buffer because we
-	 * need to look at the contents of the tuple.
+	 * 标记该元组，以便在下一个命令
+	 * 边界从系统缓存中失效。必须在释放缓冲区之前做这件事，因为我们
+	 * 需要查看元组的内容。
 	 */
 	CacheInvalidateHeapTuple(relation, &tp, NULL);
 
-	/* Now we can release the buffer */
+	/* 现在可以释放缓冲区了 */
 	ReleaseBuffer(buffer);
 
 	/*
-	 * Release the lmgr tuple lock, if we had it.
+	 * 若持有过，则释放 lmgr 元组锁。
 	 */
 	if (have_tuple_lock)
 		UnlockTupleTuplock(relation, &(tp.t_self), LockTupleExclusive);
@@ -2986,12 +2986,12 @@ l1:
 }
 
 /*
- *	simple_heap_delete - delete a tuple
+ *	simple_heap_delete - 删除一个元组
  *
- * This routine may be used to delete a tuple when concurrent updates of
- * the target tuple are not expected (for example, because we have a lock
- * on the relation associated with the tuple).  Any failure is reported
- * via ereport().
+ * 当不预期目标元组会有并发更新时
+ * （例如因为我们持有与该元组关联的关系上的锁），
+ * 可以用本例程删除元组。任何失败都通过
+ * ereport() 报告。
  */
 void
 simple_heap_delete(Relation relation, ItemPointer tid)
@@ -3001,17 +3001,17 @@ simple_heap_delete(Relation relation, ItemPointer tid)
 
 	result = heap_delete(relation, tid,
 						 GetCurrentCommandId(true), InvalidSnapshot,
-						 true /* wait for commit */ ,
-						 &tmfd, false /* changingPart */ );
+						 true /* 等待提交 */ ,
+						 &tmfd, false /* changingPart：正在改分区 */ );
 	switch (result)
 	{
 		case TM_SelfModified:
-			/* Tuple was already updated in current command? */
+			/* 元组已在当前命令中被更新？ */
 			elog(ERROR, "tuple already updated by self");
 			break;
 
 		case TM_Ok:
-			/* done successfully */
+			/* 成功完成 */
 			break;
 
 		case TM_Updated:
@@ -3029,15 +3029,15 @@ simple_heap_delete(Relation relation, ItemPointer tid)
 }
 
 /*
- *	heap_update - replace a tuple
+ *	heap_update - 替换一个元组
  *
- * See table_tuple_update() for an explanation of the parameters, except that
- * this routine directly takes a tuple rather than a slot.
+ * 参数说明见 table_tuple_update()，只是
+ * 本例程直接接受元组而不是槽。
  *
- * In the failure cases, the routine fills *tmfd with the tuple's t_ctid,
- * t_xmax (resolving a possible MultiXact, if necessary), and t_cmax (the last
- * only for TM_SelfModified, since we cannot obtain cmax from a combo CID
- * generated by another transaction).
+ * 失败时，本例程用该元组的 t_ctid、
+ * t_xmax（必要时解析可能的 MultiXact）和 t_cmax 填好 *tmfd（后者
+ * 仅用于 TM_SelfModified，因为我们无法从另一个事务生成的组合 CID
+ * 取得 cmax）。
  */
 TM_Result
 heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
@@ -3087,16 +3087,16 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 
 	Assert(ItemPointerIsValid(otid));
 
-	/* Cheap, simplistic check that the tuple matches the rel's rowtype. */
+	/* 粗略、简单的检查：元组是否匹配关系的行类型。 */
 	Assert(HeapTupleHeaderGetNatts(newtup->t_data) <=
 		   RelationGetNumberOfAttributes(relation));
 
 	AssertHasSnapshotForToast(relation);
 
 	/*
-	 * Forbid this during a parallel operation, lest it allocate a combo CID.
-	 * Other workers might need that combo CID for visibility checks, and we
-	 * have no provision for broadcasting it to them.
+	 * 并行操作期间禁止这样做，以免它分配组合 CID。
+	 * 其他工作进程做可见性检查时可能需要该组合 CID，而我们
+	 * 没有把它广播给它们的机制。
 	 */
 	if (IsInParallelMode())
 		ereport(ERROR,
@@ -3108,20 +3108,20 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 #endif
 
 	/*
-	 * Fetch the list of attributes to be checked for various operations.
+	 * 取出供各种操作检查的属性列表。
 	 *
-	 * For HOT considerations, this is wasted effort if we fail to update or
-	 * have to put the new tuple on a different page.  But we must compute the
-	 * list before obtaining buffer lock --- in the worst case, if we are
-	 * doing an update on one of the relevant system catalogs, we could
-	 * deadlock if we try to fetch the list later.  In any case, the relcache
-	 * caches the data so this is usually pretty cheap.
+	 * 从 HOT 的角度看，若更新失败或
+	 * 不得不把新元组放到另一页，这笔功夫就白费了。但我们必须在
+	 * 取得缓冲区锁之前算出这份列表——最坏情况下，若我们正在
+	 * 更新某个相关系统目录，稍后再取这份列表就可能
+	 * 死锁。无论如何，relcache
+	 * 会缓存这些数据，所以通常相当便宜。
 	 *
-	 * We also need columns used by the replica identity and columns that are
-	 * considered the "key" of rows in the table.
+	 * 我们还需要副本标识使用的列，以及被
+	 * 视为表中行"键"的那些列。
 	 *
-	 * Note that we get copies of each bitmap, so we need not worry about
-	 * relcache flush happening midway through.
+	 * 注意我们拿到的是每张位图的副本，因此不必担心
+	 * 中途发生 relcache 刷新。
 	 */
 	hot_attrs = RelationGetIndexAttrBitmap(relation,
 										   INDEX_ATTR_BITMAP_HOT_BLOCKING);
@@ -3141,10 +3141,10 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 	page = BufferGetPage(buffer);
 
 	/*
-	 * Before locking the buffer, pin the visibility map page if it appears to
-	 * be necessary.  Since we haven't got the lock yet, someone else might be
-	 * in the middle of changing this, so we'll need to recheck after we have
-	 * the lock.
+	 * 锁定缓冲区之前，若看起来有必要，先钉住可见性映射页。
+	 * 由于我们还没拿到锁，别人可能正在
+	 * 改它，所以拿到锁之后
+	 * 还需要再检查一次。
 	 */
 	if (PageIsAllVisible(page))
 		visibilitymap_pin(relation, block, &vmbuffer);
@@ -3154,27 +3154,27 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 	lp = PageGetItemId(page, ItemPointerGetOffsetNumber(otid));
 
 	/*
-	 * Usually, a buffer pin and/or snapshot blocks pruning of otid, ensuring
-	 * we see LP_NORMAL here.  When the otid origin is a syscache, we may have
-	 * neither a pin nor a snapshot.  Hence, we may see other LP_ states, each
-	 * of which indicates concurrent pruning.
+	 * 通常，缓冲区钉住和/或快照会阻止对 otid 剪枝，从而保证
+	 * 我们在这里看到 LP_NORMAL。当 otid 来自 syscache 时，我们可能既没有
+	 * 钉，也没有快照。因此可能看到其他 LP_ 状态，每一种
+	 * 都表示发生了并发剪枝。
 	 *
-	 * Failing with TM_Updated would be most accurate.  However, unlike other
-	 * TM_Updated scenarios, we don't know the successor ctid in LP_UNUSED and
-	 * LP_DEAD cases.  While the distinction between TM_Updated and TM_Deleted
-	 * does matter to SQL statements UPDATE and MERGE, those SQL statements
-	 * hold a snapshot that ensures LP_NORMAL.  Hence, the choice between
-	 * TM_Updated and TM_Deleted affects only the wording of error messages.
-	 * Settle on TM_Deleted, for two reasons.  First, it avoids complicating
-	 * the specification of when tmfd->ctid is valid.  Second, it creates
-	 * error log evidence that we took this branch.
+	 * 以 TM_Updated 失败最为准确。不过，与其他
+	 * TM_Updated 情形不同，在 LP_UNUSED 和
+	 * LP_DEAD 情形下我们不知道后继 ctid。TM_Updated 与 TM_Deleted
+	 * 的区别对 SQL 语句 UPDATE 和 MERGE 确实重要，但那些 SQL 语句
+	 * 持有快照，能保证 LP_NORMAL。因此在 TM_Updated 与
+	 * TM_Deleted 之间的选择只影响错误消息的措辞。
+	 * 我们选定 TM_Deleted，原因有二。第一，它避免把
+	 * tmfd->ctid 何时有效的规格说明搞复杂。第二，它在
+	 * 错误日志里留下我们走过这条分支的证据。
 	 *
-	 * Since it's possible to see LP_UNUSED at otid, it's also possible to see
-	 * LP_NORMAL for a tuple that replaced LP_UNUSED.  If it's a tuple for an
-	 * unrelated row, we'll fail with "duplicate key value violates unique".
-	 * XXX if otid is the live, newer version of the newtup row, we'll discard
-	 * changes originating in versions of this catalog row after the version
-	 * the caller got from syscache.  See syscache-update-pruned.spec.
+	 * 既然在 otid 处可能看到 LP_UNUSED，也就可能看到
+	 * 替换了 LP_UNUSED 的元组处于 LP_NORMAL。若它是
+	 * 无关行的元组，我们会因"duplicate key value violates unique"而失败。
+	 * XXX 若 otid 是 newtup 这一行更新的、仍活着的版本，我们会丢弃
+	 * 源自该系统目录行、晚于调用方从 syscache 得到的那个版本的
+	 * 变更。见 syscache-update-pruned.spec。
 	 */
 	if (!ItemIdIsNormal(lp))
 	{
@@ -3193,45 +3193,45 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 		bms_free(sum_attrs);
 		bms_free(key_attrs);
 		bms_free(id_attrs);
-		/* modified_attrs not yet initialized */
+		/* modified_attrs 尚未初始化 */
 		bms_free(interesting_attrs);
 		return TM_Deleted;
 	}
 
 	/*
-	 * Fill in enough data in oldtup for HeapDetermineColumnsInfo to work
-	 * properly.
+	 * 在 oldtup 中填入足够的数据，使 HeapDetermineColumnsInfo 能正常
+	 * 工作。
 	 */
 	oldtup.t_tableOid = RelationGetRelid(relation);
 	oldtup.t_data = (HeapTupleHeader) PageGetItem(page, lp);
 	oldtup.t_len = ItemIdGetLength(lp);
 	oldtup.t_self = *otid;
 
-	/* the new tuple is ready, except for this: */
+	/* 新元组已经就绪，除了这一点： */
 	newtup->t_tableOid = RelationGetRelid(relation);
 
 	/*
-	 * Determine columns modified by the update.  Additionally, identify
-	 * whether any of the unmodified replica identity key attributes in the
-	 * old tuple is externally stored or not.  This is required because for
-	 * such attributes the flattened value won't be WAL logged as part of the
-	 * new tuple so we must include it as part of the old_key_tuple.  See
-	 * ExtractReplicaIdentity.
+	 * 确定本次更新修改了哪些列。此外，识别
+	 * 旧元组中未被修改的副本标识键属性是否有
+	 * 外部存储的。这是必需的，因为对
+	 * 这类属性，扁平化后的值不会作为新元组的一部分记入 WAL，
+	 * 所以我们必须把它包含进 old_key_tuple。见
+	 * ExtractReplicaIdentity。
 	 */
 	modified_attrs = HeapDetermineColumnsInfo(relation, interesting_attrs,
 											  id_attrs, &oldtup,
 											  newtup, &id_has_external);
 
 	/*
-	 * If we're not updating any "key" column, we can grab a weaker lock type.
-	 * This allows for more concurrency when we are running simultaneously
-	 * with foreign key checks.
+	 * 若我们没有更新任何"键"列，就可以获取较弱的锁类型。
+	 * 这样在与外键检查同时运行时，可以有更高的
+	 * 并发度。
 	 *
-	 * Note that if a column gets detoasted while executing the update, but
-	 * the value ends up being the same, this test will fail and we will use
-	 * the stronger lock.  This is acceptable; the important case to optimize
-	 * is updates that don't manipulate key columns, not those that
-	 * serendipitously arrive at the same key values.
+	 * 注意若某列在执行更新时被解除 TOAST，但
+	 * 最终值相同，这个测试会失败，我们将使用
+	 * 更强的锁。这是可以接受的；值得优化的重要情形是
+	 * 不改动键列的更新，而不是那些
+	 * 碰巧得到相同键值的更新。
 	 */
 	if (!bms_overlap(modified_attrs, key_attrs))
 	{
@@ -3240,13 +3240,13 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 		key_intact = true;
 
 		/*
-		 * If this is the first possibly-multixact-able operation in the
-		 * current transaction, set my per-backend OldestMemberMXactId
-		 * setting. We can be certain that the transaction will never become a
-		 * member of any older MultiXactIds than that.  (We have to do this
-		 * even if we end up just using our own TransactionId below, since
-		 * some other backend could incorporate our XID into a MultiXact
-		 * immediately afterwards.)
+		 * 若这是当前事务中第一次可能涉及 multixact 的
+		 * 操作，就设置本后端的
+		 * OldestMemberMXactId。
+		 * 我们可以确定该事务绝不会成为任何比它更老的
+		 * MultiXactId 的成员。（即使下面最终只用
+		 * 我们自己的 TransactionId，也必须这样做，因为
+		 * 别的后端可能随即把我们的 XID 并入一个 MultiXact。）
 		 */
 		MultiXactIdSetOldestMember();
 	}
@@ -3258,10 +3258,10 @@ heap_update(Relation relation, ItemPointer otid, HeapTuple newtup,
 	}
 
 	/*
-	 * Note: beyond this point, use oldtup not otid to refer to old tuple.
-	 * otid may very well point at newtup->t_self, which we will overwrite
-	 * with the new tuple's location, so there's great risk of confusion if we
-	 * use otid anymore.
+	 * 注意：过了这一点，用 oldtup 而不是 otid 来指旧元组。
+	 * otid 很可能会指向 newtup->t_self，而我们即将用
+	 * 新元组的位置覆盖它，若再使用 otid 就很容易
+	 * 混淆。
 	 */
 
 l2:
@@ -3269,7 +3269,7 @@ l2:
 	locker_remains = false;
 	result = HeapTupleSatisfiesUpdate(&oldtup, cid, buffer);
 
-	/* see below about the "no wait" case */
+	/* 关于"不等待"情形见下文 */
 	Assert(result != TM_BeingModified || wait);
 
 	if (result == TM_Invisible)
@@ -3286,43 +3286,43 @@ l2:
 		bool		can_continue = false;
 
 		/*
-		 * XXX note that we don't consider the "no wait" case here.  This
-		 * isn't a problem currently because no caller uses that case, but it
-		 * should be fixed if such a caller is introduced.  It wasn't a
-		 * problem previously because this code would always wait, but now
-		 * that some tuple locks do not conflict with one of the lock modes we
-		 * use, it is possible that this case is interesting to handle
-		 * specially.
+		 * XXX 注意这里没有考虑"不等待"情形。目前
+		 * 这不是问题，因为没有调用方使用该情形，但若
+		 * 引入这样的调用方就应当修复。以前这不是
+		 * 问题，因为这段代码总会等待，但现在
+		 * 有些元组锁与我们使用的某种锁模式并不冲突，
+		 * 因此这个情形也许值得
+		 * 专门处理。
 		 *
-		 * This may cause failures with third-party code that calls
-		 * heap_update directly.
+		 * 这可能使直接调用 heap_update 的第三方代码
+		 * 失败。
 		 */
 
-		/* must copy state data before unlocking buffer */
+		/* 解锁缓冲区之前必须复制状态数据 */
 		xwait = HeapTupleHeaderGetRawXmax(oldtup.t_data);
 		infomask = oldtup.t_data->t_infomask;
 
 		/*
-		 * Now we have to do something about the existing locker.  If it's a
-		 * multi, sleep on it; we might be awakened before it is completely
-		 * gone (or even not sleep at all in some cases); we need to preserve
-		 * it as locker, unless it is gone completely.
+		 * 现在必须对已有的加锁者做点什么。若它是
+		 * multi，就在它上面睡眠；我们可能在它完全
+		 * 消失之前就被唤醒（有些情况下甚至根本不睡）；需要把它保留
+		 * 为加锁者，除非它已经完全消失。
 		 *
-		 * If it's not a multi, we need to check for sleeping conditions
-		 * before actually going to sleep.  If the update doesn't conflict
-		 * with the locks, we just continue without sleeping (but making sure
-		 * it is preserved).
+		 * 若它不是 multi，在真正睡下去之前需要检查睡眠条件。
+		 * 若更新与这些锁不冲突，
+		 * 我们就继续而不睡眠（但要确保
+		 * 把它保留下来）。
 		 *
-		 * Before sleeping, we need to acquire tuple lock to establish our
-		 * priority for the tuple (see heap_lock_tuple).  LockTuple will
-		 * release us when we are next-in-line for the tuple.  Note we must
-		 * not acquire the tuple lock until we're sure we're going to sleep;
-		 * otherwise we're open for race conditions with other transactions
-		 * holding the tuple lock which sleep on us.
+		 * 睡眠之前，需要获取元组锁以确立我们对该
+		 * 元组的优先级（见 heap_lock_tuple）。LockTuple 会在
+		 * 我们成为该元组的下一位时唤醒我们。注意在确定要睡眠之前不得
+		 * 获取元组锁；
+		 * 否则就会与其他持有该元组锁、
+		 * 又在我们身上睡眠的事务发生竞态。
 		 *
-		 * If we are forced to "start over" below, we keep the tuple lock;
-		 * this arranges that we stay at the head of the line while rechecking
-		 * tuple state.
+		 * 若下面被迫"重新开始"，我们保留元组锁；
+		 * 这样在重新检查
+		 * 元组状态时，我们仍排在队列前面。
 		 */
 		if (infomask & HEAP_XMAX_IS_MULTI)
 		{
@@ -3336,14 +3336,14 @@ l2:
 				LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
 				/*
-				 * Acquire the lock, if necessary (but skip it when we're
-				 * requesting a lock and already have one; avoids deadlock).
+				 * 必要时获取锁（但当我们正在
+				 * 请求一把锁并且已经持有时则跳过；避免死锁）。
 				 */
 				if (!current_is_member)
 					heap_acquire_tuplock(relation, &(oldtup.t_self), *lockmode,
 										 LockWaitBlock, &have_tuple_lock);
 
-				/* wait for multixact */
+				/* 等待 multixact */
 				MultiXactIdWait((MultiXactId) xwait, mxact_status, infomask,
 								relation, &oldtup.t_self, XLTW_Update,
 								&remain);
@@ -3352,9 +3352,9 @@ l2:
 				LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 				/*
-				 * If xwait had just locked the tuple then some other xact
-				 * could update this tuple before we get to this point.  Check
-				 * for xmax change, and start over if so.
+				 * 若 xwait 刚刚锁过该元组，那么在我们到达这里之前，别的事务
+				 * 可能已经更新了它。检查
+				 * xmax 是否改变，若改变则重新开始。
 				 */
 				if (xmax_infomask_changed(oldtup.t_data->t_infomask,
 										  infomask) ||
@@ -3364,24 +3364,24 @@ l2:
 			}
 
 			/*
-			 * Note that the multixact may not be done by now.  It could have
-			 * surviving members; our own xact or other subxacts of this
-			 * backend, and also any other concurrent transaction that locked
-			 * the tuple with LockTupleKeyShare if we only got
-			 * LockTupleNoKeyExclusive.  If this is the case, we have to be
-			 * careful to mark the updated tuple with the surviving members in
-			 * Xmax.
+			 * 注意此时 multixact 未必已经结束。它可能还有
+			 * 存活成员：我们自己的事务，或本后端的其他子事务，
+			 * 以及任何其他并发事务：若我们只拿到
+			 * LockTupleNoKeyExclusive，它们用 LockTupleKeyShare 锁过该元组。
+			 * 若是这种情况，我们必须小心地用这些存活成员
+			 * 来标记更新后的元组，写在
+			 * Xmax 里。
 			 *
-			 * Note that there could have been another update in the
-			 * MultiXact. In that case, we need to check whether it committed
-			 * or aborted. If it aborted we are safe to update it again;
-			 * otherwise there is an update conflict, and we have to return
-			 * TableTuple{Deleted, Updated} below.
+			 * 注意 MultiXact 里也可能有过另一次更新。
+			 * 那种情况下，需要检查它是已提交
+			 * 还是已中止。若已中止，我们可以安全地再次更新；
+			 * 否则就是更新冲突，必须在下面返回
+			 * TableTuple{Deleted, Updated}。
 			 *
-			 * In the LockTupleExclusive case, we still need to preserve the
-			 * surviving members: those would include the tuple locks we had
-			 * before this one, which are important to keep in case this
-			 * subxact aborts.
+			 * 在 LockTupleExclusive 情形下，仍需要保留
+			 * 存活成员：其中包括我们在这一把锁之前持有的元组锁，
+			 * 若本子事务中止，保留它们
+			 * 很重要。
 			 */
 			if (!HEAP_XMAX_IS_LOCKED_ONLY(oldtup.t_data->t_infomask))
 				update_xact = HeapTupleGetUpdateXid(oldtup.t_data);
@@ -3389,9 +3389,9 @@ l2:
 				update_xact = InvalidTransactionId;
 
 			/*
-			 * There was no UPDATE in the MultiXact; or it aborted. No
-			 * TransactionIdIsInProgress() call needed here, since we called
-			 * MultiXactIdWait() above.
+			 * MultiXact 里没有 UPDATE；或者它已中止。这里不需要
+			 * 调用 TransactionIdIsInProgress()，因为上面已经调用了
+			 * MultiXactIdWait()。
 			 */
 			if (!TransactionIdIsValid(update_xact) ||
 				TransactionIdDidAbort(update_xact))
@@ -3400,8 +3400,8 @@ l2:
 		else if (TransactionIdIsCurrentTransactionId(xwait))
 		{
 			/*
-			 * The only locker is ourselves; we can avoid grabbing the tuple
-			 * lock here, but must preserve our locking information.
+			 * 唯一的加锁者是我们自己；这里可以避免获取元组
+			 * 锁，但必须保留我们的锁定信息。
 			 */
 			checked_lockers = true;
 			locker_remains = true;
@@ -3410,9 +3410,9 @@ l2:
 		else if (HEAP_XMAX_IS_KEYSHR_LOCKED(infomask) && key_intact)
 		{
 			/*
-			 * If it's just a key-share locker, and we're not changing the key
-			 * columns, we don't need to wait for it to end; but we need to
-			 * preserve it as locker.
+			 * 若它只是键共享加锁者，而我们没有改键
+			 * 列，就不需要等它结束；但需要
+			 * 把它保留为加锁者。
 			 */
 			checked_lockers = true;
 			locker_remains = true;
@@ -3421,8 +3421,8 @@ l2:
 		else
 		{
 			/*
-			 * Wait for regular transaction to end; but first, acquire tuple
-			 * lock.
+			 * 等待普通事务结束；但首先获取元组
+			 * 锁。
 			 */
 			LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 			heap_acquire_tuplock(relation, &(oldtup.t_self), *lockmode,
@@ -3433,16 +3433,16 @@ l2:
 			LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 			/*
-			 * xwait is done, but if xwait had just locked the tuple then some
-			 * other xact could update this tuple before we get to this point.
-			 * Check for xmax change, and start over if so.
+			 * xwait 已经结束，但若 xwait 刚刚锁过该元组，那么别的
+			 * 事务可能在我们到达这里之前更新了它。
+			 * 检查 xmax 是否改变，若改变则重新开始。
 			 */
 			if (xmax_infomask_changed(oldtup.t_data->t_infomask, infomask) ||
 				!TransactionIdEquals(xwait,
 									 HeapTupleHeaderGetRawXmax(oldtup.t_data)))
 				goto l2;
 
-			/* Otherwise check if it committed or aborted */
+			/* 否则检查它是已提交还是已中止 */
 			UpdateXmaxHintBits(oldtup.t_data, buffer, xwait);
 			if (oldtup.t_data->t_infomask & HEAP_XMAX_INVALID)
 				can_continue = true;
@@ -3456,7 +3456,7 @@ l2:
 			result = TM_Deleted;
 	}
 
-	/* Sanity check the result HeapTupleSatisfiesUpdate() and the logic above */
+	/* 对 HeapTupleSatisfiesUpdate() 的结果和上面的逻辑做健全性检查 */
 	if (result != TM_Ok)
 	{
 		Assert(result == TM_SelfModified ||
@@ -3470,7 +3470,7 @@ l2:
 
 	if (crosscheck != InvalidSnapshot && result == TM_Ok)
 	{
-		/* Perform additional check for transaction-snapshot mode RI updates */
+		/* 对事务快照模式的 RI 更新做额外检查 */
 		if (!HeapTupleSatisfiesVisibility(&oldtup, crosscheck, buffer))
 			result = TM_Updated;
 	}
@@ -3500,13 +3500,13 @@ l2:
 	}
 
 	/*
-	 * If we didn't pin the visibility map page and the page has become all
-	 * visible while we were busy locking the buffer, or during some
-	 * subsequent window during which we had it unlocked, we'll have to unlock
-	 * and re-lock, to avoid holding the buffer lock across an I/O.  That's a
-	 * bit unfortunate, especially since we'll now have to recheck whether the
-	 * tuple has been locked or updated under us, but hopefully it won't
-	 * happen very often.
+	 * 若我们没有钉住可见性映射页，而该页在我们忙着锁缓冲区时变成了全可见，
+	 * 或在随后某个我们把它解锁的窗口期间也变成了全可见，
+	 * 就得解锁再重新加锁，以免跨一次 I/O 持有缓冲区锁。这有点
+	 * 不幸，尤其是现在还得重新检查
+	 * 该元组是否已在我们手下被锁定或更新，
+	 * 但希望这种事
+	 * 不会经常发生。
 	 */
 	if (vmbuffer == InvalidBuffer && PageIsAllVisible(page))
 	{
@@ -3516,11 +3516,11 @@ l2:
 		goto l2;
 	}
 
-	/* Fill in transaction status data */
+	/* 填入事务状态数据 */
 
 	/*
-	 * If the tuple we're updating is locked, we need to preserve the locking
-	 * info in the old tuple's Xmax.  Prepare a new Xmax value for this.
+	 * 若正在更新的元组被锁着，需要在旧元组的 Xmax 中保留锁定
+	 * 信息。为此准备一个新的 Xmax 值。
 	 */
 	compute_new_xmax_infomask(HeapTupleHeaderGetRawXmax(oldtup.t_data),
 							  oldtup.t_data->t_infomask,
@@ -3530,11 +3530,11 @@ l2:
 							  &infomask2_old_tuple);
 
 	/*
-	 * And also prepare an Xmax value for the new copy of the tuple.  If there
-	 * was no xmax previously, or there was one but all lockers are now gone,
-	 * then use InvalidTransactionId; otherwise, get the xmax from the old
-	 * tuple.  (In rare cases that might also be InvalidTransactionId and yet
-	 * not have the HEAP_XMAX_INVALID bit set; that's fine.)
+	 * 同时为元组的新副本准备一个 Xmax 值。若先前
+	 * 没有 xmax，或者有过但所有加锁者都已离开，
+	 * 则使用 InvalidTransactionId；否则从旧
+	 * 元组取得 xmax。（罕见情况下它也可能是 InvalidTransactionId，却
+	 * 没有设置 HEAP_XMAX_INVALID 位；这没问题。）
 	 */
 	if ((oldtup.t_data->t_infomask & HEAP_XMAX_INVALID) ||
 		HEAP_LOCKED_UPGRADED(oldtup.t_data->t_infomask) ||
@@ -3551,10 +3551,10 @@ l2:
 	else
 	{
 		/*
-		 * If we found a valid Xmax for the new tuple, then the infomask bits
-		 * to use on the new tuple depend on what was there on the old one.
-		 * Note that since we're doing an update, the only possibility is that
-		 * the lockers had FOR KEY SHARE lock.
+		 * 若为新元组找到了有效的 Xmax，那么新元组上使用的 infomask 位
+		 * 取决于旧元组上原来有什么。
+		 * 注意既然我们在做更新，唯一的可能是
+		 * 加锁者持有的是 FOR KEY SHARE 锁。
 		 */
 		if (oldtup.t_data->t_infomask & HEAP_XMAX_IS_MULTI)
 		{
@@ -3569,8 +3569,8 @@ l2:
 	}
 
 	/*
-	 * Prepare the new tuple with the appropriate initial values of Xmin and
-	 * Xmax, as well as initial infomask bits as computed above.
+	 * 用上面算出的 Xmin、Xmax 初值以及
+	 * infomask 位初值来准备新元组。
 	 */
 	newtup->t_data->t_infomask &= ~(HEAP_XACT_MASK);
 	newtup->t_data->t_infomask2 &= ~(HEAP2_XACT_MASK);
@@ -3581,26 +3581,26 @@ l2:
 	HeapTupleHeaderSetXmax(newtup->t_data, xmax_new_tuple);
 
 	/*
-	 * Replace cid with a combo CID if necessary.  Note that we already put
-	 * the plain cid into the new tuple.
+	 * 必要时用组合 CID 替换 cid。注意我们已经把
+	 * 普通 cid 放进了新元组。
 	 */
 	HeapTupleHeaderAdjustCmax(oldtup.t_data, &cid, &iscombo);
 
 	/*
-	 * If the toaster needs to be activated, OR if the new tuple will not fit
-	 * on the same page as the old, then we need to release the content lock
-	 * (but not the pin!) on the old tuple's buffer while we are off doing
-	 * TOAST and/or table-file-extension work.  We must mark the old tuple to
-	 * show that it's locked, else other processes may try to update it
-	 * themselves.
+	 * 若需要启动 toaster，或者新元组放不进
+	 * 与旧元组相同的页，那么在我们去做
+	 * TOAST 和/或扩展表文件时，必须释放旧元组缓冲区上的
+	 * 内容锁
+	 * （但不要释放钉！）。必须把旧元组标成
+	 * 已锁定，否则其他进程可能自己尝试更新它。
 	 *
-	 * We need to invoke the toaster if there are already any out-of-line
-	 * toasted values present, or if the new tuple is over-threshold.
+	 * 若已经存在任何行外的
+	 * 已 TOAST 值，或者新元组超过阈值，就需要调用 toaster。
 	 */
 	if (relation->rd_rel->relkind != RELKIND_RELATION &&
 		relation->rd_rel->relkind != RELKIND_MATVIEW)
 	{
-		/* toast table entries should never be recursively toasted */
+		/* TOAST 表项绝不应当被递归做 TOAST */
 		Assert(!HeapTupleHasExternal(&oldtup));
 		Assert(!HeapTupleHasExternal(newtup));
 		need_toast = false;
@@ -3622,22 +3622,22 @@ l2:
 		bool		cleared_all_frozen = false;
 
 		/*
-		 * To prevent concurrent sessions from updating the tuple, we have to
-		 * temporarily mark it locked, while we release the page-level lock.
+		 * 为防止并发会话更新该元组，我们必须
+		 * 在释放页级锁的同时，临时把它标成已锁定。
 		 *
-		 * To satisfy the rule that any xid potentially appearing in a buffer
-		 * written out to disk, we unfortunately have to WAL log this
-		 * temporary modification.  We can reuse xl_heap_lock for this
-		 * purpose.  If we crash/error before following through with the
-		 * actual update, xmax will be of an aborted transaction, allowing
-		 * other sessions to proceed.
+		 * 为满足"任何可能出现在被写出磁盘的缓冲区里的 xid"
+		 * 这条规则，不幸的是我们必须把这次
+		 * 临时修改记入 WAL。为此可以复用 xl_heap_lock。
+		 * 若我们在完成真正的更新之前崩溃或出错，
+		 * xmax 将属于一个已中止的事务，从而允许
+		 * 其他会话继续。
 		 */
 
 		/*
-		 * Compute xmax / infomask appropriate for locking the tuple. This has
-		 * to be done separately from the combo that's going to be used for
-		 * updating, because the potentially created multixact would otherwise
-		 * be wrong.
+		 * 计算适合锁定该元组的 xmax / infomask。这必须
+		 * 与即将用于更新的组合分开做，
+		 * 否则可能创建出来的 multixact 会是
+		 * 错的。
 		 */
 		compute_new_xmax_infomask(HeapTupleHeaderGetRawXmax(oldtup.t_data),
 								  oldtup.t_data->t_infomask,
@@ -3650,25 +3650,25 @@ l2:
 
 		START_CRIT_SECTION();
 
-		/* Clear obsolete visibility flags ... */
+		/* 清除过时的可见性标志…… */
 		oldtup.t_data->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
 		oldtup.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
 		HeapTupleClearHotUpdated(&oldtup);
-		/* ... and store info about transaction updating this tuple */
+		/* ……并存储更新该元组的事务信息 */
 		Assert(TransactionIdIsValid(xmax_lock_old_tuple));
 		HeapTupleHeaderSetXmax(oldtup.t_data, xmax_lock_old_tuple);
 		oldtup.t_data->t_infomask |= infomask_lock_old_tuple;
 		oldtup.t_data->t_infomask2 |= infomask2_lock_old_tuple;
 		HeapTupleHeaderSetCmax(oldtup.t_data, cid, iscombo);
 
-		/* temporarily make it look not-updated, but locked */
+		/* 临时让它看起来未被更新，但已锁定 */
 		oldtup.t_data->t_ctid = oldtup.t_self;
 
 		/*
-		 * Clear all-frozen bit on visibility map if needed. We could
-		 * immediately reset ALL_VISIBLE, but given that the WAL logging
-		 * overhead would be unchanged, that doesn't seem necessarily
-		 * worthwhile.
+		 * 若需要，清除可见性映射上的全冻结位。我们本可以
+		 * 立刻重置 ALL_VISIBLE，但既然 WAL 记录
+		 * 开销不会变，那样做似乎并不一定
+		 * 值得。
 		 */
 		if (PageIsAllVisible(page) &&
 			visibilitymap_clear(relation, block, vmbuffer,
@@ -3701,15 +3701,15 @@ l2:
 		LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
 		/*
-		 * Let the toaster do its thing, if needed.
+		 * 若需要，让 toaster 做它的事。
 		 *
-		 * Note: below this point, heaptup is the data we actually intend to
-		 * store into the relation; newtup is the caller's original untoasted
-		 * data.
+		 * 注意：从此往下，heaptup 是我们实际打算
+		 * 存入关系的数据；newtup 是调用方原始的、未做 TOAST 的
+		 * 数据。
 		 */
 		if (need_toast)
 		{
-			/* Note we always use WAL and FSM during updates */
+			/* 注意更新时我们总是使用 WAL 和 FSM */
 			heaptup = heap_toast_insert_or_update(relation, newtup, &oldtup, 0);
 			newtupsize = MAXALIGN(heaptup->t_len);
 		}
@@ -3717,60 +3717,60 @@ l2:
 			heaptup = newtup;
 
 		/*
-		 * Now, do we need a new page for the tuple, or not?  This is a bit
-		 * tricky since someone else could have added tuples to the page while
-		 * we weren't looking.  We have to recheck the available space after
-		 * reacquiring the buffer lock.  But don't bother to do that if the
-		 * former amount of free space is still not enough; it's unlikely
-		 * there's more free now than before.
+		 * 那么，这个元组需不需要新页？这有点
+		 * 棘手，因为在我们没看的时候，别人可能已经往该页加了元组。
+		 * 重新获取缓冲区锁之后，必须复查可用空间。
+		 * 但若原先的空闲空间仍然不够，就不必费心去查；
+		 * 现在的空闲不太可能比以前更多。
 		 *
-		 * What's more, if we need to get a new page, we will need to acquire
-		 * buffer locks on both old and new pages.  To avoid deadlock against
-		 * some other backend trying to get the same two locks in the other
-		 * order, we must be consistent about the order we get the locks in.
-		 * We use the rule "lock the lower-numbered page of the relation
-		 * first".  To implement this, we must do RelationGetBufferForTuple
-		 * while not holding the lock on the old page, and we must rely on it
-		 * to get the locks on both pages in the correct order.
+		 * 更进一步，若需要取得新页，就必须获取
+		 * 旧页和新页上的缓冲区锁。为避免与
+		 * 另一个以后相反顺序获取同样两把锁的后端死锁，
+		 * 我们必须在获取锁的顺序上保持一致。
+		 * 我们使用的规则是"先锁关系中页号较小的那一页"。
+		 * 为实现这一点，必须在不持有旧页锁的情况下
+		 * 调用 RelationGetBufferForTuple，并且必须依靠它
+		 * 按正确顺序取得两页上的
+		 * 锁。
 		 *
-		 * Another consideration is that we need visibility map page pin(s) if
-		 * we will have to clear the all-visible flag on either page.  If we
-		 * call RelationGetBufferForTuple, we rely on it to acquire any such
-		 * pins; but if we don't, we have to handle that here.  Hence we need
-		 * a loop.
+		 * 另一个考虑是：若必须清除任一页上的全可见标志，
+		 * 就需要钉住可见性映射页。若我们
+		 * 调用 RelationGetBufferForTuple，就依靠它来获取这些
+		 * 钉；若不调用，就得在这里自己处理。因此我们需要
+		 * 一个循环。
 		 */
 		for (;;)
 		{
 			if (newtupsize > pagefree)
 			{
-				/* It doesn't fit, must use RelationGetBufferForTuple. */
+				/* 放不下，必须使用 RelationGetBufferForTuple。 */
 				newbuf = RelationGetBufferForTuple(relation, heaptup->t_len,
 												   buffer, 0, NULL,
 												   &vmbuffer_new, &vmbuffer,
 												   0);
-				/* We're all done. */
+				/* 全部完成。 */
 				break;
 			}
-			/* Acquire VM page pin if needed and we don't have it. */
+			/* 若需要且尚未持有，则获取 VM 页钉住。 */
 			if (vmbuffer == InvalidBuffer && PageIsAllVisible(page))
 				visibilitymap_pin(relation, block, &vmbuffer);
-			/* Re-acquire the lock on the old tuple's page. */
+			/* 重新获取旧元组所在页上的锁。 */
 			LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
-			/* Re-check using the up-to-date free space */
+			/* 用最新的空闲空间再检查一次 */
 			pagefree = PageGetHeapFreeSpace(page);
 			if (newtupsize > pagefree ||
 				(vmbuffer == InvalidBuffer && PageIsAllVisible(page)))
 			{
 				/*
-				 * Rats, it doesn't fit anymore, or somebody just now set the
-				 * all-visible flag.  We must now unlock and loop to avoid
-				 * deadlock.  Fortunately, this path should seldom be taken.
+				 * 糟糕，现在放不下了，或者刚刚有人设置了
+				 * 全可见标志。现在必须解锁并回到循环，以免
+				 * 死锁。幸好这条路径应当很少走到。
 				 */
 				LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 			}
 			else
 			{
-				/* We're all done. */
+				/* 全部完成。 */
 				newbuf = buffer;
 				break;
 			}
@@ -3778,51 +3778,51 @@ l2:
 	}
 	else
 	{
-		/* No TOAST work needed, and it'll fit on same page */
+		/* 不需要做 TOAST，并且它能放进同一页 */
 		newbuf = buffer;
 		heaptup = newtup;
 	}
 
 	/*
-	 * We're about to do the actual update -- check for conflict first, to
-	 * avoid possibly having to roll back work we've just done.
+	 * 即将做实际更新——先检查冲突，以免
+	 * 可能不得不回滚刚刚做完的工作。
 	 *
-	 * This is safe without a recheck as long as there is no possibility of
-	 * another process scanning the pages between this check and the update
-	 * being visible to the scan (i.e., exclusive buffer content lock(s) are
-	 * continuously held from this point until the tuple update is visible).
+	 * 只要不可能有另一个进程在本次检查与更新
+	 * 对扫描可见之间扫描这些页，不做复查也是安全的（也就是
+	 * 从此时起一直持有排他的缓冲区内容锁，
+	 * 直到元组更新变为可见）。
 	 *
-	 * For the new tuple the only check needed is at the relation level, but
-	 * since both tuples are in the same relation and the check for oldtup
-	 * will include checking the relation level, there is no benefit to a
-	 * separate check for the new tuple.
+	 * 对新元组，唯一需要的检查是关系级的，但
+	 * 由于两个元组在同一关系中，而对 oldtup 的检查
+	 * 已经包含关系级检查，再为新元组做一次
+	 * 单独检查没有好处。
 	 */
 	CheckForSerializableConflictIn(relation, &oldtup.t_self,
 								   BufferGetBlockNumber(buffer));
 
 	/*
-	 * At this point newbuf and buffer are both pinned and locked, and newbuf
-	 * has enough space for the new tuple.  If they are the same buffer, only
-	 * one pin is held.
+	 * 此时 newbuf 和 buffer 都已钉住并上锁，而且 newbuf
+	 * 有足够空间放下新元组。若它们是同一缓冲区，只
+	 * 持有一个钉。
 	 */
 
 	if (newbuf == buffer)
 	{
 		/*
-		 * Since the new tuple is going into the same page, we might be able
-		 * to do a HOT update.  Check if any of the index columns have been
-		 * changed.
+		 * 由于新元组要进入同一页，我们也许可以
+		 * 做 HOT 更新。检查是否有任何索引列被
+		 * 改过。
 		 */
 		if (!bms_overlap(modified_attrs, hot_attrs))
 		{
 			use_hot_update = true;
 
 			/*
-			 * If none of the columns that are used in hot-blocking indexes
-			 * were updated, we can apply HOT, but we do still need to check
-			 * if we need to update the summarizing indexes, and update those
-			 * indexes if the columns were updated, or we may fail to detect
-			 * e.g. value bound changes in BRIN minmax indexes.
+			 * 若用于阻碍 HOT 的索引中的列都没有被
+			 * 更新，就可以使用 HOT，但仍需要检查
+			 * 是否需要更新汇总索引；若那些
+			 * 列被更新了就要更新这些索引，否则可能无法发现
+			 * 例如 BRIN minmax 索引中的值界变化。
 			 */
 			if (bms_overlap(modified_attrs, sum_attrs))
 				summarized_update = true;
@@ -3830,73 +3830,73 @@ l2:
 	}
 	else
 	{
-		/* Set a hint that the old page could use prune/defrag */
+		/* 设置提示：旧页可以做剪枝/碎片整理 */
 		PageSetFull(page);
 	}
 
 	/*
-	 * Compute replica identity tuple before entering the critical section so
-	 * we don't PANIC upon a memory allocation failure.
-	 * ExtractReplicaIdentity() will return NULL if nothing needs to be
-	 * logged.  Pass old key required as true only if the replica identity key
-	 * columns are modified or it has external data.
+	 * 进入临界区之前先计算副本标识元组，这样
+	 * 内存分配失败时就不会 PANIC。
+	 * 若没有需要记录的内容，ExtractReplicaIdentity() 会返回 NULL。
+	 * 只有副本标识键列被修改或含有外部数据时，
+	 * 才把 old key required 传为 true。
 	 */
 	old_key_tuple = ExtractReplicaIdentity(relation, &oldtup,
 										   bms_overlap(modified_attrs, id_attrs) ||
 										   id_has_external,
 										   &old_key_copied);
 
-	/* NO EREPORT(ERROR) from here till changes are logged */
+	/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
 	/*
-	 * If this transaction commits, the old tuple will become DEAD sooner or
-	 * later.  Set flag that this page is a candidate for pruning once our xid
-	 * falls below the OldestXmin horizon.  If the transaction finally aborts,
-	 * the subsequent page pruning will be a no-op and the hint will be
-	 * cleared.
+	 * 若本事务提交，旧元组迟早会变成 DEAD。
+	 * 设置标志，表明一旦我们的 xid 落到 OldestXmin 视界之下，
+	 * 此页就是剪枝候选。若事务最终中止，
+	 * 随后的页面剪枝将是空操作，该提示也会被
+	 * 清除。
 	 *
-	 * XXX Should we set hint on newbuf as well?  If the transaction aborts,
-	 * there would be a prunable tuple in the newbuf; but for now we choose
-	 * not to optimize for aborts.  Note that heap_xlog_update must be kept in
-	 * sync if this decision changes.
+	 * XXX 是否也应当在 newbuf 上设置提示？若事务中止，
+	 * newbuf 里会有一个可剪枝的元组；但目前我们选择
+	 * 不为中止做优化。注意若这个决定改变，heap_xlog_update 必须保持
+	 * 同步。
 	 */
 	PageSetPrunable(page, xid);
 
 	if (use_hot_update)
 	{
-		/* Mark the old tuple as HOT-updated */
+		/* 把旧元组标为 HOT 更新过 */
 		HeapTupleSetHotUpdated(&oldtup);
-		/* And mark the new tuple as heap-only */
+		/* 并把新元组标为堆内元组 */
 		HeapTupleSetHeapOnly(heaptup);
-		/* Mark the caller's copy too, in case different from heaptup */
+		/* 若与 heaptup 不同，也标记调用方的副本 */
 		HeapTupleSetHeapOnly(newtup);
 	}
 	else
 	{
-		/* Make sure tuples are correctly marked as not-HOT */
+		/* 确保元组被正确标为非 HOT */
 		HeapTupleClearHotUpdated(&oldtup);
 		HeapTupleClearHeapOnly(heaptup);
 		HeapTupleClearHeapOnly(newtup);
 	}
 
-	RelationPutHeapTuple(relation, newbuf, heaptup, false); /* insert new tuple */
+	RelationPutHeapTuple(relation, newbuf, heaptup, false); /* 插入新元组 */
 
 
-	/* Clear obsolete visibility flags, possibly set by ourselves above... */
+	/* 清除过时的可见性标志，可能是我们自己在上面设置的…… */
 	oldtup.t_data->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
 	oldtup.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
-	/* ... and store info about transaction updating this tuple */
+	/* ……并存储更新该元组的事务信息 */
 	Assert(TransactionIdIsValid(xmax_old_tuple));
 	HeapTupleHeaderSetXmax(oldtup.t_data, xmax_old_tuple);
 	oldtup.t_data->t_infomask |= infomask_old_tuple;
 	oldtup.t_data->t_infomask2 |= infomask2_old_tuple;
 	HeapTupleHeaderSetCmax(oldtup.t_data, cid, iscombo);
 
-	/* record address of new tuple in t_ctid of old one */
+	/* 在旧元组的 t_ctid 中记录新元组的地址 */
 	oldtup.t_data->t_ctid = heaptup->t_self;
 
-	/* clear PD_ALL_VISIBLE flags, reset all visibilitymap bits */
+	/* 清除 PD_ALL_VISIBLE 标志，重置可见性映射的所有位 */
 	if (PageIsAllVisible(BufferGetPage(buffer)))
 	{
 		all_visible_cleared = true;
@@ -3916,14 +3916,14 @@ l2:
 		MarkBufferDirty(newbuf);
 	MarkBufferDirty(buffer);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(relation))
 	{
 		XLogRecPtr	recptr;
 
 		/*
-		 * For logical decoding we need combo CIDs to properly decode the
-		 * catalog.
+		 * 为了逻辑解码，我们需要组合 CID 才能正确解码
+		 * 系统目录。
 		 */
 		if (RelationIsAccessibleInLogicalDecoding(relation))
 		{
@@ -3950,16 +3950,16 @@ l2:
 	LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 
 	/*
-	 * Mark old tuple for invalidation from system caches at next command
-	 * boundary, and mark the new tuple for invalidation in case we abort. We
-	 * have to do this before releasing the buffer because oldtup is in the
-	 * buffer.  (heaptup is all in local memory, but it's necessary to process
-	 * both tuple versions in one call to inval.c so we can avoid redundant
-	 * sinval messages.)
+	 * 标记旧元组，以便在下一个命令边界从系统缓存中失效，
+	 * 并标记新元组，以便在我们中止时失效。我们必须
+	 * 在释放缓冲区之前做这件事，因为 oldtup 在
+	 * 缓冲区里。（heaptup 全在本地内存中，但必须在一次 inval.c 调用里处理
+	 * 两个元组版本，才能避免多余的
+	 * sinval 消息。）
 	 */
 	CacheInvalidateHeapTuple(relation, &oldtup, heaptup);
 
-	/* Now we can release the buffer(s) */
+	/* 现在可以释放缓冲区了 */
 	if (newbuf != buffer)
 		ReleaseBuffer(newbuf);
 	ReleaseBuffer(buffer);
@@ -3969,7 +3969,7 @@ l2:
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * Release the lmgr tuple lock, if we had it.
+	 * 若持有过，则释放 lmgr 元组锁。
 	 */
 	if (have_tuple_lock)
 		UnlockTupleTuplock(relation, &(oldtup.t_self), *lockmode);
@@ -3977,8 +3977,8 @@ l2:
 	pgstat_count_heap_update(relation, use_hot_update, newbuf != buffer);
 
 	/*
-	 * If heaptup is a private copy, release it.  Don't forget to copy t_self
-	 * back to the caller's image, too.
+	 * 若 heaptup 是私有副本，则释放它。别忘了把 t_self
+	 * 也复制回调用方的映像。
 	 */
 	if (heaptup != newtup)
 	{
@@ -3987,10 +3987,10 @@ l2:
 	}
 
 	/*
-	 * If it is a HOT update, the update may still need to update summarized
-	 * indexes, lest we fail to update those summaries and get incorrect
-	 * results (for example, minmax bounds of the block may change with this
-	 * update).
+	 * 若这是 HOT 更新，这次更新可能仍需要更新汇总
+	 * 索引，否则我们会漏掉那些汇总并得到不正确的
+	 * 结果（例如，这一块的 minmax 界可能因这次
+	 * 更新而改变）。
 	 */
 	if (use_hot_update)
 	{
@@ -4017,15 +4017,15 @@ l2:
 
 #ifdef USE_ASSERT_CHECKING
 /*
- * Confirm adequate lock held during heap_update(), per rules from
- * README.tuplock section "Locking to write inplace-updated tables".
+ * 按 README.tuplock 中"写入原地更新表时的锁定"一节的规则，
+ * 确认 heap_update() 期间持有足够的锁。
  */
 static void
 check_lock_if_inplace_updateable_rel(Relation relation,
 									 ItemPointer otid,
 									 HeapTuple newtup)
 {
-	/* LOCKTAG_TUPLE acceptable for any catalog */
+	/* 对任何系统目录，LOCKTAG_TUPLE 都可以 */
 	switch (RelationGetRelid(relation))
 	{
 		case RelationRelationId:
@@ -4051,7 +4051,7 @@ check_lock_if_inplace_updateable_rel(Relation relation,
 	{
 		case RelationRelationId:
 			{
-				/* LOCKTAG_TUPLE or LOCKTAG_RELATION ok */
+				/* LOCKTAG_TUPLE 或 LOCKTAG_RELATION 都可以 */
 				Form_pg_class classForm = (Form_pg_class) GETSTRUCT(newtup);
 				Oid			relid = classForm->oid;
 				Oid			dbid;
@@ -4085,7 +4085,7 @@ check_lock_if_inplace_updateable_rel(Relation relation,
 			break;
 		case DatabaseRelationId:
 			{
-				/* LOCKTAG_TUPLE required */
+				/* 需要 LOCKTAG_TUPLE */
 				Form_pg_database dbForm = (Form_pg_database) GETSTRUCT(newtup);
 
 				elog(WARNING,
@@ -4100,8 +4100,8 @@ check_lock_if_inplace_updateable_rel(Relation relation,
 }
 
 /*
- * Confirm adequate relation lock held, per rules from README.tuplock section
- * "Locking to write inplace-updated tables".
+ * 按 README.tuplock 中"写入原地更新表时的锁定"一节的规则，
+ * 确认持有足够的关系锁。
  */
 static void
 check_inplace_rel_lock(HeapTuple oldtup)
@@ -4138,8 +4138,8 @@ check_inplace_rel_lock(HeapTuple oldtup)
 #endif
 
 /*
- * Check if the specified attribute's values are the same.  Subroutine for
- * HeapDetermineColumnsInfo.
+ * 检查指定属性的值是否相同。HeapDetermineColumnsInfo 的
+ * 子例程。
  */
 static bool
 heap_attr_equals(TupleDesc tupdesc, int attrnum, Datum value1, Datum value2,
@@ -4148,30 +4148,30 @@ heap_attr_equals(TupleDesc tupdesc, int attrnum, Datum value1, Datum value2,
 	Form_pg_attribute att;
 
 	/*
-	 * If one value is NULL and other is not, then they are certainly not
-	 * equal
+	 * 若一个值是 NULL 而另一个不是，则它们肯定不
+	 * 相等
 	 */
 	if (isnull1 != isnull2)
 		return false;
 
 	/*
-	 * If both are NULL, they can be considered equal.
+	 * 若两者都是 NULL，可以认为相等。
 	 */
 	if (isnull1)
 		return true;
 
 	/*
-	 * We do simple binary comparison of the two datums.  This may be overly
-	 * strict because there can be multiple binary representations for the
-	 * same logical value.  But we should be OK as long as there are no false
-	 * positives.  Using a type-specific equality operator is messy because
-	 * there could be multiple notions of equality in different operator
-	 * classes; furthermore, we cannot safely invoke user-defined functions
-	 * while holding exclusive buffer lock.
+	 * 我们对两个 datum 做简单的二进制比较。
+	 * 这可能过严，因为同一逻辑值
+	 * 可以有多种二进制表示。
+	 * 但只要没有假阳性，就应当没问题。使用特定类型的相等
+	 * 操作符很麻烦，因为不同的操作符
+	 * 类里可能有多种相等概念；此外，持有排他缓冲区锁时，
+	 * 我们无法安全地调用用户定义函数。
 	 */
 	if (attrnum <= 0)
 	{
-		/* The only allowed system columns are OIDs, so do this */
+		/* 唯一允许的系统列是 OID，因此这样做 */
 		return (DatumGetObjectId(value1) == DatumGetObjectId(value2));
 	}
 	else
@@ -4183,14 +4183,14 @@ heap_attr_equals(TupleDesc tupdesc, int attrnum, Datum value1, Datum value2,
 }
 
 /*
- * Check which columns are being updated.
+ * 检查哪些列正在被更新。
  *
- * Given an updated tuple, determine (and return into the output bitmapset),
- * from those listed as interesting, the set of columns that changed.
+ * 给定一个更新后的元组，在那些列为感兴趣的列中，确定（并返回到输出位图集合）
+ * 哪些列发生了变化。
  *
- * has_external indicates if any of the unmodified attributes (from those
- * listed as interesting) of the old tuple is a member of external_cols and is
- * stored externally.
+ * has_external 表示旧元组中未被修改的属性（来自那些
+ * 列为感兴趣的属性）是否属于 external_cols，并且
+ * 存储在外部。
  */
 static Bitmapset *
 HeapDetermineColumnsInfo(Relation relation,
@@ -4206,7 +4206,7 @@ HeapDetermineColumnsInfo(Relation relation,
 	attidx = -1;
 	while ((attidx = bms_next_member(interesting_cols, attidx)) >= 0)
 	{
-		/* attidx is zero-based, attrnum is the normal attribute number */
+		/* attidx 从零起计，attrnum 是普通的属性号 */
 		AttrNumber	attrnum = attidx + FirstLowInvalidHeapAttributeNumber;
 		Datum		value1,
 					value2;
@@ -4214,9 +4214,9 @@ HeapDetermineColumnsInfo(Relation relation,
 					isnull2;
 
 		/*
-		 * If it's a whole-tuple reference, say "not equal".  It's not really
-		 * worth supporting this case, since it could only succeed after a
-		 * no-op update, which is hardly a case worth optimizing for.
+		 * 若它是整元组引用，就说"不相等"。这种情形不太
+		 * 值得支持，因为它只有在空操作更新之后才可能成功，
+		 * 而这几乎不值得优化。
 		 */
 		if (attrnum == 0)
 		{
@@ -4225,9 +4225,9 @@ HeapDetermineColumnsInfo(Relation relation,
 		}
 
 		/*
-		 * Likewise, automatically say "not equal" for any system attribute
-		 * other than tableOID; we cannot expect these to be consistent in a
-		 * HOT chain, or even to be set correctly yet in the new tuple.
+		 * 同样，对 tableOID 以外的任何系统属性自动说"不相等"；
+		 * 我们无法预期它们在 HOT 链中保持一致，
+		 * 甚至无法预期新元组里已经正确设置了它们。
 		 */
 		if (attrnum < 0)
 		{
@@ -4239,10 +4239,10 @@ HeapDetermineColumnsInfo(Relation relation,
 		}
 
 		/*
-		 * Extract the corresponding values.  XXX this is pretty inefficient
-		 * if there are many indexed columns.  Should we do a single
-		 * heap_deform_tuple call on each tuple, instead?	But that doesn't
-		 * work for system columns ...
+		 * 取出对应的值。XXX 若有许多索引列，这相当低效。
+		 * 是否应当改为对每个元组调用一次
+		 * heap_deform_tuple？但那对系统列并不
+		 * 适用……
 		 */
 		value1 = heap_getattr(oldtup, attrnum, tupdesc, &isnull1);
 		value2 = heap_getattr(newtup, attrnum, tupdesc, &isnull2);
@@ -4255,16 +4255,16 @@ HeapDetermineColumnsInfo(Relation relation,
 		}
 
 		/*
-		 * No need to check attributes that can't be stored externally. Note
-		 * that system attributes can't be stored externally.
+		 * 不必检查无法外部存储的属性。注意
+		 * 系统属性不能外部存储。
 		 */
 		if (attrnum < 0 || isnull1 ||
 			TupleDescAttr(tupdesc, attrnum - 1)->attlen != -1)
 			continue;
 
 		/*
-		 * Check if the old tuple's attribute is stored externally and is a
-		 * member of external_cols.
+		 * 检查旧元组的该属性是否外部存储，并且是
+		 * external_cols 的成员。
 		 */
 		if (VARATT_IS_EXTERNAL((struct varlena *) DatumGetPointer(value1)) &&
 			bms_is_member(attidx, external_cols))
@@ -4275,12 +4275,12 @@ HeapDetermineColumnsInfo(Relation relation,
 }
 
 /*
- *	simple_heap_update - replace a tuple
+ *	simple_heap_update - 替换一个元组
  *
- * This routine may be used to update a tuple when concurrent updates of
- * the target tuple are not expected (for example, because we have a lock
- * on the relation associated with the tuple).  Any failure is reported
- * via ereport().
+ * 当不预期目标元组会有并发更新时
+ * （例如因为我们持有与该元组关联的关系上的锁），
+ * 可以用本例程更新元组。任何失败都通过
+ * ereport() 报告。
  */
 void
 simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup,
@@ -4292,17 +4292,17 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup,
 
 	result = heap_update(relation, otid, tup,
 						 GetCurrentCommandId(true), InvalidSnapshot,
-						 true /* wait for commit */ ,
+						 true /* 等待提交 */ ,
 						 &tmfd, &lockmode, update_indexes);
 	switch (result)
 	{
 		case TM_SelfModified:
-			/* Tuple was already updated in current command? */
+			/* 元组已在当前命令中被更新？ */
 			elog(ERROR, "tuple already updated by self");
 			break;
 
 		case TM_Ok:
-			/* done successfully */
+			/* 成功完成 */
 			break;
 
 		case TM_Updated:
@@ -4321,7 +4321,7 @@ simple_heap_update(Relation relation, ItemPointer otid, HeapTuple tup,
 
 
 /*
- * Return the MultiXactStatus corresponding to the given tuple lock mode.
+ * 返回与给定元组锁模式对应的 MultiXactStatus。
  */
 static MultiXactStatus
 get_mxact_status_for_lock(LockTupleMode mode, bool is_update)
@@ -4341,35 +4341,35 @@ get_mxact_status_for_lock(LockTupleMode mode, bool is_update)
 }
 
 /*
- *	heap_lock_tuple - lock a tuple in shared or exclusive mode
+ *	heap_lock_tuple - 以共享或排他模式锁定一个元组
  *
- * Note that this acquires a buffer pin, which the caller must release.
+ * 注意这会获取一个缓冲区钉，调用方必须释放它。
  *
- * Input parameters:
- *	relation: relation containing tuple (caller must hold suitable lock)
- *	tid: TID of tuple to lock
- *	cid: current command ID (used for visibility test, and stored into
- *		tuple's cmax if lock is successful)
- *	mode: indicates if shared or exclusive tuple lock is desired
- *	wait_policy: what to do if tuple lock is not available
- *	follow_updates: if true, follow the update chain to also lock descendant
- *		tuples.
+ * 输入参数：
+ *	relation：包含该元组的关系（调用方必须持有合适的锁）
+ *	tid：要锁定的元组的 TID
+ *	cid：当前命令 ID（用于可见性测试，若锁定成功则写入
+ *		元组的 cmax）
+ *	mode：表示希望共享还是排他元组锁
+ *	wait_policy：元组锁不可用时怎么做
+ *	follow_updates：若为 true，则跟随更新链，把后代
+ *		元组也锁上。
  *
- * Output parameters:
- *	*tuple: all fields filled in
- *	*buffer: set to buffer holding tuple (pinned but not locked at exit)
- *	*tmfd: filled in failure cases (see below)
+ * 输出参数：
+ *	*tuple：所有字段都已填好
+ *	*buffer：设为持有该元组的缓冲区（退出时已钉住但未上锁）
+ *	*tmfd：失败时填入（见下）
  *
- * Function results are the same as the ones for table_tuple_lock().
+ * 函数结果与 table_tuple_lock() 的结果相同。
  *
- * In the failure cases other than TM_Invisible, the routine fills
- * *tmfd with the tuple's t_ctid, t_xmax (resolving a possible MultiXact,
- * if necessary), and t_cmax (the last only for TM_SelfModified,
- * since we cannot obtain cmax from a combo CID generated by another
- * transaction).
- * See comments for struct TM_FailureData for additional info.
+ * 除 TM_Invisible 以外的失败情形中，本例程用
+ * 该元组的 t_ctid、t_xmax（必要时解析可能的 MultiXact）
+ * 和 t_cmax 填好 *tmfd（后者仅用于 TM_SelfModified，
+ * 因为我们无法从另一个事务生成的组合 CID
+ * 取得 cmax）。
+ * 更多信息见结构 TM_FailureData 的注释。
  *
- * See README.tuplock for a thorough explanation of this mechanism.
+ * 这一机制的详尽说明见 README.tuplock。
  */
 TM_Result
 heap_lock_tuple(Relation relation, HeapTuple tuple,
@@ -4397,10 +4397,10 @@ heap_lock_tuple(Relation relation, HeapTuple tuple,
 	block = ItemPointerGetBlockNumber(tid);
 
 	/*
-	 * Before locking the buffer, pin the visibility map page if it appears to
-	 * be necessary.  Since we haven't got the lock yet, someone else might be
-	 * in the middle of changing this, so we'll need to recheck after we have
-	 * the lock.
+	 * 锁定缓冲区之前，若看起来有必要，先钉住可见性映射页。
+	 * 由于我们还没拿到锁，别人可能正在
+	 * 改它，所以拿到锁之后
+	 * 还需要再检查一次。
 	 */
 	if (PageIsAllVisible(BufferGetPage(*buffer)))
 		visibilitymap_pin(relation, block, &vmbuffer);
@@ -4421,10 +4421,10 @@ l3:
 	if (result == TM_Invisible)
 	{
 		/*
-		 * This is possible, but only when locking a tuple for ON CONFLICT
-		 * UPDATE.  We return this value here rather than throwing an error in
-		 * order to give that case the opportunity to throw a more specific
-		 * error.
+		 * 这是可能的，但只在为 ON CONFLICT
+		 * UPDATE 锁定元组时。我们在这里返回这个值，而不是抛出错误，
+		 * 以便那种情形有机会抛出更具体的
+		 * 错误。
 		 */
 		result = TM_Invisible;
 		goto out_locked;
@@ -4439,7 +4439,7 @@ l3:
 		bool		require_sleep;
 		ItemPointerData t_ctid;
 
-		/* must copy state data before unlocking buffer */
+		/* 解锁缓冲区之前必须复制状态数据 */
 		xwait = HeapTupleHeaderGetRawXmax(tuple->t_data);
 		infomask = tuple->t_data->t_infomask;
 		infomask2 = tuple->t_data->t_infomask2;
@@ -4448,16 +4448,16 @@ l3:
 		LockBuffer(*buffer, BUFFER_LOCK_UNLOCK);
 
 		/*
-		 * If any subtransaction of the current top transaction already holds
-		 * a lock as strong as or stronger than what we're requesting, we
-		 * effectively hold the desired lock already.  We *must* succeed
-		 * without trying to take the tuple lock, else we will deadlock
-		 * against anyone wanting to acquire a stronger lock.
+		 * 若当前顶层事务的任何子事务已经持有
+		 * 与我们请求的一样强或更强的锁，我们
+		 * 实际上已经持有了想要的锁。我们*必须*成功，
+		 * 而不能去获取元组锁，否则会与任何想获取更强锁的人
+		 * 死锁。
 		 *
-		 * Note we only do this the first time we loop on the HTSU result;
-		 * there is no point in testing in subsequent passes, because
-		 * evidently our own transaction cannot have acquired a new lock after
-		 * the first time we checked.
+		 * 注意我们只在第一次对 HTSU 结果循环时这样做；
+		 * 后续轮次再测没有意义，因为
+		 * 显然我们自己的事务不可能在第一次检查之后
+		 * 又取得一把新锁。
 		 */
 		if (first_time)
 		{
@@ -4470,9 +4470,9 @@ l3:
 				MultiXactMember *members;
 
 				/*
-				 * We don't need to allow old multixacts here; if that had
-				 * been the case, HeapTupleSatisfiesUpdate would have returned
-				 * MayBeUpdated and we wouldn't be here.
+				 * 这里不需要允许旧的 multixact；若是那种
+				 * 情况，HeapTupleSatisfiesUpdate 会返回
+				 * MayBeUpdated，我们就不会到这里。
 				 */
 				nmembers =
 					GetMultiXactIdMembers(xwait, &members, false,
@@ -4480,7 +4480,7 @@ l3:
 
 				for (i = 0; i < nmembers; i++)
 				{
-					/* only consider members of our own transaction */
+					/* 只考虑我们自己事务的成员 */
 					if (!TransactionIdIsCurrentTransactionId(members[i].xid))
 						continue;
 
@@ -4493,15 +4493,15 @@ l3:
 					else
 					{
 						/*
-						 * Disable acquisition of the heavyweight tuple lock.
-						 * Otherwise, when promoting a weaker lock, we might
-						 * deadlock with another locker that has acquired the
-						 * heavyweight tuple lock and is waiting for our
-						 * transaction to finish.
+						 * 禁止获取重量级元组锁。
+						 * 否则，在把较弱的锁提升时，我们可能与另一个
+						 * 已取得重量级元组锁、正在等待我们的
+						 * 事务结束的加锁者
+						 * 发生死锁。
 						 *
-						 * Note that in this case we still need to wait for
-						 * the multixact if required, to avoid acquiring
-						 * conflicting locks.
+						 * 注意这种情况下，若有需要，我们仍须等待
+						 * 该 multixact，以免取得
+						 * 冲突的锁。
 						 */
 						skip_tuple_lock = true;
 					}
@@ -4548,33 +4548,33 @@ l3:
 		}
 
 		/*
-		 * Initially assume that we will have to wait for the locking
-		 * transaction(s) to finish.  We check various cases below in which
-		 * this can be turned off.
+		 * 起初假定我们必须等待加锁
+		 * 事务结束。下面检查各种可以把这一点
+		 * 关掉的情形。
 		 */
 		require_sleep = true;
 		if (mode == LockTupleKeyShare)
 		{
 			/*
-			 * If we're requesting KeyShare, and there's no update present, we
-			 * don't need to wait.  Even if there is an update, we can still
-			 * continue if the key hasn't been modified.
+			 * 若我们请求的是 KeyShare，并且没有更新，就
+			 * 不需要等待。即使有更新，只要键没有被修改，
+			 * 我们仍可以继续。
+			 * 下面接着处理更新链。
 			 *
-			 * However, if there are updates, we need to walk the update chain
-			 * to mark future versions of the row as locked, too.  That way,
-			 * if somebody deletes that future version, we're protected
-			 * against the key going away.  This locking of future versions
-			 * could block momentarily, if a concurrent transaction is
-			 * deleting a key; or it could return a value to the effect that
-			 * the transaction deleting the key has already committed.  So we
-			 * do this before re-locking the buffer; otherwise this would be
-			 * prone to deadlocks.
+			 * 不过，若有更新，需要沿着更新链走，
+			 * 把该行的未来版本也标成已锁定。这样，
+			 * 若有人删除那个未来版本，我们就能防止
+			 * 键消失。对未来版本的这种锁定
+			 * 可能短暂阻塞，若有并发事务正在
+			 * 删除键；也可能返回一个值，表示
+			 * 删除键的事务已经提交。因此我们
+			 * 在重新锁定缓冲区之前做这件事；否则这里容易
+			 * 死锁。
 			 *
-			 * Note that the TID we're locking was grabbed before we unlocked
-			 * the buffer.  For it to change while we're not looking, the
-			 * other properties we're testing for below after re-locking the
-			 * buffer would also change, in which case we would restart this
-			 * loop above.
+			 * 注意我们锁定的 TID 是在解锁缓冲区之前取得的。
+			 * 要让它在我们没看的时候发生变化，下面重新锁定
+			 * 缓冲区之后我们要测试的其他性质也会变化，那样我们就会在上面
+			 * 重新开始这个循环。
 			 */
 			if (!(infomask2 & HEAP_KEYS_UPDATED))
 			{
@@ -4583,8 +4583,8 @@ l3:
 				updated = !HEAP_XMAX_IS_LOCKED_ONLY(infomask);
 
 				/*
-				 * If there are updates, follow the update chain; bail out if
-				 * that cannot be done.
+				 * 若有更新，就跟随更新链；若做不到就退出。
+				 * 那是无法完成的。
 				 */
 				if (follow_updates && updated)
 				{
@@ -4596,7 +4596,7 @@ l3:
 					if (res != TM_Ok)
 					{
 						result = res;
-						/* recovery code expects to have buffer lock held */
+						/* 恢复代码预期持有缓冲区锁 */
 						LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 						goto failed;
 					}
@@ -4605,34 +4605,34 @@ l3:
 				LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 
 				/*
-				 * Make sure it's still an appropriate lock, else start over.
-				 * Also, if it wasn't updated before we released the lock, but
-				 * is updated now, we start over too; the reason is that we
-				 * now need to follow the update chain to lock the new
-				 * versions.
+				 * 确认它仍然是合适的锁，否则重新开始。
+				 * 另外，若释放锁之前它还没被更新，但
+				 * 现在被更新了，我们也重新开始；原因是现在
+				 * 需要跟随更新链去锁定新的
+				 * 版本。
 				 */
 				if (!HeapTupleHeaderIsOnlyLocked(tuple->t_data) &&
 					((tuple->t_data->t_infomask2 & HEAP_KEYS_UPDATED) ||
 					 !updated))
 					goto l3;
 
-				/* Things look okay, so we can skip sleeping */
+				/* 看起来没问题，因此可以跳过睡眠 */
 				require_sleep = false;
 
 				/*
-				 * Note we allow Xmax to change here; other updaters/lockers
-				 * could have modified it before we grabbed the buffer lock.
-				 * However, this is not a problem, because with the recheck we
-				 * just did we ensure that they still don't conflict with the
-				 * lock we want.
+				 * 注意这里允许 Xmax 改变；其他更新者/加锁者
+				 * 可能在我们取得缓冲区锁之前改过它。
+				 * 不过这不是问题，因为刚刚做的复查
+				 * 保证它们仍然不与我们想要的
+				 * 锁冲突。
 				 */
 			}
 		}
 		else if (mode == LockTupleShare)
 		{
 			/*
-			 * If we're requesting Share, we can similarly avoid sleeping if
-			 * there's no update and no exclusive lock present.
+			 * 若我们请求的是 Share，同样可以避免睡眠，如果
+			 * 没有更新也没有排他锁。
 			 */
 			if (HEAP_XMAX_IS_LOCKED_ONLY(infomask) &&
 				!HEAP_XMAX_IS_EXCL_LOCKED(infomask))
@@ -4640,8 +4640,8 @@ l3:
 				LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 
 				/*
-				 * Make sure it's still an appropriate lock, else start over.
-				 * See above about allowing xmax to change.
+				 * 确认它仍然是合适的锁，否则重新开始。
+				 * 关于允许 xmax 改变，见上文。
 				 */
 				if (!HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_data->t_infomask) ||
 					HEAP_XMAX_IS_EXCL_LOCKED(tuple->t_data->t_infomask))
@@ -4652,9 +4652,9 @@ l3:
 		else if (mode == LockTupleNoKeyExclusive)
 		{
 			/*
-			 * If we're requesting NoKeyExclusive, we might also be able to
-			 * avoid sleeping; just ensure that there no conflicting lock
-			 * already acquired.
+			 * 若我们请求的是 NoKeyExclusive，也许也能
+			 * 避免睡眠；只要确保还没有取得冲突的
+			 * 锁。
 			 */
 			if (infomask & HEAP_XMAX_IS_MULTI)
 			{
@@ -4662,8 +4662,8 @@ l3:
 											 mode, NULL))
 				{
 					/*
-					 * No conflict, but if the xmax changed under us in the
-					 * meantime, start over.
+					 * 没有冲突，但若 xmax 在此期间于我们手下
+					 * 改变了，则重新开始。
 					 */
 					LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 					if (xmax_infomask_changed(tuple->t_data->t_infomask, infomask) ||
@@ -4671,7 +4671,7 @@ l3:
 											 xwait))
 						goto l3;
 
-					/* otherwise, we're good */
+					/* 否则，我们没问题 */
 					require_sleep = false;
 				}
 			}
@@ -4679,32 +4679,32 @@ l3:
 			{
 				LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 
-				/* if the xmax changed in the meantime, start over */
+				/* 若 xmax 在此期间改变了，则重新开始 */
 				if (xmax_infomask_changed(tuple->t_data->t_infomask, infomask) ||
 					!TransactionIdEquals(HeapTupleHeaderGetRawXmax(tuple->t_data),
 										 xwait))
 					goto l3;
-				/* otherwise, we're good */
+				/* 否则，我们没问题 */
 				require_sleep = false;
 			}
 		}
 
 		/*
-		 * As a check independent from those above, we can also avoid sleeping
-		 * if the current transaction is the sole locker of the tuple.  Note
-		 * that the strength of the lock already held is irrelevant; this is
-		 * not about recording the lock in Xmax (which will be done regardless
-		 * of this optimization, below).  Also, note that the cases where we
-		 * hold a lock stronger than we are requesting are already handled
-		 * above by not doing anything.
+		 * 作为与上面那些检查相互独立的一项检查，
+		 * 若当前事务是该元组的唯一加锁者，
+		 * 我们也可以避免睡眠。注意
+		 * 已经持有的锁有多强无关紧要；这并不是
+		 * 关于把锁记入 Xmax（无论这项优化如何，下面都会做）。
+		 * 另外，注意我们已经持有比所请求更强的锁的情形，
+		 * 上面已经通过什么都不做处理过了。
 		 *
-		 * Note we only deal with the non-multixact case here; MultiXactIdWait
-		 * is well equipped to deal with this situation on its own.
+		 * 注意这里只处理非 multixact 情形；MultiXactIdWait
+		 * 自己就能很好地处理这种情况。
 		 */
 		if (require_sleep && !(infomask & HEAP_XMAX_IS_MULTI) &&
 			TransactionIdIsCurrentTransactionId(xwait))
 		{
-			/* ... but if the xmax changed in the meantime, start over */
+			/* ……但若 xmax 在此期间改变了，则重新开始 */
 			LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 			if (xmax_infomask_changed(tuple->t_data->t_infomask, infomask) ||
 				!TransactionIdEquals(HeapTupleHeaderGetRawXmax(tuple->t_data),
@@ -4715,15 +4715,15 @@ l3:
 		}
 
 		/*
-		 * Time to sleep on the other transaction/multixact, if necessary.
+		 * 若有必要，该睡在另一个事务或 multixact 上了。
 		 *
-		 * If the other transaction is an update/delete that's already
-		 * committed, then sleeping cannot possibly do any good: if we're
-		 * required to sleep, get out to raise an error instead.
+		 * 若另一个事务是已经提交的更新或删除，
+		 * 那么睡眠不可能有任何好处：若我们被
+		 * 要求睡眠，就退出去报错。
 		 *
-		 * By here, we either have already acquired the buffer exclusive lock,
-		 * or we must wait for the locking transaction or multixact; so below
-		 * we ensure that we grab buffer lock after the sleep.
+		 * 到这里，我们要么已经取得了缓冲区排他锁，
+		 * 要么必须等待加锁事务或 multixact；因此下面
+		 * 我们保证在睡眠之后再抓取缓冲区锁。
 		 */
 		if (require_sleep && (result == TM_Updated || result == TM_Deleted))
 		{
@@ -4733,25 +4733,25 @@ l3:
 		else if (require_sleep)
 		{
 			/*
-			 * Acquire tuple lock to establish our priority for the tuple, or
-			 * die trying.  LockTuple will release us when we are next-in-line
-			 * for the tuple.  We must do this even if we are share-locking,
-			 * but not if we already have a weaker lock on the tuple.
+			 * 获取元组锁以确立我们对该元组的优先级，或者
+			 * 在尝试中失败。当我们成为该元组的下一位时，LockTuple 会唤醒
+			 * 我们。即使是共享锁定也必须这样做，
+			 * 但若我们已经对该元组持有较弱的锁则不必。
 			 *
-			 * If we are forced to "start over" below, we keep the tuple lock;
-			 * this arranges that we stay at the head of the line while
-			 * rechecking tuple state.
+			 * 若下面被迫"重新开始"，我们保留元组锁；
+			 * 这样在重新检查
+			 * 元组状态时，我们仍排在队列前面。
 			 */
 			if (!skip_tuple_lock &&
 				!heap_acquire_tuplock(relation, tid, mode, wait_policy,
 									  &have_tuple_lock))
 			{
 				/*
-				 * This can only happen if wait_policy is Skip and the lock
-				 * couldn't be obtained.
+				 * 只有当 wait_policy 为 Skip 且锁
+				 * 无法取得时才会发生这种情况。
 				 */
 				result = TM_WouldBlock;
-				/* recovery code expects to have buffer lock held */
+				/* 恢复代码预期持有缓冲区锁 */
 				LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 				goto failed;
 			}
@@ -4760,11 +4760,11 @@ l3:
 			{
 				MultiXactStatus status = get_mxact_status_for_lock(mode, false);
 
-				/* We only ever lock tuples, never update them */
+				/* 我们只锁定元组，从不更新它们 */
 				if (status >= MultiXactStatusNoKeyUpdate)
 					elog(ERROR, "invalid lock mode in heap_lock_tuple");
 
-				/* wait for multixact to end, or die trying  */
+				/* 等待 multixact 结束，或者在尝试中失败 */
 				switch (wait_policy)
 				{
 					case LockWaitBlock:
@@ -4777,7 +4777,7 @@ l3:
 														NULL))
 						{
 							result = TM_WouldBlock;
-							/* recovery code expects to have buffer lock held */
+							/* 恢复代码预期持有缓冲区锁 */
 							LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 							goto failed;
 						}
@@ -4795,18 +4795,18 @@ l3:
 				}
 
 				/*
-				 * Of course, the multixact might not be done here: if we're
-				 * requesting a light lock mode, other transactions with light
-				 * locks could still be alive, as well as locks owned by our
-				 * own xact or other subxacts of this backend.  We need to
-				 * preserve the surviving MultiXact members.  Note that it
-				 * isn't absolutely necessary in the latter case, but doing so
-				 * is simpler.
+				 * 当然，这里 multixact 未必已经结束：若我们
+				 * 请求的是轻量锁模式，其他持有轻量
+				 * 锁的事务可能仍活着，我们自己的事务或本后端其他子事务
+				 * 拥有的锁也是如此。我们需要
+				 * 保留存活的 MultiXact 成员。注意后一种情况
+				 * 并非绝对必要，但这样做
+				 * 更简单。
 				 */
 			}
 			else
 			{
-				/* wait for regular transaction to end, or die trying */
+				/* 等待普通事务结束，或者在尝试中失败 */
 				switch (wait_policy)
 				{
 					case LockWaitBlock:
@@ -4817,7 +4817,7 @@ l3:
 						if (!ConditionalXactLockTableWait(xwait))
 						{
 							result = TM_WouldBlock;
-							/* recovery code expects to have buffer lock held */
+							/* 恢复代码预期持有缓冲区锁 */
 							LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 							goto failed;
 						}
@@ -4832,7 +4832,7 @@ l3:
 				}
 			}
 
-			/* if there are updates, follow the update chain */
+			/* 若有更新，则跟随更新链 */
 			if (follow_updates && !HEAP_XMAX_IS_LOCKED_ONLY(infomask))
 			{
 				TM_Result	res;
@@ -4843,7 +4843,7 @@ l3:
 				if (res != TM_Ok)
 				{
 					result = res;
-					/* recovery code expects to have buffer lock held */
+					/* 恢复代码预期持有缓冲区锁 */
 					LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 					goto failed;
 				}
@@ -4852,9 +4852,9 @@ l3:
 			LockBuffer(*buffer, BUFFER_LOCK_EXCLUSIVE);
 
 			/*
-			 * xwait is done, but if xwait had just locked the tuple then some
-			 * other xact could update this tuple before we get to this point.
-			 * Check for xmax change, and start over if so.
+			 * xwait 已经结束，但若 xwait 刚刚锁过该元组，那么别的
+			 * 事务可能在我们到达这里之前更新了它。
+			 * 检查 xmax 是否改变，若改变则重新开始。
 			 */
 			if (xmax_infomask_changed(tuple->t_data->t_infomask, infomask) ||
 				!TransactionIdEquals(HeapTupleHeaderGetRawXmax(tuple->t_data),
@@ -4864,23 +4864,23 @@ l3:
 			if (!(infomask & HEAP_XMAX_IS_MULTI))
 			{
 				/*
-				 * Otherwise check if it committed or aborted.  Note we cannot
-				 * be here if the tuple was only locked by somebody who didn't
-				 * conflict with us; that would have been handled above.  So
-				 * that transaction must necessarily be gone by now.  But
-				 * don't check for this in the multixact case, because some
-				 * locker transactions might still be running.
+				 * 否则检查它是已提交还是已中止。注意我们无法
+				 * 在这里出现，如果该元组只是被某个与我们不
+				 * 冲突的人锁过；那种情况上面已经处理了。因此
+				 * 那个事务现在必然已经结束。但
+				 * 在 multixact 情形下不要检查这一点，因为有些
+				 * 加锁事务可能仍在运行。
 				 */
 				UpdateXmaxHintBits(tuple->t_data, *buffer, xwait);
 			}
 		}
 
-		/* By here, we're certain that we hold buffer exclusive lock again */
+		/* 到这里，我们确定再次持有缓冲区排他锁 */
 
 		/*
-		 * We may lock if previous xmax aborted, or if it committed but only
-		 * locked the tuple without updating it; or if we didn't have to wait
-		 * at all for whatever reason.
+		 * 若先前的 xmax 已中止，或者它已提交但只
+		 * 锁了元组而没有更新它，或者无论什么原因我们根本不必等待，
+		 * 我们都可以加锁。
 		 */
 		if (!require_sleep ||
 			(tuple->t_data->t_infomask & HEAP_XMAX_INVALID) ||
@@ -4900,11 +4900,11 @@ failed:
 			   result == TM_Deleted || result == TM_WouldBlock);
 
 		/*
-		 * When locking a tuple under LockWaitSkip semantics and we fail with
-		 * TM_WouldBlock above, it's possible for concurrent transactions to
-		 * release the lock and set HEAP_XMAX_INVALID in the meantime.  So
-		 * this assert is slightly different from the equivalent one in
-		 * heap_delete and heap_update.
+		 * 在 LockWaitSkip 语义下锁定元组、并且上面以
+		 * TM_WouldBlock 失败时，并发事务有可能在此期间
+		 * 释放锁并设置 HEAP_XMAX_INVALID。因此
+		 * 这个断言与 heap_delete 和 heap_update 中
+		 * 对应的断言略有不同。
 		 */
 		Assert((result == TM_WouldBlock) ||
 			   !(tuple->t_data->t_infomask & HEAP_XMAX_INVALID));
@@ -4920,13 +4920,13 @@ failed:
 	}
 
 	/*
-	 * If we didn't pin the visibility map page and the page has become all
-	 * visible while we were busy locking the buffer, or during some
-	 * subsequent window during which we had it unlocked, we'll have to unlock
-	 * and re-lock, to avoid holding the buffer lock across I/O.  That's a bit
-	 * unfortunate, especially since we'll now have to recheck whether the
-	 * tuple has been locked or updated under us, but hopefully it won't
-	 * happen very often.
+	 * 若我们没有钉住可见性映射页，而该页在我们忙着锁缓冲区时变成了全可见，
+	 * 或在随后某个我们把它解锁的窗口期间，
+	 * 也变成了全可见，
+	 * 就得解锁再重新加锁，以免跨 I/O 持有缓冲区锁。这有点
+	 * 不幸，尤其是现在还得重新检查
+	 * 该元组是否已在我们手下被锁定或更新，但希望这种事
+	 * 不会经常发生。
 	 */
 	if (vmbuffer == InvalidBuffer && PageIsAllVisible(page))
 	{
@@ -4940,19 +4940,19 @@ failed:
 	old_infomask = tuple->t_data->t_infomask;
 
 	/*
-	 * If this is the first possibly-multixact-able operation in the current
-	 * transaction, set my per-backend OldestMemberMXactId setting. We can be
-	 * certain that the transaction will never become a member of any older
-	 * MultiXactIds than that.  (We have to do this even if we end up just
-	 * using our own TransactionId below, since some other backend could
-	 * incorporate our XID into a MultiXact immediately afterwards.)
+	 * 若这是当前事务中第一次可能涉及 multixact 的操作，
+	 * 就设置本后端的 OldestMemberMXactId。我们可以
+	 * 确定该事务绝不会成为任何比它更老的
+	 * MultiXactId 的成员。（即使下面最终只用
+	 * 我们自己的 TransactionId，也必须这样做，因为别的后端可能
+	 * 随即把我们的 XID 并入一个 MultiXact。）
 	 */
 	MultiXactIdSetOldestMember();
 
 	/*
-	 * Compute the new xmax and infomask to store into the tuple.  Note we do
-	 * not modify the tuple just yet, because that would leave it in the wrong
-	 * state if multixact.c elogs.
+	 * 计算要存入元组的新 xmax 和 infomask。注意我们
+	 * 先还不修改元组，因为若 multixact.c 记一条错误日志，
+	 * 那样会让它处于错误状态。
 	 */
 	compute_new_xmax_infomask(xmax, old_infomask, tuple->t_data->t_infomask2,
 							  GetCurrentTransactionId(), mode, false,
@@ -4961,14 +4961,14 @@ failed:
 	START_CRIT_SECTION();
 
 	/*
-	 * Store transaction information of xact locking the tuple.
+	 * 存储锁定该元组的事务信息。
 	 *
-	 * Note: Cmax is meaningless in this context, so don't set it; this avoids
-	 * possibly generating a useless combo CID.  Moreover, if we're locking a
-	 * previously updated tuple, it's important to preserve the Cmax.
+	 * 注意：在此上下文中 Cmax 没有意义，所以不要设置它；这避免
+	 * 可能生成一个无用的组合 CID。而且，若我们锁定的是
+	 * 先前已更新的元组，保留 Cmax 很重要。
 	 *
-	 * Also reset the HOT UPDATE bit, but only if there's no update; otherwise
-	 * we would break the HOT chain.
+	 * 也重置 HOT UPDATE 位，但仅当没有更新时；否则
+	 * 会弄断 HOT 链。
 	 */
 	tuple->t_data->t_infomask &= ~HEAP_XMAX_BITS;
 	tuple->t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
@@ -4979,16 +4979,16 @@ failed:
 	HeapTupleHeaderSetXmax(tuple->t_data, xid);
 
 	/*
-	 * Make sure there is no forward chain link in t_ctid.  Note that in the
-	 * cases where the tuple has been updated, we must not overwrite t_ctid,
-	 * because it was set by the updater.  Moreover, if the tuple has been
-	 * updated, we need to follow the update chain to lock the new versions of
-	 * the tuple as well.
+	 * 确保 t_ctid 中没有向前的链链接。注意在
+	 * 元组已被更新的情形下，不得覆盖 t_ctid，
+	 * 因为它是由更新者设置的。而且，若元组已被
+	 * 更新，还需要跟随更新链，把该元组的新版本
+	 * 也锁上。
 	 */
 	if (HEAP_XMAX_IS_LOCKED_ONLY(new_infomask))
 		tuple->t_data->t_ctid = *tid;
 
-	/* Clear only the all-frozen bit on visibility map if needed */
+	/* 若需要，只清除可见性映射上的全冻结位 */
 	if (PageIsAllVisible(page) &&
 		visibilitymap_clear(relation, block, vmbuffer,
 							VISIBILITYMAP_ALL_FROZEN))
@@ -4998,16 +4998,16 @@ failed:
 	MarkBufferDirty(*buffer);
 
 	/*
-	 * XLOG stuff.  You might think that we don't need an XLOG record because
-	 * there is no state change worth restoring after a crash.  You would be
-	 * wrong however: we have just written either a TransactionId or a
-	 * MultiXactId that may never have been seen on disk before, and we need
-	 * to make sure that there are XLOG entries covering those ID numbers.
-	 * Else the same IDs might be re-used after a crash, which would be
-	 * disastrous if this page made it to disk before the crash.  Essentially
-	 * we have to enforce the WAL log-before-data rule even in this case.
-	 * (Also, in a PITR log-shipping or 2PC environment, we have to have XLOG
-	 * entries for everything anyway.)
+	 * XLOG 相关。你也许以为不需要 XLOG 记录，因为
+	 * 没有值得在崩溃后恢复的状态变化。但你
+	 * 会错：我们刚刚写入的 TransactionId 或
+	 * MultiXactId 可能以前从未在磁盘上出现过，而我们需要
+	 * 确保有覆盖这些 ID 号的 XLOG 条目。
+	 * 否则崩溃后同样的 ID 可能被重用，若此页在崩溃前
+	 * 写到了磁盘，那将是灾难性的。本质上
+	 * 即使在这种情况下我们也必须强制 WAL 的先日志后数据规则。
+	 * （另外，在 PITR 日志传送或 2PC 环境中，反正所有东西都要有 XLOG
+	 * 条目。）
 	 */
 	if (RelationNeedsWAL(relation))
 	{
@@ -5024,7 +5024,7 @@ failed:
 		xlrec.flags = cleared_all_frozen ? XLH_LOCK_ALL_FROZEN_CLEARED : 0;
 		XLogRegisterData((char *) &xlrec, SizeOfHeapLock);
 
-		/* we don't decode row locks atm, so no need to log the origin */
+		/* 目前我们不解码行锁，因此不必记录复制源 */
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_LOCK);
 
@@ -5043,13 +5043,13 @@ out_unlocked:
 		ReleaseBuffer(vmbuffer);
 
 	/*
-	 * Don't update the visibility map here. Locking a tuple doesn't change
-	 * visibility info.
+	 * 不要在这里更新可见性映射。锁定元组不会改变
+	 * 可见性信息。
 	 */
 
 	/*
-	 * Now that we have successfully marked the tuple as locked, we can
-	 * release the lmgr tuple lock, if we had it.
+	 * 既然已经成功把元组标成已锁定，就可以
+	 * 释放 lmgr 元组锁，若我们持有过它。
 	 */
 	if (have_tuple_lock)
 		UnlockTupleTuplock(relation, tid, mode);
@@ -5058,16 +5058,16 @@ out_unlocked:
 }
 
 /*
- * Acquire heavyweight lock on the given tuple, in preparation for acquiring
- * its normal, Xmax-based tuple lock.
+ * 在给定元组上获取重量级锁，为获取
+ * 它常规的、基于 Xmax 的元组锁做准备。
  *
- * have_tuple_lock is an input and output parameter: on input, it indicates
- * whether the lock has previously been acquired (and this function does
- * nothing in that case).  If this function returns success, have_tuple_lock
- * has been flipped to true.
+ * have_tuple_lock 既是输入也是输出参数：输入时，它表示
+ * 锁是否先前已经取得（若是，本函数
+ * 什么都不做）。若本函数返回成功，have_tuple_lock
+ * 会被翻转为 true。
  *
- * Returns false if it was unable to obtain the lock; this can only happen if
- * wait_policy is Skip.
+ * 若无法取得锁则返回 false；这只在
+ * wait_policy 为 Skip 时才会发生。
  */
 static bool
 heap_acquire_tuplock(Relation relation, ItemPointer tid, LockTupleMode mode,
@@ -5101,22 +5101,22 @@ heap_acquire_tuplock(Relation relation, ItemPointer tid, LockTupleMode mode,
 }
 
 /*
- * Given an original set of Xmax and infomask, and a transaction (identified by
- * add_to_xmax) acquiring a new lock of some mode, compute the new Xmax and
- * corresponding infomasks to use on the tuple.
+ * 给定一组原始的 Xmax 和 infomask，以及一个事务（由
+ * add_to_xmax 标识）正在以某种模式获取新锁，计算要在元组上使用的新 Xmax 和
+ * 对应的 infomask。
  *
- * Note that this might have side effects such as creating a new MultiXactId.
+ * 注意这可能有副作用，例如创建一个新的 MultiXactId。
  *
- * Most callers will have called HeapTupleSatisfiesUpdate before this function;
- * that will have set the HEAP_XMAX_INVALID bit if the xmax was a MultiXactId
- * but it was not running anymore. There is a race condition, which is that the
- * MultiXactId may have finished since then, but that uncommon case is handled
- * either here, or within MultiXactIdExpand.
+ * 大多数调用方在本函数之前会调用 HeapTupleSatisfiesUpdate；
+ * 若 xmax 是 MultiXactId
+ * 但已经不再运行，那会设置 HEAP_XMAX_INVALID 位。存在竞态条件，即
+ * MultiXactId 可能在那之后已经结束，但这种不常见的情形会在
+ * 这里或 MultiXactIdExpand 内部处理。
  *
- * There is a similar race condition possible when the old xmax was a regular
- * TransactionId.  We test TransactionIdIsInProgress again just to narrow the
- * window, but it's still possible to end up creating an unnecessary
- * MultiXactId.  Fortunately this is harmless.
+ * 当旧 xmax 是普通
+ * TransactionId 时，可能有类似的竞态条件。我们再次测试 TransactionIdIsInProgress，只是为了收窄
+ * 窗口，但仍可能最终创建一个不必要的
+ * MultiXactId。幸好这是无害的。
  */
 static void
 compute_new_xmax_infomask(TransactionId xmax, uint16 old_infomask,
@@ -5137,12 +5137,12 @@ l5:
 	if (old_infomask & HEAP_XMAX_INVALID)
 	{
 		/*
-		 * No previous locker; we just insert our own TransactionId.
+		 * 没有先前的加锁者；我们只插入自己的 TransactionId。
 		 *
-		 * Note that it's critical that this case be the first one checked,
-		 * because there are several blocks below that come back to this one
-		 * to implement certain optimizations; old_infomask might contain
-		 * other dirty bits in those cases, but we don't really care.
+		 * 注意这个情形必须最先检查，这一点至关重要，
+		 * 因为下面有几段会回到这里
+		 * 来实现某些优化；那些情形里 old_infomask 可能含有
+		 * 其他脏位，但我们其实并不在意。
 		 */
 		if (is_update)
 		{
@@ -5173,7 +5173,7 @@ l5:
 					new_infomask2 |= HEAP_KEYS_UPDATED;
 					break;
 				default:
-					new_xmax = InvalidTransactionId;	/* silence compiler */
+					new_xmax = InvalidTransactionId;	/* 让编译器安静 */
 					elog(ERROR, "invalid lock mode");
 			}
 		}
@@ -5183,17 +5183,17 @@ l5:
 		MultiXactStatus new_status;
 
 		/*
-		 * Currently we don't allow XMAX_COMMITTED to be set for multis, so
-		 * cross-check.
+		 * 目前不允许为 multi 设置 XMAX_COMMITTED，因此
+		 * 交叉检查。
 		 */
 		Assert(!(old_infomask & HEAP_XMAX_COMMITTED));
 
 		/*
-		 * A multixact together with LOCK_ONLY set but neither lock bit set
-		 * (i.e. a pg_upgraded share locked tuple) cannot possibly be running
-		 * anymore.  This check is critical for databases upgraded by
-		 * pg_upgrade; both MultiXactIdIsRunning and MultiXactIdExpand assume
-		 * that such multis are never passed.
+		 * 一个 multi 同时设置了 LOCK_ONLY，但两个锁位都没设
+		 * （即 pg_upgrade 之后的共享锁定元组）不可能还在
+		 * 运行。对经 pg_upgrade 升级的数据库，这项检查至关重要；
+		 * MultiXactIdIsRunning 和 MultiXactIdExpand 都假定
+		 * 绝不会传入这样的 multi。
 		 */
 		if (HEAP_LOCKED_UPGRADED(old_infomask))
 		{
@@ -5203,16 +5203,16 @@ l5:
 		}
 
 		/*
-		 * If the XMAX is already a MultiXactId, then we need to expand it to
-		 * include add_to_xmax; but if all the members were lockers and are
-		 * all gone, we can do away with the IS_MULTI bit and just set
-		 * add_to_xmax as the only locker/updater.  If all lockers are gone
-		 * and we have an updater that aborted, we can also do without a
-		 * multi.
+		 * 若 XMAX 已经是 MultiXactId，就需要扩展它以
+		 * 包含 add_to_xmax；但若所有成员都是加锁者并且都
+		 * 已经离开，就可以去掉 IS_MULTI 位，只把
+		 * add_to_xmax 设为唯一的加锁者/更新者。若所有加锁者都已离开，
+		 * 而我们有一个已中止的更新者，也可以不要
+		 * multi。
 		 *
-		 * The cost of doing GetMultiXactIdMembers would be paid by
-		 * MultiXactIdExpand if we weren't to do this, so this check is not
-		 * incurring extra work anyhow.
+		 * 做 GetMultiXactIdMembers 的代价反正会由
+		 * MultiXactIdExpand 支付，若我们不做这次检查的话，因此这次检查并没有
+		 * 增加额外工作。
 		 */
 		if (!MultiXactIdIsRunning(xmax, HEAP_XMAX_IS_LOCKED_ONLY(old_infomask)))
 		{
@@ -5221,8 +5221,8 @@ l5:
 																old_infomask)))
 			{
 				/*
-				 * Reset these bits and restart; otherwise fall through to
-				 * create a new multi below.
+				 * 重置这些位并重新开始；否则就继续向下，
+				 * 在下面创建一个新的 multi。
 				 */
 				old_infomask &= ~HEAP_XMAX_IS_MULTI;
 				old_infomask |= HEAP_XMAX_INVALID;
@@ -5239,8 +5239,8 @@ l5:
 	else if (old_infomask & HEAP_XMAX_COMMITTED)
 	{
 		/*
-		 * It's a committed update, so we need to preserve him as updater of
-		 * the tuple.
+		 * 这是已提交的更新，因此需要把他保留为该元组的
+		 * 更新者。
 		 */
 		MultiXactStatus status;
 		MultiXactStatus new_status;
@@ -5253,9 +5253,9 @@ l5:
 		new_status = get_mxact_status_for_lock(mode, is_update);
 
 		/*
-		 * since it's not running, it's obviously impossible for the old
-		 * updater to be identical to the current one, so we need not check
-		 * for that case as we do in the block above.
+		 * 既然它不在运行，旧的
+		 * 更新者显然不可能与当前这个相同，因此不必像上面那段那样检查
+		 * 那种情形。
 		 */
 		new_xmax = MultiXactIdCreate(xmax, status, add_to_xmax, new_status);
 		GetMultiXactIdHintBits(new_xmax, &new_infomask, &new_infomask2);
@@ -5263,9 +5263,9 @@ l5:
 	else if (TransactionIdIsInProgress(xmax))
 	{
 		/*
-		 * If the XMAX is a valid, in-progress TransactionId, then we need to
-		 * create a new MultiXactId that includes both the old locker or
-		 * updater and our own TransactionId.
+		 * 若 XMAX 是有效且正在进行的 TransactionId，就需要
+		 * 创建一个新的 MultiXactId，同时包含旧的加锁者或
+		 * 更新者以及我们自己的 TransactionId。
 		 */
 		MultiXactStatus new_status;
 		MultiXactStatus old_status;
@@ -5287,10 +5287,10 @@ l5:
 			else
 			{
 				/*
-				 * LOCK_ONLY can be present alone only when a page has been
-				 * upgraded by pg_upgrade.  But in that case,
-				 * TransactionIdIsInProgress() should have returned false.  We
-				 * assume it's no longer locked in this case.
+				 * 只有当页被
+				 * pg_upgrade 升级过时，LOCK_ONLY 才可能单独出现。但那种情况下，
+				 * TransactionIdIsInProgress() 应当已经返回 false。我们
+				 * 假定这种情况下它不再被锁定。
 				 */
 				elog(WARNING, "LOCK_ONLY found for Xid in progress %u", xmax);
 				old_infomask |= HEAP_XMAX_INVALID;
@@ -5300,7 +5300,7 @@ l5:
 		}
 		else
 		{
-			/* it's an update, but which kind? */
+			/* 这是一次更新，但是哪一种？ */
 			if (old_infomask2 & HEAP_KEYS_UPDATED)
 				old_status = MultiXactStatusUpdate;
 			else
@@ -5310,33 +5310,33 @@ l5:
 		old_mode = TUPLOCK_from_mxstatus(old_status);
 
 		/*
-		 * If the lock to be acquired is for the same TransactionId as the
-		 * existing lock, there's an optimization possible: consider only the
-		 * strongest of both locks as the only one present, and restart.
+		 * 若要获取的锁与已有锁属于同一个 TransactionId，
+		 * 可以做一项优化：只把两者中
+		 * 更强的那把锁当作唯一存在的锁，然后重新开始。
 		 */
 		if (xmax == add_to_xmax)
 		{
 			/*
-			 * Note that it's not possible for the original tuple to be
-			 * updated: we wouldn't be here because the tuple would have been
-			 * invisible and we wouldn't try to update it.  As a subtlety,
-			 * this code can also run when traversing an update chain to lock
-			 * future versions of a tuple.  But we wouldn't be here either,
-			 * because the add_to_xmax would be different from the original
-			 * updater.
+			 * 注意原元组不可能已被
+			 * 更新：否则我们不会到这里，因为元组会是
+			 * 不可见的，我们也不会尝试更新它。有一个细微之处，
+			 * 这段代码在沿更新链去锁定
+			 * 元组的未来版本时也会运行。但那样我们也不会到这里，
+			 * 因为 add_to_xmax 会与原来的
+			 * 更新者不同。
 			 */
 			Assert(HEAP_XMAX_IS_LOCKED_ONLY(old_infomask));
 
-			/* acquire the strongest of both */
+			/* 取得两者中更强的那把 */
 			if (mode < old_mode)
 				mode = old_mode;
-			/* mustn't touch is_update */
+			/* 不得触碰 is_update */
 
 			old_infomask |= HEAP_XMAX_INVALID;
 			goto l5;
 		}
 
-		/* otherwise, just fall back to creating a new multixact */
+		/* 否则，退回去创建一个新的 multixact */
 		new_status = get_mxact_status_for_lock(mode, is_update);
 		new_xmax = MultiXactIdCreate(xmax, old_status,
 									 add_to_xmax, new_status);
@@ -5346,8 +5346,8 @@ l5:
 			 TransactionIdDidCommit(xmax))
 	{
 		/*
-		 * It's a committed update, so we gotta preserve him as updater of the
-		 * tuple.
+		 * 这是已提交的更新，因此必须把他保留为该元组的
+		 * 更新者。
 		 */
 		MultiXactStatus status;
 		MultiXactStatus new_status;
@@ -5360,9 +5360,9 @@ l5:
 		new_status = get_mxact_status_for_lock(mode, is_update);
 
 		/*
-		 * since it's not running, it's obviously impossible for the old
-		 * updater to be identical to the current one, so we need not check
-		 * for that case as we do in the block above.
+		 * 既然它不在运行，旧的
+		 * 更新者显然不可能与当前这个相同，因此不必像上面那段那样检查
+		 * 那种情形。
 		 */
 		new_xmax = MultiXactIdCreate(xmax, status, add_to_xmax, new_status);
 		GetMultiXactIdHintBits(new_xmax, &new_infomask, &new_infomask2);
@@ -5370,10 +5370,10 @@ l5:
 	else
 	{
 		/*
-		 * Can get here iff the locking/updating transaction was running when
-		 * the infomask was extracted from the tuple, but finished before
-		 * TransactionIdIsInProgress got to run.  Deal with it as if there was
-		 * no locker at all in the first place.
+		 * 能到这里，当且仅当加锁/更新事务在
+		 * 从元组取出 infomask 时还在运行，但在
+		 * TransactionIdIsInProgress 跑起来之前已经结束。当作一开始
+		 * 根本没有加锁者来处理。
 		 */
 		old_infomask |= HEAP_XMAX_INVALID;
 		goto l5;
@@ -5385,19 +5385,19 @@ l5:
 }
 
 /*
- * Subroutine for heap_lock_updated_tuple_rec.
+ * heap_lock_updated_tuple_rec 的子例程。
  *
- * Given a hypothetical multixact status held by the transaction identified
- * with the given xid, does the current transaction need to wait, fail, or can
- * it continue if it wanted to acquire a lock of the given mode?  "needwait"
- * is set to true if waiting is necessary; if it can continue, then TM_Ok is
- * returned.  If the lock is already held by the current transaction, return
- * TM_SelfModified.  In case of a conflict with another transaction, a
- * different HeapTupleSatisfiesUpdate return code is returned.
+ * 给定由给定 xid 标识的事务所持有的一个假想 multixact 状态，
+ * 若当前事务想获取给定模式的锁，它需要等待、失败，还是可以
+ * 继续？"needwait"
+ * 在必须等待时设为 true；若可以继续，则返回
+ * TM_Ok。若当前事务已经持有该锁，返回
+ * TM_SelfModified。若与另一个事务冲突，则返回
+ * 另一个 HeapTupleSatisfiesUpdate 返回码。
  *
- * The held status is said to be hypothetical because it might correspond to a
- * lock held by a single Xid, i.e. not a real MultiXactId; we express it this
- * way for simplicity of API.
+ * 所谓假想的持有状态，是因为它可能对应
+ * 单个 Xid 持有的锁，即不是真正的 MultiXactId；为了 API 简单，我们这样
+ * 表达。
  */
 static TM_Result
 test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
@@ -5410,26 +5410,26 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 	wantedstatus = get_mxact_status_for_lock(mode, false);
 
 	/*
-	 * Note: we *must* check TransactionIdIsInProgress before
-	 * TransactionIdDidAbort/Commit; see comment at top of heapam_visibility.c
-	 * for an explanation.
+	 * 注意：我们必须先检查 TransactionIdIsInProgress，再检查
+	 * TransactionIdDidAbort/Commit；解释见 heapam_visibility.c
+	 * 顶部的注释。
 	 */
 	if (TransactionIdIsCurrentTransactionId(xid))
 	{
 		/*
-		 * The tuple has already been locked by our own transaction.  This is
-		 * very rare but can happen if multiple transactions are trying to
-		 * lock an ancient version of the same tuple.
+		 * 该元组已经被我们自己的事务锁过。这非常
+		 * 少见，但当多个事务试图
+		 * 锁定同一元组的古老版本时可能发生。
 		 */
 		return TM_SelfModified;
 	}
 	else if (TransactionIdIsInProgress(xid))
 	{
 		/*
-		 * If the locking transaction is running, what we do depends on
-		 * whether the lock modes conflict: if they do, then we must wait for
-		 * it to finish; otherwise we can fall through to lock this tuple
-		 * version without waiting.
+		 * 若加锁事务正在运行，怎么做取决于
+		 * 锁模式是否冲突：若冲突，就必须等它
+		 * 结束；否则可以直接继续，锁定这个元组
+		 * 版本而不等待。
 		 */
 		if (DoLockModesConflict(LOCKMODE_from_mxstatus(status),
 								LOCKMODE_from_mxstatus(wantedstatus)))
@@ -5438,8 +5438,8 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 		}
 
 		/*
-		 * If we set needwait above, then this value doesn't matter;
-		 * otherwise, this value signals to caller that it's okay to proceed.
+		 * 若上面设置了 needwait，则这个值无关紧要；
+		 * 否则，这个值告诉调用方可以继续。
 		 */
 		return TM_Ok;
 	}
@@ -5448,19 +5448,19 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 	else if (TransactionIdDidCommit(xid))
 	{
 		/*
-		 * The other transaction committed.  If it was only a locker, then the
-		 * lock is completely gone now and we can return success; but if it
-		 * was an update, then what we do depends on whether the two lock
-		 * modes conflict.  If they conflict, then we must report error to
-		 * caller. But if they don't, we can fall through to allow the current
-		 * transaction to lock the tuple.
+		 * 另一个事务已提交。若它只是加锁者，那么
+		 * 锁现在已经完全消失，我们可以返回成功；但若它
+		 * 是一次更新，则怎么做取决于两种锁
+		 * 模式是否冲突。若冲突，就必须向
+		 * 调用方报告错误。但若不冲突，就可以继续向下，允许当前
+		 * 事务锁定该元组。
 		 *
-		 * Note: the reason we worry about ISUPDATE here is because as soon as
-		 * a transaction ends, all its locks are gone and meaningless, and
-		 * thus we can ignore them; whereas its updates persist.  In the
-		 * TransactionIdIsInProgress case, above, we don't need to check
-		 * because we know the lock is still "alive" and thus a conflict needs
-		 * always be checked.
+		 * 注意：我们在这里担心 ISUPDATE 的原因是，事务一旦
+		 * 结束，它的所有锁都消失且没有意义，
+		 * 因此可以忽略；而它的更新会保留。在上面的
+		 * TransactionIdIsInProgress 情形中，我们不必检查，
+		 * 因为我们知道锁仍然"活着"，因此冲突必须
+		 * 总是被检查。
 		 */
 		if (!ISUPDATE_from_mxstatus(status))
 			return TM_Ok;
@@ -5468,7 +5468,7 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 		if (DoLockModesConflict(LOCKMODE_from_mxstatus(status),
 								LOCKMODE_from_mxstatus(wantedstatus)))
 		{
-			/* bummer */
+			/* 真倒霉 */
 			if (!ItemPointerEquals(&tup->t_self, &tup->t_data->t_ctid))
 				return TM_Updated;
 			else
@@ -5478,17 +5478,17 @@ test_lockmode_for_conflict(MultiXactStatus status, TransactionId xid,
 		return TM_Ok;
 	}
 
-	/* Not in progress, not aborted, not committed -- must have crashed */
+	/* 不在进行、未中止、未提交——必定已经崩溃 */
 	return TM_Ok;
 }
 
 
 /*
- * Recursive part of heap_lock_updated_tuple
+ * heap_lock_updated_tuple 的递归部分
  *
- * Fetch the tuple pointed to by tid in rel, and mark it as locked by the given
- * xid with the given mode; if this tuple is updated, recurse to lock the new
- * version as well.
+ * 取出 rel 中 tid 指向的元组，并把它标成被给定
+ * xid 以给定模式锁定；若该元组已被更新，则递归去锁定新
+ * 版本。
  */
 static TM_Result
 heap_lock_updated_tuple_rec(Relation rel, ItemPointer tid, TransactionId xid,
@@ -5522,11 +5522,11 @@ heap_lock_updated_tuple_rec(Relation rel, ItemPointer tid, TransactionId xid,
 		if (!heap_fetch(rel, SnapshotAny, &mytup, &buf, false))
 		{
 			/*
-			 * if we fail to find the updated version of the tuple, it's
-			 * because it was vacuumed/pruned away after its creator
-			 * transaction aborted.  So behave as if we got to the end of the
-			 * chain, and there's no further tuple to lock: return success to
-			 * caller.
+			 * 若找不到该元组的更新版本，那是
+			 * 因为它在创建者事务中止之后
+			 * 被清理或剪枝掉了。
+			 * 因此表现得好像已经到达链的末端，
+			 * 没有更多元组要锁：向调用方返回成功。
 			 */
 			result = TM_Ok;
 			goto out_unlocked;
@@ -5536,10 +5536,10 @@ l4:
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * Before locking the buffer, pin the visibility map page if it
-		 * appears to be necessary.  Since we haven't got the lock yet,
-		 * someone else might be in the middle of changing this, so we'll need
-		 * to recheck after we have the lock.
+		 * 锁定缓冲区之前，若看起来有必要，先钉住可见性映射页。
+		 * 由于我们还没拿到锁，
+		 * 别人可能正在改它，所以拿到锁之后需要
+		 * 再检查一次。
 		 */
 		if (PageIsAllVisible(BufferGetPage(buf)))
 		{
@@ -5552,15 +5552,15 @@ l4:
 		LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
 		/*
-		 * If we didn't pin the visibility map page and the page has become
-		 * all visible while we were busy locking the buffer, we'll have to
-		 * unlock and re-lock, to avoid holding the buffer lock across I/O.
-		 * That's a bit unfortunate, but hopefully shouldn't happen often.
+		 * 若我们没有钉住可见性映射页，而该页在我们
+		 * 忙着锁缓冲区时变成了全可见，就得
+		 * 解锁再重新加锁，以免跨 I/O 持有缓冲区锁。
+		 * 这有点不幸，但希望不会经常发生。
 		 *
-		 * Note: in some paths through this function, we will reach here
-		 * holding a pin on a vm page that may or may not be the one matching
-		 * this page.  If this page isn't all-visible, we won't use the vm
-		 * page, but we hold onto such a pin till the end of the function.
+		 * 注意：本函数的某些路径到达这里时，
+		 * 会钉着一张可见性映射页，它也许匹配
+		 * 这一页，也许不匹配。若这一页不是全可见，我们就不会使用那张可见性映射
+		 * 页，但会一直把这个钉留到函数结束。
 		 */
 		if (!pinned_desired_page && PageIsAllVisible(BufferGetPage(buf)))
 		{
@@ -5570,8 +5570,8 @@ l4:
 		}
 
 		/*
-		 * Check the tuple XMIN against prior XMAX, if any.  If we reached the
-		 * end of the chain, we're done, so return success.
+		 * 若有先前的 XMAX，则对照它检查元组的 XMIN。若已到达
+		 * 链的末端，就结束，因此返回成功。
 		 */
 		if (TransactionIdIsValid(priorXmax) &&
 			!TransactionIdEquals(HeapTupleHeaderGetXmin(mytup.t_data),
@@ -5582,9 +5582,9 @@ l4:
 		}
 
 		/*
-		 * Also check Xmin: if this tuple was created by an aborted
-		 * (sub)transaction, then we already locked the last live one in the
-		 * chain, thus we're done, so return success.
+		 * 也检查 Xmin：若该元组是由已中止的
+		 * （子）事务创建的，那么我们已经锁住了链上最后一个活的，
+		 * 因此结束，返回成功。
 		 */
 		if (TransactionIdDidAbort(HeapTupleHeaderGetXmin(mytup.t_data)))
 		{
@@ -5597,10 +5597,10 @@ l4:
 		xmax = HeapTupleHeaderGetRawXmax(mytup.t_data);
 
 		/*
-		 * If this tuple version has been updated or locked by some concurrent
-		 * transaction(s), what we do depends on whether our lock mode
-		 * conflicts with what those other transactions hold, and also on the
-		 * status of them.
+		 * 若这个元组版本已被某些并发
+		 * 事务更新或锁定，怎么做取决于我们的锁模式
+		 * 是否与那些事务持有的锁冲突，也取决于
+		 * 它们的状态。
 		 */
 		if (!(old_infomask & HEAP_XMAX_INVALID))
 		{
@@ -5615,13 +5615,13 @@ l4:
 				MultiXactMember *members;
 
 				/*
-				 * We don't need a test for pg_upgrade'd tuples: this is only
-				 * applied to tuples after the first in an update chain.  Said
-				 * first tuple in the chain may well be locked-in-9.2-and-
-				 * pg_upgraded, but that one was already locked by our caller,
-				 * not us; and any subsequent ones cannot be because our
-				 * caller must necessarily have obtained a snapshot later than
-				 * the pg_upgrade itself.
+				 * 不需要为 pg_upgrade 过的元组做测试：这只
+				 * 应用于更新链中第一个之后的元组。所说的
+				 * 链中第一个元组完全可能是在 9.2 中锁定并经
+				 * pg_upgrade 升级的，但那一个已经由调用方锁过，
+				 * 不是我们；后续的任何一个都不可能，因为我们的
+				 * 调用方必然取得了比
+				 * pg_upgrade 本身更晚的快照。
 				 */
 				Assert(!HEAP_LOCKED_UPGRADED(mytup.t_data->t_infomask));
 
@@ -5636,14 +5636,14 @@ l4:
 														&needwait);
 
 					/*
-					 * If the tuple was already locked by ourselves in a
-					 * previous iteration of this (say heap_lock_tuple was
-					 * forced to restart the locking loop because of a change
-					 * in xmax), then we hold the lock already on this tuple
-					 * version and we don't need to do anything; and this is
-					 * not an error condition either.  We just need to skip
-					 * this tuple and continue locking the next version in the
-					 * update chain.
+					 * 若该元组在本过程的前一轮中
+					 * 已经被我们自己锁过
+					 * （例如 heap_lock_tuple 因为 xmax
+					 * 变化而被迫重新开始锁定循环），那么这个元组
+					 * 版本上我们已经持有锁，不必再做任何事；而且这也
+					 * 不是错误条件。我们只需跳过
+					 * 这个元组，继续锁定更新链中的
+					 * 下一个版本。
 					 */
 					if (result == TM_SelfModified)
 					{
@@ -5674,8 +5674,8 @@ l4:
 				MultiXactStatus status;
 
 				/*
-				 * For a non-multi Xmax, we first need to compute the
-				 * corresponding MultiXactStatus by using the infomask bits.
+				 * 对非 multi 的 Xmax，首先需要用 infomask 位计算
+				 * 对应的 MultiXactStatus。
 				 */
 				if (HEAP_XMAX_IS_LOCKED_ONLY(old_infomask))
 				{
@@ -5693,16 +5693,16 @@ l4:
 					else
 					{
 						/*
-						 * LOCK_ONLY present alone (a pg_upgraded tuple marked
-						 * as share-locked in the old cluster) shouldn't be
-						 * seen in the middle of an update chain.
+						 * 单独出现的 LOCK_ONLY（旧集簇里被标为
+						 * 共享锁定、经 pg_upgrade 升级的元组）不应当
+						 * 出现在更新链的中部。
 						 */
 						elog(ERROR, "invalid lock status in tuple");
 					}
 				}
 				else
 				{
-					/* it's an update, but which kind? */
+					/* 这是一次更新，但是哪一种？ */
 					if (old_infomask2 & HEAP_KEYS_UPDATED)
 						status = MultiXactStatusUpdate;
 					else
@@ -5713,13 +5713,13 @@ l4:
 													&mytup, &needwait);
 
 				/*
-				 * If the tuple was already locked by ourselves in a previous
-				 * iteration of this (say heap_lock_tuple was forced to
-				 * restart the locking loop because of a change in xmax), then
-				 * we hold the lock already on this tuple version and we don't
-				 * need to do anything; and this is not an error condition
-				 * either.  We just need to skip this tuple and continue
-				 * locking the next version in the update chain.
+				 * 若该元组在前一轮中已经被我们自己锁过
+				 * （例如 heap_lock_tuple 因为 xmax 变化而被迫
+				 * 重新开始锁定循环），那么这个元组版本上
+				 * 我们已经持有锁，不必
+				 * 再做任何事；而且这也不是错误条件。
+				 * 我们只需跳过这个元组，继续
+				 * 锁定更新链中的下一个版本。
 				 */
 				if (result == TM_SelfModified)
 					goto next;
@@ -5738,7 +5738,7 @@ l4:
 			}
 		}
 
-		/* compute the new Xmax and infomask values for the tuple ... */
+		/* 计算该元组的新 Xmax 和 infomask 值…… */
 		compute_new_xmax_infomask(xmax, old_infomask, mytup.t_data->t_infomask2,
 								  xid, mode, false,
 								  &new_xmax, &new_infomask, &new_infomask2);
@@ -5750,7 +5750,7 @@ l4:
 
 		START_CRIT_SECTION();
 
-		/* ... and set them */
+		/* ……并设置它们 */
 		HeapTupleHeaderSetXmax(mytup.t_data, new_xmax);
 		mytup.t_data->t_infomask &= ~HEAP_XMAX_BITS;
 		mytup.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
@@ -5759,7 +5759,7 @@ l4:
 
 		MarkBufferDirty(buf);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(rel))
 		{
 			xl_heap_lock_updated xlrec;
@@ -5785,7 +5785,7 @@ l4:
 		END_CRIT_SECTION();
 
 next:
-		/* if we find the end of update chain, we're done. */
+		/* 若找到更新链的末端，就结束。 */
 		if (mytup.t_data->t_infomask & HEAP_XMAX_INVALID ||
 			HeapTupleHeaderIndicatesMovedPartitions(mytup.t_data) ||
 			ItemPointerEquals(&mytup.t_self, &mytup.t_data->t_ctid) ||
@@ -5795,7 +5795,7 @@ next:
 			goto out_locked;
 		}
 
-		/* tail recursion */
+		/* 尾递归 */
 		priorXmax = HeapTupleHeaderGetUpdateXid(mytup.t_data);
 		ItemPointerCopy(&(mytup.t_data->t_ctid), &tupid);
 		UnlockReleaseBuffer(buf);
@@ -5815,70 +5815,70 @@ out_unlocked:
 
 /*
  * heap_lock_updated_tuple
- *		Follow update chain when locking an updated tuple, acquiring locks (row
- *		marks) on the updated versions.
+ *		锁定已更新的元组时跟随更新链，在更新后的版本上获取锁（行
+ *		标记）。
  *
- * The initial tuple is assumed to be already locked.
+ * 假定初始元组已经被锁定。
  *
- * This function doesn't check visibility, it just unconditionally marks the
- * tuple(s) as locked.  If any tuple in the updated chain is being deleted
- * concurrently (or updated with the key being modified), sleep until the
- * transaction doing it is finished.
+ * 本函数不检查可见性，只是无条件地把
+ * 元组标成已锁定。若更新链中任何元组正在被并发删除
+ * （或在修改键的情况下被更新），就睡到做这件事的
+ * 事务结束。
  *
- * Note that we don't acquire heavyweight tuple locks on the tuples we walk
- * when we have to wait for other transactions to release them, as opposed to
- * what heap_lock_tuple does.  The reason is that having more than one
- * transaction walking the chain is probably uncommon enough that risk of
- * starvation is not likely: one of the preconditions for being here is that
- * the snapshot in use predates the update that created this tuple (because we
- * started at an earlier version of the tuple), but at the same time such a
- * transaction cannot be using repeatable read or serializable isolation
- * levels, because that would lead to a serializability failure.
+ * 注意，当我们不得不等待其他事务释放它们时，我们不会在走过的元组上
+ * 获取重量级元组锁，这与
+ * heap_lock_tuple 的做法不同。原因是有不止一个
+ * 事务在走这条链大概足够少见，饥饿的风险
+ * 不大：到这里的前提之一是正在使用的
+ * 快照早于创建该元组的那次更新（因为我们
+ * 是从该元组的更早版本开始的），但同时这样的
+ * 事务不能使用可重复读或可串行化隔离
+ * 级别，因为那会导致可串行化失败。
  */
 static TM_Result
 heap_lock_updated_tuple(Relation rel, HeapTuple tuple, ItemPointer ctid,
 						TransactionId xid, LockTupleMode mode)
 {
 	/*
-	 * If the tuple has not been updated, or has moved into another partition
-	 * (effectively a delete) stop here.
+	 * 若元组没有被更新，或者已经移到另一个分区
+	 * （实际上是删除），就在这里停下。
 	 */
 	if (!HeapTupleHeaderIndicatesMovedPartitions(tuple->t_data) &&
 		!ItemPointerEquals(&tuple->t_self, ctid))
 	{
 		/*
-		 * If this is the first possibly-multixact-able operation in the
-		 * current transaction, set my per-backend OldestMemberMXactId
-		 * setting. We can be certain that the transaction will never become a
-		 * member of any older MultiXactIds than that.  (We have to do this
-		 * even if we end up just using our own TransactionId below, since
-		 * some other backend could incorporate our XID into a MultiXact
-		 * immediately afterwards.)
+		 * 若这是当前事务中第一次可能涉及 multixact 的
+		 * 操作，就设置本后端的
+		 * OldestMemberMXactId。
+		 * 我们可以确定该事务绝不会成为任何比它更老的
+		 * MultiXactId 的成员。（即使下面最终只用
+		 * 我们自己的 TransactionId，也必须这样做，因为
+		 * 别的后端可能随即把我们的 XID 并入一个 MultiXact。）
 		 */
 		MultiXactIdSetOldestMember();
 
 		return heap_lock_updated_tuple_rec(rel, ctid, xid, mode);
 	}
 
-	/* nothing to lock */
+	/* 没有什么要锁的 */
 	return TM_Ok;
 }
 
 /*
- *	heap_finish_speculative - mark speculative insertion as successful
+ *	heap_finish_speculative - 把推测性插入标为成功
  *
- * To successfully finish a speculative insertion we have to clear speculative
- * token from tuple.  To do so the t_ctid field, which will contain a
- * speculative token value, is modified in place to point to the tuple itself,
- * which is characteristic of a newly inserted ordinary tuple.
+ * 要成功结束一次推测性插入，必须清除元组上的推测性
+ * 令牌。为此，原地修改将包含
+ * 推测性令牌值的 t_ctid 字段，使它指向元组自身，
+ * 这是新插入的普通元组的特征。
  *
- * NB: It is not ok to commit without either finishing or aborting a
- * speculative insertion.  We could treat speculative tuples of committed
- * transactions implicitly as completed, but then we would have to be prepared
- * to deal with speculative tokens on committed tuples.  That wouldn't be
- * difficult - no-one looks at the ctid field of a tuple with invalid xmax -
- * but clearing the token at completion isn't very expensive either.
- * An explicit confirmation WAL record also makes logical decoding simpler.
+ * 注意：若不结束或中止一次
+ * 推测性插入就提交，是不行的。我们可以把已提交
+ * 事务的推测性元组隐式当成已完成，但那样就必须准备好
+ * 处理已提交元组上的推测性令牌。那并不
+ * 困难——没人会去看 xmax 无效的元组的 ctid 字段——
+ * 但在完成时清除令牌也不贵。
+ * 一条显式的确认 WAL 记录也让逻辑解码更简单。
  */
 void
 heap_finish_speculative(Relation relation, ItemPointer tid)
@@ -5902,7 +5902,7 @@ heap_finish_speculative(Relation relation, ItemPointer tid)
 
 	htup = (HeapTupleHeader) PageGetItem(page, lp);
 
-	/* NO EREPORT(ERROR) from here till changes are logged */
+	/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
 	Assert(HeapTupleHeaderIsSpeculative(htup));
@@ -5910,12 +5910,12 @@ heap_finish_speculative(Relation relation, ItemPointer tid)
 	MarkBufferDirty(buffer);
 
 	/*
-	 * Replace the speculative insertion token with a real t_ctid, pointing to
-	 * itself like it does on regular tuples.
+	 * 用真正的 t_ctid 替换推测性插入令牌，像普通元组那样指向
+	 * 它自己。
 	 */
 	htup->t_ctid = *tid;
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(relation))
 	{
 		xl_heap_confirm xlrec;
@@ -5925,7 +5925,7 @@ heap_finish_speculative(Relation relation, ItemPointer tid)
 
 		XLogBeginInsert();
 
-		/* We want the same filtering on this as on a plain insert */
+		/* 我们希望这里的过滤与普通插入相同 */
 		XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 		XLogRegisterData((char *) &xlrec, SizeOfHeapConfirm);
@@ -5942,30 +5942,30 @@ heap_finish_speculative(Relation relation, ItemPointer tid)
 }
 
 /*
- *	heap_abort_speculative - kill a speculatively inserted tuple
+ *	heap_abort_speculative - 杀掉一个推测性插入的元组
  *
- * Marks a tuple that was speculatively inserted in the same command as dead,
- * by setting its xmin as invalid.  That makes it immediately appear as dead
- * to all transactions, including our own.  In particular, it makes
- * HeapTupleSatisfiesDirty() regard the tuple as dead, so that another backend
- * inserting a duplicate key value won't unnecessarily wait for our whole
- * transaction to finish (it'll just wait for our speculative insertion to
- * finish).
+ * 把同一命令中推测性插入的元组标成死亡，
+ * 方法是把它的 xmin 设为无效。这使它对所有事务
+ * （包括我们自己）立即表现为死亡。特别是，它使
+ * HeapTupleSatisfiesDirty() 把该元组视为死亡，这样另一个后端
+ * 插入重复键值时就不必白白等待我们整个
+ * 事务结束（它只需等待我们的推测性插入
+ * 结束）。
  *
- * Killing the tuple prevents "unprincipled deadlocks", which are deadlocks
- * that arise due to a mutual dependency that is not user visible.  By
- * definition, unprincipled deadlocks cannot be prevented by the user
- * reordering lock acquisition in client code, because the implementation level
- * lock acquisitions are not under the user's direct control.  If speculative
- * inserters did not take this precaution, then under high concurrency they
- * could deadlock with each other, which would not be acceptable.
+ * 杀掉该元组可以防止"无原则死锁"，也就是由于
+ * 用户看不见的相互依赖而产生的死锁。按
+ * 定义，用户无法通过在客户端代码里重排锁获取顺序来防止无原则死锁，
+ * 因为实现层的
+ * 锁获取不在用户的直接控制之下。若推测性
+ * 插入者不采取这个预防措施，那么在高并发下它们
+ * 可能彼此死锁，那是不可接受的。
  *
- * This is somewhat redundant with heap_delete, but we prefer to have a
- * dedicated routine with stripped down requirements.  Note that this is also
- * used to delete the TOAST tuples created during speculative insertion.
+ * 这与 heap_delete 有些重复，但我们更愿意有一个
+ * 要求被精简过的专用例程。注意它也
+ * 用来删除推测性插入期间创建的 TOAST 元组。
  *
- * This routine does not affect logical decoding as it only looks at
- * confirmation records.
+ * 本例程不影响逻辑解码，因为逻辑解码只看
+ * 确认记录。
  */
 void
 heap_abort_speculative(Relation relation, ItemPointer tid)
@@ -5987,8 +5987,8 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 	/*
-	 * Page can't be all visible, we just inserted into it, and are still
-	 * running.
+	 * 该页不可能全可见，我们刚刚插入了它，而且仍在
+	 * 运行。
 	 */
 	Assert(!PageIsAllVisible(page));
 
@@ -6001,8 +6001,8 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 	tp.t_self = *tid;
 
 	/*
-	 * Sanity check that the tuple really is a speculatively inserted tuple,
-	 * inserted by us.
+	 * 健全性检查：该元组确实是推测性插入的元组，
+	 * 并且是我们插入的。
 	 */
 	if (tp.t_data->t_choice.t_heap.t_xmin != xid)
 		elog(ERROR, "attempted to kill a tuple inserted by another transaction");
@@ -6011,22 +6011,22 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 	Assert(!HeapTupleHeaderIsHeapOnly(tp.t_data));
 
 	/*
-	 * No need to check for serializable conflicts here.  There is never a
-	 * need for a combo CID, either.  No need to extract replica identity, or
-	 * do anything special with infomask bits.
+	 * 这里不必检查可串行化冲突。也绝不会
+	 * 需要组合 CID。不必提取副本标识，也不必
+	 * 对 infomask 位做任何特殊处理。
 	 */
 
 	START_CRIT_SECTION();
 
 	/*
-	 * The tuple will become DEAD immediately.  Flag that this page is a
-	 * candidate for pruning by setting xmin to TransactionXmin. While not
-	 * immediately prunable, it is the oldest xid we can cheaply determine
-	 * that's safe against wraparound / being older than the table's
-	 * relfrozenxid.  To defend against the unlikely case of a new relation
-	 * having a newer relfrozenxid than our TransactionXmin, use relfrozenxid
-	 * if so (vacuum can't subsequently move relfrozenxid to beyond
-	 * TransactionXmin, so there's no race here).
+	 * 该元组会立即变成 DEAD。把 xmin 设为 TransactionXmin，
+	 * 标明此页是剪枝候选。虽然不能
+	 * 立即剪枝，但这是我们能便宜地确定的、
+	 * 对回卷安全、也不会比该表的
+	 * relfrozenxid 更老的最老 xid。为防备一种不太可能的情况：新关系的
+	 * relfrozenxid 比我们的 TransactionXmin 更新，若是这样就用 relfrozenxid
+	 * （清理随后不能把 relfrozenxid 移到
+	 * TransactionXmin 之后，因此这里没有竞态）。
 	 */
 	Assert(TransactionIdIsValid(TransactionXmin));
 	if (TransactionIdPrecedes(TransactionXmin, relation->rd_rel->relfrozenxid))
@@ -6035,27 +6035,27 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 		prune_xid = TransactionXmin;
 	PageSetPrunable(page, prune_xid);
 
-	/* store transaction information of xact deleting the tuple */
+	/* 存储删除该元组的事务信息 */
 	tp.t_data->t_infomask &= ~(HEAP_XMAX_BITS | HEAP_MOVED);
 	tp.t_data->t_infomask2 &= ~HEAP_KEYS_UPDATED;
 
 	/*
-	 * Set the tuple header xmin to InvalidTransactionId.  This makes the
-	 * tuple immediately invisible everyone.  (In particular, to any
-	 * transactions waiting on the speculative token, woken up later.)
+	 * 把元组头部的 xmin 设为 InvalidTransactionId。这使该
+	 * 元组对所有人立即不可见。（特别是对任何
+	 * 正在等待推测性令牌、稍后会被唤醒的事务。）
 	 */
 	HeapTupleHeaderSetXmin(tp.t_data, InvalidTransactionId);
 
-	/* Clear the speculative insertion token too */
+	/* 也清除推测性插入令牌 */
 	tp.t_data->t_ctid = tp.t_self;
 
 	MarkBufferDirty(buffer);
 
 	/*
-	 * XLOG stuff
+	 * XLOG 相关
 	 *
-	 * The WAL records generated here match heap_delete().  The same recovery
-	 * routines are used.
+	 * 这里生成的 WAL 记录与 heap_delete() 匹配。使用相同的恢复
+	 * 例程。
 	 */
 	if (RelationNeedsWAL(relation))
 	{
@@ -6072,7 +6072,7 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 		XLogRegisterData((char *) &xlrec, SizeOfHeapDelete);
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 
-		/* No replica identity & replication origin logged */
+		/* 不记录副本标识和复制源 */
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_DELETE);
 
@@ -6090,64 +6090,64 @@ heap_abort_speculative(Relation relation, ItemPointer tid)
 	}
 
 	/*
-	 * Never need to mark tuple for invalidation, since catalogs don't support
-	 * speculative insertion
+	 * 绝不需要把元组标成失效，因为系统目录不支持
+	 * 推测性插入
 	 */
 
-	/* Now we can release the buffer */
+	/* 现在可以释放缓冲区了 */
 	ReleaseBuffer(buffer);
 
-	/* count deletion, as we counted the insertion too */
+	/* 把删除计数，因为插入也计数了 */
 	pgstat_count_heap_delete(relation);
 }
 
 /*
- * heap_inplace_lock - protect inplace update from concurrent heap_update()
+ * heap_inplace_lock - 保护原地更新，使其不受并发 heap_update() 影响
  *
- * Evaluate whether the tuple's state is compatible with a no-key update.
- * Current transaction rowmarks are fine, as is KEY SHARE from any
- * transaction.  If compatible, return true with the buffer exclusive-locked,
- * and the caller must release that by calling
- * heap_inplace_update_and_unlock(), calling heap_inplace_unlock(), or raising
- * an error.  Otherwise, call release_callback(arg), wait for blocking
- * transactions to end, and return false.
+ * 评估元组状态是否与非键更新兼容。
+ * 当前事务的行标记没问题，任何事务的 KEY SHARE
+ * 也没问题。若兼容，返回 true，并且缓冲区已排他锁定，
+ * 调用方必须通过调用
+ * heap_inplace_update_and_unlock()、调用 heap_inplace_unlock() 或抛出
+ * 错误来释放它。否则，调用 release_callback(arg)，等待阻塞的
+ * 事务结束，并返回 false。
  *
- * Since this is intended for system catalogs and SERIALIZABLE doesn't cover
- * DDL, this doesn't guarantee any particular predicate locking.
+ * 由于这是为系统目录准备的，而 SERIALIZABLE 不覆盖
+ * DDL，这并不保证任何特定的谓词锁定。
  *
- * One could modify this to return true for tuples with delete in progress,
- * All inplace updaters take a lock that conflicts with DROP.  If explicit
- * "DELETE FROM pg_class" is in progress, we'll wait for it like we would an
- * update.
+ * 有人可以改成对正在删除的元组也返回 true。
+ * 所有原地更新者都会取一把与 DROP 冲突的锁。若显式的
+ * "DELETE FROM pg_class" 正在进行，我们会像等待一次
+ * 更新那样等待它。
  *
- * Readers of inplace-updated fields expect changes to those fields are
- * durable.  For example, vac_truncate_clog() reads datfrozenxid from
- * pg_database tuples via catalog snapshots.  A future snapshot must not
- * return a lower datfrozenxid for the same database OID (lower in the
- * FullTransactionIdPrecedes() sense).  We achieve that since no update of a
- * tuple can start while we hold a lock on its buffer.  In cases like
- * BEGIN;GRANT;CREATE INDEX;COMMIT we're inplace-updating a tuple visible only
- * to this transaction.  ROLLBACK then is one case where it's okay to lose
- * inplace updates.  (Restoring relhasindex=false on ROLLBACK is fine, since
- * any concurrent CREATE INDEX would have blocked, then inplace-updated the
- * committed tuple.)
+ * 原地更新字段的读者预期这些字段的变化是
+ * 持久的。例如 vac_truncate_clog() 经由系统目录快照从
+ * pg_database 元组读取 datfrozenxid。将来的快照不得
+ * 对同一数据库 OID 返回更小的 datfrozenxid（按
+ * FullTransactionIdPrecedes() 的意义更小）。我们能做到这一点，是因为持有其缓冲区锁时，
+ * 对该元组的更新不能开始。像
+ * BEGIN;GRANT;CREATE INDEX;COMMIT 这样，我们正在原地更新一个只对本
+ * 事务可见的元组。于是 ROLLBACK 是可以丢失
+ * 原地更新的一种情形。（ROLLBACK 时把 relhasindex 恢复为 false 没问题，因为
+ * 任何并发的 CREATE INDEX 都会先被阻塞，然后原地更新那个
+ * 已提交的元组。）
  *
- * In principle, we could avoid waiting by overwriting every tuple in the
- * updated tuple chain.  Reader expectations permit updating a tuple only if
- * it's aborted, is the tail of the chain, or we already updated the tuple
- * referenced in its t_ctid.  Hence, we would need to overwrite the tuples in
- * order from tail to head.  That would imply either (a) mutating all tuples
- * in one critical section or (b) accepting a chance of partial completion.
- * Partial completion of a relfrozenxid update would have the weird
- * consequence that the table's next VACUUM could see the table's relfrozenxid
- * move forward between vacuum_get_cutoffs() and finishing.
+ * 原则上，我们可以靠覆盖更新链中的每个元组来避免等待。
+ * 读者的预期只允许在以下情况下更新元组：
+ * 它已中止、它是链尾，或者我们已经更新了
+ * 其 t_ctid 引用的元组。因此需要按从尾到头的
+ * 顺序覆盖这些元组。这意味着要么 (a) 在一个临界区里改所有元组，
+ * 要么 (b) 接受部分完成的可能。
+ * relfrozenxid 更新的部分完成会有奇怪的
+ * 后果：该表下一次 VACUUM 可能看到该表的 relfrozenxid
+ * 在 vacuum_get_cutoffs() 与结束之间向前移动。
  */
 bool
 heap_inplace_lock(Relation relation,
 				  HeapTuple oldtup_ptr, Buffer buffer,
 				  void (*release_callback) (void *), void *arg)
 {
-	HeapTupleData oldtup = *oldtup_ptr; /* minimize diff vs. heap_update() */
+	HeapTupleData oldtup = *oldtup_ptr; /* 尽量缩小与 heap_update() 的差异 */
 	TM_Result	result;
 	bool		ret;
 
@@ -6162,20 +6162,20 @@ heap_inplace_lock(Relation relation,
 	LockBuffer(buffer, BUFFER_LOCK_EXCLUSIVE);
 
 	/*----------
-	 * Interpret HeapTupleSatisfiesUpdate() like heap_update() does, except:
+	 * 像 heap_update() 那样解释 HeapTupleSatisfiesUpdate()，只是：
 	 *
-	 * - wait unconditionally
-	 * - already locked tuple above, since inplace needs that unconditionally
-	 * - don't recheck header after wait: simpler to defer to next iteration
-	 * - don't try to continue even if the updater aborts: likewise
-	 * - no crosscheck
+	 * - 无条件等待
+	 * - 上面已经锁了元组，因为原地更新无条件需要那样
+	 * - 等待之后不再复查头部：推迟到下一轮更简单
+	 * - 即使更新者中止也不尝试继续：同样如此
+	 * - 没有交叉检查
 	 */
 	result = HeapTupleSatisfiesUpdate(&oldtup, GetCurrentCommandId(false),
 									  buffer);
 
 	if (result == TM_Invisible)
 	{
-		/* no known way this can happen */
+		/* 没有已知途径会发生这种情况 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg_internal("attempted to overwrite invisible tuple")));
@@ -6183,10 +6183,10 @@ heap_inplace_lock(Relation relation,
 	else if (result == TM_SelfModified)
 	{
 		/*
-		 * CREATE INDEX might reach this if an expression is silly enough to
-		 * call e.g. SELECT ... FROM pg_class FOR SHARE.  C code of other SQL
-		 * statements might get here after a heap_update() of the same row, in
-		 * the absence of an intervening CommandCounterIncrement().
+		 * 若表达式傻到去
+		 * 调用例如 SELECT ... FROM pg_class FOR SHARE，CREATE INDEX 可能到达这里。其他 SQL
+		 * 语句的 C 代码在对同一行做了 heap_update() 之后，若
+		 * 中间没有 CommandCounterIncrement()，也可能到这里。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -6243,12 +6243,12 @@ heap_inplace_lock(Relation relation,
 	}
 
 	/*
-	 * GetCatalogSnapshot() relies on invalidation messages to know when to
-	 * take a new snapshot.  COMMIT of xwait is responsible for sending the
-	 * invalidation.  We're not acquiring heavyweight locks sufficient to
-	 * block if not yet sent, so we must take a new snapshot to ensure a later
-	 * attempt has a fair chance.  While we don't need this if xwait aborted,
-	 * don't bother optimizing that.
+	 * GetCatalogSnapshot() 依靠失效消息来知道何时
+	 * 取一个新快照。xwait 的 COMMIT 负责发送
+	 * 失效消息。我们没有获取足以在消息尚未发出时
+	 * 阻塞的重量级锁，因此必须取一个新快照，以确保稍后的
+	 * 尝试有公平的机会。即使 xwait 已中止我们也不需要这样做，
+	 * 但不必为那种情况做优化。
 	 */
 	if (!ret)
 	{
@@ -6259,12 +6259,12 @@ heap_inplace_lock(Relation relation,
 }
 
 /*
- * heap_inplace_update_and_unlock - core of systable_inplace_update_finish
+ * heap_inplace_update_and_unlock - systable_inplace_update_finish 的核心
  *
- * The tuple cannot change size, and therefore its header fields and null
- * bitmap (if any) don't change either.
+ * 元组不能改变大小，因此它的头部字段和空值
+ * 位图（若有）也不会改变。
  *
- * Since we hold LOCKTAG_TUPLE, no updater has a local copy of this tuple.
+ * 由于我们持有 LOCKTAG_TUPLE，没有更新者持有该元组的本地副本。
  */
 void
 heap_inplace_update_and_unlock(Relation relation,
@@ -6281,7 +6281,7 @@ heap_inplace_update_and_unlock(Relation relation,
 	if (oldlen != newlen || htup->t_hoff != tuple->t_data->t_hoff)
 		elog(ERROR, "wrong tuple length");
 
-	/* NO EREPORT(ERROR) from here till changes are logged */
+	/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
 	memcpy((char *) htup + htup->t_hoff,
@@ -6289,21 +6289,21 @@ heap_inplace_update_and_unlock(Relation relation,
 		   newlen);
 
 	/*----------
-	 * XXX A crash here can allow datfrozenxid() to get ahead of relfrozenxid:
+	 * XXX 若在这里崩溃，datfrozenxid() 可能跑到 relfrozenxid 前面：
 	 *
-	 * ["D" is a VACUUM (ONLY_DATABASE_STATS)]
-	 * ["R" is a VACUUM tbl]
+	 * ["D" 是一次 VACUUM (ONLY_DATABASE_STATS)]
+	 * ["R" 是一次 VACUUM tbl]
 	 * D: vac_update_datfrozenid() -> systable_beginscan(pg_class)
-	 * D: systable_getnext() returns pg_class tuple of tbl
-	 * R: memcpy() into pg_class tuple of tbl
-	 * D: raise pg_database.datfrozenxid, XLogInsert(), finish
-	 * [crash]
-	 * [recovery restores datfrozenxid w/o relfrozenxid]
+	 * D: systable_getnext() 返回 tbl 的 pg_class 元组
+	 * R: memcpy() 写入 tbl 的 pg_class 元组
+	 * D: 提高 pg_database.datfrozenxid，XLogInsert()，结束
+	 * [崩溃]
+	 * [恢复时恢复了 datfrozenxid，却没有 relfrozenxid]
 	 */
 
 	MarkBufferDirty(buffer);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(relation))
 	{
 		xl_heap_inplace xlrec;
@@ -6317,7 +6317,7 @@ heap_inplace_update_and_unlock(Relation relation,
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 		XLogRegisterBufData(0, (char *) htup + htup->t_hoff, newlen);
 
-		/* inplace updates aren't decoded atm, don't log the origin */
+		/* 目前不解码原地更新，不要记录复制源 */
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_INPLACE);
 
@@ -6329,19 +6329,19 @@ heap_inplace_update_and_unlock(Relation relation,
 	heap_inplace_unlock(relation, oldtup, buffer);
 
 	/*
-	 * Send out shared cache inval if necessary.  Note that because we only
-	 * pass the new version of the tuple, this mustn't be used for any
-	 * operations that could change catcache lookup keys.  But we aren't
-	 * bothering with index updates either, so that's true a fortiori.
+	 * 必要时发出共享缓存失效。注意因为我们只
+	 * 传入元组的新版本，这不得用于任何
+	 * 可能改变 catcache 查找键的操作。但我们反正也没有
+	 * 费心做索引更新，所以这一点更是如此。
 	 *
-	 * XXX ROLLBACK discards the invalidation.  See test inplace-inval.spec.
+	 * XXX ROLLBACK 会丢弃这次失效。见测试 inplace-inval.spec。
 	 */
 	if (!IsBootstrapProcessingMode())
 		CacheInvalidateHeapTuple(relation, tuple, NULL);
 }
 
 /*
- * heap_inplace_unlock - reverse of heap_inplace_lock
+ * heap_inplace_unlock - heap_inplace_lock 的逆操作
  */
 void
 heap_inplace_unlock(Relation relation,
@@ -6352,10 +6352,10 @@ heap_inplace_unlock(Relation relation,
 }
 
 /*
- * heap_inplace_update - deprecated
+ * heap_inplace_update - 已弃用
  *
- * This exists only to keep modules working in back branches.  Affected
- * modules should migrate to systable_inplace_update_begin().
+ * 它存在只是为了让模块在后向分支上仍能工作。受影响的
+ * 模块应当迁移到 systable_inplace_update_begin()。
  */
 void
 heap_inplace_update(Relation relation, HeapTuple tuple)
@@ -6369,10 +6369,10 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 	uint32		newlen;
 
 	/*
-	 * For now, we don't allow parallel updates.  Unlike a regular update,
-	 * this should never create a combo CID, so it might be possible to relax
-	 * this restriction, but not without more thought and testing.  It's not
-	 * clear that it would be useful, anyway.
+	 * 目前不允许并行更新。与普通更新不同，
+	 * 这绝不应当创建组合 CID，因此也许可以放宽
+	 * 这个限制，但需要更多思考和测试。反正也不
+	 * 清楚那样做是否有用。
 	 */
 	if (IsInParallelMode())
 		ereport(ERROR,
@@ -6397,7 +6397,7 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 	if (oldlen != newlen || htup->t_hoff != tuple->t_data->t_hoff)
 		elog(ERROR, "wrong tuple length");
 
-	/* NO EREPORT(ERROR) from here till changes are logged */
+	/* 从这里到变更记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
 	memcpy((char *) htup + htup->t_hoff,
@@ -6406,7 +6406,7 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 
 	MarkBufferDirty(buffer);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(relation))
 	{
 		xl_heap_inplace xlrec;
@@ -6420,7 +6420,7 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 		XLogRegisterBufData(0, (char *) htup + htup->t_hoff, newlen);
 
-		/* inplace updates aren't decoded atm, don't log the origin */
+		/* 目前不解码原地更新，不要记录复制源 */
 
 		recptr = XLogInsert(RM_HEAP_ID, XLOG_HEAP_INPLACE);
 
@@ -6432,10 +6432,10 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 	UnlockReleaseBuffer(buffer);
 
 	/*
-	 * Send out shared cache inval if necessary.  Note that because we only
-	 * pass the new version of the tuple, this mustn't be used for any
-	 * operations that could change catcache lookup keys.  But we aren't
-	 * bothering with index updates either, so that's true a fortiori.
+	 * 必要时发出共享缓存失效。注意因为我们只
+	 * 传入元组的新版本，这不得用于任何
+	 * 可能改变 catcache 查找键的操作。但我们反正也没有
+	 * 费心做索引更新，所以这一点更是如此。
 	 */
 	if (!IsBootstrapProcessingMode())
 		CacheInvalidateHeapTuple(relation, tuple, NULL);
@@ -6449,49 +6449,49 @@ heap_inplace_update(Relation relation, HeapTuple tuple)
 
 /*
  * FreezeMultiXactId
- *		Determine what to do during freezing when a tuple is marked by a
- *		MultiXactId.
+ *		冻结时，当元组被 MultiXactId 标记，决定做什么。
  *
- * "flags" is an output value; it's used to tell caller what to do on return.
- * "pagefrz" is an input/output value, used to manage page level freezing.
+ * "flags" 是输出值；用来告诉调用方返回时做什么。
+ * "pagefrz" 是输入/输出值，用来管理页级冻结。
  *
- * Possible values that we can set in "flags":
+ * 我们可以在 "flags" 里设置的可能值：
  * FRM_NOOP
- *		don't do anything -- keep existing Xmax
+ *		什么都不做——保留现有的 Xmax
  * FRM_INVALIDATE_XMAX
- *		mark Xmax as InvalidTransactionId and set XMAX_INVALID flag.
+ *		把 Xmax 标为 InvalidTransactionId 并设置 XMAX_INVALID 标志。
  * FRM_RETURN_IS_XID
- *		The Xid return value is a single update Xid to set as xmax.
+ *		返回的 Xid 是要设为 xmax 的单个更新 Xid。
  * FRM_MARK_COMMITTED
- *		Xmax can be marked as HEAP_XMAX_COMMITTED
+ *		可以把 Xmax 标为 HEAP_XMAX_COMMITTED
  * FRM_RETURN_IS_MULTI
- *		The return value is a new MultiXactId to set as new Xmax.
- *		(caller must obtain proper infomask bits using GetMultiXactIdHintBits)
+ *		返回值是要设为新 Xmax 的新 MultiXactId。
+ *		（调用方必须用 GetMultiXactIdHintBits 取得正确的 infomask 位）
  *
- * Caller delegates control of page freezing to us.  In practice we always
- * force freezing of caller's page unless FRM_NOOP processing is indicated.
- * We help caller ensure that XIDs < FreezeLimit and MXIDs < MultiXactCutoff
- * can never be left behind.  We freely choose when and how to process each
- * Multi, without ever violating the cutoff postconditions for freezing.
+ * 调用方把页面冻结的控制权委托给我们。
+ * 实践中，除非指示了 FRM_NOOP，
+ * 我们总是强制冻结调用方的页。
+ * 我们帮助调用方确保 XID < FreezeLimit 且 MXID < MultiXactCutoff
+ * 绝不会被留下。我们可以自由选择何时以及如何处理每个
+ * Multi，同时绝不违反冻结的截止后置条件。
  *
- * It's useful to remove Multis on a proactive timeline (relative to freezing
- * XIDs) to keep MultiXact member SLRU buffer misses to a minimum.  It can also
- * be cheaper in the short run, for us, since we too can avoid SLRU buffer
- * misses through eager processing.
+ * 按主动的时间表（相对于冻结
+ * XID）移除 Multi 是有用的，以便把 MultiXact 成员的 SLRU 缓冲区未命中降到最少。对我们来说，短期内
+ * 也可能更便宜，因为急切处理同样能让我们避免 SLRU 缓冲区
+ * 未命中。
  *
- * NB: Creates a _new_ MultiXactId when FRM_RETURN_IS_MULTI is set, though only
- * when FreezeLimit and/or MultiXactCutoff cutoffs leave us with no choice.
- * This can usually be put off, which is usually enough to avoid it altogether.
- * Allocating new multis during VACUUM should be avoided on general principle;
- * only VACUUM can advance relminmxid, so allocating new Multis here comes with
- * its own special risks.
+ * 注意：当设置 FRM_RETURN_IS_MULTI 时会创建一个_新的_ MultiXactId，不过只在
+ * FreezeLimit 和/或 MultiXactCutoff 截止值让我们别无选择时。
+ * 这通常可以推迟，而推迟通常就足以完全避免它。
+ * 原则上应当避免在 VACUUM 期间分配新的 multi；
+ * 只有 VACUUM 能推进 relminmxid，因此在这里分配新 Multi 有
+ * 它自己的特殊风险。
  *
- * NB: Caller must maintain "no freeze" NewRelfrozenXid/NewRelminMxid trackers
- * using heap_tuple_should_freeze when we haven't forced page-level freezing.
+ * 注意：当我们没有强制页级冻结时，调用方必须用 heap_tuple_should_freeze
+ * 维护 "no freeze" 的 NewRelfrozenXid/NewRelminMxid 跟踪器。
  *
- * NB: Caller should avoid needlessly calling heap_tuple_should_freeze when we
- * have already forced page-level freezing, since that might incur the same
- * SLRU buffer misses that we specifically intended to avoid by freezing.
+ * 注意：当我们已经强制了页级冻结时，调用方应避免不必要地调用 heap_tuple_should_freeze，
+ * 因为那可能招致我们特意想靠冻结来避免的同样的
+ * SLRU 缓冲区未命中。
  */
 static TransactionId
 FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
@@ -6511,7 +6511,7 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 
 	*flags = 0;
 
-	/* We should only be called in Multis */
+	/* 只应当在 Multi 上被调用 */
 	Assert(t_infomask & HEAP_XMAX_IS_MULTI);
 
 	if (!MultiXactIdIsValid(multi) ||
@@ -6531,10 +6531,10 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		TransactionId update_xact;
 
 		/*
-		 * This old multi cannot possibly have members still running, but
-		 * verify just in case.  If it was a locker only, it can be removed
-		 * without any further consideration; but if it contained an update,
-		 * we might need to preserve it.
+		 * 这个旧 multi 不可能还有成员仍在运行，但
+		 * 还是核实一下。若它只是加锁者，可以不加
+		 * 进一步考虑就移除；但若它包含一次更新，
+		 * 我们也许需要保留它。
 		 */
 		if (MultiXactIdIsRunning(multi,
 								 HEAP_XMAX_IS_LOCKED_ONLY(t_infomask)))
@@ -6550,7 +6550,7 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 			return InvalidTransactionId;
 		}
 
-		/* replace multi with single XID for its updater? */
+		/* 用其更新者的单个 XID 替换 multi？ */
 		update_xact = MultiXactIdGetUpdateXid(multi, t_infomask);
 		if (TransactionIdPrecedes(update_xact, cutoffs->relfrozenxid))
 			ereport(ERROR,
@@ -6561,9 +6561,9 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		else if (TransactionIdPrecedes(update_xact, cutoffs->OldestXmin))
 		{
 			/*
-			 * Updater XID has to have aborted (otherwise the tuple would have
-			 * been pruned away instead, since updater XID is < OldestXmin).
-			 * Just remove xmax.
+			 * 更新者 XID 必定已经中止（否则元组会被
+			 * 剪掉，因为更新者 XID < OldestXmin）。
+			 * 直接移除 xmax。
 			 */
 			if (TransactionIdDidCommit(update_xact))
 				ereport(ERROR,
@@ -6576,45 +6576,45 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 			return InvalidTransactionId;
 		}
 
-		/* Have to keep updater XID as new xmax */
+		/* 必须把更新者 XID 保留为新的 xmax */
 		*flags |= FRM_RETURN_IS_XID;
 		pagefrz->freeze_required = true;
 		return update_xact;
 	}
 
 	/*
-	 * Some member(s) of this Multi may be below FreezeLimit xid cutoff, so we
-	 * need to walk the whole members array to figure out what to do, if
-	 * anything.
+	 * 这个 Multi 的某些成员可能低于 FreezeLimit 这个 xid 截止值，因此我们
+	 * 需要走遍整个成员数组，弄清要做什么，如果
+	 * 有什么要做的话。
 	 */
 	nmembers =
 		GetMultiXactIdMembers(multi, &members, false,
 							  HEAP_XMAX_IS_LOCKED_ONLY(t_infomask));
 	if (nmembers <= 0)
 	{
-		/* Nothing worth keeping */
+		/* 没有值得保留的东西 */
 		*flags |= FRM_INVALIDATE_XMAX;
 		pagefrz->freeze_required = true;
 		return InvalidTransactionId;
 	}
 
 	/*
-	 * The FRM_NOOP case is the only case where we might need to ratchet back
-	 * FreezePageRelfrozenXid or FreezePageRelminMxid.  It is also the only
-	 * case where our caller might ratchet back its NoFreezePageRelfrozenXid
-	 * or NoFreezePageRelminMxid "no freeze" trackers to deal with a multi.
-	 * FRM_NOOP handling should result in the NewRelfrozenXid/NewRelminMxid
-	 * trackers managed by VACUUM being ratcheting back by xmax to the degree
-	 * required to make it safe to leave xmax undisturbed, independent of
-	 * whether or not page freezing is triggered somewhere else.
+	 * FRM_NOOP 是唯一可能需要把 FreezePageRelfrozenXid 或
+	 * FreezePageRelminMxid 往回调的情形。它也是唯一
+	 * 调用方可能把 NoFreezePageRelfrozenXid
+	 * 或 NoFreezePageRelminMxid 这些"不冻结"跟踪器往回调以处理某个 multi 的情形。
+	 * FRM_NOOP 处理应当使 VACUUM 管理的 NewRelfrozenXid/NewRelminMxid
+	 * 跟踪器按 xmax 往回调到这样的程度：
+	 * 足以安全地让 xmax 保持不动，而不论
+	 * 页面冻结是否在别处被触发。
 	 *
-	 * Our policy is to force freezing in every case other than FRM_NOOP,
-	 * which obviates the need to maintain either set of trackers, anywhere.
-	 * Every other case will reliably execute a freeze plan for xmax that
-	 * either replaces xmax with an XID/MXID >= OldestXmin/OldestMxact, or
-	 * sets xmax to an InvalidTransactionId XID, rendering xmax fully frozen.
-	 * (VACUUM's NewRelfrozenXid/NewRelminMxid trackers are initialized with
-	 * OldestXmin/OldestMxact, so later values never need to be tracked here.)
+	 * 我们的策略是除 FRM_NOOP 以外的每种情形都强制冻结，
+	 * 这样就不必在任何地方维护这两套跟踪器。
+	 * 其他每种情形都会可靠地为 xmax 执行冻结计划，
+	 * 要么用 >= OldestXmin/OldestMxact 的 XID/MXID 替换 xmax，要么
+	 * 把 xmax 设为 InvalidTransactionId，从而使 xmax 完全冻结。
+	 * （VACUUM 的 NewRelfrozenXid/NewRelminMxid 跟踪器用
+	 * OldestXmin/OldestMxact 初始化，因此这里不必跟踪更晚的值。）
 	 */
 	need_replace = false;
 	FreezePageRelfrozenXid = pagefrz->FreezePageRelfrozenXid;
@@ -6626,7 +6626,7 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 
 		if (TransactionIdPrecedes(xid, cutoffs->FreezeLimit))
 		{
-			/* Can't violate the FreezeLimit postcondition */
+			/* 不能违反 FreezeLimit 后置条件 */
 			need_replace = true;
 			break;
 		}
@@ -6634,16 +6634,16 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 			FreezePageRelfrozenXid = xid;
 	}
 
-	/* Can't violate the MultiXactCutoff postcondition, either */
+	/* 也不能违反 MultiXactCutoff 后置条件 */
 	if (!need_replace)
 		need_replace = MultiXactIdPrecedes(multi, cutoffs->MultiXactCutoff);
 
 	if (!need_replace)
 	{
 		/*
-		 * vacuumlazy.c might ratchet back NewRelminMxid, NewRelfrozenXid, or
-		 * both together to make it safe to retain this particular multi after
-		 * freezing its page
+		 * vacuumlazy.c 可能会把 NewRelminMxid、NewRelfrozenXid 或
+		 * 两者一起往回调，以便在冻结其页面之后
+		 * 仍安全地保留这个特定 multi
 		 */
 		*flags |= FRM_NOOP;
 		pagefrz->FreezePageRelfrozenXid = FreezePageRelfrozenXid;
@@ -6654,12 +6654,12 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 	}
 
 	/*
-	 * Do a more thorough second pass over the multi to figure out which
-	 * member XIDs actually need to be kept.  Checking the precise status of
-	 * individual members might even show that we don't need to keep anything.
-	 * That is quite possible even though the Multi must be >= OldestMxact,
-	 * since our second pass only keeps member XIDs when it's truly necessary;
-	 * even member XIDs >= OldestXmin often won't be kept by second pass.
+	 * 对这个 multi 再做一遍更彻底的扫描，弄清哪些
+	 * 成员 XID 真正需要保留。检查各个成员的精确状态
+	 * 甚至可能表明我们什么都不必保留。
+	 * 尽管这个 Multi 必须 >= OldestMxact，这仍然很有可能，
+	 * 因为第二遍只在真正必要时才保留成员 XID；
+	 * 即使 >= OldestXmin 的成员 XID，第二遍也常常不会保留。
 	 */
 	nnewmembers = 0;
 	newmembers = palloc(sizeof(MultiXactMember) * nmembers);
@@ -6668,7 +6668,7 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 	update_committed = false;
 
 	/*
-	 * Determine whether to keep each member xid, or to ignore it instead
+	 * 决定每个成员 xid 是保留，还是改为忽略
 	 */
 	for (int i = 0; i < nmembers; i++)
 	{
@@ -6680,8 +6680,8 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		if (!ISUPDATE_from_mxstatus(mstatus))
 		{
 			/*
-			 * Locker XID (not updater XID).  We only keep lockers that are
-			 * still running.
+			 * 加锁者 XID（不是更新者 XID）。我们只保留仍在
+			 * 运行的加锁者。
 			 */
 			if (TransactionIdIsCurrentTransactionId(xid) ||
 				TransactionIdIsInProgress(xid))
@@ -6700,15 +6700,15 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		}
 
 		/*
-		 * Updater XID (not locker XID).  Should we keep it?
+		 * 更新者 XID（不是加锁者 XID）。应当保留它吗？
 		 *
-		 * Since the tuple wasn't totally removed when vacuum pruned, the
-		 * update Xid cannot possibly be older than OldestXmin cutoff unless
-		 * the updater XID aborted.  If the updater transaction is known
-		 * aborted or crashed then it's okay to ignore it, otherwise not.
+		 * 既然清理剪枝时没有把元组完全移除，这个
+		 * 更新 Xid 不可能比 OldestXmin 截止值更老，除非
+		 * 更新者 XID 已中止。若更新者事务已知
+		 * 已中止或已崩溃，就可以忽略它，否则不行。
 		 *
-		 * In any case the Multi should never contain two updaters, whatever
-		 * their individual commit status.  Check for that first, in passing.
+		 * 无论如何，Multi 绝不应当包含两个更新者，无论
+		 * 它们各自的提交状态如何。顺便先检查这一点。
 		 */
 		if (TransactionIdIsValid(update_xid))
 			ereport(ERROR,
@@ -6719,9 +6719,9 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 										update_xid, xid)));
 
 		/*
-		 * As with all tuple visibility routines, it's critical to test
-		 * TransactionIdIsInProgress before TransactionIdDidCommit, because of
-		 * race conditions explained in detail in heapam_visibility.c.
+		 * 与所有元组可见性例程一样，必须先测试
+		 * TransactionIdIsInProgress，再测试 TransactionIdDidCommit，因为
+		 * heapam_visibility.c 里详细解释过的竞态条件。
 		 */
 		if (TransactionIdIsCurrentTransactionId(xid) ||
 			TransactionIdIsInProgress(xid))
@@ -6729,9 +6729,9 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		else if (TransactionIdDidCommit(xid))
 		{
 			/*
-			 * The transaction committed, so we can tell caller to set
-			 * HEAP_XMAX_COMMITTED.  (We can only do this because we know the
-			 * transaction is not running.)
+			 * 事务已提交，因此可以告诉调用方设置
+			 * HEAP_XMAX_COMMITTED。（我们能这样做，只是因为知道该
+			 * 事务不在运行。）
 			 */
 			update_committed = true;
 			update_xid = xid;
@@ -6739,15 +6739,15 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 		else
 		{
 			/*
-			 * Not in progress, not committed -- must be aborted or crashed;
-			 * we can ignore it.
+			 * 不在进行、未提交——必定已中止或已崩溃；
+			 * 我们可以忽略它。
 			 */
 			continue;
 		}
 
 		/*
-		 * We determined that updater must be kept -- add it to pending new
-		 * members list
+		 * 我们判定必须保留更新者——把它加入待定的新
+		 * 成员列表
 		 */
 		if (TransactionIdPrecedes(xid, cutoffs->OldestXmin))
 			ereport(ERROR,
@@ -6760,23 +6760,23 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 	pfree(members);
 
 	/*
-	 * Determine what to do with caller's multi based on information gathered
-	 * during our second pass
+	 * 根据第二遍收集的信息，
+	 * 决定对调用方的 multi 做什么
 	 */
 	if (nnewmembers == 0)
 	{
-		/* Nothing worth keeping */
+		/* 没有值得保留的东西 */
 		*flags |= FRM_INVALIDATE_XMAX;
 		newxmax = InvalidTransactionId;
 	}
 	else if (TransactionIdIsValid(update_xid) && !has_lockers)
 	{
 		/*
-		 * If there's a single member and it's an update, pass it back alone
-		 * without creating a new Multi.  (XXX we could do this when there's a
-		 * single remaining locker, too, but that would complicate the API too
-		 * much; moreover, the case with the single updater is more
-		 * interesting, because those are longer-lived.)
+		 * 若只剩一个成员且它是更新，就单独把它传回去，
+		 * 而不创建新的 Multi。（XXX 只剩一个
+		 * 加锁者时也可以这样做，但那会把 API 搞得太
+		 * 复杂；而且单个更新者的情形更
+		 * 有意思，因为它们活得更久。）
 		 */
 		Assert(nnewmembers == 1);
 		*flags |= FRM_RETURN_IS_XID;
@@ -6787,8 +6787,8 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 	else
 	{
 		/*
-		 * Create a new multixact with the surviving members of the previous
-		 * one, to set as new Xmax in the tuple
+		 * 用前一个 multixact 中存活的成员创建一个新的，
+		 * 作为元组里的新 Xmax
 		 */
 		newxmax = MultiXactIdCreateFromMembers(nnewmembers, newmembers);
 		*flags |= FRM_RETURN_IS_MULTI;
@@ -6803,45 +6803,45 @@ FreezeMultiXactId(MultiXactId multi, uint16 t_infomask,
 /*
  * heap_prepare_freeze_tuple
  *
- * Check to see whether any of the XID fields of a tuple (xmin, xmax, xvac)
- * are older than the OldestXmin and/or OldestMxact freeze cutoffs.  If so,
- * setup enough state (in the *frz output argument) to enable caller to
- * process this tuple as part of freezing its page, and return true.  Return
- * false if nothing can be changed about the tuple right now.
+ * 检查元组的各个 XID 字段（xmin、xmax、xvac）
+ * 是否比 OldestXmin 和/或 OldestMxact 冻结截止值更老。若是，
+ * 就设置足够的状态（在 *frz 输出参数里），使调用方能够
+ * 把该元组作为冻结其页面的一部分来处理，并返回 true。若现在对元组
+ * 什么都不能改，则返回 false。
  *
- * Also sets *totally_frozen to true if the tuple will be totally frozen once
- * caller executes returned freeze plan (or if the tuple was already totally
- * frozen by an earlier VACUUM).  This indicates that there are no remaining
- * XIDs or MultiXactIds that will need to be processed by a future VACUUM.
+ * 若调用方执行返回的冻结计划后该元组将完全冻结，
+ * 也把 *totally_frozen 设为 true（或者该元组先前已被更早的
+ * VACUUM 完全冻结）。这表示没有剩余的
+ * XID 或 MultiXactId 需要将来的 VACUUM 处理。
  *
- * VACUUM caller must assemble HeapTupleFreeze freeze plan entries for every
- * tuple that we returned true for, and call heap_freeze_execute_prepared to
- * execute freezing.  Caller must initialize pagefrz fields for page as a
- * whole before first call here for each heap page.
+ * VACUUM 调用方必须为每个我们返回 true 的
+ * 元组组装 HeapTupleFreeze 冻结计划项，并调用 heap_freeze_execute_prepared
+ * 来执行冻结。调用方必须在对每个堆页第一次调用这里之前，
+ * 为整页初始化 pagefrz 字段。
  *
- * VACUUM caller decides on whether or not to freeze the page as a whole.
- * We'll often prepare freeze plans for a page that caller just discards.
- * However, VACUUM doesn't always get to make a choice; it must freeze when
- * pagefrz.freeze_required is set, to ensure that any XIDs < FreezeLimit (and
- * MXIDs < MultiXactCutoff) can never be left behind.  We help to make sure
- * that VACUUM always follows that rule.
+ * 是否冻结整页由 VACUUM 调用方决定。
+ * 我们常常会为调用方随即丢弃的页面准备冻结计划。
+ * 不过 VACUUM 并不总能做选择；当
+ * pagefrz.freeze_required 被设置时它必须冻结，以确保任何 XID < FreezeLimit（以及
+ * MXID < MultiXactCutoff）绝不会被留下。我们帮忙确保
+ * VACUUM 始终遵守这条规则。
  *
- * We sometimes force freezing of xmax MultiXactId values long before it is
- * strictly necessary to do so just to ensure the FreezeLimit postcondition.
- * It's worth processing MultiXactIds proactively when it is cheap to do so,
- * and it's convenient to make that happen by piggy-backing it on the "force
- * freezing" mechanism.  Conversely, we sometimes delay freezing MultiXactIds
- * because it is expensive right now (though only when it's still possible to
- * do so without violating the FreezeLimit/MultiXactCutoff postcondition).
+ * 有时我们会在严格说来还远不必要的时候就强制冻结 xmax 的 MultiXactId 值，
+ * 只是为了确保 FreezeLimit 后置条件。
+ * 当处理 MultiXactId 很便宜时，主动处理是值得的，
+ * 而借"强制冻结"机制顺带完成这件事很方便。
+ * 反过来，有时我们会推迟冻结 MultiXactId，
+ * 因为眼下很贵（不过只在仍有可能
+ * 这样做而不违反 FreezeLimit/MultiXactCutoff 后置条件时）。
  *
- * It is assumed that the caller has checked the tuple with
- * HeapTupleSatisfiesVacuum() and determined that it is not HEAPTUPLE_DEAD
- * (else we should be removing the tuple, not freezing it).
+ * 假定调用方已经用
+ * HeapTupleSatisfiesVacuum() 检查过该元组，并判定它不是 HEAPTUPLE_DEAD
+ * （否则我们应当移除元组，而不是冻结它）。
  *
- * NB: This function has side effects: it might allocate a new MultiXactId.
- * It will be set as tuple's new xmax when our *frz output is processed within
- * heap_execute_freeze_tuple later on.  If the tuple is in a shared buffer
- * then caller had better have an exclusive lock on it already.
+ * 注意：本函数有副作用：它可能分配一个新的 MultiXactId。
+ * 稍后在 heap_execute_freeze_tuple 里处理我们的 *frz 输出时，它会被
+ * 设为元组的新 xmax。若元组在共享缓冲区里，
+ * 调用方最好已经持有它的排他锁。
  */
 bool
 heap_prepare_freeze_tuple(HeapTupleHeader tuple,
@@ -6864,9 +6864,9 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 	frz->checkflags = 0;
 
 	/*
-	 * Process xmin, while keeping track of whether it's already frozen, or
-	 * will become frozen iff our freeze plan is executed by caller (could be
-	 * neither).
+	 * 处理 xmin，同时跟踪它是否已经冻结，或者
+	 * 是否当且仅当调用方执行我们的冻结计划时才会冻结（也可能
+	 * 两者都不是）。
 	 */
 	xid = HeapTupleHeaderGetXmin(tuple);
 	if (!TransactionIdIsNormal(xid))
@@ -6879,17 +6879,17 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 					 errmsg_internal("found xmin %u from before relfrozenxid %u",
 									 xid, cutoffs->relfrozenxid)));
 
-		/* Will set freeze_xmin flags in freeze plan below */
+		/* 将在下面的冻结计划里设置 freeze_xmin 标志 */
 		freeze_xmin = TransactionIdPrecedes(xid, cutoffs->OldestXmin);
 
-		/* Verify that xmin committed if and when freeze plan is executed */
+		/* 若以及当冻结计划被执行时，验证 xmin 已提交 */
 		if (freeze_xmin)
 			frz->checkflags |= HEAP_FREEZE_CHECK_XMIN_COMMITTED;
 	}
 
 	/*
-	 * Old-style VACUUM FULL is gone, but we have to process xvac for as long
-	 * as we support having MOVED_OFF/MOVED_IN tuples in the database
+	 * 旧式 VACUUM FULL 已经没有了，但只要数据库里还支持
+	 * 有 MOVED_OFF/MOVED_IN 元组，我们就必须处理 xvac
 	 */
 	xid = HeapTupleHeaderGetXvac(tuple);
 	if (TransactionIdIsNormal(xid))
@@ -6898,27 +6898,27 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		Assert(TransactionIdPrecedes(xid, cutoffs->OldestXmin));
 
 		/*
-		 * For Xvac, we always freeze proactively.  This allows totally_frozen
-		 * tracking to ignore xvac.
+		 * 对 Xvac，我们总是主动冻结。这让 totally_frozen
+		 * 跟踪可以忽略 xvac。
 		 */
 		replace_xvac = pagefrz->freeze_required = true;
 
-		/* Will set replace_xvac flags in freeze plan below */
+		/* 将在下面的冻结计划里设置 replace_xvac 标志 */
 	}
 
-	/* Now process xmax */
+	/* 现在处理 xmax */
 	xid = frz->xmax;
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 	{
-		/* Raw xmax is a MultiXactId */
+		/* 原始 xmax 是 MultiXactId */
 		TransactionId newxmax;
 		uint16		flags;
 
 		/*
-		 * We will either remove xmax completely (in the "freeze_xmax" path),
-		 * process xmax by replacing it (in the "replace_xmax" path), or
-		 * perform no-op xmax processing.  The only constraint is that the
-		 * FreezeLimit/MultiXactCutoff postcondition must never be violated.
+		 * 我们要么完全移除 xmax（走 "freeze_xmax" 路径），
+		 * 要么通过替换来处理 xmax（走 "replace_xmax" 路径），要么
+		 * 对 xmax 不做任何事。唯一的约束是绝不能违反
+		 * FreezeLimit/MultiXactCutoff 后置条件。
 		 */
 		newxmax = FreezeMultiXactId(xid, tuple->t_infomask, cutoffs,
 									&flags, pagefrz);
@@ -6926,23 +6926,23 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		if (flags & FRM_NOOP)
 		{
 			/*
-			 * xmax is a MultiXactId, and nothing about it changes for now.
-			 * This is the only case where 'freeze_required' won't have been
-			 * set for us by FreezeMultiXactId, as well as the only case where
-			 * neither freeze_xmax nor replace_xmax are set (given a multi).
+			 * xmax 是 MultiXactId，目前它的任何方面都不变。
+			 * 这是 FreezeMultiXactId 不会为我们设置 'freeze_required' 的唯一情形，
+			 * 也是（给定一个 multi 时）既不设置 freeze_xmax 也不设置 replace_xmax 的唯一情形。
 			 *
-			 * This is a no-op, but the call to FreezeMultiXactId might have
-			 * ratcheted back NewRelfrozenXid and/or NewRelminMxid trackers
-			 * for us (the "freeze page" variants, specifically).  That'll
-			 * make it safe for our caller to freeze the page later on, while
-			 * leaving this particular xmax undisturbed.
+			 * 这是空操作，但调用 FreezeMultiXactId 可能已经
+			 * 为我们把 NewRelfrozenXid 和/或 NewRelminMxid 跟踪器
+			 * 往回调了（具体说是"冻结页面"那些变体）。
+			 * 那样
+			 * 调用方稍后冻结该页就是安全的，同时
+			 * 让这个特定的 xmax 保持不动。
 			 *
-			 * FreezeMultiXactId is _not_ responsible for the "no freeze"
-			 * NewRelfrozenXid/NewRelminMxid trackers, though -- that's our
-			 * job.  A call to heap_tuple_should_freeze for this same tuple
-			 * will take place below if 'freeze_required' isn't set already.
-			 * (This repeats work from FreezeMultiXactId, but allows "no
-			 * freeze" tracker maintenance to happen in only one place.)
+			 * 不过 FreezeMultiXactId _并不_负责"不冻结"
+			 * 的 NewRelfrozenXid/NewRelminMxid 跟踪器——那是我们的
+			 * 工作。若还没设置 'freeze_required'，下面会对同一元组
+			 * 调用 heap_tuple_should_freeze。
+			 * （这重复了 FreezeMultiXactId 的工作，但让"不
+			 * 冻结"跟踪器的维护只发生在一个地方。）
 			 */
 			Assert(!MultiXactIdPrecedes(newxmax, cutoffs->MultiXactCutoff));
 			Assert(MultiXactIdIsValid(newxmax) && xid == newxmax);
@@ -6950,17 +6950,17 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		else if (flags & FRM_RETURN_IS_XID)
 		{
 			/*
-			 * xmax will become an updater Xid (original MultiXact's updater
-			 * member Xid will be carried forward as a simple Xid in Xmax).
+			 * xmax 将变成一个更新者 Xid（原 MultiXact 的更新者
+			 * 成员 Xid 会作为 Xmax 里的简单 Xid 继续传递）。
 			 */
 			Assert(!TransactionIdPrecedes(newxmax, cutoffs->OldestXmin));
 
 			/*
-			 * NB -- some of these transformations are only valid because we
-			 * know the return Xid is a tuple updater (i.e. not merely a
-			 * locker.) Also note that the only reason we don't explicitly
-			 * worry about HEAP_KEYS_UPDATED is because it lives in
-			 * t_infomask2 rather than t_infomask.
+			 * 注意：其中一些变换之所以有效，只是因为我们
+			 * 知道返回的 Xid 是元组更新者（即不仅仅是
+			 * 加锁者）。另外注意我们不显式
+			 * 操心 HEAP_KEYS_UPDATED，是因为它住在
+			 * t_infomask2 里而不是 t_infomask。
 			 */
 			frz->t_infomask &= ~HEAP_XMAX_BITS;
 			frz->xmax = newxmax;
@@ -6974,16 +6974,16 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 			uint16		newbits2;
 
 			/*
-			 * xmax is an old MultiXactId that we have to replace with a new
-			 * MultiXactId, to carry forward two or more original member XIDs.
+			 * xmax 是必须替换成新的旧 MultiXactId，
+			 * 以便继续传递两个或更多原来的成员 XID。
 			 */
 			Assert(!MultiXactIdPrecedes(newxmax, cutoffs->OldestMxact));
 
 			/*
-			 * We can't use GetMultiXactIdHintBits directly on the new multi
-			 * here; that routine initializes the masks to all zeroes, which
-			 * would lose other bits we need.  Doing it this way ensures all
-			 * unrelated bits remain untouched.
+			 * 这里不能直接对新 multi 使用 GetMultiXactIdHintBits；
+			 * 那个例程把掩码初始化为全零，那样会
+			 * 丢掉我们需要的其他位。这样做可以确保所有
+			 * 无关的位保持不动。
 			 */
 			frz->t_infomask &= ~HEAP_XMAX_BITS;
 			frz->t_infomask2 &= ~HEAP_KEYS_UPDATED;
@@ -6996,42 +6996,42 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		else
 		{
 			/*
-			 * Freeze plan for tuple "freezes xmax" in the strictest sense:
-			 * it'll leave nothing in xmax (neither an Xid nor a MultiXactId).
+			 * 元组的冻结计划在最严格的意义上"冻结 xmax"：
+			 * 它会让 xmax 里什么都不留（既没有 Xid 也没有 MultiXactId）。
 			 */
 			Assert(flags & FRM_INVALIDATE_XMAX);
 			Assert(!TransactionIdIsValid(newxmax));
 
-			/* Will set freeze_xmax flags in freeze plan below */
+			/* 将在下面的冻结计划里设置 freeze_xmax 标志 */
 			freeze_xmax = true;
 		}
 
-		/* MultiXactId processing forces freezing (barring FRM_NOOP case) */
+		/* MultiXactId 处理会强制冻结（FRM_NOOP 情形除外） */
 		Assert(pagefrz->freeze_required || (!freeze_xmax && !replace_xmax));
 	}
 	else if (TransactionIdIsNormal(xid))
 	{
-		/* Raw xmax is normal XID */
+		/* 原始 xmax 是普通 XID */
 		if (TransactionIdPrecedes(xid, cutoffs->relfrozenxid))
 			ereport(ERROR,
 					(errcode(ERRCODE_DATA_CORRUPTED),
 					 errmsg_internal("found xmax %u from before relfrozenxid %u",
 									 xid, cutoffs->relfrozenxid)));
 
-		/* Will set freeze_xmax flags in freeze plan below */
+		/* 将在下面的冻结计划里设置 freeze_xmax 标志 */
 		freeze_xmax = TransactionIdPrecedes(xid, cutoffs->OldestXmin);
 
 		/*
-		 * Verify that xmax aborted if and when freeze plan is executed,
-		 * provided it's from an update. (A lock-only xmax can be removed
-		 * independent of this, since the lock is released at xact end.)
+		 * 若以及当冻结计划被执行时，验证 xmax 已中止，
+		 * 前提是它来自一次更新。（只含锁的 xmax 可以移除，
+		 * 与此无关，因为锁在事务结束时释放。）
 		 */
 		if (freeze_xmax && !HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 			frz->checkflags |= HEAP_FREEZE_CHECK_XMAX_ABORTED;
 	}
 	else if (!TransactionIdIsValid(xid))
 	{
-		/* Raw xmax is InvalidTransactionId XID */
+		/* 原始 xmax 是 InvalidTransactionId 这个 XID */
 		Assert((tuple->t_infomask & HEAP_XMAX_IS_MULTI) == 0);
 		xmax_already_frozen = true;
 	}
@@ -7050,9 +7050,9 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 	if (replace_xvac)
 	{
 		/*
-		 * If a MOVED_OFF tuple is not dead, the xvac transaction must have
-		 * failed; whereas a non-dead MOVED_IN tuple must mean the xvac
-		 * transaction succeeded.
+		 * 若 MOVED_OFF 元组不是死的，xvac 事务必定已经
+		 * 失败；而非死的 MOVED_IN 元组必定意味着 xvac
+		 * 事务成功了。
 		 */
 		Assert(pagefrz->freeze_required);
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
@@ -7065,7 +7065,7 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		Assert(!xmax_already_frozen && !freeze_xmax);
 		Assert(pagefrz->freeze_required);
 
-		/* Already set replace_xmax flags in freeze plan earlier */
+		/* 先前已在冻结计划里设置了 replace_xmax 标志 */
 	}
 	if (freeze_xmax)
 	{
@@ -7074,9 +7074,9 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 		frz->xmax = InvalidTransactionId;
 
 		/*
-		 * The tuple might be marked either XMAX_INVALID or XMAX_COMMITTED +
-		 * LOCKED.  Normalize to INVALID just to be sure no one gets confused.
-		 * Also get rid of the HEAP_KEYS_UPDATED bit.
+		 * 元组可能被标成 XMAX_INVALID，或 XMAX_COMMITTED 加
+		 * LOCKED。规范成 INVALID，以免有人困惑。
+		 * 同时去掉 HEAP_KEYS_UPDATED 位。
 		 */
 		frz->t_infomask &= ~HEAP_XMAX_BITS;
 		frz->t_infomask |= HEAP_XMAX_INVALID;
@@ -7085,8 +7085,8 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 	}
 
 	/*
-	 * Determine if this tuple is already totally frozen, or will become
-	 * totally frozen (provided caller executes freeze plans for the page)
+	 * 判断该元组是否已经完全冻结，或者将会
+	 * 完全冻结（前提是调用方执行该页的冻结计划）
 	 */
 	*totally_frozen = ((freeze_xmin || xmin_already_frozen) &&
 					   (freeze_xmax || xmax_already_frozen));
@@ -7095,8 +7095,8 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 									   xmax_already_frozen))
 	{
 		/*
-		 * So far no previous tuple from the page made freezing mandatory.
-		 * Does this tuple force caller to freeze the entire page?
+		 * 到目前为止，该页上没有先前的元组使冻结成为强制。
+		 * 这个元组是否迫使调用方冻结整页？
 		 */
 		pagefrz->freeze_required =
 			heap_tuple_should_freeze(tuple, cutoffs,
@@ -7104,18 +7104,18 @@ heap_prepare_freeze_tuple(HeapTupleHeader tuple,
 									 &pagefrz->NoFreezePageRelminMxid);
 	}
 
-	/* Tell caller if this tuple has a usable freeze plan set in *frz */
+	/* 告诉调用方该元组是否在 *frz 里设置了可用的冻结计划 */
 	return freeze_xmin || replace_xvac || replace_xmax || freeze_xmax;
 }
 
 /*
  * heap_execute_freeze_tuple
- *		Execute the prepared freezing of a tuple with caller's freeze plan.
+ *		按调用方的冻结计划执行已准备好的元组冻结。
  *
- * Caller is responsible for ensuring that no other backend can access the
- * storage underlying this tuple, either by holding an exclusive lock on the
- * buffer containing it (which is what lazy VACUUM does), or by having it be
- * in private storage (which is what CLUSTER and friends do).
+ * 调用方负责确保没有其他后端能访问
+ * 该元组底层的存储，要么对该元组所在缓冲区持有排他锁
+ * （惰性 VACUUM 就是这样做的），要么让它处于
+ * 私有存储中（CLUSTER 及其同类就是这样做的）。
  */
 static inline void
 heap_execute_freeze_tuple(HeapTupleHeader tuple, HeapTupleFreeze *frz)
@@ -7135,16 +7135,16 @@ heap_execute_freeze_tuple(HeapTupleHeader tuple, HeapTupleFreeze *frz)
 /*
  * heap_freeze_execute_prepared
  *
- * Executes freezing of one or more heap tuples on a page on behalf of caller.
- * Caller passes an array of tuple plans from heap_prepare_freeze_tuple.
- * Caller must set 'offset' in each plan for us.  Note that we destructively
- * sort caller's tuples array in-place, so caller had better be done with it.
+ * 代表调用方对一页上的一个或多个堆元组执行冻结。
+ * 调用方传入来自 heap_prepare_freeze_tuple 的元组计划数组。
+ * 调用方必须为我们设置每个计划里的 'offset'。注意我们会就地
+ * 破坏性地排序调用方的元组数组，所以调用方最好已经用完它。
  *
- * WAL-logs the changes so that VACUUM can advance the rel's relfrozenxid
- * later on without any risk of unsafe pg_xact lookups, even following a hard
- * crash (or when querying from a standby).  We represent freezing by setting
- * infomask bits in tuple headers, but this shouldn't be thought of as a hint.
- * See section on buffer access rules in src/backend/storage/buffer/README.
+ * 把变更记入 WAL，这样 VACUUM 稍后推进该关系的 relfrozenxid
+ * 时就不会有不安全的 pg_xact 查找风险，即使随后发生硬
+ * 崩溃（或从备库查询时）。我们用设置元组头部的
+ * infomask 位来表示冻结，但这不应当被当成提示。
+ * 见 src/backend/storage/buffer/README 中关于缓冲区访问规则的一节。
  */
 void
 heap_freeze_execute_prepared(Relation rel, Buffer buffer,
@@ -7156,11 +7156,11 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 	Assert(ntuples > 0);
 
 	/*
-	 * Perform xmin/xmax XID status sanity checks before critical section.
+	 * 进入临界区之前，对 xmin/xmax 的 XID 状态做健全性检查。
 	 *
-	 * heap_prepare_freeze_tuple doesn't perform these checks directly because
-	 * pg_xact lookups are relatively expensive.  They shouldn't be repeated
-	 * by successive VACUUMs that each decide against freezing the same page.
+	 * heap_prepare_freeze_tuple 不直接做这些检查，因为
+	 * pg_xact 查找相对昂贵。决定不对同一页冻结的连续 VACUUM
+	 * 不应当重复做这些检查。
 	 */
 	for (int i = 0; i < ntuples; i++)
 	{
@@ -7170,7 +7170,7 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 
 		htup = (HeapTupleHeader) PageGetItem(page, itemid);
 
-		/* Deliberately avoid relying on tuple hint bits here */
+		/* 这里故意不依赖元组提示位 */
 		if (frz->checkflags & HEAP_FREEZE_CHECK_XMIN_COMMITTED)
 		{
 			TransactionId xmin = HeapTupleHeaderGetRawXmin(htup);
@@ -7184,9 +7184,9 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 		}
 
 		/*
-		 * TransactionIdDidAbort won't work reliably in the presence of XIDs
-		 * left behind by transactions that were in progress during a crash,
-		 * so we can only check that xmax didn't commit
+		 * 有崩溃期间仍在进行的事务所留下的 XID 时，
+		 * TransactionIdDidAbort 不会可靠工作，
+		 * 因此我们只能检查 xmax 没有提交
 		 */
 		if (frz->checkflags & HEAP_FREEZE_CHECK_XMAX_ABORTED)
 		{
@@ -7215,7 +7215,7 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 
 	MarkBufferDirty(buffer);
 
-	/* Now WAL-log freezing if necessary */
+	/* 现在若有必要，把冻结记入 WAL */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_heap_freeze_plan plans[MaxHeapTuplesPerPage];
@@ -7224,7 +7224,7 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 		xl_heap_freeze_page xlrec;
 		XLogRecPtr	recptr;
 
-		/* Prepare deduplicated representation for use in WAL record */
+		/* 准备去重后的表示，供 WAL 记录使用 */
 		nplans = heap_log_freeze_plan(tuples, ntuples, plans, offsets);
 
 		xlrec.snapshotConflictHorizon = snapshotConflictHorizon;
@@ -7235,9 +7235,9 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 		XLogRegisterData((char *) &xlrec, SizeOfHeapFreezePage);
 
 		/*
-		 * The freeze plan array and offset array are not actually in the
-		 * buffer, but pretend that they are.  When XLogInsert stores the
-		 * whole buffer, the arrays need not be stored too.
+		 * 冻结计划数组和偏移数组实际上不在
+		 * 缓冲区里，但假装它们在。当 XLogInsert 存储
+		 * 整个缓冲区时，这些数组就不必再存。
 		 */
 		XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 		XLogRegisterBufData(0, (char *) plans,
@@ -7254,7 +7254,7 @@ heap_freeze_execute_prepared(Relation rel, Buffer buffer,
 }
 
 /*
- * Comparator used to deduplicate XLOG_HEAP2_FREEZE_PAGE freeze plans
+ * 用于为 XLOG_HEAP2_FREEZE_PAGE 冻结计划去重的比较器
  */
 static int
 heap_log_freeze_cmp(const void *arg1, const void *arg2)
@@ -7283,11 +7283,11 @@ heap_log_freeze_cmp(const void *arg1, const void *arg2)
 		return 1;
 
 	/*
-	 * heap_log_freeze_eq would consider these tuple-wise plans to be equal.
-	 * (So the tuples will share a single canonical freeze plan.)
+	 * heap_log_freeze_eq 会认为这些按元组的计划相等。
+	 * （因此这些元组将共享一份规范冻结计划。）
 	 *
-	 * We tiebreak on page offset number to keep each freeze plan's page
-	 * offset number array individually sorted. (Unnecessary, but be tidy.)
+	 * 我们用页偏移号做决胜，使每份冻结计划的页
+	 * 偏移号数组各自有序。（并非必要，但求整齐。）
 	 */
 	if (frz1->offset < frz2->offset)
 		return -1;
@@ -7299,9 +7299,9 @@ heap_log_freeze_cmp(const void *arg1, const void *arg2)
 }
 
 /*
- * Compare fields that describe actions required to freeze tuple with caller's
- * open plan.  If everything matches then the frz tuple plan is equivalent to
- * caller's plan.
+ * 比较描述冻结元组所需动作的字段与调用方
+ * 当前打开的计划。若全部匹配，则该 frz 元组计划等价于
+ * 调用方的计划。
  */
 static inline bool
 heap_log_freeze_eq(xl_heap_freeze_plan *plan, HeapTupleFreeze *frz)
@@ -7312,13 +7312,13 @@ heap_log_freeze_eq(xl_heap_freeze_plan *plan, HeapTupleFreeze *frz)
 		plan->frzflags == frz->frzflags)
 		return true;
 
-	/* Caller must call heap_log_freeze_new_plan again for frz */
+	/* 调用方必须为 frz 再次调用 heap_log_freeze_new_plan */
 	return false;
 }
 
 /*
- * Start new plan initialized using tuple-level actions.  At least one tuple
- * will have steps required to freeze described by caller's plan during REDO.
+ * 用元组级动作初始化并开始一份新计划。重做期间至少有一个元组
+ * 会有调用方计划所描述的冻结步骤。
  */
 static inline void
 heap_log_freeze_new_plan(xl_heap_freeze_plan *plan, HeapTupleFreeze *frz)
@@ -7327,18 +7327,18 @@ heap_log_freeze_new_plan(xl_heap_freeze_plan *plan, HeapTupleFreeze *frz)
 	plan->t_infomask2 = frz->t_infomask2;
 	plan->t_infomask = frz->t_infomask;
 	plan->frzflags = frz->frzflags;
-	plan->ntuples = 1;			/* for now */
+	plan->ntuples = 1;			/* 目前 */
 }
 
 /*
- * Deduplicate tuple-based freeze plans so that each distinct set of
- * processing steps is only stored once in XLOG_HEAP2_FREEZE_PAGE records.
- * Called during original execution of freezing (for logged relations).
+ * 为基于元组的冻结计划去重，使每一组不同的
+ * 处理步骤在 XLOG_HEAP2_FREEZE_PAGE 记录里只存一次。
+ * 在冻结的原始执行期间调用（针对记日志的关系）。
  *
- * Return value is number of plans set in *plans_out for caller.  Also writes
- * an array of offset numbers into *offsets_out output argument for caller
- * (actually there is one array per freeze plan, but that's not of immediate
- * concern to our caller).
+ * 返回值是为调用方设置在 *plans_out 里的计划数。同时把
+ * 偏移号数组写进给调用方的 *offsets_out 输出参数
+ * （实际上每份冻结计划有一个数组，但我们的调用方
+ * 眼下不必关心这一点）。
  */
 static int
 heap_log_freeze_plan(HeapTupleFreeze *tuples, int ntuples,
@@ -7347,7 +7347,7 @@ heap_log_freeze_plan(HeapTupleFreeze *tuples, int ntuples,
 {
 	int			nplans = 0;
 
-	/* Sort tuple-based freeze plans in the order required to deduplicate */
+	/* 按去重所需的顺序排序基于元组的冻结计划 */
 	qsort(tuples, ntuples, sizeof(HeapTupleFreeze), heap_log_freeze_cmp);
 
 	for (int i = 0; i < ntuples; i++)
@@ -7356,32 +7356,32 @@ heap_log_freeze_plan(HeapTupleFreeze *tuples, int ntuples,
 
 		if (i == 0)
 		{
-			/* New canonical freeze plan starting with first tup */
+			/* 从第一个元组开始的新规范冻结计划 */
 			heap_log_freeze_new_plan(plans_out, frz);
 			nplans++;
 		}
 		else if (heap_log_freeze_eq(plans_out, frz))
 		{
-			/* tup matches open canonical plan -- include tup in it */
+			/* 元组匹配当前打开的规范计划——把它包括进去 */
 			Assert(offsets_out[i - 1] < frz->offset);
 			plans_out->ntuples++;
 		}
 		else
 		{
-			/* Tup doesn't match current plan -- done with it now */
+			/* 元组不匹配当前计划——现在这份计划结束了 */
 			plans_out++;
 
-			/* New canonical freeze plan starting with this tup */
+			/* 从该元组开始的新规范冻结计划 */
 			heap_log_freeze_new_plan(plans_out, frz);
 			nplans++;
 		}
 
 		/*
-		 * Save page offset number in dedicated buffer in passing.
+		 * 顺便把页偏移号存进专用缓冲区。
 		 *
-		 * REDO routine relies on the record's offset numbers array grouping
-		 * offset numbers by freeze plan.  The sort order within each grouping
-		 * is ascending offset number order, just to keep things tidy.
+		 * 重做例程依靠记录的偏移号数组按冻结计划分组
+		 * 偏移号。每个分组内部的排序
+		 * 是偏移号升序，只是为了整齐。
 		 */
 		offsets_out[i] = frz->offset;
 	}
@@ -7393,9 +7393,9 @@ heap_log_freeze_plan(HeapTupleFreeze *tuples, int ntuples,
 
 /*
  * heap_freeze_tuple
- *		Freeze tuple in place, without WAL logging.
+ *		就地冻结元组，不记 WAL。
  *
- * Useful for callers like CLUSTER that perform their own WAL logging.
+ * 对 CLUSTER 这类自己做 WAL 记录的调用方有用。
  */
 bool
 heap_freeze_tuple(HeapTupleHeader tuple,
@@ -7425,8 +7425,8 @@ heap_freeze_tuple(HeapTupleHeader tuple,
 										  &pagefrz, &frz, &totally_frozen);
 
 	/*
-	 * Note that because this is not a WAL-logged operation, we don't need to
-	 * fill in the offset in the freeze record.
+	 * 注意因为这不是记 WAL 的操作，我们不必
+	 * 在冻结记录里填偏移。
 	 */
 
 	if (do_freeze)
@@ -7435,11 +7435,11 @@ heap_freeze_tuple(HeapTupleHeader tuple,
 }
 
 /*
- * For a given MultiXactId, return the hint bits that should be set in the
- * tuple's infomask.
+ * 对给定的 MultiXactId，返回应当设置在
+ * 元组 infomask 里的提示位。
  *
- * Normally this should be called for a multixact that was just created, and
- * so is on our local cache, so the GetMembers call is fast.
+ * 通常应当对刚刚创建的 multixact 调用它，因此
+ * 它在我们的本地缓存里，GetMembers 调用很快。
  */
 static void
 GetMultiXactIdHintBits(MultiXactId multi, uint16 *new_infomask,
@@ -7454,8 +7454,8 @@ GetMultiXactIdHintBits(MultiXactId multi, uint16 *new_infomask,
 	LockTupleMode strongest = LockTupleKeyShare;
 
 	/*
-	 * We only use this in multis we just created, so they cannot be values
-	 * pre-pg_upgrade.
+	 * 我们只对刚刚创建的 multi 使用它，因此它们不可能是
+	 * pg_upgrade 之前的值。
 	 */
 	nmembers = GetMultiXactIdMembers(multi, &members, false, false);
 
@@ -7464,14 +7464,14 @@ GetMultiXactIdHintBits(MultiXactId multi, uint16 *new_infomask,
 		LockTupleMode mode;
 
 		/*
-		 * Remember the strongest lock mode held by any member of the
-		 * multixact.
+		 * 记住该 multixact 任何成员所持有的
+		 * 最强锁模式。
 		 */
 		mode = TUPLOCK_from_mxstatus(members[i].status);
 		if (mode > strongest)
 			strongest = mode;
 
-		/* See what other bits we need */
+		/* 看看还需要哪些其他位 */
 		switch (members[i].status)
 		{
 			case MultiXactStatusForKeyShare:
@@ -7515,12 +7515,12 @@ GetMultiXactIdHintBits(MultiXactId multi, uint16 *new_infomask,
 /*
  * MultiXactIdGetUpdateXid
  *
- * Given a multixact Xmax and corresponding infomask, which does not have the
- * HEAP_XMAX_LOCK_ONLY bit set, obtain and return the Xid of the updating
- * transaction.
+ * 给定一个 multixact Xmax 及对应的 infomask，且没有设置
+ * HEAP_XMAX_LOCK_ONLY 位，取得并返回更新
+ * 事务的 Xid。
  *
- * Caller is expected to check the status of the updating transaction, if
- * necessary.
+ *
+ * 若有必要，调用方应去检查更新事务的状态。
  */
 static TransactionId
 MultiXactIdGetUpdateXid(TransactionId xmax, uint16 t_infomask)
@@ -7533,8 +7533,8 @@ MultiXactIdGetUpdateXid(TransactionId xmax, uint16 t_infomask)
 	Assert(t_infomask & HEAP_XMAX_IS_MULTI);
 
 	/*
-	 * Since we know the LOCK_ONLY bit is not set, this cannot be a multi from
-	 * pre-pg_upgrade.
+	 * 既然知道没有设置 LOCK_ONLY 位，这就不可能是
+	 * pg_upgrade 之前的 multi。
 	 */
 	nmembers = GetMultiXactIdMembers(xmax, &members, false, false);
 
@@ -7544,18 +7544,18 @@ MultiXactIdGetUpdateXid(TransactionId xmax, uint16 t_infomask)
 
 		for (i = 0; i < nmembers; i++)
 		{
-			/* Ignore lockers */
+			/* 忽略加锁者 */
 			if (!ISUPDATE_from_mxstatus(members[i].status))
 				continue;
 
-			/* there can be at most one updater */
+			/* 最多只能有一个更新者 */
 			Assert(update_xact == InvalidTransactionId);
 			update_xact = members[i].xid;
 #ifndef USE_ASSERT_CHECKING
 
 			/*
-			 * in an assert-enabled build, walk the whole array to ensure
-			 * there's no other updater.
+			 * 在启用 assert 的构建里，走完整个数组以确保
+			 * 没有其他更新者。
 			 */
 			break;
 #endif
@@ -7569,10 +7569,10 @@ MultiXactIdGetUpdateXid(TransactionId xmax, uint16 t_infomask)
 
 /*
  * HeapTupleGetUpdateXid
- *		As above, but use a HeapTupleHeader
+ *		同上，但使用 HeapTupleHeader
  *
- * See also HeapTupleHeaderGetUpdateXid, which can be used without previously
- * checking the hint bits.
+ * 另见 HeapTupleHeaderGetUpdateXid，它可以在不事先
+ * 检查提示位的情况下使用。
  */
 TransactionId
 HeapTupleGetUpdateXid(HeapTupleHeader tuple)
@@ -7582,13 +7582,13 @@ HeapTupleGetUpdateXid(HeapTupleHeader tuple)
 }
 
 /*
- * Does the given multixact conflict with the current transaction grabbing a
- * tuple lock of the given strength?
+ * 给定的 multixact 是否与当前事务以给定强度
+ * 获取元组锁相冲突？
  *
- * The passed infomask pairs up with the given multixact in the tuple header.
+ * 传入的 infomask 与元组头中给定的 multixact 配对。
  *
- * If current_is_member is not NULL, it is set to 'true' if the current
- * transaction is a member of the given multixact.
+ * 若 current_is_member 不是 NULL，且当前
+ * 事务是给定 multixact 的成员，则把它设为 'true'。
  */
 static bool
 DoesMultiXactIdConflict(MultiXactId multi, uint16 infomask,
@@ -7618,7 +7618,7 @@ DoesMultiXactIdConflict(MultiXactId multi, uint16 infomask,
 
 			memlockmode = LOCKMODE_from_mxstatus(members[i].status);
 
-			/* ignore members from current xact (but track their presence) */
+			/* 忽略来自当前事务的成员（但跟踪它们是否存在） */
 			memxid = members[i].xid;
 			if (TransactionIdIsCurrentTransactionId(memxid))
 			{
@@ -7629,29 +7629,29 @@ DoesMultiXactIdConflict(MultiXactId multi, uint16 infomask,
 			else if (result)
 				continue;
 
-			/* ignore members that don't conflict with the lock we want */
+			/* 忽略与我们想要的锁不冲突的成员 */
 			if (!DoLockModesConflict(memlockmode, wanted))
 				continue;
 
 			if (ISUPDATE_from_mxstatus(members[i].status))
 			{
-				/* ignore aborted updaters */
+				/* 忽略已中止的更新者 */
 				if (TransactionIdDidAbort(memxid))
 					continue;
 			}
 			else
 			{
-				/* ignore lockers-only that are no longer in progress */
+				/* 忽略不再进行中的仅加锁者 */
 				if (!TransactionIdIsInProgress(memxid))
 					continue;
 			}
 
 			/*
-			 * Whatever remains are either live lockers that conflict with our
-			 * wanted lock, and updaters that are not aborted.  Those conflict
-			 * with what we want.  Set up to return true, but keep going to
-			 * look for the current transaction among the multixact members,
-			 * if needed.
+			 * 剩下的要么是与我们想要的锁冲突的仍存活加锁者，
+			 * 以及未中止的更新者。它们与我们想要的东西
+			 * 冲突。准备返回 true，但继续往下
+			 * 在 multixact 成员中查找当前事务，
+			 * 若需要的话。
 			 */
 			result = true;
 		}
@@ -7663,31 +7663,31 @@ DoesMultiXactIdConflict(MultiXactId multi, uint16 infomask,
 
 /*
  * Do_MultiXactIdWait
- *		Actual implementation for the two functions below.
+ *		下面两个函数的实际实现。
  *
- * 'multi', 'status' and 'infomask' indicate what to sleep on (the status is
- * needed to ensure we only sleep on conflicting members, and the infomask is
- * used to optimize multixact access in case it's a lock-only multi); 'nowait'
- * indicates whether to use conditional lock acquisition, to allow callers to
- * fail if lock is unavailable.  'rel', 'ctid' and 'oper' are used to set up
- * context information for error messages.  'remaining', if not NULL, receives
- * the number of members that are still running, including any (non-aborted)
- * subtransactions of our own transaction.
+ * 'multi'、'status' 和 'infomask' 指出要在什么上面睡眠（status
+ * 用来确保我们只在冲突成员上睡眠，infomask 则
+ * 用于在它是仅含锁的 multi 时优化 multixact 访问）；'nowait'
+ * 指出是否使用条件锁获取，以便调用方在
+ * 锁不可用时失败。'rel'、'ctid' 和 'oper' 用来设置
+ * 错误消息的上下文信息。'remaining' 若不是 NULL，接收
+ * 仍在运行的成员数，包括我们自己事务的任何（未中止）
+ * 子事务。
  *
- * We do this by sleeping on each member using XactLockTableWait.  Any
- * members that belong to the current backend are *not* waited for, however;
- * this would not merely be useless but would lead to Assert failure inside
- * XactLockTableWait.  By the time this returns, it is certain that all
- * transactions *of other backends* that were members of the MultiXactId
- * that conflict with the requested status are dead (and no new ones can have
- * been added, since it is not legal to add members to an existing
- * MultiXactId).
+ * 我们通过对每个成员用 XactLockTableWait 睡眠来做到这一点。不过，
+ * 属于当前后端的任何成员都*不*等待；
+ * 那不仅无用，还会导致 XactLockTableWait 内部
+ * Assert 失败。等到这里返回时，可以确定所有
+ * *其他后端的*、曾是该 MultiXactId 成员且
+ * 与所请求状态冲突的事务都已死（而且不可能有新的
+ * 被加进来，因为不允许向已有的
+ * MultiXactId 添加成员）。
  *
- * But by the time we finish sleeping, someone else may have changed the Xmax
- * of the containing tuple, so the caller needs to iterate on us somehow.
+ * 但等到我们睡完，别人可能已经改了所在元组的 Xmax，
+ * 所以调用方需要以某种方式对我们迭代。
  *
- * Note that in case we return false, the number of remaining members is
- * not to be trusted.
+ * 注意若我们返回 false，剩余成员数
+ * 不可信。
  */
 static bool
 Do_MultiXactIdWait(MultiXactId multi, MultiXactStatus status,
@@ -7700,7 +7700,7 @@ Do_MultiXactIdWait(MultiXactId multi, MultiXactStatus status,
 	int			nmembers;
 	int			remain = 0;
 
-	/* for pre-pg_upgrade tuples, no need to sleep at all */
+	/* 对 pg_upgrade 之前的元组，完全不必睡眠 */
 	nmembers = HEAP_LOCKED_UPGRADED(infomask) ? -1 :
 		GetMultiXactIdMembers(multi, &members, false,
 							  HEAP_XMAX_IS_LOCKED_ONLY(infomask));
@@ -7729,14 +7729,14 @@ Do_MultiXactIdWait(MultiXactId multi, MultiXactStatus status,
 			}
 
 			/*
-			 * This member conflicts with our multi, so we have to sleep (or
-			 * return failure, if asked to avoid waiting.)
+			 * 该成员与我们的 multi 冲突，因此我们必须睡眠（或者
+			 * 若要求避免等待，则返回失败）。
 			 *
-			 * Note that we don't set up an error context callback ourselves,
-			 * but instead we pass the info down to XactLockTableWait.  This
-			 * might seem a bit wasteful because the context is set up and
-			 * tore down for each member of the multixact, but in reality it
-			 * should be barely noticeable, and it avoids duplicate code.
+			 * 注意我们自己不设置错误上下文回调，
+			 * 而是把信息往下传给 XactLockTableWait。这
+			 * 看起来有点浪费，因为上下文要对 multixact 的每个成员
+			 * 建立再拆除，但实际上
+			 * 应当几乎察觉不到，而且避免了重复代码。
 			 */
 			if (nowait)
 			{
@@ -7759,13 +7759,13 @@ Do_MultiXactIdWait(MultiXactId multi, MultiXactStatus status,
 
 /*
  * MultiXactIdWait
- *		Sleep on a MultiXactId.
+ *		在一个 MultiXactId 上睡眠。
  *
- * By the time we finish sleeping, someone else may have changed the Xmax
- * of the containing tuple, so the caller needs to iterate on us somehow.
+ * 等到我们睡完，别人可能已经改了所在元组的 Xmax，
+ * 所以调用方需要以某种方式对我们迭代。
  *
- * We return (in *remaining, if not NULL) the number of members that are still
- * running, including any (non-aborted) subtransactions of our own transaction.
+ * 我们（在 *remaining 里，若不是 NULL）返回仍在运行的成员数，
+ * 包括我们自己事务的任何（未中止）子事务。
  */
 static void
 MultiXactIdWait(MultiXactId multi, MultiXactStatus status, uint16 infomask,
@@ -7778,16 +7778,16 @@ MultiXactIdWait(MultiXactId multi, MultiXactStatus status, uint16 infomask,
 
 /*
  * ConditionalMultiXactIdWait
- *		As above, but only lock if we can get the lock without blocking.
+ *		同上，但只有能不阻塞地取得锁时才加锁。
  *
- * By the time we finish sleeping, someone else may have changed the Xmax
- * of the containing tuple, so the caller needs to iterate on us somehow.
+ * 等到我们睡完，别人可能已经改了所在元组的 Xmax，
+ * 所以调用方需要以某种方式对我们迭代。
  *
- * If the multixact is now all gone, return true.  Returns false if some
- * transactions might still be running.
+ * 若该 multixact 现在已经全部消失，返回 true。若某些
+ * 事务可能仍在运行，返回 false。
  *
- * We return (in *remaining, if not NULL) the number of members that are still
- * running, including any (non-aborted) subtransactions of our own transaction.
+ * 我们（在 *remaining 里，若不是 NULL）返回仍在运行的成员数，
+ * 包括我们自己事务的任何（未中止）子事务。
  */
 static bool
 ConditionalMultiXactIdWait(MultiXactId multi, MultiXactStatus status,
@@ -7800,8 +7800,8 @@ ConditionalMultiXactIdWait(MultiXactId multi, MultiXactStatus status,
 /*
  * heap_tuple_needs_eventual_freeze
  *
- * Check to see whether any of the XID fields of a tuple (xmin, xmax, xvac)
- * will eventually require freezing (if tuple isn't removed by pruning first).
+ * 检查元组的任何 XID 字段（xmin、xmax、xvac）
+ * 最终是否需要冻结（若元组没有先被剪枝移除）。
  */
 bool
 heap_tuple_needs_eventual_freeze(HeapTupleHeader tuple)
@@ -7809,15 +7809,15 @@ heap_tuple_needs_eventual_freeze(HeapTupleHeader tuple)
 	TransactionId xid;
 
 	/*
-	 * If xmin is a normal transaction ID, this tuple is definitely not
-	 * frozen.
+	 * 若 xmin 是普通事务 ID，该元组肯定没有
+	 * 冻结。
 	 */
 	xid = HeapTupleHeaderGetXmin(tuple);
 	if (TransactionIdIsNormal(xid))
 		return true;
 
 	/*
-	 * If xmax is a valid xact or multixact, this tuple is also not frozen.
+	 * 若 xmax 是有效事务或 multixact，该元组也没有冻结。
 	 */
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 	{
@@ -7847,16 +7847,16 @@ heap_tuple_needs_eventual_freeze(HeapTupleHeader tuple)
 /*
  * heap_tuple_should_freeze
  *
- * Return value indicates if heap_prepare_freeze_tuple sibling function would
- * (or should) force freezing of the heap page that contains caller's tuple.
- * Tuple header XIDs/MXIDs < FreezeLimit/MultiXactCutoff trigger freezing.
- * This includes (xmin, xmax, xvac) fields, as well as MultiXact member XIDs.
+ * 返回值指出姊妹函数 heap_prepare_freeze_tuple 会
+ * （或应当）强制冻结包含调用方元组的堆页。
+ * 元组头中小于 FreezeLimit/MultiXactCutoff 的 XID/MXID 会触发冻结。
+ * 这包括（xmin、xmax、xvac）字段，以及 MultiXact 成员 XID。
  *
- * The *NoFreezePageRelfrozenXid and *NoFreezePageRelminMxid input/output
- * arguments help VACUUM track the oldest extant XID/MXID remaining in rel.
- * Our working assumption is that caller won't decide to freeze this tuple.
- * It's up to caller to only ratchet back its own top-level trackers after the
- * point that it fully commits to not freezing the tuple/page in question.
+ * *NoFreezePageRelfrozenXid 和 *NoFreezePageRelminMxid 输入/输出
+ * 参数帮助 VACUUM 跟踪关系中剩余的现存最旧 XID/MXID。
+ * 我们的工作假设是调用方不会决定冻结该元组。
+ * 只有在调用方完全确定不冻结该元组/页之后，
+ * 才由它把自己的顶层跟踪器往回调。
  */
 bool
 heap_tuple_should_freeze(HeapTupleHeader tuple,
@@ -7868,7 +7868,7 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 	MultiXactId multi;
 	bool		freeze = false;
 
-	/* First deal with xmin */
+	/* 先处理 xmin */
 	xid = HeapTupleHeaderGetXmin(tuple);
 	if (TransactionIdIsNormal(xid))
 	{
@@ -7879,7 +7879,7 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 			freeze = true;
 	}
 
-	/* Now deal with xmax */
+	/* 现在处理 xmax */
 	xid = InvalidTransactionId;
 	multi = InvalidMultiXactId;
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -7890,7 +7890,7 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 	if (TransactionIdIsNormal(xid))
 	{
 		Assert(TransactionIdPrecedesOrEquals(cutoffs->relfrozenxid, xid));
-		/* xmax is a non-permanent XID */
+		/* xmax 是非永久 XID */
 		if (TransactionIdPrecedes(xid, *NoFreezePageRelfrozenXid))
 			*NoFreezePageRelfrozenXid = xid;
 		if (TransactionIdPrecedes(xid, cutoffs->FreezeLimit))
@@ -7898,19 +7898,19 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 	}
 	else if (!MultiXactIdIsValid(multi))
 	{
-		/* xmax is a permanent XID or invalid MultiXactId/XID */
+		/* xmax 是永久 XID，或无效的 MultiXactId/XID */
 	}
 	else if (HEAP_LOCKED_UPGRADED(tuple->t_infomask))
 	{
-		/* xmax is a pg_upgrade'd MultiXact, which can't have updater XID */
+		/* xmax 是经 pg_upgrade 升级来的 MultiXact，它无法带有更新者 XID */
 		if (MultiXactIdPrecedes(multi, *NoFreezePageRelminMxid))
 			*NoFreezePageRelminMxid = multi;
-		/* heap_prepare_freeze_tuple always freezes pg_upgrade'd xmax */
+		/* heap_prepare_freeze_tuple 总是冻结经 pg_upgrade 升级来的 xmax */
 		freeze = true;
 	}
 	else
 	{
-		/* xmax is a MultiXactId that may have an updater XID */
+		/* xmax 是可能带有更新者 XID 的 MultiXactId */
 		MultiXactMember *members;
 		int			nmembers;
 
@@ -7920,7 +7920,7 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 		if (MultiXactIdPrecedes(multi, cutoffs->MultiXactCutoff))
 			freeze = true;
 
-		/* need to check whether any member of the mxact is old */
+		/* 需要检查该 mxact 的任何成员是否过旧 */
 		nmembers = GetMultiXactIdMembers(multi, &members, false,
 										 HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask));
 
@@ -7945,7 +7945,7 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 			Assert(TransactionIdPrecedesOrEquals(cutoffs->relfrozenxid, xid));
 			if (TransactionIdPrecedes(xid, *NoFreezePageRelfrozenXid))
 				*NoFreezePageRelfrozenXid = xid;
-			/* heap_prepare_freeze_tuple forces xvac freezing */
+			/* heap_prepare_freeze_tuple 强制冻结 xvac */
 			freeze = true;
 		}
 	}
@@ -7954,17 +7954,17 @@ heap_tuple_should_freeze(HeapTupleHeader tuple,
 }
 
 /*
- * Maintain snapshotConflictHorizon for caller by ratcheting forward its value
- * using any committed XIDs contained in 'tuple', an obsolescent heap tuple
- * that caller is in the process of physically removing, e.g. via HOT pruning
- * or index deletion.
+ * 用 'tuple' 中包含的任何已提交 XID 把值往前调，
+ * 为调用方维护 snapshotConflictHorizon。'tuple' 是调用方正在
+ * 物理移除的过时堆元组，例如通过 HOT 剪枝
+ * 或索引删除。
  *
- * Caller must initialize its value to InvalidTransactionId, which is
- * generally interpreted as "definitely no need for a recovery conflict".
- * Final value must reflect all heap tuples that caller will physically remove
- * (or remove TID references to) via its ongoing pruning/deletion operation.
- * ResolveRecoveryConflictWithSnapshot() is passed the final value (taken from
- * caller's WAL record) by REDO routine when it replays caller's operation.
+ * 调用方必须把该值初始化为 InvalidTransactionId，这
+ * 通常被解释为"肯定不需要恢复冲突"。
+ * 最终值必须反映调用方将通过正在进行的剪枝/删除操作
+ * 物理移除的所有堆元组（或移除指向它们的 TID 引用）。
+ * 重做例程重放调用方的操作时，会把最终值（取自
+ * 调用方的 WAL 记录）传给 ResolveRecoveryConflictWithSnapshot()。
  */
 void
 HeapTupleHeaderAdvanceConflictHorizon(HeapTupleHeader tuple,
@@ -7981,10 +7981,10 @@ HeapTupleHeaderAdvanceConflictHorizon(HeapTupleHeader tuple,
 	}
 
 	/*
-	 * Ignore tuples inserted by an aborted transaction or if the tuple was
-	 * updated/deleted by the inserting transaction.
+	 * 忽略由已中止事务插入的元组，或该元组被
+	 * 插入它的事务更新/删除的情形。
 	 *
-	 * Look for a committed hint bit, or if no xmin bit is set, check clog.
+	 * 寻找已提交提示位；若没有设置 xmin 位，则检查 CLOG。
 	 */
 	if (HeapTupleHeaderXminCommitted(tuple) ||
 		(!HeapTupleHeaderXminInvalid(tuple) && TransactionIdDidCommit(xmin)))
@@ -7997,14 +7997,14 @@ HeapTupleHeaderAdvanceConflictHorizon(HeapTupleHeader tuple,
 
 #ifdef USE_PREFETCH
 /*
- * Helper function for heap_index_delete_tuples.  Issues prefetch requests for
- * prefetch_count buffers.  The prefetch_state keeps track of all the buffers
- * we can prefetch, and which have already been prefetched; each call to this
- * function picks up where the previous call left off.
+ * heap_index_delete_tuples 的辅助函数。为
+ * prefetch_count 个缓冲区发出预取请求。prefetch_state 跟踪所有我们
+ * 可以预取的缓冲区，以及哪些已经预取过；每次调用本
+ * 函数都从上次调用停下的地方继续。
  *
- * Note: we expect the deltids array to be sorted in an order that groups TIDs
- * by heap block, with all TIDs for each block appearing together in exactly
- * one group.
+ * 注意：我们预期 deltids 数组按把 TID
+ * 按堆块分组的顺序排序，每个块的全部 TID 一起出现在恰好
+ * 一组里。
  */
 static void
 index_delete_prefetch_buffer(Relation rel,
@@ -8033,8 +8033,8 @@ index_delete_prefetch_buffer(Relation rel,
 	}
 
 	/*
-	 * Save the prefetch position so that next time we can continue from that
-	 * position.
+	 * 保存预取位置，以便下次可以从该
+	 * 位置继续。
 	 */
 	prefetch_state->next_item = i;
 	prefetch_state->cur_hblkno = cur_hblkno;
@@ -8042,14 +8042,14 @@ index_delete_prefetch_buffer(Relation rel,
 #endif
 
 /*
- * Helper function for heap_index_delete_tuples.  Checks for index corruption
- * involving an invalid TID in index AM caller's index page.
+ * heap_index_delete_tuples 的辅助函数。检查索引 AM 调用方索引页中
+ * 涉及无效 TID 的索引损坏。
  *
- * This is an ideal place for these checks.  The index AM must hold a buffer
- * lock on the index page containing the TIDs we examine here, so we don't
- * have to worry about concurrent VACUUMs at all.  We can be sure that the
- * index is corrupt when htid points directly to an LP_UNUSED item or
- * heap-only tuple, which is not the case during standard index scans.
+ * 这里是做这些检查的理想位置。索引 AM 必须对包含我们在此检查的 TID 的索引页
+ * 持有缓冲区锁，因此我们完全
+ * 不必担心并发的 VACUUM。当 htid 直接指向 LP_UNUSED 项或
+ * 堆内元组时，我们可以确定索引已损坏，
+ * 标准索引扫描期间不会出现这种情况。
  */
 static inline void
 index_delete_check_htid(TM_IndexDeleteOp *delstate,
@@ -8099,22 +8099,22 @@ index_delete_check_htid(TM_IndexDeleteOp *delstate,
 }
 
 /*
- * heapam implementation of tableam's index_delete_tuples interface.
+ * tableam 的 index_delete_tuples 接口的 heapam 实现。
  *
- * This helper function is called by index AMs during index tuple deletion.
- * See tableam header comments for an explanation of the interface implemented
- * here and a general theory of operation.  Note that each call here is either
- * a simple index deletion call, or a bottom-up index deletion call.
+ * 索引 AM 在删除索引元组期间调用这个辅助函数。
+ * 关于这里实现的接口以及一般工作原理，见 tableam 头注释
+ * 的说明。注意这里的每次调用要么是
+ * 简单索引删除调用，要么是自底向上索引删除调用。
  *
- * It's possible for this to generate a fair amount of I/O, since we may be
- * deleting hundreds of tuples from a single index block.  To amortize that
- * cost to some degree, this uses prefetching and combines repeat accesses to
- * the same heap block.
+ * 这可能产生相当多的 I/O，因为我们可能从一个索引块
+ * 删除数百个元组。为了在一定程度上分摊该
+ * 代价，这里使用预取，并合并对
+ * 同一堆块的重复访问。
  */
 TransactionId
 heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 {
-	/* Initial assumption is that earlier pruning took care of conflict */
+	/* 初始假设是先前的剪枝已经处理了冲突 */
 	TransactionId snapshotConflictHorizon = InvalidTransactionId;
 	BlockNumber blkno = InvalidBlockNumber;
 	Buffer		buf = InvalidBuffer;
@@ -8129,7 +8129,7 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 	int			finalndeltids = 0,
 				nblocksaccessed = 0;
 
-	/* State that's only used in bottom-up index deletion case */
+	/* 只在自底向上索引删除情形中使用的状态 */
 	int			nblocksfavorable = 0;
 	int			curtargetfreespace = delstate->bottomupfreespace,
 				lastfreespace = 0,
@@ -8138,32 +8138,32 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 
 	InitNonVacuumableSnapshot(SnapshotNonVacuumable, GlobalVisTestFor(rel));
 
-	/* Sort caller's deltids array by TID for further processing */
+	/* 按 TID 排序调用方的 deltids 数组以便进一步处理 */
 	index_delete_sort(delstate);
 
 	/*
-	 * Bottom-up case: resort deltids array in an order attuned to where the
-	 * greatest number of promising TIDs are to be found, and determine how
-	 * many blocks from the start of sorted array should be considered
-	 * favorable.  This will also shrink the deltids array in order to
-	 * eliminate completely unfavorable blocks up front.
+	 * 自底向上情形：按最有希望找到大量有希望 TID 的位置
+	 * 重新排序 deltids 数组，并决定
+	 * 排序后数组开头有多少块应当视为
+	 * 有利。这也会缩小 deltids 数组，以便
+	 * 事先去掉完全不利的块。
 	 */
 	if (delstate->bottomup)
 		nblocksfavorable = bottomup_sort_and_shrink(delstate);
 
 #ifdef USE_PREFETCH
-	/* Initialize prefetch state. */
+	/* 初始化预取状态。 */
 	prefetch_state.cur_hblkno = InvalidBlockNumber;
 	prefetch_state.next_item = 0;
 	prefetch_state.ndeltids = delstate->ndeltids;
 	prefetch_state.deltids = delstate->deltids;
 
 	/*
-	 * Determine the prefetch distance that we will attempt to maintain.
+	 * 决定我们将试图维持的预取距离。
 	 *
-	 * Since the caller holds a buffer lock somewhere in rel, we'd better make
-	 * sure that isn't a catalog relation before we call code that does
-	 * syscache lookups, to avoid risk of deadlock.
+	 * 由于调用方在 rel 的某处持有缓冲区锁，在调用做
+	 * syscache 查找的代码之前，我们最好确认
+	 * 那不是系统目录关系，以免有死锁风险。
 	 */
 	if (IsCatalogRelation(rel))
 		prefetch_distance = maintenance_io_concurrency;
@@ -8171,7 +8171,7 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 		prefetch_distance =
 			get_tablespace_maintenance_io_concurrency(rel->rd_rel->reltablespace);
 
-	/* Cap initial prefetch distance for bottom-up deletion caller */
+	/* 为自底向上删除的调用方限制初始预取距离上限 */
 	if (delstate->bottomup)
 	{
 		Assert(nblocksfavorable >= 1);
@@ -8179,11 +8179,11 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 		prefetch_distance = Min(prefetch_distance, nblocksfavorable);
 	}
 
-	/* Start prefetching. */
+	/* 开始预取。 */
 	index_delete_prefetch_buffer(rel, &prefetch_state, prefetch_distance);
 #endif
 
-	/* Iterate over deltids, determine which to delete, check their horizon */
+	/* 遍历 deltids，决定删除哪些，检查它们的视界 */
 	Assert(delstate->ndeltids > 0);
 	for (int i = 0; i < delstate->ndeltids; i++)
 	{
@@ -8193,72 +8193,72 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 		OffsetNumber offnum;
 
 		/*
-		 * Read buffer, and perform required extra steps each time a new block
-		 * is encountered.  Avoid refetching if it's the same block as the one
-		 * from the last htid.
+		 * 读取缓冲区，并且每次遇到新块时
+		 * 执行所需的额外步骤。
+		 * 若与上一个 htid 是同一块，则避免再次获取。
 		 */
 		if (blkno == InvalidBlockNumber ||
 			ItemPointerGetBlockNumber(htid) != blkno)
 		{
 			/*
-			 * Consider giving up early for bottom-up index deletion caller
-			 * first. (Only prefetch next-next block afterwards, when it
-			 * becomes clear that we're at least going to access the next
-			 * block in line.)
+			 * 先考虑为自底向上索引删除的调用方
+			 * 提前放弃。（之后才预取下下一块，
+			 * 那时已经清楚我们至少会访问
+			 * 队列中的下一块。）
 			 *
-			 * Sometimes the first block frees so much space for bottom-up
-			 * caller that the deletion process can end without accessing any
-			 * more blocks.  It is usually necessary to access 2 or 3 blocks
-			 * per bottom-up deletion operation, though.
+			 * 有时第一块为自底向上调用方释放了如此多的空间，
+			 * 删除过程可以不再访问任何更多块就结束。
+			 * 不过通常每次自底向上删除操作
+			 * 需要访问 2 或 3 个块。
 			 */
 			if (delstate->bottomup)
 			{
 				/*
-				 * We often allow caller to delete a few additional items
-				 * whose entries we reached after the point that space target
-				 * from caller was satisfied.  The cost of accessing the page
-				 * was already paid at that point, so it made sense to finish
-				 * it off.  When that happened, we finalize everything here
-				 * (by finishing off the whole bottom-up deletion operation
-				 * without needlessly paying the cost of accessing any more
-				 * blocks).
+				 * 我们常常允许调用方再删除另外几个项，
+				 * 这些项是在调用方的空间目标已经满足之后
+				 * 才到达的。
+				 * 访问该页的代价那时已经付过，因此把它做完
+				 * 是合理的。发生这种情况时，我们在这里把一切收尾
+				 * （结束整个自底向上删除操作，
+				 * 不必白白付出访问更多
+				 * 块的代价）。
 				 */
 				if (bottomup_final_block)
 					break;
 
 				/*
-				 * Give up when we didn't enable our caller to free any
-				 * additional space as a result of processing the page that we
-				 * just finished up with.  This rule is the main way in which
-				 * we keep the cost of bottom-up deletion under control.
+				 * 若处理刚完成的那一页之后，没能让调用方释放任何
+				 * 额外空间，就放弃。
+				 * 这条规则是我们把自底向上删除的代价
+				 * 保持在可控范围内的主要方式。
 				 */
 				if (nblocksaccessed >= 1 && actualfreespace == lastfreespace)
 					break;
-				lastfreespace = actualfreespace;	/* for next time */
+				lastfreespace = actualfreespace;	/* 供下次使用 */
 
 				/*
-				 * Deletion operation (which is bottom-up) will definitely
-				 * access the next block in line.  Prepare for that now.
+				 * 删除操作（自底向上）肯定会
+				 * 访问队列中的下一块。
+				 * 现在就为此做准备。
 				 *
-				 * Decay target free space so that we don't hang on for too
-				 * long with a marginal case. (Space target is only truly
-				 * helpful when it allows us to recognize that we don't need
-				 * to access more than 1 or 2 blocks to satisfy caller due to
-				 * agreeable workload characteristics.)
+				 * 衰减目标空闲空间，以免在边缘情形上
+				 * 拖太久。（空间目标只有在它让我们认出不必
+				 * 访问超过 1 或 2 个块就能满足调用方时才真正
+				 * 有帮助，这要归功于
+				 * 适宜的工作负载特征。）
 				 *
-				 * We are a bit more patient when we encounter contiguous
-				 * blocks, though: these are treated as favorable blocks.  The
-				 * decay process is only applied when the next block in line
-				 * is not a favorable/contiguous block.  This is not an
-				 * exception to the general rule; we still insist on finding
-				 * at least one deletable item per block accessed.  See
-				 * bottomup_nblocksfavorable() for full details of the theory
-				 * behind favorable blocks and heap block locality in general.
+				 * 遇到连续块时我们会更有耐心一些：
+				 * 这些块被视为有利块。只有当队列中的下一块
+				 * 不是有利/连续块时才应用衰减过程。这不是对
+				 * 一般规则的例外；我们仍然坚持每个被访问的块至少找到
+				 * 一个可删除项。关于有利块以及一般的堆块局部性，
+				 * 理论的全部细节见
+				 * bottomup_nblocksfavorable()。
 				 *
-				 * Note: The first block in line is always treated as a
-				 * favorable block, so the earliest possible point that the
-				 * decay can be applied is just before we access the second
-				 * block in line.  The Assert() verifies this for us.
+				 * 注意：队列中的第一块始终被视为
+				 * 有利块，因此最早可能应用衰减的时点
+				 * 就在我们访问队列中第二块之前。
+				 * Assert() 为我们验证这一点。
 				 */
 				Assert(nblocksaccessed > 0 || nblocksfavorable > 0);
 				if (nblocksfavorable > 0)
@@ -8267,7 +8267,7 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 					curtargetfreespace /= 2;
 			}
 
-			/* release old buffer */
+			/* 释放旧缓冲区 */
 			if (BufferIsValid(buf))
 				UnlockReleaseBuffer(buf);
 
@@ -8280,8 +8280,8 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 #ifdef USE_PREFETCH
 
 			/*
-			 * To maintain the prefetch distance, prefetch one more page for
-			 * each page we read.
+			 * 为维持预取距离，我们每读一页
+			 * 就再预取一页。
 			 */
 			index_delete_prefetch_buffer(rel, &prefetch_state, 1);
 #endif
@@ -8293,10 +8293,10 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 		}
 
 		/*
-		 * In passing, detect index corruption involving an index page with a
-		 * TID that points to a location in the heap that couldn't possibly be
-		 * correct.  We only do this with actual TIDs from caller's index page
-		 * (not items reached by traversing through a HOT chain).
+		 * 顺便检测这种索引损坏：索引页上的
+		 * TID 指向堆中绝无可能
+		 * 正确的位置。我们只对来自调用方索引页的实际 TID 做这件事
+		 * （不是顺着 HOT 链走到的项）。
 		 */
 		index_delete_check_htid(delstate, page, maxoff, htid, istatus);
 
@@ -8307,15 +8307,15 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 			ItemPointerData tmp = *htid;
 			HeapTupleData heapTuple;
 
-			/* Are any tuples from this HOT chain non-vacuumable? */
+			/* 这条 HOT 链上有没有任何元组不可被清理？ */
 			if (heap_hot_search_buffer(&tmp, rel, buf, &SnapshotNonVacuumable,
 									   &heapTuple, NULL, true))
-				continue;		/* can't delete entry */
+				continue;		/* 无法删除该项 */
 
-			/* Caller will delete, since whole HOT chain is vacuumable */
+			/* 调用方将删除，因为整条 HOT 链都可被清理 */
 			istatus->knowndeletable = true;
 
-			/* Maintain index free space info for bottom-up deletion case */
+			/* 为自底向上删除情形维护索引空闲空间信息 */
 			if (delstate->bottomup)
 			{
 				Assert(istatus->freespace > 0);
@@ -8326,24 +8326,24 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 		}
 
 		/*
-		 * Maintain snapshotConflictHorizon value for deletion operation as a
-		 * whole by advancing current value using heap tuple headers.  This is
-		 * loosely based on the logic for pruning a HOT chain.
+		 * 用堆元组头推进当前值，为整个删除操作维护
+		 * snapshotConflictHorizon。这
+		 * 大致基于剪枝 HOT 链的逻辑。
 		 */
 		offnum = ItemPointerGetOffsetNumber(htid);
-		priorXmax = InvalidTransactionId;	/* cannot check first XMIN */
+		priorXmax = InvalidTransactionId;	/* 无法检查第一个 XMIN */
 		for (;;)
 		{
 			ItemId		lp;
 			HeapTupleHeader htup;
 
-			/* Sanity check (pure paranoia) */
+			/* 健全性检查（纯粹出于谨慎） */
 			if (offnum < FirstOffsetNumber)
 				break;
 
 			/*
-			 * An offset past the end of page's line pointer array is possible
-			 * when the array was truncated
+			 * 偏移超出页的行指针数组末尾是可能的，
+			 * 当该数组被截断时
 			 */
 			if (offnum > maxoff)
 				break;
@@ -8356,18 +8356,18 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 			}
 
 			/*
-			 * We'll often encounter LP_DEAD line pointers (especially with an
-			 * entry marked knowndeletable by our caller up front).  No heap
-			 * tuple headers get examined for an htid that leads us to an
-			 * LP_DEAD item.  This is okay because the earlier pruning
-			 * operation that made the line pointer LP_DEAD in the first place
-			 * must have considered the original tuple header as part of
-			 * generating its own snapshotConflictHorizon value.
+			 * 我们会经常遇到 LP_DEAD 行指针（尤其是调用方事先
+			 * 标成 knowndeletable 的项）。把我们带到
+			 * LP_DEAD 项的 htid 不会检查任何堆
+			 * 元组头。这没问题，因为最初把行指针变成 LP_DEAD 的
+			 * 先前剪枝操作
+			 * 在生成自己的 snapshotConflictHorizon 值时，
+			 * 必定已经把原元组头考虑在内。
 			 *
-			 * Relying on XLOG_HEAP2_PRUNE records like this is the same
-			 * strategy that index vacuuming uses in all cases.  Index VACUUM
-			 * WAL records don't even have a snapshotConflictHorizon field of
-			 * their own for this reason.
+			 * 像这样依赖 XLOG_HEAP2_PRUNE 记录，与
+			 * 索引清理在所有情形中使用的策略相同。索引 VACUUM
+			 * 的 WAL 记录甚至没有自己的 snapshotConflictHorizon 字段，
+			 * 原因就在这里。
 			 */
 			if (!ItemIdIsNormal(lp))
 				break;
@@ -8375,7 +8375,7 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 			htup = (HeapTupleHeader) PageGetItem(page, lp);
 
 			/*
-			 * Check the tuple XMIN against prior XMAX, if any
+			 * 若有先前的 XMAX，对照它检查元组的 XMIN
 			 */
 			if (TransactionIdIsValid(priorXmax) &&
 				!TransactionIdEquals(HeapTupleHeaderGetXmin(htup), priorXmax))
@@ -8385,31 +8385,31 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 												  &snapshotConflictHorizon);
 
 			/*
-			 * If the tuple is not HOT-updated, then we are at the end of this
-			 * HOT-chain.  No need to visit later tuples from the same update
-			 * chain (they get their own index entries) -- just move on to
-			 * next htid from index AM caller.
+			 * 若元组不是 HOT 更新的，那么我们就到了这条
+			 * HOT 链的末尾。不必访问同一更新
+			 * 链上更后面的元组（它们有自己的索引项）——直接转到
+			 * 索引 AM 调用方的下一个 htid。
 			 */
 			if (!HeapTupleHeaderIsHotUpdated(htup))
 				break;
 
-			/* Advance to next HOT chain member */
+			/* 前进到下一个 HOT 链成员 */
 			Assert(ItemPointerGetBlockNumber(&htup->t_ctid) == blkno);
 			offnum = ItemPointerGetOffsetNumber(&htup->t_ctid);
 			priorXmax = HeapTupleHeaderGetUpdateXid(htup);
 		}
 
-		/* Enable further/final shrinking of deltids for caller */
+		/* 允许为调用方进一步/最终缩小 deltids */
 		finalndeltids = i + 1;
 	}
 
 	UnlockReleaseBuffer(buf);
 
 	/*
-	 * Shrink deltids array to exclude non-deletable entries at the end.  This
-	 * is not just a minor optimization.  Final deltids array size might be
-	 * zero for a bottom-up caller.  Index AM is explicitly allowed to rely on
-	 * ndeltids being zero in all cases with zero total deletable entries.
+	 * 缩小 deltids 数组，排除末尾不可删除的项。这
+	 * 不只是小优化。对自底向上调用方，最终 deltids 数组大小可能
+	 * 为零。索引 AM 被明确允许在可删除项总数为零的所有情形中
+	 * 依赖 ndeltids 为零。
 	 */
 	Assert(finalndeltids > 0 || delstate->bottomup);
 	delstate->ndeltids = finalndeltids;
@@ -8418,7 +8418,7 @@ heap_index_delete_tuples(Relation rel, TM_IndexDeleteOp *delstate)
 }
 
 /*
- * Specialized inlineable comparison function for index_delete_sort()
+ * 供 index_delete_sort() 使用的专用可内联比较函数
  */
 static inline int
 index_delete_sort_cmp(TM_IndexDelete *deltid1, TM_IndexDelete *deltid2)
@@ -8447,14 +8447,14 @@ index_delete_sort_cmp(TM_IndexDelete *deltid1, TM_IndexDelete *deltid2)
 }
 
 /*
- * Sort deltids array from delstate by TID.  This prepares it for further
- * processing by heap_index_delete_tuples().
+ * 按 TID 排序 delstate 中的 deltids 数组。这为
+ * heap_index_delete_tuples() 的进一步处理做准备。
  *
- * This operation becomes a noticeable consumer of CPU cycles with some
- * workloads, so we go to the trouble of specialization/micro optimization.
- * We use shellsort for this because it's easy to specialize, compiles to
- * relatively few instructions, and is adaptive to presorted inputs/subsets
- * (which are typical here).
+ * 在某些工作负载下，这个操作会明显消耗 CPU 周期，
+ * 因此我们费心做特化/微优化。
+ * 这里用希尔排序，因为它容易特化，编译后
+ * 指令相对少，并且对预排序的输入/子集自适应
+ * （这里很典型）。
  */
 static void
 index_delete_sort(TM_IndexDeleteOp *delstate)
@@ -8464,14 +8464,14 @@ index_delete_sort(TM_IndexDeleteOp *delstate)
 	int			low = 0;
 
 	/*
-	 * Shellsort gap sequence (taken from Sedgewick-Incerpi paper).
+	 * 希尔排序的间隔序列（取自 Sedgewick-Incerpi 论文）。
 	 *
-	 * This implementation is fast with array sizes up to ~4500.  This covers
-	 * all supported BLCKSZ values.
+	 * 这个实现对大约 4500 以内的数组大小很快。这覆盖
+	 * 所有受支持的 BLCKSZ 值。
 	 */
 	const int	gaps[9] = {1968, 861, 336, 112, 48, 21, 7, 3, 1};
 
-	/* Think carefully before changing anything here -- keep swaps cheap */
+	/* 改这里的任何东西之前请仔细想——让交换保持廉价 */
 	StaticAssertDecl(sizeof(TM_IndexDelete) <= 8,
 					 "element size exceeds 8 bytes");
 
@@ -8493,65 +8493,65 @@ index_delete_sort(TM_IndexDeleteOp *delstate)
 }
 
 /*
- * Returns how many blocks should be considered favorable/contiguous for a
- * bottom-up index deletion pass.  This is a number of heap blocks that starts
- * from and includes the first block in line.
+ * 返回一次过程中有多少块应当视为有利/连续，用于
+ * 自底向上索引删除。这是从队列中第一块开始
+ * 并包含该块的堆块数。
  *
- * There is always at least one favorable block during bottom-up index
- * deletion.  In the worst case (i.e. with totally random heap blocks) the
- * first block in line (the only favorable block) can be thought of as a
- * degenerate array of contiguous blocks that consists of a single block.
- * heap_index_delete_tuples() will expect this.
+ * 自底向上索引删除期间总是至少有一个有利块。
+ * 最坏情况下（即堆块完全随机），
+ * 队列中的第一块（唯一的有利块）可以看成
+ * 只由单个块组成的退化连续块数组。
+ * heap_index_delete_tuples() 会预期这一点。
  *
- * Caller passes blockgroups, a description of the final order that deltids
- * will be sorted in for heap_index_delete_tuples() bottom-up index deletion
- * processing.  Note that deltids need not actually be sorted just yet (caller
- * only passes deltids to us so that we can interpret blockgroups).
+ * 调用方传入 blockgroups，即 deltids 最终顺序的描述，
+ * 该顺序用于 heap_index_delete_tuples() 的自底向上索引删除
+ * 处理。注意 deltids 此刻不必真的已经排序（调用方
+ * 把 deltids 传给我们，只是为了让我们能解释 blockgroups）。
  *
- * You might guess that the existence of contiguous blocks cannot matter much,
- * since in general the main factor that determines which blocks we visit is
- * the number of promising TIDs, which is a fixed hint from the index AM.
- * We're not really targeting the general case, though -- the actual goal is
- * to adapt our behavior to a wide variety of naturally occurring conditions.
- * The effects of most of the heuristics we apply are only noticeable in the
- * aggregate, over time and across many _related_ bottom-up index deletion
- * passes.
+ * 你可能会猜连续块的存在起不了太大作用，
+ * 因为一般来说，决定我们访问哪些块的主要因素是
+ * 有希望的 TID 数量，那是来自索引 AM 的固定提示。
+ * 不过我们针对的并不是一般情形——实际目标是
+ * 让行为适应各种各样自然出现的状况。
+ * 我们应用的大多数启发式，其效果只有在
+ * 总体上、随时间、跨许多_相关的_自底向上索引删除
+ * 过程中才能察觉到。
  *
- * Deeming certain blocks favorable allows heapam to recognize and adapt to
- * workloads where heap blocks visited during bottom-up index deletion can be
- * accessed contiguously, in the sense that each newly visited block is the
- * neighbor of the block that bottom-up deletion just finished processing (or
- * close enough to it).  It will likely be cheaper to access more favorable
- * blocks sooner rather than later (e.g. in this pass, not across a series of
- * related bottom-up passes).  Either way it is probably only a matter of time
- * (or a matter of further correlated version churn) before all blocks that
- * appear together as a single large batch of favorable blocks get accessed by
- * _some_ bottom-up pass.  Large batches of favorable blocks tend to either
- * appear almost constantly or not even once (it all depends on per-index
- * workload characteristics).
+ * 把某些块视为有利，让 heapam 能够认出并适应
+ * 这样的工作负载：自底向上索引删除期间访问的堆块可以
+ * 连续访问，意思是每个新访问的块是
+ * 自底向上删除刚处理完的那块的邻居（或者
+ * 足够接近）。更早而不是更晚地访问更多有利
+ * 块可能会更便宜（例如在这一次过程中，而不是跨一系列
+ * 相关的自底向上过程）。无论如何，大概只是时间问题
+ * （或进一步相关的版本更替问题），所有作为单
+ * 一大批有利块一起出现的块就会被
+ * _某一次_自底向上过程访问。大批有利块往往要么
+ * 几乎持续出现，要么一次也不出现（这完全取决于每个索引的
+ * 工作负载特征）。
  *
- * Note that the blockgroups sort order applies a power-of-two bucketing
- * scheme that creates opportunities for contiguous groups of blocks to get
- * batched together, at least with workloads that are naturally amenable to
- * being driven by heap block locality.  This doesn't just enhance the spatial
- * locality of bottom-up heap block processing in the obvious way.  It also
- * enables temporal locality of access, since sorting by heap block number
- * naturally tends to make the bottom-up processing order deterministic.
+ * 注意 blockgroups 的排序顺序应用了二的幂分桶
+ * 方案，为连续块组被
+ * 一起分批创造机会，至少对那些天然适合
+ * 由堆块局部性驱动的工作负载是这样。这不只是以明显方式增强
+ * 自底向上堆块处理的空间局部性。它也
+ * 使访问具有时间局部性，因为按堆块号排序
+ * 自然倾向于使自底向上处理顺序确定。
  *
- * Consider the following example to get a sense of how temporal locality
- * might matter: There is a heap relation with several indexes, each of which
- * is low to medium cardinality.  It is subject to constant non-HOT updates.
- * The updates are skewed (in one part of the primary key, perhaps).  None of
- * the indexes are logically modified by the UPDATE statements (if they were
- * then bottom-up index deletion would not be triggered in the first place).
- * Naturally, each new round of index tuples (for each heap tuple that gets a
- * heap_update() call) will have the same heap TID in each and every index.
- * Since these indexes are low cardinality and never get logically modified,
- * heapam processing during bottom-up deletion passes will access heap blocks
- * in approximately sequential order.  Temporal locality of access occurs due
- * to bottom-up deletion passes behaving very similarly across each of the
- * indexes at any given moment.  This keeps the number of buffer misses needed
- * to visit heap blocks to a minimum.
+ * 考虑下面的例子，以感受时间局部性
+ * 为何重要：有一个带若干索引的堆关系，每个索引
+ * 都是低到中等基数。它经受持续的非 HOT 更新。
+ * 更新是偏斜的（也许在主键的某一部分）。这些
+ * 索引都不会被 UPDATE 语句在逻辑上修改（若会被修改，
+ * 那么一开始就不会触发自底向上索引删除）。
+ * 自然，每一轮新的索引元组（对每个得到
+ * heap_update() 调用的堆元组）在每一个索引里都会有相同的堆 TID。
+ * 由于这些索引基数低，且从不被逻辑修改，
+ * 自底向上删除过程期间的 heapam 处理将以
+ * 大致顺序访问堆块。访问的时间局部性来自
+ * 各个索引上的自底向上删除过程在任一给定时刻
+ * 行为非常相似。这把访问堆块所需的缓冲区未命中数
+ * 保持在最低。
  */
 static int
 bottomup_nblocksfavorable(IndexDeleteCounts *blockgroups, int nblockgroups,
@@ -8564,13 +8564,13 @@ bottomup_nblocksfavorable(IndexDeleteCounts *blockgroups, int nblockgroups,
 	Assert(nblockgroups <= BOTTOMUP_MAX_NBLOCKS);
 
 	/*
-	 * We tolerate heap blocks that will be accessed only slightly out of
-	 * physical order.  Small blips occur when a pair of almost-contiguous
-	 * blocks happen to fall into different buckets (perhaps due only to a
-	 * small difference in npromisingtids that the bucketing scheme didn't
-	 * quite manage to ignore).  We effectively ignore these blips by applying
-	 * a small tolerance.  The precise tolerance we use is a little arbitrary,
-	 * but it works well enough in practice.
+	 * 我们容忍将要访问的堆块只是略微偏离
+	 * 物理顺序。当一对几乎连续的
+	 * 块碰巧落入不同的桶时，会出现小起伏（也许只是因为
+	 * npromisingtids 的微小差异，分桶方案没能
+	 * 完全忽略）。我们用一个小容差
+	 * 实际上忽略这些起伏。所用的精确容差有点任意，
+	 * 但实践中足够好用。
 	 */
 	for (int b = 0; b < nblockgroups; b++)
 	{
@@ -8587,14 +8587,14 @@ bottomup_nblocksfavorable(IndexDeleteCounts *blockgroups, int nblockgroups,
 		lastblock = block;
 	}
 
-	/* Always indicate that there is at least 1 favorable block */
+	/* 始终表明至少有 1 个有利块 */
 	Assert(nblocksfavorable >= 1);
 
 	return nblocksfavorable;
 }
 
 /*
- * qsort comparison function for bottomup_sort_and_shrink()
+ * bottomup_sort_and_shrink() 的 qsort 比较函数
  */
 static int
 bottomup_sort_and_shrink_cmp(const void *arg1, const void *arg2)
@@ -8603,11 +8603,11 @@ bottomup_sort_and_shrink_cmp(const void *arg1, const void *arg2)
 	const IndexDeleteCounts *group2 = (const IndexDeleteCounts *) arg2;
 
 	/*
-	 * Most significant field is npromisingtids (which we invert the order of
-	 * so as to sort in desc order).
+	 * 最重要的字段是 npromisingtids（我们把它的顺序反过来，
+	 * 以便按降序排序）。
 	 *
-	 * Caller should have already normalized npromisingtids fields into
-	 * power-of-two values (buckets).
+	 * 调用方应当已经把 npromisingtids 字段规范化成
+	 * 二的幂值（桶）。
 	 */
 	if (group1->npromisingtids > group2->npromisingtids)
 		return -1;
@@ -8615,10 +8615,10 @@ bottomup_sort_and_shrink_cmp(const void *arg1, const void *arg2)
 		return 1;
 
 	/*
-	 * Tiebreak: desc ntids sort order.
+	 * 决胜：ntids 降序。
 	 *
-	 * We cannot expect power-of-two values for ntids fields.  We should
-	 * behave as if they were already rounded up for us instead.
+	 * 我们无法预期 ntids 字段是二的幂值。我们应当
+	 * 表现得好像它们已经被为我们向上取整。
 	 */
 	if (group1->ntids != group2->ntids)
 	{
@@ -8632,14 +8632,14 @@ bottomup_sort_and_shrink_cmp(const void *arg1, const void *arg2)
 	}
 
 	/*
-	 * Tiebreak: asc offset-into-deltids-for-block (offset to first TID for
-	 * block in deltids array) order.
+	 * 决胜：deltids 中该块的偏移升序（该块在
+	 * deltids 数组中第一个 TID 的偏移）。
 	 *
-	 * This is equivalent to sorting in ascending heap block number order
-	 * (among otherwise equal subsets of the array).  This approach allows us
-	 * to avoid accessing the out-of-line TID.  (We rely on the assumption
-	 * that the deltids array was sorted in ascending heap TID order when
-	 * these offsets to the first TID from each heap block group were formed.)
+	 * 这等价于按堆块号升序排序
+	 * （在数组中其他方面相等的子集之间）。这种方法让我们
+	 * 避免访问行外的 TID。（我们依赖的假设是：
+	 * 形成每个堆块组第一个 TID 的这些偏移时，
+	 * deltids 数组已按堆 TID 升序排序。）
 	 */
 	if (group1->ifirsttid > group2->ifirsttid)
 		return 1;
@@ -8652,22 +8652,22 @@ bottomup_sort_and_shrink_cmp(const void *arg1, const void *arg2)
 }
 
 /*
- * heap_index_delete_tuples() helper function for bottom-up deletion callers.
+ * 供自底向上删除调用方使用的 heap_index_delete_tuples() 辅助函数。
  *
- * Sorts deltids array in the order needed for useful processing by bottom-up
- * deletion.  The array should already be sorted in TID order when we're
- * called.  The sort process groups heap TIDs from deltids into heap block
- * groupings.  Earlier/more-promising groups/blocks are usually those that are
- * known to have the most "promising" TIDs.
+ * 按自底向上删除有用处理所需的顺序排序 deltids 数组。
+ * 调用我们时，数组应当已经按 TID 顺序排序。
+ * 排序过程把 deltids 中的堆 TID 分成堆块
+ * 分组。更早/更有希望的组/块通常是那些
+ * 已知拥有最多"有希望"TID
+ * 的那些。
  *
- * Sets new size of deltids array (ndeltids) in state.  deltids will only have
- * TIDs from the BOTTOMUP_MAX_NBLOCKS most promising heap blocks when we
- * return.  This often means that deltids will be shrunk to a small fraction
- * of its original size (we eliminate many heap blocks from consideration for
- * caller up front).
+ * 在 state 里设置 deltids 数组的新大小（ndeltids）。返回时 deltids 将只含
+ * 来自最有希望的 BOTTOMUP_MAX_NBLOCKS 个堆块的
+ * TID。这常常意味着 deltids 会缩小到原来大小的一小部分
+ * （我们事先为调用方排除许多堆块，不再考虑）。
  *
- * Returns the number of "favorable" blocks.  See bottomup_nblocksfavorable()
- * for a definition and full details.
+ * 返回"有利"块的数量。定义和全部细节见
+ * bottomup_nblocksfavorable()。
  */
 static int
 bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
@@ -8682,7 +8682,7 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 	Assert(delstate->bottomup);
 	Assert(delstate->ndeltids > 0);
 
-	/* Calculate per-heap-block count of TIDs */
+	/* 计算每个堆块的 TID 计数 */
 	blockgroups = palloc(sizeof(IndexDeleteCounts) * delstate->ndeltids);
 	for (int i = 0; i < delstate->ndeltids; i++)
 	{
@@ -8693,7 +8693,7 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 
 		if (curblock != ItemPointerGetBlockNumber(htid))
 		{
-			/* New block group */
+			/* 新的块组 */
 			nblockgroups++;
 
 			Assert(curblock < ItemPointerGetBlockNumber(htid) ||
@@ -8714,38 +8714,38 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 	}
 
 	/*
-	 * We're about ready to sort block groups to determine the optimal order
-	 * for visiting heap blocks.  But before we do, round the number of
-	 * promising tuples for each block group up to the next power-of-two,
-	 * unless it is very low (less than 4), in which case we round up to 4.
-	 * npromisingtids is far too noisy to trust when choosing between a pair
-	 * of block groups that both have very low values.
+	 * 我们差不多准备好排序块组，以决定访问堆块的最优顺序。
+	 * 但在那之前，把每个块组的有希望元组数
+	 * 向上取整到下一个二的幂，
+	 * 除非它非常低（小于 4），那时我们向上取整到 4。
+	 * 在两个值都很低的块组之间选择时，
+	 * npromisingtids 噪声太大，
+	 * 难以信赖。
 	 *
-	 * This scheme divides heap blocks/block groups into buckets.  Each bucket
-	 * contains blocks that have _approximately_ the same number of promising
-	 * TIDs as each other.  The goal is to ignore relatively small differences
-	 * in the total number of promising entries, so that the whole process can
-	 * give a little weight to heapam factors (like heap block locality)
-	 * instead.  This isn't a trade-off, really -- we have nothing to lose. It
-	 * would be foolish to interpret small differences in npromisingtids
-	 * values as anything more than noise.
+	 * 这个方案把堆块/块组分成桶。每个桶
+	 * 包含彼此有希望 TID 数量_大致_相同的
+	 * 块。目标是忽略有希望项总数中相对小的差异，
+	 * 以便整个过程可以转而
+	 * 给 heapam 因素（比如堆块局部性）一点权重。
+	 * 这其实不是权衡——我们没什么可失去的。把 npromisingtids
+	 * 值里的小差异解释成噪声以外的任何东西
+	 * 都是不明智的。
 	 *
-	 * We tiebreak on nhtids when sorting block group subsets that have the
-	 * same npromisingtids, but this has the same issues as npromisingtids,
-	 * and so nhtids is subject to the same power-of-two bucketing scheme. The
-	 * only reason that we don't fix nhtids in the same way here too is that
-	 * we'll need accurate nhtids values after the sort.  We handle nhtids
-	 * bucketization dynamically instead (in the sort comparator).
+	 * 对 npromisingtids 相同的块组子集排序时，我们用 nhtids 决胜，
+	 * 但这与 npromisingtids 有同样的问题，
+	 * 因此 nhtids 也服从同样的二的幂分桶方案。
+	 * 我们不在这里也用同样方式修正 nhtids，唯一原因是
+	 * 排序之后我们需要准确的 nhtids 值。我们改为
+	 * 动态处理 nhtids 分桶（在排序比较器里）。
 	 *
-	 * See bottomup_nblocksfavorable() for a full explanation of when and how
-	 * heap locality/favorable blocks can significantly influence when and how
-	 * heap blocks are accessed.
+	 * 关于堆局部性/有利块何时以及如何显著影响堆块
+	 * 何时以及如何被访问，完整说明见 bottomup_nblocksfavorable()。
 	 */
 	for (int b = 0; b < nblockgroups; b++)
 	{
 		IndexDeleteCounts *group = blockgroups + b;
 
-		/* Better off falling back on nhtids with low npromisingtids */
+		/* npromisingtids 很低时，不如退回到 nhtids */
 		if (group->npromisingtids <= 4)
 			group->npromisingtids = 4;
 		else
@@ -8753,13 +8753,13 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 				pg_nextpower2_32((uint32) group->npromisingtids);
 	}
 
-	/* Sort groups and rearrange caller's deltids array */
+	/* 排序分组并重排调用方的 deltids 数组 */
 	qsort(blockgroups, nblockgroups, sizeof(IndexDeleteCounts),
 		  bottomup_sort_and_shrink_cmp);
 	reordereddeltids = palloc(delstate->ndeltids * sizeof(TM_IndexDelete));
 
 	nblockgroups = Min(BOTTOMUP_MAX_NBLOCKS, nblockgroups);
-	/* Determine number of favorable blocks at the start of final deltids */
+	/* 决定最终 deltids 开头的有利块数量 */
 	nblocksfavorable = bottomup_nblocksfavorable(blockgroups, nblockgroups,
 												 delstate->deltids);
 
@@ -8773,7 +8773,7 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 		ncopied += group->ntids;
 	}
 
-	/* Copy final grouped and sorted TIDs back into start of caller's array */
+	/* 把最终分组并排序的 TID 复制回调用方数组的开头 */
 	memcpy(delstate->deltids, reordereddeltids,
 		   sizeof(TM_IndexDelete) * ncopied);
 	delstate->ndeltids = ncopied;
@@ -8785,18 +8785,18 @@ bottomup_sort_and_shrink(TM_IndexDeleteOp *delstate)
 }
 
 /*
- * Perform XLogInsert for a heap-visible operation.  'block' is the block
- * being marked all-visible, and vm_buffer is the buffer containing the
- * corresponding visibility map block.  Both should have already been modified
- * and dirtied.
+ * 为堆全可见操作执行 XLogInsert。'block' 是正在被标为
+ * 全可见的块，vm_buffer 是包含对应
+ * 可见性映射块的缓冲区。两者应当都已经被修改
+ * 并标脏。
  *
- * snapshotConflictHorizon comes from the largest xmin on the page being
- * marked all-visible.  REDO routine uses it to generate recovery conflicts.
+ * snapshotConflictHorizon 来自正在被标为全可见的页上最大的 xmin。
+ * 重做例程用它生成恢复冲突。
  *
- * If checksums or wal_log_hints are enabled, we may also generate a full-page
- * image of heap_buffer. Otherwise, we optimize away the FPI (by specifying
- * REGBUF_NO_IMAGE for the heap buffer), in which case the caller should *not*
- * update the heap page's LSN.
+ * 若启用了校验和或 wal_log_hints，我们也可能生成 heap_buffer 的整页
+ * 映像。否则我们优化掉 FPI（对堆缓冲区指定
+ * REGBUF_NO_IMAGE），此时调用方*不*
+ * 应当更新堆页的 LSN。
  */
 XLogRecPtr
 log_heap_visible(Relation rel, Buffer heap_buffer, Buffer vm_buffer,
@@ -8829,8 +8829,8 @@ log_heap_visible(Relation rel, Buffer heap_buffer, Buffer vm_buffer,
 }
 
 /*
- * Perform XLogInsert for a heap-update operation.  Caller must already
- * have modified the buffer(s) and marked them dirty.
+ * 为堆更新操作执行 XLogInsert。调用方必须已经
+ * 修改缓冲区并标脏。
  */
 static XLogRecPtr
 log_heap_update(Relation reln, Buffer oldbuf,
@@ -8851,7 +8851,7 @@ log_heap_update(Relation reln, Buffer oldbuf,
 	bool		init;
 	int			bufflags;
 
-	/* Caller should not call me on a non-WAL-logged relation */
+	/* 调用方不应当对不记 WAL 的关系调用我 */
 	Assert(RelationNeedsWAL(reln));
 
 	XLogBeginInsert();
@@ -8862,24 +8862,24 @@ log_heap_update(Relation reln, Buffer oldbuf,
 		info = XLOG_HEAP_UPDATE;
 
 	/*
-	 * If the old and new tuple are on the same page, we only need to log the
-	 * parts of the new tuple that were changed.  That saves on the amount of
-	 * WAL we need to write.  Currently, we just count any unchanged bytes in
-	 * the beginning and end of the tuple.  That's quick to check, and
-	 * perfectly covers the common case that only one field is updated.
+	 * 若旧元组和新元组在同一页，我们只需记录新元组中
+	 * 发生变化的部分。这能减少需要写的
+	 * WAL 量。目前我们只统计元组开头和结尾
+	 * 未变化的字节。这检查起来很快，并且
+	 * 完美覆盖只更新一个字段的常见情形。
 	 *
-	 * We could do this even if the old and new tuple are on different pages,
-	 * but only if we don't make a full-page image of the old page, which is
-	 * difficult to know in advance.  Also, if the old tuple is corrupt for
-	 * some reason, it would allow the corruption to propagate the new page,
-	 * so it seems best to avoid.  Under the general assumption that most
-	 * updates tend to create the new tuple version on the same page, there
-	 * isn't much to be gained by doing this across pages anyway.
+	 * 即使旧元组和新元组在不同页，我们也可以这样做，
+	 * 但前提是我们不为旧页做整页映像，而这
+	 * 很难事先知道。另外，若旧元组因某种原因损坏，
+	 * 就会让损坏传播到新页，
+	 * 因此最好避免。在大多数更新倾向于在同一页创建新元组版本
+	 * 这个一般假设下，跨页这样做
+	 * 反正也得不到多少好处。
 	 *
-	 * Skip this if we're taking a full-page image of the new page, as we
-	 * don't include the new tuple in the WAL record in that case.  Also
-	 * disable if wal_level='logical', as logical decoding needs to be able to
-	 * read the new tuple in whole from the WAL record alone.
+	 * 若我们正在为新页做整页映像，就跳过，因为那种情况下
+	 * WAL 记录不包含新元组。另外，
+	 * 若 wal_level='logical' 则禁用，因为逻辑解码需要能够
+	 * 仅从 WAL 记录完整读出新元组。
 	 */
 	if (oldbuf == newbuf && !need_tuple_data &&
 		!XLogCheckBufferNeedsBackup(newbuf))
@@ -8889,7 +8889,7 @@ log_heap_update(Relation reln, Buffer oldbuf,
 		int			oldlen = oldtup->t_len - oldtup->t_data->t_hoff;
 		int			newlen = newtup->t_len - newtup->t_data->t_hoff;
 
-		/* Check for common prefix between old and new tuple */
+		/* 检查旧元组与新元组之间的公共前缀 */
 		for (prefixlen = 0; prefixlen < Min(oldlen, newlen); prefixlen++)
 		{
 			if (newp[prefixlen] != oldp[prefixlen])
@@ -8897,13 +8897,13 @@ log_heap_update(Relation reln, Buffer oldbuf,
 		}
 
 		/*
-		 * Storing the length of the prefix takes 2 bytes, so we need to save
-		 * at least 3 bytes or there's no point.
+		 * 存储前缀长度要占 2 字节，因此我们需要至少省下
+		 * 3 字节，否则没有意义。
 		 */
 		if (prefixlen < 3)
 			prefixlen = 0;
 
-		/* Same for suffix */
+		/* 后缀同理 */
 		for (suffixlen = 0; suffixlen < Min(oldlen, newlen) - prefixlen; suffixlen++)
 		{
 			if (newp[newlen - suffixlen - 1] != oldp[oldlen - suffixlen - 1])
@@ -8913,7 +8913,7 @@ log_heap_update(Relation reln, Buffer oldbuf,
 			suffixlen = 0;
 	}
 
-	/* Prepare main WAL data chain */
+	/* 准备主 WAL 数据链 */
 	xlrec.flags = 0;
 	if (all_visible_cleared)
 		xlrec.flags |= XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED;
@@ -8935,7 +8935,7 @@ log_heap_update(Relation reln, Buffer oldbuf,
 		}
 	}
 
-	/* If new tuple is the single and first tuple on page... */
+	/* 若新元组是页上唯一且第一个元组…… */
 	if (ItemPointerGetOffsetNumber(&(newtup->t_self)) == FirstOffsetNumber &&
 		PageGetMaxOffsetNumber(page) == FirstOffsetNumber)
 	{
@@ -8945,13 +8945,13 @@ log_heap_update(Relation reln, Buffer oldbuf,
 	else
 		init = false;
 
-	/* Prepare WAL data for the old page */
+	/* 为旧页准备 WAL 数据 */
 	xlrec.old_offnum = ItemPointerGetOffsetNumber(&oldtup->t_self);
 	xlrec.old_xmax = HeapTupleHeaderGetRawXmax(oldtup->t_data);
 	xlrec.old_infobits_set = compute_infobits(oldtup->t_data->t_infomask,
 											  oldtup->t_data->t_infomask2);
 
-	/* Prepare WAL data for the new page */
+	/* 为新页准备 WAL 数据 */
 	xlrec.new_offnum = ItemPointerGetOffsetNumber(&newtup->t_self);
 	xlrec.new_xmax = HeapTupleHeaderGetRawXmax(newtup->t_data);
 
@@ -8968,7 +8968,7 @@ log_heap_update(Relation reln, Buffer oldbuf,
 	XLogRegisterData((char *) &xlrec, SizeOfHeapUpdate);
 
 	/*
-	 * Prepare WAL data for the new tuple.
+	 * 为新元组准备 WAL 数据。
 	 */
 	if (prefixlen > 0 || suffixlen > 0)
 	{
@@ -8994,9 +8994,9 @@ log_heap_update(Relation reln, Buffer oldbuf,
 	Assert(SizeofHeapTupleHeader + prefixlen + suffixlen <= newtup->t_len);
 
 	/*
-	 * PG73FORMAT: write bitmap [+ padding] [+ oid] + data
+	 * PG73FORMAT：写入位图 [+ 填充] [+ oid] + 数据
 	 *
-	 * The 'data' doesn't include the common prefix or suffix.
+	 * 'data' 不包括公共前缀或后缀。
 	 */
 	XLogRegisterBufData(0, (char *) &xlhdr, SizeOfHeapHeader);
 	if (prefixlen == 0)
@@ -9008,10 +9008,10 @@ log_heap_update(Relation reln, Buffer oldbuf,
 	else
 	{
 		/*
-		 * Have to write the null bitmap and data after the common prefix as
-		 * two separate rdata entries.
+		 * 必须把空值位图和公共前缀之后的数据写成
+		 * 两个单独的 rdata 项。
 		 */
-		/* bitmap [+ padding] [+ oid] */
+		/* 位图 [+ 填充] [+ oid] */
 		if (newtup->t_data->t_hoff - SizeofHeapTupleHeader > 0)
 		{
 			XLogRegisterBufData(0,
@@ -9019,28 +9019,28 @@ log_heap_update(Relation reln, Buffer oldbuf,
 								newtup->t_data->t_hoff - SizeofHeapTupleHeader);
 		}
 
-		/* data after common prefix */
+		/* 公共前缀之后的数据 */
 		XLogRegisterBufData(0,
 							((char *) newtup->t_data) + newtup->t_data->t_hoff + prefixlen,
 							newtup->t_len - newtup->t_data->t_hoff - prefixlen - suffixlen);
 	}
 
-	/* We need to log a tuple identity */
+	/* 我们需要记录一个元组标识 */
 	if (need_tuple_data && old_key_tuple)
 	{
-		/* don't really need this, but its more comfy to decode */
+		/* 其实并不需要这个，但解码起来更顺手 */
 		xlhdr_idx.t_infomask2 = old_key_tuple->t_data->t_infomask2;
 		xlhdr_idx.t_infomask = old_key_tuple->t_data->t_infomask;
 		xlhdr_idx.t_hoff = old_key_tuple->t_data->t_hoff;
 
 		XLogRegisterData((char *) &xlhdr_idx, SizeOfHeapHeader);
 
-		/* PG73FORMAT: write bitmap [+ padding] [+ oid] + data */
+		/* PG73FORMAT：写入位图 [+ 填充] [+ oid] + 数据 */
 		XLogRegisterData((char *) old_key_tuple->t_data + SizeofHeapTupleHeader,
 						 old_key_tuple->t_len - SizeofHeapTupleHeader);
 	}
 
-	/* filtering by origin on a row level is much more efficient */
+	/* 在行级按来源过滤要高效得多 */
 	XLogSetRecordFlags(XLOG_INCLUDE_ORIGIN);
 
 	recptr = XLogInsert(RM_HEAP_ID, info);
@@ -9049,10 +9049,10 @@ log_heap_update(Relation reln, Buffer oldbuf,
 }
 
 /*
- * Perform XLogInsert of an XLOG_HEAP2_NEW_CID record
+ * 执行 XLOG_HEAP2_NEW_CID 记录的 XLogInsert
  *
- * This is only used in wal_level >= WAL_LEVEL_LOGICAL, and only for catalog
- * tuples.
+ * 这只在 wal_level >= WAL_LEVEL_LOGICAL 时使用，且只用于系统目录
+ * 元组。
  */
 static XLogRecPtr
 log_heap_new_cid(Relation relation, HeapTuple tup)
@@ -9070,8 +9070,8 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
 	xlrec.target_tid = tup->t_self;
 
 	/*
-	 * If the tuple got inserted & deleted in the same TX we definitely have a
-	 * combo CID, set cmin and cmax.
+	 * 若元组在同一事务中被插入又被删除，我们肯定有
+	 * 组合 CID，设置 cmin 和 cmax。
 	 */
 	if (hdr->t_infomask & HEAP_COMBOCID)
 	{
@@ -9081,16 +9081,16 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
 		xlrec.cmax = HeapTupleHeaderGetCmax(hdr);
 		xlrec.combocid = HeapTupleHeaderGetRawCommandId(hdr);
 	}
-	/* No combo CID, so only cmin or cmax can be set by this TX */
+	/* 没有组合 CID，因此该事务只能设置 cmin 或 cmax */
 	else
 	{
 		/*
-		 * Tuple inserted.
+		 * 元组已插入。
 		 *
-		 * We need to check for LOCK ONLY because multixacts might be
-		 * transferred to the new tuple in case of FOR KEY SHARE updates in
-		 * which case there will be an xmax, although the tuple just got
-		 * inserted.
+		 * 我们需要检查 LOCK ONLY，因为在 FOR KEY SHARE 更新时
+		 * multixact 可能被转移到新元组，
+		 * 此时会有 xmax，尽管元组只是刚刚
+		 * 被插入。
 		 */
 		if (hdr->t_infomask & HEAP_XMAX_INVALID ||
 			HEAP_XMAX_IS_LOCKED_ONLY(hdr->t_infomask))
@@ -9098,7 +9098,7 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
 			xlrec.cmin = HeapTupleHeaderGetRawCommandId(hdr);
 			xlrec.cmax = InvalidCommandId;
 		}
-		/* Tuple from a different tx updated or deleted. */
+		/* 来自另一个事务的元组被更新或删除。 */
 		else
 		{
 			xlrec.cmin = InvalidCommandId;
@@ -9108,14 +9108,14 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
 	}
 
 	/*
-	 * Note that we don't need to register the buffer here, because this
-	 * operation does not modify the page. The insert/update/delete that
-	 * called us certainly did, but that's WAL-logged separately.
+	 * 注意这里不必登记缓冲区，因为这个
+	 * 操作不修改该页。调用我们的插入/更新/删除
+	 * 当然改过，但那是单独记入 WAL 的。
 	 */
 	XLogBeginInsert();
 	XLogRegisterData((char *) &xlrec, SizeOfHeapNewCid);
 
-	/* will be looked at irrespective of origin */
+	/* 无论来源如何都会被查看 */
 
 	recptr = XLogInsert(RM_HEAP2_ID, XLOG_HEAP2_NEW_CID);
 
@@ -9123,17 +9123,17 @@ log_heap_new_cid(Relation relation, HeapTuple tup)
 }
 
 /*
- * Build a heap tuple representing the configured REPLICA IDENTITY to represent
- * the old tuple in an UPDATE or DELETE.
+ * 构造一个表示所配置 REPLICA IDENTITY 的堆元组，用来表示
+ * UPDATE 或 DELETE 中的旧元组。
  *
- * Returns NULL if there's no need to log an identity or if there's no suitable
- * key defined.
+ * 若不必记录标识，或没有定义合适的
+ * 键，则返回 NULL。
  *
- * Pass key_required true if any replica identity columns changed value, or if
- * any of them have any external data.  Delete must always pass true.
+ * 若任何副本标识列的值变了，或者
+ * 其中任何列含有外部数据，则传入 key_required 为 true。删除必须始终传入 true。
  *
- * *copy is set to true if the returned tuple is a modified copy rather than
- * the same tuple that was passed in.
+ * 若返回的元组是修改过的副本，而不是
+ * 传入的同一个元组，则把 *copy 设为 true。
  */
 static HeapTuple
 ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
@@ -9157,8 +9157,8 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 	if (replident == REPLICA_IDENTITY_FULL)
 	{
 		/*
-		 * When logging the entire old tuple, it very well could contain
-		 * toasted columns. If so, force them to be inlined.
+		 * 记录整个旧元组时，它完全可能包含
+		 * 已 TOAST 的列。若是这样，强制把它们内联。
 		 */
 		if (HeapTupleHasExternal(tp))
 		{
@@ -9168,27 +9168,27 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 		return tp;
 	}
 
-	/* if the key isn't required and we're only logging the key, we're done */
+	/* 若键不是必需的，且我们只记录键，就结束了 */
 	if (!key_required)
 		return NULL;
 
-	/* find out the replica identity columns */
+	/* 找出副本标识列 */
 	idattrs = RelationGetIndexAttrBitmap(relation,
 										 INDEX_ATTR_BITMAP_IDENTITY_KEY);
 
 	/*
-	 * If there's no defined replica identity columns, treat as !key_required.
-	 * (This case should not be reachable from heap_update, since that should
-	 * calculate key_required accurately.  But heap_delete just passes
-	 * constant true for key_required, so we can hit this case in deletes.)
+	 * 若没有定义副本标识列，就当作 !key_required。
+	 * （从 heap_update 不应当到达这种情形，因为它应当
+	 * 准确地计算 key_required。但 heap_delete 只传入
+	 * 常量 true 作为 key_required，因此删除时会碰到这种情形。）
 	 */
 	if (bms_is_empty(idattrs))
 		return NULL;
 
 	/*
-	 * Construct a new tuple containing only the replica identity columns,
-	 * with nulls elsewhere.  While we're at it, assert that the replica
-	 * identity columns aren't null.
+	 * 构造一个只含副本标识列的新元组，
+	 * 其他地方为空。同时断言副本
+	 * 标识列不是空。
 	 */
 	heap_deform_tuple(tp, desc, values, nulls);
 
@@ -9207,11 +9207,11 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 	bms_free(idattrs);
 
 	/*
-	 * If the tuple, which by here only contains indexed columns, still has
-	 * toasted columns, force them to be inlined. This is somewhat unlikely
-	 * since there's limits on the size of indexed columns, so we don't
-	 * duplicate toast_flatten_tuple()s functionality in the above loop over
-	 * the indexed columns, even if it would be more efficient.
+	 * 若元组到这里只含索引列，却仍然有
+	 * 已 TOAST 的列，强制把它们内联。这有些不太可能，
+	 * 因为索引列的大小有限制，所以我们不在上面遍历
+	 * 索引列的循环里重复 toast_flatten_tuple() 的功能，
+	 * 即使那样会更高效。
 	 */
 	if (HeapTupleHasExternal(key_tuple))
 	{
@@ -9225,9 +9225,9 @@ ExtractReplicaIdentity(Relation relation, HeapTuple tp, bool key_required,
 }
 
 /*
- * Handles XLOG_HEAP2_PRUNE record type.
+ * 处理 XLOG_HEAP2_PRUNE 记录类型。
  *
- * Acquires a full cleanup lock.
+ * 获取完全清理锁。
  */
 static void
 heap_xlog_prune(XLogReaderState *record)
@@ -9242,8 +9242,8 @@ heap_xlog_prune(XLogReaderState *record)
 	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &blkno);
 
 	/*
-	 * We're about to remove tuples. In Hot Standby mode, ensure that there's
-	 * no queries running for which the removed tuples are still visible.
+	 * 我们即将移除元组。在热备模式下，确保没有正在运行的
+	 * 查询仍能看见将被移除的元组。
 	 */
 	if (InHotStandby)
 		ResolveRecoveryConflictWithSnapshot(xlrec->snapshotConflictHorizon,
@@ -9251,8 +9251,8 @@ heap_xlog_prune(XLogReaderState *record)
 											rlocator);
 
 	/*
-	 * If we have a full-page image, restore it (using a cleanup lock) and
-	 * we're done.
+	 * 若有整页映像，恢复它（使用清理锁），然后
+	 * 就完成了。
 	 */
 	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, true,
 										   &buffer);
@@ -9278,15 +9278,15 @@ heap_xlog_prune(XLogReaderState *record)
 		nunused = (end - nowunused);
 		Assert(nunused >= 0);
 
-		/* Update all line pointers per the record, and repair fragmentation */
+		/* 按记录更新所有行指针，并修复碎片 */
 		heap_page_prune_execute(buffer,
 								redirected, nredirected,
 								nowdead, ndead,
 								nowunused, nunused);
 
 		/*
-		 * Note: we don't worry about updating the page's prunability hints.
-		 * At worst this will cause an extra prune cycle to occur soon.
+		 * 注意：我们不操心更新该页的可剪枝性提示。
+		 * 最坏情况下这会导致很快再发生一轮剪枝。
 		 */
 
 		PageSetLSN(page, lsn);
@@ -9300,22 +9300,22 @@ heap_xlog_prune(XLogReaderState *record)
 		UnlockReleaseBuffer(buffer);
 
 		/*
-		 * After pruning records from a page, it's useful to update the FSM
-		 * about it, as it may cause the page become target for insertions
-		 * later even if vacuum decides not to visit it (which is possible if
-		 * gets marked all-visible.)
+		 * 对一页做完剪枝记录之后，更新 FSM
+		 * 是有用的，因为这可能使该页成为稍后插入的目标，
+		 * 即使清理决定不访问它（若它被标成
+		 * 全可见，就可能发生）。
 		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
+		 * 无论是否应用了整页映像都这样做，因为
+		 * FSM 数据本来就不在页里。
 		 */
 		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
 	}
 }
 
 /*
- * Handles XLOG_HEAP2_VACUUM record type.
+ * 处理 XLOG_HEAP2_VACUUM 记录类型。
  *
- * Acquires an ordinary exclusive lock only.
+ * 只获取普通排他锁。
  */
 static void
 heap_xlog_vacuum(XLogReaderState *record)
@@ -9327,8 +9327,8 @@ heap_xlog_vacuum(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * If we have a full-page image, restore it	(without using a cleanup lock)
-	 * and we're done.
+	 * 若有整页映像，恢复它（不使用清理锁），
+	 * 然后就完成了。
 	 */
 	action = XLogReadBufferForRedoExtended(record, 0, RBM_NORMAL, false,
 										   &buffer);
@@ -9341,10 +9341,10 @@ heap_xlog_vacuum(XLogReaderState *record)
 
 		nowunused = (OffsetNumber *) XLogRecGetBlockData(record, 0, &datalen);
 
-		/* Shouldn't be a record unless there's something to do */
+		/* 除非有事可做，否则不应当有这条记录 */
 		Assert(xlrec->nunused > 0);
 
-		/* Update all now-unused line pointers */
+		/* 更新所有现在未使用的行指针 */
 		offnum = nowunused;
 		for (int i = 0; i < xlrec->nunused; i++)
 		{
@@ -9355,7 +9355,7 @@ heap_xlog_vacuum(XLogReaderState *record)
 			ItemIdSetUnused(lp);
 		}
 
-		/* Attempt to truncate line pointer array now */
+		/* 现在尝试截断行指针数组 */
 		PageTruncateLinePointerArray(page);
 
 		PageSetLSN(page, lsn);
@@ -9372,25 +9372,25 @@ heap_xlog_vacuum(XLogReaderState *record)
 		UnlockReleaseBuffer(buffer);
 
 		/*
-		 * After vacuuming LP_DEAD items from a page, it's useful to update
-		 * the FSM about it, as it may cause the page become target for
-		 * insertions later even if vacuum decides not to visit it (which is
-		 * possible if gets marked all-visible.)
+		 * 从一页清理掉 LP_DEAD 项之后，更新
+		 * FSM 是有用的，因为这可能使该页成为稍后
+		 * 插入的目标，即使清理决定不访问它（若它被标成
+		 * 全可见，就可能发生）。
 		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
+		 * 无论是否应用了整页映像都这样做，因为
+		 * FSM 数据本来就不在页里。
 		 */
 		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
 	}
 }
 
 /*
- * Replay XLOG_HEAP2_VISIBLE record.
+ * 重放 XLOG_HEAP2_VISIBLE 记录。
  *
- * The critical integrity requirement here is that we must never end up with
- * a situation where the visibility map bit is set, and the page-level
- * PD_ALL_VISIBLE bit is clear.  If that were to occur, then a subsequent
- * page modification would fail to clear the visibility map bit.
+ * 这里关键的完整性要求是，我们绝不能落到
+ * 可见性映射位已设置、而页级
+ * PD_ALL_VISIBLE 位被清除的局面。若发生那种情况，随后的
+ * 页修改就会无法清除可见性映射位。
  */
 static void
 heap_xlog_visible(XLogReaderState *record)
@@ -9409,13 +9409,13 @@ heap_xlog_visible(XLogReaderState *record)
 	XLogRecGetBlockTag(record, 1, &rlocator, NULL, &blkno);
 
 	/*
-	 * If there are any Hot Standby transactions running that have an xmin
-	 * horizon old enough that this page isn't all-visible for them, they
-	 * might incorrectly decide that an index-only scan can skip a heap fetch.
+	 * 若有任何热备事务正在运行，其 xmin
+	 * 视界旧到该页对它们并非全可见，它们
+	 * 可能错误地认定仅索引扫描可以跳过堆取数。
 	 *
-	 * NB: It might be better to throw some kind of "soft" conflict here that
-	 * forces any index-only scan that is in flight to perform heap fetches,
-	 * rather than killing the transaction outright.
+	 * 注意：这里抛出某种"软"冲突可能更好，它
+	 * 迫使任何正在进行的仅索引扫描执行堆取数，
+	 * 而不是直接终止该事务。
 	 */
 	if (InHotStandby)
 		ResolveRecoveryConflictWithSnapshot(xlrec->snapshotConflictHorizon,
@@ -9423,19 +9423,19 @@ heap_xlog_visible(XLogReaderState *record)
 											rlocator);
 
 	/*
-	 * Read the heap page, if it still exists. If the heap file has dropped or
-	 * truncated later in recovery, we don't need to update the page, but we'd
-	 * better still update the visibility map.
+	 * 读取堆页，若它仍然存在。若堆文件在恢复中稍后被删除或
+	 * 截断，我们不必更新该页，但最好
+	 * 仍然更新可见性映射。
 	 */
 	action = XLogReadBufferForRedo(record, 1, &buffer);
 	if (action == BLK_NEEDS_REDO)
 	{
 		/*
-		 * We don't bump the LSN of the heap page when setting the visibility
-		 * map bit (unless checksums or wal_hint_bits is enabled, in which
-		 * case we must). This exposes us to torn page hazards, but since
-		 * we're not inspecting the existing page contents in any way, we
-		 * don't care.
+		 * 设置可见性映射位时，我们不推进堆页的 LSN
+		 * （除非启用了校验和或 wal_hint_bits，那时
+		 * 我们必须推进）。这使我们面临撕裂页风险，但由于
+		 * 我们不以任何方式检查现有页内容，我们
+		 * 并不在意。
 		 */
 		page = BufferGetPage(buffer);
 
@@ -9449,9 +9449,9 @@ heap_xlog_visible(XLogReaderState *record)
 	else if (action == BLK_RESTORED)
 	{
 		/*
-		 * If heap block was backed up, we already restored it and there's
-		 * nothing more to do. (This can only happen with checksums or
-		 * wal_log_hints enabled.)
+		 * 若堆块已备份，我们已经恢复了它，没有
+		 * 更多事情要做。（这只在启用校验和或
+		 * wal_log_hints 时发生。）
 		 */
 	}
 
@@ -9462,31 +9462,31 @@ heap_xlog_visible(XLogReaderState *record)
 		UnlockReleaseBuffer(buffer);
 
 		/*
-		 * Since FSM is not WAL-logged and only updated heuristically, it
-		 * easily becomes stale in standbys.  If the standby is later promoted
-		 * and runs VACUUM, it will skip updating individual free space
-		 * figures for pages that became all-visible (or all-frozen, depending
-		 * on the vacuum mode,) which is troublesome when FreeSpaceMapVacuum
-		 * propagates too optimistic free space values to upper FSM layers;
-		 * later inserters try to use such pages only to find out that they
-		 * are unusable.  This can cause long stalls when there are many such
-		 * pages.
+		 * 由于 FSM 不记 WAL，且只启发式地更新，它
+		 * 在备库上很容易变陈旧。
+		 * 若备库后来被提升
+		 * 并运行 VACUUM，它会跳过更新那些变成全可见
+		 * （或全冻结，取决于
+		 * 清理模式）的页的各个空闲空间数值，当 FreeSpaceMapVacuum
+		 * 把过于乐观的空闲空间值传播到 FSM 上层时，这很麻烦；
+		 * 后来的插入者试图使用这样的页，结果发现它们
+		 * 不可用。当这样的页很多时，这会造成长时间停顿。
 		 *
-		 * Forestall those problems by updating FSM's idea about a page that
-		 * is becoming all-visible or all-frozen.
+		 * 对正在变成全可见或全冻结的页，更新 FSM 对它的看法，
+		 * 以此预先防止那些问题。
 		 *
-		 * Do this regardless of a full-page image being applied, since the
-		 * FSM data is not in the page anyway.
+		 * 无论是否应用了整页映像都这样做，因为
+		 * FSM 数据本来就不在页里。
 		 */
 		if (xlrec->flags & VISIBILITYMAP_VALID_BITS)
 			XLogRecordPageWithFreeSpace(rlocator, blkno, space);
 	}
 
 	/*
-	 * Even if we skipped the heap page update due to the LSN interlock, it's
-	 * still safe to update the visibility map.  Any WAL record that clears
-	 * the visibility map bit does so before checking the page LSN, so any
-	 * bits that need to be cleared will still be cleared.
+	 * 即使因 LSN 互锁而跳过了堆页更新，
+	 * 更新可见性映射仍然安全。任何清除
+	 * 可见性映射位的 WAL 记录都在检查页 LSN 之前这样做，因此任何
+	 * 需要清除的位仍会被清除。
 	 */
 	if (XLogReadBufferForRedoExtended(record, 0, RBM_ZERO_ON_ERROR, false,
 									  &vmbuffer) == BLK_NEEDS_REDO)
@@ -9495,16 +9495,16 @@ heap_xlog_visible(XLogReaderState *record)
 		Relation	reln;
 		uint8		vmbits;
 
-		/* initialize the page if it was read as zeros */
+		/* 若该页被读成全零，则初始化它 */
 		if (PageIsNew(vmpage))
 			PageInit(vmpage, BLCKSZ, 0);
 
-		/* remove VISIBILITYMAP_XLOG_* */
+		/* 去掉 VISIBILITYMAP_XLOG_* */
 		vmbits = xlrec->flags & VISIBILITYMAP_VALID_BITS;
 
 		/*
-		 * XLogReadBufferForRedoExtended locked the buffer. But
-		 * visibilitymap_set will handle locking itself.
+		 * XLogReadBufferForRedoExtended 锁住了缓冲区。但
+		 * visibilitymap_set 会自己处理加锁。
 		 */
 		LockBuffer(vmbuffer, BUFFER_LOCK_UNLOCK);
 
@@ -9522,7 +9522,7 @@ heap_xlog_visible(XLogReaderState *record)
 }
 
 /*
- * Replay XLOG_HEAP2_FREEZE_PAGE records
+ * 重放 XLOG_HEAP2_FREEZE_PAGE 记录
  */
 static void
 heap_xlog_freeze_page(XLogReaderState *record)
@@ -9532,8 +9532,8 @@ heap_xlog_freeze_page(XLogReaderState *record)
 	Buffer		buffer;
 
 	/*
-	 * In Hot Standby mode, ensure that there's no queries running which still
-	 * consider the frozen xids as running.
+	 * 在热备模式下，确保没有正在运行的查询仍把
+	 * 已冻结的 xid 视为正在运行。
 	 */
 	if (InHotStandby)
 	{
@@ -9561,14 +9561,14 @@ heap_xlog_freeze_page(XLogReaderState *record)
 			HeapTupleFreeze frz;
 
 			/*
-			 * Convert freeze plan representation from WAL record into
-			 * per-tuple format used by heap_execute_freeze_tuple
+			 * 把冻结计划表示从 WAL 记录转换成
+			 * heap_execute_freeze_tuple 使用的按元组格式
 			 */
 			frz.xmax = plans[p].xmax;
 			frz.t_infomask2 = plans[p].t_infomask2;
 			frz.t_infomask = plans[p].t_infomask;
 			frz.frzflags = plans[p].frzflags;
-			frz.offset = InvalidOffsetNumber;	/* unused, but be tidy */
+			frz.offset = InvalidOffsetNumber;	/* 未使用，但求整齐 */
 
 			for (int i = 0; i < plans[p].ntuples; i++)
 			{
@@ -9590,10 +9590,10 @@ heap_xlog_freeze_page(XLogReaderState *record)
 }
 
 /*
- * Given an "infobits" field from an XLog record, set the correct bits in the
- * given infomask and infomask2 for the tuple touched by the record.
+ * 给定 XLog 记录中的 "infobits" 字段，为该记录触及的元组
+ * 在给定的 infomask 和 infomask2 里设置正确的位。
  *
- * (This is the reverse of compute_infobits).
+ * （这是 compute_infobits 的逆操作）。
  */
 static void
 fix_infomask_from_infobits(uint8 infobits, uint16 *infomask, uint16 *infomask2)
@@ -9608,7 +9608,7 @@ fix_infomask_from_infobits(uint8 infobits, uint16 *infomask, uint16 *infomask2)
 		*infomask |= HEAP_XMAX_LOCK_ONLY;
 	if (infobits & XLHL_XMAX_EXCL_LOCK)
 		*infomask |= HEAP_XMAX_EXCL_LOCK;
-	/* note HEAP_XMAX_SHR_LOCK isn't considered here */
+	/* 注意这里不考虑 HEAP_XMAX_SHR_LOCK */
 	if (infobits & XLHL_XMAX_KEYSHR_LOCK)
 		*infomask |= HEAP_XMAX_KEYSHR_LOCK;
 
@@ -9634,8 +9634,8 @@ heap_xlog_delete(XLogReaderState *record)
 	ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_DELETE_ALL_VISIBLE_CLEARED)
 	{
@@ -9671,13 +9671,13 @@ heap_xlog_delete(XLogReaderState *record)
 			HeapTupleHeaderSetXmin(htup, InvalidTransactionId);
 		HeapTupleHeaderSetCmax(htup, FirstCommandId, false);
 
-		/* Mark the page as a candidate for pruning */
+		/* 把该页标为剪枝候选 */
 		PageSetPrunable(page, XLogRecGetXid(record));
 
 		if (xlrec->flags & XLH_DELETE_ALL_VISIBLE_CLEARED)
 			PageClearAllVisible(page);
 
-		/* Make sure t_ctid is set correctly */
+		/* 确保 t_ctid 设置正确 */
 		if (xlrec->flags & XLH_DELETE_IS_PARTITION_MOVE)
 			HeapTupleHeaderSetMovedPartitions(htup);
 		else
@@ -9714,12 +9714,12 @@ heap_xlog_insert(XLogReaderState *record)
 	ItemPointerSetBlockNumber(&target_tid, blkno);
 	ItemPointerSetOffsetNumber(&target_tid, xlrec->offnum);
 
-	/* No freezing in the heap_insert() code path */
+	/* heap_insert() 代码路径中不冻结 */
 	Assert(!(xlrec->flags & XLH_INSERT_ALL_FROZEN_SET));
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
 	{
@@ -9733,8 +9733,8 @@ heap_xlog_insert(XLogReaderState *record)
 	}
 
 	/*
-	 * If we inserted the first and only tuple on the page, re-initialize the
-	 * page from scratch.
+	 * 若我们插入的是该页上第一个且唯一的元组，从头
+	 * 重新初始化该页。
 	 */
 	if (XLogRecGetInfo(record) & XLOG_HEAP_INIT_PAGE)
 	{
@@ -9764,7 +9764,7 @@ heap_xlog_insert(XLogReaderState *record)
 
 		htup = &tbuf.hdr;
 		MemSet((char *) htup, 0, SizeofHeapTupleHeader);
-		/* PG73FORMAT: get bitmap [+ padding] [+ oid] + data */
+		/* PG73FORMAT：取得位图 [+ 填充] [+ oid] + 数据 */
 		memcpy((char *) htup + SizeofHeapTupleHeader,
 			   data,
 			   newlen);
@@ -9780,7 +9780,7 @@ heap_xlog_insert(XLogReaderState *record)
 						true, true) == InvalidOffsetNumber)
 			elog(PANIC, "failed to add tuple");
 
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
+		freespace = PageGetHeapFreeSpace(page); /* 下面更新 FSM 时需要 */
 
 		PageSetLSN(page, lsn);
 
@@ -9793,20 +9793,20 @@ heap_xlog_insert(XLogReaderState *record)
 		UnlockReleaseBuffer(buffer);
 
 	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
+	 * 若该页空闲空间不足，也更新 FSM。
+	 * 任意地，我们对"不足"的定义是低于 20%。不知道表的填充因子，
+	 * 我们就无法比这做得好很多。
 	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
+	 * XXX：若该页是从整页映像恢复的，不要这样做。那种情况下
+	 * 我们懒得更新 FSM，反正它也不必
+	 * 完全准确。
 	 */
 	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
 		XLogRecordPageWithFreeSpace(target_locator, blkno, freespace);
 }
 
 /*
- * Handles MULTI_INSERT record type.
+ * 处理 MULTI_INSERT 记录类型。
  */
 static void
 heap_xlog_multi_insert(XLogReaderState *record)
@@ -9830,20 +9830,20 @@ heap_xlog_multi_insert(XLogReaderState *record)
 	XLogRedoAction action;
 
 	/*
-	 * Insertion doesn't overwrite MVCC data, so no conflict processing is
-	 * required.
+	 * 插入不覆盖 MVCC 数据，因此不必
+	 * 做冲突处理。
 	 */
 	xlrec = (xl_heap_multi_insert *) XLogRecGetData(record);
 
 	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &blkno);
 
-	/* check that the mutually exclusive flags are not both set */
+	/* 检查互斥标志没有同时设置 */
 	Assert(!((xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED) &&
 			 (xlrec->flags & XLH_INSERT_ALL_FROZEN_SET)));
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
 	{
@@ -9871,7 +9871,7 @@ heap_xlog_multi_insert(XLogReaderState *record)
 		char	   *endptr;
 		Size		len;
 
-		/* Tuples are stored as block data */
+		/* 元组作为块数据存储 */
 		tupdata = XLogRecGetBlockData(record, 0, &len);
 		endptr = tupdata + len;
 
@@ -9883,9 +9883,9 @@ heap_xlog_multi_insert(XLogReaderState *record)
 			xl_multi_insert_tuple *xlhdr;
 
 			/*
-			 * If we're reinitializing the page, the tuples are stored in
-			 * order from FirstOffsetNumber. Otherwise there's an array of
-			 * offsets in the WAL record, and the tuples come after that.
+			 * 若我们正在重新初始化该页，元组从 FirstOffsetNumber 起
+			 * 按顺序存储。否则 WAL 记录里有一个偏移
+			 * 数组，元组跟在它后面。
 			 */
 			if (isinit)
 				offnum = FirstOffsetNumber + i;
@@ -9901,7 +9901,7 @@ heap_xlog_multi_insert(XLogReaderState *record)
 			Assert(newlen <= MaxHeapTupleSize);
 			htup = &tbuf.hdr;
 			MemSet((char *) htup, 0, SizeofHeapTupleHeader);
-			/* PG73FORMAT: get bitmap [+ padding] [+ oid] + data */
+			/* PG73FORMAT：取得位图 [+ 填充] [+ oid] + 数据 */
 			memcpy((char *) htup + SizeofHeapTupleHeader,
 				   (char *) tupdata,
 				   newlen);
@@ -9923,14 +9923,14 @@ heap_xlog_multi_insert(XLogReaderState *record)
 		if (tupdata != endptr)
 			elog(PANIC, "total tuple length mismatch");
 
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
+		freespace = PageGetHeapFreeSpace(page); /* 下面更新 FSM 时需要 */
 
 		PageSetLSN(page, lsn);
 
 		if (xlrec->flags & XLH_INSERT_ALL_VISIBLE_CLEARED)
 			PageClearAllVisible(page);
 
-		/* XLH_INSERT_ALL_FROZEN_SET implies that all tuples are visible */
+		/* XLH_INSERT_ALL_FROZEN_SET 意味着所有元组都可见 */
 		if (xlrec->flags & XLH_INSERT_ALL_FROZEN_SET)
 			PageSetAllVisible(page);
 
@@ -9940,20 +9940,20 @@ heap_xlog_multi_insert(XLogReaderState *record)
 		UnlockReleaseBuffer(buffer);
 
 	/*
-	 * If the page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
+	 * 若该页空闲空间不足，也更新 FSM。
+	 * 任意地，我们对"不足"的定义是低于 20%。不知道表的填充因子，
+	 * 我们就无法比这做得好很多。
 	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
+	 * XXX：若该页是从整页映像恢复的，不要这样做。那种情况下
+	 * 我们懒得更新 FSM，反正它也不必
+	 * 完全准确。
 	 */
 	if (action == BLK_NEEDS_REDO && freespace < BLCKSZ / 5)
 		XLogRecordPageWithFreeSpace(rlocator, blkno, freespace);
 }
 
 /*
- * Handles UPDATE and HOT_UPDATE
+ * 处理 UPDATE 和 HOT_UPDATE
  */
 static void
 heap_xlog_update(XLogReaderState *record, bool hot_update)
@@ -9985,14 +9985,14 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 	XLogRedoAction oldaction;
 	XLogRedoAction newaction;
 
-	/* initialize to keep the compiler quiet */
+	/* 初始化，以免编译器报警 */
 	oldtup.t_data = NULL;
 	oldtup.t_len = 0;
 
 	XLogRecGetBlockTag(record, 0, &rlocator, NULL, &newblk);
 	if (XLogRecGetBlockTagExtended(record, 1, NULL, NULL, &oldblk, NULL))
 	{
-		/* HOT updates are never done across pages */
+		/* HOT 更新从不跨页进行 */
 		Assert(!hot_update);
 	}
 	else
@@ -10001,8 +10001,8 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 	ItemPointerSet(&newtid, newblk, xlrec->new_offnum);
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED)
 	{
@@ -10016,16 +10016,16 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 	}
 
 	/*
-	 * In normal operation, it is important to lock the two pages in
-	 * page-number order, to avoid possible deadlocks against other update
-	 * operations going the other way.  However, during WAL replay there can
-	 * be no other update happening, so we don't need to worry about that. But
-	 * we *do* need to worry that we don't expose an inconsistent state to Hot
-	 * Standby queries --- so the original page can't be unlocked before we've
-	 * added the new tuple to the new page.
+	 * 正常操作中，按页号顺序锁住这两页很重要，
+	 * 以免与反方向进行的其他更新
+	 * 操作可能死锁。不过 WAL 重放期间不会
+	 * 有其他更新在进行，因此不必担心那个。但
+	 * 我们*确实*需要担心不要向热备查询暴露不一致状态——
+	 * 因此在把新元组加到新页之前，
+	 * 原页无法解锁。
 	 */
 
-	/* Deal with old tuple version */
+	/* 处理旧元组版本 */
 	oldaction = XLogReadBufferForRedo(record, (oldblk == newblk) ? 0 : 1,
 									  &obuffer);
 	if (oldaction == BLK_NEEDS_REDO)
@@ -10053,10 +10053,10 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 								   &htup->t_infomask2);
 		HeapTupleHeaderSetXmax(htup, xlrec->old_xmax);
 		HeapTupleHeaderSetCmax(htup, FirstCommandId, false);
-		/* Set forward chain link in t_ctid */
+		/* 在 t_ctid 里设置前向链链接 */
 		htup->t_ctid = newtid;
 
-		/* Mark the page as a candidate for pruning */
+		/* 把该页标为剪枝候选 */
 		PageSetPrunable(page, XLogRecGetXid(record));
 
 		if (xlrec->flags & XLH_UPDATE_OLD_ALL_VISIBLE_CLEARED)
@@ -10067,7 +10067,7 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 	}
 
 	/*
-	 * Read the page the new tuple goes into, if different from old.
+	 * 若新元组要去的页与旧页不同，读取该页。
 	 */
 	if (oldblk == newblk)
 	{
@@ -10085,8 +10085,8 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		newaction = XLogReadBufferForRedo(record, 0, &nbuffer);
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED)
 	{
@@ -10099,7 +10099,7 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		FreeFakeRelcacheEntry(reln);
 	}
 
-	/* Deal with new tuple */
+	/* 处理新元组 */
 	if (newaction == BLK_NEEDS_REDO)
 	{
 		char	   *recdata;
@@ -10139,25 +10139,25 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		MemSet((char *) htup, 0, SizeofHeapTupleHeader);
 
 		/*
-		 * Reconstruct the new tuple using the prefix and/or suffix from the
-		 * old tuple, and the data stored in the WAL record.
+		 * 用旧元组的前缀和/或后缀，以及 WAL 记录里
+		 * 存放的数据，重建新元组。
 		 */
 		newp = (char *) htup + SizeofHeapTupleHeader;
 		if (prefixlen > 0)
 		{
 			int			len;
 
-			/* copy bitmap [+ padding] [+ oid] from WAL record */
+			/* 从 WAL 记录复制位图 [+ 填充] [+ oid] */
 			len = xlhdr.t_hoff - SizeofHeapTupleHeader;
 			memcpy(newp, recdata, len);
 			recdata += len;
 			newp += len;
 
-			/* copy prefix from old tuple */
+			/* 从旧元组复制前缀 */
 			memcpy(newp, (char *) oldtup.t_data + oldtup.t_data->t_hoff, prefixlen);
 			newp += prefixlen;
 
-			/* copy new tuple data from WAL record */
+			/* 从 WAL 记录复制新元组数据 */
 			len = tuplen - (xlhdr.t_hoff - SizeofHeapTupleHeader);
 			memcpy(newp, recdata, len);
 			recdata += len;
@@ -10166,8 +10166,8 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		else
 		{
 			/*
-			 * copy bitmap [+ padding] [+ oid] + data from record, all in one
-			 * go
+			 * 从记录一次性复制位图 [+ 填充] [+ oid] + 数据，
+			 * 全部一次完成
 			 */
 			memcpy(newp, recdata, tuplen);
 			recdata += tuplen;
@@ -10175,7 +10175,7 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		}
 		Assert(recdata == recdata_end);
 
-		/* copy suffix from old tuple */
+		/* 从旧元组复制后缀 */
 		if (suffixlen > 0)
 			memcpy(newp, (char *) oldtup.t_data + oldtup.t_len - suffixlen, suffixlen);
 
@@ -10187,7 +10187,7 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		HeapTupleHeaderSetXmin(htup, XLogRecGetXid(record));
 		HeapTupleHeaderSetCmin(htup, FirstCommandId);
 		HeapTupleHeaderSetXmax(htup, xlrec->new_xmax);
-		/* Make sure there is no forward chain link in t_ctid */
+		/* 确保 t_ctid 里没有前向链链接 */
 		htup->t_ctid = newtid;
 
 		offnum = PageAddItem(page, (Item) htup, newlen, offnum, true, true);
@@ -10197,7 +10197,7 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		if (xlrec->flags & XLH_UPDATE_NEW_ALL_VISIBLE_CLEARED)
 			PageClearAllVisible(page);
 
-		freespace = PageGetHeapFreeSpace(page); /* needed to update FSM below */
+		freespace = PageGetHeapFreeSpace(page); /* 下面更新 FSM 时需要 */
 
 		PageSetLSN(page, lsn);
 		MarkBufferDirty(nbuffer);
@@ -10209,19 +10209,19 @@ heap_xlog_update(XLogReaderState *record, bool hot_update)
 		UnlockReleaseBuffer(obuffer);
 
 	/*
-	 * If the new page is running low on free space, update the FSM as well.
-	 * Arbitrarily, our definition of "low" is less than 20%. We can't do much
-	 * better than that without knowing the fill-factor for the table.
+	 * 若新页空闲空间不足，也更新 FSM。
+	 * 任意地，我们对"不足"的定义是低于 20%。不知道表的填充因子，
+	 * 我们就无法比这做得好很多。
 	 *
-	 * However, don't update the FSM on HOT updates, because after crash
-	 * recovery, either the old or the new tuple will certainly be dead and
-	 * prunable. After pruning, the page will have roughly as much free space
-	 * as it did before the update, assuming the new tuple is about the same
-	 * size as the old one.
+	 * 不过，不要在 HOT 更新时更新 FSM，因为崩溃
+	 * 恢复之后，旧元组或新元组肯定有一个是死的且
+	 * 可剪枝。剪枝之后，该页的空闲空间大致会和
+	 * 更新前一样多，假定新元组与旧元组大小
+	 * 差不多。
 	 *
-	 * XXX: Don't do this if the page was restored from full page image. We
-	 * don't bother to update the FSM in that case, it doesn't need to be
-	 * totally accurate anyway.
+	 * XXX：若该页是从整页映像恢复的，不要这样做。那种情况下
+	 * 我们懒得更新 FSM，反正它也不必
+	 * 完全准确。
 	 */
 	if (newaction == BLK_NEEDS_REDO && !hot_update && freespace < BLCKSZ / 5)
 		XLogRecordPageWithFreeSpace(rlocator, newblk, freespace);
@@ -10252,7 +10252,7 @@ heap_xlog_confirm(XLogReaderState *record)
 		htup = (HeapTupleHeader) PageGetItem(page, lp);
 
 		/*
-		 * Confirm tuple as actually inserted
+		 * 确认元组确实已插入
 		 */
 		ItemPointerSet(&htup->t_ctid, BufferGetBlockNumber(buffer), offnum);
 
@@ -10275,8 +10275,8 @@ heap_xlog_lock(XLogReaderState *record)
 	HeapTupleHeader htup;
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_LOCK_ALL_FROZEN_CLEARED)
 	{
@@ -10314,13 +10314,13 @@ heap_xlog_lock(XLogReaderState *record)
 								   &htup->t_infomask2);
 
 		/*
-		 * Clear relevant update flags, but only if the modified infomask says
-		 * there's no update.
+		 * 清除相关的更新标志，但仅当修改后的 infomask 表明
+		 * 没有更新时。
 		 */
 		if (HEAP_XMAX_IS_LOCKED_ONLY(htup->t_infomask))
 		{
 			HeapTupleHeaderClearHotUpdated(htup);
-			/* Make sure there is no forward chain link in t_ctid */
+			/* 确保 t_ctid 里没有前向链链接 */
 			ItemPointerSet(&htup->t_ctid,
 						   BufferGetBlockNumber(buffer),
 						   offnum);
@@ -10348,8 +10348,8 @@ heap_xlog_lock_updated(XLogReaderState *record)
 	xlrec = (xl_heap_lock_updated *) XLogRecGetData(record);
 
 	/*
-	 * The visibility map may need to be fixed even if the heap page is
-	 * already up-to-date.
+	 * 即使堆页已经是最新的，可见性映射
+	 * 也可能需要修正。
 	 */
 	if (xlrec->flags & XLH_LOCK_ALL_FROZEN_CLEARED)
 	{
@@ -10441,8 +10441,8 @@ heap_redo(XLogReaderState *record)
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
 	/*
-	 * These operations don't overwrite MVCC data so no conflict processing is
-	 * required. The ones in heap2 rmgr do.
+	 * 这些操作不覆盖 MVCC 数据，因此不必做冲突处理。
+	 * heap2 资源管理器里的那些会做。
 	 */
 
 	switch (info & XLOG_HEAP_OPMASK)
@@ -10459,9 +10459,9 @@ heap_redo(XLogReaderState *record)
 		case XLOG_HEAP_TRUNCATE:
 
 			/*
-			 * TRUNCATE is a no-op because the actions are already logged as
-			 * SMGR WAL records.  TRUNCATE WAL record only exists for logical
-			 * decoding.
+			 * TRUNCATE 是空操作，因为这些动作已经作为
+			 * SMGR WAL 记录记入日志。TRUNCATE WAL 记录只为逻辑
+			 * 解码而存在。
 			 */
 			break;
 		case XLOG_HEAP_HOT_UPDATE:
@@ -10509,8 +10509,8 @@ heap2_redo(XLogReaderState *record)
 		case XLOG_HEAP2_NEW_CID:
 
 			/*
-			 * Nothing to do on a real replay, only used during logical
-			 * decoding.
+			 * 真正重放时无事可做，只在逻辑
+			 * 解码期间使用。
 			 */
 			break;
 		case XLOG_HEAP2_REWRITE:
@@ -10522,7 +10522,7 @@ heap2_redo(XLogReaderState *record)
 }
 
 /*
- * Mask a heap page before performing consistency checks on it.
+ * 在对堆页做一致性检查之前屏蔽它。
  */
 void
 heap_mask(char *pagedata, BlockNumber blkno)
@@ -10547,52 +10547,52 @@ heap_mask(char *pagedata, BlockNumber blkno)
 			HeapTupleHeader page_htup = (HeapTupleHeader) page_item;
 
 			/*
-			 * If xmin of a tuple is not yet frozen, we should ignore
-			 * differences in hint bits, since they can be set without
-			 * emitting WAL.
+			 * 若元组的 xmin 尚未冻结，我们应当忽略
+			 * 提示位的差异，因为它们可以在不
+			 * 发出 WAL 的情况下被设置。
 			 */
 			if (!HeapTupleHeaderXminFrozen(page_htup))
 				page_htup->t_infomask &= ~HEAP_XACT_MASK;
 			else
 			{
-				/* Still we need to mask xmax hint bits. */
+				/* 我们仍然需要屏蔽 xmax 提示位。 */
 				page_htup->t_infomask &= ~HEAP_XMAX_INVALID;
 				page_htup->t_infomask &= ~HEAP_XMAX_COMMITTED;
 			}
 
 			/*
-			 * During replay, we set Command Id to FirstCommandId. Hence, mask
-			 * it. See heap_xlog_insert() for details.
+			 * 重放期间，我们把命令 Id 设为 FirstCommandId。因此屏蔽
+			 * 它。详情见 heap_xlog_insert()。
 			 */
 			page_htup->t_choice.t_heap.t_field3.t_cid = MASK_MARKER;
 
 			/*
-			 * For a speculative tuple, heap_insert() does not set ctid in the
-			 * caller-passed heap tuple itself, leaving the ctid field to
-			 * contain a speculative token value - a per-backend monotonically
-			 * increasing identifier. Besides, it does not WAL-log ctid under
-			 * any circumstances.
+			 * 对推测性元组，heap_insert() 并不在调用方传入的堆元组本身里设置 ctid，
+			 * 让 ctid 字段
+			 * 含有推测性令牌值——每个后端单调
+			 * 递增的标识符。此外，它在任何情况下都不把 ctid
+			 * 记入 WAL。
 			 *
-			 * During redo, heap_xlog_insert() sets t_ctid to current block
-			 * number and self offset number. It doesn't care about any
-			 * speculative insertions on the primary. Hence, we set t_ctid to
-			 * current block number and self offset number to ignore any
-			 * inconsistency.
+			 * 重做期间，heap_xlog_insert() 把 t_ctid 设为当前块
+			 * 号和自身偏移号。它不关心主库上的任何
+			 * 推测性插入。因此我们把 t_ctid 设为
+			 * 当前块号和自身偏移号，以忽略任何
+			 * 不一致。
 			 */
 			if (HeapTupleHeaderIsSpeculative(page_htup))
 				ItemPointerSet(&page_htup->t_ctid, blkno, off);
 
 			/*
-			 * NB: Not ignoring ctid changes due to the tuple having moved
-			 * (i.e. HeapTupleHeaderIndicatesMovedPartitions), because that's
-			 * important information that needs to be in-sync between primary
-			 * and standby, and thus is WAL logged.
+			 * 注意：不要忽略因元组已移动而导致的 ctid 变化
+			 * （即 HeapTupleHeaderIndicatesMovedPartitions），因为那是
+			 * 需要在主库与备库之间保持同步的重要信息，
+			 * 因此会记入 WAL。
 			 */
 		}
 
 		/*
-		 * Ignore any padding bytes after the tuple, when the length of the
-		 * item is not MAXALIGNed.
+		 * 当项的长度不是 MAXALIGNed 时，忽略元组之后的
+		 * 任何填充字节。
 		 */
 		if (ItemIdHasStorage(iid))
 		{
@@ -10607,18 +10607,18 @@ heap_mask(char *pagedata, BlockNumber blkno)
 
 /*
  * HeapCheckForSerializableConflictOut
- *		We are reading a tuple.  If it's not visible, there may be a
- *		rw-conflict out with the inserter.  Otherwise, if it is visible to us
- *		but has been deleted, there may be a rw-conflict out with the deleter.
+ *		我们正在读取一个元组。若它不可见，可能与插入者存在
+ *		向外的读写冲突。否则，若它对我们可见
+ *		但已被删除，可能与删除者存在向外的读写冲突。
  *
- * We will determine the top level xid of the writing transaction with which
- * we may be in conflict, and ask CheckForSerializableConflictOut() to check
- * for overlap with our own transaction.
+ * 我们将确定可能与之冲突的写入事务的顶层 xid，
+ * 并请 CheckForSerializableConflictOut() 检查
+ * 是否与我们自己的事务重叠。
  *
- * This function should be called just about anywhere in heapam.c where a
- * tuple has been read. The caller must hold at least a shared lock on the
- * buffer, because this function might set hint bits on the tuple. There is
- * currently no known reason to call this function from an index AM.
+ * 在 heapam.c 里几乎任何读过元组的地方都应当调用本函数。
+ * 调用方必须至少持有缓冲区上的共享锁，
+ * 因为本函数可能在元组上设置提示位。目前
+ * 没有已知理由从索引访问方法调用本函数。
  */
 void
 HeapCheckForSerializableConflictOut(bool visible, Relation relation,
@@ -10632,15 +10632,15 @@ HeapCheckForSerializableConflictOut(bool visible, Relation relation,
 		return;
 
 	/*
-	 * Check to see whether the tuple has been written to by a concurrent
-	 * transaction, either to create it not visible to us, or to delete it
-	 * while it is visible to us.  The "visible" bool indicates whether the
-	 * tuple is visible to us, while HeapTupleSatisfiesVacuum checks what else
-	 * is going on with it.
+	 * 检查元组是否已被并发事务写入，
+	 * 要么创建了对我们不可见的元组，要么在它对我们可见时
+	 * 删除了它。"visible" 布尔值指出该元组
+	 * 是否对我们可见，而 HeapTupleSatisfiesVacuum 检查此外
+	 * 还发生了什么。
 	 *
-	 * In the event of a concurrently inserted tuple that also happens to have
-	 * been concurrently updated (by a separate transaction), the xmin of the
-	 * tuple will be used -- not the updater's xid.
+	 * 若并发插入的元组碰巧也被
+	 * 另一个事务并发更新，将使用该元组的 xmin
+	 * ——而不是更新者的 xid。
 	 */
 	htsvResult = HeapTupleSatisfiesVacuum(tuple, TransactionXmin, buffer);
 	switch (htsvResult)
@@ -10659,7 +10659,7 @@ HeapCheckForSerializableConflictOut(bool visible, Relation relation,
 
 			if (TransactionIdPrecedes(xid, TransactionXmin))
 			{
-				/* This is like the HEAPTUPLE_DEAD case */
+				/* 这类似于 HEAPTUPLE_DEAD 情形 */
 				Assert(!visible);
 				return;
 			}
@@ -10673,17 +10673,17 @@ HeapCheckForSerializableConflictOut(bool visible, Relation relation,
 		default:
 
 			/*
-			 * The only way to get to this default clause is if a new value is
-			 * added to the enum type without adding it to this switch
-			 * statement.  That's a bug, so elog.
+			 * 到达这个 default 子句的唯一方式，是枚举类型新增了值，
+			 * 却没有把它加进这个 switch
+			 * 语句。那是缺陷，因此 elog。
 			 */
 			elog(ERROR, "unrecognized return value from HeapTupleSatisfiesVacuum: %u", htsvResult);
 
 			/*
-			 * In spite of having all enum values covered and calling elog on
-			 * this default, some compilers think this is a code path which
-			 * allows xid to be used below without initialization. Silence
-			 * that warning.
+			 * 尽管覆盖了所有枚举值，并在这个 default 上调用 elog，
+			 * 有些编译器仍认为这是一条代码路径，
+			 * 允许下面未经初始化就使用 xid。消除
+			 * 该警告。
 			 */
 			xid = InvalidTransactionId;
 	}
@@ -10692,8 +10692,8 @@ HeapCheckForSerializableConflictOut(bool visible, Relation relation,
 	Assert(TransactionIdFollowsOrEquals(xid, TransactionXmin));
 
 	/*
-	 * Find top level xid.  Bail out if xid is too early to be a conflict, or
-	 * if it's our own xid.
+	 * 找出顶层 xid。若 xid 早到不可能成为冲突，或者
+	 * 它是我们自己的 xid，就返回。
 	 */
 	if (TransactionIdEquals(xid, GetTopTransactionIdIfAny()))
 		return;

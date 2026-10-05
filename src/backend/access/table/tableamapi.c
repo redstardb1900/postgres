@@ -1,7 +1,7 @@
 /*----------------------------------------------------------------------
  *
  * tableamapi.c
- *		Support routines for API for Postgres table access methods
+ *		Postgres 表访问方法 API 的支持例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -27,9 +27,9 @@
 
 /*
  * GetTableAmRoutine
- *		Call the specified access method handler routine to get its
- *		TableAmRoutine struct, which will be palloc'd in the caller's
- *		memory context.
+ *		调用指定的访问方法处理例程，以取得它的
+ *		TableAmRoutine 结构，该结构将在调用方的
+ *		内存上下文中 palloc 出来。
  */
 const TableAmRoutine *
 GetTableAmRoutine(Oid amhandler)
@@ -45,9 +45,9 @@ GetTableAmRoutine(Oid amhandler)
 			 amhandler);
 
 	/*
-	 * Assert that all required callbacks are present. That makes it a bit
-	 * easier to keep AMs up to date, e.g. when forward porting them to a new
-	 * major version.
+	 * 断言所有必需的回调都存在。这样在让表 AM
+	 * 保持最新时会容易一些，例如把它们向前移植到新的
+	 * 主版本时。
 	 */
 	Assert(routine->scan_begin != NULL);
 	Assert(routine->scan_end != NULL);
@@ -72,8 +72,8 @@ GetTableAmRoutine(Oid amhandler)
 	Assert(routine->tuple_insert != NULL);
 
 	/*
-	 * Could be made optional, but would require throwing error during
-	 * parse-analysis.
+	 * 本可做成可选，但那样就需要在
+	 * 解析分析期间抛出错误。
 	 */
 	Assert(routine->tuple_insert_speculative != NULL);
 	Assert(routine->tuple_complete_speculative != NULL);
@@ -98,7 +98,7 @@ GetTableAmRoutine(Oid amhandler)
 
 	Assert(routine->relation_estimate_size != NULL);
 
-	/* optional, but one callback implies presence of the other */
+	/* 可选，但有一个回调就意味着另一个也存在 */
 	Assert((routine->scan_bitmap_next_block == NULL) ==
 		   (routine->scan_bitmap_next_tuple == NULL));
 	Assert(routine->scan_sample_next_block != NULL);
@@ -107,7 +107,7 @@ GetTableAmRoutine(Oid amhandler)
 	return routine;
 }
 
-/* check_hook: validate new default_table_access_method */
+/* check_hook：校验新的 default_table_access_method */
 bool
 check_default_table_access_method(char **newval, void **extra, GucSource source)
 {
@@ -126,18 +126,18 @@ check_default_table_access_method(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * If we aren't inside a transaction, or not connected to a database, we
-	 * cannot do the catalog access necessary to verify the method.  Must
-	 * accept the value on faith.
+	 * 若不在事务内，或者尚未连接到数据库，就
+	 * 无法做校验该方法所需的系统目录访问。只能
+	 * 先相信这个值。
 	 */
 	if (IsTransactionState() && MyDatabaseId != InvalidOid)
 	{
 		if (!OidIsValid(get_table_am_oid(*newval, true)))
 		{
 			/*
-			 * When source == PGC_S_TEST, don't throw a hard error for a
-			 * nonexistent table access method, only a NOTICE. See comments in
-			 * guc.h.
+			 * 当 source == PGC_S_TEST 时，对于不存在的
+			 * 表访问方法不要抛硬错误，只发 NOTICE。参见
+			 * guc.h 中的注释。
 			 */
 			if (source == PGC_S_TEST)
 			{

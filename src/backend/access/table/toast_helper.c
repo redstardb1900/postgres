@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * toast_helper.c
- *	  Helper functions for table AMs implementing compressed or
- *    out-of-line storage of varlena attributes.
+ *	  供表 AM 实现变长属性的压缩存储或
+ *    行外存储的辅助函数。
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -23,20 +23,20 @@
 
 
 /*
- * Prepare to TOAST a tuple.
+ * 准备对元组做 TOAST。
  *
- * tupleDesc, toast_values, and toast_isnull are required parameters; they
- * provide the necessary details about the tuple to be toasted.
+ * tupleDesc、toast_values 和 toast_isnull 是必需参数；它们
+ * 提供待做 TOAST 的元组所需的细节。
  *
- * toast_oldvalues and toast_oldisnull should be NULL for a newly-inserted
- * tuple; for an update, they should describe the existing tuple.
+ * 新插入的元组应把 toast_oldvalues 和 toast_oldisnull 置为 NULL；
+ * 更新时，它们应描述已有元组。
  *
- * All of these arrays should have a length equal to tupleDesc->natts.
+ * 这些数组的长度都应等于 tupleDesc->natts。
  *
- * On return, toast_flags and toast_attr will have been initialized.
- * toast_flags is just a single uint8, but toast_attr is a caller-provided
- * array with a length equal to tupleDesc->natts.  The caller need not
- * perform any initialization of the array before calling this function.
+ * 返回时，toast_flags 和 toast_attr 都已初始化。
+ * toast_flags 只是单个 uint8，但 toast_attr 是调用方提供的
+ * 数组，长度等于 tupleDesc->natts。调用本函数之前，调用方不必
+ * 对该数组做任何初始化。
  */
 void
 toast_tuple_init(ToastTupleContext *ttc)
@@ -60,7 +60,7 @@ toast_tuple_init(ToastTupleContext *ttc)
 		if (ttc->ttc_oldvalues != NULL)
 		{
 			/*
-			 * For UPDATE get the old and new values of this attribute
+			 * UPDATE 时取得该属性的旧值和新值
 			 */
 			old_value =
 				(struct varlena *) DatumGetPointer(ttc->ttc_oldvalues[i]);
@@ -68,8 +68,8 @@ toast_tuple_init(ToastTupleContext *ttc)
 				(struct varlena *) DatumGetPointer(ttc->ttc_values[i]);
 
 			/*
-			 * If the old value is stored on disk, check if it has changed so
-			 * we have to delete it later.
+			 * 若旧值存放在磁盘上，检查它是否已改变，从而
+			 * 稍后必须删除它。
 			 */
 			if (att->attlen == -1 && !ttc->ttc_oldisnull[i] &&
 				VARATT_IS_EXTERNAL_ONDISK(old_value))
@@ -80,8 +80,8 @@ toast_tuple_init(ToastTupleContext *ttc)
 						   VARSIZE_EXTERNAL(old_value)) != 0)
 				{
 					/*
-					 * The old external stored value isn't needed any more
-					 * after the update
+					 * 更新之后不再需要旧的
+					 * 外部存储值
 					 */
 					ttc->ttc_attr[i].tai_colflags |= TOASTCOL_NEEDS_DELETE_OLD;
 					ttc->ttc_flags |= TOAST_NEEDS_DELETE_OLD;
@@ -89,9 +89,9 @@ toast_tuple_init(ToastTupleContext *ttc)
 				else
 				{
 					/*
-					 * This attribute isn't changed by this update so we reuse
-					 * the original reference to the old value in the new
-					 * tuple.
+					 * 本次更新没有改变该属性，因此复用
+					 * 新元组中指向旧值的
+					 * 原始引用。
 					 */
 					ttc->ttc_attr[i].tai_colflags |= TOASTCOL_IGNORE;
 					continue;
@@ -101,13 +101,13 @@ toast_tuple_init(ToastTupleContext *ttc)
 		else
 		{
 			/*
-			 * For INSERT simply get the new value
+			 * INSERT 时直接取得新值
 			 */
 			new_value = (struct varlena *) DatumGetPointer(ttc->ttc_values[i]);
 		}
 
 		/*
-		 * Handle NULL attributes
+		 * 处理 NULL 属性
 		 */
 		if (ttc->ttc_isnull[i])
 		{
@@ -117,23 +117,23 @@ toast_tuple_init(ToastTupleContext *ttc)
 		}
 
 		/*
-		 * Now look at varlena attributes
+		 * 接下来看变长属性
 		 */
 		if (att->attlen == -1)
 		{
 			/*
-			 * If the table's attribute says PLAIN always, force it so.
+			 * 若表的属性声明始终为 PLAIN，就强制如此。
 			 */
 			if (att->attstorage == TYPSTORAGE_PLAIN)
 				ttc->ttc_attr[i].tai_colflags |= TOASTCOL_IGNORE;
 
 			/*
-			 * We took care of UPDATE above, so any external value we find
-			 * still in the tuple must be someone else's that we cannot reuse
-			 * (this includes the case of an out-of-line in-memory datum).
-			 * Fetch it back (without decompression, unless we are forcing
-			 * PLAIN storage).  If necessary, we'll push it out as a new
-			 * external value below.
+			 * 上面已经处理过 UPDATE，因此仍能在元组里找到的任何外部值
+			 * 必定属于别人，我们无法复用
+			 * （这也包括行外的内存中 datum）。
+			 * 把它取回（不做解压，除非正在强制
+			 * PLAIN 存储）。必要时，下面会把它作为新的
+			 * 外部值推出去。
 			 */
 			if (VARATT_IS_EXTERNAL(new_value))
 			{
@@ -148,14 +148,14 @@ toast_tuple_init(ToastTupleContext *ttc)
 			}
 
 			/*
-			 * Remember the size of this attribute
+			 * 记住该属性的大小
 			 */
 			ttc->ttc_attr[i].tai_size = VARSIZE_ANY(new_value);
 		}
 		else
 		{
 			/*
-			 * Not a varlena attribute, plain storage always
+			 * 不是变长属性，始终用普通存储
 			 */
 			ttc->ttc_attr[i].tai_colflags |= TOASTCOL_IGNORE;
 		}
@@ -163,20 +163,20 @@ toast_tuple_init(ToastTupleContext *ttc)
 }
 
 /*
- * Find the largest varlena attribute that satisfies certain criteria.
+ * 找出满足特定条件的最大变长属性。
  *
- * The relevant column must not be marked TOASTCOL_IGNORE, and if the
- * for_compression flag is passed as true, it must also not be marked
- * TOASTCOL_INCOMPRESSIBLE.
+ * 相关列不得标为 TOASTCOL_IGNORE；若传入的
+ * for_compression 标志为 true，则也不得标为
+ * TOASTCOL_INCOMPRESSIBLE。
  *
- * The column must have attstorage EXTERNAL or EXTENDED if check_main is
- * false, and must have attstorage MAIN if check_main is true.
+ * check_main 为 false 时，列的 attstorage 必须是 EXTERNAL 或 EXTENDED；
+ * check_main 为 true 时，attstorage 必须是 MAIN。
  *
- * The column must have a minimum size of MAXALIGN(TOAST_POINTER_SIZE);
- * if not, no benefit is to be expected by compressing it.
+ * 列的最小尺寸必须是 MAXALIGN(TOAST_POINTER_SIZE)；
+ * 否则，压缩它预期没有收益。
  *
- * The return value is the index of the biggest suitable column, or
- * -1 if there is none.
+ * 返回值是最大合适列的下标，
+ * 若没有则为 -1。
  */
 int
 toast_tuple_find_biggest_attribute(ToastTupleContext *ttc,
@@ -199,7 +199,7 @@ toast_tuple_find_biggest_attribute(ToastTupleContext *ttc,
 		if ((ttc->ttc_attr[i].tai_colflags & skip_colflags) != 0)
 			continue;
 		if (VARATT_IS_EXTERNAL(DatumGetPointer(ttc->ttc_values[i])))
-			continue;			/* can't happen, toast_action would be PLAIN */
+			continue;			/* 不可能发生，toast_action 会是 PLAIN */
 		if (for_compression &&
 			VARATT_IS_COMPRESSED(DatumGetPointer(ttc->ttc_values[i])))
 			continue;
@@ -220,9 +220,9 @@ toast_tuple_find_biggest_attribute(ToastTupleContext *ttc,
 }
 
 /*
- * Try compression for an attribute.
+ * 尝试压缩某个属性。
  *
- * If we find that the attribute is not compressible, mark it so.
+ * 若发现该属性不可压缩，就把它标成这样。
  */
 void
 toast_tuple_try_compression(ToastTupleContext *ttc, int attribute)
@@ -235,7 +235,7 @@ toast_tuple_try_compression(ToastTupleContext *ttc, int attribute)
 
 	if (DatumGetPointer(new_value) != NULL)
 	{
-		/* successful compression */
+		/* 压缩成功 */
 		if ((attr->tai_colflags & TOASTCOL_NEEDS_FREE) != 0)
 			pfree(DatumGetPointer(*value));
 		*value = new_value;
@@ -245,13 +245,13 @@ toast_tuple_try_compression(ToastTupleContext *ttc, int attribute)
 	}
 	else
 	{
-		/* incompressible, ignore on subsequent compression passes */
+		/* 不可压缩，后续压缩轮次中忽略 */
 		attr->tai_colflags |= TOASTCOL_INCOMPRESSIBLE;
 	}
 }
 
 /*
- * Move an attribute to external storage.
+ * 把属性移到外部存储。
  */
 void
 toast_tuple_externalize(ToastTupleContext *ttc, int attribute, int options)
@@ -270,7 +270,7 @@ toast_tuple_externalize(ToastTupleContext *ttc, int attribute, int options)
 }
 
 /*
- * Perform appropriate cleanup after one tuple has been subjected to TOAST.
+ * 一个元组做过 TOAST 之后，做相应的清理。
  */
 void
 toast_tuple_cleanup(ToastTupleContext *ttc)
@@ -279,7 +279,7 @@ toast_tuple_cleanup(ToastTupleContext *ttc)
 	int			numAttrs = tupleDesc->natts;
 
 	/*
-	 * Free allocated temp values
+	 * 释放已分配的临时值
 	 */
 	if ((ttc->ttc_flags & TOAST_NEEDS_FREE) != 0)
 	{
@@ -295,7 +295,7 @@ toast_tuple_cleanup(ToastTupleContext *ttc)
 	}
 
 	/*
-	 * Delete external values from the old tuple
+	 * 删除旧元组中的外部值
 	 */
 	if ((ttc->ttc_flags & TOAST_NEEDS_DELETE_OLD) != 0)
 	{
@@ -312,8 +312,8 @@ toast_tuple_cleanup(ToastTupleContext *ttc)
 }
 
 /*
- * Check for external stored attributes and delete them from the secondary
- * relation.
+ * 检查外部存储的属性，并把它们从二级
+ * 关系中删除。
  */
 void
 toast_delete_external(Relation rel, Datum *values, bool *isnull,

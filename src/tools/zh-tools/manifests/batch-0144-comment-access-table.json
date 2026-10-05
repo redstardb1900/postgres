@@ -1,0 +1,113 @@
+{
+ "schema_version": 1,
+ "batch_id": "0144-comment-access-table",
+ "title": "zh: translate access/table comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c0e13ff9c021d99922585fa053d31046c0f2f74f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/table/table.c",
+   "kind": "c_comment",
+   "note": "generic table_ open and close helpers"
+  },
+  {
+   "pattern": "src/backend/access/table/tableamapi.c",
+   "kind": "c_comment",
+   "note": "table AM handler lookup and default GUC check"
+  },
+  {
+   "pattern": "src/backend/access/table/toast_helper.c",
+   "kind": "c_comment",
+   "note": "TOAST helper for table AMs"
+  },
+  {
+   "pattern": "src/backend/access/table/tableam.c",
+   "kind": "c_comment",
+   "note": "table AM routines that are not inline"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0144-comment-access-table.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/table/table.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "generic table_ open and close helpers; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/table/tableamapi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "table AM handler lookup and default GUC check; Copyright lines kept in English"
+  },
+  {
+   "path": "src/backend/access/table/toast_helper.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 23,
+   "translated": 23,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "TOAST helper for table AMs; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/table/tableam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 58,
+   "translated": 57,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "/* changingPart */ is the parameter name, not prose"
+   ],
+   "note": "table AM routines that are not inline; Copyright and IDENTIFICATION lines kept in English; changingPart argument label kept"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0144-comment-access-table.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0144 translates comments in src/backend/access/table/table.c, tableamapi.c, toast_helper.c, and tableam.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. The changingPart argument label stays as the parameter name. After this batch, src/backend/access/table .c comments are complete. Next suggested: src/backend/access/tablesample/."
+}

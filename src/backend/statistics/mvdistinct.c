@@ -42,30 +42,30 @@ static double estimate_ndistinct(double totalrows, int numrows, int d, int f1);
 static int	n_choose_k(int n, int k);
 static int	num_combinations(int n);
 
-/* size of the struct header fields (magic, type, nitems) */
+/* 结构头成员的大小（magic、type、nitems） */
 #define SizeOfHeader		(3 * sizeof(uint32))
 
-/* size of a serialized ndistinct item (coefficient, natts, atts) */
+/* 一条序列化 ndistinct 项的大小（系数、natts、atts） */
 #define SizeOfItem(natts) \
 	(sizeof(double) + sizeof(int) + (natts) * sizeof(AttrNumber))
 
-/* minimal size of a ndistinct item (with two attributes) */
+/* 一条 ndistinct 项的最小大小（含两个属性） */
 #define MinSizeOfItem	SizeOfItem(2)
 
-/* minimal size of mvndistinct, when all items are minimal */
+/* 当所有项都取最小大小时，mvndistinct 的最小大小 */
 #define MinSizeOfItems(nitems)	\
 	(SizeOfHeader + (nitems) * MinSizeOfItem)
 
-/* Combination generator API */
+/* 组合生成器 API */
 
-/* internal state for generator of k-combinations of n elements */
+/* 从 n 个元素中生成 k 组合的内部状态 */
 typedef struct CombinationGenerator
 {
-	int			k;				/* size of the combination */
-	int			n;				/* total number of elements */
-	int			current;		/* index of the next combination to return */
-	int			ncombinations;	/* number of combinations (size of array) */
-	int		   *combinations;	/* array of pre-built combinations */
+	int			k;				/* 组合的大小 */
+	int			n;				/* 元素总数 */
+	int			current;		/* 下一个要返回的组合的下标 */
+	int			ncombinations;	/* 组合的个数（数组大小） */
+	int		   *combinations;	/* 预先构造的组合数组 */
 } CombinationGenerator;
 
 static CombinationGenerator *generator_init(int n, int k);
@@ -76,14 +76,14 @@ static void generate_combinations(CombinationGenerator *state);
 
 /*
  * statext_ndistinct_build
- *		Compute ndistinct coefficient for the combination of attributes.
+ *		计算属性组合的 ndistinct 系数。
  *
- * This computes the ndistinct estimate using the same estimator used
- * in analyze.c and then computes the coefficient.
+ * 这使用与 analyze.c 相同的估计器计算 ndistinct 估计，
+ * 然后计算该系数。
  *
- * To handle expressions easily, we treat them as system attributes with
- * negative attnums, and offset everything by number of expressions to
- * allow using Bitmapsets.
+ * 为了方便处理表达式，我们把它们当作带负 attnums 的
+ * 系统属性，并把一切按表达式个数偏移，
+ * 以便使用 Bitmapsets。
  */
 MVNDistinct *
 statext_ndistinct_build(double totalrows, StatsBuildData *data)
@@ -106,7 +106,7 @@ statext_ndistinct_build(double totalrows, StatsBuildData *data)
 		int		   *combination;
 		CombinationGenerator *generator;
 
-		/* generate combinations of K out of N elements */
+		/* 生成从 N 个元素中取 K 个的组合 */
 		generator = generator_init(numattrs, k);
 
 		while ((combination = generator_next(generator)))
@@ -117,7 +117,7 @@ statext_ndistinct_build(double totalrows, StatsBuildData *data)
 			item->attributes = palloc(sizeof(AttrNumber) * k);
 			item->nattributes = k;
 
-			/* translate the indexes to attnums */
+			/* 把下标翻译成 attnums */
 			for (j = 0; j < k; j++)
 			{
 				item->attributes[j] = data->attnums[combination[j]];
@@ -135,7 +135,7 @@ statext_ndistinct_build(double totalrows, StatsBuildData *data)
 		generator_free(generator);
 	}
 
-	/* must consume exactly the whole output array */
+	/* 必须恰好消耗整个输出数组 */
 	Assert(itemcnt == result->nitems);
 
 	return result;
@@ -143,7 +143,7 @@ statext_ndistinct_build(double totalrows, StatsBuildData *data)
 
 /*
  * statext_ndistinct_load
- *		Load the ndistinct value for the indicated pg_statistic_ext tuple
+ *		装载所指 pg_statistic_ext 元组的 ndistinct 值。
  */
 MVNDistinct *
 statext_ndistinct_load(Oid mvoid, bool inh)
@@ -174,7 +174,7 @@ statext_ndistinct_load(Oid mvoid, bool inh)
 
 /*
  * statext_ndistinct_serialize
- *		serialize ndistinct to the on-disk bytea format
+ *		把 ndistinct 序列化成磁盘上的 bytea 格式。
  */
 bytea *
 statext_ndistinct_serialize(MVNDistinct *ndistinct)
@@ -188,12 +188,12 @@ statext_ndistinct_serialize(MVNDistinct *ndistinct)
 	Assert(ndistinct->type == STATS_NDISTINCT_TYPE_BASIC);
 
 	/*
-	 * Base size is size of scalar fields in the struct, plus one base struct
-	 * for each item, including number of items for each.
+	 * 基本大小是结构里标量成员的大小，再加上每个项的
+	 * 一个基本结构，其中包括每一项的个数。
 	 */
 	len = VARHDRSZ + SizeOfHeader;
 
-	/* and also include space for the actual attribute numbers */
+	/* 并且也计入实际属性号所需的空间 */
 	for (i = 0; i < ndistinct->nitems; i++)
 	{
 		int			nmembers;
@@ -209,7 +209,7 @@ statext_ndistinct_serialize(MVNDistinct *ndistinct)
 
 	tmp = VARDATA(output);
 
-	/* Store the base struct values (magic, type, nitems) */
+	/* 存放基本结构的值（magic、type、nitems） */
 	memcpy(tmp, &ndistinct->magic, sizeof(uint32));
 	tmp += sizeof(uint32);
 	memcpy(tmp, &ndistinct->type, sizeof(uint32));
@@ -218,7 +218,7 @@ statext_ndistinct_serialize(MVNDistinct *ndistinct)
 	tmp += sizeof(uint32);
 
 	/*
-	 * store number of attributes and attribute numbers for each entry
+	 * 为每个条目存放属性个数和属性号
 	 */
 	for (i = 0; i < ndistinct->nitems; i++)
 	{
@@ -233,11 +233,11 @@ statext_ndistinct_serialize(MVNDistinct *ndistinct)
 		memcpy(tmp, item.attributes, sizeof(AttrNumber) * nmembers);
 		tmp += nmembers * sizeof(AttrNumber);
 
-		/* protect against overflows */
+		/* 防止溢出 */
 		Assert(tmp <= ((char *) output + len));
 	}
 
-	/* check we used exactly the expected space */
+	/* 检查我们恰好用掉了预期的空间 */
 	Assert(tmp == ((char *) output + len));
 
 	return output;
@@ -245,7 +245,7 @@ statext_ndistinct_serialize(MVNDistinct *ndistinct)
 
 /*
  * statext_ndistinct_deserialize
- *		Read an on-disk bytea format MVNDistinct to in-memory format
+ *		把磁盘上的 bytea 格式 MVNDistinct 读入内存格式。
  */
 MVNDistinct *
 statext_ndistinct_deserialize(bytea *data)
@@ -259,15 +259,15 @@ statext_ndistinct_deserialize(bytea *data)
 	if (data == NULL)
 		return NULL;
 
-	/* we expect at least the basic fields of MVNDistinct struct */
+	/* 我们预期至少有 MVNDistinct 结构的基本成员 */
 	if (VARSIZE_ANY_EXHDR(data) < SizeOfHeader)
 		elog(ERROR, "invalid MVNDistinct size %zu (expected at least %zu)",
 			 VARSIZE_ANY_EXHDR(data), SizeOfHeader);
 
-	/* initialize pointer to the data part (skip the varlena header) */
+	/* 把指针初始化到数据部分（跳过 varlena 头） */
 	tmp = VARDATA_ANY(data);
 
-	/* read the header fields and perform basic sanity checks */
+	/* 读取头成员并做基本的健全性检查 */
 	memcpy(&ndist.magic, tmp, sizeof(uint32));
 	tmp += sizeof(uint32);
 	memcpy(&ndist.type, tmp, sizeof(uint32));
@@ -284,15 +284,15 @@ statext_ndistinct_deserialize(bytea *data)
 	if (ndist.nitems == 0)
 		elog(ERROR, "invalid zero-length item array in MVNDistinct");
 
-	/* what minimum bytea size do we expect for those parameters */
+	/* 这些参数下我们预期的最小 bytea 大小是多少 */
 	minimum_size = MinSizeOfItems(ndist.nitems);
 	if (VARSIZE_ANY_EXHDR(data) < minimum_size)
 		elog(ERROR, "invalid MVNDistinct size %zu (expected at least %zu)",
 			 VARSIZE_ANY_EXHDR(data), minimum_size);
 
 	/*
-	 * Allocate space for the ndistinct items (no space for each item's
-	 * attnos: those live in bitmapsets allocated separately)
+	 * 为 ndistinct 项分配空间（不为每个项的 attnos
+	 * 分配空间：那些住在单独分配的 bitmapset 里）。
 	 */
 	ndistinct = palloc0(MAXALIGN(offsetof(MVNDistinct, items)) +
 						(ndist.nitems * sizeof(MVNDistinctItem)));
@@ -304,11 +304,11 @@ statext_ndistinct_deserialize(bytea *data)
 	{
 		MVNDistinctItem *item = &ndistinct->items[i];
 
-		/* ndistinct value */
+		/* ndistinct 值 */
 		memcpy(&item->ndistinct, tmp, sizeof(double));
 		tmp += sizeof(double);
 
-		/* number of attributes */
+		/* 属性个数 */
 		memcpy(&item->nattributes, tmp, sizeof(int));
 		tmp += sizeof(int);
 		Assert((item->nattributes >= 2) && (item->nattributes <= STATS_MAX_DIMENSIONS));
@@ -319,11 +319,11 @@ statext_ndistinct_deserialize(bytea *data)
 		memcpy(item->attributes, tmp, sizeof(AttrNumber) * item->nattributes);
 		tmp += sizeof(AttrNumber) * item->nattributes;
 
-		/* still within the bytea */
+		/* 仍在 bytea 之内 */
 		Assert(tmp <= ((char *) data + VARSIZE_ANY(data)));
 	}
 
-	/* we should have consumed the whole bytea exactly */
+	/* 应当恰好消耗整个 bytea */
 	Assert(tmp == ((char *) data + VARSIZE_ANY(data)));
 
 	return ndistinct;
@@ -331,10 +331,10 @@ statext_ndistinct_deserialize(bytea *data)
 
 /*
  * pg_ndistinct_in
- *		input routine for type pg_ndistinct
+ *		类型 pg_ndistinct 的输入例程。
  *
- * pg_ndistinct is real enough to be a table column, but it has no
- * operations of its own, and disallows input (just like pg_node_tree).
+ * pg_ndistinct 真实到足以作为表列，但它没有
+ * 自己的操作，并且不允许输入（就像 pg_node_tree 一样）。
  */
 Datum
 pg_ndistinct_in(PG_FUNCTION_ARGS)
@@ -343,14 +343,14 @@ pg_ndistinct_in(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_ndistinct")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 /*
  * pg_ndistinct
- *		output routine for type pg_ndistinct
+ *		类型 pg_ndistinct 的输出例程。
  *
- * Produces a human-readable representation of the value.
+ * 产生该值的人类可读表示。
  */
 Datum
 pg_ndistinct_out(PG_FUNCTION_ARGS)
@@ -387,7 +387,7 @@ pg_ndistinct_out(PG_FUNCTION_ARGS)
 
 /*
  * pg_ndistinct_recv
- *		binary input routine for type pg_ndistinct
+ *		类型 pg_ndistinct 的二进制输入例程。
  */
 Datum
 pg_ndistinct_recv(PG_FUNCTION_ARGS)
@@ -396,14 +396,14 @@ pg_ndistinct_recv(PG_FUNCTION_ARGS)
 			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 			 errmsg("cannot accept a value of type %s", "pg_ndistinct")));
 
-	PG_RETURN_VOID();			/* keep compiler quiet */
+	PG_RETURN_VOID();			/* 消除编译器告警 */
 }
 
 /*
  * pg_ndistinct_send
- *		binary output routine for type pg_ndistinct
+ *		类型 pg_ndistinct 的二进制输出例程。
  *
- * n-distinct is serialized into a bytea value, so let's send that.
+ * n-distinct 被序列化成 bytea 值，因此直接发送它即可。
  */
 Datum
 pg_ndistinct_send(PG_FUNCTION_ARGS)
@@ -413,14 +413,14 @@ pg_ndistinct_send(PG_FUNCTION_ARGS)
 
 /*
  * ndistinct_for_combination
- *		Estimates number of distinct values in a combination of columns.
+ *		估计一组列组合里的不同值个数。
  *
- * This uses the same ndistinct estimator as compute_scalar_stats() in
- * ANALYZE, i.e.,
- *		n*d / (n - f1 + f1*n/N)
+ * 这使用与 ANALYZE 里 compute_scalar_stats() 相同的
+ * ndistinct 估计器，即：
+ *		n*d / (n - f1 + f1*n/N)。
  *
- * except that instead of values in a single column we are dealing with
- * combination of multiple columns.
+ * 区别在于，我们处理的不是单列里的值，而是
+ * 多列的组合。
  */
 static double
 ndistinct_for_combination(double totalrows, StatsBuildData *data,
@@ -440,10 +440,10 @@ ndistinct_for_combination(double totalrows, StatsBuildData *data,
 	mss = multi_sort_init(k);
 
 	/*
-	 * In order to determine the number of distinct elements, create separate
-	 * values[]/isnull[] arrays with all the data we have, then sort them
-	 * using the specified column combination as dimensions.  We could try to
-	 * sort in place, but it'd probably be more complex and bug-prone.
+	 * 为了确定不同元素的个数，我们建立单独的
+	 * values[]/isnull[] 数组，放入已有的全部数据，然后按
+	 * 指定的列组合作为维度对它们排序。也可以尝试
+	 * 就地排序，但那可能会更复杂、更容易出错。
 	 */
 	items = (SortItem *) palloc(numrows * sizeof(SortItem));
 	values = (Datum *) palloc0(sizeof(Datum) * numrows * k);
@@ -456,11 +456,11 @@ ndistinct_for_combination(double totalrows, StatsBuildData *data,
 	}
 
 	/*
-	 * For each dimension, set up sort-support and fill in the values from the
-	 * sample data.
+	 * 对每个维度，设置排序支持，并从样本数据填入
+	 * 这些值。
 	 *
-	 * We use the column data types' default sort operators and collations;
-	 * perhaps at some point it'd be worth using column-specific collations?
+	 * 我们使用列数据类型的默认排序操作符和排序规则；
+	 * 也许将来值得使用列专属的排序规则？
 	 */
 	for (i = 0; i < k; i++)
 	{
@@ -473,14 +473,14 @@ ndistinct_for_combination(double totalrows, StatsBuildData *data,
 		collid = colstat->attrcollid;
 
 		type = lookup_type_cache(typid, TYPECACHE_LT_OPR);
-		if (type->lt_opr == InvalidOid) /* shouldn't happen */
+		if (type->lt_opr == InvalidOid) /* 不应当发生 */
 			elog(ERROR, "cache lookup failed for ordering operator for type %u",
 				 typid);
 
-		/* prepare the sort function for this dimension */
+		/* 为这个维度准备排序函数 */
 		multi_sort_add_dimension(mss, i, type->lt_opr, collid);
 
-		/* accumulate all the data for this dimension into the arrays */
+		/* 把这个维度的全部数据累积进数组 */
 		for (j = 0; j < numrows; j++)
 		{
 			items[j].values[i] = data->values[combination[i]][j];
@@ -488,11 +488,11 @@ ndistinct_for_combination(double totalrows, StatsBuildData *data,
 		}
 	}
 
-	/* We can sort the array now ... */
+	/* 现在可以对数组排序…… */
 	qsort_interruptible(items, numrows, sizeof(SortItem),
 						multi_sort_compare, mss);
 
-	/* ... and count the number of distinct combinations */
+	/* ……并统计不同组合的个数 */
 
 	f1 = 0;
 	cnt = 1;
@@ -517,7 +517,7 @@ ndistinct_for_combination(double totalrows, StatsBuildData *data,
 	return estimate_ndistinct(totalrows, numrows, d, f1);
 }
 
-/* The Duj1 estimator (already used in analyze.c). */
+/* Duj1 估计器（analyze.c 里已经在用）。 */
 static double
 estimate_ndistinct(double totalrows, int numrows, int d, int f1)
 {
@@ -532,7 +532,7 @@ estimate_ndistinct(double totalrows, int numrows, int d, int f1)
 
 	ndistinct = numer / denom;
 
-	/* Clamp to sane range in case of roundoff error */
+	/* 若有舍入误差，则钳制到合理范围 */
 	if (ndistinct < (double) d)
 		ndistinct = (double) d;
 
@@ -544,8 +544,8 @@ estimate_ndistinct(double totalrows, int numrows, int d, int f1)
 
 /*
  * n_choose_k
- *		computes binomial coefficients using an algorithm that is both
- *		efficient and prevents overflows
+ *		用一种既高效又能防止溢出的算法
+ *		计算二项式系数。
  */
 static int
 n_choose_k(int n, int k)
@@ -555,7 +555,7 @@ n_choose_k(int n, int k)
 
 	Assert((k > 0) && (n >= k));
 
-	/* use symmetry of the binomial coefficients */
+	/* 利用二项式系数的对称性 */
 	k = Min(k, n - k);
 
 	r = 1;
@@ -570,7 +570,7 @@ n_choose_k(int n, int k)
 
 /*
  * num_combinations
- *		number of combinations, excluding single-value combinations
+ *		组合的个数，不含单值组合。
  */
 static int
 num_combinations(int n)
@@ -580,11 +580,11 @@ num_combinations(int n)
 
 /*
  * generator_init
- *		initialize the generator of combinations
+ *		初始化组合生成器。
  *
- * The generator produces combinations of K elements in the interval (0..N).
- * We prebuild all the combinations in this method, which is simpler than
- * generating them on the fly.
+ * 该生成器产生区间 (0..N) 内 K 个元素的组合。
+ * 我们在这个方法里预先构造全部组合，这比
+ * 即时生成它们更简单。
  */
 static CombinationGenerator *
 generator_init(int n, int k)
@@ -593,25 +593,25 @@ generator_init(int n, int k)
 
 	Assert((n >= k) && (k > 0));
 
-	/* allocate the generator state as a single chunk of memory */
+	/* 把生成器状态作为一整块内存来分配 */
 	state = (CombinationGenerator *) palloc(sizeof(CombinationGenerator));
 
 	state->ncombinations = n_choose_k(n, k);
 
-	/* pre-allocate space for all combinations */
+	/* 为全部组合预先分配空间 */
 	state->combinations = (int *) palloc(sizeof(int) * k * state->ncombinations);
 
 	state->current = 0;
 	state->k = k;
 	state->n = n;
 
-	/* now actually pre-generate all the combinations of K elements */
+	/* 现在实际预先生成 K 个元素的全部组合 */
 	generate_combinations(state);
 
-	/* make sure we got the expected number of combinations */
+	/* 确保得到了预期个数的组合 */
 	Assert(state->current == state->ncombinations);
 
-	/* reset the number, so we start with the first one */
+	/* 把序号重置，以便从第一个开始 */
 	state->current = 0;
 
 	return state;
@@ -619,10 +619,10 @@ generator_init(int n, int k)
 
 /*
  * generator_next
- *		returns the next combination from the prebuilt list
+ *		返回预构造列表中的下一个组合。
  *
- * Returns a combination of K array indexes (0 .. N), as specified to
- * generator_init), or NULL when there are no more combination.
+ * 返回 K 个数组下标的组合（0 .. N），如 generator_init
+ * 所指定的那样；没有更多组合时返回 NULL。
  */
 static int *
 generator_next(CombinationGenerator *state)
@@ -635,9 +635,9 @@ generator_next(CombinationGenerator *state)
 
 /*
  * generator_free
- *		free the internal state of the generator
+ *		释放生成器的内部状态。
  *
- * Releases the generator internal state (pre-built combinations).
+ * 释放生成器的内部状态（预先构造的组合）。
  */
 static void
 generator_free(CombinationGenerator *state)
@@ -648,24 +648,24 @@ generator_free(CombinationGenerator *state)
 
 /*
  * generate_combinations_recurse
- *		given a prefix, generate all possible combinations
+ *		给定前缀，生成所有可能的组合。
  *
- * Given a prefix (first few elements of the combination), generate following
- * elements recursively. We generate the combinations in lexicographic order,
- * which eliminates permutations of the same combination.
+ * 给定前缀（组合的前几个元素），递归生成后面的
+ * 元素。我们按字典序生成这些组合，
+ * 从而消除同一组合的排列。
  */
 static void
 generate_combinations_recurse(CombinationGenerator *state,
 							  int index, int start, int *current)
 {
-	/* If we haven't filled all the elements, simply recurse. */
+	/* 若尚未填满全部元素，就直接递归。 */
 	if (index < state->k)
 	{
 		int			i;
 
 		/*
-		 * The values have to be in ascending order, so make sure we start
-		 * with the value passed by parameter.
+		 * 这些值必须按升序排列，因此确保我们从
+		 * 参数传入的值开始。
 		 */
 
 		for (i = start; i < state->n; i++)
@@ -678,7 +678,7 @@ generate_combinations_recurse(CombinationGenerator *state,
 	}
 	else
 	{
-		/* we got a valid combination, add it to the array */
+		/* 得到一个有效组合，把它加入数组 */
 		memcpy(&state->combinations[(state->k * state->current)],
 			   current, state->k * sizeof(int));
 		state->current++;
@@ -687,7 +687,7 @@ generate_combinations_recurse(CombinationGenerator *state,
 
 /*
  * generate_combinations
- *		generate all k-combinations of N elements
+ *		生成 N 个元素的全部 k 组合。
  */
 static void
 generate_combinations(CombinationGenerator *state)

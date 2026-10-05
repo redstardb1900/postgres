@@ -50,29 +50,29 @@
 #include "utils/typcache.h"
 
 /*
- * To avoid consuming too much memory during analysis and/or too much space
- * in the resulting pg_statistic rows, we ignore varlena datums that are wider
- * than WIDTH_THRESHOLD (after detoasting!).  This is legitimate for MCV
- * and distinct-value calculations since a wide value is unlikely to be
- * duplicated at all, much less be a most-common value.  For the same reason,
- * ignoring wide values will not affect our estimates of histogram bin
- * boundaries very much.
+ * 为避免分析期间消耗过多内存，以及/或者在得到的
+ * pg_statistic 行里占用过多空间，我们忽略去 toast 之后宽于
+ * WIDTH_THRESHOLD 的 varlena datum。对 MCV
+ * 和不同值计算这是合理的，因为很宽的值不太可能
+ * 被重复，更不太会是最常见值。出于同样的理由，
+ * 忽略很宽的值不会太影响我们对直方图桶
+ * 边界的估计。
  */
 #define WIDTH_THRESHOLD  1024
 
 /*
- * Used internally to refer to an individual statistics object, i.e.,
- * a pg_statistic_ext entry.
+ * 内部用来指代单个统计对象，即
+ * 一条 pg_statistic_ext 项。
  */
 typedef struct StatExtEntry
 {
-	Oid			statOid;		/* OID of pg_statistic_ext entry */
-	char	   *schema;			/* statistics object's schema */
-	char	   *name;			/* statistics object's name */
-	Bitmapset  *columns;		/* attribute numbers covered by the object */
-	List	   *types;			/* 'char' list of enabled statistics kinds */
-	int			stattarget;		/* statistics target (-1 for default) */
-	List	   *exprs;			/* expressions */
+	Oid			statOid;		/* pg_statistic_ext 项的 OID */
+	char	   *schema;			/* 统计对象的模式 */
+	char	   *name;			/* 统计对象的名字 */
+	Bitmapset  *columns;		/* 该对象覆盖的属性号 */
+	List	   *types;			/* 已启用统计种类的 char 列表 */
+	int			stattarget;		/* 统计目标（-1 表示默认） */
+	List	   *exprs;			/* 表达式 */
 } StatExtEntry;
 
 
@@ -85,11 +85,11 @@ static void statext_store(Oid statOid, bool inh,
 static int	statext_compute_stattarget(int stattarget,
 									   int nattrs, VacAttrStats **stats);
 
-/* Information needed to analyze a single simple expression. */
+/* 分析单个简单表达式所需的信息。 */
 typedef struct AnlExprData
 {
-	Node	   *expr;			/* expression to analyze */
-	VacAttrStats *vacattrstat;	/* statistics attrs to analyze */
+	Node	   *expr;			/* 要分析的表达式 */
+	VacAttrStats *vacattrstat;	/* 要分析的统计属性 */
 } AnlExprData;
 
 static void compute_expr_stats(Relation onerel, double totalrows,
@@ -105,11 +105,11 @@ static StatsBuildData *make_build_data(Relation rel, StatExtEntry *stat,
 
 
 /*
- * Compute requested extended stats, using the rows sampled for the plain
- * (single-column) stats.
+ * 计算所请求的扩展统计，使用为普通
+ * （单列）统计采样的行。
  *
- * This fetches a list of stats types from pg_statistic_ext, computes the
- * requested stats, and serializes them back into the catalog.
+ * 这从 pg_statistic_ext 取出统计类型列表，计算
+ * 所请求的统计，再把它们序列化写回系统目录。
  */
 void
 BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
@@ -123,21 +123,21 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 	MemoryContext oldcxt;
 	int64		ext_cnt;
 
-	/* Do nothing if there are no columns to analyze. */
+	/* 若没有要分析的列，就什么也不做。 */
 	if (!natts)
 		return;
 
-	/* the list of stats has to be allocated outside the memory context */
+	/* 统计列表必须在该内存上下文之外分配 */
 	pg_stext = table_open(StatisticExtRelationId, RowExclusiveLock);
 	statslist = fetch_statentries_for_relation(pg_stext, RelationGetRelid(onerel));
 
-	/* memory context for building each statistics object */
+	/* 构造每个统计对象所用的内存上下文 */
 	cxt = AllocSetContextCreate(CurrentMemoryContext,
 								"BuildRelationExtStatistics",
 								ALLOCSET_DEFAULT_SIZES);
 	oldcxt = MemoryContextSwitchTo(cxt);
 
-	/* report this phase */
+	/* 报告这一阶段 */
 	if (statslist != NIL)
 	{
 		const int	index[] = {
@@ -166,8 +166,8 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 		StatsBuildData *data;
 
 		/*
-		 * Check if we can build these stats based on the column analyzed. If
-		 * not, report this fact (except in autovacuum) and move on.
+		 * 检查能否基于已分析的列来建立这些统计。若
+		 * 不能，就报告这一事实（autovacuum 中除外）并继续。
 		 */
 		stats = lookup_var_attr_stats(onerel, stat->columns, stat->exprs,
 									  natts, vacattrstats);
@@ -184,23 +184,23 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 			continue;
 		}
 
-		/* compute statistics target for this statistics object */
+		/* 计算该统计对象的统计目标 */
 		stattarget = statext_compute_stattarget(stat->stattarget,
 												bms_num_members(stat->columns),
 												stats);
 
 		/*
-		 * Don't rebuild statistics objects with statistics target set to 0
-		 * (we just leave the existing values around, just like we do for
-		 * regular per-column statistics).
+		 * 不要重建统计目标被设为 0 的统计对象
+		 * （我们就把现有值留在那里，就像对
+		 * 普通的按列统计所做的那样）。
 		 */
 		if (stattarget == 0)
 			continue;
 
-		/* evaluate expressions (if the statistics object has any) */
+		/* 对表达式求值（若该统计对象有表达式） */
 		data = make_build_data(onerel, stat, numrows, rows, stats, stattarget);
 
-		/* compute statistic of each requested type */
+		/* 计算每种所请求类型的统计 */
 		foreach(lc2, stat->types)
 		{
 			char		t = (char) lfirst_int(lc2);
@@ -216,7 +216,7 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 				AnlExprData *exprdata;
 				int			nexprs;
 
-				/* should not happen, thanks to checks when defining stats */
+				/* 不应当发生，这要归功于定义统计时的检查 */
 				if (!stat->exprs)
 					elog(ERROR, "requested expression stats, but there are no expressions");
 
@@ -231,15 +231,15 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 			}
 		}
 
-		/* store the statistics in the catalog */
+		/* 把统计信息存入系统目录 */
 		statext_store(stat->statOid, inh,
 					  ndistinct, dependencies, mcv, exprstats, stats);
 
-		/* for reporting progress */
+		/* 用于报告进度 */
 		pgstat_progress_update_param(PROGRESS_ANALYZE_EXT_STATS_COMPUTED,
 									 ++ext_cnt);
 
-		/* free the data used for building this statistics object */
+		/* 释放构造该统计对象所用的数据 */
 		MemoryContextReset(cxt);
 	}
 
@@ -253,16 +253,16 @@ BuildRelationExtStatistics(Relation onerel, bool inh, double totalrows,
 
 /*
  * ComputeExtStatisticsRows
- *		Compute number of rows required by extended statistics on a table.
+ *		计算表上扩展统计所需的行数。
  *
- * Computes number of rows we need to sample to build extended statistics on a
- * table. This only looks at statistics we can actually build - for example
- * when analyzing only some of the columns, this will skip statistics objects
- * that would require additional columns.
+ * 计算为了在表上建立扩展统计而需要采样的
+ * 行数。这里只看我们实际能建立的统计信息。例如只分析
+ * 部分列时，会跳过需要额外列的
+ * 统计对象。
  *
- * See statext_compute_stattarget for details about how we compute the
- * statistics target for a statistics object (from the object target,
- * attribute targets and default statistics target).
+ * 关于如何计算统计对象的统计目标（由对象目标、
+ * 属性目标和默认统计目标得出），详见
+ * statext_compute_stattarget。
  */
 int
 ComputeExtStatisticsRows(Relation onerel,
@@ -275,7 +275,7 @@ ComputeExtStatisticsRows(Relation onerel,
 	MemoryContext oldcxt;
 	int			result = 0;
 
-	/* If there are no columns to analyze, just return 0. */
+	/* 若没有要分析的列，就返回 0。 */
 	if (!natts)
 		return 0;
 
@@ -295,9 +295,9 @@ ComputeExtStatisticsRows(Relation onerel,
 		int			nattrs = bms_num_members(stat->columns);
 
 		/*
-		 * Check if we can build this statistics object based on the columns
-		 * analyzed. If not, ignore it (don't report anything, we'll do that
-		 * during the actual build BuildRelationExtStatistics).
+		 * 检查能否基于已分析的列来建立该统计对象。
+		 * 若不能，就忽略它（这里不报告，实际建立时会在
+		 * BuildRelationExtStatistics 里报告）。
 		 */
 		stats = lookup_var_attr_stats(onerel, stat->columns, stat->exprs,
 									  natts, vacattrstats);
@@ -306,13 +306,13 @@ ComputeExtStatisticsRows(Relation onerel,
 			continue;
 
 		/*
-		 * Compute statistics target, based on what's set for the statistic
-		 * object itself, and for its attributes.
+		 * 根据统计对象本身及其属性上设置的内容，
+		 * 计算统计目标。
 		 */
 		stattarget = statext_compute_stattarget(stat->stattarget,
 												nattrs, stats);
 
-		/* Use the largest value for all statistics objects. */
+		/* 对所有统计对象使用最大的那个值。 */
 		if (stattarget > result)
 			result = stattarget;
 	}
@@ -322,29 +322,29 @@ ComputeExtStatisticsRows(Relation onerel,
 	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(cxt);
 
-	/* compute sample size based on the statistics target */
+	/* 根据统计目标计算样本大小 */
 	return (300 * result);
 }
 
 /*
  * statext_compute_stattarget
- *		compute statistics target for an extended statistic
+ *		计算一条扩展统计的统计目标。
  *
- * When computing target for extended statistics objects, we consider three
- * places where the target may be set - the statistics object itself,
- * attributes the statistics object is defined on, and then the default
- * statistics target.
+ * 计算扩展统计对象的目标时，我们考虑三个
+ * 可能设置目标的地方：统计对象本身、
+ * 该统计对象所定义于的属性，然后是默认
+ * 统计目标。
  *
- * First we look at what's set for the statistics object itself, using the
- * ALTER STATISTICS ... SET STATISTICS command. If we find a valid value
- * there (i.e. not -1) we're done. Otherwise we look at targets set for any
- * of the attributes the statistic is defined on, and if there are columns
- * with defined target, we use the maximum value. We do this mostly for
- * backwards compatibility, because this is what we did before having
- * statistics target for extended statistics.
+ * 首先看统计对象本身设置了什么，用的是
+ * ALTER STATISTICS ... SET STATISTICS 命令。若在那里找到有效值
+ * （即不是 -1），就完成了。否则看该统计所定义于的
+ * 任何属性上设置的目标，若有些列
+ * 定义了目标，就用最大值。我们这样做主要是为了
+ * 向后兼容，因为在扩展统计有自己的
+ * 统计目标之前，就是这么做的。
  *
- * And finally, if we still don't have a statistics target, we use the value
- * set in default_statistics_target.
+ * 最后，若仍然没有统计目标，就用
+ * default_statistics_target 里设置的值。
  */
 static int
 statext_compute_stattarget(int stattarget, int nattrs, VacAttrStats **stats)
@@ -352,33 +352,33 @@ statext_compute_stattarget(int stattarget, int nattrs, VacAttrStats **stats)
 	int			i;
 
 	/*
-	 * If there's statistics target set for the statistics object, use it. It
-	 * may be set to 0 which disables building of that statistic.
+	 * 若统计对象设置了统计目标，就用它。它
+	 * 可能被设为 0，从而禁用该统计的建立。
 	 */
 	if (stattarget >= 0)
 		return stattarget;
 
 	/*
-	 * The target for the statistics object is set to -1, in which case we
-	 * look at the maximum target set for any of the attributes the object is
-	 * defined on.
+	 * 统计对象的目标被设为 -1，那种情况下我们
+	 * 看该对象所定义于的任何属性上设置的
+	 * 最大目标。
 	 */
 	for (i = 0; i < nattrs; i++)
 	{
-		/* keep the maximum statistics target */
+		/* 保留最大的统计目标 */
 		if (stats[i]->attr->attstattarget > stattarget)
 			stattarget = stats[i]->attr->attstattarget;
 	}
 
 	/*
-	 * If the value is still negative (so neither the statistics object nor
-	 * any of the columns have custom statistics target set), use the global
-	 * default target.
+	 * 若该值仍然为负（统计对象和
+	 * 任何列都没有设置自定义统计目标），就用全局
+	 * 默认目标。
 	 */
 	if (stattarget < 0)
 		stattarget = default_statistics_target;
 
-	/* As this point we should have a valid statistics target. */
+	/* 至此我们应当有一个有效的统计目标。 */
 	Assert((stattarget >= 0) && (stattarget <= 10000));
 
 	return stattarget;
@@ -386,7 +386,7 @@ statext_compute_stattarget(int stattarget, int nattrs, VacAttrStats **stats)
 
 /*
  * statext_is_kind_built
- *		Is this stat kind built in the given pg_statistic_ext_data tuple?
+ *		给定的 pg_statistic_ext_data 元组里是否已经建立了这种统计？
  */
 bool
 statext_is_kind_built(HeapTuple htup, char type)
@@ -419,7 +419,7 @@ statext_is_kind_built(HeapTuple htup, char type)
 }
 
 /*
- * Return a list (of StatExtEntry) of statistics objects for the given relation.
+ * 返回给定关系的统计对象列表（StatExtEntry）。
  */
 static List *
 fetch_statentries_for_relation(Relation pg_statext, Oid relid)
@@ -430,8 +430,8 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 	List	   *result = NIL;
 
 	/*
-	 * Prepare to scan pg_statistic_ext for entries having stxrelid = this
-	 * rel.
+	 * 准备扫描 pg_statistic_ext，查找 stxrelid 等于该
+	 * 关系的项。
 	 */
 	ScanKeyInit(&skey,
 				Anum_pg_statistic_ext_stxrelid,
@@ -464,7 +464,7 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 											staForm->stxkeys.values[i]);
 		}
 
-		/* decode the stxkind char array into a list of chars */
+		/* 把 stxkind 字符数组解码成字符列表 */
 		datum = SysCacheGetAttrNotNull(STATEXTOID, htup,
 									   Anum_pg_statistic_ext_stxkind);
 		arr = DatumGetArrayTypeP(datum);
@@ -482,7 +482,7 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 			entry->types = lappend_int(entry->types, (int) enabled[i]);
 		}
 
-		/* decode expression (if any) */
+		/* 解码表达式（若有） */
 		datum = SysCacheGetAttr(STATEXTOID, htup,
 								Anum_pg_statistic_ext_stxexprs, &isnull);
 
@@ -496,16 +496,16 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 			pfree(exprsString);
 
 			/*
-			 * Run the expressions through eval_const_expressions. This is not
-			 * just an optimization, but is necessary, because the planner
-			 * will be comparing them to similarly-processed qual clauses, and
-			 * may fail to detect valid matches without this.  We must not use
-			 * canonicalize_qual, however, since these aren't qual
-			 * expressions.
+			 * 把这些表达式送过 eval_const_expressions。这不只是
+			 * 优化，而且是必要的，因为规划器
+			 * 会把它们与同样处理过的限定子句比较，若没有这一步
+			 * 可能检测不出有效匹配。然而我们不得使用
+			 * canonicalize_qual，因为这些并不是限定
+			 * 表达式。
 			 */
 			exprs = (List *) eval_const_expressions(NULL, (Node *) exprs);
 
-			/* May as well fix opfuncids too */
+			/* 不妨也修正 opfuncid */
 			fix_opfuncids((Node *) exprs);
 		}
 
@@ -520,10 +520,10 @@ fetch_statentries_for_relation(Relation pg_statext, Oid relid)
 }
 
 /*
- * examine_attribute -- pre-analysis of a single column
+ * examine_attribute：对单个列做分析前检查。
  *
- * Determine whether the column is analyzable; if so, create and initialize
- * a VacAttrStats struct for it.  If not, return NULL.
+ * 判断该列是否可分析；若可以，就为它创建并初始化
+ * 一个 VacAttrStats 结构。若不可以，就返回 NULL。
  */
 static VacAttrStats *
 examine_attribute(Node *expr)
@@ -534,23 +534,23 @@ examine_attribute(Node *expr)
 	bool		ok;
 
 	/*
-	 * Create the VacAttrStats struct.  Note that we only have a copy of the
-	 * fixed fields of the pg_attribute tuple.
+	 * 创建 VacAttrStats 结构。注意我们只有
+	 * pg_attribute 元组固定成员的一份副本。
 	 */
 	stats = (VacAttrStats *) palloc0(sizeof(VacAttrStats));
 
-	/* fake the attribute */
+	/* 伪造该属性 */
 	stats->attr = (Form_pg_attribute) palloc0(ATTRIBUTE_FIXED_PART_SIZE);
 	stats->attr->attstattarget = -1;
 
 	/*
-	 * When analyzing an expression, believe the expression tree's type not
-	 * the column datatype --- the latter might be the opckeytype storage type
-	 * of the opclass, which is not interesting for our purposes.  (Note: if
-	 * we did anything with non-expression statistics columns, we'd need to
-	 * figure out where to get the correct type info from, but for now that's
-	 * not a problem.)	It's not clear whether anyone will care about the
-	 * typmod, but we store that too just in case.
+	 * 分析表达式时，相信表达式树的类型，而不是
+	 * 列数据类型：后者可能是操作符类的 opckeytype 存储类型，
+	 * 对我们的目的没有意义。（注意：若
+	 * 我们对非表达式的统计列做任何事，就需要
+	 * 弄清从哪里取得正确的类型信息，但目前这
+	 * 不是问题。）不清楚是否有人在意
+	 * typmod，但为防万一我们也把它存下来。
 	 */
 	stats->attrtypid = exprType(expr);
 	stats->attrtypmod = exprTypmod(expr);
@@ -563,16 +563,16 @@ examine_attribute(Node *expr)
 	stats->attrtype = (Form_pg_type) GETSTRUCT(typtuple);
 
 	/*
-	 * We don't actually analyze individual attributes, so no need to set the
-	 * memory context.
+	 * 我们实际上不分析单个属性，因此不必设置
+	 * 内存上下文。
 	 */
 	stats->anl_context = NULL;
 	stats->tupattnum = InvalidAttrNumber;
 
 	/*
-	 * The fields describing the stats->stavalues[n] element types default to
-	 * the type of the data being analyzed, but the type-specific typanalyze
-	 * function can change them if it wants to store something else.
+	 * 描述 stats->stavalues[n] 元素类型的成员默认是
+	 * 被分析数据的类型，但类型专用的 typanalyze
+	 * 函数若想存储别的东西，可以改掉它们。
 	 */
 	for (i = 0; i < STATISTIC_NUM_SLOTS; i++)
 	{
@@ -583,8 +583,8 @@ examine_attribute(Node *expr)
 	}
 
 	/*
-	 * Call the type-specific typanalyze function.  If none is specified, use
-	 * std_typanalyze().
+	 * 调用类型专用的 typanalyze 函数。若没有指定，就用
+	 * std_typanalyze()。
 	 */
 	if (OidIsValid(stats->attrtype->typanalyze))
 		ok = DatumGetBool(OidFunctionCall1(stats->attrtype->typanalyze,
@@ -604,10 +604,10 @@ examine_attribute(Node *expr)
 }
 
 /*
- * examine_expression -- pre-analysis of a single expression
+ * examine_expression：对单个表达式做分析前检查。
  *
- * Determine whether the expression is analyzable; if so, create and initialize
- * a VacAttrStats struct for it.  If not, return NULL.
+ * 判断该表达式是否可分析；若可以，就为它创建并初始化
+ * 一个 VacAttrStats 结构。若不可以，就返回 NULL。
  */
 static VacAttrStats *
 examine_expression(Node *expr, int stattarget)
@@ -620,39 +620,39 @@ examine_expression(Node *expr, int stattarget)
 	Assert(expr != NULL);
 
 	/*
-	 * Create the VacAttrStats struct.
+	 * 创建 VacAttrStats 结构。
 	 */
 	stats = (VacAttrStats *) palloc0(sizeof(VacAttrStats));
 
 	/*
-	 * When analyzing an expression, believe the expression tree's type.
+	 * 分析表达式时，相信表达式树的类型。
 	 */
 	stats->attrtypid = exprType(expr);
 	stats->attrtypmod = exprTypmod(expr);
 
 	/*
-	 * We don't allow collation to be specified in CREATE STATISTICS, so we
-	 * have to use the collation specified for the expression. It's possible
-	 * to specify the collation in the expression "(col COLLATE "en_US")" in
-	 * which case exprCollation() does the right thing.
+	 * CREATE STATISTICS 不允许指定排序规则，因此我们
+	 * 必须使用表达式所指定的排序规则。可以在表达式
+	 * "(col COLLATE "en_US")" 里指定排序规则，
+	 * 那种情况下 exprCollation() 会做正确的事。
 	 */
 	stats->attrcollid = exprCollation(expr);
 
 	/*
-	 * We don't have any pg_attribute for expressions, so let's fake something
-	 * reasonable into attstattarget, which is the only thing std_typanalyze
-	 * needs.
+	 * 表达式没有 pg_attribute，因此我们往 attstattarget 里伪造一些
+	 * 合理的东西，这是 std_typanalyze
+	 * 唯一需要的。
 	 */
 	stats->attr = (Form_pg_attribute) palloc(ATTRIBUTE_FIXED_PART_SIZE);
 
 	/*
-	 * We can't have statistics target specified for the expression, so we
-	 * could use either the default_statistics_target, or the target computed
-	 * for the extended statistics. The second option seems more reasonable.
+	 * 表达式不能指定统计目标，因此我们可以
+	 * 用 default_statistics_target，或者用为扩展统计
+	 * 算出的目标。第二个选择似乎更合理。
 	 */
 	stats->attr->attstattarget = stattarget;
 
-	/* initialize some basic fields */
+	/* 初始化一些基本成员 */
 	stats->attr->attrelid = InvalidOid;
 	stats->attr->attnum = InvalidAttrNumber;
 	stats->attr->atttypid = stats->attrtypid;
@@ -663,14 +663,14 @@ examine_expression(Node *expr, int stattarget)
 		elog(ERROR, "cache lookup failed for type %u", stats->attrtypid);
 
 	stats->attrtype = (Form_pg_type) GETSTRUCT(typtuple);
-	stats->anl_context = CurrentMemoryContext;	/* XXX should be using
-												 * something else? */
+	stats->anl_context = CurrentMemoryContext;	/* XXX 应当使用
+												 * 别的东西吗？ */
 	stats->tupattnum = InvalidAttrNumber;
 
 	/*
-	 * The fields describing the stats->stavalues[n] element types default to
-	 * the type of the data being analyzed, but the type-specific typanalyze
-	 * function can change them if it wants to store something else.
+	 * 描述 stats->stavalues[n] 元素类型的成员默认是
+	 * 被分析数据的类型，但类型专用的 typanalyze
+	 * 函数若想存储别的东西，可以改掉它们。
 	 */
 	for (i = 0; i < STATISTIC_NUM_SLOTS; i++)
 	{
@@ -681,8 +681,8 @@ examine_expression(Node *expr, int stattarget)
 	}
 
 	/*
-	 * Call the type-specific typanalyze function.  If none is specified, use
-	 * std_typanalyze().
+	 * 调用类型专用的 typanalyze 函数。若没有指定，就用
+	 * std_typanalyze()。
 	 */
 	if (OidIsValid(stats->attrtype->typanalyze))
 		ok = DatumGetBool(OidFunctionCall1(stats->attrtype->typanalyze,
@@ -701,11 +701,11 @@ examine_expression(Node *expr, int stattarget)
 }
 
 /*
- * Using 'vacatts' of size 'nvacatts' as input data, return a newly-built
- * VacAttrStats array which includes only the items corresponding to
- * attributes indicated by 'attrs'.  If we don't have all of the per-column
- * stats available to compute the extended stats, then we return NULL to
- * indicate to the caller that the stats should not be built.
+ * 以大小为 nvacatts 的 vacatts 作为输入数据，返回一个新建的
+ * VacAttrStats 数组，其中只含与
+ * attrs 所指示属性对应的项。若我们没有计算扩展统计所需的
+ * 全部按列统计，就返回 NULL，
+ * 向调用者表明不应当建立这些统计。
  */
 static VacAttrStats **
 lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
@@ -721,7 +721,7 @@ lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
 
 	stats = (VacAttrStats **) palloc(natts * sizeof(VacAttrStats *));
 
-	/* lookup VacAttrStats info for the requested columns (same attnum) */
+	/* 查找所请求列的 VacAttrStats 信息（相同的 attnum） */
 	while ((x = bms_next_member(attrs, x)) >= 0)
 	{
 		int			j;
@@ -739,24 +739,24 @@ lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
 		if (!stats[i])
 		{
 			/*
-			 * Looks like stats were not gathered for one of the columns
-			 * required. We'll be unable to build the extended stats without
-			 * this column.
+			 * 看起来某一列没有收集到统计。
+			 * 没有这一列，我们将无法建立
+			 * 扩展统计。
 			 */
 			pfree(stats);
 			return NULL;
 		}
 
 		/*
-		 * Sanity check that the column is not dropped - stats should have
-		 * been removed in this case.
+		 * 健全性检查：该列没有被删除。那种情况下
+		 * 统计应当已经被去掉。
 		 */
 		Assert(!stats[i]->attr->attisdropped);
 
 		i++;
 	}
 
-	/* also add info for expressions */
+	/* 同时加入表达式的信息 */
 	foreach(lc, exprs)
 	{
 		Node	   *expr = (Node *) lfirst(lc);
@@ -764,10 +764,10 @@ lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
 		stats[i] = examine_attribute(expr);
 
 		/*
-		 * XXX We need tuple descriptor later, and we just grab it from
-		 * stats[0]->tupDesc (see e.g. statext_mcv_build). But as coded
-		 * examine_attribute does not set that, so just grab it from the first
-		 * vacatts element.
+		 * XXX 我们稍后需要元组描述符，而代码只是从
+		 * stats[0]->tupDesc 取它（例如见 statext_mcv_build）。但按现有写法
+		 * examine_attribute 并不设置它，因此就从第一个
+		 * vacatts 元素取。
 		 */
 		stats[i]->tupDesc = vacatts[0]->tupDesc;
 
@@ -779,8 +779,8 @@ lookup_var_attr_stats(Relation rel, Bitmapset *attrs, List *exprs,
 
 /*
  * statext_store
- *	Serializes the statistics and stores them into the pg_statistic_ext_data
- *	tuple.
+ *	把统计信息序列化，并存入 pg_statistic_ext_data
+ *	元组。
  */
 static void
 statext_store(Oid statOid, bool inh,
@@ -797,7 +797,7 @@ statext_store(Oid statOid, bool inh,
 	memset(nulls, true, sizeof(nulls));
 	memset(values, 0, sizeof(values));
 
-	/* basic info */
+	/* 基本信息 */
 	values[Anum_pg_statistic_ext_data_stxoid - 1] = ObjectIdGetDatum(statOid);
 	nulls[Anum_pg_statistic_ext_data_stxoid - 1] = false;
 
@@ -805,8 +805,8 @@ statext_store(Oid statOid, bool inh,
 	nulls[Anum_pg_statistic_ext_data_stxdinherit - 1] = false;
 
 	/*
-	 * Construct a new pg_statistic_ext_data tuple, replacing the calculated
-	 * stats.
+	 * 构造一个新的 pg_statistic_ext_data 元组，替换计算出的
+	 * 统计。
 	 */
 	if (ndistinct != NULL)
 	{
@@ -837,12 +837,12 @@ statext_store(Oid statOid, bool inh,
 	}
 
 	/*
-	 * Delete the old tuple if it exists, and insert a new one. It's easier
-	 * than trying to update or insert, based on various conditions.
+	 * 若旧元组存在就删掉它，再插入一个新的。这比
+	 * 根据各种条件去更新或插入更容易。
 	 */
 	RemoveStatisticsDataById(statOid, inh);
 
-	/* form and insert a new tuple */
+	/* 构造并插入一个新元组 */
 	stup = heap_form_tuple(RelationGetDescr(pg_stextdata), values, nulls);
 	CatalogTupleInsert(pg_stextdata, stup);
 
@@ -851,7 +851,7 @@ statext_store(Oid statOid, bool inh,
 	table_close(pg_stextdata, RowExclusiveLock);
 }
 
-/* initialize multi-dimensional sort */
+/* 初始化多维排序 */
 MultiSortSupport
 multi_sort_init(int ndims)
 {
@@ -868,8 +868,8 @@ multi_sort_init(int ndims)
 }
 
 /*
- * Prepare sort support info using the given sort operator and collation
- * at the position 'sortdim'
+ * 用给定的排序操作符和排序规则，在位置 sortdim 处
+ * 准备排序支持信息
  */
 void
 multi_sort_add_dimension(MultiSortSupport mss, int sortdim,
@@ -884,7 +884,7 @@ multi_sort_add_dimension(MultiSortSupport mss, int sortdim,
 	PrepareSortSupportFromOrderingOp(oper, ssup);
 }
 
-/* compare all the dimensions in the selected order */
+/* 按选定顺序比较所有维度 */
 int
 multi_sort_compare(const void *a, const void *b, void *arg)
 {
@@ -905,11 +905,11 @@ multi_sort_compare(const void *a, const void *b, void *arg)
 			return compare;
 	}
 
-	/* equal by default */
+	/* 默认相等 */
 	return 0;
 }
 
-/* compare selected dimension */
+/* 比较选定的维度 */
 int
 multi_sort_compare_dim(int dim, const SortItem *a, const SortItem *b,
 					   MultiSortSupport mss)
@@ -955,11 +955,11 @@ compare_datums_simple(Datum a, Datum b, SortSupport ssup)
 
 /*
  * build_attnums_array
- *		Transforms a bitmap into an array of AttrNumber values.
+ *		把 bitmap 转换成 AttrNumber 值的数组。
  *
- * This is used for extended statistics only, so all the attributes must be
- * user-defined. That means offsetting by FirstLowInvalidHeapAttributeNumber
- * is not necessary here (and when querying the bitmap).
+ * 这只用于扩展统计，因此所有属性都必须是
+ * 用户定义的。这意味着这里不必按 FirstLowInvalidHeapAttributeNumber
+ * 做偏移（查询 bitmap 时也不必）。
  */
 AttrNumber *
 build_attnums_array(Bitmapset *attrs, int nexprs, int *numattrs)
@@ -972,7 +972,7 @@ build_attnums_array(Bitmapset *attrs, int nexprs, int *numattrs)
 	if (numattrs)
 		*numattrs = num;
 
-	/* build attnums from the bitmapset */
+	/* 从 bitmapset 构造 attnum */
 	attnums = (AttrNumber *) palloc(sizeof(AttrNumber) * num);
 	i = 0;
 	j = -1;
@@ -981,10 +981,10 @@ build_attnums_array(Bitmapset *attrs, int nexprs, int *numattrs)
 		int			attnum = (j - nexprs);
 
 		/*
-		 * Make sure the bitmap contains only user-defined attributes. As
-		 * bitmaps can't contain negative values, this can be violated in two
-		 * ways. Firstly, the bitmap might contain 0 as a member, and secondly
-		 * the integer value might be larger than MaxAttrNumber.
+		 * 确保 bitmap 只含用户定义的属性。由于
+		 * bitmap 没法含有负值，这一点可能以两种
+		 * 方式被违反。第一，bitmap 可能把 0 当作成员；第二，
+		 * 整数值可能大于 MaxAttrNumber。
 		 */
 		Assert(AttributeNumberIsValid(attnum));
 		Assert(attnum <= MaxAttrNumber);
@@ -992,7 +992,7 @@ build_attnums_array(Bitmapset *attrs, int nexprs, int *numattrs)
 
 		attnums[i++] = (AttrNumber) attnum;
 
-		/* protect against overflows */
+		/* 防止溢出 */
 		Assert(i <= num);
 	}
 
@@ -1001,10 +1001,10 @@ build_attnums_array(Bitmapset *attrs, int nexprs, int *numattrs)
 
 /*
  * build_sorted_items
- *		build a sorted array of SortItem with values from rows
+ *		用行里的值构造排好序的 SortItem 数组。
  *
- * Note: All the memory is allocated in a single chunk, so that the caller
- * can simply pfree the return value to release all of it.
+ * 注意：所有内存都分配在单个块里，因此调用者
+ * 只需 pfree 返回值就能全部释放。
  */
 SortItem *
 build_sorted_items(StatsBuildData *data, int *nitems,
@@ -1023,27 +1023,27 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 	char	   *ptr;
 	int		   *typlen;
 
-	/* Compute the total amount of memory we need (both items and values). */
+	/* 计算我们需要的内存总量（项和值都算）。 */
 	len = data->numrows * sizeof(SortItem) + nvalues * (sizeof(Datum) + sizeof(bool));
 
-	/* Allocate the memory and split it into the pieces. */
+	/* 分配内存并把它分成几块。 */
 	ptr = palloc0(len);
 
-	/* items to sort */
+	/* 要排序的项 */
 	items = (SortItem *) ptr;
 	ptr += data->numrows * sizeof(SortItem);
 
-	/* values and null flags */
+	/* 值和空标志 */
 	values = (Datum *) ptr;
 	ptr += nvalues * sizeof(Datum);
 
 	isnull = (bool *) ptr;
 	ptr += nvalues * sizeof(bool);
 
-	/* make sure we consumed the whole buffer exactly */
+	/* 确保我们恰好用完整个缓冲区 */
 	Assert((ptr - (char *) items) == len);
 
-	/* fix the pointers to Datum and bool arrays */
+	/* 修正指向 Datum 和 bool 数组的指针 */
 	nrows = 0;
 	for (i = 0; i < data->numrows; i++)
 	{
@@ -1053,7 +1053,7 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 		nrows++;
 	}
 
-	/* build a local cache of typlen for all attributes */
+	/* 为所有属性建立 typlen 的本地缓存 */
 	typlen = (int *) palloc(sizeof(int) * data->nattnums);
 	for (i = 0; i < data->nattnums; i++)
 		typlen[i] = get_typlen(data->stats[i]->attrtypid);
@@ -1063,7 +1063,7 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 	{
 		bool		toowide = false;
 
-		/* load the values/null flags from sample rows */
+		/* 从样本行装载值/空标志 */
 		for (j = 0; j < numattrs; j++)
 		{
 			Datum		value;
@@ -1073,7 +1073,7 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 
 			int			idx;
 
-			/* match attnum to the pre-calculated data */
+			/* 把 attnum 与预先计算的数据对应起来 */
 			for (idx = 0; idx < data->nattnums; idx++)
 			{
 				if (attnum == data->attnums[idx])
@@ -1087,13 +1087,13 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 			attlen = typlen[idx];
 
 			/*
-			 * If this is a varlena value, check if it's too wide and if yes
-			 * then skip the whole item. Otherwise detoast the value.
+			 * 若这是 varlena 值，就检查它是否过宽，若是
+			 * 就跳过整项。否则把该值去 toast。
 			 *
-			 * XXX It may happen that we've already detoasted some preceding
-			 * values for the current item. We don't bother to cleanup those
-			 * on the assumption that those are small (below WIDTH_THRESHOLD)
-			 * and will be discarded at the end of analyze.
+			 * XXX 可能已经把当前项前面的一些
+			 * 值去了 toast。我们不费心清理那些，
+			 * 因为假定它们很小（低于 WIDTH_THRESHOLD），
+			 * 并且会在分析结束时被丢弃。
 			 */
 			if ((!isnull) && (attlen == -1))
 			{
@@ -1116,18 +1116,18 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 		nrows++;
 	}
 
-	/* store the actual number of items (ignoring the too-wide ones) */
+	/* 存储实际的项数（忽略过宽的那些） */
 	*nitems = nrows;
 
-	/* all items were too wide */
+	/* 所有项都过宽 */
 	if (nrows == 0)
 	{
-		/* everything is allocated as a single chunk */
+		/* 一切都作为单个块分配 */
 		pfree(items);
 		return NULL;
 	}
 
-	/* do the sort, using the multi-sort */
+	/* 用多键排序来排序 */
 	qsort_interruptible(items, nrows, sizeof(SortItem),
 						multi_sort_compare, mss);
 
@@ -1136,7 +1136,7 @@ build_sorted_items(StatsBuildData *data, int *nitems,
 
 /*
  * has_stats_of_kind
- *		Check whether the list contains statistic of a given kind
+ *		检查该列表是否含有给定种类的统计
  */
 bool
 has_stats_of_kind(List *stats, char requiredkind)
@@ -1156,10 +1156,10 @@ has_stats_of_kind(List *stats, char requiredkind)
 
 /*
  * stat_find_expression
- *		Search for an expression in statistics object's list of expressions.
+ *		在统计对象的表达式列表里搜索一个表达式。
  *
- * Returns the index of the expression in the statistics object's list of
- * expressions, or -1 if not found.
+ * 返回该表达式在统计对象表达式列表里的
+ * 下标，若未找到则返回 -1。
  */
 static int
 stat_find_expression(StatisticExtInfo *stat, Node *expr)
@@ -1177,16 +1177,16 @@ stat_find_expression(StatisticExtInfo *stat, Node *expr)
 		idx++;
 	}
 
-	/* Expression not found */
+	/* 未找到表达式 */
 	return -1;
 }
 
 /*
  * stat_covers_expressions
- * 		Test whether a statistics object covers all expressions in a list.
+ * 		测试一个统计对象是否覆盖列表里的全部表达式。
  *
- * Returns true if all expressions are covered.  If expr_idxs is non-NULL, it
- * is populated with the indexes of the expressions found.
+ * 若全部表达式都被覆盖就返回真。若 expr_idxs 非 NULL，就
+ * 用找到的表达式下标填充它。
  */
 static bool
 stat_covers_expressions(StatisticExtInfo *stat, List *exprs,
@@ -1207,27 +1207,27 @@ stat_covers_expressions(StatisticExtInfo *stat, List *exprs,
 			*expr_idxs = bms_add_member(*expr_idxs, expr_idx);
 	}
 
-	/* If we reach here, all expressions are covered */
+	/* 若执行到这里，全部表达式都被覆盖 */
 	return true;
 }
 
 /*
  * choose_best_statistics
- *		Look for and return statistics with the specified 'requiredkind' which
- *		have keys that match at least two of the given attnums.  Return NULL if
- *		there's no match.
+ *		寻找并返回具有指定 requiredkind、且其键至少匹配
+ *		两个给定 attnum 的统计。若没有
+ *		匹配就返回 NULL。
  *
- * The current selection criteria is very simple - we choose the statistics
- * object referencing the most attributes in covered (and still unestimated
- * clauses), breaking ties in favor of objects with fewer keys overall.
+ * 当前的选择标准非常简单：我们选择
+ * 引用了被覆盖（且仍未估计的
+ * 子句）中最多属性的统计对象，平局时偏向整体键更少的对象。
  *
- * The clause_attnums is an array of bitmaps, storing attnums for individual
- * clauses. A NULL element means the clause is either incompatible or already
- * estimated.
+ * clause_attnums 是 bitmap 数组，存放各个
+ * 子句的 attnum。NULL 元素表示该子句要么不相容，要么已经
+ * 估计过。
  *
- * XXX If multiple statistics objects tie on both criteria, then which object
- * is chosen depends on the order that they appear in the stats list. Perhaps
- * further tiebreakers are needed.
+ * XXX 若多个统计对象在两项标准上都平局，则选中哪一个
+ * 取决于它们在统计列表里出现的顺序。也许
+ * 还需要进一步的平局决胜。
  */
 StatisticExtInfo *
 choose_best_statistics(List *stats, char requiredkind, bool inh,
@@ -1236,8 +1236,8 @@ choose_best_statistics(List *stats, char requiredkind, bool inh,
 {
 	ListCell   *lc;
 	StatisticExtInfo *best_match = NULL;
-	int			best_num_matched = 2;	/* goal #1: maximize */
-	int			best_match_keys = (STATS_MAX_DIMENSIONS + 1);	/* goal #2: minimize */
+	int			best_num_matched = 2;	/* 目标 1：最大化 */
+	int			best_match_keys = (STATS_MAX_DIMENSIONS + 1);	/* 目标 2：最小化 */
 
 	foreach(lc, stats)
 	{
@@ -1248,36 +1248,36 @@ choose_best_statistics(List *stats, char requiredkind, bool inh,
 		int			num_matched;
 		int			numkeys;
 
-		/* skip statistics that are not of the correct type */
+		/* 跳过类型不正确的统计信息 */
 		if (info->kind != requiredkind)
 			continue;
 
-		/* skip statistics with mismatching inheritance flag */
+		/* 跳过继承标志不匹配的统计信息 */
 		if (info->inherit != inh)
 			continue;
 
 		/*
-		 * Collect attributes and expressions in remaining (unestimated)
-		 * clauses fully covered by this statistic object.
+		 * 收集剩余（未估计）子句里、被该统计对象完全
+		 * 覆盖的属性和表达式。
 		 *
-		 * We know already estimated clauses have both clause_attnums and
-		 * clause_exprs set to NULL. We leave the pointers NULL if already
-		 * estimated, or we reset them to NULL after estimating the clause.
+		 * 我们已经知道已估计的子句把 clause_attnums 和
+		 * clause_exprs 都设成了 NULL。若已经估计过，我们就把指针留为 NULL，
+		 * 或者在估计该子句之后把它们重置为 NULL。
 		 */
 		for (i = 0; i < nclauses; i++)
 		{
 			Bitmapset  *expr_idxs = NULL;
 
-			/* ignore incompatible/estimated clauses */
+			/* 忽略不相容或已估计的子句 */
 			if (!clause_attnums[i] && !clause_exprs[i])
 				continue;
 
-			/* ignore clauses that are not covered by this object */
+			/* 忽略未被该对象覆盖的子句 */
 			if (!bms_is_subset(clause_attnums[i], info->keys) ||
 				!stat_covers_expressions(info, clause_exprs[i], &expr_idxs))
 				continue;
 
-			/* record attnums and indexes of expressions covered */
+			/* 记录被覆盖的 attnum 和表达式下标 */
 			matched_attnums = bms_add_members(matched_attnums, clause_attnums[i]);
 			matched_exprs = bms_add_members(matched_exprs, expr_idxs);
 		}
@@ -1288,16 +1288,16 @@ choose_best_statistics(List *stats, char requiredkind, bool inh,
 		bms_free(matched_exprs);
 
 		/*
-		 * save the actual number of keys in the stats so that we can choose
-		 * the narrowest stats with the most matching keys.
+		 * 保存统计里键的实际个数，以便我们能选择
+		 * 匹配键最多的最窄统计。
 		 */
 		numkeys = bms_num_members(info->keys) + list_length(info->exprs);
 
 		/*
-		 * Use this object when it increases the number of matched attributes
-		 * and expressions or when it matches the same number of attributes
-		 * and expressions but these stats have fewer keys than any previous
-		 * match.
+		 * 当它增加了匹配的属性和表达式个数时使用该对象，
+		 * 或者当它匹配的属性和表达式个数相同，
+		 * 但这些统计的键比先前任何
+		 * 匹配都少时也使用它。
 		 */
 		if (num_matched > best_num_matched ||
 			(num_matched == best_num_matched && numkeys < best_match_keys))
@@ -1313,99 +1313,99 @@ choose_best_statistics(List *stats, char requiredkind, bool inh,
 
 /*
  * statext_is_compatible_clause_internal
- *		Determines if the clause is compatible with MCV lists.
+ *		判断该子句是否与 MCV 列表相容。
  *
- * To be compatible, the given clause must be a combination of supported
- * clauses built from Vars or sub-expressions (where a sub-expression is
- * something that exactly matches an expression found in statistics objects).
- * This function recursively examines the clause and extracts any
- * sub-expressions that will need to be matched against statistics.
+ * 要相容，给定子句必须是由 Var 或子表达式构成的受支持
+ * 子句的组合（子表达式是
+ * 与统计对象里找到的表达式完全匹配的东西）。
+ * 本函数递归检查该子句，并提取任何
+ * 需要与统计信息匹配的子表达式。
  *
- * Currently, we only support the following types of clauses:
+ * 目前我们只支持下列类型的子句：
  *
- * (a) OpExprs of the form (Var/Expr op Const), or (Const op Var/Expr), where
- * the op is one of ("=", "<", ">", ">=", "<=")
+ * (a) 形式为 (Var/Expr op Const) 或 (Const op Var/Expr) 的 OpExprs，其中
+ * op 是（"="、"<"、">"、">="、"<="）之一。
  *
- * (b) (Var/Expr IS [NOT] NULL)
+ * (b) (Var/Expr IS [NOT] NULL)。
  *
- * (c) combinations using AND/OR/NOT
+ * (c) 用 AND/OR/NOT 构成的组合。
  *
- * (d) ScalarArrayOpExprs of the form (Var/Expr op ANY (Const)) or
- * (Var/Expr op ALL (Const))
+ * (d) 形式为 (Var/Expr op ANY (Const)) 或
+ * (Var/Expr op ALL (Const)) 的 ScalarArrayOpExprs。
  *
- * In the future, the range of supported clauses may be expanded to more
- * complex cases, for example (Var op Var).
+ * 将来，受支持的子句范围可能扩展到更
+ * 复杂的情形，例如 (Var op Var)。
  *
- * Arguments:
- * clause: (sub)clause to be inspected (bare clause, not a RestrictInfo)
- * relid: rel that all Vars in clause must belong to
- * *attnums: input/output parameter collecting attribute numbers of all
- *		mentioned Vars.  Note that we do not offset the attribute numbers,
- *		so we can't cope with system columns.
- * *exprs: input/output parameter collecting primitive subclauses within
- *		the clause tree
- * *leakproof: input/output parameter recording the leakproofness of the
- *		clause tree.  This should be true initially, and will be set to false
- *		if any operator function used in an OpExpr is not leakproof.
+ * 参数：
+ * clause：（子）子句，待检查（裸子句，不是 RestrictInfo）
+ * relid：子句里所有 Var 必须属于的关系
+ * *attnums：输入/输出参数，收集所有
+ *		被提及的 Var 的属性号。注意我们不偏移属性号，
+ *		因此没法应付系统列。
+ * *exprs：输入/输出参数，收集子句树里的
+ *		原始子子句
+ * *leakproof：输入/输出参数，记录子句树的防泄漏性。
+ *		一开始应当为真，若某个 OpExpr 里使用的操作符函数
+ *		不是防泄漏的，就会被设为假。
  *
- * Returns false if there is something we definitively can't handle.
- * On true return, we can proceed to match the *exprs against statistics.
+ * 若有我们明确没法处理的东西，就返回假。
+ * 若返回真，就可以继续把 *exprs 与统计信息匹配。
  */
 static bool
 statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 									  Index relid, Bitmapset **attnums,
 									  List **exprs, bool *leakproof)
 {
-	/* Look inside any binary-compatible relabeling (as in examine_variable) */
+	/* 看进任何二进制兼容的重标记（如同 examine_variable） */
 	if (IsA(clause, RelabelType))
 		clause = (Node *) ((RelabelType *) clause)->arg;
 
-	/* plain Var references (boolean Vars or recursive checks) */
+	/* 普通 Var 引用（布尔 Var 或递归检查） */
 	if (IsA(clause, Var))
 	{
 		Var		   *var = (Var *) clause;
 
-		/* Ensure var is from the correct relation */
+		/* 确保 var 来自正确的关系 */
 		if (var->varno != relid)
 			return false;
 
-		/* we also better ensure the Var is from the current level */
+		/* 最好也确保 Var 来自当前层次 */
 		if (var->varlevelsup > 0)
 			return false;
 
 		/*
-		 * Also reject system attributes and whole-row Vars (we don't allow
-		 * stats on those).
+		 * 也拒绝系统属性和整行 Var（我们不允许
+		 * 在那些上面建立统计）。
 		 */
 		if (!AttrNumberIsForUserDefinedAttr(var->varattno))
 			return false;
 
-		/* OK, record the attnum for later permissions checks. */
+		/* 好，记下 attnum，供稍后的权限检查。 */
 		*attnums = bms_add_member(*attnums, var->varattno);
 
 		return true;
 	}
 
-	/* (Var/Expr op Const) or (Const op Var/Expr) */
+	/* (Var/Expr op Const) 或 (Const op Var/Expr) */
 	if (is_opclause(clause))
 	{
 		OpExpr	   *expr = (OpExpr *) clause;
 		Node	   *clause_expr;
 
-		/* Only expressions with two arguments are considered compatible. */
+		/* 只有两个参数的表达式才被认为相容。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
-		/* Check if the expression has the right shape */
+		/* 检查该表达式的形状是否正确 */
 		if (!examine_opclause_args(expr->args, &clause_expr, NULL, NULL))
 			return false;
 
 		/*
-		 * If it's not one of the supported operators ("=", "<", ">", etc.),
-		 * just ignore the clause, as it's not compatible with MCV lists.
+		 * 若它不是受支持的操作符之一（"="、"<"、">" 等），
+		 * 就忽略该子句，因为它与 MCV 列表不相容。
 		 *
-		 * This uses the function for estimating selectivity, not the operator
-		 * directly (a bit awkward, but well ...).
+		 * 这里用的是估计选择率的函数，而不是直接用
+		 * 操作符（有点别扭，但也只能如此……）。
 		 */
 		switch (get_oprrest(expr->opno))
 		{
@@ -1415,54 +1415,54 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 			case F_SCALARLESEL:
 			case F_SCALARGTSEL:
 			case F_SCALARGESEL:
-				/* supported, will continue with inspection of the Var/Expr */
+				/* 受支持，将继续检查 Var/Expr */
 				break;
 
 			default:
-				/* other estimators are considered unknown/unsupported */
+				/* 其他估计函数被视为未知/不受支持 */
 				return false;
 		}
 
-		/* Check if the operator is leakproof */
+		/* 检查该操作符是否防泄漏 */
 		if (*leakproof)
 			*leakproof = get_func_leakproof(get_opcode(expr->opno));
 
-		/* Check (Var op Const) or (Const op Var) clauses by recursing. */
+		/* 通过递归检查 (Var op Const) 或 (Const op Var) 子句。 */
 		if (IsA(clause_expr, Var))
 			return statext_is_compatible_clause_internal(root, clause_expr,
 														 relid, attnums,
 														 exprs, leakproof);
 
-		/* Otherwise we have (Expr op Const) or (Const op Expr). */
+		/* 否则我们有 (Expr op Const) 或 (Const op Expr)。 */
 		*exprs = lappend(*exprs, clause_expr);
 		return true;
 	}
 
-	/* Var/Expr IN Array */
+	/* Var/Expr IN Array（在数组中） */
 	if (IsA(clause, ScalarArrayOpExpr))
 	{
 		ScalarArrayOpExpr *expr = (ScalarArrayOpExpr *) clause;
 		Node	   *clause_expr;
 		bool		expronleft;
 
-		/* Only expressions with two arguments are considered compatible. */
+		/* 只有两个参数的表达式才被认为相容。 */
 		if (list_length(expr->args) != 2)
 			return false;
 
-		/* Check if the expression has the right shape (one Var, one Const) */
+		/* 检查该表达式的形状是否正确（一个 Var，一个 Const） */
 		if (!examine_opclause_args(expr->args, &clause_expr, NULL, &expronleft))
 			return false;
 
-		/* We only support Var on left, Const on right */
+		/* 我们只支持左边是 Var、右边是 Const */
 		if (!expronleft)
 			return false;
 
 		/*
-		 * If it's not one of the supported operators ("=", "<", ">", etc.),
-		 * just ignore the clause, as it's not compatible with MCV lists.
+		 * 若它不是受支持的操作符之一（"="、"<"、">" 等），
+		 * 就忽略该子句，因为它与 MCV 列表不相容。
 		 *
-		 * This uses the function for estimating selectivity, not the operator
-		 * directly (a bit awkward, but well ...).
+		 * 这里用的是估计选择率的函数，而不是直接用
+		 * 操作符（有点别扭，但也只能如此……）。
 		 */
 		switch (get_oprrest(expr->opno))
 		{
@@ -1472,47 +1472,47 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 			case F_SCALARLESEL:
 			case F_SCALARGTSEL:
 			case F_SCALARGESEL:
-				/* supported, will continue with inspection of the Var/Expr */
+				/* 受支持，将继续检查 Var/Expr */
 				break;
 
 			default:
-				/* other estimators are considered unknown/unsupported */
+				/* 其他估计函数被视为未知/不受支持 */
 				return false;
 		}
 
-		/* Check if the operator is leakproof */
+		/* 检查该操作符是否防泄漏 */
 		if (*leakproof)
 			*leakproof = get_func_leakproof(get_opcode(expr->opno));
 
-		/* Check Var IN Array clauses by recursing. */
+		/* 通过递归检查 Var IN Array 子句。 */
 		if (IsA(clause_expr, Var))
 			return statext_is_compatible_clause_internal(root, clause_expr,
 														 relid, attnums,
 														 exprs, leakproof);
 
-		/* Otherwise we have Expr IN Array. */
+		/* 否则我们有 Expr IN Array。 */
 		*exprs = lappend(*exprs, clause_expr);
 		return true;
 	}
 
-	/* AND/OR/NOT clause */
+	/* AND/OR/NOT 子句 */
 	if (is_andclause(clause) ||
 		is_orclause(clause) ||
 		is_notclause(clause))
 	{
 		/*
-		 * AND/OR/NOT-clauses are supported if all sub-clauses are supported
+		 * 若所有子子句都受支持，则 AND/OR/NOT 子句受支持。
 		 *
-		 * Perhaps we could improve this by handling mixed cases, when some of
-		 * the clauses are supported and some are not. Selectivity for the
-		 * supported subclauses would be computed using extended statistics,
-		 * and the remaining clauses would be estimated using the traditional
-		 * algorithm (product of selectivities).
+		 * 也许可以通过处理混合情形来改进：有些
+		 * 子句受支持，有些不受支持。受支持子子句的选择率
+		 * 将用扩展统计来计算，
+		 * 其余子句则用传统
+		 * 算法估计（选择率的乘积）。
 		 *
-		 * It however seems overly complex, and in a way we already do that
-		 * because if we reject the whole clause as unsupported here, it will
-		 * be eventually passed to clauselist_selectivity() which does exactly
-		 * this (split into supported/unsupported clauses etc).
+		 * 不过这似乎过于复杂，而且在某种意义上我们已经那样做了，
+		 * 因为若在这里把整个子句当作不受支持而拒绝，它最终
+		 * 会被传给 clauselist_selectivity()，而那个函数做的正是
+		 * 这件事（拆成受支持/不受支持的子句等等）。
 		 */
 		BoolExpr   *expr = (BoolExpr *) clause;
 		ListCell   *lc;
@@ -1520,8 +1520,8 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 		foreach(lc, expr->args)
 		{
 			/*
-			 * If we find an incompatible clause in the arguments, treat the
-			 * whole clause as incompatible.
+			 * 若在参数里发现不相容的子句，就把
+			 * 整个子句当作不相容。
 			 */
 			if (!statext_is_compatible_clause_internal(root,
 													   (Node *) lfirst(lc),
@@ -1533,26 +1533,26 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 		return true;
 	}
 
-	/* Var/Expr IS NULL */
+	/* Var/Expr IS NULL（为空） */
 	if (IsA(clause, NullTest))
 	{
 		NullTest   *nt = (NullTest *) clause;
 
-		/* Check Var IS NULL clauses by recursing. */
+		/* 通过递归检查 Var IS NULL 子句。 */
 		if (IsA(nt->arg, Var))
 			return statext_is_compatible_clause_internal(root,
 														 (Node *) (nt->arg),
 														 relid, attnums,
 														 exprs, leakproof);
 
-		/* Otherwise we have Expr IS NULL. */
+		/* 否则我们有 Expr IS NULL。 */
 		*exprs = lappend(*exprs, nt->arg);
 		return true;
 	}
 
 	/*
-	 * Treat any other expressions as bare expressions to be matched against
-	 * expressions in statistics objects.
+	 * 把任何其他表达式当作裸表达式，去与
+	 * 统计对象里的表达式匹配。
 	 */
 	*exprs = lappend(*exprs, clause);
 	return true;
@@ -1560,23 +1560,23 @@ statext_is_compatible_clause_internal(PlannerInfo *root, Node *clause,
 
 /*
  * statext_is_compatible_clause
- *		Determines if the clause is compatible with MCV lists.
+ *		判断该子句是否与 MCV 列表相容。
  *
- * See statext_is_compatible_clause_internal, above, for the basic rules.
- * This layer deals with RestrictInfo superstructure and applies permissions
- * checks to verify that it's okay to examine all mentioned Vars.
+ * 基本规则见上面的 statext_is_compatible_clause_internal。
+ * 这一层处理 RestrictInfo 上层结构，并做权限
+ * 检查，以验证可以检查所有被提及的 Var。
  *
- * Arguments:
- * clause: clause to be inspected (in RestrictInfo form)
- * relid: rel that all Vars in clause must belong to
- * *attnums: input/output parameter collecting attribute numbers of all
- *		mentioned Vars.  Note that we do not offset the attribute numbers,
- *		so we can't cope with system columns.
- * *exprs: input/output parameter collecting primitive subclauses within
- *		the clause tree
+ * 参数：
+ * clause：待检查的子句（RestrictInfo 形式）
+ * relid：子句里所有 Var 必须属于的关系
+ * *attnums：输入/输出参数，收集所有
+ *		被提及的 Var 的属性号。注意我们不偏移属性号，
+ *		因此没法应付系统列。
+ * *exprs：输入/输出参数，收集子句树里的
+ *		原始子子句。
  *
- * Returns false if there is something we definitively can't handle.
- * On true return, we can proceed to match the *exprs against statistics.
+ * 若有我们明确没法处理的东西，就返回假。
+ * 若返回真，就可以继续把 *exprs 与统计信息匹配。
  */
 static bool
 statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
@@ -1587,9 +1587,9 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 	bool		leakproof;
 
 	/*
-	 * Special-case handling for bare BoolExpr AND clauses, because the
-	 * restrictinfo machinery doesn't build RestrictInfos on top of AND
-	 * clauses.
+	 * 对裸 BoolExpr AND 子句做特殊处理，因为
+	 * restrictinfo 机制不会在 AND
+	 * 子句之上建立 RestrictInfos。
 	 */
 	if (is_andclause(clause))
 	{
@@ -1597,8 +1597,8 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 		ListCell   *lc;
 
 		/*
-		 * Check that each sub-clause is compatible.  We expect these to be
-		 * RestrictInfos.
+		 * 检查每个子子句是否相容。我们预期这些是
+		 * RestrictInfos。
 		 */
 		foreach(lc, expr->args)
 		{
@@ -1610,23 +1610,23 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 		return true;
 	}
 
-	/* Otherwise it must be a RestrictInfo. */
+	/* 否则它必须是 RestrictInfo。 */
 	if (!IsA(clause, RestrictInfo))
 		return false;
 	rinfo = (RestrictInfo *) clause;
 
-	/* Pseudoconstants are not really interesting here. */
+	/* 伪常量在这里其实没有意义。 */
 	if (rinfo->pseudoconstant)
 		return false;
 
-	/* Clauses referencing other varnos are incompatible. */
+	/* 引用其他 varno 的子句不相容。 */
 	if (!bms_get_singleton_member(rinfo->clause_relids, &clause_relid) ||
 		clause_relid != relid)
 		return false;
 
 	/*
-	 * Check the clause, determine what attributes it references, and whether
-	 * it includes any non-leakproof operators.
+	 * 检查该子句，确定它引用哪些属性，以及
+	 * 它是否含有任何非防泄漏操作符。
 	 */
 	leakproof = true;
 	if (!statext_is_compatible_clause_internal(root, (Node *) rinfo->clause,
@@ -1635,18 +1635,18 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 		return false;
 
 	/*
-	 * If the clause includes any non-leakproof operators, check that the user
-	 * has permission to read all required attributes, otherwise the operators
-	 * might reveal values from the MCV list that the user doesn't have
-	 * permission to see.  We require all rows to be selectable --- there must
-	 * be no securityQuals from security barrier views or RLS policies.  See
-	 * similar code in examine_variable(), examine_simple_variable(), and
-	 * statistic_proc_security_check().
+	 * 若子句含有任何非防泄漏操作符，就检查用户
+	 * 是否有权读取所有所需属性，否则这些操作符
+	 * 可能泄露用户无权
+	 * 看到的 MCV 列表里的值。我们需要所有行都可被选择：不得有
+	 * 来自安全屏障视图或 RLS 策略的 securityQuals。见
+	 * examine_variable()、examine_simple_variable() 和
+	 * statistic_proc_security_check() 里的类似代码。
 	 *
-	 * Note that for an inheritance child, the permission checks are performed
-	 * on the inheritance root parent, and whole-table select privilege on the
-	 * parent doesn't guarantee that the user could read all columns of the
-	 * child. Therefore we must check all referenced columns.
+	 * 注意，对继承孩子，权限检查是在
+	 * 继承根父关系上进行的，对父关系的整表选择权限
+	 * 并不保证用户能读取孩子的所有列。
+	 * 因此我们必须检查所有被引用的列。
 	 */
 	if (!leakproof)
 	{
@@ -1654,13 +1654,13 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 		int			attnum = -1;
 
 		/*
-		 * We have to check per-column privileges.  *attnums has the attnums
-		 * for individual Vars we saw, but there may also be Vars within
-		 * subexpressions in *exprs.  We can use pull_varattnos() to extract
-		 * those, but there's an impedance mismatch: attnums returned by
-		 * pull_varattnos() are offset by FirstLowInvalidHeapAttributeNumber,
-		 * while attnums within *attnums aren't.  Convert *attnums to the
-		 * offset style so we can combine the results.
+		 * 我们必须检查按列权限。*attnums 含我们见到的
+		 * 各个 Var 的 attnum，但 *exprs 的子表达式里
+		 * 也可能有 Var。我们可以用 pull_varattnos() 提取
+		 * 那些，但存在阻抗不匹配：pull_varattnos() 返回的 attnum
+		 * 按 FirstLowInvalidHeapAttributeNumber 偏移，
+		 * 而 *attnums 里的 attnum 没有偏移。把 *attnums 转换成
+		 * 偏移风格，以便合并结果。
 		 */
 		while ((attnum = bms_next_member(*attnums, attnum)) >= 0)
 		{
@@ -1669,52 +1669,52 @@ statext_is_compatible_clause(PlannerInfo *root, Node *clause, Index relid,
 							   attnum - FirstLowInvalidHeapAttributeNumber);
 		}
 
-		/* Now merge attnums from *exprs into clause_attnums */
+		/* 现在把 *exprs 里的 attnum 并入 clause_attnums */
 		if (*exprs != NIL)
 			pull_varattnos((Node *) *exprs, relid, &clause_attnums);
 
-		/* Must have permission to read all rows from these columns */
+		/* 必须有权从这些列读取所有行 */
 		if (!all_rows_selectable(root, relid, clause_attnums))
 			return false;
 	}
 
-	/* If we reach here, the clause is OK */
+	/* 若执行到这里，该子句没问题 */
 	return true;
 }
 
 /*
  * statext_mcv_clauselist_selectivity
- *		Estimate clauses using the best multi-column statistics.
+ *		用最佳的多列统计信息估计子句。
  *
- * Applies available extended (multi-column) statistics on a table. There may
- * be multiple applicable statistics (with respect to the clauses), in which
- * case we use greedy approach. In each round we select the best statistic on
- * a table (measured by the number of attributes extracted from the clauses
- * and covered by it), and compute the selectivity for the supplied clauses.
- * We repeat this process with the remaining clauses (if any), until none of
- * the available statistics can be used.
+ * 把可用的扩展（多列）统计信息应用到表上。可能
+ * 有多个适用的统计信息（相对于这些子句），那种
+ * 情况下我们用贪心方法。每一轮我们选择表上最佳的统计信息
+ * （以从子句提取并被它覆盖的属性个数来衡量），
+ * 并为提供的子句计算选择率。
+ * 我们用剩余的子句（若有）重复这个过程，直到没有
+ * 可用的统计信息能被使用。
  *
- * One of the main challenges with using MCV lists is how to extrapolate the
- * estimate to the data not covered by the MCV list. To do that, we compute
- * not only the "MCV selectivity" (selectivities for MCV items matching the
- * supplied clauses), but also the following related selectivities:
+ * 使用 MCV 列表的主要困难之一是如何把估计外推到
+ * MCV 列表未覆盖的数据。为此，我们不仅计算
+ * 匹配所提供子句的 MCV 项的选择率（MCV 选择率），
+ * 还计算下列相关选择率：
  *
- * - simple selectivity:  Computed without extended statistics, i.e. as if the
- * columns/clauses were independent.
+ * - 简单选择率：不使用扩展统计来计算，也就是当作
+ * 列/子句相互独立。
  *
- * - base selectivity:  Similar to simple selectivity, but is computed using
- * the extended statistic by adding up the base frequencies (that we compute
- * and store for each MCV item) of matching MCV items.
+ * - 基选择率：与简单选择率类似，但用
+ * 扩展统计来计算，方法是把匹配的 MCV 项的基频率
+ * （我们为每个 MCV 项计算并存储）加起来。
  *
- * - total selectivity: Selectivity covered by the whole MCV list.
+ * - 总选择率：整个 MCV 列表覆盖的选择率。
  *
- * These are passed to mcv_combine_selectivities() which combines them to
- * produce a selectivity estimate that makes use of both per-column statistics
- * and the multi-column MCV statistics.
+ * 这些被传给 mcv_combine_selectivities()，它把它们组合起来，
+ * 产生同时利用按列统计信息
+ * 和多列 MCV 统计信息的选择率估计。
  *
- * 'estimatedclauses' is an input/output parameter.  We set bits for the
- * 0-based 'clauses' indexes we estimate for and also skip clause items that
- * already have a bit set.
+ * estimatedclauses 是输入/输出参数。我们为所估计的
+ * 从 0 起计的 clauses 下标置位，并跳过
+ * 已经置了位的子句项。
  */
 static Selectivity
 statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varRelid,
@@ -1723,32 +1723,32 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 								   bool is_or)
 {
 	ListCell   *l;
-	Bitmapset **list_attnums;	/* attnums extracted from the clause */
-	List	  **list_exprs;		/* expressions matched to any statistic */
+	Bitmapset **list_attnums;	/* 从该子句提取的 attnum */
+	List	  **list_exprs;		/* 匹配到任何统计的表达式 */
 	int			listidx;
 	Selectivity sel = (is_or) ? 0.0 : 1.0;
 	RangeTblEntry *rte = planner_rt_fetch(rel->relid, root);
 
-	/* check if there's any stats that might be useful for us. */
+	/* 检查是否有任何可能对我们有用的统计信息。 */
 	if (!has_stats_of_kind(rel->statlist, STATS_EXT_MCV))
 		return sel;
 
 	list_attnums = (Bitmapset **) palloc(sizeof(Bitmapset *) *
 										 list_length(clauses));
 
-	/* expressions extracted from complex expressions */
+	/* 从复杂表达式提取的表达式 */
 	list_exprs = (List **) palloc(sizeof(Node *) * list_length(clauses));
 
 	/*
-	 * Pre-process the clauses list to extract the attnums and expressions
-	 * seen in each item.  We need to determine if there are any clauses which
-	 * will be useful for selectivity estimations with extended stats.  Along
-	 * the way we'll record all of the attnums and expressions for each clause
-	 * in lists which we'll reference later so we don't need to repeat the
-	 * same work again.
+	 * 预处理子句列表，提取每一项里见到的 attnum 和表达式。
+	 * 我们需要判断是否有任何子句对用扩展统计做
+	 * 选择率估计有用。沿途我们会把每个子句的
+	 * 全部 attnum 和表达式记入列表，稍后引用它们，这样
+	 * 就不必再重复
+	 * 同样的工作。
 	 *
-	 * We also skip clauses that we already estimated using different types of
-	 * statistics (we treat them as incompatible).
+	 * 我们也会跳过已经用其他类型的
+	 * 统计信息估计过的子句（把它们当作不相容）。
 	 */
 	listidx = 0;
 	foreach(l, clauses)
@@ -1772,73 +1772,73 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 		listidx++;
 	}
 
-	/* apply as many extended statistics as possible */
+	/* 尽可能多地应用扩展统计 */
 	while (true)
 	{
 		StatisticExtInfo *stat;
 		List	   *stat_clauses;
 		Bitmapset  *simple_clauses;
 
-		/* find the best suited statistics object for these attnums */
+		/* 为这些 attnum 找出最合适的统计对象 */
 		stat = choose_best_statistics(rel->statlist, STATS_EXT_MCV, rte->inh,
 									  list_attnums, list_exprs,
 									  list_length(clauses));
 
 		/*
-		 * if no (additional) matching stats could be found then we've nothing
-		 * to do
+		 * 若找不到（额外的）匹配统计，就没有事情
+		 * 可做
 		 */
 		if (!stat)
 			break;
 
-		/* Ensure choose_best_statistics produced an expected stats type. */
+		/* 确保 choose_best_statistics 产生了预期的统计类型。 */
 		Assert(stat->kind == STATS_EXT_MCV);
 
-		/* now filter the clauses to be estimated using the selected MCV */
+		/* 现在过滤出要用选定的 MCV 来估计的子句 */
 		stat_clauses = NIL;
 
-		/* record which clauses are simple (single column or expression) */
+		/* 记录哪些子句是简单的（单列或表达式） */
 		simple_clauses = NULL;
 
 		listidx = -1;
 		foreach(l, clauses)
 		{
-			/* Increment the index before we decide if to skip the clause. */
+			/* 在决定是否跳过该子句之前先递增下标。 */
 			listidx++;
 
 			/*
-			 * Ignore clauses from which we did not extract any attnums or
-			 * expressions (this needs to be consistent with what we do in
-			 * choose_best_statistics).
+			 * 忽略我们没有从中提取出任何 attnum 或
+			 * 表达式的子句（这需要与
+			 * choose_best_statistics 里的做法一致）。
 			 *
-			 * This also eliminates already estimated clauses - both those
-			 * estimated before and during applying extended statistics.
+			 * 这也会消除已经估计过的子句，包括那些
+			 * 在应用扩展统计之前和期间估计的。
 			 *
-			 * XXX This check is needed because both bms_is_subset and
-			 * stat_covers_expressions return true for empty attnums and
-			 * expressions.
+			 * XXX 需要这项检查，因为 bms_is_subset 和
+			 * stat_covers_expressions 对空的 attnum 和
+			 * 表达式都返回真。
 			 */
 			if (!list_attnums[listidx] && !list_exprs[listidx])
 				continue;
 
 			/*
-			 * The clause was not estimated yet, and we've extracted either
-			 * attnums or expressions from it. Ignore it if it's not fully
-			 * covered by the chosen statistics object.
+			 * 该子句尚未估计，并且我们已经从中提取了
+			 * attnum 或表达式。若它没有被选定的统计对象
+			 * 完全覆盖，就忽略它。
 			 *
-			 * We need to check both attributes and expressions, and reject if
-			 * either is not covered.
+			 * 我们需要同时检查属性和表达式，若
+			 * 其中任一未被覆盖就拒绝。
 			 */
 			if (!bms_is_subset(list_attnums[listidx], stat->keys) ||
 				!stat_covers_expressions(stat, list_exprs[listidx], NULL))
 				continue;
 
 			/*
-			 * Now we know the clause is compatible (we have either attnums or
-			 * expressions extracted from it), and was not estimated yet.
+			 * 现在我们知道该子句相容（我们已经从中提取了 attnum 或
+			 * 表达式），并且尚未估计。
 			 */
 
-			/* record simple clauses (single column or expression) */
+			/* 记录简单子句（单列或表达式） */
 			if ((list_attnums[listidx] == NULL &&
 				 list_length(list_exprs[listidx]) == 1) ||
 				(list_exprs[listidx] == NIL &&
@@ -1846,13 +1846,13 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 				simple_clauses = bms_add_member(simple_clauses,
 												list_length(stat_clauses));
 
-			/* add clause to list and mark it as estimated */
+			/* 把子句加入列表并标记为已估计 */
 			stat_clauses = lappend(stat_clauses, (Node *) lfirst(l));
 			*estimatedclauses = bms_add_member(*estimatedclauses, listidx);
 
 			/*
-			 * Reset the pointers, so that choose_best_statistics knows this
-			 * clause was estimated and does not consider it again.
+			 * 重置这些指针，以便 choose_best_statistics 知道该
+			 * 子句已经估计过，不再考虑它。
 			 */
 			bms_free(list_attnums[listidx]);
 			list_attnums[listidx] = NULL;
@@ -1868,18 +1868,18 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 						stat_sel = 0.0;
 			MCVList    *mcv_list;
 
-			/* Load the MCV list stored in the statistics object */
+			/* 装载存在该统计对象里的 MCV 列表 */
 			mcv_list = statext_mcv_load(stat->statOid, rte->inh);
 
 			/*
-			 * Compute the selectivity of the ORed list of clauses covered by
-			 * this statistics object by estimating each in turn and combining
-			 * them using the formula P(A OR B) = P(A) + P(B) - P(A AND B).
-			 * This allows us to use the multivariate MCV stats to better
-			 * estimate the individual terms and their overlap.
+			 * 计算该统计对象所覆盖的 ORed 子句列表的选择率，
+			 * 方法是逐个估计，再用公式
+			 * P(A OR B) = P(A) + P(B) - P(A AND B) 组合。
+			 * 这让我们能用多变量 MCV 统计更好地
+			 * 估计各个项以及它们的重叠。
 			 *
-			 * Each time we iterate this formula, the clause "A" above is
-			 * equal to all the clauses processed so far, combined with "OR".
+			 * 每次迭代该公式时，上面的子句 A
+			 * 等于迄今处理过的全部子句用 OR 组合起来的结果。
 			 */
 			listidx = 0;
 			foreach(l, stat_clauses)
@@ -1896,10 +1896,10 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 							overlap_sel;
 
 				/*
-				 * "Simple" selectivity of the next clause and its overlap
-				 * with any of the previous clauses.  These are our initial
-				 * estimates of P(B) and P(A AND B), assuming independence of
-				 * columns/clauses.
+				 * 下一条子句的简单选择率，以及它与
+				 * 任何前面子句的重叠。这些是我们对 P(B) 和 P(A AND B) 的初始
+				 * 估计，假定
+				 * 列/子句相互独立。
 				 */
 				simple_sel = clause_selectivity_ext(root, clause, varRelid,
 													jointype, sjinfo, false);
@@ -1907,16 +1907,16 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 				overlap_simple_sel = simple_or_sel * simple_sel;
 
 				/*
-				 * New "simple" selectivity of all clauses seen so far,
-				 * assuming independence.
+				 * 迄今见过的全部子句的新简单选择率，
+				 * 假定相互独立。
 				 */
 				simple_or_sel += simple_sel - overlap_simple_sel;
 				CLAMP_PROBABILITY(simple_or_sel);
 
 				/*
-				 * Multi-column estimate of this clause using MCV statistics,
-				 * along with base and total selectivities, and corresponding
-				 * selectivities for the overlap term P(A AND B).
+				 * 用 MCV 统计对该子句做的多列估计，
+				 * 以及基选择率和总选择率，还有
+				 * 重叠项 P(A AND B) 的对应选择率。
 				 */
 				mcv_sel = mcv_clause_selectivity_or(root, stat, mcv_list,
 													clause, &or_matches,
@@ -1926,13 +1926,13 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 													&mcv_totalsel);
 
 				/*
-				 * Combine the simple and multi-column estimates.
+				 * 组合简单估计和多列估计。
 				 *
-				 * If this clause is a simple single-column clause, then we
-				 * just use the simple selectivity estimate for it, since the
-				 * multi-column statistics are unlikely to improve on that
-				 * (and in fact could make it worse).  For the overlap, we
-				 * always make use of the multi-column statistics.
+				 * 若该子句是简单的单列子句，就
+				 * 只用简单选择率估计，因为
+				 * 多列统计不太可能改进它
+				 * （实际上可能使它更差）。对重叠，我们
+				 * 总是利用多列统计。
 				 */
 				if (bms_is_member(listidx, simple_clauses))
 					clause_sel = simple_sel;
@@ -1947,7 +1947,7 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 														overlap_basesel,
 														mcv_totalsel);
 
-				/* Factor these into the result for this statistics object */
+				/* 把这些计入该统计对象的结果 */
 				stat_sel += clause_sel - overlap_sel;
 				CLAMP_PROBABILITY(stat_sel);
 
@@ -1955,13 +1955,13 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 			}
 
 			/*
-			 * Factor the result for this statistics object into the overall
-			 * result.  We treat the results from each separate statistics
-			 * object as independent of one another.
+			 * 把该统计对象的结果计入总
+			 * 结果。我们把每个单独统计
+			 * 对象的结果彼此当作独立的。
 			 */
 			sel = sel + stat_sel - sel * stat_sel;
 		}
-		else					/* Implicitly-ANDed list of clauses */
+		else					/* 隐式 ANDed 的子句列表 */
 		{
 			Selectivity simple_sel,
 						mcv_sel,
@@ -1970,29 +1970,29 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 						stat_sel;
 
 			/*
-			 * "Simple" selectivity, i.e. without any extended statistics,
-			 * essentially assuming independence of the columns/clauses.
+			 * 简单选择率，也就是不用任何扩展统计，
+			 * 本质上假定列/子句相互独立。
 			 */
 			simple_sel = clauselist_selectivity_ext(root, stat_clauses,
 													varRelid, jointype,
 													sjinfo, false);
 
 			/*
-			 * Multi-column estimate using MCV statistics, along with base and
-			 * total selectivities.
+			 * 用 MCV 统计做的多列估计，以及基选择率和
+			 * 总选择率。
 			 */
 			mcv_sel = mcv_clauselist_selectivity(root, stat, stat_clauses,
 												 varRelid, jointype, sjinfo,
 												 rel, &mcv_basesel,
 												 &mcv_totalsel);
 
-			/* Combine the simple and multi-column estimates. */
+			/* 组合简单估计和多列估计。 */
 			stat_sel = mcv_combine_selectivities(simple_sel,
 												 mcv_sel,
 												 mcv_basesel,
 												 mcv_totalsel);
 
-			/* Factor this into the overall result */
+			/* 把这个计入总结果 */
 			sel *= stat_sel;
 		}
 	}
@@ -2002,7 +2002,7 @@ statext_mcv_clauselist_selectivity(PlannerInfo *root, List *clauses, int varReli
 
 /*
  * statext_clauselist_selectivity
- *		Estimate clauses using the best multi-column statistics.
+ *		用最佳的多列统计信息估计子句。
  */
 Selectivity
 statext_clauselist_selectivity(PlannerInfo *root, List *clauses, int varRelid,
@@ -2012,29 +2012,29 @@ statext_clauselist_selectivity(PlannerInfo *root, List *clauses, int varRelid,
 {
 	Selectivity sel;
 
-	/* First, try estimating clauses using a multivariate MCV list. */
+	/* 首先，尝试用多变量 MCV 列表估计子句。 */
 	sel = statext_mcv_clauselist_selectivity(root, clauses, varRelid, jointype,
 											 sjinfo, rel, estimatedclauses, is_or);
 
 	/*
-	 * Functional dependencies only work for clauses connected by AND, so for
-	 * OR clauses we're done.
+	 * 函数依赖只对用 AND 连接的子句起作用，因此对
+	 * OR 子句我们就做完了。
 	 */
 	if (is_or)
 		return sel;
 
 	/*
-	 * Then, apply functional dependencies on the remaining clauses by calling
-	 * dependencies_clauselist_selectivity.  Pass 'estimatedclauses' so the
-	 * function can properly skip clauses already estimated above.
+	 * 然后，通过调用 dependencies_clauselist_selectivity 把函数依赖应用到剩余子句上。
+	 * 传入 estimatedclauses，以便该
+	 * 函数能正确跳过上面已经估计过的子句。
 	 *
-	 * The reasoning for applying dependencies last is that the more complex
-	 * stats can track more complex correlations between the attributes, and
-	 * so may be considered more reliable.
+	 * 最后才应用依赖，理由是更复杂的
+	 * 统计能跟踪属性之间更复杂的相关性，
+	 * 因此可以被认为更可靠。
 	 *
-	 * For example, MCV list can give us an exact selectivity for values in
-	 * two columns, while functional dependencies can only provide information
-	 * about the overall strength of the dependency.
+	 * 例如，MCV 列表能给出两列里的值的精确选择率，
+	 * 而函数依赖只能提供
+	 * 该依赖总体强度的信息。
 	 */
 	sel *= dependencies_clauselist_selectivity(root, clauses, varRelid,
 											   jointype, sjinfo, rel,
@@ -2045,15 +2045,15 @@ statext_clauselist_selectivity(PlannerInfo *root, List *clauses, int varRelid,
 
 /*
  * examine_opclause_args
- *		Split an operator expression's arguments into Expr and Const parts.
+ *		把操作符表达式的参数拆成 Expr 和 Const 两部分。
  *
- * Attempts to match the arguments to either (Expr op Const) or (Const op
- * Expr), possibly with a RelabelType on top. When the expression matches this
- * form, returns true, otherwise returns false.
+ * 试图把参数匹配成 (Expr op Const) 或 (Const op
+ * Expr)，上面可能有 RelabelType。当表达式匹配这种
+ * 形式时返回真，否则返回假。
  *
- * Optionally returns pointers to the extracted Expr/Const nodes, when passed
- * non-null pointers (exprp, cstp and expronleftp). The expronleftp flag
- * specifies on which side of the operator we found the expression node.
+ * 可选地，当传入非空指针（exprp、cstp 和 expronleftp）时，
+ * 返回指向提取出的 Expr/Const 节点的指针。expronleftp 标志
+ * 指明我们在操作符的哪一侧找到了表达式节点。
  */
 bool
 examine_opclause_args(List *args, Node **exprp, Const **cstp,
@@ -2065,13 +2065,13 @@ examine_opclause_args(List *args, Node **exprp, Const **cstp,
 	Node	   *leftop,
 			   *rightop;
 
-	/* enforced by statext_is_compatible_clause_internal */
+	/* 由 statext_is_compatible_clause_internal 强制 */
 	Assert(list_length(args) == 2);
 
 	leftop = linitial(args);
 	rightop = lsecond(args);
 
-	/* strip RelabelType from either side of the expression */
+	/* 去掉表达式任一侧的 RelabelType */
 	if (IsA(leftop, RelabelType))
 		leftop = (Node *) ((RelabelType *) leftop)->arg;
 
@@ -2093,7 +2093,7 @@ examine_opclause_args(List *args, Node **exprp, Const **cstp,
 	else
 		return false;
 
-	/* return pointers to the extracted parts if requested */
+	/* 若请求，就返回指向提取出的部分的指针 */
 	if (exprp)
 		*exprp = expr;
 
@@ -2108,7 +2108,7 @@ examine_opclause_args(List *args, Node **exprp, Const **cstp,
 
 
 /*
- * Compute statistics about expressions of a relation.
+ * 计算一个关系的表达式的统计信息。
  */
 static void
 compute_expr_stats(Relation onerel, double totalrows,
@@ -2138,28 +2138,28 @@ compute_expr_stats(Relation onerel, double totalrows,
 		ExprState  *exprstate;
 		int			tcnt;
 
-		/* Are we still in the main context? */
+		/* 我们还在主上下文里吗？ */
 		Assert(CurrentMemoryContext == expr_context);
 
 		/*
-		 * Need an EState for evaluation of expressions.  Create it in the
-		 * per-expression context to be sure it gets cleaned up at the bottom
-		 * of the loop.
+		 * 对表达式求值需要一个 EState。在
+		 * 按表达式的上下文里创建它，以确保它在循环
+		 * 底部被清理。
 		 */
 		estate = CreateExecutorState();
 		econtext = GetPerTupleExprContext(estate);
 
-		/* Set up expression evaluation state */
+		/* 设置表达式求值状态 */
 		exprstate = ExecPrepareExpr((Expr *) expr, estate);
 
-		/* Need a slot to hold the current heap tuple, too */
+		/* 也需要一个槽来保存当前的堆元组 */
 		slot = MakeSingleTupleTableSlot(RelationGetDescr(onerel),
 										&TTSOpsHeapTuple);
 
-		/* Arrange for econtext's scan tuple to be the tuple under test */
+		/* 安排 econtext 的扫描元组为正在测试的元组 */
 		econtext->ecxt_scantuple = slot;
 
-		/* Compute and save expression values */
+		/* 计算并保存表达式的值 */
 		exprvals = (Datum *) palloc(numrows * sizeof(Datum));
 		exprnulls = (bool *) palloc(numrows * sizeof(bool));
 
@@ -2170,18 +2170,18 @@ compute_expr_stats(Relation onerel, double totalrows,
 			bool		isnull;
 
 			/*
-			 * Reset the per-tuple context each time, to reclaim any cruft
-			 * left behind by evaluating the statistics expressions.
+			 * 每次重置按元组上下文，以回收求值统计表达式后
+			 * 留下的任何废弃物。
 			 */
 			ResetExprContext(econtext);
 
-			/* Set up for expression evaluation */
+			/* 为表达式求值做好准备 */
 			ExecStoreHeapTuple(rows[i], slot, false);
 
 			/*
-			 * Evaluate the expression. We do this in the per-tuple context so
-			 * as not to leak memory, and then copy the result into the
-			 * context created at the beginning of this function.
+			 * 对表达式求值。我们在按元组上下文里做这件事，
+			 * 以免泄漏内存，然后把结果复制到
+			 * 本函数开头创建的上下文里。
 			 */
 			datum = ExecEvalExprSwitchContext(exprstate,
 											  GetPerTupleExprContext(estate),
@@ -2193,7 +2193,7 @@ compute_expr_stats(Relation onerel, double totalrows,
 			}
 			else
 			{
-				/* Make sure we copy the data into the context. */
+				/* 确保我们把数据复制进该上下文。 */
 				Assert(CurrentMemoryContext == expr_context);
 
 				exprvals[tcnt] = datumCopy(datum,
@@ -2206,13 +2206,13 @@ compute_expr_stats(Relation onerel, double totalrows,
 		}
 
 		/*
-		 * Now we can compute the statistics for the expression columns.
+		 * 现在可以为表达式列计算统计信息。
 		 *
-		 * XXX Unlike compute_index_stats we don't need to switch and reset
-		 * memory contexts here, because we're only computing stats for a
-		 * single expression (and not iterating over many indexes), so we just
-		 * do it in expr_context. Note that compute_stats copies the result
-		 * into stats->anl_context, so it does not disappear.
+		 * XXX 与 compute_index_stats 不同，这里不需要切换和重置
+		 * 内存上下文，因为我们只为一个
+		 * 表达式计算统计（而不是遍历许多索引），因此就在
+		 * expr_context 里做。注意 compute_stats 会把结果复制
+		 * 到 stats->anl_context，因此它不会消失。
 		 */
 		if (tcnt > 0)
 		{
@@ -2229,14 +2229,14 @@ compute_expr_stats(Relation onerel, double totalrows,
 								 tcnt);
 
 			/*
-			 * If the n_distinct option is specified, it overrides the above
-			 * computation.
+			 * 若指定了 n_distinct 选项，它就覆盖上面的
+			 * 计算。
 			 */
 			if (aopt != NULL && aopt->n_distinct != 0.0)
 				stats->stadistinct = aopt->n_distinct;
 		}
 
-		/* And clean up */
+		/* 然后清理 */
 		MemoryContextSwitchTo(expr_context);
 
 		ExecDropSingleTupleTableSlot(slot);
@@ -2250,26 +2250,26 @@ compute_expr_stats(Relation onerel, double totalrows,
 
 
 /*
- * Fetch function for analyzing statistics object expressions.
+ * 取得用于分析统计对象表达式的函数。
  *
- * We have not bothered to construct tuples from the data, instead the data
- * is just in Datum arrays.
+ * 我们没有费心用这些数据构造元组，数据
+ * 只是放在 Datum 数组里。
  */
 static Datum
 expr_fetch_func(VacAttrStatsP stats, int rownum, bool *isNull)
 {
 	int			i;
 
-	/* exprvals and exprnulls are already offset for proper column */
+	/* exprvals 和 exprnulls 已经为正确的列做了偏移 */
 	i = rownum * stats->rowstride;
 	*isNull = stats->exprnulls[i];
 	return stats->exprvals[i];
 }
 
 /*
- * Build analyze data for a list of expressions. As this is not tied
- * directly to a relation (table or index), we have to fake some of
- * the fields in examine_expression().
+ * 为一组表达式构造分析数据。由于这不直接
+ * 绑在某个关系（表或索引）上，我们必须在 examine_expression() 里
+ * 伪造一些成员。
  */
 static AnlExprData *
 build_expr_data(List *exprs, int stattarget)
@@ -2295,7 +2295,7 @@ build_expr_data(List *exprs, int stattarget)
 	return exprdata;
 }
 
-/* form an array of pg_statistic rows (per update_attstats) */
+/* 构造 pg_statistic 行的数组（按 update_attstats） */
 static Datum
 serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 {
@@ -2307,7 +2307,7 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 
 	sd = table_open(StatisticRelationId, RowExclusiveLock);
 
-	/* lookup OID of composite type for pg_statistic */
+	/* 查找 pg_statistic 复合类型的 OID */
 	typOid = get_rel_type_id(StatisticRelationId);
 	if (!OidIsValid(typOid))
 		ereport(ERROR,
@@ -2336,7 +2336,7 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 		}
 
 		/*
-		 * Construct a new pg_statistic tuple
+		 * 构造一个新的 pg_statistic 元组
 		 */
 		for (i = 0; i < Natts_pg_statistic; ++i)
 		{
@@ -2352,17 +2352,17 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 		i = Anum_pg_statistic_stakind1 - 1;
 		for (k = 0; k < STATISTIC_NUM_SLOTS; k++)
 		{
-			values[i++] = Int16GetDatum(stats->stakind[k]); /* stakindN */
+			values[i++] = Int16GetDatum(stats->stakind[k]); /* stakindN（种类） */
 		}
 		i = Anum_pg_statistic_staop1 - 1;
 		for (k = 0; k < STATISTIC_NUM_SLOTS; k++)
 		{
-			values[i++] = ObjectIdGetDatum(stats->staop[k]);	/* staopN */
+			values[i++] = ObjectIdGetDatum(stats->staop[k]);	/* staopN（操作符） */
 		}
 		i = Anum_pg_statistic_stacoll1 - 1;
 		for (k = 0; k < STATISTIC_NUM_SLOTS; k++)
 		{
-			values[i++] = ObjectIdGetDatum(stats->stacoll[k]);	/* stacollN */
+			values[i++] = ObjectIdGetDatum(stats->stacoll[k]);	/* stacollN（排序规则） */
 		}
 		i = Anum_pg_statistic_stanumbers1 - 1;
 		for (k = 0; k < STATISTIC_NUM_SLOTS; k++)
@@ -2378,7 +2378,7 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 				for (n = 0; n < nnum; n++)
 					numdatums[n] = Float4GetDatum(stats->stanumbers[k][n]);
 				arry = construct_array_builtin(numdatums, nnum, FLOAT4OID);
-				values[i++] = PointerGetDatum(arry);	/* stanumbersN */
+				values[i++] = PointerGetDatum(arry);	/* stanumbersN（数值） */
 			}
 			else
 			{
@@ -2399,7 +2399,7 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 									   stats->statyplen[k],
 									   stats->statypbyval[k],
 									   stats->statypalign[k]);
-				values[i++] = PointerGetDatum(arry);	/* stavaluesN */
+				values[i++] = PointerGetDatum(arry);	/* stavaluesN（值） */
 			}
 			else
 			{
@@ -2423,8 +2423,8 @@ serialize_expr_stats(AnlExprData *exprdata, int nexprs)
 }
 
 /*
- * Loads pg_statistic record from expression statistics for expression
- * identified by the supplied index.
+ * 按提供的下标，从表达式统计里装载
+ * pg_statistic 记录。
  */
 HeapTuple
 statext_expressions_load(Oid stxoid, bool inh, int idx)
@@ -2455,7 +2455,7 @@ statext_expressions_load(Oid stxoid, bool inh, int idx)
 
 	td = DatumGetHeapTupleHeader(eah->dvalues[idx]);
 
-	/* Build a temporary HeapTuple control structure */
+	/* 构造一个临时的 HeapTuple 控制结构 */
 	tmptup.t_len = HeapTupleHeaderGetDatumLength(td);
 	ItemPointerSetInvalid(&(tmptup.t_self));
 	tmptup.t_tableOid = InvalidOid;
@@ -2469,15 +2469,15 @@ statext_expressions_load(Oid stxoid, bool inh, int idx)
 }
 
 /*
- * Evaluate the expressions, so that we can use the results to build
- * all the requested statistics types. This matters especially for
- * expensive expressions, of course.
+ * 对表达式求值，以便我们能用结果来建立
+ * 所有请求的统计类型。这对
+ * 昂贵的表达式尤其重要。
  */
 static StatsBuildData *
 make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 				VacAttrStats **stats, int stattarget)
 {
-	/* evaluated expressions */
+	/* 已求值的表达式 */
 	StatsBuildData *result;
 	char	   *ptr;
 	Size		len;
@@ -2492,38 +2492,38 @@ make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 	int			nkeys = bms_num_members(stat->columns) + list_length(stat->exprs);
 	ListCell   *lc;
 
-	/* allocate everything as a single chunk, so we can free it easily */
+	/* 把一切都分配成单个块，以便我们能轻松释放 */
 	len = MAXALIGN(sizeof(StatsBuildData));
-	len += MAXALIGN(sizeof(AttrNumber) * nkeys);	/* attnums */
-	len += MAXALIGN(sizeof(VacAttrStats *) * nkeys);	/* stats */
+	len += MAXALIGN(sizeof(AttrNumber) * nkeys);	/* attnums（属性号） */
+	len += MAXALIGN(sizeof(VacAttrStats *) * nkeys);	/* stats（统计） */
 
-	/* values */
+	/* values（值） */
 	len += MAXALIGN(sizeof(Datum *) * nkeys);
 	len += nkeys * MAXALIGN(sizeof(Datum) * numrows);
 
-	/* nulls */
+	/* nulls（空标志） */
 	len += MAXALIGN(sizeof(bool *) * nkeys);
 	len += nkeys * MAXALIGN(sizeof(bool) * numrows);
 
 	ptr = palloc(len);
 
-	/* set the pointers */
+	/* 设置这些指针 */
 	result = (StatsBuildData *) ptr;
 	ptr += MAXALIGN(sizeof(StatsBuildData));
 
-	/* attnums */
+	/* attnums（属性号） */
 	result->attnums = (AttrNumber *) ptr;
 	ptr += MAXALIGN(sizeof(AttrNumber) * nkeys);
 
-	/* stats */
+	/* stats（统计） */
 	result->stats = (VacAttrStats **) ptr;
 	ptr += MAXALIGN(sizeof(VacAttrStats *) * nkeys);
 
-	/* values */
+	/* values（值） */
 	result->values = (Datum **) ptr;
 	ptr += MAXALIGN(sizeof(Datum *) * nkeys);
 
-	/* nulls */
+	/* nulls（空标志） */
 	result->nulls = (bool **) ptr;
 	ptr += MAXALIGN(sizeof(bool *) * nkeys);
 
@@ -2538,11 +2538,11 @@ make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 
 	Assert((ptr - (char *) result) == len);
 
-	/* we have it allocated, so let's fill the values */
+	/* 已经分配好了，因此把值填上 */
 	result->nattnums = nkeys;
 	result->numrows = numrows;
 
-	/* fill the attribute info - first attributes, then expressions */
+	/* 填充属性信息：先是属性，然后是表达式 */
 	idx = 0;
 	k = -1;
 	while ((k = bms_next_member(stat->columns, k)) >= 0)
@@ -2565,7 +2565,7 @@ make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 		k--;
 	}
 
-	/* first extract values for all the regular attributes */
+	/* 先为所有普通属性提取值 */
 	for (i = 0; i < numrows; i++)
 	{
 		idx = 0;
@@ -2580,29 +2580,29 @@ make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 		}
 	}
 
-	/* Need an EState for evaluation expressions. */
+	/* 对表达式求值需要一个 EState。 */
 	estate = CreateExecutorState();
 	econtext = GetPerTupleExprContext(estate);
 
-	/* Need a slot to hold the current heap tuple, too */
+	/* 也需要一个槽来保存当前的堆元组 */
 	slot = MakeSingleTupleTableSlot(RelationGetDescr(rel),
 									&TTSOpsHeapTuple);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 安排 econtext 的扫描元组为正在测试的元组 */
 	econtext->ecxt_scantuple = slot;
 
-	/* Set up expression evaluation state */
+	/* 设置表达式求值状态 */
 	exprstates = ExecPrepareExprList(stat->exprs, estate);
 
 	for (i = 0; i < numrows; i++)
 	{
 		/*
-		 * Reset the per-tuple context each time, to reclaim any cruft left
-		 * behind by evaluating the statistics object expressions.
+		 * 每次重置按元组上下文，以回收求值统计对象表达式后留下的
+		 * 任何废弃物。
 		 */
 		ResetExprContext(econtext);
 
-		/* Set up for expression evaluation */
+		/* 为表达式求值做好准备 */
 		ExecStoreHeapTuple(rows[i], slot, false);
 
 		idx = bms_num_members(stat->columns);
@@ -2613,9 +2613,9 @@ make_build_data(Relation rel, StatExtEntry *stat, int numrows, HeapTuple *rows,
 			ExprState  *exprstate = (ExprState *) lfirst(lc);
 
 			/*
-			 * XXX This probably leaks memory. Maybe we should use
-			 * ExecEvalExprSwitchContext but then we need to copy the result
-			 * somewhere else.
+			 * XXX 这大概会泄漏内存。也许应当使用
+			 * ExecEvalExprSwitchContext，但那样就需要把结果复制到
+			 * 别的地方。
 			 */
 			datum = ExecEvalExpr(exprstate,
 								 GetPerTupleExprContext(estate),

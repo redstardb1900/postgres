@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0091-comment-statistics-extended-stats",
+ "title": "zh: translate extended_stats comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ef4a45268975b451af1f8db6cf325a2baaa98fc2",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/statistics/extended_stats.c",
+   "kind": "c_comment",
+   "note": "extended statistics build and selectivity"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0091-comment-statistics-extended-stats.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/statistics/extended_stats.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 248,
+   "translated": 247,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "extended statistics build and selectivity"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0091-comment-statistics-extended-stats.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0091 translates src/backend/statistics/extended_stats.c."
+}

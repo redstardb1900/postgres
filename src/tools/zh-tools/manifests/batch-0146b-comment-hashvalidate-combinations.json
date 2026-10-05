@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0146b-comment-hashvalidate-combinations",
+ "title": "zh: fix hashvalidate combinations wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "91d96a8785d650e838324cd35b9262b2fff310c5",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/hash/hashvalidate.c",
+   "kind": "c_comment",
+   "note": "Composer P1: doesn't have entries for all ≠ 都没有条目"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0146b-comment-hashvalidate-combinations.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/hash/hashvalidate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 38,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fix logic for incomplete cross-type coverage"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0146b-comment-hashvalidate-combinations.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0146"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0146b"
+  }
+ ],
+ "notes": "Composer P1 on 0146: 'doesn't have entries for all possible combinations' was inverted to 都没有条目; corrected to 并未…都提供条目. Also fixed 跨类型操作符缺少 word order in the same comment."
+}

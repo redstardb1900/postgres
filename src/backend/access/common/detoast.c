@@ -384,8 +384,8 @@ toast_fetch_datum(struct varlena *attr)
 /* ----------
  * toast_fetch_datum_slice -
  *
- *	根据保存在 toast 关系中的各个块，重组出 Datum 的一段
- *	在内存里重组出 Datum
+ *	根据保存在 toast 关系中的各个块，
+ *	重组出 Datum 的一段
  *
  *	注意：本函数支持未压缩的外部 datum，
  *	也支持压缩的外部 datum（此时所请求的切片

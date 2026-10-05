@@ -1,0 +1,74 @@
+{
+ "schema_version": 1,
+ "batch_id": "0134c-comment-detoast-slice-header",
+ "title": "zh: fix detoast slice header wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1145d0214439b2e745930ca099d7fef3dd1c019f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/common/detoast.c",
+   "kind": "c_comment",
+   "note": "Composer P1 slice header"
+  },
+  {
+   "pattern": "src/backend/access/common/toast_internals.c",
+   "kind": "c_comment",
+   "note": "drop fallthrough meta gloss"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0134c-comment-detoast-slice-header.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/common/detoast.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 62,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fix toast_fetch_datum_slice header"
+  },
+  {
+   "path": "src/backend/access/common/toast_internals.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 66,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "remove 0134b meta gloss lines"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0134c-comment-detoast-slice-header.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0134"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0134c"
+  }
+ ],
+ "notes": "Composer P1: toast_fetch_datum_slice header second line was wrongly copied from toast_fetch_datum."
+}

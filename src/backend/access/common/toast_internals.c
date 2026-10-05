@@ -261,8 +261,8 @@ toast_save_datum(Relation rel, Datum value,
 				 * 该情形之前，我们会做出多份拷贝，浪费空间；更糟的是，
 				 * 属于已删除堆元组的那些拷贝不会被 VACUUM
 				 * 回收。
-				 * （对应原文：fall through without writing，即跳过
-				 * 再次写入。）
+				 *
+				 *
 				 *
 				 */
 				if (toastrel_valueid_exists(toastrel,

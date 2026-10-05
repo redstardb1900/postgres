@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * signalfuncs.c
- *	  Functions for signaling backends
+ *	  向后端发信号的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,18 +28,18 @@
 
 
 /*
- * Send a signal to another backend.
+ * 向另一个后端发送信号。
  *
- * The signal is delivered if the user is either a superuser or the same
- * role as the backend being signaled. For "dangerous" signals, an explicit
- * check for superuser needs to be done prior to calling this function.
+ * 若用户是超级用户，或与被发信号的后端属于同一角色，
+ * 信号就会送达。对于 "dangerous" 信号，调用本函数之前
+ * 需要显式检查超级用户身份。
  *
- * Returns 0 on success, 1 on general failure, 2 on normal permission error
- * and 3 if the caller needs to be a superuser.
+ * 成功返回 0，一般失败返回 1，普通权限错误返回 2，
+ * 调用方需要是超级用户时返回 3。
  *
- * In the event of a general failure (return code 1), a warning message will
- * be emitted. For permission errors, doing that is the responsibility of
- * the caller.
+ * 发生一般失败（返回码 1）时，会发出一条
+ * 警告消息。权限错误则由调用方负责
+ * 发出警告。
  */
 #define SIGNAL_BACKEND_SUCCESS 0
 #define SIGNAL_BACKEND_ERROR 1
@@ -51,22 +51,22 @@ pg_signal_backend(int pid, int sig)
 	PGPROC	   *proc = BackendPidGetProc(pid);
 
 	/*
-	 * BackendPidGetProc returns NULL if the pid isn't valid; but by the time
-	 * we reach kill(), a process for which we get a valid proc here might
-	 * have terminated on its own.  There's no way to acquire a lock on an
-	 * arbitrary process to prevent that. But since so far all the callers of
-	 * this mechanism involve some request for ending the process anyway, that
-	 * it might end on its own first is not a problem.
+	 * 若 pid 无效，BackendPidGetProc 返回 NULL；但等到
+	 * 我们调用 kill() 时，这里拿到有效 proc 的进程
+	 * 可能已经自行终止。无法对任意进程加锁来
+	 * 阻止这一点。不过迄今本机制的所有调用方反正都是
+	 * 在请求结束该进程，因此它可能先自行结束
+	 * 并不是问题。
 	 *
-	 * Note that proc will also be NULL if the pid refers to an auxiliary
-	 * process or the postmaster (neither of which can be signaled via
-	 * pg_signal_backend()).
+	 * 注意：若 pid 指向辅助进程或 postmaster，proc 也会
+	 * 是 NULL（二者都不能通过 pg_signal_backend()
+	 * 发信号）。
 	 */
 	if (proc == NULL)
 	{
 		/*
-		 * This is just a warning so a loop-through-resultset will not abort
-		 * if one backend terminated on its own during the run.
+		 * 这只是一条警告，这样在遍历结果集时，若某个后端
+		 * 在运行期间自行终止，也不会中止。
 		 */
 		ereport(WARNING,
 				(errmsg("PID %d is not a PostgreSQL backend process", pid)));
@@ -75,36 +75,36 @@ pg_signal_backend(int pid, int sig)
 	}
 
 	/*
-	 * Only allow superusers to signal superuser-owned backends.  Any process
-	 * not advertising a role might have the importance of a superuser-owned
-	 * backend, so treat it that way.
+	 * 只允许超级用户向超级用户拥有的后端发信号。任何
+	 * 未公布角色的进程，其重要性可能不亚于超级用户拥有的
+	 * 后端，因此按那种方式对待。
 	 */
 	if ((!OidIsValid(proc->roleId) || superuser_arg(proc->roleId)) &&
 		!superuser())
 		return SIGNAL_BACKEND_NOSUPERUSER;
 
-	/* Users can signal backends they have role membership in. */
+	/* 用户可以向自己具有角色成员资格的后端发信号。 */
 	if (!has_privs_of_role(GetUserId(), proc->roleId) &&
 		!has_privs_of_role(GetUserId(), ROLE_PG_SIGNAL_BACKEND))
 		return SIGNAL_BACKEND_NOPERMISSION;
 
 	/*
-	 * Can the process we just validated above end, followed by the pid being
-	 * recycled for a new process, before reaching here?  Then we'd be trying
-	 * to kill the wrong thing.  Seems near impossible when sequential pid
-	 * assignment and wraparound is used.  Perhaps it could happen on a system
-	 * where pid re-use is randomized.  That race condition possibility seems
-	 * too unlikely to worry about.
+	 * 上面刚验证过的进程会不会在到达这里之前结束，
+	 * 随后该 pid 被回收给新进程？那样我们就会试图
+	 * 杀掉错误的对象。在使用顺序 pid 分配与回绕时，
+	 * 这近乎不可能。在 pid 重用随机化的系统上也许
+	 * 会发生。这种竞态的可能性
+	 * 低到不值得担心。
 	 */
 
-	/* If we have setsid(), signal the backend's whole process group */
+	/* 若有 setsid()，就向该后端的整个进程组发信号 */
 #ifdef HAVE_SETSID
 	if (kill(-pid, sig))
 #else
 	if (kill(pid, sig))
 #endif
 	{
-		/* Again, just a warning to allow loops */
+		/* 同样，只发警告，以便循环可以继续 */
 		ereport(WARNING,
 				(errmsg("could not send signal to process %d: %m", pid)));
 		return SIGNAL_BACKEND_ERROR;
@@ -113,10 +113,10 @@ pg_signal_backend(int pid, int sig)
 }
 
 /*
- * Signal to cancel a backend process.  This is allowed if you are a member of
- * the role whose process is being canceled.
+ * 发信号以取消一个后端进程。若你是其进程正被取消的
+ * 那个角色的成员，就允许这样做。
  *
- * Note that only superusers can signal superuser-owned processes.
+ * 注意：只有超级用户可以向超级用户拥有的进程发信号。
  */
 Datum
 pg_cancel_backend(PG_FUNCTION_ARGS)
@@ -141,28 +141,28 @@ pg_cancel_backend(PG_FUNCTION_ARGS)
 }
 
 /*
- * Wait until there is no backend process with the given PID and return true.
- * On timeout, a warning is emitted and false is returned.
+ * 一直等到不存在具有给定 PID 的后端进程，然后返回真。
+ * 超时时发出警告并返回假。
  */
 static bool
 pg_wait_until_termination(int pid, int64 timeout)
 {
 	/*
-	 * Wait in steps of waittime milliseconds until this function exits or
-	 * timeout.
+	 * 以 waittime 毫秒为步长等待，直到本函数退出
+	 * 或超时。
 	 */
 	int64		waittime = 100;
 
 	/*
-	 * Initially remaining time is the entire timeout specified by the user.
+	 * 最初，剩余时间就是用户指定的整个超时时间。
 	 */
 	int64		remainingtime = timeout;
 
 	/*
-	 * Check existence of the backend. If the backend still exists, then wait
-	 * for waittime milliseconds, again check for the existence. Repeat this
-	 * until timeout or an error occurs or a pending interrupt such as query
-	 * cancel gets processed.
+	 * 检查后端是否存在。若后端仍然存在，就等待
+	 * waittime 毫秒，然后再次检查是否存在。重复这一过程，
+	 * 直到超时、发生错误，或某个待处理中断（例如查询取消）
+	 * 得到处理。
 	 */
 	do
 	{
@@ -180,7 +180,7 @@ pg_wait_until_termination(int pid, int64 timeout)
 								pid)));
 		}
 
-		/* Process interrupts, if any, before waiting */
+		/* 等待之前先处理中断（如有） */
 		CHECK_FOR_INTERRUPTS();
 
 		(void) WaitLatch(MyLatch,
@@ -203,21 +203,21 @@ pg_wait_until_termination(int pid, int64 timeout)
 }
 
 /*
- * Send a signal to terminate a backend process. This is allowed if you are a
- * member of the role whose process is being terminated. If the timeout input
- * argument is 0, then this function just signals the backend and returns
- * true.  If timeout is nonzero, then it waits until no process has the given
- * PID; if the process ends within the timeout, true is returned, and if the
- * timeout is exceeded, a warning is emitted and false is returned.
+ * 发信号以终止一个后端进程。若你是其进程正被
+ * 终止的那个角色的成员，就允许这样做。若超时输入
+ * 参数为 0，本函数只向该后端发信号并返回真。
+ * 若超时非零，则一直等到没有任何进程具有给定 PID；
+ * 若进程在超时内结束则返回真，若超过超时则发出
+ * 警告并返回假。
  *
- * Note that only superusers can signal superuser-owned processes.
+ * 注意：只有超级用户可以向超级用户拥有的进程发信号。
  */
 Datum
 pg_terminate_backend(PG_FUNCTION_ARGS)
 {
 	int			pid;
 	int			r;
-	int			timeout;		/* milliseconds */
+	int			timeout;		/* 毫秒 */
 
 	pid = PG_GETARG_INT32(0);
 	timeout = PG_GETARG_INT64(1);
@@ -243,7 +243,7 @@ pg_terminate_backend(PG_FUNCTION_ARGS)
 				 errdetail("Only roles with privileges of the role whose process is being terminated or with privileges of the \"%s\" role may terminate this process.",
 						   "pg_signal_backend")));
 
-	/* Wait only on success and if actually requested */
+	/* 仅在成功且确实请求了等待时才等待 */
 	if (r == SIGNAL_BACKEND_SUCCESS && timeout > 0)
 		PG_RETURN_BOOL(pg_wait_until_termination(pid, timeout));
 	else
@@ -251,10 +251,10 @@ pg_terminate_backend(PG_FUNCTION_ARGS)
 }
 
 /*
- * Signal to reload the database configuration
+ * 发信号以重新加载数据库配置
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规的
+ * GRANT 系统管理。
  */
 Datum
 pg_reload_conf(PG_FUNCTION_ARGS)
@@ -271,9 +271,9 @@ pg_reload_conf(PG_FUNCTION_ARGS)
 
 
 /*
- * Rotate log file
+ * 轮换日志文件
  *
- * This function is kept to support adminpack 1.0.
+ * 保留本函数是为了支持 adminpack 1.0。
  */
 Datum
 pg_rotate_logfile(PG_FUNCTION_ARGS)
@@ -298,10 +298,10 @@ pg_rotate_logfile(PG_FUNCTION_ARGS)
 }
 
 /*
- * Rotate log file
+ * 轮换日志文件
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规的
+ * GRANT 系统管理。
  */
 Datum
 pg_rotate_logfile_v2(PG_FUNCTION_ARGS)

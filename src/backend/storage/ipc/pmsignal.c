@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pmsignal.c
- *	  routines for signaling between the postmaster and its child processes
+ *	  postmaster 与其子进程之间的发信号例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -30,69 +30,69 @@
 
 
 /*
- * The postmaster is signaled by its children by sending SIGUSR1.  The
- * specific reason is communicated via flags in shared memory.  We keep
- * a boolean flag for each possible "reason", so that different reasons
- * can be signaled by different backends at the same time.  (However,
- * if the same reason is signaled more than once simultaneously, the
- * postmaster will observe it only once.)
+ * 子进程通过发送 SIGUSR1 向 postmaster 发信号。具体
+ * 原因经共享内存中的标志传达。每种可能的 "reason"
+ * 各保留一个布尔标志，以便不同后端可以同时发出
+ * 不同原因的信号。（不过，若同一原因同时发出
+ * 不止一次，postmaster 只会观察到一次。）
  *
- * The flags are actually declared as "volatile sig_atomic_t" for maximum
- * portability.  This should ensure that loads and stores of the flag
- * values are atomic, allowing us to dispense with any explicit locking.
+ * 这些标志实际声明为 "volatile sig_atomic_t"，以求最大
+ * 可移植性。这应能保证标志值的加载与存储是原子的，
+ * 从而不必再做任何显式加锁。
  *
- * In addition to the per-reason flags, we store a set of per-child-process
- * flags that are currently used only for detecting whether a backend has
- * exited without performing proper shutdown.  The per-child-process flags
- * have three possible states: UNUSED, ASSIGNED, ACTIVE.  An UNUSED slot is
- * available for assignment.  An ASSIGNED slot is associated with a postmaster
- * child process, but either the process has not touched shared memory yet,
- * or it has successfully cleaned up after itself.  A ACTIVE slot means the
- * process is actively using shared memory.  The slots are assigned to
- * child processes at random, and postmaster.c is responsible for tracking
- * which one goes with which PID.
+ * 除按原因划分的标志外，我们还保存一组
+ * 按子进程划分的标志，目前只用来检测某个后端
+ * 是否未经正常关闭就已退出。按子进程划分的标志
+ * 有三种可能状态：UNUSED、ASSIGNED、ACTIVE。
+ * UNUSED 槽可供分配。ASSIGNED 槽已关联到
+ * 一个 postmaster 子进程，但该进程要么尚未
+ * 接触共享内存，要么已自行清理完毕。ACTIVE 槽
+ * 表示进程正在主动使用共享内存。
+ * 这些槽随机分配给子进程。
+ * 由 postmaster.c 负责记录
+ * 哪个槽对应哪个 PID。
  *
- * Actually there is a fourth state, WALSENDER.  This is just like ACTIVE,
- * but carries the extra information that the child is a WAL sender.
- * WAL senders too start in ACTIVE state, but switch to WALSENDER once they
- * start streaming the WAL (and they never go back to ACTIVE after that).
+ * 实际上还有第四种状态 WALSENDER。它与 ACTIVE 类似，
+ * 但额外表明该子进程是 WAL 发送进程。
+ * WAL 发送进程同样从 ACTIVE 状态开始，一旦开始流式
+ * 传输 WAL 就切换到 WALSENDER（此后不再回到 ACTIVE）。
  *
- * We also have a shared-memory field that is used for communication in
- * the opposite direction, from postmaster to children: it tells why the
- * postmaster has broadcasted SIGQUIT signals, if indeed it has done so.
+ * 还有一个共享内存字段用于相反方向的通信，即从
+ * postmaster 到子进程：若 postmaster 确已广播
+ * SIGQUIT 信号，该字段说明其原因。
  */
 
-#define PM_CHILD_UNUSED		0	/* these values must fit in sig_atomic_t */
+#define PM_CHILD_UNUSED		0	/* 这些值必须能放进 sig_atomic_t */
 #define PM_CHILD_ASSIGNED	1
 #define PM_CHILD_ACTIVE		2
 #define PM_CHILD_WALSENDER	3
 
-/* "typedef struct PMSignalData PMSignalData" appears in pmsignal.h */
+/* "typedef struct PMSignalData PMSignalData" 出现在 pmsignal.h 中 */
 struct PMSignalData
 {
-	/* per-reason flags for signaling the postmaster */
+	/* 用于向 postmaster 发信号的按原因标志 */
 	sig_atomic_t PMSignalFlags[NUM_PMSIGNALS];
-	/* global flags for signals from postmaster to children */
-	QuitSignalReason sigquit_reason;	/* why SIGQUIT was sent */
-	/* per-child-process flags */
-	int			num_child_flags;	/* # of entries in PMChildFlags[] */
+	/* postmaster 向子进程发信号所用的全局标志 */
+	QuitSignalReason sigquit_reason;	/* 为何发送了 SIGQUIT */
+	/* 按子进程划分的标志 */
+	int			num_child_flags;	/* PMChildFlags[] 中的条目数 */
 	sig_atomic_t PMChildFlags[FLEXIBLE_ARRAY_MEMBER];
 };
 
-/* PMSignalState pointer is valid in both postmaster and child processes */
+/* PMSignalState 指针在 postmaster 与子进程中都有效 */
 NON_EXEC_STATIC volatile PMSignalData *PMSignalState = NULL;
 
 /*
- * These static variables are valid only in the postmaster.  We keep a
- * duplicative private array so that we can trust its state even if some
- * failing child has clobbered the PMSignalData struct in shared memory.
+ * 这些静态变量只在 postmaster 中有效。我们保留一份
+ * 重复的私有数组，这样即使某个出错的子进程破坏了
+ * 共享内存中的 PMSignalData 结构，我们仍能信任其状态。
  */
-static int	num_child_inuse;	/* # of entries in PMChildInUse[] */
-static int	next_child_inuse;	/* next slot to try to assign */
-static bool *PMChildInUse;		/* true if i'th flag slot is assigned */
+static int	num_child_inuse;	/* PMChildInUse[] 中的条目数 */
+static int	next_child_inuse;	/* 下一个尝试分配的槽 */
+static bool *PMChildInUse;		/* 若第 i 个标志槽已分配则为真 */
 
 /*
- * Signal handler to be notified if postmaster dies.
+ * 在 postmaster 死亡时得到通知的信号处理函数。
  */
 #ifdef USE_POSTMASTER_DEATH_SIGNAL
 volatile sig_atomic_t postmaster_possibly_dead = false;
@@ -104,12 +104,12 @@ postmaster_death_handler(SIGNAL_ARGS)
 }
 
 /*
- * The available signals depend on the OS.  SIGUSR1 and SIGUSR2 are already
- * used for other things, so choose another one.
+ * 可用信号取决于操作系统。SIGUSR1 与 SIGUSR2 已经
+ * 用于其他用途，因此另选一个。
  *
- * Currently, we assume that we can always find a signal to use.  That
- * seems like a reasonable assumption for all platforms that are modern
- * enough to have a parent-death signaling mechanism.
+ * 目前我们假定总能找到一个可用信号。对所有
+ * 足够现代、具备父进程死亡发信号机制的平台来说，
+ * 这个假定似乎合理。
  */
 #if defined(SIGINFO)
 #define POSTMASTER_DEATH_SIGNAL SIGINFO
@@ -119,11 +119,11 @@ postmaster_death_handler(SIGNAL_ARGS)
 #error "cannot find a signal to use for postmaster death"
 #endif
 
-#endif							/* USE_POSTMASTER_DEATH_SIGNAL */
+#endif							/* 宏 USE_POSTMASTER_DEATH_SIGNAL */
 
 /*
  * PMSignalShmemSize
- *		Compute space needed for pmsignal.c's shared memory
+ *		计算 pmsignal.c 所需的共享内存空间
  */
 Size
 PMSignalShmemSize(void)
@@ -138,7 +138,7 @@ PMSignalShmemSize(void)
 }
 
 /*
- * PMSignalShmemInit - initialize during shared-memory creation
+ * PMSignalShmemInit - 在创建共享内存期间初始化
  */
 void
 PMSignalShmemInit(void)
@@ -150,17 +150,17 @@ PMSignalShmemInit(void)
 
 	if (!found)
 	{
-		/* initialize all flags to zeroes */
+		/* 把所有标志初始化为零 */
 		MemSet(unvolatize(PMSignalData *, PMSignalState), 0, PMSignalShmemSize());
 		num_child_inuse = MaxLivePostmasterChildren();
 		PMSignalState->num_child_flags = num_child_inuse;
 
 		/*
-		 * Also allocate postmaster's private PMChildInUse[] array.  We
-		 * might've already done that in a previous shared-memory creation
-		 * cycle, in which case free the old array to avoid a leak.  (Do it
-		 * like this to support the possibility that MaxLivePostmasterChildren
-		 * changed.)  In a standalone backend, we do not need this.
+		 * 同时分配 postmaster 私有的 PMChildInUse[] 数组。
+		 * 上一轮共享内存创建中可能已经做过，此时释放旧数组
+		 * 以免泄漏。（这样做是为了支持
+		 * MaxLivePostmasterChildren 可能已改变的情况。）
+		 * 独立后端不需要这个数组。
 		 */
 		if (PostmasterContext != NULL)
 		{
@@ -175,29 +175,29 @@ PMSignalShmemInit(void)
 }
 
 /*
- * SendPostmasterSignal - signal the postmaster from a child process
+ * SendPostmasterSignal - 从子进程向 postmaster 发信号
  */
 void
 SendPostmasterSignal(PMSignalReason reason)
 {
-	/* If called in a standalone backend, do nothing */
+	/* 若在独立后端中调用，则什么也不做 */
 	if (!IsUnderPostmaster)
 		return;
-	/* Atomically set the proper flag */
+	/* 原子地设置相应标志 */
 	PMSignalState->PMSignalFlags[reason] = true;
-	/* Send signal to postmaster */
+	/* 向 postmaster 发送信号 */
 	kill(PostmasterPid, SIGUSR1);
 }
 
 /*
- * CheckPostmasterSignal - check to see if a particular reason has been
- * signaled, and clear the signal flag.  Should be called by postmaster
- * after receiving SIGUSR1.
+ * CheckPostmasterSignal - 检查某一原因是否已被发出信号，
+ * 并清除该信号标志。postmaster 收到 SIGUSR1 之后
+ * 应当调用本函数。
  */
 bool
 CheckPostmasterSignal(PMSignalReason reason)
 {
-	/* Careful here --- don't clear flag if we haven't seen it set */
+	/* 这里要小心 --- 尚未看到标志已置位时，不要清除它 */
 	if (PMSignalState->PMSignalFlags[reason])
 	{
 		PMSignalState->PMSignalFlags[reason] = false;
@@ -207,12 +207,12 @@ CheckPostmasterSignal(PMSignalReason reason)
 }
 
 /*
- * SetQuitSignalReason - broadcast the reason for a system shutdown.
- * Should be called by postmaster before sending SIGQUIT to children.
+ * SetQuitSignalReason - 广播系统关闭的原因。
+ * 应当由 postmaster 在向子进程发送 SIGQUIT 之前调用。
  *
- * Note: in a crash-and-restart scenario, the "reason" field gets cleared
- * as a part of rebuilding shared memory; the postmaster need not do it
- * explicitly.
+ * 注意：在崩溃后重启的情形下，重建共享内存时
+ * 会清除 "reason" 字段；postmaster 不必
+ * 再显式去做。
  */
 void
 SetQuitSignalReason(QuitSignalReason reason)
@@ -221,14 +221,14 @@ SetQuitSignalReason(QuitSignalReason reason)
 }
 
 /*
- * GetQuitSignalReason - obtain the reason for a system shutdown.
- * Called by child processes when they receive SIGQUIT.
- * If the postmaster hasn't actually sent SIGQUIT, will return PMQUIT_NOT_SENT.
+ * GetQuitSignalReason - 取得系统关闭的原因。
+ * 子进程收到 SIGQUIT 时调用。
+ * 若 postmaster 实际上并未发送 SIGQUIT，将返回 PMQUIT_NOT_SENT。
  */
 QuitSignalReason
 GetQuitSignalReason(void)
 {
-	/* This is called in signal handlers, so be extra paranoid. */
+	/* 本函数在信号处理函数中调用，因此要格外小心。 */
 	if (!IsUnderPostmaster || PMSignalState == NULL)
 		return PMQUIT_NOT_SENT;
 	return PMSignalState->sigquit_reason;
@@ -236,12 +236,12 @@ GetQuitSignalReason(void)
 
 
 /*
- * AssignPostmasterChildSlot - select an unused slot for a new postmaster
- * child process, and set its state to ASSIGNED.  Returns a slot number
- * (one to N).
+ * AssignPostmasterChildSlot - 为新的 postmaster 子进程
+ * 选择一个未使用的槽，并将其状态设为 ASSIGNED。返回槽号
+ * （一到 N）。
  *
- * Only the postmaster is allowed to execute this routine, so we need no
- * special locking.
+ * 只有 postmaster 可以执行本例程，因此不需要
+ * 特殊加锁。
  */
 int
 AssignPostmasterChildSlot(void)
@@ -250,10 +250,10 @@ AssignPostmasterChildSlot(void)
 	int			n;
 
 	/*
-	 * Scan for a free slot.  Notice that we trust nothing about the contents
-	 * of PMSignalState, but use only postmaster-local data for this decision.
-	 * We track the last slot assigned so as not to waste time repeatedly
-	 * rescanning low-numbered slots.
+	 * 扫描一个空闲槽。注意，我们不信任
+	 * PMSignalState 的内容，这项决定只用 postmaster 本地数据。
+	 * 我们记录上次分配的槽，以免反复重扫
+	 * 编号较小的槽而浪费时间。
 	 */
 	for (n = num_child_inuse; n > 0; n--)
 	{
@@ -268,17 +268,17 @@ AssignPostmasterChildSlot(void)
 		}
 	}
 
-	/* Out of slots ... should never happen, else postmaster.c messed up */
+	/* 槽已用尽 ... 按理不该发生，否则就是 postmaster.c 弄错了 */
 	elog(FATAL, "no free slots in PMChildFlags array");
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 消除编译器告警 */
 }
 
 /*
- * ReleasePostmasterChildSlot - release a slot after death of a postmaster
- * child process.  This must be called in the postmaster process.
+ * ReleasePostmasterChildSlot - 在 postmaster 子进程死亡后
+ * 释放槽。必须在 postmaster 进程中调用。
  *
- * Returns true if the slot had been in ASSIGNED state (the expected case),
- * false otherwise (implying that the child failed to clean itself up).
+ * 若该槽此前处于 ASSIGNED 状态（预期情况）则返回真，
+ * 否则返回假（意味着该子进程未能自行清理）。
  */
 bool
 ReleasePostmasterChildSlot(int slot)
@@ -289,9 +289,9 @@ ReleasePostmasterChildSlot(int slot)
 	slot--;
 
 	/*
-	 * Note: the slot state might already be unused, because the logic in
-	 * postmaster.c is such that this might get called twice when a child
-	 * crashes.  So we don't try to Assert anything about the state.
+	 * 注意：槽状态可能已经是未使用，因为 postmaster.c 的逻辑
+	 * 使得子进程崩溃时本函数可能被调用两次。因此我们不试图
+	 * 对状态做任何 Assert。
 	 */
 	result = (PMSignalState->PMChildFlags[slot] == PM_CHILD_ASSIGNED);
 	PMSignalState->PMChildFlags[slot] = PM_CHILD_UNUSED;
@@ -300,8 +300,8 @@ ReleasePostmasterChildSlot(int slot)
 }
 
 /*
- * IsPostmasterChildWalSender - check if given slot is in use by a
- * walsender process.  This is called only by the postmaster.
+ * IsPostmasterChildWalSender - 检查给定槽是否正由
+ * walsender 进程使用。只由 postmaster 调用。
  */
 bool
 IsPostmasterChildWalSender(int slot)
@@ -316,8 +316,8 @@ IsPostmasterChildWalSender(int slot)
 }
 
 /*
- * MarkPostmasterChildActive - mark a postmaster child as about to begin
- * actively using shared memory.  This is called in the child process.
+ * MarkPostmasterChildActive - 把 postmaster 子进程标记为即将
+ * 开始主动使用共享内存。在子进程中调用。
  */
 void
 MarkPostmasterChildActive(void)
@@ -331,9 +331,9 @@ MarkPostmasterChildActive(void)
 }
 
 /*
- * MarkPostmasterChildWalSender - mark a postmaster child as a WAL sender
- * process.  This is called in the child process, sometime after marking the
- * child as active.
+ * MarkPostmasterChildWalSender - 把 postmaster 子进程标记为 WAL
+ * 发送进程。在子进程中调用，且在把该子进程标记为
+ * 活动之后的某个时刻调用。
  */
 void
 MarkPostmasterChildWalSender(void)
@@ -349,8 +349,8 @@ MarkPostmasterChildWalSender(void)
 }
 
 /*
- * MarkPostmasterChildInactive - mark a postmaster child as done using
- * shared memory.  This is called in the child process.
+ * MarkPostmasterChildInactive - 把 postmaster 子进程标记为
+ * 已用完共享内存。在子进程中调用。
  */
 void
 MarkPostmasterChildInactive(void)
@@ -366,20 +366,20 @@ MarkPostmasterChildInactive(void)
 
 
 /*
- * PostmasterIsAliveInternal - check whether postmaster process is still alive
+ * PostmasterIsAliveInternal - 检查 postmaster 进程是否仍然存活
  *
- * This is the slow path of PostmasterIsAlive(), where the caller has already
- * checked 'postmaster_possibly_dead'.  (On platforms that don't support
- * a signal for parent death, PostmasterIsAlive() is just an alias for this.)
+ * 这是 PostmasterIsAlive() 的慢路径，调用方已经检查过
+ * 'postmaster_possibly_dead'。（在不支持父进程死亡信号的
+ * 平台上，PostmasterIsAlive() 只是本函数的别名。）
  */
 bool
 PostmasterIsAliveInternal(void)
 {
 #ifdef USE_POSTMASTER_DEATH_SIGNAL
 	/*
-	 * Reset the flag before checking, so that we don't miss a signal if
-	 * postmaster dies right after the check.  If postmaster was indeed dead,
-	 * we'll re-arm it before returning to caller.
+	 * 检查之前先复位该标志，这样若 postmaster 恰在检查之后
+	 * 死亡，我们就不会漏掉信号。若 postmaster 确实已死，
+	 * 返回调用方之前会重新置位。
 	 */
 	postmaster_possibly_dead = false;
 #endif
@@ -392,16 +392,16 @@ PostmasterIsAliveInternal(void)
 		rc = read(postmaster_alive_fds[POSTMASTER_FD_WATCH], &c, 1);
 
 		/*
-		 * In the usual case, the postmaster is still alive, and there is no
-		 * data in the pipe.
+		 * 通常情况下 postmaster 仍然存活，管道中没有
+		 * 数据。
 		 */
 		if (rc < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
 			return true;
 		else
 		{
 			/*
-			 * Postmaster is dead, or something went wrong with the read()
-			 * call.
+			 * postmaster 已死，或者 read() 调用出了
+			 * 问题。
 			 */
 
 #ifdef USE_POSTMASTER_DEATH_SIGNAL
@@ -417,7 +417,7 @@ PostmasterIsAliveInternal(void)
 		}
 	}
 
-#else							/* WIN32 */
+#else							/* 平台宏 WIN32 */
 	if (WaitForSingleObject(PostmasterHandle, 0) == WAIT_TIMEOUT)
 		return true;
 	else
@@ -427,11 +427,11 @@ PostmasterIsAliveInternal(void)
 #endif
 		return false;
 	}
-#endif							/* WIN32 */
+#endif							/* 平台宏 WIN32 */
 }
 
 /*
- * PostmasterDeathSignalInit - request signal on postmaster death if possible
+ * PostmasterDeathSignalInit - 尽可能请求在 postmaster 死亡时发信号
  */
 void
 PostmasterDeathSignalInit(void)
@@ -439,10 +439,10 @@ PostmasterDeathSignalInit(void)
 #ifdef USE_POSTMASTER_DEATH_SIGNAL
 	int			signum = POSTMASTER_DEATH_SIGNAL;
 
-	/* Register our signal handler. */
+	/* 登记我们的信号处理函数。 */
 	pqsignal(signum, postmaster_death_handler);
 
-	/* Request a signal on parent exit. */
+	/* 请求在父进程退出时发信号。 */
 #if defined(PR_SET_PDEATHSIG)
 	if (prctl(PR_SET_PDEATHSIG, signum) < 0)
 		elog(ERROR, "could not request parent death signal: %m");
@@ -454,9 +454,9 @@ PostmasterDeathSignalInit(void)
 #endif
 
 	/*
-	 * Just in case the parent was gone already and we missed it, we'd better
-	 * check the slow way on the first call.
+	 * 以防万一父进程已经消失而我们错过了，最好在
+	 * 第一次调用时走慢路径检查。
 	 */
 	postmaster_possibly_dead = true;
-#endif							/* USE_POSTMASTER_DEATH_SIGNAL */
+#endif							/* 宏 USE_POSTMASTER_DEATH_SIGNAL */
 }

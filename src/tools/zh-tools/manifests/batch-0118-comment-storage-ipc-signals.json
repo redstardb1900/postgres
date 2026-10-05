@@ -1,0 +1,147 @@
+{
+ "schema_version": 1,
+ "batch_id": "0118-comment-storage-ipc-signals",
+ "title": "zh: translate pmsignal procsignal shmem signalfuncs sinval shm_toc comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0bc8a313e9c84346ced00362c70e90d7e9ecba76",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/pmsignal.c",
+   "kind": "c_comment",
+   "note": "postmaster child signals"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/procsignal.c",
+   "kind": "c_comment",
+   "note": "interprocess signals and barriers"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/shmem.c",
+   "kind": "c_comment",
+   "note": "shared memory allocator and index"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/signalfuncs.c",
+   "kind": "c_comment",
+   "note": "backend signal SQL functions"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/sinval.c",
+   "kind": "c_comment",
+   "note": "shared cache invalidation"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/shm_toc.c",
+   "kind": "c_comment",
+   "note": "dynamic shared memory table of contents"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0118-comment-storage-ipc-signals.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/pmsignal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 51,
+   "translated": 50,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "postmaster/child signals and child slots"
+  },
+  {
+   "path": "src/backend/storage/ipc/procsignal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 54,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "ProcSignal slots and barriers"
+  },
+  {
+   "path": "src/backend/storage/ipc/shmem.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 50,
+   "translated": 49,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "shared memory allocation and ShmemIndex"
+  },
+  {
+   "path": "src/backend/storage/ipc/signalfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "translator: comment",
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "pg_signal_backend and log rotation; translator comment kept"
+  },
+  {
+   "path": "src/backend/storage/ipc/sinval.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "shared cache invalidation and catchup"
+  },
+  {
+   "path": "src/backend/storage/ipc/shm_toc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 24,
+   "translated": 23,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright lines"
+   ],
+   "note": "shared memory segment table of contents"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0118-comment-storage-ipc-signals.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0118 translates body comments in pmsignal.c, procsignal.c, shmem.c, signalfuncs.c, sinval.c, and shm_toc.c. signalfuncs.c translator comment is unchanged. Terms: 锁存器, 自旋锁, 共享内存, 挂接. sinvaladt.c, shm_mq.c, and standby.c remain."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * shmem.c
- *	  create shared memory and initialize shared memory data structures.
+ *	  创建共享内存并初始化共享内存数据结构。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -13,54 +13,54 @@
  *-------------------------------------------------------------------------
  */
 /*
- * POSTGRES processes share one or more regions of shared memory.
- * The shared memory is created by a postmaster and is inherited
- * by each backend via fork() (or, in some ports, via other OS-specific
- * methods).  The routines in this file are used for allocating and
- * binding to shared memory data structures.
+ * POSTGRES 进程共享一片或多片共享内存区域。
+ * 共享内存由 postmaster 创建，并由每个后端经由
+ * fork()（或在某些移植上经由其他操作系统特定方法）
+ * 继承。本文件中的例程用于分配共享内存数据结构
+ * 并与之绑定。
  *
- * NOTES:
- *		(a) There are three kinds of shared memory data structures
- *	available to POSTGRES: fixed-size structures, queues and hash
- *	tables.  Fixed-size structures contain things like global variables
- *	for a module and should never be allocated after the shared memory
- *	initialization phase.  Hash tables have a fixed maximum size, but
- *	their actual size can vary dynamically.  When entries are added
- *	to the table, more space is allocated.  Queues link data structures
- *	that have been allocated either within fixed-size structures or as hash
- *	buckets.  Each shared data structure has a string name to identify
- *	it (assigned in the module that declares it).
+ * NOTES：
+ *		(a) POSTGRES 可用的共享内存数据结构有三种：
+ *	定长结构、队列和哈希表。定长结构包含
+ *	模块全局变量之类的东西，在共享内存初始化
+ *	阶段之后绝不应再分配。哈希表有固定的最大
+ *	大小，但其实际大小可以动态变化。向表中加入
+ *	条目时会分配更多空间。队列把已经分配的
+ *	数据结构链接起来，这些结构要么位于定长结构
+ *	之内，要么作为哈希桶。每个共享数据结构都有
+ *	一个字符串名字来标识它（由声明它的模块
+ *	指定）。
  *
- *		(b) During initialization, each module looks for its
- *	shared data structures in a hash table called the "Shmem Index".
- *	If the data structure is not present, the caller can allocate
- *	a new one and initialize it.  If the data structure is present,
- *	the caller "attaches" to the structure by initializing a pointer
- *	in the local address space.
- *		The shmem index has two purposes: first, it gives us
- *	a simple model of how the world looks when a backend process
- *	initializes.  If something is present in the shmem index,
- *	it is initialized.  If it is not, it is uninitialized.  Second,
- *	the shmem index allows us to allocate shared memory on demand
- *	instead of trying to preallocate structures and hard-wire the
- *	sizes and locations in header files.  If you are using a lot
- *	of shared memory in a lot of different places (and changing
- *	things during development), this is important.
+ *		(b) 初始化期间，每个模块在称为
+ *	"Shmem Index" 的哈希表中查找自己的共享数据结构。
+ *	若该数据结构不存在，调用方可以分配一个新的
+ *	并初始化它。若该数据结构存在，调用方通过
+ *	在本地地址空间中初始化一个指针来 "挂接"
+ *	到该结构。
+ *		共享内存索引有两个用途：首先，它给出
+ *	后端进程初始化时世界看起来的
+ *	简单模型。
+ *	若某物存在于共享内存索引中，它就是已初始化的。
+ *	若不在，就是未初始化的。其次，共享内存索引
+ *	让我们可以按需分配共享内存，而不必试图预先
+ *	分配结构并在头文件里写死大小和位置。若你在
+ *	很多不同的地方使用大量共享内存（并且在开发
+ *	期间不断改动），这一点就很重要。
  *
- *		(c) In standard Unix-ish environments, individual backends do not
- *	need to re-establish their local pointers into shared memory, because
- *	they inherit correct values of those variables via fork() from the
- *	postmaster.  However, this does not work in the EXEC_BACKEND case.
- *	In ports using EXEC_BACKEND, new backends have to set up their local
- *	pointers using the method described in (b) above.
+ *		(c) 在标准的 Unix 式环境中，各个后端不需要
+ *	重新建立它们指向共享内存的本地指针，因为它们
+ *	经由 fork() 从 postmaster 继承了这些变量的正确值。
+ *	然而这在 EXEC_BACKEND 情形下行不通。在使用
+ *	EXEC_BACKEND 的移植上，新后端必须用上面 (b)
+ *	所述方法建立自己的本地指针。
  *
- *		(d) memory allocation model: shared memory can never be
- *	freed, once allocated.   Each hash table has its own free list,
- *	so hash buckets can be reused when an item is deleted.  However,
- *	if one hash table grows very large and then shrinks, its space
- *	cannot be redistributed to other tables.  We could build a simple
- *	hash bucket garbage collector if need be.  Right now, it seems
- *	unnecessary.
+ *		(d) 内存分配模型：共享内存一旦分配就不再释放。
+ *	每张哈希表有自己的空闲链表，因此删除一个项时
+ *	哈希桶可以重用。然而，若一张哈希表长得很大
+ *	然后又缩小，它的空间无法再分配给其他表。
+ *	需要的话我们可以做一个简单的哈希桶
+ *	垃圾收集器。目前看来
+ *	没有必要。
  */
 
 #include "postgres.h"
@@ -77,25 +77,25 @@
 
 static void *ShmemAllocRaw(Size size, Size *allocated_size);
 
-/* shared memory global variables */
+/* 共享内存全局变量 */
 
-static PGShmemHeader *ShmemSegHdr;	/* shared mem segment header */
+static PGShmemHeader *ShmemSegHdr;	/* 共享内存段头 */
 
-static void *ShmemBase;			/* start address of shared memory */
+static void *ShmemBase;			/* 共享内存的起始地址 */
 
-static void *ShmemEnd;			/* end+1 address of shared memory */
+static void *ShmemEnd;			/* 共享内存的末尾加一地址 */
 
-slock_t    *ShmemLock;			/* spinlock for shared memory and LWLock
-								 * allocation */
+slock_t    *ShmemLock;			/* 用于共享内存与 LWLock
+								 * 分配的自旋锁 */
 
-static HTAB *ShmemIndex = NULL; /* primary index hashtable for shmem */
+static HTAB *ShmemIndex = NULL; /* 共享内存的主索引哈希表 */
 
 
 /*
- *	InitShmemAccess() --- set up basic pointers to shared memory.
+ *	InitShmemAccess() --- 建立指向共享内存的基本指针。
  *
- * Note: the argument should be declared "PGShmemHeader *seghdr",
- * but we use void to avoid having to include ipc.h in shmem.h.
+ * 注意：参数本应声明为 "PGShmemHeader *seghdr"，
+ * 但我们使用 void，以免不得不在 shmem.h 中包含 ipc.h。
  */
 void
 InitShmemAccess(void *seghdr)
@@ -108,9 +108,9 @@ InitShmemAccess(void *seghdr)
 }
 
 /*
- *	InitShmemAllocation() --- set up shared-memory space allocation.
+ *	InitShmemAllocation() --- 建立共享内存空间分配。
  *
- * This should be called only in the postmaster or a standalone backend.
+ * 只应在 postmaster 或独立后端中调用。
  */
 void
 InitShmemAllocation(void)
@@ -121,29 +121,29 @@ InitShmemAllocation(void)
 	Assert(shmhdr != NULL);
 
 	/*
-	 * Initialize the spinlock used by ShmemAlloc.  We must use
-	 * ShmemAllocUnlocked, since obviously ShmemAlloc can't be called yet.
+	 * 初始化 ShmemAlloc 使用的自旋锁。必须使用
+	 * ShmemAllocUnlocked，因为显然还无法调用 ShmemAlloc。
 	 */
 	ShmemLock = (slock_t *) ShmemAllocUnlocked(sizeof(slock_t));
 
 	SpinLockInit(ShmemLock);
 
 	/*
-	 * Allocations after this point should go through ShmemAlloc, which
-	 * expects to allocate everything on cache line boundaries.  Make sure the
-	 * first allocation begins on a cache line boundary.
+	 * 此后的分配都应经过 ShmemAlloc，它期望
+	 * 一切都按缓存行边界分配。确保第一次分配
+	 * 从缓存行边界开始。
 	 */
 	aligned = (char *)
 		(CACHELINEALIGN((((char *) shmhdr) + shmhdr->freeoffset)));
 	shmhdr->freeoffset = aligned - (char *) shmhdr;
 
-	/* ShmemIndex can't be set up yet (need LWLocks first) */
+	/* ShmemIndex 还无法建立（需要先有 LWLocks） */
 	shmhdr->index = NULL;
 	ShmemIndex = (HTAB *) NULL;
 
 	/*
-	 * Initialize ShmemVariableCache for transaction manager. (This doesn't
-	 * really belong here, but not worth moving.)
+	 * 为事务管理器初始化 ShmemVariableCache。（这其实
+	 * 不该放在这里，但不值得挪走。）
 	 */
 	ShmemVariableCache = (VariableCache)
 		ShmemAlloc(sizeof(*ShmemVariableCache));
@@ -151,11 +151,11 @@ InitShmemAllocation(void)
 }
 
 /*
- * ShmemAlloc -- allocate max-aligned chunk from shared memory
+ * ShmemAlloc -- 从共享内存分配按最大对齐的块
  *
- * Throws error if request cannot be satisfied.
+ * 若请求无法满足则抛出错误。
  *
- * Assumes ShmemLock and ShmemSegHdr are initialized.
+ * 假定 ShmemLock 与 ShmemSegHdr 已经初始化。
  */
 void *
 ShmemAlloc(Size size)
@@ -173,9 +173,9 @@ ShmemAlloc(Size size)
 }
 
 /*
- * ShmemAllocNoError -- allocate max-aligned chunk from shared memory
+ * ShmemAllocNoError -- 从共享内存分配按最大对齐的块
  *
- * As ShmemAlloc, but returns NULL if out of space, rather than erroring.
+ * 与 ShmemAlloc 相同，但空间不足时返回 NULL，而不是报错。
  */
 void *
 ShmemAllocNoError(Size size)
@@ -186,10 +186,10 @@ ShmemAllocNoError(Size size)
 }
 
 /*
- * ShmemAllocRaw -- allocate align chunk and return allocated size
+ * ShmemAllocRaw -- 分配对齐的块并返回已分配大小
  *
- * Also sets *allocated_size to the number of bytes allocated, which will
- * be equal to the number requested plus any padding we choose to add.
+ * 同时把 *allocated_size 设为分配的字节数，它等于
+ * 请求的字节数加上我们选择添加的任何填充。
  */
 static void *
 ShmemAllocRaw(Size size, Size *allocated_size)
@@ -199,15 +199,15 @@ ShmemAllocRaw(Size size, Size *allocated_size)
 	void	   *newSpace;
 
 	/*
-	 * Ensure all space is adequately aligned.  We used to only MAXALIGN this
-	 * space but experience has proved that on modern systems that is not good
-	 * enough.  Many parts of the system are very sensitive to critical data
-	 * structures getting split across cache line boundaries.  To avoid that,
-	 * attempt to align the beginning of the allocation to a cache line
-	 * boundary.  The calling code will still need to be careful about how it
-	 * uses the allocated space - e.g. by padding each element in an array of
-	 * structures out to a power-of-two size - but without this, even that
-	 * won't be sufficient.
+	 * 确保所有空间充分对齐。过去我们只对这块
+	 * 空间做 MAXALIGN，但经验证明在现代系统上
+	 * 这不够好。系统的许多部分对关键数据结构
+	 * 被拆到缓存行边界两侧非常敏感。为避免这一点，
+	 * 尝试把分配的起点对齐到缓存行边界。
+	 * 调用代码仍然需要小心使用所分配的空间
+	 * ——例如把结构数组的每个元素填充到
+	 * 二的幂大小——但没有这一步，即便那样
+	 * 也不够。
 	 */
 	size = CACHELINEALIGN(size);
 	*allocated_size = size;
@@ -229,19 +229,19 @@ ShmemAllocRaw(Size size, Size *allocated_size)
 
 	SpinLockRelease(ShmemLock);
 
-	/* note this assert is okay with newSpace == NULL */
+	/* 注意：newSpace == NULL 时这个断言也没问题 */
 	Assert(newSpace == (void *) CACHELINEALIGN(newSpace));
 
 	return newSpace;
 }
 
 /*
- * ShmemAllocUnlocked -- allocate max-aligned chunk from shared memory
+ * ShmemAllocUnlocked -- 从共享内存分配按最大对齐的块
  *
- * Allocate space without locking ShmemLock.  This should be used for,
- * and only for, allocations that must happen before ShmemLock is ready.
+ * 不加 ShmemLock 锁分配空间。只应用于、并且只应用于
+ * 必须发生在 ShmemLock 就绪之前的分配。
  *
- * We consider maxalign, rather than cachealign, sufficient here.
+ * 这里认为最大对齐就够了，不必做缓存行对齐。
  */
 void *
 ShmemAllocUnlocked(Size size)
@@ -251,7 +251,7 @@ ShmemAllocUnlocked(Size size)
 	void	   *newSpace;
 
 	/*
-	 * Ensure allocated space is adequately aligned.
+	 * 确保所分配的空间充分对齐。
 	 */
 	size = MAXALIGN(size);
 
@@ -275,9 +275,9 @@ ShmemAllocUnlocked(Size size)
 }
 
 /*
- * ShmemAddrIsValid -- test if an address refers to shared memory
+ * ShmemAddrIsValid -- 测试地址是否指向共享内存
  *
- * Returns true if the pointer points within the shared memory segment.
+ * 若指针指向共享内存段之内则返回真。
  */
 bool
 ShmemAddrIsValid(const void *addr)
@@ -286,7 +286,7 @@ ShmemAddrIsValid(const void *addr)
 }
 
 /*
- *	InitShmemIndex() --- set up or attach to shmem index table.
+ *	InitShmemIndex() --- 建立或挂接共享内存索引表。
  */
 void
 InitShmemIndex(void)
@@ -294,12 +294,12 @@ InitShmemIndex(void)
 	HASHCTL		info;
 
 	/*
-	 * Create the shared memory shmem index.
+	 * 创建共享内存的 shmem 索引。
 	 *
-	 * Since ShmemInitHash calls ShmemInitStruct, which expects the ShmemIndex
-	 * hashtable to exist already, we have a bit of a circularity problem in
-	 * initializing the ShmemIndex itself.  The special "ShmemIndex" hash
-	 * table name will tell ShmemInitStruct to fake it.
+	 * 因为 ShmemInitHash 调用 ShmemInitStruct，而后者期望
+	 * ShmemIndex 哈希表已存在，初始化 ShmemIndex 本身
+	 * 就有一点循环问题。特殊的 "ShmemIndex" 哈希表名
+	 * 会告诉 ShmemInitStruct 先假装它已存在。
 	 */
 	info.keysize = SHMEM_INDEX_KEYSIZE;
 	info.entrysize = sizeof(ShmemIndexEnt);
@@ -311,86 +311,86 @@ InitShmemIndex(void)
 }
 
 /*
- * ShmemInitHash -- Create and initialize, or attach to, a
- *		shared memory hash table.
+ * ShmemInitHash -- 创建并初始化，或挂接到一个
+ *		共享内存哈希表。
  *
- * We assume caller is doing some kind of synchronization
- * so that two processes don't try to create/initialize the same
- * table at once.  (In practice, all creations are done in the postmaster
- * process; child processes should always be attaching to existing tables.)
+ * 我们假定调用方做了某种同步，以免两个进程
+ * 同时试图创建/初始化同一张表。（实践中，所有创建
+ * 都在 postmaster 进程中完成；子进程应当总是
+ * 挂接到已有的表。）
  *
- * max_size is the estimated maximum number of hashtable entries.  This is
- * not a hard limit, but the access efficiency will degrade if it is
- * exceeded substantially (since it's used to compute directory size and
- * the hash table buckets will get overfull).
+ * max_size 是哈希表条目数的估计最大值。这不是
+ * 硬限制，但若大幅超出，访问效率会下降
+ * （因为它用来计算目录大小，哈希表的桶
+ * 会过满）。
  *
- * init_size is the number of hashtable entries to preallocate.  For a table
- * whose maximum size is certain, this should be equal to max_size; that
- * ensures that no run-time out-of-shared-memory failures can occur.
+ * init_size 是要预分配的哈希表条目数。对于最大大小
+ * 确定的表，它应当等于 max_size；这样可以保证运行时
+ * 不会发生共享内存不足的失败。
  *
- * *infoP and hash_flags must specify at least the entry sizes and key
- * comparison semantics (see hash_create()).  Flag bits and values specific
- * to shared-memory hash tables are added here, except that callers may
- * choose to specify HASH_PARTITION and/or HASH_FIXED_SIZE.
+ * *infoP 与 hash_flags 至少必须说明条目大小和键
+ * 比较语义（见 hash_create()）。特定于共享内存哈希表的
+ * 标志位和值在这里添加，但调用方可以选择指定
+ * HASH_PARTITION 与/或 HASH_FIXED_SIZE。
  *
- * Note: before Postgres 9.0, this function returned NULL for some failure
- * cases.  Now, it always throws error instead, so callers need not check
- * for NULL.
+ * 注意：Postgres 9.0 之前，本函数在某些失败情况下返回
+ * NULL。现在它总是改为抛出错误，因此调用方不必检查
+ * NULL。
  */
 HTAB *
-ShmemInitHash(const char *name,		/* table string name for shmem index */
-			  long init_size,	/* initial table size */
-			  long max_size,	/* max size of the table */
-			  HASHCTL *infoP,	/* info about key and bucket size */
-			  int hash_flags)	/* info about infoP */
+ShmemInitHash(const char *name,		/* 共享内存索引用的表字符串名 */
+			  long init_size,	/* 初始表大小 */
+			  long max_size,	/* 表的最大大小 */
+			  HASHCTL *infoP,	/* 关于键和桶大小的信息 */
+			  int hash_flags)	/* 关于 infoP 的信息 */
 {
 	bool		found;
 	void	   *location;
 
 	/*
-	 * Hash tables allocated in shared memory have a fixed directory; it can't
-	 * grow or other backends wouldn't be able to find it. So, make sure we
-	 * make it big enough to start with.
+	 * 分配在共享内存中的哈希表有固定目录；它无法增长，
+	 * 否则其他后端就找不到它。因此务必一开始就把它
+	 * 做得足够大。
 	 *
-	 * The shared memory allocator must be specified too.
+	 * 也必须指定共享内存分配器。
 	 */
 	infoP->dsize = infoP->max_dsize = hash_select_dirsize(max_size);
 	infoP->alloc = ShmemAllocNoError;
 	hash_flags |= HASH_SHARED_MEM | HASH_ALLOC | HASH_DIRSIZE;
 
-	/* look it up in the shmem index */
+	/* 在共享内存索引中查找它 */
 	location = ShmemInitStruct(name,
 							   hash_get_shared_size(infoP, hash_flags),
 							   &found);
 
 	/*
-	 * if it already exists, attach to it rather than allocate and initialize
-	 * new space
+	 * 若它已存在，就挂接上去，而不是分配并初始化
+	 * 新空间
 	 */
 	if (found)
 		hash_flags |= HASH_ATTACH;
 
-	/* Pass location of hashtable header to hash_create */
+	/* 把哈希表头的位置传给 hash_create */
 	infoP->hctl = (HASHHDR *) location;
 
 	return hash_create(name, init_size, infoP, hash_flags);
 }
 
 /*
- * ShmemInitStruct -- Create/attach to a structure in shared memory.
+ * ShmemInitStruct -- 在共享内存中创建/挂接一个结构。
  *
- *		This is called during initialization to find or allocate
- *		a data structure in shared memory.  If no other process
- *		has created the structure, this routine allocates space
- *		for it.  If it exists already, a pointer to the existing
- *		structure is returned.
+ *		初始化期间调用，以查找或分配
+ *		共享内存中的数据结构。若还没有其他进程
+ *		创建该结构，本例程就为它分配空间。
+ *		若已存在，则返回指向现有结构的
+ *		指针。
  *
- *	Returns: pointer to the object.  *foundPtr is set true if the object was
- *		already in the shmem index (hence, already initialized).
+ *	返回：指向该对象的指针。若对象已在共享内存索引中
+ *		（因而已经初始化），*foundPtr 被置为真。
  *
- *	Note: before Postgres 9.0, this function returned NULL for some failure
- *	cases.  Now, it always throws error instead, so callers need not check
- *	for NULL.
+ *	注意：Postgres 9.0 之前，本函数在某些失败情况下
+ *	返回 NULL。现在它总是改为抛出错误，因此调用方
+ *	不必检查 NULL。
  */
 void *
 ShmemInitStruct(const char *name, Size size, bool *foundPtr)
@@ -404,12 +404,12 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 	{
 		PGShmemHeader *shmemseghdr = ShmemSegHdr;
 
-		/* Must be trying to create/attach to ShmemIndex itself */
+		/* 必定是在试图创建/挂接 ShmemIndex 本身 */
 		Assert(strcmp(name, "ShmemIndex") == 0);
 
 		if (IsUnderPostmaster)
 		{
-			/* Must be initializing a (non-standalone) backend */
+			/* 必定是在初始化一个（非独立的）后端 */
 			Assert(shmemseghdr->index != NULL);
 			structPtr = shmemseghdr->index;
 			*foundPtr = true;
@@ -417,12 +417,12 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 		else
 		{
 			/*
-			 * If the shmem index doesn't exist, we are bootstrapping: we must
-			 * be trying to init the shmem index itself.
+			 * 若共享内存索引不存在，我们正在引导：必定是在
+			 * 试图初始化共享内存索引本身。
 			 *
-			 * Notice that the ShmemIndexLock is released before the shmem
-			 * index has been initialized.  This should be OK because no other
-			 * process can be accessing shared memory yet.
+			 * 注意 ShmemIndexLock 在共享内存索引初始化之前
+			 * 就被释放了。这应当没问题，因为还没有其他进程
+			 * 能够访问共享内存。
 			 */
 			Assert(shmemseghdr->index == NULL);
 			structPtr = ShmemAlloc(size);
@@ -433,7 +433,7 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 		return structPtr;
 	}
 
-	/* look it up in the shmem index */
+	/* 在共享内存索引中查找它 */
 	result = (ShmemIndexEnt *)
 		hash_search(ShmemIndex, name, HASH_ENTER_NULL, foundPtr);
 
@@ -449,9 +449,9 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 	if (*foundPtr)
 	{
 		/*
-		 * Structure is in the shmem index so someone else has allocated it
-		 * already.  The size better be the same as the size we are trying to
-		 * initialize to, or there is a name conflict (or worse).
+		 * 结构已在共享内存索引中，所以别人已经分配了它。
+		 * 大小最好与我们试图初始化的大小相同，否则就是
+		 * 名字冲突（或者更糟）。
 		 */
 		if (result->size != size)
 		{
@@ -467,11 +467,11 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 	{
 		Size		allocated_size;
 
-		/* It isn't in the table yet. allocate and initialize it */
+		/* 它还不在表中。分配并初始化它 */
 		structPtr = ShmemAllocRaw(size, &allocated_size);
 		if (structPtr == NULL)
 		{
-			/* out of memory; remove the failed ShmemIndex entry */
+			/* 内存不足；移除失败的 ShmemIndex 条目 */
 			hash_search(ShmemIndex, name, HASH_REMOVE, NULL);
 			LWLockRelease(ShmemIndexLock);
 			ereport(ERROR,
@@ -496,7 +496,7 @@ ShmemInitStruct(const char *name, Size size, bool *foundPtr)
 
 
 /*
- * Add two Size values, checking for overflow
+ * 把两个 Size 值相加，并检查溢出
  */
 Size
 add_size(Size s1, Size s2)
@@ -504,7 +504,7 @@ add_size(Size s1, Size s2)
 	Size		result;
 
 	result = s1 + s2;
-	/* We are assuming Size is an unsigned type here... */
+	/* 这里假定 Size 是无符号类型... */
 	if (result < s1 || result < s2)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -513,7 +513,7 @@ add_size(Size s1, Size s2)
 }
 
 /*
- * Multiply two Size values, checking for overflow
+ * 把两个 Size 值相乘，并检查溢出
  */
 Size
 mul_size(Size s1, Size s2)
@@ -523,7 +523,7 @@ mul_size(Size s1, Size s2)
 	if (s1 == 0 || s2 == 0)
 		return 0;
 	result = s1 * s2;
-	/* We are assuming Size is an unsigned type here... */
+	/* 这里假定 Size 是无符号类型... */
 	if (result / s2 != s1)
 		ereport(ERROR,
 				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -531,7 +531,7 @@ mul_size(Size s1, Size s2)
 	return result;
 }
 
-/* SQL SRF showing allocated shared memory */
+/* 显示已分配共享内存的 SQL SRF */
 Datum
 pg_get_shmem_allocations(PG_FUNCTION_ARGS)
 {
@@ -549,7 +549,7 @@ pg_get_shmem_allocations(PG_FUNCTION_ARGS)
 
 	hash_seq_init(&hstat, ShmemIndex);
 
-	/* output all allocated entries */
+	/* 输出所有已分配的条目 */
 	memset(nulls, 0, sizeof(nulls));
 	while ((ent = (ShmemIndexEnt *) hash_seq_search(&hstat)) != NULL)
 	{
@@ -563,14 +563,14 @@ pg_get_shmem_allocations(PG_FUNCTION_ARGS)
 							 values, nulls);
 	}
 
-	/* output shared memory allocated but not counted via the shmem index */
+	/* 输出已分配但未经由共享内存索引计入的共享内存 */
 	values[0] = CStringGetTextDatum("<anonymous>");
 	nulls[1] = true;
 	values[2] = Int64GetDatum(ShmemSegHdr->freeoffset - named_allocated);
 	values[3] = values[2];
 	tuplestore_putvalues(rsinfo->setResult, rsinfo->setDesc, values, nulls);
 
-	/* output as-of-yet unused shared memory */
+	/* 输出尚未使用的共享内存 */
 	nulls[0] = true;
 	values[1] = Int64GetDatum(ShmemSegHdr->freeoffset);
 	nulls[1] = false;

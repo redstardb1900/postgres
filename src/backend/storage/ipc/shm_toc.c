@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * shm_toc.c
- *	  shared memory segment table of contents
+ *	  共享内存段目录
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -19,22 +19,22 @@
 
 typedef struct shm_toc_entry
 {
-	uint64		key;			/* Arbitrary identifier */
-	Size		offset;			/* Offset, in bytes, from TOC start */
+	uint64		key;			/* 任意标识符 */
+	Size		offset;			/* 自 TOC 起点起的偏移量，以字节计 */
 } shm_toc_entry;
 
 struct shm_toc
 {
-	uint64		toc_magic;		/* Magic number identifying this TOC */
-	slock_t		toc_mutex;		/* Spinlock for mutual exclusion */
-	Size		toc_total_bytes;	/* Bytes managed by this TOC */
-	Size		toc_allocated_bytes;	/* Bytes allocated of those managed */
-	uint32		toc_nentry;		/* Number of entries in TOC */
+	uint64		toc_magic;		/* 标识本 TOC 的魔数 */
+	slock_t		toc_mutex;		/* 用于互斥的自旋锁 */
+	Size		toc_total_bytes;	/* 本 TOC 管理的字节数 */
+	Size		toc_allocated_bytes;	/* 其中已分配的字节数 */
+	uint32		toc_nentry;		/* TOC 中的条目数 */
 	shm_toc_entry toc_entry[FLEXIBLE_ARRAY_MEMBER];
 };
 
 /*
- * Initialize a region of shared memory with a table of contents.
+ * 用目录初始化一片共享内存区域。
  */
 shm_toc *
 shm_toc_create(uint64 magic, void *address, Size nbytes)
@@ -46,8 +46,8 @@ shm_toc_create(uint64 magic, void *address, Size nbytes)
 	SpinLockInit(&toc->toc_mutex);
 
 	/*
-	 * The alignment code in shm_toc_allocate() assumes that the starting
-	 * value is buffer-aligned.
+	 * shm_toc_allocate() 中的对齐代码假定起始值
+	 * 已按缓冲区对齐。
 	 */
 	toc->toc_total_bytes = BUFFERALIGN_DOWN(nbytes);
 	toc->toc_allocated_bytes = 0;
@@ -57,8 +57,8 @@ shm_toc_create(uint64 magic, void *address, Size nbytes)
 }
 
 /*
- * Attach to an existing table of contents.  If the magic number found at
- * the target address doesn't match our expectations, return NULL.
+ * 挂接到已有目录。若目标地址处的魔数与预期不符，
+ * 返回 NULL。
  */
 shm_toc *
 shm_toc_attach(uint64 magic, void *address)
@@ -75,14 +75,14 @@ shm_toc_attach(uint64 magic, void *address)
 }
 
 /*
- * Allocate shared memory from a segment managed by a table of contents.
+ * 从由目录管理的段中分配共享内存。
  *
- * This is not a full-blown allocator; there's no way to free memory.  It's
- * just a way of dividing a single physical shared memory segment into logical
- * chunks that may be used for different purposes.
+ * 这不是一个完备的分配器；没有办法释放内存。
+ * 它只是把单个物理共享内存段划分成可用于不同目的的
+ * 逻辑块。
  *
- * We allocate backwards from the end of the segment, so that the TOC entries
- * can grow forward from the start of the segment.
+ * 我们从段的末尾向前分配，这样 TOC 条目可以从段的
+ * 起点向后增长。
  */
 void *
 shm_toc_allocate(shm_toc *toc, Size nbytes)
@@ -94,10 +94,10 @@ shm_toc_allocate(shm_toc *toc, Size nbytes)
 	Size		toc_bytes;
 
 	/*
-	 * Make sure request is well-aligned.  XXX: MAXALIGN is not enough,
-	 * because atomic ops might need a wider alignment.  We don't have a
-	 * proper definition for the minimum to make atomic ops safe, but
-	 * BUFFERALIGN ought to be enough.
+	 * 确保请求对齐良好。XXX：MAXALIGN 不够，
+	 * 因为原子操作可能需要更宽的对齐。我们没有
+	 * 一个能使原子操作安全的最小对齐的正式定义，但
+	 * BUFFERALIGN 应当够用。
 	 */
 	nbytes = BUFFERALIGN(nbytes);
 
@@ -109,7 +109,7 @@ shm_toc_allocate(shm_toc *toc, Size nbytes)
 	toc_bytes = offsetof(shm_toc, toc_entry) + nentry * sizeof(shm_toc_entry)
 		+ allocated_bytes;
 
-	/* Check for memory exhaustion and overflow. */
+	/* 检查内存耗尽与溢出。 */
 	if (toc_bytes + nbytes > total_bytes || toc_bytes + nbytes < toc_bytes)
 	{
 		SpinLockRelease(&toc->toc_mutex);
@@ -125,7 +125,7 @@ shm_toc_allocate(shm_toc *toc, Size nbytes)
 }
 
 /*
- * Return the number of bytes that can still be allocated.
+ * 返回仍然可以分配的字节数。
  */
 Size
 shm_toc_freespace(shm_toc *toc)
@@ -148,24 +148,24 @@ shm_toc_freespace(shm_toc *toc)
 }
 
 /*
- * Insert a TOC entry.
+ * 插入一条 TOC 条目。
  *
- * The idea here is that the process setting up the shared memory segment will
- * register the addresses of data structures within the segment using this
- * function.  Each data structure will be identified using a 64-bit key, which
- * is assumed to be a well-known or discoverable integer.  Other processes
- * accessing the shared memory segment can pass the same key to
- * shm_toc_lookup() to discover the addresses of those data structures.
+ * 这里的想法是：建立共享内存段的进程用本函数
+ * 登记段内数据结构的地址。每个数据结构用一个
+ * 64 位键标识，该键假定是众所周知或可发现的
+ * 整数。访问该共享内存段的其他进程可以把同一个键
+ * 传给 shm_toc_lookup()，以发现这些数据结构的
+ * 地址。
  *
- * Since the shared memory segment may be mapped at different addresses within
- * different backends, we store relative rather than absolute pointers.
+ * 由于共享内存段在不同后端中可能映射到不同地址，
+ * 我们存储相对指针而不是绝对指针。
  *
- * This won't scale well to a large number of keys.  Hopefully, that isn't
- * necessary; if it proves to be, we might need to provide a more sophisticated
- * data structure here.  But the real idea here is just to give someone mapping
- * a dynamic shared memory the ability to find the bare minimum number of
- * pointers that they need to bootstrap.  If you're storing a lot of stuff in
- * the TOC, you're doing it wrong.
+ * 这在键很多时扩展性不好。希望没有必要；
+ * 若事实证明有必要，我们可能得在这里提供
+ * 更精巧的数据结构。但这里真正的用意只是让
+ * 映射动态共享内存的人能够找到完成引导所需的
+ * 最少指针。若你把大量东西放进 TOC，
+ * 那就是用错了。
  */
 void
 shm_toc_insert(shm_toc *toc, uint64 key, void *address)
@@ -177,7 +177,7 @@ shm_toc_insert(shm_toc *toc, uint64 key, void *address)
 	Size		toc_bytes;
 	Size		offset;
 
-	/* Relativize pointer. */
+	/* 把指针改成相对形式。 */
 	Assert(address > (void *) toc);
 	offset = ((char *) address) - (char *) toc;
 
@@ -189,7 +189,7 @@ shm_toc_insert(shm_toc *toc, uint64 key, void *address)
 	toc_bytes = offsetof(shm_toc, toc_entry) + nentry * sizeof(shm_toc_entry)
 		+ allocated_bytes;
 
-	/* Check for memory exhaustion and overflow. */
+	/* 检查内存耗尽与溢出。 */
 	if (toc_bytes + sizeof(shm_toc_entry) > total_bytes ||
 		toc_bytes + sizeof(shm_toc_entry) < toc_bytes ||
 		nentry >= PG_UINT32_MAX)
@@ -205,9 +205,9 @@ shm_toc_insert(shm_toc *toc, uint64 key, void *address)
 	vtoc->toc_entry[nentry].offset = offset;
 
 	/*
-	 * By placing a write barrier after filling in the entry and before
-	 * updating the number of entries, we make it safe to read the TOC
-	 * unlocked.
+	 * 在填好条目之后、更新条目数之前
+	 * 放置写屏障，这样不加锁读取 TOC
+	 * 也是安全的。
 	 */
 	pg_write_barrier();
 
@@ -217,16 +217,16 @@ shm_toc_insert(shm_toc *toc, uint64 key, void *address)
 }
 
 /*
- * Look up a TOC entry.
+ * 查找一条 TOC 条目。
  *
- * If the key is not found, returns NULL if noError is true, otherwise
- * throws elog(ERROR).
+ * 若找不到该键，noError 为真时返回 NULL，否则
+ * 抛出 elog(ERROR)。
  *
- * Unlike the other functions in this file, this operation acquires no lock;
- * it uses only barriers.  It probably wouldn't hurt concurrency very much even
- * if it did get a lock, but since it's reasonably likely that a group of
- * worker processes could each read a series of entries from the same TOC
- * right around the same time, there seems to be some value in avoiding it.
+ * 与本文件中的其他函数不同，本操作不加锁；
+ * 它只用屏障。即使加锁，对并发的损害大概也不大，
+ * 但一组工作进程很可能会在差不多同一时间各自从
+ * 同一个 TOC 读取一系列条目，因此避免加锁
+ * 似乎有些价值。
  */
 void *
 shm_toc_lookup(shm_toc *toc, uint64 key, bool noError)
@@ -235,20 +235,20 @@ shm_toc_lookup(shm_toc *toc, uint64 key, bool noError)
 	uint32		i;
 
 	/*
-	 * Read the number of entries before we examine any entry.  We assume that
-	 * reading a uint32 is atomic.
+	 * 在检查任何条目之前先读取条目数。我们假定
+	 * 读取 uint32 是原子的。
 	 */
 	nentry = toc->toc_nentry;
 	pg_read_barrier();
 
-	/* Now search for a matching entry. */
+	/* 现在搜索匹配的条目。 */
 	for (i = 0; i < nentry; ++i)
 	{
 		if (toc->toc_entry[i].key == key)
 			return ((char *) toc) + toc->toc_entry[i].offset;
 	}
 
-	/* No matching entry was found. */
+	/* 没有找到匹配的条目。 */
 	if (!noError)
 		elog(ERROR, "could not find key " UINT64_FORMAT " in shm TOC at %p",
 			 key, toc);
@@ -256,8 +256,8 @@ shm_toc_lookup(shm_toc *toc, uint64 key, bool noError)
 }
 
 /*
- * Estimate how much shared memory will be required to store a TOC and its
- * dependent data structures.
+ * 估计存储一个 TOC 及其依赖的数据结构
+ * 需要多少共享内存。
  */
 Size
 shm_toc_estimate(shm_toc_estimator *e)

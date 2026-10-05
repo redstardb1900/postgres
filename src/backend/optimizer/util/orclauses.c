@@ -47,7 +47,7 @@ static void consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
  * 这样后面的子句可以在扫描 a 和 b 时应用，
  * 也许作为索引限定条件，无论如何都能减少
  * 到达连接的行数。本质上这是向
- * CNF（OR 的 AND 形式）的部分变换。但它并不完整，因为我们不
+ * CNF（合取范式，即 OR 项的 AND）的部分变换。但它并不完整，因为我们不
  * 拆开原来的 OR——那样做通常会把限定
  * 表达式胀大，收益却很小。
  *
@@ -58,7 +58,7 @@ static void consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
  * 无法识别冗余条件。）我们可以补偿这种
  * 冗余：修改原来 OR 子句缓存的选择率，
  * 抵消对基关系估计大小的（有效）缩减，
- * 使估计的 joinrel 大小保持不变。这是 MAJOR HACK：它依赖于子句选择率被缓存，
+ * 使估计的 joinrel 大小保持不变。这是重大权宜做法（MAJOR HACK）：它依赖于子句选择率被缓存，
  * 以及同一个 RestrictInfo 节点会出现在
  * 形成 joinrel 时可能用到的每个
  * joininfo 列表中。
@@ -302,22 +302,22 @@ consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
 	/*
 	 * 调整原来连接 OR 子句缓存的选择率，以补偿
 	 * 新增的（但是冗余的）下层限定条件的选择率。这
-	 * 应当使连接关系得到的行数估计
-	 * 与不做这些花样时
-	 *
+	 * 应当使连接关系得到的行数估计，与不做这些花样时
 	 * 大致相同。
-	 * XXX 重大黑客警告：这依赖于选择率
 	 *
-	 * 会保持缓存这一假定。
-	 * XXX 另一个重大黑客：我们只调整 norm_selec，即
-	 * JOIN_INNER 语义下缓存的选择率，即使该连接子句
+	 * XXX 重大权宜之计警告：这依赖于如下假定，即
+	 * 选择率会保持缓存。
+	 *
+	 * XXX 另一个重大权宜之计：我们只调整 norm_selec，
+	 * 即 JOIN_INNER 语义下缓存的选择率，即使该连接子句
 	 * 也许曾是外连接子句。部分原因是这里不能轻易找出
 	 * 相关的 SpecialJoinInfo，
 	 * 部分原因是我们所作的线性假定反正会失败。（若它是
 	 * 外连接子句，rel 必须在可空一侧，否则我们到不了
 	 * 这里。因此连接大小的计算相对于 rel 的大小
 	 * 会相当非线性，所以即使能正确算出
-	 * outer_selec 的原始值，也不清楚应当如何调整它。）
+	 * outer_selec 的原始值，也不清楚应当如何
+	 * 调整它。）
 	 */
 	if (or_selec > 0)
 	{

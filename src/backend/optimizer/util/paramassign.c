@@ -514,10 +514,10 @@ process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
  * 恒等式仍然安全，但解析器会把那些引用建成
  * "b*" 的形式（即 varnullingrels 列出 A/B 连接），而嵌套循环外侧
  * 实际能提供的只是 "b"。我们在这里把 nullingrels 削到
- * 按 leftrelids 从外侧所能提供的范围。
- * 这修好了正向应用
+ * 按 leftrelids 从外侧所能提供的
+ * 范围。
  *
- * 恒等式 3 的情形。
+ * 这修好了正向应用恒等式 3 的情形。
  * 若恒等式是反向应用的，参数 Var 含有的 nullingrel 位
  * 会过少而不是过多。
  * 目前这不会出问题，因为 setrefs.c 对 NestLoopParams 中的

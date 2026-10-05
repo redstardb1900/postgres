@@ -110,8 +110,8 @@
  */
 
 /*
- * Make a RowExpr from the specified column names, which have to be among the
- * output columns of the CTE.
+ * 用指定的列名制作 RowExpr，这些列名必须在
+ * CTE 的输出列之中。
  */
 static RowExpr *
 make_path_rowexpr(const CommonTableExpr *cte, const List *col_list)
@@ -152,8 +152,8 @@ make_path_rowexpr(const CommonTableExpr *cte, const List *col_list)
 }
 
 /*
- * Wrap a RowExpr in an ArrayExpr, for the initial search depth first or cycle
- * row.
+ * 把 RowExpr 包进 ArrayExpr，作为初始的搜索深度优先或循环
+ * 行。
  */
 static Expr *
 make_path_initial_array(RowExpr *rowexpr)
@@ -170,11 +170,11 @@ make_path_initial_array(RowExpr *rowexpr)
 }
 
 /*
- * Make an array catenation expression like
+ * 制作类似这样的数组连接表达式：
  *
- * cpa || ARRAY[ROW(cols)]
+ * cpa || ARRAY[ROW(cols)]。
  *
- * where the varattno of cpa is provided as path_varattno.
+ * 其中 cpa 的 varattno 由 path_varattno 提供。
  */
 static Expr *
 make_path_cat_expr(RowExpr *rowexpr, AttrNumber path_varattno)
@@ -197,7 +197,7 @@ make_path_cat_expr(RowExpr *rowexpr, AttrNumber path_varattno)
 }
 
 /*
- * The real work happens here.
+ * 真正的工作在这里发生。
  */
 CommonTableExpr *
 rewriteSearchAndCycle(CommonTableExpr *cte)
@@ -230,8 +230,8 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	ctequery = castNode(Query, cte->ctequery);
 
 	/*
-	 * The top level of the CTE's query should be a UNION.  Find the two
-	 * subqueries.
+	 * CTE 查询的顶层应当是 UNION。找出两个
+	 * 子查询。
 	 */
 	Assert(ctequery->setOperations);
 	sos = castNode(SetOperationStmt, ctequery->setOperations);
@@ -247,7 +247,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	Assert(rte2->rtekind == RTE_SUBQUERY);
 
 	/*
-	 * We'll need this a few times later.
+	 * 稍后会多次用到这个。
 	 */
 	if (cte->search_clause)
 	{
@@ -258,7 +258,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Attribute numbers of the added columns in the CTE's column list
+	 * 所增加的列在 CTE 列清单里的属性号
 	 */
 	if (cte->search_clause)
 		sqc_attno = list_length(cte->ctecolnames) + 1;
@@ -274,7 +274,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Make new left subquery
+	 * 制作新的左子查询
 	 */
 	newq1 = makeNode(Query);
 	newq1->commandType = CMD_SELECT;
@@ -295,7 +295,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	newq1->jointree = makeFromExpr(list_make1(rtr), NULL);
 
 	/*
-	 * Make target list
+	 * 制作目标列表
 	 */
 	for (int i = 0; i < list_length(cte->ctecolnames); i++)
 	{
@@ -361,7 +361,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Make new right subquery
+	 * 制作新的右子查询
 	 */
 	newq2 = makeNode(Query);
 	newq2->commandType = CMD_SELECT;
@@ -383,14 +383,14 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	newrte->eref = newrte->alias;
 
 	/*
-	 * Find the reference to the recursive CTE in the right UNION subquery's
-	 * range table.  We expect it to be two levels up from the UNION subquery
-	 * (and must check that to avoid being fooled by sub-WITHs with the same
-	 * CTE name).  There will not be more than one such reference, because the
-	 * parser would have rejected that (see checkWellFormedRecursion() in
-	 * parse_cte.c).  However, the parser doesn't insist that the reference
-	 * appear in the UNION subquery's topmost range table, so we might fail to
-	 * find it at all.  That's an unimplemented case for the moment.
+	 * 在右 UNION 子查询的范围表里找出对递归 CTE 的引用。
+	 * 我们预期它在 UNION 子查询之上两层
+	 * （并且必须检查这一点，以免被同名的子 WITHs 骗到）。
+	 * 这样的引用不会多于一个，因为
+	 * 解析器会拒绝那样（见 parse_cte.c 里的
+	 * checkWellFormedRecursion()）。不过，解析器并不坚持该引用
+	 * 出现在 UNION 子查询最顶层的范围表里，因此我们可能根本
+	 * 找不到它。目前这是尚未实现的情形。
 	 */
 	for (int rti = 1; rti <= list_length(rte2->subquery->rtable); rti++)
 	{
@@ -414,13 +414,13 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	IncrementVarSublevelsUp((Node *) newsubquery, 1, 1);
 
 	/*
-	 * Add extra columns to target list of subquery of right subquery
+	 * 给右子查询的子查询的目标列表增加额外的列
 	 */
 	if (cte->search_clause)
 	{
 		Var		   *var;
 
-		/* ctename.sqc */
+		/* ctename.sqc（搜索列） */
 		var = makeVar(cte_rtindex, sqc_attno,
 					  search_seq_type, -1, InvalidOid, 0);
 		tle = makeTargetEntry((Expr *) var,
@@ -433,7 +433,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	{
 		Var		   *var;
 
-		/* ctename.cmc */
+		/* ctename.cmc（循环标记列） */
 		var = makeVar(cte_rtindex, cmc_attno,
 					  cte->cycle_clause->cycle_mark_type,
 					  cte->cycle_clause->cycle_mark_typmod,
@@ -444,7 +444,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 							  false);
 		newsubquery->targetList = lappend(newsubquery->targetList, tle);
 
-		/* ctename.cpa */
+		/* ctename.cpa（路径列） */
 		var = makeVar(cte_rtindex, cpa_attno,
 					  RECORDARRAYOID, -1, InvalidOid, 0);
 		tle = makeTargetEntry((Expr *) var,
@@ -466,7 +466,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 		Expr	   *expr;
 
 		/*
-		 * Add cmc <> cmv condition
+		 * 增加 cmc <> cmv 条件
 		 */
 		expr = make_opclause(cte->cycle_clause->cycle_mark_neop, BOOLOID, false,
 							 (Expr *) makeVar(1, cmc_attno,
@@ -483,7 +483,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 		newq2->jointree = makeFromExpr(list_make1(rtr), NULL);
 
 	/*
-	 * Make target list
+	 * 制作目标列表
 	 */
 	for (int i = 0; i < list_length(cte->ctecolnames); i++)
 	{
@@ -510,7 +510,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 			FuncExpr   *fexpr;
 
 			/*
-			 * ROW(sqc.depth + 1, cols)
+			 * ROW(sqc.depth + 1, cols)（深度行）
 			 */
 
 			search_col_rowexpr = copyObject(search_col_rowexpr);
@@ -530,7 +530,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 		else
 		{
 			/*
-			 * sqc || ARRAY[ROW(cols)]
+			 * sqc || ARRAY[ROW(cols)]（搜索路径）
 			 */
 			texpr = make_path_cat_expr(search_col_rowexpr, sqc_attno);
 		}
@@ -548,7 +548,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 		CaseWhen   *casewhen;
 
 		/*
-		 * CASE WHEN ROW(cols) = ANY (ARRAY[cpa]) THEN cmv ELSE cmd END
+		 * CASE WHEN ROW(cols) = ANY (ARRAY[cpa]) THEN cmv ELSE cmd END（循环标记）
 		 */
 
 		saoe = makeNode(ScalarArrayOpExpr);
@@ -576,7 +576,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 		newq2->targetList = lappend(newq2->targetList, tle);
 
 		/*
-		 * cpa || ARRAY[ROW(cols)]
+		 * cpa || ARRAY[ROW(cols)]（路径）
 		 */
 		tle = makeTargetEntry(make_path_cat_expr(cycle_col_rowexpr, cpa_attno),
 							  list_length(newq2->targetList) + 1,
@@ -598,7 +598,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Add the additional columns to the SetOperationStmt
+	 * 给 SetOperationStmt 增加额外的列
 	 */
 	if (cte->search_clause)
 	{
@@ -627,7 +627,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Add the additional columns to the CTE query's target list
+	 * 给 CTE 查询的目标列表增加额外的列
 	 */
 	if (cte->search_clause)
 	{
@@ -657,7 +657,7 @@ rewriteSearchAndCycle(CommonTableExpr *cte)
 	}
 
 	/*
-	 * Add the additional columns to the CTE's output columns
+	 * 给 CTE 的输出列增加额外的列
 	 */
 	cte->ctecolnames = ewcl;
 	if (cte->search_clause)

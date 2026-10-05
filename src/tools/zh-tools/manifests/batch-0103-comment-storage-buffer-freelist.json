@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0103-comment-storage-buffer-freelist",
+ "title": "zh: translate freelist comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "091cd4b4f6d1c70a031d0b73ba10f90e3932fc5e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "note": "buffer freelist and clock sweep"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0103-comment-storage-buffer-freelist.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 85,
+   "translated": 84,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "buffer freelist and clock sweep"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0103-comment-storage-buffer-freelist.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0103 translates src/backend/storage/buffer/freelist.c."
+}

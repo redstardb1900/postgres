@@ -25,84 +25,84 @@
 
 
 /*
- * The shared freelist control information.
+ * 共享空闲链表的控制信息。
  */
 typedef struct
 {
-	/* Spinlock: protects the values below */
+	/* 自旋锁：保护下面这些值 */
 	slock_t		buffer_strategy_lock;
 
 	/*
-	 * Clock sweep hand: index of next buffer to consider grabbing. Note that
-	 * this isn't a concrete buffer - we only ever increase the value. So, to
-	 * get an actual buffer, it needs to be used modulo NBuffers.
+	 * 时钟清扫指针：下一个要考虑抓取的缓冲区的下标。注意
+	 * 这不是一个具体的缓冲区，我们只增加该值。因此，要
+	 * 得到实际缓冲区，需要把它对 NBuffers 取模。
 	 */
 	pg_atomic_uint32 nextVictimBuffer;
 
-	int			firstFreeBuffer;	/* Head of list of unused buffers */
-	int			lastFreeBuffer; /* Tail of list of unused buffers */
+	int			firstFreeBuffer;	/* 未使用缓冲区链表的头 */
+	int			lastFreeBuffer; /* 未使用缓冲区链表的尾 */
 
 	/*
-	 * NOTE: lastFreeBuffer is undefined when firstFreeBuffer is -1 (that is,
-	 * when the list is empty)
+	 * 注意：当 firstFreeBuffer 为 -1（即
+	 * 链表为空）时，lastFreeBuffer 是未定义的
 	 */
 
 	/*
-	 * Statistics.  These counters should be wide enough that they can't
-	 * overflow during a single bgwriter cycle.
+	 * 统计信息。这些计数器应当足够宽，使它们在一次 bgwriter 周期内
+	 * 没法溢出。
 	 */
-	uint32		completePasses; /* Complete cycles of the clock sweep */
-	pg_atomic_uint32 numBufferAllocs;	/* Buffers allocated since last reset */
+	uint32		completePasses; /* 时钟清扫的完整圈数 */
+	pg_atomic_uint32 numBufferAllocs;	/* 自上次重置以来分配的缓冲区 */
 
 	/*
-	 * Bgworker process to be notified upon activity or -1 if none. See
-	 * StrategyNotifyBgWriter.
+	 * 活动时要通知的 bgworker 进程，若没有则为 -1。见
+	 * StrategyNotifyBgWriter。
 	 */
 	int			bgwprocno;
 } BufferStrategyControl;
 
-/* Pointers to shared state */
+/* 指向共享状态的指针 */
 static BufferStrategyControl *StrategyControl = NULL;
 
 /*
- * Private (non-shared) state for managing a ring of shared buffers to re-use.
- * This is currently the only kind of BufferAccessStrategy object, but someday
- * we might have more kinds.
+ * 用来重用一环共享缓冲区的私有（非共享）状态。
+ * 这目前是唯一一种 BufferAccessStrategy 对象，但将来
+ * 我们也许会有更多种类。
  */
 typedef struct BufferAccessStrategyData
 {
-	/* Overall strategy type */
+	/* 总体策略类型 */
 	BufferAccessStrategyType btype;
-	/* Number of elements in buffers[] array */
+	/* buffers[] 缓冲区数组的元素个数 */
 	int			nbuffers;
 
 	/*
-	 * Index of the "current" slot in the ring, ie, the one most recently
-	 * returned by GetBufferFromRing.
+	 * 环里当前槽的下标，即最近一次
+	 * 由 GetBufferFromRing 返回的那个。
 	 */
 	int			current;
 
 	/*
-	 * Array of buffer numbers.  InvalidBuffer (that is, zero) indicates we
-	 * have not yet selected a buffer for this ring slot.  For allocation
-	 * simplicity this is palloc'd together with the fixed fields of the
-	 * struct.
+	 * 缓冲区号数组。InvalidBuffer（即零）表示我们
+	 * 尚未为这个环槽选择缓冲区。为了分配
+	 * 简单，它与该结构的固定成员一起
+	 * palloc。
 	 */
 	Buffer		buffers[FLEXIBLE_ARRAY_MEMBER];
 }			BufferAccessStrategyData;
 
 
-/* Prototypes for internal functions */
+/* 内部函数的原型 */
 static BufferDesc *GetBufferFromRing(BufferAccessStrategy strategy,
 									 uint32 *buf_state);
 static void AddBufferToRing(BufferAccessStrategy strategy,
 							BufferDesc *buf);
 
 /*
- * ClockSweepTick - Helper routine for StrategyGetBuffer()
+ * ClockSweepTick - StrategyGetBuffer() 的辅助例程。
  *
- * Move the clock hand one buffer ahead of its current position and return the
- * id of the buffer now under the hand.
+ * 把时钟指针向前移动一个缓冲区，并返回
+ * 指针现在所指缓冲区的标识。
  */
 static inline uint32
 ClockSweepTick(void)
@@ -110,9 +110,9 @@ ClockSweepTick(void)
 	uint32		victim;
 
 	/*
-	 * Atomically move hand ahead one buffer - if there's several processes
-	 * doing this, this can lead to buffers being returned slightly out of
-	 * apparent order.
+	 * 原子地把指针向前移动一个缓冲区。若有多个进程
+	 * 在做这件事，可能导致返回的缓冲区稍微
+	 * 偏离表面顺序。
 	 */
 	victim =
 		pg_atomic_fetch_add_u32(&StrategyControl->nextVictimBuffer, 1);
@@ -121,14 +121,14 @@ ClockSweepTick(void)
 	{
 		uint32		originalVictim = victim;
 
-		/* always wrap what we look up in BufferDescriptors */
+		/* 在 BufferDescriptors 里查找时总是回绕 */
 		victim = victim % NBuffers;
 
 		/*
-		 * If we're the one that just caused a wraparound, force
-		 * completePasses to be incremented while holding the spinlock. We
-		 * need the spinlock so StrategySyncStart() can return a consistent
-		 * value consisting of nextVictimBuffer and completePasses.
+		 * 若我们就是刚刚造成回绕的那个，就在持有自旋锁时强制
+		 * 增加 completePasses。我们
+		 * 需要自旋锁，以便 StrategySyncStart() 能返回由
+		 * nextVictimBuffer 和 completePasses 组成的一致值。
 		 */
 		if (victim == 0)
 		{
@@ -141,12 +141,12 @@ ClockSweepTick(void)
 			while (!success)
 			{
 				/*
-				 * Acquire the spinlock while increasing completePasses. That
-				 * allows other readers to read nextVictimBuffer and
-				 * completePasses in a consistent manner which is required for
-				 * StrategySyncStart().  In theory delaying the increment
-				 * could lead to an overflow of nextVictimBuffers, but that's
-				 * highly unlikely and wouldn't be particularly harmful.
+				 * 在增加 completePasses 时取得自旋锁。这
+				 * 让其他读者能以一致的方式读取 nextVictimBuffer 和
+				 * completePasses，StrategySyncStart() 需要这样。理论上推迟
+				 * 这次增加可能导致 nextVictimBuffers 溢出，
+				 * 但那极不可能，
+				 * 而且不会特别有害。
 				 */
 				SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 
@@ -164,12 +164,12 @@ ClockSweepTick(void)
 }
 
 /*
- * have_free_buffer -- a lockless check to see if there is a free buffer in
- *					   buffer pool.
+ * have_free_buffer -- 不加锁检查缓冲池里是否有空闲
+ *					   缓冲区。
  *
- * If the result is true that will become stale once free buffers are moved out
- * by other operations, so the caller who strictly want to use a free buffer
- * should not call this.
+ * 若结果为真，一旦空闲缓冲区被其他操作移走，
+ * 它就会过时，因此严格想使用空闲缓冲区的调用者
+ * 不应当调用这个。
  */
 bool
 have_free_buffer(void)
@@ -183,14 +183,14 @@ have_free_buffer(void)
 /*
  * StrategyGetBuffer
  *
- *	Called by the bufmgr to get the next candidate buffer to use in
- *	BufferAlloc(). The only hard requirement BufferAlloc() has is that
- *	the selected buffer must not currently be pinned by anyone.
+ *	由 bufmgr 调用，以取得 BufferAlloc() 里下一个要用的候选缓冲区。
+ *	BufferAlloc() 唯一的硬性要求是
+ *	所选缓冲区目前不得被任何人钉住。
  *
- *	strategy is a BufferAccessStrategy object, or NULL for default strategy.
+ *	strategy 是 BufferAccessStrategy 对象，或对默认策略为 NULL。
  *
- *	To ensure that no one else can pin the buffer before we do, we must
- *	return the buffer with the buffer header spinlock still held.
+ *	为确保在我们钉住之前没有别人能钉住该缓冲区，我们必须
+ *	在仍持有缓冲区描述符自旋锁时返回该缓冲区。
  */
 BufferDesc *
 StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_ring)
@@ -198,13 +198,13 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 	BufferDesc *buf;
 	int			bgwprocno;
 	int			trycounter;
-	uint32		local_buf_state;	/* to avoid repeated (de-)referencing */
+	uint32		local_buf_state;	/* 以免反复解引用 */
 
 	*from_ring = false;
 
 	/*
-	 * If given a strategy object, see whether it can select a buffer. We
-	 * assume strategy objects don't need buffer_strategy_lock.
+	 * 若给定了策略对象，看它能否选出一个缓冲区。我们
+	 * 假定策略对象不需要 buffer_strategy_lock。
 	 */
 	if (strategy != NULL)
 	{
@@ -217,59 +217,59 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 	}
 
 	/*
-	 * If asked, we need to waken the bgwriter. Since we don't want to rely on
-	 * a spinlock for this we force a read from shared memory once, and then
-	 * set the latch based on that value. We need to go through that length
-	 * because otherwise bgwprocno might be reset while/after we check because
-	 * the compiler might just reread from memory.
+	 * 若被要求，我们需要唤醒 bgwriter。由于我们不想为此依赖
+	 * 自旋锁，我们强制从共享内存读一次，然后
+	 * 根据该值设置锁存器。我们需要走完这一步，
+	 * 因为否则 bgwprocno 可能在我们检查时或之后被重置，因为
+	 * 编译器可能直接从内存重读。
 	 *
-	 * This can possibly set the latch of the wrong process if the bgwriter
-	 * dies in the wrong moment. But since PGPROC->procLatch is never
-	 * deallocated the worst consequence of that is that we set the latch of
-	 * some arbitrary process.
+	 * 若 bgwriter 在错误的时刻死去，这可能设置错误进程的锁存器。
+	 * 但由于 PGPROC->procLatch 从不
+	 * 被释放，最坏的后果是我们设置了
+	 * 某个任意进程的锁存器。
 	 */
 	bgwprocno = INT_ACCESS_ONCE(StrategyControl->bgwprocno);
 	if (bgwprocno != -1)
 	{
-		/* reset bgwprocno first, before setting the latch */
+		/* 先重置 bgwprocno，再设置锁存器 */
 		StrategyControl->bgwprocno = -1;
 
 		/*
-		 * Not acquiring ProcArrayLock here which is slightly icky. It's
-		 * actually fine because procLatch isn't ever freed, so we just can
-		 * potentially set the wrong process' (or no process') latch.
+		 * 这里不取得 ProcArrayLock，有点别扭。其实
+		 * 没问题，因为 procLatch 从不会被释放，所以我们只是可能
+		 * 设置错误进程（或没有进程）的锁存器。
 		 */
 		SetLatch(&ProcGlobal->allProcs[bgwprocno].procLatch);
 	}
 
 	/*
-	 * We count buffer allocation requests so that the bgwriter can estimate
-	 * the rate of buffer consumption.  Note that buffers recycled by a
-	 * strategy object are intentionally not counted here.
+	 * 我们统计缓冲区分配请求，以便 bgwriter 能估计
+	 * 缓冲区消耗速率。注意，被策略对象回收的缓冲区
+	 * 有意不在这里计数。
 	 */
 	pg_atomic_fetch_add_u32(&StrategyControl->numBufferAllocs, 1);
 
 	/*
-	 * First check, without acquiring the lock, whether there's buffers in the
-	 * freelist. Since we otherwise don't require the spinlock in every
-	 * StrategyGetBuffer() invocation, it'd be sad to acquire it here -
-	 * uselessly in most cases. That obviously leaves a race where a buffer is
-	 * put on the freelist but we don't see the store yet - but that's pretty
-	 * harmless, it'll just get used during the next buffer acquisition.
+	 * 先不取得锁，检查空闲链表里是否有缓冲区。既然我们
+	 * 并非在每次 StrategyGetBuffer() 调用里都需要自旋锁，若在这里取得它
+	 * 就可惜了，多数情况下
+	 * 没有用。这显然留下一个竞态：缓冲区被
+	 * 放上空闲链表，但我们还没看到那次存储。这相当
+	 * 无害，它会在下一次缓冲区获取时被使用。
 	 *
-	 * If there's buffers on the freelist, acquire the spinlock to pop one
-	 * buffer of the freelist. Then check whether that buffer is usable and
-	 * repeat if not.
+	 * 若空闲链表上有缓冲区，就取得自旋锁，弹出一个
+	 * 缓冲区。然后检查该缓冲区是否可用，
+	 * 若不可用就重复。
 	 *
-	 * Note that the freeNext fields are considered to be protected by the
-	 * buffer_strategy_lock not the individual buffer spinlocks, so it's OK to
-	 * manipulate them without holding the spinlock.
+	 * 注意 freeNext 成员被视为由
+	 * buffer_strategy_lock 保护，而不是由各个缓冲区自旋锁保护，因此不持有自旋锁
+	 * 操作它们是可以的。
 	 */
 	if (StrategyControl->firstFreeBuffer >= 0)
 	{
 		while (true)
 		{
-			/* Acquire the spinlock to remove element from the freelist */
+			/* 取得自旋锁，以便从空闲链表去掉元素 */
 			SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 
 			if (StrategyControl->firstFreeBuffer < 0)
@@ -281,22 +281,22 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 			buf = GetBufferDescriptor(StrategyControl->firstFreeBuffer);
 			Assert(buf->freeNext != FREENEXT_NOT_IN_LIST);
 
-			/* Unconditionally remove buffer from freelist */
+			/* 无条件地从空闲链表去掉缓冲区 */
 			StrategyControl->firstFreeBuffer = buf->freeNext;
 			buf->freeNext = FREENEXT_NOT_IN_LIST;
 
 			/*
-			 * Release the lock so someone else can access the freelist while
-			 * we check out this buffer.
+			 * 释放锁，以便我们检查这个缓冲区时
+			 * 别人可以访问空闲链表。
 			 */
 			SpinLockRelease(&StrategyControl->buffer_strategy_lock);
 
 			/*
-			 * If the buffer is pinned or has a nonzero usage_count, we cannot
-			 * use it; discard it and retry.  (This can only happen if VACUUM
-			 * put a valid buffer in the freelist and then someone else used
-			 * it before we got to it.  It's probably impossible altogether as
-			 * of 8.3, but we'd better check anyway.)
+			 * 若该缓冲区被钉住或 usage_count 非零，我们就无法
+			 * 使用它；丢掉它并重试。（这只可能发生在 VACUUM
+			 * 把一个有效缓冲区放进空闲链表，然后别人在我们拿到它之前
+			 * 使用了它。自 8.3 起这大概完全不可能，但
+			 * 我们最好还是检查。）
 			 */
 			local_buf_state = LockBufHdr(buf);
 			if (BUF_STATE_GET_REFCOUNT(local_buf_state) == 0
@@ -311,15 +311,15 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 		}
 	}
 
-	/* Nothing on the freelist, so run the "clock sweep" algorithm */
+	/* 空闲链表上什么也没有，因此运行时钟清扫算法 */
 	trycounter = NBuffers;
 	for (;;)
 	{
 		buf = GetBufferDescriptor(ClockSweepTick());
 
 		/*
-		 * If the buffer is pinned or has a nonzero usage_count, we cannot use
-		 * it; decrement the usage_count (unless pinned) and keep scanning.
+		 * 若该缓冲区被钉住或 usage_count 非零，我们就无法使用
+		 * 它；减少 usage_count（除非被钉住）并继续扫描。
 		 */
 		local_buf_state = LockBufHdr(buf);
 
@@ -333,7 +333,7 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 			}
 			else
 			{
-				/* Found a usable buffer */
+				/* 找到一个可用的缓冲区 */
 				if (strategy != NULL)
 					AddBufferToRing(strategy, buf);
 				*buf_state = local_buf_state;
@@ -343,11 +343,11 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 		else if (--trycounter == 0)
 		{
 			/*
-			 * We've scanned all the buffers without making any state changes,
-			 * so all the buffers are pinned (or were when we looked at them).
-			 * We could hope that someone will free one eventually, but it's
-			 * probably better to fail than to risk getting stuck in an
-			 * infinite loop.
+			 * 我们扫描了全部缓冲区而没有改变任何状态，
+			 * 因此全部缓冲区都被钉住（或我们看它们时是钉住的）。
+			 * 我们可以希望最终有人会释放一个，但
+			 * 失败大概比冒陷入
+			 * 无限循环的风险更好。
 			 */
 			UnlockBufHdr(buf, local_buf_state);
 			elog(ERROR, "no unpinned buffers available");
@@ -357,7 +357,7 @@ StrategyGetBuffer(BufferAccessStrategy strategy, uint32 *buf_state, bool *from_r
 }
 
 /*
- * StrategyFreeBuffer: put a buffer on the freelist
+ * StrategyFreeBuffer：把一个缓冲区放到空闲链表上
  */
 void
 StrategyFreeBuffer(BufferDesc *buf)
@@ -365,8 +365,8 @@ StrategyFreeBuffer(BufferDesc *buf)
 	SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 
 	/*
-	 * It is possible that we are told to put something in the freelist that
-	 * is already in it; don't screw up the list if so.
+	 * 我们可能被要求把已经在空闲链表里的东西放进去；
+	 * 若如此，不要把链表弄乱。
 	 */
 	if (buf->freeNext == FREENEXT_NOT_IN_LIST)
 	{
@@ -380,15 +380,15 @@ StrategyFreeBuffer(BufferDesc *buf)
 }
 
 /*
- * StrategySyncStart -- tell BgBufferSync where to start syncing
+ * StrategySyncStart -- 告诉 BgBufferSync 从哪里开始同步。
  *
- * The result is the buffer index of the best buffer to sync first.
- * BgBufferSync() will proceed circularly around the buffer array from there.
+ * 结果是最好先同步的缓冲区的下标。
+ * BgBufferSync() 将从那里绕着缓冲区数组环形前进。
  *
- * In addition, we return the completed-pass count (which is effectively
- * the higher-order bits of nextVictimBuffer) and the count of recent buffer
- * allocs if non-NULL pointers are passed.  The alloc count is reset after
- * being read.
+ * 此外，若传入非 NULL 指针，我们返回已完成的圈数（实际上是
+ * nextVictimBuffer 的高位）和最近缓冲区
+ * 分配的计数。分配计数在
+ * 被读取后重置。
  */
 int
 StrategySyncStart(uint32 *complete_passes, uint32 *num_buf_alloc)
@@ -405,8 +405,8 @@ StrategySyncStart(uint32 *complete_passes, uint32 *num_buf_alloc)
 		*complete_passes = StrategyControl->completePasses;
 
 		/*
-		 * Additionally add the number of wraparounds that happened before
-		 * completePasses could be incremented. C.f. ClockSweepTick().
+		 * 另外加上 completePasses 得以增加之前发生的回绕次数。
+		 * 参见 ClockSweepTick()。
 		 */
 		*complete_passes += nextVictimBuffer / NBuffers;
 	}
@@ -420,20 +420,20 @@ StrategySyncStart(uint32 *complete_passes, uint32 *num_buf_alloc)
 }
 
 /*
- * StrategyNotifyBgWriter -- set or clear allocation notification latch
+ * StrategyNotifyBgWriter -- 设置或清除分配通知锁存器。
  *
- * If bgwprocno isn't -1, the next invocation of StrategyGetBuffer will
- * set that latch.  Pass -1 to clear the pending notification before it
- * happens.  This feature is used by the bgwriter process to wake itself up
- * from hibernation, and is not meant for anybody else to use.
+ * 若 bgwprocno 不是 -1，下一次 StrategyGetBuffer 调用会
+ * 设置那个锁存器。传入 -1 可在通知发生前清除待处理的通知。
+ * 这个特性由 bgwriter 进程用来把自己从休眠中唤醒，
+ * 并不打算给其他任何人使用。
  */
 void
 StrategyNotifyBgWriter(int bgwprocno)
 {
 	/*
-	 * We acquire buffer_strategy_lock just to ensure that the store appears
-	 * atomic to StrategyGetBuffer.  The bgwriter should call this rather
-	 * infrequently, so there's no performance penalty from being safe.
+	 * 我们取得 buffer_strategy_lock 只是为了确保这次存储对
+	 * StrategyGetBuffer 看起来是原子的。bgwriter 应当相当
+	 * 不频繁地调用这个，因此稳妥没有性能代价。
 	 */
 	SpinLockAcquire(&StrategyControl->buffer_strategy_lock);
 	StrategyControl->bgwprocno = bgwprocno;
@@ -444,31 +444,31 @@ StrategyNotifyBgWriter(int bgwprocno)
 /*
  * StrategyShmemSize
  *
- * estimate the size of shared memory used by the freelist-related structures.
+ * 估计空闲链表相关结构所用的共享内存大小。
  *
- * Note: for somewhat historical reasons, the buffer lookup hashtable size
- * is also determined here.
+ * 注意：由于一些历史原因，缓冲区查找散列表的大小
+ * 也在这里决定。
  */
 Size
 StrategyShmemSize(void)
 {
 	Size		size = 0;
 
-	/* size of lookup hash table ... see comment in StrategyInitialize */
+	/* 查找散列表的大小……见 StrategyInitialize 里的注释 */
 	size = add_size(size, BufTableShmemSize(NBuffers + NUM_BUFFER_PARTITIONS));
 
-	/* size of the shared replacement strategy control block */
+	/* 共享替换策略控制块的大小 */
 	size = add_size(size, MAXALIGN(sizeof(BufferStrategyControl)));
 
 	return size;
 }
 
 /*
- * StrategyInitialize -- initialize the buffer cache replacement
- *		strategy.
+ * StrategyInitialize -- 初始化缓冲池的缓冲区替换
+ *		策略。
  *
- * Assumes: All of the buffers are already built into a linked list.
- *		Only called by postmaster and only during initialization.
+ * 假定：全部缓冲区都已经建成链表。
+ *		只由 postmaster 在初始化期间调用。
  */
 void
 StrategyInitialize(bool init)
@@ -476,19 +476,19 @@ StrategyInitialize(bool init)
 	bool		found;
 
 	/*
-	 * Initialize the shared buffer lookup hashtable.
+	 * 初始化共享缓冲区查找散列表。
 	 *
-	 * Since we can't tolerate running out of lookup table entries, we must be
-	 * sure to specify an adequate table size here.  The maximum steady-state
-	 * usage is of course NBuffers entries, but BufferAlloc() tries to insert
-	 * a new entry before deleting the old.  In principle this could be
-	 * happening in each partition concurrently, so we could need as many as
-	 * NBuffers + NUM_BUFFER_PARTITIONS entries.
+	 * 由于我们没法容忍查找表项用尽，我们必须
+	 * 确保这里指定足够的表大小。最大稳态
+	 * 用量当然是 NBuffers 项，但 BufferAlloc() 试图在删除旧项之前插入
+	 * 新项。原则上每个分区可能
+	 * 并发发生这件事，因此我们可能需要多达
+	 * NBuffers + NUM_BUFFER_PARTITIONS 项。
 	 */
 	InitBufTable(NBuffers + NUM_BUFFER_PARTITIONS);
 
 	/*
-	 * Get or create the shared strategy control block
+	 * 取得或创建共享策略控制块
 	 */
 	StrategyControl = (BufferStrategyControl *)
 		ShmemInitStruct("Buffer Strategy Status",
@@ -498,27 +498,27 @@ StrategyInitialize(bool init)
 	if (!found)
 	{
 		/*
-		 * Only done once, usually in postmaster
+		 * 只做一次，通常在 postmaster 里
 		 */
 		Assert(init);
 
 		SpinLockInit(&StrategyControl->buffer_strategy_lock);
 
 		/*
-		 * Grab the whole linked list of free buffers for our strategy. We
-		 * assume it was previously set up by InitBufferPool().
+		 * 为我们的策略抓取整条空闲缓冲区链表。我们
+		 * 假定它先前已由 InitBufferPool() 建好。
 		 */
 		StrategyControl->firstFreeBuffer = 0;
 		StrategyControl->lastFreeBuffer = NBuffers - 1;
 
-		/* Initialize the clock sweep pointer */
+		/* 初始化时钟清扫指针 */
 		pg_atomic_init_u32(&StrategyControl->nextVictimBuffer, 0);
 
-		/* Clear statistics */
+		/* 清除统计信息 */
 		StrategyControl->completePasses = 0;
 		pg_atomic_init_u32(&StrategyControl->numBufferAllocs, 0);
 
-		/* No pending notification */
+		/* 没有待处理的通知 */
 		StrategyControl->bgwprocno = -1;
 	}
 	else
@@ -527,15 +527,15 @@ StrategyInitialize(bool init)
 
 
 /* ----------------------------------------------------------------
- *				Backend-private buffer ring management
+ *				后端私有的缓冲区环管理
  * ----------------------------------------------------------------
  */
 
 
 /*
- * GetAccessStrategy -- create a BufferAccessStrategy object
+ * GetAccessStrategy -- 创建一个 BufferAccessStrategy 对象。
  *
- * The object is allocated in the current memory context.
+ * 该对象在当前内存上下文里分配。
  */
 BufferAccessStrategy
 GetAccessStrategy(BufferAccessStrategyType btype)
@@ -543,15 +543,15 @@ GetAccessStrategy(BufferAccessStrategyType btype)
 	int			ring_size_kb;
 
 	/*
-	 * Select ring size to use.  See buffer/README for rationales.
+	 * 选择要使用的缓冲区环大小。理由见 buffer/README。
 	 *
-	 * Note: if you change the ring size for BAS_BULKREAD, see also
-	 * SYNC_SCAN_REPORT_INTERVAL in access/heap/syncscan.c.
+	 * 注意：若改变 BAS_BULKREAD 的环大小，也见
+	 * access/heap/syncscan.c 里的 SYNC_SCAN_REPORT_INTERVAL。
 	 */
 	switch (btype)
 	{
 		case BAS_NORMAL:
-			/* if someone asks for NORMAL, just give 'em a "default" object */
+			/* 若有人要 NORMAL，就给它一个默认对象 */
 			return NULL;
 
 		case BAS_BULKREAD:
@@ -567,18 +567,18 @@ GetAccessStrategy(BufferAccessStrategyType btype)
 		default:
 			elog(ERROR, "unrecognized buffer access strategy: %d",
 				 (int) btype);
-			return NULL;		/* keep compiler quiet */
+			return NULL;		/* 消除编译器告警 */
 	}
 
 	return GetAccessStrategyWithSize(btype, ring_size_kb);
 }
 
 /*
- * GetAccessStrategyWithSize -- create a BufferAccessStrategy object with a
- *		number of buffers equivalent to the passed in size.
+ * GetAccessStrategyWithSize -- 创建一个 BufferAccessStrategy 对象，其
+ *		缓冲区数量相当于传入的大小。
  *
- * If the given ring size is 0, no BufferAccessStrategy will be created and
- * the function will return NULL.  ring_size_kb must not be negative.
+ * 若给定的环大小为 0，就不会创建 BufferAccessStrategy，并且
+ * 函数返回 NULL。ring_size_kb 不得为负。
  */
 BufferAccessStrategy
 GetAccessStrategyWithSize(BufferAccessStrategyType btype, int ring_size_kb)
@@ -588,25 +588,25 @@ GetAccessStrategyWithSize(BufferAccessStrategyType btype, int ring_size_kb)
 
 	Assert(ring_size_kb >= 0);
 
-	/* Figure out how many buffers ring_size_kb is */
+	/* ring_size_kb 相当于多少个缓冲区 */
 	ring_buffers = ring_size_kb / (BLCKSZ / 1024);
 
-	/* 0 means unlimited, so no BufferAccessStrategy required */
+	/* 0 表示无限制，因此不需要 BufferAccessStrategy */
 	if (ring_buffers == 0)
 		return NULL;
 
-	/* Cap to 1/8th of shared_buffers */
+	/* 封顶为 shared_buffers 的 1/8 */
 	ring_buffers = Min(NBuffers / 8, ring_buffers);
 
-	/* NBuffers should never be less than 16, so this shouldn't happen */
+	/* NBuffers 决不应当小于 16，因此这不应当发生 */
 	Assert(ring_buffers > 0);
 
-	/* Allocate the object and initialize all elements to zeroes */
+	/* 分配该对象，并把全部元素初始化为零 */
 	strategy = (BufferAccessStrategy)
 		palloc0(offsetof(BufferAccessStrategyData, buffers) +
 				ring_buffers * sizeof(Buffer));
 
-	/* Set fields that don't start out zero */
+	/* 设置那些起初不为零的成员 */
 	strategy->btype = btype;
 	strategy->nbuffers = ring_buffers;
 
@@ -614,11 +614,11 @@ GetAccessStrategyWithSize(BufferAccessStrategyType btype, int ring_size_kb)
 }
 
 /*
- * GetAccessStrategyBufferCount -- an accessor for the number of buffers in
- *		the ring
+ * GetAccessStrategyBufferCount -- 环里缓冲区个数的
+ *		访问器。
  *
- * Returns 0 on NULL input to match behavior of GetAccessStrategyWithSize()
- * returning NULL with 0 size.
+ * 对 NULL 输入返回 0，以匹配 GetAccessStrategyWithSize()
+ * 在大小为 0 时返回 NULL 的行为。
  */
 int
 GetAccessStrategyBufferCount(BufferAccessStrategy strategy)
@@ -630,54 +630,54 @@ GetAccessStrategyBufferCount(BufferAccessStrategy strategy)
 }
 
 /*
- * FreeAccessStrategy -- release a BufferAccessStrategy object
+ * FreeAccessStrategy -- 释放一个 BufferAccessStrategy 对象。
  *
- * A simple pfree would do at the moment, but we would prefer that callers
- * don't assume that much about the representation of BufferAccessStrategy.
+ * 此刻简单的 pfree 就行，但我们更希望调用者
+ * 不要对 BufferAccessStrategy 的表示假定那么多。
  */
 void
 FreeAccessStrategy(BufferAccessStrategy strategy)
 {
-	/* don't crash if called on a "default" strategy */
+	/* 若对默认策略调用，不要崩溃 */
 	if (strategy != NULL)
 		pfree(strategy);
 }
 
 /*
- * GetBufferFromRing -- returns a buffer from the ring, or NULL if the
- *		ring is empty / not usable.
+ * GetBufferFromRing -- 从环里返回一个缓冲区，若环
+ *		为空或不可用则返回 NULL。
  *
- * The bufhdr spin lock is held on the returned buffer.
+ * 返回的缓冲区上持有缓冲区描述符自旋锁。
  */
 static BufferDesc *
 GetBufferFromRing(BufferAccessStrategy strategy, uint32 *buf_state)
 {
 	BufferDesc *buf;
 	Buffer		bufnum;
-	uint32		local_buf_state;	/* to avoid repeated (de-)referencing */
+	uint32		local_buf_state;	/* 以免反复解引用 */
 
 
-	/* Advance to next ring slot */
+	/* 前进到下一个环槽 */
 	if (++strategy->current >= strategy->nbuffers)
 		strategy->current = 0;
 
 	/*
-	 * If the slot hasn't been filled yet, tell the caller to allocate a new
-	 * buffer with the normal allocation strategy.  He will then fill this
-	 * slot by calling AddBufferToRing with the new buffer.
+	 * 若该槽尚未填入，就告诉调用者用普通分配策略分配一个新
+	 * 缓冲区。然后他会调用 AddBufferToRing，用新缓冲区
+	 * 填入这个槽。
 	 */
 	bufnum = strategy->buffers[strategy->current];
 	if (bufnum == InvalidBuffer)
 		return NULL;
 
 	/*
-	 * If the buffer is pinned we cannot use it under any circumstances.
+	 * 若该缓冲区被钉住，我们在任何情况下都无法使用它。
 	 *
-	 * If usage_count is 0 or 1 then the buffer is fair game (we expect 1,
-	 * since our own previous usage of the ring element would have left it
-	 * there, but it might've been decremented by clock sweep since then). A
-	 * higher usage_count indicates someone else has touched the buffer, so we
-	 * shouldn't re-use it.
+	 * 若 usage_count 为 0 或 1，该缓冲区就可以用（我们预期是 1，
+	 * 因为我们自己先前使用该环元素会把它留在
+	 * 那里，但此后时钟清扫可能已经把它减少了）。更高的
+	 * usage_count 表示别人碰过该缓冲区，因此我们
+	 * 不应当重用它。
 	 */
 	buf = GetBufferDescriptor(bufnum - 1);
 	local_buf_state = LockBufHdr(buf);
@@ -690,17 +690,17 @@ GetBufferFromRing(BufferAccessStrategy strategy, uint32 *buf_state)
 	UnlockBufHdr(buf, local_buf_state);
 
 	/*
-	 * Tell caller to allocate a new buffer with the normal allocation
-	 * strategy.  He'll then replace this ring element via AddBufferToRing.
+	 * 告诉调用者用普通分配策略分配一个新缓冲区。
+	 * 然后他会通过 AddBufferToRing 替换这个环元素。
 	 */
 	return NULL;
 }
 
 /*
- * AddBufferToRing -- add a buffer to the buffer ring
+ * AddBufferToRing -- 把一个缓冲区加入缓冲区环。
  *
- * Caller must hold the buffer header spinlock on the buffer.  Since this
- * is called with the spinlock held, it had better be quite cheap.
+ * 调用者必须持有该缓冲区的缓冲区描述符自旋锁。由于这
+ * 在持有自旋锁时调用，它最好相当便宜。
  */
 static void
 AddBufferToRing(BufferAccessStrategy strategy, BufferDesc *buf)
@@ -709,8 +709,8 @@ AddBufferToRing(BufferAccessStrategy strategy, BufferDesc *buf)
 }
 
 /*
- * Utility function returning the IOContext of a given BufferAccessStrategy's
- * strategy ring.
+ * 返回给定 BufferAccessStrategy 的策略环的 IOContext 的
+ * 实用函数。
  */
 IOContext
 IOContextForStrategy(BufferAccessStrategy strategy)
@@ -723,9 +723,9 @@ IOContextForStrategy(BufferAccessStrategy strategy)
 		case BAS_NORMAL:
 
 			/*
-			 * Currently, GetAccessStrategy() returns NULL for
-			 * BufferAccessStrategyType BAS_NORMAL, so this case is
-			 * unreachable.
+			 * 目前，GetAccessStrategy() 对
+			 * BufferAccessStrategyType BAS_NORMAL 返回 NULL，因此这个分支
+			 * 不可达。
 			 */
 			pg_unreachable();
 			return IOCONTEXT_NORMAL;
@@ -742,31 +742,31 @@ IOContextForStrategy(BufferAccessStrategy strategy)
 }
 
 /*
- * StrategyRejectBuffer -- consider rejecting a dirty buffer
+ * StrategyRejectBuffer -- 考虑拒绝一个脏页。
  *
- * When a nondefault strategy is used, the buffer manager calls this function
- * when it turns out that the buffer selected by StrategyGetBuffer needs to
- * be written out and doing so would require flushing WAL too.  This gives us
- * a chance to choose a different victim.
+ * 使用非默认策略时，缓冲区管理器调用本函数，
+ * 当 StrategyGetBuffer 选出的缓冲区需要被写出，
+ * 并且这样做需要刷写 WAL。这给我们
+ * 一个另选牺牲者的机会。
  *
- * Returns true if buffer manager should ask for a new victim, and false
- * if this buffer should be written and re-used.
+ * 若缓冲区管理器应当再要一个牺牲者就返回真，
+ * 若应当写出并重用这个缓冲区就返回假。
  */
 bool
 StrategyRejectBuffer(BufferAccessStrategy strategy, BufferDesc *buf, bool from_ring)
 {
-	/* We only do this in bulkread mode */
+	/* 我们只在批量读模式下这样做 */
 	if (strategy->btype != BAS_BULKREAD)
 		return false;
 
-	/* Don't muck with behavior of normal buffer-replacement strategy */
+	/* 不要乱动普通缓冲区替换策略的行为 */
 	if (!from_ring ||
 		strategy->buffers[strategy->current] != BufferDescriptorGetBuffer(buf))
 		return false;
 
 	/*
-	 * Remove the dirty buffer from the ring; necessary to prevent infinite
-	 * loop if all ring members are dirty.
+	 * 把脏页从缓冲区环里去掉；若环成员全都是脏页，
+	 * 这是防止无限循环所必需的。
 	 */
 	strategy->buffers[strategy->current] = InvalidBuffer;
 

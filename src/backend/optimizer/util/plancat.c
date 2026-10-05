@@ -989,14 +989,14 @@ infer_collation_opclass_match(InferenceElem *elem, Relation idxRel,
 		if (elem->inferopclass != InvalidOid &&
 			(inferopfamily != opfamily || inferopcinputtype != opcinputtype))
 		{
-			/* 属性需要匹配操作符类，但没有 */
+			/* 属性需要匹配操作符类，但没有匹配上 */
 			continue;
 		}
 
 		if (elem->infercollid != InvalidOid &&
 			elem->infercollid != collation)
 		{
-			/* 属性需要匹配排序规则，但没有 */
+			/* 属性需要匹配排序规则，但没有匹配上 */
 			continue;
 		}
 

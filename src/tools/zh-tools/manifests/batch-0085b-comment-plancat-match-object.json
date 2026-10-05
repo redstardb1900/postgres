@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0085b-comment-plancat-match-object",
+ "title": "zh: fix plancat unmatched object",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "69d3edd36ec97e853b1c3afe052fa3ecfe289bd7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "note": "complete the unmatched-attribute object"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0085b-comment-plancat-match-object.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 203,
+   "translated": 202,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "complete the unmatched-attribute object"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0085b-comment-plancat-match-object.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0085b completes the object of the unmatched opclass and collation comments in plancat.c."
+}

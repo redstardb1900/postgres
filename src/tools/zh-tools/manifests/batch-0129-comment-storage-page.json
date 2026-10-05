@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0129-comment-storage-page",
+ "title": "zh: translate page comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "228a2646dbc6aee303af1654838c1acb73f0f63c",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/page/bufpage.c",
+   "kind": "c_comment",
+   "note": "standard buffer page layout and item placement"
+  },
+  {
+   "pattern": "src/backend/storage/page/checksum.c",
+   "kind": "c_comment",
+   "note": "data page checksum wrapper"
+  },
+  {
+   "pattern": "src/backend/storage/page/itemptr.c",
+   "kind": "c_comment",
+   "note": "disk item pointer compare and increment"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0129-comment-storage-page.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/page/bufpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 135,
+   "translated": 134,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "page init, item placement, defragmentation, and checksum copy"
+  },
+  {
+   "path": "src/backend/storage/page/checksum.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "checksum implementation included from checksum_impl.h"
+  },
+  {
+   "path": "src/backend/storage/page/itemptr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "ItemPointer equality, compare, increment, and decrement"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0129-comment-storage-page.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0129 translates body comments in bufpage.c, checksum.c, and itemptr.c. Terms: 页, 页面头, 行指针, ItemId, 项指针, 校验和, 特殊空间, 空闲空间, 缓冲池. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be src/backend/storage/smgr/ (md.c and smgr.c)."
+}

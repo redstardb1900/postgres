@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0138b-comment-pruneheap-hot-item",
+ "title": "zh: fix pruneheap heap-only item wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "9cfe8e0996f4b95fcb639f52065d56a76461c577",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "note": "Composer P1 heap-only item"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0138b-comment-pruneheap-hot-item.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/pruneheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 111,
+   "translated": 1,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "LP_DEAD assert: heap-only tuple item"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0138b-comment-pruneheap-hot-item.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0138"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0138b"
+  }
+ ],
+ "notes": "Composer P1: restore heap-only qualification on LP_DEAD assert comment."
+}

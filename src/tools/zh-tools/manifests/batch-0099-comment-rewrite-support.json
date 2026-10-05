@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0099-comment-rewrite-support",
+ "title": "zh: translate rewriteSupport comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "429d33b2d451f337d748782f77d77923f9783fd9",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/rewrite/rewriteSupport.c",
+   "kind": "c_comment",
+   "note": "rule support helpers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0099-comment-rewrite-support.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/rewrite/rewriteSupport.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 7,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "rule support helpers"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0099-comment-rewrite-support.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0099 translates src/backend/rewrite/rewriteSupport.c."
+}

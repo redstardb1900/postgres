@@ -27,7 +27,7 @@
 
 
 /*
- * Is there a rule by the given name?
+ * 是否有给定名称的规则？
  */
 bool
 IsDefinedRewriteRule(Oid owningRel, const char *ruleName)
@@ -40,15 +40,15 @@ IsDefinedRewriteRule(Oid owningRel, const char *ruleName)
 
 /*
  * SetRelationRuleStatus
- *		Set the value of the relation's relhasrules field in pg_class.
+ *		设置 pg_class 里该关系的 relhasrules 成员的值。
  *
- * NOTE: caller must be holding an appropriate lock on the relation.
+ * 注意：调用者必须对该关系持有适当的锁。
  *
- * NOTE: an important side-effect of this operation is that an SI invalidation
- * message is sent out to all backends --- including me --- causing relcache
- * entries to be flushed or updated with the new set of rules for the table.
- * This must happen even if we find that no change is needed in the pg_class
- * row.
+ * 注意：本操作的一个重要副作用是向所有后端
+ * （包括我自己）发出 SI 失效消息，使 relcache
+ * 项被刷新，或用该表的新规则集更新。
+ * 即使我们发现 pg_class 行不需要改动，
+ * 这也必须发生。
  */
 void
 SetRelationRuleStatus(Oid relationId, bool relHasRules)
@@ -58,7 +58,7 @@ SetRelationRuleStatus(Oid relationId, bool relHasRules)
 	Form_pg_class classForm;
 
 	/*
-	 * Find the tuple to update in pg_class, using syscache for the lookup.
+	 * 用系统缓存查找，在 pg_class 里找到要更新的元组。
 	 */
 	relationRelation = table_open(RelationRelationId, RowExclusiveLock);
 	tuple = SearchSysCacheCopy1(RELOID, ObjectIdGetDatum(relationId));
@@ -68,14 +68,14 @@ SetRelationRuleStatus(Oid relationId, bool relHasRules)
 
 	if (classForm->relhasrules != relHasRules)
 	{
-		/* Do the update */
+		/* 执行更新 */
 		classForm->relhasrules = relHasRules;
 
 		CatalogTupleUpdate(relationRelation, &tuple->t_self, tuple);
 	}
 	else
 	{
-		/* no need to change tuple, but force relcache rebuild anyway */
+		/* 不必改元组，但仍强制重建 relcache */
 		CacheInvalidateRelcacheByTuple(tuple);
 	}
 
@@ -84,10 +84,10 @@ SetRelationRuleStatus(Oid relationId, bool relHasRules)
 }
 
 /*
- * Find rule oid.
+ * 查找规则 oid。
  *
- * If missing_ok is false, throw an error if rule name not found.  If
- * true, just return InvalidOid.
+ * 若 missing_ok 为假，规则名未找到就报错。若
+ * 为真，就只返回 InvalidOid。
  */
 Oid
 get_rewrite_oid(Oid relid, const char *rulename, bool missing_ok)
@@ -96,7 +96,7 @@ get_rewrite_oid(Oid relid, const char *rulename, bool missing_ok)
 	Form_pg_rewrite ruleform;
 	Oid			ruleoid;
 
-	/* Find the rule's pg_rewrite tuple, get its OID */
+	/* 查找规则的 pg_rewrite 元组，取得它的 OID */
 	tuple = SearchSysCache2(RULERELNAME,
 							ObjectIdGetDatum(relid),
 							PointerGetDatum(rulename));

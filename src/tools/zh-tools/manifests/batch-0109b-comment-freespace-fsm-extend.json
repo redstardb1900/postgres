@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0109b-comment-freespace-fsm-extend",
+ "title": "zh: fix freespace fsm_extend wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "65d15aecb19ca83cf9bf1a7772917227d7060737",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "note": "upstream vm_extend typo in an FSM comment"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0109b-comment-freespace-fsm-extend.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 84,
+   "translated": 83,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "say fsm_extend; English still says vm_extend"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0109b-comment-freespace-fsm-extend.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0109b corrects the translated name vm_extend to fsm_extend in the FSM read path. The English comment still says vm_extend, so verify reports W7_IDENT_LOST and exits 0."
+}

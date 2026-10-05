@@ -589,7 +589,7 @@ fsm_readbuf(Relation rel, FSMAddress addr, bool extend)
 	 * 例如。
 	 *
 	 * 扩展关系时，下面用同一条路径来初始化页，
-	 * 因为并发扩展可能使 vm_extend()
+	 * 因为并发扩展可能使 fsm_extend()
 	 * 返回一张已经初始化过的页。
 	 */
 	if (blkno >= reln->smgr_cached_nblocks[FSM_FORKNUM])

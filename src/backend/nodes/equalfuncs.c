@@ -1,11 +1,11 @@
 /*-------------------------------------------------------------------------
  *
  * equalfuncs.c
- *	  Equality functions to compare node trees.
+ *	  用来比较节点树是否相等的函数。
  *
- * NOTE: it is intentional that parse location fields (in nodes that have
- * one) are not compared.  This is because we want, for example, a variable
- * "x" to be considered equal() to another reference to "x" in the query.
+ * 注意：有意不比较解析位置字段（对含有该字段的
+ * 节点而言）。这是因为我们希望，例如变量
+ * "x" 与查询中另一处对 "x" 的引用被 equal() 视为相等。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

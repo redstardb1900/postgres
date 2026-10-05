@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * copyfuncs.c
- *	  Copy functions for Postgres tree nodes.
+ *	  Postgres 树节点的复制函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

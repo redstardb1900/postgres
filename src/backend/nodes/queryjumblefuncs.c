@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * queryjumblefuncs.c
- *	 Query normalization and fingerprinting.
+ *	 查询规范化与取指纹。
  *
- * Normalization is a process whereby similar queries, typically differing only
- * in their constants (though the exact rules are somewhat more subtle than
- * that) are recognized as equivalent, and are tracked as a single entry.  This
- * is particularly useful for non-prepared queries.
+ * 规范化把相似的查询认作等价，并作为单独一条来跟踪。这些查询通常只在
+ * 常量上有所不同（不过确切规则比这
+ * 更为微妙）。这对
+ * 非预备查询特别有用。
  *
- * Normalization is implemented by fingerprinting queries, selectively
- * serializing those fields of each query tree's nodes that are judged to be
- * essential to the query.  This is referred to as a query jumble.  This is
- * distinct from a regular serialization in that various extraneous
- * information is ignored as irrelevant or not essential to the query, such
- * as the collations of Vars and, most notably, the values of constants.
+ * 规范化的做法是给查询取指纹：有选择地
+ * 序列化每个查询树节点中那些被判定为
+ * 对查询必不可少的字段。这称为查询混写。它
+ * 不同于常规序列化，各种多余的
+ * 信息被略去，视为与查询无关或并不重要，例如
+ * Var 的排序规则，以及最显著的一点，常量的值。
  *
- * This jumble is acquired at the end of parse analysis of each query, and
- * a 64-bit hash of it is stored into the query's Query.queryId field.
- * The server then copies this value around, making it available in plan
- * tree(s) generated from the query.  The executor can then use this value
- * to blame query costs on the proper queryId.
+ * 每个查询在解析分析结束时取得这一混写，
+ * 并将其 64 位散列存入该查询的 Query.queryId 字段。
+ * 服务器随后把这个值传递下去，使它出现在由该查询
+ * 生成的计划树中。执行器然后可以用这个值
+ * 把查询代价记到正确的 queryId 上。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

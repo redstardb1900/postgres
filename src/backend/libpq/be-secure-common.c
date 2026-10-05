@@ -2,11 +2,11 @@
  *
  * be-secure-common.c
  *
- * common implementation-independent SSL support code
+ * 与具体实现无关的公共 SSL 支持代码
  *
- * While be-secure.c contains the interfaces that the rest of the
- * communications code calls, this file contains support routines that are
- * used by the library-specific implementations such as be-secure-openssl.c.
+ * be-secure.c 含有其余通信代码所调用的接口，
+ * 本文件则含有支持例程，供
+ * be-secure-openssl.c 这类特定于库的实现使用。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

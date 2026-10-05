@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * bitmapset.c
- *	  PostgreSQL generic bitmap set package
+ *	  PostgreSQL 通用位图集合包
  *
- * A bitmap set can represent any set of nonnegative integers, although
- * it is mainly intended for sets where the maximum value is not large,
- * say at most a few hundred.  By convention, we always represent the
- * empty set by a NULL pointer.
+ * 位图集合可以表示任何非负整数的集合，不过
+ * 它主要面向最大值并不大的集合，
+ * 比如说最多几百。按照约定，我们总是用
+ * NULL 指针表示空集。
  *
  *
  * Copyright (c) 2003-2023, PostgreSQL Global Development Group

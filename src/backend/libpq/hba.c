@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * hba.c
- *	  Routines to handle host based authentication (that's the scheme
- *	  wherein you authenticate a user by seeing what IP address the system
- *	  says he comes from and choosing authentication method based on it).
+ *	  处理基于主机的认证的例程（这种方案是
+ *	  根据系统所报告的来源 IP 地址来认证用户，
+ *	  并据此选择认证方法）。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

@@ -1,60 +1,60 @@
 /*-------------------------------------------------------------------------
  *
  * integerset.c
- *	  Data structure to hold a large set of 64-bit integers efficiently
+ *	  高效保存大量 64 位整数的数据结构
  *
- * IntegerSet provides an in-memory data structure to hold a set of
- * arbitrary 64-bit integers.  Internally, the values are stored in a
- * B-tree, with a special packed representation at the leaf level using
- * the Simple-8b algorithm, which can pack clusters of nearby values
- * very tightly.
+ * IntegerSet 提供内存中的数据结构，用来保存一组
+ * 任意的 64 位整数。内部把这些值存在一棵
+ * B 树里，叶子层使用一种特殊的紧凑表示，借助
+ * Simple-8b 算法，可以把彼此接近的值
+ * 压得很紧。
  *
- * Memory consumption depends on the number of values stored, but also
- * on how far the values are from each other.  In the best case, with
- * long runs of consecutive integers, memory consumption can be as low as
- * 0.1 bytes per integer.  In the worst case, if integers are more than
- * 2^32 apart, it uses about 8 bytes per integer.  In typical use, the
- * consumption per integer is somewhere between those extremes, depending
- * on the range of integers stored, and how "clustered" they are.
+ * 内存消耗取决于所存值的个数，也取决于
+ * 这些值彼此相距多远。最好的情况下，若有
+ * 很长一段连续整数，每个整数的内存可低至
+ * 0.1 字节。最坏情况下，若整数相距超过
+ * 2^32，每个整数大约占用 8 字节。典型使用中，
+ * 每个整数的消耗介于这两个极端之间，取决于
+ * 所存整数的范围，以及它们有多"聚集"。
  *
  *
- * Interface
+ * 接口
  * ---------
  *
- *	intset_create			- Create a new, empty set
- *	intset_add_member		- Add an integer to the set
- *	intset_is_member		- Test if an integer is in the set
- *	intset_begin_iterate	- Begin iterating through all integers in set
- *	intset_iterate_next		- Return next set member, if any
+ *	intset_create			- 创建一个新的空集合
+ *	intset_add_member		- 把一个整数加入集合
+ *	intset_is_member		- 检测某个整数是否在集合中
+ *	intset_begin_iterate	- 开始遍历集合中的全部整数
+ *	intset_iterate_next		- 返回下一个集合成员（若还有）
  *
- * intset_create() creates the set in the current memory context.  Subsequent
- * operations that add to the data structure will continue to allocate from
- * that same context, even if it's not current anymore.
+ * intset_create() 在当前内存上下文中创建该集合。随后
+ * 向该数据结构追加内容的操作会继续从
+ * 同一个上下文分配，即使它已经不再是当前上下文。
  *
- * Note that there is no function to free an integer set.  If you need to do
- * that, create a dedicated memory context to hold it, and destroy the memory
- * context instead.
+ * 注意，没有释放整数集合的函数。若需要这么做，
+ * 请创建专用的内存上下文来容纳它，再销毁该内存
+ * 上下文即可。
  *
  *
- * Limitations
+ * 限制
  * -----------
  *
- * - Values must be added in order.  (Random insertions would require
- *   splitting nodes, which hasn't been implemented.)
+ * - 值必须按顺序加入。（随机插入需要
+ *   分裂节点，这一点尚未实现。）
  *
- * - Values cannot be added while iteration is in progress.
+ * - 迭代进行期间不能加入值。
  *
- * - No support for removing values.
+ * - 不支持移除值。
  *
- * None of these limitations are fundamental to the data structure, so they
- * could be lifted if needed, by writing some new code.  But the current
- * users of this facility don't need them.
+ * 这些限制都不是该数据结构本质上的，因此
+ * 若有需要，可以另写代码来取消。但目前
+ * 使用本设施的代码并不需要它们。
  *
  *
- * References
+ * 参考文献
  * ----------
  *
- * Simple-8b encoding is based on:
+ * Simple-8b 编码依据：
  *
  * Vo Ngoc Anh, Alistair Moffat, Index compression using 64-bit words,
  *   Software - Practice & Experience, v.40 n.2, p.131-147, February 2010

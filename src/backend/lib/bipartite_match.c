@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * bipartite_match.c
- *	  Hopcroft-Karp maximum cardinality algorithm for bipartite graphs
+ *	  二分图的 Hopcroft-Karp 最大基数算法
  *
- * This implementation is based on pseudocode found at:
+ * 本实现依据此处的伪代码：
  *
  * https://en.wikipedia.org/w/index.php?title=Hopcroft%E2%80%93Karp_algorithm&oldid=593898016
  *

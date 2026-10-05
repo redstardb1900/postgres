@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * list.c
- *	  implementation for PostgreSQL generic list package
+ *	  PostgreSQL 通用列表包的实现
  *
- * See comments in pg_list.h.
+ * 见 pg_list.h 中的注释。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

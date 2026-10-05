@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * rbtree.c
- *	  implementation for PostgreSQL generic Red-Black binary tree package
- *	  Adopted from http://algolist.manual.ru/ds/rbtree.php
+ *	  PostgreSQL 通用红黑二叉树包的实现
+ *	  取自 http://algolist.manual.ru/ds/rbtree.php
  *
- * This code comes from Thomas Niemann's "Sorting and Searching Algorithms:
- * a Cookbook".
+ * 本代码来自 Thomas Niemann 的 "Sorting and Searching Algorithms:
+ * a Cookbook"。
  *
- * See http://www.cs.auckland.ac.nz/software/AlgAnim/niemann/s_man.htm for
+ * 见 http://www.cs.auckland.ac.nz/software/AlgAnim/niemann/s_man.htm 的
  * license terms: "Source code, when part of a software project, may be used
- * freely without reference to the author."
+ * 可自由使用，无需注明作者。"
  *
- * Red-black trees are a type of balanced binary tree wherein (1) any child of
- * a red node is always black, and (2) every path from root to leaf traverses
- * an equal number of black nodes.  From these properties, it follows that the
- * longest path from root to leaf is only about twice as long as the shortest,
- * so lookups are guaranteed to run in O(lg n) time.
+ * 红黑树是一种平衡二叉树，其中 (1) 红节点的任何一个孩子
+ * 总是黑节点，并且 (2) 从根到叶的每条路径都经过
+ * 相同数目的黑节点。由这些性质可知，
+ * 从根到叶的最长路径大约只有最短路径的两倍，
+ * 因此查找保证在 O(lg n) 时间内完成。
  *
  * Copyright (c) 2009-2023, PostgreSQL Global Development Group
  *

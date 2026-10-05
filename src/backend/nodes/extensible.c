@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * extensible.c
- *	  Support for extensible node types
+ *	  对可扩展节点类型的支持
  *
- * Loadable modules can define what are in effect new types of nodes using
- * the routines in this file.  All such nodes are flagged T_ExtensibleNode,
- * with the extnodename field distinguishing the specific type.  Use
- * RegisterExtensibleNodeMethods to register a new type of extensible node,
- * and GetExtensibleNodeMethods to get information about a previously
- * registered type of extensible node.
+ * 可加载模块可以用本文件中的例程定义实际上的
+ * 新节点类型。所有这类节点都标为 T_ExtensibleNode，
+ * 并以 extnodename 字段区分具体类型。用
+ * RegisterExtensibleNodeMethods 注册一种新的可扩展节点，
+ * 用 GetExtensibleNodeMethods 取得先前已经
+ * 注册的可扩展节点类型的信息。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

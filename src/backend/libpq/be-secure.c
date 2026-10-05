@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * be-secure.c
- *	  functions related to setting up a secure connection to the frontend.
- *	  Secure connections are expected to provide confidentiality,
- *	  message integrity and endpoint authentication.
+ *	  与建立到前端的安全连接有关的函数。
+ *	  安全连接应当提供机密性、
+ *	  报文完整性与端点认证。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

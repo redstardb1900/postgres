@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * params.c
- *	  Support for finding the values associated with Param nodes.
+ *	  支持查找与 Param 节点相关联的值。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

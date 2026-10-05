@@ -1,0 +1,751 @@
+{
+ "schema_version": 1,
+ "batch_id": "0114-comment-headers-lib-nodes",
+ "title": "zh: translate file-header module descriptions (lib/libpq/nodes)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "262cafd20667cec93a6671d2536f1cbc1eeca951",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/lib/binaryheap.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/bipartite_match.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/ilist.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/auth-sasl.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/auth-scram.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-fsstubs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-gssapi-common.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure-common.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure-gssapi.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure-openssl.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/be-secure.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/crypt.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/ifaddr.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/pqmq.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/libpq/pqsignal.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/extensible.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/list.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/makefuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/multibitmapset.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/nodeFuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/nodes.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/outfuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0114-comment-headers-lib-nodes.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/lib/binaryheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 27,
+   "translated": 26,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/bipartite_match.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/bloomfilter.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/dshash.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 93,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/hyperloglog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 15,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "MIT license block"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/ilist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 11,
+   "translated": 10,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "ILIST_DEBUG identifier"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/integerset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 105,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/knapsack.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 2,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/pairingheap.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/lib/rbtree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 69,
+   "translated": 68,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/auth-sasl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 16,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/auth-scram.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 94,
+   "translated": 87,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "RFC syntax pgindent blocks",
+    "protocol literal"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/auth.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 264,
+   "translated": 222,
+   "preserved": 42,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "translator comments",
+    "fall-through",
+    "preprocessor markers",
+    "code literals"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-fsstubs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 55,
+   "translated": 54,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "commented-out FSDB define"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-gssapi-common.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 15,
+   "translated": 14,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-secure-common.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 5,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-secure-gssapi.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 78,
+   "translated": 77,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-secure-openssl.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 90,
+   "translated": 83,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "translator comments",
+    "pgindent CRL block",
+    "decorative separators"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/be-secure.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 26,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "decorative separators"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/crypt.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/hba.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 199,
+   "translated": 193,
+   "preserved": 6,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "translator comment",
+    "config keyword and ctLocal markers left unchanged"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/ifaddr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 20,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "preprocessor condition comments"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/pqcomm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 175,
+   "translated": 162,
+   "preserved": 13,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "INTERFACE ROUTINES pgindent block",
+    "translator comments",
+    "preprocessor markers"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/pqformat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 43,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/pqmq.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 19,
+   "translated": 18,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/libpq/pqsignal.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/main/main.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 34,
+   "translated": 30,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "preprocessor markers"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/bitmapset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 109,
+   "translated": 108,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent block"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/copyfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 18,
+   "translated": 17,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/equalfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 25,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/extensible.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 7,
+   "translated": 6,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/list.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 106,
+   "translated": 105,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "preprocessor marker"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/makefuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 67,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "function-name banner"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/multibitmapset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/nodeFuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 274,
+   "translated": 269,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through",
+    "preprocessor marker",
+    "field-name banners"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/nodes.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/outfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 57,
+   "translated": 56,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/params.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 34,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/print.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/nodes/queryjumblefuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 25,
+   "translated": 24,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0114-comment-headers-lib-nodes.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Backfill file-header module descriptions after the line-level Copyright/IDENTIFICATION protect rule. Covers backend/lib, backend/libpq, backend/main/main.c, and backend/nodes. Legal lines stay byte-identical."
+}

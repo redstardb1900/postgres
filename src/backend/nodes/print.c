@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * print.c
- *	  various print routines (used mostly for debugging)
+ *	  各种打印例程（多用于调试）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,9 +10,9 @@
  * IDENTIFICATION
  *	  src/backend/nodes/print.c
  *
- * HISTORY
- *	  AUTHOR			DATE			MAJOR EVENT
- *	  Andrew Yu			Oct 26, 1994	file creation
+ * 历史
+ *	  作者			日期			主要事件
+ *	  Andrew Yu			Oct 26, 1994	创建文件
  *
  *-------------------------------------------------------------------------
  */

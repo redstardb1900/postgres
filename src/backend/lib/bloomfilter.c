@@ -1,28 +1,28 @@
 /*-------------------------------------------------------------------------
  *
  * bloomfilter.c
- *		Space-efficient set membership testing
+ *		节省空间的集合成员检测
  *
- * A Bloom filter is a probabilistic data structure that is used to test an
- * element's membership of a set.  False positives are possible, but false
- * negatives are not; a test of membership of the set returns either "possibly
- * in set" or "definitely not in set".  This is typically very space efficient,
- * which can be a decisive advantage.
+ * Bloom 过滤器是一种概率数据结构，用来检测某个
+ * 元素是否属于集合。可能出现误报，但不会出现
+ * 漏报；成员检测要么返回"可能
+ * 在集合中"，要么返回"肯定不在集合中"。这通常非常节省空间，
+ * 因而可以成为决定性的优势。
  *
- * Elements can be added to the set, but not removed.  The more elements that
- * are added, the larger the probability of false positives.  Caller must hint
- * an estimated total size of the set when the Bloom filter is initialized.
- * This is used to balance the use of memory against the final false positive
- * rate.
+ * 元素可以加入集合，但不能移除。加入的元素
+ * 越多，误报概率越大。调用者必须在初始化 Bloom 过滤器时
+ * 给出集合总大小的估计。
+ * 这用来在内存用量与最终误报
+ * 率之间取得平衡。
  *
- * The implementation is well suited to data synchronization problems between
- * unordered sets, especially where predictable performance is important and
- * some false positives are acceptable.  It's also well suited to cache
- * filtering problems where a relatively small and/or low cardinality set is
- * fingerprinted, especially when many subsequent membership tests end up
- * indicating that values of interest are not present.  That should save the
- * caller many authoritative lookups, such as expensive probes of a much larger
- * on-disk structure.
+ * 本实现很适合无序集合之间的数据同步问题，
+ * 尤其是在性能需要可预测、并且
+ * 可以接受一些误报的场合。它也同样适合缓存
+ * 过滤：对一个相对较小且/或基数较低的集合取
+ * 指纹，尤其是随后许多成员检测最终都
+ * 表明所关心的值并不存在。这应当为调用者省下
+ * 许多权威查找，例如对大得多的
+ * 磁盘上结构做昂贵探测。
  *
  * Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *

@@ -1,21 +1,21 @@
 /*-------------------------------------------------------------------------
  *
  * pqcomm.c
- *	  Communication functions between the Frontend and the Backend
+ *	  前端与后端之间的通信函数
  *
- * These routines handle the low-level details of communication between
- * frontend and backend.  They just shove data across the communication
- * channel, and are ignorant of the semantics of the data.
+ * 这些例程处理前端与后端之间通信的
+ * 低层细节。它们只是把数据推过通信
+ * 通道，并不了解数据的语义。
  *
- * To emit an outgoing message, use the routines in pqformat.c to construct
- * the message in a buffer and then emit it in one call to pq_putmessage.
- * There are no functions to send raw bytes or partial messages; this
- * ensures that the channel will not be clogged by an incomplete message if
- * execution is aborted by ereport(ERROR) partway through the message.
+ * 要发出一条外出报文，用 pqformat.c 中的例程在
+ * 缓冲区里构造该报文，再以一次 pq_putmessage 调用发出。
+ * 没有发送原始字节或部分报文的函数；这样
+ * 可以保证，若执行在报文写到一半时被 ereport(ERROR) 中止，
+ * 通道不会被一条不完整的报文堵住。
  *
- * At one time, libpq was shared between frontend and backend, but now
- * the backend's "backend/libpq" is quite separate from "interfaces/libpq".
- * All that remains is similarities of names to trap the unwary...
+ * 从前 libpq 由前端与后端共用，但现在
+ * 后端的 "backend/libpq" 与 "interfaces/libpq" 已经相当分离。
+ * 剩下的只是名称上的相似，容易绊住不留神的人...
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

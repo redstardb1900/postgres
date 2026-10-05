@@ -1,24 +1,24 @@
 /*-------------------------------------------------------------------------
  *
  * dshash.c
- *	  Concurrent hash tables backed by dynamic shared memory areas.
+ *	  由动态共享内存区支撑的并发哈希表。
  *
- * This is an open hashing hash table, with a linked list at each table
- * entry.  It supports dynamic resizing, as required to prevent the linked
- * lists from growing too long on average.  Currently, only growing is
- * supported: the hash table never becomes smaller.
+ * 这是开放哈希表，每个表项上挂一条
+ * 链表。它支持动态调整大小，以免这些链表
+ * 平均变得过长。目前只支持增大：
+ * 哈希表从不缩小。
  *
- * To deal with concurrency, it has a fixed size set of partitions, each of
- * which is independently locked.  Each bucket maps to a partition; so insert,
- * find and iterate operations normally only acquire one lock.  Therefore,
- * good concurrency is achieved whenever such operations don't collide at the
- * lock partition level.  However, when a resize operation begins, all
- * partition locks must be acquired simultaneously for a brief period.  This
- * is only expected to happen a small number of times until a stable size is
- * found, since growth is geometric.
+ * 为应对并发，它有一组固定数量的分区，每个
+ * 分区独立加锁。每个桶映射到一个分区；因此插入、
+ * 查找和迭代通常只获取一把锁。于是，
+ * 只要这些操作在锁分区这一层不发生冲突，
+ * 就能得到良好的并发。不过，一旦开始调整大小，必须
+ * 在短时间内同时取得全部分区锁。这
+ * 预计只会发生少数几次，直到找到稳定的大小，
+ * 因为增长是按几何级数进行的。
  *
- * Future versions may support iterators and incremental resizing; for now
- * the implementation is minimalist.
+ * 将来的版本也许会支持迭代器与增量调整大小；目前
+ * 实现是最小化的。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

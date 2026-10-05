@@ -1830,6 +1830,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
    "kind": "manifest",
    "note": "batch 0113"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0114-comment-headers-lib-nodes.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -3973,13 +3978,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 11,
-   "translated": 9,
-   "preserved": 2,
+   "translated": 10,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "ILIST_DEBUG identifier"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/knapsack.c",
@@ -3989,9 +3994,9 @@
    "translated": 2,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/bipartite_match.c",
@@ -4001,9 +4006,9 @@
    "translated": 9,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0031-comment-lib-small.json",
@@ -4023,9 +4028,9 @@
    "translated": 26,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/pairingheap.c",
@@ -4035,9 +4040,9 @@
    "translated": 21,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/bloomfilter.c",
@@ -4047,22 +4052,22 @@
    "translated": 18,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/hyperloglog.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 16,
-   "translated": 14,
-   "preserved": 2,
+   "translated": 15,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "MIT license block"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0032-comment-lib-heaps.json",
@@ -4082,9 +4087,9 @@
    "translated": 93,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/rbtree.c",
@@ -4094,9 +4099,9 @@
    "translated": 68,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/integerset.c",
@@ -4106,9 +4111,9 @@
    "translated": 105,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only; headers preserved"
+   "note": "comment-only; headers preserved; header module description"
   },
   {
    "path": "src/backend/lib/Makefile",
@@ -4491,9 +4496,9 @@
    "translated": 16,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/be-gssapi-common.c",
@@ -4503,9 +4508,9 @@
    "translated": 14,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/be-secure-common.c",
@@ -4515,22 +4520,22 @@
    "translated": 5,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/be-secure.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 28,
-   "translated": 25,
-   "preserved": 3,
+   "translated": 26,
+   "preserved": 2,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "decorative separators"
    ],
-   "note": "comment-only; dash separators kept"
+   "note": "comment-only; dash separators kept; header module description"
   },
   {
    "path": "src/backend/libpq/crypt.c",
@@ -4540,22 +4545,22 @@
    "translated": 18,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/ifaddr.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 25,
-   "translated": 19,
-   "preserved": 6,
+   "translated": 20,
+   "preserved": 5,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "preprocessor condition comments"
    ],
-   "note": "comment-only; preprocessor markers kept"
+   "note": "comment-only; preprocessor markers kept; header module description"
   },
   {
    "path": "src/backend/libpq/pqmq.c",
@@ -4565,9 +4570,9 @@
    "translated": 18,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/pqsignal.c",
@@ -4577,9 +4582,9 @@
    "translated": 6,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0037-comment-libpq-c-small.json",
@@ -4599,22 +4604,22 @@
    "translated": 43,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "comment-only"
+   "note": "comment-only; header module description"
   },
   {
    "path": "src/backend/libpq/be-fsstubs.c",
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 55,
-   "translated": 53,
-   "preserved": 2,
+   "translated": 54,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "commented-out FSDB define"
    ],
-   "note": "comment-only; disabled FSDB define kept"
+   "note": "comment-only; disabled FSDB define kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0038-comment-libpq-pqformat.json",
@@ -4631,13 +4636,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 78,
-   "translated": 76,
-   "preserved": 2,
+   "translated": 77,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "fall-through"
    ],
-   "note": "comment-only; fall-through kept"
+   "note": "comment-only; fall-through kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0039-comment-libpq-gssapi.json",
@@ -4654,15 +4659,15 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 90,
-   "translated": 82,
-   "preserved": 8,
+   "translated": 83,
+   "preserved": 7,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "translator comments",
     "pgindent CRL block",
     "decorative separators"
    ],
-   "note": "comment-only; translator, pgindent and dash separators kept"
+   "note": "comment-only; translator, pgindent and dash separators kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0040-comment-libpq-openssl.json",
@@ -4679,14 +4684,14 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 94,
-   "translated": 86,
-   "preserved": 8,
+   "translated": 87,
+   "preserved": 7,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "RFC syntax pgindent blocks",
     "protocol literal"
    ],
-   "note": "comment-only; RFC syntax pgindent blocks kept"
+   "note": "comment-only; RFC syntax pgindent blocks kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0041-comment-libpq-scram.json",
@@ -4703,15 +4708,15 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 175,
-   "translated": 161,
-   "preserved": 14,
+   "translated": 162,
+   "preserved": 13,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "INTERFACE ROUTINES pgindent block",
     "translator comments",
     "preprocessor markers"
    ],
-   "note": "comment-only; pgindent index, translator and WIN32/ENABLE_GSS markers kept"
+   "note": "comment-only; pgindent index, translator and WIN32/ENABLE_GSS markers kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0042-comment-libpq-pqcomm.json",
@@ -4738,14 +4743,14 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 199,
-   "translated": 192,
-   "preserved": 7,
+   "translated": 193,
+   "preserved": 6,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "translator comment",
     "config keyword and ctLocal markers left unchanged"
    ],
-   "note": "comment-only; pgindent header and translator comment kept"
+   "note": "comment-only; pgindent header and translator comment kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0044-comment-libpq-hba.json",
@@ -4772,16 +4777,16 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 264,
-   "translated": 221,
-   "preserved": 43,
+   "translated": 222,
+   "preserved": 42,
    "preserved_reasons": [
-    "copyright/pgindent blocks",
+    "copyright/IDENTIFICATION lines",
     "translator comments",
     "fall-through",
     "preprocessor markers",
     "code literals"
    ],
-   "note": "comment-only; pgindent, translator, fall-through and macro markers kept"
+   "note": "comment-only; pgindent, translator, fall-through and macro markers kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0046-comment-libpq-auth.json",
@@ -4798,13 +4803,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 34,
-   "translated": 29,
-   "preserved": 5,
+   "translated": 30,
+   "preserved": 4,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "preprocessor markers"
    ],
-   "note": "comment-only; pgindent header and WIN32/MINGW markers kept"
+   "note": "comment-only; pgindent header and WIN32/MINGW markers kept; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0047-comment-main.json",
@@ -4824,9 +4829,9 @@
    "translated": 1,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "newNode macro support"
+   "note": "newNode macro support; header module description"
   },
   {
    "path": "src/backend/nodes/value.c",
@@ -4849,9 +4854,9 @@
    "translated": 6,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "extensible node registration"
+   "note": "extensible node registration; header module description"
   },
   {
    "path": "src/backend/nodes/multibitmapset.c",
@@ -4861,9 +4866,9 @@
    "translated": 13,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "multibitmapset helpers"
+   "note": "multibitmapset helpers; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0048-comment-nodes-small.json",
@@ -4883,9 +4888,9 @@
    "translated": 17,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "node copy support"
+   "note": "node copy support; header module description"
   },
   {
    "path": "src/backend/nodes/equalfuncs.c",
@@ -4895,9 +4900,9 @@
    "translated": 25,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "node equality support"
+   "note": "node equality support; header module description"
   },
   {
    "path": "src/backend/nodes/print.c",
@@ -4907,9 +4912,9 @@
    "translated": 24,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "node debug printers"
+   "note": "node debug printers; header module description"
   },
   {
    "path": "src/backend/nodes/queryjumblefuncs.c",
@@ -4919,9 +4924,9 @@
    "translated": 24,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "query jumble"
+   "note": "query jumble; header module description"
   },
   {
    "path": "src/backend/nodes/params.c",
@@ -4931,9 +4936,9 @@
    "translated": 34,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "ParamListInfo helpers"
+   "note": "ParamListInfo helpers; header module description"
   },
   {
    "path": "src/backend/nodes/read.c",
@@ -4963,13 +4968,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 109,
-   "translated": 107,
-   "preserved": 2,
+   "translated": 108,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "pgindent block"
    ],
-   "note": "bitmap set package"
+   "note": "bitmap set package; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0050-comment-nodes-bitmapset.json",
@@ -4986,13 +4991,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 106,
-   "translated": 104,
-   "preserved": 2,
+   "translated": 105,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "preprocessor marker"
    ],
-   "note": "generic list package"
+   "note": "generic list package; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0051-comment-nodes-list.json",
@@ -5009,13 +5014,13 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 68,
-   "translated": 66,
-   "preserved": 2,
+   "translated": 67,
+   "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "function-name banner"
    ],
-   "note": "node constructor helpers"
+   "note": "node constructor helpers; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0052-comment-nodes-makefuncs.json",
@@ -5035,9 +5040,9 @@
    "translated": 56,
    "preserved": 1,
    "preserved_reasons": [
-    "copyright/pgindent header"
+    "copyright/IDENTIFICATION lines"
    ],
-   "note": "node output functions"
+   "note": "node output functions; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0053-comment-nodes-outfuncs.json",
@@ -5054,15 +5059,15 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 274,
-   "translated": 268,
-   "preserved": 6,
+   "translated": 269,
+   "preserved": 5,
    "preserved_reasons": [
-    "copyright/pgindent header",
+    "copyright/IDENTIFICATION lines",
     "fall-through",
     "preprocessor marker",
     "field-name banners"
    ],
-   "note": "node tree walkers and expression helpers"
+   "note": "node tree walkers and expression helpers; header module description"
   },
   {
    "path": "src/tools/zh-tools/manifests/batch-0054-comment-nodes-nodefuncs.json",
@@ -6951,7 +6956,17 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0114-comment-headers-lib-nodes.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments. Batch 0059 translates src/backend/optimizer/path/tidpath.c and clausesel.c. Batch 0060 translates src/backend/optimizer/path/joinrels.c. Batch 0061 fixes clausesel.c wording (SELECTIVITY_DEBUG endif, selectivity complement). Batch 0062 translates src/backend/optimizer/path/pathkeys.c. Batch 0063 fixes joinrels.c wording (lateral joins). Batch 0064 translates src/backend/optimizer/path/equivclass.c. Batch 0065 fixes pathkeys.c (merge pathkey comments; find_mergeclauses pgindent block preserved), copyfuncs.c, and tidbitmap.c wording. Batch 0066 translates src/backend/optimizer/path/joinpath.c. Batch 0067 translates src/backend/optimizer/path/indxpath.c. Batch 0068 translates src/backend/optimizer/path/allpaths.c. Batch 0069 fixes indxpath.c wording (parallel partial bitmap heap path; drop index(es)/path(s)/type(s)/relid(s) mix). Batch 0070 translates src/backend/optimizer/path/costsize.c. Batch 0071 translates src/backend/optimizer/plan/planmain.c, planagg.c, and analyzejoins.c. Batch 0072 fixes analyzejoins.c wording (derived clauses, uniqueness operator, LATERAL). Batch 0073 translates src/backend/optimizer/plan/subselect.c. Batch 0074 translates src/backend/optimizer/plan/initsplan.c. Batch 0075 translates src/backend/optimizer/plan/setrefs.c. Batch 0076 translates src/backend/optimizer/plan/createplan.c. Batch 0076b restores the four CP_* flag descriptions in createplan.c. Batch 0077 translates src/backend/optimizer/plan/planner.c. Batch 0078 translates src/backend/optimizer/prep/prepagg.c, prepqual.c, preptlist.c, and prepunion.c. Batch 0079 translates src/backend/optimizer/prep/prepjointree.c. Batch 0080 translates src/backend/optimizer/util/joininfo.c, orclauses.c, paramassign.c, placeholder.c, and restrictinfo.c. Batch 0080b fixes orclauses.c hack wording and comment paragraph breaks, and the paramassign.c identity-3 line break. Batch 0081 translates src/backend/optimizer/util/appendinfo.c, inherit.c, var.c, and tlist.c. Batch 0082 translates src/backend/optimizer/util/predtest.c. Batch 0082b fixes the immutable polarity in predtest.c clause_is_strict_for, and aligns the btree implication table comment. Batch 0083 translates src/backend/optimizer/util/plancat.c. Batch 0084 translates src/backend/optimizer/util/relnode.c. Batch 0085 translates src/backend/optimizer/util/pathnode.c. Batch 0085b completes the object of the unmatched opclass and collation comments in plancat.c. Batch 0086 translates src/backend/optimizer/util/clauses.c. Batch 0086b fixes clauses.c wording (level field, catch, err on the side of conservatism). Batch 0087 translates src/backend/partitioning/partdesc.c. Batch 0087b distinguishes PartitionDirectory from the system catalog in partdesc.c. Batch 0088 translates src/backend/partitioning/partbounds.c. Batch 0089 translates src/backend/partitioning/partprune.c. Batch 0089b names the system catalog in the partdesc corruption and scan comments. Batch 0090 translates src/backend/statistics/dependencies.c. Batch 0090b replaces the partprune partitionwise-join wording. Batch 0091 translates src/backend/statistics/extended_stats.c. Batch 0092 translates src/backend/statistics/mcv.c. Batch 0093 translates src/backend/statistics/mvdistinct.c. Batch 0094 translates src/backend/rewrite/rewriteDefine.c. Batch 0093b rewords the real-enough table-column comments in mcv.c and mvdistinct.c. Batch 0095 translates src/backend/rewrite/rewriteHandler.c. Batch 0096 translates src/backend/rewrite/rewriteManip.c. Batch 0097 translates src/backend/rewrite/rewriteRemove.c. Batch 0098 translates src/backend/rewrite/rewriteSearchCycle.c. Batch 0099 translates src/backend/rewrite/rewriteSupport.c. Batch 0100 translates src/backend/rewrite/rowsecurity.c. Batch 0100b rewords the planner and duplicate-read comments in rewriteHandler.c. Batch 0101 translates src/backend/storage/buffer/buf_init.c and buf_table.c. Batch 0101b rewords buffer-pool comments in buf_init.c. Batch 0102 translates src/backend/storage/buffer/bufmgr.c. Batch 0102b translates the InvalidateBuffer wait comment in bufmgr.c; WaitIO fall-through prose is not a switch annotation. Also drops the redundant BEFORE gloss and says 计数表示 for refcount in buf_init.c. Batch 0103 translates src/backend/storage/buffer/freelist.c. Batch 0104 translates src/backend/storage/buffer/localbuf.c. Batch 0104b restores the uncomment-to-enable LBDEBUG toggle in localbuf.c and fixes the freelist infinite-loop wording. Batch 0105 translates src/backend/storage/file/buffile.c and copydir.c. Batch 0106 translates src/backend/storage/file/fd.c. Batch 0107 translates src/backend/storage/file/fileset.c, reinit.c, and sharedfileset.c. Batch 0108 translates src/backend/storage/freespace/freespace.c, fsmpage.c, and indexfsm.c. Batch 0108b translates the freespace init-race comment; that fall-through prose is not a switch annotation. Batch 0109 translates src/backend/storage/ipc/barrier.c, dsm.c, and dsm_impl.c. Batch 0109b says fsm_extend where the English comment still says vm_extend. Batch 0110 translates src/backend/storage/ipc/ipc.c and ipci.c. Batch 0111 translates src/backend/storage/ipc/latch.c. Batch 0111b says 条件 where the English comment still says condition(s). Batch 0112 translates src/backend/storage/ipc/procarray.c."
+ "notes": "Union of manifests/batch-*.json. Hard excludes: doc/, Perl protected set, every *.txt (S5). README: 88 of 88 include files translated. Comments: all 10 backend/lib .c files, both lib Makefiles, 10 include/lib headers, 13 include/libpq headers, and the backend/libpq .c files with auth.c included. Batch 0035 adjusts terminology in five backend/lib files. backend/libpq .c comments are complete. 194 platform candidates still unapproved. Batch 0043 rewords the stored SCRAM secret as a credential string and restores the NB paragraph. Batch 0045 restores the pqcomm socket_close paragraphs and renames dshash partition locks. Batch 0046 translates auth.c. Batch 0047 translates src/backend/main/main.c. Batch 0048 translates the smaller src/backend/nodes .c files. Batch 0049 translates the mid-size src/backend/nodes .c files (copyfuncs, equalfuncs, print, queryjumblefuncs, params, read). Batch 0050 translates src/backend/nodes/bitmapset.c. Batch 0051 translates src/backend/nodes/list.c. Batch 0052 translates src/backend/nodes/makefuncs.c. Batch 0053 translates src/backend/nodes/outfuncs.c. Batch 0054 translates src/backend/nodes/nodeFuncs.c. Batch 0055 translates src/backend/nodes/readfuncs.c. Batch 0056 translates src/backend/nodes/tidbitmap.c. backend/nodes .c comments are complete. Batch 0057 fixes nodeFuncs.c comment wording (bugs, parse tree, ressortgrouprefs). Batch 0058 translates src/backend/optimizer/geqo .c comments. Batch 0059 translates src/backend/optimizer/path/tidpath.c and clausesel.c. Batch 0060 translates src/backend/optimizer/path/joinrels.c. Batch 0061 fixes clausesel.c wording (SELECTIVITY_DEBUG endif, selectivity complement). Batch 0062 translates src/backend/optimizer/path/pathkeys.c. Batch 0063 fixes joinrels.c wording (lateral joins). Batch 0064 translates src/backend/optimizer/path/equivclass.c. Batch 0065 fixes pathkeys.c (merge pathkey comments; find_mergeclauses pgindent block preserved), copyfuncs.c, and tidbitmap.c wording. Batch 0066 translates src/backend/optimizer/path/joinpath.c. Batch 0067 translates src/backend/optimizer/path/indxpath.c. Batch 0068 translates src/backend/optimizer/path/allpaths.c. Batch 0069 fixes indxpath.c wording (parallel partial bitmap heap path; drop index(es)/path(s)/type(s)/relid(s) mix). Batch 0070 translates src/backend/optimizer/path/costsize.c. Batch 0071 translates src/backend/optimizer/plan/planmain.c, planagg.c, and analyzejoins.c. Batch 0072 fixes analyzejoins.c wording (derived clauses, uniqueness operator, LATERAL). Batch 0073 translates src/backend/optimizer/plan/subselect.c. Batch 0074 translates src/backend/optimizer/plan/initsplan.c. Batch 0075 translates src/backend/optimizer/plan/setrefs.c. Batch 0076 translates src/backend/optimizer/plan/createplan.c. Batch 0076b restores the four CP_* flag descriptions in createplan.c. Batch 0077 translates src/backend/optimizer/plan/planner.c. Batch 0078 translates src/backend/optimizer/prep/prepagg.c, prepqual.c, preptlist.c, and prepunion.c. Batch 0079 translates src/backend/optimizer/prep/prepjointree.c. Batch 0080 translates src/backend/optimizer/util/joininfo.c, orclauses.c, paramassign.c, placeholder.c, and restrictinfo.c. Batch 0080b fixes orclauses.c hack wording and comment paragraph breaks, and the paramassign.c identity-3 line break. Batch 0081 translates src/backend/optimizer/util/appendinfo.c, inherit.c, var.c, and tlist.c. Batch 0082 translates src/backend/optimizer/util/predtest.c. Batch 0082b fixes the immutable polarity in predtest.c clause_is_strict_for, and aligns the btree implication table comment. Batch 0083 translates src/backend/optimizer/util/plancat.c. Batch 0084 translates src/backend/optimizer/util/relnode.c. Batch 0085 translates src/backend/optimizer/util/pathnode.c. Batch 0085b completes the object of the unmatched opclass and collation comments in plancat.c. Batch 0086 translates src/backend/optimizer/util/clauses.c. Batch 0086b fixes clauses.c wording (level field, catch, err on the side of conservatism). Batch 0087 translates src/backend/partitioning/partdesc.c. Batch 0087b distinguishes PartitionDirectory from the system catalog in partdesc.c. Batch 0088 translates src/backend/partitioning/partbounds.c. Batch 0089 translates src/backend/partitioning/partprune.c. Batch 0089b names the system catalog in the partdesc corruption and scan comments. Batch 0090 translates src/backend/statistics/dependencies.c. Batch 0090b replaces the partprune partitionwise-join wording. Batch 0091 translates src/backend/statistics/extended_stats.c. Batch 0092 translates src/backend/statistics/mcv.c. Batch 0093 translates src/backend/statistics/mvdistinct.c. Batch 0094 translates src/backend/rewrite/rewriteDefine.c. Batch 0093b rewords the real-enough table-column comments in mcv.c and mvdistinct.c. Batch 0095 translates src/backend/rewrite/rewriteHandler.c. Batch 0096 translates src/backend/rewrite/rewriteManip.c. Batch 0097 translates src/backend/rewrite/rewriteRemove.c. Batch 0098 translates src/backend/rewrite/rewriteSearchCycle.c. Batch 0099 translates src/backend/rewrite/rewriteSupport.c. Batch 0100 translates src/backend/rewrite/rowsecurity.c. Batch 0100b rewords the planner and duplicate-read comments in rewriteHandler.c. Batch 0101 translates src/backend/storage/buffer/buf_init.c and buf_table.c. Batch 0101b rewords buffer-pool comments in buf_init.c. Batch 0102 translates src/backend/storage/buffer/bufmgr.c. Batch 0102b translates the InvalidateBuffer wait comment in bufmgr.c; WaitIO fall-through prose is not a switch annotation. Also drops the redundant BEFORE gloss and says 计数表示 for refcount in buf_init.c. Batch 0103 translates src/backend/storage/buffer/freelist.c. Batch 0104 translates src/backend/storage/buffer/localbuf.c. Batch 0104b restores the uncomment-to-enable LBDEBUG toggle in localbuf.c and fixes the freelist infinite-loop wording. Batch 0105 translates src/backend/storage/file/buffile.c and copydir.c. Batch 0106 translates src/backend/storage/file/fd.c. Batch 0107 translates src/backend/storage/file/fileset.c, reinit.c, and sharedfileset.c. Batch 0108 translates src/backend/storage/freespace/freespace.c, fsmpage.c, and indexfsm.c. Batch 0108b translates the freespace init-race comment; that fall-through prose is not a switch annotation. Batch 0109 translates src/backend/storage/ipc/barrier.c, dsm.c, and dsm_impl.c. Batch 0109b says fsm_extend where the English comment still says vm_extend. Batch 0110 translates src/backend/storage/ipc/ipc.c and ipci.c. Batch 0111 translates src/backend/storage/ipc/latch.c. Batch 0111b says 条件 where the English comment still says condition(s). Batch 0112 translates src/backend/storage/ipc/procarray.c. Batch 0114 backfills file-header module descriptions in backend/lib, backend/libpq, backend/main/main.c, and backend/nodes."
 }

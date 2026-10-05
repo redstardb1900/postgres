@@ -1,24 +1,24 @@
 /*-------------------------------------------------------------------------
  *
  * pqformat.c
- *		Routines for formatting and parsing frontend/backend messages
+ *		格式化并解析前端/后端报文的例程
  *
- * Outgoing messages are built up in a StringInfo buffer (which is expansible)
- * and then sent in a single call to pq_putmessage.  This module provides data
- * formatting/conversion routines that are needed to produce valid messages.
- * Note in particular the distinction between "raw data" and "text"; raw data
- * is message protocol characters and binary values that are not subject to
- * character set conversion, while text is converted by character encoding
- * rules.
+ * 外出报文在一个可扩展的 StringInfo 缓冲区中组装，
+ * 然后用一次 pq_putmessage 调用发送。本模块提供产生有效报文
+ * 所需的数据格式化与转换例程。
+ * 请特别注意 "raw data" 与 "text" 的区别；原始数据
+ * 是报文协议字符和二进制值，不进行
+ * 字符集转换，而文本则按字符编码
+ * 规则来转换。
  *
- * Incoming messages are similarly read into a StringInfo buffer, via
- * pq_getmessage, and then parsed and converted from that using the routines
- * in this module.
+ * 进入的报文同样读入一个 StringInfo 缓冲区，经由
+ * pq_getmessage，再用本模块中的例程
+ * 从中解析并转换。
  *
- * These same routines support reading and writing of external binary formats
- * (typsend/typreceive routines).  The conversion routines for individual
- * data types are exactly the same, only initialization and completion
- * are different.
+ * 这些例程同样支持外部二进制格式的读写
+ * （typsend/typreceive 例程）。各个数据类型的转换例程
+ * 完全相同，不同的只是初始化与收尾
+ * 方式。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

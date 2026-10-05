@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * auth.c
- *	  Routines to handle network authentication
+ *	  处理网络认证的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

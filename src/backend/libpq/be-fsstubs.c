@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * be-fsstubs.c
- *	  Builtin functions for open/close/read/write operations on large objects
+ *	  对大对象做 open/close/read/write 的内建函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,28 +10,28 @@
  * IDENTIFICATION
  *	  src/backend/libpq/be-fsstubs.c
  *
- * NOTES
- *	  This should be moved to a more appropriate place.  It is here
- *	  for lack of a better place.
+ * 说明
+ *	  本文件应当挪到更合适的地方。它放在这里
+ *	  只是因为没有更好的去处。
  *
- *	  These functions store LargeObjectDesc structs in a private MemoryContext,
- *	  which means that large object descriptors hang around until we destroy
- *	  the context at transaction end.  It'd be possible to prolong the lifetime
- *	  of the context so that LO FDs are good across transactions (for example,
- *	  we could release the context only if we see that no FDs remain open).
- *	  But we'd need additional state in order to do the right thing at the
- *	  end of an aborted transaction.  FDs opened during an aborted xact would
- *	  still need to be closed, since they might not be pointing at valid
- *	  relations at all.  Locking semantics are also an interesting problem
- *	  if LOs stay open across transactions.  For now, we'll stick with the
- *	  existing documented semantics of LO FDs: they're only good within a
- *	  transaction.
+ *	  这些函数把 LargeObjectDesc 结构存放在私有 MemoryContext 中，
+ *	  这意味着大对象描述符会一直留到我们在
+ *	  事务结束时销毁该上下文。可以延长该上下文的
+ *	  寿命，使大对象 FD 在跨事务之后仍然有效（例如，
+ *	  仅当看到已没有 FD 保持打开时才释放上下文）。
+ *	  但要做到中止事务结束时的正确处理，还需要
+ *	  额外的状态。在已中止事务期间打开的 FD
+ *	  仍必须关闭，因为它们也许根本没有指向有效的
+ *	  关系。若大对象跨事务保持打开，加锁语义
+ *	  也是一个有意思的问题。目前我们仍遵守
+ *	  已经文档化的大对象 FD 语义：它们只在一个
+ *	  事务之内有效。
  *
- *	  As of PostgreSQL 8.0, much of the angst expressed above is no longer
- *	  relevant, and in fact it'd be pretty easy to allow LO FDs to stay
- *	  open across transactions.  (Snapshot relevancy would still be an issue.)
- *	  However backwards compatibility suggests that we should stick to the
- *	  status quo.
+ *	  到 PostgreSQL 8.0，上面所说的大部分顾虑已经不再
+ *	  重要，事实上让大对象 FD 跨事务保持
+ *	  打开会相当容易。（快照是否仍然相关仍是问题。）
+ *	  不过，向后兼容表明我们应当维持
+ *	  现状。
  *
  *-------------------------------------------------------------------------
  */

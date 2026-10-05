@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * pairingheap.c
- *	  A Pairing Heap implementation
+ *	  配对堆实现
  *
- * A pairing heap is a data structure that's useful for implementing
- * priority queues. It is simple to implement, and provides amortized O(1)
- * insert and find-min operations, and amortized O(log n) delete-min.
+ * 配对堆是一种适合用来实现
+ * 优先队列的数据结构。它实现简单，并提供摊还 O(1) 的
+ * 插入与查找最小元，以及摊还 O(log n) 的删除最小元。
  *
- * The pairing heap was first described in this paper:
+ * 配对堆最早描述于这篇论文：
  *
  *	Michael L. Fredman, Robert Sedgewick, Daniel D. Sleator, and Robert E.
  *	 Tarjan. 1986.

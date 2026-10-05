@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * be-secure-gssapi.c
- *  GSSAPI encryption support
+ *  GSSAPI 加密支持
  *
  * Portions Copyright (c) 2018-2023, PostgreSQL Global Development Group
  *

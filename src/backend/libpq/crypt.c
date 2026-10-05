@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * crypt.c
- *	  Functions for dealing with encrypted passwords stored in
- *	  pg_authid.rolpassword.
+ *	  处理存放在
+ *	  pg_authid.rolpassword 中的加密口令的函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

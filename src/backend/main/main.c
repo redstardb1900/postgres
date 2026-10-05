@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * main.c
- *	  Stub main() routine for the postgres executable.
+ *	  postgres 可执行文件的 main() 桩例程。
  *
- * This does some essential startup tasks for any incarnation of postgres
- * (postmaster, standalone backend, standalone bootstrap process, or a
- * separately exec'd child of a postmaster) and then dispatches to the
- * proper FooMain() routine for the incarnation.
+ * 它为 postgres 的任何化身完成一些必要的启动工作
+ * （postmaster、独立后端、独立 bootstrap 进程，或者
+ * 由 postmaster 另行 exec 出来的子进程），然后分派到
+ * 该化身对应的 FooMain() 例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * makefuncs.c
- *	  creator functions for various nodes. The functions here are for the
- *	  most frequently created nodes.
+ *	  各种节点的构造函数。这里的函数针对
+ *	  最常被创建的那些节点。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

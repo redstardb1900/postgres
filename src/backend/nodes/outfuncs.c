@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * outfuncs.c
- *	  Output functions for Postgres tree nodes.
+ *	  Postgres 树节点的输出函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

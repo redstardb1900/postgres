@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ifaddr.c
- *	  IP netmask calculations, and enumerating network interfaces.
+ *	  IP 网络掩码计算，以及枚举网络接口。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,8 +10,8 @@
  * IDENTIFICATION
  *	  src/backend/libpq/ifaddr.c
  *
- * This file and the IPV6 implementation were initially provided by
- * Nigel Kukard <nkukard@lbsd.net>, Linux Based Systems Design
+ * 本文件与 IPV6 实现最初由下列作者提供：
+ * Nigel Kukard <nkukard@lbsd.net>，Linux Based Systems Design
  * http://www.lbsd.net.
  *
  *-------------------------------------------------------------------------

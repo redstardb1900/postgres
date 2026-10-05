@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nodeFuncs.c
- *		Various general-purpose manipulations of Node trees
+ *		对 Node 树的各种通用操作
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

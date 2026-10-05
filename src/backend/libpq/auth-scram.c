@@ -1,83 +1,83 @@
 /*-------------------------------------------------------------------------
  *
  * auth-scram.c
- *	  Server-side implementation of the SASL SCRAM-SHA-256 mechanism.
+ *	  SASL SCRAM-SHA-256 机制的服务器端实现。
  *
- * See the following RFCs for more details:
+ * 更多细节见下列 RFC：
  * - RFC 5802: https://tools.ietf.org/html/rfc5802
  * - RFC 5803: https://tools.ietf.org/html/rfc5803
  * - RFC 7677: https://tools.ietf.org/html/rfc7677
  *
- * Here are some differences:
+ * 以下是若干差异：
  *
- * - Username from the authentication exchange is not used. The client
- *	 should send an empty string as the username.
+ * - 不使用认证交换中的用户名。客户端
+ *	 应当发送空字符串作为用户名。
  *
- * - If the password isn't valid UTF-8, or contains characters prohibited
- *	 by the SASLprep profile, we skip the SASLprep pre-processing and use
- *	 the raw bytes in calculating the hash.
+ * - 若口令不是有效的 UTF-8，或含有被禁止的字符，
+ *	 按 SASLprep 配置，我们跳过 SASLprep 预处理，并使用
+ *	 原始字节来计算散列。
  *
- * - If channel binding is used, the channel binding type is always
- *	 "tls-server-end-point".  The spec says the default is "tls-unique"
- *	 (RFC 5802, section 6.1. Default Channel Binding), but there are some
- *	 problems with that.  Firstly, not all SSL libraries provide an API to
- *	 get the TLS Finished message, required to use "tls-unique".  Secondly,
- *	 "tls-unique" is not specified for TLS v1.3, and as of this writing,
- *	 it's not clear if there will be a replacement.  We could support both
- *	 "tls-server-end-point" and "tls-unique", but for our use case,
- *	 "tls-unique" doesn't really have any advantages.  The main advantage
- *	 of "tls-unique" would be that it works even if the server doesn't
- *	 have a certificate, but PostgreSQL requires a server certificate
- *	 whenever SSL is used, anyway.
+ * - 若使用通道绑定，通道绑定类型始终是
+ *	 "tls-server-end-point"。规范说默认值是 "tls-unique"
+ *	 （RFC 5802 第 6.1 节 Default Channel Binding），不过这有一些
+ *	 问题。首先，并非所有 SSL 库都提供 API，
+ *	 用来取得使用 "tls-unique" 所需的 TLS Finished 报文。其次，
+ *	 "tls-unique" 并未为 TLS v1.3 做出规定，截至撰写时，
+ *	 也不清楚是否会有替代方案。我们本可以同时支持
+ *	 "tls-server-end-point" 与 "tls-unique"，但对我们的用途，
+ *	 "tls-unique" 并没有什么真正的优势。其主要优势本会是
+ *	 即使服务器没有证书也能工作，然而 PostgreSQL
+ *	 只要使用 SSL 就需要服务器证书，
+ *	 因此那一点并不构成优势。
  *
  *
- * The password stored in pg_authid consists of the iteration count, salt,
- * StoredKey and ServerKey.
+ * pg_authid 中保存的口令由迭代次数、盐、
+ * StoredKey 与 ServerKey 组成。
  *
- * SASLprep usage
+ * SASLprep 的用法
  * --------------
  *
- * One notable difference to the SCRAM specification is that while the
- * specification dictates that the password is in UTF-8, and prohibits
- * certain characters, we are more lenient.  If the password isn't a valid
- * UTF-8 string, or contains prohibited characters, the raw bytes are used
- * to calculate the hash instead, without SASLprep processing.  This is
- * because PostgreSQL supports other encodings too, and the encoding being
- * used during authentication is undefined (client_encoding isn't set until
- * after authentication).  In effect, we try to interpret the password as
- * UTF-8 and apply SASLprep processing, but if it looks invalid, we assume
- * that it's in some other encoding.
+ * 与 SCRAM 规范的一个显著差别是：尽管规范
+ * 规定口令采用 UTF-8，并禁止
+ * 某些字符，我们却更宽松。若口令不是有效的
+ * UTF-8 字符串，或含有被禁止的字符，就改用原始字节
+ * 来计算散列，而不做 SASLprep 处理。这是
+ * 因为 PostgreSQL 也支持其他编码，而认证期间
+ * 正在使用的编码并不确定（client_encoding 要到
+ * 认证完成之后才设置）。实际上，我们尝试把口令解释为
+ * UTF-8 并做 SASLprep 处理，但若它看起来无效，就假定
+ * 它属于某种其他编码。
  *
- * In the worst case, we misinterpret a password that's in a different
- * encoding as being Unicode, because it happens to consists entirely of
- * valid UTF-8 bytes, and we apply Unicode normalization to it.  As long
- * as we do that consistently, that will not lead to failed logins.
- * Fortunately, the UTF-8 byte sequences that are ignored by SASLprep
- * don't correspond to any commonly used characters in any of the other
- * supported encodings, so it should not lead to any significant loss in
- * entropy, even if the normalization is incorrectly applied to a
- * non-UTF-8 password.
+ * 最坏的情况下，我们会把另一种编码的口令
+ * 误认成 Unicode，因为它恰好完全由
+ * 有效的 UTF-8 字节组成，并对它做 Unicode 规范化。只要
+ * 我们始终一致地这么做，就不会导致登录失败。
+ * 幸运的是，SASLprep 所忽略的那些 UTF-8 字节序列
+ * 并不对应其他任何受支持编码中的常用字符，
+ * 因此即便把规范化错误地用到
+ * 非 UTF-8 口令上，也不应造成明显的
+ * 熵损失。
  *
- * Error handling
+ * 错误处理
  * --------------
  *
- * Don't reveal user information to an unauthenticated client.  We don't
- * want an attacker to be able to probe whether a particular username is
- * valid.  In SCRAM, the server has to read the salt and iteration count
- * from the user's stored secret, and send it to the client.  To avoid
- * revealing whether a user exists, when the client tries to authenticate
- * with a username that doesn't exist, or doesn't have a valid SCRAM
- * secret in pg_authid, we create a fake salt and iteration count
- * on-the-fly, and proceed with the authentication with that.  In the end,
- * we'll reject the attempt, as if an incorrect password was given.  When
- * we are performing a "mock" authentication, the 'doomed' flag in
- * scram_state is set.
+ * 不要向未经认证的客户端透露用户信息。我们不
+ * 希望攻击者能够探测某个用户名是否
+ * 有效。在 SCRAM 中，服务器必须从用户保存的秘密里
+ * 读取盐和迭代次数，并发送给客户端。为避免
+ * 暴露该用户是否存在，当客户端试图以一个并不存在的用户名
+ * 来认证，或者该用户在 pg_authid 中没有有效的 SCRAM
+ * 秘密时，我们当场造出假的盐和迭代次数，
+ * 并照此继续认证。到最后，
+ * 我们会拒绝这次尝试，如同给出了错误口令。当我们
+ * 在进行这种 "mock" 认证时，scram_state 中的 'doomed' 标志
+ * 会被置位。
  *
- * In the error messages, avoid printing strings from the client, unless
- * you check that they are pure ASCII.  We don't want an unauthenticated
- * attacker to be able to spam the logs with characters that are not valid
- * to the encoding being used, whatever that is.  We cannot avoid that in
- * general, after logging in, but let's do what we can here.
+ * 在错误消息里，避免打印来自客户端的字符串，除非
+ * 你已经确认它们是纯 ASCII。我们不希望未经认证的
+ * 攻击者用对当前编码无效的字符
+ * 刷满日志，无论那个编码是什么。登录之后这一点
+ * 总体上无法避免，但在这里我们尽量做好。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
  *
  * hyperloglog.c
- *	  HyperLogLog cardinality estimator
+ *	  HyperLogLog 基数估计器
  *
  * Portions Copyright (c) 2014-2023, PostgreSQL Global Development Group
  *
- * Based on Hideaki Ohno's C++ implementation.  This is probably not ideally
- * suited to estimating the cardinality of very large sets;  in particular, we
- * have not attempted to further optimize the implementation as described in
+ * 基于 Hideaki Ohno 的 C++ 实现。它大概并不理想地
+ * 适合估计非常大的集合的基数；尤其是，我们
+ * 并未尝试按下列论文所述进一步优化该实现：
  * the Heule, Nunkesser and Hall paper "HyperLogLog in Practice: Algorithmic
  * Engineering of a State of The Art Cardinality Estimation Algorithm".
  *
- * A sparse representation of HyperLogLog state is used, with fixed space
- * overhead.
+ * 采用 HyperLogLog 状态的稀疏表示，空间开销
+ * 是固定的。
  *
  * The copyright terms of Ohno's original version (the MIT license) follow.
  *

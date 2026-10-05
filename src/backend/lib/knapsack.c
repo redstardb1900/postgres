@@ -1,19 +1,19 @@
 /*-------------------------------------------------------------------------
  *
  * knapsack.c
- *	  Knapsack problem solver
+ *	  背包问题求解器
  *
- * Given input vectors of integral item weights (must be >= 0) and values
- * (double >= 0), compute the set of items which produces the greatest total
- * value without exceeding a specified total weight; each item is included at
- * most once (this is the 0/1 knapsack problem).  Weight 0 items will always be
- * included.
+ * 给定物品重量（必须 >= 0 的整数）与价值
+ * （double >= 0）的输入向量，算出能产生最大总
+ * 价值且不超过指定总重量的物品集合；每件物品至多
+ * 纳入一次（即 0/1 背包问题）。重量为 0 的物品总会被
+ * 纳入。
  *
- * The performance of this algorithm is pseudo-polynomial, O(nW) where W is the
- * weight limit.  To use with non-integral weights or approximate solutions,
- * the caller should pre-scale the input weights to a suitable range.  This
- * allows approximate solutions in polynomial time (the general case of the
- * exact problem is NP-hard).
+ * 本算法的性能是伪多项式的，为 O(nW)，其中 W 是
+ * 重量上限。若要用于非整数重量或近似解，
+ * 调用者应预先把输入重量缩放到合适的范围。这样
+ * 就能在多项式时间内得到近似解（精确问题的一般情形
+ * 是 NP 难的）。
  *
  * Copyright (c) 2017-2023, PostgreSQL Global Development Group
  *

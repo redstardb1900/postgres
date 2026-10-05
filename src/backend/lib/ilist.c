@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ilist.c
- *	  support for integrated/inline doubly- and singly- linked lists
+ *	  为集成/内联的双向链表与单向链表提供支持
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,9 +10,9 @@
  * IDENTIFICATION
  *	  src/backend/lib/ilist.c
  *
- * NOTES
- *	  This file only contains functions that are too big to be considered
- *	  for inlining.  See ilist.h for most of the goodies.
+ * 说明
+ *	  本文件只收录那些太大、不适合
+ *	  内联的函数。大部分内容见 ilist.h。
  *
  *-------------------------------------------------------------------------
  */

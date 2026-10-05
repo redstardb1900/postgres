@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * be-secure-openssl.c
- *	  functions for OpenSSL support in the backend.
+ *	  后端中支持 OpenSSL 的函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

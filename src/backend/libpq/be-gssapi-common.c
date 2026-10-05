@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * be-gssapi-common.c
- *     Common code for GSSAPI authentication and encryption
+ *     GSSAPI 认证与加密的公共代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

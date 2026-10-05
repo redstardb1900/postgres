@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * nodes.c
- *	  support code for nodes (now that we have removed the home-brew
- *	  inheritance system, our support code for nodes is much simpler)
+ *	  节点的支持代码（既然已经去掉了自造的
+ *	  继承体系，节点的支持代码就简单多了）
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,8 +11,8 @@
  * IDENTIFICATION
  *	  src/backend/nodes/nodes.c
  *
- * HISTORY
- *	  Andrew Yu			Oct 20, 1994	file creation
+ * 历史
+ *	  Andrew Yu			Oct 20, 1994	创建文件
  *
  *-------------------------------------------------------------------------
  */

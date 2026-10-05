@@ -89,8 +89,8 @@ RelationGetPartitionDesc(Relation rel, bool omit_detached)
 	/*
 	 * 若要求略去已分离分区，也许仍能用
 	 * 一份缓存的描述符。判断依据是和该描述符一起保存的
-	 * pg_inherits.xmin：若那个对当时活动快照尚未进行的 xmin，
-	 * 对当前活动快照也尚未进行，就可以用它。
+	 * pg_inherits.xmin：若那个对当时活动快照不在进行中的 xmin，
+	 * 对当前活动快照也不在进行中，就可以用它。
 	 * 否则就从头
 	 * 重新构造。
 	 */
@@ -343,7 +343,7 @@ retry:
 		/*
 		 * 把原始数组里的 OIDs 按映射下标放进
 		 * 结果数组。前者中 OID 的顺序由
-		 * 取回它们的目录扫描定义，后者中的顺序则由
+		 * 取回它们的系统目录扫描决定，后者中的顺序则由
 		 * 分区边界的规范化表示定义。
 		 * 同时保存每个分区是否为叶子。
 		 */
@@ -444,11 +444,11 @@ CreatePartitionDirectory(MemoryContext mcxt, bool omit_detached)
 
 /*
  * PartitionDirectoryLookup
- *		在目录里查找关系的分区描述符。
+ *		在分区目录里查找关系的分区描述符。
  *
  * 本函数的目的是保证每次查找时，同一关系都得到同一个
  * PartitionDesc。面对并发 DDL，不同的 PartitionDescs 可能
- * 按对目录状态的不同视图来构造，但任何一个特定的 OID
+ * 按对系统目录状态的不同视图来构造，但任何一个特定的 OID
  * 只要一直使用同一个
  * PartitionDirectory，就总会得到同一个
  * PartitionDesc。

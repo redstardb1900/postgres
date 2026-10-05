@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0087b-comment-partdesc-directory",
+ "title": "zh: fix partdesc directory vs catalog wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "parent_commit": "bfbaa77f93d9ec2c02d8aff96c3177c95a920239",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "note": "directory vs system catalog wording"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0087b-comment-partdesc-directory.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "directory vs system catalog wording"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0087b-comment-partdesc-directory.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0087b distinguishes PartitionDirectory from the system catalog in partdesc.c, and aligns the xmin and OID-order wording."
+}

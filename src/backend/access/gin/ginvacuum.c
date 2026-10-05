@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginvacuum.c
- *	  delete & vacuum routines for the postgres GIN
+ *	  Postgres GIN 的删除与清理例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -37,12 +37,12 @@ struct GinVacuumState
 };
 
 /*
- * Vacuums an uncompressed posting list. The size of the must can be specified
- * in number of items (nitems).
+ * 清理一份未压缩的倒排列表。列表大小可以用项数
+ * （nitems）指定。
  *
- * If none of the items need to be removed, returns NULL. Otherwise returns
- * a new palloc'd array with the remaining items. The number of remaining
- * items is returned in *nremaining.
+ * 若没有项需要移除，则返回 NULL。否则返回一个新
+ * palloc 出来的数组，其中是剩余的项。剩余项的个数
+ * 由 *nremaining 返回。
  */
 ItemPointer
 ginVacuumItemPointers(GinVacuumState *gvs, ItemPointerData *items,
@@ -53,7 +53,7 @@ ginVacuumItemPointers(GinVacuumState *gvs, ItemPointerData *items,
 	ItemPointer tmpitems = NULL;
 
 	/*
-	 * Iterate over TIDs array
+	 * 遍历 TIDs 数组
 	 */
 	for (i = 0; i < nitem; i++)
 	{
@@ -63,8 +63,8 @@ ginVacuumItemPointers(GinVacuumState *gvs, ItemPointerData *items,
 			if (!tmpitems)
 			{
 				/*
-				 * First TID to be deleted: allocate memory to hold the
-				 * remaining items.
+				 * 第一个要删除的 TID：分配内存以保存
+				 * 剩余的项。
 				 */
 				tmpitems = palloc(sizeof(ItemPointerData) * nitem);
 				memcpy(tmpitems, items, sizeof(ItemPointerData) * i);
@@ -84,7 +84,7 @@ ginVacuumItemPointers(GinVacuumState *gvs, ItemPointerData *items,
 }
 
 /*
- * Create a WAL record for vacuuming entry tree leaf page.
+ * 为清理条目树叶子页创建一条 WAL 记录。
  */
 static void
 xlogVacuumPage(Relation index, Buffer buffer)
@@ -92,7 +92,7 @@ xlogVacuumPage(Relation index, Buffer buffer)
 	Page		page = BufferGetPage(buffer);
 	XLogRecPtr	recptr;
 
-	/* This is only used for entry tree leaf pages. */
+	/* 这只用于条目树叶子页。 */
 	Assert(!GinPageIsData(page));
 	Assert(GinPageIsLeaf(page));
 
@@ -100,8 +100,8 @@ xlogVacuumPage(Relation index, Buffer buffer)
 		return;
 
 	/*
-	 * Always create a full image, we don't track the changes on the page at
-	 * any more fine-grained level. This could obviously be improved...
+	 * 总是创建整页映像，我们并不以更细的粒度跟踪
+	 * 页上的变更。这一点显然可以改进...
 	 */
 	XLogBeginInsert();
 	XLogRegisterBuffer(0, buffer, REGBUF_FORCE_IMAGE | REGBUF_STANDARD);
@@ -116,15 +116,15 @@ typedef struct DataPageDeleteStack
 	struct DataPageDeleteStack *child;
 	struct DataPageDeleteStack *parent;
 
-	BlockNumber blkno;			/* current block number */
-	Buffer		leftBuffer;		/* pinned and locked rightest non-deleted page
-								 * on left */
+	BlockNumber blkno;			/* 当前块号 */
+	Buffer		leftBuffer;		/* 已钉住并锁定的、左侧最右的
+								 * 未删除页 */
 	bool		isRoot;
 } DataPageDeleteStack;
 
 
 /*
- * Delete a posting tree page.
+ * 删除一张倒排树页。
  */
 static void
 ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkno,
@@ -138,10 +138,10 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 	BlockNumber rightlink;
 
 	/*
-	 * This function MUST be called only if someone of parent pages hold
-	 * exclusive cleanup lock. This guarantees that no insertions currently
-	 * happen in this subtree. Caller also acquires Exclusive locks on
-	 * deletable, parent and left pages.
+	 * 仅当某一父页持有排他清理锁时才能调用本函数。
+	 * 这保证当前没有插入发生在此子树中。调用者还要
+	 * 在待删除页、父页和左页上取得
+	 * 排他锁。
 	 */
 	lBuffer = ReadBufferExtended(gvs->index, MAIN_FORKNUM, leftBlkno,
 								 RBM_NORMAL, gvs->strategy);
@@ -154,18 +154,18 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 	rightlink = GinPageGetOpaque(page)->rightlink;
 
 	/*
-	 * Any insert which would have gone on the leaf block will now go to its
-	 * right sibling.
+	 * 原本会进入该叶子块的任何插入，现在都会进入它的
+	 * 右兄弟。
 	 */
 	PredicateLockPageCombine(gvs->index, deleteBlkno, rightlink);
 
 	START_CRIT_SECTION();
 
-	/* Unlink the page by changing left sibling's rightlink */
+	/* 通过修改左兄弟的右链接来解除该页的链接 */
 	page = BufferGetPage(lBuffer);
 	GinPageGetOpaque(page)->rightlink = rightlink;
 
-	/* Delete downlink from parent */
+	/* 从父页删除下行指针 */
 	parentPage = BufferGetPage(pBuffer);
 #ifdef USE_ASSERT_CHECKING
 	do
@@ -180,13 +180,13 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 	page = BufferGetPage(dBuffer);
 
 	/*
-	 * we shouldn't change rightlink field to save workability of running
-	 * search scan
+	 * 不应修改 rightlink 字段，以便正在进行的
+	 * 搜索扫描仍能工作
 	 */
 
 	/*
-	 * Mark page as deleted, and remember last xid which could know its
-	 * address.
+	 * 把页标为已删除，并记住最后一个可能知道其
+	 * 地址的 xid。
 	 */
 	GinPageSetDeleted(page);
 	GinPageSetDeleteXid(page, ReadNextTransactionId());
@@ -201,12 +201,12 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 		ginxlogDeletePage data;
 
 		/*
-		 * We can't pass REGBUF_STANDARD for the deleted page, because we
-		 * didn't set pd_lower on pre-9.4 versions. The page might've been
-		 * binary-upgraded from an older version, and hence not have pd_lower
-		 * set correctly. Ditto for the left page, but removing the item from
-		 * the parent updated its pd_lower, so we know that's OK at this
-		 * point.
+		 * 不能为已删除页传入 REGBUF_STANDARD，因为
+		 * 9.4 之前的版本没有设置 pd_lower。该页可能
+		 * 由更旧版本经二进制升级而来，因而 pd_lower
+		 * 设置不正确。左页同样如此，但从父页移除该项
+		 * 已经更新了它的 pd_lower，所以此刻我们知道
+		 * 这样是可以的。
 		 */
 		XLogBeginInsert();
 		XLogRegisterBuffer(0, dBuffer, 0);
@@ -237,11 +237,11 @@ ginDeletePage(GinVacuumState *gvs, BlockNumber deleteBlkno, BlockNumber leftBlkn
 
 
 /*
- * Scans posting tree and deletes empty pages.  Caller must lock root page for
- * cleanup.  During scan path from root to current page is kept exclusively
- * locked.  Also keep left page exclusively locked, because ginDeletePage()
- * needs it.  If we try to relock left page later, it could deadlock with
- * ginStepRight().
+ * 扫描倒排树并删除空页。调用者必须对根页取清理锁。
+ * 扫描期间，从根到当前页的路径保持排他锁定。
+ * 左页也保持排他锁定，因为 ginDeletePage()
+ * 需要它。若稍后试图重新锁定左页，可能与
+ * ginStepRight() 死锁。
  */
 static bool
 ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
@@ -307,7 +307,7 @@ ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
 
 	if (isempty)
 	{
-		/* we never delete the left- or rightmost branch */
+		/* 我们从不删除最左或最右分支 */
 		if (BufferIsValid(me->leftBuffer) && !GinPageRightMost(page))
 		{
 			Assert(!isRoot);
@@ -339,8 +339,8 @@ ginScanToDelete(GinVacuumState *gvs, BlockNumber blkno, bool isRoot,
 
 
 /*
- * Scan through posting tree leafs, delete empty tuples.  Returns true if there
- * is at least one empty page.
+ * 扫描倒排树的各叶子页，删除空元组。若至少有一张
+ * 空页，则返回 true。
  */
 static bool
 ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno)
@@ -350,7 +350,7 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno)
 	bool		hasVoidPage = false;
 	MemoryContext oldCxt;
 
-	/* Find leftmost leaf page of posting tree and lock it in exclusive mode */
+	/* 找到倒排树的最左叶子页，并以排他模式锁定它 */
 	while (true)
 	{
 		PostingItem *pitem;
@@ -378,7 +378,7 @@ ginVacuumPostingTreeLeaves(GinVacuumState *gvs, BlockNumber blkno)
 		UnlockReleaseBuffer(buffer);
 	}
 
-	/* Iterate all posting tree leaves using rightlinks and vacuum them */
+	/* 沿右链接遍历倒排树的全部叶子页并清理它们 */
 	while (true)
 	{
 		oldCxt = MemoryContextSwitchTo(gvs->tmpCxt);
@@ -411,8 +411,8 @@ ginVacuumPostingTree(GinVacuumState *gvs, BlockNumber rootBlkno)
 	if (ginVacuumPostingTreeLeaves(gvs, rootBlkno))
 	{
 		/*
-		 * There is at least one empty page.  So we have to rescan the tree
-		 * deleting empty pages.
+		 * 至少有一张空页。因此必须重新扫描这棵树，
+		 * 删除空页。
 		 */
 		Buffer		buffer;
 		DataPageDeleteStack root,
@@ -423,8 +423,8 @@ ginVacuumPostingTree(GinVacuumState *gvs, BlockNumber rootBlkno)
 									RBM_NORMAL, gvs->strategy);
 
 		/*
-		 * Lock posting tree root for cleanup to ensure there are no
-		 * concurrent inserts.
+		 * 对倒排树根取清理锁，以确保没有
+		 * 并发插入。
 		 */
 		LockBufferForCleanup(buffer);
 
@@ -448,9 +448,9 @@ ginVacuumPostingTree(GinVacuumState *gvs, BlockNumber rootBlkno)
 }
 
 /*
- * returns modified page or NULL if page isn't modified.
- * Function works with original page until first change is occurred,
- * then page is copied into temporary one.
+ * 返回修改后的页；若页未被修改则返回 NULL。
+ * 函数在首次发生变更之前使用原始页，
+ * 然后把页复制到临时页中。
  */
 static Page
 ginVacuumEntryPage(GinVacuumState *gvs, Buffer buffer, BlockNumber *roots, uint32 *nroot)
@@ -471,8 +471,8 @@ ginVacuumEntryPage(GinVacuumState *gvs, Buffer buffer, BlockNumber *roots, uint3
 		if (GinIsPostingTree(itup))
 		{
 			/*
-			 * store posting tree's roots for further processing, we can't
-			 * vacuum it just now due to risk of deadlocks with scans/inserts
+			 * 保存倒排树的根，供后续处理；此刻不能
+			 * 清理它，以免与扫描/插入发生死锁
 			 */
 			roots[*nroot] = GinGetDownlink(itup);
 			(*nroot)++;
@@ -484,7 +484,7 @@ ginVacuumEntryPage(GinVacuumState *gvs, Buffer buffer, BlockNumber *roots, uint3
 			bool		free_items_orig;
 			ItemPointer items;
 
-			/* Get list of item pointers from the tuple. */
+			/* 从元组取得项指针列表。 */
 			if (GinItupIsCompressed(itup))
 			{
 				items_orig = ginPostingListDecode((GinPostingList *) GinGetPosting(itup), &nitems);
@@ -497,13 +497,13 @@ ginVacuumEntryPage(GinVacuumState *gvs, Buffer buffer, BlockNumber *roots, uint3
 				free_items_orig = false;
 			}
 
-			/* Remove any items from the list that need to be vacuumed. */
+			/* 从列表中移除任何需要清理的项。 */
 			items = ginVacuumItemPointers(gvs, items_orig, nitems, &nitems);
 
 			if (free_items_orig)
 				pfree(items_orig);
 
-			/* If any item pointers were removed, recreate the tuple. */
+			/* 若移除了任何项指针，则重建元组。 */
 			if (items)
 			{
 				OffsetNumber attnum;
@@ -524,18 +524,18 @@ ginVacuumEntryPage(GinVacuumState *gvs, Buffer buffer, BlockNumber *roots, uint3
 				}
 
 				/*
-				 * if we already created a temporary page, make changes in
-				 * place
+				 * 若已经创建了临时页，则就地
+				 * 修改
 				 */
 				if (tmppage == origpage)
 				{
 					/*
-					 * On first difference, create a temporary copy of the
-					 * page and copy the tuple's posting list to it.
+					 * 首次出现差异时，创建该页的临时副本，
+					 * 并把元组的倒排列表复制过去。
 					 */
 					tmppage = PageGetTempPageCopy(origpage);
 
-					/* set itup pointer to new page */
+					/* 把 itup 指针设为新页 */
 					itup = (IndexTuple) PageGetItem(tmppage, PageGetItemId(tmppage, i));
 				}
 
@@ -581,27 +581,27 @@ ginbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	gvs.strategy = info->strategy;
 	initGinState(&gvs.ginstate, index);
 
-	/* first time through? */
+	/* 第一次？ */
 	if (stats == NULL)
 	{
-		/* Yes, so initialize stats to zeroes */
+		/* 是的，因此把统计信息初始化为零 */
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
 
 		/*
-		 * and cleanup any pending inserts
+		 * 并清理任何挂起插入
 		 */
 		ginInsertCleanup(&gvs.ginstate, !IsAutoVacuumWorkerProcess(),
 						 false, true, stats);
 	}
 
-	/* we'll re-count the tuples each time */
+	/* 每次都会重新统计元组 */
 	stats->num_index_tuples = 0;
 	gvs.result = stats;
 
 	buffer = ReadBufferExtended(index, MAIN_FORKNUM, blkno,
 								RBM_NORMAL, info->strategy);
 
-	/* find leaf page */
+	/* 寻找叶子页 */
 	for (;;)
 	{
 		Page		page = BufferGetPage(buffer);
@@ -619,7 +619,7 @@ ginbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			if (blkno == GIN_ROOT_BLKNO && !GinPageIsLeaf(page))
 			{
 				LockBuffer(buffer, GIN_UNLOCK);
-				continue;		/* check it one more */
+				continue;		/* 再检查一次 */
 			}
 			break;
 		}
@@ -635,7 +635,7 @@ ginbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 									RBM_NORMAL, info->strategy);
 	}
 
-	/* right now we found leftmost page in entry's BTree */
+	/* 此刻已找到条目 B-树中的最左页 */
 
 	for (;;)
 	{
@@ -671,7 +671,7 @@ ginbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			vacuum_delay_point();
 		}
 
-		if (blkno == InvalidBlockNumber)	/* rightmost page */
+		if (blkno == InvalidBlockNumber)	/* 最右页 */
 			break;
 
 		buffer = ReadBufferExtended(index, MAIN_FORKNUM, blkno,
@@ -696,8 +696,8 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	GinStatsData idxStat;
 
 	/*
-	 * In an autovacuum analyze, we want to clean up pending insertions.
-	 * Otherwise, an ANALYZE-only call is a no-op.
+	 * 在自动清理执行的 ANALYZE 中，我们要清理挂起插入。
+	 * 否则，仅 ANALYZE 的调用是空操作。
 	 */
 	if (info->analyze_only)
 	{
@@ -710,8 +710,8 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	}
 
 	/*
-	 * Set up all-zero stats and cleanup pending inserts if ginbulkdelete
-	 * wasn't called
+	 * 若未调用 ginbulkdelete，则建立全零统计信息并清理
+	 * 挂起插入
 	 */
 	if (stats == NULL)
 	{
@@ -724,15 +724,15 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	memset(&idxStat, 0, sizeof(idxStat));
 
 	/*
-	 * XXX we always report the heap tuple count as the number of index
-	 * entries.  This is bogus if the index is partial, but it's real hard to
-	 * tell how many distinct heap entries are referenced by a GIN index.
+	 * XXX 我们总是把堆元组数报告为索引条目数。
+	 * 若索引是部分索引，这就不准确，但要弄清一个 GIN 索引
+	 * 引用了多少个不同的堆条目实在很难。
 	 */
 	stats->num_index_tuples = Max(info->num_heap_tuples, 0);
 	stats->estimated_count = info->estimated_count;
 
 	/*
-	 * Need lock unless it's local to this backend.
+	 * 除非它是本后端本地的，否则需要加锁。
 	 */
 	needLock = !RELATION_IS_LOCAL(index);
 
@@ -777,11 +777,11 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 		UnlockReleaseBuffer(buffer);
 	}
 
-	/* Update the metapage with accurate page and entry counts */
+	/* 用准确的页数和条目数更新元页 */
 	idxStat.nTotalPages = npages;
 	ginUpdateStats(info->index, &idxStat, false);
 
-	/* Finally, vacuum the FSM */
+	/* 最后，清理 FSM */
 	IndexFreeSpaceMapVacuum(info->index);
 
 	stats->pages_free = totFreePages;
@@ -796,7 +796,7 @@ ginvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 }
 
 /*
- * Return whether Page can safely be recycled.
+ * 返回该页能否安全回收。
  */
 bool
 GinPageIsRecyclable(Page page)
@@ -815,8 +815,8 @@ GinPageIsRecyclable(Page page)
 		return true;
 
 	/*
-	 * If no backend still could view delete_xid as in running, all scans
-	 * concurrent with ginDeletePage() must have finished.
+	 * 若已没有后端仍会把 delete_xid 看作正在运行，则所有与
+	 * ginDeletePage() 并发的扫描必定已经结束。
 	 */
 	return GlobalVisCheckRemovableXid(NULL, delete_xid);
 }

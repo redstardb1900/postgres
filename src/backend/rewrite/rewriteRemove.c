@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteRemove.c
- *	  routines for removing rewrite rules
+ *	  删除重写规则的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

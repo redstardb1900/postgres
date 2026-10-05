@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * mvdistinct.c
- *	  POSTGRES multivariate ndistinct coefficients
+ *	  POSTGRES 多变量 ndistinct 系数
  *
- * Estimating number of groups in a combination of columns (e.g. for GROUP BY)
- * is tricky, and the estimation error is often significant.
+ * 估计一组列组合里的分组个数（例如用于 GROUP BY）
+ * 很棘手，而且估计误差往往很大。
 
- * The multivariate ndistinct coefficients address this by storing ndistinct
- * estimates for combinations of the user-specified columns.  So for example
- * given a statistics object on three columns (a,b,c), this module estimates
- * and stores n-distinct for (a,b), (a,c), (b,c) and (a,b,c).  The per-column
- * estimates are already available in pg_statistic.
+ * 多变量 ndistinct 系数通过为用户指定列的组合保存 ndistinct
+ * 估计来解决这个问题。例如，
+ * 给定三个列 (a,b,c) 上的统计对象，本模块会估计
+ * 并保存 (a,b)、(a,c)、(b,c) 和 (a,b,c) 的 n-distinct。按列的
+ * 估计已经在 pg_statistic 里。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

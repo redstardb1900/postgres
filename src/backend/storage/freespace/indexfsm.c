@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * indexfsm.c
- *	  POSTGRES free space map for quickly finding free pages in relations
+ *	  供快速查找关系中空闲页的 POSTGRES 空闲空间映射
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -11,12 +11,12 @@
  *	  src/backend/storage/freespace/indexfsm.c
  *
  *
- * NOTES:
+ * 说明：
  *
- *	This is similar to the FSM used for heap, in freespace.c, but instead
- *	of tracking the amount of free space on pages, we only track whether
- *	pages are completely free or in-use. We use the same FSM implementation
- *	as for heaps, using 0 to denote used pages, and (BLCKSZ - 1) for unused.
+ *	这与 freespace.c 里用于堆的 FSM 相似，但我们并不
+ *	跟踪页上的空闲空间量，而只跟踪
+ *	页是完全空闲还是正在使用。我们使用与堆相同的 FSM 实现，
+ *	用 0 表示已使用的页，用 (BLCKSZ - 1) 表示未使用的页。
  *
  *-------------------------------------------------------------------------
  */

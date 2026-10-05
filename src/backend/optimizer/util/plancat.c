@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * plancat.c
- *	   routines for accessing the system catalogs
+ *	   访问系统目录的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

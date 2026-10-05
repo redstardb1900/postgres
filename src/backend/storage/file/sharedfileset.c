@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * sharedfileset.c
- *	  Shared temporary file management.
+ *	  共享临时文件的管理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,9 +9,9 @@
  * IDENTIFICATION
  *	  src/backend/storage/file/sharedfileset.c
  *
- * SharedFileSets provide a temporary namespace (think directory) so that
- * files can be discovered by name, and a shared ownership semantics so that
- * shared files survive until the last user detaches.
+ * SharedFileSets 提供一个临时名字空间（可以把它想成目录），使
+ * 文件能按名字被找到，并提供共享所有权语义，使
+ * 共享文件一直存活到最后一个使用者脱离。
  *
  *-------------------------------------------------------------------------
  */

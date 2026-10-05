@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fsmpage.c
- *	  routines to search and manipulate one FSM page.
+ *	  搜索并操作单个 FSM 页的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -10,13 +10,13 @@
  * IDENTIFICATION
  *	  src/backend/storage/freespace/fsmpage.c
  *
- * NOTES:
+ * 说明：
  *
- *	The public functions in this file form an API that hides the internal
- *	structure of a FSM page. This allows freespace.c to treat each FSM page
- *	as a black box with SlotsPerPage "slots". fsm_set_avail() and
- *	fsm_get_avail() let you get/set the value of a slot, and
- *	fsm_search_avail() lets you search for a slot with value >= X.
+ *	本文件中的公开函数构成一套 API，它隐藏 FSM 页的内部
+ *	结构。这样 freespace.c 就可以把每个 FSM 页
+ *	当成有 SlotsPerPage 个“槽”的黑盒。fsm_set_avail() 与
+ *	fsm_get_avail() 用来读取或设置某个槽的值，
+ *	fsm_search_avail() 用来搜索值 >= X 的槽。
  *
  *-------------------------------------------------------------------------
  */

@@ -1,0 +1,753 @@
+{
+ "schema_version": 1,
+ "batch_id": "0116-comment-headers-util-rewrite-storage",
+ "title": "zh: translate file-header module descriptions (util/rewrite/storage)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1c1b4081aeaa6f5b93da37e1d28454336c166b9b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/relnode.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/tlist.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/var.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteManip.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteRemove.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteSearchCycle.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/rewrite/rewriteSupport.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/statistics/dependencies.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/statistics/extended_stats.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/statistics/mcv.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/statistics/mvdistinct.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/buf_table.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/buffile.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/copydir.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/fileset.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/reinit.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/file/sharedfileset.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/fsmpage.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/backend/storage/freespace/indexfsm.c",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/lib/dshash.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/lib/qunique.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/lib/rbtree.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/lib/sort_template.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/auth.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/include/libpq/crypt.h",
+   "kind": "c_comment",
+   "note": "header module description"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0116-comment-headers-util-rewrite-storage.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/plancat.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 203,
+   "translated": 202,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/optimizer/util/predtest.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 215,
+   "translated": 210,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent predicate_implied_by_recurse",
+    "pgindent predicate_refuted_by_recurse",
+    "pgindent predicate_implied_by_simple_clause",
+    "pgindent predicate_refuted_by_simple_clause"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/optimizer/util/relnode.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 192,
+   "translated": 191,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 46,
+   "translated": 45,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/optimizer/util/tlist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 103,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/optimizer/util/var.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 89,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through else check contained expr",
+    "fall-through else check contained expr",
+    "fall-through recurse into aggregate arguments",
+    "fall-through recurse into GroupingFunc arguments",
+    "fall-through recurse into windowfunc arguments",
+    "fall-through recurse into placeholder expression"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/partitioning/partbounds.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 330,
+   "translated": 329,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/partitioning/partdesc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 28,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/partitioning/partprune.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 293,
+   "translated": 284,
+   "preserved": 9,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteDefine.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 68,
+   "translated": 67,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteHandler.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 285,
+   "translated": 280,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through",
+    "pgindent blocks"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteManip.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 144,
+   "translated": 120,
+   "preserved": 24,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteRemove.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 7,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteSearchCycle.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 26,
+   "translated": 24,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent blocks"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/rewrite/rewriteSupport.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 7,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/statistics/dependencies.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 197,
+   "translated": 196,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/statistics/extended_stats.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 248,
+   "translated": 247,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/statistics/mcv.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 256,
+   "translated": 255,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/statistics/mvdistinct.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 66,
+   "translated": 65,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/buffer/buf_init.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 22,
+   "translated": 21,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/buffer/buf_table.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 15,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/buffer/bufmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 469,
+   "translated": 468,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/buffer/freelist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 85,
+   "translated": 84,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/buffer/localbuf.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 71,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "uncomment-to-enable LBDEBUG"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/buffile.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 88,
+   "translated": 87,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/copydir.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 16,
+   "translated": 15,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/fd.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 298,
+   "translated": 293,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent blocks",
+    "fall-through"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/fileset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 14,
+   "translated": 13,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/reinit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 44,
+   "translated": 43,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/file/sharedfileset.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 10,
+   "translated": 9,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/freespace/freespace.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 84,
+   "translated": 83,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/freespace/fsmpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 26,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "pgindent blocks"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/backend/storage/freespace/indexfsm.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 5,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/lib/dshash.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 26,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/lib/ilist.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 113,
+   "translated": 109,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "commented-out ILIST_DEBUG",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/lib/qunique.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 4,
+   "translated": 2,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/lib/rbtree.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 13,
+   "translated": 11,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/lib/sort_template.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 16,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "BSD license block",
+    "NetBSD RCS id",
+    "DO_SORT call comments"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/auth.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 5,
+   "translated": 3,
+   "preserved": 2,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "include guard"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/include/libpq/crypt.h",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 1,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "file-header module description / NOTES"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0116-comment-headers-util-rewrite-storage.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Backfill file-header module descriptions after the line-level Copyright/IDENTIFICATION protect rule. Covers the remaining optimizer/util files, partitioning, rewrite, statistics, storage/buffer, storage/file, storage/freespace, and selected include/lib and include/libpq headers. Legal lines stay byte-identical. rewriteManip.c and rewriteSupport.c had no English module sentence; the blank description line now states the module role."
+}

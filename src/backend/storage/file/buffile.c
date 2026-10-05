@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * buffile.c
- *	  Management of large buffered temporary files.
+ *	  大型带缓冲临时文件的管理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,37 +9,37 @@
  * IDENTIFICATION
  *	  src/backend/storage/file/buffile.c
  *
- * NOTES:
+ * 说明：
  *
- * BufFiles provide a very incomplete emulation of stdio atop virtual Files
- * (as managed by fd.c).  Currently, we only support the buffered-I/O
- * aspect of stdio: a read or write of the low-level File occurs only
- * when the buffer is filled or emptied.  This is an even bigger win
- * for virtual Files than for ordinary kernel files, since reducing the
- * frequency with which a virtual File is touched reduces "thrashing"
- * of opening/closing file descriptors.
+ * BufFiles 在虚拟 File 之上对 stdio 做非常不完整的模拟
+ * （这些 File 由 fd.c 管理）。目前我们只支持 stdio 的带缓冲 I/O
+ * 这方面：对底层 File 的读或写只发生在
+ * 缓冲区被填满或被清空之时。比起普通内核文件，这对虚拟 File
+ * 是更大的收益，因为减少触及某个虚拟 File 的次数，就能减少
+ * 打开/关闭文件描述符带来的
+ * “颠簸”。
  *
- * Note that BufFile structs are allocated with palloc(), and therefore
- * will go away automatically at query/transaction end.  Since the underlying
- * virtual Files are made with OpenTemporaryFile, all resources for
- * the file are certain to be cleaned up even if processing is aborted
- * by ereport(ERROR).  The data structures required are made in the
- * palloc context that was current when the BufFile was created, and
- * any external resources such as temp files are owned by the ResourceOwner
- * that was current at that time.
+ * 注意，BufFile 结构用 palloc() 分配，因此
+ * 会在查询或事务结束时自动消失。由于底层的
+ * 虚拟 File 是用 OpenTemporaryFile 创建的，即使处理被
+ * ereport(ERROR) 中止，该文件的全部资源也
+ * 一定会被清理掉。所需的数据结构建立在
+ * 创建该 BufFile 时的当前 palloc 上下文中，而
+ * 临时文件之类的外部资源则归当时的 ResourceOwner
+ * 所有。
  *
- * BufFile also supports temporary files that exceed the OS file size limit
- * (by opening multiple fd.c temporary files).  This is an essential feature
- * for sorts and hashjoins on large amounts of data.
+ * BufFile 也支持超过操作系统文件大小限制的临时文件
+ * （办法是打开多个 fd.c 临时文件）。对大量数据上的排序和哈希连接来说，
+ * 这是必不可少的特性。
  *
- * BufFile supports temporary files that can be shared with other backends, as
- * infrastructure for parallel execution.  Such files need to be created as a
- * member of a SharedFileSet that all participants are attached to.
+ * BufFile 支持可与其他后端共享的临时文件，作为
+ * 并行执行的基础设施。这类文件需要创建为
+ * 全体参与者都已挂接的某个 SharedFileSet 的成员。
  *
- * BufFile also supports temporary files that can be used by the single backend
- * when the corresponding files need to be survived across the transaction and
- * need to be opened and closed multiple times.  Such files need to be created
- * as a member of a FileSet.
+ * BufFile 也支持单个后端使用的临时文件，
+ * 当相应文件需要跨事务继续存在，并且
+ * 需要被多次打开和关闭时。这类文件需要创建为
+ * 某个 FileSet 的成员。
  *-------------------------------------------------------------------------
  */
 

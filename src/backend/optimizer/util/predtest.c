@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * predtest.c
- *	  Routines to attempt to prove logical implications between predicate
- *	  expressions.
+ *	  试图证明谓词
+ *	  表达式之间逻辑蕴含的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

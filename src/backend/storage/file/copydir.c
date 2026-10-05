@@ -1,14 +1,14 @@
 /*-------------------------------------------------------------------------
  *
  * copydir.c
- *	  copies a directory
+ *	  复制一个目录
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
- *	While "xcopy /e /i /q" works fine for copying directories, on Windows XP
- *	it requires a Window handle which prevents it from working when invoked
- *	as a service.
+ *	虽然 "xcopy /e /i /q" 复制目录没有问题，但在 Windows XP 上
+ *	它需要一个窗口句柄，因此当它作为
+ *	服务被调用时无法工作。
  *
  * IDENTIFICATION
  *	  src/backend/storage/file/copydir.c

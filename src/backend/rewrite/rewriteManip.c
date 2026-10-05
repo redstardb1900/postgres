@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteManip.c
- *
+ *	  查询重写器的查询树操作子例程
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *

@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * localbuf.c
- *	  local buffer manager. Fast buffer manager for temporary tables,
- *	  which never need to be WAL-logged or checkpointed, etc.
+ *	  本地缓冲区管理器。供临时表使用的快速缓冲区管理器，
+ *	  这些表从不需要写 WAL，也不需要做检查点，等等。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994-5, Regents of the University of California

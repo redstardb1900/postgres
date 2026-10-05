@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dshash.h
- *	  Concurrent hash tables backed by dynamic shared memory areas.
+ *	  由动态共享内存区支撑的并发哈希表。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

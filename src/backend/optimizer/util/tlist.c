@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * tlist.c
- *	  Target list manipulation routines
+ *	  操作目标列表的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

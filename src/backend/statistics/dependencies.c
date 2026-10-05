@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dependencies.c
- *	  POSTGRES functional dependencies
+ *	  POSTGRES 函数依赖
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

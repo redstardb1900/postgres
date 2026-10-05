@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * mcv.c
- *	  POSTGRES multivariate MCV lists
+ *	  POSTGRES 多变量 MCV 列表
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

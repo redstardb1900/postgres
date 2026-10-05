@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fd.c
- *	  Virtual file descriptor code.
+ *	  虚拟文件描述符代码。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,63 +9,63 @@
  * IDENTIFICATION
  *	  src/backend/storage/file/fd.c
  *
- * NOTES:
+ * 说明：
  *
- * This code manages a cache of 'virtual' file descriptors (VFDs).
- * The server opens many file descriptors for a variety of reasons,
- * including base tables, scratch files (e.g., sort and hash spool
- * files), and random calls to C library routines like system(3); it
- * is quite easy to exceed system limits on the number of open files a
- * single process can have.  (This is around 1024 on many modern
- * operating systems, but may be lower on others.)
+ * 这段代码管理一个“虚拟”文件描述符（VFDs）缓存。
+ * 服务器出于多种原因打开许多文件描述符，
+ * 包括基表、草稿文件（例如排序和散列的假脱机
+ * 文件），以及对 C 库例程如 system(3) 的随意调用；很容易
+ * 超过单个进程所能拥有的打开文件数的系统限制。
+ * （在许多现代操作系统上大约是 1024，
+ * 但在其他系统上可能更低。）
  *
- * VFDs are managed as an LRU pool, with actual OS file descriptors
- * being opened and closed as needed.  Obviously, if a routine is
- * opened using these interfaces, all subsequent operations must also
- * be through these interfaces (the File type is not a real file
- * descriptor).
+ * VFD 按 LRU 池来管理，实际的操作系统文件描述符
+ * 按需要打开和关闭。显然，若某个例程是
+ * 通过这些接口打开的，此后的全部操作也必须
+ * 走这些接口（File 类型并不是真正的文件
+ * 描述符）。
  *
- * For this scheme to work, most (if not all) routines throughout the
- * server should use these interfaces instead of calling the C library
- * routines (e.g., open(2) and fopen(3)) themselves.  Otherwise, we
- * may find ourselves short of real file descriptors anyway.
+ * 要让这套方案奏效，服务器里大部分（若非全部）例程
+ * 都应当使用这些接口，而不是自己去调用 C 库
+ * 例程（例如 open(2) 和 fopen(3)）。否则，我们
+ * 最终仍可能缺少真正的文件描述符。
  *
- * INTERFACE ROUTINES
+ * 接口例程
  *
- * PathNameOpenFile and OpenTemporaryFile are used to open virtual files.
- * A File opened with OpenTemporaryFile is automatically deleted when the
- * File is closed, either explicitly or implicitly at end of transaction or
- * process exit. PathNameOpenFile is intended for files that are held open
- * for a long time, like relation files. It is the caller's responsibility
- * to close them, there is no automatic mechanism in fd.c for that.
+ * PathNameOpenFile 与 OpenTemporaryFile 用来打开虚拟文件。
+ * 用 OpenTemporaryFile 打开的 File，会在该
+ * File 被关闭时自动删除，无论是显式关闭，还是在事务结束或
+ * 进程退出时隐式关闭。PathNameOpenFile 用于需要长时间保持打开的
+ * 文件，例如关系文件。关闭它们是调用者的责任，
+ * fd.c 里没有相应的自动机制。
  *
- * PathName(Create|Open|Delete)Temporary(File|Dir) are used to manage
- * temporary files that have names so that they can be shared between
- * backends.  Such files are automatically closed and count against the
- * temporary file limit of the backend that creates them, but unlike anonymous
- * files they are not automatically deleted.  See sharedfileset.c for a shared
- * ownership mechanism that provides automatic cleanup for shared files when
- * the last of a group of backends detaches.
+ * PathName(Create|Open|Delete)Temporary(File|Dir) 用来管理
+ * 带有名字、因而可以在后端之间共享的
+ * 临时文件。这类文件会被自动关闭，并计入创建它们的后端的
+ * 临时文件限额，但与匿名
+ * 文件不同，它们不会被自动删除。共享
+ * 所有权机制见 sharedfileset.c：当一组后端中的最后一个脱离时，
+ * 它会自动清理共享文件。
  *
- * AllocateFile, AllocateDir, OpenPipeStream and OpenTransientFile are
- * wrappers around fopen(3), opendir(3), popen(3) and open(2), respectively.
- * They behave like the corresponding native functions, except that the handle
- * is registered with the current subtransaction, and will be automatically
- * closed at abort. These are intended mainly for short operations like
- * reading a configuration file; there is a limit on the number of files that
- * can be opened using these functions at any one time.
+ * AllocateFile、AllocateDir、OpenPipeStream 与 OpenTransientFile 分别是
+ * fopen(3)、opendir(3)、popen(3) 与 open(2) 的包装。
+ * 它们的行为与对应的原生函数相同，只是句柄
+ * 会登记到当前子事务，并在中止时自动
+ * 关闭。它们主要供读取配置文件之类的短操作使用；
+ * 同一时刻能用这些函数打开的文件数目
+ * 有上限。
  *
- * Finally, BasicOpenFile is just a thin wrapper around open() that can
- * release file descriptors in use by the virtual file descriptors if
- * necessary. There is no automatic cleanup of file descriptors returned by
- * BasicOpenFile, it is solely the caller's responsibility to close the file
- * descriptor by calling close(2).
+ * 最后，BasicOpenFile 只是 open() 的薄包装，必要时可以
+ * 释放虚拟文件描述符正在使用的文件描述符。
+ * BasicOpenFile 返回的文件描述符没有自动清理，
+ * 调用者必须自己负责，通过调用 close(2) 来关闭该文件
+ * 描述符。
  *
- * If a non-virtual file descriptor needs to be held open for any length of
- * time, report it to fd.c by calling AcquireExternalFD or ReserveExternalFD
- * (and eventually ReleaseExternalFD), so that we can take it into account
- * while deciding how many VFDs can be open.  This applies to FDs obtained
- * with BasicOpenFile as well as those obtained without use of any fd.c API.
+ * 若某个非虚拟文件描述符需要保持打开一段时间，
+ * 应调用 AcquireExternalFD 或 ReserveExternalFD 把它报告给 fd.c
+ * （最终再调用 ReleaseExternalFD），以便我们在决定
+ * 能打开多少 VFD 时把它算进去。这既适用于用 BasicOpenFile
+ * 取得的文件描述符，也适用于完全不经过 fd.c API 取得的那些。
  *
  *-------------------------------------------------------------------------
  */

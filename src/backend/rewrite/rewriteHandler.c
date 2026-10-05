@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rewriteHandler.c
- *		Primary module of query rewriter.
+ *		查询重写器的主模块。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,12 +9,12 @@
  * IDENTIFICATION
  *	  src/backend/rewrite/rewriteHandler.c
  *
- * NOTES
- *	  Some of the terms used in this file are of historic nature: "retrieve"
- *	  was the PostQUEL keyword for what today is SELECT. "RIR" stands for
- *	  "Retrieve-Instead-Retrieve", that is an ON SELECT DO INSTEAD SELECT rule
- *	  (which has to be unconditional and where only one rule can exist on each
- *	  relation).
+ * 说明
+ *	  本文件使用的某些术语具有历史性质："retrieve"
+ *	  是 PostQUEL 里对应于今天 SELECT 的关键字。"RIR" 表示
+ *	  "Retrieve-Instead-Retrieve"，也就是一条 ON SELECT DO INSTEAD SELECT 规则
+ *	  （它必须是无条件的，并且每个
+ *	  关系上只能存在一条这样的规则）。
  *
  *-------------------------------------------------------------------------
  */

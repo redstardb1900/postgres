@@ -1,29 +1,29 @@
 /*-------------------------------------------------------------------------
  *
  * partprune.c
- *		Support for partition pruning during query planning and execution
+ *		查询规划与执行期间的分区剪枝支持
  *
- * This module implements partition pruning using the information contained in
- * a table's partition descriptor, query clauses, and run-time parameters.
+ * 本模块利用表的分区描述符、查询子句以及运行期参数里
+ * 所含的信息来实现分区剪枝。
  *
- * During planning, clauses that can be matched to the table's partition key
- * are turned into a set of "pruning steps", which are then executed to
- * identify a set of partitions (as indexes in the RelOptInfo->part_rels
- * array) that satisfy the constraints in the step.  Partitions not in the set
- * are said to have been pruned.
+ * 规划期间，能与表的分区键匹配的子句会被转成一组“剪枝步骤”，
+ * 然后执行这些步骤，以找出满足该步骤中约束的一组分区
+ * （以 RelOptInfo->part_rels 数组里的下标表示）。
+ * 不在该集合中的分区
+ * 称为已被剪枝。
  *
- * A base pruning step may involve expressions whose values are only known
- * during execution, such as Params, in which case pruning cannot occur
- * entirely during planning.  In that case, such steps are included alongside
- * the plan, so that they can be used by the executor for further pruning.
+ * 基本剪枝步骤可能涉及只在执行期间才知道取值的表达式，
+ * 例如 Params。这时剪枝无法
+ * 完全在规划期间完成。这种情况下，这些步骤会随
+ * 计划一起保留，以便执行器用来做进一步剪枝。
  *
- * There are two kinds of pruning steps.  A "base" pruning step represents
- * tests on partition key column(s), typically comparisons to expressions.
- * A "combine" pruning step represents a Boolean connector (AND/OR), and
- * combines the outputs of some previous steps using the appropriate
- * combination method.
+ * 剪枝步骤有两种。基本（base）剪枝步骤表示
+ * 对分区键列的检验，通常是与表达式做比较。
+ * 组合（combine）剪枝步骤表示布尔连接符（AND/OR），并用
+ * 适当的组合方法，把此前若干步骤的输出
+ * 组合起来。
  *
- * See gen_partprune_steps_internal() for more details on step generation.
+ * 步骤生成的更多细节见 gen_partprune_steps_internal()。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

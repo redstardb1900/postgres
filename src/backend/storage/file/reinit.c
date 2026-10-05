@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * reinit.c
- *	  Reinitialization of unlogged relations
+ *	  未记录关系的重新初始化
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

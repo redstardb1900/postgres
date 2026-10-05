@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * freelist.c
- *	  routines for managing the buffer pool's replacement strategy.
+ *	  管理缓冲池替换策略的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

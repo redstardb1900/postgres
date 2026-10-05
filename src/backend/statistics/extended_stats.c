@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * extended_stats.c
- *	  POSTGRES extended statistics
+ *	  POSTGRES 扩展统计信息
  *
- * Generic code supporting statistics objects created via CREATE STATISTICS.
+ * 支持经由 CREATE STATISTICS 创建的统计对象的通用代码。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

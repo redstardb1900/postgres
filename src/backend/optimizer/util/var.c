@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * var.c
- *	  Var node manipulation routines
+ *	  操作 Var 节点的例程
  *
- * Note: for most purposes, PlaceHolderVar is considered a Var too,
- * even if its contained expression is variable-free.  Also, CurrentOfExpr
- * is treated as a Var for purposes of determining whether an expression
- * contains variables.
+ * 注意：在多数用途下，PlaceHolderVar 也被视为 Var，
+ * 即使它所含的表达式不含变量。另外，CurrentOfExpr
+ * 在判断表达式是否含有变量时，也被当作 Var
+ * 来使用。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

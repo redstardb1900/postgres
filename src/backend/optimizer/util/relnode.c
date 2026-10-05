@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * relnode.c
- *	  Relation-node lookup/construction routines
+ *	  关系节点的查找与构造例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

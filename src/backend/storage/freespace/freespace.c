@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * freespace.c
- *	  POSTGRES free space map for quickly finding free space in relations
+ *	  供快速查找关系中空闲空间的 POSTGRES 空闲空间映射
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -11,13 +11,13 @@
  *	  src/backend/storage/freespace/freespace.c
  *
  *
- * NOTES:
+ * 说明：
  *
- *	Free Space Map keeps track of the amount of free space on pages, and
- *	allows quickly searching for a page with enough free space. The FSM is
- *	stored in a dedicated relation fork of all heap relations, and those
- *	index access methods that need it (see also indexfsm.c). See README for
- *	more information.
+ *	空闲空间映射记录各页上的空闲空间量，并且
+ *	能快速搜索空闲空间足够的页。FSM
+ *	存放在所有堆关系、以及那些需要它的
+ *	索引访问方法的专用关系分叉里（另见 indexfsm.c）。更多说明见
+ *	README。
  *
  *-------------------------------------------------------------------------
  */

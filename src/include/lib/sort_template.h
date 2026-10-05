@@ -2,65 +2,65 @@
  *
  * sort_template.h
  *
- *	  A template for a sort algorithm that supports varying degrees of
- *	  specialization.
+ *	  一种支持不同程度
+ *	  专用化的排序算法模板。
  *
  * Copyright (c) 2021-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1992-1994, Regents of the University of California
  *
- * Usage notes:
+ * 用法说明：
  *
- *	  To generate functions specialized for a type, the following parameter
- *	  macros should be #define'd before this file is included.
+ *	  要生成针对某种类型专用化的函数，应在包含本文件之前
+ *	  #define 下列参数宏。
  *
- *	  - ST_SORT - the name of a sort function to be generated
- *	  - ST_ELEMENT_TYPE - type of the referenced elements
- *	  - ST_DECLARE - if defined the functions and types are declared
- *	  - ST_DEFINE - if defined the functions and types are defined
- *	  - ST_SCOPE - scope (e.g. extern, static inline) for functions
- *	  - ST_CHECK_FOR_INTERRUPTS - if defined the sort is interruptible
+ *	  - ST_SORT：要生成的排序函数名
+ *	  - ST_ELEMENT_TYPE：所引用元素的类型
+ *	  - ST_DECLARE：若定义，则声明这些函数和类型
+ *	  - ST_DEFINE：若定义，则定义这些函数和类型
+ *	  - ST_SCOPE：函数的作用域（例如 extern、static inline）
+ *	  - ST_CHECK_FOR_INTERRUPTS：若定义，则排序可被中断
  *
- *	  Instead of ST_ELEMENT_TYPE, ST_ELEMENT_TYPE_VOID can be defined.  Then
- *	  the generated functions will automatically gain an "element_size"
- *	  parameter.  This allows us to generate a traditional qsort function.
+ *	  也可以不定义 ST_ELEMENT_TYPE，而定义 ST_ELEMENT_TYPE_VOID。那样
+ *	  生成的函数会自动多一个 "element_size"
+ *	  参数。这样我们就能生成传统的 qsort 函数。
  *
- *	  One of the following macros must be defined, to show how to compare
- *	  elements.  The first two options are arbitrary expressions depending
- *	  on whether an extra pass-through argument is desired, and the third
- *	  option should be defined if the sort function should receive a
- *	  function pointer at runtime.
+ *	  必须定义下列宏之一，用来说明如何比较
+ *	  元素。前两个选项是任意表达式，取决于
+ *	  是否需要额外的直通参数；若排序函数应在
+ *	  运行时接收一个
+ *	  函数指针，则应定义第三个选项。
  *
- *	  - ST_COMPARE(a, b) - a simple comparison expression
- *	  - ST_COMPARE(a, b, arg) - variant that takes an extra argument
- *	  - ST_COMPARE_RUNTIME_POINTER - sort function takes a function pointer
+ *	  - ST_COMPARE(a, b)：简单的比较表达式
+ *	  - ST_COMPARE(a, b, arg)：多带一个参数的变体
+ *	  - ST_COMPARE_RUNTIME_POINTER：排序函数接收一个函数指针
  *
- *	  To say that the comparator and therefore also sort function should
- *	  receive an extra pass-through argument, specify the type of the
- *	  argument.
+ *	  若要让比较器以及排序函数
+ *	  接收一个额外的直通参数，请指定该
+ *	  参数的类型。
  *
- *	  - ST_COMPARE_ARG_TYPE - type of extra argument
+ *	  - ST_COMPARE_ARG_TYPE：额外参数的类型
  *
- *	  The prototype of the generated sort function is:
+ *	  生成的排序函数原型是：
  *
  *	  void ST_SORT(ST_ELEMENT_TYPE *data, size_t n,
  *				   [size_t element_size,]
  *				   [ST_SORT_compare_function compare,]
  *				   [ST_COMPARE_ARG_TYPE *arg]);
  *
- *	  ST_SORT_compare_function is a function pointer of the following type:
+ *	  ST_SORT_compare_function 是下列类型的函数指针：
  *
  *	  int (*)(const ST_ELEMENT_TYPE *a, const ST_ELEMENT_TYPE *b,
  *			  [ST_COMPARE_ARG_TYPE *arg])
  *
- * HISTORY
+ * 沿革
  *
- *	  Modifications from vanilla NetBSD source:
- *	  - Add do ... while() macro fix
- *	  - Remove __inline, _DIAGASSERTs, __P
- *	  - Remove ill-considered "swap_cnt" switch to insertion sort, in favor
- *		of a simple check for presorted input.
- *	  - Take care to recurse on the smaller partition, to bound stack usage
- *	  - Convert into a header that can generate specialized functions
+ *	  相对原版 NetBSD 源代码的修改：
+ *	  - 增加 do ... while() 宏修正
+ *	  - 去掉 __inline、_DIAGASSERTs、__P
+ *	  - 去掉考虑不周的 "swap_cnt" 插入排序切换，改为
+ *		对已排好序的输入做简单检查。
+ *	  - 对较小的划分递归，以限制栈用量
+ *	  - 改成能够生成专用函数的头文件
  *
  * IDENTIFICATION
  *		src/include/lib/sort_template.h

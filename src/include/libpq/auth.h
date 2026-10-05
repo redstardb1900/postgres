@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * auth.h
- *	  Definitions for network authentication routines
+ *	  网络认证例程的定义
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

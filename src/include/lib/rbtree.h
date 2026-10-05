@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rbtree.h
- *	  interface for PostgreSQL generic Red-Black binary tree package
+ *	  PostgreSQL 通用红黑二叉树包的接口
  *
  * Copyright (c) 2009-2023, PostgreSQL Global Development Group
  *

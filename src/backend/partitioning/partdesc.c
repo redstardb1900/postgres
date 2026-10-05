@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * partdesc.c
- *		Support routines for manipulating partition descriptors
+ *		操作分区描述符的支持例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

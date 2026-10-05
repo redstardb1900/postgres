@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * restrictinfo.c
- *	  RestrictInfo node manipulation routines.
+ *	  操作 RestrictInfo 节点的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

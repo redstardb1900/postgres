@@ -1,55 +1,55 @@
 /*-------------------------------------------------------------------------
  *
  * ilist.h
- *		integrated/inline doubly- and singly-linked lists
+ *		集成式/内联的双向链表与单向链表
  *
- * These list types are useful when there are only a predetermined set of
- * lists that an object could be in.  List links are embedded directly into
- * the objects, and thus no extra memory management overhead is required.
- * (Of course, if only a small proportion of existing objects are in a list,
- * the link fields in the remainder would be wasted space.  But usually,
- * it saves space to not have separately-allocated list nodes.)
+ * 当一个对象只可能处于预先确定的若干个
+ * 链表中时，这些链表类型很有用。链表链接直接嵌入
+ * 对象之中，因此不需要额外的内存管理开销。
+ * （当然，若现有对象里只有一小部分在链表中，
+ * 其余对象里的链接字段就是浪费的空间。但通常
+ * 不单独分配链表节点更能省空间。）
  *
- * The doubly-linked list comes in 2 forms.  dlist_head defines a head of a
- * doubly-linked list of dlist_nodes, whereas dclist_head defines the head of
- * a doubly-linked list of dlist_nodes with an additional 'count' field to
- * keep track of how many items are contained within the given list.  For
- * simplicity, dlist_head and dclist_head share the same node and iterator
- * types.  The functions to manipulate a dlist_head always have a name
- * starting with "dlist", whereas functions to manipulate a dclist_head have a
- * name starting with "dclist".  dclist_head comes with an additional function
- * (dclist_count) to return the number of entries in the list.  dclists are
- * able to store a maximum of PG_UINT32_MAX elements.  It is up to the caller
- * to ensure no more than this many items are added to a dclist.
+ * 双向链表有两种形式。dlist_head 定义由
+ * dlist_nodes 组成的双向链表的表头，而 dclist_head 定义
+ * 带有额外 count 字段的 dlist_nodes 双向链表的表头，用来
+ * 记录给定链表中含有多少项。为
+ * 简单起见，dlist_head 与 dclist_head 共用相同的节点和迭代器
+ * 类型。操作 dlist_head 的函数名字总是
+ * 以 "dlist" 开头，而操作 dclist_head 的函数名字
+ * 以 "dclist" 开头。dclist_head 还多一个函数
+ * （dclist_count），用来返回链表中的项数。dclist 最多
+ * 能存放 PG_UINT32_MAX 个元素。调用者必须
+ * 保证加进某个 dclist 的项不超过这个数目。
  *
- * None of the functions here allocate any memory; they just manipulate
- * externally managed memory.  With the exception doubly-linked count lists
- * providing the ability to obtain the number of items in the list, the APIs
- * for singly and both doubly linked lists are identical as far as
- * capabilities of both allow.
+ * 这里的函数都不分配任何内存；它们只操作
+ * 外部管理的内存。除了带计数的双向链表
+ * 能取得链表中的项数这一点之外，单向链表与两种双向链表的 APIs
+ * 在双方能力所及的范围内
+ * 是相同的。
  *
- * Each list has a list header, which exists even when the list is empty.
- * An empty singly-linked list has a NULL pointer in its header.
+ * 每个链表都有一个链表头，即使链表为空它也存在。
+ * 空的单向链表在其表头里放一个 NULL 指针。
  *
- * For both doubly-linked list types, there are two valid ways to represent an
- * empty list.  The head's 'next' pointer can either be NULL or the head's
- * 'next' and 'prev' links can both point back to the list head (circular).
- * (If a dlist is modified and then all its elements are deleted, it will be
- * in the circular state.).  We prefer circular dlists because there are some
- * operations that can be done without branches (and thus faster) on lists
- * that use circular representation.  However, it is often convenient to
- * initialize list headers to zeroes rather than setting them up with an
- * explicit initialization function, so we also allow the NULL initialization.
+ * 对两种双向链表，表示空链表都有两种合法方式。
+ * 表头的 next 指针可以是 NULL，或者表头的
+ * next 与 prev 链接都指回链表头（环形）。
+ * （若一个 dlist 被修改过，随后又删掉全部元素，它会
+ * 处于环形状态。）我们更喜欢环形 dlist，因为有些
+ * 操作在环形链表上可以不分支（因而更快）。不过，
+ * 常常更方便的是把链表头初始化为零，而不是
+ * 用显式初始化函数去设置它们，因此我们也允许
+ * NULL 初始化。
  *
- * EXAMPLES
+ * 示例
  *
- * Here's a simple example demonstrating how this can be used.  Let's assume
- * we want to store information about the tables contained in a database.
+ * 下面是一个简单例子，说明可以怎么用。假定
+ * 我们要存放某个数据库所含表的信息。
  *
  * #include "lib/ilist.h"
  *
- * // Define struct for the databases including a list header that will be
- * // used to access the nodes in the table list later on.
+ * // 定义数据库的结构体，其中包含稍后用来
+ * // 访问表链表中节点的链表头。
  * typedef struct my_database
  * {
  *		char	   *datname;
@@ -57,8 +57,8 @@
  *		// ...
  * } my_database;
  *
- * // Define struct for the tables.  Note the list_node element which stores
- * // prev/next list links.  The list_node element need not be first.
+ * // 定义表的结构体。注意存放
+ * // prev/next 链表链接的 list_node 元素。list_node 元素不必放在最前面。
  * typedef struct my_table
  * {
  *		char	   *tablename;
@@ -67,20 +67,20 @@
  *		// ...
  * } my_table;
  *
- * // create a database
+ * // 创建一个数据库
  * my_database *db = create_database();
  *
- * // and add a few tables to its table list
+ * // 再往它的表链表里加几张表
  * dlist_push_head(&db->tables, &create_table(db, "a")->list_node);
  * ...
  * dlist_push_head(&db->tables, &create_table(db, "b")->list_node);
  *
  *
- * To iterate over the table list, we allocate an iterator variable and use
- * a specialized looping construct.  Inside a dlist_foreach, the iterator's
- * 'cur' field can be used to access the current element.  iter.cur points to
- * a 'dlist_node', but most of the time what we want is the actual table
- * information; dlist_container() gives us that, like so:
+ * 要遍历表链表，我们分配一个迭代器变量，并使用
+ * 专门的循环结构。在 dlist_foreach 内部，可以用迭代器的
+ * cur 字段访问当前元素。iter.cur 指向
+ * 一个 dlist_node，但多数时候我们要的是实际的表
+ * 信息；dlist_container() 能给出它，像这样：
  *
  * dlist_iter	iter;
  * dlist_foreach(iter, &db->tables)
@@ -91,10 +91,10 @@
  * }
  *
  *
- * While a simple iteration is useful, we sometimes also want to manipulate
- * the list while iterating.  There is a different iterator element and looping
- * construct for that.  Suppose we want to delete tables that meet a certain
- * criterion:
+ * 简单遍历很有用，但有时我们也想在遍历时操作
+ * 链表。为此有另一种迭代器元素和循环
+ * 结构。假设我们要删除满足某个
+ * 条件的表：
  *
  * dlist_mutable_iter miter;
  * dlist_foreach_modify(miter, &db->tables)
@@ -102,12 +102,12 @@
  *		my_table   *tbl = dlist_container(my_table, list_node, miter.cur);
  *
  *		if (!tbl->to_be_deleted)
- *			continue;		// don't touch this one
+ *			continue;		// 不要动这一个
  *
- *		// unlink the current table from the linked list
+ *		// 把当前表从链表上摘下
  *		dlist_delete(miter.cur);
- *		// as these lists never manage memory, we can still access the table
- *		// after it's been unlinked
+ *		// 这些链表从不管理内存，摘下之后
+ *		// 我们仍然可以访问这张表
  *		drop_table(db, tbl);
  * }
  *

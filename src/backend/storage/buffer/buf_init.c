@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * buf_init.c
- *	  buffer manager initialization routines
+ *	  缓冲区管理器的初始化例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

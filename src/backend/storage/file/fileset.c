@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * fileset.c
- *	  Management of named temporary files.
+ *	  具名临时文件的管理。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -9,12 +9,12 @@
  * IDENTIFICATION
  *	  src/backend/storage/file/fileset.c
  *
- * FileSets provide a temporary namespace (think directory) so that files can
- * be discovered by name.
+ * FileSets 提供一个临时名字空间（可以把它想成目录），使文件能
+ * 按名字被找到。
  *
- * FileSets can be used by backends when the temporary files need to be
- * opened/closed multiple times and the underlying files need to survive across
- * transactions.
+ * 当临时文件需要被
+ * 多次打开/关闭，并且底层文件需要跨
+ * 事务继续存在时，后端可以使用 FileSet。
  *
  *-------------------------------------------------------------------------
  */

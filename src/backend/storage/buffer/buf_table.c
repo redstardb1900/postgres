@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * buf_table.c
- *	  routines for mapping BufferTags to buffer indexes.
+ *	  把 BufferTags 映射到缓冲区下标的例程。
  *
- * Note: the routines in this file do no locking of their own.  The caller
- * must hold a suitable lock on the appropriate BufMappingLock, as specified
- * in the comments.  We can't do the locking inside these functions because
- * in most cases the caller needs to adjust the buffer header contents
- * before the lock is released (see notes in README).
+ * 注意：本文件中的例程自己不加锁。调用者
+ * 必须按注释所述，在相应的 BufMappingLock 上持有合适的锁。
+ * 我们不能在这些函数内部加锁，因为
+ * 多数情况下，调用者需要在释放该锁之前调整缓冲区头的内容
+ * （见 README 中的说明）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * qunique.h
- *		inline array unique functions
+ *		内联的数组去重函数
  * Portions Copyright (c) 2019-2023, PostgreSQL Global Development Group
  *
  * IDENTIFICATION

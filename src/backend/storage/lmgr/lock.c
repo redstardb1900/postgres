@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * lock.c
- *	  POSTGRES primary lock mechanism
+ *	  POSTGRES 主锁机制
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,20 +10,20 @@
  * IDENTIFICATION
  *	  src/backend/storage/lmgr/lock.c
  *
- * NOTES
- *	  A lock table is a shared memory hash table.  When
- *	  a process tries to acquire a lock of a type that conflicts
- *	  with existing locks, it is put to sleep using the routines
- *	  in storage/lmgr/proc.c.
+ * 说明（NOTES）
+ *	  锁表是一张共享内存哈希表。当某个进程
+ *	  试图获取一把与已有锁相冲突的类型的锁时，
+ *	  会用 storage/lmgr/proc.c 中的例程
+ *	  让它进入睡眠。
  *
- *	  For the most part, this code should be invoked via lmgr.c
- *	  or another lock-management module, not directly.
+ *	  多数情况下，这段代码应经由 lmgr.c
+ *	  或其他锁管理模块调用，而不应直接调用。
  *
- *	Interface:
+ *	接口：
  *
- *	InitLocks(), GetLocksMethodTable(), GetLockTagsMethodTable(),
- *	LockAcquire(), LockRelease(), LockReleaseAll(),
- *	LockCheckConflicts(), GrantLock()
+ *	InitLocks()、GetLocksMethodTable()、GetLockTagsMethodTable()、
+ *	LockAcquire()、LockRelease()、LockReleaseAll()、
+ *	LockCheckConflicts()、GrantLock()
  *
  *-------------------------------------------------------------------------
  */
@@ -51,53 +51,53 @@
 #include "utils/resowner_private.h"
 
 
-/* This configuration variable is used to set the lock table size */
-int			max_locks_per_xact; /* set by guc.c */
+/* 此配置变量用于设置锁表大小 */
+int			max_locks_per_xact; /* 由 guc.c 设置 */
 
 #define NLOCKENTS() \
 	mul_size(max_locks_per_xact, add_size(MaxBackends, max_prepared_xacts))
 
 
 /*
- * Data structures defining the semantics of the standard lock methods.
+ * 定义标准锁方法语义的数据结构。
  *
- * The conflict table defines the semantics of the various lock modes.
+ * 冲突表定义了各种锁模式的语义。
  */
 static const LOCKMASK LockConflicts[] = {
 	0,
 
-	/* AccessShareLock */
+	/* AccessShareLock（访问共享锁） */
 	LOCKBIT_ON(AccessExclusiveLock),
 
-	/* RowShareLock */
+	/* RowShareLock（行共享锁） */
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* RowExclusiveLock */
+	/* RowExclusiveLock（行排他锁） */
 	LOCKBIT_ON(ShareLock) | LOCKBIT_ON(ShareRowExclusiveLock) |
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* ShareUpdateExclusiveLock */
+	/* ShareUpdateExclusiveLock（共享更新排他锁） */
 	LOCKBIT_ON(ShareUpdateExclusiveLock) |
 	LOCKBIT_ON(ShareLock) | LOCKBIT_ON(ShareRowExclusiveLock) |
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* ShareLock */
+	/* ShareLock（共享锁） */
 	LOCKBIT_ON(RowExclusiveLock) | LOCKBIT_ON(ShareUpdateExclusiveLock) |
 	LOCKBIT_ON(ShareRowExclusiveLock) |
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* ShareRowExclusiveLock */
+	/* ShareRowExclusiveLock（共享行排他锁） */
 	LOCKBIT_ON(RowExclusiveLock) | LOCKBIT_ON(ShareUpdateExclusiveLock) |
 	LOCKBIT_ON(ShareLock) | LOCKBIT_ON(ShareRowExclusiveLock) |
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* ExclusiveLock */
+	/* ExclusiveLock（排他锁） */
 	LOCKBIT_ON(RowShareLock) |
 	LOCKBIT_ON(RowExclusiveLock) | LOCKBIT_ON(ShareUpdateExclusiveLock) |
 	LOCKBIT_ON(ShareLock) | LOCKBIT_ON(ShareRowExclusiveLock) |
 	LOCKBIT_ON(ExclusiveLock) | LOCKBIT_ON(AccessExclusiveLock),
 
-	/* AccessExclusiveLock */
+	/* AccessExclusiveLock（访问排他锁） */
 	LOCKBIT_ON(AccessShareLock) | LOCKBIT_ON(RowShareLock) |
 	LOCKBIT_ON(RowExclusiveLock) | LOCKBIT_ON(ShareUpdateExclusiveLock) |
 	LOCKBIT_ON(ShareLock) | LOCKBIT_ON(ShareRowExclusiveLock) |
@@ -105,7 +105,7 @@ static const LOCKMASK LockConflicts[] = {
 
 };
 
-/* Names of lock modes, for debug printouts */
+/* 锁模式名称，供调试打印使用 */
 static const char *const lock_mode_names[] =
 {
 	"INVALID",
@@ -146,7 +146,7 @@ static const LockMethodData user_lockmethod = {
 };
 
 /*
- * map from lock method id to the lock table data structures
+ * 从锁方法标识到锁表数据结构的映射
  */
 static const LockMethod LockMethods[] = {
 	NULL,
@@ -155,7 +155,7 @@ static const LockMethod LockMethods[] = {
 };
 
 
-/* Record that's written to 2PC state file when a lock is persisted */
+/* 把锁持久化时写入两阶段提交状态文件的记录 */
 typedef struct TwoPhaseLockRecord
 {
 	LOCKTAG		locktag;
@@ -164,29 +164,29 @@ typedef struct TwoPhaseLockRecord
 
 
 /*
- * Count of the number of fast path lock slots we believe to be used.  This
- * might be higher than the real number if another backend has transferred
- * our locks to the primary lock table, but it can never be lower than the
- * real value, since only we can acquire locks on our own behalf.
+ * 我们以为正在使用的快速路径锁槽个数。若另一个后端
+ * 已把我们的锁转移到主锁表，这个数也许高于实际值，
+ * 但绝不会低于实际值，因为只有我们自己才能
+ * 代表自己去获取锁。
  */
 static int	FastPathLocalUseCount = 0;
 
 /*
- * Flag to indicate if the relation extension lock is held by this backend.
- * This flag is used to ensure that while holding the relation extension lock
- * we don't try to acquire a heavyweight lock on any other object.  This
- * restriction implies that the relation extension lock won't ever participate
- * in the deadlock cycle because we can never wait for any other heavyweight
- * lock after acquiring this lock.
+ * 标志：本后端是否正持有关系扩展锁。
+ * 该标志用来保证：持有关系扩展锁期间，
+ * 我们不会再去获取任何其他对象上的重量级锁。这一
+ * 限制意味着关系扩展锁永远不会参与
+ * 死锁环，因为取得这把锁之后，我们绝不会再等待任何其他重量级
+ * 锁。
  *
- * Such a restriction is okay for relation extension locks as unlike other
- * heavyweight locks these are not held till the transaction end.  These are
- * taken for a short duration to extend a particular relation and then
- * released.
+ * 对关系扩展锁来说，这样的限制是可以接受的，因为它们与其他
+ * 重量级锁不同，并不会一直持有到事务结束。取得它们只是为了
+ * 在短时间内扩展某个特定关系，然后
+ * 随即释放。
  */
 static bool IsRelationExtensionLockHeld PG_USED_FOR_ASSERTS_ONLY = false;
 
-/* Macros for manipulating proc->fpLockBits */
+/* 操作 proc->fpLockBits 的宏 */
 #define FAST_PATH_BITS_PER_SLOT			3
 #define FAST_PATH_LOCKNUMBER_OFFSET		1
 #define FAST_PATH_MASK					((1 << FAST_PATH_BITS_PER_SLOT) - 1)
@@ -205,12 +205,12 @@ static bool IsRelationExtensionLockHeld PG_USED_FOR_ASSERTS_ONLY = false;
 	 ((proc)->fpLockBits & (UINT64CONST(1) << FAST_PATH_BIT_POSITION(n, l)))
 
 /*
- * The fast-path lock mechanism is concerned only with relation locks on
- * unshared relations by backends bound to a database.  The fast-path
- * mechanism exists mostly to accelerate acquisition and release of locks
- * that rarely conflict.  Because ShareUpdateExclusiveLock is
- * self-conflicting, it can't use the fast-path mechanism; but it also does
- * not conflict with any of the locks that do, so we can ignore it completely.
+ * 快速路径锁机制只关心绑定到某个数据库的后端
+ * 在非共享关系上的关系锁。该机制的存在主要是为了加快
+ * 那些很少发生冲突的锁的获取与释放。因为 ShareUpdateExclusiveLock
+ * 会与自身冲突，所以不能使用快速路径机制；但它也不与任何
+ * 可以使用该机制的锁相冲突，因此我们可以
+ * 完全忽略它。
  */
 #define EligibleForRelationFastPath(locktag, mode) \
 	((locktag)->locktag_lockmethodid == DEFAULT_LOCKMETHOD && \
@@ -231,18 +231,18 @@ static bool FastPathTransferRelationLocks(LockMethod lockMethodTable,
 static PROCLOCK *FastPathGetRelationLockEntry(LOCALLOCK *locallock);
 
 /*
- * To make the fast-path lock mechanism work, we must have some way of
- * preventing the use of the fast-path when a conflicting lock might be present.
- * We partition* the locktag space into FAST_PATH_STRONG_LOCK_HASH_PARTITIONS,
- * and maintain an integer count of the number of "strong" lockers
- * in each partition.  When any "strong" lockers are present (which is
- * hopefully not very often), the fast-path mechanism can't be used, and we
- * must fall back to the slower method of pushing matching locks directly
- * into the main lock tables.
+ * 要让快速路径锁机制奏效，必须有办法在可能存在
+ * 冲突锁时阻止使用快速路径。我们把 locktag 空间划分成
+ * FAST_PATH_STRONG_LOCK_HASH_PARTITIONS 个分区，
+ * 并在每个分区中维护 "强" 锁持有者的整数计数。
+ * 只要存在任何 "强" 锁持有者（希望这并不常见），
+ * 就不能使用快速路径机制，而必须退回到较慢的方法，
+ * 把匹配的锁直接推进
+ * 主锁表。
  *
- * The deadlock detector does not know anything about the fast path mechanism,
- * so any locks that might be involved in a deadlock must be transferred from
- * the fast-path queues to the main lock table.
+ * 死锁检测器对快速路径机制一无所知，
+ * 因此任何可能卷入死锁的锁，都必须从
+ * 快速路径队列转移到主锁表。
  */
 
 #define FAST_PATH_STRONG_LOCK_HASH_BITS			10
@@ -261,17 +261,17 @@ static volatile FastPathStrongRelationLockData *FastPathStrongRelationLocks;
 
 
 /*
- * Pointers to hash tables containing lock state
+ * 指向存放锁状态的哈希表的指针
  *
- * The LockMethodLockHash and LockMethodProcLockHash hash tables are in
- * shared memory; LockMethodLocalHash is local to each backend.
+ * LockMethodLockHash 与 LockMethodProcLockHash 哈希表位于
+ * 共享内存中；LockMethodLocalHash 则是每个后端本地的。
  */
 static HTAB *LockMethodLockHash;
 static HTAB *LockMethodProcLockHash;
 static HTAB *LockMethodLocalHash;
 
 
-/* private state for error cleanup */
+/* 供错误清理使用的私有状态 */
 static LOCALLOCK *StrongLockInProgress;
 static LOCALLOCK *awaitedLock;
 static ResourceOwner awaitedOwner;
@@ -280,19 +280,19 @@ static ResourceOwner awaitedOwner;
 #ifdef LOCK_DEBUG
 
 /*------
- * The following configuration options are available for lock debugging:
+ * 可供锁调试使用的配置选项如下：
  *
- *	   TRACE_LOCKS		-- give a bunch of output what's going on in this file
- *	   TRACE_USERLOCKS	-- same but for user locks
- *	   TRACE_LOCK_OIDMIN-- do not trace locks for tables below this oid
- *						   (use to avoid output on system tables)
- *	   TRACE_LOCK_TABLE -- trace locks on this table (oid) unconditionally
- *	   DEBUG_DEADLOCKS	-- currently dumps locks at untimely occasions ;)
+ *	   TRACE_LOCKS		-- 大量输出本文件中正在发生的事情
+ *	   TRACE_USERLOCKS	-- 同上，但针对用户锁
+ *	   TRACE_LOCK_OIDMIN-- 不跟踪 oid 低于此值的表上的锁
+ *						   (用于避免系统表上的输出)
+ *	   TRACE_LOCK_TABLE -- 无条件跟踪此表（oid）上的锁
+ *	   DEBUG_DEADLOCKS	-- 目前会在不合时宜的场合转储锁
  *
- * Furthermore, but in storage/lmgr/lwlock.c:
- *	   TRACE_LWLOCKS	-- trace lightweight locks (pretty useless)
+ * 此外，在 storage/lmgr/lwlock.c 中还有：
+ *	   TRACE_LWLOCKS	-- 跟踪轻量级锁（相当没用）
  *
- * Define LOCK_DEBUG at compile time to get all these enabled.
+ * 编译时定义 LOCK_DEBUG 即可启用上述全部选项。
  * --------
  */
 
@@ -348,11 +348,11 @@ PROCLOCK_PRINT(const char *where, const PROCLOCK *proclockP)
 			 PROCLOCK_LOCKMETHOD(*(proclockP)),
 			 proclockP->tag.myProc, (int) proclockP->holdMask);
 }
-#else							/* not LOCK_DEBUG */
+#else							/* 非 LOCK_DEBUG */
 
 #define LOCK_PRINT(where, lock, type)  ((void) 0)
 #define PROCLOCK_PRINT(where, proclockP)  ((void) 0)
-#endif							/* not LOCK_DEBUG */
+#endif							/* 非 LOCK_DEBUG */
 
 
 static uint32 proclock_hash(const void *key, Size keysize);
@@ -378,16 +378,16 @@ static void GetSingleProcBlockerStatusData(PGPROC *blocked_proc,
 
 
 /*
- * InitLocks -- Initialize the lock manager's data structures.
+ * InitLocks -- 初始化锁管理器的数据结构。
  *
- * This is called from CreateSharedMemoryAndSemaphores(), which see for
- * more comments.  In the normal postmaster case, the shared hash tables
- * are created here, as well as a locallock hash table that will remain
- * unused and empty in the postmaster itself.  Backends inherit the pointers
- * to the shared tables via fork(), and also inherit an image of the locallock
- * hash table, which they proceed to use.  In the EXEC_BACKEND case, each
- * backend re-executes this code to obtain pointers to the already existing
- * shared hash tables and to create its locallock hash table.
+ * 由 CreateSharedMemoryAndSemaphores() 调用，更多说明见该函数。
+ * 在通常的 postmaster 情形下，共享哈希表在这里创建，
+ * 同时还会创建一个 locallock 哈希表，它在 postmaster 自身中
+ * 保持未使用且为空。后端经由 fork() 继承指向
+ * 共享表的指针，同时也继承 locallock
+ * 哈希表的一份映像，并随即使用它。在 EXEC_BACKEND 情形下，每个
+ * 后端会重新执行这段代码，以取得指向已经存在的
+ * 共享哈希表的指针，并创建自己的 locallock 哈希表。
  */
 void
 InitLocks(void)
@@ -398,15 +398,15 @@ InitLocks(void)
 	bool		found;
 
 	/*
-	 * Compute init/max size to request for lock hashtables.  Note these
-	 * calculations must agree with LockShmemSize!
+	 * 计算为锁哈希表请求的初始大小与最大大小。注意这些
+	 * 计算必须与 LockShmemSize 一致！
 	 */
 	max_table_size = NLOCKENTS();
 	init_table_size = max_table_size / 2;
 
 	/*
-	 * Allocate hash table for LOCK structs.  This stores per-locked-object
-	 * information.
+	 * 为 LOCK 结构体分配哈希表。这里存放每个被锁对象的
+	 * 信息。
 	 */
 	info.keysize = sizeof(LOCKTAG);
 	info.entrysize = sizeof(LOCK);
@@ -418,13 +418,13 @@ InitLocks(void)
 									   &info,
 									   HASH_ELEM | HASH_BLOBS | HASH_PARTITION);
 
-	/* Assume an average of 2 holders per lock */
+	/* 假定每把锁平均有 2 个持有者 */
 	max_table_size *= 2;
 	init_table_size *= 2;
 
 	/*
-	 * Allocate hash table for PROCLOCK structs.  This stores
-	 * per-lock-per-holder information.
+	 * 为 PROCLOCK 结构体分配哈希表。这里存放
+	 * 每把锁、每个持有者的信息。
 	 */
 	info.keysize = sizeof(PROCLOCKTAG);
 	info.entrysize = sizeof(PROCLOCK);
@@ -438,7 +438,7 @@ InitLocks(void)
 										   HASH_ELEM | HASH_FUNCTION | HASH_PARTITION);
 
 	/*
-	 * Allocate fast-path structures.
+	 * 分配快速路径结构。
 	 */
 	FastPathStrongRelationLocks =
 		ShmemInitStruct("Fast Path Strong Relation Lock Data",
@@ -447,13 +447,13 @@ InitLocks(void)
 		SpinLockInit(&FastPathStrongRelationLocks->mutex);
 
 	/*
-	 * Allocate non-shared hash table for LOCALLOCK structs.  This stores lock
-	 * counts and resource owner information.
+	 * 为 LOCALLOCK 结构体分配非共享哈希表。这里存放锁
+	 * 计数以及资源所有者信息。
 	 *
-	 * The non-shared table could already exist in this process (this occurs
-	 * when the postmaster is recreating shared memory after a backend crash).
-	 * If so, delete and recreate it.  (We could simply leave it, since it
-	 * ought to be empty in the postmaster, but for safety let's zap it.)
+	 * 非共享表在本进程中也许已经存在（当 postmaster 在后端崩溃后
+	 * 重建共享内存时就会这样）。若是如此，就删掉并重建它。
+	 * （本来也可以留着，因为在 postmaster 里它应当是空的，
+	 * 但为安全起见还是清掉。）
 	 */
 	if (LockMethodLocalHash)
 		hash_destroy(LockMethodLocalHash);
@@ -469,7 +469,7 @@ InitLocks(void)
 
 
 /*
- * Fetch the lock method table associated with a given lock
+ * 取出与给定锁相关联的锁方法表
  */
 LockMethod
 GetLocksMethodTable(const LOCK *lock)
@@ -481,7 +481,7 @@ GetLocksMethodTable(const LOCK *lock)
 }
 
 /*
- * Fetch the lock method table associated with a given locktag
+ * 取出与给定 locktag 相关联的锁方法表
  */
 LockMethod
 GetLockTagsMethodTable(const LOCKTAG *locktag)
@@ -494,12 +494,12 @@ GetLockTagsMethodTable(const LOCKTAG *locktag)
 
 
 /*
- * Compute the hash code associated with a LOCKTAG.
+ * 计算与某个 LOCKTAG 相关联的哈希码。
  *
- * To avoid unnecessary recomputations of the hash code, we try to do this
- * just once per function, and then pass it around as needed.  Aside from
- * passing the hashcode to hash_search_with_hash_value(), we can extract
- * the lock partition number from the hashcode.
+ * 为避免不必要地反复计算哈希码，我们尽量在每个函数里
+ * 只算一次，然后按需要传递。除了把哈希码传给
+ * hash_search_with_hash_value() 之外，还可以从哈希码中
+ * 提取锁分区号。
  */
 uint32
 LockTagHashCode(const LOCKTAG *locktag)
@@ -508,15 +508,15 @@ LockTagHashCode(const LOCKTAG *locktag)
 }
 
 /*
- * Compute the hash code associated with a PROCLOCKTAG.
+ * 计算与某个 PROCLOCKTAG 相关联的哈希码。
  *
- * Because we want to use just one set of partition locks for both the
- * LOCK and PROCLOCK hash tables, we have to make sure that PROCLOCKs
- * fall into the same partition number as their associated LOCKs.
- * dynahash.c expects the partition number to be the low-order bits of
- * the hash code, and therefore a PROCLOCKTAG's hash code must have the
- * same low-order bits as the associated LOCKTAG's hash code.  We achieve
- * this with this specialized hash function.
+ * 因为我们希望 LOCKs 与 PROCLOCKs 哈希表共用同一组
+ * 分区锁，所以必须保证 PROCLOCK 落入与其
+ * 关联 LOCK 相同的分区号。
+ * dynahash.c 期望分区号是哈希码的低位，
+ * 因此 PROCLOCKTAG 的哈希码必须与关联 LOCKTAG 的
+ * 哈希码具有相同的低位。我们用这个
+ * 专门的哈希函数来实现这一点。
  */
 static uint32
 proclock_hash(const void *key, Size keysize)
@@ -527,15 +527,15 @@ proclock_hash(const void *key, Size keysize)
 
 	Assert(keysize == sizeof(PROCLOCKTAG));
 
-	/* Look into the associated LOCK object, and compute its hash code */
+	/* 查看相关联的 LOCK 对象，并计算其哈希码 */
 	lockhash = LockTagHashCode(&proclocktag->myLock->tag);
 
 	/*
-	 * To make the hash code also depend on the PGPROC, we xor the proc
-	 * struct's address into the hash code, left-shifted so that the
-	 * partition-number bits don't change.  Since this is only a hash, we
-	 * don't care if we lose high-order bits of the address; use an
-	 * intermediate variable to suppress cast-pointer-to-int warnings.
+	 * 为了让哈希码也依赖于 PGPROC，我们把 proc
+	 * 结构体的地址异或进哈希码，并左移，使
+	 * 分区号所在的位不变。既然这只是哈希，
+	 * 丢掉地址的高位也没关系；用一个
+	 * 中间变量来抑制指针转换为整数的警告。
 	 */
 	procptr = PointerGetDatum(proclocktag->myProc);
 	lockhash ^= ((uint32) procptr) << LOG2_NUM_LOCK_PARTITIONS;
@@ -544,10 +544,10 @@ proclock_hash(const void *key, Size keysize)
 }
 
 /*
- * Compute the hash code associated with a PROCLOCKTAG, given the hashcode
- * for its underlying LOCK.
+ * 在已知其底层 LOCK 的哈希码时，
+ * 计算与 PROCLOCKTAG 相关联的哈希码。
  *
- * We use this just to avoid redundant calls of LockTagHashCode().
+ * 这样做只是为了避免重复调用 LockTagHashCode()。
  */
 static inline uint32
 ProcLockHashCode(const PROCLOCKTAG *proclocktag, uint32 hashcode)
@@ -556,7 +556,7 @@ ProcLockHashCode(const PROCLOCKTAG *proclocktag, uint32 hashcode)
 	Datum		procptr;
 
 	/*
-	 * This must match proclock_hash()!
+	 * 这里必须与 proclock_hash() 一致！
 	 */
 	procptr = PointerGetDatum(proclocktag->myProc);
 	lockhash ^= ((uint32) procptr) << LOG2_NUM_LOCK_PARTITIONS;
@@ -565,7 +565,7 @@ ProcLockHashCode(const PROCLOCKTAG *proclocktag, uint32 hashcode)
 }
 
 /*
- * Given two lock modes, return whether they would conflict.
+ * 给定两种锁模式，返回它们是否会冲突。
  */
 bool
 DoLockModesConflict(LOCKMODE mode1, LOCKMODE mode2)
@@ -579,13 +579,13 @@ DoLockModesConflict(LOCKMODE mode1, LOCKMODE mode2)
 }
 
 /*
- * LockHeldByMeExtended -- test whether lock 'locktag' is held by the current
- *		transaction
+ * LockHeldByMeExtended -- 测试锁 'locktag' 是否由当前
+ *		事务持有
  *
- * Returns true if current transaction holds a lock on 'tag' of mode
- * 'lockmode'.  If 'orstronger' is true, a stronger lockmode is also OK.
- * ("Stronger" is defined as "numerically higher", which is a bit
- * semantically dubious but is OK for the purposes we use this for.)
+ * 若当前事务以 'lockmode' 模式持有 'tag' 上的锁，则返回真。
+ * 若 'orstronger' 为真，更强的锁模式也可以。
+ * （"更强" 定义为 "数值更大"，语义上有些
+ * 可疑，但对我们的用途来说没问题。）
  */
 static bool
 LockHeldByMeExtended(const LOCKTAG *locktag,
@@ -595,9 +595,9 @@ LockHeldByMeExtended(const LOCKTAG *locktag,
 	LOCALLOCK  *locallock;
 
 	/*
-	 * See if there is a LOCALLOCK entry for this lock and lockmode
+	 * 查看是否已有此锁和锁模式的 LOCALLOCK 项
 	 */
-	MemSet(&localtag, 0, sizeof(localtag)); /* must clear padding */
+	MemSet(&localtag, 0, sizeof(localtag)); /* 必须清掉填充字节 */
 	localtag.lock = *locktag;
 	localtag.mode = lockmode;
 
@@ -638,8 +638,8 @@ LockOrStrongerHeldByMe(const LOCKTAG *locktag, LOCKMODE lockmode)
 
 #ifdef USE_ASSERT_CHECKING
 /*
- * GetLockMethodLocalHash -- return the hash of local locks, for modules that
- *		evaluate assertions based on all locks held.
+ * GetLockMethodLocalHash -- 返回本地锁的哈希表，供那些
+ *		根据所持全部锁来做断言的模块使用。
  */
 HTAB *
 GetLockMethodLocalHash(void)
@@ -649,8 +649,8 @@ GetLockMethodLocalHash(void)
 #endif
 
 /*
- * LockHasWaiters -- look up 'locktag' and check if releasing this
- *		lock would wake up other processes waiting for it.
+ * LockHasWaiters -- 查找 'locktag'，并检查释放这把
+ *		锁是否会唤醒正在等待它的其他进程。
  */
 bool
 LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
@@ -678,9 +678,9 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 #endif
 
 	/*
-	 * Find the LOCALLOCK entry for this lock and lockmode
+	 * 找出此锁和锁模式对应的 LOCALLOCK 项
 	 */
-	MemSet(&localtag, 0, sizeof(localtag)); /* must clear padding */
+	MemSet(&localtag, 0, sizeof(localtag)); /* 必须清掉填充字节 */
 	localtag.lock = *locktag;
 	localtag.mode = lockmode;
 
@@ -689,7 +689,7 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 										  HASH_FIND, NULL);
 
 	/*
-	 * let the caller print its own error message, too. Do not ereport(ERROR).
+	 * 也让调用方打印自己的错误消息。不要 ereport(ERROR)。
 	 */
 	if (!locallock || locallock->nLocks <= 0)
 	{
@@ -699,16 +699,16 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Check the shared lock table.
+	 * 检查共享锁表。
 	 */
 	partitionLock = LockHashPartitionLock(locallock->hashcode);
 
 	LWLockAcquire(partitionLock, LW_SHARED);
 
 	/*
-	 * We don't need to re-find the lock or proclock, since we kept their
-	 * addresses in the locallock table, and they couldn't have been removed
-	 * while we were holding a lock on them.
+	 * 不必重新查找 lock 或 proclock，因为我们在 locallock 表里
+	 * 保存了它们的地址，而且只要我们持有其上的锁，
+	 * 它们就不会被移除。
 	 */
 	lock = locallock->lock;
 	LOCK_PRINT("LockHasWaiters: found", lock, lockmode);
@@ -716,8 +716,8 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	PROCLOCK_PRINT("LockHasWaiters: found", proclock);
 
 	/*
-	 * Double-check that we are actually holding a lock of the type we want to
-	 * release.
+	 * 再确认一次：我们确实持有想要
+	 * 释放的那种类型的锁。
 	 */
 	if (!(proclock->holdMask & LOCKBIT_ON(lockmode)))
 	{
@@ -730,7 +730,7 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Do the checking.
+	 * 执行检查。
 	 */
 	if ((lockMethodTable->conflictTab[lockmode] & lock->waitMask) != 0)
 		hasWaiters = true;
@@ -741,29 +741,29 @@ LockHasWaiters(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 }
 
 /*
- * LockAcquire -- Check for lock conflicts, sleep if conflict found,
- *		set lock if/when no conflicts.
+ * LockAcquire -- 检查锁冲突，若发现冲突则睡眠，
+ *		在没有冲突时设置锁。
  *
- * Inputs:
- *	locktag: unique identifier for the lockable object
- *	lockmode: lock mode to acquire
- *	sessionLock: if true, acquire lock for session not current transaction
- *	dontWait: if true, don't wait to acquire lock
+ * 输入：
+ *	locktag：可锁对象的唯一标识
+ *	lockmode：要获取的锁模式
+ *	sessionLock：若为真，则为会话而不是当前事务获取锁
+ *	dontWait：若为真，则不等待获取锁
  *
- * Returns one of:
- *		LOCKACQUIRE_NOT_AVAIL		lock not available, and dontWait=true
- *		LOCKACQUIRE_OK				lock successfully acquired
- *		LOCKACQUIRE_ALREADY_HELD	incremented count for lock already held
- *		LOCKACQUIRE_ALREADY_CLEAR	incremented count for lock already clear
+ * 返回下列之一：
+ *		LOCKACQUIRE_NOT_AVAIL		锁不可用，且 dontWait=true
+ *		LOCKACQUIRE_OK				锁已成功获取
+ *		LOCKACQUIRE_ALREADY_HELD	锁已持有，计数已增加
+ *		LOCKACQUIRE_ALREADY_CLEAR	锁已处于 clear 状态，计数已增加
  *
- * In the normal case where dontWait=false and the caller doesn't need to
- * distinguish a freshly acquired lock from one already taken earlier in
- * this same transaction, there is no need to examine the return value.
+ * 在通常情形下 dontWait=false，而且调用方不需要
+ * 区分新获取的锁与本事务早先已经取得的锁，
+ * 此时不必查看返回值。
  *
- * Side Effects: The lock is acquired and recorded in lock tables.
+ * 副作用：锁被获取，并记入锁表。
  *
- * NOTE: if we wait for the lock, there is no way to abort the wait
- * short of aborting the transaction.
+ * 注意：若我们等待这把锁，除了中止事务之外，
+ * 没有办法中止这次等待。
  */
 LockAcquireResult
 LockAcquire(const LOCKTAG *locktag,
@@ -776,18 +776,18 @@ LockAcquire(const LOCKTAG *locktag,
 }
 
 /*
- * LockAcquireExtended - allows us to specify additional options
+ * LockAcquireExtended - 允许我们指定额外选项
  *
- * reportMemoryError specifies whether a lock request that fills the lock
- * table should generate an ERROR or not.  Passing "false" allows the caller
- * to attempt to recover from lock-table-full situations, perhaps by forcibly
- * canceling other lock holders and then retrying.  Note, however, that the
- * return code for that is LOCKACQUIRE_NOT_AVAIL, so that it's unsafe to use
- * in combination with dontWait = true, as the cause of failure couldn't be
- * distinguished.
+ * reportMemoryError 指定：把锁表填满的锁请求
+ * 是否应当产生 ERROR。传入 "false" 允许调用方
+ * 尝试从锁表已满的情形中恢复，例如强制
+ * 取消其他锁持有者然后重试。不过请注意，此时的
+ * 返回码是 LOCKACQUIRE_NOT_AVAIL，因此把它与
+ * dontWait = true 一起使用是不安全的，因为无法区分
+ * 失败原因。
  *
- * If locallockp isn't NULL, *locallockp receives a pointer to the LOCALLOCK
- * table entry if a lock is successfully acquired, or NULL if not.
+ * 若 locallockp 不是 NULL，成功取得锁时 *locallockp 收到指向 LOCALLOCK
+ * 表项的指针，否则收到 NULL。
  */
 LockAcquireResult
 LockAcquireExtended(const LOCKTAG *locktag,
@@ -833,16 +833,16 @@ LockAcquireExtended(const LOCKTAG *locktag,
 			 lockMethodTable->lockModeNames[lockmode]);
 #endif
 
-	/* Identify owner for lock */
+	/* 确定锁的所有者 */
 	if (sessionLock)
 		owner = NULL;
 	else
 		owner = CurrentResourceOwner;
 
 	/*
-	 * Find or create a LOCALLOCK entry for this lock and lockmode
+	 * 找出或创建此锁和锁模式的 LOCALLOCK 项
 	 */
-	MemSet(&localtag, 0, sizeof(localtag)); /* must clear padding */
+	MemSet(&localtag, 0, sizeof(localtag)); /* 必须清掉填充字节 */
 	localtag.lock = *locktag;
 	localtag.mode = lockmode;
 
@@ -851,7 +851,7 @@ LockAcquireExtended(const LOCKTAG *locktag,
 										  HASH_ENTER, &found);
 
 	/*
-	 * if it's a new locallock object, initialize it
+	 * 若是新建的 locallock 对象，则初始化它
 	 */
 	if (!found)
 	{
@@ -863,14 +863,14 @@ LockAcquireExtended(const LOCKTAG *locktag,
 		locallock->lockCleared = false;
 		locallock->numLockOwners = 0;
 		locallock->maxLockOwners = 8;
-		locallock->lockOwners = NULL;	/* in case next line fails */
+		locallock->lockOwners = NULL;	/* 以防下一行失败 */
 		locallock->lockOwners = (LOCALLOCKOWNER *)
 			MemoryContextAlloc(TopMemoryContext,
 							   locallock->maxLockOwners * sizeof(LOCALLOCKOWNER));
 	}
 	else
 	{
-		/* Make sure there will be room to remember the lock */
+		/* 确保有地方记住这把锁 */
 		if (locallock->numLockOwners >= locallock->maxLockOwners)
 		{
 			int			newsize = locallock->maxLockOwners * 2;
@@ -887,10 +887,10 @@ LockAcquireExtended(const LOCKTAG *locktag,
 		*locallockp = locallock;
 
 	/*
-	 * If we already hold the lock, we can just increase the count locally.
+	 * 若我们已经持有该锁，只需在本地增加计数。
 	 *
-	 * If lockCleared is already set, caller need not worry about absorbing
-	 * sinval messages related to the lock's object.
+	 * 若 lockCleared 已经置位，调用方不必操心去吸收
+	 * 与该锁对象相关的 sinval 消息。
 	 */
 	if (locallock->nLocks > 0)
 	{
@@ -902,23 +902,23 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	}
 
 	/*
-	 * We don't acquire any other heavyweight lock while holding the relation
-	 * extension lock.  We do allow to acquire the same relation extension
-	 * lock more than once but that case won't reach here.
+	 * 持有关系扩展锁时，我们不再获取任何其他重量级锁。
+	 * 允许多次获取同一把关系扩展
+	 * 锁，但那种情形到不了这里。
 	 */
 	Assert(!IsRelationExtensionLockHeld);
 
 	/*
-	 * Prepare to emit a WAL record if acquisition of this lock needs to be
-	 * replayed in a standby server.
+	 * 若获取这把锁需要在备库上重放，
+	 * 就准备发出一条 WAL 记录。
 	 *
-	 * Here we prepare to log; after lock is acquired we'll issue log record.
-	 * This arrangement simplifies error recovery in case the preparation step
-	 * fails.
+	 * 这里先做记录准备；取得锁之后再真正发出日志记录。
+	 * 这样安排可以简化准备步骤失败时的
+	 * 错误恢复。
 	 *
-	 * Only AccessExclusiveLocks can conflict with lock types that read-only
-	 * transactions can acquire in a standby server. Make sure this definition
-	 * matches the one in GetRunningTransactionLocks().
+	 * 只有 AccessExclusiveLocks 会与只读
+	 * 事务在备库上可以获取的锁类型冲突。请确保此定义
+	 * 与 GetRunningTransactionLocks() 中的定义一致。
 	 */
 	if (lockmode >= AccessExclusiveLock &&
 		locktag->locktag_type == LOCKTAG_RELATION &&
@@ -930,14 +930,14 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	}
 
 	/*
-	 * Attempt to take lock via fast path, if eligible.  But if we remember
-	 * having filled up the fast path array, we don't attempt to make any
-	 * further use of it until we release some locks.  It's possible that some
-	 * other backend has transferred some of those locks to the shared hash
-	 * table, leaving space free, but it's not worth acquiring the LWLock just
-	 * to check.  It's also possible that we're acquiring a second or third
-	 * lock type on a relation we have already locked using the fast-path, but
-	 * for now we don't worry about that case either.
+	 * 若符合条件，就尝试经由快速路径取得锁。但如果我们记得
+	 * 快速路径数组已经填满，那么在释放一些锁之前，
+	 * 就不再尝试使用它。其他后端也许已经把其中一些
+	 * 锁转移到了共享哈希表，从而腾出了空位，但仅仅为了
+	 * 检查这一点而去获取 LWLock 并不值得。我们也有可能正在获取
+	 * 已经用快速路径锁住的关系上的第二种或第三种
+	 * 锁类型，不过目前
+	 * 也不处理那种情形。
 	 */
 	if (EligibleForRelationFastPath(locktag, lockmode) &&
 		FastPathLocalUseCount < FP_LOCK_SLOTS_PER_BACKEND)
@@ -946,10 +946,10 @@ LockAcquireExtended(const LOCKTAG *locktag,
 		bool		acquired;
 
 		/*
-		 * LWLockAcquire acts as a memory sequencing point, so it's safe to
-		 * assume that any strong locker whose increment to
-		 * FastPathStrongRelationLocks->counts becomes visible after we test
-		 * it has yet to begin to transfer fast-path locks.
+		 * LWLockAcquire 充当内存定序点，因此可以安全地
+		 * 假定：任何强锁持有者若其对
+		 * FastPathStrongRelationLocks->counts 的增量在我们检查之后才可见，
+		 * 则它尚未开始转移快速路径锁。
 		 */
 		LWLockAcquire(&MyProc->fpInfoLock, LW_EXCLUSIVE);
 		if (FastPathStrongRelationLocks->count[fasthashcode] != 0)
@@ -961,9 +961,9 @@ LockAcquireExtended(const LOCKTAG *locktag,
 		if (acquired)
 		{
 			/*
-			 * The locallock might contain stale pointers to some old shared
-			 * objects; we MUST reset these to null before considering the
-			 * lock to be acquired via fast-path.
+			 * locallock 里也许留着指向某些旧共享
+			 * 对象的过期指针；在认定该锁已经由快速路径
+			 * 取得之前，我们必须把这些指针重置为 null。
 			 */
 			locallock->lock = NULL;
 			locallock->proclock = NULL;
@@ -973,10 +973,10 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	}
 
 	/*
-	 * If this lock could potentially have been taken via the fast-path by
-	 * some other backend, we must (temporarily) disable further use of the
-	 * fast-path for this lock tag, and migrate any locks already taken via
-	 * this method to the main lock table.
+	 * 若其他后端有可能已经经由快速路径取得了这把锁，
+	 * 我们就必须（暂时）禁止对此 lock tag 继续使用
+	 * 快速路径，并把已经用此方法取得的锁迁移到
+	 * 主锁表。
 	 */
 	if (ConflictsWithRelationFastPath(locktag, lockmode))
 	{
@@ -1002,22 +1002,22 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	}
 
 	/*
-	 * We didn't find the lock in our LOCALLOCK table, and we didn't manage to
-	 * take it via the fast-path, either, so we've got to mess with the shared
-	 * lock table.
+	 * 在 LOCALLOCK 表里没有找到这把锁，经由快速路径也没能
+	 * 取得它，因此不得不去碰
+	 * 共享锁表。
 	 */
 	partitionLock = LockHashPartitionLock(hashcode);
 
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	/*
-	 * Find or create lock and proclock entries with this tag
+	 * 找出或创建带有此标签的 lock 与 proclock 项
 	 *
-	 * Note: if the locallock object already existed, it might have a pointer
-	 * to the lock already ... but we should not assume that that pointer is
-	 * valid, since a lock object with zero hold and request counts can go
-	 * away anytime.  So we have to use SetupLockInTable() to recompute the
-	 * lock and proclock pointers, even if they're already set.
+	 * 注意：若 locallock 对象已经存在，它也许已经有指向
+	 * 该锁的指针……但不应假定该指针仍然
+	 * 有效，因为持有计数和请求计数都为零的锁对象随时可能
+	 * 消失。因此即便这些指针已经设置，也必须用 SetupLockInTable()
+	 * 重新计算 lock 与 proclock 指针。
 	 */
 	proclock = SetupLockInTable(lockMethodTable, MyProc, locktag,
 								hashcode, lockmode);
@@ -1042,9 +1042,9 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	locallock->lock = lock;
 
 	/*
-	 * If lock requested conflicts with locks requested by waiters, must join
-	 * wait queue.  Otherwise, check for conflict with already-held locks.
-	 * (That's last because most complex check.)
+	 * 若所请求的锁与等待者请求的锁冲突，就必须加入
+	 * 等待队列。否则，检查是否与已经持有的锁冲突。
+	 * （放在最后，因为这是最复杂的检查。）
 	 */
 	if (lockMethodTable->conflictTab[lockmode] & lock->waitMask)
 		found_conflict = true;
@@ -1054,16 +1054,16 @@ LockAcquireExtended(const LOCKTAG *locktag,
 
 	if (!found_conflict)
 	{
-		/* No conflict with held or previously requested locks */
+		/* 与已持有或先前请求的锁都没有冲突 */
 		GrantLock(lock, proclock, lockmode);
 		GrantLockLocal(locallock, owner);
 	}
 	else
 	{
 		/*
-		 * We can't acquire the lock immediately.  If caller specified no
-		 * blocking, remove useless table entries and return
-		 * LOCKACQUIRE_NOT_AVAIL without waiting.
+		 * 无法立刻取得锁。若调用方指定了不
+		 * 阻塞，就去掉无用的表项并返回
+		 * LOCKACQUIRE_NOT_AVAIL，不再等待。
 		 */
 		if (dontWait)
 		{
@@ -1098,12 +1098,12 @@ LockAcquireExtended(const LOCKTAG *locktag,
 		}
 
 		/*
-		 * Set bitmask of locks this process already holds on this object.
+		 * 设置本进程在此对象上已经持有的锁的位掩码。
 		 */
 		MyProc->heldLocks = proclock->holdMask;
 
 		/*
-		 * Sleep till someone wakes me up.
+		 * 睡眠，直到有人把我唤醒。
 		 */
 
 		TRACE_POSTGRESQL_LOCK_WAIT_START(locktag->locktag_field1,
@@ -1123,21 +1123,21 @@ LockAcquireExtended(const LOCKTAG *locktag,
 										lockmode);
 
 		/*
-		 * NOTE: do not do any material change of state between here and
-		 * return.  All required changes in locktable state must have been
-		 * done when the lock was granted to us --- see notes in WaitOnLock.
+		 * 注意：从这里到返回之间，不要对状态做任何实质性修改。
+		 * 锁表状态所需的全部变更，都必须在锁授予我们时
+		 * 已经完成 --- 见 WaitOnLock 中的说明。
 		 */
 
 		/*
-		 * Check the proclock entry status, in case something in the ipc
-		 * communication doesn't work correctly.
+		 * 检查 proclock 项的状态，以防进程间
+		 * 通信有某处工作不正常。
 		 */
 		if (!(proclock->holdMask & LOCKBIT_ON(lockmode)))
 		{
 			AbortStrongLockAcquire();
 			PROCLOCK_PRINT("LockAcquire: INCONSISTENT", proclock);
 			LOCK_PRINT("LockAcquire: INCONSISTENT", lock, lockmode);
-			/* Should we retry ? */
+			/* 要重试吗？ */
 			LWLockRelease(partitionLock);
 			elog(ERROR, "LockAcquire failed");
 		}
@@ -1146,23 +1146,23 @@ LockAcquireExtended(const LOCKTAG *locktag,
 	}
 
 	/*
-	 * Lock state is fully up-to-date now; if we error out after this, no
-	 * special error cleanup is required.
+	 * 锁状态现在已经完全是最新的；若此后出错，
+	 * 不需要专门的错误清理。
 	 */
 	FinishStrongLockAcquire();
 
 	LWLockRelease(partitionLock);
 
 	/*
-	 * Emit a WAL record if acquisition of this lock needs to be replayed in a
-	 * standby server.
+	 * 若获取这把锁需要在备库上重放，
+	 * 就发出一条 WAL 记录。
 	 */
 	if (log_lock)
 	{
 		/*
-		 * Decode the locktag back to the original values, to avoid sending
-		 * lots of empty bytes with every message.  See lock.h to check how a
-		 * locktag is defined for LOCKTAG_RELATION
+		 * 把 locktag 解码回原来的值，以免每条消息都发送
+		 * 大量空字节。LOCKTAG_RELATION 如何定义 locktag，
+		 * 见 lock.h。
 		 */
 		LogAccessExclusiveLock(locktag->locktag_field1,
 							   locktag->locktag_field2);
@@ -1172,14 +1172,14 @@ LockAcquireExtended(const LOCKTAG *locktag,
 }
 
 /*
- * Find or create LOCK and PROCLOCK objects as needed for a new lock
- * request.
+ * 按新锁请求的需要，找出或创建
+ * LOCK 与 PROCLOCK 对象。
  *
- * Returns the PROCLOCK object, or NULL if we failed to create the objects
- * for lack of shared memory.
+ * 返回 PROCLOCK 对象；若因共享内存不足
+ * 而未能创建这些对象，则返回 NULL。
  *
- * The appropriate partition lock must be held at entry, and will be
- * held at exit.
+ * 进入时必须持有相应的分区锁，退出时
+ * 仍然持有。
  */
 static PROCLOCK *
 SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
@@ -1192,7 +1192,7 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 	bool		found;
 
 	/*
-	 * Find or create a lock with this tag.
+	 * 找出或创建带有此标签的锁。
 	 */
 	lock = (LOCK *) hash_search_with_hash_value(LockMethodLockHash,
 												locktag,
@@ -1203,7 +1203,7 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 		return NULL;
 
 	/*
-	 * if it's a new lock object, initialize it
+	 * 若是新建的锁对象，则初始化它
 	 */
 	if (!found)
 	{
@@ -1226,7 +1226,7 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 	}
 
 	/*
-	 * Create the hash key for the proclock table.
+	 * 为 proclock 表创建哈希键。
 	 */
 	proclocktag.myLock = lock;
 	proclocktag.myProc = proc;
@@ -1234,7 +1234,7 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 	proclock_hashcode = ProcLockHashCode(&proclocktag, hashcode);
 
 	/*
-	 * Find or create a proclock entry with this tag
+	 * 找出或创建带有此标签的 proclock 项
 	 */
 	proclock = (PROCLOCK *) hash_search_with_hash_value(LockMethodProcLockHash,
 														&proclocktag,
@@ -1243,14 +1243,14 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 														&found);
 	if (!proclock)
 	{
-		/* Oops, not enough shmem for the proclock */
+		/* 糟糕，proclock 的共享内存不够 */
 		if (lock->nRequested == 0)
 		{
 			/*
-			 * There are no other requestors of this lock, so garbage-collect
-			 * the lock object.  We *must* do this to avoid a permanent leak
-			 * of shared memory, because there won't be anything to cause
-			 * anyone to release the lock object later.
+			 * 没有其他请求者在请求这把锁，因此回收
+			 * 该锁对象。我们必须这样做，以免共享内存
+			 * 永久泄漏，因为此后不会再有任何事情
+			 * 促使别人释放这个锁对象。
 			 */
 			Assert(dlist_is_empty(&(lock->procLocks)));
 			if (!hash_search_with_hash_value(LockMethodLockHash,
@@ -1264,27 +1264,27 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 	}
 
 	/*
-	 * If new, initialize the new entry
+	 * 若是新建的，则初始化新项
 	 */
 	if (!found)
 	{
 		uint32		partition = LockHashPartition(hashcode);
 
 		/*
-		 * It might seem unsafe to access proclock->groupLeader without a
-		 * lock, but it's not really.  Either we are initializing a proclock
-		 * on our own behalf, in which case our group leader isn't changing
-		 * because the group leader for a process can only ever be changed by
-		 * the process itself; or else we are transferring a fast-path lock to
-		 * the main lock table, in which case that process can't change it's
-		 * lock group leader without first releasing all of its locks (and in
-		 * particular the one we are currently transferring).
+		 * 不持锁就访问 proclock->groupLeader 看似不安全，
+		 * 其实并非如此。要么我们正在为自己
+		 * 初始化一个 proclock，此时组长不会改变，
+		 * 因为进程的组长只能由该进程自己更改；
+		 * 要么我们正在把一把快速路径锁转移到主锁表，
+		 * 此时该进程若不先释放自己的全部锁
+		 * （尤其是我们正在转移的这一把），就无法更改
+		 * 自己的锁组组长。
 		 */
 		proclock->groupLeader = proc->lockGroupLeader != NULL ?
 			proc->lockGroupLeader : proc;
 		proclock->holdMask = 0;
 		proclock->releaseMask = 0;
-		/* Add proclock to appropriate lists */
+		/* 把 proclock 加入相应的链表 */
 		dlist_push_tail(&lock->procLocks, &proclock->lockLink);
 		dlist_push_tail(&proc->myProcLocks[partition], &proclock->procLink);
 		PROCLOCK_PRINT("LockAcquire: new", proclock);
@@ -1297,18 +1297,18 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 #ifdef CHECK_DEADLOCK_RISK
 
 		/*
-		 * Issue warning if we already hold a lower-level lock on this object
-		 * and do not hold a lock of the requested level or higher. This
-		 * indicates a deadlock-prone coding practice (eg, we'd have a
-		 * deadlock if another backend were following the same code path at
-		 * about the same time).
+		 * 若我们已经在此对象上持有更低级别的锁，
+		 * 却没有持有所请求级别或更高级别的锁，就发出警告。这
+		 * 表明一种容易死锁的编码习惯（例如，若另一个后端
+		 * 几乎同时走同一条代码路径，就会发生
+		 * 死锁）。
 		 *
-		 * This is not enabled by default, because it may generate log entries
-		 * about user-level coding practices that are in fact safe in context.
-		 * It can be enabled to help find system-level problems.
+		 * 默认不启用，因为它也许会为实际上在语境中安全的
+		 * 用户级编码习惯产生日志项。
+		 * 可以启用它来帮助查找系统级问题。
 		 *
-		 * XXX Doing numeric comparison on the lockmodes is a hack; it'd be
-		 * better to use a table.  For now, though, this works.
+		 * XXX 对锁模式做数值比较是一种权宜之计；用一张
+		 * 表会更好。不过目前这样也能工作。
 		 */
 		{
 			int			i;
@@ -1318,7 +1318,7 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 				if (proclock->holdMask & LOCKBIT_ON(i))
 				{
 					if (i >= (int) lockmode)
-						break;	/* safe: we have a lock >= req level */
+						break;	/* 安全：我们持有不低于所请求级别的锁 */
 					elog(LOG, "deadlock risk: raising lock level"
 						 " from %s to %s on object %u/%u/%u",
 						 lockMethodTable->lockModeNames[i],
@@ -1329,21 +1329,21 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 				}
 			}
 		}
-#endif							/* CHECK_DEADLOCK_RISK */
+#endif							/* CHECK_DEADLOCK_RISK（检查死锁风险） */
 	}
 
 	/*
-	 * lock->nRequested and lock->requested[] count the total number of
-	 * requests, whether granted or waiting, so increment those immediately.
-	 * The other counts don't increment till we get the lock.
+	 * lock->nRequested 与 lock->requested[] 统计请求总数，
+	 * 无论已授予还是在等待，因此立刻增加它们。
+	 * 其他计数要等到我们取得锁之后才增加。
 	 */
 	lock->nRequested++;
 	lock->requested[lockmode]++;
 	Assert((lock->nRequested > 0) && (lock->requested[lockmode] > 0));
 
 	/*
-	 * We shouldn't already hold the desired lock; else locallock table is
-	 * broken.
+	 * 我们不应已经持有所要的锁；否则 locallock 表
+	 * 就坏了。
 	 */
 	if (proclock->holdMask & LOCKBIT_ON(lockmode))
 		elog(ERROR, "lock %s on object %u/%u/%u is already held",
@@ -1355,12 +1355,12 @@ SetupLockInTable(LockMethod lockMethodTable, PGPROC *proc,
 }
 
 /*
- * Check and set/reset the flag that we hold the relation extension lock.
+ * 检查并设置或复位我们持有关系扩展锁的标志。
  *
- * It is callers responsibility that this function is called after
- * acquiring/releasing the relation extension lock.
+ * 调用方负责在获取或释放关系扩展锁之后
+ * 调用本函数。
  *
- * Pass acquired as true if lock is acquired, false otherwise.
+ * 若已取得锁则传入 acquired 为真，否则为假。
  */
 static inline void
 CheckAndSetLockHeld(LOCALLOCK *locallock, bool acquired)
@@ -1372,7 +1372,7 @@ CheckAndSetLockHeld(LOCALLOCK *locallock, bool acquired)
 }
 
 /*
- * Subroutine to free a locallock entry
+ * 释放一个 locallock 项的子例程
  */
 static void
 RemoveLocalLock(LOCALLOCK *locallock)
@@ -1408,24 +1408,24 @@ RemoveLocalLock(LOCALLOCK *locallock)
 		elog(WARNING, "locallock table corrupted");
 
 	/*
-	 * Indicate that the lock is released for certain types of locks
+	 * 对某些类型的锁，表明该锁已释放
 	 */
 	CheckAndSetLockHeld(locallock, false);
 }
 
 /*
- * LockCheckConflicts -- test whether requested lock conflicts
- *		with those already granted
+ * LockCheckConflicts -- 测试所请求的锁是否与
+ *		已经授予的锁冲突
  *
- * Returns true if conflict, false if no conflict.
+ * 若冲突则返回真，否则返回假。
  *
- * NOTES:
- *		Here's what makes this complicated: one process's locks don't
- * conflict with one another, no matter what purpose they are held for
- * (eg, session and transaction locks do not conflict).  Nor do the locks
- * of one process in a lock group conflict with those of another process in
- * the same group.  So, we must subtract off these locks when determining
- * whether the requested new lock conflicts with those already held.
+ * 说明（NOTES）：
+ *		使这件事变复杂的是：同一进程的锁彼此并不
+ * 冲突，无论持有它们的目的是什么
+ * （例如，会话锁与事务锁并不冲突）。同一锁组中
+ * 一个进程的锁也不会与该组中另一个进程的锁冲突。
+ * 因此，在判断新请求的锁是否与已持有的锁冲突时，
+ * 必须先减掉这些锁。
  */
 bool
 LockCheckConflicts(LockMethod lockMethodTable,
@@ -1442,13 +1442,13 @@ LockCheckConflicts(LockMethod lockMethodTable,
 	int			i;
 
 	/*
-	 * first check for global conflicts: If no locks conflict with my request,
-	 * then I get the lock.
+	 * 先检查全局冲突：若没有任何锁与我的请求冲突，
+	 * 我就得到这把锁。
 	 *
-	 * Checking for conflict: lock->grantMask represents the types of
-	 * currently held locks.  conflictTable[lockmode] has a bit set for each
-	 * type of lock that conflicts with request.   Bitwise compare tells if
-	 * there is a conflict.
+	 * 冲突检查：lock->grantMask 表示当前
+	 * 持有的锁类型。conflictTable[lockmode] 为每一种
+	 * 与请求冲突的锁类型置一位。按位比较即可得知
+	 * 是否存在冲突。
 	 */
 	if (!(conflictMask & lock->grantMask))
 	{
@@ -1457,9 +1457,9 @@ LockCheckConflicts(LockMethod lockMethodTable,
 	}
 
 	/*
-	 * Rats.  Something conflicts.  But it could still be my own lock, or a
-	 * lock held by another member of my locking group.  First, figure out how
-	 * many conflicts remain after subtracting out any locks I hold myself.
+	 * 真讨厌。有东西冲突了。但它仍可能是我自己的锁，或我的锁组中
+	 * 另一成员持有的锁。首先算出减掉我自己持有的锁之后，
+	 * 还剩下多少冲突。
 	 */
 	myLocks = proclock->holdMask;
 	for (i = 1; i <= numLockModes; i++)
@@ -1475,14 +1475,14 @@ LockCheckConflicts(LockMethod lockMethodTable,
 		totalConflictsRemaining += conflictsRemaining[i];
 	}
 
-	/* If no conflicts remain, we get the lock. */
+	/* 若不再有冲突，我们就得到这把锁。 */
 	if (totalConflictsRemaining == 0)
 	{
 		PROCLOCK_PRINT("LockCheckConflicts: resolved (simple)", proclock);
 		return false;
 	}
 
-	/* If no group locking, it's definitely a conflict. */
+	/* 若没有组锁，那就肯定是冲突。 */
 	if (proclock->groupLeader == MyProc && MyProc->lockGroupLeader == NULL)
 	{
 		Assert(proclock->tag.myProc == MyProc);
@@ -1492,7 +1492,7 @@ LockCheckConflicts(LockMethod lockMethodTable,
 	}
 
 	/*
-	 * The relation extension lock conflict even between the group members.
+	 * 关系扩展锁即便在组成员之间也会冲突。
 	 */
 	if (LOCK_LOCKTAG(*lock) == LOCKTAG_RELATION_EXTEND)
 	{
@@ -1502,12 +1502,12 @@ LockCheckConflicts(LockMethod lockMethodTable,
 	}
 
 	/*
-	 * Locks held in conflicting modes by members of our own lock group are
-	 * not real conflicts; we can subtract those out and see if we still have
-	 * a conflict.  This is O(N) in the number of processes holding or
-	 * awaiting locks on this object.  We could improve that by making the
-	 * shared memory state more complex (and larger) but it doesn't seem worth
-	 * it.
+	 * 我们自己的锁组成员以冲突模式持有的锁
+	 * 并不是真正的冲突；可以把它们减掉，再看是否仍然
+	 * 存在冲突。这相对于正在持有或
+	 * 等待此对象上的锁的进程数是 O(N)。可以通过让
+	 * 共享内存状态更复杂（也更大）来改进，但似乎
+	 * 不值得。
 	 */
 	dlist_foreach(proclock_iter, &lock->procLocks)
 	{
@@ -1540,21 +1540,21 @@ LockCheckConflicts(LockMethod lockMethodTable,
 		}
 	}
 
-	/* Nope, it's a real conflict. */
+	/* 不，这是真正的冲突。 */
 	PROCLOCK_PRINT("LockCheckConflicts: conflicting (group)", proclock);
 	return true;
 }
 
 /*
- * GrantLock -- update the lock and proclock data structures to show
- *		the lock request has been granted.
+ * GrantLock -- 更新 lock 与 proclock 数据结构，以表明
+ *		锁请求已被授予。
  *
- * NOTE: if proc was blocked, it also needs to be removed from the wait list
- * and have its waitLock/waitProcLock fields cleared.  That's not done here.
+ * 注意：若 proc 曾被阻塞，还需要把它从等待链表中移除，
+ * 并清掉它的 waitLock/waitProcLock 字段。这里不做这件事。
  *
- * NOTE: the lock grant also has to be recorded in the associated LOCALLOCK
- * table entry; but since we may be awaking some other process, we can't do
- * that here; it's done by GrantLockLocal, instead.
+ * 注意：锁的授予还必须记入相关联的 LOCALLOCK
+ * 表项；但因为我们也许正在唤醒另一个进程，这里做不到；
+ * 改由 GrantLockLocal 来做。
  */
 void
 GrantLock(LOCK *lock, PROCLOCK *proclock, LOCKMODE lockmode)
@@ -1571,13 +1571,13 @@ GrantLock(LOCK *lock, PROCLOCK *proclock, LOCKMODE lockmode)
 }
 
 /*
- * UnGrantLock -- opposite of GrantLock.
+ * UnGrantLock -- GrantLock 的逆操作。
  *
- * Updates the lock and proclock data structures to show that the lock
- * is no longer held nor requested by the current holder.
+ * 更新 lock 与 proclock 数据结构，以表明当前持有者
+ * 不再持有、也不再请求这把锁。
  *
- * Returns true if there were any waiters waiting on the lock that
- * should now be woken up with ProcLockWakeup.
+ * 若有等待者正在等待这把锁，并且现在应当用 ProcLockWakeup
+ * 唤醒它们，则返回真。
  */
 static bool
 UnGrantLock(LOCK *lock, LOCKMODE lockmode,
@@ -1590,7 +1590,7 @@ UnGrantLock(LOCK *lock, LOCKMODE lockmode,
 	Assert(lock->nGranted <= lock->nRequested);
 
 	/*
-	 * fix the general lock stats
+	 * 修正总体的锁统计
 	 */
 	lock->nRequested--;
 	lock->requested[lockmode]--;
@@ -1599,26 +1599,26 @@ UnGrantLock(LOCK *lock, LOCKMODE lockmode,
 
 	if (lock->granted[lockmode] == 0)
 	{
-		/* change the conflict mask.  No more of this lock type. */
+		/* 更改冲突掩码。不再有这种锁类型。 */
 		lock->grantMask &= LOCKBIT_OFF(lockmode);
 	}
 
 	LOCK_PRINT("UnGrantLock: updated", lock, lockmode);
 
 	/*
-	 * We need only run ProcLockWakeup if the released lock conflicts with at
-	 * least one of the lock types requested by waiter(s).  Otherwise whatever
-	 * conflict made them wait must still exist.  NOTE: before MVCC, we could
-	 * skip wakeup if lock->granted[lockmode] was still positive. But that's
-	 * not true anymore, because the remaining granted locks might belong to
-	 * some waiter, who could now be awakened because he doesn't conflict with
-	 * his own locks.
+	 * 只有当被释放的锁与waiter 所请求的至少一种
+	 * 锁类型冲突时，才需要运行 ProcLockWakeup。否则，当初让他们
+	 * 等待的冲突必然仍然存在。注意：在 MVCC 之前，若
+	 * lock->granted[lockmode] 仍为正，就可以跳过唤醒。但现在
+	 * 不再如此，因为剩余的已授予锁也许属于
+	 * 某个等待者，而他现在可以被唤醒，因为他并不与
+	 * 自己的锁冲突。
 	 */
 	if (lockMethodTable->conflictTab[lockmode] & lock->waitMask)
 		wakeupNeeded = true;
 
 	/*
-	 * Now fix the per-proclock state.
+	 * 现在修正每个 proclock 的状态。
 	 */
 	proclock->holdMask &= LOCKBIT_OFF(lockmode);
 	PROCLOCK_PRINT("UnGrantLock: updated", proclock);
@@ -1627,14 +1627,14 @@ UnGrantLock(LOCK *lock, LOCKMODE lockmode,
 }
 
 /*
- * CleanUpLock -- clean up after releasing a lock.  We garbage-collect the
- * proclock and lock objects if possible, and call ProcLockWakeup if there
- * are remaining requests and the caller says it's OK.  (Normally, this
- * should be called after UnGrantLock, and wakeupNeeded is the result from
- * UnGrantLock.)
+ * CleanUpLock -- 释放锁之后做清理。在可能时回收
+ * proclock 与 lock 对象，并在仍有剩余请求且调用方
+ * 表示可以时调用 ProcLockWakeup。（通常应在 UnGrantLock
+ * 之后调用本函数，而 wakeupNeeded 就是
+ * UnGrantLock 的结果。）
  *
- * The appropriate partition lock must be held at entry, and will be
- * held at exit.
+ * 进入时必须持有相应的分区锁，退出时
+ * 仍然持有。
  */
 static void
 CleanUpLock(LOCK *lock, PROCLOCK *proclock,
@@ -1642,8 +1642,8 @@ CleanUpLock(LOCK *lock, PROCLOCK *proclock,
 			bool wakeupNeeded)
 {
 	/*
-	 * If this was my last hold on this lock, delete my entry in the proclock
-	 * table.
+	 * 若这是我在此锁上的最后一次持有，就删除我在 proclock
+	 * 表中的项。
 	 */
 	if (proclock->holdMask == 0)
 	{
@@ -1664,8 +1664,8 @@ CleanUpLock(LOCK *lock, PROCLOCK *proclock,
 	if (lock->nRequested == 0)
 	{
 		/*
-		 * The caller just released the last lock, so garbage-collect the lock
-		 * object.
+		 * 调用方刚刚释放了最后一把锁，因此回收该
+		 * 锁对象。
 		 */
 		LOCK_PRINT("CleanUpLock: deleting", lock, 0);
 		Assert(dlist_is_empty(&lock->procLocks));
@@ -1678,17 +1678,17 @@ CleanUpLock(LOCK *lock, PROCLOCK *proclock,
 	}
 	else if (wakeupNeeded)
 	{
-		/* There are waiters on this lock, so wake them up. */
+		/* 这把锁上有等待者，因此唤醒他们。 */
 		ProcLockWakeup(lockMethodTable, lock);
 	}
 }
 
 /*
- * GrantLockLocal -- update the locallock data structures to show
- *		the lock request has been granted.
+ * GrantLockLocal -- 更新 locallock 数据结构，以表明
+ *		锁请求已被授予。
  *
- * We expect that LockAcquire made sure there is room to add a new
- * ResourceOwner entry.
+ * 我们期望 LockAcquire 已经确保有地方新增一条
+ * ResourceOwner 项。
  */
 static void
 GrantLockLocal(LOCALLOCK *locallock, ResourceOwner owner)
@@ -1697,9 +1697,9 @@ GrantLockLocal(LOCALLOCK *locallock, ResourceOwner owner)
 	int			i;
 
 	Assert(locallock->numLockOwners < locallock->maxLockOwners);
-	/* Count the total */
+	/* 累计总数 */
 	locallock->nLocks++;
-	/* Count the per-owner lock */
+	/* 累计每个所有者的锁 */
 	for (i = 0; i < locallock->numLockOwners; i++)
 	{
 		if (lockOwners[i].owner == owner)
@@ -1714,13 +1714,13 @@ GrantLockLocal(LOCALLOCK *locallock, ResourceOwner owner)
 	if (owner != NULL)
 		ResourceOwnerRememberLock(owner, locallock);
 
-	/* Indicate that the lock is acquired for certain types of locks. */
+	/* 对某些类型的锁，表明该锁已取得。 */
 	CheckAndSetLockHeld(locallock, true);
 }
 
 /*
- * BeginStrongLockAcquire - inhibit use of fastpath for a given LOCALLOCK,
- * and arrange for error cleanup if it fails
+ * BeginStrongLockAcquire - 对给定 LOCALLOCK 禁止使用快速路径，
+ * 并在失败时安排错误清理
  */
 static void
 BeginStrongLockAcquire(LOCALLOCK *locallock, uint32 fasthashcode)
@@ -1729,12 +1729,12 @@ BeginStrongLockAcquire(LOCALLOCK *locallock, uint32 fasthashcode)
 	Assert(locallock->holdsStrongLockCount == false);
 
 	/*
-	 * Adding to a memory location is not atomic, so we take a spinlock to
-	 * ensure we don't collide with someone else trying to bump the count at
-	 * the same time.
+	 * 对内存位置做加法并不是原子的，因此我们拿一把自旋锁，
+	 * 以确保不会与同时试图增加该计数的其他人
+	 * 撞在一起。
 	 *
-	 * XXX: It might be worth considering using an atomic fetch-and-add
-	 * instruction here, on architectures where that is supported.
+	 * XXX：在支持原子取并加指令的体系结构上，
+	 * 也许值得考虑改用它。
 	 */
 
 	SpinLockAcquire(&FastPathStrongRelationLocks->mutex);
@@ -1745,8 +1745,8 @@ BeginStrongLockAcquire(LOCALLOCK *locallock, uint32 fasthashcode)
 }
 
 /*
- * FinishStrongLockAcquire - cancel pending cleanup for a strong lock
- * acquisition once it's no longer needed
+ * FinishStrongLockAcquire - 一旦不再需要，就取消强锁
+ * 获取的待处理清理
  */
 static void
 FinishStrongLockAcquire(void)
@@ -1755,8 +1755,8 @@ FinishStrongLockAcquire(void)
 }
 
 /*
- * AbortStrongLockAcquire - undo strong lock state changes performed by
- * BeginStrongLockAcquire.
+ * AbortStrongLockAcquire - 撤销 BeginStrongLockAcquire
+ * 所做的强锁状态变更。
  */
 void
 AbortStrongLockAcquire(void)
@@ -1778,14 +1778,14 @@ AbortStrongLockAcquire(void)
 }
 
 /*
- * GrantAwaitedLock -- call GrantLockLocal for the lock we are doing
- *		WaitOnLock on.
+ * GrantAwaitedLock -- 对我们正在 WaitOnLock 的那把锁
+ *		调用 GrantLockLocal。
  *
- * proc.c needs this for the case where we are booted off the lock by
- * timeout, but discover that someone granted us the lock anyway.
+ * proc.c 在下列情形需要它：我们因超时被从锁上赶下来，
+ * 却发现别人反正已经把锁授予了我们。
  *
- * We could just export GrantLockLocal, but that would require including
- * resowner.h in lock.h, which creates circularity.
+ * 我们本可以直接导出 GrantLockLocal，但那样就需要在
+ * lock.h 中包含 resowner.h，从而造成循环依赖。
  */
 void
 GrantAwaitedLock(void)
@@ -1794,11 +1794,11 @@ GrantAwaitedLock(void)
 }
 
 /*
- * MarkLockClear -- mark an acquired lock as "clear"
+ * MarkLockClear -- 把已取得的锁标记为 "clear"
  *
- * This means that we know we have absorbed all sinval messages that other
- * sessions generated before we acquired this lock, and so we can confidently
- * assume we know about any catalog changes protected by this lock.
+ * 这意味着我们知道自己已经吸收了其他会话在我们取得
+ * 这把锁之前产生的全部 sinval 消息，因此可以有把握地
+ * 认为自己已经知道这把锁所保护的任何目录变更。
  */
 void
 MarkLockClear(LOCALLOCK *locallock)
@@ -1808,12 +1808,12 @@ MarkLockClear(LOCALLOCK *locallock)
 }
 
 /*
- * WaitOnLock -- wait to acquire a lock
+ * WaitOnLock -- 等待取得一把锁
  *
- * Caller must have set MyProc->heldLocks to reflect locks already held
- * on the lockable object by this process.
+ * 调用方必须已经设置 MyProc->heldLocks，以反映本进程
+ * 在该可锁对象上已经持有的锁。
  *
- * The appropriate partition lock must be held at entry.
+ * 进入时必须持有相应的分区锁。
  */
 static void
 WaitOnLock(LOCALLOCK *locallock, ResourceOwner owner)
@@ -1824,36 +1824,36 @@ WaitOnLock(LOCALLOCK *locallock, ResourceOwner owner)
 	LOCK_PRINT("WaitOnLock: sleeping on lock",
 			   locallock->lock, locallock->tag.mode);
 
-	/* adjust the process title to indicate that it's waiting */
+	/* 调整进程标题，以表明它正在等待 */
 	set_ps_display_suffix("waiting");
 
 	awaitedLock = locallock;
 	awaitedOwner = owner;
 
 	/*
-	 * NOTE: Think not to put any shared-state cleanup after the call to
-	 * ProcSleep, in either the normal or failure path.  The lock state must
-	 * be fully set by the lock grantor, or by CheckDeadLock if we give up
-	 * waiting for the lock.  This is necessary because of the possibility
-	 * that a cancel/die interrupt will interrupt ProcSleep after someone else
-	 * grants us the lock, but before we've noticed it. Hence, after granting,
-	 * the locktable state must fully reflect the fact that we own the lock;
-	 * we can't do additional work on return.
+	 * 注意：不要想着在调用 ProcSleep 之后，无论正常路径还是失败路径，
+	 * 再去做任何共享状态清理。锁状态必须由
+	 * 授予方完全设置好，或者在我们放弃等待时由 CheckDeadLock
+	 * 设置好。这是必要的，因为有可能某个取消/die 中断
+	 * 会在别人已经把锁授予我们、而我们尚未注意到时
+	 * 打断 ProcSleep。因此，授予之后，锁表状态必须充分反映出
+	 * 我们拥有这把锁这一事实；
+	 * 返回时不能再做额外工作。
 	 *
-	 * We can and do use a PG_TRY block to try to clean up after failure, but
-	 * this still has a major limitation: elog(FATAL) can occur while waiting
-	 * (eg, a "die" interrupt), and then control won't come back here. So all
-	 * cleanup of essential state should happen in LockErrorCleanup, not here.
-	 * We can use PG_TRY to clear the "waiting" status flags, since doing that
-	 * is unimportant if the process exits.
+	 * 我们确实可以用 PG_TRY 块在失败后尝试清理，但这仍有一个
+	 * 重大限制：等待期间可能发生 elog(FATAL)（例如 "die" 中断），
+	 * 那时控制流不会回到这里。所以必要状态的全部清理
+	 * 都应放在 LockErrorCleanup 里，而不是这里。
+	 * 我们可以用 PG_TRY 清除 "waiting" 状态标志，因为进程退出时
+	 * 做不做这件事都无关紧要。
 	 */
 	PG_TRY();
 	{
 		if (ProcSleep(locallock, lockMethodTable) != PROC_WAIT_STATUS_OK)
 		{
 			/*
-			 * We failed as a result of a deadlock, see CheckDeadLock(). Quit
-			 * now.
+			 * 我们因死锁而失败，见 CheckDeadLock()。现在
+			 * 退出。
 			 */
 			awaitedLock = NULL;
 			LOCK_PRINT("WaitOnLock: aborting on lock",
@@ -1861,28 +1861,28 @@ WaitOnLock(LOCALLOCK *locallock, ResourceOwner owner)
 			LWLockRelease(LockHashPartitionLock(locallock->hashcode));
 
 			/*
-			 * Now that we aren't holding the partition lock, we can give an
-			 * error report including details about the detected deadlock.
+			 * 既然不再持有分区锁，就可以给出包含
+			 * 所检测到的死锁细节的错误报告。
 			 */
 			DeadLockReport();
-			/* not reached */
+			/* 不会到达此处 */
 		}
 	}
 	PG_CATCH();
 	{
-		/* In this path, awaitedLock remains set until LockErrorCleanup */
+		/* 在这条路径上，awaitedLock 一直保持设置，直到 LockErrorCleanup */
 
-		/* reset ps display to remove the suffix */
+		/* 重置 ps 显示，去掉后缀 */
 		set_ps_display_remove_suffix();
 
-		/* and propagate the error */
+		/* 并传播该错误 */
 		PG_RE_THROW();
 	}
 	PG_END_TRY();
 
 	awaitedLock = NULL;
 
-	/* reset ps display to remove the suffix */
+	/* 重置 ps 显示，去掉后缀 */
 	set_ps_display_remove_suffix();
 
 	LOCK_PRINT("WaitOnLock: wakeup on lock",
@@ -1890,14 +1890,14 @@ WaitOnLock(LOCALLOCK *locallock, ResourceOwner owner)
 }
 
 /*
- * Remove a proc from the wait-queue it is on (caller must know it is on one).
- * This is only used when the proc has failed to get the lock, so we set its
- * waitStatus to PROC_WAIT_STATUS_ERROR.
+ * 把一个 proc 从它所在的等待队列中移除（调用方必须知道它在某个队列上）。
+ * 仅当该 proc 没能得到锁时才使用本函数，因此把它的
+ * waitStatus 设为 PROC_WAIT_STATUS_ERROR。
  *
- * Appropriate partition lock must be held by caller.  Also, caller is
- * responsible for signaling the proc if needed.
+ * 调用方必须持有相应的分区锁。此外，若需要向该 proc
+ * 发信号，也由调用方负责。
  *
- * NB: this does not clean up any locallock object that may exist for the lock.
+ * 注意：这不会清理该锁上也许存在的任何 locallock 对象。
  */
 void
 RemoveFromWaitQueue(PGPROC *proc, uint32 hashcode)
@@ -1907,37 +1907,37 @@ RemoveFromWaitQueue(PGPROC *proc, uint32 hashcode)
 	LOCKMODE	lockmode = proc->waitLockMode;
 	LOCKMETHODID lockmethodid = LOCK_LOCKMETHOD(*waitLock);
 
-	/* Make sure proc is waiting */
+	/* 确认 proc 正在等待 */
 	Assert(proc->waitStatus == PROC_WAIT_STATUS_WAITING);
 	Assert(proc->links.next != NULL);
 	Assert(waitLock);
 	Assert(!dclist_is_empty(&waitLock->waitProcs));
 	Assert(0 < lockmethodid && lockmethodid < lengthof(LockMethods));
 
-	/* Remove proc from lock's wait queue */
+	/* 把 proc 从锁的等待队列中移除 */
 	dclist_delete_from_thoroughly(&waitLock->waitProcs, &proc->links);
 
-	/* Undo increments of request counts by waiting process */
+	/* 撤销等待进程对请求计数的增加 */
 	Assert(waitLock->nRequested > 0);
 	Assert(waitLock->nRequested > proc->waitLock->nGranted);
 	waitLock->nRequested--;
 	Assert(waitLock->requested[lockmode] > 0);
 	waitLock->requested[lockmode]--;
-	/* don't forget to clear waitMask bit if appropriate */
+	/* 在适当时不要忘记清掉 waitMask 位 */
 	if (waitLock->granted[lockmode] == waitLock->requested[lockmode])
 		waitLock->waitMask &= LOCKBIT_OFF(lockmode);
 
-	/* Clean up the proc's own state, and pass it the ok/fail signal */
+	/* 清理 proc 自己的状态，并把成功/失败信号传给它 */
 	proc->waitLock = NULL;
 	proc->waitProcLock = NULL;
 	proc->waitStatus = PROC_WAIT_STATUS_ERROR;
 
 	/*
-	 * Delete the proclock immediately if it represents no already-held locks.
-	 * (This must happen now because if the owner of the lock decides to
-	 * release it, and the requested/granted counts then go to zero,
-	 * LockRelease expects there to be no remaining proclocks.) Then see if
-	 * any other waiters for the lock can be woken up now.
+	 * 若 proclock 不代表任何已经持有的锁，就立刻删除它。
+	 * （现在就必须做，因为若锁的所有者决定释放它，
+	 * 而请求/授予计数随后变为零，LockRelease 期望
+	 * 不再剩下任何 proclock。）然后看这把锁的其他等待者
+	 * 现在是否可以被唤醒。
 	 */
 	CleanUpLock(waitLock, proclock,
 				LockMethods[lockmethodid], hashcode,
@@ -1945,15 +1945,15 @@ RemoveFromWaitQueue(PGPROC *proc, uint32 hashcode)
 }
 
 /*
- * LockRelease -- look up 'locktag' and release one 'lockmode' lock on it.
- *		Release a session lock if 'sessionLock' is true, else release a
- *		regular transaction lock.
+ * LockRelease -- 查找 'locktag'，并释放其上的一把 'lockmode' 锁。
+ *		若 'sessionLock' 为真则释放会话级锁，否则释放
+ *		普通事务锁。
  *
- * Side Effects: find any waiting processes that are now wakable,
- *		grant them their requested locks and awaken them.
- *		(We have to grant the lock here to avoid a race between
- *		the waking process and any new process to
- *		come along and request the lock.)
+ * 副作用：找出现在可以被唤醒的等待进程，
+ *		把它们请求的锁授予它们并唤醒它们。
+ *		（必须在这里授予锁，以免正在醒来的进程与
+ *		任何新来请求这把锁的进程之间
+ *		发生竞争。）
  */
 bool
 LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
@@ -1981,9 +1981,9 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 #endif
 
 	/*
-	 * Find the LOCALLOCK entry for this lock and lockmode
+	 * 找出此锁和锁模式对应的 LOCALLOCK 项
 	 */
-	MemSet(&localtag, 0, sizeof(localtag)); /* must clear padding */
+	MemSet(&localtag, 0, sizeof(localtag)); /* 必须清掉填充字节 */
 	localtag.lock = *locktag;
 	localtag.mode = lockmode;
 
@@ -1992,7 +1992,7 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 										  HASH_FIND, NULL);
 
 	/*
-	 * let the caller print its own error message, too. Do not ereport(ERROR).
+	 * 也让调用方打印自己的错误消息。不要 ereport(ERROR)。
 	 */
 	if (!locallock || locallock->nLocks <= 0)
 	{
@@ -2002,14 +2002,14 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Decrease the count for the resource owner.
+	 * 减少资源所有者的计数。
 	 */
 	{
 		LOCALLOCKOWNER *lockOwners = locallock->lockOwners;
 		ResourceOwner owner;
 		int			i;
 
-		/* Identify owner for lock */
+		/* 确定锁的所有者 */
 		if (sessionLock)
 			owner = NULL;
 		else
@@ -2024,7 +2024,7 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 				{
 					if (owner != NULL)
 						ResourceOwnerForgetLock(owner, locallock);
-					/* compact out unused slot */
+					/* 把未使用的槽位压紧去掉 */
 					locallock->numLockOwners--;
 					if (i < locallock->numLockOwners)
 						lockOwners[i] = lockOwners[locallock->numLockOwners];
@@ -2034,7 +2034,7 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 		}
 		if (i < 0)
 		{
-			/* don't release a lock belonging to another owner */
+			/* 不要释放属于另一个所有者的锁 */
 			elog(WARNING, "you don't own a lock of type %s",
 				 lockMethodTable->lockModeNames[lockmode]);
 			return false;
@@ -2042,8 +2042,8 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Decrease the total local count.  If we're still holding the lock, we're
-	 * done.
+	 * 减少本地总计数。若我们仍持有该锁，事情就
+	 * 做完了。
 	 */
 	locallock->nLocks--;
 
@@ -2051,23 +2051,23 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 		return true;
 
 	/*
-	 * At this point we can no longer suppose we are clear of invalidation
-	 * messages related to this lock.  Although we'll delete the LOCALLOCK
-	 * object before any intentional return from this routine, it seems worth
-	 * the trouble to explicitly reset lockCleared right now, just in case
-	 * some error prevents us from deleting the LOCALLOCK.
+	 * 到这一步，我们不能再认为自己已经不受与这把锁
+	 * 相关的失效消息影响。虽然在本例程任何有意的返回之前，我们都会删除
+	 * LOCALLOCK 对象，但现在就显式重置 lockCleared 似乎仍值得，
+	 * 以防某个错误使我们
+	 * 无法删除该 LOCALLOCK。
 	 */
 	locallock->lockCleared = false;
 
-	/* Attempt fast release of any lock eligible for the fast path. */
+	/* 尝试快速释放任何符合快速路径条件的锁。 */
 	if (EligibleForRelationFastPath(locktag, lockmode) &&
 		FastPathLocalUseCount > 0)
 	{
 		bool		released;
 
 		/*
-		 * We might not find the lock here, even if we originally entered it
-		 * here.  Another backend may have moved it to the main table.
+		 * 即使当初是我们把它放进来的，这里也可能找不到这把锁。
+		 * 另一个后端也许已经把它移到了主表。
 		 */
 		LWLockAcquire(&MyProc->fpInfoLock, LW_EXCLUSIVE);
 		released = FastPathUnGrantRelationLock(locktag->locktag_field2,
@@ -2081,19 +2081,19 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Otherwise we've got to mess with the shared lock table.
+	 * 否则我们就不得不去碰共享锁表。
 	 */
 	partitionLock = LockHashPartitionLock(locallock->hashcode);
 
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	/*
-	 * Normally, we don't need to re-find the lock or proclock, since we kept
-	 * their addresses in the locallock table, and they couldn't have been
-	 * removed while we were holding a lock on them.  But it's possible that
-	 * the lock was taken fast-path and has since been moved to the main hash
-	 * table by another backend, in which case we will need to look up the
-	 * objects here.  We assume the lock field is NULL if so.
+	 * 通常不必重新查找 lock 或 proclock，因为我们在 locallock
+	 * 表里保存了它们的地址，而且只要我们持有其上的锁，
+	 * 它们就不会被移除。但有可能这把锁当初走的是快速路径，
+	 * 此后被另一个后端移到了主哈希表，此时就需要在这里
+	 * 查找这些对象。我们假定若是这种情况，
+	 * lock 字段为 NULL。
 	 */
 	lock = locallock->lock;
 	if (!lock)
@@ -2124,8 +2124,8 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	PROCLOCK_PRINT("LockRelease: found", proclock);
 
 	/*
-	 * Double-check that we are actually holding a lock of the type we want to
-	 * release.
+	 * 再确认一次：我们确实持有想要
+	 * 释放的那种类型的锁。
 	 */
 	if (!(proclock->holdMask & LOCKBIT_ON(lockmode)))
 	{
@@ -2138,7 +2138,7 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 	}
 
 	/*
-	 * Do the releasing.  CleanUpLock will waken any now-wakable waiters.
+	 * 执行释放。CleanUpLock 会唤醒现在可以被唤醒的等待者。
 	 */
 	wakeupNeeded = UnGrantLock(lock, lockmode, proclock, lockMethodTable);
 
@@ -2153,12 +2153,12 @@ LockRelease(const LOCKTAG *locktag, LOCKMODE lockmode, bool sessionLock)
 }
 
 /*
- * LockReleaseAll -- Release all locks of the specified lock method that
- *		are held by the current process.
+ * LockReleaseAll -- 释放当前进程所持有的、
+ *		指定锁方法的全部锁。
  *
- * Well, not necessarily *all* locks.  The available behaviors are:
- *		allLocks == true: release all locks including session locks.
- *		allLocks == false: release all non-session locks.
+ * 嗯，未必是 *全部* 锁。可用的行为是：
+ *		allLocks == true：释放包括会话级锁在内的全部锁。
+ *		allLocks == false：释放全部非会话级锁。
  */
 void
 LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
@@ -2182,10 +2182,10 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 #endif
 
 	/*
-	 * Get rid of our fast-path VXID lock, if appropriate.  Note that this is
-	 * the only way that the lock we hold on our own VXID can ever get
-	 * released: it is always and only released when a toplevel transaction
-	 * ends.
+	 * 若合适，去掉我们的快速路径 VXID 锁。注意，这是
+	 * 我们在自己的 VXID 上所持锁得以释放的唯一途径：
+	 * 它总是、并且只在顶层事务
+	 * 结束时释放。
 	 */
 	if (lockmethodid == DEFAULT_LOCKMETHOD)
 		VirtualXactLockTableCleanup();
@@ -2193,21 +2193,21 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 	numLockModes = lockMethodTable->numLockModes;
 
 	/*
-	 * First we run through the locallock table and get rid of unwanted
-	 * entries, then we scan the process's proclocks and get rid of those. We
-	 * do this separately because we may have multiple locallock entries
-	 * pointing to the same proclock, and we daren't end up with any dangling
-	 * pointers.  Fast-path locks are cleaned up during the locallock table
-	 * scan, though.
+	 * 先遍历 locallock 表，去掉不需要的项，再扫描该进程的
+	 * proclock 并去掉那些。分开做是因为我们也许有多个 locallock 项
+	 * 指向同一个 proclock，绝不能留下悬空
+	 * 指针。快速路径锁则在
+	 * 扫描 locallock 表期间
+	 * 清理。
 	 */
 	hash_seq_init(&status, LockMethodLocalHash);
 
 	while ((locallock = (LOCALLOCK *) hash_seq_search(&status)) != NULL)
 	{
 		/*
-		 * If the LOCALLOCK entry is unused, we must've run out of shared
-		 * memory while trying to set up this lock.  Just forget the local
-		 * entry.
+		 * 若 LOCALLOCK 项未被使用，那一定是在设置这把锁时
+		 * 用尽了共享内存。忘掉这条本地
+		 * 项即可。
 		 */
 		if (locallock->nLocks == 0)
 		{
@@ -2215,20 +2215,20 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 			continue;
 		}
 
-		/* Ignore items that are not of the lockmethod to be removed */
+		/* 忽略不属于待移除锁方法的项 */
 		if (LOCALLOCK_LOCKMETHOD(*locallock) != lockmethodid)
 			continue;
 
 		/*
-		 * If we are asked to release all locks, we can just zap the entry.
-		 * Otherwise, must scan to see if there are session locks. We assume
-		 * there is at most one lockOwners entry for session locks.
+		 * 若要求释放全部锁，直接清掉该项即可。
+		 * 否则必须扫描，看是否有会话级锁。我们假定
+		 * 会话级锁最多只有一条 lockOwners 项。
 		 */
 		if (!allLocks)
 		{
 			LOCALLOCKOWNER *lockOwners = locallock->lockOwners;
 
-			/* If session lock is above array position 0, move it down to 0 */
+			/* 若会话级锁不在数组位置 0，就把它下移到 0 */
 			for (i = 0; i < locallock->numLockOwners; i++)
 			{
 				if (lockOwners[i].owner == NULL)
@@ -2241,10 +2241,10 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 				lockOwners[0].owner == NULL &&
 				lockOwners[0].nLocks > 0)
 			{
-				/* Fix the locallock to show just the session locks */
+				/* 修正 locallock，使它只显示会话级锁 */
 				locallock->nLocks = lockOwners[0].nLocks;
 				locallock->numLockOwners = 1;
-				/* We aren't deleting this locallock, so done */
+				/* 我们并不删除这个 locallock，因此到此结束 */
 				continue;
 			}
 			else
@@ -2254,33 +2254,33 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 #ifdef USE_ASSERT_CHECKING
 
 		/*
-		 * Tuple locks are currently held only for short durations within a
-		 * transaction. Check that we didn't forget to release one.
+		 * 元组锁目前只在事务内的短时间里持有。
+		 * 检查我们没有忘记释放某一把。
 		 */
 		if (LOCALLOCK_LOCKTAG(*locallock) == LOCKTAG_TUPLE && !allLocks)
 			elog(WARNING, "tuple lock held at commit");
 #endif
 
 		/*
-		 * If the lock or proclock pointers are NULL, this lock was taken via
-		 * the relation fast-path (and is not known to have been transferred).
+		 * 若 lock 或 proclock 指针为 NULL，这把锁是经由
+		 * 关系快速路径取得的（并且不知道已经被转移）。
 		 */
 		if (locallock->proclock == NULL || locallock->lock == NULL)
 		{
 			LOCKMODE	lockmode = locallock->tag.mode;
 			Oid			relid;
 
-			/* Verify that a fast-path lock is what we've got. */
+			/* 确认我们拿到的确实是一把快速路径锁。 */
 			if (!EligibleForRelationFastPath(&locallock->tag.lock, lockmode))
 				elog(PANIC, "locallock table corrupted");
 
 			/*
-			 * If we don't currently hold the LWLock that protects our
-			 * fast-path data structures, we must acquire it before attempting
-			 * to release the lock via the fast-path.  We will continue to
-			 * hold the LWLock until we're done scanning the locallock table,
-			 * unless we hit a transferred fast-path lock.  (XXX is this
-			 * really such a good idea?  There could be a lot of entries ...)
+			 * 若当前没有持有保护我们的
+			 * 快速路径数据结构的那把 LWLock，就必须在尝试
+			 * 经由快速路径释放锁之前先取得它。我们会一直
+			 * 持有这把 LWLock，直到扫完 locallock 表，
+			 * 除非碰到一把已被转移的快速路径锁。（XXX 这真的是
+			 * 个好主意吗？项可能会非常多……）
 			 */
 			if (!have_fast_path_lwlock)
 			{
@@ -2288,7 +2288,7 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 				have_fast_path_lwlock = true;
 			}
 
-			/* Attempt fast-path release. */
+			/* 尝试快速路径释放。 */
 			relid = locallock->tag.lock.locktag_field2;
 			if (FastPathUnGrantRelationLock(relid, lockmode))
 			{
@@ -2297,19 +2297,19 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 			}
 
 			/*
-			 * Our lock, originally taken via the fast path, has been
-			 * transferred to the main lock table.  That's going to require
-			 * some extra work, so release our fast-path lock before starting.
+			 * 我们的锁当初经由快速路径取得，现在已经被
+			 * 转移到主锁表。这需要一些额外工作，因此在开始之前
+			 * 先释放我们的快速路径锁。
 			 */
 			LWLockRelease(&MyProc->fpInfoLock);
 			have_fast_path_lwlock = false;
 
 			/*
-			 * Now dump the lock.  We haven't got a pointer to the LOCK or
-			 * PROCLOCK in this case, so we have to handle this a bit
-			 * differently than a normal lock release.  Unfortunately, this
-			 * requires an extra LWLock acquire-and-release cycle on the
-			 * partitionLock, but hopefully it shouldn't happen often.
+			 * 现在丢掉这把锁。这种情形下我们没有指向 LOCK 或
+			 * PROCLOCK 的指针，因此处理方式必须与普通的锁释放
+			 * 略有不同。不幸的是，这需要在 partitionLock 上
+			 * 多做一轮 LWLock 的获取与释放，不过希望这种情况
+			 * 不会经常发生。
 			 */
 			LockRefindAndRelease(lockMethodTable, MyProc,
 								 &locallock->tag.lock, lockmode, false);
@@ -2317,20 +2317,20 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 			continue;
 		}
 
-		/* Mark the proclock to show we need to release this lockmode */
+		/* 标记该 proclock，表明我们需要释放这个锁模式 */
 		if (locallock->nLocks > 0)
 			locallock->proclock->releaseMask |= LOCKBIT_ON(locallock->tag.mode);
 
-		/* And remove the locallock hashtable entry */
+		/* 并删除 locallock 哈希表项 */
 		RemoveLocalLock(locallock);
 	}
 
-	/* Done with the fast-path data structures */
+	/* 快速路径数据结构已经用完 */
 	if (have_fast_path_lwlock)
 		LWLockRelease(&MyProc->fpInfoLock);
 
 	/*
-	 * Now, scan each lock partition separately.
+	 * 现在，分别扫描每个锁分区。
 	 */
 	for (partition = 0; partition < NUM_LOCK_PARTITIONS; partition++)
 	{
@@ -2341,26 +2341,26 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 		partitionLock = LockHashPartitionLockByIndex(partition);
 
 		/*
-		 * If the proclock list for this partition is empty, we can skip
-		 * acquiring the partition lock.  This optimization is trickier than
-		 * it looks, because another backend could be in process of adding
-		 * something to our proclock list due to promoting one of our
-		 * fast-path locks.  However, any such lock must be one that we
-		 * decided not to delete above, so it's okay to skip it again now;
-		 * we'd just decide not to delete it again.  We must, however, be
-		 * careful to re-fetch the list header once we've acquired the
-		 * partition lock, to be sure we have a valid, up-to-date pointer.
-		 * (There is probably no significant risk if pointer fetch/store is
-		 * atomic, but we don't wish to assume that.)
+		 * 若此分区的 proclock 链表为空，就可以跳过
+		 * 获取分区锁。这项优化比看上去更棘手，
+		 * 因为另一个后端可能正在把我们的某把
+		 * 快速路径锁提升进 proclock 链表。不过，任何这样的锁
+		 * 都必须是我们在上面决定不删除的，因此现在再跳过它也没问题；
+		 * 我们只会再次决定不删除它。但是，一旦取得
+		 * 分区锁，我们必须小心地重新取出链表头，
+		 * 以确保指针有效且是最新的。
+		 * （若指针的读取/存储是原子的，
+		 * 大概没有显著风险，
+		 * 但我们不想做这个假定。）
 		 *
-		 * XXX This argument assumes that the locallock table correctly
-		 * represents all of our fast-path locks.  While allLocks mode
-		 * guarantees to clean up all of our normal locks regardless of the
-		 * locallock situation, we lose that guarantee for fast-path locks.
-		 * This is not ideal.
+		 * XXX 这一论证假定 locallock 表正确地代表了
+		 * 我们的全部快速路径锁。allLocks 模式保证，
+		 * 无论 locallock 情况如何都会清理全部普通锁，
+		 * 但对快速路径锁我们失去了这一保证。
+		 * 这并不理想。
 		 */
 		if (dlist_is_empty(procLocks))
-			continue;			/* needn't examine this partition */
+			continue;			/* 不必检查这个分区 */
 
 		LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
@@ -2373,13 +2373,13 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 
 			lock = proclock->tag.myLock;
 
-			/* Ignore items that are not of the lockmethod to be removed */
+			/* 忽略不属于待移除锁方法的项 */
 			if (LOCK_LOCKMETHOD(*lock) != lockmethodid)
 				continue;
 
 			/*
-			 * In allLocks mode, force release of all locks even if locallock
-			 * table had problems
+			 * 在 allLocks 模式下，即使 locallock
+			 * 表出了问题，也强制释放全部锁
 			 */
 			if (allLocks)
 				proclock->releaseMask = proclock->holdMask;
@@ -2387,8 +2387,8 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 				Assert((proclock->releaseMask & ~proclock->holdMask) == 0);
 
 			/*
-			 * Ignore items that have nothing to be released, unless they have
-			 * holdMask == 0 and are therefore recyclable
+			 * 忽略没有东西要释放的项，除非它们的
+			 * holdMask == 0，因而可以回收
 			 */
 			if (proclock->releaseMask == 0 && proclock->holdMask != 0)
 				continue;
@@ -2401,7 +2401,7 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 			Assert((proclock->holdMask & ~lock->grantMask) == 0);
 
 			/*
-			 * Release the previously-marked lock modes
+			 * 释放先前标记的锁模式
 			 */
 			for (i = 1; i <= numLockModes; i++)
 			{
@@ -2415,15 +2415,15 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 
 			proclock->releaseMask = 0;
 
-			/* CleanUpLock will wake up waiters if needed. */
+			/* 若需要，CleanUpLock 会唤醒等待者。 */
 			CleanUpLock(lock, proclock,
 						lockMethodTable,
 						LockTagHashCode(&lock->tag),
 						wakeupNeeded);
-		}						/* loop over PROCLOCKs within this partition */
+		}						/* 遍历此分区内的 PROCLOCKs */
 
 		LWLockRelease(partitionLock);
-	}							/* loop over partitions */
+	}							/* 遍历各个分区 */
 
 #ifdef LOCK_DEBUG
 	if (*(lockMethodTable->trace_flag))
@@ -2432,8 +2432,8 @@ LockReleaseAll(LOCKMETHODID lockmethodid, bool allLocks)
 }
 
 /*
- * LockReleaseSession -- Release all session locks of the specified lock method
- *		that are held by the current process.
+ * LockReleaseSession -- 释放当前进程所持有的、
+ *		指定锁方法的全部会话级锁。
  */
 void
 LockReleaseSession(LOCKMETHODID lockmethodid)
@@ -2448,7 +2448,7 @@ LockReleaseSession(LOCKMETHODID lockmethodid)
 
 	while ((locallock = (LOCALLOCK *) hash_seq_search(&status)) != NULL)
 	{
-		/* Ignore items that are not of the specified lock method */
+		/* 忽略不属于指定锁方法的项 */
 		if (LOCALLOCK_LOCKMETHOD(*locallock) != lockmethodid)
 			continue;
 
@@ -2458,12 +2458,12 @@ LockReleaseSession(LOCKMETHODID lockmethodid)
 
 /*
  * LockReleaseCurrentOwner
- *		Release all locks belonging to CurrentResourceOwner
+ *		释放属于 CurrentResourceOwner 的全部锁
  *
- * If the caller knows what those locks are, it can pass them as an array.
- * That speeds up the call significantly, when a lot of locks are held.
- * Otherwise, pass NULL for locallocks, and we'll traverse through our hash
- * table to find them.
+ * 若调用方知道这些锁是哪些，可以把它们作为数组传入。
+ * 当持有大量锁时，这能显著加快调用。
+ * 否则，为 locallocks 传入 NULL，我们会遍历自己的哈希
+ * 表去找它们。
  */
 void
 LockReleaseCurrentOwner(LOCALLOCK **locallocks, int nlocks)
@@ -2489,16 +2489,16 @@ LockReleaseCurrentOwner(LOCALLOCK **locallocks, int nlocks)
 
 /*
  * ReleaseLockIfHeld
- *		Release any session-level locks on this lockable object if sessionLock
- *		is true; else, release any locks held by CurrentResourceOwner.
+ *		若 sessionLock 为真，则释放此可锁对象上的任何会话级锁；
+ *		否则，释放 CurrentResourceOwner 所持有的任何锁。
  *
- * It is tempting to pass this a ResourceOwner pointer (or NULL for session
- * locks), but without refactoring LockRelease() we cannot support releasing
- * locks belonging to resource owners other than CurrentResourceOwner.
- * If we were to refactor, it'd be a good idea to fix it so we don't have to
- * do a hashtable lookup of the locallock, too.  However, currently this
- * function isn't used heavily enough to justify refactoring for its
- * convenience.
+ * 把一个 ResourceOwner 指针（会话级锁则传 NULL）传进来很诱人，
+ * 但不重构 LockRelease() 的话，我们无法支持释放
+ * 属于 CurrentResourceOwner 以外的资源所有者的锁。
+ * 若要重构，最好顺便改成不必再对 locallock
+ * 做一次哈希表查找。不过目前这个
+ * 函数用得还不够多，不值得为了它的
+ * 方便去重构。
  */
 static void
 ReleaseLockIfHeld(LOCALLOCK *locallock, bool sessionLock)
@@ -2507,13 +2507,13 @@ ReleaseLockIfHeld(LOCALLOCK *locallock, bool sessionLock)
 	LOCALLOCKOWNER *lockOwners;
 	int			i;
 
-	/* Identify owner for lock (must match LockRelease!) */
+	/* 确定锁的所有者（必须与 LockRelease 一致！） */
 	if (sessionLock)
 		owner = NULL;
 	else
 		owner = CurrentResourceOwner;
 
-	/* Scan to see if there are any locks belonging to the target owner */
+	/* 扫描，看是否有属于目标所有者的锁 */
 	lockOwners = locallock->lockOwners;
 	for (i = locallock->numLockOwners - 1; i >= 0; i--)
 	{
@@ -2523,11 +2523,11 @@ ReleaseLockIfHeld(LOCALLOCK *locallock, bool sessionLock)
 			if (lockOwners[i].nLocks < locallock->nLocks)
 			{
 				/*
-				 * We will still hold this lock after forgetting this
-				 * ResourceOwner.
+				 * 忘掉这个 ResourceOwner 之后，我们仍会持有
+				 * 这把锁。
 				 */
 				locallock->nLocks -= lockOwners[i].nLocks;
-				/* compact out unused slot */
+				/* 把未使用的槽位压紧去掉 */
 				locallock->numLockOwners--;
 				if (owner != NULL)
 					ResourceOwnerForgetLock(owner, locallock);
@@ -2537,7 +2537,7 @@ ReleaseLockIfHeld(LOCALLOCK *locallock, bool sessionLock)
 			else
 			{
 				Assert(lockOwners[i].nLocks == locallock->nLocks);
-				/* We want to call LockRelease just once */
+				/* 我们只想调用一次 LockRelease */
 				lockOwners[i].nLocks = 1;
 				locallock->nLocks = 1;
 				if (!LockRelease(&locallock->tag.lock,
@@ -2552,13 +2552,13 @@ ReleaseLockIfHeld(LOCALLOCK *locallock, bool sessionLock)
 
 /*
  * LockReassignCurrentOwner
- *		Reassign all locks belonging to CurrentResourceOwner to belong
- *		to its parent resource owner.
+ *		把属于 CurrentResourceOwner 的全部锁改派为属于
+ *		它的父资源所有者。
  *
- * If the caller knows what those locks are, it can pass them as an array.
- * That speeds up the call significantly, when a lot of locks are held
- * (e.g pg_dump with a large schema).  Otherwise, pass NULL for locallocks,
- * and we'll traverse through our hash table to find them.
+ * 若调用方知道这些锁是哪些，可以把它们作为数组传入。
+ * 当持有大量锁时，这能显著加快调用
+ * （例如模式很大的 pg_dump）。否则，为 locallocks 传入 NULL，
+ * 我们会遍历自己的哈希表去找它们。
  */
 void
 LockReassignCurrentOwner(LOCALLOCK **locallocks, int nlocks)
@@ -2587,8 +2587,8 @@ LockReassignCurrentOwner(LOCALLOCK **locallocks, int nlocks)
 }
 
 /*
- * Subroutine of LockReassignCurrentOwner. Reassigns a given lock belonging to
- * CurrentResourceOwner to its parent.
+ * LockReassignCurrentOwner 的子例程。把属于
+ * CurrentResourceOwner 的一把给定锁改派给它的父所有者。
  */
 static void
 LockReassignOwner(LOCALLOCK *locallock, ResourceOwner parent)
@@ -2599,8 +2599,8 @@ LockReassignOwner(LOCALLOCK *locallock, ResourceOwner parent)
 	int			ip = -1;
 
 	/*
-	 * Scan to see if there are any locks belonging to current owner or its
-	 * parent
+	 * 扫描，看是否有属于当前所有者或其
+	 * 父所有者的锁
 	 */
 	lockOwners = locallock->lockOwners;
 	for (i = locallock->numLockOwners - 1; i >= 0; i--)
@@ -2612,19 +2612,19 @@ LockReassignOwner(LOCALLOCK *locallock, ResourceOwner parent)
 	}
 
 	if (ic < 0)
-		return;					/* no current locks */
+		return;					/* 当前没有锁 */
 
 	if (ip < 0)
 	{
-		/* Parent has no slot, so just give it the child's slot */
+		/* 父所有者没有槽位，因此直接把子所有者的槽位给它 */
 		lockOwners[ic].owner = parent;
 		ResourceOwnerRememberLock(parent, locallock);
 	}
 	else
 	{
-		/* Merge child's count with parent's */
+		/* 把子所有者的计数并入父所有者 */
 		lockOwners[ip].nLocks += lockOwners[ic].nLocks;
-		/* compact out unused slot */
+		/* 把未使用的槽位压紧去掉 */
 		locallock->numLockOwners--;
 		if (ic < locallock->numLockOwners)
 			lockOwners[ic] = lockOwners[locallock->numLockOwners];
@@ -2634,7 +2634,7 @@ LockReassignOwner(LOCALLOCK *locallock, ResourceOwner parent)
 
 /*
  * FastPathGrantRelationLock
- *		Grant lock using per-backend fast-path array, if there is space.
+ *		若有空位，就用每个后端的快速路径数组授予锁。
  */
 static bool
 FastPathGrantRelationLock(Oid relid, LOCKMODE lockmode)
@@ -2642,7 +2642,7 @@ FastPathGrantRelationLock(Oid relid, LOCKMODE lockmode)
 	uint32		f;
 	uint32		unused_slot = FP_LOCK_SLOTS_PER_BACKEND;
 
-	/* Scan for existing entry for this relid, remembering empty slot. */
+	/* 扫描此 relid 的已有项，同时记住空槽。 */
 	for (f = 0; f < FP_LOCK_SLOTS_PER_BACKEND; f++)
 	{
 		if (FAST_PATH_GET_BITS(MyProc, f) == 0)
@@ -2655,7 +2655,7 @@ FastPathGrantRelationLock(Oid relid, LOCKMODE lockmode)
 		}
 	}
 
-	/* If no existing entry, use any empty slot. */
+	/* 若没有已有项，就使用任一空槽。 */
 	if (unused_slot < FP_LOCK_SLOTS_PER_BACKEND)
 	{
 		MyProc->fpRelId[unused_slot] = relid;
@@ -2664,14 +2664,14 @@ FastPathGrantRelationLock(Oid relid, LOCKMODE lockmode)
 		return true;
 	}
 
-	/* No existing entry, and no empty slot. */
+	/* 既没有已有项，也没有空槽。 */
 	return false;
 }
 
 /*
  * FastPathUnGrantRelationLock
- *		Release fast-path lock, if present.  Update backend-private local
- *		use count, while we're at it.
+ *		若存在，则释放快速路径锁。同时更新后端私有的本地
+ *		使用计数。
  */
 static bool
 FastPathUnGrantRelationLock(Oid relid, LOCKMODE lockmode)
@@ -2688,7 +2688,7 @@ FastPathUnGrantRelationLock(Oid relid, LOCKMODE lockmode)
 			Assert(!result);
 			FAST_PATH_CLEAR_LOCKMODE(MyProc, f, lockmode);
 			result = true;
-			/* we continue iterating so as to update FastPathLocalUseCount */
+			/* 继续迭代，以便更新 FastPathLocalUseCount */
 		}
 		if (FAST_PATH_GET_BITS(MyProc, f) != 0)
 			++FastPathLocalUseCount;
@@ -2698,10 +2698,10 @@ FastPathUnGrantRelationLock(Oid relid, LOCKMODE lockmode)
 
 /*
  * FastPathTransferRelationLocks
- *		Transfer locks matching the given lock tag from per-backend fast-path
- *		arrays to the shared hash table.
+ *		把与给定锁标签匹配的锁，从每个后端的快速路径
+ *		数组转移到共享哈希表。
  *
- * Returns true if successful, false if ran out of shared memory.
+ * 成功则返回真，共享内存用尽则返回假。
  */
 static bool
 FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag,
@@ -2712,10 +2712,10 @@ FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag
 	uint32		i;
 
 	/*
-	 * Every PGPROC that can potentially hold a fast-path lock is present in
-	 * ProcGlobal->allProcs.  Prepared transactions are not, but any
-	 * outstanding fast-path locks held by prepared transactions are
-	 * transferred to the main lock table.
+	 * 每个有可能持有快速路径锁的 PGPROC 都在
+	 * ProcGlobal->allProcs 中。预备事务不在其中，但预备事务
+	 * 所持有的任何未完成快速路径锁都会被
+	 * 转移到主锁表。
 	 */
 	for (i = 0; i < ProcGlobal->allProcCount; i++)
 	{
@@ -2725,19 +2725,19 @@ FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag
 		LWLockAcquire(&proc->fpInfoLock, LW_EXCLUSIVE);
 
 		/*
-		 * If the target backend isn't referencing the same database as the
-		 * lock, then we needn't examine the individual relation IDs at all;
-		 * none of them can be relevant.
+		 * 若目标后端引用的数据库与这把
+		 * 锁不同，就完全不必检查各个关系标识；
+		 * 它们都不可能相关。
 		 *
-		 * proc->databaseId is set at backend startup time and never changes
-		 * thereafter, so it might be safe to perform this test before
-		 * acquiring &proc->fpInfoLock.  In particular, it's certainly safe to
-		 * assume that if the target backend holds any fast-path locks, it
-		 * must have performed a memory-fencing operation (in particular, an
-		 * LWLock acquisition) since setting proc->databaseId.  However, it's
-		 * less clear that our backend is certain to have performed a memory
-		 * fencing operation since the other backend set proc->databaseId.  So
-		 * for now, we test it after acquiring the LWLock just to be safe.
+		 * proc->databaseId 在后端启动时设置，此后不再
+		 * 改变，因此也许可以在取得 &proc->fpInfoLock 之前
+		 * 做这个测试。特别是，若目标后端持有任何快速路径锁，
+		 * 它在设置 proc->databaseId 之后肯定已经做过一次内存栅栏操作
+		 * （尤其是一次 LWLock 获取）。不过，我们自己的后端是否肯定
+		 * 在另一个后端设置 proc->databaseId 之后做过内存
+		 * 栅栏操作，就不那么清楚了。因此
+		 * 目前我们在取得 LWLock 之后再做测试，
+		 * 以求安全。
 		 */
 		if (proc->databaseId != locktag->locktag_field1)
 		{
@@ -2749,11 +2749,11 @@ FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag
 		{
 			uint32		lockmode;
 
-			/* Look for an allocated slot matching the given relid. */
+			/* 查找与给定 relid 匹配的已分配槽。 */
 			if (relid != proc->fpRelId[f] || FAST_PATH_GET_BITS(proc, f) == 0)
 				continue;
 
-			/* Find or create lock object. */
+			/* 找出或创建锁对象。 */
 			LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 			for (lockmode = FAST_PATH_LOCKNUMBER_OFFSET;
 				 lockmode < FAST_PATH_LOCKNUMBER_OFFSET + FAST_PATH_BITS_PER_SLOT;
@@ -2776,7 +2776,7 @@ FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag
 			}
 			LWLockRelease(partitionLock);
 
-			/* No need to examine remaining slots. */
+			/* 不必再检查其余槽位。 */
 			break;
 		}
 		LWLockRelease(&proc->fpInfoLock);
@@ -2786,10 +2786,10 @@ FastPathTransferRelationLocks(LockMethod lockMethodTable, const LOCKTAG *locktag
 
 /*
  * FastPathGetRelationLockEntry
- *		Return the PROCLOCK for a lock originally taken via the fast-path,
- *		transferring it to the primary lock table if necessary.
+ *		返回当初经由快速路径取得的锁的 PROCLOCK，
+ *		必要时把它转移到主锁表。
  *
- * Note: caller takes care of updating the locallock object.
+ * 注意：更新 locallock 对象由调用方负责。
  */
 static PROCLOCK *
 FastPathGetRelationLockEntry(LOCALLOCK *locallock)
@@ -2807,16 +2807,16 @@ FastPathGetRelationLockEntry(LOCALLOCK *locallock)
 	{
 		uint32		lockmode;
 
-		/* Look for an allocated slot matching the given relid. */
+		/* 查找与给定 relid 匹配的已分配槽。 */
 		if (relid != MyProc->fpRelId[f] || FAST_PATH_GET_BITS(MyProc, f) == 0)
 			continue;
 
-		/* If we don't have a lock of the given mode, forget it! */
+		/* 若我们没有给定模式的锁，就别管它了！ */
 		lockmode = locallock->tag.mode;
 		if (!FAST_PATH_CHECK_LOCKMODE(MyProc, f, lockmode))
 			break;
 
-		/* Find or create lock object. */
+		/* 找出或创建锁对象。 */
 		LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 		proclock = SetupLockInTable(lockMethodTable, MyProc, locktag,
@@ -2835,13 +2835,13 @@ FastPathGetRelationLockEntry(LOCALLOCK *locallock)
 
 		LWLockRelease(partitionLock);
 
-		/* No need to examine remaining slots. */
+		/* 不必再检查其余槽位。 */
 		break;
 	}
 
 	LWLockRelease(&MyProc->fpInfoLock);
 
-	/* Lock may have already been transferred by some other backend. */
+	/* 锁也许已经被某个其他后端转移走了。 */
 	if (proclock == NULL)
 	{
 		LOCK	   *lock;
@@ -2878,22 +2878,22 @@ FastPathGetRelationLockEntry(LOCALLOCK *locallock)
 
 /*
  * GetLockConflicts
- *		Get an array of VirtualTransactionIds of xacts currently holding locks
- *		that would conflict with the specified lock/lockmode.
- *		xacts merely awaiting such a lock are NOT reported.
+ *		取得当前持有会与指定锁/锁模式
+ *		冲突的锁的事务的 VirtualTransactionIds 数组。
+ *		仅仅在等待这样一把锁的事务不会被报告。
  *
- * The result array is palloc'd and is terminated with an invalid VXID.
- * *countp, if not null, is updated to the number of items set.
+ * 结果数组由 palloc 分配，并以一个无效的 VXID 终止。
+ * 若 *countp 非空，则更新为所设置的项数。
  *
- * Of course, the result could be out of date by the time it's returned, so
- * use of this function has to be thought about carefully.  Similarly, a
- * PGPROC with no "lxid" will be considered non-conflicting regardless of any
- * lock it holds.  Existing callers don't care about a locker after that
- * locker's pg_xact updates complete.  CommitTransaction() clears "lxid" after
- * pg_xact updates and before releasing locks.
+ * 当然，结果在返回时可能已经过时，因此
+ * 使用本函数必须仔细考虑。同样，没有 "lxid" 的
+ * PGPROC 无论持有什么锁，都会被视为不冲突。
+ * 现有调用方并不关心某个加锁者在其 pg_xact 更新完成之后的情况。
+ * CommitTransaction() 在 pg_xact 更新之后、
+ * 释放锁之前清除 "lxid"。
  *
- * Note we never include the current xact's vxid in the result array,
- * since an xact never blocks itself.
+ * 注意，我们从不把当前事务的 vxid 放进结果数组，
+ * 因为一个事务永远不会阻塞自己。
  */
 VirtualTransactionId *
 GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
@@ -2917,9 +2917,9 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 		elog(ERROR, "unrecognized lock mode: %d", lockmode);
 
 	/*
-	 * Allocate memory to store results, and fill with InvalidVXID.  We only
-	 * need enough space for MaxBackends + max_prepared_xacts + a terminator.
-	 * InHotStandby allocate once in TopMemoryContext.
+	 * 分配内存来存放结果，并用 InvalidVXID 填满。我们只
+	 * 需要够放下 MaxBackends + max_prepared_xacts 再加一个终止符的空间。
+	 * 在热备（InHotStandby）中，于 TopMemoryContext 里分配一次。
 	 */
 	if (InHotStandby)
 	{
@@ -2934,15 +2934,15 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 			palloc0(sizeof(VirtualTransactionId) *
 					(MaxBackends + max_prepared_xacts + 1));
 
-	/* Compute hash code and partition lock, and look up conflicting modes. */
+	/* 计算哈希码和分区锁，并查找冲突模式。 */
 	hashcode = LockTagHashCode(locktag);
 	partitionLock = LockHashPartitionLock(hashcode);
 	conflictMask = lockMethodTable->conflictTab[lockmode];
 
 	/*
-	 * Fast path locks might not have been entered in the primary lock table.
-	 * If the lock we're dealing with could conflict with such a lock, we must
-	 * examine each backend's fast-path array for conflicts.
+	 * 快速路径锁也许还没有进入主锁表。
+	 * 若我们正在处理的锁可能与这样的锁冲突，就必须
+	 * 检查每个后端的快速路径数组中的冲突。
 	 */
 	if (ConflictsWithRelationFastPath(locktag, lockmode))
 	{
@@ -2951,33 +2951,33 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 		VirtualTransactionId vxid;
 
 		/*
-		 * Iterate over relevant PGPROCs.  Anything held by a prepared
-		 * transaction will have been transferred to the primary lock table,
-		 * so we need not worry about those.  This is all a bit fuzzy, because
-		 * new locks could be taken after we've visited a particular
-		 * partition, but the callers had better be prepared to deal with that
-		 * anyway, since the locks could equally well be taken between the
-		 * time we return the value and the time the caller does something
-		 * with it.
+		 * 遍历相关的 PGPROCs。预备事务所持有的任何东西
+		 * 都已经转移到主锁表，
+		 * 因此不必操心那些。这一切都有点含糊，因为
+		 * 我们访问过某个分区之后，仍可能取得新锁，
+		 * 但调用方最好反正准备好应对这种情况，
+		 * 因为这些锁同样可能在我们返回该值之后、
+		 * 调用方拿它做某事
+		 * 之前被取得。
 		 */
 		for (i = 0; i < ProcGlobal->allProcCount; i++)
 		{
 			PGPROC	   *proc = &ProcGlobal->allProcs[i];
 			uint32		f;
 
-			/* A backend never blocks itself */
+			/* 后端永远不会阻塞自己 */
 			if (proc == MyProc)
 				continue;
 
 			LWLockAcquire(&proc->fpInfoLock, LW_SHARED);
 
 			/*
-			 * If the target backend isn't referencing the same database as
-			 * the lock, then we needn't examine the individual relation IDs
-			 * at all; none of them can be relevant.
+			 * 若目标后端引用的数据库与
+			 * 这把锁不同，就完全不必检查各个关系标识；
+			 * 它们都不可能相关。
 			 *
-			 * See FastPathTransferRelationLocks() for discussion of why we do
-			 * this test after acquiring the lock.
+			 * 为什么在取得锁之后才做这个测试，见
+			 * FastPathTransferRelationLocks() 中的讨论。
 			 */
 			if (proc->databaseId != locktag->locktag_field1)
 			{
@@ -2989,7 +2989,7 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 			{
 				uint32		lockmask;
 
-				/* Look for an allocated slot matching the given relid. */
+				/* 查找与给定 relid 匹配的已分配槽。 */
 				if (relid != proc->fpRelId[f])
 					continue;
 				lockmask = FAST_PATH_GET_BITS(proc, f);
@@ -2998,20 +2998,20 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 				lockmask <<= FAST_PATH_LOCKNUMBER_OFFSET;
 
 				/*
-				 * There can only be one entry per relation, so if we found it
-				 * and it doesn't conflict, we can skip the rest of the slots.
+				 * 每个关系只能有一项，因此若找到了它
+				 * 并且它不冲突，就可以跳过其余槽位。
 				 */
 				if ((lockmask & conflictMask) == 0)
 					break;
 
-				/* Conflict! */
+				/* 冲突！ */
 				GET_VXID_FROM_PGPROC(vxid, *proc);
 
 				if (VirtualTransactionIdIsValid(vxid))
 					vxids[count++] = vxid;
-				/* else, xact already committed or aborted */
+				/* 否则，事务已经提交或中止 */
 
-				/* No need to examine remaining slots. */
+				/* 不必再检查其余槽位。 */
 				break;
 			}
 
@@ -3019,11 +3019,11 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 		}
 	}
 
-	/* Remember how many fast-path conflicts we found. */
+	/* 记住我们发现了多少快速路径冲突。 */
 	fast_count = count;
 
 	/*
-	 * Look up the lock object matching the tag.
+	 * 查找与该标签匹配的锁对象。
 	 */
 	LWLockAcquire(partitionLock, LW_SHARED);
 
@@ -3035,8 +3035,8 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 	if (!lock)
 	{
 		/*
-		 * If the lock object doesn't exist, there is nothing holding a lock
-		 * on this lockable object.
+		 * 若锁对象不存在，就没有任何东西持有
+		 * 此可锁对象上的锁。
 		 */
 		LWLockRelease(partitionLock);
 		vxids[count].backendId = InvalidBackendId;
@@ -3047,7 +3047,7 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 	}
 
 	/*
-	 * Examine each existing holder (or awaiter) of the lock.
+	 * 检查该锁的每个现有持有者（或等待者）。
 	 */
 	dlist_foreach(proclock_iter, &lock->procLocks)
 	{
@@ -3057,7 +3057,7 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 		{
 			PGPROC	   *proc = proclock->tag.myProc;
 
-			/* A backend never blocks itself */
+			/* 后端永远不会阻塞自己 */
 			if (proc != MyProc)
 			{
 				VirtualTransactionId vxid;
@@ -3068,21 +3068,21 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 				{
 					int			i;
 
-					/* Avoid duplicate entries. */
+					/* 避免重复项。 */
 					for (i = 0; i < fast_count; ++i)
 						if (VirtualTransactionIdEquals(vxids[i], vxid))
 							break;
 					if (i >= fast_count)
 						vxids[count++] = vxid;
 				}
-				/* else, xact already committed or aborted */
+				/* 否则，事务已经提交或中止 */
 			}
 		}
 	}
 
 	LWLockRelease(partitionLock);
 
-	if (count > MaxBackends + max_prepared_xacts)	/* should never happen */
+	if (count > MaxBackends + max_prepared_xacts)	/* 按理不应发生 */
 		elog(PANIC, "too many conflicting locks found");
 
 	vxids[count].backendId = InvalidBackendId;
@@ -3093,15 +3093,15 @@ GetLockConflicts(const LOCKTAG *locktag, LOCKMODE lockmode, int *countp)
 }
 
 /*
- * Find a lock in the shared lock table and release it.  It is the caller's
- * responsibility to verify that this is a sane thing to do.  (For example, it
- * would be bad to release a lock here if there might still be a LOCALLOCK
- * object with pointers to it.)
+ * 在共享锁表中找出一把锁并释放它。调用方有责任
+ * 确认这样做是合理的。（例如，若也许仍有一个 LOCALLOCK
+ * 对象带着指向它的指针，
+ * 在这里释放这把锁就不好了。）
  *
- * We currently use this in two situations: first, to release locks held by
- * prepared transactions on commit (see lock_twophase_postcommit); and second,
- * to release locks taken via the fast-path, transferred to the main hash
- * table, and then released (see LockReleaseAll).
+ * 目前有两种使用情形：第一，提交时释放预备事务所持的锁
+ * （见 lock_twophase_postcommit）；第二，释放经由快速路径取得、
+ * 已转移到主哈希表、随后又被释放的锁
+ * （见 LockReleaseAll）。
  */
 static void
 LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
@@ -3122,7 +3122,7 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	/*
-	 * Re-find the lock object (it had better be there).
+	 * 重新找出锁对象（它应该在那里）。
 	 */
 	lock = (LOCK *) hash_search_with_hash_value(LockMethodLockHash,
 												locktag,
@@ -3133,7 +3133,7 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 		elog(PANIC, "failed to re-find shared lock object");
 
 	/*
-	 * Re-find the proclock object (ditto).
+	 * 重新找出 proclock 对象（同上）。
 	 */
 	proclocktag.myLock = lock;
 	proclocktag.myProc = proc;
@@ -3149,8 +3149,8 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 		elog(PANIC, "failed to re-find shared proclock object");
 
 	/*
-	 * Double-check that we are actually holding a lock of the type we want to
-	 * release.
+	 * 再确认一次：我们确实持有想要
+	 * 释放的那种类型的锁。
 	 */
 	if (!(proclock->holdMask & LOCKBIT_ON(lockmode)))
 	{
@@ -3162,7 +3162,7 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 	}
 
 	/*
-	 * Do the releasing.  CleanUpLock will waken any now-wakable waiters.
+	 * 执行释放。CleanUpLock 会唤醒现在可以被唤醒的等待者。
 	 */
 	wakeupNeeded = UnGrantLock(lock, lockmode, proclock, lockMethodTable);
 
@@ -3173,7 +3173,7 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 	LWLockRelease(partitionLock);
 
 	/*
-	 * Decrement strong lock count.  This logic is needed only for 2PC.
+	 * 递减强锁计数。这段逻辑只在两阶段提交时需要。
 	 */
 	if (decrement_strong_lock_count
 		&& ConflictsWithRelationFastPath(locktag, lockmode))
@@ -3189,32 +3189,32 @@ LockRefindAndRelease(LockMethod lockMethodTable, PGPROC *proc,
 
 /*
  * CheckForSessionAndXactLocks
- *		Check to see if transaction holds both session-level and xact-level
- *		locks on the same object; if so, throw an error.
+ *		检查事务是否在同一对象上同时持有会话级锁和事务级
+ *		锁；若是，则抛出错误。
  *
- * If we have both session- and transaction-level locks on the same object,
- * PREPARE TRANSACTION must fail.  This should never happen with regular
- * locks, since we only take those at session level in some special operations
- * like VACUUM.  It's possible to hit this with advisory locks, though.
+ * 若我们在同一对象上既有会话级锁又有事务级锁，
+ * PREPARE TRANSACTION 必须失败。对普通锁来说这不该发生，
+ * 因为我们只在 VACUUM 之类的特殊操作中才在会话级
+ * 取得那些锁。不过咨询锁有可能碰上这种情况。
  *
- * It would be nice if we could keep the session hold and give away the
- * transactional hold to the prepared xact.  However, that would require two
- * PROCLOCK objects, and we cannot be sure that another PROCLOCK will be
- * available when it comes time for PostPrepare_Locks to do the deed.
- * So for now, we error out while we can still do so safely.
+ * 若能保留会话级持有、把事务级持有交给预备事务，那就好了。
+ * 然而那需要两个 PROCLOCK 对象，而且我们无法确定在
+ * PostPrepare_Locks 动手时，另一个 PROCLOCK 是否
+ * 可用。因此目前趁还能安全地这样做时，
+ * 直接报错退出。
  *
- * Since the LOCALLOCK table stores a separate entry for each lockmode,
- * we can't implement this check by examining LOCALLOCK entries in isolation.
- * We must build a transient hashtable that is indexed by locktag only.
+ * 由于 LOCALLOCK 表为每种锁模式分别存放一项，
+ * 无法只孤立地检查这些项来完成这个检查。
+ * 我们必须建立一个只以 locktag 为索引的临时哈希表。
  */
 static void
 CheckForSessionAndXactLocks(void)
 {
 	typedef struct
 	{
-		LOCKTAG		lock;		/* identifies the lockable object */
-		bool		sessLock;	/* is any lockmode held at session level? */
-		bool		xactLock;	/* is any lockmode held at xact level? */
+		LOCKTAG		lock;		/* 标识可锁对象 */
+		bool		sessLock;	/* 是否有任何锁模式在会话级被持有？ */
+		bool		xactLock;	/* 是否有任何锁模式在事务级被持有？ */
 	} PerLockTagEntry;
 
 	HASHCTL		hash_ctl;
@@ -3222,17 +3222,17 @@ CheckForSessionAndXactLocks(void)
 	HASH_SEQ_STATUS status;
 	LOCALLOCK  *locallock;
 
-	/* Create a local hash table keyed by LOCKTAG only */
+	/* 创建一个只以 LOCKTAG 为键的本地哈希表 */
 	hash_ctl.keysize = sizeof(LOCKTAG);
 	hash_ctl.entrysize = sizeof(PerLockTagEntry);
 	hash_ctl.hcxt = CurrentMemoryContext;
 
 	lockhtab = hash_create("CheckForSessionAndXactLocks table",
-						   256, /* arbitrary initial size */
+						   256, /* 任意的初始大小 */
 						   &hash_ctl,
 						   HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
-	/* Scan local lock table to find entries for each LOCKTAG */
+	/* 扫描本地锁表，找出每个 LOCKTAG 的项 */
 	hash_seq_init(&status, LockMethodLocalHash);
 
 	while ((locallock = (LOCALLOCK *) hash_seq_search(&status)) != NULL)
@@ -3243,24 +3243,24 @@ CheckForSessionAndXactLocks(void)
 		int			i;
 
 		/*
-		 * Ignore VXID locks.  We don't want those to be held by prepared
-		 * transactions, since they aren't meaningful after a restart.
+		 * 忽略 VXID 锁。我们不希望预备事务持有它们，
+		 * 因为重启之后它们没有意义。
 		 */
 		if (locallock->tag.lock.locktag_type == LOCKTAG_VIRTUALTRANSACTION)
 			continue;
 
-		/* Ignore it if we don't actually hold the lock */
+		/* 若我们实际上并未持有该锁，则忽略它 */
 		if (locallock->nLocks <= 0)
 			continue;
 
-		/* Otherwise, find or make an entry in lockhtab */
+		/* 否则，在 lockhtab 中找出或创建一项 */
 		hentry = (PerLockTagEntry *) hash_search(lockhtab,
 												 &locallock->tag.lock,
 												 HASH_ENTER, &found);
-		if (!found)				/* initialize, if newly created */
+		if (!found)				/* 若是新建的，则初始化 */
 			hentry->sessLock = hentry->xactLock = false;
 
-		/* Scan to see if we hold lock at session or xact level or both */
+		/* 扫描，看我们是在会话级、事务级还是两者都持有该锁 */
 		for (i = locallock->numLockOwners - 1; i >= 0; i--)
 		{
 			if (lockOwners[i].owner == NULL)
@@ -3270,8 +3270,8 @@ CheckForSessionAndXactLocks(void)
 		}
 
 		/*
-		 * We can throw error immediately when we see both types of locks; no
-		 * need to wait around to see if there are more violations.
+		 * 一旦看到两种锁，就可以立刻抛出错误；不必
+		 * 再等着看是否还有更多违规。
 		 */
 		if (hentry->sessLock && hentry->xactLock)
 			ereport(ERROR,
@@ -3279,21 +3279,21 @@ CheckForSessionAndXactLocks(void)
 					 errmsg("cannot PREPARE while holding both session-level and transaction-level locks on the same object")));
 	}
 
-	/* Success, so clean up */
+	/* 成功，因此做清理 */
 	hash_destroy(lockhtab);
 }
 
 /*
  * AtPrepare_Locks
- *		Do the preparatory work for a PREPARE: make 2PC state file records
- *		for all locks currently held.
+ *		为 PREPARE 做准备工作：为当前持有的全部锁
+ *		制作两阶段提交状态文件记录。
  *
- * Session-level locks are ignored, as are VXID locks.
+ * 会话级锁被忽略，VXID 锁也一样。
  *
- * For the most part, we don't need to touch shared memory for this ---
- * all the necessary state information is in the locallock table.
- * Fast-path locks are an exception, however: we move any such locks to
- * the main table before allowing PREPARE TRANSACTION to succeed.
+ * 在很大程度上，为此不必触碰共享内存 ---
+ * 所需的全部状态信息都在 locallock 表里。
+ * 不过快速路径锁是个例外：在允许 PREPARE TRANSACTION
+ * 成功之前，我们把任何这样的锁移到主表。
  */
 void
 AtPrepare_Locks(void)
@@ -3301,10 +3301,10 @@ AtPrepare_Locks(void)
 	HASH_SEQ_STATUS status;
 	LOCALLOCK  *locallock;
 
-	/* First, verify there aren't locks of both xact and session level */
+	/* 首先，确认没有同时存在事务级和会话级的锁 */
 	CheckForSessionAndXactLocks();
 
-	/* Now do the per-locallock cleanup work */
+	/* 现在做每个 locallock 的清理工作 */
 	hash_seq_init(&status, LockMethodLocalHash);
 
 	while ((locallock = (LOCALLOCK *) hash_seq_search(&status)) != NULL)
@@ -3316,17 +3316,17 @@ AtPrepare_Locks(void)
 		int			i;
 
 		/*
-		 * Ignore VXID locks.  We don't want those to be held by prepared
-		 * transactions, since they aren't meaningful after a restart.
+		 * 忽略 VXID 锁。我们不希望预备事务持有它们，
+		 * 因为重启之后它们没有意义。
 		 */
 		if (locallock->tag.lock.locktag_type == LOCKTAG_VIRTUALTRANSACTION)
 			continue;
 
-		/* Ignore it if we don't actually hold the lock */
+		/* 若我们实际上并未持有该锁，则忽略它 */
 		if (locallock->nLocks <= 0)
 			continue;
 
-		/* Scan to see whether we hold it at session or transaction level */
+		/* 扫描，看我们是在会话级还是事务级持有它 */
 		haveSessionLock = haveXactLock = false;
 		for (i = locallock->numLockOwners - 1; i >= 0; i--)
 		{
@@ -3336,21 +3336,21 @@ AtPrepare_Locks(void)
 				haveXactLock = true;
 		}
 
-		/* Ignore it if we have only session lock */
+		/* 若我们只有会话级锁，则忽略它 */
 		if (!haveXactLock)
 			continue;
 
-		/* This can't happen, because we already checked it */
+		/* 这不可能发生，因为我们已经检查过了 */
 		if (haveSessionLock)
 			ereport(ERROR,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot PREPARE while holding both session-level and transaction-level locks on the same object")));
 
 		/*
-		 * If the local lock was taken via the fast-path, we need to move it
-		 * to the primary lock table, or just get a pointer to the existing
-		 * primary lock table entry if by chance it's already been
-		 * transferred.
+		 * 若本地锁是经由快速路径取得的，就需要把它移到
+		 * 主锁表，或者万一它已经被转移，
+		 * 就只取得指向现有
+		 * 主锁表项的指针。
 		 */
 		if (locallock->proclock == NULL)
 		{
@@ -3359,14 +3359,14 @@ AtPrepare_Locks(void)
 		}
 
 		/*
-		 * Arrange to not release any strong lock count held by this lock
-		 * entry.  We must retain the count until the prepared transaction is
-		 * committed or rolled back.
+		 * 安排不要释放此锁项所持有的任何强锁计数。
+		 * 必须保留该计数，直到预备事务被
+		 * 提交或回滚。
 		 */
 		locallock->holdsStrongLockCount = false;
 
 		/*
-		 * Create a 2PC record.
+		 * 创建一条两阶段提交记录。
 		 */
 		memcpy(&(record.locktag), &(locallock->tag.lock), sizeof(LOCKTAG));
 		record.lockmode = locallock->tag.mode;
@@ -3378,18 +3378,18 @@ AtPrepare_Locks(void)
 
 /*
  * PostPrepare_Locks
- *		Clean up after successful PREPARE
+ *		PREPARE 成功之后做清理
  *
- * Here, we want to transfer ownership of our locks to a dummy PGPROC
- * that's now associated with the prepared transaction, and we want to
- * clean out the corresponding entries in the LOCALLOCK table.
+ * 这里要把我们的锁的所有权转移给一个现在与
+ * 预备事务相关联的哑 PGPROC，并清掉
+ * LOCALLOCK 表中的对应项。
  *
- * Note: by removing the LOCALLOCK entries, we are leaving dangling
- * pointers in the transaction's resource owner.  This is OK at the
- * moment since resowner.c doesn't try to free locks retail at a toplevel
- * transaction commit or abort.  We could alternatively zero out nLocks
- * and leave the LOCALLOCK entries to be garbage-collected by LockReleaseAll,
- * but that probably costs more cycles.
+ * 注意：去掉 LOCALLOCK 项会在事务的资源所有者里留下悬空
+ * 指针。目前这没问题，因为 resowner.c 在顶层
+ * 事务提交或中止时并不逐个释放锁。我们也可以把 nLocks
+ * 清零，把 LOCALLOCK 项留给 LockReleaseAll 去回收，
+ * 但那样大概
+ * 更费周期。
  */
 void
 PostPrepare_Locks(TransactionId xid)
@@ -3402,21 +3402,21 @@ PostPrepare_Locks(TransactionId xid)
 	PROCLOCKTAG proclocktag;
 	int			partition;
 
-	/* Can't prepare a lock group follower. */
+	/* 不能预备一个锁组的追随者。 */
 	Assert(MyProc->lockGroupLeader == NULL ||
 		   MyProc->lockGroupLeader == MyProc);
 
-	/* This is a critical section: any error means big trouble */
+	/* 这是临界区：任何错误都意味着大麻烦 */
 	START_CRIT_SECTION();
 
 	/*
-	 * First we run through the locallock table and get rid of unwanted
-	 * entries, then we scan the process's proclocks and transfer them to the
-	 * target proc.
+	 * 先遍历 locallock 表，去掉不需要的项，再扫描该进程的
+	 * proclock，并把它们转移给目标 proc。
+	 * 这两步要分开处理。
 	 *
-	 * We do this separately because we may have multiple locallock entries
-	 * pointing to the same proclock, and we daren't end up with any dangling
-	 * pointers.
+	 * 分开做是因为也许有多个 locallock 项指向同一个 proclock，
+	 * 绝不能因此留下悬空
+	 * 指针。
 	 */
 	hash_seq_init(&status, LockMethodLocalHash);
 
@@ -3430,19 +3430,19 @@ PostPrepare_Locks(TransactionId xid)
 		if (locallock->proclock == NULL || locallock->lock == NULL)
 		{
 			/*
-			 * We must've run out of shared memory while trying to set up this
-			 * lock.  Just forget the local entry.
+			 * 一定是在设置这把锁时用尽了共享内存。
+			 * 忘掉这条本地项即可。
 			 */
 			Assert(locallock->nLocks == 0);
 			RemoveLocalLock(locallock);
 			continue;
 		}
 
-		/* Ignore VXID locks */
+		/* 忽略 VXID 锁 */
 		if (locallock->tag.lock.locktag_type == LOCKTAG_VIRTUALTRANSACTION)
 			continue;
 
-		/* Scan to see whether we hold it at session or transaction level */
+		/* 扫描，看我们是在会话级还是事务级持有它 */
 		haveSessionLock = haveXactLock = false;
 		for (i = locallock->numLockOwners - 1; i >= 0; i--)
 		{
@@ -3452,26 +3452,26 @@ PostPrepare_Locks(TransactionId xid)
 				haveXactLock = true;
 		}
 
-		/* Ignore it if we have only session lock */
+		/* 若我们只有会话级锁，则忽略它 */
 		if (!haveXactLock)
 			continue;
 
-		/* This can't happen, because we already checked it */
+		/* 这不可能发生，因为我们已经检查过了 */
 		if (haveSessionLock)
 			ereport(PANIC,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("cannot PREPARE while holding both session-level and transaction-level locks on the same object")));
 
-		/* Mark the proclock to show we need to release this lockmode */
+		/* 标记该 proclock，表明我们需要释放这个锁模式 */
 		if (locallock->nLocks > 0)
 			locallock->proclock->releaseMask |= LOCKBIT_ON(locallock->tag.mode);
 
-		/* And remove the locallock hashtable entry */
+		/* 并删除 locallock 哈希表项 */
 		RemoveLocalLock(locallock);
 	}
 
 	/*
-	 * Now, scan each lock partition separately.
+	 * 现在，分别扫描每个锁分区。
 	 */
 	for (partition = 0; partition < NUM_LOCK_PARTITIONS; partition++)
 	{
@@ -3482,15 +3482,15 @@ PostPrepare_Locks(TransactionId xid)
 		partitionLock = LockHashPartitionLockByIndex(partition);
 
 		/*
-		 * If the proclock list for this partition is empty, we can skip
-		 * acquiring the partition lock.  This optimization is safer than the
-		 * situation in LockReleaseAll, because we got rid of any fast-path
-		 * locks during AtPrepare_Locks, so there cannot be any case where
-		 * another backend is adding something to our lists now.  For safety,
-		 * though, we code this the same way as in LockReleaseAll.
+		 * 若此分区的 proclock 链表为空，就可以跳过
+		 * 获取分区锁。这项优化比 LockReleaseAll 里的情形
+		 * 更安全，因为我们在 AtPrepare_Locks 期间已经去掉了任何快速路径
+		 * 锁，因此不可能再有另一个后端往我们的链表里
+		 * 添加东西。不过为了安全，这里的写法与 LockReleaseAll
+		 * 相同。
 		 */
 		if (dlist_is_empty(procLocks))
-			continue;			/* needn't examine this partition */
+			continue;			/* 不必检查这个分区 */
 
 		LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
@@ -3502,7 +3502,7 @@ PostPrepare_Locks(TransactionId xid)
 
 			lock = proclock->tag.myLock;
 
-			/* Ignore VXID locks */
+			/* 忽略 VXID 锁 */
 			if (lock->tag.locktag_type == LOCKTAG_VIRTUALTRANSACTION)
 				continue;
 
@@ -3513,67 +3513,67 @@ PostPrepare_Locks(TransactionId xid)
 			Assert(lock->nGranted <= lock->nRequested);
 			Assert((proclock->holdMask & ~lock->grantMask) == 0);
 
-			/* Ignore it if nothing to release (must be a session lock) */
+			/* 若没有东西要释放，则忽略它（一定是会话级锁） */
 			if (proclock->releaseMask == 0)
 				continue;
 
-			/* Else we should be releasing all locks */
+			/* 否则我们应当释放全部锁 */
 			if (proclock->releaseMask != proclock->holdMask)
 				elog(PANIC, "we seem to have dropped a bit somewhere");
 
 			/*
-			 * We cannot simply modify proclock->tag.myProc to reassign
-			 * ownership of the lock, because that's part of the hash key and
-			 * the proclock would then be in the wrong hash chain.  Instead
-			 * use hash_update_hash_key.  (We used to create a new hash entry,
-			 * but that risks out-of-memory failure if other processes are
-			 * busy making proclocks too.)	We must unlink the proclock from
-			 * our procLink chain and put it into the new proc's chain, too.
+			 * 无法简单地修改 proclock->tag.myProc 来重新指定
+			 * 锁的所有权，因为那是哈希键的一部分，
+			 * 改了之后 proclock 就会落在错误的哈希链上。改为
+			 * 使用 hash_update_hash_key。（我们以前会创建新的哈希项，
+			 * 但若其他进程也在忙着创建 proclock，那就有
+			 * 内存不足的风险。）还必须把 proclock 从
+			 * 我们的 procLink 链上摘下，再挂到新 proc 的链上。
 			 *
-			 * Note: the updated proclock hash key will still belong to the
-			 * same hash partition, cf proclock_hash().  So the partition lock
-			 * we already hold is sufficient for this.
+			 * 注意：更新后的 proclock 哈希键仍属于
+			 * 同一个哈希分区，参见 proclock_hash()。因此我们已经持有的
+			 * 分区锁对此足够了。
 			 */
 			dlist_delete(&proclock->procLink);
 
 			/*
-			 * Create the new hash key for the proclock.
+			 * 为 proclock 创建新的哈希键。
 			 */
 			proclocktag.myLock = lock;
 			proclocktag.myProc = newproc;
 
 			/*
-			 * Update groupLeader pointer to point to the new proc.  (We'd
-			 * better not be a member of somebody else's lock group!)
+			 * 把 groupLeader 指针更新为指向新 proc。（我们最好
+			 * 不是别人的锁组的成员！）
 			 */
 			Assert(proclock->groupLeader == proclock->tag.myProc);
 			proclock->groupLeader = newproc;
 
 			/*
-			 * Update the proclock.  We should not find any existing entry for
-			 * the same hash key, since there can be only one entry for any
-			 * given lock with my own proc.
+			 * 更新该 proclock。不应找到具有相同哈希键的已有项，
+			 * 因为对于任何给定的锁，与我自己的 proc 搭配时
+			 * 只能有一项。
 			 */
 			if (!hash_update_hash_key(LockMethodProcLockHash,
 									  proclock,
 									  &proclocktag))
 				elog(PANIC, "duplicate entry found while reassigning a prepared transaction's locks");
 
-			/* Re-link into the new proc's proclock list */
+			/* 重新链入新 proc 的 proclock 链表 */
 			dlist_push_tail(&newproc->myProcLocks[partition], &proclock->procLink);
 
 			PROCLOCK_PRINT("PostPrepare_Locks: updated", proclock);
-		}						/* loop over PROCLOCKs within this partition */
+		}						/* 遍历此分区内的 PROCLOCKs */
 
 		LWLockRelease(partitionLock);
-	}							/* loop over partitions */
+	}							/* 遍历各个分区 */
 
 	END_CRIT_SECTION();
 }
 
 
 /*
- * Estimate shared-memory space used for lock tables
+ * 估算锁表所用的共享内存空间
  */
 Size
 LockShmemSize(void)
@@ -3581,16 +3581,16 @@ LockShmemSize(void)
 	Size		size = 0;
 	long		max_table_size;
 
-	/* lock hash table */
+	/* 锁哈希表 */
 	max_table_size = NLOCKENTS();
 	size = add_size(size, hash_estimate_size(max_table_size, sizeof(LOCK)));
 
-	/* proclock hash table */
+	/* proclock 哈希表 */
 	max_table_size *= 2;
 	size = add_size(size, hash_estimate_size(max_table_size, sizeof(PROCLOCK)));
 
 	/*
-	 * Since NLOCKENTS is only an estimate, add 10% safety margin.
+	 * 由于 NLOCKENTS 只是估算，加上 10% 的安全余量。
 	 */
 	size = add_size(size, size / 10);
 
@@ -3598,19 +3598,19 @@ LockShmemSize(void)
 }
 
 /*
- * GetLockStatusData - Return a summary of the lock manager's internal
- * status, for use in a user-level reporting function.
+ * GetLockStatusData - 返回锁管理器内部状态的一份摘要，
+ * 供用户级报告函数使用。
  *
- * The return data consists of an array of LockInstanceData objects,
- * which are a lightly abstracted version of the PROCLOCK data structures,
- * i.e. there is one entry for each unique lock and interested PGPROC.
- * It is the caller's responsibility to match up related items (such as
- * references to the same lockable object or PGPROC) if wanted.
+ * 返回数据由一个 LockInstanceData 对象数组组成，
+ * 它们是 PROCLOCK 数据结构的轻度抽象，
+ * 也就是说，每个唯一的锁和感兴趣的 PGPROC 有一项。
+ * 若需要，由调用方负责把相关项对应起来（例如
+ * 对同一可锁对象或 PGPROC 的引用）。
  *
- * The design goal is to hold the LWLocks for as short a time as possible;
- * thus, this function simply makes a copy of the necessary data and releases
- * the locks, allowing the caller to contemplate and format the data for as
- * long as it pleases.
+ * 设计目标是尽可能短地持有 LWLocks；
+ * 因此本函数只是复制必要的数据并释放这些锁，
+ * 让调用方可以按自己的意愿
+ * 去琢磨和排版数据。
  */
 LockData *
 GetLockStatusData(void)
@@ -3624,22 +3624,22 @@ GetLockStatusData(void)
 
 	data = (LockData *) palloc(sizeof(LockData));
 
-	/* Guess how much space we'll need. */
+	/* 估计我们需要多少空间。 */
 	els = MaxBackends;
 	el = 0;
 	data->locks = (LockInstanceData *) palloc(sizeof(LockInstanceData) * els);
 
 	/*
-	 * First, we iterate through the per-backend fast-path arrays, locking
-	 * them one at a time.  This might produce an inconsistent picture of the
-	 * system state, but taking all of those LWLocks at the same time seems
-	 * impractical (in particular, note MAX_SIMUL_LWLOCKS).  It shouldn't
-	 * matter too much, because none of these locks can be involved in lock
-	 * conflicts anyway - anything that might must be present in the main lock
-	 * table.  (For the same reason, we don't sweat about making leaderPid
-	 * completely valid.  We cannot safely dereference another backend's
-	 * lockGroupLeader field without holding all lock partition locks, and
-	 * it's not worth that.)
+	 * 首先，我们遍历每个后端的快速路径数组，一次锁住
+	 * 一个。这也许会产生不一致的系统状态画面，但同时取得
+	 * 所有这些 LWLocks 似乎不切实际（尤其要注意 MAX_SIMUL_LWLOCKS）。
+	 * 这应该关系不大，因为这些锁反正都不可能卷入锁
+	 * 冲突 --- 任何有可能卷入的都必须出现在主锁
+	 * 表里。（出于同样的原因，我们也不为让 leaderPid
+	 * 完全有效而操心。若不持有全部分区锁，就无法安全地解引用
+	 * 另一个后端的 lockGroupLeader 字段，
+	 * 因此不值得
+	 * 那样做。）
 	 */
 	for (i = 0; i < ProcGlobal->allProcCount; ++i)
 	{
@@ -3653,7 +3653,7 @@ GetLockStatusData(void)
 			LockInstanceData *instance;
 			uint32		lockbits = FAST_PATH_GET_BITS(proc, f);
 
-			/* Skip unallocated slots. */
+			/* 跳过未分配的槽。 */
 			if (!lockbits)
 				continue;
 
@@ -3676,8 +3676,8 @@ GetLockStatusData(void)
 			instance->fastpath = true;
 
 			/*
-			 * Successfully taking fast path lock means there were no
-			 * conflicting locks.
+			 * 成功取得快速路径锁意味着当时没有
+			 * 冲突的锁。
 			 */
 			instance->waitStart = 0;
 
@@ -3717,22 +3717,22 @@ GetLockStatusData(void)
 	}
 
 	/*
-	 * Next, acquire lock on the entire shared lock data structure.  We do
-	 * this so that, at least for locks in the primary lock table, the state
-	 * will be self-consistent.
+	 * 接下来，获取整个共享锁数据结构上的锁。我们这样做，
+	 * 是为了至少对主锁表中的锁，状态
+	 * 是自洽的。
 	 *
-	 * Since this is a read-only operation, we take shared instead of
-	 * exclusive lock.  There's not a whole lot of point to this, because all
-	 * the normal operations require exclusive lock, but it doesn't hurt
-	 * anything either. It will at least allow two backends to do
-	 * GetLockStatusData in parallel.
+	 * 因为这是只读操作，我们取得共享锁而不是
+	 * 排他锁。这样做意义不大，因为所有
+	 * 正常操作都需要排他锁，但也没什么坏处。它至少允许两个后端
+	 * 它至少允许两个后端并行执行 GetLockStatusData。
+	 * 这一点只是附带的好处。
 	 *
-	 * Must grab LWLocks in partition-number order to avoid LWLock deadlock.
+	 * 必须按分区号顺序抓取 LWLocks，以免 LWLock 死锁。
 	 */
 	for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 		LWLockAcquire(LockHashPartitionLockByIndex(i), LW_SHARED);
 
-	/* Now we can safely count the number of proclocks */
+	/* 现在可以安全地统计 proclock 的个数 */
 	data->nelements = el + hash_get_num_entries(LockMethodProcLockHash);
 	if (data->nelements > els)
 	{
@@ -3741,7 +3741,7 @@ GetLockStatusData(void)
 			repalloc(data->locks, sizeof(LockInstanceData) * els);
 	}
 
-	/* Now scan the tables to copy the data */
+	/* 现在扫描这些表以复制数据 */
 	hash_seq_init(&seqstat, LockMethodProcLockHash);
 
 	while ((proclock = (PROCLOCK *) hash_seq_search(&seqstat)))
@@ -3767,11 +3767,11 @@ GetLockStatusData(void)
 	}
 
 	/*
-	 * And release locks.  We do this in reverse order for two reasons: (1)
-	 * Anyone else who needs more than one of the locks will be trying to lock
-	 * them in increasing order; we don't want to release the other process
-	 * until it can get all the locks it needs. (2) This avoids O(N^2)
-	 * behavior inside LWLockRelease.
+	 * 然后释放锁。按相反顺序做有两个原因：(1)
+	 * 其他任何需要不止一把锁的人都会试图按递增顺序锁住
+	 * 它们；我们不想在对方还拿不到所需的全部锁时就放开它。
+	 * (2) 这避免了 LWLockRelease 内部的 O(N^2)
+	 * 行为。
 	 */
 	for (i = NUM_LOCK_PARTITIONS; --i >= 0;)
 		LWLockRelease(LockHashPartitionLockByIndex(i));
@@ -3782,27 +3782,27 @@ GetLockStatusData(void)
 }
 
 /*
- * GetBlockerStatusData - Return a summary of the lock manager's state
- * concerning locks that are blocking the specified PID or any member of
- * the PID's lock group, for use in a user-level reporting function.
+ * GetBlockerStatusData - 返回锁管理器状态中与
+ * 正在阻塞指定 PIDs 或其锁组任何成员的锁有关的摘要，
+ * 供用户级报告函数使用。
  *
- * For each PID within the lock group that is awaiting some heavyweight lock,
- * the return data includes an array of LockInstanceData objects, which are
- * the same data structure used by GetLockStatusData; but unlike that function,
- * this one reports only the PROCLOCKs associated with the lock that that PID
- * is blocked on.  (Hence, all the locktags should be the same for any one
- * blocked PID.)  In addition, we return an array of the PIDs of those backends
- * that are ahead of the blocked PID in the lock's wait queue.  These can be
- * compared with the PIDs in the LockInstanceData objects to determine which
- * waiters are ahead of or behind the blocked PID in the queue.
+ * 对于锁组内正在等待某把重量级锁的每个 PID，
+ * 返回数据包含一个 LockInstanceData 对象数组，它们与
+ * GetLockStatusData 使用的数据结构相同；但与那个函数不同，
+ * 本函数只报告与该 PID 被阻塞于其上的那把锁相关联的
+ * PROCLOCKs。（因此，对任何一个被阻塞的 PID，所有 locktag 都应当相同。）
+ * 此外，我们还返回该锁等待队列中排在被阻塞 PID 前面的那些后端的
+ * PID 数组。可以把它们与 LockInstanceData 对象中的 PID 比较，
+ * 以判断哪些等待者在队列中位于
+ * 被阻塞 PID 的前面或后面。
  *
- * If blocked_pid isn't a valid backend PID or nothing in its lock group is
- * waiting on any heavyweight lock, return empty arrays.
+ * 若 blocked_pid 不是有效的后端 PID，或其锁组中没有东西
+ * 在等待任何重量级锁，则返回空数组。
  *
- * The design goal is to hold the LWLocks for as short a time as possible;
- * thus, this function simply makes a copy of the necessary data and releases
- * the locks, allowing the caller to contemplate and format the data for as
- * long as it pleases.
+ * 设计目标是尽可能短地持有 LWLocks；
+ * 因此本函数只是复制必要的数据并释放这些锁，
+ * 让调用方可以按自己的意愿
+ * 去琢磨和排版数据。
  */
 BlockedProcsData *
 GetBlockerStatusData(int blocked_pid)
@@ -3814,10 +3814,10 @@ GetBlockerStatusData(int blocked_pid)
 	data = (BlockedProcsData *) palloc(sizeof(BlockedProcsData));
 
 	/*
-	 * Guess how much space we'll need, and preallocate.  Most of the time
-	 * this will avoid needing to do repalloc while holding the LWLocks.  (We
-	 * assume, but check with an Assert, that MaxBackends is enough entries
-	 * for the procs[] array; the other two could need enlargement, though.)
+	 * 估计我们需要多少空间，并预先分配。大多数时候
+	 * 这样就能避免在持有 LWLocks 期间做 repalloc。（我们
+	 * 假定 --- 并用 Assert 检查 --- MaxBackends 对 procs[] 数组来说足够；
+	 * 另外两个数组则可能需要扩大。）
 	 */
 	data->nprocs = data->nlocks = data->npids = 0;
 	data->maxprocs = data->maxlocks = data->maxpids = MaxBackends;
@@ -3826,38 +3826,38 @@ GetBlockerStatusData(int blocked_pid)
 	data->waiter_pids = (int *) palloc(sizeof(int) * data->maxpids);
 
 	/*
-	 * In order to search the ProcArray for blocked_pid and assume that that
-	 * entry won't immediately disappear under us, we must hold ProcArrayLock.
-	 * In addition, to examine the lock grouping fields of any other backend,
-	 * we must hold all the hash partition locks.  (Only one of those locks is
-	 * actually relevant for any one lock group, but we can't know which one
-	 * ahead of time.)	It's fairly annoying to hold all those locks
-	 * throughout this, but it's no worse than GetLockStatusData(), and it
-	 * does have the advantage that we're guaranteed to return a
-	 * self-consistent instantaneous state.
+	 * 为了在 ProcArray 中搜索 blocked_pid，并假定该项
+	 * 不会立刻从我们脚下消失，必须持有 ProcArrayLock。
+	 * 此外，要检查任何其他后端的锁分组字段，
+	 * 必须持有全部哈希分区锁。（对任何一个锁组，其中只有一把
+	 * 锁真正相关，但我们无法事先知道是哪一把。）
+	 * 在整个过程中持有所有这些锁相当烦人，但并不比
+	 * GetLockStatusData() 更糟，而且它确实有一个好处：我们保证返回的是
+	 * 一份自洽的
+	 * 瞬时状态。
 	 */
 	LWLockAcquire(ProcArrayLock, LW_SHARED);
 
 	proc = BackendPidGetProcWithLock(blocked_pid);
 
-	/* Nothing to do if it's gone */
+	/* 若它已经消失，就无事可做 */
 	if (proc != NULL)
 	{
 		/*
-		 * Acquire lock on the entire shared lock data structure.  See notes
-		 * in GetLockStatusData().
+		 * 获取整个共享锁数据结构上的锁。见
+		 * GetLockStatusData() 中的说明。
 		 */
 		for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 			LWLockAcquire(LockHashPartitionLockByIndex(i), LW_SHARED);
 
 		if (proc->lockGroupLeader == NULL)
 		{
-			/* Easy case, proc is not a lock group member */
+			/* 简单情形：proc 不是锁组成员 */
 			GetSingleProcBlockerStatusData(proc, data);
 		}
 		else
 		{
-			/* Examine all procs in proc's lock group */
+			/* 检查 proc 锁组中的全部 proc */
 			dlist_iter	iter;
 
 			dlist_foreach(iter, &proc->lockGroupLeader->lockGroupMembers)
@@ -3870,7 +3870,7 @@ GetBlockerStatusData(int blocked_pid)
 		}
 
 		/*
-		 * And release locks.  See notes in GetLockStatusData().
+		 * 然后释放锁。见 GetLockStatusData() 中的说明。
 		 */
 		for (i = NUM_LOCK_PARTITIONS; --i >= 0;)
 			LWLockRelease(LockHashPartitionLockByIndex(i));
@@ -3883,7 +3883,7 @@ GetBlockerStatusData(int blocked_pid)
 	return data;
 }
 
-/* Accumulate data about one possibly-blocked proc for GetBlockerStatusData */
+/* 为 GetBlockerStatusData 积累一个也许被阻塞的 proc 的数据 */
 static void
 GetSingleProcBlockerStatusData(PGPROC *blocked_proc, BlockedProcsData *data)
 {
@@ -3894,22 +3894,22 @@ GetSingleProcBlockerStatusData(PGPROC *blocked_proc, BlockedProcsData *data)
 	dclist_head *waitQueue;
 	int			queue_size;
 
-	/* Nothing to do if this proc is not blocked */
+	/* 若此 proc 未被阻塞，则无事可做 */
 	if (theLock == NULL)
 		return;
 
-	/* Set up a procs[] element */
+	/* 设置一个 procs[] 元素 */
 	bproc = &data->procs[data->nprocs++];
 	bproc->pid = blocked_proc->pid;
 	bproc->first_lock = data->nlocks;
 	bproc->first_waiter = data->npids;
 
 	/*
-	 * We may ignore the proc's fast-path arrays, since nothing in those could
-	 * be related to a contended lock.
+	 * 可以忽略该 proc 的快速路径数组，因为其中没有任何东西
+	 * 会与一把被争用的锁有关。
 	 */
 
-	/* Collect all PROCLOCKs associated with theLock */
+	/* 收集与 theLock 相关联的全部 PROCLOCKs */
 	dlist_foreach(proclock_iter, &theLock->procLocks)
 	{
 		PROCLOCK   *proclock =
@@ -3940,7 +3940,7 @@ GetSingleProcBlockerStatusData(PGPROC *blocked_proc, BlockedProcsData *data)
 		data->nlocks++;
 	}
 
-	/* Enlarge waiter_pids[] if it's too small to hold all wait queue PIDs */
+	/* 若 waiter_pids[] 太小，装不下等待队列的全部 PIDs，就扩大它 */
 	waitQueue = &(theLock->waitProcs);
 	queue_size = dclist_count(waitQueue);
 
@@ -3952,7 +3952,7 @@ GetSingleProcBlockerStatusData(PGPROC *blocked_proc, BlockedProcsData *data)
 											 sizeof(int) * data->maxpids);
 	}
 
-	/* Collect PIDs from the lock's wait queue, stopping at blocked_proc */
+	/* 从该锁的等待队列收集 PIDs，到 blocked_proc 为止 */
 	dclist_foreach(proc_iter, waitQueue)
 	{
 		PGPROC	   *queued_proc = dlist_container(PGPROC, links, proc_iter.cur);
@@ -3968,16 +3968,16 @@ GetSingleProcBlockerStatusData(PGPROC *blocked_proc, BlockedProcsData *data)
 }
 
 /*
- * Returns a list of currently held AccessExclusiveLocks, for use by
- * LogStandbySnapshot().  The result is a palloc'd array,
- * with the number of elements returned into *nlocks.
+ * 返回当前持有的 AccessExclusiveLocks 列表，供
+ * LogStandbySnapshot() 使用。结果是一个 palloc 出来的数组，
+ * 元素个数返回到 *nlocks。
  *
- * XXX This currently takes a lock on all partitions of the lock table,
- * but it's possible to do better.  By reference counting locks and storing
- * the value in the ProcArray entry for each backend we could tell if any
- * locks need recording without having to acquire the partition locks and
- * scan the lock table.  Whether that's worth the additional overhead
- * is pretty dubious though.
+ * XXX 目前这会锁住锁表的全部分区，
+ * 但有可能做得更好。若对锁做引用计数，并把该值存在
+ * 每个后端的 ProcArray 项里，我们就能知道是否有任何
+ * 锁需要记录，而不必取得分区锁并
+ * 扫描锁表。不过这是否值得那份额外开销，
+ * 相当可疑。
  */
 xl_standby_lock *
 GetRunningTransactionLocks(int *nlocks)
@@ -3990,36 +3990,36 @@ GetRunningTransactionLocks(int *nlocks)
 	int			els;
 
 	/*
-	 * Acquire lock on the entire shared lock data structure.
+	 * 获取整个共享锁数据结构上的锁。
 	 *
-	 * Must grab LWLocks in partition-number order to avoid LWLock deadlock.
+	 * 必须按分区号顺序抓取 LWLocks，以免 LWLock 死锁。
 	 */
 	for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 		LWLockAcquire(LockHashPartitionLockByIndex(i), LW_SHARED);
 
-	/* Now we can safely count the number of proclocks */
+	/* 现在可以安全地统计 proclock 的个数 */
 	els = hash_get_num_entries(LockMethodProcLockHash);
 
 	/*
-	 * Allocating enough space for all locks in the lock table is overkill,
-	 * but it's more convenient and faster than having to enlarge the array.
+	 * 为锁表中的全部锁分配足够空间是过头了，
+	 * 但比不得不扩大数组更方便，也更快。
 	 */
 	accessExclusiveLocks = palloc(els * sizeof(xl_standby_lock));
 
-	/* Now scan the tables to copy the data */
+	/* 现在扫描这些表以复制数据 */
 	hash_seq_init(&seqstat, LockMethodProcLockHash);
 
 	/*
-	 * If lock is a currently granted AccessExclusiveLock then it will have
-	 * just one proclock holder, so locks are never accessed twice in this
-	 * particular case. Don't copy this code for use elsewhere because in the
-	 * general case this will give you duplicate locks when looking at
-	 * non-exclusive lock types.
+	 * 若锁是当前已授予的 AccessExclusiveLock，则它只会有
+	 * 一个 proclock 持有者，因此在这种特定情形下锁不会被访问两次。
+	 * 不要把这段代码复制到别处使用，因为在
+	 * 一般情形下，查看非排他锁类型时
+	 * 这会给出重复的锁。
 	 */
 	index = 0;
 	while ((proclock = (PROCLOCK *) hash_seq_search(&seqstat)))
 	{
-		/* make sure this definition matches the one used in LockAcquire */
+		/* 确保此定义与 LockAcquire 中使用的定义一致 */
 		if ((proclock->holdMask & LOCKBIT_ON(AccessExclusiveLock)) &&
 			proclock->tag.myLock->tag.locktag_type == LOCKTAG_RELATION)
 		{
@@ -4028,10 +4028,10 @@ GetRunningTransactionLocks(int *nlocks)
 			TransactionId xid = proc->xid;
 
 			/*
-			 * Don't record locks for transactions if we know they have
-			 * already issued their WAL record for commit but not yet released
-			 * lock. It is still possible that we see locks held by already
-			 * complete transactions, if they haven't yet zeroed their xids.
+			 * 若我们知道事务已经发出了提交的 WAL 记录、但尚未释放
+			 * 锁，就不要记录它们的锁。仍然有可能看到已经
+			 * 完成的事务所持有的锁，如果它们还没有把 xid
+			 * 清零。
 			 */
 			if (!TransactionIdIsValid(xid))
 				continue;
@@ -4047,11 +4047,11 @@ GetRunningTransactionLocks(int *nlocks)
 	Assert(index <= els);
 
 	/*
-	 * And release locks.  We do this in reverse order for two reasons: (1)
-	 * Anyone else who needs more than one of the locks will be trying to lock
-	 * them in increasing order; we don't want to release the other process
-	 * until it can get all the locks it needs. (2) This avoids O(N^2)
-	 * behavior inside LWLockRelease.
+	 * 然后释放锁。按相反顺序做有两个原因：(1)
+	 * 其他任何需要不止一把锁的人都会试图按递增顺序锁住
+	 * 它们；我们不想在对方还拿不到所需的全部锁时就放开它。
+	 * (2) 这避免了 LWLockRelease 内部的 O(N^2)
+	 * 行为。
 	 */
 	for (i = NUM_LOCK_PARTITIONS; --i >= 0;)
 		LWLockRelease(LockHashPartitionLockByIndex(i));
@@ -4060,7 +4060,7 @@ GetRunningTransactionLocks(int *nlocks)
 	return accessExclusiveLocks;
 }
 
-/* Provide the textual name of any lock mode */
+/* 提供任何锁模式的文字名称 */
 const char *
 GetLockmodeName(LOCKMETHODID lockmethodid, LOCKMODE mode)
 {
@@ -4071,9 +4071,9 @@ GetLockmodeName(LOCKMETHODID lockmethodid, LOCKMODE mode)
 
 #ifdef LOCK_DEBUG
 /*
- * Dump all locks in the given proc's myProcLocks lists.
+ * 转储给定 proc 的 myProcLocks 链表中的全部锁。
  *
- * Caller is responsible for having acquired appropriate LWLocks.
+ * 调用方负责已经取得适当的 LWLocks。
  */
 void
 DumpLocks(PGPROC *proc)
@@ -4104,9 +4104,9 @@ DumpLocks(PGPROC *proc)
 }
 
 /*
- * Dump all lmgr locks.
+ * 转储全部锁管理器锁。
  *
- * Caller is responsible for having acquired appropriate LWLocks.
+ * 调用方负责已经取得适当的 LWLocks。
  */
 void
 DumpAllLocks(void)
@@ -4134,36 +4134,36 @@ DumpAllLocks(void)
 			elog(LOG, "DumpAllLocks: proclock->tag.myLock = NULL");
 	}
 }
-#endif							/* LOCK_DEBUG */
+#endif							/* LOCK_DEBUG（锁调试） */
 
 /*
- * LOCK 2PC resource manager's routines
+ * LOCK 两阶段提交资源管理器的例程
  */
 
 /*
- * Re-acquire a lock belonging to a transaction that was prepared.
+ * 重新获取属于某个已预备事务的锁。
  *
- * Because this function is run at db startup, re-acquiring the locks should
- * never conflict with running transactions because there are none.  We
- * assume that the lock state represented by the stored 2PC files is legal.
+ * 因为本函数在数据库启动时运行，重新获取这些锁不应当
+ * 与正在运行的事务冲突，因为当时一个都没有。我们
+ * 假定所存储的两阶段提交文件所代表的锁状态是合法的。
  *
- * When switching from Hot Standby mode to normal operation, the locks will
- * be already held by the startup process. The locks are acquired for the new
- * procs without checking for conflicts, so we don't get a conflict between the
- * startup process and the dummy procs, even though we will momentarily have
- * a situation where two procs are holding the same AccessExclusiveLock,
- * which isn't normally possible because the conflict. If we're in standby
- * mode, but a recovery snapshot hasn't been established yet, it's possible
- * that some but not all of the locks are already held by the startup process.
+ * 从热备模式切换到正常运行时，这些锁将
+ * 已经由启动进程持有。为新的 proc 获取锁时
+ * 不检查冲突，因此启动进程与哑 proc 之间不会产生冲突，
+ * 即便我们会短暂地出现两个 proc 持有同一把 AccessExclusiveLock
+ * 的情形，而这通常因为冲突而不可能。
+ * 若处于备库模式、恢复快照却尚未建立，
+ * 则有可能并非全部、而只是其中一部分锁
+ * 已经由启动进程持有。
  *
- * This approach is simple, but also a bit dangerous, because if there isn't
- * enough shared memory to acquire the locks, an error will be thrown, which
- * is promoted to FATAL and recovery will abort, bringing down postmaster.
- * A safer approach would be to transfer the locks like we do in
- * AtPrepare_Locks, but then again, in hot standby mode it's possible for
- * read-only backends to use up all the shared lock memory anyway, so that
- * replaying the WAL record that needs to acquire a lock will throw an error
- * and PANIC anyway.
+ * 这种方法简单，但也有点危险：若没有足够的共享内存
+ * 来获取这些锁，就会抛出错误，并被提升为 FATAL，
+ * 恢复将中止，从而拖垮 postmaster。
+ * 更安全的做法是像 AtPrepare_Locks 那样转移这些锁，
+ * 但话说回来，在热备模式下，只读后端反正有可能
+ * 用光全部共享锁内存，以至于重放需要获取锁的
+ * WAL 记录时仍会抛出错误
+ * 并 PANIC。
  */
 void
 lock_twophase_recover(TransactionId xid, uint16 info,
@@ -4200,7 +4200,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	LWLockAcquire(partitionLock, LW_EXCLUSIVE);
 
 	/*
-	 * Find or create a lock with this tag.
+	 * 找出或创建带有此标签的锁。
 	 */
 	lock = (LOCK *) hash_search_with_hash_value(LockMethodLockHash,
 												locktag,
@@ -4217,7 +4217,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	}
 
 	/*
-	 * if it's a new lock object, initialize it
+	 * 若是新建的锁对象，则初始化它
 	 */
 	if (!found)
 	{
@@ -4240,7 +4240,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	}
 
 	/*
-	 * Create the hash key for the proclock table.
+	 * 为 proclock 表创建哈希键。
 	 */
 	proclocktag.myLock = lock;
 	proclocktag.myProc = proc;
@@ -4248,7 +4248,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	proclock_hashcode = ProcLockHashCode(&proclocktag, hashcode);
 
 	/*
-	 * Find or create a proclock entry with this tag
+	 * 找出或创建带有此标签的 proclock 项
 	 */
 	proclock = (PROCLOCK *) hash_search_with_hash_value(LockMethodProcLockHash,
 														&proclocktag,
@@ -4257,14 +4257,14 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 														&found);
 	if (!proclock)
 	{
-		/* Oops, not enough shmem for the proclock */
+		/* 糟糕，proclock 的共享内存不够 */
 		if (lock->nRequested == 0)
 		{
 			/*
-			 * There are no other requestors of this lock, so garbage-collect
-			 * the lock object.  We *must* do this to avoid a permanent leak
-			 * of shared memory, because there won't be anything to cause
-			 * anyone to release the lock object later.
+			 * 没有其他请求者在请求这把锁，因此回收
+			 * 该锁对象。我们必须这样做，以免共享内存
+			 * 永久泄漏，因为此后不会再有任何事情
+			 * 促使别人释放这个锁对象。
 			 */
 			Assert(dlist_is_empty(&lock->procLocks));
 			if (!hash_search_with_hash_value(LockMethodLockHash,
@@ -4282,7 +4282,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	}
 
 	/*
-	 * If new, initialize the new entry
+	 * 若是新建的，则初始化新项
 	 */
 	if (!found)
 	{
@@ -4290,7 +4290,7 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 		proclock->groupLeader = proc;
 		proclock->holdMask = 0;
 		proclock->releaseMask = 0;
-		/* Add proclock to appropriate lists */
+		/* 把 proclock 加入相应的链表 */
 		dlist_push_tail(&lock->procLocks, &proclock->lockLink);
 		dlist_push_tail(&proc->myProcLocks[partition],
 						&proclock->procLink);
@@ -4303,15 +4303,15 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 	}
 
 	/*
-	 * lock->nRequested and lock->requested[] count the total number of
-	 * requests, whether granted or waiting, so increment those immediately.
+	 * lock->nRequested 与 lock->requested[] 统计请求总数，
+	 * 无论已授予还是在等待，因此立刻增加它们。
 	 */
 	lock->nRequested++;
 	lock->requested[lockmode]++;
 	Assert((lock->nRequested > 0) && (lock->requested[lockmode] > 0));
 
 	/*
-	 * We shouldn't already hold the desired lock.
+	 * 我们不应已经持有所要的锁。
 	 */
 	if (proclock->holdMask & LOCKBIT_ON(lockmode))
 		elog(ERROR, "lock %s on object %u/%u/%u is already held",
@@ -4320,15 +4320,15 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 			 lock->tag.locktag_field3);
 
 	/*
-	 * We ignore any possible conflicts and just grant ourselves the lock. Not
-	 * only because we don't bother, but also to avoid deadlocks when
-	 * switching from standby to normal mode. See function comment.
+	 * 我们忽略任何可能的冲突，直接把锁授予自己。不仅因为
+	 * 我们懒得检查，也是为了避免从备库切换到正常模式时
+	 * 发生死锁。见函数注释。
 	 */
 	GrantLock(lock, proclock, lockmode);
 
 	/*
-	 * Bump strong lock count, to make sure any fast-path lock requests won't
-	 * be granted without consulting the primary lock table.
+	 * 增加强锁计数，以确保任何快速路径锁请求在未查阅
+	 * 主锁表的情况下不会被授予。
 	 */
 	if (ConflictsWithRelationFastPath(&lock->tag, lockmode))
 	{
@@ -4343,8 +4343,8 @@ lock_twophase_recover(TransactionId xid, uint16 info,
 }
 
 /*
- * Re-acquire a lock belonging to a transaction that was prepared, when
- * starting up into hot standby mode.
+ * 在以热备模式启动时，重新获取属于某个
+ * 已预备事务的锁。
  */
 void
 lock_twophase_standby_recover(TransactionId xid, uint16 info,
@@ -4367,16 +4367,16 @@ lock_twophase_standby_recover(TransactionId xid, uint16 info,
 		locktag->locktag_type == LOCKTAG_RELATION)
 	{
 		StandbyAcquireAccessExclusiveLock(xid,
-										  locktag->locktag_field1 /* dboid */ ,
-										  locktag->locktag_field2 /* reloid */ );
+										  locktag->locktag_field1 /* dboid（数据库 OID） */ ,
+										  locktag->locktag_field2 /* reloid（关系 OID） */ );
 	}
 }
 
 
 /*
- * 2PC processing routine for COMMIT PREPARED case.
+ * COMMIT PREPARED 情形的两阶段提交处理例程。
  *
- * Find and release the lock indicated by the 2PC record.
+ * 找出并释放两阶段提交记录所指示的锁。
  */
 void
 lock_twophase_postcommit(TransactionId xid, uint16 info,
@@ -4400,9 +4400,9 @@ lock_twophase_postcommit(TransactionId xid, uint16 info,
 }
 
 /*
- * 2PC processing routine for ROLLBACK PREPARED case.
+ * ROLLBACK PREPARED 情形的两阶段提交处理例程。
  *
- * This is actually just the same as the COMMIT case.
+ * 这实际上与 COMMIT 情形相同。
  */
 void
 lock_twophase_postabort(TransactionId xid, uint16 info,
@@ -4414,19 +4414,19 @@ lock_twophase_postabort(TransactionId xid, uint16 info,
 /*
  *		VirtualXactLockTableInsert
  *
- *		Take vxid lock via the fast-path.  There can't be any pre-existing
- *		lockers, as we haven't advertised this vxid via the ProcArray yet.
+ *		经由快速路径取得 vxid 锁。不可能有预先存在的
+ *		加锁者，因为我们还没有经由 ProcArray 公布这个 vxid。
  *
- *		Since MyProc->fpLocalTransactionId will normally contain the same data
- *		as MyProc->lxid, you might wonder if we really need both.  The
- *		difference is that MyProc->lxid is set and cleared unlocked, and
- *		examined by procarray.c, while fpLocalTransactionId is protected by
- *		fpInfoLock and is used only by the locking subsystem.  Doing it this
- *		way makes it easier to verify that there are no funny race conditions.
+ *		既然 MyProc->fpLocalTransactionId 通常会包含与
+ *		MyProc->lxid 相同的数据，你也许会想两者是否真的都需要。
+ *		差别在于 MyProc->lxid 的设置和清除不加锁，并且由
+ *		procarray.c 检查，而 fpLocalTransactionId 由 fpInfoLock 保护，
+ *		并且只被锁子系统使用。这样做更容易验证
+ *		不存在古怪的竞争条件。
  *
- *		We don't bother recording this lock in the local lock table, since it's
- *		only ever released at the end of a transaction.  Instead,
- *		LockReleaseAll() calls VirtualXactLockTableCleanup().
+ *		我们不费心把这把锁记入本地锁表，因为它
+ *		只在事务结束时释放。取而代之的是，
+ *		LockReleaseAll() 调用 VirtualXactLockTableCleanup()。
  */
 void
 VirtualXactLockTableInsert(VirtualTransactionId vxid)
@@ -4448,8 +4448,8 @@ VirtualXactLockTableInsert(VirtualTransactionId vxid)
 /*
  *		VirtualXactLockTableCleanup
  *
- *		Check whether a VXID lock has been materialized; if so, release it,
- *		unblocking waiters.
+ *		检查 VXID 锁是否已经被物化；若是，则释放它，
+ *		从而解除等待者的阻塞。
  */
 void
 VirtualXactLockTableCleanup(void)
@@ -4460,7 +4460,7 @@ VirtualXactLockTableCleanup(void)
 	Assert(MyProc->backendId != InvalidBackendId);
 
 	/*
-	 * Clean up shared memory state.
+	 * 清理共享内存状态。
 	 */
 	LWLockAcquire(&MyProc->fpInfoLock, LW_EXCLUSIVE);
 
@@ -4472,8 +4472,8 @@ VirtualXactLockTableCleanup(void)
 	LWLockRelease(&MyProc->fpInfoLock);
 
 	/*
-	 * If fpVXIDLock has been cleared without touching fpLocalTransactionId,
-	 * that means someone transferred the lock to the main lock table.
+	 * 若 fpVXIDLock 被清掉、而 fpLocalTransactionId 未被触碰，
+	 * 那就意味着有人把这把锁转移到了主锁表。
 	 */
 	if (!fastpath && LocalTransactionIdIsValid(lxid))
 	{
@@ -4492,13 +4492,13 @@ VirtualXactLockTableCleanup(void)
 /*
  *		XactLockForVirtualXact
  *
- * If TransactionIdIsValid(xid), this is essentially XactLockTableWait(xid,
- * NULL, NULL, XLTW_None) or ConditionalXactLockTableWait(xid).  Unlike those
- * functions, it assumes "xid" is never a subtransaction and that "xid" is
- * prepared, committed, or aborted.
+ * 若 TransactionIdIsValid(xid)，这本质上就是 XactLockTableWait(xid,
+ * NULL, NULL, XLTW_None) 或 ConditionalXactLockTableWait(xid)。与那些
+ * 函数不同，它假定 "xid" 绝不是子事务，并且 "xid" 已经
+ * 预备、提交或中止。
  *
- * If !TransactionIdIsValid(xid), this locks every prepared XID having been
- * known as "vxid" before its PREPARE TRANSACTION.
+ * 若 !TransactionIdIsValid(xid)，这就锁住每一个在其 PREPARE TRANSACTION
+ * 之前曾以 "vxid" 为人所知的已预备 XID。
  */
 static bool
 XactLockForVirtualXact(VirtualTransactionId vxid,
@@ -4506,7 +4506,7 @@ XactLockForVirtualXact(VirtualTransactionId vxid,
 {
 	bool		more = false;
 
-	/* There is no point to wait for 2PCs if you have no 2PCs. */
+	/* 若你没有两阶段提交事务，就没有必要等待它们。 */
 	if (max_prepared_xacts == 0)
 		return true;
 
@@ -4515,14 +4515,14 @@ XactLockForVirtualXact(VirtualTransactionId vxid,
 		LockAcquireResult lar;
 		LOCKTAG		tag;
 
-		/* Clear state from previous iterations. */
+		/* 清除上一次迭代留下的状态。 */
 		if (more)
 		{
 			xid = InvalidTransactionId;
 			more = false;
 		}
 
-		/* If we have no xid, try to find one. */
+		/* 若我们没有 xid，就试着找一个。 */
 		if (!TransactionIdIsValid(xid))
 			xid = TwoPhaseGetXidByVirtualXID(vxid, &more);
 		if (!TransactionIdIsValid(xid))
@@ -4531,7 +4531,7 @@ XactLockForVirtualXact(VirtualTransactionId vxid,
 			return true;
 		}
 
-		/* Check or wait for XID completion. */
+		/* 检查或等待 XID 完成。 */
 		SET_LOCKTAG_TRANSACTION(tag, xid);
 		lar = LockAcquire(&tag, ShareLock, false, !wait);
 		if (lar == LOCKACQUIRE_NOT_AVAIL)
@@ -4545,11 +4545,11 @@ XactLockForVirtualXact(VirtualTransactionId vxid,
 /*
  *		VirtualXactLock
  *
- * If wait = true, wait as long as the given VXID or any XID acquired by the
- * same transaction is still running.  Then, return true.
+ * 若 wait = true，就一直等到给定的 VXID 或同一事务取得的任何 XIDs
+ * 仍在运行。然后返回真。
  *
- * If wait = false, just check whether that VXID or one of those XIDs is still
- * running, and return true or false.
+ * 若 wait = false，只检查该 VXID 或那些 XID 之一是否仍在
+ * 运行，并返回真或假。
  */
 bool
 VirtualXactLock(VirtualTransactionId vxid, bool wait)
@@ -4561,41 +4561,41 @@ VirtualXactLock(VirtualTransactionId vxid, bool wait)
 	Assert(VirtualTransactionIdIsValid(vxid));
 
 	if (VirtualTransactionIdIsRecoveredPreparedXact(vxid))
-		/* no vxid lock; localTransactionId is a normal, locked XID */
+		/* 没有 vxid 锁；localTransactionId 是一个普通的、已加锁的 XID */
 		return XactLockForVirtualXact(vxid, vxid.localTransactionId, wait);
 
 	SET_LOCKTAG_VIRTUALTRANSACTION(tag, vxid);
 
 	/*
-	 * If a lock table entry must be made, this is the PGPROC on whose behalf
-	 * it must be done.  Note that the transaction might end or the PGPROC
-	 * might be reassigned to a new backend before we get around to examining
-	 * it, but it doesn't matter.  If we find upon examination that the
-	 * relevant lxid is no longer running here, that's enough to prove that
-	 * it's no longer running anywhere.
+	 * 若必须建立锁表项，这就是必须代表其行事的那个 PGPROC。
+	 * 注意，事务也许会结束，或者 PGPROC 也许会在我们着手检查它之前
+	 * 被重新指派给一个新后端，但这没关系。若检查时发现
+	 * 相关的 lxid 已不再在这里运行，就足以证明
+	 * 它已不再在
+	 * 任何地方运行。
 	 */
 	proc = BackendIdGetProc(vxid.backendId);
 	if (proc == NULL)
 		return XactLockForVirtualXact(vxid, InvalidTransactionId, wait);
 
 	/*
-	 * We must acquire this lock before checking the backendId and lxid
-	 * against the ones we're waiting for.  The target backend will only set
-	 * or clear lxid while holding this lock.
+	 * 必须先取得这把锁，再拿 backendId 和 lxid
+	 * 与我们正在等待的那些相比较。目标后端只会在持有
+	 * 这把锁时设置或清除 lxid。
 	 */
 	LWLockAcquire(&proc->fpInfoLock, LW_EXCLUSIVE);
 
 	if (proc->backendId != vxid.backendId
 		|| proc->fpLocalTransactionId != vxid.localTransactionId)
 	{
-		/* VXID ended */
+		/* VXID 已结束 */
 		LWLockRelease(&proc->fpInfoLock);
 		return XactLockForVirtualXact(vxid, InvalidTransactionId, wait);
 	}
 
 	/*
-	 * If we aren't asked to wait, there's no need to set up a lock table
-	 * entry.  The transaction is still in progress, so just return false.
+	 * 若并未要求我们等待，就不必建立锁表
+	 * 项。事务仍在进行，因此直接返回假。
 	 */
 	if (!wait)
 	{
@@ -4604,9 +4604,9 @@ VirtualXactLock(VirtualTransactionId vxid, bool wait)
 	}
 
 	/*
-	 * OK, we're going to need to sleep on the VXID.  But first, we must set
-	 * up the primary lock table entry, if needed (ie, convert the proc's
-	 * fast-path lock on its VXID to a regular lock).
+	 * 好，我们需要在这个 VXID 上睡眠。但首先，必须在需要时
+	 * 建立主锁表项（也就是把该 proc 在其 VXID 上的
+	 * 快速路径锁转换成普通锁）。
 	 */
 	if (proc->fpVXIDLock)
 	{
@@ -4638,19 +4638,19 @@ VirtualXactLock(VirtualTransactionId vxid, bool wait)
 	}
 
 	/*
-	 * If the proc has an XID now, we'll avoid a TwoPhaseGetXidByVirtualXID()
-	 * search.  The proc might have assigned this XID but not yet locked it,
-	 * in which case the proc will lock this XID before releasing the VXID.
-	 * The fpInfoLock critical section excludes VirtualXactLockTableCleanup(),
-	 * so we won't save an XID of a different VXID.  It doesn't matter whether
-	 * we save this before or after setting up the primary lock table entry.
+	 * 若该 proc 现在有一个 XID，我们就可以避免一次 TwoPhaseGetXidByVirtualXID()
+	 * 搜索。该 proc 也许已经分配了这个 XID 但尚未锁住它，
+	 * 此时该 proc 会在释放 VXID 之前锁住这个 XID。
+	 * fpInfoLock 临界区排除了 VirtualXactLockTableCleanup()，
+	 * 因此我们不会保存另一个 VXID 的 XID。在建立主锁表项之前
+	 * 还是之后保存这个 XID，都没有关系。
 	 */
 	xid = proc->xid;
 
-	/* Done with proc->fpLockBits */
+	/* proc->fpLockBits 已经用完 */
 	LWLockRelease(&proc->fpInfoLock);
 
-	/* Time to wait. */
+	/* 该等待了。 */
 	(void) LockAcquire(&tag, ShareLock, false, false);
 
 	LockRelease(&tag, ShareLock, false);
@@ -4660,7 +4660,7 @@ VirtualXactLock(VirtualTransactionId vxid, bool wait)
 /*
  * LockWaiterCount
  *
- * Find the number of lock requester on this locktag
+ * 找出此 locktag 上的锁请求者个数
  */
 int
 LockWaiterCount(const LOCKTAG *locktag)

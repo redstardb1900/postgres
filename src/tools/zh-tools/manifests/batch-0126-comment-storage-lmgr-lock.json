@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0126-comment-storage-lmgr-lock",
+ "title": "zh: translate lock comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "400de8f5f24ba98541cbb5dba7b946c20731a8fe",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "note": "primary lock manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0126-comment-storage-lmgr-lock.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/lock.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 378,
+   "translated": 377,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "lock table, fast-path locks, and deadlock-free grant"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0126-comment-storage-lmgr-lock.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0126 translates body comments in lock.c. Terms: 锁管理器, 锁表, 锁方法, 等待队列, 死锁, 强锁, 会话级锁, 事务锁, 快速路径, 重量级锁, 热备. Copyright and IDENTIFICATION lines stay verbatim. Next batch should be lwlock.c."
+}

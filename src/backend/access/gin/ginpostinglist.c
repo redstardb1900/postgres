@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginpostinglist.c
- *	  routines for dealing with posting lists.
+ *	  处理倒排列表的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -21,22 +21,22 @@
 #endif
 
 /*
- * For encoding purposes, item pointers are represented as 64-bit unsigned
- * integers. The lowest 11 bits represent the offset number, and the next
- * lowest 32 bits are the block number. That leaves 21 bits unused, i.e.
- * only 43 low bits are used.
+ * 就编码而言，项指针表示为 64 位无符号
+ * 整数。最低 11 位表示偏移号，接下来
+ * 较低的 32 位是块号。于是剩下 21 位未使用，也就是
+ * 只用了低 43 位。
  *
- * 11 bits is enough for the offset number, because MaxHeapTuplesPerPage <
- * 2^11 on all supported block sizes. We are frugal with the bits, because
- * smaller integers use fewer bytes in the varbyte encoding, saving disk
- * space. (If we get a new table AM in the future that wants to use the full
- * range of possible offset numbers, we'll need to change this.)
+ * 11 位对偏移号已经够用，因为 MaxHeapTuplesPerPage <
+ * 2^11（在所有受支持的块大小上）。我们省着用这些位，因为
+ * 较小的整数在 varbyte 编码中占用更少字节，从而节省磁盘
+ * 空间。（若将来的新表访问方法想使用偏移号的全部
+ * 可能范围，就需要改这里。）
  *
- * These 43-bit integers are encoded using varbyte encoding. In each byte,
- * the 7 low bits contain data, while the highest bit is a continuation bit.
- * When the continuation bit is set, the next byte is part of the same
- * integer, otherwise this is the last byte of this integer. 43 bits need
- * at most 7 bytes in this encoding:
+ * 这些 43 位整数使用 varbyte 编码。每个字节中，
+ * 低 7 位存放数据，最高位是延续位。
+ * 延续位置位时，下一字节仍属于同一个
+ * 整数，否则该字节就是这个整数的最后一字节。43 位
+ * 在这种编码中最多需要 7 字节：
  *
  * 0XXXXXXX
  * 1XXXXXXX 0XXXXYYY
@@ -46,41 +46,41 @@
  * 1XXXXXXX 1XXXXYYY 1YYYYYYY 1YYYYYYY 1YYYYYYY 0YYYYYYY
  * 1XXXXXXX 1XXXXYYY 1YYYYYYY 1YYYYYYY 1YYYYYYY 1YYYYYYY 0uuuuuuY
  *
- * X = bits used for offset number
- * Y = bits used for block number
- * u = unused bit
+ * X = 用于偏移号的位
+ * Y = 用于块号的位
+ * u = 未使用的位
  *
- * The bytes are in stored in little-endian order.
+ * 这些字节按小端序存储。
  *
- * An important property of this encoding is that removing an item from list
- * never increases the size of the resulting compressed posting list. Proof:
+ * 这种编码的一个重要性质是：从列表中移除一项
+ * 绝不会使所得压缩倒排列表变大。证明：
  *
- * Removing number is actually replacement of two numbers with their sum. We
- * have to prove that varbyte encoding of a sum can't be longer than varbyte
- * encoding of its summands. Sum of two numbers is at most one bit wider than
- * the larger of the summands. Widening a number by one bit enlarges its length
- * in varbyte encoding by at most one byte. Therefore, varbyte encoding of sum
- * is at most one byte longer than varbyte encoding of larger summand. Lesser
- * summand is at least one byte, so the sum cannot take more space than the
- * summands, Q.E.D.
+ * 移除一个数，其实是用二者之和替换这两个数。我们
+ * 必须证明和的 varbyte 编码不会长于各加数的 varbyte
+ * 编码。两数之和最多比较大的那个加数宽一位。
+ * 把一个数加宽一位，其 varbyte 编码长度最多增加
+ * 一字节。因此，和的 varbyte 编码
+ * 最多比较大加数的 varbyte 编码长一字节。较小的
+ * 加数至少占一字节，所以和占用的空间无法超过
+ * 各加数，证毕。
  *
- * This property greatly simplifies VACUUM, which can assume that posting
- * lists always fit on the same page after vacuuming. Note that even though
- * that holds for removing items from a posting list, you must also be
- * careful to not cause expansion e.g. when merging uncompressed items on the
- * page into the compressed lists, when vacuuming.
+ * 这一性质大大简化了 VACUUM：它可以假定倒排
+ * 列表在清理之后总能放进同一页。注意，即便
+ * 从倒排列表中移除项时这一点成立，清理时也必须
+ * 小心不要引起膨胀，例如把页上未压缩的项
+ * 合并进压缩列表的时候。
  */
 
 /*
- * How many bits do you need to encode offset number? OffsetNumber is a 16-bit
- * integer, but you can't fit that many items on a page. 11 ought to be more
- * than enough. It's tempting to derive this from MaxHeapTuplesPerPage, and
- * use the minimum number of bits, but that would require changing the on-disk
- * format if MaxHeapTuplesPerPage changes. Better to leave some slack.
+ * 编码偏移号需要多少位？OffsetNumber 是 16 位
+ * 整数，但一页上放不下那么多项。11 位应当绰绰
+ * 有余。从 MaxHeapTuplesPerPage 推导并使用最少
+ * 位数很诱人，但若 MaxHeapTuplesPerPage 改变，就需要改磁盘
+ * 格式。最好留些余量。
  */
 #define MaxHeapTuplesPerPageBits		11
 
-/* Max. number of bytes needed to encode the largest supported integer. */
+/* 编码所支持的最大整数所需的最大字节数。 */
 #define MaxBytesPerInteger				7
 
 static inline uint64
@@ -109,7 +109,7 @@ uint64_to_itemptr(uint64 val, ItemPointer iptr)
 }
 
 /*
- * Varbyte-encode 'val' into *ptr. *ptr is incremented to next integer.
+ * 把 val 以 varbyte 编码写入 *ptr。*ptr 递增到下一个整数。
  */
 static void
 encode_varbyte(uint64 val, unsigned char **ptr)
@@ -127,7 +127,7 @@ encode_varbyte(uint64 val, unsigned char **ptr)
 }
 
 /*
- * Decode varbyte-encoded integer at *ptr. *ptr is incremented to next integer.
+ * 解码 *ptr 处 varbyte 编码的整数。*ptr 递增到下一个整数。
  */
 static uint64
 decode_varbyte(unsigned char **ptr)
@@ -136,37 +136,37 @@ decode_varbyte(unsigned char **ptr)
 	unsigned char *p = *ptr;
 	uint64		c;
 
-	/* 1st byte */
+	/* 第 1 字节 */
 	c = *(p++);
 	val = c & 0x7F;
 	if (c & 0x80)
 	{
-		/* 2nd byte */
+		/* 第 2 字节 */
 		c = *(p++);
 		val |= (c & 0x7F) << 7;
 		if (c & 0x80)
 		{
-			/* 3rd byte */
+			/* 第 3 字节 */
 			c = *(p++);
 			val |= (c & 0x7F) << 14;
 			if (c & 0x80)
 			{
-				/* 4th byte */
+				/* 第 4 字节 */
 				c = *(p++);
 				val |= (c & 0x7F) << 21;
 				if (c & 0x80)
 				{
-					/* 5th byte */
+					/* 第 5 字节 */
 					c = *(p++);
 					val |= (c & 0x7F) << 28;
 					if (c & 0x80)
 					{
-						/* 6th byte */
+						/* 第 6 字节 */
 						c = *(p++);
 						val |= (c & 0x7F) << 35;
 						if (c & 0x80)
 						{
-							/* 7th byte, should not have continuation bit */
+							/* 第 7 字节，不应带延续位 */
 							c = *(p++);
 							val |= c << 42;
 							Assert((c & 0x80) == 0);
@@ -183,15 +183,15 @@ decode_varbyte(unsigned char **ptr)
 }
 
 /*
- * Encode a posting list.
+ * 编码一份倒排列表。
  *
- * The encoded list is returned in a palloc'd struct, which will be at most
- * 'maxsize' bytes in size.  The number items in the returned segment is
- * returned in *nwritten. If it's not equal to nipd, not all the items fit
- * in 'maxsize', and only the first *nwritten were encoded.
+ * 编码结果放在 palloc 得到的结构里返回，大小最多为
+ * maxsize 字节。返回段中的项数
+ * 经 *nwritten 返回。若它不等于 nipd，则并非所有项都放得进
+ * maxsize，只编码了前 *nwritten 项。
  *
- * The allocated size of the returned struct is short-aligned, and the padding
- * byte at the end, if any, is zero.
+ * 返回结构的分配大小按短对齐，末尾的填充
+ * 字节（若有）为零。
  */
 GinPostingList *
 ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
@@ -211,7 +211,7 @@ ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
 	maxbytes = maxsize - offsetof(GinPostingList, bytes);
 	Assert(maxbytes > 0);
 
-	/* Store the first special item */
+	/* 存储第一个特殊项 */
 	result->first = ipd[0];
 
 	prev = itemptr_to_uint64(&result->first);
@@ -230,15 +230,15 @@ ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
 		else
 		{
 			/*
-			 * There are less than 7 bytes left. Have to check if the next
-			 * item fits in that space before writing it out.
+			 * 剩余不足 7 字节。写出下一项之前，必须检查
+			 * 它是否放得进这块空间。
 			 */
 			unsigned char buf[MaxBytesPerInteger];
 			unsigned char *p = buf;
 
 			encode_varbyte(delta, &p);
 			if (p - buf > (endptr - ptr))
-				break;			/* output is full */
+				break;			/* 输出已满 */
 
 			memcpy(ptr, buf, p - buf);
 			ptr += (p - buf);
@@ -248,8 +248,8 @@ ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
 	result->nbytes = ptr - result->bytes;
 
 	/*
-	 * If we wrote an odd number of bytes, zero out the padding byte at the
-	 * end.
+	 * 若写入的字节数为奇数，把末尾的填充字节
+	 * 清零。
 	 */
 	if (result->nbytes != SHORTALIGN(result->nbytes))
 		result->bytes[result->nbytes] = 0;
@@ -260,7 +260,7 @@ ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
 	Assert(SizeOfGinPostingList(result) <= maxsize);
 
 	/*
-	 * Check that the encoded segment decodes back to the original items.
+	 * 检查编码后的段能否解码回原来的项。
 	 */
 #if defined (CHECK_ENCODING_ROUNDTRIP)
 	{
@@ -277,8 +277,8 @@ ginCompressPostingList(const ItemPointer ipd, int nipd, int maxsize,
 }
 
 /*
- * Decode a compressed posting list into an array of item pointers.
- * The number of items is returned in *ndecoded.
+ * 把压缩倒排列表解码为项指针数组。
+ * 项数经 *ndecoded 返回。
  */
 ItemPointer
 ginPostingListDecode(GinPostingList *plist, int *ndecoded_out)
@@ -289,9 +289,9 @@ ginPostingListDecode(GinPostingList *plist, int *ndecoded_out)
 }
 
 /*
- * Decode multiple posting list segments into an array of item pointers.
- * The number of items is returned in *ndecoded_out. The segments are stored
- * one after each other, with total size 'len' bytes.
+ * 把多个倒排列表段解码为项指针数组。
+ * 项数经 *ndecoded_out 返回。这些段
+ * 一个接一个存放，总大小为 len 字节。
  */
 ItemPointer
 ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_out)
@@ -305,7 +305,7 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 	unsigned char *endptr;
 
 	/*
-	 * Guess an initial size of the array.
+	 * 先估算数组的初始大小。
 	 */
 	nallocated = segment->nbytes * 2 + 1;
 	result = palloc(nallocated * sizeof(ItemPointerData));
@@ -313,14 +313,14 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 	ndecoded = 0;
 	while ((char *) segment < endseg)
 	{
-		/* enlarge output array if needed */
+		/* 必要时扩大输出数组 */
 		if (ndecoded >= nallocated)
 		{
 			nallocated *= 2;
 			result = repalloc(result, nallocated * sizeof(ItemPointerData));
 		}
 
-		/* copy the first item */
+		/* 复制第一项 */
 		Assert(OffsetNumberIsValid(ItemPointerGetOffsetNumber(&segment->first)));
 		Assert(ndecoded == 0 || ginCompareItemPointers(&segment->first, &result[ndecoded - 1]) > 0);
 		result[ndecoded] = segment->first;
@@ -331,7 +331,7 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 		endptr = segment->bytes + segment->nbytes;
 		while (ptr < endptr)
 		{
-			/* enlarge output array if needed */
+			/* 必要时扩大输出数组 */
 			if (ndecoded >= nallocated)
 			{
 				nallocated *= 2;
@@ -352,7 +352,7 @@ ginPostingListDecodeAllSegments(GinPostingList *segment, int len, int *ndecoded_
 }
 
 /*
- * Add all item pointers from a bunch of posting lists to a TIDBitmap.
+ * 把一批倒排列表中的全部项指针加入 TIDBitmap。
  */
 int
 ginPostingListDecodeAllSegmentsToTbm(GinPostingList *ptr, int len,
@@ -369,10 +369,10 @@ ginPostingListDecodeAllSegmentsToTbm(GinPostingList *ptr, int len,
 }
 
 /*
- * Merge two ordered arrays of itempointers, eliminating any duplicates.
+ * 合并两个有序的项指针数组，并消除任何重复项。
  *
- * Returns a palloc'd array, and *nmerged is set to the number of items in
- * the result, after eliminating duplicates.
+ * 返回 palloc 得到的数组，*nmerged 设为消除重复项之后
+ * 结果中的项数。
  */
 ItemPointer
 ginMergeItemPointers(ItemPointerData *a, uint32 na,
@@ -384,8 +384,8 @@ ginMergeItemPointers(ItemPointerData *a, uint32 na,
 	dst = (ItemPointer) palloc((na + nb) * sizeof(ItemPointerData));
 
 	/*
-	 * If the argument arrays don't overlap, we can just append them to each
-	 * other.
+	 * 若参数数组互不重叠，就可以直接把它们彼此
+	 * 拼接起来。
 	 */
 	if (na == 0 || nb == 0 || ginCompareItemPointers(&a[na - 1], &b[0]) < 0)
 	{
@@ -413,7 +413,7 @@ ginMergeItemPointers(ItemPointerData *a, uint32 na,
 				*dptr++ = *bptr++;
 			else if (cmp == 0)
 			{
-				/* only keep one copy of the identical items */
+				/* 相同项只保留一份 */
 				*dptr++ = *bptr++;
 				aptr++;
 			}

@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0167-comment-access-gin-part2",
+ "title": "zh: translate access/gin comments (part 2)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "407d8ae0d93f9601e7464a28e244a4dab0e82615",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gin/ginpostinglist.c",
+   "kind": "c_comment",
+   "note": "posting list compression"
+  },
+  {
+   "pattern": "src/backend/access/gin/ginscan.c",
+   "kind": "c_comment",
+   "note": "GIN index scan setup"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0167-comment-access-gin-part2.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gin/ginpostinglist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "posting list compression; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/gin/ginscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GIN index scan setup; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0167-comment-access-gin-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0167 translates comments in ginpostinglist.c and ginscan.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: gininsert.c and ginutil.c."
+}

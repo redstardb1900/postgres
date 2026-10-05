@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginscan.c
- *	  routines to manage scans of inverted index relations
+ *	  管理倒排索引关系扫描的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -27,12 +27,12 @@ ginbeginscan(Relation rel, int nkeys, int norderbys)
 	IndexScanDesc scan;
 	GinScanOpaque so;
 
-	/* no order by operators allowed */
+	/* 不允许 order by 操作符 */
 	Assert(norderbys == 0);
 
 	scan = RelationGetIndexScan(rel, nkeys, norderbys);
 
-	/* allocate private workspace */
+	/* 分配私有工作区 */
 	so = (GinScanOpaque) palloc(sizeof(GinScanOpaqueData));
 	so->keys = NULL;
 	so->nkeys = 0;
@@ -50,8 +50,8 @@ ginbeginscan(Relation rel, int nkeys, int norderbys)
 }
 
 /*
- * Create a new GinScanEntry, unless an equivalent one already exists,
- * in which case just return it
+ * 新建一个 GinScanEntry；若已有等价条目，
+ * 就直接返回它
  */
 static GinScanEntry
 ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
@@ -64,15 +64,15 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 	uint32		i;
 
 	/*
-	 * Look for an existing equivalent entry.
+	 * 查找已有的等价条目。
 	 *
-	 * Entries with non-null extra_data are never considered identical, since
-	 * we can't know exactly what the opclass might be doing with that.
+	 * extra_data 非空的条目绝不视为相同，因为
+	 * 我们无法确切知道操作符类会拿它做什么。
 	 *
-	 * Also, give up de-duplication once we have 100 entries.  That avoids
-	 * spending O(N^2) time on probably-fruitless de-duplication of large
-	 * search-key sets.  The threshold of 100 is arbitrary but matches
-	 * predtest.c's threshold for what's a large array.
+	 * 另外，条目达到 100 个后就放弃去重。以免
+	 * 在很可能徒劳的大搜索键集合上去重时花费 O(N^2)
+	 * 时间。阈值 100 是随意取的，但与
+	 * predtest.c 判定何为大数组时所用的阈值一致。
 	 */
 	if (extra_data == NULL && so->totalentries < 100)
 	{
@@ -91,13 +91,13 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 								  queryKey,
 								  queryCategory) == 0)
 			{
-				/* Successful match */
+				/* 匹配成功 */
 				return prevEntry;
 			}
 		}
 	}
 
-	/* Nope, create a new entry */
+	/* 没有，新建一个条目 */
 	scanEntry = (GinScanEntry) palloc(sizeof(GinScanEntryData));
 	scanEntry->queryKey = queryKey;
 	scanEntry->queryCategory = queryCategory;
@@ -118,7 +118,7 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 	scanEntry->isFinished = false;
 	scanEntry->reduceResult = false;
 
-	/* Add it to so's array */
+	/* 把它加入 so 的数组 */
 	if (so->totalentries >= so->allocentries)
 	{
 		so->allocentries *= 2;
@@ -131,12 +131,12 @@ ginFillScanEntry(GinScanOpaque so, OffsetNumber attnum,
 }
 
 /*
- * Append hidden scan entry of given category to the scan key.
+ * 向扫描键追加给定类别的隐藏扫描条目。
  *
- * NB: this had better be called at most once per scan key, since
- * ginFillScanKey leaves room for only one hidden entry.  Currently,
- * it seems sufficiently clear that this is true that we don't bother
- * with any cross-check logic.
+ * NB: 每个扫描键最好至多调用一次，因为
+ * ginFillScanKey 只为一条隐藏条目留出位置。目前
+ * 这一点看起来已经足够清楚，所以我们不必
+ * 再做任何交叉检查。
  */
 static void
 ginScanKeyAddHiddenEntry(GinScanOpaque so, GinScanKey key,
@@ -144,7 +144,7 @@ ginScanKeyAddHiddenEntry(GinScanOpaque so, GinScanKey key,
 {
 	int			i = key->nentries++;
 
-	/* strategy is of no interest because this is not a partial-match item */
+	/* 策略无关紧要，因为这不是部分匹配项 */
 	key->scanEntry[i] = ginFillScanEntry(so, key->attnum,
 										 InvalidStrategy, key->searchMode,
 										 (Datum) 0, queryCategory,
@@ -152,7 +152,7 @@ ginScanKeyAddHiddenEntry(GinScanOpaque so, GinScanKey key,
 }
 
 /*
- * Initialize the next GinScanKey using the output from the extractQueryFn
+ * 用 extractQueryFn 的输出初始化下一个 GinScanKey
  */
 static void
 ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
@@ -168,7 +168,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 	key->nentries = nQueryValues;
 	key->nuserentries = nQueryValues;
 
-	/* Allocate one extra array slot for possible "hidden" entry */
+	/* 为可能的 "隐藏" 条目多分配一个数组槽 */
 	key->scanEntry = (GinScanEntry *) palloc(sizeof(GinScanEntry) *
 											 (nQueryValues + 1));
 	key->entryRes = (GinTernaryValue *) palloc0(sizeof(GinTernaryValue) *
@@ -183,8 +183,8 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 	key->attnum = attnum;
 
 	/*
-	 * Initially, scan keys of GIN_SEARCH_MODE_ALL mode are marked
-	 * excludeOnly.  This might get changed later.
+	 * 起初把 GIN_SEARCH_MODE_ALL 模式的扫描键标为
+	 * excludeOnly。这一点稍后可能改变。
 	 */
 	key->excludeOnly = (searchMode == GIN_SEARCH_MODE_ALL);
 
@@ -199,7 +199,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 
 	ginInitConsistentFunction(ginstate, key);
 
-	/* Set up normal scan entries using extractQueryFn's outputs */
+	/* 用 extractQueryFn 的输出建立普通扫描条目 */
 	for (i = 0; i < nQueryValues; i++)
 	{
 		Datum		queryKey;
@@ -221,9 +221,9 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 	}
 
 	/*
-	 * For GIN_SEARCH_MODE_INCLUDE_EMPTY and GIN_SEARCH_MODE_EVERYTHING search
-	 * modes, we add the "hidden" entry immediately.  GIN_SEARCH_MODE_ALL is
-	 * handled later, since we might be able to omit the hidden entry for it.
+	 * 对 GIN_SEARCH_MODE_INCLUDE_EMPTY 和 GIN_SEARCH_MODE_EVERYTHING
+	 * 搜索模式，立即加入 "隐藏" 条目。GIN_SEARCH_MODE_ALL
+	 * 稍后处理，因为对它也许可以省去隐藏条目。
 	 */
 	if (searchMode == GIN_SEARCH_MODE_INCLUDE_EMPTY)
 		ginScanKeyAddHiddenEntry(so, key, GIN_CAT_EMPTY_ITEM);
@@ -232,7 +232,7 @@ ginFillScanKey(GinScanOpaque so, OffsetNumber attnum,
 }
 
 /*
- * Release current scan keys, if any.
+ * 释放当前扫描键（若有）。
  */
 void
 ginFreeScanKeys(GinScanOpaque so)
@@ -276,18 +276,18 @@ ginNewScanKey(IndexScanDesc scan)
 	MemoryContext oldCtx;
 
 	/*
-	 * Allocate all the scan key information in the key context. (If
-	 * extractQuery leaks anything there, it won't be reset until the end of
-	 * scan or rescan, but that's OK.)
+	 * 在键上下文中分配全部扫描键信息。（若
+	 * extractQuery 在那里泄漏了什么，要到扫描结束或
+	 * 重新扫描才会重置，不过这没问题。）
 	 */
 	oldCtx = MemoryContextSwitchTo(so->keyCtx);
 
-	/* if no scan keys provided, allocate extra EVERYTHING GinScanKey */
+	/* 若未提供扫描键，就额外分配一个 EVERYTHING GinScanKey */
 	so->keys = (GinScanKey)
 		palloc(Max(scan->numberOfKeys, 1) * sizeof(GinScanKeyData));
 	so->nkeys = 0;
 
-	/* initialize expansible array of GinScanEntry pointers */
+	/* 初始化可扩展的 GinScanEntry 指针数组 */
 	so->totalentries = 0;
 	so->allocentries = 32;
 	so->entries = (GinScanEntry *)
@@ -307,8 +307,8 @@ ginNewScanKey(IndexScanDesc scan)
 		int32		searchMode = GIN_SEARCH_MODE_DEFAULT;
 
 		/*
-		 * We assume that GIN-indexable operators are strict, so a null query
-		 * argument means an unsatisfiable query.
+		 * 我们假定 GIN 可索引的操作符是严格的，因此空查询
+		 * 参数意味着无法满足的查询。
 		 */
 		if (skey->sk_flags & SK_ISNULL)
 		{
@@ -316,7 +316,7 @@ ginNewScanKey(IndexScanDesc scan)
 			break;
 		}
 
-		/* OK to call the extractQueryFn */
+		/* 可以调用 extractQueryFn 了 */
 		queryValues = (Datum *)
 			DatumGetPointer(FunctionCall7Coll(&so->ginstate.extractQueryFn[skey->sk_attno - 1],
 											  so->ginstate.supportCollation[skey->sk_attno - 1],
@@ -329,20 +329,20 @@ ginNewScanKey(IndexScanDesc scan)
 											  PointerGetDatum(&searchMode)));
 
 		/*
-		 * If bogus searchMode is returned, treat as GIN_SEARCH_MODE_ALL; note
-		 * in particular we don't allow extractQueryFn to select
-		 * GIN_SEARCH_MODE_EVERYTHING.
+		 * 若返回的 searchMode 不合理，就当作 GIN_SEARCH_MODE_ALL；特别
+		 * 注意我们不允许 extractQueryFn 选择
+		 * GIN_SEARCH_MODE_EVERYTHING。
 		 */
 		if (searchMode < GIN_SEARCH_MODE_DEFAULT ||
 			searchMode > GIN_SEARCH_MODE_ALL)
 			searchMode = GIN_SEARCH_MODE_ALL;
 
-		/* Non-default modes require the index to have placeholders */
+		/* 非默认模式需要索引中有占位项 */
 		if (searchMode != GIN_SEARCH_MODE_DEFAULT)
 			hasNullQuery = true;
 
 		/*
-		 * In default mode, no keys means an unsatisfiable query.
+		 * 默认模式下，没有键就意味着无法满足的查询。
 		 */
 		if (queryValues == NULL || nQueryValues <= 0)
 		{
@@ -351,13 +351,13 @@ ginNewScanKey(IndexScanDesc scan)
 				so->isVoidRes = true;
 				break;
 			}
-			nQueryValues = 0;	/* ensure sane value */
+			nQueryValues = 0;	/* 保证取值合理 */
 		}
 
 		/*
-		 * Create GinNullCategory representation.  If the extractQueryFn
-		 * didn't create a nullFlags array, we assume everything is non-null.
-		 * While at it, detect whether any null keys are present.
+		 * 建立 GinNullCategory 表示。若 extractQueryFn
+		 * 没有建立 nullFlags 数组，就假定一切都非空。
+		 * 同时检测是否存在任何空键。
 		 */
 		categories = (GinNullCategory *) palloc0(nQueryValues * sizeof(GinNullCategory));
 		if (nullFlags)
@@ -380,18 +380,18 @@ ginNewScanKey(IndexScanDesc scan)
 					   queryValues, categories,
 					   partial_matches, extra_data);
 
-		/* Remember if we had any non-excludeOnly keys */
+		/* 记住是否出现过任何非 excludeOnly 的键 */
 		if (searchMode != GIN_SEARCH_MODE_ALL)
 			attrHasNormalScan[skey->sk_attno - 1] = true;
 	}
 
 	/*
-	 * Processing GIN_SEARCH_MODE_ALL scan keys requires us to make a second
-	 * pass over the scan keys.  Above we marked each such scan key as
-	 * excludeOnly.  If the involved column has any normal (not excludeOnly)
-	 * scan key as well, then we can leave it like that.  Otherwise, one
-	 * excludeOnly scan key must receive a GIN_CAT_EMPTY_QUERY hidden entry
-	 * and be set to normal (excludeOnly = false).
+	 * 处理 GIN_SEARCH_MODE_ALL 扫描键时，需要再对扫描键做
+	 * 一遍。上面已把每个这样的扫描键标为
+	 * excludeOnly。若所涉列还有任何普通（非 excludeOnly）
+	 * 扫描键，就可以保持原样。否则，必须有一个
+	 * excludeOnly 扫描键接收 GIN_CAT_EMPTY_QUERY 隐藏条目，
+	 * 并设为普通（excludeOnly = false）。
 	 */
 	numExcludeOnly = 0;
 	for (i = 0; i < so->nkeys; i++)
@@ -412,8 +412,8 @@ ginNewScanKey(IndexScanDesc scan)
 	}
 
 	/*
-	 * If we left any excludeOnly scan keys as-is, move them to the end of the
-	 * scan key array: they must appear after normal key(s).
+	 * 若有任何 excludeOnly 扫描键被原样留下，就把它们移到
+	 * 扫描键数组末尾：它们必须出现在普通键 key(s) 之后。
 	 */
 	if (numExcludeOnly > 0)
 	{
@@ -421,11 +421,11 @@ ginNewScanKey(IndexScanDesc scan)
 		int			iNormalKey;
 		int			iExcludeOnly;
 
-		/* We'd better have made at least one normal key */
+		/* 最好至少已经建立过一个普通键 */
 		Assert(numExcludeOnly < so->nkeys);
-		/* Make a temporary array to hold the re-ordered scan keys */
+		/* 做一个临时数组来存放重排后的扫描键 */
 		tmpkeys = (GinScanKey) palloc(so->nkeys * sizeof(GinScanKeyData));
-		/* Re-order the keys ... */
+		/* 重排这些键 ... */
 		iNormalKey = 0;
 		iExcludeOnly = so->nkeys - numExcludeOnly;
 		for (i = 0; i < so->nkeys; i++)
@@ -445,14 +445,14 @@ ginNewScanKey(IndexScanDesc scan)
 		}
 		Assert(iNormalKey == so->nkeys - numExcludeOnly);
 		Assert(iExcludeOnly == so->nkeys);
-		/* ... and copy them back to so->keys[] */
+		/* ... 再复制回 so->keys[] */
 		memcpy(so->keys, tmpkeys, so->nkeys * sizeof(GinScanKeyData));
 		pfree(tmpkeys);
 	}
 
 	/*
-	 * If there are no regular scan keys, generate an EVERYTHING scankey to
-	 * drive a full-index scan.
+	 * 若没有常规扫描键，就生成一个 EVERYTHING 扫描键来
+	 * 驱动完整索引扫描。
 	 */
 	if (so->nkeys == 0 && !so->isVoidRes)
 	{
@@ -464,9 +464,9 @@ ginNewScanKey(IndexScanDesc scan)
 	}
 
 	/*
-	 * If the index is version 0, it may be missing null and placeholder
-	 * entries, which would render searches for nulls and full-index scans
-	 * unreliable.  Throw an error if so.
+	 * 若索引是版本 0，它可能缺少空条目和占位
+	 * 条目，从而使空值搜索和完整索引扫描
+	 * 不可靠。若是这样，则报错。
 	 */
 	if (hasNullQuery && !so->isVoidRes)
 	{

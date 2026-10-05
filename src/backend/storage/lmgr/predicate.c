@@ -1237,8 +1237,8 @@ InitPredicateLocks(void)
 										HASH_FIXED_SIZE);
 
 	/*
-	 * 分配空间，以便在附于这些
-	 * 事务。
+	 * 分配空间，以便在附于这些事务的列表中
+	 * 跟踪读写依赖（rw-conflict）。
 	 *
 	 * 假定平均每个事务有 5 个冲突。计算表明
 	 * 即便在最悲观的
@@ -1624,9 +1624,9 @@ GetSerializableTransactionSnapshot(Snapshot snapshot)
 
 	/*
 	 * 恢复仍在进行时不能使用可串行化模式，例如
-	 * 在热备上就是如此。尽管有检查，我们仍可能到达这里，
-	 * 若设置了 default_transaction_isolation，则见 check_transaction_isolation()
-	 * 因此提示的措辞要与此相符，针对改成可串行化的情况。
+	 * 在热备上就是如此。即便有 check_transaction_isolation()
+	 * 的检查，若 default_transaction_isolation 设为 serializable，
+	 * 仍可能到达这里，故提示措辞要针对该情况。
 	 */
 	if (RecoveryInProgress())
 		ereport(ERROR,
@@ -1769,9 +1769,9 @@ GetSerializableTransactionSnapshotInt(Snapshot snapshot,
 	}
 
 	/*
-	 * 若没有非只读的可串行化事务，我们可以让
-	 * 可以 "退出" 谓词加锁与冲突检查，对于一个
-	 * 只读事务。
+	 * 若没有非只读的可串行化事务，我们就可以对
+	 * 只读事务 "退出" 谓词加锁与
+	 * 冲突检查。
 	 *
 	 * 这样做是安全的，因为只读事务只有在它重叠一个可写事务、
 	 * 而该可写事务又重叠一个在
@@ -2069,8 +2069,8 @@ CoarserLockCovers(const PREDICATELOCKTARGETTAG *newtargettag)
 /*
  * 从谓词锁目标散列中移除哑条目，以腾出一些
  * 暂存空间。调用者必须持有 SerializablePredicateListLock，
- * 并且必须在释放该
- * 锁。
+ * 并必须在释放该锁之前用 RestoreScratchTarget()
+ * 恢复该条目。
  *
  * 若 lockheld 为 true，调用者已经持有包含暂存条目的那个分区的
  * 分区锁。
@@ -2316,8 +2316,8 @@ CheckAndPromotePredicateLockRequest(const PREDICATELOCKTARGETTAG *reqtag)
 }
 
 /*
- * 释放一把锁时，递减所有祖先上的子计数
- * 锁。
+ * 释放一把锁时，递减所有祖先锁上的
+ * 子计数。
  *
  * 仅在经由下列途径释放锁时才调用本函数：
  * DeleteChildTargetLocks（即因

@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0128b-comment-predicate-p1-wording",
+ "title": "zh: fix predicate comment wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "feb5b38fcfe773083f2ba3bea94cb7f0386d91b6",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/lmgr/predicate.c",
+   "kind": "c_comment",
+   "note": "Composer P1 wording fixes"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0128b-comment-predicate-p1-wording.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/lmgr/predicate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 360,
+   "translated": 5,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "fix 5 Composer P1 residual/omission comments"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0128b-comment-predicate-p1-wording.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0128"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0128b"
+  }
+ ],
+ "notes": "Composer P1 on 0128: complete rw-conflict alloc comment; fix hot-standby isolation hint causality; fix opt-out wording; restore RestoreScratchTarget(); fix ancestor-lock child count."
+}

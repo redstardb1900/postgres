@@ -13,7 +13,7 @@
 
 | 文件 | 职责 |
 |---|---|
-| `verify_c_comments.py` | `.c/.h/.cpp` 的"只有注释变了"证明：字节级 C 词法状态机（续行、字符串/字符、C++ raw string、`#include <>`、`#error/#warning`），骨架逐字节比较，注释类型/LF/CR 规则，UTF-8/BOM，受保护注释（`translator:`、fall-through、`pg_attribute_*`、`/*-` pgindent 块、Copyright/License），trigraph 基线保留/新增拒绝 |
+| `verify_c_comments.py` | `.c/.h/.cpp` 的"只有注释变了"证明：字节级 C 词法状态机（续行、字符串/字符、C++ raw string、`#include <>`、`#error/#warning`），骨架逐字节比较，注释类型/LF/CR 规则，UTF-8/BOM，受保护注释（`translator:`、fall-through、`pg_attribute_*`；文件头仅冻结 Copyright/IDENTIFICATION/License 尾段，模块说明可译；`/*-` alone 不再整段保护），trigraph 基线保留/新增拒绝 |
 | `check_scope.py` | 批次范围门禁：改动必须全部落在 manifest 的 `allowed_paths` 内并逐文件登记；覆盖 tracked、untracked、ignored；`doc/` 按递归快照和 tree OID 零变化；Perl 保护集按 blob OID 与 mode 零变化；源码树全部 `*.txt` 相对 REL_16_11 零变化（改/增/删均失败，S5；`src/tools/zh-tools/` 下的工具夹具除外）。新增 Perl 文件（扩展名或 shebang）以及源码树 `*.txt` 的扫描始终相对冻结基线 REL_16_11 覆盖全部新增/修改路径及所有 untracked/ignored 文件，与 `--incremental` 无关 |
 | `term_lint.py` | 保守术语检查：读取 pgnls `ref/phrasebook.tsv`（`status=decided` 且有 `zh_forbidden`）、`ref/glossary.tsv` 中"译文=原文"的保留词，以及 `term_rules.json`；只报告"英文命中且中文命中禁用译法"或"保留词丢失"的明确命中；规则分 `error`/`warning` 两级，只有 `error` 硬失败；支持带理由的 allowlist；不做任何自动替换 |
 | `gen_baseline.py` | 从只读基线 worktree 冻结保护数据：`baseline/baseline.json`、`baseline/doc_snapshot.json`、`baseline/perl_protected.json`；`--verify` 可重新生成并与已提交数据比对。快照与 Perl 比对的文件读取均经 `os.open(O_NOFOLLOW)` + `fstat`，哈希前后复核 dev/ino/size/mode/mtime；普通文件的 perm/mode/size/sha256 全部取自同一个哈希 fd 的 fstat，不混用打开前的 lstat；symlink 只记录 link target 不跟随 |
@@ -155,6 +155,9 @@ git -C /Users/niejinbo/work/code/pg/postgres worktree remove --force $POT_WT && 
 `verify_c_comments.py` 规则 ID（R1 骨架、R2 类型、R3 注释体安全、R4 编码/CR、
 R5 受保护注释、R6 LF 数、R8 trigraph、R9 解析/文件；W6/W7/W9 为告警）见
 `zhtools/c_verify.py` 开头说明；`check_scope.py` 的 S1–S4 见其 docstring。
+
+文件头注释策略：以 `/*-` 开头的 PostgreSQL 文件横幅**可以**翻译模块说明（文件名下一行的短标题、以及 Copyright/IDENTIFICATION 之前的 NOTES/实现说明）。从首个匹配 `Copyright` / `(c) YYYY` / `IDENTIFICATION` / license 许可语句的行起，直到注释结束的尾段必须逐字节保留；`translator:`、fall-through、`pg_attribute_*` 仍整段不可改。`/*-` 本身不再构成整段保护。
+
 
 ### 词法器的保守约定
 

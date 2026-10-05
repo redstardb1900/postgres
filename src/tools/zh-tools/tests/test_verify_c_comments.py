@@ -61,10 +61,30 @@ class FixedCases(unittest.TestCase):
     def test_sample_fixture_protected_comments_present(self):
         res = c_lexer.lex(read("sample_old.c.txt"))
         reasons = [c_verify.protected_reason(c.text) for c in res.comments]
-        self.assertIn("pgindent_block", reasons)
+        self.assertNotIn("pgindent_block", reasons)
         self.assertIn("translator", reasons)
         self.assertIn("fallthrough", reasons)
         self.assertIn("pg_attribute", reasons)
+        header = res.comments[0].text
+        self.assertTrue(header.startswith(b"/*-"))
+        legal = c_verify.legal_protected_tail(header)
+        self.assertIsNotNone(legal)
+        self.assertIn(b"Copyright", legal)
+        self.assertIsNone(c_verify.protected_reason(header))
+
+    def test_header_module_description_translatable(self):
+        old = read("sample_old.c.txt")
+        # Translate only the short description line; keep Copyright tail.
+        new = old.replace(
+            b"Fixture for verify_c_comments.py tests (not real PostgreSQL code).",
+            "verify_c_comments.py 测试夹具（非真实 PostgreSQL 代码）。".encode("utf-8"),
+        )
+        res = c_verify.compare_files(old, new, path="header-module")
+        self.assertEqual(res.violations, [], [f.to_dict() for f in res.violations])
+        # Touching Copyright must fail.
+        bad = old.replace(b"Portions Copyright (c) 1996-2023", "Portions 版权 (c) 1996-2023".encode("utf-8"))
+        res2 = c_verify.compare_files(old, bad, path="header-legal")
+        self.assertIn("R5_PROTECTED", {f.rule for f in res2.violations})
 
     def test_waitio_fallthrough_prose_is_translatable(self):
         old = (
@@ -194,6 +214,7 @@ class MutationTests(unittest.TestCase):
     def test_comment_body_mutations_are_accepted(self):
         accepted = 0
         safe = [c for c in self.lex.comments if c_verify.protected_reason(c.text) is None
+                and c_verify.legal_protected_tail(c.text) is None
                 and len(c.body()) > 4]
         self.assertTrue(safe)
         han = ["中", "文", "注", "释", "元组", "缓冲区"]
@@ -225,6 +246,7 @@ class MutationTests(unittest.TestCase):
 
     def test_lf_mutations_inside_comment_are_rejected(self):
         safe = [c for c in self.lex.comments if c_verify.protected_reason(c.text) is None
+                and c_verify.legal_protected_tail(c.text) is None
                 and c.kind == c_lexer.BLOCK and len(c.body()) > 4]
         for c in safe:
             b = bytearray(self.base)

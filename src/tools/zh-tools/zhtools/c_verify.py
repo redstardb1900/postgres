@@ -15,8 +15,9 @@ reports can refer to it:
   R4_BOM               new file starts with a UTF-8 BOM
   R4_CR                carriage returns inside a comment changed
   R5_PROTECTED         a protected comment (translator:, fall through,
-                       pg_attribute_*, ``/*-`` pgindent block, copyright /
-                       licence) was modified
+                       pg_attribute_*) was modified, OR the Copyright /
+                       IDENTIFICATION / licence region of a file-header
+                       comment was modified (module description may change)
   R6_LF_COUNT          number of LF bytes in a comment changed
                        (advisory W6_LF_COUNT with --no-strict-lines)
   R8_TRIGRAPH_NEW      new comment introduces a trigraph
@@ -36,15 +37,24 @@ sys.dont_write_bytecode = True
 
 from . import c_lexer  # noqa: E402
 
-# --- protected-comment patterns (checked on the OLD comment text) ---------
+# --- fully protected comments (any edit is R5; checked on OLD text) -------
 _PROTECT_RULES = (
     ("translator", re.compile(rb"translator\s*:", re.I)),
     # GCC -Wimplicit-fallthrough=3 accepts many spellings; be generous.
     ("fallthrough", re.compile(rb"fall[\s\-_]*s?[\s\-_]*thr(ough|u)", re.I)),
     ("pg_attribute", re.compile(rb"pg_attribute_")),
-    ("pgindent_block", re.compile(rb"\A/\*-")),
-    ("copyright", re.compile(rb"copyright|\(c\)\s*\d{4}|permission (is hereby granted|to use)"
-                             rb"|redistribution and use|licen[cs]e", re.I)),
+)
+
+# Legal/meta lines inside a comment: the contiguous tail starting at the
+# first matching line must remain a byte-identical substring of the new
+# comment.  Module description *above* that tail is translatable.
+# ``/*-`` alone is NOT a protect reason (pgindent "do not reformat" marker);
+# file headers use ``/*-`` but only Copyright/IDENTIFICATION stay frozen.
+_LEGAL_LINE_RE = re.compile(
+    rb"copyright|\(c\)\s*\d{4}|permission (is hereby granted|to use)"
+    rb"|redistribution and use|licen[cs]e"
+    rb"|^[ \t]*\*[ \t]*IDENTIFICATION[ \t]*$",
+    re.I | re.M,
 )
 
 _IDENT_RE = re.compile(rb"[A-Za-z_][A-Za-z0-9_]*")
@@ -121,7 +131,33 @@ _FSM_FALLTHROUGH_PROSE = re.compile(
     rb"possible to fall through and return the buffer")
 
 
+def legal_protected_tail(old_text):
+    """Return the Copyright/IDENTIFICATION/licence tail, or None.
+
+    The tail starts at the first line that matches a legal/meta marker and
+    runs through the end of the comment (including ``*/``).  Callers must
+    keep this blob as a contiguous substring of the new comment.  Module
+    description lines above the tail may be translated.
+    """
+    if not _LEGAL_LINE_RE.search(old_text):
+        return None
+    lines = old_text.splitlines(True)
+    start = None
+    for i, line in enumerate(lines):
+        if _LEGAL_LINE_RE.search(line):
+            start = i
+            break
+    if start is None:
+        return None
+    return b"".join(lines[start:])
+
+
 def protected_reason(old_text):
+    """Return a full-protect reason, or None if the comment may be edited.
+
+    Copyright/IDENTIFICATION regions are *not* reported here; use
+    ``legal_protected_tail`` and require the tail substring to survive.
+    """
     for name, rx in _PROTECT_RULES:
         if rx.search(old_text):
             if name == "fallthrough" and (
@@ -251,7 +287,8 @@ def compare_files(old_data, new_data, path="<mem>", strict_lines=True, warn=True
     for oc, nc in zip(old.comments, new.comments):
         if oc.text == nc.text:
             if warn and oc.kind == c_lexer.BLOCK and protected_reason(oc.text) is None \
-                    and _HAS_LETTERS.search(oc.text) and _is_ascii(oc.text) and len(oc.text) > 24:
+                    and _HAS_LETTERS.search(oc.text) and _is_ascii(oc.text) and len(oc.text) > 24 \
+                    and not _is_legal_only_comment(oc.text):
                 res.warnings.append(Finding("W7_UNTRANSLATED", "comment unchanged (still ASCII prose)",
                                             line=oc.line, comment_index=oc.index))
             continue
@@ -268,6 +305,15 @@ def compare_files(old_data, new_data, path="<mem>", strict_lines=True, warn=True
             res.violations.append(Finding("R5_PROTECTED", "protected comment (%s) was modified" % reason,
                                           line=oc.line, comment_index=oc.index,
                                           context=_snippet(oc.text)))
+        else:
+            legal = legal_protected_tail(oc.text)
+            if legal is not None and legal not in nc.text:
+                res.stats["protected_comments"] += 1
+                res.violations.append(Finding(
+                    "R5_PROTECTED",
+                    "copyright/IDENTIFICATION region was modified",
+                    line=oc.line, comment_index=oc.index,
+                    context=_snippet(legal)))
 
         if c_lexer.find_trigraphs(oc.text):
             res.violations.append(Finding("R8_TRIGRAPH_BASE",
@@ -310,6 +356,12 @@ def compare_files(old_data, new_data, path="<mem>", strict_lines=True, warn=True
                                             ", ".join(x.decode("ascii", "replace") for x in lost[:8]),
                                             line=oc.line, comment_index=oc.index))
     return res
+
+
+def _is_legal_only_comment(text):
+    """True when the entire comment is the legal/copyright region (no module prose)."""
+    legal = legal_protected_tail(text)
+    return legal is not None and legal == text
 
 
 def _is_ascii(b):

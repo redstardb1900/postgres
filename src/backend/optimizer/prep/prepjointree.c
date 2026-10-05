@@ -45,46 +45,46 @@
 typedef struct nullingrel_info
 {
 	/*
-	 * For each leaf RTE, nullingrels[rti] is the set of relids of outer joins
-	 * that potentially null that RTE.
+	 * 对于每个叶子 RTE，nullingrels[rti] 是可能把该 RTE 置空的外连接的 relid 集合
+	 * 中的那些 relid。
 	 */
 	Relids	   *nullingrels;
-	/* Length of range table (maximum index in nullingrels[]) */
-	int			rtlength;		/* used only for assertion checks */
+	/* 范围表长度（nullingrels[] 中的最大下标） */
+	int			rtlength;		/* 仅用于断言检查 */
 } nullingrel_info;
 
 typedef struct pullup_replace_vars_context
 {
 	PlannerInfo *root;
-	List	   *targetlist;		/* tlist of subquery being pulled up */
-	RangeTblEntry *target_rte;	/* RTE of subquery */
-	Relids		relids;			/* relids within subquery, as numbered after
-								 * pullup (set only if target_rte->lateral) */
-	nullingrel_info *nullinfo;	/* per-RTE nullingrel info (set only if
-								 * target_rte->lateral) */
-	bool	   *outer_hasSubLinks;	/* -> outer query's hasSubLinks */
-	int			varno;			/* varno of subquery */
-	bool		wrap_non_vars;	/* do we need all non-Var outputs to be PHVs? */
-	Node	  **rv_cache;		/* cache for results with PHVs */
+	List	   *targetlist;		/* 正在上拉的子查询的 tlist */
+	RangeTblEntry *target_rte;	/* 子查询的 RTE */
+	Relids		relids;			/* 子查询内部的 relid，按上拉之后的编号
+								 * （仅当 target_rte->lateral 时设置） */
+	nullingrel_info *nullinfo;	/* 每个 RTE 的 nullingrel 信息（仅当
+								 * target_rte->lateral 时设置） */
+	bool	   *outer_hasSubLinks;	/* -> 外层查询的 hasSubLinks */
+	int			varno;			/* 子查询的 varno */
+	bool		wrap_non_vars;	/* 是否需要把所有非 Var 输出都做成 PHVs？ */
+	Node	  **rv_cache;		/* 带 PHVs 的结果缓存 */
 } pullup_replace_vars_context;
 
 typedef struct reduce_outer_joins_pass1_state
 {
-	Relids		relids;			/* base relids within this subtree */
-	bool		contains_outer; /* does subtree contain outer join(s)? */
-	List	   *sub_states;		/* List of states for subtree components */
+	Relids		relids;			/* 本子树内的基表 relid */
+	bool		contains_outer; /* 子树是否包含外连接？ */
+	List	   *sub_states;		/* 子树各组成部分的状态列表 */
 } reduce_outer_joins_pass1_state;
 
 typedef struct reduce_outer_joins_pass2_state
 {
-	Relids		inner_reduced;	/* OJ relids reduced to plain inner joins */
-	List	   *partial_reduced;	/* List of partially reduced FULL joins */
+	Relids		inner_reduced;	/* 已简化为普通内连接的外连接 relid */
+	List	   *partial_reduced;	/* 部分简化的 FULL 连接列表 */
 } reduce_outer_joins_pass2_state;
 
 typedef struct reduce_outer_joins_partial_state
 {
-	int			full_join_rti;	/* RT index of a formerly-FULL join */
-	Relids		unreduced_side; /* relids in its still-nullable side */
+	int			full_join_rti;	/* 原先为 FULL 连接的 RT 下标 */
+	Relids		unreduced_side; /* 其仍然可空一侧中的 relid */
 } reduce_outer_joins_partial_state;
 
 static Node *pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
@@ -162,7 +162,7 @@ static void get_nullingrels_recurse(Node *jtnode, Relids upper_nullingrels,
 
 /*
  * transform_MERGE_to_join
- *		Replace a MERGE's jointree to also include the target relation.
+ *		把 MERGE 的连接树替换为同时包含目标关系。
  */
 void
 transform_MERGE_to_join(Query *parse)
@@ -176,27 +176,27 @@ transform_MERGE_to_join(Query *parse)
 	if (parse->commandType != CMD_MERGE)
 		return;
 
-	/* XXX probably bogus */
+	/* XXX 多半是错的 */
 	vars = NIL;
 
 	/*
-	 * When any WHEN NOT MATCHED THEN INSERT clauses exist, we need to use an
-	 * outer join so that we process all unmatched tuples from the source
-	 * relation.  If none exist, we can use an inner join.
+	 * 若存在任何 WHEN NOT MATCHED THEN INSERT 子句，就需要使用
+	 * 外连接，以便处理源关系中所有未匹配的元组。
+	 * 若一个都不存在，则可以使用内连接。
 	 */
 	if (parse->mergeUseOuterJoin)
 		jointype = JOIN_RIGHT;
 	else
 		jointype = JOIN_INNER;
 
-	/* Manufacture a join RTE to use. */
+	/* 造出一个供使用的连接 RTE。 */
 	joinrte = makeNode(RangeTblEntry);
 	joinrte->rtekind = RTE_JOIN;
 	joinrte->jointype = jointype;
 	joinrte->joinmergedcols = 0;
 	joinrte->joinaliasvars = vars;
-	joinrte->joinleftcols = NIL;	/* MERGE does not allow JOIN USING */
-	joinrte->joinrightcols = NIL;	/* ditto */
+	joinrte->joinleftcols = NIL;	/* MERGE 不允许 JOIN USING */
+	joinrte->joinrightcols = NIL;	/* 同上 */
 	joinrte->join_using_alias = NULL;
 
 	joinrte->alias = NULL;
@@ -206,46 +206,46 @@ transform_MERGE_to_join(Query *parse)
 	joinrte->inFromCl = true;
 
 	/*
-	 * Add completed RTE to pstate's range table list, so that we know its
-	 * index.
+	 * 把完成的 RTE 加入 pstate 的范围表列表，以便知道它的
+	 * 下标。
 	 */
 	parse->rtable = lappend(parse->rtable, joinrte);
 	joinrti = list_length(parse->rtable);
 
 	/*
-	 * Create a JOIN between the target and the source relation.
+	 * 在目标与源关系之间创建一个 JOIN。
 	 */
 	joinexpr = makeNode(JoinExpr);
 	joinexpr->jointype = jointype;
 	joinexpr->isNatural = false;
 	joinexpr->larg = (Node *) makeNode(RangeTblRef);
 	((RangeTblRef *) joinexpr->larg)->rtindex = parse->resultRelation;
-	joinexpr->rarg = linitial(parse->jointree->fromlist);	/* original join */
+	joinexpr->rarg = linitial(parse->jointree->fromlist);	/* 原来的连接 */
 	joinexpr->usingClause = NIL;
 	joinexpr->join_using_alias = NULL;
-	/* The quals are removed from the jointree and into this specific join */
+	/* 限定条件从连接树中取出，放进这个特定连接 */
 	joinexpr->quals = parse->jointree->quals;
 	joinexpr->alias = NULL;
 	joinexpr->rtindex = joinrti;
 
-	/* Make the new join be the sole entry in the query's jointree */
+	/* 让新连接成为查询连接树中的唯一项 */
 	parse->jointree->fromlist = list_make1(joinexpr);
 	parse->jointree->quals = NULL;
 }
 
 /*
  * replace_empty_jointree
- *		If the Query's jointree is empty, replace it with a dummy RTE_RESULT
- *		relation.
+ *		若 Query 的连接树为空，用一个哑 RTE_RESULT
+ *		关系替换它。
  *
- * By doing this, we can avoid a bunch of corner cases that formerly existed
- * for SELECTs with omitted FROM clauses.  An example is that a subquery
- * with empty jointree previously could not be pulled up, because that would
- * have resulted in an empty relid set, making the subquery not uniquely
- * identifiable for join or PlaceHolderVar processing.
+ * 这样做可以避开以前为省略 FROM 子句的 SELECTs 所存在的一批边角情况。
+ * 例如，连接树为空的子查询以前无法上拉，因为那会
+ * 得到空的 relid 集合，使该子查询无法被唯一
+ * 标识，从而妨碍连接或 PlaceHolderVar 处理。
+ * 与本文件中多数其他函数不同，本函数不递归；
  *
- * Unlike most other functions in this file, this function doesn't recurse;
- * we rely on other processing to invoke it on sub-queries at suitable times.
+ * 我们依靠其他处理在合适的时机
+ * 对子查询调用它。
  */
 void
 replace_empty_jointree(Query *parse)
@@ -254,24 +254,24 @@ replace_empty_jointree(Query *parse)
 	Index		rti;
 	RangeTblRef *rtr;
 
-	/* Nothing to do if jointree is already nonempty */
+	/* 连接树已经非空则无需处理 */
 	if (parse->jointree->fromlist != NIL)
 		return;
 
-	/* We mustn't change it in the top level of a setop tree, either */
+	/* 在集合运算树的顶层也不得改动它 */
 	if (parse->setOperations)
 		return;
 
-	/* Create suitable RTE */
+	/* 创建合适的 RTE */
 	rte = makeNode(RangeTblEntry);
 	rte->rtekind = RTE_RESULT;
 	rte->eref = makeAlias("*RESULT*", NIL);
 
-	/* Add it to rangetable */
+	/* 把它加入范围表 */
 	parse->rtable = lappend(parse->rtable, rte);
 	rti = list_length(parse->rtable);
 
-	/* And jam a reference into the jointree */
+	/* 并把一个引用塞进连接树 */
 	rtr = makeNode(RangeTblRef);
 	rtr->rtindex = rti;
 	parse->jointree->fromlist = list_make1(rtr);
@@ -279,31 +279,31 @@ replace_empty_jointree(Query *parse)
 
 /*
  * pull_up_sublinks
- *		Attempt to pull up ANY and EXISTS SubLinks to be treated as
- *		semijoins or anti-semijoins.
+ *		尝试把 ANY 和 EXISTS SubLinks 上拉，当作
+ *		半连接或反半连接来处理。
  *
- * A clause "foo op ANY (sub-SELECT)" can be processed by pulling the
- * sub-SELECT up to become a rangetable entry and treating the implied
- * comparisons as quals of a semijoin.  However, this optimization *only*
- * works at the top level of WHERE or a JOIN/ON clause, because we cannot
- * distinguish whether the ANY ought to return FALSE or NULL in cases
- * involving NULL inputs.  Also, in an outer join's ON clause we can only
- * do this if the sublink is degenerate (ie, references only the nullable
- * side of the join).  In that case it is legal to push the semijoin
- * down into the nullable side of the join.  If the sublink references any
- * nonnullable-side variables then it would have to be evaluated as part
- * of the outer join, which makes things way too complicated.
+ * 子句 "foo op ANY (sub-SELECT)" 可以把
+ * sub-SELECT 上拉成范围表项，并把隐含的
+ * 比较当作半连接的限定条件。不过这种处理只在
+ * WHERE 或 JOIN/ON 子句的顶层有效，因为我们无法
+ * 区分在涉及 NULL 输入时 ANY 应当返回 FALSE 还是 NULL。
+ * 另外，在外连接的 ON 子句中，只有当子链接退化
+ * （即只引用连接的可空一侧）时才能这样做。
+ * 这时可以把半连接下推到连接的可空一侧。
+ * 若子链接引用了任何不可空一侧的变量，
+ * 它就必须作为
+ * 外连接的一部分求值，事情会变得过于复杂。
  *
- * Under similar conditions, EXISTS and NOT EXISTS clauses can be handled
- * by pulling up the sub-SELECT and creating a semijoin or anti-semijoin.
+ * 在类似条件下，EXISTS 和 NOT EXISTS 子句可以
+ * 通过上拉 sub-SELECT 并建立半连接或反半连接来处理。
  *
- * This routine searches for such clauses and does the necessary parsetree
- * transformations if any are found.
+ * 本例程搜索这类子句，若找到则做必要的解析树
+ * 变换。
  *
- * This routine has to run before preprocess_expression(), so the quals
- * clauses are not yet reduced to implicit-AND format, and are not guaranteed
- * to be AND/OR-flat either.  That means we need to recursively search through
- * explicit AND clauses.  We stop as soon as we hit a non-AND item.
+ * 本例程必须在 preprocess_expression() 之前运行，因此限定
+ * 条件子句尚未归约为隐式 AND 形式，也不保证
+ * 已经 AND/OR 展平。这意味着我们需要递归搜索
+ * 显式 AND 子句。一遇到非 AND 项就停止。
  */
 void
 pull_up_sublinks(PlannerInfo *root)
@@ -311,14 +311,14 @@ pull_up_sublinks(PlannerInfo *root)
 	Node	   *jtnode;
 	Relids		relids;
 
-	/* Begin recursion through the jointree */
+	/* 开始在连接树上递归 */
 	jtnode = pull_up_sublinks_jointree_recurse(root,
 											   (Node *) root->parse->jointree,
 											   &relids);
 
 	/*
-	 * root->parse->jointree must always be a FromExpr, so insert a dummy one
-	 * if we got a bare RangeTblRef or JoinExpr out of the recursion.
+	 * root->parse->jointree 必须始终是 FromExpr，因此若递归得到裸节点，就插入一个哑的
+	 * FromExpr；对象是裸 RangeTblRef 或 JoinExpr。
 	 */
 	if (IsA(jtnode, FromExpr))
 		root->parse->jointree = (FromExpr *) jtnode;
@@ -327,16 +327,16 @@ pull_up_sublinks(PlannerInfo *root)
 }
 
 /*
- * Recurse through jointree nodes for pull_up_sublinks()
+ * 为 pull_up_sublinks() 在连接树节点上递归
  *
- * In addition to returning the possibly-modified jointree node, we return
- * a relids set of the contained rels into *relids.
+ * 除了返回可能已修改的连接树节点，还把所含关系的
+ * relid 集合返回到 *relids。
  */
 static Node *
 pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 								  Relids *relids)
 {
-	/* Since this function recurses, it could be driven to stack overflow. */
+	/* 由于本函数递归，可能被逼到栈溢出。 */
 	check_stack_depth();
 
 	if (jtnode == NULL)
@@ -348,7 +348,7 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 		int			varno = ((RangeTblRef *) jtnode)->rtindex;
 
 		*relids = bms_make_singleton(varno);
-		/* jtnode is returned unmodified */
+		/* jtnode 原样返回 */
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -359,7 +359,7 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 		Node	   *jtlink;
 		ListCell   *l;
 
-		/* First, recurse to process children and collect their relids */
+		/* 先递归处理子节点并收集它们的 relid */
 		foreach(l, f->fromlist)
 		{
 			Node	   *newchild;
@@ -371,23 +371,23 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 			newfromlist = lappend(newfromlist, newchild);
 			frelids = bms_join(frelids, childrelids);
 		}
-		/* Build the replacement FromExpr; no quals yet */
+		/* 构造替换用的 FromExpr；尚无限定条件 */
 		newf = makeFromExpr(newfromlist, NULL);
-		/* Set up a link representing the rebuilt jointree */
+		/* 建立代表重建后连接树的链接 */
 		jtlink = (Node *) newf;
-		/* Now process qual --- all children are available for use */
+		/* 现在处理限定条件——所有子节点都可供使用 */
 		newf->quals = pull_up_sublinks_qual_recurse(root, f->quals,
 													&jtlink, frelids,
 													NULL, NULL);
 
 		/*
-		 * Note that the result will be either newf, or a stack of JoinExprs
-		 * with newf at the base.  We rely on subsequent optimization steps to
-		 * flatten this and rearrange the joins as needed.
+		 * 注意结果要么是 newf，要么是以 newf 为底的一叠 JoinExprs。
+		 * 我们依靠后续步骤
+		 * 把这叠展平并按需要重排连接。
 		 *
-		 * Although we could include the pulled-up subqueries in the returned
-		 * relids, there's no need since upper quals couldn't refer to their
-		 * outputs anyway.
+		 * 虽然可以把上拉的子查询放进返回的
+		 * relid，但没有必要，因为上层限定条件反正无法引用它们的
+		 * 输出。
 		 */
 		*relids = frelids;
 		jtnode = jtlink;
@@ -400,30 +400,30 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 		Node	   *jtlink;
 
 		/*
-		 * Make a modifiable copy of join node, but don't bother copying its
-		 * subnodes (yet).
+		 * 复制一份可修改的连接节点，但先不复制它的
+		 * 子节点。
 		 */
 		j = (JoinExpr *) palloc(sizeof(JoinExpr));
 		memcpy(j, jtnode, sizeof(JoinExpr));
 		jtlink = (Node *) j;
 
-		/* Recurse to process children and collect their relids */
+		/* 递归处理子节点并收集它们的 relid */
 		j->larg = pull_up_sublinks_jointree_recurse(root, j->larg,
 													&leftrelids);
 		j->rarg = pull_up_sublinks_jointree_recurse(root, j->rarg,
 													&rightrelids);
 
 		/*
-		 * Now process qual, showing appropriate child relids as available,
-		 * and attach any pulled-up jointree items at the right place. In the
-		 * inner-join case we put new JoinExprs above the existing one (much
-		 * as for a FromExpr-style join).  In outer-join cases the new
-		 * JoinExprs must go into the nullable side of the outer join. The
-		 * point of the available_rels machinations is to ensure that we only
-		 * pull up quals for which that's okay.
+		 * 现在处理限定条件，把适当的子 relid 标为可用，
+		 * 并把上拉得到的连接树项挂到正确位置。在
+		 * 内连接情况下，我们把新的 JoinExprs 放在现有连接之上（很像
+		 * FromExpr 风格的连接）。在外连接情况下，新的
+		 * JoinExprs 必须进入外连接的可空一侧。
+		 * available_rels 这套处理的目的是确保只
+		 * 上拉那些这样做没问题的限定条件。
 		 *
-		 * We don't expect to see any pre-existing JOIN_SEMI, JOIN_ANTI, or
-		 * JOIN_RIGHT_ANTI jointypes here.
+		 * 这里不应当看到任何预先存在的 JOIN_SEMI、JOIN_ANTI 或
+		 * JOIN_RIGHT_ANTI 连接类型。
 		 */
 		switch (j->jointype)
 		{
@@ -441,7 +441,7 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 														 NULL, NULL);
 				break;
 			case JOIN_FULL:
-				/* can't do anything with full-join quals */
+				/* 对全连接的限定条件无能为力 */
 				break;
 			case JOIN_RIGHT:
 				j->quals = pull_up_sublinks_qual_recurse(root, j->quals,
@@ -456,12 +456,12 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 		}
 
 		/*
-		 * Although we could include the pulled-up subqueries in the returned
-		 * relids, there's no need since upper quals couldn't refer to their
-		 * outputs anyway.  But we *do* need to include the join's own rtindex
-		 * because we haven't yet collapsed join alias variables, so upper
-		 * levels would mistakenly think they couldn't use references to this
-		 * join.
+		 * 虽然可以把上拉的子查询放进返回的
+		 * relid，但没有必要，因为上层限定条件反正无法引用它们的
+		 * 输出。但我们确实需要纳入该连接自身的 rtindex，
+		 * 因为还没有折叠连接别名变量，否则上层
+		 * 会误以为无法使用对本连接的
+		 * 引用。
 		 */
 		*relids = bms_join(leftrelids, rightrelids);
 		if (j->rtindex)
@@ -475,19 +475,19 @@ pull_up_sublinks_jointree_recurse(PlannerInfo *root, Node *jtnode,
 }
 
 /*
- * Recurse through top-level qual nodes for pull_up_sublinks()
+ * 为 pull_up_sublinks() 在顶层限定条件节点上递归
  *
- * jtlink1 points to the link in the jointree where any new JoinExprs should
- * be inserted if they reference available_rels1 (i.e., available_rels1
- * denotes the relations present underneath jtlink1).  Optionally, jtlink2 can
- * point to a second link where new JoinExprs should be inserted if they
- * reference available_rels2 (pass NULL for both those arguments if not used).
- * Note that SubLinks referencing both sets of variables cannot be optimized.
- * If we find multiple pull-up-able SubLinks, they'll get stacked onto jtlink1
- * and/or jtlink2 in the order we encounter them.  We rely on subsequent
- * optimization to rearrange the stack if appropriate.
+ * jtlink1 指向连接树中应当插入新 JoinExprs 的链接，
+ * 条件是它们引用 available_rels1（即 available_rels1
+ * 表示 jtlink1 之下存在的关系）。可选地，jtlink2 可以
+ * 指向第二条链接，若新 JoinExprs
+ * 引用 available_rels2 就插到那里（不用时这两个参数都传 NULL）。
+ * 注意同时引用两套变量的 SubLinks 无法被优化。
+ * 若找到多个可上拉的 SubLinks，它们会按遇到的顺序堆到 jtlink1
+ * 和/或 jtlink2 上。我们依靠后续
+ * 处理在合适时重排这叠节点。
  *
- * Returns the replacement qual node, or NULL if the qual should be removed.
+ * 返回替换后的限定条件节点；若该限定条件应删除则返回 NULL。
  */
 static Node *
 pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
@@ -502,24 +502,24 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 		JoinExpr   *j;
 		Relids		child_rels;
 
-		/* Is it a convertible ANY or EXISTS clause? */
+		/* 它是可转换的 ANY 或 EXISTS 子句吗？ */
 		if (sublink->subLinkType == ANY_SUBLINK)
 		{
 			if ((j = convert_ANY_sublink_to_join(root, sublink,
 												 available_rels1)) != NULL)
 			{
-				/* Yes; insert the new join node into the join tree */
+				/* 是；把新连接节点插入连接树 */
 				j->larg = *jtlink1;
 				*jtlink1 = (Node *) j;
-				/* Recursively process pulled-up jointree nodes */
+				/* 递归处理上拉得到的连接树节点 */
 				j->rarg = pull_up_sublinks_jointree_recurse(root,
 															j->rarg,
 															&child_rels);
 
 				/*
-				 * Now recursively process the pulled-up quals.  Any inserted
-				 * joins can get stacked onto either j->larg or j->rarg,
-				 * depending on which rels they reference.
+				 * 现在递归处理上拉得到的限定条件。任何插入的
+				 * 连接都可以堆到 j->larg 或 j->rarg 上，
+				 * 取决于它们引用哪些关系。
 				 */
 				j->quals = pull_up_sublinks_qual_recurse(root,
 														 j->quals,
@@ -527,25 +527,25 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 														 available_rels1,
 														 &j->rarg,
 														 child_rels);
-				/* Return NULL representing constant TRUE */
+				/* 返回表示常量 TRUE 的 NULL */
 				return NULL;
 			}
 			if (available_rels2 != NULL &&
 				(j = convert_ANY_sublink_to_join(root, sublink,
 												 available_rels2)) != NULL)
 			{
-				/* Yes; insert the new join node into the join tree */
+				/* 是；把新连接节点插入连接树 */
 				j->larg = *jtlink2;
 				*jtlink2 = (Node *) j;
-				/* Recursively process pulled-up jointree nodes */
+				/* 递归处理上拉得到的连接树节点 */
 				j->rarg = pull_up_sublinks_jointree_recurse(root,
 															j->rarg,
 															&child_rels);
 
 				/*
-				 * Now recursively process the pulled-up quals.  Any inserted
-				 * joins can get stacked onto either j->larg or j->rarg,
-				 * depending on which rels they reference.
+				 * 现在递归处理上拉得到的限定条件。任何插入的
+				 * 连接都可以堆到 j->larg 或 j->rarg 上，
+				 * 取决于它们引用哪些关系。
 				 */
 				j->quals = pull_up_sublinks_qual_recurse(root,
 														 j->quals,
@@ -553,7 +553,7 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 														 available_rels2,
 														 &j->rarg,
 														 child_rels);
-				/* Return NULL representing constant TRUE */
+				/* 返回表示常量 TRUE 的 NULL */
 				return NULL;
 			}
 		}
@@ -562,18 +562,18 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 			if ((j = convert_EXISTS_sublink_to_join(root, sublink, false,
 													available_rels1)) != NULL)
 			{
-				/* Yes; insert the new join node into the join tree */
+				/* 是；把新连接节点插入连接树 */
 				j->larg = *jtlink1;
 				*jtlink1 = (Node *) j;
-				/* Recursively process pulled-up jointree nodes */
+				/* 递归处理上拉得到的连接树节点 */
 				j->rarg = pull_up_sublinks_jointree_recurse(root,
 															j->rarg,
 															&child_rels);
 
 				/*
-				 * Now recursively process the pulled-up quals.  Any inserted
-				 * joins can get stacked onto either j->larg or j->rarg,
-				 * depending on which rels they reference.
+				 * 现在递归处理上拉得到的限定条件。任何插入的
+				 * 连接都可以堆到 j->larg 或 j->rarg 上，
+				 * 取决于它们引用哪些关系。
 				 */
 				j->quals = pull_up_sublinks_qual_recurse(root,
 														 j->quals,
@@ -581,25 +581,25 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 														 available_rels1,
 														 &j->rarg,
 														 child_rels);
-				/* Return NULL representing constant TRUE */
+				/* 返回表示常量 TRUE 的 NULL */
 				return NULL;
 			}
 			if (available_rels2 != NULL &&
 				(j = convert_EXISTS_sublink_to_join(root, sublink, false,
 													available_rels2)) != NULL)
 			{
-				/* Yes; insert the new join node into the join tree */
+				/* 是；把新连接节点插入连接树 */
 				j->larg = *jtlink2;
 				*jtlink2 = (Node *) j;
-				/* Recursively process pulled-up jointree nodes */
+				/* 递归处理上拉得到的连接树节点 */
 				j->rarg = pull_up_sublinks_jointree_recurse(root,
 															j->rarg,
 															&child_rels);
 
 				/*
-				 * Now recursively process the pulled-up quals.  Any inserted
-				 * joins can get stacked onto either j->larg or j->rarg,
-				 * depending on which rels they reference.
+				 * 现在递归处理上拉得到的限定条件。任何插入的
+				 * 连接都可以堆到 j->larg 或 j->rarg 上，
+				 * 取决于它们引用哪些关系。
 				 */
 				j->quals = pull_up_sublinks_qual_recurse(root,
 														 j->quals,
@@ -607,16 +607,16 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 														 available_rels2,
 														 &j->rarg,
 														 child_rels);
-				/* Return NULL representing constant TRUE */
+				/* 返回表示常量 TRUE 的 NULL */
 				return NULL;
 			}
 		}
-		/* Else return it unmodified */
+		/* 否则原样返回 */
 		return node;
 	}
 	if (is_notclause(node))
 	{
-		/* If the immediate argument of NOT is EXISTS, try to convert */
+		/* 若 NOT 的直接参数是 EXISTS，尝试转换 */
 		SubLink    *sublink = (SubLink *) get_notclausearg((Expr *) node);
 		JoinExpr   *j;
 		Relids		child_rels;
@@ -628,62 +628,62 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 				if ((j = convert_EXISTS_sublink_to_join(root, sublink, true,
 														available_rels1)) != NULL)
 				{
-					/* Yes; insert the new join node into the join tree */
+					/* 是；把新连接节点插入连接树 */
 					j->larg = *jtlink1;
 					*jtlink1 = (Node *) j;
-					/* Recursively process pulled-up jointree nodes */
+					/* 递归处理上拉得到的连接树节点 */
 					j->rarg = pull_up_sublinks_jointree_recurse(root,
 																j->rarg,
 																&child_rels);
 
 					/*
-					 * Now recursively process the pulled-up quals.  Because
-					 * we are underneath a NOT, we can't pull up sublinks that
-					 * reference the left-hand stuff, but it's still okay to
-					 * pull up sublinks referencing j->rarg.
+					 * 现在递归处理上拉得到的限定条件。因为
+					 * 我们处在 NOT 之下，无法上拉引用左侧内容的
+					 * 子链接，但上拉引用 j->rarg 的子链接
+					 * 仍然可以。
 					 */
 					j->quals = pull_up_sublinks_qual_recurse(root,
 															 j->quals,
 															 &j->rarg,
 															 child_rels,
 															 NULL, NULL);
-					/* Return NULL representing constant TRUE */
+					/* 返回表示常量 TRUE 的 NULL */
 					return NULL;
 				}
 				if (available_rels2 != NULL &&
 					(j = convert_EXISTS_sublink_to_join(root, sublink, true,
 														available_rels2)) != NULL)
 				{
-					/* Yes; insert the new join node into the join tree */
+					/* 是；把新连接节点插入连接树 */
 					j->larg = *jtlink2;
 					*jtlink2 = (Node *) j;
-					/* Recursively process pulled-up jointree nodes */
+					/* 递归处理上拉得到的连接树节点 */
 					j->rarg = pull_up_sublinks_jointree_recurse(root,
 																j->rarg,
 																&child_rels);
 
 					/*
-					 * Now recursively process the pulled-up quals.  Because
-					 * we are underneath a NOT, we can't pull up sublinks that
-					 * reference the left-hand stuff, but it's still okay to
-					 * pull up sublinks referencing j->rarg.
+					 * 现在递归处理上拉得到的限定条件。因为
+					 * 我们处在 NOT 之下，无法上拉引用左侧内容的
+					 * 子链接，但上拉引用 j->rarg 的子链接
+					 * 仍然可以。
 					 */
 					j->quals = pull_up_sublinks_qual_recurse(root,
 															 j->quals,
 															 &j->rarg,
 															 child_rels,
 															 NULL, NULL);
-					/* Return NULL representing constant TRUE */
+					/* 返回表示常量 TRUE 的 NULL */
 					return NULL;
 				}
 			}
 		}
-		/* Else return it unmodified */
+		/* 否则原样返回 */
 		return node;
 	}
 	if (is_andclause(node))
 	{
-		/* Recurse into AND clause */
+		/* 递归进入 AND 子句 */
 		List	   *newclauses = NIL;
 		ListCell   *l;
 
@@ -701,7 +701,7 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 			if (newclause)
 				newclauses = lappend(newclauses, newclause);
 		}
-		/* We might have got back fewer clauses than we started with */
+		/* 返回的子句可能比开始时少 */
 		if (newclauses == NIL)
 			return NULL;
 		else if (list_length(newclauses) == 1)
@@ -709,35 +709,35 @@ pull_up_sublinks_qual_recurse(PlannerInfo *root, Node *node,
 		else
 			return (Node *) make_andclause(newclauses);
 	}
-	/* Stop if not an AND */
+	/* 若不是 AND 则停止 */
 	return node;
 }
 
 /*
  * preprocess_function_rtes
- *		Constant-simplify any FUNCTION RTEs in the FROM clause, and then
- *		attempt to "inline" any that are set-returning functions.
+ *		对 FROM 子句中的 FUNCTION RTEs 做常量简化，然后
+ *		尝试把其中的集合返回函数内联。
  *
- * If an RTE_FUNCTION rtable entry invokes a set-returning function that
- * contains just a simple SELECT, we can convert the rtable entry to an
- * RTE_SUBQUERY entry exposing the SELECT directly.  This is especially
- * useful if the subquery can then be "pulled up" for further optimization,
- * but we do it even if not, to reduce executor overhead.
+ * 若 RTE_FUNCTION 范围表项调用的集合返回函数
+ * 只含一条简单 SELECT，可以把该范围表项转换成
+ * 直接暴露该 SELECT 的 RTE_SUBQUERY 项。若子查询随后还能
+ * 上拉以继续处理，这尤其有用，
+ * 但即使不上拉我们也这样做，以减少执行器开销。
  *
- * This has to be done before we have started to do any optimization of
- * subqueries, else any such steps wouldn't get applied to subqueries
- * obtained via inlining.  However, we do it after pull_up_sublinks
- * so that we can inline any functions used in SubLink subselects.
+ * 这必须在开始对子查询做任何处理之前完成，
+ * 否则这些步骤不会作用到
+ * 通过内联得到的子查询上。不过我们在 pull_up_sublinks
+ * 之后做，以便内联 SubLink 子查询中使用的函数。
  *
- * The reason for applying const-simplification at this stage is that
- * (a) we'd need to do it anyway to inline a SRF, and (b) by doing it now,
- * we can be sure that pull_up_constant_function() will see constants
- * if there are constants to be seen.  This approach also guarantees
- * that every FUNCTION RTE has been const-simplified, allowing planner.c's
- * preprocess_expression() to skip doing it again.
+ * 在此阶段做常量简化的原因是：
+ * (a) 为了内联 SRF 反正也要做，(b) 现在做可以
+ * 确保 pull_up_constant_function() 在有常量时能看到常量。
+ * 这种做法还保证
+ * 每个 FUNCTION RTE 都已做常量简化，从而允许 planner.c 的
+ * preprocess_expression() 跳过再做一次。
  *
- * Like most of the planner, this feels free to scribble on its input data
- * structure.
+ * 和规划器的大部分一样，本函数可以随意就地修改其输入数据
+ * 结构。
  */
 void
 preprocess_function_rtes(PlannerInfo *root)
@@ -752,25 +752,25 @@ preprocess_function_rtes(PlannerInfo *root)
 		{
 			Query	   *funcquery;
 
-			/* Apply const-simplification */
+			/* 做常量简化 */
 			rte->functions = (List *)
 				eval_const_expressions(root, (Node *) rte->functions);
 
-			/* Check safety of expansion, and expand if possible */
+			/* 检查展开是否安全，若可能则展开 */
 			funcquery = inline_set_returning_function(root, rte);
 			if (funcquery)
 			{
-				/* Successful expansion, convert the RTE to a subquery */
+				/* 展开成功，把 RTE 转换成子查询 */
 				rte->rtekind = RTE_SUBQUERY;
 				rte->subquery = funcquery;
 				rte->security_barrier = false;
 
 				/*
-				 * Clear fields that should not be set in a subquery RTE.
-				 * However, we leave rte->functions filled in for the moment,
-				 * in case makeWholeRowVar needs to consult it.  We'll clear
-				 * it in setrefs.c (see add_rte_to_flat_rtable) so that this
-				 * abuse of the data structure doesn't escape the planner.
+				 * 清除子查询 RTE 中不该设置的字段。
+				 * 不过暂时保留 rte->functions，
+				 * 以防 makeWholeRowVar 需要查阅它。我们将在
+				 * setrefs.c 中清除它（见 add_rte_to_flat_rtable），以免这种
+				 * 对数据结构的滥用逃出规划器。
 				 */
 				rte->funcordinality = false;
 			}
@@ -780,64 +780,64 @@ preprocess_function_rtes(PlannerInfo *root)
 
 /*
  * pull_up_subqueries
- *		Look for subqueries in the rangetable that can be pulled up into
- *		the parent query.  If the subquery has no special features like
- *		grouping/aggregation then we can merge it into the parent's jointree.
- *		Also, subqueries that are simple UNION ALL structures can be
- *		converted into "append relations".
+ *		在范围表中寻找可以上拉进
+ *		父查询的子查询。若子查询没有分组/聚集之类的特殊特性，
+ *		就可以把它并入父查询的连接树。
+ *		另外，简单 UNION ALL 结构的子查询可以
+ *		转换成 "append 关系"。
  */
 void
 pull_up_subqueries(PlannerInfo *root)
 {
-	/* Top level of jointree must always be a FromExpr */
+	/* 连接树顶层必须始终是 FromExpr */
 	Assert(IsA(root->parse->jointree, FromExpr));
-	/* Recursion starts with no containing join nor appendrel */
+	/* 递归开始时没有包含它的连接，也没有 appendrel */
 	root->parse->jointree = (FromExpr *)
 		pull_up_subqueries_recurse(root, (Node *) root->parse->jointree,
 								   NULL, NULL);
-	/* We should still have a FromExpr */
+	/* 此时仍应有一个 FromExpr */
 	Assert(IsA(root->parse->jointree, FromExpr));
 }
 
 /*
  * pull_up_subqueries_recurse
- *		Recursive guts of pull_up_subqueries.
+ *		pull_up_subqueries 的递归主体。
  *
- * This recursively processes the jointree and returns a modified jointree.
+ * 本函数递归处理连接树并返回修改后的连接树。
  *
- * If this jointree node is within either side of an outer join, then
- * lowest_outer_join references the lowest such JoinExpr node; otherwise
- * it is NULL.  We use this to constrain the effects of LATERAL subqueries.
+ * 若此连接树节点位于外连接的任一侧，则
+ * lowest_outer_join 指向最低的那个 JoinExpr 节点；否则
+ * 它为 NULL。我们用它来
  *
- * If we are looking at a member subquery of an append relation,
- * containing_appendrel describes that relation; else it is NULL.
- * This forces use of the PlaceHolderVar mechanism for all non-Var targetlist
- * items, and puts some additional restrictions on what can be pulled up.
+ * 约束 LATERAL 子查询的影响。
+ * 若正在查看 append 关系的成员子查询，
+ * containing_appendrel 描述该关系；否则为 NULL。
+ * 这会强制对所有非 Var 的目标列表项使用 PlaceHolderVar 机制，
  *
- * A tricky aspect of this code is that if we pull up a subquery we have
- * to replace Vars that reference the subquery's outputs throughout the
- * parent query, including quals attached to jointree nodes above the one
- * we are currently processing!  We handle this by being careful to maintain
- * validity of the jointree structure while recursing, in the following sense:
- * whenever we recurse, all qual expressions in the tree must be reachable
- * from the top level, in case the recursive call needs to modify them.
+ * 并对可以上拉的内容加一些额外限制。
+ * 这段代码有个棘手之处：若上拉子查询，就必须在整个
+ * 父查询中替换引用该子查询输出的 Var，包括挂在当前正在处理的
+ * 连接树节点之上的那些节点上的限定条件！我们的办法是在递归时
+ * 小心地维持连接树结构的有效性，具体是：
+ * 每次递归时，树中所有限定条件表达式都必须能从
+ * 顶层到达，以防递归调用需要修改它们。
  *
- * Notice also that we can't turn pullup_replace_vars loose on the whole
- * jointree, because it'd return a mutated copy of the tree; we have to
- * invoke it just on the quals, instead.  This behavior is what makes it
- * reasonable to pass lowest_outer_join as a pointer rather than some
- * more-indirect way of identifying the lowest OJ.  Likewise, we don't
- * replace append_rel_list members but only their substructure, so the
- * containing_appendrel reference is safe to use.
+ * 还要注意，不能把 pullup_replace_vars 放开用到整棵
+ * 连接树上，因为它会返回变异后的树副本；我们只能
+ * 把它作用在限定条件上。正是这种行为使得
+ * 把 lowest_outer_join 当作指针传递是合理的，而不必用某种
+ * 更间接的方式标识最低的外连接。同样，我们不
+ * 替换 append_rel_list 的成员，只替换它们的子结构，因此
+ * containing_appendrel 引用可以安全使用。
  */
 static Node *
 pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 						   JoinExpr *lowest_outer_join,
 						   AppendRelInfo *containing_appendrel)
 {
-	/* Since this function recurses, it could be driven to stack overflow. */
+	/* 由于本函数递归，可能被逼到栈溢出。 */
 	check_stack_depth();
-	/* Also, since it's a bit expensive, let's check for query cancel. */
+	/* 另外，因为这有点贵，顺便检查查询是否被取消。 */
 	CHECK_FOR_INTERRUPTS();
 
 	Assert(jtnode != NULL);
@@ -847,11 +847,11 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 		RangeTblEntry *rte = rt_fetch(varno, root->parse->rtable);
 
 		/*
-		 * Is this a subquery RTE, and if so, is the subquery simple enough to
-		 * pull up?
+		 * 这是子查询 RTE 吗？若是，子查询是否简单到可以
+		 * 上拉？
 		 *
-		 * If we are looking at an append-relation member, we can't pull it up
-		 * unless is_safe_append_member says so.
+		 * 若正在查看 append 关系的成员，则不能上拉，
+		 * 除非 is_safe_append_member 允许。
 		 */
 		if (rte->rtekind == RTE_SUBQUERY &&
 			is_simple_subquery(root, rte->subquery, rte, lowest_outer_join) &&
@@ -862,23 +862,23 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 										   containing_appendrel);
 
 		/*
-		 * Alternatively, is it a simple UNION ALL subquery?  If so, flatten
-		 * into an "append relation".
+		 * 或者，它是简单的 UNION ALL 子查询吗？若是，展平
+		 * 成一个 "append 关系"。
 		 *
-		 * It's safe to do this regardless of whether this query is itself an
-		 * appendrel member.  (If you're thinking we should try to flatten the
-		 * two levels of appendrel together, you're right; but we handle that
-		 * in set_append_rel_pathlist, not here.)
+		 * 无论本查询自身是不是
+		 * appendrel 成员，这样做都是安全的。（若你觉得应当把
+		 * 两层 appendrel 展平到一起，没错；但那是在
+		 * set_append_rel_pathlist 里处理，不在这里。）
 		 */
 		if (rte->rtekind == RTE_SUBQUERY &&
 			is_simple_union_all(rte->subquery))
 			return pull_up_simple_union_all(root, jtnode, rte);
 
 		/*
-		 * Or perhaps it's a simple VALUES RTE?
+		 * 或者它是简单的 VALUES RTE？
 		 *
-		 * We don't allow VALUES pullup below an outer join nor into an
-		 * appendrel (such cases are impossible anyway at the moment).
+		 * 不允许在外连接之下或进入
+		 * appendrel 时上拉 VALUES（这类情况目前反正不可能）。
 		 */
 		if (rte->rtekind == RTE_VALUES &&
 			lowest_outer_join == NULL &&
@@ -887,13 +887,13 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 			return pull_up_simple_values(root, jtnode, rte);
 
 		/*
-		 * Or perhaps it's a FUNCTION RTE that we could inline?
+		 * 或者它是可以内联的 FUNCTION RTE？
 		 */
 		if (rte->rtekind == RTE_FUNCTION)
 			return pull_up_constant_function(root, jtnode, rte,
 											 containing_appendrel);
 
-		/* Otherwise, do nothing at this node. */
+		/* 否则，在此节点什么也不做。 */
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -901,7 +901,7 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 		ListCell   *l;
 
 		Assert(containing_appendrel == NULL);
-		/* Recursively transform all the child nodes */
+		/* 递归变换所有子节点 */
 		foreach(l, f->fromlist)
 		{
 			lfirst(l) = pull_up_subqueries_recurse(root, lfirst(l),
@@ -914,7 +914,7 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 		JoinExpr   *j = (JoinExpr *) jtnode;
 
 		Assert(containing_appendrel == NULL);
-		/* Recurse, being careful to tell myself when inside outer join */
+		/* 递归，并留意在进入外连接内部时告诉自己 */
 		switch (j->jointype)
 		{
 			case JOIN_INNER:
@@ -965,15 +965,15 @@ pull_up_subqueries_recurse(PlannerInfo *root, Node *jtnode,
 
 /*
  * pull_up_simple_subquery
- *		Attempt to pull up a single simple subquery.
+ *		尝试上拉单个简单子查询。
  *
- * jtnode is a RangeTblRef that has been tentatively identified as a simple
- * subquery by pull_up_subqueries.  We return the replacement jointree node,
- * or jtnode itself if we determine that the subquery can't be pulled up
- * after all.
+ * jtnode 是已被初步认定为简单
+ * 子查询的 RangeTblRef，认定者是 pull_up_subqueries。我们返回替换后的连接树节点，
+ * 或者在最终判定该子查询不能上拉时
+ * 返回 jtnode 本身。
  *
- * rte is the RangeTblEntry referenced by jtnode.  Remaining parameters are
- * as for pull_up_subqueries_recurse.
+ * rte 是 jtnode 所引用的 RangeTblEntry。其余参数与
+ * pull_up_subqueries_recurse 相同。
  */
 static Node *
 pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
@@ -989,18 +989,18 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 	ListCell   *lc;
 
 	/*
-	 * Make a modifiable copy of the subquery to hack on, so that the RTE will
-	 * be left unchanged in case we decide below that we can't pull it up
-	 * after all.
+	 * 复制一份可修改的子查询来改，这样若下面判定
+	 * 终究不能上拉，RTE 可以
+	 * 保持不变。
 	 */
 	subquery = copyObject(rte->subquery);
 
 	/*
-	 * Create a PlannerInfo data structure for this subquery.
+	 * 为这个子查询创建 PlannerInfo 数据结构。
 	 *
-	 * NOTE: the next few steps should match the first processing in
-	 * subquery_planner().  Can we refactor to avoid code duplication, or
-	 * would that just make things uglier?
+	 * 注意：下面几步应当与 subquery_planner() 开头的处理一致。
+	 * 能否重构以避免代码重复，
+	 * 还是那样只会更难看？
 	 */
 	subroot = makeNode(PlannerInfo);
 	subroot->parse = subquery;
@@ -1035,103 +1035,103 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 	subroot->hasRecursion = false;
 	subroot->wt_param_id = -1;
 	subroot->non_recursive_path = NULL;
-	/* We don't currently need a top JoinDomain for the subroot */
+	/* 目前不需要为 subroot 准备顶层 JoinDomain */
 
-	/* No CTEs to worry about */
+	/* 没有 CTEs 需要操心 */
 	Assert(subquery->cteList == NIL);
 
 	/*
-	 * If the FROM clause is empty, replace it with a dummy RTE_RESULT RTE, so
-	 * that we don't need so many special cases to deal with that situation.
+	 * 若 FROM 子句为空，用一个哑 RTE_RESULT RTE 替换它，这样
+	 * 就不必为这种情况准备那么多特殊分支。
 	 */
 	replace_empty_jointree(subquery);
 
 	/*
-	 * Pull up any SubLinks within the subquery's quals, so that we don't
-	 * leave unoptimized SubLinks behind.
+	 * 上拉子查询限定条件中的任何 SubLinks，以免
+	 * 留下未经处理的 SubLinks。
 	 */
 	if (subquery->hasSubLinks)
 		pull_up_sublinks(subroot);
 
 	/*
-	 * Similarly, preprocess its function RTEs to inline any set-returning
-	 * functions in its rangetable.
+	 * 同样，预处理它的函数 RTEs，把范围表中的集合返回
+	 * 函数内联。
 	 */
 	preprocess_function_rtes(subroot);
 
 	/*
-	 * Recursively pull up the subquery's subqueries, so that
-	 * pull_up_subqueries' processing is complete for its jointree and
-	 * rangetable.
+	 * 递归上拉该子查询的子查询，使
+	 * pull_up_subqueries 对其连接树和
+	 * 范围表的处理完成。
 	 *
-	 * Note: it's okay that the subquery's recursion starts with NULL for
-	 * containing-join info, even if we are within an outer join in the upper
-	 * query; the lower query starts with a clean slate for outer-join
-	 * semantics.  Likewise, we needn't pass down appendrel state.
+	 * 注意：子查询的递归以 NULL 作为
+	 * 包含连接的信息开始是可以的，即使我们处在上层
+	 * 查询的外连接之内；下层查询对外连接语义是从头开始的。
+	 * 同样，不必把 appendrel 状态传下去。
 	 */
 	pull_up_subqueries(subroot);
 
 	/*
-	 * Now we must recheck whether the subquery is still simple enough to pull
-	 * up.  If not, abandon processing it.
+	 * 现在必须重新检查子查询是否仍然简单到可以上拉。
+	 * 若否，放弃处理它。
 	 *
-	 * We don't really need to recheck all the conditions involved, but it's
-	 * easier just to keep this "if" looking the same as the one in
-	 * pull_up_subqueries_recurse.
+	 * 其实不必重新检查全部条件，但
+	 * 让这个 "if" 与 pull_up_subqueries_recurse 中的那个
+	 * 看起来一样更容易。
 	 */
 	if (is_simple_subquery(root, subquery, rte, lowest_outer_join) &&
 		(containing_appendrel == NULL || is_safe_append_member(subquery)))
 	{
-		/* good to go */
+		/* 可以继续 */
 	}
 	else
 	{
 		/*
-		 * Give up, return unmodified RangeTblRef.
+		 * 放弃，返回未修改的 RangeTblRef。
 		 *
-		 * Note: The work we just did will be redone when the subquery gets
-		 * planned on its own.  Perhaps we could avoid that by storing the
-		 * modified subquery back into the rangetable, but I'm not gonna risk
-		 * it now.
+		 * 注意：刚才做的工作会在子查询单独
+		 * 规划时重做。也许可以把
+		 * 修改后的子查询存回范围表来避免重做，
+		 * 但现在我不想冒这个险。
 		 */
 		return jtnode;
 	}
 
 	/*
-	 * We must flatten any join alias Vars in the subquery's targetlist,
-	 * because pulling up the subquery's subqueries might have changed their
-	 * expansions into arbitrary expressions, which could affect
-	 * pullup_replace_vars' decisions about whether PlaceHolderVar wrappers
-	 * are needed for tlist entries.  (Likely it'd be better to do
-	 * flatten_join_alias_vars on the whole query tree at some earlier stage,
-	 * maybe even in the rewriter; but for now let's just fix this case here.)
+	 * 必须展平子查询目标列表中的任何连接别名 Var，
+	 * 因为上拉该子查询的子查询可能已把它们的
+	 * 展开式改成任意表达式，这会影响
+	 * pullup_replace_vars 关于 tlist 项是否需要 PlaceHolderVar 包装的
+	 * 决定。（更好的做法也许是在更早阶段对整棵查询树做
+	 * flatten_join_alias_vars，
+	 * 甚至在重写器里；但眼下只在这里修这个情况。）
 	 */
 	subquery->targetList = (List *)
 		flatten_join_alias_vars(subroot, subroot->parse,
 								(Node *) subquery->targetList);
 
 	/*
-	 * Adjust level-0 varnos in subquery so that we can append its rangetable
-	 * to upper query's.  We have to fix the subquery's append_rel_list as
-	 * well.
+	 * 调整子查询中层次 0 的 varno，以便把它的范围表
+	 * 追加到上层查询。还必须修正子查询的
+	 * append_rel_list。
 	 */
 	rtoffset = list_length(parse->rtable);
 	OffsetVarNodes((Node *) subquery, rtoffset, 0);
 	OffsetVarNodes((Node *) subroot->append_rel_list, rtoffset, 0);
 
 	/*
-	 * Upper-level vars in subquery are now one level closer to their parent
-	 * than before.
+	 * 子查询中的上层 var 现在比以前离它们的父查询
+	 * 近了一层。
 	 */
 	IncrementVarSublevelsUp((Node *) subquery, -1, 1);
 	IncrementVarSublevelsUp((Node *) subroot->append_rel_list, -1, 1);
 
 	/*
-	 * The subquery's targetlist items are now in the appropriate form to
-	 * insert into the top query, except that we may need to wrap them in
-	 * PlaceHolderVars.  Set up required context data for pullup_replace_vars.
-	 * (Note that we should include the subquery's inner joins in relids,
-	 * since it may include join alias vars referencing them.)
+	 * 子查询的目标列表项现在已适合
+	 * 插入顶层查询，只是也许需要用
+	 * PlaceHolderVars 包起来。为 pullup_replace_vars 准备所需的上下文。
+	 * （注意应当把子查询的内连接纳入 relid，
+	 * 因为它可能含有引用它们的连接别名 var。）
 	 */
 	rvcontext.root = root;
 	rvcontext.targetlist = subquery->targetList;
@@ -1142,55 +1142,55 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 												  true, true);
 		rvcontext.nullinfo = get_nullingrels(parse);
 	}
-	else						/* won't need these values */
+	else						/* 不会用到这些值 */
 	{
 		rvcontext.relids = NULL;
 		rvcontext.nullinfo = NULL;
 	}
 	rvcontext.outer_hasSubLinks = &parse->hasSubLinks;
 	rvcontext.varno = varno;
-	/* this flag will be set below, if needed */
+	/* 若需要，下面会设置此标志 */
 	rvcontext.wrap_non_vars = false;
-	/* initialize cache array with indexes 0 .. length(tlist) */
+	/* 用下标 0 .. length(tlist) 初始化缓存数组 */
 	rvcontext.rv_cache = palloc0((list_length(subquery->targetList) + 1) *
 								 sizeof(Node *));
 
 	/*
-	 * If we are dealing with an appendrel member then anything that's not a
-	 * simple Var has to be turned into a PlaceHolderVar.  We force this to
-	 * ensure that what we pull up doesn't get merged into a surrounding
-	 * expression during later processing and then fail to match the
-	 * expression actually available from the appendrel.
+	 * 若处理的是 appendrel 成员，则任何不是
+	 * 简单 Var 的东西都必须变成 PlaceHolderVar。我们强制这样做，
+	 * 以确保上拉的内容在后续处理中不会并入周围的
+	 * 表达式，然后无法匹配
+	 * appendrel 实际能提供的表达式。
 	 */
 	if (containing_appendrel != NULL)
 		rvcontext.wrap_non_vars = true;
 
 	/*
-	 * If the parent query uses grouping sets, we need a PlaceHolderVar for
-	 * anything that's not a simple Var.  Again, this ensures that expressions
-	 * retain their separate identity so that they will match grouping set
-	 * columns when appropriate.  (It'd be sufficient to wrap values used in
-	 * grouping set columns, and do so only in non-aggregated portions of the
-	 * tlist and havingQual, but that would require a lot of infrastructure
-	 * that pullup_replace_vars hasn't currently got.)
+	 * 若父查询使用分组集，任何不是简单 Var 的东西都需要 PlaceHolderVar。
+	 * 这同样确保表达式
+	 * 保持各自的身份，以便在合适时匹配分组集
+	 * 列。（只包装分组集
+	 * 列中使用的值，并且只在 tlist 和 havingQual 的非聚集部分这样做就够了，
+	 * 但那需要大量基础设施，
+	 * 而 pullup_replace_vars 目前还没有。）
 	 */
 	if (parse->groupingSets)
 		rvcontext.wrap_non_vars = true;
 
 	/*
-	 * Replace all of the top query's references to the subquery's outputs
-	 * with copies of the adjusted subtlist items, being careful not to
-	 * replace any of the jointree structure.
+	 * 把顶层查询中对子查询输出的全部引用替换为
+	 * 调整后的 subtlist 项的副本，小心不要
+	 * 替换连接树结构的任何部分。
 	 */
 	perform_pullup_replace_vars(root, &rvcontext,
 								containing_appendrel);
 
 	/*
-	 * If the subquery had a LATERAL marker, propagate that to any of its
-	 * child RTEs that could possibly now contain lateral cross-references.
-	 * The children might or might not contain any actual lateral
-	 * cross-references, but we have to mark the pulled-up child RTEs so that
-	 * later planner stages will check for such.
+	 * 若子查询带有 LATERAL 标记，把它传播到任何
+	 * 现在可能含有 LATERAL 交叉引用的子 RTEs。
+	 * 这些子项也许含有、也许不含有实际的 LATERAL
+	 * 交叉引用，但必须给上拉后的子 RTEs 做标记，以便
+	 * 后续规划器阶段检查这种情况。
 	 */
 	if (rte->lateral)
 	{
@@ -1214,36 +1214,36 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 				case RTE_CTE:
 				case RTE_NAMEDTUPLESTORE:
 				case RTE_RESULT:
-					/* these can't contain any lateral references */
+					/* 这些里面不可能有 LATERAL 引用 */
 					break;
 			}
 		}
 	}
 
 	/*
-	 * Now append the adjusted rtable entries and their perminfos to upper
-	 * query. (We hold off until after fixing the upper rtable entries; no
-	 * point in running that code on the subquery ones too.)
+	 * 现在把调整后的 rtable 项及其 perminfo 追加到上层
+	 * 查询。（我们等到修正上层 rtable 项之后再做；
+	 * 没必要对子查询的那些项也跑那段代码。）
 	 */
 	CombineRangeTables(&parse->rtable, &parse->rteperminfos,
 					   subquery->rtable, subquery->rteperminfos);
 
 	/*
-	 * Pull up any FOR UPDATE/SHARE markers, too.  (OffsetVarNodes already
-	 * adjusted the marker rtindexes, so just concat the lists.)
+	 * 也上拉任何 FOR UPDATE/SHARE 标记。（OffsetVarNodes 已经
+	 * 调整了标记的 rtindex，所以只需拼接列表。）
 	 */
 	parse->rowMarks = list_concat(parse->rowMarks, subquery->rowMarks);
 
 	/*
-	 * We also have to fix the relid sets of any PlaceHolderVar nodes in the
-	 * parent query.  (This could perhaps be done by pullup_replace_vars(),
-	 * but it seems cleaner to use two passes.)  Note in particular that any
-	 * PlaceHolderVar nodes just created by pullup_replace_vars() will be
-	 * adjusted, so having created them with the subquery's varno is correct.
+	 * 还必须修正父查询中任何 PlaceHolderVar 节点的 relid 集合。
+	 * （这也许可以由 pullup_replace_vars() 完成，
+	 * 但分两遍似乎更干净。）特别要注意，任何
+	 * 刚由 pullup_replace_vars() 创建的 PlaceHolderVar 节点都会被
+	 * 调整，因此用子查询的 varno 创建它们是对的。
 	 *
-	 * Likewise, relids appearing in AppendRelInfo nodes have to be fixed. We
-	 * already checked that this won't require introducing multiple subrelids
-	 * into the single-slot AppendRelInfo structs.
+	 * 同样，出现在 AppendRelInfo 节点中的 relid 也必须修正。我们
+	 * 已经检查过，这不需要把多个 subrelid
+	 * 引入单槽的 AppendRelInfo 结构。
 	 */
 	if (root->glob->lastPHId != 0 || root->append_rel_list)
 	{
@@ -1257,14 +1257,14 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 	}
 
 	/*
-	 * And now add subquery's AppendRelInfos to our list.
+	 * 现在把子查询的 AppendRelInfos 加入我们的列表。
 	 */
 	root->append_rel_list = list_concat(root->append_rel_list,
 										subroot->append_rel_list);
 
 	/*
-	 * We don't have to do the equivalent bookkeeping for outer-join info,
-	 * because that hasn't been set up yet.  placeholder_list likewise.
+	 * 不必对外连接信息做同等的簿记，
+	 * 因为那还没建立。placeholder_list 也一样。
 	 */
 	Assert(root->join_info_list == NIL);
 	Assert(subroot->join_info_list == NIL);
@@ -1272,36 +1272,36 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 	Assert(subroot->placeholder_list == NIL);
 
 	/*
-	 * We no longer need the RTE's copy of the subquery's query tree.  Getting
-	 * rid of it saves nothing in particular so far as this level of query is
-	 * concerned; but if this query level is in turn pulled up into a parent,
-	 * we'd waste cycles copying the now-unused query tree.
+	 * 不再需要 RTE 中那份子查询的查询树。丢掉它
+	 * 对这一层查询本身省不了什么；
+	 * 但若这一层查询接着被上拉进父查询，
+	 * 复制这棵已不再使用的查询树会浪费周期。
 	 */
 	rte->subquery = NULL;
 
 	/*
-	 * Miscellaneous housekeeping.
+	 * 杂项收拾。
 	 *
-	 * Although replace_rte_variables() faithfully updated parse->hasSubLinks
-	 * if it copied any SubLinks out of the subquery's targetlist, we still
-	 * could have SubLinks added to the query in the expressions of FUNCTION
-	 * and VALUES RTEs copied up from the subquery.  So it's necessary to copy
-	 * subquery->hasSubLinks anyway.  Perhaps this can be improved someday.
+	 * 虽然 replace_rte_variables() 在从子查询目标列表复制出任何 SubLinks 时，
+	 * 忠实地更新了 parse->hasSubLinks，我们仍
+	 * 可能在从子查询复制上来的 FUNCTION
+	 * 和 VALUES RTEs 的表达式里给查询增加 SubLinks。因此仍然必须复制
+	 * subquery->hasSubLinks。也许将来可以改进。
 	 */
 	parse->hasSubLinks |= subquery->hasSubLinks;
 
-	/* If subquery had any RLS conditions, now main query does too */
+	/* 若子查询有任何 RLS 条件，现在主查询也有 */
 	parse->hasRowSecurity |= subquery->hasRowSecurity;
 
 	/*
-	 * subquery won't be pulled up if it hasAggs, hasWindowFuncs, or
-	 * hasTargetSRFs, so no work needed on those flags
+	 * 若子查询有 hasAggs、hasWindowFuncs 或
+	 * hasTargetSRFs，它不会被上拉，因此这些标志无需处理
 	 */
 
 	/*
-	 * Return the adjusted subquery jointree to replace the RangeTblRef entry
-	 * in parent's jointree; or, if the FromExpr is degenerate, just return
-	 * its single member.
+	 * 返回调整后的子查询连接树，以替换父连接树中的 RangeTblRef 项；
+	 * 或者，若 FromExpr 已退化，只返回
+	 * 它的唯一成员。
 	 */
 	Assert(IsA(subquery->jointree, FromExpr));
 	Assert(subquery->jointree->fromlist != NIL);
@@ -1314,12 +1314,12 @@ pull_up_simple_subquery(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte,
 
 /*
  * pull_up_simple_union_all
- *		Pull up a single simple UNION ALL subquery.
+ *		上拉单个简单的 UNION ALL 子查询。
  *
- * jtnode is a RangeTblRef that has been identified as a simple UNION ALL
- * subquery by pull_up_subqueries.  We pull up the leaf subqueries and
- * build an "append relation" for the union set.  The result value is just
- * jtnode, since we don't actually need to change the query jointree.
+ * jtnode 是已被认定为简单 UNION ALL
+ * 子查询的 RangeTblRef，认定者是 pull_up_subqueries。我们上拉叶子子查询并
+ * 为该并集建立一个 "append 关系"。返回值就是
+ * jtnode，因为实际上不必改查询的连接树。
  */
 static Node *
 pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
@@ -1330,24 +1330,24 @@ pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 	List	   *rtable;
 
 	/*
-	 * Make a modifiable copy of the subquery's rtable, so we can adjust
-	 * upper-level Vars in it.  There are no such Vars in the setOperations
-	 * tree proper, so fixing the rtable should be sufficient.
+	 * 复制一份可修改的子查询 rtable，以便调整
+	 * 其中的上层 Var。setOperations
+	 * 树本身没有这种 Var，所以修正 rtable 就够了。
 	 */
 	rtable = copyObject(subquery->rtable);
 
 	/*
-	 * Upper-level vars in subquery are now one level closer to their parent
-	 * than before.  We don't have to worry about offsetting varnos, though,
-	 * because the UNION leaf queries can't cross-reference each other.
+	 * 子查询中的上层 var 现在比以前离它们的父查询近了一层。
+	 * 不过不必担心偏移 varno，
+	 * 因为 UNION 的叶子查询不能互相交叉引用。
 	 */
 	IncrementVarSublevelsUp_rtable(rtable, -1, 1);
 
 	/*
-	 * If the UNION ALL subquery had a LATERAL marker, propagate that to all
-	 * its children.  The individual children might or might not contain any
-	 * actual lateral cross-references, but we have to mark the pulled-up
-	 * child RTEs so that later planner stages will check for such.
+	 * 若 UNION ALL 子查询带有 LATERAL 标记，把它传播到所有
+	 * 子项。各个子项也许含有、也许不含有
+	 * 实际的 LATERAL 交叉引用，但必须给上拉后的
+	 * 子 RTEs 做标记，以便后续规划器阶段检查这种情况。
 	 */
 	if (rte->lateral)
 	{
@@ -1363,22 +1363,22 @@ pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 	}
 
 	/*
-	 * Append child RTEs (and their perminfos) to parent rtable.
+	 * 把子 RTEs（及其 perminfo）追加到父 rtable。
 	 */
 	CombineRangeTables(&root->parse->rtable, &root->parse->rteperminfos,
 					   rtable, subquery->rteperminfos);
 
 	/*
-	 * Recursively scan the subquery's setOperations tree and add
-	 * AppendRelInfo nodes for leaf subqueries to the parent's
-	 * append_rel_list.  Also apply pull_up_subqueries to the leaf subqueries.
+	 * 递归扫描子查询的 setOperations 树，为叶子子查询向父查询的
+	 * append_rel_list 添加 AppendRelInfo 节点。
+	 * 也对叶子子查询应用 pull_up_subqueries。
 	 */
 	Assert(subquery->setOperations);
 	pull_up_union_leaf_queries(subquery->setOperations, root, varno, subquery,
 							   rtoffset);
 
 	/*
-	 * Mark the parent as an append relation.
+	 * 把父节点标成 append 关系。
 	 */
 	rte->inh = true;
 
@@ -1386,22 +1386,22 @@ pull_up_simple_union_all(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 }
 
 /*
- * pull_up_union_leaf_queries -- recursive guts of pull_up_simple_union_all
+ * pull_up_union_leaf_queries -- pull_up_simple_union_all 的递归主体
  *
- * Build an AppendRelInfo for each leaf query in the setop tree, and then
- * apply pull_up_subqueries to the leaf query.
+ * 为集合运算树中的每个叶子查询建立一个 AppendRelInfo，然后
+ * 对叶子查询应用 pull_up_subqueries。
  *
- * Note that setOpQuery is the Query containing the setOp node, whose tlist
- * contains references to all the setop output columns.  When called from
- * pull_up_simple_union_all, this is *not* the same as root->parse, which is
- * the parent Query we are pulling up into.
+ * 注意 setOpQuery 是包含 setOp 节点的 Query，其 tlist
+ * 含有对全部集合运算输出列的引用。当从
+ * pull_up_simple_union_all 调用时，它并不是 root->parse，后者才是
+ * 我们正在上拉进入的父 Query。
  *
- * parentRTindex is the appendrel parent's index in root->parse->rtable.
+ * parentRTindex 是 appendrel 父项在 root->parse->rtable 中的下标。
  *
- * The child RTEs have already been copied to the parent.  childRToffset
- * tells us where in the parent's range table they were copied.  When called
- * from flatten_simple_union_all, childRToffset is 0 since the child RTEs
- * were already in root->parse->rtable and no RT index adjustment is needed.
+ * 子 RTEs 已经复制到父查询。childRToffset
+ * 告诉我们它们被复制到父范围表的何处。当从
+ * flatten_simple_union_all 调用时，childRToffset 为 0，因为子 RTEs
+ * 已经在 root->parse->rtable 中，不需要调整 RT 下标。
  */
 static void
 pull_up_union_leaf_queries(Node *setOp, PlannerInfo *root, int parentRTindex,
@@ -1414,12 +1414,12 @@ pull_up_union_leaf_queries(Node *setOp, PlannerInfo *root, int parentRTindex,
 		AppendRelInfo *appinfo;
 
 		/*
-		 * Calculate the index in the parent's range table
+		 * 计算在父范围表中的下标
 		 */
 		childRTindex = childRToffset + rtr->rtindex;
 
 		/*
-		 * Build a suitable AppendRelInfo, and attach to parent's list.
+		 * 建立一个合适的 AppendRelInfo，并挂到父列表上。
 		 */
 		appinfo = makeNode(AppendRelInfo);
 		appinfo->parent_relid = parentRTindex;
@@ -1431,17 +1431,17 @@ pull_up_union_leaf_queries(Node *setOp, PlannerInfo *root, int parentRTindex,
 		root->append_rel_list = lappend(root->append_rel_list, appinfo);
 
 		/*
-		 * Recursively apply pull_up_subqueries to the new child RTE.  (We
-		 * must build the AppendRelInfo first, because this will modify it;
-		 * indeed, that's the only part of the upper query where Vars
-		 * referencing childRTindex can exist at this point.)
+		 * 对新的子 RTE 递归应用 pull_up_subqueries。（我们
+		 * 必须先建立 AppendRelInfo，因为这一步会修改它；
+		 * 实际上，此时上层查询中唯一可能存在引用
+		 * childRTindex 的 Var 的地方就是它。）
 		 *
-		 * Note that we can pass NULL for containing-join info even if we're
-		 * actually under an outer join, because the child's expressions
-		 * aren't going to propagate up to the join.  Also, we ignore the
-		 * possibility that pull_up_subqueries_recurse() returns a different
-		 * jointree node than what we pass it; if it does, the important thing
-		 * is that it replaced the child relid in the AppendRelInfo node.
+		 * 注意，即使实际上处在外连接之下，也可以为包含连接的信息传入 NULL，
+		 * 因为子表达式
+		 * 不会向上传播到该连接。另外，我们忽略
+		 * pull_up_subqueries_recurse() 返回与传入不同的
+		 * 连接树节点的可能性；若真如此，重要的是
+		 * 它替换了 AppendRelInfo 节点中的子 relid。
 		 */
 		rtr = makeNode(RangeTblRef);
 		rtr->rtindex = childRTindex;
@@ -1452,7 +1452,7 @@ pull_up_union_leaf_queries(Node *setOp, PlannerInfo *root, int parentRTindex,
 	{
 		SetOperationStmt *op = (SetOperationStmt *) setOp;
 
-		/* Recurse to reach leaf queries */
+		/* 递归以到达叶子查询 */
 		pull_up_union_leaf_queries(op->larg, root, parentRTindex, setOpQuery,
 								   childRToffset);
 		pull_up_union_leaf_queries(op->rarg, root, parentRTindex, setOpQuery,
@@ -1467,11 +1467,11 @@ pull_up_union_leaf_queries(Node *setOp, PlannerInfo *root, int parentRTindex,
 
 /*
  * make_setop_translation_list
- *	  Build the list of translations from parent Vars to child Vars for
- *	  a UNION ALL member.  (At this point it's just a simple list of
- *	  referencing Vars, but if we succeed in pulling up the member
- *	  subquery, the Vars will get replaced by pulled-up expressions.)
- *	  Also create the rather trivial reverse-translation array.
+ *	  为 UNION ALL 成员建立从父 Var 到子 Var 的翻译列表。
+ *	  （此时它只是一份简单的
+ *	  引用 Var 列表，但若成功上拉该成员
+ *	  子查询，这些 Var 会被上拉后的表达式替换。）
+ *	  同时建立相当平凡的反向翻译数组。
  */
 static void
 make_setop_translation_list(Query *query, int newvarno,
@@ -1481,8 +1481,8 @@ make_setop_translation_list(Query *query, int newvarno,
 	AttrNumber *pcolnos;
 	ListCell   *l;
 
-	/* Initialize reverse-translation array with all entries zero */
-	/* (entries for resjunk columns will stay that way) */
+	/* 把反向翻译数组的全部项初始化为零 */
+	/* （resjunk 列的项会保持这样） */
 	appinfo->num_child_cols = list_length(query->targetList);
 	appinfo->parent_colnos = pcolnos =
 		(AttrNumber *) palloc0(appinfo->num_child_cols * sizeof(AttrNumber));
@@ -1503,42 +1503,42 @@ make_setop_translation_list(Query *query, int newvarno,
 
 /*
  * is_simple_subquery
- *	  Check a subquery in the range table to see if it's simple enough
- *	  to pull up into the parent query.
+ *	  检查范围表中的子查询是否简单到
+ *	  可以上拉进父查询。
  *
- * rte is the RTE_SUBQUERY RangeTblEntry that contained the subquery.
- * (Note subquery is not necessarily equal to rte->subquery; it could be a
- * processed copy of that.)
- * lowest_outer_join is the lowest outer join above the subquery, or NULL.
+ * rte 是包含该子查询的 RTE_SUBQUERY RangeTblEntry。
+ * （注意 subquery 不一定等于 rte->subquery；它可能是
+ * 后者经过处理的副本。）
+ * lowest_outer_join 是子查询之上最低的外连接，或为 NULL。
  */
 static bool
 is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 				   JoinExpr *lowest_outer_join)
 {
 	/*
-	 * Let's just make sure it's a valid subselect ...
+	 * 先确认它是有效的子查询 ...
 	 */
 	if (!IsA(subquery, Query) ||
 		subquery->commandType != CMD_SELECT)
 		elog(ERROR, "subquery is bogus");
 
 	/*
-	 * Can't currently pull up a query with setops (unless it's simple UNION
-	 * ALL, which is handled by a different code path). Maybe after querytree
-	 * redesign...
+	 * 目前不能上拉带集合运算的查询（除非是简单 UNION
+	 * ALL，那由另一条代码路径处理）。也许等查询树
+	 * 重新设计之后...
 	 */
 	if (subquery->setOperations)
 		return false;
 
 	/*
-	 * Can't pull up a subquery involving grouping, aggregation, SRFs,
-	 * sorting, limiting, or WITH.  (XXX WITH could possibly be allowed later)
+	 * 不能上拉涉及分组、聚集、SRFs、
+	 * 排序、限制或 WITH 的子查询。（XXX WITH 以后也许可以允许）
 	 *
-	 * We also don't pull up a subquery that has explicit FOR UPDATE/SHARE
-	 * clauses, because pullup would cause the locking to occur semantically
-	 * higher than it should.  Implicit FOR UPDATE/SHARE is okay because in
-	 * that case the locking was originally declared in the upper query
-	 * anyway.
+	 * 也不上拉带有显式 FOR UPDATE/SHARE
+	 * 子句的子查询，因为上拉会使加锁在语义上发生在
+	 * 比应有位置更高的地方。隐式 FOR UPDATE/SHARE 可以，因为
+	 * 那种情况下锁本来就是在上层查询中
+	 * 声明的。
 	 */
 	if (subquery->hasAggs ||
 		subquery->hasWindowFuncs ||
@@ -1555,15 +1555,15 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 		return false;
 
 	/*
-	 * Don't pull up if the RTE represents a security-barrier view; we
-	 * couldn't prevent information leakage once the RTE's Vars are scattered
-	 * about in the upper query.
+	 * 若 RTE 表示安全屏障视图，不要上拉；一旦 RTE 的 Var 散落到
+	 * 上层查询各处，我们就无法阻止
+	 * 信息泄漏。
 	 */
 	if (rte->security_barrier)
 		return false;
 
 	/*
-	 * If the subquery is LATERAL, check for pullup restrictions from that.
+	 * 若子查询是 LATERAL，检查由此带来的上拉限制。
 	 */
 	if (rte->lateral)
 	{
@@ -1571,13 +1571,13 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 		Relids		safe_upper_varnos;
 
 		/*
-		 * The subquery's WHERE and JOIN/ON quals mustn't contain any lateral
-		 * references to rels outside a higher outer join (including the case
-		 * where the outer join is within the subquery itself).  In such a
-		 * case, pulling up would result in a situation where we need to
-		 * postpone quals from below an outer join to above it, which is
-		 * probably completely wrong and in any case is a complication that
-		 * doesn't seem worth addressing at the moment.
+		 * 子查询的 WHERE 和 JOIN/ON 限定条件不得含有指向
+		 * 更高层外连接之外的关系的 LATERAL 引用（包括
+		 * 外连接就在子查询内部的情况）。在这种
+		 * 情况下，上拉会造成需要把外连接之下的限定条件
+		 * 推迟到外连接之上，这
+		 * 多半完全是错的，而且无论如何是眼下
+		 * 不值得处理的复杂情况。
 		 */
 		if (lowest_outer_join != NULL)
 		{
@@ -1588,7 +1588,7 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 		else
 		{
 			restricted = false;
-			safe_upper_varnos = NULL;	/* doesn't matter */
+			safe_upper_varnos = NULL;	/* 无关紧要 */
 		}
 
 		if (jointree_contains_lateral_outer_refs(root,
@@ -1597,20 +1597,20 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 			return false;
 
 		/*
-		 * If there's an outer join above the LATERAL subquery, also disallow
-		 * pullup if the subquery's targetlist has any references to rels
-		 * outside the outer join, since these might get pulled into quals
-		 * above the subquery (but in or below the outer join) and then lead
-		 * to qual-postponement issues similar to the case checked for above.
-		 * (We wouldn't need to prevent pullup if no such references appear in
-		 * outer-query quals, but we don't have enough info here to check
-		 * that.  Also, maybe this restriction could be removed if we forced
-		 * such refs to be wrapped in PlaceHolderVars, even when they're below
-		 * the nearest outer join?	But it's a pretty hokey usage, so not
-		 * clear this is worth sweating over.)
+		 * 若 LATERAL 子查询之上还有外连接，并且子查询的目标列表有任何指向
+		 * 该外连接之外的关系的引用，也禁止
+		 * 上拉，因为这些引用可能被拉进
+		 * 子查询之上（但在外连接之中或之下）的限定条件，然后导致
+		 * 与上面检查过的情况类似的限定条件推迟问题。
+		 * （若外层查询的限定条件中没有这种引用，就不必禁止上拉，
+		 * 但这里没有足够信息来检查
+		 * 这一点。另外，若强制把这种引用包进 PlaceHolderVars，即使它们在
+		 * 最近的外连接之下，也许可以去掉这条限制？但这是相当勉强的用法，
+		 * 不清楚值不值得费这个劲。）
+		 * 若改这里，也请看
 		 *
-		 * If you change this, see also the comments about lateral references
-		 * in pullup_replace_vars_callback().
+		 * pullup_replace_vars_callback() 里关于 LATERAL 引用的
+		 * 注释。
 		 */
 		if (lowest_outer_join != NULL)
 		{
@@ -1624,12 +1624,12 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 	}
 
 	/*
-	 * Don't pull up a subquery that has any volatile functions in its
-	 * targetlist.  Otherwise we might introduce multiple evaluations of these
-	 * functions, if they get copied to multiple places in the upper query,
-	 * leading to surprising results.  (Note: the PlaceHolderVar mechanism
-	 * doesn't quite guarantee single evaluation; else we could pull up anyway
-	 * and just wrap such items in PlaceHolderVars ...)
+	 * 不要上拉目标列表中含有任何易变函数的子查询。
+	 * 否则若这些函数被复制到上层查询的多个地方，
+	 * 可能引入多次求值，
+	 * 导致意外结果。（注意：PlaceHolderVar 机制
+	 * 并不能完全保证只求值一次；否则我们仍可上拉，
+	 * 只是把这些项包进 PlaceHolderVars ...）
 	 */
 	if (contain_volatile_functions((Node *) subquery->targetList))
 		return false;
@@ -1639,17 +1639,17 @@ is_simple_subquery(PlannerInfo *root, Query *subquery, RangeTblEntry *rte,
 
 /*
  * pull_up_simple_values
- *		Pull up a single simple VALUES RTE.
+ *		上拉单个简单的 VALUES RTE。
  *
- * jtnode is a RangeTblRef that has been identified as a simple VALUES RTE
- * by pull_up_subqueries.  We always return a RangeTblRef representing a
- * RESULT RTE to replace it (all failure cases should have been detected by
- * is_simple_values()).  Actually, what we return is just jtnode, because
- * we replace the VALUES RTE in the rangetable with the RESULT RTE.
+ * jtnode 是已被 pull_up_subqueries 认定为简单 VALUES RTE 的
+ * RangeTblRef。我们总是返回一个表示
+ * RESULT RTE 的 RangeTblRef 来替换它（所有失败情况应由
+ * is_simple_values() 事先检出）。实际上返回的就是 jtnode，因为
+ * 我们是在范围表里用 RESULT RTE 替换 VALUES RTE。
  *
- * rte is the RangeTblEntry referenced by jtnode.  Because of the limited
- * possible usage of VALUES RTEs, we do not need the remaining parameters
- * of pull_up_subqueries_recurse.
+ * rte 是 jtnode 所引用的 RangeTblEntry。由于 VALUES RTEs 的
+ * 可能用法有限，不需要 pull_up_subqueries_recurse 的
+ * 其余参数。
  */
 static Node *
 pull_up_simple_values(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
@@ -1666,20 +1666,20 @@ pull_up_simple_values(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 	Assert(list_length(rte->values_lists) == 1);
 
 	/*
-	 * Need a modifiable copy of the VALUES list to hack on, just in case it's
-	 * multiply referenced.
+	 * 需要一份可修改的 VALUES 列表来改，以防它被
+	 * 多处引用。
 	 */
 	values_list = copyObject(linitial(rte->values_lists));
 
 	/*
-	 * The VALUES RTE can't contain any Vars of level zero, let alone any that
-	 * are join aliases, so no need to flatten join alias Vars.
+	 * VALUES RTE 不可能含有层次为零的 Var，更不可能有
+	 * 连接别名，因此不必展平连接别名 Var。
 	 */
 	Assert(!contain_vars_of_level((Node *) values_list, 0));
 
 	/*
-	 * Set up required context data for pullup_replace_vars.  In particular,
-	 * we have to make the VALUES list look like a subquery targetlist.
+	 * 为 pullup_replace_vars 准备所需的上下文。特别是，
+	 * 必须让 VALUES 列表看起来像子查询的目标列表。
 	 */
 	tlist = NIL;
 	attrno = 1;
@@ -1695,46 +1695,46 @@ pull_up_simple_values(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 	rvcontext.root = root;
 	rvcontext.targetlist = tlist;
 	rvcontext.target_rte = rte;
-	rvcontext.relids = NULL;	/* can't be any lateral references here */
+	rvcontext.relids = NULL;	/* 这里不可能有 LATERAL 引用 */
 	rvcontext.nullinfo = NULL;
 	rvcontext.outer_hasSubLinks = &parse->hasSubLinks;
 	rvcontext.varno = varno;
 	rvcontext.wrap_non_vars = false;
-	/* initialize cache array with indexes 0 .. length(tlist) */
+	/* 用下标 0 .. length(tlist) 初始化缓存数组 */
 	rvcontext.rv_cache = palloc0((list_length(tlist) + 1) *
 								 sizeof(Node *));
 
 	/*
-	 * Replace all of the top query's references to the RTE's outputs with
-	 * copies of the adjusted VALUES expressions, being careful not to replace
-	 * any of the jointree structure.  We can assume there's no outer joins or
-	 * appendrels in the dummy Query that surrounds a VALUES RTE.
+	 * 把顶层查询中对该 RTE 输出的全部引用替换为
+	 * 调整后的 VALUES 表达式的副本，小心不要替换
+	 * 连接树结构的任何部分。可以假定包围 VALUES RTE 的哑 Query 中
+	 * 没有外连接或 appendrel。
 	 */
 	perform_pullup_replace_vars(root, &rvcontext, NULL);
 
 	/*
-	 * There should be no appendrels to fix, nor any outer joins and hence no
-	 * PlaceHolderVars.
+	 * 应当没有 appendrel 要修，也没有外连接，因此没有
+	 * PlaceHolderVars。
 	 */
 	Assert(root->append_rel_list == NIL);
 	Assert(root->join_info_list == NIL);
 	Assert(root->placeholder_list == NIL);
 
 	/*
-	 * Replace the VALUES RTE with a RESULT RTE.  The VALUES RTE is the only
-	 * rtable entry in the current query level, so this is easy.
+	 * 用 RESULT RTE 替换 VALUES RTE。VALUES RTE 是
+	 * 当前查询层唯一的 rtable 项，所以这很容易。
 	 */
 	Assert(list_length(parse->rtable) == 1);
 
-	/* Create suitable RTE */
+	/* 创建合适的 RTE */
 	rte = makeNode(RangeTblEntry);
 	rte->rtekind = RTE_RESULT;
 	rte->eref = makeAlias("*RESULT*", NIL);
 
-	/* Replace rangetable */
+	/* 替换范围表 */
 	parse->rtable = list_make1(rte);
 
-	/* We could manufacture a new RangeTblRef, but the one we have is fine */
+	/* 可以新造一个 RangeTblRef，但现有的这个就很好 */
 	Assert(varno == 1);
 
 	return jtnode;
@@ -1742,10 +1742,10 @@ pull_up_simple_values(PlannerInfo *root, Node *jtnode, RangeTblEntry *rte)
 
 /*
  * is_simple_values
- *	  Check a VALUES RTE in the range table to see if it's simple enough
- *	  to pull up into the parent query.
+ *	  检查范围表中的 VALUES RTE 是否简单到
+ *	  可以上拉进父查询。
  *
- * rte is the RTE_VALUES RangeTblEntry to check.
+ * rte 是要检查的 RTE_VALUES RangeTblEntry。
  */
 static bool
 is_simple_values(PlannerInfo *root, RangeTblEntry *rte)
@@ -1753,33 +1753,33 @@ is_simple_values(PlannerInfo *root, RangeTblEntry *rte)
 	Assert(rte->rtekind == RTE_VALUES);
 
 	/*
-	 * There must be exactly one VALUES list, else it's not semantically
-	 * correct to replace the VALUES RTE with a RESULT RTE, nor would we have
-	 * a unique set of expressions to substitute into the parent query.
+	 * 必须恰好有一份 VALUES 列表，否则在语义上
+	 * 不能用 RESULT RTE 替换 VALUES RTE，也不会有
+	 * 唯一的一组表达式可代入父查询。
 	 */
 	if (list_length(rte->values_lists) != 1)
 		return false;
 
 	/*
-	 * Because VALUES can't appear under an outer join (or at least, we won't
-	 * try to pull it up if it does), we need not worry about LATERAL, nor
-	 * about validity of PHVs for the VALUES' outputs.
+	 * 因为 VALUES 不能出现在外连接之下（至少，若出现我们不会
+	 * 尝试上拉），所以不必担心 LATERAL，也不必
+	 * 担心 VALUES 输出的 PHVs 是否有效。
 	 */
 
 	/*
-	 * Don't pull up a VALUES that contains any set-returning or volatile
-	 * functions.  The considerations here are basically identical to the
-	 * restrictions on a pull-able subquery's targetlist.
+	 * 不要上拉含有任何集合返回或易变
+	 * 函数的 VALUES。这里的考虑与
+	 * 可上拉子查询的目标列表限制基本相同。
 	 */
 	if (expression_returns_set((Node *) rte->values_lists) ||
 		contain_volatile_functions((Node *) rte->values_lists))
 		return false;
 
 	/*
-	 * Do not pull up a VALUES that's not the only RTE in its parent query.
-	 * This is actually the only case that the parser will generate at the
-	 * moment, and assuming this is true greatly simplifies
-	 * pull_up_simple_values().
+	 * 不要上拉在其父查询中不是唯一 RTE 的 VALUES。
+	 * 这实际上是解析器目前会生成的唯一情况，
+	 * 假定这一点大大简化了
+	 * pull_up_simple_values()。
 	 */
 	if (list_length(root->parse->rtable) != 1 ||
 		rte != (RangeTblEntry *) linitial(root->parse->rtable))
@@ -1790,21 +1790,21 @@ is_simple_values(PlannerInfo *root, RangeTblEntry *rte)
 
 /*
  * pull_up_constant_function
- *		Pull up an RTE_FUNCTION expression that was simplified to a constant.
+ *		上拉已被简化为常量的 RTE_FUNCTION 表达式。
  *
- * jtnode is a RangeTblRef that has been identified as a FUNCTION RTE by
- * pull_up_subqueries.  If its expression is just a Const, hoist that value
- * up into the parent query, and replace the RTE_FUNCTION with RTE_RESULT.
+ * jtnode 是已被 pull_up_subqueries 认定为 FUNCTION RTE 的
+ * RangeTblRef。若其表达式只是一个 Const，就把该值提升
+ * 到父查询，并用 RTE_RESULT 替换 RTE_FUNCTION。
  *
- * In principle we could pull up any immutable expression, but we don't.
- * That might result in multiple evaluations of the expression, which could
- * be costly if it's not just a Const.  Also, the main value of this is
- * to let the constant participate in further const-folding, and of course
- * that won't happen for a non-Const.
+ * 原则上可以上拉任何不可变表达式，但我们不这么做。
+ * 那可能导致表达式被多次求值，若它不只是一个 Const，
+ * 代价可能很高。另外，这样做的主要价值是
+ * 让常量参与进一步的常量折叠，而
+ * 非 Const 当然不会发生折叠。
  *
- * The pulled-up value might need to be wrapped in a PlaceHolderVar if the
- * RTE is below an outer join or is part of an appendrel; the extra
- * parameters show whether that's needed.
+ * 若该 RTE 位于外连接之下或属于 appendrel，上拉的值也许需要包进 PlaceHolderVar；
+ * 额外的
+ * 参数表明是否需要这样做。
  */
 static Node *
 pull_up_constant_function(PlannerInfo *root, Node *jtnode,
@@ -1818,11 +1818,11 @@ pull_up_constant_function(PlannerInfo *root, Node *jtnode,
 	TupleDesc	tupdesc;
 	pullup_replace_vars_context rvcontext;
 
-	/* Fail if the RTE has ORDINALITY - we don't implement that here. */
+	/* 若 RTE 带 ORDINALITY 则失败——这里没有实现。 */
 	if (rte->funcordinality)
 		return jtnode;
 
-	/* Fail if RTE isn't a single, simple Const expr */
+	/* 若 RTE 不是单个简单的 Const 表达式则失败 */
 	if (list_length(rte->functions) != 1)
 		return jtnode;
 	rtf = linitial_node(RangeTblFunction, rte->functions);
@@ -1830,116 +1830,116 @@ pull_up_constant_function(PlannerInfo *root, Node *jtnode,
 		return jtnode;
 
 	/*
-	 * If the function's result is not a scalar, we punt.  In principle we
-	 * could break the composite constant value apart into per-column
-	 * constants, but for now it seems not worth the work.
+	 * 若函数结果不是标量，就放弃。原则上可以
+	 * 把复合常量值拆成按列的
+	 * 常量，但眼下似乎不值得做。
 	 */
 	if (rtf->funccolcount != 1)
-		return jtnode;			/* definitely composite */
+		return jtnode;			/* 肯定是复合类型 */
 
-	/* If it has a coldeflist, it certainly returns RECORD */
+	/* 若有 coldeflist，它一定返回 RECORD */
 	if (rtf->funccolnames != NIL)
-		return jtnode;			/* must be a one-column RECORD type */
+		return jtnode;			/* 必须是单列 RECORD 类型 */
 
 	functypclass = get_expr_result_type(rtf->funcexpr,
 										&funcrettype,
 										&tupdesc);
 	if (functypclass != TYPEFUNC_SCALAR)
-		return jtnode;			/* must be a one-column composite type */
+		return jtnode;			/* 必须是单列复合类型 */
 
-	/* Create context for applying pullup_replace_vars */
+	/* 创建用于应用 pullup_replace_vars 的上下文 */
 	rvcontext.root = root;
 	rvcontext.targetlist = list_make1(makeTargetEntry((Expr *) rtf->funcexpr,
-													  1,	/* resno */
-													  NULL, /* resname */
-													  false));	/* resjunk */
+													  1,	/* resno（结果编号） */
+													  NULL, /* resname（结果名） */
+													  false));	/* resjunk（废列） */
 	rvcontext.target_rte = rte;
 
 	/*
-	 * Since this function was reduced to a Const, it doesn't contain any
-	 * lateral references, even if it's marked as LATERAL.  This means we
-	 * don't need to fill relids or nullinfo.
+	 * 由于该函数已简化为 Const，它不含任何
+	 * LATERAL 引用，即使被标成 LATERAL。这意味着我们
+	 * 不必填写 relids 或 nullinfo。
 	 */
 	rvcontext.relids = NULL;
 	rvcontext.nullinfo = NULL;
 
 	rvcontext.outer_hasSubLinks = &parse->hasSubLinks;
 	rvcontext.varno = ((RangeTblRef *) jtnode)->rtindex;
-	/* this flag will be set below, if needed */
+	/* 若需要，下面会设置此标志 */
 	rvcontext.wrap_non_vars = false;
-	/* initialize cache array with indexes 0 .. length(tlist) */
+	/* 用下标 0 .. length(tlist) 初始化缓存数组 */
 	rvcontext.rv_cache = palloc0((list_length(rvcontext.targetlist) + 1) *
 								 sizeof(Node *));
 
 	/*
-	 * If we are dealing with an appendrel member then anything that's not a
-	 * simple Var has to be turned into a PlaceHolderVar.  (See comments in
-	 * pull_up_simple_subquery().)
+	 * 若处理的是 appendrel 成员，则任何不是
+	 * 简单 Var 的东西都必须变成 PlaceHolderVar。（见
+	 * pull_up_simple_subquery() 中的注释。）
 	 */
 	if (containing_appendrel != NULL)
 		rvcontext.wrap_non_vars = true;
 
 	/*
-	 * If the parent query uses grouping sets, we need a PlaceHolderVar for
-	 * anything that's not a simple Var.
+	 * 若父查询使用分组集，任何不是简单 Var 的东西
+	 * 都需要 PlaceHolderVar。
 	 */
 	if (parse->groupingSets)
 		rvcontext.wrap_non_vars = true;
 
 	/*
-	 * Replace all of the top query's references to the RTE's output with
-	 * copies of the funcexpr, being careful not to replace any of the
-	 * jointree structure.
+	 * 把顶层查询中对该 RTE 输出的全部引用替换为
+	 * funcexpr 的副本，小心不要替换
+	 * 连接树结构的任何部分。
 	 */
 	perform_pullup_replace_vars(root, &rvcontext,
 								containing_appendrel);
 
 	/*
-	 * We don't need to bother with changing PlaceHolderVars in the parent
-	 * query.  Their references to the RT index are still good for now, and
-	 * will get removed later if we're able to drop the RTE_RESULT.
+	 * 不必费心去改父查询中的 PlaceHolderVars。
+	 * 它们对 RT 下标的引用目前仍然有效，并且
+	 * 若以后能丢掉 RTE_RESULT，这些引用会被去掉。
 	 */
 
 	/*
-	 * Convert the RTE to be RTE_RESULT type, signifying that we don't need to
-	 * scan it anymore, and zero out RTE_FUNCTION-specific fields.  Also make
-	 * sure the RTE is not marked LATERAL, since elsewhere we don't expect
-	 * RTE_RESULTs to be LATERAL.
+	 * 把 RTE 转成 RTE_RESULT 类型，表示不再需要
+	 * 扫描它，并把 RTE_FUNCTION 专用字段清零。同时
+	 * 确保该 RTE 没有标成 LATERAL，因为别处不预期
+	 * RTE_RESULTs 是 LATERAL。
 	 */
 	rte->rtekind = RTE_RESULT;
 	rte->functions = NIL;
 	rte->lateral = false;
 
 	/*
-	 * We can reuse the RangeTblRef node.
+	 * 可以复用这个 RangeTblRef 节点。
 	 */
 	return jtnode;
 }
 
 /*
  * is_simple_union_all
- *	  Check a subquery to see if it's a simple UNION ALL.
+ *	  检查子查询是否为简单的 UNION ALL。
  *
- * We require all the setops to be UNION ALL (no mixing) and there can't be
- * any datatype coercions involved, ie, all the leaf queries must emit the
- * same datatypes.
+ * 我们需要全部集合运算都是 UNION ALL（不能混合），并且不能有
+ * 任何数据类型强制转换，也就是所有叶子查询必须产生
+ * 相同的数据类型。
  */
 static bool
 is_simple_union_all(Query *subquery)
 {
 	SetOperationStmt *topop;
 
-	/* Let's just make sure it's a valid subselect ... */
+	/* 先确认它是有效的子查询 ... */
 	if (!IsA(subquery, Query) ||
 		subquery->commandType != CMD_SELECT)
 		elog(ERROR, "subquery is bogus");
 
-	/* Is it a set-operation query at all? */
+	/* 它到底是不是集合运算查询？ */
 	topop = castNode(SetOperationStmt, subquery->setOperations);
 	if (!topop)
 		return false;
 
-	/* Can't handle ORDER BY, LIMIT/OFFSET, locking, or WITH */
+	/* 不能处理 ORDER BY、LIMIT/OFFSET、加锁或 WITH */
 	if (subquery->sortClause ||
 		subquery->limitOffset ||
 		subquery->limitCount ||
@@ -1947,7 +1947,7 @@ is_simple_union_all(Query *subquery)
 		subquery->cteList)
 		return false;
 
-	/* Recursively check the tree of set operations */
+	/* 递归检查集合运算树 */
 	return is_simple_union_all_recurse((Node *) topop, subquery,
 									   topop->colTypes);
 }
@@ -1955,7 +1955,7 @@ is_simple_union_all(Query *subquery)
 static bool
 is_simple_union_all_recurse(Node *setOp, Query *setOpQuery, List *colTypes)
 {
-	/* Since this function recurses, it could be driven to stack overflow. */
+	/* 由于本函数递归，可能被逼到栈溢出。 */
 	check_stack_depth();
 
 	if (IsA(setOp, RangeTblRef))
@@ -1966,19 +1966,19 @@ is_simple_union_all_recurse(Node *setOp, Query *setOpQuery, List *colTypes)
 
 		Assert(subquery != NULL);
 
-		/* Leaf nodes are OK if they match the toplevel column types */
-		/* We don't have to compare typmods or collations here */
+		/* 叶子节点若与顶层列类型匹配就可以 */
+		/* 这里不必比较 typmod 或排序规则 */
 		return tlist_same_datatypes(subquery->targetList, colTypes, true);
 	}
 	else if (IsA(setOp, SetOperationStmt))
 	{
 		SetOperationStmt *op = (SetOperationStmt *) setOp;
 
-		/* Must be UNION ALL */
+		/* 必须是 UNION ALL */
 		if (op->op != SETOP_UNION || !op->all)
 			return false;
 
-		/* Recurse to check inputs */
+		/* 递归检查输入 */
 		return is_simple_union_all_recurse(op->larg, setOpQuery, colTypes) &&
 			is_simple_union_all_recurse(op->rarg, setOpQuery, colTypes);
 	}
@@ -1986,14 +1986,14 @@ is_simple_union_all_recurse(Node *setOp, Query *setOpQuery, List *colTypes)
 	{
 		elog(ERROR, "unrecognized node type: %d",
 			 (int) nodeTag(setOp));
-		return false;			/* keep compiler quiet */
+		return false;			/* 消除编译器告警 */
 	}
 }
 
 /*
  * is_safe_append_member
- *	  Check a subquery that is a leaf of a UNION ALL appendrel to see if it's
- *	  safe to pull up.
+ *	  检查作为 UNION ALL appendrel 叶子的子查询，看它
+ *	  上拉是否安全。
  */
 static bool
 is_safe_append_member(Query *subquery)
@@ -2001,24 +2001,24 @@ is_safe_append_member(Query *subquery)
 	FromExpr   *jtnode;
 
 	/*
-	 * It's only safe to pull up the child if its jointree contains exactly
-	 * one RTE, else the AppendRelInfo data structure breaks. The one base RTE
-	 * could be buried in several levels of FromExpr, however.  Also, if the
-	 * child's jointree is completely empty, we can pull up because
-	 * pull_up_simple_subquery will insert a single RTE_RESULT RTE instead.
+	 * 只有当子查询的连接树恰好含有
+	 * 一个 RTE 时，上拉才安全，否则 AppendRelInfo 数据结构会坏。那一个基表 RTE
+	 * 可以被埋在好几层 FromExpr 里。另外，若
+	 * 子查询的连接树完全为空，也可以上拉，因为
+	 * pull_up_simple_subquery 会改为插入单个 RTE_RESULT RTE。
 	 *
-	 * Also, the child can't have any WHERE quals because there's no place to
-	 * put them in an appendrel.  (This is a bit annoying...) If we didn't
-	 * need to check this, we'd just test whether get_relids_in_jointree()
-	 * yields a singleton set, to be more consistent with the coding of
-	 * fix_append_rel_relids().
+	 * 另外，子查询不能有任何 WHERE 限定条件，因为 appendrel 里
+	 * 没有地方放它们。（这有点烦人...）若不必
+	 * 检查这一点，我们只需测试 get_relids_in_jointree()
+	 * 是否得到单元素集合，以便与
+	 * fix_append_rel_relids() 的写法更一致。
 	 */
 	jtnode = subquery->jointree;
 	Assert(IsA(jtnode, FromExpr));
-	/* Check the completely-empty case */
+	/* 检查完全为空的情况 */
 	if (jtnode->fromlist == NIL && jtnode->quals == NULL)
 		return true;
-	/* Check the more general case */
+	/* 检查更一般的情况 */
 	while (IsA(jtnode, FromExpr))
 	{
 		if (jtnode->quals != NULL)
@@ -2035,13 +2035,13 @@ is_safe_append_member(Query *subquery)
 
 /*
  * jointree_contains_lateral_outer_refs
- *		Check for disallowed lateral references in a jointree's quals
+ *		检查连接树限定条件中是否有不允许的 LATERAL 引用
  *
- * If restricted is false, all level-1 Vars are allowed (but we still must
- * search the jointree, since it might contain outer joins below which there
- * will be restrictions).  If restricted is true, return true when any qual
- * in the jointree contains level-1 Vars coming from outside the rels listed
- * in safe_upper_varnos.
+ * 若 restricted 为假，所有层次 1 的 Var 都允许（但仍然必须
+ * 搜索连接树，因为它可能含有外连接，其下会有
+ * 限制）。若 restricted 为真，当连接树中任何限定条件
+ * 含有来自 safe_upper_varnos 所列关系之外的层次 1 Var 时，
+ * 返回真。
  */
 static bool
 jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
@@ -2057,7 +2057,7 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 		FromExpr   *f = (FromExpr *) jtnode;
 		ListCell   *l;
 
-		/* First, recurse to check child joins */
+		/* 先递归检查子连接 */
 		foreach(l, f->fromlist)
 		{
 			if (jointree_contains_lateral_outer_refs(root,
@@ -2067,7 +2067,7 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 				return true;
 		}
 
-		/* Then check the top-level quals */
+		/* 然后检查顶层限定条件 */
 		if (restricted &&
 			!bms_is_subset(pull_varnos_of_level(root, f->quals, 1),
 						   safe_upper_varnos))
@@ -2078,8 +2078,8 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 		JoinExpr   *j = (JoinExpr *) jtnode;
 
 		/*
-		 * If this is an outer join, we mustn't allow any upper lateral
-		 * references in or below it.
+		 * 若这是外连接，不得允许任何上层 LATERAL
+		 * 引用出现在它之中或之下。
 		 */
 		if (j->jointype != JOIN_INNER)
 		{
@@ -2087,7 +2087,7 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 			safe_upper_varnos = NULL;
 		}
 
-		/* Check the child joins */
+		/* 检查子连接 */
 		if (jointree_contains_lateral_outer_refs(root,
 												 j->larg,
 												 restricted,
@@ -2099,7 +2099,7 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 												 safe_upper_varnos))
 			return true;
 
-		/* Check the JOIN's qual clauses */
+		/* 检查 JOIN 的限定条件子句 */
 		if (restricted &&
 			!bms_is_subset(pull_varnos_of_level(root, j->quals, 1),
 						   safe_upper_varnos))
@@ -2112,11 +2112,11 @@ jointree_contains_lateral_outer_refs(PlannerInfo *root, Node *jtnode,
 }
 
 /*
- * Perform pullup_replace_vars everyplace it's needed in the query tree.
+ * 在查询树中每一处需要的地方执行 pullup_replace_vars。
  *
- * Caller has already filled *rvcontext with data describing what to
- * substitute for Vars referencing the target subquery.  In addition
- * we need the identity of the containing appendrel if any.
+ * 调用者已经在 *rvcontext 中填好了描述用什么来
+ * 替换引用目标子查询的 Var 的数据。此外
+ * 若有包含它的 appendrel，还需要其身份。
  */
 static void
 perform_pullup_replace_vars(PlannerInfo *root,
@@ -2127,11 +2127,11 @@ perform_pullup_replace_vars(PlannerInfo *root,
 	ListCell   *lc;
 
 	/*
-	 * If we are considering an appendrel child subquery (that is, a UNION ALL
-	 * member query that we're pulling up), then the only part of the upper
-	 * query that could reference the child yet is the translated_vars list of
-	 * the associated AppendRelInfo.  Furthermore, we do not want to force use
-	 * of PHVs in the AppendRelInfo --- there isn't any outer join between.
+	 * 若考虑的是 appendrel 的子查询（也就是正在上拉的 UNION ALL
+	 * 成员查询），则上层查询中目前还可能引用该子项的唯一部分是
+	 * 相关联 AppendRelInfo 的 translated_vars 列表。
+	 * 而且，我们不想在 AppendRelInfo 中强制使用
+	 * PHVs——两者之间没有任何外连接。
 	 */
 	if (containing_appendrel)
 	{
@@ -2146,13 +2146,13 @@ perform_pullup_replace_vars(PlannerInfo *root,
 	}
 
 	/*
-	 * Replace all of the top query's references to the subquery's outputs
-	 * with copies of the adjusted subtlist items, being careful not to
-	 * replace any of the jointree structure.  (This'd be a lot cleaner if we
-	 * could use query_tree_mutator.)  We have to use PHVs in the targetList,
-	 * returningList, and havingQual, since those are certainly above any
-	 * outer join.  replace_vars_in_jointree tracks its location in the
-	 * jointree and uses PHVs or not appropriately.
+	 * 把顶层查询中对子查询输出的全部引用替换为
+	 * 调整后的 subtlist 项的副本，小心不要
+	 * 替换连接树结构的任何部分。（若能使用
+	 * query_tree_mutator 会干净得多。）必须在 targetList、
+	 * returningList 和 havingQual 中使用 PHVs，因为它们肯定在任何
+	 * 外连接之上。replace_vars_in_jointree 跟踪自己在
+	 * 连接树中的位置，并适当地使用或不使用 PHVs。
 	 */
 	parse->targetList = (List *)
 		pullup_replace_vars((Node *) parse->targetList, rvcontext);
@@ -2177,8 +2177,8 @@ perform_pullup_replace_vars(PlannerInfo *root,
 								rvcontext);
 
 		/*
-		 * We assume ON CONFLICT's arbiterElems, arbiterWhere, exclRelTlist
-		 * can't contain any references to a subquery.
+		 * 假定 ON CONFLICT 的 arbiterElems、arbiterWhere、exclRelTlist
+		 * 不可能含有对子查询的任何引用。
 		 */
 	}
 	if (parse->mergeActionList)
@@ -2197,7 +2197,7 @@ perform_pullup_replace_vars(PlannerInfo *root,
 	parse->havingQual = pullup_replace_vars(parse->havingQual, rvcontext);
 
 	/*
-	 * Replace references in the translated_vars lists of appendrels.
+	 * 替换 appendrel 的 translated_vars 列表中的引用。
 	 */
 	foreach(lc, root->append_rel_list)
 	{
@@ -2208,7 +2208,7 @@ perform_pullup_replace_vars(PlannerInfo *root,
 	}
 
 	/*
-	 * Replace references in the joinaliasvars lists of join RTEs.
+	 * 替换连接 RTEs 的 joinaliasvars 列表中的引用。
 	 */
 	foreach(lc, parse->rtable)
 	{
@@ -2222,9 +2222,9 @@ perform_pullup_replace_vars(PlannerInfo *root,
 }
 
 /*
- * Helper routine for perform_pullup_replace_vars: do pullup_replace_vars on
- * every expression in the jointree, without changing the jointree structure
- * itself.  Ugly, but there's no other way...
+ * perform_pullup_replace_vars 的辅助例程：对连接树中的
+ * 每个表达式做 pullup_replace_vars，而不改变连接树结构
+ * 本身。难看，但没有别的办法...
  */
 static void
 replace_vars_in_jointree(Node *jtnode,
@@ -2235,15 +2235,15 @@ replace_vars_in_jointree(Node *jtnode,
 	if (IsA(jtnode, RangeTblRef))
 	{
 		/*
-		 * If the RangeTblRef refers to a LATERAL subquery (that isn't the
-		 * same subquery we're pulling up), it might contain references to the
-		 * target subquery, which we must replace.  We drive this from the
-		 * jointree scan, rather than a scan of the rtable, so that we can
-		 * avoid processing no-longer-referenced RTEs.
+		 * 若 RangeTblRef 指向一个 LATERAL 子查询（不是
+		 * 正在上拉的那个），它可能含有对
+		 * 目标子查询的引用，必须替换。我们从
+		 * 连接树扫描来驱动这件事，而不是扫描 rtable，以便
+		 * 避免处理已不再被引用的 RTEs。
 		 */
 		int			varno = ((RangeTblRef *) jtnode)->rtindex;
 
-		if (varno != context->varno)	/* ignore target subquery itself */
+		if (varno != context->varno)	/* 忽略目标子查询本身 */
 		{
 			RangeTblEntry *rte = rt_fetch(varno, context->root->parse->rtable);
 
@@ -2253,7 +2253,7 @@ replace_vars_in_jointree(Node *jtnode,
 				switch (rte->rtekind)
 				{
 					case RTE_RELATION:
-						/* shouldn't be marked LATERAL unless tablesample */
+						/* 除非是 tablesample，否则不应当标成 LATERAL */
 						Assert(rte->tablesample);
 						rte->tablesample = (TableSampleClause *)
 							pullup_replace_vars((Node *) rte->tablesample,
@@ -2283,7 +2283,7 @@ replace_vars_in_jointree(Node *jtnode,
 					case RTE_CTE:
 					case RTE_NAMEDTUPLESTORE:
 					case RTE_RESULT:
-						/* these shouldn't be marked LATERAL */
+						/* 这些不应当标成 LATERAL */
 						Assert(false);
 						break;
 				}
@@ -2308,11 +2308,11 @@ replace_vars_in_jointree(Node *jtnode,
 		replace_vars_in_jointree(j->rarg, context);
 
 		/*
-		 * Use PHVs within the join quals of a full join.  Otherwise, we
-		 * cannot identify which side of the join a pulled-up var-free
-		 * expression came from, which can lead to failure to make a plan at
-		 * all because none of the quals appear to be mergeable or hashable
-		 * conditions.
+		 * 在全连接的连接限定条件中使用 PHVs。否则，我们
+		 * 无法辨认一个上拉后的无 var 表达式来自连接的哪一侧，
+		 * 这可能导致根本做不出计划，
+		 * 因为没有一条限定条件看起来是可归并或可哈希的
+		 * 条件。
 		 */
 		if (j->jointype == JOIN_FULL)
 			context->wrap_non_vars = true;
@@ -2327,10 +2327,10 @@ replace_vars_in_jointree(Node *jtnode,
 }
 
 /*
- * Apply pullup variable replacement throughout an expression tree
+ * 在整棵表达式树上应用上拉变量替换
  *
- * Returns a modified copy of the tree, so this can't be used where we
- * need to do in-place replacement.
+ * 返回修改后的树副本，因此在需要
+ * 就地替换的地方不能用它。
  */
 static Node *
 pullup_replace_vars(Node *expr, pullup_replace_vars_context *context)
@@ -2352,25 +2352,25 @@ pullup_replace_vars_callback(Var *var,
 	Node	   *newnode;
 
 	/*
-	 * We need a PlaceHolderVar if the Var-to-be-replaced has nonempty
-	 * varnullingrels (unless we find below that the replacement expression is
-	 * a Var or PlaceHolderVar that we can just add the nullingrels to).  We
-	 * also need one if the caller has instructed us that all non-Var/PHV
-	 * replacements need to be wrapped for identification purposes.
+	 * 若待替换的 Var 有非空的
+	 * varnullingrels，就需要 PlaceHolderVar（除非下面发现替换表达式是
+	 * 一个 Var 或可以只把 nullingrels 加上去的 PlaceHolderVar）。若
+	 * 调用者指示所有非 Var/PHV
+	 * 替换都需要包装以便识别，也需要一个。
 	 */
 	need_phv = (var->varnullingrels != NULL) || rcon->wrap_non_vars;
 
 	/*
-	 * If PlaceHolderVars are needed, we cache the modified expressions in
-	 * rcon->rv_cache[].  This is not in hopes of any material speed gain
-	 * within this function, but to avoid generating identical PHVs with
-	 * different IDs.  That would result in duplicate evaluations at runtime,
-	 * and possibly prevent optimizations that rely on recognizing different
-	 * references to the same subquery output as being equal().  So it's worth
-	 * a bit of extra effort to avoid it.
+	 * 若需要 PlaceHolderVars，我们把修改后的表达式缓存在
+	 * rcon->rv_cache[] 中。这不是指望在
+	 * 本函数内有什么实质性的加速，而是避免生成 ID 不同的相同 PHVs。
+	 * 那会导致运行时重复求值，
+	 * 并且可能妨碍依赖把对同一子查询输出的不同
+	 * 引用认作 equal() 的优化。因此值得
+	 * 多花一点力气来避免。
 	 *
-	 * The cached items have phlevelsup = 0 and phnullingrels = NULL; we'll
-	 * copy them and adjust those values for this reference site below.
+	 * 缓存项的 phlevelsup = 0 且 phnullingrels = NULL；我们会
+	 * 复制它们，并在下面为这个引用点调整那些值。
 	 */
 	if (need_phv &&
 		varattno >= InvalidAttrNumber &&
@@ -2382,7 +2382,7 @@ pullup_replace_vars_callback(Var *var,
 	}
 	else if (varattno == InvalidAttrNumber)
 	{
-		/* Must expand whole-tuple reference into RowExpr */
+		/* 必须把整元组引用展开成 RowExpr */
 		RowExpr    *rowexpr;
 		List	   *colnames;
 		List	   *fields;
@@ -2390,22 +2390,22 @@ pullup_replace_vars_callback(Var *var,
 		int			save_sublevelsup = context->sublevels_up;
 
 		/*
-		 * If generating an expansion for a var of a named rowtype (ie, this
-		 * is a plain relation RTE), then we must include dummy items for
-		 * dropped columns.  If the var is RECORD (ie, this is a JOIN), then
-		 * omit dropped columns.  In the latter case, attach column names to
-		 * the RowExpr for use of the executor and ruleutils.c.
+		 * 若为一个具名行类型的 var 生成展开式（即这
+		 * 是普通关系 RTE），则必须为
+		 * 已删除的列包含哑项。若该 var 是 RECORD（即这是 JOIN），则
+		 * 省略已删除的列。后一种情况下，把列名附到
+		 * RowExpr 上，供执行器和 ruleutils.c 使用。
 		 *
-		 * In order to be able to cache the results, we always generate the
-		 * expansion with varlevelsup = 0, and then adjust below if needed.
+		 * 为了能缓存结果，我们总是生成
+		 * varlevelsup = 0 的展开式，然后在下面按需要调整。
 		 */
 		expandRTE(rcon->target_rte,
-				  var->varno, 0 /* not varlevelsup */ , var->location,
+				  var->varno, 0 /* 不是 varlevelsup */ , var->location,
 				  (var->vartype != RECORDOID),
 				  &colnames, &fields);
-		/* Expand the generated per-field Vars, but don't insert PHVs there */
+		/* 展开生成的逐字段 Var，但不要在那里插入 PHVs */
 		rcon->wrap_non_vars = false;
-		context->sublevels_up = 0;	/* to match the expandRTE output */
+		context->sublevels_up = 0;	/* 以便与 expandRTE 的输出一致 */
 		fields = (List *) replace_rte_variables_mutator((Node *) fields,
 														context);
 		rcon->wrap_non_vars = save_wrap_non_vars;
@@ -2420,11 +2420,11 @@ pullup_replace_vars_callback(Var *var,
 		newnode = (Node *) rowexpr;
 
 		/*
-		 * Insert PlaceHolderVar if needed.  Notice that we are wrapping one
-		 * PlaceHolderVar around the whole RowExpr, rather than putting one
-		 * around each element of the row.  This is because we need the
-		 * expression to yield NULL, not ROW(NULL,NULL,...) when it is forced
-		 * to null by an outer join.
+		 * 若需要则插入 PlaceHolderVar。注意我们是用一个
+		 * PlaceHolderVar 包住整个 RowExpr，而不是给
+		 * 行的每个元素各包一个。这是因为当外连接把它
+		 * 强制为 null 时，表达式应当得出 NULL，
+		 * 而不是 ROW(NULL,NULL,...)。
 		 */
 		if (need_phv)
 		{
@@ -2432,23 +2432,23 @@ pullup_replace_vars_callback(Var *var,
 				make_placeholder_expr(rcon->root,
 									  (Expr *) newnode,
 									  bms_make_singleton(rcon->varno));
-			/* cache it with the PHV, and with phlevelsup etc not set yet */
+			/* 连同 PHV 一起缓存，且 phlevelsup 等尚未设置 */
 			rcon->rv_cache[InvalidAttrNumber] = copyObject(newnode);
 		}
 	}
 	else
 	{
-		/* Normal case referencing one targetlist element */
+		/* 引用一个目标列表元素的正常情况 */
 		TargetEntry *tle = get_tle_by_resno(rcon->targetlist, varattno);
 
-		if (tle == NULL)		/* shouldn't happen */
+		if (tle == NULL)		/* 不应当发生 */
 			elog(ERROR, "could not find attribute %d in subquery targetlist",
 				 varattno);
 
-		/* Make a copy of the tlist item to return */
+		/* 复制一份 tlist 项以返回 */
 		newnode = (Node *) copyObject(tle->expr);
 
-		/* Insert PlaceHolderVar if needed */
+		/* 若需要则插入 PlaceHolderVar */
 		if (need_phv)
 		{
 			bool		wrap;
@@ -2457,11 +2457,11 @@ pullup_replace_vars_callback(Var *var,
 				((Var *) newnode)->varlevelsup == 0)
 			{
 				/*
-				 * Simple Vars always escape being wrapped, unless they are
-				 * lateral references to something outside the subquery being
-				 * pulled up.  (Even then, we could omit the PlaceHolderVar if
-				 * the referenced rel is under the same lowest outer join, but
-				 * it doesn't seem worth the trouble to check that.)
+				 * 简单 Var 总是免于被包装，除非它们是
+				 * 指向正在上拉的子查询之外某处的 LATERAL 引用。
+				 * （即使那样，若被引用的关系处在同一个最低外连接之下，也可以省略 PlaceHolderVar，
+				 * 但检查这一点
+				 * 似乎不值得费事。）
 				 */
 				if (rcon->target_rte->lateral &&
 					!bms_is_member(((Var *) newnode)->varno, rcon->relids))
@@ -2472,7 +2472,7 @@ pullup_replace_vars_callback(Var *var,
 			else if (newnode && IsA(newnode, PlaceHolderVar) &&
 					 ((PlaceHolderVar *) newnode)->phlevelsup == 0)
 			{
-				/* The same rules apply for a PlaceHolderVar */
+				/* PlaceHolderVar 适用同样的规则 */
 				if (rcon->target_rte->lateral &&
 					!bms_is_subset(((PlaceHolderVar *) newnode)->phrels,
 								   rcon->relids))
@@ -2482,42 +2482,42 @@ pullup_replace_vars_callback(Var *var,
 			}
 			else if (rcon->wrap_non_vars)
 			{
-				/* Caller told us to wrap all non-Vars in a PlaceHolderVar */
+				/* 调用者要求把所有非 Var 都包进 PlaceHolderVar */
 				wrap = true;
 			}
 			else
 			{
 				/*
-				 * If the node contains Var(s) or PlaceHolderVar(s) of the
-				 * subquery being pulled up, and does not contain any
-				 * non-strict constructs, then instead of adding a PHV on top
-				 * we can add the required nullingrels to those Vars/PHVs.
-				 * (This is fundamentally a generalization of the above cases
-				 * for bare Vars and PHVs.)
+				 * 若节点含有正在上拉的子查询的 Var 或 PlaceHolderVar，
+				 * 并且不含任何
+				 * 非严格构造，那么不必在上面再加一个 PHV，
+				 * 可以把所需的 nullingrels 加到那些 Var/PHVs 上。
+				 * （这本质上是上面那些情况的推广，
+				 * 针对裸 Var 和 PHVs。）
 				 *
-				 * This test is somewhat expensive, but it avoids pessimizing
-				 * the plan in cases where the nullingrels get removed again
-				 * later by outer join reduction.
+				 * 这项检查有些贵，但可以避免在
+				 * nullingrels 后来又被外连接简化
+				 * 去掉的情况下把计划做差。
 				 *
-				 * Note that we don't force wrapping of expressions containing
-				 * lateral references, so long as they also contain Vars/PHVs
-				 * of the subquery.  This is okay because of the restriction
-				 * to strict constructs: if the subquery's Vars/PHVs have been
-				 * forced to NULL by an outer join then the end result of the
-				 * expression will be NULL too, regardless of the lateral
-				 * references.  So it's not necessary to force the expression
-				 * to be evaluated below the outer join.  This can be a very
-				 * valuable optimization, because it may allow us to avoid
-				 * using a nested loop to pass the lateral reference down.
+				 * 注意，只要表达式也含有子查询的 Var/PHVs，
+				 * 我们就不强制包装含有 LATERAL 引用的表达式。
+				 * 这样做没问题，是因为限制为
+				 * 严格构造：若子查询的 Var/PHVs 已被
+				 * 外连接强制为 NULL，则表达式的最终结果
+				 * 也会是 NULL，与 LATERAL
+				 * 引用无关。因此不必强制该表达式
+				 * 在外连接之下求值。这可能是非常
+				 * 有价值的优化，因为它也许让我们不必
+				 * 用嵌套循环把 LATERAL 引用传下去。
 				 *
-				 * This analysis could be tighter: in particular, a non-strict
-				 * construct hidden within a lower-level PlaceHolderVar is not
-				 * reason to add another PHV.  But for now it doesn't seem
-				 * worth the code to be more exact.
+				 * 这个分析还可以更紧：特别是，藏在更低层 PlaceHolderVar 里的非严格
+				 * 构造并不是
+				 * 再加一个 PHV 的理由。但眼下似乎
+				 * 不值得为更精确而增加代码。
 				 *
-				 * For a LATERAL subquery, we have to check the actual var
-				 * membership of the node, but if it's non-lateral then any
-				 * level-zero var must belong to the subquery.
+				 * 对于 LATERAL 子查询，必须检查节点实际的 var
+				 * 成员；若它不是 LATERAL，则任何
+				 * 层次为零的 var 必定属于该子查询。
 				 */
 				if ((rcon->target_rte->lateral ?
 					 bms_overlap(pull_varnos(rcon->root, newnode),
@@ -2525,12 +2525,12 @@ pullup_replace_vars_callback(Var *var,
 					 contain_vars_of_level(newnode, 0)) &&
 					!contain_nonstrict_functions(newnode))
 				{
-					/* No wrap needed */
+					/* 不需要包装 */
 					wrap = false;
 				}
 				else
 				{
-					/* Else wrap it in a PlaceHolderVar */
+					/* 否则把它包进 PlaceHolderVar */
 					wrap = true;
 				}
 			}
@@ -2543,8 +2543,8 @@ pullup_replace_vars_callback(Var *var,
 										  bms_make_singleton(rcon->varno));
 
 				/*
-				 * Cache it if possible (ie, if the attno is in range, which
-				 * it probably always should be).
+				 * 若可能则缓存（即 attno 在范围内，
+				 * 这大概总是应当如此）。
 				 */
 				if (varattno > InvalidAttrNumber &&
 					varattno <= list_length(rcon->targetlist))
@@ -2553,7 +2553,7 @@ pullup_replace_vars_callback(Var *var,
 		}
 	}
 
-	/* Propagate any varnullingrels into the replacement expression */
+	/* 把任何 varnullingrels 传播进替换表达式 */
 	if (var->varnullingrels != NULL)
 	{
 		if (IsA(newnode, Var))
@@ -2575,23 +2575,23 @@ pullup_replace_vars_callback(Var *var,
 		else
 		{
 			/*
-			 * There should be Vars/PHVs within the expression that we can
-			 * modify.  Vars/PHVs of the subquery should have the full
-			 * var->varnullingrels added to them, but if there are lateral
-			 * references within the expression, those must be marked with
-			 * only the nullingrels that potentially apply to them.  (This
-			 * corresponds to the fact that the expression will now be
-			 * evaluated at the join level of the Var that we are replacing:
-			 * the lateral references may have bubbled up through fewer outer
-			 * joins than the subquery's Vars have.  Per the discussion above,
-			 * we'll still get the right answers.)  That relid set could be
-			 * different for different lateral relations, so we have to do
-			 * this work for each one.
+			 * 表达式中应当有我们可以
+			 * 修改的 Var/PHVs。子查询的 Var/PHVs 应当加上完整的
+			 * var->varnullingrels，但若表达式中有 LATERAL
+			 * 引用，那些引用只能标上
+			 * 可能适用于它们的 nullingrels。（这
+			 * 对应于表达式现在将在我们正在替换的那个 Var 的连接层
+			 * 求值：
+			 * LATERAL 引用向上冒泡时经过的外
+			 * 连接可能比子查询的 Var 更少。按上面的讨论，
+			 * 结果仍然是对的。）那组 relid 对
+			 * 不同的 LATERAL 关系可能不同，因此必须对
+			 * 每一个分别做这项工作。
 			 *
-			 * (Currently, the restrictions in is_simple_subquery() mean that
-			 * at most we have to remove the lowest outer join's relid from
-			 * the nullingrels of a lateral reference.  However, we might
-			 * relax those restrictions someday, so let's do this right.)
+			 * （目前 is_simple_subquery() 中的限制意味着
+			 * 最多只需从 LATERAL 引用的 nullingrels 中去掉
+			 * 最低外连接的 relid。不过将来也许会
+			 * 放宽那些限制，所以还是做对。）
 			 */
 			if (rcon->target_rte->lateral)
 			{
@@ -2600,12 +2600,12 @@ pullup_replace_vars_callback(Var *var,
 				int			lvarno;
 
 				/*
-				 * Identify lateral varnos used within newnode.  We must do
-				 * this before injecting var->varnullingrels into the tree.
+				 * 识别 newnode 中使用的 LATERAL varno。必须在
+				 * 把 var->varnullingrels 注入树之前做这件事。
 				 */
 				lvarnos = pull_varnos(rcon->root, newnode);
 				lvarnos = bms_del_members(lvarnos, rcon->relids);
-				/* For each one, add relevant nullingrels if any */
+				/* 对每一个，若有相关的 nullingrels 就加上 */
 				lvarno = -1;
 				while ((lvarno = bms_next_member(lvarnos, lvarno)) >= 0)
 				{
@@ -2621,17 +2621,17 @@ pullup_replace_vars_callback(Var *var,
 				}
 			}
 
-			/* Finally, deal with Vars/PHVs of the subquery itself */
+			/* 最后处理子查询自身的 Var/PHVs */
 			newnode = add_nulling_relids(newnode,
 										 rcon->relids,
 										 var->varnullingrels);
-			/* Assert we did put the varnullingrels into the expression */
+			/* 断言我们已经把 varnullingrels 放进了表达式 */
 			Assert(bms_is_subset(var->varnullingrels,
 								 pull_varnos(rcon->root, newnode)));
 		}
 	}
 
-	/* Must adjust varlevelsup if replaced Var is within a subquery */
+	/* 若被替换的 Var 位于子查询内，必须调整 varlevelsup */
 	if (var->varlevelsup > 0)
 		IncrementVarSublevelsUp(newnode, var->varlevelsup, 0);
 
@@ -2639,11 +2639,11 @@ pullup_replace_vars_callback(Var *var,
 }
 
 /*
- * Apply pullup variable replacement to a subquery
+ * 对子查询应用上拉变量替换
  *
- * This needs to be different from pullup_replace_vars() because
- * replace_rte_variables will think that it shouldn't increment sublevels_up
- * before entering the Query; so we need to call it with sublevels_up == 1.
+ * 这必须与 pullup_replace_vars() 不同，因为
+ * replace_rte_variables 会认为在进入 Query 之前不应当增加 sublevels_up；
+ * 因此需要以 sublevels_up == 1 调用它。
  */
 static Query *
 pullup_replace_vars_subquery(Query *query,
@@ -2660,17 +2660,17 @@ pullup_replace_vars_subquery(Query *query,
 
 /*
  * flatten_simple_union_all
- *		Try to optimize top-level UNION ALL structure into an appendrel
+ *		尝试把顶层 UNION ALL 结构优化成 appendrel
  *
- * If a query's setOperations tree consists entirely of simple UNION ALL
- * operations, flatten it into an append relation, which we can process more
- * intelligently than the general setops case.  Otherwise, do nothing.
+ * 若查询的 setOperations 树完全由简单的 UNION ALL
+ * 运算组成，把它展平成 append 关系，我们可以比
+ * 一般集合运算情形更聪明地处理它。否则什么也不做。
  *
- * In most cases, this can succeed only for a top-level query, because for a
- * subquery in FROM, the parent query's invocation of pull_up_subqueries would
- * already have flattened the UNION via pull_up_simple_union_all.  But there
- * are a few cases we can support here but not in that code path, for example
- * when the subquery also contains ORDER BY.
+ * 多数情况下，这只对顶层查询能成功，因为对于
+ * FROM 中的子查询，父查询调用 pull_up_subqueries 时
+ * 已经通过 pull_up_simple_union_all 展平了 UNION。但有
+ * 少数情形可以在这里支持、却不能在那条路径上支持，例如
+ * 子查询还含有 ORDER BY 时。
  */
 void
 flatten_simple_union_all(PlannerInfo *root)
@@ -2684,24 +2684,24 @@ flatten_simple_union_all(PlannerInfo *root)
 	RangeTblEntry *childRTE;
 	RangeTblRef *rtr;
 
-	/* Shouldn't be called unless query has setops */
+	/* 除非查询有集合运算，否则不应当调用 */
 	topop = castNode(SetOperationStmt, parse->setOperations);
 	Assert(topop);
 
-	/* Can't optimize away a recursive UNION */
+	/* 无法优化掉递归 UNION */
 	if (root->hasRecursion)
 		return;
 
 	/*
-	 * Recursively check the tree of set operations.  If not all UNION ALL
-	 * with identical column types, punt.
+	 * 递归检查集合运算树。若并非全部是列类型相同的 UNION ALL，
+	 * 就放弃。
 	 */
 	if (!is_simple_union_all_recurse((Node *) topop, parse, topop->colTypes))
 		return;
 
 	/*
-	 * Locate the leftmost leaf query in the setops tree.  The upper query's
-	 * Vars all refer to this RTE (see transformSetOperationStmt).
+	 * 定位集合运算树中最左边的叶子查询。上层查询的
+	 * Var 都引用这个 RTE（见 transformSetOperationStmt）。
 	 */
 	leftmostjtnode = topop->larg;
 	while (leftmostjtnode && IsA(leftmostjtnode, SetOperationStmt))
@@ -2712,25 +2712,25 @@ flatten_simple_union_all(PlannerInfo *root)
 	Assert(leftmostRTE->rtekind == RTE_SUBQUERY);
 
 	/*
-	 * Make a copy of the leftmost RTE and add it to the rtable.  This copy
-	 * will represent the leftmost leaf query in its capacity as a member of
-	 * the appendrel.  The original will represent the appendrel as a whole.
-	 * (We must do things this way because the upper query's Vars have to be
-	 * seen as referring to the whole appendrel.)
+	 * 复制最左边的 RTE 并加入 rtable。这份副本
+	 * 将代表最左边的叶子查询，身份是
+	 * appendrel 的成员。原件将代表整个 appendrel。
+	 * （必须这样做，因为上层查询的 Var 必须被
+	 * 看作引用整个 appendrel。）
 	 */
 	childRTE = copyObject(leftmostRTE);
 	parse->rtable = lappend(parse->rtable, childRTE);
 	childRTI = list_length(parse->rtable);
 
-	/* Modify the setops tree to reference the child copy */
+	/* 修改集合运算树，使它引用子副本 */
 	((RangeTblRef *) leftmostjtnode)->rtindex = childRTI;
 
-	/* Modify the formerly-leftmost RTE to mark it as an appendrel parent */
+	/* 修改原先最左边的 RTE，把它标成 appendrel 父项 */
 	leftmostRTE->inh = true;
 
 	/*
-	 * Form a RangeTblRef for the appendrel, and insert it into FROM.  The top
-	 * Query of a setops tree should have had an empty FromClause initially.
+	 * 为 appendrel 形成一个 RangeTblRef，并插入 FROM。集合运算树的顶层
+	 * Query 最初应当有一个空的 FromClause。
 	 */
 	rtr = makeNode(RangeTblRef);
 	rtr->rtindex = leftmostRTI;
@@ -2738,16 +2738,16 @@ flatten_simple_union_all(PlannerInfo *root)
 	parse->jointree->fromlist = list_make1(rtr);
 
 	/*
-	 * Now pretend the query has no setops.  We must do this before trying to
-	 * do subquery pullup, because of Assert in pull_up_simple_subquery.
+	 * 现在假装该查询没有集合运算。必须在尝试
+	 * 上拉子查询之前这样做，因为 pull_up_simple_subquery 里有 Assert。
 	 */
 	parse->setOperations = NULL;
 
 	/*
-	 * Build AppendRelInfo information, and apply pull_up_subqueries to the
-	 * leaf queries of the UNION ALL.  (We must do that now because they
-	 * weren't previously referenced by the jointree, and so were missed by
-	 * the main invocation of pull_up_subqueries.)
+	 * 建立 AppendRelInfo 信息，并对 UNION ALL 的
+	 * 叶子查询应用 pull_up_subqueries。（必须现在做，因为它们
+	 * 以前没有被连接树引用，因此被
+	 * pull_up_subqueries 的主调用漏掉了。）
 	 */
 	pull_up_union_leaf_queries((Node *) topop, root, leftmostRTI, parse, 0);
 }
@@ -2755,41 +2755,41 @@ flatten_simple_union_all(PlannerInfo *root)
 
 /*
  * reduce_outer_joins
- *		Attempt to reduce outer joins to plain inner joins.
+ *		尝试把外连接简化为普通内连接。
  *
- * The idea here is that given a query like
+ * 这里的想法是，给定如下查询
  *		SELECT ... FROM a LEFT JOIN b ON (...) WHERE b.y = 42;
- * we can reduce the LEFT JOIN to a plain JOIN if the "=" operator in WHERE
- * is strict.  The strict operator will always return NULL, causing the outer
- * WHERE to fail, on any row where the LEFT JOIN filled in NULLs for b's
- * columns.  Therefore, there's no need for the join to produce null-extended
- * rows in the first place --- which makes it a plain join not an outer join.
- * (This scenario may not be very likely in a query written out by hand, but
- * it's reasonably likely when pushing quals down into complex views.)
+ * 若 WHERE 中的 "=" 操作符是严格的，就可以把 LEFT JOIN 简化为普通 JOIN。
+ * 严格操作符总会返回 NULL，从而使外层
+ * WHERE 失败，发生在 LEFT JOIN 为 b 的
+ * 列填入 NULLs 的任何行上。因此连接根本不必产生空值扩展的
+ * 行——这使它成为普通连接而不是外连接。
+ * （手写查询里这种情形也许不太常见，但
+ * 把限定条件下推进复杂视图时相当常见。）
  *
- * More generally, an outer join can be reduced in strength if there is a
- * strict qual above it in the qual tree that constrains a Var from the
- * nullable side of the join to be non-null.  (For FULL joins this applies
- * to each side separately.)
+ * 更一般地，若限定条件树中在外连接之上有一条
+ * 严格限定条件，把来自连接可空一侧的 Var
+ * 约束为非空，就可以降低该外连接的强度。（对 FULL 连接，这
+ * 分别适用于每一侧。）
  *
- * Another transformation we apply here is to recognize cases like
+ * 这里还做另一种变换，用来识别如下情形
  *		SELECT ... FROM a LEFT JOIN b ON (a.x = b.y) WHERE b.y IS NULL;
- * If the join clause is strict for b.y, then only null-extended rows could
- * pass the upper WHERE, and we can conclude that what the query is really
- * specifying is an anti-semijoin.  We change the join type from JOIN_LEFT
- * to JOIN_ANTI.  The IS NULL clause then becomes redundant, and must be
- * removed to prevent bogus selectivity calculations, but we leave it to
- * distribute_qual_to_rels to get rid of such clauses.
+ * 若连接子句对 b.y 严格，则只有空值扩展行能够
+ * 通过上层 WHERE，于是可以断定查询真正
+ * 指定的是反半连接。我们把连接类型从 JOIN_LEFT
+ * 改为 JOIN_ANTI。于是 IS NULL 子句变得多余，必须
+ * 去掉以防错误的选择率计算，但我们把它留给
+ * distribute_qual_to_rels 来去掉这类子句。
  *
- * Also, we get rid of JOIN_RIGHT cases by flipping them around to become
- * JOIN_LEFT.  This saves some code here and in some later planner routines;
- * the main benefit is to reduce the number of jointypes that can appear in
- * SpecialJoinInfo nodes.  Note that we can still generate Paths and Plans
- * that use JOIN_RIGHT (or JOIN_RIGHT_ANTI) by switching the inputs again.
+ * 另外，我们通过把 JOIN_RIGHT 翻过来变成
+ * JOIN_LEFT 来消除这些情形。这省下这里和后面一些规划器例程中的代码；
+ * 主要好处是减少可以出现在
+ * SpecialJoinInfo 节点中的连接类型数目。注意仍然可以生成使用
+ * JOIN_RIGHT（或 JOIN_RIGHT_ANTI）的 Path 和 Plan，办法是再次交换输入。
  *
- * To ease recognition of strict qual clauses, we require this routine to be
- * run after expression preprocessing (i.e., qual canonicalization and JOIN
- * alias-var expansion).
+ * 为便于识别严格限定条件子句，我们需要本例程在
+ * 表达式预处理之后运行（即限定条件规范化以及 JOIN
+ * 别名 var 展开之后）。
  */
 void
 reduce_outer_joins(PlannerInfo *root)
@@ -2799,17 +2799,17 @@ reduce_outer_joins(PlannerInfo *root)
 	ListCell   *lc;
 
 	/*
-	 * To avoid doing strictness checks on more quals than necessary, we want
-	 * to stop descending the jointree as soon as there are no outer joins
-	 * below our current point.  This consideration forces a two-pass process.
-	 * The first pass gathers information about which base rels appear below
-	 * each side of each join clause, and about whether there are outer
-	 * join(s) below each side of each join clause. The second pass examines
-	 * qual clauses and changes join types as it descends the tree.
+	 * 为避免对超出必要的限定条件做严格性检查，我们希望
+	 * 一旦当前点之下不再有外连接，就停止沿连接树下降。
+	 * 这一考虑迫使过程分成两遍。
+	 * 第一遍收集每个连接子句每一侧之下出现哪些基关系，
+	 * 以及每个连接子句每一侧之下是否有外
+	 * 连接。第二遍检查
+	 * 限定条件子句，并在下降树的过程中改变连接类型。
 	 */
 	state1 = reduce_outer_joins_pass1((Node *) root->parse->jointree);
 
-	/* planner.c shouldn't have called me if no outer joins */
+	/* 没有外连接时，planner.c 不应当调用本函数 */
 	if (state1 == NULL || !state1->contains_outer)
 		elog(ERROR, "so where are the outer joins?");
 
@@ -2821,10 +2821,10 @@ reduce_outer_joins(PlannerInfo *root)
 							 root, NULL, NIL);
 
 	/*
-	 * If we successfully reduced the strength of any outer joins, we must
-	 * remove references to those joins as nulling rels.  This is handled as
-	 * an additional pass, for simplicity and because we can handle all
-	 * fully-reduced joins in a single pass over the parse tree.
+	 * 若成功降低了任何外连接的强度，必须
+	 * 去掉把这些连接当作置空关系的引用。这作为
+	 * 额外的一遍来处理，既为简单，也因为可以在
+	 * 对解析树的单次扫描中处理全部完全简化的连接。
 	 */
 	if (!bms_is_empty(state2.inner_reduced))
 	{
@@ -2832,7 +2832,7 @@ reduce_outer_joins(PlannerInfo *root)
 			remove_nulling_relids((Node *) root->parse,
 								  state2.inner_reduced,
 								  NULL);
-		/* There could be references in the append_rel_list, too */
+		/* append_rel_list 里也可能有引用 */
 		root->append_rel_list = (List *)
 			remove_nulling_relids((Node *) root->append_rel_list,
 								  state2.inner_reduced,
@@ -2840,8 +2840,8 @@ reduce_outer_joins(PlannerInfo *root)
 	}
 
 	/*
-	 * Partially-reduced full joins have to be done one at a time, since
-	 * they'll each need a different setting of except_relids.
+	 * 部分简化的全连接必须一次做一个，因为
+	 * 它们各自需要不同的 except_relids 设置。
 	 */
 	foreach(lc, state2.partial_reduced)
 	{
@@ -2860,9 +2860,9 @@ reduce_outer_joins(PlannerInfo *root)
 }
 
 /*
- * reduce_outer_joins_pass1 - phase 1 data collection
+ * reduce_outer_joins_pass1 - 第一阶段数据收集
  *
- * Returns a state node describing the given jointree node.
+ * 返回描述给定连接树节点的状态节点。
  */
 static reduce_outer_joins_pass1_state *
 reduce_outer_joins_pass1(Node *jtnode)
@@ -2904,7 +2904,7 @@ reduce_outer_joins_pass1(Node *jtnode)
 		JoinExpr   *j = (JoinExpr *) jtnode;
 		reduce_outer_joins_pass1_state *sub_state;
 
-		/* join's own RT index is not wanted in result->relids */
+		/* 结果的 relids 中不需要连接自身的 RT 下标 */
 		if (IS_OUTER_JOIN(j->jointype))
 			result->contains_outer = true;
 
@@ -2927,20 +2927,20 @@ reduce_outer_joins_pass1(Node *jtnode)
 }
 
 /*
- * reduce_outer_joins_pass2 - phase 2 processing
+ * reduce_outer_joins_pass2 - 第二阶段处理
  *
- *	jtnode: current jointree node
- *	state1: state data collected by phase 1 for this node
- *	state2: where to accumulate info about successfully-reduced joins
- *	root: toplevel planner state
- *	nonnullable_rels: set of base relids forced non-null by upper quals
- *	forced_null_vars: multibitmapset of Vars forced null by upper quals
+ *	jtnode：当前连接树节点
+ *	state1：第一阶段为该节点收集的状态数据
+ *	state2：用来累积成功简化的连接的信息
+ *	root：顶层规划器状态
+ *	nonnullable_rels：被上层限定条件强制为非空的基表 relid 集合
+ *	forced_null_vars：被上层限定条件强制为 null 的 Var 的 multibitmapset
  *
- * Returns info in state2 about outer joins that were successfully simplified.
- * Joins that were fully reduced to inner joins are all added to
- * state2->inner_reduced.  If a full join is reduced to a left join,
- * it needs its own entry in state2->partial_reduced, since that will
- * require custom processing to remove only the correct nullingrel markers.
+ * 在 state2 中返回成功简化的外连接信息。
+ * 完全简化为内连接的连接都加入
+ * state2->inner_reduced。若全连接被简化为左连接，
+ * 它需要自己在 state2->partial_reduced 中的一项，因为那将
+ * 需要专门处理，以便只去掉正确的 nullingrel 标记。
  */
 static void
 reduce_outer_joins_pass2(Node *jtnode,
@@ -2951,8 +2951,8 @@ reduce_outer_joins_pass2(Node *jtnode,
 						 List *forced_null_vars)
 {
 	/*
-	 * pass 2 should never descend as far as an empty subnode or base rel,
-	 * because it's only called on subtrees marked as contains_outer.
+	 * 第二遍不应当下降到空子节点或基关系，
+	 * 因为它只在标了 contains_outer 的子树上被调用。
 	 */
 	if (jtnode == NULL)
 		elog(ERROR, "reached empty jointree");
@@ -2966,14 +2966,14 @@ reduce_outer_joins_pass2(Node *jtnode,
 		Relids		pass_nonnullable_rels;
 		List	   *pass_forced_null_vars;
 
-		/* Scan quals to see if we can add any constraints */
+		/* 扫描限定条件，看能否增加任何约束 */
 		pass_nonnullable_rels = find_nonnullable_rels(f->quals);
 		pass_nonnullable_rels = bms_add_members(pass_nonnullable_rels,
 												nonnullable_rels);
 		pass_forced_null_vars = find_forced_null_vars(f->quals);
 		pass_forced_null_vars = mbms_add_members(pass_forced_null_vars,
 												 forced_null_vars);
-		/* And recurse --- but only into interesting subtrees */
+		/* 然后递归——但只进入有意思的子树 */
 		Assert(list_length(f->fromlist) == list_length(state1->sub_states));
 		forboth(l, f->fromlist, s, state1->sub_states)
 		{
@@ -2986,7 +2986,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 										 pass_forced_null_vars);
 		}
 		bms_free(pass_nonnullable_rels);
-		/* can't so easily clean up var lists, unfortunately */
+		/* 可惜没法这么容易地清理 var 列表 */
 	}
 	else if (IsA(jtnode, JoinExpr))
 	{
@@ -2996,7 +2996,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 		reduce_outer_joins_pass1_state *left_state = linitial(state1->sub_states);
 		reduce_outer_joins_pass1_state *right_state = lsecond(state1->sub_states);
 
-		/* Can we simplify this join? */
+		/* 能简化这个连接吗？ */
 		switch (jointype)
 		{
 			case JOIN_INNER:
@@ -3017,7 +3017,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 					else
 					{
 						jointype = JOIN_LEFT;
-						/* Also report partial reduction in state2 */
+						/* 也在 state2 中报告部分简化 */
 						report_reduced_full_join(state2, rtindex,
 												 right_state->relids);
 					}
@@ -3027,7 +3027,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 					if (bms_overlap(nonnullable_rels, right_state->relids))
 					{
 						jointype = JOIN_RIGHT;
-						/* Also report partial reduction in state2 */
+						/* 也在 state2 中报告部分简化 */
 						report_reduced_full_join(state2, rtindex,
 												 left_state->relids);
 					}
@@ -3037,10 +3037,10 @@ reduce_outer_joins_pass2(Node *jtnode,
 			case JOIN_ANTI:
 
 				/*
-				 * These could only have been introduced by pull_up_sublinks,
-				 * so there's no way that upper quals could refer to their
-				 * righthand sides, and no point in checking.  We don't expect
-				 * to see JOIN_RIGHT_ANTI yet.
+				 * 这些只可能由 pull_up_sublinks 引入，
+				 * 所以上层限定条件不可能引用它们的
+				 * 右侧，检查没有意义。我们不预期
+				 * 此时会看到 JOIN_RIGHT_ANTI。
 				 */
 				break;
 			default:
@@ -3050,11 +3050,11 @@ reduce_outer_joins_pass2(Node *jtnode,
 		}
 
 		/*
-		 * Convert JOIN_RIGHT to JOIN_LEFT.  Note that in the case where we
-		 * reduced JOIN_FULL to JOIN_RIGHT, this will mean the JoinExpr no
-		 * longer matches the internal ordering of any CoalesceExpr's built to
-		 * represent merged join variables.  We don't care about that at
-		 * present, but be wary of it ...
+		 * 把 JOIN_RIGHT 转换成 JOIN_LEFT。注意在我们把
+		 * JOIN_FULL 简化为 JOIN_RIGHT 的情况下，JoinExpr 将不再
+		 * 匹配为表示合并后的连接变量而建立的任何 CoalesceExpr 的内部顺序。
+		 * 目前我们不在乎这一点，
+		 * 但要当心 ...
 		 */
 		if (jointype == JOIN_RIGHT)
 		{
@@ -3069,27 +3069,27 @@ reduce_outer_joins_pass2(Node *jtnode,
 		}
 
 		/*
-		 * See if we can reduce JOIN_LEFT to JOIN_ANTI.  This is the case if
-		 * the join's own quals are strict for any var that was forced null by
-		 * higher qual levels.  NOTE: there are other ways that we could
-		 * detect an anti-join, in particular if we were to check whether Vars
-		 * coming from the RHS must be non-null because of table constraints.
-		 * That seems complicated and expensive though (in particular, one
-		 * would have to be wary of lower outer joins). For the moment this
-		 * seems sufficient.
+		 * 看能否把 JOIN_LEFT 简化为 JOIN_ANTI。若
+		 * 连接自身的限定条件对任何被更高层限定条件强制为 null 的 var 是严格的，
+		 * 就是这种情况。注意：还有别的办法可以
+		 * 检测反连接，特别是若检查来自 RHS 的 Var
+		 * 是否因表约束而必须非空。
+		 * 不过那显得复杂而昂贵（特别是，必须
+		 * 当心更低层的外连接）。眼下这
+		 * 似乎足够了。
 		 */
 		if (jointype == JOIN_LEFT)
 		{
 			List	   *nonnullable_vars;
 			Bitmapset  *overlap;
 
-			/* Find Vars in j->quals that must be non-null in joined rows */
+			/* 找出 j->quals 中在连接行里必须非空的 Var */
 			nonnullable_vars = find_nonnullable_vars(j->quals);
 
 			/*
-			 * It's not sufficient to check whether nonnullable_vars and
-			 * forced_null_vars overlap: we need to know if the overlap
-			 * includes any RHS variables.
+			 * 只检查 nonnullable_vars 与
+			 * forced_null_vars 是否重叠是不够的：需要知道重叠
+			 * 是否包含任何 RHS 变量。
 			 */
 			overlap = mbms_overlap_sets(nonnullable_vars, forced_null_vars);
 			if (bms_overlap(overlap, right_state->relids))
@@ -3097,8 +3097,8 @@ reduce_outer_joins_pass2(Node *jtnode,
 		}
 
 		/*
-		 * Apply the jointype change, if any, to both jointree node and RTE.
-		 * Also, if we changed an RTE to INNER, add its RTI to inner_reduced.
+		 * 若连接类型有变化，同时应用到连接树节点和 RTE。
+		 * 另外，若把某个 RTE 改成了 INNER，把它的 RTI 加入 inner_reduced。
 		 */
 		if (rtindex && jointype != j->jointype)
 		{
@@ -3113,7 +3113,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 		}
 		j->jointype = jointype;
 
-		/* Only recurse if there's more to do below here */
+		/* 只有下面还有事可做时才递归 */
 		if (left_state->contains_outer || right_state->contains_outer)
 		{
 			Relids		local_nonnullable_rels;
@@ -3122,25 +3122,25 @@ reduce_outer_joins_pass2(Node *jtnode,
 			List	   *pass_forced_null_vars;
 
 			/*
-			 * If this join is (now) inner, we can add any constraints its
-			 * quals provide to those we got from above.  But if it is outer,
-			 * we can pass down the local constraints only into the nullable
-			 * side, because an outer join never eliminates any rows from its
-			 * non-nullable side.  Also, there is no point in passing upper
-			 * constraints into the nullable side, since if there were any
-			 * we'd have been able to reduce the join.  (In the case of upper
-			 * forced-null constraints, we *must not* pass them into the
-			 * nullable side --- they either applied here, or not.) The upshot
-			 * is that we pass either the local or the upper constraints,
-			 * never both, to the children of an outer join.
+			 * 若此连接（现在）是内连接，可以把它的限定条件提供的任何约束
+			 * 加到从上面得到的那些约束上。但若它是外连接，
+			 * 只能把局部约束下传到可空
+			 * 一侧，因为外连接从不消除其
+			 * 不可空一侧的任何行。另外，把上层
+			 * 约束传进可空一侧没有意义，因为若有的话
+			 * 我们已经能简化该连接。（对于上层的
+			 * 强制为 null 的约束，不得把它们传进
+			 * 可空一侧——它们要么已在这里起作用，要么没有。）结论
+			 * 是我们把局部约束或上层约束之一传给外连接的子节点，
+			 * 绝不同时传两者。
 			 *
-			 * Note that a SEMI join works like an inner join here: it's okay
-			 * to pass down both local and upper constraints.  (There can't be
-			 * any upper constraints affecting its inner side, but it's not
-			 * worth having a separate code path to avoid passing them.)
+			 * 注意 SEMI 连接在这里像内连接：可以
+			 * 同时下传局部约束和上层约束。（不可能有
+			 * 影响其内侧的上层约束，但
+			 * 不值得为避免传递它们而另开一条代码路径。）
 			 *
-			 * At a FULL join we just punt and pass nothing down --- is it
-			 * possible to be smarter?
+			 * 在 FULL 连接处我们直接放弃，什么也不下传——是否
+			 * 有可能更聪明？
 			 */
 			if (jointype != JOIN_FULL)
 			{
@@ -3148,7 +3148,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 				local_forced_null_vars = find_forced_null_vars(j->quals);
 				if (jointype == JOIN_INNER || jointype == JOIN_SEMI)
 				{
-					/* OK to merge upper and local constraints */
+					/* 可以合并上层约束与局部约束 */
 					local_nonnullable_rels = bms_add_members(local_nonnullable_rels,
 															 nonnullable_rels);
 					local_forced_null_vars = mbms_add_members(local_forced_null_vars,
@@ -3157,7 +3157,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 			}
 			else
 			{
-				/* no use in calculating these */
+				/* 计算这些没有用 */
 				local_nonnullable_rels = NULL;
 				local_forced_null_vars = NIL;
 			}
@@ -3166,19 +3166,19 @@ reduce_outer_joins_pass2(Node *jtnode,
 			{
 				if (jointype == JOIN_INNER || jointype == JOIN_SEMI)
 				{
-					/* pass union of local and upper constraints */
+					/* 传递局部约束与上层约束的并集 */
 					pass_nonnullable_rels = local_nonnullable_rels;
 					pass_forced_null_vars = local_forced_null_vars;
 				}
-				else if (jointype != JOIN_FULL) /* ie, LEFT or ANTI */
+				else if (jointype != JOIN_FULL) /* 即 LEFT 或 ANTI */
 				{
-					/* can't pass local constraints to non-nullable side */
+					/* 不能把局部约束传到不可空一侧 */
 					pass_nonnullable_rels = nonnullable_rels;
 					pass_forced_null_vars = forced_null_vars;
 				}
 				else
 				{
-					/* no constraints pass through JOIN_FULL */
+					/* 没有约束能穿过 JOIN_FULL */
 					pass_nonnullable_rels = NULL;
 					pass_forced_null_vars = NIL;
 				}
@@ -3190,15 +3190,15 @@ reduce_outer_joins_pass2(Node *jtnode,
 
 			if (right_state->contains_outer)
 			{
-				if (jointype != JOIN_FULL)	/* ie, INNER/LEFT/SEMI/ANTI */
+				if (jointype != JOIN_FULL)	/* 即 INNER/LEFT/SEMI/ANTI */
 				{
-					/* pass appropriate constraints, per comment above */
+					/* 按上面的注释传递适当的约束 */
 					pass_nonnullable_rels = local_nonnullable_rels;
 					pass_forced_null_vars = local_forced_null_vars;
 				}
 				else
 				{
-					/* no constraints pass through JOIN_FULL */
+					/* 没有约束能穿过 JOIN_FULL */
 					pass_nonnullable_rels = NULL;
 					pass_forced_null_vars = NIL;
 				}
@@ -3215,7 +3215,7 @@ reduce_outer_joins_pass2(Node *jtnode,
 			 (int) nodeTag(jtnode));
 }
 
-/* Helper for reduce_outer_joins_pass2 */
+/* reduce_outer_joins_pass2 的辅助函数 */
 static void
 report_reduced_full_join(reduce_outer_joins_pass2_state *state2,
 						 int rtindex, Relids relids)
@@ -3231,59 +3231,59 @@ report_reduced_full_join(reduce_outer_joins_pass2_state *state2,
 
 /*
  * remove_useless_result_rtes
- *		Attempt to remove RTE_RESULT RTEs from the join tree.
- *		Also, elide single-child FromExprs where possible.
+ *		尝试从连接树中去掉 RTE_RESULT RTEs。
+ *		另外，在可能时省去单子节点的 FromExprs。
  *
- * We can remove RTE_RESULT entries from the join tree using the knowledge
- * that RTE_RESULT returns exactly one row and has no output columns.  Hence,
- * if one is inner-joined to anything else, we can delete it.  Optimizations
- * are also possible for some outer-join cases, as detailed below.
+ * 可以利用如下知识从连接树去掉 RTE_RESULT 项：
+ * RTE_RESULT 恰好返回一行，并且没有输出列。因此，
+ * 若它与其他任何东西做内连接，就可以删掉它。对某些外连接情形
+ * 也可以优化，详见下文。
  *
- * This pass also replaces single-child FromExprs with their child node
- * where possible.  It's appropriate to do that here and not earlier because
- * RTE_RESULT removal might reduce a multiple-child FromExpr to have only one
- * child.  We can remove such a FromExpr if its quals are empty, or if it's
- * semantically valid to merge the quals into those of the parent node.
- * While removing unnecessary join tree nodes has some micro-efficiency value,
- * the real reason to do this is to eliminate cases where the nullable side of
- * an outer join node is a FromExpr whose single child is another outer join.
- * To correctly determine whether the two outer joins can commute,
- * deconstruct_jointree() must treat any quals of such a FromExpr as being
- * degenerate quals of the upper outer join.  The best way to do that is to
- * make them actually *be* quals of the upper join, by dropping the FromExpr
- * and hoisting the quals up into the upper join's quals.  (Note that there is
- * no hazard when the intermediate FromExpr has multiple children, since then
- * it represents an inner join that cannot commute with the upper outer join.)
- * As long as we have to do that, we might as well elide such FromExprs
- * everywhere.
+ * 这一遍还会在可能时用子节点替换单子节点的 FromExprs。
+ * 放在这里而不是更早做是合适的，因为
+ * 去掉 RTE_RESULT 可能把多子节点的 FromExpr 减成只有一个
+ * 子节点。若这种 FromExpr 的限定条件为空，或者在语义上
+ * 可以把限定条件并入父节点的限定条件，就可以去掉它。
+ * 去掉不必要的连接树节点有一点微观效率价值，
+ * 真正的原因是要消除这种情形：外连接节点的可空一侧
+ * 是一个 FromExpr，其唯一子节点是另一个外连接。
+ * 为了正确判断这两个外连接能否交换，
+ * deconstruct_jointree() 必须把这种 FromExpr 的任何限定条件当作
+ * 上层外连接的退化限定条件。最好的办法是
+ * 让它们真的成为上层连接的限定条件：丢掉 FromExpr，
+ * 并把限定条件提升到上层连接的限定条件中。（注意，
+ * 中间的 FromExpr 有多个子节点时没有危险，因为那时
+ * 它表示一个没法与上层外连接交换的内连接。）
+ * 既然必须做这件事，不妨到处
+ * 省去这种 FromExprs。
  *
- * Some of these optimizations depend on recognizing empty (constant-true)
- * quals for FromExprs and JoinExprs.  That makes it useful to apply this
- * optimization pass after expression preprocessing, since that will have
- * eliminated constant-true quals, allowing more cases to be recognized as
- * optimizable.  What's more, the usual reason for an RTE_RESULT to be present
- * is that we pulled up a subquery or VALUES clause, thus very possibly
- * replacing Vars with constants, making it more likely that a qual can be
- * reduced to constant true.  Also, because some optimizations depend on
- * the outer-join type, it's best to have done reduce_outer_joins() first.
+ * 其中一些优化依赖于识别 FromExprs 和 JoinExprs 的空（恒真）
+ * 限定条件。因此在表达式预处理之后再做这一遍是有用的，因为那会
+ * 消掉恒真限定条件，使更多情形被识别为
+ * 可优化。而且，出现 RTE_RESULT 的通常原因
+ * 是我们上拉了子查询或 VALUES 子句，因而很有可能
+ * 用常量替换了 Var，使限定条件更可能被
+ * 归约为恒真。另外，因为有些优化依赖于
+ * 外连接类型，最好先做完 reduce_outer_joins()。
+ * 引用 RTE_RESULT RTE 的 PlaceHolderVar 会阻碍这个
  *
- * A PlaceHolderVar referencing an RTE_RESULT RTE poses an obstacle to this
- * process: we must remove the RTE_RESULT's relid from the PHV's phrels, but
- * we must not reduce the phrels set to empty.  If that would happen, and
- * the RTE_RESULT is an immediate child of an outer join, we have to give up
- * and not remove the RTE_RESULT: there is noplace else to evaluate the
- * PlaceHolderVar.  (That is, in such cases the RTE_RESULT *does* have output
- * columns.)  But if the RTE_RESULT is an immediate child of an inner join,
- * we can usually change the PlaceHolderVar's phrels so as to evaluate it at
- * the inner join instead.  This is OK because we really only care that PHVs
- * are evaluated above or below the correct outer joins.  We can't, however,
- * postpone the evaluation of a PHV to above where it is used; so there are
- * some checks below on whether output PHVs are laterally referenced in the
- * other join input rel(s).
+ * 过程：必须从 PHV 的 phrels 中去掉该 RTE_RESULT 的 relid，但
+ * 不得把 phrels 集合减成空。若会发生这种情况，并且
+ * 该 RTE_RESULT 是外连接的直接子节点，就只好放弃
+ * 并且不去掉该 RTE_RESULT：没有别的地方可求值这个
+ * PlaceHolderVar。（也就是说，在这类情况下 RTE_RESULT 确实有输出
+ * 列。）但若 RTE_RESULT 是内连接的直接子节点，
+ * 通常可以改 PlaceHolderVar 的 phrels，改为在
+ * 内连接处求值它。这是可以的，因为我们真正在乎的只是 PHVs
+ * 在正确的外连接之上或之下求值。不过，没法
+ * 把 PHV 的求值推迟到使用它的位置之上；因此下面有
+ * 一些检查，看输出 PHVs 是否在
+ * 另一个连接输入关系中被 LATERAL 引用。
+ * 我们以前试图作为 pull_up_subqueries() 的一部分来做这项工作，
  *
- * We used to try to do this work as part of pull_up_subqueries() where the
- * potentially-optimizable cases get introduced; but it's way simpler, and
- * more effective, to do it separately.
+ * 潜在可优化的情形就是在那里引入的；但分开做
+ * 要简单得多，
+ * 也更有效。
  */
 void
 remove_useless_result_rtes(PlannerInfo *root)
@@ -3291,25 +3291,25 @@ remove_useless_result_rtes(PlannerInfo *root)
 	Relids		dropped_outer_joins = NULL;
 	ListCell   *cell;
 
-	/* Top level of jointree must always be a FromExpr */
+	/* 连接树顶层必须始终是 FromExpr */
 	Assert(IsA(root->parse->jointree, FromExpr));
-	/* Recurse ... */
+	/* 递归 ... */
 	root->parse->jointree = (FromExpr *)
 		remove_useless_results_recurse(root,
 									   (Node *) root->parse->jointree,
 									   NULL,
 									   &dropped_outer_joins);
-	/* We should still have a FromExpr */
+	/* 此时仍应有一个 FromExpr */
 	Assert(IsA(root->parse->jointree, FromExpr));
 
 	/*
-	 * If we removed any outer-join nodes from the jointree, run around and
-	 * remove references to those joins as nulling rels.  (There could be such
-	 * references in PHVs that we pulled up out of the original subquery that
-	 * the RESULT rel replaced.  This is kosher on the grounds that we now
-	 * know that such an outer join wouldn't really have nulled anything.)  We
-	 * don't do this during the main recursion, for simplicity and because we
-	 * can handle all such joins in a single pass over the parse tree.
+	 * 若从连接树去掉了任何外连接节点，转一圈
+	 * 去掉把这些连接当作置空关系的引用。（上拉出
+	 * 被 RESULT 关系替换的原子查询的 PHVs 里
+	 * 可能有这种引用。这是正当的，因为我们现在
+	 * 知道这种外连接实际上不会把任何东西置空。）我们
+	 * 不在主递归期间做这件事，既为简单，也因为可以在
+	 * 对解析树的单次扫描中处理全部这种连接。
 	 */
 	if (!bms_is_empty(dropped_outer_joins))
 	{
@@ -3317,7 +3317,7 @@ remove_useless_result_rtes(PlannerInfo *root)
 			remove_nulling_relids((Node *) root->parse,
 								  dropped_outer_joins,
 								  NULL);
-		/* There could be references in the append_rel_list, too */
+		/* append_rel_list 里也可能有引用 */
 		root->append_rel_list = (List *)
 			remove_nulling_relids((Node *) root->append_rel_list,
 								  dropped_outer_joins,
@@ -3325,15 +3325,15 @@ remove_useless_result_rtes(PlannerInfo *root)
 	}
 
 	/*
-	 * Remove any PlanRowMark referencing an RTE_RESULT RTE.  We obviously
-	 * must do that for any RTE_RESULT that we just removed.  But one for a
-	 * RTE that we did not remove can be dropped anyway: since the RTE has
-	 * only one possible output row, there is no need for EPQ to mark and
-	 * restore that row.
+	 * 去掉任何引用 RTE_RESULT RTE 的 PlanRowMark。对于刚刚去掉的
+	 * 任何 RTE_RESULT，显然必须这样做。但即使是我们没有去掉的
+	 * RTE，对应的标记也可以丢掉：因为该 RTE
+	 * 只有一种可能的输出行，EPQ 不必标记并
+	 * 恢复那一行。
 	 *
-	 * It's necessary, not optional, to remove the PlanRowMark for a surviving
-	 * RTE_RESULT RTE; otherwise we'll generate a whole-row Var for the
-	 * RTE_RESULT, which the executor has no support for.
+	 * 对幸存的 RTE_RESULT RTE 去掉 PlanRowMark 是必要的，不是可选的；
+	 * 否则会为该
+	 * RTE_RESULT 生成整行 Var，而执行器不支持。
 	 */
 	foreach(cell, root->rowMarks)
 	{
@@ -3346,17 +3346,17 @@ remove_useless_result_rtes(PlannerInfo *root)
 
 /*
  * remove_useless_results_recurse
- *		Recursive guts of remove_useless_result_rtes.
+ *		remove_useless_result_rtes 的递归主体。
  *
- * This recursively processes the jointree and returns a modified jointree.
- * In addition, the RT indexes of any removed outer-join nodes are added to
- * *dropped_outer_joins.
+ * 本函数递归处理连接树并返回修改后的连接树。
+ * 另外，任何被去掉的外连接节点的 RT 下标会加入
+ * *dropped_outer_joins。
  *
- * jtnode is the current jointree node.  If it could be valid to merge
- * its quals into those of the parent node, parent_quals should point to
- * the parent's quals list; otherwise, pass NULL for parent_quals.
- * (Note that in some cases, parent_quals points to the quals of a parent
- * more than one level up in the tree.)
+ * jtnode 是当前连接树节点。若把它的限定条件并入
+ * 父节点的限定条件是合法的，parent_quals 应当指向
+ * 父节点的限定条件列表；否则为 parent_quals 传入 NULL。
+ * （注意有些情况下，parent_quals 指向树上
+ * 高出不止一层的父节点的限定条件。）
  */
 static Node *
 remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
@@ -3366,7 +3366,7 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 	Assert(jtnode != NULL);
 	if (IsA(jtnode, RangeTblRef))
 	{
-		/* Can't immediately do anything with a RangeTblRef */
+		/* 对 RangeTblRef 不能立刻做任何事 */
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -3375,31 +3375,31 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 		ListCell   *cell;
 
 		/*
-		 * We can drop RTE_RESULT rels from the fromlist so long as at least
-		 * one child remains, since joining to a one-row table changes
-		 * nothing.  (But we can't drop a RTE_RESULT that computes PHV(s) that
-		 * are needed by some sibling.  The cleanup transformation below would
-		 * reassign the PHVs to be computed at the join, which is too late for
-		 * the sibling's use.)  The easiest way to mechanize this rule is to
-		 * modify the list in-place.
+		 * 只要至少还剩
+		 * 一个子节点，就可以从 fromlist 丢掉 RTE_RESULT 关系，因为连接到单行表
+		 * 什么也不改变。（但不能丢掉计算某些兄弟需要的 PHV 的 RTE_RESULT。
+		 * 下面的清理变换会
+		 * 把这些 PHVs 改派到在连接处计算，对
+		 * 兄弟来说太晚了。）把这条规则机械化的最简单办法是
+		 * 就地修改列表。
 		 */
 		foreach(cell, f->fromlist)
 		{
 			Node	   *child = (Node *) lfirst(cell);
 			int			varno;
 
-			/* Recursively transform child, allowing it to push up quals ... */
+			/* 递归变换子节点，允许它上推限定条件 ... */
 			child = remove_useless_results_recurse(root, child,
 												   &f->quals,
 												   dropped_outer_joins);
-			/* ... and stick it back into the tree */
+			/* ... 再把它塞回树中 */
 			lfirst(cell) = child;
 
 			/*
-			 * If it's an RTE_RESULT with at least one sibling, and no sibling
-			 * references dependent PHVs, we can drop it.  We don't yet know
-			 * what the inner join's final relid set will be, so postpone
-			 * cleanup of PHVs etc till after this loop.
+			 * 若它是至少有一个兄弟的 RTE_RESULT，且没有兄弟
+			 * 引用依赖的 PHVs，就可以丢掉它。我们还不知道
+			 * 内连接最终的 relid 集合会是什么，因此把
+			 * PHVs 等的清理推迟到这个循环之后。
 			 */
 			if (list_length(f->fromlist) > 1 &&
 				(varno = get_result_relid(root, child)) != 0 &&
@@ -3411,9 +3411,9 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 		}
 
 		/*
-		 * Clean up if we dropped any RTE_RESULT RTEs.  This is a bit
-		 * inefficient if there's more than one, but it seems better to
-		 * optimize the support code for the single-relid case.
+		 * 若丢掉了任何 RTE_RESULT RTEs，做清理。多于一个时这有点
+		 * 低效，但似乎更好的是
+		 * 为单 relid 情形优化支持代码。
 		 */
 		if (result_relids)
 		{
@@ -3424,28 +3424,28 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 		}
 
 		/*
-		 * If the FromExpr now has only one child, see if we can elide it.
-		 * This is always valid if there are no quals, except at the top of
-		 * the jointree (since Query.jointree is required to point to a
-		 * FromExpr).  Otherwise, we can do it if we can push the quals up to
-		 * the parent node.
+		 * 若 FromExpr 现在只有一个子节点，看能否省去它。
+		 * 若没有限定条件，这总是合法的，但连接树
+		 * 顶层除外（因为 Query.jointree 必须指向一个
+		 * FromExpr）。否则，若能把限定条件上推到
+		 * 父节点，就可以这样做。
 		 *
-		 * Note: while it would not be terribly hard to generalize this
-		 * transformation to merge multi-child FromExprs into their parent
-		 * FromExpr, that risks making the parent join too expensive to plan.
-		 * We leave it to later processing to decide heuristically whether
-		 * that's a good idea.  Pulling up a single child is always OK,
-		 * however.
+		 * 注意：把这个变换推广成把多子节点的 FromExprs 并入其父
+		 * FromExpr 并不太难，
+		 * 但那有风险让父连接变得过于昂贵而难以规划。
+		 * 我们留给后续处理启发式地决定
+		 * 这是否好主意。不过，上拉单个子节点
+		 * 总是可以的。
 		 */
 		if (list_length(f->fromlist) == 1 &&
 			f != root->parse->jointree &&
 			(f->quals == NULL || parent_quals != NULL))
 		{
 			/*
-			 * Merge any quals up to parent.  They should be in implicit-AND
-			 * format by now, so we just need to concatenate lists.  Put the
-			 * child quals at the front, on the grounds that they should
-			 * nominally be evaluated earlier.
+			 * 把任何限定条件合并到父节点。它们现在应当已是隐式 AND
+			 * 形式，所以只需拼接列表。把
+			 * 子限定条件放在前面，理由是它们名义上
+			 * 应当更早求值。
 			 */
 			if (f->quals != NULL)
 				*parent_quals = (Node *)
@@ -3460,16 +3460,16 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 		int			varno;
 
 		/*
-		 * First, recurse.  We can absorb pushed-up FromExpr quals from either
-		 * child into this node if the jointype is INNER, since then this is
-		 * equivalent to a FromExpr.  When the jointype is LEFT, we can absorb
-		 * quals from the RHS child into the current node, as they're
-		 * essentially degenerate quals of the outer join.  Moreover, if we've
-		 * been passed down a parent_quals pointer then we can allow quals of
-		 * the LHS child to be absorbed into the parent.  (This is important
-		 * to ensure we remove single-child FromExprs immediately below
-		 * commutable left joins.)  For other jointypes, we can't move child
-		 * quals up, or at least there's no particular reason to.
+		 * 首先递归。若连接类型是 INNER，可以把从任一
+		 * 子节点上推的 FromExpr 限定条件吸收进本节点，因为这时它
+		 * 等价于 FromExpr。当连接类型是 LEFT 时，可以把
+		 * 来自 RHS 子节点的限定条件吸收进当前节点，因为它们
+		 * 本质上是外连接的退化限定条件。而且，若已经
+		 * 被传入 parent_quals 指针，就可以允许 LHS 子节点的限定条件
+		 * 被吸收进父节点。（这对确保去掉可交换左连接
+		 * 紧下方的单子节点 FromExprs 很重要。）
+		 * 对其余连接类型，不能把子限定条件上移，
+		 * 或至少没有特别的理由这样做。
 		 */
 		j->larg = remove_useless_results_recurse(root, j->larg,
 												 (j->jointype == JOIN_INNER) ?
@@ -3483,26 +3483,26 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 												 &j->quals : NULL,
 												 dropped_outer_joins);
 
-		/* Apply join-type-specific optimization rules */
+		/* 应用特定于连接类型的优化规则 */
 		switch (j->jointype)
 		{
 			case JOIN_INNER:
 
 				/*
-				 * An inner join is equivalent to a FromExpr, so if either
-				 * side was simplified to an RTE_RESULT rel, we can replace
-				 * the join with a FromExpr with just the other side.
-				 * Furthermore, we can elide that FromExpr according to the
-				 * same rules as above.
+				 * 内连接等价于 FromExpr，因此若任
+				 * 一侧被简化成 RTE_RESULT 关系，就可以用只含另一侧的
+				 * FromExpr 替换该连接。
+				 * 而且，可以按与上面相同的规则省去那个 FromExpr。
+				 * 正如 FromExpr 的情况，若另一输入关系引用任何被标记为要在
 				 *
-				 * Just as in the FromExpr case, we can't simplify if the
-				 * other input rel references any PHVs that are marked as to
-				 * be evaluated at the RTE_RESULT rel, because we can't
-				 * postpone their evaluation in that case.  But we only have
-				 * to check this in cases where it's syntactically legal for
-				 * the other input to have a LATERAL reference to the
-				 * RTE_RESULT rel.  Only RHSes of inner and left joins are
-				 * allowed to have such refs.
+				 * RTE_RESULT 关系处求值的 PHVs，就不能简化，
+				 * 因为那种情况下没法
+				 * 推迟它们的求值。但只在语法上允许
+				 * 另一输入对该
+				 * RTE_RESULT 关系有 LATERAL 引用时，
+				 * 才需要检查这一点。只有内连接和左连接的
+				 * RHSes
+				 * 才允许有这种引用。
 				 */
 				if ((varno = get_result_relid(root, j->larg)) != 0 &&
 					!find_dependent_phvs_in_jointree(root, j->rarg, varno))
@@ -3513,7 +3513,7 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 							makeFromExpr(list_make1(j->rarg), j->quals);
 					else
 					{
-						/* Merge any quals up to parent */
+						/* 把任何限定条件合并到父节点 */
 						if (j->quals != NULL)
 							*parent_quals = (Node *)
 								list_concat(castNode(List, j->quals),
@@ -3529,7 +3529,7 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 							makeFromExpr(list_make1(j->larg), j->quals);
 					else
 					{
-						/* Merge any quals up to parent */
+						/* 把任何限定条件合并到父节点 */
 						if (j->quals != NULL)
 							*parent_quals = (Node *)
 								list_concat(castNode(List, j->quals),
@@ -3541,22 +3541,22 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 			case JOIN_LEFT:
 
 				/*
-				 * We can simplify this case if the RHS is an RTE_RESULT, with
-				 * two different possibilities:
+				 * 若 RHS 是 RTE_RESULT，可以简化这种情况，有
+				 * 两种不同的可能：
 				 *
-				 * If the qual is empty (JOIN ON TRUE), then the join can be
-				 * strength-reduced to a plain inner join, since each LHS row
-				 * necessarily has exactly one join partner.  So we can always
-				 * discard the RHS, much as in the JOIN_INNER case above.
-				 * (Again, the LHS could not contain a lateral reference to
-				 * the RHS.)
+				 * 若限定条件为空（JOIN ON TRUE），则该连接可以
+				 * 降强度为普通内连接，因为每一 LHS 行
+				 * 必然恰好有一个连接伙伴。因此总是可以
+				 * 丢掉 RHS，很像上面 JOIN_INNER 的情况。
+				 * （同样，LHS 无法含有指向
+				 * RHS 的 LATERAL 引用。）
 				 *
-				 * Otherwise, it's still true that each LHS row should be
-				 * returned exactly once, and since the RHS returns no columns
-				 * (unless there are PHVs that have to be evaluated there), we
-				 * don't much care if it's null-extended or not.  So in this
-				 * case also, we can just ignore the qual and discard the left
-				 * join.
+				 * 否则，每一 LHS 行仍应
+				 * 恰好返回一次，并且由于 RHS 不返回列
+				 * （除非有必须在那里求值的 PHVs），我们
+				 * 不太在乎它是否被空值扩展。因此在这种
+				 * 情况下也可以忽略限定条件并丢掉这个左
+				 * 连接。
 				 */
 				if ((varno = get_result_relid(root, j->rarg)) != 0 &&
 					(j->quals == NULL ||
@@ -3571,23 +3571,23 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 			case JOIN_SEMI:
 
 				/*
-				 * We may simplify this case if the RHS is an RTE_RESULT; the
-				 * join qual becomes effectively just a filter qual for the
-				 * LHS, since we should either return the LHS row or not.  The
-				 * filter clause must go into a new FromExpr if we can't push
-				 * it up to the parent.
+				 * 若 RHS 是 RTE_RESULT，也许可以简化这种情况；
+				 * 连接限定条件实际上变成只对
+				 * LHS 的过滤条件，因为我们要么返回 LHS 行，要么不返回。
+				 * 若无法把过滤子句上推
+				 * 到父节点，它必须进入一个新的 FromExpr。
 				 *
-				 * There is a fine point about PHVs that are supposed to be
-				 * evaluated at the RHS.  Such PHVs could only appear in the
-				 * semijoin's qual, since the rest of the query cannot
-				 * reference any outputs of the semijoin's RHS.  Therefore,
-				 * they can't actually go to null before being examined, and
-				 * it'd be OK to just remove the PHV wrapping.  We don't have
-				 * infrastructure for that, but remove_result_refs() will
-				 * relabel them as to be evaluated at the LHS, which is fine.
+				 * 关于应当在 RHS 求值的 PHVs，有一个细微之处。
+				 * 这种 PHVs 只能出现在
+				 * 半连接的限定条件中，因为查询的其余部分无法
+				 * 引用半连接 RHS 的任何输出。因此，
+				 * 它们在被检查之前实际上无法变成 null，并且
+				 * 直接去掉 PHV 包装也是可以的。我们没有
+				 * 做这件事的基础设施，但 remove_result_refs() 会
+				 * 把它们改标为在 LHS 求值，这没问题。
 				 *
-				 * Also, we don't need to worry about removing traces of the
-				 * join's rtindex, since it hasn't got one.
+				 * 另外，不必担心去掉该
+				 * 连接的 rtindex 痕迹，因为它本来就没有。
 				 */
 				if ((varno = get_result_relid(root, j->rarg)) != 0)
 				{
@@ -3598,7 +3598,7 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 							makeFromExpr(list_make1(j->larg), j->quals);
 					else
 					{
-						/* Merge any quals up to parent */
+						/* 把任何限定条件合并到父节点 */
 						if (j->quals != NULL)
 							*parent_quals = (Node *)
 								list_concat(castNode(List, j->quals),
@@ -3609,10 +3609,10 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 				break;
 			case JOIN_FULL:
 			case JOIN_ANTI:
-				/* We have no special smarts for these cases */
+				/* 对这些情况我们没有特别的办法 */
 				break;
 			default:
-				/* Note: JOIN_RIGHT should be gone at this point */
+				/* 注意：此时 JOIN_RIGHT 应当已经消失 */
 				elog(ERROR, "unrecognized join type: %d",
 					 (int) j->jointype);
 				break;
@@ -3626,8 +3626,8 @@ remove_useless_results_recurse(PlannerInfo *root, Node *jtnode,
 
 /*
  * get_result_relid
- *		If jtnode is a RangeTblRef for an RTE_RESULT RTE, return its relid;
- *		otherwise return 0.
+ *		若 jtnode 是 RTE_RESULT RTE 的 RangeTblRef，返回它的 relid；
+ *		否则返回 0。
  */
 static int
 get_result_relid(PlannerInfo *root, Node *jtnode)
@@ -3644,26 +3644,26 @@ get_result_relid(PlannerInfo *root, Node *jtnode)
 
 /*
  * remove_result_refs
- *		Helper routine for dropping an unneeded RTE_RESULT RTE.
+ *		丢掉不需要的 RTE_RESULT RTE 的辅助例程。
  *
- * This doesn't physically remove the RTE from the jointree, because that's
- * more easily handled in remove_useless_results_recurse.  What it does do
- * is the necessary cleanup in the rest of the tree: we must adjust any PHVs
- * that may reference the RTE.  Be sure to call this at a point where the
- * jointree is valid (no disconnected nodes).
+ * 这并不从连接树物理删除该 RTE，因为那
+ * 在 remove_useless_results_recurse 里更容易处理。它做的是
+ * 树其余部分的必要清理：必须调整任何可能引用该 RTE 的 PHVs。
+ * 务必在连接树有效（没有断开的节点）时调用。
+ * 注意不必处理 append_rel_list，因为直接在连接树中引用的 RTEs
  *
- * Note that we don't need to process the append_rel_list, since RTEs
- * referenced directly in the jointree won't be appendrel members.
+ * 不会是 appendrel 成员。
+ * varno 是该 RTE_RESULT 的 relid。
  *
- * varno is the RTE_RESULT's relid.
- * newjtloc is the jointree location at which any PHVs referencing the
- * RTE_RESULT should be evaluated instead.
+ * newjtloc 是连接树中任何引用该
+ * RTE_RESULT 的 PHVs 应当改为求值的
+ * 位置。
  */
 static void
 remove_result_refs(PlannerInfo *root, int varno, Node *newjtloc)
 {
-	/* Fix up PlaceHolderVars as needed */
-	/* If there are no PHVs anywhere, we can skip this bit */
+	/* 按需要修正 PlaceHolderVars */
+	/* 若各处都没有 PHVs，可以跳过这一段 */
 	if (root->glob->lastPHId != 0)
 	{
 		Relids		subrelids;
@@ -3675,21 +3675,21 @@ remove_result_refs(PlannerInfo *root, int varno, Node *newjtloc)
 	}
 
 	/*
-	 * We also need to remove any PlanRowMark referencing the RTE, but we
-	 * postpone that work until we return to remove_useless_result_rtes.
+	 * 还需要去掉任何引用该 RTE 的 PlanRowMark，但我们
+	 * 把这项工作推迟到返回 remove_useless_result_rtes 时。
 	 */
 }
 
 
 /*
- * find_dependent_phvs - are there any PlaceHolderVars whose relids are
- * exactly the given varno?
+ * find_dependent_phvs - 是否有 relid 恰好为
+ * 给定 varno 的 PlaceHolderVars？
  *
- * find_dependent_phvs should be used when we want to see if there are
- * any such PHVs anywhere in the Query.  Another use-case is to see if
- * a subtree of the join tree contains such PHVs; but for that, we have
- * to look not only at the join tree nodes themselves but at the
- * referenced RTEs.  For that, use find_dependent_phvs_in_jointree.
+ * 当想看 Query 中任何地方是否有
+ * 这种 PHVs 时，应使用 find_dependent_phvs。另一种用途是看
+ * 连接树的某棵子树是否含有这种 PHVs；但为此，不仅要看
+ * 连接树节点本身，还要看
+ * 被引用的 RTEs。那种情况用 find_dependent_phvs_in_jointree。
  */
 
 typedef struct
@@ -3715,7 +3715,7 @@ find_dependent_phvs_walker(Node *node,
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -3725,7 +3725,7 @@ find_dependent_phvs_walker(Node *node,
 		context->sublevels_up--;
 		return result;
 	}
-	/* Shouldn't need to handle most planner auxiliary nodes here */
+	/* 这里应当不必处理大多数规划器辅助节点 */
 	Assert(!IsA(node, SpecialJoinInfo));
 	Assert(!IsA(node, PlaceHolderInfo));
 	Assert(!IsA(node, MinMaxAggInfo));
@@ -3739,7 +3739,7 @@ find_dependent_phvs(PlannerInfo *root, int varno)
 {
 	find_dependent_phvs_context context;
 
-	/* If there are no PHVs anywhere, we needn't work hard */
+	/* 若各处都没有 PHVs，不必费力 */
 	if (root->glob->lastPHId == 0)
 		return false;
 
@@ -3751,7 +3751,7 @@ find_dependent_phvs(PlannerInfo *root, int varno)
 						  (void *) &context,
 						  0))
 		return true;
-	/* The append_rel_list could be populated already, so check it too */
+	/* append_rel_list 可能已经填了，所以也要检查 */
 	if (expression_tree_walker((Node *) root->append_rel_list,
 							   find_dependent_phvs_walker,
 							   (void *) &context))
@@ -3766,7 +3766,7 @@ find_dependent_phvs_in_jointree(PlannerInfo *root, Node *node, int varno)
 	Relids		subrelids;
 	int			relid;
 
-	/* If there are no PHVs anywhere, we needn't work hard */
+	/* 若各处都没有 PHVs，不必费力 */
 	if (root->glob->lastPHId == 0)
 		return false;
 
@@ -3774,17 +3774,17 @@ find_dependent_phvs_in_jointree(PlannerInfo *root, Node *node, int varno)
 	context.sublevels_up = 0;
 
 	/*
-	 * See if the jointree fragment itself contains references (in join quals)
+	 * 看连接树片段本身是否含有引用（在连接限定条件中）
 	 */
 	if (find_dependent_phvs_walker(node, &context))
 		return true;
 
 	/*
-	 * Otherwise, identify the set of referenced RTEs (we can ignore joins,
-	 * since they should be flattened already, so their join alias lists no
-	 * longer matter), and tediously check each RTE.  We can ignore RTEs that
-	 * are not marked LATERAL, though, since they couldn't possibly contain
-	 * any cross-references to other RTEs.
+	 * 否则，识别被引用的 RTEs 集合（可以忽略连接，
+	 * 因为它们应当已经展平，所以它们的连接别名列表不再
+	 * 重要），并逐个费力检查每个 RTE。不过可以忽略没有标成
+	 * LATERAL 的 RTEs，因为它们不可能含有
+	 * 对其他 RTEs 的任何交叉引用。
 	 */
 	subrelids = get_relids_in_jointree(node, false, false);
 	relid = -1;
@@ -3804,16 +3804,16 @@ find_dependent_phvs_in_jointree(PlannerInfo *root, Node *node, int varno)
 }
 
 /*
- * substitute_phv_relids - adjust PlaceHolderVar relid sets after pulling up
- * a subquery or removing an RTE_RESULT jointree item
+ * substitute_phv_relids - 在上拉
+ * 子查询或去掉 RTE_RESULT 连接树项之后，调整 PlaceHolderVar 的 relid 集合
  *
- * Find any PlaceHolderVar nodes in the given tree that reference the
- * pulled-up relid, and change them to reference the replacement relid(s).
+ * 在给定树中找出引用
+ * 被上拉 relid 的任何 PlaceHolderVar 节点，改为引用替换后的 relid。
  *
- * NOTE: although this has the form of a walker, we cheat and modify the
- * nodes in-place.  This should be OK since the tree was copied by
- * pullup_replace_vars earlier.  Avoid scribbling on the original values of
- * the bitmapsets, though, because expression_tree_mutator doesn't copy those.
+ * 注意：虽然这具有遍历器的形式，我们取巧就地修改
+ * 节点。这应当没问题，因为树先前已由
+ * pullup_replace_vars 复制。不过要避免就地修改位图集合的原始值，
+ * 因为 expression_tree_mutator 不复制它们。
  */
 
 typedef struct
@@ -3840,14 +3840,14 @@ substitute_phv_relids_walker(Node *node,
 									context->subrelids);
 			phv->phrels = bms_del_member(phv->phrels,
 										 context->varno);
-			/* Assert we haven't broken the PHV */
+			/* 断言我们没有弄坏这个 PHV */
 			Assert(!bms_is_empty(phv->phrels));
 		}
 		/* fall through to examine children */
 	}
 	if (IsA(node, Query))
 	{
-		/* Recurse into subselects */
+		/* 递归进入子查询 */
 		bool		result;
 
 		context->sublevels_up++;
@@ -3857,7 +3857,7 @@ substitute_phv_relids_walker(Node *node,
 		context->sublevels_up--;
 		return result;
 	}
-	/* Shouldn't need to handle planner auxiliary nodes here */
+	/* 这里应当不必处理规划器辅助节点 */
 	Assert(!IsA(node, SpecialJoinInfo));
 	Assert(!IsA(node, AppendRelInfo));
 	Assert(!IsA(node, PlaceHolderInfo));
@@ -3877,7 +3877,7 @@ substitute_phv_relids(Node *node, int varno, Relids subrelids)
 	context.subrelids = subrelids;
 
 	/*
-	 * Must be prepared to start with a Query or a bare expression tree.
+	 * 必须准备好从 Query 或裸表达式树开始。
 	 */
 	query_or_expression_tree_walker(node,
 									substitute_phv_relids_walker,
@@ -3886,14 +3886,14 @@ substitute_phv_relids(Node *node, int varno, Relids subrelids)
 }
 
 /*
- * fix_append_rel_relids: update RT-index fields of AppendRelInfo nodes
+ * fix_append_rel_relids：更新 AppendRelInfo 节点的 RT 下标字段
  *
- * When we pull up a subquery, any AppendRelInfo references to the subquery's
- * RT index have to be replaced by the substituted relid (and there had better
- * be only one).  We also need to apply substitute_phv_relids to their
- * translated_vars lists, since those might contain PlaceHolderVars.
+ * 上拉子查询时，任何 AppendRelInfo 对该子查询
+ * RT 下标的引用都必须替换为代入的 relid（而且最好
+ * 只有一个）。还需要对它们的
+ * translated_vars 列表应用 substitute_phv_relids，因为其中可能含有 PlaceHolderVars。
  *
- * We assume we may modify the AppendRelInfo nodes in-place.
+ * 假定可以就地修改 AppendRelInfo 节点。
  */
 static void
 fix_append_rel_relids(PlannerInfo *root, int varno, Relids subrelids)
@@ -3902,16 +3902,16 @@ fix_append_rel_relids(PlannerInfo *root, int varno, Relids subrelids)
 	int			subvarno = -1;
 
 	/*
-	 * We only want to extract the member relid once, but we mustn't fail
-	 * immediately if there are multiple members; it could be that none of the
-	 * AppendRelInfo nodes refer to it.  So compute it on first use. Note that
-	 * bms_singleton_member will complain if set is not singleton.
+	 * 只想提取一次成员 relid，但若有多个成员，不得立刻失败；
+	 * 可能没有任何
+	 * AppendRelInfo 节点引用它。因此在首次使用时再计算。注意
+	 * 若集合不是单元素，bms_singleton_member 会报错。
 	 */
 	foreach(l, root->append_rel_list)
 	{
 		AppendRelInfo *appinfo = (AppendRelInfo *) lfirst(l);
 
-		/* The parent_relid shouldn't ever be a pullup target */
+		/* parent_relid 绝不应当是上拉目标 */
 		Assert(appinfo->parent_relid != varno);
 
 		if (appinfo->child_relid == varno)
@@ -3921,7 +3921,7 @@ fix_append_rel_relids(PlannerInfo *root, int varno, Relids subrelids)
 			appinfo->child_relid = subvarno;
 		}
 
-		/* Also fix up any PHVs in its translated vars */
+		/* 也修正其翻译后的 var 中的任何 PHVs */
 		if (root->glob->lastPHId != 0)
 			substitute_phv_relids((Node *) appinfo->translated_vars,
 								  varno, subrelids);
@@ -3929,15 +3929,15 @@ fix_append_rel_relids(PlannerInfo *root, int varno, Relids subrelids)
 }
 
 /*
- * get_relids_in_jointree: get set of RT indexes present in a jointree
+ * get_relids_in_jointree：取得连接树中出现的 RT 下标集合
  *
- * Base-relation relids are always included in the result.
- * If include_outer_joins is true, outer-join RT indexes are included.
- * If include_inner_joins is true, inner-join RT indexes are included.
+ * 基关系 relid 总是包含在结果中。
+ * 若 include_outer_joins 为真，则包含外连接的 RT 下标。
+ * 若 include_inner_joins 为真，则包含内连接的 RT 下标。
  *
- * Note that for most purposes in the planner, outer joins are included
- * in standard relid sets.  Setting include_inner_joins true is only
- * appropriate for special purposes during subquery flattening.
+ * 注意，对规划器中的大多数用途，外连接包含在
+ * 标准 relid 集合中。只有在子查询展平期间的特殊用途，
+ * 才适合把 include_inner_joins 设为真。
  */
 Relids
 get_relids_in_jointree(Node *jtnode, bool include_outer_joins,
@@ -3998,7 +3998,7 @@ get_relids_in_jointree(Node *jtnode, bool include_outer_joins,
 }
 
 /*
- * get_relids_for_join: get set of base+OJ RT indexes making up a join
+ * get_relids_for_join：取得构成一个连接的基表加外连接 RT 下标集合
  */
 Relids
 get_relids_for_join(Query *query, int joinrelid)
@@ -4013,9 +4013,9 @@ get_relids_for_join(Query *query, int joinrelid)
 }
 
 /*
- * find_jointree_node_for_rel: locate jointree node for a base or join RT index
+ * find_jointree_node_for_rel：为基表或连接 RT 下标定位连接树节点
  *
- * Returns NULL if not found
+ * 找不到则返回 NULL
  */
 static Node *
 find_jointree_node_for_rel(Node *jtnode, int relid)
@@ -4061,10 +4061,10 @@ find_jointree_node_for_rel(Node *jtnode, int relid)
 }
 
 /*
- * get_nullingrels: collect info about which outer joins null which relations
+ * get_nullingrels：收集哪些外连接会把哪些关系置空
  *
- * The result struct contains, for each leaf relation used in the query,
- * the set of relids of outer joins that potentially null that rel.
+ * 结果结构对查询中使用的每个叶子关系，包含
+ * 可能把该关系置空的外连接的 relid 集合。
  */
 static nullingrel_info *
 get_nullingrels(Query *parse)
@@ -4078,13 +4078,13 @@ get_nullingrels(Query *parse)
 }
 
 /*
- * Recursive guts of get_nullingrels().
+ * get_nullingrels() 的递归主体。
  *
- * Note: at any recursion level, the passed-down upper_nullingrels must be
- * treated as a constant, but it can be stored directly into *info
- * if we're at leaf level.  Upper recursion levels do not free their mutated
- * copies of the nullingrels, because those are probably referenced by
- * at least one leaf rel.
+ * 注意：在任何递归层，传下来的 upper_nullingrels 都必须
+ * 当作常量，但若在叶子层，可以直接存进 *info。
+ * 上层递归不释放它们变异后的
+ * nullingrels 副本，因为那些副本很可能被
+ * 至少一个叶子关系引用。
  */
 static void
 get_nullingrels_recurse(Node *jtnode, Relids upper_nullingrels,

@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "batch_id": "0079-comment-optimizer-prep-prepjointree",
+ "title": "zh: translate prepjointree comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "095bf1a4a1de63641657418cc2de299b3f4a4630",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/prep/prepjointree.c",
+   "kind": "c_comment",
+   "note": "join tree preprocessing"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0079-comment-optimizer-prep-prepjointree.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/prep/prepjointree.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 363,
+   "translated": 359,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through adjust phlevelsup",
+    "fall-through examine children",
+    "fall-through examine children (second)"
+   ],
+   "note": "join tree preprocessing"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0079-comment-optimizer-prep-prepjointree.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0079 translates src/backend/optimizer/prep/prepjointree.c."
+}

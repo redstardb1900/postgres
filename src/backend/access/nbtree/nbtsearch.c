@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtsearch.c
- *	  Search code for postgres btrees.
+ *	  Postgres B-树的搜索代码。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -51,11 +51,11 @@ static inline void _bt_initialize_more_data(BTScanOpaque so, ScanDirection dir);
 /*
  *	_bt_drop_lock_and_maybe_pin()
  *
- * Unlock the buffer; and if it is safe to release the pin, do that, too.
- * This will prevent vacuum from stalling in a blocked state trying to read a
- * page when a cursor is sitting on it.
+ * 解锁缓冲区；若可以安全释放钉住，也一并释放。
+ * 这样可避免清理在游标停在某一页上、试图读取该页时
+ * 陷入阻塞。
  *
- * See nbtree/README section on making concurrent TID recycling safe.
+ * 参见 nbtree/README 中使并发 TID 回收安全的章节。
  */
 static void
 _bt_drop_lock_and_maybe_pin(IndexScanDesc scan, BTScanPos sp)
@@ -72,29 +72,29 @@ _bt_drop_lock_and_maybe_pin(IndexScanDesc scan, BTScanPos sp)
 }
 
 /*
- *	_bt_search() -- Search the tree for a particular scankey,
- *		or more precisely for the first leaf page it could be on.
+ *	_bt_search() -- 在树中搜索某个特定扫描键，
+ *		更准确地说，是搜索它可能位于的第一张叶子页。
  *
- * The passed scankey is an insertion-type scankey (see nbtree/README),
- * but it can omit the rightmost column(s) of the index.
+ * 传入的扫描键是插入型扫描键（见 nbtree/README），
+ * 但可以省略索引最右侧的 column(s)。
  *
- * Return value is a stack of parent-page pointers (i.e. there is no entry for
- * the leaf level/page).  *bufP is set to the address of the leaf-page buffer,
- * which is locked and pinned.  No locks are held on the parent pages,
- * however!
+ * 返回值是父页指针栈（也就是说，其中没有叶子层/叶子页
+ * 的项）。*bufP 被设为叶子页缓冲区的地址，
+ * 该缓冲区已加锁并钉住。不过，父页上并不持有
+ * 任何锁！
  *
- * If the snapshot parameter is not NULL, "old snapshot" checking will take
- * place during the descent through the tree.  This is not needed when
- * positioning for an insert or delete, so NULL is used for those cases.
+ * 若 snapshot 参数不是 NULL，沿树下降时会进行
+ * "旧快照"检查。插入或删除定位时不需要这一步，
+ * 因此那些情形传入 NULL。
  *
- * The returned buffer is locked according to access parameter.  Additionally,
- * access = BT_WRITE will allow an empty root page to be created and returned.
- * When access = BT_READ, an empty index will result in *bufP being set to
- * InvalidBuffer.  Also, in BT_WRITE mode, any incomplete splits encountered
- * during the search will be finished.
+ * 返回的缓冲区按 access 参数加锁。此外，
+ * access = BT_WRITE 时允许创建并返回一张空的根页。
+ * access = BT_READ 且索引为空时，*bufP 被设为
+ * InvalidBuffer。另外，在 BT_WRITE 模式下，搜索途中遇到的
+ * 任何未完成页分裂都会被完成。
  *
- * heaprel must be provided by callers that pass access = BT_WRITE, since we
- * might need to allocate a new root page for caller -- see _bt_allocbuf.
+ * 传入 access = BT_WRITE 的调用者必须提供 heaprel，因为我们
+ * 可能需要为调用者分配一张新的根页——见 _bt_allocbuf。
  */
 BTStack
 _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
@@ -103,18 +103,18 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 	BTStack		stack_in = NULL;
 	int			page_access = BT_READ;
 
-	/* heaprel must be set whenever _bt_allocbuf is reachable */
+	/* 只要可能走到 _bt_allocbuf，就必须设置 heaprel */
 	Assert(access == BT_READ || access == BT_WRITE);
 	Assert(access == BT_READ || heaprel != NULL);
 
-	/* Get the root page to start with */
+	/* 先取根页作为起点 */
 	*bufP = _bt_getroot(rel, heaprel, access);
 
-	/* If index is empty and access = BT_READ, no root page is created. */
+	/* 若索引为空且 access = BT_READ，则不创建根页。 */
 	if (!BufferIsValid(*bufP))
 		return (BTStack) NULL;
 
-	/* Loop iterates once per level descended in the tree */
+	/* 循环每下降一层迭代一次 */
 	for (;;)
 	{
 		Page		page;
@@ -126,29 +126,29 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 		BTStack		new_stack;
 
 		/*
-		 * Race -- the page we just grabbed may have split since we read its
-		 * downlink in its parent page (or the metapage).  If it has, we may
-		 * need to move right to its new sibling.  Do that.
+		 * 竞态——我们刚取到的页，自读到它在父页
+		 * （或元数据页）中的下行之后，可能已经分裂。若已分裂，我们可能
+		 * 需要向右走到它的新兄弟。照此处理。
 		 *
-		 * In write-mode, allow _bt_moveright to finish any incomplete splits
-		 * along the way.  Strictly speaking, we'd only need to finish an
-		 * incomplete split on the leaf page we're about to insert to, not on
-		 * any of the upper levels (internal pages with incomplete splits are
-		 * also taken care of in _bt_getstackbuf).  But this is a good
-		 * opportunity to finish splits of internal pages too.
+		 * 写模式下，允许 _bt_moveright 顺路完成遇到的任何未完成页分裂。
+		 * 严格说来，我们只需完成
+		 * 即将插入的那张叶子页上的未完成页分裂，而不必处理
+		 * 更高各层（带未完成页分裂的内部页
+		 * 也会在 _bt_getstackbuf 中处理）。不过这正好是
+		 * 一并完成内部页分裂的好机会。
 		 */
 		*bufP = _bt_moveright(rel, heaprel, key, *bufP, (access == BT_WRITE),
 							  stack_in, page_access, snapshot);
 
-		/* if this is a leaf page, we're done */
+		/* 若这是叶子页，则已完成 */
 		page = BufferGetPage(*bufP);
 		opaque = BTPageGetOpaque(page);
 		if (P_ISLEAF(opaque))
 			break;
 
 		/*
-		 * Find the appropriate pivot tuple on this page.  Its downlink points
-		 * to the child page that we're about to descend to.
+		 * 在本页上找到合适的枢轴元组。它的下行指向
+		 * 我们即将下降到的子页。
 		 */
 		offnum = _bt_binsrch(rel, key, *bufP);
 		itemid = PageGetItemId(page, offnum);
@@ -157,10 +157,10 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 		child = BTreeTupleGetDownLink(itup);
 
 		/*
-		 * We need to save the location of the pivot tuple we chose in a new
-		 * stack entry for this page/level.  If caller ends up splitting a
-		 * page one level down, it usually ends up inserting a new pivot
-		 * tuple/downlink immediately after the location recorded here.
+		 * 需要把所选枢轴元组的位置存入本页/本层的
+		 * 新栈项。若调用者最终分裂下一层的
+		 * 某一页，通常会在此处记下的位置之后立即插入新的枢轴
+		 * 元组/下行。
 		 */
 		new_stack = (BTStack) palloc(sizeof(BTStackData));
 		new_stack->bts_blkno = BufferGetBlockNumber(*bufP);
@@ -168,35 +168,35 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 		new_stack->bts_parent = stack_in;
 
 		/*
-		 * Page level 1 is lowest non-leaf page level prior to leaves.  So, if
-		 * we're on the level 1 and asked to lock leaf page in write mode,
-		 * then lock next page in write mode, because it must be a leaf.
+		 * 第 1 层是叶子之上最低的非叶子层。因此，若
+		 * 我们位于第 1 层，并且要求以写模式锁定叶子页，
+		 * 则下一页也用写模式锁定，因为它必定是叶子页。
 		 */
 		if (opaque->btpo_level == 1 && access == BT_WRITE)
 			page_access = BT_WRITE;
 
-		/* drop the read lock on the page, then acquire one on its child */
+		/* 放下本页的读锁，再获取其子页上的锁 */
 		*bufP = _bt_relandgetbuf(rel, *bufP, child, page_access);
 
-		/* okay, all set to move down a level */
+		/* 好，可以下降一层了 */
 		stack_in = new_stack;
 	}
 
 	/*
-	 * If we're asked to lock leaf in write mode, but didn't manage to, then
-	 * relock.  This should only happen when the root page is a leaf page (and
-	 * the only page in the index other than the metapage).
+	 * 若要求以写模式锁定叶子页，但尚未做到，则
+	 * 重新加锁。这只应发生在根页本身就是叶子页时（并且
+	 * 它是索引中除元数据页之外的唯一一页）。
 	 */
 	if (access == BT_WRITE && page_access == BT_READ)
 	{
-		/* trade in our read lock for a write lock */
+		/* 把读锁换成写锁 */
 		_bt_unlockbuf(rel, *bufP);
 		_bt_lockbuf(rel, *bufP, BT_WRITE);
 
 		/*
-		 * Race -- the leaf page may have split after we dropped the read lock
-		 * but before we acquired a write lock.  If it has, we may need to
-		 * move right to its new sibling.  Do that.
+		 * 竞态——叶子页可能在我们放下读锁之后、
+		 * 取得写锁之前已经分裂。若已分裂，我们可能需要
+		 * 向右走到它的新兄弟。照此处理。
 		 */
 		*bufP = _bt_moveright(rel, heaprel, key, *bufP, true, stack_in, BT_WRITE,
 							  snapshot);
@@ -206,39 +206,39 @@ _bt_search(Relation rel, Relation heaprel, BTScanInsert key, Buffer *bufP,
 }
 
 /*
- *	_bt_moveright() -- move right in the btree if necessary.
+ *	_bt_moveright() -- 必要时在 B-树中向右移动。
  *
- * When we follow a pointer to reach a page, it is possible that
- * the page has changed in the meanwhile.  If this happens, we're
- * guaranteed that the page has "split right" -- that is, that any
- * data that appeared on the page originally is either on the page
- * or strictly to the right of it.
+ * 当我们跟随指针到达某一页时，该页有可能
+ * 在此期间已经改变。若发生这种情况，可以
+ * 保证该页已经"向右分裂"——也就是说，原先出现在
+ * 该页上的任何数据，要么仍在该页上，
+ * 要么严格位于它的右侧。
  *
- * This routine decides whether or not we need to move right in the
- * tree by examining the high key entry on the page.  If that entry is
- * strictly less than the scankey, or <= the scankey in the
- * key.nextkey=true case, then we followed the wrong link and we need
- * to move right.
+ * 本例程通过检查页上的高键项，决定是否需要在树中
+ * 向右移动。若该项
+ * 严格小于扫描键，或者在 key.nextkey=true 时
+ * <= 扫描键，则我们跟错了链接，需要
+ * 向右移动。
  *
- * The passed insertion-type scankey can omit the rightmost column(s) of the
- * index. (see nbtree/README)
+ * 传入的插入型扫描键可以省略索引最右侧的若干列。
+ * （见 nbtree/README）
  *
- * When key.nextkey is false (the usual case), we are looking for the first
- * item >= key.  When key.nextkey is true, we are looking for the first item
- * strictly greater than key.
+ * 当 key.nextkey 为假（通常情形）时，我们寻找第一个
+ * >= key 的项。当 key.nextkey 为真时，我们寻找第一个
+ * 严格大于 key 的项。
  *
- * If forupdate is true, we will attempt to finish any incomplete splits
- * that we encounter.  This is required when locking a target page for an
- * insertion, because we don't allow inserting on a page before the split is
- * completed.  'heaprel' and 'stack' are only used if forupdate is true.
+ * 若 forupdate 为真，我们会尝试完成遇到的任何未完成页分裂。
+ * 为插入而锁定目标页时这是必需的，因为在页分裂
+ * 完成之前，不允许向该页插入。仅当 forupdate 为真时才使用
+ * 'heaprel' 与 'stack'。
  *
- * On entry, we have the buffer pinned and a lock of the type specified by
- * 'access'.  If we move right, we release the buffer and lock and acquire
- * the same on the right sibling.  Return value is the buffer we stop at.
+ * 进入时，缓冲区已钉住，并持有 'access' 所指定类型的锁。
+ * 若向右移动，我们释放该缓冲区及其锁，并在右兄弟上
+ * 取得同样的钉住与锁。返回值是我们停下来的那个缓冲区。
  *
- * If the snapshot parameter is not NULL, "old snapshot" checking will take
- * place during the descent through the tree.  This is not needed when
- * positioning for an insert or delete, so NULL is used for those cases.
+ * 若 snapshot 参数不是 NULL，沿树下降时会进行
+ * "旧快照"检查。插入或删除定位时不需要这一步，
+ * 因此那些情形传入 NULL。
  */
 Buffer
 _bt_moveright(Relation rel,
@@ -257,21 +257,21 @@ _bt_moveright(Relation rel,
 	Assert(!forupdate || heaprel != NULL);
 
 	/*
-	 * When nextkey = false (normal case): if the scan key that brought us to
-	 * this page is > the high key stored on the page, then the page has split
-	 * and we need to move right.  (pg_upgrade'd !heapkeyspace indexes could
-	 * have some duplicates to the right as well as the left, but that's
-	 * something that's only ever dealt with on the leaf level, after
-	 * _bt_search has found an initial leaf page.)
+	 * 当 nextkey = false（通常情形）时：若把我们带到
+	 * 本页的扫描键 > 页上存储的高键，则该页已经分裂，
+	 * 我们需要向右移动。（经 pg_upgrade 升级的 !heapkeyspace 索引
+	 * 右侧和左侧都可能有一些重复项，但那只在叶子层、
+	 * 并且只在 _bt_search 已经找到初始叶子页之后
+	 * 才会处理。）
 	 *
-	 * When nextkey = true: move right if the scan key is >= page's high key.
-	 * (Note that key.scantid cannot be set in this case.)
+	 * 当 nextkey = true 时：若扫描键 >= 页的高键，则向右移动。
+	 * （注意：此情形下无法设置 key.scantid。）
 	 *
-	 * The page could even have split more than once, so scan as far as
-	 * needed.
+	 * 该页甚至可能分裂了不止一次，因此按需要
+	 * 继续扫描。
 	 *
-	 * We also have to move right if we followed a link that brought us to a
-	 * dead page.
+	 * 若我们跟随的链接把我们带到一张
+	 * 死页，也必须向右移动。
 	 */
 	cmpval = key->nextkey ? 0 : 1;
 
@@ -285,13 +285,13 @@ _bt_moveright(Relation rel,
 			break;
 
 		/*
-		 * Finish any incomplete splits we encounter along the way.
+		 * 顺路完成遇到的任何未完成页分裂。
 		 */
 		if (forupdate && P_INCOMPLETE_SPLIT(opaque))
 		{
 			BlockNumber blkno = BufferGetBlockNumber(buf);
 
-			/* upgrade our lock if necessary */
+			/* 必要时升级我们的锁 */
 			if (access == BT_READ)
 			{
 				_bt_unlockbuf(rel, buf);
@@ -303,14 +303,14 @@ _bt_moveright(Relation rel,
 			else
 				_bt_relbuf(rel, buf);
 
-			/* re-acquire the lock in the right mode, and re-check */
+			/* 以正确模式重新获取锁，并再次检查 */
 			buf = _bt_getbuf(rel, blkno, access);
 			continue;
 		}
 
 		if (P_IGNORE(opaque) || _bt_compare(rel, key, page, P_HIKEY) >= cmpval)
 		{
-			/* step right one page */
+			/* 向右迈一页 */
 			buf = _bt_relandgetbuf(rel, buf, opaque->btpo_next, access);
 			continue;
 		}
@@ -326,24 +326,24 @@ _bt_moveright(Relation rel,
 }
 
 /*
- *	_bt_binsrch() -- Do a binary search for a key on a particular page.
+ *	_bt_binsrch() -- 在某一页上对键做二分查找。
  *
- * On a leaf page, _bt_binsrch() returns the OffsetNumber of the first
- * key >= given scankey, or > scankey if nextkey is true.  (NOTE: in
- * particular, this means it is possible to return a value 1 greater than the
- * number of keys on the page, if the scankey is > all keys on the page.)
+ * 在叶子页上，_bt_binsrch() 返回第一个
+ * >= 给定扫描键的键的 OffsetNumber；若 nextkey 为真，则返回 > 扫描键的键。（注意：
+ * 特别地，若扫描键 > 页上全部键，有可能返回比
+ * 页上键数大 1 的值。）
  *
- * On an internal (non-leaf) page, _bt_binsrch() returns the OffsetNumber
- * of the last key < given scankey, or last key <= given scankey if nextkey
- * is true.  (Since _bt_compare treats the first data key of such a page as
- * minus infinity, there will be at least one key < scankey, so the result
- * always points at one of the keys on the page.)  This key indicates the
- * right place to descend to be sure we find all leaf keys >= given scankey
- * (or leaf keys > given scankey when nextkey is true).
+ * 在内部（非叶子）页上，_bt_binsrch() 返回最后一个
+ * < 给定扫描键的键的 OffsetNumber；若 nextkey 为真，则返回最后一个 <= 扫描键的键。
+ * （由于 _bt_compare 把这种页的第一个数据键当作
+ * 负无穷，至少会有一个键 < 扫描键，因此结果
+ * 总是指向页上的某个键。）该键指出
+ * 为确保找到全部 >= 给定扫描键的叶子键而应下降的位置
+ * （当 nextkey 为真时，则是 > 给定扫描键的叶子键）。
  *
- * This procedure is not responsible for walking right, it just examines
- * the given page.  _bt_binsrch() has no lock or refcount side effects
- * on the buffer.
+ * 本例程并不负责向右走，它只检查
+ * 给定的页。_bt_binsrch() 对缓冲区没有锁或引用计数方面的
+ * 副作用。
  */
 static OffsetNumber
 _bt_binsrch(Relation rel,
@@ -360,45 +360,45 @@ _bt_binsrch(Relation rel,
 	page = BufferGetPage(buf);
 	opaque = BTPageGetOpaque(page);
 
-	/* Requesting nextkey semantics while using scantid seems nonsensical */
+	/* 在使用 scantid 时请求 nextkey 语义似乎没有意义 */
 	Assert(!key->nextkey || key->scantid == NULL);
-	/* scantid-set callers must use _bt_binsrch_insert() on leaf pages */
+	/* 设置了 scantid 的调用者在叶子页上必须使用 _bt_binsrch_insert() */
 	Assert(!P_ISLEAF(opaque) || key->scantid == NULL);
 
 	low = P_FIRSTDATAKEY(opaque);
 	high = PageGetMaxOffsetNumber(page);
 
 	/*
-	 * If there are no keys on the page, return the first available slot. Note
-	 * this covers two cases: the page is really empty (no keys), or it
-	 * contains only a high key.  The latter case is possible after vacuuming.
-	 * This can never happen on an internal page, however, since they are
-	 * never empty (an internal page must have children).
+	 * 若页上没有键，返回第一个可用槽。注意
+	 * 这覆盖两种情形：页真的是空的（没有键），或者
+	 * 页上只有一个高键。后一种情形在清理之后可能出现。
+	 * 不过这绝不会发生在内部页上，因为它们
+	 * 从不为空（内部页必须有子页）。
 	 */
 	if (unlikely(high < low))
 		return low;
 
 	/*
-	 * Binary search to find the first key on the page >= scan key, or first
-	 * key > scankey when nextkey is true.
+	 * 二分查找，找出页上第一个 >= 扫描键的键，或者当 nextkey
+	 * 为真时第一个 > 扫描键的键。
 	 *
-	 * For nextkey=false (cmpval=1), the loop invariant is: all slots before
-	 * 'low' are < scan key, all slots at or after 'high' are >= scan key.
+	 * 对 nextkey=false（cmpval=1），循环不变式为：'low' 之前的所有槽
+	 * 都 < 扫描键，'high' 处及其后的所有槽都 >= 扫描键。
 	 *
-	 * For nextkey=true (cmpval=0), the loop invariant is: all slots before
-	 * 'low' are <= scan key, all slots at or after 'high' are > scan key.
+	 * 对 nextkey=true（cmpval=0），循环不变式为：'low' 之前的所有槽
+	 * 都 <= 扫描键，'high' 处及其后的所有槽都 > 扫描键。
 	 *
-	 * We can fall out when high == low.
+	 * 当 high == low 时可以退出循环。
 	 */
-	high++;						/* establish the loop invariant for high */
+	high++;						/* 为 high 建立循环不变式 */
 
-	cmpval = key->nextkey ? 0 : 1;	/* select comparison value */
+	cmpval = key->nextkey ? 0 : 1;	/* 选择比较值 */
 
 	while (high > low)
 	{
 		OffsetNumber mid = low + ((high - low) / 2);
 
-		/* We have low <= mid < high, so mid points at a real slot */
+		/* 此时 low <= mid < high，因此 mid 指向一个真实槽 */
 
 		result = _bt_compare(rel, key, page, mid);
 
@@ -409,18 +409,18 @@ _bt_binsrch(Relation rel,
 	}
 
 	/*
-	 * At this point we have high == low, but be careful: they could point
-	 * past the last slot on the page.
+	 * 此时 high == low，但要小心：它们可能指向
+	 * 页上最后一个槽之后。
 	 *
-	 * On a leaf page, we always return the first key >= scan key (resp. >
-	 * scan key), which could be the last slot + 1.
+	 * 在叶子页上，我们总是返回第一个 >= 扫描键的键（相应地，
+	 * > 扫描键），它可能是最后一个槽 + 1。
 	 */
 	if (P_ISLEAF(opaque))
 		return low;
 
 	/*
-	 * On a non-leaf page, return the last key < scan key (resp. <= scan key).
-	 * There must be one if _bt_compare() is playing by the rules.
+	 * 在非叶子页上，返回最后一个 < 扫描键的键（相应地，<= 扫描键）。
+	 * 若 _bt_compare() 遵守规则，这样的键必定存在。
 	 */
 	Assert(low > P_FIRSTDATAKEY(opaque));
 
@@ -429,25 +429,25 @@ _bt_binsrch(Relation rel,
 
 /*
  *
- *	_bt_binsrch_insert() -- Cacheable, incremental leaf page binary search.
+ *	_bt_binsrch_insert() -- 可缓存的、增量式叶子页二分查找。
  *
- * Like _bt_binsrch(), but with support for caching the binary search
- * bounds.  Only used during insertion, and only on the leaf page that it
- * looks like caller will insert tuple on.  Exclusive-locked and pinned
- * leaf page is contained within insertstate.
+ * 与 _bt_binsrch() 类似，但支持缓存二分查找的
+ * 边界。仅在插入期间使用，并且只用在看起来
+ * 调用者将要插入元组的那张叶子页上。排他锁定并钉住的
+ * 叶子页包含在 insertstate 中。
  *
- * Caches the bounds fields in insertstate so that a subsequent call can
- * reuse the low and strict high bounds of original binary search.  Callers
- * that use these fields directly must be prepared for the case where low
- * and/or stricthigh are not on the same page (one or both exceed maxoff
- * for the page).  The case where there are no items on the page (high <
- * low) makes bounds invalid.
+ * 把边界字段缓存在 insertstate 中，以便后续调用可以
+ * 复用原先二分查找的 low 与严格 high 边界。直接使用
+ * 这些字段的调用者必须准备好 low
+ * 和/或 stricthigh 不在同一页上的情形（其中一个或两个超过该页的 maxoff）。
+ * 页上没有项时（high < low），
+ * 边界无效。
  *
- * Caller is responsible for invalidating bounds when it modifies the page
- * before calling here a second time, and for dealing with posting list
- * tuple matches (callers can use insertstate's postingoff field to
- * determine which existing heap TID will need to be replaced by a posting
- * list split).
+ * 若调用者在第二次调用这里之前修改了该页，则负责使边界失效，
+ * 并负责处理倒排列表
+ * 元组匹配（调用者可用 insertstate 的 postingoff 字段
+ * 确定哪个现有堆 TID 需要被一次倒排
+ * 列表分裂所替换）。
  */
 OffsetNumber
 _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
@@ -470,21 +470,21 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 
 	if (!insertstate->bounds_valid)
 	{
-		/* Start new binary search */
+		/* 开始新的二分查找 */
 		low = P_FIRSTDATAKEY(opaque);
 		high = PageGetMaxOffsetNumber(page);
 	}
 	else
 	{
-		/* Restore result of previous binary search against same page */
+		/* 恢复此前针对同一页的二分查找结果 */
 		low = insertstate->low;
 		high = insertstate->stricthigh;
 	}
 
-	/* If there are no keys on the page, return the first available slot */
+	/* 若页上没有键，返回第一个可用槽 */
 	if (unlikely(high < low))
 	{
-		/* Caller can't reuse bounds */
+		/* 调用者不能复用边界 */
 		insertstate->low = InvalidOffsetNumber;
 		insertstate->stricthigh = InvalidOffsetNumber;
 		insertstate->bounds_valid = false;
@@ -492,26 +492,26 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 	}
 
 	/*
-	 * Binary search to find the first key on the page >= scan key. (nextkey
-	 * is always false when inserting).
+	 * 二分查找，找出页上第一个 >= 扫描键的键。（插入时 nextkey
+	 * 始终为假。）
 	 *
-	 * The loop invariant is: all slots before 'low' are < scan key, all slots
-	 * at or after 'high' are >= scan key.  'stricthigh' is > scan key, and is
-	 * maintained to save additional search effort for caller.
+	 * 循环不变式为：'low' 之前的所有槽都 < 扫描键，
+	 * 'high' 处及其后的所有槽都 >= 扫描键。'stricthigh' > 扫描键，并加以
+	 * 维护，以便为调用者节省额外的查找开销。
 	 *
-	 * We can fall out when high == low.
+	 * 当 high == low 时可以退出循环。
 	 */
 	if (!insertstate->bounds_valid)
-		high++;					/* establish the loop invariant for high */
-	stricthigh = high;			/* high initially strictly higher */
+		high++;					/* 为 high 建立循环不变式 */
+	stricthigh = high;			/* high 起初严格更高 */
 
-	cmpval = 1;					/* !nextkey comparison value */
+	cmpval = 1;					/* !nextkey 的比较值 */
 
 	while (high > low)
 	{
 		OffsetNumber mid = low + ((high - low) / 2);
 
-		/* We have low <= mid < high, so mid points at a real slot */
+		/* 此时 low <= mid < high，因此 mid 指向一个真实槽 */
 
 		result = _bt_compare(rel, key, page, mid);
 
@@ -525,18 +525,18 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 		}
 
 		/*
-		 * If tuple at offset located by binary search is a posting list whose
-		 * TID range overlaps with caller's scantid, perform posting list
-		 * binary search to set postingoff for caller.  Caller must split the
-		 * posting list when postingoff is set.  This should happen
-		 * infrequently.
+		 * 若二分查找定位到的偏移处的元组是倒排列表，且其
+		 * TID 范围与调用者的 scantid 重叠，则对倒排列表做
+		 * 二分查找，为调用者设置 postingoff。当 postingoff 已设置时，调用者必须分裂
+		 * 该倒排列表。这种情况应当
+		 * 很少发生。
 		 */
 		if (unlikely(result == 0 && key->scantid != NULL))
 		{
 			/*
-			 * postingoff should never be set more than once per leaf page
-			 * binary search.  That would mean that there are duplicate table
-			 * TIDs in the index, which is never okay.  Check for that here.
+			 * 每次叶子页
+			 * 二分查找中，postingoff 绝不应被设置超过一次。否则就意味着索引中存在重复的表
+			 * TIDs，这是绝不允许的。在此检查这一点。
 			 */
 			if (insertstate->postingoff != 0)
 				ereport(ERROR,
@@ -553,14 +553,14 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 	}
 
 	/*
-	 * On a leaf page, a binary search always returns the first key >= scan
-	 * key (at least in !nextkey case), which could be the last slot + 1. This
-	 * is also the lower bound of cached search.
+	 * 在叶子页上，二分查找总是返回第一个 >= 扫描
+	 * 键的键（至少在 !nextkey 情形下），它可能是最后一个槽 + 1。这也是
+	 * 缓存查找的下界。
 	 *
-	 * stricthigh may also be the last slot + 1, which prevents caller from
-	 * using bounds directly, but is still useful to us if we're called a
-	 * second time with cached bounds (cached low will be < stricthigh when
-	 * that happens).
+	 * stricthigh 也可能是最后一个槽 + 1，这使调用者无法
+	 * 直接使用边界，但若带着缓存边界被第二次调用，
+	 * 它对我们仍然有用（发生这种情况时，缓存的 low
+	 * 会 < stricthigh）。
 	 */
 	insertstate->low = low;
 	insertstate->stricthigh = stricthigh;
@@ -570,11 +570,11 @@ _bt_binsrch_insert(Relation rel, BTInsertState insertstate)
 }
 
 /*----------
- *	_bt_binsrch_posting() -- posting list binary search.
+ *	_bt_binsrch_posting() -- 倒排列表二分查找。
  *
- * Helper routine for _bt_binsrch_insert().
+ * _bt_binsrch_insert() 的辅助例程。
  *
- * Returns offset into posting list where caller's scantid belongs.
+ * 返回调用者的 scantid 在倒排列表中所属的偏移。
  *----------
  */
 static int
@@ -588,14 +588,14 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 				res;
 
 	/*
-	 * If this isn't a posting tuple, then the index must be corrupt (if it is
-	 * an ordinary non-pivot tuple then there must be an existing tuple with a
-	 * heap TID that equals inserter's new heap TID/scantid).  Defensively
-	 * check that tuple is a posting list tuple whose posting list range
-	 * includes caller's scantid.
+	 * 若这不是倒排元组，则索引必定已损坏（若它是
+	 * 普通的非枢轴元组，则必定已有一个元组，其
+	 * 堆 TID 等于插入者的新堆 TID/scantid）。防御性地
+	 * 检查该元组确是倒排列表元组，且其倒排列表范围
+	 * 包含调用者的 scantid。
 	 *
-	 * (This is also needed because contrib/amcheck's rootdescend option needs
-	 * to be able to relocate a non-pivot tuple using _bt_binsrch_insert().)
+	 * （这也是因为 contrib/amcheck 的 rootdescend 选项需要
+	 * 能够用 _bt_binsrch_insert() 重新定位非枢轴元组。）
 	 */
 	itemid = PageGetItemId(page, offnum);
 	itup = (IndexTuple) PageGetItem(page, itemid);
@@ -605,15 +605,15 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 	Assert(key->heapkeyspace && key->allequalimage);
 
 	/*
-	 * In the event that posting list tuple has LP_DEAD bit set, indicate this
-	 * to _bt_binsrch_insert() caller by returning -1, a sentinel value.  A
-	 * second call to _bt_binsrch_insert() can take place when its caller has
-	 * removed the dead item.
+	 * 若倒排列表元组设置了 LP_DEAD 位，则向
+	 * _bt_binsrch_insert() 的调用者返回 -1 这一哨兵值来表明此事。当调用者
+	 * 已经去掉该死亡项之后，可以再次调用
+	 * _bt_binsrch_insert()。
 	 */
 	if (ItemIdIsDead(itemid))
 		return -1;
 
-	/* "high" is past end of posting list for loop invariant */
+	/* 为了循环不变式，"high" 位于倒排列表末尾之后 */
 	low = 0;
 	high = BTreeTupleGetNPosting(itup);
 	Assert(high >= 2);
@@ -632,35 +632,35 @@ _bt_binsrch_posting(BTScanInsert key, Page page, OffsetNumber offnum)
 			return mid;
 	}
 
-	/* Exact match not found */
+	/* 未找到精确匹配 */
 	return low;
 }
 
 /*----------
- *	_bt_compare() -- Compare insertion-type scankey to tuple on a page.
+ *	_bt_compare() -- 把插入型扫描键与页上的元组比较。
  *
- *	page/offnum: location of btree item to be compared to.
+ *	page/offnum：要比较的 B-树项的位置。
  *
- *		This routine returns:
- *			<0 if scankey < tuple at offnum;
- *			 0 if scankey == tuple at offnum;
- *			>0 if scankey > tuple at offnum.
+ *		本例程返回：
+ *			若扫描键 < offnum 处的元组，则 <0；
+ *			 若扫描键 == offnum 处的元组，则 0；
+ *			若扫描键 > offnum 处的元组，则 >0。
  *
- * NULLs in the keys are treated as sortable values.  Therefore
- * "equality" does not necessarily mean that the item should be returned
- * to the caller as a matching key.  Similarly, an insertion scankey
- * with its scantid set is treated as equal to a posting tuple whose TID
- * range overlaps with their scantid.  There generally won't be a
- * matching TID in the posting tuple, which caller must handle
- * themselves (e.g., by splitting the posting list tuple).
+ * 键中的 NULL 被当作可排序的值。因此
+ * "相等"并不必然意味着该项应当作为匹配键
+ * 返回给调用者。类似地，设置了 scantid 的插入扫描键
+ * 被当作等于这样一个倒排元组：其 TID
+ * 范围与它们的 scantid 重叠。倒排元组中通常不会有
+ * 匹配的 TID，调用者必须自行处理
+ * （例如，分裂该倒排列表元组）。
  *
- * CRUCIAL NOTE: on a non-leaf page, the first data key is assumed to be
- * "minus infinity": this routine will always claim it is less than the
- * scankey.  The actual key value stored is explicitly truncated to 0
- * attributes (explicitly minus infinity) with version 3+ indexes, but
- * that isn't relied upon.  This allows us to implement the Lehman and
- * Yao convention that the first down-link pointer is before the first
- * key.  See backend/access/nbtree/README for details.
+ * 关键说明：在非叶子页上，第一个数据键被假定为
+ * "负无穷"：本例程将始终声称它小于
+ * 扫描键。版本 3 及以上的索引把实际存储的键值明确截断为 0
+ * 个属性（明确的负无穷），但
+ * 实现并不依赖这一点。这使我们能够实现 Lehman 与
+ * Yao 的约定：第一个下行指针位于第一个
+ * 键之前。详见 backend/access/nbtree/README。
  *----------
  */
 int32
@@ -683,8 +683,8 @@ _bt_compare(Relation rel,
 	Assert(key->heapkeyspace || key->scantid == NULL);
 
 	/*
-	 * Force result ">" if target item is first data item on an internal page
-	 * --- see NOTE above.
+	 * 若目标项是内部页上的第一个数据项，则强制结果为 ">"
+	 * ——见上面的说明。
 	 */
 	if (!P_ISLEAF(opaque) && offnum == P_FIRSTDATAKEY(opaque))
 		return 1;
@@ -693,15 +693,15 @@ _bt_compare(Relation rel,
 	ntupatts = BTreeTupleGetNAtts(itup, rel);
 
 	/*
-	 * The scan key is set up with the attribute number associated with each
-	 * term in the key.  It is important that, if the index is multi-key, the
-	 * scan contain the first k key attributes, and that they be in order.  If
-	 * you think about how multi-key ordering works, you'll understand why
-	 * this is.
+	 * 扫描键为键中的每一项设置了相关联的属性号。
+	 * 重要的是，若索引是多键的，扫描必须
+	 * 包含前 k 个键属性，并且它们按顺序排列。若
+	 * 想一想多键排序如何工作，就会明白
+	 * 为什么如此。
 	 *
-	 * We don't test for violation of this condition here, however.  The
-	 * initial setup for the index scan had better have gotten it right (see
-	 * _bt_first).
+	 * 不过这里并不检查是否违反了该条件。索引扫描的
+	 * 初始设置最好已经做对了（见
+	 * _bt_first）。
 	 */
 
 	ncmpkey = Min(ntupatts, key->keysz);
@@ -715,7 +715,7 @@ _bt_compare(Relation rel,
 
 		datum = index_getattr(itup, scankey->sk_attno, itupdesc, &isNull);
 
-		if (scankey->sk_flags & SK_ISNULL)	/* key is NULL */
+		if (scankey->sk_flags & SK_ISNULL)	/* 键为 NULL */
 		{
 			if (isNull)
 				result = 0;		/* NULL "=" NULL */
@@ -724,7 +724,7 @@ _bt_compare(Relation rel,
 			else
 				result = 1;		/* NULL ">" NOT_NULL */
 		}
-		else if (isNull)		/* key is NOT_NULL and item is NULL */
+		else if (isNull)		/* 键为 NOT_NULL 且项为 NULL */
 		{
 			if (scankey->sk_flags & SK_BT_NULLS_FIRST)
 				result = 1;		/* NOT_NULL ">" NULL */
@@ -734,12 +734,12 @@ _bt_compare(Relation rel,
 		else
 		{
 			/*
-			 * The sk_func needs to be passed the index value as left arg and
-			 * the sk_argument as right arg (they might be of different
-			 * types).  Since it is convenient for callers to think of
-			 * _bt_compare as comparing the scankey to the index item, we have
-			 * to flip the sign of the comparison result.  (Unless it's a DESC
-			 * column, in which case we *don't* flip the sign.)
+			 * 需要把索引值作为左参数、
+			 * 把 sk_argument 作为右参数传给 sk_func（它们的
+			 * 类型可能不同）。由于调用者习惯把
+			 * _bt_compare 理解为拿扫描键去比较索引项，我们
+			 * 必须翻转比较结果的符号。（除非它是 DESC
+			 * 列，那种情况下我们*不*翻转符号。）
 			 */
 			result = DatumGetInt32(FunctionCall2Coll(&scankey->sk_func,
 													 scankey->sk_collation,
@@ -750,7 +750,7 @@ _bt_compare(Relation rel,
 				INVERT_COMPARE_RESULT(result);
 		}
 
-		/* if the keys are unequal, return the difference */
+		/* 若键不相等，返回差值 */
 		if (result != 0)
 			return result;
 
@@ -758,79 +758,79 @@ _bt_compare(Relation rel,
 	}
 
 	/*
-	 * All non-truncated attributes (other than heap TID) were found to be
-	 * equal.  Treat truncated attributes as minus infinity when scankey has a
-	 * key attribute value that would otherwise be compared directly.
+	 * 除堆 TID 之外，所有未被截断的属性都被发现
+	 * 相等。当扫描键带有本来会直接比较的
+	 * 键属性值时，把被截断的属性当作负无穷。
 	 *
-	 * Note: it doesn't matter if ntupatts includes non-key attributes;
-	 * scankey won't, so explicitly excluding non-key attributes isn't
-	 * necessary.
+	 * 注意：ntupatts 是否包含非键属性并不重要；
+	 * 扫描键不会包含，因此没有必要
+	 * 显式排除非键属性。
 	 */
 	if (key->keysz > ntupatts)
 		return 1;
 
 	/*
-	 * Use the heap TID attribute and scantid to try to break the tie.  The
-	 * rules are the same as any other key attribute -- only the
-	 * representation differs.
+	 * 用堆 TID 属性与 scantid 尝试打破平局。规则
+	 * 与任何其他键属性相同——只是
+	 * 表示方式不同。
 	 */
 	heapTid = BTreeTupleGetHeapTID(itup);
 	if (key->scantid == NULL)
 	{
 		/*
-		 * Most searches have a scankey that is considered greater than a
-		 * truncated pivot tuple if and when the scankey has equal values for
-		 * attributes up to and including the least significant untruncated
-		 * attribute in tuple.
+		 * 大多数搜索的扫描键，在扫描键对
+		 * 元组中直到并包括最低有效的未被截断
+		 * 属性在内的各属性都有相等值时，会被认为大于
+		 * 被截断的枢轴元组。
 		 *
-		 * For example, if an index has the minimum two attributes (single
-		 * user key attribute, plus heap TID attribute), and a page's high key
-		 * is ('foo', -inf), and scankey is ('foo', <omitted>), the search
-		 * will not descend to the page to the left.  The search will descend
-		 * right instead.  The truncated attribute in pivot tuple means that
-		 * all non-pivot tuples on the page to the left are strictly < 'foo',
-		 * so it isn't necessary to descend left.  In other words, search
-		 * doesn't have to descend left because it isn't interested in a match
-		 * that has a heap TID value of -inf.
+		 * 例如，若索引只有最少的两个属性（一个
+		 * 用户键属性，加上堆 TID 属性），且某页的高键
+		 * 是 ('foo', -inf)，扫描键是 ('foo', <省略>)，则搜索
+		 * 不会下降到左边那一页。搜索会改为向
+		 * 右下降。枢轴元组中被截断的属性意味着
+		 * 左边那一页上的所有非枢轴元组都严格 < 'foo'，
+		 * 因此没有必要向左下降。换句话说，搜索
+		 * 不必向左下降，因为它并不关心堆 TID 值为 -inf
+		 * 的匹配。
 		 *
-		 * However, some searches (pivotsearch searches) actually require that
-		 * we descend left when this happens.  -inf is treated as a possible
-		 * match for omitted scankey attribute(s).  This is needed by page
-		 * deletion, which must re-find leaf pages that are targets for
-		 * deletion using their high keys.
+		 * 不过，有些搜索（pivotsearch 搜索）在发生这种情况时实际上需要
+		 * 我们向左下降。-inf 被当作省略的扫描键属性的一种可能
+		 * 匹配。页删除需要这一点，它必须
+		 * 用这些叶子页的高键重新找到
+		 * 作为删除目标的叶子页。
 		 *
-		 * Note: the heap TID part of the test ensures that scankey is being
-		 * compared to a pivot tuple with one or more truncated key
-		 * attributes.
+		 * 注意：测试中的堆 TID 部分确保扫描键正在与
+		 * 带有一个或多个被截断键
+		 * 属性的枢轴元组比较。
 		 *
-		 * Note: pg_upgrade'd !heapkeyspace indexes must always descend to the
-		 * left here, since they have no heap TID attribute (and cannot have
-		 * any -inf key values in any case, since truncation can only remove
-		 * non-key attributes).  !heapkeyspace searches must always be
-		 * prepared to deal with matches on both sides of the pivot once the
-		 * leaf level is reached.
+		 * 注意：经 pg_upgrade 升级的 !heapkeyspace 索引在这里必须始终向
+		 * 左下降，因为它们没有堆 TID 属性（而且无论如何都无法具有
+		 * 任何 -inf 键值，因为截断只能去掉
+		 * 非键属性）。!heapkeyspace 搜索在到达
+		 * 叶子层之后，必须始终准备好处理枢轴两侧的
+		 * 匹配。
 		 */
 		if (key->heapkeyspace && !key->pivotsearch &&
 			key->keysz == ntupatts && heapTid == NULL)
 			return 1;
 
-		/* All provided scankey arguments found to be equal */
+		/* 所提供的扫描键参数全部被发现相等 */
 		return 0;
 	}
 
 	/*
-	 * Treat truncated heap TID as minus infinity, since scankey has a key
-	 * attribute value (scantid) that would otherwise be compared directly
+	 * 把被截断的堆 TID 当作负无穷，因为扫描键有一个
+	 * 本来会直接比较的键属性值（scantid）
 	 */
 	Assert(key->keysz == IndexRelationGetNumberOfKeyAttributes(rel));
 	if (heapTid == NULL)
 		return 1;
 
 	/*
-	 * Scankey must be treated as equal to a posting list tuple if its scantid
-	 * value falls within the range of the posting list.  In all other cases
-	 * there can only be a single heap TID value, which is compared directly
-	 * with scantid.
+	 * 若扫描键的 scantid 值落在倒排列表范围内，则必须把它当作等于该倒排列表元组。
+	 * 在所有其他情形下
+	 * 只能有一个堆 TID 值，它被直接与
+	 * scantid 比较。
 	 */
 	Assert(ntupatts >= IndexRelationGetNumberOfKeyAttributes(rel));
 	result = ItemPointerCompare(key->scantid, heapTid);
@@ -848,24 +848,24 @@ _bt_compare(Relation rel,
 }
 
 /*
- *	_bt_first() -- Find the first item in a scan.
+ *	_bt_first() -- 找出扫描中的第一项。
  *
- *		We need to be clever about the direction of scan, the search
- *		conditions, and the tree ordering.  We find the first item (or,
- *		if backwards scan, the last item) in the tree that satisfies the
- *		qualifications in the scan key.  On success exit, the page containing
- *		the current index tuple is pinned but not locked, and data about
- *		the matching tuple(s) on the page has been loaded into so->currPos.
- *		scan->xs_ctup.t_self is set to the heap TID of the current tuple,
- *		and if requested, scan->xs_itup points to a copy of the index tuple.
+ *		需要精明地处理扫描方向、搜索
+ *		条件以及树的排序。我们找出树中满足
+ *		扫描键限定条件的第一项（若是
+ *		反向扫描，则是最后一项）。成功退出时，包含
+ *		当前索引元组的页已钉住但未加锁，并且关于
+ *		页上匹配元组的数据已装入 so->currPos。
+ *		scan->xs_ctup.t_self 被设为当前元组的堆 TID，
+ *		若有请求，scan->xs_itup 指向索引元组的一份副本。
  *
- * If there are no matching items in the index, we return false, with no
- * pins or locks held.
+ * 若索引中没有匹配项，我们返回 false，并且不持有
+ * 任何钉住或锁。
  *
- * Note that scan->keyData[], and the so->keyData[] scankey built from it,
- * are both search-type scankeys (see nbtree/README for more about this).
- * Within this routine, we build a temporary insertion-type scankey to use
- * in locating the scan start position.
+ * 注意 scan->keyData[] 以及由它构建的 so->keyData[] 扫描键
+ * 都是搜索型扫描键（详见 nbtree/README）。
+ * 在本例程内部，我们构建一个临时的插入型扫描键，用来
+ * 定位扫描的起点。
  */
 bool
 _bt_first(IndexScanDesc scan, ScanDirection dir)
@@ -893,27 +893,27 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	pgstat_count_index_scan(rel);
 
 	/*
-	 * Examine the scan keys and eliminate any redundant keys; also mark the
-	 * keys that must be matched to continue the scan.
+	 * 检查扫描键并去掉任何冗余键；同时标出
+	 * 为继续扫描而必须匹配的键。
 	 */
 	_bt_preprocess_keys(scan);
 
 	/*
-	 * Quit now if _bt_preprocess_keys() discovered that the scan keys can
-	 * never be satisfied (eg, x == 1 AND x > 2).
+	 * 若 _bt_preprocess_keys() 发现扫描键永远无法
+	 * 被满足（例如 x == 1 AND x > 2），则立即退出。
 	 */
 	if (!so->qual_ok)
 	{
-		/* Notify any other workers that we're done with this scan key. */
+		/* 通知其他工作进程：我们对这个扫描键已经处理完。 */
 		_bt_parallel_done(scan);
 		return false;
 	}
 
 	/*
-	 * For parallel scans, get the starting page from shared state. If the
-	 * scan has not started, proceed to find out first leaf page in the usual
-	 * way while keeping other participating processes waiting.  If the scan
-	 * has already begun, use the page number from the shared structure.
+	 * 对并行扫描，从共享状态取得起始页。若扫描
+	 * 尚未开始，则按通常方式找出第一张叶子页，
+	 * 同时让其他参与进程等待。若扫描
+	 * 已经开始，则使用共享结构中的页号。
 	 */
 	if (scan->parallel_scan != NULL)
 	{
@@ -934,49 +934,49 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/*----------
-	 * Examine the scan keys to discover where we need to start the scan.
+	 * 检查扫描键，以发现应当从何处开始扫描。
 	 *
-	 * We want to identify the keys that can be used as starting boundaries;
-	 * these are =, >, or >= keys for a forward scan or =, <, <= keys for
-	 * a backwards scan.  We can use keys for multiple attributes so long as
-	 * the prior attributes had only =, >= (resp. =, <=) keys.  Once we accept
-	 * a > or < boundary or find an attribute with no boundary (which can be
-	 * thought of as the same as "> -infinity"), we can't use keys for any
-	 * attributes to its right, because it would break our simplistic notion
-	 * of what initial positioning strategy to use.
+	 * 我们希望识别出可用作起始边界的键；
+	 * 对正向扫描，它们是 =、> 或 >= 键；对反向扫描，则是 =、<、<= 键。
+	 * 只要前面的属性只有 =、>=（相应地，=、<=）键，就可以使用多个属性的键。
+	 * 一旦我们接受了
+	 * 一个 > 或 < 边界，或者发现某个属性没有边界（这可以
+	 * 看作与 "> -infinity" 相同），就不能再使用它右侧任何
+	 * 属性的键，因为那会破坏我们对
+	 * 应当采用何种初始定位策略的简单设想。
 	 *
-	 * When the scan keys include cross-type operators, _bt_preprocess_keys
-	 * may not be able to eliminate redundant keys; in such cases we will
-	 * arbitrarily pick a usable one for each attribute.  This is correct
-	 * but possibly not optimal behavior.  (For example, with keys like
-	 * "x >= 4 AND x >= 5" we would elect to scan starting at x=4 when
-	 * x=5 would be more efficient.)  Since the situation only arises given
-	 * a poorly-worded query plus an incomplete opfamily, live with it.
+	 * 当扫描键包含跨类型操作符时，_bt_preprocess_keys
+	 * 可能无法去掉冗余键；这种情况下我们会
+	 * 为每个属性任意挑选一个可用的键。这是正确的，
+	 * 但未必是最优行为。（例如，对于
+	 * "x >= 4 AND x >= 5" 这样的键，我们会选择从 x=4 开始扫描，而
+	 * 从 x=5 开始会更高效。）由于这种情况只在
+	 * 查询措辞不佳且操作符族不完整时出现，就此接受。
 	 *
-	 * When both equality and inequality keys appear for a single attribute
-	 * (again, only possible when cross-type operators appear), we *must*
-	 * select one of the equality keys for the starting point, because
-	 * _bt_checkkeys() will stop the scan as soon as an equality qual fails.
-	 * For example, if we have keys like "x >= 4 AND x = 10" and we elect to
-	 * start at x=4, we will fail and stop before reaching x=10.  If multiple
-	 * equality quals survive preprocessing, however, it doesn't matter which
-	 * one we use --- by definition, they are either redundant or
-	 * contradictory.
+	 * 当单个属性同时出现等值键与不等值键时
+	 * （同样，只有出现跨类型操作符时才可能），我们*必须*
+	 * 选择其中一个等值键作为起点，因为
+	 * 一旦某个等值限定失败，_bt_checkkeys() 就会停止扫描。
+	 * 例如，若键是 "x >= 4 AND x = 10"，而我们选择
+	 * 从 x=4 开始，就会在到达 x=10 之前失败并停止。若预处理之后仍有多个
+	 * 等值限定幸存，用哪一个并不重要——按定义，它们要么冗余，
+	 * 要么相互矛盾。
+	 * 不存在第三种情形。
 	 *
-	 * Any regular (not SK_SEARCHNULL) key implies a NOT NULL qualifier.
-	 * If the index stores nulls at the end of the index we'll be starting
-	 * from, and we have no boundary key for the column (which means the key
-	 * we deduced NOT NULL from is an inequality key that constrains the other
-	 * end of the index), then we cons up an explicit SK_SEARCHNOTNULL key to
-	 * use as a boundary key.  If we didn't do this, we might find ourselves
-	 * traversing a lot of null entries at the start of the scan.
+	 * 任何常规（不是 SK_SEARCHNULL）键都蕴含 NOT NULL 限定。
+	 * 若索引把空值存放在我们将要开始的那一端，
+	 * 并且该列没有边界键（这意味着我们据以推断 NOT NULL 的那个键
+	 * 是约束索引另一端的不等值键），则临时构造一个显式的 SK_SEARCHNOTNULL 键，
+	 * 用作边界键。若不这样做，
+	 * 扫描一开始我们就可能遍历大量空值项。
+	 * 那些 NULL 项就堆在扫描起点。
 	 *
-	 * In this loop, row-comparison keys are treated the same as keys on their
-	 * first (leftmost) columns.  We'll add on lower-order columns of the row
-	 * comparison below, if possible.
+	 * 在这个循环中，行比较键被当作其
+	 * 第一个（最左）列上的键来处理。若可能，下面会补上行比较中
+	 * 较低序的列。
 	 *
-	 * The selected scan keys (at most one per index column) are remembered by
-	 * storing their addresses into the local startKeys[] array.
+	 * 被选中的扫描键（每个索引列至多一个）通过
+	 * 把它们的地址存入局部 startKeys[] 数组来记住。
 	 *----------
 	 */
 	strat_total = BTEqualStrategyNumber;
@@ -988,34 +988,34 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		ScanKey		cur;
 
 		/*
-		 * chosen is the so-far-chosen key for the current attribute, if any.
-		 * We don't cast the decision in stone until we reach keys for the
-		 * next attribute.
+		 * chosen 是到目前为止为当前属性选定的键（若有）。
+		 * 在遇到下一个属性的键之前，我们并不把这个决定
+		 * 定死。
 		 */
 		curattr = 1;
 		chosen = NULL;
-		/* Also remember any scankey that implies a NOT NULL constraint */
+		/* 同时记住任何蕴含 NOT NULL 约束的扫描键 */
 		impliesNN = NULL;
 
 		/*
-		 * Loop iterates from 0 to numberOfKeys inclusive; we use the last
-		 * pass to handle after-last-key processing.  Actual exit from the
-		 * loop is at one of the "break" statements below.
+		 * 循环从 0 迭代到 numberOfKeys（含）；最后一轮
+		 * 用来处理"最后一个键之后"的收尾。真正退出循环
+		 * 发生在下面某一条 "break" 语句。
 		 */
 		for (cur = so->keyData, i = 0;; cur++, i++)
 		{
 			if (i >= so->numberOfKeys || cur->sk_attno != curattr)
 			{
 				/*
-				 * Done looking at keys for curattr.  If we didn't find a
-				 * usable boundary key, see if we can deduce a NOT NULL key.
+				 * 对 curattr 的键已经看完。若没有找到
+				 * 可用的边界键，看看能否推断出一个 NOT NULL 键。
 				 */
 				if (chosen == NULL && impliesNN != NULL &&
 					((impliesNN->sk_flags & SK_BT_NULLS_FIRST) ?
 					 ScanDirectionIsForward(dir) :
 					 ScanDirectionIsBackward(dir)))
 				{
-					/* Yes, so build the key in notnullkeys[keysCount] */
+					/* 可以，因此在 notnullkeys[keysCount] 中构造该键 */
 					chosen = &notnullkeys[keysCount];
 					ScanKeyEntryInitialize(chosen,
 										   (SK_SEARCHNOTNULL | SK_ISNULL |
@@ -1032,16 +1032,16 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 				}
 
 				/*
-				 * If we still didn't find a usable boundary key, quit; else
-				 * save the boundary key pointer in startKeys.
+				 * 若仍然没有找到可用的边界键，则退出；否则
+				 * 把边界键指针存入 startKeys。
 				 */
 				if (chosen == NULL)
 					break;
 				startKeys[keysCount++] = chosen;
 
 				/*
-				 * Adjust strat_total, and quit if we have stored a > or <
-				 * key.
+				 * 调整 strat_total，若已经存了一个 > 或 <
+				 * 键，则退出。
 				 */
 				strat = chosen->sk_strategy;
 				if (strat != BTEqualStrategyNumber)
@@ -1053,16 +1053,16 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 				}
 
 				/*
-				 * Done if that was the last attribute, or if next key is not
-				 * in sequence (implying no boundary key is available for the
-				 * next attribute).
+				 * 若那是最后一个属性，或者下一个键不
+				 * 按顺序出现（意味着下一个属性没有可用的
+				 * 边界键），则结束。
 				 */
 				if (i >= so->numberOfKeys ||
 					cur->sk_attno != curattr + 1)
 					break;
 
 				/*
-				 * Reset for next attr.
+				 * 为下一个属性重置。
 				 */
 				curattr = cur->sk_attno;
 				chosen = NULL;
@@ -1070,11 +1070,11 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 			}
 
 			/*
-			 * Can we use this key as a starting boundary for this attr?
+			 * 这个键能否用作本属性的起始边界？
 			 *
-			 * If not, does it imply a NOT NULL constraint?  (Because
-			 * SK_SEARCHNULL keys are always assigned BTEqualStrategyNumber,
-			 * *any* inequality key works for that; we need not test.)
+			 * 若不能，它是否蕴含 NOT NULL 约束？（因为
+			 * SK_SEARCHNULL 键总是被赋为 BTEqualStrategyNumber，
+			 * *任何*不等值键都能起到这个作用；不必再测试。）
 			 */
 			switch (cur->sk_strategy)
 			{
@@ -1089,7 +1089,7 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 					}
 					break;
 				case BTEqualStrategyNumber:
-					/* override any non-equality choice */
+					/* 覆盖任何非等值选择 */
 					chosen = cur;
 					break;
 				case BTGreaterEqualStrategyNumber:
@@ -1107,9 +1107,9 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/*
-	 * If we found no usable boundary keys, we have to start from one end of
-	 * the tree.  Walk down that edge to the first or last key, and scan from
-	 * there.
+	 * 若没有找到可用的边界键，就必须从树的某一端
+	 * 开始。沿那条边走到第一个或最后一个键，再从
+	 * 那里开始扫描。
 	 */
 	if (keysCount == 0)
 	{
@@ -1119,7 +1119,7 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 
 		if (!match)
 		{
-			/* No match, so mark (parallel) scan finished */
+			/* 没有匹配，因此把（并行）扫描标为已完成 */
 			_bt_parallel_done(scan);
 		}
 
@@ -1127,11 +1127,11 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/*
-	 * We want to start the scan somewhere within the index.  Set up an
-	 * insertion scankey we can use to search for the boundary point we
-	 * identified above.  The insertion scankey is built using the keys
-	 * identified by startKeys[].  (Remaining insertion scankey fields are
-	 * initialized after initial-positioning strategy is finalized.)
+	 * 我们希望从索引内部某处开始扫描。建立一个
+	 * 插入型扫描键，用来搜索上面确定的边界点。
+	 * 该插入型扫描键用 startKeys[] 所标识的键来构建。
+	 * （插入型扫描键的其余字段在初始定位策略
+	 * 最终确定之后再初始化。）
 	 */
 	Assert(keysCount <= INDEX_MAX_KEYS);
 	for (i = 0; i < keysCount; i++)
@@ -1143,13 +1143,13 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		if (cur->sk_flags & SK_ROW_HEADER)
 		{
 			/*
-			 * Row comparison header: look to the first row member instead.
+			 * 行比较头：改为查看第一个行成员。
 			 *
-			 * The member scankeys are already in insertion format (ie, they
-			 * have sk_func = 3-way-comparison function), but we have to watch
-			 * out for nulls, which _bt_preprocess_keys didn't check. A null
-			 * in the first row member makes the condition unmatchable, just
-			 * like qual_ok = false.
+			 * 成员扫描键已经是插入格式（也就是说，它们的
+			 * sk_func 是三路比较函数），但必须留意
+			 * 空值，_bt_preprocess_keys 并没有检查它们。第一个行成员中的
+			 * 空值会使条件无法匹配，就像
+			 * qual_ok = false 一样。
 			 */
 			ScanKey		subkey = (ScanKey) DatumGetPointer(cur->sk_argument);
 
@@ -1162,18 +1162,18 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 			memcpy(inskey.scankeys + i, subkey, sizeof(ScanKeyData));
 
 			/*
-			 * If the row comparison is the last positioning key we accepted,
-			 * try to add additional keys from the lower-order row members.
-			 * (If we accepted independent conditions on additional index
-			 * columns, we use those instead --- doesn't seem worth trying to
-			 * determine which is more restrictive.)  Note that this is OK
-			 * even if the row comparison is of ">" or "<" type, because the
-			 * condition applied to all but the last row member is effectively
-			 * ">=" or "<=", and so the extra keys don't break the positioning
-			 * scheme.  But, by the same token, if we aren't able to use all
-			 * the row members, then the part of the row comparison that we
-			 * did use has to be treated as just a ">=" or "<=" condition, and
-			 * so we'd better adjust strat_total accordingly.
+			 * 若该行比较是我们接受的最后一个定位键，
+			 * 尝试从较低序的行成员再补充一些键。
+			 * （若我们已经接受了其他索引列上的独立条件，
+			 * 就改用那些条件——不值得再去判断
+			 * 哪一个限制更强。）注意，即使行比较是 ">" 或 "<" 类型，这样做也是可以的，
+			 * 因为除最后一个行成员之外，施加的条件实际上是
+			 * ">=" 或 "<="，因此额外的键不会破坏定位
+			 * 方案。但同理，若我们无法用上全部
+			 * 行成员，那么已经用上的那部分行比较就只能当作
+			 * 一个 ">=" 或 "<=" 条件，
+			 * 因此最好相应地
+			 * 调整 strat_total。
 			 */
 			if (i == keysCount - 1)
 			{
@@ -1185,11 +1185,11 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 					subkey++;
 					Assert(subkey->sk_flags & SK_ROW_MEMBER);
 					if (subkey->sk_attno != keysCount + 1)
-						break;	/* out-of-sequence, can't use it */
+						break;	/* 顺序不对，不能使用 */
 					if (subkey->sk_strategy != cur->sk_strategy)
-						break;	/* wrong direction, can't use it */
+						break;	/* 方向不对，不能使用 */
 					if (subkey->sk_flags & SK_ISNULL)
-						break;	/* can't use null keys */
+						break;	/* 不能使用 NULL 键 */
 					Assert(keysCount < INDEX_MAX_KEYS);
 					memcpy(inskey.scankeys + keysCount, subkey,
 						   sizeof(ScanKeyData));
@@ -1212,25 +1212,25 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 							break;
 					}
 				}
-				break;			/* done with outer loop */
+				break;			/* 外层循环到此结束 */
 			}
 		}
 		else
 		{
 			/*
-			 * Ordinary comparison key.  Transform the search-style scan key
-			 * to an insertion scan key by replacing the sk_func with the
-			 * appropriate btree comparison function.
+			 * 普通比较键。把搜索型扫描键
+			 * 转换成插入型扫描键，办法是把 sk_func 替换为
+			 * 合适的 B-树比较函数。
 			 *
-			 * If scankey operator is not a cross-type comparison, we can use
-			 * the cached comparison function; otherwise gotta look it up in
-			 * the catalogs.  (That can't lead to infinite recursion, since no
-			 * indexscan initiated by syscache lookup will use cross-data-type
-			 * operators.)
+			 * 若扫描键操作符不是跨类型比较，可以使用
+			 * 缓存的比较函数；否则就得在
+			 * 系统目录中查找。（这不会导致无限递归，因为由系统缓存查找发起的
+			 * 索引扫描不会使用跨数据类型
+			 * 操作符。）
 			 *
-			 * We support the convention that sk_subtype == InvalidOid means
-			 * the opclass input type; this is a hack to simplify life for
-			 * ScanKeyInit().
+			 * 我们支持这样的约定：sk_subtype == InvalidOid 表示
+			 * 操作符类的输入类型；这是为了简化
+			 * ScanKeyInit() 而采用的权宜做法。
 			 */
 			if (cur->sk_subtype == rel->rd_opcintype[i] ||
 				cur->sk_subtype == InvalidOid)
@@ -1272,16 +1272,16 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 
 	/*----------
-	 * Examine the selected initial-positioning strategy to determine exactly
-	 * where we need to start the scan, and set flag variables to control the
-	 * code below.
+	 * 检查所选的初始定位策略，以准确确定
+	 * 应当从何处开始扫描，并设置标志变量来控制
+	 * 下面的代码。
 	 *
-	 * If nextkey = false, _bt_search and _bt_binsrch will locate the first
-	 * item >= scan key.  If nextkey = true, they will locate the first
-	 * item > scan key.
+	 * 若 nextkey = false，_bt_search 与 _bt_binsrch 会定位第一个
+	 * >= 扫描键的项。若 nextkey = true，它们会定位第一个
+	 * > 扫描键的项。
 	 *
-	 * If goback = true, we will then step back one item, while if
-	 * goback = false, we will start the scan on the located item.
+	 * 若 goback = true，我们随后后退一项；若
+	 * goback = false，则从定位到的那一项开始扫描。
 	 *----------
 	 */
 	switch (strat_total)
@@ -1289,10 +1289,10 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		case BTLessStrategyNumber:
 
 			/*
-			 * Find first item >= scankey, then back up one to arrive at last
-			 * item < scankey.  (Note: this positioning strategy is only used
-			 * for a backward scan, so that is always the correct starting
-			 * position.)
+			 * 找出第一个 >= 扫描键的项，然后后退一项，到达最后一个
+			 * < 扫描键的项。（注意：此定位策略只用于
+			 * 反向扫描，因此那总是正确的起始
+			 * 位置。）
 			 */
 			nextkey = false;
 			goback = true;
@@ -1301,10 +1301,10 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		case BTLessEqualStrategyNumber:
 
 			/*
-			 * Find first item > scankey, then back up one to arrive at last
-			 * item <= scankey.  (Note: this positioning strategy is only used
-			 * for a backward scan, so that is always the correct starting
-			 * position.)
+			 * 找出第一个 > 扫描键的项，然后后退一项，到达最后一个
+			 * <= 扫描键的项。（注意：此定位策略只用于
+			 * 反向扫描，因此那总是正确的起始
+			 * 位置。）
 			 */
 			nextkey = true;
 			goback = true;
@@ -1313,14 +1313,14 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		case BTEqualStrategyNumber:
 
 			/*
-			 * If a backward scan was specified, need to start with last equal
-			 * item not first one.
+			 * 若指定了反向扫描，需要从最后一个相等项开始，
+			 * 而不是第一个。
 			 */
 			if (ScanDirectionIsBackward(dir))
 			{
 				/*
-				 * This is the same as the <= strategy.  We will check at the
-				 * end whether the found item is actually =.
+				 * 这与 <= 策略相同。我们会在
+				 * 结束时检查找到的项是否真的 =。
 				 */
 				nextkey = true;
 				goback = true;
@@ -1328,8 +1328,8 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 			else
 			{
 				/*
-				 * This is the same as the >= strategy.  We will check at the
-				 * end whether the found item is actually =.
+				 * 这与 >= 策略相同。我们会在
+				 * 结束时检查找到的项是否真的 =。
 				 */
 				nextkey = false;
 				goback = false;
@@ -1339,8 +1339,8 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		case BTGreaterEqualStrategyNumber:
 
 			/*
-			 * Find first item >= scankey.  (This is only used for forward
-			 * scans.)
+			 * 找出第一个 >= 扫描键的项。（这只用于正向
+			 * 扫描。）
 			 */
 			nextkey = false;
 			goback = false;
@@ -1349,46 +1349,46 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		case BTGreaterStrategyNumber:
 
 			/*
-			 * Find first item > scankey.  (This is only used for forward
-			 * scans.)
+			 * 找出第一个 > 扫描键的项。（这只用于正向
+			 * 扫描。）
 			 */
 			nextkey = true;
 			goback = false;
 			break;
 
 		default:
-			/* can't get here, but keep compiler quiet */
+			/* 到不了这里，但让编译器保持安静 */
 			elog(ERROR, "unrecognized strat_total: %d", (int) strat_total);
 			return false;
 	}
 
-	/* Initialize remaining insertion scan key fields */
+	/* 初始化插入型扫描键的其余字段 */
 	_bt_metaversion(rel, &inskey.heapkeyspace, &inskey.allequalimage);
-	inskey.anynullkeys = false; /* unused */
+	inskey.anynullkeys = false; /* 未使用 */
 	inskey.nextkey = nextkey;
 	inskey.pivotsearch = false;
 	inskey.scantid = NULL;
 	inskey.keysz = keysCount;
 
 	/*
-	 * Use the manufactured insertion scan key to descend the tree and
-	 * position ourselves on the target leaf page.
+	 * 用构造好的插入型扫描键沿树下降，
+	 * 把自己定位到目标叶子页上。
 	 */
 	stack = _bt_search(rel, NULL, &inskey, &buf, BT_READ, scan->xs_snapshot);
 
-	/* don't need to keep the stack around... */
+	/* 不需要再保留这个栈…… */
 	_bt_freestack(stack);
 
 	if (!BufferIsValid(buf))
 	{
 		/*
-		 * We only get here if the index is completely empty. Lock relation
-		 * because nothing finer to lock exists.  Without a buffer lock, it's
-		 * possible for another transaction to insert data between
-		 * _bt_search() and PredicateLockRelation().  We have to try again
-		 * after taking the relation-level predicate lock, to close a narrow
-		 * window where we wouldn't scan concurrently inserted tuples, but the
-		 * writer wouldn't see our predicate lock.
+		 * 只有索引完全为空时才会走到这里。锁定整个关系，
+		 * 因为不存在更细的可锁对象。若没有缓冲区锁，
+		 * 另一个事务有可能在
+		 * _bt_search() 与 PredicateLockRelation() 之间插入数据。取得
+		 * 关系级谓词锁之后，我们必须重新搜索，以堵住一个狭窄
+		 * 窗口：否则我们不会扫描并发插入的元组，而
+		 * 写入者却看不到我们的谓词锁。
 		 */
 		if (IsolationIsSerializable())
 		{
@@ -1401,8 +1401,8 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 		if (!BufferIsValid(buf))
 		{
 			/*
-			 * Mark parallel scan as done, so that all the workers can finish
-			 * their scan.
+			 * 把并行扫描标为已完成，以便所有工作进程都能结束
+			 * 它们的扫描。
 			 */
 			_bt_parallel_done(scan);
 			BTScanPosInvalidate(so->currPos);
@@ -1414,42 +1414,42 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 
 	_bt_initialize_more_data(so, dir);
 
-	/* position to the precise item on the page */
+	/* 定位到页上的精确项 */
 	offnum = _bt_binsrch(rel, &inskey, buf);
 
 	/*
-	 * If nextkey = false, we are positioned at the first item >= scan key, or
-	 * possibly at the end of a page on which all the existing items are less
-	 * than the scan key and we know that everything on later pages is greater
-	 * than or equal to scan key.
+	 * 若 nextkey = false，我们定位在第一个 >= 扫描键的项上，或者
+	 * 可能位于这样一页的末尾：该页上现有项都小于
+	 * 扫描键，并且我们知道后面各页上的一切都大于
+	 * 或等于扫描键。
 	 *
-	 * If nextkey = true, we are positioned at the first item > scan key, or
-	 * possibly at the end of a page on which all the existing items are less
-	 * than or equal to the scan key and we know that everything on later
-	 * pages is greater than scan key.
+	 * 若 nextkey = true，我们定位在第一个 > 扫描键的项上，或者
+	 * 可能位于这样一页的末尾：该页上现有项都小于
+	 * 或等于扫描键，并且我们知道后面各页上的一切都
+	 * 大于扫描键。
 	 *
-	 * The actually desired starting point is either this item or the prior
-	 * one, or in the end-of-page case it's the first item on the next page or
-	 * the last item on this page.  Adjust the starting offset if needed. (If
-	 * this results in an offset before the first item or after the last one,
-	 * _bt_readpage will report no items found, and then we'll step to the
-	 * next page as needed.)
+	 * 真正想要的起点要么是这一项，要么是前一项；
+	 * 在页末情形下，则是下一页的第一项，或者
+	 * 本页的最后一项。必要时调整起始偏移。（若
+	 * 结果偏移位于第一项之前或最后一项之后，
+	 * _bt_readpage 会报告没有找到项，然后我们再按需要走到
+	 * 下一页。）
 	 */
 	if (goback)
 		offnum = OffsetNumberPrev(offnum);
 
-	/* remember which buffer we have pinned, if any */
+	/* 记住我们钉住了哪个缓冲区（若有） */
 	Assert(!BTScanPosIsValid(so->currPos));
 	so->currPos.buf = buf;
 
 	/*
-	 * Now load data from the first page of the scan.
+	 * 现在从扫描的第一页装入数据。
 	 */
 	if (!_bt_readpage(scan, dir, offnum))
 	{
 		/*
-		 * There's no actually-matching data on this page.  Try to advance to
-		 * the next page.  Return false if there's no matching data at all.
+		 * 本页上没有真正匹配的数据。尝试前进到
+		 * 下一页。若完全没有匹配数据，则返回 false。
 		 */
 		_bt_unlockbuf(scan->indexRelation, so->currPos.buf);
 		if (!_bt_steppage(scan, dir))
@@ -1457,12 +1457,12 @@ _bt_first(IndexScanDesc scan, ScanDirection dir)
 	}
 	else
 	{
-		/* Drop the lock, and maybe the pin, on the current page */
+		/* 放下当前页上的锁，并视情况放下钉住 */
 		_bt_drop_lock_and_maybe_pin(scan, &so->currPos);
 	}
 
 readcomplete:
-	/* OK, itemIndex says what to return */
+	/* 好，itemIndex 指出该返回哪一项 */
 	currItem = &so->currPos.items[so->currPos.itemIndex];
 	scan->xs_heaptid = currItem->heapTid;
 	if (scan->xs_want_itup)
@@ -1472,18 +1472,18 @@ readcomplete:
 }
 
 /*
- *	_bt_next() -- Get the next item in a scan.
+ *	_bt_next() -- 取得扫描中的下一项。
  *
- *		On entry, so->currPos describes the current page, which may be pinned
- *		but is not locked, and so->currPos.itemIndex identifies which item was
- *		previously returned.
+ *		进入时，so->currPos 描述当前页，该页可能已钉住
+ *		但未加锁，so->currPos.itemIndex 标明此前返回的是
+ *		哪一项。
  *
- *		On successful exit, scan->xs_ctup.t_self is set to the TID of the
- *		next heap tuple, and if requested, scan->xs_itup points to a copy of
- *		the index tuple.  so->currPos is updated as needed.
+ *		成功退出时，scan->xs_ctup.t_self 被设为下一个
+ *		堆元组的 TID；若有请求，scan->xs_itup 指向
+ *		索引元组的一份副本。so->currPos 按需要更新。
  *
- *		On failure exit (no more tuples), we release pin and set
- *		so->currPos.buf to InvalidBuffer.
+ *		失败退出时（没有更多元组），我们释放钉住，并把
+ *		so->currPos.buf 设为 InvalidBuffer。
  */
 bool
 _bt_next(IndexScanDesc scan, ScanDirection dir)
@@ -1492,8 +1492,8 @@ _bt_next(IndexScanDesc scan, ScanDirection dir)
 	BTScanPosItem *currItem;
 
 	/*
-	 * Advance to next tuple on current page; or if there's no more, try to
-	 * step to the next page with data.
+	 * 前进到当前页上的下一个元组；若没有更多元组，则尝试
+	 * 走到下一张含有数据的页。
 	 */
 	if (ScanDirectionIsForward(dir))
 	{
@@ -1512,7 +1512,7 @@ _bt_next(IndexScanDesc scan, ScanDirection dir)
 		}
 	}
 
-	/* OK, itemIndex says what to return */
+	/* 好，itemIndex 指出该返回哪一项 */
 	currItem = &so->currPos.items[so->currPos.itemIndex];
 	scan->xs_heaptid = currItem->heapTid;
 	if (scan->xs_want_itup)
@@ -1522,23 +1522,23 @@ _bt_next(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
- *	_bt_readpage() -- Load data from current index page into so->currPos
+ *	_bt_readpage() -- 把当前索引页的数据装入 so->currPos
  *
- * Caller must have pinned and read-locked so->currPos.buf; the buffer's state
- * is not changed here.  Also, currPos.moreLeft and moreRight must be valid;
- * they are updated as appropriate.  All other fields of so->currPos are
- * initialized from scratch here.
+ * 调用者必须已经钉住并读锁定 so->currPos.buf；这里不改变缓冲区的状态。
+ * 另外，currPos.moreLeft 与 moreRight 必须有效；
+ * 它们会按情况更新。so->currPos 的所有其他字段
+ * 都在这里从头初始化。
  *
- * We scan the current page starting at offnum and moving in the indicated
- * direction.  All items matching the scan keys are loaded into currPos.items.
- * moreLeft or moreRight (as appropriate) is cleared if _bt_checkkeys reports
- * that there can be no more matching tuples in the current scan direction.
+ * 我们从 offnum 开始、沿指定方向扫描当前页。
+ * 所有匹配扫描键的项都装入 currPos.items。
+ * 若 _bt_checkkeys 报告当前扫描方向上不可能再有匹配元组，
+ * 则清除 moreLeft 或 moreRight（视情况而定）。
  *
- * In the case of a parallel scan, caller must have called _bt_parallel_seize
- * prior to calling this function; this function will invoke
- * _bt_parallel_release before returning.
+ * 对于并行扫描，调用者在调用本函数之前必须已经调用 _bt_parallel_seize；
+ * 本函数在返回之前会调用
+ * _bt_parallel_release。
  *
- * Returns true if any matching items found on the page, false if none.
+ * 若页上找到任何匹配项则返回 true，否则返回 false。
  */
 static bool
 _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
@@ -1553,15 +1553,15 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 	int			indnatts;
 
 	/*
-	 * We must have the buffer pinned and locked, but the usual macro can't be
-	 * used here; this function is what makes it good for currPos.
+	 * 我们必须已经钉住并锁定缓冲区，但这里不能使用通常的宏；
+	 * 正是本函数使该宏对 currPos 变得适用。
 	 */
 	Assert(BufferIsValid(so->currPos.buf));
 
 	page = BufferGetPage(so->currPos.buf);
 	opaque = BTPageGetOpaque(page);
 
-	/* allow next page be processed by parallel worker */
+	/* 允许并行工作进程处理下一页 */
 	if (scan->parallel_scan)
 	{
 		if (ScanDirectionIsForward(dir))
@@ -1570,43 +1570,43 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 			_bt_parallel_release(scan, BufferGetBlockNumber(so->currPos.buf));
 	}
 
-	continuescan = true;		/* default assumption */
+	continuescan = true;		/* 默认假设 */
 	indnatts = IndexRelationGetNumberOfAttributes(scan->indexRelation);
 	minoff = P_FIRSTDATAKEY(opaque);
 	maxoff = PageGetMaxOffsetNumber(page);
 
 	/*
-	 * We note the buffer's block number so that we can release the pin later.
-	 * This allows us to re-read the buffer if it is needed again for hinting.
+	 * 记下缓冲区的块号，以便稍后释放钉住。
+	 * 这样，若以后为了做提示而再次需要该缓冲区，我们可以重新读取它。
 	 */
 	so->currPos.currPage = BufferGetBlockNumber(so->currPos.buf);
 
 	/*
-	 * We save the LSN of the page as we read it, so that we know whether it
-	 * safe to apply LP_DEAD hints to the page later.  This allows us to drop
-	 * the pin for MVCC scans, which allows vacuum to avoid blocking.
+	 * 读取该页时保存它的 LSN，以便知道稍后
+	 * 对页施加 LP_DEAD 提示是否安全。这使我们能够为 MVCC 扫描放下
+	 * 钉住，从而使清理可以避免阻塞。
 	 */
 	so->currPos.lsn = BufferGetLSNAtomic(so->currPos.buf);
 
 	/*
-	 * we must save the page's right-link while scanning it; this tells us
-	 * where to step right to after we're done with these items.  There is no
-	 * corresponding need for the left-link, since splits always go right.
+	 * 扫描该页时必须保存它的右链接；这告诉我们
+	 * 处理完这些项之后应当向右走到哪里。左链接没有
+	 * 对应的需要，因为分裂总是向右进行。
 	 */
 	so->currPos.nextPage = opaque->btpo_next;
 
-	/* initialize tuple workspace to empty */
+	/* 把元组工作区初始化为空 */
 	so->currPos.nextTupleOffset = 0;
 
 	/*
-	 * Now that the current page has been made consistent, the macro should be
-	 * good.
+	 * 当前页已经保持一致，该宏现在应当
+	 * 可用了。
 	 */
 	Assert(BTScanPosIsPinned(so->currPos));
 
 	if (ScanDirectionIsForward(dir))
 	{
-		/* load items[] in ascending order */
+		/* 按升序装入 items[] */
 		itemIndex = 0;
 
 		offnum = Max(offnum, minoff);
@@ -1617,8 +1617,8 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 			IndexTuple	itup;
 
 			/*
-			 * If the scan specifies not to return killed tuples, then we
-			 * treat a killed tuple as not passing the qual
+			 * 若扫描指定不返回已杀死的元组，则我们
+			 * 把已杀死的元组当作未通过限定条件
 			 */
 			if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
 			{
@@ -1630,10 +1630,10 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 
 			if (_bt_checkkeys(scan, itup, indnatts, dir, &continuescan))
 			{
-				/* tuple passes all scan key conditions */
+				/* 元组通过全部扫描键条件 */
 				if (!BTreeTupleIsPosting(itup))
 				{
-					/* Remember it */
+					/* 记住它 */
 					_bt_saveitem(so, itemIndex, offnum, itup);
 					itemIndex++;
 				}
@@ -1642,7 +1642,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 					int			tupleOffset;
 
 					/*
-					 * Set up state to return posting list, and remember first
+					 * 建立返回倒排列表的状态，并记住第一个
 					 * TID
 					 */
 					tupleOffset =
@@ -1650,7 +1650,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 											  BTreeTupleGetPostingN(itup, 0),
 											  itup);
 					itemIndex++;
-					/* Remember additional TIDs */
+					/* 记住其余 TIDs */
 					for (int i = 1; i < BTreeTupleGetNPosting(itup); i++)
 					{
 						_bt_savepostingitem(so, itemIndex, offnum,
@@ -1660,7 +1660,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 					}
 				}
 			}
-			/* When !continuescan, there can't be any more matches, so stop */
+			/* 当 !continuescan 时不可能再有匹配，因此停止 */
 			if (!continuescan)
 				break;
 
@@ -1668,15 +1668,15 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 		}
 
 		/*
-		 * We don't need to visit page to the right when the high key
-		 * indicates that no more matches will be found there.
+		 * 当高键表明右侧不会再找到匹配时，
+		 * 就不需要访问右边那一页。
 		 *
-		 * Checking the high key like this works out more often than you might
-		 * think.  Leaf page splits pick a split point between the two most
-		 * dissimilar tuples (this is weighed against the need to evenly share
-		 * free space).  Leaf pages with high key attribute values that can
-		 * only appear on non-pivot tuples on the right sibling page are
-		 * common.
+		 * 像这样检查高键，奏效的次数往往比你以为的更多。
+		 * 叶子页分裂会在两个最不相似的元组之间选取分裂点
+		 * （这要与均匀分享空闲空间的需要相权衡）。高键属性值
+		 * 只能出现在右兄弟页的非枢轴元组上，这样的叶子页
+		 * 很常见。
+		 * 所以这些高键值往往只出现在右页。
 		 */
 		if (continuescan && !P_RIGHTMOST(opaque))
 		{
@@ -1698,7 +1698,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 	}
 	else
 	{
-		/* load items[] in descending order */
+		/* 按降序装入 items[] */
 		itemIndex = MaxTIDsPerBTreePage;
 
 		offnum = Min(offnum, maxoff);
@@ -1711,14 +1711,14 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 			bool		passes_quals;
 
 			/*
-			 * If the scan specifies not to return killed tuples, then we
-			 * treat a killed tuple as not passing the qual.  Most of the
-			 * time, it's a win to not bother examining the tuple's index
-			 * keys, but just skip to the next tuple (previous, actually,
-			 * since we're scanning backwards).  However, if this is the first
-			 * tuple on the page, we do check the index keys, to prevent
-			 * uselessly advancing to the page to the left.  This is similar
-			 * to the high key optimization used by forward scans.
+			 * 若扫描指定不返回已杀死的元组，则我们
+			 * 把已杀死的元组当作未通过限定条件。大多数
+			 * 时候，不去检查元组的索引
+			 * 键、直接跳到下一个元组（实际上是前一个，
+			 * 因为我们在反向扫描）是划算的。不过，若这是页上的第一个
+			 * 元组，我们确实要检查索引键，以防止
+			 * 无谓地前进到左边那一页。这类似于
+			 * 正向扫描所用的高键优化。
 			 */
 			if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
 			{
@@ -1740,10 +1740,10 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 										 &continuescan);
 			if (passes_quals && tuple_alive)
 			{
-				/* tuple passes all scan key conditions */
+				/* 元组通过全部扫描键条件 */
 				if (!BTreeTupleIsPosting(itup))
 				{
-					/* Remember it */
+					/* 记住它 */
 					itemIndex--;
 					_bt_saveitem(so, itemIndex, offnum, itup);
 				}
@@ -1752,21 +1752,21 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 					int			tupleOffset;
 
 					/*
-					 * Set up state to return posting list, and remember first
-					 * TID.
+					 * 建立返回倒排列表的状态，并记住第一个
+					 * TID。
 					 *
-					 * Note that we deliberately save/return items from
-					 * posting lists in ascending heap TID order for backwards
-					 * scans.  This allows _bt_killitems() to make a
-					 * consistent assumption about the order of items
-					 * associated with the same posting list tuple.
+					 * 注意，我们故意按堆 TID 升序保存/返回
+					 * 倒排列表中的项，即使是反向
+					 * 扫描也如此。这使 _bt_killitems() 可以对
+					 * 与同一个倒排列表元组相关联的项的顺序
+					 * 做出一致的假设。
 					 */
 					itemIndex--;
 					tupleOffset =
 						_bt_setuppostingitems(so, itemIndex, offnum,
 											  BTreeTupleGetPostingN(itup, 0),
 											  itup);
-					/* Remember additional TIDs */
+					/* 记住其余 TIDs */
 					for (int i = 1; i < BTreeTupleGetNPosting(itup); i++)
 					{
 						itemIndex--;
@@ -1778,7 +1778,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 			}
 			if (!continuescan)
 			{
-				/* there can't be any more matches, so stop */
+				/* 不可能再有匹配，因此停止 */
 				so->currPos.moreLeft = false;
 				break;
 			}
@@ -1795,7 +1795,7 @@ _bt_readpage(IndexScanDesc scan, ScanDirection dir, OffsetNumber offnum)
 	return (so->currPos.firstItem <= so->currPos.lastItem);
 }
 
-/* Save an index item into so->currPos.items[itemIndex] */
+/* 把一个索引项存入 so->currPos.items[itemIndex] */
 static void
 _bt_saveitem(BTScanOpaque so, int itemIndex,
 			 OffsetNumber offnum, IndexTuple itup)
@@ -1817,14 +1817,14 @@ _bt_saveitem(BTScanOpaque so, int itemIndex,
 }
 
 /*
- * Setup state to save TIDs/items from a single posting list tuple.
+ * 建立状态，以便保存来自单个倒排列表元组的 TIDs/项。
  *
- * Saves an index item into so->currPos.items[itemIndex] for TID that is
- * returned to scan first.  Second or subsequent TIDs for posting list should
- * be saved by calling _bt_savepostingitem().
+ * 把首先返回给扫描的那个 TID 对应的索引项存入 so->currPos.items[itemIndex]。
+ * 倒排列表的第二个及后续 TID 应当
+ * 通过调用 _bt_savepostingitem() 来保存。
  *
- * Returns an offset into tuple storage space that main tuple is stored at if
- * needed.
+ * 若需要，返回主元组在元组存储空间中
+ * 的存放偏移。
  */
 static int
 _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
@@ -1838,7 +1838,7 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 	currItem->indexOffset = offnum;
 	if (so->currTuples)
 	{
-		/* Save base IndexTuple (truncate posting list) */
+		/* 保存基本 IndexTuple（截掉倒排列表） */
 		IndexTuple	base;
 		Size		itupsz = BTreeTupleGetPostingOffset(itup);
 
@@ -1846,7 +1846,7 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 		currItem->tupleOffset = so->currPos.nextTupleOffset;
 		base = (IndexTuple) (so->currTuples + so->currPos.nextTupleOffset);
 		memcpy(base, itup, itupsz);
-		/* Defensively reduce work area index tuple header size */
+		/* 防御性地缩小工作区索引元组的头部大小 */
 		base->t_info &= ~INDEX_SIZE_MASK;
 		base->t_info |= itupsz;
 		so->currPos.nextTupleOffset += itupsz;
@@ -1858,11 +1858,11 @@ _bt_setuppostingitems(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 }
 
 /*
- * Save an index item into so->currPos.items[itemIndex] for current posting
- * tuple.
+ * 把当前倒排
+ * 元组对应的索引项存入 so->currPos.items[itemIndex]。
  *
- * Assumes that _bt_setuppostingitems() has already been called for current
- * posting list tuple.  Caller passes its return value as tupleOffset.
+ * 假定已经对当前
+ * 倒排列表元组调用过 _bt_setuppostingitems()。调用者把它的返回值作为 tupleOffset 传入。
  */
 static inline void
 _bt_savepostingitem(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
@@ -1874,23 +1874,23 @@ _bt_savepostingitem(BTScanOpaque so, int itemIndex, OffsetNumber offnum,
 	currItem->indexOffset = offnum;
 
 	/*
-	 * Have index-only scans return the same base IndexTuple for every TID
-	 * that originates from the same posting list
+	 * 让仅索引扫描对来自同一倒排列表的每个 TID
+	 * 都返回同一个基本 IndexTuple
 	 */
 	if (so->currTuples)
 		currItem->tupleOffset = tupleOffset;
 }
 
 /*
- *	_bt_steppage() -- Step to next page containing valid data for scan
+ *	_bt_steppage() -- 走到扫描的下一张含有有效数据的页
  *
- * On entry, if so->currPos.buf is valid the buffer is pinned but not locked;
- * if pinned, we'll drop the pin before moving to next page.  The buffer is
- * not locked on entry.
+ * 进入时，若 so->currPos.buf 有效，则缓冲区已钉住但未加锁；
+ * 若已钉住，我们会在移到下一页之前放下钉住。进入时缓冲区
+ * 并未加锁。
  *
- * For success on a scan using a non-MVCC snapshot we hold a pin, but not a
- * read lock, on that page.  If we do not hold the pin, we set so->currPos.buf
- * to InvalidBuffer.  We return true to indicate success.
+ * 对于使用非 MVCC 快照的扫描，成功时我们持有该页的钉住，但不持有
+ * 读锁。若我们不持有钉住，则把 so->currPos.buf
+ * 设为 InvalidBuffer。返回 true 表示成功。
  */
 static bool
 _bt_steppage(IndexScanDesc scan, ScanDirection dir)
@@ -1901,17 +1901,17 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 
 	Assert(BTScanPosIsValid(so->currPos));
 
-	/* Before leaving current page, deal with any killed items */
+	/* 离开当前页之前，处理所有已杀死的项 */
 	if (so->numKilled > 0)
 		_bt_killitems(scan);
 
 	/*
-	 * Before we modify currPos, make a copy of the page data if there was a
-	 * mark position that needs it.
+	 * 在修改 currPos 之前，若存在需要它的标记位置，
+	 * 先复制一份页数据。
 	 */
 	if (so->markItemIndex >= 0)
 	{
-		/* bump pin on current buffer for assignment to mark buffer */
+		/* 把当前缓冲区的钉住计数加一，以便赋给标记缓冲区 */
 		if (BTScanPosIsPinned(so->currPos))
 			IncrBufferRefCount(so->currPos.buf);
 		memcpy(&so->markPos, &so->currPos,
@@ -1926,17 +1926,17 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 
 	if (ScanDirectionIsForward(dir))
 	{
-		/* Walk right to the next page with data */
+		/* 向右走到下一张含有数据的页 */
 		if (scan->parallel_scan != NULL)
 		{
 			/*
-			 * Seize the scan to get the next block number; if the scan has
-			 * ended already, bail out.
+			 * 接管扫描以取得下一个块号；若扫描
+			 * 已经结束，则退出。
 			 */
 			status = _bt_parallel_seize(scan, &blkno);
 			if (!status)
 			{
-				/* release the previous buffer, if pinned */
+				/* 若仍钉住，释放前一个缓冲区 */
 				BTScanPosUnpinIfPinned(so->currPos);
 				BTScanPosInvalidate(so->currPos);
 				return false;
@@ -1944,26 +1944,26 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 		}
 		else
 		{
-			/* Not parallel, so use the previously-saved nextPage link. */
+			/* 不是并行扫描，因此使用此前保存的 nextPage 链接。 */
 			blkno = so->currPos.nextPage;
 		}
 
-		/* Remember we left a page with data */
+		/* 记住我们离开了一张含有数据的页 */
 		so->currPos.moreLeft = true;
 
-		/* release the previous buffer, if pinned */
+		/* 若仍钉住，释放前一个缓冲区 */
 		BTScanPosUnpinIfPinned(so->currPos);
 	}
 	else
 	{
-		/* Remember we left a page with data */
+		/* 记住我们离开了一张含有数据的页 */
 		so->currPos.moreRight = true;
 
 		if (scan->parallel_scan != NULL)
 		{
 			/*
-			 * Seize the scan to get the current block number; if the scan has
-			 * ended already, bail out.
+			 * 接管扫描以取得当前块号；若扫描
+			 * 已经结束，则退出。
 			 */
 			status = _bt_parallel_seize(scan, &blkno);
 			BTScanPosUnpinIfPinned(so->currPos);
@@ -1975,7 +1975,7 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 		}
 		else
 		{
-			/* Not parallel, so just use our own notion of the current page */
+			/* 不是并行扫描，因此直接使用我们自己记录的当前页 */
 			blkno = so->currPos.currPage;
 		}
 	}
@@ -1983,21 +1983,21 @@ _bt_steppage(IndexScanDesc scan, ScanDirection dir)
 	if (!_bt_readnextpage(scan, blkno, dir))
 		return false;
 
-	/* Drop the lock, and maybe the pin, on the current page */
+	/* 放下当前页上的锁，并视情况放下钉住 */
 	_bt_drop_lock_and_maybe_pin(scan, &so->currPos);
 
 	return true;
 }
 
 /*
- *	_bt_readnextpage() -- Read next page containing valid data for scan
+ *	_bt_readnextpage() -- 读取扫描的下一张含有有效数据的页
  *
- * On success exit, so->currPos is updated to contain data from the next
- * interesting page.  Caller is responsible to release lock and pin on
- * buffer on success.  We return true to indicate success.
+ * 成功退出时，so->currPos 被更新为包含下一张
+ * 有意义的页的数据。成功时由调用者负责释放缓冲区上的锁和钉住。
+ * 返回 true 表示成功。
  *
- * If there are no more matching records in the given direction, we drop all
- * locks and pins, set so->currPos.buf to InvalidBuffer, and return false.
+ * 若给定方向上不再有匹配项，我们放下全部
+ * 锁和钉住，把 so->currPos.buf 设为 InvalidBuffer，并返回 false。
  */
 static bool
 _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
@@ -2015,8 +2015,8 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 		for (;;)
 		{
 			/*
-			 * if we're at end of scan, give up and mark parallel scan as
-			 * done, so that all the workers can finish their scan
+			 * 若已到扫描末尾，放弃并把并行扫描标为
+			 * 已完成，以便所有工作进程都能结束它们的扫描
 			 */
 			if (blkno == P_NONE || !so->currPos.moreRight)
 			{
@@ -2024,29 +2024,29 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 				BTScanPosInvalidate(so->currPos);
 				return false;
 			}
-			/* check for interrupts while we're not holding any buffer lock */
+			/* 在未持有任何缓冲区锁时检查中断 */
 			CHECK_FOR_INTERRUPTS();
-			/* step right one page */
+			/* 向右迈一页 */
 			so->currPos.buf = _bt_getbuf(rel, blkno, BT_READ);
 			page = BufferGetPage(so->currPos.buf);
 			TestForOldSnapshot(scan->xs_snapshot, rel, page);
 			opaque = BTPageGetOpaque(page);
-			/* check for deleted page */
+			/* 检查是否为已删除页 */
 			if (!P_IGNORE(opaque))
 			{
 				PredicateLockPage(rel, blkno, scan->xs_snapshot);
-				/* see if there are any matches on this page */
-				/* note that this will clear moreRight if we can stop */
+				/* 查看本页是否有任何匹配 */
+				/* 注意：若可以停止，这会清除 moreRight */
 				if (_bt_readpage(scan, dir, P_FIRSTDATAKEY(opaque)))
 					break;
 			}
 			else if (scan->parallel_scan != NULL)
 			{
-				/* allow next page be processed by parallel worker */
+				/* 允许并行工作进程处理下一页 */
 				_bt_parallel_release(scan, opaque->btpo_next);
 			}
 
-			/* nope, keep going */
+			/* 没有，继续往下走 */
 			if (scan->parallel_scan != NULL)
 			{
 				_bt_relbuf(rel, so->currPos.buf);
@@ -2067,8 +2067,8 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 	else
 	{
 		/*
-		 * Should only happen in parallel cases, when some other backend
-		 * advanced the scan.
+		 * 这只应发生在并行情形下，当某个其他后端
+		 * 已经推进了扫描。
 		 */
 		if (so->currPos.currPage != blkno)
 		{
@@ -2077,26 +2077,26 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 		}
 
 		/*
-		 * Walk left to the next page with data.  This is much more complex
-		 * than the walk-right case because of the possibility that the page
-		 * to our left splits while we are in flight to it, plus the
-		 * possibility that the page we were on gets deleted after we leave
-		 * it.  See nbtree/README for details.
+		 * 向左走到下一张含有数据的页。这比向右走的情形
+		 * 复杂得多，因为我们在赶往左页的途中，它可能
+		 * 发生分裂，而且我们离开后，原来所在的页
+		 * 也可能被删除。
+		 * 详见 nbtree/README。
 		 *
-		 * It might be possible to rearrange this code to have less overhead
-		 * in pinning and locking, but that would require capturing the left
-		 * pointer when the page is initially read, and using it here, along
-		 * with big changes to _bt_walk_left() and the code below.  It is not
-		 * clear whether this would be a win, since if the page immediately to
-		 * the left splits after we read this page and before we step left, we
-		 * would need to visit more pages than with the current code.
+		 * 也许可以重排这段代码，以减少
+		 * 钉住和加锁的开销，但那就需要在最初读页时捕获左
+		 * 指针，并在这里使用它，同时还要对 _bt_walk_left() 和下面的代码做
+		 * 大改。并不清楚这是否划算，因为若紧邻左侧的页
+		 * 在我们读到本页之后、向左迈步之前发生分裂，
+		 * 我们就要多走几页，
+		 * 比按当前代码走的还多。
 		 *
-		 * Note that if we change the code so that we drop the pin for a scan
-		 * which uses a non-MVCC snapshot, we will need to modify the code for
-		 * walking left, to allow for the possibility that a referenced page
-		 * has been deleted.  As long as the buffer is pinned or the snapshot
-		 * is MVCC the page cannot move past the half-dead state to fully
-		 * deleted.
+		 * 注意，若我们改动代码，使使用非 MVCC 快照的扫描也放下钉住，
+		 * 就需要修改向左走的代码，
+		 * 以允许被引用的页
+		 * 已经被删除。只要缓冲区仍被钉住，或者快照
+		 * 是 MVCC，该页就无法越过半死状态而变成完全
+		 * 删除。
 		 */
 		if (BTScanPosIsPinned(so->currPos))
 			_bt_lockbuf(rel, so->currPos.buf, BT_READ);
@@ -2105,7 +2105,7 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 
 		for (;;)
 		{
-			/* Done if we know there are no matching keys to the left */
+			/* 若已知左侧没有匹配键，则结束 */
 			if (!so->currPos.moreLeft)
 			{
 				_bt_relbuf(rel, so->currPos.buf);
@@ -2114,11 +2114,11 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 				return false;
 			}
 
-			/* Step to next physical page */
+			/* 走到下一张物理页 */
 			so->currPos.buf = _bt_walk_left(rel, so->currPos.buf,
 											scan->xs_snapshot);
 
-			/* if we're physically at end of index, return failure */
+			/* 若物理上已到索引末尾，返回失败 */
 			if (so->currPos.buf == InvalidBuffer)
 			{
 				_bt_parallel_done(scan);
@@ -2127,9 +2127,9 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 			}
 
 			/*
-			 * Okay, we managed to move left to a non-deleted page. Done if
-			 * it's not half-dead and contains matching tuples. Else loop back
-			 * and do it all again.
+			 * 好，我们成功向左移到了一张未删除页。若它
+			 * 不是半死且包含匹配元组，则结束。否则回到循环
+			 * 再做一遍。
 			 */
 			page = BufferGetPage(so->currPos.buf);
 			TestForOldSnapshot(scan->xs_snapshot, rel, page);
@@ -2137,22 +2137,22 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 			if (!P_IGNORE(opaque))
 			{
 				PredicateLockPage(rel, BufferGetBlockNumber(so->currPos.buf), scan->xs_snapshot);
-				/* see if there are any matches on this page */
-				/* note that this will clear moreLeft if we can stop */
+				/* 查看本页是否有任何匹配 */
+				/* 注意：若可以停止，这会清除 moreLeft */
 				if (_bt_readpage(scan, dir, PageGetMaxOffsetNumber(page)))
 					break;
 			}
 			else if (scan->parallel_scan != NULL)
 			{
-				/* allow next page be processed by parallel worker */
+				/* 允许并行工作进程处理下一页 */
 				_bt_parallel_release(scan, BufferGetBlockNumber(so->currPos.buf));
 			}
 
 			/*
-			 * For parallel scans, get the last page scanned as it is quite
-			 * possible that by the time we try to seize the scan, some other
-			 * worker has already advanced the scan to a different page.  We
-			 * must continue based on the latest page scanned by any worker.
+			 * 对并行扫描，取最近扫描过的页，因为
+			 * 等到我们尝试接管扫描时，很有可能某个其他
+			 * 工作进程已经把扫描推进到了另一页。我们必须
+			 * 根据任一工作进程最近扫描的页继续。
 			 */
 			if (scan->parallel_scan != NULL)
 			{
@@ -2172,10 +2172,10 @@ _bt_readnextpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 }
 
 /*
- *	_bt_parallel_readpage() -- Read current page containing valid data for scan
+ *	_bt_parallel_readpage() -- 读取扫描当前含有有效数据的页
  *
- * On success, release lock and maybe pin on buffer.  We return true to
- * indicate success.
+ * 成功时，释放缓冲区上的锁，并视情况放下钉住。返回 true
+ * 表示成功。
  */
 static bool
 _bt_parallel_readpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
@@ -2187,25 +2187,25 @@ _bt_parallel_readpage(IndexScanDesc scan, BlockNumber blkno, ScanDirection dir)
 	if (!_bt_readnextpage(scan, blkno, dir))
 		return false;
 
-	/* Drop the lock, and maybe the pin, on the current page */
+	/* 放下当前页上的锁，并视情况放下钉住 */
 	_bt_drop_lock_and_maybe_pin(scan, &so->currPos);
 
 	return true;
 }
 
 /*
- * _bt_walk_left() -- step left one page, if possible
+ * _bt_walk_left() -- 若可能，向左迈一页
  *
- * The given buffer must be pinned and read-locked.  This will be dropped
- * before stepping left.  On return, we have pin and read lock on the
- * returned page, instead.
+ * 给定缓冲区必须已钉住并读锁定。向左迈步之前会放下
+ * 它们。返回时，钉住和读锁改为加在
+ * 返回的页上。
  *
- * Returns InvalidBuffer if there is no page to the left (no lock is held
- * in that case).
+ * 若左侧没有页，则返回 InvalidBuffer（那种情况下
+ * 不持有锁）。
  *
- * When working on a non-leaf level, it is possible for the returned page
- * to be half-dead; the caller should check that condition and step left
- * again if it's important.
+ * 在非叶子层上工作时，返回的页有可能是
+ * 半死的；若这一点重要，调用者应当检查该条件并再次
+ * 向左迈步。
  */
 static Buffer
 _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
@@ -2223,18 +2223,18 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 		BlockNumber blkno;
 		int			tries;
 
-		/* if we're at end of tree, release buf and return failure */
+		/* 若已到树的末端，释放 buf 并返回失败 */
 		if (P_LEFTMOST(opaque))
 		{
 			_bt_relbuf(rel, buf);
 			break;
 		}
-		/* remember original page we are stepping left from */
+		/* 记住我们向左迈出时所在的原页 */
 		obknum = BufferGetBlockNumber(buf);
-		/* step left */
+		/* 向左迈一步 */
 		blkno = lblkno = opaque->btpo_prev;
 		_bt_relbuf(rel, buf);
-		/* check for interrupts while we're not holding any buffer lock */
+		/* 在未持有任何缓冲区锁时检查中断 */
 		CHECK_FOR_INTERRUPTS();
 		buf = _bt_getbuf(rel, blkno, BT_READ);
 		page = BufferGetPage(buf);
@@ -2242,22 +2242,22 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 		opaque = BTPageGetOpaque(page);
 
 		/*
-		 * If this isn't the page we want, walk right till we find what we
-		 * want --- but go no more than four hops (an arbitrary limit). If we
-		 * don't find the correct page by then, the most likely bet is that
-		 * the original page got deleted and isn't in the sibling chain at all
-		 * anymore, not that its left sibling got split more than four times.
+		 * 若这不是我们想要的页，向右走直到找到
+		 * 目标——但最多四跳（一个任意上限）。若到那时
+		 * 仍找不到正确的页，最可能的情况是
+		 * 原页已被删除，根本不再位于兄弟链中，
+		 * 而不是它的左兄弟分裂了超过四次。
 		 *
-		 * Note that it is correct to test P_ISDELETED not P_IGNORE here,
-		 * because half-dead pages are still in the sibling chain.  Caller
-		 * must reject half-dead pages if wanted.
+		 * 注意，这里测试 P_ISDELETED 而不是 P_IGNORE 是正确的，
+		 * 因为半死页仍在兄弟链中。若需要，调用者
+		 * 必须拒绝半死页。
 		 */
 		tries = 0;
 		for (;;)
 		{
 			if (!P_ISDELETED(opaque) && opaque->btpo_next == obknum)
 			{
-				/* Found desired page, return it */
+				/* 找到目标页，将其返回 */
 				return buf;
 			}
 			if (P_RIGHTMOST(opaque) || ++tries > 4)
@@ -2269,7 +2269,7 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 			opaque = BTPageGetOpaque(page);
 		}
 
-		/* Return to the original page to see what's up */
+		/* 回到原页，看看发生了什么 */
 		buf = _bt_relandgetbuf(rel, buf, obknum, BT_READ);
 		page = BufferGetPage(buf);
 		TestForOldSnapshot(snapshot, rel, page);
@@ -2277,10 +2277,10 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 		if (P_ISDELETED(opaque))
 		{
 			/*
-			 * It was deleted.  Move right to first nondeleted page (there
-			 * must be one); that is the page that has acquired the deleted
-			 * one's keyspace, so stepping left from it will take us where we
-			 * want to be.
+			 * 它已被删除。向右移到第一张未删除页（必定
+			 * 有一张）；那一页已经获得被删除页的
+			 * 键空间，因此从它向左走会把我们带到
+			 * 想去的地方。
 			 */
 			for (;;)
 			{
@@ -2297,21 +2297,21 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 			}
 
 			/*
-			 * Now return to top of loop, resetting obknum to point to this
-			 * nondeleted page, and try again.
+			 * 现在回到循环顶部，把 obknum 重置为指向这张
+			 * 未删除页，然后重试。
 			 */
 		}
 		else
 		{
 			/*
-			 * It wasn't deleted; the explanation had better be that the page
-			 * to the left got split or deleted. Without this check, we'd go
-			 * into an infinite loop if there's anything wrong.
+			 * 它并未被删除；合理的解释应当是左侧那一页
+			 * 发生了分裂或被删除。若没有这项检查，一旦出了问题，
+			 * 我们就会进入无限循环。
 			 */
 			if (opaque->btpo_prev == lblkno)
 				elog(ERROR, "could not find left sibling of block %u in index \"%s\"",
 					 obknum, RelationGetRelationName(rel));
-			/* Okay to try again with new lblkno value */
+			/* 可以用新的 lblkno 值再查找一次 */
 		}
 	}
 
@@ -2319,12 +2319,12 @@ _bt_walk_left(Relation rel, Buffer buf, Snapshot snapshot)
 }
 
 /*
- * _bt_get_endpoint() -- Find the first or last page on a given tree level
+ * _bt_get_endpoint() -- 找出给定树层上的第一页或最后一页
  *
- * If the index is empty, we will return InvalidBuffer; any other failure
- * condition causes ereport().  We will not return a dead page.
+ * 若索引为空，我们将返回 InvalidBuffer；任何其他失败
+ * 条件都会引起 ereport()。我们不会返回死页。
  *
- * The returned buffer is pinned and read-locked.
+ * 返回的缓冲区已钉住并读锁定。
  */
 Buffer
 _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
@@ -2338,9 +2338,9 @@ _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
 	IndexTuple	itup;
 
 	/*
-	 * If we are looking for a leaf page, okay to descend from fast root;
-	 * otherwise better descend from true root.  (There is no point in being
-	 * smarter about intermediate levels.)
+	 * 若我们要找的是叶子页，从快速根下降即可；
+	 * 否则最好从真正的根下降。（没有必要对
+	 * 中间层更聪明。）
 	 */
 	if (level == 0)
 		buf = _bt_getroot(rel, NULL, BT_READ);
@@ -2357,10 +2357,10 @@ _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
 	for (;;)
 	{
 		/*
-		 * If we landed on a deleted page, step right to find a live page
-		 * (there must be one).  Also, if we want the rightmost page, step
-		 * right if needed to get to it (this could happen if the page split
-		 * since we obtained a pointer to it).
+		 * 若落在一张已删除页上，向右走以找到一张活页
+		 * （必定有一张）。另外，若我们要的是最右页，必要时向右走
+		 * 以到达它（若自我们取得指向它的指针以来该页发生了分裂，
+		 * 就会出现这种情况）。
 		 */
 		while (P_IGNORE(opaque) ||
 			   (rightmost && !P_RIGHTMOST(opaque)))
@@ -2375,7 +2375,7 @@ _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
 			opaque = BTPageGetOpaque(page);
 		}
 
-		/* Done? */
+		/* 完成了? */
 		if (opaque->btpo_level == level)
 			break;
 		if (opaque->btpo_level < level)
@@ -2384,7 +2384,7 @@ _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
 					 errmsg_internal("btree level %u not found in index \"%s\"",
 									 level, RelationGetRelationName(rel))));
 
-		/* Descend to leftmost or rightmost child page */
+		/* 下降到最左或最右子页 */
 		if (rightmost)
 			offnum = PageGetMaxOffsetNumber(page);
 		else
@@ -2402,13 +2402,13 @@ _bt_get_endpoint(Relation rel, uint32 level, bool rightmost,
 }
 
 /*
- *	_bt_endpoint() -- Find the first or last page in the index, and scan
- * from there to the first key satisfying all the quals.
+ *	_bt_endpoint() -- 找出索引中的第一页或最后一页，并从那里
+ * 扫描到满足全部限定条件的第一个键。
  *
- * This is used by _bt_first() to set up a scan when we've determined
- * that the scan must start at the beginning or end of the index (for
- * a forward or backward scan respectively).  Exit conditions are the
- * same as for _bt_first().
+ * _bt_first() 在确定扫描必须从索引的开头或末尾开始时
+ * （分别对应正向或反向扫描）用它来建立扫描。
+ * 退出条件与 _bt_first()
+ * 相同。
  */
 static bool
 _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
@@ -2422,17 +2422,17 @@ _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
 	BTScanPosItem *currItem;
 
 	/*
-	 * Scan down to the leftmost or rightmost leaf page.  This is a simplified
-	 * version of _bt_search().  We don't maintain a stack since we know we
-	 * won't need it.
+	 * 向下扫描到最左或最右的叶子页。这是 _bt_search() 的简化
+	 * 版本。我们知道不会再用到栈，
+	 * 因此不维护它。
 	 */
 	buf = _bt_get_endpoint(rel, 0, ScanDirectionIsBackward(dir), scan->xs_snapshot);
 
 	if (!BufferIsValid(buf))
 	{
 		/*
-		 * Empty index. Lock the whole relation, as nothing finer to lock
-		 * exists.
+		 * 空索引。锁定整个关系，因为不存在更细的
+		 * 可锁对象。
 		 */
 		PredicateLockRelation(rel, scan->xs_snapshot);
 		BTScanPosInvalidate(so->currPos);
@@ -2446,8 +2446,8 @@ _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
 
 	if (ScanDirectionIsForward(dir))
 	{
-		/* There could be dead pages to the left, so not this: */
-		/* Assert(P_LEFTMOST(opaque)); */
+		/* 左侧可能还有死页，因此不要这样： */
+		/* Assert(P_LEFTMOST(opaque)); 见上一行 */
 
 		start = P_FIRSTDATAKEY(opaque);
 	}
@@ -2460,22 +2460,22 @@ _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
 	else
 	{
 		elog(ERROR, "invalid scan direction: %d", (int) dir);
-		start = 0;				/* keep compiler quiet */
+		start = 0;				/* 让编译器保持安静 */
 	}
 
-	/* remember which buffer we have pinned */
+	/* 记住我们钉住了哪个缓冲区 */
 	so->currPos.buf = buf;
 
 	_bt_initialize_more_data(so, dir);
 
 	/*
-	 * Now load data from the first page of the scan.
+	 * 现在从扫描的第一页装入数据。
 	 */
 	if (!_bt_readpage(scan, dir, start))
 	{
 		/*
-		 * There's no actually-matching data on this page.  Try to advance to
-		 * the next page.  Return false if there's no matching data at all.
+		 * 本页上没有真正匹配的数据。尝试前进到
+		 * 下一页。若完全没有匹配数据，则返回 false。
 		 */
 		_bt_unlockbuf(scan->indexRelation, so->currPos.buf);
 		if (!_bt_steppage(scan, dir))
@@ -2483,11 +2483,11 @@ _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
 	}
 	else
 	{
-		/* Drop the lock, and maybe the pin, on the current page */
+		/* 放下当前页上的锁，并视情况放下钉住 */
 		_bt_drop_lock_and_maybe_pin(scan, &so->currPos);
 	}
 
-	/* OK, itemIndex says what to return */
+	/* 好，itemIndex 指出该返回哪一项 */
 	currItem = &so->currPos.items[so->currPos.itemIndex];
 	scan->xs_heaptid = currItem->heapTid;
 	if (scan->xs_want_itup)
@@ -2497,13 +2497,13 @@ _bt_endpoint(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
- * _bt_initialize_more_data() -- initialize moreLeft/moreRight appropriately
- * for scan direction
+ * _bt_initialize_more_data() -- 按扫描方向
+ * 正确初始化 moreLeft/moreRight
  */
 static inline void
 _bt_initialize_more_data(BTScanOpaque so, ScanDirection dir)
 {
-	/* initialize moreLeft/moreRight appropriately for scan direction */
+	/* 按扫描方向正确初始化 moreLeft/moreRight */
 	if (ScanDirectionIsForward(dir))
 	{
 		so->currPos.moreLeft = false;
@@ -2514,6 +2514,6 @@ _bt_initialize_more_data(BTScanOpaque so, ScanDirection dir)
 		so->currPos.moreLeft = true;
 		so->currPos.moreRight = false;
 	}
-	so->numKilled = 0;			/* just paranoia */
-	so->markItemIndex = -1;		/* ditto */
+	so->numKilled = 0;			/* 只是出于谨慎 */
+	so->markItemIndex = -1;		/* 同上 */
 }

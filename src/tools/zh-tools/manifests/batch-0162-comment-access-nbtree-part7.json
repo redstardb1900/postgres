@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0162-comment-access-nbtree-part7",
+ "title": "zh: translate access/nbtree comments (part 7)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d88d08b16dcd248911592f436a1a3349bf774819",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/nbtree/nbtsearch.c",
+   "kind": "c_comment",
+   "note": "btree search"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0162-comment-access-nbtree-part7.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/nbtree/nbtsearch.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 218,
+   "translated": 213,
+   "preserved": 5,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "NULL comparison operator labels kept as English"
+   ],
+   "note": "btree search; 5 NULL-vs-NULL comparison labels kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0162-comment-access-nbtree-part7.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0162 translates comments in nbtsearch.c. Five short NULL comparison labels remain English. Grok agent stalled after translating; finished gates/commit by orchestrator."
+}

@@ -50,7 +50,7 @@
 #include "utils/guc.h"
 #include "utils/snapmgr.h"
 
-/* GUCs */
+/* 运行时参数 GUCs */
 int			shared_memory_type = DEFAULT_SHARED_MEMORY_TYPE;
 
 shmem_startup_hook_type shmem_startup_hook = NULL;
@@ -59,12 +59,12 @@ static Size total_addin_request = 0;
 
 /*
  * RequestAddinShmemSpace
- *		Request that extra shmem space be allocated for use by
- *		a loadable module.
+ *		请求为可加载模块额外分配
+ *		共享内存空间。
  *
- * This may only be called via the shmem_request_hook of a library that is
- * loaded into the postmaster via shared_preload_libraries.  Calls from
- * elsewhere will fail.
+ * 这只能经由载入 postmaster 的库的 shmem_request_hook 调用，
+ * 该库通过 shared_preload_libraries 载入。从其他地方
+ * 调用将会失败。
  */
 void
 RequestAddinShmemSpace(Size size)
@@ -76,10 +76,10 @@ RequestAddinShmemSpace(Size size)
 
 /*
  * CalculateShmemSize
- *		Calculates the amount of shared memory and number of semaphores needed.
+ *		计算所需的共享内存量和信号量数量。
  *
- * If num_semaphores is not NULL, it will be set to the number of semaphores
- * required.
+ * 若 num_semaphores 不是 NULL，它会被设为
+ * 所需的信号量个数。
  */
 Size
 CalculateShmemSize(int *num_semaphores)
@@ -87,22 +87,22 @@ CalculateShmemSize(int *num_semaphores)
 	Size		size;
 	int			numSemas;
 
-	/* Compute number of semaphores we'll need */
+	/* 计算我们将需要的信号量个数 */
 	numSemas = ProcGlobalSemas();
 	numSemas += SpinlockSemas();
 
-	/* Return the number of semaphores if requested by the caller */
+	/* 若调用方请求，则返回信号量个数 */
 	if (num_semaphores)
 		*num_semaphores = numSemas;
 
 	/*
-	 * Size of the Postgres shared-memory block is estimated via moderately-
-	 * accurate estimates for the big hogs, plus 100K for the stuff that's too
-	 * small to bother with estimating.
+	 * Postgres 共享内存块的大小，是用对大户还算
+	 * 准确的估计，再加上 10 万字节给那些小到
+	 * 不值得估计的东西。
 	 *
-	 * We take some care to ensure that the total size request doesn't
-	 * overflow size_t.  If this gets through, we don't need to be so careful
-	 * during the actual allocation phase.
+	 * 我们留心确保总的大小请求不会
+	 * 溢出 size_t。若这一关过了，实际分配阶段
+	 * 就不必这么小心。
 	 */
 	size = 100000;
 	size = add_size(size, PGSemaphoreShmemSize(numSemas));
@@ -146,10 +146,10 @@ CalculateShmemSize(int *num_semaphores)
 	size = add_size(size, ShmemBackendArraySize());
 #endif
 
-	/* include additional requested shmem from preload libraries */
+	/* 计入预载库额外请求的共享内存 */
 	size = add_size(size, total_addin_request);
 
-	/* might as well round it off to a multiple of a typical page size */
+	/* 不妨把它凑成典型页大小的整数倍 */
 	size = add_size(size, 8192 - (size % 8192));
 
 	return size;
@@ -157,18 +157,18 @@ CalculateShmemSize(int *num_semaphores)
 
 /*
  * CreateSharedMemoryAndSemaphores
- *		Creates and initializes shared memory and semaphores.
+ *		创建并初始化共享内存和信号量。
  *
- * This is called by the postmaster or by a standalone backend.
- * It is also called by a backend forked from the postmaster in the
- * EXEC_BACKEND case.  In the latter case, the shared memory segment
- * already exists and has been physically attached to, but we have to
- * initialize pointers in local memory that reference the shared structures,
- * because we didn't inherit the correct pointer values from the postmaster
- * as we do in the fork() scenario.  The easiest way to do that is to run
- * through the same code as before.  (Note that the called routines mostly
- * check IsUnderPostmaster, rather than EXEC_BACKEND, to detect this case.
- * This is a bit code-wasteful and could be cleaned up.)
+ * 由 postmaster 或独立后端调用。
+ * 在 EXEC_BACKEND 情形下，也由从 postmaster fork 出的后端调用。
+ * 后一种情况下，共享内存段已存在并已被物理挂接，
+ * 但我们必须初始化本地内存中指向共享结构的指针，
+ * 因为我们没有像 fork() 情形那样从 postmaster
+ * 继承正确的指针值。最容易的做法是再走一遍
+ * 与先前相同的代码。（注意，被调用的例程多半检查
+ * IsUnderPostmaster，而不是 EXEC_BACKEND，来发现这种情况。
+ * 这有点浪费代码，
+ * 可以再整理。）
  */
 void
 CreateSharedMemoryAndSemaphores(void)
@@ -181,25 +181,25 @@ CreateSharedMemoryAndSemaphores(void)
 		Size		size;
 		int			numSemas;
 
-		/* Compute the size of the shared-memory block */
+		/* 计算共享内存块的大小 */
 		size = CalculateShmemSize(&numSemas);
 		elog(DEBUG3, "invoking IpcMemoryCreate(size=%zu)", size);
 
 		/*
-		 * Create the shmem segment
+		 * 创建共享内存段
 		 */
 		seghdr = PGSharedMemoryCreate(size, &shim);
 
 		InitShmemAccess(seghdr);
 
 		/*
-		 * Create semaphores
+		 * 创建信号量
 		 */
 		PGReserveSemaphores(numSemas);
 
 		/*
-		 * If spinlocks are disabled, initialize emulation layer (which
-		 * depends on semaphores, so the order is important here).
+		 * 若自旋锁被禁用，就初始化仿真层（它
+		 * 依赖信号量，所以这里的顺序很重要）。
 		 */
 #ifndef HAVE_SPINLOCKS
 		SpinlockSemaInit();
@@ -208,8 +208,8 @@ CreateSharedMemoryAndSemaphores(void)
 	else
 	{
 		/*
-		 * We are reattaching to an existing shared memory segment. This
-		 * should only be reached in the EXEC_BACKEND case.
+		 * 我们正在重新挂接到一段已有的共享内存。这
+		 * 只应在 EXEC_BACKEND 情形下到达。
 		 */
 #ifndef EXEC_BACKEND
 		elog(PANIC, "should be attached to shared memory already");
@@ -217,26 +217,26 @@ CreateSharedMemoryAndSemaphores(void)
 	}
 
 	/*
-	 * Set up shared memory allocation mechanism
+	 * 建立共享内存分配机制
 	 */
 	if (!IsUnderPostmaster)
 		InitShmemAllocation();
 
 	/*
-	 * Now initialize LWLocks, which do shared memory allocation and are
-	 * needed for InitShmemIndex.
+	 * 现在初始化 LWLocks，它们会做共享内存分配，并且
+	 * InitShmemIndex 需要它们。
 	 */
 	CreateLWLocks();
 
 	/*
-	 * Set up shmem.c index hashtable
+	 * 建立 shmem.c 的索引哈希表
 	 */
 	InitShmemIndex();
 
 	dsm_shmem_init();
 
 	/*
-	 * Set up xlog, clog, and buffers
+	 * 建立 xlog、clog 和缓冲区
 	 */
 	XLOGShmemInit();
 	XLogPrefetchShmemInit();
@@ -248,17 +248,17 @@ CreateSharedMemoryAndSemaphores(void)
 	InitBufferPool();
 
 	/*
-	 * Set up lock manager
+	 * 建立锁管理器
 	 */
 	InitLocks();
 
 	/*
-	 * Set up predicate lock manager
+	 * 建立谓词锁管理器
 	 */
 	InitPredicateLocks();
 
 	/*
-	 * Set up process table
+	 * 建立进程表
 	 */
 	if (!IsUnderPostmaster)
 		InitProcGlobal();
@@ -268,12 +268,12 @@ CreateSharedMemoryAndSemaphores(void)
 	BackgroundWorkerShmemInit();
 
 	/*
-	 * Set up shared-inval messaging
+	 * 建立共享失效消息传递
 	 */
 	CreateSharedInvalidationState();
 
 	/*
-	 * Set up interprocess signaling mechanisms
+	 * 建立进程间信号机制
 	 */
 	PMSignalShmemInit();
 	ProcSignalShmemInit();
@@ -287,7 +287,7 @@ CreateSharedMemoryAndSemaphores(void)
 	ApplyLauncherShmemInit();
 
 	/*
-	 * Set up other modules that need some shared memory space
+	 * 建立其他需要一些共享内存空间的模块
 	 */
 	SnapMgrInit();
 	BTreeShmemInit();
@@ -298,18 +298,18 @@ CreateSharedMemoryAndSemaphores(void)
 #ifdef EXEC_BACKEND
 
 	/*
-	 * Alloc the win32 shared backend array
+	 * 分配 win32 共享后端数组
 	 */
 	if (!IsUnderPostmaster)
 		ShmemBackendArrayAllocation();
 #endif
 
-	/* Initialize dynamic shared memory facilities. */
+	/* 初始化动态共享内存设施。 */
 	if (!IsUnderPostmaster)
 		dsm_postmaster_startup(shim);
 
 	/*
-	 * Now give loadable modules a chance to set up their shmem allocations
+	 * 现在给可加载模块机会，建立它们的共享内存分配
 	 */
 	if (shmem_startup_hook)
 		shmem_startup_hook();
@@ -318,8 +318,8 @@ CreateSharedMemoryAndSemaphores(void)
 /*
  * InitializeShmemGUCs
  *
- * This function initializes runtime-computed GUCs related to the amount of
- * shared memory required for the current configuration.
+ * 本函数初始化与当前配置所需共享内存量
+ * 有关的、运行时计算的 GUCs。
  */
 void
 InitializeShmemGUCs(void)
@@ -330,7 +330,7 @@ InitializeShmemGUCs(void)
 	Size		hp_size;
 
 	/*
-	 * Calculate the shared memory size and round up to the nearest megabyte.
+	 * 计算共享内存大小，并向上取整到最近的兆字节。
 	 */
 	size_b = CalculateShmemSize(NULL);
 	size_mb = add_size(size_b, (1024 * 1024) - 1) / (1024 * 1024);
@@ -339,7 +339,7 @@ InitializeShmemGUCs(void)
 					PGC_INTERNAL, PGC_S_DYNAMIC_DEFAULT);
 
 	/*
-	 * Calculate the number of huge pages required.
+	 * 计算所需的大页数量。
 	 */
 	GetHugePageSize(&hp_size, NULL);
 	if (hp_size != 0)

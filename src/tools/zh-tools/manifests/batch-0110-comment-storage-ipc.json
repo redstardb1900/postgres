@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0110-comment-storage-ipc",
+ "title": "zh: translate ipc and ipci comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3e25c958d1193b9a6a31e79dd9ed86d14c311c25",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/ipc/ipc.c",
+   "kind": "c_comment",
+   "note": "process exit and shared memory callbacks"
+  },
+  {
+   "pattern": "src/backend/storage/ipc/ipci.c",
+   "kind": "c_comment",
+   "note": "shared memory initialization"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0110-comment-storage-ipc.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/ipc/ipc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 31,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "process exit and shared memory callbacks"
+  },
+  {
+   "path": "src/backend/storage/ipc/ipci.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 31,
+   "translated": 30,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "shared memory initialization"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0110-comment-storage-ipc.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0110 translates src/backend/storage/ipc/ipc.c and ipci.c."
+}

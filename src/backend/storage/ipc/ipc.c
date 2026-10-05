@@ -33,38 +33,38 @@
 
 
 /*
- * This flag is set during proc_exit() to change ereport()'s behavior,
- * so that an ereport() from an on_proc_exit routine cannot get us out
- * of the exit procedure.  We do NOT want to go back to the idle loop...
+ * 这个标志在 proc_exit() 期间设置，用来改变 ereport() 的行为，
+ * 使 on_proc_exit 例程里的 ereport() 无法把我们拽出
+ * 退出过程。我们不想回到空闲循环……
  */
 bool		proc_exit_inprogress = false;
 
 /*
- * Set when shmem_exit() is in progress.
+ * 在 shmem_exit() 进行期间设置。
  */
 bool		shmem_exit_inprogress = false;
 
 /*
- * This flag tracks whether we've called atexit() in the current process
- * (or in the parent postmaster).
+ * 这个标志记录当前进程（或父 postmaster）里
+ * 是否已经调用过 atexit()。
  */
 static bool atexit_callback_setup = false;
 
-/* local functions */
+/* 本地函数 */
 static void proc_exit_prepare(int code);
 
 
 /* ----------------------------------------------------------------
- *						exit() handling stuff
+ *						exit() 处理相关的东西。
  *
- * These functions are in generally the same spirit as atexit(),
- * but provide some additional features we need --- in particular,
- * we want to register callbacks to invoke when we are disconnecting
- * from a broken shared-memory context but not exiting the postmaster.
+ * 这些函数大体与 atexit() 同一思路，
+ * 但提供了我们需要的一些额外特性。特别是，
+ * 我们希望登记回调，以便在与损坏的共享内存上下文
+ * 断开、但 postmaster 并不退出时调用。
  *
- * Callback functions can take zero, one, or two args: the first passed
- * arg is the integer exitcode, the second is the Datum supplied when
- * the callback was registered.
+ * 回调函数可以接受零个、一个或两个参数：第一个传入
+ * 参数是整数退出码，第二个是登记回调时
+ * 提供的 Datum。
  * ----------------------------------------------------------------
  */
 
@@ -88,51 +88,51 @@ static int	on_proc_exit_index,
 /* ----------------------------------------------------------------
  *		proc_exit
  *
- *		this function calls all the callbacks registered
- *		for it (to free resources) and then calls exit.
+ *		本函数调用所有为它登记的回调
+ *		（用以释放资源），然后调用 exit。
  *
- *		This should be the only function to call exit().
- *		-cim 2/6/90
+ *		这应当是唯一调用 exit() 的函数
+ *		（-cim 2/6/90）。
  *
- *		Unfortunately, we can't really guarantee that add-on code
- *		obeys the rule of not calling exit() directly.  So, while
- *		this is the preferred way out of the system, we also register
- *		an atexit callback that will make sure cleanup happens.
+ *		可惜我们没法真正保证附加代码
+ *		遵守不直接调用 exit() 的规则。因此，虽然
+ *		这是退出系统的首选方式，我们还登记了一个
+ *		atexit 回调，以确保清理一定会发生。
  * ----------------------------------------------------------------
  */
 void
 proc_exit(int code)
 {
-	/* not safe if forked by system(), etc. */
+	/* 若由 system() 等派生出来则不安全。 */
 	if (MyProcPid != (int) getpid())
 		elog(PANIC, "proc_exit() called in child process");
 
-	/* Clean up everything that must be cleaned up */
+	/* 清理一切必须清理的东西 */
 	proc_exit_prepare(code);
 
 #ifdef PROFILE_PID_DIR
 	{
 		/*
-		 * If we are profiling ourself then gprof's mcleanup() is about to
-		 * write out a profile to ./gmon.out.  Since mcleanup() always uses a
-		 * fixed file name, each backend will overwrite earlier profiles. To
-		 * fix that, we create a separate subdirectory for each backend
-		 * (./gprof/pid) and 'cd' to that subdirectory before we exit() - that
-		 * forces mcleanup() to write each profile into its own directory.  We
-		 * end up with something like: $PGDATA/gprof/8829/gmon.out
-		 * $PGDATA/gprof/8845/gmon.out ...
+		 * 若我们正在对自己做性能剖析，gprof 的 mcleanup() 即将
+		 * 把剖析结果写到 ./gmon.out。由于 mcleanup() 总是使用
+		 * 固定文件名，每个后端都会覆盖先前的剖析文件。为了
+		 * 解决这个问题，我们为每个后端建立单独的子目录
+		 * （./gprof/pid），并在调用 exit() 退出前 cd 到该子目录。
+		 * 这迫使 mcleanup() 把每份剖析写进它自己的目录。我们
+		 * 最终会得到类似这样的结果：$PGDATA/gprof/8829/gmon.out
+		 * $PGDATA/gprof/8845/gmon.out ……。
 		 *
-		 * To avoid undesirable disk space bloat, autovacuum workers are
-		 * discriminated against: all their gmon.out files go into the same
-		 * subdirectory.  Without this, an installation that is "just sitting
-		 * there" nonetheless eats megabytes of disk space every few seconds.
+		 * 为避免磁盘空间不受欢迎地膨胀，自动清理工作进程受到
+		 * 区别对待：它们的 gmon.out 全部进入同一个
+		 * 子目录。否则，一个只是闲置在那里的安装
+		 * 每隔几秒也会吃掉数兆字节的磁盘空间。
 		 *
-		 * Note that we do this here instead of in an on_proc_exit() callback
-		 * because we want to ensure that this code executes last - we don't
-		 * want to interfere with any other on_proc_exit() callback.  For the
-		 * same reason, we do not include it in proc_exit_prepare ... so if
-		 * you are exiting in the "wrong way" you won't drop your profile in a
-		 * nice place.
+		 * 注意，我们在这里做这件事，而不是放在 on_proc_exit() 回调里，
+		 * 因为我们想确保这段代码最后执行。我们不想
+		 * 干扰任何其他 on_proc_exit() 回调。出于同样的原因，
+		 * 我们不把它放进 proc_exit_prepare ……因此若你
+		 * 以错误的方式退出，剖析文件就不会落在
+		 * 一个合适的地方。
 		 */
 		char		gprofDirName[32];
 
@@ -142,8 +142,8 @@ proc_exit(int code)
 			snprintf(gprofDirName, 32, "gprof/%d", (int) getpid());
 
 		/*
-		 * Use mkdir() instead of MakePGDirectory() since we aren't making a
-		 * PG directory here.
+		 * 这里用 mkdir() 而不是 MakePGDirectory()，因为我们
+		 * 并不是在创建 PG 目录。
 		 */
 		mkdir("gprof", S_IRWXU | S_IRWXG | S_IRWXO);
 		mkdir(gprofDirName, S_IRWXU | S_IRWXG | S_IRWXO);
@@ -157,23 +157,23 @@ proc_exit(int code)
 }
 
 /*
- * Code shared between proc_exit and the atexit handler.  Note that in
- * normal exit through proc_exit, this will actually be called twice ...
- * but the second call will have nothing to do.
+ * proc_exit 与 atexit 处理函数共用的代码。注意，经
+ * proc_exit 的正常退出实际上会调用它两次……
+ * 但第二次将无事可做。
  */
 static void
 proc_exit_prepare(int code)
 {
 	/*
-	 * Once we set this flag, we are committed to exit.  Any ereport() will
-	 * NOT send control back to the main loop, but right back here.
+	 * 一旦设置这个标志，我们就决心退出。任何 ereport()
+	 * 都不会把控制交回主循环，而是直接回到这里。
 	 */
 	proc_exit_inprogress = true;
 
 	/*
-	 * Forget any pending cancel or die requests; we're doing our best to
-	 * close up shop already.  Note that the signal handlers will not set
-	 * these flags again, now that proc_exit_inprogress is set.
+	 * 忘掉任何待处理的取消或死亡请求；我们已经在尽力
+	 * 收摊了。注意，既然 proc_exit_inprogress 已设置，
+	 * 信号处理函数不会再设置这些标志。
 	 */
 	InterruptPending = false;
 	ProcDiePending = false;
@@ -182,32 +182,32 @@ proc_exit_prepare(int code)
 	CritSectionCount = 0;
 
 	/*
-	 * Also clear the error context stack, to prevent error callbacks from
-	 * being invoked by any elog/ereport calls made during proc_exit. Whatever
-	 * context they might want to offer is probably not relevant, and in any
-	 * case they are likely to fail outright after we've done things like
-	 * aborting any open transaction.  (In normal exit scenarios the context
-	 * stack should be empty anyway, but it might not be in the case of
-	 * elog(FATAL) for example.)
+	 * 同时清空错误上下文栈，以免 proc_exit 期间的 elog/ereport
+	 * 调用去调用错误回调。它们想提供的上下文多半已经
+	 * 无关，而且在我们已经做过诸如中止任何打开的事务之后，
+	 * 它们很可能直接失败。（在正常退出情形下，上下文
+	 * 栈本来就应当是空的，但在例如
+	 * elog(FATAL) 的情况下
+	 * 可能不是。）
 	 */
 	error_context_stack = NULL;
-	/* For the same reason, reset debug_query_string before it's clobbered */
+	/* 出于同样的原因，在 debug_query_string 被破坏之前把它重置 */
 	debug_query_string = NULL;
 
-	/* do our shared memory exits first */
+	/* 先做我们的共享内存退出 */
 	shmem_exit(code);
 
 	elog(DEBUG3, "proc_exit(%d): %d callbacks to make",
 		 code, on_proc_exit_index);
 
 	/*
-	 * call all the registered callbacks.
+	 * 调用所有已登记的回调。
 	 *
-	 * Note that since we decrement on_proc_exit_index each time, if a
-	 * callback calls ereport(ERROR) or ereport(FATAL) then it won't be
-	 * invoked again when control comes back here (nor will the
-	 * previously-completed callbacks).  So, an infinite loop should not be
-	 * possible.
+	 * 注意，由于我们每次都递减 on_proc_exit_index，若某个
+	 * 回调调用 ereport(ERROR) 或 ereport(FATAL)，控制回到
+	 * 这里时就不会再调用它（先前已完成的回调也不会）。
+	 * 因此不应当可能出现
+	 * 无限循环。
 	 */
 	while (--on_proc_exit_index >= 0)
 		on_proc_exit_list[on_proc_exit_index].function(code,
@@ -217,11 +217,11 @@ proc_exit_prepare(int code)
 }
 
 /* ------------------
- * Run all of the on_shmem_exit routines --- but don't actually exit.
- * This is used by the postmaster to re-initialize shared memory and
- * semaphores after a backend dies horribly.  As with proc_exit(), we
- * remove each callback from the list before calling it, to avoid
- * infinite loop in case of error.
+ * 运行全部 on_shmem_exit 例程，但并不真正退出。
+ * postmaster 用它在某个后端惨死之后重新初始化共享内存和
+ * 信号量。与 proc_exit() 一样，我们在调用每个回调之前
+ * 先把它从列表里去掉，以免
+ * 出错时无限循环。
  * ------------------
  */
 void
@@ -230,12 +230,12 @@ shmem_exit(int code)
 	shmem_exit_inprogress = true;
 
 	/*
-	 * Call before_shmem_exit callbacks.
+	 * 调用 before_shmem_exit 回调。
 	 *
-	 * These should be things that need most of the system to still be up and
-	 * working, such as cleanup of temp relations, which requires catalog
-	 * access; or things that need to be completed because later cleanup steps
-	 * depend on them, such as releasing lwlocks.
+	 * 这些应当是仍需要系统大部分还在运行的事情，
+	 * 例如清理临时关系，这需要访问系统目录；
+	 * 或者是必须完成的事情，因为后面的清理步骤
+	 * 依赖它们，例如释放 lwlocks。
 	 */
 	elog(DEBUG3, "shmem_exit(%d): %d before_shmem_exit callbacks to make",
 		 code, before_shmem_exit_index);
@@ -245,30 +245,30 @@ shmem_exit(int code)
 	before_shmem_exit_index = 0;
 
 	/*
-	 * Call dynamic shared memory callbacks.
+	 * 调用动态共享内存回调。
 	 *
-	 * These serve the same purpose as late callbacks, but for dynamic shared
-	 * memory segments rather than the main shared memory segment.
-	 * dsm_backend_shutdown() has the same kind of progressive logic we use
-	 * for the main shared memory segment; namely, it unregisters each
-	 * callback before invoking it, so that we don't get stuck in an infinite
-	 * loop if one of those callbacks itself throws an ERROR or FATAL.
+	 * 它们的作用与后期回调相同，但针对的是动态共享内存
+	 * 段，而不是主共享内存段。
+	 * dsm_backend_shutdown() 有着与主共享内存段相同的
+	 * 渐进逻辑：它在调用每个回调之前先注销它，
+	 * 这样若其中某个回调抛出 ERROR 或 FATAL，
+	 * 我们就不会陷在无限循环里。
 	 *
-	 * Note that explicitly calling this function here is quite different from
-	 * registering it as an on_shmem_exit callback for precisely this reason:
-	 * if one dynamic shared memory callback errors out, the remaining
-	 * callbacks will still be invoked.  Thus, hard-coding this call puts it
-	 * equal footing with callbacks for the main shared memory segment.
+	 * 注意，在这里显式调用该函数，与把它登记为
+	 * on_shmem_exit 回调相当不同，原因正是：
+	 * 若一个动态共享内存回调出错，其余
+	 * 回调仍会被调用。因此把这次调用写死，就使它
+	 * 与主共享内存段的回调处于同等地位。
 	 */
 	dsm_backend_shutdown();
 
 	/*
-	 * Call on_shmem_exit callbacks.
+	 * 调用 on_shmem_exit 回调。
 	 *
-	 * These are generally releasing low-level shared memory resources.  In
-	 * some cases, this is a backstop against the possibility that the early
-	 * callbacks might themselves fail, leading to re-entry to this routine;
-	 * in other cases, it's cleanup that only happens at process exit.
+	 * 这些通常是在释放低层共享内存资源。有些情况下，
+	 * 这是对早期回调本身可能失败、导致重新进入本例程的
+	 * 一种兜底；另一些情况下，这是只在进程退出时
+	 * 才做的清理。
 	 */
 	elog(DEBUG3, "shmem_exit(%d): %d on_shmem_exit callbacks to make",
 		 code, on_shmem_exit_index);
@@ -283,26 +283,26 @@ shmem_exit(int code)
 /* ----------------------------------------------------------------
  *		atexit_callback
  *
- *		Backstop to ensure that direct calls of exit() don't mess us up.
+ *		兜底，确保有人直接调用 exit() 退出时不会把我们搞乱。
  *
- * Somebody who was being really uncooperative could call _exit(),
- * but for that case we have a "dead man switch" that will make the
- * postmaster treat it as a crash --- see pmsignal.c.
+ * 特别不合作的人可以调用 _exit()，
+ * 但那种情况我们有一个死人开关，会让
+ * postmaster 把它当成崩溃来处理。见 pmsignal.c。
  * ----------------------------------------------------------------
  */
 static void
 atexit_callback(void)
 {
-	/* Clean up everything that must be cleaned up */
-	/* ... too bad we don't know the real exit code ... */
+	/* 清理一切必须清理的东西 */
+	/* ……可惜我们不知道真正的退出码…… */
 	proc_exit_prepare(-1);
 }
 
 /* ----------------------------------------------------------------
  *		on_proc_exit
  *
- *		this function adds a callback function to the list of
- *		functions invoked by proc_exit().   -cim 2/6/90
+ *		本函数把一个回调加进
+ *		proc_exit() 所调用的函数列表。   -cim 2/6/90
  * ----------------------------------------------------------------
  */
 void
@@ -328,9 +328,9 @@ on_proc_exit(pg_on_exit_callback function, Datum arg)
 /* ----------------------------------------------------------------
  *		before_shmem_exit
  *
- *		Register early callback to perform user-level cleanup,
- *		e.g. transaction abort, before we begin shutting down
- *		low-level subsystems.
+ *		登记早期回调，以便在开始关闭
+ *		低层子系统之前做用户级清理，
+ *		例如中止事务。
  * ----------------------------------------------------------------
  */
 void
@@ -356,9 +356,9 @@ before_shmem_exit(pg_on_exit_callback function, Datum arg)
 /* ----------------------------------------------------------------
  *		on_shmem_exit
  *
- *		Register ordinary callback to perform low-level shutdown
- *		(e.g. releasing our PGPROC); run after before_shmem_exit
- *		callbacks and before on_proc_exit callbacks.
+ *		登记普通回调，做低层关闭
+ *		（例如释放我们的 PGPROC）；在 before_shmem_exit
+ *		回调之后、on_proc_exit 回调之前运行。
  * ----------------------------------------------------------------
  */
 void
@@ -384,10 +384,10 @@ on_shmem_exit(pg_on_exit_callback function, Datum arg)
 /* ----------------------------------------------------------------
  *		cancel_before_shmem_exit
  *
- *		this function removes a previously-registered before_shmem_exit
- *		callback.  We only look at the latest entry for removal, as we
- * 		expect callers to add and remove temporary before_shmem_exit
- * 		callbacks in strict LIFO order.
+ *		本函数去掉一个先前登记的 before_shmem_exit
+ *		回调。我们只查看最新的一项来删除，因为我们
+ * 		预期调用方以严格的后进先出顺序添加和删除
+ * 		临时的 before_shmem_exit 回调。
  * ----------------------------------------------------------------
  */
 void
@@ -406,10 +406,10 @@ cancel_before_shmem_exit(pg_on_exit_callback function, Datum arg)
 /* ----------------------------------------------------------------
  *		on_exit_reset
  *
- *		this function clears all on_proc_exit() and on_shmem_exit()
- *		registered functions.  This is used just after forking a backend,
- *		so that the backend doesn't believe it should call the postmaster's
- *		on-exit routines when it exits...
+ *		本函数清除所有 on_proc_exit() 和 on_shmem_exit()
+ *		已登记的函数。这用在刚 fork 出一个后端之后，
+ *		使该后端不会认为自己退出时应当调用
+ *		postmaster 的退出例程……
  * ----------------------------------------------------------------
  */
 void
@@ -424,8 +424,8 @@ on_exit_reset(void)
 /* ----------------------------------------------------------------
  *		check_on_shmem_exit_lists_are_empty
  *
- *		Debugging check that no shmem cleanup handlers have been registered
- *		prematurely in the current process.
+ *		调试检查：当前进程没有过早登记
+ *		共享内存清理处理函数。
  * ----------------------------------------------------------------
  */
 void
@@ -435,5 +435,5 @@ check_on_shmem_exit_lists_are_empty(void)
 		elog(FATAL, "before_shmem_exit has been called prematurely");
 	if (on_shmem_exit_index)
 		elog(FATAL, "on_shmem_exit has been called prematurely");
-	/* Checking DSM detach state seems unnecessary given the above */
+	/* 鉴于上面的检查，再查动态共享内存脱离状态似乎没有必要 */
 }

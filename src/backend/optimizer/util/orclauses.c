@@ -32,72 +32,72 @@ static void consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * extract_restriction_or_clauses
- *	  Examine join OR-of-AND clauses to see if any useful restriction OR
- *	  clauses can be extracted.  If so, add them to the query.
+ *	  检查连接的 OR-of-AND 子句，看能否抽出有用的限制 OR
+ *	  子句。若能，把它们加进查询。
  *
- * Although a join clause must reference multiple relations overall,
- * an OR of ANDs clause might contain sub-clauses that reference just one
- * relation and can be used to build a restriction clause for that rel.
- * For example consider
+ * 虽然连接子句总体上必须引用多个关系，
+ * 一个 OR of ANDs 子句可能含有只引用一个
+ * 关系、可用于为该关系建立限制子句的子子句。
+ * 例如考虑
  *		WHERE ((a.x = 42 AND b.y = 43) OR (a.x = 44 AND b.z = 45));
- * We can transform this into
+ * 我们可以把它变成
  *		WHERE ((a.x = 42 AND b.y = 43) OR (a.x = 44 AND b.z = 45))
  *			AND (a.x = 42 OR a.x = 44)
  *			AND (b.y = 43 OR b.z = 45);
- * which allows the latter clauses to be applied during the scans of a and b,
- * perhaps as index qualifications, and in any case reducing the number of
- * rows arriving at the join.  In essence this is a partial transformation to
- * CNF (AND of ORs format).  It is not complete, however, because we do not
- * unravel the original OR --- doing so would usually bloat the qualification
- * expression to little gain.
+ * 这样后面的子句可以在扫描 a 和 b 时应用，
+ * 也许作为索引限定条件，无论如何都能减少
+ * 到达连接的行数。本质上这是向
+ * CNF（OR 的 AND 形式）的部分变换。但它并不完整，因为我们不
+ * 拆开原来的 OR——那样做通常会把限定
+ * 表达式胀大，收益却很小。
  *
- * The added quals are partially redundant with the original OR, and therefore
- * would cause the size of the joinrel to be underestimated when it is finally
- * formed.  (This would be true of a full transformation to CNF as well; the
- * fault is not really in the transformation, but in clauselist_selectivity's
- * inability to recognize redundant conditions.)  We can compensate for this
- * redundancy by changing the cached selectivity of the original OR clause,
- * canceling out the (valid) reduction in the estimated sizes of the base
- * relations so that the estimated joinrel size remains the same.  This is
- * a MAJOR HACK: it depends on the fact that clause selectivities are cached
- * and on the fact that the same RestrictInfo node will appear in every
- * joininfo list that might be used when the joinrel is formed.
- * And it doesn't work in cases where the size estimation is nonlinear
- * (i.e., outer and IN joins).  But it beats not doing anything.
+ * 新增的限定条件与原来的 OR 部分冗余，因此
+ * 会在最终形成 joinrel 时低估其大小。
+ * （完全变换成 CNF 也一样；问题
+ * 其实不在变换，而在 clauselist_selectivity
+ * 无法识别冗余条件。）我们可以补偿这种
+ * 冗余：修改原来 OR 子句缓存的选择率，
+ * 抵消对基关系估计大小的（有效）缩减，
+ * 使估计的 joinrel 大小保持不变。这是 MAJOR HACK：它依赖于子句选择率被缓存，
+ * 以及同一个 RestrictInfo 节点会出现在
+ * 形成 joinrel 时可能用到的每个
+ * joininfo 列表中。
+ * 而且在大小估计非线性的情形下它不起作用
+ * （即外连接和 IN 连接）。但总比什么都不做强。
  *
- * We examine each base relation to see if join clauses associated with it
- * contain extractable restriction conditions.  If so, add those conditions
- * to the rel's baserestrictinfo and update the cached selectivities of the
- * join clauses.  Note that the same join clause will be examined afresh
- * from the point of view of each baserel that participates in it, so its
- * cached selectivity may get updated multiple times.
+ * 我们检查每个基关系，看与它关联的连接子句
+ * 是否含有可抽出的限制条件。若有，把那些条件
+ * 加到该关系的 baserestrictinfo，并更新连接子句的
+ * 缓存选择率。注意同一条连接子句会从
+ * 参与它的每个基关系的角度重新检查，因此其
+ * 缓存选择率可能被更新多次。
  */
 void
 extract_restriction_or_clauses(PlannerInfo *root)
 {
 	Index		rti;
 
-	/* Examine each baserel for potential join OR clauses */
+	/* 检查每个基关系，寻找可能的连接 OR 子句 */
 	for (rti = 1; rti < root->simple_rel_array_size; rti++)
 	{
 		RelOptInfo *rel = root->simple_rel_array[rti];
 		ListCell   *lc;
 
-		/* there may be empty slots corresponding to non-baserel RTEs */
+		/* 可能有对应非基关系 RTEs 的空槽 */
 		if (rel == NULL)
 			continue;
 
-		Assert(rel->relid == rti);	/* sanity check on array */
+		Assert(rel->relid == rti);	/* 对数组做健全性检查 */
 
-		/* ignore RTEs that are "other rels" */
+		/* 忽略作为 "other rels" 的 RTEs */
 		if (rel->reloptkind != RELOPT_BASEREL)
 			continue;
 
 		/*
-		 * Find potentially interesting OR joinclauses.  We can use any
-		 * joinclause that is considered safe to move to this rel by the
-		 * parameterized-path machinery, even though what we are going to do
-		 * with it is not exactly a parameterized path.
+		 * 找出可能有用的 OR 连接子句。任何被
+		 * 参数化路径机制认为可以安全移到这个关系的
+		 * 连接子句都可以用，即使我们要对它做的事
+		 * 并不正好是一条参数化路径。
 		 */
 		foreach(lc, rel->joininfo)
 		{
@@ -106,12 +106,12 @@ extract_restriction_or_clauses(PlannerInfo *root)
 			if (restriction_is_or_clause(rinfo) &&
 				join_clause_is_movable_to(rinfo, rel))
 			{
-				/* Try to extract a qual for this rel only */
+				/* 尝试只为这个关系抽出一条限定条件 */
 				Expr	   *orclause = extract_or_clause(rinfo, rel);
 
 				/*
-				 * If successful, decide whether we want to use the clause,
-				 * and insert it into the rel's restrictinfo list if so.
+				 * 若成功，决定是否要用这条子句，
+				 * 若用，就把它插入该关系的 restrictinfo 列表。
 				 */
 				if (orclause)
 					consider_new_or_clause(root, rel, orclause, rinfo);
@@ -121,22 +121,22 @@ extract_restriction_or_clauses(PlannerInfo *root)
 }
 
 /*
- * Is the given primitive (non-OR) RestrictInfo safe to move to the rel?
+ * 给定的简单（非 OR）RestrictInfo 移到该关系是否安全？
  */
 static bool
 is_safe_restriction_clause_for(RestrictInfo *rinfo, RelOptInfo *rel)
 {
 	/*
-	 * We want clauses that mention the rel, and only the rel.  So in
-	 * particular pseudoconstant clauses can be rejected quickly.  Then check
-	 * the clause's Var membership.
+	 * 我们要的是提到该关系、且只提到该关系的子句。因此
+	 * 伪常量子句尤其可以很快拒绝。然后检查
+	 * 该子句的 Var 成员。
 	 */
 	if (rinfo->pseudoconstant)
 		return false;
 	if (!bms_equal(rinfo->clause_relids, rel->relids))
 		return false;
 
-	/* We don't want extra evaluations of any volatile functions */
+	/* 我们不想对任何易变函数做额外求值 */
 	if (contain_volatile_functions((Node *) rinfo->clause))
 		return false;
 
@@ -144,14 +144,14 @@ is_safe_restriction_clause_for(RestrictInfo *rinfo, RelOptInfo *rel)
 }
 
 /*
- * Try to extract a restriction clause mentioning only "rel" from the given
- * join OR-clause.
+ * 尝试从给定的连接 OR 子句中抽出
+ * 只提到 rel 的限制子句。
  *
- * We must be able to extract at least one qual for this rel from each of
- * the arms of the OR, else we can't use it.
+ * 必须能从 OR 的每一支为这个关系至少抽出一条限定条件，
+ * 否则就不能用它。
  *
- * Returns an OR clause (not a RestrictInfo!) pertaining to rel, or NULL
- * if no OR clause could be extracted.
+ * 返回一条属于 rel 的 OR 子句（不是 RestrictInfo！），
+ * 若抽不出 OR 子句则返回 NULL。
  */
 static Expr *
 extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
@@ -160,16 +160,16 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 	ListCell   *lc;
 
 	/*
-	 * Scan each arm of the input OR clause.  Notice we descend into
-	 * or_rinfo->orclause, which has RestrictInfo nodes embedded below the
-	 * toplevel OR/AND structure.  This is useful because we can use the info
-	 * in those nodes to make is_safe_restriction_clause_for()'s checks
-	 * cheaper.  We'll strip those nodes from the returned tree, though,
-	 * meaning that fresh ones will be built if the clause is accepted as a
-	 * restriction clause.  This might seem wasteful --- couldn't we re-use
-	 * the existing RestrictInfos?	But that'd require assuming that
-	 * selectivity and other cached data is computed exactly the same way for
-	 * a restriction clause as for a join clause, which seems undesirable.
+	 * 扫描输入 OR 子句的每一支。注意我们下降到
+	 * or_rinfo->orclause，其中在顶层
+	 * OR/AND 结构之下嵌有 RestrictInfo 节点。
+	 * 这很有用，因为我们可以用那些节点里的信息让
+	 * is_safe_restriction_clause_for() 的检查更便宜。不过我们会从返回的树中剥掉那些节点，
+	 * 这意味着若该子句被接受为限制子句，会新建节点。
+	 * 这也许显得浪费——难道不能复用
+	 * 现有的 RestrictInfos？但那需要假定
+	 * 选择率和其他缓存数据对限制子句和连接子句的计算方式完全相同，
+	 * 这似乎不可取。
 	 */
 	Assert(is_orclause(or_rinfo->orclause));
 	foreach(lc, ((BoolExpr *) or_rinfo->orclause)->args)
@@ -178,7 +178,7 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 		List	   *subclauses = NIL;
 		Node	   *subclause;
 
-		/* OR arguments should be ANDs or sub-RestrictInfos */
+		/* OR 的参数应当是 ANDs 或子 RestrictInfos */
 		if (is_andclause(orarg))
 		{
 			List	   *andargs = ((BoolExpr *) orarg)->args;
@@ -191,10 +191,10 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 				if (restriction_is_or_clause(rinfo))
 				{
 					/*
-					 * Recurse to deal with nested OR.  Note we *must* recurse
-					 * here, this isn't just overly-tense optimization: we
-					 * have to descend far enough to find and strip all
-					 * RestrictInfos in the expression.
+					 * 递归处理嵌套的 OR。注意这里必须递归，
+					 * 这不是过分紧张的优化：我们必须
+					 * 下降到足够深，找出并剥掉表达式中的全部
+					 * RestrictInfos。
 					 */
 					Expr	   *suborclause;
 
@@ -216,17 +216,17 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 		}
 
 		/*
-		 * If nothing could be extracted from this arm, we can't do anything
-		 * with this OR clause.
+		 * 若从这一支什么也抽不出，对这条 OR 子句就
+		 * 什么也做不了。
 		 */
 		if (subclauses == NIL)
 			return NULL;
 
 		/*
-		 * OK, add subclause(s) to the result OR.  If we found more than one,
-		 * we need an AND node.  But if we found only one, and it is itself an
-		 * OR node, add its subclauses to the result instead; this is needed
-		 * to preserve AND/OR flatness (ie, no OR directly underneath OR).
+		 * 好，把子子句加进结果 OR。若找到不止一条，
+		 * 就需要一个 AND 节点。但若只找到一条，且它本身是
+		 * OR 节点，则把它的子子句加进结果；这是为了
+		 * 保持 AND/OR 平坦（即 OR 不直接位于 OR 之下）。
 		 */
 		subclause = (Node *) make_ands_explicit(subclauses);
 		if (is_orclause(subclause))
@@ -237,9 +237,9 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 	}
 
 	/*
-	 * If we got a restriction clause from every arm, wrap them up in an OR
-	 * node.  (In theory the OR node might be unnecessary, if there was only
-	 * one arm --- but then the input OR node was also redundant.)
+	 * 若每一支都得到了限制子句，用一个 OR
+	 * 节点包起来。（理论上若只有一支，OR 节点也许不必要
+	 * ——但那样输入的 OR 节点也同样多余。）
 	 */
 	if (clauselist != NIL)
 		return make_orclause(clauselist);
@@ -247,9 +247,9 @@ extract_or_clause(RestrictInfo *or_rinfo, RelOptInfo *rel)
 }
 
 /*
- * Consider whether a successfully-extracted restriction OR clause is
- * actually worth using.  If so, add it to the planner's data structures,
- * and adjust the original join clause (join_or_rinfo) to compensate.
+ * 考虑成功抽出的限制 OR 子句是否
+ * 真的值得用。若值得，把它加进规划器的数据结构，
+ * 并调整原来的连接子句（join_or_rinfo）以作补偿。
  */
 static void
 consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
@@ -260,8 +260,8 @@ consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
 				orig_selec;
 
 	/*
-	 * Build a RestrictInfo from the new OR clause.  We can assume it's valid
-	 * as a base restriction clause.
+	 * 从新的 OR 子句建立一个 RestrictInfo。可以假定它作为
+	 * 基限制子句是有效的。
 	 */
 	or_rinfo = make_restrictinfo(root,
 								 orclause,
@@ -275,57 +275,57 @@ consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
 								 NULL);
 
 	/*
-	 * Estimate its selectivity.  (We could have done this earlier, but doing
-	 * it on the RestrictInfo representation allows the result to get cached,
-	 * saving work later.)
+	 * 估计它的选择率。（本来可以更早做，但在
+	 * RestrictInfo 表示上做可以让结果被缓存，
+	 * 以后省事。）
 	 */
 	or_selec = clause_selectivity(root, (Node *) or_rinfo,
 								  0, JOIN_INNER, NULL);
 
 	/*
-	 * The clause is only worth adding to the query if it rejects a useful
-	 * fraction of the base relation's rows; otherwise, it's just going to
-	 * cause duplicate computation (since we will still have to check the
-	 * original OR clause when the join is formed).  Somewhat arbitrarily, we
-	 * set the selectivity threshold at 0.9.
+	 * 只有当该子句拒绝掉基关系行的有用比例时，才值得加进查询；
+	 * 否则它只会
+	 * 造成重复计算（因为形成连接时仍须检查
+	 * 原来的 OR 子句）。我们有点任意地把
+	 * 选择率阈值设为 0.9。
 	 */
 	if (or_selec > 0.9)
-		return;					/* forget it */
+		return;					/* 作罢 */
 
 	/*
-	 * OK, add it to the rel's restriction-clause list.
+	 * 好，把它加进该关系的限制子句列表。
 	 */
 	rel->baserestrictinfo = lappend(rel->baserestrictinfo, or_rinfo);
 	rel->baserestrict_min_security = Min(rel->baserestrict_min_security,
 										 or_rinfo->security_level);
 
 	/*
-	 * Adjust the original join OR clause's cached selectivity to compensate
-	 * for the selectivity of the added (but redundant) lower-level qual. This
-	 * should result in the join rel getting approximately the same rows
-	 * estimate as it would have gotten without all these shenanigans.
+	 * 调整原来连接 OR 子句缓存的选择率，以补偿
+	 * 新增的（但是冗余的）下层限定条件的选择率。这
+	 * 应当使连接关系得到的行数估计
+	 * 与不做这些花样时
 	 *
-	 * XXX major hack alert: this depends on the assumption that the
-	 * selectivity will stay cached.
+	 * 大致相同。
+	 * XXX 重大黑客警告：这依赖于选择率
 	 *
-	 * XXX another major hack: we adjust only norm_selec, the cached
-	 * selectivity for JOIN_INNER semantics, even though the join clause
-	 * might've been an outer-join clause.  This is partly because we can't
-	 * easily identify the relevant SpecialJoinInfo here, and partly because
-	 * the linearity assumption we're making would fail anyway.  (If it is an
-	 * outer-join clause, "rel" must be on the nullable side, else we'd not
-	 * have gotten here.  So the computation of the join size is going to be
-	 * quite nonlinear with respect to the size of "rel", so it's not clear
-	 * how we ought to adjust outer_selec even if we could compute its
-	 * original value correctly.)
+	 * 会保持缓存这一假定。
+	 * XXX 另一个重大黑客：我们只调整 norm_selec，即
+	 * JOIN_INNER 语义下缓存的选择率，即使该连接子句
+	 * 也许曾是外连接子句。部分原因是这里不能轻易找出
+	 * 相关的 SpecialJoinInfo，
+	 * 部分原因是我们所作的线性假定反正会失败。（若它是
+	 * 外连接子句，rel 必须在可空一侧，否则我们到不了
+	 * 这里。因此连接大小的计算相对于 rel 的大小
+	 * 会相当非线性，所以即使能正确算出
+	 * outer_selec 的原始值，也不清楚应当如何调整它。）
 	 */
 	if (or_selec > 0)
 	{
 		SpecialJoinInfo sjinfo;
 
 		/*
-		 * Make up a SpecialJoinInfo for JOIN_INNER semantics.  (Compare
-		 * approx_tuple_count() in costsize.c.)
+		 * 编造一个 JOIN_INNER 语义的 SpecialJoinInfo。（对照
+		 * costsize.c 中的 approx_tuple_count()。）
 		 */
 		sjinfo.type = T_SpecialJoinInfo;
 		sjinfo.min_lefthand = bms_difference(join_or_rinfo->clause_relids,
@@ -339,22 +339,22 @@ consider_new_or_clause(PlannerInfo *root, RelOptInfo *rel,
 		sjinfo.commute_above_r = NULL;
 		sjinfo.commute_below_l = NULL;
 		sjinfo.commute_below_r = NULL;
-		/* we don't bother trying to make the remaining fields valid */
+		/* 我们不费心去让其余字段有效 */
 		sjinfo.lhs_strict = false;
 		sjinfo.semi_can_btree = false;
 		sjinfo.semi_can_hash = false;
 		sjinfo.semi_operators = NIL;
 		sjinfo.semi_rhs_exprs = NIL;
 
-		/* Compute inner-join size */
+		/* 计算内连接大小 */
 		orig_selec = clause_selectivity(root, (Node *) join_or_rinfo,
 										0, JOIN_INNER, &sjinfo);
 
-		/* And hack cached selectivity so join size remains the same */
+		/* 并改写缓存的选择率，使连接大小保持不变 */
 		join_or_rinfo->norm_selec = orig_selec / or_selec;
-		/* ensure result stays in sane range */
+		/* 确保结果留在合理范围内 */
 		if (join_or_rinfo->norm_selec > 1)
 			join_or_rinfo->norm_selec = 1;
-		/* as explained above, we don't touch outer_selec */
+		/* 如上所述，我们不碰 outer_selec */
 	}
 }

@@ -1,0 +1,129 @@
+{
+ "schema_version": 1,
+ "batch_id": "0080-comment-optimizer-util-small",
+ "title": "zh: translate joininfo orclauses paramassign placeholder restrictinfo comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "69fae34618b84c5b28c1fb9a6cf8d2780200cf29",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/joininfo.c",
+   "kind": "c_comment",
+   "note": "join clause bookkeeping"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/orclauses.c",
+   "kind": "c_comment",
+   "note": "OR restriction extraction"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/paramassign.c",
+   "kind": "c_comment",
+   "note": "parameter number assignment"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/placeholder.c",
+   "kind": "c_comment",
+   "note": "placeholder variables"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "note": "restriction clause nodes"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0080-comment-optimizer-util-small.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/joininfo.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 8,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "join clause bookkeeping"
+  },
+  {
+   "path": "src/backend/optimizer/util/orclauses.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 32,
+   "translated": 31,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "OR restriction extraction"
+  },
+  {
+   "path": "src/backend/optimizer/util/paramassign.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 46,
+   "translated": 45,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "parameter number assignment"
+  },
+  {
+   "path": "src/backend/optimizer/util/placeholder.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 50,
+   "translated": 49,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "placeholder variables"
+  },
+  {
+   "path": "src/backend/optimizer/util/restrictinfo.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 46,
+   "translated": 45,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "restriction clause nodes"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0080-comment-optimizer-util-small.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0080 translates src/backend/optimizer/util/joininfo.c, orclauses.c, paramassign.c, placeholder.c, and restrictinfo.c."
+}

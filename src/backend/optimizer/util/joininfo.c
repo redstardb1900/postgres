@@ -21,16 +21,16 @@
 
 /*
  * have_relevant_joinclause
- *		Detect whether there is a joinclause that involves
- *		the two given relations.
+ *		检测是否存在涉及
+ *		给定两个关系的连接子句。
  *
- * Note: the joinclause does not have to be evaluable with only these two
- * relations.  This is intentional.  For example consider
+ * 注意：该连接子句不必只用这两个
+ * 关系就能求值。这是有意的。例如考虑
  *		SELECT * FROM a, b, c WHERE a.x = (b.y + c.z)
- * If a is much larger than the other tables, it may be worthwhile to
- * cross-join b and c and then use an inner indexscan on a.x.  Therefore
- * we should consider this joinclause as reason to join b to c, even though
- * it can't be applied at that join step.
+ * 若 a 比其他表大得多，也许值得
+ * 先交叉连接 b 和 c，再对 a.x 做内索引扫描。因此
+ * 即使在那一步连接上还不能应用它，也应把这条连接子句当作
+ * 把 b 连到 c 的理由。
  */
 bool
 have_relevant_joinclause(PlannerInfo *root,
@@ -42,8 +42,8 @@ have_relevant_joinclause(PlannerInfo *root,
 	ListCell   *l;
 
 	/*
-	 * We could scan either relation's joininfo list; may as well use the
-	 * shorter one.
+	 * 可以扫描任一关系的 joininfo 列表；不妨用
+	 * 较短的那个。
 	 */
 	if (list_length(rel1->joininfo) <= list_length(rel2->joininfo))
 	{
@@ -68,8 +68,8 @@ have_relevant_joinclause(PlannerInfo *root,
 	}
 
 	/*
-	 * We also need to check the EquivalenceClass data structure, which might
-	 * contain relationships not emitted into the joininfo lists.
+	 * 还需要检查 EquivalenceClass 数据结构，其中可能
+	 * 含有没有放进 joininfo 列表的关系。
 	 */
 	if (!result && rel1->has_eclass_joins && rel2->has_eclass_joins)
 		result = have_relevant_eclass_joinclause(root, rel1, rel2);
@@ -80,16 +80,16 @@ have_relevant_joinclause(PlannerInfo *root,
 
 /*
  * add_join_clause_to_rels
- *	  Add 'restrictinfo' to the joininfo list of each relation it requires.
+ *	  把 restrictinfo 加到它所需要的每个关系的 joininfo 列表。
  *
- * Note that the same copy of the restrictinfo node is linked to by all the
- * lists it is in.  This allows us to exploit caching of information about
- * the restriction clause (but we must be careful that the information does
- * not depend on context).
+ * 注意同一份 restrictinfo 节点被它所属的全部
+ * 列表链接。这让我们可以利用关于
+ * 该限制子句的信息缓存（但必须小心这些信息
+ * 不依赖于上下文）。
  *
- * 'restrictinfo' describes the join clause
- * 'join_relids' is the set of relations participating in the join clause
- *				 (some of these could be outer joins)
+ * restrictinfo 描述该连接子句
+ * join_relids 是参与该连接子句的关系集合
+ *				 （其中有些可能是外连接）
  */
 void
 add_join_clause_to_rels(PlannerInfo *root,
@@ -103,7 +103,7 @@ add_join_clause_to_rels(PlannerInfo *root,
 	{
 		RelOptInfo *rel = find_base_rel_ignore_join(root, cur_relid);
 
-		/* We only need to add the clause to baserels */
+		/* 我们只需把子句加到基关系上 */
 		if (rel == NULL)
 			continue;
 		rel->joininfo = lappend(rel->joininfo, restrictinfo);
@@ -112,14 +112,14 @@ add_join_clause_to_rels(PlannerInfo *root,
 
 /*
  * remove_join_clause_from_rels
- *	  Delete 'restrictinfo' from all the joininfo lists it is in
+ *	  从它所属的全部 joininfo 列表中删除 restrictinfo
  *
- * This reverses the effect of add_join_clause_to_rels.  It's used when we
- * discover that a relation need not be joined at all.
+ * 这逆转 add_join_clause_to_rels 的效果。当我们发现
+ * 某个关系根本不必参与连接时使用。
  *
- * 'restrictinfo' describes the join clause
- * 'join_relids' is the set of relations participating in the join clause
- *				 (some of these could be outer joins)
+ * restrictinfo 描述该连接子句
+ * join_relids 是参与该连接子句的关系集合
+ *				 （其中有些可能是外连接）
  */
 void
 remove_join_clause_from_rels(PlannerInfo *root,
@@ -133,13 +133,13 @@ remove_join_clause_from_rels(PlannerInfo *root,
 	{
 		RelOptInfo *rel = find_base_rel_ignore_join(root, cur_relid);
 
-		/* We would only have added the clause to baserels */
+		/* 我们本来只会把子句加到基关系上 */
 		if (rel == NULL)
 			continue;
 
 		/*
-		 * Remove the restrictinfo from the list.  Pointer comparison is
-		 * sufficient.
+		 * 从列表中去掉该 restrictinfo。指针比较
+		 * 就足够了。
 		 */
 		Assert(list_member_ptr(rel->joininfo, restrictinfo));
 		rel->joininfo = list_delete_ptr(rel->joininfo, restrictinfo);

@@ -30,7 +30,7 @@ typedef struct contain_placeholder_references_context
 	int			sublevels_up;
 } contain_placeholder_references_context;
 
-/* Local functions */
+/* 局部函数 */
 static void find_placeholders_recurse(PlannerInfo *root, Node *jtnode);
 static void find_placeholders_in_expr(PlannerInfo *root, Node *expr);
 static bool contain_placeholder_references_walker(Node *node,
@@ -39,16 +39,16 @@ static bool contain_placeholder_references_walker(Node *node,
 
 /*
  * make_placeholder_expr
- *		Make a PlaceHolderVar for the given expression.
+ *		为给定表达式做一个 PlaceHolderVar。
  *
- * phrels is the syntactic location (as a set of relids) to attribute
- * to the expression.
+ * phrels 是要归给该表达式的语法位置
+ * （一组 relid）。
  *
- * The caller is responsible for adjusting phlevelsup and phnullingrels
- * as needed.  Because we do not know here which query level the PHV
- * will be associated with, it's important that this function touches
- * only root->glob; messing with other parts of PlannerInfo would be
- * likely to do the wrong thing.
+ * 调用者负责按需要调整 phlevelsup 和
+ * phnullingrels。
+ * 因为这里不知道该 PHV 会关联到哪一层查询，
+ * 本函数只碰 root->glob 很重要；去动 PlannerInfo 的其他部分
+ * 很可能会做错事。
  */
 PlaceHolderVar *
 make_placeholder_expr(PlannerInfo *root, Expr *expr, Relids phrels)
@@ -57,27 +57,27 @@ make_placeholder_expr(PlannerInfo *root, Expr *expr, Relids phrels)
 
 	phv->phexpr = expr;
 	phv->phrels = phrels;
-	phv->phnullingrels = NULL;	/* caller may change this later */
+	phv->phnullingrels = NULL;	/* 调用者以后可以改这个 */
 	phv->phid = ++(root->glob->lastPHId);
-	phv->phlevelsup = 0;		/* caller may change this later */
+	phv->phlevelsup = 0;		/* 调用者以后可以改这个 */
 
 	return phv;
 }
 
 /*
  * find_placeholder_info
- *		Fetch the PlaceHolderInfo for the given PHV
+ *		取得给定 PHV 的 PlaceHolderInfo
  *
- * If the PlaceHolderInfo doesn't exist yet, create it if we haven't yet
- * frozen the set of PlaceHolderInfos for the query; else throw an error.
+ * 若 PlaceHolderInfo 还不存在，且我们还没有冻结
+ * 该查询的 PlaceHolderInfos 集合，就创建它；否则报错。
  *
- * This is separate from make_placeholder_expr because subquery pullup has
- * to make PlaceHolderVars for expressions that might not be used at all in
- * the upper query, or might not remain after const-expression simplification.
- * We build PlaceHolderInfos only for PHVs that are still present in the
- * simplified query passed to query_planner().
+ * 这与 make_placeholder_expr 分开，是因为子查询上拉必须为
+ * 在上层查询中也许根本用不到、或常量表达式简化后也许不再留下的表达式
+ * 建立 PlaceHolderVars。
+ * 我们只为仍然出现在交给 query_planner() 的简化查询中的 PHVs
+ * 建立 PlaceHolderInfos。
  *
- * Note: this should only be called after query_planner() has started.
+ * 注意：只应在 query_planner() 已经开始之后调用。
  */
 PlaceHolderInfo *
 find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
@@ -85,10 +85,10 @@ find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
 	PlaceHolderInfo *phinfo;
 	Relids		rels_used;
 
-	/* if this ever isn't true, we'd need to be able to look in parent lists */
+	/* 若这一点不再成立，就需要能到父列表里查找 */
 	Assert(phv->phlevelsup == 0);
 
-	/* Use placeholder_array to look up existing PlaceHolderInfo quickly */
+	/* 用 placeholder_array 快速查找已有的 PlaceHolderInfo */
 	if (phv->phid < root->placeholder_array_size)
 		phinfo = root->placeholder_array[phv->phid];
 	else
@@ -99,7 +99,7 @@ find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
 		return phinfo;
 	}
 
-	/* Not found, so create it */
+	/* 没找到，因此创建它 */
 	if (root->placeholdersFrozen)
 		elog(ERROR, "too late to create a new PlaceHolderInfo");
 
@@ -109,46 +109,46 @@ find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
 	phinfo->ph_var = copyObject(phv);
 
 	/*
-	 * By convention, phinfo->ph_var->phnullingrels is always empty, since the
-	 * PlaceHolderInfo represents the initially-calculated state of the
-	 * PlaceHolderVar.  PlaceHolderVars appearing in the query tree might have
-	 * varying values of phnullingrels, reflecting outer joins applied above
-	 * the calculation level.
+	 * 按约定，phinfo->ph_var->phnullingrels 总是空的，因为
+	 * PlaceHolderInfo 代表
+	 * PlaceHolderVar 最初算出来的状态。
+	 * 出现在查询树中的 PlaceHolderVars 的 phnullingrels 可能各不相同，
+	 * 反映计算层之上应用的外连接。
 	 */
 	phinfo->ph_var->phnullingrels = NULL;
 
 	/*
-	 * Any referenced rels that are outside the PHV's syntactic scope are
-	 * LATERAL references, which should be included in ph_lateral but not in
-	 * ph_eval_at.  If no referenced rels are within the syntactic scope,
-	 * force evaluation at the syntactic location.
+	 * 任何位于该 PHV 语法范围之外的被引用关系都是
+	 * LATERAL 引用，应当放进 ph_lateral，而不放进
+	 * ph_eval_at。若没有任何被引用关系位于语法范围之内，
+	 * 就强制在语法位置求值。
 	 */
 	rels_used = pull_varnos(root, (Node *) phv->phexpr);
 	phinfo->ph_lateral = bms_difference(rels_used, phv->phrels);
 	phinfo->ph_eval_at = bms_int_members(rels_used, phv->phrels);
-	/* If no contained vars, force evaluation at syntactic location */
+	/* 若不含 var，强制在语法位置求值 */
 	if (bms_is_empty(phinfo->ph_eval_at))
 	{
 		phinfo->ph_eval_at = bms_copy(phv->phrels);
 		Assert(!bms_is_empty(phinfo->ph_eval_at));
 	}
-	phinfo->ph_needed = NULL;	/* initially it's unused */
-	/* for the moment, estimate width using just the datatype info */
+	phinfo->ph_needed = NULL;	/* 最初它未被使用 */
+	/* 眼下只用数据类型信息估计宽度 */
 	phinfo->ph_width = get_typavgwidth(exprType((Node *) phv->phexpr),
 									   exprTypmod((Node *) phv->phexpr));
 
 	/*
-	 * Add to both placeholder_list and placeholder_array.  Note: because we
-	 * store pointers to the PlaceHolderInfos in two data structures, it'd be
-	 * unsafe to pass the whole placeholder_list structure through
-	 * expression_tree_mutator or the like --- or at least, you'd have to
-	 * rebuild the placeholder_array afterwards.
+	 * 同时加入 placeholder_list 和 placeholder_array。注意：因为我们
+	 * 在两个数据结构里存放指向 PlaceHolderInfos 的指针，把整个
+	 * placeholder_list 结构交给 expression_tree_mutator 之类是不安全的——
+	 * 至少事后必须
+	 * 重建 placeholder_array。
 	 */
 	root->placeholder_list = lappend(root->placeholder_list, phinfo);
 
 	if (phinfo->phid >= root->placeholder_array_size)
 	{
-		/* Must allocate or enlarge placeholder_array */
+		/* 必须分配或扩大 placeholder_array */
 		int			new_size;
 
 		new_size = root->placeholder_array_size ? root->placeholder_array_size * 2 : 8;
@@ -165,9 +165,9 @@ find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
 	root->placeholder_array[phinfo->phid] = phinfo;
 
 	/*
-	 * The PHV's contained expression may contain other, lower-level PHVs.  We
-	 * now know we need to get those into the PlaceHolderInfo list, too, so we
-	 * may as well do that immediately.
+	 * 该 PHV 所含表达式可能含有其他更低层的 PHVs。我们
+	 * 现在知道也要把那些放进 PlaceHolderInfo 列表，因此
+	 * 不妨立刻做。
 	 */
 	find_placeholders_in_expr(root, (Node *) phinfo->ph_var->phexpr);
 
@@ -176,21 +176,21 @@ find_placeholder_info(PlannerInfo *root, PlaceHolderVar *phv)
 
 /*
  * find_placeholders_in_jointree
- *		Search the jointree for PlaceHolderVars, and build PlaceHolderInfos
+ *		在连接树中搜索 PlaceHolderVars，并建立 PlaceHolderInfos
  *
- * We don't need to look at the targetlist because build_base_rel_tlists()
- * will already have made entries for any PHVs in the tlist.
+ * 不必看目标列表，因为 build_base_rel_tlists()
+ * 已经为 tlist 中的任何 PHVs 建了项。
  */
 void
 find_placeholders_in_jointree(PlannerInfo *root)
 {
-	/* This must be done before freezing the set of PHIs */
+	/* 这必须在冻结 PHIs 集合之前完成 */
 	Assert(!root->placeholdersFrozen);
 
-	/* We need do nothing if the query contains no PlaceHolderVars */
+	/* 若查询不含 PlaceHolderVars，就什么也不必做 */
 	if (root->glob->lastPHId != 0)
 	{
-		/* Start recursion at top of jointree */
+		/* 从连接树顶部开始递归 */
 		Assert(root->parse->jointree != NULL &&
 			   IsA(root->parse->jointree, FromExpr));
 		find_placeholders_recurse(root, (Node *) root->parse->jointree);
@@ -199,9 +199,9 @@ find_placeholders_in_jointree(PlannerInfo *root)
 
 /*
  * find_placeholders_recurse
- *	  One recursion level of find_placeholders_in_jointree.
+ *	  find_placeholders_in_jointree 的一层递归。
  *
- * jtnode is the current jointree node to examine.
+ * jtnode 是当前要检查的连接树节点。
  */
 static void
 find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
@@ -210,7 +210,7 @@ find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
 		return;
 	if (IsA(jtnode, RangeTblRef))
 	{
-		/* No quals to deal with here */
+		/* 这里没有限定条件要处理 */
 	}
 	else if (IsA(jtnode, FromExpr))
 	{
@@ -218,7 +218,7 @@ find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
 		ListCell   *l;
 
 		/*
-		 * First, recurse to handle child joins.
+		 * 先递归处理子连接。
 		 */
 		foreach(l, f->fromlist)
 		{
@@ -226,7 +226,7 @@ find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
 		}
 
 		/*
-		 * Now process the top-level quals.
+		 * 现在处理顶层限定条件。
 		 */
 		find_placeholders_in_expr(root, f->quals);
 	}
@@ -235,12 +235,12 @@ find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
 		JoinExpr   *j = (JoinExpr *) jtnode;
 
 		/*
-		 * First, recurse to handle child joins.
+		 * 先递归处理子连接。
 		 */
 		find_placeholders_recurse(root, j->larg);
 		find_placeholders_recurse(root, j->rarg);
 
-		/* Process the qual clauses */
+		/* 处理限定条件子句 */
 		find_placeholders_in_expr(root, j->quals);
 	}
 	else
@@ -250,8 +250,8 @@ find_placeholders_recurse(PlannerInfo *root, Node *jtnode)
 
 /*
  * find_placeholders_in_expr
- *		Find all PlaceHolderVars in the given expression, and create
- *		PlaceHolderInfo entries for them.
+ *		找出给定表达式中的全部 PlaceHolderVars，并为它们创建
+ *		PlaceHolderInfo 项。
  */
 static void
 find_placeholders_in_expr(PlannerInfo *root, Node *expr)
@@ -260,8 +260,8 @@ find_placeholders_in_expr(PlannerInfo *root, Node *expr)
 	ListCell   *vl;
 
 	/*
-	 * pull_var_clause does more than we need here, but it'll do and it's
-	 * convenient to use.
+	 * pull_var_clause 做的比这里需要的多，但够用，而且
+	 * 用起来方便。
 	 */
 	vars = pull_var_clause(expr,
 						   PVC_RECURSE_AGGREGATES |
@@ -271,11 +271,11 @@ find_placeholders_in_expr(PlannerInfo *root, Node *expr)
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) lfirst(vl);
 
-		/* Ignore any plain Vars */
+		/* 忽略任何普通 Var */
 		if (!IsA(phv, PlaceHolderVar))
 			continue;
 
-		/* Create a PlaceHolderInfo entry if there's not one already */
+		/* 若还没有 PlaceHolderInfo 项，就创建一个 */
 		(void) find_placeholder_info(root, phv);
 	}
 	list_free(vars);
@@ -283,18 +283,18 @@ find_placeholders_in_expr(PlannerInfo *root, Node *expr)
 
 /*
  * fix_placeholder_input_needed_levels
- *		Adjust the "needed at" levels for placeholder inputs
+ *		调整占位符输入的需要于层次
  *
- * This is called after we've finished determining the eval_at levels for
- * all placeholders.  We need to make sure that all vars and placeholders
- * needed to evaluate each placeholder will be available at the scan or join
- * level where the evaluation will be done.  (It might seem that scan-level
- * evaluations aren't interesting, but that's not so: a LATERAL reference
- * within a placeholder's expression needs to cause the referenced var or
- * placeholder to be marked as needed in the scan where it's evaluated.)
- * Note that this loop can have side-effects on the ph_needed sets of other
- * PlaceHolderInfos; that's okay because we don't examine ph_needed here, so
- * there are no ordering issues to worry about.
+ * 这在我们确定完全部占位符的 eval_at 层次之后调用。
+ * 必须确保求值每个占位符所需的全部 var 和占位符
+ * 在进行求值的扫描或连接层可用。（扫描层的
+ * 求值看起来也许没意思，但并非如此：占位符表达式中的
+ * LATERAL 引用
+ * 需要使被引用的 var 或
+ * 占位符在求值它的扫描中被标成需要。）
+ * 注意这个循环可能对其他 PlaceHolderInfos 的 ph_needed 集合产生副作用；
+ * 这没问题，因为这里不检查 ph_needed，所以
+ * 不必担心顺序问题。
  */
 void
 fix_placeholder_input_needed_levels(PlannerInfo *root)
@@ -316,14 +316,14 @@ fix_placeholder_input_needed_levels(PlannerInfo *root)
 
 /*
  * add_placeholders_to_base_rels
- *		Add any required PlaceHolderVars to base rels' targetlists.
+ *		把任何所需的 PlaceHolderVars 加到基关系的目标列表。
  *
- * If any placeholder can be computed at a base rel and is needed above it,
- * add it to that rel's targetlist.  This might look like it could be merged
- * with fix_placeholder_input_needed_levels, but it must be separate because
- * join removal happens in between, and can change the ph_eval_at sets.  There
- * is essentially the same logic in add_placeholders_to_joinrel, but we can't
- * do that part until joinrels are formed.
+ * 若任何占位符可以在某个基关系上计算、并且在它之上被需要，
+ * 就把它加到该关系的目标列表。这看起来也许可以与
+ * fix_placeholder_input_needed_levels 合并，但必须分开，因为
+ * 连接去除发生在两者之间，并且会改变 ph_eval_at 集合。
+ * add_placeholders_to_joinrel 里本质上是同样的逻辑，但那一部分要等
+ * joinrel 形成之后才能做。
  */
 void
 add_placeholders_to_base_rels(PlannerInfo *root)
@@ -342,32 +342,32 @@ add_placeholders_to_base_rels(PlannerInfo *root)
 			RelOptInfo *rel = find_base_rel(root, varno);
 
 			/*
-			 * As in add_vars_to_targetlist(), a value computed at scan level
-			 * has not yet been nulled by any outer join, so its phnullingrels
-			 * should be empty.
+			 * 与 add_vars_to_targetlist() 一样，在扫描层算出的值
+			 * 还没有被任何外连接置空，因此它的 phnullingrels
+			 * 应当为空。
 			 */
 			Assert(phinfo->ph_var->phnullingrels == NULL);
 
-			/* Copying the PHV might be unnecessary here, but be safe */
+			/* 这里复制 PHV 也许不必要，但求安全 */
 			rel->reltarget->exprs = lappend(rel->reltarget->exprs,
 											copyObject(phinfo->ph_var));
-			/* reltarget's cost and width fields will be updated later */
+			/* reltarget 的代价和宽度字段以后会更新 */
 		}
 	}
 }
 
 /*
  * add_placeholders_to_joinrel
- *		Add any newly-computable PlaceHolderVars to a join rel's targetlist;
- *		and if computable PHVs contain lateral references, add those
- *		references to the joinrel's direct_lateral_relids.
+ *		把任何新可计算的 PlaceHolderVars 加到连接关系的目标列表；
+ *		若可计算的 PHVs 含有 LATERAL 引用，把那些
+ *		引用加到该 joinrel 的 direct_lateral_relids。
  *
- * A join rel should emit a PlaceHolderVar if (a) the PHV can be computed
- * at or below this join level and (b) the PHV is needed above this level.
- * Our caller build_join_rel() has already added any PHVs that were computed
- * in either join input rel, so we need add only newly-computable ones to
- * the targetlist.  However, direct_lateral_relids must be updated for every
- * PHV computable at or below this join, as explained below.
+ * 连接关系应当发出一个 PlaceHolderVar，若 (a) 该 PHV 可以在
+ * 本连接层或之下计算，且 (b) 该 PHV 在本层之上被需要。
+ * 调用者 build_join_rel() 已经加入了在任一连接输入关系中算出的 PHVs，
+ * 因此只需把新可计算的那些加进
+ * 目标列表。不过，对本连接可计算或在其下可计算的每个
+ * PHV，都必须更新 direct_lateral_relids，原因见下。
  */
 void
 add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
@@ -381,36 +381,36 @@ add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
 	{
 		PlaceHolderInfo *phinfo = (PlaceHolderInfo *) lfirst(lc);
 
-		/* Is it computable here? */
+		/* 能在这里计算吗？ */
 		if (bms_is_subset(phinfo->ph_eval_at, relids))
 		{
-			/* Is it still needed above this joinrel? */
+			/* 在这个 joinrel 之上是否仍被需要？ */
 			if (bms_nonempty_difference(phinfo->ph_needed, relids))
 			{
 				/*
-				 * Yes, but only add to tlist if it wasn't computed in either
-				 * input; otherwise it should be there already.  Also, we
-				 * charge the cost of evaluating the contained expression if
-				 * the PHV can be computed here but not in either input.  This
-				 * is a bit bogus because we make the decision based on the
-				 * first pair of possible input relations considered for the
-				 * joinrel.  With other pairs, it might be possible to compute
-				 * the PHV in one input or the other, and then we'd be double
-				 * charging the PHV's cost for some join paths.  For now, live
-				 * with that; but we might want to improve it later by
-				 * refiguring the reltarget costs for each pair of inputs.
+				 * 是，但只有当它不是在任一输入中算出时才加入 tlist；
+				 * 否则它应当已经在那里。另外，若该 PHV
+				 * 可以在这里计算、
+				 * 但不能在任一输入中计算，我们计入所含表达式的求值代价。
+				 * 这有点勉强，因为我们根据为该
+				 * joinrel 考虑的第一对可能输入关系来做决定。
+				 * 换其他对时，也许可以在其中一个输入里算出
+				 * 该 PHV，于是会对某些连接路径重复
+				 * 计入该 PHV 的代价。眼下先
+				 * 忍受这一点；以后也许想改进，办法是
+				 * 为每一对输入重算 reltarget 代价。
 				 */
 				if (!bms_is_subset(phinfo->ph_eval_at, outer_rel->relids) &&
 					!bms_is_subset(phinfo->ph_eval_at, inner_rel->relids))
 				{
-					/* Copying might be unnecessary here, but be safe */
+					/* 这里复制也许不必要，但求安全 */
 					PlaceHolderVar *phv = copyObject(phinfo->ph_var);
 					QualCost	cost;
 
 					/*
-					 * It'll start out not nulled by anything.  Joins above
-					 * this one might add to its phnullingrels later, in much
-					 * the same way as for Vars.
+					 * 它一开始不会被任何东西置空。本连接之上的连接
+					 * 以后可能以与 Var 大致相同的方式
+					 * 往它的 phnullingrels 里加东西。
 					 */
 					Assert(phv->phnullingrels == NULL);
 
@@ -424,19 +424,19 @@ add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
 			}
 
 			/*
-			 * Also adjust joinrel's direct_lateral_relids to include the
-			 * PHV's source rel(s).  We must do this even if we're not
-			 * actually going to emit the PHV, otherwise join_is_legal() will
-			 * reject valid join orderings.  (In principle maybe we could
-			 * instead remove the joinrel's lateral_relids dependency; but
-			 * that's complicated to get right, and cases where we're not
-			 * going to emit the PHV are too rare to justify the work.)
+			 * 也调整 joinrel 的 direct_lateral_relids，以纳入
+			 * 该 PHV 的源关系。即使实际上不打算发出该 PHV，也必须这样做，
+			 * 否则 join_is_legal() 会
+			 * 拒绝合法的连接顺序。（原则上也许可以
+			 * 改为去掉该 joinrel 对 lateral_relids 的依赖；但
+			 * 要做对很复杂，而不打算
+			 * 发出该 PHV 的情形太少，不值得做这件工作。）
 			 *
-			 * In principle we should only do this if the join doesn't yet
-			 * include the PHV's source rel(s).  But our caller
-			 * build_join_rel() will clean things up by removing the join's
-			 * own relids from its direct_lateral_relids, so we needn't
-			 * account for that here.
+			 * 原则上只应在该连接尚未
+			 * 包含该 PHV 的源关系时才这样做。但调用者
+			 * build_join_rel() 会通过从 direct_lateral_relids 中去掉该连接
+			 * 自身的 relid 来收拾，因此这里不必
+			 * 考虑这一点。
 			 */
 			joinrel->direct_lateral_relids =
 				bms_add_members(joinrel->direct_lateral_relids,
@@ -447,15 +447,15 @@ add_placeholders_to_joinrel(PlannerInfo *root, RelOptInfo *joinrel,
 
 /*
  * contain_placeholder_references_to
- *		Detect whether any PlaceHolderVars in the given clause contain
- *		references to the given relid (typically an OJ relid).
+ *		检测给定子句中是否有任何 PlaceHolderVars 含有
+ *		对给定 relid（通常是外连接 relid）的引用。
  *
- * "Contain" means that there's a use of the relid inside the PHV's
- * contained expression, so that changing the nullability status of
- * the rel might change what the PHV computes.
+ * 含有是指在该 PHV 所含表达式内部使用了该 relid，
+ * 因此改变该关系的可空状态
+ * 可能改变该 PHV 算出的值。
  *
- * The code here to cope with upper-level PHVs is likely dead, but keep it
- * anyway just in case.
+ * 这里应付上层 PHVs 的代码很可能是死的，但仍保留
+ * 以防万一。
  */
 bool
 contain_placeholder_references_to(PlannerInfo *root, Node *clause,
@@ -463,10 +463,10 @@ contain_placeholder_references_to(PlannerInfo *root, Node *clause,
 {
 	contain_placeholder_references_context context;
 
-	/* We can answer quickly in the common case that there's no PHVs at all */
+	/* 常见情况下根本没有 PHVs，可以很快回答 */
 	if (root->glob->lastPHId == 0)
 		return false;
-	/* Else run the recursive search */
+	/* 否则进行递归搜索 */
 	context.relid = relid;
 	context.sublevels_up = 0;
 	return contain_placeholder_references_walker(clause, &context);
@@ -482,26 +482,26 @@ contain_placeholder_references_walker(Node *node,
 	{
 		PlaceHolderVar *phv = (PlaceHolderVar *) node;
 
-		/* We should just look through PHVs of other query levels */
+		/* 只应看穿其他查询层的 PHVs */
 		if (phv->phlevelsup == context->sublevels_up)
 		{
-			/* If phrels matches, we found what we came for */
+			/* 若 phrels 匹配，就找到了要找的东西 */
 			if (bms_is_member(context->relid, phv->phrels))
 				return true;
 
 			/*
-			 * We should not examine phnullingrels: what we are looking for is
-			 * references in the contained expression, not OJs that might null
-			 * the result afterwards.  Also, we don't need to recurse into the
-			 * contained expression, because phrels should adequately
-			 * summarize what's in there.  So we're done here.
+			 * 不应当检查 phnullingrels：要找的是
+			 * 所含表达式中的引用，而不是事后可能把结果
+			 * 置空的外连接。另外不必递归进入
+			 * 所含表达式，因为 phrels 应当充分
+			 * 概括其中的内容。因此到这里就结束了。
 			 */
 			return false;
 		}
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE subquery or not-yet-planned sublink subquery */
+		/* 递归进入 RTE 子查询或尚未规划的子链接子查询 */
 		bool		result;
 
 		context->sublevels_up++;

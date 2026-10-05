@@ -58,9 +58,9 @@
 
 
 /*
- * Select a PARAM_EXEC number to identify the given Var as a parameter for
- * the current subquery.  (It might already have one.)
- * Record the need for the Var in the proper upper-level root->plan_params.
+ * 选择一个 PARAM_EXEC 编号，把给定 Var 标识为
+ * 当前子查询的参数。（它也许已经有一个。）
+ * 在合适的上层 root->plan_params 中登记对该 Var 的需求。
  */
 static int
 assign_param_for_var(PlannerInfo *root, Var *var)
@@ -69,11 +69,11 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 	PlannerParamItem *pitem;
 	Index		levelsup;
 
-	/* Find the query level the Var belongs to */
+	/* 找出该 Var 所属的查询层 */
 	for (levelsup = var->varlevelsup; levelsup > 0; levelsup--)
 		root = root->parent_root;
 
-	/* If there's already a matching PlannerParamItem there, just use it */
+	/* 若那里已有匹配的 PlannerParamItem，直接用它 */
 	foreach(ppl, root->plan_params)
 	{
 		pitem = (PlannerParamItem *) lfirst(ppl);
@@ -82,9 +82,9 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 			Var		   *pvar = (Var *) pitem->item;
 
 			/*
-			 * This comparison must match _equalVar(), except for ignoring
-			 * varlevelsup.  Note that _equalVar() ignores varnosyn,
-			 * varattnosyn, and location, so this does too.
+			 * 这次比较必须与 _equalVar() 一致，只是忽略
+			 * varlevelsup。注意 _equalVar() 忽略 varnosyn、
+			 * varattnosyn 和 location，因此这里也忽略。
 			 */
 			if (pvar->varno == var->varno &&
 				pvar->varattno == var->varattno &&
@@ -96,7 +96,7 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 		}
 	}
 
-	/* Nope, so make a new one */
+	/* 没有，因此新建一个 */
 	var = copyObject(var);
 	var->varlevelsup = 0;
 
@@ -112,9 +112,9 @@ assign_param_for_var(PlannerInfo *root, Var *var)
 }
 
 /*
- * Generate a Param node to replace the given Var,
- * which is expected to have varlevelsup > 0 (ie, it is not local).
- * Record the need for the Var in the proper upper-level root->plan_params.
+ * 生成一个 Param 节点来替换给定的 Var，
+ * 该 Var 预期 varlevelsup > 0（即它不是局部的）。
+ * 在合适的上层 root->plan_params 中登记对该 Var 的需求。
  */
 Param *
 replace_outer_var(PlannerInfo *root, Var *var)
@@ -124,7 +124,7 @@ replace_outer_var(PlannerInfo *root, Var *var)
 
 	Assert(var->varlevelsup > 0 && var->varlevelsup < root->query_level);
 
-	/* Find the Var in the appropriate plan_params, or add it if not present */
+	/* 在适当的 plan_params 中找到该 Var，若没有则加入 */
 	i = assign_param_for_var(root, var);
 
 	retval = makeNode(Param);
@@ -139,11 +139,11 @@ replace_outer_var(PlannerInfo *root, Var *var)
 }
 
 /*
- * Select a PARAM_EXEC number to identify the given PlaceHolderVar as a
- * parameter for the current subquery.  (It might already have one.)
- * Record the need for the PHV in the proper upper-level root->plan_params.
+ * 选择一个 PARAM_EXEC 编号，把给定 PlaceHolderVar 标识为
+ * 当前子查询的参数。（它也许已经有一个。）
+ * 在合适的上层 root->plan_params 中登记对该 PHV 的需求。
  *
- * This is just like assign_param_for_var, except for PlaceHolderVars.
+ * 这与 assign_param_for_var 一样，只是针对 PlaceHolderVars。
  */
 static int
 assign_param_for_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
@@ -152,11 +152,11 @@ assign_param_for_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 	PlannerParamItem *pitem;
 	Index		levelsup;
 
-	/* Find the query level the PHV belongs to */
+	/* 找出该 PHV 所属的查询层 */
 	for (levelsup = phv->phlevelsup; levelsup > 0; levelsup--)
 		root = root->parent_root;
 
-	/* If there's already a matching PlannerParamItem there, just use it */
+	/* 若那里已有匹配的 PlannerParamItem，直接用它 */
 	foreach(ppl, root->plan_params)
 	{
 		pitem = (PlannerParamItem *) lfirst(ppl);
@@ -164,13 +164,13 @@ assign_param_for_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 		{
 			PlaceHolderVar *pphv = (PlaceHolderVar *) pitem->item;
 
-			/* We assume comparing the PHIDs is sufficient */
+			/* 我们假定比较 PHIDs 就足够了 */
 			if (pphv->phid == phv->phid)
 				return pitem->paramId;
 		}
 	}
 
-	/* Nope, so make a new one */
+	/* 没有，因此新建一个 */
 	phv = copyObject(phv);
 	IncrementVarSublevelsUp((Node *) phv, -((int) phv->phlevelsup), 0);
 	Assert(phv->phlevelsup == 0);
@@ -187,11 +187,11 @@ assign_param_for_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 }
 
 /*
- * Generate a Param node to replace the given PlaceHolderVar,
- * which is expected to have phlevelsup > 0 (ie, it is not local).
- * Record the need for the PHV in the proper upper-level root->plan_params.
+ * 生成一个 Param 节点来替换给定的 PlaceHolderVar，
+ * 该 PlaceHolderVar 预期 phlevelsup > 0（即它不是局部的）。
+ * 在合适的上层 root->plan_params 中登记对该 PHV 的需求。
  *
- * This is just like replace_outer_var, except for PlaceHolderVars.
+ * 这与 replace_outer_var 一样，只是针对 PlaceHolderVars。
  */
 Param *
 replace_outer_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
@@ -201,7 +201,7 @@ replace_outer_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 
 	Assert(phv->phlevelsup > 0 && phv->phlevelsup < root->query_level);
 
-	/* Find the PHV in the appropriate plan_params, or add it if not present */
+	/* 在适当的 plan_params 中找到该 PHV，若没有则加入 */
 	i = assign_param_for_placeholdervar(root, phv);
 
 	retval = makeNode(Param);
@@ -216,9 +216,9 @@ replace_outer_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 }
 
 /*
- * Generate a Param node to replace the given Aggref
- * which is expected to have agglevelsup > 0 (ie, it is not local).
- * Record the need for the Aggref in the proper upper-level root->plan_params.
+ * 生成一个 Param 节点来替换给定的 Aggref，
+ * 该 Aggref 预期 agglevelsup > 0（即它不是局部的）。
+ * 在合适的上层 root->plan_params 中登记对该 Aggref 的需求。
  */
 Param *
 replace_outer_agg(PlannerInfo *root, Aggref *agg)
@@ -229,13 +229,13 @@ replace_outer_agg(PlannerInfo *root, Aggref *agg)
 
 	Assert(agg->agglevelsup > 0 && agg->agglevelsup < root->query_level);
 
-	/* Find the query level the Aggref belongs to */
+	/* 找出该 Aggref 所属的查询层 */
 	for (levelsup = agg->agglevelsup; levelsup > 0; levelsup--)
 		root = root->parent_root;
 
 	/*
-	 * It does not seem worthwhile to try to de-duplicate references to outer
-	 * aggs.  Just make a new slot every time.
+	 * 试图对外部聚集的引用去重似乎不值得。
+	 * 每次都新开一个槽。
 	 */
 	agg = copyObject(agg);
 	IncrementVarSublevelsUp((Node *) agg, -((int) agg->agglevelsup), 0);
@@ -261,10 +261,10 @@ replace_outer_agg(PlannerInfo *root, Aggref *agg)
 }
 
 /*
- * Generate a Param node to replace the given GroupingFunc expression which is
- * expected to have agglevelsup > 0 (ie, it is not local).
- * Record the need for the GroupingFunc in the proper upper-level
- * root->plan_params.
+ * 生成一个 Param 节点来替换给定的 GroupingFunc 表达式，该表达式
+ * 预期 agglevelsup > 0（即它不是局部的）。
+ * 在合适的上层 root->plan_params 中登记对该 GroupingFunc 的
+ * 需求。
  */
 Param *
 replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
@@ -276,13 +276,13 @@ replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
 
 	Assert(grp->agglevelsup > 0 && grp->agglevelsup < root->query_level);
 
-	/* Find the query level the GroupingFunc belongs to */
+	/* 找出该 GroupingFunc 所属的查询层 */
 	for (levelsup = grp->agglevelsup; levelsup > 0; levelsup--)
 		root = root->parent_root;
 
 	/*
-	 * It does not seem worthwhile to try to de-duplicate references to outer
-	 * aggs.  Just make a new slot every time.
+	 * 试图对外部聚集的引用去重似乎不值得。
+	 * 每次都新开一个槽。
 	 */
 	grp = copyObject(grp);
 	IncrementVarSublevelsUp((Node *) grp, -((int) grp->agglevelsup), 0);
@@ -308,9 +308,9 @@ replace_outer_grouping(PlannerInfo *root, GroupingFunc *grp)
 }
 
 /*
- * Generate a Param node to replace the given Var,
- * which is expected to come from some upper NestLoop plan node.
- * Record the need for the Var in root->curOuterParams.
+ * 生成一个 Param 节点来替换给定的 Var，
+ * 该 Var 预期来自某个上层 NestLoop 计划节点。
+ * 在 root->curOuterParams 中登记对该 Var 的需求。
  */
 Param *
 replace_nestloop_param_var(PlannerInfo *root, Var *var)
@@ -319,13 +319,13 @@ replace_nestloop_param_var(PlannerInfo *root, Var *var)
 	NestLoopParam *nlp;
 	ListCell   *lc;
 
-	/* Is this Var already listed in root->curOuterParams? */
+	/* 这个 Var 是否已列在 root->curOuterParams 中？ */
 	foreach(lc, root->curOuterParams)
 	{
 		nlp = (NestLoopParam *) lfirst(lc);
 		if (equal(var, nlp->paramval))
 		{
-			/* Yes, so just make a Param referencing this NLP's slot */
+			/* 是，因此只做一个引用该 NLP 槽的 Param */
 			param = makeNode(Param);
 			param->paramkind = PARAM_EXEC;
 			param->paramid = nlp->paramno;
@@ -337,29 +337,29 @@ replace_nestloop_param_var(PlannerInfo *root, Var *var)
 		}
 	}
 
-	/* No, so assign a PARAM_EXEC slot for a new NLP */
+	/* 否，因此为新的 NLP 分配一个 PARAM_EXEC 槽 */
 	param = generate_new_exec_param(root,
 									var->vartype,
 									var->vartypmod,
 									var->varcollid);
 	param->location = var->location;
 
-	/* Add it to the list of required NLPs */
+	/* 把它加入所需 NLPs 的列表 */
 	nlp = makeNode(NestLoopParam);
 	nlp->paramno = param->paramid;
 	nlp->paramval = copyObject(var);
 	root->curOuterParams = lappend(root->curOuterParams, nlp);
 
-	/* And return the replacement Param */
+	/* 并返回替换用的 Param */
 	return param;
 }
 
 /*
- * Generate a Param node to replace the given PlaceHolderVar,
- * which is expected to come from some upper NestLoop plan node.
- * Record the need for the PHV in root->curOuterParams.
+ * 生成一个 Param 节点来替换给定的 PlaceHolderVar，
+ * 该 PlaceHolderVar 预期来自某个上层 NestLoop 计划节点。
+ * 在 root->curOuterParams 中登记对该 PHV 的需求。
  *
- * This is just like replace_nestloop_param_var, except for PlaceHolderVars.
+ * 这与 replace_nestloop_param_var 一样，只是针对 PlaceHolderVars。
  */
 Param *
 replace_nestloop_param_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
@@ -368,13 +368,13 @@ replace_nestloop_param_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 	NestLoopParam *nlp;
 	ListCell   *lc;
 
-	/* Is this PHV already listed in root->curOuterParams? */
+	/* 这个 PHV 是否已列在 root->curOuterParams 中？ */
 	foreach(lc, root->curOuterParams)
 	{
 		nlp = (NestLoopParam *) lfirst(lc);
 		if (equal(phv, nlp->paramval))
 		{
-			/* Yes, so just make a Param referencing this NLP's slot */
+			/* 是，因此只做一个引用该 NLP 槽的 Param */
 			param = makeNode(Param);
 			param->paramkind = PARAM_EXEC;
 			param->paramid = nlp->paramno;
@@ -386,44 +386,44 @@ replace_nestloop_param_placeholdervar(PlannerInfo *root, PlaceHolderVar *phv)
 		}
 	}
 
-	/* No, so assign a PARAM_EXEC slot for a new NLP */
+	/* 否，因此为新的 NLP 分配一个 PARAM_EXEC 槽 */
 	param = generate_new_exec_param(root,
 									exprType((Node *) phv->phexpr),
 									exprTypmod((Node *) phv->phexpr),
 									exprCollation((Node *) phv->phexpr));
 
-	/* Add it to the list of required NLPs */
+	/* 把它加入所需 NLPs 的列表 */
 	nlp = makeNode(NestLoopParam);
 	nlp->paramno = param->paramid;
 	nlp->paramval = (Var *) copyObject(phv);
 	root->curOuterParams = lappend(root->curOuterParams, nlp);
 
-	/* And return the replacement Param */
+	/* 并返回替换用的 Param */
 	return param;
 }
 
 /*
  * process_subquery_nestloop_params
- *	  Handle params of a parameterized subquery that need to be fed
- *	  from an outer nestloop.
+ *	  处理参数化子查询中需要由外层嵌套循环提供的参数。
+ *	  目前，那就是 FROM 中的子查询向当前查询层索取的全部参数，
  *
- * Currently, that would be *all* params that a subquery in FROM has demanded
- * from the current query level, since they must be LATERAL references.
+ * 因为它们必须是 LATERAL 引用。
+ * subplan_params 是我们打算传给
  *
- * subplan_params is a list of PlannerParamItems that we intend to pass to
- * a subquery-in-FROM.  (This was constructed in root->plan_params while
- * planning the subquery, but isn't there anymore when this is called.)
+ * FROM 中子查询的 PlannerParamItems 列表。（它是在规划该子查询时
+ * 在 root->plan_params 里建的，但调用到这里时已经不在那里了。）
+ * 子计划对外部变量的引用已经表示成
  *
- * The subplan's references to the outer variables are already represented
- * as PARAM_EXEC Params, since that conversion was done by the routines above
- * while planning the subquery.  So we need not modify the subplan or the
- * PlannerParamItems here.  What we do need to do is add entries to
- * root->curOuterParams to signal the parent nestloop plan node that it must
- * provide these values.  This differs from replace_nestloop_param_var in
- * that the PARAM_EXEC slots to use have already been determined.
+ * PARAM_EXEC Param，因为上面的例程在规划该子查询时
+ * 已经做了转换。因此不必修改子计划或这里的
+ * PlannerParamItems。需要做的是向
+ * root->curOuterParams 添加项，通知父嵌套循环计划节点必须
+ * 提供这些值。这与 replace_nestloop_param_var 的不同
+ * 在于要用的 PARAM_EXEC 槽已经确定。
+ * 注意我们也把 root->curOuterRels
  *
- * Note that we also use root->curOuterRels as an implicit parameter for
- * sanity checks.
+ * 当作隐式参数，
+ * 用于健全性检查。
  */
 void
 process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
@@ -440,24 +440,24 @@ process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
 			NestLoopParam *nlp;
 			ListCell   *lc2;
 
-			/* If not from a nestloop outer rel, complain */
+			/* 若不是来自嵌套循环的外侧关系，则报错 */
 			if (!bms_is_member(var->varno, root->curOuterRels))
 				elog(ERROR, "non-LATERAL parameter required by subquery");
 
-			/* Is this param already listed in root->curOuterParams? */
+			/* 这个参数是否已列在 root->curOuterParams 中？ */
 			foreach(lc2, root->curOuterParams)
 			{
 				nlp = (NestLoopParam *) lfirst(lc2);
 				if (nlp->paramno == pitem->paramId)
 				{
 					Assert(equal(var, nlp->paramval));
-					/* Present, so nothing to do */
+					/* 已经存在，因此无需处理 */
 					break;
 				}
 			}
 			if (lc2 == NULL)
 			{
-				/* No, so add it */
+				/* 否，因此加入 */
 				nlp = makeNode(NestLoopParam);
 				nlp->paramno = pitem->paramId;
 				nlp->paramval = copyObject(var);
@@ -470,25 +470,25 @@ process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
 			NestLoopParam *nlp;
 			ListCell   *lc2;
 
-			/* If not from a nestloop outer rel, complain */
+			/* 若不是来自嵌套循环的外侧关系，则报错 */
 			if (!bms_is_subset(find_placeholder_info(root, phv)->ph_eval_at,
 							   root->curOuterRels))
 				elog(ERROR, "non-LATERAL parameter required by subquery");
 
-			/* Is this param already listed in root->curOuterParams? */
+			/* 这个参数是否已列在 root->curOuterParams 中？ */
 			foreach(lc2, root->curOuterParams)
 			{
 				nlp = (NestLoopParam *) lfirst(lc2);
 				if (nlp->paramno == pitem->paramId)
 				{
 					Assert(equal(phv, nlp->paramval));
-					/* Present, so nothing to do */
+					/* 已经存在，因此无需处理 */
 					break;
 				}
 			}
 			if (lc2 == NULL)
 			{
-				/* No, so add it */
+				/* 否，因此加入 */
 				nlp = makeNode(NestLoopParam);
 				nlp->paramno = pitem->paramId;
 				nlp->paramval = (Var *) copyObject(phv);
@@ -501,31 +501,31 @@ process_subquery_nestloop_params(PlannerInfo *root, List *subplan_params)
 }
 
 /*
- * Identify any NestLoopParams that should be supplied by a NestLoop plan
- * node with the specified lefthand rels.  Remove them from the active
- * root->curOuterParams list and return them as the result list.
+ * 识别应由指定左侧关系的 NestLoop 计划
+ * 节点提供的任何 NestLoopParams。把它们从活动的
+ * root->curOuterParams 列表中去掉，并作为结果列表返回。
  *
- * XXX Here we also hack up the returned Vars and PHVs so that they do not
- * contain nullingrel sets exceeding what is available from the outer side.
- * This is needed if we have applied outer join identity 3,
+ * XXX 这里我们还改写返回的 Var 和 PHVs，使它们不含
+ * 超出外侧所能提供的 nullingrel 集合。
+ * 若我们应用了外连接恒等式 3，就需要这样做：
  *		(A leftjoin B on (Pab)) leftjoin C on (Pb*c)
  *		= A leftjoin (B leftjoin C on (Pbc)) on (Pab)
- * and C contains lateral references to B.  It's still safe to apply the
- * identity, but the parser will have created those references in the form
- * "b*" (i.e., with varnullingrels listing the A/B join), while what we will
- * have available from the nestloop's outer side is just "b".  We deal with
- * that here by stripping the nullingrels down to what is available from the
- * outer side according to leftrelids.
+ * 并且 C 含有对 B 的 LATERAL 引用。应用该
+ * 恒等式仍然安全，但解析器会把那些引用建成
+ * "b*" 的形式（即 varnullingrels 列出 A/B 连接），而嵌套循环外侧
+ * 实际能提供的只是 "b"。我们在这里把 nullingrels 削到
+ * 按 leftrelids 从外侧所能提供的范围。
+ * 这修好了正向应用
  *
- * That fixes matters for the case of forward application of identity 3.
- * If the identity was applied in the reverse direction, we will have
- * parameter Vars containing too few nullingrel bits rather than too many.
- * Currently, that causes no problems because setrefs.c applies only a
- * subset check to nullingrels in NestLoopParams, but we'd have to work
- * harder if we ever want to tighten that check.  This is all pretty annoying
- * because it greatly weakens setrefs.c's cross-check, but the alternative
- * seems to be to generate multiple versions of each laterally-parameterized
- * subquery, which'd be unduly expensive.
+ * 恒等式 3 的情形。
+ * 若恒等式是反向应用的，参数 Var 含有的 nullingrel 位
+ * 会过少而不是过多。
+ * 目前这不会出问题，因为 setrefs.c 对 NestLoopParams 中的
+ * nullingrels 只做子集检查，但若以后想收紧该检查，就得更费力。
+ * 这相当烦人，
+ * 因为它大大削弱了 setrefs.c 的交叉检查，但替代方案
+ * 似乎是为每个带 LATERAL 参数化的
+ * 子查询生成多个版本，那会过于昂贵。
  */
 List *
 identify_current_nestloop_params(PlannerInfo *root, Relids leftrelids)
@@ -539,10 +539,10 @@ identify_current_nestloop_params(PlannerInfo *root, Relids leftrelids)
 		NestLoopParam *nlp = (NestLoopParam *) lfirst(cell);
 
 		/*
-		 * We are looking for Vars and PHVs that can be supplied by the
-		 * lefthand rels.  When we find one, it's okay to modify it in-place
-		 * because all the routines above make a fresh copy to put into
-		 * curOuterParams.
+		 * 我们要找可以由左侧关系提供的 Var 和 PHVs。
+		 * 找到一个时，可以就地修改它，
+		 * 因为上面所有例程都会做一份新副本放进
+		 * curOuterParams。
 		 */
 		if (IsA(nlp->paramval, Var) &&
 			bms_is_member(nlp->paramval->varno, leftrelids))
@@ -573,14 +573,14 @@ identify_current_nestloop_params(PlannerInfo *root, Relids leftrelids)
 }
 
 /*
- * Generate a new Param node that will not conflict with any other.
+ * 生成一个不会与任何其他 Param 冲突的新 Param 节点。
  *
- * This is used to create Params representing subplan outputs or
- * NestLoop parameters.
+ * 这用来创建表示子计划输出或
+ * NestLoop 参数的 Param。
  *
- * We don't need to build a PlannerParamItem for such a Param, but we do
- * need to make sure we record the type in paramExecTypes (otherwise,
- * there won't be a slot allocated for it).
+ * 这种 Param 不必建立 PlannerParamItem，但必须
+ * 确保在 paramExecTypes 中记下类型（否则
+ * 不会为它分配槽）。
  */
 Param *
 generate_new_exec_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
@@ -602,12 +602,12 @@ generate_new_exec_param(PlannerInfo *root, Oid paramtype, int32 paramtypmod,
 }
 
 /*
- * Assign a (nonnegative) PARAM_EXEC ID for a special parameter (one that
- * is not actually used to carry a value at runtime).  Such parameters are
- * used for special runtime signaling purposes, such as connecting a
- * recursive union node to its worktable scan node or forcing plan
- * re-evaluation within the EvalPlanQual mechanism.  No actual Param node
- * exists with this ID, however.
+ * 为一个特殊参数分配（非负的）PARAM_EXEC ID（这种参数
+ * 实际上不在运行时携带值）。这类参数用于
+ * 特殊的运行时信号，例如把递归并集节点连到它的工作表扫描节点，
+ * 或在 EvalPlanQual 机制内强制重新
+ * 对计划求值。不过并不存在
+ * 带这个 ID 的实际 Param 节点。
  */
 int
 assign_special_exec_param(PlannerInfo *root)

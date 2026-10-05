@@ -1097,7 +1097,7 @@ PageIndexTupleDelete(Page page, OffsetNumber offnum)
 
 	/*
 	 * 首先，我们要去掉该索引元组的 pd_linp 项。我们
-	 * 把后续所有 linp 在数组里往后复制一个槽。我们不用
+	 * 把后续所有 linp 在数组里回填一个槽。我们不用
 	 * PageGetItemId，因为我们操作的是 _array_，不是单个
 	 * linp。
 	 */
@@ -1335,7 +1335,7 @@ PageIndexTupleDeleteNoCompact(Page page, OffsetNumber offnum)
 
 	/*
 	 * 要么把行指针设为 "unused"，要么若它是最后一个就清掉
-	 * 它。（注意：末尾之前那些 one(s) 可能已经
+	 * 它。（注意：紧邻末尾之前的项可能已经
 	 * 是未使用的，但即便如此我们也不费力去把它们压实掉。）
 	 */
 	if ((int) offnum < nline)

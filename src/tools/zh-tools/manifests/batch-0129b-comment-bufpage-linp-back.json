@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0129b-comment-bufpage-linp-back",
+ "title": "zh: fix bufpage linp backfill wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "8e49dd72f602684d9a7b132756e23924da82d13b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/storage/page/bufpage.c",
+   "kind": "c_comment",
+   "note": "Composer P0: linp back one slot"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0129b-comment-bufpage-linp-back.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/storage/page/bufpage.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 135,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "back→回填; one(s)→项"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0129b-comment-bufpage-linp-back.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P0 on 0129"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0129b"
+  }
+ ],
+ "notes": "Composer P0: copy linp's back one slot → 回填一个槽 (not 往后). Also P2: one(s) → 项."
+}

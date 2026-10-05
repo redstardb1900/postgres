@@ -22,41 +22,41 @@
 
 
 /*
- * Test if an expression node represents a SRF call.  Beware multiple eval!
+ * 测试表达式节点是否表示一次 SRF 调用。当心多次求值！
  *
- * Please note that this is only meant for use in split_pathtarget_at_srfs();
- * if you use it anywhere else, your code is almost certainly wrong for SRFs
- * nested within expressions.  Use expression_returns_set() instead.
+ * 请注意这只打算用在 split_pathtarget_at_srfs() 里；
+ * 若在别处使用，对嵌在表达式里的 SRFs 你的代码几乎一定是错的。
+ * 请改用 expression_returns_set()。
  */
 #define IS_SRF_CALL(node) \
 	((IsA(node, FuncExpr) && ((FuncExpr *) (node))->funcretset) || \
 	 (IsA(node, OpExpr) && ((OpExpr *) (node))->opretset))
 
 /*
- * Data structures for split_pathtarget_at_srfs().  To preserve the identity
- * of sortgroupref items even if they are textually equal(), what we track is
- * not just bare expressions but expressions plus their sortgroupref indexes.
+ * split_pathtarget_at_srfs() 用的数据结构。为了在 sortgroupref 项
+ * 即使文本上 equal() 时仍保持其身份，我们跟踪的
+ * 不只是裸表达式，而是表达式加上它们的 sortgroupref 下标。
  */
 typedef struct
 {
-	Node	   *expr;			/* some subexpression of a PathTarget */
-	Index		sortgroupref;	/* its sortgroupref, or 0 if none */
+	Node	   *expr;			/* 某个 PathTarget 的子表达式 */
+	Index		sortgroupref;	/* 它的 sortgroupref，没有则为 0 */
 } split_pathtarget_item;
 
 typedef struct
 {
-	/* This is a List of bare expressions: */
-	List	   *input_target_exprs; /* exprs available from input */
-	/* These are Lists of Lists of split_pathtarget_items: */
-	List	   *level_srfs;		/* SRF exprs to evaluate at each level */
-	List	   *level_input_vars;	/* input vars needed at each level */
-	List	   *level_input_srfs;	/* input SRFs needed at each level */
-	/* These are Lists of split_pathtarget_items: */
-	List	   *current_input_vars; /* vars needed in current subexpr */
-	List	   *current_input_srfs; /* SRFs needed in current subexpr */
-	/* Auxiliary data for current split_pathtarget_walker traversal: */
-	int			current_depth;	/* max SRF depth in current subexpr */
-	Index		current_sgref;	/* current subexpr's sortgroupref, or 0 */
+	/* 这是裸表达式的 List： */
+	List	   *input_target_exprs; /* 可从输入取得的表达式 */
+	/* 这些是 split_pathtarget_items 的 List 的 List： */
+	List	   *level_srfs;		/* 每一层要求值的 SRF 表达式 */
+	List	   *level_input_vars;	/* 每一层需要的输入 var */
+	List	   *level_input_srfs;	/* 每一层需要的输入 SRFs */
+	/* 这些是 split_pathtarget_items 的 List： */
+	List	   *current_input_vars; /* 当前子表达式需要的 var */
+	List	   *current_input_srfs; /* 当前子表达式需要的 SRFs */
+	/* 当前 split_pathtarget_walker 遍历的辅助数据： */
+	int			current_depth;	/* 当前子表达式中的最大 SRF 深度 */
+	Index		current_sgref;	/* 当前子表达式的 sortgroupref，没有则为 0 */
 } split_pathtarget_context;
 
 static bool split_pathtarget_walker(Node *node,
@@ -67,13 +67,13 @@ static void add_sp_items_to_pathtarget(PathTarget *target, List *items);
 
 
 /*****************************************************************************
- *		Target list creation and searching utilities
+ *		目标列表的建立与查找工具
  *****************************************************************************/
 
 /*
  * tlist_member
- *	  Finds the (first) member of the given tlist whose expression is
- *	  equal() to the given expression.  Result is NULL if no such member.
+ *	  找出给定目标列表中表达式与给定表达式
+ *	  equal() 的（第一个）成员。若没有这样的成员则结果为 NULL。
  */
 TargetEntry *
 tlist_member(Expr *node, List *targetlist)
@@ -92,11 +92,11 @@ tlist_member(Expr *node, List *targetlist)
 
 /*
  * tlist_member_match_var
- *	  Same as above, except that we match the provided Var on the basis
- *	  of varno/varattno/varlevelsup/vartype only, rather than full equal().
+ *	  与上面相同，只是我们只按
+ *	  varno/varattno/varlevelsup/vartype 匹配给出的 Var，而不是完整的 equal()。
  *
- * This is needed in some cases where we can't be sure of an exact typmod
- * match.  For safety, though, we insist on vartype match.
+ * 某些情况下我们不能确定 typmod 精确匹配，就需要这样做。
+ * 不过为安全起见，我们坚持 vartype 必须匹配。
  */
 static TargetEntry *
 tlist_member_match_var(Var *var, List *targetlist)
@@ -121,12 +121,12 @@ tlist_member_match_var(Var *var, List *targetlist)
 
 /*
  * add_to_flat_tlist
- *		Add more items to a flattened tlist (if they're not already in it)
+ *		往展平的目标列表里再加一些项（若它们还不在里面）
  *
- * 'tlist' is the flattened tlist
- * 'exprs' is a list of expressions (usually, but not necessarily, Vars)
+ * tlist 是展平后的目标列表
+ * exprs 是表达式列表（通常是 Var，但不必一定是）
  *
- * Returns the extended tlist.
+ * 返回扩展后的目标列表。
  */
 List *
 add_to_flat_tlist(List *tlist, List *exprs)
@@ -142,7 +142,7 @@ add_to_flat_tlist(List *tlist, List *exprs)
 		{
 			TargetEntry *tle;
 
-			tle = makeTargetEntry(copyObject(expr), /* copy needed?? */
+			tle = makeTargetEntry(copyObject(expr), /* 需要复制吗？ */
 								  next_resno++,
 								  NULL,
 								  false);
@@ -155,9 +155,9 @@ add_to_flat_tlist(List *tlist, List *exprs)
 
 /*
  * get_tlist_exprs
- *		Get just the expression subtrees of a tlist
+ *		只取目标列表的表达式子树
  *
- * Resjunk columns are ignored unless includeJunk is true
+ * 除非 includeJunk 为真，否则忽略废列
  */
 List *
 get_tlist_exprs(List *tlist, bool includeJunk)
@@ -180,7 +180,7 @@ get_tlist_exprs(List *tlist, bool includeJunk)
 
 /*
  * count_nonjunk_tlist_entries
- *		What it says ...
+ *		顾名思义……
  */
 int
 count_nonjunk_tlist_entries(List *tlist)
@@ -201,18 +201,18 @@ count_nonjunk_tlist_entries(List *tlist)
 
 /*
  * tlist_same_exprs
- *		Check whether two target lists contain the same expressions
+ *		检查两个目标列表是否含有相同的表达式
  *
- * Note: this function is used to decide whether it's safe to jam a new tlist
- * into a non-projection-capable plan node.  Obviously we can't do that unless
- * the node's tlist shows it already returns the column values we want.
- * However, we can ignore the TargetEntry attributes resname, ressortgroupref,
- * resorigtbl, resorigcol, and resjunk, because those are only labelings that
- * don't affect the row values computed by the node.  (Moreover, if we didn't
- * ignore them, we'd frequently fail to make the desired optimization, since
- * the planner tends to not bother to make resname etc. valid in intermediate
- * plan nodes.)  Note that on success, the caller must still jam the desired
- * tlist into the plan node, else it won't have the desired labeling fields.
+ * 注意：本函数用来决定能否安全地把新目标列表
+ * 塞进不具备投影能力的计划节点。显然，除非
+ * 该节点的目标列表显示它已经返回我们想要的列值，否则不能这么做。
+ * 不过我们可以忽略 TargetEntry 属性 resname、ressortgroupref、
+ * resorigtbl、resorigcol 和 resjunk，因为那些只是不影响
+ * 该节点算出的行值的标注。（而且，若我们不忽略它们，
+ * 就经常做不出想要的优化，因为规划器往往不费心
+ * 让中间计划节点里的 resname 等保持有效。）注意成功时，
+ * 调用者仍须把想要的目标列表塞进计划节点，
+ * 否则它不会有想要的标注成员。
  */
 bool
 tlist_same_exprs(List *tlist1, List *tlist2)
@@ -221,7 +221,7 @@ tlist_same_exprs(List *tlist1, List *tlist2)
 			   *lc2;
 
 	if (list_length(tlist1) != list_length(tlist2))
-		return false;			/* not same length, so can't match */
+		return false;			/* 长度不同，因此无法匹配 */
 
 	forboth(lc1, tlist1, lc2, tlist2)
 	{
@@ -237,12 +237,12 @@ tlist_same_exprs(List *tlist1, List *tlist2)
 
 
 /*
- * Does tlist have same output datatypes as listed in colTypes?
+ * 目标列表的输出数据类型是否与 colTypes 中列出的相同？
  *
- * Resjunk columns are ignored if junkOK is true; otherwise presence of
- * a resjunk column will always cause a 'false' result.
+ * 若 junkOK 为真则忽略废列；否则只要出现
+ * 废列就一律得到假结果。
  *
- * Note: currently no callers care about comparing typmods.
+ * 注意：目前没有调用者关心 typmod 的比较。
  */
 bool
 tlist_same_datatypes(List *tlist, List *colTypes, bool junkOK)
@@ -262,21 +262,21 @@ tlist_same_datatypes(List *tlist, List *colTypes, bool junkOK)
 		else
 		{
 			if (curColType == NULL)
-				return false;	/* tlist longer than colTypes */
+				return false;	/* 目标列表比 colTypes 长 */
 			if (exprType((Node *) tle->expr) != lfirst_oid(curColType))
 				return false;
 			curColType = lnext(colTypes, curColType);
 		}
 	}
 	if (curColType != NULL)
-		return false;			/* tlist shorter than colTypes */
+		return false;			/* 目标列表比 colTypes 短 */
 	return true;
 }
 
 /*
- * Does tlist have same exposed collations as listed in colCollations?
+ * 目标列表暴露的排序规则是否与 colCollations 中列出的相同？
  *
- * Identical logic to the above, but for collations.
+ * 逻辑与上面相同，只是针对排序规则。
  */
 bool
 tlist_same_collations(List *tlist, List *colCollations, bool junkOK)
@@ -296,23 +296,23 @@ tlist_same_collations(List *tlist, List *colCollations, bool junkOK)
 		else
 		{
 			if (curColColl == NULL)
-				return false;	/* tlist longer than colCollations */
+				return false;	/* 目标列表比 colCollations 长 */
 			if (exprCollation((Node *) tle->expr) != lfirst_oid(curColColl))
 				return false;
 			curColColl = lnext(colCollations, curColColl);
 		}
 	}
 	if (curColColl != NULL)
-		return false;			/* tlist shorter than colCollations */
+		return false;			/* 目标列表比 colCollations 短 */
 	return true;
 }
 
 /*
  * apply_tlist_labeling
- *		Apply the TargetEntry labeling attributes of src_tlist to dest_tlist
+ *		把 src_tlist 的 TargetEntry 标注属性应用到 dest_tlist
  *
- * This is useful for reattaching column names etc to a plan's final output
- * targetlist.
+ * 这用来把列名等重新挂到计划最终输出的
+ * 目标列表上。
  */
 void
 apply_tlist_labeling(List *dest_tlist, List *src_tlist)
@@ -338,8 +338,8 @@ apply_tlist_labeling(List *dest_tlist, List *src_tlist)
 
 /*
  * get_sortgroupref_tle
- *		Find the targetlist entry matching the given SortGroupRef index,
- *		and return it.
+ *		找出与给定 SortGroupRef 下标匹配的目标列表项，
+ *		并返回它。
  */
 TargetEntry *
 get_sortgroupref_tle(Index sortref, List *targetList)
@@ -355,13 +355,13 @@ get_sortgroupref_tle(Index sortref, List *targetList)
 	}
 
 	elog(ERROR, "ORDER/GROUP BY expression not found in targetlist");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 /*
  * get_sortgroupclause_tle
- *		Find the targetlist entry matching the given SortGroupClause
- *		by ressortgroupref, and return it.
+ *		按 ressortgroupref 找出与给定 SortGroupClause
+ *		匹配的目标列表项，并返回它。
  */
 TargetEntry *
 get_sortgroupclause_tle(SortGroupClause *sgClause,
@@ -372,8 +372,8 @@ get_sortgroupclause_tle(SortGroupClause *sgClause,
 
 /*
  * get_sortgroupclause_expr
- *		Find the targetlist entry matching the given SortGroupClause
- *		by ressortgroupref, and return its expression.
+ *		按 ressortgroupref 找出与给定 SortGroupClause
+ *		匹配的目标列表项，并返回它的表达式。
  */
 Node *
 get_sortgroupclause_expr(SortGroupClause *sgClause, List *targetList)
@@ -385,8 +385,8 @@ get_sortgroupclause_expr(SortGroupClause *sgClause, List *targetList)
 
 /*
  * get_sortgrouplist_exprs
- *		Given a list of SortGroupClauses, build a list
- *		of the referenced targetlist expressions.
+ *		给定 SortGroupClauses 的列表，建立
+ *		被引用的目标列表表达式的列表。
  */
 List *
 get_sortgrouplist_exprs(List *sgClauses, List *targetList)
@@ -407,16 +407,16 @@ get_sortgrouplist_exprs(List *sgClauses, List *targetList)
 
 
 /*****************************************************************************
- *		Functions to extract data from a list of SortGroupClauses
+ *		从 SortGroupClauses 列表中抽出数据的函数
  *
- * These don't really belong in tlist.c, but they are sort of related to the
- * functions just above, and they don't seem to deserve their own file.
+ * 它们其实不属于 tlist.c，但和紧上面的
+ * 函数多少有关，又不值得单独占一个文件。
  *****************************************************************************/
 
 /*
  * get_sortgroupref_clause
- *		Find the SortGroupClause matching the given SortGroupRef index,
- *		and return it.
+ *		找出与给定 SortGroupRef 下标匹配的 SortGroupClause，
+ *		并返回它。
  */
 SortGroupClause *
 get_sortgroupref_clause(Index sortref, List *clauses)
@@ -432,12 +432,12 @@ get_sortgroupref_clause(Index sortref, List *clauses)
 	}
 
 	elog(ERROR, "ORDER/GROUP BY expression not found in list");
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 消除编译器告警 */
 }
 
 /*
  * get_sortgroupref_clause_noerr
- *		As above, but return NULL rather than throwing an error if not found.
+ *		与上面相同，但找不到时返回 NULL 而不是报错。
  */
 SortGroupClause *
 get_sortgroupref_clause_noerr(Index sortref, List *clauses)
@@ -456,8 +456,8 @@ get_sortgroupref_clause_noerr(Index sortref, List *clauses)
 }
 
 /*
- * extract_grouping_ops - make an array of the equality operator OIDs
- *		for a SortGroupClause list
+ * extract_grouping_ops：为 SortGroupClause 列表
+ *		做一个等值操作符 OIDs 的数组
  */
 Oid *
 extract_grouping_ops(List *groupClause)
@@ -482,8 +482,8 @@ extract_grouping_ops(List *groupClause)
 }
 
 /*
- * extract_grouping_collations - make an array of the grouping column collations
- *		for a SortGroupClause list
+ * extract_grouping_collations：为 SortGroupClause 列表
+ *		做一个分组列排序规则的数组
  */
 Oid *
 extract_grouping_collations(List *groupClause, List *tlist)
@@ -507,8 +507,8 @@ extract_grouping_collations(List *groupClause, List *tlist)
 }
 
 /*
- * extract_grouping_cols - make an array of the grouping column resnos
- *		for a SortGroupClause list
+ * extract_grouping_cols：为 SortGroupClause 列表
+ *		做一个分组列 resno 的数组
  */
 AttrNumber *
 extract_grouping_cols(List *groupClause, List *tlist)
@@ -532,9 +532,9 @@ extract_grouping_cols(List *groupClause, List *tlist)
 }
 
 /*
- * grouping_is_sortable - is it possible to implement grouping list by sorting?
+ * grouping_is_sortable：能否用排序来实现分组列表？
  *
- * This is easy since the parser will have included a sortop if one exists.
+ * 这很容易，因为若存在 sortop，解析器就会把它放进来。
  */
 bool
 grouping_is_sortable(List *groupClause)
@@ -552,9 +552,9 @@ grouping_is_sortable(List *groupClause)
 }
 
 /*
- * grouping_is_hashable - is it possible to implement grouping list by hashing?
+ * grouping_is_hashable：能否用散列来实现分组列表？
  *
- * We rely on the parser to have set the hashable flag correctly.
+ * 我们依赖解析器已正确设置可散列标志。
  */
 bool
 grouping_is_hashable(List *groupClause)
@@ -573,19 +573,19 @@ grouping_is_hashable(List *groupClause)
 
 
 /*****************************************************************************
- *		PathTarget manipulation functions
+ *		PathTarget 操作函数
  *
- * PathTarget is a somewhat stripped-down version of a full targetlist; it
- * omits all the TargetEntry decoration except (optionally) sortgroupref data,
- * and it adds evaluation cost and output data width info.
+ * PathTarget 是完整目标列表的某种精简版；它
+ * 省去了除（可选的）sortgroupref 数据以外的全部 TargetEntry 装饰，
+ * 并加上求值代价和输出数据宽度信息。
  *****************************************************************************/
 
 /*
  * make_pathtarget_from_tlist
- *	  Construct a PathTarget equivalent to the given targetlist.
+ *	  构造与给定目标列表等价的 PathTarget。
  *
- * This leaves the cost and width fields as zeroes.  Most callers will want
- * to use create_pathtarget(), so as to get those set.
+ * 这把代价和宽度成员留为零。多数调用者会想
+ * 改用 create_pathtarget()，以便把它们设上。
  */
 PathTarget *
 make_pathtarget_from_tlist(List *tlist)
@@ -607,9 +607,9 @@ make_pathtarget_from_tlist(List *tlist)
 	}
 
 	/*
-	 * Mark volatility as unknown.  The contain_volatile_functions function
-	 * will determine if there are any volatile functions when called for the
-	 * first time with this PathTarget.
+	 * 把易变性标成未知。contain_volatile_functions 函数
+	 * 会在第一次带着这个 PathTarget 被调用时，
+	 * 判断是否有任何易变函数。
 	 */
 	target->has_volatile_expr = VOLATILITY_UNKNOWN;
 
@@ -618,7 +618,7 @@ make_pathtarget_from_tlist(List *tlist)
 
 /*
  * make_tlist_from_pathtarget
- *	  Construct a targetlist from a PathTarget.
+ *	  从 PathTarget 构造目标列表。
  */
 List *
 make_tlist_from_pathtarget(PathTarget *target)
@@ -648,21 +648,21 @@ make_tlist_from_pathtarget(PathTarget *target)
 
 /*
  * copy_pathtarget
- *	  Copy a PathTarget.
+ *	  复制一个 PathTarget。
  *
- * The new PathTarget has its own exprs List, but shares the underlying
- * target expression trees with the old one.
+ * 新 PathTarget 有自己的 exprs List，但与旧的
+ * 共享底层目标表达式树。
  */
 PathTarget *
 copy_pathtarget(PathTarget *src)
 {
 	PathTarget *dst = makeNode(PathTarget);
 
-	/* Copy scalar fields */
+	/* 复制标量成员 */
 	memcpy(dst, src, sizeof(PathTarget));
-	/* Shallow-copy the expression list */
+	/* 浅复制表达式列表 */
 	dst->exprs = list_copy(src->exprs);
-	/* Duplicate sortgrouprefs if any (if not, the memcpy handled this) */
+	/* 若有 sortgrouprefs 则复制一份（若没有，memcpy 已经处理过） */
 	if (src->sortgrouprefs)
 	{
 		Size		nbytes = list_length(src->exprs) * sizeof(Index);
@@ -675,40 +675,40 @@ copy_pathtarget(PathTarget *src)
 
 /*
  * create_empty_pathtarget
- *	  Create an empty (zero columns, zero cost) PathTarget.
+ *	  建立一个空的（零列、零代价）PathTarget。
  */
 PathTarget *
 create_empty_pathtarget(void)
 {
-	/* This is easy, but we don't want callers to hard-wire this ... */
+	/* 这很容易，但我们不想让调用者把这一点写死…… */
 	return makeNode(PathTarget);
 }
 
 /*
  * add_column_to_pathtarget
- *		Append a target column to the PathTarget.
+ *		往 PathTarget 追加一个目标列。
  *
- * As with make_pathtarget_from_tlist, we leave it to the caller to update
- * the cost and width fields.
+ * 与 make_pathtarget_from_tlist 一样，代价和宽度
+ * 成员留给调用者更新。
  */
 void
 add_column_to_pathtarget(PathTarget *target, Expr *expr, Index sortgroupref)
 {
-	/* Updating the exprs list is easy ... */
+	/* 更新 exprs 列表很容易…… */
 	target->exprs = lappend(target->exprs, expr);
-	/* ... the sortgroupref data, a bit less so */
+	/* ……sortgroupref 数据就不那么容易了 */
 	if (target->sortgrouprefs)
 	{
 		int			nexprs = list_length(target->exprs);
 
-		/* This might look inefficient, but actually it's usually cheap */
+		/* 这看起来也许低效，其实通常很便宜 */
 		target->sortgrouprefs = (Index *)
 			repalloc(target->sortgrouprefs, nexprs * sizeof(Index));
 		target->sortgrouprefs[nexprs - 1] = sortgroupref;
 	}
 	else if (sortgroupref)
 	{
-		/* Adding sortgroupref labeling to a previously unlabeled target */
+		/* 给先前没有标注的目标加上 sortgroupref 标注 */
 		int			nexprs = list_length(target->exprs);
 
 		target->sortgrouprefs = (Index *) palloc0(nexprs * sizeof(Index));
@@ -716,11 +716,11 @@ add_column_to_pathtarget(PathTarget *target, Expr *expr, Index sortgroupref)
 	}
 
 	/*
-	 * Reset has_volatile_expr to UNKNOWN.  We just leave it up to
-	 * contain_volatile_functions to set this properly again.  Technically we
-	 * could save some effort here and just check the new Expr, but it seems
-	 * better to keep the logic for setting this flag in one location rather
-	 * than duplicating the logic here.
+	 * 把 has_volatile_expr 重置为 UNKNOWN。我们把它留给
+	 * contain_volatile_functions 再次正确设置。严格说我们
+	 * 可以在这里省点事，只检查新的 Expr，但把设置
+	 * 该标志的逻辑留在一处，而不是
+	 * 在这里复制一份，似乎更好。
 	 */
 	if (target->has_volatile_expr == VOLATILITY_NOVOLATILE)
 		target->has_volatile_expr = VOLATILITY_UNKNOWN;
@@ -728,14 +728,14 @@ add_column_to_pathtarget(PathTarget *target, Expr *expr, Index sortgroupref)
 
 /*
  * add_new_column_to_pathtarget
- *		Append a target column to the PathTarget, but only if it's not
- *		equal() to any pre-existing target expression.
+ *		往 PathTarget 追加一个目标列，但仅当它不
+ *		equal() 于任何已有目标表达式时。
  *
- * The caller cannot specify a sortgroupref, since it would be unclear how
- * to merge that with a pre-existing column.
+ * 调用者无法指定 sortgroupref，因为不清楚如何
+ * 把它和已有的列合并。
  *
- * As with make_pathtarget_from_tlist, we leave it to the caller to update
- * the cost and width fields.
+ * 与 make_pathtarget_from_tlist 一样，代价和宽度
+ * 成员留给调用者更新。
  */
 void
 add_new_column_to_pathtarget(PathTarget *target, Expr *expr)
@@ -746,7 +746,7 @@ add_new_column_to_pathtarget(PathTarget *target, Expr *expr)
 
 /*
  * add_new_columns_to_pathtarget
- *		Apply add_new_column_to_pathtarget() for each element of the list.
+ *		对列表的每个元素应用 add_new_column_to_pathtarget()。
  */
 void
 add_new_columns_to_pathtarget(PathTarget *target, List *exprs)
@@ -763,12 +763,12 @@ add_new_columns_to_pathtarget(PathTarget *target, List *exprs)
 
 /*
  * apply_pathtarget_labeling_to_tlist
- *		Apply any sortgrouprefs in the PathTarget to matching tlist entries
+ *		把 PathTarget 中的任何 sortgrouprefs 应用到匹配的目标列表项
  *
- * Here, we do not assume that the tlist entries are one-for-one with the
- * PathTarget.  The intended use of this function is to deal with cases
- * where createplan.c has decided to use some other tlist and we have
- * to identify what matches exist.
+ * 这里我们不假定目标列表项与
+ * PathTarget 一一对应。本函数的预期用途是处理
+ * createplan.c 决定改用别的目标列表、而我们又得
+ * 认出存在哪些匹配的情形。
  */
 void
 apply_pathtarget_labeling_to_tlist(List *tlist, PathTarget *target)
@@ -776,7 +776,7 @@ apply_pathtarget_labeling_to_tlist(List *tlist, PathTarget *target)
 	int			i;
 	ListCell   *lc;
 
-	/* Nothing to do if PathTarget has no sortgrouprefs data */
+	/* 若 PathTarget 没有 sortgrouprefs 数据，则无事可做 */
 	if (target->sortgrouprefs == NULL)
 		return;
 
@@ -789,13 +789,13 @@ apply_pathtarget_labeling_to_tlist(List *tlist, PathTarget *target)
 		if (target->sortgrouprefs[i])
 		{
 			/*
-			 * For Vars, use tlist_member_match_var's weakened matching rule;
-			 * this allows us to deal with some cases where a set-returning
-			 * function has been inlined, so that we now have more knowledge
-			 * about what it returns than we did when the original Var was
-			 * created.  Otherwise, use regular equal() to find the matching
-			 * TLE.  (In current usage, only the Var case is actually needed;
-			 * but it seems best to have sane behavior here for non-Vars too.)
+			 * 对 Var，使用 tlist_member_match_var 放宽后的匹配规则；
+			 * 这样我们能处理某些集合返回
+			 * 函数已被内联的情形，于是比起原来的 Var
+			 * 被创建时，我们现在更清楚
+			 * 它返回什么。否则用普通的 equal() 找出匹配的
+			 * TLE。（按当前用法，其实只需要 Var 这种情形；
+			 * 但对非 Var 也有合理行为，似乎最好。）
 			 */
 			if (expr && IsA(expr, Var))
 				tle = tlist_member_match_var((Var *) expr, tlist);
@@ -803,10 +803,10 @@ apply_pathtarget_labeling_to_tlist(List *tlist, PathTarget *target)
 				tle = tlist_member(expr, tlist);
 
 			/*
-			 * Complain if noplace for the sortgrouprefs label, or if we'd
-			 * have to label a column twice.  (The case where it already has
-			 * the desired label probably can't happen, but we may as well
-			 * allow for it.)
+			 * 若 sortgrouprefs 标注没有去处，或者我们不得不
+			 * 给同一列标两次，就报错。（它已经有
+			 * 想要的标注这种情形大概不会发生，但我们不妨
+			 * 也允许。）
 			 */
 			if (!tle)
 				elog(ERROR, "ORDER/GROUP BY expression not found in targetlist");
@@ -822,60 +822,60 @@ apply_pathtarget_labeling_to_tlist(List *tlist, PathTarget *target)
 
 /*
  * split_pathtarget_at_srfs
- *		Split given PathTarget into multiple levels to position SRFs safely
+ *		把给定的 PathTarget 拆成多层，以便安全地放置 SRFs
  *
- * The executor can only handle set-returning functions that appear at the
- * top level of the targetlist of a ProjectSet plan node.  If we have any SRFs
- * that are not at top level, we need to split up the evaluation into multiple
- * plan levels in which each level satisfies this constraint.  This function
- * creates appropriate PathTarget(s) for each level.
+ * 执行器只能处理出现在 ProjectSet 计划节点
+ * 目标列表顶层的集合返回函数。若有任何 SRFs
+ * 不在顶层，就需要把求值拆到多个
+ * 计划层，使每一层都满足这一约束。本函数
+ * 为每一层建立适当的 PathTarget。
  *
- * As an example, consider the tlist expression
+ * 例如考虑目标列表表达式
  *		x + srf1(srf2(y + z))
- * This expression should appear as-is in the top PathTarget, but below that
- * we must have a PathTarget containing
+ * 这个表达式应当原样出现在顶层 PathTarget 中，但其下
+ * 我们必须有一个含有下列内容的 PathTarget
  *		x, srf1(srf2(y + z))
- * and below that, another PathTarget containing
+ * 再往下，另一个含有下列内容的 PathTarget
  *		x, srf2(y + z)
- * and below that, another PathTarget containing
+ * 再往下，另一个含有下列内容的 PathTarget
  *		x, y, z
- * When these tlists are processed by setrefs.c, subexpressions that match
- * output expressions of the next lower tlist will be replaced by Vars,
- * so that what the executor gets are tlists looking like
+ * 当 setrefs.c 处理这些目标列表时，与
+ * 下一层更低目标列表的输出表达式匹配的子表达式会被换成 Var，
+ * 于是执行器得到的目标列表看起来像
  *		Var1 + Var2
  *		Var1, srf1(Var2)
  *		Var1, srf2(Var2 + Var3)
  *		x, y, z
- * which satisfy the desired property.
+ * 从而满足所要的性质。
  *
- * Another example is
+ * 另一个例子是
  *		srf1(x), srf2(srf3(y))
- * That must appear as-is in the top PathTarget, but below that we need
+ * 它必须原样出现在顶层 PathTarget 中，但其下我们需要
  *		srf1(x), srf3(y)
- * That is, each SRF must be computed at a level corresponding to the nesting
- * depth of SRFs within its arguments.
+ * 也就是说，每个 SRF 必须在与其参数内
+ * SRFs 嵌套深度对应的那一层计算。
  *
- * In some cases, a SRF has already been evaluated in some previous plan level
- * and we shouldn't expand it again (that is, what we see in the target is
- * already meant as a reference to a lower subexpression).  So, don't expand
- * any tlist expressions that appear in input_target, if that's not NULL.
+ * 有些情况下，某个 SRF 已经在先前的计划层求过值，
+ * 我们不应当再次展开它（也就是说，目标里看到的
+ * 已经意在引用更低层的子表达式）。因此，不要展开
+ * input_target 中出现的任何目标列表表达式，只要它不是 NULL。
  *
- * It's also important that we preserve any sortgroupref annotation appearing
- * in the given target, especially on expressions matching input_target items.
+ * 同样重要的是，我们要保留给定目标中出现的任何 sortgroupref 标注，
+ * 尤其是与 input_target 项匹配的表达式上的标注。
  *
- * The outputs of this function are two parallel lists, one a list of
- * PathTargets and the other an integer list of bool flags indicating
- * whether the corresponding PathTarget contains any evaluable SRFs.
- * The lists are given in the order they'd need to be evaluated in, with
- * the "lowest" PathTarget first.  So the last list entry is always the
- * originally given PathTarget, and any entries before it indicate evaluation
- * levels that must be inserted below it.  The first list entry must not
- * contain any SRFs (other than ones duplicating input_target entries), since
- * it will typically be attached to a plan node that cannot evaluate SRFs.
+ * 本函数的输出是两个平行列表，一个是
+ * PathTargets 的列表，另一个是整数形式的布尔标志列表，表示
+ * 对应的 PathTarget 是否含有任何可求值的 SRFs。
+ * 列表按它们需要被求值的顺序给出，
+ * 最低的 PathTarget 在前。因此最后一项始终是
+ * 原来给定的 PathTarget，它之前的任何项表示必须
+ * 插在它下面的求值层。第一项不得
+ * 含有任何 SRFs（重复 input_target 项的那些除外），因为
+ * 它通常会挂到一个没法求值 SRFs 的计划节点上。
  *
- * Note: using a list for the flags may seem like overkill, since there
- * are only a few possible patterns for which levels contain SRFs.
- * But this representation decouples callers from that knowledge.
+ * 注意：用列表表示这些标志看似过重，因为
+ * 哪些层含有 SRFs 只有少数几种可能模式。
+ * 但这种表示把调用者与那种知识解耦。
  */
 void
 split_pathtarget_at_srfs(PlannerInfo *root,
@@ -893,10 +893,10 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 			   *lc3;
 
 	/*
-	 * It's not unusual for planner.c to pass us two physically identical
-	 * targets, in which case we can conclude without further ado that all
-	 * expressions are available from the input.  (The logic below would
-	 * arrive at the same conclusion, but much more tediously.)
+	 * 规划器的 planner.c 把两个物理上相同的
+	 * 目标传给我们并不少见，这时不必再费事就可以断定全部
+	 * 表达式都能从输入取得。（下面的逻辑也会
+	 * 得到同一结论，只是麻烦得多。）
 	 */
 	if (target == input_target)
 	{
@@ -905,52 +905,52 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 		return;
 	}
 
-	/* Pass any input_target exprs down to split_pathtarget_walker() */
+	/* 把任何 input_target 表达式往下传给 split_pathtarget_walker() */
 	context.input_target_exprs = input_target ? input_target->exprs : NIL;
 
 	/*
-	 * Initialize with empty level-zero lists, and no levels after that.
-	 * (Note: we could dispense with representing level zero explicitly, since
-	 * it will never receive any SRFs, but then we'd have to special-case that
-	 * level when we get to building result PathTargets.  Level zero describes
-	 * the SRF-free PathTarget that will be given to the input plan node.)
+	 * 用空的第零层列表做初始化，其后不再有层。
+	 * （注意：其实可以不显式表示第零层，因为
+	 * 它永远不会收到任何 SRFs，但那样等到建立结果 PathTargets 时
+	 * 就得对该层做特殊处理。第零层描述的是
+	 * 将交给输入计划节点的、不含 SRF 的 PathTarget。）
 	 */
 	context.level_srfs = list_make1(NIL);
 	context.level_input_vars = list_make1(NIL);
 	context.level_input_srfs = list_make1(NIL);
 
-	/* Initialize data we'll accumulate across all the target expressions */
+	/* 初始化要在全部目标表达式上累积的数据 */
 	context.current_input_vars = NIL;
 	context.current_input_srfs = NIL;
 	max_depth = 0;
 	need_extra_projection = false;
 
-	/* Scan each expression in the PathTarget looking for SRFs */
+	/* 扫描 PathTarget 中的每个表达式，寻找 SRFs */
 	lci = 0;
 	foreach(lc, target->exprs)
 	{
 		Node	   *node = (Node *) lfirst(lc);
 
-		/* Tell split_pathtarget_walker about this expr's sortgroupref */
+		/* 把这个表达式的 sortgroupref 告诉 split_pathtarget_walker */
 		context.current_sgref = get_pathtarget_sortgroupref(target, lci);
 		lci++;
 
 		/*
-		 * Find all SRFs and Vars (and Var-like nodes) in this expression, and
-		 * enter them into appropriate lists within the context struct.
+		 * 找出这个表达式中的全部 SRFs 和 Var（以及类似 Var 的节点），
+		 * 并登记进上下文结构中适当的列表。
 		 */
 		context.current_depth = 0;
 		split_pathtarget_walker(node, &context);
 
-		/* An expression containing no SRFs is of no further interest */
+		/* 不含 SRFs 的表达式没有进一步的意义 */
 		if (context.current_depth == 0)
 			continue;
 
 		/*
-		 * Track max SRF nesting depth over the whole PathTarget.  Also, if
-		 * this expression establishes a new max depth, we no longer care
-		 * whether previous expressions contained nested SRFs; we can handle
-		 * any required projection for them in the final ProjectSet node.
+		 * 跟踪整个 PathTarget 上的最大 SRF 嵌套深度。另外，若
+		 * 这个表达式确立了新的最大深度，我们就不再关心
+		 * 先前的表达式是否含有嵌套的 SRFs；所需的投影
+		 * 可以放在最终的 ProjectSet 节点里处理。
 		 */
 		if (max_depth < context.current_depth)
 		{
@@ -959,18 +959,18 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 		}
 
 		/*
-		 * If any maximum-depth SRF is not at the top level of its expression,
-		 * we'll need an extra Result node to compute the top-level scalar
-		 * expression.
+		 * 若任何最大深度的 SRF 不在其表达式的顶层，
+		 * 就需要额外的 Result 节点来计算顶层标量
+		 * 表达式。
 		 */
 		if (max_depth == context.current_depth && !IS_SRF_CALL(node))
 			need_extra_projection = true;
 	}
 
 	/*
-	 * If we found no SRFs needing evaluation (maybe they were all present in
-	 * input_target, or maybe they were all removed by const-simplification),
-	 * then no ProjectSet is needed; fall out.
+	 * 若没有发现需要求值的 SRFs（也许它们都已在
+	 * input_target 里，也许都被常量简化去掉了），
+	 * 就不需要 ProjectSet；直接退出。
 	 */
 	if (max_depth == 0)
 	{
@@ -980,9 +980,9 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 	}
 
 	/*
-	 * The Vars and SRF outputs needed at top level can be added to the last
-	 * level_input lists if we don't need an extra projection step.  If we do
-	 * need one, add a SRF-free level to the lists.
+	 * 若不需要额外的投影步骤，顶层需要的 Var 和 SRF 输出
+	 * 可以加进最后的 level_input 列表。若
+	 * 需要，就往列表里加一个不含 SRF 的层。
 	 */
 	if (need_extra_projection)
 	{
@@ -1001,10 +1001,10 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 	}
 
 	/*
-	 * Now construct the output PathTargets.  The original target can be used
-	 * as-is for the last one, but we need to construct a new SRF-free target
-	 * representing what the preceding plan node has to emit, as well as a
-	 * target for each intermediate ProjectSet node.
+	 * 现在构造输出的 PathTargets。最后一个可以直接用原来的目标，
+	 * 但我们需要构造一个新的、不含 SRF 的目标，
+	 * 表示前一个计划节点必须发出什么，以及
+	 * 每个中间 ProjectSet 节点的目标。
 	 */
 	*targets = *targets_contain_srfs = NIL;
 	prev_level_tlist = NIL;
@@ -1025,10 +1025,10 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 			ntarget = create_empty_pathtarget();
 
 			/*
-			 * This target should actually evaluate any SRFs of the current
-			 * level, and it needs to propagate forward any Vars needed by
-			 * later levels, as well as SRFs computed earlier and needed by
-			 * later levels.
+			 * 这个目标应当实际求值当前
+			 * 层的任何 SRFs，并且需要把以后各层需要的任何 Var，
+			 * 以及更早算出、以后各层还需要的 SRFs，
+			 * 向前传播。
 			 */
 			add_sp_items_to_pathtarget(ntarget, level_srfs);
 			for_each_cell(lc, context.level_input_vars,
@@ -1056,22 +1056,22 @@ split_pathtarget_at_srfs(PlannerInfo *root,
 		}
 
 		/*
-		 * Add current target and does-it-compute-SRFs flag to output lists.
+		 * 把当前目标和它是否计算 SRFs 的标志加进输出列表。
 		 */
 		*targets = lappend(*targets, ntarget);
 		*targets_contain_srfs = lappend_int(*targets_contain_srfs,
 											(level_srfs != NIL));
 
-		/* Remember this level's output for next pass */
+		/* 记住这一层的输出，供下一趟使用 */
 		prev_level_tlist = ntarget->exprs;
 	}
 }
 
 /*
- * Recursively examine expressions for split_pathtarget_at_srfs.
+ * 为 split_pathtarget_at_srfs 递归检查表达式。
  *
- * Note we make no effort here to prevent duplicate entries in the output
- * lists.  Duplicates will be gotten rid of later.
+ * 注意这里我们不努力防止输出列表里出现重复项。
+ * 重复项以后会被去掉。
  */
 static bool
 split_pathtarget_walker(Node *node, split_pathtarget_context *context)
@@ -1080,12 +1080,12 @@ split_pathtarget_walker(Node *node, split_pathtarget_context *context)
 		return false;
 
 	/*
-	 * A subexpression that matches an expression already computed in
-	 * input_target can be treated like a Var (which indeed it will be after
-	 * setrefs.c gets done with it), even if it's actually a SRF.  Record it
-	 * as being needed for the current expression, and ignore any
-	 * substructure.  (Note in particular that this preserves the identity of
-	 * any expressions that appear as sortgrouprefs in input_target.)
+	 * 与 input_target 中已经算过的表达式匹配的子表达式
+	 * 可以当作 Var 对待（setrefs.c 处理完之后它确实会变成 Var），
+	 * 即使它实际上是 SRF。把它记成
+	 * 当前表达式所需要的，并忽略任何
+	 * 子结构。（尤其要注意，这保留了
+	 * 作为 input_target 中 sortgrouprefs 出现的任何表达式的身份。）
 	 */
 	if (list_member(context->input_target_exprs, node))
 	{
@@ -1099,9 +1099,9 @@ split_pathtarget_walker(Node *node, split_pathtarget_context *context)
 	}
 
 	/*
-	 * Vars and Var-like constructs are expected to be gotten from the input,
-	 * too.  We assume that these constructs cannot contain any SRFs (if one
-	 * does, there will be an executor failure from a misplaced SRF).
+	 * Var 以及类似 Var 的构造也预期从输入取得。
+	 * 我们假定这些构造无法含有任何 SRFs（若有一个
+	 * 含有，执行器就会因为 SRF 放错位置而失败）。
 	 */
 	if (IsA(node, Var) ||
 		IsA(node, PlaceHolderVar) ||
@@ -1119,8 +1119,8 @@ split_pathtarget_walker(Node *node, split_pathtarget_context *context)
 	}
 
 	/*
-	 * If it's a SRF, recursively examine its inputs, determine its level, and
-	 * make appropriate entries in the output lists.
+	 * 若它是 SRF，就递归检查它的输入，确定它的层，并
+	 * 在输出列表中做适当的登记。
 	 */
 	if (IS_SRF_CALL(node))
 	{
@@ -1137,15 +1137,15 @@ split_pathtarget_walker(Node *node, split_pathtarget_context *context)
 		context->current_input_vars = NIL;
 		context->current_input_srfs = NIL;
 		context->current_depth = 0;
-		context->current_sgref = 0; /* subexpressions are not sortgroup items */
+		context->current_sgref = 0; /* 子表达式不是 sortgroup 项 */
 
 		(void) expression_tree_walker(node, split_pathtarget_walker,
 									  (void *) context);
 
-		/* Depth is one more than any SRF below it */
+		/* 深度比它下面任何 SRF 再深一层 */
 		srf_depth = context->current_depth + 1;
 
-		/* If new record depth, initialize another level of output lists */
+		/* 若创下新的记录深度，就再初始化一层输出列表 */
 		if (srf_depth >= list_length(context->level_srfs))
 		{
 			context->level_srfs = lappend(context->level_srfs, NIL);
@@ -1153,50 +1153,50 @@ split_pathtarget_walker(Node *node, split_pathtarget_context *context)
 			context->level_input_srfs = lappend(context->level_input_srfs, NIL);
 		}
 
-		/* Record this SRF as needing to be evaluated at appropriate level */
+		/* 把这个 SRF 记成需要在适当的层求值 */
 		lc = list_nth_cell(context->level_srfs, srf_depth);
 		lfirst(lc) = lappend(lfirst(lc), item);
 
-		/* Record its inputs as being needed at the same level */
+		/* 把它的输入记成同一层所需要的 */
 		lc = list_nth_cell(context->level_input_vars, srf_depth);
 		lfirst(lc) = list_concat(lfirst(lc), context->current_input_vars);
 		lc = list_nth_cell(context->level_input_srfs, srf_depth);
 		lfirst(lc) = list_concat(lfirst(lc), context->current_input_srfs);
 
 		/*
-		 * Restore caller-level state and update it for presence of this SRF.
-		 * Notice we report the SRF itself as being needed for evaluation of
-		 * surrounding expression.
+		 * 恢复调用者那一层的状态，并按这个 SRF 的存在更新它。
+		 * 注意我们把 SRF 本身报告为外围表达式
+		 * 求值所需要的。
 		 */
 		context->current_input_vars = save_input_vars;
 		context->current_input_srfs = lappend(save_input_srfs, item);
 		context->current_depth = Max(save_current_depth, srf_depth);
 
-		/* We're done here */
+		/* 这里就做完了 */
 		return false;
 	}
 
 	/*
-	 * Otherwise, the node is a scalar (non-set) expression, so recurse to
-	 * examine its inputs.
+	 * 否则该节点是标量（非集合）表达式，因此递归去
+	 * 检查它的输入。
 	 */
-	context->current_sgref = 0; /* subexpressions are not sortgroup items */
+	context->current_sgref = 0; /* 子表达式不是 sortgroup 项 */
 	return expression_tree_walker(node, split_pathtarget_walker,
 								  (void *) context);
 }
 
 /*
- * Add a split_pathtarget_item to the PathTarget, unless a matching item is
- * already present.  This is like add_new_column_to_pathtarget, but allows
- * for sortgrouprefs to be handled.  An item having zero sortgroupref can
- * be merged with one that has a sortgroupref, acquiring the latter's
- * sortgroupref.
+ * 把一个 split_pathtarget_item 加进 PathTarget，除非已经有匹配项。
+ * 这类似于 add_new_column_to_pathtarget，但允许
+ * 处理 sortgrouprefs。sortgroupref 为零的项可以
+ * 与有 sortgroupref 的项合并，并取得后者的
+ * sortgroupref。
  *
- * Note that we don't worry about possibly adding duplicate sortgrouprefs
- * to the PathTarget.  That would be bad, but it should be impossible unless
- * the target passed to split_pathtarget_at_srfs already had duplicates.
- * As long as it didn't, we can have at most one split_pathtarget_item with
- * any particular nonzero sortgroupref.
+ * 注意我们不担心可能往
+ * PathTarget 里加入重复的 sortgrouprefs。那会很糟，但除非
+ * 传给 split_pathtarget_at_srfs 的目标已经有重复，否则应当不可能。
+ * 只要它没有，对任何一个非零 sortgroupref，我们最多只能有一个
+ * split_pathtarget_item。
  */
 static void
 add_sp_item_to_pathtarget(PathTarget *target, split_pathtarget_item *item)
@@ -1205,8 +1205,8 @@ add_sp_item_to_pathtarget(PathTarget *target, split_pathtarget_item *item)
 	ListCell   *lc;
 
 	/*
-	 * Look for a pre-existing entry that is equal() and does not have a
-	 * conflicting sortgroupref already.
+	 * 寻找已有的、equal() 且还没有
+	 * 冲突 sortgroupref 的项。
 	 */
 	lci = 0;
 	foreach(lc, target->exprs)
@@ -1219,7 +1219,7 @@ add_sp_item_to_pathtarget(PathTarget *target, split_pathtarget_item *item)
 			 sgref == 0) &&
 			equal(item->expr, node))
 		{
-			/* Found a match.  Assign item's sortgroupref if it has one. */
+			/* 找到匹配。若该项有 sortgroupref，就赋上。 */
 			if (item->sortgroupref)
 			{
 				if (target->sortgrouprefs == NULL)
@@ -1235,14 +1235,14 @@ add_sp_item_to_pathtarget(PathTarget *target, split_pathtarget_item *item)
 	}
 
 	/*
-	 * No match, so add item to PathTarget.  Copy the expr for safety.
+	 * 没有匹配，因此把项加进 PathTarget。为安全起见复制表达式。
 	 */
 	add_column_to_pathtarget(target, (Expr *) copyObject(item->expr),
 							 item->sortgroupref);
 }
 
 /*
- * Apply add_sp_item_to_pathtarget to each element of list.
+ * 对列表的每个元素应用 add_sp_item_to_pathtarget。
  */
 static void
 add_sp_items_to_pathtarget(PathTarget *target, List *items)

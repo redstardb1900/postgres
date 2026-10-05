@@ -45,7 +45,7 @@ static Node *adjust_appendrel_attrs_mutator(Node *node,
 
 /*
  * make_append_rel_info
- *	  Build an AppendRelInfo for the parent-child pair
+ *	  为父子对建立一个 AppendRelInfo
  */
 AppendRelInfo *
 make_append_rel_info(Relation parentrel, Relation childrel,
@@ -65,16 +65,16 @@ make_append_rel_info(Relation parentrel, Relation childrel,
 
 /*
  * make_inh_translation_list
- *	  Build the list of translations from parent Vars to child Vars for
- *	  an inheritance child, as well as a reverse-translation array.
+ *	  为继承子表建立从父 Var 到子 Var 的翻译列表，
+ *	  以及反向翻译数组。
  *
- * The reverse-translation array has an entry for each child relation
- * column, which is either the 1-based index of the corresponding parent
- * column, or 0 if there's no match (that happens for dropped child columns,
- * as well as child columns beyond those of the parent, which are allowed in
- * traditional inheritance though not partitioning).
+ * 反向翻译数组对每个子关系
+ * 列有一项，要么是对应父
+ * 列的从 1 起的下标，要么在没有匹配时为 0（已删除的子列会这样，
+ * 超出父表的子列也会，传统继承允许这种情况，
+ * 分区则不允许）。
  *
- * For paranoia's sake, we match type/collation as well as attribute name.
+ * 为保险起见，我们同时匹配类型/排序规则和属性名。
  */
 static void
 make_inh_translation_list(Relation oldrelation, Relation newrelation,
@@ -91,7 +91,7 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 	int			old_attno;
 	int			new_attno = 0;
 
-	/* Initialize reverse-translation array with all entries zero */
+	/* 把反向翻译数组的全部项初始化为零 */
 	appinfo->num_child_cols = newnatts;
 	appinfo->parent_colnos = pcolnos =
 		(AttrNumber *) palloc0(newnatts * sizeof(AttrNumber));
@@ -107,7 +107,7 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 		att = TupleDescAttr(old_tupdesc, old_attno);
 		if (att->attisdropped)
 		{
-			/* Just put NULL into this list entry */
+			/* 这一列表项就放 NULL */
 			vars = lappend(vars, NULL);
 			continue;
 		}
@@ -117,8 +117,8 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 		attcollation = att->attcollation;
 
 		/*
-		 * When we are generating the "translation list" for the parent table
-		 * of an inheritance set, no need to search for matches.
+		 * 当我们为继承集的父表生成翻译列表时，
+		 * 不必搜索匹配。
 		 */
 		if (oldrelation == newrelation)
 		{
@@ -133,13 +133,13 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 		}
 
 		/*
-		 * Otherwise we have to search for the matching column by name.
-		 * There's no guarantee it'll have the same column position, because
-		 * of cases like ALTER TABLE ADD COLUMN and multiple inheritance.
-		 * However, in simple cases, the relative order of columns is mostly
-		 * the same in both relations, so try the column of newrelation that
-		 * follows immediately after the one that we just found, and if that
-		 * fails, let syscache handle it.
+		 * 否则必须按名搜索匹配的列。
+		 * 不保证列位置相同，因为
+		 * 有 ALTER TABLE ADD COLUMN 和多重继承之类的情况。
+		 * 不过在简单情况下，两边关系的列相对顺序大体
+		 * 相同，因此先试 newrelation 中紧接在
+		 * 刚找到的那列之后的列，若失败
+		 * 就交给系统缓存处理。
 		 */
 		if (new_attno >= newnatts ||
 			(att = TupleDescAttr(new_tupdesc, new_attno))->attisdropped ||
@@ -158,7 +158,7 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 			att = TupleDescAttr(new_tupdesc, new_attno);
 		}
 
-		/* Found it, check type and collation match */
+		/* 找到了，检查类型和排序规则是否匹配 */
 		if (atttypid != att->atttypid || atttypmod != att->atttypmod)
 			elog(ERROR, "attribute \"%s\" of relation \"%s\" does not match parent's type",
 				 attname, RelationGetRelationName(newrelation));
@@ -181,16 +181,16 @@ make_inh_translation_list(Relation oldrelation, Relation newrelation,
 
 /*
  * adjust_appendrel_attrs
- *	  Copy the specified query or expression and translate Vars referring to a
- *	  parent rel to refer to the corresponding child rel instead.  We also
- *	  update rtindexes appearing outside Vars, such as resultRelation and
- *	  jointree relids.
+ *	  复制指定的查询或表达式，把引用父关系的 Var 翻译成
+ *	  改为引用对应的子关系。我们也
+ *	  更新出现在 Var 之外的 rtindex，例如 resultRelation 和
+ *	  连接树 relid。
  *
- * Note: this is only applied after conversion of sublinks to subplans,
- * so we don't need to cope with recursion into sub-queries.
+ * 注意：这只在子链接已转换成子计划之后应用，
+ * 因此不必应付递归进入子查询。
  *
- * Note: this is not hugely different from what pullup_replace_vars() does;
- * maybe we should try to fold the two routines together.
+ * 注意：这与 pullup_replace_vars() 所做的差别不算很大；
+ * 也许应当试试把两个例程折到一起。
  */
 Node *
 adjust_appendrel_attrs(PlannerInfo *root, Node *node, int nappinfos,
@@ -202,10 +202,10 @@ adjust_appendrel_attrs(PlannerInfo *root, Node *node, int nappinfos,
 	context.nappinfos = nappinfos;
 	context.appinfos = appinfos;
 
-	/* If there's nothing to adjust, don't call this function. */
+	/* 若没有什么要调整，不要调用本函数。 */
 	Assert(nappinfos >= 1 && appinfos != NULL);
 
-	/* Should never be translating a Query tree. */
+	/* 绝不应当翻译一棵 Query 树。 */
 	Assert(node == NULL || !IsA(node, Query));
 
 	return adjust_appendrel_attrs_mutator(node, &context);
@@ -227,28 +227,28 @@ adjust_appendrel_attrs_mutator(Node *node,
 		AppendRelInfo *appinfo = NULL;
 
 		if (var->varlevelsup != 0)
-			return (Node *) var;	/* no changes needed */
+			return (Node *) var;	/* 不需要改动 */
 
 		/*
-		 * You might think we need to adjust var->varnullingrels, but that
-		 * shouldn't need any changes.  It will contain outer-join relids,
-		 * while the transformation we are making affects only baserels.
-		 * Below, we just propagate var->varnullingrels into the translated
-		 * Var.
+		 * 你也许以为需要调整 var->varnullingrels，但那
+		 * 不应当需要任何改动。它会含有外连接 relid，
+		 * 而我们做的变换只影响基关系。
+		 * 下面我们只是把 var->varnullingrels 传播进翻译后的
+		 * Var。
 		 *
-		 * If var->varnullingrels isn't empty, and the translation wouldn't be
-		 * a Var, we have to fail.  One could imagine wrapping the translated
-		 * expression in a PlaceHolderVar, but that won't work because this is
-		 * typically used after freezing placeholders.  Fortunately, the case
-		 * appears unreachable at the moment.  We can see nonempty
-		 * var->varnullingrels here, but only in cases involving partitionwise
-		 * joining, and in such cases the translations will always be Vars.
-		 * (Non-Var translations occur only for appendrels made by flattening
-		 * UNION ALL subqueries.)  Should we need to make this work in future,
-		 * a possible fix is to mandate that prepjointree.c create PHVs for
-		 * all non-Var outputs of such subqueries, and then we could look up
-		 * the pre-existing PHV here.  Or perhaps just wrap the translations
-		 * that way to begin with?
+		 * 若 var->varnullingrels 非空，且翻译结果不会是
+		 * Var，就只好失败。可以想象把翻译后的
+		 * 表达式包进 PlaceHolderVar，但那行不通，因为这通常
+		 * 用在冻结占位符之后。幸好这个情况
+		 * 目前看来不可达。这里可以看到非空的
+		 * var->varnullingrels，但只在涉及按分区
+		 * 连接的情形，而那些情形的翻译总是 Var。
+		 * （非 Var 翻译只出现在把
+		 * UNION ALL 子查询展平而成的 appendrel。）若将来需要让这工作，
+		 * 一个可能的修法是强制 prepjointree.c 为这种子查询的
+		 * 所有非 Var 输出创建 PHVs，然后我们可以在这里查找
+		 * 预先存在的 PHV。或者一开始就把翻译
+		 * 那样包起来？
 		 */
 
 		for (cnt = 0; cnt < nappinfos; cnt++)
@@ -263,7 +263,7 @@ adjust_appendrel_attrs_mutator(Node *node,
 		if (appinfo)
 		{
 			var->varno = appinfo->child_relid;
-			/* it's now a generated Var, so drop any syntactic labeling */
+			/* 它现在是生成出来的 Var，因此丢掉任何语法标注 */
 			var->varnosyn = 0;
 			var->varattnosyn = 0;
 			if (var->varattno > 0)
@@ -287,10 +287,10 @@ adjust_appendrel_attrs_mutator(Node *node,
 			else if (var->varattno == 0)
 			{
 				/*
-				 * Whole-row Var: if we are dealing with named rowtypes, we
-				 * can use a whole-row Var for the child table plus a coercion
-				 * step to convert the tuple layout to the parent's rowtype.
-				 * Otherwise we have to generate a RowExpr.
+				 * 整行 Var：若处理的是具名行类型，可以
+				 * 对子表使用整行 Var，再加一步强制转换，
+				 * 把元组布局转换成父表的行类型。
+				 * 否则必须生成一个 RowExpr。
 				 */
 				if (OidIsValid(appinfo->child_reltype))
 				{
@@ -303,7 +303,7 @@ adjust_appendrel_attrs_mutator(Node *node,
 						r->resulttype = appinfo->parent_reltype;
 						r->convertformat = COERCE_IMPLICIT_CAST;
 						r->location = -1;
-						/* Make sure the Var node has the right type ID, too */
+						/* 也要确保 Var 节点的类型 ID 正确 */
 						var->vartype = appinfo->child_reltype;
 						return (Node *) r;
 					}
@@ -311,15 +311,15 @@ adjust_appendrel_attrs_mutator(Node *node,
 				else
 				{
 					/*
-					 * Build a RowExpr containing the translated variables.
+					 * 建立一个包含翻译后变量的 RowExpr。
 					 *
-					 * In practice var->vartype will always be RECORDOID here,
-					 * so we need to come up with some suitable column names.
-					 * We use the parent RTE's column names.
+					 * 实践中 var->vartype 在这里总是 RECORDOID，
+					 * 因此需要想出一些合适的列名。
+					 * 我们用父 RTE 的列名。
 					 *
-					 * Note: we can't get here for inheritance cases, so there
-					 * is no need to worry that translated_vars might contain
-					 * some dummy NULLs.
+					 * 注意：继承情形到不了这里，因此
+					 * 不必担心 translated_vars 可能含有
+					 * 一些哑 NULLs。
 					 */
 					RowExpr    *rowexpr;
 					List	   *fields;
@@ -341,17 +341,17 @@ adjust_appendrel_attrs_mutator(Node *node,
 					return (Node *) rowexpr;
 				}
 			}
-			/* system attributes don't need any other translation */
+			/* 系统属性不需要任何其他翻译 */
 		}
 		else if (var->varno == ROWID_VAR)
 		{
 			/*
-			 * If it's a ROWID_VAR placeholder, see if we've reached a leaf
-			 * target rel, for which we can translate the Var to a specific
-			 * instantiation.  We should never be asked to translate to a set
-			 * of relids containing more than one leaf target rel, so the
-			 * answer will be unique.  If we're still considering non-leaf
-			 * inheritance levels, return the ROWID_VAR Var as-is.
+			 * 若它是 ROWID_VAR 占位符，看是否已到达叶子
+			 * 目标关系，那样可以把该 Var 翻译成具体的
+			 * 实例。绝不应当被要求翻译成含有不止一个叶子目标关系的
+			 * relid 集合，因此
+			 * 答案是唯一的。若仍在考虑非叶子
+			 * 继承层，就把 ROWID_VAR Var 原样返回。
 			 */
 			Relids		leaf_result_relids = context->root->leaf_result_relids;
 			Index		leaf_relid = 0;
@@ -374,21 +374,21 @@ adjust_appendrel_attrs_mutator(Node *node,
 
 				if (bms_is_member(leaf_relid, ridinfo->rowidrels))
 				{
-					/* Substitute the Var given in the RowIdentityVarInfo */
+					/* 代入 RowIdentityVarInfo 中给出的 Var */
 					var = copyObject(ridinfo->rowidvar);
-					/* ... but use the correct relid */
+					/* ... 但使用正确的 relid */
 					var->varno = leaf_relid;
-					/* identity vars shouldn't have nulling rels */
+					/* 标识 var 不应当有置空关系 */
 					Assert(var->varnullingrels == NULL);
-					/* varnosyn in the RowIdentityVarInfo is probably wrong */
+					/* RowIdentityVarInfo 中的 varnosyn 多半是错的 */
 					var->varnosyn = 0;
 					var->varattnosyn = 0;
 				}
 				else
 				{
 					/*
-					 * This leaf rel can't return the desired value, so
-					 * substitute a NULL of the correct type.
+					 * 这个叶子关系不能返回所需的值，因此
+					 * 代入一个类型正确的 NULL。
 					 */
 					return (Node *) makeNullConst(var->vartype,
 												  var->vartypmod,
@@ -416,49 +416,49 @@ adjust_appendrel_attrs_mutator(Node *node,
 	}
 	if (IsA(node, PlaceHolderVar))
 	{
-		/* Copy the PlaceHolderVar node with correct mutation of subnodes */
+		/* 复制 PlaceHolderVar 节点，并正确变更子节点 */
 		PlaceHolderVar *phv;
 
 		phv = (PlaceHolderVar *) expression_tree_mutator(node,
 														 adjust_appendrel_attrs_mutator,
 														 (void *) context);
-		/* now fix PlaceHolderVar's relid sets */
+		/* 现在修正 PlaceHolderVar 的 relid 集合 */
 		if (phv->phlevelsup == 0)
 		{
 			phv->phrels = adjust_child_relids(phv->phrels,
 											  nappinfos, appinfos);
-			/* as above, we needn't touch phnullingrels */
+			/* 同上，不必碰 phnullingrels */
 		}
 		return (Node *) phv;
 	}
-	/* Shouldn't need to handle planner auxiliary nodes here */
+	/* 这里应当不必处理规划器辅助节点 */
 	Assert(!IsA(node, SpecialJoinInfo));
 	Assert(!IsA(node, AppendRelInfo));
 	Assert(!IsA(node, PlaceHolderInfo));
 	Assert(!IsA(node, MinMaxAggInfo));
 
 	/*
-	 * We have to process RestrictInfo nodes specially.  (Note: although
-	 * set_append_rel_pathlist will hide RestrictInfos in the parent's
-	 * baserestrictinfo list from us, it doesn't hide those in joininfo.)
+	 * 必须特别处理 RestrictInfo 节点。（注意：虽然
+	 * set_append_rel_pathlist 会向我们隐藏父表
+	 * baserestrictinfo 列表中的 RestrictInfos，但不会隐藏 joininfo 里的。）
 	 */
 	if (IsA(node, RestrictInfo))
 	{
 		RestrictInfo *oldinfo = (RestrictInfo *) node;
 		RestrictInfo *newinfo = makeNode(RestrictInfo);
 
-		/* Copy all flat-copiable fields, notably including rinfo_serial */
+		/* 复制所有可平铺复制的字段，尤其包括 rinfo_serial */
 		memcpy(newinfo, oldinfo, sizeof(RestrictInfo));
 
-		/* Recursively fix the clause itself */
+		/* 递归修正子句本身 */
 		newinfo->clause = (Expr *)
 			adjust_appendrel_attrs_mutator((Node *) oldinfo->clause, context);
 
-		/* and the modified version, if an OR clause */
+		/* 若是 OR 子句，也修正修改后的版本 */
 		newinfo->orclause = (Expr *)
 			adjust_appendrel_attrs_mutator((Node *) oldinfo->orclause, context);
 
-		/* adjust relid sets too */
+		/* 也调整 relid 集合 */
 		newinfo->clause_relids = adjust_child_relids(oldinfo->clause_relids,
 													 context->nappinfos,
 													 context->appinfos);
@@ -476,10 +476,10 @@ adjust_appendrel_attrs_mutator(Node *node,
 													context->appinfos);
 
 		/*
-		 * Reset cached derivative fields, since these might need to have
-		 * different values when considering the child relation.  Note we
-		 * don't reset left_ec/right_ec: each child variable is implicitly
-		 * equivalent to its parent, so still a member of the same EC if any.
+		 * 重置缓存的派生字段，因为考虑子关系时这些可能需要
+		 * 不同的值。注意我们
+		 * 不重置 left_ec/right_ec：每个子变量都隐含
+		 * 等价于其父变量，因此若有等价类，仍是同一个等价类的成员。
 		 */
 		newinfo->eval_cost.startup = -1;
 		newinfo->norm_selec = -1;
@@ -496,12 +496,12 @@ adjust_appendrel_attrs_mutator(Node *node,
 	}
 
 	/*
-	 * NOTE: we do not need to recurse into sublinks, because they should
-	 * already have been converted to subplans before we see them.
+	 * 注意：不必递归进入子链接，因为在我们看到它们之前
+	 * 它们应当已经转换成子计划。
 	 */
 	Assert(!IsA(node, SubLink));
 	Assert(!IsA(node, Query));
-	/* We should never see these Query substructures, either. */
+	/* 也不应当看到这些 Query 子结构。 */
 	Assert(!IsA(node, RangeTblRef));
 	Assert(!IsA(node, JoinExpr));
 
@@ -511,11 +511,11 @@ adjust_appendrel_attrs_mutator(Node *node,
 
 /*
  * adjust_appendrel_attrs_multilevel
- *	  Apply Var translations from an appendrel parent down to a child.
+ *	  把 Var 翻译从 appendrel 父项一直应用到子项。
  *
- * Replace Vars in the "node" expression that reference "parentrel" with
- * the appropriate Vars for "childrel".  childrel can be more than one
- * inheritance level removed from parentrel.
+ * 把 node 表达式中引用 parentrel 的 Var 替换为
+ * childrel 的适当 Var。childrel 可以比 parentrel
+ * 低不止一个继承层。
  */
 Node *
 adjust_appendrel_attrs_multilevel(PlannerInfo *root, Node *node,
@@ -525,7 +525,7 @@ adjust_appendrel_attrs_multilevel(PlannerInfo *root, Node *node,
 	AppendRelInfo **appinfos;
 	int			nappinfos;
 
-	/* Recurse if immediate parent is not the top parent. */
+	/* 若直接父项不是顶层父项，则递归。 */
 	if (childrel->parent != parentrel)
 	{
 		if (childrel->parent)
@@ -536,7 +536,7 @@ adjust_appendrel_attrs_multilevel(PlannerInfo *root, Node *node,
 			elog(ERROR, "childrel is not a child of parentrel");
 	}
 
-	/* Now translate for this child. */
+	/* 现在为这个子项做翻译。 */
 	appinfos = find_appinfos_by_relids(root, childrel->relids, &nappinfos);
 
 	node = adjust_appendrel_attrs(root, node, nappinfos, appinfos);
@@ -547,8 +547,8 @@ adjust_appendrel_attrs_multilevel(PlannerInfo *root, Node *node,
 }
 
 /*
- * Substitute child relids for parent relids in a Relid set.  The array of
- * appinfos specifies the substitutions to be performed.
+ * 在 Relid 集合中用子 relid 替换父 relid。appinfo 数组
+ * 指定要做的替换。
  */
 Relids
 adjust_child_relids(Relids relids, int nappinfos, AppendRelInfo **appinfos)
@@ -560,10 +560,10 @@ adjust_child_relids(Relids relids, int nappinfos, AppendRelInfo **appinfos)
 	{
 		AppendRelInfo *appinfo = appinfos[cnt];
 
-		/* Remove parent, add child */
+		/* 去掉父项，加入子项 */
 		if (bms_is_member(appinfo->parent_relid, relids))
 		{
-			/* Make a copy if we are changing the set. */
+			/* 若正在改变该集合，则做一份副本。 */
 			if (!result)
 				result = bms_copy(relids);
 
@@ -572,17 +572,17 @@ adjust_child_relids(Relids relids, int nappinfos, AppendRelInfo **appinfos)
 		}
 	}
 
-	/* If we made any changes, return the modified copy. */
+	/* 若做了任何改动，返回修改后的副本。 */
 	if (result)
 		return result;
 
-	/* Otherwise, return the original set without modification. */
+	/* 否则返回未修改的原集合。 */
 	return relids;
 }
 
 /*
- * Substitute child's relids for parent's relids in a Relid set.
- * The childrel can be multiple inheritance levels below the parent.
+ * 在 Relid 集合中用子项的 relid 替换父项的 relid。
+ * 子关系可以在父关系之下多个继承层。
  */
 Relids
 adjust_child_relids_multilevel(PlannerInfo *root, Relids relids,
@@ -593,13 +593,13 @@ adjust_child_relids_multilevel(PlannerInfo *root, Relids relids,
 	int			nappinfos;
 
 	/*
-	 * If the given relids set doesn't contain any of the parent relids, it
-	 * will remain unchanged.
+	 * 若给定的 relid 集合不含任何父 relid，它
+	 * 将保持不变。
 	 */
 	if (!bms_overlap(relids, parentrel->relids))
 		return relids;
 
-	/* Recurse if immediate parent is not the top parent. */
+	/* 若直接父项不是顶层父项，则递归。 */
 	if (childrel->parent != parentrel)
 	{
 		if (childrel->parent)
@@ -610,7 +610,7 @@ adjust_child_relids_multilevel(PlannerInfo *root, Relids relids,
 			elog(ERROR, "childrel is not a child of parentrel");
 	}
 
-	/* Now translate for this child. */
+	/* 现在为这个子项做翻译。 */
 	appinfos = find_appinfos_by_relids(root, childrel->relids, &nappinfos);
 
 	relids = adjust_child_relids(relids, nappinfos, appinfos);
@@ -622,7 +622,7 @@ adjust_child_relids_multilevel(PlannerInfo *root, Relids relids,
 
 /*
  * adjust_inherited_attnums
- *	  Translate an integer list of attribute numbers from parent to child.
+ *	  把属性号的整数列表从父项翻译到子项。
  */
 List *
 adjust_inherited_attnums(List *attnums, AppendRelInfo *context)
@@ -630,16 +630,16 @@ adjust_inherited_attnums(List *attnums, AppendRelInfo *context)
 	List	   *result = NIL;
 	ListCell   *lc;
 
-	/* This should only happen for an inheritance case, not UNION ALL */
+	/* 这只应发生在继承情形，而不是 UNION ALL */
 	Assert(OidIsValid(context->parent_reloid));
 
-	/* Look up each attribute in the AppendRelInfo's translated_vars list */
+	/* 在 AppendRelInfo 的 translated_vars 列表中查找每个属性 */
 	foreach(lc, attnums)
 	{
 		AttrNumber	parentattno = lfirst_int(lc);
 		Var		   *childvar;
 
-		/* Look up the translation of this column: it must be a Var */
+		/* 查找这一列的翻译：它必须是一个 Var */
 		if (parentattno <= 0 ||
 			parentattno > list_length(context->translated_vars))
 			elog(ERROR, "attribute %d of relation \"%s\" does not exist",
@@ -656,7 +656,7 @@ adjust_inherited_attnums(List *attnums, AppendRelInfo *context)
 
 /*
  * adjust_inherited_attnums_multilevel
- *	  As above, but traverse multiple inheritance levels as needed.
+ *	  同上，但按需要穿越多个继承层。
  */
 List *
 adjust_inherited_attnums_multilevel(PlannerInfo *root, List *attnums,
@@ -667,36 +667,36 @@ adjust_inherited_attnums_multilevel(PlannerInfo *root, List *attnums,
 	if (!appinfo)
 		elog(ERROR, "child rel %d not found in append_rel_array", child_relid);
 
-	/* Recurse if immediate parent is not the top parent. */
+	/* 若直接父项不是顶层父项，则递归。 */
 	if (appinfo->parent_relid != top_parent_relid)
 		attnums = adjust_inherited_attnums_multilevel(root, attnums,
 													  appinfo->parent_relid,
 													  top_parent_relid);
 
-	/* Now translate for this child */
+	/* 现在为这个子项做翻译 */
 	return adjust_inherited_attnums(attnums, appinfo);
 }
 
 /*
  * get_translated_update_targetlist
- *	  Get the processed_tlist of an UPDATE query, translated as needed to
- *	  match a child target relation.
+ *	  取得 UPDATE 查询的 processed_tlist，按需要翻译以
+ *	  匹配子目标关系。
  *
- * Optionally also return the list of target column numbers translated
- * to this target relation.  (The resnos in processed_tlist MUST NOT be
- * relied on for this purpose.)
+ * 可选地也返回翻译到该目标关系的目标列号列表。
+ * （processed_tlist 中的 resno 不得被
+ * 用来做这件事。）
  */
 void
 get_translated_update_targetlist(PlannerInfo *root, Index relid,
 								 List **processed_tlist, List **update_colnos)
 {
-	/* This is pretty meaningless for commands other than UPDATE. */
+	/* 对 UPDATE 以外的命令，这相当没有意义。 */
 	Assert(root->parse->commandType == CMD_UPDATE);
 	if (relid == root->parse->resultRelation)
 	{
 		/*
-		 * Non-inheritance case, so it's easy.  The caller might be expecting
-		 * a tree it can scribble on, though, so copy.
+		 * 非继承情形，所以很简单。不过调用者也许预期
+		 * 一棵可以就地修改的树，因此要复制。
 		 */
 		*processed_tlist = copyObject(root->processed_tlist);
 		if (update_colnos)
@@ -720,14 +720,14 @@ get_translated_update_targetlist(PlannerInfo *root, Index relid,
 
 /*
  * find_appinfos_by_relids
- * 		Find AppendRelInfo structures for base relations listed in relids.
+ * 		为 relids 中列出的基关系找出 AppendRelInfo 结构。
  *
- * The relids argument is typically a join relation's relids, which can
- * include outer-join RT indexes in addition to baserels.  We silently
- * ignore the outer joins.
+ * relids 参数通常是连接关系的 relid，除基关系外还可以
+ * 包含外连接的 RT 下标。我们默默
+ * 忽略外连接。
  *
- * The AppendRelInfos are returned in an array, which can be pfree'd by the
- * caller. *nappinfos is set to the number of entries in the array.
+ * AppendRelInfos 放在一个数组里返回，调用者可以 pfree。
+ * *nappinfos 设为数组中的项数。
  */
 AppendRelInfo **
 find_appinfos_by_relids(PlannerInfo *root, Relids relids, int *nappinfos)
@@ -736,7 +736,7 @@ find_appinfos_by_relids(PlannerInfo *root, Relids relids, int *nappinfos)
 	int			cnt = 0;
 	int			i;
 
-	/* Allocate an array that's certainly big enough */
+	/* 分配一个肯定够大的数组 */
 	appinfos = (AppendRelInfo **)
 		palloc(sizeof(AppendRelInfo *) * bms_num_members(relids));
 
@@ -747,10 +747,10 @@ find_appinfos_by_relids(PlannerInfo *root, Relids relids, int *nappinfos)
 
 		if (!appinfo)
 		{
-			/* Probably i is an OJ index, but let's check */
+			/* i 多半是外连接下标，但还是检查一下 */
 			if (find_base_rel_ignore_join(root, i) == NULL)
 				continue;
-			/* It's a base rel, but we lack an append_rel_array entry */
+			/* 它是基关系，但我们缺少 append_rel_array 项 */
 			elog(ERROR, "child rel %d not found in append_rel_array", i);
 		}
 
@@ -763,27 +763,27 @@ find_appinfos_by_relids(PlannerInfo *root, Relids relids, int *nappinfos)
 
 /*****************************************************************************
  *
- *		ROW-IDENTITY VARIABLE MANAGEMENT
+ *		IDENTITY VARIABLE MANAGEMENT（行标识变量管理）
  *
- * This code lacks a good home, perhaps.  We choose to keep it here because
- * adjust_appendrel_attrs_mutator() is its principal co-conspirator.  That
- * function does most of what is needed to expand ROWID_VAR Vars into the
- * right things.
+ * 这段代码也许缺少一个好的归属。我们选择放在这里，因为
+ * adjust_appendrel_attrs_mutator() 是它的主要同谋。那个
+ * 函数完成了把 ROWID_VAR Var 展开成
+ * 正确内容所需的大部分工作。
  *
  *****************************************************************************/
 
 /*
  * add_row_identity_var
- *	  Register a row-identity column to be used in UPDATE/DELETE/MERGE.
+ *	  登记 UPDATE/DELETE/MERGE 要用的行标识列。
  *
- * The Var must be equal(), aside from varno, to any other row-identity
- * column with the same rowid_name.  Thus, for example, "wholerow"
- * row identities had better use vartype == RECORDOID.
+ * 该 Var 除 varno 外必须与任何其他同名 rowid_name 的行标识
+ * 列 equal()。因此例如 wholerow
+ * 行标识最好用 vartype == RECORDOID。
  *
- * rtindex is currently redundant with rowid_var->varno, but we specify
- * it as a separate parameter in case this is ever generalized to support
- * non-Var expressions.  (We could reasonably handle expressions over
- * Vars of the specified rtindex, but for now that seems unnecessary.)
+ * rtindex 目前与 rowid_var->varno 冗余，但我们把它
+ * 作为单独参数指定，以防将来推广以支持
+ * 非 Var 表达式。（我们可以合理地处理指定 rtindex 的
+ * Var 上的表达式，但眼下似乎不必要。）
  */
 void
 add_row_identity_var(PlannerInfo *root, Var *orig_var,
@@ -794,16 +794,16 @@ add_row_identity_var(PlannerInfo *root, Var *orig_var,
 	RowIdentityVarInfo *ridinfo;
 	ListCell   *lc;
 
-	/* For now, the argument must be just a Var of the given rtindex */
+	/* 眼下，参数必须只是给定 rtindex 的一个 Var */
 	Assert(IsA(orig_var, Var));
 	Assert(orig_var->varno == rtindex);
 	Assert(orig_var->varlevelsup == 0);
 	Assert(orig_var->varnullingrels == NULL);
 
 	/*
-	 * If we're doing non-inherited UPDATE/DELETE/MERGE, there's little need
-	 * for ROWID_VAR shenanigans.  Just shove the presented Var into the
-	 * processed_tlist, and we're done.
+	 * 若做的是非继承的 UPDATE/DELETE/MERGE，就不大需要
+	 * ROWID_VAR 这套花样。把给出的 Var 塞进
+	 * processed_tlist，就完成了。
 	 */
 	if (rtindex == root->parse->resultRelation)
 	{
@@ -816,22 +816,22 @@ add_row_identity_var(PlannerInfo *root, Var *orig_var,
 	}
 
 	/*
-	 * Otherwise, rtindex should reference a leaf target relation that's being
-	 * added to the query during expand_inherited_rtentry().
+	 * 否则，rtindex 应当引用正在
+	 * expand_inherited_rtentry() 期间加入查询的叶子目标关系。
 	 */
 	Assert(bms_is_member(rtindex, root->leaf_result_relids));
 	Assert(root->append_rel_array[rtindex] != NULL);
 
 	/*
-	 * We have to find a matching RowIdentityVarInfo, or make one if there is
-	 * none.  To allow using equal() to match the vars, change the varno to
-	 * ROWID_VAR, leaving all else alone.
+	 * 必须找到匹配的 RowIdentityVarInfo，若没有就建一个。
+	 * 为了能用 equal() 匹配这些 var，把 varno 改成
+	 * ROWID_VAR，其余不动。
 	 */
 	rowid_var = copyObject(orig_var);
-	/* This could eventually become ChangeVarNodes() */
+	/* 这最终可能变成 ChangeVarNodes() */
 	rowid_var->varno = ROWID_VAR;
 
-	/* Look for an existing row-id column of the same name */
+	/* 查找已有的同名行标识列 */
 	foreach(lc, root->row_identity_vars)
 	{
 		ridinfo = (RowIdentityVarInfo *) lfirst(lc);
@@ -839,22 +839,22 @@ add_row_identity_var(PlannerInfo *root, Var *orig_var,
 			continue;
 		if (equal(rowid_var, ridinfo->rowidvar))
 		{
-			/* Found a match; we need only record that rtindex needs it too */
+			/* 找到匹配；只需记下这个 rtindex 也需要它 */
 			ridinfo->rowidrels = bms_add_member(ridinfo->rowidrels, rtindex);
 			return;
 		}
 		else
 		{
-			/* Ooops, can't handle this */
+			/* 哎呀，处理不了这个 */
 			elog(ERROR, "conflicting uses of row-identity name \"%s\"",
 				 rowid_name);
 		}
 	}
 
-	/* No request yet, so add a new RowIdentityVarInfo */
+	/* 还没有请求，因此添加一个新的 RowIdentityVarInfo */
 	ridinfo = makeNode(RowIdentityVarInfo);
 	ridinfo->rowidvar = copyObject(rowid_var);
-	/* for the moment, estimate width using just the datatype info */
+	/* 眼下只用数据类型信息估计宽度 */
 	ridinfo->rowidwidth = get_typavgwidth(exprType((Node *) rowid_var),
 										  exprTypmod((Node *) rowid_var));
 	ridinfo->rowidname = pstrdup(rowid_name);
@@ -862,10 +862,10 @@ add_row_identity_var(PlannerInfo *root, Var *orig_var,
 
 	root->row_identity_vars = lappend(root->row_identity_vars, ridinfo);
 
-	/* Change rowid_var into a reference to this row_identity_vars entry */
+	/* 把 rowid_var 改成对这个 row_identity_vars 项的引用 */
 	rowid_var->varattno = list_length(root->row_identity_vars);
 
-	/* Push the ROWID_VAR reference variable into processed_tlist */
+	/* 把 ROWID_VAR 引用变量推进 processed_tlist */
 	tle = makeTargetEntry((Expr *) rowid_var,
 						  list_length(root->processed_tlist) + 1,
 						  pstrdup(rowid_name),
@@ -876,9 +876,9 @@ add_row_identity_var(PlannerInfo *root, Var *orig_var,
 /*
  * add_row_identity_columns
  *
- * This function adds the row identity columns needed by the core code.
- * FDWs might call add_row_identity_var() for themselves to add nonstandard
- * columns.  (Duplicate requests are fine.)
+ * 本函数添加核心代码所需的行标识列。
+ * FDWs 可以自己调用 add_row_identity_var() 来添加非标准
+ * 列。（重复请求没问题。）
  */
 void
 add_row_identity_columns(PlannerInfo *root, Index rtindex,
@@ -897,8 +897,8 @@ add_row_identity_columns(PlannerInfo *root, Index rtindex,
 		relkind == RELKIND_PARTITIONED_TABLE)
 	{
 		/*
-		 * Emit CTID so that executor can find the row to merge, update or
-		 * delete.
+		 * 发出 CTID，以便执行器能找到要合并、更新或
+		 * 删除的行。
 		 */
 		var = makeVar(rtindex,
 					  SelfItemPointerAttributeNumber,
@@ -911,7 +911,7 @@ add_row_identity_columns(PlannerInfo *root, Index rtindex,
 	else if (relkind == RELKIND_FOREIGN_TABLE)
 	{
 		/*
-		 * Let the foreign table's FDW add whatever junk TLEs it wants.
+		 * 让外部表的 FDW 添加它想要的任何废 TLEs。
 		 */
 		FdwRoutine *fdwroutine;
 
@@ -922,17 +922,17 @@ add_row_identity_columns(PlannerInfo *root, Index rtindex,
 												target_rte, target_relation);
 
 		/*
-		 * For UPDATE, we need to make the FDW fetch unchanged columns by
-		 * asking it to fetch a whole-row Var.  That's because the top-level
-		 * targetlist only contains entries for changed columns, but
-		 * ExecUpdate will need to build the complete new tuple.  (Actually,
-		 * we only really need this in UPDATEs that are not pushed to the
-		 * remote side, but it's hard to tell if that will be the case at the
-		 * point when this function is called.)
+		 * 对于 UPDATE，我们需要让 FDW 取出未改变的列，办法是
+		 * 让它取一个整行 Var。这是因为顶层
+		 * 目标列表只含已改变列的项，但
+		 * ExecUpdate 需要构造完整的新元组。（实际上，
+		 * 我们只在没有下推到
+		 * 远端的 UPDATEs 中真正需要这个，但在
+		 * 调用本函数时很难说会不会是那种情况。）
 		 *
-		 * We will also need the whole row if there are any row triggers, so
-		 * that the executor will have the "old" row to pass to the trigger.
-		 * Alas, this misses system columns.
+		 * 若有任何行触发器，我们也需要整行，以便
+		 * 执行器有旧行可传给触发器。
+		 * 可惜这漏掉了系统列。
 		 */
 		if (commandType == CMD_UPDATE ||
 			(target_relation->trigdesc &&
@@ -953,14 +953,14 @@ add_row_identity_columns(PlannerInfo *root, Index rtindex,
 /*
  * distribute_row_identity_vars
  *
- * After we have finished identifying all the row identity columns
- * needed by an inherited UPDATE/DELETE/MERGE query, make sure that
- * these columns will be generated by all the target relations.
+ * 在识别完继承的 UPDATE/DELETE/MERGE 查询所需的全部行标识列之后，
+ * 确保
+ * 所有这些列都会由全部目标关系生成。
  *
- * This is more or less like what build_base_rel_tlists() does,
- * except that it would not understand what to do with ROWID_VAR Vars.
- * Since that function runs before inheritance relations are expanded,
- * it will never see any such Vars anyway.
+ * 这大体像 build_base_rel_tlists() 所做的，
+ * 只是它不明白对 ROWID_VAR Var 该怎么办。
+ * 因为那个函数在展开继承关系之前运行，
+ * 它反正永远看不到这种 Var。
  */
 void
 distribute_row_identity_vars(PlannerInfo *root)
@@ -972,7 +972,7 @@ distribute_row_identity_vars(PlannerInfo *root)
 	ListCell   *lc;
 
 	/*
-	 * There's nothing to do if this isn't an inherited UPDATE/DELETE/MERGE.
+	 * 若这不是继承的 UPDATE/DELETE/MERGE，就没有什么要做。
 	 */
 	if (parse->commandType != CMD_UPDATE && parse->commandType != CMD_DELETE &&
 		parse->commandType != CMD_MERGE)
@@ -988,17 +988,17 @@ distribute_row_identity_vars(PlannerInfo *root)
 	}
 
 	/*
-	 * Ordinarily, we expect that leaf result relation(s) will have added some
-	 * ROWID_VAR Vars to the query.  However, it's possible that constraint
-	 * exclusion suppressed every leaf relation.  The executor will get upset
-	 * if the plan has no row identity columns at all, even though it will
-	 * certainly process no rows.  Handle this edge case by re-opening the top
-	 * result relation and adding the row identity columns it would have used,
-	 * as preprocess_targetlist() would have done if it weren't marked "inh".
-	 * Then re-run build_base_rel_tlists() to ensure that the added columns
-	 * get propagated to the relation's reltarget.  (This is a bit ugly, but
-	 * it seems better to confine the ugliness and extra cycles to this
-	 * unusual corner case.)
+	 * 通常，我们预期叶子结果关系会给查询加上一些
+	 * ROWID_VAR Var。不过约束
+	 * 排除可能抑制了每一个叶子关系。若计划完全没有行标识列，
+	 * 执行器会不高兴，即使它
+	 * 肯定不会处理任何行。处理这个边角情况的办法是重新打开顶层
+	 * 结果关系，并添加它本来会使用的行标识列，
+	 * 就像 preprocess_targetlist() 在它没有被标成 inh 时会做的那样。
+	 * 然后重新运行 build_base_rel_tlists()，确保加上的列
+	 * 被传播到该关系的 reltarget。（这有点难看，但
+	 * 把难看和额外周期限制在这个
+	 * 不寻常的边角情况里似乎更好。）
 	 */
 	if (root->row_identity_vars == NIL)
 	{
@@ -1009,16 +1009,16 @@ distribute_row_identity_vars(PlannerInfo *root)
 								 target_rte, target_relation);
 		table_close(target_relation, NoLock);
 		build_base_rel_tlists(root, root->processed_tlist);
-		/* There are no ROWID_VAR Vars in this case, so we're done. */
+		/* 这种情况下没有 ROWID_VAR Var，因此完成了。 */
 		return;
 	}
 
 	/*
-	 * Dig through the processed_tlist to find the ROWID_VAR reference Vars,
-	 * and forcibly copy them into the reltarget list of the topmost target
-	 * relation.  That's sufficient because they'll be copied to the
-	 * individual leaf target rels (with appropriate translation) later,
-	 * during appendrel expansion --- see set_append_rel_size().
+	 * 翻查 processed_tlist，找出 ROWID_VAR 引用 Var，
+	 * 并强制把它们复制进最顶层目标
+	 * 关系的 reltarget 列表。这就够了，因为它们以后会被复制到
+	 * 各个叶子目标关系（并做适当翻译），
+	 * 那发生在 appendrel 展开期间——见 set_append_rel_size()。
 	 */
 	target_rel = find_base_rel(root, result_relation);
 
@@ -1031,7 +1031,7 @@ distribute_row_identity_vars(PlannerInfo *root)
 		{
 			target_rel->reltarget->exprs =
 				lappend(target_rel->reltarget->exprs, copyObject(var));
-			/* reltarget cost and width will be computed later */
+			/* reltarget 的代价和宽度以后再计算 */
 		}
 	}
 }

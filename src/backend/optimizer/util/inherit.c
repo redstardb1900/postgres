@@ -60,27 +60,27 @@ static void expand_appendrel_subquery(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * expand_inherited_rtentry
- *		Expand a rangetable entry that has the "inh" bit set.
+ *		展开设置了 inh 位的范围表项。
  *
- * "inh" is only allowed in two cases: RELATION and SUBQUERY RTEs.
+ * inh 只允许两种情形：RELATION 和 SUBQUERY RTEs。
  *
- * "inh" on a plain RELATION RTE means that it is a partitioned table or the
- * parent of a traditional-inheritance set.  In this case we must add entries
- * for all the interesting child tables to the query's rangetable, and build
- * additional planner data structures for them, including RelOptInfos,
- * AppendRelInfos, and possibly PlanRowMarks.
+ * 普通 RELATION RTE 上的 inh 表示它是分区表，或
+ * 传统继承集的父表。这时必须把
+ * 所有有关的子表项加进查询的范围表，并为它们建立
+ * 额外的规划器数据结构，包括 RelOptInfos、
+ * AppendRelInfos，以及可能的 PlanRowMarks。
  *
- * Note that the original RTE is considered to represent the whole inheritance
- * set.  In the case of traditional inheritance, the first of the generated
- * RTEs is an RTE for the same table, but with inh = false, to represent the
- * parent table in its role as a simple member of the inheritance set.  For
- * partitioning, we don't need a second RTE because the partitioned table
- * itself has no data and need not be scanned.
+ * 注意原来的 RTE 被认为代表整个继承
+ * 集。传统继承时，生成的第一个
+ * RTE 是同一张表的 RTE，但 inh = false，以代表
+ * 父表作为继承集普通成员的角色。对于
+ * 分区，不需要第二个 RTE，因为分区表
+ * 本身没有数据，不必扫描。
  *
- * "inh" on a SUBQUERY RTE means that it's the parent of a UNION ALL group,
- * which is treated as an appendrel similarly to inheritance cases; however,
- * we already made RTEs and AppendRelInfos for the subqueries.  We only need
- * to build RelOptInfos for them, which is done by expand_appendrel_subquery.
+ * SUBQUERY RTE 上的 inh 表示它是 UNION ALL 组的父项，
+ * 与继承情形类似，被当作 appendrel；不过
+ * 我们已经为子查询建了 RTE 和 AppendRelInfos。只需
+ * 为它们建立 RelOptInfos，这由 expand_appendrel_subquery 完成。
  */
 void
 expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
@@ -93,7 +93,7 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 	bool		old_isParent = false;
 	int			old_allMarkTypes = 0;
 
-	Assert(rte->inh);			/* else caller error */
+	Assert(rte->inh);			/* 否则是调用者错误 */
 
 	if (rte->rtekind == RTE_SUBQUERY)
 	{
@@ -106,36 +106,36 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 	parentOID = rte->relid;
 
 	/*
-	 * We used to check has_subclass() here, but there's no longer any need
-	 * to, because subquery_planner already did.
+	 * 我们以前在这里检查 has_subclass()，但不再
+	 * 需要，因为 subquery_planner 已经做过。
 	 */
 
 	/*
-	 * The rewriter should already have obtained an appropriate lock on each
-	 * relation named in the query, so we can open the parent relation without
-	 * locking it.  However, for each child relation we add to the query, we
-	 * must obtain an appropriate lock, because this will be the first use of
-	 * those relations in the parse/rewrite/plan pipeline.  Child rels should
-	 * use the same lockmode as their parent.
+	 * 重写器应当已经对查询中点名的每个
+	 * 关系取得了适当的锁，因此可以不加锁地打开父关系。
+	 * 不过，对加进查询的每个子关系，我们
+	 * 必须取得适当的锁，因为这将是这些关系在解析/重写/规划流水线中的
+	 * 第一次使用。子关系应当
+	 * 使用与父关系相同的锁模式。
 	 */
 	oldrelation = table_open(parentOID, NoLock);
 	lockmode = rte->rellockmode;
 
 	/*
-	 * If parent relation is selected FOR UPDATE/SHARE, we need to mark its
-	 * PlanRowMark as isParent = true, and generate a new PlanRowMark for each
-	 * child.
+	 * 若父关系被选为 FOR UPDATE/SHARE，需要把它的
+	 * PlanRowMark 标成 isParent = true，并为每个
+	 * 子项生成一个新的 PlanRowMark。
 	 */
 	oldrc = get_plan_rowmark(root->rowMarks, rti);
 	if (oldrc)
 	{
 		old_isParent = oldrc->isParent;
 		oldrc->isParent = true;
-		/* Save initial value of allMarkTypes before children add to it */
+		/* 在子项往里加之前，保存 allMarkTypes 的初值 */
 		old_allMarkTypes = oldrc->allMarkTypes;
 	}
 
-	/* Scan the inheritance set and expand it */
+	/* 扫描继承集并展开它 */
 	if (oldrelation->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 	{
 		RTEPermissionInfo *perminfo;
@@ -143,13 +143,13 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 		perminfo = getRTEPermissionInfo(root->parse->rteperminfos, rte);
 
 		/*
-		 * Partitioned table, so set up for partitioning.
+		 * 是分区表，因此为分区做准备。
 		 */
 		Assert(rte->relkind == RELKIND_PARTITIONED_TABLE);
 
 		/*
-		 * Recursively expand and lock the partitions.  While at it, also
-		 * extract the partition key columns of all the partitioned tables.
+		 * 递归展开并锁定各个分区。同时
+		 * 抽出所有分区表的分区键列。
 		 */
 		expand_partitioned_rtentry(root, rel, rte, rti,
 								   oldrelation,
@@ -159,33 +159,33 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 	else
 	{
 		/*
-		 * Ordinary table, so process traditional-inheritance children.  (Note
-		 * that partitioned tables are not allowed to have inheritance
-		 * children, so it's not possible for both cases to apply.)
+		 * 普通表，因此处理传统继承的子表。（注意
+		 * 分区表不允许有继承
+		 * 子表，因此两种情形不可能同时适用。）
 		 */
 		List	   *inhOIDs;
 		ListCell   *l;
 
-		/* Scan for all members of inheritance set, acquire needed locks */
+		/* 扫描继承集的全部成员，取得所需的锁 */
 		inhOIDs = find_all_inheritors(parentOID, lockmode, NULL);
 
 		/*
-		 * We used to special-case the situation where the table no longer has
-		 * any children, by clearing rte->inh and exiting.  That no longer
-		 * works, because this function doesn't get run until after decisions
-		 * have been made that depend on rte->inh.  We have to treat such
-		 * situations as normal inheritance.  The table itself should always
-		 * have been found, though.
+		 * 我们以前对表不再有
+		 * 任何子表的情况做特殊处理：清除 rte->inh 并退出。那不再
+		 * 可行，因为本函数要到依赖 rte->inh 的决定
+		 * 已经做出之后才运行。我们必须把这类
+		 * 情况当作正常继承。不过表本身应当总是
+		 * 已经被找到。
 		 */
 		Assert(inhOIDs != NIL);
 		Assert(linitial_oid(inhOIDs) == parentOID);
 
-		/* Expand simple_rel_array and friends to hold child objects. */
+		/* 扩大 simple_rel_array 及其相关结构以容纳子对象。 */
 		expand_planner_arrays(root, list_length(inhOIDs));
 
 		/*
-		 * Expand inheritance children in the order the OIDs were returned by
-		 * find_all_inheritors.
+		 * 按 find_all_inheritors 返回 OIDs 的顺序
+		 * 展开继承子表。
 		 */
 		foreach(l, inhOIDs)
 		{
@@ -194,17 +194,17 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 			RangeTblEntry *childrte;
 			Index		childRTindex;
 
-			/* Open rel if needed; we already have required locks */
+			/* 若需要则打开关系；所需的锁已经有了 */
 			if (childOID != parentOID)
 				newrelation = table_open(childOID, NoLock);
 			else
 				newrelation = oldrelation;
 
 			/*
-			 * It is possible that the parent table has children that are temp
-			 * tables of other backends.  We cannot safely access such tables
-			 * (because of buffering issues), and the best thing to do seems
-			 * to be to silently ignore them.
+			 * 父表可能有属于其他后端的临时
+			 * 子表。我们无法安全访问这种表
+			 * （因为缓冲问题），最好的办法
+			 * 似乎是默默忽略它们。
 			 */
 			if (childOID != parentOID && RELATION_IS_OTHER_TEMP(newrelation))
 			{
@@ -212,30 +212,30 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 				continue;
 			}
 
-			/* Create RTE and AppendRelInfo, plus PlanRowMark if needed. */
+			/* 创建 RTE 和 AppendRelInfo，若需要再加 PlanRowMark。 */
 			expand_single_inheritance_child(root, rte, rti, oldrelation,
 											oldrc, newrelation,
 											&childrte, &childRTindex);
 
-			/* Create the otherrel RelOptInfo too. */
+			/* 也创建 otherrel 的 RelOptInfo。 */
 			(void) build_simple_rel(root, childRTindex, rel);
 
-			/* Close child relations, but keep locks */
+			/* 关闭子关系，但保留锁 */
 			if (childOID != parentOID)
 				table_close(newrelation, NoLock);
 		}
 	}
 
 	/*
-	 * Some children might require different mark types, which would've been
-	 * reported into oldrc.  If so, add relevant entries to the top-level
-	 * targetlist and update parent rel's reltarget.  This should match what
-	 * preprocess_targetlist() would have added if the mark types had been
-	 * requested originally.
+	 * 有些子表可能需要不同的标记类型，那会已经
+	 * 报告进 oldrc。若如此，把相关项加到顶层
+	 * 目标列表并更新父关系的 reltarget。这应当与
+	 * preprocess_targetlist() 在这些标记类型
+	 * 一开始就被请求时会添加的内容一致。
 	 *
-	 * (Someday it might be useful to fold these resjunk columns into the
-	 * row-identity-column management used for UPDATE/DELETE.  Today is not
-	 * that day, however.)
+	 * （将来也许有用的是把这些 resjunk 列并入
+	 * 用于 UPDATE/DELETE 的行标识列管理。今天还
+	 * 不是那天。）
 	 */
 	if (oldrc)
 	{
@@ -245,11 +245,11 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 		char		resname[32];
 		List	   *newvars = NIL;
 
-		/* Add TID junk Var if needed, unless we had it already */
+		/* 若需要则添加 TID 废 Var，除非已经有了 */
 		if (new_allMarkTypes & ~(1 << ROW_MARK_COPY) &&
 			!(old_allMarkTypes & ~(1 << ROW_MARK_COPY)))
 		{
-			/* Need to fetch TID */
+			/* 需要取出 TID */
 			var = makeVar(oldrc->rti,
 						  SelfItemPointerAttributeNumber,
 						  TIDOID,
@@ -265,7 +265,7 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 			newvars = lappend(newvars, var);
 		}
 
-		/* Add whole-row junk Var if needed, unless we had it already */
+		/* 若需要则添加整行废 Var，除非已经有了 */
 		if ((new_allMarkTypes & (1 << ROW_MARK_COPY)) &&
 			!(old_allMarkTypes & (1 << ROW_MARK_COPY)))
 		{
@@ -282,7 +282,7 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 			newvars = lappend(newvars, var);
 		}
 
-		/* Add tableoid junk Var, unless we had it already */
+		/* 添加 tableoid 废 Var，除非已经有了 */
 		if (!old_isParent)
 		{
 			var = makeVar(oldrc->rti,
@@ -301,8 +301,8 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 		}
 
 		/*
-		 * Add the newly added Vars to parent's reltarget.  We needn't worry
-		 * about the children's reltargets, they'll be made later.
+		 * 把新加的 Var 加到父关系的 reltarget。不必担心
+		 * 子关系的 reltarget，它们以后会建立。
 		 */
 		add_vars_to_targetlist(root, newvars, bms_make_singleton(0));
 	}
@@ -312,7 +312,7 @@ expand_inherited_rtentry(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * expand_partitioned_rtentry
- *		Recursively expand an RTE for a partitioned table.
+ *		递归展开分区表的 RTE。
  */
 static void
 expand_partitioned_rtentry(PlannerInfo *root, RelOptInfo *relinfo,
@@ -332,49 +332,49 @@ expand_partitioned_rtentry(PlannerInfo *root, RelOptInfo *relinfo,
 	partdesc = PartitionDirectoryLookup(root->glob->partition_directory,
 										parentrel);
 
-	/* A partitioned table should always have a partition descriptor. */
+	/* 分区表应当总有分区描述符。 */
 	Assert(partdesc);
 
 	/*
-	 * Note down whether any partition key cols are being updated. Though it's
-	 * the root partitioned table's updatedCols we are interested in,
-	 * parent_updatedCols provided by the caller contains the root partrel's
-	 * updatedCols translated to match the attribute ordering of parentrel.
+	 * 记下是否有分区键列正在被更新。虽然我们关心的是
+	 * 根分区表的 updatedCols，
+	 * 调用者提供的 parent_updatedCols 含有根 partrel 的
+	 * updatedCols，已翻译成与 parentrel 的属性顺序一致。
 	 */
 	if (!root->partColsUpdated)
 		root->partColsUpdated =
 			has_partition_attrs(parentrel, parent_updatedCols, NULL);
 
-	/* Nothing further to do here if there are no partitions. */
+	/* 若没有分区，这里没有进一步的事。 */
 	if (partdesc->nparts == 0)
 		return;
 
 	/*
-	 * Perform partition pruning using restriction clauses assigned to parent
-	 * relation.  live_parts will contain PartitionDesc indexes of partitions
-	 * that survive pruning.  Below, we will initialize child objects for the
-	 * surviving partitions.
+	 * 用赋给父关系的限制子句做分区裁剪。
+	 * live_parts 将含有经裁剪仍保留的分区在 PartitionDesc 中的下标。
+	 * 下面我们将为
+	 * 保留下来的分区初始化子对象。
 	 */
 	relinfo->live_parts = prune_append_rel_partitions(relinfo);
 
-	/* Expand simple_rel_array and friends to hold child objects. */
+	/* 扩大 simple_rel_array 及其相关结构以容纳子对象。 */
 	num_live_parts = bms_num_members(relinfo->live_parts);
 	if (num_live_parts > 0)
 		expand_planner_arrays(root, num_live_parts);
 
 	/*
-	 * We also store partition RelOptInfo pointers in the parent relation.
-	 * Since we're palloc0'ing, slots corresponding to pruned partitions will
-	 * contain NULL.
+	 * 我们也把分区的 RelOptInfo 指针存在父关系里。
+	 * 因为我们用 palloc0，被裁掉的分区对应的槽
+	 * 将含有 NULL。
 	 */
 	Assert(relinfo->part_rels == NULL);
 	relinfo->part_rels = (RelOptInfo **)
 		palloc0(relinfo->nparts * sizeof(RelOptInfo *));
 
 	/*
-	 * Create a child RTE for each live partition.  Note that unlike
-	 * traditional inheritance, we don't need a child RTE for the partitioned
-	 * table itself, because it's not going to be scanned.
+	 * 为每个仍然存活的分区创建一个子 RTE。注意与
+	 * 传统继承不同，分区表本身不需要子 RTE，
+	 * 因为它不会被扫描。
 	 */
 	i = -1;
 	while ((i = bms_next_member(relinfo->live_parts, i)) >= 0)
@@ -386,9 +386,9 @@ expand_partitioned_rtentry(PlannerInfo *root, RelOptInfo *relinfo,
 		RelOptInfo *childrelinfo;
 
 		/*
-		 * Open rel, acquiring required locks.  If a partition was recently
-		 * detached and subsequently dropped, then opening it will fail.  In
-		 * this case, behave as though the partition had been pruned.
+		 * 打开关系并取得所需的锁。若某个分区最近
+		 * 被分离并随后被删除，打开它会失败。在
+		 * 这种情况下，表现得好像该分区已被裁掉。
 		 */
 		childrel = try_table_open(childOID, lockmode);
 		if (childrel == NULL)
@@ -398,25 +398,25 @@ expand_partitioned_rtentry(PlannerInfo *root, RelOptInfo *relinfo,
 		}
 
 		/*
-		 * Temporary partitions belonging to other sessions should have been
-		 * disallowed at definition, but for paranoia's sake, let's double
-		 * check.
+		 * 属于其他会话的临时分区在定义时就应当被
+		 * 禁止，但为保险起见，再
+		 * 检查一次。
 		 */
 		if (RELATION_IS_OTHER_TEMP(childrel))
 			elog(ERROR, "temporary relation from another session found as partition");
 
-		/* Create RTE and AppendRelInfo, plus PlanRowMark if needed. */
+		/* 创建 RTE 和 AppendRelInfo，若需要再加 PlanRowMark。 */
 		expand_single_inheritance_child(root, parentrte, parentRTindex,
 										parentrel, top_parentrc, childrel,
 										&childrte, &childRTindex);
 
-		/* Create the otherrel RelOptInfo too. */
+		/* 也创建 otherrel 的 RelOptInfo。 */
 		childrelinfo = build_simple_rel(root, childRTindex, relinfo);
 		relinfo->part_rels[i] = childrelinfo;
 		relinfo->all_partrels = bms_add_members(relinfo->all_partrels,
 												childrelinfo->relids);
 
-		/* If this child is itself partitioned, recurse */
+		/* 若这个子项自身也是分区的，则递归 */
 		if (childrel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		{
 			AppendRelInfo *appinfo = root->append_rel_array[childRTindex];
@@ -432,30 +432,30 @@ expand_partitioned_rtentry(PlannerInfo *root, RelOptInfo *relinfo,
 									   top_parentrc, lockmode);
 		}
 
-		/* Close child relation, but keep locks */
+		/* 关闭子关系，但保留锁 */
 		table_close(childrel, NoLock);
 	}
 }
 
 /*
  * expand_single_inheritance_child
- *		Build a RangeTblEntry and an AppendRelInfo, plus maybe a PlanRowMark.
+ *		建立一个 RangeTblEntry 和一个 AppendRelInfo，也许再加一个 PlanRowMark。
  *
- * We now expand the partition hierarchy level by level, creating a
- * corresponding hierarchy of AppendRelInfos and RelOptInfos, where each
- * partitioned descendant acts as a parent of its immediate partitions.
- * (This is a difference from what older versions of PostgreSQL did and what
- * is still done in the case of table inheritance for unpartitioned tables,
- * where the hierarchy is flattened during RTE expansion.)
+ * 我们现在一层一层地展开分区层次，建立
+ * 对应的 AppendRelInfos 和 RelOptInfos 层次，其中每个
+ * 分区后代充当其直接分区的父项。
+ * （这与较旧版本的 PostgreSQL 所做的不同，也与
+ * 未分区表的表继承仍然采用的做法不同，
+ * 那种情况下层次在 RTE 展开时被展平。）
  *
- * PlanRowMarks still carry the top-parent's RTI, and the top-parent's
- * allMarkTypes field still accumulates values from all descendents.
+ * PlanRowMarks 仍然携带顶层父项的 RTI，顶层父项的
+ * allMarkTypes 字段仍然累积所有后代的值。
  *
- * "parentrte" and "parentRTindex" are immediate parent's RTE and
- * RTI. "top_parentrc" is top parent's PlanRowMark.
+ * parentrte 和 parentRTindex 是直接父项的 RTE 和
+ * RTI。top_parentrc 是顶层父项的 PlanRowMark。
  *
- * The child RangeTblEntry and its RTI are returned in "childrte_p" and
- * "childRTindex_p" resp.
+ * 子 RangeTblEntry 及其 RTI 分别返回在 childrte_p 和
+ * childRTindex_p 中。
  */
 static void
 expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
@@ -476,24 +476,24 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 	List	   *child_colnames;
 
 	/*
-	 * Build an RTE for the child, and attach to query's rangetable list. We
-	 * copy most scalar fields of the parent's RTE, but replace relation OID,
-	 * relkind, and inh for the child.  Set the child's securityQuals to
-	 * empty, because we only want to apply the parent's RLS conditions
-	 * regardless of what RLS properties individual children may have. (This
-	 * is an intentional choice to make inherited RLS work like regular
-	 * permissions checks.) The parent securityQuals will be propagated to
-	 * children along with other base restriction clauses, so we don't need to
-	 * do it here.  Other infrastructure of the parent RTE has to be
-	 * translated to match the child table's column ordering, which we do
-	 * below, so a "flat" copy is sufficient to start with.
+	 * 为子项建立一个 RTE，并挂到查询的范围表列表。我们
+	 * 复制父 RTE 的大部分标量成员，但替换子项的关系 OID、
+	 * relkind 和 inh。把子项的 securityQuals 设为
+	 * 空，因为我们只想应用父项的 RLS 条件，
+	 * 不论各个子项自己有什么 RLS 属性。（这
+	 * 是有意的选择，使继承的 RLS 像常规
+	 * 权限检查那样工作。）父项的 securityQuals 会连同其他基限制子句
+	 * 一起传播到子项，因此这里不必
+	 * 做这件事。父 RTE 的其他基础设施必须
+	 * 翻译成与子表列顺序一致，这在
+	 * 下面做，因此一开始做一份平铺副本就够了。
 	 */
 	childrte = makeNode(RangeTblEntry);
 	memcpy(childrte, parentrte, sizeof(RangeTblEntry));
-	Assert(parentrte->rtekind == RTE_RELATION); /* else this is dubious */
+	Assert(parentrte->rtekind == RTE_RELATION); /* 否则这值得怀疑 */
 	childrte->relid = childOID;
 	childrte->relkind = childrel->rd_rel->relkind;
-	/* A partitioned child will need to be expanded further. */
+	/* 分区的子项还需要进一步展开。 */
 	if (childrte->relkind == RELKIND_PARTITIONED_TABLE)
 	{
 		Assert(childOID != parentOID);
@@ -503,32 +503,32 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 		childrte->inh = false;
 	childrte->securityQuals = NIL;
 
-	/* No permission checking for child RTEs. */
+	/* 对子 RTEs 不做权限检查。 */
 	childrte->perminfoindex = 0;
 
-	/* Link not-yet-fully-filled child RTE into data structures */
+	/* 把尚未完全填好的子 RTE 链进数据结构 */
 	parse->rtable = lappend(parse->rtable, childrte);
 	childRTindex = list_length(parse->rtable);
 	*childrte_p = childrte;
 	*childRTindex_p = childRTindex;
 
 	/*
-	 * Build an AppendRelInfo struct for each parent/child pair.
+	 * 为每一对父子建立一个 AppendRelInfo 结构。
 	 */
 	appinfo = make_append_rel_info(parentrel, childrel,
 								   parentRTindex, childRTindex);
 	root->append_rel_list = lappend(root->append_rel_list, appinfo);
 
-	/* tablesample is probably null, but copy it */
+	/* tablesample 多半是空的，但还是复制它 */
 	childrte->tablesample = copyObject(parentrte->tablesample);
 
 	/*
-	 * Construct an alias clause for the child, which we can also use as eref.
-	 * This is important so that EXPLAIN will print the right column aliases
-	 * for child-table columns.  (Since ruleutils.c doesn't have any easy way
-	 * to reassociate parent and child columns, we must get the child column
-	 * aliases right to start with.  Note that setting childrte->alias forces
-	 * ruleutils.c to use these column names, which it otherwise would not.)
+	 * 为子项构造一个别名子句，也可以当作 eref 用。
+	 * 这很重要，这样 EXPLAIN 会为子表列打印正确的列别名。
+	 * （因为 ruleutils.c 没有简便办法
+	 * 把父列和子列重新关联起来，我们必须一开始就把子列
+	 * 别名弄对。注意设置 childrte->alias 会迫使
+	 * ruleutils.c 使用这些列名，否则它不会用。）
 	 */
 	child_tupdesc = RelationGetDescr(childrel);
 	parent_colnames = parentrte->eref->colnames;
@@ -540,35 +540,35 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 
 		if (att->attisdropped)
 		{
-			/* Always insert an empty string for a dropped column */
+			/* 对已删除的列总是插入空字符串 */
 			attname = "";
 		}
 		else if (appinfo->parent_colnos[cattno] > 0 &&
 				 appinfo->parent_colnos[cattno] <= list_length(parent_colnames))
 		{
-			/* Duplicate the query-assigned name for the parent column */
+			/* 复制查询赋给父列的名字 */
 			attname = strVal(list_nth(parent_colnames,
 									  appinfo->parent_colnos[cattno] - 1));
 		}
 		else
 		{
-			/* New column, just use its real name */
+			/* 新列，就用它的真名 */
 			attname = NameStr(att->attname);
 		}
 		child_colnames = lappend(child_colnames, makeString(pstrdup(attname)));
 	}
 
 	/*
-	 * We just duplicate the parent's table alias name for each child.  If the
-	 * plan gets printed, ruleutils.c has to sort out unique table aliases to
-	 * use, which it can handle.
+	 * 我们只是为每个子项复制父表的表别名。若
+	 * 计划被打印，ruleutils.c 必须理出要使用的唯一表别名，
+	 * 它能处理。
 	 */
 	childrte->alias = childrte->eref = makeAlias(parentrte->eref->aliasname,
 												 child_colnames);
 
 	/*
-	 * Store the RTE and appinfo in the respective PlannerInfo arrays, which
-	 * the caller must already have allocated space for.
+	 * 把 RTE 和 appinfo 存进各自的 PlannerInfo 数组，
+	 * 调用者必须已经为它们分配了空间。
 	 */
 	Assert(childRTindex < root->simple_rel_array_size);
 	Assert(root->simple_rte_array[childRTindex] == NULL);
@@ -577,7 +577,7 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 	root->append_rel_array[childRTindex] = appinfo;
 
 	/*
-	 * Build a PlanRowMark if parent is marked FOR UPDATE/SHARE.
+	 * 若父项被标为 FOR UPDATE/SHARE，则建立一个 PlanRowMark。
 	 */
 	if (top_parentrc)
 	{
@@ -586,7 +586,7 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 		childrc->rti = childRTindex;
 		childrc->prti = top_parentrc->rti;
 		childrc->rowmarkId = top_parentrc->rowmarkId;
-		/* Reselect rowmark type, because relkind might not match parent */
+		/* 重新选择行标记类型，因为 relkind 可能与父项不匹配 */
 		childrc->markType = select_rowmark_type(childrte,
 												top_parentrc->strength);
 		childrc->allMarkTypes = (1 << childrc->markType);
@@ -594,31 +594,31 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 		childrc->waitPolicy = top_parentrc->waitPolicy;
 
 		/*
-		 * We mark RowMarks for partitioned child tables as parent RowMarks so
-		 * that the executor ignores them (except their existence means that
-		 * the child tables will be locked using the appropriate mode).
+		 * 我们把分区子表的 RowMarks 标成父 RowMarks，这样
+		 * 执行器会忽略它们（只是它们的存在意味着
+		 * 子表会用适当的模式被锁定）。
 		 */
 		childrc->isParent = (childrte->relkind == RELKIND_PARTITIONED_TABLE);
 
-		/* Include child's rowmark type in top parent's allMarkTypes */
+		/* 把子项的行标记类型纳入顶层父项的 allMarkTypes */
 		top_parentrc->allMarkTypes |= childrc->allMarkTypes;
 
 		root->rowMarks = lappend(root->rowMarks, childrc);
 	}
 
 	/*
-	 * If we are creating a child of the query target relation (only possible
-	 * in UPDATE/DELETE/MERGE), add it to all_result_relids, as well as
-	 * leaf_result_relids if appropriate, and make sure that we generate
-	 * required row-identity data.
+	 * 若正在创建查询目标关系的子项（只可能
+	 * 在 UPDATE/DELETE/MERGE 中），把它加入 all_result_relids，并在
+	 * 适当时加入 leaf_result_relids，并确保我们生成
+	 * 所需的行标识数据。
 	 */
 	if (bms_is_member(parentRTindex, root->all_result_relids))
 	{
-		/* OK, record the child as a result rel too. */
+		/* 好，也把这个子项登记为结果关系。 */
 		root->all_result_relids = bms_add_member(root->all_result_relids,
 												 childRTindex);
 
-		/* Non-leaf partitions don't need any row identity info. */
+		/* 非叶子分区不需要任何行标识信息。 */
 		if (childrte->relkind != RELKIND_PARTITIONED_TABLE)
 		{
 			Var		   *rrvar;
@@ -627,10 +627,10 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 													  childRTindex);
 
 			/*
-			 * If we have any child target relations, assume they all need to
-			 * generate a junk "tableoid" column.  (If only one child survives
-			 * pruning, we wouldn't really need this, but it's not worth
-			 * thrashing about to avoid it.)
+			 * 若有任何子目标关系，假定它们都需要
+			 * 生成一个废 tableoid 列。（若裁剪后只剩一个子项，
+			 * 其实不需要这个，但不值得
+			 * 为避开它折腾。）
 			 */
 			rrvar = makeVar(childRTindex,
 							TableOidAttributeNumber,
@@ -640,7 +640,7 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 							0);
 			add_row_identity_var(root, rrvar, childRTindex, "tableoid");
 
-			/* Register any row-identity columns needed by this child. */
+			/* 登记这个子项所需的任何行标识列。 */
 			add_row_identity_columns(root, childRTindex,
 									 childrte, childrel);
 		}
@@ -649,8 +649,8 @@ expand_single_inheritance_child(PlannerInfo *root, RangeTblEntry *parentrte,
 
 /*
  * get_rel_all_updated_cols
- * 		Returns the set of columns of a given "simple" relation that are
- * 		updated by this query.
+ * 		返回给定简单关系中被本查询
+ * 		更新的列集合。
  */
 Bitmapset *
 get_rel_all_updated_cols(PlannerInfo *root, RelOptInfo *rel)
@@ -665,9 +665,9 @@ get_rel_all_updated_cols(PlannerInfo *root, RelOptInfo *rel)
 	Assert(IS_SIMPLE_REL(rel));
 
 	/*
-	 * We obtain updatedCols for the query's result relation.  Then, if
-	 * necessary, we map it to the column numbers of the relation for which
-	 * they were requested.
+	 * 我们取得查询结果关系的 updatedCols。然后若
+	 * 有必要，把它映射到被请求的那个关系的列号。
+	 * 按此映射。
 	 */
 	relid = root->parse->resultRelation;
 	rte = planner_rt_fetch(relid, root);
@@ -686,8 +686,8 @@ get_rel_all_updated_cols(PlannerInfo *root, RelOptInfo *rel)
 	}
 
 	/*
-	 * Now we must check to see if there are any generated columns that depend
-	 * on the updatedCols, and add them to the result.
+	 * 现在必须检查是否有任何依赖于
+	 * updatedCols 的生成列，并把它们加入结果。
 	 */
 	extraUpdatedCols = get_dependent_generated_columns(root, rel->relid,
 													   updatedCols);
@@ -697,14 +697,14 @@ get_rel_all_updated_cols(PlannerInfo *root, RelOptInfo *rel)
 
 /*
  * translate_col_privs
- *	  Translate a bitmapset representing per-column privileges from the
- *	  parent rel's attribute numbering to the child's.
+ *	  把表示按列权限的位图集从
+ *	  父关系的属性编号翻译到子关系。
  *
- * The only surprise here is that we don't translate a parent whole-row
- * reference into a child whole-row reference.  That would mean requiring
- * permissions on all child columns, which is overly strict, since the
- * query is really only going to reference the inherited columns.  Instead
- * we set the per-column bits for all inherited columns.
+ * 这里唯一令人意外的是，我们不把父项的整行
+ * 引用翻译成子项的整行引用。那将意味着需要
+ * 对所有子列的权限，过于严格，因为
+ * 查询实际上只会引用继承来的列。我们改为
+ * 为所有继承来的列设置按列的位。
  */
 static Bitmapset *
 translate_col_privs(const Bitmapset *parent_privs,
@@ -715,7 +715,7 @@ translate_col_privs(const Bitmapset *parent_privs,
 	int			attno;
 	ListCell   *lc;
 
-	/* System attributes have the same numbers in all tables */
+	/* 系统属性在所有表中编号相同 */
 	for (attno = FirstLowInvalidHeapAttributeNumber + 1; attno < 0; attno++)
 	{
 		if (bms_is_member(attno - FirstLowInvalidHeapAttributeNumber,
@@ -724,18 +724,18 @@ translate_col_privs(const Bitmapset *parent_privs,
 										 attno - FirstLowInvalidHeapAttributeNumber);
 	}
 
-	/* Check if parent has whole-row reference */
+	/* 检查父项是否有整行引用 */
 	whole_row = bms_is_member(InvalidAttrNumber - FirstLowInvalidHeapAttributeNumber,
 							  parent_privs);
 
-	/* And now translate the regular user attributes, using the vars list */
+	/* 然后用 vars 列表翻译普通用户属性 */
 	attno = InvalidAttrNumber;
 	foreach(lc, translated_vars)
 	{
 		Var		   *var = lfirst_node(Var, lc);
 
 		attno++;
-		if (var == NULL)		/* ignore dropped columns */
+		if (var == NULL)		/* 忽略已删除的列 */
 			continue;
 		if (whole_row ||
 			bms_is_member(attno - FirstLowInvalidHeapAttributeNumber,
@@ -749,12 +749,12 @@ translate_col_privs(const Bitmapset *parent_privs,
 
 /*
  * translate_col_privs_multilevel
- *		Recursively translates the column numbers contained in 'parent_cols'
- *		to the column numbers of a descendant relation given by 'rel'
+ *		把 parent_cols 中包含的列号递归翻译
+ *		成由 rel 给出的后代关系的列号
  *
- * Note that because this is based on translate_col_privs, it will expand
- * a whole-row reference into all inherited columns.  This is not an issue
- * for current usages, but beware.
+ * 注意因为这基于 translate_col_privs，它会把
+ * 整行引用展开成所有继承来的列。对当前的用法这不是问题，
+ * 但要当心。
  */
 static Bitmapset *
 translate_col_privs_multilevel(PlannerInfo *root, RelOptInfo *rel,
@@ -763,11 +763,11 @@ translate_col_privs_multilevel(PlannerInfo *root, RelOptInfo *rel,
 {
 	AppendRelInfo *appinfo;
 
-	/* Fast path for easy case. */
+	/* 简单情形的快速路径。 */
 	if (parent_cols == NULL)
 		return NULL;
 
-	/* Recurse if immediate parent is not the top parent. */
+	/* 若直接父项不是顶层父项，则递归。 */
 	if (rel->parent != parent_rel)
 	{
 		if (rel->parent)
@@ -778,7 +778,7 @@ translate_col_privs_multilevel(PlannerInfo *root, RelOptInfo *rel,
 			elog(ERROR, "rel with relid %u is not a child rel", rel->relid);
 	}
 
-	/* Now translate for this child. */
+	/* 现在为这个子项做翻译。 */
 	Assert(root->append_rel_array != NULL);
 	appinfo = root->append_rel_array[rel->relid];
 	Assert(appinfo != NULL);
@@ -788,12 +788,12 @@ translate_col_privs_multilevel(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * expand_appendrel_subquery
- *		Add "other rel" RelOptInfos for the children of an appendrel baserel
+ *		为 appendrel 基关系的子项添加 other rel 的 RelOptInfos
  *
- * "rel" is a subquery relation that has the rte->inh flag set, meaning it
- * is a UNION ALL subquery that's been flattened into an appendrel, with
- * child subqueries listed in root->append_rel_list.  We need to build
- * a RelOptInfo for each child relation so that we can plan scans on them.
+ * rel 是设置了 rte->inh 标志的子查询关系，表示它
+ * 是已被展平成 appendrel 的 UNION ALL 子查询，
+ * 子查询列在 root->append_rel_list 中。我们需要为
+ * 每个子关系建立一个 RelOptInfo，以便规划对它们的扫描。
  */
 static void
 expand_appendrel_subquery(PlannerInfo *root, RelOptInfo *rel,
@@ -808,19 +808,19 @@ expand_appendrel_subquery(PlannerInfo *root, RelOptInfo *rel,
 		RangeTblEntry *childrte;
 		RelOptInfo *childrel;
 
-		/* append_rel_list contains all append rels; ignore others */
+		/* append_rel_list 含有全部 append 关系；忽略其他的 */
 		if (appinfo->parent_relid != rti)
 			continue;
 
-		/* find the child RTE, which should already exist */
+		/* 找到应当已经存在的子 RTE */
 		Assert(childRTindex < root->simple_rel_array_size);
 		childrte = root->simple_rte_array[childRTindex];
 		Assert(childrte != NULL);
 
-		/* Build the child RelOptInfo. */
+		/* 建立子 RelOptInfo。 */
 		childrel = build_simple_rel(root, childRTindex, rel);
 
-		/* Child may itself be an inherited rel, either table or subquery. */
+		/* 子项自身也可能是继承关系，表或子查询皆可。 */
 		if (childrte->inh)
 			expand_inherited_rtentry(root, childrel, childrte, childRTindex);
 	}
@@ -829,12 +829,12 @@ expand_appendrel_subquery(PlannerInfo *root, RelOptInfo *rel,
 
 /*
  * apply_child_basequals
- *		Populate childrel's base restriction quals from parent rel's quals,
- *		translating them using appinfo.
+ *		用父关系的限定条件填充子关系的基限制限定条件，
+ *		并用 appinfo 翻译它们。
  *
- * If any of the resulting clauses evaluate to constant false or NULL, we
- * return false and don't apply any quals.  Caller should mark the relation as
- * a dummy rel in this case, since it doesn't need to be scanned.
+ * 若任何结果子句求值为常量假或 NULL，我们
+ * 返回假并且不应用任何限定条件。调用者这时应把该关系标成
+ * 哑关系，因为它不需要被扫描。
  */
 bool
 apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
@@ -846,12 +846,12 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
 	ListCell   *lc;
 
 	/*
-	 * The child rel's targetlist might contain non-Var expressions, which
-	 * means that substitution into the quals could produce opportunities for
-	 * const-simplification, and perhaps even pseudoconstant quals. Therefore,
-	 * transform each RestrictInfo separately to see if it reduces to a
-	 * constant or pseudoconstant.  (We must process them separately to keep
-	 * track of the security level of each qual.)
+	 * 子关系的目标列表可能含有非 Var 表达式，这
+	 * 意味着代入限定条件后可能出现常量简化的机会，
+	 * 甚至伪常量限定条件。因此，
+	 * 分别变换每个 RestrictInfo，看它是否归约为
+	 * 常量或伪常量。（必须分别处理，以
+	 * 跟踪每条限定条件的安全级别。）
 	 */
 	childquals = NIL;
 	cq_min_security = UINT_MAX;
@@ -866,34 +866,34 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
 										   (Node *) rinfo->clause,
 										   1, &appinfo);
 		childqual = eval_const_expressions(root, childqual);
-		/* check for flat-out constant */
+		/* 检查是否为彻头彻尾的常量 */
 		if (childqual && IsA(childqual, Const))
 		{
 			if (((Const *) childqual)->constisnull ||
 				!DatumGetBool(((Const *) childqual)->constvalue))
 			{
-				/* Restriction reduces to constant FALSE or NULL */
+				/* 限制归约为常量 FALSE 或 NULL */
 				return false;
 			}
-			/* Restriction reduces to constant TRUE, so drop it */
+			/* 限制归约为常量 TRUE，因此丢掉它 */
 			continue;
 		}
-		/* might have gotten an AND clause, if so flatten it */
+		/* 也许得到了一个 AND 子句，若是则展平它 */
 		foreach(lc2, make_ands_implicit((Expr *) childqual))
 		{
 			Node	   *onecq = (Node *) lfirst(lc2);
 			bool		pseudoconstant;
 
-			/* check for pseudoconstant (no Vars or volatile functions) */
+			/* 检查是否为伪常量（没有 Var 或易变函数） */
 			pseudoconstant =
 				!contain_vars_of_level(onecq, 0) &&
 				!contain_volatile_functions(onecq);
 			if (pseudoconstant)
 			{
-				/* tell createplan.c to check for gating quals */
+				/* 告诉 createplan.c 检查门控限定条件 */
 				root->hasPseudoConstantQuals = true;
 			}
-			/* reconstitute RestrictInfo with appropriate properties */
+			/* 用适当的属性重新组成 RestrictInfo */
 			childquals = lappend(childquals,
 								 make_restrictinfo(root,
 												   (Expr *) onecq,
@@ -903,21 +903,21 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
 												   pseudoconstant,
 												   rinfo->security_level,
 												   NULL, NULL, NULL));
-			/* track minimum security level among child quals */
+			/* 跟踪子限定条件中的最低安全级别 */
 			cq_min_security = Min(cq_min_security, rinfo->security_level);
 		}
 	}
 
 	/*
-	 * In addition to the quals inherited from the parent, we might have
-	 * securityQuals associated with this particular child node.  (Currently
-	 * this can only happen in appendrels originating from UNION ALL;
-	 * inheritance child tables don't have their own securityQuals, see
-	 * expand_single_inheritance_child().)  Pull any such securityQuals up
-	 * into the baserestrictinfo for the child.  This is similar to
-	 * process_security_barrier_quals() for the parent rel, except that we
-	 * can't make any general deductions from such quals, since they don't
-	 * hold for the whole appendrel.
+	 * 除了从父项继承的限定条件，我们可能有
+	 * 与这个特定子节点关联的 securityQuals。（目前
+	 * 这只可能发生在源自 UNION ALL 的 appendrel 中；
+	 * 继承子表没有自己的 securityQuals，见
+	 * expand_single_inheritance_child()。）把任何这种 securityQuals 拉
+	 * 进该子项的 baserestrictinfo。这类似于对父关系做的
+	 * process_security_barrier_quals()，只是我们
+	 * 不能从这种限定条件做一般推论，因为它们对
+	 * 整个 appendrel 并不成立。
 	 */
 	if (childRTE->securityQuals)
 	{
@@ -932,7 +932,7 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
 			{
 				Expr	   *qual = (Expr *) lfirst(lc2);
 
-				/* not likely that we'd see constants here, so no check */
+				/* 这里不太可能看到常量，因此不检查 */
 				childquals = lappend(childquals,
 									 make_restrictinfo(root, qual,
 													   true,
@@ -948,7 +948,7 @@ apply_child_basequals(PlannerInfo *root, RelOptInfo *parentrel,
 	}
 
 	/*
-	 * OK, we've got all the baserestrictinfo quals for this child.
+	 * 好，已经得到这个子项的全部 baserestrictinfo 限定条件。
 	 */
 	childrel->baserestrictinfo = childquals;
 	childrel->baserestrict_min_security = cq_min_security;

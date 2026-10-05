@@ -1,0 +1,118 @@
+{
+ "schema_version": 1,
+ "batch_id": "0081-comment-optimizer-util-mid",
+ "title": "zh: translate appendinfo inherit var tlist comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "e2a09113564f02079465db171f9f98686b16c32b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/optimizer/util/appendinfo.c",
+   "kind": "c_comment",
+   "note": "append relation attribute translation"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/inherit.c",
+   "kind": "c_comment",
+   "note": "inheritance and partition expansion"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/var.c",
+   "kind": "c_comment",
+   "note": "Var collection and join alias flattening"
+  },
+  {
+   "pattern": "src/backend/optimizer/util/tlist.c",
+   "kind": "c_comment",
+   "note": "target list and PathTarget utilities"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0081-comment-optimizer-util-mid.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/optimizer/util/appendinfo.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 85,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "append relation attribute translation"
+  },
+  {
+   "path": "src/backend/optimizer/util/inherit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 93,
+   "translated": 92,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "inheritance and partition expansion"
+  },
+  {
+   "path": "src/backend/optimizer/util/var.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 96,
+   "translated": 89,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/pgindent header",
+    "fall-through else check contained expr",
+    "fall-through else check contained expr",
+    "fall-through recurse into aggregate arguments",
+    "fall-through recurse into GroupingFunc arguments",
+    "fall-through recurse into windowfunc arguments",
+    "fall-through recurse into placeholder expression"
+   ],
+   "note": "Var collection and join alias flattening"
+  },
+  {
+   "path": "src/backend/optimizer/util/tlist.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 104,
+   "translated": 103,
+   "preserved": 1,
+   "preserved_reasons": [
+    "copyright/pgindent header"
+   ],
+   "note": "target list and PathTarget utilities"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0081-comment-optimizer-util-mid.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0081 translates src/backend/optimizer/util/appendinfo.c, inherit.c, var.c, and tlist.c."
+}

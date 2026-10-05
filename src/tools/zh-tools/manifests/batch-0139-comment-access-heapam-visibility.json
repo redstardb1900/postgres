@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0139-comment-access-heapam-visibility",
+ "title": "zh: translate heapam_visibility comments",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "f42a4a194fb3df9dc0a4143cf22e539787908248",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "note": "heap tuple visibility rules"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0139-comment-access-heapam-visibility.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/heap/heapam_visibility.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 179,
+   "translated": 175,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "fall-through"
+   ],
+   "note": "heap tuple visibility rules; three /* fall through */ kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0139-comment-access-heapam-visibility.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0139 translates comments in src/backend/access/heap/heapam_visibility.c. Three /* fall through */ markers stay in English. The DirtySatisfies XXX fall-through prose is translated. Next suggested: heapam_handler.c."
+}

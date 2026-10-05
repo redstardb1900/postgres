@@ -1,59 +1,59 @@
 /*-------------------------------------------------------------------------
  *
  * heapam_visibility.c
- *	  Tuple visibility rules for tuples stored in heap.
+ *	  堆中所存元组的可见性规则。
  *
- * NOTE: all the HeapTupleSatisfies routines will update the tuple's
- * "hint" status bits if we see that the inserting or deleting transaction
- * has now committed or aborted (and it is safe to set the hint bits).
- * If the hint bits are changed, MarkBufferDirtyHint is called on
- * the passed-in buffer.  The caller must hold not only a pin, but at least
- * shared buffer content lock on the buffer containing the tuple.
+ * 注意：所有 HeapTupleSatisfies 例程都会更新元组的
+ * "hint" 状态位，如果我们看到插入或删除事务
+ * 现已提交或中止（并且设置提示位是安全的）。
+ * 若提示位被改动，就对传入的缓冲区调用 MarkBufferDirtyHint。
+ * 调用方不仅必须钉住缓冲区，还必须至少持有
+ * 包含该元组的缓冲区上的共享缓冲区内容锁。
  *
- * NOTE: When using a non-MVCC snapshot, we must check
- * TransactionIdIsInProgress (which looks in the PGPROC array) before
- * TransactionIdDidCommit (which look in pg_xact).  Otherwise we have a race
- * condition: we might decide that a just-committed transaction crashed,
- * because none of the tests succeed.  xact.c is careful to record
- * commit/abort in pg_xact before it unsets MyProc->xid in the PGPROC array.
- * That fixes that problem, but it also means there is a window where
- * TransactionIdIsInProgress and TransactionIdDidCommit will both return true.
- * If we check only TransactionIdDidCommit, we could consider a tuple
- * committed when a later GetSnapshotData call will still think the
- * originating transaction is in progress, which leads to application-level
- * inconsistency.  The upshot is that we gotta check TransactionIdIsInProgress
- * first in all code paths, except for a few cases where we are looking at
- * subtransactions of our own main transaction and so there can't be any race
- * condition.
+ * 注意：使用非 MVCC 快照时，我们必须先检查
+ * TransactionIdIsInProgress（它查看 PGPROC 数组），然后再检查
+ * TransactionIdDidCommit（它查看 pg_xact）。否则会有竞态
+ * 条件：我们可能认定一个刚提交的事务已经崩溃，
+ * 因为没有一项检查成功。xact.c 会小心地先把
+ * 提交/中止记入 pg_xact，然后再清除 PGPROC 数组里的 MyProc->xid。
+ * 这解决了那个问题，但也意味着存在一个窗口，其中
+ * TransactionIdIsInProgress 和 TransactionIdDidCommit 都会返回真。
+ * 若只检查 TransactionIdDidCommit，就可能把一个元组当成
+ * 已提交，而随后的 GetSnapshotData 调用仍认为
+ * 发起事务还在进行，于是导致应用层的
+ * 不一致。结论是：除少数情形外，所有代码路径都要先检查 TransactionIdIsInProgress，
+ * 那些情形是我们正在查看自己主事务的
+ * 子事务，因此不可能存在竞态
+ * 条件。
  *
- * We can't use TransactionIdDidAbort here because it won't treat transactions
- * that were in progress during a crash as aborted.  We determine that
- * transactions aborted/crashed through process of elimination instead.
+ * 这里不能用 TransactionIdDidAbort，因为它不会把崩溃期间
+ * 仍在进行的事务当成已中止。我们改用排除法来判定
+ * 事务是已中止还是已崩溃。
  *
- * When using an MVCC snapshot, we rely on XidInMVCCSnapshot rather than
- * TransactionIdIsInProgress, but the logic is otherwise the same: do not
- * check pg_xact until after deciding that the xact is no longer in progress.
+ * 使用 MVCC 快照时，我们依靠 XidInMVCCSnapshot，而不是
+ * TransactionIdIsInProgress，但其余逻辑相同：在判定
+ * 该事务已不再进行之前，不要去查 pg_xact。
  *
  *
- * Summary of visibility functions:
+ * 可见性函数摘要：
  *
  *	 HeapTupleSatisfiesMVCC()
- *		  visible to supplied snapshot, excludes current command
+ *		  对给出的快照可见，排除当前命令
  *	 HeapTupleSatisfiesUpdate()
- *		  visible to instant snapshot, with user-supplied command
- *		  counter and more complex result
+ *		  对即时快照可见，带有调用方提供的命令
+ *		  计数器，以及更复杂的结果
  *	 HeapTupleSatisfiesSelf()
- *		  visible to instant snapshot and current command
+ *		  对即时快照和当前命令可见
  *	 HeapTupleSatisfiesDirty()
- *		  like HeapTupleSatisfiesSelf(), but includes open transactions
+ *		  与 HeapTupleSatisfiesSelf() 类似，但包含未结束的事务
  *	 HeapTupleSatisfiesVacuum()
- *		  visible to any running transaction, used by VACUUM
+ *		  对任何正在运行的事务可见，由 VACUUM 使用
  *	 HeapTupleSatisfiesNonVacuumable()
- *		  Snapshot-style API for HeapTupleSatisfiesVacuum
+ *		  HeapTupleSatisfiesVacuum 的快照式 API
  *	 HeapTupleSatisfiesToast()
- *		  visible unless part of interrupted vacuum, used for TOAST
+ *		  除非属于被中断的清理，否则可见，供 TOAST 使用
  *	 HeapTupleSatisfiesAny()
- *		  all tuples are visible
+ *		  所有元组均可见
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -84,33 +84,33 @@
 /*
  * SetHintBits()
  *
- * Set commit/abort hint bits on a tuple, if appropriate at this time.
+ * 在当前合适时，为元组设置提交/中止提示位。
  *
- * It is only safe to set a transaction-committed hint bit if we know the
- * transaction's commit record is guaranteed to be flushed to disk before the
- * buffer, or if the table is temporary or unlogged and will be obliterated by
- * a crash anyway.  We cannot change the LSN of the page here, because we may
- * hold only a share lock on the buffer, so we can only use the LSN to
- * interlock this if the buffer's LSN already is newer than the commit LSN;
- * otherwise we have to just refrain from setting the hint bit until some
- * future re-examination of the tuple.
+ * 只有当我们知道该事务的提交记录保证会先于
+ * 缓冲区被刷到磁盘，或者该表是临时表或不记录 WAL 的表、
+ * 崩溃时反正会被抹掉时，设置事务已提交提示位才安全。
+ * 这里无法更改页面的 LSN，因为我们可能
+ * 只持有缓冲区上的共享锁，因此只有当缓冲区的 LSN
+ * 已经新于提交 LSN 时，才能用 LSN 做互锁；
+ * 否则就只能先不设置该提示位，直到将来
+ * 再次检查这个元组。
  *
- * We can always set hint bits when marking a transaction aborted.  (Some
- * code in heapam.c relies on that!)
+ * 把事务标成已中止时，总是可以设置提示位。（heapam.c 中
+ * 有些代码依赖这一点！）
  *
- * Also, if we are cleaning up HEAP_MOVED_IN or HEAP_MOVED_OFF entries, then
- * we can always set the hint bits, since pre-9.0 VACUUM FULL always used
- * synchronous commits and didn't move tuples that weren't previously
- * hinted.  (This is not known by this subroutine, but is applied by its
- * callers.)  Note: old-style VACUUM FULL is gone, but we have to keep this
- * module's support for MOVED_OFF/MOVED_IN flag bits for as long as we
- * support in-place update from pre-9.0 databases.
+ * 另外，若正在清理 HEAP_MOVED_IN 或 HEAP_MOVED_OFF 条目，则
+ * 总是可以设置提示位，因为 9.0 之前的 VACUUM FULL 总是使用
+ * 同步提交，并且不会移动此前没有提示位的元组。
+ * （本子程序并不知道这一点，而是由其调用方来应用。）注意：旧式
+ * VACUUM FULL 已经不复存在，但只要我们仍支持从 9.0 之前的数据库做
+ * 原地更新，本模块就必须保留对 MOVED_OFF/MOVED_IN 标志位的
+ * 支持。
  *
- * Normal commits may be asynchronous, so for those we need to get the LSN
- * of the transaction and then check whether this is flushed.
+ * 普通提交可能是异步的，因此对它们需要取得该事务的 LSN，
+ * 再检查它是否已经刷盘。
  *
- * The caller should pass xid as the XID of the transaction to check, or
- * InvalidTransactionId if no check is needed.
+ * 调用方应把 xid 作为待检查事务的 XID 传入，若不需要检查则传入
+ * InvalidTransactionId。
  */
 static inline void
 SetHintBits(HeapTupleHeader tuple, Buffer buffer,
@@ -118,13 +118,13 @@ SetHintBits(HeapTupleHeader tuple, Buffer buffer,
 {
 	if (TransactionIdIsValid(xid))
 	{
-		/* NB: xid must be known committed here! */
+		/* 注意：此处 xid 必须已知已经提交！ */
 		XLogRecPtr	commitLSN = TransactionIdGetCommitLSN(xid);
 
 		if (BufferIsPermanent(buffer) && XLogNeedsFlush(commitLSN) &&
 			BufferGetLSNAtomic(buffer) < commitLSN)
 		{
-			/* not flushed and no LSN interlock, so don't set hint */
+			/* 尚未刷盘，且没有 LSN 互锁，因此不设置提示位 */
 			return;
 		}
 	}
@@ -136,8 +136,8 @@ SetHintBits(HeapTupleHeader tuple, Buffer buffer,
 /*
  * HeapTupleSetHintBits --- exported version of SetHintBits()
  *
- * This must be separate because of C99's brain-dead notions about how to
- * implement inline functions.
+ * 它必须单独存在，因为 C99 对如何
+ * 实现内联函数有一套拙劣的规定。
  */
 void
 HeapTupleSetHintBits(HeapTupleHeader tuple, Buffer buffer,
@@ -149,24 +149,24 @@ HeapTupleSetHintBits(HeapTupleHeader tuple, Buffer buffer,
 
 /*
  * HeapTupleSatisfiesSelf
- *		True iff heap tuple is valid "for itself".
+ *		当且仅当堆元组对"自身"有效时为真。
  *
- * See SNAPSHOT_MVCC's definition for the intended behaviour.
+ * 预期行为见 SNAPSHOT_MVCC 的定义。
  *
  * Note:
- *		Assumes heap tuple is valid.
+ *		假定堆元组有效。
  *
- * The satisfaction of "itself" requires the following:
+ * "自身"可见需要满足下列条件：
  *
- * ((Xmin == my-transaction &&				the row was updated by the current transaction, and
- *		(Xmax is null						it was not deleted
- *		 [|| Xmax != my-transaction)])			[or it was deleted by another transaction]
+ * ((Xmin == my-transaction &&				该行由当前事务更新，且
+ *		(Xmax is null						它未被删除
+ *		 [|| Xmax != my-transaction)])			[或由另一事务删除]
  * ||
  *
- * (Xmin is committed &&					the row was modified by a committed transaction, and
- *		(Xmax is null ||					the row has not been deleted, or
- *			(Xmax != my-transaction &&			the row was deleted by another transaction
- *			 Xmax is not committed)))			that has not been committed
+ * (Xmin is committed &&					该行由已提交事务修改，且
+ *		(Xmax is null ||					该行尚未被删除，或
+ *			(Xmax != my-transaction &&			该行由另一事务删除
+ *			 Xmax is not committed)))			且该事务尚未提交
  */
 static bool
 HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
@@ -181,7 +181,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return false;
 
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -200,7 +200,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 							InvalidTransactionId);
 			}
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -222,10 +222,10 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 		}
 		else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple)))
 		{
-			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效 */
 				return true;
 
-			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* not deleter */
+			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* 不是删除者 */
 				return true;
 
 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -234,10 +234,10 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 				xmax = HeapTupleGetUpdateXid(tuple);
 
-				/* not LOCKED_ONLY, so it has to have an xmax */
+				/* 不是 LOCKED_ONLY，因此必定有 xmax */
 				Assert(TransactionIdIsValid(xmax));
 
-				/* updating subtransaction must have aborted */
+				/* 执行更新的子事务必定已中止 */
 				if (!TransactionIdIsCurrentTransactionId(xmax))
 					return true;
 				else
@@ -246,7 +246,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 			if (!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 			{
-				/* deleting subtransaction must have aborted */
+				/* 执行删除的子事务必定已中止 */
 				SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 							InvalidTransactionId);
 				return true;
@@ -261,23 +261,23 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 						HeapTupleHeaderGetRawXmin(tuple));
 		else
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或已崩溃 */
 			SetHintBits(tuple, buffer, HEAP_XMIN_INVALID,
 						InvalidTransactionId);
 			return false;
 		}
 	}
 
-	/* by here, the inserting transaction has committed */
+	/* 到这里，插入事务已经提交 */
 
-	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid or aborted */
+	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效或已中止 */
 		return true;
 
 	if (tuple->t_infomask & HEAP_XMAX_COMMITTED)
 	{
 		if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 			return true;
-		return false;			/* updated by other */
+		return false;			/* 由其他事务更新 */
 	}
 
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -289,7 +289,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 		xmax = HeapTupleGetUpdateXid(tuple);
 
-		/* not LOCKED_ONLY, so it has to have an xmax */
+		/* 不是 LOCKED_ONLY，因此必定有 xmax */
 		Assert(TransactionIdIsValid(xmax));
 
 		if (TransactionIdIsCurrentTransactionId(xmax))
@@ -298,7 +298,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 			return true;
 		if (TransactionIdDidCommit(xmax))
 			return false;
-		/* it must have aborted or crashed */
+		/* 它必定已中止或已崩溃 */
 		return true;
 	}
 
@@ -314,13 +314,13 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 	if (!TransactionIdDidCommit(HeapTupleHeaderGetRawXmax(tuple)))
 	{
-		/* it must have aborted or crashed */
+		/* 它必定已中止或已崩溃 */
 		SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 					InvalidTransactionId);
 		return true;
 	}
 
-	/* xmax transaction committed */
+	/* xmax 事务已提交 */
 
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 	{
@@ -336,7 +336,7 @@ HeapTupleSatisfiesSelf(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 /*
  * HeapTupleSatisfiesAny
- *		Dummy "satisfies" routine: any tuple satisfies SnapshotAny.
+ *		占位的 satisfies 例程：任何元组都满足 SnapshotAny。
  */
 static bool
 HeapTupleSatisfiesAny(HeapTuple htup, Snapshot snapshot, Buffer buffer)
@@ -346,19 +346,19 @@ HeapTupleSatisfiesAny(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 
 /*
  * HeapTupleSatisfiesToast
- *		True iff heap tuple is valid as a TOAST row.
+ *		当且仅当堆元组作为 TOAST 行有效时为真。
  *
- * See SNAPSHOT_TOAST's definition for the intended behaviour.
+ * 预期行为见 SNAPSHOT_TOAST 的定义。
  *
- * This is a simplified version that only checks for VACUUM moving conditions.
- * It's appropriate for TOAST usage because TOAST really doesn't want to do
- * its own time qual checks; if you can see the main table row that contains
- * a TOAST reference, you should be able to see the TOASTed value.  However,
- * vacuuming a TOAST table is independent of the main table, and in case such
- * a vacuum fails partway through, we'd better do this much checking.
+ * 这是简化版本，只检查 VACUUM 搬移条件。
+ * 它适合 TOAST 使用，因为 TOAST 其实并不想做
+ * 自己的时间限定检查；若你能看见包含
+ * TOAST 引用的主表行，就应当能看见 TOASTed 值。不过，
+ * 清理 TOAST 表与主表相互独立，万一这样的
+ * 清理中途失败，我们最好还是做这么多检查。
  *
- * Among other things, this means you can't do UPDATEs of rows in a TOAST
- * table.
+ * 除了别的含义之外，这意味着不能对 TOAST
+ * 表中的行做 UPDATEs。
  */
 static bool
 HeapTupleSatisfiesToast(HeapTuple htup, Snapshot snapshot,
@@ -374,7 +374,7 @@ HeapTupleSatisfiesToast(HeapTuple htup, Snapshot snapshot,
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return false;
 
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -393,7 +393,7 @@ HeapTupleSatisfiesToast(HeapTuple htup, Snapshot snapshot,
 							InvalidTransactionId);
 			}
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -415,46 +415,46 @@ HeapTupleSatisfiesToast(HeapTuple htup, Snapshot snapshot,
 		}
 
 		/*
-		 * An invalid Xmin can be left behind by a speculative insertion that
-		 * is canceled by super-deleting the tuple.  This also applies to
-		 * TOAST tuples created during speculative insertion.
+		 * 被超级删除取消的推测插入可能留下无效的 Xmin。
+		 * 这也适用于推测插入期间创建的
+		 * TOAST 元组。
 		 */
 		else if (!TransactionIdIsValid(HeapTupleHeaderGetXmin(tuple)))
 			return false;
 	}
 
-	/* otherwise assume the tuple is valid for TOAST. */
+	/* 否则假定该元组作为 TOAST 行是有效的。 */
 	return true;
 }
 
 /*
  * HeapTupleSatisfiesUpdate
  *
- *	This function returns a more detailed result code than most of the
- *	functions in this file, since UPDATE needs to know more than "is it
- *	visible?".  It also allows for user-supplied CommandId rather than
- *	relying on CurrentCommandId.
+ *	本函数返回的结果码比本文件中大多数
+ *	函数更细，因为 UPDATE 需要知道的不只是"它是否
+ *	可见？"。它还允许使用调用方提供的 CommandId，而不是
+ *	依赖 CurrentCommandId。
  *
- *	The possible return codes are:
+ *	可能的返回码有：
  *
- *	TM_Invisible: the tuple didn't exist at all when the scan started, e.g. it
- *	was created by a later CommandId.
+ *	TM_Invisible：扫描开始时该元组根本不存在，例如它
+ *	由更晚的 CommandId 创建。
  *
- *	TM_Ok: The tuple is valid and visible, so it may be updated.
+ *	TM_Ok：元组有效且可见，因此可以被更新。
  *
- *	TM_SelfModified: The tuple was updated by the current transaction, after
- *	the current scan started.
+ *	TM_SelfModified：元组被当前事务更新，且发生在
+ *	当前扫描开始之后。
  *
- *	TM_Updated: The tuple was updated by a committed transaction (including
- *	the case where the tuple was moved into a different partition).
+ *	TM_Updated：元组被一个已提交事务更新（包括
+ *	元组被移到另一个分区的情形）。
  *
- *	TM_Deleted: The tuple was deleted by a committed transaction.
+ *	TM_Deleted：元组被一个已提交事务删除。
  *
- *	TM_BeingModified: The tuple is being updated by an in-progress transaction
- *	other than the current transaction.  (Note: this includes the case where
- *	the tuple is share-locked by a MultiXact, even if the MultiXact includes
- *	the current transaction.  Callers that want to distinguish that case must
- *	test for it themselves.)
+ *	TM_BeingModified：元组正被一个进行中的事务更新，
+ *	且该事务不是当前事务。（注意：这也包括元组被某个 MultiXact
+ *	以共享方式锁定的情形，即便该 MultiXact 包含
+ *	当前事务。想要区分这种情形的调用方必须
+ *	自行检测。）
  */
 TM_Result
 HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
@@ -470,7 +470,7 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return TM_Invisible;
 
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -489,7 +489,7 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 							InvalidTransactionId);
 			}
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -512,9 +512,9 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple)))
 		{
 			if (HeapTupleHeaderGetCmin(tuple) >= curcid)
-				return TM_Invisible;	/* inserted after scan started */
+				return TM_Invisible;	/* 在扫描开始之后被插入 */
 
-			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效 */
 				return TM_Ok;
 
 			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
@@ -524,10 +524,10 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 				xmax = HeapTupleHeaderGetRawXmax(tuple);
 
 				/*
-				 * Careful here: even though this tuple was created by our own
-				 * transaction, it might be locked by other transactions, if
-				 * the original version was key-share locked when we updated
-				 * it.
+				 * 这里要小心：尽管该元组由我们自己的事务创建，
+				 * 它仍可能被其他事务锁住，前提是
+				 * 我们更新它的时候，原来的版本正被
+				 * 键共享锁锁住。
 				 */
 
 				if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -539,9 +539,9 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 				}
 
 				/*
-				 * If the locker is gone, then there is nothing of interest
-				 * left in this Xmax; otherwise, report the tuple as
-				 * locked/updated.
+				 * 若加锁者已经消失，这个 Xmax 里就没有
+				 * 值得关心的东西了；否则，把该元组报告为
+				 * 已锁定/已更新。
 				 */
 				if (!TransactionIdIsInProgress(xmax))
 					return TM_Ok;
@@ -554,10 +554,10 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 
 				xmax = HeapTupleGetUpdateXid(tuple);
 
-				/* not LOCKED_ONLY, so it has to have an xmax */
+				/* 不是 LOCKED_ONLY，因此必定有 xmax */
 				Assert(TransactionIdIsValid(xmax));
 
-				/* deleting subtransaction must have aborted */
+				/* 执行删除的子事务必定已中止 */
 				if (!TransactionIdIsCurrentTransactionId(xmax))
 				{
 					if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple),
@@ -568,24 +568,24 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 				else
 				{
 					if (HeapTupleHeaderGetCmax(tuple) >= curcid)
-						return TM_SelfModified; /* updated after scan started */
+						return TM_SelfModified; /* 在扫描开始之后被更新 */
 					else
-						return TM_Invisible;	/* updated before scan started */
+						return TM_Invisible;	/* 在扫描开始之前被更新 */
 				}
 			}
 
 			if (!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 			{
-				/* deleting subtransaction must have aborted */
+				/* 执行删除的子事务必定已中止 */
 				SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 							InvalidTransactionId);
 				return TM_Ok;
 			}
 
 			if (HeapTupleHeaderGetCmax(tuple) >= curcid)
-				return TM_SelfModified; /* updated after scan started */
+				return TM_SelfModified; /* 在扫描开始之后被更新 */
 			else
-				return TM_Invisible;	/* updated before scan started */
+				return TM_Invisible;	/* 在扫描开始之前被更新 */
 		}
 		else if (TransactionIdIsInProgress(HeapTupleHeaderGetRawXmin(tuple)))
 			return TM_Invisible;
@@ -594,16 +594,16 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 						HeapTupleHeaderGetRawXmin(tuple));
 		else
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或已崩溃 */
 			SetHintBits(tuple, buffer, HEAP_XMIN_INVALID,
 						InvalidTransactionId);
 			return TM_Invisible;
 		}
 	}
 
-	/* by here, the inserting transaction has committed */
+	/* 到这里，插入事务已经提交 */
 
-	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid or aborted */
+	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效或已中止 */
 		return TM_Ok;
 
 	if (tuple->t_infomask & HEAP_XMAX_COMMITTED)
@@ -611,9 +611,9 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 			return TM_Ok;
 		if (!ItemPointerEquals(&htup->t_self, &tuple->t_ctid))
-			return TM_Updated;	/* updated by other */
+			return TM_Updated;	/* 由其他事务更新 */
 		else
-			return TM_Deleted;	/* deleted by other */
+			return TM_Deleted;	/* 由其他事务删除 */
 	}
 
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -639,15 +639,15 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 				return TM_BeingModified;
 		}
 
-		/* not LOCKED_ONLY, so it has to have an xmax */
+		/* 不是 LOCKED_ONLY，因此必定有 xmax */
 		Assert(TransactionIdIsValid(xmax));
 
 		if (TransactionIdIsCurrentTransactionId(xmax))
 		{
 			if (HeapTupleHeaderGetCmax(tuple) >= curcid)
-				return TM_SelfModified; /* updated after scan started */
+				return TM_SelfModified; /* 在扫描开始之后被更新 */
 			else
-				return TM_Invisible;	/* updated before scan started */
+				return TM_Invisible;	/* 在扫描开始之前被更新 */
 		}
 
 		if (MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
@@ -662,15 +662,15 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		}
 
 		/*
-		 * By here, the update in the Xmax is either aborted or crashed, but
-		 * what about the other members?
+		 * 到这里，Xmax 中的更新要么已中止，要么已崩溃，但
+		 * 其他成员呢？
 		 */
 
 		if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
 		{
 			/*
-			 * There's no member, even just a locker, alive anymore, so we can
-			 * mark the Xmax as invalid.
+			 * 已经没有任何成员还活着，哪怕只是一个加锁者，因此可以
+			 * 把该 Xmax 标为无效。
 			 */
 			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 						InvalidTransactionId);
@@ -678,7 +678,7 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		}
 		else
 		{
-			/* There are lockers running */
+			/* 仍有加锁者在运行 */
 			return TM_BeingModified;
 		}
 	}
@@ -688,9 +688,9 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 		if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 			return TM_BeingModified;
 		if (HeapTupleHeaderGetCmax(tuple) >= curcid)
-			return TM_SelfModified; /* updated after scan started */
+			return TM_SelfModified; /* 在扫描开始之后被更新 */
 		else
-			return TM_Invisible;	/* updated before scan started */
+			return TM_Invisible;	/* 在扫描开始之前被更新 */
 	}
 
 	if (TransactionIdIsInProgress(HeapTupleHeaderGetRawXmax(tuple)))
@@ -698,13 +698,13 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 
 	if (!TransactionIdDidCommit(HeapTupleHeaderGetRawXmax(tuple)))
 	{
-		/* it must have aborted or crashed */
+		/* 它必定已中止或已崩溃 */
 		SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 					InvalidTransactionId);
 		return TM_Ok;
 	}
 
-	/* xmax transaction committed */
+	/* xmax 事务已提交 */
 
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 	{
@@ -716,30 +716,30 @@ HeapTupleSatisfiesUpdate(HeapTuple htup, CommandId curcid,
 	SetHintBits(tuple, buffer, HEAP_XMAX_COMMITTED,
 				HeapTupleHeaderGetRawXmax(tuple));
 	if (!ItemPointerEquals(&htup->t_self, &tuple->t_ctid))
-		return TM_Updated;		/* updated by other */
+		return TM_Updated;		/* 由其他事务更新 */
 	else
-		return TM_Deleted;		/* deleted by other */
+		return TM_Deleted;		/* 由其他事务删除 */
 }
 
 /*
  * HeapTupleSatisfiesDirty
- *		True iff heap tuple is valid including effects of open transactions.
+ *		当且仅当堆元组有效、且计入未结束事务的效果时为真。
  *
- * See SNAPSHOT_DIRTY's definition for the intended behaviour.
+ * 预期行为见 SNAPSHOT_DIRTY 的定义。
  *
- * This is essentially like HeapTupleSatisfiesSelf as far as effects of
- * the current transaction and committed/aborted xacts are concerned.
- * However, we also include the effects of other xacts still in progress.
+ * 就当前事务以及已提交/已中止事务的效果而言，这本质上与
+ * HeapTupleSatisfiesSelf 相同。
+ * 不过，我们还会计入其他仍在进行中的事务的效果。
  *
- * A special hack is that the passed-in snapshot struct is used as an
- * output argument to return the xids of concurrent xacts that affected the
- * tuple.  snapshot->xmin is set to the tuple's xmin if that is another
- * transaction that's still in progress; or to InvalidTransactionId if the
- * tuple's xmin is committed good, committed dead, or my own xact.
- * Similarly for snapshot->xmax and the tuple's xmax.  If the tuple was
- * inserted speculatively, meaning that the inserter might still back down
- * on the insertion without aborting the whole transaction, the associated
- * token is also returned in snapshot->speculativeToken.
+ * 一个特殊做法是：传入的 snapshot 结构被当作
+ * 输出参数，用来返回影响了该
+ * 元组的并发事务 xid。若元组的 xmin 属于另一个
+ * 仍在进行的事务，就把 snapshot->xmin 设为该 xmin；若元组的 xmin
+ * 已提交且有效、已提交但已死，或属于我自己的事务，则设为 InvalidTransactionId。
+ * snapshot->xmax 与元组的 xmax 同样处理。若该元组是
+ * 推测插入的，也就是插入者仍可能收回
+ * 这次插入而不中止整个事务，则相应的
+ * 令牌也通过 snapshot->speculativeToken 返回。
  */
 static bool
 HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
@@ -758,7 +758,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return false;
 
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -777,7 +777,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 							InvalidTransactionId);
 			}
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -799,10 +799,10 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 		}
 		else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple)))
 		{
-			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效 */
 				return true;
 
-			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* not deleter */
+			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* 不是删除者 */
 				return true;
 
 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -811,10 +811,10 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 				xmax = HeapTupleGetUpdateXid(tuple);
 
-				/* not LOCKED_ONLY, so it has to have an xmax */
+				/* 不是 LOCKED_ONLY，因此必定有 xmax */
 				Assert(TransactionIdIsValid(xmax));
 
-				/* updating subtransaction must have aborted */
+				/* 执行更新的子事务必定已中止 */
 				if (!TransactionIdIsCurrentTransactionId(xmax))
 					return true;
 				else
@@ -823,7 +823,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 			if (!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 			{
-				/* deleting subtransaction must have aborted */
+				/* 执行删除的子事务必定已中止 */
 				SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 							InvalidTransactionId);
 				return true;
@@ -834,10 +834,10 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 		else if (TransactionIdIsInProgress(HeapTupleHeaderGetRawXmin(tuple)))
 		{
 			/*
-			 * Return the speculative token to caller.  Caller can worry about
-			 * xmax, since it requires a conclusively locked row version, and
-			 * a concurrent update to this tuple is a conflict of its
-			 * purposes.
+			 * 把推测插入令牌返回给调用方。调用方可以自己操心
+			 * xmax，因为那需要一个已最终锁定的行版本，而且
+			 * 对该元组的并发更新会与它的
+			 * 目的相冲突。
 			 */
 			if (HeapTupleHeaderIsSpeculative(tuple))
 			{
@@ -848,31 +848,31 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 			}
 
 			snapshot->xmin = HeapTupleHeaderGetRawXmin(tuple);
-			/* XXX shouldn't we fall through to look at xmax? */
-			return true;		/* in insertion by other */
+			/* XXX 我们不该继续往下查看 xmax 吗？ */
+			return true;		/* 正由其他事务插入 */
 		}
 		else if (TransactionIdDidCommit(HeapTupleHeaderGetRawXmin(tuple)))
 			SetHintBits(tuple, buffer, HEAP_XMIN_COMMITTED,
 						HeapTupleHeaderGetRawXmin(tuple));
 		else
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或已崩溃 */
 			SetHintBits(tuple, buffer, HEAP_XMIN_INVALID,
 						InvalidTransactionId);
 			return false;
 		}
 	}
 
-	/* by here, the inserting transaction has committed */
+	/* 到这里，插入事务已经提交 */
 
-	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid or aborted */
+	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效或已中止 */
 		return true;
 
 	if (tuple->t_infomask & HEAP_XMAX_COMMITTED)
 	{
 		if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 			return true;
-		return false;			/* updated by other */
+		return false;			/* 由其他事务更新 */
 	}
 
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -884,7 +884,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 		xmax = HeapTupleGetUpdateXid(tuple);
 
-		/* not LOCKED_ONLY, so it has to have an xmax */
+		/* 不是 LOCKED_ONLY，因此必定有 xmax */
 		Assert(TransactionIdIsValid(xmax));
 
 		if (TransactionIdIsCurrentTransactionId(xmax))
@@ -896,7 +896,7 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 		}
 		if (TransactionIdDidCommit(xmax))
 			return false;
-		/* it must have aborted or crashed */
+		/* 它必定已中止或已崩溃 */
 		return true;
 	}
 
@@ -916,13 +916,13 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 	if (!TransactionIdDidCommit(HeapTupleHeaderGetRawXmax(tuple)))
 	{
-		/* it must have aborted or crashed */
+		/* 它必定已中止或已崩溃 */
 		SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 					InvalidTransactionId);
 		return true;
 	}
 
-	/* xmax transaction committed */
+	/* xmax 事务已提交 */
 
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 	{
@@ -933,30 +933,30 @@ HeapTupleSatisfiesDirty(HeapTuple htup, Snapshot snapshot,
 
 	SetHintBits(tuple, buffer, HEAP_XMAX_COMMITTED,
 				HeapTupleHeaderGetRawXmax(tuple));
-	return false;				/* updated by other */
+	return false;				/* 由其他事务更新 */
 }
 
 /*
  * HeapTupleSatisfiesMVCC
- *		True iff heap tuple is valid for the given MVCC snapshot.
+ *		当且仅当堆元组对给定的 MVCC 快照有效时为真。
  *
- * See SNAPSHOT_MVCC's definition for the intended behaviour.
+ * 预期行为见 SNAPSHOT_MVCC 的定义。
  *
- * Notice that here, we will not update the tuple status hint bits if the
- * inserting/deleting transaction is still running according to our snapshot,
- * even if in reality it's committed or aborted by now.  This is intentional.
- * Checking the true transaction state would require access to high-traffic
- * shared data structures, creating contention we'd rather do without, and it
- * would not change the result of our visibility check anyway.  The hint bits
- * will be updated by the first visitor that has a snapshot new enough to see
- * the inserting/deleting transaction as done.  In the meantime, the cost of
- * leaving the hint bits unset is basically that each HeapTupleSatisfiesMVCC
- * call will need to run TransactionIdIsCurrentTransactionId in addition to
- * XidInMVCCSnapshot (but it would have to do the latter anyway).  In the old
- * coding where we tried to set the hint bits as soon as possible, we instead
- * did TransactionIdIsInProgress in each call --- to no avail, as long as the
- * inserting/deleting transaction was still running --- which was more cycles
- * and more contention on ProcArrayLock.
+ * 注意：若按我们的快照，插入或删除事务仍在运行，
+ * 这里就不会更新元组的状态提示位，
+ * 即便它实际上此刻已经提交或中止。这是有意为之。
+ * 去检查真实的事务状态需要访问流量很高的
+ * 共享数据结构，造成我们宁可不要的争用，而且这
+ * 反正也不会改变可见性检查的结果。提示位
+ * 将由第一个快照已经新到能够看见
+ * 插入或删除事务已经结束的访问者来更新。在此期间，让
+ * 提示位保持未设置的代价大体是：每次 HeapTupleSatisfiesMVCC
+ * 调用除了要执行 XidInMVCCSnapshot 之外，还得再执行 TransactionIdIsCurrentTransactionId
+ * （不过后者本来也要执行）。在旧的
+ * 写法里，我们试图尽快设置提示位，于是每次调用改为执行
+ * TransactionIdIsInProgress——只要插入或删除事务仍在运行，
+ * 这就毫无益处——既增加了周期开销，
+ * 也加重了对 ProcArrayLock 的争用。
  */
 static bool
 HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
@@ -972,7 +972,7 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return false;
 
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -991,7 +991,7 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 							InvalidTransactionId);
 			}
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -1014,12 +1014,12 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 		else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple)))
 		{
 			if (HeapTupleHeaderGetCmin(tuple) >= snapshot->curcid)
-				return false;	/* inserted after scan started */
+				return false;	/* 在扫描开始之后被插入 */
 
-			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效 */
 				return true;
 
-			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* not deleter */
+			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))	/* 不是删除者 */
 				return true;
 
 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
@@ -1028,30 +1028,30 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 
 				xmax = HeapTupleGetUpdateXid(tuple);
 
-				/* not LOCKED_ONLY, so it has to have an xmax */
+				/* 不是 LOCKED_ONLY，因此必定有 xmax */
 				Assert(TransactionIdIsValid(xmax));
 
-				/* updating subtransaction must have aborted */
+				/* 执行更新的子事务必定已中止 */
 				if (!TransactionIdIsCurrentTransactionId(xmax))
 					return true;
 				else if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid)
-					return true;	/* updated after scan started */
+					return true;	/* 在扫描开始之后被更新 */
 				else
-					return false;	/* updated before scan started */
+					return false;	/* 在扫描开始之前被更新 */
 			}
 
 			if (!TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 			{
-				/* deleting subtransaction must have aborted */
+				/* 执行删除的子事务必定已中止 */
 				SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 							InvalidTransactionId);
 				return true;
 			}
 
 			if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid)
-				return true;	/* deleted after scan started */
+				return true;	/* 在扫描开始之后被删除 */
 			else
-				return false;	/* deleted before scan started */
+				return false;	/* 在扫描开始之前被删除 */
 		}
 		else if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmin(tuple), snapshot))
 			return false;
@@ -1060,7 +1060,7 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 						HeapTupleHeaderGetRawXmin(tuple));
 		else
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或已崩溃 */
 			SetHintBits(tuple, buffer, HEAP_XMIN_INVALID,
 						InvalidTransactionId);
 			return false;
@@ -1068,15 +1068,15 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 	}
 	else
 	{
-		/* xmin is committed, but maybe not according to our snapshot */
+		/* xmin 已提交，但按我们的快照未必如此 */
 		if (!HeapTupleHeaderXminFrozen(tuple) &&
 			XidInMVCCSnapshot(HeapTupleHeaderGetRawXmin(tuple), snapshot))
-			return false;		/* treat as still in progress */
+			return false;		/* 视为仍在进行中 */
 	}
 
-	/* by here, the inserting transaction has committed */
+	/* 到这里，插入事务已经提交 */
 
-	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid or aborted */
+	if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效或已中止 */
 		return true;
 
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
@@ -1086,26 +1086,26 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 	{
 		TransactionId xmax;
 
-		/* already checked above */
+		/* 上面已经检查过 */
 		Assert(!HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask));
 
 		xmax = HeapTupleGetUpdateXid(tuple);
 
-		/* not LOCKED_ONLY, so it has to have an xmax */
+		/* 不是 LOCKED_ONLY，因此必定有 xmax */
 		Assert(TransactionIdIsValid(xmax));
 
 		if (TransactionIdIsCurrentTransactionId(xmax))
 		{
 			if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid)
-				return true;	/* deleted after scan started */
+				return true;	/* 在扫描开始之后被删除 */
 			else
-				return false;	/* deleted before scan started */
+				return false;	/* 在扫描开始之前被删除 */
 		}
 		if (XidInMVCCSnapshot(xmax, snapshot))
 			return true;
 		if (TransactionIdDidCommit(xmax))
-			return false;		/* updating transaction committed */
-		/* it must have aborted or crashed */
+			return false;		/* 更新事务已提交 */
+		/* 它必定已中止或已崩溃 */
 		return true;
 	}
 
@@ -1114,9 +1114,9 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 		if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmax(tuple)))
 		{
 			if (HeapTupleHeaderGetCmax(tuple) >= snapshot->curcid)
-				return true;	/* deleted after scan started */
+				return true;	/* 在扫描开始之后被删除 */
 			else
-				return false;	/* deleted before scan started */
+				return false;	/* 在扫描开始之前被删除 */
 		}
 
 		if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot))
@@ -1124,24 +1124,24 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 
 		if (!TransactionIdDidCommit(HeapTupleHeaderGetRawXmax(tuple)))
 		{
-			/* it must have aborted or crashed */
+			/* 它必定已中止或已崩溃 */
 			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 						InvalidTransactionId);
 			return true;
 		}
 
-		/* xmax transaction committed */
+		/* xmax 事务已提交 */
 		SetHintBits(tuple, buffer, HEAP_XMAX_COMMITTED,
 					HeapTupleHeaderGetRawXmax(tuple));
 	}
 	else
 	{
-		/* xmax is committed, but maybe not according to our snapshot */
+		/* xmax 已提交，但按我们的快照未必如此 */
 		if (XidInMVCCSnapshot(HeapTupleHeaderGetRawXmax(tuple), snapshot))
-			return true;		/* treat as still in progress */
+			return true;		/* 视为仍在进行中 */
 	}
 
-	/* xmax transaction committed */
+	/* xmax 事务已提交 */
 
 	return false;
 }
@@ -1150,15 +1150,15 @@ HeapTupleSatisfiesMVCC(HeapTuple htup, Snapshot snapshot,
 /*
  * HeapTupleSatisfiesVacuum
  *
- *	Determine the status of tuples for VACUUM purposes.  Here, what
- *	we mainly want to know is if a tuple is potentially visible to *any*
- *	running transaction.  If so, it can't be removed yet by VACUUM.
+ *	为 VACUUM 判定元组状态。这里我们
+ *	主要想知道元组是否可能对任一
+ *	正在运行的事务可见。若是，VACUUM 还不能移除它。
  *
- * OldestXmin is a cutoff XID (obtained from
- * GetOldestNonRemovableTransactionId()).  Tuples deleted by XIDs >=
- * OldestXmin are deemed "recently dead"; they might still be visible to some
- * open transaction, so we can't remove them, even if we see that the deleting
- * transaction has committed.
+ * OldestXmin 是一个截止 XID（取自
+ * GetOldestNonRemovableTransactionId()）。由 XIDs >=
+ * OldestXmin 删除的元组被视为"最近死亡"；它们对某些
+ * 未结束的事务可能仍然可见，因此即使看到删除
+ * 事务已经提交，也不能移除它们。
  */
 HTSV_Result
 HeapTupleSatisfiesVacuum(HeapTuple htup, TransactionId OldestXmin,
@@ -1183,16 +1183,16 @@ HeapTupleSatisfiesVacuum(HeapTuple htup, TransactionId OldestXmin,
 }
 
 /*
- * Work horse for HeapTupleSatisfiesVacuum and similar routines.
+ * HeapTupleSatisfiesVacuum 及同类例程的主力实现。
  *
- * In contrast to HeapTupleSatisfiesVacuum this routine, when encountering a
- * tuple that could still be visible to some backend, stores the xid that
- * needs to be compared with the horizon in *dead_after, and returns
- * HEAPTUPLE_RECENTLY_DEAD. The caller then can perform the comparison with
- * the horizon.  This is e.g. useful when comparing with different horizons.
+ * 与 HeapTupleSatisfiesVacuum 相对：本例程在遇到一个
+ * 仍可能对某个后端可见的元组时，会把那个 xid 存起来，
+ * 该 xid 需要与视界比较，存放位置是 *dead_after，并返回
+ * HEAPTUPLE_RECENTLY_DEAD。随后调用方可以自己去做与
+ * 视界的比较。例如在对照不同视界时，这样做很有用。
  *
- * Note: HEAPTUPLE_DEAD can still be returned here, e.g. if the inserting
- * transaction aborted.
+ * 注意：这里仍可能返回 HEAPTUPLE_DEAD，例如当插入
+ * 事务已中止时。
  */
 HTSV_Result
 HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *dead_after)
@@ -1206,16 +1206,16 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 	*dead_after = InvalidTransactionId;
 
 	/*
-	 * Has inserting transaction committed?
+	 * 插入事务提交了吗？
 	 *
-	 * If the inserting transaction aborted, then the tuple was never visible
-	 * to any other transaction, so we can delete it immediately.
+	 * 若插入事务已中止，则该元组对任何其他事务都从未可见，
+	 * 因此可以立刻删除它。
 	 */
 	if (!HeapTupleHeaderXminCommitted(tuple))
 	{
 		if (HeapTupleHeaderXminInvalid(tuple))
 			return HEAPTUPLE_DEAD;
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_OFF)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -1233,7 +1233,7 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 			SetHintBits(tuple, buffer, HEAP_XMIN_COMMITTED,
 						InvalidTransactionId);
 		}
-		/* Used by pre-9.0 binary upgrades */
+		/* 供 9.0 之前的二进制升级使用 */
 		else if (tuple->t_infomask & HEAP_MOVED_IN)
 		{
 			TransactionId xvac = HeapTupleHeaderGetXvac(tuple);
@@ -1254,27 +1254,27 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		}
 		else if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetRawXmin(tuple)))
 		{
-			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid invalid */
+			if (tuple->t_infomask & HEAP_XMAX_INVALID)	/* xid 无效 */
 				return HEAPTUPLE_INSERT_IN_PROGRESS;
-			/* only locked? run infomask-only check first, for performance */
+			/* 仅仅被锁住？为了性能，先做只看 infomask 的检查 */
 			if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask) ||
 				HeapTupleHeaderIsOnlyLocked(tuple))
 				return HEAPTUPLE_INSERT_IN_PROGRESS;
-			/* inserted and then deleted by same xact */
+			/* 由同一事务先插入再删除 */
 			if (TransactionIdIsCurrentTransactionId(HeapTupleHeaderGetUpdateXid(tuple)))
 				return HEAPTUPLE_DELETE_IN_PROGRESS;
-			/* deleting subtransaction must have aborted */
+			/* 执行删除的子事务必定已中止 */
 			return HEAPTUPLE_INSERT_IN_PROGRESS;
 		}
 		else if (TransactionIdIsInProgress(HeapTupleHeaderGetRawXmin(tuple)))
 		{
 			/*
-			 * It'd be possible to discern between INSERT/DELETE in progress
-			 * here by looking at xmax - but that doesn't seem beneficial for
-			 * the majority of callers and even detrimental for some. We'd
-			 * rather have callers look at/wait for xmin than xmax. It's
-			 * always correct to return INSERT_IN_PROGRESS because that's
-			 * what's happening from the view of other backends.
+			 * 这里本可以区分进行中的 INSERT 与 DELETE，
+			 * 办法是查看 xmax，但这对大多数调用方似乎并无好处，
+			 * 对其中一些甚至有害。我们更希望
+			 * 调用方去查看或等待 xmin，而不是 xmax。返回
+			 * INSERT_IN_PROGRESS 总是正确的，因为那正是
+			 * 从其他后端的视角所看到的正在发生的事。
 			 */
 			return HEAPTUPLE_INSERT_IN_PROGRESS;
 		}
@@ -1284,7 +1284,7 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		else
 		{
 			/*
-			 * Not in Progress, Not Committed, so either Aborted or crashed
+			 * 不在进行中，也未提交，因此要么已中止，要么已崩溃
 			 */
 			SetHintBits(tuple, buffer, HEAP_XMIN_INVALID,
 						InvalidTransactionId);
@@ -1292,15 +1292,15 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		}
 
 		/*
-		 * At this point the xmin is known committed, but we might not have
-		 * been able to set the hint bit yet; so we can no longer Assert that
-		 * it's set.
+		 * 至此 xmin 已知已提交，但我们可能还没能
+		 * 设置提示位；因此不能再 Assert 它
+		 * 已经置位。
 		 */
 	}
 
 	/*
-	 * Okay, the inserter committed, so it was good at some point.  Now what
-	 * about the deleting transaction?
+	 * 好，插入者已提交，所以它在某个时刻曾经是好的。那么
+	 * 删除事务呢？
 	 */
 	if (tuple->t_infomask & HEAP_XMAX_INVALID)
 		return HEAPTUPLE_LIVE;
@@ -1308,18 +1308,18 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 	{
 		/*
-		 * "Deleting" xact really only locked it, so the tuple is live in any
-		 * case.  However, we should make sure that either XMAX_COMMITTED or
-		 * XMAX_INVALID gets set once the xact is gone, to reduce the costs of
-		 * examining the tuple for future xacts.
+		 * 所谓删除事务其实只是锁住了它，因此元组在任何
+		 * 情况下都是活的。不过，一旦该事务消失，应确保 XMAX_COMMITTED 或
+		 * XMAX_INVALID 之一被置位，以降低今后事务
+		 * 检查该元组的代价。
 		 */
 		if (!(tuple->t_infomask & HEAP_XMAX_COMMITTED))
 		{
 			if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 			{
 				/*
-				 * If it's a pre-pg_upgrade tuple, the multixact cannot
-				 * possibly be running; otherwise have to check.
+				 * 若它是 pg_upgrade 之前的元组，该多事务不可能
+				 * 仍在运行；否则就必须检查。
 				 */
 				if (!HEAP_LOCKED_UPGRADED(tuple->t_infomask) &&
 					MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple),
@@ -1337,9 +1337,9 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		}
 
 		/*
-		 * We don't really care whether xmax did commit, abort or crash. We
-		 * know that xmax did lock the tuple, but it did not and will never
-		 * actually update it.
+		 * 我们并不真正在意 xmax 是提交、中止还是崩溃。我们
+		 * 知道 xmax 确实锁过该元组，但它没有、也永远不会
+		 * 真正更新它。
 		 */
 
 		return HEAPTUPLE_LIVE;
@@ -1349,10 +1349,10 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 	{
 		TransactionId xmax = HeapTupleGetUpdateXid(tuple);
 
-		/* already checked above */
+		/* 上面已经检查过 */
 		Assert(!HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask));
 
-		/* not LOCKED_ONLY, so it has to have an xmax */
+		/* 不是 LOCKED_ONLY，因此必定有 xmax */
 		Assert(TransactionIdIsValid(xmax));
 
 		if (TransactionIdIsInProgress(xmax))
@@ -1360,12 +1360,12 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		else if (TransactionIdDidCommit(xmax))
 		{
 			/*
-			 * The multixact might still be running due to lockers.  Need to
-			 * allow for pruning if below the xid horizon regardless --
-			 * otherwise we could end up with a tuple where the updater has to
-			 * be removed due to the horizon, but is not pruned away.  It's
-			 * not a problem to prune that tuple, because any remaining
-			 * lockers will also be present in newer tuple versions.
+			 * 由于还有加锁者，该多事务可能仍在运行。无论
+			 * 是否如此，只要低于 xid 视界，都要允许剪枝——
+			 * 否则可能出现这样的元组：更新者因视界
+			 * 必须被移除，却没有被剪掉。剪掉
+			 * 该元组没有问题，因为任何残留的
+			 * 加锁者也会出现在更新的元组版本中。
 			 */
 			*dead_after = xmax;
 			return HEAPTUPLE_RECENTLY_DEAD;
@@ -1373,8 +1373,8 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		else if (!MultiXactIdIsRunning(HeapTupleHeaderGetRawXmax(tuple), false))
 		{
 			/*
-			 * Not in Progress, Not Committed, so either Aborted or crashed.
-			 * Mark the Xmax as invalid.
+			 * 不在进行中，也未提交，因此要么已中止，要么已崩溃。
+			 * 把该 Xmax 标为无效。
 			 */
 			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID, InvalidTransactionId);
 		}
@@ -1392,7 +1392,7 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		else
 		{
 			/*
-			 * Not in Progress, Not Committed, so either Aborted or crashed
+			 * 不在进行中，也未提交，因此要么已中止，要么已崩溃
 			 */
 			SetHintBits(tuple, buffer, HEAP_XMAX_INVALID,
 						InvalidTransactionId);
@@ -1400,15 +1400,15 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 		}
 
 		/*
-		 * At this point the xmax is known committed, but we might not have
-		 * been able to set the hint bit yet; so we can no longer Assert that
-		 * it's set.
+		 * 至此 xmax 已知已提交，但我们可能还没能
+		 * 设置提示位；因此不能再 Assert 它
+		 * 已经置位。
 		 */
 	}
 
 	/*
-	 * Deleter committed, allow caller to check if it was recent enough that
-	 * some open transactions could still see the tuple.
+	 * 删除者已提交，允许调用方检查它是否足够新近，以至于
+	 * 某些未结束的事务仍可能看见该元组。
 	 */
 	*dead_after = HeapTupleHeaderGetRawXmax(tuple);
 	return HEAPTUPLE_RECENTLY_DEAD;
@@ -1418,14 +1418,14 @@ HeapTupleSatisfiesVacuumHorizon(HeapTuple htup, Buffer buffer, TransactionId *de
 /*
  * HeapTupleSatisfiesNonVacuumable
  *
- *	True if tuple might be visible to some transaction; false if it's
- *	surely dead to everyone, ie, vacuumable.
+ *	若元组可能对某个事务可见则为真；若它对
+ *	所有人都确定已死，即可被清理，则为假。
  *
- *	See SNAPSHOT_NON_VACUUMABLE's definition for the intended behaviour.
+ *	预期行为见 SNAPSHOT_NON_VACUUMABLE 的定义。
  *
- *	This is an interface to HeapTupleSatisfiesVacuum that's callable via
- *	HeapTupleSatisfiesSnapshot, so it can be used through a Snapshot.
- *	snapshot->vistest must have been set up with the horizon to use.
+ *	这是 HeapTupleSatisfiesVacuum 的接口，可通过
+ *	HeapTupleSatisfiesSnapshot 调用，因此能借助 Snapshot 使用。
+ *	snapshot->vistest 必须已按要使用的视界设置好。
  */
 static bool
 HeapTupleSatisfiesNonVacuumable(HeapTuple htup, Snapshot snapshot,
@@ -1453,15 +1453,15 @@ HeapTupleSatisfiesNonVacuumable(HeapTuple htup, Snapshot snapshot,
 /*
  * HeapTupleIsSurelyDead
  *
- *	Cheaply determine whether a tuple is surely dead to all onlookers.
- *	We sometimes use this in lieu of HeapTupleSatisfiesVacuum when the
- *	tuple has just been tested by another visibility routine (usually
- *	HeapTupleSatisfiesMVCC) and, therefore, any hint bits that can be set
- *	should already be set.  We assume that if no hint bits are set, the xmin
- *	or xmax transaction is still running.  This is therefore faster than
- *	HeapTupleSatisfiesVacuum, because we consult neither procarray nor CLOG.
- *	It's okay to return false when in doubt, but we must return true only
- *	if the tuple is removable.
+ *	低成本地判断元组是否对所有旁观者都确定已死。
+ *	有时用它代替 HeapTupleSatisfiesVacuum，时机是该
+ *	元组刚被另一个可见性例程测试过（通常是
+ *	HeapTupleSatisfiesMVCC），因此凡是能够设置的提示位
+ *	都应当已经设好。我们假定若提示位都没设，则 xmin
+ *	或 xmax 事务仍在运行。所以它比
+ *	HeapTupleSatisfiesVacuum 更快，因为既不查阅 procarray，也不查阅 CLOG。
+ *	拿不准时可以返回假，但只有当
+ *	元组可以被移除时，才必须返回真。
  */
 bool
 HeapTupleIsSurelyDead(HeapTuple htup, GlobalVisState *vistest)
@@ -1472,79 +1472,79 @@ HeapTupleIsSurelyDead(HeapTuple htup, GlobalVisState *vistest)
 	Assert(htup->t_tableOid != InvalidOid);
 
 	/*
-	 * If the inserting transaction is marked invalid, then it aborted, and
-	 * the tuple is definitely dead.  If it's marked neither committed nor
-	 * invalid, then we assume it's still alive (since the presumption is that
-	 * all relevant hint bits were just set moments ago).
+	 * 若插入事务被标为无效，则它已中止，
+	 * 元组确定已死。若它既未标为已提交也未标为
+	 * 无效，则我们假定它仍活着（因为前提是
+	 * 所有相关提示位片刻之前刚刚设好）。
 	 */
 	if (!HeapTupleHeaderXminCommitted(tuple))
 		return HeapTupleHeaderXminInvalid(tuple);
 
 	/*
-	 * If the inserting transaction committed, but any deleting transaction
-	 * aborted, the tuple is still alive.
+	 * 若插入事务已提交，但任何删除事务
+	 * 都已中止，则元组仍然活着。
 	 */
 	if (tuple->t_infomask & HEAP_XMAX_INVALID)
 		return false;
 
 	/*
-	 * If the XMAX is just a lock, the tuple is still alive.
+	 * 若 XMAX 只是一把锁，元组仍然活着。
 	 */
 	if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 		return false;
 
 	/*
-	 * If the Xmax is a MultiXact, it might be dead or alive, but we cannot
-	 * know without checking pg_multixact.
+	 * 若 Xmax 是 MultiXact，它可能已死也可能还活着，但不检查
+	 * pg_multixact 就无法知道。
 	 */
 	if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 		return false;
 
-	/* If deleter isn't known to have committed, assume it's still running. */
+	/* 若尚不能确定删除者已提交，就假定它仍在运行。 */
 	if (!(tuple->t_infomask & HEAP_XMAX_COMMITTED))
 		return false;
 
-	/* Deleter committed, so tuple is dead if the XID is old enough. */
+	/* 删除者已提交，因此若该 XID 足够老，元组就是死的。 */
 	return GlobalVisTestIsRemovableXid(vistest,
 									   HeapTupleHeaderGetRawXmax(tuple));
 }
 
 /*
- * Is the tuple really only locked?  That is, is it not updated?
+ * 该元组是否真的只被锁定？也就是说，它没有被更新？
  *
- * It's easy to check just infomask bits if the locker is not a multi; but
- * otherwise we need to verify that the updating transaction has not aborted.
+ * 若加锁者不是 multi，只检查 infomask 位很容易；但
+ * 否则就需要验证执行更新的事务没有中止。
  *
- * This function is here because it follows the same visibility rules laid out
- * at the top of this file.
+ * 这个函数放在这里，是因为它遵循的可见性规则与
+ * 本文件开头所写的相同。
  */
 bool
 HeapTupleHeaderIsOnlyLocked(HeapTupleHeader tuple)
 {
 	TransactionId xmax;
 
-	/* if there's no valid Xmax, then there's obviously no update either */
+	/* 若没有有效的 Xmax，显然也就没有更新 */
 	if (tuple->t_infomask & HEAP_XMAX_INVALID)
 		return true;
 
 	if (tuple->t_infomask & HEAP_XMAX_LOCK_ONLY)
 		return true;
 
-	/* invalid xmax means no update */
+	/* 无效的 xmax 表示没有更新 */
 	if (!TransactionIdIsValid(HeapTupleHeaderGetRawXmax(tuple)))
 		return true;
 
 	/*
-	 * if HEAP_XMAX_LOCK_ONLY is not set and not a multi, then this must
-	 * necessarily have been updated
+	 * 若未设置 HEAP_XMAX_LOCK_ONLY 且不是 multi，则这必定
+	 * 已经被更新过
 	 */
 	if (!(tuple->t_infomask & HEAP_XMAX_IS_MULTI))
 		return false;
 
-	/* ... but if it's a multi, then perhaps the updating Xid aborted. */
+	/* ...但若它是 multi，则执行更新的 Xid 也许已经中止。 */
 	xmax = HeapTupleGetUpdateXid(tuple);
 
-	/* not LOCKED_ONLY, so it has to have an xmax */
+	/* 不是 LOCKED_ONLY，因此必定有 xmax */
 	Assert(TransactionIdIsValid(xmax));
 
 	if (TransactionIdIsCurrentTransactionId(xmax))
@@ -1555,14 +1555,14 @@ HeapTupleHeaderIsOnlyLocked(HeapTupleHeader tuple)
 		return false;
 
 	/*
-	 * not current, not in progress, not committed -- must have aborted or
-	 * crashed
+	 * 不是当前事务，不在进行中，也未提交——必定已中止或
+	 * 已崩溃
 	 */
 	return true;
 }
 
 /*
- * check whether the transaction id 'xid' is in the pre-sorted array 'xip'.
+ * 检查事务 id 'xid' 是否位于预先排好序的数组 'xip' 中。
  */
 static bool
 TransactionIdInArray(TransactionId xid, TransactionId *xip, Size num)
@@ -1572,18 +1572,18 @@ TransactionIdInArray(TransactionId xid, TransactionId *xip, Size num)
 }
 
 /*
- * See the comments for HeapTupleSatisfiesMVCC for the semantics this function
- * obeys.
+ * 本函数所遵守的语义，见 HeapTupleSatisfiesMVCC 的
+ * 注释。
  *
- * Only usable on tuples from catalog tables!
+ * 只适用于目录表中的元组！
  *
- * We don't need to support HEAP_MOVED_(IN|OFF) for now because we only support
- * reading catalog pages which couldn't have been created in an older version.
+ * 目前不需要支持 HEAP_MOVED_(IN|OFF)，因为我们只支持
+ * 读取不可能由更老版本创建的目录页。
  *
- * We don't set any hint bits in here as it seems unlikely to be beneficial as
- * those should already be set by normal access and it seems to be too
- * dangerous to do so as the semantics of doing so during timetravel are more
- * complicated than when dealing "only" with the present.
+ * 这里不设置任何提示位，因为那样做似乎没什么好处，
+ * 正常访问应当已经把它们设好了，而且这样做似乎过于
+ * 危险：在 timetravel 期间设置提示位的语义，比只处理
+ * "当前"时更加复杂。
  */
 static bool
 HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
@@ -1596,13 +1596,13 @@ HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
 	Assert(ItemPointerIsValid(&htup->t_self));
 	Assert(htup->t_tableOid != InvalidOid);
 
-	/* inserting transaction aborted */
+	/* 插入事务已中止 */
 	if (HeapTupleHeaderXminInvalid(tuple))
 	{
 		Assert(!TransactionIdDidCommit(xmin));
 		return false;
 	}
-	/* check if it's one of our txids, toplevel is also in there */
+	/* 检查它是否是我们的 txid 之一，顶层事务也在其中 */
 	else if (TransactionIdInArray(xmin, snapshot->subxip, snapshot->subxcnt))
 	{
 		bool		resolved;
@@ -1610,30 +1610,30 @@ HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
 		CommandId	cmax = InvalidCommandId;
 
 		/*
-		 * another transaction might have (tried to) delete this tuple or
-		 * cmin/cmax was stored in a combo CID. So we need to lookup the
-		 * actual values externally.
+		 * 另一个事务可能已经（试图）删除该元组，或者
+		 * cmin/cmax 被存在了 combo CID 里。因此需要在外部
+		 * 查找实际的值。
 		 */
 		resolved = ResolveCminCmaxDuringDecoding(HistoricSnapshotGetTupleCids(), snapshot,
 												 htup, buffer,
 												 &cmin, &cmax);
 
 		/*
-		 * If we haven't resolved the combo CID to cmin/cmax, that means we
-		 * have not decoded the combo CID yet. That means the cmin is
-		 * definitely in the future, and we're not supposed to see the tuple
-		 * yet.
+		 * 若还没把 combo CID 解析成 cmin/cmax，那就表示我们
+		 * 尚未解码该 combo CID。这意味着 cmin
+		 * 肯定处于将来，因此现在还不应当看见这个
+		 * 元组。
 		 *
-		 * XXX This only applies to decoding of in-progress transactions. In
-		 * regular logical decoding we only execute this code at commit time,
-		 * at which point we should have seen all relevant combo CIDs. So
-		 * ideally, we should error out in this case but in practice, this
-		 * won't happen. If we are too worried about this then we can add an
-		 * elog inside ResolveCminCmaxDuringDecoding.
+		 * XXX 这只适用于对进行中事务的解码。在
+		 * 常规逻辑解码中，我们只在提交时执行这段代码，
+		 * 那时应该已经见过所有相关的 combo CIDs。所以
+		 * 理想情况下这里应该报错，但实践中这
+		 * 不会发生。若对此过于担心，可以在
+		 * ResolveCminCmaxDuringDecoding 里加一条 elog。
 		 *
-		 * XXX For the streaming case, we can track the largest combo CID
-		 * assigned, and error out based on this (when unable to resolve combo
-		 * CID below that observed maximum value).
+		 * XXX 对于流式情形，可以跟踪已分配的最大 combo CID，
+		 * 并据此报错（当无法解析那个已观测最大值
+		 * 以下的 combo CID 时）。
 		 */
 		if (!resolved)
 			return false;
@@ -1641,129 +1641,129 @@ HeapTupleSatisfiesHistoricMVCC(HeapTuple htup, Snapshot snapshot,
 		Assert(cmin != InvalidCommandId);
 
 		if (cmin >= snapshot->curcid)
-			return false;		/* inserted after scan started */
+			return false;		/* 在扫描开始之后被插入 */
 		/* fall through */
 	}
-	/* committed before our xmin horizon. Do a normal visibility check. */
+	/* 在我们的 xmin 视界之前已提交。做一次常规可见性检查。 */
 	else if (TransactionIdPrecedes(xmin, snapshot->xmin))
 	{
 		Assert(!(HeapTupleHeaderXminCommitted(tuple) &&
 				 !TransactionIdDidCommit(xmin)));
 
-		/* check for hint bit first, consult clog afterwards */
+		/* 先检查提示位，然后再查阅 clog */
 		if (!HeapTupleHeaderXminCommitted(tuple) &&
 			!TransactionIdDidCommit(xmin))
 			return false;
 		/* fall through */
 	}
-	/* beyond our xmax horizon, i.e. invisible */
+	/* 超出我们的 xmax 视界，即不可见 */
 	else if (TransactionIdFollowsOrEquals(xmin, snapshot->xmax))
 	{
 		return false;
 	}
-	/* check if it's a committed transaction in [xmin, xmax) */
+	/* 检查它是否是 [xmin, xmax) 内已提交的事务 */
 	else if (TransactionIdInArray(xmin, snapshot->xip, snapshot->xcnt))
 	{
 		/* fall through */
 	}
 
 	/*
-	 * none of the above, i.e. between [xmin, xmax) but hasn't committed. I.e.
-	 * invisible.
+	 * 以上都不是，即落在 [xmin, xmax) 之中但尚未提交。也就是
+	 * 不可见。
 	 */
 	else
 	{
 		return false;
 	}
 
-	/* at this point we know xmin is visible, go on to check xmax */
+	/* 至此已知 xmin 可见，继续检查 xmax */
 
-	/* xid invalid or aborted */
+	/* xid 无效或已中止 */
 	if (tuple->t_infomask & HEAP_XMAX_INVALID)
 		return true;
-	/* locked tuples are always visible */
+	/* 被锁定的元组总是可见 */
 	else if (HEAP_XMAX_IS_LOCKED_ONLY(tuple->t_infomask))
 		return true;
 
 	/*
-	 * We can see multis here if we're looking at user tables or if somebody
-	 * SELECT ... FOR SHARE/UPDATE a system table.
+	 * 若正在查看用户表，或者有人对系统表做了
+	 * SELECT ... FOR SHARE/UPDATE，这里就能看见 multi。
 	 */
 	else if (tuple->t_infomask & HEAP_XMAX_IS_MULTI)
 	{
 		xmax = HeapTupleGetUpdateXid(tuple);
 	}
 
-	/* check if it's one of our txids, toplevel is also in there */
+	/* 检查它是否是我们的 txid 之一，顶层事务也在其中 */
 	if (TransactionIdInArray(xmax, snapshot->subxip, snapshot->subxcnt))
 	{
 		bool		resolved;
 		CommandId	cmin;
 		CommandId	cmax = HeapTupleHeaderGetRawCommandId(tuple);
 
-		/* Lookup actual cmin/cmax values */
+		/* 查找实际的 cmin/cmax 值 */
 		resolved = ResolveCminCmaxDuringDecoding(HistoricSnapshotGetTupleCids(), snapshot,
 												 htup, buffer,
 												 &cmin, &cmax);
 
 		/*
-		 * If we haven't resolved the combo CID to cmin/cmax, that means we
-		 * have not decoded the combo CID yet. That means the cmax is
-		 * definitely in the future, and we're still supposed to see the
-		 * tuple.
+		 * 若还没把 combo CID 解析成 cmin/cmax，那就表示我们
+		 * 尚未解码该 combo CID。这意味着 cmax
+		 * 肯定处于将来，因此我们现在仍应当看见这个
+		 * 元组。
 		 *
-		 * XXX This only applies to decoding of in-progress transactions. In
-		 * regular logical decoding we only execute this code at commit time,
-		 * at which point we should have seen all relevant combo CIDs. So
-		 * ideally, we should error out in this case but in practice, this
-		 * won't happen. If we are too worried about this then we can add an
-		 * elog inside ResolveCminCmaxDuringDecoding.
+		 * XXX 这只适用于对进行中事务的解码。在
+		 * 常规逻辑解码中，我们只在提交时执行这段代码，
+		 * 那时应该已经见过所有相关的 combo CIDs。所以
+		 * 理想情况下这里应该报错，但实践中这
+		 * 不会发生。若对此过于担心，可以在
+		 * ResolveCminCmaxDuringDecoding 里加一条 elog。
 		 *
-		 * XXX For the streaming case, we can track the largest combo CID
-		 * assigned, and error out based on this (when unable to resolve combo
-		 * CID below that observed maximum value).
+		 * XXX 对于流式情形，可以跟踪已分配的最大 combo CID，
+		 * 并据此报错（当无法解析那个已观测最大值
+		 * 以下的 combo CID 时）。
 		 */
 		if (!resolved || cmax == InvalidCommandId)
 			return true;
 
 		if (cmax >= snapshot->curcid)
-			return true;		/* deleted after scan started */
+			return true;		/* 在扫描开始之后被删除 */
 		else
-			return false;		/* deleted before scan started */
+			return false;		/* 在扫描开始之前被删除 */
 	}
-	/* below xmin horizon, normal transaction state is valid */
+	/* 低于 xmin 视界时，常规事务状态有效 */
 	else if (TransactionIdPrecedes(xmax, snapshot->xmin))
 	{
 		Assert(!(tuple->t_infomask & HEAP_XMAX_COMMITTED &&
 				 !TransactionIdDidCommit(xmax)));
 
-		/* check hint bit first */
+		/* 先检查提示位 */
 		if (tuple->t_infomask & HEAP_XMAX_COMMITTED)
 			return false;
 
-		/* check clog */
+		/* 检查 clog */
 		return !TransactionIdDidCommit(xmax);
 	}
-	/* above xmax horizon, we cannot possibly see the deleting transaction */
+	/* 高于 xmax 视界，我们不可能看见删除事务 */
 	else if (TransactionIdFollowsOrEquals(xmax, snapshot->xmax))
 		return true;
-	/* xmax is between [xmin, xmax), check known committed array */
+	/* xmax 位于 [xmin, xmax) 之中，检查已知已提交数组 */
 	else if (TransactionIdInArray(xmax, snapshot->xip, snapshot->xcnt))
 		return false;
-	/* xmax is between [xmin, xmax), but known not to have committed yet */
+	/* xmax 位于 [xmin, xmax) 之中，但已知尚未提交 */
 	else
 		return true;
 }
 
 /*
  * HeapTupleSatisfiesVisibility
- *		True iff heap tuple satisfies a time qual.
+ *		当且仅当堆元组满足时间限定条件时为真。
  *
- * Notes:
- *	Assumes heap tuple is valid, and buffer at least share locked.
+ * 说明：
+ *	假定堆元组有效，且缓冲区至少被共享锁定。
  *
- *	Hint bits in the HeapTuple's t_infomask may be updated as a side effect;
- *	if so, the indicated buffer is marked dirty.
+ *	作为副作用，可能更新 HeapTuple 的 t_infomask 中的提示位；
+ *	若如此，所指的缓冲区会被标为脏。
  */
 bool
 HeapTupleSatisfiesVisibility(HeapTuple htup, Snapshot snapshot, Buffer buffer)
@@ -1786,5 +1786,5 @@ HeapTupleSatisfiesVisibility(HeapTuple htup, Snapshot snapshot, Buffer buffer)
 			return HeapTupleSatisfiesNonVacuumable(htup, snapshot, buffer);
 	}
 
-	return false;				/* keep compiler quiet */
+	return false;				/* 免得编译器报警 */
 }

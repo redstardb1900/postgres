@@ -1,20 +1,20 @@
 /*
  * brin_inclusion.c
- *		Implementation of inclusion opclasses for BRIN
+ *		BRIN 的 inclusion 操作符类实现
  *
- * This module provides framework BRIN support functions for the "inclusion"
- * operator classes.  A few SQL-level support functions are also required for
- * each opclass.
+ * 本模块为 "inclusion"
+ * 操作符类提供框架级 BRIN 支持函数。每个操作符类还需要
+ * 若干 SQL 层支持函数。
  *
- * The "inclusion" BRIN strategy is useful for types that support R-Tree
- * operations.  This implementation is a straight mapping of those operations
- * to the block-range nature of BRIN, with two exceptions: (a) we explicitly
- * support "empty" elements: at least with range types, we need to consider
- * emptiness separately from regular R-Tree strategies; and (b) we need to
- * consider "unmergeable" elements, that is, a set of elements for whose union
- * no representation exists.  The only case where that happens as of this
- * writing is the INET type, where IPv6 values cannot be merged with IPv4
- * values.
+ * "inclusion" 这一 BRIN 策略适用于支持 R-Tree
+ * 操作的类型。本实现把那些操作直接映射
+ * 到 BRIN 的块范围特性上，但有两处例外：(a) 我们显式
+ * 支持 "空" 元素：至少对范围类型，需要把
+ * 空与常规 R-Tree 策略分开考虑；(b) 还需要
+ * 考虑 "不可合并" 元素，即一组元素，它们的并
+ * 没有表示形式。截至目前，唯一出现这种情况的
+ * 是 INET 类型，其中 IPv6 值无法与 IPv4
+ * 值合并。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,35 +38,35 @@
 
 
 /*
- * Additional SQL level support functions
+ * 额外的 SQL 层支持函数
  *
- * Procedure numbers must not use values reserved for BRIN itself; see
- * brin_internal.h.
+ * 过程编号不得使用 BRIN 自身保留的值；参见
+ * brin_internal.h。
  */
-#define		INCLUSION_MAX_PROCNUMS	4	/* maximum support procs we need */
-#define		PROCNUM_MERGE			11	/* required */
-#define		PROCNUM_MERGEABLE		12	/* optional */
-#define		PROCNUM_CONTAINS		13	/* optional */
-#define		PROCNUM_EMPTY			14	/* optional */
+#define		INCLUSION_MAX_PROCNUMS	4	/* 我们需要的支持过程上限 */
+#define		PROCNUM_MERGE			11	/* 必需 */
+#define		PROCNUM_MERGEABLE		12	/* 可选 */
+#define		PROCNUM_CONTAINS		13	/* 可选 */
+#define		PROCNUM_EMPTY			14	/* 可选 */
 
 
 /*
- * Subtract this from procnum to obtain index in InclusionOpaque arrays
- * (Must be equal to minimum of private procnums).
+ * 从 procnum 减去此值，得到 InclusionOpaque 数组中的下标
+ * （必须等于私有过程编号的最小值）。
  */
 #define		PROCNUM_BASE			11
 
 /*-
- * The values stored in the bv_values arrays correspond to:
+ * bv_values 数组中存储的值分别对应：
  *
  * INCLUSION_UNION
- *		the union of the values in the block range
+ *		页范围中各值的并
  * INCLUSION_UNMERGEABLE
- *		whether the values in the block range cannot be merged
- *		(e.g. an IPv6 address amidst IPv4 addresses)
+ *		页范围中的值是否无法合并
+ *		（例如 IPv4 地址之中夹着一个 IPv6 地址）
  * INCLUSION_CONTAINS_EMPTY
- *		whether an empty value is present in any tuple
- *		in the block range
+ *		页范围内是否有任何元组
+ *		含有空元素
  */
 #define INCLUSION_UNION				0
 #define INCLUSION_UNMERGEABLE		1
@@ -88,7 +88,7 @@ static FmgrInfo *inclusion_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno,
 
 
 /*
- * BRIN inclusion OpcInfo function
+ * BRIN inclusion 的 OpcInfo 函数
  */
 Datum
 brin_inclusion_opcinfo(PG_FUNCTION_ARGS)
@@ -98,13 +98,13 @@ brin_inclusion_opcinfo(PG_FUNCTION_ARGS)
 	TypeCacheEntry *bool_typcache = lookup_type_cache(BOOLOID, 0);
 
 	/*
-	 * All members of opaque are initialized lazily; both procinfo arrays
-	 * start out as non-initialized by having fn_oid be InvalidOid, and
-	 * "missing" to false, by zeroing here.  strategy_procinfos elements can
-	 * be invalidated when cached_subtype changes by zeroing fn_oid.
-	 * extra_procinfo entries are never invalidated, but if a lookup fails
-	 * (which is expected), extra_proc_missing is set to true, indicating not
-	 * to look it up again.
+	 * opaque 的所有成员都惰性初始化；两个 procinfo 数组
+	 * 起初都未初始化：fn_oid 为 InvalidOid，并且
+	 * "missing" 为 false，这里靠清零做到。strategy_procinfos 元素可
+	 * 在 cached_subtype 变化时把 fn_oid 清零而失效。
+	 * extra_procinfo 条目从不失效，但若查找失败
+	 * （这是预期的），就把 extra_proc_missing 设为 true，表示不要
+	 * 再查找它。
 	 */
 	result = palloc0(MAXALIGN(SizeofBrinOpcInfo(3)) + sizeof(InclusionOpaque));
 	result->oi_nstored = 3;
@@ -112,27 +112,27 @@ brin_inclusion_opcinfo(PG_FUNCTION_ARGS)
 	result->oi_opaque = (InclusionOpaque *)
 		MAXALIGN((char *) result + SizeofBrinOpcInfo(3));
 
-	/* the union */
+	/* 并 */
 	result->oi_typcache[INCLUSION_UNION] =
 		lookup_type_cache(typoid, 0);
 
-	/* includes elements that are not mergeable */
+	/* 含有不可合并的元素 */
 	result->oi_typcache[INCLUSION_UNMERGEABLE] = bool_typcache;
 
-	/* includes the empty element */
+	/* 含有空元素 */
 	result->oi_typcache[INCLUSION_CONTAINS_EMPTY] = bool_typcache;
 
 	PG_RETURN_POINTER(result);
 }
 
 /*
- * BRIN inclusion add value function
+ * BRIN inclusion 的 add value 函数
  *
- * Examine the given index tuple (which contains partial status of a certain
- * page range) by comparing it to the given value that comes from another heap
- * tuple.  If the new value is outside the union specified by the existing
- * tuple values, update the index tuple and return true.  Otherwise, return
- * false and do not modify in this case.
+ * 检查给定索引元组（它含有某个
+ * 页范围的部分状态）：把它与来自另一个堆
+ * 元组的给定值相比较。若新值落在现有
+ * 元组值所指定的并之外，则更新索引元组并返回 true。否则，返回
+ * false，且在这种情况下不做修改。
  */
 Datum
 brin_inclusion_add_value(PG_FUNCTION_ARGS)
@@ -154,8 +154,8 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
 	/*
-	 * If the recorded value is null, copy the new value (which we know to be
-	 * not null), and we're almost done.
+	 * 若已记录的值为空，则复制新值（已知为
+	 * 非空），至此基本完成。
 	 */
 	if (column->bv_allnulls)
 	{
@@ -168,16 +168,16 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * No need for further processing if the block range is marked as
-	 * containing unmergeable values.
+	 * 若该页范围已标记为
+	 * 含有不可合并的值，则无需继续处理。
 	 */
 	if (DatumGetBool(column->bv_values[INCLUSION_UNMERGEABLE]))
 		PG_RETURN_BOOL(false);
 
 	/*
-	 * If the opclass supports the concept of empty values, test the passed
-	 * new value for emptiness; if it returns true, we need to set the
-	 * "contains empty" flag in the element (unless already set).
+	 * 若操作符类支持空元素这一概念，则检测传入的
+	 * 新值是否为空；若返回 true，就需要设置
+	 * 元素上的 "含空" 标志（除非已经设置）。
 	 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_EMPTY, true);
 	if (finfo != NULL && DatumGetBool(FunctionCall1Coll(finfo, colloid, newval)))
@@ -194,7 +194,7 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 	if (new)
 		PG_RETURN_BOOL(true);
 
-	/* Check if the new value is already contained. */
+	/* 检查新值是否已被包含。 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_CONTAINS, true);
 	if (finfo != NULL &&
 		DatumGetBool(FunctionCall2Coll(finfo, colloid,
@@ -203,12 +203,12 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(false);
 
 	/*
-	 * Check if the new value is mergeable to the existing union.  If it is
-	 * not, mark the value as containing unmergeable elements and get out.
+	 * 检查新值能否合并进现有的并。若不能，
+	 * 就把该值标为含有不可合并元素，然后返回。
 	 *
-	 * Note: at this point we could remove the value from the union, since
-	 * it's not going to be used any longer.  However, the BRIN framework
-	 * doesn't allow for the value not being present.  Improve someday.
+	 * 注意：此时可以把该值从并中去掉，因为
+	 * 它以后不会再被使用。不过 BRIN 框架
+	 * 不允许该值不存在。将来再改进。
 	 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_MERGEABLE, true);
 	if (finfo != NULL &&
@@ -220,7 +220,7 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(true);
 	}
 
-	/* Finally, merge the new value to the existing union. */
+	/* 最后，把新值合并进现有的并。 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_MERGE, false);
 	result = FunctionCall2Coll(finfo, colloid,
 							   column->bv_values[INCLUSION_UNION], newval);
@@ -238,13 +238,13 @@ brin_inclusion_add_value(PG_FUNCTION_ARGS)
 }
 
 /*
- * BRIN inclusion consistent function
+ * BRIN inclusion 的 consistent 函数
  *
- * We're no longer dealing with NULL keys in the consistent function, that is
- * now handled by the AM code. That means we should not get any all-NULL ranges
- * either, because those can't be consistent with regular (not [IS] NULL) keys.
+ * consistent 函数里不再处理 NULL 键，那现在
+ * 由 AM 代码处理。因此也不应遇到全 NULL 页范围，
+ * 因为它们不可能与普通（非 [IS] NULL）键一致。
  *
- * All of the strategies are optional.
+ * 所有策略都是可选的。
  */
 Datum
 brin_inclusion_consistent(PG_FUNCTION_ARGS)
@@ -260,13 +260,13 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 	FmgrInfo   *finfo;
 	Datum		result;
 
-	/* This opclass uses the old signature with only three arguments. */
+	/* 此操作符类使用只有三个参数的旧签名。 */
 	Assert(PG_NARGS() == 3);
 
-	/* Should not be dealing with all-NULL ranges. */
+	/* 不应处理全 NULL 页范围。 */
 	Assert(!column->bv_allnulls);
 
-	/* It has to be checked, if it contains elements that are not mergeable. */
+	/* 必须检查它是否含有不可合并的元素。 */
 	if (DatumGetBool(column->bv_values[INCLUSION_UNMERGEABLE]))
 		PG_RETURN_BOOL(true);
 
@@ -277,16 +277,16 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 	switch (key->sk_strategy)
 	{
 			/*
-			 * Placement strategies
+			 * 位置策略
 			 *
-			 * These are implemented by logically negating the result of the
-			 * converse placement operator; for this to work, the converse
-			 * operator must be part of the opclass.  An error will be thrown
-			 * by inclusion_get_strategy_procinfo() if the required strategy
-			 * is not part of the opclass.
+			 * 这些策略通过对逆位置操作符的结果
+ * 做逻辑否定来实现；为此，逆操作符
+ * 必须属于该操作符类。若所需策略
+ * 不属于该操作符类，inclusion_get_strategy_procinfo()
+ * 就会报错。
 			 *
-			 * These all return false if either argument is empty, so there is
-			 * no need to check for empty elements.
+			 * 任一参数为空时它们都返回 false，因此
+			 * 无需检查空元素。
 			 */
 
 		case RTLeftStrategyNumber:
@@ -338,11 +338,11 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 			PG_RETURN_BOOL(!DatumGetBool(result));
 
 			/*
-			 * Overlap and contains strategies
+			 * 重叠与包含策略
 			 *
-			 * These strategies are simple enough that we can simply call the
-			 * operator and return its result.  Empty elements don't change
-			 * the result.
+			 * 这些策略足够简单，直接调用
+			 * 操作符并返回其结果即可。空元素不会改变
+			 * 结果。
 			 */
 
 		case RTOverlapStrategyNumber:
@@ -356,14 +356,14 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 			PG_RETURN_DATUM(result);
 
 			/*
-			 * Contained by strategies
+			 * 被包含策略
 			 *
-			 * We cannot just call the original operator for the contained by
-			 * strategies because some elements can be contained even though
-			 * the union is not; instead we use the overlap operator.
+			 * 对 "被包含" 策略无法直接调用原来的操作符，
+			 * 因为即使并本身不被包含，某些元素仍可能被包含；
+			 * 因此改用重叠操作符。
 			 *
-			 * We check for empty elements separately as they are not merged
-			 * to the union but contained by everything.
+			 * 空元素要单独检查：它们不会被合并
+			 * 进并，但会被任何值包含。
 			 */
 
 		case RTContainedByStrategyNumber:
@@ -378,13 +378,13 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 			PG_RETURN_DATUM(column->bv_values[INCLUSION_CONTAINS_EMPTY]);
 
 			/*
-			 * Adjacent strategy
+			 * 相邻策略
 			 *
-			 * We test for overlap first but to be safe we need to call the
-			 * actual adjacent operator also.
+			 * 我们先检测重叠，但为稳妥起见
+			 * 还要调用真正的相邻操作符。
 			 *
-			 * An empty element cannot be adjacent to any other, so there is
-			 * no need to check for it.
+			 * 空元素不可能与任何其他元素相邻，因此
+			 * 无需检查它。
 			 */
 
 		case RTAdjacentStrategyNumber:
@@ -400,25 +400,25 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 			PG_RETURN_DATUM(result);
 
 			/*
-			 * Basic comparison strategies
+			 * 基本比较策略
 			 *
-			 * It is straightforward to support the equality strategies with
-			 * the contains operator.  Generally, inequality strategies do not
-			 * make much sense for the types which will be used with the
-			 * inclusion BRIN family of opclasses, but it is possible to
-			 * implement them with logical negation of the left-of and
-			 * right-of operators.
+			 * 用包含操作符支持相等策略很直接。
+			 * 一般而言，不等策略对将要配合
+			 * inclusion 这一 BRIN 操作符类族使用的类型
+			 * 意义不大，但仍可以用位于左侧
+			 * 与位于右侧操作符的逻辑否定来
+			 * 实现它们。
 			 *
-			 * NB: These strategies cannot be used with geometric datatypes
-			 * that use comparison of areas!  The only exception is the "same"
-			 * strategy.
+			 * 注意：这些策略无法用于按面积比较的几何数据类型！
+			 * 唯一例外是 "same"
+			 * 策略。
 			 *
-			 * Empty elements are considered to be less than the others.  We
-			 * cannot use the empty support function to check the query is an
-			 * empty element, because the query can be another data type than
-			 * the empty support function argument.  So we will return true,
-			 * if there is a possibility that empty elements will change the
-			 * result.
+			 * 空元素被视为小于其他元素。我们
+			 * 无法用 empty 支持函数来检查查询值是否为
+			 * 空元素，因为查询值的数据类型可能不同于
+			 * empty 支持函数的参数。因此只要空元素
+			 * 有可能改变
+			 * 结果，我们就返回 true。
 			 */
 
 		case RTLessStrategyNumber:
@@ -451,24 +451,24 @@ brin_inclusion_consistent(PG_FUNCTION_ARGS)
 			PG_RETURN_DATUM(column->bv_values[INCLUSION_CONTAINS_EMPTY]);
 
 		case RTGreaterStrategyNumber:
-			/* no need to check for empty elements */
+			/* 无需检查空元素 */
 			finfo = inclusion_get_strategy_procinfo(bdesc, attno, subtype,
 													RTLeftStrategyNumber);
 			result = FunctionCall2Coll(finfo, colloid, unionval, query);
 			PG_RETURN_BOOL(!DatumGetBool(result));
 
 		default:
-			/* shouldn't happen */
+			/* 不应发生 */
 			elog(ERROR, "invalid strategy number %d", key->sk_strategy);
 			PG_RETURN_BOOL(false);
 	}
 }
 
 /*
- * BRIN inclusion union function
+ * BRIN inclusion 的 union 函数
  *
- * Given two BrinValues, update the first of them as a union of the summary
- * values contained in both.  The second one is untouched.
+ * 给定两个 BrinValues，把第一个更新为二者所含汇总
+ * 值的并。第二个保持不动。
  */
 Datum
 brin_inclusion_union(PG_FUNCTION_ARGS)
@@ -488,23 +488,23 @@ brin_inclusion_union(PG_FUNCTION_ARGS)
 	attno = col_a->bv_attno;
 	attr = TupleDescAttr(bdesc->bd_tupdesc, attno - 1);
 
-	/* If B includes empty elements, mark A similarly, if needed. */
+	/* 若 B 含有空元素，则在需要时把 A 同样标上。 */
 	if (!DatumGetBool(col_a->bv_values[INCLUSION_CONTAINS_EMPTY]) &&
 		DatumGetBool(col_b->bv_values[INCLUSION_CONTAINS_EMPTY]))
 		col_a->bv_values[INCLUSION_CONTAINS_EMPTY] = BoolGetDatum(true);
 
-	/* Check if A includes elements that are not mergeable. */
+	/* 检查 A 是否含有不可合并的元素。 */
 	if (DatumGetBool(col_a->bv_values[INCLUSION_UNMERGEABLE]))
 		PG_RETURN_VOID();
 
-	/* If B includes elements that are not mergeable, mark A similarly. */
+	/* 若 B 含有不可合并的元素，则把 A 同样标上。 */
 	if (DatumGetBool(col_b->bv_values[INCLUSION_UNMERGEABLE]))
 	{
 		col_a->bv_values[INCLUSION_UNMERGEABLE] = BoolGetDatum(true);
 		PG_RETURN_VOID();
 	}
 
-	/* Check if A and B are mergeable; if not, mark A unmergeable. */
+	/* 检查 A 与 B 能否合并；若不能，则把 A 标为不可合并。 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_MERGEABLE, true);
 	if (finfo != NULL &&
 		!DatumGetBool(FunctionCall2Coll(finfo, colloid,
@@ -515,7 +515,7 @@ brin_inclusion_union(PG_FUNCTION_ARGS)
 		PG_RETURN_VOID();
 	}
 
-	/* Finally, merge B to A. */
+	/* 最后，把 B 合并进 A。 */
 	finfo = inclusion_get_procinfo(bdesc, attno, PROCNUM_MERGE, false);
 	result = FunctionCall2Coll(finfo, colloid,
 							   col_a->bv_values[INCLUSION_UNION],
@@ -534,11 +534,11 @@ brin_inclusion_union(PG_FUNCTION_ARGS)
 }
 
 /*
- * Cache and return inclusion opclass support procedure
+ * 缓存并返回 inclusion 操作符类的支持过程
  *
- * Return the procedure corresponding to the given function support number
- * or null if it is not exists.  If missing_ok is true and the procedure
- * isn't set up for this opclass, return NULL instead of raising an error.
+ * 返回给定支持函数编号对应的过程；
+ * 若不存在则返回 null。若 missing_ok 为 true 且该过程
+ * 未在此操作符类上设置，则返回 NULL，而不是报错。
  */
 static FmgrInfo *
 inclusion_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum,
@@ -548,14 +548,14 @@ inclusion_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum,
 	uint16		basenum = procnum - PROCNUM_BASE;
 
 	/*
-	 * We cache these in the opaque struct, to avoid repetitive syscache
-	 * lookups.
+	 * 我们把这些缓存在 opaque 结构中，以避免反复的系统缓存
+	 * 查找。
 	 */
 	opaque = (InclusionOpaque *) bdesc->bd_info[attno - 1]->oi_opaque;
 
 	/*
-	 * If we already searched for this proc and didn't find it, don't bother
-	 * searching again.
+	 * 若已经查找过该过程且未找到，就不必
+	 * 再查找。
 	 */
 	if (opaque->extra_proc_missing[basenum])
 		return NULL;
@@ -585,24 +585,24 @@ inclusion_get_procinfo(BrinDesc *bdesc, uint16 attno, uint16 procnum,
 }
 
 /*
- * Cache and return the procedure of the given strategy
+ * 缓存并返回给定策略对应的过程
  *
- * Return the procedure corresponding to the given sub-type and strategy
- * number.  The data type of the index will be used as the left hand side of
- * the operator and the given sub-type will be used as the right hand side.
- * Throws an error if the pg_amop row does not exist, but that should not
- * happen with a properly configured opclass.
+ * 返回给定子类型和策略
+ * 编号对应的过程。索引的数据类型用作操作符的左侧，
+ * 给定子类型用作右侧。
+ * 若 pg_amop 行不存在则报错，但配置正确的操作符类
+ * 不应出现这种情况。
  *
- * It always throws an error when the data type of the opclass is different
- * from the data type of the column or the expression.  That happens when the
- * column data type has implicit cast to the opclass data type.  We don't
- * bother casting types, because this situation can easily be avoided by
- * setting storage data type to that of the opclass.  The same problem does not
- * apply to the data type of the right hand side, because the type in the
- * ScanKey always matches the opclass' one.
+ * 当操作符类的数据类型与
+ * 列或表达式的数据类型不同时总会报错。这发生在
+ * 列数据类型到操作符类数据类型存在隐式转换时。我们不
+ * 费心做类型转换，因为把存储数据类型设成操作符类的
+ * 类型就能轻易避免。右侧数据类型没有同样的问题，因为
+ * ScanKey 中的类型
+ * 总是与操作符类的类型一致。
  *
- * Note: this function mirrors minmax_get_strategy_procinfo; if changes are
- * made here, see that function too.
+ * 注意：本函数与 minmax_get_strategy_procinfo 结构相同；若此处
+ * 有改动，也要看那个函数。
  */
 static FmgrInfo *
 inclusion_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
@@ -616,9 +616,9 @@ inclusion_get_strategy_procinfo(BrinDesc *bdesc, uint16 attno, Oid subtype,
 	opaque = (InclusionOpaque *) bdesc->bd_info[attno - 1]->oi_opaque;
 
 	/*
-	 * We cache the procedures for the last sub-type in the opaque struct, to
-	 * avoid repetitive syscache lookups.  If the sub-type is changed,
-	 * invalidate all the cached entries.
+	 * 我们把上一子类型的过程缓存在 opaque 结构中，以
+	 * 避免反复的系统缓存查找。若子类型变了，
+	 * 就使全部缓存条目失效。
 	 */
 	if (opaque->cached_subtype != subtype)
 	{

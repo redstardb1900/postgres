@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0164-comment-access-nbtree-part9",
+ "title": "zh: translate access/nbtree comments (part 9)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "ecc020f17d3bd8104043ac87f3aa5f7721f363bf",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/nbtree/nbtinsert.c",
+   "kind": "c_comment",
+   "note": "btree insert"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0164-comment-access-nbtree-part9.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/nbtree/nbtinsert.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 225,
+   "translated": 225,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "btree insert; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0164-comment-access-nbtree-part9.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0164 translates comments in nbtinsert.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker."
+}

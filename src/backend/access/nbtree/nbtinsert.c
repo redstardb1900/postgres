@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtinsert.c
- *	  Item insertion in Lehman and Yao btrees for Postgres.
+ *	  Postgres 中 Lehman 与 Yao B-树的项插入。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -26,7 +26,7 @@
 #include "storage/predicate.h"
 #include "storage/smgr.h"
 
-/* Minimum tree height for application of fastpath optimization */
+/* fastpath 优化适用的最小树高 */
 #define BTREE_FASTPATH_MIN_LEVEL	2
 
 
@@ -76,27 +76,27 @@ static BlockNumber *_bt_deadblocks(Page page, OffsetNumber *deletable,
 static inline int _bt_blk_cmp(const void *arg1, const void *arg2);
 
 /*
- *	_bt_doinsert() -- Handle insertion of a single index tuple in the tree.
+ *	_bt_doinsert() -- 处理向树中插入单个索引元组。
  *
- *		This routine is called by the public interface routine, btinsert.
- *		By here, itup is filled in, including the TID.
+ *		本例程由公开接口例程 btinsert 调用。
+ *		到这里时，itup 已填好，包括 TID。
  *
- *		If checkUnique is UNIQUE_CHECK_NO or UNIQUE_CHECK_PARTIAL, this
- *		will allow duplicates.  Otherwise (UNIQUE_CHECK_YES or
- *		UNIQUE_CHECK_EXISTING) it will throw error for a duplicate.
- *		For UNIQUE_CHECK_EXISTING we merely run the duplicate check, and
- *		don't actually insert.
+ *		若 checkUnique 为 UNIQUE_CHECK_NO 或 UNIQUE_CHECK_PARTIAL，则
+ *		允许重复项。否则（UNIQUE_CHECK_YES 或
+ *		UNIQUE_CHECK_EXISTING）遇到重复项会抛出错误。
+ *		对于 UNIQUE_CHECK_EXISTING，我们只做重复项检查，
+ *		并不真正插入。
  *
- *		indexUnchanged executor hint indicates if itup is from an
- *		UPDATE that didn't logically change the indexed value, but
- *		must nevertheless have a new entry to point to a successor
- *		version.
+ *		indexUnchanged 执行器提示表明 itup 来自一次
+ *		并未从逻辑上改变索引值的 UPDATE，但
+ *		仍必须有一条新索引项，指向后继
+ *		版本。
  *
- *		The result value is only significant for UNIQUE_CHECK_PARTIAL:
- *		it must be true if the entry is known unique, else false.
- *		(In the current implementation we'll also return true after a
- *		successful UNIQUE_CHECK_YES or UNIQUE_CHECK_EXISTING call, but
- *		that's just a coding artifact.)
+ *		返回值只对 UNIQUE_CHECK_PARTIAL 有意义：
+ *		若已知该项唯一则为 true，否则为 false。
+ *		（当前实现在 UNIQUE_CHECK_YES 或 UNIQUE_CHECK_EXISTING
+ *		调用成功后也会返回 true，但
+ *		那只是编码上的附带结果。）
  */
 bool
 _bt_doinsert(Relation rel, IndexTuple itup,
@@ -109,46 +109,46 @@ _bt_doinsert(Relation rel, IndexTuple itup,
 	BTStack		stack;
 	bool		checkingunique = (checkUnique != UNIQUE_CHECK_NO);
 
-	/* we need an insertion scan key to do our search, so build one */
+	/* 搜索需要插入型扫描键，因此构造一个 */
 	itup_key = _bt_mkscankey(rel, itup);
 
 	if (checkingunique)
 	{
 		if (!itup_key->anynullkeys)
 		{
-			/* No (heapkeyspace) scantid until uniqueness established */
+			/* 在确立唯一性之前不设置（heapkeyspace）scantid */
 			itup_key->scantid = NULL;
 		}
 		else
 		{
 			/*
-			 * Scan key for new tuple contains NULL key values.  Bypass
-			 * checkingunique steps.  They are unnecessary because core code
-			 * considers NULL unequal to every value, including NULL.
+			 * 新元组的扫描键含有 NULL 键值。跳过
+			 * checkingunique 步骤。这些步骤没有必要，因为核心代码
+			 * 认为 NULL 与任何值都不相等，包括 NULL。
 			 *
-			 * This optimization avoids O(N^2) behavior within the
-			 * _bt_findinsertloc() heapkeyspace path when a unique index has a
-			 * large number of "duplicates" with NULL key values.
+			 * 当唯一索引含有大量键值为 NULL 的"重复项"时，
+			 * 这一优化避免 _bt_findinsertloc() 的 heapkeyspace 路径
+			 * 出现 O(N^2) 行为。
 			 */
 			checkingunique = false;
-			/* Tuple is unique in the sense that core code cares about */
+			/* 就核心代码所关心的意义而言，该元组是唯一的 */
 			Assert(checkUnique != UNIQUE_CHECK_EXISTING);
 			is_unique = true;
 		}
 	}
 
 	/*
-	 * Fill in the BTInsertState working area, to track the current page and
-	 * position within the page to insert on.
+	 * 填写 BTInsertState 工作区，以跟踪当前页以及
+	 * 页内要插入的位置。
 	 *
-	 * Note that itemsz is passed down to lower level code that deals with
-	 * inserting the item.  It must be MAXALIGN()'d.  This ensures that space
-	 * accounting code consistently considers the alignment overhead that we
-	 * expect PageAddItem() will add later.  (Actually, index_form_tuple() is
-	 * already conservative about alignment, but we don't rely on that from
-	 * this distance.  Besides, preserving the "true" tuple size in index
-	 * tuple headers for the benefit of nbtsplitloc.c might happen someday.
-	 * Note that heapam does not MAXALIGN() each heap tuple's lp_len field.)
+	 * 注意，itemsz 会传给下层负责
+	 * 插入该项的代码。它必须经过 MAXALIGN()。这样空间
+	 * 记账代码就会始终计入我们
+	 * 预期 PageAddItem() 稍后会加上的对齐开销。（实际上 index_form_tuple()
+	 * 在对齐上已经偏保守，但隔着这么远我们不依赖这一点。
+	 * 此外，将来也许会为了 nbtsplitloc.c 而在索引
+	 * 元组头里保留"真实"元组大小。
+	 * 注意，heapam 并不对每个堆元组的 lp_len 字段做 MAXALIGN()。）
 	 */
 	insertstate.itup = itup;
 	insertstate.itemsz = MAXALIGN(IndexTupleSize(itup));
@@ -160,47 +160,47 @@ _bt_doinsert(Relation rel, IndexTuple itup,
 search:
 
 	/*
-	 * Find and lock the leaf page that the tuple should be added to by
-	 * searching from the root page.  insertstate.buf will hold a buffer that
-	 * is locked in exclusive mode afterwards.
+	 * 从根页开始搜索，找到并锁定元组应当被加入的叶子页。
+	 * 此后 insertstate.buf 将持有一个
+	 * 以排他模式锁定的缓冲区。
 	 */
 	stack = _bt_search_insert(rel, heapRel, &insertstate);
 
 	/*
-	 * checkingunique inserts are not allowed to go ahead when two tuples with
-	 * equal key attribute values would be visible to new MVCC snapshots once
-	 * the xact commits.  Check for conflicts in the locked page/buffer (if
-	 * needed) here.
+	 * 当两个键属性值相等的元组在事务提交后
+	 * 会对新的 MVCC 快照可见时，checkingunique 插入不允许继续。
+	 * 在这里检查已锁定页/缓冲区中的冲突（若
+	 * 需要）。
 	 *
-	 * It might be necessary to check a page to the right in _bt_check_unique,
-	 * though that should be very rare.  In practice the first page the value
-	 * could be on (with scantid omitted) is almost always also the only page
-	 * that a matching tuple might be found on.  This is due to the behavior
-	 * of _bt_findsplitloc with duplicate tuples -- a group of duplicates can
-	 * only be allowed to cross a page boundary when there is no candidate
-	 * leaf page split point that avoids it.  Also, _bt_check_unique can use
-	 * the leaf page high key to determine that there will be no duplicates on
-	 * the right sibling without actually visiting it (it uses the high key in
-	 * cases where the new item happens to belong at the far right of the leaf
-	 * page).
+	 * 也许有必要在 _bt_check_unique 中再检查右边的一页，
+	 * 不过这种情况应当非常少见。实践中，该值
+	 * 可能位于的第一页（省略 scantid）几乎总是
+	 * 同时也是唯一可能找到匹配元组的那一页。这是由于
+	 * _bt_findsplitloc 对重复元组的行为——一组重复项
+	 * 只有在没有任何候选叶子页分裂点
+	 * 能够避开时，才允许跨越页边界。另外，
+	 * _bt_check_unique 可以利用叶子页高键判定
+	 * 右兄弟上不会有重复项，
+	 * 而无需真正访问它（当新项恰好属于叶子页
+	 * 最右侧时，它会使用高键）。
 	 *
-	 * NOTE: obviously, _bt_check_unique can only detect keys that are already
-	 * in the index; so it cannot defend against concurrent insertions of the
-	 * same key.  We protect against that by means of holding a write lock on
-	 * the first page the value could be on, with omitted/-inf value for the
-	 * implicit heap TID tiebreaker attribute.  Any other would-be inserter of
-	 * the same key must acquire a write lock on the same page, so only one
-	 * would-be inserter can be making the check at one time.  Furthermore,
-	 * once we are past the check we hold write locks continuously until we
-	 * have performed our insertion, so no later inserter can fail to see our
-	 * insertion.  (This requires some care in _bt_findinsertloc.)
+	 * 注意：显然，_bt_check_unique 只能发现已经
+	 * 在索引中的键，因此它防不住对同一键的
+	 * 并发插入。我们的防护手段是：对
+	 * 该值可能位于的第一页持有写锁，隐式堆 TID 决胜属性
+	 * 取省略值/负无穷。任何其他想要插入
+	 * 同一键的插入者都必须获取同一页的写锁，因此同一时刻只有一个
+	 * 潜在插入者能在做这项检查。此外，
+	 * 一旦通过检查，我们就持续持有写锁，直到
+	 * 完成插入，后来的插入者不可能看不见我们的
+	 * 插入。（这需要在 _bt_findinsertloc 中多加小心。）
 	 *
-	 * If we must wait for another xact, we release the lock while waiting,
-	 * and then must perform a new search.
+	 * 若必须等待另一个事务，我们在等待期间释放锁，
+	 * 然后必须重新搜索。
 	 *
-	 * For a partial uniqueness check, we don't wait for the other xact. Just
-	 * let the tuple in and return false for possibly non-unique, or true for
-	 * definitely unique.
+	 * 对于部分唯一性检查，我们不等待另一个事务。直接
+	 * 让元组进入，若可能不唯一则返回 false，若
+	 * 确定唯一则返回 true。
 	 */
 	if (checkingunique)
 	{
@@ -212,27 +212,27 @@ search:
 
 		if (unlikely(TransactionIdIsValid(xwait)))
 		{
-			/* Have to wait for the other guy ... */
+			/* 必须等待对方 ... */
 			_bt_relbuf(rel, insertstate.buf);
 			insertstate.buf = InvalidBuffer;
 
 			/*
-			 * If it's a speculative insertion, wait for it to finish (ie. to
-			 * go ahead with the insertion, or kill the tuple).  Otherwise
-			 * wait for the transaction to finish as usual.
+			 * 若这是推测性插入，则等待它结束（也就是
+			 * 继续完成插入，或杀死该元组）。否则
+			 * 像往常一样等待事务结束。
 			 */
 			if (speculativeToken)
 				SpeculativeInsertionWait(xwait, speculativeToken);
 			else
 				XactLockTableWait(xwait, rel, &itup->t_tid, XLTW_InsertIndex);
 
-			/* start over... */
+			/* 重新开始... */
 			if (stack)
 				_bt_freestack(stack);
 			goto search;
 		}
 
-		/* Uniqueness is established -- restore heap tid as scantid */
+		/* 唯一性已确立 -- 把堆 tid 恢复为 scantid */
 		if (itup_key->heapkeyspace)
 			itup_key->scantid = &itup->t_tid;
 	}
@@ -242,18 +242,18 @@ search:
 		OffsetNumber newitemoff;
 
 		/*
-		 * The only conflict predicate locking cares about for indexes is when
-		 * an index tuple insert conflicts with an existing lock.  We don't
-		 * know the actual page we're going to insert on for sure just yet in
-		 * checkingunique and !heapkeyspace cases, but it's okay to use the
-		 * first page the value could be on (with scantid omitted) instead.
+		 * 对索引而言，谓词锁唯一关心的冲突是
+		 * 索引元组插入与已有锁冲突。在
+		 * checkingunique 和 !heapkeyspace 情形下，我们还不能确定
+		 * 实际要插入的那一页，但可以用该值可能位于的
+		 * 第一页（省略 scantid）来代替。
 		 */
 		CheckForSerializableConflictIn(rel, NULL, BufferGetBlockNumber(insertstate.buf));
 
 		/*
-		 * Do the insertion.  Note that insertstate contains cached binary
-		 * search bounds established within _bt_check_unique when insertion is
-		 * checkingunique.
+		 * 执行插入。注意，当插入处于
+		 * checkingunique 时，insertstate 含有 _bt_check_unique 中建立的
+		 * 缓存二分查找边界。
 		 */
 		newitemoff = _bt_findinsertloc(rel, &insertstate, checkingunique,
 									   indexUnchanged, stack, heapRel);
@@ -263,11 +263,11 @@ search:
 	}
 	else
 	{
-		/* just release the buffer */
+		/* 只释放缓冲区 */
 		_bt_relbuf(rel, insertstate.buf);
 	}
 
-	/* be tidy */
+	/* 保持整洁 */
 	if (stack)
 		_bt_freestack(stack);
 	pfree(itup_key);
@@ -276,42 +276,42 @@ search:
 }
 
 /*
- *	_bt_search_insert() -- _bt_search() wrapper for inserts
+ *	_bt_search_insert() -- 供插入使用的 _bt_search() 包装
  *
- * Search the tree for a particular scankey, or more precisely for the first
- * leaf page it could be on.  Try to make use of the fastpath optimization's
- * rightmost leaf page cache before actually searching the tree from the root
- * page, though.
+ * 在树中搜索某个特定扫描键，更准确地说，是搜索它
+ * 可能位于的第一张叶子页。不过，在真正从根页
+ * 搜索整棵树之前，先尝试利用 fastpath 优化的
+ * 最右叶子页缓存。
  *
- * Return value is a stack of parent-page pointers (though see notes about
- * fastpath optimization and page splits below).  insertstate->buf is set to
- * the address of the leaf-page buffer, which is write-locked and pinned in
- * all cases (if necessary by creating a new empty root page for caller).
+ * 返回值是父页指针栈（不过请看下面关于
+ * fastpath 优化和页分裂的说明）。insertstate->buf 被设为
+ * 叶子页缓冲区的地址；该缓冲区在所有情况下都已加写锁并钉住
+ * （必要时会为调用者创建一个新的空根页）。
  *
- * The fastpath optimization avoids most of the work of searching the tree
- * repeatedly when a single backend inserts successive new tuples on the
- * rightmost leaf page of an index.  A backend cache of the rightmost leaf
- * page is maintained within _bt_insertonpg(), and used here.  The cache is
- * invalidated here when an insert of a non-pivot tuple must take place on a
- * non-rightmost leaf page.
+ * 当单个后端在索引的最右叶子页上
+ * 连续插入新元组时，fastpath 优化避免了反复
+ * 搜索树的大部分工作。最右叶子页的后端缓存
+ * 在 _bt_insertonpg() 内维护，并在这里使用。当非枢轴元组
+ * 必须插入到非最右叶子页上时，这里会使该缓存
+ * 失效。
  *
- * The optimization helps with indexes on an auto-incremented field.  It also
- * helps with indexes on datetime columns, as well as indexes with lots of
- * NULL values.  (NULLs usually get inserted in the rightmost page for single
- * column indexes, since they usually get treated as coming after everything
- * else in the key space.  Individual NULL tuples will generally be placed on
- * the rightmost leaf page due to the influence of the heap TID column.)
+ * 该优化对自增列上的索引有帮助。它对
+ * 日期时间列上的索引也有帮助，以及对含有大量
+ * NULL 值的索引也是如此。（对单
+ * 列索引，NULLs 通常被插到最右页，因为它们通常被当作排在键空间中
+ * 其他一切之后。受堆 TID 列的影响，单个 NULL 元组一般会被放在
+ * 最右叶子页上。）
  *
- * Note that we avoid applying the optimization when there is insufficient
- * space on the rightmost page to fit caller's new item.  This is necessary
- * because we'll need to return a real descent stack when a page split is
- * expected (actually, caller can cope with a leaf page split that uses a NULL
- * stack, but that's very slow and so must be avoided).  Note also that the
- * fastpath optimization acquires the lock on the page conditionally as a way
- * of reducing extra contention when there are concurrent insertions into the
- * rightmost page (we give up if we'd have to wait for the lock).  We assume
- * that it isn't useful to apply the optimization when there is contention,
- * since each per-backend cache won't stay valid for long.
+ * 注意，当最右页没有足够
+ * 空间放下调用者的新项时，我们避免应用该优化。这是必要的，
+ * 因为预期会发生页分裂时，我们必须返回真正的下降栈
+ * （实际上，调用者能应付使用 NULL
+ * 栈的叶子页分裂，但那非常慢，因此必须避免）。还要注意，
+ * fastpath 优化有条件地获取该页的锁，以此
+ * 减少对最右页并发插入时的额外争用
+ * （若必须等待锁，我们就放弃）。我们假定
+ * 存在争用时应用该优化并无益处，
+ * 因为每个后端自己的缓存不会长期有效。
  */
 static BTStack
 _bt_search_insert(Relation rel, Relation heaprel, BTInsertState insertstate)
@@ -322,7 +322,7 @@ _bt_search_insert(Relation rel, Relation heaprel, BTInsertState insertstate)
 
 	if (RelationGetTargetBlock(rel) != InvalidBlockNumber)
 	{
-		/* Simulate a _bt_getbuf() call with conditional locking */
+		/* 模拟一次带条件加锁的 _bt_getbuf() 调用 */
 		insertstate->buf = ReadBuffer(rel, RelationGetTargetBlock(rel));
 		if (_bt_conditionallockbuf(rel, insertstate->buf))
 		{
@@ -334,12 +334,12 @@ _bt_search_insert(Relation rel, Relation heaprel, BTInsertState insertstate)
 			opaque = BTPageGetOpaque(page);
 
 			/*
-			 * Check if the page is still the rightmost leaf page and has
-			 * enough free space to accommodate the new tuple.  Also check
-			 * that the insertion scan key is strictly greater than the first
-			 * non-pivot tuple on the page.  (Note that we expect itup_key's
-			 * scantid to be unset when our caller is a checkingunique
-			 * inserter.)
+			 * 检查该页是否仍是最右叶子页，并且
+			 * 有足够空闲空间容纳新元组。同时检查
+			 * 插入扫描键是否严格大于该页上第一个
+			 * 非枢轴元组。（注意，当调用者是 checkingunique
+			 * 插入者时，我们预期 itup_key 的
+			 * scantid 尚未设置。）
 			 */
 			if (P_RIGHTMOST(opaque) &&
 				P_ISLEAF(opaque) &&
@@ -349,60 +349,60 @@ _bt_search_insert(Relation rel, Relation heaprel, BTInsertState insertstate)
 				_bt_compare(rel, insertstate->itup_key, page, P_HIKEY) > 0)
 			{
 				/*
-				 * Caller can use the fastpath optimization because cached
-				 * block is still rightmost leaf page, which can fit caller's
-				 * new tuple without splitting.  Keep block in local cache for
-				 * next insert, and have caller use NULL stack.
+				 * 调用者可以使用 fastpath 优化，因为缓存的
+				 * 块仍是最右叶子页，并且能放下调用者的
+				 * 新元组而无需分裂。把该块留在本地缓存中供
+				 * 下一次插入使用，并让调用者使用 NULL 栈。
 				 *
-				 * Note that _bt_insert_parent() has an assertion that catches
-				 * leaf page splits that somehow follow from a fastpath insert
-				 * (it should only be passed a NULL stack when it must deal
-				 * with a concurrent root page split, and never because a NULL
-				 * stack was returned here).
+				 * 注意，_bt_insert_parent() 有一条断言，用来抓住
+				 * 不知何故由 fastpath 插入引出的叶子页分裂
+				 * （只有在必须处理
+				 * 并发根页分裂时才应向它传入 NULL 栈，绝不是因为这里
+				 * 返回了 NULL 栈）。
 				 */
 				return NULL;
 			}
 
-			/* Page unsuitable for caller, drop lock and pin */
+			/* 该页不适合调用者，放下锁和钉住 */
 			_bt_relbuf(rel, insertstate->buf);
 		}
 		else
 		{
-			/* Lock unavailable, drop pin */
+			/* 锁不可用，放下钉住 */
 			ReleaseBuffer(insertstate->buf);
 		}
 
-		/* Forget block, since cache doesn't appear to be useful */
+		/* 忘掉该块，因为缓存看起来并无用处 */
 		RelationSetTargetBlock(rel, InvalidBlockNumber);
 	}
 
-	/* Cannot use optimization -- descend tree, return proper descent stack */
+	/* 无法使用该优化 -- 沿树下降，返回正规的下降栈 */
 	return _bt_search(rel, heaprel, insertstate->itup_key, &insertstate->buf,
 					  BT_WRITE, NULL);
 }
 
 /*
- *	_bt_check_unique() -- Check for violation of unique index constraint
+ *	_bt_check_unique() -- 检查是否违反唯一索引约束
  *
- * Returns InvalidTransactionId if there is no conflict, else an xact ID
- * we must wait for to see if it commits a conflicting tuple.   If an actual
- * conflict is detected, no return --- just ereport().  If an xact ID is
- * returned, and the conflicting tuple still has a speculative insertion in
- * progress, *speculativeToken is set to non-zero, and the caller can wait for
- * the verdict on the insertion using SpeculativeInsertionWait().
+ * 若没有冲突则返回 InvalidTransactionId，否则返回一个事务 ID，
+ * 我们必须等待它，看它是否提交了冲突元组。若检测到实际
+ * 冲突，则不返回 --- 直接 ereport()。若返回了事务 ID，
+ * 且冲突元组仍有进行中的推测性插入，
+ * 则把 *speculativeToken 设为非零，调用者可以用
+ * SpeculativeInsertionWait() 等待该插入的结论。
  *
- * However, if checkUnique == UNIQUE_CHECK_PARTIAL, we always return
- * InvalidTransactionId because we don't want to wait.  In this case we
- * set *is_unique to false if there is a potential conflict, and the
- * core code must redo the uniqueness check later.
+ * 不过，若 checkUnique == UNIQUE_CHECK_PARTIAL，我们总是返回
+ * InvalidTransactionId，因为我们不想等待。此时若存在潜在冲突，
+ * 我们把 *is_unique 设为 false，
+ * 核心代码必须稍后重新做唯一性检查。
  *
- * As a side-effect, sets state in insertstate that can later be used by
- * _bt_findinsertloc() to reuse most of the binary search work we do
- * here.
+ * 作为副作用，会在 insertstate 中设置状态，供稍后
+ * _bt_findinsertloc() 复用我们在这里所做的
+ * 大部分二分查找工作。
  *
- * This code treats NULLs as equal, unlike the default semantics for unique
- * indexes.  So do not call here when there are NULL values in scan key and
- * the index uses the default NULLS DISTINCT mode.
+ * 这段代码把 NULLs 当作相等，这与唯一
+ * 索引的默认语义不同。因此当扫描键中有 NULL 值且
+ * 索引使用默认的 NULLS DISTINCT 模式时，不要调用这里。
  */
 static TransactionId
 _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
@@ -424,7 +424,7 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 	bool		prevalldead = true;
 	int			curposti = 0;
 
-	/* Assume unique until we find a duplicate */
+	/* 在找到重复项之前假定唯一 */
 	*is_unique = true;
 
 	InitDirtySnapshot(SnapshotDirty);
@@ -434,16 +434,16 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 	maxoff = PageGetMaxOffsetNumber(page);
 
 	/*
-	 * Find the first tuple with the same key.
+	 * 找到第一个具有相同键的元组。
 	 *
-	 * This also saves the binary search bounds in insertstate.  We use them
-	 * in the fastpath below, but also in the _bt_findinsertloc() call later.
+	 * 这也会把二分查找边界保存在 insertstate 中。下面的 fastpath 会用到它们，
+	 * 稍后调用 _bt_findinsertloc() 时也会用到。
 	 */
 	Assert(!insertstate->bounds_valid);
 	offset = _bt_binsrch_insert(rel, insertstate);
 
 	/*
-	 * Scan over all equal tuples, looking for live conflicts.
+	 * 扫描所有相等元组，寻找仍然存活的冲突。
 	 */
 	Assert(!insertstate->bounds_valid || insertstate->low == offset);
 	Assert(!itup_key->anynullkeys);
@@ -451,34 +451,34 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 	for (;;)
 	{
 		/*
-		 * Each iteration of the loop processes one heap TID, not one index
-		 * tuple.  Current offset number for page isn't usually advanced on
-		 * iterations that process heap TIDs from posting list tuples.
+		 * 循环的每次迭代处理一个堆 TID，而不是一个索引
+		 * 元组。处理倒排列表元组中的堆 TIDs 时，通常不会推进
+		 * 页的当前偏移号。
 		 *
-		 * "inposting" state is set when _inside_ a posting list --- not when
-		 * we're at the start (or end) of a posting list.  We advance curposti
-		 * at the end of the iteration when inside a posting list tuple.  In
-		 * general, every loop iteration either advances the page offset or
-		 * advances curposti --- an iteration that handles the rightmost/max
-		 * heap TID in a posting list finally advances the page offset (and
-		 * unsets "inposting").
+		 * 处于倒排列表 _inside_ 时设置 "inposting" 状态 --- 而不是
+		 * 位于倒排列表的起点（或终点）时。在倒排列表元组内部，
+		 * 我们在迭代结束时推进 curposti。一般而言，
+		 * 每次循环迭代要么推进页偏移，
+		 * 要么推进 curposti --- 处理倒排列表中最右/最大
+		 * 堆 TID 的那次迭代最终会推进页偏移（并
+		 * 清除 "inposting"）。
 		 *
-		 * Make sure the offset points to an actual index tuple before trying
-		 * to examine it...
+		 * 在试图检查之前，先确认偏移指向一个真正的索引元组
+		 * ...
 		 */
 		if (offset <= maxoff)
 		{
 			/*
-			 * Fastpath: In most cases, we can use cached search bounds to
-			 * limit our consideration to items that are definitely
-			 * duplicates.  This fastpath doesn't apply when the original page
-			 * is empty, or when initial offset is past the end of the
-			 * original page, which may indicate that we need to examine a
-			 * second or subsequent page.
+			 * Fastpath：多数情况下，我们可以用缓存的搜索边界，
+			 * 把考虑范围限制为肯定是
+			 * 重复项的那些项。当原始页
+			 * 为空，或初始偏移已超过
+			 * 原始页末尾时，这条 fastpath 不适用；那可能表示我们需要检查
+			 * 第二页或后续页。
 			 *
-			 * Note that this optimization allows us to avoid calling
-			 * _bt_compare() directly when there are no duplicates, as long as
-			 * the offset where the key will go is not at the end of the page.
+			 * 注意，只要键将要放入的偏移不在页尾，
+			 * 这一优化就允许我们在没有重复项时避免直接调用
+			 * _bt_compare()。
 			 */
 			if (nbuf == InvalidBuffer && offset == insertstate->stricthigh)
 			{
@@ -490,15 +490,15 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 			}
 
 			/*
-			 * We can skip items that are already marked killed.
+			 * 我们可以跳过已经被标记为杀死的项。
 			 *
-			 * In the presence of heavy update activity an index may contain
-			 * many killed items with the same key; running _bt_compare() on
-			 * each killed item gets expensive.  Just advance over killed
-			 * items as quickly as we can.  We only apply _bt_compare() when
-			 * we get to a non-killed item.  We could reuse the bounds to
-			 * avoid _bt_compare() calls for known equal tuples, but it
-			 * doesn't seem worth it.
+			 * 更新非常频繁时，索引里可能有
+			 * 许多键相同的已杀死项；对
+			 * 每个已杀死项调用 _bt_compare() 会很贵。尽快跳过已杀死
+			 * 项即可。我们只在
+			 * 遇到未杀死的项时才调用 _bt_compare()。本来可以复用边界，
+			 * 以避免对已知相等的元组调用 _bt_compare()，但
+			 * 似乎并不值得。
 			 */
 			if (!inposting)
 				curitemid = PageGetItemId(page, offset);
@@ -509,25 +509,25 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 
 				if (!inposting)
 				{
-					/* Plain tuple, or first TID in posting list tuple */
+					/* 普通元组，或倒排列表元组中的第一个 TID */
 					if (_bt_compare(rel, itup_key, page, offset) != 0)
-						break;	/* we're past all the equal tuples */
+						break;	/* 已经越过所有相等元组 */
 
-					/* Advanced curitup */
+					/* 已推进 curitup */
 					curitup = (IndexTuple) PageGetItem(page, curitemid);
 					Assert(!BTreeTupleIsPivot(curitup));
 				}
 
-				/* okay, we gotta fetch the heap tuple using htid ... */
+				/* 好，我们得用 htid 去取堆元组 ... */
 				if (!BTreeTupleIsPosting(curitup))
 				{
-					/* ... htid is from simple non-pivot tuple */
+					/* ... htid 来自简单的非枢轴元组 */
 					Assert(!inposting);
 					htid = curitup->t_tid;
 				}
 				else if (!inposting)
 				{
-					/* ... htid is first TID in new posting list */
+					/* ... htid 是新倒排列表中的第一个 TID */
 					inposting = true;
 					prevalldead = true;
 					curposti = 0;
@@ -535,15 +535,15 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 				}
 				else
 				{
-					/* ... htid is second or subsequent TID in posting list */
+					/* ... htid 是倒排列表中的第二个或后续 TID */
 					Assert(curposti > 0);
 					htid = *BTreeTupleGetPostingN(curitup, curposti);
 				}
 
 				/*
-				 * If we are doing a recheck, we expect to find the tuple we
-				 * are rechecking.  It's not a duplicate, but we have to keep
-				 * scanning.
+				 * 若我们正在复查，则预期会找到正在
+				 * 复查的那个元组。它不是重复项，但我们必须继续
+				 * 扫描。
 				 */
 				if (checkUnique == UNIQUE_CHECK_EXISTING &&
 					ItemPointerCompare(&htid, &itup->t_tid) == 0)
@@ -552,10 +552,10 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 				}
 
 				/*
-				 * Check if there's any table tuples for this index entry
-				 * satisfying SnapshotDirty. This is necessary because for AMs
-				 * with optimizations like heap's HOT, we have just a single
-				 * index entry for the entire chain.
+				 * 检查该索引项是否有任何表元组
+				 * 满足 SnapshotDirty。这是必要的，因为对于
+				 * 带有堆 HOT 一类优化的访问方法，整条链
+				 * 只有一条索引项。
 				 */
 				else if (table_index_fetch_tuple_check(heapRel, &htid,
 													   &SnapshotDirty,
@@ -564,12 +564,12 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 					TransactionId xwait;
 
 					/*
-					 * It is a duplicate. If we are only doing a partial
-					 * check, then don't bother checking if the tuple is being
-					 * updated in another transaction. Just return the fact
-					 * that it is a potential conflict and leave the full
-					 * check till later. Don't invalidate binary search
-					 * bounds.
+					 * 这是重复项。若我们只做部分
+					 * 检查，就不必查看该元组是否正在
+					 * 被另一个事务更新。只需返回
+					 * 它是潜在冲突这一事实，把完整
+					 * 检查留到以后。不要使二分查找
+					 * 边界失效。
 					 */
 					if (checkUnique == UNIQUE_CHECK_PARTIAL)
 					{
@@ -580,8 +580,8 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 					}
 
 					/*
-					 * If this tuple is being updated by other transaction
-					 * then we have to wait for its commit/abort.
+					 * 若该元组正被其他事务更新，
+					 * 则必须等待它提交/中止。
 					 */
 					xwait = (TransactionIdIsValid(SnapshotDirty.xmin)) ?
 						SnapshotDirty.xmin : SnapshotDirty.xmax;
@@ -590,61 +590,61 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 					{
 						if (nbuf != InvalidBuffer)
 							_bt_relbuf(rel, nbuf);
-						/* Tell _bt_doinsert to wait... */
+						/* 让 _bt_doinsert 等待... */
 						*speculativeToken = SnapshotDirty.speculativeToken;
-						/* Caller releases lock on buf immediately */
+						/* 调用者立即释放 buf 上的锁 */
 						insertstate->bounds_valid = false;
 						return xwait;
 					}
 
 					/*
-					 * Otherwise we have a definite conflict.  But before
-					 * complaining, look to see if the tuple we want to insert
-					 * is itself now committed dead --- if so, don't complain.
-					 * This is a waste of time in normal scenarios but we must
-					 * do it to support CREATE INDEX CONCURRENTLY.
+					 * 否则我们有确定的冲突。但在
+					 * 报错之前，先看我们要插入的元组
+					 * 本身现在是否已提交死亡 --- 若是，就不要报错。
+					 * 正常情形下这是浪费时间，但我们必须
+					 * 这样做，以支持 CREATE INDEX CONCURRENTLY。
 					 *
-					 * We must follow HOT-chains here because during
-					 * concurrent index build, we insert the root TID though
-					 * the actual tuple may be somewhere in the HOT-chain.
-					 * While following the chain we might not stop at the
-					 * exact tuple which triggered the insert, but that's OK
-					 * because if we find a live tuple anywhere in this chain,
-					 * we have a unique key conflict.  The other live tuple is
-					 * not part of this chain because it had a different index
-					 * entry.
+					 * 这里必须跟随 HOT 链，因为在
+					 * 并发索引构建期间，我们插入的是根 TID，尽管
+					 * 实际元组可能位于 HOT 链的某处。
+					 * 沿链行走时，我们也许不会停在
+					 * 触发本次插入的那个确切元组上，但这没关系，
+					 * 因为若在这条链的任何地方找到存活元组，
+					 * 我们就有唯一键冲突。另一个存活元组
+					 * 不属于这条链，因为它有不同的索引
+					 * 项。
 					 */
 					htid = itup->t_tid;
 					if (table_index_fetch_tuple_check(heapRel, &htid,
 													  SnapshotSelf, NULL))
 					{
-						/* Normal case --- it's still live */
+						/* 正常情形 --- 它仍然存活 */
 					}
 					else
 					{
 						/*
-						 * It's been deleted, so no error, and no need to
-						 * continue searching
+						 * 它已被删除，因此没有错误，也无需
+						 * 继续搜索
 						 */
 						break;
 					}
 
 					/*
-					 * Check for a conflict-in as we would if we were going to
-					 * write to this page.  We aren't actually going to write,
-					 * but we want a chance to report SSI conflicts that would
-					 * otherwise be masked by this unique constraint
-					 * violation.
+					 * 像我们即将写入该页时那样，检查一次 conflict-in。
+					 * 我们实际上并不写入，
+					 * 但希望有机会报告那些否则会被这次唯一约束
+					 * 违反所掩盖的
+					 * SSI 冲突。
 					 */
 					CheckForSerializableConflictIn(rel, NULL, BufferGetBlockNumber(insertstate->buf));
 
 					/*
-					 * This is a definite conflict.  Break the tuple down into
-					 * datums and report the error.  But first, make sure we
-					 * release the buffer locks we're holding ---
-					 * BuildIndexValueDescription could make catalog accesses,
-					 * which in the worst case might touch this same index and
-					 * cause deadlocks.
+					 * 这是确定的冲突。把元组拆成
+					 * 数据值并报告错误。但首先，务必
+					 * 释放我们持有的缓冲区锁 ---
+					 * BuildIndexValueDescription 可能访问系统目录，
+					 * 最坏情况下可能碰到同一个索引并
+					 * 造成死锁。
 					 */
 					if (nbuf != InvalidBuffer)
 						_bt_relbuf(rel, nbuf);
@@ -678,16 +678,16 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 									   curposti == BTreeTupleGetNPosting(curitup) - 1)))
 				{
 					/*
-					 * The conflicting tuple (or all HOT chains pointed to by
-					 * all posting list TIDs) is dead to everyone, so mark the
-					 * index entry killed.
+					 * 冲突元组（或所有倒排列表 TIDs 所指向的
+					 * 全部 HOT 链）对所有人都已死，因此把
+					 * 索引项标记为杀死。
 					 */
 					ItemIdMarkDead(curitemid);
 					opaque->btpo_flags |= BTP_HAS_GARBAGE;
 
 					/*
-					 * Mark buffer with a dirty hint, since state is not
-					 * crucial. Be sure to mark the proper buffer dirty.
+					 * 给缓冲区打上脏提示，因为该状态并不
+					 * 关键。务必把正确的缓冲区标为脏。
 					 */
 					if (nbuf != InvalidBuffer)
 						MarkBufferDirtyHint(nbuf, true);
@@ -696,8 +696,8 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 				}
 
 				/*
-				 * Remember if posting list tuple has even a single HOT chain
-				 * whose members are not all dead
+				 * 记住倒排列表元组是否哪怕有一条 HOT 链，
+				 * 其成员并非全部已死
 				 */
 				if (!all_dead && inposting)
 					prevalldead = false;
@@ -706,13 +706,13 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 
 		if (inposting && curposti < BTreeTupleGetNPosting(curitup) - 1)
 		{
-			/* Advance to next TID in same posting list */
+			/* 前进到同一倒排列表中的下一个 TID */
 			curposti++;
 			continue;
 		}
 		else if (offset < maxoff)
 		{
-			/* Advance to next tuple */
+			/* 前进到下一个元组 */
 			curposti = 0;
 			inposting = false;
 			offset = OffsetNumberNext(offset);
@@ -721,14 +721,14 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 		{
 			int			highkeycmp;
 
-			/* If scankey == hikey we gotta check the next page too */
+			/* 若扫描键 == hikey，还得检查下一页 */
 			if (P_RIGHTMOST(opaque))
 				break;
 			highkeycmp = _bt_compare(rel, itup_key, page, P_HIKEY);
 			Assert(highkeycmp <= 0);
 			if (highkeycmp != 0)
 				break;
-			/* Advance to next non-dead page --- there must be one */
+			/* 前进到下一个非死页 --- 必定有一页 */
 			for (;;)
 			{
 				BlockNumber nblkno = opaque->btpo_next;
@@ -742,19 +742,19 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 					elog(ERROR, "fell off the end of index \"%s\"",
 						 RelationGetRelationName(rel));
 			}
-			/* Will also advance to next tuple */
+			/* 也会前进到下一个元组 */
 			curposti = 0;
 			inposting = false;
 			maxoff = PageGetMaxOffsetNumber(page);
 			offset = P_FIRSTDATAKEY(opaque);
-			/* Don't invalidate binary search bounds */
+			/* 不要使二分查找边界失效 */
 		}
 	}
 
 	/*
-	 * If we are doing a recheck then we should have found the tuple we are
-	 * checking.  Otherwise there's something very wrong --- probably, the
-	 * index is on a non-immutable expression.
+	 * 若我们正在复查，则应当已经找到正在
+	 * 检查的那个元组。否则就有很严重的问题 --- 很可能
+	 * 索引建在非不可变表达式上。
 	 */
 	if (checkUnique == UNIQUE_CHECK_EXISTING && !found)
 		ereport(ERROR,
@@ -773,43 +773,43 @@ _bt_check_unique(Relation rel, BTInsertState insertstate, Relation heapRel,
 
 
 /*
- *	_bt_findinsertloc() -- Finds an insert location for a tuple
+ *	_bt_findinsertloc() -- 为元组寻找插入位置
  *
- *		On entry, insertstate buffer contains the page the new tuple belongs
- *		on.  It is exclusive-locked and pinned by the caller.
+ *		进入时，insertstate 的缓冲区含有新元组所属的那一页。
+ *		它由调用者以排他方式锁定并钉住。
  *
- *		If 'checkingunique' is true, the buffer on entry is the first page
- *		that contains duplicates of the new key.  If there are duplicates on
- *		multiple pages, the correct insertion position might be some page to
- *		the right, rather than the first page.  In that case, this function
- *		moves right to the correct target page.
+ *		若 'checkingunique' 为真，进入时的缓冲区是含有
+ *		新键重复项的第一页。若重复项分布在
+ *		多页上，正确的插入位置可能是右边的某一页，
+ *		而不是第一页。此时，本函数
+ *		向右移动到正确的目标页。
  *
- *		(In a !heapkeyspace index, there can be multiple pages with the same
- *		high key, where the new tuple could legitimately be placed on.  In
- *		that case, the caller passes the first page containing duplicates,
- *		just like when checkingunique=true.  If that page doesn't have enough
- *		room for the new tuple, this function moves right, trying to find a
- *		legal page that does.)
+ *		（在 !heapkeyspace 索引中，可能有多页具有相同的
+ *		高键，新元组都可以合法地放在那些页上。此时
+ *		调用者传入含有重复项的第一页，
+ *		就像 checkingunique=true 时一样。若该页没有足够
+ *		空间放下新元组，本函数就向右移动，试图找到
+ *		一张放得下的合法页。）
  *
- *		If 'indexUnchanged' is true, this is for an UPDATE that didn't
- *		logically change the indexed value, but must nevertheless have a new
- *		entry to point to a successor version.  This hint from the executor
- *		will influence our behavior when the page might have to be split and
- *		we must consider our options.  Bottom-up index deletion can avoid
- *		pathological version-driven page splits, but we only want to go to the
- *		trouble of trying it when we already have moderate confidence that
- *		it's appropriate.  The hint should not significantly affect our
- *		behavior over time unless practically all inserts on to the leaf page
- *		get the hint.
+ *		若 'indexUnchanged' 为真，这是一次并未
+ *		从逻辑上改变索引值的 UPDATE，但仍必须有一条新
+ *		索引项指向后继版本。执行器给出的这一提示
+ *		会影响我们在页也许不得不分裂、
+ *		而我们必须考虑各种选择时的行为。
+ *		自底向上索引删除可以避免
+ *		由版本驱动的病态页分裂，但只有在我们已经有一定把握
+ *		认为它合适时，才愿意费力去试。除非叶子页上几乎所有插入
+ *		都带有该提示，否则随着时间推移，这一提示不应当显著影响我们的
+ *		行为。
  *
- *		On exit, insertstate buffer contains the chosen insertion page, and
- *		the offset within that page is returned.  If _bt_findinsertloc needed
- *		to move right, the lock and pin on the original page are released, and
- *		the new buffer is exclusively locked and pinned instead.
+ *		退出时，insertstate 的缓冲区含有选定的插入页，并
+ *		返回该页内的偏移。若 _bt_findinsertloc 需要
+ *		向右移动，则释放原页上的锁和钉住，
+ *		改为对新缓冲区加排他锁并钉住。
  *
- *		If insertstate contains cached binary search bounds, we will take
- *		advantage of them.  This avoids repeating comparisons that we made in
- *		_bt_check_unique() already.
+ *		若 insertstate 含有缓存的二分查找边界，我们会加以
+ *		利用。这样就可以避免重复我们在
+ *		_bt_check_unique() 中已经做过的比较。
  */
 static OffsetNumber
 _bt_findinsertloc(Relation rel,
@@ -826,7 +826,7 @@ _bt_findinsertloc(Relation rel,
 
 	opaque = BTPageGetOpaque(page);
 
-	/* Check 1/3 of a page restriction */
+	/* 检查页三分之一的限制 */
 	if (unlikely(insertstate->itemsz > BTMaxItemSize(page)))
 		_bt_check_third_page(rel, heapRel, itup_key->heapkeyspace, page,
 							 insertstate->itup);
@@ -839,28 +839,28 @@ _bt_findinsertloc(Relation rel,
 
 	if (itup_key->heapkeyspace)
 	{
-		/* Keep track of whether checkingunique duplicate seen */
+		/* 记录是否见过 checkingunique 重复项 */
 		bool		uniquedup = indexUnchanged;
 
 		/*
-		 * If we're inserting into a unique index, we may have to walk right
-		 * through leaf pages to find the one leaf page that we must insert on
-		 * to.
+		 * 若插入的是唯一索引，我们也许必须向右
+		 * 走过若干叶子页，才能找到我们必须插入到的
+		 * 那一张叶子页。
 		 *
-		 * This is needed for checkingunique callers because a scantid was not
-		 * used when we called _bt_search().  scantid can only be set after
-		 * _bt_check_unique() has checked for duplicates.  The buffer
-		 * initially stored in insertstate->buf has the page where the first
-		 * duplicate key might be found, which isn't always the page that new
-		 * tuple belongs on.  The heap TID attribute for new tuple (scantid)
-		 * could force us to insert on a sibling page, though that should be
-		 * very rare in practice.
+		 * checkingunique 调用者需要这样做，因为调用 _bt_search() 时
+		 * 没有使用 scantid。只有在
+		 * _bt_check_unique() 检查过重复项之后才能设置 scantid。最初
+		 * 存在 insertstate->buf 中的缓冲区是可能找到第一个
+		 * 重复键的那一页，它并不总是新
+		 * 元组所属的那一页。新元组的堆 TID 属性（scantid）
+		 * 可能迫使我们插入到兄弟页上，不过实践中
+		 * 这应当非常少见。
 		 */
 		if (checkingunique)
 		{
 			if (insertstate->low < insertstate->stricthigh)
 			{
-				/* Encountered a duplicate in _bt_check_unique() */
+				/* 在 _bt_check_unique() 中遇到了重复项 */
 				Assert(insertstate->bounds_valid);
 				uniquedup = true;
 			}
@@ -868,37 +868,37 @@ _bt_findinsertloc(Relation rel,
 			for (;;)
 			{
 				/*
-				 * Does the new tuple belong on this page?
+				 * 新元组是否属于这一页？
 				 *
-				 * The earlier _bt_check_unique() call may well have
-				 * established a strict upper bound on the offset for the new
-				 * item.  If it's not the last item of the page (i.e. if there
-				 * is at least one tuple on the page that goes after the tuple
-				 * we're inserting) then we know that the tuple belongs on
-				 * this page.  We can skip the high key check.
+				 * 先前的 _bt_check_unique() 调用很可能已经
+				 * 为新项的偏移建立了严格上界。
+				 * 若它不是该页的最后一项（也就是说，若
+				 * 页上至少有一个元组排在我们正在插入的元组
+				 * 之后），我们就知道该元组属于
+				 * 这一页。可以跳过高键检查。
 				 */
 				if (insertstate->bounds_valid &&
 					insertstate->low <= insertstate->stricthigh &&
 					insertstate->stricthigh <= PageGetMaxOffsetNumber(page))
 					break;
 
-				/* Test '<=', not '!=', since scantid is set now */
+				/* 测试 '<='，而不是 '!='，因为现在已经设置了 scantid */
 				if (P_RIGHTMOST(opaque) ||
 					_bt_compare(rel, itup_key, page, P_HIKEY) <= 0)
 					break;
 
 				_bt_stepright(rel, heapRel, insertstate, stack);
-				/* Update local state after stepping right */
+				/* 向右走一步之后更新本地状态 */
 				page = BufferGetPage(insertstate->buf);
 				opaque = BTPageGetOpaque(page);
-				/* Assume duplicates (if checkingunique) */
+				/* 假定存在重复项（若 checkingunique） */
 				uniquedup = true;
 			}
 		}
 
 		/*
-		 * If the target page cannot fit newitem, try to avoid splitting the
-		 * page on insert by performing deletion or deduplication now
+		 * 若目标页无法放下 newitem，现在就尝试通过删除或去重
+		 * 来避免插入时分裂该页
 		 */
 		if (PageGetFreeSpace(page) < insertstate->itemsz)
 			_bt_delete_or_dedup_one_page(rel, heapRel, insertstate, false,
@@ -908,58 +908,58 @@ _bt_findinsertloc(Relation rel,
 	else
 	{
 		/*----------
-		 * This is a !heapkeyspace (version 2 or 3) index.  The current page
-		 * is the first page that we could insert the new tuple to, but there
-		 * may be other pages to the right that we could opt to use instead.
+		 * 这是 !heapkeyspace（版本 2 或 3）索引。当前页
+		 * 是我们可以把新元组插入进去的第一页，但右边
+		 * 也许还有其他页可供选用。
 		 *
-		 * If the new key is equal to one or more existing keys, we can
-		 * legitimately place it anywhere in the series of equal keys.  In
-		 * fact, if the new key is equal to the page's "high key" we can place
-		 * it on the next page.  If it is equal to the high key, and there's
-		 * not room to insert the new tuple on the current page without
-		 * splitting, then we move right hoping to find more free space and
-		 * avoid a split.
+		 * 若新键等于一个或多个已有键，我们可以
+		 * 把它合法地放在这一串相等键中的任何位置。事实上，
+		 * 若新键等于该页的"高键"，我们可以把它放在
+		 * 下一页。若它等于高键，并且当前页没有
+		 * 足够空间在不分裂的情况下插入新元组，
+		 * 我们就向右移动，希望找到更多空闲空间并
+		 * 避免分裂。
 		 *
-		 * Keep scanning right until we
-		 *		(a) find a page with enough free space,
-		 *		(b) reach the last page where the tuple can legally go, or
-		 *		(c) get tired of searching.
-		 * (c) is not flippant; it is important because if there are many
-		 * pages' worth of equal keys, it's better to split one of the early
-		 * pages than to scan all the way to the end of the run of equal keys
-		 * on every insert.  We implement "get tired" as a random choice,
-		 * since stopping after scanning a fixed number of pages wouldn't work
-		 * well (we'd never reach the right-hand side of previously split
-		 * pages).  The probability of moving right is set at 0.99, which may
-		 * seem too high to change the behavior much, but it does an excellent
-		 * job of preventing O(N^2) behavior with many equal keys.
+		 * 持续向右扫描，直到我们
+		 *		(a) 找到有足够空闲空间的一页，
+		 *		(b) 到达元组可以合法前往的最后一页，或
+		 *		(c) 对搜索感到厌倦。
+		 * (c) 并不是随口一说；它很重要，因为若有许多
+		 * 页的相等键，与其在每次插入时一直扫到相等键
+		 * 这一串的末尾，不如分裂较早的某一页。
+		 * 我们把"感到厌倦"实现为随机选择，
+		 * 因为扫过固定页数后就停下效果并不好
+		 * （那样我们就永远到不了先前已分裂
+		 * 各页的右侧）。向右移动的概率设为 0.99，这也许
+		 * 看起来高得不太会改变行为，但它在防止大量相等键造成
+		 * O(N^2) 行为方面效果极好。
 		 *----------
 		 */
 		while (PageGetFreeSpace(page) < insertstate->itemsz)
 		{
 			/*
-			 * Before considering moving right, see if we can obtain enough
-			 * space by erasing LP_DEAD items
+			 * 在考虑向右移动之前，先看能否通过擦除 LP_DEAD 项
+			 * 获得足够空间
 			 */
 			if (P_HAS_GARBAGE(opaque))
 			{
-				/* Perform simple deletion */
+				/* 执行简单删除 */
 				_bt_delete_or_dedup_one_page(rel, heapRel, insertstate, true,
 											 false, false, false);
 
 				if (PageGetFreeSpace(page) >= insertstate->itemsz)
-					break;		/* OK, now we have enough space */
+					break;		/* 好，现在我们有足够空间了 */
 			}
 
 			/*
-			 * Nope, so check conditions (b) and (c) enumerated above
+			 * 不行，因此检查上面列举的条件 (b) 和 (c)
 			 *
-			 * The earlier _bt_check_unique() call may well have established a
-			 * strict upper bound on the offset for the new item.  If it's not
-			 * the last item of the page (i.e. if there is at least one tuple
-			 * on the page that's greater than the tuple we're inserting to)
-			 * then we know that the tuple belongs on this page.  We can skip
-			 * the high key check.
+			 * 先前的 _bt_check_unique() 调用很可能已经
+			 * 为新项的偏移建立了严格上界。若它不是
+			 * 该页的最后一项（也就是说，若页上至少有一个元组
+			 * 大于我们要插入的元组），
+			 * 我们就知道该元组属于这一页。可以跳过
+			 * 高键检查。
 			 */
 			if (insertstate->bounds_valid &&
 				insertstate->low <= insertstate->stricthigh &&
@@ -972,15 +972,15 @@ _bt_findinsertloc(Relation rel,
 				break;
 
 			_bt_stepright(rel, heapRel, insertstate, stack);
-			/* Update local state after stepping right */
+			/* 向右走一步之后更新本地状态 */
 			page = BufferGetPage(insertstate->buf);
 			opaque = BTPageGetOpaque(page);
 		}
 	}
 
 	/*
-	 * We should now be on the correct page.  Find the offset within the page
-	 * for the new tuple. (Possibly reusing earlier search bounds.)
+	 * 现在应当位于正确的页上。找出新元组在该页内的
+	 * 偏移。（可能会复用先前的搜索边界。）
 	 */
 	Assert(P_RIGHTMOST(opaque) ||
 		   _bt_compare(rel, itup_key, page, P_HIKEY) <= 0);
@@ -990,17 +990,17 @@ _bt_findinsertloc(Relation rel,
 	if (insertstate->postingoff == -1)
 	{
 		/*
-		 * There is an overlapping posting list tuple with its LP_DEAD bit
-		 * set.  We don't want to unnecessarily unset its LP_DEAD bit while
-		 * performing a posting list split, so perform simple index tuple
-		 * deletion early.
+		 * 有一个重叠的倒排列表元组设置了 LP_DEAD 位。
+		 * 我们不想在
+		 * 做倒排列表分裂时不必要地清除它的 LP_DEAD 位，因此提早执行简单索引元组
+		 * 删除。
 		 */
 		_bt_delete_or_dedup_one_page(rel, heapRel, insertstate, true,
 									 false, false, false);
 
 		/*
-		 * Do new binary search.  New insert location cannot overlap with any
-		 * posting list now.
+		 * 做一次新的二分查找。现在新的插入位置无法与任何
+		 * 倒排列表重叠。
 		 */
 		Assert(!insertstate->bounds_valid);
 		insertstate->postingoff = 0;
@@ -1012,16 +1012,16 @@ _bt_findinsertloc(Relation rel,
 }
 
 /*
- * Step right to next non-dead page, during insertion.
+ * 插入期间向右走到下一个非死页。
  *
- * This is a bit more complicated than moving right in a search.  We must
- * write-lock the target page before releasing write lock on current page;
- * else someone else's _bt_check_unique scan could fail to see our insertion.
- * Write locks on intermediate dead pages won't do because we don't know when
- * they will get de-linked from the tree.
+ * 这比搜索时向右移动要稍微复杂一些。我们必须
+ * 在释放当前页的写锁之前，先对目标页加写锁；
+ * 否则别人的 _bt_check_unique 扫描可能看不见我们的插入。
+ * 对中间的死页加写锁没有用，因为我们不知道它们
+ * 何时会从树中被摘掉链接。
  *
- * This is more aggressive than it needs to be for non-unique !heapkeyspace
- * indexes.
+ * 对于非唯一的 !heapkeyspace
+ * 索引，这样做比实际需要的更激进。
  */
 static void
 _bt_stepright(Relation rel, Relation heaprel, BTInsertState insertstate,
@@ -1045,10 +1045,10 @@ _bt_stepright(Relation rel, Relation heaprel, BTInsertState insertstate,
 		opaque = BTPageGetOpaque(page);
 
 		/*
-		 * If this page was incompletely split, finish the split now.  We do
-		 * this while holding a lock on the left sibling, which is not good
-		 * because finishing the split could be a fairly lengthy operation.
-		 * But this should happen very seldom.
+		 * 若该页的分裂尚未完成，现在就完成分裂。我们在
+		 * 持有左兄弟锁的情况下做这件事，这并不理想，
+		 * 因为完成分裂可能是相当长的操作。
+		 * 但这应当极少发生。
 		 */
 		if (P_INCOMPLETE_SPLIT(opaque))
 		{
@@ -1065,40 +1065,40 @@ _bt_stepright(Relation rel, Relation heaprel, BTInsertState insertstate,
 
 		rblkno = opaque->btpo_next;
 	}
-	/* rbuf locked; unlock buf, update state for caller */
+	/* rbuf 已锁定；解锁 buf，并为调用者更新状态 */
 	_bt_relbuf(rel, insertstate->buf);
 	insertstate->buf = rbuf;
 	insertstate->bounds_valid = false;
 }
 
 /*----------
- *	_bt_insertonpg() -- Insert a tuple on a particular page in the index.
+ *	_bt_insertonpg() -- 把元组插入索引中的某一页。
  *
- *		This recursive procedure does the following things:
+ *		这个递归过程做下列事情：
  *
- *			+  if postingoff != 0, splits existing posting list tuple
- *			   (since it overlaps with new 'itup' tuple).
- *			+  if necessary, splits the target page, using 'itup_key' for
- *			   suffix truncation on leaf pages (caller passes NULL for
- *			   non-leaf pages).
- *			+  inserts the new tuple (might be split from posting list).
- *			+  if the page was split, pops the parent stack, and finds the
- *			   right place to insert the new child pointer (by walking
- *			   right using information stored in the parent stack).
- *			+  invokes itself with the appropriate tuple for the right
- *			   child page on the parent.
- *			+  updates the metapage if a true root or fast root is split.
+ *			+  若 postingoff != 0，分裂已有的倒排列表元组
+ *			   （因为它与新的 'itup' 元组重叠）。
+ *			+  必要时分裂目标页，用 'itup_key' 做
+ *			   后缀截断，叶子页上如此（调用者对
+ *			   非叶子页传入 NULL）。
+ *			+  插入新元组（它可能是从倒排列表分裂出来的）。
+ *			+  若该页被分裂，则弹出父栈，并找到
+ *			   插入新子指针的正确位置（利用父栈中保存的信息
+ *			   向右走）。
+ *			+  用右
+ *			   子页在父页上对应的合适元组调用自身。
+ *			+  若真正的根或快速根被分裂，则更新元数据页。
  *
- *		On entry, we must have the correct buffer in which to do the
- *		insertion, and the buffer must be pinned and write-locked.  On return,
- *		we will have dropped both the pin and the lock on the buffer.
+ *		进入时，我们必须持有用来做
+ *		插入的正确缓冲区，并且该缓冲区必须已钉住并加了写锁。返回时，
+ *		我们会同时放下该缓冲区上的钉住和锁。
  *
- *		This routine only performs retail tuple insertions.  'itup' should
- *		always be either a non-highkey leaf item, or a downlink (new high
- *		key items are created indirectly, when a page is split).  When
- *		inserting to a non-leaf page, 'cbuf' is the left-sibling of the page
- *		we're inserting the downlink for.  This function will clear the
- *		INCOMPLETE_SPLIT flag on it, and release the buffer.
+ *		本例程只做零售式元组插入。'itup' 应当
+ *		始终要么是非高键的叶子项，要么是下行链接（新的高
+ *		键项是在页分裂时间接创建的）。当
+ *		插入到非叶子页时，'cbuf' 是我们要为其插入下行链接的那一页的左兄弟。
+ *		本函数会清除它上面的
+ *		INCOMPLETE_SPLIT 标志，并释放该缓冲区。
  *----------
  */
 static void
@@ -1131,9 +1131,9 @@ _bt_insertonpg(Relation rel,
 	isrightmost = P_RIGHTMOST(opaque);
 	isonly = P_LEFTMOST(opaque) && P_RIGHTMOST(opaque);
 
-	/* child buffer must be given iff inserting on an internal page */
+	/* 当且仅当插入发生在内部页上时，才必须给出子缓冲区 */
 	Assert(isleaf == !BufferIsValid(cbuf));
-	/* tuple must have appropriate number of attributes */
+	/* 元组的属性个数必须恰当 */
 	Assert(!isleaf ||
 		   BTreeTupleGetNAtts(itup, rel) ==
 		   IndexRelationGetNumberOfAttributes(rel));
@@ -1142,44 +1142,44 @@ _bt_insertonpg(Relation rel,
 		   IndexRelationGetNumberOfKeyAttributes(rel));
 	Assert(!BTreeTupleIsPosting(itup));
 	Assert(MAXALIGN(IndexTupleSize(itup)) == itemsz);
-	/* Caller must always finish incomplete split for us */
+	/* 调用者必须总是替我们完成未完成分裂 */
 	Assert(!P_INCOMPLETE_SPLIT(opaque));
 
 	/*
-	 * Every internal page should have exactly one negative infinity item at
-	 * all times.  Only _bt_split() and _bt_newlevel() should add items that
-	 * become negative infinity items through truncation, since they're the
-	 * only routines that allocate new internal pages.
+	 * 每一张内部页在任何时候都应当恰好有一个负无穷项。
+	 * 只有 _bt_split() 和 _bt_newlevel() 应当添加那些
+	 * 经截断后成为负无穷项的项，因为只有它们
+	 * 会分配新的内部页。
 	 */
 	Assert(isleaf || newitemoff > P_FIRSTDATAKEY(opaque));
 
 	/*
-	 * Do we need to split an existing posting list item?
+	 * 是否需要分裂已有的倒排列表项？
 	 */
 	if (postingoff != 0)
 	{
 		ItemId		itemid = PageGetItemId(page, newitemoff);
 
 		/*
-		 * The new tuple is a duplicate with a heap TID that falls inside the
-		 * range of an existing posting list tuple on a leaf page.  Prepare to
-		 * split an existing posting list.  Overwriting the posting list with
-		 * its post-split version is treated as an extra step in either the
-		 * insert or page split critical section.
+		 * 新元组是重复项，其堆 TID 落在叶子页上
+		 * 已有倒排列表元组的范围之内。准备
+		 * 分裂已有的倒排列表。用分裂后的版本覆盖该倒排列表，
+		 * 被当作插入或页分裂临界区中的
+		 * 一个额外步骤。
 		 */
 		Assert(isleaf && itup_key->heapkeyspace && itup_key->allequalimage);
 		oposting = (IndexTuple) PageGetItem(page, itemid);
 
 		/*
-		 * postingoff value comes from earlier call to _bt_binsrch_posting().
-		 * Its binary search might think that a plain tuple must be a posting
-		 * list tuple that needs to be split.  This can happen with corruption
-		 * involving an existing plain tuple that is a duplicate of the new
-		 * item, up to and including its table TID.  Check for that here in
-		 * passing.
+		 * postingoff 的值来自先前对 _bt_binsrch_posting() 的调用。
+		 * 它的二分查找可能认为普通元组必定是需要分裂的
+		 * 倒排列表元组。损坏时可能发生这种情况：
+		 * 已有普通元组与新
+		 * 项重复、直至并包括其表 TID 时，损坏会导致这种情况。这里顺带
+		 * 检查这一点。
 		 *
-		 * Also verify that our caller has made sure that the existing posting
-		 * list tuple does not have its LP_DEAD bit set.
+		 * 同时验证调用者已经确保已有的倒排
+		 * 列表元组没有设置 LP_DEAD 位。
 		 */
 		if (!BTreeTupleIsPosting(oposting) || ItemIdIsDead(itemid))
 			ereport(ERROR,
@@ -1190,22 +1190,22 @@ _bt_insertonpg(Relation rel,
 									 newitemoff, BufferGetBlockNumber(buf),
 									 RelationGetRelationName(rel))));
 
-		/* use a mutable copy of itup as our itup from here on */
+		/* 此后用 itup 的一份可变副本作为我们的 itup */
 		origitup = itup;
 		itup = CopyIndexTuple(origitup);
 		nposting = _bt_swap_posting(itup, oposting, postingoff);
-		/* itup now contains rightmost/max TID from oposting */
+		/* 现在 itup 含有来自 oposting 的最右/最大 TID */
 
-		/* Alter offset so that newitem goes after posting list */
+		/* 调整偏移，使 newitem 排在倒排列表之后 */
 		newitemoff = OffsetNumberNext(newitemoff);
 	}
 
 	/*
-	 * Do we need to split the page to fit the item on it?
+	 * 是否需要分裂该页才能放下这一项？
 	 *
-	 * Note: PageGetFreeSpace() subtracts sizeof(ItemIdData) from its result,
-	 * so this comparison is correct even though we appear to be accounting
-	 * only for the item and not for its line pointer.
+	 * 注意：PageGetFreeSpace() 会从结果中减去 sizeof(ItemIdData)，
+	 * 因此这个比较是正确的，尽管看起来我们只计入了
+	 * 该项本身，而没有计入它的行指针。
 	 */
 	if (PageGetFreeSpace(page) < itemsz)
 	{
@@ -1213,7 +1213,7 @@ _bt_insertonpg(Relation rel,
 
 		Assert(!split_only_page);
 
-		/* split the buffer into left and right halves */
+		/* 把缓冲区分裂成左右两半 */
 		rbuf = _bt_split(rel, heaprel, itup_key, buf, cbuf, newitemoff, itemsz,
 						 itup, origitup, nposting, postingoff);
 		PredicateLockPageSplit(rel,
@@ -1221,21 +1221,21 @@ _bt_insertonpg(Relation rel,
 							   BufferGetBlockNumber(rbuf));
 
 		/*----------
-		 * By here,
+		 * 到这里，
 		 *
-		 *		+  our target page has been split;
-		 *		+  the original tuple has been inserted;
-		 *		+  we have write locks on both the old (left half)
-		 *		   and new (right half) buffers, after the split; and
-		 *		+  we know the key we want to insert into the parent
-		 *		   (it's the "high key" on the left child page).
+		 *		+  我们的目标页已经分裂；
+		 *		+  原始元组已经插入；
+		 *		+  分裂之后，我们对旧的（左半）
+		 *		   和新的（右半）缓冲区都持有写锁；并且
+		 *		+  我们知道要插入父页的键
+		 *		   （它是左子页上的"高键"）。
 		 *
-		 * We're ready to do the parent insertion.  We need to hold onto the
-		 * locks for the child pages until we locate the parent, but we can
-		 * at least release the lock on the right child before doing the
-		 * actual insertion.  The lock on the left child will be released
-		 * last of all by parent insertion, where it is the 'cbuf' of parent
-		 * page.
+		 * 我们准备做父页插入。在定位到父页之前，
+		 * 需要一直持有
+		 * 子页上的锁，但在做
+		 * 实际插入之前，至少可以释放右子页上的锁。左子页上的锁
+		 * 会在父页插入时最后释放，在那里它是父
+		 * 页的 'cbuf'。
 		 *----------
 		 */
 		_bt_insert_parent(rel, heaprel, buf, rbuf, stack, isroot, isonly);
@@ -1248,11 +1248,11 @@ _bt_insertonpg(Relation rel,
 		BlockNumber blockcache;
 
 		/*
-		 * If we are doing this insert because we split a page that was the
-		 * only one on its tree level, but was not the root, it may have been
-		 * the "fast root".  We need to ensure that the fast root link points
-		 * at or above the current page.  We can safely acquire a lock on the
-		 * metapage here --- see comments for _bt_newlevel().
+		 * 若我们做这次插入，是因为分裂了一页，而该页是
+		 * 其所在树层上的唯一一页，但不是根，它也许曾是
+		 * "快速根"。我们需要确保快速根链接指向
+		 * 当前页或更高处。这里可以安全地获取
+		 * 元数据页上的锁 --- 见 _bt_newlevel() 的注释。
 		 */
 		if (unlikely(split_only_page))
 		{
@@ -1265,13 +1265,13 @@ _bt_insertonpg(Relation rel,
 
 			if (metad->btm_fastlevel >= opaque->btpo_level)
 			{
-				/* no update wanted */
+				/* 不需要更新 */
 				_bt_relbuf(rel, metabuf);
 				metabuf = InvalidBuffer;
 			}
 		}
 
-		/* Do the update.  No ereport(ERROR) until changes are logged */
+		/* 执行更新。在改动被记入日志之前不要 ereport(ERROR) */
 		START_CRIT_SECTION();
 
 		if (postingoff != 0)
@@ -1286,7 +1286,7 @@ _bt_insertonpg(Relation rel,
 
 		if (BufferIsValid(metabuf))
 		{
-			/* upgrade meta-page if needed */
+			/* 必要时升级元数据页 */
 			if (metad->btm_version < BTREE_NOVAC_VERSION)
 				_bt_upgrademetapage(metapg);
 			metad->btm_fastroot = BufferGetBlockNumber(buf);
@@ -1295,8 +1295,8 @@ _bt_insertonpg(Relation rel,
 		}
 
 		/*
-		 * Clear INCOMPLETE_SPLIT flag on child if inserting the new item
-		 * finishes a split
+		 * 若插入新项完成了一次分裂，则清除子页上的
+		 * INCOMPLETE_SPLIT 标志
 		 */
 		if (!isleaf)
 		{
@@ -1308,7 +1308,7 @@ _bt_insertonpg(Relation rel,
 			MarkBufferDirty(cbuf);
 		}
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(rel))
 		{
 			xl_btree_insert xlrec;
@@ -1324,27 +1324,27 @@ _bt_insertonpg(Relation rel,
 
 			if (isleaf && postingoff == 0)
 			{
-				/* Simple leaf insert */
+				/* 简单的叶子插入 */
 				xlinfo = XLOG_BTREE_INSERT_LEAF;
 			}
 			else if (postingoff != 0)
 			{
 				/*
-				 * Leaf insert with posting list split.  Must include
-				 * postingoff field before newitem/orignewitem.
+				 * 带倒排列表分裂的叶子插入。必须在
+				 * newitem/orignewitem 之前包含 postingoff 字段。
 				 */
 				Assert(isleaf);
 				xlinfo = XLOG_BTREE_INSERT_POST;
 			}
 			else
 			{
-				/* Internal page insert, which finishes a split on cbuf */
+				/* 内部页插入，它完成 cbuf 上的一次分裂 */
 				xlinfo = XLOG_BTREE_INSERT_UPPER;
 				XLogRegisterBuffer(1, cbuf, REGBUF_STANDARD);
 
 				if (BufferIsValid(metabuf))
 				{
-					/* Actually, it's an internal page insert + meta update */
+					/* 实际上，这是内部页插入加上元数据更新 */
 					xlinfo = XLOG_BTREE_INSERT_META;
 
 					Assert(metad->btm_version >= BTREE_NOVAC_VERSION);
@@ -1366,18 +1366,18 @@ _bt_insertonpg(Relation rel,
 			XLogRegisterBuffer(0, buf, REGBUF_STANDARD);
 			if (postingoff == 0)
 			{
-				/* Just log itup from caller */
+				/* 只记录调用者的 itup */
 				XLogRegisterBufData(0, (char *) itup, IndexTupleSize(itup));
 			}
 			else
 			{
 				/*
-				 * Insert with posting list split (XLOG_BTREE_INSERT_POST
-				 * record) case.
+				 * 带倒排列表分裂的插入（XLOG_BTREE_INSERT_POST
+				 * 记录）情形。
 				 *
-				 * Log postingoff.  Also log origitup, not itup.  REDO routine
-				 * must reconstruct final itup (as well as nposting) using
-				 * _bt_swap_posting().
+				 * 记录 postingoff。同时记录 origitup，而不是 itup。REDO 例程
+				 * 必须用 _bt_swap_posting() 重建最终的 itup
+				 * （以及 nposting）。
 				 */
 				upostingoff = postingoff;
 
@@ -1398,70 +1398,70 @@ _bt_insertonpg(Relation rel,
 
 		END_CRIT_SECTION();
 
-		/* Release subsidiary buffers */
+		/* 释放附属缓冲区 */
 		if (BufferIsValid(metabuf))
 			_bt_relbuf(rel, metabuf);
 		if (!isleaf)
 			_bt_relbuf(rel, cbuf);
 
 		/*
-		 * Cache the block number if this is the rightmost leaf page.  Cache
-		 * may be used by a future inserter within _bt_search_insert().
+		 * 若这是最右叶子页，则缓存其块号。缓存
+		 * 可供 _bt_search_insert() 中未来的插入者使用。
 		 */
 		blockcache = InvalidBlockNumber;
 		if (isrightmost && isleaf && !isroot)
 			blockcache = BufferGetBlockNumber(buf);
 
-		/* Release buffer for insertion target block */
+		/* 释放插入目标块的缓冲区 */
 		_bt_relbuf(rel, buf);
 
 		/*
-		 * If we decided to cache the insertion target block before releasing
-		 * its buffer lock, then cache it now.  Check the height of the tree
-		 * first, though.  We don't go for the optimization with small
-		 * indexes.  Defer final check to this point to ensure that we don't
-		 * call _bt_getrootheight while holding a buffer lock.
+		 * 若我们决定在释放其缓冲区锁之前
+		 * 缓存插入目标块，现在就缓存它。
+		 * 不过先检查树的高度。
+		 * 对小索引我们不采用该优化。把最后的检查推迟到这里，以确保我们不会
+		 * 在持有缓冲区锁时调用 _bt_getrootheight。
 		 */
 		if (BlockNumberIsValid(blockcache) &&
 			_bt_getrootheight(rel) >= BTREE_FASTPATH_MIN_LEVEL)
 			RelationSetTargetBlock(rel, blockcache);
 	}
 
-	/* be tidy */
+	/* 保持整洁 */
 	if (postingoff != 0)
 	{
-		/* itup is actually a modified copy of caller's original */
+		/* itup 实际上是调用者原始元组的一份修改过的副本 */
 		pfree(nposting);
 		pfree(itup);
 	}
 }
 
 /*
- *	_bt_split() -- split a page in the btree.
+ *	_bt_split() -- 分裂 B-树中的一页。
  *
- *		On entry, buf is the page to split, and is pinned and write-locked.
- *		newitemoff etc. tell us about the new item that must be inserted
- *		along with the data from the original page.
+ *		进入时，buf 是要分裂的页，已钉住并加了写锁。
+ *		newitemoff 等告诉我们必须与原始页上的数据一起
+ *		插入的新项。
  *
- *		itup_key is used for suffix truncation on leaf pages (internal
- *		page callers pass NULL).  When splitting a non-leaf page, 'cbuf'
- *		is the left-sibling of the page we're inserting the downlink for.
- *		This function will clear the INCOMPLETE_SPLIT flag on it, and
- *		release the buffer.
+ *		itup_key 用于叶子页上的后缀截断（内部
+ *		页的调用者传入 NULL）。分裂非叶子页时，'cbuf'
+ *		是我们要为其插入下行链接的那一页的左兄弟。
+ *		本函数会清除它上面的 INCOMPLETE_SPLIT 标志，并
+ *		释放该缓冲区。
  *
- *		orignewitem, nposting, and postingoff are needed when an insert of
- *		orignewitem results in both a posting list split and a page split.
- *		These extra posting list split details are used here in the same
- *		way as they are used in the more common case where a posting list
- *		split does not coincide with a page split.  We need to deal with
- *		posting list splits directly in order to ensure that everything
- *		that follows from the insert of orignewitem is handled as a single
- *		atomic operation (though caller's insert of a new pivot/downlink
- *		into parent page will still be a separate operation).  See
- *		nbtree/README for details on the design of posting list splits.
+ *		当插入 orignewitem 同时导致倒排列表分裂
+ *		和页分裂时，需要 orignewitem、nposting
+ *		和 postingoff。
+ *		这些额外的倒排列表分裂细节在这里的用法，
+ *		与倒排列表分裂并不伴随页分裂的更常见情形相同。
+ *		我们必须直接处理倒排列表分裂，以确保由插入 orignewitem
+ *		引出的一切都作为一次
+ *		原子操作来处理（不过调用者把新的枢轴/下行链接
+ *		插入父页仍是单独的操作）。关于倒排列表分裂的设计，
+ *		见 nbtree/README。
  *
- *		Returns the new right sibling of buf, pinned and write-locked.
- *		The pin and lock on buf are maintained.
+ *		返回 buf 的新右兄弟，已钉住并加了写锁。
+ *		buf 上的钉住和锁保持不变。
  */
 static Buffer
 _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
@@ -1496,17 +1496,17 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 				isrightmost;
 
 	/*
-	 * origpage is the original page to be split.  leftpage is a temporary
-	 * buffer that receives the left-sibling data, which will be copied back
-	 * into origpage on success.  rightpage is the new page that will receive
-	 * the right-sibling data.
+	 * origpage 是要分裂的原始页。leftpage 是一块临时
+	 * 缓冲区，接收左兄弟的数据，成功后会复制回
+	 * origpage。rightpage 是将接收
+	 * 右兄弟数据的新页。
 	 *
-	 * leftpage is allocated after choosing a split point.  rightpage's new
-	 * buffer isn't acquired until after leftpage is initialized and has new
-	 * high key, the last point where splitting the page may fail (barring
-	 * corruption).  Failing before acquiring new buffer won't have lasting
-	 * consequences, since origpage won't have been modified and leftpage is
-	 * only workspace.
+	 * 选定分裂点之后才分配 leftpage。rightpage 的新
+	 * 缓冲区要等到 leftpage 初始化完成并有了新的
+	 * 高键之后才获取，那是分裂该页还可能失败的最后一点（损坏
+	 * 除外）。在获取新缓冲区之前失败不会有持久
+	 * 后果，因为 origpage 尚未被修改，而 leftpage 只是
+	 * 工作区。
 	 */
 	origpage = BufferGetPage(buf);
 	oopaque = BTPageGetOpaque(origpage);
@@ -1516,74 +1516,74 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	origpagenumber = BufferGetBlockNumber(buf);
 
 	/*
-	 * Choose a point to split origpage at.
+	 * 选择把 origpage 分开的位置。
 	 *
-	 * A split point can be thought of as a point _between_ two existing data
-	 * items on origpage (the lastleft and firstright tuples), provided you
-	 * pretend that the new item that didn't fit is already on origpage.
+	 * 可以把分裂点想成 origpage 上两个已有数据
+	 * 项之间（_between_）的一点（lastleft 与 firstright 元组），只要你
+	 * 假装那个放不下的新项已经在 origpage 上。
 	 *
-	 * Since origpage does not actually contain newitem, the representation of
-	 * split points needs to work with two boundary cases: splits where
-	 * newitem is lastleft, and splits where newitem is firstright.
-	 * newitemonleft resolves the ambiguity that would otherwise exist when
-	 * newitemoff == firstrightoff.  In all other cases it's clear which side
-	 * of the split every tuple goes on from context.  newitemonleft is
-	 * usually (but not always) redundant information.
+	 * 由于 origpage 实际上并不包含 newitem，分裂点的表示
+	 * 必须能处理两种边界情形：newitem 是 lastleft 的分裂，
+	 * 以及 newitem 是 firstright 的分裂。
+	 * 当 newitemoff == firstrightoff 时，否则会有歧义，由 newitemonleft 来解决。
+	 * 在所有其他情形下，从上下文就能看清每个元组落在
+	 * 分裂的哪一侧。newitemonleft
+	 * 通常（但并不总是）是冗余信息。
 	 *
-	 * firstrightoff is supposed to be an origpage offset number, but it's
-	 * possible that its value will be maxoff+1, which is "past the end" of
-	 * origpage.  This happens in the rare case where newitem goes after all
-	 * existing items (i.e. newitemoff is maxoff+1) and we end up splitting
-	 * origpage at the point that leaves newitem alone on new right page.  Any
-	 * "!newitemonleft && newitemoff == firstrightoff" split point makes
-	 * newitem the firstright tuple, though, so this case isn't a special
-	 * case.
+	 * firstrightoff 应当是 origpage 的偏移号，但
+	 * 它的值也可能是 maxoff+1，也就是 origpage 的"末尾之后"。
+	 * 这发生在少见的情形：newitem 排在所有
+	 * 已有项之后（即 newitemoff 为 maxoff+1），而我们最终在
+	 * 把 newitem 单独留在新右页的那个点上分裂
+	 * origpage。不过，任何
+	 * "!newitemonleft && newitemoff == firstrightoff" 分裂点都会使
+	 * newitem 成为 firstright 元组，因此这种情况并不是特例。
 	 */
 	firstrightoff = _bt_findsplitloc(rel, origpage, newitemoff, newitemsz,
 									 newitem, &newitemonleft);
 
-	/* Allocate temp buffer for leftpage */
+	/* 为 leftpage 分配临时缓冲区 */
 	leftpage = PageGetTempPage(origpage);
 	_bt_pageinit(leftpage, BufferGetPageSize(buf));
 	lopaque = BTPageGetOpaque(leftpage);
 
 	/*
-	 * leftpage won't be the root when we're done.  Also, clear the SPLIT_END
-	 * and HAS_GARBAGE flags.
+	 * 完成后 leftpage 将不再是根。同时清除 SPLIT_END
+	 * 和 HAS_GARBAGE 标志。
 	 */
 	lopaque->btpo_flags = oopaque->btpo_flags;
 	lopaque->btpo_flags &= ~(BTP_ROOT | BTP_SPLIT_END | BTP_HAS_GARBAGE);
-	/* set flag in leftpage indicating that rightpage has no downlink yet */
+	/* 在 leftpage 中设置标志，表示 rightpage 还没有下行链接 */
 	lopaque->btpo_flags |= BTP_INCOMPLETE_SPLIT;
 	lopaque->btpo_prev = oopaque->btpo_prev;
-	/* handle btpo_next after rightpage buffer acquired */
+	/* 获取 rightpage 缓冲区之后再处理 btpo_next */
 	lopaque->btpo_level = oopaque->btpo_level;
-	/* handle btpo_cycleid after rightpage buffer acquired */
+	/* 获取 rightpage 缓冲区之后再处理 btpo_cycleid */
 
 	/*
-	 * Copy the original page's LSN into leftpage, which will become the
-	 * updated version of the page.  We need this because XLogInsert will
-	 * examine the LSN and possibly dump it in a page image.
+	 * 把原始页的 LSN 复制到 leftpage，它将成为
+	 * 该页的更新版本。我们需要这样做，因为 XLogInsert 会
+	 * 检查 LSN，并可能把它转储进页镜像。
 	 */
 	PageSetLSN(leftpage, PageGetLSN(origpage));
 
 	/*
-	 * Determine page offset number of existing overlapped-with-orignewitem
-	 * posting list when it is necessary to perform a posting list split in
-	 * passing.  Note that newitem was already changed by caller (newitem no
-	 * longer has the orignewitem TID).
+	 * 在需要顺带做倒排列表分裂时，确定与 orignewitem
+	 * 重叠的已有倒排列表的页偏移号。
+	 * 注意，调用者已经改过 newitem
+	 * （newitem 不再带有 orignewitem 的 TID）。
 	 *
-	 * This page offset number (origpagepostingoff) will be used to pretend
-	 * that the posting split has already taken place, even though the
-	 * required modifications to origpage won't occur until we reach the
-	 * critical section.  The lastleft and firstright tuples of our page split
-	 * point should, in effect, come from an imaginary version of origpage
-	 * that has the nposting tuple instead of the original posting list tuple.
+	 * 这个页偏移号（origpagepostingoff）用来假装
+	 * 倒排分裂已经发生，尽管对 origpage 的
+	 * 必要修改要到进入临界区才会发生。我们页分裂
+	 * 点的 lastleft 与 firstright 元组，实际上应当来自
+	 * origpage 的一个想象版本，其中是 nposting 元组，
+	 * 而不是原来的倒排列表元组。
 	 *
-	 * Note: _bt_findsplitloc() should have compensated for coinciding posting
-	 * list splits in just the same way, at least in theory.  It doesn't
-	 * bother with that, though.  In practice it won't affect its choice of
-	 * split point.
+	 * 注意：_bt_findsplitloc() 至少在理论上应当以同样的方式
+	 * 补偿同时发生的倒排列表分裂。
+	 * 不过它并不费这个心。
+	 * 实践中这不会影响它对分裂点的选择。
 	 */
 	origpagepostingoff = InvalidOffsetNumber;
 	if (postingoff != 0)
@@ -1596,34 +1596,34 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	}
 
 	/*
-	 * The high key for the new left page is a possibly-truncated copy of
-	 * firstright on the leaf level (it's "firstright itself" on internal
-	 * pages; see !isleaf comments below).  This may seem to be contrary to
-	 * Lehman & Yao's approach of using a copy of lastleft as the new high key
-	 * when splitting on the leaf level.  It isn't, though.
+	 * 新左页的高键是叶子层上 firstright 的一份可能被截断的副本
+	 * （在内部页上它就是"firstright 本身"；见下面的 !isleaf 注释）。
+	 * 这看起来似乎
+	 * 与 Lehman 与 Yao 在叶子层分裂时用 lastleft 的副本作为新高键的做法相反。
+	 * 其实并不相反。
 	 *
-	 * Suffix truncation will leave the left page's high key fully equal to
-	 * lastleft when lastleft and firstright are equal prior to heap TID (that
-	 * is, the tiebreaker TID value comes from lastleft).  It isn't actually
-	 * necessary for a new leaf high key to be a copy of lastleft for the L&Y
-	 * "subtree" invariant to hold.  It's sufficient to make sure that the new
-	 * leaf high key is strictly less than firstright, and greater than or
-	 * equal to (not necessarily equal to) lastleft.  In other words, when
-	 * suffix truncation isn't possible during a leaf page split, we take
-	 * L&Y's exact approach to generating a new high key for the left page.
-	 * (Actually, that is slightly inaccurate.  We don't just use a copy of
-	 * lastleft.  A tuple with all the keys from firstright but the max heap
-	 * TID from lastleft is used, to avoid introducing a special case.)
+	 * 当 lastleft 与 firstright 在堆 TID 之前相等时，后缀截断会让左页的高键
+	 * 完全等于 lastleft（也就是说，决胜 TID 值来自 lastleft）。新的叶子高键
+	 * 实际上并不必须是 lastleft 的副本，L&Y 的
+	 * "子树"不变量也能成立。只要保证新的
+	 * 叶子高键严格小于 firstright，并且大于或
+	 * 等于（不必等于）lastleft 即可。换句话说，当
+	 * 叶子页分裂期间无法做后缀截断时，我们采用
+	 * L&Y 为左页生成新高键的精确做法。
+	 * （实际上这稍有不准确。我们并不只是用 lastleft 的副本。
+	 * 用的是带有 firstright 全部键、
+	 * 但最大堆
+	 * TID 取自 lastleft 的元组，以避免引入特例。）
 	 */
 	if (!newitemonleft && newitemoff == firstrightoff)
 	{
-		/* incoming tuple becomes firstright */
+		/* 传入的元组成为 firstright */
 		itemsz = newitemsz;
 		firstright = newitem;
 	}
 	else
 	{
-		/* existing item at firstrightoff becomes firstright */
+		/* firstrightoff 处的已有项成为 firstright */
 		itemid = PageGetItemId(origpage, firstrightoff);
 		itemsz = ItemIdGetLength(itemid);
 		firstright = (IndexTuple) PageGetItem(origpage, itemid);
@@ -1635,17 +1635,17 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	{
 		IndexTuple	lastleft;
 
-		/* Attempt suffix truncation for leaf page splits */
+		/* 尝试对叶子页分裂做后缀截断 */
 		if (newitemonleft && newitemoff == firstrightoff)
 		{
-			/* incoming tuple becomes lastleft */
+			/* 传入的元组成为 lastleft */
 			lastleft = newitem;
 		}
 		else
 		{
 			OffsetNumber lastleftoff;
 
-			/* existing item before firstrightoff becomes lastleft */
+			/* firstrightoff 之前的已有项成为 lastleft */
 			lastleftoff = OffsetNumberPrev(firstrightoff);
 			Assert(lastleftoff >= P_FIRSTDATAKEY(oopaque));
 			itemid = PageGetItemId(origpage, lastleftoff);
@@ -1660,36 +1660,36 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	else
 	{
 		/*
-		 * Don't perform suffix truncation on a copy of firstright to make
-		 * left page high key for internal page splits.  Must use firstright
-		 * as new high key directly.
+		 * 不要对 firstright 的副本做后缀截断，来为内部页分裂
+		 * 生成左页高键。必须直接把 firstright
+		 * 用作新高键。
 		 *
-		 * Each distinct separator key value originates as a leaf level high
-		 * key; all other separator keys/pivot tuples are copied from one
-		 * level down.  A separator key in a grandparent page must be
-		 * identical to high key in rightmost parent page of the subtree to
-		 * its left, which must itself be identical to high key in rightmost
-		 * child page of that same subtree (this even applies to separator
-		 * from grandparent's high key).  There must always be an unbroken
-		 * "seam" of identical separator keys that guide index scans at every
-		 * level, starting from the grandparent.  That's why suffix truncation
-		 * is unsafe here.
+		 * 每一个不同的分隔键值都起源于叶子层高
+		 * 键；所有其他分隔键/枢轴元组都是从下一
+		 * 层复制来的。祖父页中的分隔键必须与
+		 * 其左侧子树最右父页中的高键完全相同，
+		 * 而那个高键本身又必须与
+		 * 同一子树最右子页中的高键完全相同（这一点甚至适用于来自
+		 * 祖父高键的分隔键）。从祖父开始，
+		 * 每一层
+		 * 都必须有一条不断开的、相同分隔键组成的"接缝"，在每一
+		 * 层引导索引扫描。这就是这里做后缀截断
 		 *
-		 * Internal page splits will truncate firstright into a "negative
-		 * infinity" data item when it gets inserted on the new right page
-		 * below, though.  This happens during the call to _bt_pgaddtup() for
-		 * the new first data item for right page.  Do not confuse this
-		 * mechanism with suffix truncation.  It is just a convenient way of
-		 * implementing page splits that split the internal page "inside"
-		 * firstright.  The lefthighkey separator key cannot appear a second
-		 * time in the right page (only firstright's downlink goes in right
-		 * page).
+		 * 并不安全的原因。
+		 * 不过，内部页分裂会在 firstright 被插入下面新右页时，
+		 * 把它截断成"负无穷"数据项。
+		 * 这发生在为
+		 * 右页的新的第一个数据项调用 _bt_pgaddtup() 期间。不要把这一
+		 * 机制与后缀截断搞混。它只是实现如下页分裂的一种方便办法：
+		 * 在 firstright "内部"分裂内部页。lefthighkey 分隔键无法
+		 * 在右页中再次出现（只有 firstright 的下行链接进入右
+		 * 页）。
 		 */
 		lefthighkey = firstright;
 	}
 
 	/*
-	 * Add new high key to leftpage
+	 * 把新高键加到 leftpage
 	 */
 	afterleftoff = P_HIKEY;
 
@@ -1705,38 +1705,38 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	afterleftoff = OffsetNumberNext(afterleftoff);
 
 	/*
-	 * Acquire a new right page to split into, now that left page has a new
-	 * high key.  From here on, it's not okay to throw an error without
-	 * zeroing rightpage first.  This coding rule ensures that we won't
-	 * confuse future VACUUM operations, which might otherwise try to re-find
-	 * a downlink to a leftover junk page as the page undergoes deletion.
+	 * 既然左页已经有了新的
+	 * 高键，就获取一张新的右页来分裂进去。从此以后，若不先把
+	 * rightpage 清零，就不可以抛出错误。这条编码规则确保我们不会
+	 * 把未来的 VACUUM 操作搞糊涂，否则它们可能会试图重新找到
+	 * 指向一张残留垃圾页的下行链接，而该页正在被删除。
 	 *
-	 * It would be reasonable to start the critical section just after the new
-	 * rightpage buffer is acquired instead; that would allow us to avoid
-	 * leftover junk pages without bothering to zero rightpage.  We do it this
-	 * way because it avoids an unnecessary PANIC when either origpage or its
-	 * existing sibling page are corrupt.
+	 * 也可以在获取新的
+	 * rightpage 缓冲区之后立即开始临界区；那样就可以避免
+	 * 残留垃圾页，而不必费心把 rightpage 清零。我们这样做，
+	 * 是因为它能在 origpage 或其
+	 * 已有兄弟页损坏时避免一次不必要的 PANIC。
 	 */
 	rbuf = _bt_allocbuf(rel, heaprel);
 	rightpage = BufferGetPage(rbuf);
 	rightpagenumber = BufferGetBlockNumber(rbuf);
-	/* rightpage was initialized by _bt_getbuf */
+	/* rightpage 已由 _bt_getbuf 初始化 */
 	ropaque = BTPageGetOpaque(rightpage);
 
 	/*
-	 * Finish off remaining leftpage special area fields.  They cannot be set
-	 * before both origpage (leftpage) and rightpage buffers are acquired and
-	 * locked.
+	 * 完成 leftpage 特殊区中其余字段。在 origpage（leftpage）和 rightpage
+	 * 两块缓冲区都已获取并
+	 * 锁定之前无法设置它们。
 	 *
-	 * btpo_cycleid is only used with leaf pages, though we set it here in all
-	 * cases just to be consistent.
+	 * btpo_cycleid 只用于叶子页，不过为了一致，
+	 * 这里在所有情况下都设置它。
 	 */
 	lopaque->btpo_next = rightpagenumber;
 	lopaque->btpo_cycleid = _bt_vacuum_cycleid(rel);
 
 	/*
-	 * rightpage won't be the root when we're done.  Also, clear the SPLIT_END
-	 * and HAS_GARBAGE flags.
+	 * 完成后 rightpage 将不再是根。同时清除 SPLIT_END
+	 * 和 HAS_GARBAGE 标志。
 	 */
 	ropaque->btpo_flags = oopaque->btpo_flags;
 	ropaque->btpo_flags &= ~(BTP_ROOT | BTP_SPLIT_END | BTP_HAS_GARBAGE);
@@ -1746,11 +1746,11 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	ropaque->btpo_cycleid = lopaque->btpo_cycleid;
 
 	/*
-	 * Add new high key to rightpage where necessary.
+	 * 必要时把新高键加到 rightpage。
 	 *
-	 * If the page we're splitting is not the rightmost page at its level in
-	 * the tree, then the first entry on the page is the high key from
-	 * origpage.
+	 * 若我们正在分裂的页不是树中该层的最右页，
+	 * 则该页上的第一项是来自
+	 * origpage 的高键。
 	 */
 	afterrightoff = P_HIKEY;
 
@@ -1776,19 +1776,19 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	}
 
 	/*
-	 * Internal page splits truncate first data item on right page -- it
-	 * becomes "minus infinity" item for the page.  Set this up here.
+	 * 内部页分裂会截断右页上的第一个数据项 -- 它
+	 * 成为该页的"负无穷"项。在这里把它设置好。
 	 */
 	minusinfoff = InvalidOffsetNumber;
 	if (!isleaf)
 		minusinfoff = afterrightoff;
 
 	/*
-	 * Now transfer all the data items (non-pivot tuples in isleaf case, or
-	 * additional pivot tuples in !isleaf case) to the appropriate page.
+	 * 现在把所有数据项（isleaf 情形下的非枢轴元组，或
+	 * !isleaf 情形下的其余枢轴元组）转移到适当的页上。
 	 *
-	 * Note: we *must* insert at least the right page's items in item-number
-	 * order, for the benefit of _bt_restore_page().
+	 * 注意：为了 _bt_restore_page()，我们*必须*至少按项号
+	 * 顺序插入右页上的各项。
 	 */
 	for (i = P_FIRSTDATAKEY(oopaque); i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -1798,7 +1798,7 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 		itemsz = ItemIdGetLength(itemid);
 		dataitem = (IndexTuple) PageGetItem(origpage, itemid);
 
-		/* replace original item with nposting due to posting split? */
+		/* 因倒排分裂而用 nposting 替换原始项？ */
 		if (i == origpagepostingoff)
 		{
 			Assert(BTreeTupleIsPosting(dataitem));
@@ -1806,7 +1806,7 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 			dataitem = nposting;
 		}
 
-		/* does new item belong before this one? */
+		/* 新项是否应当排在这一项之前？ */
 		else if (i == newitemoff)
 		{
 			if (newitemonleft)
@@ -1837,7 +1837,7 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 			}
 		}
 
-		/* decide which page to put it on */
+		/* 决定把它放到哪一页 */
 		if (i < firstrightoff)
 		{
 			if (!_bt_pgaddtup(leftpage, itemsz, dataitem, afterleftoff, false))
@@ -1863,13 +1863,13 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 		}
 	}
 
-	/* Handle case where newitem goes at the end of rightpage */
+	/* 处理 newitem 位于 rightpage 末尾的情形 */
 	if (i <= newitemoff)
 	{
 		/*
-		 * Can't have newitemonleft here; that would imply we were told to put
-		 * *everything* on the left page, which cannot fit (if it could, we'd
-		 * not be splitting the page).
+		 * 这里不可能有 newitemonleft；那将意味着我们被要求把
+		 * *所有东西*都放到左页，而左页放不下（若放得下，我们就
+		 * 不会分裂该页）。
 		 */
 		Assert(!newitemonleft && newitemoff == maxoff + 1);
 		if (!_bt_pgaddtup(rightpage, newitemsz, newitem, afterrightoff,
@@ -1884,9 +1884,9 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	}
 
 	/*
-	 * We have to grab the original right sibling (if any) and update its prev
-	 * link.  We are guaranteed that this is deadlock-free, since we couple
-	 * the locks in the standard order: left to right.
+	 * 我们必须抓住原来的右兄弟（若有），并更新它的 prev
+	 * 链接。这保证不会死锁，因为我们按标准顺序
+	 * 耦合这些锁：从左到右。
 	 */
 	if (!isrightmost)
 	{
@@ -1905,41 +1905,41 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 		}
 
 		/*
-		 * Check to see if we can set the SPLIT_END flag in the right-hand
-		 * split page; this can save some I/O for vacuum since it need not
-		 * proceed to the right sibling.  We can set the flag if the right
-		 * sibling has a different cycleid: that means it could not be part of
-		 * a group of pages that were all split off from the same ancestor
-		 * page.  If you're confused, imagine that page A splits to A B and
-		 * then again, yielding A C B, while vacuum is in progress.  Tuples
-		 * originally in A could now be in either B or C, hence vacuum must
-		 * examine both pages.  But if D, our right sibling, has a different
-		 * cycleid then it could not contain any tuples that were in A when
-		 * the vacuum started.
+		 * 看看能否在右侧
+		 * 分裂页上设置 SPLIT_END 标志；这能为清理省下一些 I/O，因为它不必
+		 * 继续走到右兄弟。若右
+		 * 兄弟的 cycleid 不同，就可以设置该标志：那意味着它无法属于
+		 * 从同一祖先页全部分裂出来的
+		 * 那一组页。若觉得不好懂，设想页 A 分裂成 A B，
+		 * 然后再次分裂，得到 A C B，同时清理正在进行。原先在 A 中的元组
+		 * 现在可能在 B 或 C 中，因此清理必须
+		 * 检查这两页。但若 D，也就是我们的右兄弟，有不同的
+		 * cycleid，则它无法包含清理开始时
+		 * 还在 A 中的任何元组。
 		 */
 		if (sopaque->btpo_cycleid != ropaque->btpo_cycleid)
 			ropaque->btpo_flags |= BTP_SPLIT_END;
 	}
 
 	/*
-	 * Right sibling is locked, new siblings are prepared, but original page
-	 * is not updated yet.
+	 * 右兄弟已锁定，新的兄弟页已准备好，但原始页
+	 * 尚未更新。
 	 *
-	 * NO EREPORT(ERROR) till right sibling is updated.  We can get away with
-	 * not starting the critical section till here because we haven't been
-	 * scribbling on the original page yet; see comments above.
+	 * 在右兄弟更新之前，不要 EREPORT(ERROR)。我们到这里才开始
+	 * 临界区也没问题，因为我们还没有在原始页上
+	 * 乱写；见上面的注释。
 	 */
 	START_CRIT_SECTION();
 
 	/*
-	 * By here, the original data page has been split into two new halves, and
-	 * these are correct.  The algorithm requires that the left page never
-	 * move during a split, so we copy the new left page back on top of the
-	 * original.  We need to do this before writing the WAL record, so that
-	 * XLogInsert can WAL log an image of the page if necessary.
+	 * 到这里，原始数据页已经分裂成两个新的半页，并且
+	 * 它们是正确的。算法需要左页在分裂期间永不
+	 * 移动，因此我们把新的左页复制回
+	 * 原始页之上。必须在写 WAL 记录之前做这件事，以便
+	 * 必要时 XLogInsert 能把该页的镜像记入 WAL。
 	 */
 	PageRestoreTempPage(leftpage, origpage);
-	/* leftpage, lopaque must not be used below here */
+	/* 此后不得再使用 leftpage、lopaque */
 
 	MarkBufferDirty(buf);
 	MarkBufferDirty(rbuf);
@@ -1951,8 +1951,8 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 	}
 
 	/*
-	 * Clear INCOMPLETE_SPLIT flag on child if inserting the new item finishes
-	 * a split
+	 * 若插入新项完成了一次分裂，则清除子页上的
+	 * INCOMPLETE_SPLIT 标志
 	 */
 	if (!isleaf)
 	{
@@ -1963,7 +1963,7 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 		MarkBufferDirty(cbuf);
 	}
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_btree_split xlrec;
@@ -1971,7 +1971,7 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 		XLogRecPtr	recptr;
 
 		xlrec.level = ropaque->btpo_level;
-		/* See comments below on newitem, orignewitem, and posting lists */
+		/* 关于 newitem、orignewitem 和倒排列表，见下面的注释 */
 		xlrec.firstrightoff = firstrightoff;
 		xlrec.newitemoff = newitemoff;
 		xlrec.postingoff = 0;
@@ -1983,38 +1983,38 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 
 		XLogRegisterBuffer(0, buf, REGBUF_STANDARD);
 		XLogRegisterBuffer(1, rbuf, REGBUF_WILL_INIT);
-		/* Log original right sibling, since we've changed its prev-pointer */
+		/* 记录原来的右兄弟，因为我们改了它的 prev 指针 */
 		if (!isrightmost)
 			XLogRegisterBuffer(2, sbuf, REGBUF_STANDARD);
 		if (!isleaf)
 			XLogRegisterBuffer(3, cbuf, REGBUF_STANDARD);
 
 		/*
-		 * Log the new item, if it was inserted on the left page. (If it was
-		 * put on the right page, we don't need to explicitly WAL log it
-		 * because it's included with all the other items on the right page.)
-		 * Show the new item as belonging to the left page buffer, so that it
-		 * is not stored if XLogInsert decides it needs a full-page image of
-		 * the left page.  We always store newitemoff in the record, though.
+		 * 若新项插在左页上，就把它记入日志。（若它被
+		 * 放到右页上，就不必显式为它写 WAL，
+		 * 因为它已经包含在右页上的所有其他项之中。）
+		 * 把新项显示为属于左页缓冲区，这样若
+		 * XLogInsert 决定需要左页的整页镜像，就不会再存储它。
+		 * 不过我们总是在记录中存放 newitemoff。
 		 *
-		 * The details are sometimes slightly different for page splits that
-		 * coincide with a posting list split.  If both the replacement
-		 * posting list and newitem go on the right page, then we don't need
-		 * to log anything extra, just like the simple !newitemonleft
-		 * no-posting-split case (postingoff is set to zero in the WAL record,
-		 * so recovery doesn't need to process a posting list split at all).
-		 * Otherwise, we set postingoff and log orignewitem instead of
-		 * newitem, despite having actually inserted newitem.  REDO routine
-		 * must reconstruct nposting and newitem using _bt_swap_posting().
+		 * 与倒排列表分裂同时发生的页分裂，细节有时略有不同。若替换用的
+		 * 倒排列表和 newitem 都到了右页，就不需要
+		 * 额外记录任何东西，就像简单的 !newitemonleft、
+		 * 没有倒排分裂的情形一样（WAL 记录中的 postingoff 被设为零，
+		 * 因此恢复完全不必处理倒排列表分裂）。
+		 * 否则，我们设置 postingoff，并记录 orignewitem 而不是
+		 * newitem，尽管实际插入的是 newitem。REDO 例程
+		 * 必须用 _bt_swap_posting() 重建 nposting 和 newitem。
+		 * 注意：我们的页分裂点有可能正是使
 		 *
-		 * Note: It's possible that our page split point is the point that
-		 * makes the posting list lastleft and newitem firstright.  This is
-		 * the only case where we log orignewitem/newitem despite newitem
-		 * going on the right page.  If XLogInsert decides that it can omit
-		 * orignewitem due to logging a full-page image of the left page,
-		 * everything still works out, since recovery only needs to log
-		 * orignewitem for items on the left page (just like the regular
-		 * newitem-logged case).
+		 * 倒排列表成为 lastleft、newitem 成为 firstright 的那个点。
+		 * 这是
+		 * 唯一即使 newitem 到了右页仍记录 orignewitem/newitem 的情形。
+		 * 若 XLogInsert 决定因记录了左页的整页镜像而可以省略
+		 * orignewitem，
+		 * 一切仍然成立，因为恢复只需要为左页上的项记录
+		 * orignewitem（与常规的
+		 * 记录 newitem 的情形一样）。
 		 */
 		if (newitemonleft && xlrec.postingoff == 0)
 			XLogRegisterBufData(0, (char *) newitem, newitemsz);
@@ -2026,10 +2026,10 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 			XLogRegisterBufData(0, (char *) orignewitem, newitemsz);
 		}
 
-		/* Log the left page's new high key */
+		/* 记录左页的新高键 */
 		if (!isleaf)
 		{
-			/* lefthighkey isn't local copy, get current pointer */
+			/* lefthighkey 不是本地副本，取当前指针 */
 			itemid = PageGetItemId(origpage, P_HIKEY);
 			lefthighkey = (IndexTuple) PageGetItem(origpage, itemid);
 		}
@@ -2037,14 +2037,14 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 							MAXALIGN(IndexTupleSize(lefthighkey)));
 
 		/*
-		 * Log the contents of the right page in the format understood by
-		 * _bt_restore_page().  The whole right page will be recreated.
+		 * 按 _bt_restore_page() 能理解的格式写入右页的内容。
+		 * 整个右页都会被重建。
 		 *
-		 * Direct access to page is not good but faster - we should implement
-		 * some new func in page API.  Note we only store the tuples
-		 * themselves, knowing that they were inserted in item-number order
-		 * and so the line pointers can be reconstructed.  See comments for
-		 * _bt_restore_page().
+		 * 直接访问页不太好，但更快 -- 我们应当在页 API 中实现
+		 * 某个新函数。注意，我们只存储元组
+		 * 本身，因为知道它们是按项号顺序插入的，
+		 * 因此行指针可以重建。见
+		 * _bt_restore_page() 的注释。
 		 */
 		XLogRegisterBufData(1,
 							(char *) rightpage + ((PageHeader) rightpage)->pd_upper,
@@ -2063,37 +2063,37 @@ _bt_split(Relation rel, Relation heaprel, BTScanInsert itup_key, Buffer buf,
 
 	END_CRIT_SECTION();
 
-	/* release the old right sibling */
+	/* 释放原来的右兄弟 */
 	if (!isrightmost)
 		_bt_relbuf(rel, sbuf);
 
-	/* release the child */
+	/* 释放子页 */
 	if (!isleaf)
 		_bt_relbuf(rel, cbuf);
 
-	/* be tidy */
+	/* 保持整洁 */
 	if (isleaf)
 		pfree(lefthighkey);
 
-	/* split's done */
+	/* 分裂完成 */
 	return rbuf;
 }
 
 /*
- * _bt_insert_parent() -- Insert downlink into parent, completing split.
+ * _bt_insert_parent() -- 把下行链接插入父页，完成分裂。
  *
- * On entry, buf and rbuf are the left and right split pages, which we
- * still hold write locks on.  Both locks will be released here.  We
- * release the rbuf lock once we have a write lock on the page that we
- * intend to insert a downlink to rbuf on (i.e. buf's current parent page).
- * The lock on buf is released at the same point as the lock on the parent
- * page, since buf's INCOMPLETE_SPLIT flag must be cleared by the same
- * atomic operation that completes the split by inserting a new downlink.
+ * 进入时，buf 和 rbuf 是分裂后的左右页，我们
+ * 仍对它们持有写锁。两个锁都会在这里释放。一旦我们对打算
+ * 把指向 rbuf 的下行链接插入进去的那一页（即 buf 当前的父页）拿到写锁，
+ * 就释放 rbuf 上的锁。
+ * buf 上的锁与父页上的锁在同一时刻释放，
+ * 因为必须由同一次
+ * 原子操作清除 buf 的 INCOMPLETE_SPLIT 标志，并通过插入新的下行链接来完成分裂。
  *
- * stack - stack showing how we got here.  Will be NULL when splitting true
- *			root, or during concurrent root split, where we can be inefficient
- * isroot - we split the true root
- * isonly - we split a page alone on its level (might have been fast root)
+ * stack - 说明我们如何到达这里的栈。分裂真正的
+ *			根时，或在并发根分裂期间，它为 NULL，那时我们可以不那么高效
+ * isroot - 我们分裂了真正的根
+ * isonly - 我们分裂了其所在层上单独的一页（它也许曾是快速根）
  */
 static void
 _bt_insert_parent(Relation rel,
@@ -2107,17 +2107,17 @@ _bt_insert_parent(Relation rel,
 	Assert(heaprel != NULL);
 
 	/*
-	 * Here we have to do something Lehman and Yao don't talk about: deal with
-	 * a root split and construction of a new root.  If our stack is empty
-	 * then we have just split a node on what had been the root level when we
-	 * descended the tree.  If it was still the root then we perform a
-	 * new-root construction.  If it *wasn't* the root anymore, search to find
-	 * the next higher level that someone constructed meanwhile, and find the
-	 * right place to insert as for the normal case.
+	 * 这里我们必须做一件 Lehman 与 Yao 没有谈到的事：处理
+	 * 根分裂并构造新根。若栈为空，
+	 * 则我们刚刚分裂的结点，在我们
+	 * 沿树下降时还位于根层。若它仍然是根，我们就执行
+	 * 新根构造。若它*已经不再*是根，就搜索找出
+	 * 其间别人构造的下一个更高层，并像正常情形那样找到
+	 * 插入的正确位置。
 	 *
-	 * If we have to search for the parent level, we do so by re-descending
-	 * from the root.  This is not super-efficient, but it's rare enough not
-	 * to matter.
+	 * 若必须搜索父层，我们就从根
+	 * 重新下降。这并不特别高效，但足够少见，
+	 * 无关紧要。
 	 */
 	if (isroot)
 	{
@@ -2125,9 +2125,9 @@ _bt_insert_parent(Relation rel,
 
 		Assert(stack == NULL);
 		Assert(isonly);
-		/* create a new root node one level up and update the metapage */
+		/* 在上一层创建一个新的根结点并更新元数据页 */
 		rootbuf = _bt_newlevel(rel, heaprel, buf, rbuf);
-		/* release the split buffers */
+		/* 释放分裂缓冲区 */
 		_bt_relbuf(rel, rootbuf);
 		_bt_relbuf(rel, rbuf);
 		_bt_relbuf(rel, buf);
@@ -2150,23 +2150,23 @@ _bt_insert_parent(Relation rel,
 			opaque = BTPageGetOpaque(page);
 
 			/*
-			 * We should never reach here when a leaf page split takes place
-			 * despite the insert of newitem being able to apply the fastpath
-			 * optimization.  Make sure of that with an assertion.
+			 * 当叶子页分裂发生时，我们绝不应当到达这里，
+			 * 尽管 newitem 的插入本可以应用 fastpath
+			 * 优化。用一条断言来确认这一点。
 			 *
-			 * This is more of a performance issue than a correctness issue.
-			 * The fastpath won't have a descent stack.  Using a phony stack
-			 * here works, but never rely on that.  The fastpath should be
-			 * rejected within _bt_search_insert() when the rightmost leaf
-			 * page will split, since it's faster to go through _bt_search()
-			 * and get a stack in the usual way.
+			 * 这更多是性能问题，而不是正确性问题。
+			 * fastpath 不会有下降栈。在这里使用一个假栈
+			 * 也能工作，但绝不要依赖这一点。当最右叶子
+			 * 页将要分裂时，应当在 _bt_search_insert() 内拒绝 fastpath，
+			 * 因为走 _bt_search() 并按通常方式
+			 * 拿到栈会更快。
 			 */
 			Assert(!(P_ISLEAF(opaque) &&
 					 BlockNumberIsValid(RelationGetTargetBlock(rel))));
 
-			/* Find the leftmost page at the next level up */
+			/* 找到上一层最左边的页 */
 			pbuf = _bt_get_endpoint(rel, opaque->btpo_level + 1, false, NULL);
-			/* Set up a phony stack entry pointing there */
+			/* 设置一个指向那里的假栈项 */
 			stack = &fakestack;
 			stack->bts_blkno = BufferGetBlockNumber(pbuf);
 			stack->bts_offset = InvalidOffsetNumber;
@@ -2174,37 +2174,37 @@ _bt_insert_parent(Relation rel,
 			_bt_relbuf(rel, pbuf);
 		}
 
-		/* get high key from left, a strict lower bound for new right page */
+		/* 从左页取高键，它是新右页的严格下界 */
 		ritem = (IndexTuple) PageGetItem(page,
 										 PageGetItemId(page, P_HIKEY));
 
-		/* form an index tuple that points at the new right page */
+		/* 构造一个指向新右页的索引元组 */
 		new_item = CopyIndexTuple(ritem);
 		BTreeTupleSetDownLink(new_item, rbknum);
 
 		/*
-		 * Re-find and write lock the parent of buf.
+		 * 重新找到 buf 的父页并加写锁。
 		 *
-		 * It's possible that the location of buf's downlink has changed since
-		 * our initial _bt_search() descent.  _bt_getstackbuf() will detect
-		 * and recover from this, updating the stack, which ensures that the
-		 * new downlink will be inserted at the correct offset. Even buf's
-		 * parent may have changed.
+		 * 自我们最初的 _bt_search() 下降以来，
+		 * buf 的下行链接位置可能已经改变。
+		 * _bt_getstackbuf() 会检测并从此恢复，更新栈，从而确保
+		 * 新的下行链接会被插到正确的偏移。甚至 buf 的
+		 * 父页也可能已经改变。
 		 */
 		pbuf = _bt_getstackbuf(rel, heaprel, stack, bknum);
 
 		/*
-		 * Unlock the right child.  The left child will be unlocked in
-		 * _bt_insertonpg().
+		 * 解锁右孩子。左孩子将在
+		 * _bt_insertonpg() 中解锁。
 		 *
-		 * Unlocking the right child must be delayed until here to ensure that
-		 * no concurrent VACUUM operation can become confused.  Page deletion
-		 * cannot be allowed to fail to re-find a downlink for the rbuf page.
-		 * (Actually, this is just a vestige of how things used to work.  The
-		 * page deletion code is expected to check for the INCOMPLETE_SPLIT
-		 * flag on the left child.  It won't attempt deletion of the right
-		 * child until the split is complete.  Despite all this, we opt to
-		 * conservatively delay unlocking the right child until here.)
+		 * 必须把解锁右孩子推迟到这里，以确保
+		 * 并发的 VACUUM 操作不会被搞糊涂。无法允许页删除
+		 * 找不到指向 rbuf 页的下行链接。
+		 * （实际上，这只是旧做法留下的痕迹。
+		 * 页删除代码预期会检查左孩子上的 INCOMPLETE_SPLIT
+		 * 标志。在分裂完成之前，它不会尝试删除右
+		 * 孩子。尽管如此，我们仍选择
+		 * 保守地把解锁右孩子推迟到这里。）
 		 */
 		_bt_relbuf(rel, rbuf);
 
@@ -2214,28 +2214,28 @@ _bt_insert_parent(Relation rel,
 					 errmsg_internal("failed to re-find parent key in index \"%s\" for split pages %u/%u",
 									 RelationGetRelationName(rel), bknum, rbknum)));
 
-		/* Recursively insert into the parent */
+		/* 递归插入到父页 */
 		_bt_insertonpg(rel, heaprel, NULL, pbuf, buf, stack->bts_parent,
 					   new_item, MAXALIGN(IndexTupleSize(new_item)),
 					   stack->bts_offset + 1, 0, isonly);
 
-		/* be tidy */
+		/* 保持整洁 */
 		pfree(new_item);
 	}
 }
 
 /*
- * _bt_finish_split() -- Finish an incomplete split
+ * _bt_finish_split() -- 完成一次未完成分裂
  *
- * A crash or other failure can leave a split incomplete.  The insertion
- * routines won't allow to insert on a page that is incompletely split.
- * Before inserting on such a page, call _bt_finish_split().
+ * 崩溃或其他失败可能留下未完成的分裂。插入
+ * 例程不允许在分裂尚未完成的页上插入。
+ * 在这样的页上插入之前，调用 _bt_finish_split()。
  *
- * On entry, 'lbuf' must be locked in write-mode.  On exit, it is unlocked
- * and unpinned.
+ * 进入时，'lbuf' 必须以写模式锁定。退出时，它被解锁
+ * 并解除钉住。
  *
- * Caller must provide a valid heaprel, since finishing a page split requires
- * allocating a new page if and when the parent page splits in turn.
+ * 调用者必须提供有效的 heaprel，因为完成页分裂需要
+ * 在父页接着分裂时分配新页。
  */
 void
 _bt_finish_split(Relation rel, Relation heaprel, Buffer lbuf, BTStack stack)
@@ -2251,19 +2251,19 @@ _bt_finish_split(Relation rel, Relation heaprel, Buffer lbuf, BTStack stack)
 	Assert(P_INCOMPLETE_SPLIT(lpageop));
 	Assert(heaprel != NULL);
 
-	/* Lock right sibling, the one missing the downlink */
+	/* 锁定右兄弟，也就是缺少下行链接的那一页 */
 	rbuf = _bt_getbuf(rel, lpageop->btpo_next, BT_WRITE);
 	rpage = BufferGetPage(rbuf);
 	rpageop = BTPageGetOpaque(rpage);
 
-	/* Could this be a root split? */
+	/* 这会不会是根分裂？ */
 	if (!stack)
 	{
 		Buffer		metabuf;
 		Page		metapg;
 		BTMetaPageData *metad;
 
-		/* acquire lock on the metapage */
+		/* 获取元数据页上的锁 */
 		metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_WRITE);
 		metapg = BufferGetPage(metabuf);
 		metad = BTPageGetMeta(metapg);
@@ -2275,7 +2275,7 @@ _bt_finish_split(Relation rel, Relation heaprel, Buffer lbuf, BTStack stack)
 	else
 		wasroot = false;
 
-	/* Was this the only page on the level before split? */
+	/* 分裂之前，这一层是不是只有这一页？ */
 	wasonly = (P_LEFTMOST(lpageop) && P_RIGHTMOST(rpageop));
 
 	elog(DEBUG1, "finishing incomplete split of %u/%u",
@@ -2285,35 +2285,35 @@ _bt_finish_split(Relation rel, Relation heaprel, Buffer lbuf, BTStack stack)
 }
 
 /*
- *	_bt_getstackbuf() -- Walk back up the tree one step, and find the pivot
- *						 tuple whose downlink points to child page.
+ *	_bt_getstackbuf() -- 沿树向上走一步，找到其下行链接指向子页的枢轴
+ *						 元组。
  *
- *		Caller passes child's block number, which is used to identify
- *		associated pivot tuple in parent page using a linear search that
- *		matches on pivot's downlink/block number.  The expected location of
- *		the pivot tuple is taken from the stack one level above the child
- *		page.  This is used as a starting point.  Insertions into the
- *		parent level could cause the pivot tuple to move right; deletions
- *		could cause it to move left, but not left of the page we previously
- *		found it on.
+ *		调用者传入子页的块号，用来在父页中通过线性搜索识别
+ *		相关联的枢轴元组，匹配枢轴的下行链接/块号。
+ *		枢轴元组的预期位置取自子页上一层的栈。
+ *		以此作为起点。向父
+ *		层的插入可能使枢轴元组向右移动；删除
+ *		可能使它向左移动，但不会移到我们先前
+ *		找到它的那一页的左边。
+ *		调用者可以用它的栈，为初始下降所找到的那一页
  *
- *		Caller can use its stack to relocate the pivot tuple/downlink for
- *		any same-level page to the right of the page found by its initial
- *		descent.  This is necessary because of the possibility that caller
- *		moved right to recover from a concurrent page split.  It's also
- *		convenient for certain callers to be able to step right when there
- *		wasn't a concurrent page split, while still using their original
- *		stack.  For example, the checkingunique _bt_doinsert() case may
- *		have to step right when there are many physical duplicates, and its
- *		scantid forces an insertion to the right of the "first page the
- *		value could be on".  (This is also relied on by all of our callers
- *		when dealing with !heapkeyspace indexes.)
+ *		右侧、同一层上的任何页，重新定位枢轴元组/下行链接。
+ *		这是必要的，因为调用者有可能
+ *		向右移动，以便从并发页分裂中恢复。
+ *		对某些调用者来说，
+ *		在并没有并发页分裂时仍能向右走一步、同时继续使用原来的
+ *		栈，也很方便。例如，checkingunique 的 _bt_doinsert() 情形可能
+ *		不得不在有许多物理重复项时向右走，而其
+ *		scantid 迫使插入发生在"该值可能位于的第一页"
+ *		的右侧。（我们的所有调用者在处理 !heapkeyspace 索引时
+ *		也都依赖这一点。）
+ *		返回已加写锁的父页缓冲区；若找不到枢轴元组
  *
- *		Returns write-locked parent page buffer, or InvalidBuffer if pivot
- *		tuple not found (should not happen).  Adjusts bts_blkno &
- *		bts_offset if changed.  Page split caller should insert its new
- *		pivot tuple for its new right sibling page on parent page, at the
- *		offset number bts_offset + 1.
+ *		则返回 InvalidBuffer（不应当发生）。若有变化，
+ *		调整 bts_blkno 与
+ *		bts_offset。页分裂的调用者应当在父页上、于偏移号
+ *		bts_offset + 1 处，为其新的右兄弟页插入新的
+ *		枢轴元组。
  */
 Buffer
 _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child)
@@ -2353,24 +2353,24 @@ _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child
 			maxoff = PageGetMaxOffsetNumber(page);
 
 			/*
-			 * start = InvalidOffsetNumber means "search the whole page". We
-			 * need this test anyway due to possibility that page has a high
-			 * key now when it didn't before.
+			 * start = InvalidOffsetNumber 表示"搜索整页"。
+			 * 由于该页现在可能有高键、而以前没有，
+			 * 我们反正需要这个测试。
 			 */
 			if (start < minoff)
 				start = minoff;
 
 			/*
-			 * Need this check too, to guard against possibility that page
-			 * split since we visited it originally.
+			 * 也需要这个检查，以防该页在我们最初访问之后
+			 * 又发生了分裂。
 			 */
 			if (start > maxoff)
 				start = OffsetNumberNext(maxoff);
 
 			/*
-			 * These loops will check every item on the page --- but in an
-			 * order that's attuned to the probability of where it actually
-			 * is.  Scan to the right first, then to the left.
+			 * 这些循环会检查该页上的每一项 --- 但顺序
+			 * 会偏向于它实际所在位置的概率。
+			 * 先向右扫，再向左扫。
 			 */
 			for (offnum = start;
 				 offnum <= maxoff;
@@ -2381,7 +2381,7 @@ _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child
 
 				if (BTreeTupleGetDownLink(item) == child)
 				{
-					/* Return accurate pointer to where link is now */
+					/* 返回指向该链接现在位置的准确指针 */
 					stack->bts_blkno = blkno;
 					stack->bts_offset = offnum;
 					return buf;
@@ -2397,7 +2397,7 @@ _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child
 
 				if (BTreeTupleGetDownLink(item) == child)
 				{
-					/* Return accurate pointer to where link is now */
+					/* 返回指向该链接现在位置的准确指针 */
 					stack->bts_blkno = blkno;
 					stack->bts_offset = offnum;
 					return buf;
@@ -2406,10 +2406,10 @@ _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child
 		}
 
 		/*
-		 * The item we're looking for moved right at least one page.
+		 * 我们要找的项至少向右移动了一页。
 		 *
-		 * Lehman and Yao couple/chain locks when moving right here, which we
-		 * can avoid.  See nbtree/README.
+		 * Lehman 与 Yao 在这里向右移动时会耦合/链式加锁，我们可以
+		 * 避免这样做。见 nbtree/README。
 		 */
 		if (P_RIGHTMOST(opaque))
 		{
@@ -2423,22 +2423,22 @@ _bt_getstackbuf(Relation rel, Relation heaprel, BTStack stack, BlockNumber child
 }
 
 /*
- *	_bt_newlevel() -- Create a new level above root page.
+ *	_bt_newlevel() -- 在根页之上创建新的一层。
  *
- *		We've just split the old root page and need to create a new one.
- *		In order to do this, we add a new root page to the file, then lock
- *		the metadata page and update it.  This is guaranteed to be deadlock-
- *		free, because all readers release their locks on the metadata page
- *		before trying to lock the root, and all writers lock the root before
- *		trying to lock the metadata page.  We have a write lock on the old
- *		root page, so we have not introduced any cycles into the waits-for
- *		graph.
+ *		我们刚刚分裂了旧根页，需要创建新的根页。
+ *		为此，我们向文件中加入新的根页，然后锁定
+ *		元数据页并更新它。这保证不会
+ *		死锁，
+ *		因为所有读者在试图锁定根之前都会释放元数据页上的锁，
+ *		而所有写者在试图锁定元数据页之前都会先锁定根。
+ *		我们对旧
+ *		根页持有写锁，因此没有在等待图中引入任何环。
  *
- *		On entry, lbuf (the old root) and rbuf (its new peer) are write-
- *		locked. On exit, a new root page exists with entries for the
- *		two new children, metapage is updated and unlocked/unpinned.
- *		The new root buffer is returned to caller which has to unlock/unpin
- *		lbuf, rbuf & rootbuf.
+ *		进入时，lbuf（旧根）和 rbuf（它的新对等页）已加
+ *		写锁。退出时，存在一张含有两个新孩子对应项的新根页，
+ *		元数据页已更新并解锁/解除钉住。
+ *		新根缓冲区返回给调用者，调用者必须解锁/解除钉住
+ *		lbuf、rbuf 和 rootbuf。
  */
 static Buffer
 _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
@@ -2466,20 +2466,20 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 	lpage = BufferGetPage(lbuf);
 	lopaque = BTPageGetOpaque(lpage);
 
-	/* get a new root page */
+	/* 取得一张新的根页 */
 	rootbuf = _bt_allocbuf(rel, heaprel);
 	rootpage = BufferGetPage(rootbuf);
 	rootblknum = BufferGetBlockNumber(rootbuf);
 
-	/* acquire lock on the metapage */
+	/* 获取元数据页上的锁 */
 	metabuf = _bt_getbuf(rel, BTREE_METAPAGE, BT_WRITE);
 	metapg = BufferGetPage(metabuf);
 	metad = BTPageGetMeta(metapg);
 
 	/*
-	 * Create downlink item for left page (old root).  The key value used is
-	 * "minus infinity", a sentinel value that's reliably less than any real
-	 * key value that could appear in the left page.
+	 * 为左页（旧根）创建下行链接项。所用的键值是
+	 * "负无穷"，一个可靠地小于左页上可能出现的任何真实
+	 * 键值的哨兵值。
 	 */
 	left_item_sz = sizeof(IndexTupleData);
 	left_item = (IndexTuple) palloc(left_item_sz);
@@ -2488,8 +2488,8 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 	BTreeTupleSetNAtts(left_item, 0, false);
 
 	/*
-	 * Create downlink item for right page.  The key for it is obtained from
-	 * the "high key" position in the left page.
+	 * 为右页创建下行链接项。它的键取自
+	 * 左页中的"高键"位置。
 	 */
 	itemid = PageGetItemId(lpage, P_HIKEY);
 	right_item_sz = ItemIdGetLength(itemid);
@@ -2497,14 +2497,14 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 	right_item = CopyIndexTuple(item);
 	BTreeTupleSetDownLink(right_item, rbkno);
 
-	/* NO EREPORT(ERROR) from here till newroot op is logged */
+	/* 从这里直到 newroot 操作被记入日志之前，不要 EREPORT(ERROR) */
 	START_CRIT_SECTION();
 
-	/* upgrade metapage if needed */
+	/* 必要时升级元数据页 */
 	if (metad->btm_version < BTREE_NOVAC_VERSION)
 		_bt_upgrademetapage(metapg);
 
-	/* set btree special data */
+	/* 设置 B-树专用数据 */
 	rootopaque = BTPageGetOpaque(rootpage);
 	rootopaque->btpo_prev = rootopaque->btpo_next = P_NONE;
 	rootopaque->btpo_flags = BTP_ROOT;
@@ -2512,19 +2512,19 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 		(BTPageGetOpaque(lpage))->btpo_level + 1;
 	rootopaque->btpo_cycleid = 0;
 
-	/* update metapage data */
+	/* 更新元数据页数据 */
 	metad->btm_root = rootblknum;
 	metad->btm_level = rootopaque->btpo_level;
 	metad->btm_fastroot = rootblknum;
 	metad->btm_fastlevel = rootopaque->btpo_level;
 
 	/*
-	 * Insert the left page pointer into the new root page.  The root page is
-	 * the rightmost page on its level so there is no "high key" in it; the
-	 * two items will go into positions P_HIKEY and P_FIRSTKEY.
+	 * 把左页指针插入新根页。根页是
+	 * 其所在层的最右页，因此其中没有"高键"；
+	 * 两项将进入 P_HIKEY 和 P_FIRSTKEY 位置。
 	 *
-	 * Note: we *must* insert the two items in item-number order, for the
-	 * benefit of _bt_restore_page().
+	 * 注意：为了 _bt_restore_page()，我们*必须*按项号顺序
+	 * 插入这两项。
 	 */
 	Assert(BTreeTupleGetNAtts(left_item, rel) == 0);
 	if (PageAddItem(rootpage, (Item) left_item, left_item_sz, P_HIKEY,
@@ -2534,7 +2534,7 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 			 BufferGetBlockNumber(lbuf), RelationGetRelationName(rel));
 
 	/*
-	 * insert the right page pointer into the new root page.
+	 * 把右页指针插入新根页。
 	 */
 	Assert(BTreeTupleGetNAtts(right_item, rel) > 0);
 	Assert(BTreeTupleGetNAtts(right_item, rel) <=
@@ -2545,7 +2545,7 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 			 " while splitting block %u of index \"%s\"",
 			 BufferGetBlockNumber(lbuf), RelationGetRelationName(rel));
 
-	/* Clear the incomplete-split flag in the left child */
+	/* 清除左孩子中的未完成分裂标志 */
 	Assert(P_INCOMPLETE_SPLIT(lopaque));
 	lopaque->btpo_flags &= ~BTP_INCOMPLETE_SPLIT;
 	MarkBufferDirty(lbuf);
@@ -2553,7 +2553,7 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 	MarkBufferDirty(rootbuf);
 	MarkBufferDirty(metabuf);
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	if (RelationNeedsWAL(rel))
 	{
 		xl_btree_newroot xlrec;
@@ -2582,8 +2582,8 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 		XLogRegisterBufData(2, (char *) &md, sizeof(xl_btree_metadata));
 
 		/*
-		 * Direct access to page is not good but faster - we should implement
-		 * some new func in page API.
+		 * 直接访问页不太好，但更快 -- 我们应当在页 API 中实现
+		 * 某个新函数。
 		 */
 		XLogRegisterBufData(0,
 							(char *) rootpage + ((PageHeader) rootpage)->pd_upper,
@@ -2599,7 +2599,7 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 
 	END_CRIT_SECTION();
 
-	/* done with metapage */
+	/* 元数据页用完了 */
 	_bt_relbuf(rel, metabuf);
 
 	pfree(left_item);
@@ -2609,22 +2609,22 @@ _bt_newlevel(Relation rel, Relation heaprel, Buffer lbuf, Buffer rbuf)
 }
 
 /*
- *	_bt_pgaddtup() -- add a data item to a particular page during split.
+ *	_bt_pgaddtup() -- 在分裂期间把一个数据项加到某一页。
  *
- *		The difference between this routine and a bare PageAddItem call is
- *		that this code can deal with the first data item on an internal btree
- *		page in passing.  This data item (which is called "firstright" within
- *		_bt_split()) has a key that must be treated as minus infinity after
- *		the split.  Therefore, we truncate away all attributes when caller
- *		specifies it's the first data item on page (downlink is not changed,
- *		though).  This extra step is only needed for the right page of an
- *		internal page split.  There is no need to do this for the first data
- *		item on the existing/left page, since that will already have been
- *		truncated during an earlier page split.
+ *		本例程与一次单纯的 PageAddItem 调用的差别在于，
+ *		这段代码可以顺带处理内部 B-树
+ *		页上的第一个数据项。这个数据项（在
+ *		_bt_split() 中称为 "firstright"）的键在
+ *		分裂之后必须被当作负无穷。因此，当调用者
+ *		指明它是页上的第一个数据项时，我们截掉全部属性
+ *		（下行链接并不改变）。
+ *		这个额外步骤只对内部页分裂的右页需要。
+ *		对已有/左页上的第一个数据项不必这样做，因为它在更早的页分裂中
+ *		已经被截断过了。
  *
- *		See _bt_split() for a high level explanation of why we truncate here.
- *		Note that this routine has nothing to do with suffix truncation,
- *		despite using some of the same infrastructure.
+ *		关于为什么在这里截断，见 _bt_split() 的高层说明。
+ *		注意，本例程与后缀截断无关，
+ *		尽管用到了一些相同的基础设施。
  */
 static inline bool
 _bt_pgaddtup(Page page,
@@ -2652,32 +2652,32 @@ _bt_pgaddtup(Page page,
 }
 
 /*
- * _bt_delete_or_dedup_one_page - Try to avoid a leaf page split.
+ * _bt_delete_or_dedup_one_page - 尽量避免叶子页分裂。
  *
- * There are three operations performed here: simple index deletion, bottom-up
- * index deletion, and deduplication.  If all three operations fail to free
- * enough space for the incoming item then caller will go on to split the
- * page.  We always consider simple deletion first.  If that doesn't work out
- * we consider alternatives.  Callers that only want us to consider simple
- * deletion (without any fallback) ask for that using the 'simpleonly'
- * argument.
+ * 这里执行三种操作：简单索引删除、自底向上
+ * 索引删除，以及去重。若三种操作都无法为到来的项腾出
+ * 足够空间，调用者就会继续分裂该
+ * 页。我们总是先考虑简单删除。若那行不通，
+ * 再考虑其他办法。只想让我们考虑简单
+ * 删除（没有任何后备手段）的调用者，用 'simpleonly'
+ * 参数来提出这一要求。
  *
- * We usually pick only one alternative "complex" operation when simple
- * deletion alone won't prevent a page split.  The 'checkingunique',
- * 'uniquedup', and 'indexUnchanged' arguments are used for that.
+ * 当仅靠简单删除无法阻止页分裂时，我们通常只挑选一种备选的"复杂"操作。
+ * 'checkingunique'、
+ * 'uniquedup' 和 'indexUnchanged' 参数就是用来做这个选择的。
  *
- * Note: We used to only delete LP_DEAD items when the BTP_HAS_GARBAGE page
- * level flag was found set.  The flag was useful back when there wasn't
- * necessarily one single page for a duplicate tuple to go on (before heap TID
- * became a part of the key space in version 4 indexes).  But we don't
- * actually look at the flag anymore (it's not a gating condition for our
- * caller).  That would cause us to miss tuples that are safe to delete,
- * without getting any benefit in return.  We know that the alternative is to
- * split the page; scanning the line pointer array in passing won't have
- * noticeable overhead.  (We still maintain the BTP_HAS_GARBAGE flag despite
- * all this because !heapkeyspace indexes must still do a "getting tired"
- * linear search, and so are likely to get some benefit from using it as a
- * gating condition.)
+ * 注意：我们过去只在发现设置了页级 BTP_HAS_GARBAGE
+ * 标志时才删除 LP_DEAD 项。在重复元组不一定有单独一页可去的时候
+ * （版本 4 索引把堆 TID
+ * 纳入键空间之前），这个标志是有用的。但我们
+ * 实际上已经不再看这个标志（它不是调用者的门禁条件）。
+ * 那样会漏掉可以安全删除的元组，
+ * 却得不到任何回报。我们知道另一种选择是
+ * 分裂该页；顺带扫描行指针数组不会有
+ * 明显开销。（尽管如此，我们仍然维护 BTP_HAS_GARBAGE 标志，
+ * 因为 !heapkeyspace 索引仍必须做"感到厌倦"式的
+ * 线性搜索，因此把它用作
+ * 门禁条件很可能仍能得到一些好处。）
  */
 static void
 _bt_delete_or_dedup_one_page(Relation rel, Relation heapRel,
@@ -2700,11 +2700,11 @@ _bt_delete_or_dedup_one_page(Relation rel, Relation heapRel,
 	Assert(!simpleonly || (!checkingunique && !uniquedup && !indexUnchanged));
 
 	/*
-	 * Scan over all items to see which ones need to be deleted according to
-	 * LP_DEAD flags.  We'll usually manage to delete a few extra items that
-	 * are not marked LP_DEAD in passing.  Often the extra items that actually
-	 * end up getting deleted are items that would have had their LP_DEAD bit
-	 * set before long anyway (if we opted not to include them as extras).
+	 * 扫描所有项，看根据
+	 * LP_DEAD 标志哪些需要删除。通常我们还能顺带多删掉几个
+	 * 并未标记为 LP_DEAD 的项。实际最终被删掉的那些额外项，
+	 * 往往是很快也会被设置 LP_DEAD 位的项
+	 * （若我们选择不把它们当作额外项包括进来）。
 	 */
 	minoff = P_FIRSTDATAKEY(opaque);
 	maxoff = PageGetMaxOffsetNumber(page);
@@ -2724,26 +2724,26 @@ _bt_delete_or_dedup_one_page(Relation rel, Relation heapRel,
 						   insertstate->itup, minoff, maxoff);
 		insertstate->bounds_valid = false;
 
-		/* Return when a page split has already been avoided */
+		/* 若已经避免了页分裂，则返回 */
 		if (PageGetFreeSpace(page) >= insertstate->itemsz)
 			return;
 
-		/* Might as well assume duplicates (if checkingunique) */
+		/* 不妨假定存在重复项（若 checkingunique） */
 		uniquedup = true;
 	}
 
 	/*
-	 * We're done with simple deletion.  Return early with callers that only
-	 * call here so that simple deletion can be considered.  This includes
-	 * callers that explicitly ask for this and checkingunique callers that
-	 * probably don't have any version churn duplicates on the page.
+	 * 简单删除已经做完。对那些只是为了让简单删除得到考虑才
+	 * 调用这里的调用者提前返回。这包括
+	 * 明确提出这一要求的调用者，以及页上大概没有任何版本更迭重复项的
+	 * checkingunique 调用者。
 	 *
-	 * Note: The page's BTP_HAS_GARBAGE hint flag may still be set when we
-	 * return at this point (or when we go on the try either or both of our
-	 * other strategies and they also fail).  We do not bother expending a
-	 * separate write to clear it, however.  Caller will definitely clear it
-	 * when it goes on to split the page (note also that the deduplication
-	 * process will clear the flag in passing, just to keep things tidy).
+	 * 注意：当我们在这里返回时（或者当我们继续尝试另外两种策略中的一种或两种、
+	 * 而它们也失败时），该页的 BTP_HAS_GARBAGE 提示标志可能仍然设置着。
+	 * 不过我们并不费一次单独的写操作去清除它。
+	 * 调用者在继续分裂该页时一定会清除它
+	 * （也请注意，去重
+	 * 过程会顺带清除该标志，只是为了保持整洁）。
 	 */
 	if (simpleonly || (checkingunique && !uniquedup))
 	{
@@ -2751,62 +2751,62 @@ _bt_delete_or_dedup_one_page(Relation rel, Relation heapRel,
 		return;
 	}
 
-	/* Assume bounds about to be invalidated (this is almost certain now) */
+	/* 假定边界即将失效（现在这几乎是肯定的） */
 	insertstate->bounds_valid = false;
 
 	/*
-	 * Perform bottom-up index deletion pass when executor hint indicated that
-	 * incoming item is logically unchanged, or for a unique index that is
-	 * known to have physical duplicates for some other reason.  (There is a
-	 * large overlap between these two cases for a unique index.  It's worth
-	 * having both triggering conditions in order to apply the optimization in
-	 * the event of successive related INSERT and DELETE statements.)
+	 * 当执行器提示表明到来的项在逻辑上未改变时，
+	 * 或者对因其他原因已知有物理重复项的唯一索引，
+	 * 执行自底向上索引删除趟。
+	 * （对唯一索引，这两种情形有很大重叠。
+	 * 两种触发条件都保留是值得的，以便在连续的相关
+	 * INSERT 与 DELETE 语句下也能应用该优化。）
 	 *
-	 * We'll go on to do a deduplication pass when a bottom-up pass fails to
-	 * delete an acceptable amount of free space (a significant fraction of
-	 * the page, or space for the new item, whichever is greater).
+	 * 当自底向上的一趟未能删掉可接受数量的空闲空间时，
+	 * 我们会继续做去重趟（页的一个可观部分，
+	 * 或新项所需的空间，取较大者）。
 	 *
-	 * Note: Bottom-up index deletion uses the same equality/equivalence
-	 * routines as deduplication internally.  However, it does not merge
-	 * together index tuples, so the same correctness considerations do not
-	 * apply.  We deliberately omit an index-is-allequalimage test here.
+	 * 注意：自底向上索引删除在内部使用与去重相同的相等/等价
+	 * 例程。不过它并不把索引元组合并到一起，
+	 * 因此同样的正确性考量并不适用。
+	 * 这里我们有意省略索引是否 allequalimage 的测试。
 	 */
 	if ((indexUnchanged || uniquedup) &&
 		_bt_bottomupdel_pass(rel, buffer, heapRel, insertstate->itemsz))
 		return;
 
-	/* Perform deduplication pass (when enabled and index-is-allequalimage) */
+	/* 执行去重趟（在启用且索引为 allequalimage 时） */
 	if (BTGetDeduplicateItems(rel) && itup_key->allequalimage)
 		_bt_dedup_pass(rel, buffer, insertstate->itup, insertstate->itemsz,
 					   (indexUnchanged || uniquedup));
 }
 
 /*
- * _bt_simpledel_pass - Simple index tuple deletion pass.
+ * _bt_simpledel_pass - 简单索引元组删除趟。
  *
- * We delete all LP_DEAD-set index tuples on a leaf page.  The offset numbers
- * of all such tuples are determined by caller (caller passes these to us as
- * its 'deletable' argument).
+ * 我们删除叶子页上所有设置了 LP_DEAD 的索引元组。
+ * 所有这些元组的偏移号
+ * 由调用者确定（调用者把它们作为
  *
- * We might also delete extra index tuples that turn out to be safe to delete
- * in passing (though they must be cheap to check in passing to begin with).
- * There is no certainty that any extra tuples will be deleted, though.  The
- * high level goal of the approach we take is to get the most out of each call
- * here (without noticeably increasing the per-call overhead compared to what
- * we need to do just to be able to delete the page's LP_DEAD-marked index
- * tuples).
+ * 'deletable' 参数传给我们）。
+ * 我们也许还会顺带删除一些结果可以安全删除的额外索引元组
+ * （不过它们一开始就必须能便宜地顺带检查）。
+ * 并不能确定一定会删掉任何额外元组。我们这种方法的
+ * 高层目标是让这里的每次调用都尽量物有所值
+ * （与仅仅为了能删除该页上标记了 LP_DEAD 的索引元组
+ * 所必须做的事相比，不明显增加每次调用的开销）。
  *
- * The number of extra index tuples that turn out to be deletable might
- * greatly exceed the number of LP_DEAD-marked index tuples due to various
- * locality related effects.  For example, it's possible that the total number
- * of table blocks (pointed to by all TIDs on the leaf page) is naturally
- * quite low, in which case we might end up checking if it's possible to
- * delete _most_ index tuples on the page (without the tableam needing to
- * access additional table blocks).  The tableam will sometimes stumble upon
- * _many_ extra deletable index tuples in indexes where this pattern is
- * common.
+ * 结果可删除的额外索引元组数量，可能由于各种
+ * 与局部性有关的效应，大大超过标记了 LP_DEAD 的索引元组数量。
+ * 例如，该叶子页上所有 TIDs 指向的
+ * 表块总数
+ * 有可能自然就相当低，此时我们也许最终会检查是否可以
+ * 删除该页上 _most_ 索引元组（而 tableam 不必
+ * 访问额外的表块）。在这种模式很常见的索引中，
+ * tableam 有时会碰到
+ * _many_ 额外的可删除索引元组。
  *
- * See nbtree/README for further details on simple index tuple deletion.
+ * 关于简单索引元组删除的更多细节，见 nbtree/README。
  */
 static void
 _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
@@ -2819,11 +2819,11 @@ _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
 	TM_IndexDeleteOp delstate;
 	OffsetNumber offnum;
 
-	/* Get array of table blocks pointed to by LP_DEAD-set tuples */
+	/* 取得由设置了 LP_DEAD 的元组所指向的表块数组 */
 	deadblocks = _bt_deadblocks(page, deletable, ndeletable, newitem,
 								&ndeadblocks);
 
-	/* Initialize tableam state that describes index deletion operation */
+	/* 初始化描述索引删除操作的 tableam 状态 */
 	delstate.irel = rel;
 	delstate.iblknum = BufferGetBlockNumber(buffer);
 	delstate.bottomup = false;
@@ -2856,15 +2856,15 @@ _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
 			}
 
 			/*
-			 * TID's table block is among those pointed to by the TIDs from
-			 * LP_DEAD-bit set tuples on page -- add TID to deltids
+			 * 该 TID 的表块属于页上设置了 LP_DEAD 位的 TIDs 所指向的那些块
+			 * -- 把该 TID 加入 deltids
 			 */
 			odeltid->tid = itup->t_tid;
 			odeltid->id = delstate.ndeltids;
 			ostatus->idxoffnum = offnum;
 			ostatus->knowndeletable = ItemIdIsDead(itemid);
-			ostatus->promising = false; /* unused */
-			ostatus->freespace = 0; /* unused */
+			ostatus->promising = false; /* 未使用 */
+			ostatus->freespace = 0; /* 未使用 */
 
 			delstate.ndeltids++;
 		}
@@ -2887,15 +2887,15 @@ _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
 				}
 
 				/*
-				 * TID's table block is among those pointed to by the TIDs
-				 * from LP_DEAD-bit set tuples on page -- add TID to deltids
+				 * 该 TID 的表块属于页上设置了
+				 * LP_DEAD 位的 TIDs 所指向的那些块 -- 把该 TID 加入 deltids
 				 */
 				odeltid->tid = *tid;
 				odeltid->id = delstate.ndeltids;
 				ostatus->idxoffnum = offnum;
 				ostatus->knowndeletable = ItemIdIsDead(itemid);
-				ostatus->promising = false; /* unused */
-				ostatus->freespace = 0; /* unused */
+				ostatus->promising = false; /* 未使用 */
+				ostatus->freespace = 0; /* 未使用 */
 
 				odeltid++;
 				ostatus++;
@@ -2908,7 +2908,7 @@ _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
 
 	Assert(delstate.ndeltids >= ndeletable);
 
-	/* Physically delete LP_DEAD tuples (plus any delete-safe extra TIDs) */
+	/* 物理删除 LP_DEAD 元组（外加任何可安全删除的额外 TIDs） */
 	_bt_delitems_delete_check(rel, buffer, heapRel, &delstate);
 
 	pfree(delstate.deltids);
@@ -2916,23 +2916,23 @@ _bt_simpledel_pass(Relation rel, Buffer buffer, Relation heapRel,
 }
 
 /*
- * _bt_deadblocks() -- Get LP_DEAD related table blocks.
+ * _bt_deadblocks() -- 取得与 LP_DEAD 相关的表块。
  *
- * Builds sorted and unique-ified array of table block numbers from index
- * tuple TIDs whose line pointers are marked LP_DEAD.  Also adds the table
- * block from incoming newitem just in case it isn't among the LP_DEAD-related
- * table blocks.
+ * 根据行指针被标记为 LP_DEAD 的索引
+ * 元组 TIDs，构造已排序且已去重的表块号数组。同时加入到来的 newitem 的表
+ * 块，以防它不在与 LP_DEAD 相关的
+ * 表块之中。
  *
- * Always counting the newitem's table block as an LP_DEAD related block makes
- * sense because the cost is consistently low; it is practically certain that
- * the table block will not incur a buffer miss in tableam.  On the other hand
- * the benefit is often quite high.  There is a decent chance that there will
- * be some deletable items from this block, since in general most garbage
- * tuples became garbage in the recent past (in many cases this won't be the
- * first logical row that core code added to/modified in table block
- * recently).
+ * 总是把 newitem 的表块算作与 LP_DEAD 相关的块是有道理的，
+ * 因为代价始终很低；几乎可以肯定
+ * 该表块在 tableam 中不会造成缓冲区未命中。另一方面，
+ * 收益往往相当高。很有机会从该块上找到
+ * 一些可删除的项，因为一般而言大多数垃圾
+ * 元组是在不久前才变成垃圾的（很多情况下，这不会是
+ * 核心代码最近在该表块中加入/修改的
+ * 第一个逻辑行）。
  *
- * Returns final array, and sets *nblocks to its final size for caller.
+ * 返回最终数组，并为调用者把 *nblocks 设成它的最终大小。
  */
 static BlockNumber *
 _bt_deadblocks(Page page, OffsetNumber *deletable, int ndeletable,
@@ -2943,19 +2943,19 @@ _bt_deadblocks(Page page, OffsetNumber *deletable, int ndeletable,
 	BlockNumber *tidblocks;
 
 	/*
-	 * Accumulate each TID's block in array whose initial size has space for
-	 * one table block per LP_DEAD-set tuple (plus space for the newitem table
-	 * block).  Array will only need to grow when there are LP_DEAD-marked
-	 * posting list tuples (which is not that common).
+	 * 把每个 TID 的块累积到一个数组中，其初始大小为每个设置了 LP_DEAD 的元组
+	 * 留出一个表块的空间（外加 newitem 表
+	 * 块的空间）。只有存在标记了 LP_DEAD 的
+	 * 倒排列表元组时，数组才需要增长（这并不常见）。
 	 */
 	spacentids = ndeletable + 1;
 	ntids = 0;
 	tidblocks = (BlockNumber *) palloc(sizeof(BlockNumber) * spacentids);
 
 	/*
-	 * First add the table block for the incoming newitem.  This is the one
-	 * case where simple deletion can visit a table block that doesn't have
-	 * any known deletable items.
+	 * 首先加入到来的 newitem 的表块。这是简单删除会访问
+	 * 一张并没有任何已知可删除项的表块的
+	 * 唯一情形。
 	 */
 	Assert(!BTreeTupleIsPosting(newitem) && !BTreeTupleIsPivot(newitem));
 	tidblocks[ntids++] = ItemPointerGetBlockNumber(&newitem->t_tid);
@@ -3005,7 +3005,7 @@ _bt_deadblocks(Page page, OffsetNumber *deletable, int ndeletable,
 }
 
 /*
- * _bt_blk_cmp() -- qsort comparison function for _bt_simpledel_pass
+ * _bt_blk_cmp() -- 供 _bt_simpledel_pass 使用的 qsort 比较函数
  */
 static inline int
 _bt_blk_cmp(const void *arg1, const void *arg2)

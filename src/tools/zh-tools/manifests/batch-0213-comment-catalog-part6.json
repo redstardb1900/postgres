@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "batch_id": "0213-comment-catalog-part6",
+  "title": "zh: translate catalog comments (part 6)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "18bbc0dedc61fa1a57dc7b24527f8cb9b468b681",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_shdepend.c",
+      "kind": "c_comment",
+      "note": "shared dependency catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0213-comment-catalog-part6.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_shdepend.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 111,
+      "translated": 109,
+      "preserved": 2,
+      "preserved_reasons": [
+        "translator comments",
+        "fallthrough marker",
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "shared dependency catalog helpers; 1 translator: segment and FALLTHROUGH kept in English; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0213-comment-catalog-part6.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0213 translates comments in src/backend/catalog/pg_shdepend.c (catalog part 6). One translator: segment and FALLTHROUGH stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: dependency.c."
+}

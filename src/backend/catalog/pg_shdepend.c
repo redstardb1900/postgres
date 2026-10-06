@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_shdepend.c
- *	  routines to support manipulation of the pg_shdepend relation
+ *	  支持操作 pg_shdepend 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -108,15 +108,15 @@ static void storeObjectDescription(StringInfo descs,
 /*
  * recordSharedDependencyOn
  *
- * Record a dependency between 2 objects via their respective ObjectAddresses.
- * The first argument is the dependent object, the second the one it
- * references (which must be a shared object).
+ * 通过各自的 ObjectAddresses 记录两个对象之间的依赖。
+ * 第一个参数是依赖方对象，第二个是它所
+ * 引用的对象（必须是共享对象）。
  *
- * This locks the referenced object and makes sure it still exists.
- * Then it creates an entry in pg_shdepend.  The lock is kept until
- * the end of the transaction.
+ * 这会锁住被引用对象并确认它仍然存在。
+ * 然后在 pg_shdepend 中创建一条条目。锁会一直持有到
+ * 事务结束。
  *
- * Dependencies on pinned objects are not recorded.
+ * 对被钉住对象的依赖不予记录。
  */
 void
 recordSharedDependencyOn(ObjectAddress *depender,
@@ -126,21 +126,21 @@ recordSharedDependencyOn(ObjectAddress *depender,
 	Relation	sdepRel;
 
 	/*
-	 * Objects in pg_shdepend can't have SubIds.
+	 * pg_shdepend 中的对象不能有 SubIds。
 	 */
 	Assert(depender->objectSubId == 0);
 	Assert(referenced->objectSubId == 0);
 
 	/*
-	 * During bootstrap, do nothing since pg_shdepend may not exist yet.
-	 * initdb will fill in appropriate pg_shdepend entries after bootstrap.
+	 * 引导期间什么也不做，因为 pg_shdepend 可能尚不存在。
+	 * initdb 会在引导之后填入适当的 pg_shdepend 条目。
 	 */
 	if (IsBootstrapProcessingMode())
 		return;
 
 	sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
-	/* If the referenced object is pinned, do nothing. */
+	/* 若被引用对象被钉住，则什么也不做。 */
 	if (!IsPinnedObject(referenced->classId, referenced->objectId))
 	{
 		shdepAddDependency(sdepRel, depender->classId, depender->objectId,
@@ -155,11 +155,11 @@ recordSharedDependencyOn(ObjectAddress *depender,
 /*
  * recordDependencyOnOwner
  *
- * A convenient wrapper of recordSharedDependencyOn -- register the specified
- * user as owner of the given object.
+ * recordSharedDependencyOn 的便捷包装 —— 将指定
+ * 用户登记为给定对象的所有者。
  *
- * Note: it's the caller's responsibility to ensure that there isn't an owner
- * entry for the object already.
+ * 注意：调用者有责任确保该对象尚不存在
+ * 所有者条目。
  */
 void
 recordDependencyOnOwner(Oid classId, Oid objectId, Oid owner)
@@ -181,23 +181,23 @@ recordDependencyOnOwner(Oid classId, Oid objectId, Oid owner)
 /*
  * shdepChangeDep
  *
- * Update shared dependency records to account for an updated referenced
- * object.  This is an internal workhorse for operations such as changing
- * an object's owner.
+ * 更新共享依赖记录，以反映被引用对象
+ * 的更新。这是更改对象所有者等操作
+ * 的内部工作例程。
  *
- * There must be no more than one existing entry for the given dependent
- * object and dependency type!	So in practice this can only be used for
- * updating SHARED_DEPENDENCY_OWNER and SHARED_DEPENDENCY_TABLESPACE
- * entries, which should have that property.
+ * 给定的依赖方对象和依赖类型最多只能有一条现有
+ * 条目！因此实际上这只能用于更新
+ * SHARED_DEPENDENCY_OWNER 和 SHARED_DEPENDENCY_TABLESPACE
+ * 条目，它们应具备该性质。
  *
- * If there is no previous entry, we assume it was referencing a PINned
- * object, so we create a new entry.  If the new referenced object is
- * PINned, we don't create an entry (and drop the old one, if any).
- * (For tablespaces, we don't record dependencies in certain cases, so
- * there are other possible reasons for entries to be missing.)
+ * 若没有先前条目，我们假定它引用的是 PINned
+ * 对象，因此创建一条新条目。若新的被引用对象被
+ * PINned，则不创建条目（并删除旧条目，若有）。
+ * （对于表空间，某些情况下我们不记录依赖，因此
+ * 条目缺少还可能有其他原因。）
  *
- * sdepRel must be the pg_shdepend relation, already opened and suitably
- * locked.
+ * sdepRel 必须是 pg_shdepend 关系，且已打开并适当
+ * 加锁。
  */
 static void
 shdepChangeDep(Relation sdepRel,
@@ -212,13 +212,13 @@ shdepChangeDep(Relation sdepRel,
 	SysScanDesc scan;
 
 	/*
-	 * Make sure the new referenced object doesn't go away while we record the
-	 * dependency.
+	 * 确保在我们记录依赖期间，新的被引用对象不会
+	 * 消失。
 	 */
 	shdepLockAndCheckObject(refclassid, refobjid);
 
 	/*
-	 * Look for a previous entry
+	 * 查找先前条目
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_shdepend_dbid,
@@ -242,10 +242,10 @@ shdepChangeDep(Relation sdepRel,
 
 	while ((scantup = systable_getnext(scan)) != NULL)
 	{
-		/* Ignore if not of the target dependency type */
+		/* 若不是目标依赖类型则忽略 */
 		if (((Form_pg_shdepend) GETSTRUCT(scantup))->deptype != deptype)
 			continue;
-		/* Caller screwed up if multiple matches */
+		/* 若有多条匹配则调用者出错 */
 		if (oldtup)
 			elog(ERROR,
 				 "multiple pg_shdepend entries for object %u/%u/%d deptype %c",
@@ -257,16 +257,16 @@ shdepChangeDep(Relation sdepRel,
 
 	if (IsPinnedObject(refclassid, refobjid))
 	{
-		/* No new entry needed, so just delete existing entry if any */
+		/* 无需新条目，因此仅删除现有条目（若有） */
 		if (oldtup)
 			CatalogTupleDelete(sdepRel, &oldtup->t_self);
 	}
 	else if (oldtup)
 	{
-		/* Need to update existing entry */
+		/* 需要更新现有条目 */
 		Form_pg_shdepend shForm = (Form_pg_shdepend) GETSTRUCT(oldtup);
 
-		/* Since oldtup is a copy, we can just modify it in-memory */
+		/* 由于 oldtup 是副本，可以直接在内存中修改 */
 		shForm->refclassid = refclassid;
 		shForm->refobjid = refobjid;
 
@@ -274,7 +274,7 @@ shdepChangeDep(Relation sdepRel,
 	}
 	else
 	{
-		/* Need to insert new entry */
+		/* 需要插入新条目 */
 		Datum		values[Natts_pg_shdepend];
 		bool		nulls[Natts_pg_shdepend];
 
@@ -290,8 +290,8 @@ shdepChangeDep(Relation sdepRel,
 		values[Anum_pg_shdepend_deptype - 1] = CharGetDatum(deptype);
 
 		/*
-		 * we are reusing oldtup just to avoid declaring a new variable, but
-		 * it's certainly a new tuple
+		 * 我们重用 oldtup 只是为了避免声明新变量，但它
+		 * 肯定是一个新元组
 		 */
 		oldtup = heap_form_tuple(RelationGetDescr(sdepRel), values, nulls);
 		CatalogTupleInsert(sdepRel, oldtup);
@@ -304,10 +304,10 @@ shdepChangeDep(Relation sdepRel,
 /*
  * changeDependencyOnOwner
  *
- * Update the shared dependencies to account for the new owner.
+ * 更新共享依赖以反映新所有者。
  *
- * Note: we don't need an objsubid argument because only whole objects
- * have owners.
+ * 注意：我们不需要 objsubid 参数，因为只有完整对象
+ * 才有所有者。
  */
 void
 changeDependencyOnOwner(Oid classId, Oid objectId, Oid newOwnerId)
@@ -316,29 +316,29 @@ changeDependencyOnOwner(Oid classId, Oid objectId, Oid newOwnerId)
 
 	sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
-	/* Adjust the SHARED_DEPENDENCY_OWNER entry */
+	/* 调整 SHARED_DEPENDENCY_OWNER 条目 */
 	shdepChangeDep(sdepRel,
 				   classId, objectId, 0,
 				   AuthIdRelationId, newOwnerId,
 				   SHARED_DEPENDENCY_OWNER);
 
 	/*----------
-	 * There should never be a SHARED_DEPENDENCY_ACL entry for the owner,
-	 * so get rid of it if there is one.  This can happen if the new owner
-	 * was previously granted some rights to the object.
+	 * 所有者不应有 SHARED_DEPENDENCY_ACL 条目，
+	 * 因此若存在则去掉它。若新所有者先前
+	 * 被授予对该对象的某些权限，就会出现这种情况。
 	 *
-	 * This step is analogous to aclnewowner's removal of duplicate entries
-	 * in the ACL.  We have to do it to handle this scenario:
-	 *		A grants some rights on an object to B
-	 *		ALTER OWNER changes the object's owner to B
-	 *		ALTER OWNER changes the object's owner to C
-	 * The third step would remove all mention of B from the object's ACL,
-	 * but we'd still have a SHARED_DEPENDENCY_ACL for B if we did not do
-	 * things this way.
+	 * 此步骤类似于 aclnewowner 去除 ACL 中的重复
+	 * 条目。我们必须这样做以处理以下场景：
+	 *		A 把某对象的一些权限授予 B
+	 *		ALTER OWNER 将该对象的所有者改为 B
+	 *		ALTER OWNER 将该对象的所有者改为 C
+	 * 第三步会从对象的 ACL 中去掉所有关于 B 的记载，
+	 * 但若我们不这样做，仍会留下 B 的
+	 * SHARED_DEPENDENCY_ACL。
 	 *
-	 * The rule against having a SHARED_DEPENDENCY_ACL entry for the owner
-	 * allows us to fix things up in just this one place, without having
-	 * to make the various ALTER OWNER routines each know about it.
+	 * 禁止所有者拥有 SHARED_DEPENDENCY_ACL 条目的规则
+	 * 使我们只需在这一处修复，而不必
+	 * 让各个 ALTER OWNER 例程都了解此事。
 	 *----------
 	 */
 	shdepDropDependency(sdepRel, classId, objectId, 0, true,
@@ -351,11 +351,11 @@ changeDependencyOnOwner(Oid classId, Oid objectId, Oid newOwnerId)
 /*
  * recordDependencyOnTablespace
  *
- * A convenient wrapper of recordSharedDependencyOn -- register the specified
- * tablespace as default for the given object.
+ * recordSharedDependencyOn 的便捷包装 —— 将指定
+ * 表空间登记为给定对象的默认表空间。
  *
- * Note: it's the caller's responsibility to ensure that there isn't a
- * tablespace entry for the object already.
+ * 注意：调用者有责任确保该对象尚不存在
+ * 表空间条目。
  */
 void
 recordDependencyOnTablespace(Oid classId, Oid objectId, Oid tablespace)
@@ -373,10 +373,10 @@ recordDependencyOnTablespace(Oid classId, Oid objectId, Oid tablespace)
 /*
  * changeDependencyOnTablespace
  *
- * Update the shared dependencies to account for the new tablespace.
+ * 更新共享依赖以反映新表空间。
  *
- * Note: we don't need an objsubid argument because only whole objects
- * have tablespaces.
+ * 注意：我们不需要 objsubid 参数，因为只有完整对象
+ * 才有表空间。
  */
 void
 changeDependencyOnTablespace(Oid classId, Oid objectId, Oid newTablespaceId)
@@ -402,11 +402,11 @@ changeDependencyOnTablespace(Oid classId, Oid objectId, Oid newTablespaceId)
 
 /*
  * getOidListDiff
- *		Helper for updateAclDependencies.
+ *		updateAclDependencies 的辅助函数。
  *
- * Takes two Oid arrays and removes elements that are common to both arrays,
- * leaving just those that are in one input but not the other.
- * We assume both arrays have been sorted and de-duped.
+ * 接受两个 Oid 数组并去掉两边共有的元素，
+ * 只留下仅出现在其中一个输入中的元素。
+ * 我们假定两个数组都已排序并去重。
  */
 static void
 getOidListDiff(Oid *list1, int *nlist1, Oid *list2, int *nlist2)
@@ -421,29 +421,29 @@ getOidListDiff(Oid *list1, int *nlist1, Oid *list2, int *nlist2)
 	{
 		if (list1[in1] == list2[in2])
 		{
-			/* skip over duplicates */
+			/* 跳过重复项 */
 			in1++;
 			in2++;
 		}
 		else if (list1[in1] < list2[in2])
 		{
-			/* list1[in1] is not in list2 */
+			/* list1[in1] 不在 list2 中 */
 			list1[out1++] = list1[in1++];
 		}
 		else
 		{
-			/* list2[in2] is not in list1 */
+			/* list2[in2] 不在 list1 中 */
 			list2[out2++] = list2[in2++];
 		}
 	}
 
-	/* any remaining list1 entries are not in list2 */
+	/* list1 中剩余条目都不在 list2 中 */
 	while (in1 < *nlist1)
 	{
 		list1[out1++] = list1[in1++];
 	}
 
-	/* any remaining list2 entries are not in list1 */
+	/* list2 中剩余条目都不在 list1 中 */
 	while (in2 < *nlist2)
 	{
 		list2[out2++] = list2[in2++];
@@ -455,28 +455,28 @@ getOidListDiff(Oid *list1, int *nlist1, Oid *list2, int *nlist2)
 
 /*
  * updateAclDependencies
- *		Update the pg_shdepend info for an object's ACL during GRANT/REVOKE.
+ *		在 GRANT/REVOKE 期间更新对象 ACL 的 pg_shdepend 信息。
  *
- * classId, objectId, objsubId: identify the object whose ACL this is
- * ownerId: role owning the object
- * noldmembers, oldmembers: array of roleids appearing in old ACL
- * nnewmembers, newmembers: array of roleids appearing in new ACL
+ * classId, objectId, objsubId：标识该 ACL 所属的对象
+ * ownerId：拥有该对象的角色
+ * noldmembers, oldmembers：旧 ACL 中出现的 roleid 数组
+ * nnewmembers, newmembers：新 ACL 中出现的 roleid 数组
  *
- * We calculate the differences between the new and old lists of roles,
- * and then insert or delete from pg_shdepend as appropriate.
+ * 我们计算新旧角色列表之间的差异，
+ * 然后酌情向 pg_shdepend 插入或从中删除。
  *
- * Note that we can't just insert all referenced roles blindly during GRANT,
- * because we would end up with duplicate registered dependencies.  We could
- * check for existence of the tuples before inserting, but that seems to be
- * more expensive than what we are doing here.  Likewise we can't just delete
- * blindly during REVOKE, because the user may still have other privileges.
- * It is also possible that REVOKE actually adds dependencies, due to
- * instantiation of a formerly implicit default ACL (although at present,
- * all such dependencies should be for the owning role, which we ignore here).
+ * 注意，GRANT 时不能盲目插入所有被引用角色，
+ * 否则会得到重复登记的依赖。我们可以
+ * 在插入前检查元组是否存在，但那似乎比
+ * 这里的做法更昂贵。同样，REVOKE 时也不能盲目
+ * 删除，因为该用户可能仍拥有其他权限。
+ * REVOKE 实际上也可能增加依赖，原因是
+ * 实例化了先前隐式的默认 ACL（尽管目前
+ * 所有这类依赖都应属于拥有者角色，我们在此忽略）。
  *
- * NOTE: Both input arrays must be sorted and de-duped.  (Typically they
- * are extracted from an ACL array by aclmembers(), which takes care of
- * both requirements.)	The arrays are pfreed before return.
+ * 注意：两个输入数组都必须已排序并去重。（通常它们
+ * 由 aclmembers() 从 ACL 数组提取，该函数会同时满足
+ * 这两项要求。）返回前会 pfree 这些数组。
  */
 void
 updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
@@ -488,10 +488,10 @@ updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
 	int			i;
 
 	/*
-	 * Remove entries that are common to both lists; those represent existing
-	 * dependencies we don't need to change.
+	 * 去掉两边共有的条目；它们表示已有的
+	 * 依赖，无需更改。
 	 *
-	 * OK to overwrite the inputs since we'll pfree them anyway.
+	 * 可以覆盖输入，因为反正我们会 pfree 它们。
 	 */
 	getOidListDiff(oldmembers, &noldmembers, newmembers, &nnewmembers);
 
@@ -499,20 +499,20 @@ updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
 	{
 		sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
-		/* Add new dependencies that weren't already present */
+		/* 添加原先不存在的新依赖 */
 		for (i = 0; i < nnewmembers; i++)
 		{
 			Oid			roleid = newmembers[i];
 
 			/*
-			 * Skip the owner: he has an OWNER shdep entry instead. (This is
-			 * not just a space optimization; it makes ALTER OWNER easier. See
-			 * notes in changeDependencyOnOwner.)
+			 * 跳过所有者：他改用 OWNER 共享依赖条目。（这
+			 * 不只是节省空间；也使 ALTER OWNER 更容易。见
+			 * changeDependencyOnOwner 中的说明。）
 			 */
 			if (roleid == ownerId)
 				continue;
 
-			/* Skip pinned roles; they don't need dependency entries */
+			/* 跳过被钉住的角色；它们不需要依赖条目 */
 			if (IsPinnedObject(AuthIdRelationId, roleid))
 				continue;
 
@@ -521,21 +521,21 @@ updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
 							   SHARED_DEPENDENCY_ACL);
 		}
 
-		/* Drop no-longer-used old dependencies */
+		/* 删除不再使用的旧依赖 */
 		for (i = 0; i < noldmembers; i++)
 		{
 			Oid			roleid = oldmembers[i];
 
-			/* Skip the owner, same as above */
+			/* 跳过所有者，同上 */
 			if (roleid == ownerId)
 				continue;
 
-			/* Skip pinned roles */
+			/* 跳过被钉住的角色 */
 			if (IsPinnedObject(AuthIdRelationId, roleid))
 				continue;
 
 			shdepDropDependency(sdepRel, classId, objectId, objsubId,
-								false,	/* exact match on objsubId */
+								false,	/* 精确匹配 objsubId */
 								AuthIdRelationId, roleid,
 								SHARED_DEPENDENCY_ACL);
 		}
@@ -550,7 +550,7 @@ updateAclDependencies(Oid classId, Oid objectId, int32 objsubId,
 }
 
 /*
- * A struct to keep track of dependencies found in other databases.
+ * 用于跟踪在其他数据库中发现的依赖的结构。
  */
 typedef struct
 {
@@ -559,7 +559,7 @@ typedef struct
 } remoteDep;
 
 /*
- * qsort comparator for ShDependObjectInfo items
+ * ShDependObjectInfo 项的 qsort 比较器
  */
 static int
 shared_dependency_comparator(const void *a, const void *b)
@@ -568,7 +568,7 @@ shared_dependency_comparator(const void *a, const void *b)
 	const ShDependObjectInfo *objb = (const ShDependObjectInfo *) b;
 
 	/*
-	 * Primary sort key is OID ascending.
+	 * 主排序键是 OID 升序。
 	 */
 	if (obja->object.objectId < objb->object.objectId)
 		return -1;
@@ -576,8 +576,8 @@ shared_dependency_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * Next sort on catalog ID, in case identical OIDs appear in different
-	 * catalogs.  Sort direction is pretty arbitrary here.
+	 * 其次按系统目录 ID 排序，以防相同 OIDs 出现在不同
+	 * 系统目录中。此处排序方向相当随意。
 	 */
 	if (obja->object.classId < objb->object.classId)
 		return -1;
@@ -585,10 +585,10 @@ shared_dependency_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * Sort on object subId.
+	 * 按对象 subId 排序。
 	 *
-	 * We sort the subId as an unsigned int so that 0 (the whole object) will
-	 * come first.
+	 * 我们将 subId 当作无符号 int 排序，以便 0（整个对象）会
+	 * 排在前面。
 	 */
 	if ((unsigned int) obja->object.objectSubId < (unsigned int) objb->object.objectSubId)
 		return -1;
@@ -596,9 +596,9 @@ shared_dependency_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * Last, sort on deptype, in case the same object has multiple dependency
-	 * types.  (Note that there's no need to consider objtype, as that's
-	 * determined by the catalog OID.)
+	 * 最后按 deptype 排序，以防同一对象有多种依赖
+	 * 类型。（注意无需考虑 objtype，因为它由
+	 * 系统目录 OID 决定。）
 	 */
 	if (obja->deptype < objb->deptype)
 		return -1;
@@ -611,21 +611,21 @@ shared_dependency_comparator(const void *a, const void *b)
 /*
  * checkSharedDependencies
  *
- * Check whether there are shared dependency entries for a given shared
- * object; return true if so.
+ * 检查给定共享对象是否存在共享依赖条目；
+ * 若有则返回 true。
  *
- * In addition, return a string containing a newline-separated list of object
- * descriptions that depend on the shared object, or NULL if none is found.
- * We actually return two such strings; the "detail" result is suitable for
- * returning to the client as an errdetail() string, and is limited in size.
- * The "detail_log" string is potentially much longer, and should be emitted
- * to the server log only.
+ * 此外，返回一个字符串，其中包含依赖该共享对象的对象
+ * 描述的换行分隔列表；若未找到则为 NULL。
+ * 我们实际返回两个这样的字符串；"detail" 结果适合作为
+ * errdetail() 字符串返回给客户端，且长度受限。
+ * "detail_log" 字符串可能长得多，应仅输出
+ * 到服务器日志。
  *
- * We can find three different kinds of dependencies: dependencies on objects
- * of the current database; dependencies on shared objects; and dependencies
- * on objects local to other databases.  We can (and do) provide descriptions
- * of the two former kinds of objects, but we can't do that for "remote"
- * objects, so we just provide a count of them.
+ * 我们可能发现三种不同的依赖：对当前数据库中对象的
+ * 依赖；对共享对象的依赖；以及对
+ * 其他数据库本地对象的依赖。对前两种对象我们可以
+ * （也确实会）提供描述，但对"远程"
+ * 对象无法这样做，因此只提供它们的计数。
  */
 bool
 checkSharedDependencies(Oid classId, Oid objectId,
@@ -647,7 +647,7 @@ checkSharedDependencies(Oid classId, Oid objectId,
 	StringInfoData descs;
 	StringInfoData alldescs;
 
-	/* This case can be dispatched quickly */
+	/* 这种情况可以迅速处理 */
 	if (IsPinnedObject(classId, objectId))
 	{
 		object.classId = classId;
@@ -660,17 +660,17 @@ checkSharedDependencies(Oid classId, Oid objectId,
 	}
 
 	/*
-	 * We limit the number of dependencies reported to the client to
-	 * MAX_REPORTED_DEPS, since client software may not deal well with
-	 * enormous error strings.  The server log always gets a full report.
+	 * 向客户端报告的依赖数量限制为
+	 * MAX_REPORTED_DEPS，因为客户端软件可能不好处理
+	 * 过长的错误字符串。服务器日志则始终得到完整报告。
 	 *
-	 * For stability of regression test results, we sort local and shared
-	 * objects by OID before reporting them.  We don't worry about the order
-	 * in which other databases are reported, though.
+	 * 为使回归测试结果稳定，我们在报告前按 OID 对本地和共享
+	 * 对象排序。不过我们不关心
+	 * 其他数据库的报告顺序。
 	 */
 #define MAX_REPORTED_DEPS 100
 
-	allocedobjects = 128;		/* arbitrary initial array size */
+	allocedobjects = 128;		/* 任意的初始数组大小 */
 	objects = (ShDependObjectInfo *)
 		palloc(allocedobjects * sizeof(ShDependObjectInfo));
 	numobjects = 0;
@@ -700,11 +700,11 @@ checkSharedDependencies(Oid classId, Oid objectId,
 		object.objectSubId = sdepForm->objsubid;
 
 		/*
-		 * If it's a dependency local to this database or it's a shared
-		 * object, add it to the objects array.
+		 * 若它是本数据库本地的依赖，或是共享
+		 * 对象，则加入 objects 数组。
 		 *
-		 * If it's a remote dependency, keep track of it so we can report the
-		 * number of them later.
+		 * 若是远程依赖，则跟踪它以便稍后报告
+		 * 其数量。
 		 */
 		if (sdepForm->dbid == MyDatabaseId ||
 			sdepForm->dbid == InvalidOid)
@@ -724,15 +724,15 @@ checkSharedDependencies(Oid classId, Oid objectId,
 		}
 		else
 		{
-			/* It's not local nor shared, so it must be remote. */
+			/* 既非本地也非共享，因此必为远程。 */
 			remoteDep  *dep;
 			bool		stored = false;
 
 			/*
-			 * XXX this info is kept on a simple List.  Maybe it's not good
-			 * for performance, but using a hash table seems needlessly
-			 * complex.  The expected number of databases is not high anyway,
-			 * I suppose.
+			 * XXX 此信息保存在简单的 List 上。也许对
+			 * 性能不太好，但使用哈希表似乎不必要地
+			 * 复杂。反正预期的数据库数量不会很多，
+			 * 我想。
 			 */
 			foreach(cell, remDeps)
 			{
@@ -759,7 +759,7 @@ checkSharedDependencies(Oid classId, Oid objectId,
 	table_close(sdepRel, AccessShareLock);
 
 	/*
-	 * Sort and report local and shared objects.
+	 * 排序并报告本地和共享对象。
 	 */
 	if (numobjects > 1)
 		qsort(objects, numobjects,
@@ -786,7 +786,7 @@ checkSharedDependencies(Oid classId, Oid objectId,
 	}
 
 	/*
-	 * Summarize dependencies in remote databases.
+	 * 汇总远程数据库中的依赖。
 	 */
 	foreach(cell, remDeps)
 	{
@@ -843,8 +843,8 @@ checkSharedDependencies(Oid classId, Oid objectId,
 /*
  * copyTemplateDependencies
  *
- * Routine to create the initial shared dependencies of a new database.
- * We simply copy the dependencies from the template database.
+ * 为新数据库创建初始共享依赖的例程。
+ * 我们只是从模板数据库复制依赖。
  */
 void
 copyTemplateDependencies(Oid templateDbId, Oid newDbId)
@@ -864,15 +864,15 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 	sdepDesc = RelationGetDescr(sdepRel);
 
 	/*
-	 * Allocate the slots to use, but delay costly initialization until we
-	 * know that they will be used.
+	 * 分配将要用的槽，但推迟昂贵的初始化，直到
+	 * 知道它们会被使用。
 	 */
 	max_slots = MAX_CATALOG_MULTI_INSERT_BYTES / sizeof(FormData_pg_shdepend);
 	slot = palloc(sizeof(TupleTableSlot *) * max_slots);
 
 	indstate = CatalogOpenIndexes(sdepRel);
 
-	/* Scan all entries with dbid = templateDbId */
+	/* 扫描 dbid = templateDbId 的所有条目 */
 	ScanKeyInit(&key[0],
 				Anum_pg_shdepend_dbid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -881,17 +881,17 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 	scan = systable_beginscan(sdepRel, SharedDependDependerIndexId, true,
 							  NULL, 1, key);
 
-	/* number of slots currently storing tuples */
+	/* 当前存放着元组的槽数 */
 	slot_stored_count = 0;
-	/* number of slots currently initialized */
+	/* 当前已初始化的槽数 */
 	slot_init_count = 0;
 
 	/*
-	 * Copy the entries of the original database, changing the database Id to
-	 * that of the new database.  Note that because we are not copying rows
-	 * with dbId == 0 (ie, rows describing dependent shared objects) we won't
-	 * copy the ownership dependency of the template database itself; this is
-	 * what we want.
+	 * 复制原数据库的条目，将数据库 Id 改为
+	 * 新数据库的。注意，因为我们不复制
+	 * dbId == 0 的行（即描述依赖方共享对象的行），所以不会
+	 * 复制模板数据库自身的所有权依赖；这正是
+	 * 我们想要的。
 	 */
 	while (HeapTupleIsValid(tup = systable_getnext(scan)))
 	{
@@ -921,7 +921,7 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 		ExecStoreVirtualTuple(slot[slot_stored_count]);
 		slot_stored_count++;
 
-		/* If slots are full, insert a batch of tuples */
+		/* 若槽已满，则插入一批元组 */
 		if (slot_stored_count == max_slots)
 		{
 			CatalogTuplesMultiInsertWithInfo(sdepRel, slot, slot_stored_count, indstate);
@@ -929,7 +929,7 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 		}
 	}
 
-	/* Insert any tuples left in the buffer */
+	/* 插入缓冲区中剩余的任何元组 */
 	if (slot_stored_count > 0)
 		CatalogTuplesMultiInsertWithInfo(sdepRel, slot, slot_stored_count, indstate);
 
@@ -938,7 +938,7 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 	CatalogCloseIndexes(indstate);
 	table_close(sdepRel, RowExclusiveLock);
 
-	/* Drop only the number of slots used */
+	/* 只丢弃已使用的槽数 */
 	for (int i = 0; i < slot_init_count; i++)
 		ExecDropSingleTupleTableSlot(slot[i]);
 	pfree(slot);
@@ -947,8 +947,8 @@ copyTemplateDependencies(Oid templateDbId, Oid newDbId)
 /*
  * dropDatabaseDependencies
  *
- * Delete pg_shdepend entries corresponding to a database that's being
- * dropped.
+ * 删除正被删除的数据库所对应的 pg_shdepend
+ * 条目。
  */
 void
 dropDatabaseDependencies(Oid databaseId)
@@ -961,14 +961,14 @@ dropDatabaseDependencies(Oid databaseId)
 	sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
 	/*
-	 * First, delete all the entries that have the database Oid in the dbid
-	 * field.
+	 * 首先，删除 dbid 字段中带有该数据库 Oid 的所有
+	 * 条目。
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_shdepend_dbid,
 				BTEqualStrategyNumber, F_OIDEQ,
 				ObjectIdGetDatum(databaseId));
-	/* We leave the other index fields unspecified */
+	/* 其余索引字段保持未指定 */
 
 	scan = systable_beginscan(sdepRel, SharedDependDependerIndexId, true,
 							  NULL, 1, key);
@@ -980,7 +980,7 @@ dropDatabaseDependencies(Oid databaseId)
 
 	systable_endscan(scan);
 
-	/* Now delete all entries corresponding to the database itself */
+	/* 现在删除对应该数据库自身的所有条目 */
 	shdepDropDependency(sdepRel, DatabaseRelationId, databaseId, 0, true,
 						InvalidOid, InvalidOid,
 						SHARED_DEPENDENCY_INVALID);
@@ -991,12 +991,12 @@ dropDatabaseDependencies(Oid databaseId)
 /*
  * deleteSharedDependencyRecordsFor
  *
- * Delete all pg_shdepend entries corresponding to an object that's being
- * dropped or modified.  The object is assumed to be either a shared object
- * or local to the current database (the classId tells us which).
+ * 删除正被删除或修改的对象所对应的所有
+ * pg_shdepend 条目。假定该对象要么是共享对象，
+ * 要么是当前数据库本地的（由 classId 告诉我们是哪一种）。
  *
- * If objectSubId is zero, we are deleting a whole object, so get rid of
- * pg_shdepend entries for subobjects as well.
+ * 若 objectSubId 为零，则我们在删除整个对象，因此也去掉
+ * 子对象的 pg_shdepend 条目。
  */
 void
 deleteSharedDependencyRecordsFor(Oid classId, Oid objectId, int32 objectSubId)
@@ -1015,10 +1015,10 @@ deleteSharedDependencyRecordsFor(Oid classId, Oid objectId, int32 objectSubId)
 
 /*
  * shdepAddDependency
- *		Internal workhorse for inserting into pg_shdepend
+ *		向 pg_shdepend 插入的内部工作例程
  *
- * sdepRel must be the pg_shdepend relation, already opened and suitably
- * locked.
+ * sdepRel 必须是 pg_shdepend 关系，且已打开并适当
+ * 加锁。
  */
 static void
 shdepAddDependency(Relation sdepRel,
@@ -1031,16 +1031,16 @@ shdepAddDependency(Relation sdepRel,
 	bool		nulls[Natts_pg_shdepend];
 
 	/*
-	 * Make sure the object doesn't go away while we record the dependency on
-	 * it.  DROP routines should lock the object exclusively before they check
-	 * shared dependencies.
+	 * 确保在我们记录对它的依赖期间该对象不会
+	 * 消失。DROP 例程应在检查共享依赖之前
+	 * 以排他方式锁住该对象。
 	 */
 	shdepLockAndCheckObject(refclassId, refobjId);
 
 	memset(nulls, false, sizeof(nulls));
 
 	/*
-	 * Form the new tuple and record the dependency.
+	 * 构造新元组并登记该依赖。
 	 */
 	values[Anum_pg_shdepend_dbid - 1] = ObjectIdGetDatum(classIdGetDbId(classId));
 	values[Anum_pg_shdepend_classid - 1] = ObjectIdGetDatum(classId);
@@ -1055,25 +1055,25 @@ shdepAddDependency(Relation sdepRel,
 
 	CatalogTupleInsert(sdepRel, tup);
 
-	/* clean up */
+	/* 清理 */
 	heap_freetuple(tup);
 }
 
 /*
  * shdepDropDependency
- *		Internal workhorse for deleting entries from pg_shdepend.
+ *		从 pg_shdepend 删除条目的内部工作例程。
  *
- * We drop entries having the following properties:
- *	dependent object is the one identified by classId/objectId/objsubId
- *	if refclassId isn't InvalidOid, it must match the entry's refclassid
- *	if refobjId isn't InvalidOid, it must match the entry's refobjid
- *	if deptype isn't SHARED_DEPENDENCY_INVALID, it must match entry's deptype
+ * 我们删除具有以下性质的条目：
+ *	依赖方对象是 classId/objectId/objsubId 所标识的那个
+ *	若 refclassId 不是 InvalidOid，则必须匹配条目的 refclassid
+ *	若 refobjId 不是 InvalidOid，则必须匹配条目的 refobjid
+ *	若 deptype 不是 SHARED_DEPENDENCY_INVALID，则必须匹配条目的 deptype
  *
- * If drop_subobjects is true, we ignore objsubId and consider all entries
- * matching classId/objectId.
+ * 若 drop_subobjects 为 true，则忽略 objsubId 并考虑所有匹配
+ * classId/objectId 的条目。
  *
- * sdepRel must be the pg_shdepend relation, already opened and suitably
- * locked.
+ * sdepRel 必须是 pg_shdepend 关系，且已打开并适当
+ * 加锁。
  */
 static void
 shdepDropDependency(Relation sdepRel,
@@ -1087,7 +1087,7 @@ shdepDropDependency(Relation sdepRel,
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Scan for entries matching the dependent object */
+	/* 扫描匹配依赖方对象的条目 */
 	ScanKeyInit(&key[0],
 				Anum_pg_shdepend_dbid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -1118,7 +1118,7 @@ shdepDropDependency(Relation sdepRel,
 	{
 		Form_pg_shdepend shdepForm = (Form_pg_shdepend) GETSTRUCT(tup);
 
-		/* Filter entries according to additional parameters */
+		/* 按附加参数过滤条目 */
 		if (OidIsValid(refclassId) && shdepForm->refclassid != refclassId)
 			continue;
 		if (OidIsValid(refobjId) && shdepForm->refobjid != refobjId)
@@ -1127,7 +1127,7 @@ shdepDropDependency(Relation sdepRel,
 			shdepForm->deptype != deptype)
 			continue;
 
-		/* OK, delete it */
+		/* 可以，删除它 */
 		CatalogTupleDelete(sdepRel, &tup->t_self);
 	}
 
@@ -1137,9 +1137,9 @@ shdepDropDependency(Relation sdepRel,
 /*
  * classIdGetDbId
  *
- * Get the database Id that should be used in pg_shdepend, given the OID
- * of the catalog containing the object.  For shared objects, it's 0
- * (InvalidOid); for all other objects, it's the current database Id.
+ * 给定包含该对象的系统目录的 OID，取得应在 pg_shdepend 中
+ * 使用的数据库 Id。对于共享对象，为 0
+ * （InvalidOid）；对于所有其他对象，为当前数据库 Id。
  */
 static Oid
 classIdGetDbId(Oid classId)
@@ -1157,15 +1157,15 @@ classIdGetDbId(Oid classId)
 /*
  * shdepLockAndCheckObject
  *
- * Lock the object that we are about to record a dependency on.
- * After it's locked, verify that it hasn't been dropped while we
- * weren't looking.  If the object has been dropped, this function
- * does not return!
+ * 锁住我们即将记录依赖的对象。
+ * 加锁之后，验证在我们没注意时它没有被
+ * 删除。若对象已被删除，本函数
+ * 不会返回！
  */
 void
 shdepLockAndCheckObject(Oid classId, Oid objectId)
 {
-	/* AccessShareLock should be OK, since we are not modifying the object */
+	/* AccessShareLock 应该可以，因为我们不修改该对象 */
 	LockSharedObject(classId, objectId, 0, AccessShareLock);
 
 	switch (classId)
@@ -1180,7 +1180,7 @@ shdepLockAndCheckObject(Oid classId, Oid objectId)
 
 		case TableSpaceRelationId:
 			{
-				/* For lack of a syscache on pg_tablespace, do this: */
+				/* 由于 pg_tablespace 没有 syscache，这样做： */
 				char	   *tablespace = get_tablespace_name(objectId);
 
 				if (tablespace == NULL)
@@ -1194,7 +1194,7 @@ shdepLockAndCheckObject(Oid classId, Oid objectId)
 
 		case DatabaseRelationId:
 			{
-				/* For lack of a syscache on pg_database, do this: */
+				/* 由于 pg_database 没有 syscache，这样做： */
 				char	   *database = get_database_name(objectId);
 
 				if (database == NULL)
@@ -1215,17 +1215,17 @@ shdepLockAndCheckObject(Oid classId, Oid objectId)
 
 /*
  * storeObjectDescription
- *		Append the description of a dependent object to "descs"
+ *		将依赖方对象的描述追加到 "descs"
  *
- * While searching for dependencies of a shared object, we stash the
- * descriptions of dependent objects we find in a single string, which we
- * later pass to ereport() in the DETAIL field when somebody attempts to
- * drop a referenced shared object.
+ * 在搜索共享对象的依赖时，我们把找到的
+ * 依赖方对象的描述暂存在一个字符串中，稍后当
+ * 有人试图删除被引用的共享对象时，作为 DETAIL
+ * 字段传给 ereport()。
  *
- * When type is LOCAL_OBJECT or SHARED_OBJECT, we expect object to be the
- * dependent object, deptype is the dependency type, and count is not used.
- * When type is REMOTE_OBJECT, we expect object to be the database object,
- * and count to be nonzero; deptype is not used in this case.
+ * 当 type 为 LOCAL_OBJECT 或 SHARED_OBJECT 时，我们期望 object 是
+ * 依赖方对象，deptype 是依赖类型，且不使用 count。
+ * 当 type 为 REMOTE_OBJECT 时，我们期望 object 是数据库对象，
+ * 且 count 非零；此时不使用 deptype。
  */
 static void
 storeObjectDescription(StringInfo descs,
@@ -1237,12 +1237,12 @@ storeObjectDescription(StringInfo descs,
 	char	   *objdesc = getObjectDescription(object, false);
 
 	/*
-	 * An object being dropped concurrently doesn't need to be reported.
+	 * 正被并发删除的对象无需报告。
 	 */
 	if (objdesc == NULL)
 		return;
 
-	/* separate entries with a newline */
+	/* 用换行分隔各条目 */
 	if (descs->len != 0)
 		appendStringInfoChar(descs, '\n');
 
@@ -1282,14 +1282,14 @@ storeObjectDescription(StringInfo descs,
 /*
  * shdepDropOwned
  *
- * Drop the objects owned by any one of the given RoleIds.  If a role has
- * access to an object, the grant will be removed as well (but the object
- * will not, of course).
+ * 删除任一给定 RoleIds 所拥有的对象。若某角色对
+ * 某对象有访问权限，则该授权也会被移除（但对象
+ * 当然不会）。
  *
- * We can revoke grants immediately while doing the scan, but drops are
- * saved up and done all at once with performMultipleDeletions.  This
- * is necessary so that we don't get failures from trying to delete
- * interdependent objects in the wrong order.
+ * 扫描时可以立即收回授权，但删除会
+ * 先攒起来，再用 performMultipleDeletions 一次性完成。这
+ * 是必要的，以免因试图按错误顺序删除
+ * 相互依赖的对象而失败。
  */
 void
 shdepDropOwned(List *roleids, DropBehavior behavior)
@@ -1301,15 +1301,15 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 	deleteobjs = new_object_addresses();
 
 	/*
-	 * We don't need this strong a lock here, but we'll call routines that
-	 * acquire RowExclusiveLock.  Better get that right now to avoid potential
-	 * deadlock failures.
+	 * 我们在此并不需要这么强的锁，但将调用的例程会
+	 * 获取 RowExclusiveLock。最好现在就取，以免潜在的
+	 * 死锁失败。
 	 */
 	sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
 	/*
-	 * For each role, find the dependent objects and drop them using the
-	 * regular (non-shared) dependency management.
+	 * 对每个角色，找出依赖对象并用
+	 * 常规（非共享）依赖管理删除它们。
 	 */
 	foreach(cell, roleids)
 	{
@@ -1318,7 +1318,7 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 		SysScanDesc scan;
 		HeapTuple	tuple;
 
-		/* Doesn't work for pinned objects */
+		/* 对被钉住对象不起作用 */
 		if (IsPinnedObject(AuthIdRelationId, roleid))
 		{
 			ObjectAddress obj;
@@ -1352,8 +1352,8 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 			ObjectAddress obj;
 
 			/*
-			 * We only operate on shared objects and objects in the current
-			 * database
+			 * 我们只操作共享对象和当前
+			 * 数据库中的对象
 			 */
 			if (sdepForm->dbid != MyDatabaseId &&
 				sdepForm->dbid != InvalidOid)
@@ -1361,15 +1361,15 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 
 			switch (sdepForm->deptype)
 			{
-					/* Shouldn't happen */
+					/* 不应发生 */
 				case SHARED_DEPENDENCY_INVALID:
 					elog(ERROR, "unexpected dependency type");
 					break;
 				case SHARED_DEPENDENCY_POLICY:
 
 					/*
-					 * Try to remove role from policy; if unable to, remove
-					 * policy.
+					 * 尝试从策略中移除角色；若无法做到，则删除
+					 * 策略。
 					 */
 					if (!RemoveRoleFromObjectPolicy(roleid,
 													sdepForm->classid,
@@ -1380,10 +1380,10 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 						obj.objectSubId = sdepForm->objsubid;
 
 						/*
-						 * Acquire lock on object, then verify this dependency
-						 * is still relevant.  If not, the object might have
-						 * been dropped or the policy modified.  Ignore the
-						 * object in that case.
+						 * 获取对象上的锁，然后验证此依赖
+						 * 仍然相关。若否，则对象可能已
+						 * 被删除或策略已修改。那种情况下忽略
+						 * 该对象。
 						 */
 						AcquireDeletionLock(&obj, 0);
 						if (!systable_recheck_tuple(scan, tuple))
@@ -1397,12 +1397,12 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 				case SHARED_DEPENDENCY_ACL:
 
 					/*
-					 * Dependencies on role grants are recorded using
-					 * SHARED_DEPENDENCY_ACL, but unlike a regular ACL list
-					 * which stores all permissions for a particular object in
-					 * a single ACL array, there's a separate catalog row for
-					 * each grant - so removing the grant just means removing
-					 * the entire row.
+					 * 对角色授予的依赖用
+					 * SHARED_DEPENDENCY_ACL 记录，但与常规 ACL 列表不同，
+					 * 后者把某对象的全部权限存在
+					 * 单个 ACL 数组中，这里每条授予有单独的系统目录行 ——
+					 * 因此移除授予就意味着删除
+					 * 整行。
 					 */
 					if (sdepForm->classid != AuthMemRelationId)
 					{
@@ -1416,9 +1416,9 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 				case SHARED_DEPENDENCY_OWNER:
 
 					/*
-					 * Save it for deletion below, if it's a local object or a
-					 * role grant. Other shared objects, such as databases,
-					 * should not be removed here.
+					 * 若是本地对象或角色授予，则保存下来供下方删除。
+					 * 其他共享对象，例如数据库，
+					 * 不应在此移除。
 					 */
 					if (sdepForm->dbid == MyDatabaseId ||
 						sdepForm->classid == AuthMemRelationId)
@@ -1426,7 +1426,7 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 						obj.classId = sdepForm->classid;
 						obj.objectId = sdepForm->objid;
 						obj.objectSubId = sdepForm->objsubid;
-						/* as above */
+						/* 同上 */
 						AcquireDeletionLock(&obj, 0);
 						if (!systable_recheck_tuple(scan, tuple))
 						{
@@ -1443,14 +1443,14 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 	}
 
 	/*
-	 * For stability of deletion-report ordering, sort the objects into
-	 * approximate reverse creation order before deletion.  (This might also
-	 * make the deletion go a bit faster, since there's less chance of having
-	 * to rearrange the objects due to dependencies.)
+	 * 为使删除报告顺序稳定，在删除前把对象排成
+	 * 大致的反向创建顺序。（这或许也会
+	 * 让删除稍快一些，因为因依赖而必须
+	 * 重排对象的机会更少。）
 	 */
 	sort_object_addresses(deleteobjs);
 
-	/* the dependency mechanism does the actual work */
+	/* 由依赖机制完成实际工作 */
 	performMultipleDeletions(deleteobjs, behavior, 0);
 
 	table_close(sdepRel, RowExclusiveLock);
@@ -1461,8 +1461,8 @@ shdepDropOwned(List *roleids, DropBehavior behavior)
 /*
  * shdepReassignOwned
  *
- * Change the owner of objects owned by any of the roles in roleids to
- * newrole.  Grants are not touched.
+ * 把 roleids 中任一角色所拥有对象的所有者改为
+ * newrole。不触及授权。
  */
 void
 shdepReassignOwned(List *roleids, Oid newrole)
@@ -1471,9 +1471,9 @@ shdepReassignOwned(List *roleids, Oid newrole)
 	ListCell   *cell;
 
 	/*
-	 * We don't need this strong a lock here, but we'll call routines that
-	 * acquire RowExclusiveLock.  Better get that right now to avoid potential
-	 * deadlock problems.
+	 * 我们在此并不需要这么强的锁，但将调用的例程会
+	 * 获取 RowExclusiveLock。最好现在就取，以免潜在的
+	 * 死锁问题。
 	 */
 	sdepRel = table_open(SharedDependRelationId, RowExclusiveLock);
 
@@ -1484,7 +1484,7 @@ shdepReassignOwned(List *roleids, Oid newrole)
 		HeapTuple	tuple;
 		Oid			roleid = lfirst_oid(cell);
 
-		/* Refuse to work on pinned roles */
+		/* 拒绝处理被钉住的角色 */
 		if (IsPinnedObject(AuthIdRelationId, roleid))
 		{
 			ObjectAddress obj;
@@ -1499,8 +1499,8 @@ shdepReassignOwned(List *roleids, Oid newrole)
 							getObjectDescription(&obj, false))));
 
 			/*
-			 * There's no need to tell the whole truth, which is that we
-			 * didn't track these dependencies at all ...
+			 * 没必要把全部实情说出来，那就是我们
+			 * 根本没有跟踪这些依赖……
 			 */
 		}
 
@@ -1523,30 +1523,30 @@ shdepReassignOwned(List *roleids, Oid newrole)
 						oldcxt;
 
 			/*
-			 * We only operate on shared objects and objects in the current
-			 * database
+			 * 我们只操作共享对象和当前
+			 * 数据库中的对象
 			 */
 			if (sdepForm->dbid != MyDatabaseId &&
 				sdepForm->dbid != InvalidOid)
 				continue;
 
-			/* We leave non-owner dependencies alone */
+			/* 我们不动非所有者依赖 */
 			if (sdepForm->deptype != SHARED_DEPENDENCY_OWNER)
 				continue;
 
 			/*
-			 * The various ALTER OWNER routines tend to leak memory in
-			 * CurrentMemoryContext.  That's not a problem when they're only
-			 * called once per command; but in this usage where we might be
-			 * touching many objects, it can amount to a serious memory leak.
-			 * Fix that by running each call in a short-lived context.
+			 * 各种 ALTER OWNER 例程往往会在
+			 * CurrentMemoryContext 中泄漏内存。若每个命令只
+			 * 调用一次，这不是问题；但在这种可能
+			 * 触及许多对象的用法中，会变成严重的内存泄漏。
+			 * 把每次调用放在短生命周期的上下文中即可修复。
 			 */
 			cxt = AllocSetContextCreate(CurrentMemoryContext,
 										"shdepReassignOwned",
 										ALLOCSET_DEFAULT_SIZES);
 			oldcxt = MemoryContextSwitchTo(cxt);
 
-			/* Issue the appropriate ALTER OWNER call */
+			/* 发出适当的 ALTER OWNER 调用 */
 			switch (sdepForm->classid)
 			{
 				case TypeRelationId:
@@ -1560,9 +1560,9 @@ shdepReassignOwned(List *roleids, Oid newrole)
 				case RelationRelationId:
 
 					/*
-					 * Pass recursing = true so that we don't fail on indexes,
-					 * owned sequences, etc when we happen to visit them
-					 * before their parent table.
+					 * 传入 recursing = true，以免在碰巧先访问索引、
+					 * 附属序列等、后访问其父表时
+					 * 失败。
 					 */
 					ATExecChangeOwner(sdepForm->objid, newrole, true, AccessExclusiveLock);
 					break;
@@ -1570,13 +1570,13 @@ shdepReassignOwned(List *roleids, Oid newrole)
 				case DefaultAclRelationId:
 
 					/*
-					 * Ignore default ACLs; they should be handled by DROP
-					 * OWNED, not REASSIGN OWNED.
+					 * 忽略默认 ACLs；它们应由 DROP
+					 * OWNED 处理，而不是 REASSIGN OWNED。
 					 */
 					break;
 
 				case UserMappingRelationId:
-					/* ditto */
+					/* 同上 */
 					break;
 
 				case ForeignServerRelationId:
@@ -1599,7 +1599,7 @@ shdepReassignOwned(List *roleids, Oid newrole)
 					AlterSubscriptionOwner_oid(sdepForm->objid, newrole);
 					break;
 
-					/* Generic alter owner cases */
+					/* 通用更改所有者情形 */
 				case CollationRelationId:
 				case ConversionRelationId:
 				case OperatorRelationId:
@@ -1619,7 +1619,7 @@ shdepReassignOwned(List *roleids, Oid newrole)
 						Relation	catalog;
 
 						/*
-						 * For large objects, the catalog to modify is
+						 * 对于大对象，要修改的系统目录是
 						 * pg_largeobject_metadata
 						 */
 						if (classId == LargeObjectRelationId)
@@ -1639,11 +1639,11 @@ shdepReassignOwned(List *roleids, Oid newrole)
 					break;
 			}
 
-			/* Clean up */
+			/* 清理 */
 			MemoryContextSwitchTo(oldcxt);
 			MemoryContextDelete(cxt);
 
-			/* Make sure the next iteration will see my changes */
+			/* 确保下一次迭代能看到我的更改 */
 			CommandCounterIncrement();
 		}
 

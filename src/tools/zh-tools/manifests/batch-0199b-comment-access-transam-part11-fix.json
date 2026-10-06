@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0199b-comment-access-transam-part11-fix",
+ "title": "zh: fix access/transam comments (part 11) interrupts and bits",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "0a59d2bc51ca89f2cb3aeb6700c48d19cde378c4",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/parallel.c",
+   "kind": "c_comment",
+   "note": "Composer P1: interrupts→中断; bits→若干字段"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0199b-comment-access-transam-part11-fix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/parallel.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "无法响应 interrupts→中断; 若干位→若干字段"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0199b-comment-access-transam-part11-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0199"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0199b"
+  }
+ ],
+ "notes": "Composer P1 on 0199: cannot respond to interrupts → 无法响应中断; a few bits of fixed parallel state → 若干字段 (not bit fields)."
+}

@@ -519,7 +519,7 @@ ReinitializeParallelDSM(ParallelContext *pcxt)
 		}
 	}
 
-	/* 把固定并行状态的若干位重置为干净状态。 */
+	/* 把固定并行状态的若干字段重置为干净状态。 */
 	fps = shm_toc_lookup(pcxt->toc, PARALLEL_KEY_FIXED, false);
 	fps->last_xlog_end = 0;
 
@@ -994,7 +994,7 @@ DestroyParallelContext(ParallelContext *pcxt)
 	/*
 	 * 在所有工作进程退出之前，我们无法完成事务提交或中止。
 	 * 这尤其意味着，在此阶段我们无法响应
-	 * interrupts。
+	 * 中断。
 	 */
 	HOLD_INTERRUPTS();
 	WaitForParallelWorkersToExit(pcxt);

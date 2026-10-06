@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * ginget.c
- *	  fetch tuples from a GIN scan.
+ *	  从 GIN 扫描中取回元组。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,7 +23,7 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
-/* GUC parameter */
+/* GUC 参数 */
 int			GinFuzzySearchLimit = 0;
 
 typedef struct pendingPosition
@@ -37,7 +37,7 @@ typedef struct pendingPosition
 
 
 /*
- * Goes to the next page if current offset is outside of bounds
+ * 若当前偏移超出范围则前进到下一页
  */
 static bool
 moveRightIfItNeeded(GinBtreeData *btree, GinBtreeStack *stack, Snapshot snapshot)
@@ -47,10 +47,10 @@ moveRightIfItNeeded(GinBtreeData *btree, GinBtreeStack *stack, Snapshot snapshot
 	if (stack->off > PageGetMaxOffsetNumber(page))
 	{
 		/*
-		 * We scanned the whole page, so we should take right page
+		 * 整页已扫完，应取右页
 		 */
 		if (GinPageRightMost(page))
-			return false;		/* no more pages */
+			return false;		/* 没有更多页 */
 
 		stack->buffer = ginStepRight(stack->buffer, btree->index, GIN_SHARE);
 		stack->blkno = BufferGetBlockNumber(stack->buffer);
@@ -62,8 +62,8 @@ moveRightIfItNeeded(GinBtreeData *btree, GinBtreeStack *stack, Snapshot snapshot
 }
 
 /*
- * Scan all pages of a posting tree and save all its heap ItemPointers
- * in scanEntry->matchBitmap
+ * 扫描倒排树的所有页，并把其中全部堆 ItemPointers
+ * 存入 scanEntry->matchBitmap
  */
 static void
 scanPostingTree(Relation index, GinScanEntry scanEntry,
@@ -74,16 +74,16 @@ scanPostingTree(Relation index, GinScanEntry scanEntry,
 	Buffer		buffer;
 	Page		page;
 
-	/* Descend to the leftmost leaf page */
+	/* 下降到最左叶子页 */
 	stack = ginScanBeginPostingTree(&btree, index, rootPostingTree, snapshot);
 	buffer = stack->buffer;
 
-	IncrBufferRefCount(buffer); /* prevent unpin in freeGinBtreeStack */
+	IncrBufferRefCount(buffer); /* 防止 freeGinBtreeStack 中 unpin */
 
 	freeGinBtreeStack(stack);
 
 	/*
-	 * Loop iterates through all leaf pages of posting tree
+	 * 循环遍历倒排树的全部叶子页
 	 */
 	for (;;)
 	{
@@ -96,7 +96,7 @@ scanPostingTree(Relation index, GinScanEntry scanEntry,
 		}
 
 		if (GinPageRightMost(page))
-			break;				/* no more pages */
+			break;				/* 没有更多页 */
 
 		buffer = ginStepRight(buffer, index, GIN_SHARE);
 	}
@@ -105,17 +105,17 @@ scanPostingTree(Relation index, GinScanEntry scanEntry,
 }
 
 /*
- * Collects TIDs into scanEntry->matchBitmap for all heap tuples that
- * match the search entry.  This supports three different match modes:
+ * 为所有匹配搜索条目的堆元组，把 TIDs 收集进
+ * scanEntry->matchBitmap。支持三种不同匹配模式：
  *
- * 1. Partial-match support: scan from current point until the
- *	  comparePartialFn says we're done.
- * 2. SEARCH_MODE_ALL: scan from current point (which should be first
- *	  key for the current attnum) until we hit null items or end of attnum
- * 3. SEARCH_MODE_EVERYTHING: scan from current point (which should be first
- *	  key for the current attnum) until we hit end of attnum
+ * 1. 部分匹配支持：从当前点扫描，直到
+ *	  comparePartialFn 表示结束。
+ * 2. SEARCH_MODE_ALL：从当前点（应为当前 attnum
+ *	  的第一个键）扫描，直到遇到空项或 attnum 结束
+ * 3. SEARCH_MODE_EVERYTHING：从当前点（应为当前 attnum
+ *	  的第一个键）扫描，直到 attnum 结束
  *
- * Returns true if done, false if it's necessary to restart scan from scratch
+ * 完成返回 true；若必须从头重启扫描则返回 false
  */
 static bool
 collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
@@ -124,21 +124,21 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 	OffsetNumber attnum;
 	Form_pg_attribute attr;
 
-	/* Initialize empty bitmap result */
+	/* 初始化空位图结果 */
 	scanEntry->matchBitmap = tbm_create(work_mem * 1024L, NULL);
 
-	/* Null query cannot partial-match anything */
+	/* 空查询无法部分匹配任何东西 */
 	if (scanEntry->isPartialMatch &&
 		scanEntry->queryCategory != GIN_CAT_NORM_KEY)
 		return true;
 
-	/* Locate tupdesc entry for key column (for attbyval/attlen data) */
+	/* 定位键列的 tupdesc 条目（供 attbyval/attlen 数据使用） */
 	attnum = scanEntry->attnum;
 	attr = TupleDescAttr(btree->ginstate->origTupdesc, attnum - 1);
 
 	/*
-	 * Predicate lock entry leaf page, following pages will be locked by
-	 * moveRightIfItNeeded()
+	 * 对条目叶子页加谓词锁，后续页由
+	 * moveRightIfItNeeded() 加锁
 	 */
 	PredicateLockPage(btree->index,
 					  BufferGetBlockNumber(stack->buffer),
@@ -152,7 +152,7 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 		GinNullCategory icategory;
 
 		/*
-		 * stack->off points to the interested entry, buffer is already locked
+		 * stack->off 指向关心的条目，缓冲区已加锁
 		 */
 		if (moveRightIfItNeeded(btree, stack, snapshot) == false)
 			return true;
@@ -162,33 +162,33 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 		itup = (IndexTuple) PageGetItem(page, PageGetItemId(page, stack->off));
 
 		/*
-		 * If tuple stores another attribute then stop scan
+		 * 若元组存放另一属性则停止扫描
 		 */
 		if (gintuple_get_attrnum(btree->ginstate, itup) != attnum)
 			return true;
 
-		/* Safe to fetch attribute value */
+		/* 可安全取属性值 */
 		idatum = gintuple_get_key(btree->ginstate, itup, &icategory);
 
 		/*
-		 * Check for appropriate scan stop conditions
+		 * 检查适当的扫描停止条件
 		 */
 		if (scanEntry->isPartialMatch)
 		{
 			int32		cmp;
 
 			/*
-			 * In partial match, stop scan at any null (including
-			 * placeholders); partial matches never match nulls
+			 * 部分匹配时，在任何空值处停止扫描（包括
+			 * 占位符）；部分匹配从不匹配空值
 			 */
 			if (icategory != GIN_CAT_NORM_KEY)
 				return true;
 
 			/*----------
-			 * Check of partial match.
-			 * case cmp == 0 => match
-			 * case cmp > 0 => not match and finish scan
-			 * case cmp < 0 => not match and continue scan
+			 * 检查部分匹配。
+			 * case cmp == 0 => 匹配
+			 * case cmp > 0 => 不匹配并结束扫描
+			 * case cmp < 0 => 不匹配并继续扫描
 			 *----------
 			 */
 			cmp = DatumGetInt32(FunctionCall4Coll(&btree->ginstate->comparePartialFn[attnum - 1],
@@ -209,28 +209,28 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 		else if (scanEntry->searchMode == GIN_SEARCH_MODE_ALL)
 		{
 			/*
-			 * In ALL mode, we are not interested in null items, so we can
-			 * stop if we get to a null-item placeholder (which will be the
-			 * last entry for a given attnum).  We do want to include NULL_KEY
-			 * and EMPTY_ITEM entries, though.
+			 * 在 ALL 模式下，我们对空项不感兴趣，因此若
+			 * 到达空项占位符（给定 attnum 的最后一条）
+			 * 即可停止。不过仍要包含 NULL_KEY
+			 * 和 EMPTY_ITEM 条目。
 			 */
 			if (icategory == GIN_CAT_NULL_ITEM)
 				return true;
 		}
 
 		/*
-		 * OK, we want to return the TIDs listed in this entry.
+		 * 好，我们要返回本条目中列出的 TIDs。
 		 */
 		if (GinIsPostingTree(itup))
 		{
 			BlockNumber rootPostingTree = GinGetPostingTree(itup);
 
 			/*
-			 * We should unlock current page (but not unpin) during tree scan
-			 * to prevent deadlock with vacuum processes.
+			 * 在树扫描期间应解锁当前页（但不 unpin），
+			 * 以免与 vacuum 进程死锁。
 			 *
-			 * We save current entry value (idatum) to be able to re-find our
-			 * tuple after re-locking
+			 * 保存当前条目值 (idatum)，以便重新加锁后
+			 * 能重新找到我们的元组
 			 */
 			if (icategory == GIN_CAT_NORM_KEY)
 				idatum = datumCopy(idatum, attr->attbyval, attr->attlen);
@@ -238,33 +238,33 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 			LockBuffer(stack->buffer, GIN_UNLOCK);
 
 			/*
-			 * Acquire predicate lock on the posting tree.  We already hold a
-			 * lock on the entry page, but insertions to the posting tree
-			 * don't check for conflicts on that level.
+			 * 对倒排树加谓词锁。我们已持有条目页上的
+			 * 锁，但对倒排树的插入不会在该层级
+			 * 检查冲突。
 			 */
 			PredicateLockPage(btree->index, rootPostingTree, snapshot);
 
-			/* Collect all the TIDs in this entry's posting tree */
+			/* 收集本条目倒排树中的全部 TIDs */
 			scanPostingTree(btree->index, scanEntry, rootPostingTree,
 							snapshot);
 
 			/*
-			 * We lock again the entry page and while it was unlocked insert
-			 * might have occurred, so we need to re-find our position.
+			 * 再次锁定条目页；解锁期间可能发生插入，
+			 * 因此需要重新找到我们的位置。
 			 */
 			LockBuffer(stack->buffer, GIN_SHARE);
 			page = BufferGetPage(stack->buffer);
 			if (!GinPageIsLeaf(page))
 			{
 				/*
-				 * Root page becomes non-leaf while we unlock it. We will
-				 * start again, this situation doesn't occur often - root can
-				 * became a non-leaf only once per life of index.
+				 * 解锁期间根页变成非叶子。我们将
+				 * 重新开始；这种情况不常发生——根在
+				 * 索引生命周期中只会变成非叶子一次。
 				 */
 				return false;
 			}
 
-			/* Search forward to re-find idatum */
+			/* 向前搜索以重新找到 idatum */
 			for (;;)
 			{
 				if (moveRightIfItNeeded(btree, stack, snapshot) == false)
@@ -287,7 +287,7 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 					if (ginCompareEntries(btree->ginstate, attnum,
 										  newDatum, newCategory,
 										  idatum, icategory) == 0)
-						break;	/* Found! */
+						break;	/* 找到了！ */
 				}
 
 				stack->off++;
@@ -308,14 +308,14 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 		}
 
 		/*
-		 * Done with this entry, go to the next
+		 * 本条目处理完毕，转到下一条
 		 */
 		stack->off++;
 	}
 }
 
 /*
- * Start* functions setup beginning state of searches: finds correct buffer and pins it.
+ * Start* 函数设置搜索的起始状态：找到正确缓冲区并钉住它。
  */
 static void
 startScanEntry(GinState *ginstate, GinScanEntry entry, Snapshot snapshot)
@@ -339,8 +339,8 @@ restartScanEntry:
 	entry->predictNumberResult = 0;
 
 	/*
-	 * we should find entry, and begin scan of posting tree or just store
-	 * posting list in memory
+	 * 应找到条目，并开始扫描倒排树，或只是把
+	 * 倒排列表存入内存
 	 */
 	ginPrepareEntryScan(&btreeEntry, entry->attnum,
 						entry->queryKey, entry->queryCategory,
@@ -348,7 +348,7 @@ restartScanEntry:
 	stackEntry = ginFindLeafPage(&btreeEntry, true, false, snapshot);
 	page = BufferGetPage(stackEntry->buffer);
 
-	/* ginFindLeafPage() will have already checked snapshot age. */
+	/* ginFindLeafPage() 应已检查过快照年龄。 */
 	needUnlock = true;
 
 	entry->isFinished = true;
@@ -357,20 +357,20 @@ restartScanEntry:
 		entry->queryCategory == GIN_CAT_EMPTY_QUERY)
 	{
 		/*
-		 * btreeEntry.findItem locates the first item >= given search key.
-		 * (For GIN_CAT_EMPTY_QUERY, it will find the leftmost index item
-		 * because of the way the GIN_CAT_EMPTY_QUERY category code is
-		 * assigned.)  We scan forward from there and collect all TIDs needed
-		 * for the entry type.
+		 * btreeEntry.findItem 定位第一个 >= 给定搜索键的项。
+		 * （对 GIN_CAT_EMPTY_QUERY，会找到最左索引项，
+		 * 因为 GIN_CAT_EMPTY_QUERY 类别码的
+		 * 赋值方式。）我们从那里向前扫描，收集该条目
+		 * 类型所需的全部 TIDs。
 		 */
 		btreeEntry.findItem(&btreeEntry, stackEntry);
 		if (collectMatchBitmap(&btreeEntry, stackEntry, entry, snapshot)
 			== false)
 		{
 			/*
-			 * GIN tree was seriously restructured, so we will cleanup all
-			 * found data and rescan. See comments near 'return false' in
-			 * collectMatchBitmap()
+			 * GIN 树被严重重构，因此将清理所有
+			 * 已找到数据并重新扫描。见 collectMatchBitmap()
+			 * 中 'return false' 附近的注释
 			 */
 			if (entry->matchBitmap)
 			{
@@ -403,18 +403,18 @@ restartScanEntry:
 			ItemPointerData minItem;
 
 			/*
-			 * This is an equality scan, so lock the root of the posting tree.
-			 * It represents a lock on the exact key value, and covers all the
-			 * items in the posting tree.
+			 * 这是相等扫描，因此锁定倒排树的根。
+			 * 它表示对精确键值的锁，并覆盖倒排树中的
+			 * 全部项。
 			 */
 			PredicateLockPage(ginstate->index, rootPostingTree, snapshot);
 
 			/*
-			 * We should unlock entry page before touching posting tree to
-			 * prevent deadlocks with vacuum processes. Because entry is never
-			 * deleted from page and posting tree is never reduced to the
-			 * posting list, we can unlock page after getting BlockNumber of
-			 * root of posting tree.
+			 * 在接触倒排树之前应解锁条目页，以免与
+			 * vacuum 进程死锁。因为条目从不从页中
+			 * 删除，且倒排树从不收缩为
+			 * 倒排列表，在取得倒排树根的
+			 * BlockNumber 后即可解锁该页。
 			 */
 			LockBuffer(stackEntry->buffer, GIN_UNLOCK);
 			needUnlock = false;
@@ -424,16 +424,16 @@ restartScanEntry:
 			entry->buffer = stack->buffer;
 
 			/*
-			 * We keep buffer pinned because we need to prevent deletion of
-			 * page during scan. See GIN's vacuum implementation. RefCount is
-			 * increased to keep buffer pinned after freeGinBtreeStack() call.
+			 * 保持缓冲区钉住，因为需要防止扫描期间
+			 * 删除该页。见 GIN 的 vacuum 实现。增加
+			 * RefCount，以便 freeGinBtreeStack() 调用后仍钉住。
 			 */
 			IncrBufferRefCount(entry->buffer);
 
 			entrypage = BufferGetPage(entry->buffer);
 
 			/*
-			 * Load the first page into memory.
+			 * 把第一页载入内存。
 			 */
 			ItemPointerSetMin(&minItem);
 			entry->list = GinDataLeafPageGetItems(entrypage, &entry->nlist, minItem);
@@ -447,12 +447,12 @@ restartScanEntry:
 		else
 		{
 			/*
-			 * Lock the entry leaf page.  This is more coarse-grained than
-			 * necessary, because it will conflict with any insertions that
-			 * land on the same leaf page, not only the exact key we searched
-			 * for.  But locking an individual tuple would require updating
-			 * that lock whenever it moves because of insertions or vacuums,
-			 * which seems too complicated.
+			 * 锁定条目叶子页。这比必要的粒度更粗，
+			 * 因为它会与落在同一叶子页上的任何插入
+			 * 冲突，而不仅是我们搜索的精确键。
+			 * 但锁定单个元组需要在插入或 vacuum 使其
+			 * 移动时更新该锁，这似乎
+			 * 过于复杂。
 			 */
 			PredicateLockPage(ginstate->index,
 							  BufferGetBlockNumber(stackEntry->buffer),
@@ -470,8 +470,8 @@ restartScanEntry:
 	else
 	{
 		/*
-		 * No entry found.  Predicate lock the leaf page, to lock the place
-		 * where the entry would've been, had there been one.
+		 * 未找到条目。对叶子页加谓词锁，锁定若存在
+		 * 条目本应所在的位置。
 		 */
 		PredicateLockPage(ginstate->index,
 						  BufferGetBlockNumber(stackEntry->buffer), snapshot);
@@ -483,8 +483,8 @@ restartScanEntry:
 }
 
 /*
- * Comparison function for scan entry indexes. Sorts by predictNumberResult,
- * least frequent items first.
+ * 扫描条目下标的比较函数。按 predictNumberResult 排序，
+ * 最少见的项在前。
  */
 static int
 entryIndexByFrequencyCmp(const void *a1, const void *a2, void *arg)
@@ -517,26 +517,26 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
 	key->isFinished = false;
 
 	/*
-	 * Divide the entries into two distinct sets: required and additional.
-	 * Additional entries are not enough for a match alone, without any items
-	 * from the required set, but are needed by the consistent function to
-	 * decide if an item matches. When scanning, we can skip over items from
-	 * additional entries that have no corresponding matches in any of the
-	 * required entries. That speeds up queries like "frequent & rare"
-	 * considerably, if the frequent term can be put in the additional set.
+	 * 把条目分成两个不相交的集合：必需集与附加集。
+	 * 附加条目单独不足以构成匹配，还需要必需集中的
+	 * 某些项，但 consistent 函数需要它们来
+	 * 判定某项是否匹配。扫描时，可以跳过在任何
+	 * 必需条目中都没有对应匹配的附加条目中的项。
+	 * 这会显著加速类似 "frequent & rare" 的查询，
+	 * 若能把频繁词元放进附加集的话。
 	 *
-	 * There can be many legal ways to divide them entries into these two
-	 * sets. A conservative division is to just put everything in the required
-	 * set, but the more you can put in the additional set, the more you can
-	 * skip during the scan. To maximize skipping, we try to put as many
-	 * frequent items as possible into additional, and less frequent ones into
-	 * required. To do that, sort the entries by frequency
-	 * (predictNumberResult), and put entries into the required set in that
-	 * order, until the consistent function says that none of the remaining
-	 * entries can form a match, without any items from the required set. The
-	 * rest go to the additional set.
+	 * 把条目划分进这两个集合可以有许多合法方式。
+	 * 保守做法是把一切放进必需集，但放进附加集的
+	 * 越多，扫描时能跳过的就越多。为最大化跳过，
+	 * 我们尽量把频繁项放进附加集，把较少见的
+	 * 放进必需集。为此按频率
+	 * (predictNumberResult) 排序条目，并按该顺序
+	 * 把条目放进必需集，直到 consistent 函数表示
+	 * 其余条目在没有任何必需集项时都不能形成
+	 * 匹配。
+	 * 其余进入附加集。
 	 *
-	 * Exclude-only scan keys are known to have no required entries.
+	 * 仅排除型扫描键已知没有必需条目。
 	 */
 	if (key->excludeOnly)
 	{
@@ -562,16 +562,16 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
 			key->entryRes[entryIndexes[i]] = GIN_MAYBE;
 		for (i = 0; i < key->nentries - 1; i++)
 		{
-			/* Pass all entries <= i as FALSE, and the rest as MAYBE */
+			/* 把所有 <= i 的条目传为 FALSE，其余为 MAYBE */
 			key->entryRes[entryIndexes[i]] = GIN_FALSE;
 
 			if (key->triConsistentFn(key) == GIN_FALSE)
 				break;
 
-			/* Make this loop interruptible in case there are many keys */
+			/* 键很多时使本循环可中断 */
 			CHECK_FOR_INTERRUPTS();
 		}
-		/* i is now the last required entry. */
+		/* i 现在是最后一个必需条目。 */
 
 		MemoryContextSwitchTo(so->keyCtx);
 
@@ -586,7 +586,7 @@ startScanKey(GinState *ginstate, GinScanOpaque so, GinScanKey key)
 		for (i = 0; i < key->nadditional; i++)
 			key->additionalEntries[i] = key->scanEntry[entryIndexes[j++]];
 
-		/* clean up after consistentFn calls (also frees entryIndexes) */
+		/* consistentFn 调用后清理（也释放 entryIndexes） */
 		MemoryContextReset(so->tempCtx);
 	}
 	else
@@ -614,10 +614,10 @@ startScan(IndexScanDesc scan)
 	if (GinFuzzySearchLimit > 0)
 	{
 		/*
-		 * If all of keys more than threshold we will try to reduce result, we
-		 * hope (and only hope, for intersection operation of array our
-		 * supposition isn't true), that total result will not more than
-		 * minimal predictNumberResult.
+		 * 若所有键都超过阈值，我们将尝试缩减结果；我们
+		 * 希望（也仅仅是希望，对数组的交集运算我们的
+		 * 假定并不成立）总结果不会超过
+		 * 最小的 predictNumberResult。
 		 */
 		bool		reduce = true;
 
@@ -640,18 +640,18 @@ startScan(IndexScanDesc scan)
 	}
 
 	/*
-	 * Now that we have the estimates for the entry frequencies, finish
-	 * initializing the scan keys.
+	 * 既然已有条目频率估计，完成
+	 * 扫描键的初始化。
 	 */
 	for (i = 0; i < so->nkeys; i++)
 		startScanKey(ginstate, so, so->keys + i);
 }
 
 /*
- * Load the next batch of item pointers from a posting tree.
+ * 从倒排树加载下一批项指针。
  *
- * Note that we copy the page into GinScanEntry->list array and unlock it, but
- * keep it pinned to prevent interference with vacuum.
+ * 注意：我们把页复制进 GinScanEntry->list 数组并解锁它，但
+ * 保持钉住以防止与 vacuum 互相干扰。
  */
 static void
 entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
@@ -668,10 +668,10 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 	}
 
 	/*
-	 * We have two strategies for finding the correct page: step right from
-	 * the current page, or descend the tree again from the root. If
-	 * advancePast equals the current item, the next matching item should be
-	 * on the next page, so we step right. Otherwise, descend from root.
+	 * 寻找正确页有两种策略：从当前页向右步进，
+	 * 或从根再次下降树。若
+	 * advancePast 等于当前项，则下一个匹配项应在
+	 * 下一页，因此向右步进。否则从根下降。
 	 */
 	if (ginCompareItemPointers(&entry->curItem, &advancePast) == 0)
 	{
@@ -685,7 +685,7 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		ReleaseBuffer(entry->buffer);
 
 		/*
-		 * Set the search key, and find the correct leaf page.
+		 * 设置搜索键，并找到正确的叶子页。
 		 */
 		if (ItemPointerIsLossyPage(&advancePast))
 		{
@@ -702,7 +702,7 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		entry->btree.fullScan = false;
 		stack = ginFindLeafPage(&entry->btree, true, false, snapshot);
 
-		/* we don't need the stack, just the buffer. */
+		/* 我们不需要栈，只要缓冲区。 */
 		entry->buffer = stack->buffer;
 		IncrBufferRefCount(entry->buffer);
 		freeGinBtreeStack(stack);
@@ -728,8 +728,8 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		if (stepright)
 		{
 			/*
-			 * We've processed all the entries on this page. If it was the
-			 * last page in the tree, we're done.
+			 * 本页上的条目都已处理完。若它是树中的
+			 * 最后一页，我们就完成了。
 			 */
 			if (GinPageRightMost(page))
 			{
@@ -740,8 +740,8 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 			}
 
 			/*
-			 * Step to next page, following the right link. then find the
-			 * first ItemPointer greater than advancePast.
+			 * 沿右链步进到下一页，然后找到
+			 * 第一个大于 advancePast 的 ItemPointer。
 			 */
 			entry->buffer = ginStepRight(entry->buffer,
 										 ginstate->index,
@@ -751,21 +751,21 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		stepright = true;
 
 		if (GinPageGetOpaque(page)->flags & GIN_DELETED)
-			continue;			/* page was deleted by concurrent vacuum */
+			continue;			/* 页被并发 vacuum 删除 */
 
 		/*
-		 * The first item > advancePast might not be on this page, but
-		 * somewhere to the right, if the page was split, or a non-match from
-		 * another key in the query allowed us to skip some items from this
-		 * entry. Keep following the right-links until we re-find the correct
-		 * page.
+		 * 第一个 > advancePast 的项可能不在本页，而在
+		 * 右侧某处——若页发生过分裂，或查询中另一键的
+		 * 不匹配使我们跳过了本条目的某些项。
+		 * 继续沿右链前进，直到重新找到正确
+		 * 页。
 		 */
 		if (!GinPageRightMost(page) &&
 			ginCompareItemPointers(&advancePast, GinDataPageGetRightBound(page)) >= 0)
 		{
 			/*
-			 * the item we're looking is > the right bound of the page, so it
-			 * can't be on this page.
+			 * 我们要找的项 > 本页右界，因此它
+			 * 不可能在本页上。
 			 */
 			continue;
 		}
@@ -780,7 +780,7 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 
 				if (GinPageRightMost(page))
 				{
-					/* after processing the copied items, we're done. */
+					/* 处理完复制的项后，我们就完成了。 */
 					UnlockReleaseBuffer(entry->buffer);
 					entry->buffer = InvalidBuffer;
 				}
@@ -796,17 +796,17 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 #define dropItem(e) ( gin_rand() > ((double)GinFuzzySearchLimit)/((double)((e)->predictNumberResult)) )
 
 /*
- * Sets entry->curItem to next heap item pointer > advancePast, for one entry
- * of one scan key, or sets entry->isFinished to true if there are no more.
+ * 为某个扫描键的一个条目，把 entry->curItem 设为下一个
+ * > advancePast 的堆项指针；若没有更多则设 entry->isFinished 为 true。
  *
- * Item pointers are returned in ascending order.
+ * 项指针按升序返回。
  *
- * Note: this can return a "lossy page" item pointer, indicating that the
- * entry potentially matches all items on that heap page.  However, it is
- * not allowed to return both a lossy page pointer and exact (regular)
- * item pointers for the same page.  (Doing so would break the key-combination
- * logic in keyGetItem and scanGetItem; see comment in scanGetItem.)  In the
- * current implementation this is guaranteed by the behavior of tidbitmaps.
+ * 注意：这可以返回"有损页"项指针，表示该
+ * 条目可能匹配该堆页上的全部项。但不允许
+ * 对同一页既返回有损页指针又返回精确（常规）
+ * 项指针。（那样会破坏 keyGetItem 与 scanGetItem
+ * 中的键组合逻辑；见 scanGetItem 中的注释。）当前
+ * 实现由 tidbitmap 的行为保证这一点。
  */
 static void
 entryGetItem(GinState *ginstate, GinScanEntry entry,
@@ -819,15 +819,15 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 
 	if (entry->matchBitmap)
 	{
-		/* A bitmap result */
+		/* 位图结果 */
 		BlockNumber advancePastBlk = GinItemPointerGetBlockNumber(&advancePast);
 		OffsetNumber advancePastOff = GinItemPointerGetOffsetNumber(&advancePast);
 
 		for (;;)
 		{
 			/*
-			 * If we've exhausted all items on this block, move to next block
-			 * in the bitmap.
+			 * 若本块上的项已耗尽，移到位图中的
+			 * 下一块。
 			 */
 			while (entry->matchResult == NULL ||
 				   (entry->matchResult->ntuples >= 0 &&
@@ -848,10 +848,10 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 				}
 
 				/*
-				 * Reset counter to the beginning of entry->matchResult. Note:
-				 * entry->offset is still greater than matchResult->ntuples if
-				 * matchResult is lossy.  So, on next call we will get next
-				 * result from TIDBitmap.
+				 * 把计数器重置到 entry->matchResult 开头。注意：
+				 * 若 matchResult 有损，entry->offset 仍会大于
+				 * matchResult->ntuples。因此下次调用时我们将从
+				 * TIDBitmap 取得下一个结果。
 				 */
 				entry->offset = 0;
 			}
@@ -859,8 +859,8 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 				break;
 
 			/*
-			 * We're now on the first page after advancePast which has any
-			 * items on it. If it's a lossy result, return that.
+			 * 我们现在位于 advancePast 之后第一个含有
+			 * 项的页。若为有损结果，则返回它。
 			 */
 			if (entry->matchResult->ntuples < 0)
 			{
@@ -868,23 +868,23 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 										entry->matchResult->blockno);
 
 				/*
-				 * We might as well fall out of the loop; we could not
-				 * estimate number of results on this page to support correct
-				 * reducing of result even if it's enabled.
+				 * 我们不妨直接跳出循环；即便启用了缩减，
+				 * 也无法估计本页上的结果数以支持正确的
+				 * 结果缩减。
 				 */
 				break;
 			}
 
 			/*
-			 * Not a lossy page. Skip over any offsets <= advancePast, and
-			 * return that.
+			 * 不是有损页。跳过任何 <= advancePast 的偏移，并
+			 * 返回该项。
 			 */
 			if (entry->matchResult->blockno == advancePastBlk)
 			{
 				/*
-				 * First, do a quick check against the last offset on the
-				 * page. If that's > advancePast, so are all the other
-				 * offsets, so just go back to the top to get the next page.
+				 * 首先，对照页上最后一个偏移做快速检查。
+				 * 若它 > advancePast，则其余偏移也都是，
+				 * 因此直接回到顶部取下一页。
 				 */
 				if (entry->matchResult->offsets[entry->matchResult->ntuples - 1] <= advancePastOff)
 				{
@@ -892,7 +892,7 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 					continue;
 				}
 
-				/* Otherwise scan to find the first item > advancePast */
+				/* 否则扫描以找到第一个 > advancePast 的项 */
 				while (entry->matchResult->offsets[entry->offset] <= advancePastOff)
 					entry->offset++;
 			}
@@ -902,7 +902,7 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 						   entry->matchResult->offsets[entry->offset]);
 			entry->offset++;
 
-			/* Done unless we need to reduce the result */
+			/* 除非需要缩减结果，否则完成 */
 			if (!entry->reduceResult || !dropItem(entry))
 				break;
 		}
@@ -910,8 +910,8 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 	else if (!BufferIsValid(entry->buffer))
 	{
 		/*
-		 * A posting list from an entry tuple, or the last page of a posting
-		 * tree.
+		 * 来自条目元组的倒排列表，或倒排树的
+		 * 最后一页。
 		 */
 		for (;;)
 		{
@@ -924,21 +924,21 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 
 			entry->curItem = entry->list[entry->offset++];
 
-			/* If we're not past advancePast, keep scanning */
+			/* 若尚未越过 advancePast，继续扫描 */
 			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
 				continue;
 
-			/* Done unless we need to reduce the result */
+			/* 除非需要缩减结果，否则完成 */
 			if (!entry->reduceResult || !dropItem(entry))
 				break;
 		}
 	}
 	else
 	{
-		/* A posting tree */
+		/* 倒排树 */
 		for (;;)
 		{
-			/* If we've processed the current batch, load more items */
+			/* 若当前批次已处理完，加载更多项 */
 			while (entry->offset >= entry->nlist)
 			{
 				entryLoadMoreItems(ginstate, entry, advancePast, snapshot);
@@ -952,17 +952,17 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 
 			entry->curItem = entry->list[entry->offset++];
 
-			/* If we're not past advancePast, keep scanning */
+			/* 若尚未越过 advancePast，继续扫描 */
 			if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
 				continue;
 
-			/* Done unless we need to reduce the result */
+			/* 除非需要缩减结果，否则完成 */
 			if (!entry->reduceResult || !dropItem(entry))
 				break;
 
 			/*
-			 * Advance advancePast (so that entryLoadMoreItems will load the
-			 * right data), and keep scanning
+			 * 推进 advancePast（以便 entryLoadMoreItems 加载
+			 * 正确数据），并继续扫描
 			 */
 			advancePast = entry->curItem;
 		}
@@ -970,25 +970,25 @@ entryGetItem(GinState *ginstate, GinScanEntry entry,
 }
 
 /*
- * Identify the "current" item among the input entry streams for this scan key
- * that is greater than advancePast, and test whether it passes the scan key
- * qual condition.
+ * 在本扫描键的输入条目流中，识别大于
+ * advancePast 的"当前"项，并测试它是否通过扫描键
+ * 限定条件。
  *
- * The current item is the smallest curItem among the inputs.  key->curItem
- * is set to that value.  key->curItemMatches is set to indicate whether that
- * TID passes the consistentFn test.  If so, key->recheckCurItem is set true
- * iff recheck is needed for this item pointer (including the case where the
- * item pointer is a lossy page pointer).
+ * 当前项是各输入中最小的 curItem。key->curItem
+ * 设为该值。key->curItemMatches 表示该
+ * TID 是否通过 consistentFn 测试。若通过，则当本项指针
+ * 需要 recheck 时把 key->recheckCurItem 设为 true
+ * （包括项指针为有损页指针的情形）。
  *
- * If all entry streams are exhausted, sets key->isFinished to true.
+ * 若所有条目流都已耗尽，把 key->isFinished 设为 true。
  *
- * Item pointers must be returned in ascending order.
+ * 项指针必须按升序返回。
  *
- * Note: this can return a "lossy page" item pointer, indicating that the
- * key potentially matches all items on that heap page.  However, it is
- * not allowed to return both a lossy page pointer and exact (regular)
- * item pointers for the same page.  (Doing so would break the key-combination
- * logic in scanGetItem.)
+ * 注意：这可以返回"有损页"项指针，表示该
+ * 键可能匹配该堆页上的全部项。但不允许
+ * 对同一页既返回有损页指针又返回精确（常规）
+ * 项指针。（那样会破坏 scanGetItem 中的键组合
+ * 逻辑。）
  */
 static void
 keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
@@ -1006,20 +1006,20 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	Assert(!key->isFinished);
 
 	/*
-	 * We might have already tested this item; if so, no need to repeat work.
-	 * (Note: the ">" case can happen, if advancePast is exact but we
-	 * previously had to set curItem to a lossy-page pointer.)
+	 * 我们可能已经测试过该项；若是，无需重复工作。
+	 * （注意：">" 情形可能发生——若 advancePast 精确，但我们
+	 * 先前不得不把 curItem 设为有损页指针。）
 	 */
 	if (ginCompareItemPointers(&key->curItem, &advancePast) > 0)
 		return;
 
 	/*
-	 * Find the minimum item > advancePast among the active entry streams.
+	 * 在活跃条目流中查找 > advancePast 的最小项。
 	 *
-	 * Note: a lossy-page entry is encoded by a ItemPointer with max value for
-	 * offset (0xffff), so that it will sort after any exact entries for the
-	 * same page.  So we'll prefer to return exact pointers not lossy
-	 * pointers, which is good.
+	 * 注意：有损页条目编码为偏移取最大值
+	 * (0xffff) 的 ItemPointer，因此它会排在同一页任何
+	 * 精确条目之后。于是我们更倾向于返回精确指针而非有损
+	 * 指针，这很好。
 	 */
 	ItemPointerSetMax(&minItem);
 	allFinished = true;
@@ -1031,11 +1031,11 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 			continue;
 
 		/*
-		 * Advance this stream if necessary.
+		 * 必要时推进本流。
 		 *
-		 * In particular, since entry->curItem was initialized with
-		 * ItemPointerSetMin, this ensures we fetch the first item for each
-		 * entry on the first call.
+		 * 特别地，由于 entry->curItem 用
+		 * ItemPointerSetMin 初始化，这保证首次调用时为每个
+		 * 条目取回第一项。
 		 */
 		if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
 		{
@@ -1051,7 +1051,7 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 
 	if (allFinished && !key->excludeOnly)
 	{
-		/* all entries are finished */
+		/* 所有条目都已结束 */
 		key->isFinished = true;
 		return;
 	}
@@ -1059,12 +1059,12 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	if (!key->excludeOnly)
 	{
 		/*
-		 * For a normal scan key, we now know there are no matches < minItem.
+		 * 对普通扫描键，我们现在知道没有 < minItem 的匹配。
 		 *
-		 * If minItem is lossy, it means that there were no exact items on the
-		 * page among requiredEntries, because lossy pointers sort after exact
-		 * items. However, there might be exact items for the same page among
-		 * additionalEntries, so we mustn't advance past them.
+		 * 若 minItem 有损，意味着 requiredEntries 在该页上
+		 * 没有精确项，因为有损指针排在精确项之后。
+		 * 不过 additionalEntries 中同一页上可能仍有精确项，
+		 * 因此不得越过它们。
 		 */
 		if (ItemPointerIsLossyPage(&minItem))
 		{
@@ -1087,9 +1087,9 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	else
 	{
 		/*
-		 * excludeOnly scan keys don't have any entries that are necessarily
-		 * present in matching items.  So, we consider the item just after
-		 * advancePast.
+		 * excludeOnly 扫描键没有任何必定出现在匹配项中的
+		 * 条目。因此，我们考虑紧接
+		 * advancePast 之后的项。
 		 */
 		Assert(key->nrequired == 0);
 		ItemPointerSet(&minItem,
@@ -1098,12 +1098,12 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	}
 
 	/*
-	 * We might not have loaded all the entry streams for this TID yet. We
-	 * could call the consistent function, passing MAYBE for those entries, to
-	 * see if it can decide if this TID matches based on the information we
-	 * have. But if the consistent-function is expensive, and cannot in fact
-	 * decide with partial information, that could be a big loss. So, load all
-	 * the additional entries, before calling the consistent function.
+	 * 我们可能尚未为本 TID 加载全部条目流。可以
+	 * 对那些条目传入 MAYBE 调用 consistent 函数，看它能否
+	 * 根据已有信息判定本 TID 是否匹配。但若
+	 * consistent 函数很昂贵，且实际上无法用部分信息
+	 * 做出决定，那可能损失很大。因此在调用
+	 * consistent 函数之前，先加载全部附加条目。
 	 */
 	for (i = 0; i < key->nadditional; i++)
 	{
@@ -1120,9 +1120,9 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 		}
 
 		/*
-		 * Normally, none of the items in additionalEntries can have a curItem
-		 * larger than minItem. But if minItem is a lossy page, then there
-		 * might be exact items on the same page among additionalEntries.
+		 * 通常，additionalEntries 中任何项的 curItem 都不会
+		 * 大于 minItem。但若 minItem 是有损页，则
+		 * additionalEntries 中同一页上可能有精确项。
 		 */
 		if (ginCompareItemPointers(&entry->curItem, &minItem) < 0)
 		{
@@ -1132,34 +1132,34 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	}
 
 	/*
-	 * Ok, we've advanced all the entries up to minItem now. Set key->curItem,
-	 * and perform consistentFn test.
+	 * 好，我们已把所有条目推进到 minItem。设置 key->curItem，
+	 * 并执行 consistentFn 测试。
 	 *
-	 * Lossy-page entries pose a problem, since we don't know the correct
-	 * entryRes state to pass to the consistentFn, and we also don't know what
-	 * its combining logic will be (could be AND, OR, or even NOT). If the
-	 * logic is OR then the consistentFn might succeed for all items in the
-	 * lossy page even when none of the other entries match.
+	 * 有损页条目带来问题，因为我们不知道应传给
+	 * consistentFn 的正确 entryRes 状态，也不知道其
+	 * 组合逻辑是什么（可能是 AND、OR，甚至 NOT）。若
+	 * 逻辑是 OR，则即便其他条目都不匹配，consistentFn
+	 * 仍可能对有损页上的全部项成功。
 	 *
-	 * Our strategy is to call the tri-state consistent function, with the
-	 * lossy-page entries set to MAYBE, and all the other entries FALSE. If it
-	 * returns FALSE, none of the lossy items alone are enough for a match, so
-	 * we don't need to return a lossy-page pointer. Otherwise, return a
-	 * lossy-page pointer to indicate that the whole heap page must be
-	 * checked.  (On subsequent calls, we'll do nothing until minItem is past
-	 * the page altogether, thus ensuring that we never return both regular
-	 * and lossy pointers for the same page.)
+	 * 我们的策略是调用三值 consistent 函数，把
+	 * 有损页条目设为 MAYBE，其余条目为 FALSE。若它
+	 * 返回 FALSE，则单独的有损项不足以匹配，因此
+	 * 无需返回有损页指针。否则返回有损页指针，
+	 * 表示必须检查整个堆页。（后续调用中，在
+	 * minItem 完全越过该页之前我们什么也不做，从而
+	 * 确保从不对同一页既返回常规指针又返回有损
+	 * 指针。）
 	 *
-	 * An exception is that it doesn't matter what we pass for lossy pointers
-	 * in "hidden" entries, because the consistentFn's result can't depend on
-	 * them. We could pass them as MAYBE as well, but if we're using the
-	 * "shim" implementation of a tri-state consistent function (see
-	 * ginlogic.c), it's better to pass as few MAYBEs as possible. So pass
-	 * them as true.
+	 * 例外是：对"隐藏"条目中的有损指针传什么
+	 * 无关紧要，因为 consistentFn 的结果不能依赖它们。
+	 * 也可以把它们传为 MAYBE，但若使用的是三值
+	 * consistent 函数的 "shim" 实现（见
+	 * ginlogic.c），最好尽量少传 MAYBEs。因此把它们
+	 * 传为 true。
 	 *
-	 * Note that only lossy-page entries pointing to the current item's page
-	 * should trigger this processing; we might have future lossy pages in the
-	 * entry array, but they aren't relevant yet.
+	 * 注意只有指向当前项所在页的有损页条目
+	 * 才应触发本处理；条目数组中可能还有未来的
+	 * 有损页，但它们尚不相关。
 	 */
 	key->curItem = minItem;
 	ItemPointerSetLossyPage(&curPageLossy,
@@ -1181,21 +1181,21 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 			key->entryRes[i] = GIN_FALSE;
 	}
 
-	/* prepare for calling consistentFn in temp context */
+	/* 准备在临时上下文中调用 consistentFn */
 	oldCtx = MemoryContextSwitchTo(tempCtx);
 
 	if (haveLossyEntry)
 	{
-		/* Have lossy-page entries, so see if whole page matches */
+		/* 有有损页条目，因此看整页是否匹配 */
 		res = key->triConsistentFn(key);
 
 		if (res == GIN_TRUE || res == GIN_MAYBE)
 		{
-			/* Yes, so clean up ... */
+			/* 是，因此清理 ... */
 			MemoryContextSwitchTo(oldCtx);
 			MemoryContextReset(tempCtx);
 
-			/* and return lossy pointer for whole page */
+			/* 并返回整页的有损指针 */
 			key->curItem = curPageLossy;
 			key->curItemMatches = true;
 			key->recheckCurItem = true;
@@ -1204,14 +1204,14 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	}
 
 	/*
-	 * At this point we know that we don't need to return a lossy whole-page
-	 * pointer, but we might have matches for individual exact item pointers,
-	 * possibly in combination with a lossy pointer. Pass lossy pointers as
-	 * MAYBE to the ternary consistent function, to let it decide if this
-	 * tuple satisfies the overall key, even though we don't know if the lossy
-	 * entries match.
+	 * 此时我们知道无需返回有损整页
+	 * 指针，但可能对各个精确项指针有匹配，
+	 * 或许还与有损指针组合。把有损指针作为
+	 * MAYBE 传给三值 consistent 函数，让它判定本
+	 * 元组是否满足整体键，即便我们不知道有损
+	 * 条目是否匹配。
 	 *
-	 * Prepare entryRes array to be passed to consistentFn.
+	 * 准备传给 consistentFn 的 entryRes 数组。
 	 */
 	for (i = 0; i < key->nentries; i++)
 	{
@@ -1221,8 +1221,8 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 #if 0
 
 		/*
-		 * This case can't currently happen, because we loaded all the entries
-		 * for this item earlier.
+		 * 当前不可能发生本情形，因为我们先前已加载了
+		 * 本项的全部条目。
 		 */
 		else if (ginCompareItemPointers(&entry->curItem, &advancePast) <= 0)
 			key->entryRes[i] = GIN_MAYBE;
@@ -1241,7 +1241,7 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	{
 		case GIN_TRUE:
 			key->curItemMatches = true;
-			/* triConsistentFn set recheckCurItem */
+			/* triConsistentFn 设置了 recheckCurItem */
 			break;
 
 		case GIN_FALSE:
@@ -1256,8 +1256,8 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 		default:
 
 			/*
-			 * the 'default' case shouldn't happen, but if the consistent
-			 * function returns something bogus, this is the safe result
+			 * 'default' 情形本不应发生，但若 consistent
+			 * 函数返回了无意义的值，这是安全结果
 			 */
 			key->curItemMatches = true;
 			key->recheckCurItem = true;
@@ -1265,25 +1265,25 @@ keyGetItem(GinState *ginstate, MemoryContext tempCtx, GinScanKey key,
 	}
 
 	/*
-	 * We have a tuple, and we know if it matches or not. If it's a non-match,
-	 * we could continue to find the next matching tuple, but let's break out
-	 * and give scanGetItem a chance to advance the other keys. They might be
-	 * able to skip past to a much higher TID, allowing us to save work.
+	 * 我们有一个元组，并知道它是否匹配。若不匹配，
+	 * 本可继续找下一个匹配元组，但我们选择跳出，
+	 * 让 scanGetItem 有机会推进其他键。它们或许能
+	 * 跳到高得多的 TID，从而节省工作。
 	 */
 
-	/* clean up after consistentFn calls */
+	/* consistentFn 调用后清理 */
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(tempCtx);
 }
 
 /*
- * Get next heap item pointer (after advancePast) from scan.
- * Returns true if anything found.
- * On success, *item and *recheck are set.
+ * 从扫描取得下一个堆项指针（在 advancePast 之后）。
+ * 若找到任何东西则返回 true。
+ * 成功时设置 *item 与 *recheck。
  *
- * Note: this is very nearly the same logic as in keyGetItem(), except
- * that we know the keys are to be combined with AND logic, whereas in
- * keyGetItem() the combination logic is known only to the consistentFn.
+ * 注意：这与 keyGetItem() 中的逻辑几乎相同，只是
+ * 我们知道键以 AND 逻辑组合，而在
+ * keyGetItem() 中组合逻辑仅由 consistentFn 知道。
  */
 static bool
 scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
@@ -1294,14 +1294,14 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 	bool		match;
 
 	/*----------
-	 * Advance the scan keys in lock-step, until we find an item that matches
-	 * all the keys. If any key reports isFinished, meaning its subset of the
-	 * entries is exhausted, we can stop.  Otherwise, set *item to the next
-	 * matching item.
+	 * 同步推进扫描键，直到找到匹配所有键的项。
+	 * 若任一键报告 isFinished，表示其条目子集已
+	 * 耗尽，我们可以停止。否则把 *item 设为下一个
+	 * 匹配项。
 	 *
-	 * This logic works only if a keyGetItem stream can never contain both
-	 * exact and lossy pointers for the same page.  Else we could have a
-	 * case like
+	 * 本逻辑仅在 keyGetItem 流从不可能对同一页
+	 * 既含精确指针又含有损指针时成立。否则可能出现
+	 * 如下情形
 	 *
 	 *		stream 1		stream 2
 	 *		...             ...
@@ -1309,9 +1309,9 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 	 *		50/1			42/0xffff
 	 *		...             ...
 	 *
-	 * We would conclude that 42/6 is not a match and advance stream 1,
-	 * thus never detecting the match to the lossy pointer in stream 2.
-	 * (keyGetItem has a similar problem versus entryGetItem.)
+	 * 我们会断定 42/6 不匹配并推进流 1，
+	 * 从而永远检测不到流 2 中对有损指针的匹配。
+	 * （keyGetItem 相对 entryGetItem 有类似问题。）
 	 *----------
 	 */
 	do
@@ -1325,20 +1325,20 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 			GinScanKey	key = so->keys + i;
 
 			/*
-			 * If we're considering a lossy page, skip excludeOnly keys. They
-			 * can't exclude the whole page anyway.
+			 * 若正在考虑有损页，跳过 excludeOnly 键。它们
+			 * 反正无法排除整页。
 			 */
 			if (ItemPointerIsLossyPage(item) && key->excludeOnly)
 			{
 				/*
-				 * ginNewScanKey() should never mark the first key as
-				 * excludeOnly.
+				 * ginNewScanKey() 绝不应把第一个键标为
+				 * excludeOnly。
 				 */
 				Assert(i > 0);
 				continue;
 			}
 
-			/* Fetch the next item for this key that is > advancePast. */
+			/* 为本键取回 > advancePast 的下一项。 */
 			keyGetItem(&so->ginstate, so->tempCtx, key, advancePast,
 					   scan->xs_snapshot);
 
@@ -1346,8 +1346,8 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 				return false;
 
 			/*
-			 * If it's not a match, we can immediately conclude that nothing
-			 * <= this item matches, without checking the rest of the keys.
+			 * 若不匹配，可立即断定没有任何
+			 * <= 该项的匹配，无需检查其余键。
 			 */
 			if (!key->curItemMatches)
 			{
@@ -1357,11 +1357,11 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 			}
 
 			/*
-			 * It's a match. We can conclude that nothing < matches, so the
-			 * other key streams can skip to this item.
+			 * 这是匹配。可断定没有任何 < 的匹配，因此
+			 * 其他键流可跳到本项。
 			 *
-			 * Beware of lossy pointers, though; from a lossy pointer, we can
-			 * only conclude that nothing smaller than this *block* matches.
+			 * 不过要当心有损指针；从有损指针我们只能
+			 * 断定没有任何小于本*块*的匹配。
 			 */
 			if (ItemPointerIsLossyPage(&key->curItem))
 			{
@@ -1382,14 +1382,14 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 			}
 
 			/*
-			 * If this is the first key, remember this location as a potential
-			 * match, and proceed to check the rest of the keys.
+			 * 若这是第一个键，记住此位置作为潜在
+			 * 匹配，并继续检查其余键。
 			 *
-			 * Otherwise, check if this is the same item that we checked the
-			 * previous keys for (or a lossy pointer for the same page). If
-			 * not, loop back to check the previous keys for this item (we
-			 * will check this key again too, but keyGetItem returns quickly
-			 * for that)
+			 * 否则，检查这是否与我们为先前键检查的是
+			 * 同一项（或同一页的有损指针）。若
+			 * 不是，循环回去为该项检查先前的键（我们
+			 * 也会再检查本键，但 keyGetItem 对此会快速
+			 * 返回）
 			 */
 			if (i == 0)
 			{
@@ -1416,11 +1416,11 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 	Assert(!ItemPointerIsMin(item));
 
 	/*
-	 * Now *item contains the first ItemPointer after previous result that
-	 * satisfied all the keys for that exact TID, or a lossy reference to the
-	 * same page.
+	 * 现在 *item 包含前一结果之后第一个满足全部键
+	 * 的精确 TID 的 ItemPointer，或对同一页的
+	 * 有损引用。
 	 *
-	 * We must return recheck = true if any of the keys are marked recheck.
+	 * 若任一键标为 recheck，我们必须返回 recheck = true。
 	 */
 	*recheck = false;
 	for (i = 0; i < so->nkeys; i++)
@@ -1439,19 +1439,19 @@ scanGetItem(IndexScanDesc scan, ItemPointerData advancePast,
 
 
 /*
- * Functions for scanning the pending list
+ * 扫描挂起列表的函数
  */
 
 
 /*
- * Get ItemPointer of next heap row to be checked from pending list.
- * Returns false if there are no more. On pages with several heap rows
- * it returns each row separately, on page with part of heap row returns
- * per page data.  pos->firstOffset and pos->lastOffset are set to identify
- * the range of pending-list tuples belonging to this heap row.
+ * 从挂起列表取得下一个待检查堆行的 ItemPointer。
+ * 若没有更多则返回 false。一页上有多行堆行时
+ * 分别返回每一行；页上只有堆行一部分时返回
+ * 按页数据。设置 pos->firstOffset 与 pos->lastOffset 以标识
+ * 属于本堆行的挂起列表元组范围。
  *
- * The pendingBuffer is presumed pinned and share-locked on entry, and is
- * pinned and share-locked on success exit.  On failure exit it's released.
+ * 进入时假定 pendingBuffer 已钉住并共享锁定；成功
+ * 退出时仍钉住并共享锁定。失败退出时释放它。
  */
 static bool
 scanGetCandidate(IndexScanDesc scan, pendingPosition *pos)
@@ -1481,10 +1481,10 @@ scanGetCandidate(IndexScanDesc scan, pendingPosition *pos)
 			else
 			{
 				/*
-				 * Here we must prevent deletion of next page by insertcleanup
-				 * process, which may be trying to obtain exclusive lock on
-				 * current page.  So, we lock next page before releasing the
-				 * current one
+				 * 这里必须防止 insertcleanup 进程删除下一页，
+				 * 该进程可能正在试图对当前页取得
+				 * 排他锁。因此在释放当前页之前先
+				 * 锁定下一页
 				 */
 				Buffer		tmpbuf = ReadBuffer(scan->indexRelation, blkno);
 
@@ -1502,7 +1502,7 @@ scanGetCandidate(IndexScanDesc scan, pendingPosition *pos)
 			if (GinPageHasFullRow(page))
 			{
 				/*
-				 * find itempointer to the next row
+				 * 找到指向下一行的项指针
 				 */
 				for (pos->lastOffset = pos->firstOffset + 1; pos->lastOffset <= maxoff; pos->lastOffset++)
 				{
@@ -1514,15 +1514,15 @@ scanGetCandidate(IndexScanDesc scan, pendingPosition *pos)
 			else
 			{
 				/*
-				 * All itempointers are the same on this page
+				 * 本页上所有项指针都相同
 				 */
 				pos->lastOffset = maxoff + 1;
 			}
 
 			/*
-			 * Now pos->firstOffset points to the first tuple of current heap
-			 * row, pos->lastOffset points to the first tuple of next heap row
-			 * (or to the end of page)
+			 * 现在 pos->firstOffset 指向当前堆行的第一个元组，
+			 * pos->lastOffset 指向下一堆行的第一个元组
+			 * （或指向页末）
 			 */
 			break;
 		}
@@ -1532,14 +1532,14 @@ scanGetCandidate(IndexScanDesc scan, pendingPosition *pos)
 }
 
 /*
- * Scan pending-list page from current tuple (off) up till the first of:
- * - match is found (then returns true)
- * - no later match is possible
- * - tuple's attribute number is not equal to entry's attrnum
- * - reach end of page
+ * 从当前元组 (off) 起扫描挂起列表页，直到以下最先发生者：
+ * - 找到匹配（然后返回 true）
+ * - 不可能再有更晚的匹配
+ * - 元组的属性号不等于条目的 attrnum
+ * - 到达页末
  *
- * datum[]/category[]/datumExtracted[] arrays are used to cache the results
- * of gintuple_get_key() on the current page.
+ * datum[]/category[]/datumExtracted[] 数组用于缓存当前页上
+ * gintuple_get_key() 的结果。
  */
 static bool
 matchPartialInPendingList(GinState *ginstate, Page page,
@@ -1551,7 +1551,7 @@ matchPartialInPendingList(GinState *ginstate, Page page,
 	IndexTuple	itup;
 	int32		cmp;
 
-	/* Partial match to a null is not possible */
+	/* 不可能对空值做部分匹配 */
 	if (entry->queryCategory != GIN_CAT_NORM_KEY)
 		return false;
 
@@ -1569,15 +1569,15 @@ matchPartialInPendingList(GinState *ginstate, Page page,
 			datumExtracted[off - 1] = true;
 		}
 
-		/* Once we hit nulls, no further match is possible */
+		/* 一旦遇到空值，不可能再有更远匹配 */
 		if (category[off - 1] != GIN_CAT_NORM_KEY)
 			return false;
 
 		/*----------
-		 * Check partial match.
-		 * case cmp == 0 => match
-		 * case cmp > 0 => not match and end scan (no later match possible)
-		 * case cmp < 0 => not match and continue scan
+		 * 检查部分匹配。
+		 * case cmp == 0 => 匹配
+		 * case cmp > 0 => 不匹配并结束扫描（不可能再有更晚匹配）
+		 * case cmp < 0 => 不匹配并继续扫描
 		 *----------
 		 */
 		cmp = DatumGetInt32(FunctionCall4Coll(&ginstate->comparePartialFn[entry->attnum - 1],
@@ -1598,16 +1598,16 @@ matchPartialInPendingList(GinState *ginstate, Page page,
 }
 
 /*
- * Set up the entryRes array for each key by looking at
- * every entry for current heap row in pending list.
+ * 通过查看挂起列表中当前堆行的
+ * 每个条目，为每个键设置 entryRes 数组。
  *
- * Returns true if each scan key has at least one entryRes match.
- * This corresponds to the situations where the normal index search will
- * try to apply the key's consistentFn.  (A tuple not meeting that requirement
- * cannot be returned by the normal search since no entry stream will
- * source its TID.)
+ * 若每个扫描键至少有一个 entryRes 匹配则返回 true。
+ * 这对应于普通索引搜索会尝试对该键
+ * 应用 consistentFn 的情形。（不满足该要求的元组
+ * 不会被普通搜索返回，因为没有任何条目流会
+ * 产出其 TID。）
  *
- * The pendingBuffer is presumed pinned and share-locked on entry.
+ * 进入时假定 pendingBuffer 已钉住并共享锁定。
  */
 static bool
 collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
@@ -1620,7 +1620,7 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 				j;
 
 	/*
-	 * Reset all entryRes and hasMatchKey flags
+	 * 重置全部 entryRes 与 hasMatchKey 标志
 	 */
 	for (i = 0; i < so->nkeys; i++)
 	{
@@ -1631,8 +1631,8 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 	memset(pos->hasMatchKey, false, so->nkeys);
 
 	/*
-	 * Outer loop iterates over multiple pending-list pages when a single heap
-	 * row has entries spanning those pages.
+	 * 当单个堆行的条目跨越多个挂起列表页时，
+	 * 外层循环遍历这些页。
 	 */
 	for (;;)
 	{
@@ -1658,15 +1658,15 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 							StopHigh = pos->lastOffset,
 							StopMiddle;
 
-				/* If already matched on earlier page, do no extra work */
+				/* 若先前页上已匹配，不做额外工作 */
 				if (key->entryRes[j])
 					continue;
 
 				/*
-				 * Interesting tuples are from pos->firstOffset to
-				 * pos->lastOffset and they are ordered by (attnum, Datum) as
-				 * it's done in entry tree.  So we can use binary search to
-				 * avoid linear scanning.
+				 * 关心的元组位于 pos->firstOffset 到
+				 * pos->lastOffset，并按 (attnum, Datum) 排序，与
+				 * 条目树中相同。因此可用二分搜索
+				 * 避免线性扫描。
 				 */
 				while (StopLow < StopHigh)
 				{
@@ -1699,10 +1699,10 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 
 					if (entry->queryCategory == GIN_CAT_EMPTY_QUERY)
 					{
-						/* special behavior depending on searchMode */
+						/* 依 searchMode 的特殊行为 */
 						if (entry->searchMode == GIN_SEARCH_MODE_ALL)
 						{
-							/* match anything except NULL_ITEM */
+							/* 匹配除 NULL_ITEM 外的任何东西 */
 							if (category[StopMiddle - 1] == GIN_CAT_NULL_ITEM)
 								res = -1;
 							else
@@ -1710,7 +1710,7 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 						}
 						else
 						{
-							/* match everything */
+							/* 匹配一切 */
 							res = 0;
 						}
 					}
@@ -1727,13 +1727,13 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 					if (res == 0)
 					{
 						/*
-						 * Found exact match (there can be only one, except in
-						 * EMPTY_QUERY mode).
+						 * 找到精确匹配（除 EMPTY_QUERY 模式外
+						 * 只能有一个）。
 						 *
-						 * If doing partial match, scan forward from here to
-						 * end of page to check for matches.
+						 * 若做部分匹配，从这里向前扫描到
+						 * 页末以检查匹配。
 						 *
-						 * See comment above about tuple's ordering.
+						 * 见上文关于元组排序的注释。
 						 */
 						if (entry->isPartialMatch)
 							key->entryRes[j] =
@@ -1748,7 +1748,7 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 						else
 							key->entryRes[j] = true;
 
-						/* done with binary search */
+						/* 二分搜索结束 */
 						break;
 					}
 					else if (res < 0)
@@ -1760,12 +1760,12 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 				if (StopLow >= StopHigh && entry->isPartialMatch)
 				{
 					/*
-					 * No exact match on this page.  If doing partial match,
-					 * scan from the first tuple greater than target value to
-					 * end of page.  Note that since we don't remember whether
-					 * the comparePartialFn told us to stop early on a
-					 * previous page, we will uselessly apply comparePartialFn
-					 * to the first tuple on each subsequent page.
+					 * 本页上没有精确匹配。若做部分匹配，
+					 * 从第一个大于目标值的元组扫描到
+					 * 页末。注意由于我们不记得
+					 * comparePartialFn 是否在先前页上
+					 * 告诉我们提早停止，会对每个后续页的
+					 * 第一个元组徒劳地再应用 comparePartialFn。
 					 */
 					key->entryRes[j] =
 						matchPartialInPendingList(&so->ginstate,
@@ -1782,22 +1782,22 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 			}
 		}
 
-		/* Advance firstOffset over the scanned tuples */
+		/* 把 firstOffset 推进过已扫描的元组 */
 		pos->firstOffset = pos->lastOffset;
 
 		if (GinPageHasFullRow(page))
 		{
 			/*
-			 * We have examined all pending entries for the current heap row.
-			 * Break out of loop over pages.
+			 * 已检查当前堆行的全部挂起条目。
+			 * 跳出遍历页的循环。
 			 */
 			break;
 		}
 		else
 		{
 			/*
-			 * Advance to next page of pending entries for the current heap
-			 * row.  Complain if there isn't one.
+			 * 前进到当前堆行挂起条目的下一页。
+			 * 若没有则报错。
 			 */
 			ItemPointerData item = pos->item;
 
@@ -1808,10 +1808,10 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 	}
 
 	/*
-	 * All scan keys except excludeOnly require at least one entry to match.
-	 * excludeOnly keys are an exception, because their implied
-	 * GIN_CAT_EMPTY_QUERY scanEntry always matches.  So return "true" if all
-	 * non-excludeOnly scan keys have at least one match.
+	 * 除 excludeOnly 外的所有扫描键都需要至少一个条目匹配。
+	 * excludeOnly 键是例外，因为其隐含的
+	 * GIN_CAT_EMPTY_QUERY scanEntry 总是匹配。因此若所有
+	 * 非 excludeOnly 扫描键至少有一个匹配则返回 "true"。
 	 */
 	for (i = 0; i < so->nkeys; i++)
 	{
@@ -1823,7 +1823,7 @@ collectMatchesForHeapRow(IndexScanDesc scan, pendingPosition *pos)
 }
 
 /*
- * Collect all matched rows from pending list into bitmap.
+ * 把挂起列表中所有匹配行收集进位图。
  */
 static void
 scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
@@ -1841,8 +1841,8 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
 	*ntids = 0;
 
 	/*
-	 * Acquire predicate lock on the metapage, to conflict with any fastupdate
-	 * insertions.
+	 * 对元页加谓词锁，以便与任何 fastupdate
+	 * 插入冲突。
 	 */
 	PredicateLockPage(scan->indexRelation, GIN_METAPAGE_BLKNO, scan->xs_snapshot);
 
@@ -1852,12 +1852,12 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
 	blkno = GinPageGetMeta(page)->head;
 
 	/*
-	 * fetch head of list before unlocking metapage. head page must be pinned
-	 * to prevent deletion by vacuum process
+	 * 在解锁元页之前取列表头。头页必须钉住，
+	 * 以防止被 vacuum 进程删除
 	 */
 	if (blkno == InvalidBlockNumber)
 	{
-		/* No pending list, so proceed with normal scan */
+		/* 无挂起列表，因此继续普通扫描 */
 		UnlockReleaseBuffer(metabuffer);
 		return;
 	}
@@ -1869,24 +1869,24 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
 	pos.hasMatchKey = palloc(sizeof(bool) * so->nkeys);
 
 	/*
-	 * loop for each heap row. scanGetCandidate returns full row or row's
-	 * tuples from first page.
+	 * 对每个堆行循环。scanGetCandidate 返回整行或
+	 * 第一页上的该行元组。
 	 */
 	while (scanGetCandidate(scan, &pos))
 	{
 		/*
-		 * Check entries in tuple and set up entryRes array.
+		 * 检查元组中的条目并设置 entryRes 数组。
 		 *
-		 * If pending tuples belonging to the current heap row are spread
-		 * across several pages, collectMatchesForHeapRow will read all of
-		 * those pages.
+		 * 若属于当前堆行的挂起元组分散在
+		 * 若干页上，collectMatchesForHeapRow 将读完
+		 * 那些页。
 		 */
 		if (!collectMatchesForHeapRow(scan, &pos))
 			continue;
 
 		/*
-		 * Matching of entries of one row is finished, so check row using
-		 * consistent functions.
+		 * 一行条目的匹配已完成，因此用
+		 * consistent 函数检查该行。
 		 */
 		oldCtx = MemoryContextSwitchTo(so->tempCtx);
 		recheck = false;
@@ -1929,10 +1929,10 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	bool		recheck;
 
 	/*
-	 * Set up the scan keys, and check for unsatisfiable query.
+	 * 设置扫描键，并检查不可满足的查询。
 	 */
-	ginFreeScanKeys(so);		/* there should be no keys yet, but just to be
-								 * sure */
+	ginFreeScanKeys(so);		/* 此时应还没有键，但为保险
+								 * 起见 */
 	ginNewScanKey(scan);
 
 	if (GinIsVoidRes(scan))
@@ -1941,19 +1941,19 @@ gingetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	ntids = 0;
 
 	/*
-	 * First, scan the pending list and collect any matching entries into the
-	 * bitmap.  After we scan a pending item, some other backend could post it
-	 * into the main index, and so we might visit it a second time during the
-	 * main scan.  This is okay because we'll just re-set the same bit in the
-	 * bitmap.  (The possibility of duplicate visits is a major reason why GIN
-	 * can't support the amgettuple API, however.) Note that it would not do
-	 * to scan the main index before the pending list, since concurrent
-	 * cleanup could then make us miss entries entirely.
+	 * 首先扫描挂起列表，把任何匹配条目收集进
+	 * 位图。扫描某个挂起项之后，其他后端可能把它
+	 * 发布进主索引，因此主扫描期间我们可能
+	 * 再次访问它。这没问题，因为我们只会在位图中
+	 * 再次设置同一位。（重复访问的可能性正是 GIN
+	 * 无法支持 amgettuple API 的主要原因。）注意
+	 * 不能先扫描主索引再扫描挂起列表，因为并发
+	 * 清理可能使我们完全漏掉条目。
 	 */
 	scanPendingInsert(scan, tbm, &ntids);
 
 	/*
-	 * Now scan the main index.
+	 * 现在扫描主索引。
 	 */
 	startScan(scan);
 

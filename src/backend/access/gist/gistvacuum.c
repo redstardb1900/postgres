@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistvacuum.c
- *	  vacuuming routines for the postgres GiST index access method.
+ *	  postgres GiST 索引访问方法的清理例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,7 +24,7 @@
 #include "storage/lmgr.h"
 #include "utils/memutils.h"
 
-/* Working state needed by gistbulkdelete */
+/* gistbulkdelete 所需的工作状态 */
 typedef struct
 {
 	IndexVacuumInfo *info;
@@ -34,8 +34,8 @@ typedef struct
 	GistNSN		startNSN;
 
 	/*
-	 * These are used to memorize all internal and empty leaf pages.  They are
-	 * used for deleting all the empty pages.
+	 * 用于记住所有内部页与空叶子页。它们
+	 * 用于删除全部空页。
 	 */
 	IntegerSet *internal_page_set;
 	IntegerSet *empty_leaf_set;
@@ -53,13 +53,13 @@ static bool gistdeletepage(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 						   Buffer leafBuffer);
 
 /*
- * VACUUM bulkdelete stage: remove index entries.
+ * VACUUM bulkdelete 阶段：移除索引条目。
  */
 IndexBulkDeleteResult *
 gistbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 			   IndexBulkDeleteCallback callback, void *callback_state)
 {
-	/* allocate stats if first time through, else re-use existing struct */
+	/* 若是首次进入则分配 stats，否则复用已有结构 */
 	if (stats == NULL)
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
 
@@ -69,19 +69,19 @@ gistbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 }
 
 /*
- * VACUUM cleanup stage: delete empty pages, and update index statistics.
+ * VACUUM cleanup 阶段：删除空页，并更新索引统计信息。
  */
 IndexBulkDeleteResult *
 gistvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 {
-	/* No-op in ANALYZE ONLY mode */
+	/* ANALYZE ONLY 模式下为空操作 */
 	if (info->analyze_only)
 		return stats;
 
 	/*
-	 * If gistbulkdelete was called, we need not do anything, just return the
-	 * stats from the latest gistbulkdelete call.  If it wasn't called, we
-	 * still need to do a pass over the index, to obtain index statistics.
+	 * 若已调用过 gistbulkdelete，则无需再做任何事，只需返回
+	 * 最近一次 gistbulkdelete 调用的统计信息。若未调用过，我们
+	 * 仍需遍历一遍索引，以获取索引统计信息。
 	 */
 	if (stats == NULL)
 	{
@@ -90,10 +90,10 @@ gistvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	}
 
 	/*
-	 * It's quite possible for us to be fooled by concurrent page splits into
-	 * double-counting some index tuples, so disbelieve any total that exceeds
-	 * the underlying heap's count ... if we know that accurately.  Otherwise
-	 * this might just make matters worse.
+	 * 我们很容易被并发页分裂迷惑，从而把某些索引元组重复计数，
+	 * 因此若底层堆的计数是准确的，则不相信任何超过堆计数的
+	 * 总数……若我们确实准确知道堆计数。否则这可能只会把事情
+	 * 弄得更糟。
 	 */
 	if (!info->estimated_count)
 	{
@@ -105,21 +105,21 @@ gistvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 }
 
 /*
- * gistvacuumscan --- scan the index for VACUUMing purposes
+ * gistvacuumscan --- 为 VACUUMing 目的扫描索引
  *
- * This scans the index for leaf tuples that are deletable according to the
- * vacuum callback, and updates the stats.  Both btbulkdelete and
- * btvacuumcleanup invoke this (the latter only if no btbulkdelete call
- * occurred).
+ * 本函数扫描索引，查找按清理回调可删除的叶子元组，并更新
+ * 统计信息。btbulkdelete 与 btvacuumcleanup 都会调用它（后者
+ * 仅在未发生 btbulkdelete 调用时）。
  *
- * This also makes note of any empty leaf pages, as well as all internal
- * pages while looping over all index pages.  After scanning all the pages, we
- * remove the empty pages so that they can be reused.  Any deleted pages are
- * added directly to the free space map.  (They should've been added there
- * when they were originally deleted, already, but it's possible that the FSM
- * was lost at a crash, for example.)
+ * 在遍历全部索引页时，本函数还会记下任何空叶子页以及所有
+ * 内部页。扫描完所有页之后，我们删除空页以便复用。任何已删除
+ * 页会直接加入空闲空间映射。（它们本应在最初删除时就已加入，
+ * 但例如崩溃后 FSM 丢失时仍可能需要再加一次。）
  *
- * The caller is responsible for initially allocating/zeroing a stats struct.
+ * 调用者负责初始分配/清零 stats 结构。
+  *
+  *
+  *
  */
 static void
 gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
@@ -133,19 +133,19 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	MemoryContext oldctx;
 
 	/*
-	 * Reset fields that track information about the entire index now.  This
-	 * avoids double-counting in the case where a single VACUUM command
-	 * requires multiple scans of the index.
+	 * 现在重置跟踪整个索引信息的字段。这在单条 VACUUM
+	 * 命令需要对索引进行多次扫描时，可避免重复计数。
 	 *
-	 * Avoid resetting the tuples_removed and pages_newly_deleted fields here,
-	 * since they track information about the VACUUM command, and so must last
-	 * across each call to gistvacuumscan().
+	 * 此处避免重置 tuples_removed 与 pages_newly_deleted 字段，
+	 * 因为它们跟踪的是 VACUUM 命令本身的信息，因此必须在
+	 * 对 gistvacuumscan() 的每次调用之间保持。
 	 *
-	 * (Note that pages_free is treated as state about the whole index, not
-	 * the current VACUUM.  This is appropriate because RecordFreeIndexPage()
-	 * calls are idempotent, and get repeated for the same deleted pages in
-	 * some scenarios.  The point for us is to track the number of recyclable
-	 * pages in the index at the end of the VACUUM command.)
+	 * （注意 pages_free 被当作关于整个索引的状态，而不是
+	 * 当前 VACUUM 的状态。这是合适的，因为 RecordFreeIndexPage()
+	 * 调用是幂等的，并且在某些场景下会对同一已删除页重复
+	 * 执行。对我们而言，要点是在 VACUUM 命令结束时跟踪索引中
+	 * 可回收页的数量。）
+	  *
 	 */
 	stats->num_pages = 0;
 	stats->estimated_count = false;
@@ -154,14 +154,14 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	stats->pages_free = 0;
 
 	/*
-	 * Create the integer sets to remember all the internal and the empty leaf
-	 * pages in page_set_context.  Internally, the integer set will remember
-	 * this context so that the subsequent allocations for these integer sets
-	 * will be done from the same context.
+	 * 创建整数集合，以便在 page_set_context 中记住所有内部页
+	 * 与空叶子页。在内部，整数集合会记住该上下文，使这些
+	 * 整数集合的后续分配都从同一上下文进行。
 	 *
-	 * XXX the allocation sizes used below pre-date generation context's block
-	 * growing code.  These values should likely be benchmarked and set to
-	 * more suitable values.
+	 * XXX 下面使用的分配大小早于 generation 上下文的块增长
+	 * 代码。这些值或许应经基准测试后设为更合适的数值。
+	  *
+	  *
 	 */
 	vstate.page_set_context = GenerationContextCreate(CurrentMemoryContext,
 													  "GiST VACUUM page set context",
@@ -173,7 +173,7 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	vstate.empty_leaf_set = intset_create();
 	MemoryContextSwitchTo(oldctx);
 
-	/* Set up info to pass down to gistvacuumpage */
+	/* 设置要向下传给 gistvacuumpage 的信息 */
 	vstate.info = info;
 	vstate.stats = stats;
 	vstate.callback = callback;
@@ -184,73 +184,73 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		vstate.startNSN = gistGetFakeLSN(rel);
 
 	/*
-	 * The outer loop iterates over all index pages, in physical order (we
-	 * hope the kernel will cooperate in providing read-ahead for speed).  It
-	 * is critical that we visit all leaf pages, including ones added after we
-	 * start the scan, else we might fail to delete some deletable tuples.
-	 * Hence, we must repeatedly check the relation length.  We must acquire
-	 * the relation-extension lock while doing so to avoid a race condition:
-	 * if someone else is extending the relation, there is a window where
-	 * bufmgr/smgr have created a new all-zero page but it hasn't yet been
-	 * write-locked by gistNewBuffer().  If we manage to scan such a page
-	 * here, we'll improperly assume it can be recycled.  Taking the lock
-	 * synchronizes things enough to prevent a problem: either num_pages won't
-	 * include the new page, or gistNewBuffer already has write lock on the
-	 * buffer and it will be fully initialized before we can examine it.  (See
-	 * also vacuumlazy.c, which has the same issue.)  Also, we need not worry
-	 * if a page is added immediately after we look; the page splitting code
-	 * already has write-lock on the left page before it adds a right page, so
-	 * we must already have processed any tuples due to be moved into such a
-	 * page.
+	 * 外层循环按物理顺序遍历所有索引页（我们希望内核配合
+	 * 提供预读以提高速度）。关键的是必须访问所有叶子页，
+	 * 包括在我们开始扫描之后新增的，否则可能无法删除某些
+	 * 可删除元组。因此，必须反复检查关系长度。这样做时必须
+	 * 获取关系扩展锁以避免竞态条件：若别人正在扩展关系，
+	 * 存在一个窗口，此时 bufmgr/smgr 已创建全新的全零页，但
+	 * gistNewBuffer() 尚未对其取写锁。若我们在此处扫到这样的
+	 * 页，就会错误地假定它可以回收。取锁足以同步并防止问题：
+	 * 要么 num_pages 不包含新页，要么 gistNewBuffer 已对缓冲区
+	 * 持有写锁，并在我们检查之前完成完全初始化。（另见
+	 * vacuumlazy.c，它有同样的问题。）此外，不必担心我们查看
+	 * 之后立即新增的页；页分裂代码在添加右页之前已对左页持有
+	 * 写锁，因此任何将要移入该页的元组必定已被我们处理过。
 	 *
-	 * We can skip locking for new or temp relations, however, since no one
-	 * else could be accessing them.
+	 * 不过，对新关系或临时关系可以跳过加锁，因为不会有其他
+	 * 人访问它们。
+	  *
+	  *
+	  *
+	  *
+	  *
 	 */
 	needLock = !RELATION_IS_LOCAL(rel);
 
 	blkno = GIST_ROOT_BLKNO;
 	for (;;)
 	{
-		/* Get the current relation length */
+		/* 获取当前关系长度 */
 		if (needLock)
 			LockRelationForExtension(rel, ExclusiveLock);
 		num_pages = RelationGetNumberOfBlocks(rel);
 		if (needLock)
 			UnlockRelationForExtension(rel, ExclusiveLock);
 
-		/* Quit if we've scanned the whole relation */
+		/* 若已扫描完整个关系则退出 */
 		if (blkno >= num_pages)
 			break;
-		/* Iterate over pages, then loop back to recheck length */
+		/* 遍历各页，然后回环以重新检查长度 */
 		for (; blkno < num_pages; blkno++)
 			gistvacuumpage(&vstate, blkno, blkno);
 	}
 
 	/*
-	 * If we found any recyclable pages (and recorded them in the FSM), then
-	 * forcibly update the upper-level FSM pages to ensure that searchers can
-	 * find them.  It's possible that the pages were also found during
-	 * previous scans and so this is a waste of time, but it's cheap enough
-	 * relative to scanning the index that it shouldn't matter much, and
-	 * making sure that free pages are available sooner not later seems
-	 * worthwhile.
+	 * 若我们发现了任何可回收页（并已将它们记入 FSM），则
+	 * 强制更新上层 FSM 页，以确保搜索者能找到它们。这些页
+	 * 也可能在先前扫描中已找到，因而这可能是浪费时间，但相对
+	 * 于扫描索引而言足够便宜，影响不大，而且让空闲页尽早而非
+	 * 较晚可用似乎值得。
 	 *
-	 * Note that if no recyclable pages exist, we don't bother vacuuming the
-	 * FSM at all.
+	 * 注意：若不存在可回收页，我们根本不费心清理 FSM。
+	  *
+	  *
+	  *
 	 */
 	if (stats->pages_free > 0)
 		IndexFreeSpaceMapVacuum(rel);
 
-	/* update statistics */
+	/* 更新统计信息 */
 	stats->num_pages = num_pages;
 
 	/*
-	 * If we saw any empty pages, try to unlink them from the tree so that
-	 * they can be reused.
+	 * 若看到了任何空页，尝试把它们从树中解除链接，以便
+	 * 复用。
 	 */
 	gistvacuum_delete_empty_pages(info, &vstate);
 
-	/* we don't need the internal and empty page sets anymore */
+	/* 不再需要内部页与空页集合 */
 	MemoryContextDelete(vstate.page_set_context);
 	vstate.page_set_context = NULL;
 	vstate.internal_page_set = NULL;
@@ -258,15 +258,15 @@ gistvacuumscan(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 }
 
 /*
- * gistvacuumpage --- VACUUM one page
+ * gistvacuumpage --- VACUUM 一页
  *
- * This processes a single page for gistbulkdelete().  In some cases we
- * must go back and re-examine previously-scanned pages; this routine
- * recurses when necessary to handle that case.
+ * 本函数为 gistbulkdelete() 处理单个页。在某些情况下我们必须
+ * 回退并重新检查先前已扫描的页；必要时本例程会递归以处理
+ * 这种情况。
  *
- * blkno is the page to process.  orig_blkno is the highest block number
- * reached by the outer gistvacuumscan loop (the same as blkno, unless we
- * are recursing to re-examine a previous page).
+ * blkno 是要处理的页。orig_blkno 是外层 gistvacuumscan 循环
+ * 已到达的最高块号（与 blkno 相同，除非我们正在递归以重新检查
+ * 先前的页）。
  */
 static void
 gistvacuumpage(GistVacState *vstate, BlockNumber blkno, BlockNumber orig_blkno)
@@ -282,29 +282,29 @@ gistvacuumpage(GistVacState *vstate, BlockNumber blkno, BlockNumber orig_blkno)
 restart:
 	recurse_to = InvalidBlockNumber;
 
-	/* call vacuum_delay_point while not holding any buffer lock */
+	/* 在未持有任何缓冲区锁时调用 vacuum_delay_point */
 	vacuum_delay_point();
 
 	buffer = ReadBufferExtended(rel, MAIN_FORKNUM, blkno, RBM_NORMAL,
 								info->strategy);
 
 	/*
-	 * We are not going to stay here for a long time, aggressively grab an
-	 * exclusive lock.
+	 * 我们不会在此停留很久，积极地取排他锁。
+	  *
 	 */
 	LockBuffer(buffer, GIST_EXCLUSIVE);
 	page = (Page) BufferGetPage(buffer);
 
 	if (gistPageRecyclable(page))
 	{
-		/* Okay to recycle this page */
+		/* 可以回收此页 */
 		RecordFreeIndexPage(rel, blkno);
 		vstate->stats->pages_deleted++;
 		vstate->stats->pages_free++;
 	}
 	else if (GistPageIsDeleted(page))
 	{
-		/* Already deleted, but can't recycle yet */
+		/* 已删除，但尚不能回收 */
 		vstate->stats->pages_deleted++;
 	}
 	else if (GistPageIsLeaf(page))
@@ -316,14 +316,14 @@ restart:
 		OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
 
 		/*
-		 * Check whether we need to recurse back to earlier pages.  What we
-		 * are concerned about is a page split that happened since we started
-		 * the vacuum scan.  If the split moved some tuples to a lower page
-		 * then we might have missed 'em.  If so, set up for tail recursion.
+		 * 检查是否需要递归回到更早的页。我们关心的是自清理
+		 * 扫描开始以来发生的页分裂。若分裂把某些元组移到了
+		 * 编号更低的页，则我们可能漏掉了它们。若是如此，为
+		 * 尾递归做好准备。
 		 *
-		 * This is similar to the checks we do during searches, when following
-		 * a downlink, but we don't need to jump to higher-numbered pages,
-		 * because we will process them later, anyway.
+		 * 这类似于搜索时沿下行指针前进所做的检查，但我们不需要
+		 * 跳到编号更高的页，因为反正稍后会处理它们。
+		  *
 		 */
 		if ((GistFollowRight(page) ||
 			 vstate->startNSN < GistPageGetNSN(page)) &&
@@ -334,8 +334,8 @@ restart:
 		}
 
 		/*
-		 * Scan over all items to see which ones need to be deleted according
-		 * to the callback function.
+		 * 扫描所有项，查看按回调函数哪些需要删除。
+		  *
 		 */
 		if (callback)
 		{
@@ -354,8 +354,8 @@ restart:
 		}
 
 		/*
-		 * Apply any needed deletes.  We issue just one WAL record per page,
-		 * so as to minimize WAL traffic.
+		 * 应用任何需要的删除。我们每页只发一条 WAL 记录，
+		 * 以尽量减少 WAL 流量。
 		 */
 		if (ntodelete > 0)
 		{
@@ -381,7 +381,7 @@ restart:
 			END_CRIT_SECTION();
 
 			vstate->stats->tuples_removed += ntodelete;
-			/* must recompute maxoff */
+			/* 必须重新计算 maxoff */
 			maxoff = PageGetMaxOffsetNumber(page);
 		}
 
@@ -389,12 +389,12 @@ restart:
 		if (nremain == 0)
 		{
 			/*
-			 * The page is now completely empty.  Remember its block number,
-			 * so that we will try to delete the page in the second stage.
+			 * 该页现在完全为空。记住其块号，以便我们在第二阶段
+			 * 尝试删除该页。
 			 *
-			 * Skip this when recursing, because IntegerSet requires that the
-			 * values are added in ascending order.  The next VACUUM will pick
-			 * it up.
+			 * 递归时跳过，因为 IntegerSet 需要按升序添加值。
+			 * 下一次 VACUUM 会拾取它。
+			  *
 			 */
 			if (blkno == orig_blkno)
 				intset_add_member(vstate->empty_leaf_set, blkno);
@@ -405,11 +405,11 @@ restart:
 	else
 	{
 		/*
-		 * On an internal page, check for "invalid tuples", left behind by an
-		 * incomplete page split on PostgreSQL 9.0 or below.  These are not
-		 * created by newer PostgreSQL versions, but unfortunately, there is
-		 * no version number anywhere in a GiST index, so we don't know
-		 * whether this index might still contain invalid tuples or not.
+		 * 在内部页上，检查"无效元组"，它们是 PostgreSQL 9.0
+		 * 或更早版本上未完成的页分裂留下的。较新的 PostgreSQL
+		 * 版本不会再创建它们，但不幸的是 GiST 索引中没有任何版本
+		 * 号，因此我们不知道该索引是否仍可能包含无效元组。
+		  *
 		 */
 		OffsetNumber maxoff = PageGetMaxOffsetNumber(page);
 		OffsetNumber off;
@@ -430,9 +430,9 @@ restart:
 		}
 
 		/*
-		 * Remember the block number of this page, so that we can revisit it
-		 * later in gistvacuum_delete_empty_pages(), when we search for
-		 * parents of empty leaf pages.
+		 * 记住此页的块号，以便稍后在 gistvacuum_delete_empty_pages()
+		 * 中查找空叶子页的父页时可以再次访问它。
+		  *
 		 */
 		if (blkno == orig_blkno)
 			intset_add_member(vstate->internal_page_set, blkno);
@@ -441,11 +441,11 @@ restart:
 	UnlockReleaseBuffer(buffer);
 
 	/*
-	 * This is really tail recursion, but if the compiler is too stupid to
-	 * optimize it as such, we'd eat an uncomfortably large amount of stack
-	 * space per recursion level (due to the deletable[] array).  A failure is
-	 * improbable since the number of levels isn't likely to be large ... but
-	 * just in case, let's hand-optimize into a loop.
+	 * 这其实是尾递归，但若编译器笨到无法将其优化为循环，我们
+	 * 会在每一层递归上消耗令人不适的大量栈空间（由于 deletable[]
+	 * 数组）。失败不太可能，因为层数通常不会很大……但以防万一，
+	 * 我们手工优化成循环。
+	  *
 	 */
 	if (recurse_to != InvalidBlockNumber)
 	{
@@ -455,7 +455,7 @@ restart:
 }
 
 /*
- * Scan all internal pages, and try to delete their empty child pages.
+ * 扫描所有内部页，并尝试删除它们的空子页。
  */
 static void
 gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
@@ -465,7 +465,7 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 	uint64		blkno;
 
 	/*
-	 * Rescan all inner pages to find those that have empty child pages.
+	 * 重新扫描所有内部页，找出那些有空子页的。
 	 */
 	empty_pages_remaining = intset_num_entries(vstate->empty_leaf_set);
 	intset_begin_iterate(vstate->internal_page_set);
@@ -490,8 +490,8 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 		if (PageIsNew(page) || GistPageIsDeleted(page) || GistPageIsLeaf(page))
 		{
 			/*
-			 * This page was an internal page earlier, but now it's something
-			 * else. Shouldn't happen...
+			 * 此页先前是内部页，但现在变成了别的东西。
+			 * 不应发生……
 			 */
 			Assert(false);
 			UnlockReleaseBuffer(buffer);
@@ -499,8 +499,8 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 		}
 
 		/*
-		 * Scan all the downlinks, and see if any of them point to empty leaf
-		 * pages.
+		 * 扫描所有下行指针，看是否有任何指向空叶子页。
+		  *
 		 */
 		maxoff = PageGetMaxOffsetNumber(page);
 		ntodelete = 0;
@@ -521,17 +521,17 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 		}
 
 		/*
-		 * In order to avoid deadlock, child page must be locked before
-		 * parent, so we must release the lock on the parent, lock the child,
-		 * and then re-acquire the lock the parent.  (And we wouldn't want to
-		 * do I/O, while holding a lock, anyway.)
+		 * 为避免死锁，子页必须在父页之前加锁，因此我们必须释放
+		 * 父页上的锁，锁住子页，然后再重新获取父页的锁。（而且
+		 * 反正也不想在持锁时做 I/O。）
 		 *
-		 * At the instant that we're not holding a lock on the parent, the
-		 * downlink might get moved by a concurrent insert, so we must
-		 * re-check that it still points to the same child page after we have
-		 * acquired both locks.  Also, another backend might have inserted a
-		 * tuple to the page, so that it is no longer empty.  gistdeletepage()
-		 * re-checks all these conditions.
+		 * 在我们未持有父页锁的瞬间，下行指针可能被并发插入移走，
+		 * 因此在取得两把锁之后，必须重新检查它是否仍指向同一子
+		 * 页。另外，另一个后端可能已向该页插入了元组，使它不再
+		 * 为空。gistdeletepage() 会重新检查所有这些条件。
+		  *
+		  *
+		  *
 		 */
 		LockBuffer(buffer, GIST_UNLOCK);
 
@@ -541,8 +541,8 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 			Buffer		leafbuf;
 
 			/*
-			 * Don't remove the last downlink from the parent.  That would
-			 * confuse the insertion code.
+			 * 不要从父页移除最后一个下行指针。那会
+			 * 迷惑插入代码。
 			 */
 			if (PageGetMaxOffsetNumber(page) == FirstOffsetNumber)
 				break;
@@ -565,24 +565,24 @@ gistvacuum_delete_empty_pages(IndexVacuumInfo *info, GistVacState *vstate)
 		ReleaseBuffer(buffer);
 
 		/*
-		 * We can stop the scan as soon as we have seen the downlinks, even if
-		 * we were not able to remove them all.
+		 * 一旦我们已看到这些下行指针，就可以停止扫描，即使
+		 * 未能将它们全部移除。
 		 */
 		empty_pages_remaining -= ntodelete;
 	}
 }
 
 /*
- * gistdeletepage takes a leaf page, and its parent, and tries to delete the
- * leaf.  Both pages must be locked.
+ * gistdeletepage 接受一个叶子页及其父页，并尝试删除该
+ * 叶子。两页都必须已加锁。
  *
- * Even if the page was empty when we first saw it, a concurrent inserter might
- * have added a tuple to it since.  Similarly, the downlink might have moved.
- * We re-check all the conditions, to make sure the page is still deletable,
- * before modifying anything.
+ * 即便我们初次看到该页时它为空，并发插入者此后也可能已向
+ * 其添加了元组。同样，下行指针也可能已移动。我们重新检查
+ * 全部条件，以确保在修改任何内容之前该页仍可删除。
  *
- * Returns true, if the page was deleted, and false if a concurrent update
- * prevented it.
+ * 若页被删除则返回 true；若并发更新阻止了删除则返回
+ * false。
+  *
  */
 static bool
 gistdeletepage(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
@@ -597,32 +597,32 @@ gistdeletepage(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	FullTransactionId txid;
 
 	/*
-	 * Check that the leaf is still empty and deletable.
+	 * 检查叶子是否仍为空且可删除。
 	 */
 	if (!GistPageIsLeaf(leafPage))
 	{
-		/* a leaf page should never become a non-leaf page */
+		/* 叶子页绝不应当变成非叶子页 */
 		Assert(false);
 		return false;
 	}
 
 	if (GistFollowRight(leafPage))
-		return false;			/* don't mess with a concurrent page split */
+		return false;			/* 不要搅扰并发页分裂 */
 
 	if (PageGetMaxOffsetNumber(leafPage) != InvalidOffsetNumber)
-		return false;			/* not empty anymore */
+		return false;			/* 已不再为空 */
 
 	/*
-	 * Ok, the leaf is deletable.  Is the downlink in the parent page still
-	 * valid?  It might have been moved by a concurrent insert.  We could try
-	 * to re-find it by scanning the page again, possibly moving right if the
-	 * was split.  But for now, let's keep it simple and just give up.  The
-	 * next VACUUM will pick it up.
+	 * 好，叶子可删除。父页中的下行指针是否仍然有效？它可能
+	 * 已被并发插入移走。我们可以尝试再次扫描该页来重新找到它，
+	 * 若发生了分裂还可能向右移动。但目前先保持简单，直接放弃。
+	 * 下一次 VACUUM 会拾取它。
+	  *
 	 */
 	if (PageIsNew(parentPage) || GistPageIsDeleted(parentPage) ||
 		GistPageIsLeaf(parentPage))
 	{
-		/* shouldn't happen, internal pages are never deleted */
+		/* 不应发生，内部页从不会被删除 */
 		Assert(false);
 		return false;
 	}
@@ -638,26 +638,26 @@ gistdeletepage(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 		return false;
 
 	/*
-	 * All good, proceed with the deletion.
+	 * 一切就绪，继续删除。
 	 *
-	 * The page cannot be immediately recycled, because in-progress scans that
-	 * saw the downlink might still visit it.  Mark the page with the current
-	 * next-XID counter, so that we know when it can be recycled.  Once that
-	 * XID becomes older than GlobalXmin, we know that all scans that are
-	 * currently in progress must have ended.  (That's much more conservative
-	 * than needed, but let's keep it safe and simple.)
+	 * 该页无法立即回收，因为看到过下行指针的进行中扫描仍可能
+	 * 访问它。用当前的 next-XID 计数器标记该页，以便我们知道何时
+	 * 可以回收。一旦该 XID 比 GlobalXmin 更旧，我们就知道当前所有
+	 * 进行中的扫描必定已经结束。（这比实际需要保守得多，但让我们
+	 * 保持安全与简单。）
+	  *
 	 */
 	txid = ReadNextFullTransactionId();
 
 	START_CRIT_SECTION();
 
-	/* mark the page as deleted */
+	/* 将该页标记为已删除 */
 	MarkBufferDirty(leafBuffer);
 	GistPageSetDeleted(leafPage, txid);
 	stats->pages_newly_deleted++;
 	stats->pages_deleted++;
 
-	/* remove the downlink from the parent */
+	/* 从父页移除下行指针 */
 	MarkBufferDirty(parentBuffer);
 	PageIndexTupleDelete(parentPage, downlink);
 

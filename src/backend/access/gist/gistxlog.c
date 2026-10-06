@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistxlog.c
- *	  WAL replay logic for GiST.
+ *	  GiST 的 WAL 重放逻辑。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -25,18 +25,18 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
-static MemoryContext opCtx;		/* working memory for operations */
+static MemoryContext opCtx;		/* 操作用的工作内存 */
 
 /*
- * Replay the clearing of F_FOLLOW_RIGHT flag on a child page.
+ * 重放子页上清除 F_FOLLOW_RIGHT 标志的操作。
  *
- * Even if the WAL record includes a full-page image, we have to update the
- * follow-right flag, because that change is not included in the full-page
- * image.  To be sure that the intermediate state with the wrong flag value is
- * not visible to concurrent Hot Standby queries, this function handles
- * restoring the full-page image as well as updating the flag.  (Note that
- * we never need to do anything else to the child page in the current WAL
- * action.)
+ * 即便 WAL 记录包含整页映像，我们也必须更新 follow-right
+ * 标志，因为该变更未包含在整页映像中。为确保带有错误标志值的
+ * 中间状态对并发 Hot Standby 查询不可见，本函数既处理恢复整页
+ * 映像，也处理更新该标志。（注意：在当前 WAL 动作中，我们从不需要
+ * 对子页做任何其他事。）
+  *
+  *
  */
 static void
 gistRedoClearFollowRight(XLogReaderState *record, uint8 block_id)
@@ -47,8 +47,8 @@ gistRedoClearFollowRight(XLogReaderState *record, uint8 block_id)
 	XLogRedoAction action;
 
 	/*
-	 * Note that we still update the page even if it was restored from a full
-	 * page image, because the updated NSN is not included in the image.
+	 * 注意：即便该页是从整页映像恢复的，我们仍会更新它，
+	 * 因为更新后的 NSN 未包含在映像中。
 	 */
 	action = XLogReadBufferForRedo(record, block_id, &buffer);
 	if (action == BLK_NEEDS_REDO || action == BLK_RESTORED)
@@ -66,7 +66,7 @@ gistRedoClearFollowRight(XLogReaderState *record, uint8 block_id)
 }
 
 /*
- * redo any page update (except page split)
+ * 重放任何页更新（页分裂除外）
  */
 static void
 gistRedoPageUpdateRecord(XLogReaderState *record)
@@ -90,8 +90,8 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 		if (xldata->ntodelete == 1 && xldata->ntoinsert == 1)
 		{
 			/*
-			 * When replacing one tuple with one other tuple, we must use
-			 * PageIndexTupleOverwrite for consistency with gistplacetopage.
+			 * 当用一个元组替换另一个元组时，必须使用
+			 * PageIndexTupleOverwrite，以与 gistplacetopage 保持一致。
 			 */
 			OffsetNumber offnum = *((OffsetNumber *) data);
 			IndexTuple	itup;
@@ -104,14 +104,14 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 				elog(ERROR, "failed to add item to GiST index page, size %d bytes",
 					 (int) itupsize);
 			data += itupsize;
-			/* should be nothing left after consuming 1 tuple */
+			/* 消费 1 个元组后应无剩余 */
 			Assert(data - begin == datalen);
-			/* update insertion count for assert check below */
+			/* 更新插入计数，供下方断言检查 */
 			ninserted++;
 		}
 		else if (xldata->ntodelete > 0)
 		{
-			/* Otherwise, delete old tuples if any */
+			/* 否则，若有旧元组则删除 */
 			OffsetNumber *todelete = (OffsetNumber *) data;
 
 			data += sizeof(OffsetNumber) * xldata->ntodelete;
@@ -121,7 +121,7 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 				GistMarkTuplesDeleted(page);
 		}
 
-		/* Add new tuples if any */
+		/* 若有新元组则添加 */
 		if (data - begin < datalen)
 		{
 			OffsetNumber off = (PageIsEmpty(page)) ? FirstOffsetNumber :
@@ -144,7 +144,7 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 			}
 		}
 
-		/* Check that XLOG record contained expected number of tuples */
+		/* 检查 XLOG 记录是否包含预期数量的元组 */
 		Assert(ninserted == xldata->ntoinsert);
 
 		PageSetLSN(page, lsn);
@@ -152,11 +152,11 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 	}
 
 	/*
-	 * Fix follow-right data on left child page
+	 * 修复左子页上的 follow-right 数据
 	 *
-	 * This must be done while still holding the lock on the target page. Note
-	 * that even if the target page no longer exists, we still attempt to
-	 * replay the change on the child page.
+	 * 这必须在仍持有目标页锁时完成。注意即便目标页已不存在，
+	 * 我们仍尝试在子页上重放该变更。
+	  *
 	 */
 	if (XLogRecHasBlockRef(record, 1))
 		gistRedoClearFollowRight(record, 1);
@@ -167,8 +167,8 @@ gistRedoPageUpdateRecord(XLogReaderState *record)
 
 
 /*
- * redo delete on gist index page to remove tuples marked as DEAD during index
- * tuple insertion
+ * 重放 GiST 索引页上的删除，以移除在索引元组插入期间
+ * 标记为 DEAD 的元组
  */
 static void
 gistRedoDeleteRecord(XLogReaderState *record)
@@ -180,15 +180,15 @@ gistRedoDeleteRecord(XLogReaderState *record)
 	OffsetNumber *toDelete = xldata->offsets;
 
 	/*
-	 * If we have any conflict processing to do, it must happen before we
-	 * update the page.
+	 * 若有任何冲突处理要做，必须在我们更新页之前发生。
 	 *
-	 * GiST delete records can conflict with standby queries.  You might think
-	 * that vacuum records would conflict as well, but we've handled that
-	 * already.  XLOG_HEAP2_PRUNE records provide the highest xid cleaned by
-	 * the vacuum of the heap and so we can resolve any conflicts just once
-	 * when that arrives.  After that we know that no conflicts exist from
-	 * individual gist vacuum records on that index.
+	 * GiST 删除记录可能与备库查询冲突。你也许会认为清理
+	 * 记录也会冲突，但我们已经处理过了。XLOG_HEAP2_PRUNE
+	 * 记录提供了堆清理所清除的最高 xid，因此当它到达时我们
+	 * 可以只解决一次冲突。此后我们就知道该索引上的各条
+	 * gist 清理记录不再存在冲突。
+	  *
+	  *
 	 */
 	if (InHotStandby)
 	{
@@ -219,7 +219,7 @@ gistRedoDeleteRecord(XLogReaderState *record)
 }
 
 /*
- * Returns an array of index pointers.
+ * 返回索引指针数组。
  */
 static IndexTuple *
 decodePageSplitRecord(char *begin, int len, int *n)
@@ -228,7 +228,7 @@ decodePageSplitRecord(char *begin, int len, int *n)
 	int			i = 0;
 	IndexTuple *tuples;
 
-	/* extract the number of tuples */
+	/* 提取元组个数 */
 	memcpy(n, begin, sizeof(int));
 	ptr = begin + sizeof(int);
 
@@ -257,14 +257,14 @@ gistRedoPageSplitRecord(XLogReaderState *record)
 	bool		isrootsplit = false;
 
 	/*
-	 * We must hold lock on the first-listed page throughout the action,
-	 * including while updating the left child page (if any).  We can unlock
-	 * remaining pages in the list as soon as they've been written, because
-	 * there is no path for concurrent queries to reach those pages without
-	 * first visiting the first-listed page.
+	 * 在整个动作期间，我们必须对列表中的第一页持锁，
+	 * 包括在更新左子页（若有）时。列表中其余页一旦写完
+	 * 即可解锁，因为并发查询若不先访问列表中的第一页，就
+	 * 没有路径到达那些页。
+	  *
 	 */
 
-	/* loop around all pages */
+	/* 遍历所有页 */
 	for (i = 0; i < xldata->npage; i++)
 	{
 		int			flags;
@@ -287,14 +287,14 @@ gistRedoPageSplitRecord(XLogReaderState *record)
 
 		tuples = decodePageSplitRecord(data, datalen, &num);
 
-		/* ok, clear buffer */
+		/* 好，清空缓冲区 */
 		if (xldata->origleaf && blkno != GIST_ROOT_BLKNO)
 			flags = F_LEAF;
 		else
 			flags = 0;
 		GISTInitBuffer(buffer, flags);
 
-		/* and fill it */
+		/* 然后填充它 */
 		gistfillbuffer(page, tuples, num, FirstOffsetNumber);
 
 		if (blkno == GIST_ROOT_BLKNO)
@@ -331,15 +331,15 @@ gistRedoPageSplitRecord(XLogReaderState *record)
 			UnlockReleaseBuffer(buffer);
 	}
 
-	/* Fix follow-right data on left child page, if any */
+	/* 若有，修复左子页上的 follow-right 数据 */
 	if (XLogRecHasBlockRef(record, 0))
 		gistRedoClearFollowRight(record, 0);
 
-	/* Finally, release lock on the first page */
+	/* 最后，释放第一页上的锁 */
 	UnlockReleaseBuffer(firstbuffer);
 }
 
-/* redo page deletion */
+/* 重放页删除 */
 static void
 gistRedoPageDelete(XLogReaderState *record)
 {
@@ -380,14 +380,14 @@ gistRedoPageReuse(XLogReaderState *record)
 	gistxlogPageReuse *xlrec = (gistxlogPageReuse *) XLogRecGetData(record);
 
 	/*
-	 * PAGE_REUSE records exist to provide a conflict point when we reuse
-	 * pages in the index via the FSM.  That's all they do though.
+	 * PAGE_REUSE 记录的存在是为了在我们通过 FSM 复用索引中的页
+	 * 时提供一个冲突点。不过这就是它们的全部作用。
 	 *
-	 * snapshotConflictHorizon was the page's deleteXid.  The
-	 * GlobalVisCheckRemovableFullXid(deleteXid) test in gistPageRecyclable()
-	 * conceptually mirrors the PGPROC->xmin > limitXmin test in
-	 * GetConflictingVirtualXIDs().  Consequently, one XID value achieves the
-	 * same exclusion effect on primary and standby.
+	 * snapshotConflictHorizon 曾是该页的 deleteXid。gistPageRecyclable()
+	 * 中的 GlobalVisCheckRemovableFullXid(deleteXid) 测试在概念上镜像
+	 * GetConflictingVirtualXIDs() 中的 PGPROC->xmin > limitXmin 测试。
+	 * 因此，同一个 XID 值在主库与备库上达到相同的排斥效果。
+	  *
 	 */
 	if (InHotStandby)
 		ResolveRecoveryConflictWithSnapshotFullXid(xlrec->snapshotConflictHorizon,
@@ -402,9 +402,9 @@ gist_redo(XLogReaderState *record)
 	MemoryContext oldCxt;
 
 	/*
-	 * GiST indexes do not require any conflict processing. NB: If we ever
-	 * implement a similar optimization we have in b-tree, and remove killed
-	 * tuples outside VACUUM, we'll need to handle that here.
+	 * GiST 索引不需要任何冲突处理。注意：若我们将来实现与
+	 * b-tree 类似的优化，并在 VACUUM 之外移除已杀死的元组，
+	 * 则需要在此处处理。
 	 */
 
 	oldCxt = MemoryContextSwitchTo(opCtx);
@@ -426,7 +426,7 @@ gist_redo(XLogReaderState *record)
 			gistRedoPageDelete(record);
 			break;
 		case XLOG_GIST_ASSIGN_LSN:
-			/* nop. See gistGetFakeLSN(). */
+			/* 空操作。见 gistGetFakeLSN()。 */
 			break;
 		default:
 			elog(PANIC, "gist_redo: unknown op code %u", info);
@@ -449,7 +449,7 @@ gist_xlog_cleanup(void)
 }
 
 /*
- * Mask a Gist page before running consistency checks on it.
+ * 在对 Gist 页运行一致性检查之前对其进行掩码。
  */
 void
 gist_mask(char *pagedata, BlockNumber blkno)
@@ -462,36 +462,36 @@ gist_mask(char *pagedata, BlockNumber blkno)
 	mask_unused_space(page);
 
 	/*
-	 * NSN is nothing but a special purpose LSN. Hence, mask it for the same
-	 * reason as mask_page_lsn_and_checksum.
+	 * NSN 不过是一种特殊用途的 LSN。因此，出于与
+	 * mask_page_lsn_and_checksum 相同的原因对其进行掩码。
 	 */
 	GistPageSetNSN(page, (uint64) MASK_MARKER);
 
 	/*
-	 * We update F_FOLLOW_RIGHT flag on the left child after writing WAL
-	 * record. Hence, mask this flag. See gistplacetopage() for details.
+	 * 我们在写入 WAL 记录之后更新左子页上的 F_FOLLOW_RIGHT
+	 * 标志。因此掩码该标志。细节见 gistplacetopage()。
 	 */
 	GistMarkFollowRight(page);
 
 	if (GistPageIsLeaf(page))
 	{
 		/*
-		 * In gist leaf pages, it is possible to modify the LP_FLAGS without
-		 * emitting any WAL record. Hence, mask the line pointer flags. See
-		 * gistkillitems() for details.
+		 * 在 gist 叶子页上，可以在不发出任何 WAL 记录的情况下
+		 * 修改 LP_FLAGS。因此掩码行指针标志。细节见
+		 * gistkillitems()。
 		 */
 		mask_lp_flags(page);
 	}
 
 	/*
-	 * During gist redo, we never mark a page as garbage. Hence, mask it to
-	 * ignore any differences.
+	 * 在 gist 重放期间，我们从不把页标记为含垃圾。因此掩码它以
+	 * 忽略任何差异。
 	 */
 	GistClearPageHasGarbage(page);
 }
 
 /*
- * Write WAL record of a page split.
+ * 写入页分裂的 WAL 记录。
  */
 XLogRecPtr
 gistXLogSplit(bool page_is_leaf,
@@ -517,18 +517,18 @@ gistXLogSplit(bool page_is_leaf,
 	XLogBeginInsert();
 
 	/*
-	 * Include a full page image of the child buf. (only necessary if a
-	 * checkpoint happened since the child page was split)
+	 * 包含子缓冲区的整页映像。（仅当自子页分裂以来发生过
+	 * 检查点时才有必要）
 	 */
 	if (BufferIsValid(leftchildbuf))
 		XLogRegisterBuffer(0, leftchildbuf, REGBUF_STANDARD);
 
 	/*
-	 * NOTE: We register a lot of data. The caller must've called
-	 * XLogEnsureRecordSpace() to prepare for that. We cannot do it here,
-	 * because we're already in a critical section. If you change the number
-	 * of buffer or data registrations here, make sure you modify the
-	 * XLogEnsureRecordSpace() calls accordingly!
+	 * 注意：我们注册了大量数据。调用者必须已调用
+	 * XLogEnsureRecordSpace() 为此做好准备。我们无法在此处做，
+	 * 因为我们已经处于临界区中。若你更改此处注册的缓冲区或
+	 * 数据数量，请确保相应地修改 XLogEnsureRecordSpace() 调用！
+	  *
 	 */
 	XLogRegisterData((char *) &xlrec, sizeof(gistxlogPageSplit));
 
@@ -547,8 +547,8 @@ gistXLogSplit(bool page_is_leaf,
 }
 
 /*
- * Write XLOG record describing a page deletion. This also includes removal of
- * downlink from the parent page.
+ * 写入描述页删除的 XLOG 记录。这也包括从父页移除
+ * 下行指针。
  */
 XLogRecPtr
 gistXLogPageDelete(Buffer buffer, FullTransactionId xid,
@@ -572,7 +572,7 @@ gistXLogPageDelete(Buffer buffer, FullTransactionId xid,
 }
 
 /*
- * Write an empty XLOG record to assign a distinct LSN.
+ * 写入一条空 XLOG 记录以分配一个不同的 LSN。
  */
 XLogRecPtr
 gistXLogAssignLSN(void)
@@ -580,8 +580,8 @@ gistXLogAssignLSN(void)
 	int			dummy = 0;
 
 	/*
-	 * Records other than XLOG_SWITCH must have content. We use an integer 0
-	 * to follow the restriction.
+	 * 除 XLOG_SWITCH 外的记录必须有内容。我们使用整数 0
+	 * 以满足该限制。
 	 */
 	XLogBeginInsert();
 	XLogSetRecordFlags(XLOG_MARK_UNIMPORTANT);
@@ -590,7 +590,7 @@ gistXLogAssignLSN(void)
 }
 
 /*
- * Write XLOG record about reuse of a deleted page.
+ * 写入关于复用已删除页的 XLOG 记录。
  */
 void
 gistXLogPageReuse(Relation rel, Relation heaprel,
@@ -599,12 +599,12 @@ gistXLogPageReuse(Relation rel, Relation heaprel,
 	gistxlogPageReuse xlrec_reuse;
 
 	/*
-	 * Note that we don't register the buffer with the record, because this
-	 * operation doesn't modify the page. This record only exists to provide a
-	 * conflict point for Hot Standby.
+	 * 注意我们没有向记录注册缓冲区，因为此操作并不修改
+	 * 页。该记录的存在只是为 Hot Standby 提供一个冲突点。
+	  *
 	 */
 
-	/* XLOG stuff */
+	/* XLOG 相关 */
 	xlrec_reuse.isCatalogRel = RelationIsAccessibleInLogicalDecoding(heaprel);
 	xlrec_reuse.locator = rel->rd_locator;
 	xlrec_reuse.block = blkno;
@@ -617,15 +617,15 @@ gistXLogPageReuse(Relation rel, Relation heaprel,
 }
 
 /*
- * Write XLOG record describing a page update. The update can include any
- * number of deletions and/or insertions of tuples on a single index page.
+ * 写入描述页更新的 XLOG 记录。更新可以包括在单个索引页上
+ * 任意数量的元组删除和/或插入。
  *
- * If this update inserts a downlink for a split page, also record that
- * the F_FOLLOW_RIGHT flag on the child page is cleared and NSN set.
+ * 若此更新为分裂页插入下行指针，还要记录子页上的
+ * F_FOLLOW_RIGHT 标志被清除以及 NSN 被设置。
  *
- * Note that both the todelete array and the tuples are marked as belonging
- * to the target buffer; they need not be stored in XLOG if XLogInsert decides
- * to log the whole buffer contents instead.
+ * 注意 todelete 数组与元组都被标记为属于目标缓冲区；若
+ * XLogInsert 决定改为记录整个缓冲区内容，则不必把它们存入
+ * XLOG。
  */
 XLogRecPtr
 gistXLogUpdate(Buffer buffer,
@@ -646,13 +646,13 @@ gistXLogUpdate(Buffer buffer,
 	XLogRegisterBuffer(0, buffer, REGBUF_STANDARD);
 	XLogRegisterBufData(0, (char *) todelete, sizeof(OffsetNumber) * ntodelete);
 
-	/* new tuples */
+	/* 新元组 */
 	for (i = 0; i < ituplen; i++)
 		XLogRegisterBufData(0, (char *) (itup[i]), IndexTupleSize(itup[i]));
 
 	/*
-	 * Include a full page image of the child buf. (only necessary if a
-	 * checkpoint happened since the child page was split)
+	 * 包含子缓冲区的整页映像。（仅当自子页分裂以来发生过
+	 * 检查点时才有必要）
 	 */
 	if (BufferIsValid(leftchildbuf))
 		XLogRegisterBuffer(1, leftchildbuf, REGBUF_STANDARD);
@@ -663,10 +663,10 @@ gistXLogUpdate(Buffer buffer,
 }
 
 /*
- * Write XLOG record describing a delete of leaf index tuples marked as DEAD
- * during new tuple insertion.  One may think that this case is already covered
- * by gistXLogUpdate().  But deletion of index tuples might conflict with
- * standby queries and needs special handling.
+ * 写入描述删除在新元组插入期间标记为 DEAD 的叶子索引元组的
+ * XLOG 记录。或许有人认为 gistXLogUpdate() 已覆盖此情形。但
+ * 删除索引元组可能与备库查询冲突，需要特殊处理。
+  *
  */
 XLogRecPtr
 gistXLogDelete(Buffer buffer, OffsetNumber *todelete, int ntodelete,
@@ -683,9 +683,9 @@ gistXLogDelete(Buffer buffer, OffsetNumber *todelete, int ntodelete,
 	XLogRegisterData((char *) &xlrec, SizeOfGistxlogDelete);
 
 	/*
-	 * We need the target-offsets array whether or not we store the whole
-	 * buffer, to allow us to find the snapshotConflictHorizon on a standby
-	 * server.
+	 * 无论是否存储整个缓冲区，我们都需要目标偏移量数组，
+	 * 以便在备库上找到 snapshotConflictHorizon。
+	  *
 	 */
 	XLogRegisterData((char *) todelete, ntodelete * sizeof(OffsetNumber));
 

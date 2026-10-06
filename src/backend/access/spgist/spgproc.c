@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgproc.c
- *	  Common supporting procedures for SP-GiST opclasses.
+ *	  SP-GiST 操作符类的公共支持过程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,7 +26,7 @@
 	DatumGetFloat8(DirectFunctionCall2(point_distance, \
 									   PointPGetDatum(p1), PointPGetDatum(p2)))
 
-/* Point-box distance in the assumption that box is aligned by axis */
+/* 点到框的距离，假定框与坐标轴对齐 */
 static double
 point_box_distance(Point *point, BOX *box)
 {
@@ -55,9 +55,9 @@ point_box_distance(Point *point, BOX *box)
 }
 
 /*
- * Returns distances from given key to array of ordering scan keys.  Leaf key
- * is expected to be point, non-leaf key is expected to be box.  Scan key
- * arguments are expected to be points.
+ * 返回给定键到排序扫描键数组的距离。叶子键
+ * 预期为点，非叶子键预期为框。扫描键
+ * 参数预期为点。
  */
 double *
 spg_key_orderbys_distances(Datum key, bool isLeaf,

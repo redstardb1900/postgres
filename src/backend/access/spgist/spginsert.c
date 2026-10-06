@@ -1,9 +1,9 @@
 /*-------------------------------------------------------------------------
  *
  * spginsert.c
- *	  Externally visible index creation/insertion routines
+ *	  对外可见的索引创建/插入例程
  *
- * All the actual insertion logic is in spgdoinsert.c.
+ * 所有实际的插入逻辑都在 spgdoinsert.c 中。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,13 +32,13 @@
 
 typedef struct
 {
-	SpGistState spgstate;		/* SPGiST's working state */
-	int64		indtuples;		/* total number of tuples indexed */
-	MemoryContext tmpCtx;		/* per-tuple temporary context */
+	SpGistState spgstate;		/* SPGiST 的工作状态 */
+	int64		indtuples;		/* 已编入索引的元组总数 */
+	MemoryContext tmpCtx;		/* 逐元组临时上下文 */
 } SpGistBuildState;
 
 
-/* Callback to process one heap tuple during table_index_build_scan */
+/* table_index_build_scan 期间处理一个堆元组的回调 */
 static void
 spgistBuildCallback(Relation index, ItemPointer tid, Datum *values,
 					bool *isnull, bool tupleIsAlive, void *state)
@@ -46,14 +46,14 @@ spgistBuildCallback(Relation index, ItemPointer tid, Datum *values,
 	SpGistBuildState *buildstate = (SpGistBuildState *) state;
 	MemoryContext oldCtx;
 
-	/* Work in temp context, and reset it after each tuple */
+	/* 在临时上下文中工作，并在每个元组之后重置 */
 	oldCtx = MemoryContextSwitchTo(buildstate->tmpCtx);
 
 	/*
-	 * Even though no concurrent insertions can be happening, we still might
-	 * get a buffer-locking failure due to bgwriter or checkpointer taking a
-	 * lock on some buffer.  So we need to be willing to retry.  We can flush
-	 * any temp data when retrying.
+	 * 即便此时不会有并发插入发生，我们仍可能因
+	 * bgwriter 或 checkpointer 对某个缓冲区加锁而遭遇
+	 * 缓冲区加锁失败。因此需要愿意重试。重试时
+	 * 可以冲刷掉任何临时数据。
 	 */
 	while (!spgdoinsert(index, &buildstate->spgstate, tid,
 						values, isnull))
@@ -61,7 +61,7 @@ spgistBuildCallback(Relation index, ItemPointer tid, Datum *values,
 		MemoryContextReset(buildstate->tmpCtx);
 	}
 
-	/* Update total tuple count */
+	/* 更新元组总数 */
 	buildstate->indtuples += 1;
 
 	MemoryContextSwitchTo(oldCtx);
@@ -69,7 +69,7 @@ spgistBuildCallback(Relation index, ItemPointer tid, Datum *values,
 }
 
 /*
- * Build an SP-GiST index.
+ * 构建一个 SP-GiST 索引。
  */
 IndexBuildResult *
 spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
@@ -86,7 +86,7 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 			 RelationGetRelationName(index));
 
 	/*
-	 * Initialize the meta page and root pages
+	 * 初始化元页和根页
 	 */
 	metabuffer = SpGistNewBuffer(index);
 	rootbuffer = SpGistNewBuffer(index);
@@ -113,7 +113,7 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	UnlockReleaseBuffer(nullbuffer);
 
 	/*
-	 * Now insert all the heap data into the index
+	 * 现在把全部堆数据插入索引
 	 */
 	initSpGistState(&buildstate.spgstate, index);
 	buildstate.spgstate.isBuild = true;
@@ -132,8 +132,8 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	SpGistUpdateMetaPage(index);
 
 	/*
-	 * We didn't write WAL records as we built the index, so if WAL-logging is
-	 * required, write all pages to the WAL now.
+	 * 构建索引时我们没有写 WAL 记录，因此若需要
+	 * WAL 日志记录，现在把所有页写入 WAL。
 	 */
 	if (RelationNeedsWAL(index))
 	{
@@ -150,7 +150,7 @@ spgbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 }
 
 /*
- * Build an empty SPGiST index in the initialization fork
+ * 在初始化分支中构建一个空的 SPGiST 索引
  */
 void
 spgbuildempty(Relation index)
@@ -160,7 +160,7 @@ spgbuildempty(Relation index)
 				nullbuffer;
 
 	/*
-	 * Initialize the meta page and root pages
+	 * 初始化元页和根页
 	 */
 	metabuffer = ReadBufferExtended(index, INIT_FORKNUM, P_NEW, RBM_NORMAL, NULL);
 	LockBuffer(metabuffer, BUFFER_LOCK_EXCLUSIVE);
@@ -194,7 +194,7 @@ spgbuildempty(Relation index)
 }
 
 /*
- * Insert one new tuple into an SPGiST index.
+ * 向 SPGiST 索引插入一个新元组。
  */
 bool
 spginsert(Relation index, Datum *values, bool *isnull,
@@ -215,10 +215,10 @@ spginsert(Relation index, Datum *values, bool *isnull,
 	initSpGistState(&spgstate, index);
 
 	/*
-	 * We might have to repeat spgdoinsert() multiple times, if conflicts
-	 * occur with concurrent insertions.  If so, reset the insertCtx each time
-	 * to avoid cumulative memory consumption.  That means we also have to
-	 * redo initSpGistState(), but it's cheap enough not to matter.
+	 * 若与并发插入发生冲突，我们可能需要多次重复
+	 * 调用 spgdoinsert()。若如此，每次重置 insertCtx，
+	 * 以避免内存累计消耗。那意味着也必须重新执行
+	 * initSpGistState()，不过它足够便宜，无关紧要。
 	 */
 	while (!spgdoinsert(index, &spgstate, ht_ctid, values, isnull))
 	{
@@ -231,6 +231,6 @@ spginsert(Relation index, Datum *values, bool *isnull,
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextDelete(insertCtx);
 
-	/* return false since we've not done any unique check */
+	/* 返回 false，因为我们没有做任何唯一性检查 */
 	return false;
 }

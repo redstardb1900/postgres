@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgvalidate.c
- *	  Opclass validator for SP-GiST.
+ *	  SP-GiST 的操作符类校验器。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,12 +28,12 @@
 
 
 /*
- * Validator for an SP-GiST opclass.
+ * SP-GiST 操作符类的校验器。
  *
- * Some of the checks done here cover the whole opfamily, and therefore are
- * redundant when checking each opclass in a family.  But they don't run long
- * enough to be much of a problem, so we accept the duplication rather than
- * complicate the amvalidate API.
+ * 这里做的部分检查覆盖整个操作符族，因此在检查
+ * 族中每个操作符类时会有冗余。但它们跑得不够久，
+ * 构不成大问题，所以我们接受这种重复，而不去
+ * 把 amvalidate API 搞得更复杂。
  */
 bool
 spgvalidate(Oid opclassoid)
@@ -60,7 +60,7 @@ spgvalidate(Oid opclassoid)
 	Oid			configOutRighttype = InvalidOid;
 	Oid			configOutLeafType = InvalidOid;
 
-	/* Fetch opclass information */
+	/* 获取操作符类信息 */
 	classtup = SearchSysCache1(CLAOID, ObjectIdGetDatum(opclassoid));
 	if (!HeapTupleIsValid(classtup))
 		elog(ERROR, "cache lookup failed for operator class %u", opclassoid);
@@ -71,7 +71,7 @@ spgvalidate(Oid opclassoid)
 	opckeytype = classform->opckeytype;
 	opclassname = NameStr(classform->opcname);
 
-	/* Fetch opfamily information */
+	/* 获取操作符族信息 */
 	familytup = SearchSysCache1(OPFAMILYOID, ObjectIdGetDatum(opfamilyoid));
 	if (!HeapTupleIsValid(familytup))
 		elog(ERROR, "cache lookup failed for operator family %u", opfamilyoid);
@@ -79,12 +79,12 @@ spgvalidate(Oid opclassoid)
 
 	opfamilyname = NameStr(familyform->opfname);
 
-	/* Fetch all operators and support functions of the opfamily */
+	/* 获取该操作符族的全部操作符和支持函数 */
 	oprlist = SearchSysCacheList1(AMOPSTRATEGY, ObjectIdGetDatum(opfamilyoid));
 	proclist = SearchSysCacheList1(AMPROCNUM, ObjectIdGetDatum(opfamilyoid));
 	grouplist = identify_opfamily_groups(oprlist, proclist);
 
-	/* Check individual support functions */
+	/* 检查各个支持函数 */
 	for (i = 0; i < proclist->n_members; i++)
 	{
 		HeapTuple	proctup = &proclist->members[i]->tuple;
@@ -92,8 +92,8 @@ spgvalidate(Oid opclassoid)
 		bool		ok;
 
 		/*
-		 * All SP-GiST support functions should be registered with matching
-		 * left/right types
+		 * 所有 SP-GiST 支持函数都应当以相互匹配的
+		 * 左/右类型登记
 		 */
 		if (procform->amproclefttype != procform->amprocrighttype)
 		{
@@ -105,7 +105,7 @@ spgvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* Check procedure numbers and function signatures */
+		/* 检查过程编号和函数签名 */
 		switch (procform->amprocnum)
 		{
 			case SPGIST_CONFIG_PROC:
@@ -121,13 +121,13 @@ spgvalidate(Oid opclassoid)
 				configOutLefttype = procform->amproclefttype;
 				configOutRighttype = procform->amprocrighttype;
 
-				/* Default leaf type is opckeytype or input type */
+				/* 默认叶子类型是 opckeytype 或输入类型 */
 				if (OidIsValid(opckeytype))
 					configOutLeafType = opckeytype;
 				else
 					configOutLeafType = procform->amproclefttype;
 
-				/* If some other leaf datum type is specified, warn */
+				/* 若指定了其他叶子 datum 类型，则警告 */
 				if (OidIsValid(configOut.leafType) &&
 					configOutLeafType != configOut.leafType)
 				{
@@ -141,9 +141,9 @@ spgvalidate(Oid opclassoid)
 				}
 
 				/*
-				 * When leaf and attribute types are the same, compress
-				 * function is not required and we set corresponding bit in
-				 * functionset for later group consistency check.
+				 * 当叶子类型与属性类型相同时，不需要
+				 * compress 函数，我们会在 functionset 中置上
+				 * 相应位，供稍后的组一致性检查使用。
 				 */
 				if (configOutLeafType == configIn.attType)
 				{
@@ -191,7 +191,7 @@ spgvalidate(Oid opclassoid)
 								format_procedure(procform->amproc),
 								procform->amprocnum)));
 				result = false;
-				continue;		/* don't want additional message */
+				continue;		/* 不想再发额外消息 */
 		}
 
 		if (!ok)
@@ -206,14 +206,14 @@ spgvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check individual operators */
+	/* 检查各个操作符 */
 	for (i = 0; i < oprlist->n_members; i++)
 	{
 		HeapTuple	oprtup = &oprlist->members[i]->tuple;
 		Form_pg_amop oprform = (Form_pg_amop) GETSTRUCT(oprtup);
 		Oid			op_rettype;
 
-		/* TODO: Check that only allowed strategy numbers exist */
+		/* TODO: 检查是否只存在允许的策略编号 */
 		if (oprform->amopstrategy < 1 || oprform->amopstrategy > 63)
 		{
 			ereport(INFO,
@@ -225,10 +225,10 @@ spgvalidate(Oid opclassoid)
 			result = false;
 		}
 
-		/* spgist supports ORDER BY operators */
+		/* spgist 支持 ORDER BY 操作符 */
 		if (oprform->amoppurpose != AMOP_SEARCH)
 		{
-			/* ... and operator result must match the claimed btree opfamily */
+			/* ... 且操作符结果类型必须匹配所声明的 btree 操作符族 */
 			op_rettype = get_op_rettype(oprform->amopopr);
 			if (!opfamily_can_sort_type(oprform->amopsortfamily, op_rettype))
 			{
@@ -243,7 +243,7 @@ spgvalidate(Oid opclassoid)
 		else
 			op_rettype = BOOLOID;
 
-		/* Check operator signature --- same for all spgist strategies */
+		/* 检查操作符签名 --- 对所有 spgist 策略都相同 */
 		if (!check_amop_signature(oprform->amopopr, op_rettype,
 								  oprform->amoplefttype,
 								  oprform->amoprighttype))
@@ -257,21 +257,21 @@ spgvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Now check for inconsistent groups of operators/functions */
+	/* 现在检查不一致的操作符/函数组 */
 	opclassgroup = NULL;
 	foreach(lc, grouplist)
 	{
 		OpFamilyOpFuncGroup *thisgroup = (OpFamilyOpFuncGroup *) lfirst(lc);
 
-		/* Remember the group exactly matching the test opclass */
+		/* 记住与被测操作符类精确匹配的那一组 */
 		if (thisgroup->lefttype == opcintype &&
 			thisgroup->righttype == opcintype)
 			opclassgroup = thisgroup;
 
 		/*
-		 * Complain if there are any datatype pairs with functions but no
-		 * operators.  This is about the best we can do for now to detect
-		 * missing operators.
+		 * 若有任何数据类型对有函数却没有操作符，就
+		 * 抱怨。就目前而言，这是我们能用来检测
+		 * 缺少操作符的最好办法。
 		 */
 		if (thisgroup->operatorset == 0)
 		{
@@ -285,8 +285,8 @@ spgvalidate(Oid opclassoid)
 		}
 
 		/*
-		 * Complain if we're missing functions for any datatype, remembering
-		 * that SP-GiST doesn't use cross-type support functions.
+		 * 若任何数据类型缺少函数就抱怨，记住
+		 * SP-GiST 不使用跨类型支持函数。
 		 */
 		if (thisgroup->lefttype != thisgroup->righttype)
 			continue;
@@ -294,9 +294,9 @@ spgvalidate(Oid opclassoid)
 		for (i = 1; i <= SPGISTNProc; i++)
 		{
 			if ((thisgroup->functionset & (((uint64) 1) << i)) != 0)
-				continue;		/* got it */
+				continue;		/* 已有 */
 			if (i == SPGIST_OPTIONS_PROC)
-				continue;		/* optional method */
+				continue;		/* 可选方法 */
 			ereport(INFO,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("operator family \"%s\" of access method %s is missing support function %d for type %s",
@@ -306,8 +306,8 @@ spgvalidate(Oid opclassoid)
 		}
 	}
 
-	/* Check that the originally-named opclass is supported */
-	/* (if group is there, we already checked it adequately above) */
+	/* 检查原先命名的操作符类是否受支持 */
+	/* （若组已存在，我们上面已充分检查过） */
 	if (!opclassgroup)
 	{
 		ereport(INFO,
@@ -326,7 +326,7 @@ spgvalidate(Oid opclassoid)
 }
 
 /*
- * Prechecking function for adding operators/functions to an SP-GiST opfamily.
+ * 向 SP-GiST 操作符族添加操作符/函数之前的预检查函数。
  */
 void
 spgadjustmembers(Oid opfamilyoid,
@@ -337,12 +337,12 @@ spgadjustmembers(Oid opfamilyoid,
 	ListCell   *lc;
 
 	/*
-	 * Operator members of an SP-GiST opfamily should never have hard
-	 * dependencies, since their connection to the opfamily depends only on
-	 * what the support functions think, and that can be altered.  For
-	 * consistency, we make all soft dependencies point to the opfamily,
-	 * though a soft dependency on the opclass would work as well in the
-	 * CREATE OPERATOR CLASS case.
+	 * SP-GiST 操作符族的操作符成员绝不应当有硬
+	 * 依赖，因为它们与操作符族的联系只取决于
+	 * 支持函数的判断，而这是可以改变的。为
+	 * 保持一致，我们让所有软依赖都指向操作符
+	 * 族，不过在 CREATE OPERATOR CLASS 的
+	 * 情形下，指向操作符类的软依赖同样可行。
 	 */
 	foreach(lc, operators)
 	{
@@ -354,11 +354,11 @@ spgadjustmembers(Oid opfamilyoid,
 	}
 
 	/*
-	 * Required support functions should have hard dependencies.  Preferably
-	 * those are just dependencies on the opclass, but if we're in ALTER
-	 * OPERATOR FAMILY, we leave the dependency pointing at the whole
-	 * opfamily.  (Given that SP-GiST opclasses generally don't share
-	 * opfamilies, it seems unlikely to be worth working harder.)
+	 * 必需的支持函数应当有硬依赖。最好这些只是
+	 * 对操作符类的依赖，但若我们处于 ALTER
+	 * OPERATOR FAMILY 之中，就让依赖指向整个
+	 * 操作符族。（鉴于 SP-GiST 操作符类通常不共享
+	 * 操作符族，似乎不值得为此再费更多功夫。）
 	 */
 	foreach(lc, functions)
 	{
@@ -371,12 +371,12 @@ spgadjustmembers(Oid opfamilyoid,
 			case SPGIST_PICKSPLIT_PROC:
 			case SPGIST_INNER_CONSISTENT_PROC:
 			case SPGIST_LEAF_CONSISTENT_PROC:
-				/* Required support function */
+				/* 必需的支持函数 */
 				op->ref_is_hard = true;
 				break;
 			case SPGIST_COMPRESS_PROC:
 			case SPGIST_OPTIONS_PROC:
-				/* Optional, so force it to be a soft family dependency */
+				/* 可选，因此强制它成为软的族依赖 */
 				op->ref_is_hard = false;
 				op->ref_is_family = true;
 				op->refobjid = opfamilyoid;

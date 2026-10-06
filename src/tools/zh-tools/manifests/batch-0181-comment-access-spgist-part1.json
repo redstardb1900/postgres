@@ -1,0 +1,95 @@
+{
+ "schema_version": 1,
+ "batch_id": "0181-comment-access-spgist-part1",
+ "title": "zh: translate access/spgist comments (part 1)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "5cf3b0bbcf6d82d4e9c8d3ac7157b3ee7d1c8f6b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/spgist/spgproc.c",
+   "kind": "c_comment",
+   "note": "SP-GiST common support procedures"
+  },
+  {
+   "pattern": "src/backend/access/spgist/spginsert.c",
+   "kind": "c_comment",
+   "note": "SP-GiST index build/insert"
+  },
+  {
+   "pattern": "src/backend/access/spgist/spgvalidate.c",
+   "kind": "c_comment",
+   "note": "SP-GiST opclass validator"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0181-comment-access-spgist-part1.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/spgist/spgproc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SP-GiST common support procedures; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/spgist/spginsert.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 17,
+   "translated": 17,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SP-GiST index build/insert; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/spgist/spgvalidate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 30,
+   "translated": 30,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SP-GiST opclass validator; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0181-comment-access-spgist-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0181 translates comments in spgproc.c, spginsert.c, and spgvalidate.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: spgkdtreeproc.c and spgquadtreeproc.c."
+}

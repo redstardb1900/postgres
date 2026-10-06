@@ -1,6 +1,6 @@
 /*
  * pg_db_role_setting.c
- *		Routines to support manipulation of the pg_db_role_setting relation
+ *		支持操作 pg_db_role_setting 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,7 +31,7 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 
 	valuestr = ExtractSetVariableArgs(setstmt);
 
-	/* Get the old tuple, if any. */
+	/* 获取旧元组（若有）。 */
 
 	rel = table_open(DbRoleSettingRelationId, RowExclusiveLock);
 	ScanKeyInit(&scankey[0],
@@ -47,16 +47,16 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 	tuple = systable_getnext(scan);
 
 	/*
-	 * There are three cases:
+	 * 有三种情形：
 	 *
-	 * - in RESET ALL, request GUC to reset the settings array and update the
-	 * catalog if there's anything left, delete it otherwise
+	 * - 在 RESET ALL 中，请求 GUC 重置设置数组，若还有剩余则更新
+	 * 目录，否则删除它
 	 *
-	 * - in other commands, if there's a tuple in pg_db_role_setting, update
-	 * it; if it ends up empty, delete it
+	 * - 在其他命令中，若 pg_db_role_setting 中有元组则更新
+	 * 它；若最终为空则删除它
 	 *
-	 * - otherwise, insert a new pg_db_role_setting tuple, but only if the
-	 * command is not RESET
+	 * - 否则插入新的 pg_db_role_setting 元组，但仅当
+	 * 命令不是 RESET 时
 	 */
 	if (setstmt->kind == VAR_RESET_ALL)
 	{
@@ -108,12 +108,12 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 		repl_repl[Anum_pg_db_role_setting_setconfig - 1] = true;
 		repl_null[Anum_pg_db_role_setting_setconfig - 1] = false;
 
-		/* Extract old value of setconfig */
+		/* 提取 setconfig 的旧值 */
 		datum = heap_getattr(tuple, Anum_pg_db_role_setting_setconfig,
 							 RelationGetDescr(rel), &isnull);
 		a = isnull ? NULL : DatumGetArrayTypeP(datum);
 
-		/* Update (valuestr is NULL in RESET cases) */
+		/* 更新（RESET 情形下 valuestr 为 NULL） */
 		if (valuestr)
 			a = GUCArrayAdd(a, setstmt->name, valuestr);
 		else
@@ -133,7 +133,7 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 	}
 	else if (valuestr)
 	{
-		/* non-null valuestr means it's not RESET, so insert a new tuple */
+		/* 非空 valuestr 表示不是 RESET，因此插入新元组 */
 		HeapTuple	newtuple;
 		Datum		values[Natts_pg_db_role_setting];
 		bool		nulls[Natts_pg_db_role_setting];
@@ -157,14 +157,14 @@ AlterSetting(Oid databaseid, Oid roleid, VariableSetStmt *setstmt)
 
 	systable_endscan(scan);
 
-	/* Close pg_db_role_setting, but keep lock till commit */
+	/* 关闭 pg_db_role_setting，但保持锁直到提交 */
 	table_close(rel, NoLock);
 }
 
 /*
- * Drop some settings from the catalog.  These can be for a particular
- * database, or for a particular role.  (It is of course possible to do both
- * too, but it doesn't make sense for current uses.)
+ * 从目录删除一些设置。这些可以针对特定
+ * 数据库，或针对特定角色。（当然也可以两者都做，
+ * 但对当前用途没有意义。）
  */
 void
 DropSetting(Oid databaseid, Oid roleid)
@@ -207,14 +207,14 @@ DropSetting(Oid databaseid, Oid roleid)
 }
 
 /*
- * Scan pg_db_role_setting looking for applicable settings, and load them on
- * the current process.
+ * 扫描 pg_db_role_setting 查找适用的设置，并加载到
+ * 当前进程。
  *
- * relsetting is pg_db_role_setting, already opened and locked.
+ * relsetting 是已打开并加锁的 pg_db_role_setting。
  *
- * Note: we only consider setting for the exact databaseid/roleid combination.
- * This probably needs to be called more than once, with InvalidOid passed as
- * databaseid/roleid.
+ * 注意：我们只考虑精确 databaseid/roleid 组合的设置。
+ * 这可能需要调用多次，并把 InvalidOid 作为
+ * databaseid/roleid 传入。
  */
 void
 ApplySetting(Snapshot snapshot, Oid databaseid, Oid roleid,
@@ -249,9 +249,9 @@ ApplySetting(Snapshot snapshot, Oid databaseid, Oid roleid,
 			ArrayType  *a = DatumGetArrayTypeP(datum);
 
 			/*
-			 * We process all the options at SUSET level.  We assume that the
-			 * right to insert an option into pg_db_role_setting was checked
-			 * when it was inserted.
+			 * 我们在 SUSET 级别处理所有选项。假定
+			 * 把选项插入 pg_db_role_setting 的权限已在
+			 * 插入时检查过。
 			 */
 			ProcessGUCArray(a, PGC_SUSET, source, GUC_ACTION_SET);
 		}

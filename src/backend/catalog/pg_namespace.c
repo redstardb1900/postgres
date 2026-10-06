@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_namespace.c
- *	  routines to support manipulation of the pg_namespace relation
+ *	  支持操作 pg_namespace 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -29,14 +29,14 @@
 /* ----------------
  * NamespaceCreate
  *
- * Create a namespace (schema) with the given name and owner OID.
+ * 用给定名称与所有者 OID 创建命名空间（模式）。
  *
- * If isTemp is true, this schema is a per-backend schema for holding
- * temporary tables.  Currently, it is used to prevent it from being
- * linked as a member of any active extension.  (If someone does CREATE
- * TEMP TABLE in an extension script, we don't want the temp schema to
- * become part of the extension). And to avoid checking for default ACL
- * for temp namespace (as it is not necessary).
+ * 若 isTemp 为 true，则该模式是每个后端用于存放
+ * 临时表的模式。当前用于防止它被
+ * 链接为任何活动扩展的成员。（若有人在扩展脚本中
+ * 执行 CREATE TEMP TABLE，我们不希望临时模式
+ * 成为扩展的一部分）。以及避免为临时命名空间
+ * 检查默认 ACL（因为没有必要）。
  * ---------------
  */
 Oid
@@ -53,11 +53,11 @@ NamespaceCreate(const char *nspName, Oid ownerId, bool isTemp)
 	int			i;
 	Acl		   *nspacl;
 
-	/* sanity checks */
+	/* 健全性检查 */
 	if (!nspName)
 		elog(ERROR, "no namespace name supplied");
 
-	/* make sure there is no existing namespace of same name */
+	/* 确保不存在同名命名空间 */
 	if (SearchSysCacheExists1(NAMESPACENAME, PointerGetDatum(nspName)))
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_SCHEMA),
@@ -72,7 +72,7 @@ NamespaceCreate(const char *nspName, Oid ownerId, bool isTemp)
 	nspdesc = table_open(NamespaceRelationId, RowExclusiveLock);
 	tupDesc = nspdesc->rd_att;
 
-	/* initialize nulls and values */
+	/* 初始化 nulls 与 values */
 	for (i = 0; i < Natts_pg_namespace; i++)
 	{
 		nulls[i] = false;
@@ -98,22 +98,22 @@ NamespaceCreate(const char *nspName, Oid ownerId, bool isTemp)
 
 	table_close(nspdesc, RowExclusiveLock);
 
-	/* Record dependencies */
+	/* 记录依赖 */
 	myself.classId = NamespaceRelationId;
 	myself.objectId = nspoid;
 	myself.objectSubId = 0;
 
-	/* dependency on owner */
+	/* 对所有者的依赖 */
 	recordDependencyOnOwner(NamespaceRelationId, nspoid, ownerId);
 
-	/* dependencies on roles mentioned in default ACL */
+	/* 对默认 ACL 中提及的角色的依赖 */
 	recordDependencyOnNewAcl(NamespaceRelationId, nspoid, 0, ownerId, nspacl);
 
-	/* dependency on extension ... but not for magic temp schemas */
+	/* 对扩展的依赖……但对魔术临时模式除外 */
 	if (!isTemp)
 		recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new schema */
+	/* 新模式的创建后钩子 */
 	InvokeObjectPostCreateHook(NamespaceRelationId, nspoid, 0);
 
 	return nspoid;

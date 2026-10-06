@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_collation.c
- *	  routines to support manipulation of the pg_collation relation
+ *	  支持操作 pg_collation 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -35,12 +35,12 @@
 /*
  * CollationCreate
  *
- * Add a new tuple to pg_collation.
+ * 向 pg_collation 添加新元组。
  *
- * if_not_exists: if true, don't fail on duplicate name, just print a notice
- * and return InvalidOid.
- * quiet: if true, don't fail on duplicate name, just silently return
- * InvalidOid (overrides if_not_exists).
+ * if_not_exists: 若为 true，重名时不失败，仅打印 notice
+ * 并返回 InvalidOid。
+ * quiet: 若为 true，重名时不失败，仅静默返回
+ * InvalidOid（覆盖 if_not_exists）。
  */
 Oid
 CollationCreate(const char *collname, Oid collnamespace,
@@ -71,11 +71,11 @@ CollationCreate(const char *collname, Oid collnamespace,
 	Assert((collcollate && collctype) || colliculocale);
 
 	/*
-	 * Make sure there is no existing collation of same name & encoding.
+	 * 确保不存在同名且同编码的排序规则。
 	 *
-	 * This would be caught by the unique index anyway; we're just giving a
-	 * friendlier error message.  The unique index provides a backstop against
-	 * race conditions.
+	 * 唯一索引反正也会捕获；我们只是给出更
+	 * 友好的错误消息。唯一索引为竞态条件提供
+	 * 后盾。
 	 */
 	oid = GetSysCacheOid3(COLLNAMEENCNSP,
 						  Anum_pg_collation_oid,
@@ -89,13 +89,13 @@ CollationCreate(const char *collname, Oid collnamespace,
 		else if (if_not_exists)
 		{
 			/*
-			 * If we are in an extension script, insist that the pre-existing
-			 * object be a member of the extension, to avoid security risks.
+			 * 若处于扩展脚本中，要求预先存在的
+			 * 对象是该扩展的成员，以避免安全风险。
 			 */
 			ObjectAddressSet(myself, CollationRelationId, oid);
 			checkMembershipInCurrentExtension(&myself);
 
-			/* OK to skip */
+			/* 可以跳过 */
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
 					 collencoding == -1
@@ -115,16 +115,16 @@ CollationCreate(const char *collname, Oid collnamespace,
 							  collname, pg_encoding_to_char(collencoding))));
 	}
 
-	/* open pg_collation; see below about the lock level */
+	/* 打开 pg_collation；锁级别见下文 */
 	rel = table_open(CollationRelationId, ShareRowExclusiveLock);
 
 	/*
-	 * Also forbid a specific-encoding collation shadowing an any-encoding
-	 * collation, or an any-encoding collation being shadowed (see
-	 * get_collation_name()).  This test is not backed up by the unique index,
-	 * so we take a ShareRowExclusiveLock earlier, to protect against
-	 * concurrent changes fooling this check.
-	 */
+	 * 也禁止特定编码的排序规则遮蔽任意编码的
+	 * 排序规则，或任意编码的排序规则被遮蔽（见
+ * get_collation_name()）。此检查没有唯一索引作后盾，
+ * 因此我们更早取得 ShareRowExclusiveLock，以防
+ * 并发更改愚弄此检查。
+ */
 	if (collencoding == -1)
 		oid = GetSysCacheOid3(COLLNAMEENCNSP,
 							  Anum_pg_collation_oid,
@@ -147,13 +147,13 @@ CollationCreate(const char *collname, Oid collnamespace,
 		else if (if_not_exists)
 		{
 			/*
-			 * If we are in an extension script, insist that the pre-existing
-			 * object be a member of the extension, to avoid security risks.
+			 * 若处于扩展脚本中，要求预先存在的
+			 * 对象是该扩展的成员，以避免安全风险。
 			 */
 			ObjectAddressSet(myself, CollationRelationId, oid);
 			checkMembershipInCurrentExtension(&myself);
 
-			/* OK to skip */
+			/* 可以跳过 */
 			table_close(rel, NoLock);
 			ereport(NOTICE,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -170,7 +170,7 @@ CollationCreate(const char *collname, Oid collnamespace,
 
 	tupDesc = RelationGetDescr(rel);
 
-	/* form a tuple */
+	/* 构造元组 */
 	memset(nulls, 0, sizeof(nulls));
 
 	namestrcpy(&name_name, collname);
@@ -206,28 +206,28 @@ CollationCreate(const char *collname, Oid collnamespace,
 
 	tup = heap_form_tuple(tupDesc, values, nulls);
 
-	/* insert a new tuple */
+	/* 插入新元组 */
 	CatalogTupleInsert(rel, tup);
 	Assert(OidIsValid(oid));
 
-	/* set up dependencies for the new collation */
+	/* 为新排序规则建立依赖 */
 	myself.classId = CollationRelationId;
 	myself.objectId = oid;
 	myself.objectSubId = 0;
 
-	/* create dependency on namespace */
+	/* 创建对命名空间的依赖 */
 	referenced.classId = NamespaceRelationId;
 	referenced.objectId = collnamespace;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* create dependency on owner */
+	/* 创建对所有者的依赖 */
 	recordDependencyOnOwner(CollationRelationId, oid, collowner);
 
-	/* dependency on extension */
+	/* 对扩展的依赖 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new collation */
+	/* 新排序规则的创建后钩子 */
 	InvokeObjectPostCreateHook(CollationRelationId, oid, 0);
 
 	heap_freetuple(tup);

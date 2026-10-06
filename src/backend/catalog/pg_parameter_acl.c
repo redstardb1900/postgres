@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_parameter_acl.c
- *	  routines to support manipulation of the pg_parameter_acl relation
+ *	  支持操作 pg_parameter_acl 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -28,11 +28,11 @@
 
 
 /*
- * ParameterAclLookup - Given a configuration parameter name,
- * look up the associated configuration parameter ACL's OID.
+ * ParameterAclLookup - 给定配置参数名，
+ * 查找关联的配置参数 ACL 的 OID。
  *
- * If missing_ok is false, throw an error if ACL entry not found.  If
- * true, just return InvalidOid.
+ * 若 missing_ok 为 false，找不到 ACL 条目时抛错。若
+ * 为 true，则仅返回 InvalidOid。
  */
 Oid
 ParameterAclLookup(const char *parameter, bool missing_ok)
@@ -40,10 +40,10 @@ ParameterAclLookup(const char *parameter, bool missing_ok)
 	Oid			oid;
 	char	   *parname;
 
-	/* Convert name to the form it should have in pg_parameter_acl... */
+	/* 把名称转换成应在 pg_parameter_acl 中使用的形式... */
 	parname = convert_GUC_name_for_parameter_acl(parameter);
 
-	/* ... and look it up */
+	/* ...然后查找它 */
 	oid = GetSysCacheOid1(PARAMETERACLNAME, Anum_pg_parameter_acl_oid,
 						  PointerGetDatum(cstring_to_text(parname)));
 
@@ -60,12 +60,12 @@ ParameterAclLookup(const char *parameter, bool missing_ok)
 /*
  * ParameterAclCreate
  *
- * Add a new tuple to pg_parameter_acl.
+ * 向 pg_parameter_acl 添加新元组。
  *
- * parameter: the parameter name to create an entry for.
- * Caller should have verified that there's no such entry already.
+ * parameter: 要为其创建条目的参数名。
+ * 调用者应已确认尚无此类条目。
  *
- * Returns the new entry's OID.
+ * 返回新条目的 OID。
  */
 Oid
 ParameterAclCreate(const char *parameter)
@@ -79,8 +79,8 @@ ParameterAclCreate(const char *parameter)
 	bool		nulls[Natts_pg_parameter_acl] = {0};
 
 	/*
-	 * To prevent cluttering pg_parameter_acl with useless entries, insist
-	 * that the name be valid.
+	 * 为避免用无用条目弄乱 pg_parameter_acl，要求
+	 * 名称必须有效。
 	 */
 	if (!check_GUC_name_for_parameter_acl(parameter))
 		ereport(ERROR,
@@ -88,14 +88,14 @@ ParameterAclCreate(const char *parameter)
 				 errmsg("invalid parameter name \"%s\"",
 						parameter)));
 
-	/* Convert name to the form it should have in pg_parameter_acl. */
+	/* 把名称转换成应在 pg_parameter_acl 中使用的形式。 */
 	parname = convert_GUC_name_for_parameter_acl(parameter);
 
 	/*
-	 * Create and insert a new record containing a null ACL.
+	 * 创建并插入一条含空 ACL 的新记录。
 	 *
-	 * We don't take a strong enough lock to prevent concurrent insertions,
-	 * relying instead on the unique index.
+	 * 我们不取足以阻止并发插入的强锁，
+	 * 而是依赖唯一索引。
 	 */
 	rel = table_open(ParameterAclRelationId, RowExclusiveLock);
 	tupDesc = RelationGetDescr(rel);
@@ -109,7 +109,7 @@ ParameterAclCreate(const char *parameter)
 	tuple = heap_form_tuple(tupDesc, values, nulls);
 	CatalogTupleInsert(rel, tuple);
 
-	/* Close pg_parameter_acl, but keep lock till commit. */
+	/* 关闭 pg_parameter_acl，但保持锁直到提交。 */
 	heap_freetuple(tuple);
 	table_close(rel, NoLock);
 

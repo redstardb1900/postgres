@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_range.c
- *	  routines to support manipulation of the pg_range relation
+ *	  支持操作 pg_range 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,7 +30,7 @@
 
 /*
  * RangeCreate
- *		Create an entry in pg_range.
+ *		在 pg_range 中创建一条条目。
  */
 void
 RangeCreate(Oid rangeTypeOid, Oid rangeSubType, Oid rangeCollation,
@@ -63,7 +63,7 @@ RangeCreate(Oid rangeTypeOid, Oid rangeSubType, Oid rangeCollation,
 	CatalogTupleInsert(pg_range, tup);
 	heap_freetuple(tup);
 
-	/* record type's dependencies on range-related items */
+	/* 记录类型对 range 相关对象的依赖 */
 	addrs = new_object_addresses();
 
 	ObjectAddressSet(myself, TypeRelationId, rangeTypeOid);
@@ -95,7 +95,7 @@ RangeCreate(Oid rangeTypeOid, Oid rangeSubType, Oid rangeCollation,
 	record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 	free_object_addresses(addrs);
 
-	/* record multirange type's dependency on the range type */
+	/* 记录多范围类型对范围类型的依赖 */
 	referencing.classId = TypeRelationId;
 	referencing.objectId = multirangeTypeOid;
 	referencing.objectSubId = 0;
@@ -107,7 +107,7 @@ RangeCreate(Oid rangeTypeOid, Oid rangeSubType, Oid rangeCollation,
 
 /*
  * RangeDelete
- *		Remove the pg_range entry for the specified type.
+ *		删除指定类型的 pg_range 条目。
  */
 void
 RangeDelete(Oid rangeTypeOid)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_largeobject.c
- *	  routines to support manipulation of the pg_largeobject relation
+ *	  支持操作 pg_largeobject 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -30,11 +30,11 @@
 
 
 /*
- * Create a large object having the given LO identifier.
+ * 创建具有给定 LO 标识符的大对象。
  *
- * We create a new large object by inserting an entry into
- * pg_largeobject_metadata without any data pages, so that the object
- * will appear to exist with size 0.
+ * 我们通过向 pg_largeobject_metadata 插入一条
+ * 不含任何数据页的条目来创建新大对象，从而使该对象
+ * 看起来存在且大小为 0。
  */
 Oid
 LargeObjectCreate(Oid loid)
@@ -49,7 +49,7 @@ LargeObjectCreate(Oid loid)
 							RowExclusiveLock);
 
 	/*
-	 * Insert metadata of the largeobject
+	 * 插入大对象的元数据
 	 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
@@ -79,8 +79,8 @@ LargeObjectCreate(Oid loid)
 }
 
 /*
- * Drop a large object having the given LO identifier.  Both the data pages
- * and metadata must be dropped.
+ * 删除具有给定 LO 标识符的大对象。数据页与
+ * 元数据都必须删除。
  */
 void
 LargeObjectDrop(Oid loid)
@@ -98,7 +98,7 @@ LargeObjectDrop(Oid loid)
 								RowExclusiveLock);
 
 	/*
-	 * Delete an entry from pg_largeobject_metadata
+	 * 从 pg_largeobject_metadata 删除一条条目
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_largeobject_metadata_oid,
@@ -120,7 +120,7 @@ LargeObjectDrop(Oid loid)
 	systable_endscan(scan);
 
 	/*
-	 * Delete all the associated entries from pg_largeobject
+	 * 从 pg_largeobject 删除所有关联条目
 	 */
 	ScanKeyInit(&skey[0],
 				Anum_pg_largeobject_loid,
@@ -145,14 +145,14 @@ LargeObjectDrop(Oid loid)
 /*
  * LargeObjectExists
  *
- * We don't use the system cache for large object metadata, for fear of
- * using too much local memory.
+ * 我们不对大对象元数据使用系统缓存，以免
+ * 占用过多本地内存。
  *
- * This function always scans the system catalog using an up-to-date snapshot,
- * so it should not be used when a large object is opened in read-only mode
- * (because large objects opened in read only mode are supposed to be viewed
- * relative to the caller's snapshot, whereas in read-write mode they are
- * relative to a current snapshot).
+ * 本函数始终使用最新快照扫描系统目录，
+ * 因此不应在以只读模式打开大对象时使用
+ * （因为以只读模式打开的大对象应按调用者的
+ * 快照查看，而以读写模式打开时则相对于
+ * 当前快照）。
  */
 bool
 LargeObjectExists(Oid loid)

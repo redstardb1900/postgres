@@ -1,0 +1,214 @@
+{
+  "schema_version": 1,
+  "batch_id": "0208-comment-catalog-part1",
+  "title": "zh: translate catalog comments (part 1)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "b6c758fe5e281751d88320578a69d50eb9120af1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_class.c",
+      "kind": "c_comment",
+      "note": "pg_class catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_parameter_acl.c",
+      "kind": "c_comment",
+      "note": "parameter ACL catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_namespace.c",
+      "kind": "c_comment",
+      "note": "namespace catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_range.c",
+      "kind": "c_comment",
+      "note": "range type catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_cast.c",
+      "kind": "c_comment",
+      "note": "cast catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_largeobject.c",
+      "kind": "c_comment",
+      "note": "large object catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_conversion.c",
+      "kind": "c_comment",
+      "note": "encoding conversion catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/objectaccess.c",
+      "kind": "c_comment",
+      "note": "object access hook entrypoints"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_db_role_setting.c",
+      "kind": "c_comment",
+      "note": "db/role setting catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_collation.c",
+      "kind": "c_comment",
+      "note": "collation catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0208-comment-catalog-part1.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_class.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "pg_class catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_parameter_acl.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 9,
+      "translated": 9,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "parameter ACL catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_namespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 10,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "namespace catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_range.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 5,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "range type catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_cast.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 11,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "cast catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_largeobject.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 7,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "large object catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_conversion.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 15,
+      "translated": 15,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "encoding conversion catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/objectaccess.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 27,
+      "translated": 27,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright lines"
+      ],
+      "note": "object access hook entrypoints; Copyright lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_db_role_setting.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 10,
+      "translated": 10,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "db/role setting catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_collation.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 16,
+      "translated": 16,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "collation catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0208-comment-catalog-part1.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0208 translates comments in ten smaller src/backend/catalog/ .c files (part 1). Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: partition.c / indexing.c / pg_attrdef.c and other remaining catalog .c."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_conversion.c
- *	  routines to support manipulation of the pg_conversion relation
+ *	  支持操作 pg_conversion 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -35,7 +35,7 @@
 /*
  * ConversionCreate
  *
- * Add a new tuple to pg_conversion.
+ * 向 pg_conversion 添加新元组。
  */
 ObjectAddress
 ConversionCreate(const char *conname, Oid connamespace,
@@ -54,11 +54,11 @@ ConversionCreate(const char *conname, Oid connamespace,
 	ObjectAddress myself,
 				referenced;
 
-	/* sanity checks */
+	/* 健全性检查 */
 	if (!conname)
 		elog(ERROR, "no conversion name supplied");
 
-	/* make sure there is no existing conversion of same name */
+	/* 确保不存在同名转换 */
 	if (SearchSysCacheExists2(CONNAMENSP,
 							  PointerGetDatum(conname),
 							  ObjectIdGetDatum(connamespace)))
@@ -69,8 +69,8 @@ ConversionCreate(const char *conname, Oid connamespace,
 	if (def)
 	{
 		/*
-		 * make sure there is no existing default <for encoding><to encoding>
-		 * pair in this name space
+		 * 确保此命名空间中不存在默认的
+		 * <源编码><目标编码> 对
 		 */
 		if (FindDefaultConversion(connamespace,
 								  conforencoding,
@@ -82,18 +82,18 @@ ConversionCreate(const char *conname, Oid connamespace,
 							pg_encoding_to_char(contoencoding))));
 	}
 
-	/* open pg_conversion */
+	/* 打开 pg_conversion */
 	rel = table_open(ConversionRelationId, RowExclusiveLock);
 	tupDesc = rel->rd_att;
 
-	/* initialize nulls and values */
+	/* 初始化 nulls 与 values */
 	for (i = 0; i < Natts_pg_conversion; i++)
 	{
 		nulls[i] = false;
 		values[i] = (Datum) NULL;
 	}
 
-	/* form a tuple */
+	/* 构造元组 */
 	namestrcpy(&cname, conname);
 	oid = GetNewOidWithIndex(rel, ConversionOidIndexId,
 							 Anum_pg_conversion_oid);
@@ -108,32 +108,32 @@ ConversionCreate(const char *conname, Oid connamespace,
 
 	tup = heap_form_tuple(tupDesc, values, nulls);
 
-	/* insert a new tuple */
+	/* 插入新元组 */
 	CatalogTupleInsert(rel, tup);
 
 	myself.classId = ConversionRelationId;
 	myself.objectId = oid;
 	myself.objectSubId = 0;
 
-	/* create dependency on conversion procedure */
+	/* 创建对转换过程的依赖 */
 	referenced.classId = ProcedureRelationId;
 	referenced.objectId = conproc;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* create dependency on namespace */
+	/* 创建对命名空间的依赖 */
 	referenced.classId = NamespaceRelationId;
 	referenced.objectId = connamespace;
 	referenced.objectSubId = 0;
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 
-	/* create dependency on owner */
+	/* 创建对所有者的依赖 */
 	recordDependencyOnOwner(ConversionRelationId, oid, conowner);
 
-	/* dependency on extension */
+	/* 对扩展的依赖 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new conversion */
+	/* 新转换的创建后钩子 */
 	InvokeObjectPostCreateHook(ConversionRelationId, oid, 0);
 
 	heap_freetuple(tup);
@@ -145,11 +145,11 @@ ConversionCreate(const char *conname, Oid connamespace,
 /*
  * FindDefaultConversion
  *
- * Find "default" conversion proc by for_encoding and to_encoding in the
- * given namespace.
+ * 在给定命名空间中按 for_encoding 与 to_encoding
+ * 查找"默认"转换过程。
  *
- * If found, returns the procedure's oid, otherwise InvalidOid.  Note that
- * you get the procedure's OID not the conversion's OID!
+ * 若找到，返回过程的 oid，否则返回 InvalidOid。注意
+ * 得到的是过程的 OID，而不是转换的 OID！
  */
 Oid
 FindDefaultConversion(Oid name_space, int32 for_encoding, int32 to_encoding)

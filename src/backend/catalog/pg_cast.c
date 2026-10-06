@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_cast.c
- *	  routines to support manipulation of the pg_cast relation
+ *	  支持操作 pg_cast 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -31,18 +31,18 @@
  * ----------------------------------------------------------------
  *		CastCreate
  *
- * Forms and inserts catalog tuples for a new cast being created.
- * Caller must have already checked privileges, and done consistency
- * checks on the given datatypes and cast function (if applicable).
+ * 为正在创建的新类型转换构造并插入目录元组。
+ * 调用者必须已检查权限，并对给定数据类型与
+ * 类型转换函数（若适用）做完一致性检查。
  *
- * Since we allow binary coercibility of the datatypes to the cast
- * function's input and result, there could be one or two WITHOUT FUNCTION
- * casts that this one depends on.  We don't record that explicitly
- * in pg_cast, but we still need to make dependencies on those casts.
+ * 由于我们允许数据类型与类型转换函数的输入和结果
+ * 二进制可强制转换，因此可能有一两个本转换所依赖的
+ * WITHOUT FUNCTION 类型转换。我们不在 pg_cast 中显式
+ * 记录这一点，但仍需建立对这些类型转换的依赖。
  *
- * 'behavior' indicates the types of the dependencies that the new
- * cast will have on its input and output types, the cast function,
- * and the other casts if any.
+ * 'behavior' 表示新类型转换将对其输入与输出类型、
+ * 类型转换函数、以及（若有）其他类型转换所具有的
+ * 依赖类型。
  * ----------------------------------------------------------------
  */
 ObjectAddress
@@ -62,9 +62,9 @@ CastCreate(Oid sourcetypeid, Oid targettypeid,
 	relation = table_open(CastRelationId, RowExclusiveLock);
 
 	/*
-	 * Check for duplicate.  This is just to give a friendly error message,
-	 * the unique index would catch it anyway (so no need to sweat about race
-	 * conditions).
+	 * 检查是否重复。这只是为了给出友好的错误消息，
+	 * 唯一索引反正也会捕获（因此无需担心竞态
+	 * 条件）。
 	 */
 	tuple = SearchSysCache2(CASTSOURCETARGET,
 							ObjectIdGetDatum(sourcetypeid),
@@ -76,7 +76,7 @@ CastCreate(Oid sourcetypeid, Oid targettypeid,
 						format_type_be(sourcetypeid),
 						format_type_be(targettypeid))));
 
-	/* ready to go */
+	/* 准备就绪 */
 	castid = GetNewOidWithIndex(relation, CastOidIndexId, Anum_pg_cast_oid);
 	values[Anum_pg_cast_oid - 1] = ObjectIdGetDatum(castid);
 	values[Anum_pg_cast_castsource - 1] = ObjectIdGetDatum(sourcetypeid);
@@ -91,25 +91,25 @@ CastCreate(Oid sourcetypeid, Oid targettypeid,
 
 	addrs = new_object_addresses();
 
-	/* make dependency entries */
+	/* 建立依赖项 */
 	ObjectAddressSet(myself, CastRelationId, castid);
 
-	/* dependency on source type */
+	/* 对源类型的依赖 */
 	ObjectAddressSet(referenced, TypeRelationId, sourcetypeid);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on target type */
+	/* 对目标类型的依赖 */
 	ObjectAddressSet(referenced, TypeRelationId, targettypeid);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on function */
+	/* 对函数的依赖 */
 	if (OidIsValid(funcid))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, funcid);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* dependencies on casts required for function */
+	/* 对函数所需类型转换的依赖 */
 	if (OidIsValid(incastid))
 	{
 		ObjectAddressSet(referenced, CastRelationId, incastid);
@@ -124,10 +124,10 @@ CastCreate(Oid sourcetypeid, Oid targettypeid,
 	record_object_address_dependencies(&myself, addrs, behavior);
 	free_object_addresses(addrs);
 
-	/* dependency on extension */
+	/* 对扩展的依赖 */
 	recordDependencyOnCurrentExtension(&myself, false);
 
-	/* Post creation hook for new cast */
+	/* 新类型转换的创建后钩子 */
 	InvokeObjectPostCreateHook(CastRelationId, castid, 0);
 
 	heap_freetuple(tuple);

@@ -1,7 +1,7 @@
 /* -------------------------------------------------------------------------
  *
  * objectaccess.c
- *		functions for object_access_hook on various events
+ *		各类事件上 object_access_hook 的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -16,8 +16,8 @@
 #include "catalog/pg_proc.h"
 
 /*
- * Hook on object accesses.  This is intended as infrastructure for security
- * and logging plugins.
+ * 对象访问钩子。用作安全与日志插件的
+ * 基础设施。
  */
 object_access_hook_type object_access_hook = NULL;
 object_access_hook_type_str object_access_hook_str = NULL;
@@ -26,7 +26,7 @@ object_access_hook_type_str object_access_hook_str = NULL;
 /*
  * RunObjectPostCreateHook
  *
- * OAT_POST_CREATE object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_POST_CREATE 事件钩子入口点
  */
 void
 RunObjectPostCreateHook(Oid classId, Oid objectId, int subId,
@@ -34,7 +34,7 @@ RunObjectPostCreateHook(Oid classId, Oid objectId, int subId,
 {
 	ObjectAccessPostCreate pc_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	memset(&pc_arg, 0, sizeof(ObjectAccessPostCreate));
@@ -48,7 +48,7 @@ RunObjectPostCreateHook(Oid classId, Oid objectId, int subId,
 /*
  * RunObjectDropHook
  *
- * OAT_DROP object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_DROP 事件钩子入口点
  */
 void
 RunObjectDropHook(Oid classId, Oid objectId, int subId,
@@ -56,7 +56,7 @@ RunObjectDropHook(Oid classId, Oid objectId, int subId,
 {
 	ObjectAccessDrop drop_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	memset(&drop_arg, 0, sizeof(ObjectAccessDrop));
@@ -70,12 +70,12 @@ RunObjectDropHook(Oid classId, Oid objectId, int subId,
 /*
  * RunObjectTruncateHook
  *
- * OAT_TRUNCATE object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_TRUNCATE 事件钩子入口点
  */
 void
 RunObjectTruncateHook(Oid objectId)
 {
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	(*object_access_hook) (OAT_TRUNCATE,
@@ -86,7 +86,7 @@ RunObjectTruncateHook(Oid objectId)
 /*
  * RunObjectPostAlterHook
  *
- * OAT_POST_ALTER object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_POST_ALTER 事件钩子入口点
  */
 void
 RunObjectPostAlterHook(Oid classId, Oid objectId, int subId,
@@ -94,7 +94,7 @@ RunObjectPostAlterHook(Oid classId, Oid objectId, int subId,
 {
 	ObjectAccessPostAlter pa_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	memset(&pa_arg, 0, sizeof(ObjectAccessPostAlter));
@@ -109,14 +109,14 @@ RunObjectPostAlterHook(Oid classId, Oid objectId, int subId,
 /*
  * RunNamespaceSearchHook
  *
- * OAT_NAMESPACE_SEARCH object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_NAMESPACE_SEARCH 事件钩子入口点
  */
 bool
 RunNamespaceSearchHook(Oid objectId, bool ereport_on_violation)
 {
 	ObjectAccessNamespaceSearch ns_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	memset(&ns_arg, 0, sizeof(ObjectAccessNamespaceSearch));
@@ -133,12 +133,12 @@ RunNamespaceSearchHook(Oid objectId, bool ereport_on_violation)
 /*
  * RunFunctionExecuteHook
  *
- * OAT_FUNCTION_EXECUTE object ID based event hook entrypoint
+ * 基于对象 ID 的 OAT_FUNCTION_EXECUTE 事件钩子入口点
  */
 void
 RunFunctionExecuteHook(Oid objectId)
 {
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook != NULL);
 
 	(*object_access_hook) (OAT_FUNCTION_EXECUTE,
@@ -146,13 +146,13 @@ RunFunctionExecuteHook(Oid objectId)
 						   NULL);
 }
 
-/* String versions */
+/* 字符串版本 */
 
 
 /*
  * RunObjectPostCreateHookStr
  *
- * OAT_POST_CREATE object name based event hook entrypoint
+ * 基于对象名的 OAT_POST_CREATE 事件钩子入口点
  */
 void
 RunObjectPostCreateHookStr(Oid classId, const char *objectName, int subId,
@@ -160,7 +160,7 @@ RunObjectPostCreateHookStr(Oid classId, const char *objectName, int subId,
 {
 	ObjectAccessPostCreate pc_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	memset(&pc_arg, 0, sizeof(ObjectAccessPostCreate));
@@ -174,7 +174,7 @@ RunObjectPostCreateHookStr(Oid classId, const char *objectName, int subId,
 /*
  * RunObjectDropHookStr
  *
- * OAT_DROP object name based event hook entrypoint
+ * 基于对象名的 OAT_DROP 事件钩子入口点
  */
 void
 RunObjectDropHookStr(Oid classId, const char *objectName, int subId,
@@ -182,7 +182,7 @@ RunObjectDropHookStr(Oid classId, const char *objectName, int subId,
 {
 	ObjectAccessDrop drop_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	memset(&drop_arg, 0, sizeof(ObjectAccessDrop));
@@ -196,12 +196,12 @@ RunObjectDropHookStr(Oid classId, const char *objectName, int subId,
 /*
  * RunObjectTruncateHookStr
  *
- * OAT_TRUNCATE object name based event hook entrypoint
+ * 基于对象名的 OAT_TRUNCATE 事件钩子入口点
  */
 void
 RunObjectTruncateHookStr(const char *objectName)
 {
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	(*object_access_hook_str) (OAT_TRUNCATE,
@@ -212,7 +212,7 @@ RunObjectTruncateHookStr(const char *objectName)
 /*
  * RunObjectPostAlterHookStr
  *
- * OAT_POST_ALTER object name based event hook entrypoint
+ * 基于对象名的 OAT_POST_ALTER 事件钩子入口点
  */
 void
 RunObjectPostAlterHookStr(Oid classId, const char *objectName, int subId,
@@ -220,7 +220,7 @@ RunObjectPostAlterHookStr(Oid classId, const char *objectName, int subId,
 {
 	ObjectAccessPostAlter pa_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	memset(&pa_arg, 0, sizeof(ObjectAccessPostAlter));
@@ -235,14 +235,14 @@ RunObjectPostAlterHookStr(Oid classId, const char *objectName, int subId,
 /*
  * RunNamespaceSearchHookStr
  *
- * OAT_NAMESPACE_SEARCH object name based event hook entrypoint
+ * 基于对象名的 OAT_NAMESPACE_SEARCH 事件钩子入口点
  */
 bool
 RunNamespaceSearchHookStr(const char *objectName, bool ereport_on_violation)
 {
 	ObjectAccessNamespaceSearch ns_arg;
 
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	memset(&ns_arg, 0, sizeof(ObjectAccessNamespaceSearch));
@@ -259,12 +259,12 @@ RunNamespaceSearchHookStr(const char *objectName, bool ereport_on_violation)
 /*
  * RunFunctionExecuteHookStr
  *
- * OAT_FUNCTION_EXECUTE object name based event hook entrypoint
+ * 基于对象名的 OAT_FUNCTION_EXECUTE 事件钩子入口点
  */
 void
 RunFunctionExecuteHookStr(const char *objectName)
 {
-	/* caller should check, but just in case... */
+	/* 调用者本应检查，但以防万一... */
 	Assert(object_access_hook_str != NULL);
 
 	(*object_access_hook_str) (OAT_FUNCTION_EXECUTE,

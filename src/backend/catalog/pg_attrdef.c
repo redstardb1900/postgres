@@ -123,7 +123,7 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 		/*
 		 * 注意：就核心 Postgres 而言，这段代码已经是死代码，
 		 * 因为不再有调用方传入 add_column_mode = true。我们在
-		 * 后备分支中保留它，以防某个扩展
+		 * 旧版维护分支中保留它，以防某个扩展
 		 * 仍在依赖它。
 		 */
 		if (rel->rd_rel->relkind == RELKIND_RELATION && add_column_mode &&

@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "batch_id": "0209b-comment-catalog-part2-fix",
+  "title": "zh: fix catalog comments (part 2) enum cleanup and back branches",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "139b0f0d6a36d5ca270dd9b033458e8a85fc1289",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_enum.c",
+      "kind": "c_comment",
+      "note": "P1: AtEOXact_Enum — enum stuff → 枚举相关状态 (not 事务)"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_attrdef.c",
+      "kind": "c_comment",
+      "note": "P1: back branches → 旧版维护分支 (not 后备)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0209b-comment-catalog-part2-fix.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_enum.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "AtEOXact_Enum: 枚举相关事务 → 枚举相关状态"
+    },
+    {
+      "path": "src/backend/catalog/pg_attrdef.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "StoreAttrDefault: 后备分支 → 旧版维护分支"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0209b-comment-catalog-part2-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Composer P1 on 0209"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0209b"
+    }
+  ],
+  "notes": "Composer P1 on 0209: AtEOXact_Enum 'enum stuff' must not be 枚举相关事务; StoreAttrDefault 'back branches' must not be 后备分支."
+}

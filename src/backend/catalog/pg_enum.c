@@ -632,7 +632,7 @@ EnumUncommitted(Oid enum_id)
 
 
 /*
- * 顶层事务结束后清理枚举相关事务。
+ * 顶层事务结束后清理枚举相关状态。
  */
 void
 AtEOXact_Enum(void)

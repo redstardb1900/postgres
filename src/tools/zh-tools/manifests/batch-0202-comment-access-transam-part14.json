@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0202-comment-access-transam-part14",
+ "title": "zh: translate access/transam comments (part 14)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3a72379ad81cdfc5b12aba14a5cab47064268582",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/multixact.c",
+   "kind": "c_comment",
+   "note": "Multi-transaction-log manager"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0202-comment-access-transam-part14.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/multixact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 244,
+   "translated": 244,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "MultiXact; Copyright and path lines kept in English within header; ASCII diagram lines and function-name lines kept; no fall-through marker"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0202-comment-access-transam-part14.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c."
+}

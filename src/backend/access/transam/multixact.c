@@ -1,63 +1,63 @@
 /*-------------------------------------------------------------------------
  *
  * multixact.c
- *		PostgreSQL multi-transaction-log manager
+ *		PostgreSQL 多事务日志管理器
  *
- * The pg_multixact manager is a pg_xact-like manager that stores an array of
- * MultiXactMember for each MultiXactId.  It is a fundamental part of the
- * shared-row-lock implementation.  Each MultiXactMember is comprised of a
- * TransactionId and a set of flag bits.  The name is a bit historical:
- * originally, a MultiXactId consisted of more than one TransactionId (except
- * in rare corner cases), hence "multi".  Nowadays, however, it's perfectly
- * legitimate to have MultiXactIds that only include a single Xid.
+ * pg_multixact 管理器是类似 pg_xact 的管理器，为
+ * 每个 MultiXactId 存储 MultiXactMember
+ * 数组。它是共享行锁实现的基础部分。每个 MultiXactMember
+ * 由一个 TransactionId 和一组标志位组成。这个名字带有一
+ * 点历史色彩：起初 MultiXactId 由多于一个
+ * TransactionId 组成（罕见角落情况除外），故称 "multi
+ * "。如今，仅包含单个 Xid 的 MultiXactIds 也完全合法。
  *
- * The meaning of the flag bits is opaque to this module, but they are mostly
- * used in heapam.c to identify lock modes that each of the member transactions
- * is holding on any given tuple.  This module just contains support to store
- * and retrieve the arrays.
+ * 标志位的含义对本模块不透明，但它们主
+ * 要在 heapam.c 中用来标识各
+ * 成员事务在给定元组上持有的锁模式。本
+ * 模块只提供存储与检索这些数组的支持。
  *
- * We use two SLRU areas, one for storing the offsets at which the data
- * starts for each MultiXactId in the other one.  This trick allows us to
- * store variable length arrays of TransactionIds.  (We could alternatively
- * use one area containing counts and TransactionIds, with valid MultiXactId
- * values pointing at slots containing counts; but that way seems less robust
- * since it would get completely confused if someone inquired about a bogus
- * MultiXactId that pointed to an intermediate slot containing an XID.)
+ * 我们使用两个 SLRU 区域：一个存放每个 MultiXactId
+ * 在另一个区域中数据起始处的偏移。这一技巧使我们能存储变
+ * 长的 TransactionIds 数组。（也可改用
+ * 单个区域同时存放计数与 TransactionIds，
+ * 由合法 MultiXactId 指向含计数的槽；但那
+ * 样似乎更不稳健，因为若有人查询一个指向中间含 XID
+ * 槽的伪 MultiXactId，就会完全搞乱。）
  *
- * XLOG interactions: this module generates a record whenever a new OFFSETs or
- * MEMBERs page is initialized to zeroes, as well as an
- * XLOG_MULTIXACT_CREATE_ID record whenever a new MultiXactId is defined.
- * This module ignores the WAL rule "write xlog before data," because it
- * suffices that actions recording a MultiXactId in a heap xmax do follow that
- * rule.  The only way for the MXID to be referenced from any data page is for
- * heap_lock_tuple() or heap_update() to have put it there, and each generates
- * an XLOG record that must follow ours.  The normal LSN interlock between the
- * data page and that XLOG record will ensure that our XLOG record reaches
- * disk first.  If the SLRU members/offsets data reaches disk sooner than the
- * XLOG records, we do not care; after recovery, no xmax will refer to it.  On
- * the flip side, to ensure that all referenced entries _do_ reach disk, this
- * module's XLOG records completely rebuild the data entered since the last
- * checkpoint.  We flush and sync all dirty OFFSETs and MEMBERs pages to disk
- * before each checkpoint is considered complete.
+ * XLOG 交互：每当新的 OFFSETs 或 MEMBERs
+ * 页被初始化为零时，本模块会生成一条记录；每当定义新的
+ * MultiXactId 时，还会生成
+ * XLOG_MULTIXACT_CREATE_ID 记录。本模块忽
+ * 略 WAL 规则 "先写 xlog 再写数据"，因为只要把
+ * MultiXactId 记入堆 xmax 的操作遵循该规则即可。
+ * 数据页引用 MXID 的唯一途径是 heap_lock_tuple
+ * () 或 heap_update() 写入，而它们各自生成的
+ * XLOG 记录必须排在我们的记录之后。数据页与该 XLOG 记
+ * 录之间的常规 LSN 互锁可确保我们的 XLOG 记录先落盘。
+ * 若 SLRU 成员/偏移数据比 XLOG 记录更早落盘，我们也
+ * 不在意；恢复后不会有 xmax 引用它。另一方面，为确保所有被
+ * 引用的项确实 _do_ 落盘，本模块的 XLOG 记录会完整重
+ * 建自上次检查点以来写入的数据。在每个检查点被视为完成之前，我们
+ * 会刷新并同步所有脏的 OFFSETs 与 MEMBERs 页。
  *
- * Like clog.c, and unlike subtrans.c, we have to preserve state across
- * crashes and ensure that MXID and offset numbering increases monotonically
- * across a crash.  We do this in the same way as it's done for transaction
- * IDs: the WAL record is guaranteed to contain evidence of every MXID we
- * could need to worry about, and we just make sure that at the end of
- * replay, the next-MXID and next-offset counters are at least as large as
- * anything we saw during replay.
+ * 与 clog.c 一样、与 subtrans.
+ * c 不同，我们必须在崩溃后保留状态，并确保 MXID
+ * 与偏移编号在崩溃后仍单调递增。做法与事务 ID
+ * 相同：WAL 记录保证包含我们需要关心的每个
+ * MXID 的证据，我们只需确保重放结束时 next
+ * -MXID 与 next-offset
+ * 计数器至少不小于重放期间所见的任何值。
  *
- * We are able to remove segments no longer necessary by carefully tracking
- * each table's used values: during vacuum, any multixact older than a certain
- * value is removed; the cutoff value is stored in pg_class.  The minimum value
- * across all tables in each database is stored in pg_database, and the global
- * minimum across all databases is part of pg_control and is kept in shared
- * memory.  Whenever that minimum is advanced, the SLRUs are truncated.
+ * 通过仔细跟踪每张表用过的值，可以删除不再需要的段：
+ * 清理期间，早于某阈值的多事务会被移除；截止值存在
+ * pg_class 中。每个数据库内所有表的最小值存
+ * 在 pg_database，跨所有数据库的全局最小
+ * 值是 pg_control 的一部分并保存在共享内
+ * 存中。每当该最小值推进时，就会截断 SLRUs。
  *
- * When new multixactid values are to be created, care is taken that the
- * counter does not fall within the wraparound horizon considering the global
- * minimum value.
+ * 创建新的 multixactid
+ * 值时，会注意使计数器不会落入考虑
+ * 全局最小值后的回卷地平线之内。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -93,19 +93,19 @@
 
 
 /*
- * Defines for MultiXactOffset page sizes.  A page is the same BLCKSZ as is
- * used everywhere else in Postgres.
+ * MultiXactOffset 页大小的定义。页大小与
+ * Postgres 其他地方使用的 BLCKSZ 相同。
  *
- * Note: because MultiXactOffsets are 32 bits and wrap around at 0xFFFFFFFF,
- * MultiXact page numbering also wraps around at
- * 0xFFFFFFFF/MULTIXACT_OFFSETS_PER_PAGE, and segment numbering at
- * 0xFFFFFFFF/MULTIXACT_OFFSETS_PER_PAGE/SLRU_PAGES_PER_SEGMENT.  We need
- * take no explicit notice of that fact in this module, except when comparing
- * segment and page numbers in TruncateMultiXact (see
- * MultiXactOffsetPagePrecedes).
+ * 注意：因为 MultiXactOffsets 是 32 位并在 0xFFFFFFFF
+ * 处回卷，MultiXact 页编号也会在 0xFFFFFFFF/
+ * MULTIXACT_OFFSETS_PER_PAGE 处回卷，段编号在
+ * 0xFFFFFFFF/MULTIXACT_OFFSETS_PER_PAGE
+ * /SLRU_PAGES_PER_SEGMENT 处回卷。本模块除了在
+ * TruncateMultiXact 中比较段号与页号时（见
+ * MultiXactOffsetPagePrecedes）外，无需显式处理这一事实。
  */
 
-/* We need four bytes per offset */
+/* 每个偏移需要四个字节 */
 #define MULTIXACT_OFFSETS_PER_PAGE (BLCKSZ / sizeof(MultiXactOffset))
 
 #define MultiXactIdToOffsetPage(xid) \
@@ -115,27 +115,27 @@
 #define MultiXactIdToOffsetSegment(xid) (MultiXactIdToOffsetPage(xid) / SLRU_PAGES_PER_SEGMENT)
 
 /*
- * The situation for members is a bit more complex: we store one byte of
- * additional flag bits for each TransactionId.  To do this without getting
- * into alignment issues, we store four bytes of flags, and then the
- * corresponding 4 Xids.  Each such 5-word (20-byte) set we call a "group", and
- * are stored as a whole in pages.  Thus, with 8kB BLCKSZ, we keep 409 groups
- * per page.  This wastes 12 bytes per page, but that's OK -- simplicity (and
- * performance) trumps space efficiency here.
+ * 成员的情况更复杂一些：我们为每个 TransactionId
+ * 额外存储一字节标志位。为避免对齐问题，先存四个字节的
+ * 标志，再存对应的 4 个 Xid。每个这样的 5 字
+ * （20 字节）集合称为一个 "group"（组），并
+ * 作为整体存入页中。因此在 8kB BLCKSZ 下，
+ * 每页可放 409 个组。这会浪费每页 12 字节，
+ * 但没关系——此处简洁性（以及性能）优先于空间效率。
  *
- * Note that the "offset" macros work with byte offset, not array indexes, so
- * arithmetic must be done using "char *" pointers.
+ * 注意 "offset" 宏使用的是字节偏移而非数组下标，
+ * 因此算术运算必须通过 "char *" 指针完成。
  */
-/* We need eight bits per xact, so one xact fits in a byte */
+/* 每个事务需要八位，故一个事务正好装入一字节 */
 #define MXACT_MEMBER_BITS_PER_XACT			8
 #define MXACT_MEMBER_FLAGS_PER_BYTE			1
 #define MXACT_MEMBER_XACT_BITMASK	((1 << MXACT_MEMBER_BITS_PER_XACT) - 1)
 
-/* how many full bytes of flags are there in a group? */
+/* 一组中有多少完整的标志字节？ */
 #define MULTIXACT_FLAGBYTES_PER_GROUP		4
 #define MULTIXACT_MEMBERS_PER_MEMBERGROUP	\
 	(MULTIXACT_FLAGBYTES_PER_GROUP * MXACT_MEMBER_FLAGS_PER_BYTE)
-/* size in bytes of a complete group */
+/* 完整一组的字节大小 */
 #define MULTIXACT_MEMBERGROUP_SIZE \
 	(sizeof(TransactionId) * MULTIXACT_MEMBERS_PER_MEMBERGROUP + MULTIXACT_FLAGBYTES_PER_GROUP)
 #define MULTIXACT_MEMBERGROUPS_PER_PAGE (BLCKSZ / MULTIXACT_MEMBERGROUP_SIZE)
@@ -143,23 +143,23 @@
 	(MULTIXACT_MEMBERGROUPS_PER_PAGE * MULTIXACT_MEMBERS_PER_MEMBERGROUP)
 
 /*
- * Because the number of items per page is not a divisor of the last item
- * number (member 0xFFFFFFFF), the last segment does not use the maximum number
- * of pages, and moreover the last used page therein does not use the same
- * number of items as previous pages.  (Another way to say it is that the
- * 0xFFFFFFFF member is somewhere in the middle of the last page, so the page
- * has some empty space after that item.)
+ * 因为每页项数不是最后一项编号（成员 0
+ * xFFFFFFFF）的约数，最后一段不会
+ * 用满最大页数，而且其中最后使用的页所含项
+ * 数也与前面的页不同。（换言之，成员 0
+ * xFFFFFFFF 位于最后一页的中间某
+ * 处，故该项之后页上还有一些空闲空间。）
  *
- * This constant is the number of members in the last page of the last segment.
+ * 此常量是最后一段最后一页中的成员数。
  */
 #define MAX_MEMBERS_IN_LAST_MEMBERS_PAGE \
 		((uint32) ((0xFFFFFFFF % MULTIXACT_MEMBERS_PER_PAGE) + 1))
 
-/* page in which a member is to be found */
+/* 成员所在的页 */
 #define MXOffsetToMemberPage(xid) ((xid) / (TransactionId) MULTIXACT_MEMBERS_PER_PAGE)
 #define MXOffsetToMemberSegment(xid) (MXOffsetToMemberPage(xid) / SLRU_PAGES_PER_SEGMENT)
 
-/* Location (byte offset within page) of flag word for a given member */
+/* 给定成员的标志字在页内的位置（字节偏移） */
 #define MXOffsetToFlagsOffset(xid) \
 	((((xid) / (TransactionId) MULTIXACT_MEMBERS_PER_MEMBERGROUP) % \
 	  (TransactionId) MULTIXACT_MEMBERGROUPS_PER_PAGE) * \
@@ -168,12 +168,12 @@
 	(((xid) % (TransactionId) MULTIXACT_MEMBERS_PER_MEMBERGROUP) * \
 	 MXACT_MEMBER_BITS_PER_XACT)
 
-/* Location (byte offset within page) of TransactionId of given member */
+/* 给定成员的 TransactionId 在页内的位置（字节偏移） */
 #define MXOffsetToMemberOffset(xid) \
 	(MXOffsetToFlagsOffset(xid) + MULTIXACT_FLAGBYTES_PER_GROUP + \
 	 ((xid) % MULTIXACT_MEMBERS_PER_MEMBERGROUP) * sizeof(TransactionId))
 
-/* Multixact members wraparound thresholds. */
+/* 多事务成员回卷阈值。 */
 #define MULTIXACT_MEMBER_SAFE_THRESHOLD		(MaxMultiXactOffset / 2)
 #define MULTIXACT_MEMBER_DANGER_THRESHOLD	\
 	(MaxMultiXactOffset - MaxMultiXactOffset / 4)
@@ -182,7 +182,7 @@
 	((xid) == FirstMultiXactId ? MaxMultiXactId : (xid) - 1)
 
 /*
- * Links to shared-memory data structures for MultiXact control
+ * 指向 MultiXact 控制用共享内存数据结构的链接
  */
 static SlruCtlData MultiXactOffsetCtlData;
 static SlruCtlData MultiXactMemberCtlData;
@@ -191,126 +191,126 @@ static SlruCtlData MultiXactMemberCtlData;
 #define MultiXactMemberCtl	(&MultiXactMemberCtlData)
 
 /*
- * MultiXact state shared across all backends.  All this state is protected
- * by MultiXactGenLock.  (We also use MultiXactOffsetSLRULock and
- * MultiXactMemberSLRULock to guard accesses to the two sets of SLRU
- * buffers.  For concurrency's sake, we avoid holding more than one of these
- * locks at a time.)
+ * 跨所有后端共享的 MultiXact 状态。所有这些状态都受
+ * MultiXactGenLock 保护。（我们也用
+ * MultiXactOffsetSLRULock 和
+ * MultiXactMemberSLRULock 保护两套 SLRU
+ * 缓冲区的访问。为并发起见，我们避免同时持有其中一把以上的锁。）
  */
 typedef struct MultiXactStateData
 {
-	/* next-to-be-assigned MultiXactId */
+	/* 即将分配的下一个 MultiXactId */
 	MultiXactId nextMXact;
 
-	/* next-to-be-assigned offset */
+	/* 即将分配的下一个偏移 */
 	MultiXactOffset nextOffset;
 
-	/* Have we completed multixact startup? */
+	/* 我们是否已完成多事务启动？ */
 	bool		finishedStartup;
 
 	/*
-	 * Oldest multixact that is still potentially referenced by a relation.
-	 * Anything older than this should not be consulted.  These values are
-	 * updated by vacuum.
+	 * 仍可能被某个关系引用的最老
+	 * 多事务。早于此的都不应再
+	 * 查阅。这些值由清理更新。
 	 */
 	MultiXactId oldestMultiXactId;
 	Oid			oldestMultiXactDB;
 
 	/*
-	 * Oldest multixact offset that is potentially referenced by a multixact
-	 * referenced by a relation.  We don't always know this value, so there's
-	 * a flag here to indicate whether or not we currently do.
+	 * 可能被某个关系所引用的多事务所引用的
+	 * 最老多事务偏移。我们并不总能知道该
+	 * 值，故用一个标志指示当前是否已知。
 	 */
 	MultiXactOffset oldestOffset;
 	bool		oldestOffsetKnown;
 
-	/* support for anti-wraparound measures */
+	/* 防回卷措施的支持 */
 	MultiXactId multiVacLimit;
 	MultiXactId multiWarnLimit;
 	MultiXactId multiStopLimit;
 	MultiXactId multiWrapLimit;
 
-	/* support for members anti-wraparound measures */
-	MultiXactOffset offsetStopLimit;	/* known if oldestOffsetKnown */
+	/* 成员防回卷措施的支持 */
+	MultiXactOffset offsetStopLimit;	/* 在 oldestOffsetKnown 时可知 */
 
 	/*
-	 * Per-backend data starts here.  We have two arrays stored in the area
-	 * immediately following the MultiXactStateData struct. Each is indexed by
-	 * BackendId.
+	 * 每后端数据从这里开始。在紧随
+	 * MultiXactStateData 结构之后的区域
+	 * 中存有两个数组。每个都按 BackendId 索引。
 	 *
-	 * In both arrays, there's a slot for all normal backends (1..MaxBackends)
-	 * followed by a slot for max_prepared_xacts prepared transactions. Valid
-	 * BackendIds start from 1; element zero of each array is never used.
+	 * 两个数组中都有：先是全部普通后端的槽（1..MaxBackends），
+	 * 再是 max_prepared_xacts 个预备事务的槽。合法
+	 * BackendIds 从 1 起；每个数组的元素 0 从不使用。
 	 *
-	 * OldestMemberMXactId[k] is the oldest MultiXactId each backend's current
-	 * transaction(s) could possibly be a member of, or InvalidMultiXactId
-	 * when the backend has no live transaction that could possibly be a
-	 * member of a MultiXact.  Each backend sets its entry to the current
-	 * nextMXact counter just before first acquiring a shared lock in a given
-	 * transaction, and clears it at transaction end. (This works because only
-	 * during or after acquiring a shared lock could an XID possibly become a
-	 * member of a MultiXact, and that MultiXact would have to be created
-	 * during or after the lock acquisition.)
+	 * OldestMemberMXactId[k] 是各后端
+	 * 当前事务可能作为其成员的最老 MultiXactId；
+	 * 若后端没有可能成为 MultiXact 成员的活动
+	 * transaction，则为 InvalidMultiXactId。
+	 * 各后端在给定事务中首次获取共享锁之前，将其表项设为
+	 * 当前 nextMXact 计数器，并在事务结束时清
+	 * 除。（这可行，因为只有在获取共享锁期间或之后，XID
+	 * 才可能成为 MultiXact 的成员，且该
+	 * MultiXact 必须在获取锁期间或之后创建。）
 	 *
-	 * OldestVisibleMXactId[k] is the oldest MultiXactId each backend's
-	 * current transaction(s) think is potentially live, or InvalidMultiXactId
-	 * when not in a transaction or not in a transaction that's paid any
-	 * attention to MultiXacts yet.  This is computed when first needed in a
-	 * given transaction, and cleared at transaction end.  We can compute it
-	 * as the minimum of the valid OldestMemberMXactId[] entries at the time
-	 * we compute it (using nextMXact if none are valid).  Each backend is
-	 * required not to attempt to access any SLRU data for MultiXactIds older
-	 * than its own OldestVisibleMXactId[] setting; this is necessary because
-	 * the relevant SLRU data can be concurrently truncated away.
+	 * OldestVisibleMXactId[k] 是各后
+	 * 端当前事务认为可能仍存活的最老 MultiXactId；
+	 * 若不在事务中，或事务尚未关注过 MultiXacts，
+	 * 则为 InvalidMultiXactId。在给定事务
+	 * 中首次需要时计算，事务结束时清除。可取计算时有效
+	 * OldestMemberMXactId[] 表项的最小
+	 * 值（若皆无效则用 nextMXact）。各后端不得尝试
+	 * 访问早于自身 OldestVisibleMXactId
+	 * [] 设置的 MultiXactIds 的任何 SLRU
+	 * 数据；因为相关 SLRU 数据可能被并发截断掉。
 	 *
-	 * The oldest valid value among all of the OldestMemberMXactId[] and
-	 * OldestVisibleMXactId[] entries is considered by vacuum as the earliest
-	 * possible value still having any live member transaction -- OldestMxact.
-	 * Any value older than that is typically removed from tuple headers, or
-	 * "frozen" via being replaced with a new xmax.  VACUUM can sometimes even
-	 * remove an individual MultiXact xmax whose value is >= its OldestMxact
-	 * cutoff, though typically only when no individual member XID is still
-	 * running.  See FreezeMultiXactId for full details.
+	 * OldestMemberMXactId[] 与
+	 * OldestVisibleMXactId[] 中所有有效值的
+	 * 最老者，被清理视为仍可能有活动成员事务的最早可能值——
+	 * OldestMxact。更早的值通常从元组头中移除，或通过换
+	 * 成新的 xmax 而被"冻结"。VACUUM 有时甚至可以移
+	 * 除值 >= 其 OldestMxact 截止的单个 MultiXact
+	 * xmax，不过通常仅当没有任何单个成员 XID 仍在
+	 * 运行时。详见 FreezeMultiXactId。
 	 *
-	 * Whenever VACUUM advances relminmxid, then either its OldestMxact cutoff
-	 * or the oldest extant Multi remaining in the table is used as the new
-	 * pg_class.relminmxid value (whichever is earlier).  The minimum of all
-	 * relminmxid values in each database is stored in pg_database.datminmxid.
-	 * In turn, the minimum of all of those values is stored in pg_control.
-	 * This is used as the truncation point for pg_multixact when unneeded
-	 * segments get removed by vac_truncate_clog() during vacuuming.
+	 * 每当 VACUUM 推进 relminmxid 时，会取其
+	 * OldestMxact 截止或表中仍存留的最老 Multi 作为新
+	 * 的 pg_class.relminmxid（取其较早者）。每个数据
+	 * 库中所有 relminmxid 的最小值存在 pg_database.
+	 * datminmxid。这些值的全局最小值又存在 pg_control
+	 * 中。清理期间 vac_truncate_clog() 删除
+	 * 不需要的段时，它用作 pg_multixact 的截断点。
 	 */
 	MultiXactId perBackendXactIds[FLEXIBLE_ARRAY_MEMBER];
 } MultiXactStateData;
 
 /*
- * Last element of OldestMemberMXactId and OldestVisibleMXactId arrays.
- * Valid elements are (1..MaxOldestSlot); element 0 is never used.
+ * OldestMemberMXactId 与 OldestVisibleMXactId 数
+ * 组的最后一个元素。有效元素为 (1..MaxOldestSlot)；元素 0 从不使用。
  */
 #define MaxOldestSlot	(MaxBackends + max_prepared_xacts)
 
-/* Pointers to the state data in shared memory */
+/* 指向共享内存中状态数据的指针 */
 static MultiXactStateData *MultiXactState;
 static MultiXactId *OldestMemberMXactId;
 static MultiXactId *OldestVisibleMXactId;
 
 
 /*
- * Definitions for the backend-local MultiXactId cache.
+ * 后端本地 MultiXactId 缓存的定义。
  *
- * We use this cache to store known MultiXacts, so we don't need to go to
- * SLRU areas every time.
+ * 我们用此缓存存储已知的 MultiXacts，
+ * 从而不必每次都去 SLRU 区域。
  *
- * The cache lasts for the duration of a single transaction, the rationale
- * for this being that most entries will contain our own TransactionId and
- * so they will be uninteresting by the time our next transaction starts.
- * (XXX not clear that this is correct --- other members of the MultiXact
- * could hang around longer than we did.  However, it's not clear what a
- * better policy for flushing old cache entries would be.)	FIXME actually
- * this is plain wrong now that multixact's may contain update Xids.
+ * 缓存的生命周期为单个事务，理由是多数表项会包含
+ * 我们自己的 TransactionId，到下一
+ * 事务开始时它们已不再有意义。（XXX 这一点是
+ * 否正确并不清楚——MultiXact 的其他成
+ * 员可能比我们活得更久。但也不清楚刷新旧缓存项的
+ * 更好策略是什么。）	FIXME 实际上既然多
+ * 事务可能包含更新 Xid，这已经完全不对了。
  *
- * We allocate the cache entries in a memory context that is deleted at
- * transaction end, so we don't need to do retail freeing of entries.
+ * 我们在事务结束时删除的内存上下文中
+ * 分配缓存项，因此不必逐个释放表项。
  */
 typedef struct mXactCacheEnt
 {
@@ -338,13 +338,13 @@ static MemoryContext MXactContext = NULL;
 #define debug_elog6(a,b,c,d,e,f)
 #endif
 
-/* internal MultiXactId management */
+/* 内部 MultiXactId 管理 */
 static void MultiXactIdSetOldestVisible(void);
 static void RecordNewMultiXact(MultiXactId multi, MultiXactOffset offset,
 							   int nmembers, MultiXactMember *members);
 static MultiXactId GetNewMultiXactId(int nmembers, MultiXactOffset *offset);
 
-/* MultiXact cache management */
+/* MultiXact 缓存管理 */
 static int	mxactMemberComparator(const void *arg1, const void *arg2);
 static MultiXactId mXactCacheGetBySet(int nmembers, MultiXactMember *members);
 static int	mXactCacheGetById(MultiXactId multi, MultiXactMember **members);
@@ -353,7 +353,7 @@ static void mXactCachePut(MultiXactId multi, int nmembers,
 
 static char *mxstatus_to_string(MultiXactStatus status);
 
-/* management of SLRU infrastructure */
+/* SLRU 基础设施管理 */
 static int	ZeroMultiXactOffsetPage(int pageno, bool writeXlog);
 static int	ZeroMultiXactMemberPage(int pageno, bool writeXlog);
 static bool MultiXactOffsetPagePrecedes(int page1, int page2);
@@ -376,12 +376,12 @@ static void WriteMTruncateXlogRec(Oid oldestMultiDB,
 
 /*
  * MultiXactIdCreate
- *		Construct a MultiXactId representing two TransactionIds.
+ *		构造表示两个 TransactionIds 的 MultiXactId。
  *
- * The two XIDs must be different, or be requesting different statuses.
+ * 两个 XIDs 必须不同，或请求的状态不同。
  *
- * NB - we don't worry about our local MultiXactId cache here, because that
- * is handled by the lower-level routines.
+ * 注意 - 这里不操心本地 MultiXactId
+ * 缓存，因为那由更底层例程处理。
  */
 MultiXactId
 MultiXactIdCreate(TransactionId xid1, MultiXactStatus status1,
@@ -395,13 +395,13 @@ MultiXactIdCreate(TransactionId xid1, MultiXactStatus status1,
 
 	Assert(!TransactionIdEquals(xid1, xid2) || (status1 != status2));
 
-	/* MultiXactIdSetOldestMember() must have been called already. */
+	/* MultiXactIdSetOldestMember() 必须已经调用过。 */
 	Assert(MultiXactIdIsValid(OldestMemberMXactId[MyBackendId]));
 
 	/*
-	 * Note: unlike MultiXactIdExpand, we don't bother to check that both XIDs
-	 * are still running.  In typical usage, xid2 will be our own XID and the
-	 * caller just did a check on xid1, so it'd be wasted effort.
+	 * 注意：与 MultiXactIdExpand 不同，我们不费心
+	 * 检查两个 XIDs 是否仍在运行。典型用法中 xid2 是我们
+	 * 自己的 XID，且调用方刚检查过 xid1，再检查会是浪费。
 	 */
 
 	members[0].xid = xid1;
@@ -419,22 +419,22 @@ MultiXactIdCreate(TransactionId xid1, MultiXactStatus status1,
 
 /*
  * MultiXactIdExpand
- *		Add a TransactionId to a pre-existing MultiXactId.
+ *		向既有 MultiXactId 添加一个 TransactionId。
  *
- * If the TransactionId is already a member of the passed MultiXactId with the
- * same status, just return it as-is.
+ * 若该 TransactionId 已是传入
+ * MultiXactId 的成员且状态相同，则原样返回它。
  *
- * Note that we do NOT actually modify the membership of a pre-existing
- * MultiXactId; instead we create a new one.  This is necessary to avoid
- * a race condition against code trying to wait for one MultiXactId to finish;
- * see notes in heapam.c.
+ * 注意我们并不会真正修改既有 MultiXactId
+ * 的成员关系；而是创建一个新的。这是为了避免与
+ * 等待某个 MultiXactId 结束的代码
+ * 发生竞态；见 heapam.c 中的说明。
  *
- * NB - we don't worry about our local MultiXactId cache here, because that
- * is handled by the lower-level routines.
+ * 注意 - 这里不操心本地 MultiXactId
+ * 缓存，因为那由更底层例程处理。
  *
- * Note: It is critical that MultiXactIds that come from an old cluster (i.e.
- * one upgraded by pg_upgrade from a cluster older than this feature) are not
- * passed in.
+ * 注意：至关重要的是，不得传入来自旧集簇的
+ * MultiXactIds（即由 pg_upgrade
+ * 从早于本特性的集簇升级而来的）。
  */
 MultiXactId
 MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
@@ -449,16 +449,16 @@ MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
 	Assert(MultiXactIdIsValid(multi));
 	Assert(TransactionIdIsValid(xid));
 
-	/* MultiXactIdSetOldestMember() must have been called already. */
+	/* MultiXactIdSetOldestMember() 必须已经调用过。 */
 	Assert(MultiXactIdIsValid(OldestMemberMXactId[MyBackendId]));
 
 	debug_elog5(DEBUG2, "Expand: received multi %u, xid %u status %s",
 				multi, xid, mxstatus_to_string(status));
 
 	/*
-	 * Note: we don't allow for old multis here.  The reason is that the only
-	 * caller of this function does a check that the multixact is no longer
-	 * running.
+	 * 注意：这里不允许旧的 multi。
+	 * 原因是本函数唯一的调用方会
+	 * 检查该多事务已不再运行。
 	 */
 	nmembers = GetMultiXactIdMembers(multi, &members, false, false);
 
@@ -467,11 +467,11 @@ MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
 		MultiXactMember member;
 
 		/*
-		 * The MultiXactId is obsolete.  This can only happen if all the
-		 * MultiXactId members stop running between the caller checking and
-		 * passing it to us.  It would be better to return that fact to the
-		 * caller, but it would complicate the API and it's unlikely to happen
-		 * too often, so just deal with it by creating a singleton MultiXact.
+		 * 该 MultiXactId 已过时。这只可
+		 * 能发生在：调用方检查之后、传给我们之前，其
+		 * 全部成员都已停止运行。把该事实返回给调用方
+		 * 会更好，但会复杂化 API，且不太常发生，
+		 * 故以创建单例 MultiXact 应对。
 		 */
 		member.xid = xid;
 		member.status = status;
@@ -483,8 +483,8 @@ MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
 	}
 
 	/*
-	 * If the TransactionId is already a member of the MultiXactId with the
-	 * same status, just return the existing MultiXactId.
+	 * 若该 TransactionId 已是 MultiXactId
+	 * 的成员且状态相同，则直接返回既有 MultiXactId。
 	 */
 	for (i = 0; i < nmembers; i++)
 	{
@@ -499,17 +499,17 @@ MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
 	}
 
 	/*
-	 * Determine which of the members of the MultiXactId are still of
-	 * interest. This is any running transaction, and also any transaction
-	 * that grabbed something stronger than just a lock and was committed. (An
-	 * update that aborted is of no interest here; and having more than one
-	 * update Xid in a multixact would cause errors elsewhere.)
+	 * 判定 MultiXactId 中哪些成员
+	 * 仍然有意义。这包括任何仍在运行的事务，
+	 * 以及拿到强于单纯锁且已提交的事务。（已
+	 * 中止的更新在此无意义；且多事务中有多于
+	 * 一个更新 Xid 会在别处导致错误。）
 	 *
-	 * Removing dead members is not just an optimization: freezing of tuples
-	 * whose Xmax are multis depends on this behavior.
+	 * 移除死成员不只是优化：Xmax 为
+	 * multi 的元组冻结依赖此行为。
 	 *
-	 * Note we have the same race condition here as above: j could be 0 at the
-	 * end of the loop.
+	 * 注意这里有与上面相同的竞态：
+	 * 循环结束时 j 可能为 0。
 	 */
 	newMembers = (MultiXactMember *)
 		palloc(sizeof(MultiXactMember) * (nmembers + 1));
@@ -539,14 +539,14 @@ MultiXactIdExpand(MultiXactId multi, TransactionId xid, MultiXactStatus status)
 
 /*
  * MultiXactIdIsRunning
- *		Returns whether a MultiXactId is "running".
+ *		返回 MultiXactId 是否仍在"运行"。
  *
- * We return true if at least one member of the given MultiXactId is still
- * running.  Note that a "false" result is certain not to change,
- * because it is not legal to add members to an existing MultiXactId.
+ * 若给定 MultiXactId 至少有一个成员仍在运行则
+ * 返回 true。注意 "false" 结果肯定不会再变，
+ * 因为不允许向既有 MultiXactId 添加成员。
  *
- * Caller is expected to have verified that the multixact does not come from
- * a pg_upgraded share-locked tuple.
+ * 调用方应已验证该多事务并非来自经
+ * pg_upgraded 的共享锁元组。
  */
 bool
 MultiXactIdIsRunning(MultiXactId multi, bool isLockOnly)
@@ -558,8 +558,8 @@ MultiXactIdIsRunning(MultiXactId multi, bool isLockOnly)
 	debug_elog3(DEBUG2, "IsRunning %u?", multi);
 
 	/*
-	 * "false" here means we assume our callers have checked that the given
-	 * multi cannot possibly come from a pg_upgraded database.
+	 * 这里的 "false" 表示我们假定调用方已检查过：给定 multi
+	 * 不可能来自经 pg_upgraded 的数据库。
 	 */
 	nmembers = GetMultiXactIdMembers(multi, &members, false, isLockOnly);
 
@@ -570,11 +570,11 @@ MultiXactIdIsRunning(MultiXactId multi, bool isLockOnly)
 	}
 
 	/*
-	 * Checking for myself is cheap compared to looking in shared memory;
-	 * return true if any live subtransaction of the current top-level
-	 * transaction is a member.
+	 * 检查自己比查共享内存便宜；若
+	 * 当前顶层事务的任何活动子事
+	 * 务是成员则返回 true。
 	 *
-	 * This is not needed for correctness, it's just a fast path.
+	 * 这不是正确性所需，只是快路径。
 	 */
 	for (i = 0; i < nmembers; i++)
 	{
@@ -587,9 +587,9 @@ MultiXactIdIsRunning(MultiXactId multi, bool isLockOnly)
 	}
 
 	/*
-	 * This could be made faster by having another entry point in procarray.c,
-	 * walking the PGPROC array only once for all the members.  But in most
-	 * cases nmembers should be small enough that it doesn't much matter.
+	 * 若在 procarray.c 中另设入口、对所有
+	 * 成员只遍历一次 PGPROC 数组，可以更快。但
+	 * 多数情况下 nmembers 足够小，影响不大。
 	 */
 	for (i = 0; i < nmembers; i++)
 	{
@@ -611,16 +611,16 @@ MultiXactIdIsRunning(MultiXactId multi, bool isLockOnly)
 
 /*
  * MultiXactIdSetOldestMember
- *		Save the oldest MultiXactId this transaction could be a member of.
+ *		保存本事务可能作为其成员的最老 MultiXactId。
  *
- * We set the OldestMemberMXactId for a given transaction the first time it's
- * going to do some operation that might require a MultiXactId (tuple lock,
- * update or delete).  We need to do this even if we end up using a
- * TransactionId instead of a MultiXactId, because there is a chance that
- * another transaction would add our XID to a MultiXactId.
+ * 给定事务首次要做可能需要 MultiXactId 的操作（
+ * 元组锁、更新或删除）时，我们设置其
+ * OldestMemberMXactId。即使最终使用
+ * TransactionId 而非 MultiXactId 也要做，因
+ * 为另有事务可能把我们的 XID 加入某个 MultiXactId。
  *
- * The value to set is the next-to-be-assigned MultiXactId, so this is meant to
- * be called just before doing any such possibly-MultiXactId-able operation.
+ * 要设置的值是即将分配的下一个 MultiXactId，故应在执
+ * 行任何此类可能涉及 MultiXactId 的操作之前调用。
  */
 void
 MultiXactIdSetOldestMember(void)
@@ -630,25 +630,25 @@ MultiXactIdSetOldestMember(void)
 		MultiXactId nextMXact;
 
 		/*
-		 * You might think we don't need to acquire a lock here, since
-		 * fetching and storing of TransactionIds is probably atomic, but in
-		 * fact we do: suppose we pick up nextMXact and then lose the CPU for
-		 * a long time.  Someone else could advance nextMXact, and then
-		 * another someone else could compute an OldestVisibleMXactId that
-		 * would be after the value we are going to store when we get control
-		 * back.  Which would be wrong.
+		 * 你可能觉得这里不必加锁，因为取存
+		 * TransactionIds 大概是原子的，
+		 * 但其实需要：假设我们取到 nextMXact
+		 * 后长时间失去 CPU。别人可能推进
+		 * nextMXact，再有人算出的
+		 * OldestVisibleMXactId 会
+		 * 晚于我们重新获得控制后要存的值。那就错了。
 		 *
-		 * Note that a shared lock is sufficient, because it's enough to stop
-		 * someone from advancing nextMXact; and nobody else could be trying
-		 * to write to our OldestMember entry, only reading (and we assume
-		 * storing it is atomic.)
+		 * 注意共享锁就够了，因为它足以阻止别人推
+		 * 进 nextMXact；也没有别人会
+		 * 写我们的 OldestMember
+		 * 表项，只会读（并假定存储是原子的。）
 		 */
 		LWLockAcquire(MultiXactGenLock, LW_SHARED);
 
 		/*
-		 * We have to beware of the possibility that nextMXact is in the
-		 * wrapped-around state.  We don't fix the counter itself here, but we
-		 * must be sure to store a valid value in our array entry.
+		 * 必须提防 nextMXact 处于已回
+		 * 卷状态的可能。我们此处不修正计数器本身，
+		 * 但必须确保在数组表项中存入合法值。
 		 */
 		nextMXact = MultiXactState->nextMXact;
 		if (nextMXact < FirstMultiXactId)
@@ -665,19 +665,19 @@ MultiXactIdSetOldestMember(void)
 
 /*
  * MultiXactIdSetOldestVisible
- *		Save the oldest MultiXactId this transaction considers possibly live.
+ *		保存本事务认为可能仍存活的最老 MultiXactId。
  *
- * We set the OldestVisibleMXactId for a given transaction the first time
- * it's going to inspect any MultiXactId.  Once we have set this, we are
- * guaranteed that SLRU data for MultiXactIds >= our own OldestVisibleMXactId
- * won't be truncated away.
+ * 给定事务首次要检查任何 MultiXactId 时设置
+ * OldestVisibleMXactId。一旦设置，就保证
+ * MultiXactIds >= 我们自己的
+ * OldestVisibleMXactId 的 SLRU 数据不会被截断掉。
  *
- * The value to set is the oldest of nextMXact and all the valid per-backend
- * OldestMemberMXactId[] entries.  Because of the locking we do, we can be
- * certain that no subsequent call to MultiXactIdSetOldestMember can set
- * an OldestMemberMXactId[] entry older than what we compute here.  Therefore
- * there is no live transaction, now or later, that can be a member of any
- * MultiXactId older than the OldestVisibleMXactId we compute here.
+ * 要设置的值是 nextMXact 与所有有效的每后端
+ * OldestMemberMXactId[] 表项中的最老者。由于我们加了锁，
+ * 可以确定之后任何对 MultiXactIdSetOldestMember
+ * 的调用都不会把 OldestMemberMXactId[] 设得比这里算出
+ * 的更老。因此现在或以后都没有活动事务能成为早于我们此处算出的
+ * OldestVisibleMXactId 的任何 MultiXactId 的成员。
  */
 static void
 MultiXactIdSetOldestVisible(void)
@@ -690,9 +690,9 @@ MultiXactIdSetOldestVisible(void)
 		LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 
 		/*
-		 * We have to beware of the possibility that nextMXact is in the
-		 * wrapped-around state.  We don't fix the counter itself here, but we
-		 * must be sure to store a valid value in our array entry.
+		 * 必须提防 nextMXact 处于已回
+		 * 卷状态的可能。我们此处不修正计数器本身，
+		 * 但必须确保在数组表项中存入合法值。
 		 */
 		oldestMXact = MultiXactState->nextMXact;
 		if (oldestMXact < FirstMultiXactId)
@@ -718,14 +718,14 @@ MultiXactIdSetOldestVisible(void)
 
 /*
  * ReadNextMultiXactId
- *		Return the next MultiXactId to be assigned, but don't allocate it
+ *		返回即将分配的下一个 MultiXactId，但不分配它
  */
 MultiXactId
 ReadNextMultiXactId(void)
 {
 	MultiXactId mxid;
 
-	/* XXX we could presumably do this without a lock. */
+	/* XXX 按理或许可以不加锁就做这件事。 */
 	LWLockAcquire(MultiXactGenLock, LW_SHARED);
 	mxid = MultiXactState->nextMXact;
 	LWLockRelease(MultiXactGenLock);
@@ -738,7 +738,7 @@ ReadNextMultiXactId(void)
 
 /*
  * ReadMultiXactIdRange
- *		Get the range of IDs that may still be referenced by a relation.
+ *		获取仍可能被某个关系引用的 ID 范围。
  */
 void
 ReadMultiXactIdRange(MultiXactId *oldest, MultiXactId *next)
@@ -757,12 +757,12 @@ ReadMultiXactIdRange(MultiXactId *oldest, MultiXactId *next)
 
 /*
  * MultiXactIdCreateFromMembers
- *		Make a new MultiXactId from the specified set of members
+ *		由指定的成员集合创建新的 MultiXactId
  *
- * Make XLOG, SLRU and cache entries for a new MultiXactId, recording the
- * given TransactionIds as members.  Returns the newly created MultiXactId.
+ * 为新的 MultiXactId 建立 XLOG、SLRU 与缓存表项，把给定的
+ * TransactionIds 记为成员。返回新创建的 MultiXactId。
  *
- * NB: the passed members[] array will be sorted in-place.
+ * 注意：传入的 members[] 数组将就地排序。
  */
 MultiXactId
 MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
@@ -775,14 +775,14 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 				mxid_to_string(InvalidMultiXactId, nmembers, members));
 
 	/*
-	 * See if the same set of members already exists in our cache; if so, just
-	 * re-use that MultiXactId.  (Note: it might seem that looking in our
-	 * cache is insufficient, and we ought to search disk to see if a
-	 * duplicate definition already exists.  But since we only ever create
-	 * MultiXacts containing our own XID, in most cases any such MultiXacts
-	 * were in fact created by us, and so will be in our cache.  There are
-	 * corner cases where someone else added us to a MultiXact without our
-	 * knowledge, but it's not worth checking for.)
+	 * 查看缓存中是否已有相同的成员集合；若有，则复
+	 * 用该 MultiXactId。（注意：或许会
+	 * 觉得只查缓存不够，还应搜磁盘看是否已有重复定
+	 * 义。但由于我们只创建包含自己 XID 的
+	 * MultiXacts，多数情况下此类 MultiXacts
+	 * 本就是我们创建的，故会在缓存中。也有别人
+	 * 在我们不知情时把我们加入 MultiXact
+	 * 的角落情况，但不值得为此检查。）
 	 */
 	multi = mXactCacheGetBySet(nmembers, members);
 	if (MultiXactIdIsValid(multi))
@@ -791,7 +791,7 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 		return multi;
 	}
 
-	/* Verify that there is a single update Xid among the given members. */
+	/* 验证给定成员中只有一个更新 Xid。 */
 	{
 		int			i;
 		bool		has_update = false;
@@ -809,29 +809,29 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 	}
 
 	/*
-	 * Assign the MXID and offsets range to use, and make sure there is space
-	 * in the OFFSETs and MEMBERs files.  NB: this routine does
-	 * START_CRIT_SECTION().
+	 * 分配要用的 MXID 与偏移范围，并确保 OFFSETs
+	 * 与 MEMBERs 文件中有空间。注意：本例程会
+	 * 执行 START_CRIT_SECTION()。
 	 *
-	 * Note: unlike MultiXactIdCreate and MultiXactIdExpand, we do not check
-	 * that we've called MultiXactIdSetOldestMember here.  This is because
-	 * this routine is used in some places to create new MultiXactIds of which
-	 * the current backend is not a member, notably during freezing of multis
-	 * in vacuum.  During vacuum, in particular, it would be unacceptable to
-	 * keep OldestMulti set, in case it runs for long.
+	 * 注意：与 MultiXactIdCreate 和
+	 * MultiXactIdExpand 不同，我们这里不检查是否已调
+	 * 用 MultiXactIdSetOldestMember。因为
+	 * 本例程在某些地方用于创建当前后端并非其成员的新 MultiXactIds，
+	 * 尤其是清理中冻结 multi 时。特别是在清理期间，若运
+	 * 行很久，保持 OldestMulti 设置是不可接受的。
 	 */
 	multi = GetNewMultiXactId(nmembers, &offset);
 
-	/* Make an XLOG entry describing the new MXID. */
+	/* 写一条描述新 MXID 的 XLOG 记录。 */
 	xlrec.mid = multi;
 	xlrec.moff = offset;
 	xlrec.nmembers = nmembers;
 
 	/*
-	 * XXX Note: there's a lot of padding space in MultiXactMember.  We could
-	 * find a more compact representation of this Xlog record -- perhaps all
-	 * the status flags in one XLogRecData, then all the xids in another one?
-	 * Not clear that it's worth the trouble though.
+	 * XXX 注意：MultiXactMember 中有很多填
+	 * 充空间。我们可以为这条 Xlog 记录找更紧凑的表示—
+	 * —或许所有状态标志放在一个 XLogRecData，所
+	 * 有 xid 放在另一个？不过是否值得费这个劲并不清楚。
 	 */
 	XLogBeginInsert();
 	XLogRegisterData((char *) (&xlrec), SizeOfMultiXactCreate);
@@ -839,13 +839,13 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 
 	(void) XLogInsert(RM_MULTIXACT_ID, XLOG_MULTIXACT_CREATE_ID);
 
-	/* Now enter the information into the OFFSETs and MEMBERs logs */
+	/* 现在把信息写入 OFFSETs 与 MEMBERs 日志 */
 	RecordNewMultiXact(multi, offset, nmembers, members);
 
-	/* Done with critical section */
+	/* 临界区结束 */
 	END_CRIT_SECTION();
 
-	/* Store the new MultiXactId in the local cache, too */
+	/* 也把新的 MultiXactId 存入本地缓存 */
 	mXactCachePut(multi, nmembers, members);
 
 	debug_elog2(DEBUG2, "Create: all done");
@@ -855,10 +855,10 @@ MultiXactIdCreateFromMembers(int nmembers, MultiXactMember *members)
 
 /*
  * RecordNewMultiXact
- *		Write info about a new multixact into the offsets and members files
+ *		把新多事务的信息写入 offsets 与 members 文件
  *
- * This is broken out of MultiXactIdCreateFromMembers so that xlog replay can
- * use it.
+ * 从 MultiXactIdCreateFromMembers
+ * 拆出，以便 xlog 重放也能使用。
  */
 static void
 RecordNewMultiXact(MultiXactId multi, MultiXactOffset offset,
@@ -877,11 +877,11 @@ RecordNewMultiXact(MultiXactId multi, MultiXactOffset offset,
 	entryno = MultiXactIdToOffsetEntry(multi);
 
 	/*
-	 * Note: we pass the MultiXactId to SimpleLruReadPage as the "transaction"
-	 * to complain about if there's any I/O error.  This is kinda bogus, but
-	 * since the errors will always give the full pathname, it should be clear
-	 * enough that a MultiXactId is really involved.  Perhaps someday we'll
-	 * take the trouble to generalize the slru.c error reporting code.
+	 * 注意：我们把 MultiXactId 传给
+	 * SimpleLruReadPage 作为有 I/O 错误时要抱
+	 * 怨的 "transaction"。这有点牵强，但由于错误总会给
+	 * 出完整路径名，应能清楚看出实际涉及的是 MultiXactId。
+	 * 也许将来我们会费心把 slru.c 的错误报告代码通用化。
 	 */
 	slotno = SimpleLruReadPage(MultiXactOffsetCtl, pageno, true, multi);
 	offptr = (MultiXactOffset *) MultiXactOffsetCtl->shared->page_buffer[slotno];
@@ -891,7 +891,7 @@ RecordNewMultiXact(MultiXactId multi, MultiXactOffset offset,
 
 	MultiXactOffsetCtl->shared->page_dirty[slotno] = true;
 
-	/* Exchange our lock */
+	/* 交换我们的锁 */
 	LWLockRelease(MultiXactOffsetSLRULock);
 
 	LWLockAcquire(MultiXactMemberSLRULock, LW_EXCLUSIVE);
@@ -941,18 +941,18 @@ RecordNewMultiXact(MultiXactId multi, MultiXactOffset offset,
 
 /*
  * GetNewMultiXactId
- *		Get the next MultiXactId.
+ *		获取下一个 MultiXactId。
  *
- * Also, reserve the needed amount of space in the "members" area.  The
- * starting offset of the reserved space is returned in *offset.
+ * 同时在 "members" 区域预留所需空间。
+ * 预留空间的起始偏移通过 *offset 返回。
  *
- * This may generate XLOG records for expansion of the offsets and/or members
- * files.  Unfortunately, we have to do that while holding MultiXactGenLock
- * to avoid race conditions --- the XLOG record for zeroing a page must appear
- * before any backend can possibly try to store data in that page!
+ * 这可能为扩展 offsets 和/或 members 文件
+ * 生成 XLOG 记录。不幸的是，为避免竞态我们必须在持有
+ * MultiXactGenLock 时做这件事——清零页的
+ * XLOG 记录必须出现在任何后端可能向该页存数据之前！
  *
- * We start a critical section before advancing the shared counters.  The
- * caller must end the critical section after writing SLRU data.
+ * 我们在推进共享计数器之前进入临界区。调用方
+ * 必须在写完 SLRU 数据后结束临界区。
  */
 static MultiXactId
 GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
@@ -962,41 +962,41 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 
 	debug_elog3(DEBUG2, "GetNew: for %d xids", nmembers);
 
-	/* safety check, we should never get this far in a HS standby */
+	/* 安全检查，在 HS 备库上绝不应该走到这里 */
 	if (RecoveryInProgress())
 		elog(ERROR, "cannot assign MultiXactIds during recovery");
 
 	LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 
-	/* Handle wraparound of the nextMXact counter */
+	/* 处理 nextMXact 计数器的回卷 */
 	if (MultiXactState->nextMXact < FirstMultiXactId)
 		MultiXactState->nextMXact = FirstMultiXactId;
 
-	/* Assign the MXID */
+	/* 分配 MXID */
 	result = MultiXactState->nextMXact;
 
 	/*----------
-	 * Check to see if it's safe to assign another MultiXactId.  This protects
-	 * against catastrophic data loss due to multixact wraparound.  The basic
-	 * rules are:
+	 * 检查再分配另一个 MultiXactId
+	 * 是否安全。这用于防止因多事务回卷导
+	 * 致的灾难性数据丢失。基本规则是：
 	 *
-	 * If we're past multiVacLimit or the safe threshold for member storage
-	 * space, or we don't know what the safe threshold for member storage is,
-	 * start trying to force autovacuum cycles.
-	 * If we're past multiWarnLimit, start issuing warnings.
-	 * If we're past multiStopLimit, refuse to create new MultiXactIds.
+	 * 若已超过 multiVacLimit 或成员存储空间
+	 * 的安全阈值，或尚不知道成员存储的安全阈值，开始设法强
+	 * 制自动清理周期。若已超过 multiWarnLimit，
+	 * 开始发出警告。若已超过 multiStopLimit，
+	 * 拒绝创建新的 MultiXactIds。
 	 *
-	 * Note these are pretty much the same protections in GetNewTransactionId.
+	 * 注意这些与 GetNewTransactionId 中的防护基本相同。
 	 *----------
 	 */
 	if (!MultiXactIdPrecedes(result, MultiXactState->multiVacLimit))
 	{
 		/*
-		 * For safety's sake, we release MultiXactGenLock while sending
-		 * signals, warnings, etc.  This is not so much because we care about
-		 * preserving concurrency in this situation, as to avoid any
-		 * possibility of deadlock while doing get_database_name(). First,
-		 * copy all the shared values we'll need in this path.
+		 * 为安全起见，发送信号、警告等时释放
+		 * MultiXactGenLock。与其说是为
+		 * 了在此情况下保持并发，不如说是避免在
+		 * get_database_name() 时有任
+		 * 何死锁可能。首先，复制本路径需要的全部共享值。
 		 */
 		MultiXactId multiWarnLimit = MultiXactState->multiWarnLimit;
 		MultiXactId multiStopLimit = MultiXactState->multiStopLimit;
@@ -1011,12 +1011,12 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 			char	   *oldest_datname = get_database_name(oldest_datoid);
 
 			/*
-			 * Immediately kick autovacuum into action as we're already in
-			 * ERROR territory.
+			 * 我们已进入 ERROR
+			 * 区域，立即启动自动清理。
 			 */
 			SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
 
-			/* complain even if that DB has disappeared */
+			/* 即使该数据库已消失也要抱怨 */
 			if (oldest_datname)
 				ereport(ERROR,
 						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -1034,9 +1034,9 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 		}
 
 		/*
-		 * To avoid swamping the postmaster with signals, we issue the autovac
-		 * request only once per 64K multis generated.  This still gives
-		 * plenty of chances before we get into real trouble.
+		 * 为避免用信号淹没 postmaster，我们
+		 * 每生成 64K 个 multi 才发出一次自
+		 * 动清理请求。这在真正出问题前仍有充分机会。
 		 */
 		if (IsUnderPostmaster && (result % 65536) == 0)
 			SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
@@ -1045,7 +1045,7 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 		{
 			char	   *oldest_datname = get_database_name(oldest_datoid);
 
-			/* complain even if that DB has disappeared */
+			/* 即使该数据库已消失也要抱怨 */
 			if (oldest_datname)
 				ereport(WARNING,
 						(errmsg_plural("database \"%s\" must be vacuumed before %u more MultiXactId is used",
@@ -1066,46 +1066,46 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 								 "You might also need to commit or roll back old prepared transactions, or drop stale replication slots.")));
 		}
 
-		/* Re-acquire lock and start over */
+		/* 重新获取锁并重来 */
 		LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 		result = MultiXactState->nextMXact;
 		if (result < FirstMultiXactId)
 			result = FirstMultiXactId;
 	}
 
-	/* Make sure there is room for the MXID in the file.  */
+	/* 确保文件中有容纳该 MXID 的空间。  */
 	ExtendMultiXactOffset(result);
 
 	/*
-	 * Reserve the members space, similarly to above.  Also, be careful not to
-	 * return zero as the starting offset for any multixact. See
-	 * GetMultiXactIdMembers() for motivation.
+	 * 类似上面，预留成员空间。另外注意不要把零作
+	 * 为任何多事务的起始偏移返回。动机见
+	 * GetMultiXactIdMembers()。
 	 */
 	nextOffset = MultiXactState->nextOffset;
 	if (nextOffset == 0)
 	{
 		*offset = 1;
-		nmembers++;				/* allocate member slot 0 too */
+		nmembers++;				/* 也分配成员槽 0 */
 	}
 	else
 		*offset = nextOffset;
 
 	/*----------
-	 * Protect against overrun of the members space as well, with the
-	 * following rules:
+	 * 同样防止成员空间被
+	 * 耗尽，规则如下：
 	 *
-	 * If we're past offsetStopLimit, refuse to generate more multis.
-	 * If we're close to offsetStopLimit, emit a warning.
+	 * 若已超过 offsetStopLimit，拒绝再生成 multi。
+	 * 若接近 offsetStopLimit，发出警告。
 	 *
-	 * Arbitrarily, we start emitting warnings when we're 20 segments or less
-	 * from offsetStopLimit.
+	 * 随意地，我们在距 offsetStopLimit
+	 * 还有 20 个段或更少时开始发出警告。
 	 *
-	 * Note we haven't updated the shared state yet, so if we fail at this
-	 * point, the multixact ID we grabbed can still be used by the next guy.
+	 * 注意我们尚未更新共享状态，故若在此失败，已
+	 * 抓取的多事务 ID 仍可供下一个人使用。
 	 *
-	 * Note that there is no point in forcing autovacuum runs here: the
-	 * multixact freeze settings would have to be reduced for that to have any
-	 * effect.
+	 * 注意此处强迫运行自动清理
+	 * 没有意义：必须降低多事
+	 * 务冻结设置才会有效果。
 	 *----------
 	 */
 #define OFFSET_WARN_SEGMENTS	20
@@ -1113,7 +1113,7 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 		MultiXactOffsetWouldWrap(MultiXactState->offsetStopLimit, nextOffset,
 								 nmembers))
 	{
-		/* see comment in the corresponding offsets wraparound case */
+		/* 见对应的偏移回卷情形中的注释 */
 		SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
 
 		ereport(ERROR,
@@ -1129,20 +1129,20 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 	}
 
 	/*
-	 * Check whether we should kick autovacuum into action, to prevent members
-	 * wraparound. NB we use a much larger window to trigger autovacuum than
-	 * just the warning limit. The warning is just a measure of last resort -
-	 * this is in line with GetNewTransactionId's behaviour.
+	 * 检查是否应启动自动清理以防止成员回卷。注意
+	 * 我们用比警告限制大得多的窗口来触发自动清理。
+	 * 警告只是最后手段——这与
+	 * GetNewTransactionId 的行为一致。
 	 */
 	if (!MultiXactState->oldestOffsetKnown ||
 		(MultiXactState->nextOffset - MultiXactState->oldestOffset
 		 > MULTIXACT_MEMBER_SAFE_THRESHOLD))
 	{
 		/*
-		 * To avoid swamping the postmaster with signals, we issue the autovac
-		 * request only when crossing a segment boundary. With default
-		 * compilation settings that's roughly after 50k members.  This still
-		 * gives plenty of chances before we get into real trouble.
+		 * 为避免用信号淹没 postmaster，
+		 * 我们仅在跨越段边界时发出自动清理请求。
+		 * 默认编译设置下大约每 50k 成员一
+		 * 次。这在真正出问题前仍有充分机会。
 		 */
 		if ((MXOffsetToMemberPage(nextOffset) / SLRU_PAGES_PER_SEGMENT) !=
 			(MXOffsetToMemberPage(nextOffset + nmembers) / SLRU_PAGES_PER_SEGMENT))
@@ -1165,24 +1165,24 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 	ExtendMultiXactMember(nextOffset, nmembers);
 
 	/*
-	 * Critical section from here until caller has written the data into the
-	 * just-reserved SLRU space; we don't want to error out with a partly
-	 * written MultiXact structure.  (In particular, failing to write our
-	 * start offset after advancing nextMXact would effectively corrupt the
-	 * previous MultiXact.)
+	 * 从此处到调用方把数据写入刚预留的 SLRU
+	 * 空间为止都是临界区；我们不想在 MultiXact
+	 * 结构只写了一部分时出错退出。（尤其是，推进
+	 * nextMXact 后未能写入起始偏移会
+	 * 实际破坏前一个 MultiXact。）
 	 */
 	START_CRIT_SECTION();
 
 	/*
-	 * Advance counters.  As in GetNewTransactionId(), this must not happen
-	 * until after file extension has succeeded!
+	 * 推进计数器。与 GetNewTransactionId
+	 * () 中一样，这必须在文件扩展成功之后！
 	 *
-	 * We don't care about MultiXactId wraparound here; it will be handled by
-	 * the next iteration.  But note that nextMXact may be InvalidMultiXactId
-	 * or the first value on a segment-beginning page after this routine
-	 * exits, so anyone else looking at the variable must be prepared to deal
-	 * with either case.  Similarly, nextOffset may be zero, but we won't use
-	 * that as the actual start offset of the next multixact.
+	 * 我们此处不关心 MultiXactId 回卷；下一轮
+	 * 会处理。但注意本例程退出后 nextMXact 可能
+	 * 是 InvalidMultiXactId，或某个段起
+	 * 始页上的第一个值，因此其他查看该变量的人必须准备好应
+	 * 对这两种情况。类似地，nextOffset 可能为
+	 * 零，但我们不会把它用作下一个多事务的实际起始偏移。
 	 */
 	(MultiXactState->nextMXact)++;
 
@@ -1196,30 +1196,30 @@ GetNewMultiXactId(int nmembers, MultiXactOffset *offset)
 
 /*
  * GetMultiXactIdMembers
- *		Return the set of MultiXactMembers that make up a MultiXactId
+ *		返回组成某个 MultiXactId 的 MultiXactMembers 集合
  *
- * Return value is the number of members found, or -1 if there are none,
- * and *members is set to a newly palloc'ed array of members.  It's the
- * caller's responsibility to free it when done with it.
+ * 返回值是找到的成员数，若没有则为 -1，并
+ * 将 *members 设为新 palloc
+ * 的成员数组。用完后由调用方负责释放。
  *
- * from_pgupgrade must be passed as true if and only if only the multixact
- * corresponds to a value from a tuple that was locked in a 9.2-or-older
- * installation and later pg_upgrade'd (that is, the infomask is
- * HEAP_LOCKED_UPGRADED).  In this case, we know for certain that no members
- * can still be running, so we return -1 just like for an empty multixact
- * without any further checking.  It would be wrong to try to resolve such a
- * multixact: either the multixact is within the current valid multixact
- * range, in which case the returned result would be bogus, or outside that
- * range, in which case an error would be raised.
+ * 当且仅当该多事务对应的是在 9.2 或更早安装
+ * 中被加锁、随后经 pg_upgrade 升级的
+ * 元组上的值时（即 infomask 为
+ * HEAP_LOCKED_UPGRADED），
+ * from_pgupgrade 必须传 true。
+ * 此时我们确知不会再有成员仍在运行，故与空多事务一
+ * 样直接返回 -1，不再进一步检查。尝试解析这样的
+ * 多事务是错误的：要么该多事务仍在当前有效范围内
+ * （返回结果会是假的），要么在范围外（会报错）。
  *
- * In all other cases, the passed multixact must be within the known valid
- * range, that is, greater to or equal than oldestMultiXactId, and less than
- * nextMXact.  Otherwise, an error is raised.
+ * 在所有其他情况下，传入的多事务必须在已知有效范
+ * 围内，即大于等于 oldestMultiXactId
+ * 且小于 nextMXact。否则报错。
  *
- * isLockOnly must be set to true if caller is certain that the given multi
- * is used only to lock tuples; can be false without loss of correctness,
- * but passing a true means we can return quickly without checking for
- * old updates.
+ * 若调用方确定给定 multi 仅用于锁元组，
+ * 则 isLockOnly 须为 true；
+ * 为 false 也不损失正确性，但传 true
+ * 可让我们快速返回而不检查旧更新。
  */
 int
 GetMultiXactIdMembers(MultiXactId multi, MultiXactMember **members,
@@ -1248,7 +1248,7 @@ GetMultiXactIdMembers(MultiXactId multi, MultiXactMember **members,
 		return -1;
 	}
 
-	/* See if the MultiXactId is in the local cache */
+	/* 查看 MultiXactId 是否在本地缓存中 */
 	length = mXactCacheGetById(multi, members);
 	if (length >= 0)
 	{
@@ -1257,13 +1257,13 @@ GetMultiXactIdMembers(MultiXactId multi, MultiXactMember **members,
 		return length;
 	}
 
-	/* Set our OldestVisibleMXactId[] entry if we didn't already */
+	/* 若尚未设置，则设置我们的 OldestVisibleMXactId[] 表项 */
 	MultiXactIdSetOldestVisible();
 
 	/*
-	 * If we know the multi is used only for locking and not for updates, then
-	 * we can skip checking if the value is older than our oldest visible
-	 * multi.  It cannot possibly still be running.
+	 * 若已知该 multi 仅用于加锁而非更
+	 * 新，则可跳过检查其是否早于我们最老的
+	 * 可见 multi。它不可能仍在运行。
 	 */
 	if (isLockOnly &&
 		MultiXactIdPrecedes(multi, OldestVisibleMXactId[MyBackendId]))
@@ -1274,19 +1274,19 @@ GetMultiXactIdMembers(MultiXactId multi, MultiXactMember **members,
 	}
 
 	/*
-	 * We check known limits on MultiXact before resorting to the SLRU area.
+	 * 在求助于 SLRU 区域之前，我们先检查 MultiXact 的已知限制。
 	 *
-	 * An ID older than MultiXactState->oldestMultiXactId cannot possibly be
-	 * useful; it has already been removed, or will be removed shortly, by
-	 * truncation.  If one is passed, an error is raised.
+	 * 早于 MultiXactState->
+	 * oldestMultiXactId 的 ID 不可能再有用；
+	 * 它已被截断移除，或即将被移除。若传入这样的 ID，则报错。
 	 *
-	 * Also, an ID >= nextMXact shouldn't ever be seen here; if it is seen, it
-	 * implies undetected ID wraparound has occurred.  This raises a hard
-	 * error.
+	 * 另外，此处不应见到 ID >= nextMXact；
+	 * 若见到，意味着发生了未检测的
+	 * ID 回卷。这会引发硬错误。
 	 *
-	 * Shared lock is enough here since we aren't modifying any global state.
-	 * Acquire it just long enough to grab the current counter values.  We may
-	 * need both nextMXact and nextOffset; see below.
+	 * 这里共享锁就够了，因为我们不修改任何全局状态。持锁时
+	 * 间只需足以抓取当前计数器值。我们可能同时需要
+	 * nextMXact 与 nextOffset；见下文。
 	 */
 	LWLockAcquire(MultiXactGenLock, LW_SHARED);
 
@@ -1309,37 +1309,37 @@ GetMultiXactIdMembers(MultiXactId multi, MultiXactMember **members,
 						multi)));
 
 	/*
-	 * Find out the offset at which we need to start reading MultiXactMembers
-	 * and the number of members in the multixact.  We determine the latter as
-	 * the difference between this multixact's starting offset and the next
-	 * one's.  However, there are some corner cases to worry about:
+	 * 找出开始读取 MultiXactMembers
+	 * 所需的偏移，以及该多事务中的成员数。后
+	 * 者取为本多事务起始偏移与下一个多事务起
+	 * 始偏移之差。不过有些角落情况需要注意：
 	 *
-	 * 1. This multixact may be the latest one created, in which case there is
-	 * no next one to look at.  In this case the nextOffset value we just
-	 * saved is the correct endpoint.
+	 * 1. 本多事务可能是最新创建的，因而没
+	 * 有下一个可查看。此时我们刚保存的
+	 * nextOffset 值就是正确的终点。
 	 *
-	 * 2. The next multixact may still be in process of being filled in: that
-	 * is, another process may have done GetNewMultiXactId but not yet written
-	 * the offset entry for that ID.  In that scenario, it is guaranteed that
-	 * the offset entry for that multixact exists (because GetNewMultiXactId
-	 * won't release MultiXactGenLock until it does) but contains zero
-	 * (because we are careful to pre-zero offset pages). Because
-	 * GetNewMultiXactId will never return zero as the starting offset for a
-	 * multixact, when we read zero as the next multixact's offset, we know we
-	 * have this case.  We sleep for a bit and try again.
+	 * 2. 下一个多事务可能仍在填充中：即另一进程可能已做
+	 * 完 GetNewMultiXactId 但尚未写入该
+	 * ID 的偏移表项。在此情形下，可保证该多事务的偏移
+	 * 表项存在（因为 GetNewMultiXactId
+	 * 在写入前不会释放 MultiXactGenLock
+	 * ）但内容为零（因为我们小心地预清零偏移页）。由于
+	 * GetNewMultiXactId 从不会把零作为
+	 * 多事务的起始偏移返回，当我们读到下一个多事务的偏
+	 * 移为零时，就知道是这种情况。我们稍睡片刻再重试。
 	 *
-	 * 3. Because GetNewMultiXactId increments offset zero to offset one to
-	 * handle case #2, there is an ambiguity near the point of offset
-	 * wraparound.  If we see next multixact's offset is one, is that our
-	 * multixact's actual endpoint, or did it end at zero with a subsequent
-	 * increment?  We handle this using the knowledge that if the zero'th
-	 * member slot wasn't filled, it'll contain zero, and zero isn't a valid
-	 * transaction ID so it can't be a multixact member.  Therefore, if we
-	 * read a zero from the members array, just ignore it.
+	 * 3. 因为 GetNewMultiXactId
+	 * 为处理情形 #2 会把偏移零增到一，在偏移
+	 * 回卷点附近存在歧义。若看到下一个多事务的偏
+	 * 移为 1，那是我们多事务的实际终点，还是它
+	 * 在零处结束随后又递增了？我们利用如下知识处
+	 * 理：若第零个成员槽未被填充，它会含零，而零
+	 * 不是合法事务 ID，故不可能是多事务成员。
+	 * 因此，若从成员数组读到零，直接忽略它。
 	 *
-	 * This is all pretty messy, but the mess occurs only in infrequent corner
-	 * cases, so it seems better than holding the MultiXactGenLock for a long
-	 * time on every multixact creation.
+	 * 这一切相当凌乱，但混乱只出现在少见的角落情况，
+	 * 因此看起来比在每次创建多事务时长时间持有
+	 * MultiXactGenLock 更好。
 	 */
 retry:
 	LWLockAcquire(MultiXactOffsetSLRULock, LW_EXCLUSIVE);
@@ -1355,21 +1355,21 @@ retry:
 	Assert(offset != 0);
 
 	/*
-	 * Use the same increment rule as GetNewMultiXactId(), that is, don't
-	 * handle wraparound explicitly until needed.
+	 * 使用与 GetNewMultiXactId()
+	 * 相同的递增规则，即直到需要时才显式处理回卷。
 	 */
 	tmpMXact = multi + 1;
 
 	if (nextMXact == tmpMXact)
 	{
-		/* Corner case 1: there is no next multixact */
+		/* 角落情况 1：没有下一个多事务 */
 		length = nextOffset - offset;
 	}
 	else
 	{
 		MultiXactOffset nextMXOffset;
 
-		/* handle wraparound if needed */
+		/* 若需要则处理回卷 */
 		if (tmpMXact < FirstMultiXactId)
 			tmpMXact = FirstMultiXactId;
 
@@ -1387,7 +1387,7 @@ retry:
 
 		if (nextMXOffset == 0)
 		{
-			/* Corner case 2: next multixact is still being filled in */
+			/* 角落情况 2：下一个多事务仍在填充中 */
 			LWLockRelease(MultiXactOffsetSLRULock);
 			CHECK_FOR_INTERRUPTS();
 			pg_usleep(1000L);
@@ -1401,7 +1401,7 @@ retry:
 
 	ptr = (MultiXactMember *) palloc(length * sizeof(MultiXactMember));
 
-	/* Now get the members themselves. */
+	/* 现在获取成员本身。 */
 	LWLockAcquire(MultiXactMemberSLRULock, LW_EXCLUSIVE);
 
 	truelength = 0;
@@ -1428,7 +1428,7 @@ retry:
 
 		if (!TransactionIdIsValid(*xactptr))
 		{
-			/* Corner case 3: we must be looking at unused slot zero */
+			/* 角落情况 3：我们必须在看未使用的槽零 */
 			Assert(offset == 0);
 			continue;
 		}
@@ -1444,11 +1444,11 @@ retry:
 
 	LWLockRelease(MultiXactMemberSLRULock);
 
-	/* A multixid with zero members should not happen */
+	/* 成员数为零的多事务 ID 不应出现 */
 	Assert(truelength > 0);
 
 	/*
-	 * Copy the result into the local cache.
+	 * 把结果复制到本地缓存。
 	 */
 	mXactCachePut(multi, truelength, ptr);
 
@@ -1460,10 +1460,10 @@ retry:
 
 /*
  * mxactMemberComparator
- *		qsort comparison function for MultiXactMember
+ *		MultiXactMember 的 qsort 比较函数
  *
- * We can't use wraparound comparison for XIDs because that does not respect
- * the triangle inequality!  Any old sort order will do.
+ * 我们不能对 XIDs 使用回卷比较，因为那
+ * 不满足三角不等式！任意旧的排序次序都可以。
  */
 static int
 mxactMemberComparator(const void *arg1, const void *arg2)
@@ -1484,16 +1484,16 @@ mxactMemberComparator(const void *arg1, const void *arg2)
 
 /*
  * mXactCacheGetBySet
- *		returns a MultiXactId from the cache based on the set of
- *		TransactionIds that compose it, or InvalidMultiXactId if
- *		none matches.
+ *		根据组成它的 TransactionIds 集
+ *		合从缓存返回 MultiXactId，若无匹配
+ *		则返回 InvalidMultiXactId。
  *
- * This is helpful, for example, if two transactions want to lock a huge
- * table.  By using the cache, the second will use the same MultiXactId
- * for the majority of tuples, thus keeping MultiXactId usage low (saving
- * both I/O and wraparound issues).
+ * 这很有帮助，例如两个事务要锁一张大表时。借助缓存，
+ * 第二个事务会对多数元组使用相同的 MultiXactId，
+ * 从而保持 MultiXactId 用量较
+ * 低（既节省 I/O 也减少回卷问题）。
  *
- * NB: the passed members array will be sorted in-place.
+ * 注意：传入的 members 数组将就地排序。
  */
 static MultiXactId
 mXactCacheGetBySet(int nmembers, MultiXactMember *members)
@@ -1503,7 +1503,7 @@ mXactCacheGetBySet(int nmembers, MultiXactMember *members)
 	debug_elog3(DEBUG2, "CacheGet: looking for %s",
 				mxid_to_string(InvalidMultiXactId, nmembers, members));
 
-	/* sort the array so comparison is easy */
+	/* 排序数组以便于比较 */
 	qsort(members, nmembers, sizeof(MultiXactMember), mxactMemberComparator);
 
 	dclist_foreach(iter, &MXactCache)
@@ -1515,8 +1515,8 @@ mXactCacheGetBySet(int nmembers, MultiXactMember *members)
 			continue;
 
 		/*
-		 * We assume the cache entries are sorted, and that the unused bits in
-		 * "status" are zeroed.
+		 * 我们假定缓存表项已排序，且 "status
+		 * " 中未用位已清零。
 		 */
 		if (memcmp(members, entry->members, nmembers * sizeof(MultiXactMember)) == 0)
 		{
@@ -1532,11 +1532,11 @@ mXactCacheGetBySet(int nmembers, MultiXactMember *members)
 
 /*
  * mXactCacheGetById
- *		returns the composing MultiXactMember set from the cache for a
- *		given MultiXactId, if present.
+ *		若存在，则从缓存返回给定 MultiXactId
+ *		的组成 MultiXactMember 集合。
  *
- * If successful, *xids is set to the address of a palloc'd copy of the
- * MultiXactMember set.  Return value is number of members, or -1 on failure.
+ * 成功时 *xids 设为 MultiXactMember 集合的
+ * 一份 palloc 副本的地址。返回值为成员数，失败为 -1。
  */
 static int
 mXactCacheGetById(MultiXactId multi, MultiXactMember **members)
@@ -1566,9 +1566,9 @@ mXactCacheGetById(MultiXactId multi, MultiXactMember **members)
 									   entry->members));
 
 			/*
-			 * Note we modify the list while not using a modifiable iterator.
-			 * This is acceptable only because we exit the iteration
-			 * immediately afterwards.
+			 * 注意我们在未使用可修改迭代器
+			 * 时修改了列表。这仅因为我们紧
+			 * 接着就退出迭代，故可接受。
 			 */
 			dclist_move_head(&MXactCache, iter.cur);
 
@@ -1583,7 +1583,7 @@ mXactCacheGetById(MultiXactId multi, MultiXactMember **members)
 
 /*
  * mXactCachePut
- *		Add a new MultiXactId and its composing set into the local cache.
+ *		把新的 MultiXactId 及其组成集合加入本地缓存。
  */
 static void
 mXactCachePut(MultiXactId multi, int nmembers, MultiXactMember *members)
@@ -1595,7 +1595,7 @@ mXactCachePut(MultiXactId multi, int nmembers, MultiXactMember *members)
 
 	if (MXactContext == NULL)
 	{
-		/* The cache only lives as long as the current transaction */
+		/* 缓存的生命周期仅限当前事务 */
 		debug_elog2(DEBUG2, "CachePut: initializing memory context");
 		MXactContext = AllocSetContextCreate(TopTransactionContext,
 											 "MultiXact cache context",
@@ -1611,7 +1611,7 @@ mXactCachePut(MultiXactId multi, int nmembers, MultiXactMember *members)
 	entry->nmembers = nmembers;
 	memcpy(entry->members, members, nmembers * sizeof(MultiXactMember));
 
-	/* mXactCacheGetBySet assumes the entries are sorted, so sort them */
+	/* mXactCacheGetBySet 假定表项已排序，故先排序它们 */
 	qsort(entry->members, nmembers, sizeof(MultiXactMember), mxactMemberComparator);
 
 	dclist_push_head(&MXactCache, &entry->node);
@@ -1680,26 +1680,26 @@ mxid_to_string(MultiXactId multi, int nmembers, MultiXactMember *members)
 
 /*
  * AtEOXact_MultiXact
- *		Handle transaction end for MultiXact
+ *		处理 MultiXact 的事务结束
  *
- * This is called at top transaction commit or abort (we don't care which).
+ * 在顶层事务提交或中止时调用（我们不区分是哪一种）。
  */
 void
 AtEOXact_MultiXact(void)
 {
 	/*
-	 * Reset our OldestMemberMXactId and OldestVisibleMXactId values, both of
-	 * which should only be valid while within a transaction.
+	 * 重置我们的 OldestMemberMXactId 与
+	 * OldestVisibleMXactId 值，二者都应仅在事务内有效。
 	 *
-	 * We assume that storing a MultiXactId is atomic and so we need not take
-	 * MultiXactGenLock to do this.
+	 * 我们假定存储 MultiXactId 是原子的，因
+	 * 此不必为此获取 MultiXactGenLock。
 	 */
 	OldestMemberMXactId[MyBackendId] = InvalidMultiXactId;
 	OldestVisibleMXactId[MyBackendId] = InvalidMultiXactId;
 
 	/*
-	 * Discard the local MultiXactId cache.  Since MXactContext was created as
-	 * a child of TopTransactionContext, we needn't delete it explicitly.
+	 * 丢弃本地 MultiXactId 缓存。由于 MXactContext 是作为
+	 * TopTransactionContext 的子上下文创建的，我们不必显式删除它。
 	 */
 	MXactContext = NULL;
 	dclist_init(&MXactCache);
@@ -1707,10 +1707,10 @@ AtEOXact_MultiXact(void)
 
 /*
  * AtPrepare_MultiXact
- *		Save multixact state at 2PC transaction prepare
+ *		在 2PC 事务预备时保存多事务状态
  *
- * In this phase, we only store our OldestMemberMXactId value in the two-phase
- * state file.
+ * 在此阶段，我们只把
+ * OldestMemberMXactId 值存入两阶段状态文件。
  */
 void
 AtPrepare_MultiXact(void)
@@ -1724,7 +1724,7 @@ AtPrepare_MultiXact(void)
 
 /*
  * PostPrepare_MultiXact
- *		Clean up after successful PREPARE TRANSACTION
+ *		在成功的 PREPARE TRANSACTION 之后清理
  */
 void
 PostPrepare_MultiXact(TransactionId xid)
@@ -1732,8 +1732,8 @@ PostPrepare_MultiXact(TransactionId xid)
 	MultiXactId myOldestMember;
 
 	/*
-	 * Transfer our OldestMemberMXactId value to the slot reserved for the
-	 * prepared transaction.
+	 * 把我们的 OldestMemberMXactId
+	 * 值转移到为预备事务预留的槽。
 	 */
 	myOldestMember = OldestMemberMXactId[MyBackendId];
 	if (MultiXactIdIsValid(myOldestMember))
@@ -1741,10 +1741,10 @@ PostPrepare_MultiXact(TransactionId xid)
 		BackendId	dummyBackendId = TwoPhaseGetDummyBackendId(xid, false);
 
 		/*
-		 * Even though storing MultiXactId is atomic, acquire lock to make
-		 * sure others see both changes, not just the reset of the slot of the
-		 * current backend. Using a volatile pointer might suffice, but this
-		 * isn't a hot spot.
+		 * 尽管存储 MultiXactId 是原子的，
+		 * 仍获取锁以确保别人能同时看到两处更改，而
+		 * 不仅是当前后端槽被重置。使用 volatile
+		 * 指针或许也够，但这里不是热点。
 		 */
 		LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 
@@ -1755,17 +1755,17 @@ PostPrepare_MultiXact(TransactionId xid)
 	}
 
 	/*
-	 * We don't need to transfer OldestVisibleMXactId value, because the
-	 * transaction is not going to be looking at any more multixacts once it's
-	 * prepared.
+	 * 我们不需要转移
+	 * OldestVisibleMXactId 值，
+	 * 因为事务一旦预备就不会再查看更多多事务。
 	 *
-	 * We assume that storing a MultiXactId is atomic and so we need not take
-	 * MultiXactGenLock to do this.
+	 * 我们假定存储 MultiXactId 是原子的，因
+	 * 此不必为此获取 MultiXactGenLock。
 	 */
 	OldestVisibleMXactId[MyBackendId] = InvalidMultiXactId;
 
 	/*
-	 * Discard the local MultiXactId cache like in AtEOXact_MultiXact.
+	 * 像 AtEOXact_MultiXact 那样丢弃本地 MultiXactId 缓存。
 	 */
 	MXactContext = NULL;
 	dclist_init(&MXactCache);
@@ -1773,7 +1773,7 @@ PostPrepare_MultiXact(TransactionId xid)
 
 /*
  * multixact_twophase_recover
- *		Recover the state of a prepared transaction at startup
+ *		在启动时恢复预备事务的状态
  */
 void
 multixact_twophase_recover(TransactionId xid, uint16 info,
@@ -1783,8 +1783,8 @@ multixact_twophase_recover(TransactionId xid, uint16 info,
 	MultiXactId oldestMember;
 
 	/*
-	 * Get the oldest member XID from the state file record, and set it in the
-	 * OldestMemberMXactId slot reserved for this prepared transaction.
+	 * 从状态文件记录获取最老成员 XID，并把它设到为该预备事
+	 * 务预留的 OldestMemberMXactId 槽中。
 	 */
 	Assert(len == sizeof(MultiXactId));
 	oldestMember = *((MultiXactId *) recdata);
@@ -1794,7 +1794,7 @@ multixact_twophase_recover(TransactionId xid, uint16 info,
 
 /*
  * multixact_twophase_postcommit
- *		Similar to AtEOXact_MultiXact but for COMMIT PREPARED
+ *		类似于 AtEOXact_MultiXact，但用于 COMMIT PREPARED
  */
 void
 multixact_twophase_postcommit(TransactionId xid, uint16 info,
@@ -1809,7 +1809,7 @@ multixact_twophase_postcommit(TransactionId xid, uint16 info,
 
 /*
  * multixact_twophase_postabort
- *		This is actually just the same as the COMMIT case.
+ *		这实际上与 COMMIT 情形完全相同。
  */
 void
 multixact_twophase_postabort(TransactionId xid, uint16 info,
@@ -1819,16 +1819,16 @@ multixact_twophase_postabort(TransactionId xid, uint16 info,
 }
 
 /*
- * Initialization of shared memory for MultiXact.  We use two SLRU areas,
- * thus double memory.  Also, reserve space for the shared MultiXactState
- * struct and the per-backend MultiXactId arrays (two of those, too).
+ * 初始化 MultiXact 的共享内存。我们使用两个 SLRU
+ * 区域，因而内存加倍。还要为共享 MultiXactState 结
+ * 构以及每后端 MultiXactId 数组（也是两份）预留空间。
  */
 Size
 MultiXactShmemSize(void)
 {
 	Size		size;
 
-	/* We need 2*MaxOldestSlot + 1 perBackendXactIds[] entries */
+	/* 我们需要 2*MaxOldestSlot + 1 个 perBackendXactIds[] 表项 */
 #define SHARED_MULTIXACT_STATE_SIZE \
 	add_size(offsetof(MultiXactStateData, perBackendXactIds) + sizeof(MultiXactId), \
 			 mul_size(sizeof(MultiXactId) * 2, MaxOldestSlot))
@@ -1861,9 +1861,9 @@ MultiXactShmemInit(void)
 				  MultiXactMemberSLRULock, "pg_multixact/members",
 				  LWTRANCHE_MULTIXACTMEMBER_BUFFER,
 				  SYNC_HANDLER_MULTIXACT_MEMBER);
-	/* doesn't call SimpleLruTruncate() or meet criteria for unit tests */
+	/* 不调用 SimpleLruTruncate()，也不满足单元测试准则 */
 
-	/* Initialize our shared state struct */
+	/* 初始化我们的共享状态结构 */
 	MultiXactState = ShmemInitStruct("Shared MultiXact State",
 									 SHARED_MULTIXACT_STATE_SIZE,
 									 &found);
@@ -1871,24 +1871,24 @@ MultiXactShmemInit(void)
 	{
 		Assert(!found);
 
-		/* Make sure we zero out the per-backend state */
+		/* 确保将每后端状态清零 */
 		MemSet(MultiXactState, 0, SHARED_MULTIXACT_STATE_SIZE);
 	}
 	else
 		Assert(found);
 
 	/*
-	 * Set up array pointers.  Note that perBackendXactIds[0] is wasted space
-	 * since we only use indexes 1..MaxOldestSlot in each array.
+	 * 设置数组指针。注意 perBackendXactIds[0] 是浪
+	 * 费的空间，因为每个数组只用索引 1..MaxOldestSlot。
 	 */
 	OldestMemberMXactId = MultiXactState->perBackendXactIds;
 	OldestVisibleMXactId = OldestMemberMXactId + MaxOldestSlot;
 }
 
 /*
- * This func must be called ONCE on system install.  It creates the initial
- * MultiXact segments.  (The MultiXacts directories are assumed to have been
- * created by initdb, and MultiXactShmemInit must have been called already.)
+ * 本函数必须在系统安装时调用一次。它创建初始的 MultiXact
+ * 段。（假定 MultiXacts 目录已由 initdb 创
+ * 建，且 MultiXactShmemInit 已被调用。）
  */
 void
 BootStrapMultiXact(void)
@@ -1897,10 +1897,10 @@ BootStrapMultiXact(void)
 
 	LWLockAcquire(MultiXactOffsetSLRULock, LW_EXCLUSIVE);
 
-	/* Create and zero the first page of the offsets log */
+	/* 创建并清零 offsets 日志的第一页 */
 	slotno = ZeroMultiXactOffsetPage(0, false);
 
-	/* Make sure it's written out */
+	/* 确保已写出 */
 	SimpleLruWritePage(MultiXactOffsetCtl, slotno);
 	Assert(!MultiXactOffsetCtl->shared->page_dirty[slotno]);
 
@@ -1908,10 +1908,10 @@ BootStrapMultiXact(void)
 
 	LWLockAcquire(MultiXactMemberSLRULock, LW_EXCLUSIVE);
 
-	/* Create and zero the first page of the members log */
+	/* 创建并清零 members 日志的第一页 */
 	slotno = ZeroMultiXactMemberPage(0, false);
 
-	/* Make sure it's written out */
+	/* 确保已写出 */
 	SimpleLruWritePage(MultiXactMemberCtl, slotno);
 	Assert(!MultiXactMemberCtl->shared->page_dirty[slotno]);
 
@@ -1919,13 +1919,13 @@ BootStrapMultiXact(void)
 }
 
 /*
- * Initialize (or reinitialize) a page of MultiXactOffset to zeroes.
- * If writeXlog is true, also emit an XLOG record saying we did this.
+ * 把 MultiXactOffset 的一页初始化（或重新初始化）为零。若
+ * writeXlog 为 true，还发出一条说明我们做了此事的 XLOG 记录。
  *
- * The page is not actually written, just set up in shared memory.
- * The slot number of the new page is returned.
+ * 页实际上并未写出，只是在共享
+ * 内存中建好。返回新页的槽号。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
  */
 static int
 ZeroMultiXactOffsetPage(int pageno, bool writeXlog)
@@ -1941,7 +1941,7 @@ ZeroMultiXactOffsetPage(int pageno, bool writeXlog)
 }
 
 /*
- * Ditto, for MultiXactMember
+ * 对 MultiXactMember 同样处理
  */
 static int
 ZeroMultiXactMemberPage(int pageno, bool writeXlog)
@@ -1958,18 +1958,18 @@ ZeroMultiXactMemberPage(int pageno, bool writeXlog)
 
 /*
  * MaybeExtendOffsetSlru
- *		Extend the offsets SLRU area, if necessary
+ *		若需要则扩展 offsets SLRU 区域
  *
- * After a binary upgrade from <= 9.2, the pg_multixact/offsets SLRU area might
- * contain files that are shorter than necessary; this would occur if the old
- * installation had used multixacts beyond the first page (files cannot be
- * copied, because the on-disk representation is different).  pg_upgrade would
- * update pg_control to set the next offset value to be at that position, so
- * that tuples marked as locked by such MultiXacts would be seen as visible
- * without having to consult multixact.  However, trying to create and use a
- * new MultiXactId would result in an error because the page on which the new
- * value would reside does not exist.  This routine is in charge of creating
- * such pages.
+ * 从 <= 9.2 二进制升级后，pg_multixact
+ * /offsets SLRU 区域中的文件可能比
+ * 需要的短；若旧安装曾在第一页之后使用过多事务就
+ * 会如此（文件无法直接拷贝，因为磁盘表示不同）。
+ * pg_upgrade 会更新 pg_control，
+ * 把下一个偏移值设到该位置，从而使被此类
+ * MultiXacts 标记为已加锁的元组在不
+ * 必查阅多事务的情况下仍可见。然而，试图创建并
+ * 使用新的 MultiXactId 会出错，因
+ * 为新值所在的页不存在。本例程负责创建这些页。
  */
 static void
 MaybeExtendOffsetSlru(void)
@@ -1985,9 +1985,9 @@ MaybeExtendOffsetSlru(void)
 		int			slotno;
 
 		/*
-		 * Fortunately for us, SimpleLruWritePage is already prepared to deal
-		 * with creating a new segment file even if the page we're writing is
-		 * not the first in it, so this is enough.
+		 * 幸运的是，SimpleLruWritePage
+		 * 已准备好在我们写入的页并非段内第一页
+		 * 时也能创建新段文件，因此这样就够了。
 		 */
 		slotno = ZeroMultiXactOffsetPage(pageno, false);
 		SimpleLruWritePage(MultiXactOffsetCtl, slotno);
@@ -1997,12 +1997,12 @@ MaybeExtendOffsetSlru(void)
 }
 
 /*
- * This must be called ONCE during postmaster or standalone-backend startup.
+ * 必须在 postmaster 或独立后端启动期间调用一次。
  *
- * StartupXLOG has already established nextMXact/nextOffset by calling
- * MultiXactSetNextMXact and/or MultiXactAdvanceNextMXact, and the oldestMulti
- * info from pg_control and/or MultiXactAdvanceOldest, but we haven't yet
- * replayed WAL.
+ * StartupXLOG 已通过调用 MultiXactSetNextMXact 和/
+ * 或 MultiXactAdvanceNextMXact 建立了 nextMXact/
+ * nextOffset，以及来自 pg_control 和/或
+ * MultiXactAdvanceOldest 的 oldestMulti 信息，但我们尚未重放 WAL。
  */
 void
 StartupMultiXact(void)
@@ -2012,20 +2012,20 @@ StartupMultiXact(void)
 	int			pageno;
 
 	/*
-	 * Initialize offset's idea of the latest page number.
+	 * 初始化 offset 对最新页号的认知。
 	 */
 	pageno = MultiXactIdToOffsetPage(multi);
 	MultiXactOffsetCtl->shared->latest_page_number = pageno;
 
 	/*
-	 * Initialize member's idea of the latest page number.
+	 * 初始化 member 对最新页号的认知。
 	 */
 	pageno = MXOffsetToMemberPage(offset);
 	MultiXactMemberCtl->shared->latest_page_number = pageno;
 }
 
 /*
- * This must be called ONCE at the end of startup/recovery.
+ * 必须在启动/恢复结束时调用一次。
  */
 void
 TrimMultiXact(void)
@@ -2045,22 +2045,22 @@ TrimMultiXact(void)
 	oldestMXactDB = MultiXactState->oldestMultiXactDB;
 	LWLockRelease(MultiXactGenLock);
 
-	/* Clean up offsets state */
+	/* 清理 offsets 状态 */
 	LWLockAcquire(MultiXactOffsetSLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * (Re-)Initialize our idea of the latest page number for offsets.
+	 * （重新）初始化我们对 offsets 最新页号的认知。
 	 */
 	pageno = MultiXactIdToOffsetPage(nextMXact);
 	MultiXactOffsetCtl->shared->latest_page_number = pageno;
 
 	/*
-	 * Zero out the remainder of the current offsets page.  See notes in
-	 * TrimCLOG() for background.  Unlike CLOG, some WAL record covers every
-	 * pg_multixact SLRU mutation.  Since, also unlike CLOG, we ignore the WAL
-	 * rule "write xlog before data," nextMXact successors may carry obsolete,
-	 * nonzero offset values.  Zero those so case 2 of GetMultiXactIdMembers()
-	 * operates normally.
+	 * 把当前 offsets 页的剩余部分清零。背景见 TrimCLOG(
+	 * ) 中的说明。与 CLOG 不同，每条 pg_multixact
+	 * SLRU 变更都有 WAL 记录覆盖。又由于同样与 CLOG 不同，
+	 * 我们忽略 WAL 规则 "先写 xlog 再写数据"，nextMXact
+	 * 的后继可能带有过时的非零偏移值。把它们清零，以便
+	 * GetMultiXactIdMembers() 的情形 2 能正常工作。
 	 */
 	entryno = MultiXactIdToOffsetEntry(nextMXact);
 	if (entryno != 0)
@@ -2079,18 +2079,18 @@ TrimMultiXact(void)
 
 	LWLockRelease(MultiXactOffsetSLRULock);
 
-	/* And the same for members */
+	/* 对 members 做同样的事 */
 	LWLockAcquire(MultiXactMemberSLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * (Re-)Initialize our idea of the latest page number for members.
+	 * （重新）初始化我们对 members 最新页号的认知。
 	 */
 	pageno = MXOffsetToMemberPage(offset);
 	MultiXactMemberCtl->shared->latest_page_number = pageno;
 
 	/*
-	 * Zero out the remainder of the current members page.  See notes in
-	 * TrimCLOG() for motivation.
+	 * 把当前 members 页的剩余部分清零。
+	 * 动机见 TrimCLOG() 中的说明。
 	 */
 	flagsoff = MXOffsetToFlagsOffset(offset);
 	if (flagsoff != 0)
@@ -2107,9 +2107,9 @@ TrimMultiXact(void)
 		MemSet(xidptr, 0, BLCKSZ - memberoff);
 
 		/*
-		 * Note: we don't need to zero out the flag bits in the remaining
-		 * members of the current group, because they are always reset before
-		 * writing.
+		 * 注意：我们不必清零当前组
+		 * 中剩余成员的标志位，因
+		 * 为写入前总会重置它们。
 		 */
 
 		MultiXactMemberCtl->shared->page_dirty[slotno] = true;
@@ -2117,17 +2117,17 @@ TrimMultiXact(void)
 
 	LWLockRelease(MultiXactMemberSLRULock);
 
-	/* signal that we're officially up */
+	/* 发出信号：我们已正式就绪 */
 	LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 	MultiXactState->finishedStartup = true;
 	LWLockRelease(MultiXactGenLock);
 
-	/* Now compute how far away the next members wraparound is. */
+	/* 现在计算距离下一次成员回卷还有多远。 */
 	SetMultiXactIdLimit(oldestMXact, oldestMXactDB, true);
 }
 
 /*
- * Get the MultiXact data to save in a checkpoint record
+ * 获取要保存在检查点记录中的 MultiXact 数据
  */
 void
 MultiXactGetCheckptMulti(bool is_shutdown,
@@ -2149,7 +2149,7 @@ MultiXactGetCheckptMulti(bool is_shutdown,
 }
 
 /*
- * Perform a checkpoint --- either during shutdown, or on-the-fly
+ * 执行检查点——无论是关机期间还是联机进行
  */
 void
 CheckPointMultiXact(void)
@@ -2157,9 +2157,9 @@ CheckPointMultiXact(void)
 	TRACE_POSTGRESQL_MULTIXACT_CHECKPOINT_START(true);
 
 	/*
-	 * Write dirty MultiXact pages to disk.  This may result in sync requests
-	 * queued for later handling by ProcessSyncRequests(), as part of the
-	 * checkpoint.
+	 * 把脏的 MultiXact 页写到磁盘。这可能导
+	 * 致同步请求排队，稍后由
+	 * ProcessSyncRequests() 作为检查点的一部分处理。
 	 */
 	SimpleLruWriteAll(MultiXactOffsetCtl, true);
 	SimpleLruWriteAll(MultiXactMemberCtl, true);
@@ -2168,12 +2168,12 @@ CheckPointMultiXact(void)
 }
 
 /*
- * Set the next-to-be-assigned MultiXactId and offset
+ * 设置即将分配的下一个 MultiXactId 与偏移
  *
- * This is used when we can determine the correct next ID/offset exactly
- * from a checkpoint record.  Although this is only called during bootstrap
- * and XLog replay, we take the lock in case any hot-standby backends are
- * examining the values.
+ * 当我们能从检查点记录精确确定正确的下一个
+ * ID/偏移时使用。虽然这只在 bootstrap
+ * 与 XLog 重放期间调用，我们仍
+ * 加锁，以防有热备后端在查看这些值。
  */
 void
 MultiXactSetNextMXact(MultiXactId nextMulti,
@@ -2187,27 +2187,27 @@ MultiXactSetNextMXact(MultiXactId nextMulti,
 	LWLockRelease(MultiXactGenLock);
 
 	/*
-	 * During a binary upgrade, make sure that the offsets SLRU is large
-	 * enough to contain the next value that would be created.
+	 * 在二进制升级期间，确保 offsets SLRU
+	 * 足够大，能容纳即将创建的下一个值。
 	 *
-	 * We need to do this pretty early during the first startup in binary
-	 * upgrade mode: before StartupMultiXact() in fact, because this routine
-	 * is called even before that by StartupXLOG().  And we can't do it
-	 * earlier than at this point, because during that first call of this
-	 * routine we determine the MultiXactState->nextMXact value that
-	 * MaybeExtendOffsetSlru needs.
+	 * 我们需要在二进制升级模式的首次启动中相当早地做这件事：事实
+	 * 上要在 StartupMultiXact() 之前，因为
+	 * StartupXLOG() 甚至会在那之前调用本例程。而
+	 * 又不能比此刻更早，因为在对本例程的第一次调用中我们才确定
+	 * MaybeExtendOffsetSlru 需要的
+	 * MultiXactState->nextMXact 值。
 	 */
 	if (IsBinaryUpgrade)
 		MaybeExtendOffsetSlru();
 }
 
 /*
- * Determine the last safe MultiXactId to allocate given the currently oldest
- * datminmxid (ie, the oldest MultiXactId that might exist in any database
- * of our cluster), and the OID of the (or a) database with that value.
+ * 给定当前最老的 datminmxid（即我们集簇中任何数据库里可能
+ * 存在的最老 MultiXactId），以及具有该值的（或某个）数据
+ * 库的 OID，确定可分配的最后一个安全 MultiXactId。
  *
- * is_startup is true when we are just starting the cluster, false when we
- * are updating state in a running cluster.  This only affects log messages.
+ * is_startup 在我们刚启动集簇时为 true，在
+ * 运行中的集簇更新状态时为 false。这只影响日志消息。
  */
 void
 SetMultiXactIdLimit(MultiXactId oldest_datminmxid, Oid oldest_datoid,
@@ -2223,51 +2223,51 @@ SetMultiXactIdLimit(MultiXactId oldest_datminmxid, Oid oldest_datoid,
 	Assert(MultiXactIdIsValid(oldest_datminmxid));
 
 	/*
-	 * We pretend that a wrap will happen halfway through the multixact ID
-	 * space, but that's not really true, because multixacts wrap differently
-	 * from transaction IDs.  Note that, separately from any concern about
-	 * multixact IDs wrapping, we must ensure that multixact members do not
-	 * wrap.  Limits for that are set in SetOffsetVacuumLimit, not here.
+	 * 我们假装回卷会发生在多事务 ID 空间的一半处，但
+	 * 那并不真确，因为多事务的回卷方式与事务 ID 不同。
+	 * 注意，除了多事务 ID 回卷之外，我们还必须确保
+	 * 多事务成员不回卷。那方面的限制在
+	 * SetOffsetVacuumLimit 中设置，而不是这里。
 	 */
 	multiWrapLimit = oldest_datminmxid + (MaxMultiXactId >> 1);
 	if (multiWrapLimit < FirstMultiXactId)
 		multiWrapLimit += FirstMultiXactId;
 
 	/*
-	 * We'll refuse to continue assigning MultiXactIds once we get within 3M
-	 * multi of data loss.  See SetTransactionIdLimit.
+	 * 一旦距离数据丢失还有 3M 个 multi，我们将拒绝继续分配
+	 * MultiXactIds。见 SetTransactionIdLimit。
 	 */
 	multiStopLimit = multiWrapLimit - 3000000;
 	if (multiStopLimit < FirstMultiXactId)
 		multiStopLimit -= FirstMultiXactId;
 
 	/*
-	 * We'll start complaining loudly when we get within 40M multis of data
-	 * loss.  This is kind of arbitrary, but if you let your gas gauge get
-	 * down to 2% of full, would you be looking for the next gas station?  We
-	 * need to be fairly liberal about this number because there are lots of
-	 * scenarios where most transactions are done by automatic clients that
-	 * won't pay attention to warnings.  (No, we're not gonna make this
-	 * configurable.  If you know enough to configure it, you know enough to
-	 * not get in this kind of trouble in the first place.)
+	 * 一旦距离数据丢失还有 40M 个 multi，
+	 * 我们将开始大声抱怨。这有点随意，但如
+	 * 果你的油表只剩 2%，难道不会去找下
+	 * 一站加油站吗？这个数字需要相当宽松，
+	 * 因为很多场景下多数事务由不会理会警
+	 * 告的自动客户端完成。（不，我们不会
+	 * 让这可配置。如果你懂到能配置它，你
+	 * 也懂到一开始就不会陷入这种麻烦。）
 	 */
 	multiWarnLimit = multiWrapLimit - 40000000;
 	if (multiWarnLimit < FirstMultiXactId)
 		multiWarnLimit -= FirstMultiXactId;
 
 	/*
-	 * We'll start trying to force autovacuums when oldest_datminmxid gets to
-	 * be more than autovacuum_multixact_freeze_max_age mxids old.
+	 * 当 oldest_datminmxid 比
+	 * autovacuum_multixact_freeze_max_age 个 mxid 还老时，我们将开始设法强制自动清理。
 	 *
-	 * Note: autovacuum_multixact_freeze_max_age is a PGC_POSTMASTER parameter
-	 * so that we don't have to worry about dealing with on-the-fly changes in
-	 * its value.  See SetTransactionIdLimit.
+	 * 注意：autovacuum_multixact_freeze_max_age
+	 * 是 PGC_POSTMASTER 参数，这样我们就不必操心处理其
+	 * 值的联机变更。见 SetTransactionIdLimit。
 	 */
 	multiVacLimit = oldest_datminmxid + autovacuum_multixact_freeze_max_age;
 	if (multiVacLimit < FirstMultiXactId)
 		multiVacLimit += FirstMultiXactId;
 
-	/* Grab lock for just long enough to set the new limit values */
+	/* 加锁，时间只需足以设置新的限制值 */
 	LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 	MultiXactState->oldestMultiXactId = oldest_datminmxid;
 	MultiXactState->oldestMultiXactDB = oldest_datoid;
@@ -2278,50 +2278,50 @@ SetMultiXactIdLimit(MultiXactId oldest_datminmxid, Oid oldest_datoid,
 	curMulti = MultiXactState->nextMXact;
 	LWLockRelease(MultiXactGenLock);
 
-	/* Log the info */
+	/* 记录该信息 */
 	ereport(DEBUG1,
 			(errmsg_internal("MultiXactId wrap limit is %u, limited by database with OID %u",
 							 multiWrapLimit, oldest_datoid)));
 
 	/*
-	 * Computing the actual limits is only possible once the data directory is
-	 * in a consistent state. There's no need to compute the limits while
-	 * still replaying WAL - no decisions about new multis are made even
-	 * though multixact creations might be replayed. So we'll only do further
-	 * checks after TrimMultiXact() has been called.
+	 * 只有在数据目录处于一致状态后才可能计算实际限
+	 * 制。仍在重放 WAL 时无需计算限制——即使
+	 * 可能重放多事务创建，也不会做关于新 multi
+	 * 的决策。因此我们只在 TrimMultiXact
+	 * () 被调用后再做进一步检查。
 	 */
 	if (!MultiXactState->finishedStartup)
 		return;
 
 	Assert(!InRecovery);
 
-	/* Set limits for offset vacuum. */
+	/* 设置偏移清理的限制。 */
 	needs_offset_vacuum = SetOffsetVacuumLimit(is_startup);
 
 	/*
-	 * If past the autovacuum force point, immediately signal an autovac
-	 * request.  The reason for this is that autovac only processes one
-	 * database per invocation.  Once it's finished cleaning up the oldest
-	 * database, it'll call here, and we'll signal the postmaster to start
-	 * another iteration immediately if there are still any old databases.
+	 * 若已超过自动清理强制点，立即发出自动清理
+	 * 请求。原因是自动清理每次调用只处理一个数
+	 * 据库。一旦它清理完最老的数据库，就会调
+	 * 用到这里；若仍有旧数据库，我们就通知
+	 * postmaster 立即开始下一轮。
 	 */
 	if ((MultiXactIdPrecedes(multiVacLimit, curMulti) ||
 		 needs_offset_vacuum) && IsUnderPostmaster)
 		SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
 
-	/* Give an immediate warning if past the wrap warn point */
+	/* 若已超过回卷警告点，立即给出警告 */
 	if (MultiXactIdPrecedes(multiWarnLimit, curMulti))
 	{
 		char	   *oldest_datname;
 
 		/*
-		 * We can be called when not inside a transaction, for example during
-		 * StartupXLOG().  In such a case we cannot do database access, so we
-		 * must just report the oldest DB's OID.
+		 * 我们可能在不处于事务中时被调用，例如在
+		 * StartupXLOG() 期间。此时无法做
+		 * 数据库访问，故只能报告最老数据库的 OID。
 		 *
-		 * Note: it's also possible that get_database_name fails and returns
-		 * NULL, for example because the database just got dropped.  We'll
-		 * still warn, even though the warning might now be unnecessary.
+		 * 注意：get_database_name 也
+		 * 可能失败并返回 NULL，例如数据库刚被删除。
+		 * 我们仍会警告，即使警告此时可能已不必要。
 		 */
 		if (IsTransactionState())
 			oldest_datname = get_database_name(oldest_datoid);
@@ -2350,13 +2350,13 @@ SetMultiXactIdLimit(MultiXactId oldest_datminmxid, Oid oldest_datoid,
 }
 
 /*
- * Ensure the next-to-be-assigned MultiXactId is at least minMulti,
- * and similarly nextOffset is at least minMultiOffset.
+ * 确保即将分配的下一个 MultiXactId 至少为 minMulti，
+ * 类似地 nextOffset 至少为 minMultiOffset。
  *
- * This is used when we can determine minimum safe values from an XLog
- * record (either an on-line checkpoint or an mxact creation log entry).
- * Although this is only called during XLog replay, we take the lock in case
- * any hot-standby backends are examining the values.
+ * 当我们能从 XLog 记录（联机检查点或
+ * 多事务创建日志项）确定最小安全值时使用。
+ * 虽然这只在 XLog 重放期间调用，我
+ * 们仍加锁，以防有热备后端在查看这些值。
  */
 void
 MultiXactAdvanceNextMXact(MultiXactId minMulti,
@@ -2378,10 +2378,10 @@ MultiXactAdvanceNextMXact(MultiXactId minMulti,
 }
 
 /*
- * Update our oldestMultiXactId value, but only if it's more recent than what
- * we had.
+ * 更新我们的 oldestMultiXactId
+ * 值，但仅当它比我们已有的更新时。
  *
- * This may only be called during WAL replay.
+ * 这只能在 WAL 重放期间调用。
  */
 void
 MultiXactAdvanceOldest(MultiXactId oldestMulti, Oid oldestMultiDB)
@@ -2393,12 +2393,12 @@ MultiXactAdvanceOldest(MultiXactId oldestMulti, Oid oldestMultiDB)
 }
 
 /*
- * Make sure that MultiXactOffset has room for a newly-allocated MultiXactId.
+ * 确保 MultiXactOffset 有空间容纳新分配的 MultiXactId。
  *
- * NB: this is called while holding MultiXactGenLock.  We want it to be very
- * fast most of the time; even when it's not so fast, no actual I/O need
- * happen unless we're forced to write out a dirty log or xlog page to make
- * room in shared memory.
+ * 注意：调用时持有 MultiXactGenLock。
+ * 我们希望它多数时候非常快；即使不快，除非为
+ * 了在共享内存中腾地方而被迫写出脏日志或
+ * xlog 页，否则也不需要实际 I/O。
  */
 static void
 ExtendMultiXactOffset(MultiXactId multi)
@@ -2406,8 +2406,8 @@ ExtendMultiXactOffset(MultiXactId multi)
 	int			pageno;
 
 	/*
-	 * No work except at first MultiXactId of a page.  But beware: just after
-	 * wraparound, the first MultiXactId of page zero is FirstMultiXactId.
+	 * 除了页的第一个 MultiXactId 外无需工作。但要注意：刚回卷后，第零
+	 * 页的第一个 MultiXactId 是 FirstMultiXactId。
 	 */
 	if (MultiXactIdToOffsetEntry(multi) != 0 &&
 		multi != FirstMultiXactId)
@@ -2417,27 +2417,27 @@ ExtendMultiXactOffset(MultiXactId multi)
 
 	LWLockAcquire(MultiXactOffsetSLRULock, LW_EXCLUSIVE);
 
-	/* Zero the page and make an XLOG entry about it */
+	/* 清零该页并为此写一条 XLOG 记录 */
 	ZeroMultiXactOffsetPage(pageno, true);
 
 	LWLockRelease(MultiXactOffsetSLRULock);
 }
 
 /*
- * Make sure that MultiXactMember has room for the members of a newly-
- * allocated MultiXactId.
+ * 确保 MultiXactMember 有空间
+ * 容纳新分配 MultiXactId 的成员。
  *
- * Like the above routine, this is called while holding MultiXactGenLock;
- * same comments apply.
+ * 与上面的例程一样，调用时持有
+ * MultiXactGenLock；同样的说明适用。
  */
 static void
 ExtendMultiXactMember(MultiXactOffset offset, int nmembers)
 {
 	/*
-	 * It's possible that the members span more than one page of the members
-	 * file, so we loop to ensure we consider each page.  The coding is not
-	 * optimal if the members span several pages, but that seems unusual
-	 * enough to not worry much about.
+	 * 成员可能跨越 members 文件
+	 * 的多页，故我们循环以确保考虑每一页。
+	 * 若成员跨越数页，编码并非最优，但
+	 * 那种情况似乎少见，不必太担心。
 	 */
 	while (nmembers > 0)
 	{
@@ -2446,7 +2446,7 @@ ExtendMultiXactMember(MultiXactOffset offset, int nmembers)
 		uint32		difference;
 
 		/*
-		 * Only zero when at first entry of a page.
+		 * 仅在页的第一个表项处清零。
 		 */
 		flagsoff = MXOffsetToFlagsOffset(offset);
 		flagsbit = MXOffsetToFlagsBitShift(offset);
@@ -2458,24 +2458,24 @@ ExtendMultiXactMember(MultiXactOffset offset, int nmembers)
 
 			LWLockAcquire(MultiXactMemberSLRULock, LW_EXCLUSIVE);
 
-			/* Zero the page and make an XLOG entry about it */
+			/* 清零该页并为此写一条 XLOG 记录 */
 			ZeroMultiXactMemberPage(pageno, true);
 
 			LWLockRelease(MultiXactMemberSLRULock);
 		}
 
 		/*
-		 * Compute the number of items till end of current page.  Careful: if
-		 * addition of unsigned ints wraps around, we're at the last page of
-		 * the last segment; since that page holds a different number of items
-		 * than other pages, we need to do it differently.
+		 * 计算到当前页末的项数。小心：若无
+		 * 符号整数加法回卷，我们就在最后一
+		 * 段的最后一页；由于该页容纳的项
+		 * 数与其他页不同，需要不同处理。
 		 */
 		if (offset + MAX_MEMBERS_IN_LAST_MEMBERS_PAGE < offset)
 		{
 			/*
-			 * This is the last page of the last segment; we can compute the
-			 * number of items left to allocate in it without modulo
-			 * arithmetic.
+			 * 这是最后一段的最后一页；
+			 * 无需取模运算即可算出
+			 * 其中还可分配的项数。
 			 */
 			difference = MaxMultiXactOffset - offset + 1;
 		}
@@ -2483,8 +2483,8 @@ ExtendMultiXactMember(MultiXactOffset offset, int nmembers)
 			difference = MULTIXACT_MEMBERS_PER_PAGE - offset % MULTIXACT_MEMBERS_PER_PAGE;
 
 		/*
-		 * Advance to next page, taking care to properly handle the wraparound
-		 * case.  OK if nmembers goes negative.
+		 * 前进到下一页，注意正确处理回卷情形。
+		 * nmembers 变为负也可以。
 		 */
 		nmembers -= difference;
 		offset += difference;
@@ -2494,14 +2494,14 @@ ExtendMultiXactMember(MultiXactOffset offset, int nmembers)
 /*
  * GetOldestMultiXactId
  *
- * Return the oldest MultiXactId that's still possibly still seen as live by
- * any running transaction.  Older ones might still exist on disk, but they no
- * longer have any running member transaction.
+ * 返回仍可能被任何运行中事务视为存活的最老
+ * MultiXactId。更老的可能仍存在
+ * 于磁盘，但已没有任何运行中的成员事务。
  *
- * It's not safe to truncate MultiXact SLRU segments on the value returned by
- * this function; however, it can be set as the new relminmxid for any table
- * that VACUUM knows has no remaining MXIDs < the same value.  It is only safe
- * to truncate SLRUs when no table can possibly still have a referencing MXID.
+ * 按本函数返回值截断 MultiXact SLRU 段并不安全；
+ * 不过，若 VACUUM 确知某表不再有 < 该值的 MXIDs，
+ * 可把它设为该表的新 relminmxid。只有当没有任何
+ * 表仍可能有引用 MXID 时，截断 SLRUs 才安全。
  */
 MultiXactId
 GetOldestMultiXactId(void)
@@ -2511,15 +2511,15 @@ GetOldestMultiXactId(void)
 	int			i;
 
 	/*
-	 * This is the oldest valid value among all the OldestMemberMXactId[] and
-	 * OldestVisibleMXactId[] entries, or nextMXact if none are valid.
+	 * 这是所有 OldestMemberMXactId[] 与
+	 * OldestVisibleMXactId[] 表项中最老的有效值；若皆无效则为 nextMXact。
 	 */
 	LWLockAcquire(MultiXactGenLock, LW_SHARED);
 
 	/*
-	 * We have to beware of the possibility that nextMXact is in the
-	 * wrapped-around state.  We don't fix the counter itself here, but we
-	 * must be sure to use a valid value in our calculation.
+	 * 必须提防 nextMXact 处于已
+	 * 回卷状态的可能。我们此处不修正计数器
+	 * 本身，但必须确保在计算中使用合法值。
 	 */
 	nextMXact = MultiXactState->nextMXact;
 	if (nextMXact < FirstMultiXactId)
@@ -2546,22 +2546,22 @@ GetOldestMultiXactId(void)
 }
 
 /*
- * Determine how aggressively we need to vacuum in order to prevent member
- * wraparound.
+ * 确定为防止成员回卷
+ * 需要多积极地清理。
  *
- * To do so determine what's the oldest member offset and install the limit
- * info in MultiXactState, where it can be used to prevent overrun of old data
- * in the members SLRU area.
+ * 为此确定最老的成员偏移，并把限制信息安装到
+ * MultiXactState，以便用来防
+ * 止成员 SLRU 区域中的旧数据被覆写。
  *
- * The return value is true if emergency autovacuum is required and false
- * otherwise.
+ * 返回值为 true 表示需要紧急
+ * 自动清理，否则为 false。
  */
 static bool
 SetOffsetVacuumLimit(bool is_startup)
 {
 	MultiXactId oldestMultiXactId;
 	MultiXactId nextMXact;
-	MultiXactOffset oldestOffset = 0;	/* placate compiler */
+	MultiXactOffset oldestOffset = 0;	/* 安抚编译器 */
 	MultiXactOffset prevOldestOffset;
 	MultiXactOffset nextOffset;
 	bool		oldestOffsetKnown = false;
@@ -2570,12 +2570,12 @@ SetOffsetVacuumLimit(bool is_startup)
 	MultiXactOffset prevOffsetStopLimit;
 
 	/*
-	 * NB: Have to prevent concurrent truncation, we might otherwise try to
-	 * lookup an oldestMulti that's concurrently getting truncated away.
+	 * 注意：必须防止并发截断，否则我们可能去查找一
+	 * 个正被并发截断掉的 oldestMulti。
 	 */
 	LWLockAcquire(MultiXactTruncationLock, LW_SHARED);
 
-	/* Read relevant fields from shared memory. */
+	/* 从共享内存读取相关字段。 */
 	LWLockAcquire(MultiXactGenLock, LW_SHARED);
 	oldestMultiXactId = MultiXactState->oldestMultiXactId;
 	nextMXact = MultiXactState->nextMXact;
@@ -2587,17 +2587,17 @@ SetOffsetVacuumLimit(bool is_startup)
 	LWLockRelease(MultiXactGenLock);
 
 	/*
-	 * Determine the offset of the oldest multixact.  Normally, we can read
-	 * the offset from the multixact itself, but there's an important special
-	 * case: if there are no multixacts in existence at all, oldestMXact
-	 * obviously can't point to one.  It will instead point to the multixact
-	 * ID that will be assigned the next time one is needed.
+	 * 确定最老多事务的偏移。通常可从该多事
+	 * 务本身读取偏移，但有一个重要特例：若
+	 * 根本不存在任何多事务，oldestMXact
+	 * 显然不能指向一个。它会转而指向下
+	 * 次需要时将分配的多事务 ID。
 	 */
 	if (oldestMultiXactId == nextMXact)
 	{
 		/*
-		 * When the next multixact gets created, it will be stored at the next
-		 * offset.
+		 * 当下一个多事务被创建时，
+		 * 它将存储在下一个偏移处。
 		 */
 		oldestOffset = nextOffset;
 		oldestOffsetKnown = true;
@@ -2605,10 +2605,10 @@ SetOffsetVacuumLimit(bool is_startup)
 	else
 	{
 		/*
-		 * Figure out where the oldest existing multixact's offsets are
-		 * stored. Due to bugs in early release of PostgreSQL 9.3.X and 9.4.X,
-		 * the supposedly-earliest multixact might not really exist.  We are
-		 * careful not to fail in that case.
+		 * 弄清最老的现存多事务的偏移存在何处。由于
+		 * PostgreSQL 9.3.X 与 9.4.
+		 * X 早期版本中的缺陷，所谓最早的多事务可能
+		 * 实际不存在。我们小心不在那种情况下失败。
 		 */
 		oldestOffsetKnown =
 			find_multixact_start(oldestMultiXactId, &oldestOffset);
@@ -2626,17 +2626,17 @@ SetOffsetVacuumLimit(bool is_startup)
 	LWLockRelease(MultiXactTruncationLock);
 
 	/*
-	 * If we can, compute limits (and install them MultiXactState) to prevent
-	 * overrun of old data in the members SLRU area. We can only do so if the
-	 * oldest offset is known though.
+	 * 若可以，计算限制（并安装到 MultiXactState
+	 * ）以防止成员 SLRU 区域中的旧数据被覆
+	 * 写。不过只有在最老偏移已知时才能这样做。
 	 */
 	if (oldestOffsetKnown)
 	{
-		/* move back to start of the corresponding segment */
+		/* 回退到对应段的起始处 */
 		offsetStopLimit = oldestOffset - (oldestOffset %
 										  (MULTIXACT_MEMBERS_PER_PAGE * SLRU_PAGES_PER_SEGMENT));
 
-		/* always leave one segment before the wraparound point */
+		/* 在回卷点之前总是保留一个段 */
 		offsetStopLimit -= (MULTIXACT_MEMBERS_PER_PAGE * SLRU_PAGES_PER_SEGMENT);
 
 		if (!prevOldestOffsetKnown && !is_startup)
@@ -2650,17 +2650,17 @@ SetOffsetVacuumLimit(bool is_startup)
 	else if (prevOldestOffsetKnown)
 	{
 		/*
-		 * If we failed to get the oldest offset this time, but we have a
-		 * value from a previous pass through this function, use the old
-		 * values rather than automatically forcing an emergency autovacuum
-		 * cycle again.
+		 * 若这次未能取得最老偏移，
+		 * 但此前通过本函数时有值，
+		 * 则使用旧值，而不是再次自
+		 * 动强制紧急自动清理周期。
 		 */
 		oldestOffset = prevOldestOffset;
 		oldestOffsetKnown = true;
 		offsetStopLimit = prevOffsetStopLimit;
 	}
 
-	/* Install the computed values */
+	/* 安装计算出的值 */
 	LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 	MultiXactState->oldestOffset = oldestOffset;
 	MultiXactState->oldestOffsetKnown = oldestOffsetKnown;
@@ -2668,20 +2668,20 @@ SetOffsetVacuumLimit(bool is_startup)
 	LWLockRelease(MultiXactGenLock);
 
 	/*
-	 * Do we need an emergency autovacuum?	If we're not sure, assume yes.
+	 * 我们是否需要紧急自动清理？ 若不确定，假定需要。
 	 */
 	return !oldestOffsetKnown ||
 		(nextOffset - oldestOffset > MULTIXACT_MEMBER_SAFE_THRESHOLD);
 }
 
 /*
- * Return whether adding "distance" to "start" would move past "boundary".
+ * 返回把 "distance" 加到 "start" 是否会越过 "boundary"。
  *
- * We use this to determine whether the addition is "wrapping around" the
- * boundary point, hence the name.  The reason we don't want to use the regular
- * 2^31-modulo arithmetic here is that we want to be able to use the whole of
- * the 2^32-1 space here, allowing for more multixacts than would fit
- * otherwise.
+ * 我们用它判断加法是否"绕过"了边界
+ * 点，故有此名。这里不想用常规的 2
+ * ^31 模算术，是因为我们希望能
+ * 用满整个 2^32-1 空间，从
+ * 而允许比否则能装下的更多多事务。
  */
 static bool
 MultiXactOffsetWouldWrap(MultiXactOffset boundary, MultiXactOffset start,
@@ -2690,25 +2690,25 @@ MultiXactOffsetWouldWrap(MultiXactOffset boundary, MultiXactOffset start,
 	MultiXactOffset finish;
 
 	/*
-	 * Note that offset number 0 is not used (see GetMultiXactIdMembers), so
-	 * if the addition wraps around the UINT_MAX boundary, skip that value.
+	 * 注意偏移号 0 不使用（见 GetMultiXactIdMembers
+	 * ），因此若加法绕过 UINT_MAX 边界，则跳过该值。
 	 */
 	finish = start + distance;
 	if (finish < start)
 		finish++;
 
 	/*-----------------------------------------------------------------------
-	 * When the boundary is numerically greater than the starting point, any
-	 * value numerically between the two is not wrapped:
+	 * 当边界在数值上大于起点时，两
+	 * 者之间的任何数值都不算回卷：
 	 *
 	 *	<----S----B---->
 	 *	[---)			 = F wrapped past B (and UINT_MAX)
 	 *		 [---)		 = F not wrapped
 	 *			  [----] = F wrapped past B
 	 *
-	 * When the boundary is numerically less than the starting point (i.e. the
-	 * UINT_MAX wraparound occurs somewhere in between) then all values in
-	 * between are wrapped:
+	 * 当边界在数值上小于起点时（即
+	 * UINT_MAX 回卷发生在两者
+	 * 之间），则中间的所有值都算回卷：
 	 *
 	 *	<----B----S---->
 	 *	[---)			 = F not wrapped past B (but wrapped past UINT_MAX)
@@ -2723,13 +2723,13 @@ MultiXactOffsetWouldWrap(MultiXactOffset boundary, MultiXactOffset start,
 }
 
 /*
- * Find the starting offset of the given MultiXactId.
+ * 查找给定 MultiXactId 的起始偏移。
  *
- * Returns false if the file containing the multi does not exist on disk.
- * Otherwise, returns true and sets *result to the starting member offset.
+ * 若包含该 multi 的文件在磁盘上不存在则返回 false。
+ * 否则返回 true，并把 *result 设为起始成员偏移。
  *
- * This function does not prevent concurrent truncation, so if that's
- * required, the caller has to protect against that.
+ * 本函数不阻止并发截断，若
+ * 需要则由调用方负责防护。
  */
 static bool
 find_multixact_start(MultiXactId multi, MultiXactOffset *result)
@@ -2746,7 +2746,7 @@ find_multixact_start(MultiXactId multi, MultiXactOffset *result)
 	entryno = MultiXactIdToOffsetEntry(multi);
 
 	/*
-	 * Write out dirty data, so PhysicalPageExists can work correctly.
+	 * 写出脏数据，以便 PhysicalPageExists 能正确工作。
 	 */
 	SimpleLruWriteAll(MultiXactOffsetCtl, true);
 	SimpleLruWriteAll(MultiXactMemberCtl, true);
@@ -2754,7 +2754,7 @@ find_multixact_start(MultiXactId multi, MultiXactOffset *result)
 	if (!SimpleLruDoesPhysicalPageExist(MultiXactOffsetCtl, pageno))
 		return false;
 
-	/* lock is acquired by SimpleLruReadPage_ReadOnly */
+	/* 锁由 SimpleLruReadPage_ReadOnly 获取 */
 	slotno = SimpleLruReadPage_ReadOnly(MultiXactOffsetCtl, pageno, multi);
 	offptr = (MultiXactOffset *) MultiXactOffsetCtl->shared->page_buffer[slotno];
 	offptr += entryno;
@@ -2766,8 +2766,8 @@ find_multixact_start(MultiXactId multi, MultiXactOffset *result)
 }
 
 /*
- * Determine how many multixacts, and how many multixact members, currently
- * exist.  Return false if unable to determine.
+ * 确定当前存在多少多事务，以及多少多事务
+ * 成员。若无法确定则返回 false。
  */
 static bool
 ReadMultiXactCounts(uint32 *multixacts, MultiXactOffset *members)
@@ -2795,31 +2795,31 @@ ReadMultiXactCounts(uint32 *multixacts, MultiXactOffset *members)
 }
 
 /*
- * Multixact members can be removed once the multixacts that refer to them
- * are older than every datminmxid.  autovacuum_multixact_freeze_max_age and
- * vacuum_multixact_freeze_table_age work together to make sure we never have
- * too many multixacts; we hope that, at least under normal circumstances,
- * this will also be sufficient to keep us from using too many offsets.
- * However, if the average multixact has many members, we might exhaust the
- * members space while still using few enough members that these limits fail
- * to trigger relminmxid advancement by VACUUM.  At that point, we'd have no
- * choice but to start failing multixact-creating operations with an error.
+ * 一旦引用它们的多事务都早于每个 datminmxid，
+ * 多事务成员就可以移除。
+ * autovacuum_multixact_freeze_max_age
+ * 与
+ * vacuum_multixact_freeze_table_age
+ * 共同确保我们从不会有过多多事务；我们希望至少在正常情况下，这也足
+ * 以避免使用过多偏移。然而，若平均每个多事务有很多成员，我们可能在
+ * 成员空间耗尽时，仍因成员用量不够高而未能触发 VACUUM 推进
+ * relminmxid。那时就只好让创建多事务的操作以错误失败。
  *
- * To prevent that, if more than a threshold portion of the members space is
- * used, we effectively reduce autovacuum_multixact_freeze_max_age and
- * to a value just less than the number of multixacts in use.  We hope that
- * this will quickly trigger autovacuuming on the table or tables with the
- * oldest relminmxid, thus allowing datminmxid values to advance and removing
- * some members.
+ * 为防止如此，若成员空间的使用超过某个阈值比例，我
+ * 们就有效地把
+ * autovacuum_multixact_freeze_max_age
+ * 降到略小于正在使用的多事务数。我们希望这能迅速触发
+ * 对具有最老 relminmxid 的表的自动清理，
+ * 从而使 datminmxid 推进并移除一些成员。
  *
- * As the fraction of the member space currently in use grows, we become
- * more aggressive in clamping this value.  That not only causes autovacuum
- * to ramp up, but also makes any manual vacuums the user issues more
- * aggressive.  This happens because vacuum_get_cutoffs() will clamp the
- * freeze table and the minimum freeze age cutoffs based on the effective
- * autovacuum_multixact_freeze_max_age this function returns.  In the worst
- * case, we'll claim the freeze_max_age to zero, and every vacuum of any
- * table will freeze every multixact.
+ * 随着当前成员空间使用比例增大，我们在钳制该值时会更
+ * 加积极。这不仅使自动清理加速，也使用户发出的任何手
+ * 工清理更积极。这是因为 vacuum_get_cutoffs
+ * () 会根据本函数返回的有效
+ * autovacuum_multixact_freeze_max_age
+ * 钳制冻结表与最小冻结年龄截止。最坏情况下，我
+ * 们会声称 freeze_max_age 为零，
+ * 于是对任何表的每次清理都会冻结每个多事务。
  */
 int
 MultiXactMemberFreezeThreshold(void)
@@ -2830,31 +2830,31 @@ MultiXactMemberFreezeThreshold(void)
 	double		fraction;
 	int			result;
 
-	/* If we can't determine member space utilization, assume the worst. */
+	/* 若无法确定成员空间利用率，则按最坏情况假定。 */
 	if (!ReadMultiXactCounts(&multixacts, &members))
 		return 0;
 
-	/* If member space utilization is low, no special action is required. */
+	/* 若成员空间利用率较低，则无需特殊动作。 */
 	if (members <= MULTIXACT_MEMBER_SAFE_THRESHOLD)
 		return autovacuum_multixact_freeze_max_age;
 
 	/*
-	 * Compute a target for relminmxid advancement.  The number of multixacts
-	 * we try to eliminate from the system is based on how far we are past
-	 * MULTIXACT_MEMBER_SAFE_THRESHOLD.
+	 * 计算 relminmxid 推进的目标。我们试图从系统
+	 * 中消除的多事务数，取决于我们超过
+	 * MULTIXACT_MEMBER_SAFE_THRESHOLD 有多远。
 	 */
 	fraction = (double) (members - MULTIXACT_MEMBER_SAFE_THRESHOLD) /
 		(MULTIXACT_MEMBER_DANGER_THRESHOLD - MULTIXACT_MEMBER_SAFE_THRESHOLD);
 	victim_multixacts = multixacts * fraction;
 
-	/* fraction could be > 1.0, but lowest possible freeze age is zero */
+	/* fraction 可能 > 1.0，但最低可能的冻结年龄为零 */
 	if (victim_multixacts > multixacts)
 		return 0;
 	result = multixacts - victim_multixacts;
 
 	/*
-	 * Clamp to autovacuum_multixact_freeze_max_age, so that we never make
-	 * autovacuum less aggressive than it would otherwise be.
+	 * 钳制到
+	 * autovacuum_multixact_freeze_max_age，使我们从不让自动清理比原本更不积极。
 	 */
 	return Min(result, autovacuum_multixact_freeze_max_age);
 }
@@ -2865,8 +2865,8 @@ typedef struct mxtruncinfo
 } mxtruncinfo;
 
 /*
- * SlruScanDirectory callback
- *		This callback determines the earliest existing page number.
+ * SlruScanDirectory
+ *		回调。本回调确定现存最早的页号。
  */
 static bool
 SlruScanDirCbFindEarliest(SlruCtl ctl, char *filename, int segpage, void *data)
@@ -2879,17 +2879,17 @@ SlruScanDirCbFindEarliest(SlruCtl ctl, char *filename, int segpage, void *data)
 		trunc->earliestExistingPage = segpage;
 	}
 
-	return false;				/* keep going */
+	return false;				/* 继续 */
 }
 
 
 /*
- * Delete members segments [oldest, newOldest)
+ * 删除成员段 [oldest, newOldest)
  *
- * The members SLRU can, in contrast to the offsets one, be filled to almost
- * the full range at once. This means SimpleLruTruncate() can't trivially be
- * used - instead the to-be-deleted range is computed using the offsets
- * SLRU. C.f. TruncateMultiXact().
+ * 与 offsets 的 SLRU 不同，members SLRU
+ * 几乎可以一次填满整个范围。这意味着不能简单地使用
+ * SimpleLruTruncate()——而是用 offsets SLRU
+ * 计算待删除范围。参见 TruncateMultiXact()。
  */
 static void
 PerformMembersTruncation(MultiXactOffset oldestOffset, MultiXactOffset newOldestOffset)
@@ -2900,15 +2900,15 @@ PerformMembersTruncation(MultiXactOffset oldestOffset, MultiXactOffset newOldest
 	int			segment = startsegment;
 
 	/*
-	 * Delete all the segments but the last one. The last segment can still
-	 * contain, possibly partially, valid data.
+	 * 删除除最后一段外的所有段。最后一段仍
+	 * 可能包含（可能是部分的）有效数据。
 	 */
 	while (segment != endsegment)
 	{
 		elog(DEBUG2, "truncating multixact members segment %x", segment);
 		SlruDeleteSegment(MultiXactMemberCtl, segment);
 
-		/* move to next segment, handling wraparound correctly */
+		/* 移到下一段，正确处理回卷 */
 		if (segment == maxsegment)
 			segment = 0;
 		else
@@ -2917,32 +2917,32 @@ PerformMembersTruncation(MultiXactOffset oldestOffset, MultiXactOffset newOldest
 }
 
 /*
- * Delete offsets segments [oldest, newOldest)
+ * 删除偏移段 [oldest, newOldest)
  */
 static void
 PerformOffsetsTruncation(MultiXactId oldestMulti, MultiXactId newOldestMulti)
 {
 	/*
-	 * We step back one multixact to avoid passing a cutoff page that hasn't
-	 * been created yet in the rare case that oldestMulti would be the first
-	 * item on a page and oldestMulti == nextMulti.  In that case, if we
-	 * didn't subtract one, we'd trigger SimpleLruTruncate's wraparound
-	 * detection.
+	 * 我们后退一个多事务，以避免在 oldestMulti
+	 * 恰好是某页第一项且 oldestMulti
+	 * == nextMulti 的罕见情况下传入尚
+	 * 未创建的截止页。那时若不减一，就会触发
+	 * SimpleLruTruncate 的回卷检测。
 	 */
 	SimpleLruTruncate(MultiXactOffsetCtl,
 					  MultiXactIdToOffsetPage(PreviousMultiXactId(newOldestMulti)));
 }
 
 /*
- * Remove all MultiXactOffset and MultiXactMember segments before the oldest
- * ones still of interest.
+ * 移除所有仍有用的最老段之前的 MultiXactOffset
+ * 与 MultiXactMember 段。
  *
- * This is only called on a primary as part of vacuum (via
- * vac_truncate_clog()). During recovery truncation is done by replaying
- * truncation WAL records logged here.
+ * 这只在主库上作为清理的一部分（通过
+ * vac_truncate_clog()）调用。恢复
+ * 期间截断通过重放此处记录的截断 WAL 记录完成。
  *
- * newOldestMulti is the oldest currently required multixact, newOldestMultiDB
- * is one of the databases preventing newOldestMulti from increasing.
+ * newOldestMulti 是当前仍需要的最老多事务，
+ * newOldestMultiDB 是阻止 newOldestMulti 增大的数据库之一。
  */
 void
 TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
@@ -2959,10 +2959,10 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	Assert(MultiXactState->finishedStartup);
 
 	/*
-	 * We can only allow one truncation to happen at once. Otherwise parts of
-	 * members might vanish while we're doing lookups or similar. There's no
-	 * need to have an interlock with creating new multis or such, since those
-	 * are constrained by the limits (which only grow, never shrink).
+	 * 我们一次只允许一次截断。否则在我们做查找
+	 * 等操作时，members 的部分可能消
+	 * 失。无需与创建新 multi 等加互锁，
+	 * 因为那些受限制约束（限制只增不减）。
 	 */
 	LWLockAcquire(MultiXactTruncationLock, LW_EXCLUSIVE);
 
@@ -2974,9 +2974,9 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	Assert(MultiXactIdIsValid(oldestMulti));
 
 	/*
-	 * Make sure to only attempt truncation if there's values to truncate
-	 * away. In normal processing values shouldn't go backwards, but there's
-	 * some corner cases (due to bugs) where that's possible.
+	 * 确保只在有值可截断时才尝试截断。
+	 * 正常处理中值不应回退，但有些角
+	 * 落情况（由于缺陷）可能发生。
 	 */
 	if (MultiXactIdPrecedesOrEquals(newOldestMulti, oldestMulti))
 	{
@@ -2985,22 +2985,22 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	}
 
 	/*
-	 * Note we can't just plow ahead with the truncation; it's possible that
-	 * there are no segments to truncate, which is a problem because we are
-	 * going to attempt to read the offsets page to determine where to
-	 * truncate the members SLRU.  So we first scan the directory to determine
-	 * the earliest offsets page number that we can read without error.
+	 * 注意我们不能直接一头扎进截断；可能根本
+	 * 没有可截断的段，这是个问题，因为我们
+	 * 要尝试读偏移页以确定从何处截断 members
+	 * SLRU。因此我们先扫描目录，
+	 * 确定能无错读取的最早偏移页号。
 	 *
-	 * When nextMXact is less than one segment away from multiWrapLimit,
-	 * SlruScanDirCbFindEarliest can find some early segment other than the
-	 * actual earliest.  (MultiXactOffsetPagePrecedes(EARLIEST, LATEST)
-	 * returns false, because not all pairs of entries have the same answer.)
-	 * That can also arise when an earlier truncation attempt failed unlink()
-	 * or returned early from this function.  The only consequence is
-	 * returning early, which wastes space that we could have liberated.
+	 * 当 nextMXact 距 multiWrapLimit 不
+	 * 足一个段时，SlruScanDirCbFindEarliest
+	 * 可能找到某个早期段而非真正最早的。（
+	 * MultiXactOffsetPagePrecedes(EARLIEST,
+	 * LATEST) 返回 false，因为并非所有表项对都有相
+	 * 同答案。）先前截断尝试 unlink() 失败或从本函数提前
+	 * 返回时也可能如此。唯一后果是提前返回，浪费本可释放的空间。
 	 *
-	 * NB: It's also possible that the page that oldestMulti is on has already
-	 * been truncated away, and we crashed before updating oldestMulti.
+	 * 注意：oldestMulti 所在页也可能已被截断掉，
+	 * 而我们在更新 oldestMulti 之前崩溃了。
 	 */
 	trunc.earliestExistingPage = -1;
 	SlruScanDirectory(MultiXactOffsetCtl, SlruScanDirCbFindEarliest, &trunc);
@@ -3008,7 +3008,7 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	if (earliest < FirstMultiXactId)
 		earliest = FirstMultiXactId;
 
-	/* If there's nothing to remove, we can bail out early. */
+	/* 若没什么可移除，我们可以尽早退出。 */
 	if (MultiXactIdPrecedes(oldestMulti, earliest))
 	{
 		LWLockRelease(MultiXactTruncationLock);
@@ -3016,16 +3016,16 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	}
 
 	/*
-	 * First, compute the safe truncation point for MultiXactMember. This is
-	 * the starting offset of the oldest multixact.
+	 * 首先，计算 MultiXactMember
+	 * 的安全截断点。这是最老多事务的起始偏移。
 	 *
-	 * Hopefully, find_multixact_start will always work here, because we've
-	 * already checked that it doesn't precede the earliest MultiXact on disk.
-	 * But if it fails, don't truncate anything, and log a message.
+	 * 希望 find_multixact_start 在此总能
+	 * 工作，因为我们已经检查过它不早于磁盘上最早的 MultiXact。
+	 * 但若失败，则不要截断任何东西，并记录一条消息。
 	 */
 	if (oldestMulti == nextMulti)
 	{
-		/* there are NO MultiXacts */
+		/* 没有 MultiXacts */
 		oldestOffset = nextOffset;
 	}
 	else if (!find_multixact_start(oldestMulti, &oldestOffset))
@@ -3038,12 +3038,12 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 	}
 
 	/*
-	 * Secondly compute up to where to truncate. Lookup the corresponding
-	 * member offset for newOldestMulti for that.
+	 * 其次计算截断到何处。为此查找
+	 * newOldestMulti 对应的成员偏移。
 	 */
 	if (newOldestMulti == nextMulti)
 	{
-		/* there are NO MultiXacts */
+		/* 没有 MultiXacts */
 		newOldestOffset = nextOffset;
 	}
 	else if (!find_multixact_start(newOldestMulti, &newOldestOffset))
@@ -3066,44 +3066,44 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 		 MXOffsetToMemberSegment(newOldestOffset));
 
 	/*
-	 * Do truncation, and the WAL logging of the truncation, in a critical
-	 * section. That way offsets/members cannot get out of sync anymore, i.e.
-	 * once consistent the newOldestMulti will always exist in members, even
-	 * if we crashed in the wrong moment.
+	 * 在临界区中做截断及其 WAL 记录。这样 offsets
+	 * /members 就不会再不同步，即一旦一致，
+	 * 即使我们在错误时刻崩溃，newOldestMulti
+	 * 也总会存在于 members 中。
 	 */
 	START_CRIT_SECTION();
 
 	/*
-	 * Prevent checkpoints from being scheduled concurrently. This is critical
-	 * because otherwise a truncation record might not be replayed after a
-	 * crash/basebackup, even though the state of the data directory would
-	 * require it.
+	 * 防止检查点被并发调度。这
+	 * 很关键，否则崩溃/基础备
+	 * 份后可能不重放截断记录，
+	 * 尽管数据目录状态需要它。
 	 */
 	Assert((MyProc->delayChkptFlags & DELAY_CHKPT_START) == 0);
 	MyProc->delayChkptFlags |= DELAY_CHKPT_START;
 
-	/* WAL log truncation */
+	/* WAL 记录截断 */
 	WriteMTruncateXlogRec(newOldestMultiDB,
 						  oldestMulti, newOldestMulti,
 						  oldestOffset, newOldestOffset);
 
 	/*
-	 * Update in-memory limits before performing the truncation, while inside
-	 * the critical section: Have to do it before truncation, to prevent
-	 * concurrent lookups of those values. Has to be inside the critical
-	 * section as otherwise a future call to this function would error out,
-	 * while looking up the oldest member in offsets, if our caller crashes
-	 * before updating the limits.
+	 * 在执行截断之前、仍在临界区内时更新
+	 * 内存中的限制：必须在截断前做，以
+	 * 防止并发查找这些值。必须在临界区
+	 * 内，否则若调用方在更新限制前崩溃，
+	 * 将来对本函数的调用在 offsets
+	 * 中查找最老成员时会出错。
 	 */
 	LWLockAcquire(MultiXactGenLock, LW_EXCLUSIVE);
 	MultiXactState->oldestMultiXactId = newOldestMulti;
 	MultiXactState->oldestMultiXactDB = newOldestMultiDB;
 	LWLockRelease(MultiXactGenLock);
 
-	/* First truncate members */
+	/* 先截断 members */
 	PerformMembersTruncation(oldestOffset, newOldestOffset);
 
-	/* Then offsets */
+	/* 再截断 offsets */
 	PerformOffsetsTruncation(oldestMulti, newOldestMulti);
 
 	MyProc->delayChkptFlags &= ~DELAY_CHKPT_START;
@@ -3113,11 +3113,11 @@ TruncateMultiXact(MultiXactId newOldestMulti, Oid newOldestMultiDB)
 }
 
 /*
- * Decide whether a MultiXactOffset page number is "older" for truncation
- * purposes.  Analogous to CLOGPagePrecedes().
+ * 判定某个 MultiXactOffset 页号对截断而言是
+ * 否"更早"。类似于 CLOGPagePrecedes()。
  *
- * Offsetting the values is optional, because MultiXactIdPrecedes() has
- * translational symmetry.
+ * 对值做偏移是可选的，因为
+ * MultiXactIdPrecedes() 具有平移对称性。
  */
 static bool
 MultiXactOffsetPagePrecedes(int page1, int page2)
@@ -3136,8 +3136,8 @@ MultiXactOffsetPagePrecedes(int page1, int page2)
 }
 
 /*
- * Decide whether a MultiXactMember page number is "older" for truncation
- * purposes.  There is no "invalid offset number" so use the numbers verbatim.
+ * 判定某个 MultiXactMember 页号对截断而言
+ * 是否"更早"。没有"无效偏移号"，故直接使用这些数字。
  */
 static bool
 MultiXactMemberPagePrecedes(int page1, int page2)
@@ -3154,10 +3154,10 @@ MultiXactMemberPagePrecedes(int page1, int page2)
 }
 
 /*
- * Decide which of two MultiXactIds is earlier.
+ * 判定两个 MultiXactIds 哪个更早。
  *
- * XXX do we need to do something special for InvalidMultiXactId?
- * (Doesn't look like it.)
+ * XXX 是否需要对 InvalidMultiXactId
+ * 做特殊处理？（看起来不需要。）
  */
 bool
 MultiXactIdPrecedes(MultiXactId multi1, MultiXactId multi2)
@@ -3168,10 +3168,10 @@ MultiXactIdPrecedes(MultiXactId multi1, MultiXactId multi2)
 }
 
 /*
- * MultiXactIdPrecedesOrEquals -- is multi1 logically <= multi2?
+ * MultiXactIdPrecedesOrEquals -- multi1 在逻辑上是否 <= multi2？
  *
- * XXX do we need to do something special for InvalidMultiXactId?
- * (Doesn't look like it.)
+ * XXX 是否需要对 InvalidMultiXactId
+ * 做特殊处理？（看起来不需要。）
  */
 bool
 MultiXactIdPrecedesOrEquals(MultiXactId multi1, MultiXactId multi2)
@@ -3183,7 +3183,7 @@ MultiXactIdPrecedesOrEquals(MultiXactId multi1, MultiXactId multi2)
 
 
 /*
- * Decide which of two offsets is earlier.
+ * 判定两个偏移哪个更早。
  */
 static bool
 MultiXactOffsetPrecedes(MultiXactOffset offset1, MultiXactOffset offset2)
@@ -3194,8 +3194,8 @@ MultiXactOffsetPrecedes(MultiXactOffset offset1, MultiXactOffset offset2)
 }
 
 /*
- * Write an xlog record reflecting the zeroing of either a MEMBERs or
- * OFFSETs page (info shows which)
+ * 写一条反映清零 MEMBERs 或 OFFSETs
+ * 页的 xlog 记录（info 指明是哪一种）
  */
 static void
 WriteMZeroPageXlogRec(int pageno, uint8 info)
@@ -3206,10 +3206,10 @@ WriteMZeroPageXlogRec(int pageno, uint8 info)
 }
 
 /*
- * Write a TRUNCATE xlog record
+ * 写一条 TRUNCATE xlog 记录
  *
- * We must flush the xlog record to disk before returning --- see notes in
- * TruncateCLOG().
+ * 返回前必须把该 xlog 记录刷到磁盘——见
+ * TruncateCLOG() 中的说明。
  */
 static void
 WriteMTruncateXlogRec(Oid oldestMultiDB,
@@ -3234,14 +3234,14 @@ WriteMTruncateXlogRec(Oid oldestMultiDB,
 }
 
 /*
- * MULTIXACT resource manager's routines
+ * MULTIXACT 资源管理器的例程
  */
 void
 multixact_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in multixact records */
+	/* 多事务记录不使用备份块 */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
 	if (info == XLOG_MULTIXACT_ZERO_OFF_PAGE)
@@ -3281,18 +3281,18 @@ multixact_redo(XLogReaderState *record)
 		TransactionId max_xid;
 		int			i;
 
-		/* Store the data back into the SLRU files */
+		/* 把数据存回 SLRU 文件 */
 		RecordNewMultiXact(xlrec->mid, xlrec->moff, xlrec->nmembers,
 						   xlrec->members);
 
-		/* Make sure nextMXact/nextOffset are beyond what this record has */
+		/* 确保 nextMXact/nextOffset 超过本记录所含内容 */
 		MultiXactAdvanceNextMXact(xlrec->mid + 1,
 								  xlrec->moff + xlrec->nmembers);
 
 		/*
-		 * Make sure nextXid is beyond any XID mentioned in the record. This
-		 * should be unnecessary, since any XID found here ought to have other
-		 * evidence in the XLOG, but let's be safe.
+		 * 确保 nextXid 超过记录中提到的任何 XID。
+		 * 这本应不必要，因为这里找到的任何 XID 在 XLOG
+		 * 中应有其他证据，但为安全起见还是做一下。
 		 */
 		max_xid = XLogRecGetXid(record);
 		for (i = 0; i < xlrec->nmembers; i++)
@@ -3321,21 +3321,21 @@ multixact_redo(XLogReaderState *record)
 			 MXOffsetToMemberSegment(xlrec.startTruncMemb),
 			 MXOffsetToMemberSegment(xlrec.endTruncMemb));
 
-		/* should not be required, but more than cheap enough */
+		/* 本不应需要，但成本足够低 */
 		LWLockAcquire(MultiXactTruncationLock, LW_EXCLUSIVE);
 
 		/*
-		 * Advance the horizon values, so they're current at the end of
-		 * recovery.
+		 * 推进地平线值，使它们在
+		 * 恢复结束时是最新的。
 		 */
 		SetMultiXactIdLimit(xlrec.endTruncOff, xlrec.oldestMultiDB, false);
 
 		PerformMembersTruncation(xlrec.startTruncMemb, xlrec.endTruncMemb);
 
 		/*
-		 * During XLOG replay, latest_page_number isn't necessarily set up
-		 * yet; insert a suitable value to bypass the sanity test in
-		 * SimpleLruTruncate.
+		 * 在 XLOG 重放期间，latest_page_number
+		 * 不一定已设置；插入一个合适的值以绕过
+		 * SimpleLruTruncate 中的健全性检查。
 		 */
 		pageno = MultiXactIdToOffsetPage(xlrec.endTruncOff);
 		MultiXactOffsetCtl->shared->latest_page_number = pageno;
@@ -3374,7 +3374,7 @@ pg_get_multixact_members(PG_FUNCTION_ARGS)
 		oldcxt = MemoryContextSwitchTo(funccxt->multi_call_memory_ctx);
 
 		multi = palloc(sizeof(mxact));
-		/* no need to allow for old values here */
+		/* 此处无需允许旧值 */
 		multi->nmembers = GetMultiXactIdMembers(mxid, &multi->members, false,
 												false);
 		multi->iter = 0;
@@ -3410,7 +3410,7 @@ pg_get_multixact_members(PG_FUNCTION_ARGS)
 }
 
 /*
- * Entrypoint for sync.c to sync offsets files.
+ * sync.c 同步 offsets 文件的入口点。
  */
 int
 multixactoffsetssyncfiletag(const FileTag *ftag, char *path)
@@ -3419,7 +3419,7 @@ multixactoffsetssyncfiletag(const FileTag *ftag, char *path)
 }
 
 /*
- * Entrypoint for sync.c to sync members files.
+ * sync.c 同步 members 文件的入口点。
  */
 int
 multixactmemberssyncfiletag(const FileTag *ftag, char *path)

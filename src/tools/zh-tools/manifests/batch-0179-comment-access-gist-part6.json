@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0179-comment-access-gist-part6",
+ "title": "zh: translate access/gist comments (part 6)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "6321123ef342e795438a3366f2a9d5efb18d3fd8",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gist/gistbuild.c",
+   "kind": "c_comment",
+   "note": "GiST index build"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0179-comment-access-gist-part6.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gist/gistbuild.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 151,
+   "translated": 151,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GiST index build (sorted and buffering); Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0179-comment-access-gist-part6.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0179 translates comments in gistbuild.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: gist.c."
+}

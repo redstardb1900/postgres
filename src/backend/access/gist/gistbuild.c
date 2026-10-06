@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * gistbuild.c
- *	  build algorithm for GiST indexes implementation.
+ *	  GiST 索引构建算法的实现。
  *
- * There are two different strategies:
+ * 有两种不同的策略：
  *
- * 1. Sort all input tuples, pack them into GiST leaf pages in the sorted
- *    order, and create downlinks and internal pages as we go. This builds
- *    the index from the bottom up, similar to how B-tree index build
- *    works.
+ * 1. 对全部输入元组排序，按排序顺序把它们装入 GiST 叶子
+ *    页，并边走边创建下行指针与内部页。这自底向
+ *    上构建索引，类似于 B-tree 索引构建的
+ *    方式。
  *
- * 2. Start with an empty index, and insert all tuples one by one.
+ * 2. 从空索引开始，逐个插入全部元组。
  *
- * The sorted method is used if the operator classes for all columns have
- * a 'sortsupport' defined. Otherwise, we resort to the second strategy.
+ * 若所有列的操作符类都定义了 'sortsupport'，则使用
+ * 排序方法。否则退回到第二种策略。
  *
- * The second strategy can optionally use buffers at different levels of
- * the tree to reduce I/O, see "Buffering build algorithm" in the README
- * for a more detailed explanation. It initially calls insert over and
- * over, but switches to the buffered algorithm after a certain number of
- * tuples (unless buffering mode is disabled).
+ * 第二种策略可选择在树的不同层使用缓冲区以
+ * 减少 I/O，详见 README 中的"缓冲构建算法"
+ * 以获得更详细的说明。它起初反复调用插入，
+ * 但在达到一定数量的元组后切换到缓冲算法
+ * （除非缓冲模式已禁用）。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -48,62 +48,62 @@
 #include "utils/rel.h"
 #include "utils/tuplesort.h"
 
-/* Step of index tuples for check whether to switch to buffering build mode */
+/* 检查是否切换到缓冲构建模式时的索引元组步长 */
 #define BUFFERING_MODE_SWITCH_CHECK_STEP 256
 
 /*
- * Number of tuples to process in the slow way before switching to buffering
- * mode, when buffering is explicitly turned on. Also, the number of tuples
- * to process between readjusting the buffer size parameter, while in
- * buffering mode.
+ * 在显式打开缓冲时，以慢速方式处理多少元组后才切换到缓冲
+ * 模式。同时，这也是在缓冲模式下，两次重新调整
+ * 缓冲区大小参数之间要处理的
+ * 元组数。
  */
 #define BUFFERING_MODE_TUPLE_SIZE_STATS_TARGET 4096
 
 /*
- * Strategy used to build the index. It can change between the
- * GIST_BUFFERING_* modes on the fly, but if the Sorted method is used,
- * that needs to be decided up-front and cannot be changed afterwards.
+ * 用于构建索引的策略。它可以在各
+ * GIST_BUFFERING_* 模式之间动态切换，但若使用排序方法，
+ * 则必须预先决定，之后无法再改。
  */
 typedef enum
 {
-	GIST_SORTED_BUILD,			/* bottom-up build by sorting */
-	GIST_BUFFERING_DISABLED,	/* in regular build mode and aren't going to
-								 * switch */
-	GIST_BUFFERING_AUTO,		/* in regular build mode, but will switch to
-								 * buffering build mode if the index grows too
-								 * big */
-	GIST_BUFFERING_STATS,		/* gathering statistics of index tuple size
-								 * before switching to the buffering build
-								 * mode */
-	GIST_BUFFERING_ACTIVE		/* in buffering build mode */
+	GIST_SORTED_BUILD,			/* 通过排序自底向上构建 */
+	GIST_BUFFERING_DISABLED,	/* 处于常规构建模式，且不打算
+								 * 切换 */
+	GIST_BUFFERING_AUTO,		/* 处于常规构建模式，但若索引变得过
+								 * 大则会切换到
+								 * 缓冲构建模式 */
+	GIST_BUFFERING_STATS,		/* 在切换到缓冲构建
+								 * 模式之前，收集索引元组大小的
+								 * 统计信息 */
+	GIST_BUFFERING_ACTIVE		/* 处于缓冲构建模式 */
 } GistBuildMode;
 
-/* Working state for gistbuild and its callback */
+/* gistbuild 及其回调的工作状态 */
 typedef struct
 {
 	Relation	indexrel;
 	Relation	heaprel;
 	GISTSTATE  *giststate;
 
-	Size		freespace;		/* amount of free space to leave on pages */
+	Size		freespace;		/* 页上要保留的空闲空间量 */
 
 	GistBuildMode buildMode;
 
-	int64		indtuples;		/* number of tuples indexed */
+	int64		indtuples;		/* 已编入索引的元组数 */
 
 	/*
-	 * Extra data structures used during a buffering build. 'gfbb' contains
-	 * information related to managing the build buffers. 'parentMap' is a
-	 * lookup table of the parent of each internal page.
+	 * 缓冲构建期间使用的额外数据结构。'gfbb' 包含
+	 * 与管理构建缓冲区相关的信息。'parentMap' 是
+	 * 各内部页父页的查找表。
 	 */
-	int64		indtuplesSize;	/* total size of all indexed tuples */
+	int64		indtuplesSize;	/* 全部已编入索引元组的总大小 */
 	GISTBuildBuffers *gfbb;
 	HTAB	   *parentMap;
 
 	/*
-	 * Extra data structures used during a sorting build.
+	 * 排序构建期间使用的额外数据结构。
 	 */
-	Tuplesortstate *sortstate;	/* state data for tuplesort.c */
+	Tuplesortstate *sortstate;	/* tuplesort.c 的状态数据 */
 
 	BlockNumber pages_allocated;
 	BlockNumber pages_written;
@@ -116,22 +116,22 @@ typedef struct
 #define GIST_SORTED_BUILD_PAGE_NUM 4
 
 /*
- * In sorted build, we use a stack of these structs, one for each level,
- * to hold an in-memory buffer of last pages at the level.
+ * 在排序构建中，我们使用这些结构体的栈，每层一个，
+ * 以保存该层末尾各页的内存缓冲区。
  *
- * Sorting GiST build requires good linearization of the sort opclass. This is
- * not always the case in multidimensional data. To tackle the anomalies, we
- * buffer index tuples and apply picksplit that can be multidimension-aware.
+ * 排序 GiST 构建需要排序操作符类有良好线性化。在多维
+ * 数据中并不总是如此。为应对异常，我们
+ * 缓冲索引元组并应用能感知多维的 picksplit。
  */
 typedef struct GistSortedBuildLevelState
 {
 	int			current_page;
 	BlockNumber last_blkno;
-	struct GistSortedBuildLevelState *parent;	/* Upper level, if any */
+	struct GistSortedBuildLevelState *parent;	/* 上层，若有 */
 	Page		pages[GIST_SORTED_BUILD_PAGE_NUM];
 } GistSortedBuildLevelState;
 
-/* prototypes for private functions */
+/* 私有函数原型 */
 
 static void gistSortedBuildCallback(Relation index, ItemPointer tid,
 									Datum *values, bool *isnull,
@@ -177,7 +177,7 @@ static BlockNumber gistGetParent(GISTBuildState *buildstate, BlockNumber child);
 
 
 /*
- * Main entry point to GiST index build.
+ * GiST 索引构建的主入口。
  */
 IndexBuildResult *
 gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
@@ -191,8 +191,8 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	GiSTOptions *options = (GiSTOptions *) index->rd_options;
 
 	/*
-	 * We expect to be called exactly once for any index relation. If that's
-	 * not the case, big trouble's what we have.
+	 * 我们期望对任何索引关系只被调用恰好一次。若非
+	 * 如此，那就麻烦大了。
 	 */
 	if (RelationGetNumberOfBlocks(index) != 0)
 		elog(ERROR, "index \"%s\" already contains data",
@@ -204,16 +204,16 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	buildstate.giststate = initGISTstate(index);
 
 	/*
-	 * Create a temporary memory context that is reset once for each tuple
-	 * processed.  (Note: we don't bother to make this a child of the
-	 * giststate's scanCxt, so we have to delete it separately at the end.)
+	 * 创建一个临时内存上下文，每处理一个元组就
+	 * 重置一次。（注意：我们不费心把它做成
+	 * giststate 的 scanCxt 的子上下文，因此结束时须单独删除。）
 	 */
 	buildstate.giststate->tempCxt = createTempGistContext();
 
 	/*
-	 * Choose build strategy.  First check whether the user specified to use
-	 * buffering mode.  (The use-case for that in the field is somewhat
-	 * questionable perhaps, but it's important for testing purposes.)
+	 * 选择构建策略。首先检查用户是否指定使用
+	 * 缓冲模式。（现场使用场景或许有些
+	 * 存疑，但对测试目的很重要。）
 	 */
 	if (options)
 	{
@@ -221,7 +221,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 			buildstate.buildMode = GIST_BUFFERING_STATS;
 		else if (options->buffering_mode == GIST_OPTION_BUFFERING_OFF)
 			buildstate.buildMode = GIST_BUFFERING_DISABLED;
-		else					/* must be "auto" */
+		else					/* 必为 "auto" */
 			buildstate.buildMode = GIST_BUFFERING_AUTO;
 	}
 	else
@@ -230,7 +230,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	}
 
 	/*
-	 * Unless buffering mode was forced, see if we can use sorting instead.
+	 * 除非强制使用缓冲模式，否则看能否改用排序。
 	 */
 	if (buildstate.buildMode != GIST_BUFFERING_STATS)
 	{
@@ -252,13 +252,13 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	}
 
 	/*
-	 * Calculate target amount of free space to leave on pages.
+	 * 计算页上要保留的目标空闲空间量。
 	 */
 	fillfactor = options ? options->fillfactor : GIST_DEFAULT_FILLFACTOR;
 	buildstate.freespace = BLCKSZ * (100 - fillfactor) / 100;
 
 	/*
-	 * Build the index using the chosen strategy.
+	 * 用所选策略构建索引。
 	 */
 	buildstate.indtuples = 0;
 	buildstate.indtuplesSize = 0;
@@ -266,7 +266,7 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	if (buildstate.buildMode == GIST_SORTED_BUILD)
 	{
 		/*
-		 * Sort all data, build the index from bottom up.
+		 * 对全部数据排序，自底向上构建索引。
 		 */
 		buildstate.sortstate = tuplesort_begin_index_gist(heap,
 														  index,
@@ -274,13 +274,13 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 														  NULL,
 														  TUPLESORT_NONE);
 
-		/* Scan the table, adding all tuples to the tuplesort */
+		/* 扫描表，把全部元组加入 tuplesort */
 		reltuples = table_index_build_scan(heap, index, indexInfo, true, true,
 										   gistSortedBuildCallback,
 										   (void *) &buildstate, NULL);
 
 		/*
-		 * Perform the sort and build index pages.
+		 * 执行排序并构建索引页。
 		 */
 		tuplesort_performsort(buildstate.sortstate);
 
@@ -291,13 +291,13 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 	else
 	{
 		/*
-		 * Initialize an empty index and insert all tuples, possibly using
-		 * buffers on intermediate levels.
+		 * 初始化空索引并插入全部元组，可能在
+		 * 中间层使用缓冲区。
 		 */
 		Buffer		buffer;
 		Page		page;
 
-		/* initialize the root page */
+		/* 初始化根页 */
 		buffer = gistNewBuffer(index, heap);
 		Assert(BufferGetBlockNumber(buffer) == GIST_ROOT_BLKNO);
 		page = BufferGetPage(buffer);
@@ -313,14 +313,14 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 
 		END_CRIT_SECTION();
 
-		/* Scan the table, inserting all the tuples to the index. */
+		/* 扫描表，把全部元组插入索引。 */
 		reltuples = table_index_build_scan(heap, index, indexInfo, true, true,
 										   gistBuildCallback,
 										   (void *) &buildstate, NULL);
 
 		/*
-		 * If buffering was used, flush out all the tuples that are still in
-		 * the buffers.
+		 * 若使用了缓冲，则冲刷仍留在
+		 * 缓冲区中的全部元组。
 		 */
 		if (buildstate.buildMode == GIST_BUFFERING_ACTIVE)
 		{
@@ -330,8 +330,8 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		}
 
 		/*
-		 * We didn't write WAL records as we built the index, so if
-		 * WAL-logging is required, write all pages to the WAL now.
+		 * 构建索引时我们未写 WAL 记录，因此若
+		 * 需要 WAL 日志，现在把全部页写入 WAL。
 		 */
 		if (RelationNeedsWAL(index))
 		{
@@ -341,14 +341,14 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 		}
 	}
 
-	/* okay, all heap tuples are indexed */
+	/* 好了，全部堆元组都已编入索引 */
 	MemoryContextSwitchTo(oldcxt);
 	MemoryContextDelete(buildstate.giststate->tempCxt);
 
 	freeGISTstate(buildstate.giststate);
 
 	/*
-	 * Return statistics
+	 * 返回统计信息
 	 */
 	result = (IndexBuildResult *) palloc(sizeof(IndexBuildResult));
 
@@ -359,12 +359,12 @@ gistbuild(Relation heap, Relation index, IndexInfo *indexInfo)
 }
 
 /*-------------------------------------------------------------------------
- * Routines for sorted build
+ * 排序构建例程
  *-------------------------------------------------------------------------
  */
 
 /*
- * Per-tuple callback for table_index_build_scan.
+ * table_index_build_scan 的每元组回调。
  */
 static void
 gistSortedBuildCallback(Relation index,
@@ -380,7 +380,7 @@ gistSortedBuildCallback(Relation index,
 
 	oldCtx = MemoryContextSwitchTo(buildstate->giststate->tempCxt);
 
-	/* Form an index tuple and point it at the heap tuple */
+	/* 构造索引元组并指向堆元组 */
 	gistCompressValues(buildstate->giststate, index,
 					   values, isnull,
 					   true, compressed_values);
@@ -393,12 +393,12 @@ gistSortedBuildCallback(Relation index,
 	MemoryContextSwitchTo(oldCtx);
 	MemoryContextReset(buildstate->giststate->tempCxt);
 
-	/* Update tuple count. */
+	/* 更新元组计数。 */
 	buildstate->indtuples += 1;
 }
 
 /*
- * Build GiST index from bottom up from pre-sorted tuples.
+ * 由预先排序的元组自底向上构建 GiST 索引。
  */
 static void
 gist_indexsortbuild(GISTBuildState *state)
@@ -412,8 +412,8 @@ gist_indexsortbuild(GISTBuildState *state)
 	state->ready_num_pages = 0;
 
 	/*
-	 * Write an empty page as a placeholder for the root page. It will be
-	 * replaced with the real root page at the end.
+	 * 写一个空页作为根页占位符。结束时会
+	 * 用真正的根页替换它。
 	 */
 	page = palloc_aligned(BLCKSZ, PG_IO_ALIGN_SIZE, MCXT_ALLOC_ZERO);
 	smgrextend(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
@@ -421,14 +421,14 @@ gist_indexsortbuild(GISTBuildState *state)
 	state->pages_allocated++;
 	state->pages_written++;
 
-	/* Allocate a temporary buffer for the first leaf page batch. */
+	/* 为第一批叶子页分配临时缓冲区。 */
 	levelstate = palloc0(sizeof(GistSortedBuildLevelState));
 	levelstate->pages[0] = page;
 	levelstate->parent = NULL;
 	gistinitpage(page, F_LEAF);
 
 	/*
-	 * Fill index pages with tuples in the sorted order.
+	 * 按排序顺序用元组填充索引页。
 	 */
 	while ((itup = tuplesort_getindextuple(state->sortstate, true)) != NULL)
 	{
@@ -437,10 +437,10 @@ gist_indexsortbuild(GISTBuildState *state)
 	}
 
 	/*
-	 * Write out the partially full non-root pages.
+	 * 写出部分填满的非根页。
 	 *
-	 * Keep in mind that flush can build a new root. If number of pages is > 1
-	 * then new root is required.
+	 * 记住冲刷可能构建新根。若页数 > 1
+	 * 则需要新根。
 	 */
 	while (levelstate->parent != NULL || levelstate->current_page != 0)
 	{
@@ -457,7 +457,7 @@ gist_indexsortbuild(GISTBuildState *state)
 
 	gist_indexsortbuild_flush_ready_pages(state);
 
-	/* Write out the root */
+	/* 写出根页 */
 	PageSetLSN(levelstate->pages[0], GistBuildLSN);
 	PageSetChecksumInplace(levelstate->pages[0], GIST_ROOT_BLKNO);
 	smgrwrite(RelationGetSmgr(state->indexrel), MAIN_FORKNUM, GIST_ROOT_BLKNO,
@@ -470,21 +470,21 @@ gist_indexsortbuild(GISTBuildState *state)
 	pfree(levelstate);
 
 	/*
-	 * When we WAL-logged index pages, we must nonetheless fsync index files.
-	 * Since we're building outside shared buffers, a CHECKPOINT occurring
-	 * during the build has no way to flush the previously written data to
-	 * disk (indeed it won't know the index even exists).  A crash later on
-	 * would replay WAL from the checkpoint, therefore it wouldn't replay our
-	 * earlier WAL entries. If we do not fsync those pages here, they might
-	 * still not be on disk when the crash occurs.
+	 * 当我们已把索引页记入 WAL 时，仍必须 fsync 索引文件。
+	 * 由于我们在共享缓冲区之外构建，构建期间发生的
+	 * CHECKPOINT 无法把先前写入的数据冲刷到
+	 * 磁盘（实际上它甚至不知道该索引存在）。稍后崩溃
+	 * 会从检查点重放 WAL，因此不会重放我们
+	 * 更早的 WAL 条目。若此处不对那些页做 fsync，崩溃发生时
+	 * 它们可能仍不在磁盘上。
 	 */
 	if (RelationNeedsWAL(state->indexrel))
 		smgrimmedsync(RelationGetSmgr(state->indexrel), MAIN_FORKNUM);
 }
 
 /*
- * Add tuple to a page. If the pages are full, write them out and re-initialize
- * a new page first.
+ * 把元组加入页。若各页已满，先写出它们并重新初始化
+ * 一个新页。
  */
 static void
 gist_indexsortbuild_levelstate_add(GISTBuildState *state,
@@ -493,8 +493,8 @@ gist_indexsortbuild_levelstate_add(GISTBuildState *state,
 {
 	Size		sizeNeeded;
 
-	/* Check if tuple can be added to the current page */
-	sizeNeeded = IndexTupleSize(itup) + sizeof(ItemIdData); /* fillfactor ignored */
+	/* 检查元组能否加入当前页 */
+	sizeNeeded = IndexTupleSize(itup) + sizeof(ItemIdData); /* 忽略 fillfactor */
 	if (PageGetFreeSpace(levelstate->pages[levelstate->current_page]) < sizeNeeded)
 	{
 		Page		newPage;
@@ -536,11 +536,11 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 
 	oldCtx = MemoryContextSwitchTo(state->giststate->tempCxt);
 
-	/* Get index tuples from first page */
+	/* 从第一页获取索引元组 */
 	itvec = gistextractpage(levelstate->pages[0], &vect_len);
 	if (levelstate->current_page > 0)
 	{
-		/* Append tuples from each page */
+		/* 追加每一页的元组 */
 		for (int i = 1; i < levelstate->current_page + 1; i++)
 		{
 			int			len_local;
@@ -550,12 +550,12 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 			pfree(itvec_local);
 		}
 
-		/* Apply picksplit to list of all collected tuples */
+		/* 对全部已收集元组的列表应用 picksplit */
 		dist = gistSplit(state->indexrel, levelstate->pages[0], itvec, vect_len, state->giststate);
 	}
 	else
 	{
-		/* Create splitted layout from single page */
+		/* 由单页创建分裂布局 */
 		dist = (SplitedPageLayout *) palloc0(sizeof(SplitedPageLayout));
 		union_tuple = gistunion(state->indexrel, itvec, vect_len,
 								state->giststate);
@@ -566,19 +566,19 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 
 	MemoryContextSwitchTo(oldCtx);
 
-	/* Reset page counter */
+	/* 重置页计数器 */
 	levelstate->current_page = 0;
 
-	/* Create pages for all partitions in split result */
+	/* 为分裂结果中的全部分区创建页 */
 	for (; dist != NULL; dist = dist->next)
 	{
 		char	   *data;
 		Page		target;
 
-		/* check once per page */
+		/* 每页检查一次 */
 		CHECK_FOR_INTERRUPTS();
 
-		/* Create page and copy data */
+		/* 创建页并复制数据 */
 		data = (char *) (dist->list);
 		target = palloc_aligned(BLCKSZ, PG_IO_ALIGN_SIZE, MCXT_ALLOC_ZERO);
 		gistinitpage(target, isleaf ? F_LEAF : 0);
@@ -597,9 +597,9 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 			gist_indexsortbuild_flush_ready_pages(state);
 
 		/*
-		 * The page is now complete. Assign a block number to it, and add it
-		 * to the list of finished pages. (We don't write it out immediately,
-		 * because we want to WAL-log the pages in batches.)
+		 * 该页现已完成。为其分配块号，并加入
+		 * 已完成页列表。（我们不立即写出，
+		 * 因为希望批量把这些页记入 WAL。）
 		 */
 		blkno = state->pages_allocated++;
 		state->ready_blknos[state->ready_num_pages] = blkno;
@@ -608,24 +608,24 @@ gist_indexsortbuild_levelstate_flush(GISTBuildState *state,
 		ItemPointerSetBlockNumber(&(union_tuple->t_tid), blkno);
 
 		/*
-		 * Set the right link to point to the previous page. This is just for
-		 * debugging purposes: GiST only follows the right link if a page is
-		 * split concurrently to a scan, and that cannot happen during index
-		 * build.
+		 * 把右链接设为指向前一页。这仅用于
+		 * 调试：仅当页与扫描并发分裂时 GiST 才会
+		 * 跟随右链接，而索引构建期间
+		 * 不可能发生。
 		 *
-		 * It's a bit counterintuitive that we set the right link on the new
-		 * page to point to the previous page, not the other way around. But
-		 * GiST pages are not ordered like B-tree pages are, so as long as the
-		 * right-links form a chain through all the pages at the same level,
-		 * the order doesn't matter.
+		 * 我们把新页的右链接设为指向前一页、
+		 * 而不是反过来，这有点反直觉。但
+		 * GiST 页不像 B-tree 页那样有序，因此只要
+		 * 右链接在同一层全部页上形成链，
+		 * 顺序并不重要。
 		 */
 		if (levelstate->last_blkno)
 			GistPageGetOpaque(target)->rightlink = levelstate->last_blkno;
 		levelstate->last_blkno = blkno;
 
 		/*
-		 * Insert the downlink to the parent page. If this was the root,
-		 * create a new page as the parent, which becomes the new root.
+		 * 把下行指针插入父页。若这曾是根，
+		 * 则创建新页作为父，它成为新根。
 		 */
 		parent = levelstate->parent;
 		if (parent == NULL)
@@ -652,7 +652,7 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 		Page		page = state->ready_pages[i];
 		BlockNumber blkno = state->ready_blknos[i];
 
-		/* Currently, the blocks must be buffered in order. */
+		/* 当前，这些块必须按顺序缓冲。 */
 		if (blkno != state->pages_written)
 			elog(ERROR, "unexpected block number to flush GiST sorting build");
 
@@ -676,17 +676,17 @@ gist_indexsortbuild_flush_ready_pages(GISTBuildState *state)
 
 
 /*-------------------------------------------------------------------------
- * Routines for non-sorted build
+ * 非排序构建例程
  *-------------------------------------------------------------------------
  */
 
 /*
- * Attempt to switch to buffering mode.
+ * 尝试切换到缓冲模式。
  *
- * If there is not enough memory for buffering build, sets bufferingMode
- * to GIST_BUFFERING_DISABLED, so that we don't bother to try the switch
- * anymore. Otherwise initializes the build buffers, and sets bufferingMode to
- * GIST_BUFFERING_ACTIVE.
+ * 若没有足够内存做缓冲构建，则把 bufferingMode
+ * 设为 GIST_BUFFERING_DISABLED，以便不再费心尝试
+ * 切换。否则初始化构建缓冲区，并把 bufferingMode 设为
+ * GIST_BUFFERING_ACTIVE。
  */
 static void
 gistInitBuffering(GISTBuildState *buildstate)
@@ -701,24 +701,24 @@ gistInitBuffering(GISTBuildState *buildstate)
 	int			i;
 	int			levelStep;
 
-	/* Calc space of index page which is available for index tuples */
+	/* 计算索引页上可供索引元组使用的空间 */
 	pageFreeSpace = BLCKSZ - SizeOfPageHeaderData - sizeof(GISTPageOpaqueData)
 		- sizeof(ItemIdData)
 		- buildstate->freespace;
 
 	/*
-	 * Calculate average size of already inserted index tuples using gathered
-	 * statistics.
+	 * 用已收集的统计信息计算已插入索引元组的
+	 * 平均大小。
 	 */
 	itupAvgSize = (double) buildstate->indtuplesSize /
 		(double) buildstate->indtuples;
 
 	/*
-	 * Calculate minimal possible size of index tuple by index metadata.
-	 * Minimal possible size of varlena is VARHDRSZ.
+	 * 按索引元数据计算索引元组的最小可能大小。
+	 * varlena 的最小可能大小为 VARHDRSZ。
 	 *
-	 * XXX: that's not actually true, as a short varlen can be just 2 bytes.
-	 * And we should take padding into account here.
+	 * XXX: 这其实并不成立，因为短 varlena 可以只有 2 字节。
+	 * 而且这里还应考虑填充。
 	 */
 	itupMinSize = (Size) MAXALIGN(sizeof(IndexTupleData));
 	for (i = 0; i < index->rd_att->natts; i++)
@@ -729,56 +729,56 @@ gistInitBuffering(GISTBuildState *buildstate)
 			itupMinSize += TupleDescAttr(index->rd_att, i)->attlen;
 	}
 
-	/* Calculate average and maximal number of index tuples which fit to page */
+	/* 计算能装入一页的索引元组平均与最大个数 */
 	avgIndexTuplesPerPage = pageFreeSpace / itupAvgSize;
 	maxIndexTuplesPerPage = pageFreeSpace / itupMinSize;
 
 	/*
-	 * We need to calculate two parameters for the buffering algorithm:
-	 * levelStep and pagesPerBuffer.
+	 * 我们需要为缓冲算法计算两个参数：
+	 * levelStep 与 pagesPerBuffer。
 	 *
-	 * levelStep determines the size of subtree that we operate on, while
-	 * emptying a buffer. A higher value is better, as you need fewer buffer
-	 * emptying steps to build the index. However, if you set it too high, the
-	 * subtree doesn't fit in cache anymore, and you quickly lose the benefit
-	 * of the buffers.
+	 * levelStep 决定清空缓冲区时所操作的子树
+	 * 大小。值越高越好，因为构建索引所需的
+	 * 缓冲区清空步骤更少。但若设得太高，子树就
+	 * 不再装得进缓存，并很快失去
+	 * 缓冲区的
+	 * 好处。
 	 *
-	 * In Arge et al's paper, levelStep is chosen as logB(M/4B), where B is
-	 * the number of tuples on page (ie. fanout), and M is the amount of
-	 * internal memory available. Curiously, they doesn't explain *why* that
-	 * setting is optimal. We calculate it by taking the highest levelStep so
-	 * that a subtree still fits in cache. For a small B, our way of
-	 * calculating levelStep is very close to Arge et al's formula. For a
-	 * large B, our formula gives a value that is 2x higher.
+	 * 在 Arge 等人的论文中，levelStep 取为 logB(M/4B)，其中 B 是
+	 * 页上的元组数（即扇出），M 是可用
+	 * 内部内存量。奇怪的是，他们并未解释*为何*
+	 * 该设置最优。我们通过取仍使子树装得进缓存的
+	 * 最高 levelStep 来计算。对较小的 B，我们计算
+	 * levelStep 的方式非常接近 Arge 等人的公式。对
+	 * 较大的 B，我们的公式给出的值高 2 倍。
 	 *
-	 * The average size (in pages) of a subtree of depth n can be calculated
-	 * as a geometric series:
+	 * 深度为 n 的子树的平均大小（以页计）可按
+	 * 几何级数计算：
 	 *
 	 * B^0 + B^1 + B^2 + ... + B^n = (1 - B^(n + 1)) / (1 - B)
 	 *
-	 * where B is the average number of index tuples on page. The subtree is
-	 * cached in the shared buffer cache and the OS cache, so we choose
-	 * levelStep so that the subtree size is comfortably smaller than
-	 * effective_cache_size, with a safety factor of 4.
+	 * 其中 B 是页上索引元组的平均数。子树缓存在
+	 * 共享缓冲缓存与操作系统缓存中，因此我们选择
+	 * levelStep，使子树大小舒适地小于
+	 * effective_cache_size，并带有安全系数 4。
 	 *
-	 * The estimate on the average number of index tuples on page is based on
-	 * average tuple sizes observed before switching to buffered build, so the
-	 * real subtree size can be somewhat larger. Also, it would selfish to
-	 * gobble the whole cache for our index build. The safety factor of 4
-	 * should account for those effects.
+	 * 页上索引元组平均数的估计基于切换到缓冲
+	 * 构建前所观测到的平均元组大小，因此
+	 * 真实子树大小可能略大。此外，独占整个
+	 * 缓存做索引构建也不厚道。安全系数 4
+	 * 应能覆盖这些影响。
 	 *
-	 * The other limiting factor for setting levelStep is that while
-	 * processing a subtree, we need to hold one page for each buffer at the
-	 * next lower buffered level. The max. number of buffers needed for that
-	 * is maxIndexTuplesPerPage^levelStep. This is very conservative, but
-	 * hopefully maintenance_work_mem is set high enough that you're
-	 * constrained by effective_cache_size rather than maintenance_work_mem.
+	 * 设置 levelStep 的另一限制因素是：处理
+	 * 子树时，我们需要为下一更低缓冲层的每个缓冲区
+	 * 持有一页。为此所需的最大缓冲区数为
+	 * maxIndexTuplesPerPage^levelStep。这非常保守，但
+	 * 希望 maintenance_work_mem 设得足够高，使你
+	 * 受 effective_cache_size 而非 maintenance_work_mem 约束。
 	 *
-	 * XXX: the buffer hash table consumes a fair amount of memory too per
-	 * buffer, but that is not currently taken into account. That scales on
-	 * the total number of buffers used, ie. the index size and on levelStep.
-	 * Note that a higher levelStep *reduces* the amount of memory needed for
-	 * the hash table.
+	 * XXX: 缓冲区哈希表每个缓冲区也消耗相当多内存，
+	 * 但当前未计入。它随所用缓冲区总数伸缩，
+	 * 即随索引大小与 levelStep。注意更高的 levelStep
+	 * *减少* 哈希表所需的内存量。
 	 */
 	levelStep = 1;
 	for (;;)
@@ -786,35 +786,35 @@ gistInitBuffering(GISTBuildState *buildstate)
 		double		subtreesize;
 		double		maxlowestlevelpages;
 
-		/* size of an average subtree at this levelStep (in pages). */
+		/* 此 levelStep 下平均子树的大小（以页计）。 */
 		subtreesize =
 			(1 - pow(avgIndexTuplesPerPage, (double) (levelStep + 1))) /
 			(1 - avgIndexTuplesPerPage);
 
-		/* max number of pages at the lowest level of a subtree */
+		/* 子树最底层的最大页数 */
 		maxlowestlevelpages = pow(maxIndexTuplesPerPage, (double) levelStep);
 
-		/* subtree must fit in cache (with safety factor of 4) */
+		/* 子树必须装得进缓存（安全系数为 4） */
 		if (subtreesize > effective_cache_size / 4)
 			break;
 
-		/* each node in the lowest level of a subtree has one page in memory */
+		/* 子树最底层的每个节点在内存中有一页 */
 		if (maxlowestlevelpages > ((double) maintenance_work_mem * 1024) / BLCKSZ)
 			break;
 
-		/* Good, we can handle this levelStep. See if we can go one higher. */
+		/* 很好，我们能处理此 levelStep。看能否再高一级。 */
 		levelStep++;
 	}
 
 	/*
-	 * We just reached an unacceptable value of levelStep in previous loop.
-	 * So, decrease levelStep to get last acceptable value.
+	 * 上一循环刚到达不可接受的 levelStep 值。
+	 * 因此减小 levelStep 以得到最后一个可接受值。
 	 */
 	levelStep--;
 
 	/*
-	 * If there's not enough cache or maintenance_work_mem, fall back to plain
-	 * inserts.
+	 * 若缓存或 maintenance_work_mem 不足，则退回普通
+	 * 插入。
 	 */
 	if (levelStep <= 0)
 	{
@@ -824,13 +824,13 @@ gistInitBuffering(GISTBuildState *buildstate)
 	}
 
 	/*
-	 * The second parameter to set is pagesPerBuffer, which determines the
-	 * size of each buffer. We adjust pagesPerBuffer also during the build,
-	 * which is why this calculation is in a separate function.
+	 * 要设置的第二个参数是 pagesPerBuffer，它决定
+	 * 每个缓冲区的大小。我们在构建期间也会调整 pagesPerBuffer，
+	 * 因此该计算放在单独函数中。
 	 */
 	pagesPerBuffer = calculatePagesPerBuffer(buildstate, levelStep);
 
-	/* Initialize GISTBuildBuffers with these parameters */
+	/* 用这些参数初始化 GISTBuildBuffers */
 	buildstate->gfbb = gistInitBuildBuffers(pagesPerBuffer, levelStep,
 											gistGetMaxLevel(index));
 
@@ -843,11 +843,11 @@ gistInitBuffering(GISTBuildState *buildstate)
 }
 
 /*
- * Calculate pagesPerBuffer parameter for the buffering algorithm.
+ * 为缓冲算法计算 pagesPerBuffer 参数。
  *
- * Buffer size is chosen so that assuming that tuples are distributed
- * randomly, emptying half a buffer fills on average one page in every buffer
- * at the next lower level.
+ * 选择缓冲区大小时假定元组随机分布，清空半个
+ * 缓冲区平均会填满下一更低层每个缓冲区中的
+ * 一页。
  */
 static int
 calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep)
@@ -857,14 +857,14 @@ calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep)
 	double		itupAvgSize;
 	Size		pageFreeSpace;
 
-	/* Calc space of index page which is available for index tuples */
+	/* 计算索引页上可供索引元组使用的空间 */
 	pageFreeSpace = BLCKSZ - SizeOfPageHeaderData - sizeof(GISTPageOpaqueData)
 		- sizeof(ItemIdData)
 		- buildstate->freespace;
 
 	/*
-	 * Calculate average size of already inserted index tuples using gathered
-	 * statistics.
+	 * 用已收集的统计信息计算已插入索引元组的
+	 * 平均大小。
 	 */
 	itupAvgSize = (double) buildstate->indtuplesSize /
 		(double) buildstate->indtuples;
@@ -872,7 +872,7 @@ calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep)
 	avgIndexTuplesPerPage = pageFreeSpace / itupAvgSize;
 
 	/*
-	 * Recalculate required size of buffers.
+	 * 重新计算所需的缓冲区大小。
 	 */
 	pagesPerBuffer = 2 * pow(avgIndexTuplesPerPage, levelStep);
 
@@ -880,7 +880,7 @@ calculatePagesPerBuffer(GISTBuildState *buildstate, int levelStep)
 }
 
 /*
- * Per-tuple callback for table_index_build_scan.
+ * table_index_build_scan 的每元组回调。
  */
 static void
 gistBuildCallback(Relation index,
@@ -896,35 +896,35 @@ gistBuildCallback(Relation index,
 
 	oldCtx = MemoryContextSwitchTo(buildstate->giststate->tempCxt);
 
-	/* form an index tuple and point it at the heap tuple */
+	/* 构造索引元组并指向堆元组 */
 	itup = gistFormTuple(buildstate->giststate, index,
 						 values, isnull,
 						 true);
 	itup->t_tid = *tid;
 
-	/* Update tuple count and total size. */
+	/* 更新元组计数与总大小。 */
 	buildstate->indtuples += 1;
 	buildstate->indtuplesSize += IndexTupleSize(itup);
 
 	/*
-	 * XXX In buffering builds, the tempCxt is also reset down inside
-	 * gistProcessEmptyingQueue().  This is not great because it risks
-	 * confusion and possible use of dangling pointers (for example, itup
-	 * might be already freed when control returns here).  It's generally
-	 * better that a memory context be "owned" by only one function.  However,
-	 * currently this isn't causing issues so it doesn't seem worth the amount
-	 * of refactoring that would be needed to avoid it.
+	 * XXX 在缓冲构建中，tempCxt 也会在
+	 * gistProcessEmptyingQueue() 内部被重置。这不太好，因为有
+	 * 混淆及使用悬空指针的风险（例如，控制返回此处时
+	 * itup 可能已被释放）。一般而言，内存上下文最好
+	 * 只由一个函数"拥有"。不过，
+	 * 当前这并未造成问题，因此似乎不值得为避免它而做
+	 * 那么多重构。
 	 */
 	if (buildstate->buildMode == GIST_BUFFERING_ACTIVE)
 	{
-		/* We have buffers, so use them. */
+		/* 我们有缓冲区，因此使用它们。 */
 		gistBufferingBuildInsert(buildstate, itup);
 	}
 	else
 	{
 		/*
-		 * There's no buffers (yet). Since we already have the index relation
-		 * locked, we call gistdoinsert directly.
+		 * （尚）没有缓冲区。由于我们已经锁住索引关系，
+		 * 直接调用 gistdoinsert。
 		 */
 		gistdoinsert(index, itup, buildstate->freespace,
 					 buildstate->giststate, buildstate->heaprel, true);
@@ -936,20 +936,20 @@ gistBuildCallback(Relation index,
 	if (buildstate->buildMode == GIST_BUFFERING_ACTIVE &&
 		buildstate->indtuples % BUFFERING_MODE_TUPLE_SIZE_STATS_TARGET == 0)
 	{
-		/* Adjust the target buffer size now */
+		/* 现在调整目标缓冲区大小 */
 		buildstate->gfbb->pagesPerBuffer =
 			calculatePagesPerBuffer(buildstate, buildstate->gfbb->levelStep);
 	}
 
 	/*
-	 * In 'auto' mode, check if the index has grown too large to fit in cache,
-	 * and switch to buffering mode if it has.
+	 * 在 'auto' 模式下，检查索引是否已大到装不进缓存，
+	 * 若是则切换到缓冲模式。
 	 *
-	 * To avoid excessive calls to smgrnblocks(), only check this every
-	 * BUFFERING_MODE_SWITCH_CHECK_STEP index tuples.
+	 * 为避免过多调用 smgrnblocks()，仅每
+	 * BUFFERING_MODE_SWITCH_CHECK_STEP 个索引元组检查一次。
 	 *
-	 * In 'stats' state, switch as soon as we have seen enough tuples to have
-	 * some idea of the average tuple size.
+	 * 在 'stats' 状态下，一旦已看到足够元组以对
+	 * 平均元组大小有所了解就切换。
 	 */
 	if ((buildstate->buildMode == GIST_BUFFERING_AUTO &&
 		 buildstate->indtuples % BUFFERING_MODE_SWITCH_CHECK_STEP == 0 &&
@@ -959,31 +959,31 @@ gistBuildCallback(Relation index,
 		 buildstate->indtuples >= BUFFERING_MODE_TUPLE_SIZE_STATS_TARGET))
 	{
 		/*
-		 * Index doesn't fit in effective cache anymore. Try to switch to
-		 * buffering build mode.
+		 * 索引已装不进有效缓存。尝试切换到
+		 * 缓冲构建模式。
 		 */
 		gistInitBuffering(buildstate);
 	}
 }
 
 /*
- * Insert function for buffering index build.
+ * 缓冲索引构建的插入函数。
  */
 static void
 gistBufferingBuildInsert(GISTBuildState *buildstate, IndexTuple itup)
 {
-	/* Insert the tuple to buffers. */
+	/* 把元组插入缓冲区。 */
 	gistProcessItup(buildstate, itup, 0, buildstate->gfbb->rootlevel);
 
-	/* If we filled up (half of a) buffer, process buffer emptying. */
+	/* 若我们填满了（半个）缓冲区，则处理缓冲区清空。 */
 	gistProcessEmptyingQueue(buildstate);
 }
 
 /*
- * Process an index tuple. Runs the tuple down the tree until we reach a leaf
- * page or node buffer, and inserts the tuple there. Returns true if we have
- * to stop buffer emptying process (because one of child buffers can't take
- * index tuples anymore).
+ * 处理一个索引元组。沿树向下运行该元组，直到到达叶子
+ * 页或节点缓冲区，并在那里插入元组。若我们必须
+ * 停止缓冲区清空过程（因为某个子缓冲区不能再
+ * 接受索引元组）则返回 true。
  */
 static bool
 gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
@@ -1003,9 +1003,9 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 	CHECK_FOR_INTERRUPTS();
 
 	/*
-	 * Loop until we reach a leaf page (level == 0) or a level with buffers
-	 * (not including the level we start at, because we would otherwise make
-	 * no progress).
+	 * 循环直到到达叶子页（level == 0）或带缓冲区的层
+	 * （不包括我们起始的层，否则将无法
+	 * 取得进展）。
 	 */
 	blkno = startblkno;
 	level = startlevel;
@@ -1017,17 +1017,17 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 		Page		page;
 		OffsetNumber childoffnum;
 
-		/* Have we reached a level with buffers? */
+		/* 我们是否已到达带缓冲区的层？ */
 		if (LEVEL_HAS_BUFFERS(level, gfbb) && level != startlevel)
 			break;
 
-		/* Have we reached a leaf page? */
+		/* 我们是否已到达叶子页？ */
 		if (level == 0)
 			break;
 
 		/*
-		 * Nope. Descend down to the next level then. Choose a child to
-		 * descend down to.
+		 * 没有。那就下降到下一层。选择一个子节点
+		 * 下降到那里。
 		 */
 
 		buffer = ReadBuffer(indexrel, blkno);
@@ -1043,8 +1043,8 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 			gistMemorizeParent(buildstate, childblkno, blkno);
 
 		/*
-		 * Check that the key representing the target child node is consistent
-		 * with the key we're inserting. Update it if it's not.
+		 * 检查表示目标子节点的键是否与我们正在
+		 * 插入的键一致。若否，则更新它。
 		 */
 		newtup = gistgetadjusted(indexrel, idxtuple, itup, giststate);
 		if (newtup)
@@ -1057,12 +1057,12 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 											  childoffnum,
 											  InvalidBlockNumber,
 											  InvalidOffsetNumber);
-			/* gistbufferinginserttuples() released the buffer */
+			/* gistbufferinginserttuples() 已释放该缓冲区 */
 		}
 		else
 			UnlockReleaseBuffer(buffer);
 
-		/* Descend to the child */
+		/* 下降到子节点 */
 		parentblkno = blkno;
 		blkno = childblkno;
 		downlinkoffnum = childoffnum;
@@ -1073,15 +1073,15 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 	if (LEVEL_HAS_BUFFERS(level, gfbb))
 	{
 		/*
-		 * We've reached level with buffers. Place the index tuple to the
-		 * buffer, and add the buffer to the emptying queue if it overflows.
+		 * 我们已到达带缓冲区的层。把索引元组放入
+		 * 缓冲区，若溢出则把该缓冲区加入清空队列。
 		 */
 		GISTNodeBuffer *childNodeBuffer;
 
-		/* Find the buffer or create a new one */
+		/* 查找缓冲区或创建新的 */
 		childNodeBuffer = gistGetNodeBuffer(gfbb, giststate, blkno, level);
 
-		/* Add index tuple to it */
+		/* 把索引元组加入其中 */
 		gistPushItupToNodeBuffer(gfbb, childNodeBuffer, itup);
 
 		if (BUFFER_OVERFLOWED(childNodeBuffer, gfbb))
@@ -1090,7 +1090,7 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 	else
 	{
 		/*
-		 * We've reached a leaf page. Place the tuple here.
+		 * 我们已到达叶子页。把元组放在这里。
 		 */
 		Assert(level == 0);
 		buffer = ReadBuffer(indexrel, blkno);
@@ -1098,23 +1098,23 @@ gistProcessItup(GISTBuildState *buildstate, IndexTuple itup,
 		gistbufferinginserttuples(buildstate, buffer, level,
 								  &itup, 1, InvalidOffsetNumber,
 								  parentblkno, downlinkoffnum);
-		/* gistbufferinginserttuples() released the buffer */
+		/* gistbufferinginserttuples() 已释放该缓冲区 */
 	}
 
 	return result;
 }
 
 /*
- * Insert tuples to a given page.
+ * 把元组插入给定页。
  *
- * This is analogous with gistinserttuples() in the regular insertion code.
+ * 这与常规插入代码中的 gistinserttuples() 类似。
  *
- * Returns the block number of the page where the (first) new or updated tuple
- * was inserted. Usually that's the original page, but might be a sibling page
- * if the original page was split.
+ * 返回（第一个）新或更新元组所插入到的页的
+ * 块号。通常是原页，但若原页被分裂则可能是
+ * 兄弟页。
  *
- * Caller should hold a lock on 'buffer' on entry. This function will unlock
- * and unpin it.
+ * 调用者进入时应持有 'buffer' 上的锁。本函数将解锁
+ * 并取消固定它。
  */
 static BlockNumber
 gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
@@ -1137,10 +1137,10 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 							   buildstate->heaprel, true);
 
 	/*
-	 * If this is a root split, update the root path item kept in memory. This
-	 * ensures that all path stacks are always complete, including all parent
-	 * nodes up to the root. That simplifies the algorithm to re-find correct
-	 * parent.
+	 * 若这是根分裂，更新内存中保存的根路径项。这
+	 * 确保所有路径栈始终完整，包括直到根的全部
+	 * 父节点。这简化了重新找到正确父的
+	 * 算法。
 	 */
 	if (is_split && BufferGetBlockNumber(buffer) == GIST_ROOT_BLKNO)
 	{
@@ -1154,9 +1154,9 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 		elog(DEBUG2, "splitting GiST root page, now %d levels deep", gfbb->rootlevel);
 
 		/*
-		 * All the downlinks on the old root page are now on one of the child
-		 * pages. Visit all the new child pages to memorize the parents of the
-		 * grandchildren.
+		 * 旧根页上的全部下行指针现在位于某个子
+		 * 页上。访问全部新子页以记住孙节点的
+		 * 父。
 		 */
 		if (gfbb->rootlevel > 1)
 		{
@@ -1173,8 +1173,8 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 				UnlockReleaseBuffer(childbuf);
 
 				/*
-				 * Also remember that the parent of the new child page is the
-				 * root block.
+				 * 同时记住新子页的父是
+				 * 根块。
 				 */
 				gistMemorizeParent(buildstate, childblkno, GIST_ROOT_BLKNO);
 			}
@@ -1184,10 +1184,10 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 	if (splitinfo)
 	{
 		/*
-		 * Insert the downlinks to the parent. This is analogous with
-		 * gistfinishsplit() in the regular insertion code, but the locking is
-		 * simpler, and we have to maintain the buffers on internal nodes and
-		 * the parent map.
+		 * 把下行指针插入父。这与常规插入代码中的
+		 * gistfinishsplit() 类似，但加锁更
+		 * 简单，且我们必须维护内部节点上的缓冲区与
+		 * 父映射。
 		 */
 		IndexTuple *downlinks;
 		int			ndownlinks,
@@ -1195,7 +1195,7 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 		Buffer		parentBuffer;
 		ListCell   *lc;
 
-		/* Parent may have changed since we memorized this path. */
+		/* 自我们记住此路径以来，父可能已改变。 */
 		parentBuffer =
 			gistBufferingFindCorrectParent(buildstate,
 										   BufferGetBlockNumber(buffer),
@@ -1204,11 +1204,11 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 										   &downlinkoffnum);
 
 		/*
-		 * If there's a buffer associated with this page, that needs to be
-		 * split too. gistRelocateBuildBuffersOnSplit() will also adjust the
-		 * downlinks in 'splitinfo', to make sure they're consistent not only
-		 * with the tuples already on the pages, but also the tuples in the
-		 * buffers that will eventually be inserted to them.
+		 * 若有与此页关联的缓冲区，那也需要
+		 * 分裂。gistRelocateBuildBuffersOnSplit() 还会调整
+		 * 'splitinfo' 中的下行指针，确保它们不仅与页上
+		 * 已有的元组一致，也与最终将插入其中的
+		 * 缓冲区中的元组一致。
 		 */
 		gistRelocateBuildBuffersOnSplit(gfbb,
 										buildstate->giststate,
@@ -1216,7 +1216,7 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 										level,
 										buffer, splitinfo);
 
-		/* Create an array of all the downlink tuples */
+		/* 创建全部下行指针元组的数组 */
 		ndownlinks = list_length(splitinfo);
 		downlinks = (IndexTuple *) palloc(sizeof(IndexTuple) * ndownlinks);
 		i = 0;
@@ -1225,11 +1225,11 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 			GISTPageSplitInfo *splitinfo = lfirst(lc);
 
 			/*
-			 * Remember the parent of each new child page in our parent map.
-			 * This assumes that the downlinks fit on the parent page. If the
-			 * parent page is split, too, when we recurse up to insert the
-			 * downlinks, the recursive gistbufferinginserttuples() call will
-			 * update the map again.
+			 * 在父映射中记住每个新子页的父。
+			 * 这假定下行指针能装进父页。若在我们
+			 * 向上递归插入下行指针时父页也
+			 * 分裂，递归的 gistbufferinginserttuples() 调用将
+			 * 再次更新该映射。
 			 */
 			if (level > 0)
 				gistMemorizeParent(buildstate,
@@ -1237,28 +1237,28 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 								   BufferGetBlockNumber(parentBuffer));
 
 			/*
-			 * Also update the parent map for all the downlinks that got moved
-			 * to a different page. (actually this also loops through the
-			 * downlinks that stayed on the original page, but it does no
-			 * harm).
+			 * 同时为所有被移到不同页的下行指针更新
+			 * 父映射。（实际上这也会遍历仍留在
+			 * 原页上的下行指针，但并无
+			 * 害处）。
 			 */
 			if (level > 1)
 				gistMemorizeAllDownlinks(buildstate, splitinfo->buf);
 
 			/*
-			 * Since there's no concurrent access, we can release the lower
-			 * level buffers immediately. This includes the original page.
+			 * 由于没有并发访问，我们可以立即释放较低
+			 * 层的缓冲区。这包括原页。
 			 */
 			UnlockReleaseBuffer(splitinfo->buf);
 			downlinks[i++] = splitinfo->downlink;
 		}
 
-		/* Insert them into parent. */
+		/* 把它们插入父。 */
 		gistbufferinginserttuples(buildstate, parentBuffer, level + 1,
 								  downlinks, ndownlinks, downlinkoffnum,
 								  InvalidBlockNumber, InvalidOffsetNumber);
 
-		list_free_deep(splitinfo);	/* we don't need this anymore */
+		list_free_deep(splitinfo);	/* 我们不再需要这个了 */
 	}
 	else
 		UnlockReleaseBuffer(buffer);
@@ -1267,23 +1267,23 @@ gistbufferinginserttuples(GISTBuildState *buildstate, Buffer buffer, int level,
 }
 
 /*
- * Find the downlink pointing to a child page.
+ * 查找指向子页的下行指针。
  *
- * 'childblkno' indicates the child page to find the parent for. 'level' is
- * the level of the child. On entry, *parentblkno and *downlinkoffnum can
- * point to a location where the downlink used to be - we will check that
- * location first, and save some cycles if it hasn't moved. The function
- * returns a buffer containing the downlink, exclusively-locked, and
- * *parentblkno and *downlinkoffnum are set to the real location of the
- * downlink.
+ * 'childblkno' 指示要为其查找父的子页。'level' 是
+ * 子的层号。进入时，*parentblkno 与 *downlinkoffnum 可
+ * 指向下行指针曾经所在的位置——我们会先检查该
+ * 位置，若尚未移动则可节省一些周期。本函数
+ * 返回包含该下行指针、已排他锁定的缓冲区，并且
+ * *parentblkno 与 *downlinkoffnum 被设为下行指针的
+ * 真实位置。
  *
- * If the child page is a leaf (level == 0), the caller must supply a correct
- * parentblkno. Otherwise we use the parent map hash table to find the parent
- * block.
+ * 若子页是叶子（level == 0），调用者必须提供正确的
+ * parentblkno。否则我们用父映射哈希表查找父
+ * 块。
  *
- * This function serves the same purpose as gistFindCorrectParent() during
- * normal index inserts, but this is simpler because we don't need to deal
- * with concurrent inserts.
+ * 本函数与正常索引插入期间的 gistFindCorrectParent()
+ * 用途相同，但更简单，因为我们不必处理
+ * 并发插入。
  */
 static Buffer
 gistBufferingFindCorrectParent(GISTBuildState *buildstate,
@@ -1302,8 +1302,8 @@ gistBufferingFindCorrectParent(GISTBuildState *buildstate,
 	else
 	{
 		/*
-		 * For a leaf page, the caller must supply a correct parent block
-		 * number.
+		 * 对叶子页，调用者必须提供正确的父块
+		 * 号。
 		 */
 		if (*parentblkno == InvalidBlockNumber)
 			elog(ERROR, "no parent buffer provided of child %u", childblkno);
@@ -1316,7 +1316,7 @@ gistBufferingFindCorrectParent(GISTBuildState *buildstate,
 	gistcheckpage(buildstate->indexrel, buffer);
 	maxoff = PageGetMaxOffsetNumber(page);
 
-	/* Check if it was not moved */
+	/* 检查它是否未被移动 */
 	if (parent == *parentblkno && *parentblkno != InvalidBlockNumber &&
 		*downlinkoffnum != InvalidOffsetNumber && *downlinkoffnum <= maxoff)
 	{
@@ -1325,17 +1325,17 @@ gistBufferingFindCorrectParent(GISTBuildState *buildstate,
 
 		if (ItemPointerGetBlockNumber(&(idxtuple->t_tid)) == childblkno)
 		{
-			/* Still there */
+			/* 仍在那里 */
 			return buffer;
 		}
 	}
 
 	/*
-	 * Downlink was not at the offset where it used to be. Scan the page to
-	 * find it. During normal gist insertions, it might've moved to another
-	 * page, to the right, but during a buffering build, we keep track of the
-	 * parent of each page in the lookup table so we should always know what
-	 * page it's on.
+	 * 下行指针不在它曾经所在的偏移处。扫描该页以
+	 * 找到它。在正常 gist 插入期间，它可能已移到另一
+	 * 页（向右），但在缓冲构建期间，我们在查找表中
+	 * 跟踪每页的父，因此应始终知道它在
+	 * 哪一页。
 	 */
 	for (off = FirstOffsetNumber; off <= maxoff; off = OffsetNumberNext(off))
 	{
@@ -1344,93 +1344,93 @@ gistBufferingFindCorrectParent(GISTBuildState *buildstate,
 
 		if (ItemPointerGetBlockNumber(&(idxtuple->t_tid)) == childblkno)
 		{
-			/* yes!!, found it */
+			/* 是的!!，找到了 */
 			*downlinkoffnum = off;
 			return buffer;
 		}
 	}
 
 	elog(ERROR, "failed to re-find parent for block %u", childblkno);
-	return InvalidBuffer;		/* keep compiler quiet */
+	return InvalidBuffer;		/* 让编译器安静 */
 }
 
 /*
- * Process buffers emptying stack. Emptying of one buffer can cause emptying
- * of other buffers. This function iterates until this cascading emptying
- * process finished, e.g. until buffers emptying stack is empty.
+ * 处理缓冲区清空栈。清空一个缓冲区可能导致清空
+ * 其他缓冲区。本函数迭代直到此级联清空
+ * 过程结束，例如直到缓冲区清空栈为空。
  */
 static void
 gistProcessEmptyingQueue(GISTBuildState *buildstate)
 {
 	GISTBuildBuffers *gfbb = buildstate->gfbb;
 
-	/* Iterate while we have elements in buffers emptying stack. */
+	/* 当缓冲区清空栈中仍有元素时迭代。 */
 	while (gfbb->bufferEmptyingQueue != NIL)
 	{
 		GISTNodeBuffer *emptyingNodeBuffer;
 
-		/* Get node buffer from emptying stack. */
+		/* 从清空栈获取节点缓冲区。 */
 		emptyingNodeBuffer = (GISTNodeBuffer *) linitial(gfbb->bufferEmptyingQueue);
 		gfbb->bufferEmptyingQueue = list_delete_first(gfbb->bufferEmptyingQueue);
 		emptyingNodeBuffer->queuedForEmptying = false;
 
 		/*
-		 * We are going to load last pages of buffers where emptying will be
-		 * to. So let's unload any previously loaded buffers.
+		 * 我们将装入清空目标缓冲区的末页。
+		 * 因此先卸载任何先前已装入的缓冲区。
 		 */
 		gistUnloadNodeBuffers(gfbb);
 
 		/*
-		 * Pop tuples from the buffer and run them down to the buffers at
-		 * lower level, or leaf pages. We continue until one of the lower
-		 * level buffers fills up, or this buffer runs empty.
+		 * 从缓冲区弹出元组，并把它们下推到较低层的
+		 * 缓冲区或叶子页。我们继续直到某个较低
+		 * 层缓冲区填满，或本缓冲区变空。
 		 *
-		 * In Arge et al's paper, the buffer emptying is stopped after
-		 * processing 1/2 node buffer worth of tuples, to avoid overfilling
-		 * any of the lower level buffers. However, it's more efficient to
-		 * keep going until one of the lower level buffers actually fills up,
-		 * so that's what we do. This doesn't need to be exact, if a buffer
-		 * overfills by a few tuples, there's no harm done.
+		 * 在 Arge 等人的论文中，缓冲区清空在处理完
+		 * 1/2 节点缓冲区价值的元组后停止，以避免过满
+		 * 任何较低层缓冲区。但更高效的是
+		 * 一直进行到某个较低层缓冲区真正填满，
+		 * 因此我们这样做。这不必精确；若缓冲区
+		 * 多溢出几个元组，也无妨。
 		 */
 		while (true)
 		{
 			IndexTuple	itup;
 
-			/* Get next index tuple from the buffer */
+			/* 从缓冲区获取下一个索引元组 */
 			if (!gistPopItupFromNodeBuffer(gfbb, emptyingNodeBuffer, &itup))
 				break;
 
 			/*
-			 * Run it down to the underlying node buffer or leaf page.
+			 * 把它下推到下层节点缓冲区或叶子页。
 			 *
-			 * Note: it's possible that the buffer we're emptying splits as a
-			 * result of this call. If that happens, our emptyingNodeBuffer
-			 * points to the left half of the split. After split, it's very
-			 * likely that the new left buffer is no longer over the half-full
-			 * threshold, but we might as well keep flushing tuples from it
-			 * until we fill a lower-level buffer.
+			 * 注意：我们正在清空的缓冲区可能因本次调用而
+			 * 分裂。若发生，我们的 emptyingNodeBuffer
+			 * 指向分裂的左半。分裂后，新左缓冲区很
+			 * 可能不再超过半满阈值，但我们仍不妨
+			 * 继续从它冲刷元组，直到填满某个较低层
+			 * 缓冲区。
 			 */
 			if (gistProcessItup(buildstate, itup, emptyingNodeBuffer->nodeBlocknum, emptyingNodeBuffer->level))
 			{
 				/*
-				 * A lower level buffer filled up. Stop emptying this buffer,
-				 * to avoid overflowing the lower level buffer.
+				 * 较低层缓冲区已填满。停止清空此缓冲区，
+				 * 以避免较低层缓冲区溢出。
 				 */
 				break;
 			}
 
-			/* Free all the memory allocated during index tuple processing */
+			/* 释放索引元组处理期间分配的全部内存 */
 			MemoryContextReset(buildstate->giststate->tempCxt);
 		}
 	}
 }
 
 /*
- * Empty all node buffers, from top to bottom. This is done at the end of
- * index build to flush all remaining tuples to the index.
+ * 自上而下清空全部节点缓冲区。这在索引构建
+ * 结束时完成，以把全部剩余元组冲刷到索引。
  *
- * Note: This destroys the buffersOnLevels lists, so the buffers should not
- * be inserted to after this call.
+ * 注意：这会销毁 buffersOnLevels 列表，因此调用后
+ * 不应再向缓冲区插入。
  */
 static void
 gistEmptyAllBuffers(GISTBuildState *buildstate)
@@ -1442,16 +1442,16 @@ gistEmptyAllBuffers(GISTBuildState *buildstate)
 	oldCtx = MemoryContextSwitchTo(buildstate->giststate->tempCxt);
 
 	/*
-	 * Iterate through the levels from top to bottom.
+	 * 自上而下遍历各层。
 	 */
 	for (i = gfbb->buffersOnLevelsLen - 1; i >= 0; i--)
 	{
 		/*
-		 * Empty all buffers on this level. Note that new buffers can pop up
-		 * in the list during the processing, as a result of page splits, so a
-		 * simple walk through the list won't work. We remove buffers from the
-		 * list when we see them empty; a buffer can't become non-empty once
-		 * it's been fully emptied.
+		 * 清空本层全部缓冲区。注意处理期间可能因页
+		 * 分裂而有新缓冲区出现在列表中，因此简单
+		 * 遍历列表行不通。我们在看到缓冲区为空时
+		 * 从列表移除；缓冲区一旦被完全清空就
+		 * 不能再变为非空。
 		 */
 		while (gfbb->buffersOnLevels[i] != NIL)
 		{
@@ -1462,8 +1462,8 @@ gistEmptyAllBuffers(GISTBuildState *buildstate)
 			if (nodeBuffer->blocksCount != 0)
 			{
 				/*
-				 * Add this buffer to the emptying queue, and proceed to empty
-				 * the queue.
+				 * 把此缓冲区加入清空队列，并继续清空
+				 * 该队列。
 				 */
 				if (!nodeBuffer->queuedForEmptying)
 				{
@@ -1485,7 +1485,7 @@ gistEmptyAllBuffers(GISTBuildState *buildstate)
 }
 
 /*
- * Get the depth of the GiST index.
+ * 获取 GiST 索引的深度。
  */
 static int
 gistGetMaxLevel(Relation index)
@@ -1494,8 +1494,8 @@ gistGetMaxLevel(Relation index)
 	BlockNumber blkno;
 
 	/*
-	 * Traverse down the tree, starting from the root, until we hit the leaf
-	 * level.
+	 * 从根开始向下遍历树，直到碰到叶子
+	 * 层。
 	 */
 	maxLevel = 0;
 	blkno = GIST_ROOT_BLKNO;
@@ -1508,23 +1508,23 @@ gistGetMaxLevel(Relation index)
 		buffer = ReadBuffer(index, blkno);
 
 		/*
-		 * There's no concurrent access during index build, so locking is just
-		 * pro forma.
+		 * 索引构建期间没有并发访问，因此加锁只是
+		 * 形式上的。
 		 */
 		LockBuffer(buffer, GIST_SHARE);
 		page = (Page) BufferGetPage(buffer);
 
 		if (GistPageIsLeaf(page))
 		{
-			/* We hit the bottom, so we're done. */
+			/* 我们碰到了底部，因此完成了。 */
 			UnlockReleaseBuffer(buffer);
 			break;
 		}
 
 		/*
-		 * Pick the first downlink on the page, and follow it. It doesn't
-		 * matter which downlink we choose, the tree has the same depth
-		 * everywhere, so we just pick the first one.
+		 * 取页上第一个下行指针并跟随它。选哪个
+		 * 下行指针并不重要，树在各处深度相同，
+		 * 因此我们只取第一个。
 		 */
 		itup = (IndexTuple) PageGetItem(page,
 										PageGetItemId(page, FirstOffsetNumber));
@@ -1532,8 +1532,8 @@ gistGetMaxLevel(Relation index)
 		UnlockReleaseBuffer(buffer);
 
 		/*
-		 * We're going down on the tree. It means that there is yet one more
-		 * level in the tree.
+		 * 我们正沿树下降。这意味着树中还有
+		 * 一层。
 		 */
 		maxLevel++;
 	}
@@ -1542,37 +1542,37 @@ gistGetMaxLevel(Relation index)
 
 
 /*
- * Routines for managing the parent map.
+ * 管理父映射的例程。
  *
- * Whenever a page is split, we need to insert the downlinks into the parent.
- * We need to somehow find the parent page to do that. In normal insertions,
- * we keep a stack of nodes visited when we descend the tree. However, in
- * buffering build, we can start descending the tree from any internal node,
- * when we empty a buffer by cascading tuples to its children. So we don't
- * have a full stack up to the root available at that time.
+ * 每当页分裂时，我们需要把下行指针插入父。
+ * 我们需要设法找到父页才能这样做。在正常插入中，
+ * 我们在下降树时保持已访问节点的栈。然而，在
+ * 缓冲构建中，当我们通过把元组级联到其子来清空
+ * 缓冲区时，可以从任意内部节点开始下降树。因此那时
+ * 我们没有直到根的完整栈可用。
  *
- * So instead, we maintain a hash table to track the parent of every internal
- * page. We don't need to track the parents of leaf nodes, however. Whenever
- * we insert to a leaf, we've just descended down from its parent, so we know
- * its immediate parent already. This helps a lot to limit the memory used
- * by this hash table.
+ * 因此我们改为维护一个哈希表，跟踪每个内部页的
+ * 父。不过我们不需要跟踪叶子节点的父。每当
+ * 我们插入叶子时，刚从其父下降下来，因此已知道
+ * 其直接父。这大大有助于限制此哈希表
+ * 所用的内存。
  *
- * Whenever an internal node is split, the parent map needs to be updated.
- * the parent of the new child page needs to be recorded, and also the
- * entries for all page whose downlinks are moved to a new page at the split
- * needs to be updated.
+ * 每当内部节点分裂时，需要更新父映射。
+ * 需要把新子页的父记入映射，并且在分裂时
+ * 下行指针被移到新页的全部页的条目
+ * 也需要更新。
  *
- * We also update the parent map whenever we descend the tree. That might seem
- * unnecessary, because we maintain the map whenever a downlink is moved or
- * created, but it is needed because we switch to buffering mode after
- * creating a tree with regular index inserts. Any pages created before
- * switching to buffering mode will not be present in the parent map initially,
- * but will be added there the first time we visit them.
+ * 我们在下降树时也会更新父映射。这看似
+ * 多余，因为我们在下行指针被移动或创建时就维护
+ * 该映射，但这是需要的，因为我们在用常规索引
+ * 插入创建树之后才切换到缓冲模式。切换到缓冲
+ * 模式之前创建的任何页最初不会出现在父映射中，
+ * 但会在我们首次访问它们时加入。
  */
 
 typedef struct
 {
-	BlockNumber childblkno;		/* hash key */
+	BlockNumber childblkno;		/* 哈希键 */
 	BlockNumber parentblkno;
 } ParentMapEntry;
 
@@ -1604,7 +1604,7 @@ gistMemorizeParent(GISTBuildState *buildstate, BlockNumber child, BlockNumber pa
 }
 
 /*
- * Scan all downlinks on a page, and memorize their parent.
+ * 扫描页上全部下行指针，并记住它们的父。
  */
 static void
 gistMemorizeAllDownlinks(GISTBuildState *buildstate, Buffer parentbuf)
@@ -1633,7 +1633,7 @@ gistGetParent(GISTBuildState *buildstate, BlockNumber child)
 	ParentMapEntry *entry;
 	bool		found;
 
-	/* Find node buffer in hash table */
+	/* 在哈希表中查找节点缓冲区 */
 	entry = (ParentMapEntry *) hash_search(buildstate->parentMap,
 										   &child,
 										   HASH_FIND,

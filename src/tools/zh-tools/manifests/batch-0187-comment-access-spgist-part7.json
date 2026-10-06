@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0187-comment-access-spgist-part7",
+ "title": "zh: translate access/spgist comments (part 7)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "c9a2caedf8b7cd765887a50206d7dfd212c2fdb7",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/spgist/spgutils.c",
+   "kind": "c_comment",
+   "note": "SP-GiST utils"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0187-comment-access-spgist-part7.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/spgist/spgutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 120,
+   "translated": 120,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "SP-GiST utils; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0187-comment-access-spgist-part7.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0187 translates comments in spgutils.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: spgdoinsert.c."
+}

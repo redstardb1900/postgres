@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgutils.c
- *	  various support functions for SP-GiST
+ *	  SP-GiST 的各类支持函数
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -37,8 +37,8 @@
 
 
 /*
- * SP-GiST handler function: return IndexAmRoutine with access method parameters
- * and callbacks.
+ * SP-GiST 处理函数：返回带有访问方法参数与回调的
+ * IndexAmRoutine。
  */
 Datum
 spghandler(PG_FUNCTION_ARGS)
@@ -95,19 +95,19 @@ spghandler(PG_FUNCTION_ARGS)
 
 /*
  * GetIndexInputType
- *		Determine the nominal input data type for an index column
+ *		确定索引列的名义输入数据类型
  *
- * We define the "nominal" input type as the associated opclass's opcintype,
- * or if that is a polymorphic type, the base type of the heap column or
- * expression that is the index's input.  The reason for preferring the
- * opcintype is that non-polymorphic opclasses probably don't want to hear
- * about binary-compatible input types.  For instance, if a text opclass
- * is being used with a varchar heap column, we want to report "text" not
- * "varchar".  Likewise, opclasses don't want to hear about domain types,
- * so if we do consult the actual input type, we make sure to flatten domains.
+ * 我们将 "名义" 输入类型定义为关联操作类的 opcintype，
+ * 若其为多态类型，则取作为索引输入的堆列或
+ * 表达式的基类型。优先使用 opcintype 的原因是：
+ * 非多态操作类通常不希望听到二进制兼容的输入类型。
+ * 例如，若 text 操作类用于 varchar 堆列，我们希望报告
+ * "text" 而非 "varchar"。同样，操作类也不希望听到
+ * 域类型，因此若确实查阅实际输入类型，我们会确保
+ * 展平域。
  *
- * At some point maybe this should go somewhere else, but it's not clear
- * if any other index AMs have a use for it.
+ * 将来或许应放到别处，但尚不清楚其他索引访问方法
+ * 是否用得上。
  */
 static Oid
 GetIndexInputType(Relation index, AttrNumber indexcol)
@@ -123,14 +123,14 @@ GetIndexInputType(Relation index, AttrNumber indexcol)
 	if (!IsPolymorphicType(opcintype))
 		return opcintype;
 	heapcol = index->rd_index->indkey.values[indexcol - 1];
-	if (heapcol != 0)			/* Simple index column? */
+	if (heapcol != 0)			/* 简单索引列？ */
 		return getBaseType(get_atttype(index->rd_index->indrelid, heapcol));
 
 	/*
-	 * If the index expressions are already cached, skip calling
-	 * RelationGetIndexExpressions, as it will make a copy which is overkill.
-	 * We're not going to modify the trees, and we're not going to do anything
-	 * that would invalidate the relcache entry before we're done.
+	 * 若索引表达式已缓存，则跳过调用
+	 * RelationGetIndexExpressions，因为它会做一次不必要的拷贝。
+	 * 我们不会修改这些树，也不会在完成前做任何会使
+	 * relcache 项失效的事。
 	 */
 	if (index->rd_indexprs)
 		indexprs = index->rd_indexprs;
@@ -141,7 +141,7 @@ GetIndexInputType(Relation index, AttrNumber indexcol)
 	{
 		if (index->rd_index->indkey.values[i - 1] == 0)
 		{
-			/* expression column */
+			/* 表达式列 */
 			if (indexpr_item == NULL)
 				elog(ERROR, "wrong number of index expressions");
 			if (i == indexcol)
@@ -150,10 +150,10 @@ GetIndexInputType(Relation index, AttrNumber indexcol)
 		}
 	}
 	elog(ERROR, "wrong number of index expressions");
-	return InvalidOid;			/* keep compiler quiet */
+	return InvalidOid;			/* 让编译器安静 */
 }
 
-/* Fill in a SpGistTypeDesc struct with info about the specified data type */
+/* 用指定数据类型的信息填充 SpGistTypeDesc 结构 */
 static void
 fillTypeDesc(SpGistTypeDesc *desc, Oid type)
 {
@@ -173,8 +173,8 @@ fillTypeDesc(SpGistTypeDesc *desc, Oid type)
 }
 
 /*
- * Fetch local cache of AM-specific info about the index, initializing it
- * if necessary
+ * 获取索引的 AM 特有信息本地缓存，必要时
+ * 进行初始化
  */
 SpGistCache *
 spgGetCache(Relation index)
@@ -190,18 +190,18 @@ spgGetCache(Relation index)
 		cache = MemoryContextAllocZero(index->rd_indexcxt,
 									   sizeof(SpGistCache));
 
-		/* SPGiST must have one key column and can also have INCLUDE columns */
+		/* SPGiST 必须有一列键列，也可有 INCLUDE 列 */
 		Assert(IndexRelationGetNumberOfKeyAttributes(index) == 1);
 		Assert(IndexRelationGetNumberOfAttributes(index) <= INDEX_MAX_KEYS);
 
 		/*
-		 * Get the actual (well, nominal) data type of the key column.  We
-		 * pass this to the opclass config function so that polymorphic
-		 * opclasses are possible.
+		 * 取得键列的实际（嗯，名义）数据类型。我们
+		 * 把它传给操作类的配置函数，以使多态
+		 * 操作类成为可能。
 		 */
 		atttype = GetIndexInputType(index, spgKeyColumn + 1);
 
-		/* Call the config function to get config info for the opclass */
+		/* 调用配置函数以获取操作类的配置信息 */
 		in.attType = atttype;
 
 		procinfo = index_getprocinfo(index, 1, SPGIST_CONFIG_PROC);
@@ -211,11 +211,11 @@ spgGetCache(Relation index)
 						  PointerGetDatum(&cache->config));
 
 		/*
-		 * If leafType isn't specified, use the declared index column type,
-		 * which index.c will have derived from the opclass's opcintype.
-		 * (Although we now make spgvalidate.c warn if these aren't the same,
-		 * old user-defined opclasses may not set the STORAGE parameter
-		 * correctly, so believe leafType if it's given.)
+		 * 若未指定 leafType，则使用已声明的索引列类型，
+		 * 该类型由 index.c 从操作类的 opcintype 导出。
+		 * （尽管现在 spgvalidate.c 会在二者不同时发出警告，
+		 * 旧的用户定义操作类可能未正确设置 STORAGE 参数，
+		 * 因此若给出了 leafType 则相信它。）
 		 */
 		if (!OidIsValid(cache->config.leafType))
 		{
@@ -223,16 +223,16 @@ spgGetCache(Relation index)
 				TupleDescAttr(RelationGetDescr(index), spgKeyColumn)->atttypid;
 
 			/*
-			 * If index column type is binary-coercible to atttype (for
-			 * example, it's a domain over atttype), treat it as plain atttype
-			 * to avoid thinking we need to compress.
+			 * 若索引列类型可二进制强制转换为 atttype（例如
+			 * 它是 atttype 上的域），则将其视为普通 atttype，
+			 * 以免误以为需要压缩。
 			 */
 			if (cache->config.leafType != atttype &&
 				IsBinaryCoercible(cache->config.leafType, atttype))
 				cache->config.leafType = atttype;
 		}
 
-		/* Get the information we need about each relevant datatype */
+		/* 获取各相关数据类型所需的信息 */
 		fillTypeDesc(&cache->attType, atttype);
 
 		if (cache->config.leafType != atttype)
@@ -246,7 +246,7 @@ spgGetCache(Relation index)
 		}
 		else
 		{
-			/* Save lookups in this common case */
+			/* 在此常见情况下节省查找 */
 			cache->attLeafType = cache->attType;
 		}
 
@@ -254,8 +254,8 @@ spgGetCache(Relation index)
 		fillTypeDesc(&cache->attLabelType, cache->config.labelType);
 
 		/*
-		 * Finally, if it's a real index (not a partitioned one), get the
-		 * lastUsedPages data from the metapage
+		 * 最后，若为真实索引（而非分区索引），从元页
+		 * 读取 lastUsedPages 数据
 		 */
 		if (index->rd_rel->relkind != RELKIND_PARTITIONED_INDEX)
 		{
@@ -280,7 +280,7 @@ spgGetCache(Relation index)
 	}
 	else
 	{
-		/* assume it's up to date */
+		/* 假定它是最新的 */
 		cache = (SpGistCache *) index->rd_amcache;
 	}
 
@@ -288,20 +288,20 @@ spgGetCache(Relation index)
 }
 
 /*
- * Compute a tuple descriptor for leaf tuples or index-only-scan result tuples.
+ * 为叶子元组或仅索引扫描结果元组计算元组描述符。
  *
- * We can use the relcache's tupdesc as-is in many cases, and it's always
- * OK so far as any INCLUDE columns are concerned.  However, the entry for
- * the key column has to match leafType in the first case or attType in the
- * second case.  While the relcache's tupdesc *should* show leafType, this
- * might not hold for legacy user-defined opclasses, since before v14 they
- * were not allowed to declare their true storage type in CREATE OPCLASS.
- * Also, attType can be different from what is in the relcache.
+ * 在许多情况下可直接使用 relcache 的 tupdesc，且就任何
+ * INCLUDE 列而言始终没问题。但键列条目在第一种情况下须
+ * 匹配 leafType，在第二种情况下须匹配 attType。虽然
+ * relcache 的 tupdesc *应当* 显示 leafType，但对遗留的
+ * 用户定义操作类未必成立，因为在 v14 之前它们不允许在
+ * CREATE OPCLASS 中声明真实存储类型。此外，attType
+ * 也可能与 relcache 中的不同。
  *
- * This function gives back either a pointer to the relcache's tupdesc
- * if that is suitable, or a palloc'd copy that's been adjusted to match
- * the specified key column type.  We can avoid doing any catalog lookups
- * here by insisting that the caller pass an SpGistTypeDesc not just an OID.
+ * 本函数返回指向 relcache tupdesc 的指针（若合适），
+ * 或返回经调整以匹配指定键列类型的 palloc 拷贝。通过
+ * 要求调用方传入 SpGistTypeDesc 而非仅 OID，此处可避免
+ * 任何目录查找。
  */
 TupleDesc
 getSpGistTupleDesc(Relation index, SpGistTypeDesc *keyType)
@@ -316,24 +316,24 @@ getSpGistTupleDesc(Relation index, SpGistTypeDesc *keyType)
 	{
 		outTupDesc = CreateTupleDescCopy(RelationGetDescr(index));
 		att = TupleDescAttr(outTupDesc, spgKeyColumn);
-		/* It's sufficient to update the type-dependent fields of the column */
+		/* 更新该列的类型相关字段即可 */
 		att->atttypid = keyType->type;
 		att->atttypmod = -1;
 		att->attlen = keyType->attlen;
 		att->attbyval = keyType->attbyval;
 		att->attalign = keyType->attalign;
 		att->attstorage = keyType->attstorage;
-		/* We shouldn't need to bother with making these valid: */
+		/* 我们不必费心使这些字段有效： */
 		att->attcompression = InvalidCompressionMethod;
 		att->attcollation = InvalidOid;
-		/* In case we changed typlen, we'd better reset following offsets */
+		/* 若改了 typlen，最好重置后续偏移 */
 		for (int i = spgFirstIncludeColumn; i < outTupDesc->natts; i++)
 			TupleDescAttr(outTupDesc, i)->attcacheoff = -1;
 	}
 	return outTupDesc;
 }
 
-/* Initialize SpGistState for working with the given index */
+/* 为给定索引初始化 SpGistState */
 void
 initSpGistState(SpGistState *state, Relation index)
 {
@@ -341,7 +341,7 @@ initSpGistState(SpGistState *state, Relation index)
 
 	state->index = index;
 
-	/* Get cached static information about index */
+	/* 获取关于索引的已缓存静态信息 */
 	cache = spgGetCache(index);
 
 	state->config = cache->config;
@@ -350,52 +350,52 @@ initSpGistState(SpGistState *state, Relation index)
 	state->attPrefixType = cache->attPrefixType;
 	state->attLabelType = cache->attLabelType;
 
-	/* Ensure we have a valid descriptor for leaf tuples */
+	/* 确保我们有用于叶子元组的有效描述符 */
 	state->leafTupDesc = getSpGistTupleDesc(state->index, &state->attLeafType);
 
-	/* Make workspace for constructing dead tuples */
+	/* 为构造死元组准备工作区 */
 	state->deadTupleStorage = palloc0(SGDTSIZE);
 
 	/*
-	 * Set horizon XID to use in redirection tuples.  Use our own XID if we
-	 * have one, else use InvalidTransactionId.  The latter case can happen in
-	 * VACUUM or REINDEX CONCURRENTLY, and in neither case would it be okay to
-	 * force an XID to be assigned.  VACUUM won't create any redirection
-	 * tuples anyway, but REINDEX CONCURRENTLY can.  Fortunately, REINDEX
-	 * CONCURRENTLY doesn't mark the index valid until the end, so there could
-	 * never be any concurrent scans "in flight" to a redirection tuple it has
-	 * inserted.  And it locks out VACUUM until the end, too.  So it's okay
-	 * for VACUUM to immediately expire a redirection tuple that contains an
-	 * invalid xid.
+	 * 设置重定向元组中使用的视界 XID。若有则用我们自己的
+	 * XID，否则用 InvalidTransactionId。后一种情况可能发生在
+	 * VACUUM 或 REINDEX CONCURRENTLY 中，这两种情况都不宜
+	 * 强制分配 XID。VACUUM 反正不会创建重定向
+	 * 元组，但 REINDEX CONCURRENTLY 会。幸好 REINDEX
+	 * CONCURRENTLY 直到结束才把索引标为有效，因此不会有
+	 * 并发扫描 "在途" 飞向它所插入的重定向元组。而且它
+	 * 也会一直锁住 VACUUM 到结束。因此 VACUUM 立即
+	 * 使含无效 xid 的重定向元组
+	 * 过期是可以的。
 	 */
 	state->myXid = GetTopTransactionIdIfAny();
 
-	/* Assume we're not in an index build (spgbuild will override) */
+	/* 假定不在索引构建中（spgbuild 会覆盖） */
 	state->isBuild = false;
 }
 
 /*
- * Allocate a new page (either by recycling, or by extending the index file).
+ * 分配新页（通过回收，或通过扩展索引文件）。
  *
- * The returned buffer is already pinned and exclusive-locked.
- * Caller is responsible for initializing the page by calling SpGistInitBuffer.
+ * 返回的缓冲区已钉住并独占锁定。
+ * 调用方负责通过调用 SpGistInitBuffer 初始化该页。
  */
 Buffer
 SpGistNewBuffer(Relation index)
 {
 	Buffer		buffer;
 
-	/* First, try to get a page from FSM */
+	/* 首先尝试从 FSM 获取一页 */
 	for (;;)
 	{
 		BlockNumber blkno = GetFreeIndexPage(index);
 
 		if (blkno == InvalidBlockNumber)
-			break;				/* nothing known to FSM */
+			break;				/* FSM 中没有已知空闲页 */
 
 		/*
-		 * The fixed pages shouldn't ever be listed in FSM, but just in case
-		 * one is, ignore it.
+		 * 固定页本不应出现在 FSM 中，但以防其中有一页，
+		 * 忽略它。
 		 */
 		if (SpGistBlockIsFixed(blkno))
 			continue;
@@ -403,23 +403,23 @@ SpGistNewBuffer(Relation index)
 		buffer = ReadBuffer(index, blkno);
 
 		/*
-		 * We have to guard against the possibility that someone else already
-		 * recycled this page; the buffer may be locked if so.
+		 * 必须防范他人已回收该页的可能；若如此，缓冲区
+		 * 可能已被锁定。
 		 */
 		if (ConditionalLockBuffer(buffer))
 		{
 			Page		page = BufferGetPage(buffer);
 
 			if (PageIsNew(page))
-				return buffer;	/* OK to use, if never initialized */
+				return buffer;	/* 若从未初始化则可使用 */
 
 			if (SpGistPageIsDeleted(page) || PageIsEmpty(page))
-				return buffer;	/* OK to use */
+				return buffer;	/* 可以使用 */
 
 			LockBuffer(buffer, BUFFER_LOCK_UNLOCK);
 		}
 
-		/* Can't use it, so release buffer and try again */
+		/* 不能用，释放缓冲区再试 */
 		ReleaseBuffer(buffer);
 	}
 
@@ -430,11 +430,11 @@ SpGistNewBuffer(Relation index)
 }
 
 /*
- * Update index metapage's lastUsedPages info from local cache, if possible
+ * 若可能，用本地缓存更新索引元页的 lastUsedPages 信息
  *
- * Updating meta page isn't critical for index working, so
- * 1 use ConditionalLockBuffer to improve concurrency
- * 2 don't WAL-log metabuffer changes to decrease WAL traffic
+ * 更新元页对索引工作并非关键，因此
+ * 1 使用 ConditionalLockBuffer 以提高并发
+ * 2 不对 metabuffer 变更记 WAL，以减少 WAL 流量
  */
 void
 SpGistUpdateMetaPage(Relation index)
@@ -455,12 +455,12 @@ SpGistUpdateMetaPage(Relation index)
 			metadata->lastUsedPages = cache->lastUsedPages;
 
 			/*
-			 * Set pd_lower just past the end of the metadata.  This is
-			 * essential, because without doing so, metadata will be lost if
-			 * xlog.c compresses the page.  (We must do this here because
-			 * pre-v11 versions of PG did not set the metapage's pd_lower
-			 * correctly, so a pg_upgraded index might contain the wrong
-			 * value.)
+			 * 将 pd_lower 设为刚好越过元数据末尾。这很
+			 * 关键，因为若不这样做，在 xlog.c 压缩页面时
+			 * 元数据会丢失。（必须在此设置，因为
+			 * v11 之前的 PG 未正确设置元页的 pd_lower，
+			 * 因此 pg_upgraded 索引可能含有错误的
+			 * 值。）
 			 */
 			((PageHeader) metapage)->pd_lower =
 				((char *) metadata + sizeof(SpGistMetaPageData)) - (char *) metapage;
@@ -475,29 +475,29 @@ SpGistUpdateMetaPage(Relation index)
 	}
 }
 
-/* Macro to select proper element of lastUsedPages cache depending on flags */
-/* Masking flags with SPGIST_CACHED_PAGES is just for paranoia's sake */
+/* 按 flags 选择 lastUsedPages 缓存中正确元素的宏 */
+/* 用 SPGIST_CACHED_PAGES 掩码 flags 只是出于偏执 */
 #define GET_LUP(c, f)  (&(c)->lastUsedPages.cachedPage[((unsigned int) (f)) % SPGIST_CACHED_PAGES])
 
 /*
- * Allocate and initialize a new buffer of the type and parity specified by
- * flags.  The returned buffer is already pinned and exclusive-locked.
+ * 按 flags 指定的类型与奇偶分配并初始化新缓冲区。
+ * 返回的缓冲区已钉住并独占锁定。
  *
- * When requesting an inner page, if we get one with the wrong parity,
- * we just release the buffer and try again.  We will get a different page
- * because GetFreeIndexPage will have marked the page used in FSM.  The page
- * is entered in our local lastUsedPages cache, so there's some hope of
- * making use of it later in this session, but otherwise we rely on VACUUM
- * to eventually re-enter the page in FSM, making it available for recycling.
- * Note that such a page does not get marked dirty here, so unless it's used
- * fairly soon, the buffer will just get discarded and the page will remain
- * as it was on disk.
+ * 请求内部页时，若得到奇偶不符的页，
+ * 则释放缓冲区再试。我们会得到不同的页，
+ * 因为 GetFreeIndexPage 已在 FSM 中将该页标为已用。该页
+ * 会记入我们本地的 lastUsedPages 缓存，因此本会话稍后
+ * 还有希望用到它；否则我们依赖 VACUUM
+ * 最终把该页重新放回 FSM，使其可供回收。
+ * 注意此处不会将该页标脏，因此除非很快被使用，
+ * 缓冲区会被丢弃，页在磁盘上
+ * 保持原样。
  *
- * When we return a buffer to the caller, the page is *not* entered into
- * the lastUsedPages cache; we expect the caller will do so after it's taken
- * whatever space it will use.  This is because after the caller has used up
- * some space, the page might have less space than whatever was cached already
- * so we'd rather not trash the old cache entry.
+ * 向调用方返回缓冲区时，该页*不会*记入
+ * lastUsedPages 缓存；我们期望调用方在占用所需空间后再
+ * 记入。因为调用方用掉一些空间后，该页的剩余空间可能
+ * 少于已缓存的条目，我们宁可不要冲掉旧的
+ * 缓存项。
  */
 static Buffer
 allocNewBuffer(Relation index, int flags)
@@ -519,7 +519,7 @@ allocNewBuffer(Relation index, int flags)
 
 		if (pageflags & SPGIST_LEAF)
 		{
-			/* Leaf pages have no parity concerns, so just use it */
+			/* 叶子页没有奇偶问题，直接用它 */
 			return buffer;
 		}
 		else
@@ -529,12 +529,12 @@ allocNewBuffer(Relation index, int flags)
 
 			if ((flags & GBUF_PARITY_MASK) == blkFlags)
 			{
-				/* Page has right parity, use it */
+				/* 页奇偶正确，使用它 */
 				return buffer;
 			}
 			else
 			{
-				/* Page has wrong parity, record it in cache and try again */
+				/* 页奇偶错误，记入缓存再试 */
 				if (pageflags & SPGIST_NULLS)
 					blkFlags |= GBUF_NULLS;
 				cache->lastUsedPages.cachedPage[blkFlags].blkno = blkno;
@@ -547,13 +547,13 @@ allocNewBuffer(Relation index, int flags)
 }
 
 /*
- * Get a buffer of the type and parity specified by flags, having at least
- * as much free space as indicated by needSpace.  We use the lastUsedPages
- * cache to assign the same buffer previously requested when possible.
- * The returned buffer is already pinned and exclusive-locked.
+ * 获取 flags 指定类型与奇偶、且至少有 needSpace 所示
+ * 空闲空间的缓冲区。我们用 lastUsedPages
+ * 缓存，尽可能分配先前请求过的同一缓冲区。
+ * 返回的缓冲区已钉住并独占锁定。
  *
- * *isNew is set true if the page was initialized here, false if it was
- * already valid.
+ * 若页在此初始化则 *isNew 设为 true，若原本已有效则
+ * 设为 false。
  */
 Buffer
 SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
@@ -561,34 +561,34 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 	SpGistCache *cache = spgGetCache(index);
 	SpGistLastUsedPage *lup;
 
-	/* Bail out if even an empty page wouldn't meet the demand */
+	/* 即便空页也无法满足需求则退出 */
 	if (needSpace > SPGIST_PAGE_CAPACITY)
 		elog(ERROR, "desired SPGiST tuple size is too big");
 
 	/*
-	 * If possible, increase the space request to include relation's
-	 * fillfactor.  This ensures that when we add unrelated tuples to a page,
-	 * we try to keep 100-fillfactor% available for adding tuples that are
-	 * related to the ones already on it.  But fillfactor mustn't cause an
-	 * error for requests that would otherwise be legal.
+	 * 若可能，增大空间请求以计入关系的
+	 * fillfactor。这确保向页添加无关元组时，
+	 * 我们仍尝试保留 100-fillfactor% 的空间，供添加与页上
+	 * 已有元组相关的元组。但 fillfactor 不得使
+	 * 原本合法的请求出错。
 	 */
 	needSpace += SpGistGetTargetPageFreeSpace(index);
 	needSpace = Min(needSpace, SPGIST_PAGE_CAPACITY);
 
-	/* Get the cache entry for this flags setting */
+	/* 获取此 flags 设置对应的缓存项 */
 	lup = GET_LUP(cache, flags);
 
-	/* If we have nothing cached, just turn it over to allocNewBuffer */
+	/* 若无缓存则直接交给 allocNewBuffer */
 	if (lup->blkno == InvalidBlockNumber)
 	{
 		*isNew = true;
 		return allocNewBuffer(index, flags);
 	}
 
-	/* fixed pages should never be in cache */
+	/* 固定页绝不应当在缓存中 */
 	Assert(!SpGistBlockIsFixed(lup->blkno));
 
-	/* If cached freeSpace isn't enough, don't bother looking at the page */
+	/* 若缓存的 freeSpace 不够，不必查看该页 */
 	if (lup->freeSpace >= needSpace)
 	{
 		Buffer		buffer;
@@ -599,7 +599,7 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 		if (!ConditionalLockBuffer(buffer))
 		{
 			/*
-			 * buffer is locked by another process, so return a new buffer
+			 * 缓冲区被另一进程锁定，因此返回新缓冲区
 			 */
 			ReleaseBuffer(buffer);
 			*isNew = true;
@@ -610,7 +610,7 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 
 		if (PageIsNew(page) || SpGistPageIsDeleted(page) || PageIsEmpty(page))
 		{
-			/* OK to initialize the page */
+			/* 可以初始化该页 */
 			uint16		pageflags = 0;
 
 			if (GBUF_REQ_LEAF(flags))
@@ -624,8 +624,8 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 		}
 
 		/*
-		 * Check that page is of right type and has enough space.  We must
-		 * recheck this since our cache isn't necessarily up to date.
+		 * 检查页类型正确且有足够空间。必须
+		 * 重新检查，因为我们的缓存不一定是最新的。
 		 */
 		if ((GBUF_REQ_LEAF(flags) ? SpGistPageIsLeaf(page) : !SpGistPageIsLeaf(page)) &&
 			(GBUF_REQ_NULLS(flags) ? SpGistPageStoresNulls(page) : !SpGistPageStoresNulls(page)))
@@ -634,7 +634,7 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 
 			if (freeSpace >= needSpace)
 			{
-				/* Success, update freespace info and return the buffer */
+				/* 成功，更新空闲空间信息并返回缓冲区 */
 				lup->freeSpace = freeSpace - needSpace;
 				*isNew = false;
 				return buffer;
@@ -642,22 +642,22 @@ SpGistGetBuffer(Relation index, int flags, int needSpace, bool *isNew)
 		}
 
 		/*
-		 * fallback to allocation of new buffer
+		 * 回退到分配新缓冲区
 		 */
 		UnlockReleaseBuffer(buffer);
 	}
 
-	/* No success with cache, so return a new buffer */
+	/* 缓存未成功，因此返回新缓冲区 */
 	*isNew = true;
 	return allocNewBuffer(index, flags);
 }
 
 /*
- * Update lastUsedPages cache when done modifying a page.
+ * 修改页完成后更新 lastUsedPages 缓存。
  *
- * We update the appropriate cache entry if it already contained this page
- * (its freeSpace is likely obsolete), or if this page has more space than
- * whatever we had cached.
+ * 若相应缓存项已含本页（其 freeSpace 很可能过时），或本页
+ * 空间多于我们已缓存的，则更新该
+ * 缓存项。
  */
 void
 SpGistSetLastUsedPage(Relation index, Buffer buffer)
@@ -669,7 +669,7 @@ SpGistSetLastUsedPage(Relation index, Buffer buffer)
 	BlockNumber blkno = BufferGetBlockNumber(buffer);
 	int			flags;
 
-	/* Never enter fixed pages (root pages) in cache, though */
+	/* 不过绝不要把固定页（根页）放入缓存 */
 	if (SpGistBlockIsFixed(blkno))
 		return;
 
@@ -692,7 +692,7 @@ SpGistSetLastUsedPage(Relation index, Buffer buffer)
 }
 
 /*
- * Initialize an SPGiST page to empty, with specified flags
+ * 将 SPGiST 页初始化为空，并带指定 flags
  */
 void
 SpGistInitPage(Page page, uint16 f)
@@ -706,7 +706,7 @@ SpGistInitPage(Page page, uint16 f)
 }
 
 /*
- * Initialize a buffer's page to empty, with specified flags
+ * 将缓冲区的页初始化为空，并带指定 flags
  */
 void
 SpGistInitBuffer(Buffer b, uint16 f)
@@ -716,7 +716,7 @@ SpGistInitBuffer(Buffer b, uint16 f)
 }
 
 /*
- * Initialize metadata page
+ * 初始化元数据页
  */
 void
 SpGistInitMetapage(Page page)
@@ -729,21 +729,21 @@ SpGistInitMetapage(Page page)
 	memset(metadata, 0, sizeof(SpGistMetaPageData));
 	metadata->magicNumber = SPGIST_MAGIC_NUMBER;
 
-	/* initialize last-used-page cache to empty */
+	/* 将最近使用页缓存初始化为空 */
 	for (i = 0; i < SPGIST_CACHED_PAGES; i++)
 		metadata->lastUsedPages.cachedPage[i].blkno = InvalidBlockNumber;
 
 	/*
-	 * Set pd_lower just past the end of the metadata.  This is essential,
-	 * because without doing so, metadata will be lost if xlog.c compresses
-	 * the page.
+	 * 将 pd_lower 设为刚好越过元数据末尾。这很关键，
+	 * 因为若不这样做，在 xlog.c 压缩页面时元数据会
+	 * 丢失。
 	 */
 	((PageHeader) page)->pd_lower =
 		((char *) metadata + sizeof(SpGistMetaPageData)) - (char *) page;
 }
 
 /*
- * reloptions processing for SPGiST
+ * SPGiST 的 reloptions 处理
  */
 bytea *
 spgoptions(Datum reloptions, bool validate)
@@ -759,11 +759,11 @@ spgoptions(Datum reloptions, bool validate)
 }
 
 /*
- * Get the space needed to store a non-null datum of the indicated type
- * in an inner tuple (that is, as a prefix or node label).
- * Note the result is already rounded up to a MAXALIGN boundary.
- * Here we follow the convention that pass-by-val types are just stored
- * in their Datum representation (compare memcpyInnerDatum).
+ * 计算在内部元组中存储指定类型非空 datum 所需空间
+ * （即作为前缀或节点标签）。
+ * 注意结果已上取整到 MAXALIGN 边界。
+ * 此处遵循按值传递类型仅以其 Datum 表示存储的约定
+ * （参见 memcpyInnerDatum）。
  */
 unsigned int
 SpGistGetInnerTypeSize(SpGistTypeDesc *att, Datum datum)
@@ -781,7 +781,7 @@ SpGistGetInnerTypeSize(SpGistTypeDesc *att, Datum datum)
 }
 
 /*
- * Copy the given non-null datum to *target, in the inner-tuple case
+ * 在内部元组情形下，将给定非空 datum 拷贝到 *target
  */
 static void
 memcpyInnerDatum(void *target, SpGistTypeDesc *att, Datum datum)
@@ -800,9 +800,9 @@ memcpyInnerDatum(void *target, SpGistTypeDesc *att, Datum datum)
 }
 
 /*
- * Compute space required for a leaf tuple holding the given data.
+ * 计算保存给定数据的叶子元组所需空间。
  *
- * This must match the size-calculation portion of spgFormLeafTuple.
+ * 这必须与 spgFormLeafTuple 中计算大小的部分一致。
  */
 Size
 SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
@@ -814,11 +814,11 @@ SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
 	int			natts = tupleDescriptor->natts;
 
 	/*
-	 * Decide whether we need a nulls bitmask.
+	 * 决定是否需要空值位图。
 	 *
-	 * If there is only a key attribute (natts == 1), never use a bitmask, for
-	 * compatibility with the pre-v14 layout of leaf tuples.  Otherwise, we
-	 * need one if any attribute is null.
+	 * 若只有键属性（natts == 1），为与 v14 之前叶子元组布局
+	 * 兼容，从不使用位图。否则，任一属性为空时
+	 * 需要位图。
 	 */
 	if (natts > 1)
 	{
@@ -833,20 +833,20 @@ SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
 	}
 
 	/*
-	 * Calculate size of the data part; same as for heap tuples.
+	 * 计算数据部分大小；与堆元组相同。
 	 */
 	data_size = heap_compute_data_size(tupleDescriptor, datums, isnulls);
 
 	/*
-	 * Compute total size.
+	 * 计算总大小。
 	 */
 	size = SGLTHDRSZ(needs_null_mask);
 	size += data_size;
 	size = MAXALIGN(size);
 
 	/*
-	 * Ensure that we can replace the tuple with a dead tuple later. This test
-	 * is unnecessary when there are any non-null attributes, but be safe.
+	 * 确保稍后可用死元组替换该元组。当存在任何非空属性时
+	 * 此测试并非必要，但为安全起见仍做。
 	 */
 	if (size < SGDTSIZE)
 		size = SGDTSIZE;
@@ -855,7 +855,7 @@ SpGistGetLeafTupleSize(TupleDesc tupleDescriptor,
 }
 
 /*
- * Construct a leaf tuple containing the given heap TID and datum values
+ * 构造包含给定堆 TID 与 datum 值的叶子元组
  */
 SpGistLeafTuple
 spgFormLeafTuple(SpGistState *state, ItemPointer heapPtr,
@@ -868,15 +868,15 @@ spgFormLeafTuple(SpGistState *state, ItemPointer heapPtr,
 	Size		data_size;
 	bool		needs_null_mask = false;
 	int			natts = tupleDescriptor->natts;
-	char	   *tp;				/* ptr to tuple data */
-	uint16		tupmask = 0;	/* unused heap_fill_tuple output */
+	char	   *tp;				/* 指向元组数据 */
+	uint16		tupmask = 0;	/* 未使用的 heap_fill_tuple 输出 */
 
 	/*
-	 * Decide whether we need a nulls bitmask.
+	 * 决定是否需要空值位图。
 	 *
-	 * If there is only a key attribute (natts == 1), never use a bitmask, for
-	 * compatibility with the pre-v14 layout of leaf tuples.  Otherwise, we
-	 * need one if any attribute is null.
+	 * 若只有键属性（natts == 1），为与 v14 之前叶子元组布局
+	 * 兼容，从不使用位图。否则，任一属性为空时
+	 * 需要位图。
 	 */
 	if (natts > 1)
 	{
@@ -891,25 +891,25 @@ spgFormLeafTuple(SpGistState *state, ItemPointer heapPtr,
 	}
 
 	/*
-	 * Calculate size of the data part; same as for heap tuples.
+	 * 计算数据部分大小；与堆元组相同。
 	 */
 	data_size = heap_compute_data_size(tupleDescriptor, datums, isnulls);
 
 	/*
-	 * Compute total size.
+	 * 计算总大小。
 	 */
 	hoff = SGLTHDRSZ(needs_null_mask);
 	size = hoff + data_size;
 	size = MAXALIGN(size);
 
 	/*
-	 * Ensure that we can replace the tuple with a dead tuple later. This test
-	 * is unnecessary when there are any non-null attributes, but be safe.
+	 * 确保稍后可用死元组替换该元组。当存在任何非空属性时
+	 * 此测试并非必要，但为安全起见仍做。
 	 */
 	if (size < SGDTSIZE)
 		size = SGDTSIZE;
 
-	/* OK, form the tuple */
+	/* 好，形成元组 */
 	tup = (SpGistLeafTuple) palloc0(size);
 
 	tup->size = size;
@@ -920,31 +920,31 @@ spgFormLeafTuple(SpGistState *state, ItemPointer heapPtr,
 
 	if (needs_null_mask)
 	{
-		bits8	   *bp;			/* ptr to null bitmap in tuple */
+		bits8	   *bp;			/* 指向元组中的空值位图 */
 
-		/* Set nullmask presence bit in SpGistLeafTuple header */
+		/* 在 SpGistLeafTuple 头中设置空值掩码存在位 */
 		SGLT_SET_HASNULLMASK(tup, true);
-		/* Fill the data area and null mask */
+		/* 填充数据区与空值掩码 */
 		bp = (bits8 *) ((char *) tup + sizeof(SpGistLeafTupleData));
 		heap_fill_tuple(tupleDescriptor, datums, isnulls, tp, data_size,
 						&tupmask, bp);
 	}
 	else if (natts > 1 || !isnulls[spgKeyColumn])
 	{
-		/* Fill data area only */
+		/* 仅填充数据区 */
 		heap_fill_tuple(tupleDescriptor, datums, isnulls, tp, data_size,
 						&tupmask, (bits8 *) NULL);
 	}
-	/* otherwise we have no data, nor a bitmap, to fill */
+	/* 否则没有数据，也没有位图可填 */
 
 	return tup;
 }
 
 /*
- * Construct a node (to go into an inner tuple) containing the given label
+ * 构造包含给定标签的节点（将放入内部元组）
  *
- * Note that the node's downlink is just set invalid here.  Caller will fill
- * it in later.
+ * 注意此处仅将节点的下行链路设为无效。调用方稍后会
+ * 填入。
  */
 SpGistNodeTuple
 spgFormNodeTuple(SpGistState *state, Datum label, bool isnull)
@@ -953,14 +953,14 @@ spgFormNodeTuple(SpGistState *state, Datum label, bool isnull)
 	unsigned int size;
 	unsigned short infomask = 0;
 
-	/* compute space needed (note result is already maxaligned) */
+	/* 计算所需空间（注意结果已 maxaligned） */
 	size = SGNTHDRSZ;
 	if (!isnull)
 		size += SpGistGetInnerTypeSize(&state->attLabelType, label);
 
 	/*
-	 * Here we make sure that the size will fit in the field reserved for it
-	 * in t_info.
+	 * 在此确保大小能放入 t_info 中为其预留的
+	 * 字段。
 	 */
 	if ((size & INDEX_SIZE_MASK) != size)
 		ereport(ERROR,
@@ -972,11 +972,11 @@ spgFormNodeTuple(SpGistState *state, Datum label, bool isnull)
 
 	if (isnull)
 		infomask |= INDEX_NULL_MASK;
-	/* we don't bother setting the INDEX_VAR_MASK bit */
+	/* 我们不费心设置 INDEX_VAR_MASK 位 */
 	infomask |= size;
 	tup->t_info = infomask;
 
-	/* The TID field will be filled in later */
+	/* TID 字段稍后填入 */
 	ItemPointerSetInvalid(&tup->t_tid);
 
 	if (!isnull)
@@ -986,7 +986,7 @@ spgFormNodeTuple(SpGistState *state, Datum label, bool isnull)
 }
 
 /*
- * Construct an inner tuple containing the given prefix and node array
+ * 构造包含给定前缀与节点数组的内部元组
  */
 SpGistInnerTuple
 spgFormInnerTuple(SpGistState *state, bool hasPrefix, Datum prefix,
@@ -998,7 +998,7 @@ spgFormInnerTuple(SpGistState *state, bool hasPrefix, Datum prefix,
 	int			i;
 	char	   *ptr;
 
-	/* Compute size needed */
+	/* 计算所需大小 */
 	if (hasPrefix)
 		prefixSize = SpGistGetInnerTypeSize(&state->attPrefixType, prefix);
 	else
@@ -1006,19 +1006,19 @@ spgFormInnerTuple(SpGistState *state, bool hasPrefix, Datum prefix,
 
 	size = SGITHDRSZ + prefixSize;
 
-	/* Note: we rely on node tuple sizes to be maxaligned already */
+	/* 注意：我们依赖节点元组大小已经 maxaligned */
 	for (i = 0; i < nNodes; i++)
 		size += IndexTupleSize(nodes[i]);
 
 	/*
-	 * Ensure that we can replace the tuple with a dead tuple later.  This
-	 * test is unnecessary given current tuple layouts, but let's be safe.
+	 * 确保稍后可用死元组替换该元组。按当前
+	 * 元组布局此测试并非必要，但为安全起见仍做。
 	 */
 	if (size < SGDTSIZE)
 		size = SGDTSIZE;
 
 	/*
-	 * Inner tuple should be small enough to fit on a page
+	 * 内部元组应小到足以装入一页
 	 */
 	if (size > SPGIST_PAGE_CAPACITY - sizeof(ItemIdData))
 		ereport(ERROR,
@@ -1029,15 +1029,15 @@ spgFormInnerTuple(SpGistState *state, bool hasPrefix, Datum prefix,
 				 errhint("Values larger than a buffer page cannot be indexed.")));
 
 	/*
-	 * Check for overflow of header fields --- probably can't fail if the
-	 * above succeeded, but let's be paranoid
+	 * 检查头字段是否溢出——若上面已成功则大概不会失败，
+	 * 但还是偏执一点
 	 */
 	if (size > SGITMAXSIZE ||
 		prefixSize > SGITMAXPREFIXSIZE ||
 		nNodes > SGITMAXNNODES)
 		elog(ERROR, "SPGiST inner tuple header field is too small");
 
-	/* OK, form the tuple */
+	/* 好，形成元组 */
 	tup = (SpGistInnerTuple) palloc0(size);
 
 	tup->nNodes = nNodes;
@@ -1061,15 +1061,15 @@ spgFormInnerTuple(SpGistState *state, bool hasPrefix, Datum prefix,
 }
 
 /*
- * Construct a "dead" tuple to replace a tuple being deleted.
+ * 构造 "死" 元组以替换正被删除的元组。
  *
- * The state can be SPGIST_REDIRECT, SPGIST_DEAD, or SPGIST_PLACEHOLDER.
- * For a REDIRECT tuple, a pointer (blkno+offset) must be supplied, and
- * the xid field is filled in automatically.
+ * 状态可以是 SPGIST_REDIRECT、SPGIST_DEAD 或 SPGIST_PLACEHOLDER。
+ * 对 REDIRECT 元组，必须提供指针（blkno+offset），且
+ * xid 字段会自动填入。
  *
- * This is called in critical sections, so we don't use palloc; the tuple
- * is built in preallocated storage.  It should be copied before another
- * call with different parameters can occur.
+ * 此函数在临界区中调用，因此不用 palloc；元组
+ * 建在预分配存储中。在以不同参数再次调用前应先
+ * 拷贝它。
  */
 SpGistDeadTuple
 spgFormDeadTuple(SpGistState *state, int tupstate,
@@ -1096,29 +1096,29 @@ spgFormDeadTuple(SpGistState *state, int tupstate,
 }
 
 /*
- * Convert an SPGiST leaf tuple into Datum/isnull arrays.
+ * 将 SPGiST 叶子元组转换为 Datum/isnull 数组。
  *
- * The caller must allocate sufficient storage for the output arrays.
- * (INDEX_MAX_KEYS entries should be enough.)
+ * 调用方必须为输出数组分配足够存储。
+ * （INDEX_MAX_KEYS 个条目应足够。）
  */
 void
 spgDeformLeafTuple(SpGistLeafTuple tup, TupleDesc tupleDescriptor,
 				   Datum *datums, bool *isnulls, bool keyColumnIsNull)
 {
 	bool		hasNullsMask = SGLT_GET_HASNULLMASK(tup);
-	char	   *tp;				/* ptr to tuple data */
-	bits8	   *bp;				/* ptr to null bitmap in tuple */
+	char	   *tp;				/* 指向元组数据 */
+	bits8	   *bp;				/* 指向元组中的空值位图 */
 
 	if (keyColumnIsNull && tupleDescriptor->natts == 1)
 	{
 		/*
-		 * Trivial case: there is only the key attribute and we're in a nulls
-		 * tree.  The hasNullsMask bit in the tuple header should not be set
-		 * (and thus we can't use index_deform_tuple_internal), but
-		 * nonetheless the result is NULL.
+		 * 平凡情形：只有键属性且我们在空值
+		 * 树中。元组头中的 hasNullsMask 位不应设置
+		 * （因而不能使用 index_deform_tuple_internal），但
+		 * 结果仍为 NULL。
 		 *
-		 * Note: currently this is dead code, because noplace calls this when
-		 * there is only the key attribute.  But we should cover the case.
+		 * 注意：当前这是死代码，因为在只有键属性时无处调用
+		 * 本函数。但我们仍应覆盖该情形。
 		 */
 		Assert(!hasNullsMask);
 
@@ -1135,16 +1135,16 @@ spgDeformLeafTuple(SpGistLeafTuple tup, TupleDesc tupleDescriptor,
 								tp, bp, hasNullsMask);
 
 	/*
-	 * Key column isnull value from the tuple should be consistent with
-	 * keyColumnIsNull flag from the caller.
+	 * 元组中键列的 isnull 值应与调用方传入的
+	 * keyColumnIsNull 标志一致。
 	 */
 	Assert(keyColumnIsNull == isnulls[spgKeyColumn]);
 }
 
 /*
- * Extract the label datums of the nodes within innerTuple
+ * 提取 innerTuple 内各节点的标签 datum
  *
- * Returns NULL if label datums are NULLs
+ * 若标签 datum 均为 NULLs 则返回 NULL
  */
 Datum *
 spgExtractNodeLabels(SpGistState *state, SpGistInnerTuple innerTuple)
@@ -1153,7 +1153,7 @@ spgExtractNodeLabels(SpGistState *state, SpGistInnerTuple innerTuple)
 	int			i;
 	SpGistNodeTuple node;
 
-	/* Either all the labels must be NULL, or none. */
+	/* 所有标签必须全为 NULL，或全非 NULL。 */
 	node = SGITNODEPTR(innerTuple);
 	if (IndexTupleHasNulls(node))
 	{
@@ -1162,7 +1162,7 @@ spgExtractNodeLabels(SpGistState *state, SpGistInnerTuple innerTuple)
 			if (!IndexTupleHasNulls(node))
 				elog(ERROR, "some but not all node labels are null in SPGiST inner tuple");
 		}
-		/* They're all null, so just return NULL */
+		/* 它们全为空，因此直接返回 NULL */
 		return NULL;
 	}
 	else
@@ -1179,15 +1179,15 @@ spgExtractNodeLabels(SpGistState *state, SpGistInnerTuple innerTuple)
 }
 
 /*
- * Add a new item to the page, replacing a PLACEHOLDER item if possible.
- * Return the location it's inserted at, or InvalidOffsetNumber on failure.
+ * 向页添加新项，若可能则替换 PLACEHOLDER 项。
+ * 返回插入位置，失败时返回 InvalidOffsetNumber。
  *
- * If startOffset isn't NULL, we start searching for placeholders at
- * *startOffset, and update that to the next place to search.  This is just
- * an optimization for repeated insertions.
+ * 若 startOffset 非 NULL，则从 *startOffset 开始搜索占位项，
+ * 并更新为下一搜索位置。这只是为重复插入做的
+ * 优化。
  *
- * If errorOK is false, we throw error when there's not enough room,
- * rather than returning InvalidOffsetNumber.
+ * 若 errorOK 为 false，空间不足时抛错，而非返回
+ * InvalidOffsetNumber。
  */
 OffsetNumber
 SpGistPageAddNewItem(SpGistState *state, Page page, Item item, Size size,
@@ -1201,7 +1201,7 @@ SpGistPageAddNewItem(SpGistState *state, Page page, Item item, Size size,
 	if (opaque->nPlaceholder > 0 &&
 		PageGetExactFreeSpace(page) + SGDTSIZE >= MAXALIGN(size))
 	{
-		/* Try to replace a placeholder */
+		/* 尝试替换占位项 */
 		maxoff = PageGetMaxOffsetNumber(page);
 		offnum = InvalidOffsetNumber;
 
@@ -1223,34 +1223,34 @@ SpGistPageAddNewItem(SpGistState *state, Page page, Item item, Size size,
 				}
 			}
 
-			/* Done if we found a placeholder */
+			/* 若找到占位项则完成 */
 			if (offnum != InvalidOffsetNumber)
 				break;
 
 			if (startOffset && *startOffset != InvalidOffsetNumber)
 			{
-				/* Hint was no good, re-search from beginning */
+				/* 提示无效，从头重新搜索 */
 				*startOffset = InvalidOffsetNumber;
 				continue;
 			}
 
-			/* Hmm, no placeholder found? */
+			/* 嗯，没找到占位项？ */
 			opaque->nPlaceholder = 0;
 			break;
 		}
 
 		if (offnum != InvalidOffsetNumber)
 		{
-			/* Replace the placeholder tuple */
+			/* 替换占位元组 */
 			PageIndexTupleDelete(page, offnum);
 
 			offnum = PageAddItem(page, item, size, offnum, false, false);
 
 			/*
-			 * We should not have failed given the size check at the top of
-			 * the function, but test anyway.  If we did fail, we must PANIC
-			 * because we've already deleted the placeholder tuple, and
-			 * there's no other way to keep the damage from getting to disk.
+			 * 按函数顶部的大小检查本不应失败，但仍测试。若
+			 * 确实失败，必须 PANIC，因为我们已经删除了占位
+			 * 元组，没有别的办法阻止损坏落到
+			 * 磁盘。
 			 */
 			if (offnum != InvalidOffsetNumber)
 			{
@@ -1267,7 +1267,7 @@ SpGistPageAddNewItem(SpGistState *state, Page page, Item item, Size size,
 		}
 	}
 
-	/* No luck in replacing a placeholder, so just add it to the page */
+	/* 未能替换占位项，因此直接加到页上 */
 	offnum = PageAddItem(page, item, size,
 						 InvalidOffsetNumber, false, false);
 
@@ -1279,10 +1279,10 @@ SpGistPageAddNewItem(SpGistState *state, Page page, Item item, Size size,
 }
 
 /*
- *	spgproperty() -- Check boolean properties of indexes.
+ *	spgproperty() -- 检查索引的布尔属性。
  *
- * This is optional for most AMs, but is required for SP-GiST because the core
- * property code doesn't support AMPROP_DISTANCE_ORDERABLE.
+ * 对大多数 AM 这是可选的，但对 SP-GiST 是必需的，因为核心
+ * 属性代码不支持 AMPROP_DISTANCE_ORDERABLE。
  */
 bool
 spgproperty(Oid index_oid, int attno,
@@ -1295,7 +1295,7 @@ spgproperty(Oid index_oid, int attno,
 	CatCList   *catlist;
 	int			i;
 
-	/* Only answer column-level inquiries */
+	/* 只回答列级查询 */
 	if (attno == 0)
 		return false;
 
@@ -1308,12 +1308,12 @@ spgproperty(Oid index_oid, int attno,
 	}
 
 	/*
-	 * Currently, SP-GiST distance-ordered scans require that there be a
-	 * distance operator in the opclass with the default types. So we assume
-	 * that if such an operator exists, then there's a reason for it.
+	 * 当前，SP-GiST 按距离排序的扫描需要操作类中存在默认
+	 * 类型的距离操作符。因此我们假定若存在这样的操作符，
+	 * 则自有其用途。
 	 */
 
-	/* First we need to know the column's opclass. */
+	/* 首先需要知道该列的操作类。 */
 	opclass = get_index_column_opclass(index_oid, attno);
 	if (!OidIsValid(opclass))
 	{
@@ -1321,14 +1321,14 @@ spgproperty(Oid index_oid, int attno,
 		return true;
 	}
 
-	/* Now look up the opclass family and input datatype. */
+	/* 现在查找操作类族与输入数据类型。 */
 	if (!get_opclass_opfamily_and_input_type(opclass, &opfamily, &opcintype))
 	{
 		*isnull = true;
 		return true;
 	}
 
-	/* And now we can check whether the operator is provided. */
+	/* 现在可以检查是否提供了该操作符。 */
 	catlist = SearchSysCacheList1(AMOPSTRATEGY,
 								  ObjectIdGetDatum(opfamily));
 

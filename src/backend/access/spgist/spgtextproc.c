@@ -1,32 +1,32 @@
 /*-------------------------------------------------------------------------
  *
  * spgtextproc.c
- *	  implementation of radix tree (compressed trie) over text
+ *	  面向文本的基数树（压缩 trie）实现。
  *
- * In a text_ops SPGiST index, inner tuples can have a prefix which is the
- * common prefix of all strings indexed under that tuple.  The node labels
- * represent the next byte of the string(s) after the prefix.  Assuming we
- * always use the longest possible prefix, we will get more than one node
- * label unless the prefix length is restricted by SPGIST_MAX_PREFIX_LENGTH.
+ * 在 text_ops 的 SPGiST 索引中，内部元组可以带前缀，即挂在该元组下
+ * 所有已索引字符串（string）的公共前缀。节点标签表示前缀之后的下一
+ * 字节。若始终使用尽可能长的前缀，我们会得到不止一个节点标
+ * 签，除非前缀长度受
+ * SPGIST_MAX_PREFIX_LENGTH 限制。
  *
- * To reconstruct the indexed string for any index entry, concatenate the
- * inner-tuple prefixes and node labels starting at the root and working
- * down to the leaf entry, then append the datum in the leaf entry.
- * (While descending the tree, "level" is the number of bytes reconstructed
- * so far.)
+ * 要重建任一索引项对应的已索引字符串，从根向下到叶子项，依次
+ * 拼接内部元组前缀与节点标签，再追加叶子项中的
+ * datum。
+ * （下降树时，"level" 是迄今已重建的
+ * 字节数。）
  *
- * However, there are two special cases for node labels: -1 indicates that
- * there are no more bytes after the prefix-so-far, and -2 indicates that we
- * had to split an existing allTheSame tuple (in such a case we have to create
- * a node label that doesn't correspond to any string byte).  In either case,
- * the node label does not contribute anything to the reconstructed string.
+ * 不过节点标签有两种特例：-1 表示当前前缀之后没有更多字节，
+ * -2 表示不得不分裂已有的 allTheSame 元组（此时必须创建
+ * 不对应任何字符串字节的节点标签）。两种情况下，节点标签都
+ * 不对重建字符串有任何
+ * 贡献。
  *
- * Previously, we used a node label of zero for both special cases, but
- * this was problematic because one can't tell whether a string ending at
- * the current level can be pushed down into such a child node.  For
- * backwards compatibility, we still support such node labels for reading;
- * but no new entries will ever be pushed down into a zero-labeled child.
- * No new entries ever get pushed into a -2-labeled child, either.
+ * 以前两种特例都使用节点标签 0，但这有问题，因为无法判断
+ * 在当前层结束的字符串能否下推到这样的子节点。为保持向
+ * 后兼容，读取时仍支持这类节点标签；但不会再有新项被下推
+ * 到标签为 0 的子节点。同样，也不会再有新项被推入标签为
+ * -2 的
+ * 子节点。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -50,29 +50,29 @@
 
 
 /*
- * In the worst case, an inner tuple in a text radix tree could have as many
- * as 258 nodes (one for each possible byte value, plus the two special
- * cases).  Each node can take 16 bytes on MAXALIGN=8 machines.  The inner
- * tuple must fit on an index page of size BLCKSZ.  Rather than assuming we
- * know the exact amount of overhead imposed by page headers, tuple headers,
- * etc, we leave 100 bytes for that (the actual overhead should be no more
- * than 56 bytes at this writing, so there is slop in this number).
- * So we can safely create prefixes up to BLCKSZ - 258 * 16 - 100 bytes long.
- * Unfortunately, because 258 * 16 is over 4K, there is no safe prefix length
- * when BLCKSZ is less than 8K; it is always possible to get "SPGiST inner
- * tuple size exceeds maximum" if there are too many distinct next-byte values
- * at a given place in the tree.  Since use of nonstandard block sizes appears
- * to be negligible in the field, we just live with that fact for now,
- * choosing a max prefix size of 32 bytes when BLCKSZ is configured smaller
- * than default.
+ * 最坏情况下，文本基数树中的内部元组可以有多达
+ * 258 个节点（每个可能的字节值一个，外加两种特
+ * 例）。在 MAXALIGN=8 的机器上，每个节点最多占 16 字节。
+ * 内部元组必须能放进大小为 BLCKSZ 的索引页。我们不去假定已确知
+ * 页头、元组头等开销的确切大小，而是为此预留 100 字节（写本
+ * 文时实际开销应不超过 56 字节，因此该数字留有余量）。
+ * 于是可以安全地创建最长为 BLCKSZ - 258 * 16 - 100 字节的前缀。
+ * 不幸的是，因为 258 * 16 超过 4K，当 BLCKSZ 小于 8K 时不存在
+ * 安全的前缀长度；若树中某处下一字节取值过于多样，仍可能
+ * 出现 "SPGiST inner
+ * tuple size exceeds maximum"。由于现场使用非标准块大小
+ * 似乎很少见，我们暂时接受这一事实，并在 BLCKSZ 配置得
+ * 小于默认值时把最大前缀选为
+ * 32
+ * 字节。
  */
 #define SPGIST_MAX_PREFIX_LENGTH	Max((int) (BLCKSZ - 258 * 16 - 100), 32)
 
 /*
- * Strategy for collation aware operator on text is equal to btree strategy
- * plus value of 10.
+ * 文本上排序规则感知操作符的策略号等于 btree 策略号
+ * 加上 10。
  *
- * Current collation aware strategies and their corresponding btree strategies:
+ * 当前排序规则感知策略及其对应的 btree 策略：
  * 11 BTLessStrategyNumber
  * 12 BTLessEqualStrategyNumber
  * 14 BTGreaterEqualStrategyNumber
@@ -82,7 +82,7 @@
 #define SPG_IS_COLLATION_AWARE_STRATEGY(s) ((s) > SPG_STRATEGY_ADDITION \
 										 && (s) != RTPrefixStrategyNumber)
 
-/* Struct for sorting values in picksplit */
+/* 用于在 picksplit 中对值排序的结构 */
 typedef struct spgNodePtr
 {
 	Datum		d;
@@ -100,13 +100,13 @@ spg_text_config(PG_FUNCTION_ARGS)
 	cfg->prefixType = TEXTOID;
 	cfg->labelType = INT2OID;
 	cfg->canReturnData = true;
-	cfg->longValuesOK = true;	/* suffixing will shorten long values */
+	cfg->longValuesOK = true;	/* 加后缀会缩短过长的值 */
 	PG_RETURN_VOID();
 }
 
 /*
- * Form a text datum from the given not-necessarily-null-terminated string,
- * using short varlena header format if possible
+ * 由给定的不一定以空字符结尾的字符串构造 text datum，
+ * 尽可能使用短 varlena 头格式
  */
 static Datum
 formTextDatum(const char *data, int datalen)
@@ -131,7 +131,7 @@ formTextDatum(const char *data, int datalen)
 }
 
 /*
- * Find the length of the common prefix of a and b
+ * 求 a 与 b 的公共前缀长度
  */
 static int
 commonPrefix(const char *a, const char *b, int lena, int lenb)
@@ -149,9 +149,9 @@ commonPrefix(const char *a, const char *b, int lena, int lenb)
 }
 
 /*
- * Binary search an array of int16 datums for a match to c
+ * 在 int16 datum 数组中二分查找与 c 匹配的项
  *
- * On success, *i gets the match location; on failure, it gets where to insert
+ * 成功时 *i 为匹配位置；失败时为应插入的位置
  */
 static bool
 searchChar(Datum *nodeLabels, int nNodes, int16 c, int *i)
@@ -193,7 +193,7 @@ spg_text_choose(PG_FUNCTION_ARGS)
 	int16		nodeChar = 0;
 	int			i = 0;
 
-	/* Check for prefix match, set nodeChar to first byte after prefix */
+	/* 检查前缀是否匹配，并将 nodeChar 设为前缀后的第一个字节 */
 	if (in->hasPrefix)
 	{
 		text	   *prefixText = DatumGetTextPP(in->prefixDatum);
@@ -215,7 +215,7 @@ spg_text_choose(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* Must split tuple because incoming value doesn't match prefix */
+			/* 传入值与前缀不匹配，必须分裂元组 */
 			out->resultType = spgSplitTuple;
 
 			if (commonLen == 0)
@@ -260,14 +260,14 @@ spg_text_choose(PG_FUNCTION_ARGS)
 		nodeChar = -1;
 	}
 
-	/* Look up nodeChar in the node label array */
+	/* 在节点标签数组中查找 nodeChar */
 	if (searchChar(in->nodeLabels, in->nNodes, nodeChar, &i))
 	{
 		/*
-		 * Descend to existing node.  (If in->allTheSame, the core code will
-		 * ignore our nodeN specification here, but that's OK.  We still have
-		 * to provide the correct levelAdd and restDatum values, and those are
-		 * the same regardless of which node gets chosen by core.)
+		 * 下降到已有节点。（若 in->allTheSame，核心代码会
+		 * 忽略此处的 nodeN 指定，但这没关系。我们仍须提供正确的
+		 * levelAdd 与 restDatum，且不论核心选中哪个节点，这些值都
+		 * 相同。）
 		 */
 		int			levelAdd;
 
@@ -288,15 +288,15 @@ spg_text_choose(PG_FUNCTION_ARGS)
 	else if (in->allTheSame)
 	{
 		/*
-		 * Can't use AddNode action, so split the tuple.  The upper tuple has
-		 * the same prefix as before and uses a dummy node label -2 for the
-		 * lower tuple.  The lower tuple has no prefix and the same node
-		 * labels as the original tuple.
+		 * 不能使用 AddNode 动作，因此分裂该元组。上元组保持
+		 * 与原先相同的前缀，并对下元组使用哑节点标签 -2。
+		 * 下元组没有前缀，节点标签与原元组
+		 * 相同。
 		 *
-		 * Note: it might seem tempting to shorten the upper tuple's prefix,
-		 * if it has one, then use its last byte as label for the lower tuple.
-		 * But that doesn't win since we know the incoming value matches the
-		 * whole prefix: we'd just end up splitting the lower tuple again.
+		 * 注意：或许会想缩短上元组的前缀（若有），再把其最后一
+		 * 字节用作下元组的标签。但这并不划算，因为已知传入值匹配
+		 * 整个前缀：最终只会再次分裂
+		 * 下元组。
 		 */
 		out->resultType = spgSplitTuple;
 		out->result.splitTuple.prefixHasPrefix = in->hasPrefix;
@@ -309,7 +309,7 @@ spg_text_choose(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* Add a node for the not-previously-seen nodeChar value */
+		/* 为先前未见过的 nodeChar 值添加一个节点 */
 		out->resultType = spgAddNode;
 		out->result.addNode.nodeLabel = Int16GetDatum(nodeChar);
 		out->result.addNode.nodeN = i;
@@ -318,7 +318,7 @@ spg_text_choose(PG_FUNCTION_ARGS)
 	PG_RETURN_VOID();
 }
 
-/* qsort comparator to sort spgNodePtr structs by "c" */
+/* 按 "c" 对 spgNodePtr 结构排序的 qsort 比较函数 */
 static int
 cmpNodePtr(const void *a, const void *b)
 {
@@ -338,7 +338,7 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 				commonLen;
 	spgNodePtr *nodes;
 
-	/* Identify longest common prefix, if any */
+	/* 确定最长公共前缀（若有） */
 	commonLen = VARSIZE_ANY_EXHDR(text0);
 	for (i = 1; i < in->nTuples && commonLen > 0; i++)
 	{
@@ -353,12 +353,12 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Limit the prefix length, if necessary, to ensure that the resulting
-	 * inner tuple will fit on a page.
+	 * 如有必要，限制前缀长度，以确保结果
+	 * 内部元组能放进一页。
 	 */
 	commonLen = Min(commonLen, SPGIST_MAX_PREFIX_LENGTH);
 
-	/* Set node prefix to be that string, if it's not empty */
+	/* 若该串非空，则将其设为节点前缀 */
 	if (commonLen == 0)
 	{
 		out->hasPrefix = false;
@@ -369,7 +369,7 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 		out->prefixDatum = formTextDatum(VARDATA_ANY(text0), commonLen);
 	}
 
-	/* Extract the node label (first non-common byte) from each value */
+	/* 从每个值中提取节点标签（第一个非公共字节） */
 	nodes = (spgNodePtr *) palloc(sizeof(spgNodePtr) * in->nTuples);
 
 	for (i = 0; i < in->nTuples; i++)
@@ -379,19 +379,19 @@ spg_text_picksplit(PG_FUNCTION_ARGS)
 		if (commonLen < VARSIZE_ANY_EXHDR(texti))
 			nodes[i].c = *(unsigned char *) (VARDATA_ANY(texti) + commonLen);
 		else
-			nodes[i].c = -1;	/* use -1 if string is all common */
+			nodes[i].c = -1;	/* 若字符串全是公共部分则用 -1 */
 		nodes[i].i = i;
 		nodes[i].d = in->datums[i];
 	}
 
 	/*
-	 * Sort by label values so that we can group the values into nodes.  This
-	 * also ensures that the nodes are ordered by label value, allowing the
-	 * use of binary search in searchChar.
+	 * 按标签值排序，以便把值归组到各节点。这也保证节点按标签值
+	 * 有序，从而可以在 searchChar 中使用
+	 * 二分查找。
 	 */
 	qsort(nodes, in->nTuples, sizeof(*nodes), cmpNodePtr);
 
-	/* And emit results */
+	/* 然后输出结果 */
 	out->nNodes = 0;
 	out->nodeLabels = (Datum *) palloc(sizeof(Datum) * in->nTuples);
 	out->mapTuplesToNodes = (int *) palloc(sizeof(int) * in->nTuples);
@@ -435,15 +435,15 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 	int			i;
 
 	/*
-	 * Reconstruct values represented at this tuple, including parent data,
-	 * prefix of this tuple if any, and the node label if it's non-dummy.
-	 * in->level should be the length of the previously reconstructed value,
-	 * and the number of bytes added here is prefixSize or prefixSize + 1.
+	 * 重建此元组所表示的值，包括父级数据、本元组的前缀（若有），
+	 * 以及非哑的节点标签。in->level 应为先前已重建值的长度，
+	 * 此处追加的字节数为 prefixSize 或
+	 * prefixSize + 1。
 	 *
-	 * Note: we assume that in->reconstructedValue isn't toasted and doesn't
-	 * have a short varlena header.  This is okay because it must have been
-	 * created by a previous invocation of this routine, and we always emit
-	 * long-format reconstructed values.
+	 * 注意：我们假定 in->reconstructedValue 未经 toast，且没有短
+	 * varlena 头。这没问题，因为它必由本例程先前调用创建，且我们
+	 * 始终发出长格式的重建
+	 * 值。
 	 */
 	reconstructedValue = (text *) DatumGetPointer(in->reconstructedValue);
 	Assert(reconstructedValue == NULL ? in->level == 0 :
@@ -468,12 +468,12 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 		memcpy(((char *) VARDATA(reconstrText)) + in->level,
 			   VARDATA_ANY(prefixText),
 			   prefixSize);
-	/* last byte of reconstrText will be filled in below */
+	/* reconstrText 的最后一个字节将在下面填入 */
 
 	/*
-	 * Scan the child nodes.  For each one, complete the reconstructed value
-	 * and see if it's consistent with the query.  If so, emit an entry into
-	 * the output arrays.
+	 * 扫描子节点。对每个节点，补全重建值并检查是否与查询
+	 * 一致。若一致，则向输出数组
+	 * 发出一项。
 	 */
 	out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 	out->levelAdds = (int *) palloc(sizeof(int) * in->nNodes);
@@ -487,7 +487,7 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 		bool		res = true;
 		int			j;
 
-		/* If nodeChar is a dummy value, don't include it in data */
+		/* 若 nodeChar 是哑值，则不要把它纳入数据 */
 		if (nodeChar <= 0)
 			thisLen = maxReconstrLen - 1;
 		else
@@ -504,12 +504,12 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 			int			r;
 
 			/*
-			 * If it's a collation-aware operator, but the collation is C, we
-			 * can treat it as non-collation-aware.  With non-C collation we
-			 * need to traverse whole tree :-( so there's no point in making
-			 * any check here.  (Note also that our reconstructed value may
-			 * well end with a partial multibyte character, so that applying
-			 * any encoding-sensitive test to it would be risky anyhow.)
+			 * 若是排序规则感知操作符，但排序规则为 C，则可按非排序规则
+			 * 感知处理。在非 C 排序规则下需要遍历整棵树 :-( 因此这里
+			 * 做任何检查都没有意义。（另请注意，我们的重建值很可能以
+			 * 不完整的多字节字符结尾，因此对它做任何编码敏感测试
+			 * 本来就有
+			 * 风险。）
 			 */
 			if (SPG_IS_COLLATION_AWARE_STRATEGY(strategy))
 			{
@@ -552,7 +552,7 @@ spg_text_inner_consistent(PG_FUNCTION_ARGS)
 			}
 
 			if (!res)
-				break;			/* no need to consider remaining conditions */
+				break;			/* 无需再考虑其余条件 */
 		}
 
 		if (res)
@@ -582,19 +582,19 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 	bool		res;
 	int			j;
 
-	/* all tests are exact */
+	/* 所有测试都是精确的 */
 	out->recheck = false;
 
 	leafValue = DatumGetTextPP(in->leafDatum);
 
-	/* As above, in->reconstructedValue isn't toasted or short. */
+	/* 如上所述，in->reconstructedValue 未经 toast，也不是短格式。 */
 	if (DatumGetPointer(in->reconstructedValue))
 		reconstrValue = (text *) DatumGetPointer(in->reconstructedValue);
 
 	Assert(reconstrValue == NULL ? level == 0 :
 		   VARSIZE_ANY_EXHDR(reconstrValue) == level);
 
-	/* Reconstruct the full string represented by this leaf tuple */
+	/* 重建此叶子元组所表示的完整字符串 */
 	fullLen = level + VARSIZE_ANY_EXHDR(leafValue);
 	if (VARSIZE_ANY_EXHDR(leafValue) == 0 && level > 0)
 	{
@@ -615,7 +615,7 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 		out->leafValue = PointerGetDatum(fullText);
 	}
 
-	/* Perform the required comparison(s) */
+	/* 执行所需的 comparison */
 	res = true;
 	for (j = 0; j < in->nkeys; j++)
 	{
@@ -627,8 +627,8 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 		if (strategy == RTPrefixStrategyNumber)
 		{
 			/*
-			 * if level >= length of query then reconstrValue must begin with
-			 * query (prefix) string, so we don't need to check it again.
+			 * 若 level >= 查询长度，则 reconstrValue 必以查询（前缀）串开头，
+			 * 因此无需再检查。
 			 */
 			res = (level >= queryLen) ||
 				DatumGetBool(DirectFunctionCall2Coll(text_starts_with,
@@ -636,7 +636,7 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 													 out->leafValue,
 													 PointerGetDatum(query)));
 
-			if (!res)			/* no need to consider remaining conditions */
+			if (!res)			/* 无需再考虑其余条件 */
 				break;
 
 			continue;
@@ -644,10 +644,10 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 
 		if (SPG_IS_COLLATION_AWARE_STRATEGY(strategy))
 		{
-			/* Collation-aware comparison */
+			/* 排序规则感知比较 */
 			strategy -= SPG_STRATEGY_ADDITION;
 
-			/* If asserts enabled, verify encoding of reconstructed string */
+			/* 若启用断言，则校验重建字符串的编码 */
 			Assert(pg_verifymbstr(fullValue, fullLen, false));
 
 			r = varstr_cmp(fullValue, fullLen,
@@ -656,7 +656,7 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 		}
 		else
 		{
-			/* Non-collation-aware comparison */
+			/* 非排序规则感知比较 */
 			r = memcmp(fullValue, VARDATA_ANY(query), Min(queryLen, fullLen));
 
 			if (r == 0)
@@ -693,7 +693,7 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 		}
 
 		if (!res)
-			break;				/* no need to consider remaining conditions */
+			break;				/* 无需再考虑其余条件 */
 	}
 
 	PG_RETURN_BOOL(res);

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgquadtreeproc.c
- *	  implementation of quad tree over points for SP-GiST
+ *	  面向点的 SP-GiST 四叉树实现。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -30,7 +30,7 @@ spg_quad_config(PG_FUNCTION_ARGS)
 	spgConfigOut *cfg = (spgConfigOut *) PG_GETARG_POINTER(1);
 
 	cfg->prefixType = POINTOID;
-	cfg->labelType = VOIDOID;	/* we don't need node labels */
+	cfg->labelType = VOIDOID;	/* 我们不需要节点标签 */
 	cfg->canReturnData = true;
 	cfg->longValuesOK = false;
 	PG_RETURN_VOID();
@@ -40,16 +40,16 @@ spg_quad_config(PG_FUNCTION_ARGS)
 	DatumGetBool(DirectFunctionCall2(f, PointPGetDatum(x), PointPGetDatum(y)))
 
 /*
- * Determine which quadrant a point falls into, relative to the centroid.
+ * 确定点相对中心点落入哪个象限。
  *
- * Quadrants are identified like this:
+ * 象限标识如下：
  *
  *	 4	|  1
  *	----+-----
  *	 3	|  2
  *
- * Points on one of the axes are taken to lie in the lowest-numbered
- * adjacent quadrant.
+ * 落在某条轴上的点视为位于编号最小的
+ * 相邻象限中。
  */
 static int16
 getQuadrant(Point *centroid, Point *tst)
@@ -78,7 +78,7 @@ getQuadrant(Point *centroid, Point *tst)
 	return 0;
 }
 
-/* Returns bounding box of a given quadrant inside given bounding box */
+/* 返回给定边界框内指定象限的边界框 */
 static BOX *
 getQuadrantArea(BOX *bbox, Point *centroid, int quadrant)
 {
@@ -122,7 +122,7 @@ spg_quad_choose(PG_FUNCTION_ARGS)
 	if (in->allTheSame)
 	{
 		out->resultType = spgMatchNode;
-		/* nodeN will be set by core */
+		/* nodeN 将由核心设置 */
 		out->result.matchNode.levelAdd = 0;
 		out->result.matchNode.restDatum = PointPGetDatum(inPoint);
 		PG_RETURN_VOID();
@@ -174,7 +174,7 @@ spg_quad_picksplit(PG_FUNCTION_ARGS)
 	Point	   *centroid;
 
 #ifdef USE_MEDIAN
-	/* Use the median values of x and y as the centroid point */
+	/* 用 x 与 y 的中位值作为中心点 */
 	Point	  **sorted;
 
 	sorted = palloc(sizeof(*sorted) * in->nTuples);
@@ -188,7 +188,7 @@ spg_quad_picksplit(PG_FUNCTION_ARGS)
 	qsort(sorted, in->nTuples, sizeof(*sorted), y_cmp);
 	centroid->y = sorted[in->nTuples >> 1]->y;
 #else
-	/* Use the average values of x and y as the centroid point */
+	/* 用 x 与 y 的平均值作为中心点 */
 	centroid = palloc0(sizeof(*centroid));
 
 	for (i = 0; i < in->nTuples; i++)
@@ -205,7 +205,7 @@ spg_quad_picksplit(PG_FUNCTION_ARGS)
 	out->prefixDatum = PointPGetDatum(centroid);
 
 	out->nNodes = 4;
-	out->nodeLabels = NULL;		/* we don't need node labels */
+	out->nodeLabels = NULL;		/* 我们不需要节点标签 */
 
 	out->mapTuplesToNodes = palloc(sizeof(int) * in->nTuples);
 	out->leafTupleDatums = palloc(sizeof(Datum) * in->nTuples);
@@ -238,11 +238,11 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 	centroid = DatumGetPointP(in->prefixDatum);
 
 	/*
-	 * When ordering scan keys are specified, we've to calculate distance for
-	 * them.  In order to do that, we need calculate bounding boxes for all
-	 * children nodes.  Calculation of those bounding boxes on non-zero level
-	 * require knowledge of bounding box of upper node.  So, we save bounding
-	 * boxes to traversalValues.
+	 * 指定了排序扫描键时，必须为它们计算距离。
+	 * 为此需要计算全部子节点的边界框。在非零
+	 * 层次上计算这些边界框，需要知道上层节点的
+	 * 边界框。因此，我们把边界框保存到
+	 * traversalValues。
 	 */
 	if (in->norderbys > 0)
 	{
@@ -268,7 +268,7 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 
 	if (in->allTheSame)
 	{
-		/* Report that all nodes should be visited */
+		/* 报告应访问全部节点 */
 		out->nNodes = in->nNodes;
 		out->nodeNumbers = (int *) palloc(sizeof(int) * in->nNodes);
 		for (i = 0; i < in->nNodes; i++)
@@ -279,7 +279,7 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 			{
 				MemoryContext oldCtx = MemoryContextSwitchTo(in->traversalMemoryContext);
 
-				/* Use parent quadrant box as traversalValue */
+				/* 用父象限框作为 traversalValue */
 				BOX		   *quadrant = box_copy(bbox);
 
 				MemoryContextSwitchTo(oldCtx);
@@ -294,7 +294,7 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 
 	Assert(in->nNodes == 4);
 
-	/* "which" is a bitmask of quadrants that satisfy all constraints */
+	/* "which" 是满足全部约束的象限位掩码 */
 	which = (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4);
 
 	for (i = 0; i < in->nkeys; i++)
@@ -328,9 +328,9 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 			case RTContainedByStrategyNumber:
 
 				/*
-				 * For this operator, the query is a box not a point.  We
-				 * cheat to the extent of assuming that DatumGetPointP won't
-				 * do anything that would be bad for a pointer-to-box.
+				 * 对该操作符，查询是框而非点。我们
+				 * 采取一点取巧，假定 DatumGetPointP
+				 * 不会对指向框的指针做任何有害之事。
 				 */
 				boxQuery = DatumGetBoxP(in->scankeys[i].sk_argument);
 
@@ -338,11 +338,11 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 													 PointerGetDatum(boxQuery),
 													 PointerGetDatum(centroid))))
 				{
-					/* centroid is in box, so all quadrants are OK */
+					/* 中心点在框内，故全部象限均可 */
 				}
 				else
 				{
-					/* identify quadrant(s) containing all corners of box */
+					/* 识别包含框全部角点的象限 quadrant */
 					Point		p;
 					int			r = 0;
 
@@ -365,14 +365,14 @@ spg_quad_inner_consistent(PG_FUNCTION_ARGS)
 		}
 
 		if (which == 0)
-			break;				/* no need to consider remaining conditions */
+			break;				/* 无需再考虑其余条件 */
 	}
 
 	out->levelAdds = palloc(sizeof(int) * 4);
 	for (i = 0; i < 4; ++i)
 		out->levelAdds[i] = 1;
 
-	/* We must descend into the quadrant(s) identified by which */
+	/* 必须下行到 which 所标识的象限 quadrant */
 	out->nodeNumbers = (int *) palloc(sizeof(int) * 4);
 	out->nNodes = 0;
 
@@ -412,13 +412,13 @@ spg_quad_leaf_consistent(PG_FUNCTION_ARGS)
 	bool		res;
 	int			i;
 
-	/* all tests are exact */
+	/* 全部测试均为精确 */
 	out->recheck = false;
 
-	/* leafDatum is what it is... */
+	/* leafDatum 即是其值... */
 	out->leafValue = in->leafDatum;
 
-	/* Perform the required comparison(s) */
+	/* 执行所需的比较 comparison */
 	res = true;
 	for (i = 0; i < in->nkeys; i++)
 	{
@@ -446,9 +446,9 @@ spg_quad_leaf_consistent(PG_FUNCTION_ARGS)
 			case RTContainedByStrategyNumber:
 
 				/*
-				 * For this operator, the query is a box not a point.  We
-				 * cheat to the extent of assuming that DatumGetPointP won't
-				 * do anything that would be bad for a pointer-to-box.
+				 * 对该操作符，查询是框而非点。我们
+				 * 采取一点取巧，假定 DatumGetPointP
+				 * 不会对指向框的指针做任何有害之事。
 				 */
 				res = SPTEST(box_contain_pt, query, datum);
 				break;
@@ -463,7 +463,7 @@ spg_quad_leaf_consistent(PG_FUNCTION_ARGS)
 	}
 
 	if (res && in->norderbys > 0)
-		/* ok, it passes -> let's compute the distances */
+		/* 通过了 -> 接着计算距离 */
 		out->distances = spg_key_orderbys_distances(in->leafDatum, true,
 													in->orderbys, in->norderbys);
 

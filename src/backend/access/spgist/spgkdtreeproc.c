@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgkdtreeproc.c
- *	  implementation of k-d tree over points for SP-GiST
+ *	  面向点的 SP-GiST k-d 树实现。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -31,7 +31,7 @@ spg_kd_config(PG_FUNCTION_ARGS)
 	spgConfigOut *cfg = (spgConfigOut *) PG_GETARG_POINTER(1);
 
 	cfg->prefixType = FLOAT8OID;
-	cfg->labelType = VOIDOID;	/* we don't need node labels */
+	cfg->labelType = VOIDOID;	/* 我们不需要节点标签 */
 	cfg->canReturnData = true;
 	cfg->longValuesOK = false;
 	PG_RETURN_VOID();
@@ -130,19 +130,19 @@ spg_kd_picksplit(PG_FUNCTION_ARGS)
 	out->prefixDatum = Float8GetDatum(coord);
 
 	out->nNodes = 2;
-	out->nodeLabels = NULL;		/* we don't need node labels */
+	out->nodeLabels = NULL;		/* 我们不需要节点标签 */
 
 	out->mapTuplesToNodes = palloc(sizeof(int) * in->nTuples);
 	out->leafTupleDatums = palloc(sizeof(Datum) * in->nTuples);
 
 	/*
-	 * Note: points that have coordinates exactly equal to coord may get
-	 * classified into either node, depending on where they happen to fall in
-	 * the sorted list.  This is okay as long as the inner_consistent function
-	 * descends into both sides for such cases.  This is better than the
-	 * alternative of trying to have an exact boundary, because it keeps the
-	 * tree balanced even when we have many instances of the same point value.
-	 * So we should never trigger the allTheSame logic.
+	 * 注意：坐标恰好等于 coord 的点可能被归入
+	 * 任一节点，取决于它们在排序列表中碰巧落在
+	 * 哪里。只要 inner_consistent 函数对此类情形
+	 * 会下行到两侧，这就没问题。这比试图划出精
+	 * 确边界的做法更好，因为即使有许多相同点值
+	 * 的实例，也能保持树的平衡。因此我们绝不应
+	 * 该触发 allTheSame 逻辑。
 	 */
 	for (i = 0; i < in->nTuples; i++)
 	{
@@ -174,7 +174,7 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 
 	Assert(in->nNodes == 2);
 
-	/* "which" is a bitmask of children that satisfy all constraints */
+	/* "which" 是满足全部约束的子节点位掩码 */
 	which = (1 << 1) | (1 << 2);
 
 	for (i = 0; i < in->nkeys; i++)
@@ -221,9 +221,9 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 			case RTContainedByStrategyNumber:
 
 				/*
-				 * For this operator, the query is a box not a point.  We
-				 * cheat to the extent of assuming that DatumGetPointP won't
-				 * do anything that would be bad for a pointer-to-box.
+				 * 对该操作符，查询是框而非点。我们
+				 * 采取一点取巧，假定 DatumGetPointP
+				 * 不会对指向框的指针做任何有害之事。
 				 */
 				boxQuery = DatumGetBoxP(in->scankeys[i].sk_argument);
 
@@ -249,24 +249,24 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 		}
 
 		if (which == 0)
-			break;				/* no need to consider remaining conditions */
+			break;				/* 无需再考虑其余条件 */
 	}
 
-	/* We must descend into the children identified by which */
+	/* 必须下行到 which 所标识的子节点 */
 	out->nNodes = 0;
 
-	/* Fast-path for no matching children */
+	/* 无匹配子节点时的快速路径 */
 	if (!which)
 		PG_RETURN_VOID();
 
 	out->nodeNumbers = (int *) palloc(sizeof(int) * 2);
 
 	/*
-	 * When ordering scan keys are specified, we've to calculate distance for
-	 * them.  In order to do that, we need calculate bounding boxes for both
-	 * children nodes.  Calculation of those bounding boxes on non-zero level
-	 * require knowledge of bounding box of upper node.  So, we save bounding
-	 * boxes to traversalValues.
+	 * 指定了排序扫描键时，必须为它们计算距离。
+	 * 为此需要计算两个子节点的边界框。在非零
+	 * 层次上计算这些边界框，需要知道上层节点的
+	 * 边界框。因此，我们把边界框保存到
+	 * traversalValues。
 	 */
 	if (in->norderbys > 0)
 	{
@@ -297,14 +297,14 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 
 		if (in->level % 2)
 		{
-			/* split box by x */
+			/* 按 x 分裂框 */
 			bboxes[0].high.x = bboxes[1].low.x = coord;
 			bboxes[0].high.y = area->high.y;
 			bboxes[1].low.y = area->low.y;
 		}
 		else
 		{
-			/* split box by y */
+			/* 按 y 分裂框 */
 			bboxes[0].high.y = bboxes[1].low.y = coord;
 			bboxes[0].high.x = area->high.x;
 			bboxes[1].low.x = area->low.x;
@@ -334,7 +334,7 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Set up level increments, too */
+	/* 同时设置层次增量 */
 	out->levelAdds = (int *) palloc(sizeof(int) * 2);
 	out->levelAdds[0] = 1;
 	out->levelAdds[1] = 1;
@@ -343,7 +343,7 @@ spg_kd_inner_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * spg_kd_leaf_consistent() is the same as spg_quad_leaf_consistent(),
- * since we support the same operators and the same leaf data type.
- * So we just borrow that function.
+ * spg_kd_leaf_consistent() 与 spg_quad_leaf_consistent() 相同，
+ * 因为我们支持相同的操作符和相同的叶子数据类型。
+ * 因此直接借用该函数。
  */

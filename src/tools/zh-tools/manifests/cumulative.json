@@ -3225,6 +3225,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0203b-comment-access-transam-part15-fix.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "note": "top-level transaction system"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0204-comment-access-transam-part16.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -11674,7 +11684,30 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "union includes this batch"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 630,
+   "translated": 585,
+   "preserved": 45,
+   "preserved_reasons": [
+    "translator: marker (11)",
+    "identifier-only function-name banners and WAL/backward labels (34)"
+   ],
+   "note": "transaction system; Copyright and path lines kept in English within header; translator comments preserved; no fall-through prose segment"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0204-comment-access-transam-part16.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放)."
+ "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16)."
 }

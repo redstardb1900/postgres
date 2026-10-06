@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gist.c
- *	  interface routines for the postgres GiST index access method.
+ *	  postgres GiST 索引访问方法的接口例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -28,7 +28,7 @@
 #include "utils/memutils.h"
 #include "utils/rel.h"
 
-/* non-export function prototypes */
+/* 非导出函数原型 */
 static void gistfixsplit(GISTInsertState *state, GISTSTATE *giststate);
 static bool gistinserttuple(GISTInsertState *state, GISTInsertStack *stack,
 							GISTSTATE *giststate, IndexTuple tuple, OffsetNumber oldoffnum);
@@ -53,8 +53,8 @@ static void gistprunepage(Relation rel, Page page, Buffer buffer,
 
 
 /*
- * GiST handler function: return IndexAmRoutine with access method parameters
- * and callbacks.
+ * GiST 处理函数：返回带有访问方法参数与回调的
+ * IndexAmRoutine。
  */
 Datum
 gisthandler(PG_FUNCTION_ARGS)
@@ -110,12 +110,12 @@ gisthandler(PG_FUNCTION_ARGS)
 }
 
 /*
- * Create and return a temporary memory context for use by GiST. We
- * _always_ invoke user-provided methods in a temporary memory
- * context, so that memory leaks in those functions cannot cause
- * problems. Also, we use some additional temporary contexts in the
- * GiST code itself, to avoid the need to do some awkward manual
- * memory management.
+ * 创建并返回供 GiST 使用的临时内存上下文。我们
+ * _always_ 在临时内存上下文中调用用户提供的方法，
+ * 以免那些函数中的内存泄漏造成问题。此外，
+ * GiST 代码自身也使用一些额外的临时上下文，
+ * 以避免需要做一些别扭的手工
+ * 内存管理。
  */
 MemoryContext
 createTempGistContext(void)
@@ -126,33 +126,33 @@ createTempGistContext(void)
 }
 
 /*
- *	gistbuildempty() -- build an empty gist index in the initialization fork
+ *	gistbuildempty() -- 在初始化分支中构建一个空的 gist 索引
  */
 void
 gistbuildempty(Relation index)
 {
 	Buffer		buffer;
 
-	/* Initialize the root page */
+	/* 初始化根页 */
 	buffer = ExtendBufferedRel(BMR_REL(index), INIT_FORKNUM, NULL,
 							   EB_SKIP_EXTENSION_LOCK | EB_LOCK_FIRST);
 
-	/* Initialize and xlog buffer */
+	/* 初始化缓冲区并写入 WAL */
 	START_CRIT_SECTION();
 	GISTInitBuffer(buffer, F_LEAF);
 	MarkBufferDirty(buffer);
 	log_newpage_buffer(buffer, true);
 	END_CRIT_SECTION();
 
-	/* Unlock and release the buffer */
+	/* 解锁并释放缓冲区 */
 	UnlockReleaseBuffer(buffer);
 }
 
 /*
- *	gistinsert -- wrapper for GiST tuple insertion.
+ *	gistinsert -- GiST 元组插入的包装。
  *
- *	  This is the public interface routine for tuple insertion in GiSTs.
- *	  It doesn't do any work; just locks the relation and passes the buck.
+ *	  这是在 GiSTs 中做元组插入的公开接口例程。
+ *	  它本身不做工作；只是锁住关系并把活转出去。
  */
 bool
 gistinsert(Relation r, Datum *values, bool *isnull,
@@ -165,7 +165,7 @@ gistinsert(Relation r, Datum *values, bool *isnull,
 	IndexTuple	itup;
 	MemoryContext oldCxt;
 
-	/* Initialize GISTSTATE cache if first call in this statement */
+	/* 若本语句中首次调用则初始化 GISTSTATE 缓存 */
 	if (giststate == NULL)
 	{
 		oldCxt = MemoryContextSwitchTo(indexInfo->ii_Context);
@@ -178,12 +178,12 @@ gistinsert(Relation r, Datum *values, bool *isnull,
 	oldCxt = MemoryContextSwitchTo(giststate->tempCxt);
 
 	itup = gistFormTuple(giststate, r,
-						 values, isnull, true /* size is currently bogus */ );
+						 values, isnull, true /* 当前大小是假的 */ );
 	itup->t_tid = *ht_ctid;
 
 	gistdoinsert(r, itup, 0, giststate, heapRel, false);
 
-	/* cleanup */
+	/* 清理 */
 	MemoryContextSwitchTo(oldCxt);
 	MemoryContextReset(giststate->tempCxt);
 
@@ -192,33 +192,33 @@ gistinsert(Relation r, Datum *values, bool *isnull,
 
 
 /*
- * Place tuples from 'itup' to 'buffer'. If 'oldoffnum' is valid, the tuple
- * at that offset is atomically removed along with inserting the new tuples.
- * This is used to replace a tuple with a new one.
+ * 把 'itup' 中的元组放到 'buffer'。若 'oldoffnum' 有效，则该 tuple
+ * 在插入新元组的同时被原子地移除。
+ * 这用于用新元组替换旧元组。
  *
- * If 'leftchildbuf' is valid, we're inserting the downlink for the page
- * to the right of 'leftchildbuf', or updating the downlink for 'leftchildbuf'.
- * F_FOLLOW_RIGHT flag on 'leftchildbuf' is cleared and NSN is set.
+ * 若 'leftchildbuf' 有效，我们正在为 'leftchildbuf' 右侧的页
+ * 插入下行指针，或更新 'leftchildbuf' 的下行指针。
+ * 'leftchildbuf' 上的 F_FOLLOW_RIGHT 标志被清除，并设置 NSN。
  *
- * If 'markfollowright' is true and the page is split, the left child is
- * marked with F_FOLLOW_RIGHT flag. That is the normal case. During buffered
- * index build, however, there is no concurrent access and the page splitting
- * is done in a slightly simpler fashion, and false is passed.
+ * 若 'markfollowright' 为真且页发生分裂，则左子页被
+ * 标上 F_FOLLOW_RIGHT 标志。这是常规情况。但在缓冲式
+ * 索引构建期间没有并发访问，页分裂做法略简，
+ * 因此传入 false。
  *
- * If there is not enough room on the page, it is split. All the split
- * pages are kept pinned and locked and returned in *splitinfo, the caller
- * is responsible for inserting the downlinks for them. However, if
- * 'buffer' is the root page and it needs to be split, gistplacetopage()
- * performs the split as one atomic operation, and *splitinfo is set to NIL.
- * In that case, we continue to hold the root page locked, and the child
- * pages are released; note that new tuple(s) are *not* on the root page
- * but in one of the new child pages.
+ * 若页上空间不足则分裂。所有分裂出的页保持
+ * 钉住并加锁，经 *splitinfo 返回，由调用者负责为它们
+ * 插入下行指针。但若 'buffer' 是根页且需要分裂，
+ * gistplacetopage() 把分裂作为一次原子操作完成，
+ * 并把 *splitinfo 设为 NIL。此时我们继续持有根页锁，
+ * 并释放子页；注意新元组并不在根页上，
+ * 而在某个新的子页中。
  *
- * If 'newblkno' is not NULL, returns the block number of page the first
- * new/updated tuple was inserted to. Usually it's the given page, but could
- * be its right sibling if the page was split.
+ * 若 'newblkno' 非 NULL，返回第一个新/更新元组被插入到的
+ * 页的块号。通常是给定页，但若页分裂了也可能
+ * 是其右兄弟。
  *
- * Returns 'true' if the page was split, 'false' otherwise.
+ * 若页发生分裂返回 'true'，否则
+ * 返回 'false'。
  */
 bool
 gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
@@ -238,37 +238,37 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 	bool		is_split;
 
 	/*
-	 * Refuse to modify a page that's incompletely split. This should not
-	 * happen because we finish any incomplete splits while we walk down the
-	 * tree. However, it's remotely possible that another concurrent inserter
-	 * splits a parent page, and errors out before completing the split. We
-	 * will just throw an error in that case, and leave any split we had in
-	 * progress unfinished too. The next insert that comes along will clean up
-	 * the mess.
+	 * 拒绝修改尚未完成分裂的页。这本不该
+	 * 发生，因为我们沿树下行时会完成任何未完成的
+	 * 分裂。不过，另一并发插入者有可能分裂了
+	 * 父页后在完成分裂前出错。那种情况下我们
+	 * 只抛错，并让我们自己进行中的任何分裂也保持
+	 * 未完成。随后到来的下一次插入会清理
+	 * 残局。
 	 */
 	if (GistFollowRight(page))
 		elog(ERROR, "concurrent GiST page split was incomplete");
 
-	/* should never try to insert to a deleted page */
+	/* 绝不应尝试向已删除的页插入 */
 	Assert(!GistPageIsDeleted(page));
 
 	*splitinfo = NIL;
 
 	/*
-	 * if isupdate, remove old key: This node's key has been modified, either
-	 * because a child split occurred or because we needed to adjust our key
-	 * for an insert in a child node. Therefore, remove the old version of
-	 * this node's key.
+	 * 若是更新，移除旧键：本节点的键已被修改，或因
+	 * 子页发生分裂，或因需要为子节点中的插入
+	 * 调整我们的键。因此，移除本节点键的
+	 * 旧版本。
 	 *
-	 * for WAL replay, in the non-split case we handle this by setting up a
-	 * one-element todelete array; in the split case, it's handled implicitly
-	 * because the tuple vector passed to gistSplit won't include this tuple.
+	 * 对 WAL 重放，在非分裂情形我们通过设置一个
+	 * 单元素 todelete 数组来处理；在分裂情形则隐式处理，
+	 * 因为传给 gistSplit 的元组向量不会包含该元组。
 	 */
 	is_split = gistnospace(page, itup, ntup, oldoffnum, freespace);
 
 	/*
-	 * If leaf page is full, try at first to delete dead tuples. And then
-	 * check again.
+	 * 若叶子页已满，先尝试删除死元组。然后再
+	 * 检查一次。
 	 */
 	if (is_split && GistPageIsLeaf(page) && GistPageHasGarbage(page))
 	{
@@ -278,7 +278,7 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 
 	if (is_split)
 	{
-		/* no space for insertion */
+		/* 没有插入空间 */
 		IndexTuple *itvec;
 		int			tlen;
 		SplitedPageLayout *dist = NULL,
@@ -292,13 +292,13 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		is_rootsplit = (blkno == GIST_ROOT_BLKNO);
 
 		/*
-		 * Form index tuples vector to split. If we're replacing an old tuple,
-		 * remove the old version from the vector.
+		 * 形成用于分裂的索引元组向量。若我们在替换旧元组，
+		 * 从向量中移除旧版本。
 		 */
 		itvec = gistextractpage(page, &tlen);
 		if (OffsetNumberIsValid(oldoffnum))
 		{
-			/* on inner page we should remove old tuple */
+			/* 在内部页上我们应移除旧元组 */
 			int			pos = oldoffnum - FirstOffsetNumber;
 
 			tlen--;
@@ -309,12 +309,12 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		dist = gistSplit(rel, page, itvec, tlen, giststate);
 
 		/*
-		 * Check that split didn't produce too many pages.
+		 * 检查分裂没有产生过多页。
 		 */
 		npage = 0;
 		for (ptr = dist; ptr; ptr = ptr->next)
 			npage++;
-		/* in a root split, we'll add one more page to the list below */
+		/* 根分裂时，下面还会向列表再加一页 */
 		if (is_rootsplit)
 			npage++;
 		if (npage > GIST_MAX_SPLIT_PAGES)
@@ -322,18 +322,18 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 				 npage, GIST_MAX_SPLIT_PAGES);
 
 		/*
-		 * Set up pages to work with. Allocate new buffers for all but the
-		 * leftmost page. The original page becomes the new leftmost page, and
-		 * is just replaced with the new contents.
+		 * 准备要操作的页。除最左页外为所有页分配
+		 * 新缓冲区。原页成为新的最左页，并
+		 * 直接替换为新内容。
 		 *
-		 * For a root-split, allocate new buffers for all child pages, the
-		 * original page is overwritten with new root page containing
-		 * downlinks to the new child pages.
+		 * 对根分裂，为所有子页分配新缓冲区，
+		 * 原页被覆写为包含指向新子页下行指针的
+		 * 新根页。
 		 */
 		ptr = dist;
 		if (!is_rootsplit)
 		{
-			/* save old rightlink and NSN */
+			/* 保存旧右链接与 NSN */
 			oldrlink = GistPageGetOpaque(page)->rightlink;
 			oldnsn = GistPageGetNSN(page);
 
@@ -341,14 +341,14 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 			dist->block.blkno = BufferGetBlockNumber(buffer);
 			dist->page = PageGetTempPageCopySpecial(BufferGetPage(buffer));
 
-			/* clean all flags except F_LEAF */
+			/* 清除除 F_LEAF 外的全部标志 */
 			GistPageGetOpaque(dist->page)->flags = (is_leaf) ? F_LEAF : 0;
 
 			ptr = ptr->next;
 		}
 		for (; ptr; ptr = ptr->next)
 		{
-			/* Allocate new page */
+			/* 分配新页 */
 			ptr->buffer = gistNewBuffer(rel, heapRel);
 			GISTInitBuffer(ptr->buffer, (is_leaf) ? F_LEAF : 0);
 			ptr->page = BufferGetPage(ptr->buffer);
@@ -359,8 +359,8 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		}
 
 		/*
-		 * Now that we know which blocks the new pages go to, set up downlink
-		 * tuples to point to them.
+		 * 既然已知新页所在的块，设置下行指针
+		 * 元组指向它们。
 		 */
 		for (ptr = dist; ptr; ptr = ptr->next)
 		{
@@ -369,9 +369,9 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		}
 
 		/*
-		 * If this is a root split, we construct the new root page with the
-		 * downlinks here directly, instead of requiring the caller to insert
-		 * them. Add the new root page to the list along with the child pages.
+		 * 若这是根分裂，我们在此直接用下行指针构造
+		 * 新根页，而不要求调用者插入它们。
+		 * 把新根页连同子页一起加入列表。
 		 */
 		if (is_rootsplit)
 		{
@@ -383,7 +383,7 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 			rootpg.page = PageGetTempPageCopySpecial(BufferGetPage(rootpg.buffer));
 			GistPageGetOpaque(rootpg.page)->flags = 0;
 
-			/* Prepare a vector of all the downlinks */
+			/* 准备全部下行指针的向量 */
 			for (ptr = dist; ptr; ptr = ptr->next)
 				ndownlinks++;
 			downlinks = palloc(sizeof(IndexTuple) * ndownlinks);
@@ -401,7 +401,7 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		}
 		else
 		{
-			/* Prepare split-info to be returned to caller */
+			/* 准备要返回给调用者的分裂信息 */
 			for (ptr = dist; ptr; ptr = ptr->next)
 			{
 				GISTPageSplitInfo *si = palloc(sizeof(GISTPageSplitInfo));
@@ -413,8 +413,8 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		}
 
 		/*
-		 * Fill all pages. All the pages are new, ie. freshly allocated empty
-		 * pages, or a temporary copy of the old page.
+		 * 填充全部页。所有页都是新的，即刚分配的空
+		 * 页，或旧页的临时副本。
 		 */
 		for (ptr = dist; ptr; ptr = ptr->next)
 		{
@@ -428,8 +428,8 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 					elog(ERROR, "failed to add item to index page in \"%s\"", RelationGetRelationName(rel));
 
 				/*
-				 * If this is the first inserted/updated tuple, let the caller
-				 * know which page it landed on.
+				 * 若这是第一个插入/更新的元组，让调用者
+				 * 知道它落在哪一页。
 				 */
 				if (newblkno && ItemPointerEquals(&thistup->t_tid, &(*itup)->t_tid))
 					*newblkno = ptr->block.blkno;
@@ -437,7 +437,7 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 				data += IndexTupleSize(thistup);
 			}
 
-			/* Set up rightlinks */
+			/* 设置右链接 */
 			if (ptr->next && ptr->block.blkno != GIST_ROOT_BLKNO)
 				GistPageGetOpaque(ptr->page)->rightlink =
 					ptr->next->block.blkno;
@@ -445,12 +445,12 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 				GistPageGetOpaque(ptr->page)->rightlink = oldrlink;
 
 			/*
-			 * Mark the all but the right-most page with the follow-right
-			 * flag. It will be cleared as soon as the downlink is inserted
-			 * into the parent, but this ensures that if we error out before
-			 * that, the index is still consistent. (in buffering build mode,
-			 * any error will abort the index build anyway, so this is not
-			 * needed.)
+			 * 给除最右页外的全部页标上 follow-right
+			 * 标志。下行指针一插入父就会清除，
+			 * 但这确保若我们在那之前出错，索引仍
+			 * 保持一致。（在缓冲构建模式下，任何错误都会
+			 * 中止索引构建，因此不需要
+			 * 这样做。）
 			 */
 			if (ptr->next && !is_rootsplit && markfollowright)
 				GistMarkFollowRight(ptr->page);
@@ -458,17 +458,17 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 				GistClearFollowRight(ptr->page);
 
 			/*
-			 * Copy the NSN of the original page to all pages. The
-			 * F_FOLLOW_RIGHT flags ensure that scans will follow the
-			 * rightlinks until the downlinks are inserted.
+			 * 把原页的 NSN 复制到全部页。
+			 * F_FOLLOW_RIGHT 标志确保扫描会跟随
+			 * 右链接，直到下行指针被插入。
 			 */
 			GistPageSetNSN(ptr->page, oldnsn);
 		}
 
 		/*
-		 * gistXLogSplit() needs to WAL log a lot of pages, prepare WAL
-		 * insertion for that. NB: The number of pages and data segments
-		 * specified here must match the calculations in gistXLogSplit()!
+		 * gistXLogSplit() 需要为很多页写 WAL，为此
+		 * 准备 WAL 插入。注意：这里指定的页数与数据段数
+		 * 必须与 gistXLogSplit() 中的计算一致！
 		 */
 		if (!is_build && RelationNeedsWAL(rel))
 			XLogEnsureRecordSpace(npage, 1 + npage * 2);
@@ -476,8 +476,8 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 		START_CRIT_SECTION();
 
 		/*
-		 * Must mark buffers dirty before XLogInsert, even though we'll still
-		 * be changing their opaque fields below.
+		 * 必须在 XLogInsert 之前把缓冲区标脏，尽管我们下面
+		 * 仍会改动它们的 opaque 字段。
 		 */
 		for (ptr = dist; ptr; ptr = ptr->next)
 			MarkBufferDirty(ptr->buffer);
@@ -485,21 +485,21 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 			MarkBufferDirty(leftchildbuf);
 
 		/*
-		 * The first page in the chain was a temporary working copy meant to
-		 * replace the old page. Copy it over the old page.
+		 * 链中第一页是用于替换旧页的临时工作副本。
+		 * 把它复制到旧页上。
 		 */
 		PageRestoreTempPage(dist->page, BufferGetPage(dist->buffer));
 		dist->page = BufferGetPage(dist->buffer);
 
 		/*
-		 * Write the WAL record.
+		 * 写 WAL 记录。
 		 *
-		 * If we're building a new index, however, we don't WAL-log changes
-		 * yet. The LSN-NSN interlock between parent and child requires that
-		 * LSNs never move backwards, so set the LSNs to a value that's
-		 * smaller than any real or fake unlogged LSN that might be generated
-		 * later. (There can't be any concurrent scans during index build, so
-		 * we don't need to be able to detect concurrent splits yet.)
+		 * 但若我们正在构建新索引，则还不把变更写入
+		 * WAL。父与子之间的 LSN-NSN 互锁需要
+		 * LSNs 永不回退，因此把 LSNs 设为小于任何日后可能
+		 * 生成的真实或伪造未日志化 LSN 的值。（索引构建
+		 * 期间不可能有并发扫描，因此还不需要
+		 * 能检测并发分裂。）
 		 */
 		if (is_build)
 			recptr = GistBuildLSN;
@@ -517,11 +517,11 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 			PageSetLSN(ptr->page, recptr);
 
 		/*
-		 * Return the new child buffers to the caller.
+		 * 把新的子缓冲区返回给调用者。
 		 *
-		 * If this was a root split, we've already inserted the downlink
-		 * pointers, in the form of a new root page. Therefore we can release
-		 * all the new buffers, and keep just the root page locked.
+		 * 若这是根分裂，我们已以新根页的形式
+		 * 插入了下行指针。因此可以释放
+		 * 全部新缓冲区，只保持根页加锁。
 		 */
 		if (is_rootsplit)
 		{
@@ -532,19 +532,19 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 	else
 	{
 		/*
-		 * Enough space.  We always get here if ntup==0.
+		 * 空间足够。若 ntup==0 则总会走到这里。
 		 */
 		START_CRIT_SECTION();
 
 		/*
-		 * Delete old tuple if any, then insert new tuple(s) if any.  If
-		 * possible, use the fast path of PageIndexTupleOverwrite.
+		 * 若有则删除旧 tuple，然后若有则插入新 tuple(s)。
+		 * 若可能，使用 PageIndexTupleOverwrite 快路径。
 		 */
 		if (OffsetNumberIsValid(oldoffnum))
 		{
 			if (ntup == 1)
 			{
-				/* One-for-one replacement, so use PageIndexTupleOverwrite */
+				/* 一对一替换，因此使用 PageIndexTupleOverwrite */
 				if (!PageIndexTupleOverwrite(page, oldoffnum, (Item) *itup,
 											 IndexTupleSize(*itup)))
 					elog(ERROR, "failed to add item to index page in \"%s\"",
@@ -552,14 +552,14 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 			}
 			else
 			{
-				/* Delete old, then append new tuple(s) to page */
+				/* 删除旧的，然后把新 tuple(s) 追加到页 */
 				PageIndexTupleDelete(page, oldoffnum);
 				gistfillbuffer(page, itup, ntup, InvalidOffsetNumber);
 			}
 		}
 		else
 		{
-			/* Just append new tuples at the end of the page */
+			/* 只把新元组追加到页末 */
 			gistfillbuffer(page, itup, ntup, InvalidOffsetNumber);
 		}
 
@@ -597,17 +597,17 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 	}
 
 	/*
-	 * If we inserted the downlink for a child page, set NSN and clear
-	 * F_FOLLOW_RIGHT flag on the left child, so that concurrent scans know to
-	 * follow the rightlink if and only if they looked at the parent page
-	 * before we inserted the downlink.
+	 * 若我们为子页插入了下行指针，则在左子页上
+	 * 设置 NSN 并清除 F_FOLLOW_RIGHT 标志，使并发扫描
+	 * 知道：当且仅当它们在我们插入下行指针之前
+	 * 看过父页时，才应跟随右链接。
 	 *
-	 * Note that we do this *after* writing the WAL record. That means that
-	 * the possible full page image in the WAL record does not include these
-	 * changes, and they must be replayed even if the page is restored from
-	 * the full page image. There's a chicken-and-egg problem: if we updated
-	 * the child pages first, we wouldn't know the recptr of the WAL record
-	 * we're about to write.
+	 * 注意我们是在写 WAL 记录*之后*做这些的。这意味着
+	 * WAL 记录中可能的整页映像不包含这些
+	 * 变更，即便页从整页映像恢复也必须重放它们。
+	 * 这有先有鸡还是先有蛋的问题：若我们先更新
+	 * 子页，就还不知道即将写入的 WAL 记录的
+	 * recptr。
 	 */
 	if (BufferIsValid(leftchildbuf))
 	{
@@ -625,9 +625,9 @@ gistplacetopage(Relation rel, Size freespace, GISTSTATE *giststate,
 }
 
 /*
- * Workhouse routine for doing insertion into a GiST index. Note that
- * this routine assumes it is invoked in a short-lived memory context,
- * so it does not bother releasing palloc'd allocations.
+ * 实际完成向 GiST 索引插入的例程。注意
+ * 本例程假定在短生命周期的内存上下文中调用，
+ * 因此不费心释放 palloc 的分配。
  */
 void
 gistdoinsert(Relation r, IndexTuple itup, Size freespace,
@@ -646,7 +646,7 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 	state.heapRel = heapRel;
 	state.is_build = is_build;
 
-	/* Start from the root */
+	/* 从根开始 */
 	firststack.blkno = GIST_ROOT_BLKNO;
 	firststack.lsn = 0;
 	firststack.retry_from_parent = false;
@@ -655,18 +655,18 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 	state.stack = stack = &firststack;
 
 	/*
-	 * Walk down along the path of smallest penalty, updating the parent
-	 * pointers with the key we're inserting as we go. If we crash in the
-	 * middle, the tree is consistent, although the possible parent updates
-	 * were a waste.
+	 * 沿罚分最小的路径下行，边走边用我们正在
+	 * 插入的键更新父指针。若中途崩溃，
+	 * 树仍一致，尽管可能的父
+	 * 更新白做了。
 	 */
 	for (;;)
 	{
 		/*
-		 * If we split an internal page while descending the tree, we have to
-		 * retry at the parent. (Normally, the LSN-NSN interlock below would
-		 * also catch this and cause us to retry. But LSNs are not updated
-		 * during index build.)
+		 * 若下行树时分裂了内部页，必须
+		 * 在父处重试。（通常下面的 LSN-NSN 互锁也会
+		 * 捕获这一点并导致重试。但索引构建期间
+		 * 不更新 LSNs。）
 		 */
 		while (stack->retry_from_parent)
 		{
@@ -681,8 +681,8 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 			stack->buffer = ReadBuffer(state.r, stack->blkno);
 
 		/*
-		 * Be optimistic and grab shared lock first. Swap it for an exclusive
-		 * lock later if we need to update the page.
+		 * 先乐观地取共享锁。若之后需要更新该页，
+		 * 再换成排他锁。
 		 */
 		if (!xlocked)
 		{
@@ -696,9 +696,9 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 		Assert(!RelationNeedsWAL(state.r) || !XLogRecPtrIsInvalid(stack->lsn));
 
 		/*
-		 * If this page was split but the downlink was never inserted to the
-		 * parent because the inserting backend crashed before doing that, fix
-		 * that now.
+		 * 若此页已分裂但因插入后端在插入前崩溃
+		 * 而未把下行指针插入父，现在
+		 * 修复它。
 		 */
 		if (GistFollowRight(stack->page))
 		{
@@ -707,7 +707,7 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 				LockBuffer(stack->buffer, GIST_UNLOCK);
 				LockBuffer(stack->buffer, GIST_EXCLUSIVE);
 				xlocked = true;
-				/* someone might've completed the split when we unlocked */
+				/* 我们解锁时可能已有人完成了分裂 */
 				if (!GistFollowRight(stack->page))
 					continue;
 			}
@@ -724,10 +724,10 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 			GistPageIsDeleted(stack->page))
 		{
 			/*
-			 * Concurrent split or page deletion detected. There's no
-			 * guarantee that the downlink for this page is consistent with
-			 * the tuple we're inserting anymore, so go back to parent and
-			 * rechoose the best child.
+			 * 检测到并发分裂或页删除。不再能
+			 * 保证此页的下行指针仍与我们正在插入的
+			 * 元组一致，因此回到父并
+			 * 重新选择最佳子页。
 			 */
 			UnlockReleaseBuffer(stack->buffer);
 			xlocked = false;
@@ -738,8 +738,8 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 		if (!GistPageIsLeaf(stack->page))
 		{
 			/*
-			 * This is an internal page so continue to walk down the tree.
-			 * Find the child node that has the minimum insertion penalty.
+			 * 这是内部页，因此继续沿树下行。
+			 * 找到插入罚分最小的子节点。
 			 */
 			BlockNumber childblkno;
 			IndexTuple	newtup;
@@ -752,7 +752,7 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 			childblkno = ItemPointerGetBlockNumber(&(idxtuple->t_tid));
 
 			/*
-			 * Check that it's not a leftover invalid tuple from pre-9.1
+			 * 检查这不是 9.1 之前残留的无效元组
 			 */
 			if (GistTupleIsInvalid(idxtuple))
 				ereport(ERROR,
@@ -762,15 +762,15 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 						 errhint("Please REINDEX it.")));
 
 			/*
-			 * Check that the key representing the target child node is
-			 * consistent with the key we're inserting. Update it if it's not.
+			 * 检查代表目标子节点的键是否与我们正在
+			 * 插入的键一致。若不一致则更新它。
 			 */
 			newtup = gistgetadjusted(state.r, idxtuple, itup, giststate);
 			if (newtup)
 			{
 				/*
-				 * Swap shared lock for an exclusive one. Beware, the page may
-				 * change while we unlock/lock the page...
+				 * 把共享锁换成排他锁。当心，我们解锁/加锁
+				 * 期间页可能变化……
 				 */
 				if (!xlocked)
 				{
@@ -781,29 +781,29 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 
 					if (PageGetLSN(stack->page) != stack->lsn)
 					{
-						/* the page was changed while we unlocked it, retry */
+						/* 解锁期间页已变更，重试 */
 						continue;
 					}
 				}
 
 				/*
-				 * Update the tuple.
+				 * 更新该元组。
 				 *
-				 * We still hold the lock after gistinserttuple(), but it
-				 * might have to split the page to make the updated tuple fit.
-				 * In that case the updated tuple might migrate to the other
-				 * half of the split, so we have to go back to the parent and
-				 * descend back to the half that's a better fit for the new
-				 * tuple.
+				 * gistinserttuple() 返回后我们仍持有锁，但它
+				 * 可能不得不分裂页以使更新后的元组
+				 * 能放下。那时更新后的元组可能迁到
+				 * 分裂的另一半，因此必须回到父，
+				 * 再下行到对新元组更合适的
+				 * 那一半。
 				 */
 				if (gistinserttuple(&state, stack, giststate, newtup,
 									downlinkoffnum))
 				{
 					/*
-					 * If this was a root split, the root page continues to be
-					 * the parent and the updated tuple went to one of the
-					 * child pages, so we just need to retry from the root
-					 * page.
+					 * 若这是根分裂，根页继续作为
+					 * 父，更新后的元组去了某个子页，
+					 * 因此只需从根
+					 * 页重试。
 					 */
 					if (stack->blkno != GIST_ROOT_BLKNO)
 					{
@@ -817,7 +817,7 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 			LockBuffer(stack->buffer, GIST_UNLOCK);
 			xlocked = false;
 
-			/* descend to the chosen child */
+			/* 下行到所选子页 */
 			item = (GISTInsertStack *) palloc0(sizeof(GISTInsertStack));
 			item->blkno = childblkno;
 			item->parent = stack;
@@ -827,14 +827,14 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 		else
 		{
 			/*
-			 * Leaf page. Insert the new key. We've already updated all the
-			 * parents on the way down, but we might have to split the page if
-			 * it doesn't fit. gistinserttuple() will take care of that.
+			 * 叶子页。插入新键。下行途中我们已更新全部
+			 * 父，但若放不下可能还要分裂该页。
+			 * gistinserttuple() 会处理。
 			 */
 
 			/*
-			 * Swap shared lock for an exclusive one. Be careful, the page may
-			 * change while we unlock/lock the page...
+			 * 把共享锁换成排他锁。小心，解锁/加锁
+			 * 期间页可能变化……
 			 */
 			if (!xlocked)
 			{
@@ -847,14 +847,14 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 				if (stack->blkno == GIST_ROOT_BLKNO)
 				{
 					/*
-					 * the only page that can become inner instead of leaf is
-					 * the root page, so for root we should recheck it
+					 * 唯一能从叶子变成内部页的
+					 * 是根页，因此对根应再检查一次
 					 */
 					if (!GistPageIsLeaf(stack->page))
 					{
 						/*
-						 * very rare situation: during unlock/lock index with
-						 * number of pages = 1 was increased
+						 * 极少见情况：解锁/加锁期间页数为 1 的
+						 * 索引增大了
 						 */
 						LockBuffer(stack->buffer, GIST_UNLOCK);
 						xlocked = false;
@@ -862,8 +862,8 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 					}
 
 					/*
-					 * we don't need to check root split, because checking
-					 * leaf/inner is enough to recognize split for root
+					 * 我们不必检查根分裂，因为检查
+					 * 叶子/内部就足以识别根的分裂
 					 */
 				}
 				else if ((GistFollowRight(stack->page) ||
@@ -871,8 +871,8 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 						 GistPageIsDeleted(stack->page))
 				{
 					/*
-					 * The page was split or deleted while we momentarily
-					 * unlocked the page. Go back to parent.
+					 * 我们短暂解锁期间页被分裂或
+					 * 删除。回到父。
 					 */
 					UnlockReleaseBuffer(stack->buffer);
 					xlocked = false;
@@ -881,13 +881,13 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 				}
 			}
 
-			/* now state.stack->(page, buffer and blkno) points to leaf page */
+			/* 现在 state.stack->(page, buffer and blkno) 指向叶子页 */
 
 			gistinserttuple(&state, stack, giststate, itup,
 							InvalidOffsetNumber);
 			LockBuffer(stack->buffer, GIST_UNLOCK);
 
-			/* Release any pins we might still hold before exiting */
+			/* 退出前释放我们可能仍持有的任何钉住 */
 			for (; stack; stack = stack->parent)
 				ReleaseBuffer(stack->buffer);
 			break;
@@ -896,13 +896,13 @@ gistdoinsert(Relation r, IndexTuple itup, Size freespace,
 }
 
 /*
- * Traverse the tree to find path from root page to specified "child" block.
+ * 遍历树，找到从根页到指定 "child" 块的路径。
  *
- * returns a new insertion stack, starting from the parent of "child", up
- * to the root. *downlinkoffnum is set to the offset of the downlink in the
- * direct parent of child.
+ * 返回新的插入栈，从 "child" 的父开始，向上
+ * 直到根。*downlinkoffnum 设为 child 的直接父中
+ * 下行指针的偏移。
  *
- * To prevent deadlocks, this should lock only one page at a time.
+ * 为防止死锁，这里一次只应锁一页。
  */
 static GISTInsertStack *
 gistFindPath(Relation r, BlockNumber child, OffsetNumber *downlinkoffnum)
@@ -925,7 +925,7 @@ gistFindPath(Relation r, BlockNumber child, OffsetNumber *downlinkoffnum)
 	fifo = list_make1(top);
 	while (fifo != NIL)
 	{
-		/* Get next page to visit */
+		/* 取下一要访问的页 */
 		top = linitial(fifo);
 		fifo = list_delete_first(fifo);
 
@@ -937,38 +937,38 @@ gistFindPath(Relation r, BlockNumber child, OffsetNumber *downlinkoffnum)
 		if (GistPageIsLeaf(page))
 		{
 			/*
-			 * Because we scan the index top-down, all the rest of the pages
-			 * in the queue must be leaf pages as well.
+			 * 因为我们自顶向下扫描索引，队列中其余页
+			 * 也必定都是叶子页。
 			 */
 			UnlockReleaseBuffer(buffer);
 			break;
 		}
 
-		/* currently, internal pages are never deleted */
+		/* 目前，内部页从不会被删除 */
 		Assert(!GistPageIsDeleted(page));
 
 		top->lsn = BufferGetLSNAtomic(buffer);
 
 		/*
-		 * If F_FOLLOW_RIGHT is set, the page to the right doesn't have a
-		 * downlink. This should not normally happen..
+		 * 若设置了 F_FOLLOW_RIGHT，右侧页没有
+		 * 下行指针。这通常不应发生……
 		 */
 		if (GistFollowRight(page))
 			elog(ERROR, "concurrent GiST page split was incomplete");
 
 		if (top->parent && top->parent->lsn < GistPageGetNSN(page) &&
-			GistPageGetOpaque(page)->rightlink != InvalidBlockNumber /* sanity check */ )
+			GistPageGetOpaque(page)->rightlink != InvalidBlockNumber /* 健全性检查 */ )
 		{
 			/*
-			 * Page was split while we looked elsewhere. We didn't see the
-			 * downlink to the right page when we scanned the parent, so add
-			 * it to the queue now.
+			 * 我们看别处时页发生了分裂。扫描父时
+			 * 没看到指向右页的下行指针，因此现在
+			 * 把它加入队列。
 			 *
-			 * Put the right page ahead of the queue, so that we visit it
-			 * next. That's important, because if this is the lowest internal
-			 * level, just above leaves, we might already have queued up some
-			 * leaf pages, and we assume that there can't be any non-leaf
-			 * pages behind leaf pages.
+			 * 把右页放到队列前面，以便接下来
+			 * 访问它。这很重要，因为若这是紧挨叶子之上的
+			 * 最低内部层，我们可能已排队了一些
+			 * 叶子页，并假定叶子页后面不能有
+			 * 非叶子页。
 			 */
 			ptr = (GISTInsertStack *) palloc0(sizeof(GISTInsertStack));
 			ptr->blkno = GistPageGetOpaque(page)->rightlink;
@@ -987,14 +987,14 @@ gistFindPath(Relation r, BlockNumber child, OffsetNumber *downlinkoffnum)
 			blkno = ItemPointerGetBlockNumber(&(idxtuple->t_tid));
 			if (blkno == child)
 			{
-				/* Found it! */
+				/* 找到了！ */
 				UnlockReleaseBuffer(buffer);
 				*downlinkoffnum = i;
 				return top;
 			}
 			else
 			{
-				/* Append this child to the list of pages to visit later */
+				/* 把此子页追加到稍后要访问的页列表 */
 				ptr = (GISTInsertStack *) palloc0(sizeof(GISTInsertStack));
 				ptr->blkno = blkno;
 				ptr->downlinkoffnum = i;
@@ -1009,13 +1009,13 @@ gistFindPath(Relation r, BlockNumber child, OffsetNumber *downlinkoffnum)
 
 	elog(ERROR, "failed to re-find parent of a page in index \"%s\", block %u",
 		 RelationGetRelationName(r), child);
-	return NULL;				/* keep compiler quiet */
+	return NULL;				/* 让编译器安静 */
 }
 
 /*
- * Updates the stack so that child->parent is the correct parent of the
- * child. child->parent must be exclusively locked on entry, and will
- * remain so at exit, but it might not be the same page anymore.
+ * 更新栈，使 child->parent 成为 child 的正确父。
+ * 进入时 child->parent 必须已排他锁定，退出时
+ * 仍如此，但可能已不再是同一页。
  */
 static void
 gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
@@ -1030,36 +1030,36 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 	parent->page = (Page) BufferGetPage(parent->buffer);
 	maxoff = PageGetMaxOffsetNumber(parent->page);
 
-	/* Check if the downlink is still where it was before */
+	/* 检查下行指针是否仍在原先位置 */
 	if (child->downlinkoffnum != InvalidOffsetNumber && child->downlinkoffnum <= maxoff)
 	{
 		iid = PageGetItemId(parent->page, child->downlinkoffnum);
 		idxtuple = (IndexTuple) PageGetItem(parent->page, iid);
 		if (ItemPointerGetBlockNumber(&(idxtuple->t_tid)) == child->blkno)
-			return;				/* still there */
+			return;				/* 仍在那里 */
 	}
 
 	/*
-	 * The page has changed since we looked. During normal operation, every
-	 * update of a page changes its LSN, so the LSN we memorized should have
-	 * changed too.
+	 * 自我们查看以来该页已变更。正常运行时，页的
+	 * 每次更新都会改变其 LSN，因此我们记下的 LSN
+	 * 也应已改变。
 	 *
-	 * During index build, however, we don't WAL-log the changes until we have
-	 * built the index, so the LSN doesn't change. There is no concurrent
-	 * activity during index build, but we might have changed the parent
-	 * ourselves.
+	 * 但在索引构建期间，我们直到建完索引才 WAL 记录
+	 * 变更，因此 LSN 不变。索引构建期间没有并发
+	 * 活动，但我们自己可能已改过父。
 	 *
-	 * We will also get here if child->downlinkoffnum is invalid. That happens
-	 * if 'parent' had been updated by an earlier call to this function on its
-	 * grandchild, which had to move right.
+	 * 若 child->downlinkoffnum 无效也会到这里。那发生在
+	 * 更早对本函数的调用更新了 'parent'（针对其
+	 * 孙），而该调用不得不
+	 * 右移时。
 	 */
 	Assert(parent->lsn != PageGetLSN(parent->page) || is_build ||
 		   child->downlinkoffnum == InvalidOffsetNumber);
 
 	/*
-	 * Scan the page to re-find the downlink. If the page was split, it might
-	 * have moved to a different page, so follow the right links until we find
-	 * it.
+	 * 扫描该页以重新找到下行指针。若页曾分裂，它可能
+	 * 已移到不同页，因此跟随右链接直到找到
+	 * 它。
 	 */
 	while (true)
 	{
@@ -1072,7 +1072,7 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 			idxtuple = (IndexTuple) PageGetItem(parent->page, iid);
 			if (ItemPointerGetBlockNumber(&(idxtuple->t_tid)) == child->blkno)
 			{
-				/* yes!!, found */
+				/* 是的！！，找到了 */
 				child->downlinkoffnum = i;
 				return;
 			}
@@ -1084,8 +1084,8 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 		if (parent->blkno == InvalidBlockNumber)
 		{
 			/*
-			 * End of chain and still didn't find parent. It's a very-very
-			 * rare situation when root splitted.
+			 * 链已结束仍未找到父。这是根分裂时
+			 * 极少见的情况。
 			 */
 			break;
 		}
@@ -1096,22 +1096,22 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 	}
 
 	/*
-	 * awful!!, we need search tree to find parent ... , but before we should
-	 * release all old parent
+	 * 糟糕！！，我们需要搜索树来找父……，但在此之前应
+	 * 释放全部旧父
 	 */
 
-	ptr = child->parent->parent;	/* child->parent already released above */
+	ptr = child->parent->parent;	/* child->parent 已在上面释放 */
 	while (ptr)
 	{
 		ReleaseBuffer(ptr->buffer);
 		ptr = ptr->parent;
 	}
 
-	/* ok, find new path */
+	/* 好，找新路径 */
 	ptr = parent = gistFindPath(r, child->blkno, &child->downlinkoffnum);
 
-	/* read all buffers as expected by caller */
-	/* note we don't lock them or gistcheckpage them here! */
+	/* 按调用者所预期读取全部缓冲区 */
+	/* 注意这里不加锁，也不对它们做 gistcheckpage！ */
 	while (ptr)
 	{
 		ptr->buffer = ReadBuffer(r, ptr->blkno);
@@ -1119,16 +1119,16 @@ gistFindCorrectParent(Relation r, GISTInsertStack *child, bool is_build)
 		ptr = ptr->parent;
 	}
 
-	/* install new chain of parents to stack */
+	/* 把新的父链安装到栈上 */
 	child->parent = parent;
 
-	/* make recursive call to normal processing */
+	/* 递归调用以进行正常处理 */
 	LockBuffer(child->parent->buffer, GIST_EXCLUSIVE);
 	gistFindCorrectParent(r, child, is_build);
 }
 
 /*
- * Form a downlink pointer for the page in 'buf'.
+ * 为 'buf' 中的页形成下行指针。
  */
 static IndexTuple
 gistformdownlink(Relation rel, Buffer buf, GISTSTATE *giststate,
@@ -1159,14 +1159,14 @@ gistformdownlink(Relation rel, Buffer buf, GISTSTATE *giststate,
 	}
 
 	/*
-	 * If the page is completely empty, we can't form a meaningful downlink
-	 * for it. But we have to insert a downlink for the page. Any key will do,
-	 * as long as its consistent with the downlink of parent page, so that we
-	 * can legally insert it to the parent. A minimal one that matches as few
-	 * scans as possible would be best, to keep scans from doing useless work,
-	 * but we don't know how to construct that. So we just use the downlink of
-	 * the original page that was split - that's as far from optimal as it can
-	 * get but will do..
+	 * 若页完全为空，无法为其形成有意义的下行指针。
+	 * 但我们必须为该页插入下行指针。任何键都可以，
+	 * 只要与父页的下行指针一致，以便能合法
+	 * 插入父。能匹配尽可能少扫描的最小键最好，
+	 * 以免扫描做无用功，但我们不知道如何构造它。
+	 * 因此只用被分裂的原页的下行指针——那离
+	 * 最优尽可能远，但
+	 * 够用……
 	 */
 	if (!downlink)
 	{
@@ -1188,7 +1188,7 @@ gistformdownlink(Relation rel, Buffer buf, GISTSTATE *giststate,
 
 
 /*
- * Complete the incomplete split of state->stack->page.
+ * 完成 state->stack->page 上未完成的分裂。
  */
 static void
 gistfixsplit(GISTInsertState *state, GISTSTATE *giststate)
@@ -1208,8 +1208,8 @@ gistfixsplit(GISTInsertState *state, GISTSTATE *giststate)
 	buf = stack->buffer;
 
 	/*
-	 * Read the chain of split pages, following the rightlinks. Construct a
-	 * downlink tuple for each page.
+	 * 跟随右链接读取分裂页链。为每页
+	 * 构造下行指针元组。
 	 */
 	for (;;)
 	{
@@ -1218,7 +1218,7 @@ gistfixsplit(GISTInsertState *state, GISTSTATE *giststate)
 
 		page = BufferGetPage(buf);
 
-		/* Form the new downlink tuples to insert to parent */
+		/* 形成要插入父的新下行指针元组 */
 		downlink = gistformdownlink(state->r, buf, giststate, stack, state->is_build);
 
 		si->buf = buf;
@@ -1228,7 +1228,7 @@ gistfixsplit(GISTInsertState *state, GISTSTATE *giststate)
 
 		if (GistFollowRight(page))
 		{
-			/* lock next page */
+			/* 锁定下一页 */
 			buf = ReadBuffer(state->r, GistPageGetOpaque(page)->rightlink);
 			LockBuffer(buf, GIST_EXCLUSIVE);
 		}
@@ -1236,19 +1236,19 @@ gistfixsplit(GISTInsertState *state, GISTSTATE *giststate)
 			break;
 	}
 
-	/* Insert the downlinks */
+	/* 插入下行指针 */
 	gistfinishsplit(state, stack, giststate, splitinfo, false);
 }
 
 /*
- * Insert or replace a tuple in stack->buffer. If 'oldoffnum' is valid, the
- * tuple at 'oldoffnum' is replaced, otherwise the tuple is inserted as new.
- * 'stack' represents the path from the root to the page being updated.
+ * 在 stack->buffer 中插入或替换元组。若 'oldoffnum' 有效，则
+ * 替换 'oldoffnum' 处的元组，否则作为新元组插入。
+ * 'stack' 表示从根到正在更新的页的路径。
  *
- * The caller must hold an exclusive lock on stack->buffer.  The lock is still
- * held on return, but the page might not contain the inserted tuple if the
- * page was split. The function returns true if the page was split, false
- * otherwise.
+ * 调用者必须持有 stack->buffer 上的排他锁。返回时锁仍
+ * 持有，但若页已分裂则页上可能不含所插入的元组。
+ * 若页发生分裂函数返回 true，否则
+ * 返回 false。
  */
 static bool
 gistinserttuple(GISTInsertState *state, GISTInsertStack *stack,
@@ -1259,30 +1259,30 @@ gistinserttuple(GISTInsertState *state, GISTInsertStack *stack,
 }
 
 /* ----------------
- * An extended workhorse version of gistinserttuple(). This version allows
- * inserting multiple tuples, or replacing a single tuple with multiple tuples.
- * This is used to recursively update the downlinks in the parent when a page
- * is split.
+ * gistinserttuple() 的扩展主力版本。此版本允许
+ * 插入多个元组，或用多个元组替换单个元组。
+ * 这用于页分裂时递归更新父中的
+ * 下行指针。
  *
- * If leftchild and rightchild are valid, we're inserting/replacing the
- * downlink for rightchild, and leftchild is its left sibling. We clear the
- * F_FOLLOW_RIGHT flag and update NSN on leftchild, atomically with the
- * insertion of the downlink.
+ * 若 leftchild 与 rightchild 有效，我们正在为 rightchild
+ * 插入/替换下行指针，且 leftchild 是其左兄弟。我们
+ * 清除 F_FOLLOW_RIGHT 标志并更新 leftchild 上的 NSN，与
+ * 下行指针的插入原子地一起完成。
  *
- * To avoid holding locks for longer than necessary, when recursing up the
- * tree to update the parents, the locking is a bit peculiar here. On entry,
- * the caller must hold an exclusive lock on stack->buffer, as well as
- * leftchild and rightchild if given. On return:
+ * 为避免持锁过久，在向上递归更新父时，
+ * 这里的加锁方式有点特别。进入时，
+ * 调用者必须持有 stack->buffer 上的排他锁，以及
+ * 若给定则还有 leftchild 与 rightchild。返回时：
  *
- *	- Lock on stack->buffer is released, if 'unlockbuf' is true. The page is
- *	  always kept pinned, however.
- *	- Lock on 'leftchild' is released, if 'unlockleftchild' is true. The page
- *	  is kept pinned.
- *	- Lock and pin on 'rightchild' are always released.
+ *	- 若 'unlockbuf' 为真，释放 stack->buffer 上的锁。但页
+ *	  始终保持钉住。
+ *	- 若 'unlockleftchild' 为真，释放 'leftchild' 上的锁。页
+ *	  保持钉住。
+ *	- 'rightchild' 上的锁与钉住总是被释放。
  *
- * Returns 'true' if the page had to be split. Note that if the page was
- * split, the inserted/updated tuples might've been inserted to a right
- * sibling of stack->buffer instead of stack->buffer itself.
+ * 若页不得不分裂则返回 'true'。注意若页
+ * 分裂了，插入/更新的元组可能被插入到
+ * stack->buffer 的右兄弟而不是 stack->buffer 本身。
  */
 static bool
 gistinserttuples(GISTInsertState *state, GISTInsertStack *stack,
@@ -1295,12 +1295,12 @@ gistinserttuples(GISTInsertState *state, GISTInsertStack *stack,
 	bool		is_split;
 
 	/*
-	 * Check for any rw conflicts (in serializable isolation level) just
-	 * before we intend to modify the page
+	 * 就在我们打算修改该页之前，检查是否有任何
+	 * rw 冲突（在可串行化隔离级别）
 	 */
 	CheckForSerializableConflictIn(state->r, NULL, BufferGetBlockNumber(stack->buffer));
 
-	/* Insert the tuple(s) to the page, splitting the page if necessary */
+	/* 把 tuple(s) 插入页，必要时分裂该页 */
 	is_split = gistplacetopage(state->r, state->freespace, giststate,
 							   stack->buffer,
 							   tuples, ntup,
@@ -1312,9 +1312,9 @@ gistinserttuples(GISTInsertState *state, GISTInsertStack *stack,
 							   state->is_build);
 
 	/*
-	 * Before recursing up in case the page was split, release locks on the
-	 * child pages. We don't need to keep them locked when updating the
-	 * parent.
+	 * 若页已分裂、在向上递归之前，释放
+	 * 子页上的锁。更新父时不必继续
+	 * 锁住它们。
 	 */
 	if (BufferIsValid(rightchild))
 		UnlockReleaseBuffer(rightchild);
@@ -1322,10 +1322,10 @@ gistinserttuples(GISTInsertState *state, GISTInsertStack *stack,
 		LockBuffer(leftchild, GIST_UNLOCK);
 
 	/*
-	 * If we had to split, insert/update the downlinks in the parent. If the
-	 * caller requested us to release the lock on stack->buffer, tell
-	 * gistfinishsplit() to do that as soon as it's safe to do so. If we
-	 * didn't have to split, release it ourselves.
+	 * 若不得不分裂，在父中插入/更新下行指针。若
+	 * 调用者要求我们释放 stack->buffer 上的锁，告诉
+	 * gistfinishsplit() 一旦安全就那样做。若我们
+	 * 不必分裂，则自己释放。
 	 */
 	if (splitinfo)
 		gistfinishsplit(state, stack, giststate, splitinfo, unlockbuf);
@@ -1336,13 +1336,13 @@ gistinserttuples(GISTInsertState *state, GISTInsertStack *stack,
 }
 
 /*
- * Finish an incomplete split by inserting/updating the downlinks in parent
- * page. 'splitinfo' contains all the child pages involved in the split,
- * from left-to-right.
+ * 通过在父页中插入/更新下行指针来完成未完成的分裂。
+ * 'splitinfo' 包含分裂涉及的全部子页，
+ * 从左到右。
  *
- * On entry, the caller must hold a lock on stack->buffer and all the child
- * pages in 'splitinfo'. If 'unlockbuf' is true, the lock on stack->buffer is
- * released on return. The child pages are always unlocked and unpinned.
+ * 进入时，调用者必须持有 stack->buffer 与 'splitinfo' 中全部
+ * 子页上的锁。若 'unlockbuf' 为真，返回时释放
+ * stack->buffer 上的锁。子页总是被解锁并取消钉住。
  */
 static void
 gistfinishsplit(GISTInsertState *state, GISTInsertStack *stack,
@@ -1352,21 +1352,21 @@ gistfinishsplit(GISTInsertState *state, GISTInsertStack *stack,
 	GISTPageSplitInfo *left;
 	IndexTuple	tuples[2];
 
-	/* A split always contains at least two halves */
+	/* 分裂总是至少包含两半 */
 	Assert(list_length(splitinfo) >= 2);
 
 	/*
-	 * We need to insert downlinks for each new page, and update the downlink
-	 * for the original (leftmost) page in the split. Begin at the rightmost
-	 * page, inserting one downlink at a time until there's only two pages
-	 * left. Finally insert the downlink for the last new page and update the
-	 * downlink for the original page as one operation.
+	 * 我们需要为每个新页插入下行指针，并更新分裂中
+	 * 原（最左）页的下行指针。从最右页开始，
+	 * 一次插入一个下行指针，直到只剩两页。
+	 * 最后把最后一个新页的下行指针插入与更新
+	 * 原页下行指针作为一次操作完成。
 	 */
 	LockBuffer(stack->parent->buffer, GIST_EXCLUSIVE);
 
 	/*
-	 * Insert downlinks for the siblings from right to left, until there are
-	 * only two siblings left.
+	 * 从右到左为兄弟插入下行指针，直到只剩
+	 * 两个兄弟。
 	 */
 	for (int pos = list_length(splitinfo) - 1; pos > 1; pos--)
 	{
@@ -1380,21 +1380,21 @@ gistfinishsplit(GISTInsertState *state, GISTInsertStack *stack,
 							 left->buf, right->buf, false, false))
 		{
 			/*
-			 * If the parent page was split, the existing downlink might have
-			 * moved.
+			 * 若父页已分裂，现有下行指针可能已
+			 * 移动。
 			 */
 			stack->downlinkoffnum = InvalidOffsetNumber;
 		}
-		/* gistinserttuples() released the lock on right->buf. */
+		/* gistinserttuples() 已释放 right->buf 上的锁。 */
 	}
 
 	right = (GISTPageSplitInfo *) lsecond(splitinfo);
 	left = (GISTPageSplitInfo *) linitial(splitinfo);
 
 	/*
-	 * Finally insert downlink for the remaining right page and update the
-	 * downlink for the original page to not contain the tuples that were
-	 * moved to the new pages.
+	 * 最后为剩余的右页插入下行指针，并更新
+	 * 原页的下行指针，使之不再包含被移到
+	 * 新页的那些元组。
 	 */
 	tuples[0] = left->downlink;
 	tuples[1] = right->downlink;
@@ -1403,47 +1403,47 @@ gistfinishsplit(GISTInsertState *state, GISTInsertStack *stack,
 							tuples, 2,
 							stack->downlinkoffnum,
 							left->buf, right->buf,
-							true,	/* Unlock parent */
-							unlockbuf	/* Unlock stack->buffer if caller
-										 * wants that */
+							true,	/* 解锁父 */
+							unlockbuf	/* 若调用者希望则解锁
+										 * stack->buffer */
 		);
 
 	/*
-	 * The downlink might have moved when we updated it. Even if the page
-	 * wasn't split, because gistinserttuples() implements updating the old
-	 * tuple by removing and re-inserting it!
+	 * 我们更新时下行指针可能已移动。即便页
+	 * 未分裂也如此，因为 gistinserttuples() 通过删除再
+	 * 重新插入来实现更新旧元组！
 	 */
 	stack->downlinkoffnum = InvalidOffsetNumber;
 
 	Assert(left->buf == stack->buffer);
 
 	/*
-	 * If we split the page because we had to adjust the downlink on an
-	 * internal page, while descending the tree for inserting a new tuple,
-	 * then this might no longer be the correct page for the new tuple. The
-	 * downlink to this page might not cover the new tuple anymore, it might
-	 * need to go to the newly-created right sibling instead. Tell the caller
-	 * to walk back up the stack, to re-check at the parent which page to
-	 * insert to.
+	 * 若我们因在为插入新元组而下行树时不得不调整
+	 * 内部页上的下行指针而分裂了该页，
+	 * 则此页可能已不再是新元组的正确页。指向
+	 * 此页的下行指针可能已不再覆盖新元组，它可能
+	 * 需要去到新创建的右兄弟。告诉调用者
+	 * 沿栈走回，在父处重新检查应插入
+	 * 哪一页。
 	 *
-	 * Normally, the LSN-NSN interlock during the tree descend would also
-	 * detect that a concurrent split happened (by ourselves), and cause us to
-	 * retry at the parent. But that mechanism doesn't work during index
-	 * build, because we don't do WAL-logging, and don't update LSNs, during
-	 * index build.
+	 * 通常，树下行期间的 LSN-NSN 互锁也会
+	 * 检测到发生了（由我们自己的）并发分裂，并导致我们
+	 * 在父处重试。但该机制在索引构建期间
+	 * 不起作用，因为我们不写 WAL，也不更新
+	 * LSNs。
 	 */
 	stack->retry_from_parent = true;
 }
 
 /*
- * gistSplit -- split a page in the tree and fill struct
- * used for XLOG and real writes buffers. Function is recursive, ie
- * it will split page until keys will fit in every page.
+ * gistSplit -- 分裂树中的一页并填充用于
+ * XLOG 与实际写缓冲区的结构。函数是递归的，即
+ * 会一直分裂，直到键能装进每一页。
  */
 SplitedPageLayout *
 gistSplit(Relation r,
 		  Page page,
-		  IndexTuple *itup,		/* contains compressed entry */
+		  IndexTuple *itup,		/* 包含压缩后的项 */
 		  int len,
 		  GISTSTATE *giststate)
 {
@@ -1453,15 +1453,15 @@ gistSplit(Relation r,
 	int			i;
 	SplitedPageLayout *res = NULL;
 
-	/* this should never recurse very deeply, but better safe than sorry */
+	/* 这绝不该递归很深，但宁可谨慎 */
 	check_stack_depth();
 
-	/* there's no point in splitting an empty page */
+	/* 分裂空页没有意义 */
 	Assert(len > 0);
 
 	/*
-	 * If a single tuple doesn't fit on a page, no amount of splitting will
-	 * help.
+	 * 若单个元组都装不进一页，再怎么分裂也
+	 * 无济于事。
 	 */
 	if (len == 1)
 		ereport(ERROR,
@@ -1476,7 +1476,7 @@ gistSplit(Relation r,
 		   sizeof(bool) * giststate->nonLeafTupdesc->natts);
 	gistSplitByKey(r, page, itup, len, giststate, &v, 0);
 
-	/* form left and right vector */
+	/* 形成左、右向量 */
 	lvectup = (IndexTuple *) palloc(sizeof(IndexTuple) * (len + 1));
 	rvectup = (IndexTuple *) palloc(sizeof(IndexTuple) * (len + 1));
 
@@ -1486,7 +1486,7 @@ gistSplit(Relation r,
 	for (i = 0; i < v.splitVector.spl_nright; i++)
 		rvectup[i] = itup[v.splitVector.spl_right[i] - 1];
 
-	/* finalize splitting (may need another split) */
+	/* 完成分裂（可能还需要再分裂） */
 	if (!gistfitpage(rvectup, v.splitVector.spl_nright))
 	{
 		res = gistSplit(r, page, rvectup, v.splitVector.spl_nright, giststate);
@@ -1506,7 +1506,7 @@ gistSplit(Relation r,
 
 		resptr = subres = gistSplit(r, page, lvectup, v.splitVector.spl_nleft, giststate);
 
-		/* install on list's tail */
+		/* 安装到列表尾 */
 		while (resptr->next)
 			resptr = resptr->next;
 
@@ -1525,7 +1525,7 @@ gistSplit(Relation r,
 }
 
 /*
- * Create a GISTSTATE and fill it with information about the index
+ * 创建 GISTSTATE 并用关于索引的信息填充它
  */
 GISTSTATE *
 initGISTstate(Relation index)
@@ -1535,33 +1535,33 @@ initGISTstate(Relation index)
 	MemoryContext oldCxt;
 	int			i;
 
-	/* safety check to protect fixed-size arrays in GISTSTATE */
+	/* 保护 GISTSTATE 中定长数组的安全检查 */
 	if (index->rd_att->natts > INDEX_MAX_KEYS)
 		elog(ERROR, "numberOfAttributes %d > %d",
 			 index->rd_att->natts, INDEX_MAX_KEYS);
 
-	/* Create the memory context that will hold the GISTSTATE */
+	/* 创建将持有 GISTSTATE 的内存上下文 */
 	scanCxt = AllocSetContextCreate(CurrentMemoryContext,
 									"GiST scan context",
 									ALLOCSET_DEFAULT_SIZES);
 	oldCxt = MemoryContextSwitchTo(scanCxt);
 
-	/* Create and fill in the GISTSTATE */
+	/* 创建并填充 GISTSTATE */
 	giststate = (GISTSTATE *) palloc(sizeof(GISTSTATE));
 
 	giststate->scanCxt = scanCxt;
-	giststate->tempCxt = scanCxt;	/* caller must change this if needed */
+	giststate->tempCxt = scanCxt;	/* 若需要调用者必须更改此项 */
 	giststate->leafTupdesc = index->rd_att;
 
 	/*
-	 * The truncated tupdesc for non-leaf index tuples, which doesn't contain
-	 * the INCLUDE attributes.
+	 * 非叶子索引元组的截断 tupdesc，其中不包含
+	 * INCLUDE 属性。
 	 *
-	 * It is used to form tuples during tuple adjustment and page split.
-	 * B-tree creates shortened tuple descriptor for every truncated tuple,
-	 * because it is doing this less often: it does not have to form truncated
-	 * tuples during page split.  Also, B-tree is not adjusting tuples on
-	 * internal pages the way GiST does.
+	 * 用于在元组调整与页分裂期间形成元组。
+	 * B-tree 为每个截断元组创建缩短的元组描述符，
+	 * 因为它做得较少：页分裂时不必形成截断
+	 * 元组。另外，B-tree 也不像 GiST 那样在
+	 * 内部页上调整元组。
 	 */
 	giststate->nonLeafTupdesc = CreateTupleDescCopyConstr(index->rd_att);
 	giststate->nonLeafTupdesc->natts =
@@ -1576,7 +1576,7 @@ initGISTstate(Relation index)
 					   index_getprocinfo(index, i + 1, GIST_UNION_PROC),
 					   scanCxt);
 
-		/* opclasses are not required to provide a Compress method */
+		/* 操作符类不必提供 Compress 方法 */
 		if (OidIsValid(index_getprocid(index, i + 1, GIST_COMPRESS_PROC)))
 			fmgr_info_copy(&(giststate->compressFn[i]),
 						   index_getprocinfo(index, i + 1, GIST_COMPRESS_PROC),
@@ -1584,7 +1584,7 @@ initGISTstate(Relation index)
 		else
 			giststate->compressFn[i].fn_oid = InvalidOid;
 
-		/* opclasses are not required to provide a Decompress method */
+		/* 操作符类不必提供 Decompress 方法 */
 		if (OidIsValid(index_getprocid(index, i + 1, GIST_DECOMPRESS_PROC)))
 			fmgr_info_copy(&(giststate->decompressFn[i]),
 						   index_getprocinfo(index, i + 1, GIST_DECOMPRESS_PROC),
@@ -1602,7 +1602,7 @@ initGISTstate(Relation index)
 					   index_getprocinfo(index, i + 1, GIST_EQUAL_PROC),
 					   scanCxt);
 
-		/* opclasses are not required to provide a Distance method */
+		/* 操作符类不必提供 Distance 方法 */
 		if (OidIsValid(index_getprocid(index, i + 1, GIST_DISTANCE_PROC)))
 			fmgr_info_copy(&(giststate->distanceFn[i]),
 						   index_getprocinfo(index, i + 1, GIST_DISTANCE_PROC),
@@ -1610,7 +1610,7 @@ initGISTstate(Relation index)
 		else
 			giststate->distanceFn[i].fn_oid = InvalidOid;
 
-		/* opclasses are not required to provide a Fetch method */
+		/* 操作符类不必提供 Fetch 方法 */
 		if (OidIsValid(index_getprocid(index, i + 1, GIST_FETCH_PROC)))
 			fmgr_info_copy(&(giststate->fetchFn[i]),
 						   index_getprocinfo(index, i + 1, GIST_FETCH_PROC),
@@ -1619,15 +1619,15 @@ initGISTstate(Relation index)
 			giststate->fetchFn[i].fn_oid = InvalidOid;
 
 		/*
-		 * If the index column has a specified collation, we should honor that
-		 * while doing comparisons.  However, we may have a collatable storage
-		 * type for a noncollatable indexed data type.  If there's no index
-		 * collation then specify default collation in case the support
-		 * functions need collation.  This is harmless if the support
-		 * functions don't care about collation, so we just do it
-		 * unconditionally.  (We could alternatively call get_typcollation,
-		 * but that seems like expensive overkill --- there aren't going to be
-		 * any cases where a GiST storage type has a nondefault collation.)
+		 * 若索引列指定了排序规则，做比较时应
+		 * 遵守它。不过，我们可能对不可排序的被索引
+		 * 数据类型有可排序的存储类型。若没有索引
+		 * 排序规则，则指定默认排序规则，以防支持
+		 * 函数需要排序规则。若支持函数不关心
+		 * 排序规则这无害，因此我们无条件地
+		 * 这样做。（也可以调用 get_typcollation，
+		 * 但那似乎是昂贵的过度做法——不会有
+		 * GiST 存储类型带非默认排序规则的情形。）
 		 */
 		if (OidIsValid(index->rd_indcollation[i]))
 			giststate->supportCollation[i] = index->rd_indcollation[i];
@@ -1635,7 +1635,7 @@ initGISTstate(Relation index)
 			giststate->supportCollation[i] = DEFAULT_COLLATION_OID;
 	}
 
-	/* No opclass information for INCLUDE attributes */
+	/* INCLUDE 属性没有操作符类信息 */
 	for (; i < index->rd_att->natts; i++)
 	{
 		giststate->consistentFn[i].fn_oid = InvalidOid;
@@ -1658,13 +1658,13 @@ initGISTstate(Relation index)
 void
 freeGISTstate(GISTSTATE *giststate)
 {
-	/* It's sufficient to delete the scanCxt */
+	/* 删除 scanCxt 就足够了 */
 	MemoryContextDelete(giststate->scanCxt);
 }
 
 /*
- * gistprunepage() -- try to remove LP_DEAD items from the given page.
- * Function assumes that buffer is exclusively locked.
+ * gistprunepage() -- 尝试从给定页移除 LP_DEAD 项。
+ * 函数假定缓冲区已排他锁定。
  */
 static void
 gistprunepage(Relation rel, Page page, Buffer buffer, Relation heapRel)
@@ -1677,8 +1677,8 @@ gistprunepage(Relation rel, Page page, Buffer buffer, Relation heapRel)
 	Assert(GistPageIsLeaf(page));
 
 	/*
-	 * Scan over all items to see which ones need to be deleted according to
-	 * LP_DEAD flags.
+	 * 扫描全部项，看根据 LP_DEAD 标志哪些需要
+	 * 删除。
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
 	for (offnum = FirstOffsetNumber;
@@ -1705,17 +1705,17 @@ gistprunepage(Relation rel, Page page, Buffer buffer, Relation heapRel)
 		PageIndexMultiDelete(page, deletable, ndeletable);
 
 		/*
-		 * Mark the page as not containing any LP_DEAD items.  This is not
-		 * certainly true (there might be some that have recently been marked,
-		 * but weren't included in our target-item list), but it will almost
-		 * always be true and it doesn't seem worth an additional page scan to
-		 * check it. Remember that F_HAS_GARBAGE is only a hint anyway.
+		 * 把该页标记为不含任何 LP_DEAD 项。这不一定
+		 * 为真（可能有些刚被标记、但未包含在我们的
+		 * 目标项列表中），但几乎总是为真，似乎不值得
+		 * 再扫一页来检查。记住 F_HAS_GARBAGE 反正
+		 * 只是提示。
 		 */
 		GistClearPageHasGarbage(page);
 
 		MarkBufferDirty(buffer);
 
-		/* XLOG stuff */
+		/* XLOG 相关 */
 		if (RelationNeedsWAL(rel))
 		{
 			XLogRecPtr	recptr;
@@ -1734,9 +1734,9 @@ gistprunepage(Relation rel, Page page, Buffer buffer, Relation heapRel)
 	}
 
 	/*
-	 * Note: if we didn't find any LP_DEAD items, then the page's
-	 * F_HAS_GARBAGE hint bit is falsely set.  We do not bother expending a
-	 * separate write to clear it, however.  We will clear it when we split
-	 * the page.
+	 * 注意：若未找到任何 LP_DEAD 项，则该页的
+	 * F_HAS_GARBAGE 提示位被错误地置位。不过我们不费心
+	 * 单独写一次来清除它。我们会在分裂该页时
+	 * 清除它。
 	 */
 }

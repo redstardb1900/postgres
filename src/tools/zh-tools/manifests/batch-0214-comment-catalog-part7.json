@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "batch_id": "0214-comment-catalog-part7",
+  "title": "zh: translate catalog comments (part 7)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "667c9da0a1c97928d3b6b30282beaac33304713c",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "note": "inter-object dependency deletion and expression refs"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0214-comment-catalog-part7.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 292,
+      "translated": 235,
+      "preserved": 57,
+      "preserved_reasons": [
+        "fallthrough marker",
+        "OCLASS identifier labels",
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "inter-object dependency helpers; 16 fall-through comments and 41 OCLASS_* labels kept in English; NOTES translated; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0214-comment-catalog-part7.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0214 translates comments in src/backend/catalog/dependency.c (catalog part 7). Sixteen fall-through comments and OCLASS_* identifier labels stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: heap.c."
+}

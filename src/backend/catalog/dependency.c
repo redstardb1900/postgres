@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * dependency.c
- *	  Routines to support inter-object dependencies.
+ *	  支持对象间依赖的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -89,64 +89,64 @@
 
 
 /*
- * Deletion processing requires additional state for each ObjectAddress that
- * it's planning to delete.  For simplicity and code-sharing we make the
- * ObjectAddresses code support arrays with or without this extra state.
+ * 删除处理需要为每个计划删除的 ObjectAddress 保存额外状态。
+ * 为简单并便于代码共享，我们让 ObjectAddresses 同时支持
+ * 带或不带该额外状态的数组。
  */
 typedef struct
 {
-	int			flags;			/* bitmask, see bit definitions below */
-	ObjectAddress dependee;		/* object whose deletion forced this one */
+	int			flags;			/* 位掩码，见下方的位定义 */
+	ObjectAddress dependee;		/* 其删除迫使删除本对象的那个对象 */
 } ObjectAddressExtra;
 
-/* ObjectAddressExtra flag bits */
-#define DEPFLAG_ORIGINAL	0x0001	/* an original deletion target */
-#define DEPFLAG_NORMAL		0x0002	/* reached via normal dependency */
-#define DEPFLAG_AUTO		0x0004	/* reached via auto dependency */
-#define DEPFLAG_INTERNAL	0x0008	/* reached via internal dependency */
-#define DEPFLAG_PARTITION	0x0010	/* reached via partition dependency */
-#define DEPFLAG_EXTENSION	0x0020	/* reached via extension dependency */
-#define DEPFLAG_REVERSE		0x0040	/* reverse internal/extension link */
-#define DEPFLAG_IS_PART		0x0080	/* has a partition dependency */
-#define DEPFLAG_SUBOBJECT	0x0100	/* subobject of another deletable object */
+/* ObjectAddressExtra 标志位 */
+#define DEPFLAG_ORIGINAL	0x0001	/* 原始删除目标 */
+#define DEPFLAG_NORMAL		0x0002	/* 经由普通依赖到达 */
+#define DEPFLAG_AUTO		0x0004	/* 经由自动依赖到达 */
+#define DEPFLAG_INTERNAL	0x0008	/* 经由内部依赖到达 */
+#define DEPFLAG_PARTITION	0x0010	/* 经由分区依赖到达 */
+#define DEPFLAG_EXTENSION	0x0020	/* 经由扩展依赖到达 */
+#define DEPFLAG_REVERSE		0x0040	/* 反向的内部/扩展链接 */
+#define DEPFLAG_IS_PART		0x0080	/* 具有分区依赖 */
+#define DEPFLAG_SUBOBJECT	0x0100	/* 另一可删除对象的子对象 */
 
 
-/* expansible list of ObjectAddresses */
+/* 可扩展的 ObjectAddresses 列表 */
 struct ObjectAddresses
 {
-	ObjectAddress *refs;		/* => palloc'd array */
-	ObjectAddressExtra *extras; /* => palloc'd array, or NULL if not used */
-	int			numrefs;		/* current number of references */
-	int			maxrefs;		/* current size of palloc'd array(s) */
+	ObjectAddress *refs;		/* => palloc 得到的数组 */
+	ObjectAddressExtra *extras; /* => palloc 得到的数组，未使用则为 NULL */
+	int			numrefs;		/* 当前引用个数 */
+	int			maxrefs;		/* 当前 palloc'd array 的大小 */
 };
 
-/* typedef ObjectAddresses appears in dependency.h */
+/* typedef ObjectAddresses 出现在 dependency.h */
 
-/* threaded list of ObjectAddresses, for recursion detection */
+/* 串起的 ObjectAddresses 列表，用于检测递归 */
 typedef struct ObjectAddressStack
 {
-	const ObjectAddress *object;	/* object being visited */
-	int			flags;			/* its current flag bits */
-	struct ObjectAddressStack *next;	/* next outer stack level */
+	const ObjectAddress *object;	/* 正在访问的对象 */
+	int			flags;			/* 其当前标志位 */
+	struct ObjectAddressStack *next;	/* 外一层栈 */
 } ObjectAddressStack;
 
-/* temporary storage in findDependentObjects */
+/* findDependentObjects 中的临时存储 */
 typedef struct
 {
-	ObjectAddress obj;			/* object to be deleted --- MUST BE FIRST */
-	int			subflags;		/* flags to pass down when recursing to obj */
+	ObjectAddress obj;			/* 待删除对象 --- MUST BE FIRST */
+	int			subflags;		/* 递归到 obj 时向下传递的标志 */
 } ObjectAddressAndFlags;
 
-/* for find_expr_references_walker */
+/* 供 find_expr_references_walker 使用 */
 typedef struct
 {
-	ObjectAddresses *addrs;		/* addresses being accumulated */
-	List	   *rtables;		/* list of rangetables to resolve Vars */
+	ObjectAddresses *addrs;		/* 正在累积的地址 */
+	List	   *rtables;		/* 用于解析 Var 的范围表列表 */
 } find_expr_references_context;
 
 /*
- * This constant table maps ObjectClasses to the corresponding catalog OIDs.
- * See also getObjectClass().
+ * 本常量表把 ObjectClasses 映射到对应的目录 OIDs。
+ * 另见 getObjectClass()。
  */
 static const Oid object_classes[] = {
 	RelationRelationId,			/* OCLASS_CLASS */
@@ -193,7 +193,7 @@ static const Oid object_classes[] = {
 };
 
 /*
- * Make sure object_classes is kept up to date with the ObjectClass enum.
+ * 确保 object_classes 与 ObjectClass 枚举保持同步。
  */
 StaticAssertDecl(lengthof(object_classes) == LAST_OCLASS + 1,
 				 "object_classes[] must cover all ObjectClasses");
@@ -234,8 +234,8 @@ static void DeleteInitPrivs(const ObjectAddress *object);
 
 
 /*
- * Go through the objects given running the final actions on them, and execute
- * the actual deletion.
+ * 遍历给定对象，对其执行收尾动作，并执行
+ * 实际删除。
  */
 static void
 deleteObjectsInList(ObjectAddresses *targetObjects, Relation *depRel,
@@ -244,7 +244,7 @@ deleteObjectsInList(ObjectAddresses *targetObjects, Relation *depRel,
 	int			i;
 
 	/*
-	 * Keep track of objects for event triggers, if necessary.
+	 * 若有必要，为事件触发器跟踪这些对象。
 	 */
 	if (trackDroppedObjectsNeeded() && !(flags & PERFORM_DELETION_INTERNAL))
 	{
@@ -270,8 +270,8 @@ deleteObjectsInList(ObjectAddresses *targetObjects, Relation *depRel,
 	}
 
 	/*
-	 * Delete all the objects in the proper order, except that if told to, we
-	 * should skip the original object(s).
+	 * 按正确顺序删除全部对象，但若被指示，则
+	 * 应跳过原始 object(s)。
 	 */
 	for (i = 0; i < targetObjects->numrefs; i++)
 	{
@@ -287,42 +287,42 @@ deleteObjectsInList(ObjectAddresses *targetObjects, Relation *depRel,
 }
 
 /*
- * performDeletion: attempt to drop the specified object.  If CASCADE
- * behavior is specified, also drop any dependent objects (recursively).
- * If RESTRICT behavior is specified, error out if there are any dependent
- * objects, except for those that should be implicitly dropped anyway
- * according to the dependency type.
+ * performDeletion: 尝试删除指定 object。若指定 CASCADE
+ * 行为，则同时（递归地）删除任何依赖方对象。
+ * 若指定 RESTRICT 行为，则在存在任何依赖方
+ * 对象时报错，但按依赖类型本应隐式删除的那些
+ * 对象除外。
  *
- * This is the outer control routine for all forms of DROP that drop objects
- * that can participate in dependencies.  Note that performMultipleDeletions
- * is a variant on the same theme; if you change anything here you'll likely
- * need to fix that too.
+ * 这是所有会删除可参与依赖的对象的 DROP 形式的
+ * 外层控制例程。注意 performMultipleDeletions
+ * 是同一主题的变体；若你改动这里，很可能
+ * 也需要修正那边。
  *
- * Bits in the flags argument can include:
+ * flags 参数中的位可以包括：
  *
- * PERFORM_DELETION_INTERNAL: indicates that the drop operation is not the
- * direct result of a user-initiated action.  For example, when a temporary
- * schema is cleaned out so that a new backend can use it, or when a column
- * default is dropped as an intermediate step while adding a new one, that's
- * an internal operation.  On the other hand, when we drop something because
- * the user issued a DROP statement against it, that's not internal. Currently
- * this suppresses calling event triggers and making some permissions checks.
+ * PERFORM_DELETION_INTERNAL: 表示此次删除不是
+ * 用户发起动作的直接结果。例如，清空临时
+ * 模式以便新后端使用，或在添加新默认值时作为
+ * 中间步骤删除列默认值，这些都是
+ * 内部操作。另一方面，因用户对其发出 DROP
+ * 语句而删除某物则不是内部操作。当前
+ * 这会抑制调用事件触发器以及做某些权限检查。
  *
- * PERFORM_DELETION_CONCURRENTLY: perform the drop concurrently.  This does
- * not currently work for anything except dropping indexes; don't set it for
- * other object types or you may get strange results.
+ * PERFORM_DELETION_CONCURRENTLY: 并发地执行删除。这目前
+ * 除删除索引外对任何对象都无效；不要对
+ * 其他对象类型设置它，否则可能得到奇怪结果。
  *
- * PERFORM_DELETION_QUIETLY: reduce message level from NOTICE to DEBUG2.
+ * PERFORM_DELETION_QUIETLY: 把消息级别从 NOTICE 降到 DEBUG2。
  *
- * PERFORM_DELETION_SKIP_ORIGINAL: do not delete the specified object(s),
- * but only what depends on it/them.
+ * PERFORM_DELETION_SKIP_ORIGINAL: 不删除指定对象，
+ * 只删除依赖它/它们的对象。
  *
- * PERFORM_DELETION_SKIP_EXTENSIONS: do not delete extensions, even when
- * deleting objects that are part of an extension.  This should generally
- * be used only when dropping temporary objects.
+ * PERFORM_DELETION_SKIP_EXTENSIONS: 即使
+ * 删除属于某扩展的对象，也不删除扩展。这一般
+ * 只应在删除临时对象时使用。
  *
- * PERFORM_DELETION_CONCURRENT_LOCK: perform the drop normally but with a lock
- * as if it were concurrent.  This is used by REINDEX CONCURRENTLY.
+ * PERFORM_DELETION_CONCURRENT_LOCK: 以普通方式删除，但持有
+ * 如同并发删除的锁。供 REINDEX CONCURRENTLY 使用。
  *
  */
 void
@@ -333,56 +333,56 @@ performDeletion(const ObjectAddress *object,
 	ObjectAddresses *targetObjects;
 
 	/*
-	 * We save some cycles by opening pg_depend just once and passing the
-	 * Relation pointer down to all the recursive deletion steps.
+	 * 只打开一次 pg_depend 并把
+	 * Relation 指针向下传给所有递归删除步骤，以节省周期。
 	 */
 	depRel = table_open(DependRelationId, RowExclusiveLock);
 
 	/*
-	 * Acquire deletion lock on the target object.  (Ideally the caller has
-	 * done this already, but many places are sloppy about it.)
+	 * 在目标对象上获取删除锁。（理想情况下调用者已经
+	 * 做过，但许多地方对此很马虎。）
 	 */
 	AcquireDeletionLock(object, 0);
 
 	/*
-	 * Construct a list of objects to delete (ie, the given object plus
-	 * everything directly or indirectly dependent on it).
+	 * 构造待删除对象列表（即给定对象加上
+	 * 所有直接或间接依赖它的对象）。
 	 */
 	targetObjects = new_object_addresses();
 
 	findDependentObjects(object,
 						 DEPFLAG_ORIGINAL,
 						 flags,
-						 NULL,	/* empty stack */
+						 NULL,	/* 空栈 */
 						 targetObjects,
-						 NULL,	/* no pendingObjects */
+						 NULL,	/* 无 pendingObjects */
 						 &depRel);
 
 	/*
-	 * Check if deletion is allowed, and report about cascaded deletes.
+	 * 检查是否允许删除，并报告级联删除情况。
 	 */
 	reportDependentObjects(targetObjects,
 						   behavior,
 						   flags,
 						   object);
 
-	/* do the deed */
+	/* 动手执行 */
 	deleteObjectsInList(targetObjects, &depRel, flags);
 
-	/* And clean up */
+	/* 然后清理 */
 	free_object_addresses(targetObjects);
 
 	table_close(depRel, RowExclusiveLock);
 }
 
 /*
- * performMultipleDeletions: Similar to performDeletion, but act on multiple
- * objects at once.
+ * performMultipleDeletions: 类似于 performDeletion，但一次作用于多个
+ * 对象。
  *
- * The main difference from issuing multiple performDeletion calls is that the
- * list of objects that would be implicitly dropped, for each object to be
- * dropped, is the union of the implicit-object list for all objects.  This
- * makes each check be more relaxed.
+ * 与多次调用 performDeletion 的主要差别是：对每个要
+ * 删除的对象而言，会被隐式删除的对象列表
+ * 是所有对象的隐式对象列表之并。这
+ * 使每项检查都更宽松。
  */
 void
 performMultipleDeletions(const ObjectAddresses *objects,
@@ -392,23 +392,23 @@ performMultipleDeletions(const ObjectAddresses *objects,
 	ObjectAddresses *targetObjects;
 	int			i;
 
-	/* No work if no objects... */
+	/* 没有对象则无事可做... */
 	if (objects->numrefs <= 0)
 		return;
 
 	/*
-	 * We save some cycles by opening pg_depend just once and passing the
-	 * Relation pointer down to all the recursive deletion steps.
+	 * 只打开一次 pg_depend 并把
+	 * Relation 指针向下传给所有递归删除步骤，以节省周期。
 	 */
 	depRel = table_open(DependRelationId, RowExclusiveLock);
 
 	/*
-	 * Construct a list of objects to delete (ie, the given objects plus
-	 * everything directly or indirectly dependent on them).  Note that
-	 * because we pass the whole objects list as pendingObjects context, we
-	 * won't get a failure from trying to delete an object that is internally
-	 * dependent on another one in the list; we'll just skip that object and
-	 * delete it when we reach its owner.
+	 * 构造待删除对象列表（即给定对象加上
+	 * 所有直接或间接依赖它们的对象）。注意
+	 * 因为我们把整个 objects 列表作为 pendingObjects 上下文传入，
+	 * 试图删除内部依赖于列表中另一对象的对象时
+	 * 不会失败；我们只是跳过该对象，并在到达其所有者时
+	 * 再删除它。
 	 */
 	targetObjects = new_object_addresses();
 
@@ -417,72 +417,72 @@ performMultipleDeletions(const ObjectAddresses *objects,
 		const ObjectAddress *thisobj = objects->refs + i;
 
 		/*
-		 * Acquire deletion lock on each target object.  (Ideally the caller
-		 * has done this already, but many places are sloppy about it.)
+		 * 在每个目标对象上获取删除锁。（理想情况下调用者
+		 * 已经做过，但许多地方对此很马虎。）
 		 */
 		AcquireDeletionLock(thisobj, flags);
 
 		findDependentObjects(thisobj,
 							 DEPFLAG_ORIGINAL,
 							 flags,
-							 NULL,	/* empty stack */
+							 NULL,	/* 空栈 */
 							 targetObjects,
 							 objects,
 							 &depRel);
 	}
 
 	/*
-	 * Check if deletion is allowed, and report about cascaded deletes.
+	 * 检查是否允许删除，并报告级联删除情况。
 	 *
-	 * If there's exactly one object being deleted, report it the same way as
-	 * in performDeletion(), else we have to be vaguer.
+	 * 若恰好只删除一个对象，则以与
+	 * performDeletion() 相同的方式报告，否则只能说得更含糊。
 	 */
 	reportDependentObjects(targetObjects,
 						   behavior,
 						   flags,
 						   (objects->numrefs == 1 ? objects->refs : NULL));
 
-	/* do the deed */
+	/* 动手执行 */
 	deleteObjectsInList(targetObjects, &depRel, flags);
 
-	/* And clean up */
+	/* 然后清理 */
 	free_object_addresses(targetObjects);
 
 	table_close(depRel, RowExclusiveLock);
 }
 
 /*
- * findDependentObjects - find all objects that depend on 'object'
+ * findDependentObjects - 找出所有依赖 'object' 的对象
  *
- * For every object that depends on the starting object, acquire a deletion
- * lock on the object, add it to targetObjects (if not already there),
- * and recursively find objects that depend on it.  An object's dependencies
- * will be placed into targetObjects before the object itself; this means
- * that the finished list's order represents a safe deletion order.
+ * 对每个依赖起始对象的对象，获取删除
+ * 锁，把它加入 targetObjects（若尚不在其中），
+ * 并递归找出依赖它的对象。某对象的依赖
+ * 会排在该对象自身之前放入 targetObjects；这意味着
+ * 完成后的列表顺序就是安全的删除顺序。
  *
- * The caller must already have a deletion lock on 'object' itself,
- * but must not have added it to targetObjects.  (Note: there are corner
- * cases where we won't add the object either, and will also release the
- * caller-taken lock.  This is a bit ugly, but the API is set up this way
- * to allow easy rechecking of an object's liveness after we lock it.  See
- * notes within the function.)
+ * 调用者必须已经持有 'object' 自身上的删除锁，
+ * 但不得已把它加入 targetObjects。（注意：存在边角
+ * 情况我们也不会加入该对象，并且还会释放
+ * 调用者已获取的锁。这有点难看，但 API 这样设计
+ * 是为了在加锁后能方便地复查对象是否仍存活。见
+ * 函数内部的说明。）
  *
- * When dropping a whole object (subId = 0), we find dependencies for
- * its sub-objects too.
+ * 删除整个对象（subId = 0）时，我们也查找
+ * 其子对象的依赖。
  *
- *	object: the object to add to targetObjects and find dependencies on
- *	objflags: flags to be ORed into the object's targetObjects entry
- *	flags: PERFORM_DELETION_xxx flags for the deletion operation as a whole
- *	stack: list of objects being visited in current recursion; topmost item
- *			is the object that we recursed from (NULL for external callers)
- *	targetObjects: list of objects that are scheduled to be deleted
- *	pendingObjects: list of other objects slated for destruction, but
- *			not necessarily in targetObjects yet (can be NULL if none)
- *	*depRel: already opened pg_depend relation
+ *	object: 要加入 targetObjects 并查找依赖它的对象
+ *	objflags: 要 ORed 进该对象 targetObjects 条目的标志
+ *	flags: 整个删除操作的 PERFORM_DELETION_xxx 标志
+ *	stack: 当前递归中正在访问的对象列表；最顶项
+ *			是我们从中递归而来的对象（外部调用者为 NULL）
+ *	targetObjects: 已安排删除的对象列表
+ *	pendingObjects: 其他预定销毁、但
+ *			不一定已在 targetObjects 中的对象列表（没有则为 NULL）
+ *	*depRel: 已经打开的 pg_depend 关系
  *
- * Note: objflags describes the reason for visiting this particular object
- * at this time, and is not passed down when recursing.  The flags argument
- * is passed down, since it describes what we're doing overall.
+ * 注意：objflags 描述此刻访问本对象的原因，
+ * 递归时不向下传递。flags 参数
+ * 会向下传递，因为它描述我们总体上在做什么。
  */
 static void
 findDependentObjects(const ObjectAddress *object,
@@ -507,45 +507,45 @@ findDependentObjects(const ObjectAddress *object,
 	ObjectAddressExtra extra;
 
 	/*
-	 * If the target object is already being visited in an outer recursion
-	 * level, just report the current objflags back to that level and exit.
-	 * This is needed to avoid infinite recursion in the face of circular
-	 * dependencies.
+	 * 若目标对象已在外层递归
+	 * 中被访问，只需把当前 objflags 回报给那一层然后退出。
+	 * 这是为了在循环依赖面前避免无限递归。
 	 *
-	 * The stack check alone would result in dependency loops being broken at
-	 * an arbitrary point, ie, the first member object of the loop to be
-	 * visited is the last one to be deleted.  This is obviously unworkable.
-	 * However, the check for internal dependency below guarantees that we
-	 * will not break a loop at an internal dependency: if we enter the loop
-	 * at an "owned" object we will switch and start at the "owning" object
-	 * instead.  We could probably hack something up to avoid breaking at an
-	 * auto dependency, too, if we had to.  However there are no known cases
-	 * where that would be necessary.
+	 * 仅靠栈检查会把依赖环在
+	 * 任意点断开，即环中第一个被
+	 * 访问的成员对象会最后删除。这显然行不通。
+	 * 不过，下面的内部依赖检查保证我们
+	 * 不会在内部依赖处断开环：若从
+	 * "被拥有" 对象进入环，我们会改从 "拥有方" 对象
+	 * 开始。若有必要，大概也能拼凑点东西来避免在
+	 * 自动依赖处断开。不过没有已知情形
+	 * 需要那样做。
+	 *
 	 */
 	if (stack_address_present_add_flags(object, objflags, stack))
 		return;
 
 	/*
-	 * since this function recurses, it could be driven to stack overflow,
-	 * because of the deep dependency tree, not only due to dependency loops.
+	 * 由于本函数会递归，可能把栈撑爆，
+	 * 原因是依赖树很深，而不只是依赖环。
 	 */
 	check_stack_depth();
 
 	/*
-	 * It's also possible that the target object has already been completely
-	 * processed and put into targetObjects.  If so, again we just add the
-	 * specified objflags to its entry and return.
+	 * 目标对象也可能已经被完全
+	 * 处理并放入 targetObjects。若是，同样只需把
+	 * 指定的 objflags 加到其条目上然后返回。
 	 *
-	 * (Note: in these early-exit cases we could release the caller-taken
-	 * lock, since the object is presumably now locked multiple times; but it
-	 * seems not worth the cycles.)
+	 * （注意：在这些提前退出的情形我们可以释放调用者取得的
+	 * 锁，因为该对象大概已被多次加锁；但
+	 * 似乎不值得为此花费周期。）
 	 */
 	if (object_address_present_add_flags(object, objflags, targetObjects))
 		return;
 
 	/*
-	 * If the target object is pinned, we can just error out immediately; it
-	 * won't have any objects recorded as depending on it.
+	 * 若目标对象被钉住，我们可以立即报错；它
+	 * 不会有任何对象被记录为依赖它。
 	 */
 	if (IsPinnedObject(object->classId, object->objectId))
 		ereport(ERROR,
@@ -554,14 +554,14 @@ findDependentObjects(const ObjectAddress *object,
 						getObjectDescription(object, false))));
 
 	/*
-	 * The target object might be internally dependent on some other object
-	 * (its "owner"), and/or be a member of an extension (also considered its
-	 * owner).  If so, and if we aren't recursing from the owning object, we
-	 * have to transform this deletion request into a deletion request of the
-	 * owning object.  (We'll eventually recurse back to this object, but the
-	 * owning object has to be visited first so it will be deleted after.) The
-	 * way to find out about this is to scan the pg_depend entries that show
-	 * what this object depends on.
+	 * 目标对象可能内部依赖于某个其他对象
+	 * （其"所有者"），和/或是某扩展的成员（也被视为其
+	 * 所有者）。若是，且我们并非从拥有方对象递归而来，就必须
+	 * 把本次删除请求转换成对
+	 * 拥有方对象的删除请求。（我们最终会递归回本对象，但
+	 * 拥有方对象必须先被访问，这样它才会后删除。）
+	 * 查明这一点的办法是扫描显示
+	 * 本对象依赖于什么的 pg_depend 条目。
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_depend_classid,
@@ -573,7 +573,7 @@ findDependentObjects(const ObjectAddress *object,
 				ObjectIdGetDatum(object->objectId));
 	if (object->objectSubId != 0)
 	{
-		/* Consider only dependencies of this sub-object */
+		/* 只考虑本子对象的依赖 */
 		ScanKeyInit(&key[2],
 					Anum_pg_depend_objsubid,
 					BTEqualStrategyNumber, F_INT4EQ,
@@ -582,14 +582,14 @@ findDependentObjects(const ObjectAddress *object,
 	}
 	else
 	{
-		/* Consider dependencies of this object and any sub-objects it has */
+		/* 考虑本对象及其任何子对象的依赖 */
 		nkeys = 2;
 	}
 
 	scan = systable_beginscan(*depRel, DependDependerIndexId, true,
 							  NULL, nkeys, key);
 
-	/* initialize variables that loop may fill */
+	/* 初始化循环可能会填入的变量 */
 	memset(&owningObject, 0, sizeof(owningObject));
 	memset(&partitionObject, 0, sizeof(partitionObject));
 
@@ -602,11 +602,11 @@ findDependentObjects(const ObjectAddress *object,
 		otherObject.objectSubId = foundDep->refobjsubid;
 
 		/*
-		 * When scanning dependencies of a whole object, we may find rows
-		 * linking sub-objects of the object to the object itself.  (Normally,
-		 * such a dependency is implicit, but we must make explicit ones in
-		 * some cases involving partitioning.)  We must ignore such rows to
-		 * avoid infinite recursion.
+		 * 扫描整个对象的依赖时，可能发现把
+		 * 该对象的子对象链到对象自身的行。（通常
+		 * 这种依赖是隐式的，但在涉及分区的某些情形
+		 * 必须做成显式。）我们必须忽略这类行，以免
+		 * 无限递归。
 		 */
 		if (otherObject.classId == object->classId &&
 			otherObject.objectId == object->objectId &&
@@ -618,54 +618,54 @@ findDependentObjects(const ObjectAddress *object,
 			case DEPENDENCY_NORMAL:
 			case DEPENDENCY_AUTO:
 			case DEPENDENCY_AUTO_EXTENSION:
-				/* no problem */
+				/* 没问题 */
 				break;
 
 			case DEPENDENCY_EXTENSION:
 
 				/*
-				 * If told to, ignore EXTENSION dependencies altogether.  This
-				 * flag is normally used to prevent dropping extensions during
-				 * temporary-object cleanup, even if a temp object was created
-				 * during an extension script.
+				 * 若被指示，则完全忽略 EXTENSION 依赖。此
+				 * 标志通常用于在临时对象清理期间防止删除扩展，
+				 * 即使某个临时对象是在
+				 * 扩展脚本中创建的。
 				 */
 				if (flags & PERFORM_DELETION_SKIP_EXTENSIONS)
 					break;
 
 				/*
-				 * If the other object is the extension currently being
-				 * created/altered, ignore this dependency and continue with
-				 * the deletion.  This allows dropping of an extension's
-				 * objects within the extension's scripts, as well as corner
-				 * cases such as dropping a transient object created within
-				 * such a script.
+				 * 若另一对象正是当前正在
+				 * 创建/修改的扩展，则忽略此依赖并继续
+				 * 删除。这允许在扩展的脚本中删除该扩展的
+				 * 对象，以及诸如删除在
+				 * 这类脚本中创建的临时对象之类的边角
+				 * 情况。
 				 */
 				if (creating_extension &&
 					otherObject.classId == ExtensionRelationId &&
 					otherObject.objectId == CurrentExtensionObject)
 					break;
 
-				/* Otherwise, treat this like an internal dependency */
+				/* 否则，按内部依赖处理 */
 				/* FALL THRU */
 
 			case DEPENDENCY_INTERNAL:
 
 				/*
-				 * This object is part of the internal implementation of
-				 * another object, or is part of the extension that is the
-				 * other object.  We have three cases:
+				 * 本对象是另一对象内部实现的一部分，
+				 * 或是作为另一对象的那个扩展的一部分。
+				 * 有三种情形：
 				 *
-				 * 1. At the outermost recursion level, we must disallow the
-				 * DROP.  However, if the owning object is listed in
-				 * pendingObjects, just release the caller's lock and return;
-				 * we'll eventually complete the DROP when we reach that entry
-				 * in the pending list.
+				 * 1. 在最外层递归级，我们必须禁止
+				 * DROP。不过，若拥有方对象列在
+				 * pendingObjects 中，只需释放调用者的锁并返回；
+				 * 当我们到达待处理列表中的那条
+				 * 时最终会完成 DROP。
 				 *
-				 * Note: the above statement is true only if this pg_depend
-				 * entry still exists by then; in principle, therefore, we
-				 * could miss deleting an item the user told us to delete.
-				 * However, no inconsistency can result: since we're at outer
-				 * level, there is no object depending on this one.
+				 * 注意：上述说法仅当这条 pg_depend
+				 * 条目届时仍存在时才成立；因此原则上我们
+				 * 可能漏删用户要求删除的项。
+				 * 不过不会造成不一致：因为我们在最外
+				 * 层，没有对象依赖本对象。
 				 */
 				if (stack == NULL)
 				{
@@ -673,20 +673,20 @@ findDependentObjects(const ObjectAddress *object,
 						object_address_present(&otherObject, pendingObjects))
 					{
 						systable_endscan(scan);
-						/* need to release caller's lock; see notes below */
+						/* 需要释放调用者的锁；见下方说明 */
 						ReleaseDeletionLock(object);
 						return;
 					}
 
 					/*
-					 * We postpone actually issuing the error message until
-					 * after this loop, so that we can make the behavior
-					 * independent of the ordering of pg_depend entries, at
-					 * least if there's not more than one INTERNAL and one
-					 * EXTENSION dependency.  (If there's more, we'll complain
-					 * about a random one of them.)  Prefer to complain about
-					 * EXTENSION, since that's generally a more important
-					 * dependency.
+					 * 我们推迟到本循环之后才真正发出错误消息，
+					 * 以便使行为
+					 * 独立于 pg_depend 条目的顺序，至少
+					 * 在 INTERNAL 和
+					 * EXTENSION 依赖各不超过一条时如此。（若更多，我们会抱怨
+					 * 其中随机一条。）优先抱怨
+					 * EXTENSION，因为那通常是更重要的
+					 * 依赖。
 					 */
 					if (!OidIsValid(owningObject.classId) ||
 						foundDep->deptype == DEPENDENCY_EXTENSION)
@@ -695,34 +695,34 @@ findDependentObjects(const ObjectAddress *object,
 				}
 
 				/*
-				 * 2. When recursing from the other end of this dependency,
-				 * it's okay to continue with the deletion.  This holds when
-				 * recursing from a whole object that includes the nominal
-				 * other end as a component, too.  Since there can be more
-				 * than one "owning" object, we have to allow matches that are
-				 * more than one level down in the stack.
+				 * 2. 从本依赖的另一端递归而来时，
+				 * 可以继续删除。当
+				 * 从把名义上的另一端作为组成部分包含在内的整个
+				 * 对象递归而来时也成立。由于可以有不止
+				 * 一个"拥有方"对象，我们必须允许匹配
+				 * 栈中更深一层的对象。
 				 */
 				if (stack_address_present_add_flags(&otherObject, 0, stack))
 					break;
 
 				/*
-				 * 3. Not all the owning objects have been visited, so
-				 * transform this deletion request into a delete of this
-				 * owning object.
+				 * 3. 并非所有拥有方对象都已访问，因此
+				 * 把本次删除请求转换成删除这个
+				 * 拥有方对象。
 				 *
-				 * First, release caller's lock on this object and get
-				 * deletion lock on the owning object.  (We must release
-				 * caller's lock to avoid deadlock against a concurrent
-				 * deletion of the owning object.)
+				 * 首先，释放调用者对本对象的锁，并在
+				 * 拥有方对象上获取删除锁。（必须释放
+				 * 调用者的锁，以免与并发
+				 * 删除拥有方对象发生死锁。）
 				 */
 				ReleaseDeletionLock(object);
 				AcquireDeletionLock(&otherObject, 0);
 
 				/*
-				 * The owning object might have been deleted while we waited
-				 * to lock it; if so, neither it nor the current object are
-				 * interesting anymore.  We test this by checking the
-				 * pg_depend entry (see notes below).
+				 * 在我们等待加锁期间，拥有方对象可能已被删除；
+				 * 若是，它和当前对象都不再
+				 * 有意义。我们通过检查
+				 * pg_depend 条目来测试这一点（见下方说明）。
 				 */
 				if (!systable_recheck_tuple(scan, tup))
 				{
@@ -732,22 +732,22 @@ findDependentObjects(const ObjectAddress *object,
 				}
 
 				/*
-				 * One way or the other, we're done with the scan; might as
-				 * well close it down before recursing, to reduce peak
-				 * resource consumption.
+				 * 无论哪种情况，扫描已经结束；不妨
+				 * 在递归前关掉它，以降低峰值
+				 * 资源消耗。
 				 */
 				systable_endscan(scan);
 
 				/*
-				 * Okay, recurse to the owning object instead of proceeding.
+				 * 好，改为递归到拥有方对象而不是继续处理本对象。
 				 *
-				 * We do not need to stack the current object; we want the
-				 * traversal order to be as if the original reference had
-				 * linked to the owning object instead of this one.
+				 * 我们不必把当前对象入栈；我们希望
+				 * 遍历顺序如同原始引用本来
+				 * 链到拥有方对象而不是本对象。
 				 *
-				 * The dependency type is a "reverse" dependency: we need to
-				 * delete the owning object if this one is to be deleted, but
-				 * this linkage is never a reason for an automatic deletion.
+				 * 依赖类型是"反向"依赖：若要删除本对象，
+				 * 就需要删除拥有方对象，但
+				 * 这条链接从不是自动删除的理由。
 				 */
 				findDependentObjects(&otherObject,
 									 DEPFLAG_REVERSE,
@@ -758,20 +758,20 @@ findDependentObjects(const ObjectAddress *object,
 									 depRel);
 
 				/*
-				 * The current target object should have been added to
-				 * targetObjects while processing the owning object; but it
-				 * probably got only the flag bits associated with the
-				 * dependency we're looking at.  We need to add the objflags
-				 * that were passed to this recursion level, too, else we may
-				 * get a bogus failure in reportDependentObjects (if, for
-				 * example, we were called due to a partition dependency).
+				 * 处理拥有方对象时，当前目标对象应已被加入
+				 * targetObjects；但它
+				 * 大概只带有与我们正在查看的
+				 * 依赖相关的标志位。我们还需要加上
+				 * 传给本递归层的 objflags，否则可能
+				 * 在 reportDependentObjects 中得到虚假失败（例如
+				 * 因分区依赖而被调用时）。
 				 *
-				 * If somehow the current object didn't get scheduled for
-				 * deletion, bleat.  (That would imply that somebody deleted
-				 * this dependency record before the recursion got to it.)
-				 * Another idea would be to reacquire lock on the current
-				 * object and resume trying to delete it, but it seems not
-				 * worth dealing with the race conditions inherent in that.
+				 * 若当前对象不知何故没有被安排
+				 * 删除，就抱怨。（那意味着有人在递归到达之前
+				 * 删除了这条依赖记录。）
+				 * 另一种想法是重新获取当前
+				 * 对象上的锁并继续尝试删除它，但似乎不
+				 * 值得去处理其中固有的竞态。
 				 */
 				if (!object_address_present_add_flags(object, objflags,
 													  targetObjects))
@@ -779,22 +779,22 @@ findDependentObjects(const ObjectAddress *object,
 						 getObjectDescription(&otherObject, false),
 						 getObjectDescription(object, false));
 
-				/* And we're done here. */
+				/* 到这里就结束了。 */
 				return;
 
 			case DEPENDENCY_PARTITION_PRI:
 
 				/*
-				 * Remember that this object has a partition-type dependency.
-				 * After the dependency scan, we'll complain if we didn't find
-				 * a reason to delete one of its partition dependencies.
+				 * 记住本对象具有分区类型依赖。
+				 * 依赖扫描之后，若未找到删除其某一分区依赖的
+				 * 理由，我们会抱怨。
 				 */
 				objflags |= DEPFLAG_IS_PART;
 
 				/*
-				 * Also remember the primary partition owner, for error
-				 * messages.  If there are multiple primary owners (which
-				 * there should not be), we'll report a random one of them.
+				 * 同时记住主分区所有者，供错误
+				 * 消息使用。若有多个主所有者（本
+				 * 不应如此），我们会报告其中随机一个。
 				 */
 				partitionObject = otherObject;
 				break;
@@ -802,16 +802,16 @@ findDependentObjects(const ObjectAddress *object,
 			case DEPENDENCY_PARTITION_SEC:
 
 				/*
-				 * Only use secondary partition owners in error messages if we
-				 * find no primary owner (which probably shouldn't happen).
+				 * 仅在找不到主所有者时（大概不该发生），才在错误消息中
+				 * 使用次分区所有者。
 				 */
 				if (!(objflags & DEPFLAG_IS_PART))
 					partitionObject = otherObject;
 
 				/*
-				 * Remember that this object has a partition-type dependency.
-				 * After the dependency scan, we'll complain if we didn't find
-				 * a reason to delete one of its partition dependencies.
+				 * 记住本对象具有分区类型依赖。
+				 * 依赖扫描之后，若未找到删除其某一分区依赖的
+				 * 理由，我们会抱怨。
 				 */
 				objflags |= DEPFLAG_IS_PART;
 				break;
@@ -826,10 +826,10 @@ findDependentObjects(const ObjectAddress *object,
 	systable_endscan(scan);
 
 	/*
-	 * If we found an INTERNAL or EXTENSION dependency when we're at outer
-	 * level, complain about it now.  If we also found a PARTITION dependency,
-	 * we prefer to report the PARTITION dependency.  This is arbitrary but
-	 * seems to be more useful in practice.
+	 * 若在最外层发现 INTERNAL 或 EXTENSION 依赖，
+	 * 现在就抱怨。若同时还发现 PARTITION 依赖，
+	 * 我们更愿意报告 PARTITION 依赖。这是任意的，但
+	 * 实践中似乎更有用。
 	 */
 	if (OidIsValid(owningObject.classId))
 	{
@@ -848,14 +848,14 @@ findDependentObjects(const ObjectAddress *object,
 	}
 
 	/*
-	 * Next, identify all objects that directly depend on the current object.
-	 * To ensure predictable deletion order, we collect them up in
-	 * dependentObjects and sort the list before actually recursing.  (The
-	 * deletion order would be valid in any case, but doing this ensures
-	 * consistent output from DROP CASCADE commands, which is helpful for
-	 * regression testing.)
+	 * 接下来，识别所有直接依赖当前对象的对象。
+	 * 为确保可预测的删除顺序，我们把它们收集到
+	 * dependentObjects 中，并在真正递归前排序。（
+	 * 删除顺序在任何情况下都有效，但这样做能确保
+	 * DROP CASCADE 命令输出一致，有利于
+	 * 回归测试。）
 	 */
-	maxDependentObjects = 128;	/* arbitrary initial allocation */
+	maxDependentObjects = 128;	/* 任意的初始分配 */
 	dependentObjects = (ObjectAddressAndFlags *)
 		palloc(maxDependentObjects * sizeof(ObjectAddressAndFlags));
 	numDependentObjects = 0;
@@ -892,9 +892,9 @@ findDependentObjects(const ObjectAddress *object,
 		otherObject.objectSubId = foundDep->objsubid;
 
 		/*
-		 * If what we found is a sub-object of the current object, just ignore
-		 * it.  (Normally, such a dependency is implicit, but we must make
-		 * explicit ones in some cases involving partitioning.)
+		 * 若找到的是当前对象的子对象，只需忽略
+		 * 它。（通常这种依赖是隐式的，但在涉及分区的某些情形
+		 * 必须做成显式。）
 		 */
 		if (otherObject.classId == object->classId &&
 			otherObject.objectId == object->objectId &&
@@ -902,28 +902,28 @@ findDependentObjects(const ObjectAddress *object,
 			continue;
 
 		/*
-		 * Must lock the dependent object before recursing to it.
+		 * 递归到依赖方对象之前必须先锁住它。
 		 */
 		AcquireDeletionLock(&otherObject, 0);
 
 		/*
-		 * The dependent object might have been deleted while we waited to
-		 * lock it; if so, we don't need to do anything more with it. We can
-		 * test this cheaply and independently of the object's type by seeing
-		 * if the pg_depend tuple we are looking at is still live. (If the
-		 * object got deleted, the tuple would have been deleted too.)
+		 * 在我们等待加锁期间，依赖方对象可能已被删除；
+		 * 若是，就不必再对它做任何事。我们可以
+		 * 通过查看正在看的 pg_depend 元组是否仍存活，
+		 * 便宜且独立于对象类型地测试这一点。（若
+		 * 对象已被删除，该元组也会被删除。）
 		 */
 		if (!systable_recheck_tuple(scan, tup))
 		{
-			/* release the now-useless lock */
+			/* 释放现已无用的锁 */
 			ReleaseDeletionLock(&otherObject);
-			/* and continue scanning for dependencies */
+			/* 并继续扫描依赖 */
 			continue;
 		}
 
 		/*
-		 * We do need to delete it, so identify objflags to be passed down,
-		 * which depend on the dependency type.
+		 * 我们确实需要删除它，因此确定要向下传递的 objflags，
+		 * 它们取决于依赖类型。
 		 */
 		switch (foundDep->deptype)
 		{
@@ -947,14 +947,14 @@ findDependentObjects(const ObjectAddress *object,
 			default:
 				elog(ERROR, "unrecognized dependency type '%c' for %s",
 					 foundDep->deptype, getObjectDescription(object, false));
-				subflags = 0;	/* keep compiler quiet */
+				subflags = 0;	/* 让编译器安静 */
 				break;
 		}
 
-		/* And add it to the pending-objects list */
+		/* 并把它加入待处理对象列表 */
 		if (numDependentObjects >= maxDependentObjects)
 		{
-			/* enlarge array if needed */
+			/* 若需要则扩大数组 */
 			maxDependentObjects *= 2;
 			dependentObjects = (ObjectAddressAndFlags *)
 				repalloc(dependentObjects,
@@ -969,9 +969,9 @@ findDependentObjects(const ObjectAddress *object,
 	systable_endscan(scan);
 
 	/*
-	 * Now we can sort the dependent objects into a stable visitation order.
-	 * It's safe to use object_address_comparator here since the obj field is
-	 * first within ObjectAddressAndFlags.
+	 * 现在可以把依赖方对象排成稳定的访问顺序。
+	 * 这里可以安全使用 object_address_comparator，因为 obj 字段在
+	 * ObjectAddressAndFlags 中位于最前。
 	 */
 	if (numDependentObjects > 1)
 		qsort(dependentObjects, numDependentObjects,
@@ -979,10 +979,10 @@ findDependentObjects(const ObjectAddress *object,
 			  object_address_comparator);
 
 	/*
-	 * Now recurse to the dependent objects.  We must visit them first since
-	 * they have to be deleted before the current object.
+	 * 现在递归到依赖方对象。必须先访问它们，因为
+	 * 它们必须在当前对象之前删除。
 	 */
-	mystack.object = object;	/* set up a new stack level */
+	mystack.object = object;	/* 建立新的栈层 */
 	mystack.flags = objflags;
 	mystack.next = stack;
 
@@ -1002,12 +1002,12 @@ findDependentObjects(const ObjectAddress *object,
 	pfree(dependentObjects);
 
 	/*
-	 * Finally, we can add the target object to targetObjects.  Be careful to
-	 * include any flags that were passed back down to us from inner recursion
-	 * levels.  Record the "dependee" as being either the most important
-	 * partition owner if there is one, else the object we recursed from, if
-	 * any.  (The logic in reportDependentObjects() is such that it can only
-	 * need one of those objects.)
+	 * 最后，可以把目标对象加入 targetObjects。注意
+	 * 包含从内层递归回传给我们的任何标志。
+	 * 把"被依赖对象"记录为：若有则取最重要的
+	 * 分区所有者，否则取我们从中递归而来的对象（如果
+	 * 有）。（reportDependentObjects() 中的逻辑使得它只
+	 * 需要这些对象之一。）
 	 */
 	extra.flags = mystack.flags;
 	if (extra.flags & DEPFLAG_IS_PART)
@@ -1020,17 +1020,17 @@ findDependentObjects(const ObjectAddress *object,
 }
 
 /*
- * reportDependentObjects - report about dependencies, and fail if RESTRICT
+ * reportDependentObjects - 报告依赖，并在 RESTRICT 时失败
  *
- * Tell the user about dependent objects that we are going to delete
- * (or would need to delete, but are prevented by RESTRICT mode);
- * then error out if there are any and it's not CASCADE mode.
+ * 告知用户我们即将删除的依赖方对象
+ * （或本需删除、但被 RESTRICT 模式阻止的对象）；
+ * 若有任何此类对象且不是 CASCADE 模式，则报错。
  *
- *	targetObjects: list of objects that are scheduled to be deleted
- *	behavior: RESTRICT or CASCADE
- *	flags: other flags for the deletion operation
- *	origObject: base object of deletion, or NULL if not available
- *		(the latter case occurs in DROP OWNED)
+ *	targetObjects: 已安排删除的对象列表
+ *	behavior: RESTRICT 或 CASCADE
+ *	flags: 删除操作的其他标志
+ *	origObject: 删除的基础对象，不可用则为 NULL
+ *		（后一情形出现在 DROP OWNED 中）
  */
 static void
 reportDependentObjects(const ObjectAddresses *targetObjects,
@@ -1047,14 +1047,14 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 	int			i;
 
 	/*
-	 * If we need to delete any partition-dependent objects, make sure that
-	 * we're deleting at least one of their partition dependencies, too. That
-	 * can be detected by checking that we reached them by a PARTITION
-	 * dependency at some point.
+	 * 若需要删除任何分区依赖的对象，确保
+	 * 我们也至少删除它们的一个分区依赖。这
+	 * 可以通过检查我们曾经由 PARTITION
+	 * 依赖到达它们来检测。
 	 *
-	 * We just report the first such object, as in most cases the only way to
-	 * trigger this complaint is to explicitly try to delete one partition of
-	 * a partitioned object.
+	 * 我们只报告第一个这样的对象，因为多数情况下触发此抱怨的
+	 * 唯一办法是显式尝试删除分区对象的
+	 * 一个分区。
 	 */
 	for (i = 0; i < targetObjects->numrefs; i++)
 	{
@@ -1076,18 +1076,18 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 	}
 
 	/*
-	 * If no error is to be thrown, and the msglevel is too low to be shown to
-	 * either client or server log, there's no need to do any of the rest of
-	 * the work.
+	 * 若不会抛错，且 msglevel 低到既不会显示给
+	 * 客户端也不会写入服务器日志，就不必做其余
+	 * 工作。
 	 */
 	if (behavior == DROP_CASCADE &&
 		!message_level_is_interesting(msglevel))
 		return;
 
 	/*
-	 * We limit the number of dependencies reported to the client to
-	 * MAX_REPORTED_DEPS, since client software may not deal well with
-	 * enormous error strings.  The server log always gets a full report.
+	 * 向客户端报告的依赖数量限制为
+	 * MAX_REPORTED_DEPS，因为客户端软件可能不好处理
+	 * 巨大的错误字符串。服务器日志总是得到完整报告。
 	 */
 #define MAX_REPORTED_DEPS 100
 
@@ -1095,8 +1095,8 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 	initStringInfo(&logdetail);
 
 	/*
-	 * We process the list back to front (ie, in dependency order not deletion
-	 * order), since this makes for a more understandable display.
+	 * 我们从后向前处理列表（即按依赖顺序而非删除
+	 * 顺序），因为这样显示更易理解。
 	 */
 	for (i = targetObjects->numrefs - 1; i >= 0; i--)
 	{
@@ -1104,24 +1104,24 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 		const ObjectAddressExtra *extra = &targetObjects->extras[i];
 		char	   *objDesc;
 
-		/* Ignore the original deletion target(s) */
+		/* 忽略原始删除 target */
 		if (extra->flags & DEPFLAG_ORIGINAL)
 			continue;
 
-		/* Also ignore sub-objects; we'll report the whole object elsewhere */
+		/* 也忽略子对象；我们会在别处报告整个对象 */
 		if (extra->flags & DEPFLAG_SUBOBJECT)
 			continue;
 
 		objDesc = getObjectDescription(obj, false);
 
-		/* An object being dropped concurrently doesn't need to be reported */
+		/* 正在被并发删除的对象不必报告 */
 		if (objDesc == NULL)
 			continue;
 
 		/*
-		 * If, at any stage of the recursive search, we reached the object via
-		 * an AUTO, INTERNAL, PARTITION, or EXTENSION dependency, then it's
-		 * okay to delete it even in RESTRICT mode.
+		 * 若在递归搜索的任何阶段，我们是经由
+		 * AUTO、INTERNAL、PARTITION 或 EXTENSION 依赖到达该对象的，那么
+		 * 即使在 RESTRICT 模式下也可以删除它。
 		 */
 		if (extra->flags & (DEPFLAG_AUTO |
 							DEPFLAG_INTERNAL |
@@ -1129,10 +1129,10 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 							DEPFLAG_EXTENSION))
 		{
 			/*
-			 * auto-cascades are reported at DEBUG2, not msglevel.  We don't
-			 * try to combine them with the regular message because the
-			 * results are too confusing when client_min_messages and
-			 * log_min_messages are different.
+			 * 自动级联在 DEBUG2 报告，而不是 msglevel。我们不
+			 * 试图把它们与常规消息合并，因为当
+			 * client_min_messages 与
+			 * log_min_messages 不同时结果太令人困惑。
 			 */
 			ereport(DEBUG2,
 					(errmsg_internal("drop auto-cascades to %s",
@@ -1147,7 +1147,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 			{
 				if (numReportedClient < MAX_REPORTED_DEPS)
 				{
-					/* separate entries with a newline */
+					/* 用换行分隔各条目 */
 					if (clientdetail.len != 0)
 						appendStringInfoChar(&clientdetail, '\n');
 					appendStringInfo(&clientdetail, _("%s depends on %s"),
@@ -1156,7 +1156,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 				}
 				else
 					numNotReportedClient++;
-				/* separate entries with a newline */
+				/* 用换行分隔各条目 */
 				if (logdetail.len != 0)
 					appendStringInfoChar(&logdetail, '\n');
 				appendStringInfo(&logdetail, _("%s depends on %s"),
@@ -1171,7 +1171,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 		{
 			if (numReportedClient < MAX_REPORTED_DEPS)
 			{
-				/* separate entries with a newline */
+				/* 用换行分隔各条目 */
 				if (clientdetail.len != 0)
 					appendStringInfoChar(&clientdetail, '\n');
 				appendStringInfo(&clientdetail, _("drop cascades to %s"),
@@ -1180,7 +1180,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 			}
 			else
 				numNotReportedClient++;
-			/* separate entries with a newline */
+			/* 用换行分隔各条目 */
 			if (logdetail.len != 0)
 				appendStringInfoChar(&logdetail, '\n');
 			appendStringInfo(&logdetail, _("drop cascades to %s"),
@@ -1228,7 +1228,7 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 	}
 	else if (numReportedClient == 1)
 	{
-		/* we just use the single item as-is */
+		/* 我们直接原样使用这一条 */
 		ereport(msglevel,
 				(errmsg_internal("%s", clientdetail.data)));
 	}
@@ -1238,8 +1238,8 @@ reportDependentObjects(const ObjectAddresses *targetObjects,
 }
 
 /*
- * Drop an object by OID.  Works for most catalogs, if no special processing
- * is needed.
+ * 按 OID 删除对象。对大多数目录有效，若不需要特殊处理
+ * 的话。
  */
 static void
 DropObjectById(const ObjectAddress *object)
@@ -1253,7 +1253,7 @@ DropObjectById(const ObjectAddress *object)
 	rel = table_open(object->classId, RowExclusiveLock);
 
 	/*
-	 * Use the system cache for the oid column, if one exists.
+	 * 若存在，则对 oid 列使用系统缓存。
 	 */
 	if (cacheId >= 0)
 	{
@@ -1279,7 +1279,7 @@ DropObjectById(const ObjectAddress *object)
 		scan = systable_beginscan(rel, get_object_oid_index(object->classId), true,
 								  NULL, 1, skey);
 
-		/* we expect exactly one match */
+		/* 我们期望恰好匹配一条 */
 		tup = systable_getnext(scan);
 		if (!HeapTupleIsValid(tup))
 			elog(ERROR, "could not find tuple for %s %u",
@@ -1294,9 +1294,9 @@ DropObjectById(const ObjectAddress *object)
 }
 
 /*
- * deleteOneObject: delete a single object for performDeletion.
+ * deleteOneObject: 为 performDeletion 删除单个对象。
  *
- * *depRel is the already-open pg_depend relation.
+ * *depRel 是已经打开的 pg_depend 关系。
  */
 static void
 deleteOneObject(const ObjectAddress *object, Relation *depRel, int flags)
@@ -1306,41 +1306,41 @@ deleteOneObject(const ObjectAddress *object, Relation *depRel, int flags)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* DROP hook of the objects being removed */
+	/* 正被移除对象的 DROP 钩子 */
 	InvokeObjectDropHookArg(object->classId, object->objectId,
 							object->objectSubId, flags);
 
 	/*
-	 * Close depRel if we are doing a drop concurrently.  The object deletion
-	 * subroutine will commit the current transaction, so we can't keep the
-	 * relation open across doDeletion().
+	 * 若正在并发删除，则关闭 depRel。对象删除
+	 * 子例程会提交当前事务，因此我们不能在
+	 * doDeletion() 期间保持该关系打开。
 	 */
 	if (flags & PERFORM_DELETION_CONCURRENTLY)
 		table_close(*depRel, RowExclusiveLock);
 
 	/*
-	 * Delete the object itself, in an object-type-dependent way.
+	 * 以依赖于对象类型的方式删除对象本身。
 	 *
-	 * We used to do this after removing the outgoing dependency links, but it
-	 * seems just as reasonable to do it beforehand.  In the concurrent case
-	 * we *must* do it in this order, because we can't make any transactional
-	 * updates before calling doDeletion() --- they'd get committed right
-	 * away, which is not cool if the deletion then fails.
+	 * 我们以前在移除向外的依赖链接之后才做这件事，但
+	 * 事先做似乎同样合理。在并发情形下
+	 * 我们必须按此顺序，因为在调用 doDeletion() 之前不能做任何事务性
+	 * 更新 --- 它们会马上被提交，
+	 * 若随后删除失败就不合适。
 	 */
 	doDeletion(object, flags);
 
 	/*
-	 * Reopen depRel if we closed it above
+	 * 若上面关闭过 depRel，则重新打开
 	 */
 	if (flags & PERFORM_DELETION_CONCURRENTLY)
 		*depRel = table_open(DependRelationId, RowExclusiveLock);
 
 	/*
-	 * Now remove any pg_depend records that link from this object to others.
-	 * (Any records linking to this object should be gone already.)
+	 * 现在移除任何从本对象链到其他对象的 pg_depend 记录。
+	 * （链到本对象的记录应该已经没了。）
 	 *
-	 * When dropping a whole object (subId = 0), remove all pg_depend records
-	 * for its sub-objects too.
+	 * 删除整个对象（subId = 0）时，也移除
+	 * 其子对象的全部 pg_depend 记录。
 	 */
 	ScanKeyInit(&key[0],
 				Anum_pg_depend_classid,
@@ -1372,37 +1372,37 @@ deleteOneObject(const ObjectAddress *object, Relation *depRel, int flags)
 	systable_endscan(scan);
 
 	/*
-	 * Delete shared dependency references related to this object.  Again, if
-	 * subId = 0, remove records for sub-objects too.
+	 * 删除与本对象相关的共享依赖引用。同样，若
+	 * subId = 0，也移除子对象的记录。
 	 */
 	deleteSharedDependencyRecordsFor(object->classId, object->objectId,
 									 object->objectSubId);
 
 
 	/*
-	 * Delete any comments, security labels, or initial privileges associated
-	 * with this object.  (This is a convenient place to do these things,
-	 * rather than having every object type know to do it.)  As above, all
-	 * these functions must remove records for sub-objects too if the subid is
-	 * zero.
+	 * 删除与本对象关联的任何注释、安全标签或初始权限。
+	 * （在这里做这些事很方便，
+	 * 而不必让每种对象类型都知道要做。）如上，若 subid 为
+	 * 零，这些函数也都必须移除子对象的
+	 * 记录。
 	 */
 	DeleteComments(object->objectId, object->classId, object->objectSubId);
 	DeleteSecurityLabel(object);
 	DeleteInitPrivs(object);
 
 	/*
-	 * CommandCounterIncrement here to ensure that preceding changes are all
-	 * visible to the next deletion step.
+	 * 这里做 CommandCounterIncrement，以确保前面的更改
+	 * 对下一步删除可见。
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * And we're done!
+	 * 完成了！
 	 */
 }
 
 /*
- * doDeletion: actually delete a single object
+ * doDeletion: 实际删除单个对象
  */
 static void
 doDeletion(const ObjectAddress *object, int flags)
@@ -1432,8 +1432,8 @@ doDeletion(const ObjectAddress *object, int flags)
 				}
 
 				/*
-				 * for a sequence, in addition to dropping the heap, also
-				 * delete pg_sequence tuple
+				 * 对于序列，除删除堆外，还要
+				 * 删除 pg_sequence 元组
 				 */
 				if (relKind == RELKIND_SEQUENCE)
 					DeleteSequenceTuple(object->objectId);
@@ -1524,7 +1524,7 @@ doDeletion(const ObjectAddress *object, int flags)
 			break;
 
 			/*
-			 * These global object types are not supported here.
+			 * 这些全局对象类型在此不受支持。
 			 */
 		case OCLASS_ROLE:
 		case OCLASS_DATABASE:
@@ -1535,20 +1535,20 @@ doDeletion(const ObjectAddress *object, int flags)
 			break;
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 * 这里故意没有 default: 分支；我们希望
+			 * 若上面未处理新的 OCLASS，编译器会警告。
 			 */
 	}
 }
 
 /*
- * AcquireDeletionLock - acquire a suitable lock for deleting an object
+ * AcquireDeletionLock - 为删除对象获取合适的锁
  *
- * Accepts the same flags as performDeletion (though currently only
- * PERFORM_DELETION_CONCURRENTLY does anything).
+ * 接受与 performDeletion 相同的标志（不过目前只有
+ * PERFORM_DELETION_CONCURRENTLY 有实际作用）。
  *
- * We use LockRelation for relations, and otherwise LockSharedObject or
- * LockDatabaseObject as appropriate for the object type.
+ * 对关系使用 LockRelation，否则按对象类型酌情使用
+ * LockSharedObject 或 LockDatabaseObject。
  */
 void
 AcquireDeletionLock(const ObjectAddress *object, int flags)
@@ -1556,10 +1556,10 @@ AcquireDeletionLock(const ObjectAddress *object, int flags)
 	if (object->classId == RelationRelationId)
 	{
 		/*
-		 * In DROP INDEX CONCURRENTLY, take only ShareUpdateExclusiveLock on
-		 * the index for the moment.  index_drop() will promote the lock once
-		 * it's safe to do so.  In all other cases we need full exclusive
-		 * lock.
+		 * 在 DROP INDEX CONCURRENTLY 中，此刻对索引只取
+		 * ShareUpdateExclusiveLock。index_drop() 一旦安全就会提升该锁。
+		 * 所有其他情形我们需要完全排他
+		 * 锁。
 		 */
 		if (flags & PERFORM_DELETION_CONCURRENTLY)
 			LockRelationOid(object->objectId, ShareUpdateExclusiveLock);
@@ -1571,16 +1571,16 @@ AcquireDeletionLock(const ObjectAddress *object, int flags)
 						 AccessExclusiveLock);
 	else
 	{
-		/* assume we should lock the whole object not a sub-object */
+		/* 假定应锁整个对象而非子对象 */
 		LockDatabaseObject(object->classId, object->objectId, 0,
 						   AccessExclusiveLock);
 	}
 }
 
 /*
- * ReleaseDeletionLock - release an object deletion lock
+ * ReleaseDeletionLock - 释放对象删除锁
  *
- * Companion to AcquireDeletionLock.
+ * AcquireDeletionLock 的配对函数。
  */
 void
 ReleaseDeletionLock(const ObjectAddress *object)
@@ -1588,24 +1588,24 @@ ReleaseDeletionLock(const ObjectAddress *object)
 	if (object->classId == RelationRelationId)
 		UnlockRelationOid(object->objectId, AccessExclusiveLock);
 	else
-		/* assume we should lock the whole object not a sub-object */
+		/* 假定应锁整个对象而非子对象 */
 		UnlockDatabaseObject(object->classId, object->objectId, 0,
 							 AccessExclusiveLock);
 }
 
 /*
- * recordDependencyOnExpr - find expression dependencies
+ * recordDependencyOnExpr - 查找表达式依赖
  *
- * This is used to find the dependencies of rules, constraint expressions,
- * etc.
+ * 用于查找规则、约束表达式等的
+ * 依赖。
  *
- * Given an expression or query in node-tree form, find all the objects
- * it refers to (tables, columns, operators, functions, etc).  Record
- * a dependency of the specified type from the given depender object
- * to each object mentioned in the expression.
+ * 给定节点树形式的表达式或查询，找出它引用的
+ * 全部对象（表、列、操作符、函数等）。记录
+ * 从给定依赖方对象到表达式中提到的每个对象的、
+ * 指定类型的依赖。
  *
- * rtable is the rangetable to be used to interpret Vars with varlevelsup=0.
- * It can be NIL if no such variables are expected.
+ * rtable 是用于解释 varlevelsup=0 的 Var 的范围表。
+ * 若不预期有这类变量，可以为 NIL。
  */
 void
 recordDependencyOnExpr(const ObjectAddress *depender,
@@ -1616,16 +1616,16 @@ recordDependencyOnExpr(const ObjectAddress *depender,
 
 	context.addrs = new_object_addresses();
 
-	/* Set up interpretation for Vars at varlevelsup = 0 */
+	/* 为 varlevelsup = 0 的 Var 设置解释 */
 	context.rtables = list_make1(rtable);
 
-	/* Scan the expression tree for referenceable objects */
+	/* 扫描表达式树以找出可引用对象 */
 	find_expr_references_walker(expr, &context);
 
-	/* Remove any duplicates */
+	/* 去除任何重复 */
 	eliminate_duplicate_dependencies(context.addrs);
 
-	/* And record 'em */
+	/* 然后记录它们 */
 	recordMultipleDependencies(depender,
 							   context.addrs->refs, context.addrs->numrefs,
 							   behavior);
@@ -1634,21 +1634,21 @@ recordDependencyOnExpr(const ObjectAddress *depender,
 }
 
 /*
- * recordDependencyOnSingleRelExpr - find expression dependencies
+ * recordDependencyOnSingleRelExpr - 查找表达式依赖
  *
- * As above, but only one relation is expected to be referenced (with
- * varno = 1 and varlevelsup = 0).  Pass the relation OID instead of a
- * range table.  An additional frammish is that dependencies on that
- * relation's component columns will be marked with 'self_behavior',
- * whereas 'behavior' is used for everything else; also, if 'reverse_self'
- * is true, those dependencies are reversed so that the columns are made
- * to depend on the table not vice versa.
+ * 同上，但预期只引用一个关系（
+ * varno = 1 且 varlevelsup = 0）。传入关系 OID 而不是
+ * 范围表。额外约定是：对该
+ * 关系组成列的依赖将标以 'self_behavior'，
+ * 而其他一切使用 'behavior'；另外，若 'reverse_self'
+ * 为真，这些依赖会被反转，使列
+ * 依赖于表而不是相反。
  *
- * NOTE: the caller should ensure that a whole-table dependency on the
- * specified relation is created separately, if one is needed.  In particular,
- * a whole-row Var "relation.*" will not cause this routine to emit any
- * dependency item.  This is appropriate behavior for subexpressions of an
- * ordinary query, so other cases need to cope as necessary.
+ * NOTE: 调用者应确保若有必要，对该
+ * 指定关系的整表依赖另行创建。特别是，
+ * 整行 Var "relation.*" 不会使本例程发出任何
+ * 依赖项。这对普通查询的子表达式是合适行为，
+ * 因此其他情形需按需自行处理。
  */
 void
 recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
@@ -1662,22 +1662,22 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 
 	context.addrs = new_object_addresses();
 
-	/* We gin up a rather bogus rangetable list to handle Vars */
+	/* 我们拼出一个相当假的范围表列表来处理 Var */
 	rte.type = T_RangeTblEntry;
 	rte.rtekind = RTE_RELATION;
 	rte.relid = relId;
-	rte.relkind = RELKIND_RELATION; /* no need for exactness here */
+	rte.relkind = RELKIND_RELATION; /* 这里不必精确 */
 	rte.rellockmode = AccessShareLock;
 
 	context.rtables = list_make1(list_make1(&rte));
 
-	/* Scan the expression tree for referenceable objects */
+	/* 扫描表达式树以找出可引用对象 */
 	find_expr_references_walker(expr, &context);
 
-	/* Remove any duplicates */
+	/* 去除任何重复 */
 	eliminate_duplicate_dependencies(context.addrs);
 
-	/* Separate self-dependencies if necessary */
+	/* 必要时分离自身依赖 */
 	if ((behavior != self_behavior || reverse_self) &&
 		context.addrs->numrefs > 0)
 	{
@@ -1697,12 +1697,12 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 			if (thisobj->classId == RelationRelationId &&
 				thisobj->objectId == relId)
 			{
-				/* Move this ref into self_addrs */
+				/* 把此引用移入 self_addrs */
 				add_exact_object_address(thisobj, self_addrs);
 			}
 			else
 			{
-				/* Keep it in context.addrs */
+				/* 把它留在 context.addrs */
 				*outobj = *thisobj;
 				outobj++;
 				outrefs++;
@@ -1710,14 +1710,14 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 		}
 		context.addrs->numrefs = outrefs;
 
-		/* Record the self-dependencies with the appropriate direction */
+		/* 以适当方向记录自身依赖 */
 		if (!reverse_self)
 			recordMultipleDependencies(depender,
 									   self_addrs->refs, self_addrs->numrefs,
 									   self_behavior);
 		else
 		{
-			/* Can't use recordMultipleDependencies, so do it the hard way */
+			/* 不能用 recordMultipleDependencies，因此用笨办法 */
 			int			selfref;
 
 			for (selfref = 0; selfref < self_addrs->numrefs; selfref++)
@@ -1731,7 +1731,7 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 		free_object_addresses(self_addrs);
 	}
 
-	/* Record the external dependencies */
+	/* 记录外部依赖 */
 	recordMultipleDependencies(depender,
 							   context.addrs->refs, context.addrs->numrefs,
 							   behavior);
@@ -1740,17 +1740,17 @@ recordDependencyOnSingleRelExpr(const ObjectAddress *depender,
 }
 
 /*
- * Recursively search an expression tree for object references.
+ * 递归搜索表达式树以查找对象引用。
  *
- * Note: in many cases we do not need to create dependencies on the datatypes
- * involved in an expression, because we'll have an indirect dependency via
- * some other object.  For instance Var nodes depend on a column which depends
- * on the datatype, and OpExpr nodes depend on the operator which depends on
- * the datatype.  However we do need a type dependency if there is no such
- * indirect dependency, as for example in Const and CoerceToDomain nodes.
+ * 注意：很多情形下我们不必为表达式中涉及的数据类型
+ * 创建依赖，因为会经由
+ * 其他对象有间接依赖。例如 Var 节点依赖于某列，该列又依赖于
+ * 数据类型，而 OpExpr 节点依赖于操作符，操作符又依赖于
+ * 数据类型。不过若没有这种
+ * 间接依赖，我们就需要类型依赖，例如 Const 和 CoerceToDomain 节点。
  *
- * Similarly, we don't need to create dependencies on collations except where
- * the collation is being freshly introduced to the expression.
+ * 类似地，除排序规则被新引入表达式之处外，
+ * 我们不必为排序规则创建依赖。
  */
 static bool
 find_expr_references_walker(Node *node,
@@ -1764,7 +1764,7 @@ find_expr_references_walker(Node *node,
 		List	   *rtable;
 		RangeTblEntry *rte;
 
-		/* Find matching rtable entry, or complain if not found */
+		/* 查找匹配的范围表条目，找不到则抱怨 */
 		if (var->varlevelsup >= list_length(context->rtables))
 			elog(ERROR, "invalid varlevelsup %d", var->varlevelsup);
 		rtable = (List *) list_nth(context->rtables, var->varlevelsup);
@@ -1773,38 +1773,38 @@ find_expr_references_walker(Node *node,
 		rte = rt_fetch(var->varno, rtable);
 
 		/*
-		 * A whole-row Var references no specific columns, so adds no new
-		 * dependency.  (We assume that there is a whole-table dependency
-		 * arising from each underlying rangetable entry.  While we could
-		 * record such a dependency when finding a whole-row Var that
-		 * references a relation directly, it's quite unclear how to extend
-		 * that to whole-row Vars for JOINs, so it seems better to leave the
-		 * responsibility with the range table.  Note that this poses some
-		 * risks for identifying dependencies of stand-alone expressions:
-		 * whole-table references may need to be created separately.)
+		 * 整行 Var 不引用特定列，因此不加新
+		 * 依赖。（我们假定每个底层范围表条目都会产生
+		 * 整表依赖。虽然在找到直接引用某关系的整行 Var 时
+		 * 可以记录这种依赖，但如何推广
+		 * 到 JOINs 的整行 Var 相当不清楚，因此似乎更好把
+		 * 责任留给范围表。注意这对识别独立表达式的
+		 * 依赖带来一些风险：
+		 * 整表引用可能需要另行创建。）
+		 *
 		 */
 		if (var->varattno == InvalidAttrNumber)
 			return false;
 		if (rte->rtekind == RTE_RELATION)
 		{
-			/* If it's a plain relation, reference this column */
+			/* 若是普通关系，引用此列 */
 			add_object_address(OCLASS_CLASS, rte->relid, var->varattno,
 							   context->addrs);
 		}
 		else if (rte->rtekind == RTE_FUNCTION)
 		{
-			/* Might need to add a dependency on a composite type's column */
-			/* (done out of line, because it's a bit bulky) */
+			/* 可能需要添加对复合类型某列的依赖 */
+			/* （在行外完成，因为有点臃肿） */
 			process_function_rte_ref(rte, var->varattno, context);
 		}
 
 		/*
-		 * Vars referencing other RTE types require no additional work.  In
-		 * particular, a join alias Var can be ignored, because it must
-		 * reference a merged USING column.  The relevant join input columns
-		 * will also be referenced in the join qual, and any type coercion
-		 * functions involved in the alias expression will be dealt with when
-		 * we scan the RTE itself.
+		 * 引用其他 RTE 类型的 Var 无需额外工作。
+		 * 特别是，连接别名 Var 可以忽略，因为它必须
+		 * 引用合并后的 USING 列。相关的连接输入列
+		 * 也会在连接条件中被引用，别名表达式中涉及的任何
+		 * 类型强制转换函数会在我们扫描
+		 * RTE 本身时处理。
 		 */
 		return false;
 	}
@@ -1813,15 +1813,15 @@ find_expr_references_walker(Node *node,
 		Const	   *con = (Const *) node;
 		Oid			objoid;
 
-		/* A constant must depend on the constant's datatype */
+		/* 常量必须依赖于该常量的数据类型 */
 		add_object_address(OCLASS_TYPE, con->consttype, 0,
 						   context->addrs);
 
 		/*
-		 * We must also depend on the constant's collation: it could be
-		 * different from the datatype's, if a CollateExpr was const-folded to
-		 * a simple constant.  However we can save work in the most common
-		 * case where the collation is "default", since we know that's pinned.
+		 * 还必须依赖于该常量的排序规则：若 CollateExpr 被常量折叠成
+		 * 简单常量，它可能
+		 * 与数据类型的不同。不过在最常见的
+		 * 排序规则为"default"的情形可以省事，因为我们知道那是钉住的。
 		 */
 		if (OidIsValid(con->constcollid) &&
 			con->constcollid != DEFAULT_COLLATION_OID)
@@ -1829,10 +1829,10 @@ find_expr_references_walker(Node *node,
 							   context->addrs);
 
 		/*
-		 * If it's a regclass or similar literal referring to an existing
-		 * object, add a reference to that object.  (Currently, only the
-		 * regclass and regconfig cases have any likely use, but we may as
-		 * well handle all the OID-alias datatypes consistently.)
+		 * 若它是引用现有对象的 regclass 或类似字面量，
+		 * 则添加对该对象的引用。（目前只有
+		 * regclass 和 regconfig 情形较可能有用，但我们不妨
+		 * 一致地处理所有 OID 别名数据类型。）
 		 */
 		if (!con->constisnull)
 		{
@@ -1899,8 +1899,8 @@ find_expr_references_walker(Node *node,
 					break;
 
 					/*
-					 * Dependencies for regrole should be shared among all
-					 * databases, so explicitly inhibit to have dependencies.
+					 * regrole 的依赖应在所有
+					 * 数据库间共享，因此显式禁止为其建立依赖。
 					 */
 				case REGROLEOID:
 					ereport(ERROR,
@@ -1916,10 +1916,10 @@ find_expr_references_walker(Node *node,
 	{
 		Param	   *param = (Param *) node;
 
-		/* A parameter must depend on the parameter's datatype */
+		/* 参数必须依赖于该参数的数据类型 */
 		add_object_address(OCLASS_TYPE, param->paramtype, 0,
 						   context->addrs);
-		/* and its collation, just as for Consts */
+		/* 以及其排序规则，与 Const 相同 */
 		if (OidIsValid(param->paramcollid) &&
 			param->paramcollid != DEFAULT_COLLATION_OID)
 			add_object_address(OCLASS_COLLATION, param->paramcollid, 0,
@@ -1986,10 +1986,10 @@ find_expr_references_walker(Node *node,
 		SubscriptingRef *sbsref = (SubscriptingRef *) node;
 
 		/*
-		 * The refexpr should provide adequate dependency on refcontainertype,
-		 * and that type in turn depends on refelemtype.  However, a custom
-		 * subscripting handler might set refrestype to something different
-		 * from either of those, in which case we'd better record it.
+		 * refexpr 应对 refcontainertype 提供足够依赖，
+		 * 而该类型又依赖于 refelemtype。不过，自定义
+		 * 下标处理函数可能把 refrestype 设成与这两者都不同的值，
+		 * 那时我们最好记录它。
 		 */
 		if (sbsref->refrestype != sbsref->refcontainertype &&
 			sbsref->refrestype != sbsref->refelemtype)
@@ -1999,7 +1999,7 @@ find_expr_references_walker(Node *node,
 	}
 	else if (IsA(node, SubPlan))
 	{
-		/* Extra work needed here if we ever need this case */
+		/* 若将来需要此情形，这里还要额外工作 */
 		elog(ERROR, "already-planned subqueries not supported");
 	}
 	else if (IsA(node, FieldSelect))
@@ -2009,13 +2009,13 @@ find_expr_references_walker(Node *node,
 		Oid			reltype = get_typ_typrelid(argtype);
 
 		/*
-		 * We need a dependency on the specific column named in FieldSelect,
-		 * assuming we can identify the pg_class OID for it.  (Probably we
-		 * always can at the moment, but in future it might be possible for
-		 * argtype to be RECORDOID.)  If we can make a column dependency then
-		 * we shouldn't need a dependency on the column's type; but if we
-		 * can't, make a dependency on the type, as it might not appear
-		 * anywhere else in the expression.
+		 * 我们需要对 FieldSelect 中点名的那一列建立依赖，
+		 * 前提是能识别其 pg_class OID。（目前大概
+		 * 总能做到，但将来 argtype 有可能是
+		 * RECORDOID。）若能建立列依赖，就
+		 * 不必再依赖该列的类型；但若
+		 * 不能，则对类型建立依赖，因为它可能不会
+		 * 出现在表达式的其他地方。
 		 */
 		if (OidIsValid(reltype))
 			add_object_address(OCLASS_CLASS, reltype, fselect->fieldnum,
@@ -2023,7 +2023,7 @@ find_expr_references_walker(Node *node,
 		else
 			add_object_address(OCLASS_TYPE, fselect->resulttype, 0,
 							   context->addrs);
-		/* the collation might not be referenced anywhere else, either */
+		/* 排序规则也可能没有在别处被引用 */
 		if (OidIsValid(fselect->resultcollid) &&
 			fselect->resultcollid != DEFAULT_COLLATION_OID)
 			add_object_address(OCLASS_COLLATION, fselect->resultcollid, 0,
@@ -2034,7 +2034,7 @@ find_expr_references_walker(Node *node,
 		FieldStore *fstore = (FieldStore *) node;
 		Oid			reltype = get_typ_typrelid(fstore->resulttype);
 
-		/* similar considerations to FieldSelect, but multiple column(s) */
+		/* 与 FieldSelect 类似的考虑，但是多个 column(s) */
 		if (OidIsValid(reltype))
 		{
 			ListCell   *l;
@@ -2051,10 +2051,10 @@ find_expr_references_walker(Node *node,
 	{
 		RelabelType *relab = (RelabelType *) node;
 
-		/* since there is no function dependency, need to depend on type */
+		/* 因为没有函数依赖，需要依赖类型 */
 		add_object_address(OCLASS_TYPE, relab->resulttype, 0,
 						   context->addrs);
-		/* the collation might not be referenced anywhere else, either */
+		/* 排序规则也可能没有在别处被引用 */
 		if (OidIsValid(relab->resultcollid) &&
 			relab->resultcollid != DEFAULT_COLLATION_OID)
 			add_object_address(OCLASS_COLLATION, relab->resultcollid, 0,
@@ -2064,10 +2064,10 @@ find_expr_references_walker(Node *node,
 	{
 		CoerceViaIO *iocoerce = (CoerceViaIO *) node;
 
-		/* since there is no exposed function, need to depend on type */
+		/* 因为没有暴露的函数，需要依赖类型 */
 		add_object_address(OCLASS_TYPE, iocoerce->resulttype, 0,
 						   context->addrs);
-		/* the collation might not be referenced anywhere else, either */
+		/* 排序规则也可能没有在别处被引用 */
 		if (OidIsValid(iocoerce->resultcollid) &&
 			iocoerce->resultcollid != DEFAULT_COLLATION_OID)
 			add_object_address(OCLASS_COLLATION, iocoerce->resultcollid, 0,
@@ -2077,10 +2077,10 @@ find_expr_references_walker(Node *node,
 	{
 		ArrayCoerceExpr *acoerce = (ArrayCoerceExpr *) node;
 
-		/* as above, depend on type */
+		/* 如上，依赖类型 */
 		add_object_address(OCLASS_TYPE, acoerce->resulttype, 0,
 						   context->addrs);
-		/* the collation might not be referenced anywhere else, either */
+		/* 排序规则也可能没有在别处被引用 */
 		if (OidIsValid(acoerce->resultcollid) &&
 			acoerce->resultcollid != DEFAULT_COLLATION_OID)
 			add_object_address(OCLASS_COLLATION, acoerce->resultcollid, 0,
@@ -2091,7 +2091,7 @@ find_expr_references_walker(Node *node,
 	{
 		ConvertRowtypeExpr *cvt = (ConvertRowtypeExpr *) node;
 
-		/* since there is no function dependency, need to depend on type */
+		/* 因为没有函数依赖，需要依赖类型 */
 		add_object_address(OCLASS_TYPE, cvt->resulttype, 0,
 						   context->addrs);
 	}
@@ -2193,26 +2193,26 @@ find_expr_references_walker(Node *node,
 	}
 	else if (IsA(node, Query))
 	{
-		/* Recurse into RTE subquery or not-yet-planned sublink subquery */
+		/* 递归进入 RTE 子查询或尚未规划的子链接子查询 */
 		Query	   *query = (Query *) node;
 		ListCell   *lc;
 		bool		result;
 
 		/*
-		 * Add whole-relation refs for each plain relation mentioned in the
-		 * subquery's rtable, and ensure we add refs for any type-coercion
-		 * functions used in join alias lists.
+		 * 为子查询范围表中提到的每个普通关系添加整关系引用，
+		 * 并确保为连接别名列表中使用的任何类型强制转换
+		 * 函数添加引用。
 		 *
-		 * Note: query_tree_walker takes care of recursing into RTE_FUNCTION
-		 * RTEs, subqueries, etc, so no need to do that here.  But we must
-		 * tell it not to visit join alias lists, or we'll add refs for join
-		 * input columns whether or not they are actually used in our query.
+		 * 注意：query_tree_walker 会负责递归进入 RTE_FUNCTION
+		 * RTEs、子查询等，因此这里不必再做。但我们必须
+		 * 告诉它不要访问连接别名列表，否则会为连接
+		 * 输入列添加引用，无论它们是否真正用在我们的查询中。
 		 *
-		 * Note: we don't need to worry about collations mentioned in
-		 * RTE_VALUES or RTE_CTE RTEs, because those must just duplicate
-		 * collations referenced in other parts of the Query.  We do have to
-		 * worry about collations mentioned in RTE_FUNCTION, but we take care
-		 * of those when we recurse to the RangeTblFunction node(s).
+		 * 注意：我们不必担心 RTE_VALUES 或 RTE_CTE RTE 中提到的
+		 * 排序规则，因为那些必须只是复制
+		 * Query 其他部分引用的排序规则。我们确实必须
+		 * 担心 RTE_FUNCTION 中提到的排序规则，但我们在递归到
+		 * RangeTblFunction node(s) 时处理它们。
 		 */
 		foreach(lc, query->rtable)
 		{
@@ -2227,17 +2227,17 @@ find_expr_references_walker(Node *node,
 				case RTE_JOIN:
 
 					/*
-					 * Examine joinaliasvars entries only for merged JOIN
-					 * USING columns.  Only those entries could contain
-					 * type-coercion functions.  Also, their join input
-					 * columns must be referenced in the join quals, so this
-					 * won't accidentally add refs to otherwise-unused join
-					 * input columns.  (We want to ref the type coercion
-					 * functions even if the merged column isn't explicitly
-					 * used anywhere, to protect possible expansion of the
-					 * join RTE as a whole-row var, and because it seems like
-					 * a bad idea to allow dropping a function that's present
-					 * in our query tree, whether or not it could get called.)
+					 * 只检查已合并 JOIN
+					 * USING 列的 joinaliasvars 条目。只有那些条目可能包含
+					 * 类型强制转换函数。此外，它们的连接输入
+					 * 列必须在连接条件中被引用，因此这
+					 * 不会意外为本不使用的连接
+					 * 输入列添加引用。（即使合并列在任何地方都没有被显式
+					 * 使用，我们也要引用类型强制转换
+					 * 函数，以保护连接 RTE 可能展开为
+					 * 整行 var，并且允许删除出现在
+					 * 我们查询树中的函数似乎不是好主意，
+					 * 无论它会不会被调用。）
 					 */
 					context->rtables = lcons(query->rtable, context->rtables);
 					for (int i = 0; i < rte->joinmergedcols; i++)
@@ -2255,11 +2255,11 @@ find_expr_references_walker(Node *node,
 		}
 
 		/*
-		 * If the query is an INSERT or UPDATE, we should create a dependency
-		 * on each target column, to prevent the specific target column from
-		 * being dropped.  Although we will visit the TargetEntry nodes again
-		 * during query_tree_walker, we won't have enough context to do this
-		 * conveniently, so do it here.
+		 * 若查询是 INSERT 或 UPDATE，应对每个目标列创建依赖，
+		 * 以防止该特定目标列被
+		 * 删除。虽然我们会在 query_tree_walker 期间再次访问
+		 * TargetEntry 节点，但那时没有足够上下文方便地做这件事，
+		 * 因此在这里做。
 		 */
 		if (query->commandType == CMD_INSERT ||
 			query->commandType == CMD_UPDATE)
@@ -2278,7 +2278,7 @@ find_expr_references_walker(Node *node,
 					TargetEntry *tle = (TargetEntry *) lfirst(lc);
 
 					if (tle->resjunk)
-						continue;	/* ignore junk tlist items */
+						continue;	/* 忽略垃圾目标列表项 */
 					add_object_address(OCLASS_CLASS, rte->relid, tle->resno,
 									   context->addrs);
 				}
@@ -2286,7 +2286,7 @@ find_expr_references_walker(Node *node,
 		}
 
 		/*
-		 * Add dependencies on constraints listed in query's constraintDeps
+		 * 为查询的 constraintDeps 中列出的约束添加依赖
 		 */
 		foreach(lc, query->constraintDeps)
 		{
@@ -2294,7 +2294,7 @@ find_expr_references_walker(Node *node,
 							   context->addrs);
 		}
 
-		/* Examine substructure of query */
+		/* 检查查询的子结构 */
 		context->rtables = lcons(query->rtable, context->rtables);
 		result = query_tree_walker(query,
 								   find_expr_references_walker,
@@ -2308,7 +2308,7 @@ find_expr_references_walker(Node *node,
 	{
 		SetOperationStmt *setop = (SetOperationStmt *) node;
 
-		/* we need to look at the groupClauses for operator references */
+		/* 我们需要查看 groupClauses 中的操作符引用 */
 		find_expr_references_walker((Node *) setop->groupClauses, context);
 		/* fall through to examine child nodes */
 	}
@@ -2318,9 +2318,9 @@ find_expr_references_walker(Node *node,
 		ListCell   *ct;
 
 		/*
-		 * Add refs for any datatypes and collations used in a column
-		 * definition list for a RECORD function.  (For other cases, it should
-		 * be enough to depend on the function itself.)
+		 * 为 RECORD 函数的列定义列表中使用的任何数据类型和排序规则
+		 * 添加引用。（其他情形
+		 * 依赖函数本身应已足够。）
 		 */
 		foreach(ct, rtfunc->funccoltypes)
 		{
@@ -2342,7 +2342,7 @@ find_expr_references_walker(Node *node,
 		ListCell   *ct;
 
 		/*
-		 * Add refs for the datatypes and collations used in the TableFunc.
+		 * 为 TableFunc 中使用的数据类型和排序规则添加引用。
 		 */
 		foreach(ct, tf->coltypes)
 		{
@@ -2372,8 +2372,8 @@ find_expr_references_walker(Node *node,
 }
 
 /*
- * find_expr_references_walker subroutine: handle a Var reference
- * to an RTE_FUNCTION RTE
+ * find_expr_references_walker 子例程：处理对
+ * RTE_FUNCTION RTE 的 Var 引用
  */
 static void
 process_function_rte_ref(RangeTblEntry *rte, AttrNumber attnum,
@@ -2383,10 +2383,10 @@ process_function_rte_ref(RangeTblEntry *rte, AttrNumber attnum,
 	ListCell   *lc;
 
 	/*
-	 * Identify which RangeTblFunction produces this attnum, and see if it
-	 * returns a composite type.  If so, we'd better make a dependency on the
-	 * referenced column of the composite type (or actually, of its associated
-	 * relation).
+	 * 识别哪个 RangeTblFunction 产生此 attnum，并看它是否
+	 * 返回复合类型。若是，我们最好对
+	 * 该复合类型（实际上是其关联
+	 * 关系）的被引用列建立依赖。
 	 */
 	foreach(lc, rte->functions)
 	{
@@ -2397,37 +2397,37 @@ process_function_rte_ref(RangeTblEntry *rte, AttrNumber attnum,
 		{
 			TupleDesc	tupdesc;
 
-			/* If it has a coldeflist, it certainly returns RECORD */
+			/* 若它有 coldeflist，则必定返回 RECORD */
 			if (rtfunc->funccolnames != NIL)
-				tupdesc = NULL; /* no need to work hard */
+				tupdesc = NULL; /* 不必费力 */
 			else
 				tupdesc = get_expr_result_tupdesc(rtfunc->funcexpr, true);
 			if (tupdesc && tupdesc->tdtypeid != RECORDOID)
 			{
 				/*
-				 * Named composite type, so individual columns could get
-				 * dropped.  Make a dependency on this specific column.
+				 * 具名复合类型，因此个别列可能被
+				 * 删除。对本列建立依赖。
 				 */
 				Oid			reltype = get_typ_typrelid(tupdesc->tdtypeid);
 
 				Assert(attnum - atts_done <= tupdesc->natts);
-				if (OidIsValid(reltype))	/* can this fail? */
+				if (OidIsValid(reltype))	/* 这会失败吗？ */
 					add_object_address(OCLASS_CLASS, reltype,
 									   attnum - atts_done,
 									   context->addrs);
 				return;
 			}
-			/* Nothing to do; function's result type is handled elsewhere */
+			/* 无事可做；函数的结果类型在别处处理 */
 			return;
 		}
 		atts_done += rtfunc->funccolcount;
 	}
 
-	/* If we get here, must be looking for the ordinality column */
+	/* 若执行到这里，必定是在找序号列 */
 	if (rte->funcordinality && attnum == atts_done + 1)
 		return;
 
-	/* this probably can't happen ... */
+	/* 这大概不可能发生... */
 	ereport(ERROR,
 			(errcode(ERRCODE_UNDEFINED_COLUMN),
 			 errmsg("column %d of relation \"%s\" does not exist",
@@ -2435,7 +2435,7 @@ process_function_rte_ref(RangeTblEntry *rte, AttrNumber attnum,
 }
 
 /*
- * Given an array of dependency references, eliminate any duplicates.
+ * 给定依赖引用数组，消除任何重复。
  */
 static void
 eliminate_duplicate_dependencies(ObjectAddresses *addrs)
@@ -2445,20 +2445,20 @@ eliminate_duplicate_dependencies(ObjectAddresses *addrs)
 				newrefs;
 
 	/*
-	 * We can't sort if the array has "extra" data, because there's no way to
-	 * keep it in sync.  Fortunately that combination of features is not
-	 * needed.
+	 * 若数组有"extra"数据则不能排序，因为无法
+	 * 保持同步。幸好不需要那种功能组合。
+	 *
 	 */
 	Assert(!addrs->extras);
 
 	if (addrs->numrefs <= 1)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
-	/* Sort the refs so that duplicates are adjacent */
+	/* 排序引用使重复项相邻 */
 	qsort(addrs->refs, addrs->numrefs, sizeof(ObjectAddress),
 		  object_address_comparator);
 
-	/* Remove dups */
+	/* 去除重复 */
 	priorobj = addrs->refs;
 	newrefs = 1;
 	for (oldref = 1; oldref < addrs->numrefs; oldref++)
@@ -2469,23 +2469,23 @@ eliminate_duplicate_dependencies(ObjectAddresses *addrs)
 			priorobj->objectId == thisobj->objectId)
 		{
 			if (priorobj->objectSubId == thisobj->objectSubId)
-				continue;		/* identical, so drop thisobj */
+				continue;		/* 相同，因此丢弃 thisobj */
 
 			/*
-			 * If we have a whole-object reference and a reference to a part
-			 * of the same object, we don't need the whole-object reference
-			 * (for example, we don't need to reference both table foo and
-			 * column foo.bar).  The whole-object reference will always appear
-			 * first in the sorted list.
+			 * 若我们既有对整个对象的引用，又有对同一对象某部分的
+			 * 引用，则不需要整对象引用
+			 * （例如，不必同时引用表 foo 和
+			 * 列 foo.bar）。整对象引用在排序列表中总是
+			 * 先出现。
 			 */
 			if (priorobj->objectSubId == 0)
 			{
-				/* replace whole ref with partial */
+				/* 用部分引用替换整对象引用 */
 				priorobj->objectSubId = thisobj->objectSubId;
 				continue;
 			}
 		}
-		/* Not identical, so add thisobj to output set */
+		/* 不相同，因此把 thisobj 加入输出集 */
 		priorobj++;
 		*priorobj = *thisobj;
 		newrefs++;
@@ -2495,7 +2495,7 @@ eliminate_duplicate_dependencies(ObjectAddresses *addrs)
 }
 
 /*
- * qsort comparator for ObjectAddress items
+ * ObjectAddress 项的 qsort 比较器
  */
 static int
 object_address_comparator(const void *a, const void *b)
@@ -2504,9 +2504,9 @@ object_address_comparator(const void *a, const void *b)
 	const ObjectAddress *objb = (const ObjectAddress *) b;
 
 	/*
-	 * Primary sort key is OID descending.  Most of the time, this will result
-	 * in putting newer objects before older ones, which is likely to be the
-	 * right order to delete in.
+	 * 主排序键是 OID 降序。多数时候这会把
+	 * 较新对象放在较旧对象之前，这很可能就是
+	 * 正确的删除顺序。
 	 */
 	if (obja->objectId > objb->objectId)
 		return -1;
@@ -2514,8 +2514,8 @@ object_address_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * Next sort on catalog ID, in case identical OIDs appear in different
-	 * catalogs.  Sort direction is pretty arbitrary here.
+	 * 其次按目录 ID 排序，以防相同 OIDs 出现在不同
+	 * 目录中。这里的排序方向相当任意。
 	 */
 	if (obja->classId < objb->classId)
 		return -1;
@@ -2523,11 +2523,11 @@ object_address_comparator(const void *a, const void *b)
 		return 1;
 
 	/*
-	 * Last, sort on object subId.
+	 * 最后按对象 subId 排序。
 	 *
-	 * We sort the subId as an unsigned int so that 0 (the whole object) will
-	 * come first.  This is essential for eliminate_duplicate_dependencies,
-	 * and is also the best order for findDependentObjects.
+	 * 我们把 subId 当作无符号 int 排序，使 0（整个对象）
+	 * 排在最前。这对 eliminate_duplicate_dependencies 必不可少，
+	 * 也是 findDependentObjects 的最佳顺序。
 	 */
 	if ((unsigned int) obja->objectSubId < (unsigned int) objb->objectSubId)
 		return -1;
@@ -2537,9 +2537,9 @@ object_address_comparator(const void *a, const void *b)
 }
 
 /*
- * Routines for handling an expansible array of ObjectAddress items.
+ * 处理可扩展 ObjectAddress 项数组的例程。
  *
- * new_object_addresses: create a new ObjectAddresses array.
+ * new_object_addresses: 创建新的 ObjectAddresses 数组。
  */
 ObjectAddresses *
 new_object_addresses(void)
@@ -2552,16 +2552,16 @@ new_object_addresses(void)
 	addrs->maxrefs = 32;
 	addrs->refs = (ObjectAddress *)
 		palloc(addrs->maxrefs * sizeof(ObjectAddress));
-	addrs->extras = NULL;		/* until/unless needed */
+	addrs->extras = NULL;		/* 直到/除非需要 */
 
 	return addrs;
 }
 
 /*
- * Add an entry to an ObjectAddresses array.
+ * 向 ObjectAddresses 数组添加一条条目。
  *
- * It is convenient to specify the class by ObjectClass rather than directly
- * by catalog OID.
+ * 用 ObjectClass 指定类比直接用目录 OID
+ * 方便。
  */
 static void
 add_object_address(ObjectClass oclass, Oid objectId, int32 subId,
@@ -2569,7 +2569,7 @@ add_object_address(ObjectClass oclass, Oid objectId, int32 subId,
 {
 	ObjectAddress *item;
 
-	/* enlarge array if needed */
+	/* 若需要则扩大数组 */
 	if (addrs->numrefs >= addrs->maxrefs)
 	{
 		addrs->maxrefs *= 2;
@@ -2577,7 +2577,7 @@ add_object_address(ObjectClass oclass, Oid objectId, int32 subId,
 			repalloc(addrs->refs, addrs->maxrefs * sizeof(ObjectAddress));
 		Assert(!addrs->extras);
 	}
-	/* record this item */
+	/* 记录此项 */
 	item = addrs->refs + addrs->numrefs;
 	item->classId = object_classes[oclass];
 	item->objectId = objectId;
@@ -2586,9 +2586,9 @@ add_object_address(ObjectClass oclass, Oid objectId, int32 subId,
 }
 
 /*
- * Add an entry to an ObjectAddresses array.
+ * 向 ObjectAddresses 数组添加一条条目。
  *
- * As above, but specify entry exactly.
+ * 同上，但精确指定条目。
  */
 void
 add_exact_object_address(const ObjectAddress *object,
@@ -2596,7 +2596,7 @@ add_exact_object_address(const ObjectAddress *object,
 {
 	ObjectAddress *item;
 
-	/* enlarge array if needed */
+	/* 若需要则扩大数组 */
 	if (addrs->numrefs >= addrs->maxrefs)
 	{
 		addrs->maxrefs *= 2;
@@ -2604,16 +2604,16 @@ add_exact_object_address(const ObjectAddress *object,
 			repalloc(addrs->refs, addrs->maxrefs * sizeof(ObjectAddress));
 		Assert(!addrs->extras);
 	}
-	/* record this item */
+	/* 记录此项 */
 	item = addrs->refs + addrs->numrefs;
 	*item = *object;
 	addrs->numrefs++;
 }
 
 /*
- * Add an entry to an ObjectAddresses array.
+ * 向 ObjectAddresses 数组添加一条条目。
  *
- * As above, but specify entry exactly and provide some "extra" data too.
+ * 同上，但精确指定条目并同时提供一些"extra"数据。
  */
 static void
 add_exact_object_address_extra(const ObjectAddress *object,
@@ -2623,12 +2623,12 @@ add_exact_object_address_extra(const ObjectAddress *object,
 	ObjectAddress *item;
 	ObjectAddressExtra *itemextra;
 
-	/* allocate extra space if first time */
+	/* 第一次则分配 extra 空间 */
 	if (!addrs->extras)
 		addrs->extras = (ObjectAddressExtra *)
 			palloc(addrs->maxrefs * sizeof(ObjectAddressExtra));
 
-	/* enlarge array if needed */
+	/* 若需要则扩大数组 */
 	if (addrs->numrefs >= addrs->maxrefs)
 	{
 		addrs->maxrefs *= 2;
@@ -2637,7 +2637,7 @@ add_exact_object_address_extra(const ObjectAddress *object,
 		addrs->extras = (ObjectAddressExtra *)
 			repalloc(addrs->extras, addrs->maxrefs * sizeof(ObjectAddressExtra));
 	}
-	/* record this item */
+	/* 记录此项 */
 	item = addrs->refs + addrs->numrefs;
 	*item = *object;
 	itemextra = addrs->extras + addrs->numrefs;
@@ -2646,9 +2646,9 @@ add_exact_object_address_extra(const ObjectAddress *object,
 }
 
 /*
- * Test whether an object is present in an ObjectAddresses array.
+ * 测试对象是否出现在 ObjectAddresses 数组中。
  *
- * We return "true" if object is a subobject of something in the array, too.
+ * 若对象是数组中某物的子对象，我们也返回 "true"。
  */
 bool
 object_address_present(const ObjectAddress *object,
@@ -2673,8 +2673,8 @@ object_address_present(const ObjectAddress *object,
 }
 
 /*
- * As above, except that if the object is present then also OR the given
- * flags into its associated extra data (which must exist).
+ * 同上，只不过若对象存在则还把给定
+ * 标志 OR 进其关联的 extra 数据（必须存在）。
  */
 static bool
 object_address_present_add_flags(const ObjectAddress *object,
@@ -2701,39 +2701,39 @@ object_address_present_add_flags(const ObjectAddress *object,
 			else if (thisobj->objectSubId == 0)
 			{
 				/*
-				 * We get here if we find a need to delete a column after
-				 * having already decided to drop its whole table.  Obviously
-				 * we no longer need to drop the subobject, so report that we
-				 * found the subobject in the array.  But don't plaster its
-				 * flags on the whole object.
+				 * 我们到达这里是因为已经决定删除整张表之后，
+				 * 又发现需要删除其中一列。显然
+				 * 我们不再需要删除该子对象，因此报告
+				 * 在数组中找到了该子对象。但不要把它的
+				 * 标志贴到整个对象上。
 				 */
 				result = true;
 			}
 			else if (object->objectSubId == 0)
 			{
 				/*
-				 * We get here if we find a need to delete a whole table after
-				 * having already decided to drop one of its columns.  We
-				 * can't report that the whole object is in the array, but we
-				 * should mark the subobject with the whole object's flags.
+				 * 我们到达这里是因为已经决定删除其中一列之后，
+				 * 又发现需要删除整张表。我们
+				 * 无法报告整个对象已在数组中，但
+				 * 应以整个对象的标志标记该子对象。
 				 *
-				 * It might seem attractive to physically delete the column's
-				 * array entry, or at least mark it as no longer needing
-				 * separate deletion.  But that could lead to, e.g., dropping
-				 * the column's datatype before we drop the table, which does
-				 * not seem like a good idea.  This is a very rare situation
-				 * in practice, so we just take the hit of doing a separate
-				 * DROP COLUMN action even though we know we're gonna delete
-				 * the table later.
+				 * 从数组中物理删除该列的
+				 * 条目，或至少标记它不再需要
+				 * 单独删除，看似很诱人。但那可能导致例如在删除表之前
+				 * 先删除该列的数据类型，这
+				 * 似乎不是好主意。实践中这非常罕见，
+				 * 因此我们宁愿承担单独执行
+				 * DROP COLUMN 动作的代价，即使我们知道稍后
+				 * 会删除该表。
 				 *
-				 * What we can do, though, is mark this as a subobject so that
-				 * we don't report it separately, which is confusing because
-				 * it's unpredictable whether it happens or not.  But do so
-				 * only if flags != 0 (flags == 0 is a read-only probe).
+				 * 不过我们可以把这标记为子对象，以免
+				 * 单独报告它，否则会令人困惑，因为
+				 * 是否发生无法预测。但仅当
+				 * flags != 0 时才这样做（flags == 0 是只读探测）。
 				 *
-				 * Because there could be other subobjects of this object in
-				 * the array, this case means we always have to loop through
-				 * the whole array; we cannot exit early on a match.
+				 * 因为数组中还可能有本对象的其他子对象，
+				 * 这种情形意味着我们必须始终循环完整
+				 * 个数组；无法在匹配时提前退出。
 				 */
 				ObjectAddressExtra *thisextra = addrs->extras + i;
 
@@ -2747,7 +2747,7 @@ object_address_present_add_flags(const ObjectAddress *object,
 }
 
 /*
- * Similar to above, except we search an ObjectAddressStack.
+ * 与上面类似，只不过我们搜索 ObjectAddressStack。
  */
 static bool
 stack_address_present_add_flags(const ObjectAddress *object,
@@ -2772,19 +2772,19 @@ stack_address_present_add_flags(const ObjectAddress *object,
 			else if (thisobj->objectSubId == 0)
 			{
 				/*
-				 * We're visiting a column with whole table already on stack.
-				 * As in object_address_present_add_flags(), we can skip
-				 * further processing of the subobject, but we don't want to
-				 * propagate flags for the subobject to the whole object.
+				 * 我们正在访问一列，而整表已在栈上。
+				 * 如同 object_address_present_add_flags()，可以跳过
+				 * 对该子对象的进一步处理，但我们不想把
+				 * 子对象的标志传播到整个对象。
 				 */
 				result = true;
 			}
 			else if (object->objectSubId == 0)
 			{
 				/*
-				 * We're visiting a table with column already on stack.  As in
-				 * object_address_present_add_flags(), we should propagate
-				 * flags for the whole object to each of its subobjects.
+				 * 我们正在访问一张表，而某列已在栈上。如同
+				 * object_address_present_add_flags()，我们应把
+				 * 整个对象的标志传播到它的每个子对象。
 				 */
 				if (flags)
 					stackptr->flags |= (flags | DEPFLAG_SUBOBJECT);
@@ -2796,8 +2796,8 @@ stack_address_present_add_flags(const ObjectAddress *object,
 }
 
 /*
- * Record multiple dependencies from an ObjectAddresses array, after first
- * removing any duplicates.
+ * 先去除任何重复，再从 ObjectAddresses 数组记录多条
+ * 依赖。
  */
 void
 record_object_address_dependencies(const ObjectAddress *depender,
@@ -2811,12 +2811,12 @@ record_object_address_dependencies(const ObjectAddress *depender,
 }
 
 /*
- * Sort the items in an ObjectAddresses array.
+ * 对 ObjectAddresses 数组中的项排序。
  *
- * The major sort key is OID-descending, so that newer objects will be listed
- * first in most cases.  This is primarily useful for ensuring stable outputs
- * from regression tests; it's not recommended if the order of the objects is
- * determined by user input, such as the order of targets in a DROP command.
+ * 主排序键是 OID 降序，因此多数情况下较新对象会列在
+ * 前面。这主要用于确保回归测试输出稳定；
+ * 若对象顺序由用户输入决定，例如 DROP 命令中
+ * 目标的顺序，则不推荐。
  */
 void
 sort_object_addresses(ObjectAddresses *addrs)
@@ -2828,7 +2828,7 @@ sort_object_addresses(ObjectAddresses *addrs)
 }
 
 /*
- * Clean up when done with an ObjectAddresses array.
+ * 用完 ObjectAddresses 数组后清理。
  */
 void
 free_object_addresses(ObjectAddresses *addrs)
@@ -2840,15 +2840,15 @@ free_object_addresses(ObjectAddresses *addrs)
 }
 
 /*
- * Determine the class of a given object identified by objectAddress.
+ * 确定由 objectAddress 标识的给定对象的类。
  *
- * This function is essentially the reverse mapping for the object_classes[]
- * table.  We implement it as a function because the OIDs aren't consecutive.
+ * 本函数本质上是 object_classes[]
+ * 表的反向映射。因为 OIDs 不连续，我们实现为函数。
  */
 ObjectClass
 getObjectClass(const ObjectAddress *object)
 {
-	/* only pg_class entries can have nonzero objectSubId */
+	/* 只有 pg_class 条目可以有非零 objectSubId */
 	if (object->classId != RelationRelationId &&
 		object->objectSubId != 0)
 		elog(ERROR, "invalid non-zero objectSubId for object class %u",
@@ -2857,7 +2857,7 @@ getObjectClass(const ObjectAddress *object)
 	switch (object->classId)
 	{
 		case RelationRelationId:
-			/* caller must check objectSubId */
+			/* 调用者必须检查 objectSubId */
 			return OCLASS_CLASS;
 
 		case ProcedureRelationId:
@@ -2981,13 +2981,13 @@ getObjectClass(const ObjectAddress *object)
 			return OCLASS_TRANSFORM;
 	}
 
-	/* shouldn't get here */
+	/* 不应到达这里 */
 	elog(ERROR, "unrecognized object class: %u", object->classId);
-	return OCLASS_CLASS;		/* keep compiler quiet */
+	return OCLASS_CLASS;		/* 让编译器安静 */
 }
 
 /*
- * delete initial ACL for extension objects
+ * 删除扩展对象的初始 ACL
  */
 static void
 DeleteInitPrivs(const ObjectAddress *object)

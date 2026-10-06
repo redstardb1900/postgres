@@ -3577,6 +3577,16 @@
       "note": "this manifest"
     },
     {
+      "pattern": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "note": "inter-object dependency deletion and expression refs"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0214-comment-catalog-part7.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
       "pattern": "src/tools/zh-tools/manifests/cumulative.json",
       "kind": "tool",
       "note": "union includes this batch"
@@ -12882,6 +12892,30 @@
       "note": "this manifest"
     },
     {
+      "path": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 292,
+      "translated": 235,
+      "preserved": 57,
+      "preserved_reasons": [
+        "fallthrough marker",
+        "OCLASS identifier labels",
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "inter-object dependency helpers; 16 fall-through comments and 41 OCLASS_* labels kept in English; NOTES translated; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0214-comment-catalog-part7.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
       "path": "src/tools/zh-tools/manifests/cumulative.json",
       "kind": "tool",
       "action": "modify",
@@ -12892,5 +12926,5 @@
       "note": "union includes this batch"
     }
   ],
-  "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16). Batch 0204b: fix abort record wording in xact.c (提交日志→写入中止记录; XIDss; stray 同样). Batch 0205 translates src/backend/access/transam/xlog.c (transam part 17; finishes transam .c). Batch 0205b: fix P0 checkpoint/restartpoint/WAL-recycle comment mistranslations in xlog.c (smgr prepare/critical section/REDO/recycle etc.); P1 later-LSN and 刷盘 wording. Next suggested: rmgrdesc/ smaller .c. Batch 0206 translates eleven small src/backend/access/rmgrdesc/ .c files (part 1). Next suggested: remaining rmgrdesc (mxact/brin/gist/standby/spg/hash/gin/nbt/xlog/heap/xact). Batch 0207 translates the remaining eleven src/backend/access/rmgrdesc/ .c files (part 2; finishes rmgrdesc .c). Next suggested: inventory remaining untranslated .c under src/backend/access/ (or move to another top-level directory). Batch 0205c: fix CreateCheckPoint skip-checkpoint wording (remove overtranslated long-idle/WAL-growth sentence absent from English). Batch 0208 translates comments in ten smaller src/backend/catalog/ .c files (part 1). Next suggested: partition.c / indexing.c / pg_attrdef.c and other remaining catalog .c. Batch 0209 translates comments in seven src/backend/catalog/ .c files (part 2). Next suggested: catalog.c / pg_operator.c / pg_depend.c. Batch 0209b: fix catalog comments (part 2) — AtEOXact_Enum enum stuff wording; StoreAttrDefault back branches → 旧版维护分支. Batch 0210 translates comments in three src/backend/catalog/ .c files (part 3): catalog.c, pg_operator.c, pg_depend.c. Next suggested: larger remaining catalog .c (pg_constraint.c / pg_type.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c) by size. Batch 0210b: fix get_index_constraint exclusion constraint terminology (排斥→排他). Batch 0211 translates comments in four src/backend/catalog/ .c files (part 4). Next suggested: pg_proc.c + pg_constraint.c, or a single larger remaining catalog file. Batch 0212 translates comments in two src/backend/catalog/ .c files (part 5): pg_proc.c, pg_constraint.c. Five translator: segments in pg_proc.c stay in English. Next suggested: pg_shdepend.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c. Batch 0213 translates comments in src/backend/catalog/pg_shdepend.c (catalog part 6). One translator: segment and FALLTHROUGH stay in English. Next suggested: dependency.c."
+  "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16). Batch 0204b: fix abort record wording in xact.c (提交日志→写入中止记录; XIDss; stray 同样). Batch 0205 translates src/backend/access/transam/xlog.c (transam part 17; finishes transam .c). Batch 0205b: fix P0 checkpoint/restartpoint/WAL-recycle comment mistranslations in xlog.c (smgr prepare/critical section/REDO/recycle etc.); P1 later-LSN and 刷盘 wording. Next suggested: rmgrdesc/ smaller .c. Batch 0206 translates eleven small src/backend/access/rmgrdesc/ .c files (part 1). Next suggested: remaining rmgrdesc (mxact/brin/gist/standby/spg/hash/gin/nbt/xlog/heap/xact). Batch 0207 translates the remaining eleven src/backend/access/rmgrdesc/ .c files (part 2; finishes rmgrdesc .c). Next suggested: inventory remaining untranslated .c under src/backend/access/ (or move to another top-level directory). Batch 0205c: fix CreateCheckPoint skip-checkpoint wording (remove overtranslated long-idle/WAL-growth sentence absent from English). Batch 0208 translates comments in ten smaller src/backend/catalog/ .c files (part 1). Next suggested: partition.c / indexing.c / pg_attrdef.c and other remaining catalog .c. Batch 0209 translates comments in seven src/backend/catalog/ .c files (part 2). Next suggested: catalog.c / pg_operator.c / pg_depend.c. Batch 0209b: fix catalog comments (part 2) — AtEOXact_Enum enum stuff wording; StoreAttrDefault back branches → 旧版维护分支. Batch 0210 translates comments in three src/backend/catalog/ .c files (part 3): catalog.c, pg_operator.c, pg_depend.c. Next suggested: larger remaining catalog .c (pg_constraint.c / pg_type.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c) by size. Batch 0210b: fix get_index_constraint exclusion constraint terminology (排斥→排他). Batch 0211 translates comments in four src/backend/catalog/ .c files (part 4). Next suggested: pg_proc.c + pg_constraint.c, or a single larger remaining catalog file. Batch 0212 translates comments in two src/backend/catalog/ .c files (part 5): pg_proc.c, pg_constraint.c. Five translator: segments in pg_proc.c stay in English. Next suggested: pg_shdepend.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c. Batch 0213 translates comments in src/backend/catalog/pg_shdepend.c (catalog part 6). One translator: segment and FALLTHROUGH stay in English. Next suggested: dependency.c. Batch 0214 translates comments in src/backend/catalog/dependency.c (catalog part 7). Sixteen fall-through comments and OCLASS_* identifier labels stay in English. Next suggested: heap.c."
 }

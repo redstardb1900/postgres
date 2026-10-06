@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistutil.c
- *	  utilities routines for the postgres GiST index access method.
+ *	  postgres GiST 索引访问方法的实用例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -28,7 +28,7 @@
 #include "utils/syscache.h"
 
 /*
- * Write itup vector to page, has no control of free space.
+ * 把 itup 向量写入页，不控制空闲空间。
  */
 void
 gistfillbuffer(Page page, IndexTuple *itup, int len, OffsetNumber off)
@@ -53,7 +53,7 @@ gistfillbuffer(Page page, IndexTuple *itup, int len, OffsetNumber off)
 }
 
 /*
- * Check space for itup vector on page
+ * 检查页上是否有容纳 itup 向量的空间
  */
 bool
 gistnospace(Page page, IndexTuple *itvec, int len, OffsetNumber todelete, Size freespace)
@@ -84,15 +84,15 @@ gistfitpage(IndexTuple *itvec, int len)
 	for (i = 0; i < len; i++)
 		size += IndexTupleSize(itvec[i]) + sizeof(ItemIdData);
 
-	/* TODO: Consider fillfactor */
+	/* TODO: 考虑 fillfactor */
 	return (size <= GiSTPageSize);
 }
 
 /*
- * Read buffer into itup vector
+ * 把缓冲区读入 itup 向量
  */
 IndexTuple *
-gistextractpage(Page page, int *len /* out */ )
+gistextractpage(Page page, int *len /* 输出 */ )
 {
 	OffsetNumber i,
 				maxoff;
@@ -108,7 +108,7 @@ gistextractpage(Page page, int *len /* out */ )
 }
 
 /*
- * join two vectors into one
+ * 把两个向量合并为一个
  */
 IndexTuple *
 gistjoinvector(IndexTuple *itvec, int *len, IndexTuple *additvec, int addlen)
@@ -120,7 +120,7 @@ gistjoinvector(IndexTuple *itvec, int *len, IndexTuple *additvec, int addlen)
 }
 
 /*
- * make plain IndexTuple vector
+ * 构造扁平的 IndexTuple 向量
  */
 
 IndexTupleData *
@@ -147,9 +147,9 @@ gistfillitupvec(IndexTuple *vec, int veclen, int *memlen)
 }
 
 /*
- * Make unions of keys in IndexTuple vector (one union datum per index column).
- * Union Datums are returned into the attr/isnull arrays.
- * Resulting Datums aren't compressed.
+ * 对 IndexTuple 向量中的键做联合（每个索引列一个联合 datum）。
+ * 联合后的 Datum 返回到 attr/isnull 数组中。
+ * 结果 Datum 未经压缩。
  */
 void
 gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
@@ -157,7 +157,7 @@ gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
 {
 	int			i;
 	GistEntryVector *evec;
-	int			attrsize = 0;	/* silence compiler warning */
+	int			attrsize = 0;	/* 消除编译器警告 */
 
 	evec = (GistEntryVector *) palloc((len + 2) * sizeof(GISTENTRY) + GEVHDRSZ);
 
@@ -165,7 +165,7 @@ gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
 	{
 		int			j;
 
-		/* Collect non-null datums for this column */
+		/* 收集该列的非空 datum */
 		evec->n = 0;
 		for (j = 0; j < len; j++)
 		{
@@ -185,7 +185,7 @@ gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
 			evec->n++;
 		}
 
-		/* If this column was all NULLs, the union is NULL */
+		/* 若该列全为 NULLs，则联合结果为 NULL */
 		if (evec->n == 0)
 		{
 			attr[i] = (Datum) 0;
@@ -195,12 +195,12 @@ gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
 		{
 			if (evec->n == 1)
 			{
-				/* unionFn may expect at least two inputs */
+				/* unionFn 可能期望至少两个输入 */
 				evec->n = 2;
 				evec->vector[1] = evec->vector[0];
 			}
 
-			/* Make union and store in attr array */
+			/* 做联合并存入 attr 数组 */
 			attr[i] = FunctionCall2Coll(&giststate->unionFn[i],
 										giststate->supportCollation[i],
 										PointerGetDatum(evec),
@@ -212,8 +212,8 @@ gistMakeUnionItVec(GISTSTATE *giststate, IndexTuple *itvec, int len,
 }
 
 /*
- * Return an IndexTuple containing the result of applying the "union"
- * method to the specified IndexTuple vector.
+ * 返回一个 IndexTuple，其中包含对指定 IndexTuple 向量应用
+ * "union" 方法的结果。
  */
 IndexTuple
 gistunion(Relation r, IndexTuple *itvec, int len, GISTSTATE *giststate)
@@ -227,7 +227,7 @@ gistunion(Relation r, IndexTuple *itvec, int len, GISTSTATE *giststate)
 }
 
 /*
- * makes union of two key
+ * 对两个键做联合
  */
 void
 gistMakeUnionKey(GISTSTATE *giststate, int attno,
@@ -235,14 +235,14 @@ gistMakeUnionKey(GISTSTATE *giststate, int attno,
 				 GISTENTRY *entry2, bool isnull2,
 				 Datum *dst, bool *dstisnull)
 {
-	/* we need a GistEntryVector with room for exactly 2 elements */
+	/* 我们需要恰好能容纳 2 个元素的 GistEntryVector */
 	union
 	{
 		GistEntryVector gev;
 		char		padding[2 * sizeof(GISTENTRY) + GEVHDRSZ];
 	}			storage;
 	GistEntryVector *evec = &storage.gev;
-	int			dstsize = 0;	/* silence compiler warning */
+	int			dstsize = 0;	/* 消除编译器警告 */
 
 	evec->n = 2;
 
@@ -280,7 +280,7 @@ gistMakeUnionKey(GISTSTATE *giststate, int attno,
 bool
 gistKeyIsEQ(GISTSTATE *giststate, int attno, Datum a, Datum b)
 {
-	bool		result = false; /* silence compiler warning */
+	bool		result = false; /* 消除编译器警告 */
 
 	FunctionCall3Coll(&giststate->equalFn[attno],
 					  giststate->supportCollation[attno],
@@ -290,7 +290,7 @@ gistKeyIsEQ(GISTSTATE *giststate, int attno, Datum a, Datum b)
 }
 
 /*
- * Decompress all keys in tuple
+ * 解压缩元组中的全部键
  */
 void
 gistDeCompressAtt(GISTSTATE *giststate, Relation r, IndexTuple tuple, Page p,
@@ -310,7 +310,7 @@ gistDeCompressAtt(GISTSTATE *giststate, Relation r, IndexTuple tuple, Page p,
 }
 
 /*
- * Forms union of oldtup and addtup, if union == oldtup then return NULL
+ * 形成 oldtup 与 addtup 的联合；若联合等于 oldtup 则返回 NULL
  */
 IndexTuple
 gistgetadjusted(Relation r, IndexTuple oldtup, IndexTuple addtup, GISTSTATE *giststate)
@@ -339,11 +339,11 @@ gistgetadjusted(Relation r, IndexTuple oldtup, IndexTuple addtup, GISTSTATE *gis
 						 attr + i, isnull + i);
 
 		if (neednew)
-			/* we already need new key, so we can skip check */
+			/* 已需要新键，因此可跳过检查 */
 			continue;
 
 		if (isnull[i])
-			/* union of key may be NULL if and only if both keys are NULL */
+			/* 键的联合为 NULL，当且仅当两个键都为 NULL */
 			continue;
 
 		if (!addisnull[i])
@@ -356,7 +356,7 @@ gistgetadjusted(Relation r, IndexTuple oldtup, IndexTuple addtup, GISTSTATE *gis
 
 	if (neednew)
 	{
-		/* need to update key */
+		/* 需要更新键 */
 		newtup = gistFormTuple(giststate, r, attr, isnull, false);
 		newtup->t_tid = oldtup->t_tid;
 	}
@@ -365,13 +365,13 @@ gistgetadjusted(Relation r, IndexTuple oldtup, IndexTuple addtup, GISTSTATE *gis
 }
 
 /*
- * Search an upper index page for the entry with lowest penalty for insertion
- * of the new index key contained in "it".
+ * 在上层索引页中搜索对插入 "it" 所含新索引键
+ * 惩罚最低的条目。
  *
- * Returns the index of the page entry to insert into.
+ * 返回要插入到的页条目索引。
  */
 OffsetNumber
-gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
+gistchoose(Relation r, Page p, IndexTuple it,	/* it 具有压缩后的条目 */
 		   GISTSTATE *giststate)
 {
 	OffsetNumber result;
@@ -389,48 +389,48 @@ gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
 					  it, NULL, (OffsetNumber) 0,
 					  identry, isnull);
 
-	/* we'll return FirstOffsetNumber if page is empty (shouldn't happen) */
+	/* 若页为空则返回 FirstOffsetNumber（不应发生） */
 	result = FirstOffsetNumber;
 
 	/*
-	 * The index may have multiple columns, and there's a penalty value for
-	 * each column.  The penalty associated with a column that appears earlier
-	 * in the index definition is strictly more important than the penalty of
-	 * a column that appears later in the index definition.
+	 * 索引可能有多列，且每列都有一个惩罚值。
+	 * 索引定义中出现较早的列，其惩罚严格地比
+	 * 出现较晚的列的惩罚更重要。
 	 *
-	 * best_penalty[j] is the best penalty we have seen so far for column j,
-	 * or -1 when we haven't yet examined column j.  Array entries to the
-	 * right of the first -1 are undefined.
+	 * best_penalty[j] 是迄今为止在第 j 列见过的最佳
+	 * 惩罚，尚未检查第 j 列时为 -1。第一个 -1
+	 * 右侧的
+	 * 数组元素未定义。
 	 */
 	best_penalty[0] = -1;
 
 	/*
-	 * If we find a tuple that's exactly as good as the currently best one, we
-	 * could use either one.  When inserting a lot of tuples with the same or
-	 * similar keys, it's preferable to descend down the same path when
-	 * possible, as that's more cache-friendly.  On the other hand, if all
-	 * inserts land on the same leaf page after a split, we're never going to
-	 * insert anything to the other half of the split, and will end up using
-	 * only 50% of the available space.  Distributing the inserts evenly would
-	 * lead to better space usage, but that hurts cache-locality during
-	 * insertion.  To get the best of both worlds, when we find a tuple that's
-	 * exactly as good as the previous best, choose randomly whether to stick
-	 * to the old best, or use the new one.  Once we decide to stick to the
-	 * old best, we keep sticking to it for any subsequent equally good tuples
-	 * we might find.  This favors tuples with low offsets, but still allows
-	 * some inserts to go to other equally-good subtrees.
+	 * 若找到与当前最佳元组同样好的元组，两者
+	 * 都可用。当插入大量相同或相近键的元组时，
+	 * 尽可能沿同一路径下降更有利于缓存。
+	 * 另一方面，若分裂后全部插入都落到同一叶子页，
+	 * 我们就永远不会向分裂的另一半插入任何内容，最终
+	 * 只用到可用空间的 50%。均匀分配插入会
+	 * 带来更好的空间利用率，但会损害插入期间的
+	 * 缓存局部性。为兼得两者，当找到与先前最佳
+	 * 同样好的元组时，随机选择是坚持旧最佳，
+	 * 还是改用新的。一旦决定坚持旧最佳，对随后
+	 * 找到的任何同等好的元组都继续坚持。这偏袒
+	 * 偏移量较低的元组，但仍允许部分插入进入
+	 * 其他同等好的子树。
 	 *
-	 * keep_current_best is -1 if we haven't yet had to make a random choice
-	 * whether to keep the current best tuple.  If we have done so, and
-	 * decided to keep it, keep_current_best is 1; if we've decided to
-	 * replace, keep_current_best is 0.  (This state will be reset to -1 as
-	 * soon as we've made the replacement, but sometimes we make the choice in
-	 * advance of actually finding a replacement best tuple.)
+	 * keep_current_best 为 -1 表示尚未就是否保留当前
+	 * 最佳元组做过随机选择。若已做过并决定保留，
+	 * keep_current_best 为 1；若已决定替换，则为
+	 * 0。（一旦完成替换，该状态会重置为 -1，
+	 * 但有时会在实际找到替换的最佳元组
+	 * 之前就
+	 * 做出选择。）
 	 */
 	keep_current_best = -1;
 
 	/*
-	 * Loop over tuples on page.
+	 * 遍历页上的元组。
 	 */
 	maxoff = PageGetMaxOffsetNumber(p);
 	Assert(maxoff >= FirstOffsetNumber);
@@ -443,14 +443,14 @@ gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
 
 		zero_penalty = true;
 
-		/* Loop over index attributes. */
+		/* 遍历索引属性。 */
 		for (j = 0; j < IndexRelationGetNumberOfKeyAttributes(r); j++)
 		{
 			Datum		datum;
 			float		usize;
 			bool		IsNull;
 
-			/* Compute penalty for this column. */
+			/* 计算该列的惩罚。 */
 			datum = index_getattr(itup, j + 1, giststate->leafTupdesc,
 								  &IsNull);
 			gistdentryinit(giststate, j, &entry, datum, r, p, i,
@@ -463,12 +463,12 @@ gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
 			if (best_penalty[j] < 0 || usize < best_penalty[j])
 			{
 				/*
-				 * New best penalty for column.  Tentatively select this tuple
-				 * as the target, and record the best penalty.  Then reset the
-				 * next column's penalty to "unknown" (and indirectly, the
-				 * same for all the ones to its right).  This will force us to
-				 * adopt this tuple's penalty values as the best for all the
-				 * remaining columns during subsequent loop iterations.
+				 * 该列出现新的最佳惩罚。暂定选择此元组
+				 * 作为目标，并记下最佳惩罚。然后将下一列的
+				 * 惩罚重置为 "unknown"（并间接地，对其右侧
+				 * 所有列同样处理）。这将迫使我们在后续
+				 * 循环迭代中采用此元组的惩罚值作为
+				 * 其余各列的最佳值。
 				 */
 				result = i;
 				best_penalty[j] = usize;
@@ -476,60 +476,60 @@ gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
 				if (j < IndexRelationGetNumberOfKeyAttributes(r) - 1)
 					best_penalty[j + 1] = -1;
 
-				/* we have new best, so reset keep-it decision */
+				/* 有了新最佳，因此重置是否保留的决定 */
 				keep_current_best = -1;
 			}
 			else if (best_penalty[j] == usize)
 			{
 				/*
-				 * The current tuple is exactly as good for this column as the
-				 * best tuple seen so far.  The next iteration of this loop
-				 * will compare the next column.
+				 * 当前元组在该列上与迄今最佳元组
+				 * 同样好。本循环的下一次迭代
+				 * 将比较下一列。
 				 */
 			}
 			else
 			{
 				/*
-				 * The current tuple is worse for this column than the best
-				 * tuple seen so far.  Skip the remaining columns and move on
-				 * to the next tuple, if any.
+				 * 当前元组在该列上比迄今最佳
+				 * 元组更差。跳过其余列，继续
+				 * 处理下一个元组（若有）。
 				 */
-				zero_penalty = false;	/* so outer loop won't exit */
+				zero_penalty = false;	/* 使外层循环不会退出 */
 				break;
 			}
 		}
 
 		/*
-		 * If we looped past the last column, and did not update "result",
-		 * then this tuple is exactly as good as the prior best tuple.
+		 * 若已循环过最后一列，且未更新 "result"，
+		 * 则此元组与先前最佳元组同样好。
 		 */
 		if (j == IndexRelationGetNumberOfKeyAttributes(r) && result != i)
 		{
 			if (keep_current_best == -1)
 			{
-				/* we didn't make the random choice yet for this old best */
+				/* 尚未为该旧最佳做过随机选择 */
 				keep_current_best = pg_prng_bool(&pg_global_prng_state) ? 1 : 0;
 			}
 			if (keep_current_best == 0)
 			{
-				/* we choose to use the new tuple */
+				/* 我们选择使用新元组 */
 				result = i;
-				/* choose again if there are even more exactly-as-good ones */
+				/* 若还有更多同样好的，再次选择 */
 				keep_current_best = -1;
 			}
 		}
 
 		/*
-		 * If we find a tuple with zero penalty for all columns, and we've
-		 * decided we don't want to search for another tuple with equal
-		 * penalty, there's no need to examine remaining tuples; just break
-		 * out of the loop and return it.
+		 * 若找到各列惩罚均为零的元组，且我们
+		 * 已决定不再搜索惩罚相等的另一元组，
+		 * 则无需再检查其余元组；直接跳出
+		 * 循环并返回它。
 		 */
 		if (zero_penalty)
 		{
 			if (keep_current_best == -1)
 			{
-				/* we didn't make the random choice yet for this old best */
+				/* 尚未为该旧最佳做过随机选择 */
 				keep_current_best = pg_prng_bool(&pg_global_prng_state) ? 1 : 0;
 			}
 			if (keep_current_best == 1)
@@ -541,7 +541,7 @@ gistchoose(Relation r, Page p, IndexTuple it,	/* it has compressed entry */
 }
 
 /*
- * initialize a GiST entry with a decompressed version of key
+ * 用键的解压缩版本初始化 GiST 条目
  */
 void
 gistdentryinit(GISTSTATE *giststate, int nkey, GISTENTRY *e,
@@ -554,7 +554,7 @@ gistdentryinit(GISTSTATE *giststate, int nkey, GISTENTRY *e,
 
 		gistentryinit(*e, k, r, pg, o, l);
 
-		/* there may not be a decompress function in opclass */
+		/* 操作符类中可能没有 decompress 函数 */
 		if (!OidIsValid(giststate->decompressFn[nkey].fn_oid))
 			return;
 
@@ -562,7 +562,7 @@ gistdentryinit(GISTSTATE *giststate, int nkey, GISTENTRY *e,
 			DatumGetPointer(FunctionCall1Coll(&giststate->decompressFn[nkey],
 											  giststate->supportCollation[nkey],
 											  PointerGetDatum(e)));
-		/* decompressFn may just return the given pointer */
+		/* decompressFn 可能只是返回给定指针 */
 		if (dep != e)
 			gistentryinit(*e, dep->key, dep->rel, dep->page, dep->offset,
 						  dep->leafkey);
@@ -585,8 +585,8 @@ gistFormTuple(GISTSTATE *giststate, Relation r,
 						   compatt, isnull);
 
 	/*
-	 * The offset number on tuples on internal pages is unused. For historical
-	 * reasons, it is set to 0xffff.
+	 * 内部页上元组的偏移号未使用。出于历史
+	 * 原因，将其设为 0xffff。
 	 */
 	ItemPointerSetOffsetNumber(&(res->t_tid), 0xffff);
 	return res;
@@ -599,7 +599,7 @@ gistCompressValues(GISTSTATE *giststate, Relation r,
 	int			i;
 
 	/*
-	 * Call the compress method on each attribute.
+	 * 对每个属性调用 compress 方法。
 	 */
 	for (i = 0; i < IndexRelationGetNumberOfKeyAttributes(r); i++)
 	{
@@ -612,7 +612,7 @@ gistCompressValues(GISTSTATE *giststate, Relation r,
 
 			gistentryinit(centry, attdata[i], r, NULL, (OffsetNumber) 0,
 						  isleaf);
-			/* there may not be a compress function in opclass */
+			/* 操作符类中可能没有 compress 函数 */
 			if (OidIsValid(giststate->compressFn[i].fn_oid))
 				cep = (GISTENTRY *)
 					DatumGetPointer(FunctionCall1Coll(&giststate->compressFn[i],
@@ -627,7 +627,7 @@ gistCompressValues(GISTSTATE *giststate, Relation r,
 	if (isleaf)
 	{
 		/*
-		 * Emplace each included attribute if any.
+		 * 若有被 INCLUDE 的属性，则放入它们。
 		 */
 		for (; i < r->rd_att->natts; i++)
 		{
@@ -640,7 +640,7 @@ gistCompressValues(GISTSTATE *giststate, Relation r,
 }
 
 /*
- * initialize a GiST entry with fetched value in key field
+ * 用取回的值在 key 字段中初始化 GiST 条目
  */
 static Datum
 gistFetchAtt(GISTSTATE *giststate, int nkey, Datum k, Relation r)
@@ -655,13 +655,13 @@ gistFetchAtt(GISTSTATE *giststate, int nkey, Datum k, Relation r)
 										  giststate->supportCollation[nkey],
 										  PointerGetDatum(&fentry)));
 
-	/* fetchFn set 'key', return it to the caller */
+	/* fetchFn 设置了 'key'，将其返回给调用者 */
 	return fep->key;
 }
 
 /*
- * Fetch all keys in tuple.
- * Returns a new HeapTuple containing the originally-indexed data.
+ * 取回元组中的全部键。
+ * 返回包含原先被索引数据的新 HeapTuple。
  */
 HeapTuple
 gistFetchTuple(GISTSTATE *giststate, Relation r, IndexTuple tuple)
@@ -687,8 +687,8 @@ gistFetchTuple(GISTSTATE *giststate, Relation r, IndexTuple tuple)
 		else if (giststate->compressFn[i].fn_oid == InvalidOid)
 		{
 			/*
-			 * If opclass does not provide compress method that could change
-			 * original value, att is necessarily stored in original form.
+			 * 若操作符类未提供可能改变原始值的
+			 * compress 方法，则 att 必然以原始形式存储。
 			 */
 			if (!isnull[i])
 				fetchatt[i] = datum;
@@ -698,9 +698,9 @@ gistFetchTuple(GISTSTATE *giststate, Relation r, IndexTuple tuple)
 		else
 		{
 			/*
-			 * Index-only scans not supported for this column. Since the
-			 * planner chose an index-only scan anyway, it is not interested
-			 * in this column, and we can replace it with a NULL.
+			 * 该列不支持仅索引扫描。由于规划器
+			 * 仍选择了仅索引扫描，说明它对该列
+			 * 不感兴趣，我们可以用 NULL 替换它。
 			 */
 			isnull[i] = true;
 			fetchatt[i] = (Datum) 0;
@@ -708,7 +708,7 @@ gistFetchTuple(GISTSTATE *giststate, Relation r, IndexTuple tuple)
 	}
 
 	/*
-	 * Get each included attribute.
+	 * 获取每个被 INCLUDE 的属性。
 	 */
 	for (; i < r->rd_att->natts; i++)
 	{
@@ -735,7 +735,7 @@ gistpenalty(GISTSTATE *giststate, int attno,
 						  PointerGetDatum(orig),
 						  PointerGetDatum(add),
 						  PointerGetDatum(&penalty));
-		/* disallow negative or NaN penalty */
+		/* 禁止负的或 NaN 惩罚 */
 		if (isnan(penalty) || penalty < 0.0)
 			penalty = 0.0;
 	}
@@ -743,7 +743,7 @@ gistpenalty(GISTSTATE *giststate, int attno,
 		penalty = 0.0;
 	else
 	{
-		/* try to prevent mixing null and non-null values */
+		/* 尽量避免混用空与非空值 */
 		penalty = get_float4_infinity();
 	}
 
@@ -751,7 +751,7 @@ gistpenalty(GISTSTATE *giststate, int attno,
 }
 
 /*
- * Initialize a new index page
+ * 初始化新的索引页
  */
 void
 gistinitpage(Page page, uint32 f)
@@ -767,7 +767,7 @@ gistinitpage(Page page, uint32 f)
 }
 
 /*
- * Initialize a new index buffer
+ * 初始化新的索引缓冲区
  */
 void
 GISTInitBuffer(Buffer b, uint32 f)
@@ -779,7 +779,7 @@ GISTInitBuffer(Buffer b, uint32 f)
 }
 
 /*
- * Verify that a freshly-read page looks sane.
+ * 验证刚读入的页看起来是否合理。
  */
 void
 gistcheckpage(Relation rel, Buffer buf)
@@ -787,10 +787,10 @@ gistcheckpage(Relation rel, Buffer buf)
 	Page		page = BufferGetPage(buf);
 
 	/*
-	 * ReadBuffer verifies that every newly-read page passes
-	 * PageHeaderIsValid, which means it either contains a reasonably sane
-	 * page header or is all-zero.  We have to defend against the all-zero
-	 * case, however.
+	 * ReadBuffer 会验证每个新读入的页都通过
+	 * PageHeaderIsValid，意味着它要么包含合理健全的
+	 * 页头，要么全为零。不过我们必须防范
+	 * 全零的情况。
 	 */
 	if (PageIsNew(page))
 		ereport(ERROR,
@@ -801,7 +801,7 @@ gistcheckpage(Relation rel, Buffer buf)
 				 errhint("Please REINDEX it.")));
 
 	/*
-	 * Additionally check that the special area looks sane.
+	 * 另外检查特殊区域看起来是否合理。
 	 */
 	if (PageGetSpecialSize(page) != MAXALIGN(sizeof(GISTPageOpaqueData)))
 		ereport(ERROR,
@@ -814,37 +814,37 @@ gistcheckpage(Relation rel, Buffer buf)
 
 
 /*
- * Allocate a new page (either by recycling, or by extending the index file)
+ * 分配新页（通过回收，或通过扩展索引文件）
  *
- * The returned buffer is already pinned and exclusive-locked
+ * 返回的缓冲区已被钉住并独占锁定
  *
- * Caller is responsible for initializing the page by calling GISTInitBuffer
+ * 调用者负责通过调用 GISTInitBuffer 初始化该页
  */
 Buffer
 gistNewBuffer(Relation r, Relation heaprel)
 {
 	Buffer		buffer;
 
-	/* First, try to get a page from FSM */
+	/* 首先尝试从 FSM 获取一页 */
 	for (;;)
 	{
 		BlockNumber blkno = GetFreeIndexPage(r);
 
 		if (blkno == InvalidBlockNumber)
-			break;				/* nothing left in FSM */
+			break;				/* FSM 中已无剩余 */
 
 		buffer = ReadBuffer(r, blkno);
 
 		/*
-		 * We have to guard against the possibility that someone else already
-		 * recycled this page; the buffer may be locked if so.
+		 * 必须防范别人已经回收了该页的可能；
+		 * 若如此，缓冲区可能已被锁定。
 		 */
 		if (ConditionalLockBuffer(buffer))
 		{
 			Page		page = BufferGetPage(buffer);
 
 			/*
-			 * If the page was never initialized, it's OK to use.
+			 * 若页从未初始化，则可使用。
 			 */
 			if (PageIsNew(page))
 				return buffer;
@@ -852,16 +852,16 @@ gistNewBuffer(Relation r, Relation heaprel)
 			gistcheckpage(r, buffer);
 
 			/*
-			 * Otherwise, recycle it if deleted, and too old to have any
-			 * processes interested in it.
+			 * 否则，若已删除且过旧、不再有任何
+			 * 进程对其感兴趣，则回收它。
 			 */
 			if (gistPageRecyclable(page))
 			{
 				/*
-				 * If we are generating WAL for Hot Standby then create a WAL
-				 * record that will allow us to conflict with queries running
-				 * on standby, in case they have snapshots older than the
-				 * page's deleteXid.
+				 * 若正在为热备生成 WAL，则创建一条
+				 * WAL 记录，以便在备库上运行的查询快照
+				 * 早于该页的 deleteXid 时，能与这些
+				 * 查询产生冲突。
 				 */
 				if (XLogStandbyInfoActive() && RelationNeedsWAL(r))
 					gistXLogPageReuse(r, heaprel, blkno, GistPageGetDeleteXid(page));
@@ -872,18 +872,18 @@ gistNewBuffer(Relation r, Relation heaprel)
 			LockBuffer(buffer, GIST_UNLOCK);
 		}
 
-		/* Can't use it, so release buffer and try again */
+		/* 无法使用，因此释放缓冲区并重试 */
 		ReleaseBuffer(buffer);
 	}
 
-	/* Must extend the file */
+	/* 必须扩展文件 */
 	buffer = ExtendBufferedRel(BMR_REL(r), MAIN_FORKNUM, NULL,
 							   EB_LOCK_FIRST);
 
 	return buffer;
 }
 
-/* Can this page be recycled yet? */
+/* 此页现在是否可回收？ */
 bool
 gistPageRecyclable(Page page)
 {
@@ -892,14 +892,14 @@ gistPageRecyclable(Page page)
 	if (GistPageIsDeleted(page))
 	{
 		/*
-		 * The page was deleted, but when? If it was just deleted, a scan
-		 * might have seen the downlink to it, and will read the page later.
-		 * As long as that can happen, we must keep the deleted page around as
-		 * a tombstone.
+		 * 页已被删除，但何时删除的？若刚删除，扫描
+		 * 可能已见过指向它的下行指针，并将稍后读该页。
+		 * 只要这种情况仍可能发生，就必须把已删除页保留为
+		 * 墓碑。
 		 *
-		 * For that check if the deletion XID could still be visible to
-		 * anyone. If not, then no scan that's still in progress could have
-		 * seen its downlink, and we can recycle it.
+		 * 为此检查删除 XID 是否仍可能对任何人可见。
+		 * 若否，则仍在进行的扫描不可能见过其
+		 * 下行指针，我们就可以回收它。
 		 */
 		FullTransactionId deletexid_full = GistPageGetDeleteXid(page);
 
@@ -923,11 +923,11 @@ gistoptions(Datum reloptions, bool validate)
 }
 
 /*
- *	gistproperty() -- Check boolean properties of indexes.
+ *	gistproperty() -- 检查索引的布尔属性。
  *
- * This is optional for most AMs, but is required for GiST because the core
- * property code doesn't support AMPROP_DISTANCE_ORDERABLE.  We also handle
- * AMPROP_RETURNABLE here to save opening the rel to call gistcanreturn.
+ * 对多数 AM 而言这是可选的，但对 GiST 是必需的，因为核心
+ * 属性代码不支持 AMPROP_DISTANCE_ORDERABLE。我们也在此处理
+ * AMPROP_RETURNABLE，以免为调用 gistcanreturn 而打开关系。
  */
 bool
 gistproperty(Oid index_oid, int attno,
@@ -939,19 +939,19 @@ gistproperty(Oid index_oid, int attno,
 				opcintype;
 	int16		procno;
 
-	/* Only answer column-level inquiries */
+	/* 仅回答列级查询 */
 	if (attno == 0)
 		return false;
 
 	/*
-	 * Currently, GiST distance-ordered scans require that there be a distance
-	 * function in the opclass with the default types (i.e. the one loaded
-	 * into the relcache entry, see initGISTstate).  So we assume that if such
-	 * a function exists, then there's a reason for it (rather than grubbing
-	 * through all the opfamily's operators to find an ordered one).
+	 * 目前，GiST 按距离有序的扫描需要操作符类中存在
+	 * 使用默认类型的 distance 函数（即装入 relcache
+	 * 条目的那个，见 initGISTstate）。因此我们假定：若
+	 * 存在这样的函数，就有其存在的理由（而不是翻遍
+	 * 操作符族的全部操作符去找有序的那个）。
 	 *
-	 * Essentially the same code can test whether we support returning the
-	 * column data, since that's true if the opclass provides a fetch proc.
+	 * 本质上同一段代码也可测试是否支持返回列数据，
+	 * 因为若操作符类提供了 fetch 过程则为真。
 	 */
 
 	switch (prop)
@@ -966,7 +966,7 @@ gistproperty(Oid index_oid, int attno,
 			return false;
 	}
 
-	/* First we need to know the column's opclass. */
+	/* 首先需要知道该列的操作符类。 */
 	opclass = get_index_column_opclass(index_oid, attno);
 	if (!OidIsValid(opclass))
 	{
@@ -974,14 +974,14 @@ gistproperty(Oid index_oid, int attno,
 		return true;
 	}
 
-	/* Now look up the opclass family and input datatype. */
+	/* 现在查找操作符类所属族与输入数据类型。 */
 	if (!get_opclass_opfamily_and_input_type(opclass, &opfamily, &opcintype))
 	{
 		*isnull = true;
 		return true;
 	}
 
-	/* And now we can check whether the function is provided. */
+	/* 现在可以检查该函数是否已提供。 */
 
 	*res = SearchSysCacheExists4(AMPROCNUM,
 								 ObjectIdGetDatum(opfamily),
@@ -990,8 +990,8 @@ gistproperty(Oid index_oid, int attno,
 								 Int16GetDatum(procno));
 
 	/*
-	 * Special case: even without a fetch function, AMPROP_RETURNABLE is true
-	 * if the opclass has no compress function.
+	 * 特例：即便没有 fetch 函数，若操作符类没有
+	 * compress 函数，AMPROP_RETURNABLE 仍为真。
 	 */
 	if (prop == AMPROP_RETURNABLE && !*res)
 	{
@@ -1008,9 +1008,9 @@ gistproperty(Oid index_oid, int attno,
 }
 
 /*
- * Some indexes are not WAL-logged, but we need LSNs to detect concurrent page
- * splits anyway. This function provides a fake sequence of LSNs for that
- * purpose.
+ * 有些索引不做 WAL 记录，但仍需要 LSNs 来检测并发页
+ * 分裂。本函数为此提供一个假的 LSN
+ * 序列。
  */
 XLogRecPtr
 gistGetFakeLSN(Relation rel)
@@ -1018,8 +1018,8 @@ gistGetFakeLSN(Relation rel)
 	if (rel->rd_rel->relpersistence == RELPERSISTENCE_TEMP)
 	{
 		/*
-		 * Temporary relations are only accessible in our session, so a simple
-		 * backend-local counter will do.
+		 * 临时关系仅在本会话中可访问，因此简单的
+		 * 后端本地计数器即可。
 		 */
 		static XLogRecPtr counter = FirstNormalUnloggedLSN;
 
@@ -1028,18 +1028,18 @@ gistGetFakeLSN(Relation rel)
 	else if (RelationIsPermanent(rel))
 	{
 		/*
-		 * WAL-logging on this relation will start after commit, so its LSNs
-		 * must be distinct numbers smaller than the LSN at the next commit.
-		 * Emit a dummy WAL record if insert-LSN hasn't advanced after the
-		 * last call.
+		 * 该关系的 WAL 记录将在提交后开始，因此其 LSNs
+		 * 必须是小于下次提交处 LSN 的互异编号。
+		 * 若自上次调用后 insert-LSN 未前进，则发出
+		 * 一条哑 WAL 记录。
 		 */
 		static XLogRecPtr lastlsn = InvalidXLogRecPtr;
 		XLogRecPtr	currlsn = GetXLogInsertRecPtr();
 
-		/* Shouldn't be called for WAL-logging relations */
+		/* 不应为做 WAL 记录的关系调用 */
 		Assert(!RelationNeedsWAL(rel));
 
-		/* No need for an actual record if we already have a distinct LSN */
+		/* 若已有互异的 LSN，则无需实际记录 */
 		if (!XLogRecPtrIsInvalid(lastlsn) && lastlsn == currlsn)
 			currlsn = gistXLogAssignLSN();
 
@@ -1049,8 +1049,8 @@ gistGetFakeLSN(Relation rel)
 	else
 	{
 		/*
-		 * Unlogged relations are accessible from other backends, and survive
-		 * (clean) restarts. GetFakeLSNForUnloggedRel() handles that for us.
+		 * 未记录关系可从其他后端访问，并能在（干净的）
+		 * 重启后存活。GetFakeLSNForUnloggedRel() 为我们处理。
 		 */
 		Assert(rel->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED);
 		return GetFakeLSNForUnloggedRel();

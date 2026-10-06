@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistbuildbuffers.c
- *	  node buffer management functions for GiST buffering build algorithm.
+ *	  GiST 缓冲构建算法的节点缓冲区管理函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -42,7 +42,7 @@ static void WriteTempFileBlock(BufFile *file, long blknum, const void *ptr);
 
 
 /*
- * Initialize GiST build buffers.
+ * 初始化 GiST 构建缓冲区。
  */
 GISTBuildBuffers *
 gistInitBuildBuffers(int pagesPerBuffer, int levelStep, int maxLevel)
@@ -55,26 +55,26 @@ gistInitBuildBuffers(int pagesPerBuffer, int levelStep, int maxLevel)
 	gfbb->levelStep = levelStep;
 
 	/*
-	 * Create a temporary file to hold buffer pages that are swapped out of
-	 * memory.
+	 * 创建临时文件，用于保存被换出内存的
+	 * 缓冲区页。
 	 */
 	gfbb->pfile = BufFileCreateTemp(false);
 	gfbb->nFileBlocks = 0;
 
-	/* Initialize free page management. */
+	/* 初始化空闲页管理。 */
 	gfbb->nFreeBlocks = 0;
 	gfbb->freeBlocksLen = 32;
 	gfbb->freeBlocks = (long *) palloc(gfbb->freeBlocksLen * sizeof(long));
 
 	/*
-	 * Current memory context will be used for all in-memory data structures
-	 * of buffers which are persistent during buffering build.
+	 * 当前内存上下文将用于缓冲构建期间持久存在的
+	 * 缓冲区的全部内存数据结构。
 	 */
 	gfbb->context = CurrentMemoryContext;
 
 	/*
-	 * nodeBuffersTab hash is association between index blocks and it's
-	 * buffers.
+	 * nodeBuffersTab 哈希表是索引块与其
+	 * 缓冲区之间的关联。
 	 */
 	hashCtl.keysize = sizeof(BlockNumber);
 	hashCtl.entrysize = sizeof(GISTNodeBuffer);
@@ -87,8 +87,8 @@ gistInitBuildBuffers(int pagesPerBuffer, int levelStep, int maxLevel)
 	gfbb->bufferEmptyingQueue = NIL;
 
 	/*
-	 * Per-level node buffers lists for final buffers emptying process. Node
-	 * buffers are inserted here when they are created.
+	 * 供最终清空缓冲区过程使用的按层节点缓冲区列表。节点
+	 * 缓冲区在创建时插入此处。
 	 */
 	gfbb->buffersOnLevelsLen = 1;
 	gfbb->buffersOnLevels = (List **) palloc(sizeof(List *) *
@@ -96,8 +96,8 @@ gistInitBuildBuffers(int pagesPerBuffer, int levelStep, int maxLevel)
 	gfbb->buffersOnLevels[0] = NIL;
 
 	/*
-	 * Block numbers of node buffers which last pages are currently loaded
-	 * into main memory.
+	 * 末页当前已装入主存的节点缓冲区的
+	 * 块号。
 	 */
 	gfbb->loadedBuffersLen = 32;
 	gfbb->loadedBuffers = (GISTNodeBuffer **) palloc(gfbb->loadedBuffersLen *
@@ -110,8 +110,8 @@ gistInitBuildBuffers(int pagesPerBuffer, int levelStep, int maxLevel)
 }
 
 /*
- * Returns a node buffer for given block. The buffer is created if it
- * doesn't exist yet.
+ * 返回给定块的节点缓冲区。若尚不存在则
+ * 创建它。
  */
 GISTNodeBuffer *
 gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
@@ -120,7 +120,7 @@ gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 	GISTNodeBuffer *nodeBuffer;
 	bool		found;
 
-	/* Find node buffer in hash table */
+	/* 在哈希表中查找节点缓冲区 */
 	nodeBuffer = (GISTNodeBuffer *) hash_search(gfbb->nodeBuffersTab,
 												&nodeBlocknum,
 												HASH_ENTER,
@@ -128,11 +128,11 @@ gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 	if (!found)
 	{
 		/*
-		 * Node buffer wasn't found. Initialize the new buffer as empty.
+		 * 未找到节点缓冲区。将新缓冲区初始化为空。
 		 */
 		MemoryContext oldcxt = MemoryContextSwitchTo(gfbb->context);
 
-		/* nodeBuffer->nodeBlocknum is the hash key and was filled in already */
+		/* nodeBuffer->nodeBlocknum 是哈希键且已填入 */
 		nodeBuffer->blocksCount = 0;
 		nodeBuffer->pageBlocknum = InvalidBlockNumber;
 		nodeBuffer->pageBuffer = NULL;
@@ -141,8 +141,8 @@ gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 		nodeBuffer->level = level;
 
 		/*
-		 * Add this buffer to the list of buffers on this level. Enlarge
-		 * buffersOnLevels array if needed.
+		 * 把此缓冲区加入本层的缓冲区列表。若需要则
+		 * 扩大 buffersOnLevels 数组。
 		 */
 		if (level >= gfbb->buffersOnLevelsLen)
 		{
@@ -152,22 +152,22 @@ gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 				(List **) repalloc(gfbb->buffersOnLevels,
 								   (level + 1) * sizeof(List *));
 
-			/* initialize the enlarged portion */
+			/* 初始化扩大后的部分 */
 			for (i = gfbb->buffersOnLevelsLen; i <= level; i++)
 				gfbb->buffersOnLevels[i] = NIL;
 			gfbb->buffersOnLevelsLen = level + 1;
 		}
 
 		/*
-		 * Prepend the new buffer to the list of buffers on this level. It's
-		 * not arbitrary that the new buffer is put to the beginning of the
-		 * list: in the final emptying phase we loop through all buffers at
-		 * each level, and flush them. If a page is split during the emptying,
-		 * it's more efficient to flush the new splitted pages first, before
-		 * moving on to pre-existing pages on the level. The buffers just
-		 * created during the page split are likely still in cache, so
-		 * flushing them immediately is more efficient than putting them to
-		 * the end of the queue.
+		 * 把新缓冲区前置到本层缓冲区列表的开头。把
+		 * 新缓冲区放在列表开头并非随意：在最终清空
+		 * 阶段我们会遍历每层的全部缓冲区，并冲刷
+		 * 它们。若清空期间发生页分裂，先冲刷因分裂
+		 * 新建的页，再处理该层上原有的页更高效。页
+		 * 分裂期间刚创建的缓冲区很可能仍在缓存中，
+		 * 因此立即冲刷它们比放到队列
+		 * 末尾更
+		 * 高效。
 		 */
 		gfbb->buffersOnLevels[level] = lcons(nodeBuffer,
 											 gfbb->buffersOnLevels[level]);
@@ -179,7 +179,7 @@ gistGetNodeBuffer(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 }
 
 /*
- * Allocate memory for a buffer page.
+ * 为缓冲区页分配内存。
  */
 static GISTNodeBufferPage *
 gistAllocateNewPageBuffer(GISTBuildBuffers *gfbb)
@@ -190,22 +190,22 @@ gistAllocateNewPageBuffer(GISTBuildBuffers *gfbb)
 															   BLCKSZ);
 	pageBuffer->prev = InvalidBlockNumber;
 
-	/* Set page free space */
+	/* 设置页空闲空间 */
 	PAGE_FREE_SPACE(pageBuffer) = BLCKSZ - BUFFER_PAGE_DATA_OFFSET;
 	return pageBuffer;
 }
 
 /*
- * Add specified buffer into loadedBuffers array.
+ * 把指定缓冲区加入 loadedBuffers 数组。
  */
 static void
 gistAddLoadedBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer)
 {
-	/* Never add a temporary buffer to the array */
+	/* 切勿把临时缓冲区加入该数组 */
 	if (nodeBuffer->isTemp)
 		return;
 
-	/* Enlarge the array if needed */
+	/* 若需要则扩大数组 */
 	if (gfbb->loadedBuffersCount >= gfbb->loadedBuffersLen)
 	{
 		gfbb->loadedBuffersLen *= 2;
@@ -219,74 +219,74 @@ gistAddLoadedBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer)
 }
 
 /*
- * Load last page of node buffer into main memory.
+ * 把节点缓冲区的末页装入主存。
  */
 static void
 gistLoadNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer)
 {
-	/* Check if we really should load something */
+	/* 检查是否真的需要装入 */
 	if (!nodeBuffer->pageBuffer && nodeBuffer->blocksCount > 0)
 	{
-		/* Allocate memory for page */
+		/* 为页分配内存 */
 		nodeBuffer->pageBuffer = gistAllocateNewPageBuffer(gfbb);
 
-		/* Read block from temporary file */
+		/* 从临时文件读取块 */
 		ReadTempFileBlock(gfbb->pfile, nodeBuffer->pageBlocknum,
 						  nodeBuffer->pageBuffer);
 
-		/* Mark file block as free */
+		/* 把文件块标为空闲 */
 		gistBuffersReleaseBlock(gfbb, nodeBuffer->pageBlocknum);
 
-		/* Mark node buffer as loaded */
+		/* 把节点缓冲区标为已装入 */
 		gistAddLoadedBuffer(gfbb, nodeBuffer);
 		nodeBuffer->pageBlocknum = InvalidBlockNumber;
 	}
 }
 
 /*
- * Write last page of node buffer to the disk.
+ * 把节点缓冲区的末页写到磁盘。
  */
 static void
 gistUnloadNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer)
 {
-	/* Check if we have something to write */
+	/* 检查是否有内容要写 */
 	if (nodeBuffer->pageBuffer)
 	{
 		BlockNumber blkno;
 
-		/* Get free file block */
+		/* 获取空闲文件块 */
 		blkno = gistBuffersGetFreeBlock(gfbb);
 
-		/* Write block to the temporary file */
+		/* 把块写入临时文件 */
 		WriteTempFileBlock(gfbb->pfile, blkno, nodeBuffer->pageBuffer);
 
-		/* Free memory of that page */
+		/* 释放该页的内存 */
 		pfree(nodeBuffer->pageBuffer);
 		nodeBuffer->pageBuffer = NULL;
 
-		/* Save block number */
+		/* 保存块号 */
 		nodeBuffer->pageBlocknum = blkno;
 	}
 }
 
 /*
- * Write last pages of all node buffers to the disk.
+ * 把全部节点缓冲区的末页写到磁盘。
  */
 void
 gistUnloadNodeBuffers(GISTBuildBuffers *gfbb)
 {
 	int			i;
 
-	/* Unload all the buffers that have a page loaded in memory. */
+	/* 卸下所有在内存中装有一页的缓冲区。 */
 	for (i = 0; i < gfbb->loadedBuffersCount; i++)
 		gistUnloadNodeBuffer(gfbb, gfbb->loadedBuffers[i]);
 
-	/* Now there are no node buffers with loaded last page */
+	/* 现在已无装有末页的节点缓冲区 */
 	gfbb->loadedBuffersCount = 0;
 }
 
 /*
- * Add index tuple to buffer page.
+ * 把索引元组加入缓冲区页。
  */
 static void
 gistPlaceItupToPage(GISTNodeBufferPage *pageBuffer, IndexTuple itup)
@@ -294,22 +294,22 @@ gistPlaceItupToPage(GISTNodeBufferPage *pageBuffer, IndexTuple itup)
 	Size		itupsz = IndexTupleSize(itup);
 	char	   *ptr;
 
-	/* There should be enough of space. */
+	/* 应有足够空间。 */
 	Assert(PAGE_FREE_SPACE(pageBuffer) >= MAXALIGN(itupsz));
 
-	/* Reduce free space value of page to reserve a spot for the tuple. */
+	/* 减小页的空闲空间值，为元组预留位置。 */
 	PAGE_FREE_SPACE(pageBuffer) -= MAXALIGN(itupsz);
 
-	/* Get pointer to the spot we reserved (ie. end of free space). */
+	/* 获取指向所预留位置的指针（即空闲空间末尾）。 */
 	ptr = (char *) pageBuffer + BUFFER_PAGE_DATA_OFFSET
 		+ PAGE_FREE_SPACE(pageBuffer);
 
-	/* Copy the index tuple there. */
+	/* 把索引元组复制到那里。 */
 	memcpy(ptr, itup, itupsz);
 }
 
 /*
- * Get last item from buffer page and remove it from page.
+ * 从缓冲区页取出最后一项并从页中移除。
  */
 static void
 gistGetItupFromPage(GISTNodeBufferPage *pageBuffer, IndexTuple *itup)
@@ -317,37 +317,37 @@ gistGetItupFromPage(GISTNodeBufferPage *pageBuffer, IndexTuple *itup)
 	IndexTuple	ptr;
 	Size		itupsz;
 
-	Assert(!PAGE_IS_EMPTY(pageBuffer)); /* Page shouldn't be empty */
+	Assert(!PAGE_IS_EMPTY(pageBuffer)); /* 页不应为空 */
 
-	/* Get pointer to last index tuple */
+	/* 获取指向最后一个索引元组的指针 */
 	ptr = (IndexTuple) ((char *) pageBuffer
 						+ BUFFER_PAGE_DATA_OFFSET
 						+ PAGE_FREE_SPACE(pageBuffer));
 	itupsz = IndexTupleSize(ptr);
 
-	/* Make a copy of the tuple */
+	/* 制作元组的副本 */
 	*itup = (IndexTuple) palloc(itupsz);
 	memcpy(*itup, ptr, itupsz);
 
-	/* Mark the space used by the tuple as free */
+	/* 把该元组占用的空间标为空闲 */
 	PAGE_FREE_SPACE(pageBuffer) += MAXALIGN(itupsz);
 }
 
 /*
- * Push an index tuple to node buffer.
+ * 把索引元组压入节点缓冲区。
  */
 void
 gistPushItupToNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer,
 						 IndexTuple itup)
 {
 	/*
-	 * Most part of memory operations will be in buffering build persistent
-	 * context. So, let's switch to it.
+	 * 大部分内存操作将在缓冲构建的持久
+	 * 上下文中进行。因此切换到该上下文。
 	 */
 	MemoryContext oldcxt = MemoryContextSwitchTo(gfbb->context);
 
 	/*
-	 * If the buffer is currently empty, create the first page.
+	 * 若缓冲区当前为空，则创建第一页。
 	 */
 	if (nodeBuffer->blocksCount == 0)
 	{
@@ -356,40 +356,40 @@ gistPushItupToNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer,
 		gistAddLoadedBuffer(gfbb, nodeBuffer);
 	}
 
-	/* Load last page of node buffer if it wasn't in memory already */
+	/* 若节点缓冲区末页尚不在内存中则装入 */
 	if (!nodeBuffer->pageBuffer)
 		gistLoadNodeBuffer(gfbb, nodeBuffer);
 
 	/*
-	 * Check if there is enough space on the last page for the tuple.
+	 * 检查末页上是否有容纳该元组的足够空间。
 	 */
 	if (PAGE_NO_SPACE(nodeBuffer->pageBuffer, itup))
 	{
 		/*
-		 * Nope. Swap previous block to disk and allocate a new one.
+		 * 没有。把前一块换出到磁盘并分配新块。
 		 */
 		BlockNumber blkno;
 
-		/* Write filled page to the disk */
+		/* 把已填满的页写到磁盘 */
 		blkno = gistBuffersGetFreeBlock(gfbb);
 		WriteTempFileBlock(gfbb->pfile, blkno, nodeBuffer->pageBuffer);
 
 		/*
-		 * Reset the in-memory page as empty, and link the previous block to
-		 * the new page by storing its block number in the prev-link.
+		 * 把内存中的页重置为空，并通过在 prev 链接中
+		 * 存储其块号，把前一块链接到新页。
 		 */
 		PAGE_FREE_SPACE(nodeBuffer->pageBuffer) =
 			BLCKSZ - MAXALIGN(offsetof(GISTNodeBufferPage, tupledata));
 		nodeBuffer->pageBuffer->prev = blkno;
 
-		/* We've just added one more page */
+		/* 我们刚又增加了一页 */
 		nodeBuffer->blocksCount++;
 	}
 
 	gistPlaceItupToPage(nodeBuffer->pageBuffer, itup);
 
 	/*
-	 * If the buffer just overflowed, add it to the emptying queue.
+	 * 若缓冲区刚刚溢出，则把它加入清空队列。
 	 */
 	if (BUFFER_HALF_FILLED(nodeBuffer, gfbb) && !nodeBuffer->queuedForEmptying)
 	{
@@ -398,65 +398,65 @@ gistPushItupToNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer,
 		nodeBuffer->queuedForEmptying = true;
 	}
 
-	/* Restore memory context */
+	/* 恢复内存上下文 */
 	MemoryContextSwitchTo(oldcxt);
 }
 
 /*
- * Removes one index tuple from node buffer. Returns true if success and false
- * if node buffer is empty.
+ * 从节点缓冲区移除一个索引元组。成功返回 true，若
+ * 节点缓冲区为空则返回 false。
  */
 bool
 gistPopItupFromNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer,
 						  IndexTuple *itup)
 {
 	/*
-	 * If node buffer is empty then return false.
+	 * 若节点缓冲区为空则返回 false。
 	 */
 	if (nodeBuffer->blocksCount <= 0)
 		return false;
 
-	/* Load last page of node buffer if needed */
+	/* 若需要则装入节点缓冲区末页 */
 	if (!nodeBuffer->pageBuffer)
 		gistLoadNodeBuffer(gfbb, nodeBuffer);
 
 	/*
-	 * Get index tuple from last non-empty page.
+	 * 从最后一个非空页获取索引元组。
 	 */
 	gistGetItupFromPage(nodeBuffer->pageBuffer, itup);
 
 	/*
-	 * If we just removed the last tuple from the page, fetch previous page on
-	 * this node buffer (if any).
+	 * 若刚从该页移除最后一个元组，则取回本节点缓冲区上
+	 * 的前一页（若有）。
 	 */
 	if (PAGE_IS_EMPTY(nodeBuffer->pageBuffer))
 	{
 		BlockNumber prevblkno;
 
 		/*
-		 * blocksCount includes the page in pageBuffer, so decrease it now.
+		 * blocksCount 包含 pageBuffer 中的页，因此现在减小它。
 		 */
 		nodeBuffer->blocksCount--;
 
 		/*
-		 * If there's more pages, fetch previous one.
+		 * 若还有更多页，则取回前一页。
 		 */
 		prevblkno = nodeBuffer->pageBuffer->prev;
 		if (prevblkno != InvalidBlockNumber)
 		{
-			/* There is a previous page. Fetch it. */
+			/* 存在前一页。取回它。 */
 			Assert(nodeBuffer->blocksCount > 0);
 			ReadTempFileBlock(gfbb->pfile, prevblkno, nodeBuffer->pageBuffer);
 
 			/*
-			 * Now that we've read the block in memory, we can release its
-			 * on-disk block for reuse.
+			 * 现已把该块读入内存，可以释放其
+			 * 磁盘块以便重用。
 			 */
 			gistBuffersReleaseBlock(gfbb, prevblkno);
 		}
 		else
 		{
-			/* No more pages. Free memory. */
+			/* 没有更多页。释放内存。 */
 			Assert(nodeBuffer->blocksCount == 0);
 			pfree(nodeBuffer->pageBuffer);
 			nodeBuffer->pageBuffer = NULL;
@@ -466,15 +466,15 @@ gistPopItupFromNodeBuffer(GISTBuildBuffers *gfbb, GISTNodeBuffer *nodeBuffer,
 }
 
 /*
- * Select a currently unused block for writing to.
+ * 选择一个当前未使用的块供写入。
  */
 static long
 gistBuffersGetFreeBlock(GISTBuildBuffers *gfbb)
 {
 	/*
-	 * If there are multiple free blocks, we select the one appearing last in
-	 * freeBlocks[].  If there are none, assign the next block at the end of
-	 * the file (causing the file to be extended).
+	 * 若有多个空闲块，我们选择 freeBlocks[] 中出现在
+	 * 最后的那个。若一个都没有，则分配文件末尾的下一块
+	 * （导致文件扩展）。
 	 */
 	if (gfbb->nFreeBlocks > 0)
 		return gfbb->freeBlocks[--gfbb->nFreeBlocks];
@@ -483,14 +483,14 @@ gistBuffersGetFreeBlock(GISTBuildBuffers *gfbb)
 }
 
 /*
- * Return a block# to the freelist.
+ * 把块号归还到空闲列表。
  */
 static void
 gistBuffersReleaseBlock(GISTBuildBuffers *gfbb, long blocknum)
 {
 	int			ndx;
 
-	/* Enlarge freeBlocks array if full. */
+	/* 若 freeBlocks 数组已满则扩大。 */
 	if (gfbb->nFreeBlocks >= gfbb->freeBlocksLen)
 	{
 		gfbb->freeBlocksLen *= 2;
@@ -499,26 +499,26 @@ gistBuffersReleaseBlock(GISTBuildBuffers *gfbb, long blocknum)
 											 sizeof(long));
 	}
 
-	/* Add blocknum to array */
+	/* 把 blocknum 加入数组 */
 	ndx = gfbb->nFreeBlocks++;
 	gfbb->freeBlocks[ndx] = blocknum;
 }
 
 /*
- * Free buffering build data structure.
+ * 释放缓冲构建数据结构。
  */
 void
 gistFreeBuildBuffers(GISTBuildBuffers *gfbb)
 {
-	/* Close buffers file. */
+	/* 关闭缓冲区文件。 */
 	BufFileClose(gfbb->pfile);
 
-	/* All other things will be freed on memory context release */
+	/* 其余内容将在内存上下文释放时一并释放 */
 }
 
 /*
- * Data structure representing information about node buffer for index tuples
- * relocation from splitted node buffer.
+ * 表示从已分裂节点缓冲区重定位索引元组时，关于
+ * 节点缓冲区信息的数据结构。
  */
 typedef struct
 {
@@ -529,9 +529,9 @@ typedef struct
 } RelocationBufferInfo;
 
 /*
- * At page split, distribute tuples from the buffer of the split page to
- * new buffers for the created page halves. This also adjusts the downlinks
- * in 'splitinfo' to include the tuples in the buffers.
+ * 在页分裂时，把被分裂页缓冲区中的元组分配到
+ * 为所创建页半部准备的新缓冲区。这也会调整
+ * 'splitinfo' 中的下行指针，以包含缓冲区中的元组。
  */
 void
 gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
@@ -549,41 +549,41 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 	GISTNodeBuffer oldBuf;
 	ListCell   *lc;
 
-	/* If the splitted page doesn't have buffers, we have nothing to do. */
+	/* 若被分裂的页没有缓冲区，则无事可做。 */
 	if (!LEVEL_HAS_BUFFERS(level, gfbb))
 		return;
 
 	/*
-	 * Get the node buffer of the splitted page.
+	 * 获取被分裂页的节点缓冲区。
 	 */
 	blocknum = BufferGetBlockNumber(buffer);
 	nodeBuffer = hash_search(gfbb->nodeBuffersTab, &blocknum,
 							 HASH_FIND, &found);
 	if (!found)
 	{
-		/* The page has no buffer, so we have nothing to do. */
+		/* 该页没有缓冲区，因此无事可做。 */
 		return;
 	}
 
 	/*
-	 * Make a copy of the old buffer, as we're going reuse it as the buffer
-	 * for the new left page, which is on the same block as the old page.
-	 * That's not true for the root page, but that's fine because we never
-	 * have a buffer on the root page anyway. The original algorithm as
-	 * described by Arge et al did, but it's of no use, as you might as well
-	 * read the tuples straight from the heap instead of the root buffer.
+	 * 制作旧缓冲区的副本，因为我们将把它重用为新左页的
+	 * 缓冲区，而新左页与旧页在同一块上。
+	 * 对根页并非如此，但没关系，因为我们从不在根页上
+	 * 设置缓冲区。Arge 等人描述的原算法有过，但并无
+	 * 用处，因为不如直接从堆读取元组，而不是从根
+	 * 缓冲区读。
 	 */
 	Assert(blocknum != GIST_ROOT_BLKNO);
 	memcpy(&oldBuf, nodeBuffer, sizeof(GISTNodeBuffer));
 	oldBuf.isTemp = true;
 
-	/* Reset the old buffer, used for the new left page from now on */
+	/* 重置旧缓冲区，此后用作新左页的缓冲区 */
 	nodeBuffer->blocksCount = 0;
 	nodeBuffer->pageBuffer = NULL;
 	nodeBuffer->pageBlocknum = InvalidBlockNumber;
 
 	/*
-	 * Allocate memory for information about relocation buffers.
+	 * 为重定位缓冲区的信息分配内存。
 	 */
 	splitPagesCount = list_length(splitinfo);
 	relocationBuffersInfos =
@@ -591,8 +591,8 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 										splitPagesCount);
 
 	/*
-	 * Fill relocation buffers information for node buffers of pages produced
-	 * by split.
+	 * 为分裂产生的各页的节点缓冲区填充
+	 * 重定位缓冲区信息。
 	 */
 	foreach(lc, splitinfo)
 	{
@@ -600,18 +600,18 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 		GISTNodeBuffer *newNodeBuffer;
 		int			i = foreach_current_index(lc);
 
-		/* Decompress parent index tuple of node buffer page. */
+		/* 解压缩节点缓冲区页的父索引元组。 */
 		gistDeCompressAtt(giststate, r,
 						  si->downlink, NULL, (OffsetNumber) 0,
 						  relocationBuffersInfos[i].entry,
 						  relocationBuffersInfos[i].isnull);
 
 		/*
-		 * Create a node buffer for the page. The leftmost half is on the same
-		 * block as the old page before split, so for the leftmost half this
-		 * will return the original buffer. The tuples on the original buffer
-		 * were relinked to the temporary buffer, so the original one is now
-		 * empty.
+		 * 为该页创建节点缓冲区。最左半部与分裂前的旧页
+		 * 在同一块上，因此对最左半部这将返回原缓冲区。
+		 * 原缓冲区上的元组已重链到临时缓冲区，因此
+		 * 原缓冲区现在
+		 * 为空。
 		 */
 		newNodeBuffer = gistGetNodeBuffer(gfbb, giststate, BufferGetBlockNumber(si->buf), level);
 
@@ -620,13 +620,13 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 	}
 
 	/*
-	 * Loop through all index tuples in the buffer of the page being split,
-	 * moving them to buffers for the new pages.  We try to move each tuple to
-	 * the page that will result in the lowest penalty for the leading column
-	 * or, in the case of a tie, the lowest penalty for the earliest column
-	 * that is not tied.
+	 * 遍历正被分裂的页的缓冲区中全部索引元组，
+	 * 把它们移到新页的缓冲区。我们尽量把每个元组移到
+	 * 会使前导列惩罚最低的页；若并列，则移到最早
+	 * 不并列的那一列惩罚最低的页。
 	 *
-	 * The page searching logic is very similar to gistchoose().
+	 * 页搜索逻辑与 gistchoose()
+	 * 非常相似。
 	 */
 	while (gistPopItupFromNodeBuffer(gfbb, &oldBuf, &itup))
 	{
@@ -639,19 +639,19 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 		gistDeCompressAtt(giststate, r,
 						  itup, NULL, (OffsetNumber) 0, entry, isnull);
 
-		/* default to using first page (shouldn't matter) */
+		/* 默认使用第一页（不应有影响） */
 		which = 0;
 
 		/*
-		 * best_penalty[j] is the best penalty we have seen so far for column
-		 * j, or -1 when we haven't yet examined column j.  Array entries to
-		 * the right of the first -1 are undefined.
+		 * best_penalty[j] 是迄今为止在第 j 列见过的最佳
+		 * 惩罚，尚未检查第 j 列时为 -1。第一个 -1
+		 * 右侧的数组元素未定义。
 		 */
 		best_penalty[0] = -1;
 
 		/*
-		 * Loop over possible target pages, looking for one to move this tuple
-		 * to.
+		 * 遍历可能的目标页，寻找要把此元组移到
+		 * 的那一页。
 		 */
 		for (i = 0; i < splitPagesCount; i++)
 		{
@@ -661,12 +661,12 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 
 			zero_penalty = true;
 
-			/* Loop over index attributes. */
+			/* 遍历索引属性。 */
 			for (j = 0; j < IndexRelationGetNumberOfKeyAttributes(r); j++)
 			{
 				float		usize;
 
-				/* Compute penalty for this column. */
+				/* 计算该列的惩罚。 */
 				usize = gistpenalty(giststate, j,
 									&splitPageInfo->entry[j],
 									splitPageInfo->isnull[j],
@@ -677,13 +677,13 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 				if (best_penalty[j] < 0 || usize < best_penalty[j])
 				{
 					/*
-					 * New best penalty for column.  Tentatively select this
-					 * page as the target, and record the best penalty.  Then
-					 * reset the next column's penalty to "unknown" (and
-					 * indirectly, the same for all the ones to its right).
-					 * This will force us to adopt this page's penalty values
-					 * as the best for all the remaining columns during
-					 * subsequent loop iterations.
+					 * 该列出现新的最佳惩罚。暂定选择此
+					 * 页作为目标，并记下最佳惩罚。然后
+					 * 将下一列的惩罚重置为 "unknown"（并
+					 * 间接地，对其右侧所有列同样处理）。
+					 * 这将迫使我们在后续循环迭代中采用
+					 * 此页的惩罚值作为其余各列的
+					 * 最佳值。
 					 */
 					which = i;
 					best_penalty[j] = usize;
@@ -694,39 +694,39 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 				else if (best_penalty[j] == usize)
 				{
 					/*
-					 * The current page is exactly as good for this column as
-					 * the best page seen so far.  The next iteration of this
-					 * loop will compare the next column.
+					 * 当前页在该列上与迄今最佳页
+					 * 同样好。本循环的下一次迭代
+					 * 将比较下一列。
 					 */
 				}
 				else
 				{
 					/*
-					 * The current page is worse for this column than the best
-					 * page seen so far.  Skip the remaining columns and move
-					 * on to the next page, if any.
+					 * 当前页在该列上比迄今最佳
+					 * 页更差。跳过其余列，继续
+					 * 处理下一页（若有）。
 					 */
-					zero_penalty = false;	/* so outer loop won't exit */
+					zero_penalty = false;	/* 使外层循环不会退出 */
 					break;
 				}
 			}
 
 			/*
-			 * If we find a page with zero penalty for all columns, there's no
-			 * need to examine remaining pages; just break out of the loop and
-			 * return it.
+			 * 若找到各列惩罚均为零的页，则无需再
+			 * 检查其余页；直接跳出循环并
+			 * 返回它。
 			 */
 			if (zero_penalty)
 				break;
 		}
 
-		/* OK, "which" is the page index to push the tuple to */
+		/* 好，"which" 是要把元组压入的页索引 */
 		targetBufferInfo = &relocationBuffersInfos[which];
 
-		/* Push item to selected node buffer */
+		/* 把项压入所选节点缓冲区 */
 		gistPushItupToNodeBuffer(gfbb, targetBufferInfo->nodeBuffer, itup);
 
-		/* Adjust the downlink for this page, if needed. */
+		/* 若需要，调整该页的下行指针。 */
 		newtup = gistgetadjusted(r, targetBufferInfo->splitinfo->downlink,
 								 itup, giststate);
 		if (newtup)
@@ -745,9 +745,9 @@ gistRelocateBuildBuffersOnSplit(GISTBuildBuffers *gfbb, GISTSTATE *giststate,
 
 
 /*
- * Wrappers around BufFile operations. The main difference is that these
- * wrappers report errors with ereport(), so that the callers don't need
- * to check the return code.
+ * BufFile 操作的包装。主要区别是这些包装用
+ * ereport() 报告错误，因此调用者不必
+ * 检查返回码。
  */
 
 static void

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgvacuum.c
- *	  vacuum for SP-GiST
+ *	  SP-GiST 的清理例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -29,36 +29,36 @@
 #include "utils/snapmgr.h"
 
 
-/* Entry in pending-list of TIDs we need to revisit */
+/* 待重访 TIDs 挂起列表中的项 */
 typedef struct spgVacPendingItem
 {
-	ItemPointerData tid;		/* redirection target to visit */
-	bool		done;			/* have we dealt with this? */
-	struct spgVacPendingItem *next; /* list link */
+	ItemPointerData tid;		/* 要访问的重定向目标 */
+	bool		done;			/* 是否已处理过？ */
+	struct spgVacPendingItem *next; /* 链表指针 */
 } spgVacPendingItem;
 
-/* Local state for vacuum operations */
+/* 清理操作的本地状态 */
 typedef struct spgBulkDeleteState
 {
-	/* Parameters passed in to spgvacuumscan */
+	/* 传入 spgvacuumscan 的参数 */
 	IndexVacuumInfo *info;
 	IndexBulkDeleteResult *stats;
 	IndexBulkDeleteCallback callback;
 	void	   *callback_state;
 
-	/* Additional working state */
-	SpGistState spgstate;		/* for SPGiST operations that need one */
-	spgVacPendingItem *pendingList; /* TIDs we need to (re)visit */
-	TransactionId myXmin;		/* for detecting newly-added redirects */
-	BlockNumber lastFilledBlock;	/* last non-deletable block */
+	/* 额外工作状态 */
+	SpGistState spgstate;		/* 供需要该状态的 SPGiST 操作使用 */
+	spgVacPendingItem *pendingList; /* 需要（重新）访问的 TIDs */
+	TransactionId myXmin;		/* 用于检测新加入的重定向 */
+	BlockNumber lastFilledBlock;	/* 最后一个不可删除的块 */
 } spgBulkDeleteState;
 
 
 /*
- * Add TID to pendingList, but only if not already present.
+ * 将 TID 加入 pendingList，但仅当尚未存在时。
  *
- * Note that new items are always appended at the end of the list; this
- * ensures that scans of the list don't miss items added during the scan.
+ * 注意新项总是追加在列表末尾；这确保对列表的扫描
+ * 不会漏掉扫描过程中新加入的项。
  */
 static void
 spgAddPendingTID(spgBulkDeleteState *bds, ItemPointer tid)
@@ -66,16 +66,16 @@ spgAddPendingTID(spgBulkDeleteState *bds, ItemPointer tid)
 	spgVacPendingItem *pitem;
 	spgVacPendingItem **listLink;
 
-	/* search the list for pre-existing entry */
+	/* 在列表中查找是否已有该项 */
 	listLink = &bds->pendingList;
 	while (*listLink != NULL)
 	{
 		pitem = *listLink;
 		if (ItemPointerEquals(tid, &pitem->tid))
-			return;				/* already in list, do nothing */
+			return;				/* 已在列表中，无需操作 */
 		listLink = &pitem->next;
 	}
-	/* not there, so append new entry */
+	/* 不在列表中，追加新项 */
 	pitem = (spgVacPendingItem *) palloc(sizeof(spgVacPendingItem));
 	pitem->tid = *tid;
 	pitem->done = false;
@@ -84,7 +84,7 @@ spgAddPendingTID(spgBulkDeleteState *bds, ItemPointer tid)
 }
 
 /*
- * Clear pendingList
+ * 清空 pendingList
  */
 static void
 spgClearPendingList(spgBulkDeleteState *bds)
@@ -95,7 +95,7 @@ spgClearPendingList(spgBulkDeleteState *bds)
 	for (pitem = bds->pendingList; pitem != NULL; pitem = nitem)
 	{
 		nitem = pitem->next;
-		/* All items in list should have been dealt with */
+		/* 列表中所有项都应已被处理 */
 		Assert(pitem->done);
 		pfree(pitem);
 	}
@@ -103,24 +103,24 @@ spgClearPendingList(spgBulkDeleteState *bds)
 }
 
 /*
- * Vacuum a regular (non-root) leaf page
+ * 清理普通（非根）叶子页
  *
- * We must delete tuples that are targeted for deletion by the VACUUM,
- * but not move any tuples that are referenced by outside links; we assume
- * those are the ones that are heads of chains.
+ * 我们必须删除 VACUUM 指定要删除的元组，
+ * 但不得移动任何被外部链接引用的元组；我们假定
+ * 那些就是链的头。
  *
- * If we find a REDIRECT that was made by a concurrently-running transaction,
- * we must add its target TID to pendingList.  (We don't try to visit the
- * target immediately, first because we don't want VACUUM locking more than
- * one buffer at a time, and second because the duplicate-filtering logic
- * in spgAddPendingTID is useful to ensure we can't get caught in an infinite
- * loop in the face of continuous concurrent insertions.)
+ * 若发现由并发事务创建的 REDIRECT，
+ * 必须把它的目标 TID 加入 pendingList。（我们不立即访问
+ * 目标，一是因为不想让 VACUUM 同时锁定多于
+ * 一个缓冲区，二是因为 spgAddPendingTID 中的去重
+ * 逻辑有助于确保在持续并发插入时不会陷入
+ * 无限循环。）
  *
- * If forPending is true, we are examining the page as a consequence of
- * chasing a redirect link, not as part of the normal sequential scan.
- * We still vacuum the page normally, but we don't increment the stats
- * about live tuples; else we'd double-count those tuples, since the page
- * has been or will be visited in the sequential scan as well.
+ * 若 forPending 为真，则我们是因追踪重定向链接而
+ * 检查该页，而非正常顺序扫描的一部分。
+ * 我们仍正常清理该页，但不递增关于存活
+ * 元组的统计；否则会重复计数，因为该页
+ * 在顺序扫描中已经或将会被访问。
  */
 static void
 vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
@@ -144,7 +144,7 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 	memset(deletable, 0, sizeof(deletable));
 	nDeletable = 0;
 
-	/* Scan page, identify tuples to delete, accumulate stats */
+	/* 扫描页，识别待删除元组，累计统计 */
 	for (i = FirstOffsetNumber; i <= max; i++)
 	{
 		SpGistLeafTuple lt;
@@ -167,10 +167,10 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 					bds->stats->num_index_tuples += 1;
 			}
 
-			/* Form predecessor map, too */
+			/* 同时构建前驱映射 */
 			if (SGLT_GET_NEXTOFFSET(lt) != InvalidOffsetNumber)
 			{
-				/* paranoia about corrupted chain links */
+				/* 对损坏的链链接保持警惕 */
 				if (SGLT_GET_NEXTOFFSET(lt) < FirstOffsetNumber ||
 					SGLT_GET_NEXTOFFSET(lt) > max ||
 					predecessor[SGLT_GET_NEXTOFFSET(lt)] != InvalidOffsetNumber)
@@ -188,15 +188,15 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 			Assert(ItemPointerIsValid(&dt->pointer));
 
 			/*
-			 * Add target TID to pending list if the redirection could have
-			 * happened since VACUUM started.  (If xid is invalid, assume it
-			 * must have happened before VACUUM started, since REINDEX
-			 * CONCURRENTLY locks out VACUUM.)
+			 * 若该重定向可能发生在 VACUUM 开始之后，则把目标
+			 * TID 加入挂起列表。（若 xid 无效，则假定它一定
+			 * 发生在 VACUUM 开始之前，因为 REINDEX
+			 * CONCURRENTLY 会排除 VACUUM。）
 			 *
-			 * Note: we could make a tighter test by seeing if the xid is
-			 * "running" according to the active snapshot; but snapmgr.c
-			 * doesn't currently export a suitable API, and it's not entirely
-			 * clear that a tighter test is worth the cycles anyway.
+			 * 注意：我们本可通过检查 xid 在活动快照下是否仍
+			 * "运行中"来做更严格的测试；但 snapmgr.c
+			 * 目前未导出合适的 API，而且更严格的测试是否
+			 * 值得那些额外周期也并不完全清楚。
 			 */
 			if (TransactionIdFollowsOrEquals(dt->xid, bds->myXmin))
 				spgAddPendingTID(bds, &dt->pointer);
@@ -208,27 +208,27 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 	}
 
 	if (nDeletable == 0)
-		return;					/* nothing more to do */
+		return;					/* 没有更多事可做 */
 
 	/*----------
-	 * Figure out exactly what we have to do.  We do this separately from
-	 * actually modifying the page, mainly so that we have a representation
-	 * that can be dumped into WAL and then the replay code can do exactly
-	 * the same thing.  The output of this step consists of six arrays
-	 * describing four kinds of operations, to be performed in this order:
+	 * 弄清我们究竟要做什么。我们把这一步与实际
+	 * 修改页分开，主要是为了得到一种可写入 WAL
+	 * 的表示，然后重放代码就能做完全相同的事。
+	 * 本步的输出由六个数组组成，描述四类操作，
+	 * 按以下顺序执行：
 	 *
-	 * toDead[]: tuple numbers to be replaced with DEAD tuples
-	 * toPlaceholder[]: tuple numbers to be replaced with PLACEHOLDER tuples
-	 * moveSrc[]: tuple numbers that need to be relocated to another offset
-	 * (replacing the tuple there) and then replaced with PLACEHOLDER tuples
-	 * moveDest[]: new locations for moveSrc tuples
-	 * chainSrc[]: tuple numbers whose chain links (nextOffset) need updates
-	 * chainDest[]: new values of nextOffset for chainSrc members
+	 * toDead[]: 要用 DEAD 元组替换的元组编号
+	 * toPlaceholder[]: 要用 PLACEHOLDER 元组替换的元组编号
+	 * moveSrc[]: 需要搬到另一偏移的元组编号
+	 * （替换那里的元组）然后再用 PLACEHOLDER 元组替换
+	 * moveDest[]: moveSrc 元组的新位置
+	 * chainSrc[]: 链链接（nextOffset）需要更新的元组编号
+	 * chainDest[]: chainSrc 成员的 nextOffset 新值
 	 *
-	 * It's easiest to figure out what we have to do by processing tuple
-	 * chains, so we iterate over all the tuples (not just the deletable
-	 * ones!) to identify chain heads, then chase down each chain and make
-	 * work item entries for deletable tuples within the chain.
+	 * 最容易的做法是按元组链来弄清要做什么，
+	 * 因此我们遍历所有元组（不只是可删除的那些！）
+	 * 以识别链头，再沿每条链向下追查，并为链内
+	 * 可删除元组生成工作项。
 	 *----------
 	 */
 	xlrec.nDead = xlrec.nPlaceholder = xlrec.nMove = xlrec.nChain = 0;
@@ -243,15 +243,15 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 		head = (SpGistLeafTuple) PageGetItem(page,
 											 PageGetItemId(page, i));
 		if (head->tupstate != SPGIST_LIVE)
-			continue;			/* can't be a chain member */
+			continue;			/* 不可能是链成员 */
 		if (predecessor[i] != 0)
-			continue;			/* not a chain head */
+			continue;			/* 不是链头 */
 
-		/* initialize ... */
+		/* 初始化…… */
 		interveningDeletable = false;
 		prevLive = deletable[i] ? InvalidOffsetNumber : i;
 
-		/* scan down the chain ... */
+		/* 沿链向下扫描…… */
 		j = SGLT_GET_NEXTOFFSET(head);
 		while (j != InvalidOffsetNumber)
 		{
@@ -261,37 +261,37 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 											   PageGetItemId(page, j));
 			if (lt->tupstate != SPGIST_LIVE)
 			{
-				/* all tuples in chain should be live */
+				/* 链中所有元组都应为存活 */
 				elog(ERROR, "unexpected SPGiST tuple state: %d",
 					 lt->tupstate);
 			}
 
 			if (deletable[j])
 			{
-				/* This tuple should be replaced by a placeholder */
+				/* 该元组应由占位元组替换 */
 				toPlaceholder[xlrec.nPlaceholder] = j;
 				xlrec.nPlaceholder++;
-				/* previous live tuple's chain link will need an update */
+				/* 前一个存活元组的链链接将需要更新 */
 				interveningDeletable = true;
 			}
 			else if (prevLive == InvalidOffsetNumber)
 			{
 				/*
-				 * This is the first live tuple in the chain.  It has to move
-				 * to the head position.
+				 * 这是链中第一个存活元组。它必须移到
+				 * 头位置。
 				 */
 				moveSrc[xlrec.nMove] = j;
 				moveDest[xlrec.nMove] = i;
 				xlrec.nMove++;
-				/* Chain updates will be applied after the move */
+				/* 链更新将在移动之后应用 */
 				prevLive = i;
 				interveningDeletable = false;
 			}
 			else
 			{
 				/*
-				 * Second or later live tuple.  Arrange to re-chain it to the
-				 * previous live one, if there was a gap.
+				 * 第二个或更靠后的存活元组。若中间有空隙，
+				 * 安排把它重新链接到前一个存活元组。
 				 */
 				if (interveningDeletable)
 				{
@@ -308,24 +308,24 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 
 		if (prevLive == InvalidOffsetNumber)
 		{
-			/* The chain is entirely removable, so we need a DEAD tuple */
+			/* 整条链都可移除，因此需要一个 DEAD 元组 */
 			toDead[xlrec.nDead] = i;
 			xlrec.nDead++;
 		}
 		else if (interveningDeletable)
 		{
-			/* One or more deletions at end of chain, so close it off */
+			/* 链末有一处或多处删除，因此把它封上 */
 			chainSrc[xlrec.nChain] = prevLive;
 			chainDest[xlrec.nChain] = InvalidOffsetNumber;
 			xlrec.nChain++;
 		}
 	}
 
-	/* sanity check ... */
+	/* 完整性检查…… */
 	if (nDeletable != xlrec.nDead + xlrec.nPlaceholder + xlrec.nMove)
 		elog(ERROR, "inconsistent counts of deletable tuples");
 
-	/* Do the updates */
+	/* 执行更新 */
 	START_CRIT_SECTION();
 
 	spgPageIndexMultiDelete(&bds->spgstate, page,
@@ -339,11 +339,11 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 							InvalidBlockNumber, InvalidOffsetNumber);
 
 	/*
-	 * We implement the move step by swapping the line pointers of the source
-	 * and target tuples, then replacing the newly-source tuples with
-	 * placeholders.  This is perhaps unduly friendly with the page data
-	 * representation, but it's fast and doesn't risk page overflow when a
-	 * tuple to be relocated is large.
+	 * 我们通过交换源与目标元组的行指针来实现
+	 * 移动步骤，然后把新成为源的元组替换为
+	 * 占位元组。这也许过分依赖页数据表示的
+	 * 细节，但很快，并且在待搬迁元组很大时
+	 * 不会有页溢出风险。
 	 */
 	for (i = 0; i < xlrec.nMove; i++)
 	{
@@ -382,7 +382,7 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 		STORE_STATE(&bds->spgstate, xlrec.stateSrc);
 
 		XLogRegisterData((char *) &xlrec, SizeOfSpgxlogVacuumLeaf);
-		/* sizeof(xlrec) should be a multiple of sizeof(OffsetNumber) */
+		/* sizeof(xlrec) 应为 sizeof(OffsetNumber) 的整数倍 */
 		XLogRegisterData((char *) toDead, sizeof(OffsetNumber) * xlrec.nDead);
 		XLogRegisterData((char *) toPlaceholder, sizeof(OffsetNumber) * xlrec.nPlaceholder);
 		XLogRegisterData((char *) moveSrc, sizeof(OffsetNumber) * xlrec.nMove);
@@ -401,9 +401,9 @@ vacuumLeafPage(spgBulkDeleteState *bds, Relation index, Buffer buffer,
 }
 
 /*
- * Vacuum a root page when it is also a leaf
+ * 当根页本身也是叶子时清理根页
  *
- * On the root, we just delete any dead leaf tuples; no fancy business
+ * 在根上，我们只删除任何已死的叶子元组；不做花哨处理
  */
 static void
 vacuumLeafRoot(spgBulkDeleteState *bds, Relation index, Buffer buffer)
@@ -416,7 +416,7 @@ vacuumLeafRoot(spgBulkDeleteState *bds, Relation index, Buffer buffer)
 
 	xlrec.nDelete = 0;
 
-	/* Scan page, identify tuples to delete, accumulate stats */
+	/* 扫描页，识别待删除元组，累计统计 */
 	for (i = FirstOffsetNumber; i <= max; i++)
 	{
 		SpGistLeafTuple lt;
@@ -440,19 +440,19 @@ vacuumLeafRoot(spgBulkDeleteState *bds, Relation index, Buffer buffer)
 		}
 		else
 		{
-			/* all tuples on root should be live */
+			/* 根上所有元组都应为存活 */
 			elog(ERROR, "unexpected SPGiST tuple state: %d",
 				 lt->tupstate);
 		}
 	}
 
 	if (xlrec.nDelete == 0)
-		return;					/* nothing more to do */
+		return;					/* 没有更多事可做 */
 
-	/* Do the update */
+	/* 执行更新 */
 	START_CRIT_SECTION();
 
-	/* The tuple numbers are in order, so we can use PageIndexMultiDelete */
+	/* 元组编号有序，因此可用 PageIndexMultiDelete */
 	PageIndexMultiDelete(page, toDelete, xlrec.nDelete);
 
 	MarkBufferDirty(buffer);
@@ -463,11 +463,11 @@ vacuumLeafRoot(spgBulkDeleteState *bds, Relation index, Buffer buffer)
 
 		XLogBeginInsert();
 
-		/* Prepare WAL record */
+		/* 准备 WAL 记录 */
 		STORE_STATE(&bds->spgstate, xlrec.stateSrc);
 
 		XLogRegisterData((char *) &xlrec, SizeOfSpgxlogVacuumRoot);
-		/* sizeof(xlrec) should be a multiple of sizeof(OffsetNumber) */
+		/* sizeof(xlrec) 应为 sizeof(OffsetNumber) 的整数倍 */
 		XLogRegisterData((char *) toDelete,
 						 sizeof(OffsetNumber) * xlrec.nDelete);
 
@@ -482,13 +482,13 @@ vacuumLeafRoot(spgBulkDeleteState *bds, Relation index, Buffer buffer)
 }
 
 /*
- * Clean up redirect and placeholder tuples on the given page
+ * 清理给定页上的重定向与占位元组
  *
- * Redirect tuples can be marked placeholder once they're old enough.
- * Placeholder tuples can be removed if it won't change the offsets of
- * non-placeholder ones.
+ * 重定向元组足够旧之后可标为占位。
+ * 若不改变非占位元组的偏移，则可移除
+ * 占位元组。
  *
- * Unlike the routines above, this works on both leaf and inner pages.
+ * 与上面的例程不同，这对叶子页和内部页都适用。
  */
 static void
 vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
@@ -514,8 +514,8 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 	START_CRIT_SECTION();
 
 	/*
-	 * Scan backwards to convert old redirection tuples to placeholder tuples,
-	 * and identify location of last non-placeholder tuple while at it.
+	 * 向后扫描，把旧的重定向元组转换为占位元组，
+	 * 并同时确定最后一个非占位元组的位置。
 	 */
 	for (i = max;
 		 i >= FirstOffsetNumber &&
@@ -527,12 +527,12 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 		dt = (SpGistDeadTuple) PageGetItem(page, PageGetItemId(page, i));
 
 		/*
-		 * We can convert a REDIRECT to a PLACEHOLDER if there could no longer
-		 * be any index scans "in flight" to it.  Such an index scan would
-		 * have to be in a transaction whose snapshot sees the REDIRECT's XID
-		 * as still running, so comparing the XID against global xmin is a
-		 * conservatively safe test.  If the XID is invalid, it must have been
-		 * inserted by REINDEX CONCURRENTLY, so we can zap it immediately.
+		 * 若不再可能有索引扫描仍 "in flight" 指向某个 REDIRECT，
+		 * 我们就可把它转为 PLACEHOLDER。这样的索引扫描必须处于
+		 * 其快照仍视该 REDIRECT 的 XID 为运行中的事务中，因此
+		 * 拿 XID 与全局 xmin 比较是保守而安全的测试。若 XID
+		 * 无效，则它一定是由 REINDEX CONCURRENTLY 插入的，
+		 * 因此我们可以立即清除它。
 		 */
 		if (dt->tupstate == SPGIST_REDIRECT &&
 			(!TransactionIdIsValid(dt->xid) ||
@@ -543,7 +543,7 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 			opaque->nRedirection--;
 			opaque->nPlaceholder++;
 
-			/* remember newest XID among the removed redirects */
+			/* 记住被移除重定向中最新的 XID */
 			if (!TransactionIdIsValid(xlrec.snapshotConflictHorizon) ||
 				TransactionIdPrecedes(xlrec.snapshotConflictHorizon, dt->xid))
 				xlrec.snapshotConflictHorizon = dt->xid;
@@ -568,14 +568,14 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 	}
 
 	/*
-	 * Any placeholder tuples at the end of page can safely be removed.  We
-	 * can't remove ones before the last non-placeholder, though, because we
-	 * can't alter the offset numbers of non-placeholder tuples.
+	 * 页末的任何占位元组都可安全移除。不过，我们不能
+	 * 移除最后一个非占位元组之前的那些，因为我们不能
+	 * 改变非占位元组的偏移号。
 	 */
 	if (firstPlaceholder != InvalidOffsetNumber)
 	{
 		/*
-		 * We do not store this array to rdata because it's easy to recreate.
+		 * 我们不把此数组存入 rdata，因为它很容易重建。
 		 */
 		for (i = firstPlaceholder; i <= max; i++)
 			itemnos[i - firstPlaceholder] = i;
@@ -584,7 +584,7 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 		Assert(opaque->nPlaceholder >= i);
 		opaque->nPlaceholder -= i;
 
-		/* The array is surely sorted, so can use PageIndexMultiDelete */
+		/* 该数组肯定已排序，因此可用 PageIndexMultiDelete */
 		PageIndexMultiDelete(page, itemnos, i);
 
 		hasUpdate = true;
@@ -616,7 +616,7 @@ vacuumRedirectAndPlaceholder(Relation index, Relation heaprel, Buffer buffer)
 }
 
 /*
- * Process one page during a bulkdelete scan
+ * 在 bulkdelete 扫描期间处理一页
  */
 static void
 spgvacuumpage(spgBulkDeleteState *bds, BlockNumber blkno)
@@ -625,7 +625,7 @@ spgvacuumpage(spgBulkDeleteState *bds, BlockNumber blkno)
 	Buffer		buffer;
 	Page		page;
 
-	/* call vacuum_delay_point while not holding any buffer lock */
+	/* 在未持有任何缓冲区锁时调用 vacuum_delay_point */
 	vacuum_delay_point();
 
 	buffer = ReadBufferExtended(index, MAIN_FORKNUM, blkno,
@@ -636,20 +636,20 @@ spgvacuumpage(spgBulkDeleteState *bds, BlockNumber blkno)
 	if (PageIsNew(page))
 	{
 		/*
-		 * We found an all-zero page, which could happen if the database
-		 * crashed just after extending the file.  Recycle it.
+		 * 发现全零页，这可能发生在数据库刚扩展文件后
+		 * 崩溃时。回收它。
 		 */
 	}
 	else if (PageIsEmpty(page))
 	{
-		/* nothing to do */
+		/* 无事可做 */
 	}
 	else if (SpGistPageIsLeaf(page))
 	{
 		if (SpGistBlockIsRoot(blkno))
 		{
 			vacuumLeafRoot(bds, index, buffer);
-			/* no need for vacuumRedirectAndPlaceholder */
+			/* 无需调用 vacuumRedirectAndPlaceholder */
 		}
 		else
 		{
@@ -659,15 +659,15 @@ spgvacuumpage(spgBulkDeleteState *bds, BlockNumber blkno)
 	}
 	else
 	{
-		/* inner page */
+		/* 内部页 */
 		vacuumRedirectAndPlaceholder(index, bds->info->heaprel, buffer);
 	}
 
 	/*
-	 * The root pages must never be deleted, nor marked as available in FSM,
-	 * because we don't want them ever returned by a search for a place to put
-	 * a new tuple.  Otherwise, check for empty page, and make sure the FSM
-	 * knows about it.
+	 * 根页绝不能被删除，也不能在 FSM 中标为可用，
+	 * 因为我们不希望它们被 "寻找放置新元组位置" 的
+	 * 搜索返回。否则，检查空页，并确保 FSM
+	 * 知道它。
 	 */
 	if (!SpGistBlockIsRoot(blkno))
 	{
@@ -687,7 +687,7 @@ spgvacuumpage(spgBulkDeleteState *bds, BlockNumber blkno)
 }
 
 /*
- * Process the pending-TID list between pages of the main scan
+ * 在主扫描的各页之间处理挂起 TID 列表
  */
 static void
 spgprocesspending(spgBulkDeleteState *bds)
@@ -702,12 +702,12 @@ spgprocesspending(spgBulkDeleteState *bds)
 	for (pitem = bds->pendingList; pitem != NULL; pitem = pitem->next)
 	{
 		if (pitem->done)
-			continue;			/* ignore already-done items */
+			continue;			/* 忽略已完成的项 */
 
-		/* call vacuum_delay_point while not holding any buffer lock */
+		/* 在未持有任何缓冲区锁时调用 vacuum_delay_point */
 		vacuum_delay_point();
 
-		/* examine the referenced page */
+		/* 检查被引用的页 */
 		blkno = ItemPointerGetBlockNumber(&pitem->tid);
 		buffer = ReadBufferExtended(index, MAIN_FORKNUM, blkno,
 									RBM_NORMAL, bds->info->strategy);
@@ -716,27 +716,27 @@ spgprocesspending(spgBulkDeleteState *bds)
 
 		if (PageIsNew(page) || SpGistPageIsDeleted(page))
 		{
-			/* Probably shouldn't happen, but ignore it */
+			/* 大概不应发生，但忽略它 */
 		}
 		else if (SpGistPageIsLeaf(page))
 		{
 			if (SpGistBlockIsRoot(blkno))
 			{
-				/* this should definitely not happen */
+				/* 这绝对不应发生 */
 				elog(ERROR, "redirection leads to root page of index \"%s\"",
 					 RelationGetRelationName(index));
 			}
 
-			/* deal with any deletable tuples */
+			/* 处理任何可删除的元组 */
 			vacuumLeafPage(bds, index, buffer, true);
-			/* might as well do this while we are here */
+			/* 既然在这里，不妨也做这件事 */
 			vacuumRedirectAndPlaceholder(index, bds->info->heaprel, buffer);
 
 			SpGistSetLastUsedPage(index, buffer);
 
 			/*
-			 * We can mark as done not only this item, but any later ones
-			 * pointing at the same page, since we vacuumed the whole page.
+			 * 我们不仅可把本项标为已完成，也可把后面指向
+			 * 同一页的项标为已完成，因为我们清理了整页。
 			 */
 			pitem->done = true;
 			for (nitem = pitem->next; nitem != NULL; nitem = nitem->next)
@@ -748,11 +748,11 @@ spgprocesspending(spgBulkDeleteState *bds)
 		else
 		{
 			/*
-			 * On an inner page, visit the referenced inner tuple and add all
-			 * its downlinks to the pending list.  We might have pending items
-			 * for more than one inner tuple on the same page (in fact this is
-			 * pretty likely given the way space allocation works), so get
-			 * them all while we are here.
+			 * 在内部页上，访问被引用的内部元组，并将其所有
+			 * 下行链接加入挂起列表。同一页上可能有针对多个
+			 * 内部元组的挂起项（按空间分配方式，这其实很
+			 * 常见），因此趁我们在这里时一并获取
+			 * 它们。
 			 */
 			for (nitem = pitem; nitem != NULL; nitem = nitem->next)
 			{
@@ -779,7 +779,7 @@ spgprocesspending(spgBulkDeleteState *bds)
 					}
 					else if (innerTuple->tupstate == SPGIST_REDIRECT)
 					{
-						/* transfer attention to redirect point */
+						/* 把注意力转到重定向目标 */
 						spgAddPendingTID(bds,
 										 &((SpGistDeadTuple) innerTuple)->pointer);
 					}
@@ -799,7 +799,7 @@ spgprocesspending(spgBulkDeleteState *bds)
 }
 
 /*
- * Perform a bulkdelete scan
+ * 执行 bulkdelete 扫描
  */
 static void
 spgvacuumscan(spgBulkDeleteState *bds)
@@ -809,84 +809,84 @@ spgvacuumscan(spgBulkDeleteState *bds)
 	BlockNumber num_pages,
 				blkno;
 
-	/* Finish setting up spgBulkDeleteState */
+	/* 完成 spgBulkDeleteState 的设置 */
 	initSpGistState(&bds->spgstate, index);
 	bds->pendingList = NULL;
 	bds->myXmin = GetActiveSnapshot()->xmin;
 	bds->lastFilledBlock = SPGIST_LAST_FIXED_BLKNO;
 
 	/*
-	 * Reset counts that will be incremented during the scan; needed in case
-	 * of multiple scans during a single VACUUM command
+	 * 重置将在扫描期间递增的计数；在单次 VACUUM
+	 * 命令期间多次扫描时需要这样做
 	 */
 	bds->stats->estimated_count = false;
 	bds->stats->num_index_tuples = 0;
 	bds->stats->pages_deleted = 0;
 
-	/* We can skip locking for new or temp relations */
+	/* 对新关系或临时关系可跳过加锁 */
 	needLock = !RELATION_IS_LOCAL(index);
 
 	/*
-	 * The outer loop iterates over all index pages except the metapage, in
-	 * physical order (we hope the kernel will cooperate in providing
-	 * read-ahead for speed).  It is critical that we visit all leaf pages,
-	 * including ones added after we start the scan, else we might fail to
-	 * delete some deletable tuples.  See more extensive comments about this
-	 * in btvacuumscan().
+	 * 外层循环按物理顺序遍历除元页外的所有索引页
+	 * （我们希望内核配合提供预读以提高速度）。关键是
+	 * 访问所有叶子页，包括扫描开始后新加入的，否则
+	 * 可能无法删除某些可删除元组。关于这一点见
+	 * btvacuumscan() 中更详尽的
+	 * 注释。
 	 */
 	blkno = SPGIST_METAPAGE_BLKNO + 1;
 	for (;;)
 	{
-		/* Get the current relation length */
+		/* 获取当前关系长度 */
 		if (needLock)
 			LockRelationForExtension(index, ExclusiveLock);
 		num_pages = RelationGetNumberOfBlocks(index);
 		if (needLock)
 			UnlockRelationForExtension(index, ExclusiveLock);
 
-		/* Quit if we've scanned the whole relation */
+		/* 若已扫描完整个关系则退出 */
 		if (blkno >= num_pages)
 			break;
-		/* Iterate over pages, then loop back to recheck length */
+		/* 遍历各页，然后循环回去重新检查长度 */
 		for (; blkno < num_pages; blkno++)
 		{
 			spgvacuumpage(bds, blkno);
-			/* empty the pending-list after each page */
+			/* 每处理一页后清空挂起列表 */
 			if (bds->pendingList != NULL)
 				spgprocesspending(bds);
 		}
 	}
 
-	/* Propagate local lastUsedPages cache to metablock */
+	/* 把本地 lastUsedPages 缓存传播到元块 */
 	SpGistUpdateMetaPage(index);
 
 	/*
-	 * If we found any empty pages (and recorded them in the FSM), then
-	 * forcibly update the upper-level FSM pages to ensure that searchers can
-	 * find them.  It's possible that the pages were also found during
-	 * previous scans and so this is a waste of time, but it's cheap enough
-	 * relative to scanning the index that it shouldn't matter much, and
-	 * making sure that free pages are available sooner not later seems
-	 * worthwhile.
+	 * 若发现任何空页（并已记入 FSM），则强制更新上层
+	 * FSM 页，以确保搜索者能找到它们。这些页也可能在
+	 * 先前扫描中已被发现，因而这是浪费时间，但相对于
+	 * 扫描索引来说足够便宜，应无大碍，而且尽早而非
+	 * 尽晚让空闲页可用似乎
+	 * 值得。
 	 *
-	 * Note that if no empty pages exist, we don't bother vacuuming the FSM at
-	 * all.
+	 * 注意：若不存在空页，我们根本
+	 * 不费心清理
+	 * FSM。
 	 */
 	if (bds->stats->pages_deleted > 0)
 		IndexFreeSpaceMapVacuum(index);
 
 	/*
-	 * Truncate index if possible
+	 * 若可能则截断索引
 	 *
-	 * XXX disabled because it's unsafe due to possible concurrent inserts.
-	 * We'd have to rescan the pages to make sure they're still empty, and it
-	 * doesn't seem worth it.  Note that btree doesn't do this either.
+	 * XXX 已禁用，因为在可能有并发插入时不安全。
+	 * 我们得重新扫描各页以确保它们仍为空，而这似乎
+	 * 不值得。注意 btree 也不这样做。
 	 *
-	 * Another reason not to truncate is that it could invalidate the cached
-	 * pages-with-freespace pointers in the metapage and other backends'
-	 * relation caches, that is leave them pointing to nonexistent pages.
-	 * Adding RelationGetNumberOfBlocks calls to protect the places that use
-	 * those pointers would be unduly expensive.
+	 * 不截断的另一原因是，它会使元页及其他后端关系
+	 * 缓存中缓存的 "有空闲空间的页" 指针失效，也就是
+	 * 让它们指向不存在的页。为保护使用这些指针的
+	 * 地方而添加 RelationGetNumberOfBlocks 调用会
+	 * 过于昂贵。
 	 */
 #ifdef NOT_USED
 	if (num_pages > bds->lastFilledBlock + 1)
@@ -900,18 +900,18 @@ spgvacuumscan(spgBulkDeleteState *bds)
 	}
 #endif
 
-	/* Report final stats */
+	/* 报告最终统计 */
 	bds->stats->num_pages = num_pages;
 	bds->stats->pages_newly_deleted = bds->stats->pages_deleted;
 	bds->stats->pages_free = bds->stats->pages_deleted;
 }
 
 /*
- * Bulk deletion of all index entries pointing to a set of heap tuples.
- * The set of target tuples is specified via a callback routine that tells
- * whether any given heap tuple (identified by ItemPointer) is being deleted.
+ * 批量删除指向一组堆元组的所有索引项。
+ * 目标元组集合由回调例程指定，该例程告知
+ * 任一给定堆元组（由 ItemPointer 标识）是否正在被删除。
  *
- * Result: a palloc'd struct containing statistical info for VACUUM displays.
+ * 结果：一个 palloc 出来的结构，含供 VACUUM 显示的统计信息。
  */
 IndexBulkDeleteResult *
 spgbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
@@ -919,7 +919,7 @@ spgbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 {
 	spgBulkDeleteState bds;
 
-	/* allocate stats if first time through, else re-use existing struct */
+	/* 若首次进入则分配 stats，否则复用已有结构 */
 	if (stats == NULL)
 		stats = (IndexBulkDeleteResult *) palloc0(sizeof(IndexBulkDeleteResult));
 	bds.info = info;
@@ -932,7 +932,7 @@ spgbulkdelete(IndexVacuumInfo *info, IndexBulkDeleteResult *stats,
 	return stats;
 }
 
-/* Dummy callback to delete no tuples during spgvacuumcleanup */
+/* spgvacuumcleanup 期间不删除任何元组的哑回调 */
 static bool
 dummy_callback(ItemPointer itemptr, void *state)
 {
@@ -940,24 +940,24 @@ dummy_callback(ItemPointer itemptr, void *state)
 }
 
 /*
- * Post-VACUUM cleanup.
+ * VACUUM 之后的清理。
  *
- * Result: a palloc'd struct containing statistical info for VACUUM displays.
+ * 结果：一个 palloc 出来的结构，含供 VACUUM 显示的统计信息。
  */
 IndexBulkDeleteResult *
 spgvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 {
 	spgBulkDeleteState bds;
 
-	/* No-op in ANALYZE ONLY mode */
+	/* ANALYZE ONLY 模式下为空操作 */
 	if (info->analyze_only)
 		return stats;
 
 	/*
-	 * We don't need to scan the index if there was a preceding bulkdelete
-	 * pass.  Otherwise, make a pass that won't delete any live tuples, but
-	 * might still accomplish useful stuff with redirect/placeholder cleanup
-	 * and/or FSM housekeeping, and in any case will provide stats.
+	 * 若前面已有 bulkdelete 遍，则无需再扫描索引。
+	 * 否则做一遍不删除任何存活元组的扫描，但仍可能
+	 * 通过重定向/占位清理和/或 FSM 维护做些有用的事，
+	 * 并且无论如何都会提供统计。
 	 */
 	if (stats == NULL)
 	{
@@ -971,10 +971,10 @@ spgvacuumcleanup(IndexVacuumInfo *info, IndexBulkDeleteResult *stats)
 	}
 
 	/*
-	 * It's quite possible for us to be fooled by concurrent tuple moves into
-	 * double-counting some index tuples, so disbelieve any total that exceeds
-	 * the underlying heap's count ... if we know that accurately.  Otherwise
-	 * this might just make matters worse.
+	 * 我们很容易被并发元组移动迷惑，从而把某些索引元组
+	 * 重复计数，因此若底层堆的计数是准确的，则不相信任何
+	 * 超过堆计数的总数……若我们确实准确知道堆计数。否则
+	 * 这可能只会把事情弄得更糟。
 	 */
 	if (!info->estimated_count)
 	{

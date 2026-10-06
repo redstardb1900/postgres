@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_operator.c
- *	  routines to support manipulation of the pg_operator relation
+ *	  支持操作 pg_operator 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,7 +11,7 @@
  *	  src/backend/catalog/pg_operator.c
  *
  * NOTES
- *	  these routines moved here from commands/define.c and somewhat cleaned up.
+ *	  这些例程从 commands/define.c 移至此处并做了一定清理。
  *
  *-------------------------------------------------------------------------
  */
@@ -62,38 +62,38 @@ static Oid	get_other_operator(List *otherOp,
 
 
 /*
- * Check whether a proposed operator name is legal
+ * 检查提议的操作符名称是否合法
  *
- * This had better match the behavior of parser/scan.l!
+ * 这最好与 parser/scan.l 的行为一致！
  *
- * We need this because the parser is not smart enough to check that
- * the arguments of CREATE OPERATOR's COMMUTATOR, NEGATOR, etc clauses
- * are operator names rather than some other lexical entity.
+ * 需要本检查是因为解析器不够聪明，无法确认
+ * CREATE OPERATOR 的 COMMUTATOR、NEGATOR 等子句的参数
+ * 是操作符名，而非其他词法实体。
  */
 static bool
 validOperatorName(const char *name)
 {
 	size_t		len = strlen(name);
 
-	/* Can't be empty or too long */
+	/* 不能为空或过长 */
 	if (len == 0 || len >= NAMEDATALEN)
 		return false;
 
-	/* Can't contain any invalid characters */
-	/* Test string here should match op_chars in scan.l */
+	/* 不能包含任何无效字符 */
+	/* 此处测试字符串应与 scan.l 中的 op_chars 一致 */
 	if (strspn(name, "~!@#^&|`?+-*/%<>=") != len)
 		return false;
 
-	/* Can't contain slash-star or dash-dash (comment starts) */
+	/* 不能包含斜杠-星号或短划线-短划线（注释起始） */
 	if (strstr(name, "/*") || strstr(name, "--"))
 		return false;
 
 	/*
-	 * For SQL standard compatibility, '+' and '-' cannot be the last char of
-	 * a multi-char operator unless the operator contains chars that are not
-	 * in SQL operators. The idea is to lex '=-' as two operators, but not to
-	 * forbid operator names like '?-' that could not be sequences of standard
-	 * SQL operators.
+	 * 为与 SQL 标准兼容，'+' 与 '-' 无法作为多字符操作符
+	 * 的最后一个字符，除非该操作符包含不在 SQL
+	 * 操作符中的字符。用意是把 '=-' 词法分析为两个操作符，
+	 * 但不禁止像 '?-' 这样不可能是标准 SQL 操作符序列的
+	 * 操作符名。
 	 */
 	if (len > 1 &&
 		(name[len - 1] == '+' ||
@@ -107,10 +107,10 @@ validOperatorName(const char *name)
 				break;
 		}
 		if (ic < 0)
-			return false;		/* nope, not valid */
+			return false;		/* 不行，不合法 */
 	}
 
-	/* != isn't valid either, because parser will convert it to <> */
+	/* != 也不合法，因为解析器会把它转换成 <> */
 	if (strcmp(name, "!=") == 0)
 		return false;
 
@@ -121,10 +121,10 @@ validOperatorName(const char *name)
 /*
  * OperatorGet
  *
- *		finds an operator given an exact specification (name, namespace,
- *		left and right type IDs).
+ *		按精确规格（名称、命名空间、
+ *		左与右类型 ID）查找操作符。
  *
- *		*defined is set true if defined (not a shell)
+ *		若已定义（非 shell）则 *defined 置为真
  */
 static Oid
 OperatorGet(const char *operatorName,
@@ -161,10 +161,10 @@ OperatorGet(const char *operatorName,
 /*
  * OperatorLookup
  *
- *		looks up an operator given a possibly-qualified name and
- *		left and right type IDs.
+ *		按可能带限定的名称以及左、右
+ *		类型 ID 查找操作符。
  *
- *		*defined is set true if defined (not a shell)
+ *		若已定义（非 shell）则 *defined 置为真
  */
 static Oid
 OperatorLookup(List *operatorName,
@@ -193,7 +193,7 @@ OperatorLookup(List *operatorName,
 
 /*
  * OperatorShellMake
- *		Make a "shell" entry for a not-yet-existing operator.
+ *		为尚不存在的操作符制作一条 "shell" 条目。
  */
 static Oid
 OperatorShellMake(const char *operatorName,
@@ -211,7 +211,7 @@ OperatorShellMake(const char *operatorName,
 	TupleDesc	tupDesc;
 
 	/*
-	 * validate operator name
+	 * 校验操作符名称
 	 */
 	if (!validOperatorName(operatorName))
 		ereport(ERROR,
@@ -220,23 +220,23 @@ OperatorShellMake(const char *operatorName,
 						operatorName)));
 
 	/*
-	 * open pg_operator
+	 * 打开 pg_operator
 	 */
 	pg_operator_desc = table_open(OperatorRelationId, RowExclusiveLock);
 	tupDesc = pg_operator_desc->rd_att;
 
 	/*
-	 * initialize our *nulls and *values arrays
+	 * 初始化我们的 *nulls 与 *values 数组
 	 */
 	for (i = 0; i < Natts_pg_operator; ++i)
 	{
 		nulls[i] = false;
-		values[i] = (Datum) NULL;	/* redundant, but safe */
+		values[i] = (Datum) NULL;	/* 多余但安全 */
 	}
 
 	/*
-	 * initialize values[] with the operator name and input data types. Note
-	 * that oprcode is set to InvalidOid, indicating it's a shell.
+	 * 用操作符名称与输入数据类型初始化 values[]。注意
+	 * oprcode 设为 InvalidOid，表明这是 shell。
 	 */
 	operatorObjectId = GetNewOidWithIndex(pg_operator_desc, OperatorOidIndexId,
 										  Anum_pg_operator_oid);
@@ -258,30 +258,30 @@ OperatorShellMake(const char *operatorName,
 	values[Anum_pg_operator_oprjoin - 1] = ObjectIdGetDatum(InvalidOid);
 
 	/*
-	 * create a new operator tuple
+	 * 创建新的操作符元组
 	 */
 	tup = heap_form_tuple(tupDesc, values, nulls);
 
 	/*
-	 * insert our "shell" operator tuple
+	 * 插入我们的 "shell" 操作符元组
 	 */
 	CatalogTupleInsert(pg_operator_desc, tup);
 
-	/* Add dependencies for the entry */
+	/* 为该条目添加依赖 */
 	makeOperatorDependencies(tup, true, false);
 
 	heap_freetuple(tup);
 
-	/* Post creation hook for new shell operator */
+	/* 新 shell 操作符的创建后钩子 */
 	InvokeObjectPostCreateHook(OperatorRelationId, operatorObjectId, 0);
 
 	/*
-	 * Make sure the tuple is visible for subsequent lookups/updates.
+	 * 确保该元组对后续查找/更新可见。
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * close the operator relation and return the oid.
+	 * 关闭操作符关系并返回 oid。
 	 */
 	table_close(pg_operator_desc, RowExclusiveLock);
 
@@ -291,37 +291,37 @@ OperatorShellMake(const char *operatorName,
 /*
  * OperatorCreate
  *
- * "X" indicates an optional argument (i.e. one that can be NULL or 0)
- *		operatorName			name for new operator
- *		operatorNamespace		namespace for new operator
- *		leftTypeId				X left type ID
- *		rightTypeId				X right type ID
- *		procedureId				procedure ID for operator
- *		commutatorName			X commutator operator
- *		negatorName				X negator operator
- *		restrictionId			X restriction selectivity procedure ID
- *		joinId					X join selectivity procedure ID
- *		canMerge				merge join can be used with this operator
- *		canHash					hash join can be used with this operator
+ * "X" 表示可选参数（即可为 NULL 或 0）
+ *		operatorName			新操作符的名称
+ *		operatorNamespace		新操作符的命名空间
+ *		leftTypeId				X 左类型 ID
+ *		rightTypeId				X 右类型 ID
+ *		procedureId				操作符的过程 ID
+ *		commutatorName			X 交换操作符
+ *		negatorName				X 否定操作符
+ *		restrictionId			X 限制选择率过程 ID
+ *		joinId					X 连接选择率过程 ID
+ *		canMerge				归并连接可与此操作符一起使用
+ *		canHash					哈希连接可与此操作符一起使用
  *
- * The caller should have validated properties and permissions for the
- * objects passed as OID references.  We must handle the commutator and
- * negator operator references specially, however, since those need not
- * exist beforehand.
+ * 调用方应已校验作为 OID 引用传入的对象的
+ * 属性与权限。但我们必须特殊处理交换与
+ * 否定操作符引用，因为它们事先不必
+ * 存在。
  *
- * This routine gets complicated because it allows the user to
- * specify operators that do not exist.  For example, if operator
- * "op" is being defined, the negator operator "negop" and the
- * commutator "commop" can also be defined without specifying
- * any information other than their names.  Since in order to
- * add "op" to the PG_OPERATOR catalog, all the Oid's for these
- * operators must be placed in the fields of "op", a forward
- * declaration is done on the commutator and negator operators.
- * This is called creating a shell, and its main effect is to
- * create a tuple in the PG_OPERATOR catalog with minimal
- * information about the operator (just its name and types).
- * Forward declaration is used only for this purpose, it is
- * not available to the user as it is for type definition.
+ * 本例程之所以复杂，是因为它允许用户
+ * 指定尚不存在的操作符。例如，若正在
+ * 定义操作符 "op"，否定操作符 "negop" 与
+ * 交换操作符 "commop" 也可以在只给出
+ * 名称的情况下一并定义。由于要把 "op"
+ * 加入 PG_OPERATOR 目录，这些操作符的全部
+ * Oid 都必须放入 "op" 的字段中，因此会对
+ * 交换与否定操作符做前向声明。
+ * 这称为创建 shell，其主要效果是在
+ * PG_OPERATOR 目录中创建一条仅含操作符
+ * 最少信息（仅名称与类型）的元组。
+ * 前向声明仅用于此目的，不像类型定义
+ * 那样向用户开放。
  */
 ObjectAddress
 OperatorCreate(const char *operatorName,
@@ -353,7 +353,7 @@ OperatorCreate(const char *operatorName,
 	ObjectAddress address;
 
 	/*
-	 * Sanity checks
+	 * 健全性检查
 	 */
 	if (!validOperatorName(operatorName))
 		ereport(ERROR,
@@ -363,7 +363,7 @@ OperatorCreate(const char *operatorName,
 
 	if (!(OidIsValid(leftTypeId) && OidIsValid(rightTypeId)))
 	{
-		/* If it's not a binary op, these things mustn't be set: */
+		/* 若不是二元操作符，这些东西不得设置： */
 		if (commutatorName)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -386,7 +386,7 @@ OperatorCreate(const char *operatorName,
 
 	if (operResultType != BOOLOID)
 	{
-		/* If it's not a boolean op, these things mustn't be set: */
+		/* 若不是布尔操作符，这些东西不得设置： */
 		if (negatorName)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -422,9 +422,9 @@ OperatorCreate(const char *operatorName,
 						operatorName)));
 
 	/*
-	 * At this point, if operatorObjectId is not InvalidOid then we are
-	 * filling in a previously-created shell.  Insist that the user own any
-	 * such shell.
+	 * 到此为止，若 operatorObjectId 不是 InvalidOid，则我们是在
+	 * 填充先前创建的 shell。坚持要求用户拥有任何
+	 * 这样的 shell。
 	 */
 	if (OidIsValid(operatorObjectId) &&
 		!object_ownercheck(OperatorRelationId, operatorObjectId, GetUserId()))
@@ -432,28 +432,28 @@ OperatorCreate(const char *operatorName,
 					   operatorName);
 
 	/*
-	 * Set up the other operators.  If they do not currently exist, create
-	 * shells in order to get ObjectId's.
+	 * 设置其他操作符。若它们当前不存在，则创建
+	 * shell 以取得 ObjectId。
 	 */
 
 	if (commutatorName)
 	{
-		/* commutator has reversed arg types */
+		/* 交换操作符的参数类型相反 */
 		commutatorId = get_other_operator(commutatorName,
 										  rightTypeId, leftTypeId,
 										  operatorName, operatorNamespace,
 										  leftTypeId, rightTypeId,
 										  true);
 
-		/* Permission check: must own other operator */
+		/* 权限检查：必须拥有另一操作符 */
 		if (OidIsValid(commutatorId) &&
 			!object_ownercheck(OperatorRelationId, commutatorId, GetUserId()))
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_OPERATOR,
 						   NameListToString(commutatorName));
 
 		/*
-		 * self-linkage to this operator; will fix below. Note that only
-		 * self-linkage for commutation makes sense.
+		 * 指向本操作符的自链接；将在下面修正。注意只有
+		 * 交换的自链接才有意义。
 		 */
 		if (!OidIsValid(commutatorId))
 			selfCommutator = true;
@@ -463,14 +463,14 @@ OperatorCreate(const char *operatorName,
 
 	if (negatorName)
 	{
-		/* negator has same arg types */
+		/* 否定操作符的参数类型相同 */
 		negatorId = get_other_operator(negatorName,
 									   leftTypeId, rightTypeId,
 									   operatorName, operatorNamespace,
 									   leftTypeId, rightTypeId,
 									   false);
 
-		/* Permission check: must own other operator */
+		/* 权限检查：必须拥有另一操作符 */
 		if (OidIsValid(negatorId) &&
 			!object_ownercheck(OperatorRelationId, negatorId, GetUserId()))
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_OPERATOR,
@@ -480,7 +480,7 @@ OperatorCreate(const char *operatorName,
 		negatorId = InvalidOid;
 
 	/*
-	 * set up values in the operator tuple
+	 * 设置操作符元组中的值
 	 */
 
 	for (i = 0; i < Natts_pg_operator; ++i)
@@ -509,7 +509,7 @@ OperatorCreate(const char *operatorName,
 	pg_operator_desc = table_open(OperatorRelationId, RowExclusiveLock);
 
 	/*
-	 * If we are replacing an operator shell, update; else insert
+	 * 若正在替换操作符 shell，则更新；否则插入
 	 */
 	if (operatorObjectId)
 	{
@@ -545,24 +545,24 @@ OperatorCreate(const char *operatorName,
 		CatalogTupleInsert(pg_operator_desc, tup);
 	}
 
-	/* Add dependencies for the entry */
+	/* 为该条目添加依赖 */
 	address = makeOperatorDependencies(tup, true, isUpdate);
 
-	/* Post creation hook for new operator */
+	/* 新操作符的创建后钩子 */
 	InvokeObjectPostCreateHook(OperatorRelationId, operatorObjectId, 0);
 
 	table_close(pg_operator_desc, RowExclusiveLock);
 
 	/*
-	 * If a commutator and/or negator link is provided, update the other
-	 * operator(s) to point at this one, if they don't already have a link.
-	 * This supports an alternative style of operator definition wherein the
-	 * user first defines one operator without giving negator or commutator,
-	 * then defines the other operator of the pair with the proper commutator
-	 * or negator attribute.  That style doesn't require creation of a shell,
-	 * and it's the only style that worked right before Postgres version 6.5.
-	 * This code also takes care of the situation where the new operator is
-	 * its own commutator.
+	 * 若提供了交换和/或否定链接，则更新另一
+	 * operator 使其指向本操作符（若它们尚未有链接）。
+	 * 这支持另一种操作符定义风格：用户先
+	 * 定义一个不给出否定或交换的操作符，
+	 * 再定义该对中的另一个并带上正确的交换或
+	 * 否定属性。那种风格不需要创建 shell，
+	 * 并且是 Postgres 6.5 之前唯一能正确工作的风格。
+	 * 本代码也处理新操作符是其自身交换操作符的
+	 * 情形。
 	 */
 	if (selfCommutator)
 		commutatorId = operatorObjectId;
@@ -574,12 +574,12 @@ OperatorCreate(const char *operatorName,
 }
 
 /*
- * Try to lookup another operator (commutator, etc)
+ * 尝试查找另一操作符（交换操作符等）
  *
- * If not found, check to see if it is exactly the operator we are trying
- * to define; if so, return InvalidOid.  (Note that this case is only
- * sensible for a commutator, so we error out otherwise.)  If it is not
- * the same operator, create a shell operator.
+ * 若未找到，检查它是否恰好是我们正在定义的
+ * 操作符；若是，返回 InvalidOid。（注意此情形仅对
+ * 交换操作符有意义，否则我们报错。）若不是
+ * 同一操作符，则创建 shell 操作符。
  */
 static Oid
 get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
@@ -599,7 +599,7 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 
 	if (OidIsValid(other_oid))
 	{
-		/* other op already in catalogs */
+		/* 另一操作符已在目录中 */
 		return other_oid;
 	}
 
@@ -612,8 +612,8 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 		otherRightTypeId == rightTypeId)
 	{
 		/*
-		 * self-linkage to this operator; caller will fix later. Note that
-		 * only self-linkage for commutation makes sense.
+		 * 指向本操作符的自链接；调用方稍后会修正。注意
+		 * 只有交换的自链接才有意义。
 		 */
 		if (!isCommutator)
 			ereport(ERROR,
@@ -622,7 +622,7 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 		return InvalidOid;
 	}
 
-	/* not in catalogs, different from operator, so make shell */
+	/* 不在目录中，且不同于本操作符，因此制作 shell */
 
 	aclresult = object_aclcheck(NamespaceRelationId, otherNamespace, GetUserId(),
 								ACL_CREATE);
@@ -640,15 +640,15 @@ get_other_operator(List *otherOp, Oid otherLeftTypeId, Oid otherRightTypeId,
 /*
  * OperatorUpd
  *
- *	For a given operator, look up its negator and commutator operators.
- *	When isDelete is false, update their negator and commutator fields to
- *	point back to the given operator; when isDelete is true, update those
- *	fields to no longer point back to the given operator.
+ *	对给定操作符，查找其否定与交换操作符。
+ *	当 isDelete 为 false 时，更新它们的否定与交换字段以
+ *	指回给定操作符；当 isDelete 为 true 时，更新那些
+ *	字段使其不再指回给定操作符。
  *
- *	The !isDelete case solves a problem for users who need to insert two new
- *	operators that are the negator or commutator of each other, while the
- *	isDelete case is needed so as not to leave dangling OID links behind
- *	after dropping an operator.
+ *	!isDelete 情形解决需要插入两个互为否定或
+ *	交换的新操作符的用户问题，而
+ *	isDelete 情形则是为了在删除操作符后不留下悬空的
+ *	OID 链接。
  */
 void
 OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
@@ -657,33 +657,33 @@ OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
 	HeapTuple	tup;
 
 	/*
-	 * If we're making an operator into its own commutator, then we need a
-	 * command-counter increment here, since we've just inserted the tuple
-	 * we're about to update.  But when we're dropping an operator, we can
-	 * skip this because we're at the beginning of the command.
+	 * 若要把某操作符变成其自身的交换操作符，则需要
+	 * 命令计数器递增，因为我们刚插入了即将更新的
+	 * 元组。但在删除操作符时可以跳过，因为我们处于
+	 * 命令开头。
 	 */
 	if (!isDelete)
 		CommandCounterIncrement();
 
-	/* Open the relation. */
+	/* 打开关系。 */
 	pg_operator_desc = table_open(OperatorRelationId, RowExclusiveLock);
 
-	/* Get a writable copy of the commutator's tuple. */
+	/* 取得交换操作符元组的可写副本。 */
 	if (OidIsValid(commId))
 		tup = SearchSysCacheCopy1(OPEROID, ObjectIdGetDatum(commId));
 	else
 		tup = NULL;
 
-	/* Update the commutator's tuple if need be. */
+	/* 若需要则更新交换操作符的元组。 */
 	if (HeapTupleIsValid(tup))
 	{
 		Form_pg_operator t = (Form_pg_operator) GETSTRUCT(tup);
 		bool		update_commutator = false;
 
 		/*
-		 * Out of due caution, we only change the commutator's oprcom field if
-		 * it has the exact value we expected: InvalidOid when creating an
-		 * operator, or baseId when dropping one.
+		 * 出于谨慎，我们仅在交换操作符的 oprcom 字段具有
+		 * 我们预期的确切值时才改它：创建操作符时为
+		 * InvalidOid，删除时为 baseId。
 		 */
 		if (isDelete && t->oprcom == baseId)
 		{
@@ -696,24 +696,24 @@ OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
 			update_commutator = true;
 		}
 
-		/* If any columns were found to need modification, update tuple. */
+		/* 若发现有列需要修改，则更新元组。 */
 		if (update_commutator)
 		{
 			CatalogTupleUpdate(pg_operator_desc, &tup->t_self, tup);
 
 			/*
-			 * Do CCI to make the updated tuple visible.  We must do this in
-			 * case the commutator is also the negator.  (Which would be a
-			 * logic error on the operator definer's part, but that's not a
-			 * good reason to fail here.)  We would need a CCI anyway in the
-			 * deletion case for a self-commutator with no negator.
+			 * 做 CCI 以使更新后的元组可见。必须这样做，以防
+			 * 交换操作符同时也是否定操作符。（对操作符定义者
+			 * 而言那会是逻辑错误，但不足以成为在此失败的
+			 * 正当理由。）在删除情形下，对无否定符的自交换
+			 * 操作符反正也需要 CCI。
 			 */
 			CommandCounterIncrement();
 		}
 	}
 
 	/*
-	 * Similarly find and update the negator, if any.
+	 * 类似地查找并更新否定操作符（若有）。
 	 */
 	if (OidIsValid(negId))
 		tup = SearchSysCacheCopy1(OPEROID, ObjectIdGetDatum(negId));
@@ -726,9 +726,9 @@ OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
 		bool		update_negator = false;
 
 		/*
-		 * Out of due caution, we only change the negator's oprnegate field if
-		 * it has the exact value we expected: InvalidOid when creating an
-		 * operator, or baseId when dropping one.
+		 * 出于谨慎，我们仅在否定操作符的 oprnegate 字段具有
+		 * 我们预期的确切值时才改它：创建操作符时为
+		 * InvalidOid，删除时为 baseId。
 		 */
 		if (isDelete && t->oprnegate == baseId)
 		{
@@ -741,37 +741,37 @@ OperatorUpd(Oid baseId, Oid commId, Oid negId, bool isDelete)
 			update_negator = true;
 		}
 
-		/* If any columns were found to need modification, update tuple. */
+		/* 若发现有列需要修改，则更新元组。 */
 		if (update_negator)
 		{
 			CatalogTupleUpdate(pg_operator_desc, &tup->t_self, tup);
 
 			/*
-			 * In the deletion case, do CCI to make the updated tuple visible.
-			 * We must do this in case the operator is its own negator. (Which
-			 * would be a logic error on the operator definer's part, but
-			 * that's not a good reason to fail here.)
+			 * 在删除情形下，做 CCI 以使更新后的元组可见。
+			 * 必须这样做，以防操作符是其自身的否定符。（对
+			 * 操作符定义者而言那会是逻辑错误，但不足以成为
+			 * 在此失败的正当理由。）
 			 */
 			if (isDelete)
 				CommandCounterIncrement();
 		}
 	}
 
-	/* Close relation and release catalog lock. */
+	/* 关闭关系并释放目录锁。 */
 	table_close(pg_operator_desc, RowExclusiveLock);
 }
 
 /*
- * Create dependencies for an operator (either a freshly inserted
- * complete operator, a new shell operator, a just-updated shell,
- * or an operator that's being modified by ALTER OPERATOR).
+ * 为操作符创建依赖（无论是刚插入的完整
+ * 操作符、新 shell 操作符、刚更新的 shell，
+ * 还是正由 ALTER OPERATOR 修改的操作符）。
  *
- * makeExtensionDep should be true when making a new operator or
- * replacing a shell, false for ALTER OPERATOR.  Passing false
- * will prevent any change in the operator's extension membership.
+ * 在制作新操作符或替换 shell 时应使
+ * makeExtensionDep 为真，对 ALTER OPERATOR 则为假。传 false
+ * 将阻止操作符的扩展成员关系发生任何变化。
  *
- * NB: the OidIsValid tests in this routine are necessary, in case
- * the given operator is a shell.
+ * NB: 本例程中的 OidIsValid 测试是必要的，以防
+ * 给定操作符是 shell。
  */
 ObjectAddress
 makeOperatorDependencies(HeapTuple tuple,
@@ -786,8 +786,8 @@ makeOperatorDependencies(HeapTuple tuple,
 	ObjectAddressSet(myself, OperatorRelationId, oper->oid);
 
 	/*
-	 * If we are updating the operator, delete any existing entries, except
-	 * for extension membership which should remain the same.
+	 * 若正在更新操作符，则删除任何已有条目，但
+	 * 扩展成员关系应保持不变除外。
 	 */
 	if (isUpdate)
 	{
@@ -797,28 +797,28 @@ makeOperatorDependencies(HeapTuple tuple,
 
 	addrs = new_object_addresses();
 
-	/* Dependency on namespace */
+	/* 对命名空间的依赖 */
 	if (OidIsValid(oper->oprnamespace))
 	{
 		ObjectAddressSet(referenced, NamespaceRelationId, oper->oprnamespace);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Dependency on left type */
+	/* 对左类型的依赖 */
 	if (OidIsValid(oper->oprleft))
 	{
 		ObjectAddressSet(referenced, TypeRelationId, oper->oprleft);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Dependency on right type */
+	/* 对右类型的依赖 */
 	if (OidIsValid(oper->oprright))
 	{
 		ObjectAddressSet(referenced, TypeRelationId, oper->oprright);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Dependency on result type */
+	/* 对结果类型的依赖 */
 	if (OidIsValid(oper->oprresult))
 	{
 		ObjectAddressSet(referenced, TypeRelationId, oper->oprresult);
@@ -826,28 +826,28 @@ makeOperatorDependencies(HeapTuple tuple,
 	}
 
 	/*
-	 * NOTE: we do not consider the operator to depend on the associated
-	 * operators oprcom and oprnegate.  We do not want to delete this operator
-	 * if those go away, but only reset the link fields; which is not a
-	 * function that the dependency logic can handle.  (It's taken care of
-	 * manually within RemoveOperatorById, instead.)
+	 * NOTE: 我们不认为操作符依赖于相关联的
+	 * 操作符 oprcom 与 oprnegate。我们不想在那些对象消失时
+	 * 删除本操作符，而只想重置链接字段；这不是
+	 * 依赖逻辑能处理的功能。（改由
+	 * RemoveOperatorById 内手工处理。）
 	 */
 
-	/* Dependency on implementation function */
+	/* 对实现函数的依赖 */
 	if (OidIsValid(oper->oprcode))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, oper->oprcode);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Dependency on restriction selectivity function */
+	/* 对限制选择率函数的依赖 */
 	if (OidIsValid(oper->oprrest))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, oper->oprrest);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Dependency on join selectivity function */
+	/* 对连接选择率函数的依赖 */
 	if (OidIsValid(oper->oprjoin))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, oper->oprjoin);
@@ -857,11 +857,11 @@ makeOperatorDependencies(HeapTuple tuple,
 	record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 	free_object_addresses(addrs);
 
-	/* Dependency on owner */
+	/* 对所有者的依赖 */
 	recordDependencyOnOwner(OperatorRelationId, oper->oid,
 							oper->oprowner);
 
-	/* Dependency on extension */
+	/* 对扩展的依赖 */
 	if (makeExtensionDep)
 		recordDependencyOnCurrentExtension(&myself, isUpdate);
 

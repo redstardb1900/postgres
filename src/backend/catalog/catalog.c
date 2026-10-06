@@ -1,8 +1,8 @@
 /*-------------------------------------------------------------------------
  *
  * catalog.c
- *		routines concerned with catalog naming conventions and other
- *		bits of hard-wired knowledge
+ *		与目录命名约定及其他硬编码知识
+ *		相关的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -50,26 +50,26 @@
 #include "utils/syscache.h"
 
 /*
- * Parameters to determine when to emit a log message in
- * GetNewOidWithIndex()
+ * 决定 GetNewOidWithIndex() 何时发出日志消息的
+ * 参数
  */
 #define GETNEWOID_LOG_THRESHOLD 1000000
 #define GETNEWOID_LOG_MAX_INTERVAL 128000000
 
 /*
  * IsSystemRelation
- *		True iff the relation is either a system catalog or a toast table.
- *		See IsCatalogRelation for the exact definition of a system catalog.
+ *		当且仅当关系是系统目录或 toast 表时为真。
+ *		系统目录的精确定义见 IsCatalogRelation。
  *
- *		We treat toast tables of user relations as "system relations" for
- *		protection purposes, e.g. you can't change their schemas without
- *		special permissions.  Therefore, most uses of this function are
- *		checking whether allow_system_table_mods restrictions apply.
- *		For other purposes, consider whether you shouldn't be using
- *		IsCatalogRelation instead.
+ *		出于保护目的，我们把用户关系的 toast 表也当作
+ *		"系统关系"，例如未获特殊权限不能改其模式。
+ *		因此本函数的多数用法是在检查
+ *		allow_system_table_mods 限制是否适用。
+ *		若用于其他目的，请考虑是否应改用
+ *		IsCatalogRelation。
  *
- *		This function does not perform any catalog accesses.
- *		Some callers rely on that!
+ *		本函数不做任何目录访问。
+ *		有些调用方依赖这一点！
  */
 bool
 IsSystemRelation(Relation relation)
@@ -79,27 +79,27 @@ IsSystemRelation(Relation relation)
 
 /*
  * IsSystemClass
- *		Like the above, but takes a Form_pg_class as argument.
- *		Used when we do not want to open the relation and have to
- *		search pg_class directly.
+ *		同上，但以 Form_pg_class 为参数。
+ *		用于不想打开关系、而必须直接
+ *		搜索 pg_class 的场合。
  */
 bool
 IsSystemClass(Oid relid, Form_pg_class reltuple)
 {
-	/* IsCatalogRelationOid is a bit faster, so test that first */
+	/* IsCatalogRelationOid 更快一些，因此先测它 */
 	return (IsCatalogRelationOid(relid) || IsToastClass(reltuple));
 }
 
 /*
  * IsCatalogRelation
- *		True iff the relation is a system catalog.
+ *		当且仅当关系是系统目录时为真。
  *
- *		By a system catalog, we mean one that is created during the bootstrap
- *		phase of initdb.  That includes not just the catalogs per se, but
- *		also their indexes, and TOAST tables and indexes if any.
+ *		所谓系统目录，指在 initdb 引导阶段创建的
+ *		那些关系。不仅包括目录本身，还包括
+ *		其索引，以及若有的 TOAST 表与索引。
  *
- *		This function does not perform any catalog accesses.
- *		Some callers rely on that!
+ *		本函数不做任何目录访问。
+ *		有些调用方依赖这一点！
  */
 bool
 IsCatalogRelation(Relation relation)
@@ -109,46 +109,46 @@ IsCatalogRelation(Relation relation)
 
 /*
  * IsCatalogRelationOid
- *		True iff the relation identified by this OID is a system catalog.
+ *		当且仅当此 OID 标识的关系是系统目录时为真。
  *
- *		By a system catalog, we mean one that is created during the bootstrap
- *		phase of initdb.  That includes not just the catalogs per se, but
- *		also their indexes, and TOAST tables and indexes if any.
+ *		所谓系统目录，指在 initdb 引导阶段创建的
+ *		那些关系。不仅包括目录本身，还包括
+ *		其索引，以及若有的 TOAST 表与索引。
  *
- *		This function does not perform any catalog accesses.
- *		Some callers rely on that!
+ *		本函数不做任何目录访问。
+ *		有些调用方依赖这一点！
  */
 bool
 IsCatalogRelationOid(Oid relid)
 {
 	/*
-	 * We consider a relation to be a system catalog if it has a pinned OID.
-	 * This includes all the defined catalogs, their indexes, and their TOAST
-	 * tables and indexes.
+	 * 若关系拥有钉住的 OID，我们就视其为系统目录。
+	 * 这涵盖所有已定义的目录、其索引，以及它们的 TOAST
+	 * 表与索引。
 	 *
-	 * This rule excludes the relations in information_schema, which are not
-	 * integral to the system and can be treated the same as user relations.
-	 * (Since it's valid to drop and recreate information_schema, any rule
-	 * that did not act this way would be wrong.)
+	 * 该规则排除 information_schema 中的关系，它们并非
+	 * 系统不可或缺，可与用户关系同等对待。
+	 * （既然可以合法地删除并重建 information_schema，任何
+	 * 不如此处理的规则都会是错的。）
 	 *
-	 * This test is reliable since an OID wraparound will skip this range of
-	 * OIDs; see GetNewObjectId().
+	 * 该测试是可靠的，因为 OID 回绕会跳过这一范围的
+	 * OIDs；见 GetNewObjectId()。
 	 */
 	return (relid < (Oid) FirstUnpinnedObjectId);
 }
 
 /*
  * IsInplaceUpdateRelation
- *		True iff core code performs inplace updates on the relation.
+ *		当且仅当核心代码对该关系做原地更新时为真。
  *
- *		This is used for assertions and for making the executor follow the
- *		locking protocol described at README.tuplock section "Locking to write
- *		inplace-updated tables".  Extensions may inplace-update other heap
- *		tables, but concurrent SQL UPDATE on the same table may overwrite
- *		those modifications.
+ *		用于断言，并让执行器遵循 README.tuplock 中
+ *		"Locking to write inplace-updated tables"一节所述的
+ *		加锁协议。扩展可能原地更新其他堆表，但
+ *		对同一表的并发 SQL UPDATE 可能覆盖那些
+ *		修改。
  *
- *		The executor can assume these are not partitions or partitioned and
- *		have no triggers.
+ *		执行器可以假定这些不是分区、也不是已分区表，
+ *		且没有触发器。
  */
 bool
 IsInplaceUpdateRelation(Relation relation)
@@ -158,7 +158,7 @@ IsInplaceUpdateRelation(Relation relation)
 
 /*
  * IsInplaceUpdateOid
- *		Like the above, but takes an OID as argument.
+ *		同上，但以 OID 为参数。
  */
 bool
 IsInplaceUpdateOid(Oid relid)
@@ -169,29 +169,29 @@ IsInplaceUpdateOid(Oid relid)
 
 /*
  * IsToastRelation
- *		True iff relation is a TOAST support relation (or index).
+ *		当且仅当关系是 TOAST 支撑关系（或索引）时为真。
  *
- *		Does not perform any catalog accesses.
+ *		不做任何目录访问。
  */
 bool
 IsToastRelation(Relation relation)
 {
 	/*
-	 * What we actually check is whether the relation belongs to a pg_toast
-	 * namespace.  This should be equivalent because of restrictions that are
-	 * enforced elsewhere against creating user relations in, or moving
-	 * relations into/out of, a pg_toast namespace.  Notice also that this
-	 * will not say "true" for toast tables belonging to other sessions' temp
-	 * tables; we expect that other mechanisms will prevent access to those.
+	 * 实际检查的是关系是否属于某个 pg_toast
+	 * 命名空间。这应当等价，因为别处已限制不得在
+	 * pg_toast 命名空间中创建用户关系，或把关系移入/
+	 * 移出该命名空间。另请注意：对属于其他会话临时
+	 * 表的 toast 表，本函数不会返回"真"；我们期望
+	 * 其他机制会阻止访问那些对象。
 	 */
 	return IsToastNamespace(RelationGetNamespace(relation));
 }
 
 /*
  * IsToastClass
- *		Like the above, but takes a Form_pg_class as argument.
- *		Used when we do not want to open the relation and have to
- *		search pg_class directly.
+ *		同上，但以 Form_pg_class 为参数。
+ *		用于不想打开关系、而必须直接
+ *		搜索 pg_class 的场合。
  */
 bool
 IsToastClass(Form_pg_class reltuple)
@@ -203,12 +203,12 @@ IsToastClass(Form_pg_class reltuple)
 
 /*
  * IsCatalogNamespace
- *		True iff namespace is pg_catalog.
+ *		当且仅当命名空间是 pg_catalog 时为真。
  *
- *		Does not perform any catalog accesses.
+ *		不做任何目录访问。
  *
- * NOTE: the reason this isn't a macro is to avoid having to include
- * catalog/pg_namespace.h in a lot of places.
+ * NOTE: 不做成宏的原因是避免在许多地方
+ * 包含 catalog/pg_namespace.h。
  */
 bool
 IsCatalogNamespace(Oid namespaceId)
@@ -218,15 +218,15 @@ IsCatalogNamespace(Oid namespaceId)
 
 /*
  * IsToastNamespace
- *		True iff namespace is pg_toast or my temporary-toast-table namespace.
+ *		当且仅当命名空间是 pg_toast 或我的临时 toast 表命名空间时为真。
  *
- *		Does not perform any catalog accesses.
+ *		不做任何目录访问。
  *
- * Note: this will return false for temporary-toast-table namespaces belonging
- * to other backends.  Those are treated the same as other backends' regular
- * temp table namespaces, and access is prevented where appropriate.
- * If you need to check for those, you may be able to use isAnyTempNamespace,
- * but beware that that does involve a catalog access.
+ * Note: 对属于其他后端的临时 toast 表命名空间，本函数返回
+ * false。它们与其他后端的普通临时表命名空间同等对待，
+ * 并在适当处阻止访问。
+ * 若需要检查那些命名空间，或许可用 isAnyTempNamespace，
+ * 但请注意那会涉及目录访问。
  */
 bool
 IsToastNamespace(Oid namespaceId)
@@ -238,17 +238,17 @@ IsToastNamespace(Oid namespaceId)
 
 /*
  * IsReservedName
- *		True iff name starts with the pg_ prefix.
+ *		当且仅当名称以 pg_ 前缀开头时为真。
  *
- *		For some classes of objects, the prefix pg_ is reserved for
- *		system objects only.  As of 8.0, this was only true for
- *		schema and tablespace names.  With 9.6, this is also true
- *		for roles.
+ *		对某些对象类别，前缀 pg_ 保留给
+ *		系统对象专用。截至 8.0，这仅适用于
+ *		模式名与表空间名。自 9.6 起，角色名
+ *		亦如此。
  */
 bool
 IsReservedName(const char *name)
 {
-	/* ugly coding for speed */
+	/* 为速度而采用的难看写法 */
 	return (name[0] == 'p' &&
 			name[1] == 'g' &&
 			name[2] == '_');
@@ -257,24 +257,24 @@ IsReservedName(const char *name)
 
 /*
  * IsSharedRelation
- *		Given the OID of a relation, determine whether it's supposed to be
- *		shared across an entire database cluster.
+ *		给定关系的 OID，判断它是否应在整个
+ *		数据库集簇中共享。
  *
- * In older releases, this had to be hard-wired so that we could compute the
- * locktag for a relation and lock it before examining its catalog entry.
- * Since we now have MVCC catalog access, the race conditions that made that
- * a hard requirement are gone, so we could look at relaxing this restriction.
- * However, if we scanned the pg_class entry to find relisshared, and only
- * then locked the relation, pg_class could get updated in the meantime,
- * forcing us to scan the relation again, which would definitely be complex
- * and might have undesirable performance consequences.  Fortunately, the set
- * of shared relations is fairly static, so a hand-maintained list of their
- * OIDs isn't completely impractical.
+ * 在较旧的发行版中，这必须硬编码，以便我们能在检查
+ * 其目录条目之前计算关系的 locktag 并加锁。
+ * 现在已有 MVCC 目录访问，使那成为硬性要求的竞态
+ * 条件已不存在，因此可考虑放宽这一限制。
+ * 然而，若我们先扫描 pg_class 条目以查找 relisshared，再
+ * 锁定关系，期间 pg_class 可能被更新，
+ * 迫使我们再次扫描该关系，这肯定很复杂，
+ * 也可能带来不良的性能后果。幸好，共享
+ * 关系集合相当稳定，因此手工维护一份
+ * OIDs 列表并非完全不切实际。
  */
 bool
 IsSharedRelation(Oid relationId)
 {
-	/* These are the shared catalogs (look for BKI_SHARED_RELATION) */
+	/* 这些是共享目录（查找 BKI_SHARED_RELATION） */
 	if (relationId == AuthIdRelationId ||
 		relationId == AuthMemRelationId ||
 		relationId == DatabaseRelationId ||
@@ -287,7 +287,7 @@ IsSharedRelation(Oid relationId)
 		relationId == SubscriptionRelationId ||
 		relationId == TableSpaceRelationId)
 		return true;
-	/* These are their indexes */
+	/* 这些是它们的索引 */
 	if (relationId == AuthIdOidIndexId ||
 		relationId == AuthIdRolnameIndexId ||
 		relationId == AuthMemMemRoleIndexId ||
@@ -310,7 +310,7 @@ IsSharedRelation(Oid relationId)
 		relationId == TablespaceNameIndexId ||
 		relationId == TablespaceOidIndexId)
 		return true;
-	/* These are their toast tables and toast indexes */
+	/* 这些是它们的 toast 表与 toast 索引 */
 	if (relationId == PgAuthidToastTable ||
 		relationId == PgAuthidToastIndex ||
 		relationId == PgDatabaseToastTable ||
@@ -335,62 +335,62 @@ IsSharedRelation(Oid relationId)
 
 /*
  * IsPinnedObject
- *		Given the class + OID identity of a database object, report whether
- *		it is "pinned", that is not droppable because the system requires it.
+ *		给定数据库对象的 class + OID 身份，报告它是否
+ *		被"钉住"，即因系统需要而不可删除。
  *
- * We used to represent this explicitly in pg_depend, but that proved to be
- * an undesirable amount of overhead, so now we rely on an OID range test.
+ * 我们曾在 pg_depend 中显式表示这一点，但那被证明是
+ * 不可取的开销，因此现在依赖 OID 范围测试。
  */
 bool
 IsPinnedObject(Oid classId, Oid objectId)
 {
 	/*
-	 * Objects with OIDs above FirstUnpinnedObjectId are never pinned.  Since
-	 * the OID generator skips this range when wrapping around, this check
-	 * guarantees that user-defined objects are never considered pinned.
+	 * OIDs 高于 FirstUnpinnedObjectId 的对象从不会被钉住。由于
+	 * OID 生成器在回绕时会跳过该范围，此检查
+	 * 保证用户定义对象绝不会被视为钉住。
 	 */
 	if (objectId >= FirstUnpinnedObjectId)
 		return false;
 
 	/*
-	 * Large objects are never pinned.  We need this special case because
-	 * their OIDs can be user-assigned.
+	 * 大对象从不会被钉住。需要这一特例是因为
+	 * 它们的 OIDs 可由用户指定。
 	 */
 	if (classId == LargeObjectRelationId)
 		return false;
 
 	/*
-	 * There are a few objects defined in the catalog .dat files that, as a
-	 * matter of policy, we prefer not to treat as pinned.  We used to handle
-	 * that by excluding them from pg_depend, but it's just as easy to
-	 * hard-wire their OIDs here.  (If the user does indeed drop and recreate
-	 * them, they'll have new but certainly-unpinned OIDs, so no problem.)
+	 * 目录 .dat 文件中定义的少数对象，作为策略
+	 * 我们宁愿不把它们当作钉住。我们曾通过把它们
+	 * 排除在 pg_depend 外来处理，但在这里硬编码其
+	 * OIDs 同样容易。（若用户确实删除并重建它们，
+	 * 它们会得到新的、肯定未钉住的 OIDs，因此没问题。）
 	 *
-	 * Checking both classId and objectId is overkill, since OIDs below
-	 * FirstGenbkiObjectId should be globally unique, but do it anyway for
-	 * robustness.
+	 * 同时检查 classId 与 objectId 其实过头，因为低于
+	 * FirstGenbkiObjectId 的 OIDs 应全局唯一，但为健壮性
+	 * 仍这样做。
 	 */
 
-	/* the public namespace is not pinned */
+	/* public 命名空间未被钉住 */
 	if (classId == NamespaceRelationId &&
 		objectId == PG_PUBLIC_NAMESPACE)
 		return false;
 
 	/*
-	 * Databases are never pinned.  It might seem that it'd be prudent to pin
-	 * at least template0; but we do this intentionally so that template0 and
-	 * template1 can be rebuilt from each other, thus letting them serve as
-	 * mutual backups (as long as you've not modified template1, anyway).
+	 * 数据库从不会被钉住。或许钉住至少 template0 显得稳妥；
+	 * 但我们有意如此，以便 template0 与
+	 * template1 可以互相重建，从而互为
+	 * 备份（只要你没改过 template1）。
 	 */
 	if (classId == DatabaseRelationId)
 		return false;
 
 	/*
-	 * All other initdb-created objects are pinned.  This is overkill (the
-	 * system doesn't really depend on having every last weird datatype, for
-	 * instance) but generating only the minimum required set of dependencies
-	 * seems hard, and enforcing an accurate list would be much more expensive
-	 * than the simple range test used here.
+	 * 所有其他由 initdb 创建的对象都被钉住。这有点过头（系统
+	 * 并非真的依赖每一个古怪的数据类型都存在，例如）
+	 * 但只生成所需的最小依赖集似乎很难，而强制维护一份
+	 * 精确列表会比这里用的简单范围测试
+	 * 昂贵得多。
 	 */
 	return true;
 }
@@ -398,26 +398,26 @@ IsPinnedObject(Oid classId, Oid objectId)
 
 /*
  * GetNewOidWithIndex
- *		Generate a new OID that is unique within the system relation.
+ *		生成在该系统关系内唯一的新 OID。
  *
- * Since the OID is not immediately inserted into the table, there is a
- * race condition here; but a problem could occur only if someone else
- * managed to cycle through 2^32 OIDs and generate the same OID before we
- * finish inserting our row.  This seems unlikely to be a problem.  Note
- * that if we had to *commit* the row to end the race condition, the risk
- * would be rather higher; therefore we use SnapshotAny in the test, so that
- * we will see uncommitted rows.  (We used to use SnapshotDirty, but that has
- * the disadvantage that it ignores recently-deleted rows, creating a risk
- * of transient conflicts for as long as our own MVCC snapshots think a
- * recently-deleted row is live.  The risk is far higher when selecting TOAST
- * OIDs, because SnapshotToast considers dead rows as active indefinitely.)
+ * 由于 OID 不会立即插入表中，这里存在
+ * 竞态；但只有当别人设法绕完 2^32 个
+ * OIDs 并在我们插入行之前生成相同 OID 时才会
+ * 出问题。这似乎不太可能成为问题。注意：若必须
+ * *提交* 该行才能结束竞态，风险会高得多；
+ * 因此测试中使用 SnapshotAny，以便能看到
+ * 未提交的行。（我们曾用 SnapshotDirty，但它
+ * 的缺点是忽略最近删除的行，从而在我们自己的
+ * MVCC 快照仍认为最近删除的行存活期间造成
+ * 瞬时冲突风险。在选择 TOAST OIDs 时风险更高，
+ * 因为 SnapshotToast 会无限期把死行视为活动。）
  *
- * Note that we are effectively assuming that the table has a relatively small
- * number of entries (much less than 2^32) and there aren't very long runs of
- * consecutive existing OIDs.  This is a mostly reasonable assumption for
- * system catalogs.
+ * 注意我们实际上假定该表条目相对较少
+ * （远小于 2^32），且不存在很长的连续
+ * 已有 OIDs 段。对系统目录而言，这一假定
+ * 大多合理。
  *
- * Caller must have a suitable lock on the relation.
+ * 调用方必须对该关系持有合适的锁。
  */
 Oid
 GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
@@ -429,22 +429,22 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 	uint64		retries = 0;
 	uint64		retries_before_log = GETNEWOID_LOG_THRESHOLD;
 
-	/* Only system relations are supported */
+	/* 仅支持系统关系 */
 	Assert(IsSystemRelation(relation));
 
-	/* In bootstrap mode, we don't have any indexes to use */
+	/* 引导模式下没有可用的索引 */
 	if (IsBootstrapProcessingMode())
 		return GetNewObjectId();
 
 	/*
-	 * We should never be asked to generate a new pg_type OID during
-	 * pg_upgrade; doing so would risk collisions with the OIDs it wants to
-	 * assign.  Hitting this assert means there's some path where we failed to
-	 * ensure that a type OID is determined by commands in the dump script.
+	 * 在 pg_upgrade 期间绝不应被要求生成新的 pg_type OID；
+	 * 否则会有与它想分配的 OIDs 冲突的风险。
+	 * 触发此断言意味着某条路径未能确保类型 OID
+	 * 由转储脚本中的命令决定。
 	 */
 	Assert(!IsBinaryUpgrade || RelationGetRelid(relation) != TypeRelationId);
 
-	/* Generate new OIDs until we find one not in the table */
+	/* 不断生成新 OIDs，直到找到表中未使用的 */
 	do
 	{
 		CHECK_FOR_INTERRUPTS();
@@ -456,7 +456,7 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 					BTEqualStrategyNumber, F_OIDEQ,
 					ObjectIdGetDatum(newOid));
 
-		/* see notes above about using SnapshotAny */
+		/* 见上文关于使用 SnapshotAny 的说明 */
 		scan = systable_beginscan(relation, indexId, true,
 								  SnapshotAny, 1, &key);
 
@@ -465,13 +465,13 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 		systable_endscan(scan);
 
 		/*
-		 * Log that we iterate more than GETNEWOID_LOG_THRESHOLD but have not
-		 * yet found OID unused in the relation. Then repeat logging with
-		 * exponentially increasing intervals until we iterate more than
-		 * GETNEWOID_LOG_MAX_INTERVAL. Finally repeat logging every
-		 * GETNEWOID_LOG_MAX_INTERVAL unless an unused OID is found. This
-		 * logic is necessary not to fill up the server log with the similar
-		 * messages.
+		 * 若已迭代超过 GETNEWOID_LOG_THRESHOLD 仍未
+		 * 找到关系中未用的 OID，则记日志。然后以
+		 * 指数增大的间隔重复记日志，直到迭代超过
+		 * GETNEWOID_LOG_MAX_INTERVAL。最后除非找到未用
+		 * OID，否则每隔 GETNEWOID_LOG_MAX_INTERVAL 再记一次。
+		 * 此逻辑是为了避免服务器日志被类似消息
+		 * 填满。
 		 */
 		if (retries >= retries_before_log)
 		{
@@ -484,8 +484,8 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 									  (unsigned long long) retries)));
 
 			/*
-			 * Double the number of retries to do before logging next until it
-			 * reaches GETNEWOID_LOG_MAX_INTERVAL.
+			 * 将下次记日志前的重试次数加倍，直到达到
+			 * GETNEWOID_LOG_MAX_INTERVAL。
 			 */
 			if (retries_before_log * 2 <= GETNEWOID_LOG_MAX_INTERVAL)
 				retries_before_log *= 2;
@@ -497,8 +497,8 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 	} while (collides);
 
 	/*
-	 * If at least one log message is emitted, also log the completion of OID
-	 * assignment.
+	 * 若至少发出过一条日志消息，也记录 OID 分配
+	 * 完成。
 	 */
 	if (retries > GETNEWOID_LOG_THRESHOLD)
 	{
@@ -514,19 +514,19 @@ GetNewOidWithIndex(Relation relation, Oid indexId, AttrNumber oidcolumn)
 
 /*
  * GetNewRelFileNumber
- *		Generate a new relfilenumber that is unique within the
- *		database of the given tablespace.
+ *		生成在给定表空间所属数据库内唯一的
+ *		新 relfilenumber。
  *
- * If the relfilenumber will also be used as the relation's OID, pass the
- * opened pg_class catalog, and this routine will guarantee that the result
- * is also an unused OID within pg_class.  If the result is to be used only
- * as a relfilenumber for an existing relation, pass NULL for pg_class.
+ * 若该 relfilenumber 也将用作关系的 OID，则传入已打开的
+ * pg_class 目录，本例程将保证结果在 pg_class 中
+ * 也是未使用的 OID。若结果仅用作已有关系的
+ * relfilenumber，则对 pg_class 传 NULL。
  *
- * As with GetNewOidWithIndex(), there is some theoretical risk of a race
- * condition, but it doesn't seem worth worrying about.
+ * 与 GetNewOidWithIndex() 一样，理论上存在竞态
+ * 风险，但似乎不值得担心。
  *
- * Note: we don't support using this in bootstrap mode.  All relations
- * created by bootstrap have preassigned OIDs, so there's no need.
+ * Note: 我们不支持在引导模式下使用本函数。引导创建的
+ * 所有关系都有预分配的 OIDs，因此无需。
  */
 RelFileNumber
 GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
@@ -537,9 +537,9 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 	BackendId	backend;
 
 	/*
-	 * If we ever get here during pg_upgrade, there's something wrong; all
-	 * relfilenumber assignments during a binary-upgrade run should be
-	 * determined by commands in the dump script.
+	 * 若在 pg_upgrade 期间走到这里，说明出了问题；二进制升级
+	 * 运行中的所有 relfilenumber 分配都应由转储脚本中的
+	 * 命令决定。
 	 */
 	Assert(!IsBinaryUpgrade);
 
@@ -554,19 +554,19 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 			break;
 		default:
 			elog(ERROR, "invalid relpersistence: %c", relpersistence);
-			return InvalidRelFileNumber;	/* placate compiler */
+			return InvalidRelFileNumber;	/* 安抚编译器 */
 	}
 
-	/* This logic should match RelationInitPhysicalAddr */
+	/* 此逻辑应与 RelationInitPhysicalAddr 匹配 */
 	rlocator.locator.spcOid = reltablespace ? reltablespace : MyDatabaseTableSpace;
 	rlocator.locator.dbOid =
 		(rlocator.locator.spcOid == GLOBALTABLESPACE_OID) ?
 		InvalidOid : MyDatabaseId;
 
 	/*
-	 * The relpath will vary based on the backend ID, so we must initialize
-	 * that properly here to make sure that any collisions based on filename
-	 * are properly detected.
+	 * relpath 会随后端 ID 而变，因此必须在此正确
+	 * 初始化它，以确保基于文件名的任何冲突
+	 * 都能被正确检测到。
 	 */
 	rlocator.backend = backend;
 
@@ -574,29 +574,29 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 	{
 		CHECK_FOR_INTERRUPTS();
 
-		/* Generate the OID */
+		/* 生成 OID */
 		if (pg_class)
 			rlocator.locator.relNumber = GetNewOidWithIndex(pg_class, ClassOidIndexId,
 															Anum_pg_class_oid);
 		else
 			rlocator.locator.relNumber = GetNewObjectId();
 
-		/* Check for existing file of same name */
+		/* 检查是否已有同名文件 */
 		rpath = relpath(rlocator, MAIN_FORKNUM);
 
 		if (access(rpath, F_OK) == 0)
 		{
-			/* definite collision */
+			/* 确定发生冲突 */
 			collides = true;
 		}
 		else
 		{
 			/*
-			 * Here we have a little bit of a dilemma: if errno is something
-			 * other than ENOENT, should we declare a collision and loop? In
-			 * practice it seems best to go ahead regardless of the errno.  If
-			 * there is a colliding file we will get an smgr failure when we
-			 * attempt to create the new relation file.
+			 * 这里有点两难：若 errno 不是 ENOENT，是否应
+			 * 宣告冲突并循环？实践中似乎最好无论
+			 * errno 为何都继续。若确有冲突文件，我们在
+			 * 尝试创建新关系文件时会得到
+			 * smgr 失败。
 			 */
 			collides = false;
 		}
@@ -608,11 +608,11 @@ GetNewRelFileNumber(Oid reltablespace, Relation pg_class, char relpersistence)
 }
 
 /*
- * SQL callable interface for GetNewOidWithIndex().  Outside of initdb's
- * direct insertions into catalog tables, and recovering from corruption, this
- * should rarely be needed.
+ * GetNewOidWithIndex() 的 SQL 可调用接口。除 initdb 直接
+ * 插入目录表，以及从损坏中恢复外，
+ * 很少需要。
  *
- * Function is intentionally not documented in the user facing docs.
+ * 有意不在面向用户的文档中记载本函数。
  */
 Datum
 pg_nextoid(PG_FUNCTION_ARGS)
@@ -628,10 +628,10 @@ pg_nextoid(PG_FUNCTION_ARGS)
 	Oid			newoid;
 
 	/*
-	 * As this function is not intended to be used during normal running, and
-	 * only supports system catalogs (which require superuser permissions to
-	 * modify), just checking for superuser ought to not obstruct valid
-	 * usecases.
+	 * 由于本函数不打算在正常运行中使用，且仅支持
+	 * 系统目录（修改它们需要超级用户权限），
+	 * 只检查超级用户应不至于妨碍合法
+	 * 用例。
 	 */
 	if (!superuser())
 		ereport(ERROR,
@@ -688,17 +688,17 @@ pg_nextoid(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL callable interface for StopGeneratingPinnedObjectIds().
+ * StopGeneratingPinnedObjectIds() 的 SQL 可调用接口。
  *
- * This is only to be used by initdb, so it's intentionally not documented in
- * the user facing docs.
+ * 仅供 initdb 使用，因此有意不在面向用户的
+ * 文档中记载。
  */
 Datum
 pg_stop_making_pinned_objects(PG_FUNCTION_ARGS)
 {
 	/*
-	 * Belt-and-suspenders check, since StopGeneratingPinnedObjectIds will
-	 * fail anyway in non-single-user mode.
+	 * 双保险检查，因为 StopGeneratingPinnedObjectIds 在
+	 * 非单用户模式下本来就会失败。
 	 */
 	if (!superuser())
 		ereport(ERROR,

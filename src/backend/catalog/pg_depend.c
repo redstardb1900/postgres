@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_depend.c
- *	  routines to support manipulation of the pg_depend relation
+ *	  支持操作 pg_depend 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -34,11 +34,11 @@ static bool isObjectPinned(const ObjectAddress *object);
 
 
 /*
- * Record a dependency between 2 objects via their respective objectAddress.
- * The first argument is the dependent object, the second the one it
- * references.
+ * 通过各自的 objectAddress 记录两个对象之间的依赖。
+ * 第一个参数是依赖方对象，第二个是它所
+ * 引用的对象。
  *
- * This simply creates an entry in pg_depend, without any other processing.
+ * 这只是在 pg_depend 中创建一条条目，不做其他处理。
  */
 void
 recordDependencyOn(const ObjectAddress *depender,
@@ -49,8 +49,8 @@ recordDependencyOn(const ObjectAddress *depender,
 }
 
 /*
- * Record multiple dependencies (of the same kind) for a single dependent
- * object.  This has a little less overhead than recording each separately.
+ * 为单个依赖方对象记录多条（同种）依赖。
+ * 这比逐条记录开销稍小。
  */
 void
 recordMultipleDependencies(const ObjectAddress *depender,
@@ -67,14 +67,14 @@ recordMultipleDependencies(const ObjectAddress *depender,
 				slot_stored_count;
 
 	if (nreferenced <= 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	/*
-	 * During bootstrap, do nothing since pg_depend may not exist yet.
+	 * 引导期间什么也不做，因为 pg_depend 可能尚不存在。
 	 *
-	 * Objects created during bootstrap are most likely pinned, and the few
-	 * that are not do not have dependencies on each other, so that there
-	 * would be no need to make a pg_depend entry anyway.
+	 * 引导期间创建的对象大多被钉住，而未钉住的
+	 * 少数彼此没有依赖，因此反正
+	 * 也无需制作 pg_depend 条目。
 	 */
 	if (IsBootstrapProcessingMode())
 		return;
@@ -82,26 +82,26 @@ recordMultipleDependencies(const ObjectAddress *depender,
 	dependDesc = table_open(DependRelationId, RowExclusiveLock);
 
 	/*
-	 * Allocate the slots to use, but delay costly initialization until we
-	 * know that they will be used.
+	 * 分配将要用的槽，但推迟昂贵的初始化，直到
+	 * 知道它们会被使用。
 	 */
 	max_slots = Min(nreferenced,
 					MAX_CATALOG_MULTI_INSERT_BYTES / sizeof(FormData_pg_depend));
 	slot = palloc(sizeof(TupleTableSlot *) * max_slots);
 
-	/* Don't open indexes unless we need to make an update */
+	/* 除非需要做更新，否则不要打开索引 */
 	indstate = NULL;
 
-	/* number of slots currently storing tuples */
+	/* 当前存放着元组的槽数 */
 	slot_stored_count = 0;
-	/* number of slots currently initialized */
+	/* 当前已初始化的槽数 */
 	slot_init_count = 0;
 	for (i = 0; i < nreferenced; i++, referenced++)
 	{
 		/*
-		 * If the referenced object is pinned by the system, there's no real
-		 * need to record dependencies on it.  This saves lots of space in
-		 * pg_depend, so it's worth the time taken to check.
+		 * 若被引用对象被系统钉住，就没有真正必要
+		 * 记录对它的依赖。这能节省 pg_depend 中大量
+		 * 空间，因此值得花时间检查。
 		 */
 		if (isObjectPinned(referenced))
 			continue;
@@ -116,8 +116,8 @@ recordMultipleDependencies(const ObjectAddress *depender,
 		ExecClearTuple(slot[slot_stored_count]);
 
 		/*
-		 * Record the dependency.  Note we don't bother to check for duplicate
-		 * dependencies; there's no harm in them.
+		 * 记录依赖。注意我们不费心检查重复
+		 * 依赖；有它们也无害。
 		 */
 		slot[slot_stored_count]->tts_values[Anum_pg_depend_refclassid - 1] = ObjectIdGetDatum(referenced->classId);
 		slot[slot_stored_count]->tts_values[Anum_pg_depend_refobjid - 1] = ObjectIdGetDatum(referenced->objectId);
@@ -133,10 +133,10 @@ recordMultipleDependencies(const ObjectAddress *depender,
 		ExecStoreVirtualTuple(slot[slot_stored_count]);
 		slot_stored_count++;
 
-		/* If slots are full, insert a batch of tuples */
+		/* 若槽已满，则插入一批元组 */
 		if (slot_stored_count == max_slots)
 		{
-			/* fetch index info only when we know we need it */
+			/* 仅在知道需要时才取索引信息 */
 			if (indstate == NULL)
 				indstate = CatalogOpenIndexes(dependDesc);
 
@@ -146,10 +146,10 @@ recordMultipleDependencies(const ObjectAddress *depender,
 		}
 	}
 
-	/* Insert any tuples left in the buffer */
+	/* 插入缓冲区中剩余的任何元组 */
 	if (slot_stored_count > 0)
 	{
-		/* fetch index info only when we know we need it */
+		/* 仅在知道需要时才取索引信息 */
 		if (indstate == NULL)
 			indstate = CatalogOpenIndexes(dependDesc);
 
@@ -162,68 +162,68 @@ recordMultipleDependencies(const ObjectAddress *depender,
 
 	table_close(dependDesc, RowExclusiveLock);
 
-	/* Drop only the number of slots used */
+	/* 只丢弃已使用的槽数 */
 	for (i = 0; i < slot_init_count; i++)
 		ExecDropSingleTupleTableSlot(slot[i]);
 	pfree(slot);
 }
 
 /*
- * If we are executing a CREATE EXTENSION operation, mark the given object
- * as being a member of the extension, or check that it already is one.
- * Otherwise, do nothing.
+ * 若正在执行 CREATE EXTENSION 操作，则将给定对象
+ * 标记为该扩展的成员，或检查它已经是成员。
+ * 否则什么也不做。
  *
- * This must be called during creation of any user-definable object type
- * that could be a member of an extension.
+ * 在创建任何可能成为扩展成员的用户可定义
+ * 对象类型时，必须调用本函数。
  *
- * isReplace must be true if the object already existed, and false if it is
- * newly created.  In the former case we insist that it already be a member
- * of the current extension.  In the latter case we can skip checking whether
- * it is already a member of any extension.
+ * 若对象已经存在则 isReplace 必须为真，若是新创建的
+ * 则为假。前一种情形我们坚持它已经是当前扩展的
+ * 成员。后一种情形可跳过检查它是否已是
+ * 任何扩展的成员。
  *
- * Note: isReplace = true is typically used when updating an object in
- * CREATE OR REPLACE and similar commands.  We used to allow the target
- * object to not already be an extension member, instead silently absorbing
- * it into the current extension.  However, this was both error-prone
- * (extensions might accidentally overwrite free-standing objects) and
- * a security hazard (since the object would retain its previous ownership).
+ * Note: isReplace = true 通常用于在 CREATE OR REPLACE
+ * 及类似命令中更新对象。我们曾允许目标对象
+ * 尚不是扩展成员，而是默默把它吸收进
+ * 当前扩展。然而这既容易出错
+ * （扩展可能意外覆盖独立对象），也是
+ * 安全隐患（因为对象会保留其先前的所有权）。
  */
 void
 recordDependencyOnCurrentExtension(const ObjectAddress *object,
 								   bool isReplace)
 {
-	/* Only whole objects can be extension members */
+	/* 只有完整对象才能成为扩展成员 */
 	Assert(object->objectSubId == 0);
 
 	if (creating_extension)
 	{
 		ObjectAddress extension;
 
-		/* Only need to check for existing membership if isReplace */
+		/* 仅当 isReplace 时才需要检查已有成员关系 */
 		if (isReplace)
 		{
 			Oid			oldext;
 
 			/*
-			 * Side note: these catalog lookups are safe only because the
-			 * object is a pre-existing one.  In the not-isReplace case, the
-			 * caller has most likely not yet done a CommandCounterIncrement
-			 * that would make the new object visible.
+			 * 旁注：这些目录查找仅因对象是已存在的
+			 * 对象才安全。在非 isReplace 情形下，调用方
+			 * 多半尚未做 CommandCounterIncrement，
+			 * 因而新对象尚不可见。
 			 */
 			oldext = getExtensionOfObject(object->classId, object->objectId);
 			if (OidIsValid(oldext))
 			{
-				/* If already a member of this extension, nothing to do */
+				/* 若已是本扩展成员，则无事可做 */
 				if (oldext == CurrentExtensionObject)
 					return;
-				/* Already a member of some other extension, so reject */
+				/* 已是其他某扩展的成员，因此拒绝 */
 				ereport(ERROR,
 						(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 						 errmsg("%s is already a member of extension \"%s\"",
 								getObjectDescription(object, false),
 								get_extension_name(oldext))));
 			}
-			/* It's a free-standing object, so reject */
+			/* 这是独立对象，因此拒绝 */
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 					 errmsg("%s is not a member of extension \"%s\"",
@@ -232,7 +232,7 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
 					 errdetail("An extension is not allowed to replace an object that it does not own.")));
 		}
 
-		/* OK, record it as a member of CurrentExtensionObject */
+		/* 好，把它记录为 CurrentExtensionObject 的成员 */
 		extension.classId = ExtensionRelationId;
 		extension.objectId = CurrentExtensionObject;
 		extension.objectSubId = 0;
@@ -242,28 +242,28 @@ recordDependencyOnCurrentExtension(const ObjectAddress *object,
 }
 
 /*
- * If we are executing a CREATE EXTENSION operation, check that the given
- * object is a member of the extension, and throw an error if it isn't.
- * Otherwise, do nothing.
+ * 若正在执行 CREATE EXTENSION 操作，检查给定对象
+ * 是否为该扩展的成员；若不是则抛错。
+ * 否则什么也不做。
  *
- * This must be called whenever a CREATE IF NOT EXISTS operation (for an
- * object type that can be an extension member) has found that an object of
- * the desired name already exists.  It is insecure for an extension to use
- * IF NOT EXISTS except when the conflicting object is already an extension
- * member; otherwise a hostile user could substitute an object with arbitrary
- * properties.
+ * 每当 CREATE IF NOT EXISTS 操作（针对可成为
+ * 扩展成员的对象类型）发现所需名称的对象
+ * 已存在时，必须调用本函数。扩展使用
+ * IF NOT EXISTS 是不安全的，除非冲突对象已经是扩展
+ * 成员；否则怀有敌意的用户可能用任意属性的
+ * 对象顶替。
  */
 void
 checkMembershipInCurrentExtension(const ObjectAddress *object)
 {
 	/*
-	 * This is actually the same condition tested in
-	 * recordDependencyOnCurrentExtension; but we want to issue a
-	 * differently-worded error, and anyway it would be pretty confusing to
-	 * call recordDependencyOnCurrentExtension in these circumstances.
+	 * 这实际上与 recordDependencyOnCurrentExtension 中测试的
+	 * 条件相同；但我们想发出措辞不同的
+	 * 错误，而且在这些情况下调用
+	 * recordDependencyOnCurrentExtension 会相当令人困惑。
 	 */
 
-	/* Only whole objects can be extension members */
+	/* 只有完整对象才能成为扩展成员 */
 	Assert(object->objectSubId == 0);
 
 	if (creating_extension)
@@ -271,10 +271,10 @@ checkMembershipInCurrentExtension(const ObjectAddress *object)
 		Oid			oldext;
 
 		oldext = getExtensionOfObject(object->classId, object->objectId);
-		/* If already a member of this extension, OK */
+		/* 若已是本扩展成员，则 OK */
 		if (oldext == CurrentExtensionObject)
 			return;
-		/* Else complain */
+		/* 否则抱怨 */
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("%s is not a member of extension \"%s\"",
@@ -285,16 +285,16 @@ checkMembershipInCurrentExtension(const ObjectAddress *object)
 }
 
 /*
- * deleteDependencyRecordsFor -- delete all records with given depender
- * classId/objectId.  Returns the number of records deleted.
+ * deleteDependencyRecordsFor -- 删除 depender 为给定
+ * classId/objectId 的所有记录。返回所删记录数。
  *
- * This is used when redefining an existing object.  Links leading to the
- * object do not change, and links leading from it will be recreated
- * (possibly with some differences from before).
+ * 在重新定义已有对象时使用。指向该对象的
+ * 链接不变，而从它出发的链接将被重建
+ * （可能与之前有些不同）。
  *
- * If skipExtensionDeps is true, we do not delete any dependencies that
- * show that the given object is a member of an extension.  This avoids
- * needing a lot of extra logic to fetch and recreate that dependency.
+ * 若 skipExtensionDeps 为真，我们不删除表明给定对象
+ * 是扩展成员的任何依赖。这避免了需要大量
+ * 额外逻辑去取回并重建该依赖。
  */
 long
 deleteDependencyRecordsFor(Oid classId, Oid objectId,
@@ -338,13 +338,13 @@ deleteDependencyRecordsFor(Oid classId, Oid objectId,
 }
 
 /*
- * deleteDependencyRecordsForClass -- delete all records with given depender
- * classId/objectId, dependee classId, and deptype.
- * Returns the number of records deleted.
+ * deleteDependencyRecordsForClass -- 删除 depender 为给定
+ * classId/objectId、dependee 为给定 classId，且 deptype 匹配的所有记录。
+ * 返回所删记录数。
  *
- * This is a variant of deleteDependencyRecordsFor, useful when revoking
- * an object property that is expressed by a dependency record (such as
- * extension membership).
+ * 这是 deleteDependencyRecordsFor 的变体，适用于撤销由
+ * 依赖记录表达的对象属性（例如
+ * 扩展成员关系）。
  */
 long
 deleteDependencyRecordsForClass(Oid classId, Oid objectId,
@@ -389,9 +389,9 @@ deleteDependencyRecordsForClass(Oid classId, Oid objectId,
 }
 
 /*
- * deleteDependencyRecordsForSpecific -- delete all records with given depender
- * classId/objectId, dependee classId/objectId, of the given deptype.
- * Returns the number of records deleted.
+ * deleteDependencyRecordsForSpecific -- 删除 depender 为给定
+ * classId/objectId、dependee 为给定 classId/objectId，且 deptype 匹配的所有记录。
+ * 返回所删记录数。
  */
 long
 deleteDependencyRecordsForSpecific(Oid classId, Oid objectId, char deptype,
@@ -438,19 +438,19 @@ deleteDependencyRecordsForSpecific(Oid classId, Oid objectId, char deptype,
 }
 
 /*
- * Adjust dependency record(s) to point to a different object of the same type
+ * 调整 dependency record(s)，使其指向同类型的另一对象
  *
- * classId/objectId specify the referencing object.
- * refClassId/oldRefObjectId specify the old referenced object.
- * newRefObjectId is the new referenced object (must be of class refClassId).
+ * classId/objectId 指定引用方对象。
+ * refClassId/oldRefObjectId 指定旧的被引用对象。
+ * newRefObjectId 是新的被引用对象（必须属于 class refClassId）。
  *
- * Note the lack of objsubid parameters.  If there are subobject references
- * they will all be readjusted.  Also, there is an expectation that we are
- * dealing with NORMAL dependencies: if we have to replace an (implicit)
- * dependency on a pinned object with an explicit dependency on an unpinned
- * one, the new one will be NORMAL.
+ * 注意没有 objsubid 参数。若存在子对象引用，
+ * 它们都会被重新调整。另外，我们预期处理的是
+ * NORMAL 依赖：若必须把对钉住对象的（隐式）
+ * 依赖替换为对未钉住对象的显式依赖，
+ * 新的依赖将是 NORMAL。
  *
- * Returns the number of records updated -- zero indicates a problem.
+ * 返回所更新的记录数 —— 零表示有问题。
  */
 long
 changeDependencyFor(Oid classId, Oid objectId,
@@ -468,10 +468,10 @@ changeDependencyFor(Oid classId, Oid objectId,
 	bool		newIsPinned;
 
 	/*
-	 * Check to see if either oldRefObjectId or newRefObjectId is pinned.
-	 * Pinned objects should not have any dependency entries pointing to them,
-	 * so in these cases we should add or remove a pg_depend entry, or do
-	 * nothing at all, rather than update an entry as in the normal case.
+	 * 检查 oldRefObjectId 或 newRefObjectId 是否被钉住。
+	 * 钉住对象不应有任何指向它们的依赖条目，
+	 * 因此在这些情形下我们应添加或删除 pg_depend 条目，或
+	 * 什么也不做，而不是像正常情形那样更新条目。
 	 */
 	objAddr.classId = refClassId;
 	objAddr.objectId = oldRefObjectId;
@@ -486,15 +486,15 @@ changeDependencyFor(Oid classId, Oid objectId,
 	if (oldIsPinned)
 	{
 		/*
-		 * If both are pinned, we need do nothing.  However, return 1 not 0,
-		 * else callers will think this is an error case.
+		 * 若两者都被钉住，我们无需做任何事。然而返回 1 而非 0，
+		 * 否则调用方会认为这是错误情形。
 		 */
 		if (newIsPinned)
 			return 1;
 
 		/*
-		 * There is no old dependency record, but we should insert a new one.
-		 * Assume a normal dependency is wanted.
+		 * 没有旧的依赖记录，但应插入一条新的。
+		 * 假定需要的是普通依赖。
 		 */
 		depAddr.classId = classId;
 		depAddr.objectId = objectId;
@@ -506,7 +506,7 @@ changeDependencyFor(Oid classId, Oid objectId,
 
 	depRel = table_open(DependRelationId, RowExclusiveLock);
 
-	/* There should be existing dependency record(s), so search. */
+	/* 应存在 dependency record(s)，因此搜索。 */
 	ScanKeyInit(&key[0],
 				Anum_pg_depend_classid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -530,7 +530,7 @@ changeDependencyFor(Oid classId, Oid objectId,
 				CatalogTupleDelete(depRel, &tup->t_self);
 			else
 			{
-				/* make a modifiable copy */
+				/* 制作可修改的副本 */
 				tup = heap_copytuple(tup);
 				depform = (Form_pg_depend) GETSTRUCT(tup);
 
@@ -553,12 +553,12 @@ changeDependencyFor(Oid classId, Oid objectId,
 }
 
 /*
- * Adjust all dependency records to come from a different object of the same type
+ * 调整所有依赖记录，使其来自同类型的另一对象
  *
- * classId/oldObjectId specify the old referencing object.
- * newObjectId is the new referencing object (must be of class classId).
+ * classId/oldObjectId 指定旧的引用方对象。
+ * newObjectId 是新的引用方对象（必须属于 class classId）。
  *
- * Returns the number of records updated.
+ * 返回所更新的记录数。
  */
 long
 changeDependenciesOf(Oid classId, Oid oldObjectId,
@@ -588,7 +588,7 @@ changeDependenciesOf(Oid classId, Oid oldObjectId,
 	{
 		Form_pg_depend depform;
 
-		/* make a modifiable copy */
+		/* 制作可修改的副本 */
 		tup = heap_copytuple(tup);
 		depform = (Form_pg_depend) GETSTRUCT(tup);
 
@@ -609,12 +609,12 @@ changeDependenciesOf(Oid classId, Oid oldObjectId,
 }
 
 /*
- * Adjust all dependency records to point to a different object of the same type
+ * 调整所有依赖记录，使其指向同类型的另一对象
  *
- * refClassId/oldRefObjectId specify the old referenced object.
- * newRefObjectId is the new referenced object (must be of class refClassId).
+ * refClassId/oldRefObjectId 指定旧的被引用对象。
+ * newRefObjectId 是新的被引用对象（必须属于 class refClassId）。
  *
- * Returns the number of records updated.
+ * 返回所更新的记录数。
  */
 long
 changeDependenciesOn(Oid refClassId, Oid oldRefObjectId,
@@ -631,10 +631,10 @@ changeDependenciesOn(Oid refClassId, Oid oldRefObjectId,
 	depRel = table_open(DependRelationId, RowExclusiveLock);
 
 	/*
-	 * If oldRefObjectId is pinned, there won't be any dependency entries on
-	 * it --- we can't cope in that case.  (This isn't really worth expending
-	 * code to fix, in current usage; it just means you can't rename stuff out
-	 * of pg_catalog, which would likely be a bad move anyway.)
+	 * 若 oldRefObjectId 被钉住，就不会有指向它的依赖条目
+	 * —— 那种情形我们无法处理。（以当前用法，不值得
+	 * 花代码去修；这只意味着你不能把东西重命名出
+	 * pg_catalog，而那本来多半也是糟糕的举动。）
 	 */
 	objAddr.classId = refClassId;
 	objAddr.objectId = oldRefObjectId;
@@ -647,14 +647,14 @@ changeDependenciesOn(Oid refClassId, Oid oldRefObjectId,
 						getObjectDescription(&objAddr, false))));
 
 	/*
-	 * We can handle adding a dependency on something pinned, though, since
-	 * that just means deleting the dependency entry.
+	 * 不过我们可以处理添加对钉住对象的依赖，因为
+	 * 那只意味着删除依赖条目。
 	 */
 	objAddr.objectId = newRefObjectId;
 
 	newIsPinned = isObjectPinned(&objAddr);
 
-	/* Now search for dependency records */
+	/* 现在搜索依赖记录 */
 	ScanKeyInit(&key[0],
 				Anum_pg_depend_refclassid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -675,7 +675,7 @@ changeDependenciesOn(Oid refClassId, Oid oldRefObjectId,
 		{
 			Form_pg_depend depform;
 
-			/* make a modifiable copy */
+			/* 制作可修改的副本 */
 			tup = heap_copytuple(tup);
 			depform = (Form_pg_depend) GETSTRUCT(tup);
 
@@ -699,10 +699,10 @@ changeDependenciesOn(Oid refClassId, Oid oldRefObjectId,
 /*
  * isObjectPinned()
  *
- * Test if an object is required for basic database functionality.
+ * 测试某对象是否为基本数据库功能所必需。
  *
- * The passed subId, if any, is ignored; we assume that only whole objects
- * are pinned (and that this implies pinning their components).
+ * 传入的 subId（若有）被忽略；我们假定只有完整对象
+ * 会被钉住（且这意味着钉住其组成部分）。
  */
 static bool
 isObjectPinned(const ObjectAddress *object)
@@ -712,20 +712,20 @@ isObjectPinned(const ObjectAddress *object)
 
 
 /*
- * Various special-purpose lookups and manipulations of pg_depend.
+ * 对 pg_depend 的各种专用查找与操作。
  */
 
 
 /*
- * Find the extension containing the specified object, if any
+ * 查找包含指定对象的扩展（若有）
  *
- * Returns the OID of the extension, or InvalidOid if the object does not
- * belong to any extension.
+ * 返回扩展的 OID；若对象不属于任何扩展则返回
+ * InvalidOid。
  *
- * Extension membership is marked by an EXTENSION dependency from the object
- * to the extension.  Note that the result will be indeterminate if pg_depend
- * contains links from this object to more than one extension ... but that
- * should never happen.
+ * 扩展成员关系由从对象到扩展的 EXTENSION
+ * 依赖标记。注意若 pg_depend 含有从本对象到
+ * 多个扩展的链接，结果将不确定……但那
+ * 绝不应该发生。
  */
 Oid
 getExtensionOfObject(Oid classId, Oid objectId)
@@ -758,7 +758,7 @@ getExtensionOfObject(Oid classId, Oid objectId)
 			depform->deptype == DEPENDENCY_EXTENSION)
 		{
 			result = depform->refobjid;
-			break;				/* no need to keep scanning */
+			break;				/* 无需继续扫描 */
 		}
 	}
 
@@ -770,8 +770,8 @@ getExtensionOfObject(Oid classId, Oid objectId)
 }
 
 /*
- * Return (possibly NIL) list of extensions that the given object depends on
- * in DEPENDENCY_AUTO_EXTENSION mode.
+ * 返回给定对象以 DEPENDENCY_AUTO_EXTENSION 模式所依赖的
+ * 扩展列表（可能为 NIL）。
  */
 List *
 getAutoExtensionsOfObject(Oid classId, Oid objectId)
@@ -813,15 +813,15 @@ getAutoExtensionsOfObject(Oid classId, Oid objectId)
 }
 
 /*
- * Detect whether a sequence is marked as "owned" by a column
+ * 检测序列是否被标记为某列"拥有"
  *
- * An ownership marker is an AUTO or INTERNAL dependency from the sequence to the
- * column.  If we find one, store the identity of the owning column
- * into *tableId and *colId and return true; else return false.
+ * 拥有标记是从序列到该列的 AUTO 或 INTERNAL
+ * 依赖。若找到，把拥有列的身份存入
+ * *tableId 与 *colId 并返回 true；否则返回 false。
  *
- * Note: if there's more than one such pg_depend entry then you get
- * a random one of them returned into the out parameters.  This should
- * not happen, though.
+ * Note: 若有多条这样的 pg_depend 条目，则输出参数会得到
+ * 其中随机的一条。不过这不应当
+ * 发生。
  */
 bool
 sequenceIsOwned(Oid seqId, char deptype, Oid *tableId, int32 *colId)
@@ -856,7 +856,7 @@ sequenceIsOwned(Oid seqId, char deptype, Oid *tableId, int32 *colId)
 			*tableId = depform->refobjid;
 			*colId = depform->refobjsubid;
 			ret = true;
-			break;				/* no need to keep scanning */
+			break;				/* 无需继续扫描 */
 		}
 	}
 
@@ -868,9 +868,9 @@ sequenceIsOwned(Oid seqId, char deptype, Oid *tableId, int32 *colId)
 }
 
 /*
- * Collect a list of OIDs of all sequences owned by the specified relation,
- * and column if specified.  If deptype is not zero, then only find sequences
- * with the specified dependency type.
+ * 收集由指定关系（及若指定则由列）拥有的所有
+ * 序列的 OIDs 列表。若 deptype 非零，则只查找具有
+ * 指定依赖类型的序列。
  */
 static List *
 getOwnedSequences_internal(Oid relid, AttrNumber attnum, char deptype)
@@ -905,9 +905,9 @@ getOwnedSequences_internal(Oid relid, AttrNumber attnum, char deptype)
 		Form_pg_depend deprec = (Form_pg_depend) GETSTRUCT(tup);
 
 		/*
-		 * We assume any auto or internal dependency of a sequence on a column
-		 * must be what we are looking for.  (We need the relkind test because
-		 * indexes can also have auto dependencies on columns.)
+		 * 我们假定序列对列的任何 auto 或 internal 依赖
+		 * 都是我们所要找的。（需要 relkind 测试是因为
+		 * 索引也可能对列有 auto 依赖。）
 		 */
 		if (deprec->classid == RelationRelationId &&
 			deprec->objsubid == 0 &&
@@ -928,8 +928,8 @@ getOwnedSequences_internal(Oid relid, AttrNumber attnum, char deptype)
 }
 
 /*
- * Collect a list of OIDs of all sequences owned (identity or serial) by the
- * specified relation.
+ * 收集由指定关系拥有（identity 或 serial）的所有序列
+ * 的 OIDs 列表。
  */
 List *
 getOwnedSequences(Oid relid)
@@ -938,7 +938,7 @@ getOwnedSequences(Oid relid)
 }
 
 /*
- * Get owned identity sequence, error if not exactly one.
+ * 取得所拥有的 identity 序列；若不是恰好一条则报错。
  */
 Oid
 getIdentitySequence(Oid relid, AttrNumber attnum, bool missing_ok)
@@ -960,9 +960,9 @@ getIdentitySequence(Oid relid, AttrNumber attnum, bool missing_ok)
 
 /*
  * get_index_constraint
- *		Given the OID of an index, return the OID of the owning unique,
- *		primary-key, or exclusion constraint, or InvalidOid if there
- *		is no owning constraint.
+ *		给定索引的 OID，返回拥有它的唯一、
+ *		主键或排斥约束的 OID；若没有拥有
+ *		约束则返回 InvalidOid。
  */
 Oid
 get_index_constraint(Oid indexId)
@@ -973,7 +973,7 @@ get_index_constraint(Oid indexId)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Search the dependency table for the index */
+	/* 在依赖表中搜索该索引 */
 	depRel = table_open(DependRelationId, AccessShareLock);
 
 	ScanKeyInit(&key[0],
@@ -997,8 +997,8 @@ get_index_constraint(Oid indexId)
 		Form_pg_depend deprec = (Form_pg_depend) GETSTRUCT(tup);
 
 		/*
-		 * We assume any internal dependency on a constraint must be what we
-		 * are looking for.
+		 * 我们假定对约束的任何 internal 依赖都是我们
+		 * 所要找的。
 		 */
 		if (deprec->refclassid == ConstraintRelationId &&
 			deprec->refobjsubid == 0 &&
@@ -1017,8 +1017,8 @@ get_index_constraint(Oid indexId)
 
 /*
  * get_index_ref_constraints
- *		Given the OID of an index, return the OID of all foreign key
- *		constraints which reference the index.
+ *		给定索引的 OID，返回引用该索引的所有
+ *		外键约束的 OID。
  */
 List *
 get_index_ref_constraints(Oid indexId)
@@ -1029,7 +1029,7 @@ get_index_ref_constraints(Oid indexId)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Search the dependency table for the index */
+	/* 在依赖表中搜索该索引 */
 	depRel = table_open(DependRelationId, AccessShareLock);
 
 	ScanKeyInit(&key[0],
@@ -1053,8 +1053,8 @@ get_index_ref_constraints(Oid indexId)
 		Form_pg_depend deprec = (Form_pg_depend) GETSTRUCT(tup);
 
 		/*
-		 * We assume any normal dependency from a constraint must be what we
-		 * are looking for.
+		 * 我们假定来自约束的任何 normal 依赖都是我们
+		 * 所要找的。
 		 */
 		if (deprec->classid == ConstraintRelationId &&
 			deprec->objsubid == 0 &&

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "batch_id": "0210-comment-catalog-part3",
+  "title": "zh: translate catalog comments (part 3)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "500f65366799cb624443a109916a98de3465bd86",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/catalog.c",
+      "kind": "c_comment",
+      "note": "catalog naming and hard-wired helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_operator.c",
+      "kind": "c_comment",
+      "note": "operator catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_depend.c",
+      "kind": "c_comment",
+      "note": "dependency catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0210-comment-catalog-part3.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/catalog.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 50,
+      "translated": 50,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "catalog naming and hard-wired helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_operator.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 68,
+      "translated": 68,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "operator catalog helpers; NOTES translated; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_depend.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 62,
+      "translated": 62,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "dependency catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0210-comment-catalog-part3.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0210 translates comments in three src/backend/catalog/ .c files (part 3): catalog.c, pg_operator.c, pg_depend.c. Copyright and IDENTIFICATION lines stay in English; NOTES in pg_operator.c translated. Next suggested: larger remaining catalog .c such as pg_constraint.c / pg_type.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c by size."
+}

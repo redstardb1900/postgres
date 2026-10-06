@@ -2,9 +2,9 @@
  *
  * xlogfuncs.c
  *
- * PostgreSQL write-ahead log manager user interface functions
+ * PostgreSQL 预写式日志管理器的用户接口函数
  *
- * This file contains WAL control and information functions.
+ * 本文件包含 WAL 控制与信息函数。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -41,22 +41,22 @@
 #include "utils/tuplestore.h"
 
 /*
- * Backup-related variables.
+ * 与备份相关的变量。
  */
 static BackupState *backup_state = NULL;
 static StringInfo tablespace_map = NULL;
 
-/* Session-level context for the SQL-callable backup functions */
+/* SQL 可调用备份函数的会话级上下文 */
 static MemoryContext backupcontext = NULL;
 
 /*
- * pg_backup_start: set up for taking an on-line backup dump
+ * pg_backup_start：为进行在线备份转储做准备
  *
- * Essentially what this does is to create the contents required for the
- * backup_label file and the tablespace map.
+ * 本质上，本函数生成 backup_label 文件与表空间
+ * 映射所需的内容。
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_backup_start(PG_FUNCTION_ARGS)
@@ -75,11 +75,11 @@ pg_backup_start(PG_FUNCTION_ARGS)
 				 errmsg("a backup is already in progress in this session")));
 
 	/*
-	 * backup_state and tablespace_map need to be long-lived as they are used
-	 * in pg_backup_stop().  These are allocated in a dedicated memory context
-	 * child of TopMemoryContext, deleted at the end of pg_backup_stop().  If
-	 * an error happens before ending the backup, memory would be leaked in
-	 * this context until pg_backup_start() is called again.
+	 * backup_state 与 tablespace_map 需要长期存活，因为它们在
+	 * pg_backup_stop() 中使用。它们分配在 TopMemoryContext 的专用
+	 * 子内存上下文中，在 pg_backup_stop() 结束时删除。若在
+	 * 结束备份前发生错误，该上下文中的内存会泄漏，
+	 * 直到再次调用 pg_backup_start()。
 	 */
 	if (backupcontext == NULL)
 	{
@@ -107,23 +107,23 @@ pg_backup_start(PG_FUNCTION_ARGS)
 
 
 /*
- * pg_backup_stop: finish taking an on-line backup.
+ * pg_backup_stop：完成在线备份。
  *
- * The first parameter (variable 'waitforarchive'), which is optional,
- * allows the user to choose if they want to wait for the WAL to be archived
- * or if we should just return as soon as the WAL record is written.
+ * 第一个参数（变量 waitforarchive）可选，
+ * 允许用户选择是否等待 WAL 被归档，
+ * 还是只要 WAL 记录写完就立即返回。
  *
- * This function stops an in-progress backup, creates backup_label contents and
- * it returns the backup stop LSN, backup_label and tablespace_map contents.
+ * 本函数停止进行中的备份，创建 backup_label 内容，并
+ * 返回备份停止 LSN、backup_label 与 tablespace_map 内容。
  *
- * The backup_label contains the user-supplied label string (typically this
- * would be used to tell where the backup dump will be stored), the starting
- * time, starting WAL location for the dump and so on.  It is the caller's
- * responsibility to write the backup_label and tablespace_map files in the
- * data folder that will be restored from this backup.
+ * backup_label 包含用户提供的标签字符串（通常用于
+ * 指明备份转储将存放的位置）、起始
+ * 时间、转储的起始 WAL 位置等。由调用者
+ * 负责把 backup_label 与 tablespace_map 文件写入将从
+ * 此备份恢复的数据目录。
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_backup_stop(PG_FUNCTION_ARGS)
@@ -136,7 +136,7 @@ pg_backup_stop(PG_FUNCTION_ARGS)
 	char	   *backup_label;
 	SessionBackupState status = get_backup_status();
 
-	/* Initialize attributes information in the tuple descriptor */
+	/* 初始化元组描述符中的属性信息 */
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
@@ -149,34 +149,34 @@ pg_backup_stop(PG_FUNCTION_ARGS)
 	Assert(backup_state != NULL);
 	Assert(tablespace_map != NULL);
 
-	/* Stop the backup */
+	/* 停止备份 */
 	do_pg_backup_stop(backup_state, waitforarchive);
 
-	/* Build the contents of backup_label */
+	/* 构造 backup_label 的内容 */
 	backup_label = build_backup_content(backup_state, false);
 
 	values[0] = LSNGetDatum(backup_state->stoppoint);
 	values[1] = CStringGetTextDatum(backup_label);
 	values[2] = CStringGetTextDatum(tablespace_map->data);
 
-	/* Deallocate backup-related variables */
+	/* 释放与备份相关的变量 */
 	pfree(backup_label);
 
-	/* Clean up the session-level state and its memory context */
+	/* 清理会话级状态及其内存上下文 */
 	backup_state = NULL;
 	tablespace_map = NULL;
 	MemoryContextDelete(backupcontext);
 	backupcontext = NULL;
 
-	/* Returns the record as Datum */
+	/* 以 Datum 返回该记录 */
 	PG_RETURN_DATUM(HeapTupleGetDatum(heap_form_tuple(tupdesc, values, nulls)));
 }
 
 /*
- * pg_switch_wal: switch to next xlog file
+ * pg_switch_wal：切换到下一个 xlog 文件
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_switch_wal(PG_FUNCTION_ARGS)
@@ -192,16 +192,16 @@ pg_switch_wal(PG_FUNCTION_ARGS)
 	switchpoint = RequestXLogSwitch(false);
 
 	/*
-	 * As a convenience, return the WAL location of the switch record
+	 * 为方便起见，返回切换记录的 WAL 位置
 	 */
 	PG_RETURN_LSN(switchpoint);
 }
 
 /*
- * pg_log_standby_snapshot: call LogStandbySnapshot()
+ * pg_log_standby_snapshot：调用 LogStandbySnapshot()
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_log_standby_snapshot(PG_FUNCTION_ARGS)
@@ -223,16 +223,16 @@ pg_log_standby_snapshot(PG_FUNCTION_ARGS)
 	recptr = LogStandbySnapshot();
 
 	/*
-	 * As a convenience, return the WAL location of the last inserted record
+	 * 为方便起见，返回最后插入记录的 WAL 位置
 	 */
 	PG_RETURN_LSN(recptr);
 }
 
 /*
- * pg_create_restore_point: a named point for restore
+ * pg_create_restore_point：用于恢复的命名点
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_create_restore_point(PG_FUNCTION_ARGS)
@@ -263,17 +263,17 @@ pg_create_restore_point(PG_FUNCTION_ARGS)
 	restorepoint = XLogRestorePoint(restore_name_str);
 
 	/*
-	 * As a convenience, return the WAL location of the restore point record
+	 * 为方便起见，返回恢复点记录的 WAL 位置
 	 */
 	PG_RETURN_LSN(restorepoint);
 }
 
 /*
- * Report the current WAL write location (same format as pg_backup_start etc)
+ * 报告当前 WAL 写位置（格式与 pg_backup_start 等相同）
  *
- * This is useful for determining how much of WAL is visible to an external
- * archiving process.  Note that the data before this point is written out
- * to the kernel, but is not necessarily synced to disk.
+ * 这有助于确定外部归档进程能看到
+ * 多少 WAL。注意此点之前的数据已写出
+ * 到内核，但不一定已同步到磁盘。
  */
 Datum
 pg_current_wal_lsn(PG_FUNCTION_ARGS)
@@ -292,9 +292,9 @@ pg_current_wal_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report the current WAL insert location (same format as pg_backup_start etc)
+ * 报告当前 WAL 插入位置（格式与 pg_backup_start 等相同）
  *
- * This function is mostly for debugging purposes.
+ * 本函数主要用于调试。
  */
 Datum
 pg_current_wal_insert_lsn(PG_FUNCTION_ARGS)
@@ -313,9 +313,9 @@ pg_current_wal_insert_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report the current WAL flush location (same format as pg_backup_start etc)
+ * 报告当前 WAL 刷盘位置（格式与 pg_backup_start 等相同）
  *
- * This function is mostly for debugging purposes.
+ * 本函数主要用于调试。
  */
 Datum
 pg_current_wal_flush_lsn(PG_FUNCTION_ARGS)
@@ -334,10 +334,10 @@ pg_current_wal_flush_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report the last WAL receive location (same format as pg_backup_start etc)
+ * 报告最后 WAL 接收位置（格式与 pg_backup_start 等相同）
  *
- * This is useful for determining how much of WAL is guaranteed to be received
- * and synced to disk by walreceiver.
+ * 这有助于确定有多少 WAL 已由 WAL 接收进程
+ * 保证接收并同步到磁盘。
  */
 Datum
 pg_last_wal_receive_lsn(PG_FUNCTION_ARGS)
@@ -353,10 +353,10 @@ pg_last_wal_receive_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Report the last WAL replay location (same format as pg_backup_start etc)
+ * 报告最后 WAL 重放位置（格式与 pg_backup_start 等相同）
  *
- * This is useful for determining how much of WAL is visible to read-only
- * connections during recovery.
+ * 这有助于确定恢复期间只读连接
+ * 能看到多少 WAL。
  */
 Datum
 pg_last_wal_replay_lsn(PG_FUNCTION_ARGS)
@@ -372,12 +372,12 @@ pg_last_wal_replay_lsn(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute an xlog file name and decimal byte offset given a WAL location,
- * such as is returned by pg_backup_stop() or pg_switch_wal().
+ * 根据 WAL 位置计算 xlog file 名与十进制字节偏移，
+ * 该位置例如由 pg_backup_stop() 或 pg_switch_wal() 返回。
  *
- * Note that a location exactly at a segment boundary is taken to be in
- * the previous segment.  This is usually the right thing, since the
- * expected usage is to determine which xlog file(s) are ready to archive.
+ * 注意恰好位于段边界的位置被视为属于
+ * 前一个段。这通常是正确做法，因为
+ * 预期用途是确定哪些 xlog file 已可归档。
  */
 Datum
 pg_walfile_name_offset(PG_FUNCTION_ARGS)
@@ -400,8 +400,8 @@ pg_walfile_name_offset(PG_FUNCTION_ARGS)
 						 "pg_walfile_name_offset()")));
 
 	/*
-	 * Construct a tuple descriptor for the result row.  This must match this
-	 * function's pg_proc entry!
+	 * 为结果行构造元组描述符。必须与本
+	 * 函数的 pg_proc 条目匹配！
 	 */
 	resultTupleDesc = CreateTemplateTupleDesc(2);
 	TupleDescInitEntry(resultTupleDesc, (AttrNumber) 1, "file_name",
@@ -430,7 +430,7 @@ pg_walfile_name_offset(PG_FUNCTION_ARGS)
 	isnull[1] = false;
 
 	/*
-	 * Tuple jam: Having first prepared your Datums, then squash together
+	 * 元组拼装：先准备好 Datum，再压到一起
 	 */
 	resultHeapTuple = heap_form_tuple(resultTupleDesc, values, isnull);
 
@@ -440,8 +440,8 @@ pg_walfile_name_offset(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute an xlog file name given a WAL location,
- * such as is returned by pg_backup_stop() or pg_switch_wal().
+ * 根据 WAL 位置计算 xlog 文件名，
+ * 该位置例如由 pg_backup_stop() 或 pg_switch_wal() 返回。
  */
 Datum
 pg_walfile_name(PG_FUNCTION_ARGS)
@@ -465,8 +465,8 @@ pg_walfile_name(PG_FUNCTION_ARGS)
 }
 
 /*
- * Extract the sequence number and the timeline ID from given a WAL file
- * name.
+ * 从给定的 WAL 文件名中提取序号与
+ * 时间线 ID。
  */
 Datum
 pg_split_walfile_name(PG_FUNCTION_ARGS)
@@ -486,7 +486,7 @@ pg_split_walfile_name(PG_FUNCTION_ARGS)
 
 	fname_upper = pstrdup(fname);
 
-	/* Capitalize WAL file name. */
+	/* 将 WAL 文件名转为大写。 */
 	for (p = fname_upper; *p; p++)
 		*p = pg_toupper((unsigned char) *p);
 
@@ -500,7 +500,7 @@ pg_split_walfile_name(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* Convert to numeric. */
+	/* 转换为 numeric。 */
 	snprintf(buf, sizeof buf, UINT64_FORMAT, segno);
 	values[0] = DirectFunctionCall3(numeric_in,
 									CStringGetDatum(buf),
@@ -518,10 +518,10 @@ pg_split_walfile_name(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_wal_replay_pause - Request to pause recovery
+ * pg_wal_replay_pause - 请求暂停恢复
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_wal_replay_pause(PG_FUNCTION_ARGS)
@@ -541,17 +541,17 @@ pg_wal_replay_pause(PG_FUNCTION_ARGS)
 
 	SetRecoveryPause(true);
 
-	/* wake up the recovery process so that it can process the pause request */
+	/* 唤醒恢复进程，以便它能处理暂停请求 */
 	WakeupRecovery();
 
 	PG_RETURN_VOID();
 }
 
 /*
- * pg_wal_replay_resume - resume recovery now
+ * pg_wal_replay_resume - 立即恢复
  *
- * Permission checking for this function is managed through the normal
- * GRANT system.
+ * 本函数的权限检查通过常规
+ * GRANT 系统管理。
  */
 Datum
 pg_wal_replay_resume(PG_FUNCTION_ARGS)
@@ -590,13 +590,13 @@ pg_is_wal_replay_paused(PG_FUNCTION_ARGS)
 }
 
 /*
- * pg_get_wal_replay_pause_state - Returns the recovery pause state.
+ * pg_get_wal_replay_pause_state - 返回恢复暂停状态。
  *
- * Returned values:
+ * 返回值：
  *
- * 'not paused' - if pause is not requested
- * 'pause requested' - if pause is requested but recovery is not yet paused
- * 'paused' - if recovery is paused
+ * 'not paused' - 若未请求暂停
+ * 'pause requested' - 若已请求暂停但恢复尚未暂停
+ * 'paused' - 若恢复已暂停
  */
 Datum
 pg_get_wal_replay_pause_state(PG_FUNCTION_ARGS)
@@ -609,7 +609,7 @@ pg_get_wal_replay_pause_state(PG_FUNCTION_ARGS)
 				 errmsg("recovery is not in progress"),
 				 errhint("Recovery control functions can only be executed during recovery.")));
 
-	/* get the recovery pause state */
+	/* 取得恢复暂停状态 */
 	switch (GetRecoveryPauseState())
 	{
 		case RECOVERY_NOT_PAUSED:
@@ -628,10 +628,10 @@ pg_get_wal_replay_pause_state(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns timestamp of latest processed commit/abort record.
+ * 返回最近处理的提交/中止记录的时间戳。
  *
- * When the server has been started normally without recovery the function
- * returns NULL.
+ * 当服务器在无恢复情况下正常启动时，本函数
+ * 返回 NULL。
  */
 Datum
 pg_last_xact_replay_timestamp(PG_FUNCTION_ARGS)
@@ -646,7 +646,7 @@ pg_last_xact_replay_timestamp(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns bool with current recovery mode, a global state.
+ * 返回表示当前恢复模式的布尔值，这是全局状态。
  */
 Datum
 pg_is_in_recovery(PG_FUNCTION_ARGS)
@@ -655,7 +655,7 @@ pg_is_in_recovery(PG_FUNCTION_ARGS)
 }
 
 /*
- * Compute the difference in bytes between two WAL locations.
+ * 计算两个 WAL 位置之间的字节差。
  */
 Datum
 pg_wal_lsn_diff(PG_FUNCTION_ARGS)
@@ -670,10 +670,10 @@ pg_wal_lsn_diff(PG_FUNCTION_ARGS)
 }
 
 /*
- * Promotes a standby server.
+ * 提升备库服务器。
  *
- * A result of "true" means that promotion has been completed if "wait" is
- * "true", or initiated if "wait" is false.
+ * 结果为 "true" 表示：若 wait 为 "true" 则提升已完成，
+ * 若 wait 为 false 则提升已启动。
  */
 Datum
 pg_promote(PG_FUNCTION_ARGS)
@@ -694,7 +694,7 @@ pg_promote(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("\"wait_seconds\" must not be negative or zero")));
 
-	/* create the promote signal file */
+	/* 创建提升信号文件 */
 	promote_file = AllocateFile(PROMOTE_SIGNAL_FILE, "w");
 	if (!promote_file)
 		ereport(ERROR,
@@ -708,7 +708,7 @@ pg_promote(PG_FUNCTION_ARGS)
 				 errmsg("could not write file \"%s\": %m",
 						PROMOTE_SIGNAL_FILE)));
 
-	/* signal the postmaster */
+	/* 向 postmaster 发信号 */
 	if (kill(PostmasterPid, SIGUSR1) != 0)
 	{
 		ereport(WARNING,
@@ -717,11 +717,11 @@ pg_promote(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(false);
 	}
 
-	/* return immediately if waiting was not requested */
+	/* 若未请求等待则立即返回 */
 	if (!wait)
 		PG_RETURN_BOOL(true);
 
-	/* wait for the amount of time wanted until promotion */
+	/* 按所需时长等待提升完成 */
 #define WAITS_PER_SECOND 10
 	for (i = 0; i < WAITS_PER_SECOND * wait_seconds; i++)
 	{
@@ -740,8 +740,8 @@ pg_promote(PG_FUNCTION_ARGS)
 					   WAIT_EVENT_PROMOTE);
 
 		/*
-		 * Emergency bailout if postmaster has died.  This is to avoid the
-		 * necessity for manual cleanup of all postmaster children.
+		 * 若 postmaster 已死亡则紧急退出。这是为了避免
+		 * 必须手动清理所有 postmaster 子进程。
 		 */
 		if (rc & WL_POSTMASTER_DEATH)
 			PG_RETURN_BOOL(false);

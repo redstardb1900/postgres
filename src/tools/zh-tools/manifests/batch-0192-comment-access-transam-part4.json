@@ -1,0 +1,79 @@
+{
+ "schema_version": 1,
+ "batch_id": "0192-comment-access-transam-part4",
+ "title": "zh: translate access/transam comments (part 4)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "13f2175bfdce02979d142bb03b843b545167b406",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "note": "WAL control/info SQL functions"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogarchive.c",
+   "kind": "c_comment",
+   "note": "WAL archive restore and notify helpers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0192-comment-access-transam-part4.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/xlogfuncs.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 47,
+   "translated": 47,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL control/info SQL functions; Copyright and path lines kept in English; function-name-only pg_is_wal_replay_paused header left ASCII"
+  },
+  {
+   "path": "src/backend/access/transam/xlogarchive.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 60,
+   "translated": 59,
+   "preserved": 1,
+   "preserved_reasons": [
+    "translator:",
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL archive restore and notify helpers; translator: comment kept in English; Copyright and path lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0192-comment-access-transam-part4.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0192 translates comments in xlogfuncs.c and xlogarchive.c. Copyright and path lines stay in English. One translator: comment in xlogarchive.c is preserved. No fall-through marker. Next suggested: varsup.c or commit_ts.c."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgdoinsert.c
- *	  implementation of insert algorithm
+ *	  插入算法的实现
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -26,26 +26,26 @@
 
 
 /*
- * SPPageDesc tracks all info about a page we are inserting into.  In some
- * situations it actually identifies a tuple, or even a specific node within
- * an inner tuple.  But any of the fields can be invalid.  If the buffer
- * field is valid, it implies we hold pin and exclusive lock on that buffer.
- * page pointer should be valid exactly when buffer is.
+ * SPPageDesc 跟踪我们正在插入的页的全部信息。在某些
+ * 情形下它实际标识一个元组，甚至是内部元组中的某个
+ * 特定节点。但任一字段都可以无效。若 buffer 字段有效，
+ * 则表示我们持有该缓冲区的钉住与排他锁。page 指针应恰好
+ * 在 buffer 有效时有效。
  */
 typedef struct SPPageDesc
 {
-	BlockNumber blkno;			/* block number, or InvalidBlockNumber */
-	Buffer		buffer;			/* page's buffer number, or InvalidBuffer */
-	Page		page;			/* pointer to page buffer, or NULL */
-	OffsetNumber offnum;		/* offset of tuple, or InvalidOffsetNumber */
-	int			node;			/* node number within inner tuple, or -1 */
+	BlockNumber blkno;			/* 块号，或 InvalidBlockNumber */
+	Buffer		buffer;			/* 页的缓冲区号，或 InvalidBuffer */
+	Page		page;			/* 指向页缓冲区的指针，或 NULL */
+	OffsetNumber offnum;		/* 元组的偏移，或 InvalidOffsetNumber */
+	int			node;			/* 内部元组内的节点号，或 -1 */
 } SPPageDesc;
 
 
 /*
- * Set the item pointer in the nodeN'th entry in inner tuple tup.  This
- * is used to update the parent inner tuple's downlink after a move or
- * split operation.
+ * 设置内部元组 tup 中第 nodeN 个条目的项指针。这用于在移动
+ * 或分裂操作之后更新父内部元组的
+ * 下行链接。
  */
 void
 spgUpdateNodeLink(SpGistInnerTuple tup, int nodeN,
@@ -68,12 +68,12 @@ spgUpdateNodeLink(SpGistInnerTuple tup, int nodeN,
 }
 
 /*
- * Form a new inner tuple containing one more node than the given one, with
- * the specified label datum, inserted at offset "offset" in the node array.
- * The new tuple's prefix is the same as the old one's.
+ * 构造比给定元组多一个节点的新内部元组，带指定的标签
+ * datum，插入到节点数组中偏移 "offset" 处。新元组的前缀
+ * 与旧元组相同。
  *
- * Note that the new node initially has an invalid downlink.  We'll find a
- * page to point it to later.
+ * 注意新节点最初有无效的下行链接。我们稍后会找到一页
+ * 让它指向。
  */
 static SpGistInnerTuple
 addNode(SpGistState *state, SpGistInnerTuple tuple, Datum label, int offset)
@@ -82,7 +82,7 @@ addNode(SpGistState *state, SpGistInnerTuple tuple, Datum label, int offset)
 			   *nodes;
 	int			i;
 
-	/* if offset is negative, insert at end */
+	/* 若 offset 为负，则插在末尾 */
 	if (offset < 0)
 		offset = tuple->nNodes;
 	else if (offset > tuple->nNodes)
@@ -106,7 +106,7 @@ addNode(SpGistState *state, SpGistInnerTuple tuple, Datum label, int offset)
 							 nodes);
 }
 
-/* qsort comparator for sorting OffsetNumbers */
+/* 用于对 OffsetNumbers 排序的 qsort 比较器 */
 static int
 cmpOffsetNumbers(const void *a, const void *b)
 {
@@ -116,17 +116,17 @@ cmpOffsetNumbers(const void *a, const void *b)
 }
 
 /*
- * Delete multiple tuples from an index page, preserving tuple offset numbers.
+ * 从索引页删除多个元组，同时保留元组偏移号。
  *
- * The first tuple in the given list is replaced with a dead tuple of type
- * "firststate" (REDIRECT/DEAD/PLACEHOLDER); the remaining tuples are replaced
- * with dead tuples of type "reststate".  If either firststate or reststate
- * is REDIRECT, blkno/offnum specify where to link to.
+ * 给定列表中的第一个元组替换为类型为 "firststate"
+ * （REDIRECT/DEAD/PLACEHOLDER）的死元组；其余元组替换为
+ * 类型为 "reststate" 的死元组。若 firststate 或 reststate
+ * 为 REDIRECT，则 blkno/offnum 指定链接目标。
  *
- * NB: this is used during WAL replay, so beware of trying to make it too
- * smart.  In particular, it shouldn't use "state" except for calling
- * spgFormDeadTuple().  This is also used in a critical section, so no
- * pallocs either!
+ * 注意：此函数用于 WAL 重放，因此不要做得过于聪明。特别是，
+ * 除调用 spgFormDeadTuple() 外不应使用 "state"。它也在
+ * 临界区内使用，因此也不能
+ * palloc！
  */
 void
 spgPageIndexMultiDelete(SpGistState *state, Page page,
@@ -140,14 +140,14 @@ spgPageIndexMultiDelete(SpGistState *state, Page page,
 	int			i;
 
 	if (nitems == 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	/*
-	 * For efficiency we want to use PageIndexMultiDelete, which requires the
-	 * targets to be listed in sorted order, so we have to sort the itemnos
-	 * array.  (This also greatly simplifies the math for reinserting the
-	 * replacement tuples.)  However, we must not scribble on the caller's
-	 * array, so we have to make a copy.
+	 * 为效率起见我们想用 PageIndexMultiDelete，它需要目标按
+	 * 已排序顺序列出，因此必须对 itemnos 数组排序。（这也大大
+	 * 简化了重新插入替换元组时的计算。）但我们不能涂改调用方
+	 * 的数组，因此必须做一份
+	 * 拷贝。
 	 */
 	memcpy(sortednos, itemnos, sizeof(OffsetNumber) * nitems);
 	if (nitems > 1)
@@ -179,9 +179,9 @@ spgPageIndexMultiDelete(SpGistState *state, Page page,
 }
 
 /*
- * Update the parent inner tuple's downlink, and mark the parent buffer
- * dirty (this must be the last change to the parent page in the current
- * WAL action).
+ * 更新父内部元组的下行链接，并标记父缓冲区为脏（这必须是
+ * 当前 WAL 动作中对父页的最后一次
+ * 更改）。
  */
 static void
 saveNodeLink(Relation index, SPPageDesc *parent,
@@ -198,7 +198,7 @@ saveNodeLink(Relation index, SPPageDesc *parent,
 }
 
 /*
- * Add a leaf tuple to a leaf page where there is known to be room for it
+ * 向已知有足够空间的叶子页添加一个叶子元组
  */
 static void
 addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
@@ -209,7 +209,7 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 	xlrec.newPage = isNew;
 	xlrec.storesNulls = isNulls;
 
-	/* these will be filled below as needed */
+	/* 下面按需要填充 */
 	xlrec.offnumLeaf = InvalidOffsetNumber;
 	xlrec.offnumHeadLeaf = InvalidOffsetNumber;
 	xlrec.offnumParent = InvalidOffsetNumber;
@@ -220,7 +220,7 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 	if (current->offnum == InvalidOffsetNumber ||
 		SpGistBlockIsRoot(current->blkno))
 	{
-		/* Tuple is not part of a chain */
+		/* 元组不属于某条链 */
 		SGLT_SET_NEXTOFFSET(leafTuple, InvalidOffsetNumber);
 		current->offnum = SpGistPageAddNewItem(state, current->page,
 											   (Item) leafTuple, leafTuple->size,
@@ -228,7 +228,7 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 
 		xlrec.offnumLeaf = current->offnum;
 
-		/* Must update parent's downlink if any */
+		/* 若有父，必须更新其下行链接 */
 		if (parent->buffer != InvalidBuffer)
 		{
 			xlrec.offnumParent = parent->offnum;
@@ -240,12 +240,12 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 	else
 	{
 		/*
-		 * Tuple must be inserted into existing chain.  We mustn't change the
-		 * chain's head address, but we don't need to chase the entire chain
-		 * to put the tuple at the end; we can insert it second.
+		 * 元组必须插入到已有链中。我们不能改变链头地址，但也不必
+		 * 追整条链把它放在末尾；可以插在
+		 * 第二位。
 		 *
-		 * Also, it's possible that the "chain" consists only of a DEAD tuple,
-		 * in which case we should replace the DEAD tuple in-place.
+		 * 另外，"链" 可能只由一个 DEAD 元组组成，此时应原地替换
+		 * 该 DEAD 元组。
 		 */
 		SpGistLeafTuple head;
 		OffsetNumber offnum;
@@ -260,8 +260,8 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 										  NULL, false);
 
 			/*
-			 * re-get head of list because it could have been moved on page,
-			 * and set new second element
+			 * 重新获取链表头，因为它可能已在页上移动，
+			 * 并设置新的第二元素
 			 */
 			head = (SpGistLeafTuple) PageGetItem(current->page,
 												 PageGetItemId(current->page, current->offnum));
@@ -280,7 +280,7 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 				elog(ERROR, "failed to add item of size %u to SPGiST index page",
 					 leafTuple->size);
 
-			/* WAL replay distinguishes this case by equal offnums */
+			/* WAL 重放用相等的偏移号区分此情形 */
 			xlrec.offnumLeaf = current->offnum;
 			xlrec.offnumHeadLeaf = current->offnum;
 		}
@@ -310,7 +310,7 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 
 		PageSetLSN(current->page, recptr);
 
-		/* update parent only if we actually changed it */
+		/* 仅当我们确实更改了父时才更新它 */
 		if (xlrec.offnumParent != InvalidOffsetNumber)
 		{
 			PageSetLSN(parent->page, recptr);
@@ -321,14 +321,14 @@ addLeafTuple(Relation index, SpGistState *state, SpGistLeafTuple leafTuple,
 }
 
 /*
- * Count the number and total size of leaf tuples in the chain starting at
- * current->offnum.  Return number into *nToSplit and total size as function
- * result.
+ * 统计从 current->offnum 开始的链中叶子元组的数量与总大小。
+ * 数量写入 *nToSplit，总大小作为函数
+ * 返回值。
  *
- * Klugy special case when considering the root page (i.e., root is a leaf
- * page, but we're about to split for the first time): return fake large
- * values to force spgdoinsert() to take the doPickSplit rather than
- * moveLeafs code path.  moveLeafs is not prepared to deal with root page.
+ * 考虑根页时的拙劣特例（即根是叶子页，但我们即将首次分裂）：
+ * 返回虚假的大值，以迫使 spgdoinsert() 走 doPickSplit 而非
+ * moveLeafs 代码路径。moveLeafs 未准备好处理
+ * 根页。
  */
 static int
 checkSplitConditions(Relation index, SpGistState *state,
@@ -340,7 +340,7 @@ checkSplitConditions(Relation index, SpGistState *state,
 
 	if (SpGistBlockIsRoot(current->blkno))
 	{
-		/* return impossible values to force split */
+		/* 返回不可能的值以强制分裂 */
 		*nToSplit = BLCKSZ;
 		return BLCKSZ;
 	}
@@ -361,10 +361,10 @@ checkSplitConditions(Relation index, SpGistState *state,
 		}
 		else if (it->tupstate == SPGIST_DEAD)
 		{
-			/* We could see a DEAD tuple as first/only chain item */
+			/* 可能把 DEAD 元组看作链的首项/唯一项 */
 			Assert(i == current->offnum);
 			Assert(SGLT_GET_NEXTOFFSET(it) == InvalidOffsetNumber);
-			/* Don't count it in result, because it won't go to other page */
+			/* 不计入结果，因为它不会去到另一页 */
 		}
 		else
 			elog(ERROR, "unexpected SPGiST tuple state: %d", it->tupstate);
@@ -378,11 +378,11 @@ checkSplitConditions(Relation index, SpGistState *state,
 }
 
 /*
- * current points to a leaf-tuple chain that we wanted to add newLeafTuple to,
- * but the chain has to be moved because there's not enough room to add
- * newLeafTuple to its page.  We use this method when the chain contains
- * very little data so a split would be inefficient.  We are sure we can
- * fit the chain plus newLeafTuple on one other page.
+ * current 指向我们本想把 newLeafTuple 加入的叶子元组链，但因
+ * 页上空间不够而必须移动该链。当链中数据很少、分裂会低效时
+ * 使用此方法。我们确信能把该链加上 newLeafTuple 放进
+ * 另一
+ * 页。
  */
 static void
 moveLeafs(Relation index, SpGistState *state,
@@ -405,11 +405,11 @@ moveLeafs(Relation index, SpGistState *state,
 	char	   *leafdata,
 			   *leafptr;
 
-	/* This doesn't work on root page */
+	/* 这在根页上行不通 */
 	Assert(parent->buffer != InvalidBuffer);
 	Assert(parent->buffer != current->buffer);
 
-	/* Locate the tuples to be moved, and count up the space needed */
+	/* 定位要移动的元组，并累计所需空间 */
 	i = PageGetMaxOffsetNumber(current->page);
 	toDelete = (OffsetNumber *) palloc(sizeof(OffsetNumber) * i);
 	toInsert = (OffsetNumber *) palloc(sizeof(OffsetNumber) * (i + 1));
@@ -435,10 +435,10 @@ moveLeafs(Relation index, SpGistState *state,
 		}
 		else if (it->tupstate == SPGIST_DEAD)
 		{
-			/* We could see a DEAD tuple as first/only chain item */
+			/* 可能把 DEAD 元组看作链的首项/唯一项 */
 			Assert(i == current->offnum);
 			Assert(SGLT_GET_NEXTOFFSET(it) == InvalidOffsetNumber);
-			/* We don't want to move it, so don't count it in size */
+			/* 我们不想移动它，因此不计入大小 */
 			toDelete[nDelete] = i;
 			nDelete++;
 			replaceDead = true;
@@ -449,7 +449,7 @@ moveLeafs(Relation index, SpGistState *state,
 		i = SGLT_GET_NEXTOFFSET(it);
 	}
 
-	/* Find a leaf page that will hold them */
+	/* 找一个能容纳它们的叶子页 */
 	nbuf = SpGistGetBuffer(index, GBUF_LEAF | (isNulls ? GBUF_NULLS : 0),
 						   size, &xlrec.newPage);
 	npage = BufferGetPage(nbuf);
@@ -460,7 +460,7 @@ moveLeafs(Relation index, SpGistState *state,
 
 	START_CRIT_SECTION();
 
-	/* copy all the old tuples to new page, unless they're dead */
+	/* 把所有旧元组拷到新页，死元组除外 */
 	nInsert = 0;
 	if (!replaceDead)
 	{
@@ -473,9 +473,9 @@ moveLeafs(Relation index, SpGistState *state,
 			Assert(it->tupstate == SPGIST_LIVE);
 
 			/*
-			 * Update chain link (notice the chain order gets reversed, but we
-			 * don't care).  We're modifying the tuple on the source page
-			 * here, but it's okay since we're about to delete it.
+			 * 更新链链接（注意链顺序会颠倒，但我们不在乎）。我们在此
+			 * 修改源页上的元组，但没关系，因为马上就要
+			 * 删除它。
 			 */
 			SGLT_SET_NEXTOFFSET(it, r);
 
@@ -485,13 +485,13 @@ moveLeafs(Relation index, SpGistState *state,
 			toInsert[nInsert] = r;
 			nInsert++;
 
-			/* save modified tuple into leafdata as well */
+			/* 也将修改后的元组保存到 leafdata */
 			memcpy(leafptr, it, it->size);
 			leafptr += it->size;
 		}
 	}
 
-	/* add the new tuple as well */
+	/* 同样加入新元组 */
 	SGLT_SET_NEXTOFFSET(newLeafTuple, r);
 	r = SpGistPageAddNewItem(state, npage,
 							 (Item) newLeafTuple, newLeafTuple->size,
@@ -502,19 +502,19 @@ moveLeafs(Relation index, SpGistState *state,
 	leafptr += newLeafTuple->size;
 
 	/*
-	 * Now delete the old tuples, leaving a redirection pointer behind for the
-	 * first one, unless we're doing an index build; in which case there can't
-	 * be any concurrent scan so we need not provide a redirect.
+	 * 现在删除旧元组，并在第一个位置留下重定向指针，除非我们
+	 * 正在做索引构建；构建时不可能有并发扫描，因此不必提供
+	 * 重定向。
 	 */
 	spgPageIndexMultiDelete(state, current->page, toDelete, nDelete,
 							state->isBuild ? SPGIST_PLACEHOLDER : SPGIST_REDIRECT,
 							SPGIST_PLACEHOLDER,
 							nblkno, r);
 
-	/* Update parent's downlink and mark parent page dirty */
+	/* 更新父的下行链接并标记父页为脏 */
 	saveNodeLink(index, parent, nblkno, r);
 
-	/* Mark the leaf pages too */
+	/* 也标记叶子页 */
 	MarkBufferDirty(current->buffer);
 	MarkBufferDirty(nbuf);
 
@@ -522,7 +522,7 @@ moveLeafs(Relation index, SpGistState *state,
 	{
 		XLogRecPtr	recptr;
 
-		/* prepare WAL info */
+		/* 准备 WAL 信息 */
 		STORE_STATE(state, xlrec.stateSrc);
 
 		xlrec.nMoves = nDelete;
@@ -553,17 +553,17 @@ moveLeafs(Relation index, SpGistState *state,
 
 	END_CRIT_SECTION();
 
-	/* Update local free-space cache and release new buffer */
+	/* 更新本地空闲空间缓存并释放新缓冲区 */
 	SpGistSetLastUsedPage(index, nbuf);
 	UnlockReleaseBuffer(nbuf);
 }
 
 /*
- * Update previously-created redirection tuple with appropriate destination
+ * 用适当的目标更新先前创建的重定向元组
  *
- * We use this when it's not convenient to know the destination first.
- * The tuple should have been made with the "impossible" destination of
- * the metapage.
+ * 当不方便先知道目标时使用此函数。该元组本应以元页这一
+ * "不可能" 的目标
+ * 创建。
  */
 static void
 setRedirectionTuple(SPPageDesc *current, OffsetNumber position,
@@ -579,22 +579,22 @@ setRedirectionTuple(SPPageDesc *current, OffsetNumber position,
 }
 
 /*
- * Test to see if the user-defined picksplit function failed to do its job,
- * ie, it put all the leaf tuples into the same node.
- * If so, randomly divide the tuples into several nodes (all with the same
- * label) and return true to select allTheSame mode for this inner tuple.
+ * 测试用户定义的 picksplit 函数是否未能完成其工作，即把
+ * 所有叶子元组放进了同一节点。
+ * 若是，则随机把元组划分到若干节点（均带相同
+ * 标签），并返回 true
+ * 以为该内部元组选择 allTheSame 模式。
  *
- * (This code is also used to forcibly select allTheSame mode for nulls.)
+ * （此代码也用于为空值强制选择 allTheSame 模式。）
  *
- * If we know that the leaf tuples wouldn't all fit on one page, then we
- * exclude the last tuple (which is the incoming new tuple that forced a split)
- * from the check to see if more than one node is used.  The reason for this
- * is that if the existing tuples are put into only one chain, then even if
- * we move them all to an empty page, there would still not be room for the
- * new tuple, so we'd get into an infinite loop of picksplit attempts.
- * Forcing allTheSame mode dodges this problem by ensuring the old tuples will
- * be split across pages.  (Exercise for the reader: figure out why this
- * fixes the problem even when there is only one old tuple.)
+ * 若已知叶子元组无法全部放进一页，则从检查是否使用了多于
+ * 一个节点时排除最后一个元组（即迫使分裂的新传入元组）。
+ * 原因是：若已有元组只放进一条链，则即便把它们全部移到
+ * 空页，仍没有空间容纳新元组，于是会陷入 picksplit 尝试的
+ * 无限循环。强制 allTheSame 模式通过确保旧元组会跨页分裂
+ * 来避开此问题。（留给读者的练习：弄清为何即使只有一个旧
+ * 元组时这也
+ * 有效。）
  */
 static bool
 checkAllTheSame(spgPickSplitIn *in, spgPickSplitOut *out, bool tooBig,
@@ -604,17 +604,17 @@ checkAllTheSame(spgPickSplitIn *in, spgPickSplitOut *out, bool tooBig,
 	int			limit;
 	int			i;
 
-	/* For the moment, assume we can include the new leaf tuple */
+	/* 此刻假定可以把新叶子元组包括进来 */
 	*includeNew = true;
 
-	/* If there's only the new leaf tuple, don't select allTheSame mode */
+	/* 若只有新叶子元组，不要选择 allTheSame 模式 */
 	if (in->nTuples <= 1)
 		return false;
 
-	/* If tuple set doesn't fit on one page, ignore the new tuple in test */
+	/* 若元组集放不进一页，测试时忽略新元组 */
 	limit = tooBig ? in->nTuples - 1 : in->nTuples;
 
-	/* Check to see if more than one node is populated */
+	/* 检查是否有多于一个节点被填充 */
 	theNode = out->mapTuplesToNodes[0];
 	for (i = 1; i < limit; i++)
 	{
@@ -622,19 +622,19 @@ checkAllTheSame(spgPickSplitIn *in, spgPickSplitOut *out, bool tooBig,
 			return false;
 	}
 
-	/* Nope, so override the picksplit function's decisions */
+	/* 没有，因此覆盖 picksplit 函数的决定 */
 
-	/* If the new tuple is in its own node, it can't be included in split */
+	/* 若新元组在自己的节点中，则不能纳入分裂 */
 	if (tooBig && out->mapTuplesToNodes[in->nTuples - 1] != theNode)
 		*includeNew = false;
 
-	out->nNodes = 8;			/* arbitrary number of child nodes */
+	out->nNodes = 8;			/* 任意数量的子节点 */
 
-	/* Random assignment of tuples to nodes (note we include new tuple) */
+	/* 把元组随机分配到节点（注意包含新元组） */
 	for (i = 0; i < in->nTuples; i++)
 		out->mapTuplesToNodes[i] = i % out->nNodes;
 
-	/* The opclass may not use node labels, but if it does, duplicate 'em */
+	/* 操作类可能不用节点标签，但若用了则复制它们 */
 	if (out->nodeLabels)
 	{
 		Datum		theLabel = out->nodeLabels[theNode];
@@ -644,35 +644,35 @@ checkAllTheSame(spgPickSplitIn *in, spgPickSplitOut *out, bool tooBig,
 			out->nodeLabels[i] = theLabel;
 	}
 
-	/* We don't touch the prefix or the leaf tuple datum assignments */
+	/* 我们不碰前缀或叶子元组 datum 的赋值 */
 
 	return true;
 }
 
 /*
- * current points to a leaf-tuple chain that we wanted to add newLeafTuple to,
- * but the chain has to be split because there's not enough room to add
- * newLeafTuple to its page.
+ * current 指向我们本想把
+ * newLeafTuple 加入的叶子元组链，但因
+ * 页上空间不够而必须分裂该链。
  *
- * This function splits the leaf tuple set according to picksplit's rules,
- * creating one or more new chains that are spread across the current page
- * and an additional leaf page (we assume that two leaf pages will be
- * sufficient).  A new inner tuple is created, and the parent downlink
- * pointer is updated to point to that inner tuple instead of the leaf chain.
+ * 本函数按 picksplit 的规则分裂叶子元组集，创建一条或多条
+ * 新链，散布在当前页与另一叶子页上（我们假定两页叶子页
+ * 足够）。创建新的内部元组，并把父的下行链接
+ * 指针更新为指向该内部元组而非叶子链。
  *
- * On exit, current contains the address of the new inner tuple.
+ * 退出时，current 含有新内部元组的地址。
  *
- * Returns true if we successfully inserted newLeafTuple during this function,
- * false if caller still has to do it (meaning another picksplit operation is
- * probably needed).  Failure could occur if the picksplit result is fairly
- * unbalanced, or if newLeafTuple is just plain too big to fit on a page.
- * Because we force the picksplit result to be at least two chains, each
- * cycle will get rid of at least one leaf tuple from the chain, so the loop
- * will eventually terminate if lack of balance is the issue.  If the tuple
- * is too big, we assume that repeated picksplit operations will eventually
- * make it small enough by repeated prefix-stripping.  A broken opclass could
- * make this an infinite loop, though, so spgdoinsert() checks that the
- * leaf datums get smaller each time.
+ * 若在本函数中成功插入了
+ * newLeafTuple 则返回 true；若调用方
+ * 仍须插入（意味着可能还需要另一次
+ * picksplit）则返回 false。
+ * 失败可能因 picksplit
+ * 结果相当不平衡，或 newLeafTuple 简直
+ * 太大放不进一页。因为我们强制 picksplit 结果至少有两条链，
+ * 每一轮都会从链中去掉至少一个叶子元组，因此若问题是不平衡，
+ * 循环终将终止。若元组太大，我们假定反复的 picksplit 会通过
+ * 反复剥前缀最终使其足够小。不过有缺陷的操作类可能造成无限
+ * 循环，因此 spgdoinsert() 会检查叶子 datum
+ * 是否每次都在变小。
  */
 static bool
 doPickSplit(Relation index, SpGistState *state,
@@ -718,7 +718,7 @@ doPickSplit(Relation index, SpGistState *state,
 	in.level = level;
 
 	/*
-	 * Allocate per-leaf-tuple work arrays with max possible size
+	 * 按最大可能大小为每个叶子元组分配工作数组
 	 */
 	max = PageGetMaxOffsetNumber(current->page);
 	n = max + 1;
@@ -732,10 +732,10 @@ doPickSplit(Relation index, SpGistState *state,
 	STORE_STATE(state, xlrec.stateSrc);
 
 	/*
-	 * Form list of leaf tuples which will be distributed as split result;
-	 * also, count up the amount of space that will be freed from current.
-	 * (Note that in the non-root case, we won't actually delete the old
-	 * tuples, only replace them with redirects or placeholders.)
+	 * 形成将作为分裂结果分发的叶子元组列表；同时累计将从
+	 * current 释放的空间量。（注意在非根情形下，我们实际上不会
+	 * 删除旧元组，而只是用重定向或占位
+	 * 替换它们。）
 	 */
 	nToInsert = 0;
 	nToDelete = 0;
@@ -743,9 +743,9 @@ doPickSplit(Relation index, SpGistState *state,
 	if (SpGistBlockIsRoot(current->blkno))
 	{
 		/*
-		 * We are splitting the root (which up to now is also a leaf page).
-		 * Its tuples are not linked, so scan sequentially to get them all. We
-		 * ignore the original value of current->offnum.
+		 * 我们正在分裂根（迄今根也是叶子页）。其元组未链接，因此
+		 * 顺序扫描以取得全部。我们忽略 current->offnum 的
+		 * 原值。
 		 */
 		for (i = FirstOffsetNumber; i <= max; i++)
 		{
@@ -761,16 +761,16 @@ doPickSplit(Relation index, SpGistState *state,
 				nToInsert++;
 				toDelete[nToDelete] = i;
 				nToDelete++;
-				/* we will delete the tuple altogether, so count full space */
+				/* 我们将彻底删除该元组，因此计入全部空间 */
 				spaceToDelete += it->size + sizeof(ItemIdData);
 			}
-			else				/* tuples on root should be live */
+			else				/* 根上的元组应为活的 */
 				elog(ERROR, "unexpected SPGiST tuple state: %d", it->tupstate);
 		}
 	}
 	else
 	{
-		/* Normal case, just collect the leaf tuples in the chain */
+		/* 正常情形，只收集链中的叶子元组 */
 		i = current->offnum;
 		while (i != InvalidOffsetNumber)
 		{
@@ -787,18 +787,18 @@ doPickSplit(Relation index, SpGistState *state,
 				nToInsert++;
 				toDelete[nToDelete] = i;
 				nToDelete++;
-				/* we will not delete the tuple, only replace with dead */
+				/* 我们不会删除该元组，只是用死元组替换 */
 				Assert(it->size >= SGDTSIZE);
 				spaceToDelete += it->size - SGDTSIZE;
 			}
 			else if (it->tupstate == SPGIST_DEAD)
 			{
-				/* We could see a DEAD tuple as first/only chain item */
+				/* 可能把 DEAD 元组看作链的首项/唯一项 */
 				Assert(i == current->offnum);
 				Assert(SGLT_GET_NEXTOFFSET(it) == InvalidOffsetNumber);
 				toDelete[nToDelete] = i;
 				nToDelete++;
-				/* replacing it with redirect will save no space */
+				/* 用重定向替换它不会节省空间 */
 			}
 			else
 				elog(ERROR, "unexpected SPGiST tuple state: %d", it->tupstate);
@@ -809,10 +809,10 @@ doPickSplit(Relation index, SpGistState *state,
 	in.nTuples = nToInsert;
 
 	/*
-	 * We may not actually insert new tuple because another picksplit may be
-	 * necessary due to too large value, but we will try to allocate enough
-	 * space to include it; and in any case it has to be included in the input
-	 * for the picksplit function.  So don't increment nToInsert yet.
+	 * 我们可能因值太大而需要另一次 picksplit，从而实际上并不
+	 * 插入新元组，但会尽量分配足够空间以包含它；而且无论如何
+	 * 它都必须包含在 picksplit 函数的输入中。因此暂不递增
+	 * nToInsert。
 	 */
 	in.datums[in.nTuples] =
 		isNulls ? (Datum) 0 : SGLTDATUM(newLeafTuple, state);
@@ -824,7 +824,7 @@ doPickSplit(Relation index, SpGistState *state,
 	if (!isNulls)
 	{
 		/*
-		 * Perform split using user-defined method.
+		 * 使用用户定义的方法执行分裂。
 		 */
 		procinfo = index_getprocinfo(index, 1, SPGIST_PICKSPLIT_PROC);
 		FunctionCall2Coll(procinfo,
@@ -833,7 +833,7 @@ doPickSplit(Relation index, SpGistState *state,
 						  PointerGetDatum(&out));
 
 		/*
-		 * Form new leaf tuples and count up the total space needed.
+		 * 形成新的叶子元组并累计所需总空间。
 		 */
 		totalLeafSizes = 0;
 		for (i = 0; i < in.nTuples; i++)
@@ -857,8 +857,8 @@ doPickSplit(Relation index, SpGistState *state,
 	else
 	{
 		/*
-		 * Perform dummy split that puts all tuples into one node.
-		 * checkAllTheSame will override this and force allTheSame mode.
+		 * 执行把所有元组放进一个节点的哑分裂。
+		 * checkAllTheSame 将覆盖此结果并强制 allTheSame 模式。
 		 */
 		out.hasPrefix = false;
 		out.nNodes = 1;
@@ -866,7 +866,7 @@ doPickSplit(Relation index, SpGistState *state,
 		out.mapTuplesToNodes = palloc0(sizeof(int) * in.nTuples);
 
 		/*
-		 * Form new leaf tuples and count up the total space needed.
+		 * 形成新的叶子元组并累计所需总空间。
 		 */
 		totalLeafSizes = 0;
 		for (i = 0; i < in.nTuples; i++)
@@ -879,7 +879,7 @@ doPickSplit(Relation index, SpGistState *state,
 								   isNulls);
 
 			/*
-			 * Nulls tree can contain only null key values.
+			 * 空值树只能包含空键值。
 			 */
 			leafDatums[spgKeyColumn] = (Datum) 0;
 			leafIsnulls[spgKeyColumn] = true;
@@ -892,19 +892,19 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * Check to see if the picksplit function failed to separate the values,
-	 * ie, it put them all into the same child node.  If so, select allTheSame
-	 * mode and create a random split instead.  See comments for
-	 * checkAllTheSame as to why we need to know if the new leaf tuples could
-	 * fit on one page.
+	 * 检查 picksplit 函数是否未能分离这些值，即把它们全部放进
+	 * 同一子节点。若是，则选择 allTheSame 模式并改为创建随机
+	 * 分裂。关于为何需要知道新叶子元组能否放进一页，见
+	 * checkAllTheSame 的
+	 * 注释。
 	 */
 	allTheSame = checkAllTheSame(&in, &out,
 								 totalLeafSizes > SPGIST_PAGE_CAPACITY,
 								 &includeNew);
 
 	/*
-	 * If checkAllTheSame decided we must exclude the new tuple, don't
-	 * consider it any further.
+	 * 若 checkAllTheSame 决定必须排除新元组，则不再进一步
+	 * 考虑它。
 	 */
 	if (includeNew)
 		maxToInclude = in.nTuples;
@@ -915,15 +915,15 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * Allocate per-node work arrays.  Since checkAllTheSame could replace
-	 * out.nNodes with a value larger than the number of tuples on the input
-	 * page, we can't allocate these arrays before here.
+	 * 分配每节点工作数组。由于 checkAllTheSame 可能把 out.nNodes
+	 * 替换为大于输入页上元组数的值，我们不能在此之前分配这些
+	 * 数组。
 	 */
 	nodes = (SpGistNodeTuple *) palloc(sizeof(SpGistNodeTuple) * out.nNodes);
 	leafSizes = (int *) palloc0(sizeof(int) * out.nNodes);
 
 	/*
-	 * Form nodes of inner tuple and inner tuple itself
+	 * 形成内部元组的节点以及内部元组本身
 	 */
 	for (i = 0; i < out.nNodes; i++)
 	{
@@ -940,8 +940,8 @@ doPickSplit(Relation index, SpGistState *state,
 	innerTuple->allTheSame = allTheSame;
 
 	/*
-	 * Update nodes[] array to point into the newly formed innerTuple, so that
-	 * we can adjust their downlinks below.
+	 * 更新 nodes[] 数组使其指向新形成的 innerTuple，以便下面
+	 * 调整它们的下行链接。
 	 */
 	SGITITERATE(innerTuple, i, node)
 	{
@@ -949,7 +949,7 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * Re-scan new leaf tuples and count up the space needed under each node.
+	 * 重新扫描新叶子元组，并累计每个节点下所需的空间。
 	 */
 	for (i = 0; i < maxToInclude; i++)
 	{
@@ -960,13 +960,13 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * To perform the split, we must insert a new inner tuple, which can't go
-	 * on a leaf page; and unless we are splitting the root page, we must then
-	 * update the parent tuple's downlink to point to the inner tuple.  If
-	 * there is room, we'll put the new inner tuple on the same page as the
-	 * parent tuple, otherwise we need another non-leaf buffer. But if the
-	 * parent page is the root, we can't add the new inner tuple there,
-	 * because the root page must have only one inner tuple.
+	 * 要执行分裂，必须插入一个新的内部元组，它不能放在叶子页
+	 * 上；并且除非正在分裂根页，还必须把父元组的下行链接更新
+	 * 为指向该内部元组。若有空间，我们会把新内部元组放在与父
+	 * 元组同一页，否则需要另一个非叶子缓冲区。但若父页是根，
+	 * 则不能把新内部元组加到那里，因为根页必须只有一个
+	 * 内部
+	 * 元组。
 	 */
 	xlrec.initInner = false;
 	if (parent->buffer != InvalidBuffer &&
@@ -974,12 +974,12 @@ doPickSplit(Relation index, SpGistState *state,
 		(SpGistPageGetFreeSpace(parent->page, 1) >=
 		 innerTuple->size + sizeof(ItemIdData)))
 	{
-		/* New inner tuple will fit on parent page */
+		/* 新内部元组能放进父页 */
 		newInnerBuffer = parent->buffer;
 	}
 	else if (parent->buffer != InvalidBuffer)
 	{
-		/* Send tuple to page with next triple parity (see README) */
+		/* 把元组送到下一三倍奇偶的页（见 README） */
 		newInnerBuffer = SpGistGetBuffer(index,
 										 GBUF_INNER_PARITY(parent->blkno + 1) |
 										 (isNulls ? GBUF_NULLS : 0),
@@ -988,54 +988,54 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 	else
 	{
-		/* Root page split ... inner tuple will go to root page */
+		/* 根页分裂……内部元组将放到根页 */
 		newInnerBuffer = InvalidBuffer;
 	}
 
 	/*
-	 * The new leaf tuples converted from the existing ones should require the
-	 * same or less space, and therefore should all fit onto one page
-	 * (although that's not necessarily the current page, since we can't
-	 * delete the old tuples but only replace them with placeholders).
-	 * However, the incoming new tuple might not also fit, in which case we
-	 * might need another picksplit cycle to reduce it some more.
+	 * 由已有元组转换而来的新叶子
+	 * 元组应需要相同或更少的空间，
+	 * 因此应能全部放进一页（虽然不一定是当前页，因为我们不能
+	 * 删除旧元组而只能用占位
+	 * 替换它们）。不过新传入的元组可能仍放不下，此时可能需要
+	 * 再来一轮 picksplit 以进一步缩小它。
 	 *
-	 * If there's not room to put everything back onto the current page, then
-	 * we decide on a per-node basis which tuples go to the new page. (We do
-	 * it like that because leaf tuple chains can't cross pages, so we must
-	 * place all leaf tuples belonging to the same parent node on the same
-	 * page.)
+	 * 若没有空间把所有东西放回当前页，则按节点决定哪些元组去
+	 * 新页。（这样做是因为叶子元组链不能跨页，因此属于同一父
+	 * 节点的所有叶子元组必须放在
+	 * 同一页。）
 	 *
-	 * If we are splitting the root page (turning it from a leaf page into an
-	 * inner page), then no leaf tuples can go back to the current page; they
-	 * must all go somewhere else.
+	 * 若正在分裂根页（把它从叶子页变成内部页）
+	 * ，则没有叶子元组
+	 * 能回到当前页；它们必须全部去
+	 * 别处。
 	 */
 	if (!SpGistBlockIsRoot(current->blkno))
 		currentFreeSpace = PageGetExactFreeSpace(current->page) + spaceToDelete;
 	else
-		currentFreeSpace = 0;	/* prevent assigning any tuples to current */
+		currentFreeSpace = 0;	/* 防止把任何元组分配给 current */
 
 	xlrec.initDest = false;
 
 	if (totalLeafSizes <= currentFreeSpace)
 	{
-		/* All the leaf tuples will fit on current page */
+		/* 所有叶子元组都能放进当前页 */
 		newLeafBuffer = InvalidBuffer;
-		/* mark new leaf tuple as included in insertions, if allowed */
+		/* 若允许，标记新叶子元组已纳入插入 */
 		if (includeNew)
 		{
 			nToInsert++;
 			insertedNew = true;
 		}
 		for (i = 0; i < nToInsert; i++)
-			leafPageSelect[i] = 0;	/* signifies current page */
+			leafPageSelect[i] = 0;	/* 表示当前页 */
 	}
 	else if (in.nTuples == 1 && totalLeafSizes > SPGIST_PAGE_CAPACITY)
 	{
 		/*
-		 * We're trying to split up a long value by repeated suffixing, but
-		 * it's not going to fit yet.  Don't bother allocating a second leaf
-		 * buffer that we won't be able to use.
+		 * 我们正试图通过反复存后缀来拆分长值，但还放不下。不必
+		 * 分配一个用不上的第二叶子
+		 * 缓冲区。
 		 */
 		newLeafBuffer = InvalidBuffer;
 		Assert(includeNew);
@@ -1043,7 +1043,7 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 	else
 	{
-		/* We will need another leaf page */
+		/* 我们将需要另一叶子页 */
 		uint8	   *nodePageSelect;
 		int			curspace;
 		int			newspace;
@@ -1055,9 +1055,9 @@ doPickSplit(Relation index, SpGistState *state,
 										&xlrec.initDest);
 
 		/*
-		 * Attempt to assign node groups to the two pages.  We might fail to
-		 * do so, even if totalLeafSizes is less than the available space,
-		 * because we can't split a group across pages.
+		 * 尝试把节点组分配到两页。即便 totalLeafSizes 小于可用
+		 * 空间，仍可能失败，因为我们不能把一组跨页
+		 * 拆分。
 		 */
 		nodePageSelect = (uint8 *) palloc(sizeof(uint8) * out.nNodes);
 
@@ -1067,18 +1067,18 @@ doPickSplit(Relation index, SpGistState *state,
 		{
 			if (leafSizes[i] <= curspace)
 			{
-				nodePageSelect[i] = 0;	/* signifies current page */
+				nodePageSelect[i] = 0;	/* 表示当前页 */
 				curspace -= leafSizes[i];
 			}
 			else
 			{
-				nodePageSelect[i] = 1;	/* signifies new leaf page */
+				nodePageSelect[i] = 1;	/* 表示新叶子页 */
 				newspace -= leafSizes[i];
 			}
 		}
 		if (curspace >= 0 && newspace >= 0)
 		{
-			/* Successful assignment, so we can include the new leaf tuple */
+			/* 分配成功，因此可以把新叶子元组包括进来 */
 			if (includeNew)
 			{
 				nToInsert++;
@@ -1087,25 +1087,25 @@ doPickSplit(Relation index, SpGistState *state,
 		}
 		else if (includeNew)
 		{
-			/* We must exclude the new leaf tuple from the split */
+			/* 必须把新叶子元组排除在分裂之外 */
 			int			nodeOfNewTuple = out.mapTuplesToNodes[in.nTuples - 1];
 
 			leafSizes[nodeOfNewTuple] -=
 				newLeafs[in.nTuples - 1]->size + sizeof(ItemIdData);
 
-			/* Repeat the node assignment process --- should succeed now */
+			/* 重复节点分配过程——现在应成功 */
 			curspace = currentFreeSpace;
 			newspace = PageGetExactFreeSpace(BufferGetPage(newLeafBuffer));
 			for (i = 0; i < out.nNodes; i++)
 			{
 				if (leafSizes[i] <= curspace)
 				{
-					nodePageSelect[i] = 0;	/* signifies current page */
+					nodePageSelect[i] = 0;	/* 表示当前页 */
 					curspace -= leafSizes[i];
 				}
 				else
 				{
-					nodePageSelect[i] = 1;	/* signifies new leaf page */
+					nodePageSelect[i] = 1;	/* 表示新叶子页 */
 					newspace -= leafSizes[i];
 				}
 			}
@@ -1114,10 +1114,10 @@ doPickSplit(Relation index, SpGistState *state,
 		}
 		else
 		{
-			/* oops, we already excluded new tuple ... should not get here */
+			/* 哎呀，我们已经排除了新元组……不应到这里 */
 			elog(ERROR, "failed to divide leaf tuple groups across pages");
 		}
-		/* Expand the per-node assignments to be shown per leaf tuple */
+		/* 把按节点的分配展开为按叶子元组显示 */
 		for (i = 0; i < nToInsert; i++)
 		{
 			n = out.mapTuplesToNodes[i];
@@ -1125,7 +1125,7 @@ doPickSplit(Relation index, SpGistState *state,
 		}
 	}
 
-	/* Start preparing WAL record */
+	/* 开始准备 WAL 记录 */
 	xlrec.nDelete = 0;
 	xlrec.initSrc = isNew;
 	xlrec.storesNulls = isNulls;
@@ -1133,20 +1133,20 @@ doPickSplit(Relation index, SpGistState *state,
 
 	leafdata = leafptr = (char *) palloc(totalLeafSizes);
 
-	/* Here we begin making the changes to the target pages */
+	/* 从此开始对目标页做更改 */
 	START_CRIT_SECTION();
 
 	/*
-	 * Delete old leaf tuples from current buffer, except when we're splitting
-	 * the root; in that case there's no need because we'll re-init the page
-	 * below.  We do this first to make room for reinserting new leaf tuples.
+	 * 从当前缓冲区删除旧叶子元组，除非正在分裂根；分裂根时
+	 * 不必，因为下面会重新初始化该页。先做这一步以为重新插入
+	 * 新叶子元组腾出空间。
 	 */
 	if (!SpGistBlockIsRoot(current->blkno))
 	{
 		/*
-		 * Init buffer instead of deleting individual tuples, but only if
-		 * there aren't any other live tuples and only during build; otherwise
-		 * we need to set a redirection tuple for concurrent scans.
+		 * 初始化缓冲区而非逐个删除元组，但仅当没有其他活元组且
+		 * 仅在构建期间；否则需要为并发扫描设置重定向
+		 * 元组。
 		 */
 		if (state->isBuild &&
 			nToDelete + SpGistPageGetOpaque(current->page)->nPlaceholder ==
@@ -1158,7 +1158,7 @@ doPickSplit(Relation index, SpGistState *state,
 		}
 		else if (isNew)
 		{
-			/* don't expose the freshly init'd buffer as a backup block */
+			/* 不要把刚初始化的缓冲区暴露为备份块 */
 			Assert(nToDelete == 0);
 		}
 		else
@@ -1168,10 +1168,10 @@ doPickSplit(Relation index, SpGistState *state,
 			if (!state->isBuild)
 			{
 				/*
-				 * Need to create redirect tuple (it will point to new inner
-				 * tuple) but right now the new tuple's location is not known
-				 * yet.  So, set the redirection pointer to "impossible" value
-				 * and remember its position to update tuple later.
+				 * 需要创建重定向元组（它将指向新内部元组），但此刻新元组
+				 * 的位置尚不清楚。因此把重定向指针设为 "不可能" 的值，并
+				 * 记住其位置以便稍后更新
+				 * 元组。
 				 */
 				if (nToDelete > 0)
 					redirectTuplePos = toDelete[0];
@@ -1185,8 +1185,8 @@ doPickSplit(Relation index, SpGistState *state,
 			else
 			{
 				/*
-				 * During index build there is not concurrent searches, so we
-				 * don't need to create redirection tuple.
+				 * 索引构建期间没有并发搜索，因此我们
+				 * 不需要创建重定向元组。
 				 */
 				spgPageIndexMultiDelete(state, current->page,
 										toDelete, nToDelete,
@@ -1199,8 +1199,8 @@ doPickSplit(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * Put leaf tuples on proper pages, and update downlinks in innerTuple's
-	 * nodes.
+	 * 把叶子元组放到适当的页上，并更新 innerTuple 各节点中的
+	 * 下行链接。
 	 */
 	startOffsets[0] = startOffsets[1] = InvalidOffsetNumber;
 	for (i = 0; i < nToInsert; i++)
@@ -1210,11 +1210,11 @@ doPickSplit(Relation index, SpGistState *state,
 		BlockNumber leafBlock;
 		OffsetNumber newoffset;
 
-		/* Which page is it going to? */
+		/* 它要去哪一页？ */
 		leafBuffer = leafPageSelect[i] ? newLeafBuffer : current->buffer;
 		leafBlock = BufferGetBlockNumber(leafBuffer);
 
-		/* Link tuple into correct chain for its node */
+		/* 把元组链接到其节点的正确链中 */
 		n = out.mapTuplesToNodes[i];
 
 		if (ItemPointerIsValid(&nodes[n]->t_tid))
@@ -1225,45 +1225,45 @@ doPickSplit(Relation index, SpGistState *state,
 		else
 			SGLT_SET_NEXTOFFSET(it, InvalidOffsetNumber);
 
-		/* Insert it on page */
+		/* 把它插入页上 */
 		newoffset = SpGistPageAddNewItem(state, BufferGetPage(leafBuffer),
 										 (Item) it, it->size,
 										 &startOffsets[leafPageSelect[i]],
 										 false);
 		toInsert[i] = newoffset;
 
-		/* ... and complete the chain linking */
+		/* ……并完成链链接 */
 		ItemPointerSet(&nodes[n]->t_tid, leafBlock, newoffset);
 
-		/* Also copy leaf tuple into WAL data */
+		/* 也将叶子元组拷贝到 WAL 数据中 */
 		memcpy(leafptr, newLeafs[i], newLeafs[i]->size);
 		leafptr += newLeafs[i]->size;
 	}
 
 	/*
-	 * We're done modifying the other leaf buffer (if any), so mark it dirty.
-	 * current->buffer will be marked below, after we're entirely done
-	 * modifying it.
+	 * 对另一叶子缓冲区（若有）的修改已完成，因此标记为脏。
+	 * current->buffer 将在下面完全修改完后再
+	 * 标记。
 	 */
 	if (newLeafBuffer != InvalidBuffer)
 	{
 		MarkBufferDirty(newLeafBuffer);
 	}
 
-	/* Remember current buffer, since we're about to change "current" */
+	/* 记住当前缓冲区，因为我们即将更改 "current" */
 	saveCurrent = *current;
 
 	/*
-	 * Store the new innerTuple
+	 * 存储新的 innerTuple
 	 */
 	if (newInnerBuffer == parent->buffer && newInnerBuffer != InvalidBuffer)
 	{
 		/*
-		 * new inner tuple goes to parent page
+		 * 新内部元组放到父页
 		 */
 		Assert(current->buffer != parent->buffer);
 
-		/* Repoint "current" at the new inner tuple */
+		/* 把 "current" 重新指向新内部元组 */
 		current->blkno = parent->blkno;
 		current->buffer = parent->buffer;
 		current->page = parent->page;
@@ -1273,7 +1273,7 @@ doPickSplit(Relation index, SpGistState *state,
 								 NULL, false);
 
 		/*
-		 * Update parent node link and mark parent page dirty
+		 * 更新父节点链接并标记父页为脏
 		 */
 		xlrec.innerIsParent = true;
 		xlrec.offnumParent = parent->offnum;
@@ -1281,23 +1281,23 @@ doPickSplit(Relation index, SpGistState *state,
 		saveNodeLink(index, parent, current->blkno, current->offnum);
 
 		/*
-		 * Update redirection link (in old current buffer)
+		 * 更新重定向链接（在旧的 current 缓冲区中）
 		 */
 		if (redirectTuplePos != InvalidOffsetNumber)
 			setRedirectionTuple(&saveCurrent, redirectTuplePos,
 								current->blkno, current->offnum);
 
-		/* Done modifying old current buffer, mark it dirty */
+		/* 对旧 current 缓冲区的修改完成，标记为脏 */
 		MarkBufferDirty(saveCurrent.buffer);
 	}
 	else if (parent->buffer != InvalidBuffer)
 	{
 		/*
-		 * new inner tuple will be stored on a new page
+		 * 新内部元组将存储在新页上
 		 */
 		Assert(newInnerBuffer != InvalidBuffer);
 
-		/* Repoint "current" at the new inner tuple */
+		/* 把 "current" 重新指向新内部元组 */
 		current->buffer = newInnerBuffer;
 		current->blkno = BufferGetBlockNumber(current->buffer);
 		current->page = BufferGetPage(current->buffer);
@@ -1306,11 +1306,11 @@ doPickSplit(Relation index, SpGistState *state,
 								 (Item) innerTuple, innerTuple->size,
 								 NULL, false);
 
-		/* Done modifying new current buffer, mark it dirty */
+		/* 对新 current 缓冲区的修改完成，标记为脏 */
 		MarkBufferDirty(current->buffer);
 
 		/*
-		 * Update parent node link and mark parent page dirty
+		 * 更新父节点链接并标记父页为脏
 		 */
 		xlrec.innerIsParent = (parent->buffer == current->buffer);
 		xlrec.offnumParent = parent->offnum;
@@ -1318,20 +1318,20 @@ doPickSplit(Relation index, SpGistState *state,
 		saveNodeLink(index, parent, current->blkno, current->offnum);
 
 		/*
-		 * Update redirection link (in old current buffer)
+		 * 更新重定向链接（在旧的 current 缓冲区中）
 		 */
 		if (redirectTuplePos != InvalidOffsetNumber)
 			setRedirectionTuple(&saveCurrent, redirectTuplePos,
 								current->blkno, current->offnum);
 
-		/* Done modifying old current buffer, mark it dirty */
+		/* 对旧 current 缓冲区的修改完成，标记为脏 */
 		MarkBufferDirty(saveCurrent.buffer);
 	}
 	else
 	{
 		/*
-		 * Splitting root page, which was a leaf but now becomes inner page
-		 * (and so "current" continues to point at it)
+		 * 分裂根页，它原先是叶子，现在变成内部页
+		 * （因此 "current" 继续指向它）
 		 */
 		Assert(SpGistBlockIsRoot(current->blkno));
 		Assert(redirectTuplePos == InvalidOffsetNumber);
@@ -1347,14 +1347,14 @@ doPickSplit(Relation index, SpGistState *state,
 			elog(ERROR, "failed to add item of size %u to SPGiST index page",
 				 innerTuple->size);
 
-		/* No parent link to update, nor redirection to do */
+		/* 没有父链接要更新，也没有重定向要做 */
 		xlrec.offnumParent = InvalidOffsetNumber;
 		xlrec.nodeI = 0;
 
-		/* Done modifying new current buffer, mark it dirty */
+		/* 对新 current 缓冲区的修改完成，标记为脏 */
 		MarkBufferDirty(current->buffer);
 
-		/* saveCurrent doesn't represent a different buffer */
+		/* saveCurrent 并不代表不同的缓冲区 */
 		saveCurrent.buffer = InvalidBuffer;
 	}
 
@@ -1377,7 +1377,7 @@ doPickSplit(Relation index, SpGistState *state,
 		XLogRegisterData((char *) innerTuple, innerTuple->size);
 		XLogRegisterData(leafdata, leafptr - leafdata);
 
-		/* Old leaf page */
+		/* 旧叶子页 */
 		if (BufferIsValid(saveCurrent.buffer))
 		{
 			flags = REGBUF_STANDARD;
@@ -1386,7 +1386,7 @@ doPickSplit(Relation index, SpGistState *state,
 			XLogRegisterBuffer(0, saveCurrent.buffer, flags);
 		}
 
-		/* New leaf page */
+		/* 新叶子页 */
 		if (BufferIsValid(newLeafBuffer))
 		{
 			flags = REGBUF_STANDARD;
@@ -1395,13 +1395,13 @@ doPickSplit(Relation index, SpGistState *state,
 			XLogRegisterBuffer(1, newLeafBuffer, flags);
 		}
 
-		/* Inner page */
+		/* 内部页 */
 		flags = REGBUF_STANDARD;
 		if (xlrec.initInner)
 			flags |= REGBUF_WILL_INIT;
 		XLogRegisterBuffer(2, current->buffer, flags);
 
-		/* Parent page, if different from inner page */
+		/* 父页，若与内部页不同 */
 		if (parent->buffer != InvalidBuffer)
 		{
 			if (parent->buffer != current->buffer)
@@ -1410,10 +1410,10 @@ doPickSplit(Relation index, SpGistState *state,
 				Assert(xlrec.innerIsParent);
 		}
 
-		/* Issue the WAL record */
+		/* 发出 WAL 记录 */
 		recptr = XLogInsert(RM_SPGIST_ID, XLOG_SPGIST_PICKSPLIT);
 
-		/* Update page LSNs on all affected pages */
+		/* 更新所有受影响页上的 LSNs */
 		if (newLeafBuffer != InvalidBuffer)
 		{
 			Page		page = BufferGetPage(newLeafBuffer);
@@ -1438,7 +1438,7 @@ doPickSplit(Relation index, SpGistState *state,
 
 	END_CRIT_SECTION();
 
-	/* Update local free-space cache and unlock buffers */
+	/* 更新本地空闲空间缓存并解锁缓冲区 */
 	if (newLeafBuffer != InvalidBuffer)
 	{
 		SpGistSetLastUsedPage(index, newLeafBuffer);
@@ -1454,7 +1454,7 @@ doPickSplit(Relation index, SpGistState *state,
 }
 
 /*
- * spgMatchNode action: descend to N'th child node of current inner tuple
+ * spgMatchNode 动作：下降到当前内部元组的第 N 个子节点
  */
 static void
 spgMatchNodeAction(Relation index, SpGistState *state,
@@ -1464,7 +1464,7 @@ spgMatchNodeAction(Relation index, SpGistState *state,
 	int			i;
 	SpGistNodeTuple node;
 
-	/* Release previous parent buffer if any */
+	/* 若有则释放先前的父缓冲区 */
 	if (parent->buffer != InvalidBuffer &&
 		parent->buffer != current->buffer)
 	{
@@ -1472,14 +1472,14 @@ spgMatchNodeAction(Relation index, SpGistState *state,
 		UnlockReleaseBuffer(parent->buffer);
 	}
 
-	/* Repoint parent to specified node of current inner tuple */
+	/* 把父重新指向当前内部元组的指定节点 */
 	parent->blkno = current->blkno;
 	parent->buffer = current->buffer;
 	parent->page = current->page;
 	parent->offnum = current->offnum;
 	parent->node = nodeN;
 
-	/* Locate that node */
+	/* 定位该节点 */
 	SGITITERATE(innerTuple, i, node)
 	{
 		if (i == nodeN)
@@ -1490,7 +1490,7 @@ spgMatchNodeAction(Relation index, SpGistState *state,
 		elog(ERROR, "failed to find requested node %d in SPGiST inner tuple",
 			 nodeN);
 
-	/* Point current to the downlink location, if any */
+	/* 若有，把 current 指向下行链接位置 */
 	if (ItemPointerIsValid(&node->t_tid))
 	{
 		current->blkno = ItemPointerGetBlockNumber(&node->t_tid);
@@ -1498,7 +1498,7 @@ spgMatchNodeAction(Relation index, SpGistState *state,
 	}
 	else
 	{
-		/* Downlink is empty, so we'll need to find a new page */
+		/* 下行链接为空，因此需要找新页 */
 		current->blkno = InvalidBlockNumber;
 		current->offnum = InvalidOffsetNumber;
 	}
@@ -1508,7 +1508,7 @@ spgMatchNodeAction(Relation index, SpGistState *state,
 }
 
 /*
- * spgAddNode action: add a node to the inner tuple at current
+ * spgAddNode 动作：向 current 处的内部元组添加一个节点
  */
 static void
 spgAddNodeAction(Relation index, SpGistState *state,
@@ -1519,22 +1519,22 @@ spgAddNodeAction(Relation index, SpGistState *state,
 	SpGistInnerTuple newInnerTuple;
 	spgxlogAddNode xlrec;
 
-	/* Should not be applied to nulls */
+	/* 不应应用于空值 */
 	Assert(!SpGistPageStoresNulls(current->page));
 
-	/* Construct new inner tuple with additional node */
+	/* 构造带额外节点的新内部元组 */
 	newInnerTuple = addNode(state, innerTuple, nodeLabel, nodeN);
 
-	/* Prepare WAL record */
+	/* 准备 WAL 记录 */
 	STORE_STATE(state, xlrec.stateSrc);
 	xlrec.offnum = current->offnum;
 
-	/* we don't fill these unless we need to change the parent downlink */
+	/* 除非需要更改父下行链接，否则不填充这些 */
 	xlrec.parentBlk = -1;
 	xlrec.offnumParent = InvalidOffsetNumber;
 	xlrec.nodeI = 0;
 
-	/* we don't fill these unless tuple has to be moved */
+	/* 除非元组必须移动，否则不填充这些 */
 	xlrec.offnumNew = InvalidOffsetNumber;
 	xlrec.newPage = false;
 
@@ -1542,7 +1542,7 @@ spgAddNodeAction(Relation index, SpGistState *state,
 		newInnerTuple->size - innerTuple->size)
 	{
 		/*
-		 * We can replace the inner tuple by new version in-place
+		 * 可以用新版本原地替换内部元组
 		 */
 		START_CRIT_SECTION();
 
@@ -1575,15 +1575,15 @@ spgAddNodeAction(Relation index, SpGistState *state,
 	else
 	{
 		/*
-		 * move inner tuple to another page, and update parent
+		 * 把内部元组移到另一页，并更新父
 		 */
 		SpGistDeadTuple dt;
 		SPPageDesc	saveCurrent;
 
 		/*
-		 * It should not be possible to get here for the root page, since we
-		 * allow only one inner tuple on the root page, and spgFormInnerTuple
-		 * always checks that inner tuples don't exceed the size of a page.
+		 * 对根页不应到达这里，因为我们只允许根页上有一个内部
+		 * 元组，且 spgFormInnerTuple 总是检查内部元组不超过一页
+		 * 的大小。
 		 */
 		if (SpGistBlockIsRoot(current->blkno))
 			elog(ERROR, "cannot enlarge root tuple any more");
@@ -1595,8 +1595,8 @@ spgAddNodeAction(Relation index, SpGistState *state,
 		xlrec.nodeI = parent->node;
 
 		/*
-		 * obtain new buffer with the same parity as current, since it will be
-		 * a child of same parent tuple
+		 * 获取与 current 具有相同奇偶性的新缓冲区，因为它将是
+		 * 同一父元组的子
 		 */
 		current->buffer = SpGistGetBuffer(index,
 										  GBUF_INNER_PARITY(current->blkno),
@@ -1606,19 +1606,19 @@ spgAddNodeAction(Relation index, SpGistState *state,
 		current->page = BufferGetPage(current->buffer);
 
 		/*
-		 * Let's just make real sure new current isn't same as old.  Right now
-		 * that's impossible, but if SpGistGetBuffer ever got smart enough to
-		 * delete placeholder tuples before checking space, maybe it wouldn't
-		 * be impossible.  The case would appear to work except that WAL
-		 * replay would be subtly wrong, so I think a mere assert isn't enough
-		 * here.
+		 * 再确认一下新 current 与旧的不同。目前这不可能，但若
+		 * SpGistGetBuffer 将来聪明到在检查空间前先删除占位
+		 * 元组，也许就不不可能了。该情形表面能工作，但
+		 * WAL 重放会有细微错误，因此我认为此处仅靠
+		 * 断言
+		 * 不够。
 		 */
 		if (current->blkno == saveCurrent.blkno)
 			elog(ERROR, "SPGiST new buffer shouldn't be same as old buffer");
 
 		/*
-		 * New current and parent buffer will both be modified; but note that
-		 * parent buffer could be same as either new or old current.
+		 * 新的 current 与父缓冲区都将被修改；但注意父缓冲区可能
+		 * 与新旧 current 中的任一个相同。
 		 */
 		if (parent->buffer == saveCurrent.buffer)
 			xlrec.parentBlk = 0;
@@ -1629,7 +1629,7 @@ spgAddNodeAction(Relation index, SpGistState *state,
 
 		START_CRIT_SECTION();
 
-		/* insert new ... */
+		/* 插入新的…… */
 		xlrec.offnumNew = current->offnum =
 			SpGistPageAddNewItem(state, current->page,
 								 (Item) newInnerTuple, newInnerTuple->size,
@@ -1637,15 +1637,15 @@ spgAddNodeAction(Relation index, SpGistState *state,
 
 		MarkBufferDirty(current->buffer);
 
-		/* update parent's downlink and mark parent page dirty */
+		/* 更新父的下行链接并标记父页为脏 */
 		saveNodeLink(index, parent, current->blkno, current->offnum);
 
 		/*
-		 * Replace old tuple with a placeholder or redirection tuple.  Unless
-		 * doing an index build, we have to insert a redirection tuple for
-		 * possible concurrent scans.  We can't just delete it in any case,
-		 * because that could change the offsets of other tuples on the page,
-		 * breaking downlinks from their parents.
+		 * 用占位或重定向元组替换旧元组。除非正在做索引构建，否则
+		 * 必须插入重定向元组以应对可能的并发扫描。无论如何都不能
+		 * 只是删除它，因为那可能改变页上其他元组的偏移，从而破坏
+		 * 来自其父的下行
+		 * 链接。
 		 */
 		if (state->isBuild)
 			dt = spgFormDeadTuple(state, SPGIST_PLACEHOLDER,
@@ -1675,14 +1675,14 @@ spgAddNodeAction(Relation index, SpGistState *state,
 
 			XLogBeginInsert();
 
-			/* orig page */
+			/* 原页 */
 			XLogRegisterBuffer(0, saveCurrent.buffer, REGBUF_STANDARD);
-			/* new page */
+			/* 新页 */
 			flags = REGBUF_STANDARD;
 			if (xlrec.newPage)
 				flags |= REGBUF_WILL_INIT;
 			XLogRegisterBuffer(1, current->buffer, flags);
-			/* parent page (if different from orig and new) */
+			/* 父页（若与原页和新页都不同） */
 			if (xlrec.parentBlk == 2)
 				XLogRegisterBuffer(2, parent->buffer, REGBUF_STANDARD);
 
@@ -1691,7 +1691,7 @@ spgAddNodeAction(Relation index, SpGistState *state,
 
 			recptr = XLogInsert(RM_SPGIST_ID, XLOG_SPGIST_ADD_NODE);
 
-			/* we don't bother to check if any of these are redundant */
+			/* 我们不费心检查其中是否有冗余 */
 			PageSetLSN(current->page, recptr);
 			PageSetLSN(parent->page, recptr);
 			PageSetLSN(saveCurrent.page, recptr);
@@ -1699,7 +1699,7 @@ spgAddNodeAction(Relation index, SpGistState *state,
 
 		END_CRIT_SECTION();
 
-		/* Release saveCurrent if it's not same as current or parent */
+		/* 若 saveCurrent 与 current 或 parent 不同则释放它 */
 		if (saveCurrent.buffer != current->buffer &&
 			saveCurrent.buffer != parent->buffer)
 		{
@@ -1710,7 +1710,7 @@ spgAddNodeAction(Relation index, SpGistState *state,
 }
 
 /*
- * spgSplitNode action: split inner tuple at current into prefix and postfix
+ * spgSplitNode 动作：把 current 处的内部元组分裂为前缀与后缀
  */
 static void
 spgSplitNodeAction(Relation index, SpGistState *state,
@@ -1727,10 +1727,10 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 	spgxlogSplitTuple xlrec;
 	Buffer		newBuffer = InvalidBuffer;
 
-	/* Should not be applied to nulls */
+	/* 不应应用于空值 */
 	Assert(!SpGistPageStoresNulls(current->page));
 
-	/* Check opclass gave us sane values */
+	/* 检查操作类给了我们合理的值 */
 	if (out->result.splitTuple.prefixNNodes <= 0 ||
 		out->result.splitTuple.prefixNNodes > SGITMAXNNODES)
 		elog(ERROR, "invalid number of prefix nodes: %d",
@@ -1742,8 +1742,8 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 			 out->result.splitTuple.childNodeN);
 
 	/*
-	 * Construct new prefix tuple with requested number of nodes.  We'll fill
-	 * in the childNodeN'th node's downlink below.
+	 * 按请求的节点数构造新的前缀元组。我们将在下面填入
+	 * 第 childNodeN 个节点的下行链接。
 	 */
 	nodes = (SpGistNodeTuple *) palloc(sizeof(SpGistNodeTuple) *
 									   out->result.splitTuple.prefixNNodes);
@@ -1765,14 +1765,14 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 									out->result.splitTuple.prefixNNodes,
 									nodes);
 
-	/* it must fit in the space that innerTuple now occupies */
+	/* 它必须能放进 innerTuple 现在占用的空间 */
 	if (prefixTuple->size > innerTuple->size)
 		elog(ERROR, "SPGiST inner-tuple split must not produce longer prefix");
 
 	/*
-	 * Construct new postfix tuple, containing all nodes of innerTuple with
-	 * same node datums, but with the prefix specified by the picksplit
-	 * function.
+	 * 构造新的后缀元组，包含 innerTuple 的全部节点及相同的
+	 * 节点 datum，但前缀由 picksplit
+	 * 函数指定。
 	 */
 	nodes = palloc(sizeof(SpGistNodeTuple) * innerTuple->nNodes);
 	SGITITERATE(innerTuple, i, node)
@@ -1785,26 +1785,26 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 									 out->result.splitTuple.postfixPrefixDatum,
 									 innerTuple->nNodes, nodes);
 
-	/* Postfix tuple is allTheSame if original tuple was */
+	/* 若原元组是 allTheSame，则后缀元组也是 */
 	postfixTuple->allTheSame = innerTuple->allTheSame;
 
-	/* prep data for WAL record */
+	/* 为 WAL 记录准备数据 */
 	xlrec.newPage = false;
 
 	/*
-	 * If we can't fit both tuples on the current page, get a new page for the
-	 * postfix tuple.  In particular, can't split to the root page.
+	 * 若不能把两个元组都放在当前页上，则为后缀元组获取新页。
+	 * 特别是，不能分裂到根页。
 	 *
-	 * For the space calculation, note that prefixTuple replaces innerTuple
-	 * but postfixTuple will be a new entry.
+	 * 空间计算时注意：prefixTuple 替换 innerTuple，但
+	 * postfixTuple 将是新条目。
 	 */
 	if (SpGistBlockIsRoot(current->blkno) ||
 		SpGistPageGetFreeSpace(current->page, 1) + innerTuple->size <
 		prefixTuple->size + postfixTuple->size + sizeof(ItemIdData))
 	{
 		/*
-		 * Choose page with next triple parity, because postfix tuple is a
-		 * child of prefix one
+		 * 选择下一三倍奇偶的页，因为后缀元组是
+		 * 前缀元组的子
 		 */
 		newBuffer = SpGistGetBuffer(index,
 									GBUF_INNER_PARITY(current->blkno + 1),
@@ -1815,7 +1815,7 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 	START_CRIT_SECTION();
 
 	/*
-	 * Replace old tuple by prefix tuple
+	 * 用前缀元组替换旧元组
 	 */
 	PageIndexTupleDelete(current->page, current->offnum);
 	xlrec.offnumPrefix = PageAddItem(current->page,
@@ -1826,7 +1826,7 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 			 prefixTuple->size);
 
 	/*
-	 * put postfix tuple into appropriate page
+	 * 把后缀元组放到适当的页上
 	 */
 	if (newBuffer == InvalidBuffer)
 	{
@@ -1849,11 +1849,11 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * And set downlink pointer in the prefix tuple to point to postfix tuple.
-	 * (We can't avoid this step by doing the above two steps in opposite
-	 * order, because there might not be enough space on the page to insert
-	 * the postfix tuple first.)  We have to update the local copy of the
-	 * prefixTuple too, because that's what will be written to WAL.
+	 * 并把前缀元组中的下行链接指针设为指向后缀元组。
+	 * （不能通过颠倒上述两步来避免此步骤，因为页上可能没有
+	 * 足够空间先插入后缀元组。）我们也必须更新
+	 * prefixTuple 的本地副本，因为写入 WAL 的是
+	 * 它。
 	 */
 	spgUpdateNodeLink(prefixTuple, out->result.splitTuple.childNodeN,
 					  postfixBlkno, postfixOffset);
@@ -1896,7 +1896,7 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 
 	END_CRIT_SECTION();
 
-	/* Update local free-space cache and release buffer */
+	/* 更新本地空闲空间缓存并释放缓冲区 */
 	if (newBuffer != InvalidBuffer)
 	{
 		SpGistSetLastUsedPage(index, newBuffer);
@@ -1905,11 +1905,11 @@ spgSplitNodeAction(Relation index, SpGistState *state,
 }
 
 /*
- * Insert one item into the index.
+ * 向索引插入一项。
  *
- * Returns true on success, false if we failed to complete the insertion
- * (typically because of conflict with a concurrent insert).  In the latter
- * case, caller should re-call spgdoinsert() with the same args.
+ * 成功返回 true；若未能完成插入（通常因与并发插入冲突）
+ * 返回 false。后一情形下，调用方应以相同参数重新调用
+ * spgdoinsert()。
  */
 bool
 spgdoinsert(Relation index, SpGistState *state,
@@ -1928,21 +1928,21 @@ spgdoinsert(Relation index, SpGistState *state,
 	FmgrInfo   *procinfo = NULL;
 
 	/*
-	 * Look up FmgrInfo of the user-defined choose function once, to save
-	 * cycles in the loop below.
+	 * 查找用户定义 choose 函数的 FmgrInfo 一次，以节省下面
+	 * 循环中的开销。
 	 */
 	if (!isnull)
 		procinfo = index_getprocinfo(index, 1, SPGIST_CHOOSE_PROC);
 
 	/*
-	 * Prepare the leaf datum to insert.
+	 * 准备要插入的叶子 datum。
 	 *
-	 * If an optional "compress" method is provided, then call it to form the
-	 * leaf key datum from the input datum.  Otherwise, store the input datum
-	 * as is.  Since we don't use index_form_tuple in this AM, we have to make
-	 * sure value to be inserted is not toasted; FormIndexDatum doesn't
-	 * guarantee that.  But we assume the "compress" method to return an
-	 * untoasted value.
+	 * 若提供了可选的 "compress" 方法，则调用它由输入 datum
+	 * 形成叶子键 datum。否则按原样存储输入 datum。由于本访问
+	 * 方法不使用 index_form_tuple，必须确保待插入值未被 TOAST；
+	 * FormIndexDatum 不保证这一点。但我们假定 "compress" 方法
+	 * 返回未 TOAST 的
+	 * 值。
 	 */
 	if (!isnull)
 	{
@@ -1970,7 +1970,7 @@ spgdoinsert(Relation index, SpGistState *state,
 	else
 		leafDatums[spgKeyColumn] = (Datum) 0;
 
-	/* Likewise, ensure that any INCLUDE values are not toasted */
+	/* 同样，确保任何 INCLUDE 值都未被 TOAST */
 	for (int i = spgFirstIncludeColumn; i < leafDescriptor->natts; i++)
 	{
 		if (!isnulls[i])
@@ -1985,15 +1985,15 @@ spgdoinsert(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * Compute space needed for a leaf tuple containing the given data.
+	 * 计算包含给定数据的叶子元组所需空间。
 	 */
 	leafSize = SpGistGetLeafTupleSize(leafDescriptor, leafDatums, isnulls);
-	/* Account for an item pointer, too */
+	/* 也计入一个项指针 */
 	leafSize += sizeof(ItemIdData);
 
 	/*
-	 * If it isn't gonna fit, and the opclass can't reduce the datum size by
-	 * suffixing, bail out now rather than doing a lot of useless work.
+	 * 若放不下，且操作类不能通过存后缀缩小 datum，则现在就
+	 * 退出，而不是做大量无用功。
 	 */
 	if (leafSize > SPGIST_PAGE_CAPACITY &&
 		(isnull || !state->config.longValuesOK))
@@ -2006,14 +2006,14 @@ spgdoinsert(Relation index, SpGistState *state,
 				 errhint("Values larger than a buffer page cannot be indexed.")));
 	bestLeafSize = leafSize;
 
-	/* Initialize "current" to the appropriate root page */
+	/* 把 "current" 初始化为适当的根页 */
 	current.blkno = isnull ? SPGIST_NULL_BLKNO : SPGIST_ROOT_BLKNO;
 	current.buffer = InvalidBuffer;
 	current.page = NULL;
 	current.offnum = FirstOffsetNumber;
 	current.node = -1;
 
-	/* "parent" is invalid for the moment */
+	/* 此刻 "parent" 无效 */
 	parent.blkno = InvalidBlockNumber;
 	parent.buffer = InvalidBuffer;
 	parent.page = NULL;
@@ -2021,10 +2021,10 @@ spgdoinsert(Relation index, SpGistState *state,
 	parent.node = -1;
 
 	/*
-	 * Before entering the loop, try to clear any pending interrupt condition.
-	 * If a query cancel is pending, we might as well accept it now not later;
-	 * while if a non-canceling condition is pending, servicing it here avoids
-	 * having to restart the insertion and redo all the work so far.
+	 * 进入循环前，尝试清除任何挂起的中断条件。若有查询取消
+	 * 挂起，不妨现在而非稍后接受；而若挂起的是非取消条件，
+	 * 在此处理可避免不得不重启插入并重做迄今全部
+	 * 工作。
 	 */
 	CHECK_FOR_INTERRUPTS();
 
@@ -2033,14 +2033,14 @@ spgdoinsert(Relation index, SpGistState *state,
 		bool		isNew = false;
 
 		/*
-		 * Bail out if query cancel is pending.  We must have this somewhere
-		 * in the loop since a broken opclass could produce an infinite
-		 * picksplit loop.  However, because we'll be holding buffer lock(s)
-		 * after the first iteration, ProcessInterrupts() wouldn't be able to
-		 * throw a cancel error here.  Hence, if we see that an interrupt is
-		 * pending, break out of the loop and deal with the situation below.
-		 * Set result = false because we must restart the insertion if the
-		 * interrupt isn't a query-cancel-or-die case.
+		 * 若有查询取消挂起则退出。循环中某处必须有此检查，因为
+		 * 有缺陷的操作类可能产生无限 picksplit
+		 * 循环。不过，第一轮之后我们将持有缓冲区 lock(s)，
+		 * ProcessInterrupts() 在此无法抛出取消错误。因此若看到
+		 * 有中断挂起，就跳出循环并在下面处理。设
+		 * result = false，因为若中断不是查询取消或死亡
+		 * 情形，我们必须重启
+		 * 插入。
 		 */
 		if (INTERRUPTS_PENDING_CONDITION())
 		{
@@ -2051,10 +2051,10 @@ spgdoinsert(Relation index, SpGistState *state,
 		if (current.blkno == InvalidBlockNumber)
 		{
 			/*
-			 * Create a leaf page.  If leafSize is too large to fit on a page,
-			 * we won't actually use the page yet, but it simplifies the API
-			 * for doPickSplit to always have a leaf page at hand; so just
-			 * quietly limit our request to a page size.
+			 * 创建叶子页。若 leafSize 太大放不进一页，我们暂时还不会
+			 * 真正使用该页，但让 doPickSplit 的 API 总是手头有叶子页
+			 * 会更简单；因此悄悄地把请求限制为一页
+			 * 大小。
 			 */
 			current.buffer =
 				SpGistGetBuffer(index,
@@ -2065,25 +2065,25 @@ spgdoinsert(Relation index, SpGistState *state,
 		}
 		else if (parent.buffer == InvalidBuffer)
 		{
-			/* we hold no parent-page lock, so no deadlock is possible */
+			/* 我们未持有父页 lock，因此不可能死锁 */
 			current.buffer = ReadBuffer(index, current.blkno);
 			LockBuffer(current.buffer, BUFFER_LOCK_EXCLUSIVE);
 		}
 		else if (current.blkno != parent.blkno)
 		{
-			/* descend to a new child page */
+			/* 下降到新的子页 */
 			current.buffer = ReadBuffer(index, current.blkno);
 
 			/*
-			 * Attempt to acquire lock on child page.  We must beware of
-			 * deadlock against another insertion process descending from that
-			 * page to our parent page (see README).  If we fail to get lock,
-			 * abandon the insertion and tell our caller to start over.
+			 * 尝试获取子页上的锁。必须警惕与另一从该页下降到我们父页
+			 * 的插入过程发生死锁（见 README）。若未能获得锁，放弃插入
+			 * 并告诉调用方重新
+			 * 开始。
 			 *
-			 * XXX this could be improved, because failing to get lock on a
-			 * buffer is not proof of a deadlock situation; the lock might be
-			 * held by a reader, or even just background writer/checkpointer
-			 * process.  Perhaps it'd be worth retrying after sleeping a bit?
+			 * XXX 这一点可以改进，因为未能获得缓冲区锁并不能证明存在
+			 * 死锁；锁可能由读进程持有，甚至只是 bgwriter/checkpointer
+			 * 进程。也许值得睡眠片刻后
+			 * 重试？
 			 */
 			if (!ConditionalLockBuffer(current.buffer))
 			{
@@ -2094,12 +2094,12 @@ spgdoinsert(Relation index, SpGistState *state,
 		}
 		else
 		{
-			/* inner tuple can be stored on the same page as parent one */
+			/* 内部元组可以存在与父相同的页上 */
 			current.buffer = parent.buffer;
 		}
 		current.page = BufferGetPage(current.buffer);
 
-		/* should not arrive at a page of the wrong type */
+		/* 不应到达错误类型的页 */
 		if (isnull ? !SpGistPageStoresNulls(current.page) :
 			SpGistPageStoresNulls(current.page))
 			elog(ERROR, "SPGiST index page %u has wrong nulls flag",
@@ -2115,7 +2115,7 @@ spgdoinsert(Relation index, SpGistState *state,
 			if (leafTuple->size + sizeof(ItemIdData) <=
 				SpGistPageGetFreeSpace(current.page, 1))
 			{
-				/* it fits on page, so insert it and we're done */
+				/* 它能放进页上，因此插入它然后完成 */
 				addLeafTuple(index, state, leafTuple,
 							 &current, &parent, isnull, isNew);
 				break;
@@ -2127,45 +2127,45 @@ spgdoinsert(Relation index, SpGistState *state,
 					 leafTuple->size + sizeof(ItemIdData) + sizeToSplit <= SPGIST_PAGE_CAPACITY)
 			{
 				/*
-				 * the amount of data is pretty small, so just move the whole
-				 * chain to another leaf page rather than splitting it.
+				 * 数据量相当小，因此把整条链移到另一叶子页，而不是
+				 * 分裂它。
 				 */
 				Assert(!isNew);
 				moveLeafs(index, state, &current, &parent, leafTuple, isnull);
-				break;			/* we're done */
+				break;			/* 我们完成了 */
 			}
 			else
 			{
 				/* picksplit */
 				if (doPickSplit(index, state, &current, &parent,
 								leafTuple, level, isnull, isNew))
-					break;		/* doPickSplit installed new tuples */
+					break;		/* doPickSplit 已安装新元组 */
 
-				/* leaf tuple will not be inserted yet */
+				/* 叶子元组尚未插入 */
 				pfree(leafTuple);
 
 				/*
-				 * current now describes new inner tuple, go insert into it
+				 * current 现在描述新内部元组，去向它插入
 				 */
 				Assert(!SpGistPageIsLeaf(current.page));
 				goto process_inner_tuple;
 			}
 		}
-		else					/* non-leaf page */
+		else					/* 非叶子页 */
 		{
 			/*
-			 * Apply the opclass choose function to figure out how to insert
-			 * the given datum into the current inner tuple.
+			 * 应用操作类的 choose 函数，以弄清如何把给定 datum 插入
+			 * 当前内部元组。
 			 */
 			SpGistInnerTuple innerTuple;
 			spgChooseIn in;
 			spgChooseOut out;
 
 			/*
-			 * spgAddNode and spgSplitTuple cases will loop back to here to
-			 * complete the insertion operation.  Just in case the choose
-			 * function is broken and produces add or split requests
-			 * repeatedly, check for query cancel (see comments above).
+			 * spgAddNode 与 spgSplitTuple 情形会循环回到这里以完成
+			 * 插入操作。以防 choose 函数有缺陷并反复产生添加或分裂
+			 * 请求，检查查询取消（见上面的
+			 * 注释）。
 			 */
 	process_inner_tuple:
 			if (INTERRUPTS_PENDING_CONDITION())
@@ -2190,7 +2190,7 @@ spgdoinsert(Relation index, SpGistState *state,
 
 			if (!isnull)
 			{
-				/* use user-defined choose method */
+				/* 使用用户定义的 choose 方法 */
 				FunctionCall2Coll(procinfo,
 								  index->rd_indcollation[0],
 								  PointerGetDatum(&in),
@@ -2198,16 +2198,16 @@ spgdoinsert(Relation index, SpGistState *state,
 			}
 			else
 			{
-				/* force "match" action (to insert to random subnode) */
+				/* 强制 "match" 动作（插入到随机子节点） */
 				out.resultType = spgMatchNode;
 			}
 
 			if (innerTuple->allTheSame)
 			{
 				/*
-				 * It's not allowed to do an AddNode at an allTheSame tuple.
-				 * Opclass must say "match", in which case we choose a random
-				 * one of the nodes to descend into, or "split".
+				 * 不允许对 allTheSame 元组做 AddNode。操作类必须说
+				 * "match"（此时我们选择一个随机节点下降）或
+				 * "split"。
 				 */
 				if (out.resultType == spgAddNode)
 					elog(ERROR, "cannot add a node to an allTheSame inner tuple");
@@ -2220,13 +2220,13 @@ spgdoinsert(Relation index, SpGistState *state,
 			switch (out.resultType)
 			{
 				case spgMatchNode:
-					/* Descend to N'th child node */
+					/* 下降到第 N 个子节点 */
 					spgMatchNodeAction(index, state, innerTuple,
 									   &current, &parent,
 									   out.result.matchNode.nodeN);
-					/* Adjust level as per opclass request */
+					/* 按操作类请求调整 level */
 					level += out.result.matchNode.levelAdd;
-					/* Replace leafDatum and recompute leafSize */
+					/* 替换 leafDatum 并重新计算 leafSize */
 					if (!isnull)
 					{
 						leafDatums[spgKeyColumn] = out.result.matchNode.restDatum;
@@ -2236,27 +2236,27 @@ spgdoinsert(Relation index, SpGistState *state,
 					}
 
 					/*
-					 * Check new tuple size; fail if it can't fit, unless the
-					 * opclass says it can handle the situation by suffixing.
+					 * 检查新元组大小；若放不下则失败，除非
+					 * 操作类说它能通过存后缀处理该
+					 * 情形。
 					 *
-					 * However, the opclass can only shorten the leaf datum,
-					 * which may not be enough to ever make the tuple fit,
-					 * since INCLUDE columns might alone use more than a page.
-					 * Depending on the opclass' behavior, that could lead to
-					 * an infinite loop --- spgtextproc.c, for example, will
-					 * just repeatedly generate an empty-string leaf datum
-					 * once it runs out of data.  Actual bugs in opclasses
-					 * might cause infinite looping, too.  To detect such a
-					 * loop, check to see if we are making progress by
-					 * reducing the leafSize in each pass.  This is a bit
-					 * tricky though.  Because of alignment considerations,
-					 * the total tuple size might not decrease on every pass.
-					 * Also, there are edge cases where the choose method
-					 * might seem to not make progress for a cycle or two.
-					 * Somewhat arbitrarily, we allow up to 10 no-progress
-					 * iterations before failing.  (This limit should be more
-					 * than MAXALIGN, to accommodate opclasses that trim one
-					 * byte from the leaf datum per pass.)
+					 * 不过，操作类只能缩短叶子 datum，这可能
+					 * 仍不足以使元组放得下，因为仅 INCLUDE
+					 * 列就可能超过一页。取决于操作类的行为，
+					 * 那可能导致无限循环——例如
+					 * spgtextproc.c
+					 * 在数据用尽后会反复生成
+					 * 空串叶子 datum。操作类中的实际缺陷也
+					 * 可能造成无限循环。为检测这种循环，检查
+					 * 我们是否通过每轮减小 leafSize 取得
+					 * 进展。不过这有点棘手。由于对齐方面的
+					 * 考虑，总元组大小可能并非每轮都减小。
+					 * 也有边缘情形使 choose 方法看起来一两
+					 * 轮没有进展。我们略带任意地允许最多 10
+					 * 次无进展迭代后失败。（此限制应大于
+					 * MAXALIGN，以容纳每轮从叶子 datum
+					 * 修剪一个字节的
+					 * 操作类。）
 					 */
 					if (leafSize > SPGIST_PAGE_CAPACITY)
 					{
@@ -2284,34 +2284,34 @@ spgdoinsert(Relation index, SpGistState *state,
 					}
 
 					/*
-					 * Loop around and attempt to insert the new leafDatum at
-					 * "current" (which might reference an existing child
-					 * tuple, or might be invalid to force us to find a new
-					 * page for the tuple).
+					 * 循环并尝试在 "current" 插入新的 leafDatum（它可能引用
+					 * 已有子元组，也可能无效以迫使我们为元组找
+					 * 新
+					 * 页）。
 					 */
 					break;
 				case spgAddNode:
-					/* AddNode is not sensible if nodes don't have labels */
+					/* 若节点没有标签，AddNode 没有意义 */
 					if (in.nodeLabels == NULL)
 						elog(ERROR, "cannot add a node to an inner tuple without node labels");
-					/* Add node to inner tuple, per request */
+					/* 按请求向内部元组添加节点 */
 					spgAddNodeAction(index, state, innerTuple,
 									 &current, &parent,
 									 out.result.addNode.nodeN,
 									 out.result.addNode.nodeLabel);
 
 					/*
-					 * Retry insertion into the enlarged node.  We assume that
-					 * we'll get a MatchNode result this time.
+					 * 重试插入到扩大后的节点。我们假定这次会得到
+					 * MatchNode 结果。
 					 */
 					goto process_inner_tuple;
 					break;
 				case spgSplitTuple:
-					/* Split inner tuple, per request */
+					/* 按请求分裂内部元组 */
 					spgSplitNodeAction(index, state, innerTuple,
 									   &current, &out);
 
-					/* Retry insertion into the split node */
+					/* 重试插入到分裂后的节点 */
 					goto process_inner_tuple;
 					break;
 				default:
@@ -2320,11 +2320,11 @@ spgdoinsert(Relation index, SpGistState *state,
 					break;
 			}
 		}
-	}							/* end loop */
+	}							/* 结束循环 */
 
 	/*
-	 * Release any buffers we're still holding.  Beware of possibility that
-	 * current and parent reference same buffer.
+	 * 释放我们仍持有的任何缓冲区。注意 current 与 parent 可能
+	 * 引用同一缓冲区。
 	 */
 	if (current.buffer != InvalidBuffer)
 	{
@@ -2339,18 +2339,18 @@ spgdoinsert(Relation index, SpGistState *state,
 	}
 
 	/*
-	 * We do not support being called while some outer function is holding a
-	 * buffer lock (or any other reason to postpone query cancels).  If that
-	 * were the case, telling the caller to retry would create an infinite
-	 * loop.
+	 * 我们不支持在某外层函数仍持有缓冲区锁（或任何其他推迟
+	 * 查询取消的原因）时被调用。若是那样，告诉调用方重试会
+	 * 造成无限
+	 * 循环。
 	 */
 	Assert(INTERRUPTS_CAN_BE_PROCESSED());
 
 	/*
-	 * Finally, check for interrupts again.  If there was a query cancel,
-	 * ProcessInterrupts() will be able to throw the error here.  If it was
-	 * some other kind of interrupt that can just be cleared, return false to
-	 * tell our caller to retry.
+	 * 最后再次检查中断。若有查询取消，ProcessInterrupts() 在此
+	 * 能够抛出错误。若只是可清除的其他类中断，返回 false 以
+	 * 告诉调用方
+	 * 重试。
 	 */
 	CHECK_FOR_INTERRUPTS();
 

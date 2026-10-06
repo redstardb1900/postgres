@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogbackup.c
- *		Internal routines for base backups.
+ *		基础备份的内部例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,25 +18,25 @@
 #include "access/xlogbackup.h"
 
 /*
- * Build contents for backup_label or backup history file.
+ * 为 backup_label 或备份历史文件构造内容。
  *
- * When ishistoryfile is true, it creates the contents for a backup history
- * file, otherwise it creates contents for a backup_label file.
+ * 当 ishistoryfile 为真时，生成备份历史文件的内容，
+ * 否则生成 backup_label 文件的内容。
  *
- * Returns the result generated as a palloc'd string.
+ * 返回以 palloc 分配的结果字符串。
  */
 char *
 build_backup_content(BackupState *state, bool ishistoryfile)
 {
 	char		startstrbuf[128];
-	char		startxlogfile[MAXFNAMELEN]; /* backup start WAL file */
+	char		startxlogfile[MAXFNAMELEN]; /* 备份起始 WAL 文件 */
 	XLogSegNo	startsegno;
 	StringInfo	result = makeStringInfo();
 	char	   *data;
 
 	Assert(state != NULL);
 
-	/* Use the log timezone here, not the session timezone */
+	/* 此处使用日志时区，而非会话时区 */
 	pg_strftime(startstrbuf, sizeof(startstrbuf), "%Y-%m-%d %H:%M:%S %Z",
 				pg_localtime(&state->starttime, log_timezone));
 
@@ -47,7 +47,7 @@ build_backup_content(BackupState *state, bool ishistoryfile)
 
 	if (ishistoryfile)
 	{
-		char		stopxlogfile[MAXFNAMELEN];	/* backup stop WAL file */
+		char		stopxlogfile[MAXFNAMELEN];	/* 备份结束 WAL 文件 */
 		XLogSegNo	stopsegno;
 
 		XLByteToSeg(state->stoppoint, stopsegno, wal_segment_size);
@@ -69,7 +69,7 @@ build_backup_content(BackupState *state, bool ishistoryfile)
 	{
 		char		stopstrfbuf[128];
 
-		/* Use the log timezone here, not the session timezone */
+		/* 此处使用日志时区，而非会话时区 */
 		pg_strftime(stopstrfbuf, sizeof(stopstrfbuf), "%Y-%m-%d %H:%M:%S %Z",
 					pg_localtime(&state->stoptime, log_timezone));
 

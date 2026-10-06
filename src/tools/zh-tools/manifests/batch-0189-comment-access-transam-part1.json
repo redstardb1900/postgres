@@ -1,0 +1,112 @@
+{
+ "schema_version": 1,
+ "batch_id": "0189-comment-access-transam-part1",
+ "title": "zh: translate access/transam comments (part 1)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "411b56fb13bfc4af88c5270a3e41b97a084b7b22",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/twophase_rmgr.c",
+   "kind": "c_comment",
+   "note": "two-phase commit resource manager tables"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogstats.c",
+   "kind": "c_comment",
+   "note": "WAL statistics helpers"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogbackup.c",
+   "kind": "c_comment",
+   "note": "base backup label helpers"
+  },
+  {
+   "pattern": "src/backend/access/transam/rmgr.c",
+   "kind": "c_comment",
+   "note": "WAL resource manager registry"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0189-comment-access-transam-part1.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/twophase_rmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 21,
+   "translated": 21,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "two-phase commit resource manager tables; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/transam/xlogstats.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 8,
+   "translated": 8,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL statistics helpers; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/transam/xlogbackup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 6,
+   "translated": 6,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "base backup label helpers; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/transam/rmgr.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 9,
+   "translated": 9,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL resource manager registry; file-header path line kept; no Copyright block"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0189-comment-access-transam-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0189 translates comments in twophase_rmgr.c, xlogstats.c, xlogbackup.c, and rmgr.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: subtrans.c and transam.c."
+}

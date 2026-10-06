@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogstats.c
- *		Functions for WAL Statistics
+ *		WAL 统计相关函数
  *
  * Copyright (c) 2022-2023, PostgreSQL Global Development Group
  *
@@ -16,7 +16,7 @@
 #include "access/xlogstats.h"
 
 /*
- * Calculate the size of a record, split into !FPI and FPI parts.
+ * 计算一条记录的大小，拆成非 FPI 与 FPI 两部分。
  */
 void
 XLogRecGetLen(XLogReaderState *record, uint32 *rec_len,
@@ -25,10 +25,10 @@ XLogRecGetLen(XLogReaderState *record, uint32 *rec_len,
 	int			block_id;
 
 	/*
-	 * Calculate the amount of FPI data in the record.
+	 * 计算该记录中的 FPI 数据量。
 	 *
-	 * XXX: We peek into xlogreader's private decoded backup blocks for the
-	 * bimg_len indicating the length of FPI data.
+	 * XXX: 我们窥视 xlogreader 私有的已解码备份块，读取
+	 * 表示 FPI 数据长度的 bimg_len。
 	 */
 	*fpi_len = 0;
 	for (block_id = 0; block_id <= XLogRecMaxBlockId(record); block_id++)
@@ -41,14 +41,14 @@ XLogRecGetLen(XLogReaderState *record, uint32 *rec_len,
 	}
 
 	/*
-	 * Calculate the length of the record as the total length - the length of
-	 * all the block images.
+	 * 记录长度取为总长度减去所有
+	 * 块映像的长度。
 	 */
 	*rec_len = XLogRecGetTotalLen(record) - *fpi_len;
 }
 
 /*
- * Store per-rmgr and per-record statistics for a given record.
+ * 为给定记录保存按资源管理器与按记录的统计。
  */
 void
 XLogRecStoreStats(XLogStats *stats, XLogReaderState *record)
@@ -66,26 +66,26 @@ XLogRecStoreStats(XLogStats *stats, XLogReaderState *record)
 
 	XLogRecGetLen(record, &rec_len, &fpi_len);
 
-	/* Update per-rmgr statistics */
+	/* 更新按资源管理器的统计 */
 
 	stats->rmgr_stats[rmid].count++;
 	stats->rmgr_stats[rmid].rec_len += rec_len;
 	stats->rmgr_stats[rmid].fpi_len += fpi_len;
 
 	/*
-	 * Update per-record statistics, where the record is identified by a
-	 * combination of the RmgrId and the four bits of the xl_info field that
-	 * are the rmgr's domain (resulting in sixteen possible entries per
-	 * RmgrId).
+	 * 更新按记录的统计；记录由 RmgrId 与 xl_info
+	 * 字段中属于该资源管理器域的四位组合来标识
+	 * （因而每个 RmgrId 有十六个可能的
+	 * 表项）。
 	 */
 
 	recid = XLogRecGetInfo(record) >> 4;
 
 	/*
-	 * XACT records need to be handled differently. Those records use the
-	 * first bit of those four bits for an optional flag variable and the
-	 * following three bits for the opcode. We filter opcode out of xl_info
-	 * and use it as the identifier of the record.
+	 * XACT 记录需要另行处理。这类记录用上述四位中的
+	 * 第一位作为可选标志变量，后三位作为操作码。我们
+	 * 从 xl_info 中滤出操作码，并用它作为该记录的
+	 * 标识符。
 	 */
 	if (rmid == RM_XACT_ID)
 		recid &= 0x07;

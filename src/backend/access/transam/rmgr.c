@@ -1,7 +1,7 @@
 /*
  * rmgr.c
  *
- * Resource managers definition
+ * 资源管理器定义
  *
  * src/backend/access/transam/rmgr.c
  */
@@ -34,7 +34,7 @@
 #include "utils/builtins.h"
 #include "utils/relmapper.h"
 
-/* must be kept in sync with RmgrData definition in xlog_internal.h */
+/* 必须与 xlog_internal.h 中的 RmgrData 定义保持同步 */
 #define PG_RMGR(symname,name,redo,desc,identify,startup,cleanup,mask,decode) \
 	{ name, redo, desc, identify, startup, cleanup, mask, decode },
 
@@ -43,7 +43,7 @@ RmgrData	RmgrTable[RM_MAX_ID + 1] = {
 };
 
 /*
- * Start up all resource managers.
+ * 启动所有资源管理器。
  */
 void
 RmgrStartup(void)
@@ -59,7 +59,7 @@ RmgrStartup(void)
 }
 
 /*
- * Clean up all resource managers.
+ * 清理所有资源管理器。
  */
 void
 RmgrCleanup(void)
@@ -75,8 +75,8 @@ RmgrCleanup(void)
 }
 
 /*
- * Emit ERROR when we encounter a record with an RmgrId we don't
- * recognize.
+ * 遇到带有无法识别的 RmgrId 的记录时
+ * 发出 ERROR。
  */
 void
 RmgrNotFound(RmgrId rmid)
@@ -86,13 +86,13 @@ RmgrNotFound(RmgrId rmid)
 }
 
 /*
- * Register a new custom WAL resource manager.
+ * 注册一个新的自定义 WAL 资源管理器。
  *
- * Resource manager IDs must be globally unique across all extensions. Refer
- * to https://wiki.postgresql.org/wiki/CustomWALResourceManagers to reserve a
- * unique RmgrId for your extension, to avoid conflicts with other extension
- * developers. During development, use RM_EXPERIMENTAL_ID to avoid needlessly
- * reserving a new ID.
+ * 资源管理器 ID 必须在所有扩展间全局唯一。请参阅
+ * https://wiki.postgresql.org/wiki/CustomWALResourceManagers 为你的
+ * 扩展预留唯一的 RmgrId，以免与其他扩展开发者冲突。开发
+ * 期间可使用 RM_EXPERIMENTAL_ID，以免无谓地
+ * 预留新 ID。
  */
 void
 RegisterCustomRmgr(RmgrId rmid, const RmgrData *rmgr)
@@ -117,7 +117,7 @@ RegisterCustomRmgr(RmgrId rmid, const RmgrData *rmgr)
 				 errdetail("Custom resource manager \"%s\" already registered with the same ID.",
 						   RmgrTable[rmid].rm_name)));
 
-	/* check for existing rmgr with the same name */
+	/* 检查是否已有同名资源管理器 */
 	for (int existing_rmid = 0; existing_rmid <= RM_MAX_ID; existing_rmid++)
 	{
 		if (!RmgrIdExists(existing_rmid))
@@ -129,14 +129,14 @@ RegisterCustomRmgr(RmgrId rmid, const RmgrData *rmgr)
 					 errdetail("Existing resource manager with ID %d has the same name.", existing_rmid)));
 	}
 
-	/* register it */
+	/* 注册它 */
 	RmgrTable[rmid] = *rmgr;
 	ereport(LOG,
 			(errmsg("registered custom resource manager \"%s\" with ID %d",
 					rmgr->rm_name, rmid)));
 }
 
-/* SQL SRF showing loaded resource managers */
+/* 显示已加载资源管理器的 SQL SRF */
 Datum
 pg_get_wal_resource_managers(PG_FUNCTION_ARGS)
 {

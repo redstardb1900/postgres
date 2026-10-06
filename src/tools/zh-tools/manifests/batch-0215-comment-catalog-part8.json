@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "0215-comment-catalog-part8",
+  "title": "zh: translate catalog comments (part 8)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "8058e0a838ec2bb027f93c8518c0e533c8a38c29",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/heap.c",
+      "kind": "c_comment",
+      "note": "create/destroy cataloged heap relations"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0215-comment-catalog-part8.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/heap.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 363,
+      "translated": 361,
+      "preserved": 2,
+      "preserved_reasons": [
+        "translator: comments"
+      ],
+      "note": "heap relation create/drop helpers; 2 translator: segments kept in English; NOTES translated; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0215-comment-catalog-part8.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0215 translates comments in src/backend/catalog/heap.c (catalog part 8). Two translator: comments stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: aclchk.c."
+}

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0205b-comment-access-transam-part17-fix",
+  "title": "zh: fix access/transam comments (part 17) checkpoint mistranslations",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "ef64fcd1a8791411e504dedc7f659fb5d5e52bee",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "note": "P0 retranslate misaligned checkpoint/restartpoint/recycle/shutdown comments"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0205b-comment-access-transam-part17-fix.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 70,
+      "translated": 70,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P0: CreateCheckPoint/CreateRestartPoint/RemoveOldXlogFiles/shutdown misaligned comments; smgr prepare, critical section, oldestActiveXid, REDO, recycle; P1 later-LSN + 刷盘"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0205b-comment-access-transam-part17-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Composer P0 on 0205"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0205b"
+    }
+  ],
+  "notes": "P0: 0205 xlog.c had severe comment misalignment (function-name guide / shifted blocks) around shutdown, CreateCheckPoint, CreateRestartPoint, RemoveOldXlogFiles/recycle. Retranslated from REL_16_11 English; line structure preserved. P1: ProcLastRecPtr later-LSN/parallel-leader wording; WAL flush 刷新→刷盘."
+}

@@ -148,7 +148,7 @@ int			wal_segment_size = DEFAULT_XLOG_SEG_SIZE;
 
 /*
  * WAL 插入锁的数量。较高的值允许更多的插入操作
- * 并发发生，但会增加刷新WAL时的CPU开销，
+ * 并发发生，但会增加刷盘WAL时的CPU开销，
  * 因为需要迭代所有锁。
  */
 #define NUM_XLOGINSERT_LOCKS  8
@@ -246,13 +246,13 @@ static int	LocalXLogInsertAllowed = -1;
  * 或开始新事务；因此它可以用来判断当前事务是否
  * 创建了任何 XLOG 记录。
  *
- * 在并行模式下，
- * 它可能不是完全最新的。
- * 在提交时，
- * 事务可以假设这涵盖了由用户后端或在事务期间任何时刻存在的任何并行工作进程写入的所有 xlog 记录。但在中止时，
- * 或仍在并行模式下时，
- * 其他并行后端可能已写入了 LSN 更高的 WAL 记录存储在这里。
- * 并行领导者在其副本中推进，必要时在 WaitForParallelWorkersToFinish 中进行。
+ * 在并行模式下，此处可能并非完全最新。提交时，
+ * 事务可以假定这涵盖了用户后端或事务期间任一时刻
+ * 存在的任何并行工作进程所写的全部 xlog 记录。但在中止时，
+ * 或仍处于并行模式时，其他并行后端可能已在比此处所存值更高的
+ * later LSNs 处写入了 WAL 记录。并行领导者在必要时会推进
+ * 自己的副本，这发生在
+ * WaitForParallelWorkersToFinish 中。
  */
 XLogRecPtr	ProcLastRecPtr = InvalidXLogRecPtr;
 XLogRecPtr	XactLastRecEnd = InvalidXLogRecPtr;
@@ -506,7 +506,7 @@ typedef struct XLogCtlData
 	int			XLogCacheBlck;	/* 最高分配的 xlog 缓冲区索引 */
 
 	/*
-	 * InsertTimeLineID 是正在插入和刷新新 WAL 的时间线。
+	 * InsertTimeLineID 是正在插入和刷盘新 WAL 的时间线。
 	 * 在恢复期间为零，并且一旦设置就不会改变。
 	 *
 	 * 如果我们在系统启动时创建了一个新时间线，
@@ -781,7 +781,7 @@ XLogInsertRecord(XLogRecData *rdata,
 	 * 有少量固定的插入锁，
 	 * 由 NUM_XLOGINSERT_LOCKS 决定。当插入器跨越页面边界时，
 	 * 它会更新存储在锁中的值，
-	 * 以指示它已插入到多远，从而允许刷新前一个缓冲区。
+	 * 以指示它已插入到多远，从而允许刷盘前一个缓冲区。
 	 *
 	 * 保持插入锁还可以保护 RedoRecPtr 和 fullPageWrites 在
 	 * 插入完成之前不被更改。
@@ -919,7 +919,7 @@ XLogInsertRecord(XLogRecData *rdata,
 
 	/*
 	 * 如果这是 XLOG_SWITCH 记录，
-	 * 刷新记录和填充段其余部分的空白填充空间，
+	 * 刷盘记录和填充段其余部分的空白填充空间，
 	 * 并执行段结束操作（例如，通知归档器）。
 	 */
 	if (isLogSwitch)
@@ -1268,7 +1268,7 @@ CopyXLogRecordToWAL(int write_len, bool isLogSwitch, XLogRecData *rdata,
 		while (CurrPos < EndPos)
 		{
 			/*
-			 * 刷新页面的最小操作是调用
+			 * 刷盘页面的最小操作是调用
 			 * WALInsertLockUpdateInsertingAt(CurrPos) 然后调用
 			 * AdvanceXLInsertBuffer(...)。页面将被初始化为
 			 * 大部分为零，除了页面头（始终是短变体，
@@ -1457,10 +1457,10 @@ WaitXLogInsertionsToFinish(XLogRecPtr upto)
 	reservedUpto = XLogBytePosToEndRecPtr(bytepos);
 
 	/*
-	 * 任何人都不应该请求刷新尚未预留的 WAL 片段。
+	 * 任何人都不应该请求刷盘尚未预留的 WAL 片段。
 	 * 但是，如果磁盘上有一个伪造 LSN 的块，
 	 * 这种情况可能会发生。XLogFlush 会检查这种情况并发出警告，
-	 * 但只在刷新之后。
+	 * 但只在刷盘之后。
 	 * 在这里，我们只是假设这意味着所有已预留的 WAL 都需要完成。
 	 * 在这种极端情况下，返回值可能小于 'upto' 参数。
 	 */
@@ -1597,9 +1597,9 @@ GetXLogBuffer(XLogRecPtr ptr, TimeLineID tli)
 		 * 如果 'ptr' 指向页面头之后的位置，
 		 * 广播一个在页面开头而不是 'ptr' 本身的位置。
 		 * 如果没有其他插入在运行，
-		 * 有人可能会尝试刷新到我们广播的位置。
+		 * 有人可能会尝试刷盘到我们广播的位置。
 		 * 如果我们广播的是页面头之后的位置，
-		 * 有人可能会尝试刷新页面头，
+		 * 有人可能会尝试刷盘页面头，
 		 * 即使页面实际上可能尚未初始化。
 		 * 作为页面上的第一个插入者，我们有责任确保在让insertingAt 越过页面头之前它已被初始化。
 		 */
@@ -2300,7 +2300,7 @@ XLogWrite(XLogwrtRqst WriteRqst, TimeLineID tli, bool flexible)
 	Assert(npages == 0);
 
 	/*
-	 * 如果被要求刷新，则执行
+	 * 如果被要求刷盘，则执行
 	 */
 	if (LogwrtResult.Flush < WriteRqst.Flush &&
 		LogwrtResult.Flush < LogwrtResult.Write)
@@ -2525,7 +2525,7 @@ XLogFlush(XLogRecPtr record)
 	 * 尝试刷盘 WAL，我们应该更新 minRecoveryPoint。我们
 	 * 测试 XLogInsertAllowed() 而不是 InRecovery，因为我们也需要
 	 * 检查点进程以这种方式行动，而且当它尝试写入
-	 * 恢复结束检查点时，它确实应该刷新。
+	 * 恢复结束检查点时，它确实应该刷盘。
 	 */
 	if (!XLogInsertAllowed())
 	{
@@ -2593,9 +2593,9 @@ XLogFlush(XLogRecPtr record)
 		if (!LWLockAcquireOrWait(WALWriteLock, LW_EXCLUSIVE))
 		{
 			/*
-			 * 在实际执行写入之前，
-			 * 等待所有正在进行的到我们
-			 * 要写入的页面的插入完成。
+			 * 锁现已空闲，但我们尚未取得它。在取得之前，
+			 * 先回到循环开头，检查是否已有其他人替我们
+			 * 刷盘了该记录。
 			 */
 			continue;
 		}
@@ -2609,7 +2609,7 @@ XLogFlush(XLogRecPtr record)
 		}
 
 		/*
-		 * 刷新前休眠！通过在此添加延迟，
+		 * 刷盘前休眠！通过在此添加延迟，
 		 * 我们可能会给更多后端机会加入组提交追随者的队列；
 		 * 这可以显著提高事务吞吐量，
 		 * 但代价是增加事务延迟。
@@ -2635,7 +2635,7 @@ XLogFlush(XLogRecPtr record)
 			insertpos = WaitXLogInsertionsToFinish(insertpos);
 		}
 
-		/* 尝试也写入/刷新 XLOG 的后续添加 */
+		/* 尝试也写入/刷盘 XLOG 的后续添加 */
 		WriteRqst.Write = insertpos;
 		WriteRqst.Flush = insertpos;
 
@@ -2652,8 +2652,8 @@ XLogFlush(XLogRecPtr record)
 	WalSndWakeupProcessRequests(true, !RecoveryInProgress());
 
 	/*
-	 * 如果我们仍然没有刷新到请求点，那么我们有
-	 * 问题；最可能的是，请求的刷新点超过了 XLOG 的末尾。
+	 * 如果我们仍然没有刷盘到请求点，那么我们有
+	 * 问题；最可能的是，请求的刷盘点超过了 XLOG 的末尾。
 	 * 这种情况在磁盘页面有损坏的 LSN 时发生过。
 	 *
 	 * 以前我们将其视为 PANIC 条件，
@@ -2664,7 +2664,7 @@ XLogFlush(XLogRecPtr record)
 	 * 我们将完全无法重新启动数据库！（这种情况实际上在 7.1 版本的现场发生过几次。
 	 * ）从 8.4 开始，
 	 * 恢复期间遇到的坏 LSN 是UpdateMinRecoveryPoint 的问题；
-	 * 我们在恢复期间能到达这里的唯一时间是刷新恢复结束检查点记录时，
+	 * 我们在恢复期间能到达这里的唯一时间是刷盘恢复结束检查点记录时，
 	 * 我们不期望它有坏的 LSN。
 	 *
 	 * 注意，对于来自 xact.c 的调用，ERROR 将被提升为 PANIC，
@@ -2680,7 +2680,7 @@ XLogFlush(XLogRecPtr record)
 }
 
 /*
- * 写入和刷新 xlog，但不指定确切位置。
+ * 写入和刷盘 xlog，但不指定确切位置。
  *
  * 我们通常只写入完整的块；
  * 但如果在此基础上没有事情可做，我们会检查当前不完整块中未写入的异步提交，
@@ -2689,11 +2689,11 @@ XLogFlush(XLogRecPtr record)
  *
  * 如果基于上述判断有内容需要写入，我们会立即执行。但为了避免
  * 以影响并发 I/O 的速率调用 fsync、fdatasync 等，我们只每隔
- * wal_writer_delay 毫秒刷新一次 WAL，或者当有超过 wal_writer_flush_after
- * 个未刷盘的块时才刷新。
+ * wal_writer_delay 毫秒刷盘一次 WAL，或者当有超过 wal_writer_flush_after
+ * 个未刷盘的块时才刷盘。
  *
  * 我们可以保证异步提交最多在三个 wal_writer_delay 周期后到达磁盘。
- * （当刷新完整块时，
+ * （当刷盘完整块时，
  * 我们允许 XLogWrite "灵活"写入，这意味着它可以在缓冲区环的末尾停止；
  * 这只有在非常高负载或长时间 wal_writer_delay 时才会有区别，
  * 但对于异步提交的最坏情况会多一个周期。）
@@ -2701,7 +2701,7 @@ XLogFlush(XLogRecPtr record)
  * 此例程由后台 walwriter 进程定期调用。
  *
  * 如果有任何工作要做，则返回 true，即使我们因 wal_writer_delay/
- * wal_writer_flush_after 而跳过了刷新。
+ * wal_writer_flush_after 而跳过了刷盘。
  */
 bool
 XLogBackgroundFlush(void)
@@ -2713,7 +2713,7 @@ XLogBackgroundFlush(void)
 	int			flushbytes;
 	TimeLineID	insertTLI;
 
-	/* XLOG 在恢复期间不需要刷新 */
+	/* XLOG 在恢复期间不需要刷盘 */
 	if (RecoveryInProgress())
 		return false;
 
@@ -2738,7 +2738,7 @@ XLogBackgroundFlush(void)
 		SpinLockAcquire(&XLogCtl->info_lck);
 		WriteRqst.Write = XLogCtl->asyncXactLSN;
 		SpinLockRelease(&XLogCtl->info_lck);
-		flexible = false;		/* 如果我们已经刷新到那个位置，考虑异步提交记录 */
+		flexible = false;		/* 如果我们已经刷盘到那个位置，考虑异步提交记录 */
 	}
 
 	/*
@@ -2769,7 +2769,7 @@ XLogBackgroundFlush(void)
 
 	if (WalWriterFlushAfter == 0 || lastflush == 0)
 	{
-		/* 确保全部被写入 */
+		/* 首次调用，或基于块的限制已禁用 */
 		WriteRqst.Flush = WriteRqst.Write;
 		lastflush = now;
 	}
@@ -2777,7 +2777,7 @@ XLogBackgroundFlush(void)
 	{
 		/*
 		 * 至少每隔 WalWriterDelay
-		 * 毫秒刷新写入。
+		 * 毫秒刷盘写入。
 		 * 这对于限制异步提交到达磁盘所需的时间很重要。
 		 */
 		WriteRqst.Flush = WriteRqst.Write;
@@ -2785,13 +2785,13 @@ XLogBackgroundFlush(void)
 	}
 	else if (flushbytes >= WalWriterFlushAfter)
 	{
-		/* 超过了 wal_writer_flush_after 个块，刷新 */
+		/* 超过了 wal_writer_flush_after 个块，刷盘 */
 		WriteRqst.Flush = WriteRqst.Write;
 		lastflush = now;
 	}
 	else
 	{
-		/* 首次调用，或基于块的限制已禁用 */
+		/* 本次不刷盘 */
 		WriteRqst.Flush = 0;
 	}
 
@@ -2806,7 +2806,7 @@ XLogBackgroundFlush(void)
 
 	START_CRIT_SECTION();
 
-	/* 本次不刷新 */
+	/* 现在等待任何进行中的插入完成并获取写锁 */
 	WaitXLogInsertionsToFinish(WriteRqst.Write);
 	LWLockAcquire(WALWriteLock, LW_EXCLUSIVE);
 	LogwrtResult = XLogCtl->LogwrtResult;
@@ -2819,7 +2819,7 @@ XLogBackgroundFlush(void)
 
 	END_CRIT_SECTION();
 
-	/* 现在等待任何正在进行的插入完成并获取写锁 */
+	/* 已释放竞争激烈的锁，现在唤醒 walsender */
 	WalSndWakeupProcessRequests(true, !RecoveryInProgress());
 
 	/*
@@ -2839,8 +2839,8 @@ XLogBackgroundFlush(void)
 /*
  * 测试 XLOG 数据是否已刷盘到（至少）给定位置。
  *
- * 如果仍需要刷新则返回 true。（不过，可能其他人已经在
- * 刷新到该位置的过程中。）
+ * 如果仍需要刷盘则返回 true。（不过，可能其他人已经在
+ * 刷盘到该位置的过程中。）
  */
 bool
 XLogNeedsFlush(XLogRecPtr record)
@@ -2848,7 +2848,7 @@ XLogNeedsFlush(XLogRecPtr record)
 	/*
 	 * 在恢复期间，
 	 * 我们不刷盘 WAL 而是更新 minRecoveryPoint。
-	 * 所以"需要刷新"被理解为是否需要更新 minRecoveryPoint。
+	 * 所以"需要刷盘"被理解为是否需要更新 minRecoveryPoint。
 	 */
 	if (RecoveryInProgress())
 	{
@@ -2885,14 +2885,14 @@ XLogNeedsFlush(XLogRecPtr record)
 		if (XLogRecPtrIsInvalid(LocalMinRecoveryPoint))
 			updateMinRecoveryPoint = false;
 
-		/* 如果已知已更新或无法更新，快速退出 */
+		/* 再次检查 */
 		if (record <= LocalMinRecoveryPoint || !updateMinRecoveryPoint)
 			return false;
 		else
 			return true;
 	}
 
-	/* 再次检查 */
+	/* 若已知已刷盘则快速退出 */
 	if (record <= LogwrtResult.Flush)
 		return false;
 
@@ -2901,7 +2901,7 @@ XLogNeedsFlush(XLogRecPtr record)
 	LogwrtResult = XLogCtl->LogwrtResult;
 	SpinLockRelease(&XLogCtl->info_lck);
 
-	/* 如果已知已刷盘，快速退出 */
+	/* 再次检查 */
 	if (record <= LogwrtResult.Flush)
 		return false;
 
@@ -2937,7 +2937,7 @@ XLogFileInitInternal(XLogSegNo logsegno, TimeLineID logtli,
 	XLogFilePath(path, logtli, logsegno, wal_segment_size);
 
 	/*
-	 * 再次检查
+	 * 尝试使用已存在的文件（检查点生成者可能已经创建了它）
 	 */
 	*added = false;
 	fd = BasicOpenFile(path, O_RDWR | PG_BINARY | O_CLOEXEC |
@@ -3211,10 +3211,10 @@ XLogFileCopy(TimeLineID destTLI, XLogSegNo destsegno,
 			int			save_errno = errno;
 
 			/*
-	 * 进行数据复制。
+			 * 若创建文件失败，则删除它以释放磁盘空间
 	 */
 			unlink(tmppath);
-			/* * 未从源文件读取的部分用零填充。 */
+			/* 若 write 未设置 errno，则假定问题是磁盘空间不足 */
 			errno = save_errno ? save_errno : ENOSPC;
 
 			ereport(ERROR,
@@ -3624,8 +3624,8 @@ RemoveNonParentXlogFiles(XLogRecPtr switchpoint, TimeLineID newTLI)
 	XLogSegNo	recycleSegNo;
 
 	/*
-	 * 先更新共享内存
-	 * 中的最后删除位置
+	 * 初始化工作起点相关信息。这将有些随意地
+	 * 回收未来 10 个段。
 	 */
 	XLByteToPrevSeg(switchpoint, switchLogSegNo, wal_segment_size);
 	XLByteToSeg(switchpoint, endLogSegNo, wal_segment_size);
@@ -3648,9 +3648,9 @@ RemoveNonParentXlogFiles(XLogRecPtr switchpoint, TimeLineID newTLI)
 			continue;
 
 		/*
-		 * 构造要保留的最
-		 * 后一段的
-		 * 文件名。
+		 * 删除位于比我们正切换到的新时间线更旧的时间线上、
+		 * 但段号大于等于新时间线上第一段的
+		 * 那些文件。
 		 */
 		if (strncmp(xlde->d_name, switchseg, 8) < 0 &&
 			strcmp(xlde->d_name + 8, switchseg + 8) > 0)
@@ -3696,9 +3696,9 @@ RemoveXlogFile(const struct dirent *segment_de,
 	snprintf(path, MAXPGPATH, XLOGDIR "/%s", segname);
 
 	/*
-	 * 但是，
-	 * 如果文件已被标记为 .ready，
-	 * 则不要删除它。删除它应该是可以的 —— 不属于我们时间线历史的文件对于恢复不是必需的 —— 但让它们被归档并稍后删除似乎更安全。
+	 * 在删除文件之前，先看它能否被回收为未来的日志段。
+	 * 只回收普通文件，因为我们不想回收指向独立归档
+	 * 目录的符号链接。
 	 */
 	if (wal_recycle &&
 		*endlogSegNo <= recycleSegNo &&
@@ -3711,12 +3711,12 @@ RemoveXlogFile(const struct dirent *segment_de,
 				(errmsg_internal("recycled write-ahead log file \"%s\"",
 								 segname)));
 		CheckpointStats.ckpt_segs_recycled++;
-		/* 被调用者重新检查此条件 */
+		/* 不必在将来的迭代中再检查该槽位 */
 		(*endlogSegNo)++;
 	}
 	else
 	{
-		/* 不需要在将来的迭代中重新检查那个槽位 */
+		/* 不再需要更多未来段，或回收失败…… */
 		int			rc;
 
 		ereport(DEBUG2,
@@ -6009,22 +6009,22 @@ bool
 XLogInsertAllowed(void)
 {
 	/*
-	 * XLogInsertAllowed() 返回是否允许插入 WAL。
-	 * 在恢复期间通常不允许，
-	 * 但在恢复结束时会放开。
+	 * 若值为"无条件 true"或"无条件 false"，直接返回。
+	 * 一旦已知恢复已结束，这就提供了正常的
+	 * 快速路径。
 	 */
 	if (LocalXLogInsertAllowed >= 0)
 		return (bool) LocalXLogInsertAllowed;
 
 	/*
-	 * 快速路径：本地状态已初始化。
+	 * 否则，必须检查我们是否仍处于恢复中。
 	 */
 	if (RecoveryInProgress())
 		return false;
 
 	/*
-	 * 需要从共享内存
-	 * 更新本地状态。
+	 * 退出恢复时，重置为"无条件 true"，因为不必再
+	 * 持续检查。
 	 */
 	LocalXLogInsertAllowed = 1;
 	return true;
@@ -6199,14 +6199,14 @@ GetLastSegSwitchData(XLogRecPtr *lastSwitchLSN)
 }
 
 /*
- * XLogCheckpointNeeded() 检查是否该做检查点。
+ * 这必须在 postmaster 或独立后端关闭期间调用一次
  */
 void
 ShutdownXLOG(int code, Datum arg)
 {
 	/*
-	 * RequestXLogSwitch --
-	 * 请求切换到新的 WAL 段。
+	 * 我们应有可用的辅助进程资源所有者，且不应处于已
+	 * 安装了其他 resowner 的事务中。
 	 */
 	Assert(AuxProcessResourceOwner != NULL);
 	Assert(CurrentResourceOwner == NULL ||
@@ -6218,7 +6218,7 @@ ShutdownXLOG(int code, Datum arg)
 			(errmsg("shutting down")));
 
 	/*
-	 * GetLastImportantRecPtr -- 获取最后一条重要记录的 LSN。
+	 * 向 walsender 发信号，使其进入停止状态。
 	 */
 	WalSndInitStopping();
 
@@ -6233,10 +6233,10 @@ ShutdownXLOG(int code, Datum arg)
 	else
 	{
 		/*
-		 * GetInsert
-		 * ionRecPtr
-		 * --
-		 * 获取当前插入位置（粗略）。
+		 * 若启用了归档，则轮转最后一个 XLOG 文件，以便其余
+		 * 记录都被归档（postmaster 在关闭结束时会再唤醒一次
+		 * 归档进程）。检查点记录将进入下一个 XLOG 文件，
+		 * 目前尚不会被归档。
 		 */
 		if (XLogArchivingActive())
 			RequestXLogSwitch(false);
@@ -6246,7 +6246,7 @@ ShutdownXLOG(int code, Datum arg)
 }
 
 /*
- * GetXLogReceiptTime -- 获取最近收到 WAL 的时间。
+ * 记录检查点开始。
  */
 static void
 LogCheckpointStart(int flags, bool restartpoint)
@@ -6278,7 +6278,7 @@ LogCheckpointStart(int flags, bool restartpoint)
 }
 
 /*
- * GetCurrentChunkReplayStartTime -- 获取当前块重放开始时间。
+ * 记录检查点结束。
  */
 static void
 LogCheckpointEnd(bool restartpoint)
@@ -6303,8 +6303,8 @@ LogCheckpointEnd(bool restartpoint)
 	PendingCheckpointerStats.checkpoint_sync_time += sync_msecs;
 
 	/*
-	 * CreateCheckPoint
-	 * -- 执行检查点。
+	 * 所有已发布的计时统计都已计入。仅当需要写入
+	 * 日志消息时才继续。
 	 */
 	if (!log_checkpoints)
 		return;
@@ -6417,9 +6417,9 @@ UpdateCheckPointDistanceEstimate(uint64 nbytes)
 }
 
 /*
- * 更新共享
- * 内存中的
- * 检查点相关字段。
+ * 更新正在运行检查点的进程的 ps 显示。注意本例程
+ * 不应做任何分配，以便可从临界区中
+ * 调用。
  */
 static void
 update_checkpoint_display(int flags, bool restartpoint, bool reset)
@@ -6454,29 +6454,29 @@ update_checkpoint_display(int flags, bool restartpoint, bool reset)
  *
  * flags 是以下位的按位或：
  *	CHECKPOINT_IS_SHUTDOWN：为数据库关闭做检查点。
- *	CHECKPOINT_END_OF_RECOVERY：
- *	为 WAL 恢复结束做检查点。
- *		CHECKPOINT_IMMEDIATE：尽快完成检查点，
- *	忽略 checkpoint_completion_target 参数。
- *		CHECKPOINT_FORCE：即使自上次以来没有 XLOG 活动也强制检查点（由 CHECKPOINT_IS_SHUTDOWN 或 CHECKPOINT_END_OF_RECOVERY 隐含）。
- *		CHECKPOINT_FLUSH_ALL：
- *	也刷盘无日志表的缓冲区。
+ *	CHECKPOINT_END_OF_RECOVERY：为 WAL 恢复结束做检查点。
+ *	CHECKPOINT_IMMEDIATE：尽快完成检查点，
+ *		忽略 checkpoint_completion_target 参数。
+ *	CHECKPOINT_FORCE：即使自上次以来没有 XLOG 活动也强制检查点
+ *		（由 CHECKPOINT_IS_SHUTDOWN 或
+ *		CHECKPOINT_END_OF_RECOVERY 隐含）。
+ *	CHECKPOINT_FLUSH_ALL：也刷盘无日志表的缓冲区。
  *
- * 注意：flags 还包含其他位，
- * 这里仅对日志记录有意义。
- * 特别注意本例程是同步的，
+ * 注意：flags 还包含其他位，这里仅对日志记录有意义。
+ * 特别注意本例程是同步的，并不关注
+ * CHECKPOINT_WAIT。
  *
- * 不关注 CHECKPOINT_WAIT。若非 shutdown，
- * 则我们在写在线检查点。
- * 这是非常特殊的操作和 WAL 记录，因为检查点动作跨越一段时间却在逻辑上发生在单个 LSN。
- * WAL 记录的逻辑位置（redo ptr）与物理位置相同或更早。
- * 重放 WAL 时，
- * 我们通过物理位置定位检查点，然后读取 redo ptr，
- * 并实际从更早的逻辑位置开始重放。
- * 注意我们不在逻辑位置写入任何内容，
- * 因此该位置可以是任何其他种类的 WAL 记录。整套机制让我们能在检查点时继续工作。
- * 因此，
- * 这里的动作时序至关重要；请注意在繁忙系统上本函数可能需要数分钟执行。
+ * 若非 shutdown，则我们在写在线检查点。这是非常特殊的
+ * 操作和 WAL 记录，因为检查点动作跨越一段时间却在逻辑上
+ * 发生在单个 LSN。WAL 记录的逻辑位置（redo ptr）与物理
+ * 位置相同或更早。重放 WAL 时，我们通过其物理位置定位
+ * 检查点，然后读取 redo ptr，并实际从更早的逻辑位置
+ * 开始重放。注意我们不在逻辑位置写入任何内容，
+ * 因此该位置可以是任何其他种类的 WAL 记录。
+ * 整套机制让我们能在检查点时继续工作。
+ * 因此，这里的动作时序至关重要；请注意在繁忙系统上
+ * 本函数可能需要数分钟
+ * 执行。
  */
 void
 CreateCheckPoint(int flags)
@@ -6496,8 +6496,8 @@ CreateCheckPoint(int flags)
 	XLogRecPtr	slotsMinReqLSN;
 
 	/*
-	 * 同步数
-	 * 据目录。
+	 * 恢复结束检查点实际上就是关闭检查点，只是在
+	 * 不同的时刻发出。
 	 */
 	if (flags & (CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_END_OF_RECOVERY))
 		shutdown = true;
@@ -6519,15 +6519,15 @@ CreateCheckPoint(int flags)
 	CheckpointStats.ckpt_start_t = GetCurrentTimestamp();
 
 	/*
-	 * 删除不再
-	 * 需要的旧
-	 * WAL
-	 * 文件。
+	 * 让 smgr 为检查点做准备；这必须在临界区之外、且在
+	 * 我们确定 REDO 指针之前发生。注意 smgr 不得做任何
+	 * 若我们决定不需要检查点时还必须撤销的
+	 * 事情。
 	 */
 	SyncPreCheckpoint();
 
 	/*
-	 * 请求检查点。
+	 * 使用临界区，以便出错时强制系统 panic。
 	 */
 	START_CRIT_SECTION();
 
@@ -6544,9 +6544,9 @@ CreateCheckPoint(int flags)
 	checkPoint.time = (pg_time_t) time(NULL);
 
 	/*
-	 * 后台写进程
-	 * 调用的
-	 * 接口。
+	 * 对于热备，在固定 redo 指针之前推导 oldestActiveXid。
+	 * 这使我们能开始累积变更，以组装锁与事务的
+	 * 起始快照。
 	 */
 	if (!shutdown && XLogStandbyInfoActive())
 		checkPoint.oldestActiveXid = GetOldestActiveTransactionId();
@@ -6560,8 +6560,8 @@ CreateCheckPoint(int flags)
 	last_important_lsn = GetLastImportantRecPtr();
 
 	/*
-	 * 执行一次检查
-	 * 点或重启点。
+	 * 在检查插入状态以确定检查点 REDO 指针时，必须
+	 * 阻塞并发插入。
 	 */
 	WALInsertLockAcquireExclusive();
 	curInsert = XLogBytePosToRecPtr(Insert->CurrBytePos);
@@ -6601,12 +6601,12 @@ CreateCheckPoint(int flags)
 	checkPoint.fullPageWrites = Insert->fullPageWrites;
 
 	/*
-	 * 记录
+	 * 计算新的 REDO 记录指针 = 下一条 XLOG 记录的位置。
 	 *
-	 * 检查
-	 * 点完
-	 * 成。
-	 *
+	 * 注意：这未必是检查点记录本身将写入的位置，因为
+	 * 当我们去做缓冲区刷盘时，其他后端可能还会插入更多
+	 * XLOG 记录。那些记录在逻辑上位于检查点之后，即使
+	 * 在物理上位于其之前。明白了吗？
 	 */
 	freespace = INSERT_FREESPACE(curInsert);
 	if (freespace == 0)
@@ -6643,8 +6643,8 @@ CreateCheckPoint(int flags)
 	SpinLockRelease(&XLogCtl->info_lck);
 
 	/*
-	 * 处理
-	 * 信号。
+	 * 若已启用，则记录检查点开始。我们推迟到现在才记，
+	 * 以免在决定跳过检查点时仍写出任何日志。
 	 */
 	if (log_checkpoints)
 		LogCheckpointStart(flags, false);
@@ -6655,12 +6655,12 @@ CreateCheckPoint(int flags)
 	TRACE_POSTGRESQL_CHECKPOINT_START(flags);
 
 	/*
-	 * Crea
+	 * 获取检查点记录所需的其他信息。
 	 *
-	 * teRes
-	 * tart
-	 * Point
-	 * 的实现。
+	 * 我们不必把 oldestClogXid 存进检查点；它只在 clog 正在
+	 * 截断的短暂期间有意义，若在此期间崩溃，我们会重做
+	 * clog 截断，并在那里修正
+	 * oldestClogXid。
 	 */
 	LWLockAcquire(XidGenLock, LW_SHARED);
 	checkPoint.nextXid = ShmemVariableCache->nextXid;
@@ -6686,12 +6686,12 @@ CreateCheckPoint(int flags)
 							 &checkPoint.oldestMultiDB);
 
 	/*
-	 * 与 
-	 * CreateCh
+	 * 已构造好检查点记录后，确保所有共享内存磁盘缓冲区
+	 * 以及提交日志缓冲区都刷盘到磁盘。
 	 *
-	 * eckPoint
-	 * 类似，
-	 * 但在恢复期间运行。
+	 * 这类 I/O 可能因各种原因失败。若失败，我们将无法完成
+	 * 检查点，但没有理由因此强制系统 panic。因此在做此操作
+	 * 时退出临界区。
 	 */
 	END_CRIT_SECTION();
 
@@ -6739,9 +6739,9 @@ CreateCheckPoint(int flags)
 		do
 		{
 			/*
-			 * 同步
-			 * 并更新
-			 * 控制文件。
+			 * 等待期间继续吸收 fsync 请求。若不这样做，甚至可能
+			 * 死锁：若阻止检查点的进程正试图向队列添加
+			 * 请求。
 			 */
 			AbsorbSyncRequests();
 			pg_usleep(10000L);	/* 等待 10 毫秒 */
@@ -6765,12 +6765,12 @@ CreateCheckPoint(int flags)
 	pfree(vxids);
 
 	/*
-	 * 对运行中事务拍快照并写入
-	 * WAL。
-	 * 这使我们能在需要时于归档恢
+	 * 对运行中事务拍快照并写入 WAL。这使我们能在需要时于
+	 * 归档恢复期间重建运行中事务的状态。若已禁用此信息
+	 * 则跳过。
 	 *
-	 * 复期间重建运行中事务的状态。
-	 * 若在热备中不需要此信息则跳过。
+	 * 若正在关闭，或启动进程正在完成崩溃恢复，则不必写入
+	 * 运行中事务数据。
 	 */
 	if (!shutdown && XLogStandbyInfoActive())
 		LogStandbySnapshot();
@@ -6778,7 +6778,7 @@ CreateCheckPoint(int flags)
 	START_CRIT_SECTION();
 
 	/*
-	 * 更新统计。
+	 * 现在把检查点记录插入 XLOG。
 	 */
 	XLogBeginInsert();
 	XLogRegisterData((char *) (&checkPoint), sizeof(checkPoint));
@@ -6789,11 +6789,11 @@ CreateCheckPoint(int flags)
 	XLogFlush(recptr);
 
 	/*
-	 * 关闭检查点之后我们绝不能再写任何新 WAL，
-	 * 否则会在下次启动时被覆盖。
-	 * 甚至不应有人尝试，
-	 * 这只是健全性检查。
-	 * 在恢复结束检查点的情况下，我们很快就会重新启用 WAL 写入。
+	 * 关闭检查点之后我们绝不能再写任何新 WAL，否则会在下次
+	 * 启动时被覆盖。甚至不应有人尝试，这只是健全性检查。
+	 * 在恢复结束检查点的情况下，我们只想暂时禁止写入，直到
+	 * 系统已退出
+	 * 恢复。
 	 */
 	if (shutdown)
 	{
@@ -6818,7 +6818,7 @@ CreateCheckPoint(int flags)
 	PriorRedoPtr = ControlFile->checkPointCopy.redo;
 
 	/*
-	 * 切换到下一文件。
+	 * 更新控制文件。
 	 */
 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);
 	if (shutdown)
@@ -6830,9 +6830,9 @@ CreateCheckPoint(int flags)
 	ControlFile->minRecoveryPointTLI = 0;
 
 	/*
-	 * WaitForWALToBecomeAvailable
-	 * -- 等待
-	 * WAL 可用。
+	 * 持久化 unloggedLSN 值。它在崩溃恢复时会被重置，因此在
+	 * 非关闭检查点上用不到，但为便于调试似乎总是值得存
+	 * 一下。
 	 */
 	SpinLockAcquire(&XLogCtl->ulsn_lck);
 	ControlFile->unloggedLSN = XLogCtl->unloggedLSN;
@@ -6847,26 +6847,26 @@ CreateCheckPoint(int flags)
 	SpinLockRelease(&XLogCtl->info_lck);
 
 	/*
-	 * 尝试从归
-	 * 档恢复。
+	 * 关键更新现已完成；处理旧日志段时若出问题，不必再
+	 * 强制系统 panic。
 	 */
 	END_CRIT_SECTION();
 
 	/*
-	 * 尝试从 pg_wal 读取。
+	 * 让 smgr 做检查点后清理（例如删除旧文件）。
 	 */
 	SyncPostCheckpoint();
 
 	/*
-	 * 尝试从流
-	 * 复制接收。
+	 * 若先前检查点存在，则更新检查点之间的
+	 * 平均距离。
 	 */
 	if (PriorRedoPtr != InvalidXLogRecPtr)
 		UpdateCheckPointDistanceEstimate(RedoRecPtr - PriorRedoPtr);
 
 	/*
-	 * 处理
-	 * 失败。
+	 * 删除旧日志文件（上次检查点已不再需要的），以防存放
+	 * xlog 的磁盘被撑满。
 	 */
 	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
 	KeepLogSeg(recptr, slotsMinReqLSN, &_logSegNo);
@@ -6894,8 +6894,8 @@ CreateCheckPoint(int flags)
 					   checkPoint.ThisTimeLineID);
 
 	/*
-	 * 返回
-	 * 状态。
+	 * 若需要则创建更多日志段。（在回收旧日志段之后做，
+	 * 因为回收可能提供部分所需文件。）
 	 */
 	if (!shutdown)
 		PreallocXlogFiles(recptr, checkPoint.ThisTimeLineID);
@@ -6913,7 +6913,7 @@ CreateCheckPoint(int flags)
 	/* 实际工作已完成；记录日志并更新统计。 */
 	LogCheckpointEnd(false);
 
-	/* 实际工作已完成；记录日志并更新统计。 */
+	/* 重置进程标题 */
 	update_checkpoint_display(flags, false, true);
 
 	TRACE_POSTGRESQL_CHECKPOINT_DONE(CheckpointStats.ckpt_bufs_written,
@@ -6937,7 +6937,7 @@ CreateEndOfRecoveryRecord(void)
 	xl_end_of_recovery xlrec;
 	XLogRecPtr	recptr;
 
-	/* 重置进程标题 */
+	/* 健全性检查 */
 	if (!RecoveryInProgress())
 		elog(ERROR, "can only be used to end recovery");
 
@@ -6957,8 +6957,8 @@ CreateEndOfRecoveryRecord(void)
 	XLogFlush(recptr);
 
 	/*
-	 * XLogFileRead
-	 * 的包装。
+	 * 更新控制文件，使崩溃恢复能跟随时间线变更到此
+	 * 点。
 	 */
 	LWLockAcquire(ControlFileLock, LW_EXCLUSIVE);
 	ControlFile->minRecoveryPoint = recptr;
@@ -7060,10 +7060,10 @@ CreateOverwriteContrecordRecord(XLogRecPtr aborted_lsn, XLogRecPtr pagePtr,
 }
 
 /*
- * 读取
+ * 将共享内存中的全部数据刷盘到磁盘，并 fsync
  *
- * 记录。
- *
+ * 这是常规检查点与恢复重启点共用的
+ * 公共代码。
  */
 static void
 CheckPointGuts(XLogRecPtr checkPointRedo, int flags)
@@ -7084,14 +7084,14 @@ CheckPointGuts(XLogRecPtr checkPointRedo, int flags)
 	CheckPointPredicate();
 	CheckPointBuffers(flags);
 
-	/* 写出 SLRU 和主缓冲池中的所有脏数据 */
+	/* 执行所有排队的 fsync */
 	TRACE_POSTGRESQL_BUFFER_CHECKPOINT_SYNC_START();
 	CheckpointStats.ckpt_sync_t = GetCurrentTimestamp();
 	ProcessSyncRequests();
 	CheckpointStats.ckpt_sync_end_t = GetCurrentTimestamp();
 	TRACE_POSTGRESQL_BUFFER_CHECKPOINT_DONE();
 
-	/* 执行所有排队的 fsync */
+	/* 我们故意尽可能推迟 2PC 检查点 */
 	CheckPointTwoPhase(checkPointRedo);
 }
 
@@ -7109,10 +7109,10 @@ static void
 RecoveryRestartPoint(const CheckPoint *checkPoint, XLogReaderState *record)
 {
 	/*
-	 * 处理
-	 * 错误。
-	 *
-	 *
+	 * 若已见过对不存在页面的引用，也不要创建重启点。从该
+	 * 重启点重新开始恢复将看不到这些引用，从而会失去
+	 * 交叉校验：即这些页属于后来被
+	 * 删除的关系。
 	 *
 	 */
 	if (XLogHaveInvalidPages())
@@ -7125,8 +7125,8 @@ RecoveryRestartPoint(const CheckPoint *checkPoint, XLogReaderState *record)
 	}
 
 	/*
-	 * 推进
-	 * 位置。
+	 * 把检查点记录复制到共享内存，以便 checkpointer 能推算
+	 * 下次想要执行重启点的时间。
 	 */
 	SpinLockAcquire(&XLogCtl->info_lck);
 	XLogCtl->lastCheckPointRecPtr = record->ReadRecPtr;
@@ -7138,13 +7138,13 @@ RecoveryRestartPoint(const CheckPoint *checkPoint, XLogReaderState *record)
 /*
  * 若可能则建立重启点。
  *
- * 这与 CreateCheckPoint 类似，
- * 但在 WAL 
- * 恢复期间用于建立一个恢复可从之向
+ * 这与 CreateCheckPoint 类似，但在 WAL 恢复期间用于
+ * 建立一个恢复可从之向前推进而不必重放整个恢复
+ * 日志的点。
  *
- * 前推进而不必重放整个恢复日志的点。
- * 若建立了新重启点则返回 true。
- * 仅当我们自上次重启点以来已重放过安全的检查点记录时才能建立重启点。
+ * 若建立了新重启点则返回 true。仅当我们自上次重启点
+ * 以来已重放过安全的检查点记录时才能建立
+ * 重启点。
  */
 bool
 CreateRestartPoint(int flags)
@@ -7164,7 +7164,7 @@ CreateRestartPoint(int flags)
 	/* 并发检查点/重启点不可能发生 */
 	Assert(!IsUnderPostmaster || MyBackendType == B_CHECKPOINTER);
 
-	/* 并发检查点/重启点不可能发生 */
+	/* 获取最后安全检查点记录的本地副本。 */
 	SpinLockAcquire(&XLogCtl->info_lck);
 	lastCheckPointRecPtr = XLogCtl->lastCheckPointRecPtr;
 	lastCheckPointEndPtr = XLogCtl->lastCheckPointEndPtr;
@@ -7172,8 +7172,8 @@ CreateRestartPoint(int flags)
 	SpinLockRelease(&XLogCtl->info_lck);
 
 	/*
-	 * 更新重
-	 * 放位置。
+	 * 检查我们是否仍处于恢复模式。若在此检查之后退出恢复
+	 * 模式也没关系，重启点仍然有效。
 	 */
 	if (!RecoveryInProgress())
 	{
@@ -7183,17 +7183,17 @@ CreateRestartPoint(int flags)
 	}
 
 	/*
-	 * 应用
-	 * 记录。
+	 * 若我们已重放的最后一条检查点记录已经是上次重启点，
+	 * 则无法再执行新的重启点。即便如此仍更新
+	 * minRecoveryPoint，以便在这是关闭重启点时，不会比以前
+	 * 更早启动。这并非严格必要，但在启用热备时，若数据库
+	 * 在上次关闭之前的某个时间点就对只读连接开放，会相当
+	 * 奇怪。不过在立即关闭的情况下，这种时间旅行仍有可能
+	 * 发生。
 	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
-	 *
+	 * 我们在真正创建重启点时并不显式推进
+	 * minRecoveryPoint。假定刷盘缓冲区会作为副作用完成这件
+	 * 事。
 	 *
 	 */
 	if (XLogRecPtrIsInvalid(lastCheckPointRecPtr) ||
@@ -7314,15 +7314,15 @@ CreateRestartPoint(int flags)
 	LWLockRelease(ControlFileLock);
 
 	/*
-	 * 更新共
-	 * 享状态。
+	 * 若先前检查点存在，则更新检查点/重启点之间的平均
+	 * 距离。
 	 */
 	if (PriorRedoPtr != InvalidXLogRecPtr)
 		UpdateCheckPointDistanceEstimate(RedoRecPtr - PriorRedoPtr);
 
 	/*
-	 * 更新本
-	 * 地副本
+	 * 删除旧日志文件（上次重启点已不再需要的），以防存放
+	 * xlog 的磁盘被撑满。
 	 */
 	XLByteToSeg(RedoRecPtr, _logSegNo, wal_segment_size);
 
@@ -7373,8 +7373,8 @@ CreateRestartPoint(int flags)
 	RemoveOldXlogFiles(_logSegNo, RedoRecPtr, endptr, replayTLI);
 
 	/*
-	 * 若需要则创
-	 * 建更多段。
+	 * 若需要则创建更多日志段。（在回收旧日志段之后做，
+	 * 因为回收可能提供部分所需文件。）
 	 */
 	PreallocXlogFiles(endptr, replayTLI);
 
@@ -7391,7 +7391,7 @@ CreateRestartPoint(int flags)
 	/* 实际工作已完成；记录日志并更新统计。 */
 	LogCheckpointEnd(true);
 
-	/* 实际工作已完成；记录日志并更新统计。 */
+	/* 重置进程标题 */
 	update_checkpoint_display(flags, true, true);
 
 	xtime = GetLatestXTime();
@@ -7402,7 +7402,7 @@ CreateRestartPoint(int flags)
 							   timestamptz_to_str(xtime)) : 0));
 
 	/*
-	 * 执行 archive_cleanup_command。
+	 * 最后，若有 archive_cleanup_command 则执行它。
 	 */
 	if (archiveCleanupCommand && strcmp(archiveCleanupCommand, "") != 0)
 		ExecuteRecoveryCommand(archiveCleanupCommand,

@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0203-comment-access-transam-part15",
+ "title": "zh: translate access/transam comments (part 15)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "3520d6bd16beb9a552beb1315937cf2eba1c225a",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "note": "WAL recovery and standby mode"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0203-comment-access-transam-part15.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 382,
+   "translated": 379,
+   "preserved": 3,
+   "preserved_reasons": [
+    "translator: marker",
+    "identifier-only labels XLogRecoveryCtl / WAL_DEBUG"
+   ],
+   "note": "WAL recovery; Copyright and path lines kept in English within header; translator comment preserved; no fall-through prose segment"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0203-comment-access-transam-part15.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0203 translates comments in xlogrecovery.c (transam part 15, single large file). Copyright and path lines stay in English. translator: comment preserved. Identifier-only XLogRecoveryCtl and WAL_DEBUG left in English. No fall-through marker. Next suggested: xact.c."
+}

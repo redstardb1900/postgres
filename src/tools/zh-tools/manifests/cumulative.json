@@ -3210,6 +3210,16 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0202-comment-access-transam-part14.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "note": "WAL recovery and standby mode"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0203-comment-access-transam-part15.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -11606,7 +11616,30 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/transam/xlogrecovery.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 382,
+   "translated": 379,
+   "preserved": 3,
+   "preserved_reasons": [
+    "translator: marker",
+    "identifier-only labels XLogRecoveryCtl / WAL_DEBUG"
+   ],
+   "note": "WAL recovery; Copyright and path lines kept in English within header; translator comment preserved; no fall-through prose segment"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0203-comment-access-transam-part15.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
   }
  ],
- "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c."
+ "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c."
 }

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gindatapage.c
- *	  routines for handling GIN posting tree pages.
+ *	  处理 GIN 倒排树页的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -23,66 +23,66 @@
 #include "utils/rel.h"
 
 /*
- * Min, Max and Target size of posting lists stored on leaf pages, in bytes.
+ * 叶子页上所存倒排列表的最小、最大与目标尺寸，以字节计。
  *
- * The code can deal with any size, but random access is more efficient when
- * a number of smaller lists are stored, rather than one big list. If a
- * posting list would become larger than Max size as a result of insertions,
- * it is split into two. If a posting list would be smaller than minimum
- * size, it is merged with the next posting list.
+ * 代码能处理任意尺寸，但随机访问在存放若干较小
+ * 列表、而不是一个大列表时更高效。若插入会使
+ * 倒排列表超过最大尺寸，则把它分裂为两个。若
+ * 倒排列表会小于最小尺寸，则把它与下一个倒排
+ * 列表合并。
  */
 #define GinPostingListSegmentMaxSize 384
 #define GinPostingListSegmentTargetSize 256
 #define GinPostingListSegmentMinSize 128
 
 /*
- * At least this many items fit in a GinPostingListSegmentMaxSize-bytes
- * long segment. This is used when estimating how much space is required
- * for N items, at minimum.
+ * 至少这么多项能放进一个 GinPostingListSegmentMaxSize
+ * 字节长的段。用于估计 N 项至少需要多少
+ * 空间。
  */
 #define MinTuplesPerSegment ((GinPostingListSegmentMaxSize - 2) / 6)
 
 /*
- * A working struct for manipulating a posting tree leaf page.
+ * 用于操作倒排树叶子页的工作结构。
  */
 typedef struct
 {
-	dlist_head	segments;		/* a list of leafSegmentInfos */
+	dlist_head	segments;		/* leafSegmentInfo 的列表 */
 
 	/*
-	 * The following fields represent how the segments are split across pages,
-	 * if a page split is required. Filled in by leafRepackItems.
+	 * 若需要页分裂，下列字段表示各段如何分到各页上。
+	 * 由 leafRepackItems 填写。
 	 */
-	dlist_node *lastleft;		/* last segment on left page */
-	int			lsize;			/* total size on left page */
-	int			rsize;			/* total size on right page */
+	dlist_node *lastleft;		/* 左页上的最后一段 */
+	int			lsize;			/* 左页上的总尺寸 */
+	int			rsize;			/* 右页上的总尺寸 */
 
-	bool		oldformat;		/* page is in pre-9.4 format on disk */
+	bool		oldformat;		/* 页在磁盘上为 9.4 之前的格式 */
 
 	/*
-	 * If we need WAL data representing the reconstructed leaf page, it's
-	 * stored here by computeLeafRecompressWALData.
+	 * 若需要表示重建后叶子页的 WAL 数据，由
+	 * computeLeafRecompressWALData 存放在这里。
 	 */
-	char	   *walinfo;		/* buffer start */
-	int			walinfolen;		/* and length */
+	char	   *walinfo;		/* 缓冲区起点 */
+	int			walinfolen;		/* 以及长度 */
 } disassembledLeaf;
 
 typedef struct
 {
-	dlist_node	node;			/* linked list pointers */
+	dlist_node	node;			/* 链表指针 */
 
 	/*-------------
-	 * 'action' indicates the status of this in-memory segment, compared to
-	 * what's on disk. It is one of the GIN_SEGMENT_* action codes:
+	 * 'action' 表示此内存中段相对于磁盘上内容的状态。
+	 * 它是下列 GIN_SEGMENT_* 动作码之一：
 	 *
-	 * UNMODIFIED	no changes
-	 * DELETE		the segment is to be removed. 'seg' and 'items' are
-	 *				ignored
-	 * INSERT		this is a completely new segment
-	 * REPLACE		this replaces an existing segment with new content
-	 * ADDITEMS		like REPLACE, but no items have been removed, and we track
-	 *				in detail what items have been added to this segment, in
-	 *				'modifieditems'
+	 * UNMODIFIED	无更改
+	 * DELETE		该段将被移除。'seg' 与 'items' 被
+	 *				忽略
+	 * INSERT		这是一个全新的段
+	 * REPLACE		用新内容替换现有段
+	 * ADDITEMS		类似 REPLACE，但未移除任何项，且我们
+	 *				在 'modifieditems' 中详细跟踪向该段
+	 *				添加了哪些项
 	 *-------------
 	 */
 	char		action;
@@ -91,15 +91,15 @@ typedef struct
 	uint16		nmodifieditems;
 
 	/*
-	 * The following fields represent the items in this segment. If 'items' is
-	 * not NULL, it contains a palloc'd array of the items in this segment. If
-	 * 'seg' is not NULL, it contains the items in an already-compressed
-	 * format. It can point to an on-disk page (!modified), or a palloc'd
-	 * segment in memory. If both are set, they must represent the same items.
+	 * 下列字段表示本段中的项。若 'items' 非 NULL，则它含有
+	 * 本段项的 palloc 数组。若 'seg' 非 NULL，则它以已压缩
+	 * 格式含有这些项。它可以指向磁盘页（!modified），或
+	 * 指向内存中 palloc 的段。若两者都设置，则必须表示
+	 * 相同的项。
 	 */
 	GinPostingList *seg;
 	ItemPointer items;
-	int			nitems;			/* # of items in 'items', if items != NULL */
+	int			nitems;			/* 'items' 中的项数（若 items != NULL） */
 } leafSegmentInfo;
 
 static ItemPointer dataLeafPageGetUncompressed(Page page, int *nitems);
@@ -120,16 +120,16 @@ static void dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
 									 Page lpage, Page rpage);
 
 /*
- * Read TIDs from leaf data page to single uncompressed array. The TIDs are
- * returned in ascending order.
+ * 从叶子数据页读取 TIDs 到单个未压缩数组。TIDs 按
+ * 升序返回。
  *
- * advancePast is a hint, indicating that the caller is only interested in
- * TIDs > advancePast. To return all items, use ItemPointerSetMin.
+ * advancePast 是一个提示，表示调用者只关心
+ * TID > advancePast。若要返回全部项，使用
+ * ItemPointerSetMin。
  *
- * Note: This function can still return items smaller than advancePast that
- * are in the same posting list as the items of interest, so the caller must
- * still check all the returned items. But passing it allows this function to
- * skip whole posting lists.
+ * 注意：本函数仍可能返回小于 advancePast、但与感兴趣项
+ * 处于同一倒排列表中的项，因此调用者仍须检查所有返回项。
+ * 但传入该提示可让本函数跳过整段倒排列表。
  */
 ItemPointer
 GinDataLeafPageGetItems(Page page, int *nitems, ItemPointerData advancePast)
@@ -143,7 +143,7 @@ GinDataLeafPageGetItems(Page page, int *nitems, ItemPointerData advancePast)
 		Pointer		endptr = ((Pointer) seg) + len;
 		GinPostingList *next;
 
-		/* Skip to the segment containing advancePast+1 */
+		/* 跳到含有 advancePast+1 的段 */
 		if (ItemPointerIsValid(&advancePast))
 		{
 			next = GinNextPostingListSegment(seg);
@@ -176,7 +176,7 @@ GinDataLeafPageGetItems(Page page, int *nitems, ItemPointerData advancePast)
 }
 
 /*
- * Places all TIDs from leaf data page to bitmap.
+ * 把叶子数据页上的全部 TIDs 放入位图。
  */
 int
 GinDataLeafPageGetItemsToTbm(Page page, TIDBitmap *tbm)
@@ -203,9 +203,9 @@ GinDataLeafPageGetItemsToTbm(Page page, TIDBitmap *tbm)
 }
 
 /*
- * Get pointer to the uncompressed array of items on a pre-9.4 format
- * uncompressed leaf page. The number of items in the array is returned in
- * *nitems.
+ * 获取 9.4 之前格式未压缩叶子页上未压缩项数组的
+ * 指针。数组中的项数经 *nitems
+ * 返回。
  */
 static ItemPointer
 dataLeafPageGetUncompressed(Page page, int *nitems)
@@ -215,8 +215,8 @@ dataLeafPageGetUncompressed(Page page, int *nitems)
 	Assert(!GinPageIsCompressed(page));
 
 	/*
-	 * In the old pre-9.4 page format, the whole page content is used for
-	 * uncompressed items, and the number of items is stored in 'maxoff'
+	 * 在旧的 9.4 之前页格式中，整个页内容用于存放未压缩项，
+	 * 项数存放在 'maxoff' 中
 	 */
 	items = (ItemPointer) GinDataPageGetData(page);
 	*nitems = GinPageGetOpaque(page)->maxoff;
@@ -225,10 +225,10 @@ dataLeafPageGetUncompressed(Page page, int *nitems)
 }
 
 /*
- * Check if we should follow the right link to find the item we're searching
- * for.
+ * 检查是否应跟随右链去找正在搜索的
+ * 项。
  *
- * Compares inserting item pointer with the right bound of the current page.
+ * 把正在插入的项指针与当前页的右界比较。
  */
 static bool
 dataIsMoveRight(GinBtree btree, Page page)
@@ -245,8 +245,8 @@ dataIsMoveRight(GinBtree btree, Page page)
 }
 
 /*
- * Find correct PostingItem in non-leaf page. It is assumed that this is
- * the correct page, and the searched value SHOULD be on the page.
+ * 在非叶子页中找到正确的 PostingItem。假定这已是正确的页，
+ * 且所搜索的值应当（SHOULD）在该页上。
  */
 static BlockNumber
 dataLocateItem(GinBtree btree, GinBtreeStack *stack)
@@ -283,8 +283,8 @@ dataLocateItem(GinBtree btree, GinBtreeStack *stack)
 		if (mid == maxoff)
 		{
 			/*
-			 * Right infinity, page already correctly chosen with a help of
-			 * dataIsMoveRight
+			 * 右无穷，页已在 dataIsMoveRight 的帮助下
+			 * 正确选定
 			 */
 			result = -1;
 		}
@@ -313,7 +313,7 @@ dataLocateItem(GinBtree btree, GinBtreeStack *stack)
 }
 
 /*
- * Find link to blkno on non-leaf page, returns offset of PostingItem
+ * 在非叶子页上查找指向 blkno 的链接，返回 PostingItem 的偏移
  */
 static OffsetNumber
 dataFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber storedOff)
@@ -325,7 +325,7 @@ dataFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber stor
 	Assert(!GinPageIsLeaf(page));
 	Assert(GinPageIsData(page));
 
-	/* if page isn't changed, we return storedOff */
+	/* 若页未更改，则返回 storedOff */
 	if (storedOff >= FirstOffsetNumber && storedOff <= maxoff)
 	{
 		pitem = GinDataPageGetPostingItem(page, storedOff);
@@ -333,8 +333,8 @@ dataFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber stor
 			return storedOff;
 
 		/*
-		 * we hope, that needed pointer goes to right. It's true if there
-		 * wasn't a deletion
+		 * 我们希望所需指针在右侧。若未曾发生删除，
+		 * 则这一点成立
 		 */
 		for (i = storedOff + 1; i <= maxoff; i++)
 		{
@@ -346,7 +346,7 @@ dataFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber stor
 		maxoff = storedOff - 1;
 	}
 
-	/* last chance */
+	/* 最后机会 */
 	for (i = FirstOffsetNumber; i <= maxoff; i++)
 	{
 		pitem = GinDataPageGetPostingItem(page, i);
@@ -358,7 +358,7 @@ dataFindChildPtr(GinBtree btree, Page page, BlockNumber blkno, OffsetNumber stor
 }
 
 /*
- * Return blkno of leftmost child
+ * 返回最左子结点的 blkno
  */
 static BlockNumber
 dataGetLeftMostPage(GinBtree btree, Page page)
@@ -374,7 +374,7 @@ dataGetLeftMostPage(GinBtree btree, Page page)
 }
 
 /*
- * Add PostingItem to a non-leaf page.
+ * 向非叶子页添加 PostingItem。
  */
 void
 GinDataPageAddPostingItem(Page page, PostingItem *data, OffsetNumber offset)
@@ -403,15 +403,15 @@ GinDataPageAddPostingItem(Page page, PostingItem *data, OffsetNumber offset)
 	GinPageGetOpaque(page)->maxoff = maxoff;
 
 	/*
-	 * Also set pd_lower to the end of the posting items, to follow the
-	 * "standard" page layout, so that we can squeeze out the unused space
-	 * from full-page images.
+	 * 同时把 pd_lower 设到倒排项末尾，以遵循
+	 * "标准"页布局，从而能从整页映像中挤掉
+	 * 未用空间。
 	 */
 	GinDataPageSetDataSize(page, maxoff * sizeof(PostingItem));
 }
 
 /*
- * Delete posting item from non-leaf page
+ * 从非叶子页删除倒排项
  */
 void
 GinPageDeletePostingItem(Page page, OffsetNumber offset)
@@ -433,16 +433,16 @@ GinPageDeletePostingItem(Page page, OffsetNumber offset)
 }
 
 /*
- * Prepare to insert data on a leaf data page.
+ * 准备向叶子数据页插入数据。
  *
- * If it will fit, return GPTP_INSERT after doing whatever setup is needed
- * before we enter the insertion critical section.  *ptp_workspace can be
- * set to pass information along to the execPlaceToPage function.
+ * 若放得下，则在进入插入临界区前做完所需准备后返回
+ * GPTP_INSERT。可将 *ptp_workspace 设为向
+ * execPlaceToPage 函数传递信息。
  *
- * If it won't fit, perform a page split and return two temporary page
- * images into *newlpage and *newrpage, with result GPTP_SPLIT.
+ * 若放不下，则执行页分裂，并把两个临时页映像返回到
+ * *newlpage 与 *newrpage，结果为 GPTP_SPLIT。
  *
- * In neither case should the given page buffer be modified here.
+ * 无论哪种情况，此处都不应修改给定的页缓冲区。
  */
 static GinPlaceToPageRC
 dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -469,7 +469,7 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	rbound = *GinDataPageGetRightBound(page);
 
 	/*
-	 * Count how many of the new items belong to this page.
+	 * 统计有多少新项属于本页。
 	 */
 	if (!GinPageRightMost(page))
 	{
@@ -478,9 +478,9 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 			if (ginCompareItemPointers(&newItems[i], &rbound) > 0)
 			{
 				/*
-				 * This needs to go to some other location in the tree. (The
-				 * caller should've chosen the insert location so that at
-				 * least the first item goes here.)
+				 * 此项需要去到树中的其他位置。（调用者
+				 * 本应选好插入位置，使至少第一项
+				 * 落在这里。）
 				 */
 				Assert(i > 0);
 				break;
@@ -489,12 +489,12 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		maxitems = i;
 	}
 
-	/* Disassemble the data on the page */
+	/* 拆解页上的数据 */
 	leaf = disassembleLeaf(page);
 
 	/*
-	 * Are we appending to the end of the page? IOW, are all the new items
-	 * larger than any of the existing items.
+	 * 我们是在向页末追加吗？换言之，是否所有新项都
+	 * 大于任何现有项。
 	 */
 	if (!dlist_is_empty(&leaf->segments))
 	{
@@ -516,11 +516,11 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	}
 
 	/*
-	 * If we're appending to the end of the page, we will append as many items
-	 * as we can fit (after splitting), and stop when the pages becomes full.
-	 * Otherwise we have to limit the number of new items to insert, because
-	 * once we start packing we can't just stop when we run out of space,
-	 * because we must make sure that all the old items still fit.
+	 * 若正在向页末追加，我们将追加尽可能多的项
+	 * （在分裂之后），并在页变满时停止。否则必须
+	 * 限制要插入的新项数，因为一旦开始打包就不能在
+	 * 空间用尽时停下来——必须确保所有旧项仍然
+	 * 放得下。
 	 */
 	if (GinPageIsCompressed(page))
 		freespace = GinDataLeafPageGetFreeSpace(page);
@@ -529,23 +529,23 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	if (append)
 	{
 		/*
-		 * Even when appending, trying to append more items than will fit is
-		 * not completely free, because we will merge the new items and old
-		 * items into an array below. In the best case, every new item fits in
-		 * a single byte, and we can use all the free space on the old page as
-		 * well as the new page. For simplicity, ignore segment overhead etc.
+		 * 即使在追加时，尝试追加超过能放下的项也并非
+		 * 完全免费，因为下面会把新旧项合并到一个数组。
+		 * 最好情况下，每个新项只需一字节，且我们能用完
+		 * 旧页与新页上的全部空闲空间。为简单起见，忽略
+		 * 段开销等。
 		 */
 		maxitems = Min(maxitems, freespace + GinDataPageMaxDataSize);
 	}
 	else
 	{
 		/*
-		 * Calculate a conservative estimate of how many new items we can fit
-		 * on the two pages after splitting.
+		 * 保守估计分裂后两个页上能放下多少新
+		 * 项。
 		 *
-		 * We can use any remaining free space on the old page to store full
-		 * segments, as well as the new page. Each full-sized segment can hold
-		 * at least MinTuplesPerSegment items
+		 * 我们可用旧页上剩余空闲空间存放完整的
+		 * 段，以及新页。每个满尺寸段至少能容纳
+		 * MinTuplesPerSegment 项
 		 */
 		int			nnewsegments;
 
@@ -554,32 +554,32 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		maxitems = Min(maxitems, nnewsegments * MinTuplesPerSegment);
 	}
 
-	/* Add the new items to the segment list */
+	/* 把新项加入段列表 */
 	if (!addItemsToLeaf(leaf, newItems, maxitems))
 	{
-		/* all items were duplicates, we have nothing to do */
+		/* 全部项都是重复的，无事可做 */
 		items->curitem += maxitems;
 
 		return GPTP_NO_WORK;
 	}
 
 	/*
-	 * Pack the items back to compressed segments, ready for writing to disk.
+	 * 把项重新打包回压缩段，准备写入磁盘。
 	 */
 	needsplit = leafRepackItems(leaf, &remaining);
 
 	/*
-	 * Did all the new items fit?
+	 * 所有新项都放得下了吗？
 	 *
-	 * If we're appending, it's OK if they didn't. But as a sanity check,
-	 * verify that all the old items fit.
+	 * 若正在追加，放不下也可以。但作为健全性检查，
+	 * 验证所有旧项都放得下。
 	 */
 	if (ItemPointerIsValid(&remaining))
 	{
 		if (!append || ItemPointerCompare(&maxOldItem, &remaining) >= 0)
 			elog(ERROR, "could not split GIN page; all old items didn't fit");
 
-		/* Count how many of the new items did fit. */
+		/* 统计有多少新项放得下了。 */
 		for (i = 0; i < maxitems; i++)
 		{
 			if (ginCompareItemPointers(&newItems[i], &remaining) >= 0)
@@ -593,15 +593,15 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	if (!needsplit)
 	{
 		/*
-		 * Great, all the items fit on a single page.  If needed, prepare data
-		 * for a WAL record describing the changes we'll make.
+		 * 很好，所有项都能放进单页。若需要，则为描述
+		 * 我们将做的更改的 WAL 记录准备数据。
 		 */
 		if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 			computeLeafRecompressWALData(leaf);
 
 		/*
-		 * We're ready to enter the critical section, but
-		 * dataExecPlaceToPageLeaf will need access to the "leaf" data.
+		 * 我们已准备好进入临界区，但
+		 * dataExecPlaceToPageLeaf 将需要访问 "leaf" 数据。
 		 */
 		*ptp_workspace = leaf;
 
@@ -617,22 +617,22 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	else
 	{
 		/*
-		 * Have to split.
+		 * 必须分裂。
 		 *
-		 * leafRepackItems already divided the segments between the left and
-		 * the right page. It filled the left page as full as possible, and
-		 * put the rest to the right page. When building a new index, that's
-		 * good, because the table is scanned from beginning to end and there
-		 * won't be any more insertions to the left page during the build.
-		 * This packs the index as tight as possible. But otherwise, split
-		 * 50/50, by moving segments from the left page to the right page
-		 * until they're balanced.
+		 * leafRepackItems 已把各段分到左页
+		 * 与右页。它尽量填满左页，其余放到右
+		 * 页。在构建新索引时这很好，因为表从
+		 * 始至终扫描，构建期间不会再向左页插
+		 * 入。这样能把索引打包得尽可能紧。
+		 * 但在其他情况下则按 50/50 分裂，把
+		 * 段从左页移到右页，直到左右两页达
+		 * 到平衡。
 		 *
-		 * As a further heuristic, when appending items to the end of the
-		 * page, try to make the left page 75% full, on the assumption that
-		 * subsequent insertions will probably also go to the end. This packs
-		 * the index somewhat tighter when appending to a table, which is very
-		 * common.
+		 * 作为进一步的启发式，在向页末追加项
+		 * 时，尽量让左页达到 75% 满，假定后
+		 * 续插入也很可能落在末尾。这在向表追
+		 * 加（很常见）时能把索引打包得稍
+		 * 紧一些。
 		 */
 		if (!btree->isBuild)
 		{
@@ -640,16 +640,16 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 			{
 				lastleftinfo = dlist_container(leafSegmentInfo, node, leaf->lastleft);
 
-				/* ignore deleted segments */
+				/* 忽略已删除的段 */
 				if (lastleftinfo->action != GIN_SEGMENT_DELETE)
 				{
 					segsize = SizeOfGinPostingList(lastleftinfo->seg);
 
 					/*
-					 * Note that we check that the right page doesn't become
-					 * more full than the left page even when appending. It's
-					 * possible that we added enough items to make both pages
-					 * more than 75% full.
+					 * 注意：即使在追加时，我们也检查右页不会
+					 * 变得比左页更满。有可能我们添加了足够多
+					 * 的项，使两页都超过
+					 * 75% 满。
 					 */
 					if ((leaf->lsize - segsize) - (leaf->rsize + segsize) < 0)
 						break;
@@ -669,8 +669,8 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		Assert(leaf->rsize <= GinDataPageMaxDataSize);
 
 		/*
-		 * Fetch the max item in the left page's last segment; it becomes the
-		 * right bound of the page.
+		 * 取左页最后一段中的最大项；它成为该页的
+		 * 右界。
 		 */
 		lastleftinfo = dlist_container(leafSegmentInfo, node, leaf->lastleft);
 		if (!lastleftinfo->items)
@@ -679,7 +679,7 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		lbound = lastleftinfo->items[lastleftinfo->nitems - 1];
 
 		/*
-		 * Now allocate a couple of temporary page images, and fill them.
+		 * 现在分配几个临时页映像并填入它们。
 		 */
 		*newlpage = palloc(BLCKSZ);
 		*newrpage = palloc(BLCKSZ);
@@ -707,10 +707,10 @@ dataBeginPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Perform data insertion after beginPlaceToPage has decided it will fit.
+ * 在 beginPlaceToPage 已判定放得下之后执行数据插入。
  *
- * This is invoked within a critical section, and XLOG record creation (if
- * needed) is already started.  The target buffer is registered in slot 0.
+ * 在临界区内调用，且（若需要）XLOG 记录创建已
+ * 开始。目标缓冲区注册在槽 0。
  */
 static void
 dataExecPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -718,10 +718,10 @@ dataExecPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 {
 	disassembledLeaf *leaf = (disassembledLeaf *) ptp_workspace;
 
-	/* Apply changes to page */
+	/* 把更改应用到页 */
 	dataPlaceToPageLeafRecompress(buf, leaf);
 
-	/* If needed, register WAL data built by computeLeafRecompressWALData */
+	/* 若需要，注册由 computeLeafRecompressWALData 构建的 WAL 数据 */
 	if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 	{
 		XLogRegisterBufData(0, leaf->walinfo, leaf->walinfolen);
@@ -729,7 +729,7 @@ dataExecPlaceToPageLeaf(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Vacuum a posting tree leaf page.
+ * 清理倒排树叶子页。
  */
 void
 ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
@@ -741,7 +741,7 @@ ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
 
 	leaf = disassembleLeaf(page);
 
-	/* Vacuum each segment. */
+	/* 清理每一段。 */
 	dlist_foreach(iter, &leaf->segments)
 	{
 		leafSegmentInfo *seginfo = dlist_container(leafSegmentInfo, node, iter.cur);
@@ -774,7 +774,7 @@ ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
 													  ncleaned,
 													  oldsegsize,
 													  &npacked);
-				/* Removing an item never increases the size of the segment */
+				/* 移除项绝不会使段的尺寸增大 */
 				if (npacked != ncleaned)
 					elog(ERROR, "could not fit vacuumed posting list");
 				seginfo->action = GIN_SEGMENT_REPLACE;
@@ -792,30 +792,30 @@ ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
 	}
 
 	/*
-	 * If we removed any items, reconstruct the page from the pieces.
+	 * 若移除了任何项，则从碎片重建该页。
 	 *
-	 * We don't try to re-encode the segments here, even though some of them
-	 * might be really small now that we've removed some items from them. It
-	 * seems like a waste of effort, as there isn't really any benefit from
-	 * larger segments per se; larger segments only help to pack more items in
-	 * the same space. We might as well delay doing that until the next
-	 * insertion, which will need to re-encode at least part of the page
-	 * anyway.
+	 * 我们不在这里尝试重新编码各段，即使其
+	 * 中一些在移除项后可能已经很小。这似乎
+	 * 是浪费力气，因为较大的段本身并无真正
+	 * 好处；较大的段只是有助于在相同空间中
+	 * 装入更多项。不妨推迟到下次插入时再做，
+	 * 那时反正至少要重新编码页的一
+	 * 部分。
 	 *
-	 * Also note if the page was in uncompressed, pre-9.4 format before, it is
-	 * now represented as one huge segment that contains all the items. It
-	 * might make sense to split that, to speed up random access, but we don't
-	 * bother. You'll have to REINDEX anyway if you want the full gain of the
-	 * new tighter index format.
+	 * 另请注意：若页原先是未压缩的 9.4 之前格式，
+	 * 现在会表示为一个包含全部项的巨大段。把它
+	 * 分裂以加快随机访问或许有意义，但我们不费
+	 * 这个劲。若想充分获得新紧凑索引格式的收益，
+	 * 反正得做 REINDEX。
 	 */
 	if (removedsomething)
 	{
 		bool		modified;
 
 		/*
-		 * Make sure we have a palloc'd copy of all segments, after the first
-		 * segment that is modified. (dataPlaceToPageLeafRecompress requires
-		 * this).
+		 * 确保从第一个被修改的段起，其后所有段都有
+		 * palloc 副本。（dataPlaceToPageLeafRecompress
+		 * 需要如此）。
 		 */
 		modified = false;
 		dlist_foreach(iter, &leaf->segments)
@@ -838,7 +838,7 @@ ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
 		if (RelationNeedsWAL(indexrel))
 			computeLeafRecompressWALData(leaf);
 
-		/* Apply changes to page */
+		/* 把更改应用到页 */
 		START_CRIT_SECTION();
 
 		dataPlaceToPageLeafRecompress(buffer, leaf);
@@ -861,9 +861,9 @@ ginVacuumPostingTreeLeaf(Relation indexrel, Buffer buffer, GinVacuumState *gvs)
 }
 
 /*
- * Construct a ginxlogRecompressDataLeaf record representing the changes
- * in *leaf.  (Because this requires a palloc, we have to do it before
- * we enter the critical section that actually updates the page.)
+ * 构造表示 *leaf 中更改的 ginxlogRecompressDataLeaf 记录。
+ * （因为这需要 palloc，我们必须在进入实际更新页的
+ * 临界区之前完成。）
  */
 static void
 computeLeafRecompressWALData(disassembledLeaf *leaf)
@@ -875,7 +875,7 @@ computeLeafRecompressWALData(disassembledLeaf *leaf)
 	int			segno;
 	ginxlogRecompressDataLeaf *recompress_xlog;
 
-	/* Count the modified segments */
+	/* 统计已修改的段 */
 	dlist_foreach(iter, &leaf->segments)
 	{
 		leafSegmentInfo *seginfo = dlist_container(leafSegmentInfo, node,
@@ -887,8 +887,8 @@ computeLeafRecompressWALData(disassembledLeaf *leaf)
 
 	walbufbegin =
 		palloc(sizeof(ginxlogRecompressDataLeaf) +
-			   BLCKSZ +			/* max size needed to hold the segment data */
-			   nmodified * 2	/* (segno + action) per action */
+			   BLCKSZ +			/* 存放段数据所需的最大尺寸 */
+			   nmodified * 2	/* 每个动作的 (segno + action) */
 		);
 	walbufend = walbufbegin;
 
@@ -916,9 +916,9 @@ computeLeafRecompressWALData(disassembledLeaf *leaf)
 			segsize = SizeOfGinPostingList(seginfo->seg);
 
 		/*
-		 * If storing the uncompressed list of added item pointers would take
-		 * more space than storing the compressed segment as is, do that
-		 * instead.
+		 * 若存放所添加项指针的未压缩列表会比按原样
+		 * 存放压缩段占用更多空间，则改为那样
+		 * 做。
 		 */
 		if (action == GIN_SEGMENT_ADDITEMS &&
 			seginfo->nmodifieditems * sizeof(ItemPointerData) > segsize)
@@ -957,19 +957,19 @@ computeLeafRecompressWALData(disassembledLeaf *leaf)
 			segno++;
 	}
 
-	/* Pass back the constructed info via *leaf */
+	/* 经 *leaf 回传所构造的信息 */
 	leaf->walinfo = walbufbegin;
 	leaf->walinfolen = walbufend - walbufbegin;
 }
 
 /*
- * Assemble a disassembled posting tree leaf page back to a buffer.
+ * 把已拆解的倒排树叶子页重新组装回缓冲区。
  *
- * This just updates the target buffer; WAL stuff is caller's responsibility.
+ * 这只更新目标缓冲区；WAL 事宜由调用者负责。
  *
- * NOTE: The segment pointers must not point directly to the same buffer,
- * except for segments that have not been modified and whose preceding
- * segments have not been modified either.
+ * 注意：段指针不得直接指向同一缓冲区，除非该段
+ * 未被修改，且其前面的段也未被
+ * 修改。
  */
 static void
 dataPlaceToPageLeafRecompress(Buffer buf, disassembledLeaf *leaf)
@@ -982,9 +982,9 @@ dataPlaceToPageLeafRecompress(Buffer buf, disassembledLeaf *leaf)
 	int			segsize;
 
 	/*
-	 * If the page was in pre-9.4 format before, convert the header, and force
-	 * all segments to be copied to the page whether they were modified or
-	 * not.
+	 * 若页原先是 9.4 之前的格式，则转换页头，并强制
+	 * 无论是否修改都把所有段复制到
+	 * 页上。
 	 */
 	if (!GinPageIsCompressed(page))
 	{
@@ -1020,12 +1020,12 @@ dataPlaceToPageLeafRecompress(Buffer buf, disassembledLeaf *leaf)
 }
 
 /*
- * Like dataPlaceToPageLeafRecompress, but writes the disassembled leaf
- * segments to two pages instead of one.
+ * 类似 dataPlaceToPageLeafRecompress，但把已拆解的叶子
+ * 段写入两页而不是一页。
  *
- * This is different from the non-split cases in that this does not modify
- * the original page directly, but writes to temporary in-memory copies of
- * the new left and right pages.
+ * 与非分裂情形的不同之处在于：这不直接修改原页，
+ * 而是写入新左页与右页的临时
+ * 内存副本。
  */
 static void
 dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
@@ -1040,15 +1040,15 @@ dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
 	dlist_node *firstright;
 	leafSegmentInfo *seginfo;
 
-	/* Initialize temporary pages to hold the new left and right pages */
+	/* 初始化临时页以容纳新的左页与右页 */
 	GinInitPage(lpage, GIN_DATA | GIN_LEAF | GIN_COMPRESSED, BLCKSZ);
 	GinInitPage(rpage, GIN_DATA | GIN_LEAF | GIN_COMPRESSED, BLCKSZ);
 
 	/*
-	 * Copy the segments that go to the left page.
+	 * 复制应落到左页的各段。
 	 *
-	 * XXX: We should skip copying the unmodified part of the left page, like
-	 * we do when recompressing.
+	 * XXX：我们应跳过复制左页未修改的部分，就像
+	 * 在重新压缩时所做的那样。
 	 */
 	lsize = 0;
 	ptr = (char *) GinDataLeafPageGetPostingList(lpage);
@@ -1071,7 +1071,7 @@ dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
 	GinDataPageSetDataSize(lpage, lsize);
 	*GinDataPageGetRightBound(lpage) = lbound;
 
-	/* Copy the segments that go to the right page */
+	/* 复制应落到右页的各段 */
 	ptr = (char *) GinDataLeafPageGetPostingList(rpage);
 	rsize = 0;
 	for (node = firstright;
@@ -1097,20 +1097,20 @@ dataPlaceToPageLeafSplit(disassembledLeaf *leaf,
 }
 
 /*
- * Prepare to insert data on an internal data page.
+ * 准备向内部数据页插入数据。
  *
- * If it will fit, return GPTP_INSERT after doing whatever setup is needed
- * before we enter the insertion critical section.  *ptp_workspace can be
- * set to pass information along to the execPlaceToPage function.
+ * 若放得下，则在进入插入临界区前做完所需准备后返回
+ * GPTP_INSERT。可将 *ptp_workspace 设为向
+ * execPlaceToPage 函数传递信息。
  *
- * If it won't fit, perform a page split and return two temporary page
- * images into *newlpage and *newrpage, with result GPTP_SPLIT.
+ * 若放不下，则执行页分裂，并把两个临时页映像返回到
+ * *newlpage 与 *newrpage，结果为 GPTP_SPLIT。
  *
- * In neither case should the given page buffer be modified here.
+ * 无论哪种情况，此处都不应修改给定的页缓冲区。
  *
- * Note: on insertion to an internal node, in addition to inserting the given
- * item, the downlink of the existing item at stack->off will be updated to
- * point to updateblkno.
+ * 注意：向内部结点插入时，除插入给定项外，
+ * stack->off 处现有项的下行指针也会被更新为
+ * 指向 updateblkno。
  */
 static GinPlaceToPageRC
 dataBeginPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -1120,7 +1120,7 @@ dataBeginPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 {
 	Page		page = BufferGetPage(buf);
 
-	/* If it doesn't fit, deal with split case */
+	/* 若放不下，则处理分裂情形 */
 	if (GinNonLeafDataPageGetFreeSpace(page) < sizeof(PostingItem))
 	{
 		dataSplitPageInternal(btree, buf, stack, insertdata, updateblkno,
@@ -1128,15 +1128,15 @@ dataBeginPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 		return GPTP_SPLIT;
 	}
 
-	/* Else, we're ready to proceed with insertion */
+	/* 否则，我们已准备好继续插入 */
 	return GPTP_INSERT;
 }
 
 /*
- * Perform data insertion after beginPlaceToPage has decided it will fit.
+ * 在 beginPlaceToPage 已判定放得下之后执行数据插入。
  *
- * This is invoked within a critical section, and XLOG record creation (if
- * needed) is already started.  The target buffer is registered in slot 0.
+ * 在临界区内调用，且（若需要）XLOG 记录创建已
+ * 开始。目标缓冲区注册在槽 0。
  */
 static void
 dataExecPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -1147,20 +1147,20 @@ dataExecPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 	OffsetNumber off = stack->off;
 	PostingItem *pitem;
 
-	/* Update existing downlink to point to next page (on internal page) */
+	/* 更新现有下行指针以指向下一页（在内部页上） */
 	pitem = GinDataPageGetPostingItem(page, off);
 	PostingItemSetBlockNumber(pitem, updateblkno);
 
-	/* Add new item */
+	/* 添加新项 */
 	pitem = (PostingItem *) insertdata;
 	GinDataPageAddPostingItem(page, pitem, off);
 
 	if (RelationNeedsWAL(btree->index) && !btree->isBuild)
 	{
 		/*
-		 * This must be static, because it has to survive until XLogInsert,
-		 * and we can't palloc here.  Ugly, but the XLogInsert infrastructure
-		 * isn't reentrant anyway.
+		 * 这必须是 static，因为它必须存活到 XLogInsert，
+		 * 而此处不能 palloc。难看，但 XLogInsert 基础设施
+		 * 反正也不是可重入的。
 		 */
 		static ginxlogInsertDataInternal data;
 
@@ -1173,23 +1173,23 @@ dataExecPlaceToPageInternal(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Prepare to insert data on a posting-tree data page.
+ * 准备向倒排树数据页插入数据。
  *
- * If it will fit, return GPTP_INSERT after doing whatever setup is needed
- * before we enter the insertion critical section.  *ptp_workspace can be
- * set to pass information along to the execPlaceToPage function.
+ * 若放得下，则在进入插入临界区前做完所需准备后返回
+ * GPTP_INSERT。可将 *ptp_workspace 设为向
+ * execPlaceToPage 函数传递信息。
  *
- * If it won't fit, perform a page split and return two temporary page
- * images into *newlpage and *newrpage, with result GPTP_SPLIT.
+ * 若放不下，则执行页分裂，并把两个临时页映像返回到
+ * *newlpage 与 *newrpage，结果为 GPTP_SPLIT。
  *
- * In neither case should the given page buffer be modified here.
+ * 无论哪种情况，此处都不应修改给定的页缓冲区。
  *
- * Note: on insertion to an internal node, in addition to inserting the given
- * item, the downlink of the existing item at stack->off will be updated to
- * point to updateblkno.
+ * 注意：向内部结点插入时，除插入给定项外，
+ * stack->off 处现有项的下行指针也会被更新为
+ * 指向 updateblkno。
  *
- * Calls relevant function for internal or leaf page because they are handled
- * very differently.
+ * 对内部页或叶子页调用相应函数，因为它们的处理方式
+ * 很不相同。
  */
 static GinPlaceToPageRC
 dataBeginPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -1213,13 +1213,13 @@ dataBeginPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Perform data insertion after beginPlaceToPage has decided it will fit.
+ * 在 beginPlaceToPage 已判定放得下之后执行数据插入。
  *
- * This is invoked within a critical section, and XLOG record creation (if
- * needed) is already started.  The target buffer is registered in slot 0.
+ * 在临界区内调用，且（若需要）XLOG 记录创建已
+ * 开始。目标缓冲区注册在槽 0。
  *
- * Calls relevant function for internal or leaf page because they are handled
- * very differently.
+ * 对内部页或叶子页调用相应函数，因为它们的处理方式
+ * 很不相同。
  */
 static void
 dataExecPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
@@ -1237,10 +1237,10 @@ dataExecPlaceToPage(GinBtree btree, Buffer buf, GinBtreeStack *stack,
 }
 
 /*
- * Split internal page and insert new data.
+ * 分裂内部页并插入新数据。
  *
- * Returns new temp pages to *newlpage and *newrpage.
- * The original buffer is left untouched.
+ * 把新的临时页返回到 *newlpage 与 *newrpage。
+ * 原缓冲区保持不动。
  */
 static void
 dataSplitPageInternal(GinBtree btree, Buffer origbuf,
@@ -1267,8 +1267,8 @@ dataSplitPageInternal(GinBtree btree, Buffer origbuf,
 	GinInitPage(rpage, GinPageGetOpaque(oldpage)->flags, pageSize);
 
 	/*
-	 * First construct a new list of PostingItems, which includes all the old
-	 * items, and the new item.
+	 * 首先构造一份新的 PostingItems 列表，其中包含全部旧项
+	 * 以及新项。
 	 */
 	memcpy(allitems, GinDataPageGetPostingItem(oldpage, FirstOffsetNumber),
 		   (off - 1) * sizeof(PostingItem));
@@ -1278,13 +1278,13 @@ dataSplitPageInternal(GinBtree btree, Buffer origbuf,
 		   (nitems - (off - 1)) * sizeof(PostingItem));
 	nitems++;
 
-	/* Update existing downlink to point to next page */
+	/* 更新现有下行指针以指向下一页 */
 	PostingItemSetBlockNumber(&allitems[off], updateblkno);
 
 	/*
-	 * When creating a new index, fit as many tuples as possible on the left
-	 * page, on the assumption that the table is scanned from beginning to
-	 * end. This packs the index as tight as possible.
+	 * 在创建新索引时，在左页上尽量多放元组，假定表
+	 * 从始至终扫描。这样能把索引打包得尽可能
+	 * 紧。
 	 */
 	if (btree->isBuild && GinPageRightMost(oldpage))
 		separator = GinNonLeafDataPageGetFreeSpace(rpage) / sizeof(PostingItem);
@@ -1303,25 +1303,25 @@ dataSplitPageInternal(GinBtree btree, Buffer origbuf,
 	GinPageGetOpaque(rpage)->maxoff = nrightitems;
 
 	/*
-	 * Also set pd_lower for both pages, like GinDataPageAddPostingItem does.
+	 * 也为两页设置 pd_lower，如同 GinDataPageAddPostingItem 所做。
 	 */
 	GinDataPageSetDataSize(lpage, nleftitems * sizeof(PostingItem));
 	GinDataPageSetDataSize(rpage, nrightitems * sizeof(PostingItem));
 
-	/* set up right bound for left page */
+	/* 设置左页的右界 */
 	bound = GinDataPageGetRightBound(lpage);
 	*bound = GinDataPageGetPostingItem(lpage, nleftitems)->key;
 
-	/* set up right bound for right page */
+	/* 设置右页的右界 */
 	*GinDataPageGetRightBound(rpage) = oldbound;
 
-	/* return temp pages to caller */
+	/* 把临时页返回给调用者 */
 	*newlpage = lpage;
 	*newrpage = rpage;
 }
 
 /*
- * Construct insertion payload for inserting the downlink for given buffer.
+ * 构造插入有效载荷，用于插入给定缓冲区的下行指针。
  */
 static void *
 dataPrepareDownlink(GinBtree btree, Buffer lbuf)
@@ -1336,8 +1336,8 @@ dataPrepareDownlink(GinBtree btree, Buffer lbuf)
 }
 
 /*
- * Fills new root by right bound values from child.
- * Also called from ginxlog, should not use btree
+ * 用子结点的右界值填充新根。
+ * 也从 ginxlog 调用，不应使用 btree
  */
 void
 ginDataFillRoot(GinBtree btree, Page root, BlockNumber lblkno, Page lpage, BlockNumber rblkno, Page rpage)
@@ -1355,10 +1355,10 @@ ginDataFillRoot(GinBtree btree, Page root, BlockNumber lblkno, Page lpage, Block
 }
 
 
-/*** Functions to work with disassembled leaf pages ***/
+/*** 处理已拆解叶子页的函数 ***/
 
 /*
- * Disassemble page into a disassembledLeaf struct.
+ * 把页拆解为 disassembledLeaf 结构。
  */
 static disassembledLeaf *
 disassembleLeaf(Page page)
@@ -1374,7 +1374,7 @@ disassembleLeaf(Page page)
 	if (GinPageIsCompressed(page))
 	{
 		/*
-		 * Create a leafSegmentInfo entry for each segment.
+		 * 为每个段创建一个 leafSegmentInfo 条目。
 		 */
 		seg = GinDataLeafPageGetPostingList(page);
 		segbegin = (Pointer) seg;
@@ -1396,9 +1396,9 @@ disassembleLeaf(Page page)
 	else
 	{
 		/*
-		 * A pre-9.4 format uncompressed page is represented by a single
-		 * segment, with an array of items.  The corner case is uncompressed
-		 * page containing no items, which is represented as no segments.
+		 * 9.4 之前格式的未压缩页用单个段表示，带有一个
+		 * 项数组。边界情形是不含任何项的未压缩页，表示为
+		 * 没有段。
 		 */
 		ItemPointer uncompressed;
 		int			nuncompressed;
@@ -1426,13 +1426,13 @@ disassembleLeaf(Page page)
 }
 
 /*
- * Distribute newItems to the segments.
+ * 把 newItems 分配到各段。
  *
- * Any segments that acquire new items are decoded, and the new items are
- * merged with the old items.
+ * 获得新项的任何段都会被解码，新项与旧项
+ * 合并。
  *
- * Returns true if any new items were added. False means they were all
- * duplicates of existing items on the page.
+ * 若添加了任何新项则返回 true。false 表示它们都是
+ * 页上现有项的重复。
  */
 static bool
 addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
@@ -1444,8 +1444,8 @@ addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
 	leafSegmentInfo *newseg;
 
 	/*
-	 * If the page is completely empty, just construct one new segment to hold
-	 * all the new items.
+	 * 若页完全为空，则只构造一个新段来容纳
+	 * 全部新项。
 	 */
 	if (dlist_is_empty(&leaf->segments))
 	{
@@ -1466,7 +1466,7 @@ addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
 		int			ntmpitems;
 
 		/*
-		 * How many of the new items fall into this segment?
+		 * 有多少新项落入本段？
 		 */
 		if (!dlist_has_next(&leaf->segments, iter.cur))
 			nthis = newleft;
@@ -1492,14 +1492,14 @@ addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
 		if (nthis == 0)
 			continue;
 
-		/* Merge the new items with the existing items. */
+		/* 把新项与现有项合并。 */
 		if (!cur->items)
 			cur->items = ginPostingListDecode(cur->seg, &cur->nitems);
 
 		/*
-		 * Fast path for the important special case that we're appending to
-		 * the end of the page: don't let the last segment on the page grow
-		 * larger than the target, create a new segment before that happens.
+		 * 向页末追加这一重要特殊情形的快速路径：不要让
+		 * 页上最后一段长过目标尺寸，在那之前创建
+		 * 新段。
 		 */
 		if (!dlist_has_next(&leaf->segments, iter.cur) &&
 			ginCompareItemPointers(&cur->items[cur->nitems - 1], &nextnew[0]) < 0 &&
@@ -1522,10 +1522,10 @@ addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
 		if (ntmpitems != cur->nitems)
 		{
 			/*
-			 * If there are no duplicates, track the added items so that we
-			 * can emit a compact ADDITEMS WAL record later on. (it doesn't
-			 * seem worth re-checking which items were duplicates, if there
-			 * were any)
+			 * 若没有重复，则跟踪所添加的项，以便稍后发出
+			 * 紧凑的 ADDITEMS WAL 记录。（若有重复，似乎
+			 * 不值得再检查哪些项是重复
+			 * 的）
 			 */
 			if (ntmpitems == nthis + cur->nitems &&
 				cur->action == GIN_SEGMENT_UNMODIFIED)
@@ -1553,13 +1553,13 @@ addItemsToLeaf(disassembledLeaf *leaf, ItemPointer newItems, int nNewItems)
 }
 
 /*
- * Recompresses all segments that have been modified.
+ * 重新压缩所有已修改的段。
  *
- * If not all the items fit on two pages (ie. after split), we store as
- * many items as fit, and set *remaining to the first item that didn't fit.
- * If all items fit, *remaining is set to invalid.
+ * 若并非全部项都能放进两页（即分裂后），则存放能放下的
+ * 尽可能多项，并把 *remaining 设为放不下的第一项。
+ * 若全部放得下，则把 *remaining 设为无效。
  *
- * Returns true if the page has to be split.
+ * 若页必须分裂则返回 true。
  */
 static bool
 leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
@@ -1577,8 +1577,8 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 	ItemPointerSetInvalid(remaining);
 
 	/*
-	 * cannot use dlist_foreach_modify here because we insert adjacent items
-	 * while iterating.
+	 * 此处无法用 dlist_foreach_modify，因为我们在迭代时
+	 * 会插入相邻项。
 	 */
 	for (cur_node = dlist_head_node(&leaf->segments);
 		 cur_node != NULL;
@@ -1592,13 +1592,13 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 		else
 			next_node = NULL;
 
-		/* Compress the posting list, if necessary */
+		/* 若有必要则压缩倒排列表 */
 		if (seginfo->action != GIN_SEGMENT_DELETE)
 		{
 			if (seginfo->seg == NULL)
 			{
 				if (seginfo->nitems > GinPostingListSegmentMaxSize)
-					npacked = 0;	/* no chance that it would fit. */
+					npacked = 0;	/* 不可能放得下。 */
 				else
 				{
 					seginfo->seg = ginCompressPostingList(seginfo->items,
@@ -1609,10 +1609,10 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 				if (npacked != seginfo->nitems)
 				{
 					/*
-					 * Too large. Compress again to the target size, and
-					 * create a new segment to represent the remaining items.
-					 * The new segment is inserted after this one, so it will
-					 * be processed in the next iteration of this loop.
+					 * 太大了。再次压缩到目标尺寸，并创建
+					 * 一个新段表示剩余项。新段插在本段之后，
+					 * 因此会在本循环的下一次迭代中
+					 * 处理。
 					 */
 					if (seginfo->seg)
 						pfree(seginfo->seg);
@@ -1634,7 +1634,7 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 			}
 
 			/*
-			 * If the segment is very small, merge it with the next segment.
+			 * 若段非常小，则把它与下一段合并。
 			 */
 			if (SizeOfGinPostingList(seginfo->seg) < GinPostingListSegmentMinSize && next_node)
 			{
@@ -1680,15 +1680,15 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 			continue;
 
 		/*
-		 * OK, we now have a compressed version of this segment ready for
-		 * copying to the page. Did we exceed the size that fits on one page?
+		 * 好了，我们现在有了本段的压缩版本，准备复制到页上。
+		 * 是否已超过单页能放下的尺寸？
 		 */
 		segsize = SizeOfGinPostingList(seginfo->seg);
 		if (pgused + segsize > GinDataPageMaxDataSize)
 		{
 			if (!needsplit)
 			{
-				/* switch to right page */
+				/* 切换到右页 */
 				Assert(pgused > 0);
 				leaf->lastleft = dlist_prev_node(&leaf->segments, cur_node);
 				needsplit = true;
@@ -1698,13 +1698,13 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 			else
 			{
 				/*
-				 * Filled both pages. The last segment we constructed did not
-				 * fit.
+				 * 两页都已填满。我们构造的最后一段放
+				 * 不下。
 				 */
 				*remaining = seginfo->seg->first;
 
 				/*
-				 * remove all segments that did not fit from the list.
+				 * 从列表中移除所有放不下的段。
 				 */
 				while (dlist_has_next(&leaf->segments, cur_node))
 					dlist_delete(dlist_next_node(&leaf->segments, cur_node));
@@ -1728,9 +1728,9 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 	Assert(leaf->rsize <= GinDataPageMaxDataSize);
 
 	/*
-	 * Make a palloc'd copy of every segment after the first modified one,
-	 * because as we start copying items to the original page, we might
-	 * overwrite an existing segment.
+	 * 为第一个被修改段之后的每个段做一份 palloc 副本，
+	 * 因为当我们开始把项复制到原页时，可能会覆盖现有
+	 * 段。
 	 */
 	modified = false;
 	dlist_foreach(iter, &leaf->segments)
@@ -1757,13 +1757,13 @@ leafRepackItems(disassembledLeaf *leaf, ItemPointer remaining)
 }
 
 
-/*** Functions that are exported to the rest of the GIN code ***/
+/*** 导出给 GIN 其余代码的函数 ***/
 
 /*
- * Creates new posting tree containing the given TIDs. Returns the page
- * number of the root of the new posting tree.
+ * 创建包含给定 TIDs 的新倒排树。返回新倒排树根的
+ * 页号。
  *
- * items[] must be in sorted order with no duplicates.
+ * items[] 必须已排序且无重复。
  */
 BlockNumber
 createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
@@ -1778,14 +1778,14 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
 	int			rootsize;
 	bool		is_build = (buildStats != NULL);
 
-	/* Construct the new root page in memory first. */
+	/* 先在内存中构造新的根页。 */
 	tmppage = (Page) palloc(BLCKSZ);
 	GinInitPage(tmppage, GIN_DATA | GIN_LEAF | GIN_COMPRESSED, BLCKSZ);
 	GinPageGetOpaque(tmppage)->rightlink = InvalidBlockNumber;
 
 	/*
-	 * Write as many of the items to the root page as fit. In segments of max
-	 * GinPostingListSegmentMaxSize bytes each.
+	 * 把能放下的项尽量多地写入根页。按每段最大
+	 * GinPostingListSegmentMaxSize 字节分段。
 	 */
 	nrootitems = 0;
 	rootsize = 0;
@@ -1813,15 +1813,15 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
 	GinDataPageSetDataSize(tmppage, rootsize);
 
 	/*
-	 * All set. Get a new physical page, and copy the in-memory page to it.
+	 * 一切就绪。获取新的物理页，并把内存中的页复制过去。
 	 */
 	buffer = GinNewBuffer(index);
 	page = BufferGetPage(buffer);
 	blkno = BufferGetBlockNumber(buffer);
 
 	/*
-	 * Copy any predicate locks from the entry tree leaf (containing posting
-	 * list) to the posting tree.
+	 * 把条目树叶子（含倒排列表）上的任何谓词锁
+	 * 复制到倒排树。
 	 */
 	PredicateLockPageSplit(index, BufferGetBlockNumber(entrybuffer), blkno);
 
@@ -1852,14 +1852,14 @@ createPostingTree(Relation index, ItemPointerData *items, uint32 nitems,
 
 	END_CRIT_SECTION();
 
-	/* During index build, count the newly-added data page */
+	/* 在索引构建期间，统计新添加的数据页 */
 	if (buildStats)
 		buildStats->nDataPages++;
 
 	elog(DEBUG2, "created GIN posting tree with %d items", nrootitems);
 
 	/*
-	 * Add any remaining TIDs to the newly-created posting tree.
+	 * 把任何剩余 TIDs 加入新创建的倒排树。
 	 */
 	if (nitems > nrootitems)
 	{
@@ -1896,7 +1896,7 @@ ginPrepareDataScan(GinBtree btree, Relation index, BlockNumber rootBlkno)
 }
 
 /*
- * Inserts array of item pointers, may execute several tree scan (very rare)
+ * 插入项指针数组，可能执行多次树扫描（很少见）
  */
 void
 ginInsertItemPointers(Relation index, BlockNumber rootBlkno,
@@ -1915,7 +1915,7 @@ ginInsertItemPointers(Relation index, BlockNumber rootBlkno,
 
 	while (insertdata.curitem < insertdata.nitem)
 	{
-		/* search for the leaf page where the first item should go to */
+		/* 搜索第一项应落入的叶子页 */
 		btree.itemptr = insertdata.items[insertdata.curitem];
 		stack = ginFindLeafPage(&btree, false, true, NULL);
 
@@ -1924,7 +1924,7 @@ ginInsertItemPointers(Relation index, BlockNumber rootBlkno,
 }
 
 /*
- * Starts a new scan on a posting tree.
+ * 在倒排树上开始一次新扫描。
  */
 GinBtreeStack *
 ginScanBeginPostingTree(GinBtree btree, Relation index, BlockNumber rootBlkno,

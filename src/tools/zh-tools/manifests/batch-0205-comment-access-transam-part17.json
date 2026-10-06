@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "batch_id": "0205-comment-access-transam-part17",
+  "title": "zh: translate access/transam comments (part 17)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "f90ccab455dfc460c89e582459dd900d282fda49",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "note": "WAL manager (transam part 17, single oversized file)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0205-comment-access-transam-part17.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 753,
+      "translated": 742,
+      "preserved": 11,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION handled in header style (size constants 1 GB / 80 MB)",
+        "Fall through prose segment (1)",
+        "commented-out code lines NewPage->xlp_* (2)",
+        "identifier-only labels XLogCtl / xlblocks array / REDO / XLOG SWITCH (4)",
+        "translator: marker (2)"
+      ],
+      "note": "xlog.c WAL manager; Copyright/IDENTIFICATION stay English; fall-through prose preserved; translator comments preserved; modules/NOTES translated"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0205-comment-access-transam-part17.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0205 translates comments in xlog.c (transam part 17, single oversized file; finishes transam .c). Copyright and path lines stay in English. Fall-through prose at index 149 preserved. translator: comments preserved. Size constants, commented-out code, and identifier-only labels left in English. Next suggested: src/backend/access/rmgrdesc/ smaller .c files."
+}

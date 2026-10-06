@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0176-comment-access-gist-part3",
+ "title": "zh: translate access/gist comments (part 3)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "b9214c13201f120a8bb69551aad5509ed59fb324",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gist/gistsplit.c",
+   "kind": "c_comment",
+   "note": "GiST multi-column page split"
+  },
+  {
+   "pattern": "src/backend/access/gist/gistget.c",
+   "kind": "c_comment",
+   "note": "GiST scan fetch / gettuple / getbitmap"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0176-comment-access-gist-part3.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gist/gistsplit.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 49,
+   "translated": 49,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GiST multi-column page split; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/gist/gistget.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 61,
+   "translated": 61,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GiST scan fetch / gettuple / getbitmap; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0176-comment-access-gist-part3.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0176 translates comments in gistsplit.c and gistget.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: gistutil.c and gistbuildbuffers.c."
+}

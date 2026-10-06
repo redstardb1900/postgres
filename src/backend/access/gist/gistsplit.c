@@ -1,18 +1,18 @@
 /*-------------------------------------------------------------------------
  *
  * gistsplit.c
- *	  Multi-column page splitting algorithm
+ *	  多列页分裂算法
  *
- * This file is concerned with making good page-split decisions in multi-column
- * GiST indexes.  The opclass-specific picksplit functions can only be expected
- * to produce answers based on a single column.  We first run the picksplit
- * function for column 1; then, if there are more columns, we check if any of
- * the tuples are "don't cares" so far as the column 1 split is concerned
- * (that is, they could go to either side for no additional penalty).  If so,
- * we try to redistribute those tuples on the basis of the next column.
- * Repeat till we're out of columns.
+ * 本文件关注如何在多列 GiST 索引中做出良好的页分裂决策。
+ * 操作符类专用的 picksplit 函数只能基于单一列给出答案。我们先对第 1 列
+ * 运行 picksplit 函数；然后，若还有更多列，我们检查是否有元组就第 1 列
+ * 的分裂而言是"无所谓"的
+ * （即可以放到任一侧而不增加额外惩罚）。若有，
+ * 我们尝试按下一列重新分配这些元组。
+ * 重复直到用尽所有列。
  *
- * gistSplitByKey() is the entry point to this file.
+ *
+ * gistSplitByKey() 是本文件的入口点。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -39,9 +39,9 @@ typedef struct
 
 
 /*
- * Form unions of subkeys in itvec[] entries listed in gsvp->entries[],
- * ignoring any tuples that are marked in gsvp->dontcare[].  Subroutine for
- * gistunionsubkey.
+ * 对 gsvp->entries[] 中列出的 itvec[] 条目形成子键的联合，
+ * 忽略 gsvp->dontcare[] 中标记的任何元组。gistunionsubkey
+ * 的子例程。
  */
 static void
 gistunionsubkeyvec(GISTSTATE *giststate, IndexTuple *itvec,
@@ -68,13 +68,13 @@ gistunionsubkeyvec(GISTSTATE *giststate, IndexTuple *itvec,
 }
 
 /*
- * Recompute unions of left- and right-side subkeys after a page split,
- * ignoring any tuples that are marked in spl->spl_dontcare[].
+ * 页分裂后重新计算左右两侧子键的联合，
+ * 忽略 spl->spl_dontcare[] 中标记的任何元组。
  *
- * Note: we always recompute union keys for all index columns.  In some cases
- * this might represent duplicate work for the leftmost column(s), but it's
- * not safe to assume that "zero penalty to move a tuple" means "the union
- * key doesn't change at all".  Penalty functions aren't 100% accurate.
+ * 注意：我们总是为所有索引 column 重新计算联合键。在某些情况下
+ * 这对最左侧的列可能是重复工作，但假定"移动元组的惩罚为零"
+ * 就意味着"联合键完全不变"是不安全的。惩罚函数并非
+ * 百分之百准确。
  */
 static void
 gistunionsubkey(GISTSTATE *giststate, IndexTuple *itvec, GistSplitVector *spl)
@@ -99,15 +99,15 @@ gistunionsubkey(GISTSTATE *giststate, IndexTuple *itvec, GistSplitVector *spl)
 }
 
 /*
- * Find tuples that are "don't cares", that is could be moved to the other
- * side of the split with zero penalty, so far as the attno column is
- * concerned.
+ * 查找"无所谓"元组，即可以零惩罚地移到分裂的另一侧，
+ * 就 attno 列
+ * 而言。
  *
- * Don't-care tuples are marked by setting the corresponding entry in
- * spl->spl_dontcare[] to "true".  Caller must have initialized that array
- * to zeroes.
+ * 无所谓元组通过把 spl->spl_dontcare[] 中对应项设为
+ * "true" 来标记。调用者必须已将该数组初始化
+ * 为零。
  *
- * Returns number of don't-cares found.
+ * 返回找到的无所谓项数量。
  */
 static int
 findDontCares(Relation r, GISTSTATE *giststate, GISTENTRY *valvec,
@@ -118,11 +118,11 @@ findDontCares(Relation r, GISTSTATE *giststate, GISTENTRY *valvec,
 	int			NumDontCare = 0;
 
 	/*
-	 * First, search the left-side tuples to see if any have zero penalty to
-	 * be added to the right-side union key.
+	 * 首先搜索左侧元组，看是否有加入右侧联合键时
+	 * 惩罚为零的。
 	 *
-	 * attno column is known all-not-null (see gistSplitByKey), so we need not
-	 * check for nulls
+	 * attno 列已知全部非空（见 gistSplitByKey），因此不必
+	 * 检查空值
 	 */
 	gistentryinit(entry, spl->splitVector.spl_rdatum, r, NULL,
 				  (OffsetNumber) 0, false);
@@ -139,7 +139,7 @@ findDontCares(Relation r, GISTSTATE *giststate, GISTENTRY *valvec,
 		}
 	}
 
-	/* And conversely for the right-side tuples */
+	/* 对右侧元组则相反 */
 	gistentryinit(entry, spl->splitVector.spl_ldatum, r, NULL,
 				  (OffsetNumber) 0, false);
 	for (i = 0; i < spl->splitVector.spl_nright; i++)
@@ -159,9 +159,9 @@ findDontCares(Relation r, GISTSTATE *giststate, GISTENTRY *valvec,
 }
 
 /*
- * Remove tuples that are marked don't-cares from the tuple index array a[]
- * of length *len.  This is applied separately to the spl_left and spl_right
- * arrays.
+ * 从长度为 *len 的元组索引数组 a[] 中移除标记为无所谓的元组。
+ * 分别应用于 spl_left 与 spl_right
+ * 数组。
  */
 static void
 removeDontCares(OffsetNumber *a, int *len, const bool *dontcare)
@@ -179,7 +179,7 @@ removeDontCares(OffsetNumber *a, int *len, const bool *dontcare)
 
 		if (dontcare[ai] == false)
 		{
-			/* re-emit item into a[] */
+			/* 把项重新写回 a[] */
 			*curwpos = ai;
 			curwpos++;
 		}
@@ -191,10 +191,10 @@ removeDontCares(OffsetNumber *a, int *len, const bool *dontcare)
 }
 
 /*
- * Place a single don't-care tuple into either the left or right side of the
- * split, according to which has least penalty for merging the tuple into
- * the previously-computed union keys.  We need consider only columns starting
- * at attno.
+ * 把单个无所谓元组放到分裂的左侧或右侧，
+ * 取决于哪一侧把该元组并入先前计算的联合键时惩罚更小。
+ * 我们只需考虑从 attno
+ * 开始的列。
  */
 static void
 placeOne(Relation r, GISTSTATE *giststate, GistSplitVector *v,
@@ -242,17 +242,17 @@ do {	\
 } while(0)
 
 /*
- * Clean up when we did a secondary split but the user-defined PickSplit
- * method didn't support it (leaving spl_ldatum_exists or spl_rdatum_exists
- * true).
+ * 当我们做了二次分裂但用户定义的 PickSplit
+ * 方法不支持它时做清理（留下 spl_ldatum_exists 或 spl_rdatum_exists
+ * 为真）。
  *
- * We consider whether to swap the left and right outputs of the secondary
- * split; this can be worthwhile if the penalty for merging those tuples into
- * the previously chosen sets is less that way.
+ * 我们考虑是否交换二次分裂的左右输出；
+ * 若那样合并这些元组到先前选定集合的惩罚更小，
+ * 则值得一做。
  *
- * In any case we must update the union datums for the current column by
- * adding in the previous union keys (oldL/oldR), since the user-defined
- * PickSplit method didn't do so.
+ * 无论如何我们必须通过加入先前的联合键（oldL/oldR）来更新当前列的
+ * 联合 datum，因为用户定义的
+ * PickSplit 方法没有这样做。
  */
 static void
 supportSecondarySplit(Relation r, GISTSTATE *giststate, int attno,
@@ -290,14 +290,14 @@ supportSecondarySplit(Relation r, GISTSTATE *giststate, int attno,
 					penalty2;
 
 		/*
-		 * There is only one previously defined union, so we just choose swap
-		 * or not by lowest penalty for that side.  We can only get here if a
-		 * secondary split happened to have all NULLs in its column in the
-		 * tuples that the outer recursion level had assigned to one side.
-		 * (Note that the null checks in gistSplitByKey don't prevent the
-		 * case, because they'll only be checking tuples that were considered
-		 * don't-cares at the outer recursion level, not the tuples that went
-		 * into determining the passed-down left and right union keys.)
+		 * 先前只定义了一个联合，因此我们仅按该侧最低惩罚
+		 * 选择是否交换。只有在二次分裂碰巧使其列中、外层递归
+		 * 已分配到一侧的元组全部为 NULLs 时才会到这里。
+		 * （注意 gistSplitByKey 中的空值检查并不能阻止
+		 * 这种情况，因为它们只检查外层递归级视为
+		 * 无所谓的元组，而不检查用于确定向下传递的
+		 * 左右联合键的那些
+		 * 元组。）
 		 */
 		penalty1 = gistpenalty(giststate, attno, entry1, false, &entrySL, false);
 		penalty2 = gistpenalty(giststate, attno, entry1, false, &entrySR, false);
@@ -311,7 +311,7 @@ supportSecondarySplit(Relation r, GISTSTATE *giststate, int attno,
 	if (leaveOnLeft == false)
 	{
 		/*
-		 * swap left and right
+		 * 交换左右
 		 */
 		OffsetNumber *off,
 					noff;
@@ -336,9 +336,9 @@ supportSecondarySplit(Relation r, GISTSTATE *giststate, int attno,
 }
 
 /*
- * Trivial picksplit implementation. Function called only
- * if user-defined picksplit puts all keys on the same side of the split.
- * That is a bug of user-defined picksplit but we don't want to fail.
+ * 平凡的 picksplit 实现。仅当
+ * 用户定义的 picksplit 把所有键放到分裂同一侧时调用。
+ * 那是用户定义 picksplit 的缺陷，但我们不想因此失败。
  */
 static void
 genericPickSplit(GISTSTATE *giststate, GistEntryVector *entryvec, GIST_SPLITVEC *v, int attno)
@@ -371,7 +371,7 @@ genericPickSplit(GISTSTATE *giststate, GistEntryVector *entryvec, GIST_SPLITVEC 
 	}
 
 	/*
-	 * Form union datums for each side
+	 * 为每一侧形成联合 datum
 	 */
 	evec = palloc(sizeof(GISTENTRY) * entryvec->n + GEVHDRSZ);
 
@@ -393,23 +393,23 @@ genericPickSplit(GISTSTATE *giststate, GistEntryVector *entryvec, GIST_SPLITVEC 
 }
 
 /*
- * Calls user picksplit method for attno column to split tuples into
- * two vectors.
+ * 对 attno 列调用用户 picksplit 方法，把元组分裂成
+ * 两个向量。
  *
- * Returns false if split is complete (there are no more index columns, or
- * there is no need to consider them because split is optimal already).
+ * 若分裂已完成则返回 false（没有更多 index column，或
+ * 无需再考虑它们，因为分裂已经最优）。
  *
- * Returns true and v->spl_dontcare = NULL if the picksplit result is
- * degenerate (all tuples seem to be don't-cares), so we should just
- * disregard this column and split on the next column(s) instead.
+ * 若 picksplit 结果退化（所有元组似乎都是无所谓的）则返回 true
+ * 且 v->spl_dontcare = NULL，因此我们应忽略
+ * 本列，改按后续列分裂。
  *
- * Returns true and v->spl_dontcare != NULL if there are don't-care tuples
- * that could be relocated based on the next column(s).  The don't-care
- * tuples have been removed from the split and must be reinserted by caller.
- * There is at least one non-don't-care tuple on each side of the split,
- * and union keys for all columns are updated to include just those tuples.
+ * 若存在可按后续列重新安置的无所谓元组则返回 true
+ * 且 v->spl_dontcare != NULL。无所谓
+ * 元组已从分裂中移除，必须由调用者重新插入。
+ * 分裂两侧各至少有一个非无所谓元组，
+ * 且所有列的联合键已更新为只包含那些元组。
  *
- * A true result implies there is at least one more index column.
+ * 返回 true 意味着至少还有一列索引列。
  */
 static bool
 gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVector *v,
@@ -418,8 +418,8 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 	GIST_SPLITVEC *sv = &v->splitVector;
 
 	/*
-	 * Prepare spl_ldatum/spl_rdatum/spl_ldatum_exists/spl_rdatum_exists in
-	 * case we are doing a secondary split (see comments in gist.h).
+	 * 准备 spl_ldatum/spl_rdatum/spl_ldatum_exists/spl_rdatum_exists，以备
+	 * 我们在做二次分裂（见 gist.h 中的注释）。
 	 */
 	sv->spl_ldatum_exists = !(v->spl_lisnull[attno]);
 	sv->spl_rdatum_exists = !(v->spl_risnull[attno]);
@@ -427,8 +427,8 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 	sv->spl_rdatum = v->spl_rattr[attno];
 
 	/*
-	 * Let the opclass-specific PickSplit method do its thing.  Note that at
-	 * this point we know there are no null keys in the entryvec.
+	 * 让操作符类专用的 PickSplit 方法完成其工作。注意此时
+	 * 我们知道 entryvec 中没有空键。
 	 */
 	FunctionCall2Coll(&giststate->picksplitFn[attno],
 					  giststate->supportCollation[attno],
@@ -438,8 +438,8 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 	if (sv->spl_nleft == 0 || sv->spl_nright == 0)
 	{
 		/*
-		 * User-defined picksplit failed to create an actual split, ie it put
-		 * everything on the same side.  Complain but cope.
+		 * 用户定义的 picksplit 未能创建实际分裂，即它把
+		 * 所有东西都放到了同一侧。抱怨但继续应付。
 		 */
 		ereport(DEBUG1,
 				(errcode(ERRCODE_INTERNAL_ERROR),
@@ -448,40 +448,40 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 				 errhint("The index is not optimal. To optimize it, contact a developer, or try to use the column as the second one in the CREATE INDEX command.")));
 
 		/*
-		 * Reinit GIST_SPLITVEC. Although these fields are not used by
-		 * genericPickSplit(), set them up for further processing
+		 * 重新初始化 GIST_SPLITVEC。虽然这些字段不被
+		 * genericPickSplit() 使用，仍为后续处理设置它们
 		 */
 		sv->spl_ldatum_exists = !(v->spl_lisnull[attno]);
 		sv->spl_rdatum_exists = !(v->spl_risnull[attno]);
 		sv->spl_ldatum = v->spl_lattr[attno];
 		sv->spl_rdatum = v->spl_rattr[attno];
 
-		/* Do a generic split */
+		/* 做一次通用分裂 */
 		genericPickSplit(giststate, entryvec, sv, attno);
 	}
 	else
 	{
-		/* hack for compatibility with old picksplit API */
+		/* 为兼容旧 picksplit API 的 hack */
 		if (sv->spl_left[sv->spl_nleft - 1] == InvalidOffsetNumber)
 			sv->spl_left[sv->spl_nleft - 1] = (OffsetNumber) (entryvec->n - 1);
 		if (sv->spl_right[sv->spl_nright - 1] == InvalidOffsetNumber)
 			sv->spl_right[sv->spl_nright - 1] = (OffsetNumber) (entryvec->n - 1);
 	}
 
-	/* Clean up if PickSplit didn't take care of a secondary split */
+	/* 若 PickSplit 未处理二次分裂则清理 */
 	if (sv->spl_ldatum_exists || sv->spl_rdatum_exists)
 		supportSecondarySplit(r, giststate, attno, sv,
 							  v->spl_lattr[attno], v->spl_rattr[attno]);
 
-	/* emit union datums computed by PickSplit back to v arrays */
+	/* 把 PickSplit 算出的联合 datum 写回 v 数组 */
 	v->spl_lattr[attno] = sv->spl_ldatum;
 	v->spl_rattr[attno] = sv->spl_rdatum;
 	v->spl_lisnull[attno] = false;
 	v->spl_risnull[attno] = false;
 
 	/*
-	 * If index columns remain, then consider whether we can improve the split
-	 * by using them.
+	 * 若还有索引列，则考虑能否用它们
+	 * 改进分裂。
 	 */
 	v->spl_dontcare = NULL;
 
@@ -490,16 +490,16 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 		int			NumDontCare;
 
 		/*
-		 * Make a quick check to see if left and right union keys are equal;
-		 * if so, the split is certainly degenerate, so tell caller to
-		 * re-split with the next column.
+		 * 快速检查左右联合键是否相等；
+		 * 若是，则分裂肯定退化，因此告诉调用者
+		 * 用下一列重新分裂。
 		 */
 		if (gistKeyIsEQ(giststate, attno, sv->spl_ldatum, sv->spl_rdatum))
 			return true;
 
 		/*
-		 * Locate don't-care tuples, if any.  If there are none, the split is
-		 * optimal, so just fall out and return false.
+		 * 定位无所谓元组（若有）。若没有，则分裂已
+		 * 最优，因此直接退出并返回 false。
 		 */
 		v->spl_dontcare = (bool *) palloc0(sizeof(bool) * (entryvec->n + 1));
 
@@ -508,24 +508,24 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 		if (NumDontCare > 0)
 		{
 			/*
-			 * Remove don't-cares from spl_left[] and spl_right[].
+			 * 从 spl_left[] 与 spl_right[] 中移除无所谓项。
 			 */
 			removeDontCares(sv->spl_left, &sv->spl_nleft, v->spl_dontcare);
 			removeDontCares(sv->spl_right, &sv->spl_nright, v->spl_dontcare);
 
 			/*
-			 * If all tuples on either side were don't-cares, the split is
-			 * degenerate, and we're best off to ignore it and split on the
-			 * next column.  (We used to try to press on with a secondary
-			 * split by forcing a random tuple on each side to be treated as
-			 * non-don't-care, but it seems unlikely that that technique
-			 * really gives a better result.  Note that we don't want to try a
-			 * secondary split with empty left or right primary split sides,
-			 * because then there is no union key on that side for the
-			 * PickSplit function to try to expand, so it can have no good
-			 * figure of merit for what it's doing.  Also note that this check
-			 * ensures we can't produce a bogus one-side-only split in the
-			 * NumDontCare == 1 special case below.)
+			 * 若任一侧的全部元组都是无所谓的，则分裂
+			 * 退化，最好忽略它并按下一列分裂。
+			 * （我们曾尝试通过强制每侧一个随机元组当作
+			 * 非无所谓来推进二次分裂，但那种技术似乎
+			 * 不太可能给出更好结果。注意我们不想在
+			 * 左侧或右侧主分裂侧为空时尝试二次分裂，
+			 * 因为那样该侧没有联合键供
+			 * PickSplit 函数尝试扩展，因而无法对其行为有良好
+			 * 优劣度量。还要注意此检查
+			 * 确保我们不能在下面 NumDontCare == 1 的特殊情况下
+			 * 产生虚假的单侧
+			 * 分裂。）
 			 */
 			if (sv->spl_nleft == 0 || sv->spl_nright == 0)
 			{
@@ -534,26 +534,26 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 			}
 
 			/*
-			 * Recompute union keys, considering only non-don't-care tuples.
-			 * NOTE: this will set union keys for remaining index columns,
-			 * which will cause later calls of gistUserPicksplit to pass those
-			 * values down to user-defined PickSplit methods with
-			 * spl_ldatum_exists/spl_rdatum_exists set true.
+			 * 重新计算联合键，只考虑非无所谓元组。
+			 * 注意：这会为剩余索引列设置联合键，
+			 * 这将使后续 gistUserPicksplit 调用把那些
+			 * 值向下传给用户定义的 PickSplit 方法，并置
+			 * spl_ldatum_exists/spl_rdatum_exists 为真。
 			 */
 			gistunionsubkey(giststate, itup, v);
 
 			if (NumDontCare == 1)
 			{
 				/*
-				 * If there's only one don't-care tuple then we can't do a
-				 * PickSplit on it, so just choose whether to send it left or
-				 * right by comparing penalties.  We needed the
-				 * gistunionsubkey step anyway so that we have appropriate
-				 * union keys for figuring the penalties.
+				 * 若只有一个无所谓元组，则无法对它做
+				 * PickSplit，因此仅通过比较惩罚来选择送左还是
+				 * 送右。我们反正需要
+				 * gistunionsubkey 步骤，以便有合适的
+				 * 联合键来计算惩罚。
 				 */
 				OffsetNumber toMove;
 
-				/* find it ... */
+				/* 找到它 ... */
 				for (toMove = FirstOffsetNumber; toMove < entryvec->n; toMove++)
 				{
 					if (v->spl_dontcare[toMove])
@@ -561,13 +561,13 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 				}
 				Assert(toMove < entryvec->n);
 
-				/* ... and assign it to cheaper side */
+				/* ... 并把它赋给更便宜的一侧 */
 				placeOne(r, giststate, v, itup[toMove - 1], toMove, attno + 1);
 
 				/*
-				 * At this point the union keys are wrong, but we don't care
-				 * because we're done splitting.  The outermost recursion
-				 * level of gistSplitByKey will fix things before returning.
+				 * 此时联合键是错的，但我们不在乎，
+				 * 因为分裂已完成。gistSplitByKey 的最外层
+				 * 递归级会在返回前修好。
 				 */
 			}
 			else
@@ -579,7 +579,7 @@ gistUserPicksplit(Relation r, GistEntryVector *entryvec, int attno, GistSplitVec
 }
 
 /*
- * simply split page in half
+ * 简单地对半分裂页
  */
 static void
 gistSplitHalf(GIST_SPLITVEC *v, int len)
@@ -595,29 +595,29 @@ gistSplitHalf(GIST_SPLITVEC *v, int len)
 		else
 			v->spl_left[v->spl_nleft++] = i;
 
-	/* we need not compute union keys, caller took care of it */
+	/* 我们不必计算联合键，调用者已处理好 */
 }
 
 /*
- * gistSplitByKey: main entry point for page-splitting algorithm
+ * gistSplitByKey：页分裂算法的主入口点
  *
- * r: index relation
- * page: page being split
- * itup: array of IndexTuples to be processed
- * len: number of IndexTuples to be processed (must be at least 2)
- * giststate: additional info about index
- * v: working state and output area
- * attno: column we are working on (zero-based index)
+ * r: 索引关系
+ * page: 正被分裂的页
+ * itup: 待处理的 IndexTuples 数组
+ * len: 待处理的 IndexTuples 数量（至少为 2）
+ * giststate: 关于索引的附加信息
+ * v: 工作状态与输出区
+ * attno: 我们正在处理的列（从零开始的下标）
  *
- * Outside caller must initialize v->spl_lisnull and v->spl_risnull arrays
- * to all-true.  On return, spl_left/spl_nleft contain indexes of tuples
- * to go left, spl_right/spl_nright contain indexes of tuples to go right,
- * spl_lattr/spl_lisnull contain left-side union key values, and
- * spl_rattr/spl_risnull contain right-side union key values.  Other fields
- * in this struct are workspace for this file.
+ * 外部调用者必须把 v->spl_lisnull 与 v->spl_risnull 数组初始化
+ * 为全真。返回时，spl_left/spl_nleft 包含应去左侧的元组
+ * 下标，spl_right/spl_nright 包含应去右侧的元组下标，
+ * spl_lattr/spl_lisnull 包含左侧联合键值，而
+ * spl_rattr/spl_risnull 包含右侧联合键值。本结构中的其他成员
+ * 是本文件的工作区。
  *
- * Outside caller must pass zero for attno.  The function may internally
- * recurse to the next column by passing attno+1.
+ * 外部调用者必须传入 attno 为零。函数可在内部
+ * 通过传入 attno+1 递归到下一列。
  */
 void
 gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
@@ -628,8 +628,8 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 	int			nOffNullTuples = 0;
 	int			i;
 
-	/* generate the item array, and identify tuples with null keys */
-	/* note that entryvec->vector[0] goes unused in this code */
+	/* 生成项数组，并识别带空键的元组 */
+	/* 注意 entryvec->vector[0] 在本代码中未使用 */
 	entryvec = palloc(GEVHDRSZ + (len + 1) * sizeof(GISTENTRY));
 	entryvec->n = len + 1;
 	offNullTuples = (OffsetNumber *) palloc(len * sizeof(OffsetNumber));
@@ -651,9 +651,9 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 	if (nOffNullTuples == len)
 	{
 		/*
-		 * Corner case: All keys in attno column are null, so just transfer
-		 * our attention to the next column.  If there's no next column, just
-		 * split page in half.
+		 * 边界情况：attno 列中的所有键都为空，因此只需把
+		 * 注意力转到下一列。若没有下一列，就
+		 * 对半分裂页。
 		 */
 		v->spl_risnull[attno] = v->spl_lisnull[attno] = true;
 
@@ -667,8 +667,8 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 		int			j = 0;
 
 		/*
-		 * We don't want to mix NULL and not-NULL keys on one page, so split
-		 * nulls to right page and not-nulls to left.
+		 * 我们不想在一页上混放 NULL 与非 NULL 键，因此把
+		 * 空值分到右页、非空分到左页。
 		 */
 		v->splitVector.spl_right = offNullTuples;
 		v->splitVector.spl_nright = nOffNullTuples;
@@ -682,7 +682,7 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 			else
 				v->splitVector.spl_left[v->splitVector.spl_nleft++] = i;
 
-		/* Compute union keys, unless outer recursion level will handle it */
+		/* 计算联合键，除非外层递归级会处理 */
 		if (attno == 0 && giststate->nonLeafTupdesc->natts == 1)
 		{
 			v->spl_dontcare = NULL;
@@ -692,29 +692,29 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 	else
 	{
 		/*
-		 * All keys are not-null, so apply user-defined PickSplit method
+		 * 所有键都非空，因此应用用户定义的 PickSplit 方法
 		 */
 		if (gistUserPicksplit(r, entryvec, attno, v, itup, len, giststate))
 		{
 			/*
-			 * Splitting on attno column is not optimal, so consider
-			 * redistributing don't-care tuples according to the next column
+			 * 按 attno 列分裂并非最优，因此考虑
+			 * 按下一列重新分配无所谓元组
 			 */
 			Assert(attno + 1 < giststate->nonLeafTupdesc->natts);
 
 			if (v->spl_dontcare == NULL)
 			{
 				/*
-				 * This split was actually degenerate, so ignore it altogether
-				 * and just split according to the next column.
+				 * 这次分裂实际上是退化的，因此完全忽略它
+				 * 并仅按下一列分裂。
 				 */
 				gistSplitByKey(r, page, itup, len, giststate, v, attno + 1);
 			}
 			else
 			{
 				/*
-				 * Form an array of just the don't-care tuples to pass to a
-				 * recursive invocation of this function for the next column.
+				 * 形成一个仅含无所谓元组的数组，传给本函数
+				 * 对下一列的递归调用。
 				 */
 				IndexTuple *newitup = (IndexTuple *) palloc(len * sizeof(IndexTuple));
 				OffsetNumber *map = (OffsetNumber *) palloc(len * sizeof(OffsetNumber));
@@ -734,8 +734,8 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 				Assert(newlen > 0);
 
 				/*
-				 * Make a backup copy of v->splitVector, since the recursive
-				 * call will overwrite that with its own result.
+				 * 备份 v->splitVector，因为递归
+				 * 调用会用它自己的结果覆盖它。
 				 */
 				backupSplit = v->splitVector;
 				backupSplit.spl_left = (OffsetNumber *) palloc(sizeof(OffsetNumber) * len);
@@ -743,10 +743,10 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 				backupSplit.spl_right = (OffsetNumber *) palloc(sizeof(OffsetNumber) * len);
 				memcpy(backupSplit.spl_right, v->splitVector.spl_right, sizeof(OffsetNumber) * v->splitVector.spl_nright);
 
-				/* Recursively decide how to split the don't-care tuples */
+				/* 递归决定如何分裂无所谓元组 */
 				gistSplitByKey(r, page, newitup, newlen, giststate, v, attno + 1);
 
-				/* Merge result of subsplit with non-don't-care tuples */
+				/* 把子分裂结果与非无所谓元组合并 */
 				for (i = 0; i < v->splitVector.spl_nleft; i++)
 					backupSplit.spl_left[backupSplit.spl_nleft++] = map[v->splitVector.spl_left[i] - 1];
 				for (i = 0; i < v->splitVector.spl_nright; i++)
@@ -758,18 +758,18 @@ gistSplitByKey(Relation r, Page page, IndexTuple *itup, int len,
 	}
 
 	/*
-	 * If we're handling a multicolumn index, at the end of the recursion
-	 * recompute the left and right union datums for all index columns.  This
-	 * makes sure we hand back correct union datums in all corner cases,
-	 * including when we haven't processed all columns to start with, or when
-	 * a secondary split moved "don't care" tuples from one side to the other
-	 * (we really shouldn't assume that that didn't change the union datums).
+	 * 若我们处理的是多列索引，在递归结束时
+	 * 为所有索引列重新计算左右联合 datum。这
+	 * 确保我们在所有边界情况下交回正确的联合 datum，
+	 * 包括我们一开始并未处理所有列时，或当
+	 * 二次分裂把"无所谓"元组从一侧移到另一侧时
+	 * （我们实在不应假定那没有改变联合 datum）。
 	 *
-	 * Note: when we're in an internal recursion (attno > 0), we do not worry
-	 * about whether the union datums we return with are sensible, since
-	 * calling levels won't care.  Also, in a single-column index, we expect
-	 * that PickSplit (or the special cases above) produced correct union
-	 * datums.
+	 * 注意：当我们处于内部递归（attno > 0）时，我们不必担心
+	 * 返回的联合 datum 是否合理，因为
+	 * 调用级并不关心。此外，在单列索引中，我们期望
+	 * PickSplit（或上面的特殊情况）已产生正确的联合
+	 * datum。
 	 */
 	if (attno == 0 && giststate->nonLeafTupdesc->natts > 1)
 	{

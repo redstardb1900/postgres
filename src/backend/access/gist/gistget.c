@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistget.c
- *	  fetch tuples from a GiST scan.
+ *	  从 GiST 扫描中取回元组。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -27,13 +27,13 @@
 #include "utils/rel.h"
 
 /*
- * gistkillitems() -- set LP_DEAD state for items an indexscan caller has
- * told us were killed.
+ * gistkillitems() -- 为索引扫描调用者告知已杀死的项设置
+ * LP_DEAD 状态。
  *
- * We re-read page here, so it's important to check page LSN. If the page
- * has been modified since the last read (as determined by LSN), we cannot
- * flag any entries because it is possible that the old entry was vacuumed
- * away and the TID was re-used by a completely different heap tuple.
+ * 我们在此重新读页，因此检查页 LSN 很重要。若自上次读取以来
+ * 页已被修改（由 LSN 判定），则无法
+ * 标记任何条目，因为旧条目可能已被清理
+ * 掉，且 TID 已被完全不同的堆元组重用。
  */
 static void
 gistkillitems(IndexScanDesc scan)
@@ -59,22 +59,22 @@ gistkillitems(IndexScanDesc scan)
 	page = BufferGetPage(buffer);
 
 	/*
-	 * If page LSN differs it means that the page was modified since the last
-	 * read. killedItems could be not valid so LP_DEAD hints applying is not
-	 * safe.
+	 * 若页 LSN 不同，表示自上次读取以来页已被修改。
+	 * killedItems 可能无效，因此应用 LP_DEAD 提示是不
+	 * 安全的。
 	 */
 	if (BufferGetLSNAtomic(buffer) != so->curPageLSN)
 	{
 		UnlockReleaseBuffer(buffer);
-		so->numKilled = 0;		/* reset counter */
+		so->numKilled = 0;		/* 重置计数器 */
 		return;
 	}
 
 	Assert(GistPageIsLeaf(page));
 
 	/*
-	 * Mark all killedItems as dead. We need no additional recheck, because,
-	 * if page was modified, curPageLSN must have changed.
+	 * 把全部 killedItems 标为死。我们不需要额外重检，因为
+	 * 若页被修改，curPageLSN 必定已变。
 	 */
 	for (i = 0; i < so->numKilled; i++)
 	{
@@ -93,34 +93,34 @@ gistkillitems(IndexScanDesc scan)
 	UnlockReleaseBuffer(buffer);
 
 	/*
-	 * Always reset the scan state, so we don't look for same items on other
-	 * pages.
+	 * 总是重置扫描状态，以免在其他页上查找相同
+	 * 项。
 	 */
 	so->numKilled = 0;
 }
 
 /*
- * gistindex_keytest() -- does this index tuple satisfy the scan key(s)?
+ * gistindex_keytest() -- 此索引元组是否满足扫描 key？
  *
- * The index tuple might represent either a heap tuple or a lower index page,
- * depending on whether the containing page is a leaf page or not.
+ * 索引元组可能表示堆元组或下层索引页，
+ * 取决于包含它的页是否为叶子页。
  *
- * On success return for a heap tuple, *recheck_p is set to indicate whether
- * the quals need to be rechecked.  We recheck if any of the consistent()
- * functions request it.  recheck is not interesting when examining a non-leaf
- * entry, since we must visit the lower index page if there's any doubt.
- * Similarly, *recheck_distances_p is set to indicate whether the distances
- * need to be rechecked, and it is also ignored for non-leaf entries.
+ * 对堆元组成功返回时，设置 *recheck_p 以指示
+ * 限定条件是否需要重检。若任一 consistent()
+ * 函数要求，我们就重检。检查非叶子
+ * 条目时 recheck 并不重要，因为若有任何疑虑就必须访问下层索引页。
+ * 类似地，设置 *recheck_distances_p 以指示距离是否
+ * 需要重检，对非叶子条目也忽略它。
  *
- * If we are doing an ordered scan, so->distances[] is filled with distance
- * data from the distance() functions before returning success.
+ * 若在做有序扫描，则在返回成功前用 distance()
+ * 函数的距离数据填充 so->distances[]。
  *
- * We must decompress the key in the IndexTuple before passing it to the
- * sk_funcs (which actually are the opclass Consistent or Distance methods).
+ * 必须先解压 IndexTuple 中的键，再把它传给
+ * sk_funcs（实际上是操作符类的 Consistent 或 Distance 方法）。
  *
- * Note that this function is always invoked in a short-lived memory context,
- * so we don't need to worry about cleaning up allocated memory, either here
- * or in the implementation of any Consistent or Distance methods.
+ * 注意此函数总是在短生命周期内存上下文中调用，
+ * 因此不必担心清理已分配内存，无论在这里
+ * 还是在任何 Consistent 或 Distance 方法的实现中。
  */
 static bool
 gistindex_keytest(IndexScanDesc scan,
@@ -141,15 +141,15 @@ gistindex_keytest(IndexScanDesc scan,
 	*recheck_distances_p = false;
 
 	/*
-	 * If it's a leftover invalid tuple from pre-9.1, treat it as a match with
-	 * minimum possible distances.  This means we'll always follow it to the
-	 * referenced page.
+	 * 若是 pre-9.1 遗留的无效元组，则把它当作匹配，并取
+	 * 尽可能小的距离。这意味着我们总会跟随它到
+	 * 所引用的页。
 	 */
 	if (GistTupleIsInvalid(tuple))
 	{
 		int			i;
 
-		if (GistPageIsLeaf(page))	/* shouldn't happen */
+		if (GistPageIsLeaf(page))	/* 不应发生 */
 			elog(ERROR, "invalid GiST tuple found on leaf page");
 		for (i = 0; i < scan->numberOfOrderBys; i++)
 		{
@@ -159,7 +159,7 @@ gistindex_keytest(IndexScanDesc scan,
 		return true;
 	}
 
-	/* Check whether it matches according to the Consistent functions */
+	/* 按 Consistent 函数检查是否匹配 */
 	while (keySize > 0)
 	{
 		Datum		datum;
@@ -173,10 +173,10 @@ gistindex_keytest(IndexScanDesc scan,
 		if (key->sk_flags & SK_ISNULL)
 		{
 			/*
-			 * On non-leaf page we can't conclude that child hasn't NULL
-			 * values because of assumption in GiST: union (VAL, NULL) is VAL.
-			 * But if on non-leaf page key IS NULL, then all children are
-			 * NULL.
+			 * 在非叶子页上，我们不能断定子节点没有 NULL
+			 * 值，因为 GiST 假定：union (VAL, NULL) 是 VAL。
+			 * 但若非叶子页上键 IS NULL，则所有子节点都是
+			 * NULL。
 			 */
 			if (key->sk_flags & SK_SEARCHNULL)
 			{
@@ -205,17 +205,17 @@ gistindex_keytest(IndexScanDesc scan,
 						   false, isNull);
 
 			/*
-			 * Call the Consistent function to evaluate the test.  The
-			 * arguments are the index datum (as a GISTENTRY*), the comparison
-			 * datum, the comparison operator's strategy number and subtype
-			 * from pg_amop, and the recheck flag.
+			 * 调用 Consistent 函数以求值测试。
+			 * 参数是索引 datum（作为 GISTENTRY*）、比较
+			 * datum、比较操作符的策略号与子类型，来自
+			 * pg_amop，以及 recheck 标志。
 			 *
-			 * (Presently there's no need to pass the subtype since it'll
-			 * always be zero, but might as well pass it for possible future
-			 * use.)
+			 * （目前无需传递 subtype，因为它
+			 * 总是零，但为将来可能的使用
+			 * 不妨仍传递。）
 			 *
-			 * We initialize the recheck flag to true (the safest assumption)
-			 * in case the Consistent function forgets to set it.
+			 * 我们把 recheck 标志初始化为 true（最安全的假定），
+			 * 以防 Consistent 函数忘记设置它。
 			 */
 			recheck = true;
 
@@ -236,7 +236,7 @@ gistindex_keytest(IndexScanDesc scan,
 		keySize--;
 	}
 
-	/* OK, it passes --- now let's compute the distances */
+	/* 通过了 --- 现在来计算距离 */
 	key = scan->orderByData;
 	distance_p = so->distances;
 	keySize = scan->numberOfOrderBys;
@@ -252,7 +252,7 @@ gistindex_keytest(IndexScanDesc scan,
 
 		if ((key->sk_flags & SK_ISNULL) || isNull)
 		{
-			/* Assume distance computes as null */
+			/* 假定距离计算结果为空 */
 			distance_p->value = 0.0;
 			distance_p->isnull = true;
 		}
@@ -267,20 +267,20 @@ gistindex_keytest(IndexScanDesc scan,
 						   false, isNull);
 
 			/*
-			 * Call the Distance function to evaluate the distance.  The
-			 * arguments are the index datum (as a GISTENTRY*), the comparison
-			 * datum, the ordering operator's strategy number and subtype from
-			 * pg_amop, and the recheck flag.
+			 * 调用 Distance 函数以计算距离。
+			 * 参数是索引 datum（作为 GISTENTRY*）、比较
+			 * datum、排序操作符的策略号与子类型，来自
+			 * pg_amop，以及 recheck 标志。
 			 *
-			 * (Presently there's no need to pass the subtype since it'll
-			 * always be zero, but might as well pass it for possible future
-			 * use.)
+			 * （目前无需传递 subtype，因为它
+			 * 总是零，但为将来可能的使用
+			 * 不妨仍传递。）
 			 *
-			 * If the function sets the recheck flag, the returned distance is
-			 * a lower bound on the true distance and needs to be rechecked.
-			 * We initialize the flag to 'false'.  This flag was added in
-			 * version 9.5; distance functions written before that won't know
-			 * about the flag, but are expected to never be lossy.
+			 * 若函数设置了 recheck 标志，则返回的距离是
+			 * 真实距离的下界，须重检。
+			 * 我们把标志初始化为 'false'。此标志在
+			 * 9.5 版加入；此前编写的距离函数不会知道
+			 * 该标志，但预期永不有损。
 			 */
 			recheck = false;
 			dist = FunctionCall5Coll(&key->sk_func,
@@ -304,26 +304,26 @@ gistindex_keytest(IndexScanDesc scan,
 }
 
 /*
- * Scan all items on the GiST index page identified by *pageItem, and insert
- * them into the queue (or directly to output areas)
+ * 扫描 *pageItem 所标识的 GiST 索引页上的全部项，并把它们
+ * 插入队列（或直接写入输出区）
  *
- * scan: index scan we are executing
- * pageItem: search queue item identifying an index page to scan
- * myDistances: distances array associated with pageItem, or NULL at the root
- * tbm: if not NULL, gistgetbitmap's output bitmap
- * ntids: if not NULL, gistgetbitmap's output tuple counter
+ * scan: 我们正在执行的索引扫描
+ * pageItem: 标识待扫描索引页的搜索队列项
+ * myDistances: 与 pageItem 关联的距离数组，在根处为 NULL
+ * tbm: 若非 NULL，则为 gistgetbitmap 的输出位图
+ * ntids: 若非 NULL，则为 gistgetbitmap 的输出元组计数器
  *
- * If tbm/ntids aren't NULL, we are doing an amgetbitmap scan, and heap
- * tuples should be reported directly into the bitmap.  If they are NULL,
- * we're doing a plain or ordered indexscan.  For a plain indexscan, heap
- * tuple TIDs are returned into so->pageData[].  For an ordered indexscan,
- * heap tuple TIDs are pushed into individual search queue items.  In an
- * index-only scan, reconstructed index tuples are returned along with the
- * TIDs.
+ * 若 tbm/ntids 非 NULL，我们在做 amgetbitmap 扫描，堆
+ * 元组应直接报告到位图中。若它们为 NULL，
+ * 我们在做普通或有序 indexscan。对普通 indexscan，堆
+ * 元组 TIDs 返回到 so->pageData[]。对有序 indexscan，
+ * 堆元组 TIDs 被推入各个搜索队列项。在
+ * 仅索引扫描中，重建的索引元组与
+ * TIDs 一并返回。
  *
- * If we detect that the index page has split since we saw its downlink
- * in the parent, we push its new right sibling onto the queue so the
- * sibling will be processed next.
+ * 若我们检测到自在父中看到其下行指针以来索引页已分裂，
+ * 则把它的新右兄弟推入队列，以便
+ * 接下来处理该兄弟。
  */
 static void
 gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
@@ -350,30 +350,30 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	opaque = GistPageGetOpaque(page);
 
 	/*
-	 * Check if we need to follow the rightlink. We need to follow it if the
-	 * page was concurrently split since we visited the parent (in which case
-	 * parentlsn < nsn), or if the system crashed after a page split but
-	 * before the downlink was inserted into the parent.
+	 * 检查是否需要跟随右链接。若自访问父以来页被
+	 * 并发分裂（此时 parentlsn < nsn），或系统在页分裂后
+	 * 崩溃、但下行指针尚未插入父，则需要
+	 * 跟随它。
 	 */
 	if (!XLogRecPtrIsInvalid(pageItem->data.parentlsn) &&
 		(GistFollowRight(page) ||
 		 pageItem->data.parentlsn < GistPageGetNSN(page)) &&
-		opaque->rightlink != InvalidBlockNumber /* sanity check */ )
+		opaque->rightlink != InvalidBlockNumber /* 健全性检查 */ )
 	{
-		/* There was a page split, follow right link to add pages */
+		/* 发生了页分裂，跟随右链接以添加页 */
 		GISTSearchItem *item;
 
-		/* This can't happen when starting at the root */
+		/* 从根开始时不可能发生 */
 		Assert(myDistances != NULL);
 
 		oldcxt = MemoryContextSwitchTo(so->queueCxt);
 
-		/* Create new GISTSearchItem for the right sibling index page */
+		/* 为右兄弟索引页创建新的 GISTSearchItem */
 		item = palloc(SizeOfGISTSearchItem(scan->numberOfOrderBys));
 		item->blkno = opaque->rightlink;
 		item->data.parentlsn = pageItem->data.parentlsn;
 
-		/* Insert it into the queue using same distances as for this page */
+		/* 用与本页相同的距离把它插入队列 */
 		memcpy(item->distances, myDistances,
 			   sizeof(item->distances[0]) * scan->numberOfOrderBys);
 
@@ -383,12 +383,12 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	}
 
 	/*
-	 * Check if the page was deleted after we saw the downlink. There's
-	 * nothing of interest on a deleted page. Note that we must do this after
-	 * checking the NSN for concurrent splits! It's possible that the page
-	 * originally contained some tuples that are visible to us, but was split
-	 * so that all the visible tuples were moved to another page, and then
-	 * this page was deleted.
+	 * 检查我们看到下行指针之后页是否已被删除。已删除页上
+	 * 没有感兴趣的内容。注意必须在检查并发分裂的
+	 * NSN 之后做这件事！有可能该页
+	 * 原先包含一些对我们可见的元组，但被分裂
+	 * 使得全部可见元组移到另一页，然后
+	 * 本页被删除。
 	 */
 	if (GistPageIsDeleted(page))
 	{
@@ -397,19 +397,19 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 	}
 
 	so->nPageData = so->curPageData = 0;
-	scan->xs_hitup = NULL;		/* might point into pageDataCxt */
+	scan->xs_hitup = NULL;		/* 可能指向 pageDataCxt 内 */
 	if (so->pageDataCxt)
 		MemoryContextReset(so->pageDataCxt);
 
 	/*
-	 * We save the LSN of the page as we read it, so that we know whether it
-	 * safe to apply LP_DEAD hints to the page later. This allows us to drop
-	 * the pin for MVCC scans, which allows vacuum to avoid blocking.
+	 * 我们在读取时保存页的 LSN，以便知道稍后是否
+	 * 可安全对该页应用 LP_DEAD 提示。这让我们能为 MVCC
+	 * 扫描放下 pin，从而使清理避免阻塞。
 	 */
 	so->curPageLSN = BufferGetLSNAtomic(buffer);
 
 	/*
-	 * check all tuples on page
+	 * 检查页上全部元组
 	 */
 	maxoff = PageGetMaxOffsetNumber(page);
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
@@ -421,8 +421,8 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		bool		recheck_distances;
 
 		/*
-		 * If the scan specifies not to return killed tuples, then we treat a
-		 * killed tuple as not passing the qual.
+		 * 若扫描指定不返回已杀死的元组，则我们把
+		 * 已杀死元组当作未通过限定条件。
 		 */
 		if (scan->ignore_killed_tuples && ItemIdIsDead(iid))
 			continue;
@@ -430,8 +430,8 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		it = (IndexTuple) PageGetItem(page, iid);
 
 		/*
-		 * Must call gistindex_keytest in tempCxt, and clean up any leftover
-		 * junk afterward.
+		 * 必须在 tempCxt 中调用 gistindex_keytest，并随后清理任何
+		 * 残留垃圾。
 		 */
 		oldcxt = MemoryContextSwitchTo(so->giststate->tempCxt);
 
@@ -441,15 +441,15 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		MemoryContextSwitchTo(oldcxt);
 		MemoryContextReset(so->giststate->tempCxt);
 
-		/* Ignore tuple if it doesn't match */
+		/* 若不匹配则忽略元组 */
 		if (!match)
 			continue;
 
 		if (tbm && GistPageIsLeaf(page))
 		{
 			/*
-			 * getbitmap scan, so just push heap tuple TIDs into the bitmap
-			 * without worrying about ordering
+			 * getbitmap 扫描，因此只需把堆元组 TIDs 推进位图，
+			 * 不必担心顺序
 			 */
 			tbm_add_tuples(tbm, &it->t_tid, 1, recheck);
 			(*ntids)++;
@@ -457,15 +457,15 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		else if (scan->numberOfOrderBys == 0 && GistPageIsLeaf(page))
 		{
 			/*
-			 * Non-ordered scan, so report tuples in so->pageData[]
+			 * 非有序扫描，因此在 so->pageData[] 中报告元组
 			 */
 			so->pageData[so->nPageData].heapPtr = it->t_tid;
 			so->pageData[so->nPageData].recheck = recheck;
 			so->pageData[so->nPageData].offnum = i;
 
 			/*
-			 * In an index-only scan, also fetch the data from the tuple.  The
-			 * reconstructed tuples are stored in pageDataCxt.
+			 * 在仅索引扫描中，还从元组取回数据。
+			 * 重建的元组存放在 pageDataCxt 中。
 			 */
 			if (scan->xs_want_itup)
 			{
@@ -479,46 +479,46 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 		else
 		{
 			/*
-			 * Must push item into search queue.  We get here for any lower
-			 * index page, and also for heap tuples if doing an ordered
-			 * search.
+			 * 必须把项推入搜索队列。对任何下层
+			 * 索引页都会到这里，若在做有序搜索，对堆元组
+			 * 也会到这里。
 			 */
 			GISTSearchItem *item;
 			int			nOrderBys = scan->numberOfOrderBys;
 
 			oldcxt = MemoryContextSwitchTo(so->queueCxt);
 
-			/* Create new GISTSearchItem for this item */
+			/* 为本项创建新的 GISTSearchItem */
 			item = palloc(SizeOfGISTSearchItem(scan->numberOfOrderBys));
 
 			if (GistPageIsLeaf(page))
 			{
-				/* Creating heap-tuple GISTSearchItem */
+				/* 创建堆元组 GISTSearchItem */
 				item->blkno = InvalidBlockNumber;
 				item->data.heap.heapPtr = it->t_tid;
 				item->data.heap.recheck = recheck;
 				item->data.heap.recheckDistances = recheck_distances;
 
 				/*
-				 * In an index-only scan, also fetch the data from the tuple.
+				 * 在仅索引扫描中，还从元组取回数据。
 				 */
 				if (scan->xs_want_itup)
 					item->data.heap.recontup = gistFetchTuple(giststate, r, it);
 			}
 			else
 			{
-				/* Creating index-page GISTSearchItem */
+				/* 创建索引页 GISTSearchItem */
 				item->blkno = ItemPointerGetBlockNumber(&it->t_tid);
 
 				/*
-				 * LSN of current page is lsn of parent page for child. We
-				 * only have a shared lock, so we need to get the LSN
-				 * atomically.
+				 * 当前页的 LSN 是子节点的父页 lsn。我们
+				 * 只有共享锁，因此需要原子地
+				 * 取得 LSN。
 				 */
 				item->data.parentlsn = BufferGetLSNAtomic(buffer);
 			}
 
-			/* Insert it into the queue using new distance data */
+			/* 用新的距离数据把它插入队列 */
 			memcpy(item->distances, so->distances,
 				   sizeof(item->distances[0]) * nOrderBys);
 
@@ -532,9 +532,9 @@ gistScanPage(IndexScanDesc scan, GISTSearchItem *pageItem,
 }
 
 /*
- * Extract next item (in order) from search queue
+ * 按顺序从搜索队列取出下一项
  *
- * Returns a GISTSearchItem or NULL.  Caller must pfree item when done with it.
+ * 返回 GISTSearchItem 或 NULL。用完后调用者必须 pfree 该项。
  */
 static GISTSearchItem *
 getNextGISTSearchItem(GISTScanOpaque so)
@@ -547,16 +547,16 @@ getNextGISTSearchItem(GISTScanOpaque so)
 	}
 	else
 	{
-		/* Done when both heaps are empty */
+		/* 两个堆都空时完成 */
 		item = NULL;
 	}
 
-	/* Return item; caller is responsible to pfree it */
+	/* 返回项；调用者负责 pfree 它 */
 	return item;
 }
 
 /*
- * Fetch next heap tuple in an ordered search
+ * 在有序搜索中取回下一个堆元组
  */
 static bool
 getNextNearest(IndexScanDesc scan)
@@ -566,7 +566,7 @@ getNextNearest(IndexScanDesc scan)
 
 	if (scan->xs_hitup)
 	{
-		/* free previously returned tuple */
+		/* 释放先前返回的元组 */
 		pfree(scan->xs_hitup);
 		scan->xs_hitup = NULL;
 	}
@@ -580,7 +580,7 @@ getNextNearest(IndexScanDesc scan)
 
 		if (GISTSearchItemIsHeap(*item))
 		{
-			/* found a heap item at currently minimal distance */
+			/* 在当前最小距离处找到堆项 */
 			scan->xs_heaptid = item->data.heap.heapPtr;
 			scan->xs_recheck = item->data.heap.recheck;
 
@@ -588,14 +588,14 @@ getNextNearest(IndexScanDesc scan)
 												 item->distances,
 												 item->data.heap.recheckDistances);
 
-			/* in an index-only scan, also return the reconstructed tuple. */
+			/* 在仅索引扫描中，还返回重建的元组。 */
 			if (scan->xs_want_itup)
 				scan->xs_hitup = item->data.heap.recontup;
 			res = true;
 		}
 		else
 		{
-			/* visit an index page, extract its items into queue */
+			/* 访问索引页，把它的项提取入队列 */
 			CHECK_FOR_INTERRUPTS();
 
 			gistScanPage(scan, item, item->distances, NULL, NULL);
@@ -608,7 +608,7 @@ getNextNearest(IndexScanDesc scan)
 }
 
 /*
- * gistgettuple() -- Get the next tuple in the scan
+ * gistgettuple() -- 获取扫描中的下一个元组
  */
 bool
 gistgettuple(IndexScanDesc scan, ScanDirection dir)
@@ -623,7 +623,7 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	if (so->firstCall)
 	{
-		/* Begin the scan by processing the root page */
+		/* 通过处理根页开始扫描 */
 		GISTSearchItem fakeItem;
 
 		pgstat_count_index_scan(scan->indexRelation);
@@ -641,12 +641,12 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 
 	if (scan->numberOfOrderBys > 0)
 	{
-		/* Must fetch tuples in strict distance order */
+		/* 必须按严格距离顺序取回元组 */
 		return getNextNearest(scan);
 	}
 	else
 	{
-		/* Fetch tuples index-page-at-a-time */
+		/* 一次一索引页地取回元组 */
 		for (;;)
 		{
 			if (so->curPageData < so->nPageData)
@@ -669,11 +669,11 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 						so->killedItems[so->numKilled++] =
 							so->pageData[so->curPageData - 1].offnum;
 				}
-				/* continuing to return tuples from a leaf page */
+				/* 继续从叶子页返回元组 */
 				scan->xs_heaptid = so->pageData[so->curPageData].heapPtr;
 				scan->xs_recheck = so->pageData[so->curPageData].recheck;
 
-				/* in an index-only scan, also return the reconstructed tuple */
+				/* 在仅索引扫描中，还返回重建的元组 */
 				if (scan->xs_want_itup)
 					scan->xs_hitup = so->pageData[so->curPageData].recontup;
 
@@ -683,8 +683,8 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 			}
 
 			/*
-			 * Check the last returned tuple and add it to killedItems if
-			 * necessary
+			 * 检查上次返回的元组，必要时把它加入
+			 * killedItems
 			 */
 			if (scan->kill_prior_tuple
 				&& so->curPageData > 0
@@ -706,7 +706,7 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 					so->killedItems[so->numKilled++] =
 						so->pageData[so->curPageData - 1].offnum;
 			}
-			/* find and process the next index page */
+			/* 查找并处理下一个索引页 */
 			do
 			{
 				GISTSearchItem *item;
@@ -721,14 +721,14 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 
 				CHECK_FOR_INTERRUPTS();
 
-				/* save current item BlockNumber for next gistkillitems() call */
+				/* 保存当前项的 BlockNumber 供下次 gistkillitems() 调用 */
 				so->curBlkno = item->blkno;
 
 				/*
-				 * While scanning a leaf page, ItemPointers of matching heap
-				 * tuples are stored in so->pageData.  If there are any on
-				 * this page, we fall out of the inner "do" and loop around to
-				 * return them.
+				 * 扫描叶子页时，匹配堆元组的 ItemPointers
+				 * 存放在 so->pageData 中。若本页上有，
+				 * 我们就退出内层 "do" 并绕回循环
+				 * 以返回它们。
 				 */
 				gistScanPage(scan, item, item->distances, NULL, NULL);
 
@@ -739,7 +739,7 @@ gistgettuple(IndexScanDesc scan, ScanDirection dir)
 }
 
 /*
- * gistgetbitmap() -- Get a bitmap of all heap tuple locations
+ * gistgetbitmap() -- 获取全部堆元组位置的位图
  */
 int64
 gistgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
@@ -753,7 +753,7 @@ gistgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 
 	pgstat_count_index_scan(scan->indexRelation);
 
-	/* Begin the scan by processing the root page */
+	/* 通过处理根页开始扫描 */
 	so->curPageData = so->nPageData = 0;
 	scan->xs_hitup = NULL;
 	if (so->pageDataCxt)
@@ -764,8 +764,8 @@ gistgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	gistScanPage(scan, &fakeItem, NULL, tbm, &ntids);
 
 	/*
-	 * While scanning a leaf page, ItemPointers of matching heap tuples will
-	 * be stored directly into tbm, so we don't need to deal with them here.
+	 * 扫描叶子页时，匹配堆元组的 ItemPointers 将
+	 * 直接存入 tbm，因此这里不必处理它们。
 	 */
 	for (;;)
 	{
@@ -785,11 +785,11 @@ gistgetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 }
 
 /*
- * Can we do index-only scans on the given index column?
+ * 能否对给定索引列做仅索引扫描？
  *
- * Opclasses that implement a fetch function support index-only scans.
- * Opclasses without compression functions also support index-only scans.
- * Included attributes always can be fetched for index-only scans.
+ * 实现了 fetch 函数的操作符类支持仅索引扫描。
+ * 没有压缩函数的操作符类也支持仅索引扫描。
+ * 包含属性总能被取回用于仅索引扫描。
  */
 bool
 gistcanreturn(Relation index, int attno)

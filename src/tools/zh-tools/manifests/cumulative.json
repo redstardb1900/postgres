@@ -3055,6 +3055,21 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0190-comment-access-transam-part2.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/backend/access/transam/timeline.c",
+   "kind": "c_comment",
+   "note": "timeline history file helpers"
+  },
+  {
+   "pattern": "src/backend/access/transam/generic_xlog.c",
+   "kind": "c_comment",
+   "note": "generic WAL record helpers"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0191-comment-access-transam-part3.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [

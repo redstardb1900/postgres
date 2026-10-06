@@ -1,25 +1,25 @@
 /*-------------------------------------------------------------------------
  *
  * timeline.c
- *		Functions for reading and writing timeline history files.
+ *		读写时间线历史文件的函数。
  *
- * A timeline history file lists the timeline changes of the timeline, in
- * a simple text format. They are archived along with the WAL segments.
+ * 时间线历史文件以简单文本格式列出该时间线的
+ * 时间线变更。它们与 WAL 段一起归档。
  *
- * The files are named like "<tli>.history". For example, if the database
- * starts up and switches to timeline 5, the timeline history file would be
- * called "00000005.history".
+ * 文件命名形如 "<tli>.history"。例如，若数据库
+ * 启动并切换到时间线 5，则时间线历史文件将
+ * 称为 "00000005.history"。
  *
- * Each line in the file represents a timeline switch:
+ * 文件中每一行表示一次时间线切换：
  *
  * <parentTLI> <switchpoint> <reason>
  *
- *	parentTLI	ID of the parent timeline
- *	switchpoint XLogRecPtr of the WAL location where the switch happened
- *	reason		human-readable explanation of why the timeline was changed
+ *	parentTLI	父时间线的 ID
+ *	switchpoint 发生切换处 WAL 位置的 XLogRecPtr
+ *	reason		说明为何更改时间线的人类可读解释
  *
- * The fields are separated by tabs. Lines beginning with # are comments, and
- * are ignored. Empty lines are also ignored.
+ * 各字段以制表符分隔。以 # 开头的行为注释，
+ * 会被忽略。空行也会被忽略。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -43,8 +43,8 @@
 #include "storage/fd.h"
 
 /*
- * Copies all timeline history files with id's between 'begin' and 'end'
- * from archive to pg_wal.
+ * 将 id 介于 'begin' 与 'end' 之间的所有时间线
+ * 历史文件从归档复制到 pg_wal。
  */
 void
 restoreTimeLineHistoryFiles(TimeLineID begin, TimeLineID end)
@@ -65,12 +65,12 @@ restoreTimeLineHistoryFiles(TimeLineID begin, TimeLineID end)
 }
 
 /*
- * Try to read a timeline's history file.
+ * 尝试读取某时间线的历史文件。
  *
- * If successful, return the list of component TLIs (the given TLI followed by
- * its ancestor TLIs).  If we can't find the history file, assume that the
- * timeline has no parents, and return a list of just the specified timeline
- * ID.
+ * 若成功，返回组成 TLIs 列表（给定 TLI，后接其
+ * 祖先 TLIs）。若找不到历史文件，则假定该
+ * 时间线没有父时间线，并仅返回包含指定时间线
+ * ID 的列表。
  */
 List *
 readTimeLineHistory(TimeLineID targetTLI)
@@ -84,7 +84,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 	XLogRecPtr	prevend;
 	bool		fromArchive = false;
 
-	/* Timeline 1 does not have a history file, so no need to check */
+	/* 时间线 1 没有历史文件，无需检查 */
 	if (targetTLI == 1)
 	{
 		entry = (TimeLineHistoryEntry *) palloc(sizeof(TimeLineHistoryEntry));
@@ -109,7 +109,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 			ereport(FATAL,
 					(errcode_for_file_access(),
 					 errmsg("could not open file \"%s\": %m", path)));
-		/* Not there, so assume no parents */
+		/* 不存在，故假定没有父时间线 */
 		entry = (TimeLineHistoryEntry *) palloc(sizeof(TimeLineHistoryEntry));
 		entry->tli = targetTLI;
 		entry->begin = entry->end = InvalidXLogRecPtr;
@@ -119,7 +119,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 	result = NIL;
 
 	/*
-	 * Parse the file...
+	 * 解析文件……
 	 */
 	prevend = InvalidXLogRecPtr;
 	for (;;)
@@ -145,7 +145,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 			break;
 		}
 
-		/* skip leading whitespace and check for # comment */
+		/* 跳过前导空白并检查 # 注释 */
 		for (ptr = fline; *ptr; ptr++)
 		{
 			if (!isspace((unsigned char) *ptr))
@@ -158,7 +158,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 
 		if (nfields < 1)
 		{
-			/* expect a numeric timeline ID as first field of line */
+			/* 期望行的第一个字段为数字形式的时间线 ID */
 			ereport(FATAL,
 					(errmsg("syntax error in history file: %s", fline),
 					 errhint("Expected a numeric timeline ID.")));
@@ -181,10 +181,10 @@ readTimeLineHistory(TimeLineID targetTLI)
 		entry->end = ((uint64) (switchpoint_hi)) << 32 | (uint64) switchpoint_lo;
 		prevend = entry->end;
 
-		/* Build list with newest item first */
+		/* 构建列表，最新项在前 */
 		result = lcons(entry, result);
 
-		/* we ignore the remainder of each line */
+		/* 忽略每行的其余部分 */
 	}
 
 	FreeFile(fd);
@@ -195,8 +195,8 @@ readTimeLineHistory(TimeLineID targetTLI)
 				 errhint("Timeline IDs must be less than child timeline's ID.")));
 
 	/*
-	 * Create one more entry for the "tip" of the timeline, which has no entry
-	 * in the history file.
+	 * 再为时间线的"顶端"创建一个条目，历史文件中
+	 * 没有该条目。
 	 */
 	entry = (TimeLineHistoryEntry *) palloc(sizeof(TimeLineHistoryEntry));
 	entry->tli = targetTLI;
@@ -206,8 +206,8 @@ readTimeLineHistory(TimeLineID targetTLI)
 	result = lcons(entry, result);
 
 	/*
-	 * If the history file was fetched from archive, save it in pg_wal for
-	 * future reference.
+	 * 若历史文件是从归档取回的，则将其保存在 pg_wal 中
+	 * 以备后用。
 	 */
 	if (fromArchive)
 		KeepFileRestoredFromArchive(path, histfname);
@@ -216,7 +216,7 @@ readTimeLineHistory(TimeLineID targetTLI)
 }
 
 /*
- * Probe whether a timeline history file exists for the given timeline ID
+ * 探测给定时间线 ID 是否存在时间线历史文件
  */
 bool
 existsTimeLineHistory(TimeLineID probeTLI)
@@ -225,7 +225,7 @@ existsTimeLineHistory(TimeLineID probeTLI)
 	char		histfname[MAXFNAMELEN];
 	FILE	   *fd;
 
-	/* Timeline 1 does not have a history file, so no need to check */
+	/* 时间线 1 没有历史文件，无需检查 */
 	if (probeTLI == 1)
 		return false;
 
@@ -254,11 +254,11 @@ existsTimeLineHistory(TimeLineID probeTLI)
 }
 
 /*
- * Find the newest existing timeline, assuming that startTLI exists.
+ * 查找最新存在的时间线，假定 startTLI 存在。
  *
- * Note: while this is somewhat heuristic, it does positively guarantee
- * that (result + 1) is not a known timeline, and therefore it should
- * be safe to assign that ID to a new timeline.
+ * 注意：虽有一定启发式成分，但可明确保证
+ * (result + 1) 不是已知时间线，因此将
+ * 该 ID 赋给新时间线应是安全的。
  */
 TimeLineID
 findNewestTimeLine(TimeLineID startTLI)
@@ -267,8 +267,8 @@ findNewestTimeLine(TimeLineID startTLI)
 	TimeLineID	probeTLI;
 
 	/*
-	 * The algorithm is just to probe for the existence of timeline history
-	 * files.  XXX is it useful to allow gaps in the sequence?
+	 * 算法只是探测时间线历史文件是否存在。
+	 * XXX 允许序列中有空隙是否有用？
 	 */
 	newestTLI = startTLI;
 
@@ -276,11 +276,11 @@ findNewestTimeLine(TimeLineID startTLI)
 	{
 		if (existsTimeLineHistory(probeTLI))
 		{
-			newestTLI = probeTLI;	/* probeTLI exists */
+			newestTLI = probeTLI;	/* probeTLI 存在 */
 		}
 		else
 		{
-			/* doesn't exist, assume we're done */
+			/* 不存在，假定已结束 */
 			break;
 		}
 	}
@@ -289,16 +289,16 @@ findNewestTimeLine(TimeLineID startTLI)
 }
 
 /*
- * Create a new timeline history file.
+ * 创建新的时间线历史文件。
  *
- *	newTLI: ID of the new timeline
- *	parentTLI: ID of its immediate parent
- *	switchpoint: WAL location where the system switched to the new timeline
- *	reason: human-readable explanation of why the timeline was switched
+ *	newTLI: 新时间线的 ID
+ *	parentTLI: 其直接父时间线的 ID
+ *	switchpoint: 系统切换到新时间线时的 WAL 位置
+ *	reason: 说明为何切换时间线的人类可读解释
  *
- * Currently this is only used at the end recovery, and so there are no locking
- * considerations.  But we should be just as tense as XLogFileInit to avoid
- * emplacing a bogus file.
+ * 目前仅在恢复结束时使用，因此没有加锁
+ * 方面的考虑。但应像 XLogFileInit 一样严谨，以免
+ * 落盘一个错误的文件。
  */
 void
 writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
@@ -312,16 +312,16 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 	int			fd;
 	int			nbytes;
 
-	Assert(newTLI > parentTLI); /* else bad selection of newTLI */
+	Assert(newTLI > parentTLI); /* 否则是错误选定的 newTLI */
 
 	/*
-	 * Write into a temp file name.
+	 * 写入临时文件名。
 	 */
 	snprintf(tmppath, MAXPGPATH, XLOGDIR "/xlogtemp.%d", (int) getpid());
 
 	unlink(tmppath);
 
-	/* do not use get_sync_bit() here --- want to fsync only at end of fill */
+	/* 此处不要使用 get_sync_bit() —— 只想在填满结束时 fsync */
 	fd = OpenTransientFile(tmppath, O_RDWR | O_CREAT | O_EXCL);
 	if (fd < 0)
 		ereport(ERROR,
@@ -329,7 +329,7 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 				 errmsg("could not create file \"%s\": %m", tmppath)));
 
 	/*
-	 * If a history file exists for the parent, copy it verbatim
+	 * 若父时间线存在历史文件，则原样复制
 	 */
 	if (ArchiveRecoveryRequested)
 	{
@@ -346,7 +346,7 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 			ereport(ERROR,
 					(errcode_for_file_access(),
 					 errmsg("could not open file \"%s\": %m", path)));
-		/* Not there, so assume parent has no parents */
+		/* 不存在，故假定父时间线没有父时间线 */
 	}
 	else
 	{
@@ -369,13 +369,13 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 				int			save_errno = errno;
 
 				/*
-				 * If we fail to make the file, delete it to release disk
-				 * space
+				 * 若创建文件失败，则删除它以释放磁盘
+				 * 空间
 				 */
 				unlink(tmppath);
 
 				/*
-				 * if write didn't set errno, assume problem is no disk space
+				 * 若 write 未设置 errno，则假定问题是磁盘空间不足
 				 */
 				errno = save_errno ? save_errno : ENOSPC;
 
@@ -393,10 +393,10 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 	}
 
 	/*
-	 * Append one line with the details of this timeline split.
+	 * 追加一行，写明此次时间线分支的细节。
 	 *
-	 * If we did have a parent file, insert an extra newline just in case the
-	 * parent file failed to end with one.
+	 * 若确有父文件，则额外插入一个换行，以防
+	 * 父文件末尾没有换行。
 	 */
 	snprintf(buffer, sizeof(buffer),
 			 "%s%u\t%X/%X\t%s\n",
@@ -413,10 +413,10 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 		int			save_errno = errno;
 
 		/*
-		 * If we fail to make the file, delete it to release disk space
+		 * 若创建文件失败，则删除它以释放磁盘空间
 		 */
 		unlink(tmppath);
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，则假定问题是磁盘空间不足 */
 		errno = save_errno ? save_errno : ENOSPC;
 
 		ereport(ERROR,
@@ -438,13 +438,13 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 				 errmsg("could not close file \"%s\": %m", tmppath)));
 
 	/*
-	 * Now move the completed history file into place with its final name.
+	 * 现在将完成的历史文件移到其最终名称处就位。
 	 */
 	TLHistoryFilePath(path, newTLI);
 	Assert(access(path, F_OK) != 0 && errno == ENOENT);
 	durable_rename(tmppath, path, ERROR);
 
-	/* The history file can be archived immediately. */
+	/* 历史文件可以立即归档。 */
 	if (XLogArchivingActive())
 	{
 		TLHistoryFileName(histfname, newTLI);
@@ -453,11 +453,11 @@ writeTimeLineHistory(TimeLineID newTLI, TimeLineID parentTLI,
 }
 
 /*
- * Writes a history file for given timeline and contents.
+ * 为给定时间线与内容写入历史文件。
  *
- * Currently this is only used in the walreceiver process, and so there are
- * no locking considerations.  But we should be just as tense as XLogFileInit
- * to avoid emplacing a bogus file.
+ * 目前仅在 walreceiver 进程中使用，因此没有
+ * 加锁方面的考虑。但应像 XLogFileInit 一样严谨，
+ * 以免落盘一个错误的文件。
  */
 void
 writeTimeLineHistoryFile(TimeLineID tli, char *content, int size)
@@ -467,13 +467,13 @@ writeTimeLineHistoryFile(TimeLineID tli, char *content, int size)
 	int			fd;
 
 	/*
-	 * Write into a temp file name.
+	 * 写入临时文件名。
 	 */
 	snprintf(tmppath, MAXPGPATH, XLOGDIR "/xlogtemp.%d", (int) getpid());
 
 	unlink(tmppath);
 
-	/* do not use get_sync_bit() here --- want to fsync only at end of fill */
+	/* 此处不要使用 get_sync_bit() —— 只想在填满结束时 fsync */
 	fd = OpenTransientFile(tmppath, O_RDWR | O_CREAT | O_EXCL);
 	if (fd < 0)
 		ereport(ERROR,
@@ -487,10 +487,10 @@ writeTimeLineHistoryFile(TimeLineID tli, char *content, int size)
 		int			save_errno = errno;
 
 		/*
-		 * If we fail to make the file, delete it to release disk space
+		 * 若创建文件失败，则删除它以释放磁盘空间
 		 */
 		unlink(tmppath);
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，则假定问题是磁盘空间不足 */
 		errno = save_errno ? save_errno : ENOSPC;
 
 		ereport(ERROR,
@@ -512,15 +512,15 @@ writeTimeLineHistoryFile(TimeLineID tli, char *content, int size)
 				 errmsg("could not close file \"%s\": %m", tmppath)));
 
 	/*
-	 * Now move the completed history file into place with its final name,
-	 * replacing any existing file with the same name.
+	 * 现在将完成的历史文件移到其最终名称处就位，
+	 * 替换任何同名的已有文件。
 	 */
 	TLHistoryFilePath(path, tli);
 	durable_rename(tmppath, path, ERROR);
 }
 
 /*
- * Returns true if 'expectedTLEs' contains a timeline with id 'tli'
+ * 若 'expectedTLEs' 包含 id 为 'tli' 的时间线则返回 true
  */
 bool
 tliInHistory(TimeLineID tli, List *expectedTLEs)
@@ -537,8 +537,8 @@ tliInHistory(TimeLineID tli, List *expectedTLEs)
 }
 
 /*
- * Returns the ID of the timeline in use at a particular point in time, in
- * the given timeline history.
+ * 返回在给定时间线历史中、某一特定时间点
+ * 所使用的时间线 ID。
  */
 TimeLineID
 tliOfPointInHistory(XLogRecPtr ptr, List *history)
@@ -552,21 +552,21 @@ tliOfPointInHistory(XLogRecPtr ptr, List *history)
 		if ((XLogRecPtrIsInvalid(tle->begin) || tle->begin <= ptr) &&
 			(XLogRecPtrIsInvalid(tle->end) || ptr < tle->end))
 		{
-			/* found it */
+			/* 找到了 */
 			return tle->tli;
 		}
 	}
 
-	/* shouldn't happen. */
+	/* 不应发生。 */
 	elog(ERROR, "timeline history was not contiguous");
-	return 0;					/* keep compiler quiet */
+	return 0;					/* 让编译器安静 */
 }
 
 /*
- * Returns the point in history where we branched off the given timeline,
- * and the timeline we branched to (*nextTLI). Returns InvalidXLogRecPtr if
- * the timeline is current, ie. we have not branched off from it, and throws
- * an error if the timeline is not part of this server's history.
+ * 返回我们从给定时间线分支出去的历史点，
+ * 以及分支到的时间线（*nextTLI）。若该
+ * 时间线为当前时间线（即尚未从它分支出去）则返回 InvalidXLogRecPtr，若
+ * 该时间线不属于本服务器历史则抛出错误。
  */
 XLogRecPtr
 tliSwitchPoint(TimeLineID tli, List *history, TimeLineID *nextTLI)
@@ -588,5 +588,5 @@ tliSwitchPoint(TimeLineID tli, List *history, TimeLineID *nextTLI)
 	ereport(ERROR,
 			(errmsg("requested timeline %u is not in this server's history",
 					tli)));
-	return InvalidXLogRecPtr;	/* keep compiler quiet */
+	return InvalidXLogRecPtr;	/* 让编译器安静 */
 }

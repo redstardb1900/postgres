@@ -1,41 +1,41 @@
 /*-------------------------------------------------------------------------
  *
  * slru.c
- *		Simple LRU buffering for transaction status logfiles
+ *		事务状态日志文件的简单 LRU 缓冲
  *
- * We use a simple least-recently-used scheme to manage a pool of page
- * buffers.  Under ordinary circumstances we expect that write
- * traffic will occur mostly to the latest page (and to the just-prior
- * page, soon after a page transition).  Read traffic will probably touch
- * a larger span of pages, but in any case a fairly small number of page
- * buffers should be sufficient.  So, we just search the buffers using plain
- * linear search; there's no need for a hashtable or anything fancy.
- * The management algorithm is straight LRU except that we will never swap
- * out the latest page (since we know it's going to be hit again eventually).
+ * 我们使用简单的最近最少使用（LRU）策略管理一池页
+ * 缓冲区。通常预期写流量主要落在最新页（以及页切换
+ * 之后不久的前一页）。读流量可能会触及更大范围的
+ * 页，但无论如何较少数量的页缓冲区就应足够。因此我们
+ * 只用普通线性搜索查找缓冲区；不必上哈希表或更复杂的
+ * 结构。管理算法就是标准 LRU，唯一例外是永远不会换出
+ * 最新页（因为我们知道它迟早还会再被命中）。
  *
- * We use a control LWLock to protect the shared data structures, plus
- * per-buffer LWLocks that synchronize I/O for each buffer.  The control lock
- * must be held to examine or modify any shared state.  A process that is
- * reading in or writing out a page buffer does not hold the control lock,
- * only the per-buffer lock for the buffer it is working on.
+ * 我们用一把控制 LWLock 保护共享数据结构，再加上
+ * 按缓冲区的 LWLocks 来同步每个缓冲区的 I/O。检查或修改任何
+ * 共享状态时必须持有控制锁。正在读入或写出页缓冲区的
+ * 进程不持有控制锁，只持有它所操作的那个缓冲区的
+ * 按缓冲区锁。
  *
- * "Holding the control lock" means exclusive lock in all cases except for
- * SimpleLruReadPage_ReadOnly(); see comments for SlruRecentlyUsed() for
- * the implications of that.
+ * "持有控制锁"在除 SimpleLruReadPage_ReadOnly() 以外的
+ * 所有情形下都意味着排他锁；其含义见 SlruRecentlyUsed() 的
+ * 注释。
  *
- * When initiating I/O on a buffer, we acquire the per-buffer lock exclusively
- * before releasing the control lock.  The per-buffer lock is released after
- * completing the I/O, re-acquiring the control lock, and updating the shared
- * state.  (Deadlock is not possible here, because we never try to initiate
- * I/O when someone else is already doing I/O on the same buffer.)
- * To wait for I/O to complete, release the control lock, acquire the
- * per-buffer lock in shared mode, immediately release the per-buffer lock,
- * reacquire the control lock, and then recheck state (since arbitrary things
- * could have happened while we didn't have the lock).
+ * 对某缓冲区启动 I/O 时，我们在释放控制锁之前先以排他方式
+ * 获取按缓冲区锁。完成 I/O、重新获取控制锁并更新共享状态
+ * 之后，才释放按缓冲区锁。（此处不可能死锁，因为若别人已在
+ * 同一缓冲区上做 I/O，我们就绝不会再启动 I/O。）
+ * 若要等待 I/O 完成：释放控制锁，以共享模式获取按缓冲区
+ * 锁，立即释放按缓冲区锁，再重新获取控制锁，然后重新检查
+ * 状态（因为在未持锁期间可能发生任意变化）。
  *
- * As with the regular buffer manager, it is possible for another process
- * to re-dirty a page that is currently being written out.  This is handled
- * by re-setting the page's page_dirty flag.
+ * 与常规缓冲管理器一样，另一个进程可能把正在写出的
+ * 页再次弄脏。处理方式是重新设置该页的 page_dirty
+ * 标志。
+ *
+ *
+ *
+ *
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -64,26 +64,26 @@
 	snprintf(path, MAXPGPATH, "%s/%04X", (ctl)->Dir, seg)
 
 /*
- * During SimpleLruWriteAll(), we will usually not need to write more than one
- * or two physical files, but we may need to write several pages per file.  We
- * can consolidate the I/O requests by leaving files open until control returns
- * to SimpleLruWriteAll().  This data structure remembers which files are open.
+ * 在 SimpleLruWriteAll() 期间，通常只需写一两个物理文件，
+ * 但每个文件可能要写若干页。通过让文件保持打开直到控制
+ * 返回 SimpleLruWriteAll()，可以合并 I/O 请求。本数据结构
+ * 记下哪些文件仍处于打开状态。
  */
 #define MAX_WRITEALL_BUFFERS	16
 
 typedef struct SlruWriteAllData
 {
-	int			num_files;		/* # files actually open */
-	int			fd[MAX_WRITEALL_BUFFERS];	/* their FD's */
-	int			segno[MAX_WRITEALL_BUFFERS];	/* their log seg#s */
+	int			num_files;		/* 实际打开的文件数 */
+	int			fd[MAX_WRITEALL_BUFFERS];	/* 它们的 FD */
+	int			segno[MAX_WRITEALL_BUFFERS];	/* 它们的日志段号 */
 } SlruWriteAllData;
 
 typedef struct SlruWriteAllData *SlruWriteAll;
 
 /*
- * Populate a file tag describing a segment file.  We only use the segment
- * number, since we can derive everything else we need by having separate
- * sync handler functions for clog, multixact etc.
+ * 填充描述段文件的文件标签。我们只用段号，因为可以为
+ * clog、multixact 等分别提供同步处理函数，从而推导出
+ * 其余所需信息。
  */
 #define INIT_SLRUFILETAG(a,xx_handler,xx_segno) \
 ( \
@@ -93,23 +93,23 @@ typedef struct SlruWriteAllData *SlruWriteAll;
 )
 
 /*
- * Macro to mark a buffer slot "most recently used".  Note multiple evaluation
- * of arguments!
+ * 把缓冲区槽标为"最近使用"。注意参数会被多次求值！
  *
- * The reason for the if-test is that there are often many consecutive
- * accesses to the same page (particularly the latest page).  By suppressing
- * useless increments of cur_lru_count, we reduce the probability that old
- * pages' counts will "wrap around" and make them appear recently used.
+ * 使用 if 测试的原因是：经常会连续多次访问同一页
+ * （尤其是最新页）。通过抑制对 cur_lru_count 的无用递增，
+ * 我们降低旧页计数"回卷"从而显得像最近使用的概率。
  *
- * We allow this code to be executed concurrently by multiple processes within
- * SimpleLruReadPage_ReadOnly().  As long as int reads and writes are atomic,
- * this should not cause any completely-bogus values to enter the computation.
- * However, it is possible for either cur_lru_count or individual
- * page_lru_count entries to be "reset" to lower values than they should have,
- * in case a process is delayed while it executes this macro.  With care in
- * SlruSelectLRUPage(), this does little harm, and in any case the absolute
- * worst possible consequence is a nonoptimal choice of page to evict.  The
- * gain from allowing concurrent reads of SLRU pages seems worth it.
+ * 我们允许在 SimpleLruReadPage_ReadOnly() 内由多个进程
+ * 并发执行本代码。只要 int 的读与写是原子的，就不至于
+ * 把完全胡乱的值带进计算。不过，若某进程在执行本宏时
+ * 被延迟，cur_lru_count 或个别 page_lru_count 项仍可能被
+ * "复位"到低于应有的值。在 SlruSelectLRUPage() 中小心
+ * 处理后，危害不大；绝对最坏的后果也只是换出页面的选择
+ * 非最优。允许并发读取 SLRU 页的收益看起来值得这么做。
+ *
+ *
+ *
+ *
  */
 #define SlruRecentlyUsed(shared, slotno)	\
 	do { \
@@ -120,7 +120,7 @@ typedef struct SlruWriteAllData *SlruWriteAll;
 		} \
 	} while (0)
 
-/* Saved info for SlruReportIOError */
+/* 供 SlruReportIOError 使用的已保存信息 */
 typedef enum
 {
 	SLRU_OPEN_FAILED,
@@ -149,7 +149,7 @@ static bool SlruScanDirCbDeleteCutoff(SlruCtl ctl, char *filename,
 static void SlruInternalDeleteSegment(SlruCtl ctl, int segno);
 
 /*
- * Initialization of shared memory
+ * 共享内存初始化
  */
 
 Size
@@ -157,7 +157,7 @@ SimpleLruShmemSize(int nslots, int nlsns)
 {
 	Size		sz;
 
-	/* we assume nslots isn't so large as to risk overflow */
+	/* 假定 nslots 不会大到有溢出风险 */
 	sz = MAXALIGN(sizeof(SlruSharedData));
 	sz += MAXALIGN(nslots * sizeof(char *));	/* page_buffer[] */
 	sz += MAXALIGN(nslots * sizeof(SlruPageStatus));	/* page_status[] */
@@ -173,16 +173,16 @@ SimpleLruShmemSize(int nslots, int nlsns)
 }
 
 /*
- * Initialize, or attach to, a simple LRU cache in shared memory.
+ * 在共享内存中初始化或附着到一个简单 LRU 缓存。
  *
- * ctl: address of local (unshared) control structure.
- * name: name of SLRU.  (This is user-visible, pick with care!)
- * nslots: number of page slots to use.
- * nlsns: number of LSN groups per page (set to zero if not relevant).
- * ctllock: LWLock to use to control access to the shared control structure.
- * subdir: PGDATA-relative subdirectory that will contain the files.
- * tranche_id: LWLock tranche ID to use for the SLRU's per-buffer LWLocks.
- * sync_handler: which set of functions to use to handle sync requests
+ * ctl: 本地（非共享）控制结构的地址。
+ * name: SLRU 的名称。（用户可见，请慎重选取！）
+ * nslots: 要使用的页槽数目。
+ * nlsns: 每页的 LSN 组数（无关时设为零）。
+ * ctllock: 用于控制对共享控制结构访问的 LWLock。
+ * subdir: 相对于 PGDATA、将存放这些文件的子目录。
+ * tranche_id: 该 SLRU 的按缓冲区 LWLocks 所用的 LWLock 批次 ID。
+ * sync_handler: 用哪一套函数处理同步请求
  */
 void
 SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
@@ -198,7 +198,7 @@ SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
 
 	if (!IsUnderPostmaster)
 	{
-		/* Initialize locks and shared memory area */
+		/* 初始化锁与共享内存区域 */
 		char	   *ptr;
 		Size		offset;
 		int			slotno;
@@ -214,7 +214,7 @@ SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
 
 		shared->cur_lru_count = 0;
 
-		/* shared->latest_page_number will be set later */
+		/* shared->latest_page_number 稍后设置 */
 
 		shared->slru_stats_idx = pgstat_get_slru_index(name);
 
@@ -231,7 +231,7 @@ SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
 		shared->page_lru_count = (int *) (ptr + offset);
 		offset += MAXALIGN(nslots * sizeof(int));
 
-		/* Initialize LWLocks */
+		/* 初始化 LWLocks */
 		shared->buffer_locks = (LWLockPadded *) (ptr + offset);
 		offset += MAXALIGN(nslots * sizeof(LWLockPadded));
 
@@ -254,15 +254,15 @@ SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
 			ptr += BLCKSZ;
 		}
 
-		/* Should fit to estimated shmem size */
+		/* 应能装入估算的共享内存大小 */
 		Assert(ptr - (char *) shared <= SimpleLruShmemSize(nslots, nlsns));
 	}
 	else
 		Assert(found);
 
 	/*
-	 * Initialize the unshared control struct, including directory path. We
-	 * assume caller set PagePrecedes.
+	 * 初始化非共享控制结构，包括目录路径。我们假定调用者
+	 * 已设置 PagePrecedes。
 	 */
 	ctl->shared = shared;
 	ctl->sync_handler = sync_handler;
@@ -270,12 +270,12 @@ SimpleLruInit(SlruCtl ctl, const char *name, int nslots, int nlsns,
 }
 
 /*
- * Initialize (or reinitialize) a page to zeroes.
+ * 把一页初始化（或重新初始化）为零。
  *
- * The page is not actually written, just set up in shared memory.
- * The slot number of the new page is returned.
+ * 页实际上不会写出，只是在共享内存中建好。
+ * 返回新页的槽号。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
  */
 int
 SimpleLruZeroPage(SlruCtl ctl, int pageno)
@@ -283,43 +283,43 @@ SimpleLruZeroPage(SlruCtl ctl, int pageno)
 	SlruShared	shared = ctl->shared;
 	int			slotno;
 
-	/* Find a suitable buffer slot for the page */
+	/* 为该页找一个合适的缓冲区槽 */
 	slotno = SlruSelectLRUPage(ctl, pageno);
 	Assert(shared->page_status[slotno] == SLRU_PAGE_EMPTY ||
 		   (shared->page_status[slotno] == SLRU_PAGE_VALID &&
 			!shared->page_dirty[slotno]) ||
 		   shared->page_number[slotno] == pageno);
 
-	/* Mark the slot as containing this page */
+	/* 把该槽标为包含此页 */
 	shared->page_number[slotno] = pageno;
 	shared->page_status[slotno] = SLRU_PAGE_VALID;
 	shared->page_dirty[slotno] = true;
 	SlruRecentlyUsed(shared, slotno);
 
-	/* Set the buffer to zeroes */
+	/* 把缓冲区清零 */
 	MemSet(shared->page_buffer[slotno], 0, BLCKSZ);
 
-	/* Set the LSNs for this new page to zero */
+	/* 把此新页的 LSNs 设为零 */
 	SimpleLruZeroLSNs(ctl, slotno);
 
-	/* Assume this page is now the latest active page */
+	/* 假定此页现为最新活动页 */
 	shared->latest_page_number = pageno;
 
-	/* update the stats counter of zeroed pages */
+	/* 更新已清零页的统计计数 */
 	pgstat_count_slru_page_zeroed(shared->slru_stats_idx);
 
 	return slotno;
 }
 
 /*
- * Zero all the LSNs we store for this slru page.
+ * 把我们为该 slru 页存储的全部 LSNs 清零。
  *
- * This should be called each time we create a new page, and each time we read
- * in a page from disk into an existing buffer.  (Such an old page cannot
- * have any interesting LSNs, since we'd have flushed them before writing
- * the page in the first place.)
+ * 每次创建新页，以及每次从磁盘把一页读入已有缓冲区时，
+ * 都应调用本函数。（这样的旧页不可能有有意义的 LSNs，
+ * 因为我们当初写出该页之前早已刷写过它们。）
  *
- * This assumes that InvalidXLogRecPtr is bitwise-all-0.
+ * 此处假定 InvalidXLogRecPtr 按位全为 0。
+ *
  */
 static void
 SimpleLruZeroLSNs(SlruCtl ctl, int slotno)
@@ -332,37 +332,37 @@ SimpleLruZeroLSNs(SlruCtl ctl, int slotno)
 }
 
 /*
- * Wait for any active I/O on a page slot to finish.  (This does not
- * guarantee that new I/O hasn't been started before we return, though.
- * In fact the slot might not even contain the same page anymore.)
+ * 等待页槽上任何活动 I/O 完成。（这并不保证返回前没有
+ * 新的 I/O 被启动。事实上该槽甚至可能已不再包含同一页。）
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
+ *
  */
 static void
 SimpleLruWaitIO(SlruCtl ctl, int slotno)
 {
 	SlruShared	shared = ctl->shared;
 
-	/* See notes at top of file */
+	/* 见文件顶部的说明 */
 	LWLockRelease(shared->ControlLock);
 	LWLockAcquire(&shared->buffer_locks[slotno].lock, LW_SHARED);
 	LWLockRelease(&shared->buffer_locks[slotno].lock);
 	LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
 	/*
-	 * If the slot is still in an io-in-progress state, then either someone
-	 * already started a new I/O on the slot, or a previous I/O failed and
-	 * neglected to reset the page state.  That shouldn't happen, really, but
-	 * it seems worth a few extra cycles to check and recover from it. We can
-	 * cheaply test for failure by seeing if the buffer lock is still held (we
-	 * assume that transaction abort would release the lock).
+	 * 若槽仍处于 io-in-progress 状态，则要么别人已在该槽上
+	 * 启动了新的 I/O，要么先前的 I/O 失败且未复位页状态。
+	 * 那本不该发生，但多花几个周期检查并恢复似乎值得。我们
+	 * 可通过看缓冲区锁是否仍被持有来廉价地检测失败（假定
+	 * 事务中止会释放该锁）。
+	 *
 	 */
 	if (shared->page_status[slotno] == SLRU_PAGE_READ_IN_PROGRESS ||
 		shared->page_status[slotno] == SLRU_PAGE_WRITE_IN_PROGRESS)
 	{
 		if (LWLockConditionalAcquire(&shared->buffer_locks[slotno].lock, LW_SHARED))
 		{
-			/* indeed, the I/O must have failed */
+			/* 确实，I/O 一定已失败 */
 			if (shared->page_status[slotno] == SLRU_PAGE_READ_IN_PROGRESS)
 				shared->page_status[slotno] = SLRU_PAGE_EMPTY;
 			else				/* write_in_progress */
@@ -376,21 +376,21 @@ SimpleLruWaitIO(SlruCtl ctl, int slotno)
 }
 
 /*
- * Find a page in a shared buffer, reading it in if necessary.
- * The page number must correspond to an already-initialized page.
+ * 在共享缓冲区中查找一页，必要时读入。
+ * 页号必须对应已经初始化过的页。
  *
- * If write_ok is true then it is OK to return a page that is in
- * WRITE_IN_PROGRESS state; it is the caller's responsibility to be sure
- * that modification of the page is safe.  If write_ok is false then we
- * will not return the page until it is not undergoing active I/O.
+ * 若 write_ok 为真，则可以返回处于 WRITE_IN_PROGRESS
+ * 状态的页；调用者有责任确保修改该页是安全的。若
+ * write_ok 为假，则在页不再有活动 I/O 之前我们不会返回。
  *
- * The passed-in xid is used only for error reporting, and may be
- * InvalidTransactionId if no specific xid is associated with the action.
+ * 传入的 xid 仅用于错误报告；若无特定 xid 与该操作
+ * 关联，可为 InvalidTransactionId。
  *
- * Return value is the shared-buffer slot number now holding the page.
- * The buffer's LRU access info is updated.
+ * 返回值是当前持有该页的共享缓冲区槽号。
+ * 会更新该缓冲区的 LRU 访问信息。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
+ *
  */
 int
 SimpleLruReadPage(SlruCtl ctl, int pageno, bool write_ok,
@@ -398,63 +398,63 @@ SimpleLruReadPage(SlruCtl ctl, int pageno, bool write_ok,
 {
 	SlruShared	shared = ctl->shared;
 
-	/* Outer loop handles restart if we must wait for someone else's I/O */
+	/* 外层循环处理必须等待别人 I/O 时的重启 */
 	for (;;)
 	{
 		int			slotno;
 		bool		ok;
 
-		/* See if page already is in memory; if not, pick victim slot */
+		/* 看页是否已在内存中；否则挑选牺牲槽 */
 		slotno = SlruSelectLRUPage(ctl, pageno);
 
-		/* Did we find the page in memory? */
+		/* 我们是否在内存中找到了该页？ */
 		if (shared->page_number[slotno] == pageno &&
 			shared->page_status[slotno] != SLRU_PAGE_EMPTY)
 		{
 			/*
-			 * If page is still being read in, we must wait for I/O.  Likewise
-			 * if the page is being written and the caller said that's not OK.
+			 * 若页仍在读入，我们必须等待 I/O。同样，若页正在
+			 * 写出且调用者说那不可接受，也要等待。
 			 */
 			if (shared->page_status[slotno] == SLRU_PAGE_READ_IN_PROGRESS ||
 				(shared->page_status[slotno] == SLRU_PAGE_WRITE_IN_PROGRESS &&
 				 !write_ok))
 			{
 				SimpleLruWaitIO(ctl, slotno);
-				/* Now we must recheck state from the top */
+				/* 现在必须从头重新检查状态 */
 				continue;
 			}
-			/* Otherwise, it's ready to use */
+			/* 否则已可使用 */
 			SlruRecentlyUsed(shared, slotno);
 
-			/* update the stats counter of pages found in the SLRU */
+			/* 更新在 SLRU 中命中页的统计计数 */
 			pgstat_count_slru_page_hit(shared->slru_stats_idx);
 
 			return slotno;
 		}
 
-		/* We found no match; assert we selected a freeable slot */
+		/* 未找到匹配；断言我们选中了可释放的槽 */
 		Assert(shared->page_status[slotno] == SLRU_PAGE_EMPTY ||
 			   (shared->page_status[slotno] == SLRU_PAGE_VALID &&
 				!shared->page_dirty[slotno]));
 
-		/* Mark the slot read-busy */
+		/* 把该槽标为读忙 */
 		shared->page_number[slotno] = pageno;
 		shared->page_status[slotno] = SLRU_PAGE_READ_IN_PROGRESS;
 		shared->page_dirty[slotno] = false;
 
-		/* Acquire per-buffer lock (cannot deadlock, see notes at top) */
+		/* 获取按缓冲区锁（不会死锁，见顶部说明） */
 		LWLockAcquire(&shared->buffer_locks[slotno].lock, LW_EXCLUSIVE);
 
-		/* Release control lock while doing I/O */
+		/* 做 I/O 期间释放控制锁 */
 		LWLockRelease(shared->ControlLock);
 
-		/* Do the read */
+		/* 执行读 */
 		ok = SlruPhysicalReadPage(ctl, pageno, slotno);
 
-		/* Set the LSNs for this newly read-in page to zero */
+		/* 把刚读入页的 LSNs 设为零 */
 		SimpleLruZeroLSNs(ctl, slotno);
 
-		/* Re-acquire control lock and update page state */
+		/* 重新获取控制锁并更新页状态 */
 		LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
 		Assert(shared->page_number[slotno] == pageno &&
@@ -465,13 +465,13 @@ SimpleLruReadPage(SlruCtl ctl, int pageno, bool write_ok,
 
 		LWLockRelease(&shared->buffer_locks[slotno].lock);
 
-		/* Now it's okay to ereport if we failed */
+		/* 现在可以在失败时 ereport 了 */
 		if (!ok)
 			SlruReportIOError(ctl, pageno, xid);
 
 		SlruRecentlyUsed(shared, slotno);
 
-		/* update the stats counter of pages not found in SLRU */
+		/* 更新未在 SLRU 中找到页的统计计数 */
 		pgstat_count_slru_page_read(shared->slru_stats_idx);
 
 		return slotno;
@@ -479,18 +479,18 @@ SimpleLruReadPage(SlruCtl ctl, int pageno, bool write_ok,
 }
 
 /*
- * Find a page in a shared buffer, reading it in if necessary.
- * The page number must correspond to an already-initialized page.
- * The caller must intend only read-only access to the page.
+ * 在共享缓冲区中查找一页，必要时读入。
+ * 页号必须对应已经初始化过的页。
+ * 调用者只能打算对该页做只读访问。
  *
- * The passed-in xid is used only for error reporting, and may be
- * InvalidTransactionId if no specific xid is associated with the action.
+ * 传入的 xid 仅用于错误报告；若无特定 xid 与该操作
+ * 关联，可为 InvalidTransactionId。
  *
- * Return value is the shared-buffer slot number now holding the page.
- * The buffer's LRU access info is updated.
+ * 返回值是当前持有该页的共享缓冲区槽号。
+ * 会更新该缓冲区的 LRU 访问信息。
  *
- * Control lock must NOT be held at entry, but will be held at exit.
- * It is unspecified whether the lock will be shared or exclusive.
+ * 进入时不得持有控制锁，但退出时将持有。
+ * 锁是共享还是排他未指定。
  */
 int
 SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid)
@@ -498,27 +498,27 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid)
 	SlruShared	shared = ctl->shared;
 	int			slotno;
 
-	/* Try to find the page while holding only shared lock */
+	/* 仅持共享锁时尝试查找该页 */
 	LWLockAcquire(shared->ControlLock, LW_SHARED);
 
-	/* See if page is already in a buffer */
+	/* 看页是否已在某缓冲区中 */
 	for (slotno = 0; slotno < shared->num_slots; slotno++)
 	{
 		if (shared->page_number[slotno] == pageno &&
 			shared->page_status[slotno] != SLRU_PAGE_EMPTY &&
 			shared->page_status[slotno] != SLRU_PAGE_READ_IN_PROGRESS)
 		{
-			/* See comments for SlruRecentlyUsed macro */
+			/* 见 SlruRecentlyUsed 宏的注释 */
 			SlruRecentlyUsed(shared, slotno);
 
-			/* update the stats counter of pages found in the SLRU */
+			/* 更新在 SLRU 中命中页的统计计数 */
 			pgstat_count_slru_page_hit(shared->slru_stats_idx);
 
 			return slotno;
 		}
 	}
 
-	/* No luck, so switch to normal exclusive lock and do regular read */
+	/* 没找到，切换为普通排他锁并做常规读 */
 	LWLockRelease(shared->ControlLock);
 	LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
@@ -526,15 +526,15 @@ SimpleLruReadPage_ReadOnly(SlruCtl ctl, int pageno, TransactionId xid)
 }
 
 /*
- * Write a page from a shared buffer, if necessary.
- * Does nothing if the specified slot is not dirty.
+ * 必要时从共享缓冲区写出一页。
+ * 若指定槽不是脏的则什么也不做。
  *
- * NOTE: only one write attempt is made here.  Hence, it is possible that
- * the page is still dirty at exit (if someone else re-dirtied it during
- * the write).  However, we *do* attempt a fresh write even if the page
- * is already being written; this is for checkpoints.
+ * 注意：这里只尝试写一次。因此退出时页仍可能是脏的
+ * （若写出期间别人再次弄脏了它）。不过，即使页已在
+ * 写出中，我们*仍*会尝试重新写出；这是为检查点准备的。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
+ *
  */
 static void
 SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
@@ -543,7 +543,7 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 	int			pageno = shared->page_number[slotno];
 	bool		ok;
 
-	/* If a write is in progress, wait for it to finish */
+	/* 若写出正在进行，等待其完成 */
 	while (shared->page_status[slotno] == SLRU_PAGE_WRITE_IN_PROGRESS &&
 		   shared->page_number[slotno] == pageno)
 	{
@@ -551,8 +551,8 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 	}
 
 	/*
-	 * Do nothing if page is not dirty, or if buffer no longer contains the
-	 * same page we were called for.
+	 * 若页不是脏的，或缓冲区已不再包含我们被调用时所针对的
+	 * 同一页，则什么也不做。
 	 */
 	if (!shared->page_dirty[slotno] ||
 		shared->page_status[slotno] != SLRU_PAGE_VALID ||
@@ -560,22 +560,22 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 		return;
 
 	/*
-	 * Mark the slot write-busy, and clear the dirtybit.  After this point, a
-	 * transaction status update on this page will mark it dirty again.
+	 * 把该槽标为写忙，并清除脏位。此后若有事务状态更新
+	 * 触及此页，会再次把它标脏。
 	 */
 	shared->page_status[slotno] = SLRU_PAGE_WRITE_IN_PROGRESS;
 	shared->page_dirty[slotno] = false;
 
-	/* Acquire per-buffer lock (cannot deadlock, see notes at top) */
+	/* 获取按缓冲区锁（不会死锁，见顶部说明） */
 	LWLockAcquire(&shared->buffer_locks[slotno].lock, LW_EXCLUSIVE);
 
-	/* Release control lock while doing I/O */
+	/* 做 I/O 期间释放控制锁 */
 	LWLockRelease(shared->ControlLock);
 
-	/* Do the write */
+	/* 执行写 */
 	ok = SlruPhysicalWritePage(ctl, pageno, slotno, fdata);
 
-	/* If we failed, and we're in a flush, better close the files */
+	/* 若失败且我们处于刷写中，最好关闭这些文件 */
 	if (!ok && fdata)
 	{
 		int			i;
@@ -584,13 +584,13 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 			CloseTransientFile(fdata->fd[i]);
 	}
 
-	/* Re-acquire control lock and update page state */
+	/* 重新获取控制锁并更新页状态 */
 	LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
 	Assert(shared->page_number[slotno] == pageno &&
 		   shared->page_status[slotno] == SLRU_PAGE_WRITE_IN_PROGRESS);
 
-	/* If we failed to write, mark the page dirty again */
+	/* 若写出失败，再次把页标脏 */
 	if (!ok)
 		shared->page_dirty[slotno] = true;
 
@@ -598,18 +598,18 @@ SlruInternalWritePage(SlruCtl ctl, int slotno, SlruWriteAll fdata)
 
 	LWLockRelease(&shared->buffer_locks[slotno].lock);
 
-	/* Now it's okay to ereport if we failed */
+	/* 现在可以在失败时 ereport 了 */
 	if (!ok)
 		SlruReportIOError(ctl, pageno, InvalidTransactionId);
 
-	/* If part of a checkpoint, count this as a buffer written. */
+	/* 若属于检查点，把这计为写出的缓冲区。 */
 	if (fdata)
 		CheckpointStats.ckpt_bufs_written++;
 }
 
 /*
- * Wrapper of SlruInternalWritePage, for external callers.
- * fdata is always passed a NULL here.
+ * SlruInternalWritePage 的包装，供外部调用者使用。
+ * 此处 fdata 总是传入 NULL。
  */
 void
 SimpleLruWritePage(SlruCtl ctl, int slotno)
@@ -618,10 +618,10 @@ SimpleLruWritePage(SlruCtl ctl, int slotno)
 }
 
 /*
- * Return whether the given page exists on disk.
+ * 返回给定页是否在磁盘上存在。
  *
- * A false return means that either the file does not exist, or that it's not
- * large enough to contain the given page.
+ * 返回假表示文件不存在，或者文件不够大、
+ * 装不下给定页。
  */
 bool
 SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno)
@@ -634,7 +634,7 @@ SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno)
 	bool		result;
 	off_t		endpos;
 
-	/* update the stats counter of checked pages */
+	/* 更新已检查页的统计计数 */
 	pgstat_count_slru_page_exists(ctl->shared->slru_stats_idx);
 
 	SlruFileName(ctl, path, segno);
@@ -642,11 +642,11 @@ SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno)
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
 	if (fd < 0)
 	{
-		/* expected: file doesn't exist */
+		/* 预期：文件不存在 */
 		if (errno == ENOENT)
 			return false;
 
-		/* report error normally */
+		/* 按常规报告错误 */
 		slru_errcause = SLRU_OPEN_FAILED;
 		slru_errno = errno;
 		SlruReportIOError(ctl, pageno, 0);
@@ -672,14 +672,14 @@ SimpleLruDoesPhysicalPageExist(SlruCtl ctl, int pageno)
 }
 
 /*
- * Physical read of a (previously existing) page into a buffer slot
+ * 把（先前已存在的）页物理读入缓冲区槽
  *
- * On failure, we cannot just ereport(ERROR) since caller has put state in
- * shared memory that must be undone.  So, we return false and save enough
- * info in static variables to let SlruReportIOError make the report.
+ * 失败时无法直接 ereport(ERROR)，因为调用者已在共享内存中
+ * 放入必须撤销的状态。因此我们返回 false，并把足够信息
+ * 保存在静态变量中，供 SlruReportIOError 报告。
  *
- * For now, assume it's not worth keeping a file pointer open across
- * read/write operations.  We could cache one virtual file pointer ...
+ * 目前假定不值得跨读/写操作保持文件指针打开。
+ * 我们可以缓存一个虚拟文件指针……
  */
 static bool
 SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno)
@@ -694,11 +694,11 @@ SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno)
 	SlruFileName(ctl, path, segno);
 
 	/*
-	 * In a crash-and-restart situation, it's possible for us to receive
-	 * commands to set the commit status of transactions whose bits are in
-	 * already-truncated segments of the commit log (see notes in
-	 * SlruPhysicalWritePage).  Hence, if we are InRecovery, allow the case
-	 * where the file doesn't exist, and return zeroes instead.
+	 * 在崩溃并重启的情形下，我们可能收到要设置那些位已落在
+	 * 已截断提交日志段中的事务的提交状态的命令（见
+	 * SlruPhysicalWritePage 中的说明）。因此若处于 InRecovery，
+	 * 允许文件不存在的情形，并改为返回全零。
+	 *
 	 */
 	fd = OpenTransientFile(path, O_RDONLY | PG_BINARY);
 	if (fd < 0)
@@ -740,18 +740,18 @@ SlruPhysicalReadPage(SlruCtl ctl, int pageno, int slotno)
 }
 
 /*
- * Physical write of a page from a buffer slot
+ * 从缓冲区槽物理写出一页
  *
- * On failure, we cannot just ereport(ERROR) since caller has put state in
- * shared memory that must be undone.  So, we return false and save enough
- * info in static variables to let SlruReportIOError make the report.
+ * 失败时无法直接 ereport(ERROR)，因为调用者已在共享内存中
+ * 放入必须撤销的状态。因此我们返回 false，并把足够信息
+ * 保存在静态变量中，供 SlruReportIOError 报告。
  *
- * For now, assume it's not worth keeping a file pointer open across
- * independent read/write operations.  We do batch operations during
- * SimpleLruWriteAll, though.
+ * 目前假定不值得跨彼此独立的读/写操作保持文件指针
+ * 打开。不过我们会在 SimpleLruWriteAll 期间做批处理。
  *
- * fdata is NULL for a standalone write, pointer to open-file info during
- * SimpleLruWriteAll.
+ * 独立写出时 fdata 为 NULL；在 SimpleLruWriteAll 期间则为
+ * 打开文件信息的指针。
+ *
  */
 static bool
 SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
@@ -763,22 +763,22 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	char		path[MAXPGPATH];
 	int			fd = -1;
 
-	/* update the stats counter of written pages */
+	/* 更新已写出页的统计计数 */
 	pgstat_count_slru_page_written(shared->slru_stats_idx);
 
 	/*
-	 * Honor the write-WAL-before-data rule, if appropriate, so that we do not
-	 * write out data before associated WAL records.  This is the same action
-	 * performed during FlushBuffer() in the main buffer manager.
+	 * 在适当时遵守先写 WAL 再写数据的规则，以免在关联的
+	 * WAL 记录之前写出数据。这与主缓冲管理器中
+	 * FlushBuffer() 所做的动作相同。
 	 */
 	if (shared->group_lsn != NULL)
 	{
 		/*
-		 * We must determine the largest async-commit LSN for the page. This
-		 * is a bit tedious, but since this entire function is a slow path
-		 * anyway, it seems better to do this here than to maintain a per-page
-		 * LSN variable (which'd need an extra comparison in the
-		 * transaction-commit path).
+		 * 我们必须确定该页上最大的异步提交 LSN。这有点繁琐，
+		 * 但既然整个函数本来就是慢路径，与其维护每页 LSN
+		 * 变量（那会在事务提交路径上多一次比较），不如在这里
+		 * 做。
+		 *
 		 */
 		XLogRecPtr	max_lsn;
 		int			lsnindex,
@@ -797,10 +797,10 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 		if (!XLogRecPtrIsInvalid(max_lsn))
 		{
 			/*
-			 * As noted above, elog(ERROR) is not acceptable here, so if
-			 * XLogFlush were to fail, we must PANIC.  This isn't much of a
-			 * restriction because XLogFlush is just about all critical
-			 * section anyway, but let's make sure.
+			 * 如上所述，此处无法接受 elog(ERROR)，因此若
+			 * XLogFlush 失败，我们必须 PANIC。这限制不大，因为
+			 * XLogFlush 几乎全在临界区里，不过还是明确一下。
+			 *
 			 */
 			START_CRIT_SECTION();
 			XLogFlush(max_lsn);
@@ -809,7 +809,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	}
 
 	/*
-	 * During a SimpleLruWriteAll, we may already have the desired file open.
+	 * 在 SimpleLruWriteAll 期间，我们可能已经打开了所需文件。
 	 */
 	if (fdata)
 	{
@@ -828,21 +828,21 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	if (fd < 0)
 	{
 		/*
-		 * If the file doesn't already exist, we should create it.  It is
-		 * possible for this to need to happen when writing a page that's not
-		 * first in its segment; we assume the OS can cope with that. (Note:
-		 * it might seem that it'd be okay to create files only when
-		 * SimpleLruZeroPage is called for the first page of a segment.
-		 * However, if after a crash and restart the REDO logic elects to
-		 * replay the log from a checkpoint before the latest one, then it's
-		 * possible that we will get commands to set transaction status of
-		 * transactions that have already been truncated from the commit log.
-		 * Easiest way to deal with that is to accept references to
-		 * nonexistent files here and in SlruPhysicalReadPage.)
+		 * 若文件尚不存在，我们应创建它。写出并非段内第一页的
+		 * 页时也可能需要创建；我们假定操作系统能应付。（注意：
+		 * 看上去似乎只在对段的第一页调用 SimpleLruZeroPage
+		 * 时创建文件就行。然而，若崩溃并重启后 REDO 逻辑选择从
+		 * 早于最新检查点的检查点重放日志，则我们可能收到要设置
+		 * 已从提交日志截断掉的事务的状态的命令。最简单的处理
+		 * 方式是在此处以及 SlruPhysicalReadPage 中接受对不存在
+		 * 文件的引用。）
 		 *
-		 * Note: it is possible for more than one backend to be executing this
-		 * code simultaneously for different pages of the same file. Hence,
-		 * don't use O_EXCL or O_TRUNC or anything like that.
+		 * 注意：多个后端可能同时为本文件的不同页执行本代码。
+		 * 因此不要使用 O_EXCL 或 O_TRUNC 或类似标志。
+		 *
+		 *
+		 *
+		 *
 		 */
 		SlruFileName(ctl, path, segno);
 		fd = OpenTransientFile(path, O_RDWR | O_CREAT | PG_BINARY);
@@ -864,8 +864,8 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 			else
 			{
 				/*
-				 * In the unlikely event that we exceed MAX_WRITEALL_BUFFERS,
-				 * fall back to treating it as a standalone write.
+				 * 万一超过 MAX_WRITEALL_BUFFERS，则退回为
+				 * 当作独立写出处理。
 				 */
 				fdata = NULL;
 			}
@@ -877,7 +877,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	if (pg_pwrite(fd, shared->page_buffer[slotno], BLCKSZ, offset) != BLCKSZ)
 	{
 		pgstat_report_wait_end();
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，假定问题是磁盘空间不足 */
 		if (errno == 0)
 			errno = ENOSPC;
 		slru_errcause = SLRU_WRITE_FAILED;
@@ -888,7 +888,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 	}
 	pgstat_report_wait_end();
 
-	/* Queue up a sync request for the checkpointer. */
+	/* 为检查点进程排队一个同步请求。 */
 	if (ctl->sync_handler != SYNC_HANDLER_NONE)
 	{
 		FileTag		tag;
@@ -896,7 +896,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 		INIT_SLRUFILETAG(tag, ctl->sync_handler, segno);
 		if (!RegisterSyncRequest(&tag, SYNC_REQUEST, false))
 		{
-			/* No space to enqueue sync request.  Do it synchronously. */
+			/* 没有空间排队同步请求。同步地做。 */
 			pgstat_report_wait_start(WAIT_EVENT_SLRU_SYNC);
 			if (pg_fsync(fd) != 0)
 			{
@@ -910,7 +910,7 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 		}
 	}
 
-	/* Close file, unless part of flush request. */
+	/* 关闭文件，除非属于刷写请求的一部分。 */
 	if (!fdata)
 	{
 		if (CloseTransientFile(fd) != 0)
@@ -925,8 +925,8 @@ SlruPhysicalWritePage(SlruCtl ctl, int pageno, int slotno, SlruWriteAll fdata)
 }
 
 /*
- * Issue the error message after failure of SlruPhysicalReadPage or
- * SlruPhysicalWritePage.  Call this after cleaning up shared-memory state.
+ * 在 SlruPhysicalReadPage 或 SlruPhysicalWritePage 失败后发出错误消息。
+ * 在清理共享内存状态之后调用本函数。
  */
 static void
 SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
@@ -993,7 +993,7 @@ SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
 							   path)));
 			break;
 		default:
-			/* can't get here, we trust */
+			/* 相信到不了这里 */
 			elog(ERROR, "unrecognized SimpleLru error cause: %d",
 				 (int) slru_errcause);
 			break;
@@ -1001,36 +1001,36 @@ SlruReportIOError(SlruCtl ctl, int pageno, TransactionId xid)
 }
 
 /*
- * Select the slot to re-use when we need a free slot.
+ * 当我们需要空闲槽时，选择要重用的槽。
  *
- * The target page number is passed because we need to consider the
- * possibility that some other process reads in the target page while
- * we are doing I/O to free a slot.  Hence, check or recheck to see if
- * any slot already holds the target page, and return that slot if so.
- * Thus, the returned slot is *either* a slot already holding the pageno
- * (could be any state except EMPTY), *or* a freeable slot (state EMPTY
- * or CLEAN).
+ * 传入目标页号，是因为要考虑在我们做 I/O 以腾出槽的
+ * 同时，别的进程可能已把目标页读入。因此要检查或再检查
+ * 是否已有槽持有目标页，若有则返回该槽。于是，返回的槽
+ * *要么*已持有 pageno（可为除 EMPTY 外的任意状态），*要么*
+ * 是可释放的槽（状态为 EMPTY 或 CLEAN）。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
+ *
+ *
  */
 static int
 SlruSelectLRUPage(SlruCtl ctl, int pageno)
 {
 	SlruShared	shared = ctl->shared;
 
-	/* Outer loop handles restart after I/O */
+	/* 外层循环处理 I/O 后的重启 */
 	for (;;)
 	{
 		int			slotno;
 		int			cur_count;
-		int			bestvalidslot = 0;	/* keep compiler quiet */
+		int			bestvalidslot = 0;	/* 让编译器安静 */
 		int			best_valid_delta = -1;
-		int			best_valid_page_number = 0; /* keep compiler quiet */
-		int			bestinvalidslot = 0;	/* keep compiler quiet */
+		int			best_valid_page_number = 0; /* 让编译器安静 */
+		int			bestinvalidslot = 0;	/* 让编译器安静 */
 		int			best_invalid_delta = -1;
-		int			best_invalid_page_number = 0;	/* keep compiler quiet */
+		int			best_invalid_page_number = 0;	/* 让编译器安静 */
 
-		/* See if page already has a buffer assigned */
+		/* 看页是否已有分配的缓冲区 */
 		for (slotno = 0; slotno < shared->num_slots; slotno++)
 		{
 			if (shared->page_number[slotno] == pageno &&
@@ -1039,31 +1039,31 @@ SlruSelectLRUPage(SlruCtl ctl, int pageno)
 		}
 
 		/*
-		 * If we find any EMPTY slot, just select that one. Else choose a
-		 * victim page to replace.  We normally take the least recently used
-		 * valid page, but we will never take the slot containing
-		 * latest_page_number, even if it appears least recently used.  We
-		 * will select a slot that is already I/O busy only if there is no
-		 * other choice: a read-busy slot will not be least recently used once
-		 * the read finishes, and waiting for an I/O on a write-busy slot is
-		 * inferior to just picking some other slot.  Testing shows the slot
-		 * we pick instead will often be clean, allowing us to begin a read at
-		 * once.
+		 * 若找到任何 EMPTY 槽，就选它。否则挑选要替换的牺牲
+		 * 页。通常取最近最少使用的有效页，但我们绝不会取
+		 * 包含 latest_page_number 的槽，即使它看起来最近最少
+		 * 使用。只有别无选择时我们才会选已在 I/O 忙的槽：读忙
+		 * 槽在读完成后就不会再是最近最少使用，而等待写忙槽上的
+		 * I/O 不如直接另选一槽。测试表明我们改选的槽常常是干净
+		 * 的，从而可以马上开始读。
 		 *
-		 * Normally the page_lru_count values will all be different and so
-		 * there will be a well-defined LRU page.  But since we allow
-		 * concurrent execution of SlruRecentlyUsed() within
-		 * SimpleLruReadPage_ReadOnly(), it is possible that multiple pages
-		 * acquire the same lru_count values.  In that case we break ties by
-		 * choosing the furthest-back page.
+		 * 通常 page_lru_count 值各不相同，因而有明确的 LRU 页。
+		 * 但因我们允许在 SimpleLruReadPage_ReadOnly() 内并发执行
+		 * SlruRecentlyUsed()，多个页可能获得相同的 lru_count
+		 * 值。那时我们以选择最靠后的页来打破平局。
 		 *
-		 * Notice that this next line forcibly advances cur_lru_count to a
-		 * value that is certainly beyond any value that will be in the
-		 * page_lru_count array after the loop finishes.  This ensures that
-		 * the next execution of SlruRecentlyUsed will mark the page newly
-		 * used, even if it's for a page that has the current counter value.
-		 * That gets us back on the path to having good data when there are
-		 * multiple pages with the same lru_count.
+		 * 注意下一行会强制把 cur_lru_count 推进到循环结束后
+		 * 一定超过 page_lru_count 数组中任何值的值。这确保下一次
+		 * 执行SlruRecentlyUsed时会把该页标为新近使用，即使它
+		 * 当时持有当前计数器值。这让我们在多个页具有相同
+		 * lru_count 时回到拥有良好数据的轨道上。
+		 *
+		 *
+		 *
+		 *
+		 *
+		 *
+		 *
 		 */
 		cur_count = (shared->cur_lru_count)++;
 		for (slotno = 0; slotno < shared->num_slots; slotno++)
@@ -1077,11 +1077,11 @@ SlruSelectLRUPage(SlruCtl ctl, int pageno)
 			if (this_delta < 0)
 			{
 				/*
-				 * Clean up in case shared updates have caused cur_count
-				 * increments to get "lost".  We back off the page counts,
-				 * rather than trying to increase cur_count, to avoid any
-				 * question of infinite loops or failure in the presence of
-				 * wrapped-around counts.
+				 * 清理共享更新可能导致 cur_count 递增"丢失"的
+				 * 情况。我们回退页计数，而不是试图增大
+				 * cur_count，以避免在计数已回卷时出现无限循环
+				 * 或失败的任何疑问。
+				 *
 				 */
 				shared->page_lru_count[slotno] = cur_count;
 				this_delta = 0;
@@ -1116,11 +1116,11 @@ SlruSelectLRUPage(SlruCtl ctl, int pageno)
 		}
 
 		/*
-		 * If all pages (except possibly the latest one) are I/O busy, we'll
-		 * have to wait for an I/O to complete and then retry.  In that
-		 * unhappy case, we choose to wait for the I/O on the least recently
-		 * used slot, on the assumption that it was likely initiated first of
-		 * all the I/Os in progress and may therefore finish first.
+		 * 若所有页（可能除最新页外）都在 I/O 忙，我们就得等待
+		 * 某个 I/O 完成再重试。那种倒霉情形下，我们选择等待
+		 * 最近最少使用槽上的 I/O，假定它很可能是所有进行中
+		 * I/O 里最先启动的，因而可能最先结束。
+		 *
 		 */
 		if (best_valid_delta < 0)
 		{
@@ -1129,29 +1129,29 @@ SlruSelectLRUPage(SlruCtl ctl, int pageno)
 		}
 
 		/*
-		 * If the selected page is clean, we're set.
+		 * 若选中的页是干净的，我们就搞定了。
 		 */
 		if (!shared->page_dirty[bestvalidslot])
 			return bestvalidslot;
 
 		/*
-		 * Write the page.
+		 * 写出该页。
 		 */
 		SlruInternalWritePage(ctl, bestvalidslot, NULL);
 
 		/*
-		 * Now loop back and try again.  This is the easiest way of dealing
-		 * with corner cases such as the victim page being re-dirtied while we
-		 * wrote it.
+		 * 现在回环并重试。这是处理诸如牺牲页在我们写出时又被
+		 * 弄脏之类边角情形的最简单办法。
+		 *
 		 */
 	}
 }
 
 /*
- * Write dirty pages to disk during checkpoint or database shutdown.  Flushing
- * is deferred until the next call to ProcessSyncRequests(), though we do fsync
- * the containing directory here to make sure that newly created directory
- * entries are on disk.
+ * 在检查点或数据库关闭期间把脏页写出到磁盘。刷写推迟到
+ * 下一次调用 ProcessSyncRequests()，不过我们会在这里对包含
+ * 目录做 fsync，以确保新创建的目录项已落盘。
+ *
  */
 void
 SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
@@ -1163,11 +1163,11 @@ SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
 	int			i;
 	bool		ok;
 
-	/* update the stats counter of flushes */
+	/* 更新刷写的统计计数 */
 	pgstat_count_slru_flush(shared->slru_stats_idx);
 
 	/*
-	 * Find and write dirty pages
+	 * 查找并写出脏页
 	 */
 	fdata.num_files = 0;
 
@@ -1178,9 +1178,9 @@ SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
 		SlruInternalWritePage(ctl, slotno, &fdata);
 
 		/*
-		 * In some places (e.g. checkpoints), we cannot assert that the slot
-		 * is clean now, since another process might have re-dirtied it
-		 * already.  That's okay.
+		 * 在某些地方（例如检查点），我们无法断言该槽现在是
+		 * 干净的，因为另一个进程可能已经再次弄脏了它。那没
+		 * 关系。
 		 */
 		Assert(allow_redirtied ||
 			   shared->page_status[slotno] == SLRU_PAGE_EMPTY ||
@@ -1191,7 +1191,7 @@ SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
 	LWLockRelease(shared->ControlLock);
 
 	/*
-	 * Now close any files that were open
+	 * 现在关闭所有曾打开的文件
 	 */
 	ok = true;
 	for (i = 0; i < fdata.num_files; i++)
@@ -1207,21 +1207,21 @@ SimpleLruWriteAll(SlruCtl ctl, bool allow_redirtied)
 	if (!ok)
 		SlruReportIOError(ctl, pageno, InvalidTransactionId);
 
-	/* Ensure that directory entries for new files are on disk. */
+	/* 确保新文件的目录项已落盘。 */
 	if (ctl->sync_handler != SYNC_HANDLER_NONE)
 		fsync_fname(ctl->Dir, true);
 }
 
 /*
- * Remove all segments before the one holding the passed page number
+ * 删除持有所传页号的段之前的所有段
  *
- * All SLRUs prevent concurrent calls to this function, either with an LWLock
- * or by calling it only as part of a checkpoint.  Mutual exclusion must begin
- * before computing cutoffPage.  Mutual exclusion must end after any limit
- * update that would permit other backends to write fresh data into the
- * segment immediately preceding the one containing cutoffPage.  Otherwise,
- * when the SLRU is quite full, SimpleLruTruncate() might delete that segment
- * after it has accrued freshly-written data.
+ * 所有 SLRUs 都会防止对本函数的并发调用，要么用 LWLock，
+ * 要么仅在检查点中调用。互斥必须在计算 cutoffPage 之前
+ * 开始。互斥必须在任何会允许其他后端向紧邻包含
+ * cutoffPage 的段之前那个段写入新数据的限制更新之后结束。
+ * 否则，当 SLRU 相当满时，SimpleLruTruncate() 可能在该段
+ * 已累积新写入数据之后仍删除它。
+ *
  */
 void
 SimpleLruTruncate(SlruCtl ctl, int cutoffPage)
@@ -1229,22 +1229,22 @@ SimpleLruTruncate(SlruCtl ctl, int cutoffPage)
 	SlruShared	shared = ctl->shared;
 	int			slotno;
 
-	/* update the stats counter of truncates */
+	/* 更新截断的统计计数 */
 	pgstat_count_slru_truncate(shared->slru_stats_idx);
 
 	/*
-	 * Scan shared memory and remove any pages preceding the cutoff page, to
-	 * ensure we won't rewrite them later.  (Since this is normally called in
-	 * or just after a checkpoint, any dirty pages should have been flushed
-	 * already ... we're just being extra careful here.)
+	 * 扫描共享内存并移除截止页之前的任何页，以确保我们稍后
+	 * 不会再写出它们。（由于通常在检查点中或紧随其后调用，
+	 * 任何脏页本应已经刷写……这里只是格外小心。）
+	 *
 	 */
 	LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 
 restart:
 
 	/*
-	 * While we are holding the lock, make an important safety check: the
-	 * current endpoint page must not be eligible for removal.
+	 * 持锁期间做一项重要安全检查：当前终点页不得符合
+	 * 移除条件。
 	 */
 	if (ctl->PagePrecedes(shared->latest_page_number, cutoffPage))
 	{
@@ -1263,7 +1263,7 @@ restart:
 			continue;
 
 		/*
-		 * If page is clean, just change state to EMPTY (expected case).
+		 * 若页是干净的，只需把状态改为 EMPTY（预期情形）。
 		 */
 		if (shared->page_status[slotno] == SLRU_PAGE_VALID &&
 			!shared->page_dirty[slotno])
@@ -1273,14 +1273,14 @@ restart:
 		}
 
 		/*
-		 * Hmm, we have (or may have) I/O operations acting on the page, so
-		 * we've got to wait for them to finish and then start again. This is
-		 * the same logic as in SlruSelectLRUPage.  (XXX if page is dirty,
-		 * wouldn't it be OK to just discard it without writing it?
-		 * SlruMayDeleteSegment() uses a stricter qualification, so we might
-		 * not delete this page in the end; even if we don't delete it, we
-		 * won't have cause to read its data again.  For now, keep the logic
-		 * the same as it was.)
+		 * 嗯，我们有（或可能有）作用于该页的 I/O 操作，因此必须
+		 * 等待它们完成再重新开始。这与 SlruSelectLRUPage 中的
+		 * 逻辑相同。（XXX 若页是脏的，不写就直接丢弃是否也行？
+		 * SlruMayDeleteSegment() 使用更严格的判定，因此最终我们
+		 * 可能并不删除此页；即使不删，也不会再有理由读其数据。
+		 * 目前仍保持与原先相同的逻辑。）
+		 *
+		 *
 		 */
 		if (shared->page_status[slotno] == SLRU_PAGE_VALID)
 			SlruInternalWritePage(ctl, slotno, NULL);
@@ -1291,22 +1291,22 @@ restart:
 
 	LWLockRelease(shared->ControlLock);
 
-	/* Now we can remove the old segment(s) */
+	/* 现在可以移除旧 segment(s) 了 */
 	(void) SlruScanDirectory(ctl, SlruScanDirCbDeleteCutoff, &cutoffPage);
 }
 
 /*
- * Delete an individual SLRU segment.
+ * 删除单个 SLRU 段。
  *
- * NB: This does not touch the SLRU buffers themselves, callers have to ensure
- * they either can't yet contain anything, or have already been cleaned out.
+ * 注意：这不会触及 SLRU 缓冲区本身，调用者必须确保它们
+ * 要么尚无法包含任何内容，要么已经被清理干净。
  */
 static void
 SlruInternalDeleteSegment(SlruCtl ctl, int segno)
 {
 	char		path[MAXPGPATH];
 
-	/* Forget any fsync requests queued for this segment. */
+	/* 忘掉为该段排队的任何 fsync 请求。 */
 	if (ctl->sync_handler != SYNC_HANDLER_NONE)
 	{
 		FileTag		tag;
@@ -1315,14 +1315,14 @@ SlruInternalDeleteSegment(SlruCtl ctl, int segno)
 		RegisterSyncRequest(&tag, SYNC_FORGET_REQUEST, true);
 	}
 
-	/* Unlink the file. */
+	/* 取消链接该文件。 */
 	SlruFileName(ctl, path, segno);
 	ereport(DEBUG2, (errmsg_internal("removing file \"%s\"", path)));
 	unlink(path);
 }
 
 /*
- * Delete an individual SLRU segment, identified by the segment number.
+ * 按段号删除单个 SLRU 段。
  */
 void
 SlruDeleteSegment(SlruCtl ctl, int segno)
@@ -1331,7 +1331,7 @@ SlruDeleteSegment(SlruCtl ctl, int segno)
 	int			slotno;
 	bool		did_write;
 
-	/* Clean out any possibly existing references to the segment. */
+	/* 清理对该段可能存在的任何引用。 */
 	LWLockAcquire(shared->ControlLock, LW_EXCLUSIVE);
 restart:
 	did_write = false;
@@ -1342,11 +1342,11 @@ restart:
 		if (shared->page_status[slotno] == SLRU_PAGE_EMPTY)
 			continue;
 
-		/* not the segment we're looking for */
+		/* 不是我们要找的段 */
 		if (pagesegno != segno)
 			continue;
 
-		/* If page is clean, just change state to EMPTY (expected case). */
+		/* 若页是干净的，只需把状态改为 EMPTY（预期情形）。 */
 		if (shared->page_status[slotno] == SLRU_PAGE_VALID &&
 			!shared->page_dirty[slotno])
 		{
@@ -1354,7 +1354,7 @@ restart:
 			continue;
 		}
 
-		/* Same logic as SimpleLruTruncate() */
+		/* 与 SimpleLruTruncate() 相同的逻辑 */
 		if (shared->page_status[slotno] == SLRU_PAGE_VALID)
 			SlruInternalWritePage(ctl, slotno, NULL);
 		else
@@ -1364,8 +1364,8 @@ restart:
 	}
 
 	/*
-	 * Be extra careful and re-check. The IO functions release the control
-	 * lock, so new pages could have been read in.
+	 * 格外小心并重新检查。I/O 函数会释放控制锁，因此可能有
+	 * 新页被读入。
 	 */
 	if (did_write)
 		goto restart;
@@ -1376,17 +1376,17 @@ restart:
 }
 
 /*
- * Determine whether a segment is okay to delete.
+ * 判定某段是否可以删除。
  *
- * segpage is the first page of the segment, and cutoffPage is the oldest (in
- * PagePrecedes order) page in the SLRU containing still-useful data.  Since
- * every core PagePrecedes callback implements "wrap around", check the
- * segment's first and last pages:
+ * segpage 是该段的第一页，cutoffPage 是 SLRU 中仍含有用数据的、
+ * 按 PagePrecedes 顺序最老的页。由于每个核心 PagePrecedes
+ * 回调都实现"回卷"，需检查该段的第一页与最后一页：
  *
- * first<cutoff  && last<cutoff:  yes
- * first<cutoff  && last>=cutoff: no; cutoff falls inside this segment
- * first>=cutoff && last<cutoff:  no; wrap point falls inside this segment
- * first>=cutoff && last>=cutoff: no; every page of this segment is too young
+ * first<cutoff  && last<cutoff:  是
+ * first<cutoff  && last>=cutoff: 否；cutoff 落在本段内
+ * first>=cutoff && last<cutoff:  否；回卷点落在本段内
+ * first>=cutoff && last>=cutoff: 否；本段每一页都太新
+ *
  */
 static bool
 SlruMayDeleteSegment(SlruCtl ctl, int segpage, int cutoffPage)
@@ -1411,12 +1411,12 @@ SlruPagePrecedesTestOffset(SlruCtl ctl, int per_page, uint32 offset)
 				oldestXact;
 
 	/*
-	 * Compare an XID pair having undefined order (see RFC 1982), a pair at
-	 * "opposite ends" of the XID space.  TransactionIdPrecedes() treats each
-	 * as preceding the other.  If RHS is oldestXact, LHS is the first XID we
-	 * must not assign.
+	 * 比较一对顺序未定义的 XID（见 RFC 1982），即位于 XID
+	 * 空间"两端"的一对。TransactionIdPrecedes() 会把彼此都
+	 * 视为先于对方。若 RHS 是 oldestXact，则 LHS 是我们不得
+	 * 再分配的第一个 XID。
 	 */
-	lhs = per_page + offset;	/* skip first page to avoid non-normal XIDs */
+	lhs = per_page + offset;	/* 跳过第一页以避免非正规 XIDs */
 	rhs = lhs + (1U << 31);
 	Assert(TransactionIdPrecedes(lhs, rhs));
 	Assert(TransactionIdPrecedes(rhs, lhs));
@@ -1433,7 +1433,7 @@ SlruPagePrecedesTestOffset(SlruCtl ctl, int per_page, uint32 offset)
 	Assert(ctl->PagePrecedes(rhs / per_page, (lhs - 3 * per_page) / per_page));
 	Assert(ctl->PagePrecedes(rhs / per_page, (lhs - 2 * per_page) / per_page));
 	Assert(ctl->PagePrecedes(rhs / per_page, (lhs - 1 * per_page) / per_page)
-		   || (1U << 31) % per_page != 0);	/* See CommitTsPagePrecedes() */
+		   || (1U << 31) % per_page != 0);	/* 见 CommitTsPagePrecedes() */
 	Assert(ctl->PagePrecedes((lhs + 1 * per_page) / per_page, rhs / per_page)
 		   || (1U << 31) % per_page != 0);
 	Assert(ctl->PagePrecedes((lhs + 2 * per_page) / per_page, rhs / per_page));
@@ -1441,9 +1441,9 @@ SlruPagePrecedesTestOffset(SlruCtl ctl, int per_page, uint32 offset)
 	Assert(!ctl->PagePrecedes(rhs / per_page, (lhs + per_page) / per_page));
 
 	/*
-	 * GetNewTransactionId() has assigned the last XID it can safely use, and
-	 * that XID is in the *LAST* page of the second segment.  We must not
-	 * delete that segment.
+	 * GetNewTransactionId() 已分配它能安全使用的最后一个 XID，
+	 * 且该 XID 在第二段的*最后*一页。我们不得删除该段。
+	 *
 	 */
 	newestPage = 2 * SLRU_PAGES_PER_SEGMENT - 1;
 	newestXact = newestPage * per_page + offset;
@@ -1457,9 +1457,9 @@ SlruPagePrecedesTestOffset(SlruCtl ctl, int per_page, uint32 offset)
 								 oldestPage));
 
 	/*
-	 * GetNewTransactionId() has assigned the last XID it can safely use, and
-	 * that XID is in the *FIRST* page of the second segment.  We must not
-	 * delete that segment.
+	 * GetNewTransactionId() 已分配它能安全使用的最后一个 XID，
+	 * 且该 XID 在第二段的 *FIRST* 页。我们不得删除该段。
+	 *
 	 */
 	newestPage = SLRU_PAGES_PER_SEGMENT;
 	newestXact = newestPage * per_page + offset;
@@ -1474,18 +1474,18 @@ SlruPagePrecedesTestOffset(SlruCtl ctl, int per_page, uint32 offset)
 }
 
 /*
- * Unit-test a PagePrecedes function.
+ * 对 PagePrecedes 函数做单元测试。
  *
- * This assumes every uint32 >= FirstNormalTransactionId is a valid key.  It
- * assumes each value occupies a contiguous, fixed-size region of SLRU bytes.
- * (MultiXactMemberCtl separates flags from XIDs.  NotifyCtl has
- * variable-length entries, no keys, and no random access.  These unit tests
- * do not apply to them.)
+ * 假定每个 >= FirstNormalTransactionId 的 uint32 都是有效键。
+ * 假定每个值占用 SLRU 字节中一块连续、固定大小的区域。
+ * （MultiXactMemberCtl 把标志与 XIDs 分开。NotifyCtl 有可变长
+ * 条目、无键且无随机访问。这些单元测试不适用于它们。）
+ *
  */
 void
 SlruPagePrecedesUnitTests(SlruCtl ctl, int per_page)
 {
-	/* Test first, middle and last entries of a page. */
+	/* 测试一页的首项、中间项与末项。 */
 	SlruPagePrecedesTestOffset(ctl, per_page, 0);
 	SlruPagePrecedesTestOffset(ctl, per_page, per_page / 2);
 	SlruPagePrecedesTestOffset(ctl, per_page, per_page - 1);
@@ -1493,9 +1493,9 @@ SlruPagePrecedesUnitTests(SlruCtl ctl, int per_page)
 #endif
 
 /*
- * SlruScanDirectory callback
- *		This callback reports true if there's any segment wholly prior to the
- *		one containing the page passed as "data".
+ * SlruScanDirectory 回调
+ * 		若存在完全早于包含作为 "data" 传入的页的那个段的段，
+ * 		本回调报告 true。
  */
 bool
 SlruScanDirCbReportPresence(SlruCtl ctl, char *filename, int segpage, void *data)
@@ -1503,14 +1503,14 @@ SlruScanDirCbReportPresence(SlruCtl ctl, char *filename, int segpage, void *data
 	int			cutoffPage = *(int *) data;
 
 	if (SlruMayDeleteSegment(ctl, segpage, cutoffPage))
-		return true;			/* found one; don't iterate any more */
+		return true;			/* 找到一个；不再迭代 */
 
-	return false;				/* keep going */
+	return false;				/* 继续 */
 }
 
 /*
- * SlruScanDirectory callback.
- *		This callback deletes segments prior to the one passed in as "data".
+ * SlruScanDirectory 回调。
+ * 		本回调删除早于作为 "data" 传入的那个段的段。
  */
 static bool
 SlruScanDirCbDeleteCutoff(SlruCtl ctl, char *filename, int segpage, void *data)
@@ -1520,35 +1520,35 @@ SlruScanDirCbDeleteCutoff(SlruCtl ctl, char *filename, int segpage, void *data)
 	if (SlruMayDeleteSegment(ctl, segpage, cutoffPage))
 		SlruInternalDeleteSegment(ctl, segpage / SLRU_PAGES_PER_SEGMENT);
 
-	return false;				/* keep going */
+	return false;				/* 继续 */
 }
 
 /*
- * SlruScanDirectory callback.
- *		This callback deletes all segments.
+ * SlruScanDirectory 回调。
+ * 		本回调删除所有段。
  */
 bool
 SlruScanDirCbDeleteAll(SlruCtl ctl, char *filename, int segpage, void *data)
 {
 	SlruInternalDeleteSegment(ctl, segpage / SLRU_PAGES_PER_SEGMENT);
 
-	return false;				/* keep going */
+	return false;				/* 继续 */
 }
 
 /*
- * Scan the SimpleLru directory and apply a callback to each file found in it.
+ * 扫描 SimpleLru 目录，并对其中找到的每个文件应用回调。
  *
- * If the callback returns true, the scan is stopped.  The last return value
- * from the callback is returned.
+ * 若回调返回 true，扫描停止。返回回调的最后返回值。
  *
- * The callback receives the following arguments: 1. the SlruCtl struct for the
- * slru being truncated; 2. the filename being considered; 3. the page number
- * for the first page of that file; 4. a pointer to the opaque data given to us
- * by the caller.
+ * 回调收到下列参数：1. 正被截断的 slru 的SlruCtl结构；
+ * 2. 正在考虑的文件名；3. 该文件第一页的页号；4. 调用者
+ * 给我们的不透明数据指针。
  *
- * Note that the ordering in which the directory is scanned is not guaranteed.
+ * 注意：扫描目录的顺序不作保证。
  *
- * Note that no locking is applied.
+ * 注意：不施加任何加锁。
+ *
+ *
  */
 bool
 SlruScanDirectory(SlruCtl ctl, SlruScanCallback callback, void *data)
@@ -1585,10 +1585,10 @@ SlruScanDirectory(SlruCtl ctl, SlruScanCallback callback, void *data)
 }
 
 /*
- * Individual SLRUs (clog, ...) have to provide a sync.c handler function so
- * that they can provide the correct "SlruCtl" (otherwise we don't know how to
- * build the path), but they just forward to this common implementation that
- * performs the fsync.
+ * 各个 SLRUs（clog、……）必须提供 sync.c 处理函数，以便它们能
+ * 提供正确的 "SlruCtl"（否则我们不知道如何构造路径），但它们
+ * 只需转发到这个执行 fsync 的公共实现。
+ *
  */
 int
 SlruSyncFileTag(SlruCtl ctl, const FileTag *ftag, char *path)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * nbtdesc.c
- *	  rmgr descriptor routines for access/nbtree/nbtxlog.c
+ *	  access/nbtree/nbtxlog.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -198,17 +198,17 @@ delvacuum_desc(StringInfo buf, char *block_data,
 	OffsetNumber *updatedoffsets;
 	xl_btree_update *updates;
 
-	/* Output deleted page offset number array */
+	/* 输出已删除页偏移号数组 */
 	appendStringInfoString(buf, ", deleted:");
 	deletedoffsets = (OffsetNumber *) block_data;
 	array_desc(buf, deletedoffsets, sizeof(OffsetNumber), ndeleted,
 			   &offset_elem_desc, NULL);
 
 	/*
-	 * Output updates as an array of "update objects", where each element
-	 * contains a page offset number from updated array.  (This is not the
-	 * most literal representation of the underlying physical data structure
-	 * that we could use.  Readability seems more important here.)
+	 * 将更新输出为 "update objects" 数组，其中每个元素
+	 * 包含 updated 数组中的一个页偏移号。（这并非我们能采用的对
+	 * 底层物理数据结构最字面的表示方式。此处可读性似乎
+	 * 更重要。）
 	 */
 	appendStringInfoString(buf, ", updated: [");
 	updatedoffsets = (OffsetNumber *) (block_data + ndeleted *
@@ -224,9 +224,9 @@ delvacuum_desc(StringInfo buf, char *block_data,
 		Assert(updates->ndeletedtids > 0);
 
 		/*
-		 * "ptid" is the symbol name used when building each xl_btree_update's
-		 * array of offsets into a posting list tuple's ItemPointerData array.
-		 * xl_btree_update describes a subset of the existing TIDs to delete.
+		 * "ptid" 是构造每个 xl_btree_update 时所用的符号名，表示
+		 * 倒排列表元组的 ItemPointerData 数组中的偏移数组。
+		 * xl_btree_update 描述要删除的现有 TIDs 子集。
 		 */
 		appendStringInfo(buf, "{ off: %u, nptids: %u, ptids: [",
 						 off, updates->ndeletedtids);

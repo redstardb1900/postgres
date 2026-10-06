@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "batch_id": "0207-comment-access-rmgrdesc-part2",
+  "title": "zh: translate access/rmgrdesc comments (part 2)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "486885d80e6c705b0042d8b1c5fec0a02cdfe738",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/rmgrdesc/mxactdesc.c",
+      "kind": "c_comment",
+      "note": "multixact rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/brindesc.c",
+      "kind": "c_comment",
+      "note": "BRIN index rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/gistdesc.c",
+      "kind": "c_comment",
+      "note": "GiST rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/standbydesc.c",
+      "kind": "c_comment",
+      "note": "standby rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/spgdesc.c",
+      "kind": "c_comment",
+      "note": "SP-GiST rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/hashdesc.c",
+      "kind": "c_comment",
+      "note": "hash index rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/gindesc.c",
+      "kind": "c_comment",
+      "note": "GIN rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/nbtdesc.c",
+      "kind": "c_comment",
+      "note": "B-tree rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/xlogdesc.c",
+      "kind": "c_comment",
+      "note": "xlog rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/heapdesc.c",
+      "kind": "c_comment",
+      "note": "heap rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/xactdesc.c",
+      "kind": "c_comment",
+      "note": "xact rmgr descriptor"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0207-comment-access-rmgrdesc-part2.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/rmgrdesc/mxactdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "multixact rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/brindesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "BRIN index rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/gistdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "GiST rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/standbydesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 5,
+      "translated": 5,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "standby rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/spgdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "SP-GiST rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/hashdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "hash index rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/gindesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 7,
+      "translated": 7,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "GIN rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/nbtdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 4,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "B-tree rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/xlogdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 11,
+      "translated": 11,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "xlog rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/heapdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 4,
+      "translated": 4,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "heap rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/xactdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 13,
+      "translated": 13,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines",
+        "ParsePrepareRecord function-name header kept"
+      ],
+      "note": "xact rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0207-comment-access-rmgrdesc-part2.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0207 translates comments in the remaining eleven src/backend/access/rmgrdesc/ .c files (part 2; finishes rmgrdesc .c). Copyright and IDENTIFICATION lines stay in English. ParsePrepareRecord function-name header kept. No fall-through marker. Next suggested: inventory remaining untranslated .c under src/backend/access/ (or move to another top-level directory)."
+}

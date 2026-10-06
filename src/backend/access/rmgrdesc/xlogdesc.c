@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xlogdesc.c
- *	  rmgr descriptor routines for access/transam/xlog.c
+ *	  access/transam/xlog.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,13 +22,13 @@
 #include "utils/timestamp.h"
 
 /*
- * GUC support
+ * GUC 支持
  */
 const struct config_enum_entry wal_level_options[] = {
 	{"minimal", WAL_LEVEL_MINIMAL, false},
 	{"replica", WAL_LEVEL_REPLICA, false},
-	{"archive", WAL_LEVEL_REPLICA, true},	/* deprecated */
-	{"hot_standby", WAL_LEVEL_REPLICA, true},	/* deprecated */
+	{"archive", WAL_LEVEL_REPLICA, true},	/* 已弃用 */
+	{"hot_standby", WAL_LEVEL_REPLICA, true},	/* 已弃用 */
 	{"logical", WAL_LEVEL_LOGICAL, false},
 	{NULL, 0, false}
 };
@@ -82,7 +82,7 @@ xlog_desc(StringInfo buf, XLogReaderState *record)
 	}
 	else if (info == XLOG_FPI || info == XLOG_FPI_FOR_HINT)
 	{
-		/* no further information to print */
+		/* 无更多信息可打印 */
 	}
 	else if (info == XLOG_BACKUP_END)
 	{
@@ -99,7 +99,7 @@ xlog_desc(StringInfo buf, XLogReaderState *record)
 
 		memcpy(&xlrec, rec, sizeof(xl_parameter_change));
 
-		/* Find a string representation for wal_level */
+		/* 查找 wal_level 的字符串表示 */
 		wal_level_str = "?";
 		for (entry = wal_level_options; entry->name; entry++)
 		{
@@ -202,8 +202,8 @@ xlog_identify(uint8 info)
 }
 
 /*
- * Returns a string giving information about all the blocks in an
- * XLogRecord.
+ * 返回一个字符串，给出 XLogRecord 中所有块的
+ * 信息。
  */
 void
 XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
@@ -229,7 +229,7 @@ XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
 
 		if (detailed_format)
 		{
-			/* Get block references in detailed format. */
+			/* 以详细格式获取块引用。 */
 
 			if (pretty)
 				appendStringInfoChar(buf, '\t');
@@ -247,7 +247,7 @@ XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
 			{
 				uint8		bimg_info = XLogRecGetBlock(record, block_id)->bimg_info;
 
-				/* Calculate the amount of FPI data in the record. */
+				/* 计算该记录中的 FPI 数据量。 */
 				if (fpi_len)
 					*fpi_len += XLogRecGetBlock(record, block_id)->bimg_len;
 
@@ -292,7 +292,7 @@ XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
 		}
 		else
 		{
-			/* Get block references in short format. */
+			/* 以简短格式获取块引用。 */
 
 			if (forknum != MAIN_FORKNUM)
 			{
@@ -314,7 +314,7 @@ XLogRecGetBlockRefInfo(XLogReaderState *record, bool pretty,
 
 			if (XLogRecHasBlockImage(record, block_id))
 			{
-				/* Calculate the amount of FPI data in the record. */
+				/* 计算该记录中的 FPI 数据量。 */
 				if (fpi_len)
 					*fpi_len += XLogRecGetBlock(record, block_id)->bimg_len;
 

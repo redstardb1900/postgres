@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * heapdesc.c
- *	  rmgr descriptor routines for access/heap/heapam.c
+ *	  access/heap/heapam.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -18,8 +18,8 @@
 #include "access/rmgrdesc_utils.h"
 
 /*
- * NOTE: "keyname" argument cannot have trailing spaces or punctuation
- * characters
+ * 注意："keyname" 参数无法带有尾随空格或标点
+ * 字符
  */
 static void
 infobits_desc(StringInfo buf, uint8 infobits, const char *keyname)
@@ -41,7 +41,7 @@ infobits_desc(StringInfo buf, uint8 infobits, const char *keyname)
 
 	if (buf->data[buf->len - 1] == ' ')
 	{
-		/* Truncate-away final unneeded ", "  */
+		/* 截去掉末尾多余的 ", "  */
 		Assert(buf->data[buf->len - 2] == ',');
 		buf->len -= 2;
 		buf->data[buf->len] = '\0';
@@ -62,7 +62,7 @@ truncate_flags_desc(StringInfo buf, uint8 flags)
 
 	if (buf->data[buf->len - 1] == ' ')
 	{
-		/* Truncate-away final unneeded ", "  */
+		/* 截去掉末尾多余的 ", "  */
 		Assert(buf->data[buf->len - 2] == ',');
 		buf->len -= 2;
 		buf->data[buf->len] = '\0';

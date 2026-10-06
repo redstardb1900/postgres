@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * gistdesc.c
- *	  rmgr descriptor routines for access/gist/gistxlog.c
+ *	  access/gist/gistxlog.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -80,7 +80,7 @@ gist_desc(StringInfo buf, XLogReaderState *record)
 			out_gistxlogPageDelete(buf, (gistxlogPageDelete *) rec);
 			break;
 		case XLOG_GIST_ASSIGN_LSN:
-			/* No details to write out */
+			/* 无可写出的细节 */
 			break;
 	}
 }

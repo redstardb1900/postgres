@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * standbydesc.c
- *	  rmgr descriptor routines for storage/ipc/standby.c
+ *	  storage/ipc/standby.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -97,9 +97,9 @@ standby_identify(uint8 info)
 }
 
 /*
- * This routine is used by both standby_desc and xact_desc, because
- * transaction commits and XLOG_INVALIDATIONS messages contain invalidations;
- * it seems pointless to duplicate the code.
+ * 本例程同时供 standby_desc 与 xact_desc 使用，因为事务提交
+ * 以及 XLOG_INVALIDATIONS 消息都包含失效信息；
+ * 重复编写这段代码似乎没有意义。
  */
 void
 standby_desc_invalidations(StringInfo buf,
@@ -109,7 +109,7 @@ standby_desc_invalidations(StringInfo buf,
 {
 	int			i;
 
-	/* Do nothing if there are no invalidation messages */
+	/* 若没有失效消息则什么也不做 */
 	if (nmsgs <= 0)
 		return;
 
@@ -128,10 +128,10 @@ standby_desc_invalidations(StringInfo buf,
 			appendStringInfo(buf, " catalog %u", msg->cat.catId);
 		else if (msg->id == SHAREDINVALRELCACHE_ID)
 			appendStringInfo(buf, " relcache %u", msg->rc.relId);
-		/* not expected, but print something anyway */
+		/* 不应出现，但仍然打印些内容 */
 		else if (msg->id == SHAREDINVALSMGR_ID)
 			appendStringInfoString(buf, " smgr");
-		/* not expected, but print something anyway */
+		/* 不应出现，但仍然打印些内容 */
 		else if (msg->id == SHAREDINVALRELMAP_ID)
 			appendStringInfo(buf, " relmap db %u", msg->rm.dbId);
 		else if (msg->id == SHAREDINVALSNAPSHOT_ID)

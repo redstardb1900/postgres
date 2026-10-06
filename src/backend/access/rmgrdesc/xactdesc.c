@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * xactdesc.c
- *	  rmgr descriptor routines for access/transam/xact.c
+ *	  access/transam/xact.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -22,13 +22,13 @@
 #include "utils/timestamp.h"
 
 /*
- * Parse the WAL format of an xact commit and abort records into an easier to
- * understand format.
+ * 把事务提交与中止记录的 WAL 格式解析成更易于
+ * 理解的形式。
  *
- * This routines are in xactdesc.c because they're accessed in backend (when
- * replaying WAL) and frontend (pg_waldump) code. This file is the only xact
- * specific one shared between both. They're complicated enough that
- * duplication would be bothersome.
+ * 这些例程放在 xactdesc.c，是因为后端（重放
+ * WAL 时）与前端（pg_waldump）代码都会访问它们。本文件是双方
+ * 共享的唯一事务专用文件。它们足够复杂，
+ * 重复实现会很麻烦。
  */
 
 void
@@ -38,8 +38,8 @@ ParseCommitRecord(uint8 info, xl_xact_commit *xlrec, xl_xact_parsed_commit *pars
 
 	memset(parsed, 0, sizeof(*parsed));
 
-	parsed->xinfo = 0;			/* default, if no XLOG_XACT_HAS_INFO is
-								 * present */
+	parsed->xinfo = 0;			/* 默认值，若没有 XLOG_XACT_HAS_INFO
+								 * 出现 */
 
 	parsed->xact_time = xlrec->xact_time;
 
@@ -121,13 +121,13 @@ ParseCommitRecord(uint8 info, xl_xact_commit *xlrec, xl_xact_parsed_commit *pars
 		}
 	}
 
-	/* Note: no alignment is guaranteed after this point */
+	/* 注意：此后不保证对齐 */
 
 	if (parsed->xinfo & XACT_XINFO_HAS_ORIGIN)
 	{
 		xl_xact_origin xl_origin;
 
-		/* no alignment is guaranteed, so copy onto stack */
+		/* 不保证对齐，因此复制到栈上 */
 		memcpy(&xl_origin, data, sizeof(xl_origin));
 
 		parsed->origin_lsn = xl_origin.origin_lsn;
@@ -144,8 +144,8 @@ ParseAbortRecord(uint8 info, xl_xact_abort *xlrec, xl_xact_parsed_abort *parsed)
 
 	memset(parsed, 0, sizeof(*parsed));
 
-	parsed->xinfo = 0;			/* default, if no XLOG_XACT_HAS_INFO is
-								 * present */
+	parsed->xinfo = 0;			/* 默认值，若没有 XLOG_XACT_HAS_INFO
+								 * 出现 */
 
 	parsed->xact_time = xlrec->xact_time;
 
@@ -216,13 +216,13 @@ ParseAbortRecord(uint8 info, xl_xact_abort *xlrec, xl_xact_parsed_abort *parsed)
 		}
 	}
 
-	/* Note: no alignment is guaranteed after this point */
+	/* 注意：此后不保证对齐 */
 
 	if (parsed->xinfo & XACT_XINFO_HAS_ORIGIN)
 	{
 		xl_xact_origin xl_origin;
 
-		/* no alignment is guaranteed, so copy onto stack */
+		/* 不保证对齐，因此复制到栈上 */
 		memcpy(&xl_origin, data, sizeof(xl_origin));
 
 		parsed->origin_lsn = xl_origin.origin_lsn;
@@ -336,7 +336,7 @@ xact_desc_commit(StringInfo buf, uint8 info, xl_xact_commit *xlrec, RepOriginId 
 
 	ParseCommitRecord(info, xlrec, &parsed);
 
-	/* If this is a prepared xact, show the xid of the original xact */
+	/* 若这是预备事务，显示原事务的 xid */
 	if (TransactionIdIsValid(parsed.twophase_xid))
 		appendStringInfo(buf, "%u: ", parsed.twophase_xid);
 
@@ -372,7 +372,7 @@ xact_desc_abort(StringInfo buf, uint8 info, xl_xact_abort *xlrec, RepOriginId or
 
 	ParseAbortRecord(info, xlrec, &parsed);
 
-	/* If this is a prepared xact, show the xid of the original xact */
+	/* 若这是预备事务，显示原事务的 xid */
 	if (TransactionIdIsValid(parsed.twophase_xid))
 		appendStringInfo(buf, "%u: ", parsed.twophase_xid);
 
@@ -413,8 +413,8 @@ xact_desc_prepare(StringInfo buf, uint8 info, xl_xact_prepare *xlrec, RepOriginI
 							   parsed.tsId, xlrec->initfileinval);
 
 	/*
-	 * Check if the replication origin has been set in this record in the same
-	 * way as PrepareRedoAdd().
+	 * 检查本记录是否已按与 PrepareRedoAdd() 相同的方式
+	 * 设置了复制源。
 	 */
 	if (origin_id != InvalidRepOriginId)
 		appendStringInfo(buf, "; origin: node %u, lsn %X/%X, at %s",
@@ -466,9 +466,9 @@ xact_desc(StringInfo buf, XLogReaderState *record)
 		xl_xact_assignment *xlrec = (xl_xact_assignment *) rec;
 
 		/*
-		 * Note that we ignore the WAL record's xid, since we're more
-		 * interested in the top-level xid that issued the record and which
-		 * xids are being reported here.
+		 * 注意我们忽略 WAL 记录的 xid，因为我们更关心
+		 * 发出该记录的顶层 xid，以及此处正在报告哪些
+		 * xid。
 		 */
 		appendStringInfo(buf, "xtop %u: ", xlrec->xtop);
 		xact_desc_assignment(buf, xlrec);

@@ -6567,9 +6567,9 @@ CreateCheckPoint(int flags)
 	curInsert = XLogBytePosToRecPtr(Insert->CurrBytePos);
 
 	/*
-	 * 若这不是关闭或强制检查点，且没有需要检查点的 WAL 活动，
-	 * 则跳过。这里的想法是在系统空闲时避免插入重复检查点。
-	 * 不过若上次检查点已很久，仍要做一个，以免 WAL 无限增长。
+	 * 若这不是关闭或强制检查点，且没有需要检查点的
+	 * WAL 活动，则跳过。这里的想法是
+	 * 在系统空闲时避免插入重复检查点。
 	 */
 	if ((flags & (CHECKPOINT_IS_SHUTDOWN | CHECKPOINT_END_OF_RECOVERY |
 				  CHECKPOINT_FORCE)) == 0)

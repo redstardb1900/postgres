@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0205c-comment-access-transam-part17-fix2",
+  "title": "zh: fix access/transam comments (part 17) skip-checkpoint wording",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "355d19c3de5a8f98ac666016efa45fe3d69aae67",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "note": "P1: remove overtranslated skip-checkpoint WAL-growth sentence"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0205c-comment-access-transam-part17-fix2.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/transam/xlog.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "CreateCheckPoint: drop fabricated 'checkpoint anyway if long idle' sentence; English only skips when idle"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0205c-comment-access-transam-part17-fix2.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Composer P1 on 0205b"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0205c"
+    }
+  ],
+  "notes": "Composer P1 on 0205b: CreateCheckPoint idle-skip comment overtranslated with a 'still checkpoint if last was long ago to avoid unbounded WAL' sentence absent from REL_16_11 English and code."
+}

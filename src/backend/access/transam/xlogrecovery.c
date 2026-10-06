@@ -346,7 +346,7 @@ typedef struct XLogRecoveryCtlData
 	 */
 	XLogRecPtr	replayEndRecPtr;
 	TimeLineID	replayEndTLI;
-	/* 最后重播的 COMMIT/ABORT 记录的时间戳（或正在重播的记录） */
+	/* 最后重放的 COMMIT/ABORT 记录的时间戳（或正在重放的记录） */
 	TimestampTz recoveryLastXTime;
 
 	/*

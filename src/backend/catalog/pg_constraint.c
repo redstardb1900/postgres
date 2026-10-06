@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_constraint.c
- *	  routines to support manipulation of the pg_constraint relation
+ *	  支持操作 pg_constraint 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,13 +38,13 @@
 
 /*
  * CreateConstraintEntry
- *	Create a constraint table entry.
+ *	创建一条约束表条目。
  *
- * Subsidiary records (such as triggers or indexes to implement the
- * constraint) are *not* created here.  But we do make dependency links
- * from the constraint to the things it depends on.
+ * 附属记录（例如实现该约束的触发器或索引）
+ * *不*在此创建。但我们会从约束到它所依赖的对象
+ * 建立依赖链接。
  *
- * The new constraint's OID is returned.
+ * 返回新约束的 OID。
  */
 Oid
 CreateConstraintEntry(const char *constraintName,
@@ -103,7 +103,7 @@ CreateConstraintEntry(const char *constraintName,
 	namestrcpy(&cname, constraintName);
 
 	/*
-	 * Convert C arrays into Postgres arrays.
+	 * 把 C 数组转换为 Postgres 数组。
 	 */
 	if (constraintNKeys > 0)
 	{
@@ -166,7 +166,7 @@ CreateConstraintEntry(const char *constraintName,
 	else
 		conexclopArray = NULL;
 
-	/* initialize nulls and values */
+	/* 初始化 nulls 与 values */
 	for (i = 0; i < Natts_pg_constraint; i++)
 	{
 		nulls[i] = false;
@@ -242,14 +242,14 @@ CreateConstraintEntry(const char *constraintName,
 
 	table_close(conDesc, RowExclusiveLock);
 
-	/* Handle set of auto dependencies */
+	/* 处理自动依赖集合 */
 	addrs_auto = new_object_addresses();
 
 	if (OidIsValid(relId))
 	{
 		/*
-		 * Register auto dependency from constraint to owning relation, or to
-		 * specific column(s) if any are mentioned.
+		 * 注册从约束到所属关系的自动依赖，或若提及了
+		 * 具体列则到这些列。
 		 */
 		ObjectAddress relobject;
 
@@ -272,7 +272,7 @@ CreateConstraintEntry(const char *constraintName,
 	if (OidIsValid(domainId))
 	{
 		/*
-		 * Register auto dependency from constraint to owning domain
+		 * 注册从约束到所属域的自动依赖
 		 */
 		ObjectAddress domobject;
 
@@ -284,14 +284,14 @@ CreateConstraintEntry(const char *constraintName,
 									   DEPENDENCY_AUTO);
 	free_object_addresses(addrs_auto);
 
-	/* Handle set of normal dependencies */
+	/* 处理普通依赖集合 */
 	addrs_normal = new_object_addresses();
 
 	if (OidIsValid(foreignRelId))
 	{
 		/*
-		 * Register normal dependency from constraint to foreign relation, or
-		 * to specific column(s) if any are mentioned.
+		 * 注册从约束到外键关系的普通依赖，或若提及了
+		 * 具体列则到这些列。
 		 */
 		ObjectAddress relobject;
 
@@ -314,10 +314,10 @@ CreateConstraintEntry(const char *constraintName,
 	if (OidIsValid(indexRelId) && constraintType == CONSTRAINT_FOREIGN)
 	{
 		/*
-		 * Register normal dependency on the unique index that supports a
-		 * foreign-key constraint.  (Note: for indexes associated with unique
-		 * or primary-key constraints, the dependency runs the other way, and
-		 * is not made here.)
+		 * 注册对支持外键约束的唯一索引的
+		 * 普通依赖。（注意：对与唯一或主键约束关联的
+		 * 索引，依赖方向相反，且
+		 * 不在此建立。）
 		 */
 		ObjectAddress relobject;
 
@@ -328,10 +328,10 @@ CreateConstraintEntry(const char *constraintName,
 	if (foreignNKeys > 0)
 	{
 		/*
-		 * Register normal dependencies on the equality operators that support
-		 * a foreign-key constraint.  If the PK and FK types are the same then
-		 * all three operators for a column are the same; otherwise they are
-		 * different.
+		 * 注册对支持外键约束的相等运算符的
+		 * 普通依赖。若 PK 与 FK 类型相同，则
+		 * 一列的三个运算符相同；否则它们
+		 * 不同。
 		 */
 		ObjectAddress oprobject;
 
@@ -360,25 +360,25 @@ CreateConstraintEntry(const char *constraintName,
 	free_object_addresses(addrs_normal);
 
 	/*
-	 * We don't bother to register dependencies on the exclusion operators of
-	 * an exclusion constraint.  We assume they are members of the opclass
-	 * supporting the index, so there's an indirect dependency via that. (This
-	 * would be pretty dicey for cross-type operators, but exclusion operators
-	 * can never be cross-type.)
+	 * 我们懒得注册对排他约束的排他运算符的
+	 * 依赖。我们假定它们是支持该索引的操作符类的
+	 * 成员，因此通过索引已有间接依赖。（对
+	 * 跨类型运算符这会相当冒险，但排他运算符
+	 * 绝不会是跨类型的。）
 	 */
 
 	if (conExpr != NULL)
 	{
 		/*
-		 * Register dependencies from constraint to objects mentioned in CHECK
-		 * expression.
+		 * 注册从约束到 CHECK 表达式中提及的对象的
+		 * 依赖。
 		 */
 		recordDependencyOnSingleRelExpr(&conobject, conExpr, relId,
 										DEPENDENCY_NORMAL,
 										DEPENDENCY_NORMAL, false);
 	}
 
-	/* Post creation hook for new constraint */
+	/* 新约束的创建后钩子 */
 	InvokeObjectPostCreateHookArg(ConstraintRelationId, conOid, 0,
 								  is_internal);
 
@@ -386,16 +386,16 @@ CreateConstraintEntry(const char *constraintName,
 }
 
 /*
- * Test whether given name is currently used as a constraint name
- * for the given object (relation or domain).
+ * 测试给定名称当前是否被用作给定对象
+ * （关系或域）的约束名。
  *
- * This is used to decide whether to accept a user-specified constraint name.
- * It is deliberately not the same test as ChooseConstraintName uses to decide
- * whether an auto-generated name is OK: here, we will allow it unless there
- * is an identical constraint name in use *on the same object*.
+ * 这用于决定是否接受用户指定的约束名。
+ * 它故意不同于 ChooseConstraintName 用于决定自动生成名是否
+ * 可用的测试：这里，除非同一对象上已有相同约束名在用，
+ * 否则我们都允许。
  *
- * NB: Caller should hold exclusive lock on the given object, else
- * this test can be fooled by concurrent additions.
+ * 注意：调用方应对给定对象持有排他锁，否则
+ * 此测试可能被并发添加愚弄。
  */
 bool
 ConstraintNameIsUsed(ConstraintCategory conCat, Oid objId,
@@ -426,7 +426,7 @@ ConstraintNameIsUsed(ConstraintCategory conCat, Oid objId,
 	conscan = systable_beginscan(conDesc, ConstraintRelidTypidNameIndexId,
 								 true, NULL, 3, skey);
 
-	/* There can be at most one matching row */
+	/* 最多只能有一行匹配 */
 	found = (HeapTupleIsValid(systable_getnext(conscan)));
 
 	systable_endscan(conscan);
@@ -436,11 +436,11 @@ ConstraintNameIsUsed(ConstraintCategory conCat, Oid objId,
 }
 
 /*
- * Does any constraint of the given name exist in the given namespace?
+ * 给定命名空间中是否存在任何该名的约束？
  *
- * This is used for code that wants to match ChooseConstraintName's rule
- * that we should avoid autogenerating duplicate constraint names within a
- * namespace.
+ * 这供希望匹配 ChooseConstraintName 规则的代码使用：
+ * 我们应避免在命名空间内自动生成重复的
+ * 约束名。
  */
 bool
 ConstraintNameExists(const char *conname, Oid namespaceid)
@@ -474,27 +474,27 @@ ConstraintNameExists(const char *conname, Oid namespaceid)
 }
 
 /*
- * Select a nonconflicting name for a new constraint.
+ * 为新约束选择一个无冲突的名称。
  *
- * The objective here is to choose a name that is unique within the
- * specified namespace.  Postgres does not require this, but the SQL
- * spec does, and some apps depend on it.  Therefore we avoid choosing
- * default names that so conflict.
+ * 此处目标是选择在指定命名空间内唯一的
+ * 名称。Postgres 并不需要这一点，但 SQL
+ * 规范需要，且有些应用依赖它。因此我们避免选择
+ * 会如此冲突的默认名。
  *
- * name1, name2, and label are used the same way as for makeObjectName(),
- * except that the label can't be NULL; digits will be appended to the label
- * if needed to create a name that is unique within the specified namespace.
+ * name1、name2 与 label 的用法与 makeObjectName() 相同，
+ * 只是 label 不能为 NULL；若需要在指定命名空间内
+ * 生成唯一名，会在 label 后追加数字。
  *
- * 'others' can be a list of string names already chosen within the current
- * command (but not yet reflected into the catalogs); we will not choose
- * a duplicate of one of these either.
+ * 'others' 可以是当前命令内已选定（但尚未
+ * 反映到目录中）的字符串名列表；我们也不会选择
+ * 与其中之一重复的名称。
  *
- * Note: it is theoretically possible to get a collision anyway, if someone
- * else chooses the same name concurrently.  This is fairly unlikely to be
- * a problem in practice, especially if one is holding an exclusive lock on
- * the relation identified by name1.
+ * 注意：理论上仍可能发生冲突，若有人
+ * 并发选择了相同名称。实践中这不大可能成为
+ * 问题，尤其是在对 name1 所标识的关系
+ * 持有排他锁时。
  *
- * Returns a palloc'd string.
+ * 返回 palloc 的字符串。
  */
 char *
 ChooseConstraintName(const char *name1, const char *name2,
@@ -512,7 +512,7 @@ ChooseConstraintName(const char *name1, const char *name2,
 
 	conDesc = table_open(ConstraintRelationId, AccessShareLock);
 
-	/* try the unmodified label first */
+	/* 先尝试未修改的 label */
 	strlcpy(modlabel, label, sizeof(modlabel));
 
 	for (;;)
@@ -553,7 +553,7 @@ ChooseConstraintName(const char *name1, const char *name2,
 		if (!found)
 			break;
 
-		/* found a conflict, so try a new name component */
+		/* 发现冲突，因此尝试新的名称分量 */
 		pfree(conname);
 		snprintf(modlabel, sizeof(modlabel), "%s%d", label, ++pass);
 	}
@@ -564,7 +564,7 @@ ChooseConstraintName(const char *name1, const char *name2,
 }
 
 /*
- * Delete a single constraint record.
+ * 删除单条约束记录。
  */
 void
 RemoveConstraintById(Oid conId)
@@ -576,27 +576,27 @@ RemoveConstraintById(Oid conId)
 	conDesc = table_open(ConstraintRelationId, RowExclusiveLock);
 
 	tup = SearchSysCache1(CONSTROID, ObjectIdGetDatum(conId));
-	if (!HeapTupleIsValid(tup)) /* should not happen */
+	if (!HeapTupleIsValid(tup)) /* 不应发生 */
 		elog(ERROR, "cache lookup failed for constraint %u", conId);
 	con = (Form_pg_constraint) GETSTRUCT(tup);
 
 	/*
-	 * Special processing depending on what the constraint is for.
+	 * 按约束所针对对象做特殊处理。
 	 */
 	if (OidIsValid(con->conrelid))
 	{
 		Relation	rel;
 
 		/*
-		 * If the constraint is for a relation, open and exclusive-lock the
-		 * relation it's for.
+		 * 若约束针对关系，则打开并对其所针对的关系加
+		 * 排他锁。
 		 */
 		rel = table_open(con->conrelid, AccessExclusiveLock);
 
 		/*
-		 * We need to update the relchecks count if it is a check constraint
-		 * being dropped.  This update will force backends to rebuild relcache
-		 * entries when we commit.
+		 * 若正在删除检查约束，我们需要更新 relchecks 计数。
+		 * 此更新将迫使各后端在我们提交时重建
+		 * relcache 条目。
 		 */
 		if (con->contype == CONSTRAINT_CHECK)
 		{
@@ -612,7 +612,7 @@ RemoveConstraintById(Oid conId)
 					 con->conrelid);
 			classForm = (Form_pg_class) GETSTRUCT(relTup);
 
-			if (classForm->relchecks == 0)	/* should not happen */
+			if (classForm->relchecks == 0)	/* 不应发生 */
 				elog(ERROR, "relation \"%s\" has relchecks = 0",
 					 RelationGetRelationName(rel));
 			classForm->relchecks--;
@@ -624,38 +624,38 @@ RemoveConstraintById(Oid conId)
 			table_close(pgrel, RowExclusiveLock);
 		}
 
-		/* Keep lock on constraint's rel until end of xact */
+		/* 保持对约束所属关系的锁直至事务结束 */
 		table_close(rel, NoLock);
 	}
 	else if (OidIsValid(con->contypid))
 	{
 		/*
-		 * XXX for now, do nothing special when dropping a domain constraint
+		 * XXX 目前，删除域约束时不做特殊处理
 		 *
-		 * Probably there should be some form of locking on the domain type,
-		 * but we have no such concept at the moment.
+		 * 大概应对域类型有某种形式的加锁，
+		 * 但我们目前没有这样的概念。
 		 */
 	}
 	else
 		elog(ERROR, "constraint %u is not of a known type", conId);
 
-	/* Fry the constraint itself */
+	/* 干掉约束本身 */
 	CatalogTupleDelete(conDesc, &tup->t_self);
 
-	/* Clean up */
+	/* 清理 */
 	ReleaseSysCache(tup);
 	table_close(conDesc, RowExclusiveLock);
 }
 
 /*
  * RenameConstraintById
- *		Rename a constraint.
+ *		重命名约束。
  *
- * Note: this isn't intended to be a user-exposed function; it doesn't check
- * permissions etc.  Currently this is only invoked when renaming an index
- * that is associated with a constraint, but it's made a little more general
- * than that with the expectation of someday having ALTER TABLE RENAME
- * CONSTRAINT.
+ * 注意：这并非打算作为用户暴露的函数；它不检查
+ * 权限等。目前仅在重命名与约束关联的
+ * 索引时调用，但做得稍通用一些，以期将来有
+ * ALTER TABLE RENAME
+ * CONSTRAINT。
  */
 void
 RenameConstraintById(Oid conId, const char *newname)
@@ -672,7 +672,7 @@ RenameConstraintById(Oid conId, const char *newname)
 	con = (Form_pg_constraint) GETSTRUCT(tuple);
 
 	/*
-	 * For user-friendliness, check whether the name is already in use.
+	 * 为用户友好起见，检查该名称是否已被使用。
 	 */
 	if (OidIsValid(con->conrelid) &&
 		ConstraintNameIsUsed(CONSTRAINT_RELATION,
@@ -691,7 +691,7 @@ RenameConstraintById(Oid conId, const char *newname)
 				 errmsg("constraint \"%s\" for domain %s already exists",
 						newname, format_type_be(con->contypid))));
 
-	/* OK, do the rename --- tuple is a copy, so OK to scribble on it */
+	/* 好，执行重命名 --- 元组是副本，可在上面涂改 */
 	namestrcpy(&(con->conname), newname);
 
 	CatalogTupleUpdate(conDesc, &tuple->t_self, tuple);
@@ -704,10 +704,10 @@ RenameConstraintById(Oid conId, const char *newname)
 
 /*
  * AlterConstraintNamespaces
- *		Find any constraints belonging to the specified object,
- *		and move them to the specified new namespace.
+ *		查找属于指定对象的任何约束，
+ *		并将它们移到指定的新命名空间。
  *
- * isType indicates whether the owning object is a type or a relation.
+ * isType 指示所属对象是类型还是关系。
  */
 void
 AlterConstraintNamespaces(Oid ownerId, Oid oldNspId,
@@ -742,7 +742,7 @@ AlterConstraintNamespaces(Oid ownerId, Oid oldNspId,
 		if (object_address_present(&thisobj, objsMoved))
 			continue;
 
-		/* Don't update if the object is already part of the namespace */
+		/* 若对象已属于该命名空间则不更新 */
 		if (conform->connamespace == oldNspId && oldNspId != newNspId)
 		{
 			tup = heap_copytuple(tup);
@@ -753,9 +753,9 @@ AlterConstraintNamespaces(Oid ownerId, Oid oldNspId,
 			CatalogTupleUpdate(conRel, &tup->t_self, tup);
 
 			/*
-			 * Note: currently, the constraint will not have its own
-			 * dependency on the namespace, so we don't need to do
-			 * changeDependencyFor().
+			 * 注意：目前，约束不会对自己的命名空间有
+			 * 依赖，因此我们不需要做
+			 * changeDependencyFor()。
 			 */
 		}
 
@@ -771,12 +771,12 @@ AlterConstraintNamespaces(Oid ownerId, Oid oldNspId,
 
 /*
  * ConstraintSetParentConstraint
- *		Set a partition's constraint as child of its parent constraint,
- *		or remove the linkage if parentConstrId is InvalidOid.
+ *		将分区的约束设为其父约束的子约束，
+ *		或者若 parentConstrId 为 InvalidOid 则移除该链接。
  *
- * This updates the constraint's pg_constraint row to show it as inherited, and
- * adds PARTITION dependencies to prevent the constraint from being deleted
- * on its own.  Alternatively, reverse that.
+ * 这会更新约束的 pg_constraint 行以显示其为继承而来，并
+ * 添加 PARTITION 依赖以防止约束被单独删除。
+ * 或者反过来做。
  */
 void
 ConstraintSetParentConstraint(Oid childConstrId,
@@ -798,7 +798,7 @@ ConstraintSetParentConstraint(Oid childConstrId,
 	constrForm = (Form_pg_constraint) GETSTRUCT(newtup);
 	if (OidIsValid(parentConstrId))
 	{
-		/* don't allow setting parent for a constraint that already has one */
+		/* 不允许为已有父约束的约束设置父约束 */
 		Assert(constrForm->coninhcount == 0);
 		if (constrForm->conparentid != InvalidOid)
 			elog(ERROR, "constraint %u already has a parent constraint",
@@ -828,7 +828,7 @@ ConstraintSetParentConstraint(Oid childConstrId,
 		constrForm->conislocal = true;
 		constrForm->conparentid = InvalidOid;
 
-		/* Make sure there's no further inheritance. */
+		/* 确保没有进一步的继承。 */
 		Assert(constrForm->coninhcount == 0);
 
 		CatalogTupleUpdate(constrRel, &tuple->t_self, newtup);
@@ -848,8 +848,8 @@ ConstraintSetParentConstraint(Oid childConstrId,
 
 /*
  * get_relation_constraint_oid
- *		Find a constraint on the specified relation with the specified name.
- *		Returns constraint's OID.
+ *		在指定关系上查找指定名称的约束。
+ *		返回约束的 OID。
  */
 Oid
 get_relation_constraint_oid(Oid relid, const char *conname, bool missing_ok)
@@ -878,13 +878,13 @@ get_relation_constraint_oid(Oid relid, const char *conname, bool missing_ok)
 	scan = systable_beginscan(pg_constraint, ConstraintRelidTypidNameIndexId, true,
 							  NULL, 3, skey);
 
-	/* There can be at most one matching row */
+	/* 最多只能有一行匹配 */
 	if (HeapTupleIsValid(tuple = systable_getnext(scan)))
 		conOid = ((Form_pg_constraint) GETSTRUCT(tuple))->oid;
 
 	systable_endscan(scan);
 
-	/* If no such constraint exists, complain */
+	/* 若不存在此类约束，则报错 */
 	if (!OidIsValid(conOid) && !missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -898,15 +898,15 @@ get_relation_constraint_oid(Oid relid, const char *conname, bool missing_ok)
 
 /*
  * get_relation_constraint_attnos
- *		Find a constraint on the specified relation with the specified name
- *		and return the constrained columns.
+ *		在指定关系上查找指定名称的约束，
+ *		并返回受约束的列。
  *
- * Returns a Bitmapset of the column attnos of the constrained columns, with
- * attnos being offset by FirstLowInvalidHeapAttributeNumber so that system
- * columns can be represented.
+ * 返回受约束列的 attnos 的 Bitmapset，其中
+ * attnos 按 FirstLowInvalidHeapAttributeNumber 偏移，以便能表示
+ * 系统列。
  *
- * *constraintOid is set to the OID of the constraint, or InvalidOid on
- * failure.
+ * *constraintOid 设为约束的 OID，失败时为
+ * InvalidOid。
  */
 Bitmapset *
 get_relation_constraint_attnos(Oid relid, const char *conname,
@@ -918,7 +918,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 	SysScanDesc scan;
 	ScanKeyData skey[3];
 
-	/* Set *constraintOid, to avoid complaints about uninitialized vars */
+	/* 设置 *constraintOid，以免抱怨未初始化变量 */
 	*constraintOid = InvalidOid;
 
 	pg_constraint = table_open(ConstraintRelationId, AccessShareLock);
@@ -939,7 +939,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 	scan = systable_beginscan(pg_constraint, ConstraintRelidTypidNameIndexId, true,
 							  NULL, 3, skey);
 
-	/* There can be at most one matching row */
+	/* 最多只能有一行匹配 */
 	if (HeapTupleIsValid(tuple = systable_getnext(scan)))
 	{
 		Datum		adatum;
@@ -947,7 +947,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 
 		*constraintOid = ((Form_pg_constraint) GETSTRUCT(tuple))->oid;
 
-		/* Extract the conkey array, ie, attnums of constrained columns */
+		/* 提取 conkey 数组，即受约束列的 attnums */
 		adatum = heap_getattr(tuple, Anum_pg_constraint_conkey,
 							  RelationGetDescr(pg_constraint), &isNull);
 		if (!isNull)
@@ -957,7 +957,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 			int16	   *attnums;
 			int			i;
 
-			arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+			arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 			numcols = ARR_DIMS(arr)[0];
 			if (ARR_NDIM(arr) != 1 ||
 				numcols < 0 ||
@@ -966,7 +966,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 				elog(ERROR, "conkey is not a 1-D smallint array");
 			attnums = (int16 *) ARR_DATA_PTR(arr);
 
-			/* Construct the result value */
+			/* 构造结果值 */
 			for (i = 0; i < numcols; i++)
 			{
 				conattnos = bms_add_member(conattnos,
@@ -977,7 +977,7 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 
 	systable_endscan(scan);
 
-	/* If no such constraint exists, complain */
+	/* 若不存在此类约束，则报错 */
 	if (!OidIsValid(*constraintOid) && !missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -990,12 +990,12 @@ get_relation_constraint_attnos(Oid relid, const char *conname,
 }
 
 /*
- * Return the OID of the constraint enforced by the given index in the
- * given relation; or InvalidOid if no such index is catalogued.
+ * 返回给定关系中由给定索引强制实施的约束的 OID；
+ * 若未编目此类索引则返回 InvalidOid。
  *
- * Much like get_constraint_index, this function is concerned only with the
- * one constraint that "owns" the given index.  Therefore, constraints of
- * types other than unique, primary-key, and exclusion are ignored.
+ * 与 get_constraint_index 很像，本函数只关心
+ * "拥有"给定索引的那一个约束。因此，忽略
+ * 唯一、主键与排他以外类型的约束。
  */
 Oid
 get_relation_idx_constraint_oid(Oid relationId, Oid indexId)
@@ -1021,7 +1021,7 @@ get_relation_idx_constraint_oid(Oid relationId, Oid indexId)
 
 		constrForm = (Form_pg_constraint) GETSTRUCT(tuple);
 
-		/* See above */
+		/* 见上文 */
 		if (constrForm->contype != CONSTRAINT_PRIMARY &&
 			constrForm->contype != CONSTRAINT_UNIQUE &&
 			constrForm->contype != CONSTRAINT_EXCLUSION)
@@ -1041,8 +1041,8 @@ get_relation_idx_constraint_oid(Oid relationId, Oid indexId)
 
 /*
  * get_domain_constraint_oid
- *		Find a constraint on the specified domain with the specified name.
- *		Returns constraint's OID.
+ *		在指定域上查找指定名称的约束。
+ *		返回约束的 OID。
  */
 Oid
 get_domain_constraint_oid(Oid typid, const char *conname, bool missing_ok)
@@ -1071,13 +1071,13 @@ get_domain_constraint_oid(Oid typid, const char *conname, bool missing_ok)
 	scan = systable_beginscan(pg_constraint, ConstraintRelidTypidNameIndexId, true,
 							  NULL, 3, skey);
 
-	/* There can be at most one matching row */
+	/* 最多只能有一行匹配 */
 	if (HeapTupleIsValid(tuple = systable_getnext(scan)))
 		conOid = ((Form_pg_constraint) GETSTRUCT(tuple))->oid;
 
 	systable_endscan(scan);
 
-	/* If no such constraint exists, complain */
+	/* 若不存在此类约束，则报错 */
 	if (!OidIsValid(conOid) && !missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -1091,17 +1091,17 @@ get_domain_constraint_oid(Oid typid, const char *conname, bool missing_ok)
 
 /*
  * get_primary_key_attnos
- *		Identify the columns in a relation's primary key, if any.
+ *		识别关系主键中的列（若有）。
  *
- * Returns a Bitmapset of the column attnos of the primary key's columns,
- * with attnos being offset by FirstLowInvalidHeapAttributeNumber so that
- * system columns can be represented.
+ * 返回主键列的 attnos 的 Bitmapset，
+ * 其中 attnos 按 FirstLowInvalidHeapAttributeNumber 偏移，以便能表示
+ * 系统列。
  *
- * If there is no primary key, return NULL.  We also return NULL if the pkey
- * constraint is deferrable and deferrableOk is false.
+ * 若没有主键则返回 NULL。若主键约束可延迟且
+ * deferrableOk 为 false，我们也返回 NULL。
  *
- * *constraintOid is set to the OID of the pkey constraint, or InvalidOid
- * on failure.
+ * *constraintOid 设为主键约束的 OID，失败时为
+ * InvalidOid。
  */
 Bitmapset *
 get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
@@ -1112,10 +1112,10 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 	SysScanDesc scan;
 	ScanKeyData skey[1];
 
-	/* Set *constraintOid, to avoid complaints about uninitialized vars */
+	/* 设置 *constraintOid，以免抱怨未初始化变量 */
 	*constraintOid = InvalidOid;
 
-	/* Scan pg_constraint for constraints of the target rel */
+	/* 扫描 pg_constraint 查找目标关系的约束 */
 	pg_constraint = table_open(ConstraintRelationId, AccessShareLock);
 
 	ScanKeyInit(&skey[0],
@@ -1136,25 +1136,25 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 		int			numkeys;
 		int			i;
 
-		/* Skip constraints that are not PRIMARY KEYs */
+		/* 跳过不是 PRIMARY KEY 的约束 */
 		if (con->contype != CONSTRAINT_PRIMARY)
 			continue;
 
 		/*
-		 * If the primary key is deferrable, but we've been instructed to
-		 * ignore deferrable constraints, then we might as well give up
-		 * searching, since there can only be a single primary key on a table.
+		 * 若主键可延迟，但我们被指示忽略可延迟约束，
+		 * 则可就此放弃搜索，因为一张表上只能有
+		 * 一个主键。
 		 */
 		if (con->condeferrable && !deferrableOk)
 			break;
 
-		/* Extract the conkey array, ie, attnums of PK's columns */
+		/* 提取 conkey 数组，即主键列的 attnums */
 		adatum = heap_getattr(tuple, Anum_pg_constraint_conkey,
 							  RelationGetDescr(pg_constraint), &isNull);
 		if (isNull)
 			elog(ERROR, "null conkey for constraint %u",
 				 ((Form_pg_constraint) GETSTRUCT(tuple))->oid);
-		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 		numkeys = ARR_DIMS(arr)[0];
 		if (ARR_NDIM(arr) != 1 ||
 			numkeys < 0 ||
@@ -1163,7 +1163,7 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 			elog(ERROR, "conkey is not a 1-D smallint array");
 		attnums = (int16 *) ARR_DATA_PTR(arr);
 
-		/* Construct the result value */
+		/* 构造结果值 */
 		for (i = 0; i < numkeys; i++)
 		{
 			pkattnos = bms_add_member(pkattnos,
@@ -1171,7 +1171,7 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 		}
 		*constraintOid = ((Form_pg_constraint) GETSTRUCT(tuple))->oid;
 
-		/* No need to search further */
+		/* 无需继续搜索 */
 		break;
 	}
 
@@ -1183,11 +1183,11 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 }
 
 /*
- * Extract data from the pg_constraint tuple of a foreign-key constraint.
+ * 从外键约束的 pg_constraint 元组提取数据。
  *
- * All arguments save the first are output arguments.  All output arguments
- * other than numfks, conkey and confkey can be passed as NULL if caller
- * doesn't need them.
+ * 除第一个外，所有参数都是输出参数。除
+ * numfks、conkey 与 confkey 外的所有输出参数，若调用方
+ * 不需要可传 NULL。
  */
 void
 DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
@@ -1201,13 +1201,13 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 	int			numkeys;
 
 	/*
-	 * We expect the arrays to be 1-D arrays of the right types; verify that.
-	 * We don't need to use deconstruct_array() since the array data is just
-	 * going to look like a C array of values.
+	 * 我们期望这些数组为正确类型的一维数组；验证这一点。
+	 * 我们不需要使用 deconstruct_array()，因为数组数据看起来就
+	 * 像值的 C 数组。
 	 */
 	adatum = SysCacheGetAttrNotNull(CONSTROID, tuple,
 									Anum_pg_constraint_conkey);
-	arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+	arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 	if (ARR_NDIM(arr) != 1 ||
 		ARR_HASNULL(arr) ||
 		ARR_ELEMTYPE(arr) != INT2OID)
@@ -1217,11 +1217,11 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 		elog(ERROR, "foreign key constraint cannot have %d columns", numkeys);
 	memcpy(conkey, ARR_DATA_PTR(arr), numkeys * sizeof(int16));
 	if ((Pointer) arr != DatumGetPointer(adatum))
-		pfree(arr);				/* free de-toasted copy, if any */
+		pfree(arr);				/* 释放去 toast 后的副本（若有） */
 
 	adatum = SysCacheGetAttrNotNull(CONSTROID, tuple,
 									Anum_pg_constraint_confkey);
-	arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+	arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 	if (ARR_NDIM(arr) != 1 ||
 		ARR_DIMS(arr)[0] != numkeys ||
 		ARR_HASNULL(arr) ||
@@ -1229,14 +1229,14 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 		elog(ERROR, "confkey is not a 1-D smallint array");
 	memcpy(confkey, ARR_DATA_PTR(arr), numkeys * sizeof(int16));
 	if ((Pointer) arr != DatumGetPointer(adatum))
-		pfree(arr);				/* free de-toasted copy, if any */
+		pfree(arr);				/* 释放去 toast 后的副本（若有） */
 
 	if (pf_eq_oprs)
 	{
 		adatum = SysCacheGetAttrNotNull(CONSTROID, tuple,
 										Anum_pg_constraint_conpfeqop);
-		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
-		/* see TryReuseForeignKey if you change the test below */
+		arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
+		/* 若更改下面的测试，请参见 TryReuseForeignKey */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numkeys ||
 			ARR_HASNULL(arr) ||
@@ -1244,14 +1244,14 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 			elog(ERROR, "conpfeqop is not a 1-D Oid array");
 		memcpy(pf_eq_oprs, ARR_DATA_PTR(arr), numkeys * sizeof(Oid));
 		if ((Pointer) arr != DatumGetPointer(adatum))
-			pfree(arr);			/* free de-toasted copy, if any */
+			pfree(arr);			/* 释放去 toast 后的副本（若有） */
 	}
 
 	if (pp_eq_oprs)
 	{
 		adatum = SysCacheGetAttrNotNull(CONSTROID, tuple,
 										Anum_pg_constraint_conppeqop);
-		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numkeys ||
 			ARR_HASNULL(arr) ||
@@ -1259,14 +1259,14 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 			elog(ERROR, "conppeqop is not a 1-D Oid array");
 		memcpy(pp_eq_oprs, ARR_DATA_PTR(arr), numkeys * sizeof(Oid));
 		if ((Pointer) arr != DatumGetPointer(adatum))
-			pfree(arr);			/* free de-toasted copy, if any */
+			pfree(arr);			/* 释放去 toast 后的副本（若有） */
 	}
 
 	if (ff_eq_oprs)
 	{
 		adatum = SysCacheGetAttrNotNull(CONSTROID, tuple,
 										Anum_pg_constraint_conffeqop);
-		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+		arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 		if (ARR_NDIM(arr) != 1 ||
 			ARR_DIMS(arr)[0] != numkeys ||
 			ARR_HASNULL(arr) ||
@@ -1274,7 +1274,7 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 			elog(ERROR, "conffeqop is not a 1-D Oid array");
 		memcpy(ff_eq_oprs, ARR_DATA_PTR(arr), numkeys * sizeof(Oid));
 		if ((Pointer) arr != DatumGetPointer(adatum))
-			pfree(arr);			/* free de-toasted copy, if any */
+			pfree(arr);			/* 释放去 toast 后的副本（若有） */
 	}
 
 	if (fk_del_set_cols)
@@ -1289,7 +1289,7 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 		{
 			int			num_delete_cols;
 
-			arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+			arr = DatumGetArrayTypeP(adatum);	/* 确保未被 toast */
 			if (ARR_NDIM(arr) != 1 ||
 				ARR_HASNULL(arr) ||
 				ARR_ELEMTYPE(arr) != INT2OID)
@@ -1297,7 +1297,7 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 			num_delete_cols = ARR_DIMS(arr)[0];
 			memcpy(fk_del_set_cols, ARR_DATA_PTR(arr), num_delete_cols * sizeof(int16));
 			if ((Pointer) arr != DatumGetPointer(adatum))
-				pfree(arr);		/* free de-toasted copy, if any */
+				pfree(arr);		/* 释放去 toast 后的副本（若有） */
 
 			*num_fk_del_set_cols = num_delete_cols;
 		}
@@ -1307,19 +1307,19 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 }
 
 /*
- * Determine whether a relation can be proven functionally dependent on
- * a set of grouping columns.  If so, return true and add the pg_constraint
- * OIDs of the constraints needed for the proof to the *constraintDeps list.
+ * 判定能否证明关系函数依赖于
+ * 一组分组列。若能，返回 true，并把证明所需约束的
+ * pg_constraint OID 加入 *constraintDeps 列表。
  *
- * grouping_columns is a list of grouping expressions, in which columns of
- * the rel of interest are Vars with the indicated varno/varlevelsup.
+ * grouping_columns 是分组表达式列表，其中感兴趣关系的
+ * 列是带有所示 varno/varlevelsup 的 Vars。
  *
- * Currently we only check to see if the rel has a primary key that is a
- * subset of the grouping_columns.  We could also use plain unique constraints
- * if all their columns are known not null, but there's a problem: we need
- * to be able to represent the not-null-ness as part of the constraints added
- * to *constraintDeps.  FIXME whenever not-null constraints get represented
- * in pg_constraint.
+ * 目前我们只检查关系是否有作为 grouping_columns
+ * 子集的主键。我们也可以使用普通唯一约束，
+ * 若其所有列已知非空，但有个问题：我们需要
+ * 能够把非空性表示为加入 *constraintDeps 的约束的一部分。
+ * 待 pg_constraint 能表示非空约束时再
+ * FIXME。
  */
 bool
 check_functional_grouping(Oid relid,
@@ -1332,12 +1332,12 @@ check_functional_grouping(Oid relid,
 	Oid			constraintOid;
 	ListCell   *gl;
 
-	/* If the rel has no PK, then we can't prove functional dependency */
+	/* 若关系没有主键，则无法证明函数依赖 */
 	pkattnos = get_primary_key_attnos(relid, false, &constraintOid);
 	if (pkattnos == NULL)
 		return false;
 
-	/* Identify all the rel's columns that appear in grouping_columns */
+	/* 识别出现在 grouping_columns 中的所有该关系的列 */
 	groupbyattnos = NULL;
 	foreach(gl, grouping_columns)
 	{
@@ -1352,7 +1352,7 @@ check_functional_grouping(Oid relid,
 
 	if (bms_is_subset(pkattnos, groupbyattnos))
 	{
-		/* The PK is a subset of grouping_columns, so we win */
+		/* 主键是 grouping_columns 的子集，因此我们成功 */
 		*constraintDeps = lappend_oid(*constraintDeps, constraintOid);
 		return true;
 	}

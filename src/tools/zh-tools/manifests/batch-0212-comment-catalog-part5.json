@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "batch_id": "0212-comment-catalog-part5",
+  "title": "zh: translate catalog comments (part 5)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "82c8208687c6239581add78d81c6746732622019",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_proc.c",
+      "kind": "c_comment",
+      "note": "procedure/function catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_constraint.c",
+      "kind": "c_comment",
+      "note": "constraint catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0212-comment-catalog-part5.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_proc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 94,
+      "translated": 89,
+      "preserved": 5,
+      "preserved_reasons": [
+        "translator comments",
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "procedure/function catalog helpers; 5 translator: segments kept in English; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_constraint.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 82,
+      "translated": 82,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "constraint catalog helpers; exclusion→排他约束; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0212-comment-catalog-part5.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0212 translates comments in two src/backend/catalog/ .c files (part 5): pg_proc.c, pg_constraint.c. Five translator: segments in pg_proc.c stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: pg_shdepend.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_proc.c
- *	  routines to support manipulation of the pg_proc relation
+ *	  支持操作 pg_proc 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -63,9 +63,9 @@ static bool match_prosrc_to_literal(const char *prosrc, const char *literal,
 /* ----------------------------------------------------------------
  *		ProcedureCreate
  *
- * Note: allParameterTypes, parameterModes, parameterNames, trftypes, and proconfig
- * are either arrays of the proper types or NULL.  We declare them Datum,
- * not "ArrayType *", to avoid importing array.h into pg_proc.h.
+ * 注意：allParameterTypes、parameterModes、parameterNames、trftypes 与 proconfig
+ * 要么是适当类型的数组，要么为 NULL。我们将其声明为 Datum，
+ * 而不是 "ArrayType *"，以免把 array.h 引入 pg_proc.h。
  * ----------------------------------------------------------------
  */
 ObjectAddress
@@ -121,7 +121,7 @@ ProcedureCreate(const char *procedureName,
 	ObjectAddresses *addrs;
 
 	/*
-	 * sanity checks
+	 * 健全性检查
 	 */
 	Assert(PointerIsValid(prosrc));
 
@@ -133,15 +133,15 @@ ProcedureCreate(const char *procedureName,
 							   "functions cannot have more than %d arguments",
 							   FUNC_MAX_ARGS,
 							   FUNC_MAX_ARGS)));
-	/* note: the above is correct, we do NOT count output arguments */
+	/* 注意：上面是正确的，我们不统计输出参数 */
 
-	/* Deconstruct array inputs */
+	/* 拆解数组输入 */
 	if (allParameterTypes != PointerGetDatum(NULL))
 	{
 		/*
-		 * We expect the array to be a 1-D OID array; verify that. We don't
-		 * need to use deconstruct_array() since the array data is just going
-		 * to look like a C array of OID values.
+		 * 我们期望该数组为一维 OID 数组；验证这一点。我们不
+		 * 需要使用 deconstruct_array()，因为数组数据看起来就
+		 * 像 OID 值的 C 数组。
 		 */
 		ArrayType  *allParamArray = (ArrayType *) DatumGetPointer(allParameterTypes);
 
@@ -153,7 +153,7 @@ ProcedureCreate(const char *procedureName,
 			elog(ERROR, "allParameterTypes is not a 1-D Oid array");
 		allParams = (Oid *) ARR_DATA_PTR(allParamArray);
 		Assert(allParamCount >= parameterCount);
-		/* we assume caller got the contents right */
+		/* 假定调用方已把内容弄对 */
 	}
 	else
 	{
@@ -164,9 +164,9 @@ ProcedureCreate(const char *procedureName,
 	if (parameterModes != PointerGetDatum(NULL))
 	{
 		/*
-		 * We expect the array to be a 1-D CHAR array; verify that. We don't
-		 * need to use deconstruct_array() since the array data is just going
-		 * to look like a C array of char values.
+		 * 我们期望该数组为一维 CHAR 数组；验证这一点。我们不
+		 * 需要使用 deconstruct_array()，因为数组数据看起来就
+		 * 像 char 值的 C 数组。
 		 */
 		ArrayType  *modesArray = (ArrayType *) DatumGetPointer(parameterModes);
 
@@ -179,8 +179,8 @@ ProcedureCreate(const char *procedureName,
 	}
 
 	/*
-	 * Do not allow polymorphic return type unless there is a polymorphic
-	 * input argument that we can use to deduce the actual return type.
+	 * 不允许多态返回类型，除非存在可用于推断实际返回类型的
+	 * 多态输入参数。
 	 */
 	detailmsg = check_valid_polymorphic_signature(returnType,
 												  parameterTypes->values,
@@ -192,8 +192,8 @@ ProcedureCreate(const char *procedureName,
 				 errdetail_internal("%s", detailmsg)));
 
 	/*
-	 * Also, do not allow return type INTERNAL unless at least one input
-	 * argument is INTERNAL.
+	 * 同样，除非至少一个输入参数为 INTERNAL，否则不允许返回
+	 * 类型为 INTERNAL。
 	 */
 	detailmsg = check_valid_internal_signature(returnType,
 											   parameterTypes->values,
@@ -205,7 +205,7 @@ ProcedureCreate(const char *procedureName,
 				 errdetail_internal("%s", detailmsg)));
 
 	/*
-	 * Apply the same tests to any OUT arguments.
+	 * 对任何 OUT 参数应用相同的检查。
 	 */
 	if (allParameterTypes != PointerGetDatum(NULL))
 	{
@@ -214,7 +214,7 @@ ProcedureCreate(const char *procedureName,
 			if (paramModes == NULL ||
 				paramModes[i] == PROARGMODE_IN ||
 				paramModes[i] == PROARGMODE_VARIADIC)
-				continue;		/* ignore input-only params */
+				continue;		/* 忽略仅输入参数 */
 
 			detailmsg = check_valid_polymorphic_signature(allParams[i],
 														  parameterTypes->values,
@@ -235,13 +235,13 @@ ProcedureCreate(const char *procedureName,
 		}
 	}
 
-	/* Identify variadic argument type, if any */
+	/* 识别可变参数类型（若有） */
 	if (paramModes != NULL)
 	{
 		/*
-		 * Only the last input parameter can be variadic; if it is, save its
-		 * element type.  Errors here are just elog since caller should have
-		 * checked this already.
+		 * 只有最后一个输入参数可以是可变参数；若是，保存其
+		 * 元素类型。此处错误仅用 elog，因为调用方本应已
+		 * 检查过。
 		 */
 		for (i = 0; i < allParamCount; i++)
 		{
@@ -257,7 +257,7 @@ ProcedureCreate(const char *procedureName,
 						elog(ERROR, "variadic parameter must be last");
 					break;
 				case PROARGMODE_TABLE:
-					/* okay */
+					/* 没问题 */
 					break;
 				case PROARGMODE_VARIADIC:
 					if (OidIsValid(variadicType))
@@ -288,7 +288,7 @@ ProcedureCreate(const char *procedureName,
 	}
 
 	/*
-	 * All seems OK; prepare the data to be inserted into pg_proc.
+	 * 一切看起来都没问题；准备要插入 pg_proc 的数据。
 	 */
 
 	for (i = 0; i < Natts_pg_proc; ++i)
@@ -351,12 +351,12 @@ ProcedureCreate(const char *procedureName,
 		values[Anum_pg_proc_proconfig - 1] = proconfig;
 	else
 		nulls[Anum_pg_proc_proconfig - 1] = true;
-	/* proacl will be determined later */
+	/* proacl 稍后再确定 */
 
 	rel = table_open(ProcedureRelationId, RowExclusiveLock);
 	tupDesc = RelationGetDescr(rel);
 
-	/* Check for pre-existing definition */
+	/* 检查是否已有定义 */
 	oldtup = SearchSysCache3(PROCNAMEARGSNSP,
 							 PointerGetDatum(procedureName),
 							 PointerGetDatum(parameterTypes),
@@ -364,7 +364,7 @@ ProcedureCreate(const char *procedureName,
 
 	if (HeapTupleIsValid(oldtup))
 	{
-		/* There is one; okay to replace it? */
+		/* 已有一个；可以替换吗？ */
 		Form_pg_proc oldproc = (Form_pg_proc) GETSTRUCT(oldtup);
 		Datum		proargnames;
 		bool		isnull;
@@ -379,7 +379,7 @@ ProcedureCreate(const char *procedureName,
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_FUNCTION,
 						   procedureName);
 
-		/* Not okay to change routine kind */
+		/* 不允许更改例程种类 */
 		if (oldproc->prokind != prokind)
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
@@ -399,12 +399,12 @@ ProcedureCreate(const char *procedureName,
 				   "DROP FUNCTION");
 
 		/*
-		 * Not okay to change the return type of the existing proc, since
-		 * existing rules, views, etc may depend on the return type.
+		 * 不允许更改既有过程的返回类型，因为已有的规则、视图等
+		 * 可能依赖该返回类型。
 		 *
-		 * In case of a procedure, a changing return type means that whether
-		 * the procedure has output parameters was changed.  Since there is no
-		 * user visible return type, we produce a more specific error message.
+		 * 对过程而言，返回类型变化意味着过程是否有输出参数发生了
+		 * 变化。由于没有用户可见的返回类型，我们给出更具体的
+		 * 错误消息。
 		 */
 		if (returnType != oldproc->prorettype ||
 			returnsSet != oldproc->proretset)
@@ -423,8 +423,8 @@ ProcedureCreate(const char *procedureName,
 							 format_procedure(oldproc->oid))));
 
 		/*
-		 * If it returns RECORD, check for possible change of record type
-		 * implied by OUT parameters
+		 * 若返回 RECORD，检查 OUT 参数是否隐含了记录类型的
+		 * 可能变化
 		 */
 		if (returnType == RECORDOID)
 		{
@@ -437,7 +437,7 @@ ProcedureCreate(const char *procedureName,
 													  parameterModes,
 													  parameterNames);
 			if (olddesc == NULL && newdesc == NULL)
-				 /* ok, both are runtime-defined RECORDs */ ;
+				 /* 没问题，两者都是运行时定义的 RECORD */ ;
 			else if (olddesc == NULL || newdesc == NULL ||
 					 !equalTupleDescs(olddesc, newdesc))
 				ereport(ERROR,
@@ -451,9 +451,9 @@ ProcedureCreate(const char *procedureName,
 		}
 
 		/*
-		 * If there were any named input parameters, check to make sure the
-		 * names have not been changed, as this could break existing calls. We
-		 * allow adding names to formerly unnamed parameters, though.
+		 * 若曾有命名输入参数，检查以确保
+		 * 名称未被更改，因为这可能破坏既有调用。我们
+		 * 仍允许给原先未命名的参数添加名称。
 		 */
 		proargnames = SysCacheGetAttr(PROCNAMEARGSNSP, oldtup,
 									  Anum_pg_proc_proargnames,
@@ -471,7 +471,7 @@ ProcedureCreate(const char *procedureName,
 										  Anum_pg_proc_proargmodes,
 										  &isnull);
 			if (isnull)
-				proargmodes = PointerGetDatum(NULL);	/* just to be sure */
+				proargmodes = PointerGetDatum(NULL);	/* 只是为了保险 */
 
 			n_old_arg_names = get_func_input_arg_names(proargnames,
 													   proargmodes,
@@ -497,12 +497,12 @@ ProcedureCreate(const char *procedureName,
 		}
 
 		/*
-		 * If there are existing defaults, check compatibility: redefinition
-		 * must not remove any defaults nor change their types.  (Removing a
-		 * default might cause a function to fail to satisfy an existing call.
-		 * Changing type would only be possible if the associated parameter is
-		 * polymorphic, and in such cases a change of default type might alter
-		 * the resolved output type of existing calls.)
+		 * 若已有默认值，检查兼容性：重定义
+		 * 不得移除任何默认值，也不得更改其类型。（移除
+		 * 默认值可能导致函数不再满足既有调用。
+		 * 更改类型仅在相关参数为
+		 * 多态时才可能，且在此类情况下更改默认值类型可能改变
+		 * 既有调用所解析出的输出类型。）
 		 */
 		if (oldproc->pronargdefaults != 0)
 		{
@@ -525,7 +525,7 @@ ProcedureCreate(const char *procedureName,
 			oldDefaults = castNode(List, stringToNode(TextDatumGetCString(proargdefaults)));
 			Assert(list_length(oldDefaults) == oldproc->pronargdefaults);
 
-			/* new list can have more defaults than old, advance over 'em */
+			/* 新列表可以比旧列表有更多默认值，跳过它们 */
 			newlc = list_nth_cell(parameterDefaults,
 								  list_length(parameterDefaults) -
 								  oldproc->pronargdefaults);
@@ -548,14 +548,14 @@ ProcedureCreate(const char *procedureName,
 		}
 
 		/*
-		 * Do not change existing oid, ownership or permissions, either.  Note
-		 * dependency-update code below has to agree with this decision.
+		 * 也不要更改既有 oid、所有权或权限。注意下面的
+		 * 依赖更新代码必须与此决定一致。
 		 */
 		replaces[Anum_pg_proc_oid - 1] = false;
 		replaces[Anum_pg_proc_proowner - 1] = false;
 		replaces[Anum_pg_proc_proacl - 1] = false;
 
-		/* Okay, do it... */
+		/* 好，动手吧... */
 		tup = heap_modify_tuple(oldtup, tupDesc, values, nulls, replaces);
 		CatalogTupleUpdate(rel, &tup->t_self, tup);
 
@@ -564,10 +564,10 @@ ProcedureCreate(const char *procedureName,
 	}
 	else
 	{
-		/* Creating a new procedure */
+		/* 创建新过程 */
 		Oid			newOid;
 
-		/* First, get default permissions and set up proacl */
+		/* 首先，取得默认权限并设置 proacl */
 		proacl = get_user_default_acl(OBJECT_FUNCTION, proowner,
 									  procNamespace);
 		if (proacl != NULL)
@@ -587,10 +587,10 @@ ProcedureCreate(const char *procedureName,
 	retval = ((Form_pg_proc) GETSTRUCT(tup))->oid;
 
 	/*
-	 * Create dependencies for the new function.  If we are updating an
-	 * existing function, first delete any existing pg_depend entries.
-	 * (However, since we are not changing ownership or permissions, the
-	 * shared dependencies do *not* need to change, and we leave them alone.)
+	 * 为新函数创建依赖。若正在更新
+	 * 既有函数，先删除任何既有 pg_depend 条目。
+	 * （不过，由于我们不更改所有权或权限，
+	 * 共享依赖*不必*更改，我们也不动它们。）
 	 */
 	if (is_update)
 		deleteDependencyRecordsFor(ProcedureRelationId, retval, true);
@@ -599,32 +599,32 @@ ProcedureCreate(const char *procedureName,
 
 	ObjectAddressSet(myself, ProcedureRelationId, retval);
 
-	/* dependency on namespace */
+	/* 对命名空间的依赖 */
 	ObjectAddressSet(referenced, NamespaceRelationId, procNamespace);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on implementation language */
+	/* 对实现语言的依赖 */
 	ObjectAddressSet(referenced, LanguageRelationId, languageObjectId);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on return type */
+	/* 对返回类型的依赖 */
 	ObjectAddressSet(referenced, TypeRelationId, returnType);
 	add_exact_object_address(&referenced, addrs);
 
-	/* dependency on transform used by return type, if any */
+	/* 对返回类型所用转换的依赖（若有） */
 	if ((trfid = get_transform_oid(returnType, languageObjectId, true)))
 	{
 		ObjectAddressSet(referenced, TransformRelationId, trfid);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* dependency on parameter types */
+	/* 对参数类型的依赖 */
 	for (i = 0; i < allParamCount; i++)
 	{
 		ObjectAddressSet(referenced, TypeRelationId, allParams[i]);
 		add_exact_object_address(&referenced, addrs);
 
-		/* dependency on transform used by parameter type, if any */
+		/* 对参数类型所用转换的依赖（若有） */
 		if ((trfid = get_transform_oid(allParams[i], languageObjectId, true)))
 		{
 			ObjectAddressSet(referenced, TransformRelationId, trfid);
@@ -632,7 +632,7 @@ ProcedureCreate(const char *procedureName,
 		}
 	}
 
-	/* dependency on support function, if any */
+	/* 对支持函数的依赖（若有） */
 	if (OidIsValid(prosupport))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, prosupport);
@@ -642,57 +642,57 @@ ProcedureCreate(const char *procedureName,
 	record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 	free_object_addresses(addrs);
 
-	/* dependency on SQL routine body */
+	/* 对 SQL 例程体的依赖 */
 	if (languageObjectId == SQLlanguageId && prosqlbody)
 		recordDependencyOnExpr(&myself, prosqlbody, NIL, DEPENDENCY_NORMAL);
 
-	/* dependency on parameter default expressions */
+	/* 对参数默认表达式的依赖 */
 	if (parameterDefaults)
 		recordDependencyOnExpr(&myself, (Node *) parameterDefaults,
 							   NIL, DEPENDENCY_NORMAL);
 
-	/* dependency on owner */
+	/* 对所有者的依赖 */
 	if (!is_update)
 		recordDependencyOnOwner(ProcedureRelationId, retval, proowner);
 
-	/* dependency on any roles mentioned in ACL */
+	/* 对 ACL 中提及的任何角色的依赖 */
 	if (!is_update)
 		recordDependencyOnNewAcl(ProcedureRelationId, retval, 0,
 								 proowner, proacl);
 
-	/* dependency on extension */
+	/* 对扩展的依赖 */
 	recordDependencyOnCurrentExtension(&myself, is_update);
 
 	heap_freetuple(tup);
 
-	/* Post creation hook for new function */
+	/* 新函数的创建后钩子 */
 	InvokeObjectPostCreateHook(ProcedureRelationId, retval, 0);
 
 	table_close(rel, RowExclusiveLock);
 
-	/* Verify function body */
+	/* 验证函数体 */
 	if (OidIsValid(languageValidator))
 	{
 		ArrayType  *set_items = NULL;
 		int			save_nestlevel = 0;
 
-		/* Advance command counter so new tuple can be seen by validator */
+		/* 推进命令计数器，使验证器能看到新元组 */
 		CommandCounterIncrement();
 
 		/*
-		 * Set per-function configuration parameters so that the validation is
-		 * done with the environment the function expects.  However, if
-		 * check_function_bodies is off, we don't do this, because that would
-		 * create dump ordering hazards that pg_dump doesn't know how to deal
-		 * with.  (For example, a SET clause might refer to a not-yet-created
-		 * text search configuration.)	This means that the validator
-		 * shouldn't complain about anything that might depend on a GUC
-		 * parameter when check_function_bodies is off.
+		 * 设置每函数配置参数，以便验证在
+		 * 函数所期望的环境中进行。不过，若
+		 * check_function_bodies 关闭，我们不做此事，因为那会
+		 * 制造 pg_dump 不知如何处理的转储顺序
+		 * 隐患。（例如，SET 子句可能引用尚未创建的
+		 * 文本搜索配置。）这意味着验证器
+		 * 在 check_function_bodies 关闭时，不应抱怨任何可能依赖 GUC
+		 * 参数的事情。
 		 */
 		if (check_function_bodies)
 		{
 			set_items = (ArrayType *) DatumGetPointer(proconfig);
-			if (set_items)		/* Need a new GUC nesting level */
+			if (set_items)		/* 需要新的 GUC 嵌套层级 */
 			{
 				save_nestlevel = NewGUCNestLevel();
 				ProcessGUCArray(set_items,
@@ -708,7 +708,7 @@ ProcedureCreate(const char *procedureName,
 			AtEOXact_GUC(true, save_nestlevel);
 	}
 
-	/* ensure that stats are dropped if transaction aborts */
+	/* 确保事务中止时统计信息会被丢弃 */
 	if (!is_update)
 		pgstat_create_function(retval);
 
@@ -718,10 +718,10 @@ ProcedureCreate(const char *procedureName,
 
 
 /*
- * Validator for internal functions
+ * 内部函数的验证器
  *
- * Check that the given internal function name (the "prosrc" value) is
- * a known builtin function.
+ * 检查给定的内部函数名（"prosrc" 值）是否是
+ * 已知的内建函数。
  */
 Datum
 fmgr_internal_validator(PG_FUNCTION_ARGS)
@@ -735,8 +735,8 @@ fmgr_internal_validator(PG_FUNCTION_ARGS)
 		PG_RETURN_VOID();
 
 	/*
-	 * We do not honor check_function_bodies since it's unlikely the function
-	 * name will be found later if it isn't there now.
+	 * 我们不尊重 check_function_bodies，因为若函数名现在找不到，
+	 * 以后也不太可能找到。
 	 */
 
 	tuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcoid));
@@ -760,11 +760,11 @@ fmgr_internal_validator(PG_FUNCTION_ARGS)
 
 
 /*
- * Validator for C language functions
+ * C 语言函数的验证器
  *
- * Make sure that the library file exists, is loadable, and contains
- * the specified link symbol. Also check for a valid function
- * information record.
+ * 确保库文件存在、可加载，并包含
+ * 指定的链接符号。也检查是否有有效的函数
+ * 信息记录。
  */
 Datum
 fmgr_c_validator(PG_FUNCTION_ARGS)
@@ -780,9 +780,9 @@ fmgr_c_validator(PG_FUNCTION_ARGS)
 		PG_RETURN_VOID();
 
 	/*
-	 * It'd be most consistent to skip the check if !check_function_bodies,
-	 * but the purpose of that switch is to be helpful for pg_dump loading,
-	 * and for pg_dump loading it's much better if we *do* check.
+	 * 若 !check_function_bodies 则跳过检查会最一致，
+	 * 但该开关的目的是方便 pg_dump 加载，
+	 * 而对 pg_dump 加载来说*做*检查要好得多。
 	 */
 
 	tuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(funcoid));
@@ -805,9 +805,9 @@ fmgr_c_validator(PG_FUNCTION_ARGS)
 
 
 /*
- * Validator for SQL language functions
+ * SQL 语言函数的验证器
  *
- * Parse it here in order to be sure that it contains no syntax errors.
+ * 在此解析以确保其中没有语法错误。
  */
 Datum
 fmgr_sql_validator(PG_FUNCTION_ARGS)
@@ -834,8 +834,8 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 		elog(ERROR, "cache lookup failed for function %u", funcoid);
 	proc = (Form_pg_proc) GETSTRUCT(tuple);
 
-	/* Disallow pseudotype result */
-	/* except for RECORD, VOID, or polymorphic */
+	/* 禁止伪类型结果 */
+	/* 但 RECORD、VOID 或多态类型除外 */
 	if (get_typtype(proc->prorettype) == TYPTYPE_PSEUDO &&
 		proc->prorettype != RECORDOID &&
 		proc->prorettype != VOIDOID &&
@@ -845,8 +845,8 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 				 errmsg("SQL functions cannot return type %s",
 						format_type_be(proc->prorettype))));
 
-	/* Disallow pseudotypes in arguments */
-	/* except for polymorphic */
+	/* 禁止参数中的伪类型 */
+	/* 但多态类型除外 */
 	haspolyarg = false;
 	for (i = 0; i < proc->pronargs; i++)
 	{
@@ -862,14 +862,14 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 		}
 	}
 
-	/* Postpone body checks if !check_function_bodies */
+	/* 若 !check_function_bodies 则推迟函数体检查 */
 	if (check_function_bodies)
 	{
 		tmp = SysCacheGetAttrNotNull(PROCOID, tuple, Anum_pg_proc_prosrc);
 		prosrc = TextDatumGetCString(tmp);
 
 		/*
-		 * Setup error traceback support for ereport().
+		 * 为 ereport() 设置错误回溯支持。
 		 */
 		callback_arg.proname = NameStr(proc->proname);
 		callback_arg.prosrc = prosrc;
@@ -879,7 +879,7 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 		sqlerrcontext.previous = error_context_stack;
 		error_context_stack = &sqlerrcontext;
 
-		/* If we have prosqlbody, pay attention to that not prosrc */
+		/* 若有 prosqlbody，关注它而非 prosrc */
 		tmp = SysCacheGetAttr(PROCOID, tuple, Anum_pg_proc_prosqlbody, &isnull);
 		if (!isnull)
 		{
@@ -899,10 +899,10 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 				List	   *querytree_sublist;
 
 				/*
-				 * Typically, we'd have acquired locks already while parsing
-				 * the body of the CREATE FUNCTION command.  However, a
-				 * validator function cannot assume that it's only called in
-				 * that context.
+				 * 通常，在解析 CREATE FUNCTION 命令的
+				 * 函数体时我们就已取得锁。不过，
+				 * 验证器函数无法假定它只在
+				 * 那种上下文中被调用。
 				 */
 				AcquireRewriteLocks(parsetree, true, false);
 				querytree_sublist = pg_rewrite_query(parsetree);
@@ -912,13 +912,13 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 		else
 		{
 			/*
-			 * We can't do full prechecking of the function definition if
-			 * there are any polymorphic input types, because actual datatypes
-			 * of expression results will be unresolvable.  The check will be
-			 * done at runtime instead.
+			 * 若有任何多态输入类型，我们就无法对
+			 * 函数定义做完整预检查，因为表达式结果的实际
+			 * 数据类型将无法解析。检查将
+			 * 改在运行时进行。
 			 *
-			 * We can run the text through the raw parser though; this will at
-			 * least catch silly syntactic errors.
+			 * 不过我们可以把文本送过原始解析器；这至少能
+			 * 捕获愚蠢的句法错误。
 			 */
 			raw_parsetree_list = pg_parse_query(prosrc);
 			querytree_list = NIL;
@@ -926,12 +926,12 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 			if (!haspolyarg)
 			{
 				/*
-				 * OK to do full precheck: analyze and rewrite the queries,
-				 * then verify the result type.
+				 * 可以做完整预检查：分析并重写查询，
+				 * 然后验证结果类型。
 				 */
 				SQLFunctionParseInfoPtr pinfo;
 
-				/* But first, set up parameter information */
+				/* 但首先，设置参数信息 */
 				pinfo = prepare_sql_fn_parse_info(tuple, NULL, InvalidOid);
 
 				foreach(lc, raw_parsetree_list)
@@ -974,31 +974,31 @@ fmgr_sql_validator(PG_FUNCTION_ARGS)
 }
 
 /*
- * Error context callback for handling errors in SQL function definitions
+ * 处理 SQL 函数定义中错误的错误上下文回调
  */
 static void
 sql_function_parse_error_callback(void *arg)
 {
 	parse_error_callback_arg *callback_arg = (parse_error_callback_arg *) arg;
 
-	/* See if it's a syntax error; if so, transpose to CREATE FUNCTION */
+	/* 看是否为语法错误；若是，转置到 CREATE FUNCTION */
 	if (!function_parse_error_transpose(callback_arg->prosrc))
 	{
-		/* If it's not a syntax error, push info onto context stack */
+		/* 若不是语法错误，把信息压入上下文栈 */
 		errcontext("SQL function \"%s\"", callback_arg->proname);
 	}
 }
 
 /*
- * Adjust a syntax error occurring inside the function body of a CREATE
- * FUNCTION or DO command.  This can be used by any function validator or
- * anonymous-block handler, not only for SQL-language functions.
- * It is assumed that the syntax error position is initially relative to the
- * function body string (as passed in).  If possible, we adjust the position
- * to reference the original command text; if we can't manage that, we set
- * up an "internal query" syntax error instead.
+ * 调整发生在 CREATE FUNCTION 或 DO 命令
+ * 函数体内的语法错误。这可供任何函数验证器或
+ * 匿名块处理程序使用，不仅限于 SQL 语言函数。
+ * 假定语法错误位置最初相对于
+ * （传入的）函数体字符串。若可能，我们把位置调整为
+ * 引用原始命令文本；若无法做到，则改为设置
+ * "内部查询"语法错误。
  *
- * Returns true if a syntax error was processed, false if not.
+ * 若处理了语法错误则返回 true，否则返回 false。
  */
 bool
 function_parse_error_transpose(const char *prosrc)
@@ -1007,11 +1007,11 @@ function_parse_error_transpose(const char *prosrc)
 	int			newerrposition;
 
 	/*
-	 * Nothing to do unless we are dealing with a syntax error that has a
-	 * cursor position.
+	 * 除非我们处理的是带有光标位置的
+	 * 语法错误，否则无事可做。
 	 *
-	 * Some PLs may prefer to report the error position as an internal error
-	 * to begin with, so check that too.
+	 * 某些 PL 可能一开始就把错误位置报告为内部
+	 * 错误，因此也检查这一点。
 	 */
 	origerrposition = geterrposition();
 	if (origerrposition <= 0)
@@ -1021,37 +1021,37 @@ function_parse_error_transpose(const char *prosrc)
 			return false;
 	}
 
-	/* We can get the original query text from the active portal (hack...) */
+	/* 我们可以从活动门户取得原始查询文本（有点取巧...） */
 	if (ActivePortal && ActivePortal->status == PORTAL_ACTIVE)
 	{
 		const char *queryText = ActivePortal->sourceText;
 
-		/* Try to locate the prosrc in the original text */
+		/* 尝试在原始文本中定位 prosrc */
 		newerrposition = match_prosrc_to_query(prosrc, queryText,
 											   origerrposition);
 	}
 	else
 	{
 		/*
-		 * Quietly give up if no ActivePortal.  This is an unusual situation
-		 * but it can happen in, e.g., logical replication workers.
+		 * 若没有 ActivePortal 则静默放弃。这是少见情况，
+		 * 但例如在逻辑复制工作进程中可能发生。
 		 */
 		newerrposition = -1;
 	}
 
 	if (newerrposition > 0)
 	{
-		/* Successful, so fix error position to reference original query */
+		/* 成功，因此修正错误位置以引用原始查询 */
 		errposition(newerrposition);
-		/* Get rid of any report of the error as an "internal query" */
+		/* 去掉任何将该错误报告为"内部查询"的信息 */
 		internalerrposition(0);
 		internalerrquery(NULL);
 	}
 	else
 	{
 		/*
-		 * If unsuccessful, convert the position to an internal position
-		 * marker and give the function text as the internal query.
+		 * 若不成功，把位置转换为内部位置标记，
+		 * 并把函数文本作为内部查询给出。
 		 */
 		errposition(0);
 		internalerrposition(origerrposition);
@@ -1062,20 +1062,20 @@ function_parse_error_transpose(const char *prosrc)
 }
 
 /*
- * Try to locate the string literal containing the function body in the
- * given text of the CREATE FUNCTION or DO command.  If successful, return
- * the character (not byte) index within the command corresponding to the
- * given character index within the literal.  If not successful, return 0.
+ * 尝试在给定的 CREATE FUNCTION 或 DO 命令文本中
+ * 定位包含函数体的字符串字面量。若成功，返回
+ * 命令内与字面量内给定字符索引相对应的字符
+ * （而非字节）索引。若不成功，返回 0。
  */
 static int
 match_prosrc_to_query(const char *prosrc, const char *queryText,
 					  int cursorpos)
 {
 	/*
-	 * Rather than fully parsing the original command, we just scan the
-	 * command looking for $prosrc$ or 'prosrc'.  This could be fooled (though
-	 * not in any very probable scenarios), so fail if we find more than one
-	 * match.
+	 * 我们不完全解析原始命令，而只是扫描
+	 * 命令寻找 $prosrc$ 或 'prosrc'。这可能被愚弄（尽管
+	 * 不是很可能的场景），因此若找到多于一个
+	 * 匹配则失败。
 	 */
 	int			prosrclen = strlen(prosrc);
 	int			querylen = strlen(queryText);
@@ -1090,12 +1090,12 @@ match_prosrc_to_query(const char *prosrc, const char *queryText,
 			queryText[curpos + 1 + prosrclen] == '$')
 		{
 			/*
-			 * Found a $foo$ match.  Since there are no embedded quoting
-			 * characters in a dollar-quoted literal, we don't have to do any
-			 * fancy arithmetic; just offset by the starting position.
+			 * 找到 $foo$ 匹配。由于美元引用字面量中没有嵌入的引号
+			 * 字符，我们不必做任何花哨的算术；只需按起始位置
+			 * 偏移即可。
 			 */
 			if (matchpos)
-				return 0;		/* multiple matches, fail */
+				return 0;		/* 多个匹配，失败 */
 			matchpos = pg_mbstrlen_with_len(queryText, curpos + 1)
 				+ cursorpos;
 		}
@@ -1104,11 +1104,11 @@ match_prosrc_to_query(const char *prosrc, const char *queryText,
 										 cursorpos, &newcursorpos))
 		{
 			/*
-			 * Found a 'foo' match.  match_prosrc_to_literal() has adjusted
-			 * for any quotes or backslashes embedded in the literal.
+			 * 找到 'foo' 匹配。match_prosrc_to_literal() 已针对字面量中
+			 * 嵌入的引号或反斜杠做过调整。
 			 */
 			if (matchpos)
-				return 0;		/* multiple matches, fail */
+				return 0;		/* 多个匹配，失败 */
 			matchpos = pg_mbstrlen_with_len(queryText, curpos + 1)
 				+ newcursorpos;
 		}
@@ -1118,12 +1118,12 @@ match_prosrc_to_query(const char *prosrc, const char *queryText,
 }
 
 /*
- * Try to match the given source text to a single-quoted literal.
- * If successful, adjust newcursorpos to correspond to the character
- * (not byte) index corresponding to cursorpos in the source text.
+ * 尝试将给定源文本与单引号字面量匹配。
+ * 若成功，调整 newcursorpos 以对应源文本中
+ * 与 cursorpos 对应的字符（而非字节）索引。
  *
- * At entry, literal points just past a ' character.  We must check for the
- * trailing quote.
+ * 进入时，literal 指向刚过一个 ' 字符的位置。我们必须检查
+ * 尾部引号。
  */
 static bool
 match_prosrc_to_literal(const char *prosrc, const char *literal,
@@ -1133,20 +1133,20 @@ match_prosrc_to_literal(const char *prosrc, const char *literal,
 	int			chlen;
 
 	/*
-	 * This implementation handles backslashes and doubled quotes in the
-	 * string literal.  It does not handle the SQL syntax for literals
-	 * continued across line boundaries.
+	 * 本实现处理字符串字面量中的反斜杠与加倍
+	 * 引号。它不处理跨行延续字面量的
+	 * SQL 语法。
 	 *
-	 * We do the comparison a character at a time, not a byte at a time, so
-	 * that we can do the correct cursorpos math.
+	 * 我们按字符而非按字节比较，以便能做
+	 * 正确的 cursorpos 计算。
 	 */
 	while (*prosrc)
 	{
-		cursorpos--;			/* characters left before cursor */
+		cursorpos--;			/* 光标前剩余的字符 */
 
 		/*
-		 * Check for backslashes and doubled quotes in the literal; adjust
-		 * newcp when one is found before the cursor.
+		 * 检查字面量中的反斜杠与加倍引号；若在光标前
+		 * 找到则调整 newcp。
 		 */
 		if (*literal == '\\')
 		{
@@ -1171,13 +1171,13 @@ match_prosrc_to_literal(const char *prosrc, const char *literal,
 
 	if (*literal == '\'' && literal[1] != '\'')
 	{
-		/* success */
+		/* 成功 */
 		*newcursorpos = newcp;
 		return true;
 	}
 
 fail:
-	/* Must set *newcursorpos to suppress compiler warning */
+	/* 必须设置 *newcursorpos 以抑制编译器警告 */
 	*newcursorpos = newcp;
 	return false;
 }

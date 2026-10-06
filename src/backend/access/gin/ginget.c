@@ -227,7 +227,7 @@ collectMatchBitmap(GinBtreeData *btree, GinBtreeStack *stack,
 
 			/*
 			 * 在树扫描期间应解锁当前页（但不 unpin），
-			 * 以免与 vacuum 进程死锁。
+			 * 以免与清理进程死锁。
 			 *
 			 * 保存当前条目值 (idatum)，以便重新加锁后
 			 * 能重新找到我们的元组
@@ -411,7 +411,7 @@ restartScanEntry:
 
 			/*
 			 * 在接触倒排树之前应解锁条目页，以免与
-			 * vacuum 进程死锁。因为条目从不从页中
+			 * 清理进程死锁。因为条目从不从页中
 			 * 删除，且倒排树从不收缩为
 			 * 倒排列表，在取得倒排树根的
 			 * BlockNumber 后即可解锁该页。
@@ -425,7 +425,7 @@ restartScanEntry:
 
 			/*
 			 * 保持缓冲区钉住，因为需要防止扫描期间
-			 * 删除该页。见 GIN 的 vacuum 实现。增加
+			 * 删除该页。见 GIN 的清理实现。增加
 			 * RefCount，以便 freeGinBtreeStack() 调用后仍钉住。
 			 */
 			IncrBufferRefCount(entry->buffer);
@@ -450,7 +450,7 @@ restartScanEntry:
 			 * 锁定条目叶子页。这比必要的粒度更粗，
 			 * 因为它会与落在同一叶子页上的任何插入
 			 * 冲突，而不仅是我们搜索的精确键。
-			 * 但锁定单个元组需要在插入或 vacuum 使其
+			 * 但锁定单个元组需要在插入或清理使其
 			 * 移动时更新该锁，这似乎
 			 * 过于复杂。
 			 */
@@ -651,7 +651,7 @@ startScan(IndexScanDesc scan)
  * 从倒排树加载下一批项指针。
  *
  * 注意：我们把页复制进 GinScanEntry->list 数组并解锁它，但
- * 保持钉住以防止与 vacuum 互相干扰。
+ * 保持钉住以防止与清理互相干扰。
  */
 static void
 entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
@@ -751,7 +751,7 @@ entryLoadMoreItems(GinState *ginstate, GinScanEntry entry,
 		stepright = true;
 
 		if (GinPageGetOpaque(page)->flags & GIN_DELETED)
-			continue;			/* 页被并发 vacuum 删除 */
+			continue;			/* 页被并发清理删除 */
 
 		/*
 		 * 第一个 > advancePast 的项可能不在本页，而在
@@ -1853,7 +1853,7 @@ scanPendingInsert(IndexScanDesc scan, TIDBitmap *tbm, int64 *ntids)
 
 	/*
 	 * 在解锁元页之前取列表头。头页必须钉住，
-	 * 以防止被 vacuum 进程删除
+	 * 以防止被清理进程删除
 	 */
 	if (blkno == InvalidBlockNumber)
 	{

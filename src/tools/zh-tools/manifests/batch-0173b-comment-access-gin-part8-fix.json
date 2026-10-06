@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0173b-comment-access-gin-part8-fix",
+ "title": "zh: fix access/gin comments (part 8) vacuum wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "683c84b7708c5e7dcbea7124ef16a3e1a820922f",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gin/ginget.c",
+   "kind": "c_comment",
+   "note": "Composer P1: descriptive vacuum → 清理"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0173b-comment-access-gin-part8-fix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gin/ginget.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 143,
+   "translated": 7,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "descriptive vacuum → 清理 (7 sites)"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0173b-comment-access-gin-part8-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0173"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0173b"
+  }
+ ],
+ "notes": "Composer P1 on 0173: replace descriptive vacuum with phrasebook 清理 in ginget.c comments (identifiers like ginvacuum untouched)."
+}

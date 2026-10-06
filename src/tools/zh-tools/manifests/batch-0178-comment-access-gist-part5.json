@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0178-comment-access-gist-part5",
+ "title": "zh: translate access/gist comments (part 5)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "80fee028598920aa915385e4f15ed8131dacbd8d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gist/gistproc.c",
+   "kind": "c_comment",
+   "note": "GiST geometric support procedures"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0178-comment-access-gist-part5.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gist/gistproc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 134,
+   "translated": 127,
+   "preserved": 7,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "commented-out code left in English"
+   ],
+   "note": "GiST geometric support procedures (boxes/polygons/circles/points); Copyright and IDENTIFICATION lines kept in English; commented-out code unchanged"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0178-comment-access-gist-part5.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0178 translates comments in gistproc.c. Copyright and IDENTIFICATION lines stay in English. Commented-out code left in English. No fall-through marker. Next suggested: gistbuild.c."
+}

@@ -1,10 +1,10 @@
 /*-------------------------------------------------------------------------
  *
  * gistproc.c
- *	  Support procedures for GiSTs over 2-D objects (boxes, polygons, circles,
- *	  points).
+ *	  二维对象（盒子、多边形、圆、点）上 GiSTs 的
+ *	  支持过程。
  *
- * This gives R-tree behavior, with Guttman's poly-time split algorithm.
+ * 这给出 R-tree 行为，采用 Guttman 的多项式时间分裂算法。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -40,16 +40,16 @@ static Datum gist_bbox_zorder_abbrev_convert(Datum original, SortSupport ssup);
 static bool gist_bbox_zorder_abbrev_abort(int memtupcount, SortSupport ssup);
 
 
-/* Minimum accepted ratio of split */
+/* 分裂所接受的最小比例 */
 #define LIMIT_RATIO 0.3
 
 
 /**************************************************
- * Box ops
+ * 盒子操作
  **************************************************/
 
 /*
- * Calculates union of two boxes, a and b. The result is stored in *n.
+ * 计算两个盒子 a 与 b 的并集。结果存入 *n。
  */
 static void
 rt_box_union(BOX *n, const BOX *a, const BOX *b)
@@ -61,27 +61,27 @@ rt_box_union(BOX *n, const BOX *a, const BOX *b)
 }
 
 /*
- * Size of a BOX for penalty-calculation purposes.
- * The result can be +Infinity, but not NaN.
+ * 用于惩罚计算的 BOX 大小。
+ * 结果可为 +Infinity，但不能为 NaN。
  */
 static float8
 size_box(const BOX *box)
 {
 	/*
-	 * Check for zero-width cases.  Note that we define the size of a zero-
-	 * by-infinity box as zero.  It's important to special-case this somehow,
-	 * as naively multiplying infinity by zero will produce NaN.
+	 * 检查零宽度情形。注意我们把零宽乘以无穷的盒子的大小
+	 * 定义为零。必须以某种方式特殊处理，因为天真地把无穷
+	 * 乘以零会产生 NaN。
 	 *
-	 * The less-than cases should not happen, but if they do, say "zero".
+	 * 小于情形本不应发生，但若发生则视为"零"。
 	 */
 	if (float8_le(box->high.x, box->low.x) ||
 		float8_le(box->high.y, box->low.y))
 		return 0.0;
 
 	/*
-	 * We treat NaN as larger than +Infinity, so any distance involving a NaN
-	 * and a non-NaN is infinite.  Note the previous check eliminated the
-	 * possibility that the low fields are NaNs.
+	 * 我们把 NaN 视为大于 +Infinity，因此任何涉及 NaN 与
+	 * 非 NaN 的距离都是无穷。注意前一检查已排除 low 字段
+	 * 为 NaNs 的可能。
 	 */
 	if (isnan(box->high.x) || isnan(box->high.y))
 		return get_float8_infinity();
@@ -90,8 +90,8 @@ size_box(const BOX *box)
 }
 
 /*
- * Return amount by which the union of the two boxes is larger than
- * the original BOX's area.  The result can be +Infinity, but not NaN.
+ * 返回两盒子并集相对原 BOX 面积增大的量。
+ * 结果可为 +Infinity，但不能为 NaN。
  */
 static float8
 box_penalty(const BOX *original, const BOX *new)
@@ -103,11 +103,11 @@ box_penalty(const BOX *original, const BOX *new)
 }
 
 /*
- * The GiST Consistent method for boxes
+ * 盒子的 GiST 一致性方法
  *
- * Should return false if for all data items x below entry,
- * the predicate x op query must be false, where op is the oper
- * corresponding to strategy in the pg_amop table.
+ * 若对 entry 下方所有数据项 x，谓词 x op query 必为假，
+ * 则应返回 false，其中 op 是 pg_amop 表中与 strategy
+ * 对应的操作符。
  */
 Datum
 gist_box_consistent(PG_FUNCTION_ARGS)
@@ -119,14 +119,14 @@ gist_box_consistent(PG_FUNCTION_ARGS)
 	/* Oid		subtype = PG_GETARG_OID(3); */
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 
-	/* All cases served by this function are exact */
+	/* 本函数处理的所有情形都是精确的 */
 	*recheck = false;
 
 	if (DatumGetBoxP(entry->key) == NULL || query == NULL)
 		PG_RETURN_BOOL(false);
 
 	/*
-	 * if entry is not leaf, use rtree_internal_consistent, else use
+	 * 若 entry 非叶，用 rtree_internal_consistent，否则用
 	 * gist_box_leaf_consistent
 	 */
 	if (GIST_LEAF(entry))
@@ -140,7 +140,7 @@ gist_box_consistent(PG_FUNCTION_ARGS)
 }
 
 /*
- * Increase BOX b to include addon.
+ * 扩大 BOX b 以包含 addon。
  */
 static void
 adjustBox(BOX *b, const BOX *addon)
@@ -156,9 +156,9 @@ adjustBox(BOX *b, const BOX *addon)
 }
 
 /*
- * The GiST Union method for boxes
+ * 盒子的 GiST 联合方法
  *
- * returns the minimal bounding box that encloses all the entries in entryvec
+ * 返回包围 entryvec 中全部项的最小边界框
  */
 Datum
 gist_box_union(PG_FUNCTION_ARGS)
@@ -186,14 +186,14 @@ gist_box_union(PG_FUNCTION_ARGS)
 }
 
 /*
- * We store boxes as boxes in GiST indexes, so we do not need
- * compress, decompress, or fetch functions.
+ * 我们在 GiST 索引中按盒子存储盒子，因此不需要
+ * 压缩、解压或取回函数。
  */
 
 /*
- * The GiST Penalty method for boxes (also used for points)
+ * 盒子的 GiST 惩罚方法（点也使用）
  *
- * As in the R-tree paper, we use change in area as our penalty metric
+ * 与 R-tree 论文一样，我们用面积变化作为惩罚度量
  */
 Datum
 gist_box_penalty(PG_FUNCTION_ARGS)
@@ -209,8 +209,8 @@ gist_box_penalty(PG_FUNCTION_ARGS)
 }
 
 /*
- * Trivial split: half of entries will be placed on one page
- * and another half - to another
+ * 平凡分裂：一半项放到一页，
+ * 另一半放到另一页
  */
 static void
 fallbackSplit(GistEntryVector *entryvec, GIST_SPLITVEC *v)
@@ -265,42 +265,42 @@ fallbackSplit(GistEntryVector *entryvec, GIST_SPLITVEC *v)
 }
 
 /*
- * Represents information about an entry that can be placed to either group
- * without affecting overlap over selected axis ("common entry").
+ * 表示可放入任一组而不影响所选轴上重叠的项
+ * 的信息（"公共项"）。
  */
 typedef struct
 {
-	/* Index of entry in the initial array */
+	/* 项在初始数组中的下标 */
 	int			index;
-	/* Delta between penalties of entry insertion into different groups */
+	/* 把项插入不同组时惩罚之差 */
 	float8		delta;
 } CommonEntry;
 
 /*
- * Context for g_box_consider_split. Contains information about currently
- * selected split and some general information.
+ * g_box_consider_split 的上下文。包含当前已选
+ * 分裂以及若干一般信息。
  */
 typedef struct
 {
-	int			entriesCount;	/* total number of entries being split */
-	BOX			boundingBox;	/* minimum bounding box across all entries */
+	int			entriesCount;	/* 正在分裂的项总数 */
+	BOX			boundingBox;	/* 全部项上的最小边界框 */
 
-	/* Information about currently selected split follows */
+	/* 以下为当前已选分裂的信息 */
 
-	bool		first;			/* true if no split was selected yet */
+	bool		first;			/* 为真表示尚未选定任何分裂 */
 
-	float8		leftUpper;		/* upper bound of left interval */
-	float8		rightLower;		/* lower bound of right interval */
+	float8		leftUpper;		/* 左区间的上界 */
+	float8		rightLower;		/* 右区间的下界 */
 
 	float4		ratio;
 	float4		overlap;
-	int			dim;			/* axis of this split */
-	float8		range;			/* width of general MBR projection to the
-								 * selected axis */
+	int			dim;			/* 此次分裂的轴 */
+	float8		range;			/* 总体 MBR 投影到所
+								 * 选轴上的宽度 */
 } ConsiderSplitContext;
 
 /*
- * Interval represents projection of box to axis.
+ * Interval 表示盒子到轴上的投影。
  */
 typedef struct
 {
@@ -309,7 +309,7 @@ typedef struct
 } SplitInterval;
 
 /*
- * Interval comparison function by lower bound of the interval;
+ * 按区间下界比较的区间比较函数；
  */
 static int
 interval_cmp_lower(const void *i1, const void *i2)
@@ -321,7 +321,7 @@ interval_cmp_lower(const void *i1, const void *i2)
 }
 
 /*
- * Interval comparison function by upper bound of the interval;
+ * 按区间上界比较的区间比较函数；
  */
 static int
 interval_cmp_upper(const void *i1, const void *i2)
@@ -333,7 +333,7 @@ interval_cmp_upper(const void *i1, const void *i2)
 }
 
 /*
- * Replace negative (or NaN) value with zero.
+ * 把负值（或 NaN）替换为零。
  */
 static inline float
 non_negative(float val)
@@ -345,7 +345,7 @@ non_negative(float val)
 }
 
 /*
- * Consider replacement of currently selected split with the better one.
+ * 考虑用更好的分裂替换当前已选分裂。
  */
 static inline void
 g_box_consider_split(ConsiderSplitContext *context, int dimNum,
@@ -359,8 +359,8 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 	float8		range;
 
 	/*
-	 * Calculate entries distribution ratio assuming most uniform distribution
-	 * of common entries.
+	 * 在假定公共项尽可能均匀分布的前提下，
+	 * 计算项分布比例。
 	 */
 	if (minLeftCount >= (context->entriesCount + 1) / 2)
 	{
@@ -376,8 +376,8 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 	rightCount = context->entriesCount - leftCount;
 
 	/*
-	 * Ratio of split - quotient between size of lesser group and total
-	 * entries count.
+	 * 分裂比例——较小一组的大小与项总数
+	 * 之商。
 	 */
 	ratio = float4_div(Min(leftCount, rightCount), context->entriesCount);
 
@@ -386,11 +386,11 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 		bool		selectthis = false;
 
 		/*
-		 * The ratio is acceptable, so compare current split with previously
-		 * selected one. Between splits of one dimension we search for minimal
-		 * overlap (allowing negative values) and minimal ration (between same
-		 * overlaps. We switch dimension if find less overlap (non-negative)
-		 * or less range with same overlap.
+		 * 比例可接受，因此拿当前分裂与先前选定的
+		 * 比较。同一维的分裂中，我们寻找最小重叠
+		 * （允许负值）以及相同重叠下的最小比例。
+		 * 若找到更小（非负）重叠或相同重叠下更小
+		 * 的范围，则切换维度。
 		 */
 		if (dimNum == 0)
 			range = float8_mi(context->boundingBox.high.x,
@@ -401,14 +401,14 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 
 		overlap = float8_div(float8_mi(leftUpper, rightLower), range);
 
-		/* If there is no previous selection, select this */
+		/* 若尚无先前选定，则选此分裂 */
 		if (context->first)
 			selectthis = true;
 		else if (context->dim == dimNum)
 		{
 			/*
-			 * Within the same dimension, choose the new split if it has a
-			 * smaller overlap, or same overlap but better ratio.
+			 * 在同一维内，若新分裂有更小重叠，或
+			 * 重叠相同但比例更好，则选用它。
 			 */
 			if (overlap < context->overlap ||
 				(overlap == context->overlap && ratio > context->ratio))
@@ -417,21 +417,21 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 		else
 		{
 			/*
-			 * Across dimensions, choose the new split if it has a smaller
-			 * *non-negative* overlap, or same *non-negative* overlap but
-			 * bigger range. This condition differs from the one described in
-			 * the article. On the datasets where leaf MBRs don't overlap
-			 * themselves, non-overlapping splits (i.e. splits which have zero
-			 * *non-negative* overlap) are frequently possible. In this case
-			 * splits tends to be along one dimension, because most distant
-			 * non-overlapping splits (i.e. having lowest negative overlap)
-			 * appears to be in the same dimension as in the previous split.
-			 * Therefore MBRs appear to be very prolonged along another
-			 * dimension, which leads to bad search performance. Using range
-			 * as the second split criteria makes MBRs more quadratic. Using
-			 * *non-negative* overlap instead of overlap as the first split
-			 * criteria gives to range criteria a chance to matter, because
-			 * non-overlapping splits are equivalent in this criteria.
+			 * 跨维度时，若新分裂有更小的*非负*重叠，
+			 * 或相同*非负*重叠但范围更大，则选用它。
+			 * 此条件与文中所述不同。在叶 MBRs 自身
+			 * 不重叠的数据集上，非重叠分裂（即具有
+			 * 零*非负*重叠的分裂）经常可行。此时分
+			 * 裂倾向于沿同一维进行，因为最远的非重
+			 * 叠分裂（即负重叠最低者）往往出现在与
+			 * 前次分裂相同的维度上。于是 MBRs 会沿另
+			 * 一维变得非常细长，从而导致搜索性能变
+			 * 差。把范围作为第二分裂准则可使 MBRs 更
+			 * 接近方形。把*非负*重叠而不是重叠作为
+			 * 第一分裂准则，能让范围准则有机会起作
+			 * 用，因为非重叠分裂在这一准则下是彼此
+			 * 等价的，范围便可成为有效的决胜因素。
+			 * 这有助于避免 MBR 沿单一维度过度拉长。
 			 */
 			if (non_negative(overlap) < non_negative(context->overlap) ||
 				(range > context->range &&
@@ -441,7 +441,7 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 
 		if (selectthis)
 		{
-			/* save information about selected split */
+			/* 保存所选分裂的信息 */
 			context->first = false;
 			context->ratio = ratio;
 			context->range = range;
@@ -454,7 +454,7 @@ g_box_consider_split(ConsiderSplitContext *context, int dimNum,
 }
 
 /*
- * Compare common entries by their deltas.
+ * 按 delta 比较公共项。
  */
 static int
 common_entry_cmp(const void *i1, const void *i2)
@@ -467,26 +467,26 @@ common_entry_cmp(const void *i1, const void *i2)
 
 /*
  * --------------------------------------------------------------------------
- * Double sorting split algorithm. This is used for both boxes and points.
+ * 双重排序分裂算法。盒子与点都使用此算法。
  *
- * The algorithm finds split of boxes by considering splits along each axis.
- * Each entry is first projected as an interval on the X-axis, and different
- * ways to split the intervals into two groups are considered, trying to
- * minimize the overlap of the groups. Then the same is repeated for the
- * Y-axis, and the overall best split is chosen. The quality of a split is
- * determined by overlap along that axis and some other criteria (see
- * g_box_consider_split).
+ * 算法沿各轴考虑分裂，以找到盒子的分裂方式。
+ * 每个项先投影为 X 轴上的区间，再考虑把区间
+ * 分成两组的不同方式，力求使两组重叠最小。
+ * 然后对 Y 轴重复同样过程，并选出总体最佳
+ * 分裂。分裂质量由该轴上的重叠及其他若干准则
+ * 决定（见
+ * g_box_consider_split）。
  *
- * After that, all the entries are divided into three groups:
+ * 之后，全部项被分成三组：
  *
- * 1) Entries which should be placed to the left group
- * 2) Entries which should be placed to the right group
- * 3) "Common entries" which can be placed to any of groups without affecting
- *	  of overlap along selected axis.
+ * 1) 应放入左组的项
+ * 2) 应放入右组的项
+ * 3) "公共项"：可放入任一组而不影响
+ *	所选轴上的重叠。
  *
- * The common entries are distributed by minimizing penalty.
+ * 公共项通过最小化惩罚来分配。
  *
- * For details see:
+ * 细节见：
  * "A new double sorting-based node splitting algorithm for R-tree", A. Korotkov
  * http://syrcose.ispras.ru/2011/files/SYRCoSE2011_Proceedings.pdf#page=36
  * --------------------------------------------------------------------------
@@ -514,12 +514,12 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 	maxoff = entryvec->n - 1;
 	nentries = context.entriesCount = maxoff - FirstOffsetNumber + 1;
 
-	/* Allocate arrays for intervals along axes */
+	/* 为各轴上的区间分配数组 */
 	intervalsLower = (SplitInterval *) palloc(nentries * sizeof(SplitInterval));
 	intervalsUpper = (SplitInterval *) palloc(nentries * sizeof(SplitInterval));
 
 	/*
-	 * Calculate the overall minimum bounding box over all the entries.
+	 * 计算全部项上的总体最小边界框。
 	 */
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -531,9 +531,9 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Iterate over axes for optimal split searching.
+	 * 沿各轴迭代以搜索最优分裂。
 	 */
-	context.first = true;		/* nothing selected yet */
+	context.first = true;		/* 尚未选定任何分裂 */
 	for (dim = 0; dim < 2; dim++)
 	{
 		float8		leftUpper,
@@ -541,7 +541,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		int			i1,
 					i2;
 
-		/* Project each entry as an interval on the selected axis. */
+		/* 把每个项投影为所选轴上的区间。 */
 		for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 		{
 			box = DatumGetBoxP(entryvec->vector[i].key);
@@ -558,8 +558,8 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Make two arrays of intervals: one sorted by lower bound and another
-		 * sorted by upper bound.
+		 * 制作两个区间数组：一个按下界排序，另一个
+		 * 按上界排序。
 		 */
 		memcpy(intervalsUpper, intervalsLower,
 			   sizeof(SplitInterval) * nentries);
@@ -569,10 +569,10 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 			  interval_cmp_upper);
 
 		/*----
-		 * The goal is to form a left and right interval, so that every entry
-		 * interval is contained by either left or right interval (or both).
+		 * 目标是形成左、右区间，使每个项
+		 * 区间都包含于左区间或右区间（或两者）。
 		 *
-		 * For example, with the intervals (0,1), (1,3), (2,3), (2,4):
+		 * 例如，对区间 (0,1)、(1,3)、(2,3)、(2,4)：
 		 *
 		 * 0 1 2 3 4
 		 * +-+
@@ -580,27 +580,27 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		 *	   +-+
 		 *	   +---+
 		 *
-		 * The left and right intervals are of the form (0,a) and (b,4).
-		 * We first consider splits where b is the lower bound of an entry.
-		 * We iterate through all entries, and for each b, calculate the
-		 * smallest possible a. Then we consider splits where a is the
-		 * upper bound of an entry, and for each a, calculate the greatest
-		 * possible b.
+		 * 左、右区间形如 (0,a) 与 (b,4)。
+		 * 我们先考虑 b 为某项下界的分裂。
+		 * 遍历全部项，对每个 b 计算尽可能小的
+		 * a。再考虑 a 为某项上界的分裂，对每个
+		 * a 计算尽可能大的
+		 * b。
 		 *
-		 * In the above example, the first loop would consider splits:
+		 * 上例中，第一轮循环会考虑分裂：
 		 * b=0: (0,1)-(0,4)
 		 * b=1: (0,1)-(1,4)
 		 * b=2: (0,3)-(2,4)
 		 *
-		 * And the second loop:
+		 * 第二轮循环：
 		 * a=1: (0,1)-(1,4)
 		 * a=3: (0,3)-(2,4)
 		 * a=4: (0,4)-(2,4)
 		 */
 
 		/*
-		 * Iterate over lower bound of right group, finding smallest possible
-		 * upper bound of left group.
+		 * 遍历右组下界，寻找左组尽可能小的
+		 * 上界。
 		 */
 		i1 = 0;
 		i2 = 0;
@@ -609,7 +609,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		while (true)
 		{
 			/*
-			 * Find next lower bound of right group.
+			 * 寻找右组的下一个下界。
 			 */
 			while (i1 < nentries &&
 				   float8_eq(rightLower, intervalsLower[i1].lower))
@@ -623,22 +623,22 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 			rightLower = intervalsLower[i1].lower;
 
 			/*
-			 * Find count of intervals which anyway should be placed to the
-			 * left group.
+			 * 统计无论如何都应放入左组的
+			 * 区间个数。
 			 */
 			while (i2 < nentries &&
 				   float8_le(intervalsUpper[i2].upper, leftUpper))
 				i2++;
 
 			/*
-			 * Consider found split.
+			 * 考虑找到的分裂。
 			 */
 			g_box_consider_split(&context, dim, rightLower, i1, leftUpper, i2);
 		}
 
 		/*
-		 * Iterate over upper bound of left group finding greatest possible
-		 * lower bound of right group.
+		 * 遍历左组上界，寻找右组尽可能大的
+		 * 下界。
 		 */
 		i1 = nentries - 1;
 		i2 = nentries - 1;
@@ -647,7 +647,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		while (true)
 		{
 			/*
-			 * Find next upper bound of left group.
+			 * 寻找左组的下一个上界。
 			 */
 			while (i2 >= 0 && float8_eq(leftUpper, intervalsUpper[i2].upper))
 			{
@@ -660,14 +660,14 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 			leftUpper = intervalsUpper[i2].upper;
 
 			/*
-			 * Find count of intervals which anyway should be placed to the
-			 * right group.
+			 * 统计无论如何都应放入右组的
+			 * 区间个数。
 			 */
 			while (i1 >= 0 && float8_ge(intervalsLower[i1].lower, rightLower))
 				i1--;
 
 			/*
-			 * Consider found split.
+			 * 考虑找到的分裂。
 			 */
 			g_box_consider_split(&context, dim,
 								 rightLower, i1 + 1, leftUpper, i2 + 1);
@@ -675,7 +675,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If we failed to find any acceptable splits, use trivial split.
+	 * 若未能找到任何可接受的分裂，则使用平凡分裂。
 	 */
 	if (context.first)
 	{
@@ -684,31 +684,31 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Ok, we have now selected the split across one axis.
+	 * 好了，现已沿某一轴选定了分裂。
 	 *
-	 * While considering the splits, we already determined that there will be
-	 * enough entries in both groups to reach the desired ratio, but we did
-	 * not memorize which entries go to which group. So determine that now.
+	 * 考虑分裂时我们已确定两组都会有足够的项以达到
+	 * 期望比例，但并未记下哪些项进哪一组。所以现在
+	 * 来确定这一点。
 	 */
 
-	/* Allocate vectors for results */
+	/* 为结果分配向量 */
 	v->spl_left = (OffsetNumber *) palloc(nentries * sizeof(OffsetNumber));
 	v->spl_right = (OffsetNumber *) palloc(nentries * sizeof(OffsetNumber));
 	v->spl_nleft = 0;
 	v->spl_nright = 0;
 
-	/* Allocate bounding boxes of left and right groups */
+	/* 为左、右组分配边界框 */
 	leftBox = palloc0(sizeof(BOX));
 	rightBox = palloc0(sizeof(BOX));
 
 	/*
-	 * Allocate an array for "common entries" - entries which can be placed to
-	 * either group without affecting overlap along selected axis.
+	 * 为"公共项"分配数组——即可放入任一组而不影响
+	 * 所选轴上重叠的项。
 	 */
 	commonEntriesCount = 0;
 	commonEntries = (CommonEntry *) palloc(nentries * sizeof(CommonEntry));
 
-	/* Helper macros to place an entry in the left or right group */
+	/* 把项放入左组或右组的辅助宏 */
 #define PLACE_LEFT(box, off)					\
 	do {										\
 		if (v->spl_nleft > 0)					\
@@ -728,8 +728,8 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 	} while(0)
 
 	/*
-	 * Distribute entries which can be distributed unambiguously, and collect
-	 * common entries.
+	 * 分配可明确归组的项，并收集
+	 * 公共项。
 	 */
 	for (i = FirstOffsetNumber; i <= maxoff; i = OffsetNumberNext(i))
 	{
@@ -737,7 +737,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 					upper;
 
 		/*
-		 * Get upper and lower bounds along selected axis.
+		 * 沿所选轴取得上、下界。
 		 */
 		box = DatumGetBoxP(entryvec->vector[i].key);
 		if (context.dim == 0)
@@ -753,46 +753,46 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 
 		if (float8_le(upper, context.leftUpper))
 		{
-			/* Fits to the left group */
+			/* 适合左组 */
 			if (float8_ge(lower, context.rightLower))
 			{
-				/* Fits also to the right group, so "common entry" */
+				/* 也适合右组，故为"公共项" */
 				commonEntries[commonEntriesCount++].index = i;
 			}
 			else
 			{
-				/* Doesn't fit to the right group, so join to the left group */
+				/* 不适合右组，因此加入左组 */
 				PLACE_LEFT(box, i);
 			}
 		}
 		else
 		{
 			/*
-			 * Each entry should fit on either left or right group. Since this
-			 * entry didn't fit on the left group, it better fit in the right
-			 * group.
+			 * 每个项都应适合左组或右组之一。既然此项
+			 * 不适合左组，就应当适合
+			 * 右组。
 			 */
 			Assert(float8_ge(lower, context.rightLower));
 
-			/* Doesn't fit to the left group, so join to the right group */
+			/* 不适合左组，因此加入右组 */
 			PLACE_RIGHT(box, i);
 		}
 	}
 
 	/*
-	 * Distribute "common entries", if any.
+	 * 若有"公共项"则分配之。
 	 */
 	if (commonEntriesCount > 0)
 	{
 		/*
-		 * Calculate minimum number of entries that must be placed in both
-		 * groups, to reach LIMIT_RATIO.
+		 * 计算为达到 LIMIT_RATIO，两组各自必须放入的
+		 * 最少项数。
 		 */
 		int			m = ceil(LIMIT_RATIO * nentries);
 
 		/*
-		 * Calculate delta between penalties of join "common entries" to
-		 * different groups.
+		 * 计算把"公共项"加入不同组时惩罚
+		 * 之差。
 		 */
 		for (i = 0; i < commonEntriesCount; i++)
 		{
@@ -802,21 +802,21 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 		}
 
 		/*
-		 * Sort "common entries" by calculated deltas in order to distribute
-		 * the most ambiguous entries first.
+		 * 按算出的 delta 对"公共项"排序，以便先分配
+		 * 最含糊的项。
 		 */
 		qsort(commonEntries, commonEntriesCount, sizeof(CommonEntry), common_entry_cmp);
 
 		/*
-		 * Distribute "common entries" between groups.
+		 * 在两组之间分配"公共项"。
 		 */
 		for (i = 0; i < commonEntriesCount; i++)
 		{
 			box = DatumGetBoxP(entryvec->vector[commonEntries[i].index].key);
 
 			/*
-			 * Check if we have to place this entry in either group to achieve
-			 * LIMIT_RATIO.
+			 * 检查是否必须把此项放入某一组才能达到
+			 * LIMIT_RATIO。
 			 */
 			if (v->spl_nleft + (commonEntriesCount - i) <= m)
 				PLACE_LEFT(box, commonEntries[i].index);
@@ -824,7 +824,7 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 				PLACE_RIGHT(box, commonEntries[i].index);
 			else
 			{
-				/* Otherwise select the group by minimal penalty */
+				/* 否则按最小惩罚选择组 */
 				if (box_penalty(leftBox, box) < box_penalty(rightBox, box))
 					PLACE_LEFT(box, commonEntries[i].index);
 				else
@@ -839,14 +839,14 @@ gist_box_picksplit(PG_FUNCTION_ARGS)
 }
 
 /*
- * Equality method
+ * 相等方法
  *
- * This is used for boxes, points, circles, and polygons, all of which store
- * boxes as GiST index entries.
+ * 盒子、点、圆和多边形都使用此方法；它们都以
+ * 盒子作为 GiST 索引项存储。
  *
- * Returns true only when boxes are exactly the same.  We can't use fuzzy
- * comparisons here without breaking index consistency; therefore, this isn't
- * equivalent to box_same().
+ * 仅当盒子完全相同时返回 true。这里不能用模糊
+ * 比较，否则会破坏索引一致性；因此这并不等价于
+ * box_same()。
  */
 Datum
 gist_box_same(PG_FUNCTION_ARGS)
@@ -866,7 +866,7 @@ gist_box_same(PG_FUNCTION_ARGS)
 }
 
 /*
- * Leaf-level consistency for boxes: just apply the query operator
+ * 盒子的叶级一致性：直接应用查询操作符
  */
 static bool
 gist_box_leaf_consistent(BOX *key, BOX *query, StrategyNumber strategy)
@@ -937,21 +937,21 @@ gist_box_leaf_consistent(BOX *key, BOX *query, StrategyNumber strategy)
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			retval = false;		/* keep compiler quiet */
+			retval = false;		/* 让编译器保持安静 */
 			break;
 	}
 	return retval;
 }
 
 /*****************************************
- * Common rtree functions (for boxes, polygons, and circles)
+ * 公共 rtree 函数（用于盒子、多边形和圆）
  *****************************************/
 
 /*
- * Internal-page consistency for all these types
+ * 这些类型的内部页一致性
  *
- * We can use the same function since all types use bounding boxes as the
- * internal-page representation.
+ * 可用同一函数，因为各类型都以边界框作为
+ * 内部页表示。
  */
 static bool
 rtree_internal_consistent(BOX *key, BOX *query, StrategyNumber strategy)
@@ -1018,18 +1018,18 @@ rtree_internal_consistent(BOX *key, BOX *query, StrategyNumber strategy)
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			retval = false;		/* keep compiler quiet */
+			retval = false;		/* 让编译器保持安静 */
 			break;
 	}
 	return retval;
 }
 
 /**************************************************
- * Polygon ops
+ * 多边形操作
  **************************************************/
 
 /*
- * GiST compress for polygons: represent a polygon by its bounding box
+ * 多边形的 GiST 压缩：用其边界框表示多边形
  */
 Datum
 gist_poly_compress(PG_FUNCTION_ARGS)
@@ -1056,7 +1056,7 @@ gist_poly_compress(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST Consistent method for polygons
+ * 多边形的 GiST 一致性方法
  */
 Datum
 gist_poly_consistent(PG_FUNCTION_ARGS)
@@ -1069,32 +1069,32 @@ gist_poly_consistent(PG_FUNCTION_ARGS)
 	bool	   *recheck = (bool *) PG_GETARG_POINTER(4);
 	bool		result;
 
-	/* All cases served by this function are inexact */
+	/* 本函数处理的所有情形都是不精确的 */
 	*recheck = true;
 
 	if (DatumGetBoxP(entry->key) == NULL || query == NULL)
 		PG_RETURN_BOOL(false);
 
 	/*
-	 * Since the operators require recheck anyway, we can just use
-	 * rtree_internal_consistent even at leaf nodes.  (This works in part
-	 * because the index entries are bounding boxes not polygons.)
+	 * 既然操作符反正需要重检，即使在叶节点也可直接用
+	 * rtree_internal_consistent。（这之所以可行，部分
+	 * 是因为索引项是边界框而非多边形。）
 	 */
 	result = rtree_internal_consistent(DatumGetBoxP(entry->key),
 									   &(query->boundbox), strategy);
 
-	/* Avoid memory leak if supplied poly is toasted */
+	/* 若传入的多边形已 toast，避免内存泄漏 */
 	PG_FREE_IF_COPY(query, 1);
 
 	PG_RETURN_BOOL(result);
 }
 
 /**************************************************
- * Circle ops
+ * 圆操作
  **************************************************/
 
 /*
- * GiST compress for circles: represent a circle by its bounding box
+ * 圆的 GiST 压缩：用其边界框表示圆
  */
 Datum
 gist_circle_compress(PG_FUNCTION_ARGS)
@@ -1124,7 +1124,7 @@ gist_circle_compress(PG_FUNCTION_ARGS)
 }
 
 /*
- * The GiST Consistent method for circles
+ * 圆的 GiST 一致性方法
  */
 Datum
 gist_circle_consistent(PG_FUNCTION_ARGS)
@@ -1138,16 +1138,16 @@ gist_circle_consistent(PG_FUNCTION_ARGS)
 	BOX			bbox;
 	bool		result;
 
-	/* All cases served by this function are inexact */
+	/* 本函数处理的所有情形都是不精确的 */
 	*recheck = true;
 
 	if (DatumGetBoxP(entry->key) == NULL || query == NULL)
 		PG_RETURN_BOOL(false);
 
 	/*
-	 * Since the operators require recheck anyway, we can just use
-	 * rtree_internal_consistent even at leaf nodes.  (This works in part
-	 * because the index entries are bounding boxes not circles.)
+	 * 既然操作符反正需要重检，即使在叶节点也可直接用
+	 * rtree_internal_consistent。（这之所以可行，部分
+	 * 是因为索引项是边界框而非圆。）
 	 */
 	bbox.high.x = float8_pl(query->center.x, query->radius);
 	bbox.low.x = float8_mi(query->center.x, query->radius);
@@ -1161,7 +1161,7 @@ gist_circle_consistent(PG_FUNCTION_ARGS)
 }
 
 /**************************************************
- * Point ops
+ * 点操作
  **************************************************/
 
 Datum
@@ -1169,7 +1169,7 @@ gist_point_compress(PG_FUNCTION_ARGS)
 {
 	GISTENTRY  *entry = (GISTENTRY *) PG_GETARG_POINTER(0);
 
-	if (entry->leafkey)			/* Point, actually */
+	if (entry->leafkey)			/* 实际上是点 */
 	{
 		BOX		   *box = palloc(sizeof(BOX));
 		Point	   *point = DatumGetPointP(entry->key);
@@ -1187,10 +1187,10 @@ gist_point_compress(PG_FUNCTION_ARGS)
 }
 
 /*
- * GiST Fetch method for point
+ * 点的 GiST 取回方法
  *
- * Get point coordinates from its bounding box coordinates and form new
- * gistentry.
+ * 从边界框坐标取得点坐标并形成新的
+ * gistentry。
  */
 Datum
 gist_point_fetch(PG_FUNCTION_ARGS)
@@ -1224,18 +1224,18 @@ computeDistance(bool isLeaf, BOX *box, Point *point)
 
 	if (isLeaf)
 	{
-		/* simple point to point distance */
+		/* 简单的点到点距离 */
 		result = point_point_distance(point, &box->low);
 	}
 	else if (point->x <= box->high.x && point->x >= box->low.x &&
 			 point->y <= box->high.y && point->y >= box->low.y)
 	{
-		/* point inside the box */
+		/* 点在盒子内部 */
 		result = 0.0;
 	}
 	else if (point->x <= box->high.x && point->x >= box->low.x)
 	{
-		/* point is over or below box */
+		/* 点在盒子上方或下方 */
 		Assert(box->low.y <= box->high.y);
 		if (point->y > box->high.y)
 			result = float8_mi(point->y, box->high.y);
@@ -1246,7 +1246,7 @@ computeDistance(bool isLeaf, BOX *box, Point *point)
 	}
 	else if (point->y <= box->high.y && point->y >= box->low.y)
 	{
-		/* point is to left or right of box */
+		/* 点在盒子左侧或右侧 */
 		Assert(box->low.x <= box->high.x);
 		if (point->x > box->high.x)
 			result = float8_mi(point->x, box->high.x);
@@ -1257,7 +1257,7 @@ computeDistance(bool isLeaf, BOX *box, Point *point)
 	}
 	else
 	{
-		/* closest point will be a vertex */
+		/* 最近点将是一个顶点 */
 		Point		p;
 		float8		subresult;
 
@@ -1306,7 +1306,7 @@ gist_point_consistent_internal(StrategyNumber strategy,
 		case RTSameStrategyNumber:
 			if (isLeaf)
 			{
-				/* key.high must equal key.low, so we can disregard it */
+				/* key.high 必等于 key.low，故可忽略它 */
 				result = (FPeq(key->low.x, query->x) &&
 						  FPeq(key->low.y, query->y));
 			}
@@ -1320,7 +1320,7 @@ gist_point_consistent_internal(StrategyNumber strategy,
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			result = false;		/* keep compiler quiet */
+			result = false;		/* 让编译器保持安静 */
 			break;
 	}
 
@@ -1343,8 +1343,8 @@ gist_point_consistent(PG_FUNCTION_ARGS)
 	StrategyNumber strategyGroup;
 
 	/*
-	 * We have to remap these strategy numbers to get this klugy
-	 * classification logic to work.
+	 * 必须重新映射这些策略号，才能让这套笨拙的
+	 * 分类逻辑工作。
 	 */
 	if (strategy == RTOldBelowStrategyNumber)
 		strategy = RTBelowStrategyNumber;
@@ -1364,16 +1364,16 @@ gist_point_consistent(PG_FUNCTION_ARGS)
 		case BoxStrategyNumberGroup:
 			{
 				/*
-				 * The only operator in this group is point <@ box (on_pb), so
-				 * we needn't examine strategy again.
+				 * 本组唯一操作符是 point <@ box (on_pb)，因此
+				 * 不必再检查 strategy。
 				 *
-				 * For historical reasons, on_pb uses exact rather than fuzzy
-				 * comparisons.  We could use box_overlap when at an internal
-				 * page, but that would lead to possibly visiting child pages
-				 * uselessly, because box_overlap uses fuzzy comparisons.
-				 * Instead we write a non-fuzzy overlap test.  The same code
-				 * will also serve for leaf-page tests, since leaf keys have
-				 * high == low.
+				 * 由于历史原因，on_pb 使用精确而非模糊
+				 * 比较。在内部页本可用 box_overlap，但那会
+				 * 导致可能无谓访问子页，因为 box_overlap
+				 * 使用模糊比较。于是我们改写非模糊重叠
+				 * 测试。同一代码也适用于叶页测试，因为
+				 * 叶键满足 high == low。
+				 * 这样可避免因模糊比较而多余地下钻。
 				 */
 				BOX		   *query,
 						   *key;
@@ -1401,8 +1401,8 @@ gist_point_consistent(PG_FUNCTION_ARGS)
 				if (GIST_LEAF(entry) && result)
 				{
 					/*
-					 * We are on leaf page and quick check shows overlapping
-					 * of polygon's bounding box and point
+					 * 我们在叶页上，且快速检查显示多边形的
+					 * 边界框与点重叠
 					 */
 					BOX		   *box = DatumGetBoxP(entry->key);
 
@@ -1428,8 +1428,8 @@ gist_point_consistent(PG_FUNCTION_ARGS)
 				if (GIST_LEAF(entry) && result)
 				{
 					/*
-					 * We are on leaf page and quick check shows overlapping
-					 * of polygon's bounding box and point
+					 * 我们在叶页上，且快速检查显示多边形的
+					 * 边界框与点重叠
 					 */
 					BOX		   *box = DatumGetBoxP(entry->key);
 
@@ -1444,7 +1444,7 @@ gist_point_consistent(PG_FUNCTION_ARGS)
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			result = false;		/* keep compiler quiet */
+			result = false;		/* 让编译器保持安静 */
 			break;
 	}
 
@@ -1468,7 +1468,7 @@ gist_point_distance(PG_FUNCTION_ARGS)
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			distance = 0.0;		/* keep compiler quiet */
+			distance = 0.0;		/* 让编译器保持安静 */
 			break;
 	}
 
@@ -1490,7 +1490,7 @@ gist_bbox_distance(GISTENTRY *entry, Datum query, StrategyNumber strategy)
 			break;
 		default:
 			elog(ERROR, "unrecognized strategy number: %d", strategy);
-			distance = 0.0;		/* keep compiler quiet */
+			distance = 0.0;		/* 让编译器保持安静 */
 	}
 
 	return distance;
@@ -1513,14 +1513,14 @@ gist_box_distance(PG_FUNCTION_ARGS)
 }
 
 /*
- * The inexact GiST distance methods for geometric types that store bounding
- * boxes.
+ * 以边界框存储的几何类型的不精确 GiST 距离
+ * 方法。
  *
- * Compute lossy distance from point to index entries.  The result is inexact
- * because index entries are bounding boxes, not the exact shapes of the
- * indexed geometric types.  We use distance from point to MBR of index entry.
- * This is a lower bound estimate of distance from point to indexed geometric
- * type.
+ * 计算点到索引项的有损距离。结果不精确，因为
+ * 索引项是边界框，而非被索引几何类型的确切
+ * 形状。我们使用点到索引项 MBR 的距离。这是
+ * 点到被索引几何类型距离的下界估计。
+ * 因此可用于排序与剪枝，但不是最终精确距离。
  */
 Datum
 gist_circle_distance(PG_FUNCTION_ARGS)
@@ -1557,19 +1557,19 @@ gist_poly_distance(PG_FUNCTION_ARGS)
 }
 
 /*
- * Z-order routines for fast index build
+ * 用于快速索引构建的 Z 序例程
  */
 
 /*
- * Compute Z-value of a point
+ * 计算点的 Z 值
  *
- * Z-order (also known as Morton Code) maps a two-dimensional point to a
- * single integer, in a way that preserves locality. Points that are close in
- * the two-dimensional space are mapped to integer that are not far from each
- * other. We do that by interleaving the bits in the X and Y components.
+ * Z 序（亦称 Morton 码）把二维点映射为单个
+ * 整数，并保持局部性。二维空间中相近的点会
+ * 被映射为彼此不太远的整数。做法是交错 X、
+ * Y 分量的各位。
  *
- * Morton Code is normally defined only for integers, but the X and Y values
- * of a point are floating point. We expect floats to be in IEEE format.
+ * Morton 码通常只对整数定义，但点的 X、Y
+ * 值是浮点数。我们期望浮点数为 IEEE 格式。
  */
 static uint64
 point_zorder_internal(float4 x, float4 y)
@@ -1577,11 +1577,11 @@ point_zorder_internal(float4 x, float4 y)
 	uint32		ix = ieee_float32_to_uint32(x);
 	uint32		iy = ieee_float32_to_uint32(y);
 
-	/* Interleave the bits */
+	/* 交错各位 */
 	return part_bits32_by2(ix) | (part_bits32_by2(iy) << 1);
 }
 
-/* Interleave 32 bits with zeroes */
+/* 用零交错 32 位 */
 static uint64
 part_bits32_by2(uint32 x)
 {
@@ -1597,50 +1597,50 @@ part_bits32_by2(uint32 x)
 }
 
 /*
- * Convert a 32-bit IEEE float to uint32 in a way that preserves the ordering
+ * 把 32 位 IEEE 浮点转换为保持序关系的 uint32
  */
 static uint32
 ieee_float32_to_uint32(float f)
 {
 	/*----
 	 *
-	 * IEEE 754 floating point format
+	 * IEEE 754 浮点格式
 	 * ------------------------------
 	 *
-	 * IEEE 754 floating point numbers have this format:
+	 * IEEE 754 浮点数具有如下格式：
 	 *
-	 *   exponent (8 bits)
+	 *   指数（8 位）
 	 *   |
 	 * s eeeeeeee mmmmmmmmmmmmmmmmmmmmmmm
 	 * |          |
-	 * sign       mantissa (23 bits)
+	 * 符号       尾数（23 位）
 	 *
-	 * Infinity has all bits in the exponent set and the mantissa is all
-	 * zeros. Negative infinity is the same but with the sign bit set.
+	 * 无穷的指数各位全置位且尾数全为
+	 * 零。负无穷相同但符号位被置位。
 	 *
-	 * NaNs are represented with all bits in the exponent set, and the least
-	 * significant bit in the mantissa also set. The rest of the mantissa bits
-	 * can be used to distinguish different kinds of NaNs.
+	 * NaN 表示为指数各位全置位，且尾数最低
+	 * 有效位也置位。尾数其余位可用于区分不同
+	 * 种类的 NaNs。
 	 *
-	 * The IEEE format has the nice property that when you take the bit
-	 * representation and interpret it as an integer, the order is preserved,
-	 * except for the sign. That holds for the +-Infinity values too.
+	 * IEEE 格式有一个优良性质：把位表示解释
+	 * 为整数时序关系得以保持，符号除外。对
+	 * +-Infinity 值同样成立。
 	 *
-	 * Mapping to uint32
+	 * 映射到 uint32
 	 * -----------------
 	 *
-	 * In order to have a smooth transition from negative to positive numbers,
-	 * we map floats to unsigned integers like this:
+	 * 为使负数到正数过渡平滑，我们把浮点映射
+	 * 到无符号整数如下：
 	 *
-	 * x < 0 to range 0-7FFFFFFF
-	 * x = 0 to value 8000000 (both positive and negative zero)
-	 * x > 0 to range 8000001-FFFFFFFF
+	 * x < 0 映射到范围 0-7FFFFFFF
+	 * x = 0 映射到值 8000000（正零与负零皆然）
+	 * x > 0 映射到范围 8000001-FFFFFFFF
 	 *
-	 * We don't care to distinguish different kind of NaNs, so they are all
-	 * mapped to the same arbitrary value, FFFFFFFF. Because of the IEEE bit
-	 * representation of NaNs, there aren't any non-NaN values that would be
-	 * mapped to FFFFFFFF. In fact, there is a range of unused values on both
-	 * ends of the uint32 space.
+	 * 我们不区分不同种类的 NaN，因此全部映射
+	 * 到同一任意值 FFFFFFFF。由于 NaN 的 IEEE
+	 * 位表示，没有任何非 NaN 值会映射到
+	 * FFFFFFFF。实际上 uint32 空间两端都有一段
+	 * 未使用的值。
 	 */
 	if (isnan(f))
 		return 0xFFFFFFFF;
@@ -1654,19 +1654,19 @@ ieee_float32_to_uint32(float f)
 
 		u.f = f;
 
-		/* Check the sign bit */
+		/* 检查符号位 */
 		if ((u.i & 0x80000000) != 0)
 		{
 			/*
-			 * Map the negative value to range 0-7FFFFFFF. This flips the sign
-			 * bit to 0 in the same instruction.
+			 * 把负值映射到范围 0-7FFFFFFF。同一条指令
+			 * 也把符号位翻转为 0。
 			 */
-			Assert(f <= 0);		/* can be -0 */
+			Assert(f <= 0);		/* 可为 -0 */
 			u.i ^= 0xFFFFFFFF;
 		}
 		else
 		{
-			/* Map the positive value (or 0) to range 80000000-FFFFFFFF */
+			/* 把正值（或 0）映射到范围 80000000-FFFFFFFF */
 			u.i |= 0x80000000;
 		}
 
@@ -1675,7 +1675,7 @@ ieee_float32_to_uint32(float f)
 }
 
 /*
- * Compare the Z-order of points
+ * 比较点的 Z 序
  */
 static int
 gist_bbox_zorder_cmp(Datum a, Datum b, SortSupport ssup)
@@ -1686,9 +1686,9 @@ gist_bbox_zorder_cmp(Datum a, Datum b, SortSupport ssup)
 	uint64		z2;
 
 	/*
-	 * Do a quick check for equality first. It's not clear if this is worth it
-	 * in general, but certainly is when used as tie-breaker with abbreviated
-	 * keys,
+	 * 先快速检查相等。一般是否值得尚不清楚，但在
+	 * 用作缩写键的决胜比较时肯定
+	 * 值得，
 	 */
 	if (p1->x == p2->x && p1->y == p2->y)
 		return 0;
@@ -1704,11 +1704,11 @@ gist_bbox_zorder_cmp(Datum a, Datum b, SortSupport ssup)
 }
 
 /*
- * Abbreviated version of Z-order comparison
+ * Z 序比较的缩写版本
  *
- * The abbreviated format is a Z-order value computed from the two 32-bit
- * floats. If SIZEOF_DATUM == 8, the 64-bit Z-order value fits fully in the
- * abbreviated Datum, otherwise use its most significant bits.
+ * 缩写格式是由两个 32 位浮点算出的 Z 序值。若
+ * SIZEOF_DATUM == 8，64 位 Z 序值可完整放入缩写
+ * Datum，否则使用其最高有效位。
  */
 static Datum
 gist_bbox_zorder_abbrev_convert(Datum original, SortSupport ssup)
@@ -1726,11 +1726,11 @@ gist_bbox_zorder_abbrev_convert(Datum original, SortSupport ssup)
 }
 
 /*
- * We never consider aborting the abbreviation.
+ * 我们从不考虑中止缩写。
  *
- * On 64-bit systems, the abbreviation is not lossy so it is always
- * worthwhile. (Perhaps it's not on 32-bit systems, but we don't bother
- * with logic to decide.)
+ * 在 64 位系统上缩写无损，因此总是值得。（在
+ * 32 位系统上或许不值得，但我们懒得写判定
+ * 逻辑。）
  */
 static bool
 gist_bbox_zorder_abbrev_abort(int memtupcount, SortSupport ssup)
@@ -1739,7 +1739,7 @@ gist_bbox_zorder_abbrev_abort(int memtupcount, SortSupport ssup)
 }
 
 /*
- * Sort support routine for fast GiST index build by sorting.
+ * 通过排序实现快速 GiST 索引构建的排序支持例程。
  */
 Datum
 gist_point_sortsupport(PG_FUNCTION_ARGS)

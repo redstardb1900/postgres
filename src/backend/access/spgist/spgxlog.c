@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgxlog.c
- *	  WAL replay logic for SP-GiST
+ *	  SP-GiST 的 WAL 重放逻辑。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -24,14 +24,14 @@
 #include "utils/memutils.h"
 
 
-static MemoryContext opCtx;		/* working memory for operations */
+static MemoryContext opCtx;		/* 操作用的工作内存 */
 
 
 /*
- * Prepare a dummy SpGistState, with just the minimum info needed for replay.
+ * 准备一个仅含重放所需最少信息的假 SpGistState。
  *
- * At present, all we need is enough info to support spgFormDeadTuple(),
- * plus the isBuild flag.
+ * 目前我们只需要足以支持 spgFormDeadTuple() 的信息，
+ * 以及 isBuild 标志。
  */
 static void
 fillFakeState(SpGistState *state, spgxlogState stateSrc)
@@ -44,9 +44,9 @@ fillFakeState(SpGistState *state, spgxlogState stateSrc)
 }
 
 /*
- * Add a leaf tuple, or replace an existing placeholder tuple.  This is used
- * to replay SpGistPageAddNewItem() operations.  If the offset points at an
- * existing tuple, it had better be a placeholder tuple.
+ * 添加叶元组，或替换已有的占位元组。用于重放
+ * SpGistPageAddNewItem() 操作。若偏移指向已有元组，
+ * 则该元组最好是占位元组。
  */
 static void
 addOrReplaceTuple(Page page, Item tuple, int size, OffsetNumber offset)
@@ -86,13 +86,13 @@ spgRedoAddLeaf(XLogReaderState *record)
 
 	ptr += sizeof(spgxlogAddLeaf);
 	leafTuple = ptr;
-	/* the leaf tuple is unaligned, so make a copy to access its header */
+	/* 叶元组未对齐，故复制一份以便访问其头部 */
 	memcpy(&leafTupleHdr, leafTuple, sizeof(SpGistLeafTupleData));
 
 	/*
-	 * In normal operation we would have both current and parent pages locked
-	 * simultaneously; but in WAL replay it should be safe to update the leaf
-	 * page before updating the parent.
+	 * 正常操作中我们会同时锁住当前页和父页；
+	 * 但在 WAL 重放中，先更新叶页再更新父页
+	 * 应当是安全的。
 	 */
 	if (xldata->newPage)
 	{
@@ -108,14 +108,14 @@ spgRedoAddLeaf(XLogReaderState *record)
 	{
 		page = BufferGetPage(buffer);
 
-		/* insert new tuple */
+		/* 插入新元组 */
 		if (xldata->offnumLeaf != xldata->offnumHeadLeaf)
 		{
-			/* normal cases, tuple was added by SpGistPageAddNewItem */
+			/* 常规情形，元组由 SpGistPageAddNewItem 添加 */
 			addOrReplaceTuple(page, (Item) leafTuple, leafTupleHdr.size,
 							  xldata->offnumLeaf);
 
-			/* update head tuple's chain link if needed */
+			/* 若需要则更新头元组的链指针 */
 			if (xldata->offnumHeadLeaf != InvalidOffsetNumber)
 			{
 				SpGistLeafTuple head;
@@ -128,7 +128,7 @@ spgRedoAddLeaf(XLogReaderState *record)
 		}
 		else
 		{
-			/* replacing a DEAD tuple */
+			/* 替换 DEAD 元组 */
 			PageIndexTupleDelete(page, xldata->offnumLeaf);
 			if (PageAddItem(page,
 							(Item) leafTuple, leafTupleHdr.size,
@@ -143,7 +143,7 @@ spgRedoAddLeaf(XLogReaderState *record)
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* update parent downlink if necessary */
+	/* 若有必要则更新父节点下行链接 */
 	if (xldata->offnumParent != InvalidOffsetNumber)
 	{
 		if (XLogReadBufferForRedo(record, 1, &buffer) == BLK_NEEDS_REDO)
@@ -196,15 +196,15 @@ spgRedoMoveLeafs(XLogReaderState *record)
 	toInsert = (OffsetNumber *) ptr;
 	ptr += sizeof(OffsetNumber) * nInsert;
 
-	/* now ptr points to the list of leaf tuples */
+	/* 此时 ptr 指向叶元组列表 */
 
 	/*
-	 * In normal operation we would have all three pages (source, dest, and
-	 * parent) locked simultaneously; but in WAL replay it should be safe to
-	 * update them one at a time, as long as we do it in the right order.
+	 * 正常操作中我们会同时锁住全部三页（源页、目标页和
+	 * 父页）；但在 WAL 重放中，只要顺序正确，一次更新
+	 * 一页应当是安全的。
 	 */
 
-	/* Insert tuples on the dest page (do first, so redirect is valid) */
+	/* 先在目标页插入元组（先做，以使重定向有效） */
 	if (xldata->newPage)
 	{
 		buffer = XLogInitBufferForRedo(record, 1);
@@ -227,8 +227,8 @@ spgRedoMoveLeafs(XLogReaderState *record)
 			SpGistLeafTupleData leafTupleHdr;
 
 			/*
-			 * the tuples are not aligned, so must copy to access the size
-			 * field.
+			 * 元组未对齐，故必须复制才能访问 size
+			 * 字段。
 			 */
 			leafTuple = ptr;
 			memcpy(&leafTupleHdr, leafTuple,
@@ -245,7 +245,7 @@ spgRedoMoveLeafs(XLogReaderState *record)
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* Delete tuples from the source page, inserting a redirection pointer */
+	/* 从源页删除元组，并插入重定向指针 */
 	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
 	{
 		page = BufferGetPage(buffer);
@@ -262,7 +262,7 @@ spgRedoMoveLeafs(XLogReaderState *record)
 	if (BufferIsValid(buffer))
 		UnlockReleaseBuffer(buffer);
 
-	/* And update the parent downlink */
+	/* 并更新父节点下行链接 */
 	if (XLogReadBufferForRedo(record, 2, &buffer) == BLK_NEEDS_REDO)
 	{
 		SpGistInnerTuple tuple;
@@ -297,14 +297,14 @@ spgRedoAddNode(XLogReaderState *record)
 
 	ptr += sizeof(spgxlogAddNode);
 	innerTuple = ptr;
-	/* the tuple is unaligned, so make a copy to access its header */
+	/* 元组未对齐，故复制一份以便访问其头部 */
 	memcpy(&innerTupleHdr, innerTuple, sizeof(SpGistInnerTupleData));
 
 	fillFakeState(&state, xldata->stateSrc);
 
 	if (!XLogRecHasBlockRef(record, 1))
 	{
-		/* update in place */
+		/* 就地更新 */
 		Assert(xldata->parentBlk == -1);
 		if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
 		{
@@ -332,17 +332,17 @@ spgRedoAddNode(XLogReaderState *record)
 		XLogRecGetBlockTag(record, 1, NULL, NULL, &blknoNew);
 
 		/*
-		 * In normal operation we would have all three pages (source, dest,
-		 * and parent) locked simultaneously; but in WAL replay it should be
-		 * safe to update them one at a time, as long as we do it in the right
-		 * order. We must insert the new tuple before replacing the old tuple
-		 * with the redirect tuple.
+		 * 正常操作中我们会同时锁住全部三页（源页、目标页
+		 * 和父页）；但在 WAL 重放中，只要顺序正确，
+		 * 一次更新一页应当是安全的。
+		 * 我们必须先插入新元组，再把旧元组替换为
+		 * 重定向元组。
 		 */
 
-		/* Install new tuple first so redirect is valid */
+		/* 先装入新元组，以使重定向有效 */
 		if (xldata->newPage)
 		{
-			/* AddNode is not used for nulls pages */
+			/* AddNode 不用于空值页 */
 			buffer = XLogInitBufferForRedo(record, 1);
 			SpGistInitBuffer(buffer, 0);
 			action = BLK_NEEDS_REDO;
@@ -357,7 +357,7 @@ spgRedoAddNode(XLogReaderState *record)
 							  innerTupleHdr.size, xldata->offnumNew);
 
 			/*
-			 * If parent is in this same page, update it now.
+			 * 若父节点在同一页上，现在就更新它。
 			 */
 			if (xldata->parentBlk == 1)
 			{
@@ -375,7 +375,7 @@ spgRedoAddNode(XLogReaderState *record)
 		if (BufferIsValid(buffer))
 			UnlockReleaseBuffer(buffer);
 
-		/* Delete old tuple, replacing it with redirect or placeholder tuple */
+		/* 删除旧元组，用重定向或占位元组替换它 */
 		if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
 		{
 			SpGistDeadTuple dt;
@@ -404,7 +404,7 @@ spgRedoAddNode(XLogReaderState *record)
 				SpGistPageGetOpaque(page)->nRedirection++;
 
 			/*
-			 * If parent is in this same page, update it now.
+			 * 若父节点在同一页上，现在就更新它。
 			 */
 			if (xldata->parentBlk == 0)
 			{
@@ -423,8 +423,8 @@ spgRedoAddNode(XLogReaderState *record)
 			UnlockReleaseBuffer(buffer);
 
 		/*
-		 * Update parent downlink (if we didn't do it as part of the source or
-		 * destination page update already).
+		 * 更新父节点下行链接（若尚未作为源页或
+		 * 目标页更新的一部分完成）。
 		 */
 		if (xldata->parentBlk == 2)
 		{
@@ -465,26 +465,26 @@ spgRedoSplitTuple(XLogReaderState *record)
 
 	ptr += sizeof(spgxlogSplitTuple);
 	prefixTuple = ptr;
-	/* the prefix tuple is unaligned, so make a copy to access its header */
+	/* 前缀元组未对齐，故复制一份以便访问其头部 */
 	memcpy(&prefixTupleHdr, prefixTuple, sizeof(SpGistInnerTupleData));
 	ptr += prefixTupleHdr.size;
 	postfixTuple = ptr;
-	/* postfix tuple is also unaligned */
+	/* 后缀元组也未对齐 */
 	memcpy(&postfixTupleHdr, postfixTuple, sizeof(SpGistInnerTupleData));
 
 	/*
-	 * In normal operation we would have both pages locked simultaneously; but
-	 * in WAL replay it should be safe to update them one at a time, as long
-	 * as we do it in the right order.
+	 * 正常操作中我们会同时锁住两页；但在 WAL
+	 * 重放中，只要顺序正确，一次更新一页应当
+	 * 是安全的。
 	 */
 
-	/* insert postfix tuple first to avoid dangling link */
+	/* 先插入后缀元组，以避免悬空链接 */
 	if (!xldata->postfixBlkSame)
 	{
 		if (xldata->newPage)
 		{
 			buffer = XLogInitBufferForRedo(record, 1);
-			/* SplitTuple is not used for nulls pages */
+			/* SplitTuple 不用于空值页 */
 			SpGistInitBuffer(buffer, 0);
 			action = BLK_NEEDS_REDO;
 		}
@@ -504,7 +504,7 @@ spgRedoSplitTuple(XLogReaderState *record)
 			UnlockReleaseBuffer(buffer);
 	}
 
-	/* now handle the original page */
+	/* 现在处理原页 */
 	if (XLogReadBufferForRedo(record, 0, &buffer) == BLK_NEEDS_REDO)
 	{
 		page = BufferGetPage(buffer);
@@ -562,35 +562,35 @@ spgRedoPickSplit(XLogReaderState *record)
 	ptr += sizeof(uint8) * xldata->nInsert;
 
 	innerTuple = ptr;
-	/* the inner tuple is unaligned, so make a copy to access its header */
+	/* 内元组未对齐，故复制一份以便访问其头部 */
 	memcpy(&innerTupleHdr, innerTuple, sizeof(SpGistInnerTupleData));
 	ptr += innerTupleHdr.size;
 
-	/* now ptr points to the list of leaf tuples */
+	/* 此时 ptr 指向叶元组列表 */
 
 	if (xldata->isRootSplit)
 	{
-		/* when splitting root, we touch it only in the guise of new inner */
+		/* 分裂根时，我们只以新内页的身份触碰它 */
 		srcBuffer = InvalidBuffer;
 		srcPage = NULL;
 	}
 	else if (xldata->initSrc)
 	{
-		/* just re-init the source page */
+		/* 仅重新初始化源页 */
 		srcBuffer = XLogInitBufferForRedo(record, 0);
 		srcPage = (Page) BufferGetPage(srcBuffer);
 
 		SpGistInitBuffer(srcBuffer,
 						 SPGIST_LEAF | (xldata->storesNulls ? SPGIST_NULLS : 0));
-		/* don't update LSN etc till we're done with it */
+		/* 完成前先不更新 LSN 等 */
 	}
 	else
 	{
 		/*
-		 * Delete the specified tuples from source page.  (In case we're in
-		 * Hot Standby, we need to hold lock on the page till we're done
-		 * inserting leaf tuples and the new inner tuple, else the added
-		 * redirect tuple will be a dangling link.)
+		 * 从源页删除指定元组。（若处于 Hot Standby，需要
+		 * 一直持有页锁，直到插完叶元组和新内元组为止，
+		 * 否则新加的重定向元组会成为悬空
+		 * 链接。）
 		 */
 		srcPage = NULL;
 		if (XLogReadBufferForRedo(record, 0, &srcBuffer) == BLK_NEEDS_REDO)
@@ -598,9 +598,9 @@ spgRedoPickSplit(XLogReaderState *record)
 			srcPage = BufferGetPage(srcBuffer);
 
 			/*
-			 * We have it a bit easier here than in doPickSplit(), because we
-			 * know the inner tuple's location already, so we can inject the
-			 * correct redirection tuple now.
+			 * 这里比 doPickSplit() 里容易些，因为我们已经
+			 * 知道内元组的位置，所以现在就能注入正确的
+			 * 重定向元组。
 			 */
 			if (!state.isBuild)
 				spgPageIndexMultiDelete(&state, srcPage,
@@ -617,11 +617,11 @@ spgRedoPickSplit(XLogReaderState *record)
 										InvalidBlockNumber,
 										InvalidOffsetNumber);
 
-			/* don't update LSN etc till we're done with it */
+			/* 完成前先不更新 LSN 等 */
 		}
 	}
 
-	/* try to access dest page if any */
+	/* 若有目标页则尝试访问 */
 	if (!XLogRecHasBlockRef(record, 1))
 	{
 		destBuffer = InvalidBuffer;
@@ -629,46 +629,46 @@ spgRedoPickSplit(XLogReaderState *record)
 	}
 	else if (xldata->initDest)
 	{
-		/* just re-init the dest page */
+		/* 仅重新初始化目标页 */
 		destBuffer = XLogInitBufferForRedo(record, 1);
 		destPage = (Page) BufferGetPage(destBuffer);
 
 		SpGistInitBuffer(destBuffer,
 						 SPGIST_LEAF | (xldata->storesNulls ? SPGIST_NULLS : 0));
-		/* don't update LSN etc till we're done with it */
+		/* 完成前先不更新 LSN 等 */
 	}
 	else
 	{
 		/*
-		 * We could probably release the page lock immediately in the
-		 * full-page-image case, but for safety let's hold it till later.
+		 * 在整页映像情形下或许可以立刻释放页锁，
+		 * 但为安全起见还是先持有到稍后。
 		 */
 		if (XLogReadBufferForRedo(record, 1, &destBuffer) == BLK_NEEDS_REDO)
 			destPage = (Page) BufferGetPage(destBuffer);
 		else
-			destPage = NULL;	/* don't do any page updates */
+			destPage = NULL;	/* 不做任何页更新 */
 	}
 
-	/* restore leaf tuples to src and/or dest page */
+	/* 将叶元组恢复到源页和/或目标页 */
 	for (i = 0; i < xldata->nInsert; i++)
 	{
 		char	   *leafTuple;
 		SpGistLeafTupleData leafTupleHdr;
 
-		/* the tuples are not aligned, so must copy to access the size field. */
+		/* 元组未对齐，故必须复制才能访问 size 字段。 */
 		leafTuple = ptr;
 		memcpy(&leafTupleHdr, leafTuple, sizeof(SpGistLeafTupleData));
 		ptr += leafTupleHdr.size;
 
 		page = leafPageSelect[i] ? destPage : srcPage;
 		if (page == NULL)
-			continue;			/* no need to touch this page */
+			continue;			/* 无需触碰此页 */
 
 		addOrReplaceTuple(page, (Item) leafTuple, leafTupleHdr.size,
 						  toInsert[i]);
 	}
 
-	/* Now update src and dest page LSNs if needed */
+	/* 若需要，现在更新源页和目标页的 LSNs */
 	if (srcPage != NULL)
 	{
 		PageSetLSN(srcPage, lsn);
@@ -680,7 +680,7 @@ spgRedoPickSplit(XLogReaderState *record)
 		MarkBufferDirty(destBuffer);
 	}
 
-	/* restore new inner tuple */
+	/* 恢复新的内元组 */
 	if (xldata->initInner)
 	{
 		innerBuffer = XLogInitBufferForRedo(record, 2);
@@ -697,7 +697,7 @@ spgRedoPickSplit(XLogReaderState *record)
 		addOrReplaceTuple(page, (Item) innerTuple, innerTupleHdr.size,
 						  xldata->offnumInner);
 
-		/* if inner is also parent, update link while we're here */
+		/* 若内页同时也是父页，顺便更新链接 */
 		if (xldata->innerIsParent)
 		{
 			SpGistInnerTuple parent;
@@ -715,15 +715,15 @@ spgRedoPickSplit(XLogReaderState *record)
 		UnlockReleaseBuffer(innerBuffer);
 
 	/*
-	 * Now we can release the leaf-page locks.  It's okay to do this before
-	 * updating the parent downlink.
+	 * 现在可以释放叶页锁。在更新父节点下行链接
+	 * 之前这样做是可以的。
 	 */
 	if (BufferIsValid(srcBuffer))
 		UnlockReleaseBuffer(srcBuffer);
 	if (BufferIsValid(destBuffer))
 		UnlockReleaseBuffer(destBuffer);
 
-	/* update parent downlink, unless we did it above */
+	/* 更新父节点下行链接，除非上面已经做过 */
 	if (XLogRecHasBlockRef(record, 3))
 	{
 		Buffer		parentBuffer;
@@ -797,7 +797,7 @@ spgRedoVacuumLeaf(XLogReaderState *record)
 								InvalidBlockNumber,
 								InvalidOffsetNumber);
 
-		/* see comments in vacuumLeafPage() */
+		/* 见 vacuumLeafPage() 中的注释 */
 		for (i = 0; i < xldata->nMove; i++)
 		{
 			ItemId		idSrc = PageGetItemId(page, moveSrc[i]);
@@ -848,7 +848,7 @@ spgRedoVacuumRoot(XLogReaderState *record)
 	{
 		page = BufferGetPage(buffer);
 
-		/* The tuple numbers are in order */
+		/* 元组编号是有序的 */
 		PageIndexMultiDelete(page, toDelete, xldata->nDelete);
 
 		PageSetLSN(page, lsn);
@@ -870,8 +870,8 @@ spgRedoVacuumRedirect(XLogReaderState *record)
 	itemToPlaceholder = xldata->offsets;
 
 	/*
-	 * If any redirection tuples are being removed, make sure there are no
-	 * live Hot Standby transactions that might need to see them.
+	 * 若有任何重定向元组将被移除，确保没有仍存活的
+	 * Hot Standby 事务可能需要看到它们。
 	 */
 	if (InHotStandby)
 	{
@@ -889,7 +889,7 @@ spgRedoVacuumRedirect(XLogReaderState *record)
 		SpGistPageOpaque opaque = SpGistPageGetOpaque(page);
 		int			i;
 
-		/* Convert redirect pointers to plain placeholders */
+		/* 将重定向指针转换为普通占位符 */
 		for (i = 0; i < xldata->nToPlaceholder; i++)
 		{
 			SpGistDeadTuple dt;
@@ -905,7 +905,7 @@ spgRedoVacuumRedirect(XLogReaderState *record)
 		opaque->nRedirection -= xldata->nToPlaceholder;
 		opaque->nPlaceholder += xldata->nToPlaceholder;
 
-		/* Remove placeholder tuples at end of page */
+		/* 移除页末的占位元组 */
 		if (xldata->firstPlaceholder != InvalidOffsetNumber)
 		{
 			int			max = PageGetMaxOffsetNumber(page);
@@ -920,7 +920,7 @@ spgRedoVacuumRedirect(XLogReaderState *record)
 			Assert(opaque->nPlaceholder >= i);
 			opaque->nPlaceholder -= i;
 
-			/* The array is sorted, so can use PageIndexMultiDelete */
+			/* 数组已排序，故可用 PageIndexMultiDelete */
 			PageIndexMultiDelete(page, toDelete, i);
 
 			pfree(toDelete);
@@ -990,7 +990,7 @@ spg_xlog_cleanup(void)
 }
 
 /*
- * Mask a SpGist page before performing consistency checks on it.
+ * 在对 SpGist 页做一致性检查之前先掩码。
  */
 void
 spg_mask(char *pagedata, BlockNumber blkno)
@@ -1003,8 +1003,8 @@ spg_mask(char *pagedata, BlockNumber blkno)
 	mask_page_hint_bits(page);
 
 	/*
-	 * Mask the unused space, but only if the page's pd_lower appears to have
-	 * been set correctly.
+	 * 掩码未使用空间，但仅当页的 pd_lower 看起来
+	 * 已被正确设置时才做。
 	 */
 	if (pagehdr->pd_lower >= SizeOfPageHeaderData)
 		mask_unused_space(page);

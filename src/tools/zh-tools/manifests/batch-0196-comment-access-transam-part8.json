@@ -1,0 +1,62 @@
+{
+ "schema_version": 1,
+ "batch_id": "0196-comment-access-transam-part8",
+ "title": "zh: translate access/transam comments (part 8)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "cae51d5461afcff19c3582a001e87fd196ceb51d",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/clog.c",
+   "kind": "c_comment",
+   "note": "CLOG / commit log SLRU; L322 fall-through prose preserved"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0196-comment-access-transam-part8.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/clog.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 86,
+   "translated": 85,
+   "preserved": 1,
+   "preserved_reasons": [
+    "fall-through",
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "CLOG / commit log SLRU; L322 /* Fall through only if update isn't done yet. */ preserved English (control-flow prose protected by fallthrough); Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0196-comment-access-transam-part8.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0196 translates comments in clog.c. Copyright and IDENTIFICATION lines stay in English. L322 fall-through prose (/* Fall through only if update isn't done yet. */) is preserved English; no c_verify change. Next suggested: xloginsert.c or slru.c."
+}

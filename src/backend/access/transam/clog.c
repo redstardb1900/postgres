@@ -1,27 +1,27 @@
 /*-------------------------------------------------------------------------
  *
  * clog.c
- *		PostgreSQL transaction-commit-log manager
+ *		PostgreSQL 事务提交日志管理器
  *
- * This module replaces the old "pg_log" access code, which treated pg_log
- * essentially like a relation, in that it went through the regular buffer
- * manager.  The problem with that was that there wasn't any good way to
- * recycle storage space for transactions so old that they'll never be
- * looked up again.  Now we use specialized access code so that the commit
- * log can be broken into relatively small, independent segments.
+ * 本模块取代旧的 "pg_log" 访问代码；后者把 pg_log
+ * 基本上当作一个关系来对待，即走常规缓冲区
+ * 管理器。问题在于，对于那些已足够老、永远不会再被
+ * 查找的事务，没有好办法回收其存储空间。
+ * 现在我们使用专用访问代码，使提交
+ * 日志可以拆成相对较小、彼此独立的段。
  *
- * XLOG interactions: this module generates an XLOG record whenever a new
- * CLOG page is initialized to zeroes.  Other writes of CLOG come from
- * recording of transaction commit or abort in xact.c, which generates its
- * own XLOG records for these events and will re-perform the status update
- * on redo; so we need make no additional XLOG entry here.  For synchronous
- * transaction commits, the XLOG is guaranteed flushed through the XLOG commit
- * record before we are called to log a commit, so the WAL rule "write xlog
- * before data" is satisfied automatically.  However, for async commits we
- * must track the latest LSN affecting each CLOG page, so that we can flush
- * XLOG that far and satisfy the WAL rule.  We don't have to worry about this
- * for aborts (whether sync or async), since the post-crash assumption would
- * be that such transactions failed anyway.
+ * XLOG 交互：每当新的 CLOG 页被初始化为零时，本模块
+ * 生成一条 XLOG 记录。对 CLOG 的其他写入来自 xact.c 中
+ * 对事务提交或中止的记录，后者会为这些事件生成自己的
+ * XLOG 记录，并在 redo 时重新执行状态更新；因此这里无需
+ * 再写额外的 XLOG 项。对于同步
+ * 事务提交，在我们被调用来记录提交之前，XLOG 已保证刷写到
+ * XLOG 提交记录，因此 WAL 规则 "write xlog
+ * before data" 会自动满足。然而，对于异步提交，我们
+ * 必须跟踪影响每个 CLOG 页的最新 LSN，以便能把
+ * XLOG 刷写到那么远并满足 WAL 规则。对于中止
+ * （无论同步还是异步）我们不必担心这一点，因为崩溃后的假定
+ * 本来就是这类事务已经失败。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -45,18 +45,18 @@
 #include "storage/sync.h"
 
 /*
- * Defines for CLOG page sizes.  A page is the same BLCKSZ as is used
- * everywhere else in Postgres.
+ * CLOG 页大小相关定义。页大小与 Postgres
+ * 其他地方一样，均为 BLCKSZ。
  *
- * Note: because TransactionIds are 32 bits and wrap around at 0xFFFFFFFF,
- * CLOG page numbering also wraps around at 0xFFFFFFFF/CLOG_XACTS_PER_PAGE,
- * and CLOG segment numbering at
- * 0xFFFFFFFF/CLOG_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT.  We need take no
- * explicit notice of that fact in this module, except when comparing segment
- * and page numbers in TruncateCLOG (see CLOGPagePrecedes).
+ * 注意：因为 TransactionIds 是 32 位并在 0xFFFFFFFF 回卷，
+ * CLOG 页编号也会在 0xFFFFFFFF/CLOG_XACTS_PER_PAGE 处回卷，
+ * 段编号在
+ * 0xFFFFFFFF/CLOG_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT 处回卷。本模块无需
+ * 显式关注这一事实，例外是在 TruncateCLOG 中比较段号
+ * 与页号时（见 CLOGPagePrecedes）。
  */
 
-/* We need two bits per xact, so four xacts fit in a byte */
+/* 每个 xact 需要两位，因此一字节可装四个 xact */
 #define CLOG_BITS_PER_XACT	2
 #define CLOG_XACTS_PER_BYTE 4
 #define CLOG_XACTS_PER_PAGE (BLCKSZ * CLOG_XACTS_PER_BYTE)
@@ -67,22 +67,22 @@
 #define TransactionIdToByte(xid)	(TransactionIdToPgIndex(xid) / CLOG_XACTS_PER_BYTE)
 #define TransactionIdToBIndex(xid)	((xid) % (TransactionId) CLOG_XACTS_PER_BYTE)
 
-/* We store the latest async LSN for each group of transactions */
-#define CLOG_XACTS_PER_LSN_GROUP	32	/* keep this a power of 2 */
+/* 我们为每组事务存储最新的异步 LSN */
+#define CLOG_XACTS_PER_LSN_GROUP	32	/* 保持为 2 的幂 */
 #define CLOG_LSNS_PER_PAGE	(CLOG_XACTS_PER_PAGE / CLOG_XACTS_PER_LSN_GROUP)
 
 #define GetLSNIndex(slotno, xid)	((slotno) * CLOG_LSNS_PER_PAGE + \
 	((xid) % (TransactionId) CLOG_XACTS_PER_PAGE) / CLOG_XACTS_PER_LSN_GROUP)
 
 /*
- * The number of subtransactions below which we consider to apply clog group
- * update optimization.  Testing reveals that the number higher than this can
- * hurt performance.
+ * 子事务数目低于此阈值时，我们考虑应用 clog 分组
+ * 更新优化。测试表明高于此值会
+ * 损害性能。
  */
 #define THRESHOLD_SUBTRANS_CLOG_OPT	5
 
 /*
- * Link to shared-memory data structures for CLOG control
+ * 指向 CLOG 控制用共享内存数据结构的链接
  */
 static SlruCtlData XactCtlData;
 
@@ -112,65 +112,65 @@ static void TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
 /*
  * TransactionIdSetTreeStatus
  *
- * Record the final state of transaction entries in the commit log for
- * a transaction and its subtransaction tree. Take care to ensure this is
- * efficient, and as atomic as possible.
+ * 在提交日志中记录一个事务及其子事务树各项的
+ * 最终状态。注意要保证这样做
+ * 高效，并尽可能原子。
  *
- * xid is a single xid to set status for. This will typically be
- * the top level transactionid for a top level commit or abort. It can
- * also be a subtransaction when we record transaction aborts.
+ * xid 是要设置状态的单个 xid。这通常是
+ * 顶层提交或中止时的顶层 transactionid。当
+ * 记录事务中止时，也可以是子事务。
  *
- * subxids is an array of xids of length nsubxids, representing subtransactions
- * in the tree of xid. In various cases nsubxids may be zero.
+ * subxids 是长度为 nsubxids 的 xid 数组，表示 xid 树中的
+ * 子事务。各种情况下 nsubxids 可能为零。
  *
- * lsn must be the WAL location of the commit record when recording an async
- * commit.  For a synchronous commit it can be InvalidXLogRecPtr, since the
- * caller guarantees the commit record is already flushed in that case.  It
- * should be InvalidXLogRecPtr for abort cases, too.
+ * 记录异步提交时，lsn 必须是提交记录的 WAL 位置。
+ * 对于同步提交可以是 InvalidXLogRecPtr，因为那种情况下
+ * 调用方保证提交记录已刷写。中止情况下
+ * 也应为 InvalidXLogRecPtr。
  *
- * In the commit case, atomicity is limited by whether all the subxids are in
- * the same CLOG page as xid.  If they all are, then the lock will be grabbed
- * only once, and the status will be set to committed directly.  Otherwise
- * we must
- *	 1. set sub-committed all subxids that are not on the same page as the
- *		main xid
- *	 2. atomically set committed the main xid and the subxids on the same page
- *	 3. go over the first bunch again and set them committed
- * Note that as far as concurrent checkers are concerned, main transaction
- * commit as a whole is still atomic.
+ * 在提交情况下，原子性受限于所有 subxid 是否与 xid 在
+ * 同一 CLOG 页上。若都在，则锁只会获取
+ * 一次，并直接把状态设为已提交。否则
+ * 我们必须
+ *	 1. 把与主 xid 不在同一页上的所有
+ *		subxid 设为子已提交
+ *	 2. 原子地把主 xid 与同页上的 subxid 设为已提交
+ *	 3. 再扫一遍第一批并把它们设为已提交
+ * 注意就并发检查者而言，主事务
+ * 提交作为整体仍然是原子的。
  *
- * Example:
- *		TransactionId t commits and has subxids t1, t2, t3, t4
- *		t is on page p1, t1 is also on p1, t2 and t3 are on p2, t4 is on p3
- *		1. update pages2-3:
- *					page2: set t2,t3 as sub-committed
- *					page3: set t4 as sub-committed
- *		2. update page1:
- *					page1: set t,t1 as committed
- *		3. update pages2-3:
- *					page2: set t2,t3 as committed
- *					page3: set t4 as committed
+ * 示例：
+ *		TransactionId t 提交，并有子 xid t1、t2、t3、t4
+ *		t 在页 p1 上，t1 也在 p1，t2 与 t3 在 p2，t4 在 p3
+ *		1. 更新 pages2-3：
+ *					page2: 将 t2、t3 设为子已提交
+ *					page3: 将 t4 设为子已提交
+ *		2. 更新 page1：
+ *					page1: 将 t、t1 设为已提交
+ *		3. 更新 pages2-3：
+ *					page2: 将 t2、t3 设为已提交
+ *					page3: 将 t4 设为已提交
  *
- * NB: this is a low-level routine and is NOT the preferred entry point
- * for most uses; functions in transam.c are the intended callers.
+ * NB：这是低层例程，并非大多数用途的首选入口
+ * 点；预期调用方是 transam.c 中的函数。
  *
- * XXX Think about issuing POSIX_FADV_WILLNEED on pages that we will need,
- * but aren't yet in cache, as well as hinting pages not to fall out of
- * cache yet.
+ * XXX 考虑对尚不在缓存中但即将需要的页发出
+ * POSIX_FADV_WILLNEED，并对暂不应
+ * 被换出的页给出提示。
  */
 void
 TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 						   TransactionId *subxids, XidStatus status, XLogRecPtr lsn)
 {
-	int			pageno = TransactionIdToPage(xid);	/* get page of parent */
+	int			pageno = TransactionIdToPage(xid);	/* 取父事务的页 */
 	int			i;
 
 	Assert(status == TRANSACTION_STATUS_COMMITTED ||
 		   status == TRANSACTION_STATUS_ABORTED);
 
 	/*
-	 * See how many subxids, if any, are on the same page as the parent, if
-	 * any.
+	 * 看看有多少 subxid（若有）与父事务在同一页上（若
+	 * 有）。
 	 */
 	for (i = 0; i < nsubxids; i++)
 	{
@@ -179,12 +179,12 @@ TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 	}
 
 	/*
-	 * Do all items fit on a single page?
+	 * 所有项是否都落在单页上？
 	 */
 	if (i == nsubxids)
 	{
 		/*
-		 * Set the parent and all subtransactions in a single call
+		 * 在单次调用中设置父事务与全部子事务
 		 */
 		TransactionIdSetPageStatus(xid, nsubxids, subxids, status, lsn,
 								   pageno, true);
@@ -194,14 +194,14 @@ TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 		int			nsubxids_on_first_page = i;
 
 		/*
-		 * If this is a commit then we care about doing this correctly (i.e.
-		 * using the subcommitted intermediate status).  By here, we know
-		 * we're updating more than one page of clog, so we must mark entries
-		 * that are *not* on the first page so that they show as subcommitted
-		 * before we then return to update the status to fully committed.
+		 * 若这是提交，则我们关心正确完成（即
+		 * 使用子已提交这一中间状态）。到此，我们知道
+		 * 正在更新多于一页的 clog，因此必须先把*不*在
+		 * 第一页上的项标为子已提交，然后
+		 * 再回来把状态更新为完全已提交。
 		 *
-		 * To avoid touching the first page twice, skip marking subcommitted
-		 * for the subxids on that first page.
+		 * 为避免两次触及第一页，跳过对该第一页上
+		 * subxid 的子已提交标记。
 		 */
 		if (status == TRANSACTION_STATUS_COMMITTED)
 			set_status_by_pages(nsubxids - nsubxids_on_first_page,
@@ -209,16 +209,16 @@ TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 								TRANSACTION_STATUS_SUB_COMMITTED, lsn);
 
 		/*
-		 * Now set the parent and subtransactions on same page as the parent,
-		 * if any
+		 * 现在设置父事务以及与父事务同页的子事务（若
+		 * 有）
 		 */
 		pageno = TransactionIdToPage(xid);
 		TransactionIdSetPageStatus(xid, nsubxids_on_first_page, subxids, status,
 								   lsn, pageno, false);
 
 		/*
-		 * Now work through the rest of the subxids one clog page at a time,
-		 * starting from the second page onwards, like we did above.
+		 * 现在从第二页起，按每次一个 clog 页处理其余
+		 * subxid，做法与上面相同。
 		 */
 		set_status_by_pages(nsubxids - nsubxids_on_first_page,
 							subxids + nsubxids_on_first_page,
@@ -227,10 +227,10 @@ TransactionIdSetTreeStatus(TransactionId xid, int nsubxids,
 }
 
 /*
- * Helper for TransactionIdSetTreeStatus: set the status for a bunch of
- * transactions, chunking in the separate CLOG pages involved. We never
- * pass the whole transaction tree to this function, only subtransactions
- * that are on different pages to the top level transaction id.
+ * TransactionIdSetTreeStatus 的辅助函数：为一批事务设置状态，
+ * 按所涉及的各个 CLOG 页分块。我们从不
+ * 把整棵事务树传给本函数，只传与顶层事务 id
+ * 不在同一页上的子事务。
  */
 static void
 set_status_by_pages(int nsubxids, TransactionId *subxids,
@@ -240,7 +240,7 @@ set_status_by_pages(int nsubxids, TransactionId *subxids,
 	int			offset = 0;
 	int			i = 0;
 
-	Assert(nsubxids > 0);		/* else the pageno fetch above is unsafe */
+	Assert(nsubxids > 0);		/* 否则上面取 pageno 不安全 */
 
 	while (i < nsubxids)
 	{
@@ -265,8 +265,8 @@ set_status_by_pages(int nsubxids, TransactionId *subxids,
 }
 
 /*
- * Record the final state of transaction entries in the commit log for all
- * entries on a single page.  Atomic only on this page.
+ * 在提交日志中为一页上的全部项记录最终状态。
+ * 仅在本页上原子。
  */
 static void
 TransactionIdSetPageStatus(TransactionId xid, int nsubxids,
@@ -274,23 +274,23 @@ TransactionIdSetPageStatus(TransactionId xid, int nsubxids,
 						   XLogRecPtr lsn, int pageno,
 						   bool all_xact_same_page)
 {
-	/* Can't use group update when PGPROC overflows. */
+	/* PGPROC 溢出时不能使用分组更新。 */
 	StaticAssertDecl(THRESHOLD_SUBTRANS_CLOG_OPT <= PGPROC_MAX_CACHED_SUBXIDS,
 					 "group clog threshold less than PGPROC cached subxids");
 
 	/*
-	 * When there is contention on XactSLRULock, we try to group multiple
-	 * updates; a single leader process will perform transaction status
-	 * updates for multiple backends so that the number of times XactSLRULock
-	 * needs to be acquired is reduced.
+	 * 当 XactSLRULock 上有争用时，我们尝试把多次
+	 * 更新分组；单个领导者进程将为多个后端执行
+	 * 事务状态更新，从而减少获取
+	 * XactSLRULock 的次数。
 	 *
-	 * For this optimization to be safe, the XID and subxids in MyProc must be
-	 * the same as the ones for which we're setting the status.  Check that
-	 * this is the case.
+	 * 要使此优化安全，MyProc 中的 XID 与 subxid 必须与
+	 * 我们要设置状态的那些相同。请检查
+	 * 确是如此。
 	 *
-	 * For this optimization to be efficient, we shouldn't have too many
-	 * sub-XIDs and all of the XIDs for which we're adjusting clog should be
-	 * on the same page.  Check those conditions, too.
+	 * 要使此优化高效，子 XIDs 不应太多，且
+	 * 我们要调整 clog 的全部 XIDs 应在
+	 * 同一页上。也请检查这些条件。
 	 */
 	if (all_xact_same_page && xid == MyProc->xid &&
 		nsubxids <= THRESHOLD_SUBTRANS_CLOG_OPT &&
@@ -300,14 +300,14 @@ TransactionIdSetPageStatus(TransactionId xid, int nsubxids,
 				nsubxids * sizeof(TransactionId)) == 0))
 	{
 		/*
-		 * If we can immediately acquire XactSLRULock, we update the status of
-		 * our own XID and release the lock.  If not, try use group XID
-		 * update.  If that doesn't work out, fall back to waiting for the
-		 * lock to perform an update for this transaction only.
+		 * 若能立即获取 XactSLRULock，则更新我们自己
+		 * XID 的状态并释放锁。否则尝试使用分组 XID
+		 * 更新。若那样也不行，则退回为等待
+		 * 锁，仅为本事务执行更新。
 		 */
 		if (LWLockConditionalAcquire(XactSLRULock, LW_EXCLUSIVE))
 		{
-			/* Got the lock without waiting!  Do the update. */
+			/* 无需等待就拿到了锁！执行更新。 */
 			TransactionIdSetPageStatusInternal(xid, nsubxids, subxids, status,
 											   lsn, pageno);
 			LWLockRelease(XactSLRULock);
@@ -315,14 +315,14 @@ TransactionIdSetPageStatus(TransactionId xid, int nsubxids,
 		}
 		else if (TransactionGroupUpdateXidStatus(xid, status, lsn, pageno))
 		{
-			/* Group update mechanism has done the work. */
+			/* 分组更新机制已完成工作。 */
 			return;
 		}
 
 		/* Fall through only if update isn't done yet. */
 	}
 
-	/* Group update not applicable, or couldn't accept this page number. */
+	/* 分组更新不适用，或无法接受此页号。 */
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 	TransactionIdSetPageStatusInternal(xid, nsubxids, subxids, status,
 									   lsn, pageno);
@@ -330,9 +330,9 @@ TransactionIdSetPageStatus(TransactionId xid, int nsubxids,
 }
 
 /*
- * Record the final state of transaction entry in the commit log
+ * 在提交日志中记录事务项的最终状态
  *
- * We don't do any locking here; caller must handle that.
+ * 此处不加锁；调用方必须处理。
  */
 static void
 TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
@@ -348,28 +348,28 @@ TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
 	Assert(LWLockHeldByMeInMode(XactSLRULock, LW_EXCLUSIVE));
 
 	/*
-	 * If we're doing an async commit (ie, lsn is valid), then we must wait
-	 * for any active write on the page slot to complete.  Otherwise our
-	 * update could reach disk in that write, which will not do since we
-	 * mustn't let it reach disk until we've done the appropriate WAL flush.
-	 * But when lsn is invalid, it's OK to scribble on a page while it is
-	 * write-busy, since we don't care if the update reaches disk sooner than
-	 * we think.
+	 * 若我们在做异步提交（即 lsn 有效），则必须等待
+	 * 该页槽上任何进行中的写出完成。否则我们的
+	 * 更新可能随那次写出落到磁盘，这不行，因为在完成
+	 * 适当的 WAL 刷写之前绝不能让它到达磁盘。
+	 * 但当 lsn 无效时，在页处于 write-busy 时涂改它是
+	 * 可以的，因为我们并不在意更新是否比我们以为的更早
+	 * 到达磁盘。
 	 */
 	slotno = SimpleLruReadPage(XactCtl, pageno, XLogRecPtrIsInvalid(lsn), xid);
 
 	/*
-	 * Set the main transaction id, if any.
+	 * 设置主事务 id（若有）。
 	 *
-	 * If we update more than one xid on this page while it is being written
-	 * out, we might find that some of the bits go to disk and others don't.
-	 * If we are updating commits on the page with the top-level xid that
-	 * could break atomicity, so we subcommit the subxids first before we mark
-	 * the top-level commit.
+	 * 若在本页写出过程中我们更新了页上多个 xid，
+	 * 可能发现有些位落到了磁盘而另一些没有。
+	 * 若我们在用顶层 xid 更新页上的提交，
+	 * 那可能破坏原子性，因此我们先把 subxid 标为子已提交，再
+	 * 标记顶层提交。
 	 */
 	if (TransactionIdIsValid(xid))
 	{
-		/* Subtransactions first, if needed ... */
+		/* 若需要则先处理子事务 ... */
 		if (status == TRANSACTION_STATUS_COMMITTED)
 		{
 			for (i = 0; i < nsubxids; i++)
@@ -381,11 +381,11 @@ TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
 			}
 		}
 
-		/* ... then the main transaction */
+		/* ... 然后是主事务 */
 		TransactionIdSetStatusBit(xid, status, lsn, slotno);
 	}
 
-	/* Set the subtransactions */
+	/* 设置子事务 */
 	for (i = 0; i < nsubxids; i++)
 	{
 		Assert(XactCtl->shared->page_number[slotno] == TransactionIdToPage(subxids[i]));
@@ -396,18 +396,18 @@ TransactionIdSetPageStatusInternal(TransactionId xid, int nsubxids,
 }
 
 /*
- * When we cannot immediately acquire XactSLRULock in exclusive mode at
- * commit time, add ourselves to a list of processes that need their XIDs
- * status update.  The first process to add itself to the list will acquire
- * XactSLRULock in exclusive mode and set transaction status as required
- * on behalf of all group members.  This avoids a great deal of contention
- * around XactSLRULock when many processes are trying to commit at once,
- * since the lock need not be repeatedly handed off from one committing
- * process to the next.
+ * 当提交时无法立即以排他模式获取 XactSLRULock 时，
+ * 把自己加入需要更新其 XIDs
+ * 状态的进程列表。第一个把自己加入列表的进程将以
+ * 排他模式获取 XactSLRULock，并代表所有组成员按要求
+ * 设置事务状态。这在许多进程同时尝试提交时
+ * 大大减少了围绕 XactSLRULock 的争用，
+ * 因为锁不必在各个提交
+ * 进程之间反复交接。
  *
- * Returns true when transaction status has been updated in clog; returns
- * false if we decided against applying the optimization because the page
- * number we need to update differs from those processes already waiting.
+ * 当事务状态已在 clog 中更新时返回 true；若因我们需要更新的
+ * 页号与已在等待的那些进程不同而决定不应用该优化，则返回
+ * false。
  */
 static bool
 TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
@@ -418,12 +418,12 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 	uint32		nextidx;
 	uint32		wakeidx;
 
-	/* We should definitely have an XID whose status needs to be updated. */
+	/* 我们肯定有一个需要更新状态的 XID。 */
 	Assert(TransactionIdIsValid(xid));
 
 	/*
-	 * Add ourselves to the list of processes needing a group XID status
-	 * update.
+	 * 把自己加入需要分组 XID 状态
+	 * 更新的进程列表。
 	 */
 	proc->clogGroupMember = true;
 	proc->clogGroupMemberXid = xid;
@@ -436,23 +436,23 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 	while (true)
 	{
 		/*
-		 * Add the proc to list, if the clog page where we need to update the
-		 * current transaction status is same as group leader's clog page.
+		 * 若我们需要更新当前事务状态的 clog 页与
+		 * 分组领导者的 clog 页相同，则把本 proc 加入列表。
 		 *
-		 * There is a race condition here, which is that after doing the below
-		 * check and before adding this proc's clog update to a group, the
-		 * group leader might have already finished the group update for this
-		 * page and becomes group leader of another group. This will lead to a
-		 * situation where a single group can have different clog page
-		 * updates.  This isn't likely and will still work, just maybe a bit
-		 * less efficiently.
+		 * 这里存在竞态：在做完下面的
+		 * 检查之后、把本 proc 的 clog 更新加入某组之前，
+		 * 分组领导者可能已完成该页的分组更新，并成为
+		 * 另一组的领导者。这将导致
+		 * 单个组内出现不同的 clog 页
+		 * 更新。这不太常见，且仍能工作，只是可能
+		 * 效率略低。
 		 */
 		if (nextidx != INVALID_PGPROCNO &&
 			ProcGlobal->allProcs[nextidx].clogGroupMemberPage != proc->clogGroupMemberPage)
 		{
 			/*
-			 * Ensure that this proc is not a member of any clog group that
-			 * needs an XID status update.
+			 * 确保本 proc 不是任何需要 XID 状态更新的
+			 * clog 组的成员。
 			 */
 			proc->clogGroupMember = false;
 			pg_atomic_write_u32(&proc->clogGroupNext, INVALID_PGPROCNO);
@@ -468,20 +468,20 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 	}
 
 	/*
-	 * If the list was not empty, the leader will update the status of our
-	 * XID. It is impossible to have followers without a leader because the
-	 * first process that has added itself to the list will always have
-	 * nextidx as INVALID_PGPROCNO.
+	 * 若列表非空，领导者将更新我们
+	 * XID 的状态。不可能存在没有领导者的跟随者，因为
+	 * 第一个把自己加入列表的进程总会使
+	 * nextidx 为 INVALID_PGPROCNO。
 	 */
 	if (nextidx != INVALID_PGPROCNO)
 	{
 		int			extraWaits = 0;
 
-		/* Sleep until the leader updates our XID status. */
+		/* 睡眠直到领导者更新我们的 XID 状态。 */
 		pgstat_report_wait_start(WAIT_EVENT_XACT_GROUP_UPDATE);
 		for (;;)
 		{
-			/* acts as a read barrier */
+			/* 充当读屏障 */
 			PGSemaphoreLock(proc->sem);
 			if (!proc->clogGroupMember)
 				break;
@@ -491,34 +491,34 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 
 		Assert(pg_atomic_read_u32(&proc->clogGroupNext) == INVALID_PGPROCNO);
 
-		/* Fix semaphore count for any absorbed wakeups */
+		/* 修正因吸收唤醒而偏高的信号量计数 */
 		while (extraWaits-- > 0)
 			PGSemaphoreUnlock(proc->sem);
 		return true;
 	}
 
-	/* We are the leader.  Acquire the lock on behalf of everyone. */
+	/* 我们是领导者。代表大家获取锁。 */
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * Now that we've got the lock, clear the list of processes waiting for
-	 * group XID status update, saving a pointer to the head of the list.
-	 * Trying to pop elements one at a time could lead to an ABA problem.
+	 * 既然已拿到锁，清空等待分组 XID 状态更新的进程列表，
+	 * 并保存指向列表头的指针。
+	 * 试图一次弹出一个元素可能导致 ABA 问题。
 	 */
 	nextidx = pg_atomic_exchange_u32(&procglobal->clogGroupFirst,
 									 INVALID_PGPROCNO);
 
-	/* Remember head of list so we can perform wakeups after dropping lock. */
+	/* 记住列表头，以便在放下锁后执行唤醒。 */
 	wakeidx = nextidx;
 
-	/* Walk the list and update the status of all XIDs. */
+	/* 遍历列表并更新全部 XIDs 的状态。 */
 	while (nextidx != INVALID_PGPROCNO)
 	{
 		PGPROC	   *nextproc = &ProcGlobal->allProcs[nextidx];
 
 		/*
-		 * Transactions with more than THRESHOLD_SUBTRANS_CLOG_OPT sub-XIDs
-		 * should not use group XID status update mechanism.
+		 * 子 XIDs 多于 THRESHOLD_SUBTRANS_CLOG_OPT 的事务
+		 * 不应使用分组 XID 状态更新机制。
 		 */
 		Assert(nextproc->subxidStatus.count <= THRESHOLD_SUBTRANS_CLOG_OPT);
 
@@ -529,17 +529,17 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 										   nextproc->clogGroupMemberLsn,
 										   nextproc->clogGroupMemberPage);
 
-		/* Move to next proc in list. */
+		/* 移到列表中下一个 proc。 */
 		nextidx = pg_atomic_read_u32(&nextproc->clogGroupNext);
 	}
 
-	/* We're done with the lock now. */
+	/* 现在用完锁了。 */
 	LWLockRelease(XactSLRULock);
 
 	/*
-	 * Now that we've released the lock, go back and wake everybody up.  We
-	 * don't do this under the lock so as to keep lock hold times to a
-	 * minimum.
+	 * 既然已释放锁，回去唤醒所有人。我们
+	 * 不在锁下做这件事，以便尽量缩短
+	 * 持锁时间。
 	 */
 	while (wakeidx != INVALID_PGPROCNO)
 	{
@@ -548,7 +548,7 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 		wakeidx = pg_atomic_read_u32(&wakeproc->clogGroupNext);
 		pg_atomic_write_u32(&wakeproc->clogGroupNext, INVALID_PGPROCNO);
 
-		/* ensure all previous writes are visible before follower continues. */
+		/* 确保先前写入在跟随者继续前均可见。 */
 		pg_write_barrier();
 
 		wakeproc->clogGroupMember = false;
@@ -561,9 +561,9 @@ TransactionGroupUpdateXidStatus(TransactionId xid, XidStatus status,
 }
 
 /*
- * Sets the commit status of a single transaction.
+ * 设置单个事务的提交状态。
  *
- * Must be called with XactSLRULock held
+ * 调用时必须持有 XactSLRULock
  */
 static void
 TransactionIdSetStatusBit(TransactionId xid, XidStatus status, XLogRecPtr lsn, int slotno)
@@ -578,37 +578,37 @@ TransactionIdSetStatusBit(TransactionId xid, XidStatus status, XLogRecPtr lsn, i
 	curval = (*byteptr >> bshift) & CLOG_XACT_BITMASK;
 
 	/*
-	 * When replaying transactions during recovery we still need to perform
-	 * the two phases of subcommit and then commit. However, some transactions
-	 * are already correctly marked, so we just treat those as a no-op which
-	 * allows us to keep the following Assert as restrictive as possible.
+	 * 在恢复期间重放事务时，我们仍需执行
+	 * 子已提交然后提交这两个阶段。不过有些事务
+	 * 已被正确标记，因此我们把那些当作空操作，
+	 * 以便让后面的 Assert 尽可能严格。
 	 */
 	if (InRecovery && status == TRANSACTION_STATUS_SUB_COMMITTED &&
 		curval == TRANSACTION_STATUS_COMMITTED)
 		return;
 
 	/*
-	 * Current state change should be from 0 or subcommitted to target state
-	 * or we should already be there when replaying changes during recovery.
+	 * 当前状态变更应是从 0 或子已提交到目标状态，
+	 * 或者在恢复期间重放变更时我们应已处于该状态。
 	 */
 	Assert(curval == 0 ||
 		   (curval == TRANSACTION_STATUS_SUB_COMMITTED &&
 			status != TRANSACTION_STATUS_IN_PROGRESS) ||
 		   curval == status);
 
-	/* note this assumes exclusive access to the clog page */
+	/* 注意此处假定对 clog 页有排他访问 */
 	byteval = *byteptr;
 	byteval &= ~(((1 << CLOG_BITS_PER_XACT) - 1) << bshift);
 	byteval |= (status << bshift);
 	*byteptr = byteval;
 
 	/*
-	 * Update the group LSN if the transaction completion LSN is higher.
+	 * 若事务完成 LSN 更高，则更新组 LSN。
 	 *
-	 * Note: lsn will be invalid when supplied during InRecovery processing,
-	 * so we don't need to do anything special to avoid LSN updates during
-	 * recovery. After recovery completes the next clog change will set the
-	 * LSN correctly.
+	 * 注意：在 InRecovery 处理期间提供的 lsn 将无效，
+	 * 因此我们无需做任何特殊处理来避免恢复期间的
+	 * LSN 更新。恢复完成后，下一次 clog 变更将正确设置
+	 * LSN。
 	 */
 	if (!XLogRecPtrIsInvalid(lsn))
 	{
@@ -620,19 +620,19 @@ TransactionIdSetStatusBit(TransactionId xid, XidStatus status, XLogRecPtr lsn, i
 }
 
 /*
- * Interrogate the state of a transaction in the commit log.
+ * 查询提交日志中某事务的状态。
  *
- * Aside from the actual commit status, this function returns (into *lsn)
- * an LSN that is late enough to be able to guarantee that if we flush up to
- * that LSN then we will have flushed the transaction's commit record to disk.
- * The result is not necessarily the exact LSN of the transaction's commit
- * record!	For example, for long-past transactions (those whose clog pages
- * already migrated to disk), we'll return InvalidXLogRecPtr.  Also, because
- * we group transactions on the same clog page to conserve storage, we might
- * return the LSN of a later transaction that falls into the same group.
+ * 除实际提交状态外，本函数还（写入 *lsn）
+ * 返回一个足够靠后的 LSN，以保证若我们刷写到
+ * 该 LSN，则已将该事务的提交记录刷写到磁盘。
+ * 结果未必恰好是该事务提交
+ * 记录的精确 LSN！例如，对很久以前的事务（其 clog 页
+ * 已落到磁盘），我们将返回 InvalidXLogRecPtr。另外，因为
+ * 我们把同一 clog 页上的事务分组以节省存储，我们可能
+ * 返回落入同一组的稍后事务的 LSN。
  *
- * NB: this is a low-level routine and is NOT the preferred entry point
- * for most uses; TransactionLogFetch() in transam.c is the intended caller.
+ * NB：这是低层例程，并非大多数用途的首选入口
+ * 点；预期调用方是 transam.c 中的 TransactionLogFetch()。
  */
 XidStatus
 TransactionIdGetStatus(TransactionId xid, XLogRecPtr *lsn)
@@ -645,7 +645,7 @@ TransactionIdGetStatus(TransactionId xid, XLogRecPtr *lsn)
 	char	   *byteptr;
 	XidStatus	status;
 
-	/* lock is acquired by SimpleLruReadPage_ReadOnly */
+	/* 锁由 SimpleLruReadPage_ReadOnly 获取 */
 
 	slotno = SimpleLruReadPage_ReadOnly(XactCtl, pageno, xid);
 	byteptr = XactCtl->shared->page_buffer[slotno] + byteno;
@@ -661,20 +661,20 @@ TransactionIdGetStatus(TransactionId xid, XLogRecPtr *lsn)
 }
 
 /*
- * Number of shared CLOG buffers.
+ * 共享 CLOG 缓冲区数目。
  *
- * On larger multi-processor systems, it is possible to have many CLOG page
- * requests in flight at one time which could lead to disk access for CLOG
- * page if the required page is not found in memory.  Testing revealed that we
- * can get the best performance by having 128 CLOG buffers, more than that it
- * doesn't improve performance.
+ * 在较大的多处理器系统上，可能同时有许多 CLOG 页
+ * 请求在途，若所需页不在内存中，可能导致对 CLOG
+ * 页的磁盘访问。测试表明我们
+ * 以 128 个 CLOG 缓冲区可获得最佳性能；再多
+ * 并不能提升性能。
  *
- * Unconditionally keeping the number of CLOG buffers to 128 did not seem like
- * a good idea, because it would increase the minimum amount of shared memory
- * required to start, which could be a problem for people running very small
- * configurations.  The following formula seems to represent a reasonable
- * compromise: people with very low values for shared_buffers will get fewer
- * CLOG buffers as well, and everyone else will get 128.
+ * 无条件把 CLOG 缓冲区数目保持为 128 似乎
+ * 不是好主意，因为那会提高启动所需的共享内存
+ * 下限，对运行非常小配置的人可能是
+ * 问题。下列公式似乎代表合理的
+ * 折中：shared_buffers 很低的人也会得到较少的
+ * CLOG 缓冲区，其他人则得到 128。
  */
 Size
 CLOGShmemBuffers(void)
@@ -683,7 +683,7 @@ CLOGShmemBuffers(void)
 }
 
 /*
- * Initialization of shared memory for CLOG
+ * 初始化 CLOG 的共享内存
  */
 Size
 CLOGShmemSize(void)
@@ -702,10 +702,10 @@ CLOGShmemInit(void)
 }
 
 /*
- * This func must be called ONCE on system install.  It creates
- * the initial CLOG segment.  (The CLOG directory is assumed to
- * have been created by initdb, and CLOGShmemInit must have been
- * called already.)
+ * 本函数必须在系统安装时调用一次。它创建
+ * 初始 CLOG 段。（假定 CLOG 目录已由
+ * initdb 创建，且 CLOGShmemInit 必须已经
+ * 调用过。）
  */
 void
 BootStrapCLOG(void)
@@ -714,10 +714,10 @@ BootStrapCLOG(void)
 
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 
-	/* Create and zero the first page of the commit log */
+	/* 创建并清零提交日志的第一页 */
 	slotno = ZeroCLOGPage(0, false);
 
-	/* Make sure it's written out */
+	/* 确保已写出 */
 	SimpleLruWritePage(XactCtl, slotno);
 	Assert(!XactCtl->shared->page_dirty[slotno]);
 
@@ -725,13 +725,13 @@ BootStrapCLOG(void)
 }
 
 /*
- * Initialize (or reinitialize) a page of CLOG to zeroes.
- * If writeXlog is true, also emit an XLOG record saying we did this.
+ * 把一页 CLOG 初始化（或重新初始化）为零。
+ * 若 writeXlog 为 true，还发出一条说明我们做了此事的 XLOG 记录。
  *
- * The page is not actually written, just set up in shared memory.
- * The slot number of the new page is returned.
+ * 该页实际上并不写出，只是在共享内存中设置好。
+ * 返回新页的槽号。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
  */
 static int
 ZeroCLOGPage(int pageno, bool writeXlog)
@@ -747,8 +747,8 @@ ZeroCLOGPage(int pageno, bool writeXlog)
 }
 
 /*
- * This must be called ONCE during postmaster or standalone-backend startup,
- * after StartupXLOG has initialized ShmemVariableCache->nextXid.
+ * 本函数必须在 postmaster 或单机后端启动期间调用一次，
+ * 且在 StartupXLOG 已初始化 ShmemVariableCache->nextXid 之后。
  */
 void
 StartupCLOG(void)
@@ -759,7 +759,7 @@ StartupCLOG(void)
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * Initialize our idea of the latest page number.
+	 * 初始化我们认为的最新页号。
 	 */
 	XactCtl->shared->latest_page_number = pageno;
 
@@ -767,7 +767,7 @@ StartupCLOG(void)
 }
 
 /*
- * This must be called ONCE at the end of startup/recovery.
+ * 本函数必须在启动/恢复结束时调用一次。
  */
 void
 TrimCLOG(void)
@@ -778,16 +778,16 @@ TrimCLOG(void)
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 
 	/*
-	 * Zero out the remainder of the current clog page.  Under normal
-	 * circumstances it should be zeroes already, but it seems at least
-	 * theoretically possible that XLOG replay will have settled on a nextXID
-	 * value that is less than the last XID actually used and marked by the
-	 * previous database lifecycle (since subtransaction commit writes clog
-	 * but makes no WAL entry).  Let's just be safe. (We need not worry about
-	 * pages beyond the current one, since those will be zeroed when first
-	 * used.  For the same reason, there is no need to do anything when
-	 * nextXid is exactly at a page boundary; and it's likely that the
-	 * "current" page doesn't exist yet in that case.)
+	 * 把当前 clog 页的剩余部分清零。在正常
+	 * 情况下它本应已是零，但至少在理论上
+	 * 似乎可能：XLOG 重放会落在一个小于上一数据库生命周期
+	 * 实际使用并标记过的最后 XID 的 nextXID
+	 * 值上（因为子事务提交会写 clog
+	 * 但不产生 WAL 项）。为安全起见还是清零。（我们不必担心
+	 * 当前页之后的页，因为那些会在首次
+	 * 使用时清零。同理，当
+	 * nextXid 恰好在页边界上时无需做任何事；那种情况下
+	 * "当前"页很可能尚不存在。）
 	 */
 	if (TransactionIdToPgIndex(xid) != 0)
 	{
@@ -799,9 +799,9 @@ TrimCLOG(void)
 		slotno = SimpleLruReadPage(XactCtl, pageno, false, xid);
 		byteptr = XactCtl->shared->page_buffer[slotno] + byteno;
 
-		/* Zero so-far-unused positions in the current byte */
+		/* 清零当前字节中迄今未用的位置 */
 		*byteptr &= (1 << bshift) - 1;
-		/* Zero the rest of the page */
+		/* 清零该页其余部分 */
 		MemSet(byteptr + 1, 0, BLCKSZ - byteno - 1);
 
 		XactCtl->shared->page_dirty[slotno] = true;
@@ -811,15 +811,15 @@ TrimCLOG(void)
 }
 
 /*
- * Perform a checkpoint --- either during shutdown, or on-the-fly
+ * 执行检查点——无论是在关机期间还是联机执行
  */
 void
 CheckPointCLOG(void)
 {
 	/*
-	 * Write dirty CLOG pages to disk.  This may result in sync requests
-	 * queued for later handling by ProcessSyncRequests(), as part of the
-	 * checkpoint.
+	 * 将脏 CLOG 页写出到磁盘。这可能导致同步请求
+	 * 排队，稍后由 ProcessSyncRequests() 作为
+	 * 检查点的一部分处理。
 	 */
 	TRACE_POSTGRESQL_CLOG_CHECKPOINT_START(true);
 	SimpleLruWriteAll(XactCtl, true);
@@ -828,12 +828,12 @@ CheckPointCLOG(void)
 
 
 /*
- * Make sure that CLOG has room for a newly-allocated XID.
+ * 确保 CLOG 有空间容纳新分配的 XID。
  *
- * NB: this is called while holding XidGenLock.  We want it to be very fast
- * most of the time; even when it's not so fast, no actual I/O need happen
- * unless we're forced to write out a dirty clog or xlog page to make room
- * in shared memory.
+ * NB：调用时持有 XidGenLock。我们希望它在多数时候非常快
+ * ；即使不那么快，除非被迫
+ * 写出脏 clog 或 xlog 页以腾出
+ * 共享内存空间，否则也不需要实际 I/O。
  */
 void
 ExtendCLOG(TransactionId newestXact)
@@ -841,8 +841,8 @@ ExtendCLOG(TransactionId newestXact)
 	int			pageno;
 
 	/*
-	 * No work except at first XID of a page.  But beware: just after
-	 * wraparound, the first XID of page zero is FirstNormalTransactionId.
+	 * 除页上第一个 XID 外无工作。但要注意：刚
+	 * 回卷后，第零页的第一个 XID 是 FirstNormalTransactionId。
 	 */
 	if (TransactionIdToPgIndex(newestXact) != 0 &&
 		!TransactionIdEquals(newestXact, FirstNormalTransactionId))
@@ -852,7 +852,7 @@ ExtendCLOG(TransactionId newestXact)
 
 	LWLockAcquire(XactSLRULock, LW_EXCLUSIVE);
 
-	/* Zero the page and make an XLOG entry about it */
+	/* 清零该页并为此记一条 XLOG 项 */
 	ZeroCLOGPage(pageno, true);
 
 	LWLockRelease(XactSLRULock);
@@ -860,19 +860,19 @@ ExtendCLOG(TransactionId newestXact)
 
 
 /*
- * Remove all CLOG segments before the one holding the passed transaction ID
+ * 移除持有所传事务 ID 的那个段之前的全部 CLOG 段
  *
- * Before removing any CLOG data, we must flush XLOG to disk, to ensure
- * that any recently-emitted FREEZE_PAGE records have reached disk; otherwise
- * a crash and restart might leave us with some unfrozen tuples referencing
- * removed CLOG data.  We choose to emit a special TRUNCATE XLOG record too.
- * Replaying the deletion from XLOG is not critical, since the files could
- * just as well be removed later, but doing so prevents a long-running hot
- * standby server from acquiring an unreasonably bloated CLOG directory.
+ * 在移除任何 CLOG 数据之前，必须把 XLOG 刷写到磁盘，以确保
+ * 任何最近发出的 FREEZE_PAGE 记录已到达磁盘；否则
+ * 崩溃并重启可能使我们留下引用已移除
+ * CLOG 数据的未冻结元组。我们选择也发出一条特殊的 TRUNCATE XLOG 记录。
+ * 从 XLOG 重放删除并非关键，因为这些文件完全可以
+ * 稍后移除，但这样做可防止长时间运行的热
+ * 备服务器获得不合理膨胀的 CLOG 目录。
  *
- * Since CLOG segments hold a large number of transactions, the opportunity to
- * actually remove a segment is fairly rare, and so it seems best not to do
- * the XLOG flush unless we have confirmed that there is a removable segment.
+ * 由于 CLOG 段容纳大量事务，实际移除一段的机会
+ * 相当少见，因此似乎最好在确认
+ * 存在可移除段之前不要做 XLOG 刷写。
  */
 void
 TruncateCLOG(TransactionId oldestXact, Oid oldestxid_datoid)
@@ -880,54 +880,54 @@ TruncateCLOG(TransactionId oldestXact, Oid oldestxid_datoid)
 	int			cutoffPage;
 
 	/*
-	 * The cutoff point is the start of the segment containing oldestXact. We
-	 * pass the *page* containing oldestXact to SimpleLruTruncate.
+	 * 截断点是包含 oldestXact 的段的起始处。我们
+	 * 把包含 oldestXact 的*页*传给 SimpleLruTruncate。
 	 */
 	cutoffPage = TransactionIdToPage(oldestXact);
 
-	/* Check to see if there's any files that could be removed */
+	/* 检查是否有可移除的文件 */
 	if (!SlruScanDirectory(XactCtl, SlruScanDirCbReportPresence, &cutoffPage))
-		return;					/* nothing to remove */
+		return;					/* 没什么可移除 */
 
 	/*
-	 * Advance oldestClogXid before truncating clog, so concurrent xact status
-	 * lookups can ensure they don't attempt to access truncated-away clog.
+	 * 在截断 clog 之前推进 oldestClogXid，以便并发的 xact 状态
+	 * 查找能确保它们不尝试访问已被截断掉的 clog。
 	 *
-	 * It's only necessary to do this if we will actually truncate away clog
-	 * pages.
+	 * 仅当我们确实会截断掉 clog
+	 * 页时才有必要这样做。
 	 */
 	AdvanceOldestClogXid(oldestXact);
 
 	/*
-	 * Write XLOG record and flush XLOG to disk. We record the oldest xid
-	 * we're keeping information about here so we can ensure that it's always
-	 * ahead of clog truncation in case we crash, and so a standby finds out
-	 * the new valid xid before the next checkpoint.
+	 * 写 XLOG 记录并把 XLOG 刷写到磁盘。我们在此记录正在保留信息的
+	 * 最老 xid，以便在崩溃时确保它始终
+	 * 领先于 clog 截断，并使备库在下一检查点之前得知
+	 * 新的有效 xid。
 	 */
 	WriteTruncateXlogRec(cutoffPage, oldestXact, oldestxid_datoid);
 
-	/* Now we can remove the old CLOG segment(s) */
+	/* 现在可以移除旧的 CLOG segment(s) */
 	SimpleLruTruncate(XactCtl, cutoffPage);
 }
 
 
 /*
- * Decide whether a CLOG page number is "older" for truncation purposes.
+ * 判定某 CLOG 页号对截断而言是否"更老"。
  *
- * We need to use comparison of TransactionIds here in order to do the right
- * thing with wraparound XID arithmetic.  However, TransactionIdPrecedes()
- * would get weird about permanent xact IDs.  So, offset both such that xid1,
- * xid2, and xid2 + CLOG_XACTS_PER_PAGE - 1 are all normal XIDs; this offset
- * is relevant to page 0 and to the page preceding page 0.
+ * 这里需要用 TransactionIds 比较，以便在回卷 XID 算术下做对
+ * 事情。然而 TransactionIdPrecedes()
+ * 会对永久 xact ID 表现怪异。因此，把两者都偏移，使 xid1、
+ * xid2，以及 xid2 + CLOG_XACTS_PER_PAGE - 1 都是普通 XIDs；此偏移
+ * 与第 0 页以及第 0 页之前的那一页相关。
  *
- * The page containing oldestXact-2^31 is the important edge case.  The
- * portion of that page equaling or following oldestXact-2^31 is expendable,
- * but the portion preceding oldestXact-2^31 is not.  When oldestXact-2^31 is
- * the first XID of a page and segment, the entire page and segment is
- * expendable, and we could truncate the segment.  Recognizing that case would
- * require making oldestXact, not just the page containing oldestXact,
- * available to this callback.  The benefit would be rare and small, so we
- * don't optimize that edge case.
+ * 包含 oldestXact-2^31 的页是重要的边界情形。该
+ * 页中等于或晚于 oldestXact-2^31 的部分可丢弃，
+ * 但早于 oldestXact-2^31 的部分则不可。当 oldestXact-2^31 是
+ * 某页与段的第一个 XID 时，整页与整段都
+ * 可丢弃，我们可以截断该段。识别那种情形需要
+ * 让本回调能拿到 oldestXact，而不只是包含 oldestXact 的
+ * 页。收益少见且很小，因此我们
+ * 不优化该边界情形。
  */
 static bool
 CLOGPagePrecedes(int page1, int page2)
@@ -946,7 +946,7 @@ CLOGPagePrecedes(int page1, int page2)
 
 
 /*
- * Write a ZEROPAGE xlog record
+ * 写一条 ZEROPAGE xlog 记录
  */
 static void
 WriteZeroPageXlogRec(int pageno)
@@ -957,10 +957,10 @@ WriteZeroPageXlogRec(int pageno)
 }
 
 /*
- * Write a TRUNCATE xlog record
+ * 写一条 TRUNCATE xlog 记录
  *
- * We must flush the xlog record to disk before returning --- see notes
- * in TruncateCLOG().
+ * 返回前必须把 xlog 记录刷写到磁盘——见 TruncateCLOG()
+ * 中的说明。
  */
 static void
 WriteTruncateXlogRec(int pageno, TransactionId oldestXact, Oid oldestXactDb)
@@ -979,14 +979,14 @@ WriteTruncateXlogRec(int pageno, TransactionId oldestXact, Oid oldestXactDb)
 }
 
 /*
- * CLOG resource manager's routines
+ * CLOG 资源管理器的例程
  */
 void
 clog_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in clog records */
+	/* clog 记录不使用备份块 */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
 	if (info == CLOG_ZEROPAGE)
@@ -1019,7 +1019,7 @@ clog_redo(XLogReaderState *record)
 }
 
 /*
- * Entrypoint for sync.c to sync clog files.
+ * sync.c 同步 clog 文件的入口点。
  */
 int
 clogsyncfiletag(const FileTag *ftag, char *path)

@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0197-comment-access-transam-part9",
+ "title": "zh: translate access/transam comments (part 9)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "57e820abfff577724945ec648e782f61dcdce489",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/xloginsert.c",
+   "kind": "c_comment",
+   "note": "WAL record construction / XLogRegister* / full-page images"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0197-comment-access-transam-part9.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/xloginsert.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 115,
+   "translated": 115,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL record construction; Copyright and path lines kept in English; no fall-through marker"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0197-comment-access-transam-part9.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0197 translates comments in xloginsert.c. Copyright and path lines stay in English. No fall-through marker. Next suggested: slru.c."
+}

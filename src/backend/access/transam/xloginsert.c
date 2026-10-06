@@ -1,13 +1,13 @@
 /*-------------------------------------------------------------------------
  *
  * xloginsert.c
- *		Functions for constructing WAL records
+ *		构造 WAL 记录的函数
  *
- * Constructing a WAL record begins with a call to XLogBeginInsert,
- * followed by a number of XLogRegister* calls. The registered data is
- * collected in private working memory, and finally assembled into a chain
- * of XLogRecData structs by a call to XLogRecordAssemble(). See
- * access/transam/README for details.
+ * 构造一条 WAL 记录从调用 XLogBeginInsert 开始，
+ * 随后是若干次 XLogRegister* 调用。注册的数据收集在
+ * 私有工作内存中，最后由 XLogRecordAssemble() 组装成
+ * XLogRecData 结构链。细节见
+ * access/transam/README。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -42,8 +42,8 @@
 #include "utils/memutils.h"
 
 /*
- * Guess the maximum buffer size required to store a compressed version of
- * backup block image.
+ * 估算存储备份块映像压缩版本所需的最大缓冲区大小。
+ *
  */
 #ifdef USE_LZ4
 #define	LZ4_MAX_BLCKSZ		LZ4_COMPRESSBOUND(BLCKSZ)
@@ -59,57 +59,57 @@
 
 #define PGLZ_MAX_BLCKSZ		PGLZ_MAX_OUTPUT(BLCKSZ)
 
-/* Buffer size required to store a compressed version of backup block image */
+/* 存储备份块映像压缩版本所需的缓冲区大小 */
 #define COMPRESS_BUFSIZE	Max(Max(PGLZ_MAX_BLCKSZ, LZ4_MAX_BLCKSZ), ZSTD_MAX_BLCKSZ)
 
 /*
- * For each block reference registered with XLogRegisterBuffer, we fill in
- * a registered_buffer struct.
+ * 对每个用 XLogRegisterBuffer 注册的块引用，我们填写一个
+ * registered_buffer 结构。
  */
 typedef struct
 {
-	bool		in_use;			/* is this slot in use? */
-	uint8		flags;			/* REGBUF_* flags */
-	RelFileLocator rlocator;	/* identifies the relation and block */
+	bool		in_use;			/* 此槽是否在使用中？ */
+	uint8		flags;			/* REGBUF_* 标志 */
+	RelFileLocator rlocator;	/* 标识关系和块 */
 	ForkNumber	forkno;
 	BlockNumber block;
-	Page		page;			/* page content */
-	uint32		rdata_len;		/* total length of data in rdata chain */
-	XLogRecData *rdata_head;	/* head of the chain of data registered with
-								 * this block */
-	XLogRecData *rdata_tail;	/* last entry in the chain, or &rdata_head if
-								 * empty */
+	Page		page;			/* 页内容 */
+	uint32		rdata_len;		/* rdata 链中数据的总长度 */
+	XLogRecData *rdata_head;	/* 与此块一起注册的数据链的
+								 * 头 */
+	XLogRecData *rdata_tail;	/* 链中的最后一项，若为空则为
+								 * &rdata_head */
 
-	XLogRecData bkp_rdatas[2];	/* temporary rdatas used to hold references to
-								 * backup block data in XLogRecordAssemble() */
+	XLogRecData bkp_rdatas[2];	/* 临时 rdata，用于在 XLogRecordAssemble() 中
+								 * 保存对备份块数据的引用 */
 
-	/* buffer to store a compressed version of backup block image */
+	/* 存储备份块映像压缩版本的缓冲区 */
 	char		compressed_page[COMPRESS_BUFSIZE];
 } registered_buffer;
 
 static registered_buffer *registered_buffers;
-static int	max_registered_buffers; /* allocated size */
-static int	max_registered_block_id = 0;	/* highest block_id + 1 currently
-											 * registered */
+static int	max_registered_buffers; /* 已分配大小 */
+static int	max_registered_block_id = 0;	/* 当前已注册的最高
+											 * block_id + 1 */
 
 /*
- * A chain of XLogRecDatas to hold the "main data" of a WAL record, registered
- * with XLogRegisterData(...).
+ * 一条 XLogRecDatas 链，保存用 XLogRegisterData(...) 注册的
+ * WAL 记录"主数据"。
  */
 static XLogRecData *mainrdata_head;
 static XLogRecData *mainrdata_last = (XLogRecData *) &mainrdata_head;
-static uint64 mainrdata_len;	/* total # of bytes in chain */
+static uint64 mainrdata_len;	/* 链中的总字节数 */
 
-/* flags for the in-progress insertion */
+/* 进行中插入的标志 */
 static uint8 curinsert_flags = 0;
 
 /*
- * These are used to hold the record header while constructing a record.
- * 'hdr_scratch' is not a plain variable, but is palloc'd at initialization,
- * because we want it to be MAXALIGNed and padding bytes zeroed.
+ * 构造记录时用这些存放记录头。
+ * 'hdr_scratch' 不是普通变量，而是在初始化时 palloc 的，
+ * 因为我们希望它是 MAXALIGNed 的且填充字节为零。
  *
- * For simplicity, it's allocated large enough to hold the headers for any
- * WAL record.
+ * 为简单起见，分配得足够大，可容纳任意
+ * WAL 记录的头部。
  */
 static XLogRecData hdr_rdt;
 static char *hdr_scratch = NULL;
@@ -124,15 +124,15 @@ static char *hdr_scratch = NULL;
 	 SizeOfXLogTransactionId)
 
 /*
- * An array of XLogRecData structs, to hold registered data.
+ * XLogRecData 结构数组，用于保存已注册的数据。
  */
 static XLogRecData *rdatas;
-static int	num_rdatas;			/* entries currently used */
-static int	max_rdatas;			/* allocated size */
+static int	num_rdatas;			/* 当前已用条目数 */
+static int	max_rdatas;			/* 已分配大小 */
 
 static bool begininsert_called = false;
 
-/* Memory context to hold the registered buffer and data references. */
+/* 保存已注册缓冲区与数据引用的内存上下文。 */
 static MemoryContext xloginsert_cxt;
 
 static XLogRecData *XLogRecordAssemble(RmgrId rmid, uint8 info,
@@ -143,8 +143,8 @@ static bool XLogCompressBackupBlock(char *page, uint16 hole_offset,
 									uint16 hole_length, char *dest, uint16 *dlen);
 
 /*
- * Begin constructing a WAL record. This must be called before the
- * XLogRegister* functions and XLogInsert().
+ * 开始构造一条 WAL 记录。必须在 XLogRegister*
+ * 函数和 XLogInsert() 之前调用。
  */
 void
 XLogBeginInsert(void)
@@ -153,7 +153,7 @@ XLogBeginInsert(void)
 	Assert(mainrdata_last == (XLogRecData *) &mainrdata_head);
 	Assert(mainrdata_len == 0);
 
-	/* cross-check on whether we should be here or not */
+	/* 交叉检查我们是否本应到达此处 */
 	if (!XLogInsertAllowed())
 		elog(ERROR, "cannot make new WAL entries during recovery");
 
@@ -164,13 +164,13 @@ XLogBeginInsert(void)
 }
 
 /*
- * Ensure that there are enough buffer and data slots in the working area,
- * for subsequent XLogRegisterBuffer, XLogRegisterData and XLogRegisterBufData
- * calls.
+ * 确保工作区有足够的缓冲区与数据槽，供后续的
+ * XLogRegisterBuffer、XLogRegisterData 和 XLogRegisterBufData
+ * 调用使用。
  *
- * There is always space for a small number of buffers and data chunks, enough
- * for most record types. This function is for the exceptional cases that need
- * more.
+ * 总是为少量缓冲区与数据块预留空间，对大多数
+ * 记录类型已足够。本函数用于需要更多空间的
+ * 例外情况。
  */
 void
 XLogEnsureRecordSpace(int max_block_id, int ndatas)
@@ -178,14 +178,14 @@ XLogEnsureRecordSpace(int max_block_id, int ndatas)
 	int			nbuffers;
 
 	/*
-	 * This must be called before entering a critical section, because
-	 * allocating memory inside a critical section can fail. repalloc() will
-	 * check the same, but better to check it here too so that we fail
-	 * consistently even if the arrays happen to be large enough already.
+	 * 必须在进入临界区之前调用，因为在临界区内
+	 * 分配内存可能失败。repalloc() 也会检查同样的
+	 * 条件，但最好在这里也检查，以便即使数组碰巧已经
+	 * 足够大，也能一致地失败。
 	 */
 	Assert(CritSectionCount == 0);
 
-	/* the minimum values can't be decreased */
+	/* 最小值不能被减小 */
 	if (max_block_id < XLR_NORMAL_MAX_BLOCK_ID)
 		max_block_id = XLR_NORMAL_MAX_BLOCK_ID;
 	if (ndatas < XLR_NORMAL_RDATAS)
@@ -201,8 +201,8 @@ XLogEnsureRecordSpace(int max_block_id, int ndatas)
 			repalloc(registered_buffers, sizeof(registered_buffer) * nbuffers);
 
 		/*
-		 * At least the padding bytes in the structs must be zeroed, because
-		 * they are included in WAL data, but initialize it all for tidiness.
+		 * 至少结构中的填充字节必须清零，因为它们会
+		 * 包含在 WAL 数据中，但为整洁起见全部初始化。
 		 */
 		MemSet(&registered_buffers[max_registered_buffers], 0,
 			   (nbuffers - max_registered_buffers) * sizeof(registered_buffer));
@@ -217,7 +217,7 @@ XLogEnsureRecordSpace(int max_block_id, int ndatas)
 }
 
 /*
- * Reset WAL record construction buffers.
+ * 重置 WAL 记录构造缓冲区。
  */
 void
 XLogResetInsertion(void)
@@ -236,15 +236,15 @@ XLogResetInsertion(void)
 }
 
 /*
- * Register a reference to a buffer with the WAL record being constructed.
- * This must be called for every page that the WAL-logged operation modifies.
+ * 向正在构造的 WAL 记录注册一个缓冲区引用。
+ * 凡被 WAL 记录的操作所修改的每一页都必须调用。
  */
 void
 XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 {
 	registered_buffer *regbuf;
 
-	/* NO_IMAGE doesn't make sense with FORCE_IMAGE */
+	/* NO_IMAGE 与 FORCE_IMAGE 同时使用无意义 */
 	Assert(!((flags & REGBUF_FORCE_IMAGE) && (flags & (REGBUF_NO_IMAGE))));
 	Assert(begininsert_called);
 
@@ -264,8 +264,8 @@ XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 	regbuf->rdata_len = 0;
 
 	/*
-	 * Check that this page hasn't already been registered with some other
-	 * block_id.
+	 * 检查此页是否尚未以其他
+	 * block_id 注册。
 	 */
 #ifdef USE_ASSERT_CHECKING
 	{
@@ -289,8 +289,8 @@ XLogRegisterBuffer(uint8 block_id, Buffer buffer, uint8 flags)
 }
 
 /*
- * Like XLogRegisterBuffer, but for registering a block that's not in the
- * shared buffer pool (i.e. when you don't have a Buffer for it).
+ * 类似 XLogRegisterBuffer，但用于注册不在共享缓冲池中的块
+ * （即没有对应 Buffer 时）。
  */
 void
 XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
@@ -317,8 +317,8 @@ XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 	regbuf->rdata_len = 0;
 
 	/*
-	 * Check that this page hasn't already been registered with some other
-	 * block_id.
+	 * 检查此页是否尚未以其他
+	 * block_id 注册。
 	 */
 #ifdef USE_ASSERT_CHECKING
 	{
@@ -342,10 +342,10 @@ XLogRegisterBlock(uint8 block_id, RelFileLocator *rlocator, ForkNumber forknum,
 }
 
 /*
- * Add data to the WAL record that's being constructed.
+ * 向正在构造的 WAL 记录添加数据。
  *
- * The data is appended to the "main chunk", available at replay with
- * XLogRecGetData().
+ * 数据追加到"主数据块"中，重放时可通过
+ * XLogRecGetData() 取得。
  */
 void
 XLogRegisterData(char *data, uint32 len)
@@ -365,8 +365,8 @@ XLogRegisterData(char *data, uint32 len)
 	rdata->len = len;
 
 	/*
-	 * we use the mainrdata_last pointer to track the end of the chain, so no
-	 * need to clear 'next' here.
+	 * 我们用 mainrdata_last 指针跟踪链尾，因此这里
+	 * 无需清除 'next'。
 	 */
 
 	mainrdata_last->next = rdata;
@@ -376,17 +376,17 @@ XLogRegisterData(char *data, uint32 len)
 }
 
 /*
- * Add buffer-specific data to the WAL record that's being constructed.
+ * 向正在构造的 WAL 记录添加特定于缓冲区的数据。
  *
- * Block_id must reference a block previously registered with
- * XLogRegisterBuffer(). If this is called more than once for the same
- * block_id, the data is appended.
+ * Block_id 必须引用先前用
+ * XLogRegisterBuffer() 注册的块。若对同一
+ * block_id 多次调用，则数据追加。
  *
- * The maximum amount of data that can be registered per block is 65535
- * bytes. That should be plenty; if you need more than BLCKSZ bytes to
- * reconstruct the changes to the page, you might as well just log a full
- * copy of it. (the "main data" that's not associated with a block is not
- * limited)
+ * 每个块最多可注册 65535
+ * 字节数据。这应足够；若重建页上的更改需要超过 BLCKSZ
+ * 字节，不如直接记录一整份
+ * 副本。（与块无关的"主数据"不受
+ * 此限）
  */
 void
 XLogRegisterBufData(uint8 block_id, char *data, uint32 len)
@@ -396,17 +396,17 @@ XLogRegisterBufData(uint8 block_id, char *data, uint32 len)
 
 	Assert(begininsert_called);
 
-	/* find the registered buffer struct */
+	/* 查找已注册的缓冲区结构 */
 	regbuf = &registered_buffers[block_id];
 	if (!regbuf->in_use)
 		elog(ERROR, "no block with id %d registered with WAL insertion",
 			 block_id);
 
 	/*
-	 * Check against max_rdatas and ensure we do not register more data per
-	 * buffer than can be handled by the physical data format; i.e. that
-	 * regbuf->rdata_len does not grow beyond what
-	 * XLogRecordBlockHeader->data_length can hold.
+	 * 对照 max_rdatas 检查，并确保每个缓冲区注册的数据
+	 * 不超过物理数据格式所能承载的量；即
+	 * regbuf->rdata_len 不得增长到超出
+	 * XLogRecordBlockHeader->data_length 所能表示的范围。
 	 */
 	if (num_rdatas >= max_rdatas)
 		ereport(ERROR,
@@ -430,14 +430,14 @@ XLogRegisterBufData(uint8 block_id, char *data, uint32 len)
 }
 
 /*
- * Set insert status flags for the upcoming WAL record.
+ * 为即将写入的 WAL 记录设置插入状态标志。
  *
- * The flags that can be used here are:
- * - XLOG_INCLUDE_ORIGIN, to determine if the replication origin should be
- *	 included in the record.
- * - XLOG_MARK_UNIMPORTANT, to signal that the record is not important for
- *	 durability, which allows to avoid triggering WAL archiving and other
- *	 background activity.
+ * 此处可用的标志有：
+ * - XLOG_INCLUDE_ORIGIN：决定是否应在记录中
+ *	 包含复制源。
+ * - XLOG_MARK_UNIMPORTANT：表示该记录对持久性
+ *	 不重要，从而可避免触发 WAL 归档及其他
+ *	 后台活动。
  */
 void
 XLogSetRecordFlags(uint8 flags)
@@ -447,28 +447,28 @@ XLogSetRecordFlags(uint8 flags)
 }
 
 /*
- * Insert an XLOG record having the specified RMID and info bytes, with the
- * body of the record being the data and buffer references registered earlier
- * with XLogRegister* calls.
+ * 插入一条具有指定 RMID 与 info 字节的 XLOG 记录，记录体为
+ * 先前用 XLogRegister* 调用注册的数据与缓冲区
+ * 引用。
  *
- * Returns XLOG pointer to end of record (beginning of next record).
- * This can be used as LSN for data pages affected by the logged action.
- * (LSN is the XLOG point up to which the XLOG must be flushed to disk
- * before the data page can be written out.  This implements the basic
- * WAL rule "write the log before the data".)
+ * 返回指向记录末尾（下一条记录起始）的 XLOG 指针。
+ * 可用作受此次记入日志操作影响的数据页的 LSN。
+ * （LSN 是在写出数据页之前必须把 XLOG 刷写到磁盘
+ * 的 XLOG 位置。这实现了基本的
+ * WAL 规则"先写日志再写数据"。）
  */
 XLogRecPtr
 XLogInsert(RmgrId rmid, uint8 info)
 {
 	XLogRecPtr	EndPos;
 
-	/* XLogBeginInsert() must have been called. */
+	/* 必须已调用 XLogBeginInsert()。 */
 	if (!begininsert_called)
 		elog(ERROR, "XLogBeginInsert was not called");
 
 	/*
-	 * The caller can set rmgr bits, XLR_SPECIAL_REL_UPDATE and
-	 * XLR_CHECK_CONSISTENCY; the rest are reserved for use by me.
+	 * 调用方可设置 rmgr 位、XLR_SPECIAL_REL_UPDATE 和
+	 * XLR_CHECK_CONSISTENCY；其余保留给我使用。
 	 */
 	if ((info & ~(XLR_RMGR_INFO_MASK |
 				  XLR_SPECIAL_REL_UPDATE |
@@ -478,13 +478,13 @@ XLogInsert(RmgrId rmid, uint8 info)
 	TRACE_POSTGRESQL_WAL_INSERT(rmid, info);
 
 	/*
-	 * In bootstrap mode, we don't actually log anything but XLOG resources;
-	 * return a phony record pointer.
+	 * 在 bootstrap 模式下，除 XLOG 资源外我们实际上不写日志；
+	 * 返回一个伪记录指针。
 	 */
 	if (IsBootstrapProcessingMode() && rmid != RM_XLOG_ID)
 	{
 		XLogResetInsertion();
-		EndPos = SizeOfXLogLongPHD; /* start of 1st chkpt record */
+		EndPos = SizeOfXLogLongPHD; /* 第 1 条检查点记录的起始 */
 		return EndPos;
 	}
 
@@ -498,9 +498,9 @@ XLogInsert(RmgrId rmid, uint8 info)
 		int			num_fpi = 0;
 
 		/*
-		 * Get values needed to decide whether to do full-page writes. Since
-		 * we don't yet have an insertion lock, these could change under us,
-		 * but XLogInsertRecord will recheck them once it has a lock.
+		 * 取得决定是否做整页写所需的值。由于我们
+		 * 尚无插入锁，这些值可能在我们脚下改变，
+		 * 但 XLogInsertRecord 拿到锁后会重新检查。
 		 */
 		GetFullPageWriteInfo(&RedoRecPtr, &doPageWrites);
 
@@ -517,19 +517,19 @@ XLogInsert(RmgrId rmid, uint8 info)
 }
 
 /*
- * Assemble a WAL record from the registered data and buffers into an
- * XLogRecData chain, ready for insertion with XLogInsertRecord().
+ * 把已注册的数据与缓冲区组装成一条 WAL 记录，形成
+ * XLogRecData 链，准备用 XLogInsertRecord() 插入。
  *
- * The record header fields are filled in, except for the xl_prev field. The
- * calculated CRC does not include the record header yet.
+ * 记录头字段已填好，但 xl_prev 除外。计算出的
+ * CRC 尚未包含记录头。
  *
- * If there are any registered buffers, and a full-page image was not taken
- * of all of them, *fpw_lsn is set to the lowest LSN among such pages. This
- * signals that the assembled record is only good for insertion on the
- * assumption that the RedoRecPtr and doPageWrites values were up-to-date.
+ * 若有已注册的缓冲区，且并非对它们全都拍摄了整页映像，
+ * 则 *fpw_lsn 设为这些页中最低的 LSN。这表示
+ * 组装好的记录仅在假定 RedoRecPtr 与 doPageWrites
+ * 值是最新的情况下才适合插入。
  *
- * *topxid_included is set if the topmost transaction ID is logged with the
- * current subtransaction.
+ * 若随当前子事务记录了顶层事务 ID，则
+ * *topxid_included 被置位。
  */
 static XLogRecData *
 XLogRecordAssemble(RmgrId rmid, uint8 info,
@@ -546,11 +546,11 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 	char	   *scratch = hdr_scratch;
 
 	/*
-	 * Note: this function can be called multiple times for the same record.
-	 * All the modifications we do to the rdata chains below must handle that.
+	 * 注意：同一条记录可多次调用本函数。
+	 * 下面我们对 rdata 链所做的全部修改都必须能处理这一点。
 	 */
 
-	/* The record begins with the fixed-size header */
+	/* 记录以固定大小的头部开始 */
 	rechdr = (XLogRecord *) scratch;
 	scratch += SizeOfXLogRecord;
 
@@ -559,18 +559,18 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 	hdr_rdt.data = hdr_scratch;
 
 	/*
-	 * Enforce consistency checks for this record if user is looking for it.
-	 * Do this before at the beginning of this routine to give the possibility
-	 * for callers of XLogInsert() to pass XLR_CHECK_CONSISTENCY directly for
-	 * a record.
+	 * 若用户要求对本记录做一致性检查则强制启用。
+	 * 在本例程开头就做，以便为 XLogInsert() 的调用方
+	 * 提供直接为某条记录传入 XLR_CHECK_CONSISTENCY
+	 * 的可能。
 	 */
 	if (wal_consistency_checking[rmid])
 		info |= XLR_CHECK_CONSISTENCY;
 
 	/*
-	 * Make an rdata chain containing all the data portions of all block
-	 * references. This includes the data for full-page images. Also append
-	 * the headers for the block references in the scratch buffer.
+	 * 构造一条包含所有块引用数据部分的 rdata 链。
+	 * 这包括整页映像的数据。同时把块引用的
+	 * 头部追加到暂存缓冲区中。
 	 */
 	*fpw_lsn = InvalidXLogRecPtr;
 	for (block_id = 0; block_id < max_registered_block_id; block_id++)
@@ -588,7 +588,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		if (!regbuf->in_use)
 			continue;
 
-		/* Determine if this block needs to be backed up */
+		/* 判定此块是否需要备份 */
 		if (regbuf->flags & REGBUF_FORCE_IMAGE)
 			needs_backup = true;
 		else if (regbuf->flags & REGBUF_NO_IMAGE)
@@ -598,9 +598,9 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		else
 		{
 			/*
-			 * We assume page LSN is first data on *every* page that can be
-			 * passed to XLogInsert, whether it has the standard page layout
-			 * or not.
+			 * 我们假定可传给 XLogInsert 的*每一*页上，
+			 * 页 LSN 都是最前面的数据，无论其是否采用
+			 * 标准页布局。
 			 */
 			XLogRecPtr	page_lsn = PageGetLSN(regbuf->page);
 
@@ -612,7 +612,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			}
 		}
 
-		/* Determine if the buffer data needs to included */
+		/* 判定缓冲区数据是否需要包含 */
 		if (regbuf->rdata_len == 0)
 			needs_data = false;
 		else if ((regbuf->flags & REGBUF_KEEP_DATA) != 0)
@@ -628,8 +628,8 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			bkpb.fork_flags |= BKPBLOCK_WILL_INIT;
 
 		/*
-		 * If needs_backup is true or WAL checking is enabled for current
-		 * resource manager, log a full-page write for the current block.
+		 * 若 needs_backup 为真，或当前资源管理器启用了
+		 * WAL 检查，则为当前块记录一次整页写。
 		 */
 		include_image = needs_backup || (info & XLR_CHECK_CONSISTENCY) != 0;
 
@@ -639,12 +639,12 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			uint16		compressed_len = 0;
 
 			/*
-			 * The page needs to be backed up, so calculate its hole length
-			 * and offset.
+			 * 该页需要备份，因此计算其空洞长度
+			 * 与偏移。
 			 */
 			if (regbuf->flags & REGBUF_STANDARD)
 			{
-				/* Assume we can omit data between pd_lower and pd_upper */
+				/* 假定可省略 pd_lower 与 pd_upper 之间的数据 */
 				uint16		lower = ((PageHeader) page)->pd_lower;
 				uint16		upper = ((PageHeader) page)->pd_upper;
 
@@ -657,20 +657,20 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 				}
 				else
 				{
-					/* No "hole" to remove */
+					/* 没有可去除的"空洞" */
 					bimg.hole_offset = 0;
 					cbimg.hole_length = 0;
 				}
 			}
 			else
 			{
-				/* Not a standard page header, don't try to eliminate "hole" */
+				/* 非标准页头，不要试图消除"空洞" */
 				bimg.hole_offset = 0;
 				cbimg.hole_length = 0;
 			}
 
 			/*
-			 * Try to compress a block image if wal_compression is enabled
+			 * 若启用了 wal_compression，尝试压缩块映像
 			 */
 			if (wal_compression != WAL_COMPRESSION_NONE)
 			{
@@ -682,16 +682,16 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			}
 
 			/*
-			 * Fill in the remaining fields in the XLogRecordBlockHeader
-			 * struct
+			 * 填写 XLogRecordBlockHeader 结构中的
+			 * 其余字段
 			 */
 			bkpb.fork_flags |= BKPBLOCK_HAS_IMAGE;
 
-			/* Report a full page image constructed for the WAL record */
+			/* 报告为本 WAL 记录构造了一幅整页映像 */
 			*num_fpi += 1;
 
 			/*
-			 * Construct XLogRecData entries for the page content.
+			 * 为页内容构造 XLogRecData 项。
 			 */
 			rdt_datas_last->next = &regbuf->bkp_rdatas[0];
 			rdt_datas_last = rdt_datas_last->next;
@@ -699,20 +699,20 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			bimg.bimg_info = (cbimg.hole_length == 0) ? 0 : BKPIMAGE_HAS_HOLE;
 
 			/*
-			 * If WAL consistency checking is enabled for the resource manager
-			 * of this WAL record, a full-page image is included in the record
-			 * for the block modified. During redo, the full-page is replayed
-			 * only if BKPIMAGE_APPLY is set.
+			 * 若为本 WAL 记录的资源管理器启用了 WAL 一致性检查，
+			 * 则记录中会包含所修改块的整页映像。
+			 * 重做时，仅当设置了 BKPIMAGE_APPLY 时才
+			 * 重放该整页。
 			 */
 			if (needs_backup)
 				bimg.bimg_info |= BKPIMAGE_APPLY;
 
 			if (is_compressed)
 			{
-				/* The current compression is stored in the WAL record */
+				/* 当前压缩结果存入 WAL 记录 */
 				bimg.length = compressed_len;
 
-				/* Set the compression method used for this block */
+				/* 设置此块所用的压缩方法 */
 				switch ((WalCompression) wal_compression)
 				{
 					case WAL_COMPRESSION_PGLZ:
@@ -736,9 +736,9 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 						break;
 
 					case WAL_COMPRESSION_NONE:
-						Assert(false);	/* cannot happen */
+						Assert(false);	/* 不可能发生 */
 						break;
-						/* no default case, so that compiler will warn */
+						/* 无 default 分支，以便编译器发出警告 */
 				}
 
 				rdt_datas_last->data = regbuf->compressed_page;
@@ -755,7 +755,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 				}
 				else
 				{
-					/* must skip the hole */
+					/* 必须跳过空洞 */
 					rdt_datas_last->data = page;
 					rdt_datas_last->len = bimg.hole_offset;
 
@@ -775,14 +775,14 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		if (needs_data)
 		{
 			/*
-			 * When copying to XLogRecordBlockHeader, the length is narrowed
-			 * to an uint16.  Double-check that it is still correct.
+			 * 复制到 XLogRecordBlockHeader 时，长度被收窄为
+			 * uint16。再次确认它仍然正确。
 			 */
 			Assert(regbuf->rdata_len <= UINT16_MAX);
 
 			/*
-			 * Link the caller-supplied rdata chain for this buffer to the
-			 * overall list.
+			 * 把调用方为此缓冲区提供的 rdata 链连接到
+			 * 总列表上。
 			 */
 			bkpb.fork_flags |= BKPBLOCK_HAS_DATA;
 			bkpb.data_length = (uint16) regbuf->rdata_len;
@@ -801,7 +801,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 			samerel = false;
 		prev_regbuf = regbuf;
 
-		/* Ok, copy the header to the scratch buffer */
+		/* 好，把头部复制到暂存缓冲区 */
 		memcpy(scratch, &bkpb, SizeOfXLogRecordBlockHeader);
 		scratch += SizeOfXLogRecordBlockHeader;
 		if (include_image)
@@ -824,7 +824,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		scratch += sizeof(BlockNumber);
 	}
 
-	/* followed by the record's origin, if any */
+	/* 随后是记录的源（若有） */
 	if ((curinsert_flags & XLOG_INCLUDE_ORIGIN) &&
 		replorigin_session_origin != InvalidRepOriginId)
 	{
@@ -833,12 +833,12 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		scratch += sizeof(replorigin_session_origin);
 	}
 
-	/* followed by toplevel XID, if not already included in previous record */
+	/* 随后是顶层 XID（若尚未包含在先前记录中） */
 	if (IsSubxactTopXidLogPending())
 	{
 		TransactionId xid = GetTopTransactionIdIfAny();
 
-		/* Set the flag that the top xid is included in the WAL */
+		/* 设置标志：顶层 xid 已包含在 WAL 中 */
 		*topxid_included = true;
 
 		*(scratch++) = (char) XLR_BLOCK_ID_TOPLEVEL_XID;
@@ -846,7 +846,7 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		scratch += sizeof(TransactionId);
 	}
 
-	/* followed by main data, if any */
+	/* 随后是主数据（若有） */
 	if (mainrdata_len > 0)
 	{
 		if (mainrdata_len > 255)
@@ -880,12 +880,12 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 	total_len += hdr_rdt.len;
 
 	/*
-	 * Calculate CRC of the data
+	 * 计算数据的 CRC
 	 *
-	 * Note that the record header isn't added into the CRC initially since we
-	 * don't know the prev-link yet.  Thus, the CRC will represent the CRC of
-	 * the whole record in the order: rdata, then backup blocks, then record
-	 * header.
+	 * 注意：起初不会把记录头加入 CRC，因为我们
+	 * 还不知道 prev 链接。因此 CRC 表示整条记录按
+	 * 如下顺序的 CRC：rdata，然后备份块，然后记录
+	 * 头。
 	 */
 	INIT_CRC32C(rdata_crc);
 	COMP_CRC32C(rdata_crc, hdr_scratch + SizeOfXLogRecord, hdr_rdt.len - SizeOfXLogRecord);
@@ -893,12 +893,12 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 		COMP_CRC32C(rdata_crc, rdt->data, rdt->len);
 
 	/*
-	 * Ensure that the XLogRecord is not too large.
+	 * 确保 XLogRecord 不会过大。
 	 *
-	 * XLogReader machinery is only able to handle records up to a certain
-	 * size (ignoring machine resource limitations), so make sure that we will
-	 * not emit records larger than the sizes advertised to be supported. This
-	 * cap is based on DecodeXLogRecordRequiredSpace().
+	 * XLogReader 机制只能处理一定大小的记录
+	 * （忽略机器资源限制），因此确保我们不会发出超过
+	 * 所宣称支持大小的记录。该上限基于
+	 * DecodeXLogRecordRequiredSpace()。
 	 */
 	if (total_len > XLogRecordMaxSize)
 		ereport(ERROR,
@@ -907,9 +907,9 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 									(unsigned long long) total_len, XLogRecordMaxSize, rmid, info)));
 
 	/*
-	 * Fill in the fields in the record header. Prev-link is filled in later,
-	 * once we know where in the WAL the record will be inserted. The CRC does
-	 * not include the record header yet.
+	 * 填写记录头中的字段。prev 链接稍后填写，
+	 * 一旦我们知道记录将插入 WAL 的何处。CRC 尚
+	 * 不包含记录头。
 	 */
 	rechdr->xl_xid = GetCurrentTransactionIdIfAny();
 	rechdr->xl_tot_len = (uint32) total_len;
@@ -922,11 +922,11 @@ XLogRecordAssemble(RmgrId rmid, uint8 info,
 }
 
 /*
- * Create a compressed version of a backup block image.
+ * 创建备份块映像的压缩版本。
  *
- * Returns false if compression fails (i.e., compressed result is actually
- * bigger than original). Otherwise, returns true and sets 'dlen' to
- * the length of compressed block image.
+ * 若压缩失败（即压缩结果实际上比原版
+ * 更大）则返回 false。否则返回 true，并将 'dlen' 设为
+ * 压缩块映像的长度。
  */
 static bool
 XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
@@ -940,7 +940,7 @@ XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
 
 	if (hole_length != 0)
 	{
-		/* must skip the hole */
+		/* 必须跳过空洞 */
 		source = tmp.data;
 		memcpy(source, page, hole_offset);
 		memcpy(source + hole_offset,
@@ -948,8 +948,8 @@ XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
 			   BLCKSZ - (hole_length + hole_offset));
 
 		/*
-		 * Extra data needs to be stored in WAL record for the compressed
-		 * version of block image if the hole exists.
+		 * 若存在空洞，压缩版块映像需要在 WAL 记录中
+		 * 额外存放一些数据。
 		 */
 		extra_bytes = SizeOfXLogRecordBlockCompressHeader;
 	}
@@ -967,7 +967,7 @@ XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
 			len = LZ4_compress_default(source, dest, orig_len,
 									   COMPRESS_BUFSIZE);
 			if (len <= 0)
-				len = -1;		/* failure */
+				len = -1;		/* 失败 */
 #else
 			elog(ERROR, "LZ4 is not supported by this build");
 #endif
@@ -978,38 +978,38 @@ XLogCompressBackupBlock(char *page, uint16 hole_offset, uint16 hole_length,
 			len = ZSTD_compress(dest, COMPRESS_BUFSIZE, source, orig_len,
 								ZSTD_CLEVEL_DEFAULT);
 			if (ZSTD_isError(len))
-				len = -1;		/* failure */
+				len = -1;		/* 失败 */
 #else
 			elog(ERROR, "zstd is not supported by this build");
 #endif
 			break;
 
 		case WAL_COMPRESSION_NONE:
-			Assert(false);		/* cannot happen */
+			Assert(false);		/* 不可能发生 */
 			break;
-			/* no default case, so that compiler will warn */
+			/* 无 default 分支，以便编译器发出警告 */
 	}
 
 	/*
-	 * We recheck the actual size even if compression reports success and see
-	 * if the number of bytes saved by compression is larger than the length
-	 * of extra data needed for the compressed version of block image.
+	 * 即使压缩报告成功，我们也重新检查实际大小，看
+	 * 压缩节省的字节数是否大于压缩版块映像所需的
+	 * 额外数据长度。
 	 */
 	if (len >= 0 &&
 		len + extra_bytes < orig_len)
 	{
-		*dlen = (uint16) len;	/* successful compression */
+		*dlen = (uint16) len;	/* 压缩成功 */
 		return true;
 	}
 	return false;
 }
 
 /*
- * Determine whether the buffer referenced has to be backed up.
+ * 判定所引用的缓冲区是否需要备份。
  *
- * Since we don't yet have the insert lock, fullPageWrites and runningBackups
- * (which forces full-page writes) could change later, so the result should
- * be used for optimization purposes only.
+ * 由于我们尚无插入锁，fullPageWrites 与 runningBackups
+ * （后者会强制整页写）之后可能改变，因此结果仅应
+ * 用于优化目的。
  */
 bool
 XLogCheckBufferNeedsBackup(Buffer buffer)
@@ -1023,31 +1023,31 @@ XLogCheckBufferNeedsBackup(Buffer buffer)
 	page = BufferGetPage(buffer);
 
 	if (doPageWrites && PageGetLSN(page) <= RedoRecPtr)
-		return true;			/* buffer requires backup */
+		return true;			/* 缓冲区需要备份 */
 
-	return false;				/* buffer does not need to be backed up */
+	return false;				/* 缓冲区不需要备份 */
 }
 
 /*
- * Write a backup block if needed when we are setting a hint. Note that
- * this may be called for a variety of page types, not just heaps.
+ * 在设置提示时若需要则写入备份块。注意这可能针对
+ * 多种页类型调用，不只是堆。
  *
- * Callable while holding just share lock on the buffer content.
+ * 仅持有缓冲区内容共享锁时即可调用。
  *
- * We can't use the plain backup block mechanism since that relies on the
- * Buffer being exclusively locked. Since some modifications (setting LSN, hint
- * bits) are allowed in a sharelocked buffer that can lead to wal checksum
- * failures. So instead we copy the page and insert the copied data as normal
- * record data.
+ * 不能使用普通的备份块机制，因为那依赖对 Buffer 的
+ * 排他锁。由于某些修改（设置 LSN、提示
+ * 位）在共享锁缓冲区上是允许的，那可能导致 WAL 校验和
+ * 失败。因此我们改为复制该页，并把副本数据作为普通
+ * 记录数据插入。
  *
- * We only need to do something if page has not yet been full page written in
- * this checkpoint round. The LSN of the inserted wal record is returned if we
- * had to write, InvalidXLogRecPtr otherwise.
+ * 仅当该页在本检查点轮次中尚未做过整页写时才需要
+ * 处理。若我们不得不写入，则返回所插入 WAL 记录的 LSN，
+ * 否则返回 InvalidXLogRecPtr。
  *
- * It is possible that multiple concurrent backends could attempt to write WAL
- * records. In that case, multiple copies of the same block would be recorded
- * in separate WAL records by different backends, though that is still OK from
- * a correctness perspective.
+ * 多个并发后端可能尝试写 WAL
+ * 记录。那时，同一块的多份副本会由不同后端记入各自的
+ * WAL 记录，但从正确性角度看仍然
+ * 没问题。
  */
 XLogRecPtr
 XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
@@ -1057,20 +1057,20 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 	XLogRecPtr	RedoRecPtr;
 
 	/*
-	 * Ensure no checkpoint can change our view of RedoRecPtr.
+	 * 确保没有检查点能改变我们对 RedoRecPtr 的视图。
 	 */
 	Assert((MyProc->delayChkptFlags & DELAY_CHKPT_START) != 0);
 
 	/*
-	 * Update RedoRecPtr so that we can make the right decision
+	 * 更新 RedoRecPtr，以便做出正确决策
 	 */
 	RedoRecPtr = GetRedoRecPtr();
 
 	/*
-	 * We assume page LSN is first data on *every* page that can be passed to
-	 * XLogInsert, whether it has the standard page layout or not. Since we're
-	 * only holding a share-lock on the page, we must take the buffer header
-	 * lock when we look at the LSN.
+	 * 我们假定可传给 XLogInsert 的*每一*页上，页 LSN 都是
+	 * 最前面的数据，无论是否采用标准页布局。由于我们
+	 * 仅持有该页的共享锁，查看 LSN 时必须获取缓冲区头
+	 * 锁。
 	 */
 	lsn = BufferGetLSNAtomic(buffer);
 
@@ -1084,13 +1084,13 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 		BlockNumber blkno;
 
 		/*
-		 * Copy buffer so we don't have to worry about concurrent hint bit or
-		 * lsn updates. We assume pd_lower/upper cannot be changed without an
-		 * exclusive lock, so the contents bkp are not racy.
+		 * 复制缓冲区，这样就不必担心并发的提示位或
+		 * lsn 更新。我们假定无排他锁时 pd_lower/upper 不会被改，
+		 * 因此备份内容不会有竞态。
 		 */
 		if (buffer_std)
 		{
-			/* Assume we can omit data between pd_lower and pd_upper */
+			/* 假定可省略 pd_lower 与 pd_upper 之间的数据 */
 			Page		page = BufferGetPage(buffer);
 			uint16		lower = ((PageHeader) page)->pd_lower;
 			uint16		upper = ((PageHeader) page)->pd_upper;
@@ -1116,16 +1116,16 @@ XLogSaveBufferForHint(Buffer buffer, bool buffer_std)
 }
 
 /*
- * Write a WAL record containing a full image of a page. Caller is responsible
- * for writing the page to disk after calling this routine.
+ * 写入包含页完整映像的 WAL 记录。调用方负责在调用本例程后
+ * 将该页写到磁盘。
  *
- * Note: If you're using this function, you should be building pages in private
- * memory and writing them directly to smgr.  If you're using buffers, call
- * log_newpage_buffer instead.
+ * 注意：若使用本函数，应在私有内存中构建页面并直接
+ * 写到 smgr。若使用缓冲区，请改为调用
+ * log_newpage_buffer。
  *
- * If the page follows the standard page layout, with a PageHeader and unused
- * space between pd_lower and pd_upper, set 'page_std' to true. That allows
- * the unused space to be left out from the WAL record, making it smaller.
+ * 若页遵循标准页布局，带有 PageHeader 且 pd_lower 与
+ * pd_upper 之间有未用空间，则将 'page_std' 设为 true。这样可
+ * 把未用空间排除在 WAL 记录之外，使记录更小。
  */
 XLogRecPtr
 log_newpage(RelFileLocator *rlocator, ForkNumber forknum, BlockNumber blkno,
@@ -1143,8 +1143,8 @@ log_newpage(RelFileLocator *rlocator, ForkNumber forknum, BlockNumber blkno,
 	recptr = XLogInsert(RM_XLOG_ID, XLOG_FPI);
 
 	/*
-	 * The page may be uninitialized. If so, we can't set the LSN because that
-	 * would corrupt the page.
+	 * 该页可能尚未初始化。若是，我们不能设置 LSN，因为那会
+	 * 损坏该页。
 	 */
 	if (!PageIsNew(page))
 	{
@@ -1155,9 +1155,9 @@ log_newpage(RelFileLocator *rlocator, ForkNumber forknum, BlockNumber blkno,
 }
 
 /*
- * Like log_newpage(), but allows logging multiple pages in one operation.
- * It is more efficient than calling log_newpage() for each page separately,
- * because we can write multiple pages in a single WAL record.
+ * 类似 log_newpage()，但允许在一次操作中记录多页。
+ * 比分别对每页调用 log_newpage() 更高效，因为我们可在
+ * 单条 WAL 记录中写入多页。
  */
 void
 log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
@@ -1173,9 +1173,9 @@ log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
 		flags |= REGBUF_STANDARD;
 
 	/*
-	 * Iterate over all the pages. They are collected into batches of
-	 * XLR_MAX_BLOCK_ID pages, and a single WAL-record is written for each
-	 * batch.
+	 * 遍历所有页。它们被收集成每批
+	 * XLR_MAX_BLOCK_ID 页，并为每批写一条
+	 * WAL 记录。
 	 */
 	XLogEnsureRecordSpace(XLR_MAX_BLOCK_ID - 1, 0);
 
@@ -1200,8 +1200,8 @@ log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
 		for (j = batch_start; j < i; j++)
 		{
 			/*
-			 * The page may be uninitialized. If so, we can't set the LSN
-			 * because that would corrupt the page.
+			 * 该页可能尚未初始化。若是，我们不能设置 LSN，
+			 * 因为那会损坏该页。
 			 */
 			if (!PageIsNew(pages[j]))
 			{
@@ -1212,14 +1212,14 @@ log_newpages(RelFileLocator *rlocator, ForkNumber forknum, int num_pages,
 }
 
 /*
- * Write a WAL record containing a full image of a page.
+ * 写入包含页完整映像的 WAL 记录。
  *
- * Caller should initialize the buffer and mark it dirty before calling this
- * function.  This function will set the page LSN.
+ * 调用方应在调用本函数前初始化缓冲区并标脏。
+ * 本函数会设置页 LSN。
  *
- * If the page follows the standard page layout, with a PageHeader and unused
- * space between pd_lower and pd_upper, set 'page_std' to true. That allows
- * the unused space to be left out from the WAL record, making it smaller.
+ * 若页遵循标准页布局，带有 PageHeader 且 pd_lower 与
+ * pd_upper 之间有未用空间，则将 'page_std' 设为 true。这样可
+ * 把未用空间排除在 WAL 记录之外，使记录更小。
  */
 XLogRecPtr
 log_newpage_buffer(Buffer buffer, bool page_std)
@@ -1229,7 +1229,7 @@ log_newpage_buffer(Buffer buffer, bool page_std)
 	ForkNumber	forknum;
 	BlockNumber blkno;
 
-	/* Shared buffers should be modified in a critical section. */
+	/* 共享缓冲区应在临界区内修改。 */
 	Assert(CritSectionCount > 0);
 
 	BufferGetTag(buffer, &rlocator, &forknum, &blkno);
@@ -1238,21 +1238,21 @@ log_newpage_buffer(Buffer buffer, bool page_std)
 }
 
 /*
- * WAL-log a range of blocks in a relation.
+ * 对关系中一段块范围做 WAL 记录。
  *
- * An image of all pages with block numbers 'startblk' <= X < 'endblk' is
- * written to the WAL. If the range is large, this is done in multiple WAL
- * records.
+ * 块号满足 'startblk' <= X < 'endblk' 的所有页的映像
+ * 会写入 WAL。若范围很大，则拆成多条 WAL
+ * 记录完成。
  *
- * If all page follows the standard page layout, with a PageHeader and unused
- * space between pd_lower and pd_upper, set 'page_std' to true. That allows
- * the unused space to be left out from the WAL records, making them smaller.
+ * 若所有页都遵循标准页布局，带有 PageHeader 且
+ * pd_lower 与 pd_upper 之间有未用空间，则将 'page_std' 设为 true。
+ * 这样可把未用空间排除在 WAL 记录之外，使记录更小。
  *
- * NOTE: This function acquires exclusive-locks on the pages. Typically, this
- * is used on a newly-built relation, and the caller is holding a
- * AccessExclusiveLock on it, so no other backend can be accessing it at the
- * same time. If that's not the case, you must ensure that this does not
- * cause a deadlock through some other means.
+ * 注意：本函数对这些页获取排他锁。通常用于
+ * 新建的关系，且调用方持有
+ * AccessExclusiveLock，因而不会有其他后端同时访问。
+ * 若非如此，你必须通过其他方式确保这不会
+ * 造成死锁。
  */
 void
 log_newpage_range(Relation rel, ForkNumber forknum,
@@ -1267,9 +1267,9 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 		flags |= REGBUF_STANDARD;
 
 	/*
-	 * Iterate over all the pages in the range. They are collected into
-	 * batches of XLR_MAX_BLOCK_ID pages, and a single WAL-record is written
-	 * for each batch.
+	 * 遍历范围内的所有页。它们被收集成每批
+	 * XLR_MAX_BLOCK_ID 页，并为每批写一条
+	 * WAL 记录。
 	 */
 	XLogEnsureRecordSpace(XLR_MAX_BLOCK_ID - 1, 0);
 
@@ -1283,7 +1283,7 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 
 		CHECK_FOR_INTERRUPTS();
 
-		/* Collect a batch of blocks. */
+		/* 收集一批块。 */
 		nbufs = 0;
 		while (nbufs < XLR_MAX_BLOCK_ID && blkno < endblk)
 		{
@@ -1293,9 +1293,9 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 			LockBuffer(buf, BUFFER_LOCK_EXCLUSIVE);
 
 			/*
-			 * Completely empty pages are not WAL-logged. Writing a WAL record
-			 * would change the LSN, and we don't want that. We want the page
-			 * to stay empty.
+			 * 完全空的页不做 WAL 记录。写 WAL 记录会
+			 * 改变 LSN，而我们不希望那样。我们希望页
+			 * 保持为空。
 			 */
 			if (!PageIsNew(BufferGetPage(buf)))
 				bufpack[nbufs++] = buf;
@@ -1304,11 +1304,11 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 			blkno++;
 		}
 
-		/* Nothing more to do if all remaining blocks were empty. */
+		/* 若其余块都为空，则无需再做任何事。 */
 		if (nbufs == 0)
 			break;
 
-		/* Write WAL record for this batch. */
+		/* 为本批写入 WAL 记录。 */
 		XLogBeginInsert();
 
 		START_CRIT_SECTION();
@@ -1330,7 +1330,7 @@ log_newpage_range(Relation rel, ForkNumber forknum,
 }
 
 /*
- * Allocate working buffers needed for WAL record construction.
+ * 分配构造 WAL 记录所需的工作缓冲区。
  */
 void
 InitXLogInsert(void)
@@ -1338,16 +1338,16 @@ InitXLogInsert(void)
 #ifdef USE_ASSERT_CHECKING
 
 	/*
-	 * Check that any records assembled can be decoded.  This is capped based
-	 * on what XLogReader would require at its maximum bound.  This code path
-	 * is called once per backend, more than enough for this check.
+	 * 检查组装出的任何记录都能被解码。上限基于
+	 * XLogReader 在其最大边界处所需的空间。此代码路径
+	 * 每个后端调用一次，对本检查已绰绰有余。
 	 */
 	size_t		max_required = DecodeXLogRecordRequiredSpace(XLogRecordMaxSize);
 
 	Assert(AllocSizeIsValid(max_required));
 #endif
 
-	/* Initialize the working areas */
+	/* 初始化工作区 */
 	if (xloginsert_cxt == NULL)
 	{
 		xloginsert_cxt = AllocSetContextCreate(TopMemoryContext,
@@ -1370,7 +1370,7 @@ InitXLogInsert(void)
 	}
 
 	/*
-	 * Allocate a buffer to hold the header information for a WAL record.
+	 * 分配用于保存 WAL 记录头信息的缓冲区。
 	 */
 	if (hdr_scratch == NULL)
 		hdr_scratch = MemoryContextAllocZero(xloginsert_cxt,

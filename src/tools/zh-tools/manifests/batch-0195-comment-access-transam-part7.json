@@ -1,0 +1,61 @@
+{
+ "schema_version": 1,
+ "batch_id": "0195-comment-access-transam-part7",
+ "title": "zh: translate access/transam comments (part 7)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "d8e716bf4fde07e25c3db4e4947355f8e90c2ed3",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/xlogutils.c",
+   "kind": "c_comment",
+   "note": "WAL recovery utilities; XLogReadBuffer* and invalid-page tracking"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0195-comment-access-transam-part7.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/xlogutils.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 85,
+   "translated": 85,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "WAL recovery utilities; Copyright and path lines kept in English; no fall-through marker"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0195-comment-access-transam-part7.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0195 translates comments in xlogutils.c. Copyright and path lines stay in English. No fall-through marker. Next suggested: clog.c."
+}

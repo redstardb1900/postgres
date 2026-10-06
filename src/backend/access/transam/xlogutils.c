@@ -2,10 +2,10 @@
  *
  * xlogutils.c
  *
- * PostgreSQL write-ahead log manager utility routines
+ * PostgreSQL 预写式日志管理器实用例程
  *
- * This file contains support routines that are used by XLOG replay functions.
- * None of this code is used during normal system operation.
+ * 本文件包含供 XLOG 重放函数使用的支持例程。
+ * 正常系统运行期间不会用到这里的任何代码。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -33,49 +33,49 @@
 #include "utils/rel.h"
 
 
-/* GUC variable */
+/* GUC 变量 */
 bool		ignore_invalid_pages = false;
 
 /*
- * Are we doing recovery from XLOG?
+ * 我们是否正在从 XLOG 做恢复？
  *
- * This is only ever true in the startup process; it should be read as meaning
- * "this process is replaying WAL records", rather than "the system is in
- * recovery mode".  It should be examined primarily by functions that need
- * to act differently when called from a WAL redo function (e.g., to skip WAL
- * logging).  To check whether the system is in recovery regardless of which
- * process you're running in, use RecoveryInProgress() but only after shared
- * memory startup and lock initialization.
+ * 该标志仅在启动进程中才会为真；应理解为
+ * "本进程正在重放 WAL 记录"，而非"系统处于
+ * 恢复模式"。主要应由那些在从 WAL redo 函数调用时
+ * 需要表现不同的函数检查（例如跳过 WAL
+ * 日志记录）。若要不论运行在哪个进程中都检查系统
+ * 是否处于恢复，应使用 RecoveryInProgress()，但仅在共享
+ * 内存启动与锁初始化之后。
  *
- * This is updated from xlog.c and xlogrecovery.c, but lives here because
- * it's mostly read by WAL redo functions.
+ * 该值由 xlog.c 与 xlogrecovery.c 更新，放在此处是因为
+ * 它大多由 WAL redo 函数读取。
  */
 bool		InRecovery = false;
 
-/* Are we in Hot Standby mode? Only valid in startup process, see xlogutils.h */
+/* 我们是否处于热备模式？仅在启动进程中有效，见 xlogutils.h */
 HotStandbyState standbyState = STANDBY_DISABLED;
 
 /*
- * During XLOG replay, we may see XLOG records for incremental updates of
- * pages that no longer exist, because their relation was later dropped or
- * truncated.  (Note: this is only possible when full_page_writes = OFF,
- * since when it's ON, the first reference we see to a page should always
- * be a full-page rewrite not an incremental update.)  Rather than simply
- * ignoring such records, we make a note of the referenced page, and then
- * complain if we don't actually see a drop or truncate covering the page
- * later in replay.
+ * 在 XLOG 重放期间，我们可能看到针对已不存在页面的
+ * 增量更新的 XLOG 记录，因为其关系随后被删除或
+ * 截断了。（注意：这只在 full_page_writes = OFF 时
+ * 可能发生；当其为 ON 时，我们看到的对某页的首次引用
+ * 应始终是整页重写而非增量更新。）与其简单
+ * 忽略这类记录，我们记下被引用的页面，然后若在
+ * 后续重放中实际未看到覆盖该页的删除或截断，
+ * 再发出抱怨。
  */
 typedef struct xl_invalid_page_key
 {
-	RelFileLocator locator;		/* the relation */
-	ForkNumber	forkno;			/* the fork number */
-	BlockNumber blkno;			/* the page */
+	RelFileLocator locator;		/* 该关系 */
+	ForkNumber	forkno;			/* 分支编号 */
+	BlockNumber blkno;			/* 该页 */
 } xl_invalid_page_key;
 
 typedef struct xl_invalid_page
 {
-	xl_invalid_page_key key;	/* hash key ... must be first */
-	bool		present;		/* page existed but contained zeroes */
+	xl_invalid_page_key key;	/* 哈希键……必须放在首位 */
+	bool		present;		/* 页面存在但内容全为零 */
 } xl_invalid_page;
 
 static HTAB *invalid_page_tab = NULL;
@@ -84,7 +84,7 @@ static int	read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPa
 									  int reqLen, XLogRecPtr targetRecPtr,
 									  char *cur_page, bool wait_for_wal);
 
-/* Report a reference to an invalid page */
+/* 报告对无效页面的引用 */
 static void
 report_invalid_page(int elevel, RelFileLocator locator, ForkNumber forkno,
 					BlockNumber blkno, bool present)
@@ -100,7 +100,7 @@ report_invalid_page(int elevel, RelFileLocator locator, ForkNumber forkno,
 	pfree(path);
 }
 
-/* Log a reference to an invalid page */
+/* 记录对无效页面的引用 */
 static void
 log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 				 bool present)
@@ -110,12 +110,12 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 	bool		found;
 
 	/*
-	 * Once recovery has reached a consistent state, the invalid-page table
-	 * should be empty and remain so. If a reference to an invalid page is
-	 * found after consistency is reached, PANIC immediately. This might seem
-	 * aggressive, but it's better than letting the invalid reference linger
-	 * in the hash table until the end of recovery and PANIC there, which
-	 * might come only much later if this is a standby server.
+	 * 一旦恢复已达到一致状态，无效页面表
+	 * 应为空并保持为空。若在达到一致性之后
+	 * 仍发现对无效页面的引用，立即 PANIC。这看似
+	 * 激进，但总好过让无效引用滞留在
+	 * 哈希表中直到恢复结束再 PANIC，而那
+	 * 可能要到很久以后——若这是备库服务器。
 	 */
 	if (reachedConsistency)
 	{
@@ -125,16 +125,16 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 	}
 
 	/*
-	 * Log references to invalid pages at DEBUG1 level.  This allows some
-	 * tracing of the cause (note the elog context mechanism will tell us
-	 * something about the XLOG record that generated the reference).
+	 * 以 DEBUG1 级别记录对无效页面的引用。这便于对
+	 * 原因做一些追踪（注意 elog 上下文机制会告诉我们
+	 * 一些关于产生该引用的 XLOG 记录的信息）。
 	 */
 	if (message_level_is_interesting(DEBUG1))
 		report_invalid_page(DEBUG1, locator, forkno, blkno, present);
 
 	if (invalid_page_tab == NULL)
 	{
-		/* create hash table when first needed */
+		/* 首次需要时创建哈希表 */
 		HASHCTL		ctl;
 
 		ctl.keysize = sizeof(xl_invalid_page_key);
@@ -146,7 +146,7 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 									   HASH_ELEM | HASH_BLOBS);
 	}
 
-	/* we currently assume xl_invalid_page_key contains no padding */
+	/* 目前假定 xl_invalid_page_key 不含填充字节 */
 	key.locator = locator;
 	key.forkno = forkno;
 	key.blkno = blkno;
@@ -155,16 +155,16 @@ log_invalid_page(RelFileLocator locator, ForkNumber forkno, BlockNumber blkno,
 
 	if (!found)
 	{
-		/* hash_search already filled in the key */
+		/* hash_search 已填入键 */
 		hentry->present = present;
 	}
 	else
 	{
-		/* repeat reference ... leave "present" as it was */
+		/* 重复引用……保持 "present" 原样 */
 	}
 }
 
-/* Forget any invalid pages >= minblkno, because they've been dropped */
+/* 忘记任何 >= minblkno 的无效页面，因为它们已被删除 */
 static void
 forget_invalid_pages(RelFileLocator locator, ForkNumber forkno,
 					 BlockNumber minblkno)
@@ -173,7 +173,7 @@ forget_invalid_pages(RelFileLocator locator, ForkNumber forkno,
 	xl_invalid_page *hentry;
 
 	if (invalid_page_tab == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	hash_seq_init(&status, invalid_page_tab);
 
@@ -200,7 +200,7 @@ forget_invalid_pages(RelFileLocator locator, ForkNumber forkno,
 	}
 }
 
-/* Forget any invalid pages in a whole database */
+/* 忘记整个数据库中的任何无效页面 */
 static void
 forget_invalid_pages_db(Oid dbid)
 {
@@ -208,7 +208,7 @@ forget_invalid_pages_db(Oid dbid)
 	xl_invalid_page *hentry;
 
 	if (invalid_page_tab == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	hash_seq_init(&status, invalid_page_tab);
 
@@ -233,7 +233,7 @@ forget_invalid_pages_db(Oid dbid)
 	}
 }
 
-/* Are there any unresolved references to invalid pages? */
+/* 是否还有未解决的无效页面引用？ */
 bool
 XLogHaveInvalidPages(void)
 {
@@ -243,7 +243,7 @@ XLogHaveInvalidPages(void)
 	return false;
 }
 
-/* Complain about any remaining invalid-page entries */
+/* 对仍残留的无效页面条目发出抱怨 */
 void
 XLogCheckInvalidPages(void)
 {
@@ -252,13 +252,13 @@ XLogCheckInvalidPages(void)
 	bool		foundone = false;
 
 	if (invalid_page_tab == NULL)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	hash_seq_init(&status, invalid_page_tab);
 
 	/*
-	 * Our strategy is to emit WARNING messages for all remaining entries and
-	 * only PANIC after we've dumped all the available info.
+	 * 我们的策略是先为所有残留条目发出 WARNING 消息，
+	 * 等把所有可用信息都转储完后再 PANIC。
 	 */
 	while ((hentry = (xl_invalid_page *) hash_seq_search(&status)) != NULL)
 	{
@@ -278,40 +278,40 @@ XLogCheckInvalidPages(void)
 
 /*
  * XLogReadBufferForRedo
- *		Read a page during XLOG replay
+ *		在 XLOG 重放期间读取一页
  *
- * Reads a block referenced by a WAL record into shared buffer cache, and
- * determines what needs to be done to redo the changes to it.  If the WAL
- * record includes a full-page image of the page, it is restored.
+ * 将 WAL 记录引用的块读入共享缓冲池，并
+ * 判定需要对它重做哪些更改。若该 WAL
+ * 记录包含该页的整页映像，则将其恢复。
  *
- * 'record.EndRecPtr' is compared to the page's LSN to determine if the record
- * has already been replayed.  'block_id' is the ID number the block was
- * registered with, when the WAL record was created.
+ * 将 'record.EndRecPtr' 与页面的 LSN 比较，以判定该记录
+ * 是否已被重放过。'block_id' 是创建 WAL 记录时
+ * 为该块注册的 ID 编号。
  *
- * Returns one of the following:
+ * 返回值之一如下：
  *
- *	BLK_NEEDS_REDO	- changes from the WAL record need to be applied
- *	BLK_DONE		- block doesn't need replaying
- *	BLK_RESTORED	- block was restored from a full-page image included in
- *					  the record
- *	BLK_NOTFOUND	- block was not found (because it was truncated away by
- *					  an operation later in the WAL stream)
+ *	BLK_NEEDS_REDO	- 需要应用来自该 WAL 记录的更改
+ *	BLK_DONE		- 该块无需重放
+ *	BLK_RESTORED	- 该块已从记录中附带的整页映像
+ *					  恢复
+ *	BLK_NOTFOUND	- 未找到该块（因为它被 WAL 流中
+ *					  更晚的操作截断掉了）
  *
- * On return, the buffer is locked in exclusive-mode, and returned in *buf.
- * Note that the buffer is locked and returned even if it doesn't need
- * replaying.  (Getting the buffer lock is not really necessary during
- * single-process crash recovery, but some subroutines such as MarkBufferDirty
- * will complain if we don't have the lock.  In hot standby mode it's
- * definitely necessary.)
+ * 返回时，缓冲区以排他模式锁定，并通过 *buf 返回。
+ * 注意即使该块无需重放，也会锁定并返回
+ * 缓冲区。（在单进程崩溃恢复期间获取缓冲区锁
+ * 并非真正必要，但某些子例程如 MarkBufferDirty
+ * 在我们未持锁时会抱怨。在热备模式下则
+ * 肯定必要。）
  *
- * Note: when a backup block is available in XLOG with the BKPIMAGE_APPLY flag
- * set, we restore it, even if the page in the database appears newer.  This
- * is to protect ourselves against database pages that were partially or
- * incorrectly written during a crash.  We assume that the XLOG data must be
- * good because it has passed a CRC check, while the database page might not
- * be.  This will force us to replay all subsequent modifications of the page
- * that appear in XLOG, rather than possibly ignoring them as already
- * applied, but that's not a huge drawback.
+ * 注意：当 XLOG 中有带 BKPIMAGE_APPLY 标志的
+ * 备份块可用时，我们会恢复它，即使数据库中的页面
+ * 看起来更新。这是为了保护我们免受崩溃期间被部分或
+ * 错误写入的数据库页面影响。我们假定 XLOG 数据一定
+ * 是好的，因为它已通过 CRC 校验，而数据库页面可能
+ * 并非如此。这会迫使我们重放 XLOG 中出现的对该页的所有
+ * 后续修改，而不能可能地将它们当作已应用而
+ * 忽略，但那不是很大的缺点。
  */
 XLogRedoAction
 XLogReadBufferForRedo(XLogReaderState *record, uint8 block_id,
@@ -322,8 +322,8 @@ XLogReadBufferForRedo(XLogReaderState *record, uint8 block_id,
 }
 
 /*
- * Pin and lock a buffer referenced by a WAL record, for the purpose of
- * re-initializing it.
+ * 固定并锁定 WAL 记录引用的缓冲区，以便
+ * 重新初始化它。
  */
 Buffer
 XLogInitBufferForRedo(XLogReaderState *record, uint8 block_id)
@@ -337,18 +337,18 @@ XLogInitBufferForRedo(XLogReaderState *record, uint8 block_id)
 
 /*
  * XLogReadBufferForRedoExtended
- *		Like XLogReadBufferForRedo, but with extra options.
+ *		类似 XLogReadBufferForRedo，但有额外选项。
  *
- * In RBM_ZERO_* modes, if the page doesn't exist, the relation is extended
- * with all-zeroes pages up to the referenced block number.  In
- * RBM_ZERO_AND_LOCK and RBM_ZERO_AND_CLEANUP_LOCK modes, the return value
- * is always BLK_NEEDS_REDO.
+ * 在 RBM_ZERO_* 模式下，若页面不存在，则将关系
+ * 用全零页扩展到被引用的块号。在
+ * RBM_ZERO_AND_LOCK 与 RBM_ZERO_AND_CLEANUP_LOCK 模式下，返回值
+ * 始终为 BLK_NEEDS_REDO。
  *
- * (The RBM_ZERO_AND_CLEANUP_LOCK mode is redundant with the get_cleanup_lock
- * parameter. Do not use an inconsistent combination!)
+ * （RBM_ZERO_AND_CLEANUP_LOCK 模式与 get_cleanup_lock
+ * 参数冗余。不要使用不一致的组合！）
  *
- * If 'get_cleanup_lock' is true, a "cleanup lock" is acquired on the buffer
- * using LockBufferForCleanup(), instead of a regular exclusive lock.
+ * 若 'get_cleanup_lock' 为真，则对缓冲区获取"清理锁"，
+ * 使用 LockBufferForCleanup()，而非普通排他锁。
  */
 XLogRedoAction
 XLogReadBufferForRedoExtended(XLogReaderState *record,
@@ -368,14 +368,14 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 	if (!XLogRecGetBlockTagExtended(record, block_id, &rlocator, &forknum, &blkno,
 									&prefetch_buffer))
 	{
-		/* Caller specified a bogus block_id */
+		/* 调用者指定了无效的 block_id */
 		elog(PANIC, "failed to locate backup block with ID %d in WAL record",
 			 block_id);
 	}
 
 	/*
-	 * Make sure that if the block is marked with WILL_INIT, the caller is
-	 * going to initialize it. And vice versa.
+	 * 确保若该块标有 WILL_INIT，则调用者将
+	 * 初始化它。反之亦然。
 	 */
 	zeromode = (mode == RBM_ZERO_AND_LOCK || mode == RBM_ZERO_AND_CLEANUP_LOCK);
 	willinit = (XLogRecGetBlock(record, block_id)->flags & BKPBLOCK_WILL_INIT) != 0;
@@ -384,7 +384,7 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 	if (!willinit && zeromode)
 		elog(PANIC, "block to be initialized in redo routine must be marked with WILL_INIT flag in the WAL record");
 
-	/* If it has a full-page image and it should be restored, do it. */
+	/* 若有整页映像且应被恢复，则恢复它。 */
 	if (XLogRecBlockImageApply(record, block_id))
 	{
 		Assert(XLogRecHasBlockImage(record, block_id));
@@ -398,8 +398,8 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 					 errmsg_internal("%s", record->errormsg_buf)));
 
 		/*
-		 * The page may be uninitialized. If so, we can't set the LSN because
-		 * that would corrupt the page.
+		 * 该页可能尚未初始化。若是，则不能设置 LSN，因为
+		 * 那会损坏该页。
 		 */
 		if (!PageIsNew(page))
 		{
@@ -409,10 +409,10 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 		MarkBufferDirty(*buf);
 
 		/*
-		 * At the end of crash recovery the init forks of unlogged relations
-		 * are copied, without going through shared buffers. So we need to
-		 * force the on-disk state of init forks to always be in sync with the
-		 * state in shared buffers.
+		 * 在崩溃恢复结束时，未记录关系的 init 分支
+		 * 会被复制，而不经过共享缓冲区。因此我们需要
+		 * 强制 init 分支的磁盘状态始终与共享缓冲区中的
+		 * 状态同步。
 		 */
 		if (forknum == INIT_FORKNUM)
 			FlushOneBuffer(*buf);
@@ -443,32 +443,32 @@ XLogReadBufferForRedoExtended(XLogReaderState *record,
 
 /*
  * XLogReadBufferExtended
- *		Read a page during XLOG replay
+ *		在 XLOG 重放期间读取一页
  *
- * This is functionally comparable to ReadBufferExtended. There's some
- * differences in the behavior wrt. the "mode" argument:
+ * 功能上可与 ReadBufferExtended 相比。对 "mode" 参数的
+ * 行为有一些差异：
  *
- * In RBM_NORMAL mode, if the page doesn't exist, or contains all-zeroes, we
- * return InvalidBuffer. In this case the caller should silently skip the
- * update on this page. (In this situation, we expect that the page was later
- * dropped or truncated. If we don't see evidence of that later in the WAL
- * sequence, we'll complain at the end of WAL replay.)
+ * 在 RBM_NORMAL 模式下，若页面不存在，或内容全为零，我们
+ * 返回 InvalidBuffer。此时调用者应静默跳过对该页的
+ * 更新。（在此情况下，我们预期该页随后被
+ * 删除或截断。若在 WAL 序列更晚处看不到
+ * 证据，我们将在 WAL 重放结束时抱怨。）
  *
- * In RBM_ZERO_* modes, if the page doesn't exist, the relation is extended
- * with all-zeroes pages up to the given block number.
+ * 在 RBM_ZERO_* 模式下，若页面不存在，则将关系
+ * 用全零页扩展到给定块号。
  *
- * In RBM_NORMAL_NO_LOG mode, we return InvalidBuffer if the page doesn't
- * exist, and we don't check for all-zeroes.  Thus, no log entry is made
- * to imply that the page should be dropped or truncated later.
+ * 在 RBM_NORMAL_NO_LOG 模式下，若页面不存在则返回
+ * InvalidBuffer，且不检查是否全为零。因此不会留下日志条目
+ * 暗示该页随后应被删除或截断。
  *
- * Optionally, recent_buffer can be used to provide a hint about the location
- * of the page in the buffer pool; it does not have to be correct, but avoids
- * a buffer mapping table probe if it is.
+ * 可选地，可用 recent_buffer 提示页面在缓冲池中的
+ * 位置；它不必正确，但若正确则可避免
+ * 一次缓冲区映射表探测。
  *
- * NB: A redo function should normally not call this directly. To get a page
- * to modify, use XLogReadBufferForRedoExtended instead. It is important that
- * all pages modified by a WAL record are registered in the WAL records, or
- * they will be invisible to tools that need to know which pages are modified.
+ * NB: redo 函数通常不应直接调用此函数。要获取待
+ * 修改的页面，应改用 XLogReadBufferForRedoExtended。重要的是
+ * WAL 记录修改的所有页面都要在 WAL 记录中注册，否则
+ * 它们对需要知道哪些页面被修改的工具将不可见。
  */
 Buffer
 XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
@@ -481,7 +481,7 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 
 	Assert(blkno != P_NEW);
 
-	/* Do we have a clue where the buffer might be already? */
+	/* 我们是否已有关于缓冲区可能位置的线索？ */
 	if (BufferIsValid(recent_buffer) &&
 		mode == RBM_NORMAL &&
 		ReadRecentBuffer(rlocator, forknum, blkno, recent_buffer))
@@ -490,16 +490,16 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 		goto recent_buffer_fast_path;
 	}
 
-	/* Open the relation at smgr level */
+	/* 在 smgr 层打开该关系 */
 	smgr = smgropen(rlocator, InvalidBackendId);
 
 	/*
-	 * Create the target file if it doesn't already exist.  This lets us cope
-	 * if the replay sequence contains writes to a relation that is later
-	 * deleted.  (The original coding of this routine would instead suppress
-	 * the writes, but that seems like it risks losing valuable data if the
-	 * filesystem loses an inode during a crash.  Better to write the data
-	 * until we are actually told to delete the file.)
+	 * 若目标文件尚不存在则创建它。这让我们能应对
+	 * 重放序列中包含对稍后被删除的关系的写入
+	 * 的情况。（本例程原先的编码会改为抑制
+	 * 这些写入，但那样若文件系统在崩溃期间丢失
+	 * 一个 inode，就有丢失宝贵数据的风险。更好是写入数据
+	 * 直到我们实际被告知删除该文件。）
 	 */
 	smgrcreate(smgr, forknum, true);
 
@@ -507,13 +507,13 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 
 	if (blkno < lastblock)
 	{
-		/* page exists in file */
+		/* 页面在文件中存在 */
 		buffer = ReadBufferWithoutRelcache(rlocator, forknum, blkno,
 										   mode, NULL, true);
 	}
 	else
 	{
-		/* hm, page doesn't exist in file */
+		/* 嗯，页面在文件中不存在 */
 		if (mode == RBM_NORMAL)
 		{
 			log_invalid_page(rlocator, forknum, blkno, false);
@@ -521,8 +521,8 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 		}
 		if (mode == RBM_NORMAL_NO_LOG)
 			return InvalidBuffer;
-		/* OK to extend the file */
-		/* we do this in recovery only - no rel-extension lock needed */
+		/* 可以扩展该文件 */
+		/* 我们仅在恢复中这样做——无需关系扩展锁 */
 		Assert(InRecovery);
 		buffer = ExtendBufferedRelTo(BMR_SMGR(smgr, RELPERSISTENCE_PERMANENT),
 									 forknum,
@@ -536,13 +536,13 @@ XLogReadBufferExtended(RelFileLocator rlocator, ForkNumber forknum,
 recent_buffer_fast_path:
 	if (mode == RBM_NORMAL)
 	{
-		/* check that page has been initialized */
+		/* 检查页面是否已初始化 */
 		Page		page = (Page) BufferGetPage(buffer);
 
 		/*
-		 * We assume that PageIsNew is safe without a lock. During recovery,
-		 * there should be no other backends that could modify the buffer at
-		 * the same time.
+		 * 我们假定 PageIsNew 无需加锁即安全。在恢复期间，
+		 * 不应有其他后端能同时
+		 * 修改该缓冲区。
 		 */
 		if (PageIsNew(page))
 		{
@@ -556,30 +556,30 @@ recent_buffer_fast_path:
 }
 
 /*
- * Struct actually returned by CreateFakeRelcacheEntry, though the declared
- * return type is Relation.
+ * CreateFakeRelcacheEntry 实际返回的结构，尽管声明的
+ * 返回类型是 Relation。
  */
 typedef struct
 {
-	RelationData reldata;		/* Note: this must be first */
+	RelationData reldata;		/* 注意：此项必须放在首位 */
 	FormData_pg_class pgc;
 } FakeRelCacheEntryData;
 
 typedef FakeRelCacheEntryData *FakeRelCacheEntry;
 
 /*
- * Create a fake relation cache entry for a physical relation
+ * 为物理关系创建假的关系缓存条目
  *
- * It's often convenient to use the same functions in XLOG replay as in the
- * main codepath, but those functions typically work with a relcache entry.
- * We don't have a working relation cache during XLOG replay, but this
- * function can be used to create a fake relcache entry instead. Only the
- * fields related to physical storage, like rd_rel, are initialized, so the
- * fake entry is only usable in low-level operations like ReadBuffer().
+ * 在 XLOG 重放中使用与主代码路径相同的函数往往很
+ * 方便，但那些函数通常使用 relcache 条目。
+ * XLOG 重放期间我们没有可用的关系缓存，但可用本
+ * 函数改为创建假的 relcache 条目。仅初始化与
+ * 物理存储相关的字段，如 rd_rel，因此该
+ * 假条目仅可用于 ReadBuffer() 这类底层操作。
  *
- * This is also used for syncing WAL-skipped files.
+ * 这也用于同步跳过 WAL 的文件。
  *
- * Caller must free the returned entry with FreeFakeRelcacheEntry().
+ * 调用者必须用 FreeFakeRelcacheEntry() 释放返回的条目。
  */
 Relation
 CreateFakeRelcacheEntry(RelFileLocator rlocator)
@@ -587,7 +587,7 @@ CreateFakeRelcacheEntry(RelFileLocator rlocator)
 	FakeRelCacheEntry fakeentry;
 	Relation	rel;
 
-	/* Allocate the Relation struct and all related space in one block. */
+	/* 在一块中分配 Relation 结构及所有相关空间。 */
 	fakeentry = palloc0(sizeof(FakeRelCacheEntryData));
 	rel = (Relation) fakeentry;
 
@@ -595,23 +595,23 @@ CreateFakeRelcacheEntry(RelFileLocator rlocator)
 	rel->rd_locator = rlocator;
 
 	/*
-	 * We will never be working with temp rels during recovery or while
-	 * syncing WAL-skipped files.
+	 * 在恢复期间或同步跳过 WAL 的文件时，我们绝不会
+	 * 处理临时关系。
 	 */
 	rel->rd_backend = InvalidBackendId;
 
-	/* It must be a permanent table here */
+	/* 此处必须是永久表 */
 	rel->rd_rel->relpersistence = RELPERSISTENCE_PERMANENT;
 
-	/* We don't know the name of the relation; use relfilenumber instead */
+	/* 我们不知道关系名；改用 relfilenumber */
 	sprintf(RelationGetRelationName(rel), "%u", rlocator.relNumber);
 
 	/*
-	 * We set up the lockRelId in case anything tries to lock the dummy
-	 * relation.  Note that this is fairly bogus since relNumber may be
-	 * different from the relation's OID.  It shouldn't really matter though.
-	 * In recovery, we are running by ourselves and can't have any lock
-	 * conflicts.  While syncing, we already hold AccessExclusiveLock.
+	 * 我们设置 lockRelId，以防有东西试图锁定该哑元
+	 * 关系。注意这相当牵强，因为 relNumber 可能
+	 * 不同于关系的 OID。不过这其实不应要紧。
+	 * 在恢复中我们独自运行，不会有任何锁
+	 * 冲突。在同步时，我们已持有 AccessExclusiveLock。
 	 */
 	rel->rd_lockInfo.lockRelId.dbId = rlocator.dbOid;
 	rel->rd_lockInfo.lockRelId.relId = rlocator.relNumber;
@@ -622,22 +622,22 @@ CreateFakeRelcacheEntry(RelFileLocator rlocator)
 }
 
 /*
- * Free a fake relation cache entry.
+ * 释放假的关系缓存条目。
  */
 void
 FreeFakeRelcacheEntry(Relation fakerel)
 {
-	/* make sure the fakerel is not referenced by the SmgrRelation anymore */
+	/* 确保 fakerel 不再被 SmgrRelation 引用 */
 	if (fakerel->rd_smgr != NULL)
 		smgrclearowner(&fakerel->rd_smgr, fakerel->rd_smgr);
 	pfree(fakerel);
 }
 
 /*
- * Drop a relation during XLOG replay
+ * 在 XLOG 重放期间删除关系
  *
- * This is called when the relation is about to be deleted; we need to remove
- * any open "invalid-page" records for the relation.
+ * 在关系即将被删除时调用；我们需要移除
+ * 该关系上任何未决的"无效页面"记录。
  */
 void
 XLogDropRelation(RelFileLocator rlocator, ForkNumber forknum)
@@ -646,18 +646,18 @@ XLogDropRelation(RelFileLocator rlocator, ForkNumber forknum)
 }
 
 /*
- * Drop a whole database during XLOG replay
+ * 在 XLOG 重放期间删除整个数据库
  *
- * As above, but for DROP DATABASE instead of dropping a single rel
+ * 同上，但是针对 DROP DATABASE，而非删除单个关系
  */
 void
 XLogDropDatabase(Oid dbid)
 {
 	/*
-	 * This is unnecessarily heavy-handed, as it will close SMgrRelation
-	 * objects for other databases as well. DROP DATABASE occurs seldom enough
-	 * that it's not worth introducing a variant of smgrclose for just this
-	 * purpose. XXX: Or should we rather leave the smgr entries dangling?
+	 * 这过于粗暴，因为它也会关闭其他数据库的
+	 * SMgrRelation 对象。DROP DATABASE 足够少见，
+	 * 不值得仅为这一用途引入 smgrclose 变体。
+	 * XXX: 或许我们更应让 smgr 条目悬空？
 	 */
 	smgrcloseall();
 
@@ -665,9 +665,9 @@ XLogDropDatabase(Oid dbid)
 }
 
 /*
- * Truncate a relation during XLOG replay
+ * 在 XLOG 重放期间截断关系
  *
- * We need to clean up any open "invalid-page" records for the dropped pages.
+ * 我们需要清理被丢弃页面上任何未决的"无效页面"记录。
  */
 void
 XLogTruncateRelation(RelFileLocator rlocator, ForkNumber forkNum,
@@ -677,44 +677,44 @@ XLogTruncateRelation(RelFileLocator rlocator, ForkNumber forkNum,
 }
 
 /*
- * Determine which timeline to read an xlog page from and set the
- * XLogReaderState's currTLI to that timeline ID.
+ * 判定应从哪条时间线读取 xlog 页，并将
+ * XLogReaderState 的 currTLI 设为该时间线 ID。
  *
- * We care about timelines in xlogreader when we might be reading xlog
- * generated prior to a promotion, either if we're currently a standby in
- * recovery or if we're a promoted primary reading xlogs generated by the old
- * primary before our promotion.
+ * 当我们可能在读取提升之前生成的 xlog 时，
+ * xlogreader 会关心时间线——无论我们当前是处于
+ * 恢复中的备库，还是已提升的主库正在读取提升前旧
+ * 主库生成的 xlog。
  *
- * wantPage must be set to the start address of the page to read and
- * wantLength to the amount of the page that will be read, up to
- * XLOG_BLCKSZ. If the amount to be read isn't known, pass XLOG_BLCKSZ.
+ * wantPage 必须设为待读页的起始地址，
+ * wantLength 为将要读取的页内字节数，最多
+ * XLOG_BLCKSZ。若未知待读量，则传入 XLOG_BLCKSZ。
  *
- * The currTLI argument should be the system-wide current timeline.
- * Note that this may be different from state->currTLI, which is the timeline
- * from which the caller is currently reading previous xlog records.
+ * currTLI 参数应为系统范围的当前时间线。
+ * 注意这可能不同于 state->currTLI，后者是调用者当前
+ * 正在读取先前 xlog 记录所用的时间线。
  *
- * We switch to an xlog segment from the new timeline eagerly when on a
- * historical timeline, as soon as we reach the start of the xlog segment
- * containing the timeline switch.  The server copied the segment to the new
- * timeline so all the data up to the switch point is the same, but there's no
- * guarantee the old segment will still exist. It may have been deleted or
- * renamed with a .partial suffix so we can't necessarily keep reading from
- * the old TLI even though tliSwitchPoint says it's OK.
+ * 当我们处于历史时间线上时，一旦到达包含时间线
+ * 切换的 xlog 段的起始处，就急切地切换到新时间线的
+ * xlog 段。服务器已将该段复制到新
+ * 时间线，因此直到切换点的所有数据相同，但不
+ * 保证旧段仍存在。它可能已被删除，或
+ * 被加上 .partial 后缀重命名，因此即使 tliSwitchPoint
+ * 说可以，我们也不一定能继续从旧 TLI 读取。
  *
- * We can't just check the timeline when we read a page on a different segment
- * to the last page. We could've received a timeline switch from a cascading
- * upstream, so the current segment ends abruptly (possibly getting renamed to
- * .partial) and we have to switch to a new one.  Even in the middle of reading
- * a page we could have to dump the cached page and switch to a new TLI.
+ * 我们不能只在读取与上一页不同段上的页时
+ * 才检查时间线。我们可能已从级联
+ * 上游收到时间线切换，因此当前段突然结束
+ * （可能被重命名为 .partial），我们必须切换到新段。
+ * 甚至在读取一页的过程中也可能不得不丢弃缓存页并切换到新 TLI。
  *
- * Because of this, callers MAY NOT assume that currTLI is the timeline that
- * will be in a page's xlp_tli; the page may begin on an older timeline or we
- * might be reading from historical timeline data on a segment that's been
- * copied to a new timeline.
+ * 因此，调用者不可假定 currTLI 就是页的
+ * xlp_tli 中的时间线；该页可能始于更旧的时间线，或者我们
+ * 可能正在从已被复制到新时间线的段上的
+ * 历史时间线数据读取。
  *
- * The caller must also make sure it doesn't read past the current replay
- * position (using GetXLogReplayRecPtr) if executing in recovery, so it
- * doesn't fail to notice that the current timeline became historical.
+ * 若在恢复中执行，调用者还必须确保不读过当前重放
+ * 位置（使用 GetXLogReplayRecPtr），以免
+ * 未能注意到当前时间线已变为历史时间线。
  */
 void
 XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
@@ -729,12 +729,12 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 	Assert(currTLI != 0);
 
 	/*
-	 * If the desired page is currently read in and valid, we have nothing to
-	 * do.
+	 * 若所需页面当前已读入且有效，则无事可
+	 * 做。
 	 *
-	 * The caller should've ensured that it didn't previously advance readOff
-	 * past the valid limit of this timeline, so it doesn't matter if the
-	 * current TLI has since become historical.
+	 * 调用者应已确保先前未将 readOff
+	 * 推进超过本时间线的有效上限，因此即使当前
+	 * TLI 此后已变为历史时间线也无关紧要。
 	 */
 	if (lastReadPage == wantPage &&
 		state->readLen != 0 &&
@@ -742,15 +742,15 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 		return;
 
 	/*
-	 * If we're reading from the current timeline, it hasn't become historical
-	 * and the page we're reading is after the last page read, we can again
-	 * just carry on. (Seeking backwards requires a check to make sure the
-	 * older page isn't on a prior timeline).
+	 * 若我们正在从当前时间线读取，它尚未变为历史
+	 * 时间线，且我们正在读取的页在上次读取的页之后，则可再次
+	 * 继续。（向后定位需要检查以确保
+	 * 更旧的页不在先前的时间线上）。
 	 *
-	 * currTLI might've become historical since the caller obtained the value,
-	 * but the caller is required not to read past the flush limit it saw at
-	 * the time it looked up the timeline. There's nothing we can do about it
-	 * if StartupXLOG() renames it to .partial concurrently.
+	 * 自调用者取得该值以来 currTLI 可能已变为历史
+	 * 时间线，但需要调用者不超过其查找时间线时
+	 * 所见的刷盘上限。若 StartupXLOG() 并发地将其
+	 * 重命名为 .partial，我们也无能为力。
 	 */
 	if (state->currTLI == currTLI && wantPage >= lastReadPage)
 	{
@@ -759,9 +759,9 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 	}
 
 	/*
-	 * If we're just reading pages from a previously validated historical
-	 * timeline and the timeline we're reading from is valid until the end of
-	 * the current segment we can just keep reading.
+	 * 若我们只是从先前已验证的历史
+	 * 时间线读取页面，且我们正在读取的时间线在当前段
+	 * 结束前都有效，则可继续读取。
 	 */
 	if (state->currTLIValidUntil != InvalidXLogRecPtr &&
 		state->currTLI != currTLI &&
@@ -771,21 +771,21 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 		return;
 
 	/*
-	 * If we reach this point we're either looking up a page for random
-	 * access, the current timeline just became historical, or we're reading
-	 * from a new segment containing a timeline switch. In all cases we need
-	 * to determine the newest timeline on the segment.
+	 * 若到达此处，我们要么在为随机访问查找一页，
+	 * 要么当前时间线刚变为历史时间线，要么正在从
+	 * 包含时间线切换的新段读取。所有情况下我们都需要
+	 * 判定该段上的最新时间线。
 	 *
-	 * If it's the current timeline we can just keep reading from here unless
-	 * we detect a timeline switch that makes the current timeline historical.
-	 * If it's a historical timeline we can read all the segment on the newest
-	 * timeline because it contains all the old timelines' data too. So only
-	 * one switch check is required.
+	 * 若它是当前时间线，我们可以继续从这里读取，除非
+	 * 我们检测到使当前时间线变为历史的时间线切换。
+	 * 若它是历史时间线，我们可以在最新时间线上读取
+	 * 整个段，因为它也包含所有旧时间线的数据。因此只需
+	 * 一次切换检查。
 	 */
 	{
 		/*
-		 * We need to re-read the timeline history in case it's been changed
-		 * by a promotion or replay from a cascaded replica.
+		 * 我们需要重新读取时间线历史，以防它因提升或
+		 * 从级联副本重放而已更改。
 		 */
 		List	   *timelineHistory = readTimeLineHistory(currTLI);
 		XLogRecPtr	endOfSegment;
@@ -796,8 +796,8 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 			   endOfSegment / state->segcxt.ws_segsize);
 
 		/*
-		 * Find the timeline of the last LSN on the segment containing
-		 * wantPage.
+		 * 查找包含 wantPage 的段上最后一个 LSN 的
+		 * 时间线。
 		 */
 		state->currTLI = tliOfPointInHistory(endOfSegment, timelineHistory);
 		state->currTLIValidUntil = tliSwitchPoint(state->currTLI, timelineHistory,
@@ -814,7 +814,7 @@ XLogReadDetermineTimeline(XLogReaderState *state, XLogRecPtr wantPage,
 	}
 }
 
-/* XLogReaderRoutine->segment_open callback for local pg_wal files */
+/* 用于本地 pg_wal 文件的 XLogReaderRoutine->segment_open 回调 */
 void
 wal_segment_open(XLogReaderState *state, XLogSegNo nextSegNo,
 				 TimeLineID *tli_p)
@@ -839,25 +839,25 @@ wal_segment_open(XLogReaderState *state, XLogSegNo nextSegNo,
 						path)));
 }
 
-/* stock XLogReaderRoutine->segment_close callback */
+/* 现成的 XLogReaderRoutine->segment_close 回调 */
 void
 wal_segment_close(XLogReaderState *state)
 {
 	close(state->seg.ws_file);
-	/* need to check errno? */
+	/* 需要检查 errno 吗？ */
 	state->seg.ws_file = -1;
 }
 
 /*
- * XLogReaderRoutine->page_read callback for reading local xlog files
+ * 用于读取本地 xlog 文件的 XLogReaderRoutine->page_read 回调
  *
- * Public because it would likely be very helpful for someone writing another
- * output method outside walsender, e.g. in a bgworker.
+ * 设为公开是因为它很可能对在 walsender
+ * 之外编写另一种输出方法的人很有帮助，例如在 bgworker 中。
  *
- * TODO: The walsender has its own version of this, but it relies on the
- * walsender's latch being set whenever WAL is flushed. No such infrastructure
- * exists for normal backends, so we have to do a check/sleep/repeat style of
- * loop for now.
+ * TODO: walsender 有自己的版本，但它依赖
+ * 每当 WAL 刷盘时设置 walsender 的锁存器。普通后端没有这类
+ * 基础设施，因此目前我们不得不采用检查/睡眠/重复式的
+ * 循环。
  */
 int
 read_local_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr,
@@ -868,8 +868,8 @@ read_local_xlog_page(XLogReaderState *state, XLogRecPtr targetPagePtr,
 }
 
 /*
- * Same as read_local_xlog_page except that it doesn't wait for future WAL
- * to be available.
+ * 与 read_local_xlog_page 相同，但不等待未来的 WAL
+ * 变为可用。
  */
 int
 read_local_xlog_page_no_wait(XLogReaderState *state, XLogRecPtr targetPagePtr,
@@ -881,7 +881,7 @@ read_local_xlog_page_no_wait(XLogReaderState *state, XLogRecPtr targetPagePtr,
 }
 
 /*
- * Implementation of read_local_xlog_page and its no wait version.
+ * read_local_xlog_page 及其无等待版本的实现。
  */
 static int
 read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
@@ -897,12 +897,12 @@ read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 
 	loc = targetPagePtr + reqLen;
 
-	/* Loop waiting for xlog to be available if necessary */
+	/* 必要时循环等待 xlog 可用 */
 	while (1)
 	{
 		/*
-		 * Determine the limit of xlog we can currently read to, and what the
-		 * most recent timeline is.
+		 * 判定我们当前可读到的 xlog 上限，以及
+		 * 最近的时间线是什么。
 		 */
 		if (!RecoveryInProgress())
 			read_upto = GetFlushRecPtr(&currTLI);
@@ -911,28 +911,28 @@ read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 		tli = currTLI;
 
 		/*
-		 * Check which timeline to get the record from.
+		 * 检查应从哪条时间线获取该记录。
 		 *
-		 * We have to do it each time through the loop because if we're in
-		 * recovery as a cascading standby, the current timeline might've
-		 * become historical. We can't rely on RecoveryInProgress() because in
-		 * a standby configuration like
+		 * 每次循环都必须做，因为若我们作为级联
+		 * 备库处于恢复中，当前时间线可能已
+		 * 变为历史时间线。我们不能依赖 RecoveryInProgress()，因为在
+		 * 像这样的备库配置中
 		 *
 		 * A => B => C
 		 *
-		 * if we're a logical decoding session on C, and B gets promoted, our
-		 * timeline will change while we remain in recovery.
+		 * 若我们在 C 上做逻辑解码会话，而 B 被提升，我们的
+		 * 时间线会改变，同时我们仍处于恢复中。
 		 *
-		 * We can't just keep reading from the old timeline as the last WAL
-		 * archive in the timeline will get renamed to .partial by
-		 * StartupXLOG().
+		 * 我们不能只继续从旧时间线读取，因为该时间线
+		 * 中的最后一个 WAL 归档会被 StartupXLOG()
+		 * 重命名为 .partial。
 		 *
-		 * If that happens after our caller determined the TLI but before we
-		 * actually read the xlog page, we might still try to read from the
-		 * old (now renamed) segment and fail. There's not much we can do
-		 * about this, but it can only happen when we're a leaf of a cascading
-		 * standby whose primary gets promoted while we're decoding, so a
-		 * one-off ERROR isn't too bad.
+		 * 若那发生在调用者判定了 TLI 之后、我们
+		 * 实际读取 xlog 页之前，我们仍可能尝试从
+		 * 旧的（现已重命名的）段读取并失败。对此我们
+		 * 无能为力，但它只会发生在我们是级联
+		 * 备库的叶子、且其主库在我们解码期间被提升时，因此
+		 * 一次性的 ERROR 还不算太糟。
 		 */
 		XLogReadDetermineTimeline(state, targetPagePtr, reqLen, tli);
 
@@ -942,14 +942,14 @@ read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 			if (loc <= read_upto)
 				break;
 
-			/* If asked, let's not wait for future WAL. */
+			/* 若被要求，则不要等待未来的 WAL。 */
 			if (!wait_for_wal)
 			{
 				ReadLocalXLogPageNoWaitPrivate *private_data;
 
 				/*
-				 * Inform the caller of read_local_xlog_page_no_wait that the
-				 * end of WAL has been reached.
+				 * 通知 read_local_xlog_page_no_wait 的调用者
+				 * 已到达 WAL 末尾。
 				 */
 				private_data = (ReadLocalXLogPageNoWaitPrivate *)
 					state->private_data;
@@ -963,26 +963,26 @@ read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 		else
 		{
 			/*
-			 * We're on a historical timeline, so limit reading to the switch
-			 * point where we moved to the next timeline.
+			 * 我们处于历史时间线上，因此将读取限制到我们
+			 * 移到下一条时间线的切换点。
 			 *
-			 * We don't need to GetFlushRecPtr or GetXLogReplayRecPtr. We know
-			 * about the new timeline, so we must've received past the end of
-			 * it.
+			 * 我们不需要 GetFlushRecPtr 或 GetXLogReplayRecPtr。我们知道
+			 * 新时间线，因此我们一定已接收过其
+			 * 末尾。
 			 */
 			read_upto = state->currTLIValidUntil;
 
 			/*
-			 * Setting tli to our wanted record's TLI is slightly wrong; the
-			 * page might begin on an older timeline if it contains a timeline
-			 * switch, since its xlog segment will have been copied from the
-			 * prior timeline. This is pretty harmless though, as nothing
-			 * cares so long as the timeline doesn't go backwards.  We should
-			 * read the page header instead; FIXME someday.
+			 * 将 tli 设为我们想要的记录的 TLI 略有不妥；该
+			 * 页若包含时间线切换，可能始于更旧的时间线，
+			 * 因为它的 xlog 段是从先前
+			 * 时间线复制来的。不过这相当无害，因为只要
+			 * 时间线不倒退就无人在意。我们应
+			 * 改为读取页头；FIXME 有朝一日。
 			 */
 			tli = state->currTLI;
 
-			/* No need to wait on a historical timeline */
+			/* 在历史时间线上无需等待 */
 			break;
 		}
 	}
@@ -990,38 +990,38 @@ read_local_xlog_page_guts(XLogReaderState *state, XLogRecPtr targetPagePtr,
 	if (targetPagePtr + XLOG_BLCKSZ <= read_upto)
 	{
 		/*
-		 * more than one block available; read only that block, have caller
-		 * come back if they need more.
+		 * 有不止一个块可用；只读该块，若调用者
+		 * 还需要更多再回来。
 		 */
 		count = XLOG_BLCKSZ;
 	}
 	else if (targetPagePtr + reqLen > read_upto)
 	{
-		/* not enough data there */
+		/* 那里没有足够的数据 */
 		return -1;
 	}
 	else
 	{
-		/* enough bytes available to satisfy the request */
+		/* 有足够字节可满足请求 */
 		count = read_upto - targetPagePtr;
 	}
 
 	/*
-	 * Even though we just determined how much of the page can be validly read
-	 * as 'count', read the whole page anyway. It's guaranteed to be
-	 * zero-padded up to the page boundary if it's incomplete.
+	 * 尽管我们刚把该页可有效读取的量判定为
+	 * 'count'，仍读取整页。若页不完整，保证会
+	 * 零填充到页边界。
 	 */
 	if (!WALRead(state, cur_page, targetPagePtr, XLOG_BLCKSZ, tli,
 				 &errinfo))
 		WALReadRaiseError(&errinfo);
 
-	/* number of valid bytes in the buffer */
+	/* 缓冲区中的有效字节数 */
 	return count;
 }
 
 /*
- * Backend-specific convenience code to handle read errors encountered by
- * WALRead().
+ * 供后端专用的便利代码，用于处理 WALRead()
+ * 遇到的读取错误。
  */
 void
 WALReadRaiseError(WALReadError *errinfo)

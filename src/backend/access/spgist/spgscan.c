@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * spgscan.c
- *	  routines for scanning SP-GiST indexes
+ *	  扫描 SP-GiST 索引的例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -33,9 +33,9 @@ typedef void (*storeRes_func) (SpGistScanOpaque so, ItemPointer heapPtr,
 							   bool recheckDistances, double *distances);
 
 /*
- * Pairing heap comparison function for the SpGistSearchItem queue.
- * KNN-searches currently only support NULLS LAST.  So, preserve this logic
- * here.
+ * SpGistSearchItem 队列的配对堆比较函数。
+ * KNN 搜索目前仅支持 NULLS LAST。因此在此保留该
+ * 逻辑。
  */
 static int
 pairingheap_SpGistSearchItem_cmp(const pairingheap_node *a,
@@ -57,21 +57,21 @@ pairingheap_SpGistSearchItem_cmp(const pairingheap_node *a,
 	}
 	else
 	{
-		/* Order according to distance comparison */
+		/* 按距离比较排序 */
 		for (i = 0; i < so->numberOfNonNullOrderBys; i++)
 		{
 			if (isnan(sa->distances[i]) && isnan(sb->distances[i]))
 				continue;		/* NaN == NaN */
 			if (isnan(sa->distances[i]))
-				return -1;		/* NaN > number */
+				return -1;		/* NaN > 数值 */
 			if (isnan(sb->distances[i]))
-				return 1;		/* number < NaN */
+				return 1;		/* 数值 < NaN */
 			if (sa->distances[i] != sb->distances[i])
 				return (sa->distances[i] < sb->distances[i]) ? 1 : -1;
 		}
 	}
 
-	/* Leaf items go before inner pages, to ensure a depth-first search */
+	/* 叶子项排在内部页之前，以确保深度优先搜索 */
 	if (sa->isLeaf && !sb->isLeaf)
 		return 1;
 	if (!sa->isLeaf && sb->isLeaf)
@@ -83,8 +83,8 @@ pairingheap_SpGistSearchItem_cmp(const pairingheap_node *a,
 static void
 spgFreeSearchItem(SpGistScanOpaque so, SpGistSearchItem *item)
 {
-	/* value is of type attType if isLeaf, else of type attLeafType */
-	/* (no, that is not backwards; yes, it's confusing) */
+	/* 若 isLeaf 则 value 类型为 attType，否则为 attLeafType */
+	/* （不，这并没有写反；是的，确实容易混淆） */
 	if (!(item->isLeaf ? so->state.attType.attbyval :
 		  so->state.attLeafType.attbyval) &&
 		DatumGetPointer(item->value) != NULL)
@@ -100,9 +100,9 @@ spgFreeSearchItem(SpGistScanOpaque so, SpGistSearchItem *item)
 }
 
 /*
- * Add SpGistSearchItem to queue
+ * 将 SpGistSearchItem 加入队列
  *
- * Called in queue context
+ * 在队列上下文中调用
  */
 static void
 spgAddSearchItemToQueue(SpGistScanOpaque so, SpGistSearchItem *item)
@@ -113,7 +113,7 @@ spgAddSearchItemToQueue(SpGistScanOpaque so, SpGistSearchItem *item)
 static SpGistSearchItem *
 spgAllocSearchItem(SpGistScanOpaque so, bool isnull, double *distances)
 {
-	/* allocate distance array only for non-NULL items */
+	/* 仅为非 NULL 项分配距离数组 */
 	SpGistSearchItem *item =
 		palloc(SizeOfSpGistSearchItem(isnull ? 0 : so->numberOfNonNullOrderBys));
 
@@ -147,8 +147,8 @@ spgAddStartItem(SpGistScanOpaque so, bool isnull)
 }
 
 /*
- * Initialize queue to search the root page, resetting
- * any previously active scan
+ * 初始化队列以搜索根页，并重置
+ * 任何先前活动的扫描
  */
 static void
 resetSpGistScanOpaque(SpGistScanOpaque so)
@@ -159,22 +159,22 @@ resetSpGistScanOpaque(SpGistScanOpaque so)
 
 	oldCtx = MemoryContextSwitchTo(so->traversalCxt);
 
-	/* initialize queue only for distance-ordered scans */
+	/* 仅为按距离排序的扫描初始化队列 */
 	so->scanQueue = pairingheap_allocate(pairingheap_SpGistSearchItem_cmp, so);
 
 	if (so->searchNulls)
-		/* Add a work item to scan the null index entries */
+		/* 添加工作项以扫描空值索引项 */
 		spgAddStartItem(so, true);
 
 	if (so->searchNonNulls)
-		/* Add a work item to scan the non-null index entries */
+		/* 添加工作项以扫描非空索引项 */
 		spgAddStartItem(so, false);
 
 	MemoryContextSwitchTo(oldCtx);
 
 	if (so->numberOfOrderBys > 0)
 	{
-		/* Must pfree distances to avoid memory leak */
+		/* 必须 pfree distances 以免内存泄漏 */
 		int			i;
 
 		for (i = 0; i < so->nPtrs; i++)
@@ -184,7 +184,7 @@ resetSpGistScanOpaque(SpGistScanOpaque so)
 
 	if (so->want_itup)
 	{
-		/* Must pfree reconstructed tuples to avoid memory leak */
+		/* 必须 pfree 重建的元组以免内存泄漏 */
 		int			i;
 
 		for (i = 0; i < so->nPtrs; i++)
@@ -194,15 +194,15 @@ resetSpGistScanOpaque(SpGistScanOpaque so)
 }
 
 /*
- * Prepare scan keys in SpGistScanOpaque from caller-given scan keys
+ * 根据调用方给出的扫描键，在 SpGistScanOpaque 中准备扫描键
  *
- * Sets searchNulls, searchNonNulls, numberOfKeys, keyData fields of *so.
+ * 设置 *so 的 searchNulls、searchNonNulls、numberOfKeys、keyData 字段。
  *
- * The point here is to eliminate null-related considerations from what the
- * opclass consistent functions need to deal with.  We assume all SPGiST-
- * indexable operators are strict, so any null RHS value makes the scan
- * condition unsatisfiable.  We also pull out any IS NULL/IS NOT NULL
- * conditions; their effect is reflected into searchNulls/searchNonNulls.
+ * 此处的目的是让操作符类的一致性函数不必再处理与空值
+ * 相关的事项。我们假定所有可建 SPGiST 索引的操作符都是
+ * 严格的，因此 RHS 为空会使扫描条件无法满足。我们还抽出
+ * 任何 IS NULL/IS NOT NULL 条件；其效果反映到
+ * searchNulls/searchNonNulls 中。
  */
 static void
 spgPrepareScanKeys(IndexScanDesc scan)
@@ -224,8 +224,8 @@ spgPrepareScanKeys(IndexScanDesc scan)
 		int			j = 0;
 
 		/*
-		 * Remove all NULL keys, but remember their offsets in the original
-		 * array.
+		 * 移除所有 NULL 键，但记住它们在原
+		 * 数组中的偏移。
 		 */
 		for (i = 0; i < scan->numberOfOrderBys; i++)
 		{
@@ -247,14 +247,14 @@ spgPrepareScanKeys(IndexScanDesc scan)
 
 	if (scan->numberOfKeys <= 0)
 	{
-		/* If no quals, whole-index scan is required */
+		/* 若无限定条件，则需要整索引扫描 */
 		so->searchNulls = true;
 		so->searchNonNulls = true;
 		so->numberOfKeys = 0;
 		return;
 	}
 
-	/* Examine the given quals */
+	/* 检查给定的限定条件 */
 	qual_ok = true;
 	haveIsNull = haveNotNull = false;
 	nkeys = 0;
@@ -268,24 +268,24 @@ spgPrepareScanKeys(IndexScanDesc scan)
 			haveNotNull = true;
 		else if (skey->sk_flags & SK_ISNULL)
 		{
-			/* ordinary qual with null argument - unsatisfiable */
+			/* 带空参数的普通限定条件 - 无法满足 */
 			qual_ok = false;
 			break;
 		}
 		else
 		{
-			/* ordinary qual, propagate into so->keyData */
+			/* 普通限定条件，传播到 so->keyData */
 			so->keyData[nkeys++] = *skey;
-			/* this effectively creates a not-null requirement */
+			/* 这实际上产生了非空要求 */
 			haveNotNull = true;
 		}
 	}
 
-	/* IS NULL in combination with something else is unsatisfiable */
+	/* IS NULL 与其他条件组合时无法满足 */
 	if (haveIsNull && haveNotNull)
 		qual_ok = false;
 
-	/* Emit results */
+	/* 输出结果 */
 	if (qual_ok)
 	{
 		so->searchNulls = haveIsNull;
@@ -324,24 +324,24 @@ spgbeginscan(Relation rel, int keysz, int orderbysz)
 											 ALLOCSET_DEFAULT_SIZES);
 
 	/*
-	 * Set up reconTupDesc and xs_hitupdesc in case it's an index-only scan,
-	 * making sure that the key column is shown as being of type attType.
-	 * (It's rather annoying to do this work when it might be wasted, but for
-	 * most opclasses we can re-use the index reldesc instead of making one.)
+	 * 以防这是仅索引扫描，设置 reconTupDesc 与 xs_hitupdesc，
+	 * 并确保键列显示为 attType 类型。
+	 * （做这项工作可能白费，有点烦人，但对多数操作符类
+	 * 我们可以复用索引的 reldesc 而不必新建。）
 	 */
 	so->reconTupDesc = scan->xs_hitupdesc =
 		getSpGistTupleDesc(rel, &so->state.attType);
 
-	/* Allocate various arrays needed for order-by scans */
+	/* 为 order-by 扫描分配所需的各种数组 */
 	if (scan->numberOfOrderBys > 0)
 	{
-		/* This will be filled in spgrescan, but allocate the space here */
+		/* 将在 spgrescan 中填充，但在此分配空间 */
 		so->orderByTypes = (Oid *)
 			palloc(sizeof(Oid) * scan->numberOfOrderBys);
 		so->nonNullOrderByOffsets = (int *)
 			palloc(sizeof(int) * scan->numberOfOrderBys);
 
-		/* These arrays have constant contents, so we can fill them now */
+		/* 这些数组内容恒定，因此现在就可以填充 */
 		so->zeroDistances = (double *)
 			palloc(sizeof(double) * scan->numberOfOrderBys);
 		so->infDistances = (double *)
@@ -382,12 +382,12 @@ spgrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 {
 	SpGistScanOpaque so = (SpGistScanOpaque) scan->opaque;
 
-	/* copy scankeys into local storage */
+	/* 将扫描键复制到本地存储 */
 	if (scankey && scan->numberOfKeys > 0)
 		memmove(scan->keyData, scankey,
 				scan->numberOfKeys * sizeof(ScanKeyData));
 
-	/* initialize order-by data if needed */
+	/* 若需要则初始化 order-by 数据 */
 	if (orderbys && scan->numberOfOrderBys > 0)
 	{
 		int			i;
@@ -400,28 +400,28 @@ spgrescan(IndexScanDesc scan, ScanKey scankey, int nscankeys,
 			ScanKey		skey = &scan->orderByData[i];
 
 			/*
-			 * Look up the datatype returned by the original ordering
-			 * operator. SP-GiST always uses a float8 for the distance
-			 * function, but the ordering operator could be anything else.
+			 * 查找原始排序操作符返回的数据
+			 * 类型。SP-GiST 的距离函数始终使用 float8，
+			 * 但排序操作符可以是任何其他类型。
 			 *
-			 * XXX: The distance function is only allowed to be lossy if the
-			 * ordering operator's result type is float4 or float8.  Otherwise
-			 * we don't know how to return the distance to the executor.  But
-			 * we cannot check that here, as we won't know if the distance
-			 * function is lossy until it returns *recheck = true for the
-			 * first time.
+			 * XXX: 仅当排序操作符的结果类型为
+			 * float4 或 float8 时，才允许距离函数有损。否则
+			 * 我们不知道如何把距离返回给执行器。但
+			 * 此处无法检查，因为直到距离函数首次返回
+			 * *recheck = true 时，我们才知道它是否
+			 * 有损。
 			 */
 			so->orderByTypes[i] = get_func_rettype(skey->sk_func.fn_oid);
 		}
 	}
 
-	/* preprocess scankeys, set up the representation in *so */
+	/* 预处理扫描键，在 *so 中建立表示 */
 	spgPrepareScanKeys(scan);
 
-	/* set up starting queue entries */
+	/* 建立起始队列项 */
 	resetSpGistScanOpaque(so);
 
-	/* count an indexscan for stats */
+	/* 为统计计数一次索引扫描 */
 	pgstat_count_index_scan(scan->indexRelation);
 }
 
@@ -457,7 +457,7 @@ spgendscan(IndexScanDesc scan)
 }
 
 /*
- * Leaf SpGistSearchItem constructor, called in queue context
+ * 叶子 SpGistSearchItem 构造函数，在队列上下文中调用
  */
 static SpGistSearchItem *
 spgNewHeapItem(SpGistScanOpaque so, int level, SpGistLeafTuple leafTuple,
@@ -470,10 +470,10 @@ spgNewHeapItem(SpGistScanOpaque so, int level, SpGistLeafTuple leafTuple,
 	item->heapPtr = leafTuple->heapPtr;
 
 	/*
-	 * If we need the reconstructed value, copy it to queue cxt out of tmp
-	 * cxt.  Caution: the leaf_consistent method may not have supplied a value
-	 * if we didn't ask it to, and mildly-broken methods might supply one of
-	 * the wrong type.  The correct leafValue type is attType not leafType.
+	 * 若需要重建值，则从临时上下文复制到队列上下文。
+	 * 注意：若我们未要求，leaf_consistent 方法可能未提供值，
+	 * 且略有问题的方法可能提供错误类型的值。正确的
+	 * leafValue 类型是 attType 而非 leafType。
 	 */
 	if (so->want_itup)
 	{
@@ -482,8 +482,8 @@ spgNewHeapItem(SpGistScanOpaque so, int level, SpGistLeafTuple leafTuple,
 					  so->state.attType.attlen);
 
 		/*
-		 * If we're going to need to reconstruct INCLUDE attributes, store the
-		 * whole leaf tuple so we can get the INCLUDE attributes out of it.
+		 * 若稍后需要重建 INCLUDE 属性，则保存整个
+		 * 叶子元组，以便从中取出 INCLUDE 属性。
 		 */
 		if (so->state.leafTupDesc->natts > 1)
 		{
@@ -507,10 +507,10 @@ spgNewHeapItem(SpGistScanOpaque so, int level, SpGistLeafTuple leafTuple,
 }
 
 /*
- * Test whether a leaf tuple satisfies all the scan keys
+ * 测试叶子元组是否满足所有扫描键
  *
- * *reportedSome is set to true if:
- *		the scan is not ordered AND the item satisfies the scankeys
+ * 在以下情况将 *reportedSome 设为 true：
+ *		扫描无序且该项满足扫描键
  */
 static bool
 spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
@@ -525,7 +525,7 @@ spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
 
 	if (isnull)
 	{
-		/* Should not have arrived on a nulls page unless nulls are wanted */
+		/* 除非需要空值，否则不应到达空值页 */
 		Assert(so->searchNulls);
 		leafValue = (Datum) 0;
 		distances = NULL;
@@ -538,14 +538,14 @@ spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
 		spgLeafConsistentIn in;
 		spgLeafConsistentOut out;
 
-		/* use temp context for calling leaf_consistent */
+		/* 调用 leaf_consistent 时使用临时上下文 */
 		MemoryContext oldCxt = MemoryContextSwitchTo(so->tempCxt);
 
 		in.scankeys = so->keyData;
 		in.nkeys = so->numberOfKeys;
 		in.orderbys = so->orderByData;
 		in.norderbys = so->numberOfNonNullOrderBys;
-		Assert(!item->isLeaf);	/* else reconstructedValue would be wrong type */
+		Assert(!item->isLeaf);	/* 否则 reconstructedValue 类型会不对 */
 		in.reconstructedValue = item->value;
 		in.traversalValue = item->traversalValue;
 		in.level = item->level;
@@ -571,10 +571,10 @@ spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
 
 	if (result)
 	{
-		/* item passes the scankeys */
+		/* 项通过了扫描键 */
 		if (so->numberOfNonNullOrderBys > 0)
 		{
-			/* the scan is ordered -> add the item to the queue */
+			/* 扫描有序 -> 将该项加入队列 */
 			MemoryContext oldCxt = MemoryContextSwitchTo(so->traversalCxt);
 			SpGistSearchItem *heapItem = spgNewHeapItem(so, item->level,
 														leafTuple,
@@ -590,7 +590,7 @@ spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
 		}
 		else
 		{
-			/* non-ordered scan, so report the item right away */
+			/* 非有序扫描，因此立即报告该项 */
 			Assert(!recheckDistances);
 			storeRes(so, &leafTuple->heapPtr, leafValue, isnull,
 					 leafTuple, recheck, false, NULL);
@@ -601,7 +601,7 @@ spgLeafTest(SpGistScanOpaque so, SpGistSearchItem *item,
 	return result;
 }
 
-/* A bundle initializer for inner_consistent methods */
+/* inner_consistent 方法的打包初始化器 */
 static void
 spgInitInnerConsistentIn(spgInnerConsistentIn *in,
 						 SpGistScanOpaque so,
@@ -612,7 +612,7 @@ spgInitInnerConsistentIn(spgInnerConsistentIn *in,
 	in->orderbys = so->orderByData;
 	in->nkeys = so->numberOfKeys;
 	in->norderbys = so->numberOfNonNullOrderBys;
-	Assert(!item->isLeaf);		/* else reconstructedValue would be wrong type */
+	Assert(!item->isLeaf);		/* 否则 reconstructedValue 类型会不对 */
 	in->reconstructedValue = item->value;
 	in->traversalMemoryContext = so->traversalCxt;
 	in->traversalValue = item->traversalValue;
@@ -638,8 +638,8 @@ spgMakeInnerItem(SpGistScanOpaque so,
 	item->level = out->levelAdds ? parentItem->level + out->levelAdds[i]
 		: parentItem->level;
 
-	/* Must copy value out of temp context */
-	/* (recall that reconstructed values are of type leafType) */
+	/* 必须把值从临时上下文中复制出来 */
+	/* （请记住重建值的类型为 leafType） */
 	item->value = out->reconstructedValues
 		? datumCopy(out->reconstructedValues[i],
 					so->state.attLeafType.attbyval,
@@ -649,9 +649,9 @@ spgMakeInnerItem(SpGistScanOpaque so,
 	item->leafTuple = NULL;
 
 	/*
-	 * Elements of out.traversalValues should be allocated in
-	 * in.traversalMemoryContext, which is actually a long lived context of
-	 * index scan.
+	 * out.traversalValues 的元素应分配在
+	 * in.traversalMemoryContext 中，它实际上是索引扫描的
+	 * 长寿命上下文。
 	 */
 	item->traversalValue =
 		out->traversalValues ? out->traversalValues[i] : NULL;
@@ -680,7 +680,7 @@ spgInnerTest(SpGistScanOpaque so, SpGistSearchItem *item,
 
 		spgInitInnerConsistentIn(&in, so, item, innerTuple);
 
-		/* use user-defined inner consistent method */
+		/* 使用用户定义的内部一致性方法 */
 		FunctionCall2Coll(&so->innerConsistentFn,
 						  so->indexCollation,
 						  PointerGetDatum(&in),
@@ -688,20 +688,20 @@ spgInnerTest(SpGistScanOpaque so, SpGistSearchItem *item,
 	}
 	else
 	{
-		/* force all children to be visited */
+		/* 强制访问所有子节点 */
 		out.nNodes = nNodes;
 		out.nodeNumbers = (int *) palloc(sizeof(int) * nNodes);
 		for (i = 0; i < nNodes; i++)
 			out.nodeNumbers[i] = i;
 	}
 
-	/* If allTheSame, they should all or none of them match */
+	/* 若 allTheSame，则应全部匹配或全不匹配 */
 	if (innerTuple->allTheSame && out.nNodes != 0 && out.nNodes != nNodes)
 		elog(ERROR, "inconsistent inner_consistent results for allTheSame inner tuple");
 
 	if (out.nNodes)
 	{
-		/* collect node pointers */
+		/* 收集节点指针 */
 		SpGistNodeTuple node;
 		SpGistNodeTuple *nodes = (SpGistNodeTuple *) palloc(sizeof(SpGistNodeTuple) * nNodes);
 
@@ -726,8 +726,8 @@ spgInnerTest(SpGistScanOpaque so, SpGistSearchItem *item,
 				continue;
 
 			/*
-			 * Use infinity distances if innerConsistentFn() failed to return
-			 * them or if is a NULL item (their distances are really unused).
+			 * 若 innerConsistentFn() 未能返回距离，或该项为 NULL
+			 * （其距离实际未使用），则使用无穷大距离。
 			 */
 			distances = out.distances ? out.distances[i] : so->infDistances;
 
@@ -741,14 +741,14 @@ spgInnerTest(SpGistScanOpaque so, SpGistSearchItem *item,
 	MemoryContextSwitchTo(oldCxt);
 }
 
-/* Returns a next item in an (ordered) scan or null if the index is exhausted */
+/* 返回（有序）扫描中的下一项；若索引已耗尽则返回 null */
 static SpGistSearchItem *
 spgGetNextQueueItem(SpGistScanOpaque so)
 {
 	if (pairingheap_is_empty(so->scanQueue))
-		return NULL;			/* Done when both heaps are empty */
+		return NULL;			/* 两个堆都空时完成 */
 
-	/* Return item; caller is responsible to pfree it */
+	/* 返回项；由调用方负责 pfree */
 	return (SpGistSearchItem *) pairingheap_remove_first(so->scanQueue);
 }
 
@@ -772,13 +772,13 @@ spgTestLeafTuple(SpGistScanOpaque so,
 
 	if (leafTuple->tupstate != SPGIST_LIVE)
 	{
-		if (!isroot)			/* all tuples on root should be live */
+		if (!isroot)			/* 根上的所有元组都应为活的 */
 		{
 			if (leafTuple->tupstate == SPGIST_REDIRECT)
 			{
-				/* redirection tuple should be first in chain */
+				/* 重定向元组应为链中的首个 */
 				Assert(offset == ItemPointerGetOffsetNumber(&item->heapPtr));
-				/* transfer attention to redirect point */
+				/* 把注意力转到重定向目标 */
 				item->heapPtr = ((SpGistDeadTuple) leafTuple)->pointer;
 				Assert(ItemPointerGetBlockNumber(&item->heapPtr) != SPGIST_METAPAGE_BLKNO);
 				return SpGistRedirectOffsetNumber;
@@ -786,15 +786,15 @@ spgTestLeafTuple(SpGistScanOpaque so,
 
 			if (leafTuple->tupstate == SPGIST_DEAD)
 			{
-				/* dead tuple should be first in chain */
+				/* 死元组应为链中的首个 */
 				Assert(offset == ItemPointerGetOffsetNumber(&item->heapPtr));
-				/* No live entries on this page */
+				/* 本页上没有活项 */
 				Assert(SGLT_GET_NEXTOFFSET(leafTuple) == InvalidOffsetNumber);
 				return SpGistBreakOffsetNumber;
 			}
 		}
 
-		/* We should not arrive at a placeholder */
+		/* 我们不应到达占位符 */
 		elog(ERROR, "unexpected SPGiST tuple state: %d", leafTuple->tupstate);
 		return SpGistErrorOffsetNumber;
 	}
@@ -807,11 +807,11 @@ spgTestLeafTuple(SpGistScanOpaque so,
 }
 
 /*
- * Walk the tree and report all tuples passing the scan quals to the storeRes
- * subroutine.
+ * 遍历树，并将所有通过扫描限定条件的元组报告给
+ * storeRes 子例程。
  *
- * If scanWholeIndex is true, we'll do just that.  If not, we'll stop at the
- * next page boundary once we have reported at least one tuple.
+ * 若 scanWholeIndex 为真，就照此做完。否则，一旦已
+ * 报告至少一个元组，就在下一页边界处停止。
  */
 static void
 spgWalk(Relation index, SpGistScanOpaque so, bool scanWholeIndex,
@@ -825,15 +825,15 @@ spgWalk(Relation index, SpGistScanOpaque so, bool scanWholeIndex,
 		SpGistSearchItem *item = spgGetNextQueueItem(so);
 
 		if (item == NULL)
-			break;				/* No more items in queue -> done */
+			break;				/* 队列中没有更多项 -> 完成 */
 
 redirect:
-		/* Check for interrupts, just in case of infinite loop */
+		/* 检查中断，以防陷入无限循环 */
 		CHECK_FOR_INTERRUPTS();
 
 		if (item->isLeaf)
 		{
-			/* We store heap items in the queue only in case of ordered search */
+			/* 仅在有序搜索时才把堆项存入队列 */
 			Assert(so->numberOfNonNullOrderBys > 0);
 			storeRes(so, &item->heapPtr, item->value, item->isNull,
 					 item->leafTuple, item->recheck,
@@ -859,7 +859,7 @@ redirect:
 				LockBuffer(buffer, BUFFER_LOCK_SHARE);
 			}
 
-			/* else new pointer points to the same page, no work needed */
+			/* 否则新指针指向同一页，无需操作 */
 
 			page = BufferGetPage(buffer);
 			TestForOldSnapshot(snapshot, index, page);
@@ -868,12 +868,12 @@ redirect:
 
 			if (SpGistPageIsLeaf(page))
 			{
-				/* Page is a leaf - that is, all it's tuples are heap items */
+				/* 页是叶子页——即其上所有元组都是堆项 */
 				OffsetNumber max = PageGetMaxOffsetNumber(page);
 
 				if (SpGistBlockIsRoot(blkno))
 				{
-					/* When root is a leaf, examine all its tuples */
+					/* 当根是叶子时，检查其所有元组 */
 					for (offset = FirstOffsetNumber; offset <= max; offset++)
 						(void) spgTestLeafTuple(so, item, page, offset,
 												isnull, true,
@@ -881,7 +881,7 @@ redirect:
 				}
 				else
 				{
-					/* Normal case: just examine the chain we arrived at */
+					/* 普通情况：只检查我们到达的链 */
 					while (offset != InvalidOffsetNumber)
 					{
 						Assert(offset >= FirstOffsetNumber && offset <= max);
@@ -893,7 +893,7 @@ redirect:
 					}
 				}
 			}
-			else				/* page is inner */
+			else				/* 页是内部页 */
 			{
 				SpGistInnerTuple innerTuple = (SpGistInnerTuple)
 					PageGetItem(page, PageGetItemId(page, offset));
@@ -902,7 +902,7 @@ redirect:
 				{
 					if (innerTuple->tupstate == SPGIST_REDIRECT)
 					{
-						/* transfer attention to redirect point */
+						/* 把注意力转到重定向目标 */
 						item->heapPtr = ((SpGistDeadTuple) innerTuple)->pointer;
 						Assert(ItemPointerGetBlockNumber(&item->heapPtr) !=
 							   SPGIST_METAPAGE_BLKNO);
@@ -916,9 +916,9 @@ redirect:
 			}
 		}
 
-		/* done with this scan item */
+		/* 处理完本扫描项 */
 		spgFreeSearchItem(so, item);
-		/* clear temp context before proceeding to the next one */
+		/* 在继续下一项之前清空临时上下文 */
 		MemoryContextReset(so->tempCxt);
 	}
 
@@ -927,7 +927,7 @@ redirect:
 }
 
 
-/* storeRes subroutine for getbitmap case */
+/* getbitmap 情形下的 storeRes 子例程 */
 static void
 storeBitmap(SpGistScanOpaque so, ItemPointer heapPtr,
 			Datum leafValue, bool isnull,
@@ -944,7 +944,7 @@ spggetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 {
 	SpGistScanOpaque so = (SpGistScanOpaque) scan->opaque;
 
-	/* Copy want_itup to *so so we don't need to pass it around separately */
+	/* 将 want_itup 复制到 *so，这样就不必单独传递 */
 	so->want_itup = false;
 
 	so->tbm = tbm;
@@ -955,7 +955,7 @@ spggetbitmap(IndexScanDesc scan, TIDBitmap *tbm)
 	return so->ntids;
 }
 
-/* storeRes subroutine for gettuple case */
+/* gettuple 情形下的 storeRes 子例程 */
 static void
 storeGettuple(SpGistScanOpaque so, ItemPointer heapPtr,
 			  Datum leafValue, bool isnull,
@@ -983,13 +983,13 @@ storeGettuple(SpGistScanOpaque so, ItemPointer heapPtr,
 
 				if (offset >= 0)
 				{
-					/* Copy non-NULL distance value */
+					/* 复制非 NULL 距离值 */
 					distances[i].value = nonNullDistances[offset];
 					distances[i].isnull = false;
 				}
 				else
 				{
-					/* Set distance's NULL flag. */
+					/* 设置距离的 NULL 标志。 */
 					distances[i].value = 0.0;
 					distances[i].isnull = true;
 				}
@@ -1002,13 +1002,13 @@ storeGettuple(SpGistScanOpaque so, ItemPointer heapPtr,
 	if (so->want_itup)
 	{
 		/*
-		 * Reconstruct index data.  We have to copy the datum out of the temp
-		 * context anyway, so we may as well create the tuple here.
+		 * 重建索引数据。反正要把 datum 从临时上下文中
+		 * 复制出来，不妨在此创建元组。
 		 */
 		Datum		leafDatums[INDEX_MAX_KEYS];
 		bool		leafIsnulls[INDEX_MAX_KEYS];
 
-		/* We only need to deform the old tuple if it has INCLUDE attributes */
+		/* 仅当旧元组有 INCLUDE 属性时才需要变形 */
 		if (so->state.leafTupDesc->natts > 1)
 			spgDeformLeafTuple(leafTuple, so->state.leafTupDesc,
 							   leafDatums, leafIsnulls, isnull);
@@ -1031,14 +1031,14 @@ spggettuple(IndexScanDesc scan, ScanDirection dir)
 	if (dir != ForwardScanDirection)
 		elog(ERROR, "SP-GiST only supports forward scan direction");
 
-	/* Copy want_itup to *so so we don't need to pass it around separately */
+	/* 将 want_itup 复制到 *so，这样就不必单独传递 */
 	so->want_itup = scan->xs_want_itup;
 
 	for (;;)
 	{
 		if (so->iPtr < so->nPtrs)
 		{
-			/* continuing to return reported tuples */
+			/* 继续返回已报告的元组 */
 			scan->xs_heaptid = so->heapPtrs[so->iPtr];
 			scan->xs_recheck = so->recheck[so->iPtr];
 			scan->xs_hitup = so->reconTups[so->iPtr];
@@ -1053,7 +1053,7 @@ spggettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (so->numberOfOrderBys > 0)
 		{
-			/* Must pfree distances to avoid memory leak */
+			/* 必须 pfree distances 以免内存泄漏 */
 			int			i;
 
 			for (i = 0; i < so->nPtrs; i++)
@@ -1063,7 +1063,7 @@ spggettuple(IndexScanDesc scan, ScanDirection dir)
 
 		if (so->want_itup)
 		{
-			/* Must pfree reconstructed tuples to avoid memory leak */
+			/* 必须 pfree 重建的元组以免内存泄漏 */
 			int			i;
 
 			for (i = 0; i < so->nPtrs; i++)
@@ -1075,7 +1075,7 @@ spggettuple(IndexScanDesc scan, ScanDirection dir)
 				scan->xs_snapshot);
 
 		if (so->nPtrs == 0)
-			break;				/* must have completed scan */
+			break;				/* 扫描必定已完成 */
 	}
 
 	return false;
@@ -1086,11 +1086,11 @@ spgcanreturn(Relation index, int attno)
 {
 	SpGistCache *cache;
 
-	/* INCLUDE attributes can always be fetched for index-only scans */
+	/* INCLUDE 属性在仅索引扫描中总是可以取回 */
 	if (attno > 1)
 		return true;
 
-	/* We can do it if the opclass config function says so */
+	/* 若操作符类配置函数如此声明，则可以做到 */
 	cache = spgGetCache(index);
 
 	return cache->config.canReturnData;

@@ -1,16 +1,16 @@
 /*-------------------------------------------------------------------------
  *
  * commit_ts.c
- *		PostgreSQL commit timestamp manager
+ *		PostgreSQL 提交时间戳管理器
  *
- * This module is a pg_xact-like system that stores the commit timestamp
- * for each transaction.
+ * 本模块类似 pg_xact，为每个事务存储
+ * 提交时间戳。
  *
- * XLOG interactions: this module generates an XLOG record whenever a new
- * CommitTs page is initialized to zeroes.  Other writes of CommitTS come
- * from recording of transaction commit in xact.c, which generates its own
- * XLOG records for these events and will re-perform the status update on
- * redo; so we need make no additional XLOG entry here.
+ * XLOG 交互：每当新的 CommitTs 页被初始化为零时，本模块
+ * 生成一条 XLOG 记录。对 CommitTS 的其他写入来自 xact.c 中
+ * 对事务提交的记录，后者会为这些事件生成自己的 XLOG 记录，
+ * 并在 redo 时重新执行状态更新；因此这里无需再写额外的
+ * XLOG 项。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,21 +37,21 @@
 #include "utils/timestamp.h"
 
 /*
- * Defines for CommitTs page sizes.  A page is the same BLCKSZ as is used
- * everywhere else in Postgres.
+ * CommitTs 页大小相关定义。页大小与 Postgres
+ * 其他地方一样，均为 BLCKSZ。
  *
- * Note: because TransactionIds are 32 bits and wrap around at 0xFFFFFFFF,
- * CommitTs page numbering also wraps around at
- * 0xFFFFFFFF/COMMIT_TS_XACTS_PER_PAGE, and CommitTs segment numbering at
- * 0xFFFFFFFF/COMMIT_TS_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT.  We need take no
- * explicit notice of that fact in this module, except when comparing segment
- * and page numbers in TruncateCommitTs (see CommitTsPagePrecedes).
+ * 注意：因为 TransactionIds 是 32 位并在 0xFFFFFFFF 回卷，
+ * CommitTs 页编号也会在
+ * 0xFFFFFFFF/COMMIT_TS_XACTS_PER_PAGE 处回卷，段编号在
+ * 0xFFFFFFFF/COMMIT_TS_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT 处回卷。
+ * 除了在 TruncateCommitTs 中比较段号与页号时（见
+ * CommitTsPagePrecedes）外，本模块无需显式关注这一事实。
  */
 
 /*
- * We need 8+2 bytes per xact.  Note that enlarging this struct might mean
- * the largest possible file name is more than 5 chars long; see
- * SlruScanDirectory.
+ * 每个 xact 需要 8+2 字节。注意扩大此结构可能意味着
+ * 最大可能文件名超过 5 个字符；参见
+ * SlruScanDirectory。
  */
 typedef struct CommitTimestampEntry
 {
@@ -71,22 +71,22 @@ typedef struct CommitTimestampEntry
 	((xid) % (TransactionId) COMMIT_TS_XACTS_PER_PAGE)
 
 /*
- * Link to shared-memory data structures for CommitTs control
+ * 指向 CommitTs 控制用共享内存数据结构的链接
  */
 static SlruCtlData CommitTsCtlData;
 
 #define CommitTsCtl (&CommitTsCtlData)
 
 /*
- * We keep a cache of the last value set in shared memory.
+ * 我们在共享内存中缓存最近设置的值。
  *
- * This is also good place to keep the activation status.  We keep this
- * separate from the GUC so that the standby can activate the module if the
- * primary has it active independently of the value of the GUC.
+ * 这里也适合存放激活状态。我们把它与
+ * GUC 分开，以便备库可以在主库已激活该
+ * 模块时独立于 GUC 的值激活本模块。
  *
- * This is protected by CommitTsLock.  In some places, we use commitTsActive
- * without acquiring the lock; where this happens, a comment explains the
- * rationale for it.
+ * 由 CommitTsLock 保护。有些地
+ * 方在未获取锁时使用
+ * commitTsActive；出现这种情况时，注释会说明理由。
  */
 typedef struct CommitTimestampShared
 {
@@ -98,7 +98,7 @@ typedef struct CommitTimestampShared
 static CommitTimestampShared *commitTsShared;
 
 
-/* GUC variable */
+/* GUC 变量 */
 bool		track_commit_timestamp;
 
 static void SetXidCommitTsInPage(TransactionId xid, int nsubxids,
@@ -117,18 +117,18 @@ static void WriteTruncateXlogRec(int pageno, TransactionId oldestXid);
 /*
  * TransactionTreeSetCommitTsData
  *
- * Record the final commit timestamp of transaction entries in the commit log
- * for a transaction and its subtransaction tree, as efficiently as possible.
+ * 尽可能高效地在提交日志中记录一个事务及其子事务树
+ * 各项的最终提交时间戳。
  *
- * xid is the top level transaction id.
+ * xid 是顶层事务 id。
  *
- * subxids is an array of xids of length nsubxids, representing subtransactions
- * in the tree of xid. In various cases nsubxids may be zero.
- * The reason why tracking just the parent xid commit timestamp is not enough
- * is that the subtrans SLRU does not stay valid across crashes (it's not
- * permanent) so we need to keep the information about them here. If the
- * subtrans implementation changes in the future, we might want to revisit the
- * decision of storing timestamp info for each subxid.
+ * subxids 是长度为 nsubxids 的 xid 数组，表示 xid 树中的
+ * 子事务。各种情况下 nsubxids 可能为零。
+ * 仅跟踪父 xid 的提交时间戳还不够，原因是
+ * 子事务 SLRU 跨崩溃后不会保持有效（它不是
+ * 永久的），因此需要在此保留关于它们的信息。若将来
+ * 子事务实现改变，我们可能希望重新考虑为每个
+ * subxid 存储时间戳信息的决定。
  */
 void
 TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
@@ -140,19 +140,19 @@ TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
 	TransactionId newestXact;
 
 	/*
-	 * No-op if the module is not active.
+	 * 若模块未激活则为空操作。
 	 *
-	 * An unlocked read here is fine, because in a standby (the only place
-	 * where the flag can change in flight) this routine is only called by the
-	 * recovery process, which is also the only process which can change the
-	 * flag.
+	 * 此处无锁读取没问题，因为在备库
+	 * 上（标志可在飞行中改变的唯一地
+	 * 方）本例程仅由恢复进程调用，而
+	 * 它也是唯一能改变该标志的进程。
 	 */
 	if (!commitTsShared->commitTsActive)
 		return;
 
 	/*
-	 * Figure out the latest Xid in this batch: either the last subxid if
-	 * there's any, otherwise the parent xid.
+	 * 算出本批中最新的 Xid：若有子 xid 则为最后一个
+	 * subxid，否则为父 xid。
 	 */
 	if (nsubxids > 0)
 		newestXact = subxids[nsubxids - 1];
@@ -160,11 +160,11 @@ TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
 		newestXact = xid;
 
 	/*
-	 * We split the xids to set the timestamp to in groups belonging to the
-	 * same SLRU page; the first element in each such set is its head.  The
-	 * first group has the main XID as the head; subsequent sets use the first
-	 * subxid not on the previous page as head.  This way, we only have to
-	 * lock/modify each SLRU page once.
+	 * 我们把要设置时间戳的 xid 按所属同一
+	 * SLRU 页分组；每组的第一个元素是其
+	 * head。第一组以主 XID 为 head；后续各
+	 * 组用不在上一页上的第一个 subxid 作为
+	 * head。这样每个 SLRU 页只需加锁/修改一次。
 	 */
 	headxid = xid;
 	i = 0;
@@ -178,38 +178,38 @@ TransactionTreeSetCommitTsData(TransactionId xid, int nsubxids,
 			if (TransactionIdToCTsPage(subxids[j]) != pageno)
 				break;
 		}
-		/* subxids[i..j] are on the same page as the head */
+		/* subxids[i..j] 与 head 在同一页上 */
 
 		SetXidCommitTsInPage(headxid, j - i, subxids + i, timestamp, nodeid,
 							 pageno);
 
-		/* if we wrote out all subxids, we're done. */
+		/* 若已写出全部 subxids，则完成。 */
 		if (j >= nsubxids)
 			break;
 
 		/*
-		 * Set the new head and skip over it, as well as over the subxids we
-		 * just wrote.
+		 * 设置新的 head，并跳过它以及我们刚写出的
+		 * subxids。
 		 */
 		headxid = subxids[j];
 		i = j + 1;
 	}
 
-	/* update the cached value in shared memory */
+	/* 更新共享内存中的缓存值 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 	commitTsShared->xidLastCommit = xid;
 	commitTsShared->dataLastCommit.time = timestamp;
 	commitTsShared->dataLastCommit.nodeid = nodeid;
 
-	/* and move forwards our endpoint, if needed */
+	/* 必要时向前推进我们的终点 */
 	if (TransactionIdPrecedes(ShmemVariableCache->newestCommitTsXid, newestXact))
 		ShmemVariableCache->newestCommitTsXid = newestXact;
 	LWLockRelease(CommitTsLock);
 }
 
 /*
- * Record the commit timestamp of transaction entries in the commit log for all
- * entries on a single page.  Atomic only on this page.
+ * 在提交日志中为一页上的全部项记录提交时间戳。
+ * 仅在本页上原子。
  */
 static void
 SetXidCommitTsInPage(TransactionId xid, int nsubxids,
@@ -233,9 +233,9 @@ SetXidCommitTsInPage(TransactionId xid, int nsubxids,
 }
 
 /*
- * Sets the commit timestamp of a single transaction.
+ * 设置单个事务的提交时间戳。
  *
- * Must be called with CommitTsSLRULock held
+ * 调用时必须持有 CommitTsSLRULock
  */
 static void
 TransactionIdSetCommitTs(TransactionId xid, TimestampTz ts,
@@ -255,12 +255,12 @@ TransactionIdSetCommitTs(TransactionId xid, TimestampTz ts,
 }
 
 /*
- * Interrogate the commit timestamp of a transaction.
+ * 查询某事务的提交时间戳。
  *
- * The return value indicates whether a commit timestamp record was found for
- * the given xid.  The timestamp value is returned in *ts (which may not be
- * null), and the origin node for the Xid is returned in *nodeid, if it's not
- * null.
+ * 返回值表示是否为给定 xid 找到了提交时间戳
+ * 记录。时间戳值返回在 *ts 中（不得为
+ * null），若 *nodeid 非null，则把
+ * 该 Xid 的源节点返回在 *nodeid 中。
  */
 bool
 TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
@@ -279,7 +279,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 				 errmsg("cannot retrieve commit timestamp for transaction %u", xid)));
 	else if (!TransactionIdIsNormal(xid))
 	{
-		/* frozen and bootstrap xids are always committed far in the past */
+		/* 冻结与 bootstrap xid 总是在很久以前就已提交 */
 		*ts = 0;
 		if (nodeid)
 			*nodeid = 0;
@@ -288,13 +288,13 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 
 	LWLockAcquire(CommitTsLock, LW_SHARED);
 
-	/* Error if module not enabled */
+	/* 模块未启用则报错 */
 	if (!commitTsShared->commitTsActive)
 		error_commit_ts_disabled();
 
 	/*
-	 * If we're asked for the cached value, return that.  Otherwise, fall
-	 * through to read from SLRU.
+	 * 若请求的是缓存值，则返回它。否则继续向下
+	 * 从 SLRU 读取。
 	 */
 	if (commitTsShared->xidLastCommit == xid)
 	{
@@ -308,12 +308,12 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 
 	oldestCommitTsXid = ShmemVariableCache->oldestCommitTsXid;
 	newestCommitTsXid = ShmemVariableCache->newestCommitTsXid;
-	/* neither is invalid, or both are */
+	/* 二者要么都无效，要么都有效 */
 	Assert(TransactionIdIsValid(oldestCommitTsXid) == TransactionIdIsValid(newestCommitTsXid));
 	LWLockRelease(CommitTsLock);
 
 	/*
-	 * Return empty if the requested value is outside our valid range.
+	 * 若请求值在我们的有效范围之外，则返回空。
 	 */
 	if (!TransactionIdIsValid(oldestCommitTsXid) ||
 		TransactionIdPrecedes(xid, oldestCommitTsXid) ||
@@ -325,7 +325,7 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 		return false;
 	}
 
-	/* lock is acquired by SimpleLruReadPage_ReadOnly */
+	/* 锁由 SimpleLruReadPage_ReadOnly 获取 */
 	slotno = SimpleLruReadPage_ReadOnly(CommitTsCtl, pageno, xid);
 	memcpy(&entry,
 		   CommitTsCtl->shared->page_buffer[slotno] +
@@ -341,12 +341,12 @@ TransactionIdGetCommitTsData(TransactionId xid, TimestampTz *ts,
 }
 
 /*
- * Return the Xid of the latest committed transaction.  (As far as this module
- * is concerned, anyway; it's up to the caller to ensure the value is useful
- * for its purposes.)
+ * 返回最近提交事务的 Xid。
+ * （就本模块而言如此；由调用
+ * 者确保该值对其用途有用。）
  *
- * ts and nodeid are filled with the corresponding data; they can be passed
- * as NULL if not wanted.
+ * ts 与 nodeid 填入对
+ * 应数据；若不需要可传NULL。
  */
 TransactionId
 GetLatestCommitTsData(TimestampTz *ts, RepOriginId *nodeid)
@@ -355,7 +355,7 @@ GetLatestCommitTsData(TimestampTz *ts, RepOriginId *nodeid)
 
 	LWLockAcquire(CommitTsLock, LW_SHARED);
 
-	/* Error if module not enabled */
+	/* 模块未启用则报错 */
 	if (!commitTsShared->commitTsActive)
 		error_commit_ts_disabled();
 
@@ -383,7 +383,7 @@ error_commit_ts_disabled(void)
 }
 
 /*
- * SQL-callable wrapper to obtain commit time of a transaction
+ * 可供 SQL 调用的包装，用于取得事务的提交时间
  */
 Datum
 pg_xact_commit_timestamp(PG_FUNCTION_ARGS)
@@ -404,9 +404,9 @@ pg_xact_commit_timestamp(PG_FUNCTION_ARGS)
 /*
  * pg_last_committed_xact
  *
- * SQL-callable wrapper to obtain some information about the latest
- * committed transaction: transaction ID, timestamp and replication
- * origin.
+ * 可供 SQL 调用的包装，用于取得最近提交事务的
+ * 若干信息：事务 ID、时间戳与复制
+ * 源。
  */
 Datum
 pg_last_committed_xact(PG_FUNCTION_ARGS)
@@ -419,7 +419,7 @@ pg_last_committed_xact(PG_FUNCTION_ARGS)
 	TupleDesc	tupdesc;
 	HeapTuple	htup;
 
-	/* and construct a tuple with our data */
+	/* 并用我们的数据构造一个元组 */
 	xid = GetLatestCommitTsData(&ts, &nodeid);
 
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
@@ -449,8 +449,8 @@ pg_last_committed_xact(PG_FUNCTION_ARGS)
 /*
  * pg_xact_commit_timestamp_origin
  *
- * SQL-callable wrapper to obtain commit timestamp and replication origin
- * of a given transaction.
+ * 可供 SQL 调用的包装，用于取得给定事务的
+ * 提交时间戳与复制源。
  */
 Datum
 pg_xact_commit_timestamp_origin(PG_FUNCTION_ARGS)
@@ -488,11 +488,11 @@ pg_xact_commit_timestamp_origin(PG_FUNCTION_ARGS)
 }
 
 /*
- * Number of shared CommitTS buffers.
+ * 共享 CommitTS 缓冲区数量。
  *
- * We use a very similar logic as for the number of CLOG buffers (except we
- * scale up twice as fast with shared buffers, and the maximum is twice as
- * high); see comments in CLOGShmemBuffers.
+ * 我们使用与 CLOG 缓冲区数量非常相似的逻辑（只是随
+ * 共享缓冲区增长快一倍，且最大值也高一倍）；参见
+ * CLOGShmemBuffers 中的注释。
  */
 Size
 CommitTsShmemBuffers(void)
@@ -501,7 +501,7 @@ CommitTsShmemBuffers(void)
 }
 
 /*
- * Shared memory sizing for CommitTs
+ * CommitTs 的共享内存规模估算
  */
 Size
 CommitTsShmemSize(void)
@@ -511,8 +511,8 @@ CommitTsShmemSize(void)
 }
 
 /*
- * Initialize CommitTs at system startup (postmaster start or standalone
- * backend)
+ * 在系统启动时初始化 CommitTs（postmaster 启动或独立
+ * 后端）
  */
 void
 CommitTsShmemInit(void)
@@ -544,29 +544,29 @@ CommitTsShmemInit(void)
 }
 
 /*
- * This function must be called ONCE on system install.
+ * 本函数必须在系统安装时调用一次。
  *
- * (The CommitTs directory is assumed to have been created by initdb, and
- * CommitTsShmemInit must have been called already.)
+ * （假定 CommitTs 目录已由 initdb 创建，且
+ * CommitTsShmemInit 已被调用。）
  */
 void
 BootStrapCommitTs(void)
 {
 	/*
-	 * Nothing to do here at present, unlike most other SLRU modules; segments
-	 * are created when the server is started with this module enabled. See
-	 * ActivateCommitTs.
+	 * 目前这里无事可做，与多数其他 SLRU 模块不同；段
+	 * 在服务器以本模块启用状态启动时创建。参见
+	 * ActivateCommitTs。
 	 */
 }
 
 /*
- * Initialize (or reinitialize) a page of CommitTs to zeroes.
- * If writeXlog is true, also emit an XLOG record saying we did this.
+ * 将一页 CommitTs 初始化（或重新初始化）为零。
+ * 若 writeXlog 为真，还发出一条 XLOG 记录说明我们做了此事。
  *
- * The page is not actually written, just set up in shared memory.
- * The slot number of the new page is returned.
+ * 页实际上不会写出，只是在共享内存中建好。
+ * 返回新页的槽号。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
  */
 static int
 ZeroCommitTsPage(int pageno, bool writeXlog)
@@ -582,8 +582,8 @@ ZeroCommitTsPage(int pageno, bool writeXlog)
 }
 
 /*
- * This must be called ONCE during postmaster or standalone-backend startup,
- * after StartupXLOG has initialized ShmemVariableCache->nextXid.
+ * 必须在 postmaster 或独立后端启动期间调用一次，
+ * 且在 StartupXLOG 已初始化 ShmemVariableCache->nextXid 之后。
  */
 void
 StartupCommitTs(void)
@@ -592,20 +592,20 @@ StartupCommitTs(void)
 }
 
 /*
- * This must be called ONCE during postmaster or standalone-backend startup,
- * after recovery has finished.
+ * 必须在 postmaster 或独立后端启动期间调用一次，
+ * 且在恢复完成之后。
  */
 void
 CompleteCommitTsInitialization(void)
 {
 	/*
-	 * If the feature is not enabled, turn it off for good.  This also removes
-	 * any leftover data.
+	 * 若功能未启用，则彻底关闭它
+	 * 。这也会移除任何残留数据。
 	 *
-	 * Conversely, we activate the module if the feature is enabled.  This is
-	 * necessary for primary and standby as the activation depends on the
-	 * control file contents at the beginning of recovery or when a
-	 * XLOG_PARAMETER_CHANGE is replayed.
+	 * 反过来，若功能已启用则激活本模块。这对主
+	 * 库与备库都是必要的，因为激活取决于恢复
+	 * 开始时或重放
+	 * XLOG_PARAMETER_CHANGE 时的控制文件内容。
 	 */
 	if (!track_commit_timestamp)
 		DeactivateCommitTs();
@@ -614,24 +614,24 @@ CompleteCommitTsInitialization(void)
 }
 
 /*
- * Activate or deactivate CommitTs' upon reception of a XLOG_PARAMETER_CHANGE
- * XLog record during recovery.
+ * 在恢复期间收到 XLOG_PARAMETER_CHANGE
+ * XLog 记录时激活或停用 CommitTs。
  */
 void
 CommitTsParameterChange(bool newvalue, bool oldvalue)
 {
 	/*
-	 * If the commit_ts module is disabled in this server and we get word from
-	 * the primary server that it is enabled there, activate it so that we can
-	 * replay future WAL records involving it; also mark it as active on
-	 * pg_control.  If the old value was already set, we already did this, so
-	 * don't do anything.
+	 * 若本服务器上 commit_ts 模块已禁
+	 * 用，而我们从主库得知那里已启用，则激活它以
+	 * 便能重放将来涉及它的WAL 记录；同时在
+	 * pg_control 上标记为活动。若旧值
+	 * 已经设置，我们已做过此事，故不再做任何事。
 	 *
-	 * If the module is disabled in the primary, disable it here too, unless
-	 * the module is enabled locally.
+	 * 若主库上模块已禁用，则这里也禁
+	 * 用，除非本机本地已启用该模块。
 	 *
-	 * Note this only runs in the recovery process, so an unlocked read is
-	 * fine.
+	 * 注意这只在恢复进程中运行
+	 * ，因此无锁读取没问题。
 	 */
 	if (newvalue)
 	{
@@ -643,20 +643,20 @@ CommitTsParameterChange(bool newvalue, bool oldvalue)
 }
 
 /*
- * Activate this module whenever necessary.
- *		This must happen during postmaster or standalone-backend startup,
- *		or during WAL replay anytime the track_commit_timestamp setting is
- *		changed in the primary.
+ * 在必要时激活本模块。
+ *		这必须发生在 postmaster 或独立后端启动期间，
+ *		或在 WAL 重放中主库的 track_commit_timestamp 设置
+ *		发生变更时。
  *
- * The reason why this SLRU needs separate activation/deactivation functions is
- * that it can be enabled/disabled during start and the activation/deactivation
- * on the primary is propagated to the standby via replay. Other SLRUs don't
- * have this property and they can be just initialized during normal startup.
+ * 此 SLRU 需要单独的激活/停用函数，原因是它可在启动期间
+ * 启用/禁用，且主库上的激活/停用会通过重放传播到备库。
+ * 其他 SLRUs 没有这一属性，它们只需在正常
+ * 启动时初始化即可。
  *
- * This is in charge of creating the currently active segment, if it's not
- * already there.  The reason for this is that the server might have been
- * running with this module disabled for a while and thus might have skipped
- * the normal creation point.
+ * 本函数负责创建当前活动段（若尚不存在）。原因是
+ * 服务器可能已在本模块禁用状态下运行了一段时间，
+ * 因而可能跳过了
+ * 正常的创建点。
  */
 static void
 ActivateCommitTs(void)
@@ -665,13 +665,13 @@ ActivateCommitTs(void)
 	int			pageno;
 
 	/*
-	 * During bootstrap, we should not register commit timestamps so skip the
-	 * activation in this case.
+	 * 在 bootstrap 期间不应登记提交时间戳，因此此种情况下
+	 * 跳过激活。
 	 */
 	if (IsBootstrapProcessingMode())
 		return;
 
-	/* If we've done this already, there's nothing to do */
+	/* 若已做过，则无事可做 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 	if (commitTsShared->commitTsActive)
 	{
@@ -684,24 +684,24 @@ ActivateCommitTs(void)
 	pageno = TransactionIdToCTsPage(xid);
 
 	/*
-	 * Re-Initialize our idea of the latest page number.
+	 * 重新初始化我们对最新页号的认识。
 	 */
 	LWLockAcquire(CommitTsSLRULock, LW_EXCLUSIVE);
 	CommitTsCtl->shared->latest_page_number = pageno;
 	LWLockRelease(CommitTsSLRULock);
 
 	/*
-	 * If CommitTs is enabled, but it wasn't in the previous server run, we
-	 * need to set the oldest and newest values to the next Xid; that way, we
-	 * will not try to read data that might not have been set.
+	 * 若 CommitTs 已启用，但在上一轮服务器运行中未启用，
+	 * 需要把最老与最新值设为下一个 Xid；这样我们就不会
+	 * 试图读取可能尚未设置的数据。
 	 *
-	 * XXX does this have a problem if a server is started with commitTs
-	 * enabled, then started with commitTs disabled, then restarted with it
-	 * enabled again?  It doesn't look like it does, because there should be a
-	 * checkpoint that sets the value to InvalidTransactionId at end of
-	 * recovery; and so any chance of injecting new transactions without
-	 * CommitTs values would occur after the oldestCommitTsXid has been set to
-	 * Invalid temporarily.
+	 * XXX 若服务器先以 commitTs 启用启动，再以 commitTs
+	 * 禁用启动，然后再次以启用重启，这是否有问题？
+	 * 看起来没有，因为恢复结束时应有检查点把该值设为
+	 * InvalidTransactionId；因此任何在没有 CommitTs
+	 * 值的情况下注入新事务的机会，都会发生在
+	 * oldestCommitTsXid 被临时设为
+	 * Invalid 之后。
 	 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 	if (ShmemVariableCache->oldestCommitTsXid == InvalidTransactionId)
@@ -711,7 +711,7 @@ ActivateCommitTs(void)
 	}
 	LWLockRelease(CommitTsLock);
 
-	/* Create the current segment file, if necessary */
+	/* 必要时创建当前段文件 */
 	if (!SimpleLruDoesPhysicalPageExist(CommitTsCtl, pageno))
 	{
 		int			slotno;
@@ -723,31 +723,31 @@ ActivateCommitTs(void)
 		LWLockRelease(CommitTsSLRULock);
 	}
 
-	/* Change the activation status in shared memory. */
+	/* 更改共享内存中的激活状态。 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 	commitTsShared->commitTsActive = true;
 	LWLockRelease(CommitTsLock);
 }
 
 /*
- * Deactivate this module.
+ * 停用本模块。
  *
- * This must be called when the track_commit_timestamp parameter is turned off.
- * This happens during postmaster or standalone-backend startup, or during WAL
- * replay.
+ * 在关闭 track_commit_timestamp 参数时必须调用。
+ * 这发生在 postmaster 或独立后端启动期间，或在 WAL
+ * 重放期间。
  *
- * Resets CommitTs into invalid state to make sure we don't hand back
- * possibly-invalid data; also removes segments of old data.
+ * 将 CommitTs 重置为无效状态，以确保我们不会交回
+ * 可能无效的数据；同时移除旧数据的段。
  */
 static void
 DeactivateCommitTs(void)
 {
 	/*
-	 * Cleanup the status in the shared memory.
+	 * 清理共享内存中的状态。
 	 *
-	 * We reset everything in the commitTsShared record to prevent user from
-	 * getting confusing data about last committed transaction on the standby
-	 * when the module was activated repeatedly on the primary.
+	 * 我们重置 commitTsShared 记录中的一切，以防止用户在
+	 * 主库上反复激活该模块时，在备库上拿到关于最近提交
+	 * 事务的令人困惑的数据。
 	 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 
@@ -762,12 +762,12 @@ DeactivateCommitTs(void)
 	LWLockRelease(CommitTsLock);
 
 	/*
-	 * Remove *all* files.  This is necessary so that there are no leftover
-	 * files; in the case where this feature is later enabled after running
-	 * with it disabled for some time there may be a gap in the file sequence.
-	 * (We can probably tolerate out-of-sequence files, as they are going to
-	 * be overwritten anyway when we wrap around, but it seems better to be
-	 * tidy.)
+	 * 移除*全部*文件。这是必要的，以
+	 * 免留下残留文件；若此功能在禁用运
+	 * 行一段时间后再启用，文件序列中可
+	 * 能出现缺口。（我们大概可以容忍乱
+	 * 序文件，因为回卷时反正会被覆盖
+	 * ，但看起来还是整齐一些更好。）
 	 */
 	LWLockAcquire(CommitTsSLRULock, LW_EXCLUSIVE);
 	(void) SlruScanDirectory(CommitTsCtl, SlruScanDirCbDeleteAll, NULL);
@@ -775,29 +775,29 @@ DeactivateCommitTs(void)
 }
 
 /*
- * Perform a checkpoint --- either during shutdown, or on-the-fly
+ * 执行检查点——无论是在关机期间还是联机执行
  */
 void
 CheckPointCommitTs(void)
 {
 	/*
-	 * Write dirty CommitTs pages to disk.  This may result in sync requests
-	 * queued for later handling by ProcessSyncRequests(), as part of the
-	 * checkpoint.
+	 * 将脏 CommitTs 页写出到磁盘。这可能导致同步请求
+	 * 排队，稍后由 ProcessSyncRequests() 作为检查点的一部分
+	 * 处理。
 	 */
 	SimpleLruWriteAll(CommitTsCtl, true);
 }
 
 /*
- * Make sure that CommitTs has room for a newly-allocated XID.
+ * 确保 CommitTs 有空间容纳新分配的 XID。
  *
- * NB: this is called while holding XidGenLock.  We want it to be very fast
- * most of the time; even when it's not so fast, no actual I/O need happen
- * unless we're forced to write out a dirty CommitTs or xlog page to make room
- * in shared memory.
+ * NB：调用时持有 XidGenLock。我们希
+ * 望它在多数时候非常快；即使不那么快，除非被迫
+ * 写出脏 CommitTs 或 xlog 页以
+ * 腾出共享内存空间，否则也不需要实际 I/O。
  *
- * NB: the current implementation relies on track_commit_timestamp being
- * PGC_POSTMASTER.
+ * NB：当前实现依赖
+ * track_commit_timestamp 为PGC_POSTMASTER。
  */
 void
 ExtendCommitTs(TransactionId newestXact)
@@ -805,17 +805,17 @@ ExtendCommitTs(TransactionId newestXact)
 	int			pageno;
 
 	/*
-	 * Nothing to do if module not enabled.  Note we do an unlocked read of
-	 * the flag here, which is okay because this routine is only called from
-	 * GetNewTransactionId, which is never called in a standby.
+	 * 若模块未启用则无事可做。注意此处对标志做无锁读取，
+	 * 这没问题，因为本例程仅由 GetNewTransactionId 调用，
+	 * 而后者从不在备库上调用。
 	 */
 	Assert(!InRecovery);
 	if (!commitTsShared->commitTsActive)
 		return;
 
 	/*
-	 * No work except at first XID of a page.  But beware: just after
-	 * wraparound, the first XID of page zero is FirstNormalTransactionId.
+	 * 除页上第一个 XID 外无工作。但要注意：刚回卷后，
+	 * 第零页的第一个 XID 是 FirstNormalTransactionId。
 	 */
 	if (TransactionIdToCTsEntry(newestXact) != 0 &&
 		!TransactionIdEquals(newestXact, FirstNormalTransactionId))
@@ -825,17 +825,17 @@ ExtendCommitTs(TransactionId newestXact)
 
 	LWLockAcquire(CommitTsSLRULock, LW_EXCLUSIVE);
 
-	/* Zero the page and make an XLOG entry about it */
+	/* 清零该页并为此记一条 XLOG 项 */
 	ZeroCommitTsPage(pageno, !InRecovery);
 
 	LWLockRelease(CommitTsSLRULock);
 }
 
 /*
- * Remove all CommitTs segments before the one holding the passed
- * transaction ID.
+ * 移除持有所传事务 ID 的那个段之前的全部
+ * CommitTs 段。
  *
- * Note that we don't need to flush XLOG here.
+ * 注意这里无需刷写 XLOG。
  */
 void
 TruncateCommitTs(TransactionId oldestXact)
@@ -843,32 +843,32 @@ TruncateCommitTs(TransactionId oldestXact)
 	int			cutoffPage;
 
 	/*
-	 * The cutoff point is the start of the segment containing oldestXact. We
-	 * pass the *page* containing oldestXact to SimpleLruTruncate.
+	 * 截断点是包含 oldestXact 的段的起始处。我们
+	 * 把包含 oldestXact 的*页*传给 SimpleLruTruncate。
 	 */
 	cutoffPage = TransactionIdToCTsPage(oldestXact);
 
-	/* Check to see if there's any files that could be removed */
+	/* 检查是否有可移除的文件 */
 	if (!SlruScanDirectory(CommitTsCtl, SlruScanDirCbReportPresence,
 						   &cutoffPage))
-		return;					/* nothing to remove */
+		return;					/* 没什么可移除 */
 
-	/* Write XLOG record */
+	/* 写 XLOG 记录 */
 	WriteTruncateXlogRec(cutoffPage, oldestXact);
 
-	/* Now we can remove the old CommitTs segment(s) */
+	/* 现在可以移除旧的 CommitTs segment(s) */
 	SimpleLruTruncate(CommitTsCtl, cutoffPage);
 }
 
 /*
- * Set the limit values between which commit TS can be consulted.
+ * 设置可查询提交时间戳的界限值。
  */
 void
 SetCommitTsLimit(TransactionId oldestXact, TransactionId newestXact)
 {
 	/*
-	 * Be careful not to overwrite values that are either further into the
-	 * "future" or signal a disabled committs.
+	 * 小心不要覆盖那些更靠"未来"或表示
+	 * committs 已禁用的值。
 	 */
 	LWLockAcquire(CommitTsLock, LW_EXCLUSIVE);
 	if (ShmemVariableCache->oldestCommitTsXid != InvalidTransactionId)
@@ -888,7 +888,7 @@ SetCommitTsLimit(TransactionId oldestXact, TransactionId newestXact)
 }
 
 /*
- * Move forwards the oldest commitTS value that can be consulted
+ * 向前推进可查询的最老 commitTS 值
  */
 void
 AdvanceOldestCommitTsXid(TransactionId oldestXact)
@@ -902,27 +902,27 @@ AdvanceOldestCommitTsXid(TransactionId oldestXact)
 
 
 /*
- * Decide whether a commitTS page number is "older" for truncation purposes.
- * Analogous to CLOGPagePrecedes().
+ * 判定某 commitTS 页号对截断而言是否"更老"。
+ * 类似于 CLOGPagePrecedes()。
  *
- * At default BLCKSZ, (1 << 31) % COMMIT_TS_XACTS_PER_PAGE == 128.  This
- * introduces differences compared to CLOG and the other SLRUs having (1 <<
- * 31) % per_page == 0.  This function never tests exactly
- * TransactionIdPrecedes(x-2^31, x).  When the system reaches xidStopLimit,
- * there are two possible counts of page boundaries between oldestXact and the
- * latest XID assigned, depending on whether oldestXact is within the first
- * 128 entries of its page.  Since this function doesn't know the location of
- * oldestXact within page2, it returns false for one page that actually is
- * expendable.  This is a wider (yet still negligible) version of the
- * truncation opportunity that CLOGPagePrecedes() cannot recognize.
+ * 在默认 BLCKSZ 下，(1 << 31) % COMMIT_TS_XACTS_PER_PAGE == 128。这
+ * 引入了与 CLOG 及其他 SLRUs 在 (1 <<
+ * 31) % per_page == 0 时的差异。本函数从不精确测试
+ * TransactionIdPrecedes(x-2^31, x)。当系统到达 xidStopLimit 时，
+ * oldestXact 与最新已分配 XID 之间页边界的计数有两种可能，
+ * 取决于 oldestXact 是否在其页的前
+ * 128 个项之内。由于本函数不知道 oldestXact 在
+ * page2 内的位置，它对实际上可丢弃的一页返回 false。
+ * 这是 CLOGPagePrecedes() 无法识别的截断机会的更宽
+ * （但仍可忽略）版本。
  *
- * For the sake of a worked example, number entries with decimal values such
- * that page1==1 entries range from 1.0 to 1.999.  Let N+0.15 be the number of
- * pages that 2^31 entries will span (N is an integer).  If oldestXact=N+2.1,
- * then the final safe XID assignment leaves newestXact=1.95.  We keep page 2,
- * because entry=2.85 is the border that toggles whether entries precede the
- * last entry of the oldestXact page.  While page 2 is expendable at
- * oldestXact=N+2.1, it would be precious at oldestXact=N+2.9.
+ * 为便于演算示例，用十进制为项编号，使得
+ * page1==1 的项范围为 1.0 到 1.999。令 N+0.15 为 2^31 个项
+ * 将跨越的页数（N 为整数）。若 oldestXact=N+2.1，
+ * 则最后一次安全的 XID 分配使 newestXact=1.95。我们保留第 2 页，
+ * 因为 entry=2.85 是切换项是否先于
+ * oldestXact 页最后一项的边界。虽然在
+ * oldestXact=N+2.1 时可丢弃第 2 页，但在 oldestXact=N+2.9 时它将是宝贵的。
  */
 static bool
 CommitTsPagePrecedes(int page1, int page2)
@@ -941,7 +941,7 @@ CommitTsPagePrecedes(int page1, int page2)
 
 
 /*
- * Write a ZEROPAGE xlog record
+ * 写一条 ZEROPAGE xlog 记录
  */
 static void
 WriteZeroPageXlogRec(int pageno)
@@ -952,7 +952,7 @@ WriteZeroPageXlogRec(int pageno)
 }
 
 /*
- * Write a TRUNCATE xlog record
+ * 写一条 TRUNCATE xlog 记录
  */
 static void
 WriteTruncateXlogRec(int pageno, TransactionId oldestXid)
@@ -968,14 +968,14 @@ WriteTruncateXlogRec(int pageno, TransactionId oldestXid)
 }
 
 /*
- * CommitTS resource manager's routines
+ * CommitTS 资源管理器的例程
  */
 void
 commit_ts_redo(XLogReaderState *record)
 {
 	uint8		info = XLogRecGetInfo(record) & ~XLR_INFO_MASK;
 
-	/* Backup blocks are not used in commit_ts records */
+	/* commit_ts 记录不使用备份块 */
 	Assert(!XLogRecHasAnyBlockRefs(record));
 
 	if (info == COMMIT_TS_ZEROPAGE)
@@ -1000,8 +1000,8 @@ commit_ts_redo(XLogReaderState *record)
 		AdvanceOldestCommitTsXid(trunc->oldestXid);
 
 		/*
-		 * During XLOG replay, latest_page_number isn't set up yet; insert a
-		 * suitable value to bypass the sanity test in SimpleLruTruncate.
+		 * 在 XLOG 重放期间，latest_page_number 尚未设置；插入一个
+		 * 合适的值以绕过 SimpleLruTruncate 中的健全性测试。
 		 */
 		CommitTsCtl->shared->latest_page_number = trunc->pageno;
 
@@ -1012,7 +1012,7 @@ commit_ts_redo(XLogReaderState *record)
 }
 
 /*
- * Entrypoint for sync.c to sync commit_ts files.
+ * sync.c 同步 commit_ts 文件的入口点。
  */
 int
 committssyncfiletag(const FileTag *ftag, char *path)

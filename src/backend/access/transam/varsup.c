@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * varsup.c
- *	  postgres OID & XID variables support routines
+ *	  postgres OID 与 XID 变量支持例程
  *
  * Copyright (c) 2000-2023, PostgreSQL Global Development Group
  *
@@ -27,24 +27,24 @@
 #include "utils/syscache.h"
 
 
-/* Number of OIDs to prefetch (preallocate) per XLOG write */
+/* 每次 XLOG 写入预取（预分配）的 OIDs 数量 */
 #define VAR_OID_PREFETCH		8192
 
-/* pointer to "variable cache" in shared memory (set up by shmem.c) */
+/* 指向共享内存中"变量缓存"的指针（由 shmem.c 设置） */
 VariableCache ShmemVariableCache = NULL;
 
 
 /*
- * Allocate the next FullTransactionId for a new transaction or
- * subtransaction.
+ * 为新事务或子事务分配下一个
+ * FullTransactionId。
  *
- * The new XID is also stored into MyProc->xid/ProcGlobal->xids[] before
- * returning.
+ * 返回前还会把新 XIDs 存入
+ * MyProc->xid/ProcGlobal->xids[]。
  *
- * Note: when this is called, we are actually already inside a valid
- * transaction, since XIDs are now not allocated until the transaction
- * does something.  So it is safe to do a database lookup if we want to
- * issue a warning about XID wrap.
+ * 注意：调用本函数时，其实已处于有效事
+ * 务中，因为现在要等到事务真正做事后才
+ * 分配 XID。因此若要就XID 回卷
+ * 发出警告，做一次数据库查找是安全的。
  */
 FullTransactionId
 GetNewTransactionId(bool isSubXact)
@@ -53,15 +53,15 @@ GetNewTransactionId(bool isSubXact)
 	TransactionId xid;
 
 	/*
-	 * Workers synchronize transaction state at the beginning of each parallel
-	 * operation, so we can't account for new XIDs after that point.
+	 * 并行工作者在每次并行操作开始时同步事务状态，
+	 * 因此之后不能再记入新的 XIDs。
 	 */
 	if (IsInParallelMode())
 		elog(ERROR, "cannot assign TransactionIds during a parallel operation");
 
 	/*
-	 * During bootstrap initialization, we return the special bootstrap
-	 * transaction id.
+	 * 在 bootstrap 初始化期间，返回特殊的 bootstrap
+	 * 事务 id。
 	 */
 	if (IsBootstrapProcessingMode())
 	{
@@ -71,7 +71,7 @@ GetNewTransactionId(bool isSubXact)
 		return FullTransactionIdFromEpochAndXid(0, BootstrapTransactionId);
 	}
 
-	/* safety check, we should never get this far in a HS standby */
+	/* 安全检查：在 HS 备库上绝不应该走到这里 */
 	if (RecoveryInProgress())
 		elog(ERROR, "cannot assign TransactionIds during recovery");
 
@@ -81,26 +81,26 @@ GetNewTransactionId(bool isSubXact)
 	xid = XidFromFullTransactionId(full_xid);
 
 	/*----------
-	 * Check to see if it's safe to assign another XID.  This protects against
-	 * catastrophic data loss due to XID wraparound.  The basic rules are:
+	 * 检查再分配另一个 XID 是否安全。这用于防止因
+	 * XID 回卷导致的灾难性数据丢失。基本规则是：
 	 *
-	 * If we're past xidVacLimit, start trying to force autovacuum cycles.
-	 * If we're past xidWarnLimit, start issuing warnings.
-	 * If we're past xidStopLimit, refuse to execute transactions, unless
-	 * we are running in single-user mode (which gives an escape hatch
-	 * to the DBA who somehow got past the earlier defenses).
+	 * 若已超过 xidVacLimit，开始设法强制自动清理周期。
+	 * 若已超过 xidWarnLimit，开始发出警告。
+	 * 若已超过 xidStopLimit，拒绝执行事务，除非
+	 * 运行在单用户模式（给不知何故越过先前防线的
+	 * DBA 留一条逃生通道）。
 	 *
-	 * Note that this coding also appears in GetNewMultiXactId.
+	 * 注意：这段逻辑同样出现在 GetNewMultiXactId 中。
 	 *----------
 	 */
 	if (TransactionIdFollowsOrEquals(xid, ShmemVariableCache->xidVacLimit))
 	{
 		/*
-		 * For safety's sake, we release XidGenLock while sending signals,
-		 * warnings, etc.  This is not so much because we care about
-		 * preserving concurrency in this situation, as to avoid any
-		 * possibility of deadlock while doing get_database_name(). First,
-		 * copy all the shared values we'll need in this path.
+		 * 为安全起见，发送信号、警告等时释放
+		 * XidGenLock。与其说是为了在此情况下
+		 * 保持并发，不如说是为了避免在
+		 * get_database_name() 时出现死
+		 * 锁的任何可能。首先，复制本路径所需的全部共享值。
 		 */
 		TransactionId xidWarnLimit = ShmemVariableCache->xidWarnLimit;
 		TransactionId xidStopLimit = ShmemVariableCache->xidStopLimit;
@@ -110,9 +110,9 @@ GetNewTransactionId(bool isSubXact)
 		LWLockRelease(XidGenLock);
 
 		/*
-		 * To avoid swamping the postmaster with signals, we issue the autovac
-		 * request only once per 64K transaction starts.  This still gives
-		 * plenty of chances before we get into real trouble.
+		 * 为避免用信号淹没 postmaster，每 64K 次事务启动
+		 * 才发出一次自动清理请求。这在真正出问题前
+		 * 仍有足够多次机会。
 		 */
 		if (IsUnderPostmaster && (xid % 65536) == 0)
 			SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
@@ -122,7 +122,7 @@ GetNewTransactionId(bool isSubXact)
 		{
 			char	   *oldest_datname = get_database_name(oldest_datoid);
 
-			/* complain even if that DB has disappeared */
+			/* 即使该数据库已消失也要报错 */
 			if (oldest_datname)
 				ereport(ERROR,
 						(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
@@ -142,7 +142,7 @@ GetNewTransactionId(bool isSubXact)
 		{
 			char	   *oldest_datname = get_database_name(oldest_datoid);
 
-			/* complain even if that DB has disappeared */
+			/* 即使该数据库已消失也要抱怨 */
 			if (oldest_datname)
 				ereport(WARNING,
 						(errmsg("database \"%s\" must be vacuumed within %u transactions",
@@ -159,66 +159,66 @@ GetNewTransactionId(bool isSubXact)
 								 "You might also need to commit or roll back old prepared transactions, or drop stale replication slots.")));
 		}
 
-		/* Re-acquire lock and start over */
+		/* 重新获取锁并从头开始 */
 		LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
 		full_xid = ShmemVariableCache->nextXid;
 		xid = XidFromFullTransactionId(full_xid);
 	}
 
 	/*
-	 * If we are allocating the first XID of a new page of the commit log,
-	 * zero out that commit-log page before returning. We must do this while
-	 * holding XidGenLock, else another xact could acquire and commit a later
-	 * XID before we zero the page.  Fortunately, a page of the commit log
-	 * holds 32K or more transactions, so we don't have to do this very often.
+	 * 若正在分配提交日志新页的第一个 XID，则在返回前
+	 * 先将该提交日志页清零。必须在持有 XidGenLock 时
+	 * 完成，否则另一事务可能在我们清零页之前获取并提交
+	 * 更大的 XID。幸好提交日志一页可容纳 32K 或更多事务，
+	 * 因此不必经常这样做。
 	 *
-	 * Extend pg_subtrans and pg_commit_ts too.
+	 * 同时扩展 pg_subtrans 与 pg_commit_ts。
 	 */
 	ExtendCLOG(xid);
 	ExtendCommitTs(xid);
 	ExtendSUBTRANS(xid);
 
 	/*
-	 * Now advance the nextXid counter.  This must not happen until after we
-	 * have successfully completed ExtendCLOG() --- if that routine fails, we
-	 * want the next incoming transaction to try it again.  We cannot assign
-	 * more XIDs until there is CLOG space for them.
+	 * 现在推进 nextXid 计数器。必须在成功完成
+	 * ExtendCLOG() 之后才能推进——若该例程失败，我们希望
+	 * 下一个进入的事务再试一次。在有足够 CLOG 空间之前
+	 * 无法再分配更多 XIDs。
 	 */
 	FullTransactionIdAdvance(&ShmemVariableCache->nextXid);
 
 	/*
-	 * We must store the new XID into the shared ProcArray before releasing
-	 * XidGenLock.  This ensures that every active XID older than
-	 * latestCompletedXid is present in the ProcArray, which is essential for
-	 * correct OldestXmin tracking; see src/backend/access/transam/README.
+	 * 必须在释放 XidGenLock 之前把新 XID 存入共享
+	 * ProcArray。这确保每个比 latestCompletedXid 更老的
+	 * 活动 XID 都出现在 ProcArray 中，这对正确跟踪
+	 * OldestXmin 至关重要；参见 src/backend/access/transam/README。
 	 *
-	 * Note that readers of ProcGlobal->xids/PGPROC->xid should be careful to
-	 * fetch the value for each proc only once, rather than assume they can
-	 * read a value multiple times and get the same answer each time.  Note we
-	 * are assuming that TransactionId and int fetch/store are atomic.
+	 * 注意：读取 ProcGlobal->xids/PGPROC->xid 的读者应小心
+	 * 对每个进程只取一次该值，而不要假定可以多次读取并
+	 * 每次得到相同答案。注意我们假定 TransactionId 与 int
+	 * 的取存是原子的。
 	 *
-	 * The same comments apply to the subxact xid count and overflow fields.
+	 * 同样的说明适用于子事务 xid 计数与溢出字段。
 	 *
-	 * Use of a write barrier prevents dangerous code rearrangement in this
-	 * function; other backends could otherwise e.g. be examining my subxids
-	 * info concurrently, and we don't want them to see an invalid
-	 * intermediate state, such as an incremented nxids before the array entry
-	 * is filled.
+	 * 使用写屏障可防止本函数中危险的代码重排；否则其他
+	 * 后端例如可能同时检查我的
+	 * subxids 信息，我们不希望它们看到无效的
+	 * 中间状态，比如数组项尚未填入就已
+	 * 递增 nxids。
 	 *
-	 * Other processes that read nxids should do so before reading xids
-	 * elements with a pg_read_barrier() in between, so that they can be sure
-	 * not to read an uninitialized array element; see
-	 * src/backend/storage/lmgr/README.barrier.
+	 * 读取 nxids 的其他进程应在读取 xids
+	 * 元素之前先读 nxids，中间用 pg_read_barrier()，
+	 * 以确保不会读到未初始化的数组元素；参见
+	 * src/backend/storage/lmgr/README.barrier。
 	 *
-	 * If there's no room to fit a subtransaction XID into PGPROC, set the
-	 * cache-overflowed flag instead.  This forces readers to look in
-	 * pg_subtrans to map subtransaction XIDs up to top-level XIDs. There is a
-	 * race-condition window, in that the new XID will not appear as running
-	 * until its parent link has been placed into pg_subtrans. However, that
-	 * will happen before anyone could possibly have a reason to inquire about
-	 * the status of the XID, so it seems OK.  (Snapshots taken during this
-	 * window *will* include the parent XID, so they will deliver the correct
-	 * answer later on when someone does have a reason to inquire.)
+	 * 若 PGPROC 中已无空间容纳子事务 XID，则改为设置
+	 * 缓存溢出标志。这迫使读者到
+	 * pg_subtrans 中把子事务 XIDs 映射到顶层 XIDs。存在一个
+	 * 竞态窗口：新 XID 在其父链接写入 pg_subtrans 之前
+	 * 不会显示为正在运行。不过，那会在任何人可能有理由
+	 * 查询该 XID 状态之前发生，因此似乎可以接受。
+	 * （此窗口内取得的快照*会*包含父 XID，所以
+	 * 稍后有人确实需要查询时会得到
+	 * 正确答案。）
 	 */
 	if (!isSubXact)
 	{
@@ -227,7 +227,7 @@ GetNewTransactionId(bool isSubXact)
 		Assert(MyProc->subxidStatus.count == 0);
 		Assert(!MyProc->subxidStatus.overflowed);
 
-		/* LWLockRelease acts as barrier */
+		/* LWLockRelease 充当屏障 */
 		MyProc->xid = xid;
 		ProcGlobal->xids[MyProc->pgxactoff] = xid;
 	}
@@ -255,7 +255,7 @@ GetNewTransactionId(bool isSubXact)
 }
 
 /*
- * Read nextXid but don't allocate it.
+ * 读取 nextXid 但不分配它。
  */
 FullTransactionId
 ReadNextFullTransactionId(void)
@@ -270,8 +270,8 @@ ReadNextFullTransactionId(void)
 }
 
 /*
- * Advance nextXid to the value after a given xid.  The epoch is inferred.
- * This must only be called during recovery or from two-phase start-up code.
+ * 将 nextXid 推进到给定 xid 之后的值。纪元由推断得出。
+ * 仅可在恢复期间或两阶段启动代码中调用。
  */
 void
 AdvanceNextFullTransactionIdPastXid(TransactionId xid)
@@ -281,24 +281,24 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
 	uint32		epoch;
 
 	/*
-	 * It is safe to read nextXid without a lock, because this is only called
-	 * from the startup process or single-process mode, meaning that no other
-	 * process can modify it.
+	 * 不持锁读取 nextXid 是安全
+	 * 的，因为仅从启动进程或单进程模式调
+	 * 用，意味着没有其他进程会修改它。
 	 */
 	Assert(AmStartupProcess() || !IsUnderPostmaster);
 
-	/* Fast return if this isn't an xid high enough to move the needle. */
+	/* 若此 xid 不够大、不足以推动指针，则快速返回。 */
 	next_xid = XidFromFullTransactionId(ShmemVariableCache->nextXid);
 	if (!TransactionIdFollowsOrEquals(xid, next_xid))
 		return;
 
 	/*
-	 * Compute the FullTransactionId that comes after the given xid.  To do
-	 * this, we preserve the existing epoch, but detect when we've wrapped
-	 * into a new epoch.  This is necessary because WAL records and 2PC state
-	 * currently contain 32 bit xids.  The wrap logic is safe in those cases
-	 * because the span of active xids cannot exceed one epoch at any given
-	 * point in the WAL stream.
+	 * 计算给定 xid 之后的
+	 * FullTransactionId。为此保留现有纪元
+	 * ，但检测何时已回卷进入新纪元。这是必要的，因为
+	 * WAL 记录与 2PC 状态目前包含 32 位
+	 * xid。在这些情况下回卷逻辑是安全的，因为在 WAL
+	 * 流的任意给定点，活动xid 的跨度都无法超过一个纪元。
 	 */
 	TransactionIdAdvance(xid);
 	epoch = EpochFromFullTransactionId(ShmemVariableCache->nextXid);
@@ -307,8 +307,8 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
 	newNextFullXid = FullTransactionIdFromEpochAndXid(epoch, xid);
 
 	/*
-	 * We still need to take a lock to modify the value when there are
-	 * concurrent readers.
+	 * 在有并发读者时，仍需
+	 * 加锁才能修改该值。
 	 */
 	LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
 	ShmemVariableCache->nextXid = newNextFullXid;
@@ -316,13 +316,13 @@ AdvanceNextFullTransactionIdPastXid(TransactionId xid)
 }
 
 /*
- * Advance the cluster-wide value for the oldest valid clog entry.
+ * 推进集簇范围内最老有效 clog 项的值。
  *
- * We must acquire XactTruncationLock to advance the oldestClogXid. It's not
- * necessary to hold the lock during the actual clog truncation, only when we
- * advance the limit, as code looking up arbitrary xids is required to hold
- * XactTruncationLock from when it tests oldestClogXid through to when it
- * completes the clog lookup.
+ * 推进 oldestClogXid 必须获取
+ * XactTruncationLock。实际执行clog 截
+ * 断时不必持锁，只有推进该界限时才需要，因为查找任意
+ * xid 的代码须从测试 oldestClogXid 起持有
+ * XactTruncationLock，直到完成 clog 查找。
  */
 void
 AdvanceOldestClogXid(TransactionId oldest_datfrozenxid)
@@ -337,9 +337,9 @@ AdvanceOldestClogXid(TransactionId oldest_datfrozenxid)
 }
 
 /*
- * Determine the last safe XID to allocate using the currently oldest
- * datfrozenxid (ie, the oldest XID that might exist in any database
- * of our cluster), and the OID of the (or a) database with that value.
+ * 根据当前最老的 datfrozenxid（即我们集簇中任一数据库里
+ * 可能存在的最老 XID）以及具有该值的（或某个）数据库的
+ * OID，确定可安全分配的最后一个 XID。
  */
 void
 SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
@@ -353,66 +353,66 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
 	Assert(TransactionIdIsNormal(oldest_datfrozenxid));
 
 	/*
-	 * The place where we actually get into deep trouble is halfway around
-	 * from the oldest potentially-existing XID.  (This calculation is
-	 * probably off by one or two counts, because the special XIDs reduce the
-	 * size of the loop a little bit.  But we throw in plenty of slop below,
-	 * so it doesn't matter.)
+	 * 真正陷入严重麻烦的位置，是从可能仍
+	 * 存在的最老 XIDs起绕环一半处。
+	 * （此计算可能差一两个计数，因为特殊
+	 * XID 会略微缩小环的大小。但下
+	 * 面留了充足余量，因此无关紧要。）
 	 */
 	xidWrapLimit = oldest_datfrozenxid + (MaxTransactionId >> 1);
 	if (xidWrapLimit < FirstNormalTransactionId)
 		xidWrapLimit += FirstNormalTransactionId;
 
 	/*
-	 * We'll refuse to continue assigning XIDs in interactive mode once we get
-	 * within 3M transactions of data loss.  This leaves lots of room for the
-	 * DBA to fool around fixing things in a standalone backend, while not
-	 * being significant compared to total XID space. (VACUUM requires an XID
-	 * if it truncates at wal_level!=minimal.  "VACUUM (ANALYZE)", which a DBA
-	 * might do by reflex, assigns an XID.  Hence, we had better be sure
-	 * there's lots of XIDs left...)  Also, at default BLCKSZ, this leaves two
-	 * completely-idle segments.  In the event of edge-case bugs involving
-	 * page or segment arithmetic, idle segments render the bugs unreachable
-	 * outside of single-user mode.
+	 * 在交互模式下，一旦距数据丢失还剩 300 万事务，
+	 * 我们就拒绝继续分配 XIDs。这给 DBA 在独立后
+	 * 端中修修补补留下充足空间，同时相对于整个 XID
+	 * 空间并不显著。（若
+	 * wal_level!=minimal，VACUUM 在截
+	 * 断时需要一个 XID。 DBA 可能下意识执行的 "
+	 * VACUUM (ANALYZE)" 也会分配 XID。因
+	 * 此最好确保还剩很多 XID……）另外，在默认
+	 * BLCKSZ 下，这还留下两个完全空闲的段。若存在涉及页或段
+	 * 算术的边界错误，空闲段可使这些错误在单用户模式之外不可达。
 	 */
 	xidStopLimit = xidWrapLimit - 3000000;
 	if (xidStopLimit < FirstNormalTransactionId)
 		xidStopLimit -= FirstNormalTransactionId;
 
 	/*
-	 * We'll start complaining loudly when we get within 40M transactions of
-	 * data loss.  This is kind of arbitrary, but if you let your gas gauge
-	 * get down to 2% of full, would you be looking for the next gas station?
-	 * We need to be fairly liberal about this number because there are lots
-	 * of scenarios where most transactions are done by automatic clients that
-	 * won't pay attention to warnings.  (No, we're not gonna make this
-	 * configurable.  If you know enough to configure it, you know enough to
-	 * not get in this kind of trouble in the first place.)
+	 * 一旦距数据丢失还剩 4000 万事务，
+	 * 我们就开始大声抱怨。这个数字有些随意，
+	 * 但如果油表只剩 2%，你难道不该找下一
+	 * 站加油站吗？这个数字需要相当宽松，因
+	 * 为有很多场景下大多数事务由不会理会警
+	 * 告的自动客户端完成。 （不，我们不会
+	 * 把它做成可配置的。若你懂到能配置它，
+	 * 你也懂到不会一开始就陷入这种麻烦。）
 	 */
 	xidWarnLimit = xidWrapLimit - 40000000;
 	if (xidWarnLimit < FirstNormalTransactionId)
 		xidWarnLimit -= FirstNormalTransactionId;
 
 	/*
-	 * We'll start trying to force autovacuums when oldest_datfrozenxid gets
-	 * to be more than autovacuum_freeze_max_age transactions old.
+	 * 一旦 oldest_datfrozenxid 超过
+	 * autovacuum_freeze_max_age个事务那么老，我们就开始设法强制自动清理。
 	 *
-	 * Note: guc.c ensures that autovacuum_freeze_max_age is in a sane range,
-	 * so that xidVacLimit will be well before xidWarnLimit.
+	 * 注意：guc.c 确保 autovacuum_freeze_max_age 处于
+	 * 合理范围，从而使 xidVacLimit 远在 xidWarnLimit 之前。
 	 *
-	 * Note: autovacuum_freeze_max_age is a PGC_POSTMASTER parameter so that
-	 * we don't have to worry about dealing with on-the-fly changes in its
-	 * value.  It doesn't look practical to update shared state from a GUC
-	 * assign hook (too many processes would try to execute the hook,
-	 * resulting in race conditions as well as crashes of those not connected
-	 * to shared memory).  Perhaps this can be improved someday.  See also
-	 * SetMultiXactIdLimit.
+	 * 注意：autovacuum_freeze_ma
+	 * x_age 是 PGC_POSTMASTER
+	 * 参数，这样我们就不必担心处理其值的即时变更。从
+	 *  GUC 赋值钩子更新共享状态看起来并不现实
+	 * （太多进程会尝试执行该钩子，导致竞态，以及那些
+	 * 未连接共享内存的进程崩溃）。也许将来可以改进。
+	 * 另见 SetMultiXactIdLimit。
 	 */
 	xidVacLimit = oldest_datfrozenxid + autovacuum_freeze_max_age;
 	if (xidVacLimit < FirstNormalTransactionId)
 		xidVacLimit += FirstNormalTransactionId;
 
-	/* Grab lock for just long enough to set the new limit values */
+	/* 只持锁足够长的时间以设置新的界限值 */
 	LWLockAcquire(XidGenLock, LW_EXCLUSIVE);
 	ShmemVariableCache->oldestXid = oldest_datfrozenxid;
 	ShmemVariableCache->xidVacLimit = xidVacLimit;
@@ -423,35 +423,35 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
 	curXid = XidFromFullTransactionId(ShmemVariableCache->nextXid);
 	LWLockRelease(XidGenLock);
 
-	/* Log the info */
+	/* 记录该信息 */
 	ereport(DEBUG1,
 			(errmsg_internal("transaction ID wrap limit is %u, limited by database with OID %u",
 							 xidWrapLimit, oldest_datoid)));
 
 	/*
-	 * If past the autovacuum force point, immediately signal an autovac
-	 * request.  The reason for this is that autovac only processes one
-	 * database per invocation.  Once it's finished cleaning up the oldest
-	 * database, it'll call here, and we'll signal the postmaster to start
-	 * another iteration immediately if there are still any old databases.
+	 * 若已过强制自动清理点，立即发信号请求自
+	 * 动清理。原因是自动清理每次调用只处理一
+	 * 个数据库。清理完最老的数据库后会调用到
+	 * 这里；若仍有任何老数据库，我们就通知
+	 * postmaster 立即开始下一轮。
 	 */
 	if (TransactionIdFollowsOrEquals(curXid, xidVacLimit) &&
 		IsUnderPostmaster && !InRecovery)
 		SendPostmasterSignal(PMSIGNAL_START_AUTOVAC_LAUNCHER);
 
-	/* Give an immediate warning if past the wrap warn point */
+	/* 若已过回卷警告点，立即给出警告 */
 	if (TransactionIdFollowsOrEquals(curXid, xidWarnLimit) && !InRecovery)
 	{
 		char	   *oldest_datname;
 
 		/*
-		 * We can be called when not inside a transaction, for example during
-		 * StartupXLOG().  In such a case we cannot do database access, so we
-		 * must just report the oldest DB's OID.
+		 * 我们可能在不处于事务中时被调用，例如在
+		 * StartupXLOG() 期间。这种情况下无法做数据库访问，
+		 * 因此只能报告最老数据库的 OID。
 		 *
-		 * Note: it's also possible that get_database_name fails and returns
-		 * NULL, for example because the database just got dropped.  We'll
-		 * still warn, even though the warning might now be unnecessary.
+		 * 注意：get_database_name 也可能失败并返回 NULL，
+		 * 例如因为数据库刚被删除。我们仍会警告，即使
+		 * 警告此时可能已不必要。
 		 */
 		if (IsTransactionState())
 			oldest_datname = get_database_name(oldest_datoid);
@@ -477,14 +477,14 @@ SetTransactionIdLimit(TransactionId oldest_datfrozenxid, Oid oldest_datoid)
 
 
 /*
- * ForceTransactionIdLimitUpdate -- does the XID wrap-limit data need updating?
+ * ForceTransactionIdLimitUpdate -- XID 回卷界限数据是否需要更新？
  *
- * We primarily check whether oldestXidDB is valid.  The cases we have in
- * mind are that that database was dropped, or the field was reset to zero
- * by pg_resetwal.  In either case we should force recalculation of the
- * wrap limit.  Also do it if oldestXid is old enough to be forcing
- * autovacuums or other actions; this ensures we update our state as soon
- * as possible once extra overhead is being incurred.
+ * 我们主要检查 oldestXidDB 是否有效。
+ * 考虑的情形包括该数据库已被删除，或该字段被
+ * pg_resetwal 重置为零。无论哪种情况都
+ * 应强制重新计算回卷界限。另外，若
+ * oldestXid 已老到足以强制自动清理或其他动作，也
+ * 要更新；这确保一旦开始产生额外开销，我们尽快更新状态。
  */
 bool
 ForceTransactionIdLimitUpdate(void)
@@ -494,7 +494,7 @@ ForceTransactionIdLimitUpdate(void)
 	TransactionId oldestXid;
 	Oid			oldestXidDB;
 
-	/* Locking is probably not really necessary, but let's be careful */
+	/* 加锁也许并非真正必要，但还是谨慎一些 */
 	LWLockAcquire(XidGenLock, LW_SHARED);
 	nextXid = XidFromFullTransactionId(ShmemVariableCache->nextXid);
 	xidVacLimit = ShmemVariableCache->xidVacLimit;
@@ -503,73 +503,73 @@ ForceTransactionIdLimitUpdate(void)
 	LWLockRelease(XidGenLock);
 
 	if (!TransactionIdIsNormal(oldestXid))
-		return true;			/* shouldn't happen, but just in case */
+		return true;			/* 不应发生，但以防万一 */
 	if (!TransactionIdIsValid(xidVacLimit))
-		return true;			/* this shouldn't happen anymore either */
+		return true;			/* 这也不应再发生 */
 	if (TransactionIdFollowsOrEquals(nextXid, xidVacLimit))
-		return true;			/* past xidVacLimit, don't delay updating */
+		return true;			/* 已过 xidVacLimit，不要推迟更新 */
 	if (!SearchSysCacheExists1(DATABASEOID, ObjectIdGetDatum(oldestXidDB)))
-		return true;			/* could happen, per comments above */
+		return true;			/* 可能发生，见上文注释 */
 	return false;
 }
 
 
 /*
- * GetNewObjectId -- allocate a new OID
+ * GetNewObjectId -- 分配一个新 OID
  *
- * OIDs are generated by a cluster-wide counter.  Since they are only 32 bits
- * wide, counter wraparound will occur eventually, and therefore it is unwise
- * to assume they are unique unless precautions are taken to make them so.
- * Hence, this routine should generally not be used directly.  The only direct
- * callers should be GetNewOidWithIndex() and GetNewRelFileNumber() in
- * catalog/catalog.c.
+ * OIDs 由集簇范围的计数器生成。由于它们只有 32 位
+ * 宽，计数器最终会回卷，因此除非采取措施保证唯一性，否
+ * 则假定它们唯一是不明智的。因此，一般不应直接使用本例
+ * 程。唯一的直接调用者应是 catalog/
+ * catalog.c 中的
+ * GetNewOidWithIndex() 与 GetNewRelFileNumber()。
  */
 Oid
 GetNewObjectId(void)
 {
 	Oid			result;
 
-	/* safety check, we should never get this far in a HS standby */
+	/* 安全检查：在 HS 备库上绝不应该走到这里 */
 	if (RecoveryInProgress())
 		elog(ERROR, "cannot assign OIDs during recovery");
 
 	LWLockAcquire(OidGenLock, LW_EXCLUSIVE);
 
 	/*
-	 * Check for wraparound of the OID counter.  We *must* not return 0
-	 * (InvalidOid), and in normal operation we mustn't return anything below
-	 * FirstNormalObjectId since that range is reserved for initdb (see
-	 * IsCatalogRelationOid()).  Note we are relying on unsigned comparison.
+	 * 检查 OIDs 计数器是否回卷。我们*绝不能*返回 0
+	 * (InvalidOid)，且在正常运行中不得返回低于
+	 * FirstNormalObjectId 的任何值，因为该范围保留给
+	 * initdb（见 IsCatalogRelationOid()）。注意我们依赖无符号比较。
 	 *
-	 * During initdb, we start the OID generator at FirstGenbkiObjectId, so we
-	 * only wrap if before that point when in bootstrap or standalone mode.
-	 * The first time through this routine after normal postmaster start, the
-	 * counter will be forced up to FirstNormalObjectId.  This mechanism
-	 * leaves the OIDs between FirstGenbkiObjectId and FirstNormalObjectId
-	 * available for automatic assignment during initdb, while ensuring they
-	 * will never conflict with user-assigned OIDs.
+	 * 在 initdb 期间，OID 生成器从
+	 * FirstGenbkiObjectId 开始，因此仅在
+	 * bootstrap 或独立模式下低于该点时才回卷。正常
+	 * postmaster 启动后第一次进入本例程时，计数器会被强制提升到
+	 * FirstNormalObjectId。此机制使
+	 * FirstGenbkiObjectId 与
+	 * FirstNormalObjectId 之间的 OID可在 initdb 期间自动分配，同时确保它们永不与用户分配的 OID 冲突。
 	 */
 	if (ShmemVariableCache->nextOid < ((Oid) FirstNormalObjectId))
 	{
 		if (IsPostmasterEnvironment)
 		{
-			/* wraparound, or first post-initdb assignment, in normal mode */
+			/* 正常模式下回卷，或 initdb 后首次分配 */
 			ShmemVariableCache->nextOid = FirstNormalObjectId;
 			ShmemVariableCache->oidCount = 0;
 		}
 		else
 		{
-			/* we may be bootstrapping, so don't enforce the full range */
+			/* 可能在 bootstrap，故不强制完整范围 */
 			if (ShmemVariableCache->nextOid < ((Oid) FirstGenbkiObjectId))
 			{
-				/* wraparound in standalone mode (unlikely but possible) */
+				/* 独立模式下回卷（少见但可能） */
 				ShmemVariableCache->nextOid = FirstNormalObjectId;
 				ShmemVariableCache->oidCount = 0;
 			}
 		}
 	}
 
-	/* If we run out of logged for use oids then we must log more */
+	/* 若已记录供使用的 oid 用尽，则必须再记录更多 */
 	if (ShmemVariableCache->oidCount == 0)
 	{
 		XLogPutNextOid(ShmemVariableCache->nextOid + VAR_OID_PREFETCH);
@@ -589,17 +589,17 @@ GetNewObjectId(void)
 /*
  * SetNextObjectId
  *
- * This may only be called during initdb; it advances the OID counter
- * to the specified value.
+ * 仅可在 initdb 期间调用；
+ * 将 OID 计数器推进到指定值。
  */
 static void
 SetNextObjectId(Oid nextOid)
 {
-	/* Safety check, this is only allowable during initdb */
+	/* 安全检查：仅在 initdb 期间允许 */
 	if (IsPostmasterEnvironment)
 		elog(ERROR, "cannot advance OID counter anymore");
 
-	/* Taking the lock is, therefore, just pro forma; but do it anyway */
+	/* 因此加锁只是形式上的；但还是要做 */
 	LWLockAcquire(OidGenLock, LW_EXCLUSIVE);
 
 	if (ShmemVariableCache->nextOid > nextOid)
@@ -615,11 +615,11 @@ SetNextObjectId(Oid nextOid)
 /*
  * StopGeneratingPinnedObjectIds
  *
- * This is called once during initdb to force the OID counter up to
- * FirstUnpinnedObjectId.  This supports letting initdb's post-bootstrap
- * processing create some pinned objects early on.  Once it's done doing
- * so, it calls this (via pg_stop_making_pinned_objects()) so that the
- * remaining objects it makes will be considered un-pinned.
+ * 在 initdb 期间调用一次，强制把 OID 计数器提升到
+ * FirstUnpinnedObjectId。这支持让 initdb 的 post-bootstrap
+ * 处理尽早创建一些钉住对象。完成后它（通过
+ * pg_stop_making_pinned_objects()）调用本函数，使之后创建的
+ * 其余对象被视为未钉住。
  */
 void
 StopGeneratingPinnedObjectIds(void)
@@ -631,16 +631,16 @@ StopGeneratingPinnedObjectIds(void)
 #ifdef USE_ASSERT_CHECKING
 
 /*
- * Assert that xid is between [oldestXid, nextXid], which is the range we
- * expect XIDs coming from tables etc to be in.
+ * 断言 xid 位于 [oldestXid, nextXid] 之间，这是我们期望
+ * 来自表等处的 XIDs 所处的范围。
  *
- * As ShmemVariableCache->oldestXid could change just after this call without
- * further precautions, and as a wrapped-around xid could again fall within
- * the valid range, this assertion can only detect if something is definitely
- * wrong, but not establish correctness.
+ * 由于本调用之后若不进一步防护，ShmemVariableCache->oldestXid
+ * 可能立即改变，且回卷后的 xid 可能再次落入
+ * 有效范围，此断言只能检测出肯定有问题的情况，
+ * 而不能确立正确性。
  *
- * This intentionally does not expose a return value, to avoid code being
- * introduced that depends on the return value.
+ * 故意不暴露返回值，以避免引入依赖返回值的
+ * 代码。
  */
 void
 AssertTransactionIdInAllowableRange(TransactionId xid)
@@ -650,23 +650,23 @@ AssertTransactionIdInAllowableRange(TransactionId xid)
 
 	Assert(TransactionIdIsValid(xid));
 
-	/* we may see bootstrap / frozen */
+	/* 我们可能看到 bootstrap / 冻结 */
 	if (!TransactionIdIsNormal(xid))
 		return;
 
 	/*
-	 * We can't acquire XidGenLock, as this may be called with XidGenLock
-	 * already held (or with other locks that don't allow XidGenLock to be
-	 * nested). That's ok for our purposes though, since we already rely on
-	 * 32bit reads to be atomic. While nextXid is 64 bit, we only look at the
-	 * lower 32bit, so a skewed read doesn't hurt.
+	 * 不能获取 XidGenLock，因为本函数可能在已持有
+	 * XidGenLock 时被调用（或持有不允许嵌套
+	 * XidGenLock 的其他锁）。但对我们的目的来说没问题
+	 * ，因为我们已经依赖32 位读取是原子的。虽然
+	 * nextXid 是 64 位，我们只看低 32 位，因此偏斜读取无妨。
 	 *
-	 * There's no increased danger of falling outside [oldest, next] by
-	 * accessing them without a lock. xid needs to have been created with
-	 * GetNewTransactionId() in the originating session, and the locks there
-	 * pair with the memory barrier below.  We do however accept xid to be <=
-	 * to next_xid, instead of just <, as xid could be from the procarray,
-	 * before we see the updated nextXid value.
+	 * 不持锁访问它们，并不会增加落到 [oldest,
+	 * next] 之外的危险。xid 须已在发起会话中由
+	 * GetNewTransactionId()创建，那里的锁
+	 * 与下方内存屏障配对。不过我们接受 xid可以 <=
+	 * next_xid，而不只是 <，因为 xid 可能来自
+	 * procarray，早于我们看到更新后的 nextXid 值。
 	 */
 	pg_memory_barrier();
 	oldest_xid = ShmemVariableCache->oldestXid;

@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0193-comment-access-transam-part5",
+ "title": "zh: translate access/transam comments (part 5)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "1e1cf9a99a28dbc825917954fee519fd01b5111e",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/varsup.c",
+   "kind": "c_comment",
+   "note": "OID/XID variable support"
+  },
+  {
+   "pattern": "src/backend/access/transam/commit_ts.c",
+   "kind": "c_comment",
+   "note": "commit timestamp SLRU"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0193-comment-access-transam-part5.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/varsup.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 54,
+   "translated": 54,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "OID/XID variable support; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/transam/commit_ts.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 73,
+   "translated": 73,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "commit timestamp SLRU; Copyright and path lines kept in English; fall-through prose reworded without marker"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0193-comment-access-transam-part5.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0193 translates comments in varsup.c and commit_ts.c. Copyright and path/IDENTIFICATION lines stay in English. The commit_ts cached-value comment used fall/through across lines (not a GCC fall-through marker) and was translated. No c_verify change. Next suggested: xlogprefetcher.c or xlogutils.c/clog.c."
+}

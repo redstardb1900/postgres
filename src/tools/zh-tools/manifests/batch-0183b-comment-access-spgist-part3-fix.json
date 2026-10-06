@@ -1,0 +1,59 @@
+{
+ "schema_version": 1,
+ "batch_id": "0183b-comment-access-spgist-part3-fix",
+ "title": "zh: fix access/spgist comments (part 3) suffixing wording",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "eb962323f4adc46add5619f82abd7f8520410d45",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/spgist/spgtextproc.c",
+   "kind": "c_comment",
+   "note": "Composer P1/P2: suffixing wording; comparison → 比较"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0183b-comment-access-spgist-part3-fix.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/spgist/spgtextproc.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 2,
+   "translated": 2,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "suffixing: 加后缀→存后缀（剥前缀）; comparison→比较"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0183b-comment-access-spgist-part3-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1/P2 on 0183"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes 0183b"
+  }
+ ],
+ "notes": "Composer P1/P2 on 0183: SP-GiST suffixing stores the remaining suffix after stripping the prefix (not “adding a suffix”); also comparison → 比较."
+}

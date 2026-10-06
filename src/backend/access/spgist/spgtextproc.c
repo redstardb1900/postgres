@@ -100,7 +100,7 @@ spg_text_config(PG_FUNCTION_ARGS)
 	cfg->prefixType = TEXTOID;
 	cfg->labelType = INT2OID;
 	cfg->canReturnData = true;
-	cfg->longValuesOK = true;	/* 加后缀会缩短过长的值 */
+	cfg->longValuesOK = true;	/* 存后缀（剥前缀）会缩短过长的值 */
 	PG_RETURN_VOID();
 }
 
@@ -615,7 +615,7 @@ spg_text_leaf_consistent(PG_FUNCTION_ARGS)
 		out->leafValue = PointerGetDatum(fullText);
 	}
 
-	/* 执行所需的 comparison */
+	/* 执行所需的比较 */
 	res = true;
 	for (j = 0; j < in->nkeys; j++)
 	{

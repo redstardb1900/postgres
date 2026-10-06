@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_attrdef.c
- *	  routines to support manipulation of the pg_attrdef relation
+ *	  支持操作 pg_attrdef 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -32,15 +32,15 @@
 
 
 /*
- * Store a default expression for column attnum of relation rel.
+ * 为关系 rel 的列 attnum 存储默认值表达式。
  *
- * Returns the OID of the new pg_attrdef tuple.
+ * 返回新 pg_attrdef 元组的 OID。
  *
- * add_column_mode must be true if we are storing the default for a new
- * attribute, and false if it's for an already existing attribute. The reason
- * for this is that the missing value must never be updated after it is set,
- * which can only be when a column is added to the table. Otherwise we would
- * in effect be changing existing tuples.
+ * 若正在为新属性存储默认值，add_column_mode 必须为 true；
+ * 若属性已存在则为 false。原因
+ * 是缺失值一旦设置就绝不能再更新，
+ * 而这只能在向表添加列时发生。否则我们就会
+ * 实际上在改变已有元组。
  */
 Oid
 StoreAttrDefault(Relation rel, AttrNumber attnum,
@@ -62,12 +62,12 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 	adrel = table_open(AttrDefaultRelationId, RowExclusiveLock);
 
 	/*
-	 * Flatten expression to string form for storage.
+	 * 将表达式展平为字符串形式以便存储。
 	 */
 	adbin = nodeToString(expr);
 
 	/*
-	 * Make the pg_attrdef entry.
+	 * 创建 pg_attrdef 条目。
 	 */
 	attrdefOid = GetNewOidWithIndex(adrel, AttrDefaultOidIndexId,
 									Anum_pg_attrdef_oid);
@@ -85,14 +85,14 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 
 	table_close(adrel, RowExclusiveLock);
 
-	/* now can free some of the stuff allocated above */
+	/* 现在可以释放上面分配的一些东西了 */
 	pfree(DatumGetPointer(values[Anum_pg_attrdef_adbin - 1]));
 	heap_freetuple(tuple);
 	pfree(adbin);
 
 	/*
-	 * Update the pg_attribute entry for the column to show that a default
-	 * exists.
+	 * 更新该列的 pg_attribute 条目，以表明存在
+	 * 默认值。
 	 */
 	attrrel = table_open(AttributeRelationId, RowExclusiveLock);
 	atttup = SearchSysCacheCopy2(ATTNUM,
@@ -121,10 +121,10 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 		replacesAtt[Anum_pg_attribute_atthasdef - 1] = true;
 
 		/*
-		 * Note: this code is dead so far as core Postgres is concerned,
-		 * because no caller passes add_column_mode = true anymore.  We keep
-		 * it in back branches on the slight chance that some extension is
-		 * depending on it.
+		 * 注意：就核心 Postgres 而言，这段代码已经是死代码，
+		 * 因为不再有调用方传入 add_column_mode = true。我们在
+		 * 后备分支中保留它，以防某个扩展
+		 * 仍在依赖它。
 		 */
 		if (rel->rd_rel->relkind == RELKIND_RELATION && add_column_mode &&
 			!attgenerated)
@@ -143,12 +143,12 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 
 			if (missingIsNull)
 			{
-				/* if the default evaluates to NULL, just store a NULL array */
+				/* 若默认值求值为 NULL，则只存储一个 NULL 数组 */
 				missingval = (Datum) 0;
 			}
 			else
 			{
-				/* otherwise make a one-element array of the value */
+				/* 否则构造仅含该值的单元素数组 */
 				missingval = PointerGetDatum(construct_array(&missingval,
 															 1,
 															 defAttStruct->atttypid,
@@ -175,10 +175,10 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 	heap_freetuple(atttup);
 
 	/*
-	 * Make a dependency so that the pg_attrdef entry goes away if the column
-	 * (or whole table) is deleted.  In the case of a generated column, make
-	 * it an internal dependency to prevent the default expression from being
-	 * deleted separately.
+	 * 建立依赖，使列（或整张表）被删除时
+	 * pg_attrdef 条目也随之消失。对于生成列，
+	 * 做成内部依赖，以防止默认值表达式被
+	 * 单独删除。
 	 */
 	colobject.classId = RelationRelationId;
 	colobject.objectId = RelationGetRelid(rel);
@@ -188,19 +188,19 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 					   attgenerated ? DEPENDENCY_INTERNAL : DEPENDENCY_AUTO);
 
 	/*
-	 * Record dependencies on objects used in the expression, too.
+	 * 也记录对表达式中所用对象的依赖。
 	 */
 	recordDependencyOnSingleRelExpr(&defobject, expr, RelationGetRelid(rel),
 									DEPENDENCY_NORMAL,
 									DEPENDENCY_NORMAL, false);
 
 	/*
-	 * Post creation hook for attribute defaults.
+	 * 属性默认值的创建后钩子。
 	 *
-	 * XXX. ALTER TABLE ALTER COLUMN SET/DROP DEFAULT is implemented with a
-	 * couple of deletion/creation of the attribute's default entry, so the
-	 * callee should check existence of an older version of this entry if it
-	 * needs to distinguish.
+	 * XXX. ALTER TABLE ALTER COLUMN SET/DROP DEFAULT 是通过对
+	 * 该属性的默认值条目做几次删除/创建来实现的，因此
+	 * 若被调用方需要区分，应检查是否存在该条目的
+	 * 较旧版本。
 	 */
 	InvokeObjectPostCreateHookArg(AttrDefaultRelationId,
 								  RelationGetRelid(rel), attnum, is_internal);
@@ -212,8 +212,8 @@ StoreAttrDefault(Relation rel, AttrNumber attnum,
 /*
  *		RemoveAttrDefault
  *
- * If the specified relation/attribute has a default, remove it.
- * (If no default, raise error if complain is true, else return quietly.)
+ * 若指定关系/属性有默认值，则移除它。
+ * （若无默认值，complain 为 true 时报错，否则安静返回。）
  */
 void
 RemoveAttrDefault(Oid relid, AttrNumber attnum,
@@ -239,7 +239,7 @@ RemoveAttrDefault(Oid relid, AttrNumber attnum,
 	scan = systable_beginscan(attrdef_rel, AttrDefaultIndexId, true,
 							  NULL, 2, scankeys);
 
-	/* There should be at most one matching tuple, but we loop anyway */
+	/* 最多应有一个匹配元组，但我们仍循环 */
 	while (HeapTupleIsValid(tuple = systable_getnext(scan)))
 	{
 		ObjectAddress object;
@@ -266,9 +266,9 @@ RemoveAttrDefault(Oid relid, AttrNumber attnum,
 /*
  *		RemoveAttrDefaultById
  *
- * Remove a pg_attrdef entry specified by OID.  This is the guts of
- * attribute-default removal.  Note it should be called via performDeletion,
- * not directly.
+ * 按 OID 移除 pg_attrdef 条目。这是
+ * 属性默认值移除的核心。注意应通过 performDeletion
+ * 调用，而非直接调用。
  */
 void
 RemoveAttrDefaultById(Oid attrdefId)
@@ -282,10 +282,10 @@ RemoveAttrDefaultById(Oid attrdefId)
 	Oid			myrelid;
 	AttrNumber	myattnum;
 
-	/* Grab an appropriate lock on the pg_attrdef relation */
+	/* 在 pg_attrdef 关系上取得适当的锁 */
 	attrdef_rel = table_open(AttrDefaultRelationId, RowExclusiveLock);
 
-	/* Find the pg_attrdef tuple */
+	/* 找到 pg_attrdef 元组 */
 	ScanKeyInit(&scankeys[0],
 				Anum_pg_attrdef_oid,
 				BTEqualStrategyNumber, F_OIDEQ,
@@ -301,22 +301,22 @@ RemoveAttrDefaultById(Oid attrdefId)
 	myrelid = ((Form_pg_attrdef) GETSTRUCT(tuple))->adrelid;
 	myattnum = ((Form_pg_attrdef) GETSTRUCT(tuple))->adnum;
 
-	/* Get an exclusive lock on the relation owning the attribute */
+	/* 在拥有该属性的关系上取得排他锁 */
 	myrel = relation_open(myrelid, AccessExclusiveLock);
 
-	/* Now we can delete the pg_attrdef row */
+	/* 现在可以删除 pg_attrdef 行了 */
 	CatalogTupleDelete(attrdef_rel, &tuple->t_self);
 
 	systable_endscan(scan);
 	table_close(attrdef_rel, RowExclusiveLock);
 
-	/* Fix the pg_attribute row */
+	/* 修正 pg_attribute 行 */
 	attr_rel = table_open(AttributeRelationId, RowExclusiveLock);
 
 	tuple = SearchSysCacheCopy2(ATTNUM,
 								ObjectIdGetDatum(myrelid),
 								Int16GetDatum(myattnum));
-	if (!HeapTupleIsValid(tuple))	/* shouldn't happen */
+	if (!HeapTupleIsValid(tuple))	/* 不应发生 */
 		elog(ERROR, "cache lookup failed for attribute %d of relation %u",
 			 myattnum, myrelid);
 
@@ -325,21 +325,21 @@ RemoveAttrDefaultById(Oid attrdefId)
 	CatalogTupleUpdate(attr_rel, &tuple->t_self, tuple);
 
 	/*
-	 * Our update of the pg_attribute row will force a relcache rebuild, so
-	 * there's nothing else to do here.
+	 * 我们对 pg_attribute 行的更新会强制重建 relcache，因此
+	 * 这里没有别的事情要做。
 	 */
 	table_close(attr_rel, RowExclusiveLock);
 
-	/* Keep lock on attribute's rel until end of xact */
+	/* 在事务结束前保持对属性所属关系的锁 */
 	relation_close(myrel, NoLock);
 }
 
 
 /*
- * Get the pg_attrdef OID of the default expression for a column
- * identified by relation OID and column number.
+ * 获取由关系 OID 和列号标识的列的
+ * 默认值表达式的 pg_attrdef OID。
  *
- * Returns InvalidOid if there is no such pg_attrdef entry.
+ * 若没有这样的 pg_attrdef 条目则返回 InvalidOid。
  */
 Oid
 GetAttrDefaultOid(Oid relid, AttrNumber attnum)
@@ -378,10 +378,10 @@ GetAttrDefaultOid(Oid relid, AttrNumber attnum)
 }
 
 /*
- * Given a pg_attrdef OID, return the relation OID and column number of
- * the owning column (represented as an ObjectAddress for convenience).
+ * 给定 pg_attrdef OID，返回所属列的关系 OID 和列号
+ * （为方便起见表示为 ObjectAddress）。
  *
- * Returns InvalidObjectAddress if there is no such pg_attrdef entry.
+ * 若没有这样的 pg_attrdef 条目则返回 InvalidObjectAddress。
  */
 ObjectAddress
 GetAttrDefaultColumnAddress(Oid attrdefoid)

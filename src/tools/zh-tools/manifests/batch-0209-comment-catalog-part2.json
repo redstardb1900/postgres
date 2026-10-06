@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "batch_id": "0209-comment-catalog-part2",
+  "title": "zh: translate catalog comments (part 2)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2dc0dcc02edd374087dfffdf89f56e71b1d52d1b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/partition.c",
+      "kind": "c_comment",
+      "note": "partition helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/indexing.c",
+      "kind": "c_comment",
+      "note": "system catalog indexing helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_attrdef.c",
+      "kind": "c_comment",
+      "note": "attribute default catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/toasting.c",
+      "kind": "c_comment",
+      "note": "TOAST table creation helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_subscription.c",
+      "kind": "c_comment",
+      "note": "subscription catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_inherits.c",
+      "kind": "c_comment",
+      "note": "inheritance catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_enum.c",
+      "kind": "c_comment",
+      "note": "enum catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0209-comment-catalog-part2.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/partition.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 18,
+      "translated": 18,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "partition helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/indexing.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 35,
+      "translated": 35,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "system catalog indexing helpers; Copyright/IDENTIFICATION and #endif USE_ASSERT_CHECKING markers kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_attrdef.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 25,
+      "translated": 25,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "attribute default catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/toasting.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 31,
+      "translated": 31,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "TOAST table creation helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_subscription.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 41,
+      "translated": 40,
+      "preserved": 1,
+      "preserved_reasons": [
+        "translator comment"
+      ],
+      "note": "subscription catalog helpers; translator comment preserved; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_inherits.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 51,
+      "translated": 51,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "inheritance catalog helpers; Copyright/IDENTIFICATION and module Note kept translated; legal lines English"
+    },
+    {
+      "path": "src/backend/catalog/pg_enum.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 68,
+      "translated": 68,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "enum catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0209-comment-catalog-part2.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0209 translates comments in seven src/backend/catalog/ .c files (part 2): partition, indexing, pg_attrdef, toasting, pg_subscription, pg_inherits, pg_enum. Copyright and IDENTIFICATION lines stay in English. One translator: comment in pg_subscription.c preserved. Next suggested: catalog.c / pg_operator.c / pg_depend.c."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_subscription.c
- *		replication subscriptions
+ *		复制订阅
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -37,7 +37,7 @@
 static List *textarray_to_stringlist(ArrayType *textarray);
 
 /*
- * Fetch the subscription from the syscache.
+ * 从系统缓存获取订阅。
  */
 Subscription *
 GetSubscription(Oid subid, bool missing_ok)
@@ -74,13 +74,13 @@ GetSubscription(Oid subid, bool missing_ok)
 	sub->passwordrequired = subform->subpasswordrequired;
 	sub->runasowner = subform->subrunasowner;
 
-	/* Get conninfo */
+	/* 获取 conninfo */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID,
 								   tup,
 								   Anum_pg_subscription_subconninfo);
 	sub->conninfo = TextDatumGetCString(datum);
 
-	/* Get slotname */
+	/* 获取 slotname */
 	datum = SysCacheGetAttr(SUBSCRIPTIONOID,
 							tup,
 							Anum_pg_subscription_subslotname,
@@ -90,19 +90,19 @@ GetSubscription(Oid subid, bool missing_ok)
 	else
 		sub->slotname = NULL;
 
-	/* Get synccommit */
+	/* 获取 synccommit */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID,
 								   tup,
 								   Anum_pg_subscription_subsynccommit);
 	sub->synccommit = TextDatumGetCString(datum);
 
-	/* Get publications */
+	/* 获取 publications */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID,
 								   tup,
 								   Anum_pg_subscription_subpublications);
 	sub->publications = textarray_to_stringlist(DatumGetArrayTypeP(datum));
 
-	/* Get origin */
+	/* 获取 origin */
 	datum = SysCacheGetAttrNotNull(SUBSCRIPTIONOID,
 								   tup,
 								   Anum_pg_subscription_suborigin);
@@ -114,8 +114,8 @@ GetSubscription(Oid subid, bool missing_ok)
 }
 
 /*
- * Return number of subscriptions defined in given database.
- * Used by dropdb() to check if database can indeed be dropped.
+ * 返回给定数据库中已定义的订阅数量。
+ * 由 dropdb() 用来检查数据库是否确实可以删除。
  */
 int
 CountDBSubscriptions(Oid dbid)
@@ -147,7 +147,7 @@ CountDBSubscriptions(Oid dbid)
 }
 
 /*
- * Free memory allocated by subscription struct.
+ * 释放订阅结构分配的内存。
  */
 void
 FreeSubscription(Subscription *sub)
@@ -161,7 +161,7 @@ FreeSubscription(Subscription *sub)
 }
 
 /*
- * Disable the given subscription.
+ * 禁用给定订阅。
  */
 void
 DisableSubscription(Oid subid)
@@ -172,7 +172,7 @@ DisableSubscription(Oid subid)
 	Datum		values[Natts_pg_subscription];
 	HeapTuple	tup;
 
-	/* Look up the subscription in the catalog */
+	/* 在目录中查找该订阅 */
 	rel = table_open(SubscriptionRelationId, RowExclusiveLock);
 	tup = SearchSysCacheCopy1(SUBSCRIPTIONOID, ObjectIdGetDatum(subid));
 
@@ -181,16 +181,16 @@ DisableSubscription(Oid subid)
 
 	LockSharedObject(SubscriptionRelationId, subid, 0, AccessShareLock);
 
-	/* Form a new tuple. */
+	/* 构造新元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
 
-	/* Set the subscription to disabled. */
+	/* 将订阅设为禁用。 */
 	values[Anum_pg_subscription_subenabled - 1] = BoolGetDatum(false);
 	replaces[Anum_pg_subscription_subenabled - 1] = true;
 
-	/* Update the catalog */
+	/* 更新目录 */
 	tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
 							replaces);
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
@@ -200,9 +200,9 @@ DisableSubscription(Oid subid)
 }
 
 /*
- * Convert text array to list of strings.
+ * 将文本数组转换为字符串列表。
  *
- * Note: the resulting list of strings is pallocated here.
+ * 注意：结果字符串列表在此 palloc。
  */
 static List *
 textarray_to_stringlist(ArrayType *textarray)
@@ -224,7 +224,7 @@ textarray_to_stringlist(ArrayType *textarray)
 }
 
 /*
- * Add new state record for a subscription table.
+ * 为订阅表添加新的状态记录。
  */
 void
 AddSubscriptionRelState(Oid subid, Oid relid, char state,
@@ -239,7 +239,7 @@ AddSubscriptionRelState(Oid subid, Oid relid, char state,
 
 	rel = table_open(SubscriptionRelRelationId, RowExclusiveLock);
 
-	/* Try finding existing mapping. */
+	/* 尝试查找已有映射。 */
 	tup = SearchSysCacheCopy2(SUBSCRIPTIONRELMAP,
 							  ObjectIdGetDatum(relid),
 							  ObjectIdGetDatum(subid));
@@ -247,7 +247,7 @@ AddSubscriptionRelState(Oid subid, Oid relid, char state,
 		elog(ERROR, "subscription table %u in subscription %u already exists",
 			 relid, subid);
 
-	/* Form the tuple. */
+	/* 构造元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	values[Anum_pg_subscription_rel_srsubid - 1] = ObjectIdGetDatum(subid);
@@ -260,17 +260,17 @@ AddSubscriptionRelState(Oid subid, Oid relid, char state,
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* Insert tuple into catalog. */
+	/* 将元组插入目录。 */
 	CatalogTupleInsert(rel, tup);
 
 	heap_freetuple(tup);
 
-	/* Cleanup. */
+	/* 清理。 */
 	table_close(rel, NoLock);
 }
 
 /*
- * Update the state of a subscription table.
+ * 更新订阅表的状态。
  */
 void
 UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
@@ -301,7 +301,7 @@ UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
 		rel = table_open(SubscriptionRelRelationId, RowExclusiveLock);
 	}
 
-	/* Try finding existing mapping. */
+	/* 尝试查找已有映射。 */
 	tup = SearchSysCacheCopy2(SUBSCRIPTIONRELMAP,
 							  ObjectIdGetDatum(relid),
 							  ObjectIdGetDatum(subid));
@@ -309,7 +309,7 @@ UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
 		elog(ERROR, "subscription table %u in subscription %u does not exist",
 			 relid, subid);
 
-	/* Update the tuple. */
+	/* 更新元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 	memset(replaces, false, sizeof(replaces));
@@ -326,15 +326,15 @@ UpdateSubscriptionRelStateEx(Oid subid, Oid relid, char state,
 	tup = heap_modify_tuple(tup, RelationGetDescr(rel), values, nulls,
 							replaces);
 
-	/* Update the catalog. */
+	/* 更新目录。 */
 	CatalogTupleUpdate(rel, &tup->t_self, tup);
 
-	/* Cleanup. */
+	/* 清理。 */
 	table_close(rel, NoLock);
 }
 
 /*
- * Update the state of a subscription table.
+ * 更新订阅表的状态。
  */
 void
 UpdateSubscriptionRelState(Oid subid, Oid relid, char state,
@@ -344,9 +344,9 @@ UpdateSubscriptionRelState(Oid subid, Oid relid, char state,
 }
 
 /*
- * Get state of subscription table.
+ * 获取订阅表的状态。
  *
- * Returns SUBREL_STATE_UNKNOWN when the table is not in the subscription.
+ * 当表不在订阅中时返回 SUBREL_STATE_UNKNOWN。
  */
 char
 GetSubscriptionRelState(Oid subid, Oid relid, XLogRecPtr *sublsn)
@@ -358,12 +358,12 @@ GetSubscriptionRelState(Oid subid, Oid relid, XLogRecPtr *sublsn)
 	Relation	rel;
 
 	/*
-	 * This is to avoid the race condition with AlterSubscription which tries
-	 * to remove this relstate.
+	 * 这是为了避免与试图移除此 relstate 的
+	 * AlterSubscription 发生竞态。
 	 */
 	rel = table_open(SubscriptionRelRelationId, AccessShareLock);
 
-	/* Try finding the mapping. */
+	/* 尝试查找映射。 */
 	tup = SearchSysCache2(SUBSCRIPTIONRELMAP,
 						  ObjectIdGetDatum(relid),
 						  ObjectIdGetDatum(subid));
@@ -375,10 +375,10 @@ GetSubscriptionRelState(Oid subid, Oid relid, XLogRecPtr *sublsn)
 		return SUBREL_STATE_UNKNOWN;
 	}
 
-	/* Get the state. */
+	/* 获取状态。 */
 	substate = ((Form_pg_subscription_rel) GETSTRUCT(tup))->srsubstate;
 
-	/* Get the LSN */
+	/* 获取 LSN */
 	d = SysCacheGetAttr(SUBSCRIPTIONRELMAP, tup,
 						Anum_pg_subscription_rel_srsublsn, &isnull);
 	if (isnull)
@@ -386,7 +386,7 @@ GetSubscriptionRelState(Oid subid, Oid relid, XLogRecPtr *sublsn)
 	else
 		*sublsn = DatumGetLSN(d);
 
-	/* Cleanup */
+	/* 清理 */
 	ReleaseSysCache(tup);
 
 	table_close(rel, AccessShareLock);
@@ -395,8 +395,8 @@ GetSubscriptionRelState(Oid subid, Oid relid, XLogRecPtr *sublsn)
 }
 
 /*
- * Drop subscription relation mapping. These can be for a particular
- * subscription, or for a particular relation, or both.
+ * 删除订阅关系映射。可以针对特定
+ * 订阅，或特定关系，或两者。
  */
 void
 RemoveSubscriptionRel(Oid subid, Oid relid)
@@ -427,7 +427,7 @@ RemoveSubscriptionRel(Oid subid, Oid relid)
 					ObjectIdGetDatum(relid));
 	}
 
-	/* Do the search and delete what we found. */
+	/* 执行搜索并删除找到的内容。 */
 	scan = table_beginscan_catalog(rel, nkeys, skey);
 	while (HeapTupleIsValid(tup = heap_getnext(scan, ForwardScanDirection)))
 	{
@@ -436,11 +436,11 @@ RemoveSubscriptionRel(Oid subid, Oid relid)
 		subrel = (Form_pg_subscription_rel) GETSTRUCT(tup);
 
 		/*
-		 * We don't allow to drop the relation mapping when the table
-		 * synchronization is in progress unless the caller updates the
-		 * corresponding subscription as well. This is to ensure that we don't
-		 * leave tablesync slots or origins in the system when the
-		 * corresponding table is dropped.
+		 * 当表同步正在进行时，我们不允许删除关系
+		 * 映射，除非调用方也更新了
+		 * 相应的订阅。这是为了确保在删除相应表时
+		 * 不会在系统中留下 tablesync 槽或
+		 * origin。
 		 */
 		if (!OidIsValid(subid) && subrel->srsubstate != SUBREL_STATE_READY)
 		{
@@ -468,10 +468,10 @@ RemoveSubscriptionRel(Oid subid, Oid relid)
 }
 
 /*
- * Does the subscription have any relations?
+ * 订阅是否有任何关系？
  *
- * Use this function only to know true/false, and when you have no need for the
- * List returned by GetSubscriptionRelations.
+ * 仅在需要知道真/假、且不需要
+ * GetSubscriptionRelations 返回的 List 时使用本函数。
  */
 bool
 HasSubscriptionRelations(Oid subid)
@@ -491,10 +491,10 @@ HasSubscriptionRelations(Oid subid)
 	scan = systable_beginscan(rel, InvalidOid, false,
 							  NULL, 1, skey);
 
-	/* If even a single tuple exists then the subscription has tables. */
+	/* 只要存在哪怕一个元组，订阅就有表。 */
 	has_subrels = HeapTupleIsValid(systable_getnext(scan));
 
-	/* Cleanup */
+	/* 清理 */
 	systable_endscan(scan);
 	table_close(rel, AccessShareLock);
 
@@ -502,11 +502,11 @@ HasSubscriptionRelations(Oid subid)
 }
 
 /*
- * Get the relations for the subscription.
+ * 获取订阅的关系。
  *
- * If not_ready is true, return only the relations that are not in a ready
- * state, otherwise return all the relations of the subscription.  The
- * returned list is palloc'ed in the current memory context.
+ * 若 not_ready 为 true，仅返回不处于 ready
+ * 状态的关系，否则返回订阅的全部关系。
+ * 返回的列表在当前内存上下文中 palloc。
  */
 List *
 GetSubscriptionRelations(Oid subid, bool not_ready)
@@ -556,7 +556,7 @@ GetSubscriptionRelations(Oid subid, bool not_ready)
 		res = lappend(res, relstate);
 	}
 
-	/* Cleanup */
+	/* 清理 */
 	systable_endscan(scan);
 	table_close(rel, AccessShareLock);
 

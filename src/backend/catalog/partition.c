@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * partition.c
- *		  Partitioning related data structures and functions.
+ *		  与分区相关的数据结构和函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -39,16 +39,16 @@ static void get_partition_ancestors_worker(Relation inhRel, Oid relid,
 
 /*
  * get_partition_parent
- *		Obtain direct parent of given relation
+ *		获取给定关系的直接父关系
  *
- * Returns inheritance parent of a partition by scanning pg_inherits
+ * 通过扫描 pg_inherits 返回分区的继承父关系
  *
- * If the partition is in the process of being detached, an error is thrown,
- * unless even_if_detached is passed as true.
+ * 若分区正处于分离过程中，则报错，
+ * 除非 even_if_detached 传入为 true。
  *
- * Note: Because this function assumes that the relation whose OID is passed
- * as an argument will have precisely one parent, it should only be called
- * when it is known that the relation is a partition.
+ * 注意：本函数假定作为参数传入 OID 的关系
+ * 恰好有一个父关系，因此仅应在已知该关系
+ * 是分区时调用。
  */
 Oid
 get_partition_parent(Oid relid, bool even_if_detached)
@@ -76,11 +76,11 @@ get_partition_parent(Oid relid, bool even_if_detached)
 
 /*
  * get_partition_parent_worker
- *		Scan the pg_inherits relation to return the OID of the parent of the
- *		given relation
+ *		扫描 pg_inherits 关系，返回给定
+ *		关系的父关系 OID
  *
- * If the partition is being detached, *detach_pending is set true (but the
- * original parent is still returned.)
+ * 若分区正在被分离，则将 *detach_pending 置为 true（但仍返回
+ * 原来的父关系。）
  */
 static Oid
 get_partition_parent_worker(Relation inhRel, Oid relid, bool *detach_pending)
@@ -108,7 +108,7 @@ get_partition_parent_worker(Relation inhRel, Oid relid, bool *detach_pending)
 	{
 		Form_pg_inherits form = (Form_pg_inherits) GETSTRUCT(tuple);
 
-		/* Let caller know of partition being detached */
+		/* 告知调用方分区正在被分离 */
 		if (form->inhdetachpending)
 			*detach_pending = true;
 		result = form->inhparent;
@@ -121,13 +121,13 @@ get_partition_parent_worker(Relation inhRel, Oid relid, bool *detach_pending)
 
 /*
  * get_partition_ancestors
- *		Obtain ancestors of given relation
+ *		获取给定关系的祖先
  *
- * Returns a list of ancestors of the given relation.
+ * 返回给定关系的祖先列表。
  *
- * Note: Because this function assumes that the relation whose OID is passed
- * as an argument and each ancestor will have precisely one parent, it should
- * only be called when it is known that the relation is a partition.
+ * 注意：本函数假定作为参数传入 OID 的关系
+ * 以及每个祖先都恰好有一个父关系，因此仅应
+ * 在已知该关系是分区时调用。
  */
 List *
 get_partition_ancestors(Oid relid)
@@ -146,7 +146,7 @@ get_partition_ancestors(Oid relid)
 
 /*
  * get_partition_ancestors_worker
- *		recursive worker for get_partition_ancestors
+ *		get_partition_ancestors 的递归工作函数
  */
 static void
 get_partition_ancestors_worker(Relation inhRel, Oid relid, List **ancestors)
@@ -155,8 +155,8 @@ get_partition_ancestors_worker(Relation inhRel, Oid relid, List **ancestors)
 	bool		detach_pending;
 
 	/*
-	 * Recursion ends at the topmost level, ie., when there's no parent; also
-	 * when the partition is being detached.
+	 * 递归在最顶层结束，即没有父关系时结束；分区
+	 * 正在被分离时也结束。
 	 */
 	parentOid = get_partition_parent_worker(inhRel, relid, &detach_pending);
 	if (parentOid == InvalidOid || detach_pending)
@@ -168,8 +168,8 @@ get_partition_ancestors_worker(Relation inhRel, Oid relid, List **ancestors)
 
 /*
  * index_get_partition
- *		Return the OID of index of the given partition that is a child
- *		of the given index, or InvalidOid if there isn't one.
+ *		返回给定分区上、作为给定索引子索引的
+ *		那个索引的 OID；若不存在则返回 InvalidOid。
  */
 Oid
 index_get_partition(Relation partition, Oid indexId)
@@ -204,18 +204,18 @@ index_get_partition(Relation partition, Oid indexId)
 }
 
 /*
- * map_partition_varattnos - maps varattnos of all Vars in 'expr' (that have
- * varno 'fromrel_varno') from the attnums of 'from_rel' to the attnums of
- * 'to_rel', each of which may be either a leaf partition or a partitioned
- * table, but both of which must be from the same partitioning hierarchy.
+ * map_partition_varattnos - 将 'expr' 中所有 Vars（其
+ * varno 为 'fromrel_varno'）的 varattnos 从 'from_rel' 的 attnums
+ * 映射到 'to_rel' 的 attnums；两者都可以是叶子分区或分区
+ * 表，但必须属于同一分区层次结构。
  *
- * We need this because even though all of the same column names must be
- * present in all relations in the hierarchy, and they must also have the
- * same types, the attnums may be different.
+ * 需要这样做是因为：尽管层次结构中所有关系都必须有
+ * 相同的列名，且类型也必须相同，但 attnums
+ * 可能不同。
  *
- * Note: this will work on any node tree, so really the argument and result
- * should be declared "Node *".  But a substantial majority of the callers
- * are working on Lists, so it's less messy to do the casts internally.
+ * 注意：这对任意节点树都适用，因此参数和结果
+ * 其实应声明为 "Node *"。但绝大多数调用方
+ * 处理的是 List，在内部做转换更省事。
  */
 List *
 map_partition_varattnos(List *expr, int fromrel_varno,
@@ -234,21 +234,21 @@ map_partition_varattnos(List *expr, int fromrel_varno,
 											part_attmap,
 											RelationGetForm(to_rel)->reltype,
 											&found_whole_row);
-		/* Since we provided a to_rowtype, we may ignore found_whole_row. */
+		/* 由于我们提供了 to_rowtype，可以忽略 found_whole_row。 */
 	}
 
 	return expr;
 }
 
 /*
- * Checks if any of the 'attnums' is a partition key attribute for rel
+ * 检查 'attnums' 中是否有任一属性是 rel 的分区键属性
  *
- * Sets *used_in_expr if any of the 'attnums' is found to be referenced in some
- * partition key expression.  It's possible for a column to be both used
- * directly and as part of an expression; if that happens, *used_in_expr may
- * end up as either true or false.  That's OK for current uses of this
- * function, because *used_in_expr is only used to tailor the error message
- * text.
+ * 若发现 'attnums' 中任一属性被某个分区键表达式引用，
+ * 则设置 *used_in_expr。一列可能既被直接使用
+ * 也作为表达式的一部分；若出现这种情况，*used_in_expr 可能
+ * 最终为 true 或 false。对当前用途这没关系，
+ * 因为 *used_in_expr 仅用于调整错误消息
+ * 文本。
  */
 bool
 has_partition_attrs(Relation rel, Bitmapset *attnums, bool *used_in_expr)
@@ -283,11 +283,11 @@ has_partition_attrs(Relation rel, Bitmapset *attnums, bool *used_in_expr)
 		}
 		else
 		{
-			/* Arbitrary expression */
+			/* 任意表达式 */
 			Node	   *expr = (Node *) lfirst(partexprs_item);
 			Bitmapset  *expr_attrs = NULL;
 
-			/* Find all attributes referenced */
+			/* 找出所有被引用的属性 */
 			pull_varattnos(expr, 1, &expr_attrs);
 			partexprs_item = lnext(partexprs, partexprs_item);
 
@@ -306,9 +306,9 @@ has_partition_attrs(Relation rel, Bitmapset *attnums, bool *used_in_expr)
 /*
  * get_default_partition_oid
  *
- * Given a relation OID, return the OID of the default partition, if one
- * exists.  Use get_default_oid_from_partdesc where possible, for
- * efficiency.
+ * 给定关系 OID，返回默认分区的 OID（若存在）。
+ * 为效率起见，尽可能使用
+ * get_default_oid_from_partdesc。
  */
 Oid
 get_default_partition_oid(Oid parentId)
@@ -333,7 +333,7 @@ get_default_partition_oid(Oid parentId)
 /*
  * update_default_partition_oid
  *
- * Update pg_partitioned_table.partdefid with a new default partition OID.
+ * 用新的默认分区 OID 更新 pg_partitioned_table.partdefid。
  */
 void
 update_default_partition_oid(Oid parentId, Oid defaultPartId)
@@ -361,9 +361,9 @@ update_default_partition_oid(Oid parentId, Oid defaultPartId)
 /*
  * get_proposed_default_constraint
  *
- * This function returns the negation of new_part_constraints, which
- * would be an integral part of the default partition constraints after
- * addition of the partition to which the new_part_constraints belongs.
+ * 本函数返回 new_part_constraints 的否定形式；在加入
+ * 该 new_part_constraints 所属分区之后，它将成为默认
+ * 分区约束的组成部分。
  */
 List *
 get_proposed_default_constraint(List *new_part_constraints)
@@ -373,15 +373,15 @@ get_proposed_default_constraint(List *new_part_constraints)
 	defPartConstraint = make_ands_explicit(new_part_constraints);
 
 	/*
-	 * Derive the partition constraints of default partition by negating the
-	 * given partition constraints. The partition constraint never evaluates
-	 * to NULL, so negating it like this is safe.
+	 * 通过对给定分区约束取反，导出默认分区的
+	 * 分区约束。分区约束从不会求值为
+	 * NULL，因此这样取反是安全的。
 	 */
 	defPartConstraint = makeBoolExpr(NOT_EXPR,
 									 list_make1(defPartConstraint),
 									 -1);
 
-	/* Simplify, to put the negated expression into canonical form */
+	/* 化简，使取反后的表达式成为规范形式 */
 	defPartConstraint =
 		(Expr *) eval_const_expressions(NULL,
 										(Node *) defPartConstraint);

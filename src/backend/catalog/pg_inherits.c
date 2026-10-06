@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * pg_inherits.c
- *	  routines to support manipulation of the pg_inherits relation
+ *	  支持操作 pg_inherits 关系的例程
  *
- * Note: currently, this module mostly contains inquiry functions; actual
- * creation and deletion of pg_inherits entries is mostly done in tablecmds.c.
- * Perhaps someday that code should be moved here, but it'd have to be
- * disentangled from other stuff such as pg_depend updates.
+ * 注意：目前本模块主要包含查询函数；实际的
+ * pg_inherits 条目创建与删除大多在 tablecmds.c 中完成。
+ * 或许有朝一日那些代码应移到这里，但必须先把它与
+ * pg_depend 更新等其他事情拆解开。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -33,27 +33,27 @@
 #include "utils/syscache.h"
 
 /*
- * Entry of a hash table used in find_all_inheritors. See below.
+ * find_all_inheritors 所用哈希表的条目。见下文。
  */
 typedef struct SeenRelsEntry
 {
-	Oid			rel_id;			/* relation oid */
-	int			list_index;		/* its position in output list(s) */
+	Oid			rel_id;			/* 关系 oid */
+	int			list_index;		/* 它在输出 list(s) 中的位置 */
 } SeenRelsEntry;
 
 /*
  * find_inheritance_children
  *
- * Returns a list containing the OIDs of all relations which
- * inherit *directly* from the relation with OID 'parentrelId'.
+ * 返回一个 list，其中包含所有
+ * *直接* 继承自 OID 为 'parentrelId' 的关系的关系 OIDs。
  *
- * The specified lock type is acquired on each child relation (but not on the
- * given rel; caller should already have locked it).  If lockmode is NoLock
- * then no locks are acquired, but caller must beware of race conditions
- * against possible DROPs of child relations.
+ * 对每个子关系取得指定类型的锁（但不锁
+ * 给定关系；调用方应已锁住它）。若 lockmode 为 NoLock
+ * 则不取得任何锁，但调用方须警惕与可能的子关系
+ * DROPs 之间的竞态。
  *
- * Partitions marked as being detached are omitted; see
- * find_inheritance_children_extended for details.
+ * 标为正在分离的分区会被省略；详见
+ * find_inheritance_children_extended。
  */
 List *
 find_inheritance_children(Oid parentrelId, LOCKMODE lockmode)
@@ -65,19 +65,19 @@ find_inheritance_children(Oid parentrelId, LOCKMODE lockmode)
 /*
  * find_inheritance_children_extended
  *
- * As find_inheritance_children, with more options regarding detached
- * partitions.
+ * 与 find_inheritance_children 相同，但对已分离
+ * 分区提供更多选项。
  *
- * If a partition's pg_inherits row is marked "detach pending",
- * *detached_exist (if not null) is set true.
+ * 若分区的 pg_inherits 行标为 "detach pending"，
+ * 则将 *detached_exist（若非 null）置为 true。
  *
- * If omit_detached is true and there is an active snapshot (not the same as
- * the catalog snapshot used to scan pg_inherits!) and a pg_inherits tuple
- * marked "detach pending" is visible to that snapshot, then that partition is
- * omitted from the output list.  This makes partitions invisible depending on
- * whether the transaction that marked those partitions as detached appears
- * committed to the active snapshot.  In addition, *detached_xmin (if not null)
- * is set to the xmin of the row of the detached partition.
+ * 若 omit_detached 为 true，且存在活动快照（与扫描
+ * pg_inherits 所用的目录快照不同！），并且该快照可见某条标为
+ * "detach pending" 的 pg_inherits 元组，则将该分区
+ * 从输出列表中省略。这使分区是否可见取决于
+ * 将那些分区标为已分离的事务对活动快照而言是否
+ * 已提交。此外，*detached_xmin（若非 null）
+ * 被设为已分离分区那一行的 xmin。
  */
 List *
 find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
@@ -96,14 +96,14 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 				i;
 
 	/*
-	 * Can skip the scan if pg_class shows the relation has never had a
-	 * subclass.
+	 * 若 pg_class 显示该关系从未有过
+	 * 子类，则可跳过扫描。
 	 */
 	if (!has_subclass(parentrelId))
 		return NIL;
 
 	/*
-	 * Scan pg_inherits and build a working array of subclass OIDs.
+	 * 扫描 pg_inherits 并构建子类 OIDs 的工作数组。
 	 */
 	maxoids = 32;
 	oidarr = (Oid *) palloc(maxoids * sizeof(Oid));
@@ -122,19 +122,19 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 	while ((inheritsTuple = systable_getnext(scan)) != NULL)
 	{
 		/*
-		 * Cope with partitions concurrently being detached.  When we see a
-		 * partition marked "detach pending", we omit it from the returned set
-		 * of visible partitions if caller requested that and the tuple's xmin
-		 * does not appear in progress to the active snapshot.  (If there's no
-		 * active snapshot set, that means we're not running a user query, so
-		 * it's OK to always include detached partitions in that case; if the
-		 * xmin is still running to the active snapshot, then the partition
-		 * has not been detached yet and so we include it.)
+		 * 处理并发正在分离的分区。当我们看到
+		 * 标为 "detach pending" 的分区时，若调用方请求省略，且该元组的 xmin
+		 * 对活动快照而言看起来不在进行中，则从返回的
+		 * 可见分区集合中省略它。（若没有
+		 * 设置活动快照，意味着我们不是在运行用户查询，因此
+		 * 那种情况下总是包含已分离分区是可以的；若
+		 * xmin 对活动快照仍在运行，则该分区
+		 * 尚未分离，因此我们包含它。）
 		 *
-		 * The reason for this hack is that we want to avoid seeing the
-		 * partition as alive in RI queries during REPEATABLE READ or
-		 * SERIALIZABLE transactions: such queries use a different snapshot
-		 * than the one used by regular (user) queries.
+		 * 这种变通的原因是：我们希望在 REPEATABLE READ 或
+		 * SERIALIZABLE 事务的 RI 查询中避免将该分区视为存活：
+		 * 这类查询使用的快照与常规（用户）查询所用的
+		 * 不同。
 		 */
 		if (((Form_pg_inherits) GETSTRUCT(inheritsTuple))->inhdetachpending)
 		{
@@ -154,13 +154,13 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 					if (detached_xmin)
 					{
 						/*
-						 * Two detached partitions should not occur (see
-						 * checks in MarkInheritDetached), but if they do,
-						 * track the newer of the two.  Make sure to warn the
-						 * user, so that they can clean up.  Since this is
-						 * just a cross-check against potentially corrupt
-						 * catalogs, we don't make it a full-fledged error
-						 * message.
+						 * 不应出现两个已分离分区（见
+						 * MarkInheritDetached 中的检查），但若出现，
+						 * 则跟踪两者中较新的那个。务必警告
+						 * 用户，以便其清理。由于这只是对可能
+						 * 已损坏目录的交叉检查，我们不把它做成
+						 * 完整的
+						 * 错误消息。
 						 */
 						if (*detached_xmin != InvalidTransactionId)
 						{
@@ -173,7 +173,7 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 							*detached_xmin = xmin;
 					}
 
-					/* Don't add the partition to the output list */
+					/* 不要把该分区加入输出列表 */
 					continue;
 				}
 			}
@@ -193,16 +193,16 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 	table_close(relation, AccessShareLock);
 
 	/*
-	 * If we found more than one child, sort them by OID.  This ensures
-	 * reasonably consistent behavior regardless of the vagaries of an
-	 * indexscan.  This is important since we need to be sure all backends
-	 * lock children in the same order to avoid needless deadlocks.
+	 * 若找到多个子关系，按 OID 排序。这确保
+	 * 行为相当一致，而不受索引扫描偶然性影响。
+	 * 这一点很重要，因为我们需要确保所有后端
+	 * 以相同顺序锁住子关系，以避免不必要的死锁。
 	 */
 	if (numoids > 1)
 		qsort(oidarr, numoids, sizeof(Oid), oid_cmp);
 
 	/*
-	 * Acquire locks and build the result list.
+	 * 取得锁并构建结果列表。
 	 */
 	for (i = 0; i < numoids; i++)
 	{
@@ -210,19 +210,19 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 
 		if (lockmode != NoLock)
 		{
-			/* Get the lock to synchronize against concurrent drop */
+			/* 取得锁以与并发删除同步 */
 			LockRelationOid(inhrelid, lockmode);
 
 			/*
-			 * Now that we have the lock, double-check to see if the relation
-			 * really exists or not.  If not, assume it was dropped while we
-			 * waited to acquire lock, and ignore it.
+			 * 现在我们已持有锁，再复查该关系
+			 * 是否确实存在。若不存在，则假定在我们等待加锁期间
+			 * 它已被删除，并忽略它。
 			 */
 			if (!SearchSysCacheExists1(RELOID, ObjectIdGetDatum(inhrelid)))
 			{
-				/* Release useless lock */
+				/* 释放无用的锁 */
 				UnlockRelationOid(inhrelid, lockmode);
-				/* And ignore this relation */
+				/* 并忽略此关系 */
 				continue;
 			}
 		}
@@ -238,24 +238,24 @@ find_inheritance_children_extended(Oid parentrelId, bool omit_detached,
 
 /*
  * find_all_inheritors -
- *		Returns a list of relation OIDs including the given rel plus
- *		all relations that inherit from it, directly or indirectly.
- *		Optionally, it also returns the number of parents found for
- *		each such relation within the inheritance tree rooted at the
- *		given rel.
+ *		返回一个关系 OIDs 列表，包括给定关系以及
+ *		所有直接或间接继承自它的关系。
+ *		可选地，还返回在以给定关系为根的
+ *		继承树中为每个此类关系找到的
+ *		父关系数量。
  *
- * The specified lock type is acquired on all child relations (but not on the
- * given rel; caller should already have locked it).  If lockmode is NoLock
- * then no locks are acquired, but caller must beware of race conditions
- * against possible DROPs of child relations.
+ * 对所有子关系取得指定类型的锁（但不锁
+ * 给定关系；调用方应已锁住它）。若 lockmode 为 NoLock
+ * 则不取得任何锁，但调用方须警惕与可能的子关系
+ * DROPs 之间的竞态。
  *
- * NB - No current callers of this routine are interested in children being
- * concurrently detached, so there's no provision to include them.
+ * NB - 目前没有调用方关心并发正在分离的
+ * 子关系，因此没有提供包含它们的机制。
  */
 List *
 find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 {
-	/* hash table for O(1) rel_oid -> rel_numparents cell lookup */
+	/* 用于 O(1) rel_oid -> rel_numparents 单元查找的哈希表 */
 	HTAB	   *seen_rels;
 	HASHCTL		ctl;
 	List	   *rels_list,
@@ -267,18 +267,18 @@ find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 	ctl.hcxt = CurrentMemoryContext;
 
 	seen_rels = hash_create("find_all_inheritors temporary table",
-							32, /* start small and extend */
+							32, /* 从小开始并扩展 */
 							&ctl,
 							HASH_ELEM | HASH_BLOBS | HASH_CONTEXT);
 
 	/*
-	 * We build a list starting with the given rel and adding all direct and
-	 * indirect children.  We can use a single list as both the record of
-	 * already-found rels and the agenda of rels yet to be scanned for more
-	 * children.  This is a bit tricky but works because the foreach() macro
-	 * doesn't fetch the next list element until the bottom of the loop.  Note
-	 * that we can't keep pointers into the output lists; but an index is
-	 * sufficient.
+	 * 我们构建一个列表，以给定关系开始，并加入所有直接和
+	 * 间接子关系。我们可以用同一个列表既作为
+	 * 已找到关系的记录，也作为尚待扫描以寻找更多
+	 * 子关系的议程。这有点巧妙，但可行，因为 foreach() 宏
+	 * 直到循环底部才取下一个列表元素。注意
+	 * 我们不能保持指向输出列表的指针；但一个索引就
+	 * 足够了。
 	 */
 	rels_list = list_make1_oid(parentrelId);
 	rel_numparents = list_make1_int(0);
@@ -289,15 +289,15 @@ find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 		List	   *currentchildren;
 		ListCell   *lc;
 
-		/* Get the direct children of this rel */
+		/* 获取此关系的直接子关系 */
 		currentchildren = find_inheritance_children(currentrel, lockmode);
 
 		/*
-		 * Add to the queue only those children not already seen. This avoids
-		 * making duplicate entries in case of multiple inheritance paths from
-		 * the same parent.  (It'll also keep us from getting into an infinite
-		 * loop, though theoretically there can't be any cycles in the
-		 * inheritance graph anyway.)
+		 * 仅把尚未见过的子关系加入队列。这避免
+		 * 在从同一父关系有多条继承路径时产生
+		 * 重复条目。（这也能防止我们陷入无限
+		 * 循环，尽管理论上继承图中
+		 * 不可能有环。）
 		 */
 		foreach(lc, currentchildren)
 		{
@@ -308,7 +308,7 @@ find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 			hash_entry = hash_search(seen_rels, &child_oid, HASH_ENTER, &found);
 			if (found)
 			{
-				/* if the rel is already there, bump number-of-parents counter */
+				/* 若该关系已在其中，则增加父关系计数 */
 				ListCell   *numparents_cell;
 
 				numparents_cell = list_nth_cell(rel_numparents,
@@ -317,7 +317,7 @@ find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 			}
 			else
 			{
-				/* if it's not there, add it. expect 1 parent, initially. */
+				/* 若不在其中，则加入。最初预期有 1 个父关系。 */
 				hash_entry->list_index = list_length(rels_list);
 				rels_list = lappend_oid(rels_list, child_oid);
 				rel_numparents = lappend_int(rel_numparents, 1);
@@ -337,20 +337,20 @@ find_all_inheritors(Oid parentrelId, LOCKMODE lockmode, List **numparents)
 
 
 /*
- * has_subclass - does this relation have any children?
+ * has_subclass - 此关系是否有任何子关系？
  *
- * In the current implementation, has_subclass returns whether a
- * particular class *might* have a subclass. It will not return the
- * correct result if a class had a subclass which was later dropped.
- * This is because relhassubclass in pg_class is not updated immediately
- * when a subclass is dropped, primarily because of concurrency concerns.
+ * 在当前实现中，has_subclass 返回的是某个
+ * 类 *可能* 有子类。若某类曾有子类但后来被删除，
+ * 它不会返回正确结果。
+ * 这是因为删除子类时不会立即更新
+ * pg_class 中的 relhassubclass，主要是出于并发考虑。
  *
- * Currently has_subclass is only used as an efficiency hack to skip
- * unnecessary inheritance searches, so this is OK.  Note that ANALYZE
- * on a childless table will clean up the obsolete relhassubclass flag.
+ * 目前 has_subclass 仅用作效率技巧以跳过
+ * 不必要的继承搜索，因此这样可以。注意对
+ * 无子表执行 ANALYZE 会清理过时的 relhassubclass 标志。
  *
- * Although this doesn't actually touch pg_inherits, it seems reasonable
- * to keep it here since it's normally used with the other routines here.
+ * 尽管这实际上不触及 pg_inherits，但把它放在这里
+ * 似乎合理，因为它通常与这里的其他例程一起使用。
  */
 bool
 has_subclass(Oid relationId)
@@ -368,11 +368,11 @@ has_subclass(Oid relationId)
 }
 
 /*
- * has_superclass - does this relation inherit from another?
+ * has_superclass - 此关系是否继承自另一个关系？
  *
- * Unlike has_subclass, this can be relied on to give an accurate answer.
- * However, the caller must hold a lock on the given relation so that it
- * can't be concurrently added to or removed from an inheritance hierarchy.
+ * 与 has_subclass 不同，这一点可以信赖以给出准确答案。
+ * 不过，调用方必须持有对给定关系的锁，使其
+ * 不能被并发加入或移出继承层次。
  */
 bool
 has_superclass(Oid relationId)
@@ -395,13 +395,13 @@ has_superclass(Oid relationId)
 }
 
 /*
- * Given two type OIDs, determine whether the first is a complex type
- * (class type) that inherits from the second.
+ * 给定两个类型 OIDs，判断第一个是否为继承自
+ * 第二个的复合类型（类类型）。
  *
- * This essentially asks whether the first type is guaranteed to be coercible
- * to the second.  Therefore, we allow the first type to be a domain over a
- * complex type that inherits from the second; that creates no difficulties.
- * But the second type cannot be a domain.
+ * 这本质上是在问第一种类型是否保证可强制转换
+ * 为第二种。因此，我们允许第一种类型是覆盖某个
+ * 继承自第二种的复合类型的域；那不会造成困难。
+ * 但第二种类型无法是域。
  */
 bool
 typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
@@ -414,20 +414,20 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 			   *queue;
 	ListCell   *queue_item;
 
-	/* We need to work with the associated relation OIDs */
+	/* 我们需要使用相关联的关系 OIDs 来工作 */
 	subclassRelid = typeOrDomainTypeRelid(subclassTypeId);
 	if (subclassRelid == InvalidOid)
-		return false;			/* not a complex type or domain over one */
+		return false;			/* 不是复合类型，也不是其上的域 */
 	superclassRelid = typeidTypeRelid(superclassTypeId);
 	if (superclassRelid == InvalidOid)
-		return false;			/* not a complex type */
+		return false;			/* 不是复合类型 */
 
-	/* No point in searching if the superclass has no subclasses */
+	/* 若超类没有子类则不必搜索 */
 	if (!has_subclass(superclassRelid))
 		return false;
 
 	/*
-	 * Begin the search at the relation itself, so add its relid to the queue.
+	 * 从关系自身开始搜索，因此把它的 relid 加入队列。
 	 */
 	queue = list_make1_oid(subclassRelid);
 	visited = NIL;
@@ -435,10 +435,10 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 	inhrel = table_open(InheritsRelationId, AccessShareLock);
 
 	/*
-	 * Use queue to do a breadth-first traversal of the inheritance graph from
-	 * the relid supplied up to the root.  Notice that we append to the queue
-	 * inside the loop --- this is okay because the foreach() macro doesn't
-	 * advance queue_item until the next loop iteration begins.
+	 * 用队列对从所给 relid 直到根的继承图做
+	 * 广度优先遍历。注意我们在循环内追加到队列
+	 * --- 这没问题，因为 foreach() 宏直到下一次循环迭代开始时
+	 * 才推进 queue_item。
 	 */
 	foreach(queue_item, queue)
 	{
@@ -448,18 +448,18 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 		HeapTuple	inhtup;
 
 		/*
-		 * If we've seen this relid already, skip it.  This avoids extra work
-		 * in multiple-inheritance scenarios, and also protects us from an
-		 * infinite loop in case there is a cycle in pg_inherits (though
-		 * theoretically that shouldn't happen).
+		 * 若我们已经见过此 relid，则跳过。这在
+		 * 多重继承场景中避免额外工作，也在
+		 * pg_inherits 存在环时保护我们免于无限循环（尽管
+		 * 理论上不应发生）。
 		 */
 		if (list_member_oid(visited, this_relid))
 			continue;
 
 		/*
-		 * Okay, this is a not-yet-seen relid. Add it to the list of
-		 * already-visited OIDs, then find all the types this relid inherits
-		 * from and add them to the queue.
+		 * 好，这是尚未见过的 relid。把它加入
+		 * 已访问 OIDs 列表，然后找出此 relid 继承自的
+		 * 所有类型并把它们加入队列。
 		 */
 		visited = lappend_oid(visited, this_relid);
 
@@ -476,14 +476,14 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 			Form_pg_inherits inh = (Form_pg_inherits) GETSTRUCT(inhtup);
 			Oid			inhparent = inh->inhparent;
 
-			/* If this is the target superclass, we're done */
+			/* 若这就是目标超类，则完成 */
 			if (inhparent == superclassRelid)
 			{
 				result = true;
 				break;
 			}
 
-			/* Else add to queue */
+			/* 否则加入队列 */
 			queue = lappend_oid(queue, inhparent);
 		}
 
@@ -493,7 +493,7 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 			break;
 	}
 
-	/* clean up ... */
+	/* 清理 ... */
 	table_close(inhrel, AccessShareLock);
 
 	list_free(visited);
@@ -503,7 +503,7 @@ typeInheritsFrom(Oid subclassTypeId, Oid superclassTypeId)
 }
 
 /*
- * Create a single pg_inherits row with the given data
+ * 用给定数据创建单条 pg_inherits 行
  */
 void
 StoreSingleInheritance(Oid relationId, Oid parentOid, int32 seqNumber)
@@ -516,7 +516,7 @@ StoreSingleInheritance(Oid relationId, Oid parentOid, int32 seqNumber)
 	inhRelation = table_open(InheritsRelationId, RowExclusiveLock);
 
 	/*
-	 * Make the pg_inherits entry
+	 * 创建 pg_inherits 条目
 	 */
 	values[Anum_pg_inherits_inhrelid - 1] = ObjectIdGetDatum(relationId);
 	values[Anum_pg_inherits_inhparent - 1] = ObjectIdGetDatum(parentOid);
@@ -537,17 +537,17 @@ StoreSingleInheritance(Oid relationId, Oid parentOid, int32 seqNumber)
 /*
  * DeleteInheritsTuple
  *
- * Delete pg_inherits tuples with the given inhrelid.  inhparent may be given
- * as InvalidOid, in which case all tuples matching inhrelid are deleted;
- * otherwise only delete tuples with the specified inhparent.
+ * 删除具有给定 inhrelid 的 pg_inherits 元组。inhparent 可给
+ * InvalidOid，此时删除所有匹配 inhrelid 的元组；
+ * 否则仅删除具有指定 inhparent 的元组。
  *
- * expect_detach_pending is the expected state of the inhdetachpending flag.
- * If the catalog row does not match that state, an error is raised.
+ * expect_detach_pending 是 inhdetachpending 标志的期望状态。
+ * 若目录行与该状态不匹配，则报错。
  *
- * childname is the partition name, if a table; pass NULL for regular
- * inheritance or when working with other relation kinds.
+ * childname 是分区名（若为表）；对普通继承或处理
+ * 其他关系种类时传 NULL。
  *
- * Returns whether at least one row was deleted.
+ * 返回是否至少删除了一行。
  */
 bool
 DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
@@ -560,7 +560,7 @@ DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
 	HeapTuple	inheritsTuple;
 
 	/*
-	 * Find pg_inherits entries by inhrelid.
+	 * 按 inhrelid 查找 pg_inherits 条目。
 	 */
 	catalogRelation = table_open(InheritsRelationId, RowExclusiveLock);
 	ScanKeyInit(&key,
@@ -574,7 +574,7 @@ DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
 	{
 		Oid			parent;
 
-		/* Compare inhparent if it was given, and do the actual deletion. */
+		/* 若给定了 inhparent 则比较，并做实际删除。 */
 		parent = ((Form_pg_inherits) GETSTRUCT(inheritsTuple))->inhparent;
 		if (!OidIsValid(inhparent) || parent == inhparent)
 		{
@@ -584,8 +584,8 @@ DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
 				((Form_pg_inherits) GETSTRUCT(inheritsTuple))->inhdetachpending;
 
 			/*
-			 * Raise error depending on state.  This should only happen for
-			 * partitions, but we have no way to cross-check.
+			 * 按状态报错。这应只对
+			 * 分区发生，但我们无法交叉验证。
 			 */
 			if (detach_pending && !expect_detach_pending)
 				ereport(ERROR,
@@ -606,7 +606,7 @@ DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
 		}
 	}
 
-	/* Done */
+	/* 完成 */
 	systable_endscan(scan);
 	table_close(catalogRelation, RowExclusiveLock);
 
@@ -614,8 +614,8 @@ DeleteInheritsTuple(Oid inhrelid, Oid inhparent, bool expect_detach_pending,
 }
 
 /*
- * Return whether the pg_inherits tuple for a partition has the "detach
- * pending" flag set.
+ * 返回分区的 pg_inherits 元组是否设置了 "detach
+ * pending" 标志。
  */
 bool
 PartitionHasPendingDetach(Oid partoid)
@@ -625,10 +625,10 @@ PartitionHasPendingDetach(Oid partoid)
 	SysScanDesc scan;
 	HeapTuple	inheritsTuple;
 
-	/* We don't have a good way to verify it is in fact a partition */
+	/* 我们没有很好的方法验证它确实是分区 */
 
 	/*
-	 * Find the pg_inherits entry by inhrelid.  (There should only be one.)
+	 * 按 inhrelid 查找 pg_inherits 条目。（应只有一个。）
 	 */
 	catalogRelation = table_open(InheritsRelationId, RowExclusiveLock);
 	ScanKeyInit(&key,
@@ -645,7 +645,7 @@ PartitionHasPendingDetach(Oid partoid)
 		detached =
 			((Form_pg_inherits) GETSTRUCT(inheritsTuple))->inhdetachpending;
 
-		/* Done */
+		/* 完成 */
 		systable_endscan(scan);
 		table_close(catalogRelation, RowExclusiveLock);
 
@@ -653,5 +653,5 @@ PartitionHasPendingDetach(Oid partoid)
 	}
 
 	elog(ERROR, "relation %u is not a partition", partoid);
-	return false;				/* keep compiler quiet */
+	return false;				/* 让编译器安静 */
 }

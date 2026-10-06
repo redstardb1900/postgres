@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0210b-comment-catalog-part3-fix",
+  "title": "zh: fix catalog comments (part 3) exclusion constraint terminology",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "4a275f05facaaa1b1a83141aad326d10887f9767",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_depend.c",
+      "kind": "c_comment",
+      "note": "P1: exclusion constraint → 排他约束 (not 排斥)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0210b-comment-catalog-part3-fix.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_depend.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "get_index_constraint: 排斥约束 → 排他约束"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0210b-comment-catalog-part3-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Composer P1 on 0210"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0210b"
+    }
+  ],
+  "notes": "Composer P1 on 0210: get_index_constraint exclusion constraint must be 排他约束 (glossary), not 排斥约束."
+}

@@ -961,7 +961,7 @@ getIdentitySequence(Oid relid, AttrNumber attnum, bool missing_ok)
 /*
  * get_index_constraint
  *		给定索引的 OID，返回拥有它的唯一、
- *		主键或排斥约束的 OID；若没有拥有
+ *		主键或排他约束的 OID；若没有拥有
  *		约束则返回 InvalidOid。
  */
 Oid

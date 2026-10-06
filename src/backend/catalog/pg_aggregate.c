@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_aggregate.c
- *	  routines to support manipulation of the pg_aggregate relation
+ *	  支持操作 pg_aggregate 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -84,14 +84,14 @@ AggregateCreate(const char *aggName,
 	bool		replaces[Natts_pg_aggregate];
 	Form_pg_proc proc;
 	Oid			transfn;
-	Oid			finalfn = InvalidOid;	/* can be omitted */
-	Oid			combinefn = InvalidOid; /* can be omitted */
-	Oid			serialfn = InvalidOid;	/* can be omitted */
-	Oid			deserialfn = InvalidOid;	/* can be omitted */
-	Oid			mtransfn = InvalidOid;	/* can be omitted */
-	Oid			minvtransfn = InvalidOid;	/* can be omitted */
-	Oid			mfinalfn = InvalidOid;	/* can be omitted */
-	Oid			sortop = InvalidOid;	/* can be omitted */
+	Oid			finalfn = InvalidOid;	/* 可以省略 */
+	Oid			combinefn = InvalidOid; /* 可以省略 */
+	Oid			serialfn = InvalidOid;	/* 可以省略 */
+	Oid			deserialfn = InvalidOid;	/* 可以省略 */
+	Oid			mtransfn = InvalidOid;	/* 可以省略 */
+	Oid			minvtransfn = InvalidOid;	/* 可以省略 */
+	Oid			mfinalfn = InvalidOid;	/* 可以省略 */
+	Oid			sortop = InvalidOid;	/* 可以省略 */
 	Oid		   *aggArgTypes = parameterTypes->values;
 	bool		mtransIsStrict = false;
 	Oid			rettype;
@@ -108,7 +108,7 @@ AggregateCreate(const char *aggName,
 	ObjectAddresses *addrs;
 	AclResult	aclresult;
 
-	/* sanity checks (caller should have caught these) */
+	/* 健全性检查（调用方本应已捕获这些） */
 	if (!aggName)
 		elog(ERROR, "no aggregate name supplied");
 
@@ -119,9 +119,9 @@ AggregateCreate(const char *aggName,
 		elog(ERROR, "incorrect number of direct arguments for aggregate");
 
 	/*
-	 * Aggregates can have at most FUNC_MAX_ARGS-1 args, else the transfn
-	 * and/or finalfn will be unrepresentable in pg_proc.  We must check now
-	 * to protect fixed-size arrays here and possibly in called functions.
+	 * 聚合最多可有 FUNC_MAX_ARGS-1 个参数，否则 transfn
+	 * 和/或 finalfn 将无法在 pg_proc 中表示。现在必须检查，
+	 * 以保护此处以及可能在被调函数中的固定大小数组。
 	 */
 	if (numArgs < 0 || numArgs > FUNC_MAX_ARGS - 1)
 		ereport(ERROR,
@@ -132,8 +132,8 @@ AggregateCreate(const char *aggName,
 							   FUNC_MAX_ARGS - 1)));
 
 	/*
-	 * If transtype is polymorphic, must have polymorphic argument also; else
-	 * we will have no way to deduce the actual transtype.
+	 * 若 transtype 是多态的，也必须有多态参数；否则
+	 * 我们将无法推导出实际的 transtype。
 	 */
 	detailmsg = check_valid_polymorphic_signature(aggTransType,
 												  aggArgTypes,
@@ -145,7 +145,7 @@ AggregateCreate(const char *aggName,
 				 errdetail_internal("%s", detailmsg)));
 
 	/*
-	 * Likewise for moving-aggregate transtype, if any
+	 * 对移动聚合的 transtype（若有）同样如此
 	 */
 	if (OidIsValid(aggmTransType))
 	{
@@ -160,11 +160,11 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * An ordered-set aggregate that is VARIADIC must be VARIADIC ANY.  In
-	 * principle we could support regular variadic types, but it would make
-	 * things much more complicated because we'd have to assemble the correct
-	 * subsets of arguments into array values.  Since no standard aggregates
-	 * have use for such a case, we aren't bothering for now.
+	 * 带 VARIADIC 的有序集聚合必须是 VARIADIC ANY。原则上
+	 * 我们可以支持普通的可变参数类型，但这会使事情
+	 * 复杂得多，因为我们得把正确的参数子集组装成
+	 * 数组值。由于没有标准聚合需要这种情形，
+	 * 目前我们就不费这个劲了。
 	 */
 	if (AGGKIND_IS_ORDERED_SET(aggKind) && OidIsValid(variadicArgType) &&
 		variadicArgType != ANYOID)
@@ -173,16 +173,16 @@ AggregateCreate(const char *aggName,
 				 errmsg("a variadic ordered-set aggregate must use VARIADIC type ANY")));
 
 	/*
-	 * If it's a hypothetical-set aggregate, there must be at least as many
-	 * direct arguments as aggregated ones, and the last N direct arguments
-	 * must match the aggregated ones in type.  (We have to check this again
-	 * when the aggregate is called, in case ANY is involved, but it makes
-	 * sense to reject the aggregate definition now if the declared arg types
-	 * don't match up.)  It's unconditionally OK if numDirectArgs == numArgs,
-	 * indicating that the grammar merged identical VARIADIC entries from both
-	 * lists.  Otherwise, if the agg is VARIADIC, then we had VARIADIC only on
-	 * the aggregated side, which is not OK.  Otherwise, insist on the last N
-	 * parameter types on each side matching exactly.
+	 * 若是假想集聚合，直接参数的数量必须至少与
+	 * 聚合参数一样多，且最后 N 个直接参数
+	 * 的类型必须与聚合参数匹配。（若涉及 ANY，在聚合被
+	 * 调用时我们还得再查一次，但若已声明的参数类型对不上，
+	 * 现在就拒绝聚合定义是合理的。）若
+	 * numDirectArgs == numArgs，则无条件地可以，这表明文法
+	 * 把两边相同的 VARIADIC 条目合并了。否则，若聚合是
+	 * VARIADIC，则表示只在聚合侧有 VARIADIC，这是不允许的。
+	 * 否则，要求两侧最后 N 个参数类型精确
+	 * 匹配。
 	 */
 	if (aggKind == AGGKIND_HYPOTHETICAL &&
 		numDirectArgs < numArgs)
@@ -200,11 +200,11 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * Find the transfn.  For ordinary aggs, it takes the transtype plus all
-	 * aggregate arguments.  For ordered-set aggs, it takes the transtype plus
-	 * all aggregated args, but not direct args.  However, we have to treat
-	 * specially the case where a trailing VARIADIC item is considered to
-	 * cover both direct and aggregated args.
+	 * 查找 transfn。对普通聚合，它接受 transtype 加上所有
+	 * 聚合参数。对有序集聚合，它接受 transtype 加上所有
+	 * 聚合参数，但不含直接参数。不过，若尾随的
+	 * VARIADIC 项被认为同时覆盖直接参数与聚合参数，
+	 * 我们须特殊处理。
 	 */
 	if (AGGKIND_IS_ORDERED_SET(aggKind))
 	{
@@ -212,7 +212,7 @@ AggregateCreate(const char *aggName,
 			nargs_transfn = numArgs - numDirectArgs + 1;
 		else
 		{
-			/* special case with VARIADIC last arg */
+			/* 最后参数为 VARIADIC 的特殊情形 */
 			Assert(variadicArgType != InvalidOid);
 			nargs_transfn = 2;
 		}
@@ -231,14 +231,14 @@ AggregateCreate(const char *aggName,
 								  &rettype);
 
 	/*
-	 * Return type of transfn (possibly after refinement by
-	 * enforce_generic_type_consistency, if transtype isn't polymorphic) must
-	 * exactly match declared transtype.
+	 * transfn 的返回类型（若 transtype 不是多态的，可能在
+	 * enforce_generic_type_consistency 细化之后）必须
+	 * 与声明的 transtype 精确匹配。
 	 *
-	 * In the non-polymorphic-transtype case, it might be okay to allow a
-	 * rettype that's binary-coercible to transtype, but I'm not quite
-	 * convinced that it's either safe or useful.  When transtype is
-	 * polymorphic we *must* demand exact equality.
+	 * 在非多态 transtype 情形下，或许允许与 transtype
+	 * 二进制可强制转换的 rettype 也可以，但我不太确信
+	 * 这既安全又有用。当 transtype 是
+	 * 多态时，我们*必须*要求精确相等。
 	 */
 	if (rettype != aggTransType)
 		ereport(ERROR,
@@ -253,9 +253,9 @@ AggregateCreate(const char *aggName,
 	proc = (Form_pg_proc) GETSTRUCT(tup);
 
 	/*
-	 * If the transfn is strict and the initval is NULL, make sure first input
-	 * type and transtype are the same (or at least binary-compatible), so
-	 * that it's OK to use the first input value as the initial transValue.
+	 * 若 transfn 是 strict 且 initval 为 NULL，确保第一个输入
+	 * 类型与 transtype 相同（或至少二进制兼容），以便
+	 * 可以用第一个输入值作为初始 transValue。
 	 */
 	if (proc->proisstrict && agginitval == NULL)
 	{
@@ -268,13 +268,13 @@ AggregateCreate(const char *aggName,
 
 	ReleaseSysCache(tup);
 
-	/* handle moving-aggregate transfn, if supplied */
+	/* 处理移动聚合的 transfn（若已提供） */
 	if (aggmtransfnName)
 	{
 		/*
-		 * The arguments are the same as for the regular transfn, except that
-		 * the transition data type might be different.  So re-use the fnArgs
-		 * values set up above, except for that one.
+		 * 参数与常规 transfn 相同，只是
+		 * 转移数据类型可能不同。因此复用上面设置的
+		 * fnArgs 值，唯独那一项除外。
 		 */
 		Assert(OidIsValid(aggmTransType));
 		fnArgs[0] = aggmTransType;
@@ -283,7 +283,7 @@ AggregateCreate(const char *aggName,
 									   fnArgs, variadicArgType,
 									   &rettype);
 
-		/* As above, return type must exactly match declared mtranstype. */
+		/* 同上，返回类型必须与声明的 mtranstype 精确匹配。 */
 		if (rettype != aggmTransType)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -297,8 +297,8 @@ AggregateCreate(const char *aggName,
 		proc = (Form_pg_proc) GETSTRUCT(tup);
 
 		/*
-		 * If the mtransfn is strict and the minitval is NULL, check first
-		 * input type and mtranstype are binary-compatible.
+		 * 若 mtransfn 是 strict 且 minitval 为 NULL，检查第一个
+		 * 输入类型与 mtranstype 是否二进制兼容。
 		 */
 		if (proc->proisstrict && aggminitval == NULL)
 		{
@@ -309,18 +309,18 @@ AggregateCreate(const char *aggName,
 						 errmsg("must not omit initial value when transition function is strict and transition type is not compatible with input type")));
 		}
 
-		/* Remember if mtransfn is strict; we may need this below */
+		/* 记住 mtransfn 是否为 strict；下面可能需要 */
 		mtransIsStrict = proc->proisstrict;
 
 		ReleaseSysCache(tup);
 	}
 
-	/* handle minvtransfn, if supplied */
+	/* 处理 minvtransfn（若已提供） */
 	if (aggminvtransfnName)
 	{
 		/*
-		 * This must have the same number of arguments with the same types as
-		 * the forward transition function, so just re-use the fnArgs data.
+		 * 这必须与正向转移函数有相同数量、相同类型的参数，
+		 * 因此直接复用 fnArgs 数据。
 		 */
 		Assert(aggmtransfnName);
 
@@ -328,7 +328,7 @@ AggregateCreate(const char *aggName,
 										  fnArgs, variadicArgType,
 										  &rettype);
 
-		/* As above, return type must exactly match declared mtranstype. */
+		/* 同上，返回类型必须与声明的 mtranstype 精确匹配。 */
 		if (rettype != aggmTransType)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -342,9 +342,9 @@ AggregateCreate(const char *aggName,
 		proc = (Form_pg_proc) GETSTRUCT(tup);
 
 		/*
-		 * We require the strictness settings of the forward and inverse
-		 * transition functions to agree.  This saves having to handle
-		 * assorted special cases at execution time.
+		 * 我们需要正向与逆向转移函数的 strict 设置一致。
+		 * 这样可避免在执行时处理各种
+		 * 特殊情形。
 		 */
 		if (proc->proisstrict != mtransIsStrict)
 			ereport(ERROR,
@@ -354,15 +354,15 @@ AggregateCreate(const char *aggName,
 		ReleaseSysCache(tup);
 	}
 
-	/* handle finalfn, if supplied */
+	/* 处理 finalfn（若已提供） */
 	if (aggfinalfnName)
 	{
 		/*
-		 * If finalfnExtraArgs is specified, the transfn takes the transtype
-		 * plus all args; otherwise, it just takes the transtype plus any
-		 * direct args.  (Non-direct args are useless at runtime, and are
-		 * actually passed as NULLs, but we may need them in the function
-		 * signature to allow resolution of a polymorphic agg's result type.)
+		 * 若指定了 finalfnExtraArgs，则 transfn 接受 transtype
+		 * 加上所有参数；否则只接受 transtype 加上任何
+		 * 直接参数。（非直接参数在运行时无用，实际以 NULLs
+		 * 传入，但为解析多态聚合的结果类型，我们可能需要它们
+		 * 出现在函数签名中。）
 		 */
 		Oid			ffnVariadicArgType = variadicArgType;
 
@@ -375,7 +375,7 @@ AggregateCreate(const char *aggName,
 			nargs_finalfn = numDirectArgs + 1;
 			if (numDirectArgs < numArgs)
 			{
-				/* variadic argument doesn't affect finalfn */
+				/* 可变参数不影响 finalfn */
 				ffnVariadicArgType = InvalidOid;
 			}
 		}
@@ -385,10 +385,10 @@ AggregateCreate(const char *aggName,
 									  &finaltype);
 
 		/*
-		 * When finalfnExtraArgs is specified, the finalfn will certainly be
-		 * passed at least one null argument, so complain if it's strict.
-		 * Nothing bad would happen at runtime (you'd just get a null result),
-		 * but it's surely not what the user wants, so let's complain now.
+		 * 当指定了 finalfnExtraArgs 时，finalfn 肯定会被
+		 * 传入至少一个空参数，因此若它是 strict 则报错。
+		 * 运行时不会有坏事发生（只会得到空结果），
+		 * 但这肯定不是用户想要的，所以现在就抱怨。
 		 */
 		if (finalfnExtraArgs && func_strict(finalfn))
 			ereport(ERROR,
@@ -398,20 +398,20 @@ AggregateCreate(const char *aggName,
 	else
 	{
 		/*
-		 * If no finalfn, aggregate result type is type of the state value
+		 * 若无 finalfn，聚合结果类型即为状态值的类型
 		 */
 		finaltype = aggTransType;
 	}
 	Assert(OidIsValid(finaltype));
 
-	/* handle the combinefn, if supplied */
+	/* 处理 combinefn（若已提供） */
 	if (aggcombinefnName)
 	{
 		Oid			combineType;
 
 		/*
-		 * Combine function must have 2 arguments, each of which is the trans
-		 * type.  VARIADIC doesn't affect it.
+		 * 合并函数必须有 2 个参数，每个都是转移
+		 * 类型。VARIADIC 不影响它。
 		 */
 		fnArgs[0] = aggTransType;
 		fnArgs[1] = aggTransType;
@@ -420,7 +420,7 @@ AggregateCreate(const char *aggName,
 										fnArgs, InvalidOid,
 										&combineType);
 
-		/* Ensure the return type matches the aggregate's trans type */
+		/* 确保返回类型与聚合的转移类型匹配 */
 		if (combineType != aggTransType)
 			ereport(ERROR,
 					(errcode(ERRCODE_DATATYPE_MISMATCH),
@@ -429,9 +429,9 @@ AggregateCreate(const char *aggName,
 							format_type_be(aggTransType))));
 
 		/*
-		 * A combine function to combine INTERNAL states must accept nulls and
-		 * ensure that the returned state is in the correct memory context. We
-		 * cannot directly check the latter, but we can check the former.
+		 * 用于合并 INTERNAL 状态的合并函数必须接受空值，并
+		 * 确保返回的状态处于正确的内存上下文。我们
+		 * 无法直接检查后者，但可以检查前者。
 		 */
 		if (aggTransType == INTERNALOID && func_strict(combinefn))
 			ereport(ERROR,
@@ -441,11 +441,11 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * Validate the serialization function, if present.
+	 * 校验序列化函数（若存在）。
 	 */
 	if (aggserialfnName)
 	{
-		/* signature is always serialize(internal) returns bytea */
+		/* 签名始终为 serialize(internal) returns bytea */
 		fnArgs[0] = INTERNALOID;
 
 		serialfn = lookup_agg_function(aggserialfnName, 1,
@@ -461,13 +461,13 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * Validate the deserialization function, if present.
+	 * 校验反序列化函数（若存在）。
 	 */
 	if (aggdeserialfnName)
 	{
-		/* signature is always deserialize(bytea, internal) returns internal */
+		/* 签名始终为 deserialize(bytea, internal) returns internal */
 		fnArgs[0] = BYTEAOID;
-		fnArgs[1] = INTERNALOID;	/* dummy argument for type safety */
+		fnArgs[1] = INTERNALOID;	/* 为类型安全准备的哑参数 */
 
 		deserialfn = lookup_agg_function(aggdeserialfnName, 2,
 										 fnArgs, InvalidOid,
@@ -482,12 +482,12 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * If finaltype (i.e. aggregate return type) is polymorphic, inputs must
-	 * be polymorphic also, else parser will fail to deduce result type.
-	 * (Note: given the previous test on transtype and inputs, this cannot
-	 * happen, unless someone has snuck a finalfn definition into the catalogs
-	 * that itself violates the rule against polymorphic result with no
-	 * polymorphic input.)
+	 * 若 finaltype（即聚合返回类型）是多态的，输入也必须
+	 * 是多态的，否则解析器将无法推导结果类型。
+	 * （注：鉴于先前对 transtype 与输入的测试，这不会
+	 * 发生，除非有人把本身违反"无多态输入却有
+	 * 多态结果"规则的 finalfn 定义偷偷塞进了
+	 * 系统目录。）
 	 */
 	detailmsg = check_valid_polymorphic_signature(finaltype,
 												  aggArgTypes,
@@ -499,10 +499,10 @@ AggregateCreate(const char *aggName,
 				 errdetail_internal("%s", detailmsg)));
 
 	/*
-	 * Also, the return type can't be INTERNAL unless there's at least one
-	 * INTERNAL argument.  This is the same type-safety restriction we enforce
-	 * for regular functions, but at the level of aggregates.  We must test
-	 * this explicitly because we allow INTERNAL as the transtype.
+	 * 另外，除非至少有一个 INTERNAL 参数，否则返回类型
+	 * 不能是 INTERNAL。这与我们对普通函数强制的类型安全
+	 * 限制相同，只是落在聚合层面。我们必须显式测试
+	 * 这一点，因为我们允许 INTERNAL 作为 transtype。
 	 */
 	detailmsg = check_valid_internal_signature(finaltype,
 											   aggArgTypes,
@@ -514,18 +514,18 @@ AggregateCreate(const char *aggName,
 				 errdetail_internal("%s", detailmsg)));
 
 	/*
-	 * If a moving-aggregate implementation is supplied, look up its finalfn
-	 * if any, and check that the implied aggregate result type matches the
-	 * plain implementation.
+	 * 若提供了移动聚合实现，查找其 finalfn（若有），
+	 * 并检查隐含的聚合结果类型是否与
+	 * 普通实现匹配。
 	 */
 	if (OidIsValid(aggmTransType))
 	{
-		/* handle finalfn, if supplied */
+		/* 处理 finalfn（若已提供） */
 		if (aggmfinalfnName)
 		{
 			/*
-			 * The arguments are figured the same way as for the regular
-			 * finalfn, but using aggmTransType and mfinalfnExtraArgs.
+			 * 参数的确定方式与常规 finalfn 相同，
+			 * 但使用 aggmTransType 与 mfinalfnExtraArgs。
 			 */
 			Oid			ffnVariadicArgType = variadicArgType;
 
@@ -538,7 +538,7 @@ AggregateCreate(const char *aggName,
 				nargs_finalfn = numDirectArgs + 1;
 				if (numDirectArgs < numArgs)
 				{
-					/* variadic argument doesn't affect finalfn */
+					/* 可变参数不影响 finalfn */
 					ffnVariadicArgType = InvalidOid;
 				}
 			}
@@ -547,7 +547,7 @@ AggregateCreate(const char *aggName,
 										   fnArgs, ffnVariadicArgType,
 										   &rettype);
 
-			/* As above, check strictness if mfinalfnExtraArgs is given */
+			/* 同上，若给出了 mfinalfnExtraArgs 则检查 strict 性 */
 			if (mfinalfnExtraArgs && func_strict(mfinalfn))
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_FUNCTION_DEFINITION),
@@ -556,7 +556,7 @@ AggregateCreate(const char *aggName,
 		else
 		{
 			/*
-			 * If no finalfn, aggregate result type is type of the state value
+			 * 若无 finalfn，聚合结果类型即为状态值的类型
 			 */
 			rettype = aggmTransType;
 		}
@@ -569,7 +569,7 @@ AggregateCreate(const char *aggName,
 							format_type_be(finaltype))));
 	}
 
-	/* handle sortop, if supplied */
+	/* 处理 sortop（若已提供） */
 	if (aggsortopName)
 	{
 		if (numArgs != 1)
@@ -582,7 +582,7 @@ AggregateCreate(const char *aggName,
 	}
 
 	/*
-	 * permission checks on used types
+	 * 对所用类型做权限检查
 	 */
 	for (i = 0; i < numArgs; i++)
 	{
@@ -608,28 +608,28 @@ AggregateCreate(const char *aggName,
 
 
 	/*
-	 * Everything looks okay.  Try to create the pg_proc entry for the
-	 * aggregate.  (This could fail if there's already a conflicting entry.)
+	 * 一切看起来没问题。尝试为该聚合创建 pg_proc
+	 * 条目。（若已有冲突条目，这可能失败。）
 	 */
 
 	myself = ProcedureCreate(aggName,
 							 aggNamespace,
-							 replace,	/* maybe replacement */
-							 false, /* doesn't return a set */
+							 replace,	/* 可能是替换 */
+							 false, /* 不返回集合 */
 							 finaltype, /* returnType */
 							 GetUserId(),	/* proowner */
 							 INTERNALlanguageId,	/* languageObjectId */
-							 InvalidOid,	/* no validator */
-							 "aggregate_dummy", /* placeholder (no such proc) */
+							 InvalidOid,	/* 无校验器 */
+							 "aggregate_dummy", /* 占位（无此 proc） */
 							 NULL,	/* probin */
 							 NULL,	/* prosqlbody */
 							 PROKIND_AGGREGATE,
-							 false, /* security invoker (currently not
-									 * definable for agg) */
+							 false, /* security invoker（目前不可
+									 * 为聚合定义） */
 							 false, /* isLeakProof */
-							 false, /* isStrict (not needed for agg) */
-							 PROVOLATILE_IMMUTABLE, /* volatility (not needed
-													 * for agg) */
+							 false, /* isStrict（聚合不需要） */
+							 PROVOLATILE_IMMUTABLE, /* volatility（聚合不需要
+													 * ） */
 							 proparallel,
 							 parameterTypes,	/* paramTypes */
 							 allParameterTypes, /* allParamTypes */
@@ -638,18 +638,18 @@ AggregateCreate(const char *aggName,
 							 parameterDefaults, /* parameterDefaults */
 							 PointerGetDatum(NULL), /* trftypes */
 							 PointerGetDatum(NULL), /* proconfig */
-							 InvalidOid,	/* no prosupport */
+							 InvalidOid,	/* 无 prosupport */
 							 1, /* procost */
 							 0);	/* prorows */
 	procOid = myself.objectId;
 
 	/*
-	 * Okay to create the pg_aggregate entry.
+	 * 可以创建 pg_aggregate 条目了。
 	 */
 	aggdesc = table_open(AggregateRelationId, RowExclusiveLock);
 	tupDesc = aggdesc->rd_att;
 
-	/* initialize nulls and values */
+	/* 初始化 nulls 与 values */
 	for (i = 0; i < Natts_pg_aggregate; i++)
 	{
 		nulls[i] = false;
@@ -695,10 +695,10 @@ AggregateCreate(const char *aggName,
 		Form_pg_aggregate oldagg = (Form_pg_aggregate) GETSTRUCT(oldtup);
 
 		/*
-		 * If we're replacing an existing entry, we need to validate that
-		 * we're not changing anything that would break callers. Specifically
-		 * we must not change aggkind or aggnumdirectargs, which affect how an
-		 * aggregate call is treated in parse analysis.
+		 * 若我们在替换已有条目，需要校验我们没有
+		 * 更改任何会破坏调用方的内容。具体而言
+		 * 不得更改 aggkind 或 aggnumdirectargs，它们影响
+		 * 解析分析中如何对待聚合调用。
 		 */
 		if (aggKind != oldagg->aggkind)
 			ereport(ERROR,
@@ -733,72 +733,72 @@ AggregateCreate(const char *aggName,
 	table_close(aggdesc, RowExclusiveLock);
 
 	/*
-	 * Create dependencies for the aggregate (above and beyond those already
-	 * made by ProcedureCreate).  Note: we don't need an explicit dependency
-	 * on aggTransType since we depend on it indirectly through transfn.
-	 * Likewise for aggmTransType using the mtransfn, if it exists.
+	 * 为聚合创建依赖（超出 ProcedureCreate 已建立的
+	 * 那些）。注：我们不需要显式依赖
+	 * aggTransType，因为我们通过 transfn 间接依赖它。
+	 * 对 aggmTransType 通过 mtransfn（若存在）同样如此。
 	 *
-	 * If we're replacing an existing definition, ProcedureCreate deleted all
-	 * our existing dependencies, so we have to do the same things here either
-	 * way.
+	 * 若我们在替换已有定义，ProcedureCreate 删除了我们
+	 * 所有已有依赖，因此无论哪种情况我们在这里都要做
+	 * 同样的事情。
 	 */
 
 	addrs = new_object_addresses();
 
-	/* Depends on transition function */
+	/* 依赖于转移函数 */
 	ObjectAddressSet(referenced, ProcedureRelationId, transfn);
 	add_exact_object_address(&referenced, addrs);
 
-	/* Depends on final function, if any */
+	/* 依赖于最终函数（若有） */
 	if (OidIsValid(finalfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, finalfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on combine function, if any */
+	/* 依赖于合并函数（若有） */
 	if (OidIsValid(combinefn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, combinefn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on serialization function, if any */
+	/* 依赖于序列化函数（若有） */
 	if (OidIsValid(serialfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, serialfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on deserialization function, if any */
+	/* 依赖于反序列化函数（若有） */
 	if (OidIsValid(deserialfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, deserialfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on forward transition function, if any */
+	/* 依赖于正向转移函数（若有） */
 	if (OidIsValid(mtransfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, mtransfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on inverse transition function, if any */
+	/* 依赖于逆向转移函数（若有） */
 	if (OidIsValid(minvtransfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, minvtransfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on final function, if any */
+	/* 依赖于最终函数（若有） */
 	if (OidIsValid(mfinalfn))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, mfinalfn);
 		add_exact_object_address(&referenced, addrs);
 	}
 
-	/* Depends on sort operator, if any */
+	/* 依赖于排序操作符（若有） */
 	if (OidIsValid(sortop))
 	{
 		ObjectAddressSet(referenced, OperatorRelationId, sortop);
@@ -812,15 +812,15 @@ AggregateCreate(const char *aggName,
 
 /*
  * lookup_agg_function
- * common code for finding aggregate support functions
+ * 查找聚合支持函数的公共代码
  *
- * fnName: possibly-schema-qualified function name
- * nargs, input_types: expected function argument types
- * variadicArgType: type of variadic argument if any, else InvalidOid
+ * fnName: 可能带模式限定的函数名
+ * nargs, input_types: 期望的函数参数类型
+ * variadicArgType: 可变参数类型（若有），否则为 InvalidOid
  *
- * Returns OID of function, and stores its return type into *rettype
+ * 返回函数的 OID，并将其返回类型存入 *rettype
  *
- * NB: must not scribble on input_types[], as we may re-use those
+ * NB: 不得涂改 input_types[]，因为我们可能复用那些
  */
 static Oid
 lookup_agg_function(List *fnName,
@@ -839,11 +839,11 @@ lookup_agg_function(List *fnName,
 	int			i;
 
 	/*
-	 * func_get_detail looks up the function in the catalogs, does
-	 * disambiguation for polymorphic functions, handles inheritance, and
-	 * returns the funcid and type and set or singleton status of the
-	 * function's return value.  it also returns the true argument types to
-	 * the function.
+	 * func_get_detail 在系统目录中查找函数，对多态函数做
+	 * 消歧，处理继承，并返回函数返回值的
+	 * funcid、类型以及集合或单值状态。它还
+	 * 返回函数的真实参数
+	 * 类型。
 	 */
 	fdresult = func_get_detail(fnName, NIL, NIL,
 							   nargs, input_types, false, false, false,
@@ -851,7 +851,7 @@ lookup_agg_function(List *fnName,
 							   &nvargs, &vatype,
 							   &true_oid_array, NULL);
 
-	/* only valid case is a normal function not returning a set */
+	/* 唯一有效情形是不返回集合的普通函数 */
 	if (fdresult != FUNCDETAIL_NORMAL || !OidIsValid(fnOid))
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_FUNCTION),
@@ -866,12 +866,12 @@ lookup_agg_function(List *fnName,
 											  NIL, input_types))));
 
 	/*
-	 * If the agg is declared to take VARIADIC ANY, the underlying functions
-	 * had better be declared that way too, else they may receive too many
-	 * parameters; but func_get_detail would have been happy with plain ANY.
-	 * (Probably nothing very bad would happen, but it wouldn't work as the
-	 * user expects.)  Other combinations should work without any special
-	 * pushups, given that we told func_get_detail not to expand VARIADIC.
+	 * 若聚合声明为接受 VARIADIC ANY，底层函数
+	 * 最好也如此声明，否则它们可能收到过多
+	 * 参数；但 func_get_detail 会对普通 ANY 感到满意。
+	 * （大概不会发生很糟的事，但不会按用户期望工作。）
+	 * 鉴于我们告诉 func_get_detail 不要展开 VARIADIC，
+	 * 其他组合应无需特殊处理即可工作。
 	 */
 	if (variadicArgType == ANYOID && vatype != ANYOID)
 		ereport(ERROR,
@@ -881,9 +881,9 @@ lookup_agg_function(List *fnName,
 											  NIL, input_types))));
 
 	/*
-	 * If there are any polymorphic types involved, enforce consistency, and
-	 * possibly refine the result type.  It's OK if the result is still
-	 * polymorphic at this point, though.
+	 * 若涉及任何多态类型，强制一致性，并
+	 * 可能细化结果类型。此时结果仍为
+	 * 多态是可以的。
 	 */
 	*rettype = enforce_generic_type_consistency(input_types,
 												true_oid_array,
@@ -892,8 +892,8 @@ lookup_agg_function(List *fnName,
 												true);
 
 	/*
-	 * func_get_detail will find functions requiring run-time argument type
-	 * coercion, but nodeAgg.c isn't prepared to deal with that
+	 * func_get_detail 会找到需要运行时参数类型
+	 * 强制转换的函数，但 nodeAgg.c 尚未准备好处理那种情况
 	 */
 	for (i = 0; i < nargs; i++)
 	{
@@ -905,7 +905,7 @@ lookup_agg_function(List *fnName,
 												  NIL, true_oid_array))));
 	}
 
-	/* Check aggregate creator has permission to call the function */
+	/* 检查聚合创建者是否有调用该函数的权限 */
 	aclresult = object_aclcheck(ProcedureRelationId, fnOid, GetUserId(), ACL_EXECUTE);
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_FUNCTION, get_func_name(fnOid));

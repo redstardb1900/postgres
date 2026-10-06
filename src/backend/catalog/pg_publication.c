@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_publication.c
- *		publication C API manipulation
+ *		发布 C API 操作
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -45,25 +45,25 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
-/* Records association between publication and published table */
+/* 记录发布与已发布表之间的关联 */
 typedef struct
 {
-	Oid			relid;			/* OID of published table */
-	Oid			pubid;			/* OID of publication that publishes this
-								 * table. */
+	Oid			relid;			/* 已发布表的 OID */
+	Oid			pubid;			/* 发布此表的发布的 OID
+								 * 。 */
 } published_rel;
 
 static void publication_translate_columns(Relation targetrel, List *columns,
 										  int *natts, AttrNumber **attrs);
 
 /*
- * Check if relation can be in given publication and throws appropriate
- * error if not.
+ * 检查关系是否可以加入给定发布，若不可以则抛出适当
+ * 错误。
  */
 static void
 check_publication_add_relation(Relation targetrel)
 {
-	/* Must be a regular or partitioned table */
+	/* 必须是普通表或分区表 */
 	if (RelationGetForm(targetrel)->relkind != RELKIND_RELATION &&
 		RelationGetForm(targetrel)->relkind != RELKIND_PARTITIONED_TABLE)
 		ereport(ERROR,
@@ -72,7 +72,7 @@ check_publication_add_relation(Relation targetrel)
 						RelationGetRelationName(targetrel)),
 				 errdetail_relkind_not_supported(RelationGetForm(targetrel)->relkind)));
 
-	/* Can't be system table */
+	/* 不能是系统表 */
 	if (IsCatalogRelation(targetrel))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -80,7 +80,7 @@ check_publication_add_relation(Relation targetrel)
 						RelationGetRelationName(targetrel)),
 				 errdetail("This operation is not supported for system tables.")));
 
-	/* UNLOGGED and TEMP relations cannot be part of publication. */
+	/* UNLOGGED 与 TEMP 关系无法成为发布的一部分。 */
 	if (targetrel->rd_rel->relpersistence == RELPERSISTENCE_TEMP)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -96,13 +96,13 @@ check_publication_add_relation(Relation targetrel)
 }
 
 /*
- * Check if schema can be in given publication and throw appropriate error if
- * not.
+ * 检查模式是否可以加入给定发布，若不可以则抛出适当
+ * 错误。
  */
 static void
 check_publication_add_schema(Oid schemaid)
 {
-	/* Can't be system namespace */
+	/* 不能是系统命名空间 */
 	if (IsCatalogNamespace(schemaid) || IsToastNamespace(schemaid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -110,7 +110,7 @@ check_publication_add_schema(Oid schemaid)
 						get_namespace_name(schemaid)),
 				 errdetail("This operation is not supported for system schemas.")));
 
-	/* Can't be temporary namespace */
+	/* 不能是临时命名空间 */
 	if (isAnyTempNamespace(schemaid))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -120,23 +120,23 @@ check_publication_add_schema(Oid schemaid)
 }
 
 /*
- * Returns if relation represented by oid and Form_pg_class entry
- * is publishable.
+ * 返回由 oid 与 Form_pg_class 条目表示的关系
+ * 是否可发布。
  *
- * Does same checks as check_publication_add_relation() above, but does not
- * need relation to be opened and also does not throw errors.
+ * 做与上面 check_publication_add_relation() 相同的检查，但不需要
+ * 打开关系，也不抛出错误。
  *
- * XXX  This also excludes all tables with relid < FirstNormalObjectId,
- * ie all tables created during initdb.  This mainly affects the preinstalled
- * information_schema.  IsCatalogRelationOid() only excludes tables with
- * relid < FirstUnpinnedObjectId, making that test rather redundant,
- * but really we should get rid of the FirstNormalObjectId test not
- * IsCatalogRelationOid.  We can't do so today because we don't want
- * information_schema tables to be considered publishable; but this test
- * is really inadequate for that, since the information_schema could be
- * dropped and reloaded and then it'll be considered publishable.  The best
- * long-term solution may be to add a "relispublishable" bool to pg_class,
- * and depend on that instead of OID checks.
+ * XXX  这也排除所有 relid < FirstNormalObjectId 的表，
+ * 即 initdb 期间创建的所有表。这主要影响预安装的
+ * information_schema。IsCatalogRelationOid() 只排除
+ * relid < FirstUnpinnedObjectId 的表，使该测试相当多余，
+ * 但我们其实应该去掉 FirstNormalObjectId 测试而不是
+ * IsCatalogRelationOid。今天还不能这么做，因为我们不希望
+ * information_schema 表被视为可发布；但该测试
+ * 对此其实不够，因为 information_schema 可以被
+ * 删除并重新加载，然后就会被视为可发布。最好的
+ * 长期解决方案可能是给 pg_class 增加一个 "relispublishable" bool，
+ * 并依赖它而不是 OID 检查。
  */
 static bool
 is_publishable_class(Oid relid, Form_pg_class reltuple)
@@ -149,7 +149,7 @@ is_publishable_class(Oid relid, Form_pg_class reltuple)
 }
 
 /*
- * Another variant of is_publishable_class(), taking a Relation.
+ * is_publishable_class() 的另一变体，接受 Relation。
  */
 bool
 is_publishable_relation(Relation rel)
@@ -158,11 +158,11 @@ is_publishable_relation(Relation rel)
 }
 
 /*
- * SQL-callable variant of the above
+ * 上述函数的 SQL 可调用变体
  *
- * This returns null when the relation does not exist.  This is intended to be
- * used for example in psql to avoid gratuitous errors when there are
- * concurrent catalog changes.
+ * 当关系不存在时返回 null。这旨在用于例如
+ * psql，以避免在有并发目录更改时出现
+ * 无谓错误。
  */
 Datum
 pg_relation_is_publishable(PG_FUNCTION_ARGS)
@@ -180,8 +180,8 @@ pg_relation_is_publishable(PG_FUNCTION_ARGS)
 }
 
 /*
- * Returns true if the ancestor is in the list of published relations.
- * Otherwise, returns false.
+ * 若祖先在已发布关系列表中则返回 true。
+ * 否则返回 false。
  */
 static bool
 is_ancestor_member_tableinfos(Oid ancestor, List *table_infos)
@@ -200,7 +200,7 @@ is_ancestor_member_tableinfos(Oid ancestor, List *table_infos)
 }
 
 /*
- * Filter out the partitions whose parent tables are also present in the list.
+ * 过滤掉其父表也出现在列表中的分区。
  */
 static void
 filter_partitions(List *table_infos)
@@ -234,8 +234,8 @@ filter_partitions(List *table_infos)
 }
 
 /*
- * Returns true if any schema is associated with the publication, false if no
- * schema is associated with the publication.
+ * 若有任何模式与该发布关联则返回 true，若没有模式与该
+ * 发布关联则返回 false。
  */
 bool
 is_schema_publication(Oid pubid)
@@ -265,8 +265,8 @@ is_schema_publication(Oid pubid)
 }
 
 /*
- * Gets the relations based on the publication partition option for a specified
- * relation.
+ * 根据指定关系的发布分区选项取得
+ * 关系。
  */
 List *
 GetPubPartitionOptionRelations(List *result, PublicationPartOpt pub_partopt,
@@ -302,15 +302,15 @@ GetPubPartitionOptionRelations(List *result, PublicationPartOpt pub_partopt,
 }
 
 /*
- * Returns the relid of the topmost ancestor that is published via this
- * publication if any and set its ancestor level to ancestor_level,
- * otherwise returns InvalidOid.
+ * 若有通过本发布发布的最顶层祖先，则返回其
+ * relid，并将其祖先层级设为 ancestor_level，
+ * 否则返回 InvalidOid。
  *
- * The ancestor_level value allows us to compare the results for multiple
- * publications, and decide which value is higher up.
+ * ancestor_level 值允许我们比较多个发布的结果，
+ * 并决定哪个值更高。
  *
- * Note that the list of ancestors should be ordered such that the topmost
- * ancestor is at the end of the list.
+ * 注意祖先列表应按最顶层祖先位于列表末尾的
+ * 顺序排列。
  */
 Oid
 GetTopMostAncestorInPublication(Oid puboid, List *ancestors, int *ancestor_level)
@@ -320,7 +320,7 @@ GetTopMostAncestorInPublication(Oid puboid, List *ancestors, int *ancestor_level
 	int			level = 0;
 
 	/*
-	 * Find the "topmost" ancestor that is in this publication.
+	 * 找到位于本发布中的"最顶层"祖先。
 	 */
 	foreach(lc, ancestors)
 	{
@@ -357,7 +357,7 @@ GetTopMostAncestorInPublication(Oid puboid, List *ancestors, int *ancestor_level
 }
 
 /*
- * Insert new publication / relation mapping.
+ * 插入新的发布/关系映射。
  */
 ObjectAddress
 publication_add_relation(Oid pubid, PublicationRelInfo *pri,
@@ -380,9 +380,9 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	rel = table_open(PublicationRelRelationId, RowExclusiveLock);
 
 	/*
-	 * Check for duplicates. Note that this does not really prevent
-	 * duplicates, it's here just to provide nicer error message in common
-	 * case. The real protection is the unique key on the catalog.
+	 * 检查重复。注意这并不能真正防止
+	 * 重复，它只是为常见情形提供更友好的错误消息。
+	 * 真正的保护是目录上的唯一键。
 	 */
 	if (SearchSysCacheExists2(PUBLICATIONRELMAP, ObjectIdGetDatum(relid),
 							  ObjectIdGetDatum(pubid)))
@@ -401,14 +401,14 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	check_publication_add_relation(targetrel);
 
 	/*
-	 * Translate column names to attnums and make sure the column list
-	 * contains only allowed elements (no system or generated columns etc.).
-	 * Also build an array of attnums, for storing in the catalog.
+	 * 把列名翻译为 attnum，并确保列列表
+	 * 只包含允许的元素（无系统列或生成列等）。
+	 * 同时构建 attnum 数组，以便存入目录。
 	 */
 	publication_translate_columns(pri->relation, pri->columns,
 								  &natts, &attarray);
 
-	/* Form a tuple. */
+	/* 构造一个元组。 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -420,13 +420,13 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	values[Anum_pg_publication_rel_prrelid - 1] =
 		ObjectIdGetDatum(relid);
 
-	/* Add qualifications, if available */
+	/* 若有则添加限定条件 */
 	if (pri->whereClause != NULL)
 		values[Anum_pg_publication_rel_prqual - 1] = CStringGetTextDatum(nodeToString(pri->whereClause));
 	else
 		nulls[Anum_pg_publication_rel_prqual - 1] = true;
 
-	/* Add column list, if available */
+	/* 若有则添加列列表 */
 	if (pri->columns)
 		values[Anum_pg_publication_rel_prattrs - 1] = PointerGetDatum(buildint2vector(attarray, natts));
 	else
@@ -434,44 +434,44 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* Insert tuple into catalog. */
+	/* 把元组插入目录。 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 
-	/* Register dependencies as needed */
+	/* 按需注册依赖 */
 	ObjectAddressSet(myself, PublicationRelRelationId, pubreloid);
 
-	/* Add dependency on the publication */
+	/* 添加对发布的依赖 */
 	ObjectAddressSet(referenced, PublicationRelationId, pubid);
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* Add dependency on the relation */
+	/* 添加对关系的依赖 */
 	ObjectAddressSet(referenced, RelationRelationId, relid);
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* Add dependency on the objects mentioned in the qualifications */
+	/* 添加对限定条件中提到的对象的依赖 */
 	if (pri->whereClause)
 		recordDependencyOnSingleRelExpr(&myself, pri->whereClause, relid,
 										DEPENDENCY_NORMAL, DEPENDENCY_NORMAL,
 										false);
 
-	/* Add dependency on the columns, if any are listed */
+	/* 若列出了列则添加对列的依赖 */
 	for (int i = 0; i < natts; i++)
 	{
 		ObjectAddressSubSet(referenced, RelationRelationId, relid, attarray[i]);
 		recordDependencyOn(&myself, &referenced, DEPENDENCY_NORMAL);
 	}
 
-	/* Close the table. */
+	/* 关闭表。 */
 	table_close(rel, RowExclusiveLock);
 
 	/*
-	 * Invalidate relcache so that publication info is rebuilt.
+	 * 使 relcache 失效，以便重建发布信息。
 	 *
-	 * For the partitioned tables, we must invalidate all partitions contained
-	 * in the respective partition hierarchies, not just the one explicitly
-	 * mentioned in the publication. This is required because we implicitly
-	 * publish the child tables when the parent table is published.
+	 * 对分区表，必须使各自分区层次中包含的所有分区
+	 * 失效，而不仅仅是发布中显式提到的那一个。这是需要的，
+	 * 因为当父表被发布时，我们隐式发布
+	 * 子表。
 	 */
 	relids = GetPubPartitionOptionRelations(relids, PUBLICATION_PART_ALL,
 											relid);
@@ -481,27 +481,27 @@ publication_add_relation(Oid pubid, PublicationRelInfo *pri,
 	return myself;
 }
 
-/* qsort comparator for attnums */
+/* attnum 的 qsort 比较器 */
 static int
 compare_int16(const void *a, const void *b)
 {
 	int			av = *(const int16 *) a;
 	int			bv = *(const int16 *) b;
 
-	/* this can't overflow if int is wider than int16 */
+	/* 若 int 比 int16 宽则这不会溢出 */
 	return (av - bv);
 }
 
 /*
- * Translate a list of column names to an array of attribute numbers
- * and a Bitmapset with them; verify that each attribute is appropriate
- * to have in a publication column list (no system or generated attributes,
- * no duplicates).  Additional checks with replica identity are done later;
- * see pub_collist_contains_invalid_column.
+ * 把列名列表翻译为属性编号数组
+ * 以及含有它们的 Bitmapset；验证每个属性适合出现在
+ * 发布列列表中（无系统或生成属性，
+ * 无重复）。与副本标识相关的额外检查稍后进行；
+ * 见 pub_collist_contains_invalid_column。
  *
- * Note that the attribute numbers are *not* offset by
- * FirstLowInvalidHeapAttributeNumber; system columns are forbidden so this
- * is okay.
+ * 注意属性编号*不*由
+ * FirstLowInvalidHeapAttributeNumber 偏移；系统列被禁止，因此这
+ * 没问题。
  */
 static void
 publication_translate_columns(Relation targetrel, List *columns,
@@ -513,13 +513,13 @@ publication_translate_columns(Relation targetrel, List *columns,
 	int			n = 0;
 	TupleDesc	tupdesc = RelationGetDescr(targetrel);
 
-	/* Bail out when no column list defined. */
+	/* 未定义列列表时退出。 */
 	if (!columns)
 		return;
 
 	/*
-	 * Translate list of columns to attnums. We prohibit system attributes and
-	 * make sure there are no duplicate columns.
+	 * 把列列表翻译为 attnum。我们禁止系统属性，并
+	 * 确保没有重复列。
 	 */
 	attarray = palloc(sizeof(AttrNumber) * list_length(columns));
 	foreach(lc, columns)
@@ -555,7 +555,7 @@ publication_translate_columns(Relation targetrel, List *columns,
 		attarray[n++] = attnum;
 	}
 
-	/* Be tidy, so that the catalog representation is always sorted */
+	/* 保持整洁，使目录表示始终有序 */
 	qsort(attarray, n, sizeof(AttrNumber), compare_int16);
 
 	*natts = n;
@@ -565,11 +565,11 @@ publication_translate_columns(Relation targetrel, List *columns,
 }
 
 /*
- * Transform a column list (represented by an array Datum) to a bitmapset.
+ * 把列列表（由数组 Datum 表示）转换为位图集。
  *
- * If columns isn't NULL, add the column numbers to that set.
+ * 若 columns 不为 NULL，则把列号加入该集合。
  *
- * If mcxt isn't NULL, build the bitmapset in that context.
+ * 若 mcxt 不为 NULL，则在该上下文中构建位图集。
  */
 Bitmapset *
 pub_collist_to_bitmapset(Bitmapset *columns, Datum pubcols, MemoryContext mcxt)
@@ -581,8 +581,8 @@ pub_collist_to_bitmapset(Bitmapset *columns, Datum pubcols, MemoryContext mcxt)
 	MemoryContext oldcxt = NULL;
 
 	/*
-	 * If an existing bitmap was provided, use it. Otherwise just use NULL and
-	 * build a new bitmap.
+	 * 若提供了已有位图则使用它。否则只用 NULL 并
+	 * 构建新位图。
 	 */
 	if (columns)
 		result = columns;
@@ -591,7 +591,7 @@ pub_collist_to_bitmapset(Bitmapset *columns, Datum pubcols, MemoryContext mcxt)
 	nelems = ARR_DIMS(arr)[0];
 	elems = (int16 *) ARR_DATA_PTR(arr);
 
-	/* If a memory context was specified, switch to it. */
+	/* 若指定了内存上下文，则切换到它。 */
 	if (mcxt)
 		oldcxt = MemoryContextSwitchTo(mcxt);
 
@@ -605,7 +605,7 @@ pub_collist_to_bitmapset(Bitmapset *columns, Datum pubcols, MemoryContext mcxt)
 }
 
 /*
- * Insert new publication / schema mapping.
+ * 插入新的发布/模式映射。
  */
 ObjectAddress
 publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
@@ -623,9 +623,9 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 	rel = table_open(PublicationNamespaceRelationId, RowExclusiveLock);
 
 	/*
-	 * Check for duplicates. Note that this does not really prevent
-	 * duplicates, it's here just to provide nicer error message in common
-	 * case. The real protection is the unique key on the catalog.
+	 * 检查重复。注意这并不能真正防止
+	 * 重复，它只是为常见情形提供更友好的错误消息。
+	 * 真正的保护是目录上的唯一键。
 	 */
 	if (SearchSysCacheExists2(PUBLICATIONNAMESPACEMAP,
 							  ObjectIdGetDatum(schemaid),
@@ -644,7 +644,7 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 
 	check_publication_add_schema(schemaid);
 
-	/* Form a tuple */
+	/* 构造一个元组 */
 	memset(values, 0, sizeof(values));
 	memset(nulls, false, sizeof(nulls));
 
@@ -658,27 +658,27 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 
 	tup = heap_form_tuple(RelationGetDescr(rel), values, nulls);
 
-	/* Insert tuple into catalog */
+	/* 把元组插入目录 */
 	CatalogTupleInsert(rel, tup);
 	heap_freetuple(tup);
 
 	ObjectAddressSet(myself, PublicationNamespaceRelationId, psschid);
 
-	/* Add dependency on the publication */
+	/* 添加对发布的依赖 */
 	ObjectAddressSet(referenced, PublicationRelationId, pubid);
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* Add dependency on the schema */
+	/* 添加对模式的依赖 */
 	ObjectAddressSet(referenced, NamespaceRelationId, schemaid);
 	recordDependencyOn(&myself, &referenced, DEPENDENCY_AUTO);
 
-	/* Close the table */
+	/* 关闭表 */
 	table_close(rel, RowExclusiveLock);
 
 	/*
-	 * Invalidate relcache so that publication info is rebuilt. See
-	 * publication_add_relation for why we need to consider all the
-	 * partitions.
+	 * 使 relcache 失效，以便重建发布信息。见
+	 * publication_add_relation 了解为何需要考虑所有
+	 * 分区。
 	 */
 	schemaRels = GetSchemaPublicationRelations(schemaid,
 											   PUBLICATION_PART_ALL);
@@ -687,7 +687,7 @@ publication_add_schema(Oid pubid, Oid schemaid, bool if_not_exists)
 	return myself;
 }
 
-/* Gets list of publication oids for a relation */
+/* 取得关系的发布 oid 列表 */
 List *
 GetRelationPublications(Oid relid)
 {
@@ -695,7 +695,7 @@ GetRelationPublications(Oid relid)
 	CatCList   *pubrellist;
 	int			i;
 
-	/* Find all publications associated with the relation. */
+	/* 查找与该关系关联的所有发布。 */
 	pubrellist = SearchSysCacheList1(PUBLICATIONRELMAP,
 									 ObjectIdGetDatum(relid));
 	for (i = 0; i < pubrellist->n_members; i++)
@@ -712,10 +712,10 @@ GetRelationPublications(Oid relid)
 }
 
 /*
- * Gets list of relation oids for a publication.
+ * 取得发布的关系 oid 列表。
  *
- * This should only be used FOR TABLE publications, the FOR ALL TABLES
- * should use GetAllTablesPublicationRelations().
+ * 这只应用于 FOR TABLE 发布，FOR ALL TABLES
+ * 应使用 GetAllTablesPublicationRelations()。
  */
 List *
 GetPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
@@ -726,7 +726,7 @@ GetPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Find all publications associated with the relation. */
+	/* 查找与该关系关联的所有发布。 */
 	pubrelsrel = table_open(PublicationRelRelationId, AccessShareLock);
 
 	ScanKeyInit(&scankey,
@@ -750,7 +750,7 @@ GetPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
 	systable_endscan(scan);
 	table_close(pubrelsrel, AccessShareLock);
 
-	/* Now sort and de-duplicate the result list */
+	/* 现在对结果列表排序并去重 */
 	list_sort(result, list_oid_cmp);
 	list_deduplicate_oid(result);
 
@@ -758,7 +758,7 @@ GetPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
 }
 
 /*
- * Gets list of publication oids for publications marked as FOR ALL TABLES.
+ * 取得标记为 FOR ALL TABLES 的发布的发布 oid 列表。
  */
 List *
 GetAllTablesPublications(void)
@@ -769,7 +769,7 @@ GetAllTablesPublications(void)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Find all publications that are marked as for all tables. */
+	/* 查找所有标记为 for all tables 的发布。 */
 	rel = table_open(PublicationRelationId, AccessShareLock);
 
 	ScanKeyInit(&scankey,
@@ -795,11 +795,11 @@ GetAllTablesPublications(void)
 }
 
 /*
- * Gets list of all relation published by FOR ALL TABLES publication(s).
+ * 取得由 FOR ALL TABLES publication(s) 发布的所有关系的列表。
  *
- * If the publication publishes partition changes via their respective root
- * partitioned tables, we must exclude partitions in favor of including the
- * root partitioned tables.
+ * 若发布通过各自的根分区表发布分区更改，
+ * 我们必须排除分区而改为包含
+ * 根分区表。
  */
 List *
 GetAllTablesPublicationRelations(bool pubviaroot)
@@ -858,9 +858,9 @@ GetAllTablesPublicationRelations(bool pubviaroot)
 }
 
 /*
- * Gets the list of schema oids for a publication.
+ * 取得发布的模式 oid 列表。
  *
- * This should only be used FOR TABLES IN SCHEMA publications.
+ * 这只应用于 FOR TABLES IN SCHEMA 发布。
  */
 List *
 GetPublicationSchemas(Oid pubid)
@@ -871,7 +871,7 @@ GetPublicationSchemas(Oid pubid)
 	SysScanDesc scan;
 	HeapTuple	tup;
 
-	/* Find all schemas associated with the publication */
+	/* 查找与该发布关联的所有模式 */
 	pubschsrel = table_open(PublicationNamespaceRelationId, AccessShareLock);
 
 	ScanKeyInit(&scankey,
@@ -898,7 +898,7 @@ GetPublicationSchemas(Oid pubid)
 }
 
 /*
- * Gets the list of publication oids associated with a specified schema.
+ * 取得与指定模式关联的发布 oid 列表。
  */
 List *
 GetSchemaPublications(Oid schemaid)
@@ -907,7 +907,7 @@ GetSchemaPublications(Oid schemaid)
 	CatCList   *pubschlist;
 	int			i;
 
-	/* Find all publications associated with the schema */
+	/* 查找与该模式关联的所有发布 */
 	pubschlist = SearchSysCacheList1(PUBLICATIONNAMESPACEMAP,
 									 ObjectIdGetDatum(schemaid));
 	for (i = 0; i < pubschlist->n_members; i++)
@@ -924,7 +924,7 @@ GetSchemaPublications(Oid schemaid)
 }
 
 /*
- * Get the list of publishable relation oids for a specified schema.
+ * 取得指定模式的可发布关系 oid 列表。
  */
 List *
 GetSchemaPublicationRelations(Oid schemaid, PublicationPartOpt pub_partopt)
@@ -944,7 +944,7 @@ GetSchemaPublicationRelations(Oid schemaid, PublicationPartOpt pub_partopt)
 				BTEqualStrategyNumber, F_OIDEQ,
 				schemaid);
 
-	/* get all the relations present in the specified schema */
+	/* 取得指定模式中存在的所有关系 */
 	scan = table_beginscan_catalog(classRel, 1, key);
 	while ((tuple = heap_getnext(scan, ForwardScanDirection)) != NULL)
 	{
@@ -963,9 +963,9 @@ GetSchemaPublicationRelations(Oid schemaid, PublicationPartOpt pub_partopt)
 			List	   *partitionrels = NIL;
 
 			/*
-			 * It is quite possible that some of the partitions are in a
-			 * different schema than the parent table, so we need to get such
-			 * partitions separately.
+			 * 某些分区很可能位于与父表不同的
+			 * 模式中，因此我们需要单独取得此类
+			 * 分区。
 			 */
 			partitionrels = GetPubPartitionOptionRelations(partitionrels,
 														   pub_partopt,
@@ -980,8 +980,8 @@ GetSchemaPublicationRelations(Oid schemaid, PublicationPartOpt pub_partopt)
 }
 
 /*
- * Gets the list of all relations published by FOR TABLES IN SCHEMA
- * publication.
+ * 取得由 FOR TABLES IN SCHEMA 发布所发布的所有关系的
+ * 列表。
  */
 List *
 GetAllSchemaPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
@@ -1003,9 +1003,9 @@ GetAllSchemaPublicationRelations(Oid pubid, PublicationPartOpt pub_partopt)
 }
 
 /*
- * Get publication using oid
+ * 用 oid 取得发布
  *
- * The Publication struct and its data are palloc'ed here.
+ * Publication 结构及其数据在此 palloc。
  */
 Publication *
 GetPublication(Oid pubid)
@@ -1036,7 +1036,7 @@ GetPublication(Oid pubid)
 }
 
 /*
- * Get Publication using name.
+ * 用名称取得发布。
  */
 Publication *
 GetPublicationByName(const char *pubname, bool missing_ok)
@@ -1049,9 +1049,9 @@ GetPublicationByName(const char *pubname, bool missing_ok)
 }
 
 /*
- * Get information of the tables in the given publication array.
+ * 取得给定发布数组中各表的信息。
  *
- * Returns pubid, relid, column list, row filter for each table.
+ * 对每个表返回 pubid、relid、列列表、行过滤器。
  */
 Datum
 pg_get_publication_tables(PG_FUNCTION_ARGS)
@@ -1060,7 +1060,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 	FuncCallContext *funcctx;
 	List	   *table_infos = NIL;
 
-	/* stuff done only on the first call of the function */
+	/* 仅在函数第一次调用时做的事 */
 	if (SRF_IS_FIRSTCALL())
 	{
 		TupleDesc	tupdesc;
@@ -1071,21 +1071,21 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 					i;
 		bool		viaroot = false;
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久化的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
-		/* switch to memory context appropriate for multiple function calls */
+		/* 切换到适合多次函数调用的内存上下文 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
 		/*
-		 * Deconstruct the parameter into elements where each element is a
-		 * publication name.
+		 * 把参数解构为元素，每个元素是一个
+		 * 发布名。
 		 */
 		arr = PG_GETARG_ARRAYTYPE_P(0);
 		deconstruct_array(arr, TEXTOID, -1, false, TYPALIGN_INT,
 						  &elems, NULL, &nelems);
 
-		/* Get Oids of tables from each publication. */
+		/* 从每个发布取得表的 Oid。 */
 		for (i = 0; i < nelems; i++)
 		{
 			Publication *pub_elem;
@@ -1095,10 +1095,10 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 			pub_elem = GetPublicationByName(TextDatumGetCString(elems[i]), false);
 
 			/*
-			 * Publications support partitioned tables. If
-			 * publish_via_partition_root is false, all changes are replicated
-			 * using leaf partition identity and schema, so we only need
-			 * those. Otherwise, get the partitioned table itself.
+			 * 发布支持分区表。若
+			 * publish_via_partition_root 为 false，所有更改都使用叶分区的
+			 * 标识与模式复制，因此我们只需要那些。否则，取得
+			 * 分区表本身。
 			 */
 			if (pub_elem->alltables)
 				pub_elem_tables = GetAllTablesPublicationRelations(pub_elem->pubviaroot);
@@ -1119,12 +1119,12 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 			}
 
 			/*
-			 * Record the published table and the corresponding publication so
-			 * that we can get row filters and column lists later.
+			 * 记录已发布表与相应发布，以便我们稍后能取得
+			 * 行过滤器与列列表。
 			 *
-			 * When a table is published by multiple publications, to obtain
-			 * all row filters and column lists, the structure related to this
-			 * table will be recorded multiple times.
+			 * 当一个表被多个发布发布时，为取得所有行过滤器与
+			 * 列列表，与该表相关的结构会被记录
+			 * 多次。
 			 */
 			foreach(lc, pub_elem_tables)
 			{
@@ -1135,23 +1135,23 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 				table_infos = lappend(table_infos, table_info);
 			}
 
-			/* At least one publication is using publish_via_partition_root. */
+			/* 至少一个发布在使用 publish_via_partition_root。 */
 			if (pub_elem->pubviaroot)
 				viaroot = true;
 		}
 
 		/*
-		 * If the publication publishes partition changes via their respective
-		 * root partitioned tables, we must exclude partitions in favor of
-		 * including the root partitioned tables. Otherwise, the function
-		 * could return both the child and parent tables which could cause
-		 * data of the child table to be double-published on the subscriber
-		 * side.
+		 * 若发布通过各自的根分区表发布分区更改，
+		 * 我们必须排除分区而改为包含
+		 * 根分区表。否则，函数可能同时返回子表与
+		 * 父表，这可能导致子表的数据在订阅端被
+		 * 双重
+		 * 发布。
 		 */
 		if (viaroot)
 			filter_partitions(table_infos);
 
-		/* Construct a tuple descriptor for the result rows. */
+		/* 为结果行构造元组描述符。 */
 		tupdesc = CreateTemplateTupleDesc(NUM_PUBLICATION_TABLES_ELEM);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "pubid",
 						   OIDOID, -1, 0);
@@ -1168,7 +1168,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 		MemoryContextSwitchTo(oldcontext);
 	}
 
-	/* stuff done on every call of the function */
+	/* 函数每次调用都做的事 */
 	funcctx = SRF_PERCALL_SETUP();
 	table_infos = (List *) funcctx->user_fctx;
 
@@ -1184,7 +1184,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 		bool		nulls[NUM_PUBLICATION_TABLES_ELEM] = {0};
 
 		/*
-		 * Form tuple with appropriate data.
+		 * 用适当数据构造元组。
 		 */
 
 		pub = GetPublication(table_info->pubid);
@@ -1193,8 +1193,8 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 		values[1] = ObjectIdGetDatum(relid);
 
 		/*
-		 * We don't consider row filters or column lists for FOR ALL TABLES or
-		 * FOR TABLES IN SCHEMA publications.
+		 * 对 FOR ALL TABLES 或 FOR TABLES IN SCHEMA 发布，我们不考虑
+		 * 行过滤器或列列表。
 		 */
 		if (!pub->alltables &&
 			!SearchSysCacheExists2(PUBLICATIONNAMESPACEMAP,
@@ -1206,12 +1206,12 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 
 		if (HeapTupleIsValid(pubtuple))
 		{
-			/* Lookup the column list attribute. */
+			/* 查找列列表属性。 */
 			values[2] = SysCacheGetAttr(PUBLICATIONRELMAP, pubtuple,
 										Anum_pg_publication_rel_prattrs,
 										&(nulls[2]));
 
-			/* Null indicates no filter. */
+			/* Null 表示无过滤器。 */
 			values[3] = SysCacheGetAttr(PUBLICATIONRELMAP, pubtuple,
 										Anum_pg_publication_rel_prqual,
 										&(nulls[3]));
@@ -1222,7 +1222,7 @@ pg_get_publication_tables(PG_FUNCTION_ARGS)
 			nulls[3] = true;
 		}
 
-		/* Show all columns when the column list is not specified. */
+		/* 未指定列列表时显示所有列。 */
 		if (nulls[2])
 		{
 			Relation	rel = table_open(relid, AccessShareLock);

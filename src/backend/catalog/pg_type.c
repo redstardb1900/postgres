@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * pg_type.c
- *	  routines to support manipulation of the pg_type relation
+ *	  支持操作 pg_type 关系的例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -38,20 +38,20 @@
 #include "utils/rel.h"
 #include "utils/syscache.h"
 
-/* Potentially set by pg_upgrade_support functions */
+/* 可能由 pg_upgrade_support 函数设置 */
 Oid			binary_upgrade_next_pg_type_oid = InvalidOid;
 
 /* ----------------------------------------------------------------
  *		TypeShellMake
  *
- *		This procedure inserts a "shell" tuple into the pg_type relation.
- *		The type tuple inserted has valid but dummy values, and its
- *		"typisdefined" field is false indicating it's not really defined.
+ *		本过程向 pg_type 关系插入一个"外壳"元组。
+ *		插入的类型元组具有有效但哑的值，其
+ *		"typisdefined" 字段为 false，表明它尚未真正定义。
  *
- *		This is used so that a tuple exists in the catalogs.  The I/O
- *		functions for the type will link to this tuple.  When the full
- *		CREATE TYPE command is issued, the bogus values will be replaced
- *		with correct ones, and "typisdefined" will be set to true.
+ *		这样做是为了在系统目录中存在一个元组。该类型的 I/O
+ *		函数将链接到此元组。当发出完整的
+ *		CREATE TYPE 命令时，这些虚假值将被替换为
+ *		正确值，并且"typisdefined" 将被设为 true。
  * ----------------------------------------------------------------
  */
 ObjectAddress
@@ -70,27 +70,27 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 	Assert(PointerIsValid(typeName));
 
 	/*
-	 * open pg_type
+	 * 打开 pg_type
 	 */
 	pg_type_desc = table_open(TypeRelationId, RowExclusiveLock);
 	tupDesc = pg_type_desc->rd_att;
 
 	/*
-	 * initialize our *nulls and *values arrays
+	 * 初始化我们的 *nulls 与 *values 数组
 	 */
 	for (i = 0; i < Natts_pg_type; ++i)
 	{
 		nulls[i] = false;
-		values[i] = (Datum) NULL;	/* redundant, but safe */
+		values[i] = (Datum) NULL;	/* 冗余，但安全 */
 	}
 
 	/*
-	 * initialize *values with the type name and dummy values
+	 * 用类型名与哑值初始化 *values
 	 *
-	 * The representational details are the same as int4 ... it doesn't really
-	 * matter what they are so long as they are consistent.  Also note that we
-	 * give it typtype = TYPTYPE_PSEUDO as extra insurance that it won't be
-	 * mistaken for a usable type.
+	 * 表示细节与 int4 相同……只要它们一致，
+	 * 具体是什么其实无关紧要。另请注意我们
+	 * 给它 typtype = TYPTYPE_PSEUDO，作为额外保险，免得它被
+	 * 误认为可用类型。
 	 */
 	namestrcpy(&name, typeName);
 	values[Anum_pg_type_typname - 1] = NameGetDatum(&name);
@@ -125,7 +125,7 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 	nulls[Anum_pg_type_typdefault - 1] = true;
 	nulls[Anum_pg_type_typacl - 1] = true;
 
-	/* Use binary-upgrade override for pg_type.oid? */
+	/* 对 pg_type.oid 使用二进制升级覆盖？ */
 	if (IsBinaryUpgrade)
 	{
 		if (!OidIsValid(binary_upgrade_next_pg_type_oid))
@@ -145,17 +145,17 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 	values[Anum_pg_type_oid - 1] = ObjectIdGetDatum(typoid);
 
 	/*
-	 * create a new type tuple
+	 * 创建新的类型元组
 	 */
 	tup = heap_form_tuple(tupDesc, values, nulls);
 
 	/*
-	 * insert the tuple in the relation and get the tuple's oid.
+	 * 把元组插入关系并取得该元组的 oid。
 	 */
 	CatalogTupleInsert(pg_type_desc, tup);
 
 	/*
-	 * Create dependencies.  We can/must skip this in bootstrap mode.
+	 * 创建依赖。在引导模式下我们可/必须跳过这一步。
 	 */
 	if (!IsBootstrapProcessingMode())
 		GenerateTypeDependencies(tup,
@@ -165,16 +165,16 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 								 0,
 								 false,
 								 false,
-								 true,	/* make extension dependency */
+								 true,	/* 建立扩展依赖 */
 								 false);
 
-	/* Post creation hook for new shell type */
+	/* 新外壳类型的创建后钩子 */
 	InvokeObjectPostCreateHook(TypeRelationId, typoid, 0);
 
 	ObjectAddressSet(address, TypeRelationId, typoid);
 
 	/*
-	 * clean up and return the type-oid
+	 * 清理并返回 type-oid
 	 */
 	heap_freetuple(tup);
 	table_close(pg_type_desc, RowExclusiveLock);
@@ -185,19 +185,19 @@ TypeShellMake(const char *typeName, Oid typeNamespace, Oid ownerId)
 /* ----------------------------------------------------------------
  *		TypeCreate
  *
- *		This does all the necessary work needed to define a new type.
+ *		完成定义新类型所需的全部工作。
  *
- *		Returns the ObjectAddress assigned to the new type.
- *		If newTypeOid is zero (the normal case), a new OID is created;
- *		otherwise we use exactly that OID.
+ *		返回赋给新类型的 ObjectAddress。
+ *		若 newTypeOid 为零（正常情形），则创建新 OID；
+ *		否则我们精确使用该 OID。
  * ----------------------------------------------------------------
  */
 ObjectAddress
 TypeCreate(Oid newTypeOid,
 		   const char *typeName,
 		   Oid typeNamespace,
-		   Oid relationOid,		/* only for relation rowtypes */
-		   char relationKind,	/* ditto */
+		   Oid relationOid,		/* 仅用于关系行类型 */
+		   char relationKind,	/* 同上 */
 		   Oid ownerId,
 		   int16 internalSize,
 		   char typeType,
@@ -216,13 +216,13 @@ TypeCreate(Oid newTypeOid,
 		   bool isImplicitArray,
 		   Oid arrayType,
 		   Oid baseType,
-		   const char *defaultTypeValue,	/* human-readable rep */
-		   char *defaultTypeBin,	/* cooked rep */
+		   const char *defaultTypeValue,	/* 人类可读表示 */
+		   char *defaultTypeBin,	/* 已加工表示 */
 		   bool passedByValue,
 		   char alignment,
 		   char storage,
 		   int32 typeMod,
-		   int32 typNDims,		/* Array dimensions for baseType */
+		   int32 typNDims,		/* baseType 的数组维度 */
 		   bool typeNotNull,
 		   Oid typeCollation)
 {
@@ -240,11 +240,11 @@ TypeCreate(Oid newTypeOid,
 	ObjectAddress address;
 
 	/*
-	 * We assume that the caller validated the arguments individually, but did
-	 * not check for bad combinations.
+	 * 我们假定调用方已分别校验了各参数，但没有
+	 * 检查不良组合。
 	 *
-	 * Validate size specifications: either positive (fixed-length) or -1
-	 * (varlena) or -2 (cstring).
+	 * 校验大小规格：要么为正（定长），要么为 -1
+	 * （varlena），要么为 -2（cstring）。
 	 */
 	if (!(internalSize > 0 ||
 		  internalSize == -1 ||
@@ -257,10 +257,10 @@ TypeCreate(Oid newTypeOid,
 	if (passedByValue)
 	{
 		/*
-		 * Pass-by-value types must have a fixed length that is one of the
-		 * values supported by fetch_att() and store_att_byval(); and the
-		 * alignment had better agree, too.  All this code must match
-		 * access/tupmacs.h!
+		 * 按值传递的类型必须有固定长度，且为
+		 * fetch_att() 与 store_att_byval() 所支持的值之一；并且
+		 * 对齐也必须一致。所有这些代码必须与
+		 * access/tupmacs.h 匹配！
 		 */
 		if (internalSize == (int16) sizeof(char))
 		{
@@ -304,14 +304,14 @@ TypeCreate(Oid newTypeOid,
 	}
 	else
 	{
-		/* varlena types must have int align or better */
+		/* varlena 类型必须有 int 对齐或更好 */
 		if (internalSize == -1 &&
 			!(alignment == TYPALIGN_INT || alignment == TYPALIGN_DOUBLE))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 					 errmsg("alignment \"%c\" is invalid for variable-length type",
 							alignment)));
-		/* cstring must have char alignment */
+		/* cstring 必须有 char 对齐 */
 		if (internalSize == -2 && !(alignment == TYPALIGN_CHAR))
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
@@ -319,25 +319,25 @@ TypeCreate(Oid newTypeOid,
 							alignment)));
 	}
 
-	/* Only varlena types can be toasted */
+	/* 只有 varlena 类型可以被 toast */
 	if (storage != TYPSTORAGE_PLAIN && internalSize != -1)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_OBJECT_DEFINITION),
 				 errmsg("fixed-size types must have storage PLAIN")));
 
 	/*
-	 * This is a dependent type if it's an implicitly-created array type, or
-	 * if it's a relation rowtype that's not a composite type.  For such types
-	 * we'll leave the ACL empty, and we'll skip creating some dependency
-	 * records because there will be a dependency already through the
-	 * depended-on type or relation.  (Caution: this is closely intertwined
-	 * with some behavior in GenerateTypeDependencies.)
+	 * 若它是隐式创建的数组类型，或
+	 * 是非复合类型的关系行类型，则为依赖类型。对此类类型
+	 * 我们将让 ACL 为空，并跳过创建某些依赖
+	 * 记录，因为通过被依赖的类型或关系已有依赖。
+	 * （注意：这与 GenerateTypeDependencies 中的某些行为
+	 * 紧密交织。）
 	 */
 	isDependentType = isImplicitArray ||
 		(OidIsValid(relationOid) && relationKind != RELKIND_COMPOSITE_TYPE);
 
 	/*
-	 * initialize arrays needed for heap_form_tuple or heap_modify_tuple
+	 * 初始化 heap_form_tuple 或 heap_modify_tuple 所需的数组
 	 */
 	for (i = 0; i < Natts_pg_type; ++i)
 	{
@@ -347,7 +347,7 @@ TypeCreate(Oid newTypeOid,
 	}
 
 	/*
-	 * insert data values
+	 * 插入数据值
 	 */
 	namestrcpy(&name, typeName);
 	values[Anum_pg_type_typname - 1] = NameGetDatum(&name);
@@ -380,8 +380,8 @@ TypeCreate(Oid newTypeOid,
 	values[Anum_pg_type_typcollation - 1] = ObjectIdGetDatum(typeCollation);
 
 	/*
-	 * initialize the default binary value for this type.  Check for nulls of
-	 * course.
+	 * 初始化此类型的默认二进制值。当然要
+	 * 检查空值。
 	 */
 	if (defaultTypeBin)
 		values[Anum_pg_type_typdefaultbin - 1] = CStringGetTextDatum(defaultTypeBin);
@@ -389,7 +389,7 @@ TypeCreate(Oid newTypeOid,
 		nulls[Anum_pg_type_typdefaultbin - 1] = true;
 
 	/*
-	 * initialize the default value for this type.
+	 * 初始化此类型的默认值。
 	 */
 	if (defaultTypeValue)
 		values[Anum_pg_type_typdefault - 1] = CStringGetTextDatum(defaultTypeValue);
@@ -397,7 +397,7 @@ TypeCreate(Oid newTypeOid,
 		nulls[Anum_pg_type_typdefault - 1] = true;
 
 	/*
-	 * Initialize the type's ACL, too.  But dependent types don't get one.
+	 * 也初始化该类型的 ACL。但依赖类型没有 ACL。
 	 */
 	if (isDependentType)
 		typacl = NULL;
@@ -410,10 +410,10 @@ TypeCreate(Oid newTypeOid,
 		nulls[Anum_pg_type_typacl - 1] = true;
 
 	/*
-	 * open pg_type and prepare to insert or update a row.
+	 * 打开 pg_type 并准备插入或更新一行。
 	 *
-	 * NOTE: updating will not work correctly in bootstrap mode; but we don't
-	 * expect to be overwriting any shell types in bootstrap mode.
+	 * 注意：在引导模式下更新不能正确工作；但我们不
+	 * 期望在引导模式下覆盖任何外壳类型。
 	 */
 	pg_type_desc = table_open(TypeRelationId, RowExclusiveLock);
 
@@ -425,8 +425,8 @@ TypeCreate(Oid newTypeOid,
 		Form_pg_type typform = (Form_pg_type) GETSTRUCT(tup);
 
 		/*
-		 * check that the type is not already defined.  It may exist as a
-		 * shell type, however.
+		 * 检查该类型尚未定义。不过它可能作为
+		 * 外壳类型存在。
 		 */
 		if (typform->typisdefined)
 			ereport(ERROR,
@@ -434,19 +434,19 @@ TypeCreate(Oid newTypeOid,
 					 errmsg("type \"%s\" already exists", typeName)));
 
 		/*
-		 * shell type must have been created by same owner
+		 * 外壳类型必须由同一所有者创建
 		 */
 		if (typform->typowner != ownerId)
 			aclcheck_error(ACLCHECK_NOT_OWNER, OBJECT_TYPE, typeName);
 
-		/* trouble if caller wanted to force the OID */
+		/* 若调用方想强制 OID 则会出问题 */
 		if (OidIsValid(newTypeOid))
 			elog(ERROR, "cannot assign new OID to existing shell type");
 
 		replaces[Anum_pg_type_oid - 1] = false;
 
 		/*
-		 * Okay to update existing shell type tuple
+		 * 可以更新已有的外壳类型元组了
 		 */
 		tup = heap_modify_tuple(tup,
 								RelationGetDescr(pg_type_desc),
@@ -458,14 +458,14 @@ TypeCreate(Oid newTypeOid,
 
 		typeObjectId = typform->oid;
 
-		rebuildDeps = true;		/* get rid of shell type's dependencies */
+		rebuildDeps = true;		/* 去掉外壳类型的依赖 */
 	}
 	else
 	{
-		/* Force the OID if requested by caller */
+		/* 若调用方请求则强制 OID */
 		if (OidIsValid(newTypeOid))
 			typeObjectId = newTypeOid;
-		/* Use binary-upgrade override for pg_type.oid, if supplied. */
+		/* 若提供了，则对 pg_type.oid 使用二进制升级覆盖。 */
 		else if (IsBinaryUpgrade)
 		{
 			if (!OidIsValid(binary_upgrade_next_pg_type_oid))
@@ -491,7 +491,7 @@ TypeCreate(Oid newTypeOid,
 	}
 
 	/*
-	 * Create dependencies.  We can/must skip this in bootstrap mode.
+	 * 创建依赖。在引导模式下我们可/必须跳过这一步。
 	 */
 	if (!IsBootstrapProcessingMode())
 		GenerateTypeDependencies(tup,
@@ -503,16 +503,16 @@ TypeCreate(Oid newTypeOid,
 								 relationKind,
 								 isImplicitArray,
 								 isDependentType,
-								 true,	/* make extension dependency */
+								 true,	/* 建立扩展依赖 */
 								 rebuildDeps);
 
-	/* Post creation hook for new type */
+	/* 新类型的创建后钩子 */
 	InvokeObjectPostCreateHook(TypeRelationId, typeObjectId, 0);
 
 	ObjectAddressSet(address, TypeRelationId, typeObjectId);
 
 	/*
-	 * finish up
+	 * 收尾
 	 */
 	table_close(pg_type_desc, RowExclusiveLock);
 
@@ -520,44 +520,44 @@ TypeCreate(Oid newTypeOid,
 }
 
 /*
- * GenerateTypeDependencies: build the dependencies needed for a type
+ * GenerateTypeDependencies: 构建类型所需的依赖
  *
- * Most of what this function needs to know about the type is passed as the
- * new pg_type row, typeTuple.  We make callers pass the pg_type Relation
- * as well, so that we have easy access to a tuple descriptor for the row.
+ * 本函数需要了解的关于该类型的大部分信息通过
+ * 新的 pg_type 行 typeTuple 传入。我们还让调用方传入
+ * pg_type Relation，以便我们能方便地取得该行的元组描述符。
  *
- * While this is able to extract the defaultExpr and typacl from the tuple,
- * doing so is relatively expensive, and callers may have those values at
- * hand already.  Pass those if handy, otherwise pass NULL.  (typacl is really
- * "Acl *", but we declare it "void *" to avoid including acl.h in pg_type.h.)
+ * 虽然本函数能从元组中提取 defaultExpr 与 typacl，
+ * 但这样做相对昂贵，且调用方可能手头已有这些值。
+ * 若方便则传入，否则传 NULL。（typacl 实际上是
+ * "Acl *"，但我们把它声明为 "void *"，以免在
+ * pg_type.h 中包含 acl.h。）
  *
- * relationKind and isImplicitArray are likewise somewhat expensive to deduce
- * from the tuple, so we make callers pass those (they're not optional).
+ * relationKind 与 isImplicitArray 从元组推导也相对昂贵，
+ * 因此我们让调用方传入它们（它们不是可选的）。
  *
- * isDependentType is true if this is an implicit array or relation rowtype;
- * that means it doesn't need its own dependencies on owner etc.
+ * 若这是隐式数组或关系行类型，则 isDependentType 为真；
+ * 这意味着它不需要自己对所有者等的依赖。
  *
- * We make an extension-membership dependency if we're in an extension
- * script and makeExtensionDep is true (and isDependentType isn't true).
- * makeExtensionDep should be true when creating a new type or replacing a
- * shell type, but not for ALTER TYPE on an existing type.  Passing false
- * causes the type's extension membership to be left alone.
+ * 若我们在扩展脚本中且 makeExtensionDep 为真（且
+ * isDependentType 不为真），则建立扩展成员依赖。
+ * 创建新类型或替换外壳类型时应使 makeExtensionDep 为真，
+ * 但对已有类型的 ALTER TYPE 则否。传入 false
+ * 会使该类型的扩展成员关系保持不动。
  *
- * rebuild should be true if this is a pre-existing type.  We will remove
- * existing dependencies and rebuild them from scratch.  This is needed for
- * ALTER TYPE, and also when replacing a shell type.  We don't remove any
- * existing extension dependency, though; hence, if makeExtensionDep is also
- * true and we're in an extension script, an error will occur unless the
- * type already belongs to the current extension.  That's the behavior we
- * want when replacing a shell type, which is the only case where both flags
- * are true.
+ * 若这是预先存在的类型，rebuild 应为真。我们将移除
+ * 已有依赖并从零重建。这对 ALTER TYPE 以及替换外壳类型
+ * 是需要的。不过我们不移除任何已有扩展依赖；因此，若
+ * makeExtensionDep 也为真且我们在扩展脚本中，除非该类型
+ * 已属于当前扩展，否则会发生错误。这正是我们在替换
+ * 外壳类型时所要的行为，而那也是两个标志都为真的
+ * 唯一情形。
  */
 void
 GenerateTypeDependencies(HeapTuple typeTuple,
 						 Relation typeCatalog,
 						 Node *defaultExpr,
 						 void *typacl,
-						 char relationKind, /* only for relation rowtypes */
+						 char relationKind, /* 仅用于关系行类型 */
 						 bool isImplicitArray,
 						 bool isDependentType,
 						 bool makeExtensionDep,
@@ -571,7 +571,7 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 				referenced;
 	ObjectAddresses *addrs_normal;
 
-	/* Extract defaultExpr if caller didn't pass it */
+	/* 若调用方未传入则提取 defaultExpr */
 	if (defaultExpr == NULL)
 	{
 		datum = heap_getattr(typeTuple, Anum_pg_type_typdefaultbin,
@@ -579,7 +579,7 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 		if (!isNull)
 			defaultExpr = stringToNode(TextDatumGetCString(datum));
 	}
-	/* Extract typacl if caller didn't pass it */
+	/* 若调用方未传入则提取 typacl */
 	if (typacl == NULL)
 	{
 		datum = heap_getattr(typeTuple, Anum_pg_type_typacl,
@@ -588,7 +588,7 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 			typacl = DatumGetAclPCopy(datum);
 	}
 
-	/* If rebuild, first flush old dependencies, except extension deps */
+	/* 若 rebuild，先冲刷旧依赖，扩展依赖除外 */
 	if (rebuild)
 	{
 		deleteDependencyRecordsFor(TypeRelationId, typeObjectId, true);
@@ -598,13 +598,13 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 	ObjectAddressSet(myself, TypeRelationId, typeObjectId);
 
 	/*
-	 * Make dependencies on namespace, owner, ACL, extension.
+	 * 建立对命名空间、所有者、ACL、扩展的依赖。
 	 *
-	 * Skip these for a dependent type, since it will have such dependencies
-	 * indirectly through its depended-on type or relation.
+	 * 对依赖类型跳过这些，因为它会通过其被依赖的
+	 * 类型或关系间接拥有此类依赖。
 	 */
 
-	/* placeholder for all normal dependencies */
+	/* 所有正常依赖的占位 */
 	addrs_normal = new_object_addresses();
 
 	if (!isDependentType)
@@ -623,7 +623,7 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 			recordDependencyOnCurrentExtension(&myself, rebuild);
 	}
 
-	/* Normal dependencies on the I/O and support functions */
+	/* 对 I/O 与支持函数的正常依赖 */
 	if (OidIsValid(typeForm->typinput))
 	{
 		ObjectAddressSet(referenced, ProcedureRelationId, typeForm->typinput);
@@ -672,7 +672,7 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 		add_exact_object_address(&referenced, addrs_normal);
 	}
 
-	/* Normal dependency from a domain to its base type. */
+	/* 从域到其基类型的正常依赖。 */
 	if (OidIsValid(typeForm->typbasetype))
 	{
 		ObjectAddressSet(referenced, TypeRelationId, typeForm->typbasetype);
@@ -680,8 +680,8 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 	}
 
 	/*
-	 * Normal dependency from a domain to its collation.  We know the default
-	 * collation is pinned, so don't bother recording it.
+	 * 从域到其排序规则的正常依赖。我们知道默认
+	 * 排序规则是钉住的，因此不必记录它。
 	 */
 	if (OidIsValid(typeForm->typcollation) &&
 		typeForm->typcollation != DEFAULT_COLLATION_OID)
@@ -693,18 +693,18 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 	record_object_address_dependencies(&myself, addrs_normal, DEPENDENCY_NORMAL);
 	free_object_addresses(addrs_normal);
 
-	/* Normal dependency on the default expression. */
+	/* 对默认表达式的正常依赖。 */
 	if (defaultExpr)
 		recordDependencyOnExpr(&myself, defaultExpr, NIL, DEPENDENCY_NORMAL);
 
 	/*
-	 * If the type is a rowtype for a relation, mark it as internally
-	 * dependent on the relation, *unless* it is a stand-alone composite type
-	 * relation. For the latter case, we have to reverse the dependency.
+	 * 若该类型是关系的行类型，则将其标记为在内部
+	 * 依赖于该关系，*除非* 它是独立的复合类型
+	 * 关系。对后一种情形，我们必须反转依赖。
 	 *
-	 * In the former case, this allows the type to be auto-dropped when the
-	 * relation is, and not otherwise. And in the latter, of course we get the
-	 * opposite effect.
+	 * 在前一种情形下，这允许在关系被删除时类型被
+	 * 自动删除，否则则否。而在后一种情形下，当然我们得到
+	 * 相反的效果。
 	 */
 	if (OidIsValid(typeForm->typrelid))
 	{
@@ -717,9 +717,9 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 	}
 
 	/*
-	 * If the type is an implicitly-created array type, mark it as internally
-	 * dependent on the element type.  Otherwise, if it has an element type,
-	 * the dependency is a normal one.
+	 * 若该类型是隐式创建的数组类型，则将其标记为在内部
+	 * 依赖于元素类型。否则，若它有元素类型，
+	 * 则依赖为正常依赖。
 	 */
 	if (OidIsValid(typeForm->typelem))
 	{
@@ -731,12 +731,12 @@ GenerateTypeDependencies(HeapTuple typeTuple,
 
 /*
  * RenameTypeInternal
- *		This renames a type, as well as any associated array type.
+ *		重命名类型，以及任何关联的数组类型。
  *
- * Caller must have already checked privileges.
+ * 调用方必须已经检查过权限。
  *
- * Currently this is used for renaming table rowtypes and for
- * ALTER TYPE RENAME TO command.
+ * 目前这用于重命名表行类型以及
+ * ALTER TYPE RENAME TO 命令。
  */
 void
 RenameTypeInternal(Oid typeOid, const char *newTypeName, Oid typeNamespace)
@@ -754,35 +754,35 @@ RenameTypeInternal(Oid typeOid, const char *newTypeName, Oid typeNamespace)
 		elog(ERROR, "cache lookup failed for type %u", typeOid);
 	typ = (Form_pg_type) GETSTRUCT(tuple);
 
-	/* We are not supposed to be changing schemas here */
+	/* 我们不应在这里更改模式 */
 	Assert(typeNamespace == typ->typnamespace);
 
 	arrayOid = typ->typarray;
 
-	/* Check for a conflicting type name. */
+	/* 检查是否有冲突的类型名。 */
 	oldTypeOid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 								 CStringGetDatum(newTypeName),
 								 ObjectIdGetDatum(typeNamespace));
 
 	/*
-	 * If there is one, see if it's an autogenerated array type, and if so
-	 * rename it out of the way.  (But we must skip that for a shell type
-	 * because moveArrayTypeName will do the wrong thing in that case.)
-	 * Otherwise, we can at least give a more friendly error than unique-index
-	 * violation.
+	 * 若有，看它是否是自动生成的数组类型，若是则
+	 * 把它重命名到一边。（但对外壳类型必须跳过，
+	 * 因为那种情况下 moveArrayTypeName 会做错事。）
+	 * 否则，我们至少可以给出比唯一索引冲突更友好的
+	 * 错误。
 	 */
 	if (OidIsValid(oldTypeOid))
 	{
 		if (get_typisdefined(oldTypeOid) &&
 			moveArrayTypeName(oldTypeOid, newTypeName, typeNamespace))
-			 /* successfully dodged the problem */ ;
+			 /* 成功避开了问题 */ ;
 		else
 			ereport(ERROR,
 					(errcode(ERRCODE_DUPLICATE_OBJECT),
 					 errmsg("type \"%s\" already exists", newTypeName)));
 	}
 
-	/* OK, do the rename --- tuple is a copy, so OK to scribble on it */
+	/* 好，执行重命名 --- 元组是副本，涂改它没问题 */
 	namestrcpy(&(typ->typname), newTypeName);
 
 	CatalogTupleUpdate(pg_type_desc, &tuple->t_self, tuple);
@@ -793,9 +793,9 @@ RenameTypeInternal(Oid typeOid, const char *newTypeName, Oid typeNamespace)
 	table_close(pg_type_desc, RowExclusiveLock);
 
 	/*
-	 * If the type has an array type, recurse to handle that.  But we don't
-	 * need to do anything more if we already renamed that array type above
-	 * (which would happen when, eg, renaming "foo" to "_foo").
+	 * 若该类型有数组类型，则递归处理。但若我们上面已经
+	 * 重命名了该数组类型，则无需再做任何事
+	 * （例如把 "foo" 重命名为 "_foo" 时会发生）。
 	 */
 	if (OidIsValid(arrayOid) && arrayOid != oldTypeOid)
 	{
@@ -809,9 +809,9 @@ RenameTypeInternal(Oid typeOid, const char *newTypeName, Oid typeNamespace)
 
 /*
  * makeArrayTypeName
- *	  - given a base type name, make an array type name for it
+ *	  - 给定基类型名，为其生成数组类型名
  *
- * the caller is responsible for pfreeing the result
+ * 调用方负责 pfree 结果
  */
 char *
 makeArrayTypeName(const char *typeName, Oid typeNamespace)
@@ -821,20 +821,20 @@ makeArrayTypeName(const char *typeName, Oid typeNamespace)
 	char		suffix[NAMEDATALEN];
 
 	/*
-	 * Per ancient Postgres tradition, array type names are made by prepending
-	 * an underscore to the base type name.  Much client code knows that
-	 * convention, so don't muck with it.  However, the tradition is less
-	 * clear about what to do in the corner cases where the resulting name is
-	 * too long or conflicts with an existing name.  Our current rules are (1)
-	 * truncate the base name on the right as needed, and (2) if there is a
-	 * conflict, append another underscore and some digits chosen to make it
-	 * unique.  This is similar to what ChooseRelationName() does.
+	 * 按古老的 Postgres 传统，数组类型名通过在基类型名前
+	 * 加下划线生成。许多客户端代码知道这一约定，因此不要
+	 * 乱动。不过，在结果名过长或与已有名冲突的边角情形下，
+	 * 传统就不那么清楚了。我们当前的规则是 (1) 按需从右侧
+	 * 截断基名，以及 (2) 若有冲突，再追加一个下划线和一些
+	 * 选定的数字以使其唯一。这与
+	 * ChooseRelationName() 的做法
+	 * 类似。
 	 *
-	 * The actual name generation can be farmed out to makeObjectName() by
-	 * giving it an empty first name component.
+	 * 实际的名称生成可通过给 makeObjectName() 一个空的第一
+	 * 名称组件来外包出去。
 	 */
 
-	/* First, try with no numeric suffix */
+	/* 首先尝试不带数字后缀 */
 	arr_name = makeObjectName("", typeName, NULL);
 
 	for (;;)
@@ -844,7 +844,7 @@ makeArrayTypeName(const char *typeName, Oid typeNamespace)
 								   ObjectIdGetDatum(typeNamespace)))
 			break;
 
-		/* That attempt conflicted.  Prepare a new name with some digits. */
+		/* 该尝试冲突了。准备一个带一些数字的新名。 */
 		pfree(arr_name);
 		snprintf(suffix, sizeof(suffix), "%d", ++pass);
 		arr_name = makeObjectName("", typeName, suffix);
@@ -856,27 +856,27 @@ makeArrayTypeName(const char *typeName, Oid typeNamespace)
 
 /*
  * moveArrayTypeName
- *	  - try to reassign an array type name that the user wants to use.
+ *	  - 尝试重新分配用户想要使用的数组类型名。
  *
- * The given type name has been discovered to already exist (with the given
- * OID).  If it is an autogenerated array type, change the array type's name
- * to not conflict.  This allows the user to create type "foo" followed by
- * type "_foo" without problems.  (Of course, there are race conditions if
- * two backends try to create similarly-named types concurrently, but the
- * worst that can happen is an unnecessary failure --- anything we do here
- * will be rolled back if the type creation fails due to conflicting names.)
+ * 已发现给定类型名已存在（具有给定
+ * OID）。若它是自动生成的数组类型，则更改该数组类型的名称
+ * 以免冲突。这允许用户先创建类型 "foo" 再创建
+ * 类型 "_foo" 而不出问题。（当然，若两个后端并发尝试创建
+ * 相似名称的类型，会有竞态条件，但最坏情况只是
+ * 不必要的失败 --- 若类型创建因名称冲突而失败，
+ * 我们在这里做的任何事都会被回滚。）
  *
- * Note that this must be called *before* calling makeArrayTypeName to
- * determine the new type's own array type name; else the latter will
- * certainly pick the same name.
+ * 注意必须在调用 makeArrayTypeName 以确定
+ * 新类型自己的数组类型名 *之前* 调用本函数；否则后者
+ * 肯定会挑同一个名字。
  *
- * Returns true if successfully moved the type, false if not.
+ * 成功移动类型则返回 true，否则返回 false。
  *
- * We also return true if the given type is a shell type.  In this case
- * the type has not been renamed out of the way, but nonetheless it can
- * be expected that TypeCreate will succeed.  This behavior is convenient
- * for most callers --- those that need to distinguish the shell-type case
- * must do their own typisdefined test.
+ * 若给定类型是外壳类型，我们也返回 true。这种情况下
+ * 类型尚未被重命名到一边，但仍可预期
+ * TypeCreate 会成功。这对大多数调用方很方便 ---
+ * 需要区分外壳类型情形的调用方必须自己做
+ * typisdefined 测试。
  */
 bool
 moveArrayTypeName(Oid typeOid, const char *typeName, Oid typeNamespace)
@@ -884,30 +884,30 @@ moveArrayTypeName(Oid typeOid, const char *typeName, Oid typeNamespace)
 	Oid			elemOid;
 	char	   *newname;
 
-	/* We need do nothing if it's a shell type. */
+	/* 若是外壳类型则无需做任何事。 */
 	if (!get_typisdefined(typeOid))
 		return true;
 
-	/* Can't change it if it's not an autogenerated array type. */
+	/* 若不是自动生成的数组类型则不能更改。 */
 	elemOid = get_element_type(typeOid);
 	if (!OidIsValid(elemOid) ||
 		get_array_type(elemOid) != typeOid)
 		return false;
 
 	/*
-	 * OK, use makeArrayTypeName to pick an unused modification of the name.
-	 * Note that since makeArrayTypeName is an iterative process, this will
-	 * produce a name that it might have produced the first time, had the
-	 * conflicting type we are about to create already existed.
+	 * 好，用 makeArrayTypeName 挑一个未使用的名称变体。
+	 * 注意由于 makeArrayTypeName 是迭代过程，这将
+	 * 产生一个若我们即将创建的冲突类型已存在时
+	 * 它第一次就可能产生的名字。
 	 */
 	newname = makeArrayTypeName(typeName, typeNamespace);
 
-	/* Apply the rename */
+	/* 应用重命名 */
 	RenameTypeInternal(typeOid, newname, typeNamespace);
 
 	/*
-	 * We must bump the command counter so that any subsequent use of
-	 * makeArrayTypeName sees what we just did and doesn't pick the same name.
+	 * 我们必须推进命令计数器，以便后续使用
+	 * makeArrayTypeName 时能看到我们刚做的事，不会挑同一个名字。
 	 */
 	CommandCounterIncrement();
 
@@ -919,9 +919,9 @@ moveArrayTypeName(Oid typeOid, const char *typeName, Oid typeNamespace)
 
 /*
  * makeMultirangeTypeName
- *	  - given a range type name, make a multirange type name for it
+ *	  - 给定范围类型名，为其生成多范围类型名
  *
- * caller is responsible for pfreeing the result
+ * 调用方负责 pfree 结果
  */
 char *
 makeMultirangeTypeName(const char *rangeTypeName, Oid typeNamespace)
@@ -930,8 +930,8 @@ makeMultirangeTypeName(const char *rangeTypeName, Oid typeNamespace)
 	char	   *rangestr;
 
 	/*
-	 * If the range type name contains "range" then change that to
-	 * "multirange". Otherwise add "_multirange" to the end.
+	 * 若范围类型名包含 "range" 则将其改为
+	 * "multirange"。否则在末尾添加 "_multirange"。
 	 */
 	rangestr = strstr(rangeTypeName, "range");
 	if (rangestr)
@@ -943,7 +943,7 @@ makeMultirangeTypeName(const char *rangeTypeName, Oid typeNamespace)
 	else
 		buf = psprintf("%s_multirange", pnstrdup(rangeTypeName, NAMEDATALEN - 12));
 
-	/* clip it at NAMEDATALEN-1 bytes */
+	/* 在 NAMEDATALEN-1 字节处截断 */
 	buf[pg_mbcliplen(buf, strlen(buf), NAMEDATALEN - 1)] = '\0';
 
 	if (SearchSysCacheExists2(TYPENAMENSP,

@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "batch_id": "0211-comment-catalog-part4",
+  "title": "zh: translate catalog comments (part 4)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2d5987522514983006eb34bfe16524550559093a",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/pg_aggregate.c",
+      "kind": "c_comment",
+      "note": "aggregate catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_type.c",
+      "kind": "c_comment",
+      "note": "type catalog helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/storage.c",
+      "kind": "c_comment",
+      "note": "relation storage helpers"
+    },
+    {
+      "pattern": "src/backend/catalog/pg_publication.c",
+      "kind": "c_comment",
+      "note": "publication catalog helpers"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0211-comment-catalog-part4.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/pg_aggregate.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 97,
+      "translated": 97,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "aggregate catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_type.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 76,
+      "translated": 76,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "type catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/storage.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 87,
+      "translated": 87,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "relation storage helpers; NOTES translated; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/catalog/pg_publication.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 86,
+      "translated": 86,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "publication catalog helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0211-comment-catalog-part4.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0211 translates comments in four src/backend/catalog/ .c files (part 4): pg_aggregate.c, pg_type.c, storage.c, pg_publication.c. Copyright and IDENTIFICATION lines stay in English; NOTES in storage.c translated. Next suggested: pg_proc.c + pg_constraint.c, or a single larger remaining catalog file."
+}

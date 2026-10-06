@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * twophase.c
- *		Two-phase commit support functions.
+ *		两阶段提交支持函数。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -10,62 +10,62 @@
  *		src/backend/access/transam/twophase.c
  *
  * NOTES
- *		Each global transaction is associated with a global transaction
- *		identifier (GID). The client assigns a GID to a postgres
- *		transaction with the PREPARE TRANSACTION command.
+ *		每个全局事务都关联一个全局事务
+ *		标识符（GID）。客户端通过 PREPARE TRANSACTION
+ *		命令为 postgres 事务指定 GID。
  *
- *		We keep all active global transactions in a shared memory array.
- *		When the PREPARE TRANSACTION command is issued, the GID is
- *		reserved for the transaction in the array. This is done before
- *		a WAL entry is made, because the reservation checks for duplicate
- *		GIDs and aborts the transaction if there already is a global
- *		transaction in prepared state with the same GID.
+ *		我们把所有活动的全局事务保存在共享内存数组中。
+ *		发出 PREPARE TRANSACTION 命令时，会在数组中为
+ *		该事务预留 GID。这必须在写入 WAL 记录之前完成，
+ *		因为预留会检查重复 GIDs；若已有相同 GID 的全局
+ *		事务处于预备状态，则中止当前
+ *		事务。
  *
- *		A global transaction (gxact) also has dummy PGPROC; this is what keeps
- *		the XID considered running by TransactionIdIsInProgress.  It is also
- *		convenient as a PGPROC to hook the gxact's locks to.
+ *		全局事务（gxact）还有哑元 PGPROC；正是它让
+ *		TransactionIdIsInProgress 仍将该 XID 视为在运行。它也
+ *		便于作为挂接 gxact 锁的 PGPROC。
  *
- *		Information to recover prepared transactions in case of crash is
- *		now stored in WAL for the common case. In some cases there will be
- *		an extended period between preparing a GXACT and commit/abort, in
- *		which case we need to separately record prepared transaction data
- *		in permanent storage. This includes locking information, pending
- *		notifications etc. All that state information is written to the
- *		per-transaction state file in the pg_twophase directory.
- *		All prepared transactions will be written prior to shutdown.
+ *		崩溃时用于恢复预备事务的信息，常见情况下
+ *		现在保存在 WAL 中。有时从预备某个 GXACT 到提交/中止
+ *		之间会隔很长时间，这时需要把预备事务数据
+ *		另行记录到永久存储。这包括加锁信息、挂起的
+ *		通知等。所有这些状态信息都写入
+ *		pg_twophase 目录中按事务划分的状态
+ *		文件。关闭前会写出所有预备
+ *		事务。
  *
- *		Life track of state data is following:
+ *		状态数据的生命周期如下：
  *
- *		* On PREPARE TRANSACTION backend writes state data only to the WAL and
- *		  stores pointer to the start of the WAL record in
- *		  gxact->prepare_start_lsn.
- *		* If COMMIT occurs before checkpoint then backend reads data from WAL
- *		  using prepare_start_lsn.
- *		* On checkpoint state data copied to files in pg_twophase directory and
- *		  fsynced
- *		* If COMMIT happens after checkpoint then backend reads state data from
- *		  files
+ *		* 在 PREPARE TRANSACTION 时，后端只把状态数据写入 WAL，并
+ *		  把指向该 WAL 记录起点的指针存到
+ *		  gxact->prepare_start_lsn。
+ *		* 若 COMMIT 发生在检查点之前，后端用 prepare_start_lsn
+ *		  从 WAL 读取数据。
+ *		* 检查点时把状态数据复制到 pg_twophase 目录中的文件并
+ *		  fsync
+ *		* 若 COMMIT 发生在检查点之后，后端从文件
+ *		  读取状态数据
  *
- *		During replay and replication, TwoPhaseState also holds information
- *		about active prepared transactions that haven't been moved to disk yet.
+ *		重放与复制期间，TwoPhaseState 还保存尚未落盘的
+ *		活动预备事务信息。
  *
- *		Replay of twophase records happens by the following rules:
+ *		twophase 记录按以下规则重放：
  *
- *		* At the beginning of recovery, pg_twophase is scanned once, filling
- *		  TwoPhaseState with entries marked with gxact->inredo and
- *		  gxact->ondisk.  Two-phase file data older than the XID horizon of
- *		  the redo position are discarded.
- *		* On PREPARE redo, the transaction is added to TwoPhaseState->prepXacts.
- *		  gxact->inredo is set to true for such entries.
- *		* On Checkpoint we iterate through TwoPhaseState->prepXacts entries
- *		  that have gxact->inredo set and are behind the redo_horizon. We
- *		  save them to disk and then switch gxact->ondisk to true.
- *		* On COMMIT/ABORT we delete the entry from TwoPhaseState->prepXacts.
- *		  If gxact->ondisk is true, the corresponding entry from the disk
- *		  is additionally deleted.
- *		* RecoverPreparedTransactions(), StandbyRecoverPreparedTransactions()
- *		  and PrescanPreparedTransactions() have been modified to go through
- *		  gxact->inredo entries that have not made it to disk.
+ *		* 恢复开始时扫描一次 pg_twophase，向
+ *		  TwoPhaseState 填入带 gxact->inredo 与
+ *		  gxact->ondisk 标记的项。早于 redo 位置 XID 地平线的
+ *		  两阶段文件数据会被丢弃。
+ *		* PREPARE 的 redo 时，事务加入 TwoPhaseState->prepXacts。
+ *		  这类项的 gxact->inredo 置为 true。
+ *		* 检查点时遍历 TwoPhaseState->prepXacts 中
+ *		  gxact->inredo 已置位且落后于 redo_horizon 的项。我们
+ *		  将其保存到磁盘，再把 gxact->ondisk 改为 true。
+ *		* COMMIT/ABORT 时从 TwoPhaseState->prepXacts 删除该项。
+ *		  若 gxact->ondisk 为 true，还要删除磁盘上
+ *		  对应项。
+ *		* RecoverPreparedTransactions()、StandbyRecoverPreparedTransactions()
+ *		  与 PrescanPreparedTransactions() 已改为也会遍历
+ *		  尚未落盘的 gxact->inredo 项。
  *
  *-------------------------------------------------------------------------
  */
@@ -110,92 +110,92 @@
 #include "utils/timestamp.h"
 
 /*
- * Directory where Two-phase commit files reside within PGDATA
+ * PGDATA 内两阶段提交文件所在的目录
  */
 #define TWOPHASE_DIR "pg_twophase"
 
-/* GUC variable, can't be changed after startup */
+/* GUC 变量，启动后不能更改 */
 int			max_prepared_xacts = 0;
 
 /*
- * This struct describes one global transaction that is in prepared state
- * or attempting to become prepared.
+ * 本结构描述一个处于预备状态、或正试图成为预备状态的
+ * 全局事务。
  *
- * The lifecycle of a global transaction is:
+ * 全局事务的生命周期是：
  *
- * 1. After checking that the requested GID is not in use, set up an entry in
- * the TwoPhaseState->prepXacts array with the correct GID and valid = false,
- * and mark it as locked by my backend.
+ * 1. 检查所请求的 GID 未被占用后，在
+ * TwoPhaseState->prepXacts 数组中建立一项，填入正确 GID 且 valid = false，
+ * 并标记为由本后端锁定。
  *
- * 2. After successfully completing prepare, set valid = true and enter the
- * referenced PGPROC into the global ProcArray.
+ * 2. 成功完成预备后，将 valid = true，并把所引用的
+ * PGPROC 放入全局 ProcArray。
  *
- * 3. To begin COMMIT PREPARED or ROLLBACK PREPARED, check that the entry is
- * valid and not locked, then mark the entry as locked by storing my current
- * backend ID into locking_backend.  This prevents concurrent attempts to
- * commit or rollback the same prepared xact.
+ * 3. 开始 COMMIT PREPARED 或 ROLLBACK PREPARED 时，检查该项
+ * 有效且未锁定，然后把当前后端 ID 存入 locking_backend
+ * 以标记锁定。这可防止并发地尝试
+ * 提交或回滚同一预备事务。
  *
- * 4. On completion of COMMIT PREPARED or ROLLBACK PREPARED, remove the entry
- * from the ProcArray and the TwoPhaseState->prepXacts array and return it to
- * the freelist.
+ * 4. COMMIT PREPARED 或 ROLLBACK PREPARED 完成后，从
+ * ProcArray 与 TwoPhaseState->prepXacts 数组中移除该项，并将其归还
+ * 空闲列表。
  *
- * Note that if the preparing transaction fails between steps 1 and 2, the
- * entry must be removed so that the GID and the GlobalTransaction struct
- * can be reused.  See AtAbort_Twophase().
+ * 注意：若预备中的事务在步骤 1 与 2 之间失败，必须
+ * 移除该项，以便 GID 与 GlobalTransaction 结构
+ * 可被复用。参见 AtAbort_Twophase()。
  *
- * typedef struct GlobalTransactionData *GlobalTransaction appears in
+ * typedef struct GlobalTransactionData *GlobalTransaction 出现在
  * twophase.h
  */
 
 typedef struct GlobalTransactionData
 {
-	GlobalTransaction next;		/* list link for free list */
-	int			pgprocno;		/* ID of associated dummy PGPROC */
-	BackendId	dummyBackendId; /* similar to backend id for backends */
-	TimestampTz prepared_at;	/* time of preparation */
+	GlobalTransaction next;		/* 空闲列表的链表链接 */
+	int			pgprocno;		/* 关联哑元 PGPROC 的 ID */
+	BackendId	dummyBackendId; /* 类似于后端的 backend id */
+	TimestampTz prepared_at;	/* 预备时间 */
 
 	/*
-	 * Note that we need to keep track of two LSNs for each GXACT. We keep
-	 * track of the start LSN because this is the address we must use to read
-	 * state data back from WAL when committing a prepared GXACT. We keep
-	 * track of the end LSN because that is the LSN we need to wait for prior
-	 * to commit.
+	 * 注意：每个 GXACT 需要跟踪两个 LSNs。我们跟踪
+	 * 起始 LSN，因为提交预备 GXACT 时必须用该地址
+	 * 从 WAL 读回状态数据。我们跟踪
+	 * 结束 LSN，因为提交前需要等待到
+	 * 该 LSN。
 	 */
-	XLogRecPtr	prepare_start_lsn;	/* XLOG offset of prepare record start */
-	XLogRecPtr	prepare_end_lsn;	/* XLOG offset of prepare record end */
-	TransactionId xid;			/* The GXACT id */
+	XLogRecPtr	prepare_start_lsn;	/* 预备记录起点的 XLOG 偏移 */
+	XLogRecPtr	prepare_end_lsn;	/* 预备记录终点的 XLOG 偏移 */
+	TransactionId xid;			/* 该 GXACT 的 id */
 
-	Oid			owner;			/* ID of user that executed the xact */
-	BackendId	locking_backend;	/* backend currently working on the xact */
-	bool		valid;			/* true if PGPROC entry is in proc array */
-	bool		ondisk;			/* true if prepare state file is on disk */
-	bool		inredo;			/* true if entry was added via xlog_redo */
-	char		gid[GIDSIZE];	/* The GID assigned to the prepared xact */
+	Oid			owner;			/* 执行该事务的用户 ID */
+	BackendId	locking_backend;	/* 当前正在处理该事务的后端 */
+	bool		valid;			/* 为 true 表示 PGPROC 项已在 proc array 中 */
+	bool		ondisk;			/* 为 true 表示预备状态文件已在磁盘上 */
+	bool		inredo;			/* 为 true 表示该项经由 xlog_redo 加入 */
+	char		gid[GIDSIZE];	/* 赋给该预备事务的 GID */
 }			GlobalTransactionData;
 
 /*
- * Two Phase Commit shared state.  Access to this struct is protected
- * by TwoPhaseStateLock.
+ * 两阶段提交共享状态。对该结构的访问受
+ * TwoPhaseStateLock 保护。
  */
 typedef struct TwoPhaseStateData
 {
-	/* Head of linked list of free GlobalTransactionData structs */
+	/* 空闲 GlobalTransactionData 结构链表的头 */
 	GlobalTransaction freeGXacts;
 
-	/* Number of valid prepXacts entries. */
+	/* 有效的 prepXacts 项数量。 */
 	int			numPrepXacts;
 
-	/* There are max_prepared_xacts items in this array */
+	/* 本数组有 max_prepared_xacts 个元素 */
 	GlobalTransaction prepXacts[FLEXIBLE_ARRAY_MEMBER];
 } TwoPhaseStateData;
 
 static TwoPhaseStateData *TwoPhaseState;
 
 /*
- * Global transaction entry currently locked by us, if any.  Note that any
- * access to the entry pointed to by this variable must be protected by
- * TwoPhaseStateLock, though obviously the pointer itself doesn't need to be
- * (since it's just local memory).
+ * 当前被我们锁定的全局事务项（若有）。注意：对该变量
+ * 所指向项的任何访问都必须受
+ * TwoPhaseStateLock 保护，不过指针本身显然不必
+ * （因为它只是本地内存）。
  */
 static GlobalTransaction MyLockedGxact = NULL;
 
@@ -235,14 +235,14 @@ static void RemoveTwoPhaseFile(TransactionId xid, bool giveWarning);
 static void RecreateTwoPhaseFile(TransactionId xid, void *content, int len);
 
 /*
- * Initialization of shared memory
+ * 共享内存的初始化
  */
 Size
 TwoPhaseShmemSize(void)
 {
 	Size		size;
 
-	/* Need the fixed struct, the array of pointers, and the GTD structs */
+	/* 需要固定结构、指针数组以及 GTD 结构 */
 	size = offsetof(TwoPhaseStateData, prepXacts);
 	size = add_size(size, mul_size(max_prepared_xacts,
 								   sizeof(GlobalTransaction)));
@@ -271,7 +271,7 @@ TwoPhaseShmemInit(void)
 		TwoPhaseState->numPrepXacts = 0;
 
 		/*
-		 * Initialize the linked list of free GlobalTransactionData structs
+		 * 初始化空闲 GlobalTransactionData 结构的链表
 		 */
 		gxacts = (GlobalTransaction)
 			((char *) TwoPhaseState +
@@ -279,24 +279,24 @@ TwoPhaseShmemInit(void)
 					  sizeof(GlobalTransaction) * max_prepared_xacts));
 		for (i = 0; i < max_prepared_xacts; i++)
 		{
-			/* insert into linked list */
+			/* 插入链表 */
 			gxacts[i].next = TwoPhaseState->freeGXacts;
 			TwoPhaseState->freeGXacts = &gxacts[i];
 
-			/* associate it with a PGPROC assigned by InitProcGlobal */
+			/* 与 InitProcGlobal 分配的 PGPROC 关联 */
 			gxacts[i].pgprocno = PreparedXactProcs[i].pgprocno;
 
 			/*
-			 * Assign a unique ID for each dummy proc, so that the range of
-			 * dummy backend IDs immediately follows the range of normal
-			 * backend IDs. We don't dare to assign a real backend ID to dummy
-			 * procs, because prepared transactions don't take part in cache
-			 * invalidation like a real backend ID would imply, but having a
-			 * unique ID for them is nevertheless handy. This arrangement
-			 * allows you to allocate an array of size (MaxBackends +
-			 * max_prepared_xacts + 1), and have a slot for every backend and
-			 * prepared transaction. Currently multixact.c uses that
-			 * technique.
+			 * 为每个哑元进程分配唯一 ID，使哑元
+			 * 后端 ID 的范围紧接在普通
+			 * 后端 ID 范围之后。我们不敢给哑元进程分配真正的
+			 * 后端 ID，因为预备事务并不像真正的后端 ID 那样
+			 * 参与缓存失效，但为它们保留
+			 * 唯一 ID 仍然很方便。这种安排
+			 * 让你可以分配大小为 (MaxBackends +
+			 * max_prepared_xacts + 1) 的数组，并为每个后端和
+			 * 预备事务各留一个槽。目前 multixact.c 使用
+			 * 该技术。
 			 */
 			gxacts[i].dummyBackendId = MaxBackends + 1 + i;
 		}
@@ -306,17 +306,17 @@ TwoPhaseShmemInit(void)
 }
 
 /*
- * Exit hook to unlock the global transaction entry we're working on.
+ * 退出钩子：解锁我们正在处理的全局事务项。
  */
 static void
 AtProcExit_Twophase(int code, Datum arg)
 {
-	/* same logic as abort */
+	/* 与中止相同的逻辑 */
 	AtAbort_Twophase();
 }
 
 /*
- * Abort hook to unlock the global transaction entry we're working on.
+ * 中止钩子：解锁我们正在处理的全局事务项。
  */
 void
 AtAbort_Twophase(void)
@@ -325,24 +325,24 @@ AtAbort_Twophase(void)
 		return;
 
 	/*
-	 * What to do with the locked global transaction entry?  If we were in the
-	 * process of preparing the transaction, but haven't written the WAL
-	 * record and state file yet, the transaction must not be considered as
-	 * prepared.  Likewise, if we are in the process of finishing an
-	 * already-prepared transaction, and fail after having already written the
-	 * 2nd phase commit or rollback record to the WAL, the transaction should
-	 * not be considered as prepared anymore.  In those cases, just remove the
-	 * entry from shared memory.
+	 * 对已锁定的全局事务项该怎么办？若我们正处在
+	 * 预备事务过程中，但尚未写入 WAL
+	 * 记录与状态文件，则该事务不得被视为
+	 * 已预备。同样，若我们正处在结束一个
+	 * 已预备事务的过程中，且在已把第二阶段提交或回滚
+	 * 记录写入 WAL 之后失败，则该事务也不应
+	 * 再被视为已预备。这些情况下，只需从共享内存
+	 * 移除该项。
 	 *
-	 * Otherwise, the entry must be left in place so that the transaction can
-	 * be finished later, so just unlock it.
+	 * 否则，必须保留该项以便稍后完成该事务，
+	 * 因此只需解锁。
 	 *
-	 * If we abort during prepare, after having written the WAL record, we
-	 * might not have transferred all locks and other state to the prepared
-	 * transaction yet.  Likewise, if we abort during commit or rollback,
-	 * after having written the WAL record, we might not have released all the
-	 * resources held by the transaction yet.  In those cases, the in-memory
-	 * state can be wrong, but it's too late to back out.
+	 * 若我们在预备期间、已写入 WAL 记录之后中止，
+	 * 可能尚未把全部锁及其他状态转移到预备
+	 * 事务。同样，若我们在提交或回滚期间、
+	 * 已写入 WAL 记录之后中止，可能尚未释放该事务所持有的
+	 * 全部资源。这些情况下，内存中的
+	 * 状态可能不正确，但已经来不及撤销。
 	 */
 	LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
 	if (!MyLockedGxact->valid)
@@ -355,8 +355,8 @@ AtAbort_Twophase(void)
 }
 
 /*
- * This is called after we have finished transferring state to the prepared
- * PGPROC entry.
+ * 在我们把状态转移到预备的 PGPROC 项之后
+ * 调用。
  */
 void
 PostPrepare_Twophase(void)
@@ -371,7 +371,7 @@ PostPrepare_Twophase(void)
 
 /*
  * MarkAsPreparing
- *		Reserve the GID for the given transaction.
+ *		为给定事务预留 GID。
  */
 GlobalTransaction
 MarkAsPreparing(TransactionId xid, const char *gid,
@@ -386,14 +386,14 @@ MarkAsPreparing(TransactionId xid, const char *gid,
 				 errmsg("transaction identifier \"%s\" is too long",
 						gid)));
 
-	/* fail immediately if feature is disabled */
+	/* 若功能已禁用则立即失败 */
 	if (max_prepared_xacts == 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
 				 errmsg("prepared transactions are disabled"),
 				 errhint("Set max_prepared_transactions to a nonzero value.")));
 
-	/* on first call, register the exit hook */
+	/* 首次调用时注册退出钩子 */
 	if (!twophaseExitRegistered)
 	{
 		before_shmem_exit(AtProcExit_Twophase, 0);
@@ -402,7 +402,7 @@ MarkAsPreparing(TransactionId xid, const char *gid,
 
 	LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
 
-	/* Check for conflicting GID */
+	/* 检查冲突的 GID */
 	for (i = 0; i < TwoPhaseState->numPrepXacts; i++)
 	{
 		gxact = TwoPhaseState->prepXacts[i];
@@ -415,7 +415,7 @@ MarkAsPreparing(TransactionId xid, const char *gid,
 		}
 	}
 
-	/* Get a free gxact from the freelist */
+	/* 从空闲列表取一个空闲 gxact */
 	if (TwoPhaseState->freeGXacts == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -429,7 +429,7 @@ MarkAsPreparing(TransactionId xid, const char *gid,
 
 	gxact->ondisk = false;
 
-	/* And insert it into the active array */
+	/* 并将其插入活动数组 */
 	Assert(TwoPhaseState->numPrepXacts < max_prepared_xacts);
 	TwoPhaseState->prepXacts[TwoPhaseState->numPrepXacts++] = gxact;
 
@@ -441,11 +441,11 @@ MarkAsPreparing(TransactionId xid, const char *gid,
 /*
  * MarkAsPreparingGuts
  *
- * This uses a gxact struct and puts it into the active array.
- * NOTE: this is also used when reloading a gxact after a crash; so avoid
- * assuming that we can use very much backend context.
+ * 使用一个 gxact 结构并将其放入活动数组。
+ * 注意：崩溃后重新加载 gxact 时也会用到；因此避免
+ * 假定可以使用很多后端上下文。
  *
- * Note: This function should be called with appropriate locks held.
+ * 注意：调用本函数时应持有适当的锁。
  */
 static void
 MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
@@ -459,21 +459,21 @@ MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
 	Assert(gxact != NULL);
 	proc = &ProcGlobal->allProcs[gxact->pgprocno];
 
-	/* Initialize the PGPROC entry */
+	/* 初始化 PGPROC 项 */
 	MemSet(proc, 0, sizeof(PGPROC));
 	proc->pgprocno = gxact->pgprocno;
 	dlist_node_init(&proc->links);
 	proc->waitStatus = PROC_WAIT_STATUS_OK;
 	if (LocalTransactionIdIsValid(MyProc->lxid))
 	{
-		/* clone VXID, for TwoPhaseGetXidByVirtualXID() to find */
+		/* 克隆 VXID，供 TwoPhaseGetXidByVirtualXID() 查找 */
 		proc->lxid = MyProc->lxid;
 		proc->backendId = MyBackendId;
 	}
 	else
 	{
 		Assert(AmStartupProcess() || !IsPostmasterEnvironment);
-		/* GetLockConflicts() uses this to specify a wait on the XID */
+		/* GetLockConflicts() 用此指定在该 XID 上等待 */
 		proc->lxid = xid;
 		proc->backendId = InvalidBackendId;
 	}
@@ -493,7 +493,7 @@ MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
 	pg_atomic_init_u64(&proc->waitStart, 0);
 	for (i = 0; i < NUM_LOCK_PARTITIONS; i++)
 		dlist_init(&proc->myProcLocks[i]);
-	/* subxid data must be filled later by GXactLoadSubxactData */
+	/* subxid 数据必须稍后由 GXactLoadSubxactData 填充 */
 	proc->subxidStatus.overflowed = false;
 	proc->subxidStatus.count = 0;
 
@@ -506,8 +506,8 @@ MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
 	strcpy(gxact->gid, gid);
 
 	/*
-	 * Remember that we have this GlobalTransaction entry locked for us. If we
-	 * abort after this, we must release it.
+	 * 记住我们已为此 GlobalTransaction 项加上锁定。若在此之后
+	 * 中止，必须释放它。
 	 */
 	MyLockedGxact = gxact;
 }
@@ -515,9 +515,9 @@ MarkAsPreparingGuts(GlobalTransaction gxact, TransactionId xid, const char *gid,
 /*
  * GXactLoadSubxactData
  *
- * If the transaction being persisted had any subtransactions, this must
- * be called before MarkAsPrepared() to load information into the dummy
- * PGPROC.
+ * 若正在持久化的事务有任何子事务，必须在
+ * MarkAsPrepared() 之前调用本函数，把信息载入哑元
+ * PGPROC。
  */
 static void
 GXactLoadSubxactData(GlobalTransaction gxact, int nsubxacts,
@@ -525,7 +525,7 @@ GXactLoadSubxactData(GlobalTransaction gxact, int nsubxacts,
 {
 	PGPROC	   *proc = &ProcGlobal->allProcs[gxact->pgprocno];
 
-	/* We need no extra lock since the GXACT isn't valid yet */
+	/* GXACT 尚未有效，无需额外加锁 */
 	if (nsubxacts > PGPROC_MAX_CACHED_SUBXIDS)
 	{
 		proc->subxidStatus.overflowed = true;
@@ -541,14 +541,14 @@ GXactLoadSubxactData(GlobalTransaction gxact, int nsubxacts,
 
 /*
  * MarkAsPrepared
- *		Mark the GXACT as fully valid, and enter it into the global ProcArray.
+ *		将 GXACT 标记为完全有效，并将其放入全局 ProcArray。
  *
- * lock_held indicates whether caller already holds TwoPhaseStateLock.
+ * lock_held 表示调用方是否已持有 TwoPhaseStateLock。
  */
 static void
 MarkAsPrepared(GlobalTransaction gxact, bool lock_held)
 {
-	/* Lock here may be overkill, but I'm not convinced of that ... */
+	/* 这里加锁可能过头，但我还没被说服…… */
 	if (!lock_held)
 		LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
 	Assert(!gxact->valid);
@@ -557,22 +557,22 @@ MarkAsPrepared(GlobalTransaction gxact, bool lock_held)
 		LWLockRelease(TwoPhaseStateLock);
 
 	/*
-	 * Put it into the global ProcArray so TransactionIdIsInProgress considers
-	 * the XID as still running.
+	 * 放入全局 ProcArray，使 TransactionIdIsInProgress 仍将该
+	 * XID 视为在运行。
 	 */
 	ProcArrayAdd(&ProcGlobal->allProcs[gxact->pgprocno]);
 }
 
 /*
  * LockGXact
- *		Locate the prepared transaction and mark it busy for COMMIT or PREPARE.
+ *		定位预备事务，并将其标记为忙于 COMMIT 或 PREPARE。
  */
 static GlobalTransaction
 LockGXact(const char *gid, Oid user)
 {
 	int			i;
 
-	/* on first call, register the exit hook */
+	/* 首次调用时注册退出钩子 */
 	if (!twophaseExitRegistered)
 	{
 		before_shmem_exit(AtProcExit_Twophase, 0);
@@ -586,13 +586,13 @@ LockGXact(const char *gid, Oid user)
 		GlobalTransaction gxact = TwoPhaseState->prepXacts[i];
 		PGPROC	   *proc = &ProcGlobal->allProcs[gxact->pgprocno];
 
-		/* Ignore not-yet-valid GIDs */
+		/* 忽略尚未有效的 GIDs */
 		if (!gxact->valid)
 			continue;
 		if (strcmp(gxact->gid, gid) != 0)
 			continue;
 
-		/* Found it, but has someone else got it locked? */
+		/* 找到了，但是否已被别人锁定？ */
 		if (gxact->locking_backend != InvalidBackendId)
 			ereport(ERROR,
 					(errcode(ERRCODE_OBJECT_NOT_IN_PREREQUISITE_STATE),
@@ -606,10 +606,10 @@ LockGXact(const char *gid, Oid user)
 					 errhint("Must be superuser or the user that prepared the transaction.")));
 
 		/*
-		 * Note: it probably would be possible to allow committing from
-		 * another database; but at the moment NOTIFY is known not to work and
-		 * there may be some other issues as well.  Hence disallow until
-		 * someone gets motivated to make it work.
+		 * 注意：或许可以从另一个数据库提交；
+		 * 但目前已知 NOTIFY 无法工作，
+		 * 还可能有其他问题。因此先禁止，
+		 * 直到有人有动力把它做出来。
 		 */
 		if (MyDatabaseId != proc->databaseId)
 			ereport(ERROR,
@@ -617,7 +617,7 @@ LockGXact(const char *gid, Oid user)
 					 errmsg("prepared transaction belongs to another database"),
 					 errhint("Connect to the database where the transaction was prepared to finish it.")));
 
-		/* OK for me to lock it */
+		/* 可以由我锁定它 */
 		gxact->locking_backend = MyBackendId;
 		MyLockedGxact = gxact;
 
@@ -639,9 +639,9 @@ LockGXact(const char *gid, Oid user)
 
 /*
  * RemoveGXact
- *		Remove the prepared transaction from the shared memory array.
+ *		从共享内存数组中移除预备事务。
  *
- * NB: caller should have already removed it from ProcArray
+ * 注意：调用方应已从 ProcArray 中移除它
  */
 static void
 RemoveGXact(GlobalTransaction gxact)
@@ -654,11 +654,11 @@ RemoveGXact(GlobalTransaction gxact)
 	{
 		if (gxact == TwoPhaseState->prepXacts[i])
 		{
-			/* remove from the active array */
+			/* 从活动数组中移除 */
 			TwoPhaseState->numPrepXacts--;
 			TwoPhaseState->prepXacts[i] = TwoPhaseState->prepXacts[TwoPhaseState->numPrepXacts];
 
-			/* and put it back in the freelist */
+			/* 并放回空闲列表 */
 			gxact->next = TwoPhaseState->freeGXacts;
 			TwoPhaseState->freeGXacts = gxact;
 
@@ -670,16 +670,16 @@ RemoveGXact(GlobalTransaction gxact)
 }
 
 /*
- * Returns an array of all prepared transactions for the user-level
- * function pg_prepared_xact.
+ * 返回用户级函数 pg_prepared_xact
+ * 所需的全部预备事务数组。
  *
- * The returned array and all its elements are copies of internal data
- * structures, to minimize the time we need to hold the TwoPhaseStateLock.
+ * 返回的数组及其全部元素都是内部数据结构的副本，
+ * 以尽量缩短持有 TwoPhaseStateLock 的时间。
  *
- * WARNING -- we return even those transactions that are not fully prepared
- * yet.  The caller should filter them out if he doesn't want them.
+ * WARNING —— 我们甚至会返回那些尚未完全预备好的
+ * 事务。调用方若不需要它们，应自行过滤。
  *
- * The returned array is palloc'd.
+ * 返回的数组由 palloc 分配。
  */
 static int
 GetPreparedTransactionList(GlobalTransaction *gxacts)
@@ -711,7 +711,7 @@ GetPreparedTransactionList(GlobalTransaction *gxacts)
 }
 
 
-/* Working status for pg_prepared_xact */
+/* pg_prepared_xact 的工作状态 */
 typedef struct
 {
 	GlobalTransaction array;
@@ -721,10 +721,10 @@ typedef struct
 
 /*
  * pg_prepared_xact
- *		Produce a view with one row per prepared transaction.
+ *		生成每个预备事务一行的视图。
  *
- * This function is here so we don't have to export the
- * GlobalTransactionData struct definition.
+ * 本函数放在这里，是为了不必导出
+ * GlobalTransactionData 结构定义。
  */
 Datum
 pg_prepared_xact(PG_FUNCTION_ARGS)
@@ -737,16 +737,16 @@ pg_prepared_xact(PG_FUNCTION_ARGS)
 		TupleDesc	tupdesc;
 		MemoryContext oldcontext;
 
-		/* create a function context for cross-call persistence */
+		/* 创建跨调用持久的函数上下文 */
 		funcctx = SRF_FIRSTCALL_INIT();
 
 		/*
-		 * Switch to memory context appropriate for multiple function calls
+		 * 切换到适合多次函数调用的内存上下文
 		 */
 		oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
 
-		/* build tupdesc for result tuples */
-		/* this had better match pg_prepared_xacts view in system_views.sql */
+		/* 为结果元组构建 tupdesc */
+		/* 这最好与 system_views.sql 中的 pg_prepared_xacts 视图一致 */
 		tupdesc = CreateTemplateTupleDesc(5);
 		TupleDescInitEntry(tupdesc, (AttrNumber) 1, "transaction",
 						   XIDOID, -1, 0);
@@ -762,8 +762,8 @@ pg_prepared_xact(PG_FUNCTION_ARGS)
 		funcctx->tuple_desc = BlessTupleDesc(tupdesc);
 
 		/*
-		 * Collect all the 2PC status information that we will format and send
-		 * out as a result set.
+		 * 收集全部将格式化并作为结果集发出的
+		 * 2PC 状态信息。
 		 */
 		status = (Working_State *) palloc(sizeof(Working_State));
 		funcctx->user_fctx = (void *) status;
@@ -790,7 +790,7 @@ pg_prepared_xact(PG_FUNCTION_ARGS)
 			continue;
 
 		/*
-		 * Form tuple with appropriate data.
+		 * 用适当数据形成元组。
 		 */
 
 		values[0] = TransactionIdGetDatum(proc->xid);
@@ -809,11 +809,11 @@ pg_prepared_xact(PG_FUNCTION_ARGS)
 
 /*
  * TwoPhaseGetGXact
- *		Get the GlobalTransaction struct for a prepared transaction
- *		specified by XID
+ *		按 XID 获取预备事务的
+ *		GlobalTransaction 结构
  *
- * If lock_held is set to true, TwoPhaseStateLock will not be taken, so the
- * caller had better hold it.
+ * 若 lock_held 为 true，则不获取 TwoPhaseStateLock，因此
+ * 调用方最好已持有它。
  */
 static GlobalTransaction
 TwoPhaseGetGXact(TransactionId xid, bool lock_held)
@@ -827,8 +827,8 @@ TwoPhaseGetGXact(TransactionId xid, bool lock_held)
 	Assert(!lock_held || LWLockHeldByMe(TwoPhaseStateLock));
 
 	/*
-	 * During a recovery, COMMIT PREPARED, or ABORT PREPARED, we'll be called
-	 * repeatedly for the same XID.  We can save work with a simple cache.
+	 * 在恢复、COMMIT PREPARED 或 ABORT PREPARED 期间，会对同一
+	 * XID 反复调用我们。可用简单缓存节省工作。
 	 */
 	if (xid == cached_xid)
 		return cached_gxact;
@@ -850,7 +850,7 @@ TwoPhaseGetGXact(TransactionId xid, bool lock_held)
 	if (!lock_held)
 		LWLockRelease(TwoPhaseStateLock);
 
-	if (result == NULL)			/* should not happen */
+	if (result == NULL)			/* 不应发生 */
 		elog(ERROR, "failed to find GlobalTransaction for xid %u", xid);
 
 	cached_xid = xid;
@@ -861,11 +861,11 @@ TwoPhaseGetGXact(TransactionId xid, bool lock_held)
 
 /*
  * TwoPhaseGetXidByVirtualXID
- *		Lookup VXID among xacts prepared since last startup.
+ *		在自上次启动以来预备的事务中查找 VXID。
  *
- * (This won't find recovered xacts.)  If more than one matches, return any
- * and set "have_more" to true.  To witness multiple matches, a single
- * BackendId must consume 2^32 LXIDs, with no intervening database restart.
+ * （找不到已恢复的事务。）若有多个匹配，返回任意一个
+ * 并将 "have_more" 置为 true。要看到多个匹配，单个
+ * BackendId 必须消耗 2^32 个 LXIDs，且中间没有数据库重启。
  */
 TransactionId
 TwoPhaseGetXidByVirtualXID(VirtualTransactionId vxid,
@@ -889,7 +889,7 @@ TwoPhaseGetXidByVirtualXID(VirtualTransactionId vxid,
 		GET_VXID_FROM_PGPROC(proc_vxid, *proc);
 		if (VirtualTransactionIdEquals(vxid, proc_vxid))
 		{
-			/* Startup process sets proc->backendId to InvalidBackendId. */
+			/* 启动进程把 proc->backendId 设为 InvalidBackendId。 */
 			Assert(!gxact->inredo);
 
 			if (result != InvalidTransactionId)
@@ -908,12 +908,12 @@ TwoPhaseGetXidByVirtualXID(VirtualTransactionId vxid,
 
 /*
  * TwoPhaseGetDummyBackendId
- *		Get the dummy backend ID for prepared transaction specified by XID
+ *		按 XID 获取预备事务的哑元后端 ID
  *
- * Dummy backend IDs are similar to real backend IDs of real backends.
- * They start at MaxBackends + 1, and are unique across all currently active
- * real backends and prepared transactions.  If lock_held is set to true,
- * TwoPhaseStateLock will not be taken, so the caller had better hold it.
+ * 哑元后端 ID 类似于真正后端的真正后端 ID。
+ * 它们从 MaxBackends + 1 起，并在当前全部活动的
+ * 真正后端与预备事务中唯一。若 lock_held 为 true，
+ * 则不获取 TwoPhaseStateLock，因此调用方最好已持有它。
  */
 BackendId
 TwoPhaseGetDummyBackendId(TransactionId xid, bool lock_held)
@@ -925,10 +925,10 @@ TwoPhaseGetDummyBackendId(TransactionId xid, bool lock_held)
 
 /*
  * TwoPhaseGetDummyProc
- *		Get the PGPROC that represents a prepared transaction specified by XID
+ *		按 XID 获取表示预备事务的 PGPROC
  *
- * If lock_held is set to true, TwoPhaseStateLock will not be taken, so the
- * caller had better hold it.
+ * 若 lock_held 为 true，则不获取 TwoPhaseStateLock，因此
+ * 调用方最好已持有它。
  */
 PGPROC *
 TwoPhaseGetDummyProc(TransactionId xid, bool lock_held)
@@ -939,52 +939,52 @@ TwoPhaseGetDummyProc(TransactionId xid, bool lock_held)
 }
 
 /************************************************************************/
-/* State file support													*/
+/* 状态文件支持													*/
 /************************************************************************/
 
 #define TwoPhaseFilePath(path, xid) \
 	snprintf(path, MAXPGPATH, TWOPHASE_DIR "/%08X", xid)
 
 /*
- * 2PC state file format:
+ * 2PC 状态文件格式：
  *
  *	1. TwoPhaseFileHeader
- *	2. TransactionId[] (subtransactions)
- *	3. RelFileLocator[] (files to be deleted at commit)
- *	4. RelFileLocator[] (files to be deleted at abort)
- *	5. SharedInvalidationMessage[] (inval messages to be sent at commit)
+ *	2. TransactionId[]（子事务）
+ *	3. RelFileLocator[]（提交时要删除的文件）
+ *	4. RelFileLocator[]（中止时要删除的文件）
+ *	5. SharedInvalidationMessage[]（提交时要发送的失效消息）
  *	6. TwoPhaseRecordOnDisk
  *	7. ...
- *	8. TwoPhaseRecordOnDisk (end sentinel, rmid == TWOPHASE_RM_END_ID)
- *	9. checksum (CRC-32C)
+ *	8. TwoPhaseRecordOnDisk（结束哨兵，rmid == TWOPHASE_RM_END_ID）
+ *	9. 校验和（CRC-32C）
  *
- * Each segment except the final checksum is MAXALIGN'd.
+ * 除最后的校验和外，每段都按 MAXALIGN 对齐。
  */
 
 /*
- * Header for a 2PC state file
+ * 2PC 状态文件头
  */
-#define TWOPHASE_MAGIC	0x57F94534	/* format identifier */
+#define TWOPHASE_MAGIC	0x57F94534	/* 格式标识符 */
 
 typedef xl_xact_prepare TwoPhaseFileHeader;
 
 /*
- * Header for each record in a state file
+ * 状态文件中每条记录的头部
  *
- * NOTE: len counts only the rmgr data, not the TwoPhaseRecordOnDisk header.
- * The rmgr data will be stored starting on a MAXALIGN boundary.
+ * 注意：len 只计 rmgr 数据，不含 TwoPhaseRecordOnDisk 头。
+ * rmgr 数据将从 MAXALIGN 边界开始存放。
  */
 typedef struct TwoPhaseRecordOnDisk
 {
-	uint32		len;			/* length of rmgr data */
-	TwoPhaseRmgrId rmid;		/* resource manager for this record */
-	uint16		info;			/* flag bits for use by rmgr */
+	uint32		len;			/* rmgr 数据长度 */
+	TwoPhaseRmgrId rmid;		/* 本记录的资源管理器 */
+	uint16		info;			/* 供 rmgr 使用的标志位 */
 } TwoPhaseRecordOnDisk;
 
 /*
- * During prepare, the state file is assembled in memory before writing it
- * to WAL and the actual state file.  We use a chain of StateFileChunk blocks
- * for that.
+ * 预备期间，状态文件先在内存中组装，再写入
+ * WAL 与实际状态文件。为此我们使用一串
+ * StateFileChunk 块。
  */
 typedef struct StateFileChunk
 {
@@ -995,21 +995,21 @@ typedef struct StateFileChunk
 
 static struct xllist
 {
-	StateFileChunk *head;		/* first data block in the chain */
-	StateFileChunk *tail;		/* last block in chain */
+	StateFileChunk *head;		/* 链中第一个数据块 */
+	StateFileChunk *tail;		/* 链中最后一块 */
 	uint32		num_chunks;
-	uint32		bytes_free;		/* free bytes left in tail block */
-	uint32		total_len;		/* total data bytes in chain */
+	uint32		bytes_free;		/* 尾块中剩余的空闲字节 */
+	uint32		total_len;		/* 链中数据字节总数 */
 }			records;
 
 
 /*
- * Append a block of data to records data structure.
+ * 向 records 数据结构追加一块数据。
  *
- * NB: each block is padded to a MAXALIGN multiple.  This must be
- * accounted for when the file is later read!
+ * 注意：每块都填充到 MAXALIGN 的倍数。稍后
+ * 读取文件时必须计入这一点！
  *
- * The data is copied, so the caller is free to modify it afterwards.
+ * 数据会被复制，因此调用方之后可自由修改它。
  */
 static void
 save_state_data(const void *data, uint32 len)
@@ -1035,9 +1035,9 @@ save_state_data(const void *data, uint32 len)
 }
 
 /*
- * Start preparing a state file.
+ * 开始预备状态文件。
  *
- * Initializes data structure and inserts the 2PC file header record.
+ * 初始化数据结构并插入 2PC 文件头记录。
  */
 void
 StartPrepare(GlobalTransaction gxact)
@@ -1052,7 +1052,7 @@ StartPrepare(GlobalTransaction gxact)
 	xl_xact_stats_item *commitstats = NULL;
 	SharedInvalidationMessage *invalmsgs;
 
-	/* Initialize linked list */
+	/* 初始化链表 */
 	records.head = palloc0(sizeof(StateFileChunk));
 	records.head->len = 0;
 	records.head->next = NULL;
@@ -1065,9 +1065,9 @@ StartPrepare(GlobalTransaction gxact)
 
 	records.total_len = 0;
 
-	/* Create header */
+	/* 创建头部 */
 	hdr.magic = TWOPHASE_MAGIC;
-	hdr.total_len = 0;			/* EndPrepare will fill this in */
+	hdr.total_len = 0;			/* EndPrepare 会填写此项 */
 	hdr.xid = xid;
 	hdr.database = proc->databaseId;
 	hdr.prepared_at = gxact->prepared_at;
@@ -1081,8 +1081,8 @@ StartPrepare(GlobalTransaction gxact)
 		pgstat_get_transactional_drops(false, &abortstats);
 	hdr.ninvalmsgs = xactGetCommittedInvalidationMessages(&invalmsgs,
 														  &hdr.initfileinval);
-	hdr.gidlen = strlen(gxact->gid) + 1;	/* Include '\0' */
-	/* EndPrepare will fill the origin data, if necessary */
+	hdr.gidlen = strlen(gxact->gid) + 1;	/* 包含 '\0' */
+	/* EndPrepare 在必要时会填写 origin 数据 */
 	hdr.origin_lsn = InvalidXLogRecPtr;
 	hdr.origin_timestamp = 0;
 
@@ -1090,13 +1090,13 @@ StartPrepare(GlobalTransaction gxact)
 	save_state_data(gxact->gid, hdr.gidlen);
 
 	/*
-	 * Add the additional info about subxacts, deletable files and cache
-	 * invalidation messages.
+	 * 追加关于子事务、可删除文件与缓存
+	 * 失效消息的附加信息。
 	 */
 	if (hdr.nsubxacts > 0)
 	{
 		save_state_data(children, hdr.nsubxacts * sizeof(TransactionId));
-		/* While we have the child-xact data, stuff it in the gxact too */
+		/* 既然已有子事务数据，也塞进 gxact */
 		GXactLoadSubxactData(gxact, hdr.nsubxacts, children);
 	}
 	if (hdr.ncommitrels > 0)
@@ -1130,7 +1130,7 @@ StartPrepare(GlobalTransaction gxact)
 }
 
 /*
- * Finish preparing state data and writing it to WAL.
+ * 完成状态数据的预备并将其写入 WAL。
  */
 void
 EndPrepare(GlobalTransaction gxact)
@@ -1139,11 +1139,11 @@ EndPrepare(GlobalTransaction gxact)
 	StateFileChunk *record;
 	bool		replorigin;
 
-	/* Add the end sentinel to the list of 2PC records */
+	/* 向 2PC 记录列表添加结束哨兵 */
 	RegisterTwoPhaseRecord(TWOPHASE_RM_END_ID, 0,
 						   NULL, 0);
 
-	/* Go back and fill in total_len in the file header record */
+	/* 回填文件头记录中的 total_len */
 	hdr = (TwoPhaseFileHeader *) records.head->data;
 	Assert(hdr->magic == TWOPHASE_MAGIC);
 	hdr->total_len = records.total_len + sizeof(pg_crc32c);
@@ -1158,9 +1158,9 @@ EndPrepare(GlobalTransaction gxact)
 	}
 
 	/*
-	 * If the data size exceeds MaxAllocSize, we won't be able to read it in
-	 * ReadTwoPhaseFile. Check for that now, rather than fail in the case
-	 * where we write data to file and then re-read at commit time.
+	 * 若数据大小超过 MaxAllocSize，ReadTwoPhaseFile 将无法读入。
+	 * 现在就检查，以免先写入文件、
+	 * 再在提交时重读时才失败。
 	 */
 	if (hdr->total_len > MaxAllocSize)
 		ereport(ERROR,
@@ -1168,17 +1168,17 @@ EndPrepare(GlobalTransaction gxact)
 				 errmsg("two-phase state file maximum length exceeded")));
 
 	/*
-	 * Now writing 2PC state data to WAL. We let the WAL's CRC protection
-	 * cover us, so no need to calculate a separate CRC.
+	 * 现在把 2PC 状态数据写入 WAL。我们让 WAL 的 CRC 保护
+	 * 覆盖我们，因此无需单独计算 CRC。
 	 *
-	 * We have to set DELAY_CHKPT_START here, too; otherwise a checkpoint
-	 * starting immediately after the WAL record is inserted could complete
-	 * without fsync'ing our state file.  (This is essentially the same kind
-	 * of race condition as the COMMIT-to-clog-write case that
-	 * RecordTransactionCommit uses DELAY_CHKPT_START for; see notes there.)
+	 * 这里也必须设置 DELAY_CHKPT_START；否则在 WAL 记录
+	 * 刚插入后立即开始的检查点可能在未对我们的状态文件
+	 * 做 fsync 的情况下完成。（这本质上与
+	 * RecordTransactionCommit 为 COMMIT-到-clog-写入
+	 * 使用 DELAY_CHKPT_START 的竞态同类；见那里的说明。）
 	 *
-	 * We save the PREPARE record's location in the gxact for later use by
-	 * CheckPointTwoPhase.
+	 * 我们把 PREPARE 记录的位置保存在 gxact 中，供稍后
+	 * CheckPointTwoPhase 使用。
 	 */
 	XLogEnsureRecordSpace(0, records.num_chunks);
 
@@ -1197,53 +1197,53 @@ EndPrepare(GlobalTransaction gxact)
 
 	if (replorigin)
 	{
-		/* Move LSNs forward for this replication origin */
+		/* 为该复制源推进 LSNs */
 		replorigin_session_advance(replorigin_session_origin_lsn,
 								   gxact->prepare_end_lsn);
 	}
 
 	XLogFlush(gxact->prepare_end_lsn);
 
-	/* If we crash now, we have prepared: WAL replay will fix things */
+	/* 若现在崩溃，我们已经预备好：WAL 重放会修好 */
 
-	/* Store record's start location to read that later on Commit */
+	/* 保存记录起点，供稍后提交时读取 */
 	gxact->prepare_start_lsn = ProcLastRecPtr;
 
 	/*
-	 * Mark the prepared transaction as valid.  As soon as xact.c marks MyProc
-	 * as not running our XID (which it will do immediately after this
-	 * function returns), others can commit/rollback the xact.
+	 * 将预备事务标记为有效。一旦 xact.c 把 MyProc
+	 * 标记为不再运行我们的 XID（本函数返回后会立即
+	 * 这样做），其他人就可以提交/回滚该事务。
 	 *
-	 * NB: a side effect of this is to make a dummy ProcArray entry for the
-	 * prepared XID.  This must happen before we clear the XID from MyProc /
-	 * ProcGlobal->xids[], else there is a window where the XID is not running
-	 * according to TransactionIdIsInProgress, and onlookers would be entitled
-	 * to assume the xact crashed.  Instead we have a window where the same
-	 * XID appears twice in ProcArray, which is OK.
+	 * 注意：副作用是为预备 XID 建立哑元 ProcArray 项。
+	 * 这必须在我们从 MyProc /
+	 * ProcGlobal->xids[] 清除该 XID 之前发生，否则会出现窗口，使
+	 * TransactionIdIsInProgress 认为该 XID 未在运行，旁观者有权
+	 * 假定事务已崩溃。相反，我们会有一个同一
+	 * XID 在 ProcArray 中出现两次的窗口，这是可以的。
 	 */
 	MarkAsPrepared(gxact, false);
 
 	/*
-	 * Now we can mark ourselves as out of the commit critical section: a
-	 * checkpoint starting after this will certainly see the gxact as a
-	 * candidate for fsyncing.
+	 * 现在可以把我们自己标为已离开提交临界区：在此之后
+	 * 开始的检查点肯定会把该 gxact 视为
+	 * fsync 候选。
 	 */
 	MyProc->delayChkptFlags &= ~DELAY_CHKPT_START;
 
 	/*
-	 * Remember that we have this GlobalTransaction entry locked for us.  If
-	 * we crash after this point, it's too late to abort, but we must unlock
-	 * it so that the prepared transaction can be committed or rolled back.
+	 * 记住我们已为此 GlobalTransaction 项加上锁定。若在此点之后
+	 * 崩溃，中止已太晚，但我们必须解锁，
+	 * 以便预备事务仍可被提交或回滚。
 	 */
 	MyLockedGxact = gxact;
 
 	END_CRIT_SECTION();
 
 	/*
-	 * Wait for synchronous replication, if required.
+	 * 若需要，等待同步复制。
 	 *
-	 * Note that at this stage we have marked the prepare, but still show as
-	 * running in the procarray (twice!) and continue to hold locks.
+	 * 注意：此阶段我们已标记预备，但在 procarray 中仍显示为
+	 * 在运行（两次！），并继续持有锁。
 	 */
 	SyncRepWaitForLSN(gxact->prepare_end_lsn, false);
 
@@ -1252,7 +1252,7 @@ EndPrepare(GlobalTransaction gxact)
 }
 
 /*
- * Register a 2PC record to be written to state file.
+ * 注册一条将写入状态文件的 2PC 记录。
  */
 void
 RegisterTwoPhaseRecord(TwoPhaseRmgrId rmid, uint16 info,
@@ -1270,12 +1270,12 @@ RegisterTwoPhaseRecord(TwoPhaseRmgrId rmid, uint16 info,
 
 
 /*
- * Read and validate the state file for xid.
+ * 读取并验证 xid 的状态文件。
  *
- * If it looks OK (has a valid magic number and CRC), return the palloc'd
- * contents of the file, issuing an error when finding corrupted data.  If
- * missing_ok is true, which indicates that missing files can be safely
- * ignored, then return NULL.  This state can be reached when doing recovery.
+ * 若看起来正常（有有效魔数与 CRC），返回文件内容的
+ * palloc 副本；发现损坏数据时报告错误。若
+ * missing_ok 为 true，表示可安全忽略缺失文件，
+ * 则返回 NULL。恢复时可能到达这种状态。
  */
 static char *
 ReadTwoPhaseFile(TransactionId xid, bool missing_ok)
@@ -1304,10 +1304,10 @@ ReadTwoPhaseFile(TransactionId xid, bool missing_ok)
 	}
 
 	/*
-	 * Check file length.  We can determine a lower bound pretty easily. We
-	 * set an upper bound to avoid palloc() failure on a corrupt file, though
-	 * we can't guarantee that we won't get an out of memory error anyway,
-	 * even on a valid file.
+	 * 检查文件长度。下界很容易确定。我们
+	 * 设上界以避免损坏文件上的 palloc() 失败，不过
+	 * 即使是有效文件，也不能保证不会
+	 * 内存不足。
 	 */
 	if (fstat(fd, &stat))
 		ereport(ERROR,
@@ -1333,7 +1333,7 @@ ReadTwoPhaseFile(TransactionId xid, bool missing_ok)
 						path)));
 
 	/*
-	 * OK, slurp in the file.
+	 * 好，把文件一口气读进来。
 	 */
 	buf = (char *) palloc(stat.st_size);
 
@@ -1388,11 +1388,11 @@ ReadTwoPhaseFile(TransactionId xid, bool missing_ok)
 
 
 /*
- * Reads 2PC data from xlog. During checkpoint this data will be moved to
- * twophase files and ReadTwoPhaseFile should be used instead.
+ * 从 xlog 读取 2PC 数据。检查点期间这些数据会移到
+ * twophase 文件，届时应改用 ReadTwoPhaseFile。
  *
- * Note clearly that this function can access WAL during normal operation,
- * similarly to the way WALSender or Logical Decoding would do.
+ * 请清楚注意：本函数在正常运行期间也可访问 WAL，
+ * 与 WALSender 或逻辑解码的做法类似。
  */
 static void
 XlogReadTwoPhaseData(XLogRecPtr lsn, char **buf, int *len)
@@ -1447,7 +1447,7 @@ XlogReadTwoPhaseData(XLogRecPtr lsn, char **buf, int *len)
 
 
 /*
- * Confirms an xid is prepared, during recovery
+ * 在恢复期间确认某个 xid 已预备
  */
 bool
 StandbyTransactionIdIsPrepared(TransactionId xid)
@@ -1459,14 +1459,14 @@ StandbyTransactionIdIsPrepared(TransactionId xid)
 	Assert(TransactionIdIsValid(xid));
 
 	if (max_prepared_xacts <= 0)
-		return false;			/* nothing to do */
+		return false;			/* 无事可做 */
 
-	/* Read and validate file */
+	/* 读取并验证文件 */
 	buf = ReadTwoPhaseFile(xid, true);
 	if (buf == NULL)
 		return false;
 
-	/* Check header also */
+	/* 也检查头部 */
 	hdr = (TwoPhaseFileHeader *) buf;
 	result = TransactionIdEquals(hdr->xid, xid);
 	pfree(buf);
@@ -1475,7 +1475,7 @@ StandbyTransactionIdIsPrepared(TransactionId xid)
 }
 
 /*
- * FinishPreparedTransaction: execute COMMIT PREPARED or ROLLBACK PREPARED
+ * FinishPreparedTransaction：执行 COMMIT PREPARED 或 ROLLBACK PREPARED
  */
 void
 FinishPreparedTransaction(const char *gid, bool isCommit)
@@ -1498,17 +1498,17 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 	SharedInvalidationMessage *invalmsgs;
 
 	/*
-	 * Validate the GID, and lock the GXACT to ensure that two backends do not
-	 * try to commit the same GID at once.
+	 * 验证 GID，并锁定 GXACT，确保两个后端不会
+	 * 同时尝试提交同一 GID。
 	 */
 	gxact = LockGXact(gid, GetUserId());
 	proc = &ProcGlobal->allProcs[gxact->pgprocno];
 	xid = gxact->xid;
 
 	/*
-	 * Read and validate 2PC state data. State data will typically be stored
-	 * in WAL files if the LSN is after the last checkpoint record, or moved
-	 * to disk if for some reason they have lived for a long time.
+	 * 读取并验证 2PC 状态数据。若 LSN 在最后一条检查点记录之后，
+	 * 状态数据通常存在 WAL 文件中；若因某种原因存活很久，
+	 * 则会移到磁盘。
 	 */
 	if (gxact->ondisk)
 		buf = ReadTwoPhaseFile(xid, false);
@@ -1517,7 +1517,7 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 
 
 	/*
-	 * Disassemble the header area
+	 * 拆解头部区域
 	 */
 	hdr = (TwoPhaseFileHeader *) buf;
 	Assert(TransactionIdEquals(hdr->xid, xid));
@@ -1536,19 +1536,19 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 	invalmsgs = (SharedInvalidationMessage *) bufptr;
 	bufptr += MAXALIGN(hdr->ninvalmsgs * sizeof(SharedInvalidationMessage));
 
-	/* compute latestXid among all children */
+	/* 在全部子事务中计算 latestXid */
 	latestXid = TransactionIdLatest(xid, hdr->nsubxacts, children);
 
-	/* Prevent cancel/die interrupt while cleaning up */
+	/* 清理期间阻止 cancel/die 中断 */
 	HOLD_INTERRUPTS();
 
 	/*
-	 * The order of operations here is critical: make the XLOG entry for
-	 * commit or abort, then mark the transaction committed or aborted in
-	 * pg_xact, then remove its PGPROC from the global ProcArray (which means
-	 * TransactionIdIsInProgress will stop saying the prepared xact is in
-	 * progress), then run the post-commit or post-abort callbacks. The
-	 * callbacks will release the locks the transaction held.
+	 * 这里的操作顺序至关重要：先为提交或中止做
+	 * XLOG 项，再在 pg_xact 中把事务标记为已提交或已中止，
+	 * 然后从全局 ProcArray 移除其 PGPROC（这意味着
+	 * TransactionIdIsInProgress 将不再说该预备事务
+	 * 在运行），再运行提交后或中止后回调。
+	 * 回调会释放该事务所持有的锁。
 	 */
 	if (isCommit)
 		RecordTransactionCommitPrepared(xid,
@@ -1569,21 +1569,21 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 	ProcArrayRemove(proc, latestXid);
 
 	/*
-	 * In case we fail while running the callbacks, mark the gxact invalid so
-	 * no one else will try to commit/rollback, and so it will be recycled if
-	 * we fail after this point.  It is still locked by our backend so it
-	 * won't go away yet.
+	 * 若在运行回调时失败，将 gxact 标为无效，以免
+	 * 别人再尝试提交/回滚，并使我们在此点之后失败时
+	 * 可回收它。它仍由我们的后端锁定，因此
+	 * 暂时不会消失。
 	 *
-	 * (We assume it's safe to do this without taking TwoPhaseStateLock.)
+	 * （我们假定不拿 TwoPhaseStateLock 这样做是安全的。）
 	 */
 	gxact->valid = false;
 
 	/*
-	 * We have to remove any files that were supposed to be dropped. For
-	 * consistency with the regular xact.c code paths, must do this before
-	 * releasing locks, so do it before running the callbacks.
+	 * 必须删除任何本应被删除的文件。为与常规
+	 * xact.c 代码路径保持一致，必须在释放锁之前做，
+	 * 因此要在运行回调之前做。
 	 *
-	 * NB: this code knows that we couldn't be dropping any temp rels ...
+	 * 注意：本代码知道我们不可能在删除任何临时关系……
 	 */
 	if (isCommit)
 	{
@@ -1596,7 +1596,7 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 		ndelrels = hdr->nabortrels;
 	}
 
-	/* Make sure files supposed to be dropped are dropped */
+	/* 确保本应删除的文件已被删除 */
 	DropRelationFiles(delrels, ndelrels, false);
 
 	if (isCommit)
@@ -1605,11 +1605,11 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 		pgstat_execute_transactional_drops(hdr->nabortstats, abortstats, false);
 
 	/*
-	 * Handle cache invalidation messages.
+	 * 处理缓存失效消息。
 	 *
-	 * Relcache init file invalidation requires processing both before and
-	 * after we send the SI messages, only when committing.  See
-	 * AtEOXact_Inval().
+	 * Relcache 初始化文件失效需要在发送 SI 消息之前与之后
+	 * 都处理，且仅在提交时。参见
+	 * AtEOXact_Inval()。
 	 */
 	if (isCommit)
 	{
@@ -1621,14 +1621,14 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 	}
 
 	/*
-	 * Acquire the two-phase lock.  We want to work on the two-phase callbacks
-	 * while holding it to avoid potential conflicts with other transactions
-	 * attempting to use the same GID, so the lock is released once the shared
-	 * memory state is cleared.
+	 * 获取两阶段锁。我们希望在持有它的同时处理
+	 * 两阶段回调，以避免与试图使用同一 GID 的其他事务
+	 * 潜在冲突，因此在共享内存状态清除后
+	 * 再释放该锁。
 	 */
 	LWLockAcquire(TwoPhaseStateLock, LW_EXCLUSIVE);
 
-	/* And now do the callbacks */
+	/* 现在执行回调 */
 	if (isCommit)
 		ProcessRecords(bufptr, xid, twophase_postcommit_callbacks);
 	else
@@ -1637,25 +1637,25 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 	PredicateLockTwoPhaseFinish(xid, isCommit);
 
 	/*
-	 * Read this value while holding the two-phase lock, as the on-disk 2PC
-	 * file is physically removed after the lock is released.
+	 * 在持有两阶段锁时读取该值，因为磁盘上的 2PC
+	 * 文件在锁释放后才会被物理删除。
 	 */
 	ondisk = gxact->ondisk;
 
-	/* Clear shared memory state */
+	/* 清除共享内存状态 */
 	RemoveGXact(gxact);
 
 	/*
-	 * Release the lock as all callbacks are called and shared memory cleanup
-	 * is done.
+	 * 全部回调已调用且共享内存清理完成后，
+	 * 释放该锁。
 	 */
 	LWLockRelease(TwoPhaseStateLock);
 
-	/* Count the prepared xact as committed or aborted */
+	/* 把该预备事务计为已提交或已中止 */
 	AtEOXact_PgStat(isCommit, false);
 
 	/*
-	 * And now we can clean up any files we may have left.
+	 * 现在可以清理我们可能留下的任何文件。
 	 */
 	if (ondisk)
 		RemoveTwoPhaseFile(xid, true);
@@ -1668,7 +1668,7 @@ FinishPreparedTransaction(const char *gid, bool isCommit)
 }
 
 /*
- * Scan 2PC state data in memory and call the indicated callbacks for each 2PC record.
+ * 扫描内存中的 2PC 状态数据，并对每条 2PC 记录调用指定的回调。
  */
 static void
 ProcessRecords(char *bufptr, TransactionId xid,
@@ -1693,10 +1693,10 @@ ProcessRecords(char *bufptr, TransactionId xid,
 }
 
 /*
- * Remove the 2PC file for the specified XID.
+ * 删除指定 XID 的 2PC 文件。
  *
- * If giveWarning is false, do not complain about file-not-present;
- * this is an expected case during WAL replay.
+ * 若 giveWarning 为 false，则不对"文件不存在"抱怨；
+ * 这在 WAL 重放期间是预期情况。
  */
 static void
 RemoveTwoPhaseFile(TransactionId xid, bool giveWarning)
@@ -1712,10 +1712,10 @@ RemoveTwoPhaseFile(TransactionId xid, bool giveWarning)
 }
 
 /*
- * Recreates a state file. This is used in WAL replay and during
- * checkpoint creation.
+ * 重新创建状态文件。用于 WAL 重放以及
+ * 创建检查点期间。
  *
- * Note: content and len don't include CRC.
+ * 注意：content 与 len 不含 CRC。
  */
 static void
 RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
@@ -1724,7 +1724,7 @@ RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
 	pg_crc32c	statefile_crc;
 	int			fd;
 
-	/* Recompute CRC */
+	/* 重新计算 CRC */
 	INIT_CRC32C(statefile_crc);
 	COMP_CRC32C(statefile_crc, content, len);
 	FIN_CRC32C(statefile_crc);
@@ -1738,12 +1738,12 @@ RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
 				(errcode_for_file_access(),
 				 errmsg("could not recreate file \"%s\": %m", path)));
 
-	/* Write content and CRC */
+	/* 写入内容与 CRC */
 	errno = 0;
 	pgstat_report_wait_start(WAIT_EVENT_TWOPHASE_FILE_WRITE);
 	if (write(fd, content, len) != len)
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，则假定问题是磁盘空间不足 */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(ERROR,
@@ -1752,7 +1752,7 @@ RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
 	}
 	if (write(fd, &statefile_crc, sizeof(pg_crc32c)) != sizeof(pg_crc32c))
 	{
-		/* if write didn't set errno, assume problem is no disk space */
+		/* 若 write 未设置 errno，则假定问题是磁盘空间不足 */
 		if (errno == 0)
 			errno = ENOSPC;
 		ereport(ERROR,
@@ -1762,8 +1762,8 @@ RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
 	pgstat_report_wait_end();
 
 	/*
-	 * We must fsync the file because the end-of-replay checkpoint will not do
-	 * so, there being no GXACT in shared memory yet to tell it to.
+	 * 我们必须 fsync 该文件，因为重放结束时的检查点不会
+	 * 这样做——共享内存中尚无 GXACT 可告知它。
 	 */
 	pgstat_report_wait_start(WAIT_EVENT_TWOPHASE_FILE_SYNC);
 	if (pg_fsync(fd) != 0)
@@ -1779,23 +1779,23 @@ RecreateTwoPhaseFile(TransactionId xid, void *content, int len)
 }
 
 /*
- * CheckPointTwoPhase -- handle 2PC component of checkpointing.
+ * CheckPointTwoPhase -- 处理检查点中的 2PC 部分。
  *
- * We must fsync the state file of any GXACT that is valid or has been
- * generated during redo and has a PREPARE LSN <= the checkpoint's redo
- * horizon.  (If the gxact isn't valid yet, has not been generated in
- * redo, or has a later LSN, this checkpoint is not responsible for
- * fsyncing it.)
+ * 我们必须对任何有效的、或在 redo 期间生成的、且
+ * PREPARE LSN <= 检查点 redo 地平线的 GXACT 的状态文件
+ * 做 fsync。（若 gxact 尚未有效、未在 redo 中生成，
+ * 或 LSN 更晚，则本检查点不负责
+ * 对其 fsync。）
  *
- * This is deliberately run as late as possible in the checkpoint sequence,
- * because GXACTs ordinarily have short lifespans, and so it is quite
- * possible that GXACTs that were valid at checkpoint start will no longer
- * exist if we wait a little bit. With typical checkpoint settings this
- * will be about 3 minutes for an online checkpoint, so as a result we
- * expect that there will be no GXACTs that need to be copied to disk.
+ * 这有意放在检查点序列尽可能靠后的位置，
+ * 因为 GXACTs 通常寿命很短，因此若稍等片刻，
+ * 检查点开始时有效的 GXACTs 很可能已不
+ * 存在。以典型检查点设置为准，在线检查点大约
+ * 3 分钟，因此我们预期不会有需要复制到磁盘的
+ * GXACT。
  *
- * If a GXACT remains valid across multiple checkpoints, it will already
- * be on disk so we don't bother to repeat that write.
+ * 若某个 GXACT 在多次检查点间仍保持有效，它应已
+ * 在磁盘上，我们就不再重复写入。
  */
 void
 CheckPointTwoPhase(XLogRecPtr redo_horizon)
@@ -1804,32 +1804,32 @@ CheckPointTwoPhase(XLogRecPtr redo_horizon)
 	int			serialized_xacts = 0;
 
 	if (max_prepared_xacts <= 0)
-		return;					/* nothing to do */
+		return;					/* 无事可做 */
 
 	TRACE_POSTGRESQL_TWOPHASE_CHECKPOINT_START();
 
 	/*
-	 * We are expecting there to be zero GXACTs that need to be copied to
-	 * disk, so we perform all I/O while holding TwoPhaseStateLock for
-	 * simplicity. This prevents any new xacts from preparing while this
-	 * occurs, which shouldn't be a problem since the presence of long-lived
-	 * prepared xacts indicates the transaction manager isn't active.
+	 * 我们预期需要复制到磁盘的 GXACTs 为零，
+	 * 因此为简单起见，在持有 TwoPhaseStateLock 期间执行全部 I/O。
+	 * 这会阻止任何新事务在此期间预备，
+	 * 这不应成问题，因为长期存活的预备事务
+	 * 表明事务管理器并不活跃。
 	 *
-	 * It's also possible to move I/O out of the lock, but on every error we
-	 * should check whether somebody committed our transaction in different
-	 * backend. Let's leave this optimization for future, if somebody will
-	 * spot that this place cause bottleneck.
+	 * 也可以把 I/O 移出锁外，但每次出错我们
+	 * 都应检查是否有人在不同后端提交了我们的事务。
+	 * 把这项优化留给将来，若有人发现这里
+	 * 成为瓶颈再说。
 	 *
-	 * Note that it isn't possible for there to be a GXACT with a
-	 * prepare_end_lsn set prior to the last checkpoint yet is marked invalid,
-	 * because of the efforts with delayChkptFlags.
+	 * 注意：不可能存在 prepare_end_lsn 设在上一检查点
+	 * 之前却被标为无效的 GXACT，
+	 * 这得益于 delayChkptFlags 的努力。
 	 */
 	LWLockAcquire(TwoPhaseStateLock, LW_SHARED);
 	for (i = 0; i < TwoPhaseState->numPrepXacts; i++)
 	{
 		/*
-		 * Note that we are using gxact not PGPROC so this works in recovery
-		 * also
+		 * 注意：我们用的是 gxact 而非 PGPROC，因此在恢复中
+		 * 也能工作
 		 */
 		GlobalTransaction gxact = TwoPhaseState->prepXacts[i];
 
@@ -1852,10 +1852,10 @@ CheckPointTwoPhase(XLogRecPtr redo_horizon)
 	LWLockRelease(TwoPhaseStateLock);
 
 	/*
-	 * Flush unconditionally the parent directory to make any information
-	 * durable on disk.  Two-phase files could have been removed and those
-	 * removals need to be made persistent as well as any files newly created
-	 * previously since the last checkpoint.
+	 * 无条件刷新父目录，使任何信息在磁盘上
+	 * 持久化。两阶段文件可能已被删除，这些
+	 * 删除以及自上一检查点以来新创建的任何文件
+	 * 也都需要持久化。
 	 */
 	fsync_fname(TWOPHASE_DIR, true);
 
@@ -1874,10 +1874,10 @@ CheckPointTwoPhase(XLogRecPtr redo_horizon)
 /*
  * restoreTwoPhaseData
  *
- * Scan pg_twophase and fill TwoPhaseState depending on the on-disk data.
- * This is called once at the beginning of recovery, saving any extra
- * lookups in the future.  Two-phase files that are newer than the
- * minimum XID horizon are discarded on the way.
+ * 扫描 pg_twophase，并根据磁盘数据填充 TwoPhaseState。
+ * 在恢复开始时调用一次，以免将来再做额外
+ * 查找。途中会丢弃新于最小 XID 地平线的
+ * 两阶段文件。
  */
 void
 restoreTwoPhaseData(void)
@@ -1913,33 +1913,33 @@ restoreTwoPhaseData(void)
 /*
  * PrescanPreparedTransactions
  *
- * Scan the shared memory entries of TwoPhaseState and determine the range
- * of valid XIDs present.  This is run during database startup, after we
- * have completed reading WAL.  ShmemVariableCache->nextXid has been set to
- * one more than the highest XID for which evidence exists in WAL.
+ * 扫描 TwoPhaseState 的共享内存项，并确定其中
+ * 有效 XIDs 的范围。这在数据库启动期间、我们
+ * 读完 WAL 之后运行。ShmemVariableCache->nextXid 已设为
+ * WAL 中有证据的最高 XID 再加一。
  *
- * We throw away any prepared xacts with main XID beyond nextXid --- if any
- * are present, it suggests that the DBA has done a PITR recovery to an
- * earlier point in time without cleaning out pg_twophase.  We dare not
- * try to recover such prepared xacts since they likely depend on database
- * state that doesn't exist now.
+ * 我们丢弃主 XID 超出 nextXid 的任何预备事务——若存在，
+ * 说明 DBA 做了到更早点的 PITR 恢复，却未
+ * 清理 pg_twophase。我们不敢尝试恢复此类预备事务，
+ * 因为它们很可能依赖现在已不存在的数据库
+ * 状态。
  *
- * However, we will advance nextXid beyond any subxact XIDs belonging to
- * valid prepared xacts.  We need to do this since subxact commit doesn't
- * write a WAL entry, and so there might be no evidence in WAL of those
- * subxact XIDs.
+ * 不过，我们会把 nextXid 推进到超过属于有效预备事务的
+ * 任何子事务 XID。需要这样做是因为子事务提交不
+ * 写 WAL 项，因而 WAL 中可能没有那些
+ * 子事务 XID 的证据。
  *
- * On corrupted two-phase files, fail immediately.  Keeping around broken
- * entries and let replay continue causes harm on the system, and a new
- * backup should be rolled in.
+ * 遇到损坏的两阶段文件时立即失败。保留破损项
+ * 并让重放继续会对系统造成损害，应换入新的
+ * 备份。
  *
- * Our other responsibility is to determine and return the oldest valid XID
- * among the prepared xacts (if none, return ShmemVariableCache->nextXid).
- * This is needed to synchronize pg_subtrans startup properly.
+ * 我们的另一职责是确定并返回预备事务中
+ * 最老的有效 XID（若无则返回 ShmemVariableCache->nextXid）。
+ * 这是为了正确同步 pg_subtrans 的启动。
  *
- * If xids_p and nxids_p are not NULL, pointer to a palloc'd array of all
- * top-level xids is stored in *xids_p. The number of entries in the array
- * is returned in *nxids_p.
+ * 若 xids_p 与 nxids_p 非 NULL，则把全部顶层 xid 的
+ * palloc 数组指针存入 *xids_p。数组中的项数
+ * 返回在 *nxids_p 中。
  */
 TransactionId
 PrescanPreparedTransactions(TransactionId **xids_p, int *nxids_p)
@@ -1971,8 +1971,8 @@ PrescanPreparedTransactions(TransactionId **xids_p, int *nxids_p)
 			continue;
 
 		/*
-		 * OK, we think this file is valid.  Incorporate xid into the
-		 * running-minimum result.
+		 * 好，我们认为此文件有效。把 xid 纳入
+		 * 滚动最小值结果。
 		 */
 		if (TransactionIdPrecedes(xid, result))
 			result = xid;
@@ -2011,15 +2011,15 @@ PrescanPreparedTransactions(TransactionId **xids_p, int *nxids_p)
 /*
  * StandbyRecoverPreparedTransactions
  *
- * Scan the shared memory entries of TwoPhaseState and setup all the required
- * information to allow standby queries to treat prepared transactions as still
- * active.
+ * 扫描 TwoPhaseState 的共享内存项，并建立全部所需信息，
+ * 使备库查询仍把预备事务视为
+ * 活动。
  *
- * This is never called at the end of recovery - we use
- * RecoverPreparedTransactions() at that point.
+ * 恢复结束时从不调用本函数——那时我们使用
+ * RecoverPreparedTransactions()。
  *
- * This updates pg_subtrans, so that any subtransactions will be correctly
- * seen as in-progress in snapshots taken during recovery.
+ * 这会更新 pg_subtrans，使任何子事务在恢复期间取得的
+ * 快照中被正确视为进行中。
  */
 void
 StandbyRecoverPreparedTransactions(void)
@@ -2049,18 +2049,18 @@ StandbyRecoverPreparedTransactions(void)
 /*
  * RecoverPreparedTransactions
  *
- * Scan the shared memory entries of TwoPhaseState and reload the state for
- * each prepared transaction (reacquire locks, etc).
+ * 扫描 TwoPhaseState 的共享内存项，并为每个预备事务
+ * 重新加载状态（重新获取锁等）。
  *
- * This is run at the end of recovery, but before we allow backends to write
- * WAL.
+ * 这在恢复结束时运行，但在允许后端写
+ * WAL 之前。
  *
- * At the end of recovery the way we take snapshots will change. We now need
- * to mark all running transactions with their full SubTransSetParent() info
- * to allow normal snapshots to work correctly if snapshots overflow.
- * We do this here because by definition prepared transactions are the only
- * type of write transaction still running, so this is necessary and
- * complete.
+ * 恢复结束时我们获取快照的方式会改变。现在需要
+ * 用完整的 SubTransSetParent() 信息标记所有运行中的事务，
+ * 以便快照溢出时普通快照仍能正确工作。
+ * 放在这里是因为按定义预备事务是仍在运行的唯一
+ * 写事务类型，因此这样做既必要又
+ * 完整。
  */
 void
 RecoverPreparedTransactions(void)
@@ -2081,13 +2081,13 @@ RecoverPreparedTransactions(void)
 		xid = gxact->xid;
 
 		/*
-		 * Reconstruct subtrans state for the transaction --- needed because
-		 * pg_subtrans is not preserved over a restart.  Note that we are
-		 * linking all the subtransactions directly to the top-level XID;
-		 * there may originally have been a more complex hierarchy, but
-		 * there's no need to restore that exactly. It's possible that
-		 * SubTransSetParent has been set before, if the prepared transaction
-		 * generated xid assignment records.
+		 * 为该事务重建 subtrans 状态——需要这样做是因为
+		 * pg_subtrans 不会跨重启保留。注意：我们把
+		 * 全部子事务直接链接到顶层 XID；
+		 * 原先可能有更复杂的层次，但
+		 * 不必精确恢复。若预备事务生成过
+		 * xid 分配记录，SubTransSetParent 可能此前已被
+		 * 设置过。
 		 */
 		buf = ProcessTwoPhaseBuffer(xid,
 									gxact->prepare_start_lsn,
@@ -2112,14 +2112,14 @@ RecoverPreparedTransactions(void)
 		bufptr += MAXALIGN(hdr->ninvalmsgs * sizeof(SharedInvalidationMessage));
 
 		/*
-		 * Recreate its GXACT and dummy PGPROC. But, check whether it was
-		 * added in redo and already has a shmem entry for it.
+		 * 重新创建其 GXACT 与哑元 PGPROC。不过要检查它是否
+		 * 在 redo 中加入且已有共享内存项。
 		 */
 		MarkAsPreparingGuts(gxact, xid, gid,
 							hdr->prepared_at,
 							hdr->owner, hdr->database);
 
-		/* recovered, so reset the flag for entries generated by redo */
+		/* 已恢复，因此复位 redo 生成项的标志 */
 		gxact->inredo = false;
 
 		GXactLoadSubxactData(gxact, hdr->nsubxacts, subxids);
@@ -2128,21 +2128,21 @@ RecoverPreparedTransactions(void)
 		LWLockRelease(TwoPhaseStateLock);
 
 		/*
-		 * Recover other state (notably locks) using resource managers.
+		 * 用资源管理器恢复其他状态（尤其是锁）。
 		 */
 		ProcessRecords(bufptr, xid, twophase_recover_callbacks);
 
 		/*
-		 * Release locks held by the standby process after we process each
-		 * prepared transaction. As a result, we don't need too many
-		 * additional locks at any one time.
+		 * 处理完每个预备事务后，释放备库进程
+		 * 所持有的锁。这样我们就不必在任一时刻持有
+		 * 过多额外的锁。
 		 */
 		if (InHotStandby)
 			StandbyReleaseLockTree(xid, hdr->nsubxacts, subxids);
 
 		/*
-		 * We're done with recovering this transaction. Clear MyLockedGxact,
-		 * like we do in PrepareTransaction() during normal operation.
+		 * 本事务恢复完毕。清除 MyLockedGxact，
+		 * 如同正常操作中 PrepareTransaction() 所做。
 		 */
 		PostPrepare_Twophase();
 
@@ -2157,13 +2157,13 @@ RecoverPreparedTransactions(void)
 /*
  * ProcessTwoPhaseBuffer
  *
- * Given a transaction id, read it either from disk or read it directly
- * via shmem xlog record pointer using the provided "prepare_start_lsn".
+ * 给定事务 id，从磁盘读取，或用所提供的
+ * "prepare_start_lsn" 经共享内存 xlog 记录指针直接读取。
  *
- * If setParent is true, set up subtransaction parent linkages.
+ * 若 setParent 为 true，建立子事务的父链接。
  *
- * If setNextXid is true, set ShmemVariableCache->nextXid to the newest
- * value scanned.
+ * 若 setNextXid 为 true，把 ShmemVariableCache->nextXid 设为所扫描到的
+ * 最新值。
  */
 static char *
 ProcessTwoPhaseBuffer(TransactionId xid,
@@ -2183,7 +2183,7 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 	if (!fromdisk)
 		Assert(prepare_start_lsn != InvalidXLogRecPtr);
 
-	/* Already processed? */
+	/* 已经处理过？ */
 	if (TransactionIdDidCommit(xid) || TransactionIdDidAbort(xid))
 	{
 		if (fromdisk)
@@ -2203,7 +2203,7 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 		return NULL;
 	}
 
-	/* Reject XID if too new */
+	/* 若 XID 太新则拒绝 */
 	if (TransactionIdFollowsOrEquals(xid, origNextXid))
 	{
 		if (fromdisk)
@@ -2225,16 +2225,16 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 
 	if (fromdisk)
 	{
-		/* Read and validate file */
+		/* 读取并验证文件 */
 		buf = ReadTwoPhaseFile(xid, false);
 	}
 	else
 	{
-		/* Read xlog data */
+		/* 读取 xlog 数据 */
 		XlogReadTwoPhaseData(prepare_start_lsn, &buf, NULL);
 	}
 
-	/* Deconstruct header */
+	/* 拆解头部 */
 	hdr = (TwoPhaseFileHeader *) buf;
 	if (!TransactionIdEquals(hdr->xid, xid))
 	{
@@ -2251,8 +2251,8 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 	}
 
 	/*
-	 * Examine subtransaction XIDs ... they should all follow main XID, and
-	 * they may force us to advance nextXid.
+	 * 检查子事务 XIDs……它们都应跟在主 XID 之后，并且
+	 * 可能迫使我们推进 nextXid。
 	 */
 	subxids = (TransactionId *) (buf +
 								 MAXALIGN(sizeof(TwoPhaseFileHeader)) +
@@ -2263,7 +2263,7 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 
 		Assert(TransactionIdFollows(subxid, xid));
 
-		/* update nextXid if needed */
+		/* 若需要则更新 nextXid */
 		if (setNextXid)
 			AdvanceNextFullTransactionIdPastXid(subxid);
 
@@ -2278,12 +2278,12 @@ ProcessTwoPhaseBuffer(TransactionId xid,
 /*
  *	RecordTransactionCommitPrepared
  *
- * This is basically the same as RecordTransactionCommit (q.v. if you change
- * this function): in particular, we must set DELAY_CHKPT_START to avoid a
- * race condition.
+ * 这基本上与 RecordTransactionCommit 相同（若改本函数请对照
+ * 后者）：尤其是必须设置 DELAY_CHKPT_START 以避免
+ * 竞态。
  *
- * We know the transaction made at least one XLOG entry (its PREPARE),
- * so it is never possible to optimize out the commit record.
+ * 我们知道该事务至少写过一条 XLOG 项（其 PREPARE），
+ * 因此绝不可能优化掉提交记录。
  */
 static void
 RecordTransactionCommitPrepared(TransactionId xid,
@@ -2303,22 +2303,22 @@ RecordTransactionCommitPrepared(TransactionId xid,
 	bool		replorigin;
 
 	/*
-	 * Are we using the replication origins feature?  Or, in other words, are
-	 * we replaying remote actions?
+	 * 我们是否在使用复制源功能？或者说，我们是否在
+	 * 重放远程动作？
 	 */
 	replorigin = (replorigin_session_origin != InvalidRepOriginId &&
 				  replorigin_session_origin != DoNotReplicateId);
 
 	START_CRIT_SECTION();
 
-	/* See notes in RecordTransactionCommit */
+	/* 见 RecordTransactionCommit 中的说明 */
 	Assert((MyProc->delayChkptFlags & DELAY_CHKPT_START) == 0);
 	MyProc->delayChkptFlags |= DELAY_CHKPT_START;
 
 	/*
-	 * Emit the XLOG commit record. Note that we mark 2PC commits as
-	 * potentially having AccessExclusiveLocks since we don't know whether or
-	 * not they do.
+	 * 发出 XLOG 提交记录。注意：我们把 2PC 提交标记为
+	 * 可能持有 AccessExclusiveLocks，因为我们不知道它们
+	 * 是否持有。
 	 */
 	recptr = XactLogCommitRecord(committs,
 								 nchildren, children, nrels, rels,
@@ -2330,17 +2330,17 @@ RecordTransactionCommitPrepared(TransactionId xid,
 
 
 	if (replorigin)
-		/* Move LSNs forward for this replication origin */
+		/* 为该复制源推进 LSNs */
 		replorigin_session_advance(replorigin_session_origin_lsn,
 								   XactLastRecEnd);
 
 	/*
-	 * Record commit timestamp.  The value comes from plain commit timestamp
-	 * if replorigin is not enabled, or replorigin already set a value for us
-	 * in replorigin_session_origin_timestamp otherwise.
+	 * 记录提交时间戳。若未启用 replorigin，取值来自
+	 * 普通提交时间戳；否则 replorigin 已在
+	 * replorigin_session_origin_timestamp 中为我们设好。
 	 *
-	 * We don't need to WAL-log anything here, as the commit record written
-	 * above already contains the data.
+	 * 这里无需再写 WAL，因为上面写出的提交记录
+	 * 已包含这些数据。
 	 */
 	if (!replorigin || replorigin_session_origin_timestamp == 0)
 		replorigin_session_origin_timestamp = committs;
@@ -2350,27 +2350,27 @@ RecordTransactionCommitPrepared(TransactionId xid,
 								   replorigin_session_origin);
 
 	/*
-	 * We don't currently try to sleep before flush here ... nor is there any
-	 * support for async commit of a prepared xact (the very idea is probably
-	 * a contradiction)
+	 * 我们目前不在刷盘前尝试休眠……也没有任何
+	 * 对预备事务异步提交的支持（这想法本身大概
+	 * 就是矛盾）
 	 */
 
-	/* Flush XLOG to disk */
+	/* 把 XLOG 刷到磁盘 */
 	XLogFlush(recptr);
 
-	/* Mark the transaction committed in pg_xact */
+	/* 在 pg_xact 中把事务标记为已提交 */
 	TransactionIdCommitTree(xid, nchildren, children);
 
-	/* Checkpoint can proceed now */
+	/* 检查点现在可以继续 */
 	MyProc->delayChkptFlags &= ~DELAY_CHKPT_START;
 
 	END_CRIT_SECTION();
 
 	/*
-	 * Wait for synchronous replication, if required.
+	 * 若需要，等待同步复制。
 	 *
-	 * Note that at this stage we have marked clog, but still show as running
-	 * in the procarray and continue to hold locks.
+	 * 注意：此阶段我们已标记 clog，但在 procarray 中仍显示为
+	 * 在运行，并继续持有锁。
 	 */
 	SyncRepWaitForLSN(recptr, true);
 }
@@ -2378,10 +2378,10 @@ RecordTransactionCommitPrepared(TransactionId xid,
 /*
  *	RecordTransactionAbortPrepared
  *
- * This is basically the same as RecordTransactionAbort.
+ * 这基本上与 RecordTransactionAbort 相同。
  *
- * We know the transaction made at least one XLOG entry (its PREPARE),
- * so it is never possible to optimize out the abort record.
+ * 我们知道该事务至少写过一条 XLOG 项（其 PREPARE），
+ * 因此绝不可能优化掉中止记录。
  */
 static void
 RecordTransactionAbortPrepared(TransactionId xid,
@@ -2397,15 +2397,15 @@ RecordTransactionAbortPrepared(TransactionId xid,
 	bool		replorigin;
 
 	/*
-	 * Are we using the replication origins feature?  Or, in other words, are
-	 * we replaying remote actions?
+	 * 我们是否在使用复制源功能？或者说，我们是否在
+	 * 重放远程动作？
 	 */
 	replorigin = (replorigin_session_origin != InvalidRepOriginId &&
 				  replorigin_session_origin != DoNotReplicateId);
 
 	/*
-	 * Catch the scenario where we aborted partway through
-	 * RecordTransactionCommitPrepared ...
+	 * 捕捉我们在 RecordTransactionCommitPrepared
+	 * 中途中止的情形……
 	 */
 	if (TransactionIdDidCommit(xid))
 		elog(PANIC, "cannot abort transaction %u, it was already committed",
@@ -2414,9 +2414,9 @@ RecordTransactionAbortPrepared(TransactionId xid,
 	START_CRIT_SECTION();
 
 	/*
-	 * Emit the XLOG commit record. Note that we mark 2PC aborts as
-	 * potentially having AccessExclusiveLocks since we don't know whether or
-	 * not they do.
+	 * 发出 XLOG 提交记录。注意：我们把 2PC 中止标记为
+	 * 可能持有 AccessExclusiveLocks，因为我们不知道它们
+	 * 是否持有。
 	 */
 	recptr = XactLogAbortRecord(GetCurrentTimestamp(),
 								nchildren, children,
@@ -2426,26 +2426,26 @@ RecordTransactionAbortPrepared(TransactionId xid,
 								xid, gid);
 
 	if (replorigin)
-		/* Move LSNs forward for this replication origin */
+		/* 为该复制源推进 LSNs */
 		replorigin_session_advance(replorigin_session_origin_lsn,
 								   XactLastRecEnd);
 
-	/* Always flush, since we're about to remove the 2PC state file */
+	/* 总是刷盘，因为我们即将删除 2PC 状态文件 */
 	XLogFlush(recptr);
 
 	/*
-	 * Mark the transaction aborted in clog.  This is not absolutely necessary
-	 * but we may as well do it while we are here.
+	 * 在 clog 中把事务标记为已中止。这并非绝对必要，
+	 * 但既然在这里，不妨一并做了。
 	 */
 	TransactionIdAbortTree(xid, nchildren, children);
 
 	END_CRIT_SECTION();
 
 	/*
-	 * Wait for synchronous replication, if required.
+	 * 若需要，等待同步复制。
 	 *
-	 * Note that at this stage we have marked clog, but still show as running
-	 * in the procarray and continue to hold locks.
+	 * 注意：此阶段我们已标记 clog，但在 procarray 中仍显示为
+	 * 在运行，并继续持有锁。
 	 */
 	SyncRepWaitForLSN(recptr, false);
 }
@@ -2453,10 +2453,10 @@ RecordTransactionAbortPrepared(TransactionId xid,
 /*
  * PrepareRedoAdd
  *
- * Store pointers to the start/end of the WAL record along with the xid in
- * a gxact entry in shared memory TwoPhaseState structure.  If caller
- * specifies InvalidXLogRecPtr as WAL location to fetch the two-phase
- * data, the entry is marked as located on disk.
+ * 把 WAL 记录起止指针连同 xid 存入共享内存
+ * TwoPhaseState 结构中的 gxact 项。若调用方
+ * 把用于获取两阶段数据的 WAL 位置指定为 InvalidXLogRecPtr，
+ * 则该项标记为位于磁盘上。
  */
 void
 PrepareRedoAdd(char *buf, XLogRecPtr start_lsn,
@@ -2474,25 +2474,25 @@ PrepareRedoAdd(char *buf, XLogRecPtr start_lsn,
 	gid = (const char *) bufptr;
 
 	/*
-	 * Reserve the GID for the given transaction in the redo code path.
+	 * 在 redo 代码路径中为给定事务预留 GID。
 	 *
-	 * This creates a gxact struct and puts it into the active array.
+	 * 这会创建 gxact 结构并将其放入活动数组。
 	 *
-	 * In redo, this struct is mainly used to track PREPARE/COMMIT entries in
-	 * shared memory. Hence, we only fill up the bare minimum contents here.
-	 * The gxact also gets marked with gxact->inredo set to true to indicate
-	 * that it got added in the redo phase
+	 * 在 redo 中，该结构主要用于在共享内存中跟踪
+	 * PREPARE/COMMIT 项。因此这里只填入最少量内容。
+	 * gxact 还会把 gxact->inredo 置为 true，以表明
+	 * 它是在 redo 阶段加入的
 	 */
 
 	/*
-	 * In the event of a crash while a checkpoint was running, it may be
-	 * possible that some two-phase data found its way to disk while its
-	 * corresponding record needs to be replayed in the follow-up recovery. As
-	 * the 2PC data was on disk, it has already been restored at the beginning
-	 * of recovery with restoreTwoPhaseData(), so skip this record to avoid
-	 * duplicates in TwoPhaseState.  If a consistent state has been reached,
-	 * the record is added to TwoPhaseState and it should have no
-	 * corresponding file in pg_twophase.
+	 * 若检查点运行期间发生崩溃，有可能部分
+	 * 两阶段数据已落到磁盘，而其对应记录仍需在后续
+	 * 恢复中重放。由于 2PC 数据已在磁盘上，恢复开始时
+	 * restoreTwoPhaseData() 已恢复过它，因此跳过本记录以免
+	 * TwoPhaseState 中出现重复。若已到达一致状态，
+	 * 该记录会加入 TwoPhaseState，且它在 pg_twophase 中
+	 * 不应有
+	 * 对应文件。
 	 */
 	if (!XLogRecPtrIsInvalid(start_lsn))
 	{
@@ -2516,7 +2516,7 @@ PrepareRedoAdd(char *buf, XLogRecPtr start_lsn,
 					 errmsg("could not access file \"%s\": %m", path)));
 	}
 
-	/* Get a free gxact from the freelist */
+	/* 从空闲列表取一个空闲 gxact */
 	if (TwoPhaseState->freeGXacts == NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_OUT_OF_MEMORY),
@@ -2534,18 +2534,18 @@ PrepareRedoAdd(char *buf, XLogRecPtr start_lsn,
 	gxact->locking_backend = InvalidBackendId;
 	gxact->valid = false;
 	gxact->ondisk = XLogRecPtrIsInvalid(start_lsn);
-	gxact->inredo = true;		/* yes, added in redo */
+	gxact->inredo = true;		/* 是的，在 redo 中加入 */
 	strcpy(gxact->gid, gid);
 
-	/* And insert it into the active array */
+	/* 并将其插入活动数组 */
 	Assert(TwoPhaseState->numPrepXacts < max_prepared_xacts);
 	TwoPhaseState->prepXacts[TwoPhaseState->numPrepXacts++] = gxact;
 
 	if (origin_id != InvalidRepOriginId)
 	{
-		/* recover apply progress */
+		/* 恢复应用进度 */
 		replorigin_advance(origin_id, hdr->origin_lsn, end_lsn,
-						   false /* backward */ , false /* WAL */ );
+						   false /* 向后 */ , false /* WAL */ );
 	}
 
 	elog(DEBUG2, "added 2PC data in shared memory for transaction %u", gxact->xid);
@@ -2554,11 +2554,11 @@ PrepareRedoAdd(char *buf, XLogRecPtr start_lsn,
 /*
  * PrepareRedoRemove
  *
- * Remove the corresponding gxact entry from TwoPhaseState. Also remove
- * the 2PC file if a prepared transaction was saved via an earlier checkpoint.
+ * 从 TwoPhaseState 移除对应的 gxact 项。若预备事务曾经由
+ * 更早的检查点保存，也删除 2PC 文件。
  *
- * Caller must hold TwoPhaseStateLock in exclusive mode, because TwoPhaseState
- * is updated.
+ * 调用方必须以排他模式持有 TwoPhaseStateLock，因为会更新
+ * TwoPhaseState。
  */
 void
 PrepareRedoRemove(TransactionId xid, bool giveWarning)
@@ -2583,13 +2583,13 @@ PrepareRedoRemove(TransactionId xid, bool giveWarning)
 	}
 
 	/*
-	 * Just leave if there is nothing, this is expected during WAL replay.
+	 * 若什么都没有就直接离开，这在 WAL 重放期间是预期的。
 	 */
 	if (!found)
 		return;
 
 	/*
-	 * And now we can clean up any files we may have left.
+	 * 现在可以清理我们可能留下的任何文件。
 	 */
 	elog(DEBUG2, "removing 2PC data for transaction %u", xid);
 	if (gxact->ondisk)
@@ -2599,18 +2599,18 @@ PrepareRedoRemove(TransactionId xid, bool giveWarning)
 
 /*
  * LookupGXact
- *		Check if the prepared transaction with the given GID, lsn and timestamp
- *		exists.
+ *		检查具有给定 GID、lsn 与时间戳的预备事务
+ *		是否存在。
  *
- * Note that we always compare with the LSN where prepare ends because that is
- * what is stored as origin_lsn in the 2PC file.
+ * 注意：我们总是与预备结束处的 LSN 比较，因为那是
+ * 2PC 文件中存为 origin_lsn 的值。
  *
- * This function is primarily used to check if the prepared transaction
- * received from the upstream (remote node) already exists. Checking only GID
- * is not sufficient because a different prepared xact with the same GID can
- * exist on the same node. So, we are ensuring to match origin_lsn and
- * origin_timestamp of prepared xact to avoid the possibility of a match of
- * prepared xact from two different nodes.
+ * 本函数主要用于检查从上游（远程节点）收到的
+ * 预备事务是否已存在。仅检查 GID
+ * 不够，因为同一节点上可能存在具有相同 GID 的不同预备事务。
+ * 因此我们确保匹配预备事务的 origin_lsn 与
+ * origin_timestamp，以避免匹配到来自两个不同节点的
+ * 预备事务。
  */
 bool
 LookupGXact(const char *gid, XLogRecPtr prepare_end_lsn,
@@ -2624,21 +2624,21 @@ LookupGXact(const char *gid, XLogRecPtr prepare_end_lsn,
 	{
 		GlobalTransaction gxact = TwoPhaseState->prepXacts[i];
 
-		/* Ignore not-yet-valid GIDs. */
+		/* 忽略尚未有效的 GIDs。 */
 		if (gxact->valid && strcmp(gxact->gid, gid) == 0)
 		{
 			char	   *buf;
 			TwoPhaseFileHeader *hdr;
 
 			/*
-			 * We are not expecting collisions of GXACTs (same gid) between
-			 * publisher and subscribers, so we perform all I/O while holding
-			 * TwoPhaseStateLock for simplicity.
+			 * 我们并不预期发布者与订阅者之间会有
+			 * GXACTs（相同 gid）碰撞，因此为简单起见在持有
+			 * TwoPhaseStateLock 期间执行全部 I/O。
 			 *
-			 * To move the I/O out of the lock, we need to ensure that no
-			 * other backend commits the prepared xact in the meantime. We can
-			 * do this optimization if we encounter many collisions in GID
-			 * between publisher and subscriber.
+			 * 要把 I/O 移出锁外，需要确保其间没有
+			 * 其他后端提交该预备事务。若发布者与订阅者之间
+			 * 遇到很多 GID 碰撞，我们再做这项
+			 * 优化。
 			 */
 			if (gxact->ondisk)
 				buf = ReadTwoPhaseFile(gxact->xid, false);

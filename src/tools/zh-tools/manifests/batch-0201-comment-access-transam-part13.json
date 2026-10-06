@@ -1,0 +1,64 @@
+{
+ "schema_version": 1,
+ "batch_id": "0201-comment-access-transam-part13",
+ "title": "zh: translate access/transam comments (part 13)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "7f9871c350734fb35ba0465f820d745afbfcf896",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/twophase.c",
+   "kind": "c_comment",
+   "note": "Two-phase commit support functions"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0201-comment-access-transam-part13.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/twophase.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 206,
+   "translated": 202,
+   "preserved": 4,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines",
+    "NOTREACHED",
+    "section separator bars",
+    "WAL parameter label"
+   ],
+   "note": "Two-phase commit; Copyright and IDENTIFICATION lines kept in English; NOTREACHED/separators/WAL labels preserved; no fall-through marker"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0201-comment-access-transam-part13.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0201 translates comments in twophase.c. Copyright and IDENTIFICATION lines stay in English. NOTREACHED, section separators, and WAL parameter label preserved. No fall-through marker. Next suggested: multixact.c."
+}

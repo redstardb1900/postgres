@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * committsdesc.c
- *	  rmgr descriptor routines for access/transam/commit_ts.c
+ *	  access/transam/commit_ts.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California

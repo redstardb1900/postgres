@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * genericdesc.c
- *	  rmgr descriptor routines for access/transam/generic_xlog.c
+ *	  access/transam/generic_xlog.c 的资源管理器描述例程
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -18,8 +18,8 @@
 #include "storage/relfilelocator.h"
 
 /*
- * Description of generic xlog record: write page regions that this record
- * overrides.
+ * 通用 xlog 记录的描述：写出本记录所覆盖的页
+ * 区域。
  */
 void
 generic_desc(StringInfo buf, XLogReaderState *record)
@@ -46,8 +46,8 @@ generic_desc(StringInfo buf, XLogReaderState *record)
 }
 
 /*
- * Identification of generic xlog record: we don't distinguish any subtypes
- * inside generic xlog records.
+ * 通用 xlog 记录的标识：我们不区分通用 xlog
+ * 记录内部的任何子类型。
  */
 const char *
 generic_identify(uint8 info)

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * replorigindesc.c
- *	  rmgr descriptor routines for replication/logical/origin.c
+ *	  replication/logical/origin.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 2015-2023, PostgreSQL Global Development Group
  *

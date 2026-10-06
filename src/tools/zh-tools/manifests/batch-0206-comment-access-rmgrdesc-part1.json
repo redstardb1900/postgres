@@ -1,0 +1,231 @@
+{
+  "schema_version": 1,
+  "batch_id": "0206-comment-access-rmgrdesc-part1",
+  "title": "zh: translate access/rmgrdesc comments (part 1)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "212602f16b2803f24b6c9ccf955ab0e06f1fdb6b",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/rmgrdesc/seqdesc.c",
+      "kind": "c_comment",
+      "note": "sequence rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/relmapdesc.c",
+      "kind": "c_comment",
+      "note": "relmapper rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/tblspcdesc.c",
+      "kind": "c_comment",
+      "note": "tablespace rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/clogdesc.c",
+      "kind": "c_comment",
+      "note": "clog rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/committsdesc.c",
+      "kind": "c_comment",
+      "note": "commit_ts rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/replorigindesc.c",
+      "kind": "c_comment",
+      "note": "replication origin rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/rmgrdesc_utils.c",
+      "kind": "c_comment",
+      "note": "rmgrdesc support helpers"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/genericdesc.c",
+      "kind": "c_comment",
+      "note": "generic xlog rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/smgrdesc.c",
+      "kind": "c_comment",
+      "note": "smgr/storage rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/logicalmsgdesc.c",
+      "kind": "c_comment",
+      "note": "logical message rmgr descriptor"
+    },
+    {
+      "pattern": "src/backend/access/rmgrdesc/dbasedesc.c",
+      "kind": "c_comment",
+      "note": "database commands rmgr descriptor"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0206-comment-access-rmgrdesc-part1.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/rmgrdesc/seqdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "sequence rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/relmapdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "relmapper rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/tblspcdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "tablespace rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/clogdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "clog rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/committsdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "commit_ts rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/replorigindesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "replication origin rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/rmgrdesc_utils.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "rmgrdesc support helpers; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/genericdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 3,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/path lines"
+      ],
+      "note": "generic xlog rmgr descriptor; Copyright and path lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/smgrdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "smgr/storage rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/logicalmsgdesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 2,
+      "translated": 2,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "logical message rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/backend/access/rmgrdesc/dbasedesc.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [
+        "copyright/IDENTIFICATION lines"
+      ],
+      "note": "database commands rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0206-comment-access-rmgrdesc-part1.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0206 translates comments in eleven small src/backend/access/rmgrdesc/ .c files (part 1). Copyright and IDENTIFICATION/path lines stay in English. No fall-through marker. Next suggested: remaining rmgrdesc (mxact/brin/gist/standby/spg/hash/gin/nbt/xlog/heap/xact)."
+}

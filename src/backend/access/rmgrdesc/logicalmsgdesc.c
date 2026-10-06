@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * logicalmsgdesc.c
- *	  rmgr descriptor routines for replication/logical/message.c
+ *	  replication/logical/message.c 的资源管理器描述例程
  *
  * Portions Copyright (c) 2015-2023, PostgreSQL Global Development Group
  *
@@ -33,7 +33,7 @@ logicalmsg_desc(StringInfo buf, XLogReaderState *record)
 		appendStringInfo(buf, "%s, prefix \"%s\"; payload (%zu bytes): ",
 						 xlrec->transactional ? "transactional" : "non-transactional",
 						 prefix, xlrec->message_size);
-		/* Write message payload as a series of hex bytes */
+		/* 将消息负载写成一系列十六进制字节 */
 		for (int cnt = 0; cnt < xlrec->message_size; cnt++)
 		{
 			appendStringInfo(buf, "%s%02X", sep, (unsigned char) message[cnt]);

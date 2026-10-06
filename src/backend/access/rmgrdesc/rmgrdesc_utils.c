@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * rmgrdesc_utils.c
- *	  Support functions for rmgrdesc routines
+ *	  rmgrdesc 例程的支持函数
  *
  * Copyright (c) 2023, PostgreSQL Global Development Group
  *

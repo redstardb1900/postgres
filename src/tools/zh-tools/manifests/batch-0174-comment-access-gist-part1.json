@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0174-comment-access-gist-part1",
+ "title": "zh: translate access/gist comments (part 1)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "4f2d7ff38d47312b34032679a982ffa0ec530f9b",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/gist/gistvalidate.c",
+   "kind": "c_comment",
+   "note": "GiST opclass validator"
+  },
+  {
+   "pattern": "src/backend/access/gist/gistscan.c",
+   "kind": "c_comment",
+   "note": "GiST index scan"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0174-comment-access-gist-part1.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/gist/gistvalidate.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 28,
+   "translated": 28,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GiST opclass validator; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/backend/access/gist/gistscan.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 38,
+   "translated": 38,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "GiST index scan; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0174-comment-access-gist-part1.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0174 translates comments in gistvalidate.c and gistscan.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: gistvacuum.c and gistxlog.c."
+}

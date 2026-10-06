@@ -1,0 +1,78 @@
+{
+ "schema_version": 1,
+ "batch_id": "0190-comment-access-transam-part2",
+ "title": "zh: translate access/transam comments (part 2)",
+ "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+ "parent_commit": "dea6c472d07165132a38e496d52a78b254263812",
+ "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+ "require_file_entries": true,
+ "allowed_paths": [
+  {
+   "pattern": "src/backend/access/transam/subtrans.c",
+   "kind": "c_comment",
+   "note": "subtransaction log manager"
+  },
+  {
+   "pattern": "src/backend/access/transam/transam.c",
+   "kind": "c_comment",
+   "note": "transaction commit log interface"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0190-comment-access-transam-part2.json",
+   "kind": "manifest",
+   "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "note": "union includes this batch"
+  }
+ ],
+ "files": [
+  {
+   "path": "src/backend/access/transam/subtrans.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 29,
+   "translated": 29,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "subtransaction log manager; Copyright and path lines kept in English"
+  },
+  {
+   "path": "src/backend/access/transam/transam.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 35,
+   "translated": 35,
+   "preserved": 0,
+   "preserved_reasons": [
+    "copyright/IDENTIFICATION lines"
+   ],
+   "note": "transaction commit log interface; Copyright and IDENTIFICATION lines kept in English"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0190-comment-access-transam-part2.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "this manifest"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/cumulative.json",
+   "kind": "tool",
+   "action": "modify",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "union includes this batch"
+  }
+ ],
+ "notes": "Batch 0190 translates comments in subtrans.c and transam.c. Copyright and IDENTIFICATION lines stay in English. No fall-through marker. Next suggested: timeline.c and generic_xlog.c."
+}

@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * transam.c
- *	  postgres transaction (commit) log interface routines
+ *	  postgres 事务（提交）日志接口例程
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,8 +11,8 @@
  *	  src/backend/access/transam/transam.c
  *
  * NOTES
- *	  This file contains the high level access-method interface to the
- *	  transaction system.
+ *	  本文件包含面向事务系统的
+ *	  高层访问方法接口。
  *
  *-------------------------------------------------------------------------
  */
@@ -25,28 +25,28 @@
 #include "utils/snapmgr.h"
 
 /*
- * Single-item cache for results of TransactionLogFetch.  It's worth having
- * such a cache because we frequently find ourselves repeatedly checking the
- * same XID, for example when scanning a table just after a bulk insert,
- * update, or delete.
+ * TransactionLogFetch 结果的单项缓存。值得设置
+ * 此类缓存，因为我们经常反复检查
+ * 同一个 XID，例如在批量插入、
+ * 更新或删除之后扫描表时。
  */
 static TransactionId cachedFetchXid = InvalidTransactionId;
 static XidStatus cachedFetchXidStatus;
 static XLogRecPtr cachedCommitLSN;
 
-/* Local functions */
+/* 本地函数 */
 static XidStatus TransactionLogFetch(TransactionId transactionId);
 
 
 /* ----------------------------------------------------------------
- *		Postgres log access method interface
+ *		Postgres 日志访问方法接口
  *
  *		TransactionLogFetch
  * ----------------------------------------------------------------
  */
 
 /*
- * TransactionLogFetch --- fetch commit status of specified transaction id
+ * TransactionLogFetch --- 获取指定事务 id 的提交状态
  */
 static XidStatus
 TransactionLogFetch(TransactionId transactionId)
@@ -55,14 +55,14 @@ TransactionLogFetch(TransactionId transactionId)
 	XLogRecPtr	xidlsn;
 
 	/*
-	 * Before going to the commit log manager, check our single item cache to
-	 * see if we didn't just check the transaction status a moment ago.
+	 * 在访问提交日志管理器之前，先检查单项缓存，
+	 * 看是否刚才已经查过该事务状态。
 	 */
 	if (TransactionIdEquals(transactionId, cachedFetchXid))
 		return cachedFetchXidStatus;
 
 	/*
-	 * Also, check to see if the transaction ID is a permanent one.
+	 * 同时检查该事务 ID 是否为永久 ID。
 	 */
 	if (!TransactionIdIsNormal(transactionId))
 	{
@@ -74,13 +74,13 @@ TransactionLogFetch(TransactionId transactionId)
 	}
 
 	/*
-	 * Get the transaction status.
+	 * 获取事务状态。
 	 */
 	xidstatus = TransactionIdGetStatus(transactionId, &xidlsn);
 
 	/*
-	 * Cache it, but DO NOT cache status for unfinished or sub-committed
-	 * transactions!  We only cache status that is guaranteed not to change.
+	 * 缓存结果，但切勿缓存未完成或子提交
+	 * 事务的状态！我们只缓存保证不会再变化的状态。
 	 */
 	if (xidstatus != TRANSACTION_STATUS_IN_PROGRESS &&
 		xidstatus != TRANSACTION_STATUS_SUB_COMMITTED)
@@ -94,35 +94,35 @@ TransactionLogFetch(TransactionId transactionId)
 }
 
 /* ----------------------------------------------------------------
- *						Interface functions
+ *						接口函数
  *
  *		TransactionIdDidCommit
  *		TransactionIdDidAbort
  *		========
- *		   these functions test the transaction status of
- *		   a specified transaction id.
+ *		   这些函数测试指定
+ *		   事务 id 的事务状态。
  *
  *		TransactionIdCommitTree
  *		TransactionIdAsyncCommitTree
  *		TransactionIdAbortTree
  *		========
- *		   these functions set the transaction status of the specified
- *		   transaction tree.
+ *		   这些函数设置指定
+ *		   事务树的事务状态。
  *
- * See also TransactionIdIsInProgress, which once was in this module
- * but now lives in procarray.c, as well as comments at the top of
- * heapam_visibility.c that explain how everything fits together.
+ * 另见 TransactionIdIsInProgress（曾在本模块中，
+ * 现位于 procarray.c），以及 heapam_visibility.c
+ * 顶部说明各部分如何协同工作的注释。
  * ----------------------------------------------------------------
  */
 
 /*
  * TransactionIdDidCommit
- *		True iff transaction associated with the identifier did commit.
+ *		当与该标识符关联的事务已提交时为真。
  *
- * Note:
- *		Assumes transaction identifier is valid and exists in clog.
+ * 注意：
+ *		假定事务标识符有效且存在于 clog 中。
  */
-bool							/* true if given transaction committed */
+bool							/* 若给定事务已提交则为真 */
 TransactionIdDidCommit(TransactionId transactionId)
 {
 	XidStatus	xidstatus;
@@ -130,24 +130,24 @@ TransactionIdDidCommit(TransactionId transactionId)
 	xidstatus = TransactionLogFetch(transactionId);
 
 	/*
-	 * If it's marked committed, it's committed.
+	 * 若已标记为已提交，则已提交。
 	 */
 	if (xidstatus == TRANSACTION_STATUS_COMMITTED)
 		return true;
 
 	/*
-	 * If it's marked subcommitted, we have to check the parent recursively.
-	 * However, if it's older than TransactionXmin, we can't look at
-	 * pg_subtrans; instead assume that the parent crashed without cleaning up
-	 * its children.
+	 * 若已标记为子提交，则必须递归检查父事务。
+	 * 但如果它早于 TransactionXmin，就无法查看
+	 * pg_subtrans；此时假定父事务崩溃且未清理
+	 * 其子事务。
 	 *
-	 * Originally we Assert'ed that the result of SubTransGetParent was not
-	 * zero. However with the introduction of prepared transactions, there can
-	 * be a window just after database startup where we do not have complete
-	 * knowledge in pg_subtrans of the transactions after TransactionXmin.
-	 * StartupSUBTRANS() has ensured that any missing information will be
-	 * zeroed.  Since this case should not happen under normal conditions, it
-	 * seems reasonable to emit a WARNING for it.
+	 * 原先我们对 SubTransGetParent 的结果非零做 Assert。
+	 * 但引入预备事务后，数据库刚启动后可能有一段
+	 * 窗口，pg_subtrans 对 TransactionXmin 之后的事务
+	 * 并不完整。StartupSUBTRANS() 已确保缺少的信息会被
+	 * 清零。由于正常情况下不应发生，对该情况发出
+	 * WARNING 似乎合理。
+	 *
 	 */
 	if (xidstatus == TRANSACTION_STATUS_SUB_COMMITTED)
 	{
@@ -166,25 +166,25 @@ TransactionIdDidCommit(TransactionId transactionId)
 	}
 
 	/*
-	 * It's not committed.
+	 * 未提交。
 	 */
 	return false;
 }
 
 /*
  * TransactionIdDidAbort
- *		True iff transaction associated with the identifier did abort.
+ *		当与该标识符关联的事务已中止时为真。
  *
- * Note:
- *		Assumes transaction identifier is valid and exists in clog.
+ * 注意：
+ *		假定事务标识符有效且存在于 clog 中。
  *
- *		Returns true only for explicitly aborted transactions, as transactions
- *		implicitly aborted due to a crash will commonly still appear to be
- *		in-progress in the clog.  Most of the time TransactionIdDidCommit(),
- *		with a preceding TransactionIdIsInProgress() check, should be used
- *		instead of TransactionIdDidAbort().
+ *		仅对显式中止的事务返回真；因崩溃而
+ *		隐式中止的事务在 clog 中通常仍显示为
+ *		进行中。多数情况下应使用 TransactionIdDidCommit()，
+ *		并在之前配合 TransactionIdIsInProgress() 检查，
+ *		而不是使用 TransactionIdDidAbort()。
  */
-bool							/* true if given transaction aborted */
+bool							/* 若给定事务已中止则为真 */
 TransactionIdDidAbort(TransactionId transactionId)
 {
 	XidStatus	xidstatus;
@@ -192,16 +192,16 @@ TransactionIdDidAbort(TransactionId transactionId)
 	xidstatus = TransactionLogFetch(transactionId);
 
 	/*
-	 * If it's marked aborted, it's aborted.
+	 * 若已标记为已中止，则已中止。
 	 */
 	if (xidstatus == TRANSACTION_STATUS_ABORTED)
 		return true;
 
 	/*
-	 * If it's marked subcommitted, we have to check the parent recursively.
-	 * However, if it's older than TransactionXmin, we can't look at
-	 * pg_subtrans; instead assume that the parent crashed without cleaning up
-	 * its children.
+	 * 若已标记为子提交，则必须递归检查父事务。
+	 * 但如果它早于 TransactionXmin，就无法查看
+	 * pg_subtrans；此时假定父事务崩溃且未清理
+	 * 其子事务。
 	 */
 	if (xidstatus == TRANSACTION_STATUS_SUB_COMMITTED)
 	{
@@ -212,7 +212,7 @@ TransactionIdDidAbort(TransactionId transactionId)
 		parentXid = SubTransGetParent(transactionId);
 		if (!TransactionIdIsValid(parentXid))
 		{
-			/* see notes in TransactionIdDidCommit */
+			/* 见 TransactionIdDidCommit 中的说明 */
 			elog(WARNING, "no pg_subtrans entry for subcommitted XID %u",
 				 transactionId);
 			return true;
@@ -221,20 +221,20 @@ TransactionIdDidAbort(TransactionId transactionId)
 	}
 
 	/*
-	 * It's not aborted.
+	 * 未中止。
 	 */
 	return false;
 }
 
 /*
  * TransactionIdCommitTree
- *		Marks the given transaction and children as committed
+ *		将给定事务及其子事务标记为已提交
  *
- * "xid" is a toplevel transaction commit, and the xids array contains its
- * committed subtransactions.
+ * "xid" 是顶层事务提交，xids 数组包含其
+ * 已提交的子事务。
  *
- * This commit operation is not guaranteed to be atomic, but if not, subxids
- * are correctly marked subcommit first.
+ * 此提交操作不保证原子，但若非原子，子 xid
+ * 会先被正确标记为子提交。
  */
 void
 TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids)
@@ -246,7 +246,7 @@ TransactionIdCommitTree(TransactionId xid, int nxids, TransactionId *xids)
 
 /*
  * TransactionIdAsyncCommitTree
- *		Same as above, but for async commits.  The commit record LSN is needed.
+ *		同上，但用于异步提交。需要提交记录的 LSN。
  */
 void
 TransactionIdAsyncCommitTree(TransactionId xid, int nxids, TransactionId *xids,
@@ -258,13 +258,13 @@ TransactionIdAsyncCommitTree(TransactionId xid, int nxids, TransactionId *xids,
 
 /*
  * TransactionIdAbortTree
- *		Marks the given transaction and children as aborted.
+ *		将给定事务及其子事务标记为已中止。
  *
- * "xid" is a toplevel transaction commit, and the xids array contains its
- * committed subtransactions.
+ * "xid" 是顶层事务提交，xids 数组包含其
+ * 已提交的子事务。
  *
- * We don't need to worry about the non-atomic behavior, since any onlookers
- * will consider all the xacts as not-yet-committed anyway.
+ * 无需担心非原子行为，因为旁观者
+ * 本来就会把这些事务都视为尚未提交。
  */
 void
 TransactionIdAbortTree(TransactionId xid, int nxids, TransactionId *xids)
@@ -274,14 +274,14 @@ TransactionIdAbortTree(TransactionId xid, int nxids, TransactionId *xids)
 }
 
 /*
- * TransactionIdPrecedes --- is id1 logically < id2?
+ * TransactionIdPrecedes --- id1 在逻辑上是否 < id2？
  */
 bool
 TransactionIdPrecedes(TransactionId id1, TransactionId id2)
 {
 	/*
-	 * If either ID is a permanent XID then we can just do unsigned
-	 * comparison.  If both are normal, do a modulo-2^32 comparison.
+	 * 若任一 ID 为永久 XID，则可直接做无符号
+	 * 比较。若两者都是普通 XID，则做模 2^32 比较。
 	 */
 	int32		diff;
 
@@ -293,7 +293,7 @@ TransactionIdPrecedes(TransactionId id1, TransactionId id2)
 }
 
 /*
- * TransactionIdPrecedesOrEquals --- is id1 logically <= id2?
+ * TransactionIdPrecedesOrEquals --- id1 在逻辑上是否 <= id2？
  */
 bool
 TransactionIdPrecedesOrEquals(TransactionId id1, TransactionId id2)
@@ -308,7 +308,7 @@ TransactionIdPrecedesOrEquals(TransactionId id1, TransactionId id2)
 }
 
 /*
- * TransactionIdFollows --- is id1 logically > id2?
+ * TransactionIdFollows --- id1 在逻辑上是否 > id2？
  */
 bool
 TransactionIdFollows(TransactionId id1, TransactionId id2)
@@ -323,7 +323,7 @@ TransactionIdFollows(TransactionId id1, TransactionId id2)
 }
 
 /*
- * TransactionIdFollowsOrEquals --- is id1 logically >= id2?
+ * TransactionIdFollowsOrEquals --- id1 在逻辑上是否 >= id2？
  */
 bool
 TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2)
@@ -339,7 +339,7 @@ TransactionIdFollowsOrEquals(TransactionId id1, TransactionId id2)
 
 
 /*
- * TransactionIdLatest --- get latest XID among a main xact and its children
+ * TransactionIdLatest --- 在主事务及其子事务中取最新 XID
  */
 TransactionId
 TransactionIdLatest(TransactionId mainxid,
@@ -348,11 +348,11 @@ TransactionIdLatest(TransactionId mainxid,
 	TransactionId result;
 
 	/*
-	 * In practice it is highly likely that the xids[] array is sorted, and so
-	 * we could save some cycles by just taking the last child XID, but this
-	 * probably isn't so performance-critical that it's worth depending on
-	 * that assumption.  But just to show we're not totally stupid, scan the
-	 * array back-to-front to avoid useless assignments.
+	 * 实践中 xids[] 数组极有可能已排序，因此
+	 * 只需取最后一个子 XID 即可节省周期，但这一点
+	 * 大概还没关键到值得依赖该假设的程度。
+	 * 不过为表明我们并非完全不动脑，从后往前扫描
+	 * 数组以避免无用赋值。
 	 */
 	result = mainxid;
 	while (--nxids >= 0)
@@ -367,16 +367,16 @@ TransactionIdLatest(TransactionId mainxid,
 /*
  * TransactionIdGetCommitLSN
  *
- * This function returns an LSN that is late enough to be able
- * to guarantee that if we flush up to the LSN returned then we
- * will have flushed the transaction's commit record to disk.
+ * 本函数返回一个足够靠后的 LSN，以保证
+ * 若我们刷写到所返回的 LSN，则已将该
+ * 事务的提交记录刷写到磁盘。
  *
- * The result is not necessarily the exact LSN of the transaction's
- * commit record!  For example, for long-past transactions (those whose
- * clog pages already migrated to disk), we'll return InvalidXLogRecPtr.
- * Also, because we group transactions on the same clog page to conserve
- * storage, we might return the LSN of a later transaction that falls into
- * the same group.
+ * 结果未必恰好是该事务提交记录的
+ * 精确 LSN！例如，对很久以前的事务（其
+ * clog 页已落到磁盘），我们将返回 InvalidXLogRecPtr。
+ * 另外，由于我们把同一 clog 页上的事务分组以节省
+ * 存储，也可能返回落入同一组的稍后事务的
+ * LSN。
  */
 XLogRecPtr
 TransactionIdGetCommitLSN(TransactionId xid)
@@ -384,20 +384,20 @@ TransactionIdGetCommitLSN(TransactionId xid)
 	XLogRecPtr	result;
 
 	/*
-	 * Currently, all uses of this function are for xids that were just
-	 * reported to be committed by TransactionLogFetch, so we expect that
-	 * checking TransactionLogFetch's cache will usually succeed and avoid an
-	 * extra trip to shared memory.
+	 * 目前，本函数的所有用法都针对刚被
+	 * TransactionLogFetch 报告为已提交的 xid，因此通常
+	 * 检查 TransactionLogFetch 的缓存即可成功，避免
+	 * 额外访问共享内存。
 	 */
 	if (TransactionIdEquals(xid, cachedFetchXid))
 		return cachedCommitLSN;
 
-	/* Special XIDs are always known committed */
+	/* 特殊 XIDs 始终视为已提交 */
 	if (!TransactionIdIsNormal(xid))
 		return InvalidXLogRecPtr;
 
 	/*
-	 * Get the transaction status.
+	 * 获取事务状态。
 	 */
 	(void) TransactionIdGetStatus(xid, &result);
 

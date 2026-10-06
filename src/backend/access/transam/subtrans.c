@@ -1,23 +1,23 @@
 /*-------------------------------------------------------------------------
  *
  * subtrans.c
- *		PostgreSQL subtransaction-log manager
+ *		PostgreSQL 子事务日志管理器
  *
- * The pg_subtrans manager is a pg_xact-like manager that stores the parent
- * transaction Id for each transaction.  It is a fundamental part of the
- * nested transactions implementation.  A main transaction has a parent
- * of InvalidTransactionId, and each subtransaction has its immediate parent.
- * The tree can easily be walked from child to parent, but not in the
- * opposite direction.
+ * pg_subtrans 管理器类似 pg_xact，为每个事务存储其父
+ * 事务 Id。它是嵌套事务实现的基础组成部分。主事务的父
+ * 为 InvalidTransactionId，每个子事务则指向其直接父事务。
+ * 可以方便地从子到父遍历该树，但不能
+ * 反向遍历。
  *
- * This code is based on xact.c, but the robustness requirements
- * are completely different from pg_xact, because we only need to remember
- * pg_subtrans information for currently-open transactions.  Thus, there is
- * no need to preserve data over a crash and restart.
+ * 本代码基于 xact.c，但对稳健性的要求
+ * 与 pg_xact 完全不同，因为我们只需记住
+ * 当前仍打开事务的 pg_subtrans 信息。因此，无需
+ * 在崩溃与重启后保留这些数据。
  *
- * There are no XLOG interactions since we do not care about preserving
- * data across crashes.  During database startup, we simply force the
- * currently-active page of SUBTRANS to zeroes.
+ * 由于不关心跨崩溃保留数据，故无 XLOG 交互。
+ * 数据库启动时，我们只需将当前活动的
+ * SUBTRANS 页强制清零即可。
+ *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -36,19 +36,19 @@
 
 
 /*
- * Defines for SubTrans page sizes.  A page is the same BLCKSZ as is used
- * everywhere else in Postgres.
+ * SubTrans 页大小相关定义。页大小与 Postgres
+ * 其他地方一样，均为 BLCKSZ。
  *
- * Note: because TransactionIds are 32 bits and wrap around at 0xFFFFFFFF,
- * SubTrans page numbering also wraps around at
- * 0xFFFFFFFF/SUBTRANS_XACTS_PER_PAGE, and segment numbering at
- * 0xFFFFFFFF/SUBTRANS_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT.  We need take no
- * explicit notice of that fact in this module, except when comparing segment
- * and page numbers in TruncateSUBTRANS (see SubTransPagePrecedes) and zeroing
- * them in StartupSUBTRANS.
+ * 注意：由于 TransactionIds 为 32 位并在 0xFFFFFFFF 处回卷，
+ * SubTrans 页编号也会在
+ * 0xFFFFFFFF/SUBTRANS_XACTS_PER_PAGE 处回卷，段编号在
+ * 0xFFFFFFFF/SUBTRANS_XACTS_PER_PAGE/SLRU_PAGES_PER_SEGMENT 处回卷。本模块无需
+ * 显式处理该事实，仅在 TruncateSUBTRANS 中比较段
+ * 与页号时（见 SubTransPagePrecedes），以及在 StartupSUBTRANS
+ * 中清零时需要注意。
  */
 
-/* We need four bytes per xact */
+/* 每个事务需要四个字节 */
 #define SUBTRANS_XACTS_PER_PAGE (BLCKSZ / sizeof(TransactionId))
 
 #define TransactionIdToPage(xid) ((xid) / (TransactionId) SUBTRANS_XACTS_PER_PAGE)
@@ -56,7 +56,7 @@
 
 
 /*
- * Link to shared-memory data structures for SUBTRANS control
+ * 指向 SUBTRANS 控制用共享内存数据结构的链接
  */
 static SlruCtlData SubTransCtlData;
 
@@ -68,7 +68,7 @@ static bool SubTransPagePrecedes(int page1, int page2);
 
 
 /*
- * Record the parent of a subtransaction in the subtrans log.
+ * 在子事务日志中记录子事务的父事务。
  */
 void
 SubTransSetParent(TransactionId xid, TransactionId parent)
@@ -88,9 +88,9 @@ SubTransSetParent(TransactionId xid, TransactionId parent)
 	ptr += entryno;
 
 	/*
-	 * It's possible we'll try to set the parent xid multiple times but we
-	 * shouldn't ever be changing the xid from one valid xid to another valid
-	 * xid, which would corrupt the data structure.
+	 * 有可能多次尝试设置父 xid，但我们
+	 * 绝不应把一个有效 xid 改成另一个有效
+	 * xid，否则会破坏数据结构。
 	 */
 	if (*ptr != parent)
 	{
@@ -103,7 +103,7 @@ SubTransSetParent(TransactionId xid, TransactionId parent)
 }
 
 /*
- * Interrogate the parent of a transaction in the subtrans log.
+ * 查询子事务日志中某事务的父事务。
  */
 TransactionId
 SubTransGetParent(TransactionId xid)
@@ -114,14 +114,14 @@ SubTransGetParent(TransactionId xid)
 	TransactionId *ptr;
 	TransactionId parent;
 
-	/* Can't ask about stuff that might not be around anymore */
+	/* 无法查询可能已不存在的内容 */
 	Assert(TransactionIdFollowsOrEquals(xid, TransactionXmin));
 
-	/* Bootstrap and frozen XIDs have no parent */
+	/* Bootstrap 与冻结 XIDs 没有父事务 */
 	if (!TransactionIdIsNormal(xid))
 		return InvalidTransactionId;
 
-	/* lock is acquired by SimpleLruReadPage_ReadOnly */
+	/* 锁由 SimpleLruReadPage_ReadOnly 获取 */
 
 	slotno = SimpleLruReadPage_ReadOnly(SubTransCtl, pageno, xid);
 	ptr = (TransactionId *) SubTransCtl->shared->page_buffer[slotno];
@@ -137,14 +137,14 @@ SubTransGetParent(TransactionId xid)
 /*
  * SubTransGetTopmostTransaction
  *
- * Returns the topmost transaction of the given transaction id.
+ * 返回给定事务 id 的最顶层事务。
  *
- * Because we cannot look back further than TransactionXmin, it is possible
- * that this function will lie and return an intermediate subtransaction ID
- * instead of the true topmost parent ID.  This is OK, because in practice
- * we only care about detecting whether the topmost parent is still running
- * or is part of a current snapshot's list of still-running transactions.
- * Therefore, any XID before TransactionXmin is as good as any other.
+ * 由于无法回溯到比 TransactionXmin 更早的记录，本函数
+ * 有可能"撒谎"，返回某个中间子事务 ID
+ * 而非真正的最顶层父 ID。这是可以接受的，因为实践中
+ * 我们只关心检测最顶层父事务是否仍在运行，
+ * 或是否出现在当前快照的仍在运行事务列表中。
+ * 因此，任何早于 TransactionXmin 的 XID 彼此等价。
  */
 TransactionId
 SubTransGetTopmostTransaction(TransactionId xid)
@@ -152,7 +152,7 @@ SubTransGetTopmostTransaction(TransactionId xid)
 	TransactionId parentXid = xid,
 				previousXid = xid;
 
-	/* Can't ask about stuff that might not be around anymore */
+	/* 无法查询可能已不存在的内容 */
 	Assert(TransactionIdFollowsOrEquals(xid, TransactionXmin));
 
 	while (TransactionIdIsValid(parentXid))
@@ -163,9 +163,9 @@ SubTransGetTopmostTransaction(TransactionId xid)
 		parentXid = SubTransGetParent(parentXid);
 
 		/*
-		 * By convention the parent xid gets allocated first, so should always
-		 * precede the child xid. Anything else points to a corrupted data
-		 * structure that could lead to an infinite loop, so exit.
+		 * 按约定父 xid 先分配，因此应始终
+		 * 先于子 xid。其他情况表明数据结构已损坏，
+		 * 可能导致无限循环，故退出。
 		 */
 		if (!TransactionIdPrecedes(parentXid, previousXid))
 			elog(ERROR, "pg_subtrans contains invalid entry: xid %u points to parent xid %u",
@@ -179,7 +179,7 @@ SubTransGetTopmostTransaction(TransactionId xid)
 
 
 /*
- * Initialization of shared memory for SUBTRANS
+ * 初始化 SUBTRANS 的共享内存
  */
 Size
 SUBTRANSShmemSize(void)
@@ -198,14 +198,14 @@ SUBTRANSShmemInit(void)
 }
 
 /*
- * This func must be called ONCE on system install.  It creates
- * the initial SUBTRANS segment.  (The SUBTRANS directory is assumed to
- * have been created by the initdb shell script, and SUBTRANSShmemInit
- * must have been called already.)
+ * 本函数必须在系统安装时调用一次。它创建
+ * 初始 SUBTRANS 段。（假定 SUBTRANS 目录已由
+ * initdb shell 脚本创建，且 SUBTRANSShmemInit
+ * 已被调用。）
  *
- * Note: it's not really necessary to create the initial segment now,
- * since slru.c would create it on first write anyway.  But we may as well
- * do it to be sure the directory is set up correctly.
+ * 注意：其实不必现在就创建初始段，
+ * 因为 slru.c 会在首次写入时创建。但我们仍
+ * 这样做，以确保目录设置正确。
  */
 void
 BootStrapSUBTRANS(void)
@@ -214,10 +214,10 @@ BootStrapSUBTRANS(void)
 
 	LWLockAcquire(SubtransSLRULock, LW_EXCLUSIVE);
 
-	/* Create and zero the first page of the subtrans log */
+	/* 创建并清零子事务日志的第一页 */
 	slotno = ZeroSUBTRANSPage(0);
 
-	/* Make sure it's written out */
+	/* 确保已写出 */
 	SimpleLruWritePage(SubTransCtl, slotno);
 	Assert(!SubTransCtl->shared->page_dirty[slotno]);
 
@@ -225,12 +225,12 @@ BootStrapSUBTRANS(void)
 }
 
 /*
- * Initialize (or reinitialize) a page of SUBTRANS to zeroes.
+ * 将一页 SUBTRANS 初始化（或重新初始化）为零。
  *
- * The page is not actually written, just set up in shared memory.
- * The slot number of the new page is returned.
+ * 页实际上不会写出，只是在共享内存中建好。
+ * 返回新页的槽号。
  *
- * Control lock must be held at entry, and will be held at exit.
+ * 进入时必须持有控制锁，退出时仍持有。
  */
 static int
 ZeroSUBTRANSPage(int pageno)
@@ -239,11 +239,11 @@ ZeroSUBTRANSPage(int pageno)
 }
 
 /*
- * This must be called ONCE during postmaster or standalone-backend startup,
- * after StartupXLOG has initialized ShmemVariableCache->nextXid.
+ * 必须在 postmaster 或独立后端启动期间调用一次，
+ * 且在 StartupXLOG 已初始化 ShmemVariableCache->nextXid 之后。
  *
- * oldestActiveXID is the oldest XID of any prepared transaction, or nextXid
- * if there are none.
+ * oldestActiveXID 是任一预备事务中最老的 XID；若无则
+ * 为 nextXid。
  */
 void
 StartupSUBTRANS(TransactionId oldestActiveXID)
@@ -253,10 +253,10 @@ StartupSUBTRANS(TransactionId oldestActiveXID)
 	int			endPage;
 
 	/*
-	 * Since we don't expect pg_subtrans to be valid across crashes, we
-	 * initialize the currently-active page(s) to zeroes during startup.
-	 * Whenever we advance into a new page, ExtendSUBTRANS will likewise zero
-	 * the new page without regard to whatever was previously on disk.
+	 * 由于我们不期望 pg_subtrans 在崩溃后仍然有效，
+	 * 启动时将当前活动 page（页）清零。
+	 * 每当进入新页时，ExtendSUBTRANS 同样会清零
+	 * 新页，而不理会磁盘上原先的内容。
 	 */
 	LWLockAcquire(SubtransSLRULock, LW_EXCLUSIVE);
 
@@ -268,7 +268,7 @@ StartupSUBTRANS(TransactionId oldestActiveXID)
 	{
 		(void) ZeroSUBTRANSPage(startPage);
 		startPage++;
-		/* must account for wraparound */
+		/* 必须考虑回卷 */
 		if (startPage > TransactionIdToPage(MaxTransactionId))
 			startPage = 0;
 	}
@@ -278,17 +278,17 @@ StartupSUBTRANS(TransactionId oldestActiveXID)
 }
 
 /*
- * Perform a checkpoint --- either during shutdown, or on-the-fly
+ * 执行检查点 —— 无论是关闭期间还是联机进行
  */
 void
 CheckPointSUBTRANS(void)
 {
 	/*
-	 * Write dirty SUBTRANS pages to disk
+	 * 将脏的 SUBTRANS 页写出到磁盘
 	 *
-	 * This is not actually necessary from a correctness point of view. We do
-	 * it merely to improve the odds that writing of dirty pages is done by
-	 * the checkpoint process and not by backends.
+	 * 从正确性角度看这并非必要。我们这样做
+	 * 只是为了提高由检查点进程（而非后端）
+	 * 写出脏页的几率。
 	 */
 	TRACE_POSTGRESQL_SUBTRANS_CHECKPOINT_START(true);
 	SimpleLruWriteAll(SubTransCtl, true);
@@ -297,12 +297,12 @@ CheckPointSUBTRANS(void)
 
 
 /*
- * Make sure that SUBTRANS has room for a newly-allocated XID.
+ * 确保 SUBTRANS 能为新分配的 XID 留出空间。
  *
- * NB: this is called while holding XidGenLock.  We want it to be very fast
- * most of the time; even when it's not so fast, no actual I/O need happen
- * unless we're forced to write out a dirty subtrans page to make room
- * in shared memory.
+ * 注意：调用时持有 XidGenLock。我们希望它在多数情况下
+ * 非常快；即使不够快，除非被迫写出脏的
+ * 子事务页以为共享内存腾出空间，否则
+ * 也不会发生实际 I/O。
  */
 void
 ExtendSUBTRANS(TransactionId newestXact)
@@ -310,8 +310,8 @@ ExtendSUBTRANS(TransactionId newestXact)
 	int			pageno;
 
 	/*
-	 * No work except at first XID of a page.  But beware: just after
-	 * wraparound, the first XID of page zero is FirstNormalTransactionId.
+	 * 仅在页的第一个 XID 时才有工作。但要注意：刚发生
+	 * 回卷后，第零页的第一个 XID 是 FirstNormalTransactionId。
 	 */
 	if (TransactionIdToEntry(newestXact) != 0 &&
 		!TransactionIdEquals(newestXact, FirstNormalTransactionId))
@@ -321,7 +321,7 @@ ExtendSUBTRANS(TransactionId newestXact)
 
 	LWLockAcquire(SubtransSLRULock, LW_EXCLUSIVE);
 
-	/* Zero the page */
+	/* 清零该页 */
 	ZeroSUBTRANSPage(pageno);
 
 	LWLockRelease(SubtransSLRULock);
@@ -329,10 +329,10 @@ ExtendSUBTRANS(TransactionId newestXact)
 
 
 /*
- * Remove all SUBTRANS segments before the one holding the passed transaction ID
+ * 删除持有所传事务 ID 的段之前的所有 SUBTRANS 段
  *
- * oldestXact is the oldest TransactionXmin of any running transaction.  This
- * is called only during checkpoint.
+ * oldestXact 是任一运行中事务的最老 TransactionXmin。本
+ * 函数仅在检查点期间调用。
  */
 void
 TruncateSUBTRANS(TransactionId oldestXact)
@@ -340,12 +340,12 @@ TruncateSUBTRANS(TransactionId oldestXact)
 	int			cutoffPage;
 
 	/*
-	 * The cutoff point is the start of the segment containing oldestXact. We
-	 * pass the *page* containing oldestXact to SimpleLruTruncate.  We step
-	 * back one transaction to avoid passing a cutoff page that hasn't been
-	 * created yet in the rare case that oldestXact would be the first item on
-	 * a page and oldestXact == next XID.  In that case, if we didn't subtract
-	 * one, we'd trigger SimpleLruTruncate's wraparound detection.
+	 * 截断点是包含 oldestXact 的段起点。我们
+	 * 把包含 oldestXact 的*页*传给 SimpleLruTruncate。我们先
+	 * 回退一个事务，以免在罕见情况下 oldestXact
+	 * 恰好是某页第一项且 oldestXact == next XID 时，传入尚未
+	 * 创建的截断页。若不减一，就会触发
+	 * SimpleLruTruncate 的回卷检测。
 	 */
 	TransactionIdRetreat(oldestXact);
 	cutoffPage = TransactionIdToPage(oldestXact);
@@ -355,8 +355,8 @@ TruncateSUBTRANS(TransactionId oldestXact)
 
 
 /*
- * Decide whether a SUBTRANS page number is "older" for truncation purposes.
- * Analogous to CLOGPagePrecedes().
+ * 判断某一 SUBTRANS 页号在截断意义上是否"更旧"。
+ * 与 CLOGPagePrecedes() 类似。
  */
 static bool
 SubTransPagePrecedes(int page1, int page2)

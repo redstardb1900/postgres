@@ -112,7 +112,7 @@ bool		bsysscan = false;
  * nParallelCurrentXids 在普通后端中将为0且ParallelCurrentXids为NULL，
  * 但在并行后端中，nParallelCurrentXids 将包含需要被视为当前的 XIDs 数量，
  * 而ParallelCurrentXids将包含 XIDs 本身。这包括在并行操作开始时在父级中
- * 当前或子提交的所有 XIDss。XIDs 按照数值顺序（非逻辑顺序）排序存储，
+ * 当前或子提交的所有 XIDs。XIDs 按照数值顺序（非逻辑顺序）排序存储，
  * 以便尽可能快地进行查找。
  *
  *
@@ -2488,7 +2488,7 @@ PrepareTransaction(void)
 	PreCommit_CheckForSerializationFailure();
 
 	/*
-	 * 同样，如果在此事务中访问了临时表，则不允许 PREPARE TRANSACTION。
+	 * 如果在此事务中访问了临时表，则不允许 PREPARE TRANSACTION。
 	 * 让预备事务持有另一个后端的临时表上的锁似乎是个坏主意 ---
 	 * 例如它会阻止后端退出。还有其他问题，例如如果预备事务
 	 * 包含临时表的 DROP，如何清理源后端的本地缓冲区和 ON COMMIT 状态。
@@ -5800,7 +5800,7 @@ XactLogCommitRecord(TimestampTz commit_time,
 }
 
 /*
- * 为普通或两阶段事务中止记录提交日志。
+ * 为普通或两阶段事务中止写入中止记录。
  *
  * 当 twophase_xid 有效时发出 2pc 中止，否则发出普通中止。
  *

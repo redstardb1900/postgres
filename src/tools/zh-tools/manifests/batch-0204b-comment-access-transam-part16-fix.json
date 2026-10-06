@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0204b-comment-access-transam-part16-fix",
+  "title": "zh: fix access/transam comments (part 16) abort record wording",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "34521a4c2188db1f6a83d1fe1bdbf16fdae19df1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/access/transam/xact.c",
+      "kind": "c_comment",
+      "note": "Composer P1: abort record wording; XIDss typo; stray 同样"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0204b-comment-access-transam-part16-fix.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/access/transam/xact.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 3,
+      "translated": 3,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "XactLogAbortRecord: 提交日志→写入中止记录; XIDss→XIDs; drop stray 同样 (no Likewise)"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0204b-comment-access-transam-part16-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "Composer P1 on 0204"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0204b"
+    }
+  ],
+  "notes": "Composer P1 on 0204: XactLogAbortRecord mistranslated as 提交日志 → 写入中止记录; XIDss→XIDs; remove stray 同样 where English has no Likewise."
+}

@@ -3235,6 +3235,11 @@
    "pattern": "src/tools/zh-tools/manifests/batch-0204-comment-access-transam-part16.json",
    "kind": "manifest",
    "note": "this manifest"
+  },
+  {
+   "pattern": "src/tools/zh-tools/manifests/batch-0204b-comment-access-transam-part16-fix.json",
+   "kind": "manifest",
+   "note": "this manifest"
   }
  ],
  "files": [
@@ -11707,7 +11712,27 @@
    "preserved": 0,
    "preserved_reasons": [],
    "note": "this manifest"
+  },
+  {
+   "path": "src/backend/access/transam/xact.c",
+   "kind": "c_comment",
+   "action": "modify",
+   "segments_total": 3,
+   "translated": 3,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "0204b: abort record wording; XIDss→XIDs; drop stray 同样"
+  },
+  {
+   "path": "src/tools/zh-tools/manifests/batch-0204b-comment-access-transam-part16-fix.json",
+   "kind": "manifest",
+   "action": "add",
+   "segments_total": 0,
+   "translated": 0,
+   "preserved": 0,
+   "preserved_reasons": [],
+   "note": "Composer P1 on 0204"
   }
  ],
- "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16)."
+ "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16). Batch 0204b: fix abort record wording in xact.c (提交日志→写入中止记录; XIDss; stray 同样)."
 }

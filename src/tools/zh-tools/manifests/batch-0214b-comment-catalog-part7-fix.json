@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "batch_id": "0214b-comment-catalog-part7-fix",
+  "title": "zh: fix catalog comments (part 7) findDependentObjects polarity",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "1be8f027e843ec2e1bfe593654b58c09d67016a3",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "note": "P1: must not have added → 不得 (not 不得已)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0214b-comment-catalog-part7-fix.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/dependency.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 1,
+      "translated": 1,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "findDependentObjects: 不得已 → 不得"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0214b-comment-catalog-part7-fix.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "P1 on 0214"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes 0214b"
+    }
+  ],
+  "notes": "P1 on 0214: findDependentObjects 'must not have added it to targetObjects' was 不得已 (had no choice but to add), polarity reversed; now 不得."
+}

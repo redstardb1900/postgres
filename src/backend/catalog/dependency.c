@@ -461,7 +461,7 @@ performMultipleDeletions(const ObjectAddresses *objects,
  * 完成后的列表顺序就是安全的删除顺序。
  *
  * 调用者必须已经持有 'object' 自身上的删除锁，
- * 但不得已把它加入 targetObjects。（注意：存在边角
+ * 但不得把它加入 targetObjects。（注意：存在边角
  * 情况我们也不会加入该对象，并且还会释放
  * 调用者已获取的锁。这有点难看，但 API 这样设计
  * 是为了在加锁后能方便地复查对象是否仍存活。见

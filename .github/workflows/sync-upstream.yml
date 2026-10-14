@@ -1,0 +1,62 @@
+name: Sync PostgreSQL Upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every day at 02:00 China Standard Time (UTC+8).
+    - cron: "0 18 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync upstream branches and tags
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out origin
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/postgres/postgres.git
+
+      - name: Fetch upstream
+        run: git fetch upstream --prune --tags --force
+
+      - name: Sync master
+        run: |
+          set -euo pipefail
+          git push origin refs/remotes/upstream/master:refs/heads/master --force
+
+      - name: Sync all upstream stable branches
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          stable_branch_count=0
+          while IFS= read -r branch; do
+            [ -n "$branch" ] || continue
+            echo "Syncing $branch"
+            git push origin "refs/remotes/upstream/$branch:refs/heads/$branch" --force
+            stable_branch_count=$((stable_branch_count + 1))
+          done < <(git for-each-ref --format='%(refname:strip=3)' 'refs/remotes/upstream/*_STABLE')
+
+          echo "Synchronized $stable_branch_count upstream *_STABLE branches."
+
+      - name: Sync upstream tags
+        run: |
+          set -euo pipefail
+          git push origin --tags --force
+
+      - name: Report sync status
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Sync completed successfully."
+          echo "master: $(git rev-parse --short refs/remotes/upstream/master)"
+          echo "stable branches: $(git for-each-ref --format='%(refname)' 'refs/remotes/upstream/*_STABLE' | wc -l | tr -d ' ')"
+          echo "tags: $(git tag --list | wc -l | tr -d ' ')"

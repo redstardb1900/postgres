@@ -205,3 +205,22 @@ pgnls phrasebook 为单条 NLS 消息设计：`--po` 模式下为 `error`，注�
    保护集逐项 blob OID 不变。
 
 之后的每个提交都必须先通过当时已提交版本的工具。
+
+### 6. 两代理复核（Two-agent review）
+
+每个翻译批次在**提交前**必须经过**只读（read-only）复核代理**的复核。复核代理不得修改任何文件、不得运行会改动仓库状态的命令，只能读取、对比基线和运行下列只读校验。
+
+复核要求（必需）：
+- 工作树清洁（`git status --short` 为空）。
+- 增量范围：`check_scope.py --incremental --manifest <batch-manifest>` 通过（且所有变更路径均在 manifest 的 allowed_paths 与 files[] 中）。
+- 累计一致性：`check_scope.py --manifest cumulative.json` 在当前 HEAD 下通过。
+- 注释只读：`verify_c_comments.py --worktree REL_16_11 .` 通过（0 违规、0 解析错误）。
+- 术语：`term_lint.py --worktree REL_16_11 . --pgnls /Users/niejinbo/work/code/pg/pgsty/pgnls` 通过（0 error hits；warnings 可允许）。
+- 忠实性（Fidelity）：逐一复核每个被修改的注释块，对比基线（`git show REL_16_11:<path>`），确认**未删减语句、未臆造断言、未翻译代码/标识符、内联代码与 ASCII 图保持不变**。
+- 保留规则：`preserved` 段必须仍为英文，且 manifest 的 `preserved_reasons` 与实际情况匹配。
+- 分段核算：`segments_total` 等于该文件的 `/* */` 块数；`translated + preserved <= segments_total`；`preserved > 0` 时必须有 `preserved_reasons`。对包含受保护法定行的头部块，按仓库既有惯例正确计入 preserved/translated。
+- 一致性：术语与 pgnls 基础一致，manifest 的 `notes` 与 `next_suggestion` 合理。
+
+复核代理必须以**只读**方式完成上述校验，不得尝试修复问题。其输出应包含：**判定（PASS / FAIL-FIX）**、**问题清单**（每项形如 `file:line — issue — suggested fix`，只列真实缺陷，不写 nits）、**核算的各文件 segments 数**、以及各只读校验的**精确通过/失败行**。主代理**必须等待复核代理给出 PASS 后方可提交**该批次。
+
+> 注：批次的 `files[].segments_total/translated/preserved` 等统计数据属于元数据；手工维护时易出现合并重复或计数不一致。对历史批次 manifest 的元数据修正（仅限使其满足 `translated+preserved <= segments_total` 等不可变式，而不改变源文件翻译内容）可作为**Phase-0 修复批次**的一部分处理，并在该批次 manifest 中明确记录。

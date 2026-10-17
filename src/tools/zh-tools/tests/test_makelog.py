@@ -198,6 +198,39 @@ class DepfileTest(unittest.TestCase):
         # a sibling directory with a common prefix is NOT under the root
         self.assertEqual(makelog.classify_path("/s2/x.h", "/s", "/b")[0], "sys")
 
+    def test_classify_path_through_symlink(self):
+        # Make echoes whichever spelling it was invoked with; the roots handed
+        # to collect()/replay are realpath'd.  A path reached through a symlink
+        # (macOS /var -> /private/var) must still classify against the other
+        # spelling of the same directory.
+        d = tempfile.mkdtemp()
+        try:
+            real_b = os.path.join(d, "realdir", "b")
+            os.makedirs(os.path.join(real_b, "src"))
+            link = os.path.join(d, "linkb")
+            os.symlink(real_b, link)
+            self.assertEqual(makelog.classify_path(os.path.join(link, "src", "x.o"), "/s", real_b),
+                             ("build", "src/x.o"))
+            self.assertEqual(makelog.classify_path(os.path.join(real_b, "src", "x.o"), "/s", link),
+                             ("build", "src/x.o"))
+        finally:
+            shutil.rmtree(d)
+
+    def test_canonical_path_resolves_existing_prefix(self):
+        d = tempfile.mkdtemp()
+        try:
+            real = os.path.join(d, "real")
+            os.makedirs(real)
+            link = os.path.join(d, "link")
+            os.symlink(real, link)
+            # a non-existent suffix under a symlinked directory still resolves
+            # to the canonical directory plus that suffix
+            self.assertEqual(makelog.canonical_path(os.path.join(link, "missing.c")),
+                             makelog.canonical_path(os.path.join(real, "missing.c")))
+            self.assertTrue(makelog.canonical_path(os.path.join(link, "missing.c")).endswith("missing.c"))
+        finally:
+            shutil.rmtree(d)
+
     def test_norm_join(self):
         self.assertEqual(makelog.norm_join("/b/src/port", "../../src/include"), "/b/src/include")
         self.assertEqual(makelog.norm_join("/b/src/port", "/abs/x.c"), "/abs/x.c")

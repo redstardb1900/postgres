@@ -359,6 +359,21 @@ def norm_join(cwd, p):
     return os.path.normpath(os.path.join(cwd, p))
 
 
+def canonical_path(path):
+    """Resolve symlinks in *path*.
+
+    Make echoes directory and operand spellings exactly as it was invoked,
+    while ``collect()`` / ``replay_all()`` classify paths against realpath'd
+    roots.  On a system where the build tree is reached through a symlink
+    (macOS ``/var`` -> ``/private/var``) the two spellings differ, so every
+    path taken from a log, an argv or a depfile must be canonicalised before
+    it is compared with a root.  ``realpath`` resolves the existing prefix and
+    leaves a non-existent suffix untouched, so it is safe on paths that do not
+    (yet) exist.
+    """
+    return os.path.realpath(path)
+
+
 def rel_under(path, root):
     """Return path relative to root if path is under root, else None."""
     root = root.rstrip("/") + "/"
@@ -370,7 +385,15 @@ def rel_under(path, root):
 
 
 def classify_path(abs_path, srcdir, builddir):
-    """('src', rel) | ('build', rel) | ('sys', abs)."""
+    """('src', rel) | ('build', rel) | ('sys', abs).
+
+    Both the candidate and the roots are canonicalised first so that a path
+    spelled through a symlink (or the roots so spelled) still classifies
+    correctly; see ``canonical_path``.
+    """
+    abs_path = canonical_path(abs_path)
+    builddir = canonical_path(builddir)
+    srcdir = canonical_path(srcdir)
     r = rel_under(abs_path, builddir)
     if r is not None:
         return "build", r
@@ -449,7 +472,7 @@ def collect(logs, cfg):
             kind, rel = classify_path(obj_abs, srcdir, builddir)
             if kind == "build":
                 foreign_objects[rel] = {"tool": fo["tool"], "argv": fo["tokens"], "log": name, "lineno": fo["lineno"],
-                                        "cwd": rel_under(os.path.normpath(fo["cwd"]), builddir)}
+                                        "cwd": rel_under(canonical_path(fo["cwd"]), builddir)}
         log_stats[name] = dict(stats, sha256=sha, path=path)
 
     # variants keyed by builddir-relative object path

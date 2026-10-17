@@ -59,7 +59,7 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 16,
-   "translated": 16,
+   "translated": 15,
    "preserved": 1,
    "preserved_reasons": [
     "copyright/IDENTIFICATION lines"
@@ -71,7 +71,7 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 119,
-   "translated": 119,
+   "translated": 118,
    "preserved": 1,
    "preserved_reasons": [
     "copyright/IDENTIFICATION lines"
@@ -95,7 +95,7 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 32,
-   "translated": 32,
+   "translated": 31,
    "preserved": 1,
    "preserved_reasons": [
     "copyright/IDENTIFICATION lines"
@@ -107,7 +107,7 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 31,
-   "translated": 31,
+   "translated": 30,
    "preserved": 1,
    "preserved_reasons": [
     "copyright/IDENTIFICATION lines"
@@ -131,7 +131,7 @@
    "kind": "c_comment",
    "action": "modify",
    "segments_total": 427,
-   "translated": 427,
+   "translated": 426,
    "preserved": 1,
    "preserved_reasons": [
     "copyright/IDENTIFICATION lines"

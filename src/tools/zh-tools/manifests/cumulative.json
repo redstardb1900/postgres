@@ -3605,6 +3605,136 @@
       "pattern": "src/tools/zh-tools/manifests/batch-0215-comment-catalog-part8.json",
       "kind": "manifest",
       "note": "this manifest"
+    },
+    {
+      "pattern": "src/backend/access/brin/brin_revmap.c",
+      "kind": "c_comment",
+      "note": "BRIN revmap; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "pattern": "src/backend/access/brin/brin_tuple.c",
+      "kind": "c_comment",
+      "note": "BRIN tuple format; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "pattern": "src/backend/access/nbtree/nbtinsert.c",
+      "kind": "c_comment",
+      "note": "btree insert; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "pattern": "src/backend/access/nbtree/nbtutils.c",
+      "kind": "c_comment",
+      "note": "btree utilities; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteDefine.c",
+      "kind": "c_comment",
+      "note": "rule definition; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteHandler.c",
+      "kind": "c_comment",
+      "note": "query rewriter and row security; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteManip.c",
+      "kind": "c_comment",
+      "note": "query tree rewrite manipulation; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteRemove.c",
+      "kind": "c_comment",
+      "note": "rule deletion; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteSearchCycle.c",
+      "kind": "c_comment",
+      "note": "SEARCH and CYCLE rewrite; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rewriteSupport.c",
+      "kind": "c_comment",
+      "note": "rule support helpers; header module description"
+    },
+    {
+      "pattern": "src/backend/rewrite/rowsecurity.c",
+      "kind": "c_comment",
+      "note": "row security policies"
+    },
+    {
+      "pattern": "src/backend/statistics/mcv.c",
+      "kind": "c_comment",
+      "note": "MCV list build and selectivity; header module description"
+    },
+    {
+      "pattern": "src/backend/statistics/mvdistinct.c",
+      "kind": "c_comment",
+      "note": "multivariate ndistinct coefficients; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/buffer/buf_init.c",
+      "kind": "c_comment",
+      "note": "shared buffer pool initialization; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/buffer/buf_table.c",
+      "kind": "c_comment",
+      "note": "buffer lookup hashtable; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/buffer/bufmgr.c",
+      "kind": "c_comment",
+      "note": "shared buffer manager; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/buffer/freelist.c",
+      "kind": "c_comment",
+      "note": "buffer freelist and clock sweep; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/buffer/localbuf.c",
+      "kind": "c_comment",
+      "note": "local buffer manager; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/file/buffile.c",
+      "kind": "c_comment",
+      "note": "buffered temporary files; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/file/copydir.c",
+      "kind": "c_comment",
+      "note": "copy a directory; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/file/fileset.c",
+      "kind": "c_comment",
+      "note": "temporary file sets; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/file/reinit.c",
+      "kind": "c_comment",
+      "note": "unlogged relation reset; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/file/sharedfileset.c",
+      "kind": "c_comment",
+      "note": "shared temporary file sets; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/freespace/freespace.c",
+      "kind": "c_comment",
+      "note": "init race comment translated; prose fall-through is not a switch annotation; header module description"
+    },
+    {
+      "pattern": "src/backend/storage/freespace/indexfsm.c",
+      "kind": "c_comment",
+      "note": "index FSM helpers; header module description"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0216-tool-macos-portability-and-scope-repair.json",
+      "kind": "manifest",
+      "note": "phase-0 macOS portability / defect / scope repair batch"
     }
   ],
   "files": [
@@ -8631,10 +8761,9 @@
       "kind": "c_comment",
       "action": "modify",
       "segments_total": 16,
-      "translated": 16,
-      "preserved": 2,
+      "translated": 15,
+      "preserved": 1,
       "preserved_reasons": [
-        "fall-through",
         "copyright/IDENTIFICATION lines"
       ],
       "note": "header includes a switch fall-through example; header module description"
@@ -8644,7 +8773,7 @@
       "kind": "c_comment",
       "action": "modify",
       "segments_total": 119,
-      "translated": 119,
+      "translated": 118,
       "preserved": 1,
       "preserved_reasons": [
         "copyright/IDENTIFICATION lines"
@@ -8688,7 +8817,7 @@
       "kind": "c_comment",
       "action": "modify",
       "segments_total": 32,
-      "translated": 32,
+      "translated": 31,
       "preserved": 1,
       "preserved_reasons": [
         "copyright/IDENTIFICATION lines"
@@ -8700,7 +8829,7 @@
       "kind": "c_comment",
       "action": "modify",
       "segments_total": 31,
-      "translated": 31,
+      "translated": 30,
       "preserved": 1,
       "preserved_reasons": [
         "copyright/IDENTIFICATION lines"
@@ -8754,7 +8883,7 @@
       "kind": "c_comment",
       "action": "modify",
       "segments_total": 427,
-      "translated": 427,
+      "translated": 426,
       "preserved": 1,
       "preserved_reasons": [
         "copyright/IDENTIFICATION lines"
@@ -9916,16 +10045,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0144b-comment-tableam-documented.json",
       "kind": "manifest",
       "action": "add",
@@ -10096,16 +10215,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0147b-comment-hash-moved-by-split.json",
       "kind": "manifest",
       "action": "add",
@@ -10150,16 +10259,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/hash/hashpage.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10180,16 +10279,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0149b-comment-hashpage-page-one.json",
@@ -10248,16 +10337,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/brin/brin_revmap.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10290,16 +10369,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/brin/brin_inclusion.c",
@@ -10336,16 +10405,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/brin/brin_pageops.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10366,16 +10425,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/brin/brin.c",
@@ -10400,16 +10449,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/brin/brin_minmax_multi.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10430,16 +10469,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/nbtree/nbtcompare.c",
@@ -10476,16 +10505,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/nbtree/nbtdedup.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10506,16 +10525,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/nbtree/nbtsplitloc.c",
@@ -10540,16 +10549,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/nbtree/nbtxlog.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10572,16 +10571,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/nbtree/nbtree.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10602,16 +10591,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0160b-comment-nbtree-init-fork.json",
@@ -10644,16 +10623,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/nbtree/nbtsearch.c",
@@ -10745,16 +10714,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0165b-comment-nbtpage-page-one.json",
       "kind": "manifest",
       "action": "add",
@@ -10823,16 +10782,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/gin/ginpostinglist.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10865,16 +10814,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/gin/gininsert.c",
@@ -10911,16 +10850,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/gin/ginentrypage.c",
       "kind": "c_comment",
       "action": "modify",
@@ -10953,16 +10882,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/gin/ginvacuum.c",
@@ -10999,16 +10918,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/gin/ginfast.c",
       "kind": "c_comment",
       "action": "modify",
@@ -11031,16 +10940,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/gin/gindatapage.c",
       "kind": "c_comment",
       "action": "modify",
@@ -11061,16 +10960,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/gin/ginget.c",
@@ -11103,16 +10992,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "Composer P1 on 0173"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/gist/gistvalidate.c",
@@ -11149,16 +11028,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/gist/gistvacuum.c",
       "kind": "c_comment",
       "action": "modify",
@@ -11191,26 +11060,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/gist/gistsplit.c",
@@ -11405,16 +11254,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0183b-comment-access-spgist-part3-fix.json",
@@ -11844,16 +11683,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/backend/access/transam/parallel.c",
       "kind": "c_comment",
       "action": "modify",
@@ -11876,26 +11705,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
-      "path": "src/backend/access/transam/parallel.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 2,
-      "translated": 2,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "无法响应 interrupts→中断; 若干位→若干字段"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0199b-comment-access-transam-part11-fix.json",
       "kind": "manifest",
       "action": "add",
@@ -11904,16 +11713,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/transam/xlogreader.c",
@@ -11936,16 +11735,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/transam/twophase.c",
@@ -11971,16 +11760,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/transam/multixact.c",
@@ -12026,16 +11805,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/backend/access/transam/xlogrecovery.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 1,
-      "translated": 1,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "replayed/being replayed: 重播→重放 (2 sites in one comment)"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0203b-comment-access-transam-part15-fix.json",
       "kind": "manifest",
       "action": "add",
@@ -12044,16 +11813,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "Composer P1 on 0203"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/transam/xact.c",
@@ -12077,16 +11836,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/backend/access/transam/xact.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 3,
-      "translated": 3,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "0204b: abort record wording; XIDss→XIDs; drop stray 同样"
     },
     {
       "path": "src/tools/zh-tools/manifests/batch-0204b-comment-access-transam-part16-fix.json",
@@ -12257,16 +12006,6 @@
       "note": "database commands rmgr descriptor; Copyright and IDENTIFICATION lines kept in English"
     },
     {
-      "path": "src/backend/access/transam/xlog.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 70,
-      "translated": 70,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "0205b P0: retranslate misaligned CreateCheckPoint/CreateRestartPoint/RemoveOldXlogFiles/shutdown comments; P1 later-LSN + 刷盘"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0205b-comment-access-transam-part17-fix.json",
       "kind": "manifest",
       "action": "add",
@@ -12285,16 +12024,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "this manifest"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
     },
     {
       "path": "src/backend/access/rmgrdesc/mxactdesc.c",
@@ -12440,26 +12169,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
-      "path": "src/backend/access/transam/xlog.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 1,
-      "translated": 1,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "0205c: CreateCheckPoint idle-skip comment — remove fabricated long-idle/WAL-growth sentence"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0205c-comment-access-transam-part17-fix2.json",
       "kind": "manifest",
       "action": "add",
@@ -12468,16 +12177,6 @@
       "preserved": 0,
       "preserved_reasons": [],
       "note": "Composer P1 on 0205b"
-    },
-    {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes 0205c"
     },
     {
       "path": "src/backend/catalog/pg_class.c",
@@ -12704,26 +12403,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/backend/catalog/pg_enum.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 1,
-      "translated": 1,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "0209b: AtEOXact_Enum — 枚举相关事务 → 枚举相关状态"
-    },
-    {
-      "path": "src/backend/catalog/pg_attrdef.c",
-      "kind": "c_comment",
-      "action": "modify",
-      "segments_total": 1,
-      "translated": 1,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "0209b: StoreAttrDefault — 后备分支 → 旧版维护分支"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0209b-comment-catalog-part2-fix.json",
       "kind": "manifest",
       "action": "add",
@@ -12931,16 +12610,6 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
-      "segments_total": 0,
-      "translated": 0,
-      "preserved": 0,
-      "preserved_reasons": [],
-      "note": "union includes this batch"
-    },
-    {
       "path": "src/tools/zh-tools/manifests/batch-0214b-comment-catalog-part7-fix.json",
       "kind": "manifest",
       "action": "add",
@@ -12973,14 +12642,24 @@
       "note": "this manifest"
     },
     {
-      "path": "src/tools/zh-tools/manifests/cumulative.json",
-      "kind": "tool",
-      "action": "modify",
+      "path": "src/tools/zh-tools/manifests/batch-0216-tool-macos-portability-and-scope-repair.json",
+      "kind": "manifest",
+      "action": "add",
       "segments_total": 0,
       "translated": 0,
       "preserved": 0,
       "preserved_reasons": [],
-      "note": "union includes this batch"
+      "note": "phase-0 repair batch manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "corrected translated counts (segments_total invariant)"
     }
   ],
   "notes": "Batch 0202 translates comments in multixact.c (transam part 14, single large file). Copyright and path lines stay in English. ASCII diagram lines in MultiXactOffsetWouldWrap and function-name lines preserved. No fall-through marker. Next suggested: xlogrecovery.c. Batch 0203 translates src/backend/access/transam/xlogrecovery.c. Batch 0203b: fix replay wording in xlogrecovery.c (重播→重放). Batch 0204 translates src/backend/access/transam/xact.c (transam part 16). Batch 0204b: fix abort record wording in xact.c (提交日志→写入中止记录; XIDss; stray 同样). Batch 0205 translates src/backend/access/transam/xlog.c (transam part 17; finishes transam .c). Batch 0205b: fix P0 checkpoint/restartpoint/WAL-recycle comment mistranslations in xlog.c (smgr prepare/critical section/REDO/recycle etc.); P1 later-LSN and 刷盘 wording. Next suggested: rmgrdesc/ smaller .c. Batch 0206 translates eleven small src/backend/access/rmgrdesc/ .c files (part 1). Next suggested: remaining rmgrdesc (mxact/brin/gist/standby/spg/hash/gin/nbt/xlog/heap/xact). Batch 0207 translates the remaining eleven src/backend/access/rmgrdesc/ .c files (part 2; finishes rmgrdesc .c). Next suggested: inventory remaining untranslated .c under src/backend/access/ (or move to another top-level directory). Batch 0205c: fix CreateCheckPoint skip-checkpoint wording (remove overtranslated long-idle/WAL-growth sentence absent from English). Batch 0208 translates comments in ten smaller src/backend/catalog/ .c files (part 1). Next suggested: partition.c / indexing.c / pg_attrdef.c and other remaining catalog .c. Batch 0209 translates comments in seven src/backend/catalog/ .c files (part 2). Next suggested: catalog.c / pg_operator.c / pg_depend.c. Batch 0209b: fix catalog comments (part 2) — AtEOXact_Enum enum stuff wording; StoreAttrDefault back branches → 旧版维护分支. Batch 0210 translates comments in three src/backend/catalog/ .c files (part 3): catalog.c, pg_operator.c, pg_depend.c. Next suggested: larger remaining catalog .c (pg_constraint.c / pg_type.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c) by size. Batch 0210b: fix get_index_constraint exclusion constraint terminology (排斥→排他). Batch 0211 translates comments in four src/backend/catalog/ .c files (part 4). Next suggested: pg_proc.c + pg_constraint.c, or a single larger remaining catalog file. Batch 0212 translates comments in two src/backend/catalog/ .c files (part 5): pg_proc.c, pg_constraint.c. Five translator: segments in pg_proc.c stay in English. Next suggested: pg_shdepend.c / dependency.c / heap.c / aclchk.c / namespace.c / index.c / objectaddress.c. Batch 0213 translates comments in src/backend/catalog/pg_shdepend.c (catalog part 6). One translator: segment and FALLTHROUGH stay in English. Next suggested: dependency.c. Batch 0214 translates comments in src/backend/catalog/dependency.c (catalog part 7). Sixteen fall-through comments and OCLASS_* identifier labels stay in English. Next suggested: heap.c. Batch 0214b: fix findDependentObjects polarity (不得已→不得). Batch 0215 translates comments in src/backend/catalog/heap.c (catalog part 8). Two translator: comments stay in English. Next suggested: aclchk.c."

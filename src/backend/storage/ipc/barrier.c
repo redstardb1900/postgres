@@ -6,10 +6,10 @@
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
  *
- * 引自 Wikipedia[1]：“在并行计算中，屏障是一种
+ * 引自 Wikipedia[1]："在并行计算中，屏障是一种
  * 同步方法。源代码中一组线程或进程的屏障意味着
  * 任一线程/进程必须在此点停下，并且不能
- * 继续，直到所有其他线程/进程都到达该屏障。”
+ * 继续，直到所有其他线程/进程都到达该屏障。"
  *
  * 本屏障实现既支持预先已知的静态参与者集合，
  * 也支持进程可随时加入或离开的动态参与者集合。

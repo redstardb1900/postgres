@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "batch_id": "0216-tool-macos-portability-and-scope-repair",
+  "title": "zh: macOS path portability, TL11 quote defects and cumulative scope repair",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "c6a8dffb5fa8b18456f275904308a5075d4ee3a1",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/zhtools/makelog.py",
+      "kind": "tool",
+      "note": "canonical_path(): classify log/argv/depfile paths against realpath'd roots so macOS /var -> /private/var no longer breaks collect() and replay"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_makelog.py",
+      "kind": "tool",
+      "note": "regression tests for canonical_path and classify_path through a symlinked root"
+    },
+    {
+      "pattern": "src/backend/partitioning/partprune.c",
+      "kind": "c_comment",
+      "note": "replace full-width quotes with ASCII double quotes (term rule TL11)"
+    },
+    {
+      "pattern": "src/backend/storage/file/buffile.c",
+      "kind": "c_comment",
+      "note": "replace full-width quotes with ASCII double quotes (term rule TL11)"
+    },
+    {
+      "pattern": "src/backend/storage/ipc/barrier.c",
+      "kind": "c_comment",
+      "note": "replace full-width quotes with ASCII double quotes (term rule TL11)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0216-tool-macos-portability-and-scope-repair.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "repair allowed_paths coverage (25 changed files) and register this batch"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
+      "kind": "manifest",
+      "note": "historical count correction (translated+preserved invariant)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0113b-comment-dsm-header-wording.json",
+      "kind": "manifest",
+      "note": "historical count correction (translated+preserved invariant)"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/zhtools/makelog.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "canonical_path() helper; classify_path() canonicalises candidate and roots; foreign-object cwd canonicalised"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_makelog.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "test_classify_path_through_symlink, test_canonical_path_resolves_existing_prefix"
+    },
+    {
+      "path": "src/backend/partitioning/partprune.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "defect fix: full-width quote pair -> ASCII"
+    },
+    {
+      "path": "src/backend/storage/file/buffile.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "defect fix: full-width quote pair -> ASCII"
+    },
+    {
+      "path": "src/backend/storage/ipc/barrier.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "defect fix: full-width quote pair -> ASCII"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0216-tool-macos-portability-and-scope-repair.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch; 25 backfilled allowed_paths"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0113-comment-headers-storage-ipc.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "historical count correction (translated+preserved invariant)"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0113b-comment-dsm-header-wording.json",
+      "kind": "manifest",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "historical count correction (translated+preserved invariant)"
+    }
+  ],
+  "notes": "Phase-0 repair batch after migrating the workflow from Linux to macOS. (1) makelog.classify_path now canonicalises the candidate path and both roots, fixing collect()/replay when make echoes a symlinked spelling (macOS /var -> /private/var) while the configured roots are realpath'd; 29 tool test failures resolved and two regression tests added. (2) Three translation-introduced full-width quote pairs replaced with ASCII double quotes to satisfy term rule TL11 (base files use ASCII quotes). (3) Manifest metadata repair: cumulative allowed_paths backfilled for 25 files that were registered in files[] but never allowed; cumulative files[] deduplicated (47 stale duplicate entries); translated+preserved<=segments_total invariant restored for barrier.c/dsm.c/ipc.c/ipci.c/procarray.c in cumulative and in batch-0113/batch-0113b. check_scope --incremental and check_scope (cumulative) are the gates; verify_c_comments stays comment-only for the three C files."
+}

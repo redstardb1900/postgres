@@ -1,6 +1,146 @@
 {
  "candidates": [
   {
+   "first_pp_conditional": null,
+   "path": "contrib/hstore_plpython/hstore_plpython.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/jsonb_plpython/jsonb_plpython.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/ltree_plpython/ltree_plpython.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/database.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/dml.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/hooks.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/label.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/proc.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/relation.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/schema.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/selinux.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef SEPGSQL_H",
+   "path": "contrib/sepgsql/sepgsql.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "contrib/sepgsql/uavc.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#if defined(HAVE_UUID_H)",
+   "path": "contrib/uuid-ossp/uuid-ossp.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
    "first_pp_conditional": "#ifdef USE_LLVM_BACKPORT_SECTION_MEMORY_MANAGER",
    "path": "src/backend/jit/llvm/SectionMemoryManager.cpp",
    "path_hints": [
@@ -100,30 +240,6 @@
    "first_pp_conditional": "#if defined(USE_NAMED_POSIX_SEMAPHORES) && defined(EXEC_BACKEND)",
    "path": "src/backend/port/posix_sema.c",
    "path_hints": [],
-   "platform_guard": null,
-   "reason": null,
-   "review_commit": null,
-   "reviewed_by": null,
-   "status": "candidate"
-  },
-  {
-   "first_pp_conditional": null,
-   "path": "src/backend/port/sysv_sema.c",
-   "path_hints": [
-    "other_unix"
-   ],
-   "platform_guard": null,
-   "reason": null,
-   "review_commit": null,
-   "reviewed_by": null,
-   "status": "candidate"
-  },
-  {
-   "first_pp_conditional": null,
-   "path": "src/backend/port/sysv_shmem.c",
-   "path_hints": [
-    "other_unix"
-   ],
    "platform_guard": null,
    "reason": null,
    "review_commit": null,
@@ -491,18 +607,6 @@
    "path": "src/include/port/cygwin.h",
    "path_hints": [
     "other_unix"
-   ],
-   "platform_guard": null,
-   "reason": null,
-   "review_commit": null,
-   "reviewed_by": null,
-   "status": "candidate"
-  },
-  {
-   "first_pp_conditional": "#if HAVE_DECL_F_FULLFSYNC",
-   "path": "src/include/port/darwin.h",
-   "path_hints": [
-    "darwin"
    ],
    "platform_guard": null,
    "reason": null,
@@ -1710,6 +1814,266 @@
   },
   {
    "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_cursorobject.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_CURSOROBJECT_H",
+   "path": "src/pl/plpython/plpy_cursorobject.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_elog.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_ELOG_H",
+   "path": "src/pl/plpython/plpy_elog.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_exec.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_EXEC_H",
+   "path": "src/pl/plpython/plpy_exec.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_main.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_MAIN_H",
+   "path": "src/pl/plpython/plpy_main.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_planobject.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_PLANOBJECT_H",
+   "path": "src/pl/plpython/plpy_planobject.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_plpymodule.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_PLPYMODULE_H",
+   "path": "src/pl/plpython/plpy_plpymodule.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_procedure.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_PROCEDURE_H",
+   "path": "src/pl/plpython/plpy_procedure.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_resultobject.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_RESULTOBJECT_H",
+   "path": "src/pl/plpython/plpy_resultobject.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_spi.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_SPI_H",
+   "path": "src/pl/plpython/plpy_spi.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_subxactobject.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_SUBXACTOBJECT",
+   "path": "src/pl/plpython/plpy_subxactobject.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_typeio.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_TYPEIO_H",
+   "path": "src/pl/plpython/plpy_typeio.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/pl/plpython/plpy_util.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPY_UTIL_H",
+   "path": "src/pl/plpython/plpy_util.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPYTHON_H",
+   "path": "src/pl/plpython/plpython.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef PLPYTHON_SYSTEM_H",
+   "path": "src/pl/plpython/plpython_system.h",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
    "path": "src/pl/tcl/pltcl.c",
    "path_hints": [
     "tcl"
@@ -1741,16 +2105,6 @@
    "status": "candidate"
   },
   {
-   "first_pp_conditional": "#if HAVE_DECL_MEMSET_S",
-   "path": "src/port/explicit_bzero.c",
-   "path_hints": [],
-   "platform_guard": null,
-   "reason": null,
-   "review_commit": null,
-   "reviewed_by": null,
-   "status": "candidate"
-  },
-  {
    "first_pp_conditional": "#if defined(LIBC_SCCS) && !defined(lint)",
    "path": "src/port/getopt.c",
    "path_hints": [],
@@ -1763,6 +2117,16 @@
   {
    "first_pp_conditional": null,
    "path": "src/port/getopt_long.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifdef HAVE_UCRED_H",
+   "path": "src/port/getpeereid.c",
    "path_hints": [],
    "platform_guard": null,
    "reason": null,
@@ -1804,6 +2168,30 @@
    "first_pp_conditional": "#ifdef WIN32",
    "path": "src/port/open.c",
    "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": "#ifndef FRONTEND",
+   "path": "src/port/pg_crc32c_armv8_choose.c",
+   "path_hints": [
+    "arch"
+   ],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/pg_crc32c_sb8.c",
+   "path_hints": [
+    "arch"
+   ],
    "platform_guard": null,
    "reason": null,
    "review_commit": null,
@@ -1858,7 +2246,7 @@
   },
   {
    "first_pp_conditional": null,
-   "path": "src/port/pthread_barrier_wait.c",
+   "path": "src/port/pwritev.c",
    "path_hints": [],
    "platform_guard": null,
    "reason": null,
@@ -1868,7 +2256,17 @@
   },
   {
    "first_pp_conditional": null,
-   "path": "src/port/pwritev.c",
+   "path": "src/port/strlcat.c",
+   "path_hints": [],
+   "platform_guard": null,
+   "reason": null,
+   "review_commit": null,
+   "reviewed_by": null,
+   "status": "candidate"
+  },
+  {
+   "first_pp_conditional": null,
+   "path": "src/port/strlcpy.c",
    "path_hints": [],
    "platform_guard": null,
    "reason": null,
@@ -2239,8 +2637,8 @@
    "status": "candidate"
   }
  ],
- "generated_utc": "2026-10-04T13:12:48Z",
- "n_candidates": 194,
+ "generated_utc": "2026-10-17T23:11:22Z",
+ "n_candidates": 234,
  "note": "Tracked .c/.h/.cpp files not covered by any passing baseline variant (as source or via side depfile). Every entry is a CANDIDATE only: it may enter the platform exception table solely after review records platform_guard/reason/reviewed_by/review_commit. Nothing here is approved by this tool.",
  "schema_version": 2
 }

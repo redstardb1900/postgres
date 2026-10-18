@@ -2,39 +2,23 @@
  "argv_without_object": [],
  "bulk": {
   "po_headers": {
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/cc_bulk/po_headers.jsonl",
-   "sha256": "c1d283bd56dd8d65b5dc1a0f6b74d9cb8495d16e49840988feb8f272657c06a0",
-   "size": 3637996
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/cc_bulk/po_headers.jsonl",
+   "sha256": "fca6f91db7d36c710b3c31b50befd82ed5b2400a481a4f13c9e8a00d581666d9",
+   "size": 3864754
   }
  },
  "closed": true,
- "foreign_objects": {
-  "src/backend/utils/probes.o": {
-   "argv_head": [
-    "/usr/bin/dtrace",
-    "-C",
-    "-G",
-    "-s",
-    "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base/src/backend/utils/probes.d",
-    "access/brin/brin.o"
-   ],
-   "cwd": "src/backend",
-   "lineno": 1392,
-   "log": "world_bin",
-   "n_argv": 758,
-   "tool": "dtrace"
-  }
- },
+ "foreign_objects": {},
  "logs": {
   "check_prereqs": {
    "compile": 0,
-   "enter": 59,
+   "enter": 57,
    "foreign": 0,
-   "leave": 59,
-   "lines": 230,
+   "leave": 57,
+   "lines": 222,
    "link": 0,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs.log",
-   "sha256": "c1eda6104ce1ea6cbfa30e558338b706beb6883a50547ffadaf68b67ca7f7306"
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs.log",
+   "sha256": "1f1c7ccd755b20208e330b79234fbd3c323569c50fcc95771c9ad8a2afa08d5e"
   },
   "check_prereqs_ecpg": {
    "compile": 66,
@@ -43,8 +27,8 @@
    "leave": 13,
    "lines": 241,
    "link": 66,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_ecpg.log",
-   "sha256": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3"
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs_ecpg.log",
+   "sha256": "82ec246fadaa7ca4776c7b173410e345cc243da4fa42c20178cf3a4a3b7c0f0c"
   },
   "check_prereqs_libpq": {
    "compile": 2,
@@ -53,8 +37,8 @@
    "leave": 2,
    "lines": 9,
    "link": 2,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_libpq.log",
-   "sha256": "d19df3f1b77d00c088d2804ff619414e048483c245919b09e5a87e44c6a994dc"
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs_libpq.log",
+   "sha256": "75095c9285bf1b18b72371ffecbe9f90d6b8d04557813233b01fe5b6c9f50f97"
   },
   "check_prereqs_pg_bsd_indent": {
    "compile": 7,
@@ -63,40 +47,50 @@
    "leave": 8,
    "lines": 39,
    "link": 1,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_pg_bsd_indent.log",
-   "sha256": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe"
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs_pg_bsd_indent.log",
+   "sha256": "8176e315f23921373d2a81c0ae4f1dcb7480bb9dc82be078395c84025a35a4fe"
   },
   "checkprep": {
    "compile": 26,
-   "enter": 260,
+   "enter": 245,
    "foreign": 0,
-   "leave": 260,
-   "lines": 1433,
+   "leave": 245,
+   "lines": 1343,
    "link": 24,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_checkprep.log",
-   "sha256": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82"
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_checkprep.log",
+   "sha256": "66d7aae08c5e2d03b3b0fda0fb2ab92d728ecf38e9021e17992003074583113f"
+  },
+  "install": {
+   "compile": 0,
+   "enter": 359,
+   "foreign": 0,
+   "leave": 359,
+   "lines": 1601,
+   "link": 0,
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_install.log",
+   "sha256": "ef9586759b75e923054bc6011e03edd8f82b9dd0e0b8ea5a4fe43672f0904d64"
   },
   "world_bin": {
-   "compile": 1403,
-   "enter": 355,
-   "foreign": 1,
-   "leave": 355,
-   "lines": 3521,
-   "link": 131,
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_world_bin.log",
-   "sha256": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36"
+   "compile": 1369,
+   "enter": 349,
+   "foreign": 0,
+   "leave": 349,
+   "lines": 3435,
+   "link": 125,
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_world_bin.log",
+   "sha256": "9ded92e105a0341e41698ad30e850419575e146ec4b70691ae7ec4ec1c32df8d"
   }
  },
- "n_compile_commands": 1504,
+ "n_compile_commands": 1470,
  "n_duplicate_identical": 0,
- "n_flagsets": 136,
- "n_generated_variants": 123,
+ "n_flagsets": 127,
+ "n_generated_variants": 94,
  "n_object_symlinks": 1,
- "n_objects": 1505,
- "n_po_files": 1373,
- "n_po_inherited": 131,
- "n_sources": 1373,
- "n_variants": 1504,
+ "n_objects": 1470,
+ "n_po_files": 1345,
+ "n_po_inherited": 125,
+ "n_sources": 1318,
+ "n_variants": 1470,
  "object_symlinks": {
   "src/test/isolation/pg_regress.o": "src/test/regress/pg_regress.o"
  },
@@ -187,8 +181,8 @@
   "src/port/bsearch_arg_srv.o": "src/port/bsearch_arg.o",
   "src/port/chklocale_shlib.o": "src/port/chklocale.o",
   "src/port/chklocale_srv.o": "src/port/chklocale.o",
-  "src/port/getpeereid_shlib.o": "src/port/getpeereid.o",
-  "src/port/getpeereid_srv.o": "src/port/getpeereid.o",
+  "src/port/explicit_bzero_shlib.o": "src/port/explicit_bzero.o",
+  "src/port/explicit_bzero_srv.o": "src/port/explicit_bzero.o",
   "src/port/inet_net_ntop_shlib.o": "src/port/inet_net_ntop.o",
   "src/port/inet_net_ntop_srv.o": "src/port/inet_net_ntop.o",
   "src/port/noblock_shlib.o": "src/port/noblock.o",
@@ -197,12 +191,8 @@
   "src/port/path_srv.o": "src/port/path.o",
   "src/port/pg_bitutils_shlib.o": "src/port/pg_bitutils.o",
   "src/port/pg_bitutils_srv.o": "src/port/pg_bitutils.o",
-  "src/port/pg_crc32c_armv8_choose_shlib.o": "src/port/pg_crc32c_armv8_choose.o",
-  "src/port/pg_crc32c_armv8_choose_srv.o": "src/port/pg_crc32c_armv8_choose.o",
   "src/port/pg_crc32c_armv8_shlib.o": "src/port/pg_crc32c_armv8.o",
   "src/port/pg_crc32c_armv8_srv.o": "src/port/pg_crc32c_armv8.o",
-  "src/port/pg_crc32c_sb8_shlib.o": "src/port/pg_crc32c_sb8.o",
-  "src/port/pg_crc32c_sb8_srv.o": "src/port/pg_crc32c_sb8.o",
   "src/port/pg_strong_random_shlib.o": "src/port/pg_strong_random.o",
   "src/port/pg_strong_random_srv.o": "src/port/pg_strong_random.o",
   "src/port/pgcheckdir_shlib.o": "src/port/pgcheckdir.o",
@@ -217,6 +207,8 @@
   "src/port/pgstrsignal_srv.o": "src/port/pgstrsignal.o",
   "src/port/pqsignal_shlib.o": "src/port/pqsignal.o",
   "src/port/pqsignal_srv.o": "src/port/pqsignal.o",
+  "src/port/pthread_barrier_wait_shlib.o": "src/port/pthread_barrier_wait.o",
+  "src/port/pthread_barrier_wait_srv.o": "src/port/pthread_barrier_wait.o",
   "src/port/qsort_arg_shlib.o": "src/port/qsort_arg.o",
   "src/port/qsort_arg_srv.o": "src/port/qsort_arg.o",
   "src/port/qsort_shlib.o": "src/port/qsort.o",
@@ -227,10 +219,6 @@
   "src/port/snprintf_srv.o": "src/port/snprintf.o",
   "src/port/strerror_shlib.o": "src/port/strerror.o",
   "src/port/strerror_srv.o": "src/port/strerror.o",
-  "src/port/strlcat_shlib.o": "src/port/strlcat.o",
-  "src/port/strlcat_srv.o": "src/port/strlcat.o",
-  "src/port/strlcpy_shlib.o": "src/port/strlcpy.o",
-  "src/port/strlcpy_srv.o": "src/port/strlcpy.o",
   "src/port/tar_shlib.o": "src/port/tar.o",
   "src/port/tar_srv.o": "src/port/tar.o",
   "src/port/thread_shlib.o": "src/port/thread.o",

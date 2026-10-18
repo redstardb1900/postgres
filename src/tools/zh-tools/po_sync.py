@@ -109,7 +109,11 @@ class Unverified(RuntimeError):
 
 
 def env_c():
-    return {"PATH": "/usr/local/bin:/usr/bin:/bin", "LC_ALL": "C", "LANG": "C"}
+    # PATH is inherited so the gettext tools are found wherever they are
+    # installed (Linux /usr/bin, macOS Homebrew /opt/homebrew/bin, keg-only
+    # gettext /opt/homebrew/opt/gettext/bin).  Only the locale is pinned to C
+    # for reproducible msgmerge/msgfmt output.
+    return {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "LC_ALL": "C", "LANG": "C"}
 
 
 def run(argv, cwd=None, stdin=None):

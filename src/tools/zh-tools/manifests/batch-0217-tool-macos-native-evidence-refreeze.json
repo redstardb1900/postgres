@@ -1,0 +1,479 @@
+{
+  "schema_version": 1,
+  "batch_id": "0217-tool-macos-native-evidence-refreeze",
+  "title": "zh: native macOS evidence re-freeze with OpenSSL/GSSAPI and Make 3.81 portability",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "2029ebb63744aa73d1a52cca2d8e85c09617f627",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "note": "capture loop gains the macOS-only `install` target; baseline table paths moved to the native macOS pg-builds roots; check-world note fixed to -j1 -k -w"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/baseline.json",
+      "kind": "baseline",
+      "note": "re-frozen native macOS --cc-check baseline (OpenSSL/GSSAPI enabled, Apple clang, GNU Make 3.81)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/closure.json",
+      "kind": "baseline",
+      "note": "closure recomputed for the new capture set (7 targets) and the re-enabled features"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/commands.jsonl",
+      "kind": "baseline",
+      "note": "replayed command set re-emitted with the new log list"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/flagsets.json",
+      "kind": "baseline",
+      "note": "re-emitted flagsets"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/platform_exceptions_candidates.json",
+      "kind": "baseline",
+      "note": "platform-exception candidates (report only; none approved)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/replay_base.json",
+      "kind": "baseline",
+      "note": "replay base against the frozen REL_16_11 tree (all variants ok, 0 failed)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/schema.json",
+      "kind": "tool",
+      "note": "check-world flag note updated to -j1 -k -w"
+    },
+    {
+      "pattern": "src/tools/zh-tools/cc_evidence/tokens.jsonl",
+      "kind": "baseline",
+      "note": "re-emitted token cache"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/check_world.json",
+      "kind": "baseline",
+      "note": "native check-world run (-j1 -k -w): suites, failures, log SHA-256"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/configure.json",
+      "kind": "baseline",
+      "note": "native macOS configure record (now --with-openssl --with-gssapi)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/environment.json",
+      "kind": "baseline",
+      "note": "native macOS environment record (openssl/krb5 probes, apfs, dirperm posix, GNU Make 3.81)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/environment.md",
+      "kind": "baseline",
+      "note": "macOS rewrite plus the OpenSSL/GSSAPI rationale and the DYLD_* install requirement"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/frozen_config.json",
+      "kind": "tool",
+      "note": "adds --with-openssl/--with-gssapi and the keg-only openssl@3/krb5 paths; check-world at -j1 -k -w; new `install` capture target"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_check_prereqs.json",
+      "kind": "baseline",
+      "note": "baseline"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_check_prereqs_ecpg.json",
+      "kind": "baseline",
+      "note": "baseline"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_check_prereqs_libpq.json",
+      "kind": "baseline",
+      "note": "baseline"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_check_prereqs_pg_bsd_indent.json",
+      "kind": "baseline",
+      "note": "baseline"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_checkprep.json",
+      "kind": "baseline",
+      "note": "baseline"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_world_bin.json",
+      "kind": "baseline",
+      "note": "world-bin capture re-run natively from a fresh builddir"
+    },
+    {
+      "pattern": "src/tools/zh-tools/make_evidence.py",
+      "kind": "tool",
+      "note": "cmd_environment uses the portable fstype(); check-world doc line fixed to -j1 -k -w"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union registers this batch (3 new paths) and the new cumulative note"
+    },
+    {
+      "pattern": "src/tools/zh-tools/po_sync.py",
+      "kind": "tool",
+      "note": "env_c() inherits os.environ PATH (locale still pinned to C)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_makelog.py",
+      "kind": "tool",
+      "note": "test_make381_backtick_directory_quotes: Make 3.81 `dir' quoting"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_po_sync.py",
+      "kind": "tool",
+      "note": "EnvCTest::test_inherits_path_and_pins_locale"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/checkworld.py",
+      "kind": "tool",
+      "note": "parser reuses makelog.ENTER_RX/LEAVE_RX so Make 3.81 quoting is accepted"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/evidence_run.py",
+      "kind": "tool",
+      "note": "new parse_mount_fstype()/fstype(); fstype() replaces the GNU-stat-only probe"
+    },
+    {
+      "pattern": "src/tools/zh-tools/zhtools/makelog.py",
+      "kind": "tool",
+      "note": "ENTER_RX/LEAVE_RX accept Make 4.x 'dir' and Make 3.81 `dir' quoting"
+    },
+    {
+      "pattern": "src/tools/zh-tools/evidence/make_install.json",
+      "kind": "baseline",
+      "note": "new capture: make -j1 -w install into the frozen prefix (0 compile commands)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/tests/test_evidence_run.py",
+      "kind": "tool",
+      "note": "new tests for parse_mount_fstype()/fstype() (BSD and Linux mount shapes)"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0217-tool-macos-native-evidence-refreeze.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/tools/zh-tools/README.md",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "capture loop gains the macOS-only `install` target; baseline table paths moved to the native macOS pg-builds roots; check-world note fixed to -j1 -k -w"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/baseline.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "re-frozen native macOS --cc-check baseline (OpenSSL/GSSAPI enabled, Apple clang, GNU Make 3.81)"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/closure.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "closure recomputed for the new capture set (7 targets) and the re-enabled features"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/commands.jsonl",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "replayed command set re-emitted with the new log list"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/flagsets.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "re-emitted flagsets"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/platform_exceptions_candidates.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "platform-exception candidates (report only; none approved)"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/replay_base.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "replay base against the frozen REL_16_11 tree (all variants ok, 0 failed)"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/schema.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "check-world flag note updated to -j1 -k -w"
+    },
+    {
+      "path": "src/tools/zh-tools/cc_evidence/tokens.jsonl",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "re-emitted token cache"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/check_world.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "native check-world run (-j1 -k -w): suites, failures, log SHA-256"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/configure.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "native macOS configure record (now --with-openssl --with-gssapi)"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/environment.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "native macOS environment record (openssl/krb5 probes, apfs, dirperm posix, GNU Make 3.81)"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/environment.md",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "macOS rewrite plus the OpenSSL/GSSAPI rationale and the DYLD_* install requirement"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/frozen_config.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "adds --with-openssl/--with-gssapi and the keg-only openssl@3/krb5 paths; check-world at -j1 -k -w; new `install` capture target"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_check_prereqs.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": ""
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_check_prereqs_ecpg.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": ""
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_check_prereqs_libpq.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": ""
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_check_prereqs_pg_bsd_indent.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": ""
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_checkprep.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": ""
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_world_bin.json",
+      "kind": "baseline",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "world-bin capture re-run natively from a fresh builddir"
+    },
+    {
+      "path": "src/tools/zh-tools/make_evidence.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "cmd_environment uses the portable fstype(); check-world doc line fixed to -j1 -k -w"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union registers this batch (3 new paths) and the new cumulative note"
+    },
+    {
+      "path": "src/tools/zh-tools/po_sync.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "env_c() inherits os.environ PATH (locale still pinned to C)"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_makelog.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "test_make381_backtick_directory_quotes: Make 3.81 `dir' quoting"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_po_sync.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "EnvCTest::test_inherits_path_and_pins_locale"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/checkworld.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "parser reuses makelog.ENTER_RX/LEAVE_RX so Make 3.81 quoting is accepted"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/evidence_run.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "new parse_mount_fstype()/fstype(); fstype() replaces the GNU-stat-only probe"
+    },
+    {
+      "path": "src/tools/zh-tools/zhtools/makelog.py",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "ENTER_RX/LEAVE_RX accept Make 4.x 'dir' and Make 3.81 `dir' quoting"
+    },
+    {
+      "path": "src/tools/zh-tools/evidence/make_install.json",
+      "kind": "baseline",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "new capture: make -j1 -w install into the frozen prefix (0 compile commands)"
+    },
+    {
+      "path": "src/tools/zh-tools/tests/test_evidence_run.py",
+      "kind": "tool",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "new tests for parse_mount_fstype()/fstype() (BSD and Linux mount shapes)"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0217-tool-macos-native-evidence-refreeze.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    }
+  ],
+  "notes": "Phase 0B: re-freeze the --cc-check evidence natively on macOS after the Linux VM went away. (1) Enable --with-openssl and --with-gssapi (keg-only brew openssl@3 3.5.9 and krb5 1.22.2 for headers/libs) so that the three already-translated files be-secure-openssl.c, be-secure-gssapi.c and be-gssapi-common.c keep a compiled variant; without them --cc-check can only list those files as unverified. (2) Four macOS portability fixes: makelog ENTER_RX/LEAVE_RX accept GNU Make 3.81 backtick directory quoting (``dir'``) as well as the Make 4.x 'dir' form; po_sync env_c() inherits PATH; evidence_run gains a portable mount-fstype probe (GNU stat on Linux, mount table elsewhere) used by make_evidence cmd_environment; frozen_config runs check-world at -j1 -k -w because Apple's GNU Make 3.81 has no --output-sync. (3) New `install` capture target: macOS /bin/sh strips DYLD_* from the environment of the commands it runs, so make check's DESTDIR=tmp_install staging cannot resolve the staged binaries' absolute install-name libraries and initdb dies with 'Library not loaded: <prefix>/lib/libpq.5.dylib'; populating the real prefix fixes it and compiles nothing. (4) Evidence cycle re-run natively: configure and all 7 captures exit 0; collect closed=True, unverified=0 (1470 variants, 1470 objects, 1345 Po); replay base all ok; check-world exit 0 in 303s with regress suites 77 (failed tests 0, ignored 0), tap files 0 (fail 0, skipped 0), compiler warnings 0, make errors 0; freeze and freeze --verify both clean. platform_exceptions_candidates.json is report-only (234 candidates, 0 approved). No translation content: every file entry is segments_total=0."
+}

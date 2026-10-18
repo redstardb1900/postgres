@@ -1,0 +1,51 @@
+{
+ "argv": [
+  "make",
+  "-j1",
+  "-w",
+  "install"
+ ],
+ "cwd": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 7.31,
+ "env": {
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
+ },
+ "exit_code": 0,
+ "finished_utc": "2026-10-17T23:05:23Z",
+ "log": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_install.log",
+ "log_sha256": "ef9586759b75e923054bc6011e03edd8f82b9dd0e0b8ea5a4fe43672f0904d64",
+ "log_size": 190965,
+ "log_summary": {
+  "compile_commands": 0,
+  "compiler_errors": 0,
+  "compiler_warning_lines": [],
+  "compiler_warnings": 0,
+  "enter": 359,
+  "leave": 359,
+  "lines": 1601,
+  "link_commands": 0,
+  "make_errors": 0,
+  "make_warning_kinds": {},
+  "make_warnings": 0,
+  "problems": 0
+ },
+ "started_utc": "2026-10-17T23:05:15Z",
+ "target": {
+  "args": [
+   "-j1",
+   "-w",
+   "install"
+  ],
+  "name": "install",
+  "note": "install into the frozen prefix before check-world. macOS /bin/sh strips DYLD_* from the environment of the commands it runs, so the DESTDIR=tmp_install staging that `make check` performs cannot resolve the staged binaries' absolute install-name libraries over DYLD_LIBRARY_PATH: initdb aborts with 'Library not loaded: <prefix>/lib/libpq.5.dylib'. Populating the real prefix makes that path exist. This compiles nothing (world-bin already built everything); it is captured for completeness and so check-world is reproducible from a clean builddir+prefix."
+ },
+ "tool": "make_evidence.py make",
+ "tools_version": "0.2.3"
+}

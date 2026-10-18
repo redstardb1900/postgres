@@ -23,7 +23,7 @@
   "token_cache_sha256": "sha256 over the sorted (variant_key, token_sha256) pairs of the base replay",
   "cache_key_sha256": "sha256 of cache_key_material; changing any constituent changes this and invalidates every cached verdict",
   "cache_key_material": "object with exactly zhtools.ccreplay.CACHE_KEY_FIELDS: base_commit, configure_args, env, cc_version, cxx_version, make_version, logs, closure_sha256, commands_sha256, flagsets_sha256, po_headers_sha256, tokens_sha256, token_cache_sha256",
-  "check_world_exit_code": "exit code of the frozen `make -j8 -k -Orecurse -w check-world` run",
+  "check_world_exit_code": "exit code of the frozen check-world run (exact argv: check_world_args / evidence/check_world.json)",
   "check_world_log_sha256": "sha256 of that log (kept out of the repo)",
   "check_world_args": "the exact make argv used",
   "check_world_failures": "sorted list of {dir, kind, test, status, detail}: the baseline failure set; final acceptance must reproduce exactly this set (environment-caused members are explained in evidence/environment.md)",

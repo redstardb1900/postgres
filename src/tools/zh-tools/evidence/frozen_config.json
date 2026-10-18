@@ -3,82 +3,62 @@
  "schema_version": 1,
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
  "srcdir": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base",
- "builddir": "/home/redstar/pg-builds/REL_16_11_base-make",
- "prefix": "/home/redstar/pg-builds/REL_16_11_base-install",
- "evidence_out": "/home/redstar/pg-builds/REL_16_11_base-evidence",
- "external_roots_note": "builddir, prefix and evidence_out live on the native btrfs root filesystem (/home/redstar/pg-builds), never on the OrbStack virtiofs mount (/Users). srcdir stays on virtiofs and is only read.",
+ "builddir": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "prefix": "/Users/niejinbo/pg-builds/REL_16_11_base-install",
+ "evidence_out": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence",
+ "external_roots_note": "builddir, prefix and evidence_out live under /Users/niejinbo/pg-builds on the single APFS data volume; srcdir is the read-only base worktree on the same volume. There is no virtiofs/network mount in this baseline.",
  "migration": {
-  "from": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-{make,install,evidence}",
-  "to": "/home/redstar/pg-builds/REL_16_11_base-{make,install,evidence}",
-  "reason": "virtiofs (/Users) is not POSIX enough for the test suite: (1) readdir() on a mode-0400 directory fails with EACCES instead of stat() of its entries failing, so pg_verifybackup/t/003_corruption.pl subtest 44 (search_directory_fails) cannot match 'could not stat file or directory'; (2) a file written by one process (walreceiver) was read back as zeros by another (startup) at the same offset repeatedly, so recovery/t/032_relfilenode_reuse.pl timed out waiting for catchup in one of two runs ('invalid magic number 0000 in WAL segment 000000010000000000000003, LSN 0/3764000, offset 7749632').",
-  "old_evidence_kept_at": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence (diagnostic archive, not part of the baseline)",
-  "old_check_world_logs": {
-   "run1_no_k": {
-    "path": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence/make_check_world.run1.log",
-    "sha256": "d7bfcdc2033bf0981616e91b3f77a9ad1ce8eebede9fe43d82c89b846a75be48",
-    "exit_code": 2,
-    "failed": [
-     "src/bin/pg_verifybackup/t/003_corruption.pl",
-     "src/test/recovery/t/032_relfilenode_reuse.pl"
-    ]
-   },
-   "run2_k": {
-    "path": "/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence/make_check_world.log",
-    "sha256": "7bdc2ca87c8800411bd674e0b7f5933db67d2a2a0747b9a16eb88be19b3e3aff",
-    "exit_code": 2,
-    "failed": [
-     "src/bin/pg_verifybackup/t/003_corruption.pl"
-    ]
-   }
-  },
-  "old_world_bin_log_sha256": "c0b30e49f998ba9bf8c73ff934d98ab0cf693a4268b462ba5310c2c9518354d8",
-  "old_token_cache_sha256_1504_variants": "258b7cb94146ced12d8d994e57dc4213317d06f77776b75413a581e1133917bd"
+  "from": "openEuler 22.03 (OrbStack Linux VM): srcdir on the virtiofs /Users mount, builddir/prefix/evidence_out on the VM-native btrfs root /home/redstar/pg-builds",
+  "to": "native macOS (Darwin/arm64): all four roots on the APFS data volume, builddir/prefix/evidence_out under /Users/niejinbo/pg-builds",
+  "reason": "The Linux evidence host is no longer available. The baseline was re-established natively on the macOS host. The virtiofs POSIX caveats that forced the old builddir off /Users (readdir() EACCES on a mode-0400 directory; cross-process reads seeing zeros) do not exist here: srcdir, builddir and the test tmpdir are on one local APFS filesystem."
  },
  "cc": "/usr/bin/gcc",
  "cxx": "/usr/bin/g++",
  "configure_args": [
-  "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
+  "--prefix=/Users/niejinbo/pg-builds/REL_16_11_base-install",
   "--enable-depend",
   "--enable-nls",
-  "--enable-tap-tests",
   "--enable-cassert",
   "--enable-debug",
-  "--enable-dtrace",
   "--with-perl",
-  "--with-python",
+  "--without-python",
   "--with-openssl",
   "--with-gssapi",
-  "--with-ldap",
-  "--with-pam",
-  "--with-uuid=e2fs",
   "--with-libxml",
   "--with-libxslt",
-  "--with-lz4",
-  "--with-icu",
-  "--with-selinux",
+  "--without-icu",
+  "--disable-tap-tests",
   "CC=/usr/bin/gcc",
   "CXX=/usr/bin/g++"
  ],
  "disabled_features": {
-  "--with-tcl": "no tcl-devel: /usr/include/tcl.h and tclConfig.sh absent (only runtime tcl-8.6.12 installed)",
-  "--with-zstd": "no zstd-devel: /usr/include/zstd.h absent (only runtime libzstd.so.1.5.0 installed)",
-  "--with-systemd": "no systemd-devel: /usr/include/systemd/sd-daemon.h absent",
-  "--with-llvm": "no llvm-devel: llvm-config absent (only llvm-libs-12.0.1 runtime and clang-12 installed)",
-  "--with-bonjour": "macOS-only API, not applicable on Linux",
-  "--with-bsd-auth": "BSD-only API, not applicable on Linux",
-  "--with-uuid=ossp": "mutually exclusive with --with-uuid=e2fs; e2fs (util-linux libuuid 2.37.2) chosen",
-  "--with-system-tzdata": "not used; the bundled src/timezone build is part of the baseline",
-  "--with-llvm bitcode (.bc)": "depends on --with-llvm; no bitcode objects exist in this baseline"
+  "--enable-dtrace": "no usable DTrace/sdt probe support for this frozen build on macOS",
+  "--with-ldap": "LDAP is not part of the frozen minimal build",
+  "--with-pam": "PAM is not part of the frozen minimal build",
+  "--with-uuid=e2fs": "left at the configure default; the e2fs-style uuid_generate is otherwise available via libSystem",
+  "--with-lz4": "lz4 headers/libs are not in the SDK and no brew package was installed",
+  "--with-zstd": "zstd headers/libs are not in the SDK and no brew package was installed",
+  "--with-icu": "the SDK exposes libicucore but no unicode/ucol.h and no icu pkg-config file",
+  "--with-tcl": "Tcl headers are not present",
+  "--with-python": "the CommandLineTools Python 3.9 framework lacks a linkable libpython for embedding",
+  "--enable-tap-tests": "IPC::Run is not installed for the system perl 5.34, so the TAP suite cannot run",
+  "--with-selinux": "not applicable on macOS",
+  "--with-systemd": "not applicable on macOS",
+  "--with-llvm": "not part of the frozen minimal build",
+  "--with-bonjour": "not part of the frozen minimal build",
+  "--with-bsd-auth": "not applicable on macOS"
  },
  "env": {
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "LANG": "C.UTF-8",
-  "HOME": "/home/redstar",
-  "SHELL": "/bin/bash",
-  "USER": "redstar",
-  "LOGNAME": "redstar"
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "LANG": "C",
+  "HOME": "/Users/niejinbo",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo",
+  "LOGNAME": "niejinbo",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include"
  },
- "env_unset_note": "The build and test environment is created with env -i; LC_ALL, LANGUAGE, TZ, TMPDIR, PGPORT, PGHOST, PGDATA, PG_TEST_EXTRA, PROVE_FLAGS, MAKEFLAGS, CFLAGS, CPPFLAGS, LDFLAGS and PKG_CONFIG_PATH are intentionally absent.",
+ "env_unset_note": "The build and test environment is created with env -i from the env block above; LC_ALL, LANGUAGE, TZ, TMPDIR, PGPORT, PGHOST, PGDATA, PG_TEST_EXTRA, PROVE_FLAGS, MAKEFLAGS and PKG_CONFIG_PATH are intentionally absent. LDFLAGS/CPPFLAGS point at the keg-only brew gettext (libintl, --enable-nls), openssl@3 (OpenSSL 3.5 headers and libs, --with-openssl) and krb5 (gssapi/gssapi.h and libgssapi_krb5, --with-gssapi); they are unrelated to the translation tree. PATH puts keg-only openssl@3 first so that `openssl` resolves to the same 3.5 tree the compiler links (Homebrew also links an openssl@4 that only krb5 depends on).",
  "capture_targets": [
   {
    "name": "world_bin",
@@ -139,18 +119,26 @@
     "all"
    ],
    "note": "pg_bsd_indent is built only by its own TAP check (not by world-bin); its 7 objects would otherwise be compiled in parallel by check-world"
+  },
+  {
+   "name": "install",
+   "args": [
+    "-j1",
+    "-w",
+    "install"
+   ],
+   "note": "install into the frozen prefix before check-world. macOS /bin/sh strips DYLD_* from the environment of the commands it runs, so the DESTDIR=tmp_install staging that `make check` performs cannot resolve the staged binaries' absolute install-name libraries over DYLD_LIBRARY_PATH: initdb aborts with 'Library not loaded: <prefix>/lib/libpq.5.dylib'. Populating the real prefix makes that path exist. This compiles nothing (world-bin already built everything); it is captured for completeness and so check-world is reproducible from a clean builddir+prefix."
   }
  ],
  "check_world": {
-  "jobs": 8,
+  "jobs": 1,
   "args": [
-   "-j8",
+   "-j1",
    "-k",
-   "-Orecurse",
    "-w",
    "check-world"
   ],
-  "_doc": "-k so every suite runs even after a failure (the failure set must be complete, not whatever make happened to start before the first error); -Orecurse groups each recursive make's output so the '# +++ ... check in DIR +++' anchors are attributable."
+  "_doc": "-j1 is mandatory on this host: macOS ships GNU Make 3.81, which has no --output-sync/-O (added in 3.82), and checkworld.py needs every recursive make's output kept together - at -j8 without output sync the '# +++ ... check in DIR +++' anchors and the Entering/Leaving directory cwd stack would be interleaved across sibling submakes. Sequential output is grouped by construction. -k so every suite runs even after a failure (the failure set must be complete, not whatever make happened to start before the first error)."
  },
  "replay_jobs": 8
 }

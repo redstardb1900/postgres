@@ -1,5 +1,5 @@
 {
- "caller_env_note": "The build and test environment is created with env -i; LC_ALL, LANGUAGE, TZ, TMPDIR, PGPORT, PGHOST, PGDATA, PG_TEST_EXTRA, PROVE_FLAGS, MAKEFLAGS, CFLAGS, CPPFLAGS, LDFLAGS and PKG_CONFIG_PATH are intentionally absent.",
+ "caller_env_note": "The build and test environment is created with env -i from the env block above; LC_ALL, LANGUAGE, TZ, TMPDIR, PGPORT, PGHOST, PGDATA, PG_TEST_EXTRA, PROVE_FLAGS, MAKEFLAGS and PKG_CONFIG_PATH are intentionally absent. LDFLAGS/CPPFLAGS point at the keg-only brew gettext (libintl, --enable-nls), openssl@3 (OpenSSL 3.5 headers and libs, --with-openssl) and krb5 (gssapi/gssapi.h and libgssapi_krb5, --with-gssapi); they are unrelated to the translation tree. PATH puts keg-only openssl@3 first so that `openssl` resolves to the same 3.5 tree the compiler links (Homebrew also links an openssl@4 that only krb5 depends on).",
  "cc_is_wrapper": false,
  "cc_realpath": "/usr/bin/gcc",
  "cpu_count": 18,
@@ -7,7 +7,7 @@
  "dirperm_probe": {
   "builddir_fs": {
    "euid": 502,
-   "parent": "/home/redstar/pg-builds",
+   "parent": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
    "readdir": "ok",
    "semantics": "posix",
    "stat_entry": "Permission denied"
@@ -22,68 +22,60 @@
  },
  "filesystems": {
   "builddir": {
-   "fstype": "btrfs",
-   "probe_path": "/home/redstar/pg-builds"
+   "fstype": "apfs",
+   "probe_path": "/Users/niejinbo/pg-builds/REL_16_11_base-make"
   },
   "evidence_out": {
-   "fstype": "btrfs",
-   "probe_path": "/home/redstar/pg-builds"
+   "fstype": "apfs",
+   "probe_path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence"
   },
   "srcdir": {
-   "fstype": "fuseblk",
+   "fstype": "apfs",
    "probe_path": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base"
   }
  },
  "frozen_env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
- "generated_utc": "2026-10-04T12:50:24Z",
+ "generated_utc": "2026-10-17T23:01:15Z",
  "locale": [
-  "LANG=C.UTF-8",
-  "LC_CTYPE=\"C.UTF-8\"",
-  "LC_NUMERIC=\"C.UTF-8\"",
-  "LC_TIME=\"C.UTF-8\"",
-  "LC_COLLATE=\"C.UTF-8\"",
-  "LC_MONETARY=\"C.UTF-8\"",
-  "LC_MESSAGES=\"C.UTF-8\"",
-  "LC_PAPER=\"C.UTF-8\"",
-  "LC_NAME=\"C.UTF-8\"",
-  "LC_ADDRESS=\"C.UTF-8\"",
-  "LC_TELEPHONE=\"C.UTF-8\"",
-  "LC_MEASUREMENT=\"C.UTF-8\"",
-  "LC_IDENTIFICATION=\"C.UTF-8\"",
+  "LANG=\"C\"",
+  "LC_COLLATE=\"C\"",
+  "LC_CTYPE=\"C\"",
+  "LC_MESSAGES=\"C\"",
+  "LC_MONETARY=\"C\"",
+  "LC_NUMERIC=\"C\"",
+  "LC_TIME=\"C\"",
   "LC_ALL="
  ],
- "locale_a_count": 71,
+ "locale_a_count": 288,
  "locale_a_has": {
   "C": true,
-  "C.utf8": true,
+  "C.UTF-8": true,
+  "C.utf8": false,
   "POSIX": true,
-  "en_US.utf8": true,
-  "zh_CN.utf8": true
+  "en_US.UTF-8": true,
+  "en_US.utf8": false,
+  "zh_CN.UTF-8": true,
+  "zh_CN.utf8": false
  },
- "os_release": {
-  "ANSI_COLOR": "0;31",
-  "ID": "openEuler",
-  "NAME": "openEuler",
-  "PRETTY_NAME": "openEuler 22.03 (LTS-SP4)",
-  "VERSION": "22.03 (LTS-SP4)",
-  "VERSION_ID": "22.03"
- },
- "python_platform": "Linux-7.0.14-orbstack-00380-ga7e0a2dc9535-aarch64-with-glibc2.34",
+ "os_release": {},
+ "python_platform": "macOS-26.4.1-arm64-arm-64bit",
  "tool": "make_evidence.py environment",
- "tools_version": "0.2.0",
+ "tools_version": "0.2.3",
  "uname": {
-  "machine": "aarch64",
-  "nodename": "openeuler",
-  "release": "7.0.14-orbstack-00380-ga7e0a2dc9535",
-  "sysname": "Linux",
-  "version": "#1 SMP PREEMPT Fri Aug  7 03:48:40 UTC 2026"
+  "machine": "arm64",
+  "nodename": "xuyuanyandeMacBook-Pro.local",
+  "release": "25.4.0",
+  "sysname": "Darwin",
+  "version": "Darwin Kernel Version 25.4.0: Thu Mar 19 19:33:50 PDT 2026; root:xnu-12377.101.15~1/RELEASE_ARM64_T6050"
  },
  "versions": {
   "ar": {
@@ -91,15 +83,15 @@
     "ar",
     "--version"
    ],
-   "first_line": "GNU ar (GNU Binutils) 2.37",
-   "rc": 0
+   "first_line": "usage:  ar -d [-TLsv] archive file ...",
+   "rc": 1
   },
   "bison": {
    "argv": [
     "bison",
     "--version"
    ],
-   "first_line": "bison (GNU Bison) 3.8.2",
+   "first_line": "bison (GNU Bison) 2.3",
    "rc": 0
   },
   "cc": {
@@ -107,7 +99,7 @@
     "/usr/bin/gcc",
     "--version"
    ],
-   "first_line": "gcc (GCC) 10.3.1",
+   "first_line": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
    "rc": 0
   },
   "cc_dumpmachine": {
@@ -115,7 +107,7 @@
     "/usr/bin/gcc",
     "-dumpmachine"
    ],
-   "first_line": "aarch64-linux-gnu",
+   "first_line": "arm64-apple-darwin25.4.0",
    "rc": 0
   },
   "cxx": {
@@ -123,7 +115,7 @@
     "/usr/bin/g++",
     "--version"
    ],
-   "first_line": "g++ (GCC) 10.3.1",
+   "first_line": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
    "rc": 0
   },
   "dtrace": {
@@ -132,15 +124,15 @@
     "-q",
     "systemtap-sdt-devel"
    ],
-   "first_line": "systemtap-sdt-devel-4.5-5.oe2203sp4.aarch64",
-   "rc": 0
+   "first_line": "[Errno 2] No such file or directory: 'rpm'",
+   "rc": 127
   },
   "flex": {
    "argv": [
     "flex",
     "--version"
    ],
-   "first_line": "flex 2.6.4",
+   "first_line": "flex 2.6.4 Apple(flex-35)",
    "rc": 0
   },
   "git": {
@@ -148,7 +140,7 @@
     "git",
     "--version"
    ],
-   "first_line": "git version 2.33.0",
+   "first_line": "git version 2.50.1 (Apple Git-155)",
    "rc": 0
   },
   "ld": {
@@ -156,15 +148,15 @@
     "ld",
     "--version"
    ],
-   "first_line": "GNU ld (GNU Binutils) 2.37",
-   "rc": 0
+   "first_line": "ld: unknown options: --version",
+   "rc": 1
   },
   "make": {
    "argv": [
     "make",
     "--version"
    ],
-   "first_line": "GNU Make 4.3",
+   "first_line": "GNU Make 3.81",
    "rc": 0
   },
   "msgfmt": {
@@ -172,7 +164,7 @@
     "msgfmt",
     "--version"
    ],
-   "first_line": "msgfmt (GNU gettext-tools) 0.21.1",
+   "first_line": "msgfmt (GNU gettext-tools) 1.0",
    "rc": 0
   },
   "openssl": {
@@ -180,7 +172,7 @@
     "openssl",
     "version"
    ],
-   "first_line": "OpenSSL 1.1.1wa  16 Nov 2023",
+   "first_line": "OpenSSL 3.5.9 29 Sep 2026 (Library: OpenSSL 3.5.9 29 Sep 2026)",
    "rc": 0
   },
   "perl": {
@@ -189,7 +181,7 @@
     "-e",
     "print $^V"
    ],
-   "first_line": "v5.34.0",
+   "first_line": "v5.34.1",
    "rc": 0
   },
   "pkg-config": {
@@ -197,30 +189,30 @@
     "pkg-config",
     "--version"
    ],
-   "first_line": "1.8.0",
+   "first_line": "3.0.8",
    "rc": 0
   },
   "pkg_config_modversion": {
-   "icu-i18n": "72.1",
-   "icu-uc": "72.1",
-   "krb5-gssapi": "1.19.2",
-   "liblz4": "1.9.3",
-   "libselinux": "3.3",
+   "icu-i18n": null,
+   "icu-uc": null,
+   "krb5-gssapi": null,
+   "liblz4": null,
+   "libselinux": null,
    "libsystemd": null,
-   "libxml-2.0": "2.9.14",
-   "libxslt": "1.1.37",
+   "libxml-2.0": "2.9.13",
+   "libxslt": "1.1.35",
    "libzstd": null,
-   "openssl": "1.1.1wa",
-   "ossp-uuid": "1.6.2",
-   "readline": "8.1",
-   "uuid": "2.37.2",
-   "zlib": "1.2.11"
+   "openssl": "4.0.3",
+   "ossp-uuid": null,
+   "readline": null,
+   "uuid": "1.0",
+   "zlib": "1.2.12"
   },
   "programs": {
    "ccache": null,
    "clang": "/usr/bin/clang",
    "distcc": null,
-   "krb5-config": "/usr/bin/krb5-config",
+   "krb5-config": "/opt/homebrew/opt/krb5/bin/krb5-config",
    "krb5kdc": null,
    "llvm-config": null,
    "sccache": null,
@@ -232,7 +224,7 @@
     "prove",
     "--version"
    ],
-   "first_line": "TAP::Harness v3.44 and Perl v5.34.0",
+   "first_line": "TAP::Harness v3.43 and Perl v5.34.1",
    "rc": 0
   },
   "python3": {
@@ -240,26 +232,26 @@
     "python3",
     "--version"
    ],
-   "first_line": "Python 3.9.9",
+   "first_line": "Python 3.9.6",
    "rc": 0
   },
   "usr_include": {
-   "gssapi/gssapi.h": true,
-   "ldap.h": true,
-   "libxml2/libxml/parser.h": true,
-   "libxslt/xslt.h": true,
-   "lz4.h": true,
-   "openssl/ssl.h": true,
-   "python3.9/Python.h": true,
-   "readline/readline.h": true,
-   "security/pam_appl.h": true,
-   "selinux/selinux.h": true,
-   "sys/sdt.h": true,
+   "gssapi/gssapi.h": false,
+   "ldap.h": false,
+   "libxml2/libxml/parser.h": false,
+   "libxslt/xslt.h": false,
+   "lz4.h": false,
+   "openssl/ssl.h": false,
+   "python3.9/Python.h": false,
+   "readline/readline.h": false,
+   "security/pam_appl.h": false,
+   "selinux/selinux.h": false,
+   "sys/sdt.h": false,
    "systemd/sd-daemon.h": false,
    "tcl.h": false,
-   "unicode/ucol.h": true,
-   "uuid/uuid.h": true,
-   "zlib.h": true,
+   "unicode/ucol.h": false,
+   "uuid/uuid.h": false,
+   "zlib.h": false,
    "zstd.h": false
   },
   "xgettext": {
@@ -267,7 +259,7 @@
     "xgettext",
     "--version"
    ],
-   "first_line": "xgettext (GNU gettext-tools) 0.21.1",
+   "first_line": "xgettext (GNU gettext-tools) 1.0",
    "rc": 0
   }
  }

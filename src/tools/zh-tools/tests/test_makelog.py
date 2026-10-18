@@ -157,6 +157,22 @@ class ParseLogTest(unittest.TestCase):
         # three variants of the same source are all kept
         self.assertEqual(len(set(c["source"] for c in cmds[:3])), 1)
 
+    def test_make381_backtick_directory_quotes(self):
+        # GNU Make 3.81 (the macOS system make) quotes the directory as
+        # `dir' (backtick-apostrophe) instead of GNU Make 4.x's 'dir'.
+        _write(self.log,
+               "make: Entering directory `/b'\n"
+               "make[1]: Entering directory `/b/src/port'\n"
+               + CC + " -O2 -I../../src/include -c -o path.o /s/src/port/path.c -MMD -MP -MF .deps/path.Po\n"
+               "make[1]: Leaving directory `/b/src/port'\n"
+               "make: Leaving directory `/b'\n")
+        cmds, problems, stats = makelog.parse_log(self.log, COMPILERS, "/b")
+        self.assertEqual(problems, [])
+        self.assertEqual(stats["enter"], 2)
+        self.assertEqual(stats["leave"], 2)
+        self.assertEqual(stats["compile"], 1)
+        self.assertEqual([c["cwd"] for c in cmds], ["/b/src/port"])
+
     def test_leaving_mismatch_is_reported(self):
         _write(self.log, "make: Entering directory '/b'\nmake: Leaving directory '/other'\n")
         _, problems, _ = makelog.parse_log(self.log, COMPILERS, "/b")

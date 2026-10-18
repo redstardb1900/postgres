@@ -1,80 +1,91 @@
-# 冻结的 GNU Make 证据环境（REL_16_11 基线）
+# 冻结的 GNU Make 证据环境（REL_16_11 基线，macOS 原生）
 
 本文件记录计划"阶段 1：冻结范围和证据环境"中 Make VPATH 基线的全部可复现参数。
 机器可读的对应物是同目录的 `frozen_config.json`（输入）与 `environment.json`、
 `configure.json`、`make_*.json`、`check_world.json`（输出）。任何一项变化都意味着
 一次新的证据周期：必须重新 configure、重新捕获日志、重新生成 token 缓存。
 
+> 本周期是**原生 macOS 重新冻结**。此前的证据基线建立在 OrbStack Linux 虚拟机上
+> （srcdir 经 virtiofs、builddir 在 btrfs），该主机已不可用；`frozen_config.json`
+> 中 `migration`、下文"迁移记录"记录了这次切换。旧 Linux 归档仅作诊断保留，不属于本基线。
+
 ## 机器与工具
 
 | 项 | 值 |
 |---|---|
-| OS | openEuler 22.03 (LTS-SP4)，Linux 7.0.14-orbstack（OrbStack 虚拟机，aarch64） |
-| 文件系统 | srcdir 在 `/Users`（OrbStack virtiofs 挂载的 macOS 文件系统，`stat -f` 报告 `fuseblk`，只读使用）；builddir / prefix / 日志目录在虚拟机原生根文件系统 `/home/redstar/pg-builds`（btrfs）；`/tmp` 为 tmpfs |
-| CC / CXX | `/usr/bin/gcc`、`/usr/bin/g++` = gcc (GCC) 10.3.1，aarch64-linux-gnu；是真实二进制（非 ccache/distcc/sccache 包装） |
-| GNU Make | 4.3 |
-| bison / flex | 3.8.2 / 2.6.4 |
-| perl / python3 | 5.34.0（含 IPC::Run、Test::More，prove = TAP::Harness 3.44）/ 3.9.9（python3-devel） |
-| gettext | 0.21.1 |
-| git | 2.33.0 |
-| dtrace | systemtap-sdt-devel 4.5 的 `/usr/bin/dtrace`（仅用于 `probes.h` 生成与 `probes.o`） |
-| locale | 进程环境 `LANG=C.UTF-8`，无 `LC_ALL`；系统有 `C`、`C.utf8`、`POSIX`、`en_*`、`zh_CN.utf8` |
+| OS | macOS 26.4.1（Tahoe，`BuildVersion 25E253`），Darwin，arm64 |
+| 文件系统 | srcdir、builddir、prefix、evidence_out **全部**在同一个本地 APFS 数据卷（挂载点 `/`）上；`/tmp`、`$TMPDIR` 亦为 APFS。没有 virtiofs / 网络挂载 |
+| CC / CXX | `/usr/bin/gcc`、`/usr/bin/g++` = Apple clang 21.0.0（`clang-2100.0.123.102`）；是真实二进制（非 ccache/distcc/sccache 包装） |
+| SDK | `/Library/Developer/CommandLineTools/SDKs/MacOSX26.4.sdk`（clang 自动 `-isysroot`；`--with-libxml`/`--with-libxslt` 经 SDK 的 `.tbd` 与 brew `pkg-config` 找到） |
+| GNU Make | 3.81（Apple 随系统提供；`-w` 的目录用 `` `dir' `` 反引号-单引号引用，见下"迁移记录"） |
+| bison / flex | 2.3 / 2.6.4 Apple(flex-35)（都满足 PG16 configure 的最低要求） |
+| perl / python3 | 5.34.1（**无 IPC::Run**，故 TAP 套件不可用）/ 3.9.6（CommandLineTools，无嵌入用 libpython） |
+| gettext | 1.0（Homebrew，keg-only：二进制在 `/opt/homebrew/opt/gettext/bin`，头文件/库在 `/opt/homebrew/opt/gettext/{include,lib}`） |
+| openssl@3 / krb5 | 3.5.9 / 1.22.2（Homebrew，均 keg-only）：`/opt/homebrew/opt/openssl@3/{include,lib}`、`/opt/homebrew/opt/krb5/{include,lib}`；为 `--with-openssl` / `--with-gssapi` 提供头文件与库。Homebrew 另链接了一个 openssl@4（仅 krb5 依赖），故 PATH 把 keg-only 的 openssl@3/bin 放在最前，使 `openssl` 与编译链接的 3.5 树一致 |
+| pkg-config | 3.0.8（brew `pkgconf`，`/opt/homebrew/bin/pkg-config`） |
+| git | 2.50.1 (Apple Git-155) |
+| locale | 进程环境 `LANG=C`，无 `LC_ALL`；`locale -a` 含 `C`、`C.UTF-8`、`POSIX`、`en_US.UTF-8`、`zh_CN.UTF-8`（Linux 上同名 locale 为 `en_US.utf8`/`zh_CN.utf8`） |
 
 ## 冻结的 configure 命令
 
 srcdir = `/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base`（detached，
 HEAD 必须等于 `d61dd817be70749d14e982a369e97fdda9d5cba6`，且 `git status --ignored` 为空）。
-builddir = `/home/redstar/pg-builds/REL_16_11_base-make`（源码树外，全新创建）。
+builddir = `/Users/niejinbo/pg-builds/REL_16_11_base-make`（源码树外，全新创建）。
 
 ```sh
-env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 \
-    HOME=/home/redstar SHELL=/bin/bash USER=redstar LOGNAME=redstar \
+env -i PATH=/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin \
+    LANG=C HOME=/Users/niejinbo SHELL=/bin/sh USER=niejinbo LOGNAME=niejinbo \
+    LDFLAGS=-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib \
+    CPPFLAGS=-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include \
   /Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base/configure \
-    --prefix=/home/redstar/pg-builds/REL_16_11_base-install \
-    --enable-depend --enable-nls --enable-tap-tests --enable-cassert --enable-debug --enable-dtrace \
-    --with-perl --with-python --with-openssl --with-gssapi --with-ldap --with-pam --with-uuid=e2fs \
-    --with-libxml --with-libxslt --with-lz4 --with-icu --with-selinux \
+    --prefix=/Users/niejinbo/pg-builds/REL_16_11_base-install \
+    --enable-depend --enable-nls --enable-cassert --enable-debug \
+    --with-perl --without-python --with-openssl --with-gssapi \
+    --with-libxml --with-libxslt --without-icu --disable-tap-tests \
     CC=/usr/bin/gcc CXX=/usr/bin/g++
 ```
 
-环境以 `env -i` 构造，只含上表 6 个变量；`LC_ALL`、`LANGUAGE`、`TZ`、`TMPDIR`、`PGPORT`、
-`PGHOST`、`PGDATA`、`PG_TEST_EXTRA`、`PROVE_FLAGS`、`MAKEFLAGS`、`CFLAGS`、`CPPFLAGS`、
-`LDFLAGS`、`PKG_CONFIG_PATH` 一律不设置。
+环境以 `env -i` 构造，只含上表变量；`LC_ALL`、`LANGUAGE`、`TZ`、`TMPDIR`、`PGPORT`、
+`PGHOST`、`PGDATA`、`PG_TEST_EXTRA`、`PROVE_FLAGS`、`MAKEFLAGS`、`PKG_CONFIG_PATH`
+一律不设置。`LDFLAGS`/`CPPFLAGS` 指向三个 keg-only 的 brew 包：gettext（`libintl` 头与库，
+`--enable-nls`）、openssl@3（OpenSSL 3.5 头与库，`--with-openssl`）、krb5
+（`gssapi/gssapi.h` 与 `libgssapi_krb5`，`--with-gssapi`）；与翻译树无关。
 
 ### 启用项及探测依据
 
 | 选项 | 依据 |
 |---|---|
 | `--enable-depend` | 计划要求；产生 `.deps/*.Po` |
-| `--enable-nls` | 计划要求；gettext 0.21.1 |
-| `--enable-tap-tests` | 计划要求；perl IPC::Run 可用 |
+| `--enable-nls` | 计划要求；brew gettext 1.0，`msgfmt`/`msgmerge`/`xgettext` 均在冻结 PATH 上。13 个受 `#ifdef ENABLE_NLS` 保护的 C/H 文件因此进入活跃预处理区域 |
 | `--enable-cassert --enable-debug` | 让 `USE_ASSERT_CHECKING` 分支进入活跃预处理区域，扩大 token 覆盖；`-g` 不影响预处理 |
-| `--enable-dtrace` | `/usr/bin/dtrace`（systemtap）可生成 `probes.h`，configure 探测通过 |
-| `--with-perl` / `--with-python` | perl-devel 5.34、python3-devel 3.9.9 |
-| `--with-openssl` | openssl-devel 1.1.1wa |
-| `--with-gssapi` | krb5-devel 1.19.2 |
-| `--with-ldap` | openldap-devel 2.6.0 |
-| `--with-pam` | pam-devel 1.5.2 |
-| `--with-uuid=e2fs` | util-linux-devel 2.37.2（`uuid/uuid.h`）；ossp 也存在但二选一 |
-| `--with-libxml` / `--with-libxslt` | libxml2-devel 2.9.14 / libxslt-devel 1.1.37 |
-| `--with-lz4` | lz4-devel 1.9.3 |
-| `--with-icu` | libicu-devel 72.1 |
-| `--with-selinux` | libselinux-devel 3.3（contrib/sepgsql 可编译；其测试需要启用 SELinux，check-world 不运行） |
+| `--with-perl` | 系统 perl 5.34.1（含 ExtUtils::Embed / libperl；TAP 不可用与此无关） |
+| `--with-libxml` / `--with-libxslt` | SDK 提供 libxml2/libxslt 头与 `.tbd`，brew `pkg-config` 探测通过 |
+| `--with-openssl` / `--with-gssapi` | brew openssl@3 3.5.9 与 krb5 1.22.2（keg-only，头/库路径固定写进 `LDFLAGS`/`CPPFLAGS`）。这两个选项让 `be-secure-openssl.c`、`be-secure-gssapi.c`、`be-gssapi-common.c` 三个**已翻译**文件重新获得编译变体；关闭它们时这三个文件没有变体，`--cc-check` 只能把它们列为未验证 |
 
-### 禁用项及原因（不为追求覆盖安装新包）
+### 禁用项及原因
 
 | 选项 | 原因 |
 |---|---|
-| `--with-tcl` | 无 tcl-devel：`/usr/include/tcl.h`、`tclConfig.sh` 不存在（仅 runtime tcl-8.6.12） |
-| `--with-zstd` | 无 zstd-devel：`/usr/include/zstd.h` 不存在（仅 runtime libzstd.so.1.5.0） |
-| `--with-systemd` | 无 systemd-devel：`/usr/include/systemd/sd-daemon.h` 不存在 |
-| `--with-llvm` | 无 llvm-devel：`llvm-config` 不存在（仅 llvm-libs-12.0.1 与 clang-12）；因此没有 `.bc` bitcode 产物 |
-| `--with-bonjour` / `--with-bsd-auth` | 非 Linux API |
+| `--enable-tap-tests` | 系统 perl 5.34.1 **无 IPC::Run**（`Can't locate IPC/Run.pm`），prove 无法运行 TAP 套件。本基线 check-world 只跑 pg_regress 套件 |
+| `--with-python` | CommandLineTools 的 Python 3.9 框架没有可链接的 libpython 供嵌入 |
+| `--with-icu` | SDK 只有 `libicucore`，没有 `unicode/ucol.h`，也没有 icu 的 pkg-config 文件 |
+| `--with-ldap` / `--with-pam` | 不属于冻结最小构建 |
+| `--with-lz4` / `--with-zstd` | SDK 无头/库，也未装对应 brew 包 |
+| `--with-uuid=e2fs` | 保持 configure 默认；macOS 的 `uuid_generate` 由 libSystem 提供 |
+| `--with-tcl` | 无 Tcl 头 |
+| `--enable-dtrace` | 无可用的 DTrace/sdt 探针支持 |
+| `--with-selinux` / `--with-systemd` | 非 macOS API |
+| `--with-llvm` / `--with-bonjour` / `--with-bsd-auth` | 不属于冻结最小构建 |
+| `PG_TEST_EXTRA` | 不设置：无 `slapd`、`krb5kdc` 等 |
 | `--with-system-tzdata` | 保持内置 `src/timezone` 构建进入基线 |
-| `PG_TEST_EXTRA` | 不设置：无 `slapd`、`krb5kdc`；ssl/ldap/kerberos 套件在基线中为 skip |
 
-configure 结果摘要见 `configure.json`（`config_status_summary`、`pg_config_h`），其中
-`USE_LLVM`、`USE_ZSTD`、`USE_SYSTEMD`、`HAVE_UUID_OSSP` 为未定义，其余特性宏均已定义。
+configure 结果摘要见 `configure.json`（`config_status_summary`、`pg_config_h`）。
+禁用项会让更多 `#ifdef` 分支不活跃，相关 C/H 文件经 `collect` 后会出现在
+`cc_evidence/platform_exceptions_candidates.json` 中，需要一个一个人工复核后才可批准为平台例外。
+本周期唯一"为覆盖而装包"的例外是 openssl@3 / krb5（见启用项）：macOS SDK 已不带 OpenSSL 头、
+也没有 `libgssapi`，不装这两个 brew 包，三个已翻译文件（`be-secure-openssl.c`、
+`be-secure-gssapi.c`、`be-gssapi-common.c`）就永远没有编译变体、`--cc-check` 永远无法验证它们；
+其余禁用项不涉及已翻译文件，故不为它们装包。
 
 ## 捕获命令（全部 `-j1 -w`，不交错）
 
@@ -82,51 +93,78 @@ configure 结果摘要见 `configure.json`（`config_status_summary`、`pg_confi
 |---|---|---|
 | `make_world_bin.json` | `make -j1 -w world-bin` | 主体编译命令 |
 | `make_checkprep.json` | `make -j1 -w checkprep` | `EXTRA_INSTALL` 测试模块（src/test/modules、contrib 测试扩展） |
-| `make_check_prereqs.json` | `make -j1 -w -C src/test all` | check-world 会以并行方式编译的测试程序（regress/isolation/modules） |
+| `make_check_prereqs.json` | `make -j1 -w -C src/test all` | check-world 期间会编译的测试程序（regress/isolation/modules），须提前以 `-j1 -w` 捕获 argv |
 | `make_check_prereqs_ecpg.json` | `make -j1 -w -C src/interfaces/ecpg/test all` | ecpg 测试程序（`.pgc` → builddir `.c` 的生成 TU） |
 | `make_check_prereqs_libpq.json` | `make -j1 -w -C src/interfaces/libpq test-build` | libpq 测试程序 |
 | `make_check_prereqs_pg_bsd_indent.json` | `make -j1 -w -C src/tools/pg_bsd_indent all` | 只由其自身 TAP check 构建的 7 个对象 |
+| `make_install.json` | `make -j1 -w install` | 安装到冻结 prefix；macOS 上 check-world 的前置条件，见下（不编译任何对象） |
 
-后四项是计划中 `world-bin` + `checkprep` 之外的补充：没有它们，`make check-world` 会在
-`-j8` 下交错地编译这些对象，`.o/.Po/argv` 三方闭合无法成立（`pg_bsd_indent` 的 7 个无 argv
-对象正是在一次 check-world 之后重新 `collect` 时发现的）。
+后四项是计划中 `world-bin` + `checkprep` 之外的补充：没有它们，这些对象会在
+`make check-world` 过程中才被编译，其 argv 不在任何一份 `-j1 -w` 捕获日志里，
+`.o/.Po/argv` 三方闭合无法成立（`pg_bsd_indent` 的 7 个无 argv 对象正是在一次
+check-world 之后重新 `collect` 时发现的；旧 Linux 基线当时为 `-j8`，交错编译同样不可闭合）。
 
-`make check-world` 以固定并行度 `make -j8 -k -Orecurse -w check-world` 运行：`-Orecurse`
-让每个递归 make 的输出整体成组，`# +++ ... check in <dir> +++` 锚点因此可按目录归属；
-`-k` 保证失败集完整（没有 `-k` 时 make 在第一个失败后不再启动新套件，失败集取决于调度）。
-ecpg 的 pg_regress 不打印锚点，解析器按 make cwd 单独成段（`sections_without_anchor` = 1）。
+`install` 是 macOS 特有的必要补充：`make check` 会把二进制以 `DESTDIR=tmp_install` 装进临时树，
+而这些二进制内嵌的是**最终 prefix 的绝对 install_name**（`<prefix>/lib/libpq.5.dylib`）。
+Linux 上 `LD_LIBRARY_PATH` 能让它们加载临时树里的库；macOS 的 `/bin/sh` 会**剥掉传给子进程的
+`DYLD_*` 变量**（bash 启动时即删除，连 `env` 输出里都看不到），于是 `DYLD_LIBRARY_PATH`
+失效，`initdb` 以 `dyld: Library not loaded: <prefix>/lib/libpq.5.dylib` 触发 SIGABRT
+（`Abort trap: 6`），check-world 里每个套件都在 0.4 秒内失败。先把 prefix 真正装上，
+那个绝对路径就存在了。`install` 不编译任何对象，不影响 `.o/.Po/argv` 闭合。
 
-## 为什么 builddir 不在 virtiofs 上（迁移记录）
+`make check-world` 以 `make -j1 -k -w check-world` 运行，**必须 `-j1`**：macOS 系统自带的
+GNU Make 3.81 没有 `--output-sync`/`-O`（3.82 才引入），而 `checkworld.py` 依赖"每个递归
+make 的输出整体成组"——若在 `-j8` 下去掉 `-Orecurse`，并发子 make 的输出会逐行交错，
+`# +++ ... check in <dir> +++` 锚点归属与 `Entering/Leaving directory` 的 cwd 栈都会串线；
+串行输出天然成组，解析质量与 `-Orecurse` 相同。`-k` 保证失败集完整（没有 `-k` 时 make
+在第一个失败后不再启动新套件，失败集取决于调度）。ecpg 的 pg_regress 不打印锚点，
+解析器按 make cwd 单独成段（`sections_without_anchor` = 1）。
 
-第一次证据周期把 builddir / prefix / 日志放在 `/Users/niejinbo/work/code/pg/postgres.builds/`
-（virtiofs）。configure、全部编译与 token 回放都正常，但 `make check-world` 两次都退出 2，
-失败只发生在 `tmp_check/` 的文件系统语义上：
+## 迁移记录：从 OrbStack Linux 到原生 macOS
 
-| 失败 | 轮次 | 根因 |
+第一次证据周期把 srcdir 放在 virtiofs 的 `/Users`、builddir/prefix/日志放在虚拟机原生
+btrfs 的 `/home/redstar/pg-builds`。该 Linux 主机已不可用，本周期在 macOS 上原生重建。
+因此旧周期针对 virtiofs 的两点 POSIX 差异**在本基线中不存在**（四个根目录同处一个本地
+APFS 卷）：
+
+| 旧 virtiofs 失败 | 现象 | 根因 |
 |---|---|---|
-| `src/bin/pg_verifybackup/t/003_corruption.pl` 子测试 44 `search_directory_fails` | 两轮（确定性） | 测试把 `backup/base` `chmod 0400` 后期待 `could not stat file or directory`。POSIX 文件系统上 `readdir()` 成功、子项 `stat()` 返回 EACCES；virtiofs 上 `opendir()` 成功但 `readdir()` 直接返回 EACCES，`pg_verifybackup.c` `verify_backup_directory()` 的 `readdir` 循环结束后不检查 `errno`，于是目录被当作空目录，只剩 "present in the manifest but not on disk"。 |
-| `src/test/recovery/t/032_relfilenode_reuse.pl` | 仅第 1 轮（第 2 轮通过） | standby 的 walreceiver 已把 WAL 写到 `0/37F4AE0` 之后，startup 进程在同一文件 `000000010000000000000003` 偏移 7749632 处读到全零（`invalid magic number 0000`），重新流式拉取后在同一偏移再次读到零，循环直到 221 s 超时：同一文件由两个进程写/读时在 virtiofs 上读到过期页。 |
+| `pg_verifybackup/t/003_corruption.pl` 子测试 44 `search_directory_fails` | 确定性 | 测试把 `backup/base` `chmod 0400` 后期待 `could not stat file or directory`；POSIX 文件系统上 `readdir()` 成功、子项 `stat()` 返回 EACCES，virtiofs 上 `readdir()` 直接返回 EACCES，目录被当作空目录 |
+| `src/test/recovery/t/032_relfilenode_reuse.pl` | 偶发 | 同一 WAL 文件由两进程写/读时在 virtiofs 上读到过期零页，超时 |
 
-两者都不是 REL_16_11 源码问题，也与依赖、locale（统一 `C.UTF-8`）或 Make 并行无关。
-`zhtools.evidence_run.dirperm_probe` 把 0400 目录语义写进 `environment.json["dirperm_probe"]`：
-virtiofs 为 `readdir_fails`，`/tmp`（tmpfs）与 `/home/redstar`（btrfs）为 `posix`。
+原生 macOS 下 `zhtools.evidence_run.dirperm_probe` 应报告 `posix`（`environment.json`）。
+旧 Linux 归档保存在 `/Users/niejinbo/work/code/pg/postgres.builds/REL_16_11_base-evidence`，
+仅作诊断，不属于本基线。
 
-因此 builddir、prefix、evidence_out 全部迁移到原生 btrfs `/home/redstar/pg-builds/`，
-srcdir 仍是 virtiofs 上的只读 worktree。旧目录保留为诊断归档，不属于基线；其关键哈希记录在
-`frozen_config.json["migration"]`：
+### 工具缺陷修复：GNU Make 3.81 的目录引用
 
-| 旧证据 | SHA-256 |
-|---|---|
-| 第 1 轮 check-world 日志（无 `-k`，exit 2，003 + 032 失败）`…/postgres.builds/REL_16_11_base-evidence/make_check_world.run1.log` | `d7bfcdc2033bf0981616e91b3f77a9ad1ce8eebede9fe43d82c89b846a75be48` |
-| 第 2 轮 check-world 日志（`-k`，exit 2，仅 003 失败）`…/make_check_world.log` | `7bdc2ca87c8800411bd674e0b7f5933db67d2a2a0747b9a16eb88be19b3e3aff` |
-| 旧 `make -j1 -w world-bin` 日志 | `c0b30e49f998ba9bf8c73ff934d98ab0cf693a4268b462ba5310c2c9518354d8` |
-| 旧 token 缓存（1504 变体，base 与 zh 相同） | `258b7cb94146ced12d8d994e57dc4213317d06f77776b75413a581e1133917bd` |
+`make -w` 的 "Entering/Leaving directory" 行在 GNU Make 4.x（旧 Linux 基线）是
+`'dir'`，在 GNU Make 3.81（macOS 系统 make）是 `` `dir' ``（反引号-单引号）。
+`zhtools.makelog` 原来的 `ENTER_RX`/`LEAVE_RX` 只认 4.x 形式，导致 macOS 下**所有**日志
+都被判为"没有 Entering directory 行"、每条编译命令丢失 `cwd`、同名对象互相冲突
+（`collect` 报 `closed=False`、`unverified=78`）。修复后两种引用都接受，
+`collect` 恢复 `closed=True`、`unverified=0`。回归测试：
+`tests/test_makelog.py::ParseLogTest::test_make381_backtick_directory_quotes`。
 
-## 本周期（btrfs）的已知环境差异
+## 本周期（macOS）的已知环境差异
 
-* **PG_TEST_EXTRA 未设置**导致的 skip：`src/test/{kerberos,ldap,ssl}` 三个套件 `NOTESTS`
-  （6 个 `.pl` skipped），`src/interfaces/libpq/t/004_load_balance_dns.pl`、
-  `src/test/authentication/t/005_sspi.pl`（Windows）、`src/test/recovery/t/031_recovery_conflict.pl`
-  （上游标记 disabled due to instability）skipped；合计 9 个 skipped TAP 文件。
+* **TAP 关闭**：`--disable-tap-tests`（无 IPC::Run）。`make check-world` 只跑 pg_regress
+  套件；`check_world.json` 的 `tap_files` 为 0，这是配置使然，不是测试失败。
+* **check-world 之前必须先 `make install` 到 prefix**：macOS `/bin/sh` 剥离 `DYLD_*`，
+  `make check` 的 `DESTDIR=tmp_install` 暂存树无法靠 `DYLD_LIBRARY_PATH` 找到那些按绝对
+  install_name 引用的库；`make_install.json` 是本周期相对旧 Linux 基线新增的捕获目标，
+  不编译任何对象。
+* **locale 固定为 `C`**：`frozen_config.json["env"]` 取 `LANG=C`（无 `LC_ALL`）。
+  macOS 的 `locale -a` 同时提供 `C.UTF-8`、`en_US.UTF-8`、`zh_CN.UTF-8`，旧基线取
+  `C.UTF-8`。本周期选 `C` 只是为了让 configure 与 pg_regress 在最朴素的 locale 下运行；
+  若改为 UTF-8 locale，属于一次新的证据周期。`environment.json["locale_a_has"]`
+  同时记录两种拼写（Linux `*.utf8` 与 macOS `*.UTF-8`）的探测结果。
+* **`--enable-nls` / `--with-openssl` / `--with-gssapi` 依赖 keg-only brew 包**：gettext、
+  openssl@3、krb5 的头/库路径因此固定写进 `frozen_config.json["env"]` 的 `LDFLAGS`/`CPPFLAGS`，
+  `/opt/homebrew/opt/openssl@3/bin` 亦置于 `PATH` 之首；换机器时这些路径必须一起复核。
+* **相对旧 Linux 基线仍关闭的选项**：`--with-ldap`、`--with-pam`、`--with-lz4`、
+  `--with-python`、`--enable-dtrace`、`--with-selinux`、ICU 与 TAP 套件仍禁用；其中
+  `--with-openssl`、`--with-gssapi` 已在本周期重新启用（理由见"启用项"），其余不涉及
+  任何已翻译文件。
 * check-world 的实际退出码、失败集与告警见 `check_world.json` 和
   `cc_evidence/baseline.json["check_world_*"]`（本文件不重复数字，以机器记录为准）。

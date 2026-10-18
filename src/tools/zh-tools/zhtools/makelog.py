@@ -12,7 +12,9 @@ the builddir.
 Rules (all violations -> "unverified", never relaxed):
 
 * cwd is tracked from ``make[N]: Entering directory '...'`` /
-  ``Leaving directory`` lines (a stack; ``-w`` is mandatory);
+  ``Leaving directory`` lines (a stack; ``-w`` is mandatory).  Both the
+  GNU Make 4.x ``'...'`` and the GNU Make 3.81 ``\`...'`` quoting are
+  accepted;
 * a line is a compiler invocation when its first shlex token is exactly
   the frozen ``cc`` or ``cxx`` absolute path;
 * a compiler invocation must be a single simple command: no ``&&``,
@@ -35,8 +37,11 @@ import sys
 
 sys.dont_write_bytecode = True
 
-ENTER_RX = re.compile(r"^make(?:\[(\d+)\])?: Entering directory '(.*)'$")
-LEAVE_RX = re.compile(r"^make(?:\[(\d+)\])?: Leaving directory '(.*)'$")
+# GNU Make 4.x quotes the directory with '...', while GNU Make 3.81 (shipped
+# on macOS) uses a backtick-apostrophe pair `...'.  Accept both so the same
+# parser works on the Linux and macOS evidence hosts.
+ENTER_RX = re.compile(r"^make(?:\[(\d+)\])?: Entering directory [`'](.*)'$")
+LEAVE_RX = re.compile(r"^make(?:\[(\d+)\])?: Leaving directory [`'](.*)'$")
 SHELL_META_TOKENS = ("&&", "||", ";", "|", "<", ">", ">>", "2>", "2>&1", "1>", "&")
 WRAPPERS = ("ccache", "distcc", "sccache", "icecc", "env", "nice", "time", "sh", "bash", "/bin/sh", "/bin/bash")
 SOURCE_EXTS = (".c", ".cpp", ".cc", ".cxx", ".C")

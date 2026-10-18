@@ -152,6 +152,52 @@ def first_line(text):
     return text.strip().splitlines()[0] if text.strip() else ""
 
 
+def parse_mount_fstype(table, path):
+    """Return the filesystem type for *path* from ``mount`` output, or ``""``.
+
+    BSD/macOS ``mount`` prints ``<dev> on <mountpoint> (<type>, <opts>...)``;
+    Linux prints ``<dev> on <mountpoint> type <type> (<opts>)``.  Both shapes
+    are handled.  The longest mount point that is a whole-path prefix of
+    *path* wins, so a nested mount beats ``/``.
+    """
+    best_mp, best_fs = "", ""
+    for line in table.splitlines():
+        if " on " not in line:
+            continue
+        rest = line.split(" on ", 1)[1]
+        if " type " in rest:
+            # Linux: "<dev> on <mountpoint> type <type> (<opts>)"
+            mp, tail = rest.split(" type ", 1)
+            fs = tail.split(" ", 1)[0].strip()
+        elif " (" in rest:
+            # BSD/macOS: "<dev> on <mountpoint> (<type>, <opts>...)"
+            mp, tail = rest.split(" (", 1)
+            fs = tail.split(",", 1)[0].strip()
+        else:
+            continue
+        if (mp == "/" or path == mp or path.startswith(mp.rstrip("/") + "/")) \
+                and len(mp) >= len(best_mp):
+            best_mp, best_fs = mp, fs
+    return best_fs
+
+
+def fstype(path, cwd=None, env=None):
+    """Best-effort filesystem type name for *path*.
+
+    GNU ``stat -f -c %T`` prints the type directly, so it is used on Linux;
+    BSD/macOS ``stat`` has no ``-c`` and prints a bare mount point instead, so
+    there the ``mount`` table is parsed.  Returns ``""`` if neither works.
+    """
+    if sys.platform.startswith("linux"):
+        rc, text = capture(["stat", "-f", "-c", "%T", path], cwd=cwd, env=env)
+        if rc == 0 and first_line(text):
+            return first_line(text)
+    rc, table = capture(["mount"], cwd=cwd, env=env)
+    if rc == 0:
+        return parse_mount_fstype(table, path)
+    return ""
+
+
 def write_json(path, obj):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:

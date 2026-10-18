@@ -7,21 +7,23 @@
   "src/interfaces/ecpg/test",
   "all"
  ],
- "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
- "elapsed_sec": 12.881,
+ "cwd": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 7.942,
  "env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
  "exit_code": 0,
- "finished_utc": "2026-10-04T12:59:09Z",
- "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_ecpg.log",
- "log_sha256": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3",
- "log_size": 128878,
+ "finished_utc": "2026-10-17T23:05:14Z",
+ "log": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs_ecpg.log",
+ "log_sha256": "82ec246fadaa7ca4776c7b173410e345cc243da4fa42c20178cf3a4a3b7c0f0c",
+ "log_size": 150908,
  "log_summary": {
   "compile_commands": 66,
   "compiler_errors": 0,
@@ -36,7 +38,7 @@
   "make_warnings": 0,
   "problems": 0
  },
- "started_utc": "2026-10-04T12:58:56Z",
+ "started_utc": "2026-10-17T23:05:06Z",
  "target": {
   "args": [
    "-j1",
@@ -49,5 +51,5 @@
   "note": "ecpg test programs (generated TUs in builddir)"
  },
  "tool": "make_evidence.py make",
- "tools_version": "0.2.0"
+ "tools_version": "0.2.3"
 }

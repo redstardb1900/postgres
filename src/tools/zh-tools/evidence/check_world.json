@@ -1,28 +1,29 @@
 {
  "argv": [
   "make",
-  "-j8",
+  "-j1",
   "-k",
-  "-Orecurse",
   "-w",
   "check-world"
  ],
- "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
- "elapsed_sec": 228.676,
+ "cwd": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 303.079,
  "env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
  "exit_code": 0,
- "finished_utc": "2026-10-04T13:08:23Z",
- "jobs": 8,
- "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_world.log",
- "log_sha256": "2f22edfd61b0b797413a9d389d61fbcbc19d34947d1ed91f45f3124dd9ccf9f6",
- "log_size": 405379,
+ "finished_utc": "2026-10-17T23:11:22Z",
+ "jobs": 1,
+ "log": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_world.log",
+ "log_sha256": "356139f47389ec0b97b8be0d23be4206c6c7bf7f57c16fffd6a29b923aa8aba4",
+ "log_size": 365825,
  "results": {
   "make_errors": [],
   "make_warnings": {},
@@ -31,3317 +32,10 @@
   "sections": [
    {
     "anchor": true,
-    "cwd": "src/tools/pg_bsd_indent",
-    "dir": "src/tools/pg_bsd_indent",
-    "kind": "tap",
-    "lineno": 38,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 39
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_pg_bsd_indent.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/pl/plperl",
-    "dir": "src/pl/plperl",
-    "kind": "regress",
-    "lineno": 60,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 14
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "plperl_setup",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "plperl",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "plperl_lc",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "plperl_trigger",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "plperl_shared",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "plperl_elog",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "plperl_util",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "plperl_init",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "plperlu",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "plperl_array",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "plperl_call",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "plperl_transaction",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "plperl_env",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "plperl_plperlu",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/pl/plpython",
-    "dir": "src/pl/plpython",
-    "kind": "regress",
-    "lineno": 93,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 23
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "plpython_schema",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "plpython_populate",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "plpython_test",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "plpython_do",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "plpython_global",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "plpython_import",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "plpython_spi",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "plpython_newline",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "plpython_void",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "plpython_call",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "plpython_params",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "plpython_setof",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "plpython_record",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "plpython_trigger",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "plpython_types",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "plpython_error",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "plpython_ereport",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "plpython_unicode",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "plpython_quote",
-      "status": "ok"
-     },
-     {
-      "n": 20,
-      "name": "plpython_composite",
-      "status": "ok"
-     },
-     {
-      "n": 21,
-      "name": "plpython_subtransaction",
-      "status": "ok"
-     },
-     {
-      "n": 22,
-      "name": "plpython_transaction",
-      "status": "ok"
-     },
-     {
-      "n": 23,
-      "name": "plpython_drop",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/pl/plpgsql/src",
-    "dir": "src/pl/plpgsql/src",
-    "kind": "regress",
-    "lineno": 137,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 13
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "plpgsql_array",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "plpgsql_cache",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "plpgsql_call",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "plpgsql_control",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "plpgsql_copy",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "plpgsql_domain",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "plpgsql_misc",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "plpgsql_record",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "plpgsql_simple",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "plpgsql_transaction",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "plpgsql_trap",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "plpgsql_trigger",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "plpgsql_varprops",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/interfaces/libpq",
-    "dir": "src/interfaces/libpq",
-    "kind": "tap",
-    "lineno": 174,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 4,
-     "result": "PASS",
-     "tests": 188
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_uri.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_api.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_load_balance_host_list.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "skipped: Potentially unsafe test load_balance not enabled in PG_TEST_EXTRA",
-      "name": "t/004_load_balance_dns.pl",
-      "status": "skipped"
-     }
-    ]
-   },
-   {
-    "anchor": false,
-    "cwd": "src/interfaces/ecpg/test",
-    "dir": "src/interfaces/ecpg/test",
-    "kind": "regress",
-    "lineno": 237,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 64
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "compat_informix/dec_test",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "compat_informix/charfuncs",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "compat_informix/rfmtdate",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "compat_informix/rfmtlong",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "compat_informix/rnull",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "compat_informix/sqlda",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "compat_informix/describe",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "compat_informix/test_informix",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "compat_informix/test_informix2",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "compat_informix/intoasc",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "compat_oracle/char_array",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "connect/test2",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "connect/test3",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "connect/test4",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "connect/test5",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "pgtypeslib/dt_test",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "pgtypeslib/dt_test2",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "pgtypeslib/num_test",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "pgtypeslib/num_test2",
-      "status": "ok"
-     },
-     {
-      "n": 20,
-      "name": "pgtypeslib/nan_test",
-      "status": "ok"
-     },
-     {
-      "n": 21,
-      "name": "preproc/array_of_struct",
-      "status": "ok"
-     },
-     {
-      "n": 22,
-      "name": "preproc/pointer_to_struct",
-      "status": "ok"
-     },
-     {
-      "n": 23,
-      "name": "preproc/autoprep",
-      "status": "ok"
-     },
-     {
-      "n": 24,
-      "name": "preproc/comment",
-      "status": "ok"
-     },
-     {
-      "n": 25,
-      "name": "preproc/cursor",
-      "status": "ok"
-     },
-     {
-      "n": 26,
-      "name": "preproc/define",
-      "status": "ok"
-     },
-     {
-      "n": 27,
-      "name": "preproc/init",
-      "status": "ok"
-     },
-     {
-      "n": 28,
-      "name": "preproc/strings",
-      "status": "ok"
-     },
-     {
-      "n": 29,
-      "name": "preproc/type",
-      "status": "ok"
-     },
-     {
-      "n": 30,
-      "name": "preproc/variable",
-      "status": "ok"
-     },
-     {
-      "n": 31,
-      "name": "preproc/outofscope",
-      "status": "ok"
-     },
-     {
-      "n": 32,
-      "name": "preproc/whenever",
-      "status": "ok"
-     },
-     {
-      "n": 33,
-      "name": "preproc/whenever_do_continue",
-      "status": "ok"
-     },
-     {
-      "n": 34,
-      "name": "sql/array",
-      "status": "ok"
-     },
-     {
-      "n": 35,
-      "name": "sql/binary",
-      "status": "ok"
-     },
-     {
-      "n": 36,
-      "name": "sql/bytea",
-      "status": "ok"
-     },
-     {
-      "n": 37,
-      "name": "sql/code100",
-      "status": "ok"
-     },
-     {
-      "n": 38,
-      "name": "sql/copystdout",
-      "status": "ok"
-     },
-     {
-      "n": 39,
-      "name": "sql/createtableas",
-      "status": "ok"
-     },
-     {
-      "n": 40,
-      "name": "sql/define",
-      "status": "ok"
-     },
-     {
-      "n": 41,
-      "name": "sql/desc",
-      "status": "ok"
-     },
-     {
-      "n": 42,
-      "name": "sql/sqlda",
-      "status": "ok"
-     },
-     {
-      "n": 43,
-      "name": "sql/describe",
-      "status": "ok"
-     },
-     {
-      "n": 44,
-      "name": "sql/dynalloc",
-      "status": "ok"
-     },
-     {
-      "n": 45,
-      "name": "sql/dynalloc2",
-      "status": "ok"
-     },
-     {
-      "n": 46,
-      "name": "sql/dyntest",
-      "status": "ok"
-     },
-     {
-      "n": 47,
-      "name": "sql/execute",
-      "status": "ok"
-     },
-     {
-      "n": 48,
-      "name": "sql/fetch",
-      "status": "ok"
-     },
-     {
-      "n": 49,
-      "name": "sql/func",
-      "status": "ok"
-     },
-     {
-      "n": 50,
-      "name": "sql/indicators",
-      "status": "ok"
-     },
-     {
-      "n": 51,
-      "name": "sql/oldexec",
-      "status": "ok"
-     },
-     {
-      "n": 52,
-      "name": "sql/quote",
-      "status": "ok"
-     },
-     {
-      "n": 53,
-      "name": "sql/show",
-      "status": "ok"
-     },
-     {
-      "n": 54,
-      "name": "sql/sqljson",
-      "status": "ok"
-     },
-     {
-      "n": 55,
-      "name": "sql/insupd",
-      "status": "ok"
-     },
-     {
-      "n": 56,
-      "name": "sql/parser",
-      "status": "ok"
-     },
-     {
-      "n": 57,
-      "name": "sql/prepareas",
-      "status": "ok"
-     },
-     {
-      "n": 58,
-      "name": "sql/declare",
-      "status": "ok"
-     },
-     {
-      "n": 59,
-      "name": "thread/thread",
-      "status": "ok"
-     },
-     {
-      "n": 60,
-      "name": "thread/thread_implicit",
-      "status": "ok"
-     },
-     {
-      "n": 61,
-      "name": "thread/prep",
-      "status": "ok"
-     },
-     {
-      "n": 62,
-      "name": "thread/alloc",
-      "status": "ok"
-     },
-     {
-      "n": 63,
-      "name": "thread/descriptor",
-      "status": "ok"
-     },
-     {
-      "n": 64,
-      "name": "sql/twophase",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/adminpack",
-    "dir": "contrib/adminpack",
-    "kind": "regress",
-    "lineno": 344,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "adminpack",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/basic_archive",
-    "dir": "contrib/basic_archive",
-    "kind": "regress",
-    "lineno": 422,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "basic_archive",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/auto_explain",
-    "dir": "contrib/auto_explain",
-    "kind": "regress",
-    "lineno": 464,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "alter_reset",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/auto_explain",
-    "dir": "contrib/auto_explain",
-    "kind": "tap",
-    "lineno": 470,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 19
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_auto_explain.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/basebackup_to_shell",
-    "dir": "contrib/basebackup_to_shell",
-    "kind": "tap",
-    "lineno": 512,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 16
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/amcheck",
-    "dir": "contrib/amcheck",
-    "kind": "regress",
-    "lineno": 554,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 3
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "check",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "check_btree",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "check_heap",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/amcheck",
-    "dir": "contrib/amcheck",
-    "kind": "tap",
-    "lineno": 562,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 4,
-     "result": "PASS",
-     "tests": 283
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_verify_heapam.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_cic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_cic_2pc.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/005_pitr.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/btree_gin",
-    "dir": "contrib/btree_gin",
-    "kind": "regress",
-    "lineno": 607,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 30
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "install_btree_gin",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "int2",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "int4",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "int8",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "float4",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "float8",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "money",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "oid",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "timestamp",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "timestamptz",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "time",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "timetz",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "date",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "interval",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "macaddr",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "macaddr8",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "inet",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "cidr",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "text",
-      "status": "ok"
-     },
-     {
-      "n": 20,
-      "name": "varchar",
-      "status": "ok"
-     },
-     {
-      "n": 21,
-      "name": "char",
-      "status": "ok"
-     },
-     {
-      "n": 22,
-      "name": "bytea",
-      "status": "ok"
-     },
-     {
-      "n": 23,
-      "name": "bit",
-      "status": "ok"
-     },
-     {
-      "n": 24,
-      "name": "varbit",
-      "status": "ok"
-     },
-     {
-      "n": 25,
-      "name": "numeric",
-      "status": "ok"
-     },
-     {
-      "n": 26,
-      "name": "enum",
-      "status": "ok"
-     },
-     {
-      "n": 27,
-      "name": "uuid",
-      "status": "ok"
-     },
-     {
-      "n": 28,
-      "name": "name",
-      "status": "ok"
-     },
-     {
-      "n": 29,
-      "name": "bool",
-      "status": "ok"
-     },
-     {
-      "n": 30,
-      "name": "bpchar",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/btree_gist",
-    "dir": "contrib/btree_gist",
-    "kind": "regress",
-    "lineno": 678,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 29
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "init",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "int2",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "int4",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "int8",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "float4",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "float8",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "cash",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "oid",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "timestamp",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "timestamptz",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "time",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "timetz",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "date",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "interval",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "macaddr",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "macaddr8",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "inet",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "cidr",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "text",
-      "status": "ok"
-     },
-     {
-      "n": 20,
-      "name": "varchar",
-      "status": "ok"
-     },
-     {
-      "n": 21,
-      "name": "char",
-      "status": "ok"
-     },
-     {
-      "n": 22,
-      "name": "bytea",
-      "status": "ok"
-     },
-     {
-      "n": 23,
-      "name": "bit",
-      "status": "ok"
-     },
-     {
-      "n": 24,
-      "name": "varbit",
-      "status": "ok"
-     },
-     {
-      "n": 25,
-      "name": "numeric",
-      "status": "ok"
-     },
-     {
-      "n": 26,
-      "name": "uuid",
-      "status": "ok"
-     },
-     {
-      "n": 27,
-      "name": "not_equal",
-      "status": "ok"
-     },
-     {
-      "n": 28,
-      "name": "enum",
-      "status": "ok"
-     },
-     {
-      "n": 29,
-      "name": "bool",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/bloom",
-    "dir": "contrib/bloom",
-    "kind": "regress",
-    "lineno": 748,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "bloom",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/bloom",
-    "dir": "contrib/bloom",
-    "kind": "tap",
-    "lineno": 754,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 31
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_wal.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/citext",
-    "dir": "contrib/citext",
-    "kind": "regress",
-    "lineno": 796,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 3
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "create_index_acl",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "citext",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "citext_utf8",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/cube",
-    "dir": "contrib/cube",
-    "kind": "regress",
-    "lineno": 840,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "cube",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "cube_sci",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/dblink",
-    "dir": "contrib/dblink",
-    "kind": "regress",
-    "lineno": 883,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "dblink",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/dict_int",
-    "dir": "contrib/dict_int",
-    "kind": "regress",
-    "lineno": 925,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "dict_int",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/dict_xsyn",
-    "dir": "contrib/dict_xsyn",
-    "kind": "regress",
-    "lineno": 967,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "dict_xsyn",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/earthdistance",
-    "dir": "contrib/earthdistance",
-    "kind": "regress",
-    "lineno": 1009,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "earthdistance",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/file_fdw",
-    "dir": "contrib/file_fdw",
-    "kind": "regress",
-    "lineno": 1051,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "file_fdw",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/fuzzystrmatch",
-    "dir": "contrib/fuzzystrmatch",
-    "kind": "regress",
-    "lineno": 1093,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "fuzzystrmatch",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "fuzzystrmatch_utf8",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/hstore",
-    "dir": "contrib/hstore",
-    "kind": "regress",
-    "lineno": 1136,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "hstore",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "hstore_utf8",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/isn",
-    "dir": "contrib/isn",
-    "kind": "regress",
-    "lineno": 1215,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "isn",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/intarray",
-    "dir": "contrib/intarray",
-    "kind": "regress",
-    "lineno": 1257,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "_int",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/lo",
-    "dir": "contrib/lo",
-    "kind": "regress",
-    "lineno": 1299,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "lo",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/ltree",
-    "dir": "contrib/ltree",
-    "kind": "regress",
-    "lineno": 1341,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "ltree",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/oid2name",
-    "dir": "contrib/oid2name",
-    "kind": "tap",
-    "lineno": 1383,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 8
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pageinspect",
-    "dir": "contrib/pageinspect",
-    "kind": "regress",
-    "lineno": 1461,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 8
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "page",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "btree",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "brin",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "gin",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "gist",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "hash",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "checksum",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "oldextversions",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/passwordcheck",
-    "dir": "contrib/passwordcheck",
-    "kind": "regress",
-    "lineno": 1510,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "passwordcheck",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_buffercache",
-    "dir": "contrib/pg_buffercache",
-    "kind": "regress",
-    "lineno": 1552,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pg_buffercache",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_freespacemap",
-    "dir": "contrib/pg_freespacemap",
-    "kind": "regress",
-    "lineno": 1594,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pg_freespacemap",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_prewarm",
-    "dir": "contrib/pg_prewarm",
-    "kind": "tap",
-    "lineno": 1636,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 8
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_stat_statements",
-    "dir": "contrib/pg_stat_statements",
-    "kind": "regress",
-    "lineno": 1678,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 11
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "select",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "dml",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "cursors",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "utility",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "level_tracking",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "planning",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "user_activity",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "wal",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "extended",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "cleanup",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "oldextversions",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_surgery",
-    "dir": "contrib/pg_surgery",
-    "kind": "regress",
-    "lineno": 1730,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "heap_surgery",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_trgm",
-    "dir": "contrib/pg_trgm",
-    "kind": "regress",
-    "lineno": 1772,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 3
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pg_trgm",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "pg_word_trgm",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "pg_strict_word_trgm",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pgrowlocks",
-    "dir": "contrib/pgrowlocks",
-    "kind": "isolation",
-    "lineno": 1816,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pgrowlocks",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pgstattuple",
-    "dir": "contrib/pgstattuple",
-    "kind": "regress",
-    "lineno": 1858,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pgstattuple",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_visibility",
-    "dir": "contrib/pg_visibility",
-    "kind": "regress",
-    "lineno": 1900,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pg_visibility",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pg_walinspect",
-    "dir": "contrib/pg_walinspect",
-    "kind": "regress",
-    "lineno": 1942,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "pg_walinspect",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "oldextversions",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/seg",
-    "dir": "contrib/seg",
-    "kind": "regress",
-    "lineno": 2021,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "security",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "seg",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/postgres_fdw",
-    "dir": "contrib/postgres_fdw",
-    "kind": "regress",
-    "lineno": 2064,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "postgres_fdw",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/postgres_fdw",
-    "dir": "contrib/postgres_fdw",
-    "kind": "isolation",
-    "lineno": 2070,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "eval_plan_qual",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/tablefunc",
-    "dir": "contrib/tablefunc",
-    "kind": "regress",
-    "lineno": 2112,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "tablefunc",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/tcn",
-    "dir": "contrib/tcn",
-    "kind": "isolation",
-    "lineno": 2154,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "tcn",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/vacuumlo",
-    "dir": "contrib/vacuumlo",
-    "kind": "tap",
-    "lineno": 2196,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 8
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/tsm_system_rows",
-    "dir": "contrib/tsm_system_rows",
-    "kind": "regress",
-    "lineno": 2238,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "tsm_system_rows",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/tsm_system_time",
-    "dir": "contrib/tsm_system_time",
-    "kind": "regress",
-    "lineno": 2316,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "tsm_system_time",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/unaccent",
-    "dir": "contrib/unaccent",
-    "kind": "regress",
-    "lineno": 2358,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "unaccent",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/uuid-ossp",
-    "dir": "contrib/uuid-ossp",
-    "kind": "regress",
-    "lineno": 2436,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "uuid_ossp",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/pgcrypto",
-    "dir": "contrib/pgcrypto",
-    "kind": "regress",
-    "lineno": 2478,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 22
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "init",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "md5",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "sha1",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "hmac-md5",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "hmac-sha1",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "blowfish",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "rijndael",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "sha2",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "des",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "3des",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "cast5",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "crypt-des",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "crypt-md5",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "crypt-blowfish",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "crypt-xdes",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "pgp-armor",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "pgp-decrypt",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "pgp-encrypt",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "pgp-compression",
-      "status": "ok"
-     },
-     {
-      "n": 20,
-      "name": "pgp-pubkey-decrypt",
-      "status": "ok"
-     },
-     {
-      "n": 21,
-      "name": "pgp-pubkey-encrypt",
-      "status": "ok"
-     },
-     {
-      "n": 22,
-      "name": "pgp-info",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/xml2",
-    "dir": "contrib/xml2",
-    "kind": "regress",
-    "lineno": 2541,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "xml2",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/bool_plperl",
-    "dir": "contrib/bool_plperl",
-    "kind": "regress",
-    "lineno": 2583,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "bool_plperl",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "bool_plperlu",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/hstore_plperl",
-    "dir": "contrib/hstore_plperl",
-    "kind": "regress",
-    "lineno": 2626,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 3
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "hstore_plperl",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "hstore_plperlu",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "create_transform",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/jsonb_plperl",
-    "dir": "contrib/jsonb_plperl",
-    "kind": "regress",
-    "lineno": 2670,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 2
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "jsonb_plperl",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "jsonb_plperlu",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/hstore_plpython",
-    "dir": "contrib/hstore_plpython",
-    "kind": "regress",
-    "lineno": 2713,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "hstore_plpython",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/jsonb_plpython",
-    "dir": "contrib/jsonb_plpython",
-    "kind": "regress",
-    "lineno": 2755,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "jsonb_plpython",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/ltree_plpython",
-    "dir": "contrib/ltree_plpython",
-    "kind": "regress",
-    "lineno": 2797,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "ltree_plpython",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/test_decoding",
-    "dir": "contrib/test_decoding",
-    "kind": "regress",
-    "lineno": 2839,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 19
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "ddl",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "xact",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "rewrite",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "toast",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "permissions",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "decoding_in_xact",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "decoding_into_rel",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "binary",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "prepared",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "replorigin",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "time",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "messages",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "spill",
-      "status": "ok"
-     },
-     {
-      "n": 14,
-      "name": "slot",
-      "status": "ok"
-     },
-     {
-      "n": 15,
-      "name": "truncate",
-      "status": "ok"
-     },
-     {
-      "n": 16,
-      "name": "stream",
-      "status": "ok"
-     },
-     {
-      "n": 17,
-      "name": "stats",
-      "status": "ok"
-     },
-     {
-      "n": 18,
-      "name": "twophase",
-      "status": "ok"
-     },
-     {
-      "n": 19,
-      "name": "twophase_stream",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/test_decoding",
-    "dir": "contrib/test_decoding",
-    "kind": "isolation",
-    "lineno": 2863,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 13
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "mxact",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "delayed_startup",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "ondisk_startup",
-      "status": "ok"
-     },
-     {
-      "n": 4,
-      "name": "concurrent_ddl_dml",
-      "status": "ok"
-     },
-     {
-      "n": 5,
-      "name": "oldest_xmin",
-      "status": "ok"
-     },
-     {
-      "n": 6,
-      "name": "snapshot_transfer",
-      "status": "ok"
-     },
-     {
-      "n": 7,
-      "name": "subxact_without_top",
-      "status": "ok"
-     },
-     {
-      "n": 8,
-      "name": "concurrent_stream",
-      "status": "ok"
-     },
-     {
-      "n": 9,
-      "name": "twophase_snapshot",
-      "status": "ok"
-     },
-     {
-      "n": 10,
-      "name": "slot_creation_error",
-      "status": "ok"
-     },
-     {
-      "n": 11,
-      "name": "catalog_change_snapshot",
-      "status": "ok"
-     },
-     {
-      "n": 12,
-      "name": "skip_snapshot_restore",
-      "status": "ok"
-     },
-     {
-      "n": 13,
-      "name": "invalidation_distribution",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "contrib/test_decoding",
-    "dir": "contrib/test_decoding",
-    "kind": "tap",
-    "lineno": 2881,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 6
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_repl_stats.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_archivecleanup",
-    "dir": "src/bin/pg_archivecleanup",
-    "kind": "tap",
-    "lineno": 2893,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 42
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/010_pg_archivecleanup.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_amcheck",
-    "dir": "src/bin/pg_amcheck",
-    "kind": "tap",
-    "lineno": 2902,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 5,
-     "result": "PASS",
-     "tests": 214
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_nonesuch.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_check.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_verify_heapam.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/005_opclass_damage.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/initdb",
-    "dir": "src/bin/initdb",
-    "kind": "tap",
-    "lineno": 2915,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 43
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_initdb.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_config",
-    "dir": "src/bin/pg_config",
-    "kind": "tap",
-    "lineno": 2924,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 20
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_pg_config.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_controldata",
-    "dir": "src/bin/pg_controldata",
-    "kind": "tap",
-    "lineno": 2933,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 17
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_pg_controldata.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_checksums",
-    "dir": "src/bin/pg_checksums",
-    "kind": "tap",
-    "lineno": 2942,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 74
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_actions.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_basebackup",
-    "dir": "src/bin/pg_basebackup",
-    "kind": "tap",
-    "lineno": 2952,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 4,
-     "result": "PASS",
-     "tests": 253
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/010_pg_basebackup.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/011_in_place_tablespace.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/020_pg_receivewal.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/030_pg_recvlogical.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_ctl",
-    "dir": "src/bin/pg_ctl",
-    "kind": "tap",
-    "lineno": 2964,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 4,
-     "result": "PASS",
-     "tests": 53
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_start_stop.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_status.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_promote.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_logrotate.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_resetwal",
-    "dir": "src/bin/pg_resetwal",
-    "kind": "tap",
-    "lineno": 2976,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 18
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_corrupted.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_test_fsync",
-    "dir": "src/bin/pg_test_fsync",
-    "kind": "tap",
-    "lineno": 2986,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 12
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_test_timing",
-    "dir": "src/bin/pg_test_timing",
-    "kind": "tap",
-    "lineno": 2995,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 12
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_dump",
-    "dir": "src/bin/pg_dump",
-    "kind": "tap",
-    "lineno": 3004,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 5,
-     "result": "PASS",
-     "tests": 11261
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_pg_dump.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_pg_dump_with_server.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_pg_dump_parallel.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/010_dump_connstr.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_waldump",
-    "dir": "src/bin/pg_waldump",
-    "kind": "tap",
-    "lineno": 3017,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 13
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_save_fullpage.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pgbench",
-    "dir": "src/bin/pgbench",
-    "kind": "tap",
-    "lineno": 3027,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 648
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_pgbench_with_server.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_pgbench_no_server.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/psql",
-    "dir": "src/bin/psql",
-    "kind": "tap",
-    "lineno": 3042,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 3,
-     "result": "PASS",
-     "tests": 174
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/010_tab_completion.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/020_cancel.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_verifybackup",
-    "dir": "src/bin/pg_verifybackup",
-    "kind": "tap",
-    "lineno": 3053,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 10,
-     "result": "PASS",
-     "tests": 227
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_algorithm.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_corruption.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_options.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/005_bad_manifest.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/006_encoding.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/007_wal.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/008_untar.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/009_extract.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/010_client_untar.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_upgrade",
-    "dir": "src/bin/pg_upgrade",
-    "kind": "tap",
-    "lineno": 3071,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 26
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_pg_upgrade.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/pg_rewind",
-    "dir": "src/bin/pg_rewind",
-    "kind": "tap",
-    "lineno": 3081,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 10,
-     "result": "PASS",
-     "tests": 99
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_databases.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_extrafiles.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_pg_xlog_symlink.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/005_same_timeline.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/006_options.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/007_standby_source.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/008_min_recovery_point.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/009_growing_files.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/010_keep_recycled_wals.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/bin/scripts",
-    "dir": "src/bin/scripts",
-    "kind": "tap",
-    "lineno": 3099,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 13,
-     "result": "PASS",
-     "tests": 298
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/010_clusterdb.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/011_clusterdb_all.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/020_createdb.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/040_createuser.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/050_dropdb.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/070_dropuser.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/080_pg_isready.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/090_reindexdb.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/091_reindexdb_all.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/100_vacuumdb.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/101_vacuumdb_all.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/102_vacuumdb_stages.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/200_connstr.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/regress",
     "dir": "src/test/regress",
     "kind": "regress",
-    "lineno": 3139,
+    "lineno": 48,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -4439,152 +1133,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/authentication",
-    "dir": "src/test/authentication",
-    "kind": "tap",
-    "lineno": 3382,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 5,
-     "result": "PASS",
-     "tests": 250
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_password.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_saslprep.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_peer.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_file_inclusion.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "skipped: SSPI tests require Windows (without PG_TEST_USE_UNIX_SOCKETS)",
-      "name": "t/005_sspi.pl",
-      "status": "skipped"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/icu",
-    "dir": "src/test/icu",
-    "kind": "tap",
-    "lineno": 3395,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 7
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/010_database.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/kerberos",
-    "dir": "src/test/kerberos",
-    "kind": "tap",
-    "lineno": 3404,
-    "mode": "check",
-    "prove": {
-     "files": 1,
-     "result": "NOTESTS",
-     "tests": 0
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "skipped: Potentially unsafe test GSSAPI/Kerberos not enabled in PG_TEST_EXTRA",
-      "name": "t/001_auth.pl",
-      "status": "skipped"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/ldap",
-    "dir": "src/test/ldap",
-    "kind": "tap",
-    "lineno": 3412,
-    "mode": "check",
-    "prove": {
-     "files": 2,
-     "result": "NOTESTS",
-     "tests": 0
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "skipped: Potentially unsafe test LDAP not enabled in PG_TEST_EXTRA",
-      "name": "t/001_auth.pl",
-      "status": "skipped"
-     },
-     {
-      "detail": "skipped: Potentially unsafe test LDAP not enabled in PG_TEST_EXTRA",
-      "name": "t/002_bindpasswd.pl",
-      "status": "skipped"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/ssl",
-    "dir": "src/test/ssl",
-    "kind": "tap",
-    "lineno": 3421,
-    "mode": "check",
-    "prove": {
-     "files": 3,
-     "result": "NOTESTS",
-     "tests": 0
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "skipped: Potentially unsafe test SSL not enabled in PG_TEST_EXTRA",
-      "name": "t/001_ssltests.pl",
-      "status": "skipped"
-     },
-     {
-      "detail": "skipped: Potentially unsafe test SSL not enabled in PG_TEST_EXTRA",
-      "name": "t/002_scram.pl",
-      "status": "skipped"
-     },
-     {
-      "detail": "skipped: Potentially unsafe test SSL not enabled in PG_TEST_EXTRA",
-      "name": "t/003_sslinfo.pl",
-      "status": "skipped"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/isolation",
     "dir": "src/test/isolation",
     "kind": "isolation",
-    "lineno": 3450,
+    "lineno": 310,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5180,7 +1732,7 @@
     "cwd": "src/test/modules/brin",
     "dir": "src/test/modules/brin",
     "kind": "isolation",
-    "lineno": 3609,
+    "lineno": 469,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5198,27 +1750,21 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/brin",
-    "dir": "src/test/modules/brin",
-    "kind": "tap",
-    "lineno": 3615,
+    "cwd": "src/test/modules/commit_ts",
+    "dir": "src/test/modules/commit_ts",
+    "kind": "regress",
+    "lineno": 512,
     "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 2,
-     "result": "PASS",
-     "tests": 6
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
     },
-    "summary": null,
     "tests": [
      {
-      "detail": "ok",
-      "name": "t/01_workitems.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/02_wal_consistency.pl",
+      "n": 1,
+      "name": "commit_timestamp",
       "status": "ok"
      }
     ]
@@ -5228,7 +1774,7 @@
     "cwd": "src/test/modules/delay_execution",
     "dir": "src/test/modules/delay_execution",
     "kind": "isolation",
-    "lineno": 3658,
+    "lineno": 555,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5254,7 +1800,7 @@
     "cwd": "src/test/modules/dummy_index_am",
     "dir": "src/test/modules/dummy_index_am",
     "kind": "regress",
-    "lineno": 3701,
+    "lineno": 598,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5275,7 +1821,7 @@
     "cwd": "src/test/modules/dummy_seclabel",
     "dir": "src/test/modules/dummy_seclabel",
     "kind": "regress",
-    "lineno": 3743,
+    "lineno": 640,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5293,90 +1839,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/libpq_pipeline",
-    "dir": "src/test/modules/libpq_pipeline",
-    "kind": "tap",
-    "lineno": 3785,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 20
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_libpq_pipeline.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/modules/commit_ts",
-    "dir": "src/test/modules/commit_ts",
-    "kind": "regress",
-    "lineno": 3827,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "commit_timestamp",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/modules/commit_ts",
-    "dir": "src/test/modules/commit_ts",
-    "kind": "tap",
-    "lineno": 3833,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 4,
-     "result": "PASS",
-     "tests": 26
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_base.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_standby.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_standby_2.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_restart.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/plsample",
     "dir": "src/test/modules/plsample",
     "kind": "regress",
-    "lineno": 3878,
+    "lineno": 719,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5394,10 +1860,41 @@
    },
    {
     "anchor": true,
+    "cwd": "src/test/modules/snapshot_too_old",
+    "dir": "src/test/modules/snapshot_too_old",
+    "kind": "isolation",
+    "lineno": 761,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 3
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "sto_using_cursor",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "sto_using_select",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "sto_using_hash_index",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
     "cwd": "src/test/modules/spgist_name_ops",
     "dir": "src/test/modules/spgist_name_ops",
     "kind": "regress",
-    "lineno": 3920,
+    "lineno": 805,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5418,7 +1915,7 @@
     "cwd": "src/test/modules/test_bloomfilter",
     "dir": "src/test/modules/test_bloomfilter",
     "kind": "regress",
-    "lineno": 3962,
+    "lineno": 847,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5439,7 +1936,7 @@
     "cwd": "src/test/modules/test_copy_callbacks",
     "dir": "src/test/modules/test_copy_callbacks",
     "kind": "regress",
-    "lineno": 4004,
+    "lineno": 889,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5457,32 +1954,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/test_custom_rmgrs",
-    "dir": "src/test/modules/test_custom_rmgrs",
-    "kind": "tap",
-    "lineno": 4046,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 2
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_basic.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/test_ddl_deparse",
     "dir": "src/test/modules/test_ddl_deparse",
     "kind": "regress",
-    "lineno": 4088,
+    "lineno": 968,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5600,63 +2075,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/snapshot_too_old",
-    "dir": "src/test/modules/snapshot_too_old",
-    "kind": "isolation",
-    "lineno": 4150,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 3
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "sto_using_cursor",
-      "status": "ok"
-     },
-     {
-      "n": 2,
-      "name": "sto_using_select",
-      "status": "ok"
-     },
-     {
-      "n": 3,
-      "name": "sto_using_hash_index",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
-    "cwd": "src/test/modules/test_escape",
-    "dir": "src/test/modules/test_escape",
-    "kind": "tap",
-    "lineno": 4206,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 1235
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_test_escape.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/test_extensions",
     "dir": "src/test/modules/test_extensions",
     "kind": "regress",
-    "lineno": 4248,
+    "lineno": 1079,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5682,7 +2104,7 @@
     "cwd": "src/test/modules/test_ginpostinglist",
     "dir": "src/test/modules/test_ginpostinglist",
     "kind": "regress",
-    "lineno": 4291,
+    "lineno": 1122,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5703,7 +2125,7 @@
     "cwd": "src/test/modules/test_integerset",
     "dir": "src/test/modules/test_integerset",
     "kind": "regress",
-    "lineno": 4333,
+    "lineno": 1164,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5724,7 +2146,7 @@
     "cwd": "src/test/modules/test_lfind",
     "dir": "src/test/modules/test_lfind",
     "kind": "regress",
-    "lineno": 4375,
+    "lineno": 1206,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5742,52 +2164,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/test_misc",
-    "dir": "src/test/modules/test_misc",
-    "kind": "tap",
-    "lineno": 4417,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 5,
-     "result": "PASS",
-     "tests": 78
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_constraint_validation.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/002_tablespace.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/003_check_guc.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/004_io_direct.pl",
-      "status": "ok"
-     },
-     {
-      "detail": "ok",
-      "name": "t/008_replslot_single_user.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/test_oat_hooks",
     "dir": "src/test/modules/test_oat_hooks",
     "kind": "regress",
-    "lineno": 4463,
+    "lineno": 1285,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5808,7 +2188,7 @@
     "cwd": "src/test/modules/test_parser",
     "dir": "src/test/modules/test_parser",
     "kind": "regress",
-    "lineno": 4505,
+    "lineno": 1327,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5829,7 +2209,7 @@
     "cwd": "src/test/modules/test_pg_dump",
     "dir": "src/test/modules/test_pg_dump",
     "kind": "regress",
-    "lineno": 4547,
+    "lineno": 1369,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5847,32 +2227,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/test_pg_dump",
-    "dir": "src/test/modules/test_pg_dump",
-    "kind": "tap",
-    "lineno": 4553,
-    "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 964
-    },
-    "summary": null,
-    "tests": [
-     {
-      "detail": "ok",
-      "name": "t/001_base.pl",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/test_predtest",
     "dir": "src/test/modules/test_predtest",
     "kind": "regress",
-    "lineno": 4595,
+    "lineno": 1412,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5893,7 +2251,7 @@
     "cwd": "src/test/modules/test_rbtree",
     "dir": "src/test/modules/test_rbtree",
     "kind": "regress",
-    "lineno": 4637,
+    "lineno": 1454,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5914,7 +2272,7 @@
     "cwd": "src/test/modules/test_regex",
     "dir": "src/test/modules/test_regex",
     "kind": "regress",
-    "lineno": 4679,
+    "lineno": 1496,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5940,7 +2298,7 @@
     "cwd": "src/test/modules/test_rls_hooks",
     "dir": "src/test/modules/test_rls_hooks",
     "kind": "regress",
-    "lineno": 4722,
+    "lineno": 1539,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -5958,31 +2316,10 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/test_slru",
-    "dir": "src/test/modules/test_slru",
-    "kind": "regress",
-    "lineno": 4764,
-    "mode": "check",
-    "prove": null,
-    "summary": {
-     "failed": 0,
-     "ignored": 0,
-     "total": 1
-    },
-    "tests": [
-     {
-      "n": 1,
-      "name": "test_slru",
-      "status": "ok"
-     }
-    ]
-   },
-   {
-    "anchor": true,
     "cwd": "src/test/modules/test_shm_mq",
     "dir": "src/test/modules/test_shm_mq",
     "kind": "regress",
-    "lineno": 4806,
+    "lineno": 1581,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -6000,10 +2337,31 @@
    },
    {
     "anchor": true,
+    "cwd": "src/test/modules/test_slru",
+    "dir": "src/test/modules/test_slru",
+    "kind": "regress",
+    "lineno": 1623,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "test_slru",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
     "cwd": "src/test/modules/unsafe_tests",
     "dir": "src/test/modules/unsafe_tests",
     "kind": "regress",
-    "lineno": 4848,
+    "lineno": 1665,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -6039,7 +2397,7 @@
     "cwd": "src/test/modules/worker_spi",
     "dir": "src/test/modules/worker_spi",
     "kind": "regress",
-    "lineno": 4893,
+    "lineno": 1710,
     "mode": "check",
     "prove": null,
     "summary": {
@@ -6057,426 +2415,2169 @@
    },
    {
     "anchor": true,
-    "cwd": "src/test/modules/ssl_passphrase_callback",
-    "dir": "src/test/modules/ssl_passphrase_callback",
-    "kind": "tap",
-    "lineno": 4935,
+    "cwd": "src/pl/plpgsql/src",
+    "dir": "src/pl/plpgsql/src",
+    "kind": "regress",
+    "lineno": 1793,
     "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 1,
-     "result": "PASS",
-     "tests": 4
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 13
     },
-    "summary": null,
     "tests": [
      {
-      "detail": "ok",
-      "name": "t/001_testfunc.pl",
+      "n": 1,
+      "name": "plpgsql_array",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "plpgsql_cache",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "plpgsql_call",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "plpgsql_control",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "plpgsql_copy",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "plpgsql_domain",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "plpgsql_misc",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "plpgsql_record",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "plpgsql_simple",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "plpgsql_transaction",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "plpgsql_trap",
+      "status": "ok"
+     },
+     {
+      "n": 12,
+      "name": "plpgsql_trigger",
+      "status": "ok"
+     },
+     {
+      "n": 13,
+      "name": "plpgsql_varprops",
       "status": "ok"
      }
     ]
    },
    {
     "anchor": true,
-    "cwd": "src/test/subscription",
-    "dir": "src/test/subscription",
-    "kind": "tap",
-    "lineno": 4945,
+    "cwd": "src/pl/plperl",
+    "dir": "src/pl/plperl",
+    "kind": "regress",
+    "lineno": 1826,
     "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 34,
-     "result": "PASS",
-     "tests": 461
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 14
     },
-    "summary": null,
     "tests": [
      {
-      "detail": "ok",
-      "name": "t/001_rep_changes.pl",
+      "n": 1,
+      "name": "plperl_setup",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/002_types.pl",
+      "n": 2,
+      "name": "plperl",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/003_constraints.pl",
+      "n": 3,
+      "name": "plperl_lc",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/004_sync.pl",
+      "n": 4,
+      "name": "plperl_trigger",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/005_encoding.pl",
+      "n": 5,
+      "name": "plperl_shared",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/006_rewrite.pl",
+      "n": 6,
+      "name": "plperl_elog",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/007_ddl.pl",
+      "n": 7,
+      "name": "plperl_util",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/008_diff_schema.pl",
+      "n": 8,
+      "name": "plperl_init",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/009_matviews.pl",
+      "n": 9,
+      "name": "plperlu",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/010_truncate.pl",
+      "n": 10,
+      "name": "plperl_array",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/011_generated.pl",
+      "n": 11,
+      "name": "plperl_call",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/012_collation.pl",
+      "n": 12,
+      "name": "plperl_transaction",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/013_partition.pl",
+      "n": 13,
+      "name": "plperl_env",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/014_binary.pl",
+      "n": 14,
+      "name": "plperl_plperlu",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": false,
+    "cwd": "src/interfaces/ecpg/test",
+    "dir": "src/interfaces/ecpg/test",
+    "kind": "regress",
+    "lineno": 1918,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 64
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "compat_informix/dec_test",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/015_stream.pl",
+      "n": 2,
+      "name": "compat_informix/charfuncs",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/016_stream_subxact.pl",
+      "n": 3,
+      "name": "compat_informix/rfmtdate",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/017_stream_ddl.pl",
+      "n": 4,
+      "name": "compat_informix/rfmtlong",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/018_stream_subxact_abort.pl",
+      "n": 5,
+      "name": "compat_informix/rnull",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/019_stream_subxact_ddl_abort.pl",
+      "n": 6,
+      "name": "compat_informix/sqlda",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/020_messages.pl",
+      "n": 7,
+      "name": "compat_informix/describe",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/021_twophase.pl",
+      "n": 8,
+      "name": "compat_informix/test_informix",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/022_twophase_cascade.pl",
+      "n": 9,
+      "name": "compat_informix/test_informix2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/023_twophase_stream.pl",
+      "n": 10,
+      "name": "compat_informix/intoasc",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/024_add_drop_pub.pl",
+      "n": 11,
+      "name": "compat_oracle/char_array",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/025_rep_changes_for_schema.pl",
+      "n": 12,
+      "name": "connect/test2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/026_stats.pl",
+      "n": 13,
+      "name": "connect/test3",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/027_nosuperuser.pl",
+      "n": 14,
+      "name": "connect/test4",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/028_row_filter.pl",
+      "n": 15,
+      "name": "connect/test5",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/029_on_error.pl",
+      "n": 16,
+      "name": "pgtypeslib/dt_test",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/030_origin.pl",
+      "n": 17,
+      "name": "pgtypeslib/dt_test2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/031_column_list.pl",
+      "n": 18,
+      "name": "pgtypeslib/num_test",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/032_subscribe_use_index.pl",
+      "n": 19,
+      "name": "pgtypeslib/num_test2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/033_run_as_table_owner.pl",
+      "n": 20,
+      "name": "pgtypeslib/nan_test",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/100_bugs.pl",
+      "n": 21,
+      "name": "preproc/array_of_struct",
+      "status": "ok"
+     },
+     {
+      "n": 22,
+      "name": "preproc/pointer_to_struct",
+      "status": "ok"
+     },
+     {
+      "n": 23,
+      "name": "preproc/autoprep",
+      "status": "ok"
+     },
+     {
+      "n": 24,
+      "name": "preproc/comment",
+      "status": "ok"
+     },
+     {
+      "n": 25,
+      "name": "preproc/cursor",
+      "status": "ok"
+     },
+     {
+      "n": 26,
+      "name": "preproc/define",
+      "status": "ok"
+     },
+     {
+      "n": 27,
+      "name": "preproc/init",
+      "status": "ok"
+     },
+     {
+      "n": 28,
+      "name": "preproc/strings",
+      "status": "ok"
+     },
+     {
+      "n": 29,
+      "name": "preproc/type",
+      "status": "ok"
+     },
+     {
+      "n": 30,
+      "name": "preproc/variable",
+      "status": "ok"
+     },
+     {
+      "n": 31,
+      "name": "preproc/outofscope",
+      "status": "ok"
+     },
+     {
+      "n": 32,
+      "name": "preproc/whenever",
+      "status": "ok"
+     },
+     {
+      "n": 33,
+      "name": "preproc/whenever_do_continue",
+      "status": "ok"
+     },
+     {
+      "n": 34,
+      "name": "sql/array",
+      "status": "ok"
+     },
+     {
+      "n": 35,
+      "name": "sql/binary",
+      "status": "ok"
+     },
+     {
+      "n": 36,
+      "name": "sql/bytea",
+      "status": "ok"
+     },
+     {
+      "n": 37,
+      "name": "sql/code100",
+      "status": "ok"
+     },
+     {
+      "n": 38,
+      "name": "sql/copystdout",
+      "status": "ok"
+     },
+     {
+      "n": 39,
+      "name": "sql/createtableas",
+      "status": "ok"
+     },
+     {
+      "n": 40,
+      "name": "sql/define",
+      "status": "ok"
+     },
+     {
+      "n": 41,
+      "name": "sql/desc",
+      "status": "ok"
+     },
+     {
+      "n": 42,
+      "name": "sql/sqlda",
+      "status": "ok"
+     },
+     {
+      "n": 43,
+      "name": "sql/describe",
+      "status": "ok"
+     },
+     {
+      "n": 44,
+      "name": "sql/dynalloc",
+      "status": "ok"
+     },
+     {
+      "n": 45,
+      "name": "sql/dynalloc2",
+      "status": "ok"
+     },
+     {
+      "n": 46,
+      "name": "sql/dyntest",
+      "status": "ok"
+     },
+     {
+      "n": 47,
+      "name": "sql/execute",
+      "status": "ok"
+     },
+     {
+      "n": 48,
+      "name": "sql/fetch",
+      "status": "ok"
+     },
+     {
+      "n": 49,
+      "name": "sql/func",
+      "status": "ok"
+     },
+     {
+      "n": 50,
+      "name": "sql/indicators",
+      "status": "ok"
+     },
+     {
+      "n": 51,
+      "name": "sql/oldexec",
+      "status": "ok"
+     },
+     {
+      "n": 52,
+      "name": "sql/quote",
+      "status": "ok"
+     },
+     {
+      "n": 53,
+      "name": "sql/show",
+      "status": "ok"
+     },
+     {
+      "n": 54,
+      "name": "sql/sqljson",
+      "status": "ok"
+     },
+     {
+      "n": 55,
+      "name": "sql/insupd",
+      "status": "ok"
+     },
+     {
+      "n": 56,
+      "name": "sql/parser",
+      "status": "ok"
+     },
+     {
+      "n": 57,
+      "name": "sql/prepareas",
+      "status": "ok"
+     },
+     {
+      "n": 58,
+      "name": "sql/declare",
+      "status": "ok"
+     },
+     {
+      "n": 59,
+      "name": "thread/thread",
+      "status": "ok"
+     },
+     {
+      "n": 60,
+      "name": "thread/thread_implicit",
+      "status": "ok"
+     },
+     {
+      "n": 61,
+      "name": "thread/prep",
+      "status": "ok"
+     },
+     {
+      "n": 62,
+      "name": "thread/alloc",
+      "status": "ok"
+     },
+     {
+      "n": 63,
+      "name": "thread/descriptor",
+      "status": "ok"
+     },
+     {
+      "n": 64,
+      "name": "sql/twophase",
       "status": "ok"
      }
     ]
    },
    {
     "anchor": true,
-    "cwd": "src/test/recovery",
-    "dir": "src/test/recovery",
-    "kind": "tap",
-    "lineno": 4987,
+    "cwd": "contrib/adminpack",
+    "dir": "contrib/adminpack",
+    "kind": "regress",
+    "lineno": 2025,
     "mode": "check",
-    "prove": {
-     "all_successful": true,
-     "files": 40,
-     "result": "PASS",
-     "tests": 519
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
     },
-    "summary": null,
     "tests": [
      {
-      "detail": "ok",
-      "name": "t/001_stream_rep.pl",
+      "n": 1,
+      "name": "adminpack",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/amcheck",
+    "dir": "contrib/amcheck",
+    "kind": "regress",
+    "lineno": 2067,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 3
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "check",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/002_archiving.pl",
+      "n": 2,
+      "name": "check_btree",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/003_recovery_targets.pl",
+      "n": 3,
+      "name": "check_heap",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/auto_explain",
+    "dir": "contrib/auto_explain",
+    "kind": "regress",
+    "lineno": 2148,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "alter_reset",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/basic_archive",
+    "dir": "contrib/basic_archive",
+    "kind": "regress",
+    "lineno": 2191,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "basic_archive",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/bloom",
+    "dir": "contrib/bloom",
+    "kind": "regress",
+    "lineno": 2270,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "bloom",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/btree_gin",
+    "dir": "contrib/btree_gin",
+    "kind": "regress",
+    "lineno": 2313,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 30
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "install_btree_gin",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/004_timeline_switch.pl",
+      "n": 2,
+      "name": "int2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/005_replay_delay.pl",
+      "n": 3,
+      "name": "int4",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/006_logical_decoding.pl",
+      "n": 4,
+      "name": "int8",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/007_sync_rep.pl",
+      "n": 5,
+      "name": "float4",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/008_fsm_truncation.pl",
+      "n": 6,
+      "name": "float8",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/009_twophase.pl",
+      "n": 7,
+      "name": "money",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/010_logical_decoding_timelines.pl",
+      "n": 8,
+      "name": "oid",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/012_subtransactions.pl",
+      "n": 9,
+      "name": "timestamp",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/013_crash_restart.pl",
+      "n": 10,
+      "name": "timestamptz",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/014_unlogged_reinit.pl",
+      "n": 11,
+      "name": "time",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/015_promotion_pages.pl",
+      "n": 12,
+      "name": "timetz",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/016_min_consistency.pl",
+      "n": 13,
+      "name": "date",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/017_shm.pl",
+      "n": 14,
+      "name": "interval",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/018_wal_optimize.pl",
+      "n": 15,
+      "name": "macaddr",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/019_replslot_limit.pl",
+      "n": 16,
+      "name": "macaddr8",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/020_archive_status.pl",
+      "n": 17,
+      "name": "inet",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/021_row_visibility.pl",
+      "n": 18,
+      "name": "cidr",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/022_crash_temp_files.pl",
+      "n": 19,
+      "name": "text",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/023_pitr_prepared_xact.pl",
+      "n": 20,
+      "name": "varchar",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/024_archive_recovery.pl",
+      "n": 21,
+      "name": "char",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/025_stuck_on_old_timeline.pl",
+      "n": 22,
+      "name": "bytea",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/026_overwrite_contrecord.pl",
+      "n": 23,
+      "name": "bit",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/027_stream_regress.pl",
+      "n": 24,
+      "name": "varbit",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/028_pitr_timelines.pl",
+      "n": 25,
+      "name": "numeric",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/029_stats_restart.pl",
+      "n": 26,
+      "name": "enum",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/030_stats_cleanup_replica.pl",
+      "n": 27,
+      "name": "uuid",
       "status": "ok"
      },
      {
-      "detail": "skipped: disabled due to instability",
-      "name": "t/031_recovery_conflict.pl",
-      "status": "skipped"
-     },
-     {
-      "detail": "ok",
-      "name": "t/032_relfilenode_reuse.pl",
+      "n": 28,
+      "name": "name",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/033_replay_tsp_drops.pl",
+      "n": 29,
+      "name": "bool",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/034_create_database.pl",
+      "n": 30,
+      "name": "bpchar",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/btree_gist",
+    "dir": "contrib/btree_gist",
+    "kind": "regress",
+    "lineno": 2384,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 29
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "init",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/035_standby_logical_decoding.pl",
+      "n": 2,
+      "name": "int2",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/036_truncated_dropped.pl",
+      "n": 3,
+      "name": "int4",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/037_invalid_database.pl",
+      "n": 4,
+      "name": "int8",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/039_end_of_wal.pl",
+      "n": 5,
+      "name": "float4",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/043_no_contrecord_switch.pl",
+      "n": 6,
+      "name": "float8",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/043_vacuum_horizon_floor.pl",
+      "n": 7,
+      "name": "cash",
       "status": "ok"
      },
      {
-      "detail": "ok",
-      "name": "t/045_archive_restartpoint.pl",
+      "n": 8,
+      "name": "oid",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "timestamp",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "timestamptz",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "time",
+      "status": "ok"
+     },
+     {
+      "n": 12,
+      "name": "timetz",
+      "status": "ok"
+     },
+     {
+      "n": 13,
+      "name": "date",
+      "status": "ok"
+     },
+     {
+      "n": 14,
+      "name": "interval",
+      "status": "ok"
+     },
+     {
+      "n": 15,
+      "name": "macaddr",
+      "status": "ok"
+     },
+     {
+      "n": 16,
+      "name": "macaddr8",
+      "status": "ok"
+     },
+     {
+      "n": 17,
+      "name": "inet",
+      "status": "ok"
+     },
+     {
+      "n": 18,
+      "name": "cidr",
+      "status": "ok"
+     },
+     {
+      "n": 19,
+      "name": "text",
+      "status": "ok"
+     },
+     {
+      "n": 20,
+      "name": "varchar",
+      "status": "ok"
+     },
+     {
+      "n": 21,
+      "name": "char",
+      "status": "ok"
+     },
+     {
+      "n": 22,
+      "name": "bytea",
+      "status": "ok"
+     },
+     {
+      "n": 23,
+      "name": "bit",
+      "status": "ok"
+     },
+     {
+      "n": 24,
+      "name": "varbit",
+      "status": "ok"
+     },
+     {
+      "n": 25,
+      "name": "numeric",
+      "status": "ok"
+     },
+     {
+      "n": 26,
+      "name": "uuid",
+      "status": "ok"
+     },
+     {
+      "n": 27,
+      "name": "not_equal",
+      "status": "ok"
+     },
+     {
+      "n": 28,
+      "name": "enum",
+      "status": "ok"
+     },
+     {
+      "n": 29,
+      "name": "bool",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/citext",
+    "dir": "contrib/citext",
+    "kind": "regress",
+    "lineno": 2454,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 3
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "create_index_acl",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "citext",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "citext_utf8",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/cube",
+    "dir": "contrib/cube",
+    "kind": "regress",
+    "lineno": 2498,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "cube",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "cube_sci",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/dblink",
+    "dir": "contrib/dblink",
+    "kind": "regress",
+    "lineno": 2541,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "dblink",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/dict_int",
+    "dir": "contrib/dict_int",
+    "kind": "regress",
+    "lineno": 2583,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "dict_int",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/dict_xsyn",
+    "dir": "contrib/dict_xsyn",
+    "kind": "regress",
+    "lineno": 2625,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "dict_xsyn",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/earthdistance",
+    "dir": "contrib/earthdistance",
+    "kind": "regress",
+    "lineno": 2667,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "earthdistance",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/file_fdw",
+    "dir": "contrib/file_fdw",
+    "kind": "regress",
+    "lineno": 2709,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "file_fdw",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/fuzzystrmatch",
+    "dir": "contrib/fuzzystrmatch",
+    "kind": "regress",
+    "lineno": 2751,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "fuzzystrmatch",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "fuzzystrmatch_utf8",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/hstore",
+    "dir": "contrib/hstore",
+    "kind": "regress",
+    "lineno": 2794,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "hstore",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "hstore_utf8",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/intarray",
+    "dir": "contrib/intarray",
+    "kind": "regress",
+    "lineno": 2873,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "_int",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/isn",
+    "dir": "contrib/isn",
+    "kind": "regress",
+    "lineno": 2915,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "isn",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/lo",
+    "dir": "contrib/lo",
+    "kind": "regress",
+    "lineno": 2957,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "lo",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/ltree",
+    "dir": "contrib/ltree",
+    "kind": "regress",
+    "lineno": 2999,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "ltree",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pageinspect",
+    "dir": "contrib/pageinspect",
+    "kind": "regress",
+    "lineno": 3114,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 8
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "page",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "btree",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "brin",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "gin",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "gist",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "hash",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "checksum",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "oldextversions",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/passwordcheck",
+    "dir": "contrib/passwordcheck",
+    "kind": "regress",
+    "lineno": 3163,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "passwordcheck",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_buffercache",
+    "dir": "contrib/pg_buffercache",
+    "kind": "regress",
+    "lineno": 3205,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pg_buffercache",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_freespacemap",
+    "dir": "contrib/pg_freespacemap",
+    "kind": "regress",
+    "lineno": 3247,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pg_freespacemap",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_stat_statements",
+    "dir": "contrib/pg_stat_statements",
+    "kind": "regress",
+    "lineno": 3326,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 11
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "select",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "dml",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "cursors",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "utility",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "level_tracking",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "planning",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "user_activity",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "wal",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "extended",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "cleanup",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "oldextversions",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_surgery",
+    "dir": "contrib/pg_surgery",
+    "kind": "regress",
+    "lineno": 3378,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "heap_surgery",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_trgm",
+    "dir": "contrib/pg_trgm",
+    "kind": "regress",
+    "lineno": 3420,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 3
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pg_trgm",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "pg_word_trgm",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "pg_strict_word_trgm",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pgrowlocks",
+    "dir": "contrib/pgrowlocks",
+    "kind": "isolation",
+    "lineno": 3464,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pgrowlocks",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pgstattuple",
+    "dir": "contrib/pgstattuple",
+    "kind": "regress",
+    "lineno": 3506,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pgstattuple",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_visibility",
+    "dir": "contrib/pg_visibility",
+    "kind": "regress",
+    "lineno": 3548,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pg_visibility",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pg_walinspect",
+    "dir": "contrib/pg_walinspect",
+    "kind": "regress",
+    "lineno": 3590,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "pg_walinspect",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "oldextversions",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/postgres_fdw",
+    "dir": "contrib/postgres_fdw",
+    "kind": "regress",
+    "lineno": 3633,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "postgres_fdw",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/postgres_fdw",
+    "dir": "contrib/postgres_fdw",
+    "kind": "isolation",
+    "lineno": 3639,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "eval_plan_qual",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/seg",
+    "dir": "contrib/seg",
+    "kind": "regress",
+    "lineno": 3681,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "security",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "seg",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/tablefunc",
+    "dir": "contrib/tablefunc",
+    "kind": "regress",
+    "lineno": 3760,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "tablefunc",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/tcn",
+    "dir": "contrib/tcn",
+    "kind": "isolation",
+    "lineno": 3802,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "tcn",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/test_decoding",
+    "dir": "contrib/test_decoding",
+    "kind": "regress",
+    "lineno": 3844,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 19
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "ddl",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "xact",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "rewrite",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "toast",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "permissions",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "decoding_in_xact",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "decoding_into_rel",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "binary",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "prepared",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "replorigin",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "time",
+      "status": "ok"
+     },
+     {
+      "n": 12,
+      "name": "messages",
+      "status": "ok"
+     },
+     {
+      "n": 13,
+      "name": "spill",
+      "status": "ok"
+     },
+     {
+      "n": 14,
+      "name": "slot",
+      "status": "ok"
+     },
+     {
+      "n": 15,
+      "name": "truncate",
+      "status": "ok"
+     },
+     {
+      "n": 16,
+      "name": "stream",
+      "status": "ok"
+     },
+     {
+      "n": 17,
+      "name": "stats",
+      "status": "ok"
+     },
+     {
+      "n": 18,
+      "name": "twophase",
+      "status": "ok"
+     },
+     {
+      "n": 19,
+      "name": "twophase_stream",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/test_decoding",
+    "dir": "contrib/test_decoding",
+    "kind": "isolation",
+    "lineno": 3868,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 13
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "mxact",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "delayed_startup",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "ondisk_startup",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "concurrent_ddl_dml",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "oldest_xmin",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "snapshot_transfer",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "subxact_without_top",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "concurrent_stream",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "twophase_snapshot",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "slot_creation_error",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "catalog_change_snapshot",
+      "status": "ok"
+     },
+     {
+      "n": 12,
+      "name": "skip_snapshot_restore",
+      "status": "ok"
+     },
+     {
+      "n": 13,
+      "name": "invalidation_distribution",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/tsm_system_rows",
+    "dir": "contrib/tsm_system_rows",
+    "kind": "regress",
+    "lineno": 3923,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "tsm_system_rows",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/tsm_system_time",
+    "dir": "contrib/tsm_system_time",
+    "kind": "regress",
+    "lineno": 3965,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "tsm_system_time",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/unaccent",
+    "dir": "contrib/unaccent",
+    "kind": "regress",
+    "lineno": 4007,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "unaccent",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/pgcrypto",
+    "dir": "contrib/pgcrypto",
+    "kind": "regress",
+    "lineno": 4086,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 22
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "init",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "md5",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "sha1",
+      "status": "ok"
+     },
+     {
+      "n": 4,
+      "name": "hmac-md5",
+      "status": "ok"
+     },
+     {
+      "n": 5,
+      "name": "hmac-sha1",
+      "status": "ok"
+     },
+     {
+      "n": 6,
+      "name": "blowfish",
+      "status": "ok"
+     },
+     {
+      "n": 7,
+      "name": "rijndael",
+      "status": "ok"
+     },
+     {
+      "n": 8,
+      "name": "sha2",
+      "status": "ok"
+     },
+     {
+      "n": 9,
+      "name": "des",
+      "status": "ok"
+     },
+     {
+      "n": 10,
+      "name": "3des",
+      "status": "ok"
+     },
+     {
+      "n": 11,
+      "name": "cast5",
+      "status": "ok"
+     },
+     {
+      "n": 12,
+      "name": "crypt-des",
+      "status": "ok"
+     },
+     {
+      "n": 13,
+      "name": "crypt-md5",
+      "status": "ok"
+     },
+     {
+      "n": 14,
+      "name": "crypt-blowfish",
+      "status": "ok"
+     },
+     {
+      "n": 15,
+      "name": "crypt-xdes",
+      "status": "ok"
+     },
+     {
+      "n": 16,
+      "name": "pgp-armor",
+      "status": "ok"
+     },
+     {
+      "n": 17,
+      "name": "pgp-decrypt",
+      "status": "ok"
+     },
+     {
+      "n": 18,
+      "name": "pgp-encrypt",
+      "status": "ok"
+     },
+     {
+      "n": 19,
+      "name": "pgp-compression",
+      "status": "ok"
+     },
+     {
+      "n": 20,
+      "name": "pgp-pubkey-decrypt",
+      "status": "ok"
+     },
+     {
+      "n": 21,
+      "name": "pgp-pubkey-encrypt",
+      "status": "ok"
+     },
+     {
+      "n": 22,
+      "name": "pgp-info",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/xml2",
+    "dir": "contrib/xml2",
+    "kind": "regress",
+    "lineno": 4185,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 1
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "xml2",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/bool_plperl",
+    "dir": "contrib/bool_plperl",
+    "kind": "regress",
+    "lineno": 4227,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "bool_plperl",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "bool_plperlu",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/hstore_plperl",
+    "dir": "contrib/hstore_plperl",
+    "kind": "regress",
+    "lineno": 4270,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 3
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "hstore_plperl",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "hstore_plperlu",
+      "status": "ok"
+     },
+     {
+      "n": 3,
+      "name": "create_transform",
+      "status": "ok"
+     }
+    ]
+   },
+   {
+    "anchor": true,
+    "cwd": "contrib/jsonb_plperl",
+    "dir": "contrib/jsonb_plperl",
+    "kind": "regress",
+    "lineno": 4314,
+    "mode": "check",
+    "prove": null,
+    "summary": {
+     "failed": 0,
+     "ignored": 0,
+     "total": 2
+    },
+    "tests": [
+     {
+      "n": 1,
+      "name": "jsonb_plperl",
+      "status": "ok"
+     },
+     {
+      "n": 2,
+      "name": "jsonb_plperlu",
       "status": "ok"
      }
     ]
@@ -6485,623 +4586,37 @@
   "summary": {
    "compiler_warning_kinds": 0,
    "compiler_warnings": 0,
-   "log_lines": 5033,
+   "log_lines": 4413,
    "make_errors": 0,
    "make_warnings": 0,
    "regress_failed_tests": 0,
    "regress_ignored_failures": 0,
    "regress_skipped_tests": 0,
-   "regress_suites": 82,
+   "regress_suites": 77,
    "regress_suites_without_summary": 0,
    "regress_summary_failed": 0,
-   "regress_tests": 691,
+   "regress_tests": 664,
    "regression_diffs_files": 0,
    "regression_out_files": 0,
-   "sections": 126,
+   "sections": 77,
    "sections_without_anchor": 1,
    "tap_failed_files": 0,
-   "tap_files": 188,
-   "tap_log_dirs": 44,
+   "tap_files": 0,
+   "tap_log_dirs": 0,
    "tap_results": {
     "FAIL": 0,
-    "NOTESTS": 3,
-    "PASS": 41
+    "NOTESTS": 0,
+    "PASS": 0
    },
-   "tap_skipped_files": 9,
-   "tap_suites": 44,
+   "tap_skipped_files": 0,
+   "tap_suites": 0,
    "tap_suites_without_result": 0,
    "tap_unknown_files": 0
   },
-  "tap_log_dirs": {
-   "contrib/amcheck/tmp_check/log": [
-    "001_verify_heapam_test.log",
-    "002_cic_CIC_test.log",
-    "003_cic_2pc_CIC_2PC_test.log",
-    "005_pitr_origin.log",
-    "005_pitr_replica.log",
-    "regress_log_001_verify_heapam",
-    "regress_log_002_cic",
-    "regress_log_003_cic_2pc",
-    "regress_log_005_pitr"
-   ],
-   "contrib/auto_explain/tmp_check/log": [
-    "001_auto_explain_main.log",
-    "regress_log_001_auto_explain"
-   ],
-   "contrib/basebackup_to_shell/tmp_check/log": [
-    "001_basic_primary.log",
-    "regress_log_001_basic"
-   ],
-   "contrib/bloom/tmp_check/log": [
-    "001_wal_primary.log",
-    "001_wal_standby.log",
-    "regress_log_001_wal"
-   ],
-   "contrib/oid2name/tmp_check/log": [
-    "regress_log_001_basic"
-   ],
-   "contrib/pg_prewarm/tmp_check/log": [
-    "001_basic_main.log",
-    "regress_log_001_basic"
-   ],
-   "contrib/test_decoding/tmp_check/log": [
-    "001_repl_stats_test.log",
-    "regress_log_001_repl_stats"
-   ],
-   "contrib/vacuumlo/tmp_check/log": [
-    "regress_log_001_basic"
-   ],
-   "src/bin/initdb/tmp_check/log": [
-    "regress_log_001_initdb"
-   ],
-   "src/bin/pg_amcheck/tmp_check/log": [
-    "002_nonesuch_test.log",
-    "003_check_test.log",
-    "004_verify_heapam_test.log",
-    "005_opclass_damage_test.log",
-    "regress_log_001_basic",
-    "regress_log_002_nonesuch",
-    "regress_log_003_check",
-    "regress_log_004_verify_heapam",
-    "regress_log_005_opclass_damage"
-   ],
-   "src/bin/pg_archivecleanup/tmp_check/log": [
-    "regress_log_010_pg_archivecleanup"
-   ],
-   "src/bin/pg_basebackup/tmp_check/log": [
-    "010_pg_basebackup_main.log",
-    "010_pg_basebackup_replica.log",
-    "011_in_place_tablespace_main.log",
-    "020_pg_receivewal_primary.log",
-    "020_pg_receivewal_standby.log",
-    "030_pg_recvlogical_main.log",
-    "regress_log_010_pg_basebackup",
-    "regress_log_011_in_place_tablespace",
-    "regress_log_020_pg_receivewal",
-    "regress_log_030_pg_recvlogical"
-   ],
-   "src/bin/pg_checksums/tmp_check/log": [
-    "002_actions_node_checksum.log",
-    "regress_log_001_basic",
-    "regress_log_002_actions"
-   ],
-   "src/bin/pg_config/tmp_check/log": [
-    "regress_log_001_pg_config"
-   ],
-   "src/bin/pg_controldata/tmp_check/log": [
-    "regress_log_001_pg_controldata"
-   ],
-   "src/bin/pg_ctl/tmp_check/log": [
-    "001_start_stop_server.log",
-    "003_promote_primary.log",
-    "003_promote_standby.log",
-    "003_promote_standby2.log",
-    "004_logrotate_primary.log",
-    "regress_log_001_start_stop",
-    "regress_log_002_status",
-    "regress_log_003_promote",
-    "regress_log_004_logrotate"
-   ],
-   "src/bin/pg_dump/tmp_check/log": [
-    "002_pg_dump_main.log",
-    "003_pg_dump_with_server_main.log",
-    "004_pg_dump_parallel_main.log",
-    "010_dump_connstr_destination_cmdline.log",
-    "010_dump_connstr_destination_envar.log",
-    "010_dump_connstr_main.log",
-    "regress_log_001_basic",
-    "regress_log_002_pg_dump",
-    "regress_log_003_pg_dump_with_server",
-    "regress_log_004_pg_dump_parallel",
-    "regress_log_010_dump_connstr"
-   ],
-   "src/bin/pg_resetwal/tmp_check/log": [
-    "regress_log_001_basic",
-    "regress_log_002_corrupted"
-   ],
-   "src/bin/pg_rewind/tmp_check/log": [
-    "001_basic_primary_archive.log",
-    "001_basic_primary_local.log",
-    "001_basic_primary_remote.log",
-    "001_basic_standby_archive.log",
-    "001_basic_standby_local.log",
-    "001_basic_standby_remote.log",
-    "002_databases_primary_local.log",
-    "002_databases_primary_remote.log",
-    "002_databases_standby_local.log",
-    "002_databases_standby_remote.log",
-    "003_extrafiles_primary_local.log",
-    "003_extrafiles_primary_remote.log",
-    "003_extrafiles_standby_local.log",
-    "003_extrafiles_standby_remote.log",
-    "004_pg_xlog_symlink_primary_local.log",
-    "004_pg_xlog_symlink_primary_remote.log",
-    "004_pg_xlog_symlink_standby_local.log",
-    "004_pg_xlog_symlink_standby_remote.log",
-    "005_same_timeline_primary.log",
-    "005_same_timeline_standby.log",
-    "007_standby_source_node_b.log",
-    "007_standby_source_node_c.log",
-    "007_standby_source_primary_a.log",
-    "008_min_recovery_point_node_1.log",
-    "008_min_recovery_point_node_2.log",
-    "008_min_recovery_point_node_3.log",
-    "009_growing_files_primary_local.log",
-    "009_growing_files_standby_local.log",
-    "010_keep_recycled_wals_primary.log",
-    "010_keep_recycled_wals_standby.log",
-    "regress_log_001_basic",
-    "regress_log_002_databases",
-    "regress_log_003_extrafiles",
-    "regress_log_004_pg_xlog_symlink",
-    "regress_log_005_same_timeline",
-    "regress_log_006_options",
-    "regress_log_007_standby_source",
-    "regress_log_008_min_recovery_point",
-    "regress_log_009_growing_files",
-    "regress_log_010_keep_recycled_wals"
-   ],
-   "src/bin/pg_test_fsync/tmp_check/log": [
-    "regress_log_001_basic"
-   ],
-   "src/bin/pg_test_timing/tmp_check/log": [
-    "regress_log_001_basic"
-   ],
-   "src/bin/pg_upgrade/tmp_check/log": [
-    "002_pg_upgrade_new_node.log",
-    "002_pg_upgrade_old_node.log",
-    "regress_log_001_basic",
-    "regress_log_002_pg_upgrade"
-   ],
-   "src/bin/pg_verifybackup/tmp_check/log": [
-    "002_algorithm_primary.log",
-    "003_corruption_primary.log",
-    "004_options_primary.log",
-    "006_encoding_primary.log",
-    "007_wal_primary.log",
-    "008_untar_primary.log",
-    "009_extract_primary.log",
-    "010_client_untar_primary.log",
-    "regress_log_001_basic",
-    "regress_log_002_algorithm",
-    "regress_log_003_corruption",
-    "regress_log_004_options",
-    "regress_log_005_bad_manifest",
-    "regress_log_006_encoding",
-    "regress_log_007_wal",
-    "regress_log_008_untar",
-    "regress_log_009_extract",
-    "regress_log_010_client_untar"
-   ],
-   "src/bin/pg_waldump/tmp_check/log": [
-    "002_save_fullpage_main.log",
-    "regress_log_001_basic",
-    "regress_log_002_save_fullpage"
-   ],
-   "src/bin/pgbench/tmp_check/log": [
-    "001_pgbench_with_server_main.log",
-    "regress_log_001_pgbench_with_server",
-    "regress_log_002_pgbench_no_server"
-   ],
-   "src/bin/psql/tmp_check/log": [
-    "001_basic_main.log",
-    "010_psql_history.txt",
-    "010_tab_completion_main.log",
-    "020_cancel_main.log",
-    "regress_log_001_basic",
-    "regress_log_010_tab_completion",
-    "regress_log_020_cancel"
-   ],
-   "src/bin/scripts/tmp_check/log": [
-    "010_clusterdb_main.log",
-    "011_clusterdb_all_main.log",
-    "020_createdb_icu.log",
-    "020_createdb_main.log",
-    "040_createuser_main.log",
-    "050_dropdb_main.log",
-    "070_dropuser_main.log",
-    "080_pg_isready_main.log",
-    "090_reindexdb_main.log",
-    "091_reindexdb_all_main.log",
-    "100_vacuumdb_main.log",
-    "101_vacuumdb_all_main.log",
-    "102_vacuumdb_stages_main.log",
-    "200_connstr_main.log",
-    "regress_log_010_clusterdb",
-    "regress_log_011_clusterdb_all",
-    "regress_log_020_createdb",
-    "regress_log_040_createuser",
-    "regress_log_050_dropdb",
-    "regress_log_070_dropuser",
-    "regress_log_080_pg_isready",
-    "regress_log_090_reindexdb",
-    "regress_log_091_reindexdb_all",
-    "regress_log_100_vacuumdb",
-    "regress_log_101_vacuumdb_all",
-    "regress_log_102_vacuumdb_stages",
-    "regress_log_200_connstr"
-   ],
-   "src/interfaces/libpq/tmp_check/log": [
-    "003_load_balance_host_list_node1.log",
-    "003_load_balance_host_list_node2.log",
-    "003_load_balance_host_list_node3.log",
-    "regress_log_001_uri",
-    "regress_log_002_api",
-    "regress_log_003_load_balance_host_list",
-    "regress_log_004_load_balance_dns"
-   ],
-   "src/test/authentication/tmp_check/log": [
-    "001_password_primary.log",
-    "002_saslprep_primary.log",
-    "003_peer_node.log",
-    "004_file_inclusion_primary.log",
-    "regress_log_001_password",
-    "regress_log_002_saslprep",
-    "regress_log_003_peer",
-    "regress_log_004_file_inclusion",
-    "regress_log_005_sspi"
-   ],
-   "src/test/icu/tmp_check/log": [
-    "010_database_node1.log",
-    "regress_log_010_database"
-   ],
-   "src/test/kerberos/tmp_check/log": [
-    "regress_log_001_auth"
-   ],
-   "src/test/ldap/tmp_check/log": [
-    "regress_log_001_auth",
-    "regress_log_002_bindpasswd"
-   ],
-   "src/test/modules/brin/tmp_check/log": [
-    "01_workitems_tango.log",
-    "02_wal_consistency_charlie.log",
-    "02_wal_consistency_whiskey.log",
-    "regress_log_01_workitems",
-    "regress_log_02_wal_consistency"
-   ],
-   "src/test/modules/commit_ts/tmp_check/log": [
-    "001_base_foxtrot.log",
-    "002_standby_primary.log",
-    "002_standby_standby.log",
-    "003_standby_2_primary.log",
-    "003_standby_2_standby.log",
-    "004_restart_primary.log",
-    "regress_log_001_base",
-    "regress_log_002_standby",
-    "regress_log_003_standby_2",
-    "regress_log_004_restart"
-   ],
-   "src/test/modules/libpq_pipeline/tmp_check/log": [
-    "001_libpq_pipeline_main.log",
-    "regress_log_001_libpq_pipeline"
-   ],
-   "src/test/modules/ssl_passphrase_callback/tmp_check/log": [
-    "001_testfunc_main.log",
-    "001_testfunc_main_1.log",
-    "regress_log_001_testfunc"
-   ],
-   "src/test/modules/test_custom_rmgrs/tmp_check/log": [
-    "001_basic_main.log",
-    "regress_log_001_basic"
-   ],
-   "src/test/modules/test_escape/tmp_check/log": [
-    "001_test_escape_node.log",
-    "regress_log_001_test_escape"
-   ],
-   "src/test/modules/test_misc/tmp_check/log": [
-    "001_constraint_validation_primary.log",
-    "002_tablespace_main.log",
-    "003_check_guc_main.log",
-    "004_io_direct_main.log",
-    "008_replslot_single_user_node.log",
-    "regress_log_001_constraint_validation",
-    "regress_log_002_tablespace",
-    "regress_log_003_check_guc",
-    "regress_log_004_io_direct",
-    "regress_log_008_replslot_single_user"
-   ],
-   "src/test/modules/test_pg_dump/tmp_check/log": [
-    "001_base_main.log",
-    "regress_log_001_base"
-   ],
-   "src/test/recovery/tmp_check/log": [
-    "001_stream_rep_primary.log",
-    "001_stream_rep_standby_1.log",
-    "001_stream_rep_standby_2.log",
-    "002_archiving_primary.log",
-    "002_archiving_standby.log",
-    "002_archiving_standby2.log",
-    "003_recovery_targets_primary.log",
-    "003_recovery_targets_standby_1.log",
-    "003_recovery_targets_standby_2.log",
-    "003_recovery_targets_standby_3.log",
-    "003_recovery_targets_standby_4.log",
-    "003_recovery_targets_standby_5.log",
-    "003_recovery_targets_standby_6.log",
-    "003_recovery_targets_standby_7.log",
-    "003_recovery_targets_standby_8.log",
-    "004_timeline_switch_primary.log",
-    "004_timeline_switch_primary_2.log",
-    "004_timeline_switch_standby_1.log",
-    "004_timeline_switch_standby_2.log",
-    "004_timeline_switch_standby_2_1.log",
-    "004_timeline_switch_standby_3.log",
-    "005_replay_delay_primary.log",
-    "005_replay_delay_standby.log",
-    "005_replay_delay_standby2.log",
-    "006_logical_decoding_primary.log",
-    "007_sync_rep_primary.log",
-    "007_sync_rep_standby1.log",
-    "007_sync_rep_standby2.log",
-    "007_sync_rep_standby3.log",
-    "007_sync_rep_standby4.log",
-    "008_fsm_truncation_primary.log",
-    "008_fsm_truncation_standby.log",
-    "009_twophase_london.log",
-    "009_twophase_paris.log",
-    "010_logical_decoding_timelines_primary.log",
-    "010_logical_decoding_timelines_replica.log",
-    "012_subtransactions_primary.log",
-    "012_subtransactions_standby.log",
-    "013_crash_restart_primary.log",
-    "014_unlogged_reinit_main.log",
-    "015_promotion_pages_alpha.log",
-    "015_promotion_pages_bravo.log",
-    "016_min_consistency_primary.log",
-    "016_min_consistency_standby.log",
-    "017_shm_gnat.log",
-    "017_shm_gnat_1.log",
-    "018_wal_optimize_node_minimal.log",
-    "018_wal_optimize_node_replica.log",
-    "019_replslot_limit_primary.log",
-    "019_replslot_limit_primary2.log",
-    "019_replslot_limit_primary3.log",
-    "019_replslot_limit_standby_1.log",
-    "019_replslot_limit_standby_2.log",
-    "019_replslot_limit_standby_3.log",
-    "020_archive_status_primary.log",
-    "020_archive_status_standby.log",
-    "020_archive_status_standby2.log",
-    "021_row_visibility_primary.log",
-    "021_row_visibility_standby.log",
-    "022_crash_temp_files_node_crash.log",
-    "023_pitr_prepared_xact_node_pitr.log",
-    "023_pitr_prepared_xact_primary.log",
-    "024_archive_recovery_archive_recovery.log",
-    "024_archive_recovery_orig.log",
-    "024_archive_recovery_standby.log",
-    "025_stuck_on_old_timeline_cascade.log",
-    "025_stuck_on_old_timeline_primary.log",
-    "025_stuck_on_old_timeline_standby.log",
-    "026_overwrite_contrecord_primary.log",
-    "026_overwrite_contrecord_standby.log",
-    "027_stream_regress_primary.log",
-    "027_stream_regress_standby_1.log",
-    "028_pitr_timelines_node_pitr.log",
-    "028_pitr_timelines_node_pitr2.log",
-    "028_pitr_timelines_primary.log",
-    "028_pitr_timelines_standby.log",
-    "029_stats_restart_primary.log",
-    "030_stats_cleanup_replica_primary.log",
-    "030_stats_cleanup_replica_standby.log",
-    "032_relfilenode_reuse_primary.log",
-    "032_relfilenode_reuse_standby.log",
-    "033_replay_tsp_drops_primary1_FILE_COPY.log",
-    "033_replay_tsp_drops_primary1_WAL_LOG.log",
-    "033_replay_tsp_drops_primary2.log",
-    "033_replay_tsp_drops_standby2_FILE_COPY.log",
-    "033_replay_tsp_drops_standby2_WAL_LOG.log",
-    "033_replay_tsp_drops_standby3.log",
-    "034_create_database_node.log",
-    "035_standby_logical_decoding_cascading_standby.log",
-    "035_standby_logical_decoding_primary.log",
-    "035_standby_logical_decoding_standby.log",
-    "035_standby_logical_decoding_subscriber.log",
-    "036_truncated_dropped_n1.log",
-    "037_invalid_database_node.log",
-    "039_end_of_wal_node.log",
-    "043_no_contrecord_switch_primary.log",
-    "043_no_contrecord_switch_standby1.log",
-    "043_no_contrecord_switch_standby2.log",
-    "043_vacuum_horizon_floor_primary.log",
-    "043_vacuum_horizon_floor_standby.log",
-    "045_archive_restartpoint_primary.log",
-    "045_archive_restartpoint_restore.log",
-    "regress_log_001_stream_rep",
-    "regress_log_002_archiving",
-    "regress_log_003_recovery_targets",
-    "regress_log_004_timeline_switch",
-    "regress_log_005_replay_delay",
-    "regress_log_006_logical_decoding",
-    "regress_log_007_sync_rep",
-    "regress_log_008_fsm_truncation",
-    "regress_log_009_twophase",
-    "regress_log_010_logical_decoding_timelines",
-    "regress_log_012_subtransactions",
-    "regress_log_013_crash_restart",
-    "regress_log_014_unlogged_reinit",
-    "regress_log_015_promotion_pages",
-    "regress_log_016_min_consistency",
-    "regress_log_017_shm",
-    "regress_log_018_wal_optimize",
-    "regress_log_019_replslot_limit",
-    "regress_log_020_archive_status",
-    "regress_log_021_row_visibility",
-    "regress_log_022_crash_temp_files",
-    "regress_log_023_pitr_prepared_xact",
-    "regress_log_024_archive_recovery",
-    "regress_log_025_stuck_on_old_timeline",
-    "regress_log_026_overwrite_contrecord",
-    "regress_log_027_stream_regress",
-    "regress_log_028_pitr_timelines",
-    "regress_log_029_stats_restart",
-    "regress_log_030_stats_cleanup_replica",
-    "regress_log_031_recovery_conflict",
-    "regress_log_032_relfilenode_reuse",
-    "regress_log_033_replay_tsp_drops",
-    "regress_log_034_create_database",
-    "regress_log_035_standby_logical_decoding",
-    "regress_log_036_truncated_dropped",
-    "regress_log_037_invalid_database",
-    "regress_log_039_end_of_wal",
-    "regress_log_043_no_contrecord_switch",
-    "regress_log_043_vacuum_horizon_floor",
-    "regress_log_045_archive_restartpoint"
-   ],
-   "src/test/ssl/tmp_check/log": [
-    "regress_log_001_ssltests",
-    "regress_log_002_scram",
-    "regress_log_003_sslinfo"
-   ],
-   "src/test/subscription/tmp_check/log": [
-    "001_rep_changes_publisher.log",
-    "001_rep_changes_subscriber.log",
-    "002_types_publisher.log",
-    "002_types_subscriber.log",
-    "003_constraints_publisher.log",
-    "003_constraints_subscriber.log",
-    "004_sync_publisher.log",
-    "004_sync_subscriber.log",
-    "005_encoding_publisher.log",
-    "005_encoding_subscriber.log",
-    "006_rewrite_publisher.log",
-    "006_rewrite_subscriber.log",
-    "007_ddl_publisher.log",
-    "007_ddl_subscriber.log",
-    "008_diff_schema_publisher.log",
-    "008_diff_schema_subscriber.log",
-    "009_matviews_publisher.log",
-    "009_matviews_subscriber.log",
-    "010_truncate_publisher.log",
-    "010_truncate_subscriber.log",
-    "011_generated_publisher.log",
-    "011_generated_subscriber.log",
-    "012_collation_publisher.log",
-    "012_collation_subscriber.log",
-    "013_partition_publisher.log",
-    "013_partition_subscriber1.log",
-    "013_partition_subscriber2.log",
-    "014_binary_publisher.log",
-    "014_binary_subscriber.log",
-    "015_stream_publisher.log",
-    "015_stream_subscriber.log",
-    "016_stream_subxact_publisher.log",
-    "016_stream_subxact_subscriber.log",
-    "017_stream_ddl_publisher.log",
-    "017_stream_ddl_subscriber.log",
-    "018_stream_subxact_abort_publisher.log",
-    "018_stream_subxact_abort_subscriber.log",
-    "019_stream_subxact_ddl_abort_publisher.log",
-    "019_stream_subxact_ddl_abort_subscriber.log",
-    "020_messages_publisher.log",
-    "020_messages_subscriber.log",
-    "021_twophase_publisher.log",
-    "021_twophase_subscriber.log",
-    "022_twophase_cascade_node_A.log",
-    "022_twophase_cascade_node_B.log",
-    "022_twophase_cascade_node_C.log",
-    "023_twophase_stream_publisher.log",
-    "023_twophase_stream_subscriber.log",
-    "024_add_drop_pub_publisher.log",
-    "024_add_drop_pub_subscriber.log",
-    "025_rep_changes_for_schema_publisher.log",
-    "025_rep_changes_for_schema_subscriber.log",
-    "026_stats_publisher.log",
-    "026_stats_subscriber.log",
-    "027_nosuperuser_publisher.log",
-    "027_nosuperuser_publisher1.log",
-    "027_nosuperuser_subscriber.log",
-    "027_nosuperuser_subscriber1.log",
-    "028_row_filter_publisher.log",
-    "028_row_filter_subscriber.log",
-    "029_on_error_publisher.log",
-    "029_on_error_subscriber.log",
-    "030_origin_node_A.log",
-    "030_origin_node_B.log",
-    "030_origin_node_C.log",
-    "031_column_list_publisher.log",
-    "031_column_list_subscriber.log",
-    "032_subscribe_use_index_publisher.log",
-    "032_subscribe_use_index_subscriber.log",
-    "033_run_as_table_owner_publisher.log",
-    "033_run_as_table_owner_subscriber.log",
-    "100_bugs_publisher.log",
-    "100_bugs_publisher_1.log",
-    "100_bugs_publisher_2.log",
-    "100_bugs_publisher_3.log",
-    "100_bugs_publisher_4.log",
-    "100_bugs_publisher_5.log",
-    "100_bugs_subscriber.log",
-    "100_bugs_subscriber_2.log",
-    "100_bugs_subscriber_3.log",
-    "100_bugs_subscriber_4.log",
-    "100_bugs_subscriber_5.log",
-    "100_bugs_testpublisher1.log",
-    "100_bugs_testpublisher_subscriber.log",
-    "100_bugs_testsubscriber1.log",
-    "100_bugs_twoways.log",
-    "regress_log_001_rep_changes",
-    "regress_log_002_types",
-    "regress_log_003_constraints",
-    "regress_log_004_sync",
-    "regress_log_005_encoding",
-    "regress_log_006_rewrite",
-    "regress_log_007_ddl",
-    "regress_log_008_diff_schema",
-    "regress_log_009_matviews",
-    "regress_log_010_truncate",
-    "regress_log_011_generated",
-    "regress_log_012_collation",
-    "regress_log_013_partition",
-    "regress_log_014_binary",
-    "regress_log_015_stream",
-    "regress_log_016_stream_subxact",
-    "regress_log_017_stream_ddl",
-    "regress_log_018_stream_subxact_abort",
-    "regress_log_019_stream_subxact_ddl_abort",
-    "regress_log_020_messages",
-    "regress_log_021_twophase",
-    "regress_log_022_twophase_cascade",
-    "regress_log_023_twophase_stream",
-    "regress_log_024_add_drop_pub",
-    "regress_log_025_rep_changes_for_schema",
-    "regress_log_026_stats",
-    "regress_log_027_nosuperuser",
-    "regress_log_028_row_filter",
-    "regress_log_029_on_error",
-    "regress_log_030_origin",
-    "regress_log_031_column_list",
-    "regress_log_032_subscribe_use_index",
-    "regress_log_033_run_as_table_owner",
-    "regress_log_100_bugs"
-   ],
-   "src/tools/pg_bsd_indent/tmp_check/log": [
-    "regress_log_001_pg_bsd_indent"
-   ]
-  },
+  "tap_log_dirs": {},
   "warnings": {}
  },
- "started_utc": "2026-10-04T13:04:34Z",
+ "started_utc": "2026-10-17T23:06:19Z",
  "tool": "make_evidence.py check-world",
- "tools_version": "0.2.0"
+ "tools_version": "0.2.3"
 }

@@ -1,167 +1,160 @@
 {
  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
- "builddir": "/home/redstar/pg-builds/REL_16_11_base-make",
+ "builddir": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
  "bulk_files": {
   "headers_base": {
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/replay-base/headers.jsonl",
-   "sha256": "3a184265064e813cd954d68b9a65304fe96f736f10c914fde9956791b9e0a523",
-   "size": 3638951
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/replay-base/headers.jsonl",
+   "sha256": "b6a2a98cd768e658cad4d651b32126c36e6b1dabb5c565d4beae339d74c22745",
+   "size": 3553580
   },
   "po_headers": {
-   "path": "/home/redstar/pg-builds/REL_16_11_base-evidence/cc_bulk/po_headers.jsonl",
-   "sha256": "c1d283bd56dd8d65b5dc1a0f6b74d9cb8495d16e49840988feb8f272657c06a0",
-   "size": 3637996
+   "path": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/cc_bulk/po_headers.jsonl",
+   "sha256": "fca6f91db7d36c710b3c31b50befd82ed5b2400a481a4f13c9e8a00d581666d9",
+   "size": 3864754
   }
  },
  "cache_key_material": {
   "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
-  "cc_version": "gcc (GCC) 10.3.1",
-  "closure_sha256": "ae32042de2aae5b87ea159d8093ceb6544bc724e3990bc307d0a3a878f853dbe",
-  "commands_sha256": "91a4b4371bdce11e13f0e8c1ec1f339a28724f35ae547f83352813e8d38a7578",
+  "cc_version": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
+  "closure_sha256": "82fa91b3553b0075a41ecba9dc0467aab33c8a66b0b75729cf70e7eca104a8fc",
+  "commands_sha256": "c49642d83f009fee5a8094246f054967b97cfbe87aa58b26ca43559e416b8be2",
   "configure_args": [
-   "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
+   "--prefix=/Users/niejinbo/pg-builds/REL_16_11_base-install",
    "--enable-depend",
    "--enable-nls",
-   "--enable-tap-tests",
    "--enable-cassert",
    "--enable-debug",
-   "--enable-dtrace",
    "--with-perl",
-   "--with-python",
+   "--without-python",
    "--with-openssl",
    "--with-gssapi",
-   "--with-ldap",
-   "--with-pam",
-   "--with-uuid=e2fs",
    "--with-libxml",
    "--with-libxslt",
-   "--with-lz4",
-   "--with-icu",
-   "--with-selinux",
+   "--without-icu",
+   "--disable-tap-tests",
    "CC=/usr/bin/gcc",
    "CXX=/usr/bin/g++"
   ],
-  "cxx_version": "g++ (GCC) 10.3.1",
+  "cxx_version": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
   "env": {
-   "HOME": "/home/redstar",
-   "LANG": "C.UTF-8",
-   "LOGNAME": "redstar",
-   "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-   "SHELL": "/bin/bash",
-   "USER": "redstar"
+   "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+   "HOME": "/Users/niejinbo",
+   "LANG": "C",
+   "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+   "LOGNAME": "niejinbo",
+   "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+   "SHELL": "/bin/sh",
+   "USER": "niejinbo"
   },
-  "flagsets_sha256": "fd1f60a96b0c70742db321ea03f411a5b3fae6818844eb4ce7048c37bf79c774",
+  "flagsets_sha256": "f480492b815a99406573fc010b3d41dcb32cd2bb8013f6a4bd75ded3ce789945",
   "logs": {
-   "check_prereqs": "c1eda6104ce1ea6cbfa30e558338b706beb6883a50547ffadaf68b67ca7f7306",
-   "check_prereqs_ecpg": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3",
-   "check_prereqs_libpq": "d19df3f1b77d00c088d2804ff619414e048483c245919b09e5a87e44c6a994dc",
-   "check_prereqs_pg_bsd_indent": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
-   "checkprep": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82",
-   "world_bin": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36"
+   "check_prereqs": "1f1c7ccd755b20208e330b79234fbd3c323569c50fcc95771c9ad8a2afa08d5e",
+   "check_prereqs_ecpg": "82ec246fadaa7ca4776c7b173410e345cc243da4fa42c20178cf3a4a3b7c0f0c",
+   "check_prereqs_libpq": "75095c9285bf1b18b72371ffecbe9f90d6b8d04557813233b01fe5b6c9f50f97",
+   "check_prereqs_pg_bsd_indent": "8176e315f23921373d2a81c0ae4f1dcb7480bb9dc82be078395c84025a35a4fe",
+   "checkprep": "66d7aae08c5e2d03b3b0fda0fb2ab92d728ecf38e9021e17992003074583113f",
+   "install": "ef9586759b75e923054bc6011e03edd8f82b9dd0e0b8ea5a4fe43672f0904d64",
+   "world_bin": "9ded92e105a0341e41698ad30e850419575e146ec4b70691ae7ec4ec1c32df8d"
   },
-  "make_version": "GNU Make 4.3",
-  "po_headers_sha256": "c1d283bd56dd8d65b5dc1a0f6b74d9cb8495d16e49840988feb8f272657c06a0",
-  "token_cache_sha256": "8a6cdf122651e1cdaead09c05a96225ae4c1a5736cfa893640e44bcf2cf776b7",
-  "tokens_sha256": "04f2f10c67d32cf4fdb7b7b5931f9d22ab21e6630dfde19d1cba612e899d7d2d"
+  "make_version": "GNU Make 3.81",
+  "po_headers_sha256": "fca6f91db7d36c710b3c31b50befd82ed5b2400a481a4f13c9e8a00d581666d9",
+  "token_cache_sha256": "f5e843d20fcdd1ad81402910d077ce4f52f51b49b48baad5b95a6f5227a7a846",
+  "tokens_sha256": "a02e4e2966ca3d6e2430b04317ceaf4ced6b469fb5b00b8965636852affebb6e"
  },
- "cache_key_sha256": "3880e372e316a8254979d929ef79563b5687a8477f6623fc2dbec82992e1a50b",
+ "cache_key_sha256": "aa025d2c0394149ee929e23ffc77fbfb128705fd433ff9689e93b6190bfb7611",
  "cc": "/usr/bin/gcc",
- "cc_version": "gcc (GCC) 10.3.1",
+ "cc_version": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
  "check_world_args": [
   "make",
-  "-j8",
+  "-j1",
   "-k",
-  "-Orecurse",
   "-w",
   "check-world"
  ],
  "check_world_exit_code": 0,
  "check_world_failures": [],
- "check_world_log_sha256": "2f22edfd61b0b797413a9d389d61fbcbc19d34947d1ed91f45f3124dd9ccf9f6",
+ "check_world_log_sha256": "356139f47389ec0b97b8be0d23be4206c6c7bf7f57c16fffd6a29b923aa8aba4",
  "check_world_summary": {
   "compiler_warnings": 0,
   "make_errors": 0,
   "regress_failed_tests": 0,
   "regress_skipped_tests": 0,
-  "regress_suites": 82,
-  "regress_tests": 691,
+  "regress_suites": 77,
+  "regress_tests": 664,
   "regression_diffs_files": 0,
-  "sections": 126,
+  "sections": 77,
   "tap_failed_files": 0,
-  "tap_files": 188,
+  "tap_files": 0,
   "tap_results": {
    "FAIL": 0,
-   "NOTESTS": 3,
-   "PASS": 41
+   "NOTESTS": 0,
+   "PASS": 0
   },
-  "tap_skipped_files": 9,
-  "tap_suites": 44
+  "tap_skipped_files": 0,
+  "tap_suites": 0
  },
  "configure_args": [
-  "--prefix=/home/redstar/pg-builds/REL_16_11_base-install",
+  "--prefix=/Users/niejinbo/pg-builds/REL_16_11_base-install",
   "--enable-depend",
   "--enable-nls",
-  "--enable-tap-tests",
   "--enable-cassert",
   "--enable-debug",
-  "--enable-dtrace",
   "--with-perl",
-  "--with-python",
+  "--without-python",
   "--with-openssl",
   "--with-gssapi",
-  "--with-ldap",
-  "--with-pam",
-  "--with-uuid=e2fs",
   "--with-libxml",
   "--with-libxslt",
-  "--with-lz4",
-  "--with-icu",
-  "--with-selinux",
+  "--without-icu",
+  "--disable-tap-tests",
   "CC=/usr/bin/gcc",
   "CXX=/usr/bin/g++"
  ],
  "configure_exit_code": 0,
  "coverage": {
-  "covered_build_paths_total": 109,
-  "covered_src_paths_total": 2202,
-  "covered_tracked": 2125,
+  "covered_build_paths_total": 107,
+  "covered_src_paths_total": 2162,
+  "covered_tracked": 2085,
   "tracked_c_h_cpp": 2319,
-  "uncovered_tracked": 194,
-  "variants": 1504,
-  "variants_generated_source": 123,
-  "variants_src_source": 1381
+  "uncovered_tracked": 234,
+  "variants": 1470,
+  "variants_generated_source": 94,
+  "variants_src_source": 1376
  },
  "coverage_closed": true,
  "cxx": "/usr/bin/g++",
- "cxx_version": "g++ (GCC) 10.3.1",
+ "cxx_version": "Apple clang version 21.0.0 (clang-2100.0.123.102)",
  "env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
- "frozen_utc": "2026-10-04T13:12:48Z",
+ "frozen_utc": "2026-10-17T23:11:22Z",
  "logs": {
-  "check_prereqs": "c1eda6104ce1ea6cbfa30e558338b706beb6883a50547ffadaf68b67ca7f7306",
-  "check_prereqs_ecpg": "a418642417425764e61b4d1a01affe48bf03e6afb7b6729201e878ee94897dc3",
-  "check_prereqs_libpq": "d19df3f1b77d00c088d2804ff619414e048483c245919b09e5a87e44c6a994dc",
-  "check_prereqs_pg_bsd_indent": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
-  "checkprep": "d7bc8a5cd8f21f19320c8c7c8b9fef1c6bbfb2e5cfa269fc9814acfabcc7ff82",
-  "world_bin": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36"
+  "check_prereqs": "1f1c7ccd755b20208e330b79234fbd3c323569c50fcc95771c9ad8a2afa08d5e",
+  "check_prereqs_ecpg": "82ec246fadaa7ca4776c7b173410e345cc243da4fa42c20178cf3a4a3b7c0f0c",
+  "check_prereqs_libpq": "75095c9285bf1b18b72371ffecbe9f90d6b8d04557813233b01fe5b6c9f50f97",
+  "check_prereqs_pg_bsd_indent": "8176e315f23921373d2a81c0ae4f1dcb7480bb9dc82be078395c84025a35a4fe",
+  "checkprep": "66d7aae08c5e2d03b3b0fda0fb2ab92d728ecf38e9021e17992003074583113f",
+  "install": "ef9586759b75e923054bc6011e03edd8f82b9dd0e0b8ea5a4fe43672f0904d64",
+  "world_bin": "9ded92e105a0341e41698ad30e850419575e146ec4b70691ae7ec4ec1c32df8d"
  },
- "make_version": "GNU Make 4.3",
- "n_objects": 1505,
- "n_po_files": 1373,
- "n_variants": 1504,
+ "make_version": "GNU Make 3.81",
+ "n_objects": 1470,
+ "n_po_files": 1345,
+ "n_variants": 1470,
  "po_superset": {
-  "checked": 1504,
-  "inherited_checked": 131,
+  "checked": 1470,
+  "inherited_checked": 125,
   "inherited_not_superset": [
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -172,7 +165,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -183,7 +176,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -194,7 +187,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -205,7 +198,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -216,9 +209,9 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/catalog/pg_attribute_d.h",
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/catalog/pg_attribute_d.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/access/attnum.h",
      "SRC/src/include/access/tupdesc.h",
      "SRC/src/include/catalog/genbki.h",
@@ -245,10 +238,10 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/catalog/pg_attribute_d.h",
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/storage/lwlocknames.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/catalog/pg_attribute_d.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/storage/lmgr/lwlocknames.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/access/attnum.h",
      "SRC/src/include/access/htup.h",
      "SRC/src/include/access/skey.h",
@@ -310,7 +303,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -321,7 +314,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -332,7 +325,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -343,7 +336,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -354,10 +347,10 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/catalog/pg_attribute_d.h",
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/storage/lwlocknames.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/catalog/pg_attribute_d.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/storage/lmgr/lwlocknames.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/access/attnum.h",
      "SRC/src/include/access/htup.h",
      "SRC/src/include/access/skey.h",
@@ -419,7 +412,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -430,7 +423,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/datatype/timestamp.h",
      "SRC/src/include/miscadmin.h",
      "SRC/src/include/pgtime.h",
@@ -443,7 +436,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -454,7 +447,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
      "SRC/src/include/utils/palloc.h"
@@ -464,7 +457,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
      "SRC/src/include/utils/palloc.h"
@@ -474,7 +467,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -485,7 +478,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -496,7 +489,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -507,8 +500,8 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/nodes/memnodes.h",
      "SRC/src/include/nodes/nodes.h",
@@ -522,7 +515,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -533,7 +526,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/storage/fd.h",
@@ -545,8 +538,8 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/nodes/memnodes.h",
      "SRC/src/include/nodes/nodes.h",
@@ -560,7 +553,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/datatype/timestamp.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/miscadmin.h",
@@ -574,7 +567,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
      "SRC/src/include/utils/palloc.h"
@@ -584,8 +577,8 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/nodes/nodetags.h",
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/nodes/nodetags.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/nodes/memnodes.h",
      "SRC/src/include/nodes/nodes.h",
      "SRC/src/include/postgres.h",
@@ -598,7 +591,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/common/unicode_norm_hashfunc.h",
      "SRC/src/include/common/unicode_normprops_table.h",
      "SRC/src/include/lib/stringinfo.h",
@@ -612,7 +605,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -623,7 +616,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -634,7 +627,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -645,7 +638,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/fmgr.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
@@ -658,7 +651,7 @@
    },
    {
     "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
+     "BUILD/src/backend/utils/errcodes.h",
      "SRC/src/include/lib/stringinfo.h",
      "SRC/src/include/postgres.h",
      "SRC/src/include/utils/elog.h",
@@ -666,17 +659,6 @@
     ],
     "po_inherited_from": "src/port/path.o",
     "variant_key": "src/port/path_srv.o"
-   },
-   {
-    "not_in_po": [
-     "BUILD/src/include/utils/errcodes.h",
-     "SRC/src/include/lib/stringinfo.h",
-     "SRC/src/include/postgres.h",
-     "SRC/src/include/utils/elog.h",
-     "SRC/src/include/utils/palloc.h"
-    ],
-    "po_inherited_from": "src/port/pg_crc32c_armv8_choose.o",
-    "variant_key": "src/port/pg_crc32c_armv8_choose_srv.o"
    },
    {
     "not_in_po": [
@@ -692,5 +674,5 @@
  "schema_version": 2,
  "srcdir": "/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base",
  "status": "frozen",
- "token_cache_sha256": "8a6cdf122651e1cdaead09c05a96225ae4c1a5736cfa893640e44bcf2cf776b7"
+ "token_cache_sha256": "f5e843d20fcdd1ad81402910d077ce4f52f51b49b48baad5b95a6f5227a7a846"
 }

@@ -1,7 +1,12 @@
 """
-Structured results of ``make -jN -Orecurse -w check-world``.
+Structured results of ``make -jN -k -w check-world`` (frozen to ``-j1`` on this
+host: macOS ships GNU Make 3.81).
 
-The log is grouped per recursive make by ``--output-sync=recurse``; the
+The log must be grouped per recursive make.  ``--output-sync=recurse`` provides
+that on GNU Make >= 3.82; GNU Make 3.81 has no output sync at all, so this
+baseline runs check-world at ``-j1``, where the sequential output is grouped by
+construction (at ``-j8`` sibling submakes interleave line by line and both the
+anchor attribution and the ``Entering/Leaving directory`` cwd stack break); the
 anchors printed by PostgreSQL's own test recipes
 (``# +++ regress check in <dir> +++``, ``# +++ isolation check in ...``,
 ``# +++ tap check in ...``, ``# +++ regress install-check ...``) delimit

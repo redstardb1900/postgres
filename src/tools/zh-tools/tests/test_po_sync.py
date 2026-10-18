@@ -33,6 +33,29 @@ def _w(path, text):
     return path
 
 
+class EnvCTest(unittest.TestCase):
+    """env_c() must locate the gettext tools wherever they are installed.
+
+    They live under Homebrew on macOS (/opt/homebrew/opt/gettext/bin), which
+    the old hard-coded Linux PATH did not contain.  The locale stays pinned to
+    C so msgmerge/msgfmt output is reproducible.
+    """
+
+    def test_inherits_path_and_pins_locale(self):
+        saved = os.environ.get("PATH")
+        os.environ["PATH"] = "/opt/example/bin:/usr/bin"
+        try:
+            e = po_sync.env_c()
+        finally:
+            if saved is None:
+                del os.environ["PATH"]
+            else:
+                os.environ["PATH"] = saved
+        self.assertEqual(e["PATH"], "/opt/example/bin:/usr/bin")
+        self.assertEqual(e["LC_ALL"], "C")
+        self.assertEqual(e["LANG"], "C")
+
+
 @unittest.skipUnless(HAVE_GETTEXT, "GNU gettext tools not installed")
 class ProbeTest(unittest.TestCase):
     def test_probe_passes_and_records_versions(self):

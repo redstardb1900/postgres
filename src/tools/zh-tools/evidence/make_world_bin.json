@@ -5,36 +5,38 @@
   "-w",
   "world-bin"
  ],
- "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
- "elapsed_sec": 450.972,
+ "cwd": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 188.88,
  "env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
  "exit_code": 0,
- "finished_utc": "2026-10-04T12:58:39Z",
- "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_world_bin.log",
- "log_sha256": "56ea5864cd243f216dd582b2f1067d5ab7fc889f6afb2a04c5fe9af12e851e36",
- "log_size": 1387021,
+ "finished_utc": "2026-10-17T23:04:57Z",
+ "log": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_world_bin.log",
+ "log_sha256": "9ded92e105a0341e41698ad30e850419575e146ec4b70691ae7ec4ec1c32df8d",
+ "log_size": 1684211,
  "log_summary": {
-  "compile_commands": 1403,
+  "compile_commands": 1369,
   "compiler_errors": 0,
   "compiler_warning_lines": [],
   "compiler_warnings": 0,
-  "enter": 355,
-  "leave": 355,
-  "lines": 3521,
-  "link_commands": 131,
+  "enter": 349,
+  "leave": 349,
+  "lines": 3435,
+  "link_commands": 125,
   "make_errors": 0,
   "make_warning_kinds": {},
   "make_warnings": 0,
   "problems": 0
  },
- "started_utc": "2026-10-04T12:51:08Z",
+ "started_utc": "2026-10-17T23:01:48Z",
  "target": {
   "args": [
    "-j1",
@@ -44,5 +46,5 @@
   "name": "world_bin"
  },
  "tool": "make_evidence.py make",
- "tools_version": "0.2.0"
+ "tools_version": "0.2.3"
 }

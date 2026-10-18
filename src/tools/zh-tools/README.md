@@ -17,7 +17,7 @@
 | `check_scope.py` | 批次范围门禁：改动必须全部落在 manifest 的 `allowed_paths` 内并逐文件登记；覆盖 tracked、untracked、ignored；`doc/` 按递归快照和 tree OID 零变化；Perl 保护集按 blob OID 与 mode 零变化；源码树全部 `*.txt` 相对 REL_16_11 零变化（改/增/删均失败，S5；`src/tools/zh-tools/` 下的工具夹具除外）。新增 Perl 文件（扩展名或 shebang）以及源码树 `*.txt` 的扫描始终相对冻结基线 REL_16_11 覆盖全部新增/修改路径及所有 untracked/ignored 文件，与 `--incremental` 无关 |
 | `term_lint.py` | 保守术语检查：读取 pgnls `ref/phrasebook.tsv`（`status=decided` 且有 `zh_forbidden`）、`ref/glossary.tsv` 中"译文=原文"的保留词，以及 `term_rules.json`；只报告"英文命中且中文命中禁用译法"或"保留词丢失"的明确命中；规则分 `error`/`warning` 两级，只有 `error` 硬失败；支持带理由的 allowlist；不做任何自动替换 |
 | `gen_baseline.py` | 从只读基线 worktree 冻结保护数据：`baseline/baseline.json`、`baseline/doc_snapshot.json`、`baseline/perl_protected.json`；`--verify` 可重新生成并与已提交数据比对。快照与 Perl 比对的文件读取均经 `os.open(O_NOFOLLOW)` + `fstat`，哈希前后复核 dev/ino/size/mode/mtime；普通文件的 perm/mode/size/sha256 全部取自同一个哈希 fd 的 fstat，不混用打开前的 lstat；symlink 只记录 link target 不跟随 |
-| `make_evidence.py` | GNU Make 基线证据链 CLI：`environment`（机器/工具/locale/文件系统探测）、`configure`（全新源码树外 VPATH builddir）、`make NAME`（按 `frozen_config.json` 的 capture target 以 `-j1 -w` 捕获日志）、`check-world`（固定 `-j8 -k -Orecurse -w`，结构化结果）、`resummarize`（日志 SHA 不变时重新派生摘要）、`collect`（`.o/.Po/argv` 三方闭合 + flagset 模板）、`replay ROOT [--compare]`（`-E -P -MMD` 回放，token 哈希）、`freeze`（校验全部证据一致——含仓库外 make 捕获日志、`configure.log`、`config.log`、check-world 日志的 SHA-256——后写 `cc_evidence/baseline.json`）、`freeze --verify`（只读：从磁盘证据重算 baseline 与平台候选表并与已提交文件比对，不写任何文件）。平台例外候选在两种模式下都只做分类报告，从不审批 |
+| `make_evidence.py` | GNU Make 基线证据链 CLI：`environment`（机器/工具/locale/文件系统探测）、`configure`（全新源码树外 VPATH builddir）、`make NAME`（按 `frozen_config.json` 的 capture target 以 `-j1 -w` 捕获日志）、`check-world`（固定 `-j1 -k -w`——本机 GNU Make 3.81 无 `--output-sync`，`-j8` 下并发子 make 逐行交错会破坏锚点归属与 cwd 栈，串行输出天然成组——结构化结果）、`resummarize`（日志 SHA 不变时重新派生摘要）、`collect`（`.o/.Po/argv` 三方闭合 + flagset 模板）、`replay ROOT [--compare]`（`-E -P -MMD` 回放，token 哈希）、`freeze`（校验全部证据一致——含仓库外 make 捕获日志、`configure.log`、`config.log`、check-world 日志的 SHA-256——后写 `cc_evidence/baseline.json`）、`freeze --verify`（只读：从磁盘证据重算 baseline 与平台候选表并与已提交文件比对，不写任何文件）。平台例外候选在两种模式下都只做分类报告，从不审批 |
 | `po_sync.py` | `zh_CN.po` 门禁（计划第 3 步）：`probe`（msgattrib `--only-fuzzy/--untranslated` 无匹配时 stdout 零字节的正反探针）、`archive`（把一次性 in-tree worktree 中 26 个 `make -C <dir> init-po` 生成的 POT 复制到仓库外，记录原始 SHA-256、去 `POT-Creation-Date` 的规范 hash、active-key hash、条目数、命令和 gettext/bison/flex/perl 版本，并硬检查 POT 引用与生成源输入）、`merge`（规定管线 `msgmerge --quiet --no-wrap --previous --sort-by-file --lang=zh_CN [-C 补译] <pgnls.po> <pot>` → `msgattrib --no-obsolete --no-wrap`；先无补译跑一遍记录 gettext 自身留下的 fuzzy/未译，再以 `po_supplement/<catalog>.po` 为精确匹配 compendium 跑第二遍；仅当补译键在 pgnls 中只以 `#~` 过时条目存在时才做第三步覆盖并由 msgattrib 重新序列化）、`check`（`msgfmt --check --check-format --statistics`、`msgcmp`、零字节证明 + 独立解析的 0 fuzzy/0 未译/无 obsolete、无重复 active key、复数完整、header `Language: zh_CN`/UTF-8/`Plural-Forms`、active key 集合与 POT 相同、补译条目逐条被使用且带 `# zh-reviewed:` 标记、目录与补译均不得残留 `# zh-review-pending`；`--pgnls` 时对补译跑 `term_lint.py --po` 作门禁、对整文件只做信息报告）、`report`（pgnls↔POT↔结果的新增/obsolete/pass1 fuzzy/未译/补译/与 REL_16_11 基线差异；`review_pending` 必须为空，`review_reviewed` 对应全部补译） |
 | `po_supplement/` | 手工补译（compendium）：仅含 REL_16_11 POT 中 pgnls `zh_CN/REL_16_STABLE` 没有精确译文的消息；每条带 `# zh-reviewed: <复核者> <复核编号> (<日期>)` 译者注释，说明来源与依据 |
 | `zhtools/` | 共享库：`c_lexer`（词法）、`c_verify`（规则）、`gitutil`、`protection`（快照/Perl 集）、`manifest`（schema v1 与 glob）、`termlint`、`evidence_run`（冻结环境进程运行/日志 SHA/目录权限探针）、`makelog`（`-w` 日志解析、危险 shell 拒绝、闭合）、`ccreplay`（argv 改写、路径分类、token/depfile 规范化、cache key、freeze）、`checkworld`（check-world 结构化解析）、`cc_check`（`--cc-check` 判定）、`potools`（机械 PO 读取：键集合、重复、复数、header、规范/active-key hash、覆盖拼接；不模拟 gettext） |
@@ -46,7 +46,7 @@ configure 参数，`CC=/usr/bin/gcc`、`CXX=/usr/bin/g++`）。compile command�
 # 一次证据周期（在 zh worktree 的 src/tools/zh-tools 下；全部参数来自 evidence/frozen_config.json）
 python3 make_evidence.py environment
 python3 make_evidence.py configure
-for t in world_bin checkprep check_prereqs check_prereqs_ecpg check_prereqs_libpq check_prereqs_pg_bsd_indent; do
+for t in world_bin checkprep check_prereqs check_prereqs_ecpg check_prereqs_libpq check_prereqs_pg_bsd_indent install; do
   python3 make_evidence.py make $t; done
 python3 make_evidence.py collect
 python3 make_evidence.py replay /Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base   # label base
@@ -56,6 +56,11 @@ python3 make_evidence.py freeze
 # 之后任何时候复核已提交基线是否仍由磁盘证据逐字段重现（只读，不写文件）
 python3 make_evidence.py freeze --verify --json /tmp/freeze_verify.json
 ```
+
+其中 `install` 是 macOS 特有的前置捕获：`make check` 以 `DESTDIR=tmp_install` 暂存时，
+二进制内嵌的是最终 prefix 的绝对 install_name，而 macOS `/bin/sh` 会剥离传给子进程的
+`DYLD_*`，只有先把 prefix 真正装上，`initdb` 才能解析 `<prefix>/lib/libpq.5.dylib`。
+`install` 不编译任何对象，不影响 `.o/.Po/argv` 闭合，详见 `evidence/environment.md`。
 
 已知限制（本版本未实现，不会伪装通过）：翻译后的 `.y`/`.l` 文件没有 token 级
 证明（生成 TU 只按 `G` 规则哈希，不与源文件对应）；平台例外只有候选表，没有任何
@@ -70,7 +75,7 @@ python3 make_evidence.py freeze --verify --json /tmp/freeze_verify.json
 | 基线 worktree（只读 detached） | `/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_base` |
 | 目标 worktree / 分支 | `/Users/niejinbo/work/code/pg/postgres.worktrees/REL_16_11_zh` / `REL_16_11_zh` |
 | pgnls 术语库 | `/Users/niejinbo/work/code/pg/pgsty/pgnls` @ `cbaeef3eb8be500984ab3da9f3e251634f346d1c` |
-| Make builddir / prefix / 证据日志 | `/home/redstar/pg-builds/REL_16_11_base-{make,install,evidence}`（原生 btrfs；**不得**放在 virtiofs 的 `/Users` 下，原因见 `evidence/environment.md`） |
+| Make builddir / prefix / 证据日志 | `/Users/niejinbo/pg-builds/REL_16_11_base-{make,install,evidence}`（与本仓库同处一个本地 APFS 数据卷；另有 keg-only brew gettext / openssl@3 / krb5 提供头与库，见 `evidence/environment.md`） |
 | `doc/` 快照 | 441 项（435 个 tracked 文件 + 目录），字段 path/type/mode/perm/size/sha256/target |
 | Perl 保护集 | 284 个 blob：277 个 `*.pl/*.pm/*.t` + 7 个 shebang 识别文件（`src/backend/utils/Gen_dummy_probes.pl.prolog`、`src/include/catalog/{duplicate_oids,unused_oids}`、`src/test/recovery/t/cp_history_files`、`src/tools/{git_changelog,pginclude/pgcheckdefines,pgindent/pgindent}`） |
 

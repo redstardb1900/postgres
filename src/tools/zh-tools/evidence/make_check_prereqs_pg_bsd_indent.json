@@ -7,21 +7,23 @@
   "src/tools/pg_bsd_indent",
   "all"
  ],
- "cwd": "/home/redstar/pg-builds/REL_16_11_base-make",
- "elapsed_sec": 1.661,
+ "cwd": "/Users/niejinbo/pg-builds/REL_16_11_base-make",
+ "elapsed_sec": 0.783,
  "env": {
-  "HOME": "/home/redstar",
-  "LANG": "C.UTF-8",
-  "LOGNAME": "redstar",
-  "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-  "SHELL": "/bin/bash",
-  "USER": "redstar"
+  "CPPFLAGS": "-I/opt/homebrew/opt/gettext/include -I/opt/homebrew/opt/openssl@3/include -I/opt/homebrew/opt/krb5/include",
+  "HOME": "/Users/niejinbo",
+  "LANG": "C",
+  "LDFLAGS": "-L/opt/homebrew/opt/gettext/lib -L/opt/homebrew/opt/openssl@3/lib -L/opt/homebrew/opt/krb5/lib",
+  "LOGNAME": "niejinbo",
+  "PATH": "/opt/homebrew/opt/openssl@3/bin:/opt/homebrew/opt/krb5/bin:/opt/homebrew/opt/gettext/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "SHELL": "/bin/sh",
+  "USER": "niejinbo"
  },
  "exit_code": 0,
- "finished_utc": "2026-10-04T12:59:11Z",
- "log": "/home/redstar/pg-builds/REL_16_11_base-evidence/make_check_prereqs_pg_bsd_indent.log",
- "log_sha256": "db34cc1a95583c6ee5613d812afe266619eb90a5633134ffe464c4b663389abe",
- "log_size": 7714,
+ "finished_utc": "2026-10-17T23:05:15Z",
+ "log": "/Users/niejinbo/pg-builds/REL_16_11_base-evidence/make_check_prereqs_pg_bsd_indent.log",
+ "log_sha256": "8176e315f23921373d2a81c0ae4f1dcb7480bb9dc82be078395c84025a35a4fe",
+ "log_size": 9548,
  "log_summary": {
   "compile_commands": 7,
   "compiler_errors": 0,
@@ -36,7 +38,7 @@
   "make_warnings": 0,
   "problems": 0
  },
- "started_utc": "2026-10-04T12:59:10Z",
+ "started_utc": "2026-10-17T23:05:15Z",
  "target": {
   "args": [
    "-j1",
@@ -49,5 +51,5 @@
   "note": "pg_bsd_indent is built only by its own TAP check (not by world-bin); its 7 objects would otherwise be compiled in parallel by check-world"
  },
  "tool": "make_evidence.py make",
- "tools_version": "0.2.0"
+ "tools_version": "0.2.3"
 }

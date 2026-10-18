@@ -12,7 +12,8 @@ Subcommands:
   configure            fresh builddir + configure              -> evidence/configure.json
   make NAME            run a capture target from cfg["capture_targets"] with
                        `make -j1 -w ...` and record the log       -> evidence/make_<NAME>.json
-  check-world          run `make -j<N> -Orecurse -w check-world`, parse the
+  check-world          run `make -j<N> -k -w check-world` (this host pins
+                       -j1: GNU Make 3.81 has no output sync), parse the
                        log and on-disk results                  -> evidence/check_world.json
   collect              parse the -j1 -w logs, build .o/.Po/argv closure
                        -> cc_evidence/{commands.jsonl,flagsets.json,closure.json}
@@ -122,7 +123,9 @@ def cmd_environment(cfg, args):
         "caller_env_note": cfg.get("env_unset_note"),
         "locale": locale_out.strip().splitlines(),
         "locale_a_count": len(locale_a.split()),
-        "locale_a_has": {l: (l in locale_a.split()) for l in ("C", "C.utf8", "POSIX", "en_US.utf8", "zh_CN.utf8")},
+        "locale_a_has": {l: (l in locale_a.split()) for l in (
+            "C", "POSIX", "C.utf8", "C.UTF-8",
+            "en_US.utf8", "en_US.UTF-8", "zh_CN.utf8", "zh_CN.UTF-8")},
         "cc_realpath": cc_real,
         "cxx_realpath": cxx_real,
         "cc_is_wrapper": not (cc_real.startswith("/usr/") and os.path.basename(cc_real) in ("gcc", "g++", "cc", "c++")),
@@ -133,8 +136,9 @@ def cmd_environment(cfg, args):
         p = cfg[key]
         while not os.path.exists(p) and p != "/":
             p = os.path.dirname(p)
-        rc, fstype = ev.capture(["stat", "-f", "-c", "%T", p], env=env)
-        report["filesystems"][key] = {"probe_path": p, "fstype": fstype.strip()}
+        # GNU stat -f -c %T on Linux; the mount table elsewhere (BSD/macOS has
+        # no stat -c and prints a bare mount point for stat -f).
+        report["filesystems"][key] = {"probe_path": p, "fstype": ev.fstype(p, env=env)}
     # How a mode-0400 directory behaves on the build filesystem versus /tmp;
     # explains pg_verifybackup/t/003_corruption.pl results (see environment.md).
     report["dirperm_probe"] = {

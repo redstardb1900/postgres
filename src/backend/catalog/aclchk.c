@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * aclchk.c
- *	  Routines to check access control permissions.
+ *	  检查访问控制权限的例程。
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -11,7 +11,7 @@
  *	  src/backend/catalog/aclchk.c
  *
  * NOTES
- *	  See acl.h.
+ *	  参见 acl.h。
  *
  *-------------------------------------------------------------------------
  */
@@ -82,13 +82,13 @@
 #include "utils/syscache.h"
 
 /*
- * Internal format used by ALTER DEFAULT PRIVILEGES.
+ * ALTER DEFAULT PRIVILEGES 使用的内部格式。
  */
 typedef struct
 {
-	Oid			roleid;			/* owning role */
-	Oid			nspid;			/* namespace, or InvalidOid if none */
-	/* remaining fields are same as in InternalGrant: */
+	Oid			roleid;			/* 所属角色 */
+	Oid			nspid;			/* 命名空间，若无则为 InvalidOid */
+	/* 其余字段与 InternalGrant 中相同： */
 	bool		is_grant;
 	ObjectType	objtype;
 	bool		all_privs;
@@ -99,9 +99,9 @@ typedef struct
 } InternalDefaultACL;
 
 /*
- * When performing a binary-upgrade, pg_dump will call a function to set
- * this variable to let us know that we need to populate the pg_init_privs
- * table for the GRANT/REVOKE commands while this variable is set to true.
+ * 执行二进制升级时，pg_dump 会调用函数来设置
+ * 该变量，以便我们得知：在此变量为 true 期间
+ * 需要为 GRANT/REVOKE 命令填充 pg_init_privs 表。
  */
 bool		binary_upgrade_record_init_privs = false;
 
@@ -163,11 +163,11 @@ static void recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid
 
 
 /*
- * If is_grant is true, adds the given privileges for the list of
- * grantees to the existing old_acl.  If is_grant is false, the
- * privileges for the given grantees are removed from old_acl.
+ * 若 is_grant 为 true，则把给定被授权者的权限
+ * 添加到已有的 old_acl。若 is_grant 为 false，
+ * 则从 old_acl 中移除给定被授权者的权限。
  *
- * NB: the original old_acl is pfree'd.
+ * 注意：原 old_acl 会被 pfree 释放。
  */
 static Acl *
 merge_acl_with_grant(Acl *old_acl, bool is_grant,
@@ -191,10 +191,10 @@ merge_acl_with_grant(Acl *old_acl, bool is_grant,
 		aclitem.ai_grantee = lfirst_oid(j);
 
 		/*
-		 * Grant options can only be granted to individual roles, not PUBLIC.
-		 * The reason is that if a user would re-grant a privilege that he
-		 * held through PUBLIC, and later the user is removed, the situation
-		 * is impossible to clean up.
+		 * 授权选项只能授予单个角色，不能授予 PUBLIC。
+		 * 原因是：若用户重新授予其通过 PUBLIC
+		 * 获得的权限，之后该用户被移除，
+		 * 这种情形将无法清理。
 		 */
 		if (is_grant && grant_option && aclitem.ai_grantee == ACL_ID_PUBLIC)
 			ereport(ERROR,
@@ -204,11 +204,11 @@ merge_acl_with_grant(Acl *old_acl, bool is_grant,
 		aclitem.ai_grantor = grantorId;
 
 		/*
-		 * The asymmetry in the conditions here comes from the spec.  In
-		 * GRANT, the grant_option flag signals WITH GRANT OPTION, which means
-		 * to grant both the basic privilege and its grant option. But in
-		 * REVOKE, plain revoke revokes both the basic privilege and its grant
-		 * option, while REVOKE GRANT OPTION revokes only the option.
+		 * 这里的条件不对称源于标准规定。在
+		 * GRANT 中，grant_option 标志表示 WITH GRANT OPTION，
+		 * 即同时授予基本权限及其授权选项。但在
+		 * REVOKE 中，普通 revoke 会同时撤销基本权限及其授权
+		 * 选项，而 REVOKE GRANT OPTION 只撤销授权选项。
 		 */
 		ACLITEM_SET_PRIVS_GOPTIONS(aclitem,
 								   (is_grant || !grant_option) ? privileges : ACL_NO_RIGHTS,
@@ -216,7 +216,7 @@ merge_acl_with_grant(Acl *old_acl, bool is_grant,
 
 		newer_acl = aclupdate(new_acl, &aclitem, modechg, ownerId, behavior);
 
-		/* avoid memory leak when there are many grantees */
+		/* 当被授权者很多时避免内存泄漏 */
 		pfree(new_acl);
 		new_acl = newer_acl;
 	}
@@ -225,8 +225,8 @@ merge_acl_with_grant(Acl *old_acl, bool is_grant,
 }
 
 /*
- * Restrict the privileges to what we can actually grant, and emit
- * the standards-mandated warning and error messages.
+ * 把权限限制为我们实际能授予的部分，并发出
+ * 标准要求的警告和错误消息。
  */
 static AclMode
 restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
@@ -274,7 +274,7 @@ restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 			break;
 		case OBJECT_EVENT_TRIGGER:
 			elog(ERROR, "grantable rights not supported for event triggers");
-			/* not reached, but keep compiler quiet */
+			/* 不会走到这里，但让编译器安静 */
 			return ACL_NO_RIGHTS;
 		case OBJECT_TYPE:
 			whole_mask = ACL_ALL_RIGHTS_TYPE;
@@ -284,14 +284,14 @@ restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 			break;
 		default:
 			elog(ERROR, "unrecognized object type: %d", objtype);
-			/* not reached, but keep compiler quiet */
+			/* 不会走到这里，但让编译器安静 */
 			return ACL_NO_RIGHTS;
 	}
 
 	/*
-	 * If we found no grant options, consider whether to issue a hard error.
-	 * Per spec, having any privilege at all on the object will get you by
-	 * here.
+	 * 若未找到任何授权选项，考虑是否要发出硬错误。
+	 * 按标准，只要在该对象上拥有任意权限即可
+	 * 通过此处。
 	 */
 	if (avail_goptions == ACL_NO_RIGHTS)
 	{
@@ -307,11 +307,11 @@ restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 	}
 
 	/*
-	 * Restrict the operation to what we can actually grant or revoke, and
-	 * issue a warning if appropriate.  (For REVOKE this isn't quite what the
-	 * spec says to do: the spec seems to want a warning only if no privilege
-	 * bits actually change in the ACL. In practice that behavior seems much
-	 * too noisy, as well as inconsistent with the GRANT case.)
+	 * 把操作限制为我们实际能授予或撤销的部分，
+	 * 并在适当时发出警告。（对 REVOKE 而言这并不完全
+	 * 符合标准：标准似乎只在 ACL 中没有任何权限位实际
+	 * 变化时才要求警告。实际上该行为显得过于嘈杂，
+	 * 也与 GRANT 情形不一致。）
 	 */
 	this_privileges = privileges & ACL_OPTION_TO_PRIVS(avail_goptions);
 	if (is_grant)
@@ -377,7 +377,7 @@ restrict_and_check_grant(bool is_grant, AclMode avail_goptions, bool all_privs,
 }
 
 /*
- * Called to execute the utility commands GRANT and REVOKE
+ * 用于执行工具命令 GRANT 和 REVOKE
  */
 void
 ExecuteGrantStmt(GrantStmt *stmt)
@@ -394,8 +394,8 @@ ExecuteGrantStmt(GrantStmt *stmt)
 		grantor = get_rolespec_oid(stmt->grantor, false);
 
 		/*
-		 * Currently, this clause is only for SQL compatibility, not very
-		 * interesting otherwise.
+		 * 目前该子句只是为了 SQL 兼容性，除此之外
+		 * 并无多大意义。
 		 */
 		if (grantor != GetUserId())
 			ereport(ERROR,
@@ -404,12 +404,12 @@ ExecuteGrantStmt(GrantStmt *stmt)
 	}
 
 	/*
-	 * Turn the regular GrantStmt into the InternalGrant form.
+	 * 把常规的 GrantStmt 转换为 InternalGrant 形式。
 	 */
 	istmt.is_grant = stmt->is_grant;
 	istmt.objtype = stmt->objtype;
 
-	/* Collect the OIDs of the target objects */
+	/* 收集目标对象的 OID */
 	switch (stmt->targtype)
 	{
 		case ACL_TARGET_OBJECT:
@@ -419,23 +419,23 @@ ExecuteGrantStmt(GrantStmt *stmt)
 		case ACL_TARGET_ALL_IN_SCHEMA:
 			istmt.objects = objectsInSchemaToOids(stmt->objtype, stmt->objects);
 			break;
-			/* ACL_TARGET_DEFAULTS should not be seen here */
+			/* 此处不应出现 ACL_TARGET_DEFAULTS */
 		default:
 			elog(ERROR, "unrecognized GrantStmt.targtype: %d",
 				 (int) stmt->targtype);
 	}
 
-	/* all_privs to be filled below */
-	/* privileges to be filled below */
-	istmt.col_privs = NIL;		/* may get filled below */
-	istmt.grantees = NIL;		/* filled below */
+	/* all_privs 将在下面填充 */
+	/* privileges 将在下面填充 */
+	istmt.col_privs = NIL;		/* 可能在下面填充 */
+	istmt.grantees = NIL;		/* 在下面填充 */
 	istmt.grant_option = stmt->grant_option;
 	istmt.behavior = stmt->behavior;
 
 	/*
-	 * Convert the RoleSpec list into an Oid list.  Note that at this point we
-	 * insert an ACL_ID_PUBLIC into the list if appropriate, so downstream
-	 * there shouldn't be any additional work needed to support this case.
+	 * 把 RoleSpec 列表转换为 Oid 列表。注意此时我们
+	 * 会在适当时插入 ACL_ID_PUBLIC，因此下游
+	 * 支持该情形无需再做额外工作。
 	 */
 	foreach(cell, stmt->grantees)
 	{
@@ -455,17 +455,17 @@ ExecuteGrantStmt(GrantStmt *stmt)
 	}
 
 	/*
-	 * Convert stmt->privileges, a list of AccessPriv nodes, into an AclMode
-	 * bitmask.  Note: objtype can't be OBJECT_COLUMN.
+	 * 把 stmt->privileges（AccessPriv 节点列表）转换为 AclMode
+	 * 位掩码。注意：objtype 不能是 OBJECT_COLUMN。
 	 */
 	switch (stmt->objtype)
 	{
 		case OBJECT_TABLE:
 
 			/*
-			 * Because this might be a sequence, we test both relation and
-			 * sequence bits, and later do a more limited test when we know
-			 * the object type.
+			 * 由于这可能是序列，我们同时测试关系位和
+			 * 序列位，之后再在已知对象类型时
+			 * 做更受限的测试。
 			 */
 			all_privileges = ACL_ALL_RIGHTS_RELATION | ACL_ALL_RIGHTS_SEQUENCE;
 			errormsg = gettext_noop("invalid privilege type %s for relation");
@@ -529,7 +529,7 @@ ExecuteGrantStmt(GrantStmt *stmt)
 		default:
 			elog(ERROR, "unrecognized GrantStmt.objtype: %d",
 				 (int) stmt->objtype);
-			/* keep compiler quiet */
+			/* 让编译器安静 */
 			all_privileges = ACL_NO_RIGHTS;
 			errormsg = NULL;
 	}
@@ -539,8 +539,8 @@ ExecuteGrantStmt(GrantStmt *stmt)
 		istmt.all_privs = true;
 
 		/*
-		 * will be turned into ACL_ALL_RIGHTS_* by the internal routines
-		 * depending on the object type
+		 * 内部例程会根据对象类型
+		 * 将其转换为 ACL_ALL_RIGHTS_*
 		 */
 		istmt.privileges = ACL_NO_RIGHTS;
 	}
@@ -555,8 +555,8 @@ ExecuteGrantStmt(GrantStmt *stmt)
 			AclMode		priv;
 
 			/*
-			 * If it's a column-level specification, we just set it aside in
-			 * col_privs for the moment; but insist it's for a relation.
+			 * 若是列级指定，我们暂且将其存入 col_privs；
+			 * 但坚持要求它针对的是关系。
 			 */
 			if (privnode->cols)
 			{
@@ -568,7 +568,7 @@ ExecuteGrantStmt(GrantStmt *stmt)
 				continue;
 			}
 
-			if (privnode->priv_name == NULL)	/* parser mistake? */
+			if (privnode->priv_name == NULL)	/* 解析器出错？ */
 				elog(ERROR, "AccessPriv node must specify privilege or columns");
 			priv = string_to_privilege(privnode->priv_name);
 
@@ -587,7 +587,7 @@ ExecuteGrantStmt(GrantStmt *stmt)
 /*
  * ExecGrantStmt_oids
  *
- * Internal entry point for granting and revoking privileges.
+ * 授予和撤销权限的内部入口点。
  */
 static void
 ExecGrantStmt_oids(InternalGrant *istmt)
@@ -637,10 +637,10 @@ ExecGrantStmt_oids(InternalGrant *istmt)
 	}
 
 	/*
-	 * Pass the info to event triggers about the just-executed GRANT.  Note
-	 * that we prefer to do it after actually executing it, because that gives
-	 * the functions a chance to adjust the istmt with privileges actually
-	 * granted.
+	 * 把刚执行的 GRANT 信息传给事件触发器。注意
+	 * 我们倾向于在实际执行之后进行，因为这样
+	 * 能让函数有机会根据实际授予的权限
+	 * 调整 istmt。
 	 */
 	if (EventTriggerSupportsObjectType(istmt->objtype))
 		EventTriggerCollectGrant(istmt);
@@ -649,12 +649,12 @@ ExecGrantStmt_oids(InternalGrant *istmt)
 /*
  * objectNamesToOids
  *
- * Turn a list of object names of a given type into an Oid list.
+ * 把给定类型的对象名列表转换为 Oid 列表。
  *
- * XXX: This function doesn't take any sort of locks on the objects whose
- * names it looks up.  In the face of concurrent DDL, we might easily latch
- * onto an old version of an object, causing the GRANT or REVOKE statement
- * to fail.
+ * XXX：本函数不对所查找名称的对象施加任何
+ * 锁。面对并发 DDL，我们很容易锁定到
+ * 对象的旧版本，导致 GRANT 或 REVOKE 语句
+ * 失败。
  */
 static List *
 objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
@@ -794,14 +794,14 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 			foreach(cell, objnames)
 			{
 				/*
-				 * In this code we represent a GUC by the OID of its entry in
-				 * pg_parameter_acl, which we have to manufacture here if it
-				 * doesn't exist yet.  (That's a hack for sure, but it avoids
-				 * messing with all the GRANT/REVOKE infrastructure that
-				 * expects to use OIDs for object identities.)  However, if
-				 * this is a REVOKE, we can instead just ignore any GUCs that
-				 * don't have such an entry, as they must not have any
-				 * privileges needing removal.
+				 * 在此代码中，我们用 GUC 在
+				 * pg_parameter_acl 中条目的 OID 来表示该 GUC；
+				 * 若尚不存在则须在此创建。（这确实是个
+				 * hack，但它避免了与所有期望以 OID 表示
+				 * 对象标识的 GRANT/REVOKE 基础设施纠缠。）
+				 * 不过，若是 REVOKE，我们反而可以忽略任何
+				 * 没有此类条目的 GUC，因为它们必然没有
+				 * 需要移除的权限。
 				 */
 				char	   *parameter = strVal(lfirst(cell));
 				Oid			parameterId = ParameterAclLookup(parameter, true);
@@ -811,9 +811,9 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 					parameterId = ParameterAclCreate(parameter);
 
 					/*
-					 * Prevent error when processing duplicate objects, and
-					 * make this new entry visible so that ExecGrant_Parameter
-					 * can update it.
+					 * 防止处理重复对象时出错，
+					 * 并让新条目可见，以便
+					 * ExecGrant_Parameter 能更新它。
 					 */
 					CommandCounterIncrement();
 				}
@@ -832,9 +832,9 @@ objectNamesToOids(ObjectType objtype, List *objnames, bool is_grant)
 /*
  * objectsInSchemaToOids
  *
- * Find all objects of a given type in specified schemas, and make a list
- * of their Oids.  We check USAGE privilege on the schemas, but there is
- * no privilege checking on the individual objects here.
+ * 查找指定模式中给定类型的所有对象，并列出
+ * 其 Oid。我们会检查模式的 USAGE 权限，但此处
+ * 不对单个对象做权限检查。
  */
 static List *
 objectsInSchemaToOids(ObjectType objtype, List *nspnames)
@@ -885,7 +885,7 @@ objectsInSchemaToOids(ObjectType objtype, List *nspnames)
 								ObjectIdGetDatum(namespaceId));
 
 					if (objtype == OBJECT_FUNCTION)
-						/* includes aggregates and window functions */
+						/* 包括聚合函数和窗口函数 */
 						ScanKeyInit(&key[keycount++],
 									Anum_pg_proc_prokind,
 									BTEqualStrategyNumber, F_CHARNE,
@@ -911,7 +911,7 @@ objectsInSchemaToOids(ObjectType objtype, List *nspnames)
 				}
 				break;
 			default:
-				/* should not happen */
+				/* 不应发生 */
 				elog(ERROR, "unrecognized GrantStmt.objtype: %d",
 					 (int) objtype);
 		}
@@ -923,7 +923,7 @@ objectsInSchemaToOids(ObjectType objtype, List *nspnames)
 /*
  * getRelationsInNamespace
  *
- * Return Oid list of relations in given namespace filtered by relation kind
+ * 返回给定命名空间中按关系类型过滤的关系 Oid 列表
  */
 static List *
 getRelationsInNamespace(Oid namespaceId, char relkind)
@@ -961,7 +961,7 @@ getRelationsInNamespace(Oid namespaceId, char relkind)
 
 
 /*
- * ALTER DEFAULT PRIVILEGES statement
+ * ALTER DEFAULT PRIVILEGES 语句
  */
 void
 ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *stmt)
@@ -976,7 +976,7 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 	AclMode		all_privileges;
 	const char *errormsg;
 
-	/* Deconstruct the "options" part of the statement */
+	/* 解析语句的 "options" 部分 */
 	foreach(cell, stmt->options)
 	{
 		DefElem    *defel = (DefElem *) lfirst(cell);
@@ -1002,21 +1002,21 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 	if (drolespecs)
 		rolespecs = (List *) drolespecs->arg;
 
-	/* Prepare the InternalDefaultACL representation of the statement */
-	/* roleid to be filled below */
-	/* nspid to be filled in SetDefaultACLsInSchemas */
+	/* 准备语句的 InternalDefaultACL 表示 */
+	/* roleid 将在下面填充 */
+	/* nspid 将在 SetDefaultACLsInSchemas 中填充 */
 	iacls.is_grant = action->is_grant;
 	iacls.objtype = action->objtype;
-	/* all_privs to be filled below */
-	/* privileges to be filled below */
-	iacls.grantees = NIL;		/* filled below */
+	/* all_privs 将在下面填充 */
+	/* privileges 将在下面填充 */
+	iacls.grantees = NIL;		/* 在下面填充 */
 	iacls.grant_option = action->grant_option;
 	iacls.behavior = action->behavior;
 
 	/*
-	 * Convert the RoleSpec list into an Oid list.  Note that at this point we
-	 * insert an ACL_ID_PUBLIC into the list if appropriate, so downstream
-	 * there shouldn't be any additional work needed to support this case.
+	 * 把 RoleSpec 列表转换为 Oid 列表。注意此时我们
+	 * 会在适当时插入 ACL_ID_PUBLIC，因此下游
+	 * 支持该情形无需再做额外工作。
 	 */
 	foreach(cell, action->grantees)
 	{
@@ -1036,8 +1036,8 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 	}
 
 	/*
-	 * Convert action->privileges, a list of privilege strings, into an
-	 * AclMode bitmask.
+	 * 把 action->privileges（权限字符串列表）转换为
+	 * AclMode 位掩码。
 	 */
 	switch (action->objtype)
 	{
@@ -1072,7 +1072,7 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 		default:
 			elog(ERROR, "unrecognized GrantStmt.objtype: %d",
 				 (int) action->objtype);
-			/* keep compiler quiet */
+			/* 让编译器安静 */
 			all_privileges = ACL_NO_RIGHTS;
 			errormsg = NULL;
 	}
@@ -1082,8 +1082,8 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 		iacls.all_privs = true;
 
 		/*
-		 * will be turned into ACL_ALL_RIGHTS_* by the internal routines
-		 * depending on the object type
+		 * 内部例程会根据对象类型
+		 * 将其转换为 ACL_ALL_RIGHTS_*
 		 */
 		iacls.privileges = ACL_NO_RIGHTS;
 	}
@@ -1102,7 +1102,7 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 						(errcode(ERRCODE_INVALID_GRANT_OPERATION),
 						 errmsg("default privileges cannot be set for columns")));
 
-			if (privnode->priv_name == NULL)	/* parser mistake? */
+			if (privnode->priv_name == NULL)	/* 解析器出错？ */
 				elog(ERROR, "AccessPriv node must specify privilege");
 			priv = string_to_privilege(privnode->priv_name);
 
@@ -1117,14 +1117,14 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 
 	if (rolespecs == NIL)
 	{
-		/* Set permissions for myself */
+		/* 为自己设置权限 */
 		iacls.roleid = GetUserId();
 
 		SetDefaultACLsInSchemas(&iacls, nspnames);
 	}
 	else
 	{
-		/* Look up the role OIDs and do permissions checks */
+		/* 查找角色 OID 并进行权限检查 */
 		ListCell   *rolecell;
 
 		foreach(rolecell, rolespecs)
@@ -1144,23 +1144,23 @@ ExecAlterDefaultPrivilegesStmt(ParseState *pstate, AlterDefaultPrivilegesStmt *s
 }
 
 /*
- * Process ALTER DEFAULT PRIVILEGES for a list of target schemas
+ * 为一组目标模式处理 ALTER DEFAULT PRIVILEGES
  *
- * All fields of *iacls except nspid were filled already
+ * *iacls 中除 nspid 外的所有字段均已填充
  */
 static void
 SetDefaultACLsInSchemas(InternalDefaultACL *iacls, List *nspnames)
 {
 	if (nspnames == NIL)
 	{
-		/* Set database-wide permissions if no schema was specified */
+		/* 若未指定模式，则设置数据库范围的权限 */
 		iacls->nspid = InvalidOid;
 
 		SetDefaultACL(iacls);
 	}
 	else
 	{
-		/* Look up the schema OIDs and set permissions for each one */
+		/* 查找模式 OID 并为每个模式设置权限 */
 		ListCell   *nspcell;
 
 		foreach(nspcell, nspnames)
@@ -1170,15 +1170,15 @@ SetDefaultACLsInSchemas(InternalDefaultACL *iacls, List *nspnames)
 			iacls->nspid = get_namespace_oid(nspname, false);
 
 			/*
-			 * We used to insist that the target role have CREATE privileges
-			 * on the schema, since without that it wouldn't be able to create
-			 * an object for which these default privileges would apply.
-			 * However, this check proved to be more confusing than helpful,
-			 * and it also caused certain database states to not be
-			 * dumpable/restorable, since revoking CREATE doesn't cause
-			 * default privileges for the schema to go away.  So now, we just
-			 * allow the ALTER; if the user lacks CREATE he'll find out when
-			 * he tries to create an object.
+			 * 我们过去坚持要求目标角色在该模式上拥有 CREATE
+			 * 权限，因为没有该权限就无法创建
+			 * 这些默认权限所适用的对象。
+			 * 但事实证明这一检查带来的困惑多于帮助，
+			 * 而且它还会导致某些数据库状态
+			 * 无法转储/恢复，因为撤销 CREATE 并不会
+			 * 使该模式的默认权限消失。因此现在我们只是
+			 * 允许该 ALTER；若用户缺少 CREATE，
+			 * 他会在尝试创建对象时发现。
 			 */
 
 			SetDefaultACL(iacls);
@@ -1188,7 +1188,7 @@ SetDefaultACLsInSchemas(InternalDefaultACL *iacls, List *nspnames)
 
 
 /*
- * Create or update a pg_default_acl entry
+ * 创建或更新 pg_default_acl 条目
  */
 static void
 SetDefaultACL(InternalDefaultACL *iacls)
@@ -1210,10 +1210,10 @@ SetDefaultACL(InternalDefaultACL *iacls)
 	rel = table_open(DefaultAclRelationId, RowExclusiveLock);
 
 	/*
-	 * The default for a global entry is the hard-wired default ACL for the
-	 * particular object type.  The default for non-global entries is an empty
-	 * ACL.  This must be so because global entries replace the hard-wired
-	 * defaults, while others are added on.
+	 * 全局条目的默认值是特定对象类型的硬编码
+	 * 默认 ACL。非全局条目的默认值是空
+	 * ACL。必须如此，因为全局条目会替换硬编码
+	 * 默认值，而其他条目则是附加其上。
 	 */
 	if (!OidIsValid(iacls->nspid))
 		def_acl = acldefault(iacls->objtype, iacls->roleid);
@@ -1221,8 +1221,8 @@ SetDefaultACL(InternalDefaultACL *iacls)
 		def_acl = make_empty_acl();
 
 	/*
-	 * Convert ACL object type to pg_default_acl object type and handle
-	 * all_privs option
+	 * 把 ACL 对象类型转换为 pg_default_acl 对象类型，
+	 * 并处理 all_privs 选项
 	 */
 	switch (iacls->objtype)
 	{
@@ -1263,11 +1263,11 @@ SetDefaultACL(InternalDefaultACL *iacls)
 		default:
 			elog(ERROR, "unrecognized object type: %d",
 				 (int) iacls->objtype);
-			objtype = 0;		/* keep compiler quiet */
+			objtype = 0;		/* 让编译器安静 */
 			break;
 	}
 
-	/* Search for existing row for this object type in catalog */
+	/* 在目录中查找该对象类型的现有行 */
 	tuple = SearchSysCache3(DEFACLROLENSPOBJ,
 							ObjectIdGetDatum(iacls->roleid),
 							ObjectIdGetDatum(iacls->nspid),
@@ -1284,7 +1284,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 		if (!isNull)
 			old_acl = DatumGetAclPCopy(aclDatum);
 		else
-			old_acl = NULL;		/* this case shouldn't happen, probably */
+			old_acl = NULL;		/* 这种情况大概不应发生 */
 		isNew = false;
 	}
 	else
@@ -1296,24 +1296,24 @@ SetDefaultACL(InternalDefaultACL *iacls)
 	if (old_acl != NULL)
 	{
 		/*
-		 * We need the members of both old and new ACLs so we can correct the
-		 * shared dependency information.  Collect data before
-		 * merge_acl_with_grant throws away old_acl.
+		 * 我们需要新旧 ACL 两者的成员，以便修正
+		 * 共享依赖信息。要在 merge_acl_with_grant
+		 * 丢弃 old_acl 之前收集数据。
 		 */
 		noldmembers = aclmembers(old_acl, &oldmembers);
 	}
 	else
 	{
-		/* If no or null entry, start with the default ACL value */
+		/* 若无条目或条目为 null，则以默认 ACL 值开始 */
 		old_acl = aclcopy(def_acl);
-		/* There are no old member roles according to the catalogs */
+		/* 根据目录，没有旧的成员角色 */
 		noldmembers = 0;
 		oldmembers = NULL;
 	}
 
 	/*
-	 * Generate new ACL.  Grantor of rights is always the same as the target
-	 * role.
+	 * 生成新 ACL。权限的授权者始终与目标
+	 * 角色相同。
 	 */
 	new_acl = merge_acl_with_grant(old_acl,
 								   iacls->is_grant,
@@ -1325,23 +1325,23 @@ SetDefaultACL(InternalDefaultACL *iacls)
 								   iacls->roleid);
 
 	/*
-	 * If the result is the same as the default value, we do not need an
-	 * explicit pg_default_acl entry, and should in fact remove the entry if
-	 * it exists.  Must sort both arrays to compare properly.
+	 * 若结果与默认值相同，则不需要显式的
+	 * pg_default_acl 条目，实际上若该条目存在
+	 * 还应将其删除。必须对两个数组排序才能正确比较。
 	 */
 	aclitemsort(new_acl);
 	aclitemsort(def_acl);
 	if (aclequal(new_acl, def_acl))
 	{
-		/* delete old entry, if indeed there is one */
+		/* 若有旧条目，则删除它 */
 		if (!isNew)
 		{
 			ObjectAddress myself;
 
 			/*
-			 * The dependency machinery will take care of removing all
-			 * associated dependency entries.  We use DROP_RESTRICT since
-			 * there shouldn't be anything depending on this entry.
+			 * 依赖机制会负责移除所有
+			 * 关联的依赖条目。我们使用 DROP_RESTRICT，
+			 * 因为不应有任何东西依赖该条目。
 			 */
 			myself.classId = DefaultAclRelationId;
 			myself.objectId = ((Form_pg_default_acl) GETSTRUCT(tuple))->oid;
@@ -1359,7 +1359,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 
 		if (isNew)
 		{
-			/* insert new entry */
+			/* 插入新条目 */
 			defAclOid = GetNewOidWithIndex(rel, DefaultAclOidIndexId,
 										   Anum_pg_default_acl_oid);
 			values[Anum_pg_default_acl_oid - 1] = ObjectIdGetDatum(defAclOid);
@@ -1375,7 +1375,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 		{
 			defAclOid = ((Form_pg_default_acl) GETSTRUCT(tuple))->oid;
 
-			/* update existing entry */
+			/* 更新现有条目 */
 			values[Anum_pg_default_acl_defaclacl - 1] = PointerGetDatum(new_acl);
 			replaces[Anum_pg_default_acl_defaclacl - 1] = true;
 
@@ -1384,14 +1384,14 @@ SetDefaultACL(InternalDefaultACL *iacls)
 			CatalogTupleUpdate(rel, &newtuple->t_self, newtuple);
 		}
 
-		/* these dependencies don't change in an update */
+		/* 更新时这些依赖不变 */
 		if (isNew)
 		{
-			/* dependency on role */
+			/* 对角色依赖 */
 			recordDependencyOnOwner(DefaultAclRelationId, defAclOid,
 									iacls->roleid);
 
-			/* dependency on namespace */
+			/* 对命名空间依赖 */
 			if (OidIsValid(iacls->nspid))
 			{
 				ObjectAddress myself,
@@ -1410,7 +1410,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 		}
 
 		/*
-		 * Update the shared dependency ACL info
+		 * 更新共享依赖 ACL 信息
 		 */
 		nnewmembers = aclmembers(new_acl, &newmembers);
 
@@ -1431,7 +1431,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 
 	table_close(rel, RowExclusiveLock);
 
-	/* prevent error when processing duplicate objects */
+	/* 防止处理重复对象时出错 */
 	CommandCounterIncrement();
 }
 
@@ -1439,7 +1439,7 @@ SetDefaultACL(InternalDefaultACL *iacls)
 /*
  * RemoveRoleFromObjectACL
  *
- * Used by shdepDropOwned to remove mentions of a role in ACLs
+ * 供 shdepDropOwned 用来移除 ACL 中对某个角色的引用
  */
 void
 RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
@@ -1453,7 +1453,7 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 		SysScanDesc scan;
 		HeapTuple	tuple;
 
-		/* first fetch info needed by SetDefaultACL */
+		/* 先获取 SetDefaultACL 所需的信息 */
 		rel = table_open(DefaultAclRelationId, AccessShareLock);
 
 		ScanKeyInit(&skey[0],
@@ -1492,7 +1492,7 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 				iacls.objtype = OBJECT_SCHEMA;
 				break;
 			default:
-				/* Shouldn't get here */
+				/* 不应到达此处 */
 				elog(ERROR, "unexpected default ACL type: %d",
 					 (int) pg_default_acl_tuple->defaclobjtype);
 				break;
@@ -1508,7 +1508,7 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 		iacls.grant_option = false;
 		iacls.behavior = DROP_CASCADE;
 
-		/* Do it */
+		/* 执行 */
 		SetDefaultACL(&iacls);
 	}
 	else
@@ -1518,7 +1518,7 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 		switch (classid)
 		{
 			case RelationRelationId:
-				/* it's OK to use TABLE for a sequence */
+				/* 对序列使用 TABLE 是可以的 */
 				istmt.objtype = OBJECT_TABLE;
 				break;
 			case DatabaseRelationId:
@@ -1572,9 +1572,9 @@ RemoveRoleFromObjectACL(Oid roleid, Oid classid, Oid objid)
 /*
  * expand_col_privileges
  *
- * OR the specified privilege(s) into per-column array entries for each
- * specified attribute.  The per-column array is indexed starting at
- * FirstLowInvalidHeapAttributeNumber, up to relation's last attribute.
+ * 把指定的权限按位或进每个指定属性对应的
+ * 按列数组项中。该按列数组的索引从
+ * FirstLowInvalidHeapAttributeNumber 开始，直到关系的最后一个属性。
  */
 static void
 expand_col_privileges(List *colnames, Oid table_oid,
@@ -1597,7 +1597,7 @@ expand_col_privileges(List *colnames, Oid table_oid,
 							colname, get_rel_name(table_oid))));
 		attnum -= FirstLowInvalidHeapAttributeNumber;
 		if (attnum <= 0 || attnum >= num_col_privileges)
-			elog(ERROR, "column number out of range");	/* safety check */
+			elog(ERROR, "column number out of range");	/* 安全检查 */
 		col_privileges[attnum] |= this_privileges;
 	}
 }
@@ -1605,9 +1605,9 @@ expand_col_privileges(List *colnames, Oid table_oid,
 /*
  * expand_all_col_privileges
  *
- * OR the specified privilege(s) into per-column array entries for each valid
- * attribute of a relation.  The per-column array is indexed starting at
- * FirstLowInvalidHeapAttributeNumber, up to relation's last attribute.
+ * 把指定的权限按位或进关系每个有效属性对应的
+ * 按列数组项中。该按列数组的索引从
+ * FirstLowInvalidHeapAttributeNumber 开始，直到关系的最后一个属性。
  */
 static void
 expand_all_col_privileges(Oid table_oid, Form_pg_class classForm,
@@ -1628,7 +1628,7 @@ expand_all_col_privileges(Oid table_oid, Form_pg_class classForm,
 		if (curr_att == InvalidAttrNumber)
 			continue;
 
-		/* Views don't have any system columns at all */
+		/* 视图根本没有系统列 */
 		if (classForm->relkind == RELKIND_VIEW && curr_att < 0)
 			continue;
 
@@ -1643,7 +1643,7 @@ expand_all_col_privileges(Oid table_oid, Form_pg_class classForm,
 
 		ReleaseSysCache(attTuple);
 
-		/* ignore dropped columns */
+		/* 忽略已删除的列 */
 		if (isdropped)
 			continue;
 
@@ -1652,8 +1652,8 @@ expand_all_col_privileges(Oid table_oid, Form_pg_class classForm,
 }
 
 /*
- *	This processes attributes, but expects to be called from
- *	ExecGrant_Relation, not directly from ExecuteGrantStmt.
+ *	这里处理属性，但预期由 ExecGrant_Relation
+ *	调用，而不是直接由 ExecuteGrantStmt 调用。
  */
 static void
 ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
@@ -1688,34 +1688,34 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 	pg_attribute_tuple = (Form_pg_attribute) GETSTRUCT(attr_tuple);
 
 	/*
-	 * Get working copy of existing ACL. If there's no ACL, substitute the
-	 * proper default.
+	 * 获取现有 ACL 的工作副本。若没有 ACL，则替换为
+	 * 适当的默认值。
 	 */
 	aclDatum = SysCacheGetAttr(ATTNUM, attr_tuple, Anum_pg_attribute_attacl,
 							   &isNull);
 	if (isNull)
 	{
 		old_acl = acldefault(OBJECT_COLUMN, ownerId);
-		/* There are no old member roles according to the catalogs */
+		/* 根据目录，没有旧的成员角色 */
 		noldmembers = 0;
 		oldmembers = NULL;
 	}
 	else
 	{
 		old_acl = DatumGetAclPCopy(aclDatum);
-		/* Get the roles mentioned in the existing ACL */
+		/* 获取现有 ACL 中提到的角色 */
 		noldmembers = aclmembers(old_acl, &oldmembers);
 	}
 
 	/*
-	 * In select_best_grantor we should consider existing table-level ACL bits
-	 * as well as the per-column ACL.  Build a new ACL that is their
-	 * concatenation.  (This is a bit cheap and dirty compared to merging them
-	 * properly with no duplications, but it's all we need here.)
+	 * 在 select_best_grantor 中，我们应考虑现有的表级 ACL 位
+	 * 以及按列 ACL。构造一个新 ACL，作为二者的
+	 * 拼接。（与无重复地正确合并相比这有点
+	 * 粗劣，但这正是我们此处所需的。）
 	 */
 	merged_acl = aclconcat(old_rel_acl, old_acl);
 
-	/* Determine ID to do the grant as, and available grant options */
+	/* 确定以哪个 ID 执行授权，以及可用的授权选项 */
 	select_best_grantor(GetUserId(), col_privileges,
 						merged_acl, ownerId,
 						&grantorId, &avail_goptions);
@@ -1723,12 +1723,12 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 	pfree(merged_acl);
 
 	/*
-	 * Restrict the privileges to what we can actually grant, and emit the
-	 * standards-mandated warning and error messages.  Note: we don't track
-	 * whether the user actually used the ALL PRIVILEGES(columns) syntax for
-	 * each column; we just approximate it by whether all the possible
-	 * privileges are specified now.  Since the all_privs flag only determines
-	 * whether a warning is issued, this seems close enough.
+	 * 把权限限制为我们实际能授予的部分，并发出
+	 * 标准要求的警告和错误消息。注意：我们不追踪
+	 * 用户是否对每列实际使用了 ALL PRIVILEGES(columns)
+	 * 语法；我们只是根据当前是否指定了所有可能的
+	 * 权限来近似判断。由于 all_privs 标志只决定
+	 * 是否发出警告，这样近似似乎足够。
 	 */
 	col_privileges =
 		restrict_and_check_grant(istmt->is_grant, avail_goptions,
@@ -1739,7 +1739,7 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 								 NameStr(pg_attribute_tuple->attname));
 
 	/*
-	 * Generate new ACL.
+	 * 生成新 ACL。
 	 */
 	new_acl = merge_acl_with_grant(old_acl, istmt->is_grant,
 								   istmt->grant_option,
@@ -1748,19 +1748,19 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 								   ownerId);
 
 	/*
-	 * We need the members of both old and new ACLs so we can correct the
-	 * shared dependency information.
+	 * 我们需要新旧 ACL 两者的成员，以便修正
+	 * 共享依赖信息。
 	 */
 	nnewmembers = aclmembers(new_acl, &newmembers);
 
-	/* finished building new ACL value, now insert it */
+	/* 新 ACL 值已构建完成，现在插入它 */
 
 	/*
-	 * If the updated ACL is empty, we can set attacl to null, and maybe even
-	 * avoid an update of the pg_attribute row.  This is worth testing because
-	 * we'll come through here multiple times for any relation-level REVOKE,
-	 * even if there were never any column GRANTs.  Note we are assuming that
-	 * the "default" ACL state for columns is empty.
+	 * 若更新后的 ACL 为空，我们可以把 attacl 置为 null，甚至
+	 * 可以避免更新 pg_attribute 行。这值得测试，因为
+	 * 对任何关系级 REVOKE，我们会多次经过这里，
+	 * 即使从未有过任何列 GRANT。注意我们假定列的
+	 * "default" ACL 状态为空。
 	 */
 	if (ACL_NUM(new_acl) > 0)
 	{
@@ -1781,11 +1781,11 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 
 		CatalogTupleUpdate(attRelation, &newtuple->t_self, newtuple);
 
-		/* Update initial privileges for extensions */
+		/* 更新扩展的初始权限 */
 		recordExtensionInitPriv(relOid, RelationRelationId, attnum,
 								ACL_NUM(new_acl) > 0 ? new_acl : NULL);
 
-		/* Update the shared dependency ACL info */
+		/* 更新共享依赖 ACL 信息 */
 		updateAclDependencies(RelationRelationId, relOid, attnum,
 							  ownerId,
 							  noldmembers, oldmembers,
@@ -1798,7 +1798,7 @@ ExecGrant_Attribute(InternalGrant *istmt, Oid relOid, const char *relname,
 }
 
 /*
- *	This processes both sequences and non-sequences.
+ *	这里同时处理序列和非序列。
  */
 static void
 ExecGrant_Relation(InternalGrant *istmt)
@@ -1833,7 +1833,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 			elog(ERROR, "cache lookup failed for relation %u", relOid);
 		pg_class_tuple = (Form_pg_class) GETSTRUCT(tuple);
 
-		/* Not sensible to grant on an index */
+		/* 在索引上授权没有意义 */
 		if (pg_class_tuple->relkind == RELKIND_INDEX ||
 			pg_class_tuple->relkind == RELKIND_PARTITIONED_INDEX)
 			ereport(ERROR,
@@ -1841,14 +1841,14 @@ ExecGrant_Relation(InternalGrant *istmt)
 					 errmsg("\"%s\" is an index",
 							NameStr(pg_class_tuple->relname))));
 
-		/* Composite types aren't tables either */
+		/* 复合类型也不是表 */
 		if (pg_class_tuple->relkind == RELKIND_COMPOSITE_TYPE)
 			ereport(ERROR,
 					(errcode(ERRCODE_WRONG_OBJECT_TYPE),
 					 errmsg("\"%s\" is a composite type",
 							NameStr(pg_class_tuple->relname))));
 
-		/* Used GRANT SEQUENCE on a non-sequence? */
+		/* 在非序列上使用了 GRANT SEQUENCE？ */
 		if (istmt->objtype == OBJECT_SEQUENCE &&
 			pg_class_tuple->relkind != RELKIND_SEQUENCE)
 			ereport(ERROR,
@@ -1856,7 +1856,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 					 errmsg("\"%s\" is not a sequence",
 							NameStr(pg_class_tuple->relname))));
 
-		/* Adjust the default permissions based on object type */
+		/* 根据对象类型调整默认权限 */
 		if (istmt->all_privs && istmt->privileges == ACL_NO_RIGHTS)
 		{
 			if (pg_class_tuple->relkind == RELKIND_SEQUENCE)
@@ -1868,26 +1868,26 @@ ExecGrant_Relation(InternalGrant *istmt)
 			this_privileges = istmt->privileges;
 
 		/*
-		 * The GRANT TABLE syntax can be used for sequences and non-sequences,
-		 * so we have to look at the relkind to determine the supported
-		 * permissions.  The OR of table and sequence permissions were already
-		 * checked.
+		 * GRANT TABLE 语法可用于序列和非序列，
+		 * 因此我们必须查看 relkind 以确定所支持的
+		 * 权限。表权限与序列权限的按位或已经
+		 * 检查过了。
 		 */
 		if (istmt->objtype == OBJECT_TABLE)
 		{
 			if (pg_class_tuple->relkind == RELKIND_SEQUENCE)
 			{
 				/*
-				 * For backward compatibility, just throw a warning for
-				 * invalid sequence permissions when using the non-sequence
-				 * GRANT syntax.
+				 * 为向后兼容，在使用非序列
+				 * GRANT 语法时，对无效的序列权限
+				 * 仅发出警告。
 				 */
 				if (this_privileges & ~((AclMode) ACL_ALL_RIGHTS_SEQUENCE))
 				{
 					/*
-					 * Mention the object name because the user needs to know
-					 * which operations succeeded.  This is required because
-					 * WARNING allows the command to continue.
+					 * 指出对象名，因为用户需要知道
+					 * 哪些操作成功了。这是必需的，因为
+					 * WARNING 允许命令继续执行。
 					 */
 					ereport(WARNING,
 							(errcode(ERRCODE_INVALID_GRANT_OPERATION),
@@ -1901,10 +1901,10 @@ ExecGrant_Relation(InternalGrant *istmt)
 				if (this_privileges & ~((AclMode) ACL_ALL_RIGHTS_RELATION))
 				{
 					/*
-					 * USAGE is the only permission supported by sequences but
-					 * not by non-sequences.  Don't mention the object name
-					 * because we didn't in the combined TABLE | SEQUENCE
-					 * check.
+					 * USAGE 是序列支持而非序列不支持的唯一
+					 * 权限。不要指出对象名，
+					 * 因为我们在 TABLE | SEQUENCE 组合
+					 * 检查中也没有指出。
 					 */
 					ereport(ERROR,
 							(errcode(ERRCODE_INVALID_GRANT_OPERATION),
@@ -1915,20 +1915,20 @@ ExecGrant_Relation(InternalGrant *istmt)
 		}
 
 		/*
-		 * Set up array in which we'll accumulate any column privilege bits
-		 * that need modification.  The array is indexed such that entry [0]
-		 * corresponds to FirstLowInvalidHeapAttributeNumber.
+		 * 建立数组，用于累积需要修改的任何列权限
+		 * 位。该数组的索引方式使得项 [0]
+		 * 对应 FirstLowInvalidHeapAttributeNumber。
 		 */
 		num_col_privileges = pg_class_tuple->relnatts - FirstLowInvalidHeapAttributeNumber + 1;
 		col_privileges = (AclMode *) palloc0(num_col_privileges * sizeof(AclMode));
 		have_col_privileges = false;
 
 		/*
-		 * If we are revoking relation privileges that are also column
-		 * privileges, we must implicitly revoke them from each column too,
-		 * per SQL spec.  (We don't need to implicitly add column privileges
-		 * during GRANT because the permissions-checking code always checks
-		 * both relation and per-column privileges.)
+		 * 若我们撤销的关系权限同时也是列
+		 * 权限，则按 SQL 标准，我们必须隐式地从每列
+		 * 也撤销它们。（在 GRANT 期间我们无需隐式添加
+		 * 列权限，因为权限检查代码始终会检查
+		 * 关系权限和按列权限两者。）
 		 */
 		if (!istmt->is_grant &&
 			(this_privileges & ACL_ALL_RIGHTS_COLUMN) != 0)
@@ -1941,8 +1941,8 @@ ExecGrant_Relation(InternalGrant *istmt)
 		}
 
 		/*
-		 * Get owner ID and working copy of existing ACL. If there's no ACL,
-		 * substitute the proper default.
+		 * 获取现有 ACL 的工作副本。若没有 ACL，则替换为
+		 * 适当的默认值。
 		 */
 		ownerId = pg_class_tuple->relowner;
 		aclDatum = SysCacheGetAttr(RELOID, tuple, Anum_pg_class_relacl,
@@ -1958,22 +1958,22 @@ ExecGrant_Relation(InternalGrant *istmt)
 					old_acl = acldefault(OBJECT_TABLE, ownerId);
 					break;
 			}
-			/* There are no old member roles according to the catalogs */
+			/* 根据目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
 		else
 		{
 			old_acl = DatumGetAclPCopy(aclDatum);
-			/* Get the roles mentioned in the existing ACL */
+			/* 获取现有 ACL 中提到的角色 */
 			noldmembers = aclmembers(old_acl, &oldmembers);
 		}
 
-		/* Need an extra copy of original rel ACL for column handling */
+		/* 需要为列处理保留一份原始关系 ACL 的副本 */
 		old_rel_acl = aclcopy(old_acl);
 
 		/*
-		 * Handle relation-level privileges, if any were specified
+		 * 处理关系级权限（若有指定）
 		 */
 		if (this_privileges != ACL_NO_RIGHTS)
 		{
@@ -1988,7 +1988,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 			Oid		   *newmembers;
 			ObjectType	objtype;
 
-			/* Determine ID to do the grant as, and available grant options */
+			/* 确定以哪个 ID 执行授权，以及可用的授权选项 */
 			select_best_grantor(GetUserId(), this_privileges,
 								old_acl, ownerId,
 								&grantorId, &avail_goptions);
@@ -2004,8 +2004,8 @@ ExecGrant_Relation(InternalGrant *istmt)
 			}
 
 			/*
-			 * Restrict the privileges to what we can actually grant, and emit
-			 * the standards-mandated warning and error messages.
+			 * 把权限限制为我们实际能授予的部分，
+			 * 并发出标准要求的警告和错误消息。
 			 */
 			this_privileges =
 				restrict_and_check_grant(istmt->is_grant, avail_goptions,
@@ -2015,7 +2015,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 										 0, NULL);
 
 			/*
-			 * Generate new ACL.
+			 * 生成新 ACL。
 			 */
 			new_acl = merge_acl_with_grant(old_acl,
 										   istmt->is_grant,
@@ -2027,12 +2027,12 @@ ExecGrant_Relation(InternalGrant *istmt)
 										   ownerId);
 
 			/*
-			 * We need the members of both old and new ACLs so we can correct
-			 * the shared dependency information.
+			 * 我们需要新旧 ACL 两者的成员，以便修正
+			 * 共享依赖信息。
 			 */
 			nnewmembers = aclmembers(new_acl, &newmembers);
 
-			/* finished building new ACL value, now insert it */
+			/* 新 ACL 值已构建完成，现在插入它 */
 			replaces[Anum_pg_class_relacl - 1] = true;
 			values[Anum_pg_class_relacl - 1] = PointerGetDatum(new_acl);
 
@@ -2042,10 +2042,10 @@ ExecGrant_Relation(InternalGrant *istmt)
 			CatalogTupleUpdate(relation, &newtuple->t_self, newtuple);
 			UnlockTuple(relation, &tuple->t_self, InplaceUpdateTupleLock);
 
-			/* Update initial privileges for extensions */
+			/* 更新扩展的初始权限 */
 			recordExtensionInitPriv(relOid, RelationRelationId, 0, new_acl);
 
-			/* Update the shared dependency ACL info */
+			/* 更新共享依赖 ACL 信息 */
 			updateAclDependencies(RelationRelationId, relOid, 0,
 								  ownerId,
 								  noldmembers, oldmembers,
@@ -2057,9 +2057,9 @@ ExecGrant_Relation(InternalGrant *istmt)
 			UnlockTuple(relation, &tuple->t_self, InplaceUpdateTupleLock);
 
 		/*
-		 * Handle column-level privileges, if any were specified or implied.
-		 * We first expand the user-specified column privileges into the
-		 * array, and then iterate over all nonempty array entries.
+		 * 处理列级权限（若有指定或隐含）。
+		 * 我们先把用户指定的列权限展开到
+		 * 数组中，然后遍历所有非空数组项。
 		 */
 		foreach(cell_colprivs, istmt->col_privs)
 		{
@@ -2080,9 +2080,9 @@ ExecGrant_Relation(InternalGrant *istmt)
 				this_privileges & ~((AclMode) ACL_SELECT))
 			{
 				/*
-				 * The only column privilege allowed on sequences is SELECT.
-				 * This is a warning not error because we do it that way for
-				 * relation-level privileges.
+				 * 序列上唯一允许的列权限是 SELECT。
+				 * 这是警告而非错误，因为我们
+				 * 对关系级权限也是这样做的。
 				 */
 				ereport(WARNING,
 						(errcode(ERRCODE_INVALID_GRANT_OPERATION),
@@ -2123,7 +2123,7 @@ ExecGrant_Relation(InternalGrant *istmt)
 
 		ReleaseSysCache(tuple);
 
-		/* prevent error when processing duplicate objects */
+		/* 防止处理重复对象时出错 */
 		CommandCounterIncrement();
 	}
 
@@ -2173,14 +2173,14 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 			elog(ERROR, "cache lookup failed for %s %u", get_object_class_descr(classid), objectid);
 
 		/*
-		 * Additional object-type-specific checks
+		 * 针对特定对象类型的附加检查
 		 */
 		if (object_check)
 			object_check(istmt, tuple);
 
 		/*
-		 * Get owner ID and working copy of existing ACL. If there's no ACL,
-		 * substitute the proper default.
+		 * 获取现有 ACL 的工作副本。若没有 ACL，则替换为
+		 * 适当的默认值。
 		 */
 		ownerId = DatumGetObjectId(SysCacheGetAttrNotNull(cacheid,
 														  tuple,
@@ -2192,18 +2192,18 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 		if (isNull)
 		{
 			old_acl = acldefault(get_object_type(classid, objectid), ownerId);
-			/* There are no old member roles according to the catalogs */
+			/* 根据目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
 		else
 		{
 			old_acl = DatumGetAclPCopy(aclDatum);
-			/* Get the roles mentioned in the existing ACL */
+			/* 获取现有 ACL 中提到的角色 */
 			noldmembers = aclmembers(old_acl, &oldmembers);
 		}
 
-		/* Determine ID to do the grant as, and available grant options */
+		/* 确定以哪个 ID 执行授权，以及可用的授权选项 */
 		select_best_grantor(GetUserId(), istmt->privileges,
 							old_acl, ownerId,
 							&grantorId, &avail_goptions);
@@ -2212,8 +2212,8 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 										   get_object_attnum_name(classid));
 
 		/*
-		 * Restrict the privileges to what we can actually grant, and emit the
-		 * standards-mandated warning and error messages.
+		 * 把权限限制为我们实际能授予的部分，
+		 * 并发出标准要求的警告和错误消息。
 		 */
 		this_privileges =
 			restrict_and_check_grant(istmt->is_grant, avail_goptions,
@@ -2223,7 +2223,7 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 									 0, NULL);
 
 		/*
-		 * Generate new ACL.
+		 * 生成新 ACL。
 		 */
 		new_acl = merge_acl_with_grant(old_acl, istmt->is_grant,
 									   istmt->grant_option, istmt->behavior,
@@ -2231,12 +2231,12 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 									   grantorId, ownerId);
 
 		/*
-		 * We need the members of both old and new ACLs so we can correct the
-		 * shared dependency information.
+		 * 我们需要新旧 ACL 两者的成员，以便修正
+		 * 共享依赖信息。
 		 */
 		nnewmembers = aclmembers(new_acl, &newmembers);
 
-		/* finished building new ACL value, now insert it */
+		/* 新 ACL 值已构建完成，现在插入它 */
 		replaces[get_object_attnum_acl(classid) - 1] = true;
 		values[get_object_attnum_acl(classid) - 1] = PointerGetDatum(new_acl);
 
@@ -2246,10 +2246,10 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 		CatalogTupleUpdate(relation, &newtuple->t_self, newtuple);
 		UnlockTuple(relation, &tuple->t_self, InplaceUpdateTupleLock);
 
-		/* Update initial privileges for extensions */
+		/* 更新扩展的初始权限 */
 		recordExtensionInitPriv(objectid, classid, 0, new_acl);
 
-		/* Update the shared dependency ACL info */
+		/* 更新共享依赖 ACL 信息 */
 		updateAclDependencies(classid,
 							  objectid, 0,
 							  ownerId,
@@ -2260,7 +2260,7 @@ ExecGrant_common(InternalGrant *istmt, Oid classid, AclMode default_privs,
 
 		pfree(new_acl);
 
-		/* prevent error when processing duplicate objects */
+		/* 防止处理重复对象时出错 */
 		CommandCounterIncrement();
 	}
 
@@ -2320,7 +2320,7 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 		SysScanDesc scan;
 		HeapTuple	tuple;
 
-		/* There's no syscache for pg_largeobject_metadata */
+		/* pg_largeobject_metadata 没有系统缓存 */
 		ScanKeyInit(&entry[0],
 					Anum_pg_largeobject_metadata_oid,
 					BTEqualStrategyNumber, F_OIDEQ,
@@ -2337,8 +2337,8 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 		form_lo_meta = (Form_pg_largeobject_metadata) GETSTRUCT(tuple);
 
 		/*
-		 * Get owner ID and working copy of existing ACL. If there's no ACL,
-		 * substitute the proper default.
+		 * 获取现有 ACL 的工作副本。若没有 ACL，则替换为
+		 * 适当的默认值。
 		 */
 		ownerId = form_lo_meta->lomowner;
 		aclDatum = heap_getattr(tuple,
@@ -2347,25 +2347,25 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 		if (isNull)
 		{
 			old_acl = acldefault(OBJECT_LARGEOBJECT, ownerId);
-			/* There are no old member roles according to the catalogs */
+			/* 根据目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
 		else
 		{
 			old_acl = DatumGetAclPCopy(aclDatum);
-			/* Get the roles mentioned in the existing ACL */
+			/* 获取现有 ACL 中提到的角色 */
 			noldmembers = aclmembers(old_acl, &oldmembers);
 		}
 
-		/* Determine ID to do the grant as, and available grant options */
+		/* 确定以哪个 ID 执行授权，以及可用的授权选项 */
 		select_best_grantor(GetUserId(), istmt->privileges,
 							old_acl, ownerId,
 							&grantorId, &avail_goptions);
 
 		/*
-		 * Restrict the privileges to what we can actually grant, and emit the
-		 * standards-mandated warning and error messages.
+		 * 把权限限制为我们实际能授予的部分，
+		 * 并发出标准要求的警告和错误消息。
 		 */
 		snprintf(loname, sizeof(loname), "large object %u", loid);
 		this_privileges =
@@ -2375,7 +2375,7 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 									 loname, 0, NULL);
 
 		/*
-		 * Generate new ACL.
+		 * 生成新 ACL。
 		 */
 		new_acl = merge_acl_with_grant(old_acl, istmt->is_grant,
 									   istmt->grant_option, istmt->behavior,
@@ -2383,12 +2383,12 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 									   grantorId, ownerId);
 
 		/*
-		 * We need the members of both old and new ACLs so we can correct the
-		 * shared dependency information.
+		 * 我们需要新旧 ACL 两者的成员，以便修正
+		 * 共享依赖信息。
 		 */
 		nnewmembers = aclmembers(new_acl, &newmembers);
 
-		/* finished building new ACL value, now insert it */
+		/* 新 ACL 值已构建完成，现在插入它 */
 		replaces[Anum_pg_largeobject_metadata_lomacl - 1] = true;
 		values[Anum_pg_largeobject_metadata_lomacl - 1]
 			= PointerGetDatum(new_acl);
@@ -2398,10 +2398,10 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 
 		CatalogTupleUpdate(relation, &newtuple->t_self, newtuple);
 
-		/* Update initial privileges for extensions */
+		/* 更新扩展的初始权限 */
 		recordExtensionInitPriv(loid, LargeObjectRelationId, 0, new_acl);
 
-		/* Update the shared dependency ACL info */
+		/* 更新共享依赖 ACL 信息 */
 		updateAclDependencies(LargeObjectRelationId,
 							  form_lo_meta->oid, 0,
 							  ownerId,
@@ -2412,7 +2412,7 @@ ExecGrant_Largeobject(InternalGrant *istmt)
 
 		pfree(new_acl);
 
-		/* prevent error when processing duplicate objects */
+		/* 防止处理重复对象时出错 */
 		CommandCounterIncrement();
 	}
 
@@ -2432,7 +2432,7 @@ ExecGrant_Type_check(InternalGrant *istmt, HeapTuple tuple)
 				 errmsg("cannot set privileges of array types"),
 				 errhint("Set the privileges of the element type instead.")));
 
-	/* Used GRANT DOMAIN on a non-domain? */
+	/* 在非域上使用了 GRANT DOMAIN？ */
 	if (istmt->objtype == OBJECT_DOMAIN &&
 		pg_type_tuple->typtype != TYPTYPE_DOMAIN)
 		ereport(ERROR,
@@ -2476,17 +2476,17 @@ ExecGrant_Parameter(InternalGrant *istmt)
 			elog(ERROR, "cache lookup failed for parameter ACL %u",
 				 parameterId);
 
-		/* We'll need the GUC's name */
+		/* 我们需要 GUC 的名称 */
 		nameDatum = SysCacheGetAttrNotNull(PARAMETERACLOID, tuple,
 										   Anum_pg_parameter_acl_parname);
 		parname = TextDatumGetCString(nameDatum);
 
-		/* Treat all parameters as belonging to the bootstrap superuser. */
+		/* 将所有参数视为属于 bootstrap 超级用户。 */
 		ownerId = BOOTSTRAP_SUPERUSERID;
 
 		/*
-		 * Get working copy of existing ACL. If there's no ACL, substitute the
-		 * proper default.
+		 * 获取现有 ACL 的工作副本。若没有 ACL，则替换为
+		 * 适当的默认值。
 		 */
 		aclDatum = SysCacheGetAttr(PARAMETERACLOID, tuple,
 								   Anum_pg_parameter_acl_paracl,
@@ -2495,25 +2495,25 @@ ExecGrant_Parameter(InternalGrant *istmt)
 		if (isNull)
 		{
 			old_acl = acldefault(istmt->objtype, ownerId);
-			/* There are no old member roles according to the catalogs */
+			/* 根据目录，没有旧的成员角色 */
 			noldmembers = 0;
 			oldmembers = NULL;
 		}
 		else
 		{
 			old_acl = DatumGetAclPCopy(aclDatum);
-			/* Get the roles mentioned in the existing ACL */
+			/* 获取现有 ACL 中提到的角色 */
 			noldmembers = aclmembers(old_acl, &oldmembers);
 		}
 
-		/* Determine ID to do the grant as, and available grant options */
+		/* 确定以哪个 ID 执行授权，以及可用的授权选项 */
 		select_best_grantor(GetUserId(), istmt->privileges,
 							old_acl, ownerId,
 							&grantorId, &avail_goptions);
 
 		/*
-		 * Restrict the privileges to what we can actually grant, and emit the
-		 * standards-mandated warning and error messages.
+		 * 把权限限制为我们实际能授予的部分，
+		 * 并发出标准要求的警告和错误消息。
 		 */
 		this_privileges =
 			restrict_and_check_grant(istmt->is_grant, avail_goptions,
@@ -2524,7 +2524,7 @@ ExecGrant_Parameter(InternalGrant *istmt)
 									 0, NULL);
 
 		/*
-		 * Generate new ACL.
+		 * 生成新 ACL。
 		 */
 		new_acl = merge_acl_with_grant(old_acl, istmt->is_grant,
 									   istmt->grant_option, istmt->behavior,
@@ -2532,15 +2532,15 @@ ExecGrant_Parameter(InternalGrant *istmt)
 									   grantorId, ownerId);
 
 		/*
-		 * We need the members of both old and new ACLs so we can correct the
-		 * shared dependency information.
+		 * 我们需要新旧 ACL 两者的成员，以便修正
+		 * 共享依赖信息。
 		 */
 		nnewmembers = aclmembers(new_acl, &newmembers);
 
 		/*
-		 * If the new ACL is equal to the default, we don't need the catalog
-		 * entry any longer.  Delete it rather than updating it, to avoid
-		 * leaving a degenerate entry.
+		 * 若新 ACL 等于默认值，我们就不再需要该目录
+		 * 条目。应删除它而不是更新它，以避免
+		 * 留下退化的条目。
 		 */
 		if (aclequal(new_acl, acldefault(istmt->objtype, ownerId)))
 		{
@@ -2548,7 +2548,7 @@ ExecGrant_Parameter(InternalGrant *istmt)
 		}
 		else
 		{
-			/* finished building new ACL value, now insert it */
+			/* 新 ACL 值已构建完成，现在插入它 */
 			HeapTuple	newtuple;
 			Datum		values[Natts_pg_parameter_acl] = {0};
 			bool		nulls[Natts_pg_parameter_acl] = {0};
@@ -2563,11 +2563,11 @@ ExecGrant_Parameter(InternalGrant *istmt)
 			CatalogTupleUpdate(relation, &newtuple->t_self, newtuple);
 		}
 
-		/* Update initial privileges for extensions */
+		/* 更新扩展的初始权限 */
 		recordExtensionInitPriv(parameterId, ParameterAclRelationId, 0,
 								new_acl);
 
-		/* Update the shared dependency ACL info */
+		/* 更新共享依赖 ACL 信息 */
 		updateAclDependencies(ParameterAclRelationId, parameterId, 0,
 							  ownerId,
 							  noldmembers, oldmembers,
@@ -2576,7 +2576,7 @@ ExecGrant_Parameter(InternalGrant *istmt)
 		ReleaseSysCache(tuple);
 		pfree(new_acl);
 
-		/* prevent error when processing duplicate objects */
+		/* 防止处理重复对象时出错 */
 		CommandCounterIncrement();
 	}
 
@@ -2618,11 +2618,11 @@ string_to_privilege(const char *privname)
 	if (strcmp(privname, "alter system") == 0)
 		return ACL_ALTER_SYSTEM;
 	if (strcmp(privname, "rule") == 0)
-		return 0;				/* ignore old RULE privileges */
+		return 0;				/* 忽略旧的 RULE 权限 */
 	ereport(ERROR,
 			(errcode(ERRCODE_SYNTAX_ERROR),
 			 errmsg("unrecognized privilege type \"%s\"", privname)));
-	return 0;					/* appease compiler */
+	return 0;					/* 安抚编译器 */
 }
 
 static const char *
@@ -2661,14 +2661,14 @@ privilege_to_string(AclMode privilege)
 		default:
 			elog(ERROR, "unrecognized privilege: %d", (int) privilege);
 	}
-	return NULL;				/* appease compiler */
+	return NULL;				/* 安抚编译器 */
 }
 
 /*
- * Standardized reporting of aclcheck permissions failures.
+ * aclcheck 权限失败的标准报告。
  *
- * Note: we do not double-quote the %s's below, because many callers
- * supply strings that might be already quoted.
+ * 注意：我们不给下面的 %s 加双引号，因为许多调用者
+ * 提供的字符串可能已经带引号。
  */
 void
 aclcheck_error(AclResult aclerr, ObjectType objtype,
@@ -2677,7 +2677,7 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 	switch (aclerr)
 	{
 		case ACLCHECK_OK:
-			/* no error, so return to caller */
+			/* 无错误，返回给调用者 */
 			break;
 		case ACLCHECK_NO_PRIV:
 			{
@@ -2787,7 +2787,7 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 					case OBJECT_VIEW:
 						msg = gettext_noop("permission denied for view %s");
 						break;
-						/* these currently aren't used */
+						/* 这些目前未被使用 */
 					case OBJECT_ACCESS_METHOD:
 					case OBJECT_AMOP:
 					case OBJECT_AMPROC:
@@ -2915,10 +2915,10 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 						break;
 
 						/*
-						 * Special cases: For these, the error message talks
-						 * about "relation", because that's where the
-						 * ownership is attached.  See also
-						 * check_object_ownership().
+						 * 特殊情况：对这些情况，错误消息谈论的是
+						 * "relation"，因为所有权就附加在
+						 * 关系上。另见
+						 * check_object_ownership()。
 						 */
 					case OBJECT_COLUMN:
 					case OBJECT_POLICY:
@@ -2927,7 +2927,7 @@ aclcheck_error(AclResult aclerr, ObjectType objtype,
 					case OBJECT_TRIGGER:
 						msg = gettext_noop("must be owner of relation %s");
 						break;
-						/* these currently aren't used */
+						/* 这些目前未被使用 */
 					case OBJECT_ACCESS_METHOD:
 					case OBJECT_AMOP:
 					case OBJECT_AMPROC:
@@ -2966,7 +2966,7 @@ aclcheck_error_col(AclResult aclerr, ObjectType objtype,
 	switch (aclerr)
 	{
 		case ACLCHECK_OK:
-			/* no error, so return to caller */
+			/* 无错误，返回给调用者 */
 			break;
 		case ACLCHECK_NO_PRIV:
 			ereport(ERROR,
@@ -2975,7 +2975,7 @@ aclcheck_error_col(AclResult aclerr, ObjectType objtype,
 							colname, objectname)));
 			break;
 		case ACLCHECK_NOT_OWNER:
-			/* relation msg is OK since columns don't have separate owners */
+			/* 使用 relation 消息没问题，因为列没有单独的所有者 */
 			aclcheck_error(aclerr, objtype, objectname);
 			break;
 		default:
@@ -2986,8 +2986,8 @@ aclcheck_error_col(AclResult aclerr, ObjectType objtype,
 
 
 /*
- * Special common handling for types: use element type instead of array type,
- * and format nicely
+ * 针对类型的特殊通用处理：使用元素类型而不是数组类型，
+ * 并整齐地格式化
  */
 void
 aclcheck_error_type(AclResult aclerr, Oid typeOid)
@@ -2999,7 +2999,7 @@ aclcheck_error_type(AclResult aclerr, Oid typeOid)
 
 
 /*
- * Relay for the various pg_*_mask routines depending on object kind
+ * 根据对象种类转发到各种 pg_*_mask 例程
  */
 static AclMode
 pg_aclmask(ObjectType objtype, Oid object_oid, AttrNumber attnum, Oid roleid,
@@ -3029,7 +3029,7 @@ pg_aclmask(ObjectType objtype, Oid object_oid, AttrNumber attnum, Oid roleid,
 			return object_aclmask(NamespaceRelationId, object_oid, roleid, mask, how);
 		case OBJECT_STATISTIC_EXT:
 			elog(ERROR, "grantable rights not supported for statistics objects");
-			/* not reached, but keep compiler quiet */
+			/* 不会走到这里，但让编译器安静 */
 			return ACL_NO_RIGHTS;
 		case OBJECT_TABLESPACE:
 			return object_aclmask(TableSpaceRelationId, object_oid, roleid, mask, how);
@@ -3039,32 +3039,32 @@ pg_aclmask(ObjectType objtype, Oid object_oid, AttrNumber attnum, Oid roleid,
 			return object_aclmask(ForeignServerRelationId, object_oid, roleid, mask, how);
 		case OBJECT_EVENT_TRIGGER:
 			elog(ERROR, "grantable rights not supported for event triggers");
-			/* not reached, but keep compiler quiet */
+			/* 不会走到这里，但让编译器安静 */
 			return ACL_NO_RIGHTS;
 		case OBJECT_TYPE:
 			return object_aclmask(TypeRelationId, object_oid, roleid, mask, how);
 		default:
 			elog(ERROR, "unrecognized object type: %d",
 				 (int) objtype);
-			/* not reached, but keep compiler quiet */
+			/* 不会走到这里，但让编译器安静 */
 			return ACL_NO_RIGHTS;
 	}
 }
 
 
 /* ****************************************************************
- * Exported routines for examining a user's privileges for various objects
+ * 用于检查用户对各种对象权限的导出例程
  *
- * See aclmask() for a description of the common API for these functions.
+ * 这些函数通用 API 的说明见 aclmask()。
  *
- * Note: we give lookup failure the full ereport treatment because the
- * has_xxx_privilege() family of functions allow users to pass any random
- * OID to these functions.
- * ****************************************************************
+ * 注意：对查找失败我们给予完整的 ereport 处理，因为
+ * has_xxx_privilege() 系列函数允许用户向这些函数
+ * 传入任意 OID。
+ *  ****************************************************************
  */
 
 /*
- * Generic routine for examining a user's privileges for an object
+ * 用于检查用户对对象权限的通用例程
  */
 static AclMode
 object_aclmask(Oid classid, Oid objectid, Oid roleid,
@@ -3078,7 +3078,7 @@ object_aclmask(Oid classid, Oid objectid, Oid roleid,
 	Acl		   *acl;
 	Oid			ownerId;
 
-	/* Special cases */
+	/* 特殊情况 */
 	switch (classid)
 	{
 		case NamespaceRelationId:
@@ -3087,17 +3087,17 @@ object_aclmask(Oid classid, Oid objectid, Oid roleid,
 			return pg_type_aclmask(objectid, roleid, mask, how);
 	}
 
-	/* Even more special cases */
-	Assert(classid != RelationRelationId);	/* should use pg_class_acl* */
-	Assert(classid != LargeObjectMetadataRelationId);	/* should use
+	/* 更特殊的情况 */
+	Assert(classid != RelationRelationId);	/* 应改用 pg_class_acl* */
+	Assert(classid != LargeObjectMetadataRelationId);	/* 应改用
 														 * pg_largeobject_acl* */
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return mask;
 
 	/*
-	 * Get the objects's ACL from its catalog
+	 * 从对象的目录中获取其 ACL
 	 */
 
 	cacheid = get_object_catcache_oid(classid);
@@ -3116,19 +3116,19 @@ object_aclmask(Oid classid, Oid objectid, Oid roleid,
 							   &isNull);
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		acl = acldefault(get_object_type(classid, objectid), ownerId);
 		aclDatum = (Datum) 0;
 	}
 	else
 	{
-		/* detoast ACL if necessary */
+		/* 必要时解 TOAST ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
@@ -3138,12 +3138,12 @@ object_aclmask(Oid classid, Oid objectid, Oid roleid,
 }
 
 /*
- * Routine for examining a user's privileges for a column
+ * 用于检查用户对列权限的例程
  *
- * Note: this considers only privileges granted specifically on the column.
- * It is caller's responsibility to take relation-level privileges into account
- * as appropriate.  (For the same reason, we have no special case for
- * superuser-ness here.)
+ * 注意：这里只考虑专门授予该列的权限。
+ * 调用者有责任在适当时把关系级权限纳入考虑。
+ * （出于同样的原因，我们在这里对超级用户
+ * 身份不做特殊处理。）
  */
 static AclMode
 pg_attribute_aclmask(Oid table_oid, AttrNumber attnum, Oid roleid,
@@ -3174,7 +3174,7 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 	Oid			ownerId;
 
 	/*
-	 * First, get the column's ACL from its pg_attribute entry
+	 * 首先，从列的 pg_attribute 条目获取其 ACL
 	 */
 	attTuple = SearchSysCache2(ATTNUM,
 							   ObjectIdGetDatum(table_oid),
@@ -3183,7 +3183,7 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 	{
 		if (is_missing != NULL)
 		{
-			/* return "no privileges" instead of throwing an error */
+			/* 返回 "no privileges" 而不是抛出错误 */
 			*is_missing = true;
 			return 0;
 		}
@@ -3196,12 +3196,12 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 
 	attributeForm = (Form_pg_attribute) GETSTRUCT(attTuple);
 
-	/* Check dropped columns, too */
+	/* 也检查已删除的列 */
 	if (attributeForm->attisdropped)
 	{
 		if (is_missing != NULL)
 		{
-			/* return "no privileges" instead of throwing an error */
+			/* 返回 "no privileges" 而不是抛出错误 */
 			*is_missing = true;
 			ReleaseSysCache(attTuple);
 			return 0;
@@ -3217,9 +3217,9 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 							   &isNull);
 
 	/*
-	 * Here we hard-wire knowledge that the default ACL for a column grants no
-	 * privileges, so that we can fall out quickly in the very common case
-	 * where attacl is null.
+	 * 这里我们硬编码了这样的认识：列的默认 ACL 不授予任何
+	 * 权限，以便在 attacl 为 null 这一非常常见的
+	 * 情形下快速返回。
 	 */
 	if (isNull)
 	{
@@ -3228,12 +3228,12 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 	}
 
 	/*
-	 * Must get the relation's ownerId from pg_class.  Since we already found
-	 * a pg_attribute entry, the only likely reason for this to fail is that a
-	 * concurrent DROP of the relation committed since then (which could only
-	 * happen if we don't have lock on the relation).  We prefer to report "no
-	 * privileges" rather than failing in such a case, so as to avoid unwanted
-	 * failures in has_column_privilege() tests.
+	 * 必须从 pg_class 获取关系的 ownerId。既然我们已经找到
+	 * 了 pg_attribute 条目，这里最可能的失败原因是
+	 * 此后有并发的 DROP relation 提交了（这只有在我们
+	 * 未持有该关系的锁时才会发生）。这种情况下我们倾向于报告
+	 * "no privileges" 而不是失败，以避免
+	 * has_column_privilege() 测试中出现不想要的失败。
 	 */
 	classTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(table_oid));
 	if (!HeapTupleIsValid(classTuple))
@@ -3247,12 +3247,12 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 
 	ReleaseSysCache(classTuple);
 
-	/* detoast column's ACL if necessary */
+	/* 必要时解 TOAST 列的 ACL */
 	acl = DatumGetAclP(aclDatum);
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
@@ -3262,7 +3262,7 @@ pg_attribute_aclmask_ext(Oid table_oid, AttrNumber attnum, Oid roleid,
 }
 
 /*
- * Exported routine for examining a user's privileges for a table
+ * 用于检查用户对表权限的导出例程
  */
 AclMode
 pg_class_aclmask(Oid table_oid, Oid roleid,
@@ -3272,10 +3272,10 @@ pg_class_aclmask(Oid table_oid, Oid roleid,
 }
 
 /*
- * Routine for examining a user's privileges for a table
+ * 用于检查用户对表权限的例程
  *
- * Does the bulk of the work for pg_class_aclmask(), and allows other
- * callers to avoid the missing relation ERROR when is_missing is non-NULL.
+ * 承担 pg_class_aclmask() 的大部分工作，并允许其他
+ * 调用者在 is_missing 非 NULL 时避免 missing relation ERROR。
  */
 static AclMode
 pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
@@ -3290,14 +3290,14 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	Oid			ownerId;
 
 	/*
-	 * Must get the relation's tuple from pg_class
+	 * 必须从 pg_class 获取关系的元组
 	 */
 	tuple = SearchSysCache1(RELOID, ObjectIdGetDatum(table_oid));
 	if (!HeapTupleIsValid(tuple))
 	{
 		if (is_missing != NULL)
 		{
-			/* return "no privileges" instead of throwing an error */
+			/* 返回 "no privileges" 而不是抛出错误 */
 			*is_missing = true;
 			return 0;
 		}
@@ -3311,12 +3311,12 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	classForm = (Form_pg_class) GETSTRUCT(tuple);
 
 	/*
-	 * Deny anyone permission to update a system catalog unless
-	 * pg_authid.rolsuper is set.
+	 * 除非设置了 pg_authid.rolsuper，否则不允许任何人
+	 * 更新系统目录。
 	 *
-	 * As of 7.4 we have some updatable system views; those shouldn't be
-	 * protected in this way.  Assume the view rules can take care of
-	 * themselves.  ACL_USAGE is if we ever have system sequences.
+	 * 自 7.4 起我们有一些可更新的系统视图；那些不应
+	 * 以这种方式保护。假定视图规则能自行
+	 * 处理。ACL_USAGE 用于万一我们有系统序列的情形。
 	 */
 	if ((mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE | ACL_TRUNCATE | ACL_USAGE)) &&
 		IsSystemClass(table_oid, classForm) &&
@@ -3325,7 +3325,7 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 		mask &= ~(ACL_INSERT | ACL_UPDATE | ACL_DELETE | ACL_TRUNCATE | ACL_USAGE);
 
 	/*
-	 * Otherwise, superusers bypass all permission-checking.
+	 * 否则，超级用户绕过所有权限检查。
 	 */
 	if (superuser_arg(roleid))
 	{
@@ -3334,7 +3334,7 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	}
 
 	/*
-	 * Normal case: get the relation's ACL from pg_class
+	 * 常规情况：从 pg_class 获取关系的 ACL
 	 */
 	ownerId = classForm->relowner;
 
@@ -3342,7 +3342,7 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 							   &isNull);
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		switch (classForm->relkind)
 		{
 			case RELKIND_SEQUENCE:
@@ -3356,33 +3356,33 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 	}
 	else
 	{
-		/* detoast rel's ACL if necessary */
+		/* 必要时解 TOAST 关系的 ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
 	ReleaseSysCache(tuple);
 
 	/*
-	 * Check if ACL_SELECT is being checked and, if so, and not set already as
-	 * part of the result, then check if the user is a member of the
-	 * pg_read_all_data role, which allows read access to all relations.
+	 * 检查是否正在检查 ACL_SELECT，若是，且尚未作为
+	 * 结果的一部分设置，则检查用户是否是
+	 * pg_read_all_data 角色的成员，该角色允许读取访问所有关系。
 	 */
 	if (mask & ACL_SELECT && !(result & ACL_SELECT) &&
 		has_privs_of_role(roleid, ROLE_PG_READ_ALL_DATA))
 		result |= ACL_SELECT;
 
 	/*
-	 * Check if ACL_INSERT, ACL_UPDATE, or ACL_DELETE is being checked and, if
-	 * so, and not set already as part of the result, then check if the user
-	 * is a member of the pg_write_all_data role, which allows
-	 * INSERT/UPDATE/DELETE access to all relations (except system catalogs,
-	 * which requires superuser, see above).
+	 * 检查是否正在检查 ACL_INSERT、ACL_UPDATE 或 ACL_DELETE，若是，
+	 * 且尚未作为结果的一部分设置，则检查用户
+	 * 是否是 pg_write_all_data 角色的成员，该角色允许
+	 * 对所有关系（系统目录除外，那些需要超级用户，见上文）
+	 * 进行 INSERT/UPDATE/DELETE 访问。
 	 */
 	if (mask & (ACL_INSERT | ACL_UPDATE | ACL_DELETE) &&
 		!(result & (ACL_INSERT | ACL_UPDATE | ACL_DELETE)) &&
@@ -3393,8 +3393,8 @@ pg_class_aclmask_ext(Oid table_oid, Oid roleid, AclMode mask,
 }
 
 /*
- * Routine for examining a user's privileges for a configuration
- * parameter (GUC), identified by GUC name.
+ * 用于检查用户对配置参数（GUC）权限的例程，
+ * 以 GUC 名称标识。
  */
 static AclMode
 pg_parameter_aclmask(const char *name, Oid roleid, AclMode mask, AclMaskHow how)
@@ -3404,20 +3404,20 @@ pg_parameter_aclmask(const char *name, Oid roleid, AclMode mask, AclMaskHow how)
 	text	   *partext;
 	HeapTuple	tuple;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return mask;
 
-	/* Convert name to the form it should have in pg_parameter_acl... */
+	/* 把名称转换为它在 pg_parameter_acl 中应有的形式... */
 	parname = convert_GUC_name_for_parameter_acl(name);
 	partext = cstring_to_text(parname);
 
-	/* ... and look it up */
+	/* ... 然后查找它 */
 	tuple = SearchSysCache1(PARAMETERACLNAME, PointerGetDatum(partext));
 
 	if (!HeapTupleIsValid(tuple))
 	{
-		/* If no entry, GUC has no permissions for non-superusers */
+		/* 若无条目，则该 GUC 对非超级用户没有权限 */
 		result = ACL_NO_RIGHTS;
 	}
 	else
@@ -3431,19 +3431,19 @@ pg_parameter_aclmask(const char *name, Oid roleid, AclMode mask, AclMaskHow how)
 								   &isNull);
 		if (isNull)
 		{
-			/* No ACL, so build default ACL */
+			/* 没有 ACL，因此构建默认 ACL */
 			acl = acldefault(OBJECT_PARAMETER_ACL, BOOTSTRAP_SUPERUSERID);
 			aclDatum = (Datum) 0;
 		}
 		else
 		{
-			/* detoast ACL if necessary */
+			/* 必要时解 TOAST ACL */
 			acl = DatumGetAclP(aclDatum);
 		}
 
 		result = aclmask(acl, roleid, BOOTSTRAP_SUPERUSERID, mask, how);
 
-		/* if we have a detoasted copy, free it */
+		/* 若有解 TOAST 后的副本，则释放它 */
 		if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 			pfree(acl);
 
@@ -3457,8 +3457,8 @@ pg_parameter_aclmask(const char *name, Oid roleid, AclMode mask, AclMaskHow how)
 }
 
 /*
- * Routine for examining a user's privileges for a configuration
- * parameter (GUC), identified by the OID of its pg_parameter_acl entry.
+ * 用于检查用户对配置参数（GUC）权限的例程，
+ * 以其 pg_parameter_acl 条目的 OID 标识。
  */
 static AclMode
 pg_parameter_acl_aclmask(Oid acl_oid, Oid roleid, AclMode mask, AclMaskHow how)
@@ -3469,11 +3469,11 @@ pg_parameter_acl_aclmask(Oid acl_oid, Oid roleid, AclMode mask, AclMaskHow how)
 	bool		isNull;
 	Acl		   *acl;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return mask;
 
-	/* Get the ACL from pg_parameter_acl */
+	/* 从 pg_parameter_acl 获取 ACL */
 	tuple = SearchSysCache1(PARAMETERACLOID, ObjectIdGetDatum(acl_oid));
 	if (!HeapTupleIsValid(tuple))
 		ereport(ERROR,
@@ -3486,19 +3486,19 @@ pg_parameter_acl_aclmask(Oid acl_oid, Oid roleid, AclMode mask, AclMaskHow how)
 							   &isNull);
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		acl = acldefault(OBJECT_PARAMETER_ACL, BOOTSTRAP_SUPERUSERID);
 		aclDatum = (Datum) 0;
 	}
 	else
 	{
-		/* detoast ACL if necessary */
+		/* 必要时解 TOAST ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, BOOTSTRAP_SUPERUSERID, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
@@ -3508,16 +3508,16 @@ pg_parameter_acl_aclmask(Oid acl_oid, Oid roleid, AclMode mask, AclMaskHow how)
 }
 
 /*
- * Routine for examining a user's privileges for a largeobject
+ * 用于检查用户对大对象权限的例程
  *
- * When a large object is opened for reading, it is opened relative to the
- * caller's snapshot, but when it is opened for writing, a current
- * MVCC snapshot will be used.  See doc/src/sgml/lobj.sgml.  This function
- * takes a snapshot argument so that the permissions check can be made
- * relative to the same snapshot that will be used to read the underlying
- * data.  The caller will actually pass NULL for an instantaneous MVCC
- * snapshot, since all we do with the snapshot argument is pass it through
- * to systable_beginscan().
+ * 当大对象以读取方式打开时，它相对于调用者的
+ * 快照打开；但当以写入方式打开时，将使用当前的
+ * MVCC 快照。参见 doc/src/sgml/lobj.sgml。本函数
+ * 接收一个快照参数，以便权限检查可以
+ * 相对于读取底层数据时将使用的同一
+ * 快照进行。调用者实际上会为瞬时 MVCC
+ * 快照传入 NULL，因为我们对快照参数所做的
+ * 全部事情就是将其传给 systable_beginscan()。
  */
 static AclMode
 pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
@@ -3534,12 +3534,12 @@ pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
 	Acl		   *acl;
 	Oid			ownerId;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return mask;
 
 	/*
-	 * Get the largeobject's ACL from pg_largeobject_metadata
+	 * 从 pg_largeobject_metadata 获取大对象的 ACL
 	 */
 	pg_lo_meta = table_open(LargeObjectMetadataRelationId,
 							AccessShareLock);
@@ -3566,19 +3566,19 @@ pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
 
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		acl = acldefault(OBJECT_LARGEOBJECT, ownerId);
 		aclDatum = (Datum) 0;
 	}
 	else
 	{
-		/* detoast ACL if necessary */
+		/* 必要时解 TOAST ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
@@ -3590,7 +3590,7 @@ pg_largeobject_aclmask_snapshot(Oid lobj_oid, Oid roleid,
 }
 
 /*
- * Routine for examining a user's privileges for a namespace
+ * 用于检查用户对命名空间权限的例程
  */
 static AclMode
 pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
@@ -3603,28 +3603,28 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 	Acl		   *acl;
 	Oid			ownerId;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return mask;
 
 	/*
-	 * If we have been assigned this namespace as a temp namespace, check to
-	 * make sure we have CREATE TEMP permission on the database, and if so act
-	 * as though we have all standard (but not GRANT OPTION) permissions on
-	 * the namespace.  If we don't have CREATE TEMP, act as though we have
-	 * only USAGE (and not CREATE) rights.
+	 * 若该命名空间被分配给我们作为临时命名空间，则检查
+	 * 以确保我们在数据库上有 CREATE TEMP 权限；若有，则视同
+	 * 我们在该命名空间上拥有所有标准权限（但不含 GRANT OPTION）。
+	 * 若我们没有 CREATE TEMP，则视同我们
+	 * 只有 USAGE（而没有 CREATE）权限。
 	 *
-	 * This may seem redundant given the check in InitTempTableNamespace, but
-	 * it really isn't since current user ID may have changed since then. The
-	 * upshot of this behavior is that a SECURITY DEFINER function can create
-	 * temp tables that can then be accessed (if permission is granted) by
-	 * code in the same session that doesn't have permissions to create temp
-	 * tables.
+	 * 鉴于 InitTempTableNamespace 中的检查，这似乎多余，
+	 * 但实际并非如此，因为此后当前用户 ID 可能已改变。这种
+	 * 行为的结果是：SECURITY DEFINER 函数可以创建
+	 * 临时表，然后同一会话中那些没有创建临时
+	 * 表权限的代码可以（在授权允许时）
+	 * 访问这些临时表。
 	 *
-	 * XXX Would it be safe to ereport a special error message as
-	 * InitTempTableNamespace does?  Returning zero here means we'll get a
-	 * generic "permission denied for schema pg_temp_N" message, which is not
-	 * remarkably user-friendly.
+	 * XXX 像 InitTempTableNamespace 那样 ereport 一条特殊错误消息
+	 * 是否安全？这里返回零意味着我们会得到一条
+	 * 通用的 "permission denied for schema pg_temp_N" 消息，这并不
+	 * 特别用户友好。
 	 */
 	if (isTempNamespace(nsp_oid))
 	{
@@ -3636,7 +3636,7 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 	}
 
 	/*
-	 * Get the schema's ACL from pg_namespace
+	 * 从 pg_namespace 获取模式的 ACL
 	 */
 	tuple = SearchSysCache1(NAMESPACEOID, ObjectIdGetDatum(nsp_oid));
 	if (!HeapTupleIsValid(tuple))
@@ -3650,29 +3650,29 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 							   &isNull);
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		acl = acldefault(OBJECT_SCHEMA, ownerId);
 		aclDatum = (Datum) 0;
 	}
 	else
 	{
-		/* detoast ACL if necessary */
+		/* 必要时解 TOAST ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
 	ReleaseSysCache(tuple);
 
 	/*
-	 * Check if ACL_USAGE is being checked and, if so, and not set already as
-	 * part of the result, then check if the user is a member of the
-	 * pg_read_all_data or pg_write_all_data roles, which allow usage access
-	 * to all schemas.
+	 * 检查是否正在检查 ACL_USAGE，若是，且尚未作为
+	 * 结果的一部分设置，则检查用户是否是
+	 * pg_read_all_data 或 pg_write_all_data 角色的成员，这些角色允许
+	 * 对所有模式的 usage 访问。
 	 */
 	if (mask & ACL_USAGE && !(result & ACL_USAGE) &&
 		(has_privs_of_role(roleid, ROLE_PG_READ_ALL_DATA) ||
@@ -3682,7 +3682,7 @@ pg_namespace_aclmask(Oid nsp_oid, Oid roleid,
 }
 
 /*
- * Routine for examining a user's privileges for a type.
+ * 用于检查用户对类型权限的例程。
  */
 static AclMode
 pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
@@ -3696,12 +3696,12 @@ pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
 
 	Form_pg_type typeForm;
 
-	/* Bypass permission checks for superusers */
+	/* 对超级用户绕过权限检查 */
 	if (superuser_arg(roleid))
 		return mask;
 
 	/*
-	 * Must get the type's tuple from pg_type
+	 * 必须从 pg_type 获取类型的元组
 	 */
 	tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(type_oid));
 	if (!HeapTupleIsValid(tuple))
@@ -3712,8 +3712,8 @@ pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
 	typeForm = (Form_pg_type) GETSTRUCT(tuple);
 
 	/*
-	 * "True" array types don't manage permissions of their own; consult the
-	 * element type instead.
+	 * "真正的" 数组类型不管理自身权限；
+	 * 而是改为查阅元素类型。
 	 */
 	if (IsTrueArrayType(typeForm))
 	{
@@ -3722,14 +3722,14 @@ pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
 		ReleaseSysCache(tuple);
 
 		tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(elttype_oid));
-		/* this case is not a user-facing error, so elog not ereport */
+		/* 这种情况不是面向用户的错误，所以用 elog 而不是 ereport */
 		if (!HeapTupleIsValid(tuple))
 			elog(ERROR, "cache lookup failed for type %u", elttype_oid);
 		typeForm = (Form_pg_type) GETSTRUCT(tuple);
 	}
 
 	/*
-	 * Now get the type's owner and ACL from the tuple
+	 * 现在从元组获取类型的所有者和 ACL
 	 */
 	ownerId = typeForm->typowner;
 
@@ -3737,19 +3737,19 @@ pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
 							   Anum_pg_type_typacl, &isNull);
 	if (isNull)
 	{
-		/* No ACL, so build default ACL */
+		/* 没有 ACL，因此构建默认 ACL */
 		acl = acldefault(OBJECT_TYPE, ownerId);
 		aclDatum = (Datum) 0;
 	}
 	else
 	{
-		/* detoast rel's ACL if necessary */
+		/* 必要时解 TOAST 关系的 ACL */
 		acl = DatumGetAclP(aclDatum);
 	}
 
 	result = aclmask(acl, roleid, ownerId, mask, how);
 
-	/* if we have a detoasted copy, free it */
+	/* 若有解 TOAST 后的副本，则释放它 */
 	if (acl && (Pointer) acl != DatumGetPointer(aclDatum))
 		pfree(acl);
 
@@ -3759,7 +3759,7 @@ pg_type_aclmask(Oid type_oid, Oid roleid, AclMode mask, AclMaskHow how)
 }
 
 /*
- * Exported generic routine for checking a user's access privileges to an object
+ * 用于检查用户对对象访问权限的导出通用例程
  */
 AclResult
 object_aclcheck(Oid classid, Oid objectid, Oid roleid, AclMode mode)
@@ -3849,8 +3849,8 @@ pg_attribute_aclcheck_all(Oid table_oid, Oid roleid, AclMode mode,
 	ReleaseSysCache(classTuple);
 
 	/*
-	 * Initialize result in case there are no non-dropped columns.  We want to
-	 * report failure in such cases for either value of 'how'.
+	 * 初始化结果，以防没有未删除的列。这种情况下
+	 * 我们希望报告失败，无论 'how' 取何值。
 	 */
 	result = ACLCHECK_NO_PRIV;
 
@@ -3865,7 +3865,7 @@ pg_attribute_aclcheck_all(Oid table_oid, Oid roleid, AclMode mode,
 		if (!HeapTupleIsValid(attTuple))
 			continue;
 
-		/* ignore dropped columns */
+		/* 忽略已删除的列 */
 		if (((Form_pg_attribute) GETSTRUCT(attTuple))->attisdropped)
 		{
 			ReleaseSysCache(attTuple);
@@ -3873,9 +3873,9 @@ pg_attribute_aclcheck_all(Oid table_oid, Oid roleid, AclMode mode,
 		}
 
 		/*
-		 * Here we hard-wire knowledge that the default ACL for a column
-		 * grants no privileges, so that we can fall out quickly in the very
-		 * common case where attacl is null.
+		 * 这里我们硬编码了这样的认识：列的默认 ACL
+		 * 不授予任何权限，以便在 attacl 为 null 这一
+		 * 非常常见的情形下快速返回。
 		 */
 		if (heap_attisnull(attTuple, Anum_pg_attribute_attacl, NULL))
 			attmask = 0;
@@ -3889,13 +3889,13 @@ pg_attribute_aclcheck_all(Oid table_oid, Oid roleid, AclMode mode,
 		{
 			result = ACLCHECK_OK;
 			if (how == ACLMASK_ANY)
-				break;			/* succeed on any success */
+				break;			/* 任一成功则成功 */
 		}
 		else
 		{
 			result = ACLCHECK_NO_PRIV;
 			if (how == ACLMASK_ALL)
-				break;			/* fail on any failure */
+				break;			/* 任一失败则失败 */
 		}
 	}
 
@@ -3903,11 +3903,11 @@ pg_attribute_aclcheck_all(Oid table_oid, Oid roleid, AclMode mode,
 }
 
 /*
- * Exported routine for checking a user's access privileges to a table
+ * 用于检查用户对表访问权限的导出例程
  *
- * Returns ACLCHECK_OK if the user has any of the privileges identified by
- * 'mode'; otherwise returns a suitable error code (in practice, always
- * ACLCHECK_NO_PRIV).
+ * 若用户拥有由 'mode' 标识的任一权限，则返回 ACLCHECK_OK；
+ * 否则返回适当的错误码（实际上总是
+ * ACLCHECK_NO_PRIV）。
  */
 AclResult
 pg_class_aclcheck(Oid table_oid, Oid roleid, AclMode mode)
@@ -3916,10 +3916,10 @@ pg_class_aclcheck(Oid table_oid, Oid roleid, AclMode mode)
 }
 
 /*
- * Exported routine for checking a user's access privileges to a table
+ * 用于检查用户对表访问权限的导出例程
  *
- * Does the bulk of the work for pg_class_aclcheck(), and allows other
- * callers to avoid the missing relation ERROR when is_missing is non-NULL.
+ * 承担 pg_class_aclcheck() 的大部分工作，并允许其他
+ * 调用者在 is_missing 非 NULL 时避免 missing relation ERROR。
  */
 AclResult
 pg_class_aclcheck_ext(Oid table_oid, Oid roleid,
@@ -3933,8 +3933,8 @@ pg_class_aclcheck_ext(Oid table_oid, Oid roleid,
 }
 
 /*
- * Exported routine for checking a user's access privileges to a configuration
- * parameter (GUC), identified by GUC name.
+ * 用于检查用户对配置参数（GUC）访问权限的导出例程，
+ * 以 GUC 名称标识。
  */
 AclResult
 pg_parameter_aclcheck(const char *name, Oid roleid, AclMode mode)
@@ -3946,7 +3946,7 @@ pg_parameter_aclcheck(const char *name, Oid roleid, AclMode mode)
 }
 
 /*
- * Exported routine for checking a user's access privileges to a largeobject
+ * 用于检查用户对大对象访问权限的导出例程
  */
 AclResult
 pg_largeobject_aclcheck_snapshot(Oid lobj_oid, Oid roleid, AclMode mode,
@@ -3960,7 +3960,7 @@ pg_largeobject_aclcheck_snapshot(Oid lobj_oid, Oid roleid, AclMode mode,
 }
 
 /*
- * Generic ownership check for an object
+ * 对象的通用所有权检查
  */
 bool
 object_ownercheck(Oid classid, Oid objectid, Oid roleid)
@@ -3968,18 +3968,18 @@ object_ownercheck(Oid classid, Oid objectid, Oid roleid)
 	int			cacheid;
 	Oid			ownerId;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return true;
 
-	/* For large objects, the catalog to consult is pg_largeobject_metadata */
+	/* 对大对象，要查阅的目录是 pg_largeobject_metadata */
 	if (classid == LargeObjectRelationId)
 		classid = LargeObjectMetadataRelationId;
 
 	cacheid = get_object_catcache_oid(classid);
 	if (cacheid != -1)
 	{
-		/* we can get the object's tuple from the syscache */
+		/* 我们可以从系统缓存获取对象的元组 */
 		HeapTuple	tuple;
 
 		tuple = SearchSysCache1(cacheid, ObjectIdGetDatum(objectid));
@@ -3995,7 +3995,7 @@ object_ownercheck(Oid classid, Oid objectid, Oid roleid)
 	}
 	else
 	{
-		/* for catalogs without an appropriate syscache */
+		/* 用于没有合适系统缓存的目录 */
 		Relation	rel;
 		ScanKeyData entry[1];
 		SysScanDesc scan;
@@ -4033,15 +4033,15 @@ object_ownercheck(Oid classid, Oid objectid, Oid roleid)
 }
 
 /*
- * Check whether specified role has CREATEROLE privilege (or is a superuser)
+ * 检查指定角色是否拥有 CREATEROLE 权限（或是超级用户）
  *
- * Note: roles do not have owners per se; instead we use this test in
- * places where an ownership-like permissions test is needed for a role.
- * Be sure to apply it to the role trying to do the operation, not the
- * role being operated on!	Also note that this generally should not be
- * considered enough privilege if the target role is a superuser.
- * (We don't handle that consideration here because we want to give a
- * separate error message for such cases, so the caller has to deal with it.)
+ * 注意：角色本身没有所有者；相反，我们在需要对角色进行
+ * 类似所有权的权限测试之处使用本测试。
+ * 务必将其应用于正在尝试执行操作的角色，而不是
+ * 被操作的角色！另请注意，若目标角色是超级用户，
+ * 这通常不应被视为足够的权限。
+ * （我们在此不处理该项考虑，因为对这种情况我们想给出
+ * 单独的错误消息，所以必须由调用者应对。）
  */
 bool
 has_createrole_privilege(Oid roleid)
@@ -4049,7 +4049,7 @@ has_createrole_privilege(Oid roleid)
 	bool		result = false;
 	HeapTuple	utup;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return true;
 
@@ -4068,7 +4068,7 @@ has_bypassrls_privilege(Oid roleid)
 	bool		result = false;
 	HeapTuple	utup;
 
-	/* Superusers bypass all permission checking. */
+	/* 超级用户绕过所有权限检查。 */
 	if (superuser_arg(roleid))
 		return true;
 
@@ -4082,9 +4082,9 @@ has_bypassrls_privilege(Oid roleid)
 }
 
 /*
- * Fetch pg_default_acl entry for given role, namespace and object type
- * (object type must be given in pg_default_acl's encoding).
- * Returns NULL if no such entry.
+ * 获取给定角色、命名空间和对象类型的 pg_default_acl 条目
+ * （对象类型必须以 pg_default_acl 的编码给出）。
+ * 若无此类条目则返回 NULL。
  */
 static Acl *
 get_default_acl_internal(Oid roleId, Oid nsp_oid, char objtype)
@@ -4114,12 +4114,12 @@ get_default_acl_internal(Oid roleId, Oid nsp_oid, char objtype)
 }
 
 /*
- * Get default permissions for newly created object within given schema
+ * 获取给定模式中新建对象的默认权限
  *
- * Returns NULL if built-in system defaults should be used.
+ * 若应使用内置系统默认值则返回 NULL。
  *
- * If the result is not NULL, caller must call recordDependencyOnNewAcl
- * once the OID of the new object is known.
+ * 若结果不为 NULL，调用者必须在得知新对象的
+ * OID 后调用 recordDependencyOnNewAcl。
  */
 Acl *
 get_user_default_acl(ObjectType objtype, Oid ownerId, Oid nsp_oid)
@@ -4131,13 +4131,13 @@ get_user_default_acl(ObjectType objtype, Oid ownerId, Oid nsp_oid)
 	char		defaclobjtype;
 
 	/*
-	 * Use NULL during bootstrap, since pg_default_acl probably isn't there
-	 * yet.
+	 * 在 bootstrap 期间使用 NULL，因为 pg_default_acl 可能
+	 * 尚不存在。
 	 */
 	if (IsBootstrapProcessingMode())
 		return NULL;
 
-	/* Check if object type is supported in pg_default_acl */
+	/* 检查 pg_default_acl 是否支持该对象类型 */
 	switch (objtype)
 	{
 		case OBJECT_TABLE:
@@ -4164,27 +4164,27 @@ get_user_default_acl(ObjectType objtype, Oid ownerId, Oid nsp_oid)
 			return NULL;
 	}
 
-	/* Look up the relevant pg_default_acl entries */
+	/* 查找相关的 pg_default_acl 条目 */
 	glob_acl = get_default_acl_internal(ownerId, InvalidOid, defaclobjtype);
 	schema_acl = get_default_acl_internal(ownerId, nsp_oid, defaclobjtype);
 
-	/* Quick out if neither entry exists */
+	/* 若两个条目都不存在则快速返回 */
 	if (glob_acl == NULL && schema_acl == NULL)
 		return NULL;
 
-	/* We need to know the hard-wired default value, too */
+	/* 我们也需要知道硬编码的默认值 */
 	def_acl = acldefault(objtype, ownerId);
 
-	/* If there's no global entry, substitute the hard-wired default */
+	/* 若无全局条目，则替换为硬编码的默认值 */
 	if (glob_acl == NULL)
 		glob_acl = def_acl;
 
-	/* Merge in any per-schema privileges */
+	/* 合并任何按模式权限 */
 	result = aclmerge(glob_acl, schema_acl, ownerId);
 
 	/*
-	 * For efficiency, we want to return NULL if the result equals default.
-	 * This requires sorting both arrays to get an accurate comparison.
+	 * 为效率起见，若结果等于默认值我们希望返回 NULL。
+	 * 这需要对两个数组排序才能得到准确的比较。
 	 */
 	aclitemsort(result);
 	aclitemsort(def_acl);
@@ -4195,7 +4195,7 @@ get_user_default_acl(ObjectType objtype, Oid ownerId, Oid nsp_oid)
 }
 
 /*
- * Record dependencies on roles mentioned in a new object's ACL.
+ * 记录对新对象 ACL 中提到的角色的依赖。
  */
 void
 recordDependencyOnNewAcl(Oid classId, Oid objectId, int32 objsubId,
@@ -4204,14 +4204,14 @@ recordDependencyOnNewAcl(Oid classId, Oid objectId, int32 objsubId,
 	int			nmembers;
 	Oid		   *members;
 
-	/* Nothing to do if ACL is defaulted */
+	/* 若 ACL 为默认值则无事可做 */
 	if (acl == NULL)
 		return;
 
-	/* Extract roles mentioned in ACL */
+	/* 提取 ACL 中提到的角色 */
 	nmembers = aclmembers(acl, &members);
 
-	/* Update the shared dependency ACL info */
+	/* 更新共享依赖 ACL 信息 */
 	updateAclDependencies(classId, objectId, objsubId,
 						  ownerId,
 						  0, NULL,
@@ -4219,10 +4219,10 @@ recordDependencyOnNewAcl(Oid classId, Oid objectId, int32 objsubId,
 }
 
 /*
- * Record initial privileges for the top-level object passed in.
+ * 记录传入的顶层对象的初始权限。
  *
- * For the object passed in, this will record its ACL (if any) and the ACLs of
- * any sub-objects (eg: columns) into pg_init_privs.
+ * 对于传入的对象，这会把它的 ACL（若有）以及任何
+ * 子对象（例如列）的 ACL 记录到 pg_init_privs。
  */
 void
 recordExtObjInitPriv(Oid objoid, Oid classoid)
@@ -4230,9 +4230,9 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 	/*
 	 * pg_class / pg_attribute
 	 *
-	 * If this is a relation then we need to see if there are any sub-objects
-	 * (eg: columns) for it and, if so, be sure to call
-	 * recordExtensionInitPrivWorker() for each one.
+	 * 若这是一个关系，则我们需要查看它是否有任何子对象
+	 * （例如列），若有，务必为每个子对象调用
+	 * recordExtensionInitPrivWorker()。
 	 */
 	if (classoid == RelationRelationId)
 	{
@@ -4247,9 +4247,9 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 		pg_class_tuple = (Form_pg_class) GETSTRUCT(tuple);
 
 		/*
-		 * Indexes don't have permissions, neither do the pg_class rows for
-		 * composite types.  (These cases are unreachable given the
-		 * restrictions in ALTER EXTENSION ADD, but let's check anyway.)
+		 * 索引没有权限，复合类型的 pg_class 行也没有。
+		 * （鉴于 ALTER EXTENSION ADD 中的限制，
+		 * 这些情况不可达，但我们还是检查一下。）
 		 */
 		if (pg_class_tuple->relkind == RELKIND_INDEX ||
 			pg_class_tuple->relkind == RELKIND_PARTITIONED_INDEX ||
@@ -4260,8 +4260,8 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 		}
 
 		/*
-		 * If this isn't a sequence then it's possibly going to have
-		 * column-level ACLs associated with it.
+		 * 若这不是序列，那么它可能会有
+		 * 与之关联的列级 ACL。
 		 */
 		if (pg_class_tuple->relkind != RELKIND_SEQUENCE)
 		{
@@ -4280,7 +4280,7 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 				if (!HeapTupleIsValid(attTuple))
 					continue;
 
-				/* ignore dropped columns */
+				/* 忽略已删除的列 */
 				if (((Form_pg_attribute) GETSTRUCT(attTuple))->attisdropped)
 				{
 					ReleaseSysCache(attTuple);
@@ -4291,7 +4291,7 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 											  Anum_pg_attribute_attacl,
 											  &isNull);
 
-				/* no need to do anything for a NULL ACL */
+				/* 对 NULL ACL 无需做任何事 */
 				if (isNull)
 				{
 					ReleaseSysCache(attTuple);
@@ -4308,7 +4308,7 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 		aclDatum = SysCacheGetAttr(RELOID, tuple, Anum_pg_class_relacl,
 								   &isNull);
 
-		/* Add the record, if any, for the top-level object */
+		/* 添加顶层对象的记录（若有） */
 		if (!isNull)
 			recordExtensionInitPrivWorker(objoid, classoid, 0,
 										  DatumGetAclP(aclDatum));
@@ -4317,7 +4317,7 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 	}
 	else if (classoid == LargeObjectRelationId)
 	{
-		/* For large objects, we must consult pg_largeobject_metadata */
+		/* 对大对象，我们必须查阅 pg_largeobject_metadata */
 		Datum		aclDatum;
 		bool		isNull;
 		HeapTuple	tuple;
@@ -4326,13 +4326,13 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 		Relation	relation;
 
 		/*
-		 * Note: this is dead code, given that we don't allow large objects to
-		 * be made extension members.  But it seems worth carrying in case
-		 * some future caller of this function has need for it.
+		 * 注意：鉴于我们不允许把大对象
+		 * 设为扩展成员，这是死代码。但似乎值得保留，以防
+		 * 本函数未来的某个调用者需要它。
 		 */
 		relation = table_open(LargeObjectMetadataRelationId, RowExclusiveLock);
 
-		/* There's no syscache for pg_largeobject_metadata */
+		/* pg_largeobject_metadata 没有系统缓存 */
 		ScanKeyInit(&entry[0],
 					Anum_pg_largeobject_metadata_oid,
 					BTEqualStrategyNumber, F_OIDEQ,
@@ -4350,14 +4350,14 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 								Anum_pg_largeobject_metadata_lomacl,
 								RelationGetDescr(relation), &isNull);
 
-		/* Add the record, if any, for the top-level object */
+		/* 添加顶层对象的记录（若有） */
 		if (!isNull)
 			recordExtensionInitPrivWorker(objoid, classoid, 0,
 										  DatumGetAclP(aclDatum));
 
 		systable_endscan(scan);
 	}
-	/* This will error on unsupported classoid. */
+	/* 对不支持的 classoid 会报错。 */
 	else if (get_object_attnum_acl(classoid) != InvalidAttrNumber)
 	{
 		Datum		aclDatum;
@@ -4374,7 +4374,7 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 								   get_object_attnum_acl(classoid),
 								   &isNull);
 
-		/* Add the record, if any, for the top-level object */
+		/* 添加顶层对象的记录（若有） */
 		if (!isNull)
 			recordExtensionInitPrivWorker(objoid, classoid, 0,
 										  DatumGetAclP(aclDatum));
@@ -4384,16 +4384,16 @@ recordExtObjInitPriv(Oid objoid, Oid classoid)
 }
 
 /*
- * For the object passed in, remove its ACL and the ACLs of any object subIds
- * from pg_init_privs (via recordExtensionInitPrivWorker()).
+ * 对于传入的对象，从 pg_init_privs 移除它的 ACL 以及任何对象 subId
+ * 的 ACL（通过 recordExtensionInitPrivWorker()）。
  */
 void
 removeExtObjInitPriv(Oid objoid, Oid classoid)
 {
 	/*
-	 * If this is a relation then we need to see if there are any sub-objects
-	 * (eg: columns) for it and, if so, be sure to call
-	 * recordExtensionInitPrivWorker() for each one.
+	 * 若这是一个关系，则我们需要查看它是否有任何子对象
+	 * （例如列），若有，务必为每个子对象调用
+	 * recordExtensionInitPrivWorker()。
 	 */
 	if (classoid == RelationRelationId)
 	{
@@ -4406,9 +4406,9 @@ removeExtObjInitPriv(Oid objoid, Oid classoid)
 		pg_class_tuple = (Form_pg_class) GETSTRUCT(tuple);
 
 		/*
-		 * Indexes don't have permissions, neither do the pg_class rows for
-		 * composite types.  (These cases are unreachable given the
-		 * restrictions in ALTER EXTENSION DROP, but let's check anyway.)
+		 * 索引没有权限，复合类型的 pg_class 行也没有。
+		 * （鉴于 ALTER EXTENSION DROP 中的限制，
+		 * 这些情况不可达，但我们还是检查一下。）
 		 */
 		if (pg_class_tuple->relkind == RELKIND_INDEX ||
 			pg_class_tuple->relkind == RELKIND_PARTITIONED_INDEX ||
@@ -4419,8 +4419,8 @@ removeExtObjInitPriv(Oid objoid, Oid classoid)
 		}
 
 		/*
-		 * If this isn't a sequence then it's possibly going to have
-		 * column-level ACLs associated with it.
+		 * 若这不是序列，那么它可能会有
+		 * 与之关联的列级 ACL。
 		 */
 		if (pg_class_tuple->relkind != RELKIND_SEQUENCE)
 		{
@@ -4438,7 +4438,7 @@ removeExtObjInitPriv(Oid objoid, Oid classoid)
 				if (!HeapTupleIsValid(attTuple))
 					continue;
 
-				/* when removing, remove all entries, even dropped columns */
+				/* 移除时，移除所有条目，即使是已删除的列 */
 
 				recordExtensionInitPrivWorker(objoid, classoid, curr_att, NULL);
 
@@ -4449,37 +4449,37 @@ removeExtObjInitPriv(Oid objoid, Oid classoid)
 		ReleaseSysCache(tuple);
 	}
 
-	/* Remove the record, if any, for the top-level object */
+	/* 移除顶层对象的记录（若有） */
 	recordExtensionInitPrivWorker(objoid, classoid, 0, NULL);
 }
 
 /*
- * Record initial ACL for an extension object
+ * 记录扩展对象的初始 ACL
  *
- * Can be called at any time, we check if 'creating_extension' is set and, if
- * not, exit immediately.
+ * 可在任意时候调用；我们会检查 'creating_extension' 是否已设置，
+ * 若未设置则立即退出。
  *
- * Pass in the object OID, the OID of the class (the OID of the table which
- * the object is defined in) and the 'sub' id of the object (objsubid), if
- * any.  If there is no 'sub' id (they are currently only used for columns of
- * tables) then pass in '0'.  Finally, pass in the complete ACL to store.
+ * 传入对象 OID、类 OID（即定义该对象的表
+ * 的 OID）以及对象的 'sub' id（objsubid，若
+ * 有）。若没有 'sub' id（它们目前只用于表的
+ * 列），则传入 '0'。最后，传入要存储的完整 ACL。
  *
- * If an ACL already exists for this object/sub-object then we will replace
- * it with what is passed in.
+ * 若该对象/子对象已存在 ACL，我们将用传入的
+ * 值替换它。
  *
- * Passing in NULL for 'new_acl' will result in the entry for the object being
- * removed, if one is found.
+ * 为 'new_acl' 传入 NULL 将导致该对象的条目被
+ * 移除（若找到）。
  */
 static void
 recordExtensionInitPriv(Oid objoid, Oid classoid, int objsubid, Acl *new_acl)
 {
 	/*
-	 * Generally, we only record the initial privileges when an extension is
-	 * being created, but because we don't actually use CREATE EXTENSION
-	 * during binary upgrades with pg_upgrade, there is a variable to let us
-	 * know that the GRANT and REVOKE statements being issued, while this
-	 * variable is true, are for the initial privileges of the extension
-	 * object and therefore we need to record them.
+	 * 通常我们只在创建扩展时记录初始权限，
+	 * 但由于在使用 pg_upgrade 进行二进制升级期间
+	 * 我们并不实际使用 CREATE EXTENSION，因此有一个变量让
+	 * 我们得知：在此变量为 true 期间发出的 GRANT 和 REVOKE 语句
+	 * 是为了该扩展对象的初始权限，
+	 * 因此我们需要记录它们。
 	 */
 	if (!creating_extension && !binary_upgrade_record_init_privs)
 		return;
@@ -4488,16 +4488,16 @@ recordExtensionInitPriv(Oid objoid, Oid classoid, int objsubid, Acl *new_acl)
 }
 
 /*
- * Record initial ACL for an extension object, worker.
+ * 记录扩展对象的初始 ACL，worker。
  *
- * This will perform a wholesale replacement of the entire ACL for the object
- * passed in, therefore be sure to pass in the complete new ACL to use.
+ * 这将对传入对象的整个 ACL 进行整体替换，
+ * 因此务必传入要使用的完整新 ACL。
  *
- * Generally speaking, do *not* use this function directly but instead use
- * recordExtensionInitPriv(), which checks if 'creating_extension' is set.
- * This function does *not* check if 'creating_extension' is set as it is also
- * used when an object is added to or removed from an extension via ALTER
- * EXTENSION ... ADD/DROP.
+ * 一般来说，请 *不要* 直接使用本函数，而应使用
+ * recordExtensionInitPriv()，它会检查 'creating_extension' 是否已设置。
+ * 本函数 *不* 检查 'creating_extension' 是否已设置，因为它也
+ * 用于通过 ALTER EXTENSION ... ADD/DROP 将对象
+ * 添加到扩展或从扩展移除时。
  */
 static void
 recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid, Acl *new_acl)
@@ -4526,17 +4526,17 @@ recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid, Acl *new_a
 	scan = systable_beginscan(relation, InitPrivsObjIndexId, true,
 							  NULL, 3, key);
 
-	/* There should exist only one entry or none. */
+	/* 应当只存在一个条目或没有条目。 */
 	oldtuple = systable_getnext(scan);
 
-	/* If we find an entry, update it with the latest ACL. */
+	/* 若找到条目，则用最新 ACL 更新它。 */
 	if (HeapTupleIsValid(oldtuple))
 	{
 		Datum		values[Natts_pg_init_privs] = {0};
 		bool		nulls[Natts_pg_init_privs] = {0};
 		bool		replace[Natts_pg_init_privs] = {0};
 
-		/* If we have a new ACL to set, then update the row with it. */
+		/* 若有要设置的新 ACL，则用它更新该行。 */
 		if (new_acl)
 		{
 			values[Anum_pg_init_privs_initprivs - 1] = PointerGetDatum(new_acl);
@@ -4549,7 +4549,7 @@ recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid, Acl *new_a
 		}
 		else
 		{
-			/* new_acl is NULL, so delete the entry we found. */
+			/* new_acl 为 NULL，因此删除我们找到的条目。 */
 			CatalogTupleDelete(relation, &oldtuple->t_self);
 		}
 	}
@@ -4566,12 +4566,12 @@ recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid, Acl *new_a
 		 */
 		if (new_acl)
 		{
-			/* No entry found, so add it. */
+			/* 未找到条目，因此添加它。 */
 			values[Anum_pg_init_privs_objoid - 1] = ObjectIdGetDatum(objoid);
 			values[Anum_pg_init_privs_classoid - 1] = ObjectIdGetDatum(classoid);
 			values[Anum_pg_init_privs_objsubid - 1] = Int32GetDatum(objsubid);
 
-			/* This function only handles initial privileges of extensions */
+			/* 本函数只处理扩展的初始权限 */
 			values[Anum_pg_init_privs_privtype - 1] =
 				CharGetDatum(INITPRIVS_EXTENSION);
 
@@ -4585,7 +4585,7 @@ recordExtensionInitPrivWorker(Oid objoid, Oid classoid, int objsubid, Acl *new_a
 
 	systable_endscan(scan);
 
-	/* prevent error when processing objects multiple times */
+	/* 防止多次处理对象时出错 */
 	CommandCounterIncrement();
 
 	table_close(relation, RowExclusiveLock);

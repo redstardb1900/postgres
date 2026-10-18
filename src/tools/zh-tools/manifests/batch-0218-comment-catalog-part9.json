@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "batch_id": "0218-comment-catalog-part9",
+  "title": "zh: translate catalog comments (part 9)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "737c34d33720e2349e07bccb1605f42b7f1b3174",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/aclchk.c",
+      "kind": "c_comment",
+      "note": "access control checking routines"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0218-comment-catalog-part9.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/aclchk.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 318,
+      "translated": 312,
+      "preserved": 6,
+      "preserved_reasons": [
+        "pg_attribute: comments",
+        "fallthrough: comments"
+      ],
+      "note": "ACL checking routines; 5 pg_attribute: segments and 1 fallthrough: segment kept in English; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0218-comment-catalog-part9.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0218 translates comments in src/backend/catalog/aclchk.c (catalog part 9). No translator: comments; 5 pg_attribute: segments and 1 fallthrough: segment are protected and stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: namespace.c / index.c / objectaddress.c."
+}

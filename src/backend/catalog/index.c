@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * index.c
- *	  code to create and destroy POSTGRES index relations
+ *	  创建与销毁 POSTGRES 索引关系的代码
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -12,10 +12,10 @@
  *
  *
  * INTERFACE ROUTINES
- *		index_create()			- Create a cataloged index relation
- *		index_drop()			- Removes index relation from catalogs
- *		BuildIndexInfo()		- Prepare to insert index tuples
- *		FormIndexDatum()		- Construct datum vector for one index tuple
+ *		index_create()			- 创建已编目的索引关系
+ *		index_drop()			- 从目录中移除索引关系
+ *		BuildIndexInfo()		- 准备插入索引元组
+ *		FormIndexDatum()		- 为一个索引元组构造数据值向量
  *
  *-------------------------------------------------------------------------
  */
@@ -86,14 +86,14 @@
 #include "utils/syscache.h"
 #include "utils/tuplesort.h"
 
-/* Potentially set by pg_upgrade_support functions */
+/* 可能由 pg_upgrade_support 函数设置 */
 Oid			binary_upgrade_next_index_pg_class_oid = InvalidOid;
 RelFileNumber binary_upgrade_next_index_pg_class_relfilenumber =
 InvalidRelFileNumber;
 
 /*
- * Pointer-free representation of variables used when reindexing system
- * catalogs; we use this to propagate those values to parallel workers.
+ * 在重建系统目录索引时所使用变量的无指针表示形式；
+ * 我们用它把这些值传播给并行工作进程。
  */
 typedef struct
 {
@@ -103,7 +103,7 @@ typedef struct
 	Oid			pendingReindexedIndexes[FLEXIBLE_ARRAY_MEMBER];
 } SerializedReindexState;
 
-/* non-export function prototypes */
+/* 非导出函数的原型 */
 static bool relationHasPrimaryKey(Relation rel);
 static TupleDesc ConstructTupleDescriptor(Relation heapRelation,
 										  IndexInfo *indexInfo,
@@ -141,13 +141,13 @@ static void RemoveReindexPending(Oid indexOid);
 
 /*
  * relationHasPrimaryKey
- *		See whether an existing relation has a primary key.
+ *		查看一个现有关系是否具有主键。
  *
- * Caller must have suitable lock on the relation.
+ * 调用方必须已对该关系持有适当的锁。
  *
- * Note: we intentionally do not check indisvalid here; that's because this
- * is used to enforce the rule that there can be only one indisprimary index,
- * and we want that to be true even if said index is invalid.
+ * 注意：我们在此有意不检查 indisvalid；这是因为本函数用于强制执行
+ * 至多只能有一个 indisprimary 索引的规则，而且我们希望即使该索引
+ * 无效时该规则也成立。
  */
 static bool
 relationHasPrimaryKey(Relation rel)
@@ -157,9 +157,9 @@ relationHasPrimaryKey(Relation rel)
 	ListCell   *indexoidscan;
 
 	/*
-	 * Get the list of index OIDs for the table from the relcache, and look up
-	 * each one in the pg_index syscache until we find one marked primary key
-	 * (hopefully there isn't more than one such).
+	 * 从关系缓存获取该表的索引 OID 列表，并逐个在
+	 * pg_index 系统缓存中查找，直到找到被标记为主键的那个
+	 * （希望这样的索引不超过一个）。
 	 */
 	indexoidlist = RelationGetIndexList(rel);
 
@@ -169,7 +169,7 @@ relationHasPrimaryKey(Relation rel)
 		HeapTuple	indexTuple;
 
 		indexTuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(indexoid));
-		if (!HeapTupleIsValid(indexTuple))	/* should not happen */
+		if (!HeapTupleIsValid(indexTuple))	/* 不应发生 */
 			elog(ERROR, "cache lookup failed for index %u", indexoid);
 		result = ((Form_pg_index) GETSTRUCT(indexTuple))->indisprimary;
 		ReleaseSysCache(indexTuple);
@@ -184,24 +184,24 @@ relationHasPrimaryKey(Relation rel)
 
 /*
  * index_check_primary_key
- *		Apply special checks needed before creating a PRIMARY KEY index
+ *		在创建 PRIMARY KEY 索引之前应用所需的特殊检查
  *
- * This processing used to be in DefineIndex(), but has been split out
- * so that it can be applied during ALTER TABLE ADD PRIMARY KEY USING INDEX.
+ * 这段处理过去位于 DefineIndex() 中，但现在已经拆分出来，
+ * 以便在 ALTER TABLE ADD PRIMARY KEY USING INDEX 期间也能应用。
  *
- * We check for a pre-existing primary key, and that all columns of the index
- * are simple column references (not expressions), and that all those
- * columns are marked NOT NULL.  If not, fail.
+ * 我们检查是否已存在主键，索引的所有列是否都是简单列引用
+ * （而非表达式），以及所有这些列是否都标记为 NOT NULL。
+ * 若不是，则失败。
  *
- * We used to automatically change unmarked columns to NOT NULL here by doing
- * our own local ALTER TABLE command.  But that doesn't work well if we're
- * executing one subcommand of an ALTER TABLE: the operations may not get
- * performed in the right order overall.  Now we expect that the parser
- * inserted any required ALTER TABLE SET NOT NULL operations before trying
- * to create a primary-key index.
+ * 过去我们在此通过执行自己的局部 ALTER TABLE 命令，自动将未标记的列改为
+ * NOT NULL。但如果我们正在执行某个 ALTER TABLE 子命令，这种做法效果并不
+ * 好：各操作整体上未必能按正确的顺序执行。现在我们期望解析器在尝试
+ * 创建主键索引之前，
+ * 已经插入了所有必需的
+ * ALTER TABLE SET NOT NULL 操作。
  *
- * Caller had better have at least ShareLock on the table, else the not-null
- * checking isn't trustworthy.
+ * 调用方最好至少对该表持有 ShareLock，否则
+ * 非空检查就不可信。
  */
 void
 index_check_primary_key(Relation heapRel,
@@ -212,10 +212,10 @@ index_check_primary_key(Relation heapRel,
 	int			i;
 
 	/*
-	 * If ALTER TABLE or CREATE TABLE .. PARTITION OF, check that there isn't
-	 * already a PRIMARY KEY.  In CREATE TABLE for an ordinary relation, we
-	 * have faith that the parser rejected multiple pkey clauses; and CREATE
-	 * INDEX doesn't have a way to say PRIMARY KEY, so it's no problem either.
+	 * 如果是 ALTER TABLE 或 CREATE TABLE .. PARTITION OF，检查是否已经存在
+	 * PRIMARY KEY。对于普通关系的 CREATE TABLE，我们相信解析器
+	 * 已拒绝了多个 pkey 子句；而 CREATE INDEX 没有办法声明 PRIMARY KEY，
+	 * 因此那也不成问题。
 	 */
 	if ((is_alter_table || heapRel->rd_rel->relispartition) &&
 		relationHasPrimaryKey(heapRel))
@@ -227,10 +227,10 @@ index_check_primary_key(Relation heapRel,
 	}
 
 	/*
-	 * Indexes created with NULLS NOT DISTINCT cannot be used for primary key
-	 * constraints. While there is no direct syntax to reach here, it can be
-	 * done by creating a separate index and attaching it via ALTER TABLE ..
-	 * USING INDEX.
+	 * 使用 NULLS NOT DISTINCT 创建的索引不能用于主键约束。
+	 * 虽然没有直接的语法能走到这里，
+	 * 但可以先创建一个单独的索引，再通过 ALTER TABLE ..
+	 * USING INDEX 将其附加过来。
 	 */
 	if (indexInfo->ii_NullsNotDistinct)
 	{
@@ -240,9 +240,9 @@ index_check_primary_key(Relation heapRel,
 	}
 
 	/*
-	 * Check that all of the attributes in a primary key are marked as not
-	 * null.  (We don't really expect to see that; it'd mean the parser messed
-	 * up.  But it seems wise to check anyway.)
+	 * 检查主键中的所有属性是否都标记为非空。
+	 * （我们并不真的期望看到这种情况；那意味着解析器出了问题，
+	 * 但检查一下似乎是明智的。）
 	 */
 	for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
 	{
@@ -255,7 +255,7 @@ index_check_primary_key(Relation heapRel,
 					(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 					 errmsg("primary keys cannot be expressions")));
 
-		/* System attributes are never null, so no need to check */
+		/* 系统属性永远不为空，因此无需检查 */
 		if (attnum < 0)
 			continue;
 
@@ -280,7 +280,7 @@ index_check_primary_key(Relation heapRel,
 /*
  *		ConstructTupleDescriptor
  *
- * Build an index tuple descriptor for a new index
+ * 为新索引构建索引元组描述符
  */
 static TupleDesc
 ConstructTupleDescriptor(Relation heapRelation,
@@ -297,23 +297,23 @@ ConstructTupleDescriptor(Relation heapRelation,
 	IndexAmRoutine *amroutine;
 	TupleDesc	heapTupDesc;
 	TupleDesc	indexTupDesc;
-	int			natts;			/* #atts in heap rel --- for error checks */
+	int			natts;			/* 堆关系中的属性数 --- 用于错误检查 */
 	int			i;
 
-	/* We need access to the index AM's API struct */
+	/* 我们需要访问索引访问方法的 API 结构体 */
 	amroutine = GetIndexAmRoutineByAmId(accessMethodObjectId, false);
 
-	/* ... and to the table's tuple descriptor */
+	/* ... 以及表的元组描述符 */
 	heapTupDesc = RelationGetDescr(heapRelation);
 	natts = RelationGetForm(heapRelation)->relnatts;
 
 	/*
-	 * allocate the new tuple descriptor
+	 * 分配新的元组描述符
 	 */
 	indexTupDesc = CreateTemplateTupleDesc(numatts);
 
 	/*
-	 * Fill in the pg_attribute row.
+	 * 填写 pg_attribute 行。
 	 */
 	for (i = 0; i < numatts; i++)
 	{
@@ -333,26 +333,26 @@ ConstructTupleDescriptor(Relation heapRelation,
 			collationObjectId[i] : InvalidOid;
 
 		/*
-		 * Set the attribute name as specified by caller.
+		 * 按照调用方指定的那样设置属性名。
 		 */
-		if (colnames_item == NULL)	/* shouldn't happen */
+		if (colnames_item == NULL)	/* 不应发生 */
 			elog(ERROR, "too few entries in colnames list");
 		namestrcpy(&to->attname, (const char *) lfirst(colnames_item));
 		colnames_item = lnext(indexColNames, colnames_item);
 
 		/*
-		 * For simple index columns, we copy some pg_attribute fields from the
-		 * parent relation.  For expressions we have to look at the expression
-		 * result.
+		 * 对于简单索引列，我们从父关系复制某些 pg_attribute 字段。
+		 * 对于表达式，
+		 * 我们必须查看表达式求值的结果。
 		 */
 		if (atnum != 0)
 		{
-			/* Simple index column */
+			/* 简单索引列 */
 			const FormData_pg_attribute *from;
 
-			Assert(atnum > 0);	/* should've been caught above */
+			Assert(atnum > 0);	/* 本应在上面被检查出来 */
 
-			if (atnum > natts)	/* safety check */
+			if (atnum > natts)	/* 安全性检查 */
 				elog(ERROR, "invalid column number %d", atnum);
 			from = TupleDescAttr(heapTupDesc,
 								 AttrNumberGetAttrOffset(atnum));
@@ -368,16 +368,16 @@ ConstructTupleDescriptor(Relation heapRelation,
 		}
 		else
 		{
-			/* Expressional index */
+			/* 表达式索引 */
 			Node	   *indexkey;
 
-			if (indexpr_item == NULL)	/* shouldn't happen */
+			if (indexpr_item == NULL)	/* 不应发生 */
 				elog(ERROR, "too few entries in indexprs list");
 			indexkey = (Node *) lfirst(indexpr_item);
 			indexpr_item = lnext(indexInfo->ii_Expressions, indexpr_item);
 
 			/*
-			 * Lookup the expression type in pg_type for the type length etc.
+			 * 在 pg_type 中查找表达式的类型，以获得类型长度等信息。
 			 */
 			keyType = exprType(indexkey);
 			tuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(keyType));
@@ -386,7 +386,7 @@ ConstructTupleDescriptor(Relation heapRelation,
 			typeTup = (Form_pg_type) GETSTRUCT(tuple);
 
 			/*
-			 * Assign some of the attributes values. Leave the rest.
+			 * 赋予部分属性值，其余的留待以后设置。
 			 */
 			to->atttypid = keyType;
 			to->attlen = typeTup->typlen;
@@ -396,24 +396,24 @@ ConstructTupleDescriptor(Relation heapRelation,
 			to->attstorage = typeTup->typstorage;
 
 			/*
-			 * For expression columns, set attcompression invalid, since
-			 * there's no table column from which to copy the value. Whenever
-			 * we actually need to compress a value, we'll use whatever the
-			 * current value of default_toast_compression is at that point in
-			 * time.
+			 * 对于表达式列，将 attcompression 设为无效，因为
+			 * 不存在可供复制其值的表列。无论何时我们真正需要
+			 * 压缩某个值，
+			 * 都将使用那一刻 default_toast_compression 的
+			 * 当前取值。
 			 */
 			to->attcompression = InvalidCompressionMethod;
 
 			ReleaseSysCache(tuple);
 
 			/*
-			 * Make sure the expression yields a type that's safe to store in
-			 * an index.  We need this defense because we have index opclasses
-			 * for pseudo-types such as "record", and the actually stored type
-			 * had better be safe; eg, a named composite type is okay, an
-			 * anonymous record type is not.  The test is the same as for
-			 * whether a table column is of a safe type (which is why we
-			 * needn't check for the non-expression case).
+			 * 确保表达式产生的类型可以安全地存储在索引中。
+			 * 我们需要这层防御，因为我们要为 "record" 这类伪类型
+			 * 建立索引操作符类，而实际存储的类型最好必须是安全的；
+			 * 例如具名复合类型可以，匿名 record 类型则不行。
+			 * 该测试与判断表列是否为安全类型
+			 * 所用的测试相同（这就是为什么对非表达式的情况
+			 * 我们无需检查的原因）。
 			 */
 			CheckAttributeType(NameStr(to->attname),
 							   to->atttypid, to->attcollation,
@@ -421,16 +421,16 @@ ConstructTupleDescriptor(Relation heapRelation,
 		}
 
 		/*
-		 * We do not yet have the correct relation OID for the index, so just
-		 * set it invalid for now.  InitializeAttributeOids() will fix it
-		 * later.
+		 * 我们还没有索引的正确关系 OID，
+		 * 所以暂时将其设为无效。
+		 * InitializeAttributeOids() 稍后会修正它。
 		 */
 		to->attrelid = InvalidOid;
 
 		/*
-		 * Check the opclass and index AM to see if either provides a keytype
-		 * (overriding the attribute type).  Opclass (if exists) takes
-		 * precedence.
+		 * 检查操作符类和索引访问方法，
+		 * 看二者是否提供了键类型（从而覆盖属性类型）。
+		 * 操作符类（如果存在）优先。
 		 */
 		keyType = amroutine->amkeytype;
 
@@ -445,13 +445,13 @@ ConstructTupleDescriptor(Relation heapRelation,
 				keyType = opclassTup->opckeytype;
 
 			/*
-			 * If keytype is specified as ANYELEMENT, and opcintype is
-			 * ANYARRAY, then the attribute type must be an array (else it'd
-			 * not have matched this opclass); use its element type.
+			 * 如果 keytype 指定为 ANYELEMENT，而 opcintype 是 ANYARRAY，
+			 * 那么属性类型必须是数组（否则它不会与此操作符类匹配）；
+			 * 使用其元素类型。
 			 *
-			 * We could also allow ANYCOMPATIBLE/ANYCOMPATIBLEARRAY here, but
-			 * there seems no need to do so; there's no reason to declare an
-			 * opclass as taking ANYCOMPATIBLEARRAY rather than ANYARRAY.
+			 * 我们在此也可以允许 ANYCOMPATIBLE/ANYCOMPATIBLEARRAY，但
+			 * 看来没有这样做的必要；没有理由把操作符类声明为
+			 * 接受 ANYCOMPATIBLEARRAY 而不是 ANYARRAY。
 			 */
 			if (keyType == ANYELEMENTOID && opclassTup->opcintype == ANYARRAYOID)
 			{
@@ -465,8 +465,8 @@ ConstructTupleDescriptor(Relation heapRelation,
 		}
 
 		/*
-		 * If a key type different from the heap value is specified, update
-		 * the type-related fields in the index tupdesc.
+		 * 如果指定了与堆值不同的键类型，则更新索引 tupdesc 中
+		 * 与类型相关的字段。
 		 */
 		if (OidIsValid(keyType) && keyType != to->atttypid)
 		{
@@ -481,7 +481,7 @@ ConstructTupleDescriptor(Relation heapRelation,
 			to->attbyval = typeTup->typbyval;
 			to->attalign = typeTup->typalign;
 			to->attstorage = typeTup->typstorage;
-			/* As above, use the default compression method in this case */
+			/* 同上，在这种情况下使用默认压缩方法 */
 			to->attcompression = InvalidCompressionMethod;
 
 			ReleaseSysCache(tuple);
@@ -523,14 +523,14 @@ AppendAttributeTuples(Relation indexRelation, Datum *attopts)
 	TupleDesc	indexTupDesc;
 
 	/*
-	 * open the attribute relation and its indexes
+	 * 打开属性关系及其索引。
 	 */
 	pg_attribute = table_open(AttributeRelationId, RowExclusiveLock);
 
 	indstate = CatalogOpenIndexes(pg_attribute);
 
 	/*
-	 * insert data from new index's tupdesc into pg_attribute
+	 * 把新索引的 tupdesc 中的数据插入 pg_attribute。
 	 */
 	indexTupDesc = RelationGetDescr(indexRelation);
 
@@ -544,7 +544,7 @@ AppendAttributeTuples(Relation indexRelation, Datum *attopts)
 /* ----------------------------------------------------------------
  *		UpdateIndexRelation
  *
- * Construct and insert a new entry in the pg_index catalog
+ * 构造并在 pg_index 目录中插入一个新条目
  * ----------------------------------------------------------------
  */
 static void
@@ -574,8 +574,8 @@ UpdateIndexRelation(Oid indexoid,
 	int			i;
 
 	/*
-	 * Copy the index key, opclass, and indoption info into arrays (should we
-	 * make the caller pass them like this to start with?)
+	 * 将索引键、操作符类和 indoption 信息复制到数组中
+	 * （是否应该让调用方一开始就以这种形式传递它们？）
 	 */
 	indkey = buildint2vector(NULL, indexInfo->ii_NumIndexAttrs);
 	for (i = 0; i < indexInfo->ii_NumIndexAttrs; i++)
@@ -585,7 +585,7 @@ UpdateIndexRelation(Oid indexoid,
 	indoption = buildint2vector(coloptions, indexInfo->ii_NumIndexKeyAttrs);
 
 	/*
-	 * Convert the index expressions (if any) to a text datum
+	 * 将索引表达式（如果有）转换为文本数据值。
 	 */
 	if (indexInfo->ii_Expressions != NIL)
 	{
@@ -599,8 +599,8 @@ UpdateIndexRelation(Oid indexoid,
 		exprsDatum = (Datum) 0;
 
 	/*
-	 * Convert the index predicate (if any) to a text datum.  Note we convert
-	 * implicit-AND format to normal explicit-AND for storage.
+	 * 将索引谓词（如果有）转换为文本数据值。注意我们为存储
+	 * 把隐式 AND 格式转换为普通的显式 AND 格式。
 	 */
 	if (indexInfo->ii_Predicate != NIL)
 	{
@@ -615,12 +615,12 @@ UpdateIndexRelation(Oid indexoid,
 
 
 	/*
-	 * open the system catalog index relation
+	 * 打开系统目录索引关系。
 	 */
 	pg_index = table_open(IndexRelationId, RowExclusiveLock);
 
 	/*
-	 * Build a pg_index tuple
+	 * 构造一个 pg_index 元组。
 	 */
 	values[Anum_pg_index_indexrelid - 1] = ObjectIdGetDatum(indexoid);
 	values[Anum_pg_index_indrelid - 1] = ObjectIdGetDatum(heapoid);
@@ -651,12 +651,12 @@ UpdateIndexRelation(Oid indexoid,
 	tuple = heap_form_tuple(RelationGetDescr(pg_index), values, nulls);
 
 	/*
-	 * insert the tuple into the pg_index catalog
+	 * 把该元组插入 pg_index 目录。
 	 */
 	CatalogTupleInsert(pg_index, tuple);
 
 	/*
-	 * close the relation and free the tuple
+	 * 关闭该关系并释放该元组。
 	 */
 	table_close(pg_index, RowExclusiveLock);
 	heap_freetuple(tuple);
@@ -666,49 +666,49 @@ UpdateIndexRelation(Oid indexoid,
 /*
  * index_create
  *
- * heapRelation: table to build index on (suitably locked by caller)
- * indexRelationName: what it say
- * indexRelationId: normally, pass InvalidOid to let this routine
- *		generate an OID for the index.  During bootstrap this may be
- *		nonzero to specify a preselected OID.
- * parentIndexRelid: if creating an index partition, the OID of the
- *		parent index; otherwise InvalidOid.
- * parentConstraintId: if creating a constraint on a partition, the OID
- *		of the constraint in the parent; otherwise InvalidOid.
- * relFileNumber: normally, pass InvalidRelFileNumber to get new storage.
- *		May be nonzero to attach an existing valid build.
- * indexInfo: same info executor uses to insert into the index
- * indexColNames: column names to use for index (List of char *)
- * accessMethodObjectId: OID of index AM to use
- * tableSpaceId: OID of tablespace to use
- * collationObjectId: array of collation OIDs, one per index column
- * classObjectId: array of index opclass OIDs, one per index column
- * coloptions: array of per-index-column indoption settings
- * reloptions: AM-specific options
- * flags: bitmask that can include any combination of these bits:
+ * heapRelation: 要在其上建立索引的表（调用方已持有适当的锁）
+ * indexRelationName: 顾名思义
+ * indexRelationId: 通常传入 InvalidOid，让本例程
+ *		为索引生成一个 OID。在引导期间，可以传入非零值
+ *		以指定一个预先选定的 OID。
+ * parentIndexRelid: 若创建索引分区，则为父索引的
+ *		OID；否则为 InvalidOid。
+ * parentConstraintId: 若在分区上创建约束，则为父表中
+ *		该约束的 OID；否则为 InvalidOid。
+ * relFileNumber: 通常传入 InvalidRelFileNumber 以获得新的存储。
+ *		也可以传入非零值以附加一个已有的有效构建。
+ * indexInfo: 执行器用于向索引插入的相同信息
+ * indexColNames: 索引要使用的列名（char * 的 List）
+ * accessMethodObjectId: 要使用的索引 AM 的 OID
+ * tableSpaceId: 要使用的表空间的 OID
+ * collationObjectId: 排序规则 OID 数组，每个索引列一个
+ * classObjectId: 索引操作符类 OID 数组，每个索引列一个
+ * coloptions: 每个索引列的 indoption 设置数组
+ * reloptions: AM 特定的选项
+ * flags: 位掩码，可以包含以下各位的任意组合：
  *		INDEX_CREATE_IS_PRIMARY
- *			the index is a primary key
+ *			该索引是一个主键
  *		INDEX_CREATE_ADD_CONSTRAINT:
- *			invoke index_constraint_create also
+ *			同时调用 index_constraint_create
  *		INDEX_CREATE_SKIP_BUILD:
- *			skip the index_build() step for the moment; caller must do it
- *			later (typically via reindex_index())
+ *			暂时跳过 index_build() 步骤；调用方稍后必须执行它
+ *			（通常通过 reindex_index()）
  *		INDEX_CREATE_CONCURRENT:
- *			do not lock the table against writers.  The index will be
- *			marked "invalid" and the caller must take additional steps
- *			to fix it up.
+ *			不对表加防止写入者的锁。该索引将被
+ *			标记为 "无效"，调用方必须采取额外的步骤
+ *			来修正它。
  *		INDEX_CREATE_IF_NOT_EXISTS:
- *			do not throw an error if a relation with the same name
- *			already exists.
+ *			如果已存在同名的关系，
+ *			则不抛出错误。
  *		INDEX_CREATE_PARTITIONED:
- *			create a partitioned index (table must be partitioned)
- * constr_flags: flags passed to index_constraint_create
- *		(only if INDEX_CREATE_ADD_CONSTRAINT is set)
- * allow_system_table_mods: allow table to be a system catalog
- * is_internal: if true, post creation hook for new index
- * constraintId: if not NULL, receives OID of created constraint
+ *			创建分区索引（表必须已分区）
+ * constr_flags: 传给 index_constraint_create 的标志
+ *		（仅在设置了 INDEX_CREATE_ADD_CONSTRAINT 时）
+ * allow_system_table_mods: 允许该表成为系统目录
+ * is_internal: 若为 true，则为新索引调用创建后钩子
+ * constraintId: 若不为 NULL，则接收所创建约束的 OID
  *
- * Returns the OID of the created index.
+ * 返回所创建索引的 OID。
  */
 Oid
 index_create(Relation heapRelation,
@@ -750,10 +750,10 @@ index_create(Relation heapRelation,
 	MultiXactId relminmxid;
 	bool		create_storage = !RelFileNumberIsValid(relFileNumber);
 
-	/* constraint flags can only be set when a constraint is requested */
+	/* 约束标志只有在请求约束时才能设置 */
 	Assert((constr_flags == 0) ||
 		   ((flags & INDEX_CREATE_ADD_CONSTRAINT) != 0));
-	/* partitioned indexes must never be "built" by themselves */
+	/* 分区索引绝不能单独被"构建" */
 	Assert(!partitioned || (flags & INDEX_CREATE_SKIP_BUILD));
 
 	relkind = partitioned ? RELKIND_PARTITIONED_INDEX : RELKIND_INDEX;
@@ -762,10 +762,10 @@ index_create(Relation heapRelation,
 	pg_class = table_open(RelationRelationId, RowExclusiveLock);
 
 	/*
-	 * The index will be in the same namespace as its parent table, and is
-	 * shared across databases if and only if the parent is.  Likewise, it
-	 * will use the relfilenumber map if and only if the parent does; and it
-	 * inherits the parent's relpersistence.
+	 * 该索引将与其父表处于同一命名空间中，并且当且仅当父表
+	 * 跨数据库共享时它才跨数据库共享。同样，当且仅当父表
+	 * 使用 relfilenumber 映射时它才使用该映射；
+	 * 并且它继承父表的 relpersistence。
 	 */
 	namespaceId = RelationGetNamespace(heapRelation);
 	shared_relation = heapRelation->rd_rel->relisshared;
@@ -773,7 +773,7 @@ index_create(Relation heapRelation,
 	relpersistence = heapRelation->rd_rel->relpersistence;
 
 	/*
-	 * check parameters
+	 * 检查参数。
 	 */
 	if (indexInfo->ii_NumIndexAttrs < 1)
 		elog(ERROR, "must index at least one column");
@@ -786,23 +786,23 @@ index_create(Relation heapRelation,
 				 errmsg("user-defined indexes on system catalog tables are not supported")));
 
 	/*
-	 * Btree text_pattern_ops uses text_eq as the equality operator, which is
-	 * fine as long as the collation is deterministic; text_eq then reduces to
-	 * bitwise equality and so it is semantically compatible with the other
-	 * operators and functions in that opclass.  But with a nondeterministic
-	 * collation, text_eq could yield results that are incompatible with the
-	 * actual behavior of the index (which is determined by the opclass's
-	 * comparison function).  We prevent such problems by refusing creation of
-	 * an index with that opclass and a nondeterministic collation.
+	 * Btree 的 text_pattern_ops 使用 text_eq 作为相等运算符，只要
+	 * 排序规则是确定性的就没有问题；此时 text_eq 归结为按位相等，
+	 * 因此它与该操作符类中的其他运算符和函数在语义上兼容。
+	 * 但在非确定性排序规则下，text_eq 可能产生
+	 * 与索引实际行为（由操作符类的比较函数决定）
+	 * 不兼容的结果。
+	 * 我们通过拒绝创建同时使用该操作符类和非确定性
+	 * 排序规则的索引来防止这类问题。
 	 *
-	 * The same applies to varchar_pattern_ops and bpchar_pattern_ops.  If we
-	 * find more cases, we might decide to create a real mechanism for marking
-	 * opclasses as incompatible with nondeterminism; but for now, this small
-	 * hack suffices.
+	 * 同样的情况适用于 varchar_pattern_ops 和 bpchar_pattern_ops。
+	 * 如果我们发现更多这种情况，也许会决定创建一种真正的机制，
+	 * 把操作符类标记为与非确定性不兼容；但目前这个小 hack
+	 * 已经足够。
 	 *
-	 * Another solution is to use a special operator, not text_eq, as the
-	 * equality opclass member; but that is undesirable because it would
-	 * prevent index usage in many queries that work fine today.
+	 * 另一种解决方案是使用一个特殊运算符（而非 text_eq）
+	 * 作为相等操作符类成员；但这并不可取，因为那会
+	 * 阻止许多如今工作正常的查询使用索引。
 	 */
 	for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
 	{
@@ -831,8 +831,8 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * Concurrent index build on a system catalog is unsafe because we tend to
-	 * release locks before committing in catalogs.
+	 * 在系统目录上并发建立索引是不安全的，因为我们在目录中
+	 * 往往在提交之前就释放了锁。
 	 */
 	if (concurrent &&
 		IsCatalogRelation(heapRelation))
@@ -841,8 +841,8 @@ index_create(Relation heapRelation,
 				 errmsg("concurrent index creation on system catalog tables is not supported")));
 
 	/*
-	 * This case is currently not supported.  There's no way to ask for it in
-	 * the grammar with CREATE INDEX, but it can happen with REINDEX.
+	 * 目前不支持这种情况。用 CREATE INDEX 在语法上无法要求它，
+	 * 但 REINDEX 可能会出现这种情况。
 	 */
 	if (concurrent && is_exclusion)
 		ereport(ERROR,
@@ -850,8 +850,8 @@ index_create(Relation heapRelation,
 				 errmsg("concurrent index creation for exclusion constraints is not supported")));
 
 	/*
-	 * We cannot allow indexing a shared relation after initdb (because
-	 * there's no way to make the entry in other databases' pg_class).
+	 * 我们不允许在 initdb 之后为共享关系创建索引（因为
+	 * 没有办法在其他数据库的 pg_class 中建立相应条目）。
 	 */
 	if (shared_relation && !IsBootstrapProcessingMode())
 		ereport(ERROR,
@@ -859,16 +859,16 @@ index_create(Relation heapRelation,
 				 errmsg("shared indexes cannot be created after initdb")));
 
 	/*
-	 * Shared relations must be in pg_global, too (last-ditch check)
+	 * 共享关系还必须位于 pg_global 中（最后的检查）
 	 */
 	if (shared_relation && tableSpaceId != GLOBALTABLESPACE_OID)
 		elog(ERROR, "shared relations must be placed in pg_global tablespace");
 
 	/*
-	 * Check for duplicate name (both as to the index, and as to the
-	 * associated constraint if any).  Such cases would fail on the relevant
-	 * catalogs' unique indexes anyway, but we prefer to give a friendlier
-	 * error message.
+	 * 检查名称是否重复（既针对索引本身，
+	 * 也针对其关联的约束（如果有））。
+	 * 这类情况反正会在相关目录的唯一索引上失败，
+	 * 但我们更愿意给出更友好的错误消息。
 	 */
 	if (get_relname_relid(indexRelationName, namespaceId))
 	{
@@ -893,8 +893,8 @@ index_create(Relation heapRelation,
 							 indexRelationName))
 	{
 		/*
-		 * INDEX_CREATE_IF_NOT_EXISTS does not apply here, since the
-		 * conflicting constraint is not an index.
+		 * INDEX_CREATE_IF_NOT_EXISTS 在此不适用，因为
+		 * 冲突的约束并不是一个索引。
 		 */
 		ereport(ERROR,
 				(errcode(ERRCODE_DUPLICATE_OBJECT),
@@ -903,7 +903,7 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * construct tuple descriptor for index tuples
+	 * 为索引元组构造元组描述符。
 	 */
 	indexTupDesc = ConstructTupleDescriptor(heapRelation,
 											indexInfo,
@@ -913,14 +913,14 @@ index_create(Relation heapRelation,
 											classObjectId);
 
 	/*
-	 * Allocate an OID for the index, unless we were told what to use.
+	 * 为索引分配一个 OID，除非我们被告知要使用某个特定值。
 	 *
-	 * The OID will be the relfilenumber as well, so make sure it doesn't
-	 * collide with either pg_class OIDs or existing physical files.
+	 * 该 OID 同时也将是 relfilenumber，因此要确保它既不与
+	 * pg_class 中的 OID 冲突，也不与现有物理文件冲突。
 	 */
 	if (!OidIsValid(indexRelationId))
 	{
-		/* Use binary-upgrade override for pg_class.oid and relfilenumber */
+		/* 对 pg_class.oid 和 relfilenumber 使用二进制升级覆盖值 */
 		if (IsBinaryUpgrade)
 		{
 			if (!OidIsValid(binary_upgrade_next_index_pg_class_oid))
@@ -931,7 +931,7 @@ index_create(Relation heapRelation,
 			indexRelationId = binary_upgrade_next_index_pg_class_oid;
 			binary_upgrade_next_index_pg_class_oid = InvalidOid;
 
-			/* Override the index relfilenumber */
+			/* 覆盖索引的 relfilenumber */
 			if ((relkind == RELKIND_INDEX) &&
 				(!RelFileNumberIsValid(binary_upgrade_next_index_pg_class_relfilenumber)))
 				ereport(ERROR,
@@ -941,9 +941,9 @@ index_create(Relation heapRelation,
 			binary_upgrade_next_index_pg_class_relfilenumber = InvalidRelFileNumber;
 
 			/*
-			 * Note that we want create_storage = true for binary upgrade. The
-			 * storage we create here will be replaced later, but we need to
-			 * have something on disk in the meanwhile.
+			 * 注意，对于二进制升级我们希望 create_storage = true。
+			 * 我们在此创建的存储稍后会被替换，
+			 * 但在此期间我们需要磁盘上有东西存在。
 			 */
 			Assert(create_storage);
 		}
@@ -955,9 +955,9 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * create the index relation's relcache entry and, if necessary, the
-	 * physical disk file. (If we fail further down, it's the smgr's
-	 * responsibility to remove the disk file again, if any.)
+	 * 创建索引关系的关系缓存条目，必要时还包括物理磁盘文件。
+	 * （如果我们后面失败了，若有磁盘文件，
+	 * 则由 smgr 负责再次删除它。）
 	 */
 	indexRelation = heap_create(indexRelationName,
 								namespaceId,
@@ -980,52 +980,52 @@ index_create(Relation heapRelation,
 	Assert(indexRelationId == RelationGetRelid(indexRelation));
 
 	/*
-	 * Obtain exclusive lock on it.  Although no other transactions can see it
-	 * until we commit, this prevents deadlock-risk complaints from lock
-	 * manager in cases such as CLUSTER.
+	 * 获取它的排他锁。尽管在我们提交之前其他事务看不到它，
+	 * 但这可以防止诸如 CLUSTER 之类的场景中锁管理器
+	 * 报出可能死锁的抱怨。
 	 */
 	LockRelation(indexRelation, AccessExclusiveLock);
 
 	/*
-	 * Fill in fields of the index's pg_class entry that are not set correctly
-	 * by heap_create.
+	 * 填写索引的 pg_class 条目中未被 heap_create
+	 * 正确设置的字段。
 	 *
-	 * XXX should have a cleaner way to create cataloged indexes
+	 * XXX 应该有更干净的办法来创建已编目的索引
 	 */
 	indexRelation->rd_rel->relowner = heapRelation->rd_rel->relowner;
 	indexRelation->rd_rel->relam = accessMethodObjectId;
 	indexRelation->rd_rel->relispartition = OidIsValid(parentIndexRelid);
 
 	/*
-	 * store index's pg_class entry
+	 * 存储索引的 pg_class 条目。
 	 */
 	InsertPgClassTuple(pg_class, indexRelation,
 					   RelationGetRelid(indexRelation),
 					   (Datum) 0,
 					   reloptions);
 
-	/* done with pg_class */
+	/* pg_class 处理完毕 */
 	table_close(pg_class, RowExclusiveLock);
 
 	/*
-	 * now update the object id's of all the attribute tuple forms in the
-	 * index relation's tuple descriptor
+	 * 现在更新索引关系的元组描述符中所有属性元组形式的
+	 * 对象标识。
 	 */
 	InitializeAttributeOids(indexRelation,
 							indexInfo->ii_NumIndexAttrs,
 							indexRelationId);
 
 	/*
-	 * append ATTRIBUTE tuples for the index
+	 * 为该索引追加 ATTRIBUTE 元组。
 	 */
 	AppendAttributeTuples(indexRelation, indexInfo->ii_OpclassOptions);
 
 	/* ----------------
-	 *	  update pg_index
-	 *	  (append INDEX tuple)
+	 *	  更新 pg_index
+	 *	  （追加 INDEX 元组）
 	 *
-	 *	  Note that this stows away a representation of "predicate".
-	 *	  (Or, could define a rule to maintain the predicate) --Nels, Feb '92
+	 *	  注意，这会把 "predicate" 的一种表示形式存起来。
+	 *	  （或者，也可以定义一条规则来维护该谓词）--Nels, Feb '92
 	 * ----------------
 	 */
 	UpdateIndexRelation(indexRelationId, heapRelationId, parentIndexRelid,
@@ -1037,12 +1037,12 @@ index_create(Relation heapRelation,
 						!concurrent);
 
 	/*
-	 * Register relcache invalidation on the indexes' heap relation, to
-	 * maintain consistency of its index list
+	 * 在索引的堆关系上注册关系缓存失效，
+	 * 以维护其索引列表的一致性。
 	 */
 	CacheInvalidateRelcache(heapRelation);
 
-	/* update pg_inherits and the parent's relhassubclass, if needed */
+	/* 必要时更新 pg_inherits 和父表的 relhassubclass */
 	if (OidIsValid(parentIndexRelid))
 	{
 		StoreSingleInheritance(indexRelationId, parentIndexRelid, 1);
@@ -1051,18 +1051,18 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * Register constraint and dependencies for the index.
+	 * 为该索引注册约束和依赖。
 	 *
-	 * If the index is from a CONSTRAINT clause, construct a pg_constraint
-	 * entry.  The index will be linked to the constraint, which in turn is
-	 * linked to the table.  If it's not a CONSTRAINT, we need to make a
-	 * dependency directly on the table.
+	 * 如果索引来自 CONSTRAINT 子句，则构造一个 pg_constraint 条目。
+	 * 该索引将链接到该约束，而该约束又链接到该表。
+	 * 如果不是 CONSTRAINT，我们就需要在表上直接
+	 * 建立一个依赖。
 	 *
-	 * We don't need a dependency on the namespace, because there'll be an
-	 * indirect dependency via our parent table.
+	 * 我们不需要对命名空间建立依赖，因为通过我们的父表
+	 * 会存在一个间接依赖。
 	 *
-	 * During bootstrap we can't register any dependencies, and we don't try
-	 * to make a constraint either.
+	 * 在引导期间我们无法注册任何依赖，
+	 * 并且我们也不尝试创建约束。
 	 */
 	if (!IsBootstrapProcessingMode())
 	{
@@ -1086,7 +1086,7 @@ index_create(Relation heapRelation,
 			else
 			{
 				elog(ERROR, "constraint must be PRIMARY, UNIQUE or EXCLUDE");
-				constraintType = 0; /* keep compiler quiet */
+				constraintType = 0; /* 让编译器保持安静 */
 			}
 
 			localaddr = index_constraint_create(heapRelation,
@@ -1107,7 +1107,7 @@ index_create(Relation heapRelation,
 
 			addrs = new_object_addresses();
 
-			/* Create auto dependencies on simply-referenced columns */
+			/* 为被直接引用的列创建自动依赖 */
 			for (i = 0; i < indexInfo->ii_NumIndexAttrs; i++)
 			{
 				if (indexInfo->ii_IndexAttrNumbers[i] != 0)
@@ -1121,10 +1121,10 @@ index_create(Relation heapRelation,
 			}
 
 			/*
-			 * If there are no simply-referenced columns, give the index an
-			 * auto dependency on the whole table.  In most cases, this will
-			 * be redundant, but it might not be if the index expressions and
-			 * predicate contain no Vars or only whole-row Vars.
+			 * 如果没有被直接引用的列，则让索引对整个表
+			 * 建立一个自动依赖。在大多数情况下这将是多余的，
+			 * 但如果索引表达式和谓词中不包含 Var 或只包含整行 Var，
+			 * 情况可能就不是这样。
 			 */
 			if (!have_simple_col)
 			{
@@ -1138,10 +1138,10 @@ index_create(Relation heapRelation,
 		}
 
 		/*
-		 * If this is an index partition, create partition dependencies on
-		 * both the parent index and the table.  (Note: these must be *in
-		 * addition to*, not instead of, all other dependencies.  Otherwise
-		 * we'll be short some dependencies after DETACH PARTITION.)
+		 * 如果这是一个索引分区，则对父索引和表都创建分区依赖。
+		 * （注意：这些依赖必须是*加上*而不是取代
+		 * 所有其他依赖。否则在 DETACH PARTITION 之后
+		 * 我们会缺少一些依赖。）
 		 */
 		if (OidIsValid(parentIndexRelid))
 		{
@@ -1152,12 +1152,12 @@ index_create(Relation heapRelation,
 			recordDependencyOn(&myself, &referenced, DEPENDENCY_PARTITION_SEC);
 		}
 
-		/* placeholder for normal dependencies */
+		/* 普通依赖的占位符 */
 		addrs = new_object_addresses();
 
-		/* Store dependency on collations */
+		/* 存储对排序规则的依赖 */
 
-		/* The default collation is pinned, so don't bother recording it */
+		/* 默认排序规则是被固定的，因此不必费心记录它 */
 		for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
 		{
 			if (OidIsValid(collationObjectId[i]) &&
@@ -1169,7 +1169,7 @@ index_create(Relation heapRelation,
 			}
 		}
 
-		/* Store dependency on operator classes */
+		/* 存储对操作符类的依赖 */
 		for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
 		{
 			ObjectAddressSet(referenced, OperatorClassRelationId, classObjectId[i]);
@@ -1179,7 +1179,7 @@ index_create(Relation heapRelation,
 		record_object_address_dependencies(&myself, addrs, DEPENDENCY_NORMAL);
 		free_object_addresses(addrs);
 
-		/* Store dependencies on anything mentioned in index expressions */
+		/* 存储对索引表达式中提到的任何内容的依赖 */
 		if (indexInfo->ii_Expressions)
 		{
 			recordDependencyOnSingleRelExpr(&myself,
@@ -1189,7 +1189,7 @@ index_create(Relation heapRelation,
 											DEPENDENCY_AUTO, false);
 		}
 
-		/* Store dependencies on anything mentioned in predicate */
+		/* 存储对谓词中提到的任何内容的依赖 */
 		if (indexInfo->ii_Predicate)
 		{
 			recordDependencyOnSingleRelExpr(&myself,
@@ -1201,25 +1201,25 @@ index_create(Relation heapRelation,
 	}
 	else
 	{
-		/* Bootstrap mode - assert we weren't asked for constraint support */
+		/* 引导模式 --- 断言我们没有被要求提供约束支持 */
 		Assert((flags & INDEX_CREATE_ADD_CONSTRAINT) == 0);
 	}
 
-	/* Post creation hook for new index */
+	/* 针对新索引的创建后钩子 */
 	InvokeObjectPostCreateHookArg(RelationRelationId,
 								  indexRelationId, 0, is_internal);
 
 	/*
-	 * Advance the command counter so that we can see the newly-entered
-	 * catalog tuples for the index.
+	 * 推进命令计数器，以便我们能够看到该索引新录入的
+	 * 目录元组。
 	 */
 	CommandCounterIncrement();
 
 	/*
-	 * In bootstrap mode, we have to fill in the index strategy structure with
-	 * information from the catalogs.  If we aren't bootstrapping, then the
-	 * relcache entry has already been rebuilt thanks to sinval update during
-	 * CommandCounterIncrement.
+	 * 在引导模式下，我们必须用来自目录的信息
+	 * 填写索引策略结构。如果我们不在引导过程中，
+	 * 那么由于 CommandCounterIncrement 期间的 sinval 更新，
+	 * 关系缓存条目已经重建。
 	 */
 	if (IsBootstrapProcessingMode())
 		RelationInitIndexAccessInfo(indexRelation);
@@ -1228,7 +1228,7 @@ index_create(Relation heapRelation,
 
 	indexRelation->rd_index->indnkeyatts = indexInfo->ii_NumIndexKeyAttrs;
 
-	/* Validate opclass-specific options */
+	/* 验证操作符类特定的选项 */
 	if (indexInfo->ii_OpclassOptions)
 		for (i = 0; i < indexInfo->ii_NumIndexKeyAttrs; i++)
 			(void) index_opclass_options(indexRelation, i + 1,
@@ -1236,13 +1236,13 @@ index_create(Relation heapRelation,
 										 true);
 
 	/*
-	 * If this is bootstrap (initdb) time, then we don't actually fill in the
-	 * index yet.  We'll be creating more indexes and classes later, so we
-	 * delay filling them in until just before we're done with bootstrapping.
-	 * Similarly, if the caller specified to skip the build then filling the
-	 * index is delayed till later (ALTER TABLE can save work in some cases
-	 * with this).  Otherwise, we call the AM routine that constructs the
-	 * index.
+	 * 如果这是引导（initdb）期间，那么我们实际上还不填写该索引。
+	 * 稍后我们还会创建更多的索引和类型，
+	 * 所以我们把填写它们的工作推迟到引导即将结束之前。
+	 * 同样，如果调用方指定了跳过构建，
+	 * 那么填写索引的工作也推迟到以后（ALTER TABLE 在某些情况下
+	 * 可以借此节省工作量）。否则，我们就调用 AM
+	 * 构造该索引的例程。
 	 */
 	if (IsBootstrapProcessingMode())
 	{
@@ -1251,14 +1251,14 @@ index_create(Relation heapRelation,
 	else if ((flags & INDEX_CREATE_SKIP_BUILD) != 0)
 	{
 		/*
-		 * Caller is responsible for filling the index later on.  However,
-		 * we'd better make sure that the heap relation is correctly marked as
-		 * having an index.
+		 * 调用方负责稍后填写该索引。
+		 * 不过，我们最好确保堆关系
+		 * 被正确地标记为具有索引。
 		 */
 		index_update_stats(heapRelation,
 						   true,
 						   -1.0);
-		/* Make the above update visible */
+		/* 让上面的更新可见 */
 		CommandCounterIncrement();
 	}
 	else
@@ -1267,8 +1267,8 @@ index_create(Relation heapRelation,
 	}
 
 	/*
-	 * Close the index; but we keep the lock that we acquired above until end
-	 * of transaction.  Closing the heap is caller's responsibility.
+	 * 关闭索引；但我们获取的锁要保持到事务结束。
+	 * 关闭堆是调用方的责任。
 	 */
 	index_close(indexRelation, NoLock);
 
@@ -1278,11 +1278,11 @@ index_create(Relation heapRelation,
 /*
  * index_concurrently_create_copy
  *
- * Create concurrently an index based on the definition of the one provided by
- * caller.  The index is inserted into catalogs and needs to be built later
- * on.  This is called during concurrent reindex processing.
+ * 根据调用方提供的索引定义，并发地创建一个基于它的索引。
+ * 该索引被插入目录中，稍后还需要进行构建。本函数在并发
+ * 重建索引处理期间被调用。
  *
- * "tablespaceOid" is the tablespace to use for this index.
+ * "tablespaceOid" 是该索引要使用的表空间。
  */
 Oid
 index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
@@ -1306,19 +1306,19 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 
 	indexRelation = index_open(oldIndexId, RowExclusiveLock);
 
-	/* The new index needs some information from the old index */
+	/* 新索引需要来自旧索引的一些信息 */
 	oldInfo = BuildIndexInfo(indexRelation);
 
 	/*
-	 * Concurrent build of an index with exclusion constraints is not
-	 * supported.
+	 * 不支持对带有排他约束的索引
+	 * 进行并发构建。
 	 */
 	if (oldInfo->ii_ExclusionOps != NULL)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("concurrent index creation for exclusion constraints is not supported")));
 
-	/* Get the array of class and column options IDs from index info */
+	/* 从索引信息中获取类和列选项 ID 的数组 */
 	indexTuple = SearchSysCache1(INDEXRELID, ObjectIdGetDatum(oldIndexId));
 	if (!HeapTupleIsValid(indexTuple))
 		elog(ERROR, "cache lookup failed for index %u", oldIndexId);
@@ -1330,7 +1330,7 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 											Anum_pg_index_indoption);
 	indcoloptions = (int2vector *) DatumGetPointer(colOptionDatum);
 
-	/* Fetch options of index if any */
+	/* 获取索引的选项（如果有） */
 	classTuple = SearchSysCache1(RELOID, oldIndexId);
 	if (!HeapTupleIsValid(classTuple))
 		elog(ERROR, "cache lookup failed for relation %u", oldIndexId);
@@ -1338,9 +1338,9 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 								  Anum_pg_class_reloptions, &isnull);
 
 	/*
-	 * Fetch the list of expressions and predicates directly from the
-	 * catalogs.  This cannot rely on the information from IndexInfo of the
-	 * old index as these have been flattened for the planner.
+	 * 直接从目录获取表达式和谓词的列表。
+	 * 这不能依赖旧索引的 IndexInfo 中的信息，
+	 * 因为它们已经为规划器被展平。
 	 */
 	if (oldInfo->ii_Expressions != NIL)
 	{
@@ -1363,15 +1363,15 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 		predString = TextDatumGetCString(predDatum);
 		indexPreds = (List *) stringToNode(predString);
 
-		/* Also convert to implicit-AND format */
+		/* 同样转换为隐式 AND 格式 */
 		indexPreds = make_ands_implicit((Expr *) indexPreds);
 		pfree(predString);
 	}
 
 	/*
-	 * Build the index information for the new index.  Note that rebuild of
-	 * indexes with exclusion constraints is not supported, hence there is no
-	 * need to fill all the ii_Exclusion* fields.
+	 * 为新索引构建索引信息。注意，
+	 * 带有排他约束的索引不支持重建，
+	 * 因此无需填写所有 ii_Exclusion* 字段。
 	 */
 	newInfo = makeIndexInfo(oldInfo->ii_NumIndexAttrs,
 							oldInfo->ii_NumIndexKeyAttrs,
@@ -1380,14 +1380,14 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 							indexPreds,
 							oldInfo->ii_Unique,
 							oldInfo->ii_NullsNotDistinct,
-							false,	/* not ready for inserts */
+							false,	/* 尚未准备好接受插入 */
 							true,
 							indexRelation->rd_indam->amsummarizing);
 
 	/*
-	 * Extract the list of column names and the column numbers for the new
-	 * index information.  All this information will be used for the index
-	 * creation.
+	 * 从新索引信息中提取列名列表和列号。
+	 * 所有这些信息都将用于
+	 * 索引的创建。
 	 */
 	for (int i = 0; i < oldInfo->ii_NumIndexAttrs; i++)
 	{
@@ -1398,7 +1398,7 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 		newInfo->ii_IndexAttrNumbers[i] = oldInfo->ii_IndexAttrNumbers[i];
 	}
 
-	/* Extract opclass parameters for each attribute, if any */
+	/* 提取每个属性的操作符类参数（如果有） */
 	if (oldInfo->ii_OpclassOptions != NULL)
 	{
 		newInfo->ii_OpclassOptions = palloc0(sizeof(Datum) *
@@ -1408,11 +1408,11 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 	}
 
 	/*
-	 * Now create the new index.
+	 * 现在创建新索引。
 	 *
-	 * For a partition index, we adjust the partition dependency later, to
-	 * ensure a consistent state at all times.  That is why parentIndexRelid
-	 * is not set here.
+	 * 对于分区索引，我们稍后调整分区依赖，以确保任何时候
+	 * 状态都是一致的。这就是这里不设置 parentIndexRelid
+	 * 的原因。
 	 */
 	newIndexId = index_create(heapRelation,
 							  newName,
@@ -1430,11 +1430,11 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 							  optionDatum,
 							  INDEX_CREATE_SKIP_BUILD | INDEX_CREATE_CONCURRENT,
 							  0,
-							  true, /* allow table to be a system catalog? */
-							  false,	/* is_internal? */
+							  true, /* 允许该表成为系统目录？ */
+							  false,	/* is_internal（是否为内部？） */
 							  NULL);
 
-	/* Close the relations used and clean up */
+	/* 关闭使用过的关系并进行清理 */
 	index_close(indexRelation, NoLock);
 	ReleaseSysCache(indexTuple);
 	ReleaseSysCache(classTuple);
@@ -1445,11 +1445,11 @@ index_concurrently_create_copy(Relation heapRelation, Oid oldIndexId,
 /*
  * index_concurrently_build
  *
- * Build index for a concurrent operation.  Low-level locks are taken when
- * this operation is performed to prevent only schema changes, but they need
- * to be kept until the end of the transaction performing this operation.
- * 'indexOid' refers to an index relation OID already created as part of
- * previous processing, and 'heapOid' refers to its parent heap relation.
+ * 为并发操作构建索引。执行本操作时会获取低级锁，它们只用于
+ * 防止模式变更，但需要保持到执行本操作的事务结束。
+ * 'indexOid' 指的是先前处理中已作为其中一部分
+ * 创建的索引关系 OID，
+ * 'heapOid' 指的是其父堆关系。
  */
 void
 index_concurrently_build(Oid heapRelationId,
@@ -1462,16 +1462,16 @@ index_concurrently_build(Oid heapRelationId,
 	Relation	indexRelation;
 	IndexInfo  *indexInfo;
 
-	/* This had better make sure that a snapshot is active */
+	/* 这最好能确保有一个活跃的快照 */
 	Assert(ActiveSnapshotSet());
 
-	/* Open and lock the parent heap relation */
+	/* 打开并锁定父堆关系 */
 	heapRel = table_open(heapRelationId, ShareUpdateExclusiveLock);
 
 	/*
-	 * Switch to the table owner's userid, so that any index functions are run
-	 * as that user.  Also lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.
+	 * 切换到表所有者的 userid，使任何索引函数都以该用户身份运行。
+	 * 同时限制安全敏感操作，并使 GUC 变量的更改
+	 * 仅限于本命令。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(heapRel->rd_rel->relowner,
@@ -1481,32 +1481,32 @@ index_concurrently_build(Oid heapRelationId,
 	indexRelation = index_open(indexRelationId, RowExclusiveLock);
 
 	/*
-	 * We have to re-build the IndexInfo struct, since it was lost in the
-	 * commit of the transaction where this concurrent index was created at
-	 * the catalog level.
+	 * 我们必须重新构建 IndexInfo 结构，
+	 * 因为它在该并发索引于目录层创建的
+	 * 事务提交时丢失了。
 	 */
 	indexInfo = BuildIndexInfo(indexRelation);
 	Assert(!indexInfo->ii_ReadyForInserts);
 	indexInfo->ii_Concurrent = true;
 	indexInfo->ii_BrokenHotChain = false;
 
-	/* Now build the index */
+	/* 现在构建索引 */
 	index_build(heapRel, indexRelation, indexInfo, false, true);
 
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数执行的任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
-	/* Close both the relations, but keep the locks */
+	/* 关闭这两个关系，但保留锁 */
 	table_close(heapRel, NoLock);
 	index_close(indexRelation, NoLock);
 
 	/*
-	 * Update the pg_index row to mark the index as ready for inserts. Once we
-	 * commit this transaction, any new transactions that open the table must
-	 * insert new entries into the index for insertions and non-HOT updates.
+	 * 更新 pg_index 行，将索引标记为可以接受插入。一旦我们
+	 * 提交该事务，任何打开该表的新事务在插入和非 HOT 更新时
+	 * 都必须向该索引插入新条目。
 	 */
 	index_set_state_flags(indexRelationId, INDEX_CREATE_SET_READY);
 }
@@ -1514,8 +1514,8 @@ index_concurrently_build(Oid heapRelationId,
 /*
  * index_concurrently_swap
  *
- * Swap name, dependencies, and constraints of the old index over to the new
- * index, while marking the old index as invalid and the new as valid.
+ * 把旧索引的名称、依赖和约束交换到新索引上，同时把旧索引
+ * 标记为无效、新索引标记为有效。
  */
 void
 index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
@@ -1540,12 +1540,12 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	ListCell   *lc;
 
 	/*
-	 * Take a necessary lock on the old and new index before swapping them.
+	 * 在交换新旧索引之前，对它们获取必要的锁。
 	 */
 	oldClassRel = relation_open(oldIndexId, ShareUpdateExclusiveLock);
 	newClassRel = relation_open(newIndexId, ShareUpdateExclusiveLock);
 
-	/* Now swap names and dependencies of those indexes */
+	/* 现在交换这些索引的名称和依赖 */
 	pg_class = table_open(RelationRelationId, RowExclusiveLock);
 
 	oldClassTuple = SearchSysCacheCopy1(RELOID,
@@ -1560,11 +1560,11 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	oldClassForm = (Form_pg_class) GETSTRUCT(oldClassTuple);
 	newClassForm = (Form_pg_class) GETSTRUCT(newClassTuple);
 
-	/* Swap the names */
+	/* 交换名称 */
 	namestrcpy(&newClassForm->relname, NameStr(oldClassForm->relname));
 	namestrcpy(&oldClassForm->relname, oldName);
 
-	/* Swap the partition flags to track inheritance properly */
+	/* 交换分区标志以正确跟踪继承关系 */
 	isPartition = newClassForm->relispartition;
 	newClassForm->relispartition = oldClassForm->relispartition;
 	oldClassForm->relispartition = isPartition;
@@ -1575,7 +1575,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	heap_freetuple(oldClassTuple);
 	heap_freetuple(newClassTuple);
 
-	/* Now swap index info */
+	/* 现在交换索引信息 */
 	pg_index = table_open(IndexRelationId, RowExclusiveLock);
 
 	oldIndexTuple = SearchSysCacheCopy1(INDEXRELID,
@@ -1591,8 +1591,8 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	newIndexForm = (Form_pg_index) GETSTRUCT(newIndexTuple);
 
 	/*
-	 * Copy constraint flags from the old index. This is safe because the old
-	 * index guaranteed uniqueness.
+	 * 从旧索引复制约束标志。这是安全的，因为旧索引
+	 * 保证了唯一性。
 	 */
 	newIndexForm->indisprimary = oldIndexForm->indisprimary;
 	oldIndexForm->indisprimary = false;
@@ -1601,15 +1601,15 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	newIndexForm->indimmediate = oldIndexForm->indimmediate;
 	oldIndexForm->indimmediate = true;
 
-	/* Preserve indisreplident in the new index */
+	/* 在新索引中保留 indisreplident */
 	newIndexForm->indisreplident = oldIndexForm->indisreplident;
 
-	/* Preserve indisclustered in the new index */
+	/* 在新索引中保留 indisclustered */
 	newIndexForm->indisclustered = oldIndexForm->indisclustered;
 
 	/*
-	 * Mark the new index as valid, and the old index as invalid similarly to
-	 * what index_set_state_flags() does.
+	 * 把新索引标记为有效，并效仿 index_set_state_flags() 的做法
+	 * 把旧索引标记为无效。
 	 */
 	newIndexForm->indisvalid = true;
 	oldIndexForm->indisvalid = false;
@@ -1623,7 +1623,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	heap_freetuple(newIndexTuple);
 
 	/*
-	 * Move constraints and triggers over to the new index
+	 * 把约束和触发器转移到新索引上
 	 */
 
 	constraintOids = get_index_ref_constraints(oldIndexId);
@@ -1645,7 +1645,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 		SysScanDesc scan;
 		Oid			constraintOid = lfirst_oid(lc);
 
-		/* Move the constraint from the old to the new index */
+		/* 把约束从旧索引移到新索引 */
 		constraintTuple = SearchSysCacheCopy1(CONSTROID,
 											  ObjectIdGetDatum(constraintOid));
 		if (!HeapTupleIsValid(constraintTuple))
@@ -1662,7 +1662,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 
 		heap_freetuple(constraintTuple);
 
-		/* Search for trigger records */
+		/* 查找触发器记录 */
 		ScanKeyInit(&key[0],
 					Anum_pg_trigger_tgconstraint,
 					BTEqualStrategyNumber, F_OIDEQ,
@@ -1678,7 +1678,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 			if (tgForm->tgconstrindid != oldIndexId)
 				continue;
 
-			/* Make a modifiable copy */
+			/* 制作一份可修改的副本 */
 			triggerTuple = heap_copytuple(triggerTuple);
 			tgForm = (Form_pg_trigger) GETSTRUCT(triggerTuple);
 
@@ -1693,7 +1693,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	}
 
 	/*
-	 * Move comment if any
+	 * 移动注释（如果有）
 	 */
 	{
 		Relation	description;
@@ -1731,7 +1731,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 									  values, nulls, replaces);
 			CatalogTupleUpdate(description, &tuple->t_self, tuple);
 
-			break;				/* Assume there can be only one match */
+			break;				/* 假定至多只有一个匹配 */
 		}
 
 		systable_endscan(sd);
@@ -1739,7 +1739,7 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	}
 
 	/*
-	 * Swap inheritance relationship with parent index
+	 * 与父索引交换继承关系
 	 */
 	if (get_rel_relispartition(oldIndexId))
 	{
@@ -1753,9 +1753,9 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	}
 
 	/*
-	 * Swap all dependencies of and on the old index to the new one, and
-	 * vice-versa.  Note that a call to CommandCounterIncrement() would cause
-	 * duplicate entries in pg_depend, so this should not be done.
+	 * 把旧索引的所有依赖以及指向它的依赖交换到新索引上，反之亦然。
+	 * 注意，调用 CommandCounterIncrement() 会导致 pg_depend 中出现
+	 * 重复条目，因此不应这样做。
 	 */
 	changeDependenciesOf(RelationRelationId, newIndexId, oldIndexId);
 	changeDependenciesOn(RelationRelationId, newIndexId, oldIndexId);
@@ -1763,13 +1763,13 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 	changeDependenciesOf(RelationRelationId, oldIndexId, newIndexId);
 	changeDependenciesOn(RelationRelationId, oldIndexId, newIndexId);
 
-	/* copy over statistics from old to new index */
+	/* 把统计信息从旧索引复制到新索引 */
 	pgstat_copy_relation_stats(newClassRel, oldClassRel);
 
-	/* Copy data of pg_statistic from the old index to the new one */
+	/* 把 pg_statistic 的数据从旧索引复制到新索引 */
 	CopyStatistics(oldIndexId, newIndexId);
 
-	/* Copy pg_attribute.attstattarget for each index attribute */
+	/* 为每个索引属性复制 pg_attribute.attstattarget */
 	{
 		HeapTuple	attrTuple;
 		Relation	pg_attribute;
@@ -1793,16 +1793,16 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 			int			attstattarget;
 			HeapTuple	newTuple;
 
-			/* Ignore dropped columns */
+			/* 忽略已删除的列 */
 			if (att->attisdropped)
 				continue;
 
 			/*
-			 * Get attstattarget from the old index and refresh the new value.
+			 * 从旧索引获取 attstattarget 并刷新新值。
 			 */
 			attstattarget = get_attstattarget(oldIndexId, att->attnum);
 
-			/* no need for a refresh if both match */
+			/* 如果两者相同则无需刷新 */
 			if (attstattarget == att->attstattarget)
 				continue;
 
@@ -1825,13 +1825,13 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 		table_close(pg_attribute, RowExclusiveLock);
 	}
 
-	/* Close relations */
+	/* 关闭关系 */
 	table_close(pg_class, RowExclusiveLock);
 	table_close(pg_index, RowExclusiveLock);
 	table_close(pg_constraint, RowExclusiveLock);
 	table_close(pg_trigger, RowExclusiveLock);
 
-	/* The lock taken previously is not released until the end of transaction */
+	/* 先前获取的锁要保持到事务结束 */
 	relation_close(oldClassRel, NoLock);
 	relation_close(newClassRel, NoLock);
 }
@@ -1839,10 +1839,10 @@ index_concurrently_swap(Oid newIndexId, Oid oldIndexId, const char *oldName)
 /*
  * index_concurrently_set_dead
  *
- * Perform the last invalidation stage of DROP INDEX CONCURRENTLY or REINDEX
- * CONCURRENTLY before actually dropping the index.  After calling this
- * function, the index is seen by all the backends as dead.  Low-level locks
- * taken here are kept until the end of the transaction calling this function.
+ * 在实际删除索引之前，执行 DROP INDEX CONCURRENTLY 或
+ * REINDEX CONCURRENTLY 的最后失效阶段。调用本函数之后，
+ * 所有后端都会把该索引视为已死。此处获取的低级锁将保持到
+ * 调用本函数的事务结束。
  */
 void
 index_concurrently_set_dead(Oid heapId, Oid indexId)
@@ -1851,31 +1851,31 @@ index_concurrently_set_dead(Oid heapId, Oid indexId)
 	Relation	userIndexRelation;
 
 	/*
-	 * No more predicate locks will be acquired on this index, and we're about
-	 * to stop doing inserts into the index which could show conflicts with
-	 * existing predicate locks, so now is the time to move them to the heap
-	 * relation.
+	 * 不会再有事务在该索引上获取谓词锁，
+	 * 而且我们即将停止向该索引插入，
+	 * 这可能显示出与现有谓词锁的冲突，
+	 * 所以现在是把它们转移到堆关系上的时机。
 	 */
 	userHeapRelation = table_open(heapId, ShareUpdateExclusiveLock);
 	userIndexRelation = index_open(indexId, ShareUpdateExclusiveLock);
 	TransferPredicateLocksToHeapRelation(userIndexRelation);
 
 	/*
-	 * Now we are sure that nobody uses the index for queries; they just might
-	 * have it open for updating it.  So now we can unset indisready and
-	 * indislive, then wait till nobody could be using it at all anymore.
+	 * 现在我们确信没有人会使用该索引进行查询；他们最多只是
+	 * 为了更新它而把它打开。所以现在我们可以取消 indisready 和
+	 * indislive，然后等待直到再也没有任何人能够使用它。
 	 */
 	index_set_state_flags(indexId, INDEX_DROP_SET_DEAD);
 
 	/*
-	 * Invalidate the relcache for the table, so that after this commit all
-	 * sessions will refresh the table's index list.  Forgetting just the
-	 * index's relcache entry is not enough.
+	 * 使该表的关系缓存失效，以便本次提交之后所有会话
+	 * 都会刷新该表的索引列表。仅忘记索引的
+	 * 关系缓存条目是不够的。
 	 */
 	CacheInvalidateRelcache(userHeapRelation);
 
 	/*
-	 * Close the relations again, though still holding session lock.
+	 * 再次关闭关系，但仍持有会话锁。
 	 */
 	table_close(userHeapRelation, NoLock);
 	index_close(userIndexRelation, NoLock);
@@ -1884,26 +1884,26 @@ index_concurrently_set_dead(Oid heapId, Oid indexId)
 /*
  * index_constraint_create
  *
- * Set up a constraint associated with an index.  Return the new constraint's
- * address.
+ * 建立与索引相关联的约束。返回新约束的
+ * 地址。
  *
- * heapRelation: table owning the index (must be suitably locked by caller)
- * indexRelationId: OID of the index
- * parentConstraintId: if constraint is on a partition, the OID of the
- *		constraint in the parent.
- * indexInfo: same info executor uses to insert into the index
- * constraintName: what it say (generally, should match name of index)
- * constraintType: one of CONSTRAINT_PRIMARY, CONSTRAINT_UNIQUE, or
- *		CONSTRAINT_EXCLUSION
- * flags: bitmask that can include any combination of these bits:
- *		INDEX_CONSTR_CREATE_MARK_AS_PRIMARY: index is a PRIMARY KEY
- *		INDEX_CONSTR_CREATE_DEFERRABLE: constraint is DEFERRABLE
- *		INDEX_CONSTR_CREATE_INIT_DEFERRED: constraint is INITIALLY DEFERRED
- *		INDEX_CONSTR_CREATE_UPDATE_INDEX: update the pg_index row
- *		INDEX_CONSTR_CREATE_REMOVE_OLD_DEPS: remove existing dependencies
- *			of index on table's columns
- * allow_system_table_mods: allow table to be a system catalog
- * is_internal: index is constructed due to internal process
+ * heapRelation: 拥有该索引的表（调用方必须已持有适当的锁）
+ * indexRelationId: 索引的 OID
+ * parentConstraintId: 若约束在分区上，则为父表中
+ *		该约束的 OID。
+ * indexInfo: 执行器用于向索引插入的相同信息
+ * constraintName: 顾名思义（一般应与索引的名称一致）
+ * constraintType: CONSTRAINT_PRIMARY、CONSTRAINT_UNIQUE 或
+ *		CONSTRAINT_EXCLUSION 之一
+ * flags: 位掩码，可以包含以下各位的任意组合：
+ *		INDEX_CONSTR_CREATE_MARK_AS_PRIMARY: 索引是 PRIMARY KEY
+ *		INDEX_CONSTR_CREATE_DEFERRABLE: 约束是 DEFERRABLE
+ *		INDEX_CONSTR_CREATE_INIT_DEFERRED: 约束是 INITIALLY DEFERRED
+ *		INDEX_CONSTR_CREATE_UPDATE_INDEX: 更新 pg_index 行
+ *		INDEX_CONSTR_CREATE_REMOVE_OLD_DEPS: 移除索引对表的列
+ *			现有的依赖
+ * allow_system_table_mods: 允许该表成为系统目录
+ * is_internal: 该索引是因内部过程而构造的
  */
 ObjectAddress
 index_constraint_create(Relation heapRelation,
@@ -1931,10 +1931,10 @@ index_constraint_create(Relation heapRelation,
 	initdeferred = (constr_flags & INDEX_CONSTR_CREATE_INIT_DEFERRED) != 0;
 	mark_as_primary = (constr_flags & INDEX_CONSTR_CREATE_MARK_AS_PRIMARY) != 0;
 
-	/* constraint creation support doesn't work while bootstrapping */
+	/* 引导期间约束创建支持不可用 */
 	Assert(!IsBootstrapProcessingMode());
 
-	/* enforce system-table restriction */
+	/* 强制执行系统表限制 */
 	if (!allow_system_table_mods &&
 		IsSystemRelation(heapRelation) &&
 		IsNormalProcessingMode())
@@ -1942,19 +1942,19 @@ index_constraint_create(Relation heapRelation,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("user-defined indexes on system catalog tables are not supported")));
 
-	/* primary/unique constraints shouldn't have any expressions */
+	/* 主键/唯一约束不应含有任何表达式 */
 	if (indexInfo->ii_Expressions &&
 		constraintType != CONSTRAINT_EXCLUSION)
 		elog(ERROR, "constraints cannot have index expressions");
 
 	/*
-	 * If we're manufacturing a constraint for a pre-existing index, we need
-	 * to get rid of the existing auto dependencies for the index (the ones
-	 * that index_create() would have made instead of calling this function).
+	 * 如果我们是为一个已存在的索引制造约束，我们需要清除该索引
+	 * 现有的自动依赖（即那些 index_create() 在不调用本函数时
+	 * 本应建立的依赖）。
 	 *
-	 * Note: this code would not necessarily do the right thing if the index
-	 * has any expressions or predicate, but we'd never be turning such an
-	 * index into a UNIQUE or PRIMARY KEY constraint.
+	 * 注意：如果索引含有任何表达式或谓词，
+	 * 这段代码未必会做正确的事，但我们绝不会把这样的索引
+	 * 变成 UNIQUE 或 PRIMARY KEY 约束。
 	 */
 	if (constr_flags & INDEX_CONSTR_CREATE_REMOVE_OLD_DEPS)
 		deleteDependencyRecordsForClass(RelationRelationId, indexRelationId,
@@ -1974,7 +1974,7 @@ index_constraint_create(Relation heapRelation,
 	}
 
 	/*
-	 * Construct a pg_constraint entry.
+	 * 构造一个 pg_constraint 条目。
 	 */
 	conOid = CreateConstraintEntry(constraintName,
 								   namespaceId,
@@ -1987,9 +1987,9 @@ index_constraint_create(Relation heapRelation,
 								   indexInfo->ii_IndexAttrNumbers,
 								   indexInfo->ii_NumIndexKeyAttrs,
 								   indexInfo->ii_NumIndexAttrs,
-								   InvalidOid,	/* no domain */
-								   indexRelationId, /* index OID */
-								   InvalidOid,	/* no foreign key */
+								   InvalidOid,	/* 没有域 */
+								   indexRelationId, /* 索引的 OID */
+								   InvalidOid,	/* 没有外键 */
 								   NULL,
 								   NULL,
 								   NULL,
@@ -2001,7 +2001,7 @@ index_constraint_create(Relation heapRelation,
 								   0,
 								   ' ',
 								   indexInfo->ii_ExclusionOps,
-								   NULL,	/* no check constraint */
+								   NULL,	/* 没有检查约束 */
 								   NULL,
 								   islocal,
 								   inhcount,
@@ -2009,18 +2009,18 @@ index_constraint_create(Relation heapRelation,
 								   is_internal);
 
 	/*
-	 * Register the index as internally dependent on the constraint.
+	 * 把该索引注册为在内部依赖于该约束。
 	 *
-	 * Note that the constraint has a dependency on the table, so we don't
-	 * need (or want) any direct dependency from the index to the table.
+	 * 注意，该约束对表有依赖，因此我们不需要（也不希望）
+	 * 索引到表之间存在任何直接依赖。
 	 */
 	ObjectAddressSet(myself, ConstraintRelationId, conOid);
 	ObjectAddressSet(idxaddr, RelationRelationId, indexRelationId);
 	recordDependencyOn(&idxaddr, &myself, DEPENDENCY_INTERNAL);
 
 	/*
-	 * Also, if this is a constraint on a partition, give it partition-type
-	 * dependencies on the parent constraint as well as the table.
+	 * 此外，如果这是分区上的约束，还要让它对父约束和表
+	 * 都建立分区类型的依赖。
 	 */
 	if (OidIsValid(parentConstraintId))
 	{
@@ -2034,9 +2034,9 @@ index_constraint_create(Relation heapRelation,
 	}
 
 	/*
-	 * If the constraint is deferrable, create the deferred uniqueness
-	 * checking trigger.  (The trigger will be given an internal dependency on
-	 * the constraint by CreateTrigger.)
+	 * 如果该约束是可延迟的，则创建延迟唯一性检查触发器。
+	 * （CreateTrigger 会给该触发器一个
+	 * 对约束的内部依赖。）
 	 */
 	if (deferrable)
 	{
@@ -2066,12 +2066,12 @@ index_constraint_create(Relation heapRelation,
 	}
 
 	/*
-	 * If needed, mark the index as primary and/or deferred in pg_index.
+	 * 如果需要，在 pg_index 中把该索引标记为主键
+	 * 和/或延迟约束。
 	 *
-	 * Note: When making an existing index into a constraint, caller must have
-	 * a table lock that prevents concurrent table updates; otherwise, there
-	 * is a risk that concurrent readers of the table will miss seeing this
-	 * index at all.
+	 * 注意：把已有索引变成约束时，调用方必须持有可防止
+	 * 并发表更新的表锁；否则，表的并发读者有可能
+	 * 完全看不到该索引。
 	 */
 	if ((constr_flags & INDEX_CONSTR_CREATE_UPDATE_INDEX) &&
 		(mark_as_primary || deferrable))
@@ -2108,10 +2108,10 @@ index_constraint_create(Relation heapRelation,
 			CatalogTupleUpdate(pg_index, &indexTuple->t_self, indexTuple);
 
 			/*
-			 * When we mark an existing index as primary, force a relcache
-			 * flush on its parent table, so that all sessions will become
-			 * aware that the table now has a primary key.  This is important
-			 * because it affects some replication behaviors.
+			 * 当我们把已有索引标记为主键时，强制对其父表
+			 * 进行关系缓存刷新，使所有会话都意识到
+			 * 该表现在有了主键。这一点很重要，因为它会影响
+			 * 某些复制行为。
 			 */
 			if (marked_as_primary)
 				CacheInvalidateRelcache(heapRelation);
@@ -2130,13 +2130,13 @@ index_constraint_create(Relation heapRelation,
 /*
  *		index_drop
  *
- * NOTE: this routine should now only be called through performDeletion(),
- * else associated dependencies won't be cleaned up.
+ * 注意：现在本例程应当只能通过 performDeletion() 调用，
+ * 否则关联的依赖不会被清理。
  *
- * If concurrent is true, do a DROP INDEX CONCURRENTLY.  If concurrent is
- * false but concurrent_lock_mode is true, then do a normal DROP INDEX but
- * take a lock for CONCURRENTLY processing.  That is used as part of REINDEX
- * CONCURRENTLY.
+ * 如果 concurrent 为 true，则执行 DROP INDEX CONCURRENTLY。
+ * 如果 concurrent 为 false 但 concurrent_lock_mode 为 true，
+ * 则执行普通的 DROP INDEX，但为 CONCURRENTLY 处理获取一个锁。
+ * 这是 REINDEX CONCURRENTLY 的一部分。
  */
 void
 index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
@@ -2153,31 +2153,31 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 	LOCKMODE	lockmode;
 
 	/*
-	 * A temporary relation uses a non-concurrent DROP.  Other backends can't
-	 * access a temporary relation, so there's no harm in grabbing a stronger
-	 * lock (see comments in RemoveRelations), and a non-concurrent DROP is
-	 * more efficient.
+	 * 临时关系使用非并发的 DROP。其他后端无法访问
+	 * 临时关系，因此获取更强的锁并无坏处
+	 * （见 RemoveRelations 中的注释），
+	 * 而且非并发的 DROP 效率更高。
 	 */
 	Assert(get_rel_persistence(indexId) != RELPERSISTENCE_TEMP ||
 		   (!concurrent && !concurrent_lock_mode));
 
 	/*
-	 * To drop an index safely, we must grab exclusive lock on its parent
-	 * table.  Exclusive lock on the index alone is insufficient because
-	 * another backend might be about to execute a query on the parent table.
-	 * If it relies on a previously cached list of index OIDs, then it could
-	 * attempt to access the just-dropped index.  We must therefore take a
-	 * table lock strong enough to prevent all queries on the table from
-	 * proceeding until we commit and send out a shared-cache-inval notice
-	 * that will make them update their index lists.
+	 * 要安全地删除索引，我们必须获取其父表的排他锁。
+	 * 仅对索引加排他锁是不够的，因为另一个后端可能正要
+	 * 在父表上执行查询。如果它依赖于先前缓存的索引 OID 列表，
+	 * 它就可能试图访问刚被删除的索引。
+	 * 因此我们必须获取一个足够强的表锁，
+	 * 以阻止所有对该表的查询进行下去，
+	 * 直到我们提交并发出共享缓存失效通知，
+	 * 使它们更新各自的索引列表。
 	 *
-	 * In the concurrent case we avoid this requirement by disabling index use
-	 * in multiple steps and waiting out any transactions that might be using
-	 * the index, so we don't need exclusive lock on the parent table. Instead
-	 * we take ShareUpdateExclusiveLock, to ensure that two sessions aren't
-	 * doing CREATE/DROP INDEX CONCURRENTLY on the same index.  (We will get
-	 * AccessExclusiveLock on the index below, once we're sure nobody else is
-	 * using it.)
+	 * 在并发情况下，我们通过分多步禁用索引的使用并等待
+	 * 所有可能正在使用该索引的事务结束来避免这一要求，
+	 * 因此我们不需要对父表加排他锁。相反，我们获取
+	 * ShareUpdateExclusiveLock，以确保两个会话不会对同一个索引
+	 * 同时执行 CREATE/DROP INDEX CONCURRENTLY。（一旦我们确定
+	 * 没有其他人在使用该索引，
+	 * 下面就会在该索引上获取 AccessExclusiveLock。）
 	 */
 	heapId = IndexGetRelation(indexId, false);
 	lockmode = (concurrent || concurrent_lock_mode) ? ShareUpdateExclusiveLock : AccessExclusiveLock;
@@ -2185,56 +2185,56 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 	userIndexRelation = index_open(indexId, lockmode);
 
 	/*
-	 * We might still have open queries using it in our own session, which the
-	 * above locking won't prevent, so test explicitly.
+	 * 我们自己的会话中可能仍有使用它的未关闭查询，
+	 * 上述加锁无法防止这一点，因此要显式检查。
 	 */
 	CheckTableNotInUse(userIndexRelation, "DROP INDEX");
 
 	/*
-	 * Drop Index Concurrently is more or less the reverse process of Create
-	 * Index Concurrently.
+	 * Drop Index Concurrently 大体上是 Create Index Concurrently 的
+	 * 逆过程。
 	 *
-	 * First we unset indisvalid so queries starting afterwards don't use the
-	 * index to answer queries anymore.  We have to keep indisready = true so
-	 * transactions that are still scanning the index can continue to see
-	 * valid index contents.  For instance, if they are using READ COMMITTED
-	 * mode, and another transaction makes changes and commits, they need to
-	 * see those new tuples in the index.
+	 * 首先我们取消 indisvalid，使之后开始的查询不再使用该索引
+	 * 来回答查询。我们必须保持 indisready = true，
+	 * 以便仍在扫描该索引的事务能够继续看到有效的索引内容。
+	 * 例如，如果它们使用的是 READ COMMITTED 模式，
+	 * 而另一个事务做了更改并提交，
+	 * 它们就需要在索引中看到那些新元组。
 	 *
-	 * After all transactions that could possibly have used the index for
-	 * queries end, we can unset indisready and indislive, then wait till
-	 * nobody could be touching it anymore.  (Note: we need indislive because
-	 * this state must be distinct from the initial state during CREATE INDEX
-	 * CONCURRENTLY, which has indislive true while indisready and indisvalid
-	 * are false.  That's because in that state, transactions must examine the
-	 * index for HOT-safety decisions, while in this state we don't want them
-	 * to open it at all.)
+	 * 在所有可能已经使用该索引进行查询的事务都结束之后，
+	 * 我们可以取消 indisready 和 indislive，
+	 * 然后等待直到再没有任何人可能触及它。
+	 * （注意：我们需要 indislive，因为该状态必须区别于
+	 * CREATE INDEX CONCURRENTLY 期间的初始状态，
+	 * 在那种状态下 indislive 为真，而 indisready 和 indisvalid 为假。
+	 * 这是因为在那种状态下，事务必须检查该索引以做出 HOT 安全性决策；
+	 * 而在本状态下，我们根本不希望它们打开它。）
 	 *
-	 * Since all predicate locks on the index are about to be made invalid, we
-	 * must promote them to predicate locks on the heap.  In the
-	 * non-concurrent case we can just do that now.  In the concurrent case
-	 * it's a bit trickier.  The predicate locks must be moved when there are
-	 * no index scans in progress on the index and no more can subsequently
-	 * start, so that no new predicate locks can be made on the index.  Also,
-	 * they must be moved before heap inserts stop maintaining the index, else
-	 * the conflict with the predicate lock on the index gap could be missed
-	 * before the lock on the heap relation is in place to detect a conflict
-	 * based on the heap tuple insert.
+	 * 由于该索引上所有的谓词锁都即将失效，我们必须
+	 * 把它们提升为堆上的谓词锁。在非并发情况下，
+	 * 我们现在就可以这样做。在并发情况下则要棘手一些。
+	 * 谓词锁必须在该索引上没有正在进行的索引扫描、
+	 * 且随后也不会再开始扫描时才能转移，
+	 * 这样该索引上就不会产生新的谓词锁。此外，
+	 * 它们必须在堆插入停止维护该索引之前转移，
+	 * 否则在堆关系上的锁就位、能够根据堆元组插入
+	 * 检测冲突之前，与索引间隙上的谓词锁
+	 * 的冲突可能被漏掉。
 	 */
 	if (concurrent)
 	{
 		/*
-		 * We must commit our transaction in order to make the first pg_index
-		 * state update visible to other sessions.  If the DROP machinery has
-		 * already performed any other actions (removal of other objects,
-		 * pg_depend entries, etc), the commit would make those actions
-		 * permanent, which would leave us with inconsistent catalog state if
-		 * we fail partway through the following sequence.  Since DROP INDEX
-		 * CONCURRENTLY is restricted to dropping just one index that has no
-		 * dependencies, we should get here before anything's been done ---
-		 * but let's check that to be sure.  We can verify that the current
-		 * transaction has not executed any transactional updates by checking
-		 * that no XID has been assigned.
+		 * 我们必须提交事务，以使第一次 pg_index 状态更新
+		 * 对其他会话可见。如果 DROP 机制已经执行了
+		 * 任何其他操作（删除其他对象、pg_depend 条目等），
+		 * 提交将使那些操作成为永久性的，
+		 * 这将使我们在后续序列中途失败时
+		 * 留下不一致的目录状态。
+		 * 由于 DROP INDEX CONCURRENTLY 限制为只能删除一个
+		 * 没有任何依赖的索引，我们应当在任何操作被执行之前
+		 * 到达这里——但让我们检查一下以确认。我们可以通过检查
+		 * 是否未分配任何 XID 来验证当前事务
+		 * 尚未执行任何事务性更新。
 		 */
 		if (GetTopTransactionIdIfAny() != InvalidTransactionId)
 			ereport(ERROR,
@@ -2242,18 +2242,18 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 					 errmsg("DROP INDEX CONCURRENTLY must be first action in transaction")));
 
 		/*
-		 * Mark index invalid by updating its pg_index entry
+		 * 通过更新其 pg_index 条目把索引标记为无效
 		 */
 		index_set_state_flags(indexId, INDEX_DROP_CLEAR_VALID);
 
 		/*
-		 * Invalidate the relcache for the table, so that after this commit
-		 * all sessions will refresh any cached plans that might reference the
-		 * index.
+		 * 使该表的关系缓存失效，以便本次提交之后
+		 * 所有会话都会刷新可能引用该索引的
+		 * 所有缓存计划。
 		 */
 		CacheInvalidateRelcache(userHeapRelation);
 
-		/* save lockrelid and locktag for below, then close but keep locks */
+		/* 保存 lockrelid 和 locktag 以供下面使用，然后关闭但保留锁 */
 		heaprelid = userHeapRelation->rd_lockInfo.lockRelId;
 		SET_LOCKTAG_RELATION(heaplocktag, heaprelid.dbId, heaprelid.relId);
 		indexrelid = userIndexRelation->rd_lockInfo.lockRelId;
@@ -2262,15 +2262,15 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 		index_close(userIndexRelation, NoLock);
 
 		/*
-		 * We must commit our current transaction so that the indisvalid
-		 * update becomes visible to other transactions; then start another.
-		 * Note that any previously-built data structures are lost in the
-		 * commit.  The only data we keep past here are the relation IDs.
+		 * 我们必须提交当前事务，以使 indisvalid 的更新
+		 * 对其他事务可见；然后启动另一个事务。注意，
+		 * 先前构建的数据结构在提交中丢失。
+		 * 越过此处之后我们保留的唯一数据是关系 ID。
 		 *
-		 * Before committing, get a session-level lock on the table, to ensure
-		 * that neither it nor the index can be dropped before we finish. This
-		 * cannot block, even if someone else is waiting for access, because
-		 * we already have the same lock within our transaction.
+		 * 提交之前，对表获取一个会话级的锁，以确保在我们完成之前
+		 * 该表和该索引都不会被删除。即使有人正在等待访问，
+		 * 这也不会造成阻塞，因为我们在自己的事务中
+		 * 已经持有相同的锁。
 		 */
 		LockRelationIdForSession(&heaprelid, ShareUpdateExclusiveLock);
 		LockRelationIdForSession(&indexrelid, ShareUpdateExclusiveLock);
@@ -2280,77 +2280,77 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 		StartTransactionCommand();
 
 		/*
-		 * Now we must wait until no running transaction could be using the
-		 * index for a query.  Use AccessExclusiveLock here to check for
-		 * running transactions that hold locks of any kind on the table. Note
-		 * we do not need to worry about xacts that open the table for reading
-		 * after this point; they will see the index as invalid when they open
-		 * the relation.
+		 * 现在我们必须等待，直到没有任何运行中的事务
+		 * 可能正在使用该索引进行查询。
+		 * 这里使用 AccessExclusiveLock 来检查
+		 * 持有该表上任何种类锁的运行中事务。
+		 * 注意我们无需担心在此之后为读取而打开该表的事务；
+		 * 它们打开该关系时会看到该索引是无效的。
 		 *
-		 * Note: the reason we use actual lock acquisition here, rather than
-		 * just checking the ProcArray and sleeping, is that deadlock is
-		 * possible if one of the transactions in question is blocked trying
-		 * to acquire an exclusive lock on our table.  The lock code will
-		 * detect deadlock and error out properly.
+		 * 注意：我们在此使用实际的锁获取，而不是仅仅检查 ProcArray
+		 * 然后睡眠，原因是：如果相关事务之一因试图获取
+		 * 我们表上的排他锁而被阻塞，就可能出现死锁。
+		 * 锁代码会检测死锁
+		 * 并正确地报错。
 		 *
-		 * Note: we report progress through WaitForLockers() unconditionally
-		 * here, even though it will only be used when we're called by REINDEX
-		 * CONCURRENTLY and not when called by DROP INDEX CONCURRENTLY.
+		 * 注意：我们在此无条件地通过 WaitForLockers() 报告进度，
+		 * 尽管它只会在我们被 REINDEX CONCURRENTLY 调用时才会被使用，
+		 * 而被 DROP INDEX CONCURRENTLY 调用时则不会。
 		 */
 		WaitForLockers(heaplocktag, AccessExclusiveLock, true);
 
-		/* Finish invalidation of index and mark it as dead */
+		/* 完成索引的失效并将其标记为已死 */
 		index_concurrently_set_dead(heapId, indexId);
 
 		/*
-		 * Again, commit the transaction to make the pg_index update visible
-		 * to other sessions.
+		 * 同样，提交事务以使 pg_index 的更新
+		 * 对其他会话可见。
 		 */
 		CommitTransactionCommand();
 		StartTransactionCommand();
 
 		/*
-		 * Wait till every transaction that saw the old index state has
-		 * finished.  See above about progress reporting.
+		 * 等待所有看到旧索引状态的事务都结束。
+		 * 关于进度报告见上文。
 		 */
 		WaitForLockers(heaplocktag, AccessExclusiveLock, true);
 
 		/*
-		 * Re-open relations to allow us to complete our actions.
+		 * 重新打开关系，以便我们完成操作。
 		 *
-		 * At this point, nothing should be accessing the index, but lets
-		 * leave nothing to chance and grab AccessExclusiveLock on the index
-		 * before the physical deletion.
+		 * 此时不应有任何东西在访问该索引，
+		 * 但我们不要心存侥幸，
+		 * 在物理删除之前先在该索引上获取 AccessExclusiveLock。
 		 */
 		userHeapRelation = table_open(heapId, ShareUpdateExclusiveLock);
 		userIndexRelation = index_open(indexId, AccessExclusiveLock);
 	}
 	else
 	{
-		/* Not concurrent, so just transfer predicate locks and we're good */
+		/* 非并发，因此只需转移谓词锁即可 */
 		TransferPredicateLocksToHeapRelation(userIndexRelation);
 	}
 
 	/*
-	 * Schedule physical removal of the files (if any)
+	 * 安排物理删除这些文件（如果有）
 	 */
 	if (RELKIND_HAS_STORAGE(userIndexRelation->rd_rel->relkind))
 		RelationDropStorage(userIndexRelation);
 
-	/* ensure that stats are dropped if transaction commits */
+	/* 确保事务提交时统计信息也被删除 */
 	pgstat_drop_relation(userIndexRelation);
 
 	/*
-	 * Close and flush the index's relcache entry, to ensure relcache doesn't
-	 * try to rebuild it while we're deleting catalog entries. We keep the
-	 * lock though.
+	 * 关闭并刷新索引的关系缓存条目，
+	 * 以确保在我们删除目录条目时关系缓存不会试图重建它。
+	 * 不过我们保留该锁。
 	 */
 	index_close(userIndexRelation, NoLock);
 
 	RelationForgetRelation(indexId);
 
 	/*
-	 * fix INDEX relation, and check for expressional index
+	 * 修正 INDEX 关系，并检查是否为表达式索引
 	 */
 	indexRelation = table_open(IndexRelationId, RowExclusiveLock);
 
@@ -2367,44 +2367,44 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 	table_close(indexRelation, RowExclusiveLock);
 
 	/*
-	 * if it has any expression columns, we might have stored statistics about
-	 * them.
+	 * 如果它有任何表达式列，我们可能已经存储了
+	 * 关于它们的统计信息。
 	 */
 	if (hasexprs)
 		RemoveStatistics(indexId, 0);
 
 	/*
-	 * fix ATTRIBUTE relation
+	 * 修正 ATTRIBUTE 关系
 	 */
 	DeleteAttributeTuples(indexId);
 
 	/*
-	 * fix RELATION relation
+	 * 修正 RELATION 关系
 	 */
 	DeleteRelationTuple(indexId);
 
 	/*
-	 * fix INHERITS relation
+	 * 修正 INHERITS 关系
 	 */
 	DeleteInheritsTuple(indexId, InvalidOid, false, NULL);
 
 	/*
-	 * We are presently too lazy to attempt to compute the new correct value
-	 * of relhasindex (the next VACUUM will fix it if necessary). So there is
-	 * no need to update the pg_class tuple for the owning relation. But we
-	 * must send out a shared-cache-inval notice on the owning relation to
-	 * ensure other backends update their relcache lists of indexes.  (In the
-	 * concurrent case, this is redundant but harmless.)
+	 * 我们现在懒得去计算 relhasindex 的新的正确值
+	 * （如有必要，下一次 VACUUM 会修正它）。
+	 * 因此无需更新所属关系的 pg_class 元组。
+	 * 但我们必须在所属关系上发出共享缓存失效通知，
+	 * 以确保其他后端更新其关系缓存中的索引列表。
+	 * （在并发情况下，这是多余但无害的。）
 	 */
 	CacheInvalidateRelcache(userHeapRelation);
 
 	/*
-	 * Close owning rel, but keep lock
+	 * 关闭所属关系，但保留锁
 	 */
 	table_close(userHeapRelation, NoLock);
 
 	/*
-	 * Release the session locks before we go.
+	 * 离开之前释放会话锁。
 	 */
 	if (concurrent)
 	{
@@ -2414,18 +2414,18 @@ index_drop(Oid indexId, bool concurrent, bool concurrent_lock_mode)
 }
 
 /* ----------------------------------------------------------------
- *						index_build support
+ *						index_build 支持
  * ----------------------------------------------------------------
  */
 
 /* ----------------
  *		BuildIndexInfo
- *			Construct an IndexInfo record for an open index
+ *			构造一个打开索引的 IndexInfo 记录
  *
- * IndexInfo stores the information about the index that's needed by
- * FormIndexDatum, which is used for both index_build() and later insertion
- * of individual index tuples.  Normally we build an IndexInfo for an index
- * just once per command, and then use it for (potentially) many tuples.
+ * IndexInfo 存储 FormIndexDatum 所需的关于索引的信息，
+ * FormIndexDatum 既用于 index_build()，也用于以后单个索引元组的插入。
+ * 通常我们每条命令只为索引构建一次 IndexInfo，
+ * 然后（可能）用于多个元组。
  * ----------------
  */
 IndexInfo *
@@ -2436,15 +2436,15 @@ BuildIndexInfo(Relation index)
 	int			i;
 	int			numAtts;
 
-	/* check the number of keys, and copy attr numbers into the IndexInfo */
+	/* 检查键的数量，并把属性号复制到 IndexInfo 中 */
 	numAtts = indexStruct->indnatts;
 	if (numAtts < 1 || numAtts > INDEX_MAX_KEYS)
 		elog(ERROR, "invalid indnatts %d for index %u",
 			 numAtts, RelationGetRelid(index));
 
 	/*
-	 * Create the node, fetching any expressions needed for expressional
-	 * indexes and index predicate if any.
+	 * 创建该节点，获取表达式索引所需的表达式
+	 * 以及索引谓词（如果有）。
 	 */
 	ii = makeIndexInfo(indexStruct->indnatts,
 					   indexStruct->indnkeyatts,
@@ -2457,11 +2457,11 @@ BuildIndexInfo(Relation index)
 					   false,
 					   index->rd_indam->amsummarizing);
 
-	/* fill in attribute numbers */
+	/* 填写属性号 */
 	for (i = 0; i < numAtts; i++)
 		ii->ii_IndexAttrNumbers[i] = indexStruct->indkey.values[i];
 
-	/* fetch exclusion constraint info if any */
+	/* 获取排他约束信息（如果有） */
 	if (indexStruct->indisexclusion)
 	{
 		RelationGetExclusionInfo(index,
@@ -2477,16 +2477,16 @@ BuildIndexInfo(Relation index)
 
 /* ----------------
  *		BuildDummyIndexInfo
- *			Construct a dummy IndexInfo record for an open index
+ *			构造一个打开索引的哑 IndexInfo 记录
  *
- * This differs from the real BuildIndexInfo in that it will never run any
- * user-defined code that might exist in index expressions or predicates.
- * Instead of the real index expressions, we return null constants that have
- * the right types/typmods/collations.  Predicates and exclusion clauses are
- * just ignored.  This is sufficient for the purpose of truncating an index,
- * since we will not need to actually evaluate the expressions or predicates;
- * the only thing that's likely to be done with the data is construction of
- * a tupdesc describing the index's rowtype.
+ * 它与真正的 BuildIndexInfo 的区别在于，它绝不会运行
+ * 索引表达式或谓词中可能存在的任何用户定义代码。
+ * 我们不返回真正的索引表达式，而是返回具有正确
+ * 类型/typmod/排序规则的空常量。谓词和排他子句被直接忽略。
+ * 这对于截断索引的用途来说已经足够，
+ * 因为我们无需真正对表达式或谓词求值；
+ * 对这些数据唯一可能做的处理就是构造一个
+ * 描述该索引行类型的 tupdesc。
  * ----------------
  */
 IndexInfo *
@@ -2497,15 +2497,15 @@ BuildDummyIndexInfo(Relation index)
 	int			i;
 	int			numAtts;
 
-	/* check the number of keys, and copy attr numbers into the IndexInfo */
+	/* 检查键的数量，并把属性号复制到 IndexInfo 中 */
 	numAtts = indexStruct->indnatts;
 	if (numAtts < 1 || numAtts > INDEX_MAX_KEYS)
 		elog(ERROR, "invalid indnatts %d for index %u",
 			 numAtts, RelationGetRelid(index));
 
 	/*
-	 * Create the node, using dummy index expressions, and pretending there is
-	 * no predicate.
+	 * 创建该节点，使用哑索引表达式，
+	 * 并假装不存在谓词。
 	 */
 	ii = makeIndexInfo(indexStruct->indnatts,
 					   indexStruct->indnkeyatts,
@@ -2518,24 +2518,24 @@ BuildDummyIndexInfo(Relation index)
 					   false,
 					   index->rd_indam->amsummarizing);
 
-	/* fill in attribute numbers */
+	/* 填写属性号 */
 	for (i = 0; i < numAtts; i++)
 		ii->ii_IndexAttrNumbers[i] = indexStruct->indkey.values[i];
 
-	/* We ignore the exclusion constraint if any */
+	/* 我们忽略排他约束（如果有） */
 
 	return ii;
 }
 
 /*
  * CompareIndexInfo
- *		Return whether the properties of two indexes (in different tables)
- *		indicate that they have the "same" definitions.
+ *		返回两个索引（位于不同的表中）的属性是否表明它们
+ *		具有"相同"的定义。
  *
- * Note: passing collations and opfamilies separately is a kludge.  Adding
- * them to IndexInfo may result in better coding here and elsewhere.
+ * 注意：单独传递排序规则和操作符族是一种权宜做法。把它们
+ * 加入 IndexInfo 可能让此处及其他地方的代码写得更好。
  *
- * Use build_attrmap_by_name(index2, index1) to build the attmap.
+ * 使用 build_attrmap_by_name(index2, index1) 来构建 attmap。
  */
 bool
 CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
@@ -2551,45 +2551,45 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 	if (info1->ii_NullsNotDistinct != info2->ii_NullsNotDistinct)
 		return false;
 
-	/* indexes are only equivalent if they have the same access method */
+	/* 只有当两个索引使用相同的访问方法时它们才等价 */
 	if (info1->ii_Am != info2->ii_Am)
 		return false;
 
-	/* and same number of attributes */
+	/* 且属性数量相同 */
 	if (info1->ii_NumIndexAttrs != info2->ii_NumIndexAttrs)
 		return false;
 
-	/* and same number of key attributes */
+	/* 且键属性数量相同 */
 	if (info1->ii_NumIndexKeyAttrs != info2->ii_NumIndexKeyAttrs)
 		return false;
 
 	/*
-	 * and columns match through the attribute map (actual attribute numbers
-	 * might differ!)  Note that this checks that index columns that are
-	 * expressions appear in the same positions.  We will next compare the
-	 * expressions themselves.
+	 * 并且各列通过属性映射匹配
+	 * （实际的属性号可能不同！）注意这会检查
+	 * 表达式形式的索引列是否出现在相同的位置上。
+	 * 接下来我们将比较表达式本身。
 	 */
 	for (i = 0; i < info1->ii_NumIndexAttrs; i++)
 	{
 		if (attmap->maplen < info2->ii_IndexAttrNumbers[i])
 			elog(ERROR, "incorrect attribute map");
 
-		/* ignore expressions for now (but check their collation/opfamily) */
+		/* 目前忽略表达式（但检查其排序规则/操作符族） */
 		if (!(info1->ii_IndexAttrNumbers[i] == InvalidAttrNumber &&
 			  info2->ii_IndexAttrNumbers[i] == InvalidAttrNumber))
 		{
-			/* fail if just one index has an expression in this column */
+			/* 如果只有一个索引在该列上有表达式，则失败 */
 			if (info1->ii_IndexAttrNumbers[i] == InvalidAttrNumber ||
 				info2->ii_IndexAttrNumbers[i] == InvalidAttrNumber)
 				return false;
 
-			/* both are columns, so check for match after mapping */
+			/* 两者都是列，所以检查映射后是否匹配 */
 			if (attmap->attnums[info2->ii_IndexAttrNumbers[i] - 1] !=
 				info1->ii_IndexAttrNumbers[i])
 				return false;
 		}
 
-		/* collation and opfamily are not valid for included columns */
+		/* 排序规则和操作符族对包含列无效 */
 		if (i >= info1->ii_NumIndexKeyAttrs)
 			continue;
 
@@ -2600,8 +2600,8 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 	}
 
 	/*
-	 * For expression indexes: either both are expression indexes, or neither
-	 * is; if they are, make sure the expressions match.
+	 * 对于表达式索引：要么两者都是表达式索引，要么都不是；
+	 * 如果是，则确保表达式匹配。
 	 */
 	if ((info1->ii_Expressions != NIL) != (info2->ii_Expressions != NIL))
 		return false;
@@ -2616,8 +2616,8 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 		if (found_whole_row)
 		{
 			/*
-			 * we could throw an error here, but seems out of scope for this
-			 * routine.
+			 * 我们本可以在此抛出一个错误，
+			 * 但这似乎超出了本例程的职责范围。
 			 */
 			return false;
 		}
@@ -2626,7 +2626,7 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 			return false;
 	}
 
-	/* Partial index predicates must be identical, if they exist */
+	/* 部分索引的谓词（如果存在）必须完全相同 */
 	if ((info1->ii_Predicate == NULL) != (info2->ii_Predicate == NULL))
 		return false;
 	if (info1->ii_Predicate != NULL)
@@ -2640,8 +2640,8 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 		if (found_whole_row)
 		{
 			/*
-			 * we could throw an error here, but seems out of scope for this
-			 * routine.
+			 * 我们本可以在此抛出一个错误，
+			 * 但这似乎超出了本例程的职责范围。
 			 */
 			return false;
 		}
@@ -2649,7 +2649,7 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 			return false;
 	}
 
-	/* No support currently for comparing exclusion indexes. */
+	/* 目前不支持比较排他约束索引。 */
 	if (info1->ii_ExclusionOps != NULL || info2->ii_ExclusionOps != NULL)
 		return false;
 
@@ -2658,14 +2658,14 @@ CompareIndexInfo(IndexInfo *info1, IndexInfo *info2,
 
 /* ----------------
  *		BuildSpeculativeIndexInfo
- *			Add extra state to IndexInfo record
+ *			向 IndexInfo 记录添加额外状态
  *
- * For unique indexes, we usually don't want to add info to the IndexInfo for
- * checking uniqueness, since the B-Tree AM handles that directly.  However,
- * in the case of speculative insertion, additional support is required.
+ * 对于唯一索引，我们通常不希望向 IndexInfo 添加用于检查唯一性的
+ * 信息，因为 B-Tree AM 直接处理该工作。然而，在 speculative 插入
+ * 的情况下，需要额外的支持。
  *
- * Do this processing here rather than in BuildIndexInfo() to not incur the
- * overhead in the common non-speculative cases.
+ * 在此而非 BuildIndexInfo() 中做这段处理，
+ * 是为了不在常见的非 speculative 场景中付出该开销。
  * ----------------
  */
 void
@@ -2677,7 +2677,7 @@ BuildSpeculativeIndexInfo(Relation index, IndexInfo *ii)
 	indnkeyatts = IndexRelationGetNumberOfKeyAttributes(index);
 
 	/*
-	 * fetch info for checking unique indexes
+	 * 获取用于检查唯一索引的信息。
 	 */
 	Assert(ii->ii_Unique);
 
@@ -2689,10 +2689,10 @@ BuildSpeculativeIndexInfo(Relation index, IndexInfo *ii)
 	ii->ii_UniqueStrats = (uint16 *) palloc(sizeof(uint16) * indnkeyatts);
 
 	/*
-	 * We have to look up the operator's strategy number.  This provides a
-	 * cross-check that the operator does match the index.
+	 * 我们必须查找运算符的策略号。这也对
+	 * 该运算符确实与该索引匹配进行了交叉检查。
 	 */
-	/* We need the func OIDs and strategy numbers too */
+	/* 我们还需要函数 OID 和策略号 */
 	for (i = 0; i < indnkeyatts; i++)
 	{
 		ii->ii_UniqueStrats[i] = BTEqualStrategyNumber;
@@ -2711,21 +2711,21 @@ BuildSpeculativeIndexInfo(Relation index, IndexInfo *ii)
 
 /* ----------------
  *		FormIndexDatum
- *			Construct values[] and isnull[] arrays for a new index tuple.
+ *			为新的索引元组构造 values[] 和 isnull[] 数组。
  *
- *	indexInfo		Info about the index
- *	slot			Heap tuple for which we must prepare an index entry
- *	estate			executor state for evaluating any index expressions
- *	values			Array of index Datums (output area)
- *	isnull			Array of is-null indicators (output area)
+ *	indexInfo		关于索引的信息
+ *	slot			我们必须为之准备索引条目的堆元组
+ *	estate			用于对索引表达式求值的执行器状态
+ *	values			索引 Datum 的数组（输出区）
+ *	isnull			空值指示器的数组（输出区）
  *
- * When there are no index expressions, estate may be NULL.  Otherwise it
- * must be supplied, *and* the ecxt_scantuple slot of its per-tuple expr
- * context must point to the heap tuple passed in.
+ * 当不存在索引表达式时，estate 可以是 NULL。否则，
+ * 必须提供它，*并且*其逐元组表达式上下文的 ecxt_scantuple 插槽
+ * 必须指向传入的堆元组。
  *
- * Notice we don't actually call index_form_tuple() here; we just prepare
- * its input arrays values[] and isnull[].  This is because the index AM
- * may wish to alter the data before storage.
+ * 注意我们在此并不实际调用 index_form_tuple()；我们只是准备
+ * 其输入数组 values[] 和 isnull[]。这是因为索引 AM
+ * 可能希望在存储之前修改数据。
  * ----------------
  */
 void
@@ -2741,10 +2741,10 @@ FormIndexDatum(IndexInfo *indexInfo,
 	if (indexInfo->ii_Expressions != NIL &&
 		indexInfo->ii_ExpressionsState == NIL)
 	{
-		/* First time through, set up expression evaluation state */
+		/* 第一次通过时，建立表达式求值状态 */
 		indexInfo->ii_ExpressionsState =
 			ExecPrepareExprList(indexInfo->ii_Expressions, estate);
-		/* Check caller has set up context correctly */
+		/* 检查调用方是否已正确建立上下文 */
 		Assert(GetPerTupleExprContext(estate)->ecxt_scantuple == slot);
 	}
 	indexpr_item = list_head(indexInfo->ii_ExpressionsState);
@@ -2760,15 +2760,15 @@ FormIndexDatum(IndexInfo *indexInfo,
 		else if (keycol != 0)
 		{
 			/*
-			 * Plain index column; get the value we need directly from the
-			 * heap tuple.
+			 * 普通索引列；
+			 * 直接从堆元组获取我们需要的值。
 			 */
 			iDatum = slot_getattr(slot, keycol, &isNull);
 		}
 		else
 		{
 			/*
-			 * Index expression --- need to evaluate it.
+			 * 索引表达式 --- 需要对它求值。
 			 */
 			if (indexpr_item == NULL)
 				elog(ERROR, "wrong number of index expressions");
@@ -2787,25 +2787,25 @@ FormIndexDatum(IndexInfo *indexInfo,
 
 
 /*
- * index_update_stats --- update pg_class entry after CREATE INDEX or REINDEX
+ * index_update_stats --- 在 CREATE INDEX 或 REINDEX 之后更新 pg_class 条目
  *
- * This routine updates the pg_class row of either an index or its parent
- * relation after CREATE INDEX or REINDEX.  Its rather bizarre API is designed
- * to ensure we can do all the necessary work in just one update.
+ * 本例程在 CREATE INDEX 或 REINDEX 之后更新索引或其父关系
+ * 的 pg_class 行。它相当古怪的 API 旨在确保我们能用一次更新
+ * 完成所有必需的工作。
  *
- * hasindex: set relhasindex to this value
- * reltuples: if >= 0, set reltuples to this value; else no change
+ * hasindex: 把 relhasindex 设为该值
+ * reltuples: 若 >= 0，则把 reltuples 设为该值；否则不更改
  *
- * If reltuples >= 0, relpages and relallvisible are also updated (using
- * RelationGetNumberOfBlocks() and visibilitymap_count()).
+ * 若 reltuples >= 0，relpages 和 relallvisible 也会被更新
+ * （使用 RelationGetNumberOfBlocks() 和 visibilitymap_count()）。
  *
- * NOTE: an important side-effect of this operation is that an SI invalidation
- * message is sent out to all backends --- including me --- causing relcache
- * entries to be flushed or updated with the new data.  This must happen even
- * if we find that no change is needed in the pg_class row.  When updating
- * a heap entry, this ensures that other backends find out about the new
- * index.  When updating an index, it's important because some index AMs
- * expect a relcache flush to occur after REINDEX.
+ * 注意：本操作的一个重要副作用是，一条 SI 失效消息会发给所有后端
+ * --- 包括我自己 --- 使关系缓存条目被刷新或用新数据更新。
+ * 即使我们发现 pg_class 行无需更改，这也必须发生。
+ * 在更新堆条目时，这确保其他后端得知新索引的存在。
+ * 在更新索引时这很重要，
+ * 因为某些索引 AM 期望在 REINDEX 之后发生
+ * 关系缓存刷新。
  */
 static void
 index_update_stats(Relation rel,
@@ -2813,7 +2813,7 @@ index_update_stats(Relation rel,
 				   double reltuples)
 {
 	bool		update_stats;
-	BlockNumber relpages = 0;	/* keep compiler quiet */
+	BlockNumber relpages = 0;	/* 让编译器保持安静 */
 	BlockNumber relallvisible = 0;
 	Oid			relid = RelationGetRelid(rel);
 	Relation	pg_class;
@@ -2824,14 +2824,14 @@ index_update_stats(Relation rel,
 	bool		dirty;
 
 	/*
-	 * As a special hack, if we are dealing with an empty table and the
-	 * existing reltuples is -1, we leave that alone.  This ensures that
-	 * creating an index as part of CREATE TABLE doesn't cause the table to
-	 * prematurely look like it's been vacuumed.  The rd_rel we modify may
-	 * differ from rel->rd_rel due to e.g. commit of concurrent GRANT, but the
-	 * commands that change reltuples take locks conflicting with ours.  (Even
-	 * if a command changed reltuples under a weaker lock, this affects only
-	 * statistics for an empty table.)
+	 * 作为一个特殊的 hack，如果我们处理的是空表
+	 * 而现有的 reltuples 为 -1，我们就不去动它。
+	 * 这确保作为 CREATE TABLE 一部分创建索引不会使该表
+	 * 过早地看起来像是已经被 VACUUM 处理过。
+	 * 我们修改的 rd_rel 可能与 rel->rd_rel 不同，
+	 * 例如由于并发 GRANT 的提交，但更改 reltuples 的命令
+	 * 所获取的锁与我们的锁冲突。（即使某个命令在较弱的锁下
+	 * 更改了 reltuples，这也只影响空表的统计信息。）
 	 */
 	if (reltuples == 0 && rel->rd_rel->reltuples < 0)
 		reltuples = -1;
@@ -2839,11 +2839,11 @@ index_update_stats(Relation rel,
 	update_stats = reltuples >= 0;
 
 	/*
-	 * Finish I/O and visibility map buffer locks before
-	 * systable_inplace_update_begin() locks the pg_class buffer.  The rd_rel
-	 * we modify may differ from rel->rd_rel due to e.g. commit of concurrent
-	 * GRANT, but no command changes a relkind from non-index to index.  (Even
-	 * if one did, relallvisible doesn't break functionality.)
+	 * 在 systable_inplace_update_begin() 锁定 pg_class 缓冲区之前，
+	 * 先完成 I/O 和可见性映射缓冲区的锁处理。
+	 * 我们修改的 rd_rel 可能与 rel->rd_rel 不同，
+	 * 例如由于并发 GRANT 的提交，但没有任何命令会把 relkind
+	 * 从非索引改为索引。（即使有，relallvisible 也不会破坏功能。）
 	 */
 	if (update_stats)
 	{
@@ -2854,31 +2854,31 @@ index_update_stats(Relation rel,
 	}
 
 	/*
-	 * We always update the pg_class row using a non-transactional,
-	 * overwrite-in-place update.  There are several reasons for this:
+	 * 我们总是使用非事务性的、原地覆盖更新
+	 * 来更新 pg_class 行。这样做有以下几个原因：
 	 *
-	 * 1. In bootstrap mode, we have no choice --- UPDATE wouldn't work.
+	 * 1. 在引导模式下，我们别无选择 --- UPDATE 行不通。
 	 *
-	 * 2. We could be reindexing pg_class itself, in which case we can't move
-	 * its pg_class row because CatalogTupleInsert/CatalogTupleUpdate might
-	 * not know about all the indexes yet (see reindex_relation).
+	 * 2. 我们可能正在重建 pg_class 自身的索引，这种情况下我们无法移动
+	 * 它的 pg_class 行，因为 CatalogTupleInsert/CatalogTupleUpdate
+	 * 可能尚不了解所有索引（见 reindex_relation）。
 	 *
-	 * 3. Because we execute CREATE INDEX with just share lock on the parent
-	 * rel (to allow concurrent index creations), an ordinary update could
-	 * suffer a tuple-concurrently-updated failure against another CREATE
-	 * INDEX committing at about the same time.  We can avoid that by having
-	 * them both do nontransactional updates (we assume they will both be
-	 * trying to change the pg_class row to the same thing, so it doesn't
-	 * matter which goes first).
+	 * 3. 因为我们执行 CREATE INDEX 时只对父关系持有共享锁（以允许并发
+	 * 创建索引），普通更新可能与大约同时提交的另一个 CREATE INDEX
+	 * 发生元组并发更新失败。
+	 * 我们通过让它们都
+	 * 进行非事务性更新来避免这一点
+	 * （我们假定它们都想把 pg_class 行改成同样的内容，
+	 * 所以谁先谁后并不重要）。
 	 *
-	 * It is safe to use a non-transactional update even though our
-	 * transaction could still fail before committing.  Setting relhasindex
-	 * true is safe even if there are no indexes (VACUUM will eventually fix
-	 * it).  And of course the new relpages and reltuples counts are correct
-	 * regardless.  However, we don't want to change relpages (or
-	 * relallvisible) if the caller isn't providing an updated reltuples
-	 * count, because that would bollix the reltuples/relpages ratio which is
-	 * what's really important.
+	 * 即使我们的事务在提交之前仍可能失败，
+	 * 使用非事务性更新也是安全的。
+	 * 即使没有任何索引，把 relhasindex 设为 true 也是安全的
+	 * （VACUUM 最终会修正它）。当然，新的 relpages
+	 * 和 reltuples 计数
+	 * 无论如何都是正确的。不过，如果调用方没有提供更新的 reltuples
+	 * 计数，我们就不想更改 relpages（或 relallvisible），
+	 * 因为那会搞乱真正重要的 reltuples/relpages 比率。
 	 */
 
 	pg_class = table_open(RelationRelationId, RowExclusiveLock);
@@ -2894,10 +2894,10 @@ index_update_stats(Relation rel,
 		elog(ERROR, "could not find tuple for relation %u", relid);
 	rd_rel = (Form_pg_class) GETSTRUCT(tuple);
 
-	/* Should this be a more comprehensive test? */
+	/* 这是否应当是一个更全面的测试？ */
 	Assert(rd_rel->relkind != RELKIND_PARTITIONED_INDEX);
 
-	/* Apply required updates, if any, to copied tuple */
+	/* 对复制出来的元组应用必需的更新（如果有） */
 
 	dirty = false;
 	if (rd_rel->relhasindex != hasindex)
@@ -2926,17 +2926,17 @@ index_update_stats(Relation rel,
 	}
 
 	/*
-	 * If anything changed, write out the tuple
+	 * 如果有任何更改，就把元组写出
 	 */
 	if (dirty)
 	{
 		systable_inplace_update_finish(state, tuple);
-		/* the above sends a cache inval message */
+		/* 上面会发送一条缓存失效消息 */
 	}
 	else
 	{
 		systable_inplace_update_cancel(state);
-		/* no need to change tuple, but force relcache inval anyway */
+		/* 无需更改元组，但仍强制关系缓存失效 */
 		CacheInvalidateRelcacheByTuple(tuple);
 	}
 
@@ -2947,20 +2947,20 @@ index_update_stats(Relation rel,
 
 
 /*
- * index_build - invoke access-method-specific index build procedure
+ * index_build - 调用访问方法特定的索引构建例程
  *
- * On entry, the index's catalog entries are valid, and its physical disk
- * file has been created but is empty.  We call the AM-specific build
- * procedure to fill in the index contents.  We then update the pg_class
- * entries of the index and heap relation as needed, using statistics
- * returned by ambuild as well as data passed by the caller.
+ * 进入时，索引的目录条目有效，
+ * 其物理磁盘文件已创建但为空。
+ * 我们调用 AM 特定的构建例程来填写索引内容。然后我们使用
+ * ambuild 返回的统计数据以及调用方传递的数据，按需更新索引
+ * 和堆关系的 pg_class 条目。
  *
- * isreindex indicates we are recreating a previously-existing index.
- * parallel indicates if parallelism may be useful.
+ * isreindex 表示我们正在重新创建一个先前存在的索引。
+ * parallel 表示并行化是否可能有用。
  *
- * Note: before Postgres 8.2, the passed-in heap and index Relations
- * were automatically closed by this routine.  This is no longer the case.
- * The caller opened 'em, and the caller should close 'em.
+ * 注意：在 Postgres 8.2 之前，传入的堆和索引 Relation
+ * 会由本例程自动关闭。现在不再是这样了。
+ * 调用方打开了它们，就该由调用方关闭它们。
  */
 void
 index_build(Relation heapRelation,
@@ -2975,7 +2975,7 @@ index_build(Relation heapRelation,
 	int			save_nestlevel;
 
 	/*
-	 * sanity checks
+	 * 健全性检查
 	 */
 	Assert(RelationIsValid(indexRelation));
 	Assert(PointerIsValid(indexRelation->rd_indam));
@@ -2983,10 +2983,10 @@ index_build(Relation heapRelation,
 	Assert(PointerIsValid(indexRelation->rd_indam->ambuildempty));
 
 	/*
-	 * Determine worker process details for parallel CREATE INDEX.  Currently,
-	 * only btree has support for parallel builds.
+	 * 确定并行 CREATE INDEX 的工作进程细节。目前
+	 * 只有 btree 支持并行构建。
 	 *
-	 * Note that planner considers parallel safety for us.
+	 * 注意规划器为我们考虑了并行安全性。
 	 */
 	if (parallel && IsNormalProcessingMode() &&
 		indexRelation->rd_rel->relam == BTREE_AM_OID)
@@ -3007,16 +3007,16 @@ index_build(Relation heapRelation,
 								 indexInfo->ii_ParallelWorkers)));
 
 	/*
-	 * Switch to the table owner's userid, so that any index functions are run
-	 * as that user.  Also lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.
+	 * 切换到表所有者的 userid，使任何索引函数都以该用户身份运行。
+	 * 同时限制安全敏感操作，并使 GUC 变量的更改
+	 * 仅限于本命令。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(heapRelation->rd_rel->relowner,
 						   save_sec_context | SECURITY_RESTRICTED_OPERATION);
 	save_nestlevel = NewGUCNestLevel();
 
-	/* Set up initial progress report status */
+	/* 设置初始进度报告状态 */
 	{
 		const int	progress_index[] = {
 			PROGRESS_CREATEIDX_PHASE,
@@ -3036,18 +3036,18 @@ index_build(Relation heapRelation,
 	}
 
 	/*
-	 * Call the access method's build procedure
+	 * 调用访问方法的构建例程
 	 */
 	stats = indexRelation->rd_indam->ambuild(heapRelation, indexRelation,
 											 indexInfo);
 	Assert(PointerIsValid(stats));
 
 	/*
-	 * If this is an unlogged index, we may need to write out an init fork for
-	 * it -- but we must first check whether one already exists.  If, for
-	 * example, an unlogged relation is truncated in the transaction that
-	 * created it, or truncated twice in a subsequent transaction, the
-	 * relfilenumber won't change, and nothing needs to be done here.
+	 * 如果这是一个非日志索引，我们可能需要为它写出一个 init fork
+	 * ——但必须先检查是否已存在。例如，如果一个非日志关系
+	 * 在创建它的事务中被截断，或在随后的事务中被截断两次，
+	 * relfilenumber 不会改变，
+	 * 这里就无需做任何事情。
 	 */
 	if (indexRelation->rd_rel->relpersistence == RELPERSISTENCE_UNLOGGED &&
 		!smgrexists(RelationGetSmgr(indexRelation), INIT_FORKNUM))
@@ -3058,33 +3058,33 @@ index_build(Relation heapRelation,
 	}
 
 	/*
-	 * If we found any potentially broken HOT chains, mark the index as not
-	 * being usable until the current transaction is below the event horizon.
-	 * See src/backend/access/heap/README.HOT for discussion.  Also set this
-	 * if early pruning/vacuuming is enabled for the heap relation.  While it
-	 * might become safe to use the index earlier based on actual cleanup
-	 * activity and other active transactions, the test for that would be much
-	 * more complex and would require some form of blocking, so keep it simple
-	 * and fast by just using the current transaction.
+	 * 如果我们发现任何可能损坏的 HOT 链，就把索引标记为在当前事务
+	 * 降到事件视野之下之前不可使用。有关讨论见
+	 * src/backend/access/heap/README.HOT。如果堆关系启用了早期
+	 * 修剪/清理，也要设置此项。尽管根据实际的清理活动
+	 * 和其他活跃事务，索引可能更早就可以安全使用，
+	 * 但对此的判断会复杂得多，
+	 * 并且需要某种形式的阻塞，所以为了简单快速，
+	 * 我们只使用当前事务。
 	 *
-	 * However, when reindexing an existing index, we should do nothing here.
-	 * Any HOT chains that are broken with respect to the index must predate
-	 * the index's original creation, so there is no need to change the
-	 * index's usability horizon.  Moreover, we *must not* try to change the
-	 * index's pg_index entry while reindexing pg_index itself, and this
-	 * optimization nicely prevents that.  The more complex rules needed for a
-	 * reindex are handled separately after this function returns.
+	 * 然而，在重建已有索引的索引时，我们在此什么也不该做。
+	 * 任何相对于该索引而言损坏的 HOT 链都必定早于该索引最初的
+	 * 创建，因此无需更改索引的可用性视野。
+	 * 此外，在重建 pg_index 自身时我们*不得*尝试更改
+	 * 索引的 pg_index 条目，而这一优化
+	 * 恰好很好地防止了这一点。
+	 * 重建索引所需的更复杂规则
+	 * 在本函数返回之后单独处理。
 	 *
-	 * We also need not set indcheckxmin during a concurrent index build,
-	 * because we won't set indisvalid true until all transactions that care
-	 * about the broken HOT chains or early pruning/vacuuming are gone.
+	 * 在并发索引构建期间我们也不需要设置 indcheckxmin，
+	 * 因为在所有关心损坏的 HOT 链或早期修剪/清理的事务消失之前，
+	 * 我们不会把 indisvalid 设为真。
 	 *
-	 * Therefore, this code path can only be taken during non-concurrent
-	 * CREATE INDEX.  Thus the fact that heap_update will set the pg_index
-	 * tuple's xmin doesn't matter, because that tuple was created in the
-	 * current transaction anyway.  That also means we don't need to worry
-	 * about any concurrent readers of the tuple; no other transaction can see
-	 * it yet.
+	 * 因此，这条代码路径只能在非并发的 CREATE INDEX 期间走到。
+	 * 所以 heap_update 会设置 pg_index 元组的 xmin 这一点
+	 * 并不重要，因为该元组本来就是在当前事务中创建的。
+	 * 这也意味着我们无需担心该元组的任何并发读者；
+	 * 还没有其他事务能看到它。
 	 */
 	if ((indexInfo->ii_BrokenHotChain || EarlyPruningEnabled(heapRelation)) &&
 		!isreindex &&
@@ -3103,7 +3103,7 @@ index_build(Relation heapRelation,
 			elog(ERROR, "cache lookup failed for index %u", indexId);
 		indexForm = (Form_pg_index) GETSTRUCT(indexTuple);
 
-		/* If it's a new index, indcheckxmin shouldn't be set ... */
+		/* 如果是新索引，indcheckxmin 不应被设置 ... */
 		Assert(!indexForm->indcheckxmin);
 
 		indexForm->indcheckxmin = true;
@@ -3114,7 +3114,7 @@ index_build(Relation heapRelation,
 	}
 
 	/*
-	 * Update heap and index pg_class rows
+	 * 更新堆和索引的 pg_class 行
 	 */
 	index_update_stats(heapRelation,
 					   true,
@@ -3124,36 +3124,36 @@ index_build(Relation heapRelation,
 					   false,
 					   stats->index_tuples);
 
-	/* Make the updated catalog row versions visible */
+	/* 使更新后的目录行版本可见 */
 	CommandCounterIncrement();
 
 	/*
-	 * If it's for an exclusion constraint, make a second pass over the heap
-	 * to verify that the constraint is satisfied.  We must not do this until
-	 * the index is fully valid.  (Broken HOT chains shouldn't matter, though;
-	 * see comments for IndexCheckExclusion.)
+	 * 如果这是为排他约束服务的，则对堆再扫描一遍
+	 * 以验证该约束得到满足。我们必须等到索引完全有效
+	 * 之后才能这样做。（不过损坏的 HOT 链应该没有关系；
+	 * 见 IndexCheckExclusion 的注释。）
 	 */
 	if (indexInfo->ii_ExclusionOps != NULL)
 		IndexCheckExclusion(heapRelation, indexRelation, indexInfo);
 
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数执行的任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 }
 
 /*
- * IndexCheckExclusion - verify that a new exclusion constraint is satisfied
+ * IndexCheckExclusion - 验证新的排他约束得到满足
  *
- * When creating an exclusion constraint, we first build the index normally
- * and then rescan the heap to check for conflicts.  We assume that we only
- * need to validate tuples that are live according to an up-to-date snapshot,
- * and that these were correctly indexed even in the presence of broken HOT
- * chains.  This should be OK since we are holding at least ShareLock on the
- * table, meaning there can be no uncommitted updates from other transactions.
- * (Note: that wouldn't necessarily work for system catalogs, since many
- * operations release write lock early on the system catalogs.)
+ * 在创建排他约束时，我们先正常构建索引，然后重新扫描堆
+ * 以检查冲突。我们假定只需验证根据最新快照仍然存活的元组，
+ * 并且即使存在损坏的 HOT 链，这些元组也被正确地索引了。
+ * 这应当是没问题的，因为我们至少对该表
+ * 持有 ShareLock，
+ * 这意味着其他事务不可能有未提交的更新。
+ * （注意：这对于系统目录未必行得通，因为许多操作会提前
+ * 释放系统目录上的写锁。）
  */
 static void
 IndexCheckExclusion(Relation heapRelation,
@@ -3170,44 +3170,44 @@ IndexCheckExclusion(Relation heapRelation,
 	Snapshot	snapshot;
 
 	/*
-	 * If we are reindexing the target index, mark it as no longer being
-	 * reindexed, to forestall an Assert in index_beginscan when we try to use
-	 * the index for probes.  This is OK because the index is now fully valid.
+	 * 如果我们正在重建目标索引，则把它标记为不再处于重建状态，
+	 * 以防止我们试图用该索引进行探测时 index_beginscan 中的 Assert。
+	 * 这是没问题的，因为该索引现在已经完全有效。
 	 */
 	if (ReindexIsCurrentlyProcessingIndex(RelationGetRelid(indexRelation)))
 		ResetReindexProcessing();
 
 	/*
-	 * Need an EState for evaluation of index expressions and partial-index
-	 * predicates.  Also a slot to hold the current tuple.
+	 * 需要一个 EState 来对索引表达式和部分索引谓词求值。
+	 * 还需要一个插槽来保存当前元组。
 	 */
 	estate = CreateExecutorState();
 	econtext = GetPerTupleExprContext(estate);
 	slot = table_slot_create(heapRelation, NULL);
 
-	/* Arrange for econtext's scan tuple to be the tuple under test */
+	/* 让 econtext 的扫描元组成为被测试的元组 */
 	econtext->ecxt_scantuple = slot;
 
-	/* Set up execution state for predicate, if any. */
+	/* 为谓词建立执行状态（如果有）。 */
 	predicate = ExecPrepareQual(indexInfo->ii_Predicate, estate);
 
 	/*
-	 * Scan all live tuples in the base relation.
+	 * 扫描基础关系中所有存活的元组。
 	 */
 	snapshot = RegisterSnapshot(GetLatestSnapshot());
-	scan = table_beginscan_strat(heapRelation,	/* relation */
-								 snapshot,	/* snapshot */
-								 0, /* number of keys */
-								 NULL,	/* scan key */
-								 true,	/* buffer access strategy OK */
-								 true); /* syncscan OK */
+	scan = table_beginscan_strat(heapRelation,	/* 关系 */
+								 snapshot,	/* 快照 */
+								 0, /* 键的数量 */
+								 NULL,	/* 扫描键 */
+								 true,	/* 缓冲区访问策略 OK */
+								 true); /* 允许使用 syncscan（同步扫描） */
 
 	while (table_scan_getnextslot(scan, ForwardScanDirection, slot))
 	{
 		CHECK_FOR_INTERRUPTS();
 
 		/*
-		 * In a partial index, ignore tuples that don't satisfy the predicate.
+		 * 在部分索引中，忽略不满足谓词的元组。
 		 */
 		if (predicate != NULL)
 		{
@@ -3216,7 +3216,7 @@ IndexCheckExclusion(Relation heapRelation,
 		}
 
 		/*
-		 * Extract index column values, including computing expressions.
+		 * 提取索引列的值，包括计算表达式。
 		 */
 		FormIndexDatum(indexInfo,
 					   slot,
@@ -3225,7 +3225,7 @@ IndexCheckExclusion(Relation heapRelation,
 					   isnull);
 
 		/*
-		 * Check that this tuple has no conflicts.
+		 * 检查该元组没有任何冲突。
 		 */
 		check_exclusion_constraint(heapRelation,
 								   indexRelation, indexInfo,
@@ -3242,74 +3242,74 @@ IndexCheckExclusion(Relation heapRelation,
 
 	FreeExecutorState(estate);
 
-	/* These may have been pointing to the now-gone estate */
+	/* 这些可能一直指向现已消失的 estate */
 	indexInfo->ii_ExpressionsState = NIL;
 	indexInfo->ii_PredicateState = NULL;
 }
 
 
 /*
- * validate_index - support code for concurrent index builds
+ * validate_index - 并发索引构建的支持代码
  *
- * We do a concurrent index build by first inserting the catalog entry for the
- * index via index_create(), marking it not indisready and not indisvalid.
- * Then we commit our transaction and start a new one, then we wait for all
- * transactions that could have been modifying the table to terminate.  Now
- * we know that any subsequently-started transactions will see the index and
- * honor its constraints on HOT updates; so while existing HOT-chains might
- * be broken with respect to the index, no currently live tuple will have an
- * incompatible HOT update done to it.  We now build the index normally via
- * index_build(), while holding a weak lock that allows concurrent
- * insert/update/delete.  Also, we index only tuples that are valid
- * as of the start of the scan (see table_index_build_scan), whereas a normal
- * build takes care to include recently-dead tuples.  This is OK because
- * we won't mark the index valid until all transactions that might be able
- * to see those tuples are gone.  The reason for doing that is to avoid
- * bogus unique-index failures due to concurrent UPDATEs (we might see
- * different versions of the same row as being valid when we pass over them,
- * if we used HeapTupleSatisfiesVacuum).  This leaves us with an index that
- * does not contain any tuples added to the table while we built the index.
+ * 我们通过以下方式做并发索引构建：先经由 index_create() 插入索引的
+ * 目录条目，并把它标记为非 indisready 且非 indisvalid。
+ * 然后提交我们的事务并开始一个新的，
+ * 接着等待所有可能修改过该表的事务终止。
+ * 现在我们知道，任何随后启动的事务都会看到该索引并
+ * 遵守它对 HOT 更新的约束；所以尽管现有的 HOT 链
+ * 相对于该索引可能已损坏，
+ * 但当前存活的元组不会被做出不兼容的 HOT 更新。
+ * 现在我们通过 index_build() 正常构建索引，同时持有一个允许并发
+ * 插入/更新/删除的弱锁。此外，我们只为扫描开始时有效的元组
+ * 建立索引（见 table_index_build_scan），而正常构建会注意
+ * 把最近死亡的元组也包括进来。这是没问题的，因为在我们标记
+ * 该索引有效之前，可能会看到那些元组的所有事务都会消失。
+ * 这样做的原因是为了避免因并发 UPDATE 而导致的虚假唯一索引
+ * 失败（如果使用 HeapTupleSatisfiesVacuum，
+ * 当我们扫过同一行的
+ * 不同版本时，可能会把它们都视为有效）。这样我们得到的索引
+ * 不包含在我们构建索引期间加入到表中的任何元组。
  *
- * Next, we mark the index "indisready" (but still not "indisvalid") and
- * commit the second transaction and start a third.  Again we wait for all
- * transactions that could have been modifying the table to terminate.  Now
- * we know that any subsequently-started transactions will see the index and
- * insert their new tuples into it.  We then take a new reference snapshot
- * which is passed to validate_index().  Any tuples that are valid according
- * to this snap, but are not in the index, must be added to the index.
- * (Any tuples committed live after the snap will be inserted into the
- * index by their originating transaction.  Any tuples committed dead before
- * the snap need not be indexed, because we will wait out all transactions
- * that might care about them before we mark the index valid.)
+ * 接下来，我们把索引标记为 "indisready"（但仍不是 "indisvalid"），
+ * 提交第二个事务并开始第三个。
+ * 同样我们等待所有可能修改过该表的
+ * 事务终止。现在我们知道，任何随后启动的事务都会看到该索引并
+ * 把它们的新元组插入其中。
+ * 然后我们取一个新的参考快照
+ * 并把它传给 validate_index()。任何根据该快照有效、但不在索引中
+ * 的元组，都必须被加入到索引中。
+ * （在该快照之后提交为存活的元组，将由其发起事务插入到索引中。
+ * 在该快照之前提交为死亡的元组无需被索引，因为我们会在标记索引
+ * 有效之前等待所有可能关心它们的事务结束。）
  *
- * validate_index() works by first gathering all the TIDs currently in the
- * index, using a bulkdelete callback that just stores the TIDs and doesn't
- * ever say "delete it".  (This should be faster than a plain indexscan;
- * also, not all index AMs support full-index indexscan.)  Then we sort the
- * TIDs, and finally scan the table doing a "merge join" against the TID list
- * to see which tuples are missing from the index.  Thus we will ensure that
- * all tuples valid according to the reference snapshot are in the index.
+ * validate_index() 的工作方式是：先用一个 bulkdelete 回调收集索引中
+ * 当前所有的 TID，该回调只存储 TID，绝不会说 "删除它"。
+ * （这应当比普通索引扫描更快；而且并非所有索引 AM 都支持
+ * 全索引扫描。）然后我们对 TID 排序，
+ * 最后扫描表，与 TID 列表做
+ * "归并连接"，看哪些元组在索引中缺失。这样我们将确保所有
+ * 根据参考快照有效的元组都在索引中。
  *
- * Building a unique index this way is tricky: we might try to insert a
- * tuple that is already dead or is in process of being deleted, and we
- * mustn't have a uniqueness failure against an updated version of the same
- * row.  We could try to check the tuple to see if it's already dead and tell
- * index_insert() not to do the uniqueness check, but that still leaves us
- * with a race condition against an in-progress update.  To handle that,
- * we expect the index AM to recheck liveness of the to-be-inserted tuple
- * before it declares a uniqueness error.
+ * 以这种方式构建唯一索引很棘手：
+ * 我们可能试图插入一个已经死亡或
+ * 正在被删除的元组，而且我们不得对同一行的更新版本出现唯一性
+ * 失败。我们可以尝试检查该元组是否已经死亡，并告诉 index_insert()
+ * 不做唯一性检查，但这仍然留下
+ * 与进行中更新的竞态条件。为此，
+ * 我们期望索引 AM 在宣布唯一性错误之前，重新检查待插入元组的存活性。
  *
- * After completing validate_index(), we wait until all transactions that
- * were alive at the time of the reference snapshot are gone; this is
- * necessary to be sure there are none left with a transaction snapshot
- * older than the reference (and hence possibly able to see tuples we did
- * not index).  Then we mark the index "indisvalid" and commit.  Subsequent
- * transactions will be able to use it for queries.
+ * 完成 validate_index() 之后，
+ * 我们等待参考快照时存活的所有事务
+ * 都消失；这有必要确保
+ * 没有事务还持有比参考快照更旧的事务快照
+ * （因而可能看到我们未索引的元组）。然后我们把索引标记为
+ * "indisvalid" 并提交。随后的事务将能够用它进行查询。
  *
- * Doing two full table scans is a brute-force strategy.  We could try to be
- * cleverer, eg storing new tuples in a special area of the table (perhaps
- * making the table append-only by setting use_fsm).  However that would
- * add yet more locking issues.
+ * 做两次全表扫描是一种粗暴的策略。
+ * 我们可以设法更聪明些，例如把
+ * 新元组存入表中的特殊区域
+ * （或许通过设置 use_fsm 让表只追加）。
+ * 然而那会带来更多锁方面的问题。
  */
 void
 validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
@@ -3339,13 +3339,13 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 		pgstat_progress_update_multi_param(5, progress_index, progress_vals);
 	}
 
-	/* Open and lock the parent heap relation */
+	/* 打开并锁定父堆关系 */
 	heapRelation = table_open(heapId, ShareUpdateExclusiveLock);
 
 	/*
-	 * Switch to the table owner's userid, so that any index functions are run
-	 * as that user.  Also lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.
+	 * 切换到表所有者的 userid，使任何索引函数都以该用户身份运行。
+	 * 同时限制安全敏感操作，并使 GUC 变量的更改
+	 * 仅限于本命令。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(heapRelation->rd_rel->relowner,
@@ -3355,17 +3355,17 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 	indexRelation = index_open(indexId, RowExclusiveLock);
 
 	/*
-	 * Fetch info needed for index_insert.  (You might think this should be
-	 * passed in from DefineIndex, but its copy is long gone due to having
-	 * been built in a previous transaction.)
+	 * 获取 index_insert 所需的信息。
+	 * （你可能认为这应当从 DefineIndex 传入，
+	 * 但它的副本早已因为是在先前的事务中构建的而丢失了。）
 	 */
 	indexInfo = BuildIndexInfo(indexRelation);
 
-	/* mark build is concurrent just for consistency */
+	/* 只是出于一致性而把构建标记为并发 */
 	indexInfo->ii_Concurrent = true;
 
 	/*
-	 * Scan the index and gather up all the TIDs into a tuplesort object.
+	 * 扫描索引并把所有 TID 收集到一个 tuplesort 对象中。
 	 */
 	ivinfo.index = indexRelation;
 	ivinfo.heaprel = heapRelation;
@@ -3377,10 +3377,10 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 	ivinfo.strategy = NULL;
 
 	/*
-	 * Encode TIDs as int8 values for the sort, rather than directly sorting
-	 * item pointers.  This can be significantly faster, primarily because TID
-	 * is a pass-by-reference type on all platforms, whereas int8 is
-	 * pass-by-value on most platforms.
+	 * 把 TID 编码为 int8 值来排序，而不是直接对项指针排序。
+	 * 这样可以明显更快，主要是因为 TID
+	 * 在所有平台上都是
+	 * 按引用传递的类型，而 int8 在大多数平台上按值传递。
 	 */
 	state.tuplesort = tuplesort_begin_datum(INT8OID, Int8LessOperator,
 											InvalidOid, false,
@@ -3388,11 +3388,11 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 											NULL, TUPLESORT_NONE);
 	state.htups = state.itups = state.tups_inserted = 0;
 
-	/* ambulkdelete updates progress metrics */
+	/* ambulkdelete 更新进度指标 */
 	(void) index_bulk_delete(&ivinfo, NULL,
 							 validate_index_callback, (void *) &state);
 
-	/* Execute the sort */
+	/* 执行排序 */
 	{
 		const int	progress_index[] = {
 			PROGRESS_CREATEIDX_PHASE,
@@ -3409,7 +3409,7 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 	tuplesort_performsort(state.tuplesort);
 
 	/*
-	 * Now scan the heap and "merge" it with the index
+	 * 现在扫描堆并将其与索引"归并"
 	 */
 	pgstat_progress_update_param(PROGRESS_CREATEIDX_PHASE,
 								 PROGRESS_CREATEIDX_PHASE_VALIDATE_TABLESCAN);
@@ -3419,26 +3419,26 @@ validate_index(Oid heapId, Oid indexId, Snapshot snapshot)
 							  snapshot,
 							  &state);
 
-	/* Done with tuplesort object */
+	/* tuplesort 对象使用完毕 */
 	tuplesort_end(state.tuplesort);
 
 	elog(DEBUG2,
 		 "validate_index found %.0f heap tuples, %.0f index tuples; inserted %.0f missing tuples",
 		 state.htups, state.itups, state.tups_inserted);
 
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数执行的任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
-	/* Close rels, but keep locks */
+	/* 关闭关系，但保留锁 */
 	index_close(indexRelation, NoLock);
 	table_close(heapRelation, NoLock);
 }
 
 /*
- * validate_index_callback - bulkdelete callback to collect the index TIDs
+ * validate_index_callback - 用于收集索引 TID 的 bulkdelete 回调
  */
 static bool
 validate_index_callback(ItemPointer itemptr, void *opaque)
@@ -3448,17 +3448,17 @@ validate_index_callback(ItemPointer itemptr, void *opaque)
 
 	tuplesort_putdatum(state->tuplesort, Int64GetDatum(encoded), false);
 	state->itups += 1;
-	return false;				/* never actually delete anything */
+	return false;				/* 从不实际删除任何东西 */
 }
 
 /*
- * index_set_state_flags - adjust pg_index state flags
+ * index_set_state_flags - 调整 pg_index 状态标志
  *
- * This is used during CREATE/DROP INDEX CONCURRENTLY to adjust the pg_index
- * flags that denote the index's state.
+ * 在 CREATE/DROP INDEX CONCURRENTLY 期间使用本函数来调整
+ * 表示索引状态的 pg_index 标志。
  *
- * Note that CatalogTupleUpdate() sends a cache invalidation message for the
- * tuple, so other sessions will hear about the update as soon as we commit.
+ * 注意 CatalogTupleUpdate() 会为该元组发送缓存失效消息，
+ * 因此我们一旦提交，其他会话就会听到这次更新。
  */
 void
 index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
@@ -3467,7 +3467,7 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 	HeapTuple	indexTuple;
 	Form_pg_index indexForm;
 
-	/* Open pg_index and fetch a writable copy of the index's tuple */
+	/* 打开 pg_index 并获取该索引元组的一份可写副本 */
 	pg_index = table_open(IndexRelationId, RowExclusiveLock);
 
 	indexTuple = SearchSysCacheCopy1(INDEXRELID,
@@ -3476,18 +3476,18 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 		elog(ERROR, "cache lookup failed for index %u", indexId);
 	indexForm = (Form_pg_index) GETSTRUCT(indexTuple);
 
-	/* Perform the requested state change on the copy */
+	/* 在副本上执行所要求的状态更改 */
 	switch (action)
 	{
 		case INDEX_CREATE_SET_READY:
-			/* Set indisready during a CREATE INDEX CONCURRENTLY sequence */
+			/* 在 CREATE INDEX CONCURRENTLY 序列中设置 indisready */
 			Assert(indexForm->indislive);
 			Assert(!indexForm->indisready);
 			Assert(!indexForm->indisvalid);
 			indexForm->indisready = true;
 			break;
 		case INDEX_CREATE_SET_VALID:
-			/* Set indisvalid during a CREATE INDEX CONCURRENTLY sequence */
+			/* 在 CREATE INDEX CONCURRENTLY 序列中设置 indisvalid */
 			Assert(indexForm->indislive);
 			Assert(indexForm->indisready);
 			Assert(!indexForm->indisvalid);
@@ -3496,17 +3496,17 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 		case INDEX_DROP_CLEAR_VALID:
 
 			/*
-			 * Clear indisvalid during a DROP INDEX CONCURRENTLY sequence
+			 * 在 DROP INDEX CONCURRENTLY 序列中清除 indisvalid
 			 *
-			 * If indisready == true we leave it set so the index still gets
-			 * maintained by active transactions.  We only need to ensure that
-			 * indisvalid is false.  (We don't assert that either is initially
-			 * true, though, since we want to be able to retry a DROP INDEX
-			 * CONCURRENTLY that failed partway through.)
+			 * 如果 indisready == true，我们保留它的设置，这样该索引仍然
+			 * 会被活跃事务维护。我们只需确保 indisvalid 为假。
+			 * （不过我们不断言二者初始都为真，
+			 * 因为我们希望能够重试
+			 * 中途失败的 DROP INDEX CONCURRENTLY。）
 			 *
-			 * Note: the CLUSTER logic assumes that indisclustered cannot be
-			 * set on any invalid index, so clear that flag too.  For
-			 * cleanliness, also clear indisreplident.
+			 * 注意：CLUSTER 的逻辑假定任何无效索引上都不会设置
+			 * indisclustered，因此也要清除该标志。为了整洁，
+			 * 也清除 indisreplident。
 			 */
 			indexForm->indisvalid = false;
 			indexForm->indisclustered = false;
@@ -3515,11 +3515,11 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 		case INDEX_DROP_SET_DEAD:
 
 			/*
-			 * Clear indisready/indislive during DROP INDEX CONCURRENTLY
+			 * 在 DROP INDEX CONCURRENTLY 中清除 indisready/indislive
 			 *
-			 * We clear both indisready and indislive, because we not only
-			 * want to stop updates, we want to prevent sessions from touching
-			 * the index at all.
+			 * 我们同时清除 indisready 和 indislive，因为我们不仅
+			 * 要停止更新，
+			 * 还要阻止会话触及该索引。
 			 */
 			Assert(!indexForm->indisvalid);
 			Assert(!indexForm->indisclustered);
@@ -3529,7 +3529,7 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 			break;
 	}
 
-	/* ... and update it */
+	/* ... 并更新它 */
 	CatalogTupleUpdate(pg_index, &indexTuple->t_self, indexTuple);
 
 	table_close(pg_index, RowExclusiveLock);
@@ -3537,8 +3537,8 @@ index_set_state_flags(Oid indexId, IndexStateFlagsAction action)
 
 
 /*
- * IndexGetRelation: given an index's relation OID, get the OID of the
- * relation it is an index on.  Uses the system cache.
+ * IndexGetRelation：给定一个索引的关系 OID，获取该索引所
+ * 基于的关系的 OID。使用系统缓存。
  */
 Oid
 IndexGetRelation(Oid indexId, bool missing_ok)
@@ -3563,7 +3563,7 @@ IndexGetRelation(Oid indexId, bool missing_ok)
 }
 
 /*
- * reindex_index - This routine is used to recreate a single index
+ * reindex_index - 本例程用于重新创建单个索引
  */
 void
 reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
@@ -3584,12 +3584,12 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 	pg_rusage_init(&ru0);
 
 	/*
-	 * Open and lock the parent heap relation.  ShareLock is sufficient since
-	 * we only need to be sure no schema or data changes are going on.
+	 * 打开并锁定父堆关系。ShareLock 就足够了，因为我们只需
+	 * 确保没有模式或数据变更在进行。
 	 */
 	heapId = IndexGetRelation(indexId,
 							  (params->options & REINDEXOPT_MISSING_OK) != 0);
-	/* if relation is missing, leave */
+	/* 如果关系不存在，离开 */
 	if (!OidIsValid(heapId))
 		return;
 
@@ -3598,14 +3598,14 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 	else
 		heapRelation = table_open(heapId, ShareLock);
 
-	/* if relation is gone, leave */
+	/* 如果关系已消失，离开 */
 	if (!heapRelation)
 		return;
 
 	/*
-	 * Switch to the table owner's userid, so that any index functions are run
-	 * as that user.  Also lock down security-restricted operations and
-	 * arrange to make GUC variable changes local to this command.
+	 * 切换到表所有者的 userid，使任何索引函数都以该用户身份运行。
+	 * 同时限制安全敏感操作，并使 GUC 变量的更改
+	 * 仅限于本命令。
 	 */
 	GetUserIdAndSecContext(&save_userid, &save_sec_context);
 	SetUserIdAndSecContext(heapRelation->rd_rel->relowner,
@@ -3629,24 +3629,24 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 	}
 
 	/*
-	 * Open the target index relation and get an exclusive lock on it, to
-	 * ensure that no one else is touching this particular index.
+	 * 打开目标索引关系并对它加排他锁，以确保
+	 * 没有其他人正在触及这个特定的索引。
 	 */
 	if ((params->options & REINDEXOPT_MISSING_OK) != 0)
 		iRel = try_index_open(indexId, AccessExclusiveLock);
 	else
 		iRel = index_open(indexId, AccessExclusiveLock);
 
-	/* if index relation is gone, leave */
+	/* 如果索引关系已消失，离开 */
 	if (!iRel)
 	{
-		/* Roll back any GUC changes */
+		/* 回滚任何 GUC 更改 */
 		AtEOXact_GUC(false, save_nestlevel);
 
-		/* Restore userid and security context */
+		/* 恢复 userid 和安全上下文 */
 		SetUserIdAndSecContext(save_userid, save_sec_context);
 
-		/* Close parent heap relation, but keep locks */
+		/* 关闭父堆关系，但保留锁 */
 		table_close(heapRelation, NoLock);
 		return;
 	}
@@ -3656,8 +3656,8 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 									 iRel->rd_rel->relam);
 
 	/*
-	 * Partitioned indexes should never get processed here, as they have no
-	 * physical storage.
+	 * 分区索引绝不应当在这里被处理，
+	 * 因为它们没有物理存储。
 	 */
 	if (iRel->rd_rel->relkind == RELKIND_PARTITIONED_INDEX)
 		elog(ERROR, "cannot reindex partitioned index \"%s.%s\"",
@@ -3665,8 +3665,8 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 			 RelationGetRelationName(iRel));
 
 	/*
-	 * Don't allow reindex on temp tables of other backends ... their local
-	 * buffer manager is not going to cope.
+	 * 不允许重建其他后端的临时表 ... 它们的本地缓冲区
+	 * 管理器应付不了。
 	 */
 	if (RELATION_IS_OTHER_TEMP(iRel))
 		ereport(ERROR,
@@ -3674,9 +3674,9 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 				 errmsg("cannot reindex temporary tables of other sessions")));
 
 	/*
-	 * Don't allow reindex of an invalid index on TOAST table.  This is a
-	 * leftover from a failed REINDEX CONCURRENTLY, and if rebuilt it would
-	 * not be possible to drop it anymore.
+	 * 不允许重建 TOAST 表上的无效索引。这是失败的
+	 * REINDEX CONCURRENTLY 留下的残余，如果重建了它，
+	 * 就再也没办法删除它了。
 	 */
 	if (IsToastNamespace(RelationGetNamespace(iRel)) &&
 		!get_index_isvalid(indexId))
@@ -3685,14 +3685,14 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 				 errmsg("cannot reindex invalid index on TOAST table")));
 
 	/*
-	 * System relations cannot be moved even if allow_system_table_mods is
-	 * enabled to keep things consistent with the concurrent case where all
-	 * the indexes of a relation are processed in series, including indexes of
-	 * toast relations.
+	 * 即使启用了 allow_system_table_mods，系统关系也不能被移动，
+	 * 以与并发情况保持一致：在并发情况下，
+	 * 一个关系的所有索引
+	 * 都会被依次处理，其中包括 toast 关系的索引。
 	 *
-	 * Note that this check is not part of CheckRelationTableSpaceMove() as it
-	 * gets used for ALTER TABLE SET TABLESPACE that could cascade across
-	 * toast relations.
+	 * 注意，本检查不属于 CheckRelationTableSpaceMove()，
+	 * 因为后者用于可能级联到 toast 关系的
+	 * ALTER TABLE SET TABLESPACE。
 	 */
 	if (OidIsValid(params->tablespaceOid) &&
 		IsSystemRelation(iRel))
@@ -3701,43 +3701,43 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 				 errmsg("cannot move system relation \"%s\"",
 						RelationGetRelationName(iRel))));
 
-	/* Check if the tablespace of this index needs to be changed */
+	/* 检查是否需要更改该索引的表空间 */
 	if (OidIsValid(params->tablespaceOid) &&
 		CheckRelationTableSpaceMove(iRel, params->tablespaceOid))
 		set_tablespace = true;
 
 	/*
-	 * Also check for active uses of the index in the current transaction; we
-	 * don't want to reindex underneath an open indexscan.
+	 * 还要检查当前事务中对该索引的活跃使用；
+	 * 我们不想在一个打开的索引扫描之下重建它。
 	 */
 	CheckTableNotInUse(iRel, "REINDEX INDEX");
 
-	/* Set new tablespace, if requested */
+	/* 设置新的表空间（如果要求） */
 	if (set_tablespace)
 	{
-		/* Update its pg_class row */
+		/* 更新它的 pg_class 行 */
 		SetRelationTableSpace(iRel, params->tablespaceOid, InvalidOid);
 
 		/*
-		 * Schedule unlinking of the old index storage at transaction commit.
+		 * 安排在事务提交时解除链接旧索引的存储。
 		 */
 		RelationDropStorage(iRel);
 		RelationAssumeNewRelfilelocator(iRel);
 
-		/* Make sure the reltablespace change is visible */
+		/* 确保 reltablespace 的更改可见 */
 		CommandCounterIncrement();
 	}
 
 	/*
-	 * All predicate locks on the index are about to be made invalid. Promote
-	 * them to relation locks on the heap.
+	 * 该索引上所有的谓词锁都即将失效。把它们提升为
+	 * 堆上的关系锁。
 	 */
 	TransferPredicateLocksToHeapRelation(iRel);
 
-	/* Fetch info needed for index_build */
+	/* 获取 index_build 所需的信息 */
 	indexInfo = BuildIndexInfo(iRel);
 
-	/* If requested, skip checking uniqueness/exclusion constraints */
+	/* 如果要求，跳过唯一性/排他约束检查 */
 	if (skip_constraint_checks)
 	{
 		if (indexInfo->ii_Unique || indexInfo->ii_ExclusionOps != NULL)
@@ -3748,51 +3748,51 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 		indexInfo->ii_ExclusionStrats = NULL;
 	}
 
-	/* Suppress use of the target index while rebuilding it */
+	/* 在重建期间禁用目标索引的使用 */
 	SetReindexProcessing(heapId, indexId);
 
-	/* Create a new physical relation for the index */
+	/* 为该索引创建一个新的物理关系 */
 	RelationSetNewRelfilenumber(iRel, persistence);
 
-	/* Initialize the index and rebuild */
-	/* Note: we do not need to re-establish pkey setting */
+	/* 初始化索引并重建 */
+	/* 注意：我们无需重新建立 pkey 设置 */
 	index_build(heapRelation, iRel, indexInfo, true, true);
 
-	/* Re-allow use of target index */
+	/* 重新允许使用目标索引 */
 	ResetReindexProcessing();
 
 	/*
-	 * If the index is marked invalid/not-ready/dead (ie, it's from a failed
-	 * CREATE INDEX CONCURRENTLY, or a DROP INDEX CONCURRENTLY failed midway),
-	 * and we didn't skip a uniqueness check, we can now mark it valid.  This
-	 * allows REINDEX to be used to clean up in such cases.
+	 * 如果该索引被标记为无效/未就绪/已死（即它来自失败的
+	 * CREATE INDEX CONCURRENTLY，或 DROP INDEX CONCURRENTLY 中途失败），
+	 * 并且我们没有跳过唯一性检查，那么现在可以把它标记为有效。
+	 * 这使得 REINDEX 可以用来清理这类情况。
 	 *
-	 * We can also reset indcheckxmin, because we have now done a
-	 * non-concurrent index build, *except* in the case where index_build
-	 * found some still-broken HOT chains. If it did, and we don't have to
-	 * change any of the other flags, we just leave indcheckxmin alone (note
-	 * that index_build won't have changed it, because this is a reindex).
-	 * This is okay and desirable because not updating the tuple leaves the
-	 * index's usability horizon (recorded as the tuple's xmin value) the same
-	 * as it was.
+	 * 我们还可以重置 indcheckxmin，因为我们现在已经做了一次
+	 * 非并发的索引构建，*除了*
+	 * index_build 发现某些仍然损坏的 HOT
+	 * 链的情况。如果确实如此，而我们又不必更改其他任何标志，
+	 * 我们就干脆不动 indcheckxmin（注意 index_build 不会更改它，
+	 * 因为这是一次重建）。这样做是可以的也是可取的，因为不更新该
+	 * 元组使索引的可用性视野（记录为该元组的 xmin 值）保持原样。
 	 *
-	 * But, if the index was invalid/not-ready/dead and there were broken HOT
-	 * chains, we had better force indcheckxmin true, because the normal
-	 * argument that the HOT chains couldn't conflict with the index is
-	 * suspect for an invalid index.  (A conflict is definitely possible if
-	 * the index was dead.  It probably shouldn't happen otherwise, but let's
-	 * be conservative.)  In this case advancing the usability horizon is
-	 * appropriate.
+	 * 但是，如果该索引是无效/未就绪/已死的并且存在损坏的 HOT 链，
+	 * 我们最好强制把 indcheckxmin 设为真，
+	 * 因为 HOT 链不会与索引冲突
+	 * 这一通常的论断，对无效索引而言是可疑的。
+	 * （如果索引是已死的，
+	 * 冲突肯定是可能的。其他情况下大概不该发生，但我们还是保守些。）
+	 * 在这种情况下推进可用性视野是恰当的。
 	 *
-	 * Another reason for avoiding unnecessary updates here is that while
-	 * reindexing pg_index itself, we must not try to update tuples in it.
-	 * pg_index's indexes should always have these flags in their clean state,
-	 * so that won't happen.
+	 * 在此避免不必要更新的另一个原因是：
+	 * 在重建 pg_index 自身时，我们不得尝试更新其中的元组。
+	 * pg_index 的索引应当总是处于这些
+	 * 标志的干净状态，所以那不会发生。
 	 *
-	 * If early pruning/vacuuming is enabled for the heap relation, the
-	 * usability horizon must be advanced to the current transaction on every
-	 * build or rebuild.  pg_index is OK in this regard because catalog tables
-	 * are not subject to early cleanup.
+	 * 如果堆关系启用了早期修剪/清理，
+	 * 则每次构建或重建都必须把
+	 * 可用性视野推进到当前事务。
+	 * pg_index 在这方面没问题，因为
+	 * 目录表不受早期清理的影响。
 	 */
 	if (!skipped_constraint)
 	{
@@ -3827,11 +3827,11 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 			CatalogTupleUpdate(pg_index, &indexTuple->t_self, indexTuple);
 
 			/*
-			 * Invalidate the relcache for the table, so that after we commit
-			 * all sessions will refresh the table's index list.  This ensures
-			 * that if anyone misses seeing the pg_index row during this
-			 * update, they'll refresh their list before attempting any update
-			 * on the table.
+			 * 使该表的关系缓存失效，以便我们提交之后
+			 * 所有会话都会刷新该表的索引列表。
+			 * 这确保了
+			 * 如果有人在这次更新期间错过了 pg_index 行，
+			 * 他们在对该表做任何更新之前会先刷新自己的列表。
 			 */
 			CacheInvalidateRelcache(heapRelation);
 		}
@@ -3839,7 +3839,7 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 		table_close(pg_index, RowExclusiveLock);
 	}
 
-	/* Log what we did */
+	/* 记录我们做了什么 */
 	if ((params->options & REINDEXOPT_VERBOSE) != 0)
 		ereport(INFO,
 				(errmsg("index \"%s\" was reindexed",
@@ -3847,13 +3847,13 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 				 errdetail_internal("%s",
 									pg_rusage_show(&ru0))));
 
-	/* Roll back any GUC changes executed by index functions */
+	/* 回滚索引函数执行的任何 GUC 更改 */
 	AtEOXact_GUC(false, save_nestlevel);
 
-	/* Restore userid and security context */
+	/* 恢复 userid 和安全上下文 */
 	SetUserIdAndSecContext(save_userid, save_sec_context);
 
-	/* Close rels, but keep locks */
+	/* 关闭关系，但保留锁 */
 	index_close(iRel, NoLock);
 	table_close(heapRelation, NoLock);
 
@@ -3862,39 +3862,39 @@ reindex_index(Oid indexId, bool skip_constraint_checks, char persistence,
 }
 
 /*
- * reindex_relation - This routine is used to recreate all indexes
- * of a relation (and optionally its toast relation too, if any).
+ * reindex_relation - 本例程用于重新创建一个关系的
+ * 所有索引（如果有 toast 关系，也可以选择连它一起重建）。
  *
- * "flags" is a bitmask that can include any combination of these bits:
+ * "flags" 是一个位掩码，可以包含以下各位的任意组合：
  *
- * REINDEX_REL_PROCESS_TOAST: if true, process the toast table too (if any).
+ * REINDEX_REL_PROCESS_TOAST：若为 true，也处理 toast 表（如果有）。
  *
- * REINDEX_REL_SUPPRESS_INDEX_USE: if true, the relation was just completely
- * rebuilt by an operation such as VACUUM FULL or CLUSTER, and therefore its
- * indexes are inconsistent with it.  This makes things tricky if the relation
- * is a system catalog that we might consult during the reindexing.  To deal
- * with that case, we mark all of the indexes as pending rebuild so that they
- * won't be trusted until rebuilt.  The caller is required to call us *without*
- * having made the rebuilt table visible by doing CommandCounterIncrement;
- * we'll do CCI after having collected the index list.  (This way we can still
- * use catalog indexes while collecting the list.)
+ * REINDEX_REL_SUPPRESS_INDEX_USE：若为 true，则该关系刚刚被
+ * VACUUM FULL 或 CLUSTER 之类的操作完全重建，
+ * 因此其索引与它不一致。
+ * 如果该关系是我们重建索引期间可能查阅的系统目录，这就麻烦了。
+ * 为处理这种情况，我们把所有索引标记为待重建，
+ * 这样在重建之前
+ * 它们不会被信任。调用方必须*在*没有通过 CommandCounterIncrement
+ * 让重建后的表可见的情况下调用我们；我们会在收集索引列表之后
+ * 做 CCI。（这样我们在收集列表期间仍能使用目录索引。）
  *
- * REINDEX_REL_CHECK_CONSTRAINTS: if true, recheck unique and exclusion
- * constraint conditions, else don't.  To avoid deadlocks, VACUUM FULL or
- * CLUSTER on a system catalog must omit this flag.  REINDEX should be used to
- * rebuild an index if constraint inconsistency is suspected.  For optimal
- * performance, other callers should include the flag only after transforming
- * the data in a manner that risks a change in constraint validity.
+ * REINDEX_REL_CHECK_CONSTRAINTS：若为 true，重新检查唯一和排他
+ * 约束条件，否则不检查。
+ * 为避免死锁，对系统目录的 VACUUM FULL 或
+ * CLUSTER 必须省略此标志。如果怀疑约束不一致，应当使用 REINDEX
+ * 来重建索引。为了最佳性能，
+ * 其他调用方只应在以可能改变约束有效性
+ * 的方式转换了数据之后，才包含该标志。
  *
- * REINDEX_REL_FORCE_INDEXES_UNLOGGED: if true, set the persistence of the
- * rebuilt indexes to unlogged.
+ * REINDEX_REL_FORCE_INDEXES_UNLOGGED：若为 true，把重建索引的
+ * 持久性设为非日志。
  *
- * REINDEX_REL_FORCE_INDEXES_PERMANENT: if true, set the persistence of the
- * rebuilt indexes to permanent.
+ * REINDEX_REL_FORCE_INDEXES_PERMANENT：若为 true，把重建索引的
+ * 持久性设为永久。
  *
- * Returns true if any indexes were rebuilt (including toast table's index
- * when relevant).  Note that a CommandCounterIncrement will occur after each
- * index rebuild.
+ * 若有任何索引被重建则返回 true（相关时包括 toast 表的索引）。
+ * 注意每次索引重建之后都会发生一次 CommandCounterIncrement。
  */
 bool
 reindex_relation(Oid relid, int flags, ReindexParams *params)
@@ -3908,22 +3908,22 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 	int			i;
 
 	/*
-	 * Open and lock the relation.  ShareLock is sufficient since we only need
-	 * to prevent schema and data changes in it.  The lock level used here
-	 * should match ReindexTable().
+	 * 打开并锁定该关系。ShareLock 就足够了，因为我们只需
+	 * 防止其中的模式和数据变更。这里使用的锁级别
+	 * 应当与 ReindexTable() 一致。
 	 */
 	if ((params->options & REINDEXOPT_MISSING_OK) != 0)
 		rel = try_table_open(relid, ShareLock);
 	else
 		rel = table_open(relid, ShareLock);
 
-	/* if relation is gone, leave */
+	/* 如果关系已消失，离开 */
 	if (!rel)
 		return false;
 
 	/*
-	 * Partitioned tables should never get processed here, as they have no
-	 * physical storage.
+	 * 分区表绝不应当在这里被处理，
+	 * 因为它们没有物理存储。
 	 */
 	if (rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE)
 		elog(ERROR, "cannot reindex partitioned table \"%s.%s\"",
@@ -3933,27 +3933,27 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 	toast_relid = rel->rd_rel->reltoastrelid;
 
 	/*
-	 * Get the list of index OIDs for this relation.  (We trust to the
-	 * relcache to get this with a sequential scan if ignoring system
-	 * indexes.)
+	 * 获取该关系的索引 OID 列表。
+	 * （如果我们忽略系统索引，
+	 * 我们信任关系缓存能用顺序扫描来获取它。）
 	 */
 	indexIds = RelationGetIndexList(rel);
 
 	if (flags & REINDEX_REL_SUPPRESS_INDEX_USE)
 	{
-		/* Suppress use of all the indexes until they are rebuilt */
+		/* 在它们被重建之前禁用所有索引的使用 */
 		SetReindexPending(indexIds);
 
 		/*
-		 * Make the new heap contents visible --- now things might be
-		 * inconsistent!
+		 * 让新的堆内容可见 ---
+		 * 现在事情可能不一致了！
 		 */
 		CommandCounterIncrement();
 	}
 
 	/*
-	 * Compute persistence of indexes: same as that of owning rel, unless
-	 * caller specified otherwise.
+	 * 计算索引的持久性：与所属关系的相同，
+	 * 除非调用方另有指定。
 	 */
 	if (flags & REINDEX_REL_FORCE_INDEXES_UNLOGGED)
 		persistence = RELPERSISTENCE_UNLOGGED;
@@ -3962,7 +3962,7 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 	else
 		persistence = rel->rd_rel->relpersistence;
 
-	/* Reindex all the indexes. */
+	/* 重建所有索引。 */
 	i = 1;
 	foreach(indexId, indexIds)
 	{
@@ -3970,9 +3970,9 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 		Oid			indexNamespaceId = get_rel_namespace(indexOid);
 
 		/*
-		 * Skip any invalid indexes on a TOAST table.  These can only be
-		 * duplicate leftovers from a failed REINDEX CONCURRENTLY, and if
-		 * rebuilt it would not be possible to drop them anymore.
+		 * 跳过 TOAST 表上的任何无效索引。它们只可能是失败的
+		 * REINDEX CONCURRENTLY 留下的重复残余，如果重建了它们，
+		 * 就再也没办法删除它们了。
 		 */
 		if (IsToastNamespace(indexNamespaceId) &&
 			!get_index_isvalid(indexOid))
@@ -3984,9 +3984,9 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 							get_rel_name(indexOid))));
 
 			/*
-			 * Remove this invalid toast index from the reindex pending list,
-			 * as it is skipped here due to the hard failure that would happen
-			 * in reindex_index(), should we try to process it.
+			 * 把这个无效的 toast 索引从待重建索引列表中移除，
+			 * 因为此处它因 reindex_index() 中会发生的硬失败
+			 * 而被跳过，即使我们试图处理它。
 			 */
 			if (flags & REINDEX_REL_SUPPRESS_INDEX_USE)
 				RemoveReindexPending(indexOid);
@@ -3998,33 +3998,33 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 
 		CommandCounterIncrement();
 
-		/* Index should no longer be in the pending list */
+		/* 索引不应再出现在待处理列表中 */
 		Assert(!ReindexIsProcessingIndex(indexOid));
 
-		/* Set index rebuild count */
+		/* 设置索引重建计数 */
 		pgstat_progress_update_param(PROGRESS_CLUSTER_INDEX_REBUILD_COUNT,
 									 i);
 		i++;
 	}
 
 	/*
-	 * Close rel, but continue to hold the lock.
+	 * 关闭关系，但继续持有该锁。
 	 */
 	table_close(rel, NoLock);
 
 	result = (indexIds != NIL);
 
 	/*
-	 * If the relation has a secondary toast rel, reindex that too while we
-	 * still hold the lock on the main table.
+	 * 如果该关系有辅助 toast 关系，在我们仍持有主表
+	 * 锁期间也重建它。
 	 */
 	if ((flags & REINDEX_REL_PROCESS_TOAST) && OidIsValid(toast_relid))
 	{
 		/*
-		 * Note that this should fail if the toast relation is missing, so
-		 * reset REINDEXOPT_MISSING_OK.  Even if a new tablespace is set for
-		 * the parent relation, the indexes on its toast table are not moved.
-		 * This rule is enforced by setting tablespaceOid to InvalidOid.
+		 * 注意，如果 toast 关系缺失，这应当失败，
+		 * 所以重置 REINDEXOPT_MISSING_OK。即使为父关系设置了新的
+		 * 表空间，其 toast 表上的索引也不会被移动。
+		 * 这一规则通过把 tablespaceOid 设为 InvalidOid 来强制执行。
 		 */
 		ReindexParams newparams = *params;
 
@@ -4038,13 +4038,13 @@ reindex_relation(Oid relid, int flags, ReindexParams *params)
 
 
 /* ----------------------------------------------------------------
- *		System index reindexing support
+ *		系统索引重建支持
  *
- * When we are busy reindexing a system index, this code provides support
- * for preventing catalog lookups from using that index.  We also make use
- * of this to catch attempted uses of user indexes during reindexing of
- * those indexes.  This information is propagated to parallel workers;
- * attempting to change it during a parallel operation is not permitted.
+ * 当我们忙于重建系统目录索引时，这段代码提供支持，
+ * 防止目录查找使用该索引。
+ * 我们还用它来捕捉重建这些索引期间
+ * 对用户索引的使用企图。该信息被传播给并行工作进程；
+ * 在并行操作期间试图更改它是不被允许的。
  * ----------------------------------------------------------------
  */
 
@@ -4055,7 +4055,7 @@ static int	reindexingNestLevel = 0;
 
 /*
  * ReindexIsProcessingHeap
- *		True if heap specified by OID is currently being reindexed.
+ *		若 OID 指定的堆当前正在被重建则为真。
  */
 bool
 ReindexIsProcessingHeap(Oid heapOid)
@@ -4065,7 +4065,7 @@ ReindexIsProcessingHeap(Oid heapOid)
 
 /*
  * ReindexIsCurrentlyProcessingIndex
- *		True if index specified by OID is currently being reindexed.
+ *		若 OID 指定的索引当前正在被重建则为真。
  */
 static bool
 ReindexIsCurrentlyProcessingIndex(Oid indexOid)
@@ -4075,8 +4075,8 @@ ReindexIsCurrentlyProcessingIndex(Oid indexOid)
 
 /*
  * ReindexIsProcessingIndex
- *		True if index specified by OID is currently being reindexed,
- *		or should be treated as invalid because it is awaiting reindex.
+ *		若 OID 指定的索引当前正在被重建，或者因等待重建
+ *		而应被视为无效，则为真。
  */
 bool
 ReindexIsProcessingIndex(Oid indexOid)
@@ -4087,45 +4087,45 @@ ReindexIsProcessingIndex(Oid indexOid)
 
 /*
  * SetReindexProcessing
- *		Set flag that specified heap/index are being reindexed.
+ *		设置标志以表示指定的堆/索引正在被重建。
  */
 static void
 SetReindexProcessing(Oid heapOid, Oid indexOid)
 {
 	Assert(OidIsValid(heapOid) && OidIsValid(indexOid));
-	/* Reindexing is not re-entrant. */
+	/* 重建索引不可重入。 */
 	if (OidIsValid(currentlyReindexedHeap))
 		elog(ERROR, "cannot reindex while reindexing");
 	currentlyReindexedHeap = heapOid;
 	currentlyReindexedIndex = indexOid;
-	/* Index is no longer "pending" reindex. */
+	/* 索引不再处于"待重建"状态。 */
 	RemoveReindexPending(indexOid);
-	/* This may have been set already, but in case it isn't, do so now. */
+	/* 这可能已经被设置，但万一没有，现在设置它。 */
 	reindexingNestLevel = GetCurrentTransactionNestLevel();
 }
 
 /*
  * ResetReindexProcessing
- *		Unset reindexing status.
+ *		清除重建索引状态。
  */
 static void
 ResetReindexProcessing(void)
 {
 	currentlyReindexedHeap = InvalidOid;
 	currentlyReindexedIndex = InvalidOid;
-	/* reindexingNestLevel remains set till end of (sub)transaction */
+	/* reindexingNestLevel 保持设置直到（子）事务结束 */
 }
 
 /*
  * SetReindexPending
- *		Mark the given indexes as pending reindex.
+ *		把给定的索引标记为待重建。
  *
- * NB: we assume that the current memory context stays valid throughout.
+ * 注意：我们假定当前内存上下文在整个过程中保持有效。
  */
 static void
 SetReindexPending(List *indexes)
 {
-	/* Reindexing is not re-entrant. */
+	/* 重建索引不可重入。 */
 	if (pendingReindexedIndexes)
 		elog(ERROR, "cannot reindex while reindexing");
 	if (IsInParallelMode())
@@ -4136,7 +4136,7 @@ SetReindexPending(List *indexes)
 
 /*
  * RemoveReindexPending
- *		Remove the given index from the pending list.
+ *		把给定的索引从待处理列表中移除。
  */
 static void
 RemoveReindexPending(Oid indexOid)
@@ -4149,16 +4149,16 @@ RemoveReindexPending(Oid indexOid)
 
 /*
  * ResetReindexState
- *		Clear all reindexing state during (sub)transaction abort.
+ *		在（子）事务中止期间清除所有重建索引状态。
  */
 void
 ResetReindexState(int nestLevel)
 {
 	/*
-	 * Because reindexing is not re-entrant, we don't need to cope with nested
-	 * reindexing states.  We just need to avoid messing up the outer-level
-	 * state in case a subtransaction fails within a REINDEX.  So checking the
-	 * current nest level against that of the reindex operation is sufficient.
+	 * 因为重建索引不可重入，
+	 * 我们无需处理嵌套的重建状态。
+	 * 我们只需避免在 REINDEX 内部子事务失败时搞乱外层状态。
+	 * 所以把当前嵌套级别与重建操作的嵌套级别相比就足够了。
 	 */
 	if (reindexingNestLevel >= nestLevel)
 	{
@@ -4166,9 +4166,9 @@ ResetReindexState(int nestLevel)
 		currentlyReindexedIndex = InvalidOid;
 
 		/*
-		 * We needn't try to release the contents of pendingReindexedIndexes;
-		 * that list should be in a transaction-lifespan context, so it will
-		 * go away automatically.
+		 * 我们无需尝试释放 pendingReindexedIndexes 的内容；
+		 * 该列表应当位于一个事务生存期的上下文中，因此它会
+		 * 自动消失。
 		 */
 		pendingReindexedIndexes = NIL;
 
@@ -4178,7 +4178,7 @@ ResetReindexState(int nestLevel)
 
 /*
  * EstimateReindexStateSpace
- *		Estimate space needed to pass reindex state to parallel workers.
+ *		估算把重建状态传给并行工作进程所需的空间。
  */
 Size
 EstimateReindexStateSpace(void)
@@ -4189,7 +4189,7 @@ EstimateReindexStateSpace(void)
 
 /*
  * SerializeReindexState
- *		Serialize reindex state for parallel workers.
+ *		为并行工作进程序列化重建状态。
  */
 void
 SerializeReindexState(Size maxsize, char *start_address)
@@ -4207,7 +4207,7 @@ SerializeReindexState(Size maxsize, char *start_address)
 
 /*
  * RestoreReindexState
- *		Restore reindex state in a parallel worker.
+ *		在并行工作进程中恢复重建状态。
  */
 void
 RestoreReindexState(void *reindexstate)
@@ -4227,6 +4227,6 @@ RestoreReindexState(void *reindexstate)
 						sistate->pendingReindexedIndexes[c]);
 	MemoryContextSwitchTo(oldcontext);
 
-	/* Note the worker has its own transaction nesting level */
+	/* 注意该工作进程有它自己的事务嵌套级别 */
 	reindexingNestLevel = GetCurrentTransactionNestLevel();
 }

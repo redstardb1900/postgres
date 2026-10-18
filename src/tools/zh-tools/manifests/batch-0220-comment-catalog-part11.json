@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "0220-comment-catalog-part11",
+  "title": "zh: translate catalog comments (part 11)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "3388d59ca8cf101e55ce6fe05d9560e13ff948cd",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/index.c",
+      "kind": "c_comment",
+      "note": "index creation/drop and pg_attribute index-column routines"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0220-comment-catalog-part11.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/index.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 365,
+      "translated": 359,
+      "preserved": 6,
+      "preserved_reasons": [
+        "identifier labels"
+      ],
+      "note": "index creation/drop and pg_attribute index-column routines; 6 identifier-only comments (2 function-name section banners and 4 parameter-name labels) kept in English; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0220-comment-catalog-part11.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0220 translates comments in src/backend/catalog/index.c (catalog part 11). 6 identifier-only comments (2 function-name section banners, 4 parameter-name labels) are kept in English, matching the convention used for dependency.c OCLASS_* labels and heap.c typmod/connoinherit labels; Copyright and IDENTIFICATION lines stay in English. Next suggested: objectaddress.c."
+}

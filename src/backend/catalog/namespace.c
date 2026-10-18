@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
  *
  * namespace.c
- *	  code to support accessing and searching namespaces
+ *	  用于支持访问和搜索命名空间的代码
  *
- * This is separate from pg_namespace.c, which contains the routines that
- * directly manipulate the pg_namespace system catalog.  This module
- * provides routines associated with defining a "namespace search path"
- * and implementing search-path-controlled searches.
+ * 本模块与 pg_namespace.c 分开，后者包含直接操作
+ * pg_namespace 系统目录的例程。此模块提供与定义
+ * "命名空间搜索路径" 以及实现由搜索路径控制的查找
+ * 相关的例程。
  *
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
@@ -62,93 +62,93 @@
 
 
 /*
- * The namespace search path is a possibly-empty list of namespace OIDs.
- * In addition to the explicit list, implicitly-searched namespaces
- * may be included:
+ * 命名空间搜索路径是一个可能为空的命名空间 OIDs 列表。
+ * 除了显式列表之外，还可能包含隐式搜索的
+ * 命名空间：
  *
- * 1. If a TEMP table namespace has been initialized in this session, it
- * is implicitly searched first.  (The only time this doesn't happen is
- * when we are obeying an override search path spec that says not to use the
- * temp namespace, or the temp namespace is included in the explicit list.)
+ * 1. 如果本会话中已初始化了 TEMP 表命名空间，
+ * 则首先隐式搜索它。（唯一不这样做的情况是
+ * 当我们遵循一个覆盖搜索路径规范，其中指定不使用 temp
+ * 命名空间，或者 temp 命名空间被包含在显式列表中。）
  *
- * 2. The system catalog namespace is always searched.  If the system
- * namespace is present in the explicit path then it will be searched in
- * the specified order; otherwise it will be searched after TEMP tables and
- * *before* the explicit list.  (It might seem that the system namespace
- * should be implicitly last, but this behavior appears to be required by
- * SQL99.  Also, this provides a way to search the system namespace first
- * without thereby making it the default creation target namespace.)
+ * 2. 系统目录命名空间总是被搜索。如果系统
+ * 命名空间存在于显式路径中，则按指定的顺序
+ * 搜索它；否则它将在 TEMP 表之后、*先于*显式列表
+ * 被搜索。（系统命名空间似乎应当隐式地排在最后，
+ * 但这种行为似乎是 SQL99 所要求的。此外，这提供了
+ * 先搜索系统命名空间的方法，而不会因此使其成为
+ * 默认的创建目标命名空间。）
  *
- * For security reasons, searches using the search path will ignore the temp
- * namespace when searching for any object type other than relations and
- * types.  (We must allow types since temp tables have rowtypes.)
+ * 出于安全原因，使用搜索路径进行搜索时，对于除关系和类型
+ * 以外的任何对象类型，都会忽略 temp 命名空间。
+ * （我们必须允许类型，因为临时表具有行类型。）
  *
- * The default creation target namespace is always the first element of the
- * explicit list.  If the explicit list is empty, there is no default target.
+ * 默认的创建目标命名空间始终是显式列表的
+ * 第一个元素。如果显式列表为空，则没有默认目标。
  *
- * The textual specification of search_path can include "$user" to refer to
- * the namespace named the same as the current user, if any.  (This is just
- * ignored if there is no such namespace.)	Also, it can include "pg_temp"
- * to refer to the current backend's temp namespace.  This is usually also
- * ignorable if the temp namespace hasn't been set up, but there's a special
- * case: if "pg_temp" appears first then it should be the default creation
- * target.  We kluge this case a little bit so that the temp namespace isn't
- * set up until the first attempt to create something in it.  (The reason for
- * klugery is that we can't create the temp namespace outside a transaction,
- * but initial GUC processing of search_path happens outside a transaction.)
- * activeTempCreationPending is true if "pg_temp" appears first in the string
- * but is not reflected in activeCreationNamespace because the namespace isn't
- * set up yet.
+ * search_path 的文本规范可以包含 "$user"，用以引用
+ * 与当前用户同名的命名空间（如果有的话）。（如果没有这样的
+ * 命名空间，则忽略它。）	此外，它可以包含 "pg_temp"
+ * 以引用当前后端的 temp 命名空间。如果 temp 命名空间尚未
+ * 建立，这通常也可以忽略，但有一种特殊情况：
+ * 如果 "pg_temp" 出现在最前面，那么它应当是默认的创建
+ * 目标。我们对这种情况稍作变通，使得直到第一次尝试在其中
+ * 创建对象之前，temp 命名空间都不会被建立。（这样变通的
+ * 原因是我们无法在事务之外创建 temp 命名空间，
+ * 而 search_path 的初始 GUC 处理发生在事务之外。）
+ * 如果 "pg_temp" 出现在字符串最前面，但因为它尚未建立而
+ * 未反映到 activeCreationNamespace 中，则
+ * activeTempCreationPending 为 true。
  *
- * In bootstrap mode, the search path is set equal to "pg_catalog", so that
- * the system namespace is the only one searched or inserted into.
- * initdb is also careful to set search_path to "pg_catalog" for its
- * post-bootstrap standalone backend runs.  Otherwise the default search
- * path is determined by GUC.  The factory default path contains the PUBLIC
- * namespace (if it exists), preceded by the user's personal namespace
- * (if one exists).
+ * 在引导模式下，搜索路径被设置为等于 "pg_catalog"，因此
+ * 系统命名空间是唯一被搜索或插入的命名空间。
+ * initdb 也会小心地为其引导后的独立后端运行
+ * 将 search_path 设置为 "pg_catalog"。否则，默认搜索
+ * 路径由 GUC 决定。出厂默认路径包含 PUBLIC
+ * 命名空间（如果存在），其前面是用户的个人命名空间
+ * （如果存在的话）。
  *
- * We support a stack of "override" search path settings for use within
- * specific sections of backend code.  namespace_search_path is ignored
- * whenever the override stack is nonempty.  activeSearchPath is always
- * the actually active path; it points either to the search list of the
- * topmost stack entry, or to baseSearchPath which is the list derived
- * from namespace_search_path.
+ * 我们支持一个 "覆盖" 搜索路径设置栈，供后端代码中
+ * 特定部分使用。当覆盖栈非空时，会忽略
+ * namespace_search_path。activeSearchPath 始终
+ * 是实际活动的路径；它要么指向最顶层栈条目
+ * 的搜索列表，要么指向 baseSearchPath，后者是从
+ * namespace_search_path 派生出的列表。
  *
- * If baseSearchPathValid is false, then baseSearchPath (and other
- * derived variables) need to be recomputed from namespace_search_path.
- * We mark it invalid upon an assignment to namespace_search_path or receipt
- * of a syscache invalidation event for pg_namespace.  The recomputation
- * is done during the next non-overridden lookup attempt.  Note that an
- * override spec is never subject to recomputation.
+ * 如果 baseSearchPathValid 为 false，则需要根据
+ * namespace_search_path 重新计算 baseSearchPath（以及其他
+ * 派生变量）。当对 namespace_search_path 赋值或收到
+ * pg_namespace 的系统缓存失效事件时，我们将其标记为无效。
+ * 重新计算会在下一次未被覆盖的查找尝试期间完成。请注意，
+ * 覆盖规范从不接受重新计算。
  *
- * Any namespaces mentioned in namespace_search_path that are not readable
- * by the current user ID are simply left out of baseSearchPath; so
- * we have to be willing to recompute the path when current userid changes.
- * namespaceUser is the userid the path has been computed for.
+ * namespace_search_path 中提到的、当前用户 ID 无法读取的
+ * 任何命名空间都会被直接排除在 baseSearchPath 之外；因此
+ * 当当前用户 ID 变化时，我们必须愿意重新计算路径。
+ * namespaceUser 是该路径为之计算的用户 ID。
  *
- * Note: all data pointed to by these List variables is in TopMemoryContext.
+ * 注意：这些 List 变量指向的所有数据都位于 TopMemoryContext 中。
  *
- * activePathGeneration is incremented whenever the effective values of
- * activeSearchPath/activeCreationNamespace/activeTempCreationPending change.
- * This can be used to quickly detect whether any change has happened since
- * a previous examination of the search path state.
+ * activeSearchPath/activeCreationNamespace/activeTempCreationPending
+ * 的有效值发生变化时，activePathGeneration 会递增。
+ * 这可以用来快速检测自上次检查搜索路径状态以来
+ * 是否发生过任何变化。
  */
 
-/* These variables define the actually active state: */
+/* 这些变量定义实际的活动状态： */
 
 static List *activeSearchPath = NIL;
 
-/* default place to create stuff; if InvalidOid, no default */
+/* 创建对象的默认位置；如果为 InvalidOid，则没有默认值 */
 static Oid	activeCreationNamespace = InvalidOid;
 
-/* if true, activeCreationNamespace is wrong, it should be temp namespace */
+/* 如果为 true，则 activeCreationNamespace 有误，它应当是 temp 命名空间 */
 static bool activeTempCreationPending = false;
 
-/* current generation counter; make sure this is never zero */
+/* 当前代计数器；确保它永远不为零 */
 static uint64 activePathGeneration = 1;
 
-/* These variables are the values last derived from namespace_search_path: */
+/* 这些变量是最近从 namespace_search_path 派生的值： */
 
 static List *baseSearchPath = NIL;
 
@@ -158,34 +158,34 @@ static bool baseTempCreationPending = false;
 
 static Oid	namespaceUser = InvalidOid;
 
-/* The above four values are valid only if baseSearchPathValid */
+/* 上述四个值仅在 baseSearchPathValid 为真时有效 */
 static bool baseSearchPathValid = true;
 
-/* Override requests are remembered in a stack of OverrideStackEntry structs */
+/* 覆盖请求保存在一个 OverrideStackEntry 结构体栈中 */
 
 typedef struct
 {
-	List	   *searchPath;		/* the desired search path */
-	Oid			creationNamespace;	/* the desired creation namespace */
-	int			nestLevel;		/* subtransaction nesting level */
+	List	   *searchPath;		/* 期望的搜索路径 */
+	Oid			creationNamespace;	/* 期望的创建命名空间 */
+	int			nestLevel;		/* 子事务嵌套层级 */
 } OverrideStackEntry;
 
 static List *overrideStack = NIL;
 
 /*
- * myTempNamespace is InvalidOid until and unless a TEMP namespace is set up
- * in a particular backend session (this happens when a CREATE TEMP TABLE
- * command is first executed).  Thereafter it's the OID of the temp namespace.
+ * myTempNamespace 为 InvalidOid，直到某个特定后端会话中
+ * 设置 TEMP 命名空间为止（这会在首次执行 CREATE TEMP TABLE
+ * 命令时发生）。此后它就是该 temp 命名空间的 OID。
  *
- * myTempToastNamespace is the OID of the namespace for my temp tables' toast
- * tables.  It is set when myTempNamespace is, and is InvalidOid before that.
+ * myTempToastNamespace 是用于我的临时表的 toast 表的
+ * 命名空间 OID。它随 myTempNamespace 一起设置，在此之前为 InvalidOid。
  *
- * myTempNamespaceSubID shows whether we've created the TEMP namespace in the
- * current subtransaction.  The flag propagates up the subtransaction tree,
- * so the main transaction will correctly recognize the flag if all
- * intermediate subtransactions commit.  When it is InvalidSubTransactionId,
- * we either haven't made the TEMP namespace yet, or have successfully
- * committed its creation, depending on whether myTempNamespace is valid.
+ * myTempNamespaceSubID 显示我们是否已在当前子事务中创建了
+ * TEMP 命名空间。该标志会沿子事务树向上传播，
+ * 因此如果所有中间子事务都提交，主事务将能
+ * 正确识别该标志。当它为 InvalidSubTransactionId 时，
+ * 我们要么尚未创建 TEMP 命名空间，要么已成功提交
+ * 其创建，具体取决于 myTempNamespace 是否有效。
  */
 static Oid	myTempNamespace = InvalidOid;
 
@@ -194,13 +194,13 @@ static Oid	myTempToastNamespace = InvalidOid;
 static SubTransactionId myTempNamespaceSubID = InvalidSubTransactionId;
 
 /*
- * This is the user's textual search path specification --- it's the value
- * of the GUC variable 'search_path'.
+ * 这是用户文本形式的搜索路径规范 --- 即 GUC 变量
+ * 'search_path' 的值。
  */
 char	   *namespace_search_path = NULL;
 
 
-/* Local functions */
+/* 本地函数 */
 static void recomputeNamespacePath(void);
 static void AccessTempTableNamespace(bool force);
 static void InitTempTableNamespace(void);
@@ -214,26 +214,26 @@ static bool MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 
 /*
  * RangeVarGetRelidExtended
- *		Given a RangeVar describing an existing relation,
- *		select the proper namespace and look up the relation OID.
+ *		给定一个描述现有关系的 RangeVar，
+ *		选择正确的命名空间并查找该关系 OID。
  *
- * If the schema or relation is not found, return InvalidOid if flags contains
- * RVR_MISSING_OK, otherwise raise an error.
+ * 如果找不到模式或关系，则当 flags 包含 RVR_MISSING_OK
+ * 时返回 InvalidOid，否则抛出错误。
  *
- * If flags contains RVR_NOWAIT, throw an error if we'd have to wait for a
- * lock.
+ * 如果 flags 包含 RVR_NOWAIT，则在必须等待锁时
+ * 抛出错误。
  *
- * If flags contains RVR_SKIP_LOCKED, return InvalidOid if we'd have to wait
- * for a lock.
+ * 如果 flags 包含 RVR_SKIP_LOCKED，则在必须等待
+ * 锁时返回 InvalidOid。
  *
- * flags cannot contain both RVR_NOWAIT and RVR_SKIP_LOCKED.
+ * flags 不能同时包含 RVR_NOWAIT 和 RVR_SKIP_LOCKED。
  *
- * Note that if RVR_MISSING_OK and RVR_SKIP_LOCKED are both specified, a
- * return value of InvalidOid could either mean the relation is missing or it
- * could not be locked.
+ * 注意，如果同时指定了 RVR_MISSING_OK 和 RVR_SKIP_LOCKED，
+ * 那么返回值为 InvalidOid 可能意味着该关系不存在，
+ * 也可能意味着无法锁定它。
  *
- * Callback allows caller to check permissions or acquire additional locks
- * prior to grabbing the relation lock.
+ * 回调允许调用方在获取关系锁之前检查权限
+ * 或获取额外的锁。
  */
 Oid
 RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
@@ -246,11 +246,11 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 	bool		retry = false;
 	bool		missing_ok = (flags & RVR_MISSING_OK) != 0;
 
-	/* verify that flags do no conflict */
+	/* 验证 flags 不冲突 */
 	Assert(!((flags & RVR_NOWAIT) && (flags & RVR_SKIP_LOCKED)));
 
 	/*
-	 * We check the catalog name and then ignore it.
+	 * 我们检查目录名，然后忽略它。
 	 */
 	if (relation->catalogname)
 	{
@@ -263,42 +263,42 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 	}
 
 	/*
-	 * DDL operations can change the results of a name lookup.  Since all such
-	 * operations will generate invalidation messages, we keep track of
-	 * whether any such messages show up while we're performing the operation,
-	 * and retry until either (1) no more invalidation messages show up or (2)
-	 * the answer doesn't change.
+	 * DDL 操作可能改变名称查找的结果。由于所有这类
+	 * 操作都会产生失效消息，我们会跟踪在
+	 * 执行操作期间是否出现任何此类消息，
+	 * 并不断重试，直到要么 (1) 不再出现失效消息，要么 (2)
+	 * 答案不再变化。
 	 *
-	 * But if lockmode = NoLock, then we assume that either the caller is OK
-	 * with the answer changing under them, or that they already hold some
-	 * appropriate lock, and therefore return the first answer we get without
-	 * checking for invalidation messages.  Also, if the requested lock is
-	 * already held, LockRelationOid will not AcceptInvalidationMessages, so
-	 * we may fail to notice a change.  We could protect against that case by
-	 * calling AcceptInvalidationMessages() before beginning this loop, but
-	 * that would add a significant amount overhead, so for now we don't.
+	 * 但如果 lockmode = NoLock，那么我们假设要么调用方
+	 * 可以接受答案在期间发生变化，要么他们已经持有
+	 * 某个合适的锁，因此不检查失效消息，直接返回
+	 * 首次得到的答案。此外，如果所请求的锁
+	 * 已被持有，LockRelationOid 不会处理失效消息，
+	 * 因此我们可能无法察觉变化。我们可以通过在开始
+	 * 此循环之前调用 AcceptInvalidationMessages() 来防止这种情况，
+	 * 但那会带来相当大的开销，所以目前我们不这样做。
 	 */
 	for (;;)
 	{
 		/*
-		 * Remember this value, so that, after looking up the relation name
-		 * and locking its OID, we can check whether any invalidation messages
-		 * have been processed that might require a do-over.
+		 * 记住这个值，以便在查找关系名并锁定其 OID 之后，
+		 * 我们可以检查是否处理过任何可能需要重做的
+		 * 失效消息。
 		 */
 		inval_count = SharedInvalidMessageCounter;
 
 		/*
-		 * Some non-default relpersistence value may have been specified.  The
-		 * parser never generates such a RangeVar in simple DML, but it can
-		 * happen in contexts such as "CREATE TEMP TABLE foo (f1 int PRIMARY
-		 * KEY)".  Such a command will generate an added CREATE INDEX
-		 * operation, which must be careful to find the temp table, even when
-		 * pg_temp is not first in the search path.
+		 * 可能指定了某个非默认的 relpersistence 值。
+		 * 解析器在简单 DML 中从不会生成这样的 RangeVar，
+		 * 但它可能出现在诸如 "CREATE TEMP TABLE foo (f1 int PRIMARY
+		 * KEY)" 这样的上下文中。这样的命令会生成一个额外的 CREATE INDEX
+		 * 操作，该操作必须小心地找到临时表，即使
+		 * pg_temp 不在搜索路径的最前面。
 		 */
 		if (relation->relpersistence == RELPERSISTENCE_TEMP)
 		{
 			if (!OidIsValid(myTempNamespace))
-				relId = InvalidOid; /* this probably can't happen? */
+				relId = InvalidOid; /* 这大概不会发生？ */
 			else
 			{
 				if (relation->schemaname)
@@ -308,8 +308,8 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 					namespaceId = LookupExplicitNamespace(relation->schemaname, missing_ok);
 
 					/*
-					 * For missing_ok, allow a non-existent schema name to
-					 * return InvalidOid.
+					 * 对于 missing_ok，允许不存在的模式名
+					 * 返回 InvalidOid。
 					 */
 					if (namespaceId != myTempNamespace)
 						ereport(ERROR,
@@ -324,7 +324,7 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 		{
 			Oid			namespaceId;
 
-			/* use exact schema given */
+			/* 使用给定的确切模式 */
 			namespaceId = LookupExplicitNamespace(relation->schemaname, missing_ok);
 			if (missing_ok && !OidIsValid(namespaceId))
 				relId = InvalidOid;
@@ -333,41 +333,41 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 		}
 		else
 		{
-			/* search the namespace path */
+			/* 搜索命名空间路径 */
 			relId = RelnameGetRelid(relation->relname);
 		}
 
 		/*
-		 * Invoke caller-supplied callback, if any.
+		 * 调用调用方提供的回调（如果有）。
 		 *
-		 * This callback is a good place to check permissions: we haven't
-		 * taken the table lock yet (and it's really best to check permissions
-		 * before locking anything!), but we've gotten far enough to know what
-		 * OID we think we should lock.  Of course, concurrent DDL might
-		 * change things while we're waiting for the lock, but in that case
-		 * the callback will be invoked again for the new OID.
+		 * 这个回调是检查权限的好地方：我们还没有
+		 * 获取表锁（而且最好在锁定任何东西之前
+		 * 就检查权限！），但我们已经走得足够远，知道
+		 * 我们认为应当锁定哪个 OID。当然，并发的 DDL 可能
+		 * 在我们等待锁期间改变情况，但在那种情况下
+		 * 回调会针对新的 OID 再次被调用。
 		 */
 		if (callback)
 			callback(relation, relId, oldRelId, callback_arg);
 
 		/*
-		 * If no lock requested, we assume the caller knows what they're
-		 * doing.  They should have already acquired a heavyweight lock on
-		 * this relation earlier in the processing of this same statement, so
-		 * it wouldn't be appropriate to AcceptInvalidationMessages() here, as
-		 * that might pull the rug out from under them.
+		 * 如果未请求锁，我们假设调用方知道自己在
+		 * 做什么。他们应该在本条语句处理的更早阶段已经
+		 * 在这个关系上获取了重量级锁，因此
+		 * 在这里调用 AcceptInvalidationMessages() 并不合适，因为
+		 * 那可能会使他们措手不及。
 		 */
 		if (lockmode == NoLock)
 			break;
 
 		/*
-		 * If, upon retry, we get back the same OID we did last time, then the
-		 * invalidation messages we processed did not change the final answer.
-		 * So we're done.
+		 * 如果在重试时得到与上次相同的 OID，那么
+		 * 我们处理过的失效消息没有改变最终答案。
+		 * 因此我们完成了。
 		 *
-		 * If we got a different OID, we've locked the relation that used to
-		 * have this name rather than the one that does now.  So release the
-		 * lock.
+		 * 如果得到不同的 OID，那么锁定的是曾
+		 * 拥有此名称的关系，而不是现在拥有的那个。因此释放
+		 * 该锁。
 		 */
 		if (retry)
 		{
@@ -378,11 +378,11 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 		}
 
 		/*
-		 * Lock relation.  This will also accept any pending invalidation
-		 * messages.  If we got back InvalidOid, indicating not found, then
-		 * there's nothing to lock, but we accept invalidation messages
-		 * anyway, to flush any negative catcache entries that may be
-		 * lingering.
+		 * 锁定关系。这也会接受任何待处理的失效
+		 * 消息。如果我们得到 InvalidOid，表示未找到，那么
+		 * 没有什么需要锁定，但我们仍接受失效消息，
+		 * 以便清除任何可能残留的
+		 * 否定 catcache 项。
 		 */
 		if (!OidIsValid(relId))
 			AcceptInvalidationMessages();
@@ -407,15 +407,15 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 		}
 
 		/*
-		 * If no invalidation message were processed, we're done!
+		 * 如果没有处理任何失效消息，我们就完成了！
 		 */
 		if (inval_count == SharedInvalidMessageCounter)
 			break;
 
 		/*
-		 * Something may have changed.  Let's repeat the name lookup, to make
-		 * sure this name still references the same relation it did
-		 * previously.
+		 * 可能发生了变化。让我们重复名称查找，以
+		 * 确保此名称仍然引用它之前引用的同一个
+		 * 关系。
 		 */
 		retry = true;
 		oldRelId = relId;
@@ -441,12 +441,12 @@ RangeVarGetRelidExtended(const RangeVar *relation, LOCKMODE lockmode,
 
 /*
  * RangeVarGetCreationNamespace
- *		Given a RangeVar describing a to-be-created relation,
- *		choose which namespace to create it in.
+ *		给定一个描述待创建关系的 RangeVar，
+ *		选择要在哪个命名空间中创建它。
  *
- * Note: calling this may result in a CommandCounterIncrement operation.
- * That will happen on the first request for a temp table in any particular
- * backend run; we will need to either create or clean out the temp schema.
+ * 注意：调用此函数可能导致 CommandCounterIncrement 操作。
+ * 这会在任何特定后端运行中首次请求临时表时发生；
+ * 我们将需要创建或清理该临时模式。
  */
 Oid
 RangeVarGetCreationNamespace(const RangeVar *newRelation)
@@ -454,7 +454,7 @@ RangeVarGetCreationNamespace(const RangeVar *newRelation)
 	Oid			namespaceId;
 
 	/*
-	 * We check the catalog name and then ignore it.
+	 * 我们检查目录名，然后忽略它。
 	 */
 	if (newRelation->catalogname)
 	{
@@ -468,30 +468,30 @@ RangeVarGetCreationNamespace(const RangeVar *newRelation)
 
 	if (newRelation->schemaname)
 	{
-		/* check for pg_temp alias */
+		/* 检查 pg_temp 别名 */
 		if (strcmp(newRelation->schemaname, "pg_temp") == 0)
 		{
-			/* Initialize temp namespace */
+			/* 初始化 temp 命名空间 */
 			AccessTempTableNamespace(false);
 			return myTempNamespace;
 		}
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = get_namespace_oid(newRelation->schemaname, false);
-		/* we do not check for USAGE rights here! */
+		/* 我们在这里不检查 USAGE 权限！ */
 	}
 	else if (newRelation->relpersistence == RELPERSISTENCE_TEMP)
 	{
-		/* Initialize temp namespace */
+		/* 初始化 temp 命名空间 */
 		AccessTempTableNamespace(false);
 		return myTempNamespace;
 	}
 	else
 	{
-		/* use the default creation namespace */
+		/* 使用默认的创建命名空间 */
 		recomputeNamespacePath();
 		if (activeTempCreationPending)
 		{
-			/* Need to initialize temp namespace */
+			/* 需要初始化 temp 命名空间 */
 			AccessTempTableNamespace(true);
 			return myTempNamespace;
 		}
@@ -502,7 +502,7 @@ RangeVarGetCreationNamespace(const RangeVar *newRelation)
 					 errmsg("no schema has been selected to create in")));
 	}
 
-	/* Note: callers will check for CREATE rights when appropriate */
+	/* 注意：调用方会在适当时检查 CREATE 权限 */
 
 	return namespaceId;
 }
@@ -510,28 +510,28 @@ RangeVarGetCreationNamespace(const RangeVar *newRelation)
 /*
  * RangeVarGetAndCheckCreationNamespace
  *
- * This function returns the OID of the namespace in which a new relation
- * with a given name should be created.  If the user does not have CREATE
- * permission on the target namespace, this function will instead signal
- * an ERROR.
+ * 此函数返回应在其中创建具有给定名称的新关系的
+ * 命名空间 OID。如果用户对目标命名空间没有 CREATE
+ * 权限，则此函数会改为抛出
+ * ERROR。
  *
- * If non-NULL, *existing_relation_id is set to the OID of any existing relation
- * with the same name which already exists in that namespace, or to InvalidOid
- * if no such relation exists.
+ * 如果非 NULL，*existing_relation_id 会被设置为该命名空间中
+ * 已存在的任何同名关系的 OID，如果不存在这样的
+ * 关系则为 InvalidOid。
  *
- * If lockmode != NoLock, the specified lock mode is acquired on the existing
- * relation, if any, provided that the current user owns the target relation.
- * However, if lockmode != NoLock and the user does not own the target
- * relation, we throw an ERROR, as we must not try to lock relations the
- * user does not have permissions on.
+ * 如果 lockmode != NoLock，则在现有关系（如果有）上获取指定的
+ * 锁模式，前提是当前用户拥有目标关系。
+ * 但是，如果 lockmode != NoLock 且用户不拥有目标
+ * 关系，我们会抛出 ERROR，因为我们不得尝试锁定
+ * 用户没有权限的关系。
  *
- * As a side effect, this function acquires AccessShareLock on the target
- * namespace.  Without this, the namespace could be dropped before our
- * transaction commits, leaving behind relations with relnamespace pointing
- * to a no-longer-existent namespace.
+ * 作为副作用，此函数会在目标命名空间上获取 AccessShareLock。
+ * 否则，该命名空间可能在我们的事务提交之前被删除，
+ * 从而留下 relnamespace 指向一个不再存在的
+ * 命名空间的关系。
  *
- * As a further side-effect, if the selected namespace is a temporary namespace,
- * we mark the RangeVar as RELPERSISTENCE_TEMP.
+ * 作为进一步的副作用，如果选定的命名空间是临时命名空间，
+ * 我们会将该 RangeVar 标记为 RELPERSISTENCE_TEMP。
  */
 Oid
 RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
@@ -546,7 +546,7 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 	bool		retry = false;
 
 	/*
-	 * We check the catalog name and then ignore it.
+	 * 我们检查目录名，然后忽略它。
 	 */
 	if (relation->catalogname)
 	{
@@ -559,10 +559,10 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 	}
 
 	/*
-	 * As in RangeVarGetRelidExtended(), we guard against concurrent DDL
-	 * operations by tracking whether any invalidation messages are processed
-	 * while we're doing the name lookups and acquiring locks.  See comments
-	 * in that function for a more detailed explanation of this logic.
+	 * 与 RangeVarGetRelidExtended() 中一样，我们通过跟踪在进行名称
+	 * 查找和获取锁期间是否处理了任何失效消息，来防范并发的
+	 * DDL 操作。有关此逻辑的更详细说明，
+	 * 请参见该函数中的注释。
 	 */
 	for (;;)
 	{
@@ -570,7 +570,7 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 
 		inval_count = SharedInvalidMessageCounter;
 
-		/* Look up creation namespace and check for existing relation. */
+		/* 查找创建命名空间并检查是否存在已有关系。 */
 		nspid = RangeVarGetCreationNamespace(relation);
 		Assert(OidIsValid(nspid));
 		if (existing_relation_id != NULL)
@@ -579,14 +579,14 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 			relid = InvalidOid;
 
 		/*
-		 * In bootstrap processing mode, we don't bother with permissions or
-		 * locking.  Permissions might not be working yet, and locking is
-		 * unnecessary.
+		 * 在引导处理模式下，我们不理会权限或
+		 * 锁定。权限可能尚未正常工作，而锁定
+		 * 则是不必要的。
 		 */
 		if (IsBootstrapProcessingMode())
 			break;
 
-		/* Check namespace permissions. */
+		/* 检查命名空间权限。 */
 		aclresult = object_aclcheck(NamespaceRelationId, nspid, GetUserId(), ACL_CREATE);
 		if (aclresult != ACLCHECK_OK)
 			aclcheck_error(aclresult, OBJECT_SCHEMA,
@@ -594,23 +594,23 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 
 		if (retry)
 		{
-			/* If nothing changed, we're done. */
+			/* 如果没有变化，我们就完成了。 */
 			if (relid == oldrelid && nspid == oldnspid)
 				break;
-			/* If creation namespace has changed, give up old lock. */
+			/* 如果创建命名空间已变化，则放弃旧锁。 */
 			if (nspid != oldnspid)
 				UnlockDatabaseObject(NamespaceRelationId, oldnspid, 0,
 									 AccessShareLock);
-			/* If name points to something different, give up old lock. */
+			/* 如果名称指向不同的对象，则放弃旧锁。 */
 			if (relid != oldrelid && OidIsValid(oldrelid) && lockmode != NoLock)
 				UnlockRelationOid(oldrelid, lockmode);
 		}
 
-		/* Lock namespace. */
+		/* 锁定命名空间。 */
 		if (nspid != oldnspid)
 			LockDatabaseObject(NamespaceRelationId, nspid, 0, AccessShareLock);
 
-		/* Lock relation, if required if and we have permission. */
+		/* 如果需要且有权限，则锁定关系。 */
 		if (lockmode != NoLock && OidIsValid(relid))
 		{
 			if (!object_ownercheck(RelationRelationId, relid, GetUserId()))
@@ -620,11 +620,11 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 				LockRelationOid(relid, lockmode);
 		}
 
-		/* If no invalidation message were processed, we're done! */
+		/* 如果没有处理任何失效消息，我们就完成了！ */
 		if (inval_count == SharedInvalidMessageCounter)
 			break;
 
-		/* Something may have changed, so recheck our work. */
+		/* 可能发生了变化，因此重新检查我们的工作。 */
 		retry = true;
 		oldrelid = relid;
 		oldnspid = nspid;
@@ -637,8 +637,8 @@ RangeVarGetAndCheckCreationNamespace(RangeVar *relation,
 }
 
 /*
- * Adjust the relpersistence for an about-to-be-created relation based on the
- * creation namespace, and throw an error for invalid combinations.
+ * 根据创建命名空间调整即将创建的关系的 relpersistence，
+ * 并对无效的组合抛出错误。
  */
 void
 RangeVarAdjustRelationPersistence(RangeVar *newRelation, Oid nspid)
@@ -676,8 +676,8 @@ RangeVarAdjustRelationPersistence(RangeVar *newRelation, Oid nspid)
 
 /*
  * RelnameGetRelid
- *		Try to resolve an unqualified relation name.
- *		Returns OID if relation found in search path, else InvalidOid.
+ *		尝试解析一个非限定关系名。
+ *		如果在搜索路径中找到该关系，则返回 OID，否则返回 InvalidOid。
  */
 Oid
 RelnameGetRelid(const char *relname)
@@ -696,16 +696,16 @@ RelnameGetRelid(const char *relname)
 			return relid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 
 /*
  * RelationIsVisible
- *		Determine whether a relation (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified relation name".
+ *		确定一个（由 OID 标识的）关系在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定关系名可以找到它"。
  */
 bool
 RelationIsVisible(Oid relid)
@@ -723,9 +723,9 @@ RelationIsVisible(Oid relid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	relnamespace = relform->relnamespace;
 	if (relnamespace != PG_CATALOG_NAMESPACE &&
@@ -734,9 +734,9 @@ RelationIsVisible(Oid relid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another relation of the same name earlier in the path. So
-		 * we must do a slow check for conflicting relations.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名关系所隐藏。因此
+		 * 我们必须进行一次慢速检查，看是否存在冲突的关系。
 		 */
 		char	   *relname = NameStr(relform->relname);
 		ListCell   *l;
@@ -748,13 +748,13 @@ RelationIsVisible(Oid relid)
 
 			if (namespaceId == relnamespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
 			if (OidIsValid(get_relname_relid(relname, namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -768,7 +768,7 @@ RelationIsVisible(Oid relid)
 
 /*
  * TypenameGetTypid
- *		Wrapper for binary compatibility.
+ *		用于二进制兼容的包装函数。
  */
 Oid
 TypenameGetTypid(const char *typname)
@@ -778,10 +778,10 @@ TypenameGetTypid(const char *typname)
 
 /*
  * TypenameGetTypidExtended
- *		Try to resolve an unqualified datatype name.
- *		Returns OID if type found in search path, else InvalidOid.
+ *		尝试解析一个非限定数据类型名。
+ *		如果在搜索路径中找到该类型，则返回 OID，否则返回 InvalidOid。
  *
- * This is essentially the same as RelnameGetRelid.
+ * 这基本上与 RelnameGetRelid 相同。
  */
 Oid
 TypenameGetTypidExtended(const char *typname, bool temp_ok)
@@ -796,7 +796,7 @@ TypenameGetTypidExtended(const char *typname, bool temp_ok)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (!temp_ok && namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		typid = GetSysCacheOid2(TYPENAMENSP, Anum_pg_type_oid,
 								PointerGetDatum(typname),
@@ -805,15 +805,15 @@ TypenameGetTypidExtended(const char *typname, bool temp_ok)
 			return typid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
  * TypeIsVisible
- *		Determine whether a type (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified type name".
+ *		确定一个（由 OID 标识的）类型在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定类型名可以找到它"。
  */
 bool
 TypeIsVisible(Oid typid)
@@ -831,9 +831,9 @@ TypeIsVisible(Oid typid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	typnamespace = typform->typnamespace;
 	if (typnamespace != PG_CATALOG_NAMESPACE &&
@@ -842,9 +842,9 @@ TypeIsVisible(Oid typid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another type of the same name earlier in the path. So we
-		 * must do a slow check for conflicting types.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名类型所隐藏。因此我们
+		 * 必须进行一次慢速检查，看是否存在冲突的类型。
 		 */
 		char	   *typname = NameStr(typform->typname);
 		ListCell   *l;
@@ -856,7 +856,7 @@ TypeIsVisible(Oid typid)
 
 			if (namespaceId == typnamespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -864,7 +864,7 @@ TypeIsVisible(Oid typid)
 									  PointerGetDatum(typname),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -878,75 +878,75 @@ TypeIsVisible(Oid typid)
 
 /*
  * FuncnameGetCandidates
- *		Given a possibly-qualified function name and argument count,
- *		retrieve a list of the possible matches.
+ *		给定一个可能限定的函数名和参数个数，
+ *		检索可能匹配项的列表。
  *
- * If nargs is -1, we return all functions matching the given name,
- * regardless of argument count.  (argnames must be NIL, and expand_variadic
- * and expand_defaults must be false, in this case.)
+ * 如果 nargs 为 -1，我们返回与给定名称匹配的所有函数，
+ * 而不论参数个数。（在这种情况下 argnames 必须为 NIL，且
+ * expand_variadic 和 expand_defaults 必须为 false。）
  *
- * If argnames isn't NIL, we are considering a named- or mixed-notation call,
- * and only functions having all the listed argument names will be returned.
- * (We assume that length(argnames) <= nargs and all the passed-in names are
- * distinct.)  The returned structs will include an argnumbers array showing
- * the actual argument index for each logical argument position.
+ * 如果 argnames 不为 NIL，则我们考虑的是命名记法或混合记法的调用，
+ * 只有拥有所有所列参数名的函数才会被返回。
+ * （我们假设 length(argnames) <= nargs，且所有传入的名称互不相同。）
+ * 返回的结构体将包含一个 argnumbers 数组，
+ * 显示每个逻辑参数位置对应的实际参数索引。
  *
- * If expand_variadic is true, then variadic functions having the same number
- * or fewer arguments will be retrieved, with the variadic argument and any
- * additional argument positions filled with the variadic element type.
- * nvargs in the returned struct is set to the number of such arguments.
- * If expand_variadic is false, variadic arguments are not treated specially,
- * and the returned nvargs will always be zero.
+ * 如果 expand_variadic 为 true，则拥有相同数量或更少
+ * 参数的变参函数也会被检索到，其中变参参数及任何
+ * 额外参数位置用变参元素类型填充。
+ * 返回结构体中的 nvargs 被设置为此类参数的个数。
+ * 如果 expand_variadic 为 false，则变参参数不作特殊处理，
+ * 返回的 nvargs 将始终为零。
  *
- * If expand_defaults is true, functions that could match after insertion of
- * default argument values will also be retrieved.  In this case the returned
- * structs could have nargs > passed-in nargs, and ndargs is set to the number
- * of additional args (which can be retrieved from the function's
- * proargdefaults entry).
+ * 如果 expand_defaults 为 true，则插入默认参数值后可能匹配的函数
+ * 也会被检索到。在这种情况下，返回的结构体可能
+ * 具有 nargs > 传入的 nargs，且 ndargs 被设置为
+ * 额外参数的数量（可从函数的
+ * proargdefaults 条目中获取）。
  *
- * If include_out_arguments is true, then OUT-mode arguments are considered to
- * be included in the argument list.  Their types are included in the returned
- * arrays, and argnumbers are indexes in proallargtypes not proargtypes.
- * We also set nominalnargs to be the length of proallargtypes not proargtypes.
- * Otherwise OUT-mode arguments are ignored.
+ * 如果 include_out_arguments 为 true，则 OUT 模式参数被视为
+ * 包含在参数列表中。它们的类型会包含在返回的
+ * 数组中，且 argnumbers 是 proallargtypes 而非 proargtypes 中的索引。
+ * 我们还会将 nominalnargs 设置为 proallargtypes 而非 proargtypes 的长度。
+ * 否则 OUT 模式参数会被忽略。
  *
- * It is not possible for nvargs and ndargs to both be nonzero in the same
- * list entry, since default insertion allows matches to functions with more
- * than nargs arguments while the variadic transformation requires the same
- * number or less.
+ * nvargs 和 ndargs 不可能在同一
+ * 列表项中都非零，因为默认插入允许匹配具有多于
+ * nargs 个参数的函数，而变参变换需要参数个数
+ * 相同或更少。
  *
- * When argnames isn't NIL, the returned args[] type arrays are not ordered
- * according to the functions' declarations, but rather according to the call:
- * first any positional arguments, then the named arguments, then defaulted
- * arguments (if needed and allowed by expand_defaults).  The argnumbers[]
- * array can be used to map this back to the catalog information.
- * argnumbers[k] is set to the proargtypes or proallargtypes index of the
- * k'th call argument.
+ * 当 argnames 不为 NIL 时，返回的 args[] 类型数组不是
+ * 按函数声明排序的，而是按调用排序：
+ * 先是任何位置参数，然后是命名参数，接着是默认
+ * 参数（如果需要且 expand_defaults 允许）。argnumbers[]
+ * 数组可用于将其映射回目录信息。
+ * argnumbers[k] 被设置为第 k 个调用参数在
+ * proargtypes 或 proallargtypes 中的索引。
  *
- * We search a single namespace if the function name is qualified, else
- * all namespaces in the search path.  In the multiple-namespace case,
- * we arrange for entries in earlier namespaces to mask identical entries in
- * later namespaces.
+ * 如果函数名是限定的，我们只搜索单个命名空间，否则
+ * 搜索搜索路径中的所有命名空间。在多命名空间的情况下，
+ * 我们安排较早命名空间中的条目掩盖较晚命名空间中
+ * 相同的条目。
  *
- * When expanding variadics, we arrange for non-variadic functions to mask
- * variadic ones if the expanded argument list is the same.  It is still
- * possible for there to be conflicts between different variadic functions,
- * however.
+ * 在展开变参时，如果展开后的参数列表相同，我们安排
+ * 非变参函数掩盖变参函数。不过，
+ * 不同的变参函数之间仍可能
+ * 存在冲突。
  *
- * It is guaranteed that the return list will never contain multiple entries
- * with identical argument lists.  When expand_defaults is true, the entries
- * could have more than nargs positions, but we still guarantee that they are
- * distinct in the first nargs positions.  However, if argnames isn't NIL or
- * either expand_variadic or expand_defaults is true, there might be multiple
- * candidate functions that expand to identical argument lists.  Rather than
- * throw error here, we report such situations by returning a single entry
- * with oid = 0 that represents a set of such conflicting candidates.
- * The caller might end up discarding such an entry anyway, but if it selects
- * such an entry it should react as though the call were ambiguous.
+ * 保证返回列表永远不会包含参数列表相同的
+ * 多个条目。当 expand_defaults 为 true 时，条目
+ * 可能超过 nargs 个位置，但我们仍然保证它们在前 nargs
+ * 个位置上是不同的。但是，如果 argnames 不为 NIL，或者
+ * expand_variadic 或 expand_defaults 为 true，则可能存在多个
+ * 展开后参数列表相同的候选函数。与其
+ * 在这里抛出错误，我们通过返回一个 oid = 0 的条目
+ * 来报告这种情况，它代表这样一组冲突的候选。
+ * 调用方最终可能仍会丢弃这样的条目，但如果它选择了
+ * 这样的条目，就应当像该调用有歧义一样作出反应。
  *
- * If missing_ok is true, an empty list (NULL) is returned if the name was
- * schema-qualified with a schema that does not exist.  Likewise if no
- * candidate is found for other reasons.
+ * 如果 missing_ok 为 true，则当名称被一个不存在的
+ * 模式限定时，返回空列表 (NULL)。同样，如果因其他原因
+ * 找不到候选，也返回空列表。
  */
 FuncCandidateList
 FuncnameGetCandidates(List *names, int nargs, List *argnames,
@@ -961,27 +961,27 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 	CatCList   *catlist;
 	int			i;
 
-	/* check for caller error */
+	/* 检查调用方错误 */
 	Assert(nargs >= 0 || !(expand_variadic | expand_defaults));
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &funcname);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (!OidIsValid(namespaceId))
 			return NULL;
 	}
 	else
 	{
-		/* flag to indicate we need namespace search */
+		/* 指示我们需要命名空间搜索的标志 */
 		namespaceId = InvalidOid;
 		recomputeNamespacePath();
 	}
 
-	/* Search syscache by name only */
+	/* 仅按名称搜索系统缓存 */
 	catlist = SearchSysCacheList1(PROCNAMEARGSNSP, CStringGetDatum(funcname));
 
 	for (i = 0; i < catlist->n_members; i++)
@@ -1000,15 +1000,15 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 
 		if (OidIsValid(namespaceId))
 		{
-			/* Consider only procs in specified namespace */
+			/* 仅考虑指定命名空间中的函数 */
 			if (procform->pronamespace != namespaceId)
 				continue;
 		}
 		else
 		{
 			/*
-			 * Consider only procs that are in the search path and are not in
-			 * the temp namespace.
+			 * 仅考虑位于搜索路径中且不在
+			 * temp 命名空间中的函数。
 			 */
 			ListCell   *nsp;
 
@@ -1020,14 +1020,14 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 				pathpos++;
 			}
 			if (nsp == NULL)
-				continue;		/* proc is not in search path */
+				continue;		/* 函数不在搜索路径中 */
 		}
 
 		/*
-		 * If we are asked to match to OUT arguments, then use the
-		 * proallargtypes array (which includes those); otherwise use
-		 * proargtypes (which doesn't).  Of course, if proallargtypes is null,
-		 * we always use proargtypes.
+		 * 如果要求我们匹配 OUT 参数，则使用
+		 * proallargtypes 数组（它包含这些参数）；否则使用
+		 * proargtypes（它不包含）。当然，如果 proallargtypes 为 null，
+		 * 我们总是使用 proargtypes。
 		 */
 		if (include_out_arguments)
 		{
@@ -1055,11 +1055,11 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 		if (argnames != NIL)
 		{
 			/*
-			 * Call uses named or mixed notation
+			 * 调用使用命名记法或混合记法
 			 *
-			 * Named or mixed notation can match a variadic function only if
-			 * expand_variadic is off; otherwise there is no way to match the
-			 * presumed-nameless parameters expanded from the variadic array.
+			 * 命名记法或混合记法只有在
+			 * expand_variadic 关闭时才能匹配变参函数；否则无法匹配
+			 * 从变参数组展开出的假定无名的参数。
 			 */
 			if (OidIsValid(procform->provariadic) && expand_variadic)
 				continue;
@@ -1067,13 +1067,13 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 			variadic = false;
 
 			/*
-			 * Check argument count.
+			 * 检查参数个数。
 			 */
-			Assert(nargs >= 0); /* -1 not supported with argnames */
+			Assert(nargs >= 0); /* 使用 argnames 时不支持 -1 */
 
 			if (pronargs > nargs && expand_defaults)
 			{
-				/* Ignore if not enough default expressions */
+				/* 如果默认表达式不够则忽略 */
 				if (nargs + procform->pronargdefaults < pronargs)
 					continue;
 				use_defaults = true;
@@ -1081,27 +1081,27 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 			else
 				use_defaults = false;
 
-			/* Ignore if it doesn't match requested argument count */
+			/* 如果与请求的参数个数不匹配则忽略 */
 			if (pronargs != nargs && !use_defaults)
 				continue;
 
-			/* Check for argument name match, generate positional mapping */
+			/* 检查参数名匹配，生成位置映射 */
 			if (!MatchNamedCall(proctup, nargs, argnames,
 								include_out_arguments, pronargs,
 								&argnumbers))
 				continue;
 
-			/* Named argument matching is always "special" */
+			/* 命名参数匹配总是 "特殊的" */
 			any_special = true;
 		}
 		else
 		{
 			/*
-			 * Call uses positional notation
+			 * 调用使用位置记法
 			 *
-			 * Check if function is variadic, and get variadic element type if
-			 * so.  If expand_variadic is false, we should just ignore
-			 * variadic-ness.
+			 * 检查函数是否为变参，如果是，则获取变参元素类型。
+			 * 如果 expand_variadic 为 false，我们应当直接忽略
+			 * 变参性。
 			 */
 			if (pronargs <= nargs && expand_variadic)
 			{
@@ -1116,11 +1116,11 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 			}
 
 			/*
-			 * Check if function can match by using parameter defaults.
+			 * 检查函数是否可以通过使用参数默认值来匹配。
 			 */
 			if (pronargs > nargs && expand_defaults)
 			{
-				/* Ignore if not enough default expressions */
+				/* 如果默认表达式不够则忽略 */
 				if (nargs + procform->pronargdefaults < pronargs)
 					continue;
 				use_defaults = true;
@@ -1129,16 +1129,16 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 			else
 				use_defaults = false;
 
-			/* Ignore if it doesn't match requested argument count */
+			/* 如果与请求的参数个数不匹配则忽略 */
 			if (nargs >= 0 && pronargs != nargs && !variadic && !use_defaults)
 				continue;
 		}
 
 		/*
-		 * We must compute the effective argument list so that we can easily
-		 * compare it to earlier results.  We waste a palloc cycle if it gets
-		 * masked by an earlier result, but really that's a pretty infrequent
-		 * case so it's not worth worrying about.
+		 * 我们必须计算有效参数列表，以便能轻松
+		 * 将其与更早的结果比较。如果它被更早的结果
+		 * 掩盖，我们会浪费一个 palloc 周期，但那实际上
+		 * 是相当少见的情况，所以不值得担心。
 		 */
 		effective_nargs = Max(pronargs, nargs);
 		newResult = (FuncCandidateList)
@@ -1151,19 +1151,19 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 		newResult->argnumbers = argnumbers;
 		if (argnumbers)
 		{
-			/* Re-order the argument types into call's logical order */
+			/* 将参数类型重新排列为调用的逻辑顺序 */
 			for (int j = 0; j < pronargs; j++)
 				newResult->args[j] = proargtypes[argnumbers[j]];
 		}
 		else
 		{
-			/* Simple positional case, just copy proargtypes as-is */
+			/* 简单的位置情形，直接原样复制 proargtypes */
 			memcpy(newResult->args, proargtypes, pronargs * sizeof(Oid));
 		}
 		if (variadic)
 		{
 			newResult->nvargs = effective_nargs - pronargs + 1;
-			/* Expand variadic argument into N copies of element type */
+			/* 将变参参数展开为 N 个元素类型的副本 */
 			for (int j = pronargs - 1; j < effective_nargs; j++)
 				newResult->args[j] = va_elem_type;
 		}
@@ -1172,32 +1172,32 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 		newResult->ndargs = use_defaults ? pronargs - nargs : 0;
 
 		/*
-		 * Does it have the same arguments as something we already accepted?
-		 * If so, decide what to do to avoid returning duplicate argument
-		 * lists.  We can skip this check for the single-namespace case if no
-		 * special (named, variadic or defaults) match has been made, since
-		 * then the unique index on pg_proc guarantees all the matches have
-		 * different argument lists.
+		 * 它是否具有与我们已接受的某个结果相同的参数？
+		 * 如果是，决定如何处理，以避免返回重复的
+		 * 参数列表。对于单命名空间的情形，如果没有进行任何
+		 * 特殊（命名、变参或默认值）匹配，我们可以跳过此检查，
+		 * 因为那样 pg_proc 上的唯一索引保证所有匹配项
+		 * 具有不同的参数列表。
 		 */
 		if (resultList != NULL &&
 			(any_special || !OidIsValid(namespaceId)))
 		{
 			/*
-			 * If we have an ordered list from SearchSysCacheList (the normal
-			 * case), then any conflicting proc must immediately adjoin this
-			 * one in the list, so we only need to look at the newest result
-			 * item.  If we have an unordered list, we have to scan the whole
-			 * result list.  Also, if either the current candidate or any
-			 * previous candidate is a special match, we can't assume that
-			 * conflicts are adjacent.
+			 * 如果我们从 SearchSysCacheList 得到的是有序列表（通常
+			 * 情况），那么任何冲突的函数必然紧邻此
+			 * 条目，所以我们只需查看最新的结果
+			 * 项。如果得到的是无序列表，则必须扫描整个
+			 * 结果列表。此外，如果当前候选或任何
+			 * 先前的候选是特殊匹配，我们就不能假定
+			 * 冲突是相邻的。
 			 *
-			 * We ignore defaulted arguments in deciding what is a match.
+			 * 在判断何为匹配时，我们忽略带默认值的参数。
 			 */
 			FuncCandidateList prevResult;
 
 			if (catlist->ordered && !any_special)
 			{
-				/* ndargs must be 0 if !any_special */
+				/* 如果 !any_special，则 ndargs 必须为 0 */
 				if (effective_nargs == resultList->nargs &&
 					memcmp(newResult->args,
 						   resultList->args,
@@ -1225,28 +1225,28 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 			if (prevResult)
 			{
 				/*
-				 * We have a match with a previous result.  Decide which one
-				 * to keep, or mark it ambiguous if we can't decide.  The
-				 * logic here is preference > 0 means prefer the old result,
-				 * preference < 0 means prefer the new, preference = 0 means
-				 * ambiguous.
+				 * 我们与先前的结果匹配。决定保留
+				 * 哪一个，或者在无法决定时将其标记为有歧义。
+				 * 这里的逻辑是：preference > 0 表示偏好旧结果，
+				 * preference < 0 表示偏好新结果，preference = 0 表示
+				 * 有歧义。
 				 */
 				int			preference;
 
 				if (pathpos != prevResult->pathpos)
 				{
 					/*
-					 * Prefer the one that's earlier in the search path.
+					 * 偏好搜索路径中更靠前的那个。
 					 */
 					preference = pathpos - prevResult->pathpos;
 				}
 				else if (variadic && prevResult->nvargs == 0)
 				{
 					/*
-					 * With variadic functions we could have, for example,
-					 * both foo(numeric) and foo(variadic numeric[]) in the
-					 * same namespace; if so we prefer the non-variadic match
-					 * on efficiency grounds.
+					 * 对于变参函数，例如可能在同一命名空间中
+					 * 同时存在 foo(numeric) 和 foo(variadic numeric[])；
+					 * 如果是这样，出于效率考虑我们偏好
+					 * 非变参的匹配。
 					 */
 					preference = 1;
 				}
@@ -1257,12 +1257,12 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 				else
 				{
 					/*----------
-					 * We can't decide.  This can happen with, for example,
-					 * both foo(numeric, variadic numeric[]) and
-					 * foo(variadic numeric[]) in the same namespace, or
-					 * both foo(int) and foo (int, int default something)
-					 * in the same namespace, or both foo(a int, b text)
-					 * and foo(b text, a int) in the same namespace.
+					 * 我们无法决定。这可能发生在，例如，
+					 * 同一命名空间中同时存在 foo(numeric, variadic numeric[]) 和
+					 * foo(variadic numeric[])，或者
+					 * 同一命名空间中同时存在 foo(int) 和 foo (int, int default something)，
+					 * 或者同一命名空间中同时存在 foo(a int, b text)
+					 * 和 foo(b text, a int) 时。
 					 *----------
 					 */
 					preference = 0;
@@ -1270,13 +1270,13 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 
 				if (preference > 0)
 				{
-					/* keep previous result */
+					/* 保留先前的结果 */
 					pfree(newResult);
 					continue;
 				}
 				else if (preference < 0)
 				{
-					/* remove previous result from the list */
+					/* 从列表中移除先前的结果 */
 					if (prevResult == resultList)
 						resultList = prevResult->next;
 					else
@@ -1293,14 +1293,14 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 								break;
 							}
 						}
-						Assert(prevPrevResult); /* assert we found it */
+						Assert(prevPrevResult); /* 断言我们找到了它 */
 					}
 					pfree(prevResult);
 					/* fall through to add newResult to list */
 				}
 				else
 				{
-					/* mark old result as ambiguous, discard new */
+					/* 将旧结果标记为有歧义，丢弃新结果 */
 					prevResult->oid = InvalidOid;
 					pfree(newResult);
 					continue;
@@ -1309,7 +1309,7 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 		}
 
 		/*
-		 * Okay to add it to result list
+		 * 可以将其加入结果列表
 		 */
 		newResult->next = resultList;
 		resultList = newResult;
@@ -1322,24 +1322,24 @@ FuncnameGetCandidates(List *names, int nargs, List *argnames,
 
 /*
  * MatchNamedCall
- *		Given a pg_proc heap tuple and a call's list of argument names,
- *		check whether the function could match the call.
+ *		给定一个 pg_proc 堆元组和调用的参数名列表，
+ *		检查该函数是否可以匹配该调用。
  *
- * The call could match if all supplied argument names are accepted by
- * the function, in positions after the last positional argument, and there
- * are defaults for all unsupplied arguments.
+ * 如果函数接受所有提供的参数名，且这些名称位于
+ * 最后一个位置参数之后，并且所有未提供的参数都有
+ * 默认值，则该调用可以匹配。
  *
- * If include_out_arguments is true, we are treating OUT arguments as
- * included in the argument list.  pronargs is the number of arguments
- * we're considering (the length of either proargtypes or proallargtypes).
+ * 如果 include_out_arguments 为 true，我们把 OUT 参数视为
+ * 包含在参数列表中。pronargs 是我们正在考虑的
+ * 参数个数（proargtypes 或 proallargtypes 之一的长度）。
  *
- * The number of positional arguments is nargs - list_length(argnames).
- * Note caller has already done basic checks on argument count.
+ * 位置参数的个数为 nargs - list_length(argnames)。
+ * 注意调用方已经对参数个数做了基本检查。
  *
- * On match, return true and fill *argnumbers with a palloc'd array showing
- * the mapping from call argument positions to actual function argument
- * numbers.  Defaulted arguments are included in this map, at positions
- * after the last supplied argument.
+ * 匹配时，返回 true 并用一个 palloc 的数组填充 *argnumbers，
+ * 该数组显示从调用参数位置到实际函数参数
+ * 编号的映射。带默认值的参数也包含在此映射中，位于
+ * 最后一个提供的参数之后。
  */
 static bool
 MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
@@ -1354,39 +1354,39 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 	char	   *p_argmodes;
 	bool		arggiven[FUNC_MAX_ARGS];
 	bool		isnull;
-	int			ap;				/* call args position */
-	int			pp;				/* proargs position */
+	int			ap;				/* 调用参数位置 */
+	int			pp;				/* proargs 位置 */
 	ListCell   *lc;
 
 	Assert(argnames != NIL);
 	Assert(numposargs >= 0);
 	Assert(nargs <= pronargs);
 
-	/* Ignore this function if its proargnames is null */
+	/* 如果函数的 proargnames 为 null 则忽略它 */
 	(void) SysCacheGetAttr(PROCOID, proctup, Anum_pg_proc_proargnames,
 						   &isnull);
 	if (isnull)
 		return false;
 
-	/* OK, let's extract the argument names and types */
+	/* 好，让我们提取参数名和类型 */
 	pronallargs = get_func_arg_info(proctup,
 									&p_argtypes, &p_argnames, &p_argmodes);
 	Assert(p_argnames != NULL);
 
 	Assert(include_out_arguments ? (pronargs == pronallargs) : (pronargs <= pronallargs));
 
-	/* initialize state for matching */
+	/* 初始化用于匹配的状态 */
 	*argnumbers = (int *) palloc(pronargs * sizeof(int));
 	memset(arggiven, false, pronargs * sizeof(bool));
 
-	/* there are numposargs positional args before the named args */
+	/* 命名参数之前有 numposargs 个位置参数 */
 	for (ap = 0; ap < numposargs; ap++)
 	{
 		(*argnumbers)[ap] = ap;
 		arggiven[ap] = true;
 	}
 
-	/* now examine the named args */
+	/* 现在检查命名参数 */
 	foreach(lc, argnames)
 	{
 		char	   *argname = (char *) lfirst(lc);
@@ -1397,7 +1397,7 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 		found = false;
 		for (i = 0; i < pronallargs; i++)
 		{
-			/* consider only input params, except with include_out_arguments */
+			/* 仅考虑输入参数，除非使用 include_out_arguments */
 			if (!include_out_arguments &&
 				p_argmodes &&
 				(p_argmodes[i] != FUNC_PARAM_IN &&
@@ -1406,7 +1406,7 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 				continue;
 			if (p_argnames[i] && strcmp(p_argnames[i], argname) == 0)
 			{
-				/* fail if argname matches a positional argument */
+				/* 如果参数名匹配某个位置参数则失败 */
 				if (arggiven[pp])
 					return false;
 				arggiven[pp] = true;
@@ -1414,18 +1414,18 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 				found = true;
 				break;
 			}
-			/* increase pp only for considered parameters */
+			/* 仅对纳入考虑的参数递增 pp */
 			pp++;
 		}
-		/* if name isn't in proargnames, fail */
+		/* 如果名称不在 proargnames 中则失败 */
 		if (!found)
 			return false;
 		ap++;
 	}
 
-	Assert(ap == nargs);		/* processed all actual parameters */
+	Assert(ap == nargs);		/* 已处理所有实际参数 */
 
-	/* Check for default arguments */
+	/* 检查默认参数 */
 	if (nargs < pronargs)
 	{
 		int			first_arg_with_default = pronargs - procform->pronargdefaults;
@@ -1434,23 +1434,23 @@ MatchNamedCall(HeapTuple proctup, int nargs, List *argnames,
 		{
 			if (arggiven[pp])
 				continue;
-			/* fail if arg not given and no default available */
+			/* 如果参数未给出且没有可用默认值则失败 */
 			if (pp < first_arg_with_default)
 				return false;
 			(*argnumbers)[ap++] = pp;
 		}
 	}
 
-	Assert(ap == pronargs);		/* processed all function parameters */
+	Assert(ap == pronargs);		/* 已处理所有函数参数 */
 
 	return true;
 }
 
 /*
  * FunctionIsVisible
- *		Determine whether a function (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified function name with exact argument matches".
+ *		确定一个（由 OID 标识的）函数在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定函数名并精确匹配参数可以找到它"。
  */
 bool
 FunctionIsVisible(Oid funcid)
@@ -1468,9 +1468,9 @@ FunctionIsVisible(Oid funcid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	pronamespace = procform->pronamespace;
 	if (pronamespace != PG_CATALOG_NAMESPACE &&
@@ -1479,10 +1479,10 @@ FunctionIsVisible(Oid funcid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another proc of the same name and arguments earlier in
-		 * the path.  So we must do a slow check to see if this is the same
-		 * proc that would be found by FuncnameGetCandidates.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名同参数函数所隐藏。
+		 * 因此我们必须进行一次慢速检查，看这是否与
+		 * FuncnameGetCandidates 会找到的是同一个函数。
 		 */
 		char	   *proname = NameStr(procform->proname);
 		int			nargs = procform->pronargs;
@@ -1498,7 +1498,7 @@ FunctionIsVisible(Oid funcid)
 			if (memcmp(clist->args, procform->proargtypes.values,
 					   nargs * sizeof(Oid)) == 0)
 			{
-				/* Found the expected entry; is it the right proc? */
+				/* 找到预期的条目；它是正确的函数吗？ */
 				visible = (clist->oid == funcid);
 				break;
 			}
@@ -1513,14 +1513,14 @@ FunctionIsVisible(Oid funcid)
 
 /*
  * OpernameGetOprid
- *		Given a possibly-qualified operator name and exact input datatypes,
- *		look up the operator.  Returns InvalidOid if not found.
+ *		给定一个可能限定的运算符名和精确的输入数据类型，
+ *		查找该运算符。如果未找到则返回 InvalidOid。
  *
- * Pass oprleft = InvalidOid for a prefix op.
+ * 对于前缀运算符，传入 oprleft = InvalidOid。
  *
- * If the operator name is not schema-qualified, it is sought in the current
- * namespace search path.  If the name is schema-qualified and the given
- * schema does not exist, InvalidOid is returned.
+ * 如果运算符名未用模式限定，则在当前命名空间
+ * 搜索路径中查找它。如果名称用模式限定，且给定的
+ * 模式不存在，则返回 InvalidOid。
  */
 Oid
 OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
@@ -1530,12 +1530,12 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 	CatCList   *catlist;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &opername);
 
 	if (schemaname)
 	{
-		/* search only in exact schema given */
+		/* 仅在给定的确切模式中搜索 */
 		Oid			namespaceId;
 
 		namespaceId = LookupExplicitNamespace(schemaname, true);
@@ -1561,7 +1561,7 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 		return InvalidOid;
 	}
 
-	/* Search syscache by name and argument types */
+	/* 按名称和参数类型搜索系统缓存 */
 	catlist = SearchSysCacheList3(OPERNAMENSP,
 								  CStringGetDatum(opername),
 								  ObjectIdGetDatum(oprleft),
@@ -1569,15 +1569,15 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 
 	if (catlist->n_members == 0)
 	{
-		/* no hope, fall out early */
+		/* 没有希望，提前退出 */
 		ReleaseSysCacheList(catlist);
 		return InvalidOid;
 	}
 
 	/*
-	 * We have to find the list member that is first in the search path, if
-	 * there's more than one.  This doubly-nested loop looks ugly, but in
-	 * practice there should usually be few catlist members.
+	 * 如果存在多个，我们必须找到搜索路径中
+	 * 最靠前的那个列表成员。这个双重嵌套循环看起来
+	 * 很难看，但实际上通常应当只有很少的 catlist 成员。
 	 */
 	recomputeNamespacePath();
 
@@ -1587,7 +1587,7 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 		int			i;
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		for (i = 0; i < catlist->n_members; i++)
 		{
@@ -1610,20 +1610,20 @@ OpernameGetOprid(List *names, Oid oprleft, Oid oprright)
 
 /*
  * OpernameGetCandidates
- *		Given a possibly-qualified operator name and operator kind,
- *		retrieve a list of the possible matches.
+ *		给定一个可能限定的运算符名和运算符种类，
+ *		检索可能匹配项的列表。
  *
- * If oprkind is '\0', we return all operators matching the given name,
- * regardless of arguments.
+ * 如果 oprkind 为 '\0'，我们返回与给定名称匹配的所有运算符，
+ * 而不论参数如何。
  *
- * We search a single namespace if the operator name is qualified, else
- * all namespaces in the search path.  The return list will never contain
- * multiple entries with identical argument lists --- in the multiple-
- * namespace case, we arrange for entries in earlier namespaces to mask
- * identical entries in later namespaces.
+ * 如果运算符名是限定的，我们只搜索单个命名空间，否则
+ * 搜索搜索路径中的所有命名空间。返回列表永远不会包含
+ * 参数列表相同的多个条目 --- 在多命名空间
+ * 情况下，我们安排较早命名空间中的条目掩盖
+ * 较晚命名空间中相同的条目。
  *
- * The returned items always have two args[] entries --- the first will be
- * InvalidOid for a prefix oprkind.  nargs is always 2, too.
+ * 返回的项始终有两个 args[] 条目 --- 对于前缀 oprkind
+ * 第一个将是 InvalidOid。nargs 也始终为 2。
  */
 FuncCandidateList
 OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
@@ -1637,34 +1637,34 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 	CatCList   *catlist;
 	int			i;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &opername);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_schema_ok);
 		if (missing_schema_ok && !OidIsValid(namespaceId))
 			return NULL;
 	}
 	else
 	{
-		/* flag to indicate we need namespace search */
+		/* 指示我们需要命名空间搜索的标志 */
 		namespaceId = InvalidOid;
 		recomputeNamespacePath();
 	}
 
-	/* Search syscache by name only */
+	/* 仅按名称搜索系统缓存 */
 	catlist = SearchSysCacheList1(OPERNAMENSP, CStringGetDatum(opername));
 
 	/*
-	 * In typical scenarios, most if not all of the operators found by the
-	 * catcache search will end up getting returned; and there can be quite a
-	 * few, for common operator names such as '=' or '+'.  To reduce the time
-	 * spent in palloc, we allocate the result space as an array large enough
-	 * to hold all the operators.  The original coding of this routine did a
-	 * separate palloc for each operator, but profiling revealed that the
-	 * pallocs used an unreasonably large fraction of parsing time.
+	 * 在典型场景下，catcache 搜索找到的运算符
+	 * 大多（即使不是全部）最终都会被返回；而对于诸如
+	 * '=' 或 '+' 这样的常见运算符名，可能会有相当多。为减少
+	 * 在 palloc 上花费的时间，我们将结果空间分配为一个
+	 * 足以容纳所有运算符的数组。此例程最初的实现为每个
+	 * 运算符单独做一次 palloc，但性能分析揭示这些 palloc
+	 * 占用了不成比例的解析时间。
 	 */
 #define SPACE_PER_OP MAXALIGN(offsetof(struct _FuncCandidateList, args) + \
 							  2 * sizeof(Oid))
@@ -1679,22 +1679,22 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 		int			pathpos = 0;
 		FuncCandidateList newResult;
 
-		/* Ignore operators of wrong kind, if specific kind requested */
+		/* 如果请求了特定种类，则忽略种类错误的运算符 */
 		if (oprkind && operform->oprkind != oprkind)
 			continue;
 
 		if (OidIsValid(namespaceId))
 		{
-			/* Consider only opers in specified namespace */
+			/* 仅考虑指定命名空间中的运算符 */
 			if (operform->oprnamespace != namespaceId)
 				continue;
-			/* No need to check args, they must all be different */
+			/* 无需检查参数，它们必定都不同 */
 		}
 		else
 		{
 			/*
-			 * Consider only opers that are in the search path and are not in
-			 * the temp namespace.
+			 * 仅考虑位于搜索路径中且不在
+			 * temp 命名空间中的运算符。
 			 */
 			ListCell   *nsp;
 
@@ -1706,18 +1706,18 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 				pathpos++;
 			}
 			if (nsp == NULL)
-				continue;		/* oper is not in search path */
+				continue;		/* 运算符不在搜索路径中 */
 
 			/*
-			 * Okay, it's in the search path, but does it have the same
-			 * arguments as something we already accepted?	If so, keep only
-			 * the one that appears earlier in the search path.
+			 * 好，它在搜索路径中，但它的参数是否与我们已接受的
+			 * 某个结果相同？如果是，只保留搜索路径中
+			 * 更靠前的那个。
 			 *
-			 * If we have an ordered list from SearchSysCacheList (the normal
-			 * case), then any conflicting oper must immediately adjoin this
-			 * one in the list, so we only need to look at the newest result
-			 * item.  If we have an unordered list, we have to scan the whole
-			 * result list.
+			 * 如果我们从 SearchSysCacheList 得到的是有序列表（通常
+			 * 情况），那么任何冲突的运算符必然紧邻此条目，
+			 * 所以我们只需查看最新的结果
+			 * 项。如果得到的是无序列表，则必须扫描整个
+			 * 结果列表。
 			 */
 			if (resultList)
 			{
@@ -1744,20 +1744,20 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 				}
 				if (prevResult)
 				{
-					/* We have a match with a previous result */
+					/* 我们与先前的结果匹配 */
 					Assert(pathpos != prevResult->pathpos);
 					if (pathpos > prevResult->pathpos)
-						continue;	/* keep previous result */
-					/* replace previous result */
+						continue;	/* 保留先前的结果 */
+					/* 替换先前的结果 */
 					prevResult->pathpos = pathpos;
 					prevResult->oid = operform->oid;
-					continue;	/* args are same, of course */
+					continue;	/* 参数当然相同 */
 				}
 			}
 		}
 
 		/*
-		 * Okay to add it to result list
+		 * 可以将其加入结果列表
 		 */
 		newResult = (FuncCandidateList) (resultSpace + nextResult);
 		nextResult += SPACE_PER_OP;
@@ -1782,9 +1782,9 @@ OpernameGetCandidates(List *names, char oprkind, bool missing_schema_ok)
 
 /*
  * OperatorIsVisible
- *		Determine whether an operator (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified operator name with exact argument matches".
+ *		确定一个（由 OID 标识的）运算符在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定运算符名并精确匹配参数可以找到它"。
  */
 bool
 OperatorIsVisible(Oid oprid)
@@ -1802,9 +1802,9 @@ OperatorIsVisible(Oid oprid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	oprnamespace = oprform->oprnamespace;
 	if (oprnamespace != PG_CATALOG_NAMESPACE &&
@@ -1813,10 +1813,10 @@ OperatorIsVisible(Oid oprid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another operator of the same name and arguments earlier
-		 * in the path.  So we must do a slow check to see if this is the same
-		 * operator that would be found by OpernameGetOprid.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名同参数运算符
+		 * 所隐藏。因此我们必须进行一次慢速检查，看这是否
+		 * 与 OpernameGetOprid 会找到的是同一个运算符。
 		 */
 		char	   *oprname = NameStr(oprform->oprname);
 
@@ -1833,11 +1833,11 @@ OperatorIsVisible(Oid oprid)
 
 /*
  * OpclassnameGetOpcid
- *		Try to resolve an unqualified index opclass name.
- *		Returns OID if opclass found in search path, else InvalidOid.
+ *		尝试解析一个非限定索引操作符类名。
+ *		如果在搜索路径中找到该操作符类，则返回 OID，否则返回 InvalidOid。
  *
- * This is essentially the same as TypenameGetTypid, but we have to have
- * an extra argument for the index AM OID.
+ * 这基本上与 TypenameGetTypid 相同，但我们必须为索引 AM OID
+ * 多一个参数。
  */
 Oid
 OpclassnameGetOpcid(Oid amid, const char *opcname)
@@ -1852,7 +1852,7 @@ OpclassnameGetOpcid(Oid amid, const char *opcname)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		opcid = GetSysCacheOid3(CLAAMNAMENSP, Anum_pg_opclass_oid,
 								ObjectIdGetDatum(amid),
@@ -1862,15 +1862,15 @@ OpclassnameGetOpcid(Oid amid, const char *opcname)
 			return opcid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
  * OpclassIsVisible
- *		Determine whether an opclass (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified opclass name".
+ *		确定一个（由 OID 标识的）操作符类在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定操作符类名可以找到它"。
  */
 bool
 OpclassIsVisible(Oid opcid)
@@ -1888,9 +1888,9 @@ OpclassIsVisible(Oid opcid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	opcnamespace = opcform->opcnamespace;
 	if (opcnamespace != PG_CATALOG_NAMESPACE &&
@@ -1899,10 +1899,10 @@ OpclassIsVisible(Oid opcid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another opclass of the same name earlier in the path. So
-		 * we must do a slow check to see if this opclass would be found by
-		 * OpclassnameGetOpcid.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名操作符类所隐藏。
+		 * 因此我们必须进行一次慢速检查，看此操作符类是否会被
+		 * OpclassnameGetOpcid 找到。
 		 */
 		char	   *opcname = NameStr(opcform->opcname);
 
@@ -1916,11 +1916,11 @@ OpclassIsVisible(Oid opcid)
 
 /*
  * OpfamilynameGetOpfid
- *		Try to resolve an unqualified index opfamily name.
- *		Returns OID if opfamily found in search path, else InvalidOid.
+ *		尝试解析一个非限定索引操作符族名。
+ *		如果在搜索路径中找到该操作符族，则返回 OID，否则返回 InvalidOid。
  *
- * This is essentially the same as TypenameGetTypid, but we have to have
- * an extra argument for the index AM OID.
+ * 这基本上与 TypenameGetTypid 相同，但我们必须为索引 AM OID
+ * 多一个参数。
  */
 Oid
 OpfamilynameGetOpfid(Oid amid, const char *opfname)
@@ -1935,7 +1935,7 @@ OpfamilynameGetOpfid(Oid amid, const char *opfname)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		opfid = GetSysCacheOid3(OPFAMILYAMNAMENSP, Anum_pg_opfamily_oid,
 								ObjectIdGetDatum(amid),
@@ -1945,15 +1945,15 @@ OpfamilynameGetOpfid(Oid amid, const char *opfname)
 			return opfid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
  * OpfamilyIsVisible
- *		Determine whether an opfamily (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified opfamily name".
+ *		确定一个（由 OID 标识的）操作符族在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定操作符族名可以找到它"。
  */
 bool
 OpfamilyIsVisible(Oid opfid)
@@ -1971,9 +1971,9 @@ OpfamilyIsVisible(Oid opfid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	opfnamespace = opfform->opfnamespace;
 	if (opfnamespace != PG_CATALOG_NAMESPACE &&
@@ -1982,10 +1982,10 @@ OpfamilyIsVisible(Oid opfid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another opfamily of the same name earlier in the path. So
-		 * we must do a slow check to see if this opfamily would be found by
-		 * OpfamilynameGetOpfid.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名操作符族所隐藏。
+		 * 因此我们必须进行一次慢速检查，看此操作符族是否会被
+		 * OpfamilynameGetOpfid 找到。
 		 */
 		char	   *opfname = NameStr(opfform->opfname);
 
@@ -1999,8 +1999,8 @@ OpfamilyIsVisible(Oid opfid)
 
 /*
  * lookup_collation
- *		If there's a collation of the given name/namespace, and it works
- *		with the given encoding, return its OID.  Else return InvalidOid.
+ *		如果存在给定名称/命名空间的排序规则，且它与
+ *		给定编码兼容，则返回其 OID。否则返回 InvalidOid。
  */
 static Oid
 lookup_collation(const char *collname, Oid collnamespace, int32 encoding)
@@ -2009,7 +2009,7 @@ lookup_collation(const char *collname, Oid collnamespace, int32 encoding)
 	HeapTuple	colltup;
 	Form_pg_collation collform;
 
-	/* Check for encoding-specific entry (exact match) */
+	/* 检查特定编码的条目（精确匹配） */
 	collid = GetSysCacheOid3(COLLNAMEENCNSP, Anum_pg_collation_oid,
 							 PointerGetDatum(collname),
 							 Int32GetDatum(encoding),
@@ -2018,10 +2018,10 @@ lookup_collation(const char *collname, Oid collnamespace, int32 encoding)
 		return collid;
 
 	/*
-	 * Check for any-encoding entry.  This takes a bit more work: while libc
-	 * collations with collencoding = -1 do work with all encodings, ICU
-	 * collations only work with certain encodings, so we have to check that
-	 * aspect before deciding it's a match.
+	 * 检查任意编码的条目。这需要多做一些工作：虽然
+	 * collencoding = -1 的 libc 排序规则适用于所有编码，但 ICU
+	 * 排序规则只适用于某些编码，因此我们必须在判定
+	 * 其匹配之前检查这一点。
 	 */
 	colltup = SearchSysCache3(COLLNAMEENCNSP,
 							  PointerGetDatum(collname),
@@ -2047,11 +2047,11 @@ lookup_collation(const char *collname, Oid collnamespace, int32 encoding)
 
 /*
  * CollationGetCollid
- *		Try to resolve an unqualified collation name.
- *		Returns OID if collation found in search path, else InvalidOid.
+ *		尝试解析一个非限定排序规则名。
+ *		如果在搜索路径中找到该排序规则，则返回 OID，否则返回 InvalidOid。
  *
- * Note that this will only find collations that work with the current
- * database's encoding.
+ * 注意，这只会找到与当前
+ * 数据库编码兼容的排序规则。
  */
 Oid
 CollationGetCollid(const char *collname)
@@ -2067,25 +2067,25 @@ CollationGetCollid(const char *collname)
 		Oid			collid;
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		collid = lookup_collation(collname, namespaceId, dbencoding);
 		if (OidIsValid(collid))
 			return collid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
  * CollationIsVisible
- *		Determine whether a collation (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified collation name".
+ *		确定一个（由 OID 标识的）排序规则在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定排序规则名可以找到它"。
  *
- * Note that only collations that work with the current database's encoding
- * will be considered visible.
+ * 注意，只有与当前数据库编码兼容的排序规则
+ * 才会被视为可见。
  */
 bool
 CollationIsVisible(Oid collid)
@@ -2103,9 +2103,9 @@ CollationIsVisible(Oid collid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	collnamespace = collform->collnamespace;
 	if (collnamespace != PG_CATALOG_NAMESPACE &&
@@ -2114,11 +2114,11 @@ CollationIsVisible(Oid collid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another collation of the same name earlier in the path,
-		 * or it might not work with the current DB encoding.  So we must do a
-		 * slow check to see if this collation would be found by
-		 * CollationGetCollid.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名排序规则所隐藏，
+		 * 或者它可能与当前数据库编码不兼容。因此我们
+		 * 必须进行一次慢速检查，看此排序规则是否会被
+		 * CollationGetCollid 找到。
 		 */
 		char	   *collname = NameStr(collform->collname);
 
@@ -2133,10 +2133,10 @@ CollationIsVisible(Oid collid)
 
 /*
  * ConversionGetConid
- *		Try to resolve an unqualified conversion name.
- *		Returns OID if conversion found in search path, else InvalidOid.
+ *		尝试解析一个非限定转换名。
+ *		如果在搜索路径中找到该转换，则返回 OID，否则返回 InvalidOid。
  *
- * This is essentially the same as RelnameGetRelid.
+ * 这基本上与 RelnameGetRelid 相同。
  */
 Oid
 ConversionGetConid(const char *conname)
@@ -2151,7 +2151,7 @@ ConversionGetConid(const char *conname)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		conid = GetSysCacheOid2(CONNAMENSP, Anum_pg_conversion_oid,
 								PointerGetDatum(conname),
@@ -2160,15 +2160,15 @@ ConversionGetConid(const char *conname)
 			return conid;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
  * ConversionIsVisible
- *		Determine whether a conversion (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified conversion name".
+ *		确定一个（由 OID 标识的）转换在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定转换名可以找到它"。
  */
 bool
 ConversionIsVisible(Oid conid)
@@ -2186,9 +2186,9 @@ ConversionIsVisible(Oid conid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	connamespace = conform->connamespace;
 	if (connamespace != PG_CATALOG_NAMESPACE &&
@@ -2197,10 +2197,10 @@ ConversionIsVisible(Oid conid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another conversion of the same name earlier in the path.
-		 * So we must do a slow check to see if this conversion would be found
-		 * by ConversionGetConid.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名转换所隐藏。
+		 * 因此我们必须进行一次慢速检查，看此转换是否会被
+		 * ConversionGetConid 找到。
 		 */
 		char	   *conname = NameStr(conform->conname);
 
@@ -2213,9 +2213,9 @@ ConversionIsVisible(Oid conid)
 }
 
 /*
- * get_statistics_object_oid - find a statistics object by possibly qualified name
+ * get_statistics_object_oid - 通过可能限定的名称查找统计对象
  *
- * If not found, returns InvalidOid if missing_ok, else throws error
+ * 如果未找到，则当 missing_ok 为真时返回 InvalidOid，否则抛出错误
  */
 Oid
 get_statistics_object_oid(List *names, bool missing_ok)
@@ -2226,12 +2226,12 @@ get_statistics_object_oid(List *names, bool missing_ok)
 	Oid			stats_oid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &stats_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			stats_oid = InvalidOid;
@@ -2242,7 +2242,7 @@ get_statistics_object_oid(List *names, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -2250,7 +2250,7 @@ get_statistics_object_oid(List *names, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 			stats_oid = GetSysCacheOid2(STATEXTNAMENSP, Anum_pg_statistic_ext_oid,
 										PointerGetDatum(stats_name),
 										ObjectIdGetDatum(namespaceId));
@@ -2270,9 +2270,9 @@ get_statistics_object_oid(List *names, bool missing_ok)
 
 /*
  * StatisticsObjIsVisible
- *		Determine whether a statistics object (identified by OID) is visible in
- *		the current search path.  Visible means "would be found by searching
- *		for the unqualified statistics object name".
+ *		确定一个（由 OID 标识的）统计对象在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定统计对象名可以找到它"。
  */
 bool
 StatisticsObjIsVisible(Oid relid)
@@ -2290,9 +2290,9 @@ StatisticsObjIsVisible(Oid relid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	stxnamespace = stxform->stxnamespace;
 	if (stxnamespace != PG_CATALOG_NAMESPACE &&
@@ -2301,9 +2301,9 @@ StatisticsObjIsVisible(Oid relid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another statistics object of the same name earlier in the
-		 * path. So we must do a slow check for conflicting objects.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名统计对象所隐藏。
+		 * 因此我们必须进行一次慢速检查，看是否存在冲突的对象。
 		 */
 		char	   *stxname = NameStr(stxform->stxname);
 		ListCell   *l;
@@ -2314,11 +2314,11 @@ StatisticsObjIsVisible(Oid relid)
 			Oid			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			if (namespaceId == stxnamespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -2326,7 +2326,7 @@ StatisticsObjIsVisible(Oid relid)
 									  PointerGetDatum(stxname),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -2338,9 +2338,9 @@ StatisticsObjIsVisible(Oid relid)
 }
 
 /*
- * get_ts_parser_oid - find a TS parser by possibly qualified name
+ * get_ts_parser_oid - 通过可能限定的名称查找 TS 解析器
  *
- * If not found, returns InvalidOid if missing_ok, else throws error
+ * 如果未找到，则当 missing_ok 为真时返回 InvalidOid，否则抛出错误
  */
 Oid
 get_ts_parser_oid(List *names, bool missing_ok)
@@ -2351,12 +2351,12 @@ get_ts_parser_oid(List *names, bool missing_ok)
 	Oid			prsoid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &parser_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			prsoid = InvalidOid;
@@ -2367,7 +2367,7 @@ get_ts_parser_oid(List *names, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -2375,7 +2375,7 @@ get_ts_parser_oid(List *names, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			prsoid = GetSysCacheOid2(TSPARSERNAMENSP, Anum_pg_ts_parser_oid,
 									 PointerGetDatum(parser_name),
@@ -2396,9 +2396,9 @@ get_ts_parser_oid(List *names, bool missing_ok)
 
 /*
  * TSParserIsVisible
- *		Determine whether a parser (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified parser name".
+ *		确定一个（由 OID 标识的）解析器在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定解析器名可以找到它"。
  */
 bool
 TSParserIsVisible(Oid prsId)
@@ -2416,9 +2416,9 @@ TSParserIsVisible(Oid prsId)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	namespace = form->prsnamespace;
 	if (namespace != PG_CATALOG_NAMESPACE &&
@@ -2427,9 +2427,9 @@ TSParserIsVisible(Oid prsId)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another parser of the same name earlier in the path. So
-		 * we must do a slow check for conflicting parsers.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名解析器所隐藏。因此
+		 * 我们必须进行一次慢速检查，看是否存在冲突的解析器。
 		 */
 		char	   *name = NameStr(form->prsname);
 		ListCell   *l;
@@ -2440,11 +2440,11 @@ TSParserIsVisible(Oid prsId)
 			Oid			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			if (namespaceId == namespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -2452,7 +2452,7 @@ TSParserIsVisible(Oid prsId)
 									  PointerGetDatum(name),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -2464,9 +2464,9 @@ TSParserIsVisible(Oid prsId)
 }
 
 /*
- * get_ts_dict_oid - find a TS dictionary by possibly qualified name
+ * get_ts_dict_oid - 通过可能限定的名称查找 TS 词典
  *
- * If not found, returns InvalidOid if missing_ok, else throws error
+ * 如果未找到，则当 missing_ok 为真时返回 InvalidOid，否则抛出错误
  */
 Oid
 get_ts_dict_oid(List *names, bool missing_ok)
@@ -2477,12 +2477,12 @@ get_ts_dict_oid(List *names, bool missing_ok)
 	Oid			dictoid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &dict_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			dictoid = InvalidOid;
@@ -2493,7 +2493,7 @@ get_ts_dict_oid(List *names, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -2501,7 +2501,7 @@ get_ts_dict_oid(List *names, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			dictoid = GetSysCacheOid2(TSDICTNAMENSP, Anum_pg_ts_dict_oid,
 									  PointerGetDatum(dict_name),
@@ -2522,9 +2522,9 @@ get_ts_dict_oid(List *names, bool missing_ok)
 
 /*
  * TSDictionaryIsVisible
- *		Determine whether a dictionary (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified dictionary name".
+ *		确定一个（由 OID 标识的）词典在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定词典名可以找到它"。
  */
 bool
 TSDictionaryIsVisible(Oid dictId)
@@ -2543,9 +2543,9 @@ TSDictionaryIsVisible(Oid dictId)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	namespace = form->dictnamespace;
 	if (namespace != PG_CATALOG_NAMESPACE &&
@@ -2554,9 +2554,9 @@ TSDictionaryIsVisible(Oid dictId)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another dictionary of the same name earlier in the path.
-		 * So we must do a slow check for conflicting dictionaries.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名词典所隐藏。
+		 * 因此我们必须进行一次慢速检查，看是否存在冲突的词典。
 		 */
 		char	   *name = NameStr(form->dictname);
 		ListCell   *l;
@@ -2567,11 +2567,11 @@ TSDictionaryIsVisible(Oid dictId)
 			Oid			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			if (namespaceId == namespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -2579,7 +2579,7 @@ TSDictionaryIsVisible(Oid dictId)
 									  PointerGetDatum(name),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -2591,9 +2591,9 @@ TSDictionaryIsVisible(Oid dictId)
 }
 
 /*
- * get_ts_template_oid - find a TS template by possibly qualified name
+ * get_ts_template_oid - 通过可能限定的名称查找 TS 模板
  *
- * If not found, returns InvalidOid if missing_ok, else throws error
+ * 如果未找到，则当 missing_ok 为真时返回 InvalidOid，否则抛出错误
  */
 Oid
 get_ts_template_oid(List *names, bool missing_ok)
@@ -2604,12 +2604,12 @@ get_ts_template_oid(List *names, bool missing_ok)
 	Oid			tmploid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &template_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			tmploid = InvalidOid;
@@ -2620,7 +2620,7 @@ get_ts_template_oid(List *names, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -2628,7 +2628,7 @@ get_ts_template_oid(List *names, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			tmploid = GetSysCacheOid2(TSTEMPLATENAMENSP, Anum_pg_ts_template_oid,
 									  PointerGetDatum(template_name),
@@ -2649,9 +2649,9 @@ get_ts_template_oid(List *names, bool missing_ok)
 
 /*
  * TSTemplateIsVisible
- *		Determine whether a template (identified by OID) is visible in the
- *		current search path.  Visible means "would be found by searching
- *		for the unqualified template name".
+ *		确定一个（由 OID 标识的）模板在当前
+ *		搜索路径中是否可见。可见意味着 "通过搜索
+ *		非限定模板名可以找到它"。
  */
 bool
 TSTemplateIsVisible(Oid tmplId)
@@ -2669,9 +2669,9 @@ TSTemplateIsVisible(Oid tmplId)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	namespace = form->tmplnamespace;
 	if (namespace != PG_CATALOG_NAMESPACE &&
@@ -2680,9 +2680,9 @@ TSTemplateIsVisible(Oid tmplId)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another template of the same name earlier in the path. So
-		 * we must do a slow check for conflicting templates.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名模板所隐藏。因此
+		 * 我们必须进行一次慢速检查，看是否存在冲突的模板。
 		 */
 		char	   *name = NameStr(form->tmplname);
 		ListCell   *l;
@@ -2693,11 +2693,11 @@ TSTemplateIsVisible(Oid tmplId)
 			Oid			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			if (namespaceId == namespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -2705,7 +2705,7 @@ TSTemplateIsVisible(Oid tmplId)
 									  PointerGetDatum(name),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -2717,9 +2717,9 @@ TSTemplateIsVisible(Oid tmplId)
 }
 
 /*
- * get_ts_config_oid - find a TS config by possibly qualified name
+ * get_ts_config_oid - 通过可能限定的名称查找 TS 配置
  *
- * If not found, returns InvalidOid if missing_ok, else throws error
+ * 如果未找到，则当 missing_ok 为真时返回 InvalidOid，否则抛出错误
  */
 Oid
 get_ts_config_oid(List *names, bool missing_ok)
@@ -2730,12 +2730,12 @@ get_ts_config_oid(List *names, bool missing_ok)
 	Oid			cfgoid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, &config_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			cfgoid = InvalidOid;
@@ -2746,7 +2746,7 @@ get_ts_config_oid(List *names, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -2754,7 +2754,7 @@ get_ts_config_oid(List *names, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			cfgoid = GetSysCacheOid2(TSCONFIGNAMENSP, Anum_pg_ts_config_oid,
 									 PointerGetDatum(config_name),
@@ -2775,9 +2775,9 @@ get_ts_config_oid(List *names, bool missing_ok)
 
 /*
  * TSConfigIsVisible
- *		Determine whether a text search configuration (identified by OID)
- *		is visible in the current search path.  Visible means "would be found
- *		by searching for the unqualified text search configuration name".
+ *		确定一个（由 OID 标识的）文本搜索配置
+ *		在当前搜索路径中是否可见。可见意味着 "通过
+ *		搜索非限定文本搜索配置名可以找到它"。
  */
 bool
 TSConfigIsVisible(Oid cfgid)
@@ -2796,9 +2796,9 @@ TSConfigIsVisible(Oid cfgid)
 	recomputeNamespacePath();
 
 	/*
-	 * Quick check: if it ain't in the path at all, it ain't visible. Items in
-	 * the system namespace are surely in the path and so we needn't even do
-	 * list_member_oid() for them.
+	 * 快速检查：如果它根本不在路径中，就不可见。系统
+	 * 命名空间中的项肯定在路径中，因此我们甚至无需
+	 * 为它们调用 list_member_oid()。
 	 */
 	namespace = form->cfgnamespace;
 	if (namespace != PG_CATALOG_NAMESPACE &&
@@ -2807,9 +2807,9 @@ TSConfigIsVisible(Oid cfgid)
 	else
 	{
 		/*
-		 * If it is in the path, it might still not be visible; it could be
-		 * hidden by another configuration of the same name earlier in the
-		 * path. So we must do a slow check for conflicting configurations.
+		 * 如果它在路径中，它可能仍然不可见；它可能被
+		 * 路径中更靠前的同名配置所隐藏。
+		 * 因此我们必须进行一次慢速检查，看是否存在冲突的配置。
 		 */
 		char	   *name = NameStr(form->cfgname);
 		ListCell   *l;
@@ -2820,11 +2820,11 @@ TSConfigIsVisible(Oid cfgid)
 			Oid			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			if (namespaceId == namespace)
 			{
-				/* Found it first in path */
+				/* 在路径中最先找到它 */
 				visible = true;
 				break;
 			}
@@ -2832,7 +2832,7 @@ TSConfigIsVisible(Oid cfgid)
 									  PointerGetDatum(name),
 									  ObjectIdGetDatum(namespaceId)))
 			{
-				/* Found something else first in path */
+				/* 在路径中最先找到的是别的对象 */
 				break;
 			}
 		}
@@ -2846,10 +2846,10 @@ TSConfigIsVisible(Oid cfgid)
 
 /*
  * DeconstructQualifiedName
- *		Given a possibly-qualified name expressed as a list of String nodes,
- *		extract the schema name and object name.
+ *		给定一个以 String 节点列表表示的、可能限定的名称，
+ *		提取模式名和对象名。
  *
- * *nspname_p is set to NULL if there is no explicit schema name.
+ * 如果没有显式模式名，*nspname_p 被设置为 NULL。
  */
 void
 DeconstructQualifiedName(List *names,
@@ -2875,7 +2875,7 @@ DeconstructQualifiedName(List *names,
 			objname = strVal(lthird(names));
 
 			/*
-			 * We check the catalog name and then ignore it.
+			 * 我们检查目录名，然后忽略它。
 			 */
 			if (strcmp(catalogname, get_database_name(MyDatabaseId)) != 0)
 				ereport(ERROR,
@@ -2897,18 +2897,18 @@ DeconstructQualifiedName(List *names,
 
 /*
  * LookupNamespaceNoError
- *		Look up a schema name.
+ *		查找一个模式名。
  *
- * Returns the namespace OID, or InvalidOid if not found.
+ * 返回命名空间 OID，如果未找到则返回 InvalidOid。
  *
- * Note this does NOT perform any permissions check --- callers are
- * responsible for being sure that an appropriate check is made.
- * In the majority of cases LookupExplicitNamespace is preferable.
+ * 注意这不做任何权限检查 --- 调用方负责
+ * 确保进行了适当的检查。
+ * 在大多数情况下 LookupExplicitNamespace 更可取。
  */
 Oid
 LookupNamespaceNoError(const char *nspname)
 {
-	/* check for pg_temp alias */
+	/* 检查 pg_temp 别名 */
 	if (strcmp(nspname, "pg_temp") == 0)
 	{
 		if (OidIsValid(myTempNamespace))
@@ -2918,9 +2918,9 @@ LookupNamespaceNoError(const char *nspname)
 		}
 
 		/*
-		 * Since this is used only for looking up existing objects, there is
-		 * no point in trying to initialize the temp namespace here; and doing
-		 * so might create problems for some callers. Just report "not found".
+		 * 由于这仅用于查找现有对象，在这里尝试
+		 * 初始化 temp 命名空间没有意义；这样做
+		 * 可能给某些调用方带来问题。只需报告 "未找到"。
 		 */
 		return InvalidOid;
 	}
@@ -2930,10 +2930,10 @@ LookupNamespaceNoError(const char *nspname)
 
 /*
  * LookupExplicitNamespace
- *		Process an explicitly-specified schema name: look up the schema
- *		and verify we have USAGE (lookup) rights in it.
+ *		处理一个显式指定的模式名：查找该模式
+ *		并验证我们对其拥有 USAGE（查找）权限。
  *
- * Returns the namespace OID
+ * 返回命名空间 OID
  */
 Oid
 LookupExplicitNamespace(const char *nspname, bool missing_ok)
@@ -2941,7 +2941,7 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	Oid			namespaceId;
 	AclResult	aclresult;
 
-	/* check for pg_temp alias */
+	/* 检查 pg_temp 别名 */
 	if (strcmp(nspname, "pg_temp") == 0)
 	{
 		if (OidIsValid(myTempNamespace))
@@ -2962,7 +2962,7 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 	if (aclresult != ACLCHECK_OK)
 		aclcheck_error(aclresult, OBJECT_SCHEMA,
 					   nspname);
-	/* Schema search hook for this lookup */
+	/* 用于此查找的模式搜索钩子 */
 	InvokeNamespaceSearchHook(namespaceId, true);
 
 	return namespaceId;
@@ -2970,13 +2970,13 @@ LookupExplicitNamespace(const char *nspname, bool missing_ok)
 
 /*
  * LookupCreationNamespace
- *		Look up the schema and verify we have CREATE rights on it.
+ *		查找该模式并验证我们对其拥有 CREATE 权限。
  *
- * This is just like LookupExplicitNamespace except for the different
- * permission check, and that we are willing to create pg_temp if needed.
+ * 这与 LookupExplicitNamespace 类似，只是权限检查不同，
+ * 而且我们愿意在需要时创建 pg_temp。
  *
- * Note: calling this may result in a CommandCounterIncrement operation,
- * if we have to create or clean out the temp namespace.
+ * 注意：调用此函数可能导致 CommandCounterIncrement 操作，
+ * 如果我们必须创建或清理 temp 命名空间的话。
  */
 Oid
 LookupCreationNamespace(const char *nspname)
@@ -2984,10 +2984,10 @@ LookupCreationNamespace(const char *nspname)
 	Oid			namespaceId;
 	AclResult	aclresult;
 
-	/* check for pg_temp alias */
+	/* 检查 pg_temp 别名 */
 	if (strcmp(nspname, "pg_temp") == 0)
 	{
-		/* Initialize temp namespace */
+		/* 初始化 temp 命名空间 */
 		AccessTempTableNamespace(false);
 		return myTempNamespace;
 	}
@@ -3003,22 +3003,22 @@ LookupCreationNamespace(const char *nspname)
 }
 
 /*
- * Common checks on switching namespaces.
+ * 切换命名空间时的通用检查。
  *
- * We complain if either the old or new namespaces is a temporary schema
- * (or temporary toast schema), or if either the old or new namespaces is the
- * TOAST schema.
+ * 如果旧命名空间或新命名空间是临时模式
+ * （或临时 toast 模式），或者旧命名空间或新命名空间是
+ * TOAST 模式，我们会报错。
  */
 void
 CheckSetNamespace(Oid oldNspOid, Oid nspOid)
 {
-	/* disallow renaming into or out of temp schemas */
+	/* 禁止重命名进入或离开 temp 模式 */
 	if (isAnyTempNamespace(nspOid) || isAnyTempNamespace(oldNspOid))
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 				 errmsg("cannot move objects into or out of temporary schemas")));
 
-	/* same for TOAST schema */
+	/* TOAST 模式同理 */
 	if (nspOid == PG_TOAST_NAMESPACE || oldNspOid == PG_TOAST_NAMESPACE)
 		ereport(ERROR,
 				(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
@@ -3027,15 +3027,15 @@ CheckSetNamespace(Oid oldNspOid, Oid nspOid)
 
 /*
  * QualifiedNameGetCreationNamespace
- *		Given a possibly-qualified name for an object (in List-of-Strings
- *		format), determine what namespace the object should be created in.
- *		Also extract and return the object name (last component of list).
+ *		给定一个对象的可能限定名称（List-of-Strings
+ *		格式），确定该对象应创建在哪个命名空间中。
+ *		同时提取并返回对象名（列表的最后一个组成部分）。
  *
- * Note: this does not apply any permissions check.  Callers must check
- * for CREATE rights on the selected namespace when appropriate.
+ * 注意：这不应用任何权限检查。调用方必须在适当时
+ * 检查所选命名空间的 CREATE 权限。
  *
- * Note: calling this may result in a CommandCounterIncrement operation,
- * if we have to create or clean out the temp namespace.
+ * 注意：调用此函数可能导致 CommandCounterIncrement 操作，
+ * 如果我们必须创建或清理 temp 命名空间的话。
  */
 Oid
 QualifiedNameGetCreationNamespace(List *names, char **objname_p)
@@ -3043,29 +3043,29 @@ QualifiedNameGetCreationNamespace(List *names, char **objname_p)
 	char	   *schemaname;
 	Oid			namespaceId;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(names, &schemaname, objname_p);
 
 	if (schemaname)
 	{
-		/* check for pg_temp alias */
+		/* 检查 pg_temp 别名 */
 		if (strcmp(schemaname, "pg_temp") == 0)
 		{
-			/* Initialize temp namespace */
+			/* 初始化 temp 命名空间 */
 			AccessTempTableNamespace(false);
 			return myTempNamespace;
 		}
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = get_namespace_oid(schemaname, false);
-		/* we do not check for USAGE rights here! */
+		/* 我们在这里不检查 USAGE 权限！ */
 	}
 	else
 	{
-		/* use the default creation namespace */
+		/* 使用默认的创建命名空间 */
 		recomputeNamespacePath();
 		if (activeTempCreationPending)
 		{
-			/* Need to initialize temp namespace */
+			/* 需要初始化 temp 命名空间 */
 			AccessTempTableNamespace(true);
 			return myTempNamespace;
 		}
@@ -3080,10 +3080,10 @@ QualifiedNameGetCreationNamespace(List *names, char **objname_p)
 }
 
 /*
- * get_namespace_oid - given a namespace name, look up the OID
+ * get_namespace_oid - 给定一个命名空间名，查找其 OID
  *
- * If missing_ok is false, throw an error if namespace name not found.  If
- * true, just return InvalidOid.
+ * 如果 missing_ok 为 false，则在未找到命名空间名时抛出错误。
+ * 如果为 true，则直接返回 InvalidOid。
  */
 Oid
 get_namespace_oid(const char *nspname, bool missing_ok)
@@ -3102,7 +3102,7 @@ get_namespace_oid(const char *nspname, bool missing_ok)
 
 /*
  * makeRangeVarFromNameList
- *		Utility routine to convert a qualified-name list into RangeVar form.
+ *		用于将限定名称列表转换为 RangeVar 形式的实用例程。
  */
 RangeVar *
 makeRangeVarFromNameList(List *names)
@@ -3136,13 +3136,13 @@ makeRangeVarFromNameList(List *names)
 
 /*
  * NameListToString
- *		Utility routine to convert a qualified-name list into a string.
+ *		用于将限定名称列表转换为字符串的实用例程。
  *
- * This is used primarily to form error messages, and so we do not quote
- * the list elements, for the sake of legibility.
+ * 这主要用于构造错误消息，因此为了
+ * 可读性，我们不对列表元素加引号。
  *
- * In most scenarios the list elements should always be String values,
- * but we also allow A_Star for the convenience of ColumnRef processing.
+ * 在大多数场景下，列表元素应当始终是 String 值，
+ * 但为了方便 ColumnRef 处理，我们也允许 A_Star。
  */
 char *
 NameListToString(List *names)
@@ -3173,10 +3173,10 @@ NameListToString(List *names)
 
 /*
  * NameListToQuotedString
- *		Utility routine to convert a qualified-name list into a string.
+ *		用于将限定名称列表转换为字符串的实用例程。
  *
- * Same as above except that names will be double-quoted where necessary,
- * so the string could be re-parsed (eg, by textToQualifiedNameList).
+ * 与上面相同，只是在必要时名称会被双引号括起，
+ * 因此该字符串可以被重新解析（例如由 textToQualifiedNameList）。
  */
 char *
 NameListToQuotedString(List *names)
@@ -3197,7 +3197,7 @@ NameListToQuotedString(List *names)
 }
 
 /*
- * isTempNamespace - is the given namespace my temporary-table namespace?
+ * isTempNamespace - 给定的命名空间是我的临时表命名空间吗？
  */
 bool
 isTempNamespace(Oid namespaceId)
@@ -3208,8 +3208,8 @@ isTempNamespace(Oid namespaceId)
 }
 
 /*
- * isTempToastNamespace - is the given namespace my temporary-toast-table
- *		namespace?
+ * isTempToastNamespace - 给定的命名空间是我的临时 toast 表
+ *		命名空间吗？
  */
 bool
 isTempToastNamespace(Oid namespaceId)
@@ -3220,8 +3220,8 @@ isTempToastNamespace(Oid namespaceId)
 }
 
 /*
- * isTempOrTempToastNamespace - is the given namespace my temporary-table
- *		namespace or my temporary-toast-table namespace?
+ * isTempOrTempToastNamespace - 给定的命名空间是我的临时表
+ *		命名空间还是我的临时 toast 表命名空间？
  */
 bool
 isTempOrTempToastNamespace(Oid namespaceId)
@@ -3233,9 +3233,9 @@ isTempOrTempToastNamespace(Oid namespaceId)
 }
 
 /*
- * isAnyTempNamespace - is the given namespace a temporary-table namespace
- * (either my own, or another backend's)?  Temporary-toast-table namespaces
- * are included, too.
+ * isAnyTempNamespace - 给定的命名空间是临时表命名空间吗
+ * （我自己的，或另一个后端的）？临时 toast 表命名空间
+ * 也包括在内。
  */
 bool
 isAnyTempNamespace(Oid namespaceId)
@@ -3243,10 +3243,10 @@ isAnyTempNamespace(Oid namespaceId)
 	bool		result;
 	char	   *nspname;
 
-	/* True if the namespace name starts with "pg_temp_" or "pg_toast_temp_" */
+	/* 如果命名空间名以 "pg_temp_" 或 "pg_toast_temp_" 开头则为真 */
 	nspname = get_namespace_name(namespaceId);
 	if (!nspname)
-		return false;			/* no such namespace? */
+		return false;			/* 没有这样的命名空间？ */
 	result = (strncmp(nspname, "pg_temp_", 8) == 0) ||
 		(strncmp(nspname, "pg_toast_temp_", 14) == 0);
 	pfree(nspname);
@@ -3254,30 +3254,30 @@ isAnyTempNamespace(Oid namespaceId)
 }
 
 /*
- * isOtherTempNamespace - is the given namespace some other backend's
- * temporary-table namespace (including temporary-toast-table namespaces)?
+ * isOtherTempNamespace - 给定的命名空间是某个其他后端的
+ * 临时表命名空间（包括临时 toast 表命名空间）吗？
  *
- * Note: for most purposes in the C code, this function is obsolete.  Use
- * RELATION_IS_OTHER_TEMP() instead to detect non-local temp relations.
+ * 注意：对于 C 代码中的大多数用途，此函数已过时。请改用
+ * RELATION_IS_OTHER_TEMP() 来检测非本地的临时关系。
  */
 bool
 isOtherTempNamespace(Oid namespaceId)
 {
-	/* If it's my own temp namespace, say "false" */
+	/* 如果是我自己的 temp 命名空间，则返回 "false" */
 	if (isTempOrTempToastNamespace(namespaceId))
 		return false;
-	/* Else, if it's any temp namespace, say "true" */
+	/* 否则，如果它是任何 temp 命名空间，则返回 "true" */
 	return isAnyTempNamespace(namespaceId);
 }
 
 /*
- * checkTempNamespaceStatus - is the given namespace owned and actively used
- * by a backend?
+ * checkTempNamespaceStatus - 给定的命名空间是否由一个后端
+ * 拥有并正在使用？
  *
- * Note: this can be used while scanning relations in pg_class to detect
- * orphaned temporary tables or namespaces with a backend connected to a
- * given database.  The result may be out of date quickly, so the caller
- * must be careful how to handle this information.
+ * 注意：这可以在扫描 pg_class 中的关系时使用，以检测
+ * 孤立的临时表，或检测有后端连接到给定
+ * 数据库的命名空间。结果可能很快过时，因此调用方
+ * 必须小心如何处理此信息。
  */
 TempNamespaceStatus
 checkTempNamespaceStatus(Oid namespaceId)
@@ -3289,32 +3289,32 @@ checkTempNamespaceStatus(Oid namespaceId)
 
 	backendId = GetTempNamespaceBackendId(namespaceId);
 
-	/* No such namespace, or its name shows it's not temp? */
+	/* 没有这样的命名空间，或者其名称表明它不是 temp？ */
 	if (backendId == InvalidBackendId)
 		return TEMP_NAMESPACE_NOT_TEMP;
 
-	/* Is the backend alive? */
+	/* 后端是否存活？ */
 	proc = BackendIdGetProc(backendId);
 	if (proc == NULL)
 		return TEMP_NAMESPACE_IDLE;
 
-	/* Is the backend connected to the same database we are looking at? */
+	/* 该后端是否连接到我们正在查看的同一个数据库？ */
 	if (proc->databaseId != MyDatabaseId)
 		return TEMP_NAMESPACE_IDLE;
 
-	/* Does the backend own the temporary namespace? */
+	/* 该后端是否拥有该临时命名空间？ */
 	if (proc->tempNamespaceId != namespaceId)
 		return TEMP_NAMESPACE_IDLE;
 
-	/* Yup, so namespace is busy */
+	/* 是的，所以命名空间正忙 */
 	return TEMP_NAMESPACE_IN_USE;
 }
 
 /*
- * GetTempNamespaceBackendId - if the given namespace is a temporary-table
- * namespace (either my own, or another backend's), return the BackendId
- * that owns it.  Temporary-toast-table namespaces are included, too.
- * If it isn't a temp namespace, return InvalidBackendId.
+ * GetTempNamespaceBackendId - 如果给定的命名空间是临时表
+ * 命名空间（我自己的，或另一个后端的），则返回拥有它的
+ * BackendId。临时 toast 表命名空间也包括在内。
+ * 如果它不是 temp 命名空间，则返回 InvalidBackendId。
  */
 int
 GetTempNamespaceBackendId(Oid namespaceId)
@@ -3322,10 +3322,10 @@ GetTempNamespaceBackendId(Oid namespaceId)
 	int			result;
 	char	   *nspname;
 
-	/* See if the namespace name starts with "pg_temp_" or "pg_toast_temp_" */
+	/* 查看命名空间名是否以 "pg_temp_" 或 "pg_toast_temp_" 开头 */
 	nspname = get_namespace_name(namespaceId);
 	if (!nspname)
-		return InvalidBackendId;	/* no such namespace? */
+		return InvalidBackendId;	/* 没有这样的命名空间？ */
 	if (strncmp(nspname, "pg_temp_", 8) == 0)
 		result = atoi(nspname + 8);
 	else if (strncmp(nspname, "pg_toast_temp_", 14) == 0)
@@ -3337,9 +3337,9 @@ GetTempNamespaceBackendId(Oid namespaceId)
 }
 
 /*
- * GetTempToastNamespace - get the OID of my temporary-toast-table namespace,
- * which must already be assigned.  (This is only used when creating a toast
- * table for a temp table, so we must have already done InitTempTableNamespace)
+ * GetTempToastNamespace - 获取我的临时 toast 表命名空间的 OID，
+ * 该命名空间必须已经分配。（这仅在为临时表创建 toast
+ * 表时使用，因此我们必须已经执行过 InitTempTableNamespace）
  */
 Oid
 GetTempToastNamespace(void)
@@ -3350,57 +3350,57 @@ GetTempToastNamespace(void)
 
 
 /*
- * GetTempNamespaceState - fetch status of session's temporary namespace
+ * GetTempNamespaceState - 获取会话临时命名空间的状态
  *
- * This is used for conveying state to a parallel worker, and is not meant
- * for general-purpose access.
+ * 这用于将状态传递给并行工作进程，并非
+ * 为通用访问而设计。
  */
 void
 GetTempNamespaceState(Oid *tempNamespaceId, Oid *tempToastNamespaceId)
 {
-	/* Return namespace OIDs, or 0 if session has not created temp namespace */
+	/* 返回命名空间 OIDs，如果会话尚未创建 temp 命名空间则为 0 */
 	*tempNamespaceId = myTempNamespace;
 	*tempToastNamespaceId = myTempToastNamespace;
 }
 
 /*
- * SetTempNamespaceState - set status of session's temporary namespace
+ * SetTempNamespaceState - 设置会话临时命名空间的状态
  *
- * This is used for conveying state to a parallel worker, and is not meant for
- * general-purpose access.  By transferring these namespace OIDs to workers,
- * we ensure they will have the same notion of the search path as their leader
- * does.
+ * 这用于将状态传递给并行工作进程，并非为
+ * 通用访问而设计。通过将这些命名空间 OIDs 传递给工作进程，
+ * 我们确保它们将与其领导者具有相同的
+ * 搜索路径概念。
  */
 void
 SetTempNamespaceState(Oid tempNamespaceId, Oid tempToastNamespaceId)
 {
-	/* Worker should not have created its own namespaces ... */
+	/* 工作进程不应创建自己的命名空间 ... */
 	Assert(myTempNamespace == InvalidOid);
 	Assert(myTempToastNamespace == InvalidOid);
 	Assert(myTempNamespaceSubID == InvalidSubTransactionId);
 
-	/* Assign same namespace OIDs that leader has */
+	/* 分配与领导者相同的命名空间 OIDs */
 	myTempNamespace = tempNamespaceId;
 	myTempToastNamespace = tempToastNamespaceId;
 
 	/*
-	 * It's fine to leave myTempNamespaceSubID == InvalidSubTransactionId.
-	 * Even if the namespace is new so far as the leader is concerned, it's
-	 * not new to the worker, and we certainly wouldn't want the worker trying
-	 * to destroy it.
+	 * 将 myTempNamespaceSubID 保留为 InvalidSubTransactionId 是可以的。
+	 * 即使该命名空间就领导者而言是新的，对工作进程来说
+	 * 它也不是新的，我们当然不希望工作进程尝试
+	 * 销毁它。
 	 */
 
-	baseSearchPathValid = false;	/* may need to rebuild list */
+	baseSearchPathValid = false;	/* 可能需要重建列表 */
 }
 
 
 /*
- * GetOverrideSearchPath - fetch current search path definition in form
- * used by PushOverrideSearchPath.
+ * GetOverrideSearchPath - 以 PushOverrideSearchPath 使用的形式
+ * 获取当前搜索路径定义。
  *
- * The result structure is allocated in the specified memory context
- * (which might or might not be equal to CurrentMemoryContext); but any
- * junk created by revalidation calculations will be in CurrentMemoryContext.
+ * 结果结构分配在指定的内存上下文中
+ * （它可能与 CurrentMemoryContext 相等，也可能不相等）；但重新验证
+ * 计算所创建的任何垃圾都会位于 CurrentMemoryContext 中。
  */
 OverrideSearchPath *
 GetOverrideSearchPath(MemoryContext context)
@@ -3435,9 +3435,9 @@ GetOverrideSearchPath(MemoryContext context)
 }
 
 /*
- * CopyOverrideSearchPath - copy the specified OverrideSearchPath.
+ * CopyOverrideSearchPath - 复制指定的 OverrideSearchPath。
  *
- * The result structure is allocated in CurrentMemoryContext.
+ * 结果结构分配在 CurrentMemoryContext 中。
  */
 OverrideSearchPath *
 CopyOverrideSearchPath(OverrideSearchPath *path)
@@ -3454,12 +3454,12 @@ CopyOverrideSearchPath(OverrideSearchPath *path)
 }
 
 /*
- * OverrideSearchPathMatchesCurrent - does path match current setting?
+ * OverrideSearchPathMatchesCurrent - 路径是否匹配当前设置？
  *
- * This is tested over and over in some common code paths, and in the typical
- * scenario where the active search path seldom changes, it'll always succeed.
- * We make that case fast by keeping a generation counter that is advanced
- * whenever the active search path changes.
+ * 这在某些常见代码路径中会被反复测试，而在典型
+ * 场景中活动搜索路径很少变化，因此它总是会成功。
+ * 我们通过维护一个在活动搜索路径变化时
+ * 递增的代计数器，使这种情况变快。
  */
 bool
 OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
@@ -3469,14 +3469,14 @@ OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
 
 	recomputeNamespacePath();
 
-	/* Quick out if already known equal to active path. */
+	/* 如果已知与活动路径相等则快速退出。 */
 	if (path->generation == activePathGeneration)
 		return true;
 
-	/* We scan down the activeSearchPath to see if it matches the input. */
+	/* 我们沿 activeSearchPath 向下扫描，看它是否与输入匹配。 */
 	lc = list_head(activeSearchPath);
 
-	/* If path->addTemp, first item should be my temp namespace. */
+	/* 如果 path->addTemp，则第一项应当是我的 temp 命名空间。 */
 	if (path->addTemp)
 	{
 		if (lc && lfirst_oid(lc) == myTempNamespace)
@@ -3484,7 +3484,7 @@ OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
 		else
 			return false;
 	}
-	/* If path->addCatalog, next item should be pg_catalog. */
+	/* 如果 path->addCatalog，则下一项应当是 pg_catalog。 */
 	if (path->addCatalog)
 	{
 		if (lc && lfirst_oid(lc) == PG_CATALOG_NAMESPACE)
@@ -3492,10 +3492,10 @@ OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
 		else
 			return false;
 	}
-	/* We should now be looking at the activeCreationNamespace. */
+	/* 我们现在应当正在查看 activeCreationNamespace。 */
 	if (activeCreationNamespace != (lc ? lfirst_oid(lc) : InvalidOid))
 		return false;
-	/* The remainder of activeSearchPath should match path->schemas. */
+	/* activeSearchPath 的剩余部分应当与 path->schemas 匹配。 */
 	foreach(lcp, path->schemas)
 	{
 		if (lc && lfirst_oid(lc) == lfirst_oid(lcp))
@@ -3507,8 +3507,8 @@ OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
 		return false;
 
 	/*
-	 * Update path->generation so that future tests will return quickly, so
-	 * long as the active search path doesn't change.
+	 * 更新 path->generation，以便未来的测试能快速返回，
+	 * 只要活动搜索路径不变。
 	 */
 	path->generation = activePathGeneration;
 
@@ -3516,25 +3516,25 @@ OverrideSearchPathMatchesCurrent(OverrideSearchPath *path)
 }
 
 /*
- * PushOverrideSearchPath - temporarily override the search path
+ * PushOverrideSearchPath - 临时覆盖搜索路径
  *
- * Do not use this function; almost any usage introduces a security
- * vulnerability.  It exists for the benefit of legacy code running in
- * non-security-sensitive environments.
+ * 不要使用此函数；几乎任何使用都会引入安全
+ * 漏洞。它存在是为了运行在非安全敏感环境中的
+ * 遗留代码的利益。
  *
- * We allow nested overrides, hence the push/pop terminology.  The GUC
- * search_path variable is ignored while an override is active.
+ * 我们允许嵌套覆盖，因此使用 push/pop 术语。在覆盖处于活动
+ * 状态期间，GUC 变量 search_path 会被忽略。
  *
- * It's possible that newpath->useTemp is set but there is no longer any
- * active temp namespace, if the path was saved during a transaction that
- * created a temp namespace and was later rolled back.  In that case we just
- * ignore useTemp.  A plausible alternative would be to create a new temp
- * namespace, but for existing callers that's not necessary because an empty
- * temp namespace wouldn't affect their results anyway.
+ * 有可能 newpath->useTemp 被设置，但已不再有任何
+ * 活动的 temp 命名空间，如果该路径是在一个创建了 temp 命名空间
+ * 而后又回滚的事务期间保存的。在那种情况下，我们直接
+ * 忽略 useTemp。一种看似合理的替代方案是创建一个新的 temp
+ * 命名空间，但对于现有调用方来说没有必要，因为空的
+ * temp 命名空间无论如何都不会影响它们的结果。
  *
- * It's also worth noting that other schemas listed in newpath might not
- * exist anymore either.  We don't worry about this because OIDs that match
- * no existing namespace will simply not produce any hits during searches.
+ * 同样值得注意的是，newpath 中列出的其他模式可能也
+ * 不再存在。我们不为此担心，因为不匹配任何
+ * 现有命名空间的 OIDs 在搜索期间根本不会产生任何命中。
  */
 void
 PushOverrideSearchPath(OverrideSearchPath *newpath)
@@ -3545,15 +3545,15 @@ PushOverrideSearchPath(OverrideSearchPath *newpath)
 	MemoryContext oldcxt;
 
 	/*
-	 * Copy the list for safekeeping, and insert implicitly-searched
-	 * namespaces as needed.  This code should track recomputeNamespacePath.
+	 * 复制该列表以妥善保存，并按需插入隐式搜索的
+	 * 命名空间。此代码应当与 recomputeNamespacePath 保持一致。
 	 */
 	oldcxt = MemoryContextSwitchTo(TopMemoryContext);
 
 	oidlist = list_copy(newpath->schemas);
 
 	/*
-	 * Remember the first member of the explicit list.
+	 * 记住显式列表的第一个成员。
 	 */
 	if (oidlist == NIL)
 		firstNS = InvalidOid;
@@ -3561,9 +3561,9 @@ PushOverrideSearchPath(OverrideSearchPath *newpath)
 		firstNS = linitial_oid(oidlist);
 
 	/*
-	 * Add any implicitly-searched namespaces to the list.  Note these go on
-	 * the front, not the back; also notice that we do not check USAGE
-	 * permissions for these.
+	 * 将任何隐式搜索的命名空间加入列表。注意这些位于
+	 * 前面，而不是后面；还要注意我们不为这些
+	 * 检查 USAGE 权限。
 	 */
 	if (newpath->addCatalog)
 		oidlist = lcons_oid(PG_CATALOG_NAMESPACE, oidlist);
@@ -3572,7 +3572,7 @@ PushOverrideSearchPath(OverrideSearchPath *newpath)
 		oidlist = lcons_oid(myTempNamespace, oidlist);
 
 	/*
-	 * Build the new stack entry, then insert it at the head of the list.
+	 * 构建新的栈条目，然后将其插入到列表头部。
 	 */
 	entry = (OverrideStackEntry *) palloc(sizeof(OverrideStackEntry));
 	entry->searchPath = oidlist;
@@ -3581,16 +3581,16 @@ PushOverrideSearchPath(OverrideSearchPath *newpath)
 
 	overrideStack = lcons(entry, overrideStack);
 
-	/* And make it active. */
+	/* 并使其成为活动的。 */
 	activeSearchPath = entry->searchPath;
 	activeCreationNamespace = entry->creationNamespace;
-	activeTempCreationPending = false;	/* XXX is this OK? */
+	activeTempCreationPending = false;	/* XXX 这样可以吗？ */
 
 	/*
-	 * We always increment activePathGeneration when pushing/popping an
-	 * override path.  In current usage, these actions always change the
-	 * effective path state, so there's no value in checking to see if it
-	 * didn't change.
+	 * 在压入/弹出覆盖路径时，我们总是递增 activePathGeneration。
+	 * 在当前的用法中，这些操作总会改变有效的路径
+	 * 状态，因此检查它是否没有变化
+	 * 没有价值。
 	 */
 	activePathGeneration++;
 
@@ -3598,54 +3598,54 @@ PushOverrideSearchPath(OverrideSearchPath *newpath)
 }
 
 /*
- * PopOverrideSearchPath - undo a previous PushOverrideSearchPath
+ * PopOverrideSearchPath - 撤销先前的 PushOverrideSearchPath
  *
- * Any push during a (sub)transaction will be popped automatically at abort.
- * But it's caller error if a push isn't popped in normal control flow.
+ * 在（子）事务期间进行的任何压入都会在中止时自动弹出。
+ * 但如果压入在正常控制流中没有被弹出，则是调用方错误。
  */
 void
 PopOverrideSearchPath(void)
 {
 	OverrideStackEntry *entry;
 
-	/* Sanity checks. */
+	/* 完整性检查。 */
 	if (overrideStack == NIL)
 		elog(ERROR, "bogus PopOverrideSearchPath call");
 	entry = (OverrideStackEntry *) linitial(overrideStack);
 	if (entry->nestLevel != GetCurrentTransactionNestLevel())
 		elog(ERROR, "bogus PopOverrideSearchPath call");
 
-	/* Pop the stack and free storage. */
+	/* 弹出栈并释放存储。 */
 	overrideStack = list_delete_first(overrideStack);
 	list_free(entry->searchPath);
 	pfree(entry);
 
-	/* Activate the next level down. */
+	/* 激活向下的下一层。 */
 	if (overrideStack)
 	{
 		entry = (OverrideStackEntry *) linitial(overrideStack);
 		activeSearchPath = entry->searchPath;
 		activeCreationNamespace = entry->creationNamespace;
-		activeTempCreationPending = false;	/* XXX is this OK? */
+		activeTempCreationPending = false;	/* XXX 这样可以吗？ */
 	}
 	else
 	{
-		/* If not baseSearchPathValid, this is useless but harmless */
+		/* 如果 baseSearchPathValid 为假，则这无用但无害 */
 		activeSearchPath = baseSearchPath;
 		activeCreationNamespace = baseCreationNamespace;
 		activeTempCreationPending = baseTempCreationPending;
 	}
 
-	/* As above, the generation always increments. */
+	/* 如上，代计数总是递增。 */
 	activePathGeneration++;
 }
 
 
 /*
- * get_collation_oid - find a collation by possibly qualified name
+ * get_collation_oid - 通过可能限定的名称查找排序规则
  *
- * Note that this will only find collations that work with the current
- * database's encoding.
+ * 注意，这只会找到与当前
+ * 数据库编码兼容的排序规则。
  */
 Oid
 get_collation_oid(List *collname, bool missing_ok)
@@ -3657,12 +3657,12 @@ get_collation_oid(List *collname, bool missing_ok)
 	Oid			colloid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(collname, &schemaname, &collation_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			return InvalidOid;
@@ -3673,7 +3673,7 @@ get_collation_oid(List *collname, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -3681,7 +3681,7 @@ get_collation_oid(List *collname, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			colloid = lookup_collation(collation_name, namespaceId, dbencoding);
 			if (OidIsValid(colloid))
@@ -3689,7 +3689,7 @@ get_collation_oid(List *collname, bool missing_ok)
 		}
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	if (!missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -3699,7 +3699,7 @@ get_collation_oid(List *collname, bool missing_ok)
 }
 
 /*
- * get_conversion_oid - find a conversion by possibly qualified name
+ * get_conversion_oid - 通过可能限定的名称查找转换
  */
 Oid
 get_conversion_oid(List *conname, bool missing_ok)
@@ -3710,12 +3710,12 @@ get_conversion_oid(List *conname, bool missing_ok)
 	Oid			conoid = InvalidOid;
 	ListCell   *l;
 
-	/* deconstruct the name list */
+	/* 解构名称列表 */
 	DeconstructQualifiedName(conname, &schemaname, &conversion_name);
 
 	if (schemaname)
 	{
-		/* use exact schema given */
+		/* 使用给定的确切模式 */
 		namespaceId = LookupExplicitNamespace(schemaname, missing_ok);
 		if (missing_ok && !OidIsValid(namespaceId))
 			conoid = InvalidOid;
@@ -3726,7 +3726,7 @@ get_conversion_oid(List *conname, bool missing_ok)
 	}
 	else
 	{
-		/* search for it in search path */
+		/* 在搜索路径中查找它 */
 		recomputeNamespacePath();
 
 		foreach(l, activeSearchPath)
@@ -3734,7 +3734,7 @@ get_conversion_oid(List *conname, bool missing_ok)
 			namespaceId = lfirst_oid(l);
 
 			if (namespaceId == myTempNamespace)
-				continue;		/* do not look in temp namespace */
+				continue;		/* 不在 temp 命名空间中查找 */
 
 			conoid = GetSysCacheOid2(CONNAMENSP, Anum_pg_conversion_oid,
 									 PointerGetDatum(conversion_name),
@@ -3744,7 +3744,7 @@ get_conversion_oid(List *conname, bool missing_ok)
 		}
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	if (!OidIsValid(conoid) && !missing_ok)
 		ereport(ERROR,
 				(errcode(ERRCODE_UNDEFINED_OBJECT),
@@ -3754,7 +3754,7 @@ get_conversion_oid(List *conname, bool missing_ok)
 }
 
 /*
- * FindDefaultConversionProc - find default encoding conversion proc
+ * FindDefaultConversionProc - 查找默认编码转换函数
  */
 Oid
 FindDefaultConversionProc(int32 for_encoding, int32 to_encoding)
@@ -3769,19 +3769,19 @@ FindDefaultConversionProc(int32 for_encoding, int32 to_encoding)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not look in temp namespace */
+			continue;			/* 不在 temp 命名空间中查找 */
 
 		proc = FindDefaultConversion(namespaceId, for_encoding, to_encoding);
 		if (OidIsValid(proc))
 			return proc;
 	}
 
-	/* Not found in path */
+	/* 在路径中未找到 */
 	return InvalidOid;
 }
 
 /*
- * recomputeNamespacePath - recompute path derived variables if needed.
+ * recomputeNamespacePath - 根据需要重新计算由路径派生的变量。
  */
 static void
 recomputeNamespacePath(void)
@@ -3797,30 +3797,30 @@ recomputeNamespacePath(void)
 	bool		pathChanged;
 	MemoryContext oldcxt;
 
-	/* Do nothing if an override search spec is active. */
+	/* 如果覆盖搜索规范处于活动状态则什么都不做。 */
 	if (overrideStack)
 		return;
 
-	/* Do nothing if path is already valid. */
+	/* 如果路径已经有效则什么都不做。 */
 	if (baseSearchPathValid && namespaceUser == roleid)
 		return;
 
-	/* Need a modifiable copy of namespace_search_path string */
+	/* 需要 namespace_search_path 字符串的可修改副本 */
 	rawname = pstrdup(namespace_search_path);
 
-	/* Parse string into list of identifiers */
+	/* 将字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawname, ',', &namelist))
 	{
-		/* syntax error in name list */
-		/* this should not happen if GUC checked check_search_path */
+		/* 名称列表中有语法错误 */
+		/* 如果 GUC 检查了 check_search_path，这不应发生 */
 		elog(ERROR, "invalid list syntax");
 	}
 
 	/*
-	 * Convert the list of names to a list of OIDs.  If any names are not
-	 * recognizable or we don't have read access, just leave them out of the
-	 * list.  (We can't raise an error, since the search_path setting has
-	 * already been accepted.)	Don't make duplicate entries, either.
+	 * 将名称列表转换为 OIDs 列表。如果任何名称无法
+	 * 识别，或者我们没有读访问权限，就直接将它们排除在
+	 * 列表之外。（我们不能抛出错误，因为 search_path 设置已经
+	 * 被接受。）也不要创建重复条目。
 	 */
 	oidlist = NIL;
 	temp_missing = false;
@@ -3831,7 +3831,7 @@ recomputeNamespacePath(void)
 
 		if (strcmp(curname, "$user") == 0)
 		{
-			/* $user --- substitute namespace matching user name, if any */
+			/* $user --- 替换为与用户名匹配的命名空间（如果有） */
 			HeapTuple	tuple;
 
 			tuple = SearchSysCache1(AUTHOID, ObjectIdGetDatum(roleid));
@@ -3852,7 +3852,7 @@ recomputeNamespacePath(void)
 		}
 		else if (strcmp(curname, "pg_temp") == 0)
 		{
-			/* pg_temp --- substitute temp namespace, if any */
+			/* pg_temp --- 替换为 temp 命名空间（如果有） */
 			if (OidIsValid(myTempNamespace))
 			{
 				if (!list_member_oid(oidlist, myTempNamespace) &&
@@ -3861,14 +3861,14 @@ recomputeNamespacePath(void)
 			}
 			else
 			{
-				/* If it ought to be the creation namespace, set flag */
+				/* 如果它应当是创建命名空间，则设置标志 */
 				if (oidlist == NIL)
 					temp_missing = true;
 			}
 		}
 		else
 		{
-			/* normal namespace reference */
+			/* 普通命名空间引用 */
 			namespaceId = get_namespace_oid(curname, true);
 			if (OidIsValid(namespaceId) &&
 				!list_member_oid(oidlist, namespaceId) &&
@@ -3880,9 +3880,9 @@ recomputeNamespacePath(void)
 	}
 
 	/*
-	 * Remember the first member of the explicit list.  (Note: this is
-	 * nominally wrong if temp_missing, but we need it anyway to distinguish
-	 * explicit from implicit mention of pg_catalog.)
+	 * 记住显式列表的第一个成员。（注意：如果 temp_missing，
+	 * 这名义上是不对的，但我们仍需要它来区分
+	 * pg_catalog 的显式提及与隐式提及。）
 	 */
 	if (oidlist == NIL)
 		firstNS = InvalidOid;
@@ -3890,9 +3890,9 @@ recomputeNamespacePath(void)
 		firstNS = linitial_oid(oidlist);
 
 	/*
-	 * Add any implicitly-searched namespaces to the list.  Note these go on
-	 * the front, not the back; also notice that we do not check USAGE
-	 * permissions for these.
+	 * 将任何隐式搜索的命名空间加入列表。注意这些位于
+	 * 前面，而不是后面；还要注意我们不为这些
+	 * 检查 USAGE 权限。
 	 */
 	if (!list_member_oid(oidlist, PG_CATALOG_NAMESPACE))
 		oidlist = lcons_oid(PG_CATALOG_NAMESPACE, oidlist);
@@ -3902,9 +3902,9 @@ recomputeNamespacePath(void)
 		oidlist = lcons_oid(myTempNamespace, oidlist);
 
 	/*
-	 * We want to detect the case where the effective value of the base search
-	 * path variables didn't change.  As long as we're doing so, we can avoid
-	 * copying the OID list unnecessarily.
+	 * 我们希望检测基础搜索路径变量的有效值
+	 * 没有变化的情况。只要我们这样做，就可以避免
+	 * 不必要地复制 OID 列表。
 	 */
 	if (baseCreationNamespace == firstNS &&
 		baseTempCreationPending == temp_missing &&
@@ -3916,38 +3916,38 @@ recomputeNamespacePath(void)
 	{
 		pathChanged = true;
 
-		/* Must save OID list in permanent storage. */
+		/* 必须将 OID 列表保存到永久存储中。 */
 		oldcxt = MemoryContextSwitchTo(TopMemoryContext);
 		newpath = list_copy(oidlist);
 		MemoryContextSwitchTo(oldcxt);
 
-		/* Now safe to assign to state variables. */
+		/* 现在可以安全地赋值给状态变量。 */
 		list_free(baseSearchPath);
 		baseSearchPath = newpath;
 		baseCreationNamespace = firstNS;
 		baseTempCreationPending = temp_missing;
 	}
 
-	/* Mark the path valid. */
+	/* 将路径标记为有效。 */
 	baseSearchPathValid = true;
 	namespaceUser = roleid;
 
-	/* And make it active. */
+	/* 并使其成为活动的。 */
 	activeSearchPath = baseSearchPath;
 	activeCreationNamespace = baseCreationNamespace;
 	activeTempCreationPending = baseTempCreationPending;
 
 	/*
-	 * Bump the generation only if something actually changed.  (Notice that
-	 * what we compared to was the old state of the base path variables; so
-	 * this does not deal with the situation where we have just popped an
-	 * override path and restored the prior state of the base path.  Instead
-	 * we rely on the override-popping logic to have bumped the generation.)
+	 * 仅在确实发生变化时才递增代计数。（请注意，
+	 * 我们比较的是基础路径变量以前的状态；因此
+	 * 这并不处理我们刚刚弹出一个覆盖路径并恢复了
+	 * 基础路径先前状态的情形。相反，
+	 * 我们依赖弹出覆盖的逻辑已经递增了代计数。）
 	 */
 	if (pathChanged)
 		activePathGeneration++;
 
-	/* Clean up. */
+	/* 清理。 */
 	pfree(rawname);
 	list_free(namelist);
 	list_free(oidlist);
@@ -3955,39 +3955,39 @@ recomputeNamespacePath(void)
 
 /*
  * AccessTempTableNamespace
- *		Provide access to a temporary namespace, potentially creating it
- *		if not present yet.  This routine registers if the namespace gets
- *		in use in this transaction.  'force' can be set to true to allow
- *		the caller to enforce the creation of the temporary namespace for
- *		use in this backend, which happens if its creation is pending.
+ *		提供对临时命名空间的访问，如果它尚不存在
+ *		则可能创建它。此例程会登记该命名空间是否在
+ *		本事务中被使用。可以将 'force' 设置为 true，以允许
+ *		调用方强制创建用于此后端的临时命名空间，
+ *		这会在其创建处于待处理状态时发生。
  */
 static void
 AccessTempTableNamespace(bool force)
 {
 	/*
-	 * Make note that this temporary namespace has been accessed in this
-	 * transaction.
+	 * 记下此临时命名空间已在本
+	 * 事务中被访问。
 	 */
 	MyXactFlags |= XACT_FLAGS_ACCESSEDTEMPNAMESPACE;
 
 	/*
-	 * If the caller attempting to access a temporary schema expects the
-	 * creation of the namespace to be pending and should be enforced, then go
-	 * through the creation.
+	 * 如果尝试访问临时模式的调用方期望命名空间的
+	 * 创建处于待处理状态并应被强制执行，那么就
+	 * 走创建流程。
 	 */
 	if (!force && OidIsValid(myTempNamespace))
 		return;
 
 	/*
-	 * The temporary tablespace does not exist yet and is wanted, so
-	 * initialize it.
+	 * 该临时表空间尚不存在且需要它，因此
+	 * 初始化它。
 	 */
 	InitTempTableNamespace();
 }
 
 /*
  * InitTempTableNamespace
- *		Initialize temp table namespace on first use in a particular backend
+ *		在特定后端首次使用时初始化临时表命名空间
  */
 static void
 InitTempTableNamespace(void)
@@ -3999,14 +3999,14 @@ InitTempTableNamespace(void)
 	Assert(!OidIsValid(myTempNamespace));
 
 	/*
-	 * First, do permission check to see if we are authorized to make temp
-	 * tables.  We use a nonstandard error message here since "databasename:
-	 * permission denied" might be a tad cryptic.
+	 * 首先，进行权限检查，看我们是否有权创建临时
+	 * 表。我们在这里使用非标准错误消息，因为 "databasename:
+	 * permission denied" 可能有点晦涩。
 	 *
-	 * Note that ACL_CREATE_TEMP rights are rechecked in pg_namespace_aclmask;
-	 * that's necessary since current user ID could change during the session.
-	 * But there's no need to make the namespace in the first place until a
-	 * temp table creation request is made by someone with appropriate rights.
+	 * 注意 ACL_CREATE_TEMP 权限会在 pg_namespace_aclmask 中重新检查；
+	 * 这是必要的，因为当前用户 ID 可能在会话期间变化。
+	 * 但在拥有适当权限的人发出临时表创建请求之前，
+	 * 根本不需要创建该命名空间。
 	 */
 	if (object_aclcheck(DatabaseRelationId, MyDatabaseId, GetUserId(),
 						ACL_CREATE_TEMP) != ACLCHECK_OK)
@@ -4016,21 +4016,21 @@ InitTempTableNamespace(void)
 						get_database_name(MyDatabaseId))));
 
 	/*
-	 * Do not allow a Hot Standby session to make temp tables.  Aside from
-	 * problems with modifying the system catalogs, there is a naming
-	 * conflict: pg_temp_N belongs to the session with BackendId N on the
-	 * primary, not to a hot standby session with the same BackendId.  We
-	 * should not be able to get here anyway due to XactReadOnly checks, but
-	 * let's just make real sure.  Note that this also backstops various
-	 * operations that allow XactReadOnly transactions to modify temp tables;
-	 * they'd need RecoveryInProgress checks if not for this.
+	 * 不允许 Hot Standby 会话创建临时表。除了
+	 * 修改系统目录的问题外，还有一个命名
+	 * 冲突：pg_temp_N 属于主库上 BackendId 为 N 的会话，
+	 * 而不属于具有相同 BackendId 的热备会话。由于
+	 * XactReadOnly 检查，我们无论如何都不应到达这里，但
+	 * 让我们再确认一下。注意这也为允许 XactReadOnly 事务
+	 * 修改临时表的各种操作提供了兜底保障；
+	 * 如果不是因为这个，它们就需要 RecoveryInProgress 检查。
 	 */
 	if (RecoveryInProgress())
 		ereport(ERROR,
 				(errcode(ERRCODE_READ_ONLY_SQL_TRANSACTION),
 				 errmsg("cannot create temporary tables during recovery")));
 
-	/* Parallel workers can't create temporary tables, either. */
+	/* 并行工作进程也不能创建临时表。 */
 	if (IsParallelWorker())
 		ereport(ERROR,
 				(errcode(ERRCODE_READ_ONLY_SQL_TRANSACTION),
@@ -4042,31 +4042,31 @@ InitTempTableNamespace(void)
 	if (!OidIsValid(namespaceId))
 	{
 		/*
-		 * First use of this temp namespace in this database; create it. The
-		 * temp namespaces are always owned by the superuser.  We leave their
-		 * permissions at default --- i.e., no access except to superuser ---
-		 * to ensure that unprivileged users can't peek at other backends'
-		 * temp tables.  This works because the places that access the temp
-		 * namespace for my own backend skip permissions checks on it.
+		 * 在此数据库中首次使用此 temp 命名空间；创建它。
+		 * temp 命名空间始终由超级用户拥有。我们将其
+		 * 权限保留为默认 --- 即除超级用户外无人可访问 ---
+		 * 以确保非特权用户无法窥视其他后端的
+		 * 临时表。这之所以可行，是因为为我自己后端访问 temp
+		 * 命名空间的地方会跳过对其的权限检查。
 		 */
 		namespaceId = NamespaceCreate(namespaceName, BOOTSTRAP_SUPERUSERID,
 									  true);
-		/* Advance command counter to make namespace visible */
+		/* 推进命令计数器以使命名空间可见 */
 		CommandCounterIncrement();
 	}
 	else
 	{
 		/*
-		 * If the namespace already exists, clean it out (in case the former
-		 * owner crashed without doing so).
+		 * 如果该命名空间已经存在，则清理它（以防先前
+		 * 所有者崩溃而没有这样做）。
 		 */
 		RemoveTempRelations(namespaceId);
 	}
 
 	/*
-	 * If the corresponding toast-table namespace doesn't exist yet, create
-	 * it. (We assume there is no need to clean it out if it does exist, since
-	 * dropping a parent table should make its toast table go away.)
+	 * 如果相应的 toast 表命名空间尚不存在，则创建
+	 * 它。（我们假设如果它已存在则无需清理，因为
+	 * 删除父表应当会使其 toast 表消失。）
 	 */
 	snprintf(namespaceName, sizeof(namespaceName), "pg_toast_temp_%d",
 			 MyBackendId);
@@ -4076,50 +4076,50 @@ InitTempTableNamespace(void)
 	{
 		toastspaceId = NamespaceCreate(namespaceName, BOOTSTRAP_SUPERUSERID,
 									   true);
-		/* Advance command counter to make namespace visible */
+		/* 推进命令计数器以使命名空间可见 */
 		CommandCounterIncrement();
 	}
 
 	/*
-	 * Okay, we've prepared the temp namespace ... but it's not committed yet,
-	 * so all our work could be undone by transaction rollback.  Set flag for
-	 * AtEOXact_Namespace to know what to do.
+	 * 好，我们已经准备好 temp 命名空间 ... 但它尚未提交，
+	 * 因此我们所有的工作都可能因事务回滚而被撤销。设置标志
+	 * 让 AtEOXact_Namespace 知道该怎么做。
 	 */
 	myTempNamespace = namespaceId;
 	myTempToastNamespace = toastspaceId;
 
 	/*
-	 * Mark MyProc as owning this namespace which other processes can use to
-	 * decide if a temporary namespace is in use or not.  We assume that
-	 * assignment of namespaceId is an atomic operation.  Even if it is not,
-	 * the temporary relation which resulted in the creation of this temporary
-	 * namespace is still locked until the current transaction commits, and
-	 * its pg_namespace row is not visible yet.  However it does not matter:
-	 * this flag makes the namespace as being in use, so no objects created on
-	 * it would be removed concurrently.
+	 * 将 MyProc 标记为拥有此命名空间，其他进程可用它来
+	 * 判断某个临时命名空间是否正在使用。我们假设对
+	 * namespaceId 的赋值是原子操作。即使它不是，
+	 * 导致创建此临时命名空间的临时关系
+	 * 仍然被锁定，直到当前事务提交，
+	 * 且其 pg_namespace 行尚不可见。然而这无关紧要：
+	 * 此标志使该命名空间被视为正在使用，因此在其上创建的
+	 * 任何对象都不会被并发移除。
 	 */
 	MyProc->tempNamespaceId = namespaceId;
 
-	/* It should not be done already. */
+	/* 它不应已经完成。 */
 	Assert(myTempNamespaceSubID == InvalidSubTransactionId);
 	myTempNamespaceSubID = GetCurrentSubTransactionId();
 
-	baseSearchPathValid = false;	/* need to rebuild list */
+	baseSearchPathValid = false;	/* 可能需要重建列表 */
 }
 
 /*
- * End-of-transaction cleanup for namespaces.
+ * 命名空间的结束事务清理。
  */
 void
 AtEOXact_Namespace(bool isCommit, bool parallel)
 {
 	/*
-	 * If we abort the transaction in which a temp namespace was selected,
-	 * we'll have to do any creation or cleanout work over again.  So, just
-	 * forget the namespace entirely until next time.  On the other hand, if
-	 * we commit then register an exit callback to clean out the temp tables
-	 * at backend shutdown.  (We only want to register the callback once per
-	 * session, so this is a good place to do it.)
+	 * 如果我们在其中选择了 temp 命名空间的事务中中止，
+	 * 我们将不得不重新进行任何创建或清理工作。因此，
+	 * 直接完全忘记该命名空间，直到下次。另一方面，如果
+	 * 我们提交，则注册一个退出回调，在后端关闭时清理
+	 * 临时表。（我们只希望每个会话注册一次该回调，
+	 * 所以这是一个做这件事的好地方。）
 	 */
 	if (myTempNamespaceSubID != InvalidSubTransactionId && !parallel)
 	{
@@ -4129,16 +4129,16 @@ AtEOXact_Namespace(bool isCommit, bool parallel)
 		{
 			myTempNamespace = InvalidOid;
 			myTempToastNamespace = InvalidOid;
-			baseSearchPathValid = false;	/* need to rebuild list */
+			baseSearchPathValid = false;	/* 可能需要重建列表 */
 
 			/*
-			 * Reset the temporary namespace flag in MyProc.  We assume that
-			 * this operation is atomic.
+			 * 重置 MyProc 中的临时命名空间标志。我们假设
+			 * 此操作是原子的。
 			 *
-			 * Because this transaction is aborting, the pg_namespace row is
-			 * not visible to anyone else anyway, but that doesn't matter:
-			 * it's not a problem if objects contained in this namespace are
-			 * removed concurrently.
+			 * 由于此事务正在中止，pg_namespace 行
+			 * 对其他人本来就不可见，但这也无关紧要：
+			 * 如果此命名空间中包含的对象被并发
+			 * 移除，也没有问题。
 			 */
 			MyProc->tempNamespaceId = InvalidOid;
 		}
@@ -4146,7 +4146,7 @@ AtEOXact_Namespace(bool isCommit, bool parallel)
 	}
 
 	/*
-	 * Clean up if someone failed to do PopOverrideSearchPath
+	 * 如果有人未能执行 PopOverrideSearchPath 则进行清理
 	 */
 	if (overrideStack)
 	{
@@ -4161,11 +4161,11 @@ AtEOXact_Namespace(bool isCommit, bool parallel)
 			list_free(entry->searchPath);
 			pfree(entry);
 		}
-		/* If not baseSearchPathValid, this is useless but harmless */
+		/* 如果 baseSearchPathValid 为假，则这无用但无害 */
 		activeSearchPath = baseSearchPath;
 		activeCreationNamespace = baseCreationNamespace;
 		activeTempCreationPending = baseTempCreationPending;
-		/* Always bump generation --- see note in recomputeNamespacePath */
+		/* 总是递增代计数 --- 参见 recomputeNamespacePath 中的说明 */
 		activePathGeneration++;
 	}
 }
@@ -4173,10 +4173,10 @@ AtEOXact_Namespace(bool isCommit, bool parallel)
 /*
  * AtEOSubXact_Namespace
  *
- * At subtransaction commit, propagate the temp-namespace-creation
- * flag to the parent subtransaction.
+ * 在子事务提交时，将临时命名空间创建标志
+ * 传播到父子事务。
  *
- * At subtransaction abort, forget the flag if we set it up.
+ * 在子事务中止时，如果我们设置过该标志则忘记它。
  */
 void
 AtEOSubXact_Namespace(bool isCommit, SubTransactionId mySubid,
@@ -4191,26 +4191,26 @@ AtEOSubXact_Namespace(bool isCommit, SubTransactionId mySubid,
 		else
 		{
 			myTempNamespaceSubID = InvalidSubTransactionId;
-			/* TEMP namespace creation failed, so reset state */
+			/* TEMP 命名空间创建失败，因此重置状态 */
 			myTempNamespace = InvalidOid;
 			myTempToastNamespace = InvalidOid;
-			baseSearchPathValid = false;	/* need to rebuild list */
+			baseSearchPathValid = false;	/* 可能需要重建列表 */
 
 			/*
-			 * Reset the temporary namespace flag in MyProc.  We assume that
-			 * this operation is atomic.
+			 * 重置 MyProc 中的临时命名空间标志。我们假设
+			 * 此操作是原子的。
 			 *
-			 * Because this subtransaction is aborting, the pg_namespace row
-			 * is not visible to anyone else anyway, but that doesn't matter:
-			 * it's not a problem if objects contained in this namespace are
-			 * removed concurrently.
+			 * 由于此子事务正在中止，pg_namespace 行
+			 * 对其他人本来就不可见，但这也无关紧要：
+			 * 如果此命名空间中包含的对象被并发
+			 * 移除，也没有问题。
 			 */
 			MyProc->tempNamespaceId = InvalidOid;
 		}
 	}
 
 	/*
-	 * Clean up if someone failed to do PopOverrideSearchPath
+	 * 如果有人未能执行 PopOverrideSearchPath 则进行清理
 	 */
 	while (overrideStack)
 	{
@@ -4222,46 +4222,46 @@ AtEOSubXact_Namespace(bool isCommit, SubTransactionId mySubid,
 		overrideStack = list_delete_first(overrideStack);
 		list_free(entry->searchPath);
 		pfree(entry);
-		/* Always bump generation --- see note in recomputeNamespacePath */
+		/* 总是递增代计数 --- 参见 recomputeNamespacePath 中的说明 */
 		activePathGeneration++;
 	}
 
-	/* Activate the next level down. */
+	/* 激活向下的下一层。 */
 	if (overrideStack)
 	{
 		entry = (OverrideStackEntry *) linitial(overrideStack);
 		activeSearchPath = entry->searchPath;
 		activeCreationNamespace = entry->creationNamespace;
-		activeTempCreationPending = false;	/* XXX is this OK? */
+		activeTempCreationPending = false;	/* XXX 这样可以吗？ */
 
 		/*
-		 * It's probably unnecessary to bump generation here, but this should
-		 * not be a performance-critical case, so better to be over-cautious.
+		 * 在这里递增代计数可能没有必要，但这应当
+		 * 不是性能攸关的情形，所以宁可过度谨慎。
 		 */
 		activePathGeneration++;
 	}
 	else
 	{
-		/* If not baseSearchPathValid, this is useless but harmless */
+		/* 如果 baseSearchPathValid 为假，则这无用但无害 */
 		activeSearchPath = baseSearchPath;
 		activeCreationNamespace = baseCreationNamespace;
 		activeTempCreationPending = baseTempCreationPending;
 
 		/*
-		 * If we popped an override stack entry, then we already bumped the
-		 * generation above.  If we did not, then the above assignments did
-		 * nothing and we need not bump the generation.
+		 * 如果我们弹出了一个覆盖栈条目，那么我们在上面已经
+		 * 递增了代计数。如果我们没有，那么上面的赋值
+		 * 什么也没做，我们也无需递增代计数。
 		 */
 	}
 }
 
 /*
- * Remove all relations in the specified temp namespace.
+ * 移除指定 temp 命名空间中的所有关系。
  *
- * This is called at backend shutdown (if we made any temp relations).
- * It is also called when we begin using a pre-existing temp namespace,
- * in order to clean out any relations that might have been created by
- * a crashed backend.
+ * 这会在后端关闭时调用（如果我们创建过任何临时关系）。
+ * 它也会在我们开始使用一个先前存在的 temp 命名空间时调用，
+ * 以便清理任何可能由崩溃的后端
+ * 创建的关系。
  */
 static void
 RemoveTempRelations(Oid tempNamespaceId)
@@ -4269,11 +4269,11 @@ RemoveTempRelations(Oid tempNamespaceId)
 	ObjectAddress object;
 
 	/*
-	 * We want to get rid of everything in the target namespace, but not the
-	 * namespace itself (deleting it only to recreate it later would be a
-	 * waste of cycles).  Hence, specify SKIP_ORIGINAL.  It's also an INTERNAL
-	 * deletion, and we want to not drop any extensions that might happen to
-	 * own temp objects.
+	 * 我们希望清除目标命名空间中的所有内容，但不包括
+	 * 命名空间本身（仅仅为了稍后重新创建而删除它是
+	 * 浪费周期）。因此，指定 SKIP_ORIGINAL。这也是一次 INTERNAL
+	 * 删除，并且我们希望不删除任何可能恰好拥有临时对象的
+	 * 扩展。
 	 */
 	object.classId = NamespaceRelationId;
 	object.objectId = tempNamespaceId;
@@ -4287,14 +4287,14 @@ RemoveTempRelations(Oid tempNamespaceId)
 }
 
 /*
- * Callback to remove temp relations at backend exit.
+ * 在后端退出时移除临时关系的回调。
  */
 static void
 RemoveTempRelationsCallback(int code, Datum arg)
 {
-	if (OidIsValid(myTempNamespace))	/* should always be true */
+	if (OidIsValid(myTempNamespace))	/* 应当始终为真 */
 	{
-		/* Need to ensure we have a usable transaction. */
+		/* 需要确保我们有一个可用的事务。 */
 		AbortOutOfAnyTransaction();
 		StartTransactionCommand();
 		PushActiveSnapshot(GetTransactionSnapshot());
@@ -4307,7 +4307,7 @@ RemoveTempRelationsCallback(int code, Datum arg)
 }
 
 /*
- * Remove all temp tables from the temporary namespace.
+ * 从临时命名空间中移除所有临时表。
  */
 void
 ResetTempTableNamespace(void)
@@ -4318,23 +4318,23 @@ ResetTempTableNamespace(void)
 
 
 /*
- * Routines for handling the GUC variable 'search_path'.
+ * 用于处理 GUC 变量 'search_path' 的例程。
  */
 
-/* check_hook: validate new search_path value */
+/* check_hook：验证新的 search_path 值 */
 bool
 check_search_path(char **newval, void **extra, GucSource source)
 {
 	char	   *rawname;
 	List	   *namelist;
 
-	/* Need a modifiable copy of string */
+	/* 需要字符串的可修改副本 */
 	rawname = pstrdup(*newval);
 
-	/* Parse string into list of identifiers */
+	/* 将字符串解析为标识符列表 */
 	if (!SplitIdentifierString(rawname, ',', &namelist))
 	{
-		/* syntax error in name list */
+		/* 名称列表中有语法错误 */
 		GUC_check_errdetail("List syntax is invalid.");
 		pfree(rawname);
 		list_free(namelist);
@@ -4342,11 +4342,11 @@ check_search_path(char **newval, void **extra, GucSource source)
 	}
 
 	/*
-	 * We used to try to check that the named schemas exist, but there are
-	 * many valid use-cases for having search_path settings that include
-	 * schemas that don't exist; and often, we are not inside a transaction
-	 * here and so can't consult the system catalogs anyway.  So now, the only
-	 * requirement is syntactic validity of the identifier list.
+	 * 我们过去曾试图检查所命名的模式是否存在，但
+	 * 有许多合法的使用场景需要 search_path 设置包含
+	 * 不存在的模式；而且通常我们在这里并不在事务内部，
+	 * 因此无论如何也无法查询系统目录。所以现在，唯一的
+	 * 要求是标识符列表在语法上有效。
 	 */
 
 	pfree(rawname);
@@ -4355,22 +4355,22 @@ check_search_path(char **newval, void **extra, GucSource source)
 	return true;
 }
 
-/* assign_hook: do extra actions as needed */
+/* assign_hook：按需执行额外操作 */
 void
 assign_search_path(const char *newval, void *extra)
 {
 	/*
-	 * We mark the path as needing recomputation, but don't do anything until
-	 * it's needed.  This avoids trying to do database access during GUC
-	 * initialization, or outside a transaction.
+	 * 我们将该路径标记为需要重新计算，但在需要之前
+	 * 不做任何事。这避免了在 GUC 初始化期间，或
+	 * 在事务之外尝试访问数据库。
 	 */
 	baseSearchPathValid = false;
 }
 
 /*
- * InitializeSearchPath: initialize module during InitPostgres.
+ * InitializeSearchPath：在 InitPostgres 期间初始化模块。
  *
- * This is called after we are up enough to be able to do catalog lookups.
+ * 这在我们已经启动到足以进行目录查找之后调用。
  */
 void
 InitializeSearchPath(void)
@@ -4378,8 +4378,8 @@ InitializeSearchPath(void)
 	if (IsBootstrapProcessingMode())
 	{
 		/*
-		 * In bootstrap mode, the search path must be 'pg_catalog' so that
-		 * tables are created in the proper namespace; ignore the GUC setting.
+		 * 在引导模式下，搜索路径必须是 'pg_catalog'，以便
+		 * 表被创建在正确的命名空间中；忽略 GUC 设置。
 		 */
 		MemoryContext oldcxt;
 
@@ -4393,14 +4393,14 @@ InitializeSearchPath(void)
 		activeSearchPath = baseSearchPath;
 		activeCreationNamespace = baseCreationNamespace;
 		activeTempCreationPending = baseTempCreationPending;
-		activePathGeneration++; /* pro forma */
+		activePathGeneration++; /* 形式上 */
 	}
 	else
 	{
 		/*
-		 * In normal mode, arrange for a callback on any syscache invalidation
-		 * of pg_namespace or pg_authid rows. (Changing a role name may affect
-		 * the meaning of the special string $user.)
+		 * 在正常模式下，安排一个回调，用于任何对
+		 * pg_namespace 或 pg_authid 行的系统缓存失效。
+		 * （更改角色名可能影响特殊字符串 $user 的含义。）
 		 */
 		CacheRegisterSyscacheCallback(NAMESPACEOID,
 									  NamespaceCallback,
@@ -4408,32 +4408,32 @@ InitializeSearchPath(void)
 		CacheRegisterSyscacheCallback(AUTHOID,
 									  NamespaceCallback,
 									  (Datum) 0);
-		/* Force search path to be recomputed on next use */
+		/* 强制在下次使用时重新计算搜索路径 */
 		baseSearchPathValid = false;
 	}
 }
 
 /*
  * NamespaceCallback
- *		Syscache inval callback function
+ *		系统缓存失效回调函数
  */
 static void
 NamespaceCallback(Datum arg, int cacheid, uint32 hashvalue)
 {
-	/* Force search path to be recomputed on next use */
+	/* 强制在下次使用时重新计算搜索路径 */
 	baseSearchPathValid = false;
 }
 
 /*
- * Fetch the active search path. The return value is a palloc'ed list
- * of OIDs; the caller is responsible for freeing this storage as
- * appropriate.
+ * 获取活动的搜索路径。返回值是一个 palloc 的 OIDs
+ * 列表；调用方负责适当地释放此
+ * 存储。
  *
- * The returned list includes the implicitly-prepended namespaces only if
- * includeImplicit is true.
+ * 返回的列表仅在 includeImplicit 为 true 时
+ * 包含隐式前置的命名空间。
  *
- * Note: calling this may result in a CommandCounterIncrement operation,
- * if we have to create or clean out the temp namespace.
+ * 注意：调用此函数可能导致 CommandCounterIncrement 操作，
+ * 如果我们必须创建或清理 temp 命名空间的话。
  */
 List *
 fetch_search_path(bool includeImplicit)
@@ -4443,11 +4443,11 @@ fetch_search_path(bool includeImplicit)
 	recomputeNamespacePath();
 
 	/*
-	 * If the temp namespace should be first, force it to exist.  This is so
-	 * that callers can trust the result to reflect the actual default
-	 * creation namespace.  It's a bit bogus to do this here, since
-	 * current_schema() is supposedly a stable function without side-effects,
-	 * but the alternatives seem worse.
+	 * 如果 temp 命名空间应当排在最前面，则强制它存在。这是为了
+	 * 让调用方可以信任结果能反映实际的默认
+	 * 创建命名空间。在这里这样做有点不妥，因为
+	 * current_schema() 据称是一个没有副作用的稳定函数，
+	 * 但其他替代方案似乎更糟。
 	 */
 	if (activeTempCreationPending)
 	{
@@ -4466,14 +4466,14 @@ fetch_search_path(bool includeImplicit)
 }
 
 /*
- * Fetch the active search path into a caller-allocated array of OIDs.
- * Returns the number of path entries.  (If this is more than sarray_len,
- * then the data didn't fit and is not all stored.)
+ * 获取活动的搜索路径到调用方分配的 OIDs 数组中。
+ * 返回路径条目的数量。（如果这超过 sarray_len，
+ * 则数据无法全部容纳，并未全部存储。）
  *
- * The returned list always includes the implicitly-prepended namespaces,
- * but never includes the temp namespace.  (This is suitable for existing
- * users, which would want to ignore the temp namespace anyway.)  This
- * definition allows us to not worry about initializing the temp namespace.
+ * 返回的列表总是包含隐式前置的命名空间，
+ * 但绝不包含 temp 命名空间。（这适合现有
+ * 用户，它们无论如何都会想忽略 temp 命名空间。）这一
+ * 定义使我们无需操心初始化 temp 命名空间。
  */
 int
 fetch_search_path_array(Oid *sarray, int sarray_len)
@@ -4488,7 +4488,7 @@ fetch_search_path_array(Oid *sarray, int sarray_len)
 		Oid			namespaceId = lfirst_oid(l);
 
 		if (namespaceId == myTempNamespace)
-			continue;			/* do not include temp namespace */
+			continue;			/* 不包含 temp 命名空间 */
 
 		if (count < sarray_len)
 			sarray[count] = namespaceId;
@@ -4500,16 +4500,16 @@ fetch_search_path_array(Oid *sarray, int sarray_len)
 
 
 /*
- * Export the FooIsVisible functions as SQL-callable functions.
+ * 将 FooIsVisible 函数导出为 SQL 可调用的函数。
  *
- * Note: as of Postgres 8.4, these will silently return NULL if called on
- * a nonexistent object OID, rather than failing.  This is to avoid race
- * condition errors when a query that's scanning a catalog using an MVCC
- * snapshot uses one of these functions.  The underlying IsVisible functions
- * always use an up-to-date snapshot and so might see the object as already
- * gone when it's still visible to the transaction snapshot.  (There is no race
- * condition in the current coding because we don't accept sinval messages
- * between the SearchSysCacheExists test and the subsequent lookup.)
+ * 注意：从 Postgres 8.4 起，如果对不存在的对象 OID
+ * 调用，这些函数会静默返回 NULL，而不是报错。这是为了
+ * 避免当使用 MVCC 快照扫描目录的查询
+ * 使用这些函数之一时出现竞态条件错误。底层的 IsVisible 函数
+ * 总是使用最新的快照，因此当对象对事务快照仍然可见
+ * 时，它可能已经看到该对象不存在。（在当前的实现中
+ * 不存在竞态条件，因为我们在 SearchSysCacheExists 测试
+ * 与随后的查找之间不接受 sinval 消息。）
  */
 
 Datum

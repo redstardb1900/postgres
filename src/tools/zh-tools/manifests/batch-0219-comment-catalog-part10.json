@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "batch_id": "0219-comment-catalog-part10",
+  "title": "zh: translate catalog comments (part 10)",
+  "base_commit": "d61dd817be70749d14e982a369e97fdda9d5cba6",
+  "parent_commit": "c0ab012713cdc954b05399fd1a5a8813179e3c18",
+  "pgnls_commit": "cbaeef3eb8be500984ab3da9f3e251634f346d1c",
+  "require_file_entries": true,
+  "allowed_paths": [
+    {
+      "pattern": "src/backend/catalog/namespace.c",
+      "kind": "c_comment",
+      "note": "namespace lookup and search path routines"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/batch-0219-comment-catalog-part10.json",
+      "kind": "manifest",
+      "note": "this manifest"
+    },
+    {
+      "pattern": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "note": "union includes this batch"
+    }
+  ],
+  "files": [
+    {
+      "path": "src/backend/catalog/namespace.c",
+      "kind": "c_comment",
+      "action": "modify",
+      "segments_total": 413,
+      "translated": 411,
+      "preserved": 2,
+      "preserved_reasons": [
+        "fallthrough: comments"
+      ],
+      "note": "namespace lookup and search path routines; 2 fallthrough: segments kept in English; Copyright and IDENTIFICATION lines kept in English"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/batch-0219-comment-catalog-part10.json",
+      "kind": "manifest",
+      "action": "add",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "this manifest"
+    },
+    {
+      "path": "src/tools/zh-tools/manifests/cumulative.json",
+      "kind": "tool",
+      "action": "modify",
+      "segments_total": 0,
+      "translated": 0,
+      "preserved": 0,
+      "preserved_reasons": [],
+      "note": "union includes this batch"
+    }
+  ],
+  "notes": "Batch 0219 translates comments in src/backend/catalog/namespace.c (catalog part 10). 2 fallthrough: segments are protected and stay in English; Copyright and IDENTIFICATION lines stay in English. Next suggested: index.c / objectaddress.c."
+}

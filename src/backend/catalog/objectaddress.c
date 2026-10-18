@@ -1,7 +1,7 @@
 /*-------------------------------------------------------------------------
  *
  * objectaddress.c
- *	  functions for working with ObjectAddresses
+ *	  处理 ObjectAddresses 的函数
  *
  * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
  * Portions Copyright (c) 1994, Regents of the University of California
@@ -94,29 +94,29 @@
 /*
  * ObjectProperty
  *
- * This array provides a common part of system object structure; to help
- * consolidate routines to handle various kind of object classes.
+ * 此数组提供系统对象结构的通用部分，以帮助
+ * 整合处理各种类型对象类的例程。
  */
 typedef struct
 {
-	const char *class_descr;	/* string describing the catalog, for internal
-								 * error messages */
-	Oid			class_oid;		/* oid of catalog */
-	Oid			oid_index_oid;	/* oid of index on system oid column */
-	int			oid_catcache_id;	/* id of catcache on system oid column	*/
-	int			name_catcache_id;	/* id of catcache on (name,namespace), or
-									 * (name) if the object does not live in a
-									 * namespace */
-	AttrNumber	attnum_oid;		/* attribute number of oid column */
-	AttrNumber	attnum_name;	/* attnum of name field */
-	AttrNumber	attnum_namespace;	/* attnum of namespace field */
-	AttrNumber	attnum_owner;	/* attnum of owner field */
-	AttrNumber	attnum_acl;		/* attnum of acl field */
-	ObjectType	objtype;		/* OBJECT_* of this object type */
-	bool		is_nsp_name_unique; /* can the nsp/name combination (or name
-									 * alone, if there's no namespace) be
-									 * considered a unique identifier for an
-									 * object of this class? */
+	const char *class_descr;	/* 目录描述字符串，用于
+								 * 内部错误消息 */
+	Oid			class_oid;		/* 目录的 OID */
+	Oid			oid_index_oid;	/* 系统 OID 列上的索引的 OID */
+	int			oid_catcache_id;	/* 系统 OID 列上的 catcache ID */
+	int			name_catcache_id;	/* （name,namespace）对应的 catcache ID，
+									 * 若对象不属于某命名空间，
+									 * 则为（name）的 ID */
+	AttrNumber	attnum_oid;		/* OID 列的属性编号 */
+	AttrNumber	attnum_name;	/* name 字段的属性编号 */
+	AttrNumber	attnum_namespace;	/* namespace 字段的属性编号 */
+	AttrNumber	attnum_owner;	/* owner 字段的属性编号 */
+	AttrNumber	attnum_acl;		/* acl 字段的属性编号 */
+	ObjectType	objtype;		/* 该对象类型的 OBJECT_* */
+	bool		is_nsp_name_unique; /* （nsp,name）组合（或
+									 * 若没有命名空间则为 name 本身）能否
+									 * 被视为该类对象的
+									 * 唯一标识符？ */
 } ObjectPropertyType;
 
 static const ObjectPropertyType ObjectProperty[] =
@@ -182,7 +182,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		CollationRelationId,
 		CollationOidIndexId,
 		COLLOID,
-		-1,						/* COLLNAMEENCNSP also takes encoding */
+		-1,						/* COLLNAMEENCNSP 也需要编码信息 */
 		Anum_pg_collation_oid,
 		Anum_pg_collation_collname,
 		Anum_pg_collation_collnamespace,
@@ -255,7 +255,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		-1,
 		Anum_pg_extension_oid,
 		Anum_pg_extension_extname,
-		InvalidAttrNumber,		/* extension doesn't belong to extnamespace */
+		InvalidAttrNumber,		/* 扩展不属于其扩展命名空间 */
 		Anum_pg_extension_extowner,
 		InvalidAttrNumber,
 		OBJECT_EXTENSION,
@@ -294,7 +294,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		ProcedureRelationId,
 		ProcedureOidIndexId,
 		PROCOID,
-		-1,						/* PROCNAMEARGSNSP also takes argument types */
+		-1,						/* PROCNAMEARGSNSP 也需要参数类型 */
 		Anum_pg_proc_oid,
 		Anum_pg_proc_proname,
 		Anum_pg_proc_pronamespace,
@@ -336,7 +336,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		OperatorClassRelationId,
 		OpclassOidIndexId,
 		CLAOID,
-		-1,						/* CLAAMNAMENSP also takes opcmethod */
+		-1,						/* CLAAMNAMENSP 也需要 opcmethod */
 		Anum_pg_opclass_oid,
 		Anum_pg_opclass_opcname,
 		Anum_pg_opclass_opcnamespace,
@@ -350,7 +350,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		OperatorRelationId,
 		OperatorOidIndexId,
 		OPEROID,
-		-1,						/* OPERNAMENSP also takes left and right type */
+		-1,						/* OPERNAMENSP 也需要左类型和右类型 */
 		Anum_pg_operator_oid,
 		Anum_pg_operator_oprname,
 		Anum_pg_operator_oprnamespace,
@@ -364,7 +364,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		OperatorFamilyRelationId,
 		OpfamilyOidIndexId,
 		OPFAMILYOID,
-		-1,						/* OPFAMILYAMNAMENSP also takes opfmethod */
+		-1,						/* OPFAMILYAMNAMENSP 也需要 opfmethod */
 		Anum_pg_opfamily_oid,
 		Anum_pg_opfamily_opfname,
 		Anum_pg_opfamily_opfnamespace,
@@ -615,7 +615,7 @@ static const ObjectPropertyType ObjectProperty[] =
 		Anum_pg_statistic_ext_stxname,
 		Anum_pg_statistic_ext_stxnamespace,
 		Anum_pg_statistic_ext_stxowner,
-		InvalidAttrNumber,		/* no ACL (same as relation) */
+		InvalidAttrNumber,		/* 无 ACL（与关系相同） */
 		OBJECT_STATISTIC_EXT,
 		true
 	},
@@ -636,13 +636,13 @@ static const ObjectPropertyType ObjectProperty[] =
 };
 
 /*
- * This struct maps the string object types as returned by
- * getObjectTypeDescription into ObjectType enum values.  Note that some enum
- * values can be obtained by different names, and that some string object types
- * do not have corresponding values in the output enum.  The user of this map
- * must be careful to test for invalid values being returned.
+ * 此结构将 getObjectTypeDescription 返回的
+ * 字符串对象类型映射到 ObjectType 枚举值。注意，某些枚举
+ * 值可以通过不同名称获得，并且某些字符串对象类型
+ * 在输出枚举中没有对应的值。此映射的
+ * 使用者必须小心检查是否返回了无效值。
  *
- * To ease maintenance, this follows the order of getObjectTypeDescription.
+ * 为了便于维护，此顺序遵循 getObjectTypeDescription 的顺序。
  */
 static const struct object_type_map
 {
@@ -652,7 +652,7 @@ static const struct object_type_map
 
 			ObjectTypeMap[] =
 {
-	/* OCLASS_CLASS, all kinds of relations */
+	/* OCLASS_CLASS，所有类型的关系 */
 	{
 		"table", OBJECT_TABLE
 	},
@@ -664,7 +664,7 @@ static const struct object_type_map
 	},
 	{
 		"toast table", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"view", OBJECT_VIEW
 	},
@@ -673,7 +673,7 @@ static const struct object_type_map
 	},
 	{
 		"composite type", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"foreign table", OBJECT_FOREIGN_TABLE
 	},
@@ -682,22 +682,22 @@ static const struct object_type_map
 	},
 	{
 		"index column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"sequence column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"toast table column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"view column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"materialized view column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"composite type column", -1
-	},							/* unmapped */
+	},							/* 未映射 */
 	{
 		"foreign table column", OBJECT_COLUMN
 	},
@@ -804,7 +804,7 @@ static const struct object_type_map
 	},
 	/* OCLASS_ROLE_MEMBERSHIP */
 	{
-		"role membership", -1	/* unmapped */
+		"role membership", -1	/* 未映射 */
 	},
 	/* OCLASS_DATABASE */
 	{
@@ -926,35 +926,35 @@ static void getRelationIdentity(StringInfo buffer, Oid relid, List **object,
 								bool missing_ok);
 
 /*
- * Translate an object name and arguments (as passed by the parser) to an
- * ObjectAddress.
+ * 将对象名称和参数（由解析器传入）转换为
+ * ObjectAddress。
  *
- * The returned object will be locked using the specified lockmode.  If a
- * sub-object is looked up, the parent object will be locked instead.
+ * 返回的对象将使用指定的 lockmode 锁定。如果
+ * 查找的是子对象，则改为锁定父对象。
  *
- * If the object is a relation or a child object of a relation (e.g. an
- * attribute or constraint), the relation is also opened and *relp receives
- * the open relcache entry pointer; otherwise, *relp is set to NULL.  This
- * is a bit grotty but it makes life simpler, since the caller will
- * typically need the relcache entry too.  Caller must close the relcache
- * entry when done with it.  The relation is locked with the specified lockmode
- * if the target object is the relation itself or an attribute, but for other
- * child objects, only AccessShareLock is acquired on the relation.
+ * 如果对象是关系或关系的子对象（例如
+ * 属性或约束），也会打开该关系，*relp 接收
+ * 已打开的 relcache 条目指针；否则，*relp 被设置为 NULL。这
+ * 有点简陋，但使情况更简单，因为调用方通常
+ * 也需要 relcache 条目。调用方用完后必须关闭 relcache
+ * 条目。如果目标对象是关系本身或属性，则以指定的 lockmode 锁定
+ * 关系；但对于其他子对象，只对关系
+ * 获取 AccessShareLock。
  *
- * If the object is not found, an error is thrown, unless missing_ok is
- * true.  In this case, no lock is acquired, relp is set to NULL, and the
- * returned address has objectId set to InvalidOid.
+ * 如果未找到对象，则抛出错误，除非 missing_ok 为
+ * true。在这种情况下，不获取锁，relp 被设置为 NULL，并且
+ * 返回的地址的 objectId 被设置为 InvalidOid。
  *
- * We don't currently provide a function to release the locks acquired here;
- * typically, the lock must be held until commit to guard against a concurrent
- * drop operation.
+ * 我们目前不提供释放此处所获取锁的函数；
+ * 通常，该锁必须持有到提交，以防止并发的
+ * 删除操作。
  *
- * Note: If the object is not found, we don't give any indication of the
- * reason.  (It might have been a missing schema if the name was qualified, or
- * a nonexistent type name in case of a cast, function or operator; etc).
- * Currently there is only one caller that might be interested in such info, so
- * we don't spend much effort here.  If more callers start to care, it might be
- * better to add some support for that in this function.
+ * 注意：如果未找到对象，我们不给出任何关于
+ * 原因的提示。（如果名称是限定的，可能缺少模式，
+ * 或者在类型转换、函数或操作符的情况下是类型名不存在等。）
+ * 目前只有一个调用方可能对此类信息感兴趣，因此
+ * 我们在此不多花精力。如果有更多调用方开始在意，可能
+ * 最好在本函数中为此添加一些支持。
  */
 ObjectAddress
 get_object_address(ObjectType objtype, Node *object,
@@ -965,19 +965,19 @@ get_object_address(ObjectType objtype, Node *object,
 	Relation	relation = NULL;
 	uint64		inval_count;
 
-	/* Some kind of lock must be taken. */
+	/* 必须获取某种类型的锁。 */
 	Assert(lockmode != NoLock);
 
 	for (;;)
 	{
 		/*
-		 * Remember this value, so that, after looking up the object name and
-		 * locking it, we can check whether any invalidation messages have
-		 * been processed that might require a do-over.
+		 * 记住此值，以便在查找对象名称并锁定之后，可以检查是否已处理过可能需要重试的共享失效消息。
+		 *
+		 *
 		 */
 		inval_count = SharedInvalidMessageCounter;
 
-		/* Look up object address. */
+		/* 查找对象地址。 */
 		switch (objtype)
 		{
 			case OBJECT_INDEX:
@@ -1164,14 +1164,14 @@ get_object_address(ObjectType objtype, Node *object,
 															 missing_ok);
 				address.objectSubId = 0;
 				break;
-				/* no default, to let compiler warn about missing case */
+				/* 无默认值，以便编译器警告缺少的 case */
 		}
 
 		if (!address.classId)
 			elog(ERROR, "unrecognized object type: %d", (int) objtype);
 
 		/*
-		 * If we could not find the supplied object, return without locking.
+		 * 如果找不到所提供的对象，则不加锁直接返回。
 		 */
 		if (!OidIsValid(address.objectId))
 		{
@@ -1180,9 +1180,9 @@ get_object_address(ObjectType objtype, Node *object,
 		}
 
 		/*
-		 * If we're retrying, see if we got the same answer as last time.  If
-		 * so, we're done; if not, we locked the wrong thing, so give up our
-		 * lock.
+		 * 如果正在重试，检查是否与上次得到相同的结果。如果
+		 * 是，则说明我们已经锁定正确的对象；否则说明我们锁定了错误的对象，
+		 * 因此放弃该锁。
 		 */
 		if (OidIsValid(old_address.classId))
 		{
@@ -1204,8 +1204,8 @@ get_object_address(ObjectType objtype, Node *object,
 		}
 
 		/*
-		 * If we're dealing with a relation or attribute, then the relation is
-		 * already locked.  Otherwise, we lock it now.
+		 * 如果处理的是关系或属性，则关系
+		 * 已被锁定。否则，我们现在锁定它。
 		 */
 		if (address.classId != RelationRelationId)
 		{
@@ -1218,41 +1218,41 @@ get_object_address(ObjectType objtype, Node *object,
 		}
 
 		/*
-		 * At this point, we've resolved the name to an OID and locked the
-		 * corresponding database object.  However, it's possible that by the
-		 * time we acquire the lock on the object, concurrent DDL has modified
-		 * the database in such a way that the name we originally looked up no
-		 * longer resolves to that OID.
+		 * 此时，我们已将名称解析为 OID 并锁定了
+		 * 相应的数据库对象。然而，在
+		 * 我们获取对象锁的时候，并发的 DDL 可能已经修改
+		 * 了数据库，使得我们最初查找的名称不再
+		 * 解析到该 OID。
 		 *
-		 * We can be certain that this isn't an issue if (a) no shared
-		 * invalidation messages have been processed or (b) we've locked a
-		 * relation somewhere along the line.  All the relation name lookups
-		 * in this module ultimately use RangeVarGetRelid() to acquire a
-		 * relation lock, and that function protects against the same kinds of
-		 * races we're worried about here.  Even when operating on a
-		 * constraint, rule, or trigger, we still acquire AccessShareLock on
-		 * the relation, which is enough to freeze out any concurrent DDL.
+		 * 如果 (a) 没有处理任何共享
+		 * 失效消息，或 (b) 我们在某个环节已经
+		 * 锁定了关系，我们就可以确定这不成问题。本模块中的所有
+		 * 关系名称查找最终都使用 RangeVarGetRelid() 来
+		 * 获取关系锁，而该函数可以防止我们在此
+		 * 担心的同类竞态条件。即使操作的是
+		 * 约束、规则或触发器，我们仍然会对关系获取
+		 * AccessShareLock，这足以排除任何并发的 DDL。
 		 *
-		 * In all other cases, however, it's possible that the name we looked
-		 * up no longer refers to the object we locked, so we retry the lookup
-		 * and see whether we get the same answer.
+		 * 然而，在所有其他情况下，我们查找的名称可能
+		 * 不再指向我们锁定的对象，因此我们重试该查找，
+		 * 并查看是否得到相同的结果。
 		 */
 		if (inval_count == SharedInvalidMessageCounter || relation != NULL)
 			break;
 		old_address = address;
 	}
 
-	/* Return the object address and the relation. */
+	/* 返回对象地址和关系。 */
 	*relp = relation;
 	return address;
 }
 
 /*
- * Return an ObjectAddress based on a RangeVar and an object name. The
- * name of the relation identified by the RangeVar is prepended to the
- * (possibly empty) list passed in as object. This is useful to find
- * the ObjectAddress of objects that depend on a relation. All other
- * considerations are exactly as for get_object_address above.
+ * 基于 RangeVar 和对象名称返回一个 ObjectAddress。由
+ * RangeVar 标识的关系名称会前置到
+ * 作为 object 传入的（可能为空的）列表中。这对于查找
+ * 依赖于某个关系的对象的 ObjectAddress 很有用。所有
+ * 其他方面的考虑与上面的 get_object_address 完全相同。
  */
 ObjectAddress
 get_object_address_rv(ObjectType objtype, RangeVar *rel, List *object,
@@ -1273,8 +1273,8 @@ get_object_address_rv(ObjectType objtype, RangeVar *rel, List *object,
 }
 
 /*
- * Find an ObjectAddress for a type of object that is identified by an
- * unqualified name.
+ * 查找特定类型对象的 ObjectAddress，该对象由
+ * 非限定名称标识。
  */
 static ObjectAddress
 get_object_address_unqualified(ObjectType objtype,
@@ -1285,7 +1285,7 @@ get_object_address_unqualified(ObjectType objtype,
 
 	name = strVal(strval);
 
-	/* Translate name to OID. */
+	/* 将名称转换为 OID。 */
 	switch (objtype)
 	{
 		case OBJECT_ACCESS_METHOD:
@@ -1355,7 +1355,7 @@ get_object_address_unqualified(ObjectType objtype,
 			break;
 		default:
 			elog(ERROR, "unrecognized object type: %d", (int) objtype);
-			/* placate compiler, which doesn't know elog won't return */
+			/* 安抚编译器，编译器不知道 elog 不会返回 */
 			address.classId = InvalidOid;
 			address.objectId = InvalidOid;
 			address.objectSubId = 0;
@@ -1365,7 +1365,7 @@ get_object_address_unqualified(ObjectType objtype,
 }
 
 /*
- * Locate a relation by qualified name.
+ * 按限定名称定位关系。
  */
 static ObjectAddress
 get_relation_by_qualified_name(ObjectType objtype, List *object,
@@ -1435,7 +1435,7 @@ get_relation_by_qualified_name(ObjectType objtype, List *object,
 			break;
 	}
 
-	/* Done. */
+	/* 完成。 */
 	address.objectId = RelationGetRelid(relation);
 	*relp = relation;
 
@@ -1443,11 +1443,11 @@ get_relation_by_qualified_name(ObjectType objtype, List *object,
 }
 
 /*
- * Find object address for an object that is attached to a relation.
+ * 查找附加在关系上的对象的对象地址。
  *
- * Note that we take only an AccessShareLock on the relation.  We need not
- * pass down the LOCKMODE from get_object_address(), because that is the lock
- * mode for the object itself, not the relation to which it is attached.
+ * 注意我们只对关系获取 AccessShareLock。无需
+ * 从 get_object_address() 传递 LOCKMODE 下来，因为那是
+ * 对象本身的锁模式，而不是它所附加的关系的锁模式。
  */
 static ObjectAddress
 get_object_address_relobject(ObjectType objtype, List *object,
@@ -1460,17 +1460,17 @@ get_object_address_relobject(ObjectType objtype, List *object,
 	List	   *relname;
 	Oid			reloid;
 
-	/* Extract name of dependent object. */
+	/* 提取依赖对象的名称。 */
 	depname = strVal(llast(object));
 
-	/* Separate relation name from dependent object name. */
+	/* 从依赖对象名称中分离出关系名称。 */
 	nnames = list_length(object);
 	if (nnames < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("must specify relation and object name")));
 
-	/* Extract relation name and open relation. */
+	/* 提取关系名称并打开关系。 */
 	relname = list_copy_head(object, nnames - 1);
 	relation = table_openrv_extended(makeRangeVarFromNameList(relname),
 									 AccessShareLock,
@@ -1510,23 +1510,23 @@ get_object_address_relobject(ObjectType objtype, List *object,
 			elog(ERROR, "unrecognized object type: %d", (int) objtype);
 	}
 
-	/* Avoid relcache leak when object not found. */
+	/* 避免对象未找到时的 relcache 泄漏。 */
 	if (!OidIsValid(address.objectId))
 	{
 		if (relation != NULL)
 			table_close(relation, AccessShareLock);
 
-		relation = NULL;		/* department of accident prevention */
+		relation = NULL;		/* 事故预防部门 */
 		return address;
 	}
 
-	/* Done. */
+	/* 完成。 */
 	*relp = relation;
 	return address;
 }
 
 /*
- * Find the ObjectAddress for an attribute.
+ * 查找属性的 ObjectAddress。
  */
 static ObjectAddress
 get_object_address_attribute(ObjectType objtype, List *object,
@@ -1540,18 +1540,18 @@ get_object_address_attribute(ObjectType objtype, List *object,
 	const char *attname;
 	AttrNumber	attnum;
 
-	/* Extract relation name and open relation. */
+	/* 提取关系名称并打开关系。 */
 	if (list_length(object) < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("column name must be qualified")));
 	attname = strVal(llast(object));
 	relname = list_copy_head(object, list_length(object) - 1);
-	/* XXX no missing_ok support here */
+	/* XXX 此处不支持 missing_ok */
 	relation = relation_openrv(makeRangeVarFromNameList(relname), lockmode);
 	reloid = RelationGetRelid(relation);
 
-	/* Look up attribute and construct return value. */
+	/* 查找属性并构造返回值。 */
 	attnum = get_attnum(reloid, attname);
 	if (attnum == InvalidAttrNumber)
 	{
@@ -1577,7 +1577,7 @@ get_object_address_attribute(ObjectType objtype, List *object,
 }
 
 /*
- * Find the ObjectAddress for an attribute's default value.
+ * 查找属性默认值的 ObjectAddress。
  */
 static ObjectAddress
 get_object_address_attrdef(ObjectType objtype, List *object,
@@ -1593,20 +1593,20 @@ get_object_address_attrdef(ObjectType objtype, List *object,
 	TupleDesc	tupdesc;
 	Oid			defoid;
 
-	/* Extract relation name and open relation. */
+	/* 提取关系名称并打开关系。 */
 	if (list_length(object) < 2)
 		ereport(ERROR,
 				(errcode(ERRCODE_SYNTAX_ERROR),
 				 errmsg("column name must be qualified")));
 	attname = strVal(llast(object));
 	relname = list_copy_head(object, list_length(object) - 1);
-	/* XXX no missing_ok support here */
+	/* XXX 此处不支持 missing_ok */
 	relation = relation_openrv(makeRangeVarFromNameList(relname), lockmode);
 	reloid = RelationGetRelid(relation);
 
 	tupdesc = RelationGetDescr(relation);
 
-	/* Look up attribute number and fetch the pg_attrdef OID */
+	/* 查找属性编号并获取 pg_attrdef 的 OID */
 	attnum = get_attnum(reloid, attname);
 	defoid = InvalidOid;
 	if (attnum != InvalidAttrNumber && tupdesc->constr != NULL)
@@ -1635,7 +1635,7 @@ get_object_address_attrdef(ObjectType objtype, List *object,
 }
 
 /*
- * Find the ObjectAddress for a type or domain
+ * 查找类型或域的 ObjectAddress
  */
 static ObjectAddress
 get_object_address_type(ObjectType objtype, TypeName *typename, bool missing_ok)
@@ -1674,7 +1674,7 @@ get_object_address_type(ObjectType objtype, TypeName *typename, bool missing_ok)
 }
 
 /*
- * Find the ObjectAddress for an opclass or opfamily.
+ * 查找操作符类或操作符族的 ObjectAddress。
  */
 static ObjectAddress
 get_object_address_opcf(ObjectType objtype, List *object, bool missing_ok)
@@ -1682,7 +1682,7 @@ get_object_address_opcf(ObjectType objtype, List *object, bool missing_ok)
 	Oid			amoid;
 	ObjectAddress address;
 
-	/* XXX no missing_ok support here */
+	/* XXX 此处不支持 missing_ok */
 	amoid = get_index_am_oid(strVal(linitial(object)), false);
 	object = list_copy_tail(object, 1);
 
@@ -1700,7 +1700,7 @@ get_object_address_opcf(ObjectType objtype, List *object, bool missing_ok)
 			break;
 		default:
 			elog(ERROR, "unrecognized object type: %d", (int) objtype);
-			/* placate compiler, which doesn't know elog won't return */
+			/* 安抚编译器，编译器不知道 elog 不会返回 */
 			address.classId = InvalidOid;
 			address.objectId = InvalidOid;
 			address.objectSubId = 0;
@@ -1710,9 +1710,9 @@ get_object_address_opcf(ObjectType objtype, List *object, bool missing_ok)
 }
 
 /*
- * Find the ObjectAddress for an opclass/opfamily member.
+ * 查找操作符类/操作符族成员的 ObjectAddress。
  *
- * (The returned address corresponds to a pg_amop/pg_amproc object).
+ * （返回的地址对应 pg_amop/pg_amproc 对象。）
  */
 static ObjectAddress
 get_object_address_opf_member(ObjectType objtype,
@@ -1728,17 +1728,17 @@ get_object_address_opf_member(ObjectType objtype,
 	int			i;
 
 	/*
-	 * The last element of the object list contains the strategy or procedure
-	 * number.  We need to strip that out before getting the opclass/family
-	 * address.  The rest can be used directly by get_object_address_opcf().
+	 * 对象列表的最后一个元素包含策略编号或
+	 * 过程编号。我们需要先将其剥离，再获取操作符类/族的
+	 * 地址。其余部分可直接由 get_object_address_opcf() 使用。
 	 */
 	membernum = atoi(strVal(llast(linitial(object))));
 	copy = list_copy_head(linitial(object), list_length(linitial(object)) - 1);
 
-	/* no missing_ok support here */
+	/* 此处不支持 missing_ok */
 	famaddr = get_object_address_opcf(OBJECT_OPFAMILY, copy, false);
 
-	/* find out left/right type names and OIDs */
+	/* 查找左右类型的名称和 OIDs */
 	typenames[0] = typenames[1] = NULL;
 	typeoids[0] = typeoids[1] = InvalidOid;
 	i = 0;
@@ -1824,7 +1824,7 @@ get_object_address_opf_member(ObjectType objtype,
 }
 
 /*
- * Find the ObjectAddress for a user mapping.
+ * 查找用户映射的 ObjectAddress。
  */
 static ObjectAddress
 get_object_address_usermapping(List *object, bool missing_ok)
@@ -1838,11 +1838,11 @@ get_object_address_usermapping(List *object, bool missing_ok)
 
 	ObjectAddressSet(address, UserMappingRelationId, InvalidOid);
 
-	/* fetch string names from input lists, for error messages */
+	/* 从输入列表中获取字符串名称，用于错误消息 */
 	username = strVal(linitial(object));
 	servername = strVal(lsecond(object));
 
-	/* look up pg_authid OID of mapped user; InvalidOid if PUBLIC */
+	/* 查找被映射用户的 pg_authid OID；若为 PUBLIC 则为 InvalidOid */
 	if (strcmp(username, "public") == 0)
 		userid = InvalidOid;
 	else
@@ -1862,7 +1862,7 @@ get_object_address_usermapping(List *object, bool missing_ok)
 		ReleaseSysCache(tp);
 	}
 
-	/* Now look up the pg_user_mapping tuple */
+	/* 现在查找 pg_user_mapping 元组 */
 	server = GetForeignServerByName(servername, true);
 	if (!server)
 	{
@@ -1893,9 +1893,9 @@ get_object_address_usermapping(List *object, bool missing_ok)
 }
 
 /*
- * Find the ObjectAddress for a publication relation.  The first element of
- * the object parameter is the relation name, the second is the
- * publication name.
+ * 查找发布关系的 ObjectAddress。对象参数的
+ * 第一个元素是关系名称，
+ * 第二个元素是发布名称。
  */
 static ObjectAddress
 get_object_address_publication_rel(List *object,
@@ -1915,10 +1915,10 @@ get_object_address_publication_rel(List *object,
 	if (!relation)
 		return address;
 
-	/* fetch publication name from input list */
+	/* 从输入列表中获取发布名称 */
 	pubname = strVal(lsecond(object));
 
-	/* Now look up the pg_publication tuple */
+	/* 现在查找 pg_publication 元组 */
 	pub = GetPublicationByName(pubname, missing_ok);
 	if (!pub)
 	{
@@ -1926,7 +1926,7 @@ get_object_address_publication_rel(List *object,
 		return address;
 	}
 
-	/* Find the publication relation mapping in syscache. */
+	/* 在 syscache 中查找发布关系映射。 */
 	address.objectId =
 		GetSysCacheOid2(PUBLICATIONRELMAP, Anum_pg_publication_rel_oid,
 						ObjectIdGetDatum(RelationGetRelid(relation)),
@@ -1947,8 +1947,8 @@ get_object_address_publication_rel(List *object,
 }
 
 /*
- * Find the ObjectAddress for a publication schema. The first element of the
- * object parameter is the schema name, the second is the publication name.
+ * 查找发布模式的 ObjectAddress。对象参数的第一个元素
+ * 是模式名称，第二个元素是发布名称。
  */
 static ObjectAddress
 get_object_address_publication_schema(List *object, bool missing_ok)
@@ -1961,7 +1961,7 @@ get_object_address_publication_schema(List *object, bool missing_ok)
 
 	ObjectAddressSet(address, PublicationNamespaceRelationId, InvalidOid);
 
-	/* Fetch schema name and publication name from input list */
+	/* 从输入列表中获取模式名称和发布名称 */
 	schemaname = strVal(linitial(object));
 	pubname = strVal(lsecond(object));
 
@@ -1969,12 +1969,12 @@ get_object_address_publication_schema(List *object, bool missing_ok)
 	if (!OidIsValid(schemaid))
 		return address;
 
-	/* Now look up the pg_publication tuple */
+	/* 现在查找 pg_publication 元组 */
 	pub = GetPublicationByName(pubname, missing_ok);
 	if (!pub)
 		return address;
 
-	/* Find the publication schema mapping in syscache */
+	/* 在 syscache 中查找发布模式映射 */
 	address.objectId =
 		GetSysCacheOid2(PUBLICATIONNAMESPACEMAP,
 						Anum_pg_publication_namespace_oid,
@@ -1990,7 +1990,7 @@ get_object_address_publication_schema(List *object, bool missing_ok)
 }
 
 /*
- * Find the ObjectAddress for a default ACL.
+ * 查找默认 ACL 的 ObjectAddress。
  */
 static ObjectAddress
 get_object_address_defacl(List *object, bool missing_ok)
@@ -2007,8 +2007,8 @@ get_object_address_defacl(List *object, bool missing_ok)
 	ObjectAddressSet(address, DefaultAclRelationId, InvalidOid);
 
 	/*
-	 * First figure out the textual attributes so that they can be used for
-	 * error reporting.
+	 * 首先确定文本属性，以便用于错误报告。
+	 *
 	 */
 	username = strVal(lsecond(object));
 	if (list_length(object) >= 3)
@@ -2017,8 +2017,8 @@ get_object_address_defacl(List *object, bool missing_ok)
 		schema = NULL;
 
 	/*
-	 * Decode defaclobjtype.  Only first char is considered; the rest of the
-	 * string, if any, is blissfully ignored.
+	 * 解码 defaclobjtype。只考虑第一个字符；
+	 * 字符串中其余部分（如果有）将被忽略。
 	 */
 	objtype = ((char *) strVal(linitial(object)))[0];
 	switch (objtype)
@@ -2051,7 +2051,7 @@ get_object_address_defacl(List *object, bool missing_ok)
 	}
 
 	/*
-	 * Look up user ID.  Behave as "default ACL not found" if the user doesn't
+	 * 查找用户 ID。如果用户不存在，则视为"未找到默认 ACL"。
 	 * exist.
 	 */
 	tp = SearchSysCache1(AUTHNAME,
@@ -2062,8 +2062,8 @@ get_object_address_defacl(List *object, bool missing_ok)
 	ReleaseSysCache(tp);
 
 	/*
-	 * If a schema name was given, look up its OID.  If it doesn't exist,
-	 * behave as "default ACL not found".
+	 * 如果给定了模式名称，则查找它的 OID。如果它不存在，
+	 * 则按"未找到默认 ACL"处理。
 	 */
 	if (schema)
 	{
@@ -2074,7 +2074,7 @@ get_object_address_defacl(List *object, bool missing_ok)
 	else
 		schemaid = InvalidOid;
 
-	/* Finally, look up the pg_default_acl object */
+	/* 最后，查找 pg_default_acl 对象 */
 	tp = SearchSysCache3(DEFACLROLENSPOBJ,
 						 ObjectIdGetDatum(userid),
 						 ObjectIdGetDatum(schemaid),
@@ -2105,8 +2105,8 @@ not_found:
 }
 
 /*
- * Convert an array of TEXT into a List of string Values, as emitted by the
- * parser, which is what get_object_address uses as input.
+ * 将 TEXT 数组转换为解析器产生的字符串 Value 组成的
+ * List，get_object_address 以此作为输入。
  */
 static List *
 textarray_to_strvaluelist(ArrayType *arr)
@@ -2132,7 +2132,7 @@ textarray_to_strvaluelist(ArrayType *arr)
 }
 
 /*
- * SQL-callable version of get_object_address
+ * get_object_address 的 SQL 可调用版本
  */
 Datum
 pg_get_object_address(PG_FUNCTION_ARGS)
@@ -2153,7 +2153,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	HeapTuple	htup;
 	Relation	relation;
 
-	/* Decode object type, raise error if unknown */
+	/* 解码对象类型，如果未知则抛出错误 */
 	itype = read_objtype_from_string(ttype);
 	if (itype < 0)
 		ereport(ERROR,
@@ -2162,8 +2162,8 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	type = (ObjectType) itype;
 
 	/*
-	 * Convert the text array to the representation appropriate for the given
-	 * object type.  Most use a simple string Values list, but there are some
+	 * 根据对象类型，将文本数组转换为适当的表示形式。大多数情况下使用简单的字符串 Value 列表，
+	 * 但也有一些例外情况。
 	 * exceptions.
 	 */
 	if (type == OBJECT_TYPE || type == OBJECT_DOMAIN || type == OBJECT_CAST ||
@@ -2211,7 +2211,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * If args are given, decode them according to the object type.
+	 * 如果提供了 args，则根据对象类型对其进行解码。
 	 */
 	if (type == OBJECT_AGGREGATE ||
 		type == OBJECT_FUNCTION ||
@@ -2222,7 +2222,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 		type == OBJECT_AMOP ||
 		type == OBJECT_AMPROC)
 	{
-		/* in these cases, the args list must be of TypeName */
+		/* 在这些情况下，args 列表必须是 TypeName 类型 */
 		Datum	   *elems;
 		bool	   *nulls;
 		int			nelems;
@@ -2244,13 +2244,13 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	}
 	else
 	{
-		/* For all other object types, use string Values */
+		/* 对于所有其他对象类型，使用字符串 Value */
 		args = textarray_to_strvaluelist(argsarr);
 	}
 
 	/*
-	 * get_object_address is pretty sensitive to the length of its input
-	 * lists; check that they're what it wants.
+	 * get_object_address 对其输入
+	 * 列表的长度相当敏感；检查它们是否符合它的需要。
 	 */
 	switch (type)
 	{
@@ -2298,7 +2298,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	}
 
 	/*
-	 * Now build the Node type that get_object_address() expects for the given
+	 * 现在构建 get_object_address() 对给定类型所期望的 Node 类型。
 	 * type.
 	 */
 	switch (type)
@@ -2383,9 +2383,9 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 				break;
 			}
 		case OBJECT_LARGEOBJECT:
-			/* already handled above */
+			/* 上面已处理 */
 			break;
-			/* no default, to let compiler warn about missing case */
+			/* 无默认值，以便编译器警告缺少的 case */
 	}
 
 	if (objnode == NULL)
@@ -2394,7 +2394,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 	addr = get_object_address(type, objnode,
 							  &relation, AccessShareLock, false);
 
-	/* We don't need the relcache entry, thank you very much */
+	/* 我们不需要 relcache 条目，谢谢 */
 	if (relation)
 		relation_close(relation, AccessShareLock);
 
@@ -2414,7 +2414,7 @@ pg_get_object_address(PG_FUNCTION_ARGS)
 }
 
 /*
- * Check ownership of an object previously identified by get_object_address.
+ * 检查先前由 get_object_address 标识的对象的所有权。
  */
 void
 check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
@@ -2459,8 +2459,8 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 				ReleaseSysCache(tuple);
 
 				/*
-				 * Fallback to type ownership check in this case as this is
-				 * what domain constraints rely on.
+				 * 在这种情况下，回退到类型所有权检查，因为域约束依赖于此。
+				 *
 				 */
 				if (!object_ownercheck(TypeRelationId, contypid, roleid))
 					aclcheck_error_type(ACLCHECK_NOT_OWNER, contypid);
@@ -2510,7 +2510,7 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 			break;
 		case OBJECT_CAST:
 			{
-				/* We can only check permissions on the source/target types */
+				/* 我们只能检查源/目标类型的权限 */
 				TypeName   *sourcetype = linitial_node(TypeName, castNode(List, object));
 				TypeName   *targettype = lsecond_node(TypeName, castNode(List, object));
 				Oid			sourcetypeid = typenameTypeId(NULL, sourcetype);
@@ -2537,10 +2537,10 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 		case OBJECT_ROLE:
 
 			/*
-			 * We treat roles as being "owned" by those with CREATEROLE priv,
-			 * provided that they also have admin option on the role.
+			 * 我们将角色视为由拥有 CREATEROLE 权限的角色所"拥有"，
+			 * 前提是这些角色对该角色也拥有管理员选项。
 			 *
-			 * However, superusers are only owned by superusers.
+			 * 然而，超级用户只由超级用户拥有。
 			 */
 			if (superuser_arg(address.objectId))
 			{
@@ -2573,7 +2573,7 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 		case OBJECT_TSTEMPLATE:
 		case OBJECT_ACCESS_METHOD:
 		case OBJECT_PARAMETER_ACL:
-			/* We treat these object types as being owned by superusers */
+			/* 我们将这些对象类型视为由超级用户拥有 */
 			if (!superuser_arg(roleid))
 				ereport(ERROR,
 						(errcode(ERRCODE_INSUFFICIENT_PRIVILEGE),
@@ -2586,7 +2586,7 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 		case OBJECT_PUBLICATION_NAMESPACE:
 		case OBJECT_PUBLICATION_REL:
 		case OBJECT_USER_MAPPING:
-			/* These are currently not supported or don't make sense here. */
+			/* 这些目前不支持或在此处没有意义。 */
 			elog(ERROR, "unsupported object type: %d", (int) objtype);
 			break;
 	}
@@ -2595,8 +2595,8 @@ check_object_ownership(Oid roleid, ObjectType objtype, ObjectAddress address,
 /*
  * get_object_namespace
  *
- * Find the schema containing the specified object.  For non-schema objects,
- * this function returns InvalidOid.
+ * 查找包含指定对象的模式。对于非模式对象，
+ * 此函数返回 InvalidOid。
  */
 Oid
 get_object_namespace(const ObjectAddress *address)
@@ -2606,16 +2606,16 @@ get_object_namespace(const ObjectAddress *address)
 	Oid			oid;
 	const ObjectPropertyType *property;
 
-	/* If not owned by a namespace, just return InvalidOid. */
+	/* 如果不属于某个模式，则直接返回 InvalidOid。 */
 	property = get_object_property_data(address->classId);
 	if (property->attnum_namespace == InvalidAttrNumber)
 		return InvalidOid;
 
-	/* Currently, we can only handle object types with system caches. */
+	/* 目前，我们只能处理具有系统缓存的对象类型。 */
 	cache = property->oid_catcache_id;
 	Assert(cache != -1);
 
-	/* Fetch tuple from syscache and extract namespace attribute. */
+	/* 从 syscache 获取元组并提取命名空间属性。 */
 	tuple = SearchSysCache1(cache, ObjectIdGetDatum(address->objectId));
 	if (!HeapTupleIsValid(tuple))
 		elog(ERROR, "cache lookup failed for cache %d oid %u",
@@ -2629,10 +2629,10 @@ get_object_namespace(const ObjectAddress *address)
 }
 
 /*
- * Return ObjectType for the given object type as given by
- * getObjectTypeDescription; if no valid ObjectType code exists, but it's a
- * possible output type from getObjectTypeDescription, return -1.
- * Otherwise, an error is thrown.
+ * 返回给定对象类型（由
+ * getObjectTypeDescription 给出）对应的 ObjectType；如果不存在有效的 ObjectType 代码，
+ * 但它是 getObjectTypeDescription 可能输出的类型，则返回 -1。
+ * 否则，抛出错误。
  */
 int
 read_objtype_from_string(const char *objtype)
@@ -2648,11 +2648,11 @@ read_objtype_from_string(const char *objtype)
 			(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 			 errmsg("unrecognized object type \"%s\"", objtype)));
 
-	return -1;					/* keep compiler quiet */
+	return -1;					/* 保持编译器安静 */
 }
 
 /*
- * Interfaces to reference fields of ObjectPropertyType
+ * ObjectPropertyType 字段引用的接口
  */
 const char *
 get_object_class_descr(Oid class_id)
@@ -2729,9 +2729,9 @@ get_object_attnum_acl(Oid class_id)
 /*
  * get_object_type
  *
- * Return the object type associated with a given object.  This routine
- * is primarily used to determine the object type to mention in ACL check
- * error messages, so it's desirable for it to avoid failing.
+ * 返回与给定对象关联的对象类型。本例程
+ * 主要用于确定在 ACL 检查错误消息中提及的
+ * 对象类型，因此最好让它不要失败。
  */
 ObjectType
 get_object_type(Oid class_id, Oid object_id)
@@ -2741,9 +2741,9 @@ get_object_type(Oid class_id, Oid object_id)
 	if (prop->objtype == OBJECT_TABLE)
 	{
 		/*
-		 * If the property data says it's a table, dig a little deeper to get
-		 * the real relation kind, so that callers can produce more precise
-		 * error messages.
+		 * 如果属性数据表明它是表，则进一步深入获取
+		 * 实际的关系种类，以便调用方能够生成更精确的
+		 * 错误消息。
 		 */
 		return get_relkind_objtype(get_rel_relkind(object_id));
 	}
@@ -2760,8 +2760,8 @@ get_object_namensp_unique(Oid class_id)
 }
 
 /*
- * Return whether we have useful data for the given object class in the
- * ObjectProperty table.
+ * 返回 ObjectProperty 表中是否
+ * 有给定对象类的有用数据。
  */
 bool
 is_objectclass_supported(Oid class_id)
@@ -2778,7 +2778,7 @@ is_objectclass_supported(Oid class_id)
 }
 
 /*
- * Find ObjectProperty structure by class_id.
+ * 按 class_id 查找 ObjectProperty 结构。
  */
 static const ObjectPropertyType *
 get_object_property_data(Oid class_id)
@@ -2787,8 +2787,8 @@ get_object_property_data(Oid class_id)
 	int			index;
 
 	/*
-	 * A shortcut to speed up multiple consecutive lookups of a particular
-	 * object class.
+	 * 加速对特定对象类进行多次连续查找的
+	 * 快捷方式。
 	 */
 	if (prop_last && prop_last->class_oid == class_id)
 		return prop_last;
@@ -2805,15 +2805,15 @@ get_object_property_data(Oid class_id)
 	ereport(ERROR,
 			(errmsg_internal("unrecognized class ID: %u", class_id)));
 
-	return NULL;				/* keep MSC compiler happy */
+	return NULL;				/* 保持 MSC 编译器满意 */
 }
 
 /*
- * Return a copy of the tuple for the object with the given object OID, from
- * the given catalog (which must have been opened by the caller and suitably
- * locked).  NULL is returned if the OID is not found.
+ * 从给定目录（必须由调用方打开并适当锁定）中返回具有给定对象 OID
+ * 的元组副本。
+ * 如果未找到该 OID，则返回 NULL。
  *
- * We try a syscache first, if available.
+ * 如果可用，我们先尝试 syscache。
  */
 HeapTuple
 get_catalog_object_by_oid(Relation catalog, AttrNumber oidcol, Oid objectId)
@@ -2823,10 +2823,10 @@ get_catalog_object_by_oid(Relation catalog, AttrNumber oidcol, Oid objectId)
 }
 
 /*
- * Same as get_catalog_object_by_oid(), but with an additional "locktup"
- * argument controlling whether to acquire a LOCKTAG_TUPLE at mode
- * InplaceUpdateTupleLock.  See README.tuplock section "Locking to write
- * inplace-updated tables".
+ * 与 get_catalog_object_by_oid() 相同，但多了一个 "locktup" 参数，
+ * 控制是否以 InplaceUpdateTupleLock 模式获取 LOCKTAG_TUPLE。
+ * 参见 README.tuplock 中的
+ * "Locking to write inplace-updated tables"一节。
  */
 HeapTuple
 get_catalog_object_by_oid_extended(Relation catalog,
@@ -2846,7 +2846,7 @@ get_catalog_object_by_oid_extended(Relation catalog,
 		else
 			tuple = SearchSysCacheCopy1(oidCacheId,
 										ObjectIdGetDatum(objectId));
-		if (!HeapTupleIsValid(tuple))	/* should not happen */
+		if (!HeapTupleIsValid(tuple))	/* 不应该发生 */
 			return NULL;
 	}
 	else
@@ -2885,9 +2885,9 @@ get_catalog_object_by_oid_extended(Relation catalog,
 /*
  * getPublicationSchemaInfo
  *
- * Get publication name and schema name from the object address into pubname and
- * nspname. Both pubname and nspname are palloc'd strings which will be freed by
- * the caller.
+ * 从对象地址中获取发布名称和模式名称，存入 pubname 和
+ * nspname。pubname 和 nspname 都是 palloc 分配的字符串，将由
+ * 调用方释放。
  */
 static bool
 getPublicationSchemaInfo(const ObjectAddress *object, bool missing_ok,
@@ -2932,10 +2932,10 @@ getPublicationSchemaInfo(const ObjectAddress *object, bool missing_ok,
 }
 
 /*
- * getObjectDescription: build an object description for messages
+ * getObjectDescription：为消息构建对象描述。
  *
- * The result is a palloc'd string.  NULL is returned for an undefined
- * object if missing_ok is true, else an error is generated.
+ * 结果是 palloc 分配的字符串。如果对象未定义且 missing_ok 为
+ * true，则返回 NULL，否则生成错误。
  */
 char *
 getObjectDescription(const ObjectAddress *object, bool missing_ok)
@@ -2951,7 +2951,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				getRelationDescription(&buffer, object->objectId, missing_ok);
 			else
 			{
-				/* column, not whole relation */
+				/* 列，而不是整个关系 */
 				StringInfoData rel;
 				char	   *attname = get_attname(object->objectId,
 												  object->objectSubId,
@@ -3055,7 +3055,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				coll = (Form_pg_collation) GETSTRUCT(collTup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (CollationIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3124,7 +3124,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				conv = (Form_pg_conversion) GETSTRUCT(conTup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (ConversionIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3215,7 +3215,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 						 opcForm->opcmethod);
 				amForm = (Form_pg_am) GETSTRUCT(amTup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (OpclassIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3294,9 +3294,9 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				getOpFamilyDescription(&opfam, amopForm->amopfamily, false);
 
 				/*
-				 * We use FORMAT_TYPE_ALLOW_INVALID here so as not to fail
-				 * completely if the type links are dangling, which is a form
-				 * of catalog corruption that could occur due to old bugs.
+				 * 此处使用 FORMAT_TYPE_ALLOW_INVALID，以免
+				 * 在类型链接悬空时完全失败，这是一种
+				 * 可能因旧缺陷而出现的目录损坏形式。
 				 */
 
 				/*------
@@ -3359,9 +3359,9 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				getOpFamilyDescription(&opfam, amprocForm->amprocfamily, false);
 
 				/*
-				 * We use FORMAT_TYPE_ALLOW_INVALID here so as not to fail
-				 * completely if the type links are dangling, which is a form
-				 * of catalog corruption that could occur due to old bugs.
+				 * 此处使用 FORMAT_TYPE_ALLOW_INVALID，以免
+				 * 在类型链接悬空时完全失败，这是一种
+				 * 可能因旧缺陷而出现的目录损坏形式。
 				 */
 
 				/*------
@@ -3511,7 +3511,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				stxForm = (Form_pg_statistic_ext) GETSTRUCT(stxTup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (StatisticsObjIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3542,7 +3542,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 				}
 				prsForm = (Form_pg_ts_parser) GETSTRUCT(tup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (TSParserIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3573,7 +3573,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				dictForm = (Form_pg_ts_dict) GETSTRUCT(tup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (TSDictionaryIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3604,7 +3604,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				tmplForm = (Form_pg_ts_template) GETSTRUCT(tup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (TSTemplateIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3635,7 +3635,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 
 				cfgForm = (Form_pg_ts_config) GETSTRUCT(tup);
 
-				/* Qualify the name if not visible in search path */
+				/* 如果在搜索路径中不可见，则限定名称 */
 				if (TSConfigIsVisible(object->objectId))
 					nspname = NULL;
 				else
@@ -3878,7 +3878,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 										 rolename);
 						break;
 					default:
-						/* shouldn't get here */
+						/* 不应该到达这里 */
 						if (nspname)
 							appendStringInfo(&buffer,
 											 _("default privileges belonging to role %s in schema %s"),
@@ -4092,12 +4092,12 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 			}
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 * 这里故意不提供默认的 case，我们希望
+			 * 当上方未处理新的 OCLASS 时编译器发出警告。
 			 */
 	}
 
-	/* an empty buffer is equivalent to no object found */
+	/* 空缓冲区等效于未找到对象 */
 	if (buffer.len == 0)
 		return NULL;
 
@@ -4105,7 +4105,7 @@ getObjectDescription(const ObjectAddress *object, bool missing_ok)
 }
 
 /*
- * getObjectDescriptionOids: as above, except the object is specified by Oids
+ * getObjectDescriptionOids：与上面相同，但对象由 OID 指定
  */
 char *
 getObjectDescriptionOids(Oid classid, Oid objid)
@@ -4120,9 +4120,9 @@ getObjectDescriptionOids(Oid classid, Oid objid)
 }
 
 /*
- * subroutine for getObjectDescription: describe a relation
+ * getObjectDescription 的子例程：描述关系
  *
- * The result is appended to "buffer".
+ * 结果会附加到 "buffer"。
  */
 static void
 getRelationDescription(StringInfo buffer, Oid relid, bool missing_ok)
@@ -4142,7 +4142,7 @@ getRelationDescription(StringInfo buffer, Oid relid, bool missing_ok)
 	}
 	relForm = (Form_pg_class) GETSTRUCT(relTup);
 
-	/* Qualify the name if not visible in search path */
+	/* 如果在搜索路径中不可见，则限定名称 */
 	if (RelationIsVisible(relid))
 		nspname = NULL;
 	else
@@ -4187,7 +4187,7 @@ getRelationDescription(StringInfo buffer, Oid relid, bool missing_ok)
 							 relname);
 			break;
 		default:
-			/* shouldn't get here */
+			/* 不应该到达这里 */
 			appendStringInfo(buffer, _("relation %s"),
 							 relname);
 			break;
@@ -4197,7 +4197,7 @@ getRelationDescription(StringInfo buffer, Oid relid, bool missing_ok)
 }
 
 /*
- * subroutine for getObjectDescription: describe an operator family
+ * getObjectDescription 的子例程：描述操作符族
  */
 static void
 getOpFamilyDescription(StringInfo buffer, Oid opfid, bool missing_ok)
@@ -4223,7 +4223,7 @@ getOpFamilyDescription(StringInfo buffer, Oid opfid, bool missing_ok)
 			 opfForm->opfmethod);
 	amForm = (Form_pg_am) GETSTRUCT(amTup);
 
-	/* Qualify the name if not visible in search path */
+	/* 如果在搜索路径中不可见，则限定名称 */
 	if (OpfamilyIsVisible(opfid))
 		nspname = NULL;
 	else
@@ -4239,7 +4239,7 @@ getOpFamilyDescription(StringInfo buffer, Oid opfid, bool missing_ok)
 }
 
 /*
- * SQL-level callable version of getObjectDescription
+ * getObjectDescription 的 SQL 可调用版本
  */
 Datum
 pg_describe_object(PG_FUNCTION_ARGS)
@@ -4250,7 +4250,7 @@ pg_describe_object(PG_FUNCTION_ARGS)
 	char	   *description;
 	ObjectAddress address;
 
-	/* for "pinned" items in pg_depend, return null */
+	/* 对于 pg_depend 中的"固定"项，返回 null */
 	if (!OidIsValid(classid) && !OidIsValid(objid))
 		PG_RETURN_NULL();
 
@@ -4267,7 +4267,7 @@ pg_describe_object(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-level callable function to obtain object type + identity
+ * 获取对象类型和标识的 SQL 可调用函数
  */
 Datum
 pg_identify_object(PG_FUNCTION_ARGS)
@@ -4316,8 +4316,8 @@ pg_identify_object(PG_FUNCTION_ARGS)
 			}
 
 			/*
-			 * We only return the object name if it can be used (together with
-			 * the schema name, if any) as a unique identifier.
+			 * 只有当对象名称（连同模式名称，如果有的话）可以用作
+			 * 唯一标识符时，才返回该名称。
 			 */
 			if (get_object_namensp_unique(address.classId))
 			{
@@ -4339,17 +4339,17 @@ pg_identify_object(PG_FUNCTION_ARGS)
 		table_close(catalog, AccessShareLock);
 	}
 
-	/* object type, which can never be NULL */
+	/* 对象类型，永远不为 NULL */
 	values[0] = CStringGetTextDatum(getObjectTypeDescription(&address, true));
 	nulls[0] = false;
 
 	/*
-	 * Before doing anything, extract the object identity.  If the identity
-	 * could not be found, set all the fields except the object type to NULL.
+	 * 在做任何事之前，先提取对象标识。如果找不到该标识，
+	 * 则除对象类型外的所有字段都设为 NULL。
 	 */
 	objidentity = getObjectIdentity(&address, true);
 
-	/* schema name */
+	/* 模式名称 */
 	if (OidIsValid(schema_oid) && objidentity)
 	{
 		const char *schema = quote_identifier(get_namespace_name(schema_oid));
@@ -4360,7 +4360,7 @@ pg_identify_object(PG_FUNCTION_ARGS)
 	else
 		nulls[1] = true;
 
-	/* object name */
+	/* 对象名称 */
 	if (objname && objidentity)
 	{
 		values[2] = CStringGetTextDatum(objname);
@@ -4369,7 +4369,7 @@ pg_identify_object(PG_FUNCTION_ARGS)
 	else
 		nulls[2] = true;
 
-	/* object identity */
+	/* 对象标识 */
 	if (objidentity)
 	{
 		values[3] = CStringGetTextDatum(objidentity);
@@ -4384,7 +4384,7 @@ pg_identify_object(PG_FUNCTION_ARGS)
 }
 
 /*
- * SQL-level callable function to obtain object type + identity
+ * 获取对象类型和标识的 SQL 可调用函数
  */
 Datum
 pg_identify_object_as_address(PG_FUNCTION_ARGS)
@@ -4408,11 +4408,11 @@ pg_identify_object_as_address(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
-	/* object type, which can never be NULL */
+	/* 对象类型，永远不为 NULL */
 	values[0] = CStringGetTextDatum(getObjectTypeDescription(&address, true));
 	nulls[0] = false;
 
-	/* object identity */
+	/* 对象标识 */
 	identity = getObjectIdentityParts(&address, &names, &args, true);
 	if (identity == NULL)
 	{
@@ -4444,10 +4444,10 @@ pg_identify_object_as_address(PG_FUNCTION_ARGS)
 }
 
 /*
- * Return a palloc'ed string that describes the type of object that the
- * passed address is for.
+ * 返回一个描述传入地址所针对的
+ * 对象类型的 palloc 字符串。
  *
- * Keep ObjectTypeMap in sync with this.
+ * 让 ObjectTypeMap 与此保持同步。
  */
 char *
 getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
@@ -4627,19 +4627,19 @@ getObjectTypeDescription(const ObjectAddress *object, bool missing_ok)
 			break;
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 * 这里故意不提供默认的 case，我们希望
+			 * 当上方未处理新的 OCLASS 时编译器发出警告。
 			 */
 	}
 
-	/* the result can never be empty */
+	/* 结果永远不会为空 */
 	Assert(buffer.len > 0);
 
 	return buffer.data;
 }
 
 /*
- * subroutine for getObjectTypeDescription: describe a relation type
+ * getObjectTypeDescription 的子例程：描述关系类型
  */
 static void
 getRelationTypeDescription(StringInfo buffer, Oid relid, int32 objectSubId,
@@ -4655,7 +4655,7 @@ getRelationTypeDescription(StringInfo buffer, Oid relid, int32 objectSubId,
 		if (!missing_ok)
 			elog(ERROR, "cache lookup failed for relation %u", relid);
 
-		/* fallback to "relation" for an undefined object */
+		/* 对于未定义的对象，回退到 "relation" */
 		appendStringInfoString(buffer, "relation");
 		return;
 	}
@@ -4690,7 +4690,7 @@ getRelationTypeDescription(StringInfo buffer, Oid relid, int32 objectSubId,
 			appendStringInfoString(buffer, "foreign table");
 			break;
 		default:
-			/* shouldn't get here */
+			/* 不应该到达这里 */
 			appendStringInfoString(buffer, "relation");
 			break;
 	}
@@ -4702,7 +4702,7 @@ getRelationTypeDescription(StringInfo buffer, Oid relid, int32 objectSubId,
 }
 
 /*
- * subroutine for getObjectTypeDescription: describe a constraint type
+ * getObjectTypeDescription 的子例程：描述约束类型
  */
 static void
 getConstraintTypeDescription(StringInfo buffer, Oid constroid, bool missing_ok)
@@ -4721,7 +4721,7 @@ getConstraintTypeDescription(StringInfo buffer, Oid constroid, bool missing_ok)
 
 		table_close(constrRel, AccessShareLock);
 
-		/* fallback to "constraint" for an undefined object */
+		/* 对于未定义的对象，回退到 "constraint" */
 		appendStringInfoString(buffer, "constraint");
 		return;
 	}
@@ -4739,7 +4739,7 @@ getConstraintTypeDescription(StringInfo buffer, Oid constroid, bool missing_ok)
 }
 
 /*
- * subroutine for getObjectTypeDescription: describe a procedure type
+ * getObjectTypeDescription 的子例程：描述过程类型
  */
 static void
 getProcedureTypeDescription(StringInfo buffer, Oid procid,
@@ -4755,7 +4755,7 @@ getProcedureTypeDescription(StringInfo buffer, Oid procid,
 		if (!missing_ok)
 			elog(ERROR, "cache lookup failed for procedure %u", procid);
 
-		/* fallback to "procedure" for an undefined object */
+		/* 对于未定义的对象，回退到 "procedure" */
 		appendStringInfoString(buffer, "routine");
 		return;
 	}
@@ -4765,18 +4765,18 @@ getProcedureTypeDescription(StringInfo buffer, Oid procid,
 		appendStringInfoString(buffer, "aggregate");
 	else if (procForm->prokind == PROKIND_PROCEDURE)
 		appendStringInfoString(buffer, "procedure");
-	else						/* function or window function */
+	else						/* 函数或窗口函数 */
 		appendStringInfoString(buffer, "function");
 
 	ReleaseSysCache(procTup);
 }
 
 /*
- * Obtain a given object's identity, as a palloc'ed string.
+ * 获取给定对象的标识，以 palloc 字符串的形式返回。
  *
- * This is for machine consumption, so it's not translated.  All elements are
- * schema-qualified when appropriate.  Returns NULL if the object could not
- * be found.
+ * 这是供机器使用的，因此不做翻译。所有元素在适当情况下
+ * 都带有模式限定。如果找不到该对象，则
+ * 返回 NULL。
  */
 char *
 getObjectIdentity(const ObjectAddress *object, bool missing_ok)
@@ -4785,13 +4785,13 @@ getObjectIdentity(const ObjectAddress *object, bool missing_ok)
 }
 
 /*
- * As above, but more detailed.
+ * 与上面相同，但更详细。
  *
- * There are two sets of return values: the identity itself as a palloc'd
- * string is returned.  objname and objargs, if not NULL, are output parameters
- * that receive lists of C-strings that are useful to give back to
- * get_object_address() to reconstruct the ObjectAddress.  Returns NULL if
- * the object could not be found.
+ * 有两组返回值：对象标识本身作为
+ * palloc 字符串返回。objname 和 objargs 如果不为 NULL，则是
+ * 接收 C 字符串列表的输出参数，这些列表可用于
+ * 传回给 get_object_address() 以重建 ObjectAddress。如果
+ * 找不到该对象，则返回 NULL。
  */
 char *
 getObjectIdentityParts(const ObjectAddress *object,
@@ -4803,10 +4803,10 @@ getObjectIdentityParts(const ObjectAddress *object,
 	initStringInfo(&buffer);
 
 	/*
-	 * Make sure that both objname and objargs were passed, or none was; and
-	 * initialize them to empty lists.  For objname this is useless because it
-	 * will be initialized in all cases inside the switch; but we do it anyway
-	 * so that we can test below that no branch leaves it unset.
+	 * 确保 objname 和 objargs 要么都传入，要么都没有传入，并
+	 * 将它们初始化为空列表。对于 objname 这没有意义，因为它
+	 * 在 switch 内部的所有情况下都会被初始化；但我们仍然这样做，
+	 * 以便在下面检查没有分支遗漏了初始化。
 	 */
 	Assert(PointerIsValid(objname) == PointerIsValid(objargs));
 	if (objname)
@@ -4822,8 +4822,8 @@ getObjectIdentityParts(const ObjectAddress *object,
 				char	   *attr = NULL;
 
 				/*
-				 * Check for the attribute first, so as if it is missing we
-				 * can skip the entire relation description.
+				 * 先检查属性，这样如果属性缺失，我们
+				 * 就可以跳过整个关系描述。
 				 */
 				if (object->objectSubId != 0)
 				{
@@ -5974,17 +5974,17 @@ getObjectIdentityParts(const ObjectAddress *object,
 			break;
 
 			/*
-			 * There's intentionally no default: case here; we want the
-			 * compiler to warn if a new OCLASS hasn't been handled above.
+			 * 这里故意不提供默认的 case，我们希望
+			 * 当上方未处理新的 OCLASS 时编译器发出警告。
 			 */
 	}
 
 	if (!missing_ok)
 	{
 		/*
-		 * If a get_object_address() representation was requested, make sure
-		 * we are providing one.  We don't check objargs, because many of the
-		 * cases above leave it as NIL.
+		 * 如果请求了 get_object_address() 表示形式，确保
+		 * 我们提供了一个。我们不检查 objargs，因为上面的许多
+		 * 情况都将其保留为 NIL。
 		 */
 		if (objname && *objname == NIL)
 			elog(ERROR, "requested object address for unsupported object class %d: text result \"%s\"",
@@ -5992,7 +5992,7 @@ getObjectIdentityParts(const ObjectAddress *object,
 	}
 	else
 	{
-		/* an empty buffer is equivalent to no object found */
+		/* 空缓冲区等效于未找到对象 */
 		if (buffer.len == 0)
 		{
 			Assert((objname == NULL || *objname == NIL) &&
@@ -6045,8 +6045,8 @@ getOpFamilyIdentity(StringInfo buffer, Oid opfid, List **object,
 }
 
 /*
- * Append the relation identity (quoted qualified name) to the given
- * StringInfo.
+ * 将关系标识（加引号的限定名称）附加到给定的
+ * StringInfo。
  */
 static void
 getRelationIdentity(StringInfo buffer, Oid relid, List **object,
@@ -6080,7 +6080,7 @@ getRelationIdentity(StringInfo buffer, Oid relid, List **object,
 }
 
 /*
- * Auxiliary function to build a TEXT array out of a list of C-strings.
+ * 从 C 字符串列表构建 TEXT 数组的辅助函数。
  */
 ArrayType *
 strlist_to_textarray(List *list)
@@ -6094,7 +6094,7 @@ strlist_to_textarray(List *list)
 	MemoryContext oldcxt;
 	int			lb[1];
 
-	/* Work in a temp context; easier than individually pfree'ing the Datums */
+	/* 在临时上下文中工作；比单独 pfree 每个 Datum 更简单。 */
 	memcxt = AllocSetContextCreate(CurrentMemoryContext,
 								   "strlist to array",
 								   ALLOCSET_DEFAULT_SIZES);
@@ -6130,12 +6130,12 @@ strlist_to_textarray(List *list)
 /*
  * get_relkind_objtype
  *
- * Return the object type for the relkind given by the caller.
+ * 返回调用方给定的 relkind 所对应的对象类型。
  *
- * If an unexpected relkind is passed, we say OBJECT_TABLE rather than
- * failing.  That's because this is mostly used for generating error messages
- * for failed ACL checks on relations, and we'd rather produce a generic
- * message saying "table" than fail entirely.
+ * 如果传入了意外的 relkind，我们会返回 OBJECT_TABLE 而不是
+ * 失败。这是因为此函数主要用于为关系上的 ACL 检查
+ * 失败生成错误消息，我们宁愿生成一条说"表"的
+ * 通用消息，也不愿完全失败。
  */
 ObjectType
 get_relkind_objtype(char relkind)
@@ -6159,7 +6159,7 @@ get_relkind_objtype(char relkind)
 		case RELKIND_TOASTVALUE:
 			return OBJECT_TABLE;
 		default:
-			/* Per above, don't raise an error */
+			/* 如上所述，不抛出错误 */
 			return OBJECT_TABLE;
 	}
 }
